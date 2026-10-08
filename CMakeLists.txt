@@ -54,17 +54,22 @@ set(CLAP_WRAPPER_DOWNLOAD_DEPENDENCIES OFF CACHE BOOL "" FORCE)
 add_subdirectory(libs/clap EXCLUDE_FROM_ALL)
 add_subdirectory(libs/clap-wrapper EXCLUDE_FROM_ALL)
 
-# choc, PATCHED (B446, ADR-194 D-S5): the WebView2 backend gains an
+# choc, PATCHED (B446, ADR-194 D-S5, ADR-196): the WebView2 backend gains an
 # allowNavigation option, which the Windows GUI uses to admit only its embedded
-# page. libs/choc stays the upstream pin; the patch is applied at configure time
-# to a copy in the build tree, and the configure STOPS if it no longer applies
-# (libs/patches/README.md). Every choc include in our code is therefore
+# page, and an allowPermission option, which it uses to refuse page script the
+# clipboard. libs/choc stays the upstream pin; the patches are applied in list
+# order at configure time to a copy in the build tree, and the configure STOPS
+# if one no longer applies (libs/patches/README.md). HS_CHOC_PATCHES is the one
+# list of them: tools/gen_sbom.py reads it for the SBOM's pedigree.patches. Every choc include in our code is therefore
 # `<choc/...>` through HS_CHOC_DIR, never a relative path into libs/choc, which
 # would compile the unpatched header; tools/choc_patch_check.py enforces that.
 set(HS_CHOC_DIR ${CMAKE_CURRENT_BINARY_DIR}/choc-patched)
-set(HS_CHOC_PATCH ${CMAKE_CURRENT_SOURCE_DIR}/libs/patches/choc-webview2-navigation.patch)
+set(HS_CHOC_PATCHES
+    ${CMAKE_CURRENT_SOURCE_DIR}/libs/patches/choc-webview2-navigation.patch
+    ${CMAKE_CURRENT_SOURCE_DIR}/libs/patches/choc-webview2-permissions.patch)
+# Quoted: unquoted, the list's `;` would split it into separate arguments.
 execute_process(COMMAND ${CMAKE_COMMAND} -DSRC=${CMAKE_CURRENT_SOURCE_DIR}/libs/choc/choc
-                        -DOUT=${HS_CHOC_DIR} -DPATCH=${HS_CHOC_PATCH}
+                        -DOUT=${HS_CHOC_DIR} "-DPATCH=${HS_CHOC_PATCHES}"
                         -P ${CMAKE_CURRENT_SOURCE_DIR}/libs/patches/apply_patch.cmake
                 RESULT_VARIABLE HS_CHOC_RC)
 if(NOT HS_CHOC_RC EQUAL 0)
@@ -81,7 +86,7 @@ if(HS_CHOC_HEAD AND EXISTS "${HS_CHOC_HEAD}")
   list(APPEND HS_CHOC_FILES ${HS_CHOC_HEAD})
 endif()
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-             ${HS_CHOC_PATCH} ${CMAKE_CURRENT_SOURCE_DIR}/libs/patches/apply_patch.cmake
+             ${HS_CHOC_PATCHES} ${CMAKE_CURRENT_SOURCE_DIR}/libs/patches/apply_patch.cmake
              ${HS_CHOC_FILES})
 
 # GUI HTML is embedded at build time (self-contained bundle, no file deps).

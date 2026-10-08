@@ -17,9 +17,9 @@ embedded page, the rule the macOS backend applies in its own wrapper.
 DEFAULT UNCHANGED. The patch only adds lines. With the option left empty no
 new handler is registered, and the message path runs exactly as upstream.
 
-UPSTREAM STATUS. Not yet proposed. choc takes feature requests as issues,
-not pull requests (its CONTRIBUTING.md). A request is drafted for the
-human's review; filing it outside the fleet takes the human's explicit yes.
+UPSTREAM STATUS. Requested as Tracktion/choc#111 (choc takes feature
+requests as issues, not pull requests; its CONTRIBUTING.md). The clipboard
+half is carried separately, in choc-webview2-permissions.patch.
 
 REMOVAL CONDITION. Delete this patch and its wiring (libs/patches/README.md
 lists every piece) when the pinned choc provides an equivalent hook. If the

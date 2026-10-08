@@ -74,6 +74,35 @@ inline std::string utf8Clean(std::string_view in, size_t maxBytes = (size_t)-1)
   return out;
 }
 
+/* ---- state text from the page or the clipboard: one size cap -------------- */
+
+/* The most bytes of state JSON the GUI accepts from the page (hzApplyState) or
+   from the clipboard (hzPasteState, both backends). One constant, so the three
+   doors cannot drift apart (critic MEDIUM-3, PR #973).
+   Derivation: 4 x the largest factory preset's state, rounded up to a power of
+   two. The largest is docs/presets/factory/lead/LD - Glass Reed.json at 9614
+   bytes (2026-10-08); 4 x 9614 = 38456; the next power of two is 65536.
+   tools/paste_cap_check re-derives this from the bank on every `verify fast`,
+   so a bank that outgrows it turns red rather than refusing a factory patch.
+   The shell's own state paths (undo, history, the debug door) are not capped:
+   they never carry outside text. */
+constexpr size_t kMaxPastedStateBytes = 65536;
+
+constexpr bool pastedStateFits(size_t bytes) { return bytes <= kMaxPastedStateBytes; }
+
+/* PASTE's status, the contract both backends' hzPasteState return to the page:
+   0 nothing to paste, 1 applied, 2 not a patch (over the cap, or refused by
+   `apply`). The cap is checked on the view's SIZE before `apply` runs, so an
+   oversized text is refused with nothing copied; `apply` receives the view and
+   does its own copy. tools/paste_cap_check counts allocations to show it. */
+template <typename Apply>
+int pasteStatus(std::string_view text, Apply &&apply)
+{
+  if (text.empty()) return 0;
+  if (!pastedStateFits(text.size())) return 2;
+  return apply(text) ? 1 : 2;
+}
+
 /* ---- host note and expression values -------------------------------------- */
 
 /* CLAP's note key range (clap/events.h: "0..127, same as MIDI1 Key Number, -1

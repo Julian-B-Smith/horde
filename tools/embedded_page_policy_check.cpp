@@ -12,7 +12,10 @@
  *   - a message before admission is refused; a message from any other URI is
  *     refused, including a URI that merely STARTS with the embedded one;
  *   - a message whose source differs only by a #fragment is delivered;
- *   - every frame and new-window request is refused, at any URI.
+ *   - every frame and new-window request is refused, at any URI;
+ *   - the page at choc's SHARED default origin (https://choc.localhost/), where
+ *     every other choc plugin's page lives, is refused as a page and as a
+ *     message source (critic HIGH-1, PR #973: horde has its own origin).
  * The enum is a stand-in with choc's four enumerator names
  * (tools/choc_patch_check verifies choc has exactly those), so this runs with no
  * choc checkout and no build tree.
@@ -20,11 +23,20 @@
  * MUST-FAIL CONTROLS. The same sequences run against four faulty policies, and
  * each must FAIL at least one row: accept-any-source (messages not tied to the
  * page), dropped latch (the page admitted every time), prefix matching, and
- * exact-match messages (a #fragment change cuts the page off). A sequence a
+ * exact-match messages (a #fragment change cuts the page off), and the shared
+ * origin (the old kEmbeddedPage, choc's default, admitted too). A sequence a
  * faulty policy passes proves nothing, so a control that passes is RED.
  *
- * NOT SHOWN. That WebView2 obeys the answer at run time (see the trace,
- * traces/2026-10-08-b446-choc-win-nav.md).
+ * PERMISSIONS (ADR-196). Drives hypersaw::detail::webPermissionPolicy, the
+ * function the Windows GUI hands to choc's allowPermission, with every one of
+ * choc's seven PermissionKind names (a stand-in enum again; choc_patch_check
+ * verifies the names) and asserts each is refused, clipboard reads first. Two
+ * more must-fail controls: upstream choc's own rule (clipboard reads granted)
+ * and a deny-list of the known kinds (one WebView2 adds later is granted).
+ *
+ * NOT SHOWN. That WebView2 obeys the answer at run time (see the traces,
+ * traces/2026-10-08-b446-choc-win-nav.md and
+ * traces/2026-10-08-b446-choc-win-clipboard.md).
  */
 #include <cstdio>
 #include <functional>
@@ -51,6 +63,8 @@ struct Step
 
 const std::string E(kEmbeddedPage);
 const std::string kOther = "https://example.invalid/";
+// choc's default Windows page, which every choc plugin without its own origin uses.
+const std::string kShared = "https://choc.localhost/getHTMLInternal";
 
 // Each sequence starts from a fresh state.
 const std::vector<std::vector<Step>> kSequences = {
@@ -77,6 +91,12 @@ const std::vector<std::vector<Step>> kSequences = {
         {Nav::message, E, false, "a message after refused loads only"},
         {Nav::page, E, true, "the embedded page, after refused loads (no latch spent)"},
         {Nav::message, E, true, "a message once admitted"},
+    },
+    {
+        {Nav::page, kShared, false, "the page at choc's shared origin first"},
+        {Nav::page, E, true, "horde's page, after the shared one was refused"},
+        {Nav::message, kShared, false, "a message from choc's shared origin"},
+        {Nav::page, kShared, false, "the shared origin after admission"},
     },
     {
         {Nav::frame, E, false, "a frame before any page"},
@@ -146,6 +166,44 @@ bool exactMessage(EmbeddedPageState &s, Nav t, std::string_view uri)
   if (t == Nav::message) return s.pageAdmitted && uri == kEmbeddedPage;
   return hypersaw::detail::embeddedPagePolicy(s, t, uri);
 }
+// The pre-HIGH-1 rule: the page at choc's shared default origin admitted as ours.
+bool sharedOrigin(EmbeddedPageState &s, Nav t, std::string_view uri)
+{
+  if (t == Nav::page && uri == kShared)
+  {
+    if (s.pageAdmitted) return false;
+    s.pageAdmitted = true;
+    return true;
+  }
+  if (t == Nav::message && uri == kShared) return s.pageAdmitted;
+  return hypersaw::detail::embeddedPagePolicy(s, t, uri);
+}
+// Permissions: choc's seven PermissionKind names, every one refused.
+enum class Perm { clipboardRead, microphone, camera, geolocation, notifications, otherSensors, other };
+using PermPolicy = bool (*)(Perm);
+const struct { Perm kind; const char *what; } kPermRows[] = {
+    {Perm::clipboardRead, "clipboard read"}, {Perm::microphone, "microphone"},
+    {Perm::camera, "camera"},                {Perm::geolocation, "geolocation"},
+    {Perm::notifications, "notifications"},  {Perm::otherSensors, "other sensors"},
+    {Perm::other, "a kind choc does not list"},
+};
+constexpr size_t kPermRowCount = sizeof(kPermRows) / sizeof(kPermRows[0]);
+
+int runPerm(PermPolicy policy, bool loud)
+{
+  int wrong = 0;
+  for (const auto &r : kPermRows)
+    if (policy(r.kind))
+    {
+      ++wrong;
+      if (loud) std::printf("  FAIL  permission %s: granted, want refused\n", r.what);
+    }
+  return wrong;
+}
+
+bool realPermPolicy(Perm k) { return hypersaw::detail::webPermissionPolicy(k); }
+bool upstreamChoc(Perm k) { return k == Perm::clipboardRead; }   // choc's handler, option unset
+bool denyListOnly(Perm k) { return k == Perm::other; }           // known kinds refused, new ones granted
 }  // namespace
 
 int main()
@@ -163,6 +221,7 @@ int main()
       {"dropped latch", droppedLatch},
       {"prefix matching", prefixMatch},
       {"exact-match messages (fragment)", exactMessage},
+      {"choc's shared origin admitted", sharedOrigin},
   };
   for (const auto &c : controls)
   {
@@ -170,11 +229,27 @@ int main()
     std::printf("  %s  control %s: %d row(s) caught it\n", w ? "PASS" : "FAIL", c.name, w);
     if (w == 0) ++failures;
   }
+  const int permWrong = runPerm(realPermPolicy, true);
+  std::printf("  %s  the permission rule: %zu rows, %d wrong\n", permWrong ? "FAIL" : "PASS",
+              kPermRowCount, permWrong);
+  failures += permWrong;
+  const struct { const char *name; PermPolicy p; } permControls[] = {
+      {"upstream choc (clipboard reads granted)", upstreamChoc},
+      {"deny-list of known kinds", denyListOnly},
+  };
+  for (const auto &c : permControls)
+  {
+    const int w = runPerm(c.p, false);
+    std::printf("  %s  control %s: %d row(s) caught it\n", w ? "PASS" : "FAIL", c.name, w);
+    if (w == 0) ++failures;
+  }
+
   if (failures)
   {
     std::printf("embedded_page_policy_check: RED (%d)\n", failures);
     return 1;
   }
-  std::printf("embedded_page_policy_check: GREEN (%zu rows; 4 controls red as designed)\n", rowCount());
+  std::printf("embedded_page_policy_check: GREEN (%zu + %zu rows; 7 controls red as designed)\n", rowCount(),
+              kPermRowCount);
   return 0;
 }

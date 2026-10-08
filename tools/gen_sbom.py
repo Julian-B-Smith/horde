@@ -5,7 +5,12 @@ Usage: python3 tools/gen_sbom.py --version 1.2.3 [--out FILE]
 
 WHAT IT LISTS, each read from the file that actually pins it, never a second copy:
   - every git submodule (`git ls-files --stage`, gitlink mode 160000; URL from
-    .gitmodules): compiled into the plugin;
+    .gitmodules): compiled into the plugin. A submodule the build PATCHES (the
+    root CMakeLists.txt's `set(HS_<NAME>_PATCHES ...)` list, applied in order by
+    libs/patches/apply_patch.cmake) carries CycloneDX `pedigree.patches`: one
+    entry per patch file, in apply order, with the patch text, plus a
+    `horde:patch` property `<path> sha256:<hex>` for each (CycloneDX 1.5 has no
+    hash field on a patch). Its version stays the upstream commit (B446, ADR-196);
   - every SDK the root CMakeLists.txt fetches with FetchContent_Declare, at the
     commit its GIT_TAG resolves to (the VST3 SDK and the AudioUnitSDK). The VST3
     SDK's own submodules are pinned by that commit's gitlinks and ride with it;
@@ -13,8 +18,9 @@ WHAT IT LISTS, each read from the file that actually pins it, never a second cop
     so its scope is `excluded`, with the SHA-256 the workflow enforces.
 
 FAILS CLOSED: a piece it expects but cannot find (no submodules, an SDK whose tag
-is not a 40-hex commit, a missing pluginval pin) exits 1 instead of emitting a
-thinner SBOM. tools/release_path_check.py runs build_sbom() on every
+is not a 40-hex commit, a missing pluginval pin, a listed patch file that is
+missing, a patch list naming no submodule, a libs/patches/*.patch the build does
+not list) exits 1 instead of emitting a thinner SBOM. tools/release_path_check.py runs build_sbom() on every
 `verify fast`, so this release-only path cannot rot unseen until a tag.
 
 DETERMINISTIC: no wall-clock read. The timestamp is the HEAD commit's committer
@@ -22,6 +28,7 @@ time and the serial number is derived from the version and the HEAD commit, so
 the same tag always yields the same file.
 """
 import argparse
+import hashlib
 import json
 import pathlib
 import re
@@ -50,7 +57,39 @@ def github_purl(url, commit):
     return f"pkg:github/{m.group(1).lower()}/{m.group(2).lower()}@{commit}"
 
 
-def submodules(root):
+def carried_patches(cmake_text):
+    """{submodule name: [repo-relative patch path, ...]} in apply order, from each
+    `set(HS_<NAME>_PATCHES ...)` in the root CMakeLists.txt, the list the build
+    applies. tools/choc_patch_check.py reads the list through this too."""
+    out = {}
+    for name, body in re.findall(r"^\s*set\(HS_(\w+)_PATCHES\b(.*?)\)", cmake_text, re.M | re.S):
+        paths = re.findall(r"\$\{CMAKE_CURRENT_SOURCE_DIR\}/(\S+?\.patch)\b", body)
+        if not paths:
+            raise SbomError(f"CMakeLists.txt HS_{name}_PATCHES lists no patch file")
+        out[name.lower()] = paths
+    return out
+
+
+def pedigree(root, paths):
+    """-> (pedigree, properties) for a component built with PATHS applied in order."""
+    patches, props = [], []
+    for rel in paths:
+        f = pathlib.Path(root) / rel
+        if not f.is_file():
+            raise SbomError(f"patch {rel} is listed in CMakeLists.txt but missing")
+        data = f.read_bytes()
+        patches.append({"type": "unofficial",
+                        "diff": {"text": {"contentType": "text/x-diff", "content": data.decode("utf-8")},
+                                 "url": rel}})
+        props.append({"name": "horde:patch", "value": f"{rel} sha256:{hashlib.sha256(data).hexdigest()}"})
+    return ({"patches": patches,
+             "notes": "The build applies these patches, in this order, to a copy of the upstream "
+                      "commit at configure time (libs/patches/README.md)."}, props)
+
+
+def submodules(root, patched=None):
+    """PATCHED: carried_patches() output; every name in it must be a submodule here."""
+    patched = dict(patched or {})
     urls = {}
     for line in git(root, "config", "-f", ".gitmodules", "--get-regexp", r"^submodule\..*\.url$").splitlines():
         key, url = line.split(None, 1)
@@ -64,13 +103,27 @@ def submodules(root):
         url = urls.get(path)
         if not url:
             raise SbomError(f"submodule {path} has no URL in .gitmodules")
-        out.append({"type": "library", "name": path.rsplit("/", 1)[-1], "version": sha,
-                    "purl": github_purl(url, sha),
-                    "externalReferences": [{"type": "vcs", "url": url}],
-                    "properties": [{"name": "horde:pinned-by", "value": f"git submodule {path}"}]})
+        name = path.rsplit("/", 1)[-1]
+        comp = {"type": "library", "name": name, "version": sha,
+                "purl": github_purl(url, sha),
+                "externalReferences": [{"type": "vcs", "url": url}],
+                "properties": [{"name": "horde:pinned-by", "value": f"git submodule {path}"}]}
+        if name in patched:
+            comp["pedigree"], props = pedigree(root, patched.pop(name))
+            comp["properties"] += props
+        out.append(comp)
     if not out:
         raise SbomError("no submodules found")
+    if patched:
+        raise SbomError(f"CMakeLists.txt patches {sorted(patched)}, which no submodule is named")
     return out
+
+
+def unlisted_patches(root, patched):
+    """libs/patches/*.patch files no HS_<NAME>_PATCHES list names."""
+    listed = {rel for paths in patched.values() for rel in paths}
+    found = (pathlib.Path(root) / "libs/patches").glob("*.patch")
+    return sorted(r for r in (f.relative_to(root).as_posix() for f in found) if r not in listed)
 
 
 def fetched_sdks(cmake_text):
@@ -124,6 +177,11 @@ def build_sbom(root, version, cmake_text=None, ci_text=None):
         cmake_text = (root / "CMakeLists.txt").read_text(encoding="utf-8")
     if ci_text is None:
         ci_text = (root / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    patched = carried_patches(cmake_text)
+    stray = unlisted_patches(root, patched)
+    if stray:
+        raise SbomError(f"{', '.join(stray)} not in any HS_<NAME>_PATCHES list in CMakeLists.txt, "
+                        "so the build does not apply it and the SBOM cannot say it does")
     head = git(root, "rev-parse", "HEAD").strip()
     when = git(root, "log", "-1", "--format=%cI", "HEAD").strip()
     return {
@@ -136,7 +194,7 @@ def build_sbom(root, version, cmake_text=None, ci_text=None):
             "component": {"type": "application", "name": "horde", "version": version,
                           "properties": [{"name": "horde:source-commit", "value": head}]},
         },
-        "components": submodules(root) + fetched_sdks(cmake_text) + pluginval(ci_text),
+        "components": submodules(root, patched) + fetched_sdks(cmake_text) + pluginval(ci_text),
     }
 
 

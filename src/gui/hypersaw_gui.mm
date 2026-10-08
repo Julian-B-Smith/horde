@@ -198,13 +198,21 @@ struct HypersawGui::Impl
       /* B446: PASTE without giving the page the clipboard. The text goes from
          the pasteboard straight to the shell's state parser — exactly what
          hzApplyState(text) did when the page read it — and only a status comes
-         back: 1 applied, 0 nothing to paste, 2 not a patch. */
+         back: 1 applied, 0 nothing to paste, 2 not a patch (pasteStatus,
+         input_guards.h). The size cap is checked on the string's lengths
+         before its UTF-8 bytes are asked for (critic MEDIUM-3, PR #973): a
+         UTF-16 length over the cap is over it in UTF-8 too, and
+         lengthOfBytesUsingEncoding: counts without building the bytes. */
       w.bind("hzPasteState", [this](const choc::value::ValueView &) -> choc::value::Value {
         NSString *s = [[NSPasteboard generalPasteboard] stringForType:NSPasteboardTypeString];
-        const char *utf8 = s.length ? s.UTF8String : nullptr;
+        if (!s.length) return choc::value::createInt32(0);
+        if (!pastedStateFits(s.length) || !pastedStateFits([s lengthOfBytesUsingEncoding:NSUTF8StringEncoding]))
+          return choc::value::createInt32(2);
+        const char *utf8 = s.UTF8String;
         if (!utf8) return choc::value::createInt32(0);
-        const bool ok = host.applyStateJson && host.applyStateJson(std::string(utf8), std::string());
-        return choc::value::createInt32(ok ? 1 : 2);
+        return choc::value::createInt32(pasteStatus(std::string_view(utf8), [this](std::string_view t) {
+          return host.applyStateJson && host.applyStateJson(std::string(t), std::string());
+        }));
       });
       w.bind("hzGrabKeys", [this](const choc::value::ValueView &) -> choc::value::Value {
         NSView *v = (__bridge NSView *)web->getViewHandle();

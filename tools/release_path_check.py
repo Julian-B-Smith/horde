@@ -23,6 +23,16 @@ RULES, over every .github/workflows/*.yml and *.yaml:
   4. THE SBOM GENERATOR STILL WORKS. tools/gen_sbom.py runs only on a tag, so it
      is exercised here on every `verify fast`: it must succeed on this tree and
      list every submodule, every FetchContent SDK pin and both pluginval pins.
+  5. A PATCHED COMPONENT SAYS SO (B446, ADR-196). Every libs/patches/*.patch is
+     named `<submodule>-<what>.patch`, and that submodule's SBOM component must
+     carry it in `pedigree.patches` (diff url = the file's path, diff text = its
+     bytes) with a `horde:patch` property `<path> sha256:<hex>` matching the
+     file. Read from the tree, not from the generator, so a generator that drops
+     the pedigree is caught. The pedigree lists the patches in the build's apply
+     order (`set(HS_<NAME>_PATCHES ...)` in CMakeLists.txt, read here by this
+     check's own pattern), and every patch's `type` is one of CycloneDX 1.5's
+     four (unofficial, monkey, backport, cherry-pick). No schema validator: these
+     two facts are what the release relies on, checked without a dependency.
 
 Parsing reuses workflow_pin_check's line-based run-block reader (stdlib only).
 
@@ -34,9 +44,14 @@ MUST-FAIL CONTROLS, in memory, every run: a glob attachment, a `$(...)` list, an
 array expansion, an attachment list missing SHA256SUMS, a release step with no
 ancestry check, an upload `path:` naming `dist/`, a download into the workspace,
 a `ditto -c` and a `Compress-Archive` writing into a tracked directory, and a
-third-party release action are each caught; the clean fixture passes. `--paths
+third-party release action are each caught; the clean fixture passes. Rule 5's
+own controls run on this tree's SBOM: the pedigree removed, one patch dropped
+from it, a wrong SHA-256, altered patch text, the patches in reverse order, and
+a patch type outside CycloneDX 1.5's enum are each caught. `--paths
 FILE...` scans the given files instead of the tree (the pre-change control).
 """
+import copy
+import hashlib
 import pathlib
 import re
 import subprocess
@@ -198,11 +213,115 @@ def selftest():
     return None
 
 
+def tree_patches(root):
+    """{repo-relative path: bytes} for every libs/patches/*.patch."""
+    return {f.relative_to(root).as_posix(): f.read_bytes()
+            for f in sorted((pathlib.Path(root) / "libs/patches").glob("*.patch"))}
+
+
+CDX15_PATCH_TYPES = {"unofficial", "monkey", "backport", "cherry-pick"}
+
+
+def apply_orders(cmake_text):
+    """{submodule name: [repo-relative patch path, ...]} in the build's apply order."""
+    out = {}
+    for name, body in re.findall(r"^\s*set\(HS_(\w+)_PATCHES\b(.*?)\)", cmake_text, re.M | re.S):
+        out[name.lower()] = re.findall(r"\$\{CMAKE_CURRENT_SOURCE_DIR\}/(\S+?\.patch)\b", body)
+    return out
+
+
+def pedigree_problems(bom, patches, orders=None):
+    """Rule 5, pure: each patch file is on its submodule's component, with its hash,
+    in the build's apply order, with a CycloneDX 1.5 patch type."""
+    problems = []
+    comps = {c["name"]: c for c in bom.get("components", [])}
+    for name, comp in comps.items():
+        entries = comp.get("pedigree", {}).get("patches", [])
+        for e in entries:
+            if e.get("type") not in CDX15_PATCH_TYPES:
+                problems.append(f"SBOM component {name}: patch type {e.get('type')!r} is not one of "
+                                f"CycloneDX 1.5's {sorted(CDX15_PATCH_TYPES)} (rule 5)")
+        if orders is not None and (entries or name in orders):
+            got = [e.get("diff", {}).get("url") for e in entries]
+            if got != orders.get(name, []):
+                problems.append(f"SBOM component {name}: pedigree.patches order {got} is not the build's "
+                                f"apply order {orders.get(name, [])} (rule 5)")
+    for rel, data in patches.items():
+        owner = pathlib.PurePosixPath(rel).name.split("-", 1)[0]
+        comp = comps.get(owner)
+        if comp is None:
+            problems.append(f"{rel}: no SBOM component named {owner!r} (patch files are named <submodule>-<what>.patch) (rule 5)")
+            continue
+        listed = [p for p in comp.get("pedigree", {}).get("patches", []) if p.get("diff", {}).get("url") == rel]
+        if not listed:
+            problems.append(f"SBOM component {owner} has no pedigree.patches entry for {rel} (rule 5)")
+        elif listed[0]["diff"].get("text", {}).get("content", "").encode("utf-8") != data:
+            problems.append(f"SBOM pedigree text for {rel} is not the file's content (rule 5)")
+        want = f"{rel} sha256:{hashlib.sha256(data).hexdigest()}"
+        if not any(pr.get("name") == "horde:patch" and pr.get("value") == want for pr in comp.get("properties", [])):
+            problems.append(f"SBOM component {owner} lacks property horde:patch = {want} (rule 5)")
+    return problems
+
+
+def pedigree_controls(bom, patches, orders):
+    """-> a miscalibration message, or None. Each planted fault must read RED."""
+    if not patches:
+        return "no libs/patches/*.patch to calibrate rule 5 on"
+    rel = next(iter(patches))
+    owner = pathlib.PurePosixPath(rel).name.split("-", 1)[0]
+
+    def planted(fn):
+        b = copy.deepcopy(bom)
+        fn(next(c for c in b["components"] if c["name"] == owner))
+        return b
+
+    def drop_one(c):
+        c["pedigree"]["patches"] = [p for p in c["pedigree"]["patches"] if p["diff"]["url"] != rel]
+
+    def wrong_hash(c):
+        for pr in c["properties"]:
+            if pr["name"] == "horde:patch" and pr["value"].startswith(rel + " "):
+                pr["value"] = f"{rel} sha256:{'0' * 64}"
+
+    def wrong_text(c):
+        for p in c["pedigree"]["patches"]:
+            if p["diff"]["url"] == rel:
+                p["diff"]["text"]["content"] += "+planted\n"
+
+    def reverse(c):
+        c["pedigree"]["patches"].reverse()
+        if len(c["pedigree"]["patches"]) < 2:   # one patch: reverse cannot reorder, so plant a duplicate
+            c["pedigree"]["patches"].append(copy.deepcopy(c["pedigree"]["patches"][0]))
+
+    def bad_type(c):
+        c["pedigree"]["patches"][0]["type"] = "custom"
+
+    cases = [("pedigree removed", lambda c: c.pop("pedigree", None)), ("one patch dropped", drop_one),
+             ("wrong SHA-256", wrong_hash), ("altered patch text", wrong_text),
+             ("patches in reverse order", reverse), ("type outside CycloneDX 1.5", bad_type)]
+    for label, fn in cases:
+        try:
+            red = bool(pedigree_problems(planted(fn), patches, orders))
+        except (KeyError, StopIteration):
+            red = True   # the fixture lacks the shape the fault needs: that, too, is a finding
+        if not red:
+            return f"rule 5 control '{label}' read green"
+    return None
+
+
 def sbom_problems():
     try:
         bom = gen_sbom.build_sbom(ROOT, "0.0.0-check")
     except Exception as e:  # any failure of the release-only path is the finding
         return [f"tools/gen_sbom.py fails on this tree: {e} (rule 4)"]
+    patches = tree_patches(ROOT)
+    orders = apply_orders((ROOT / "CMakeLists.txt").read_text(encoding="utf-8"))
+    pedigree = pedigree_problems(bom, patches, orders)
+    if pedigree:
+        return pedigree
+    broken = pedigree_controls(bom, patches, orders)
+    if broken:
+        return [f"detector miscalibrated: {broken} (rule 5)"]
     names = {c["name"] for c in bom["components"]}
     gitmodules = (ROOT / ".gitmodules").read_text(encoding="utf-8")
     want = {p.rsplit("/", 1)[-1] for p in re.findall(r"^\s*path\s*=\s*(\S+)", gitmodules, re.M)}

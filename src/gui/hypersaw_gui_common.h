@@ -14,7 +14,7 @@
 #include "gui_html.h"      // generated: kGuiHtml_data / kGuiHtml_size
 #include "factory_bank.h"  // generated: kFactoryBank / _count / _version (B129)
 #include "preset_store.h"
-#include "embedded_page_policy.h"   // B446: the page-only rule (Windows passes it to makeWebView)
+#include "embedded_page_policy.h"   // B446: the page-only and permission rules (Windows passes them to makeWebView)
 #include "../input_guards.h"   // B446: utf8Clean, behind bridgeStr
 #include <filesystem>
 #include <fstream>
@@ -570,9 +570,15 @@ inline void installBridge(choc::ui::WebView &web, GuiHost &host)
   web.bind("hzApplyState", [&host](const choc::value::ValueView &args) -> choc::value::Value {
     bool ok = false;
     if (args.isArray() && args.size() >= 1)
-      ok = host.applyStateJson(std::string(args[0].getWithDefault<std::string_view>("")),
-                               args.size() >= 2 ? args[1].getWithDefault<std::string>("")
-                                                : std::string());
+    {
+      // B446: the size cap first, so an oversized text is refused before it is
+      // copied (kMaxPastedStateBytes, input_guards.h).
+      const auto json = args[0].getWithDefault<std::string_view>("");
+      if (pastedStateFits(json.size()))
+        ok = host.applyStateJson(std::string(json),
+                                 args.size() >= 2 ? args[1].getWithDefault<std::string>("")
+                                                  : std::string());
+    }
     return choc::value::createBool(ok);
   });
   web.bind("hzPresetName", [&host](const choc::value::ValueView &) -> choc::value::Value {
@@ -612,16 +618,22 @@ inline void installBridge(choc::ui::WebView &web, GuiHost &host)
 
 }
 
-// allowNavigation: the platform's navigation policy, where choc implements the
-// hook (WebView2, through the patched option in libs/patches). macOS passes none
-// and applies the same policy in its own wrapper (hypersaw_gui.mm).
+// allowNavigation / allowPermission: the platform's navigation and permission
+// policies, where choc implements the hooks (WebView2, through the patched
+// options in libs/patches). customSchemeURI: the page's origin, horde's own on
+// Windows (kEmbeddedOrigin, embedded_page_policy.h ORIGIN). macOS passes none of
+// the three and applies the same policies in its own wrapper (hypersaw_gui.mm).
 inline std::unique_ptr<choc::ui::WebView>
 makeWebView(GuiHost &host, std::function<void(choc::ui::WebView &)> platformBinds,
-            decltype(choc::ui::WebView::Options::allowNavigation) allowNavigation = {})
+            decltype(choc::ui::WebView::Options::allowNavigation) allowNavigation = {},
+            decltype(choc::ui::WebView::Options::allowPermission) allowPermission = {},
+            std::string customSchemeURI = {})
 {
   choc::ui::WebView::Options opts;
   opts.enableDebugMode = false;
   opts.allowNavigation = std::move(allowNavigation);
+  opts.allowPermission = std::move(allowPermission);
+  opts.customSchemeURI = std::move(customSchemeURI);
   opts.acceptsFirstMouseClick = true;  // click-through focus in hosts
   // Bindings before the page: they install document-created scripts, so the
   // page must be navigated to AFTER they exist (the order the old code had).

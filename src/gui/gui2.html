@@ -2261,10 +2261,10 @@ function paintArm(v) {
     pp.addEventListener('click', async () => {
       // prompt() does not exist in WKWebView (see the corner-save note); read
       // the clipboard directly, with a graceful failure label.
-      /* B446: in the macOS plugin the page cannot read the clipboard at all.
-         hzPasteState reads it natively and applies it as a patch, and the text
-         never reaches the page: 1 applied, 0 nothing to paste, 2 not a patch.
-         Elsewhere (Windows, the lab) the page reads it as before. */
+      /* B446: in the plugin (macOS and Windows) the page cannot read the
+         clipboard at all. hzPasteState reads it natively and applies it as a
+         patch, and the text never reaches the page: 1 applied, 0 nothing to
+         paste, 2 not a patch. Elsewhere (the lab) the page reads it as before. */
       if (window.hzPasteState) {
         let r = -1;
         try { r = await window.hzPasteState(); } catch (_) {}

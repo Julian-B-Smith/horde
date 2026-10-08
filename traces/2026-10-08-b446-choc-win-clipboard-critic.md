@@ -1,0 +1,57 @@
+# b446-choc-win-clipboard-critic — critic round on PR #973: own WebView2 origin, deletion-first gate, one paste-size cap
+
+- **Queue item:** ROADMAP B446, ADR-196. Lead follow-up of 2026-10-08 (horde lead session) carried the critic's verdict on PR #973, APPROVE WITH CHANGES, items HIGH-1, MEDIUM-1, MEDIUM-3, L1, L2 and L5. The lead writes the records (ADR-196 A1, the B446 acceptance text, the B447 rows); DECISIONS.md and ROADMAP.md are untouched here. This entry adds to `traces/2026-10-08-b446-choc-win-clipboard.md`, which is not edited.
+- **Why:**
+  - **HIGH-1.** Every choc plugin in a host shares one WebView2 profile and choc's default origin, `https://choc.localhost/`. The critic's concern: a permission WebView2 saved for another plugin's page could answer for ours before our hook is asked, and our DENY could leak into theirs.
+  - **MEDIUM-1.** The permission gate read `ownerPimpl` before checking whether it had been deleted.
+  - **MEDIUM-3.** Nothing bounded the size of state text arriving from the page or the clipboard.
+- **What changed:**
+  - **HIGH-1, a unique origin.**
+    - `src/gui/embedded_page_policy.h` gains `kEmbeddedOrigin = "https://horde.localhost/"`. `kEmbeddedPage` becomes `https://horde.localhost/getHTMLInternal`. A `static_assert` ties the two together.
+    - `makeWebView` (`hypersaw_gui_common.h`) takes a `customSchemeURI`, and only the Windows backend passes it: `std::string(detail::kEmbeddedOrigin)`. choc's `getURIHome` returns `customSchemeURI` when it is set, and `setHTML` serves the page at home + `getHTMLInternal` (`libs/choc/choc/gui/choc_WebView.h:1372-1373, 1980-1991` at the pin). The resource filter (`:1476`) follows the home.
+    - **macOS is unchanged.** `hypersaw_gui.mm` loads the page with `loadHTMLString` and admits `about:blank` in the main frame; it uses neither constant. WKWebView also refuses a scheme handler for `https`; choc registers one only when `fetchResource` is set (`:540-541`), but the origin is set on Windows only regardless. `choc_patch_check` WIRING now fails if `hypersaw_gui.mm` names `kEmbeddedOrigin`, `kEmbeddedPage` or `customSchemeURI` (control C21).
+    - **Persistence.** WebView2 keeps permission decisions in the profile (`SavesInProfile`). The unique origin sidesteps that persistence; it does not disable it. Decisions saved for `https://horde.localhost/` persist across horde sessions, and each one is the DENY our hook returns.
+    - **`choc_patch_check`.** `windows_page_uri` became `windows_serving`, which reads choc's `customSchemeURI` branch of `getURIHome`, its default home and its `setHTMLURI` path from the patched header. WIRING then requires three things: `kEmbeddedPage` = origin + path; the origin is not choc's shared default; and the backend passes the origin, which `makeWebView` assigns. Where `libs/choc` is not checked out, the rules use a recorded `FALLBACK_SERVING`. New controls: C18 (origin set to the shared default), C19 (backend not passing it), C20 (no assignment) and C21 (macOS using it).
+    - **`embedded_page_policy_check`.** A sequence refuses the page and messages at `https://choc.localhost/getHTMLInternal`. A new control admits the shared origin; 3 rows catch it.
+  - **MEDIUM-1.** The permissions patch's gate is now `if (! deletionCheckerRef->deleted && ownerPimpl.options.allowPermission)`, and the option is called directly inside it. When the owner is deleted, the handler falls through to upstream's behaviour. The patch is still add-only (45 added, 0 removed). `rule_permission` requires that exact gate. Control C17 (`ownerPimpl` read before `deleted`) is red, and C11 was updated to the new gate.
+  - **MEDIUM-3, one cap.**
+    - `src/input_guards.h` gains `kMaxPastedStateBytes = 65536`, `pastedStateFits` and `pasteStatus`. The derivation is in the comment: the largest factory preset is `docs/presets/factory/lead/LD - Glass Reed.json`, at 9614 bytes; 4 x 9614 = 38456; the next power of two is 65536.
+    - **hzApplyState** (`hypersaw_gui_common.h`) tests the size of the string view before `std::string(json)`.
+    - **macOS hzPasteState** tests `s.length` (UTF-16 units; if those exceed the cap, the UTF-8 bytes do too) and `lengthOfBytesUsingEncoding:` before `UTF8String`, then returns `pasteStatus`.
+    - **Windows** `clipboardTextUtf8` bounds `wcsnlen` at cap + 1 units and tests the UTF-8 size from the sizing call before `out.resize`. Over the cap it returns `tooLarge`, and hzPasteState returns status 2.
+    - The `ClipboardOpen` and `GlobalLocked` RAII guards close the clipboard and unlock its block on every path, exceptions included.
+    - **`tools/paste_cap_check.{py,cpp}`** (new, `WIRED: ./verify fast`, ADR-180 §1):
+      - DERIVE re-derives the cap from the bank.
+      - DOORS pins by source that each door tests the cap before copying and that the guards exist.
+      - BEHAVIOUR compiles the `.cpp` with the host compiler and runs it. It counts global `operator new` calls around `pasteStatus`: an over-cap text gets status 2, the callback is not called, and there are 0 allocations. It has 9 rows and 2 controls (copy-then-check: 2 rows; no cap: 4 rows).
+      - Six more controls are in the driver.
+  - **L1.** `choc_patch_check` adds an ORDER row: the list applied in reverse gives the same bytes. `rule_list` rejects a list that names a patch twice. Controls: C22 (differing reverse result) and C23 (duplicate).
+  - **L2.** `release_path_check` rule 5 adds two checks: `pedigree.patches` must be in the order of `HS_CHOC_PATCHES`, which the check reads with its own pattern rather than through the generator; and every `type` must be in CycloneDX 1.5's enum (unofficial, monkey, backport, cherry-pick). New controls: reversed order and type `custom`. No schema validator was added.
+  - **L5.** The private draft's "Addendum for issue #111" notes that upstream does not check `get_PermissionKind`'s `HRESULT`, and that `permissionKind` is uninitialised, so the compared value (and the value the callback would receive) can be indeterminate if the call fails. The draft's diff block now carries the current patch body. Not posted.
+- **Verified (Layer-0, this Mac):** see Verify. The deletion-first gate, the origin derivation and the cap's no-allocation behaviour are each shown by a row plus a must-fail control. The bank-derived value of the cap is checked on every run.
+- **Not verified:**
+  - Windows runtime (B447). WebView2 has not been seen loading `https://horde.localhost/getHTMLInternal` through choc's resource filter. If it does not, the GUI would be blank, which is the HIGH-1 risk the navigation critic recorded. Nor has anyone seen permission decisions kept per origin, or `CloseClipboard` running on the exception path.
+  - The Windows half of the cap compiles only on CI.
+  - The 64 KiB cap holds the largest factory preset 4x over. A user patch with many routes could be larger than any factory preset; I have not measured the largest reachable state.
+- **Evidence consulted:** the lead's follow-up message; `libs/choc/choc/gui/choc_WebView.h` (`getURIHome`, `Pimpl::initialise`, `webviewControllerCreationComplete`, `fetchResourceOrPageHTML`, the macOS `initialise` scheme registration); `src/gui/hypersaw_gui.mm`; `src/gui/hypersaw_gui_common.h` (hzApplyState); `src/hypersaw_clap.cpp:6895` (`applyStateJson`, whose internal callers are uncapped by design); `docs/presets/factory/**` (`wc -c`); `tools/gen_factory_bank.cpp`.
+- **Alternatives rejected:**
+  - Capping inside the shell's `applyStateJson`. Undo, history and the debug door carry internal text and are not an outside door; the cap sits at the bridge entry instead, the page's hzApplyState path.
+  - Setting `customSchemeURI` in `makeWebView` under `#ifdef _WIN32`. Passing it explicitly from the Windows backend keeps the platform choice in the platform file and makes it checkable by source.
+  - Making the cap a ceiling (cap >= 4 x largest) rather than the exact derivation. The lead specified the derivation, so the check holds it exactly; a bigger preset turns it red, which asks for a re-derivation.
+- **Verify:** these runs were on the uncommitted change set over cbb1cdb, the hash `.harness/last-verify.json` records.
+  - `./verify fast` exited 0: `{"target":"fast","exit":0,"git":"cbb1cdb","ts":"2026-10-08T05:52:08Z"}`. It printed:
+    - `choc_patch_check: OK (2 patches; list, pin, shape, wiring, apply, order, alone, crlf, upstream; 23 controls red as designed)`
+    - `embedded_page_policy_check: GREEN (27 + 7 rows; 7 controls red as designed)`
+    - `paste_cap_check: GREEN (cap 65536 = next pow2 of 4 x 9614; 3 doors; 6 controls + 2 in the .cpp)`
+    - `release_path_check: GREEN (3 workflows, 1 release step; SBOM ok; controls ok)`
+    - `test_table_check` counted 102 check files declaring WIRED and verified so.
+  - `./verify full` exited 0: `{"target":"full","exit":0,"git":"cbb1cdb","ts":"2026-10-08T06:01:09Z"}`. It printed:
+    - `gui_webview_check: OK (24 rows, 0 failed)`
+    - `bridge_utf8_check: GREEN`
+    - `parity_check: 156/156 scenarios within eps=1e-06`
+    - The build's patched choc header carries the deletion-first gate.
+  - CI conclusions are in the PR.
+- **Open questions:**
+  - The Windows runtime (B447): does the GUI load from the new origin?
+  - Whether 64 KiB is enough for the largest reachable user state (not measured).
+  - Whether the lead wants the origin noted in `libs/patches/README.md`. It is not a patch change, so I left it in `embedded_page_policy.h`.
