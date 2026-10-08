@@ -1,0 +1,1315 @@
+{
+  "entries": [
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-1 Parity oracle (the master test): ...outputs match within ε = 1e-6",
+      "id": "specs/ACCEPTANCE.md::L0-1/outputs_match_within",
+      "locator": "outputs\\s+match\\s+within\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-1, ADR-187",
+      "value": "ε = 1e-6"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-10 Two-cluster broken symmetry: ...≈ 0.82 / ⟨R_B⟩ ≈ 0.67 ( ±0.08",
+      "id": "specs/ACCEPTANCE.md::L0-10/0.82_R_B_0.67",
+      "locator": "≈\\s+0\\.82\\s+/\\s+⟨R_B⟩\\s+≈\\s+0\\.67\\s+\\(((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-10, ADR-004",
+      "value": "±0.08"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-10 Two-cluster broken symmetry: ...(variance across seeds ≥ 2×",
+      "id": "specs/ACCEPTANCE.md::L0-10/variance_across_seeds",
+      "locator": "\\(variance\\s+across\\s+seeds\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-10, ADR-004",
+      "value": "≥ 2×"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-11 Ring spatial coexistence: ...spans min ≤ 0.2 and max ≥ 0.8",
+      "id": "specs/ACCEPTANCE.md::L0-11/spans_min_≤_0.2_and_max",
+      "locator": "spans\\s+min\\s+≤\\s+0\\.2\\s+and\\s+max\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-11",
+      "value": "≥ 0.8"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-11 Ring spatial coexistence: ...window) spans min ≤ 0.2",
+      "id": "specs/ACCEPTANCE.md::L0-11/window_spans_min",
+      "locator": "window\\)\\s+spans\\s+min\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-11",
+      "value": "≤ 0.2"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-12 Tempo-grid law: ...grid law locks to R ≥ 0.88 within 2 s",
+      "id": "specs/ACCEPTANCE.md::L0-12/id_law_locks_to_R_≥_0.88",
+      "locator": "grid\\s+law\\s+locks\\s+to\\s+R\\s+≥\\s+0\\.88\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-12",
+      "value": "within 2 s"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-12 Tempo-grid law: ...of squared signal shows ≥ 6×",
+      "id": "specs/ACCEPTANCE.md::L0-12/of_squared_signal_shows",
+      "locator": "of\\s+squared\\s+signal\\s+shows\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-12",
+      "value": "≥ 6×"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-12 Tempo-grid law: ...over grid law locks to R ≥ 0.88",
+      "id": "specs/ACCEPTANCE.md::L0-12/over_grid_law_locks_to_R",
+      "locator": "over\\s+grid\\s+law\\s+locks\\s+to\\s+R\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-12",
+      "value": "≥ 0.88"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-13 Determinism & stability: ...stall, master peak ≤ 1.0",
+      "id": "specs/ACCEPTANCE.md::L0-13/stall_master_peak",
+      "locator": "stall,\\s+master\\s+peak\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-13",
+      "value": "≤ 1.0"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-14 Filter bank dynamics (SPEC-FILTER §3): ...0.75. K=−1: sorted-gap CV ≤ 0.02",
+      "id": "specs/ACCEPTANCE.md::L0-14/.75._K=_1_sorted-gap_CV",
+      "locator": "0\\.75\\.\\s+K=−1:\\s+sorted\\-gap\\s+CV\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-14",
+      "value": "≤ 0.02"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-14 Filter bank dynamics (SPEC-FILTER §3): ...law), collapse meter ≥ 0.75",
+      "id": "specs/ACCEPTANCE.md::L0-14/law_collapse_meter",
+      "locator": "law\\),\\s+collapse\\s+meter\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-14",
+      "value": "≥ 0.75"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-14 Filter bank dynamics (SPEC-FILTER §3): ...σ(log2 fc) reduced to 0.20 ±0.05",
+      "id": "specs/ACCEPTANCE.md::L0-14/log2_fc_reduced_to_0.20",
+      "locator": "σ\\(log2\\s+fc\\)\\s+reduced\\s+to\\s+0\\.20\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-14",
+      "value": "±0.05"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-15 Harmonic gravity, bank: ...−0.8: zero filters remain within 40¢",
+      "id": "specs/ACCEPTANCE.md::L0-15/0.8_zero_filters_remain",
+      "locator": "−0\\.8:\\s+zero\\s+filters\\s+remain\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-15",
+      "value": "within 40¢"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-15 Harmonic gravity, bank: ...= h/(h+g) of initial ±20%",
+      "id": "specs/ACCEPTANCE.md::L0-15/=_h_h+g_of_initial",
+      "locator": "=\\s+h/\\(h\\+g\\)\\s+of\\s+initial\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-15",
+      "value": "±20%"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-16 Notch exactness (SPEC-FILTER §4): ...at each swarm frequency ≥ 60 dB",
+      "id": "specs/ACCEPTANCE.md::L0-16/at_each_swarm_frequency",
+      "locator": "at\\s+each\\s+swarm\\s+frequency\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-16",
+      "value": "≥ 60 dB"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-16 Notch exactness (SPEC-FILTER §4): ...guard: values scattering below 15 dB",
+      "id": "specs/ACCEPTANCE.md::L0-16/guard_values_scattering",
+      "locator": "guard:\\s+values\\s+scattering\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-16",
+      "value": "below 15 dB"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-17 Tuned harmonic rejection: ...gravity-captured notch ( within 12¢",
+      "id": "specs/ACCEPTANCE.md::L0-17/gravity-captured_notch",
+      "locator": "gravity\\-captured\\s+notch\\s+\\(((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-17",
+      "value": "within 12¢"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-17 Tuned harmonic rejection: ...12¢ of a harmonic) rejects ≥ 15 dB",
+      "id": "specs/ACCEPTANCE.md::L0-17/¢_of_a_harmonic_rejects",
+      "locator": "12¢\\s+of\\s+a\\s+harmonic\\)\\s+rejects\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-17",
+      "value": "≥ 15 dB"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-18 Filter-family stability: ...150¢ + stage Q 3 — peak ≤ 0.7",
+      "id": "specs/ACCEPTANCE.md::L0-18/150¢_+_stage_Q_3_peak",
+      "locator": "150¢\\s+\\+\\s+stage\\s+Q\\s+3\\s+—\\s+peak\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-18",
+      "value": "≤ 0.7"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-19 Tap swarm (SPEC-EFFECTS §5): ...Gather σ to 0.20 ±0.05",
+      "id": "specs/ACCEPTANCE.md::L0-19/Gather_σ_to_0.20",
+      "locator": "^Gather\\s+σ\\s+to\\s+0\\.20\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-19",
+      "value": "±0.05"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-19 Tap swarm (SPEC-EFFECTS §5): ...mean |amplitude| flat and ≤ 0.15",
+      "id": "specs/ACCEPTANCE.md::L0-19/ean_amplitude_flat_and",
+      "locator": "mean\\s+\\|amplitude\\|\\s+flat\\s+and\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-19",
+      "value": "≤ 0.15"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-19 Tap swarm (SPEC-EFFECTS §5): ...error = h/(h+g)·initial ±20%",
+      "id": "specs/ACCEPTANCE.md::L0-19/error_=_h_h+g_initial",
+      "locator": "error\\s+=\\s+h/\\(h\\+g\\)·initial\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-19",
+      "value": "±20%"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-19 Tap swarm (SPEC-EFFECTS §5): ...detected at every tap time ±2 ms",
+      "id": "specs/ACCEPTANCE.md::L0-19/tected_at_every_tap_time",
+      "locator": "detected\\s+at\\s+every\\s+tap\\s+time\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-19",
+      "value": "±2 ms"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-19 Tap swarm (SPEC-EFFECTS §5): ...±0.05 of free; grid CV ≤ 0.08",
+      "id": "specs/ACCEPTANCE.md::L0-19/±0.05_of_free_grid_CV",
+      "locator": "±0\\.05\\s+of\\s+free;\\s+grid\\s+CV\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-19",
+      "value": "≤ 0.08"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-2 Sync phase transition (HYPERSAW core; engine renamed from SAW 2026-08-17, ADR-091): ...must match; R values ±0.08",
+      "id": "specs/ACCEPTANCE.md::L0-2/must_match_R_values",
+      "locator": "must\\s+match;\\s+R\\s+values\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-2",
+      "value": "±0.08"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-2 Sync phase transition (HYPERSAW core; engine renamed from SAW 2026-08-17, ADR-091): ...(knob +1.0) | full lock, R ≥ 0.95",
+      "id": "specs/ACCEPTANCE.md::L0-2/nob_+1.0_full_lock_R",
+      "locator": "\\(knob\\s+\\+1\\.0\\)\\s+\\|\\s+full\\s+lock,\\s+R\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-2",
+      "value": "≥ 0.95"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-20 FDN room swarm (SPEC-EFFECTS §6): ...0.85 — IR comb at 1/L̄ ≥ 10 dB",
+      "id": "specs/ACCEPTANCE.md::L0-20/0.85_IR_comb_at_1_L",
+      "locator": "0\\.85\\s+—\\s+IR\\s+comb\\s+at\\s+1/L̄\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-20",
+      "value": "≥ 10 dB"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-20 FDN room swarm (SPEC-EFFECTS §6): ...f0-vs-off ratio improves ≥ 2.5 dB",
+      "id": "specs/ACCEPTANCE.md::L0-20/f0-vs-off_ratio_improves",
+      "locator": "f0\\-vs\\-off\\s+ratio\\s+improves\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-20",
+      "value": "≥ 2.5 dB"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-20 FDN room swarm (SPEC-EFFECTS §6): ...probe at 1/L̄ measuring ≤ 0 dB",
+      "id": "specs/ACCEPTANCE.md::L0-20/probe_at_1_L_measuring",
+      "locator": "probe\\s+at\\s+1/L̄\\s+measuring\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-20",
+      "value": "≤ 0 dB"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-20 FDN room swarm (SPEC-EFFECTS §6): ...settle per equilibrium law ±20%",
+      "id": "specs/ACCEPTANCE.md::L0-20/ttle_per_equilibrium_law",
+      "locator": "settle\\s+per\\s+equilibrium\\s+law\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-20",
+      "value": "±20%"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-21 Time-family stability & DC: ...cost at a 26 Hz comb ≤ 3 dB",
+      "id": "specs/ACCEPTANCE.md::L0-21/cost_at_a_26_Hz_comb",
+      "locator": "cost\\s+at\\s+a\\s+26\\s+Hz\\s+comb\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-21",
+      "value": "≤ 3 dB"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-21 Time-family stability & DC: ...output, per-line DC ≤ 0.01",
+      "id": "specs/ACCEPTANCE.md::L0-21/output_per-line_DC",
+      "locator": "output,\\s+per\\-line\\s+DC\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-21",
+      "value": "≤ 0.01"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-22 Daido q-clusters, bistability, split-as-timbre (ratified at the Phase 3 gate): ...- q ∈ {2, 3}: R_q >= 0.95",
+      "id": "specs/ACCEPTANCE.md::L0-22/-_q_2_3_R_q",
+      "locator": "^\\-\\s+q\\s+∈\\s+\\{2,\\s+3\\}:\\s+R_q\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-22, ADR-015a",
+      "value": ">= 0.95"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-22 Daido q-clusters, bistability, split-as-timbre (ratified at the Phase 3 gate): ...sustains full sync R1 >= 0.95",
+      "id": "specs/ACCEPTANCE.md::L0-22/sustains_full_sync_R1",
+      "locator": "sustains\\s+full\\s+sync\\s+R1\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-22, ADR-015d",
+      "value": ">= 0.95"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-22 Daido q-clusters, bistability, split-as-timbre (ratified at the Phase 3 gate): ...varies across seeds by >= 0.01",
+      "id": "specs/ACCEPTANCE.md::L0-22/varies_across_seeds_by",
+      "locator": "varies\\s+across\\s+seeds\\s+by\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-22, ADR-015c",
+      "value": ">= 0.01"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-23 Two-cluster A/B balance (ADR-051, ratified at ingest of the swarmdynamics balance clone): ...>= 0.9 while (R_A − R_B) >= 0.4",
+      "id": "specs/ACCEPTANCE.md::L0-23/=_0.9_while_R_A_R_B",
+      "locator": ">=\\s+0\\.9\\s+while\\s+\\(R_A\\s+−\\s+R_B\\)\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-23",
+      "value": ">= 0.4"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-23 Two-cluster A/B balance (ADR-051, ratified at ingest of the swarmdynamics balance clone): ...full split (R_A − R_B) >= 0.5",
+      "id": "specs/ACCEPTANCE.md::L0-23/full_split_R_A_R_B",
+      "locator": "full\\s+split\\s+\\(R_A\\s+−\\s+R_B\\)\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-23",
+      "value": ">= 0.5"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-23 Two-cluster A/B balance (ADR-051, ratified at ingest of the swarmdynamics balance clone): ...balance 0.5 too). R_A, R_B >= 0.9",
+      "id": "specs/ACCEPTANCE.md::L0-23/lance_0.5_too_._R_A_R_B",
+      "locator": "balance\\s+0\\.5\\s+too\\)\\.\\s+R_A,\\s+R_B\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-23",
+      "value": ">= 0.9"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-23 Two-cluster A/B balance (ADR-051, ratified at ingest of the swarmdynamics balance clone): ...removed; R_A holds >= 0.9",
+      "id": "specs/ACCEPTANCE.md::L0-23/removed_R_A_holds",
+      "locator": "removed;\\s+R_A\\s+holds\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-23",
+      "value": ">= 0.9"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-24 Bipolar onset lock (ADR-056, C++-only superset beyond the reference range): ...once Kenv→0 (late |ΔR| < 0.06",
+      "id": "specs/ACCEPTANCE.md::L0-24/once_Kenv_0_late_ΔR",
+      "locator": "once\\s+Kenv→0\\s+\\(late\\s+\\|ΔR\\|\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-24",
+      "value": "< 0.06"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-3 Splay attractor (saw kernel): ...0.04); splay order R_N ≥ 0.75",
+      "id": "specs/ACCEPTANCE.md::L0-3/0.04_splay_order_R_N",
+      "locator": "0\\.04\\);\\s+splay\\s+order\\s+R_N\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-3",
+      "value": "≥ 0.75"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-3 Splay attractor (saw kernel): ...K = −0.7 → R_N ≈ 0.44 ±0.1",
+      "id": "specs/ACCEPTANCE.md::L0-3/K_=_0.7_R_N_0.44",
+      "locator": "K\\s+=\\s+−0\\.7\\s+→\\s+R_N\\s+≈\\s+0\\.44\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-3",
+      "value": "±0.1"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-3 Splay attractor (saw kernel): ...M = 7, 4 s settle: R₁ ≤ 0.10",
+      "id": "specs/ACCEPTANCE.md::L0-3/M_=_7_4_s_settle_R₁",
+      "locator": "M\\s+=\\s+7,\\s+4\\s+s\\s+settle:\\s+R₁\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-3",
+      "value": "≤ 0.10"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-3 Splay attractor (saw kernel): ...defaults, settled; values ±0.08",
+      "id": "specs/ACCEPTANCE.md::L0-3/efaults_settled_values",
+      "locator": "defaults,\\s+settled;\\s+values\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-3",
+      "value": "±0.08"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-3 Splay attractor (saw kernel): ...projection at 7·f0 ≥ 5×",
+      "id": "specs/ACCEPTANCE.md::L0-3/projection_at_7_f0",
+      "locator": "projection\\s+at\\s+7·f0\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-3",
+      "value": "≥ 5×"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-3 Splay attractor (saw kernel): ...s settled window both in (0.1, 0.6)",
+      "id": "specs/ACCEPTANCE.md::L0-3/s_settled_window_both_in",
+      "locator": "s\\s+settled\\s+window\\s+both\\s+in\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-3",
+      "value": "(0.1, 0.6)"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-4 Inertia: ...hunting (R excursions below 0.4",
+      "id": "specs/ACCEPTANCE.md::L0-4/hunting_R_excursions",
+      "locator": "hunting\\s+\\(R\\s+excursions\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-4",
+      "value": "below 0.4"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-6 Cascade zipper (SPECTRA): ...= 0.5: completes in ≤ 3 s",
+      "id": "specs/ACCEPTANCE.md::L0-6/=_0.5_completes_in",
+      "locator": "=\\s+0\\.5:\\s+completes\\s+in\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-6",
+      "value": "≤ 3 s"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-6 Cascade zipper (SPECTRA): ...P = 12: lock front (R_k > 0.85",
+      "id": "specs/ACCEPTANCE.md::L0-6/P_=_12_lock_front_R_k",
+      "locator": "P\\s+=\\s+12:\\s+lock\\s+front\\s+\\(R_k\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-6",
+      "value": "> 0.85"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-6 Cascade zipper (SPECTRA): ...criterion; timing within ±30%",
+      "id": "specs/ACCEPTANCE.md::L0-6/criterion_timing_within",
+      "locator": "criterion;\\s+timing\\s+within\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-6",
+      "value": "±30%"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-6 Cascade zipper (SPECTRA): ...low→high, completing in 7–10 s",
+      "id": "specs/ACCEPTANCE.md::L0-6/low_high_completing_in",
+      "locator": "low→high,\\s+completing\\s+in\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-6",
+      "value": "7–10 s"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-7 Interference gate (SPECTRA): ...4 s settle: RMS reduction ≥ 12 dB",
+      "id": "specs/ACCEPTANCE.md::L0-7/s_settle_RMS_reduction",
+      "locator": "4\\s+s\\s+settle:\\s+RMS\\s+reduction\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-7",
+      "value": "≥ 12 dB"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-8 Consonance gravity (DYNAMICS): ...outside basin (default ±35¢",
+      "id": "specs/ACCEPTANCE.md::L0-8/outside_basin_default",
+      "locator": "outside\\s+basin\\s+\\(default\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-8",
+      "value": "±35¢"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-8 Consonance gravity (DYNAMICS): ...~3 s: settled ratio within ±0.5¢",
+      "id": "specs/ACCEPTANCE.md::L0-8/s_settled_ratio_within",
+      "locator": "\\~3\\s+s:\\s+settled\\s+ratio\\s+within\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-8",
+      "value": "±0.5¢"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "L0-9 Sakaguchi lag: ...in α blocking; magnitude ±25%",
+      "id": "specs/ACCEPTANCE.md::L0-9/in_α_blocking_magnitude",
+      "locator": "in\\s+α\\s+blocking;\\s+magnitude\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md L0-9",
+      "value": "±25%"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "Layer-E Layer-E (behavioral, non-blocking, human-verified per release): ...beating within ~2 s",
+      "id": "specs/ACCEPTANCE.md::Layer-E/beating",
+      "locator": "beating\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md Layer-E",
+      "value": "within ~2 s"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "specs/ACCEPTANCE.md",
+      "governs": "Layer-E Layer-E (behavioral, non-blocking, human-verified per release): ...the patch must hold < 50%",
+      "id": "specs/ACCEPTANCE.md::Layer-E/the_patch_must_hold",
+      "locator": "the\\s+patch\\s+must\\s+hold\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "ref": "specs/ACCEPTANCE.md Layer-E",
+      "value": "< 50%"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/anchor_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/anchor_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">=0.125 | <0.08"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/bank_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/bank_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": "<0.5 | <=1e-9 | <=1e-9 | >1e-9 | >0.6 | >-60.0 | <1.0 | <=2.0 | <0.3 | <=1.0 | >1.0 | <0.1 | >0.7 | >0.9 | >=0.4"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/bendsweep_probe.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/bendsweep_probe.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": "<0.25 | <0.25 | >0.5 | >1e-9 | >1e-9 | >1e-9 | >1e-9 | >1e-9"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/blep_alias_incommensurate_probe.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/blep_alias_incommensurate_probe.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">0.5"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/blocksize_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/blocksize_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">0.01"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/combguard_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/combguard_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": "<4.0"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/corner_probe.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/corner_probe.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": "<0.02 | >0.02 | <0.03 | >0.03 | <0.01 | >0.01 | <0.03 | <0.03 | <0.03"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/delay_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/delay_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": "<0.01 | <0.01 | >0.95 | <1e-9 | <1.3 | >0.5 | <1e-6 | >0.2 | <1e-6 | <0.5 | <0.5 | <0.005"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/enable_probe.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/enable_probe.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": "<1e-6 | >0.01 | >0.01 | >0.01 | <1e-6 | >0.01 | <1e-3 | >0.01"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/filter_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/filter_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": "<=1e-6 | >1e-4 | >=0.75"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/force_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/force_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "L0-14, L0-19",
+      "value": "<=0.01 | <=0.005 | >=0.15 | <=0.25 | >=0.75 | <=0.02 | <=0.2 | >=0.15 | <=0.25 | <=0.02 | <=0.01 | >=0.15 | <=0.25 | <=0.08 | <=0.2 | <=0.2"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/force_check.cpp",
+      "governs": "named tolerance constant `kEps`",
+      "id": "tools/force_check.cpp::kEps",
+      "locator": "(?<![\\w])kEps(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "ref": "unattributed",
+      "value": "1e-9"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/fxxfade_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/fxxfade_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": "<6.0 | >20.0 | <6.0 | >1e-9 | >-20.0 | >1e-9"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/fxxfade_plugin_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/fxxfade_plugin_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">0.5 | >1e-4"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/gain_probe.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/gain_probe.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": "<=1e-12"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/gen_state_fixtures.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/gen_state_fixtures.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">1e-4"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/glide_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/glide_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": "<0.05 | <0.65 | <1.10 | <1.70 | <0.10 | <0.60 | <1.10 | <1.60 | <=1e-6 | >5.0 | <0.5 | >0.5 | <1e-9 | >0.5 | <1e-9"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/glidepath_probe.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/glidepath_probe.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": "<5.0"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/h2_engine_parity_check.cpp",
+      "governs": "rounding and nothing more: 2^-23 at the output's |x| <= 1.",
+      "id": "tools/h2_engine_parity_check.cpp::kFloatTailTol",
+      "locator": "(?<![\\w])kFloatTailTol(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "ref": "unattributed",
+      "value": "1.1920928955078125e-07"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/h2_engine_parity_check.cpp",
+      "governs": "named tolerance constant `kMaxTol`",
+      "id": "tools/h2_engine_parity_check.cpp::kMaxTol",
+      "locator": "(?<![\\w])kMaxTol(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "ref": "unattributed",
+      "value": "1e-6"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/h2_engine_parity_check.cpp",
+      "governs": "the excluded rows' onset window: the gate stays 1e-6",
+      "id": "tools/h2_engine_parity_check.cpp::kOnsetTol",
+      "locator": "(?<![\\w])kOnsetTol(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "ref": "unattributed",
+      "value": "1e-6"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/h2_engine_parity_check.cpp",
+      "governs": "named tolerance constant `kRmsTol`",
+      "id": "tools/h2_engine_parity_check.cpp::kRmsTol",
+      "locator": "(?<![\\w])kRmsTol(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "ref": "unattributed",
+      "value": "1e-6"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/h2_engine_parity_check.cpp",
+      "governs": "the output stage is tanh: |x| <= 1 (header)",
+      "id": "tools/h2_engine_parity_check.cpp::kTailBound",
+      "locator": "(?<![\\w])kTailBound(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "ref": "unattributed",
+      "value": "1"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/h2_scalpel_parity_check.cpp",
+      "governs": "the stated max-abs bound (header)",
+      "id": "tools/h2_scalpel_parity_check.cpp::kMaxTol",
+      "locator": "(?<![\\w])kMaxTol(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "ref": "unattributed",
+      "value": "1e-6"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/h2_scalpel_parity_check.cpp",
+      "governs": "ACCEPTANCE L0-1's epsilon (ADR-187 item 6)",
+      "id": "tools/h2_scalpel_parity_check.cpp::kRmsTol",
+      "locator": "(?<![\\w])kRmsTol(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "ref": "ADR-187, L0-1",
+      "value": "1e-6"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/h2_swarm_parity_check.cpp",
+      "governs": "named tolerance constant `kEps`",
+      "id": "tools/h2_swarm_parity_check.cpp::kEps",
+      "locator": "(?<![\\w])kEps(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "ref": "unattributed",
+      "value": "1e-6"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/intent_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/intent_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">1e-12 | <1e-12 | <1e-12 | >1e-12 | >1e-6 | >1e-9 | >1e-9 | <=1e-9 | >1e-9 | >1e-6 | <=1e-12 | <=1e-12 | >1e-6 | <=1e-9 | <=1e-9 | >1e-9 | >1e-9 | <=1e-9 | <=1e-9 | <1e-9 | >1e-9 | >1e-6 | <1e-9 | >1e-9 | <1e-9 | >1e-9 | <1e-9 | <1e-9 | >1e-6 | <1e-9 | >1e-3 | <1e-9 | >1e-3 | <1e-3 | <1e-3 | <1e-3 | <1e-3 | <1e-3 | <1e-3 | <2e-3 | <2e-3 | <=1e-3 | <=1e-3 | <1e-3 | <1e-3 | >0.1 | >0.05 | <1e-3 | <1e-3 | <1e-6 | <1e-6 | >0.1 | >0.1 | >1e-4 | >1e-4"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/intent_check.cpp",
+      "governs": "named tolerance constant `kEps`",
+      "id": "tools/intent_check.cpp::kEps",
+      "locator": "(?<![\\w])kEps(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "ref": "unattributed",
+      "value": "1e-12"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/intent_check.cpp",
+      "governs": "named tolerance constant `kTol`",
+      "id": "tools/intent_check.cpp::kTol",
+      "locator": "(?<![\\w])kTol(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "ref": "unattributed",
+      "value": "1e-6"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/kstuck_probe.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/kstuck_probe.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">0.02 | <1e-3"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/lfoenv_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/lfoenv_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">0.99 | <-0.99 | <0.02 | >0.9 | <-0.9 | >0.9 | <-0.9 | <0.05 | >-0.5 | <-0.9 | >-0.5 | >0.1 | >0.1 | <1e-7 | >0.5 | <1e-7 | >1e-7 | <0.5 | <-1e299 | <-1e299"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/measure_alias.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/measure_alias.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">=20.0 | <=0.7 | <=-150.0 | >=30.0"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/measure_modsources.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/measure_modsources.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": "<0.5 | <0.5 | >0.5 | <-0.5 | >0.5 | <-0.5 | <1.0"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/mixer_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/mixer_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">1e-3 | >1e-3 | <0.02 | >0.8 | <0.02 | >0.8 | >0.8 | >0.8 | <0.02 | >0.8 | <0.02 | >0.8"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/mod_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/mod_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": "<1e-12 | <1e-12 | <1e-12 | <1e-12"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/modreadback_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/modreadback_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": "<=1e-9 | >-1e299 | <-1e299"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/morphlayout_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/morphlayout_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">0.1 | <0.9 | >1e-3 | >1e-3"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/morphscope_probe.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/morphscope_probe.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">1e-6"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/mpe_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/mpe_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">1e-3 | <0.15 | >0.3 | <1e-4 | >1e-3 | <0.15 | >1e-3 | <0.15 | >1e-3 | >1e-3 | <0.15 | >1e-3 | <0.25 | >4.0 | >4.0"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/notch_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/notch_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": "<=1e-6 | >1e-4 | >=20.0"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/notchslot_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/notchslot_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">1e-6"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/notefuzz_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/notefuzz_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">1e-5 | >1e-5 | >1e-5"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/offcorner_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/offcorner_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": "<1e-12 | <1e-12 | <1e-12 | <1e-9 | <1e-12 | <1e-12 | >0.05 | >0.01 | >=0.5 | <1e-9 | <1e-6"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/onset_ref_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/onset_ref_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">=0.5 | <=0.5 | >1e-9"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/paramfunc_smoke.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/paramfunc_smoke.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">1e-9 | >1e-9"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/paramleak_probe.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/paramleak_probe.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">1e-12 | >1e-12"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/paramscope_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/paramscope_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">1e-9 | >1e-6 | >=0.9 | >1e-4 | >1e-4 | <0.05 | <0.05 | >0.5 | <0.1 | >0.5 | >0.5"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/parity_check.cpp",
+      "governs": "named tolerance constant `kEps`",
+      "id": "tools/parity_check.cpp::kEps",
+      "locator": "(?<![\\w])kEps(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "ref": "unattributed",
+      "value": "1e-6"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/penv_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/penv_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">=0.99 | <0.6 | <1e-3 | >-1e8 | >-1e8 | >=11.9 | >=1.99 | <1e-3 | >-1e8 | <0.01 | <1e-3 | >=0.99 | >=0.5 | <0.1 | >0.05"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/pitch_probe.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/pitch_probe.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">0.35"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/polarity_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/polarity_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">1.0 | <-1.0 | >1.0 | <1e-9"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/preset_probe.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/preset_probe.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">0.95 | >0.3 | >0.01"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/renderer_bench.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/renderer_bench.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">=1.0f | >1e9"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/robustness_matrix.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/robustness_matrix.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">-40.0 | <-60.0 | >2.0 | >2.0"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/routing_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/routing_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": "<1e-12 | <1e-12 | >1e-9 | >1e-3 | >1e-9 | <1e-6 | <1e-6 | <1e-12 | >1e-9 | >1e-3 | <1e-12 | >1e6 | >0.5 | <=-100.0 | >-1.0 | <1e-9 | >1e-3 | >1e-4 | >1e-6 | >1e-6 | >1e-3 | <1e-6 | >1e-3 | >1e-3"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/samplerate_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/samplerate_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": "<0.5"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/samplerate_check.cpp",
+      "governs": "sample-count grid, not picked for comfort.",
+      "id": "tools/samplerate_check.cpp::kTol",
+      "locator": "(?<![\\w])kTol(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "ref": "unattributed",
+      "value": "0.003"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/save_bench.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/save_bench.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": "<0.5"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/slotcontract_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/slotcontract_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">1e-6 | <0.25 | >1e-6 | >6.0"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/spectra_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/spectra_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "ADR-037a, L0-6, L0-7",
+      "value": "<=1e-6 | >1e-4 | >0.85 | >4.9 | <13.0 | <=3.0 | <=-12.0 | >0.5 | <=1e-9"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/sr_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/sr_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": "<0.003 | >0.40 | <0.005 | <0.02 | >0.5"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/stability_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/stability_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": "<25.0 | <1.0 | >1.0 | >1.0"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/state_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/state_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "B100",
+      "value": "<0.5 | <1e-9 | <1e-9 | <1e-9 | <1e-9 | <1e-9 | <1e-6"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/statefix_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/statefix_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">0.6"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/station_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/station_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": "<=1e-6 | >1e-4 | >1e-6 | >1e-6 | <=2.2 | >=3.5 | <=1.6 | <=0.5 | <1.1754943508222875e-38f | <1.1754943508222875e-38f | <1e-3 | <1e-6 | >0.01 | <=3.0 | <0.05 | >1e-3 | >1e-3 | >1e-3 | >1e-3 | <-43.7 | >1e-3 | >0.5 | <0.3 | <0.05 | >1e-3 | >1e-3 | <1e-6"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/steal_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/steal_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">0.01 | <3.0 | >0.01 | >0.01 | <3.0 | >0.01"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/strata_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/strata_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">1e-12 | >1e-12 | >1e-12 | <-1e-12 | >1.0 | <=1e-9 | <1e-6 | <=2.0 | <1e-6 | >1e-12 | >1e-12 | >1e-12 | >1e-9"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/subosc_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/subosc_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": "<=1e-6 | >1e-4 | >1e-3 | >1e-3 | >=0.9 | <=0.5 | <0.9 | <=0.5 | <=0.5 | <1.0 | <=1.5 | <=0.5 | <0.002 | <=1e-6 | >1.05 | <5e-4 | <=1e-4 | <=1e-4 | <1e-12 | >1.0 | <1.05 | <1.425 | <1e-12 | >0.5 | <0.5 | <=1e-6 | >1e-6 | >0.02 | >0.02 | >0.02 | >0.05 | <0.005 | <0.005 | >0.05 | <0.005 | <0.005 | >0.05 | <0.005 | <0.005 | <1e-3 | >1e-3 | <=1e-4 | <0.02 | <0.02 | <5e-3 | <=1.0 | 1.425 >"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/subosc_check.cpp",
+      "governs": "leading peak. phi's SIGN decides the order.",
+      "id": "tools/subosc_check.cpp::kTol",
+      "locator": "(?<![\\w])kTol(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "ref": "unattributed",
+      "value": "0.05"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/svf_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/svf_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": "<1e-6 | <1e-6 | <1e-6 | <0.25 | <20.0"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/swarm_sr_parity.h",
+      "governs": "named tolerance constant `kEps`",
+      "id": "tools/swarm_sr_parity.h::kEps",
+      "locator": "(?<![\\w])kEps(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "ref": "unattributed",
+      "value": "1e-6"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/swarmalator_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/swarmalator_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": "<=1e-6 | >1e-4 | >=0.9 | <0.3 | >=0.35 | <0.6 | >0.6 | <=1.0"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/tailprobe.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/tailprobe.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">1.4"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/time_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/time_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "L0-20",
+      "value": "<=1e-6 | >1e-4 | <=0.15 | >1e-4 | <=1.0 | <=0.05"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/trace_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/trace_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": "<1e-4"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/trajectory_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/trajectory_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "ADR-004, ADR-015, ADR-025, ADR-026, ADR-027, ADR-056, ADR-065, ADR-069, ADR-096, L0-11, L0-12, L0-2, L0-22, L0-23, L0-3, L0-4, L0-5, L0-8",
+      "value": ">=0.95 | <=0.08 | <0.10 | <=0.32 | >=0.70 | <=0.24 | <0.5 | <=0.10 | >=0.75 | <=0.1 | <=0.08 | <=0.08 | >0.1 | <0.6 | >0.1 | <0.6 | <=0.08 | <=0.08 | >=0.66 | <=0.93 | >=0.02 | <0.4 | >1.0 | <=0.02 | >=0.8 | >1e-9 | <0.5 | <0.01 | >=0.88 | <=0.5 | <=0.45 | >0.08 | >0.08 | <=0.2 | >=0.8 | <0.95 | >=0.95 | <=0.015 | <=0.015 | >=0.01 | >=0.9 | >=0.9 | >=0.9 | >=0.4 | >=0.9 | >=0.5 | <0.5 | >1.0 | >1.0 | <=1.0 | >0.5 | <=1.0 | <260.0 | >1.0 | >1.5 | <=2.0 | >=0.95 | <0.06 | <2.0 | <2.0 | <2.0 | <2.0 | >0.2 | <2.0 | <2.0 | >0.2"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/tseed_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/tseed_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">1e-4 | >1e-4 | >1e-4"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/twocluster_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/twocluster_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">=0.9 | >=0.9 | <0.5 | <0.5 | <0.5 | >=0.9 | >=0.9 | <0.5 | <0.5 | <0.5 | >0.4"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/undo_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/undo_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": "<0.36 | <0.52 | <0.66 | <0.86 | <0.5 | >0.5 | <0.24 | <0.34 | <0.46 | >0.5 | <0.56 | <0.64 | <0.70"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/voicetap_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/voicetap_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">0.01 | >1e-6"
+    },
+    {
+      "approved": "baseline 2026-10-08",
+      "file": "tools/waveshape_check.cpp",
+      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
+      "id": "tools/waveshape_check.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "ref": "unattributed",
+      "value": ">=1.5 | <1.5 | >0.9 | >0.4 | <0.2 | <1e-6 | >0.01 | <1e-9 | >0.02 | >=1e-9 | >0.004 | >0.004 | <=1.25 | >2.0 | <0.12"
+    }
+  ],
+  "excluded": [
+    {
+      "file": "specs/ACCEPTANCE.md",
+      "id": "specs/ACCEPTANCE.md::L0-11/local_order_parameter",
+      "locator": "s:\\s+local\\s+order\\s+parameter\\s+\\(((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "reason": "neighbor-window half-width of the local order parameter, a protocol size"
+    },
+    {
+      "file": "specs/ACCEPTANCE.md",
+      "id": "specs/ACCEPTANCE.md::L0-15/0¢_of_any_harmonic_from",
+      "locator": "40¢\\s+of\\s+any\\s+harmonic\\s+\\(from\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "reason": "count of filters initially near a harmonic, a precondition not a tolerance"
+    },
+    {
+      "file": "specs/ACCEPTANCE.md",
+      "id": "specs/ACCEPTANCE.md::L0-23/4_K²_σ_so_balance_0.5",
+      "locator": "\\(4·K²·σ\\)\\s+so\\s+balance<0\\.5→((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "reason": "describes the balance knob range (balance<0.5 -> >0.5), not a threshold"
+    },
+    {
+      "file": "specs/ACCEPTANCE.md",
+      "id": "specs/ACCEPTANCE.md::L0-24/-_onset",
+      "locator": "^\\-\\s+onset\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "reason": "onset knob domain split (onset >= 0 vs < 0), not a threshold"
+    },
+    {
+      "file": "specs/ACCEPTANCE.md",
+      "id": "specs/ACCEPTANCE.md::L0-24/parity_untouched._onset",
+      "locator": "—\\s+parity\\s+untouched\\.\\s+onset\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "reason": "onset knob domain split (onset >= 0 vs < 0), not a threshold"
+    },
+    {
+      "file": "specs/ACCEPTANCE.md",
+      "id": "specs/ACCEPTANCE.md::L0-3/R₁_and_R_N_over_a",
+      "locator": "⟨R₁⟩\\s+and\\s+⟨R_N⟩\\s+over\\s+a\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
+      "reason": "length of the settled averaging window, a protocol duration"
+    },
+    {
+      "file": "tools/gen_gui_controls.py",
+      "id": "tools/gen_gui_controls.py::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "reason": "HTML generator logic (selected/checked attributes), not a check threshold"
+    },
+    {
+      "file": "tools/h2_engine_parity_check.cpp",
+      "id": "tools/h2_engine_parity_check.cpp::floorEps",
+      "locator": "(?<![\\w])floorEps(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "reason": "search accumulator initialised to 0 (the measured floor), not a threshold"
+    },
+    {
+      "file": "tools/h2_engine_stream.h",
+      "id": "tools/h2_engine_stream.h::eps",
+      "locator": "(?<![\\w])eps(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "reason": "fault-injection magnitude parameter, default 0 (a planted fault size, not a comparison tolerance)"
+    },
+    {
+      "file": "tools/h2_scalpel_stream.h",
+      "id": "tools/h2_scalpel_stream.h::eps",
+      "locator": "(?<![\\w])eps(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "reason": "fault-injection magnitude parameter, default 0 (a planted fault size, not a comparison tolerance)"
+    },
+    {
+      "file": "tools/measure_modsources.cpp",
+      "id": "tools/measure_modsources.cpp::eps",
+      "locator": "(?<![\\w])eps(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "reason": "gravity softening length of the measured N-body, a physics parameter"
+    }
+  ],
+  "schema": 1
+}
