@@ -26,7 +26,7 @@
 
      TRANSIENT LOOPS. A reorder briefly keeps an old cable and its reverse alive at once:
      a cycle. Each cable has two parts, a FORWARD part (no delay, allowed only while it keeps
-     the forward graph acyclic) and a BACKWARD part (one block of delay). Strategy toggle:
+     the forward graph acyclic) and a BACKWARD part (one sample of delay; one block until the round-3 follow-up). Strategy toggle:
        (a) LOOP BOUND — a cycle-closing cable emerges at once on its backward part, and the
            product of cable weight × each node's declared max gain round every live cycle is
            held ≤ a stated bound by deterministic scaling of the backward parts. When the
@@ -221,6 +221,15 @@
   .evt { max-height:340px; overflow:auto; }
   .bar { display:inline-block; height:8px; background:var(--caution); vertical-align:middle; border-radius:2px; }
   .bar.p { background:var(--physics); }
+  /* phone width: one column everywhere, nothing wider than the screen (the layouts scale their own type) */
+  @media (max-width:640px) {
+    body { padding:8px; } h1 { font-size:24px; }
+    .row, .top3, .two, .three { grid-template-columns:minmax(0,1fr) !important; }
+    .cluster { min-width:0; overflow-x:auto; }
+    .live { grid-template-columns:1fr 1fr; }
+    .tg { grid-template-columns:1fr; } .tg .pill { min-width:0; }
+    .hdrctl { margin-left:0; } .tagline { max-width:100%; }
+  }
 </style></head><body>
 
 <div class="hdr">
@@ -243,7 +252,7 @@
 <div class="tagline">Round 3 takes the human's redirection literally: <b>every module sits static and warm</b> at a fixed place (Drive, Filter,
 ECHO, Scape, Shriek, Bulwark, EQ and Sluice stand-ins, one of each), and the morph moves only the <b>cables</b> between them. Round 2's
 logic still decides which cables should exist and in what order at each pad point; the cables <b>glide</b> there. Reorders make
-transient loops, raced two ways: <b>(a)</b> a loop-gain bound with one block of delay on the backward cable, or <b>(b)</b> ordered
+transient loops, raced two ways: <b>(a)</b> a loop-gain bound with one sample of delay on the backward cable, or <b>(b)</b> ordered
 fades over a bypass. Silent nodes <b>sleep</b> with their state kept. A <b>click metric</b> measures every transition against round 2's
 insert/remove behaviour, which an A/B toggle plays. It sounds, it measures itself, and a self-check plants one fault per claim.</div>
 
@@ -257,6 +266,7 @@ insert/remove behaviour, which an A/B toggle plays. It sounds, it measures itsel
       <i style="background:var(--caution)"></i>a two-or-more-change boundary. Thin lines are one-change boundaries. The dashed path is the sweep.</div>
   </div>
   <div class="cluster"><h2>The cables <span id="cableHead"></span></h2>
+    <div class="ctlrow" style="margin:0 0 4px"><span class="lbl">LAYOUT</span><div class="pills" id="layoutPills"></div></div>
     <canvas id="cableC"></canvas>
     <div class="legend" id="cableLegend"></div>
     <div class="live" id="liveBox"></div>
@@ -1026,7 +1036,7 @@ R2Router.prototype.openCount = function (lane) { return this.openOn(lane).length
    are stated in seconds and converted per sample (ADR-009). Buffers are sized at
    construction, never on the sample path. */
 const BODY_HZ = [110, 130.81, 164.81], SUB_HZ = 55;
-const OUT_GAIN = 0.5;   // round 3: was 0.4; with the quieter lanes and gentler corners the default sweeps peak at −7 to −11 dBFS (true peak the same within 0.4 dB), no limiter
+const OUT_GAIN = 0.5, OUTPUT_TRIM = OUT_GAIN;   // round 3: was 0.4; with the quieter lanes and gentler corners the default sweeps peak at −7 to −11 dBFS (true peak the same within 0.4 dB), no limiter
 /* TRUE PEAK, for the honest meter: the largest of the samples and three interpolated
    points between each pair (4× oversampling, a 32-tap Hann-windowed sinc). Deterministic. */
 function truePeak(y) {
@@ -1057,7 +1067,9 @@ function mkInst(type, sr) {
     const sm = Math.exp(-1 / (0.05 * sr));
     const pw = peakWin(N);      // round 3: what the line holds, for sleep
     return { set(p) { dt = p.time * sr; fb = Math.min(p.fbk, 0.98); mix = p.mix; }, tail: () => pw.get(),
-             run(x) { d = dt + (d - dt) * sm; let r = w - d; if (r < 0) r += N; const i = Math.floor(r), f = r - i, j = (i + 1) % N;
+             snap() { d = dt; }, state: () => ({ d: d / sr, target: dt / sr }),   // round 3: a woken ECHO starts AT its time (Sluice seq 36: no start-up sweeps)
+             run(x) { d = dt + (d - dt) * sm; let r = w - d; if (r < 0) r += N; if (r >= N) r -= N;   // round 3: w − d a hair below 0 rounds r + N to exactly N (buf[N] is NaN) once the snap lands d on its target
+                      const i = Math.floor(r), f = r - i, j = (i + 1) % N;
                       const y = buf[i] + (buf[j] - buf[i]) * f; buf[w] = x + fb * y; pw.push(buf[w]); w = (w + 1) % N; return x + mix * y; } };
   }
   if (type === 'REV') {
@@ -1094,6 +1106,7 @@ function mkInst(type, sr) {
     const fol = (e, r) => r > e ? r + (e - r) * ca : r + (e - r) * cr;
     return { set(p) { ca = Math.exp(-1 / (p.att * sr)); cr = Math.exp(-1 / (p.rel * sr)); thr = p.thr; ratio = p.ratio; mk = Math.pow(10, p.mk / 20);
                       bands = p.bands || 1; const tn = Math.tan(Math.PI * 700 / sr); ac = (tn - 1) / (tn + 1); },
+             snap() { xb = bands > 1 ? 1 : 0; },   // round 3: a woken Bulwark is already at its band count
              run(x) {
                const tb = bands > 1 ? 1 : 0;
                if (xb < 0) xb = tb; else if (xb < tb) xb = Math.min(tb, xb + dxb); else if (xb > tb) xb = Math.max(tb, xb - dxb);
@@ -1254,7 +1267,7 @@ function transOf(order, wf, wb, lane, only, fix) {
 
 /* ---------- THE CABLES: a control-rate state machine (one step per tick) ----------
    Per cable: a target, a FORWARD part (f1 → f2, two cascaded one-poles) and a BACKWARD
-   part (b1 → b2, one block of delay in the rack). Per tick:
+   part (b1 → b2, one sample of delay in the rack's cycle path). Per tick:
      1. admission  a change of STRUCTURE is admitted only while fewer than K transitions
                    are open (a transition closes when every cable has landed)
      2. targets    the admitted chain's cables (closed form), plus a leaving tail's held
@@ -1522,15 +1535,18 @@ Cables.prototype.audit = function () {
    Every node owns one instance for the life of the rack: nothing is rebuilt, nothing is
    reset. A block runs node by node in the cables' forward order; a node's input is the
    sum of its cables, each weight interpolated across the block (as round 2's engine
-   does); a BACKWARD part reads its source's output from the block before — the one
-   block of delay. SLEEP: a node whose input peak is under the threshold and whose
+   does). While any BACKWARD part is live the rack runs per sample instead (blockSample,
+   below) and a backward part reads its source's previous sample. SLEEP: a node whose input peak is under the threshold and whose
    output and held memory are too stops running and outputs zeros; its instance keeps
    every sample of its state. It wakes, state intact, in the first block whose input
    clears the threshold. A node whose output goes nowhere still runs until its memory has
    decayed: the first build slept it at once and an ECHO woke later replaying a frozen
    echo (a 0.033 step). Only a memory that never decays (feedback ≥ 1) is put to sleep
-   loud, once its output has been disconnected for its tail cap; such a wake ramps the
-   node's output in over one glide, the one place a wake is shaped. */
+   loud, once its output has been disconnected for its tail cap — and it is FLUSHED as it
+   sleeps (round-3 follow-up, Sluice seq 36: a release must end in silence, never revive
+   the old sound later; the first build kept the howl and ramped it back in on wake). A
+   woken or first-fed node SNAPS its parameter smoothers to their targets (ECHO's time,
+   Bulwark's band crossfade): it starts at its target, never sweeps up from a default. */
 function Rack(sr, tick) {
   this.sr = sr; this.tick = tick; this.n = 0; this.ph = [0, 0, 0, 0]; this.pulse = false; this.probe = false; this.lb = 0; this.ls = 0;
   this.inst = {}; this.cur = {}; this.last = {}; this.asleep = {};
@@ -1538,7 +1554,7 @@ function Rack(sr, tick) {
   this.lane = { BODY: new Float64Array(tick), SUB: new Float64Array(tick) };
   this.pwf = new Float64Array(NC); this.pwb = new Float64Array(NC); this.x = new Float64Array(tick); this.primed = false;
   this.awake = TYPES.length; this.cpu = 0; this.jump = 0; this.sleeps = 0; this.wakes = 0; this.cpuSum = 0; this.blocks = 0;
-  this.cut = {}; this.loud = {}; this.ramp = {}; for (const t of TYPES) { this.cut[t] = 0; this.loud[t] = false; this.ramp[t] = 1; }
+  this.cut = {}; this.flushes = 0; this.lastS = {}; this.limHits = 0; this.cycBlocks = 0; for (const t of TYPES) { this.cut[t] = 0; this.lastS[t] = 0; }
 }
 Rack.prototype.mix = function (i, C, x, n) {
   const w0 = this.pwf[i], w1 = C.wf[i], b0 = this.pwb[i], b1 = C.wb[i];
@@ -1555,9 +1571,16 @@ Rack.prototype.outW = function (t, C) {
 };
 Rack.prototype.block = function (C, out, off, n) {
   const sr = this.sr, o = C.o, thr = Math.pow(10, (o.sleepDb === undefined ? SLEEP_DB : o.sleepDb) / 20), x = this.x;
-  if (!this.primed) { this.pwf.set(C.wf); this.pwb.set(C.wb); this.primed = true; }
   for (const t of TYPES) this.inst[t].set(C.prm[t]);
+  if (!this.primed) { this.pwf.set(C.wf); this.pwb.set(C.wb); this.primed = true; if (o.plant !== 'nosnap') for (const t of TYPES) if (this.inst[t].snap) this.inst[t].snap(); }
   for (let s = 0; s < n; s++) { lanesNext(this, sr); this.lane.BODY[s] = this.lb; this.lane.SUB[s] = this.ls; this.n++; }
+  let cyc = false; if (o.plant !== 'tickdelay') for (let i = 0; i < NC; i++) if (this.pwb[i] || C.wb[i]) { cyc = true; break; }
+  if (cyc) {
+    const r = this.blockSample(C, out, off, n, thr); this.cycBlocks++;
+    for (const t of TYPES) { this.lastS[t] = this.cur[t][n - 1]; const q = this.last[t]; this.last[t] = this.cur[t]; this.cur[t] = q; }
+    this.pwf.set(C.wf); this.pwb.set(C.wb); this.awake = r.awake; this.cpu = r.cpu; this.cpuSum += r.cpu; this.blocks++;
+    return;
+  }
   let awake = 0, cpu = 0;
   for (const t of C.order) {
     x.fill(0, 0, n);
@@ -1567,9 +1590,8 @@ Rack.prototype.block = function (C, out, off, n) {
     if (o.sleep && this.asleep[t] && pin < thr) { y.fill(0, 0, n); continue; }
     const woke = this.asleep[t];
     this.asleep[t] = false;
+    if (woke && it.snap && o.plant !== 'nosnap') it.snap();
     for (let s = 0; s < n; s++) y[s] = it.run(x[s]);
-    if (woke && this.loud[t]) { this.ramp[t] = 0; this.loud[t] = false; }
-    if (this.ramp[t] < 1) { const dr = 1 / Math.max(1, (o.glide || GLIDE_S) * sr); for (let s = 0; s < n; s++) { this.ramp[t] = Math.min(1, this.ramp[t] + dr); y[s] *= this.ramp[t]; } }
     if (woke) { this.wakes++; const j = Math.abs(y[0]) * ow; if (j > this.jump) { this.jump = j; this.jumpWhy = SHORT[t] + ' woke at block ' + this.blocks; } }
     awake++; cpu += COST[t];
     if (!o.sleep) continue;
@@ -1577,22 +1599,74 @@ Rack.prototype.block = function (C, out, off, n) {
     const held = Math.max(pout, it.tail ? it.tail() : 0);
     this.cut[t] = ow === 0 && pin < thr ? this.cut[t] + n / sr : 0;
     const stuck = this.cut[t] > (TAIL_TYPES[t] ? C.caps[t] : 0) && held >= thr;
-    if (stuck) this.loud[t] = true;
     // PLANT 'sleeptail': sleep on silent input alone, ignoring the tail still ringing
+    if (stuck) { this.inst[t] = mkInst(t, sr); this.inst[t].set(C.prm[t]); this.flushes++; }   // a never-decaying memory is FLUSHED as it sleeps, so its howl cannot return (Sluice seq 36)
     if (pin < thr && (held < thr || stuck || o.plant === 'sleeptail')) { this.asleep[t] = true; this.sleeps++; const j = Math.abs(y[n - 1]) * ow; if (j > this.jump) { this.jump = j; this.jumpWhy = SHORT[t] + ' slept at block ' + this.blocks; } }
   }
   x.fill(0, 0, n);
   for (const i of INTO.OUT) this.mix(i, C, x, n);
-  for (let s = 0; s < n; s++) out[off + s] = OUT_GAIN * x[s];
-  for (const t of TYPES) { const q = this.last[t]; this.last[t] = this.cur[t]; this.cur[t] = q; }
+  for (let s = 0; s < n; s++) out[off + s] = OUTPUT_TRIM * x[s];
+  for (const t of TYPES) { this.lastS[t] = this.cur[t][n - 1]; const q = this.last[t]; this.last[t] = this.cur[t]; this.cur[t] = q; }
   this.pwf.set(C.wf); this.pwb.set(C.wb);
   this.awake = awake; this.cpu = cpu; this.cpuSum += cpu; this.blocks++;
 };
 
-/* ---------- defaults (round 2's, plus round 3's) ---------- */
+/* THE CYCLE PATH, one SAMPLE of delay (round-3 follow-up; Sluice seq 36 and ADR-197 row 4,
+   block-size invariance). While any backward part is live the whole rack runs sample by
+   sample in the forward order, and a backward cable reads its source's PREVIOUS SAMPLE, so
+   the loop's delay is one sample whatever the tick, the host buffer or the rate. v1 read the
+   source's previous 64-sample tick: the same for every host buffer (every driver splits into
+   64-sample ticks), but 1.3 ms at 48 kHz and 4 ms at 16 kHz — the round trip was a function
+   of the tick. Nodes are not put to sleep inside such a block (a node with a live input, or
+   awake, runs); the sleep test runs at its end as usual. PLANT 'tickdelay': v1's block path.
+   A soft limiter (LOOP_LIM) may sit on the backward signal; see o.looplim. */
+const LOOP_LIM = 1.0;        // the backward signal passes through LOOP_LIM·tanh(v / LOOP_LIM) when o.looplim is on
+Rack.prototype.blockSample = function (C, out, off, n, thr) {
+  const o = C.o, sr = this.sr, run = {}, pin = {}, pout = {}, lim = !!o.looplim;
+  let awake = 0, cpu = 0;
+  for (const t of C.order) {
+    let fed = false; for (const i of INTO[t]) if (this.pwf[i] || C.wf[i] || this.pwb[i] || C.wb[i]) { const u = CABLES[i].u; if (isLane(u) || !this.asleep[u]) { fed = true; break; } }
+    run[t] = !o.sleep || !this.asleep[t] || fed; pin[t] = 0; pout[t] = 0;
+    if (run[t] && this.asleep[t]) { this.asleep[t] = false; this.wakes++; if (this.inst[t].snap && o.plant !== 'nosnap') this.inst[t].snap(); }
+    if (run[t]) { awake++; cpu += COST[t]; }
+  }
+  const ins = {}; for (const t of C.order) ins[t] = INTO[t].filter(i => this.pwf[i] || C.wf[i] || this.pwb[i] || C.wb[i]);
+  const outs = INTO.OUT.filter(i => this.pwf[i] || C.wf[i] || this.pwb[i] || C.wb[i]);
+  for (let s = 0; s < n; s++) {
+    for (const t of C.order) {
+      const y = this.cur[t];
+      if (!run[t]) { y[s] = 0; continue; }
+      let x = 0;
+      for (const i of ins[t]) {
+        const c = CABLES[i], w0 = this.pwf[i], w1 = C.wf[i], b0 = this.pwb[i], b1 = C.wb[i];
+        x += (w0 + (w1 - w0) * s / n) * (isLane(c.u) ? this.lane[c.u][s] : this.cur[c.u][s]);
+        if (b0 || b1) { let v = s > 0 ? this.cur[c.u][s - 1] : this.lastS[c.u]; if (lim) v = LOOP_LIM * Math.tanh(v / LOOP_LIM); x += (b0 + (b1 - b0) * s / n) * v; }
+      }
+      const a = x < 0 ? -x : x; if (a > pin[t]) pin[t] = a;
+      const v = this.inst[t].run(x); y[s] = v; const b = v < 0 ? -v : v; if (b > pout[t]) pout[t] = b;
+      if (lim && b > LOOP_LIM * 0.5) this.limHits++;
+    }
+    let z = 0; for (const i of outs) { const c = CABLES[i]; z += (this.pwf[i] + (C.wf[i] - this.pwf[i]) * s / n) * (isLane(c.u) ? this.lane[c.u][s] : this.cur[c.u][s]); }
+    out[off + s] = OUTPUT_TRIM * z;
+  }
+  for (const t of C.order) {
+    if (!run[t] || !o.sleep) continue;
+    const it = this.inst[t], ow = this.outW(t, C), held = Math.max(pout[t], it.tail ? it.tail() : 0);
+    this.cut[t] = ow === 0 && pin[t] < thr ? this.cut[t] + n / sr : 0;
+    if (pin[t] < thr && held < thr) { this.asleep[t] = true; this.sleeps++; const j = Math.abs(this.cur[t][n - 1]) * ow; if (j > this.jump) { this.jump = j; this.jumpWhy = SHORT[t] + ' slept at block ' + this.blocks; } }
+  }
+  return { awake, cpu };
+};
+
+/* ---------- defaults (round 2's, plus round 3's) ----------
+   p = 1, EQUAL-GAIN, since the round-3 follow-up (Sluice's blend-law answer, seq 36: a
+   crossfade between two paths carrying the SAME input should be equal-gain; equal-power
+   bumps it ~3 dB at the middle). Measured here: the four presets' worst step click 4.3 →
+   1.7 dB (mean 1.18 → 0.34, none over 3 dB), live reversals 6.2 → 4.4 dB, the normaliser's
+   largest makeup ×2.11 → ×1.78. Round 2 used p = 2; D8 leaves p to the ear (selector kept). */
 const DEFAULTS = { set: 'four', mode: 'quantum', snap: true, method: 'decode', sharpen: true, gamma: 2, jitter: true, T: 0.7,
-                   norm: true, p: 2, K: 2, tails: true, caps: Object.assign({}, DEFAULT_CAPS), seed: 265, plant: null,
-                   engine: 'r3', loop: 'a', sleep: true, glide: GLIDE_S, bound: LOOP_BOUND, sleepDb: SLEEP_DB };
+                   norm: true, p: 1, K: 2, tails: true, caps: Object.assign({}, DEFAULT_CAPS), seed: 265, plant: null,
+                   engine: 'r3', loop: 'a', sleep: true, glide: GLIDE_S, bound: LOOP_BOUND, sleepDb: SLEEP_DB, looplim: false };
 const setById = id => SETS.find(s => s.id === id) || SETS[0];
 const optsWith = extra => Object.assign({}, DEFAULTS, { caps: Object.assign({}, DEFAULTS.caps) }, extra || {});
 const morphOf = o => makeMorph(setById(o.set).corners, o);
@@ -1837,10 +1911,11 @@ function clickSummary(rows) {
    u → v becomes v → u. */
 const LIVE_SR = 48000, LIVE_TICK = 64, PUCK_TAU_S = 0.04;
 /* THE STATED CEILING: no reversal clicks more than 7 dB above its chains' own floor. At the
-   round-3 gain staging, round-3 v1's Filter ↔ Drive flips read up to 8.4 dB (10.1–12.3 at
-   round 2's hot levels, where the human heard them); with the parallel hand-over they read
-   ≤ 2.7. The worst reversal left, 6.2 dB, is close·right's Drive → Filter swap, which reads
-   5.8 under v1 and 6.6 under round 2: the timbre jump itself, which a slower glide softens. */
+   round-3 gain staging, round-3 v1 as shipped (the loop, p = 2) reads up to 7.6 dB on
+   Filter ↔ Drive (10.1–12.3 at round 2's hot levels, where the human heard it); with the
+   parallel hand-over and p = 1 they read ≤ 4.4, and the worst reversal of any pair 5.9
+   (close, (b), Drive → ECHO). Close·right's Drive → Filter swap is a timbre jump that
+   reads the same under round 2 and softens with a slower glide. */
 const REV_CEIL_DB = 7;
 function reversalOf(a, b) {
   const A = targetCables(a), B = targetCables(b);
@@ -1874,6 +1949,34 @@ function reversalClick(o, tr) {
 /* every reversal the sweep paths cross on a corner set and mode */
 const reversalsOf = M => transitionsOf(M).filter(e => reversalOf(e.from, e.to));
 
+/* ---------- BLOCK-SIZE INVARIANCE (ADR-197 row 4) ----------
+   A host hands the plugin buffers of B samples. The honest driver splits every buffer into
+   64-sample control ticks (the cables step once per tick, the rack runs one tick), so the
+   sound cannot depend on B; with the cycle path's one-sample delay, nothing inside it does
+   either. The PLANT 'hostblock' is the naive driver: the cables step once per host buffer
+   and a backward cable is one host buffer late (v1's block path at B samples). */
+const HOST_BLOCKS = [64, 128, 512];
+function renderHost(o, tr, B, N) {
+  const naive = o.plant === 'hostblock', tick = naive ? B : TICK, M = morphOf(naive ? Object.assign({}, o, { plant: 'tickdelay' }) : o);
+  const C = new Cables(M, RSR, tick), E = new Rack(RSR, tick), junk = new Float32Array(tick), y = new Float32Array(N);
+  let st = mapW(M, tr.w0); C.settle(st);
+  for (let s = 0; s < Math.round(WARM_S * RSR); s += tick) { C.step(st); E.block(C, junk, 0, tick); }
+  const pre = Math.round(CLK_STEADY_S * RSR / 512) * 512, st1 = mapW(M, tr.w1);
+  let cyc = 0;
+  for (let h = 0; h < N; h += B) {                    // one host buffer
+    for (let s = h; s < Math.min(N, h + B); s += tick) { C.step(s < pre ? st : st1); E.block(C, y, s, Math.min(tick, N - s)); if (C.nCyc) cyc++; }
+  }
+  return { y, cyc, perSample: E.cycBlocks };
+}
+/* transitions that make a live cycle under (a), on the corner sets */
+function cyclicTransitions(limit) {
+  const out = [];
+  for (const set of SETS) { const M = morphOf(optsWith({ set: set.id })); for (const tr of transitionsOf(M)) {
+    const r = renderHost(optsWith({ set: set.id }), tr, 64, Math.round(0.8 * RSR)); if (r.cyc) out.push({ set: set.id, tr, cyc: r.cyc });
+    if (out.length >= (limit || 3)) return out; } }
+  return out;
+}
+
 /* ---------- THE SELF-CHECK: one claim per brief item, one planted fault per claim ---------- */
 const SLEEP_JUMP_X = 6;     // a sleep or wake may move a node's heard output by ≤ 6 × the threshold: a sub-threshold input through the loudest declared gain (×3), plus the kept state, through a cable ≤ 1.5
 const R2_HIGH_DB = 12;      // the round-2 control "reads high": a worst click at least this loud
@@ -1906,7 +2009,26 @@ function selfCheckSteps() {
   for (const sw of SWEEPS.slice(0, 3)) step(() => { const M = morphOf(optsWith({ plant: 'sleeptail' })), q = sweepSchedule(M, sw); sleepP.push(renderWith(M, q.wAt, q.N, { pulse: true }).jump); });
   const revs = [], revPlant = [];
   for (const set of SETS) { const M = morphOf(optsWith({ set: set.id })); for (const tr of reversalsOf(M)) for (const loop of ['a', 'b']) step(() => revs.push({ set: set.id, loop, tr, c: reversalClick(optsWith({ set: set.id, loop }), tr) })); }
-  for (const set of SETS) { const M = morphOf(optsWith({ set: set.id })); for (const tr of reversalsOf(M).filter(e => /FLT→DRV|DRV→FLT/.test(reversalOf(e.from, e.to)))) step(() => revPlant.push({ set: set.id, tr, c: reversalClick(optsWith({ set: set.id, plant: 'flipdelay' }), tr) })); }
+  for (const set of SETS) { const M = morphOf(optsWith({ set: set.id })); for (const tr of reversalsOf(M).filter(e => /FLT→DRV|DRV→FLT/.test(reversalOf(e.from, e.to)))) step(() => revPlant.push({ set: set.id, tr, c: reversalClick(optsWith({ set: set.id, plant: 'flipdelay', p: 2 }), tr) })); }   // v1 as shipped: the loop, and p = 2
+  /* warm-ups for claims 10 and 11 */
+  const wakeR = [], wakeP = [], inv = [], invP = [];
+  const echoWake = (o, sw) => {
+    const M = morphOf(o), f = sweepW(M, sw), C = new Cables(M, RSR, TICK), E = new Rack(RSR, TICK), y = new Float32Array(TICK);
+    let st = mapW(M, f(0)); C.settle(st); let err = 0, wakes = 0, where = '';
+    for (let s = 0, N = Math.round((SW_PRE + SW_MOVE + SW_POST) * RSR); s < N; s += TICK) {
+      st = mapW(M, f(clamp01((s / RSR - SW_PRE) / SW_MOVE))); C.step(st);
+      const was = E.asleep.DLY; E.block(C, y, 0, TICK);
+      if (was && !E.asleep.DLY) { wakes++; const q = E.inst.DLY.state(), e = 1000 * Math.abs(q.d - q.target); if (e > err) { err = e; where = `${o.set} ${sw.name}: ${(1000 * q.d).toFixed(1)} → ${(1000 * q.target).toFixed(1)} ms`; } }
+    }
+    return { err, wakes, where };
+  };
+  for (const set of ['round1', 'four']) for (const sw of SWEEPS) step(() => wakeR.push(echoWake(optsWith({ set }), sw)));
+  step(() => wakeP.push(echoWake(optsWith({ set: 'round1', plant: 'nosnap' }), SWEEPS.find(s => s.id === 'top'))));
+  let cycT = [];
+  step(() => { cycT = cyclicTransitions(3); });
+  const invOf = (o, tr) => { const N = Math.round(1.2 * RSR), ys = HOST_BLOCKS.map(B => renderHost(o, tr, B, N)); let d = 0; for (const r of ys.slice(1)) for (let i = 0; i < N; i++) d = Math.max(d, Math.abs(r.y[i] - ys[0].y[i])); return { d, cyc: ys[0].cyc }; };
+  for (let k = 0; k < 3; k++) step(() => { const c = cycT[k]; if (c) inv.push(invOf(optsWith({ set: c.set }), c.tr)); });
+  step(() => { const c = cycT[0]; if (c) invP.push(invOf(optsWith({ set: c.set, plant: 'hostblock' }), c.tr)); });
   const firstPlant = (extra, pred, sets) => { for (const set of sets || SETS.map(s => s.id)) for (const sw of SWEEPS) { const r = pred(sweepOf(Object.assign({ set }, extra), sw)); if (r) return `${set}, ${sw.name}: ${r}`; } return ''; };
 
   step(() => {
@@ -1996,10 +2118,30 @@ function selfCheckSteps() {
     add(`Every direction reversal (a node cable u → v becoming v → u) stays under ${REV_CEIL_DB} dB of click, measured as heard: 48 kHz, the saw chord, the puck slewed over the boundary, floored at what either steady chain makes held still`,
         ok ? { ok: true, detail: `${revs.length} reversal × strategy runs (4 sets, quantum); worst ${worst.c.db.toFixed(1)} dB (${worst.set} (${worst.loop}) ${worst.tr.sw}, ${reversalOf(worst.tr.from, worst.tr.to)}); Filter ↔ Drive worst ${fdw.toFixed(1)} dB` }
            : { ok: false, detail: worst ? `${worst.c.db.toFixed(1)} dB: ${worst.set} (${worst.loop}) ${worst.tr.sw}, ${reversalOf(worst.tr.from, worst.tr.to)}` : 'no reversals found' },
-        'round-3 v1: the reversed cable emerges at once on (a)\'s one-block backward part, a two-node Filter ↔ Drive loop (worst Filter ↔ Drive reversal over the four sets)',
+        'round-3 v1 as shipped: the reversed cable emerges at once on (a)\'s backward part, a two-node Filter ↔ Drive loop, at p = 2 (worst Filter ↔ Drive reversal over the four sets)',
         p && p.c.db > REV_CEIL_DB ? { ok: false, detail: `${p.c.db.toFixed(1)} dB on ${p.set} ${p.tr.sw} ${reversalOf(p.tr.from, p.tr.to)} (worst of ${revPlant.length} Filter ↔ Drive reversals)` } : { ok: true, detail: p ? `only ${p.c.db.toFixed(1)} dB — NOT caught` : 'no Filter ↔ Drive reversal to plant on' });
   });
-  return { rows, steps, claims: 9 };
+  step(() => {
+    // 10. no start-up sweeps
+    let worst = 0, wakes = 0, where = '', pw = 0, pwhere = '';
+    for (const r of wakeR) { wakes += r.wakes; if (r.err > worst) { worst = r.err; where = r.where; } }
+    for (const r of wakeP) if (r.err > pw) { pw = r.err; pwhere = r.where; }
+    add('No start-up sweeps: a woken or first-fed module starts AT its parameter targets — every ECHO wake on the sweep paths has its delay time on target from its first block',
+        worst <= 1e-9 && wakes > 0 ? { ok: true, detail: `${wakes} ECHO wakes over ${wakeR.length} rendered sweeps (round 1's pairs and the four presets): 0.0 ms off target` } : { ok: false, detail: wakes ? `${worst.toFixed(1)} ms off target (${where})` : 'no ECHO woke: nothing tested' },
+        'no snap on wake (round-3 v1): the delay time glides from wherever it last stopped',
+        pw > 1e-9 ? { ok: false, detail: `${pw.toFixed(1)} ms off target after its first block (${pwhere})` } : { ok: true, detail: 'on target — NOT caught' });
+  });
+  step(() => {
+    // 11. block-size invariance
+    let d = 0, n = 0, cyc = 0, pd = 0;
+    for (const r of inv) { n++; d = Math.max(d, r.d); cyc += r.cyc; }
+    for (const r of invP) pd = Math.max(pd, r.d);
+    add(`Block-size invariant (ADR-197 row 4): the same transition rendered in host buffers of ${HOST_BLOCKS.join(', ')} samples is bit-identical while a cycle is live — the control tick is a fixed 64 samples and a backward cable is one SAMPLE late`,
+        n && cyc && d === 0 ? { ok: true, detail: `${n} cyclic transitions × ${HOST_BLOCKS.length} buffer sizes, ${cyc} ticks with a live cycle: largest sample difference 0` } : { ok: false, detail: n ? `difference ${d.toExponential(2)} (${cyc} cycle ticks)` : 'no cyclic transition found' },
+        'a naive host-block driver: the cables step once per host buffer and a backward cable is one host buffer late',
+        pd > 1e-6 ? { ok: false, detail: `renders differ by up to ${pd.toFixed(3)} across buffer sizes` } : { ok: true, detail: 'identical — NOT caught' });
+  });
+  return { rows, steps, claims: 11 };
 }
 function runSelfCheck() { const c = selfCheckSteps(); for (const f of c.steps) f(); return c.rows; }
 const dbTxtM = v => v === -Infinity ? '−∞' : v.toFixed(2);
@@ -2020,7 +2162,7 @@ let o = optsWith({
   set: setById(qv('set', DEFAULTS.set)).id, mode: qv('mode', DEFAULTS.mode) === 'blend' ? 'blend' : 'quantum',
   method: qv('method', DEFAULTS.method) === 'walk' ? 'walk' : 'decode', snap: qb('snap', DEFAULTS.snap), sharpen: qb('sharpen', DEFAULTS.sharpen),
   jitter: qb('jitter', DEFAULTS.jitter), norm: qb('norm', DEFAULTS.norm), tails: qb('tails', DEFAULTS.tails), sleep: qb('sleep', DEFAULTS.sleep),
-  engine: qv('engine', DEFAULTS.engine) === 'r2' ? 'r2' : 'r3', loop: qv('loop', DEFAULTS.loop) === 'b' ? 'b' : 'a',
+  engine: qv('engine', DEFAULTS.engine) === 'r2' ? 'r2' : 'r3', looplim: qb('looplim', DEFAULTS.looplim), loop: qv('loop', DEFAULTS.loop) === 'b' ? 'b' : 'a',
   gamma: +qv('gamma', DEFAULTS.gamma), T: +qv('T', DEFAULTS.T), p: +qv('p', DEFAULTS.p), K: +qv('K', DEFAULTS.K), seed: +qv('seed', DEFAULTS.seed),
   glide: +qv('glide', DEFAULTS.glide), bound: +qv('bound', DEFAULTS.bound), sleepDb: +qv('sleepDb', DEFAULTS.sleepDb),
 });
@@ -2030,7 +2172,7 @@ let M = null, G = null, SWS = {}, CLK = [], CLK_N = 0, EDG = {}, CHECK = null, C
 let AC = null, SPN = null, AN = null, LR = null, LE = null, LM = null, scopeBuf = null, clipHold = 0, ax = PX, ay = PY, aKey = '', aSt = null, aStruct = '';
 let jobs = [], jobGen = 0, checkJobs = [], pend = 0, flowT = 0, frameN = 0, CHECK_STEP = 0, CHECK_STEPS = 0;
 const REDUCED = (() => { try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (_) { return false; } })();
-const OFF = { sharpen: false, jitter: false, snap: false, norm: false, sleep: false, tails: false };
+const OFF = { sharpen: false, jitter: false, snap: false, norm: false, sleep: false, tails: false, looplim: false };
 const ON = { sharpen: true, jitter: true, snap: true, norm: true, sleep: true, tails: true };
 const P_CHOICES = [[1, '1'], [4 / 3, '4/3'], [2, '2']];
 const pct = v => (100 * v).toFixed(1) + '%';
@@ -2044,6 +2186,7 @@ const TOGGLES = [
   { k: 'jitter', name: 'JITTER (T)', on: () => `seeded jitter at temperature ${o.T.toFixed(2)} spreads where cables switch over the pad (round 2).`, off: 'temperature 0: every switch on the mid-lines.' },
   { k: 'snap', name: 'SNAP TO V', on: () => `the target chain is pulled into V by the ${o.method === 'walk' ? 'WALK' : 'DECODE'} (round 2).`, off: 'the raw target, rules or no rules.' },
   { k: 'norm', name: 'NORMALISE', on: () => `each lane's source cables scaled by 1/‖(target, rest)‖_p at p = ${pLabel(o.p)}, capped at +3 dB (round 2's law, on cables).`, off: 'no lane normalisation: a reorder sags while old and new cables are both part-way.' },
+  { k: 'looplim', name: 'LOOP LIMITER', on: () => `a soft limiter (${LOOP_LIM}·tanh) on every backward cable${LR && LE && LE.limHits !== undefined ? ' — engaged on ' + LE.limHits + ' samples so far' : ''}. Measured: it changes the output by −36 dB and no click; off by default, since a clamp that shapes silently is what ADR-197 forbids.`, off: 'no limiter in the loop: the gain bound alone (a loop returns ≤ 0.5 of its energy per round trip).' },
   { k: 'tails', name: 'TAILS RING', on: () => 'a leaving ECHO, Scape or Sluice keeps its output cable while its tail rings, to its cap (D5).', off: 'a leaving node\'s output cable retreats with its input.' },
 ];
 
@@ -2140,7 +2283,7 @@ function renderControls() {
     `<span class="lbl">A/B</span><div class="pills" id="engPills">${pill('r3', 'ROUND 3 — STATIC NODES', !isR2())}${pill('r2', 'ROUND 2 — INSERT/REMOVE', isR2())}
       <span class="what" style="margin-left:6px">${isR2() ? 'round 2\'s router and engine, copied: modules are inserted, removed and dipped; an arriving module is rebuilt cold.' : 'every module resident and warm; only cables move.'}</span></div>` +
     `<span class="lbl">LOOPS</span><div class="pills" id="loopPills">${pill('a', '(a) LOOP BOUND', o.loop === 'a')}${pill('b', '(b) ORDERED FADES', o.loop === 'b')}
-      <span class="what" style="margin-left:6px">${o.loop === 'a' ? `a cycle-closing cable emerges at once on one block of delay; every live loop held to gain ≤ ${o.bound >= BOUND_OFF ? '∞ (bound OFF)' : o.bound.toFixed(2)}.` : 'a cycle-closing cable waits for the cable it would loop with to retreat; a bypass keeps each lane above −6 dB meanwhile.'}</span></div>` +
+      <span class="what" style="margin-left:6px">${o.loop === 'a' ? `a cycle-closing cable emerges at once on one sample of delay; every live loop held to gain ≤ ${o.bound >= BOUND_OFF ? '∞ (bound OFF)' : o.bound.toFixed(2)}.` : 'a cycle-closing cable waits for the cable it would loop with to retreat; a bypass keeps each lane above −6 dB meanwhile.'}</span></div>` +
     `<span class="lbl">MODE</span><div class="pills" id="modePills">${pill('quantum', 'QUANTUM', o.mode === 'quantum')}${pill('blend', 'BLEND', o.mode === 'blend')}
       <span class="what" style="margin-left:6px">${o.mode === 'blend' ? 'cables carry the chain\'s wet gains, continuously (a multiband Bulwark still flips, ADR-195).' : 'cables are 0 or 1; where they switch is round 2\'s seeded keyed thresholds.'}</span></div>` +
     TOGGLES.map(t => `<button class="pill${o[t.k] ? ' on' : ' act'}" data-tg="${t.k}">${t.name}<span class="st">${o[t.k] ? 'ON' : 'OFF'}</span></button>` +
@@ -2335,125 +2478,309 @@ function readPal() {
   for (const k of ['scr-tube', 'scr-value', 'scr-meter', 'scr-physics', 'scr-grid', 'scr-marker', 'caution', 'line', 'bg', 'alarm', 'dim', 'text'])
     PAL[k] = String(cs.getPropertyValue('--' + k)).trim();
 }
-/* THE CABLE VIEW (the human: "I can imagine some elegant graphical ways to show the
-   cables between them"). Nodes sit at FIXED places — a ring in house order, clockwise
-   from the top — with the lanes on the left and OUT on the right, so a morph never moves
-   a box: only cables grow, glow and fade. A cable bows to the left of its direction, so
-   u → v and v → u are two separate arcs. Thickness and brightness follow the weight; a
-   slow dotted flow runs along it in the signal's direction (stopped under
-   prefers-reduced-motion). A backward part (one block of delay) is dashed and marked
-   z⁻¹; the cables of a live loop are drawn in caution; a waiting cable is a dotted
-   caution ghost; Scape → Sluice is shown crossed out and Scape → Bulwark as E1-only.
-   An asleep node is dimmed and dashed. It draws the object the audio plays (L0064). */
 const RING = (() => {
   const p = {};
   TYPES.forEach((t, i) => { const a = -Math.PI / 2 + 2 * Math.PI * i / TYPES.length; p[t] = [0.5 + 0.28 * Math.cos(a), 0.5 + 0.37 * Math.sin(a)]; });
   p.BODY = [0.07, 0.3]; p.SUB = [0.07, 0.7]; p.OUT = [0.93, 0.5];
   return p;
 })();
+/* ---------- THE CABLE VIEW: six layouts over one cable state ----------
+   The human, on round 3's first view: "I would like to see several alternative layouts for
+   the cables view though; this one isn't quite landing." Every layout draws the SAME data
+   (cableData: the object the audio plays, L0064) and shows, each in its own way, the
+   weights, the direction, a backward part (one sample of delay), live loops, waiting cables,
+   sleep, and the rules' unavailable cables. None animates under prefers-reduced-motion
+   except by the cables' own change. The choice persists in localStorage. */
+const LAYOUTS = [
+  { id: 'ring', name: 'RING', aspect: '16/9', legend: 'nodes on a fixed ring in house order; a cable bows to the left of its direction, so u → v and v → u are two arcs; dots flow along it.' },
+  { id: 'rack', name: 'RACK', aspect: '2/1', legend: 'a signal-flow row: inputs left, OUT right, nodes in house order; cables that run left → right arc ABOVE the row, cables that run right → left arc BELOW it.' },
+  { id: 'matrix', name: 'MATRIX', aspect: '1/1', legend: 'a patchbay: rows are where a cable comes FROM, columns where it goes TO; a cell\'s fill is the weight; hatched cells are unavailable; amber outlines are live loops, dotted ones are waiting.' },
+  { id: 'flow', name: 'FLOW', aspect: '16/9', legend: 'each input lane\'s path to OUT, as a Sankey: ribbon width is how much of the lane runs along each cable; columns are signal depth.' },
+  { id: 'panel', name: 'PANEL', aspect: '16/9', legend: 'a Eurorack case: each module a panel with an IN and an OUT jack and a LED (lit = awake); patch cables sag between jacks, thick and opaque with weight.' },
+  { id: 'roll', name: 'ROLL', aspect: '16/9', legend: 'a cable roll: one row per cable that has been alive, time running left to right over the last few seconds; brightness is the weight — watch cables emerge and retreat.' },
+];
+const LAYOUT_KEY = 'hypersaw.fxmorph-r3.layout';
+let LAYOUT = (() => { try { const v = qv('layout', null) || (window.localStorage && window.localStorage.getItem(LAYOUT_KEY)); return LAYOUTS.some(l => l.id === v) ? v : 'ring'; } catch (_) { return 'ring'; } })();
+const ROLL_N = 240, ROLL = { cols: [], n: 0 };     // the roll's history: one column of weights per painted frame (page state)
+function setLayout(id) {
+  LAYOUT = id; try { window.localStorage && window.localStorage.setItem(LAYOUT_KEY, id); } catch (_) { /* private mode: the choice lasts the session */ }
+  renderLayoutCtl(); dirty = true;
+}
+function renderLayoutCtl() {
+  const L = LAYOUTS.find(l => l.id === LAYOUT);
+  $('layoutPills').innerHTML = LAYOUTS.map(l => `<button class="pill${l.id === LAYOUT ? ' on' : ' act'}" data-k="${l.id}">${l.name}</button>`).join('');
+  $('cableC').style.aspectRatio = L.aspect; $('cableC').style.maxWidth = L.id === 'matrix' ? '620px' : ''; $('cableC').style.margin = L.id === 'matrix' ? '0 auto' : '';
+  $('cableLegend').innerHTML = `<b>${L.name}</b>: ${L.legend} <span style="color:var(--caution-tx)">amber</span> = a live loop, a backward part (z⁻¹, one sample late) or a waiting cable; dim and dashed = asleep; ✕ = unavailable (Scape → Sluice); E1 = Scape → Bulwark only as the last module.`;
+}
+/* the state every layout draws */
+function cableData(vs) {
+  const r3 = vs.R instanceof Cables, wf = r3 ? vs.R.wf : r2Cables(vs.R), wb = r3 ? vs.R.wb : new Float64Array(NC);
+  const loopC = new Set(); if (r3) for (const cy of vs.R.cycles()) for (const i of cy) loopC.add(i);
+  const order = r3 ? vs.R.order : topoOrder(wf, wf), fed = {};
+  for (const t of TYPES) { fed[t] = false; for (const i of INTO[t]) if (wf[i] + wb[i] > 0.003) { fed[t] = true; break; } }
+  const asleep = t => vs.E && vs.E.asleep ? vs.E.asleep[t] : !fed[t];
+  const trans = {}; for (const L of LANES) trans[L] = transOf(order, wf, wb, L);
+  return { r3, wf, wb, held: r3 ? vs.R.held : null, loopC, asleep, order, trans, mb: r3 && (vs.R.prm.DYN.bands || 1) > 1, live: vs.live };
+}
+/* shared drawing helpers */
+function inkOf(D, i) { const c = CABLES[i]; return D.loopC.has(i) ? PAL.caution : c.u === 'BODY' ? PAL['scr-value'] : c.u === 'SUB' ? PAL['scr-marker'] : PAL['scr-physics']; }
+const wid = (w, dpr, s) => (0.8 + 4.2 * Math.min(1.5, w)) * dpr * (s || 1);
+function quad(g, q) { g.beginPath(); g.moveTo(q[0], q[1]); g.quadraticCurveTo(q[2], q[3], q[4], q[5]); g.stroke(); }
+const qAt = (q, t) => [(1 - t) * (1 - t) * q[0] + 2 * t * (1 - t) * q[2] + t * t * q[4], (1 - t) * (1 - t) * q[1] + 2 * t * (1 - t) * q[3] + t * t * q[5]];
+function arrowAt(g, q, a, ink, dpr) {
+  const p1 = qAt(q, 0.8), p2 = qAt(q, 0.84), ang = Math.atan2(p2[1] - p1[1], p2[0] - p1[0]), s = (3 + 3 * a) * dpr;
+  g.fillStyle = ink; g.globalAlpha = 0.35 + 0.65 * a; g.beginPath();
+  g.moveTo(p2[0] + Math.cos(ang) * s, p2[1] + Math.sin(ang) * s); g.lineTo(p2[0] + Math.cos(ang + 2.5) * s, p2[1] + Math.sin(ang + 2.5) * s); g.lineTo(p2[0] + Math.cos(ang - 2.5) * s, p2[1] + Math.sin(ang - 2.5) * s); g.fill();
+}
+/* one cable along a quadratic: forward part solid, backward part dashed amber with z⁻¹, the flow dots, an arrowhead */
+function drawCable(g, D, i, q, dpr, s, flow) {
+  const w = D.wf[i] + D.wb[i]; if (w < 0.003) return;
+  const ink = inkOf(D, i), a = Math.min(1, w);
+  if (D.wf[i] >= 0.003) { g.strokeStyle = ink; g.globalAlpha = 0.18 + 0.72 * Math.min(1, D.wf[i]); g.lineWidth = wid(D.wf[i], dpr, s); quad(g, q); }
+  if (D.wb[i] >= 0.003) {
+    g.setLineDash([6 * dpr, 4 * dpr]); g.strokeStyle = PAL.caution; g.globalAlpha = 0.25 + 0.75 * Math.min(1, D.wb[i]); g.lineWidth = wid(D.wb[i], dpr, s); quad(g, q); g.setLineDash([]);
+    const m = qAt(q, 0.5); g.globalAlpha = 1; g.fillStyle = PAL.caution; g.fillText('z⁻¹', m[0], m[1] - 7 * dpr);
+  }
+  if (flow) {
+    g.setLineDash([1.2 * dpr, 10 * dpr]); g.lineDashOffset = REDUCED ? 0 : -(flowT * 0.35 * dpr) % (11.2 * dpr);
+    g.strokeStyle = PAL['scr-meter']; g.globalAlpha = 0.25 + 0.6 * a; g.lineWidth = Math.max(1.2 * dpr, 0.45 * wid(w, dpr, s)); quad(g, q);
+    g.setLineDash([]); g.lineDashOffset = 0;
+  }
+  arrowAt(g, q, a, ink, dpr); g.globalAlpha = 1;
+}
+function drawWaiting(g, D, i, q, dpr) {
+  if (!D.held || !D.held[i]) return;
+  const m = qAt(q, 0.5);
+  g.setLineDash([1.5 * dpr, 3 * dpr]); g.strokeStyle = PAL.caution; g.globalAlpha = 0.8; g.lineWidth = 1.5 * dpr; quad(g, q); g.setLineDash([]);
+  g.fillStyle = PAL.caution; g.fillText('waits (' + D.held[i] + ')', m[0], m[1] - 8 * dpr); g.globalAlpha = 1;
+}
+function drawRules(g, geo, dpr) {
+  for (const k of ['REV>NET', 'REV>DYN']) {
+    const q = geo(CIX[k]); if (!q) continue; const m = qAt(q, 0.5);
+    g.setLineDash([2 * dpr, 5 * dpr]); g.strokeStyle = BANNED[k] ? PAL.caution : PAL.dim; g.globalAlpha = 0.55; g.lineWidth = dpr; quad(g, q); g.setLineDash([]);
+    g.globalAlpha = 0.9; g.fillStyle = BANNED[k] ? PAL.caution : PAL.dim; g.fillText(BANNED[k] ? '✕ R3' : 'E1 only', m[0], m[1]); g.globalAlpha = 1;
+  }
+}
+function drawNodeBox(g, D, t, x, y, bw, bh, dpr, fs) {
+  const asleep = D.asleep(t);
+  g.fillStyle = PAL['scr-tube']; g.fillRect(x - bw / 2, y - bh / 2, bw, bh);
+  g.strokeStyle = asleep ? PAL.dim : PAL['scr-physics']; g.globalAlpha = asleep ? 0.6 : 1; g.lineWidth = (asleep ? 1 : 2) * dpr;
+  if (asleep) g.setLineDash([3 * dpr, 3 * dpr]);
+  g.strokeRect(x - bw / 2, y - bh / 2, bw, bh); g.setLineDash([]);
+  g.fillStyle = asleep ? PAL.dim : PAL['scr-physics']; g.font = `bold ${fs * dpr}px ui-monospace,Menlo,monospace`;
+  g.fillText((bw > 50 * dpr ? NAME[t].split(' ')[0] : SHORT[t]) + (t === 'DYN' && D.mb ? ' ‖2' : ''), x, y - 0.3 * fs * dpr);
+  g.font = `${(fs - 2) * dpr}px ui-monospace,Menlo,monospace`; g.fillText((asleep ? 'asleep' : 'awake') + ' · ' + COST[t] + 'pt', x, y + 0.7 * fs * dpr);
+  g.globalAlpha = 1;
+}
+const fsFor = (W, dpr) => Math.max(7, Math.min(10, W / dpr / 70));
+/* RING — round 3's first view */
+function paintRing(g, D, W, H, dpr) {
+  const P = k => [RING[k][0] * W, RING[k][1] * H], fs = fsFor(W, dpr);
+  const geo = i => { const cc = CABLES[i], [x0, y0] = P(cc.u), [x1, y1] = P(cc.v), dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy) || 1, bow = 0.14 * L; return [x0, y0, (x0 + x1) / 2 + dy / L * bow, (y0 + y1) / 2 - dx / L * bow, x1, y1]; };
+  g.font = `${(fs - 1) * dpr}px ui-monospace,Menlo,monospace`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  drawRules(g, geo, dpr);
+  for (let i = 0; i < NC; i++) drawWaiting(g, D, i, geo(i), dpr);
+  for (let i = 0; i < NC; i++) drawCable(g, D, i, geo(i), dpr, 1, true);
+  const bw = Math.min(62, W / dpr / 9) * dpr, bh = 2.6 * fs * dpr;
+  for (const t of TYPES) { const [x, y] = P(t); drawNodeBox(g, D, t, x, y, bw, bh, dpr, fs); }
+  g.font = `bold ${fs * dpr}px ui-monospace,Menlo,monospace`;
+  for (const [k, ink] of [['BODY', PAL['scr-value']], ['SUB', PAL['scr-marker']], ['OUT', PAL['scr-meter']]]) { const [x, y] = P(k); g.fillStyle = ink; g.fillText(NAME[k], x, y); }
+}
+/* RACK — a signal-flow row; left → right above, right → left below */
+function paintRack(g, D, W, H, dpr) {
+  const fs = fsFor(W, dpr), cols = ['IN'].concat(TYPES, ['OUT']), dx = W / (cols.length + 0.2), mid = H * 0.5;
+  const X = k => isLane(k) ? dx * 0.6 : k === 'OUT' ? dx * (cols.length - 0.4) : dx * (1.6 + HOUSE[k]);
+  const Y = k => k === 'BODY' ? mid - 0.09 * H : k === 'SUB' ? mid + 0.09 * H : mid;
+  const geo = i => { const c = CABLES[i], x0 = X(c.u), x1 = X(c.v), y0 = Y(c.u), y1 = Y(c.v), up = x1 > x0, span = Math.abs(x1 - x0) / W;
+    return [x0, y0, (x0 + x1) / 2, (up ? mid - 0.08 * H - 0.75 * H * span : mid + 0.08 * H + 0.75 * H * span), x1, y1]; };
+  g.font = `${(fs - 1) * dpr}px ui-monospace,Menlo,monospace`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.strokeStyle = PAL['scr-grid']; g.globalAlpha = 0.35; g.lineWidth = dpr; g.beginPath(); g.moveTo(dx * 0.3, mid); g.lineTo(W - dx * 0.2, mid); g.stroke(); g.globalAlpha = 1;
+  drawRules(g, geo, dpr);
+  for (let i = 0; i < NC; i++) drawWaiting(g, D, i, geo(i), dpr);
+  for (let i = 0; i < NC; i++) drawCable(g, D, i, geo(i), dpr, 0.8, true);
+  const bw = dx * 0.86, bh = 2.6 * fs * dpr;
+  for (const t of TYPES) drawNodeBox(g, D, t, X(t), mid, bw, bh, dpr, fs);
+  g.font = `bold ${fs * dpr}px ui-monospace,Menlo,monospace`;
+  for (const [k, ink] of [['BODY', PAL['scr-value']], ['SUB', PAL['scr-marker']], ['OUT', PAL['scr-meter']]]) { g.fillStyle = ink; g.fillText(SHORT[k], X(k), Y(k)); }
+  g.fillStyle = PAL.dim; g.font = `${(fs - 1) * dpr}px ui-monospace,Menlo,monospace`;
+  g.fillText('left → right', W / 2, 0.05 * H); g.fillText('right → left', W / 2, 0.95 * H);
+}
+/* MATRIX — a patchbay grid, FROM rows × TO columns */
+function paintMatrix(g, D, W, H, dpr) {
+  const fs = fsFor(W, dpr), rows = SRC, cols = DST, m0 = 4.2 * fs * dpr, cw = (W - m0 - 4 * dpr) / cols.length, ch = (H - m0 - 4 * dpr) / rows.length;
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `bold ${(fs - 1) * dpr}px ui-monospace,Menlo,monospace`;
+  cols.forEach((v, j) => { g.fillStyle = v === 'OUT' ? PAL['scr-meter'] : D.asleep(v) ? PAL.dim : PAL['scr-physics']; g.fillText(SHORT[v], m0 + (j + 0.5) * cw, m0 * 0.55); });
+  rows.forEach((u, r) => { g.fillStyle = isLane(u) ? (u === 'BODY' ? PAL['scr-value'] : PAL['scr-marker']) : D.asleep(u) ? PAL.dim : PAL['scr-physics']; g.fillText(SHORT[u], m0 * 0.5, m0 + (r + 0.5) * ch); });
+  g.fillStyle = PAL.dim; g.font = `${(fs - 2) * dpr}px ui-monospace,Menlo,monospace`; g.fillText('from ↓ · to →', m0 * 0.5, m0 * 0.5);
+  rows.forEach((u, r) => cols.forEach((v, j) => {
+    const x = m0 + j * cw, y = m0 + r * ch, k = u + '>' + v, i = CIX[k];
+    g.strokeStyle = PAL['scr-grid']; g.globalAlpha = 0.35; g.lineWidth = dpr; g.strokeRect(x + 1, y + 1, cw - 2, ch - 2); g.globalAlpha = 1;
+    if (i === undefined) { g.fillStyle = PAL['scr-grid']; g.globalAlpha = 0.15; g.fillRect(x + 1, y + 1, cw - 2, ch - 2); g.globalAlpha = 1; return; }   // u → u: no such cable
+    if (BANNED[k] || k === 'REV>DYN') {   // hatched: unavailable (✕) or conditional (E1)
+      g.save(); g.beginPath(); g.rect(x + 1, y + 1, cw - 2, ch - 2); g.clip(); g.strokeStyle = BANNED[k] ? PAL.caution : PAL.dim; g.globalAlpha = 0.5; g.lineWidth = dpr;
+      for (let d = -ch; d < cw; d += 5 * dpr) { g.beginPath(); g.moveTo(x + d, y + ch); g.lineTo(x + d + ch, y); g.stroke(); } g.restore();
+    }
+    const wf = D.wf[i], wb = D.wb[i];
+    if (wf + wb > 0.003) {
+      g.fillStyle = inkOf(D, i); g.globalAlpha = 0.15 + 0.85 * Math.min(1, wf); g.fillRect(x + 2, y + 2, cw - 4, ch - 4);
+      if (wb > 0.003) { g.fillStyle = PAL.caution; g.globalAlpha = 0.25 + 0.75 * Math.min(1, wb); g.fillRect(x + 2, y + ch * 0.62, cw - 4, ch * 0.36); }
+      g.globalAlpha = 1; g.fillStyle = Math.min(1, wf + wb) > 0.55 ? PAL['scr-tube'] : PAL['scr-physics']; g.font = `${(fs - 2) * dpr}px ui-monospace,Menlo,monospace`;
+      g.fillText((wf + wb).toFixed(2), x + cw / 2, y + ch / 2);
+    }
+    if (D.loopC.has(i)) { g.strokeStyle = PAL.caution; g.lineWidth = 2.5 * dpr; g.strokeRect(x + 2, y + 2, cw - 4, ch - 4); }
+    if (D.held && D.held[i]) { g.setLineDash([2 * dpr, 2 * dpr]); g.strokeStyle = PAL.caution; g.lineWidth = 1.5 * dpr; g.strokeRect(x + 3, y + 3, cw - 6, ch - 6); g.setLineDash([]); }
+  }));
+}
+/* FLOW — a Sankey of each lane: columns are signal depth (longest live path from a lane),
+   a ribbon's width is the lane's transmission along that cable (t_L(u) × weight) */
+function paintFlow(g, D, W, H, dpr) {
+  const fs = fsFor(W, dpr), depth = {}, alive = c => D.wf[c] + D.wb[c] > 0.003;
+  for (const L of LANES) depth[L] = 0;
+  for (const t of D.order) { let d = 0; for (const i of INTO[t]) if (alive(i) && D.wf[i] > 0.003) d = Math.max(d, (depth[CABLES[i].u] || 0) + 1); depth[t] = d; }
+  const used = TYPES.filter(t => LANES.some(L => D.trans[L][t] > 1e-3)), maxD = Math.max(1, ...used.map(t => depth[t]));
+  depth.OUT = maxD + 1;
+  const colX = d => W * (0.07 + 0.86 * d / (maxD + 1)), byCol = {};
+  for (const k of LANES.concat(used, ['OUT'])) (byCol[depth[k]] = byCol[depth[k]] || []).push(k);
+  const Y = {}, scale = Math.min(0.1 * H, 22 * dpr);   // a transmission of 1 is this thick
+  for (const d in byCol) { const ks = byCol[d].sort((a, b) => (HOUSE[a] ?? -1) - (HOUSE[b] ?? -1)); ks.forEach((k, j) => { Y[k] = H * 0.08 + 0.8 * H * (j + 1) / (ks.length + 1); }); }
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  /* the ribbons: one per (lane, live cable), its flow f = what of the lane runs along it.
+     A pre-pass totals each node's outgoing and incoming flow, so each stack is centred. */
+  const rib = [], tot = {};
+  for (const k in Y) tot[k] = { in: 0, out: 0 };
+  for (const L of LANES) for (let i = 0; i < NC; i++) {
+    const c = CABLES[i]; if (!alive(i) || Y[c.u] === undefined || Y[c.v] === undefined) continue;
+    const f = (isLane(c.u) ? (c.u === L ? 1 : 0) : D.trans[L][c.u] || 0) * (D.wf[i] + D.wb[i]); if (f < 2e-3) continue;
+    const th = Math.max(dpr, f * scale); rib.push({ L, i, c, th }); tot[c.u].out += th; tot[c.v].in += th;
+  }
+  const off = {}; for (const k in Y) off[k] = { in: -tot[k].in / 2, out: -tot[k].out / 2 };
+  for (const r of rib) {
+    const { L, i, c, th } = r, x0 = colX(depth[c.u]) + 0.035 * W, x1 = colX(depth[c.v]) - 0.035 * W;
+    const y0 = Y[c.u] + off[c.u].out + th / 2, y1 = Y[c.v] + off[c.v].in + th / 2; off[c.u].out += th; off[c.v].in += th;
+    const back = x1 <= x0 || D.wb[i] > D.wf[i];
+    g.strokeStyle = D.loopC.has(i) || back ? PAL.caution : L === 'BODY' ? PAL['scr-value'] : PAL['scr-marker'];
+    g.globalAlpha = 0.5; g.lineWidth = th;
+    if (back) g.setLineDash([6 * dpr, 4 * dpr]);
+    g.beginPath(); g.moveTo(x0, y0); g.bezierCurveTo((x0 + x1) / 2, y0, (x0 + x1) / 2, y1, x1, y1); g.stroke(); g.setLineDash([]);
+  }
+  g.globalAlpha = 1;
+  // nodes (only those a lane reaches), lanes, OUT; asleep ones dashed
+  const bw = Math.min(56, W / dpr / 10) * dpr, bh = 2.4 * fs * dpr;
+  for (const t of used) drawNodeBox(g, D, t, colX(depth[t]), Y[t], bw, bh, dpr, fs);
+  g.font = `bold ${fs * dpr}px ui-monospace,Menlo,monospace`;
+  for (const [k, ink] of [['BODY', PAL['scr-value']], ['SUB', PAL['scr-marker']], ['OUT', PAL['scr-meter']]]) { g.fillStyle = ink; g.fillText(NAME[k], colX(depth[k]), Y[k]); }
+  // what the flow view cannot draw as a ribbon: waits and the rules, as notes along the foot
+  const notes = [];
+  if (D.held) D.held.forEach((h, i) => { if (h) notes.push('waiting ' + CABLES[i].k.replace('>', '→') + ' (' + h + ')'); });
+  if (D.loopC.size) notes.push('live loop: ' + [...D.loopC].map(i => CABLES[i].k.replace('>', '→')).join(' '));
+  notes.push('✕ Sc→Sl unavailable · Sc→Bw E1 only');
+  g.fillStyle = notes.length > 1 ? PAL.caution : PAL.dim; g.font = `${(fs - 1) * dpr}px ui-monospace,Menlo,monospace`; g.textAlign = 'left';
+  g.fillText(notes.join(' · '), 0.02 * W, 0.96 * H);
+}
+/* PANEL — a Eurorack case: panels with jacks, patch cables sagging under gravity */
+function paintPanel(g, D, W, H, dpr) {
+  const fs = fsFor(W, dpr), mods = ['IN'].concat(TYPES, ['OUT']), pw = W / mods.length, top = 0.1 * H, ph = 0.62 * H;
+  const px = j => j * pw + pw / 2;
+  const jack = (k, dir) => {   // dir 'out' (upper jack) or 'in' (lower jack)
+    if (k === 'BODY') return [px(0), top + ph * 0.3]; if (k === 'SUB') return [px(0), top + ph * 0.62]; if (k === 'OUT') return [px(mods.length - 1), top + ph * 0.62];
+    const j = 1 + HOUSE[k]; return [px(j), top + ph * (dir === 'out' ? 0.3 : 0.75)];
+  };
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  mods.forEach((m, j) => {
+    const x = j * pw + 2 * dpr, asleep = TYPES.includes(m) && D.asleep(m);
+    g.fillStyle = PAL['scr-tube']; g.fillRect(x, top, pw - 4 * dpr, ph);
+    g.strokeStyle = asleep ? PAL.dim : PAL['scr-grid']; g.globalAlpha = asleep ? 0.5 : 0.9; g.lineWidth = dpr; if (asleep) g.setLineDash([3 * dpr, 3 * dpr]); g.strokeRect(x, top, pw - 4 * dpr, ph); g.setLineDash([]); g.globalAlpha = 1;
+    g.font = `bold ${fs * dpr}px ui-monospace,Menlo,monospace`; g.fillStyle = TYPES.includes(m) ? (asleep ? PAL.dim : PAL['scr-physics']) : PAL['scr-meter'];
+    g.fillText(TYPES.includes(m) ? SHORT[m] + (m === 'DYN' && D.mb ? '‖2' : '') : m, px(j), top + 0.08 * ph);
+    if (TYPES.includes(m)) {   // the LED: lit = awake
+      g.fillStyle = asleep ? PAL.dim : PAL['scr-meter']; g.globalAlpha = asleep ? 0.4 : 1; g.beginPath(); g.arc(px(j), top + 0.17 * ph, 2.5 * dpr, 0, 7); g.fill(); g.globalAlpha = 1;
+      g.font = `${(fs - 2) * dpr}px ui-monospace,Menlo,monospace`; g.fillStyle = PAL.dim; g.fillText('OUT', px(j), top + 0.39 * ph); g.fillText('IN', px(j), top + 0.85 * ph); g.fillText(COST[m] + 'pt', px(j), top + 0.95 * ph);
+    }
+  });
+  // jacks
+  const jacks = [['BODY', 'out'], ['SUB', 'out'], ['OUT', 'in']].concat(TYPES.flatMap(t => [[t, 'out'], [t, 'in']]));
+  for (const [k, d] of jacks) { const [x, y] = jack(k, d); g.fillStyle = PAL.bg; g.strokeStyle = PAL['scr-grid']; g.lineWidth = 1.5 * dpr; g.beginPath(); g.arc(x, y, 4 * dpr, 0, 7); g.fill(); g.stroke(); }
+  // the rules, as notes under the case (cables there would hang through every panel)
+  g.font = `${(fs - 1) * dpr}px ui-monospace,Menlo,monospace`; g.fillStyle = PAL.caution; g.fillText('✕ Scape OUT → Sluice IN is unavailable · Scape → Bulwark only as E1 (Bulwark last)', W / 2, 0.97 * H);
+  // patch cables: sag grows with the span
+  const geo = i => { const c = CABLES[i], [x0, y0] = jack(c.u, 'out'), [x1, y1] = jack(c.v, 'in'), span = Math.hypot(x1 - x0, y1 - y0);
+    return [x0, y0, (x0 + x1) / 2, Math.max(y0, y1) + 0.35 * span, x1, y1]; };
+  for (let i = 0; i < NC; i++) drawWaiting(g, D, i, geo(i), dpr);
+  for (let i = 0; i < NC; i++) drawCable(g, D, i, geo(i), dpr, 0.9, false);
+}
+/* ROLL — the cable roll: rows = cables alive in the window, time left → right */
+function rollPush(D) {
+  if (REDUCED && ROLL.cols.length && !dirty) return;          // reduced motion: the roll moves only when the state does
+  const col = new Float32Array(NC * 2); for (let i = 0; i < NC; i++) { col[2 * i] = D.wf[i]; col[2 * i + 1] = D.wb[i]; }
+  const flags = { loop: new Set(D.loopC), held: D.held ? D.held.slice() : null, asleep: TYPES.filter(t => D.asleep(t)) };
+  ROLL.cols.push({ col, flags }); if (ROLL.cols.length > ROLL_N) ROLL.cols.shift();
+}
+function paintRoll(g, D, W, H, dpr) {
+  const fs = fsFor(W, dpr), rows = [];
+  for (let i = 0; i < NC; i++) if (ROLL.cols.some(c => c.col[2 * i] + c.col[2 * i + 1] > 0.003 || (c.flags.held && c.flags.held[i]))) rows.push(i);
+  const m0 = 7 * fs * dpr, rh = Math.min(16 * dpr, (H - 2.2 * fs * dpr) / Math.max(1, rows.length)), cw = (W - m0) / ROLL_N, x0 = W - ROLL.cols.length * cw;
+  g.textAlign = 'right'; g.textBaseline = 'middle'; g.font = `${(fs - 1) * dpr}px ui-monospace,Menlo,monospace`;
+  rows.forEach((i, r) => {
+    const y = r * rh, c = CABLES[i], sleepy = !isLane(c.u) && D.asleep(c.u);
+    g.fillStyle = BANNED[c.k] ? PAL.caution : sleepy ? PAL.dim : inkOf(D, i);
+    g.fillText(SHORT[c.u] + '→' + SHORT[c.v] + (c.k === 'REV>DYN' ? ' E1' : ''), m0 - 4 * dpr, y + rh / 2);
+    ROLL.cols.forEach((k, j) => {
+      const wf = k.col[2 * i], wb = k.col[2 * i + 1], x = x0 + j * cw;
+      if (wf > 0.003) { g.fillStyle = k.flags.loop.has(i) ? PAL.caution : inkOf(D, i); g.globalAlpha = 0.12 + 0.88 * Math.min(1, wf); g.fillRect(x, y + 1, cw + 0.6, rh - 2); }
+      if (wb > 0.003) { g.fillStyle = PAL.caution; g.globalAlpha = 0.2 + 0.8 * Math.min(1, wb); g.fillRect(x, y + rh * 0.55, cw + 0.6, rh * 0.4); }
+      if (k.flags.held && k.flags.held[i]) { g.fillStyle = PAL.caution; g.globalAlpha = 0.9; g.fillRect(x, y + rh / 2 - 0.5 * dpr, cw + 0.6, dpr); }
+    });
+    g.globalAlpha = 1;
+  });
+  g.textAlign = 'left'; g.fillStyle = PAL.dim;
+  g.fillText(`now → (right edge) · ${ROLL_N} frames · asleep now: ${TYPES.filter(t => D.asleep(t)).map(t => SHORT[t]).join(' ') || 'none'} · ✕ Sc→Sl never appears`, 2 * dpr, H - fs * dpr);
+}
 function paintCables(vs) {
   const c = $('cableC'), dpr = fit(c), g = c.getContext('2d'), W = c.width, H = c.height;
   g.clearRect(0, 0, W, H);
-  const r3 = vs.R instanceof Cables, wf = r3 ? vs.R.wf : r2Cables(vs.R), wb = r3 ? vs.R.wb : new Float64Array(NC);
-  const loopC = new Set(); if (r3) for (const cy of vs.R.cycles()) for (const i of cy) loopC.add(i);
-  const P = k => [RING[k][0] * W, RING[k][1] * H];
-  const geo = i => {
-    const cc = CABLES[i], [x0, y0] = P(cc.u), [x1, y1] = P(cc.v), dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy) || 1, bow = 0.14 * L;
-    return [x0, y0, (x0 + x1) / 2 + dy / L * bow, (y0 + y1) / 2 - dx / L * bow, x1, y1];
-  };
-  const at = (q, t) => [(1 - t) * (1 - t) * q[0] + 2 * t * (1 - t) * q[2] + t * t * q[4], (1 - t) * (1 - t) * q[1] + 2 * t * (1 - t) * q[3] + t * t * q[5]];
-  const stroke = q => { g.beginPath(); g.moveTo(q[0], q[1]); g.quadraticCurveTo(q[2], q[3], q[4], q[5]); g.stroke(); };
-  g.font = `${9 * dpr}px ui-monospace,Menlo,monospace`; g.textAlign = 'center'; g.textBaseline = 'middle';
-  // the rules, always visible
-  for (const k of ['REV>NET', 'REV>DYN']) {
-    const q = geo(CIX[k]), m = at(q, 0.5);
-    g.setLineDash([2 * dpr, 5 * dpr]); g.strokeStyle = BANNED[k] ? PAL.caution : PAL.dim; g.globalAlpha = 0.55; g.lineWidth = dpr; stroke(q); g.setLineDash([]);
-    g.globalAlpha = 0.9; g.fillStyle = BANNED[k] ? PAL.caution : PAL.dim; g.fillText(BANNED[k] ? '✕ R3' : 'E1 only', m[0], m[1]);
-  }
-  // waiting cables
-  if (r3) for (let i = 0; i < NC; i++) if (vs.R.held[i]) {
-    const q = geo(i), m = at(q, 0.5);
-    g.setLineDash([1.5 * dpr, 3 * dpr]); g.strokeStyle = PAL.caution; g.globalAlpha = 0.8; g.lineWidth = 1.5 * dpr; stroke(q); g.setLineDash([]);
-    g.fillStyle = PAL.caution; g.fillText('waits (' + vs.R.held[i] + ')', m[0], m[1] - 8 * dpr);
-  }
-  // live cables
-  for (let i = 0; i < NC; i++) {
-    const w = wf[i] + wb[i]; if (w < 0.003) continue;
-    const cc = CABLES[i], q = geo(i), loop = loopC.has(i), a = Math.min(1, w);
-    const ink = loop ? PAL.caution : cc.u === 'BODY' ? PAL['scr-value'] : cc.u === 'SUB' ? PAL['scr-marker'] : PAL['scr-physics'];
-    if (wf[i] >= 0.003) { g.strokeStyle = ink; g.globalAlpha = 0.18 + 0.72 * Math.min(1, wf[i]); g.lineWidth = (0.8 + 4.2 * Math.min(1.5, wf[i])) * dpr; stroke(q); }
-    if (wb[i] >= 0.003) {
-      g.setLineDash([6 * dpr, 4 * dpr]); g.strokeStyle = PAL.caution; g.globalAlpha = 0.25 + 0.75 * Math.min(1, wb[i]); g.lineWidth = (0.8 + 4.2 * Math.min(1.5, wb[i])) * dpr; stroke(q); g.setLineDash([]);
-      const m = at(q, 0.5); g.globalAlpha = 1; g.fillStyle = PAL.caution; g.fillText('z⁻¹', m[0], m[1] - 7 * dpr);
-    }
-    // the flow: dots travelling u → v (a static dotting under reduced motion)
-    g.setLineDash([1.2 * dpr, 10 * dpr]); g.lineDashOffset = REDUCED ? 0 : -(flowT * 0.35 * dpr) % (11.2 * dpr);
-    g.strokeStyle = PAL['scr-meter']; g.globalAlpha = 0.25 + 0.6 * a; g.lineWidth = Math.max(1.2 * dpr, 0.45 * (0.8 + 4.2 * Math.min(1.5, w)) * dpr); stroke(q);
-    g.setLineDash([]); g.lineDashOffset = 0;
-    // an arrowhead near the destination
-    const p1 = at(q, 0.8), p2 = at(q, 0.84), ang = Math.atan2(p2[1] - p1[1], p2[0] - p1[0]), s = (3 + 3 * a) * dpr;
-    g.fillStyle = ink; g.globalAlpha = 0.35 + 0.65 * a; g.beginPath();
-    g.moveTo(p2[0] + Math.cos(ang) * s, p2[1] + Math.sin(ang) * s); g.lineTo(p2[0] + Math.cos(ang + 2.5) * s, p2[1] + Math.sin(ang + 2.5) * s); g.lineTo(p2[0] + Math.cos(ang - 2.5) * s, p2[1] + Math.sin(ang - 2.5) * s); g.fill();
-  }
-  g.globalAlpha = 1;
-  // nodes
-  const bw = 62 * dpr, bh = 26 * dpr, prm = r3 ? vs.R.prm : null;
-  for (const t of TYPES) {
-    const [x, y] = P(t);
-    let fed = false; for (const i of INTO[t]) if (wf[i] + wb[i] > 0.003) { fed = true; break; }
-    const asleep = vs.E && vs.E.asleep ? vs.E.asleep[t] : !fed;
-    g.fillStyle = PAL['scr-tube']; g.fillRect(x - bw / 2, y - bh / 2, bw, bh);
-    g.strokeStyle = asleep ? PAL.dim : PAL['scr-physics']; g.globalAlpha = asleep ? 0.6 : 1; g.lineWidth = (asleep ? 1 : 2) * dpr;
-    if (asleep) g.setLineDash([3 * dpr, 3 * dpr]);
-    g.strokeRect(x - bw / 2, y - bh / 2, bw, bh); g.setLineDash([]);
-    g.fillStyle = asleep ? PAL.dim : PAL['scr-physics']; g.font = `bold ${10 * dpr}px ui-monospace,Menlo,monospace`;
-    g.fillText(NAME[t].split(' ')[0] + (t === 'DYN' && prm && (prm.DYN.bands || 1) > 1 ? ' ‖2' : ''), x, y - 3 * dpr);
-    g.font = `${8 * dpr}px ui-monospace,Menlo,monospace`; g.fillText((asleep ? 'asleep' : 'awake') + ' · ' + COST[t] + ' pt', x, y + 7 * dpr);
-    g.globalAlpha = 1;
-  }
-  g.font = `bold ${10 * dpr}px ui-monospace,Menlo,monospace`;
-  for (const [k, ink] of [['BODY', PAL['scr-value']], ['SUB', PAL['scr-marker']], ['OUT', PAL['scr-meter']]]) { const [x, y] = P(k); g.fillStyle = ink; g.fillText(NAME[k], x, y); }
+  const D = cableData(vs);
+  if (LAYOUT === 'roll' || ROLL.cols.length) rollPush(D);
+  ({ ring: paintRing, rack: paintRack, matrix: paintMatrix, flow: paintFlow, panel: paintPanel, roll: paintRoll }[LAYOUT] || paintRing)(g, D, W, H, dpr);
+  g.globalAlpha = 1; g.setLineDash([]);
 }
 function paintAt() { VS = viewState(); paintPad(); paintCables(VS); renderLive(VS); }
 function renderRec() {
   $('rec').innerHTML = `
   <p><b>How to listen.</b> Press <b>POWER</b> (a saw chord on Body, a sine an octave down on Sub; <b>PULSE</b> gates the chord so tails and sleep are audible;
-    <b>SINE PROBE</b> swaps the lanes for sines, where a click has nothing to hide behind). Drag the puck, or press <b>SWEEP</b> to drive it round a path. Then flip
-    <b>A/B</b> to <b>ROUND 2 — INSERT/REMOVE</b> and back: the same pad, the same map, round 2's router and engine. Flip <b>LOOPS</b> between (a) and (b) on a reorder.
-    The cable panel shows what you hear: boxes never move; cables grow, glow and fade; a dashed amber cable marked z⁻¹ is a backward cable on one block of delay; an
-    amber cable is part of a live loop; a dotted amber ghost is a cable waiting. The live meter there runs the click metric on the output.</p>
-  <p><b>What the build found</b> (each is a table or a self-check row, not a claim from the brief):</p>
+    <b>SINE PROBE</b> swaps the lanes for sines, where a click has nothing to hide behind). Drag the puck, or press <b>SWEEP</b>. Flip <b>A/B</b> to round 2 and back,
+    and <b>LOOPS</b> between (a) and (b) on a reorder. Pick a <b>LAYOUT</b> for the cables (RING, RACK, MATRIX, FLOW, PANEL, ROLL; it is remembered). The output line
+    shows sample PEAK and TRUE PEAK, held 2 s; nothing limits it.</p>
+  <p><b>Round 3 follow-up (after the human's listening pass on #980)</b> — each is a self-check row or a measured figure:</p>
   <ol class="q">
-    <li><b>Static nodes remove round 2's clicks.</b> On the four presets' 26 transitions the worst click is <b>6.0 dB</b> for (a) and (b) against 33.2 dB for round 2,
-      and 14 of round 2's transitions pass 3 dB. Over all four corner sets and both modes (208 transitions, measured headless at build time) round 3's worst is 6.0 dB
-      and round 2's 33–43 dB. Round 2's peaks sit at 0 or 80 ms after a change: a module rebuilt cold, and junction renames that ramp in one block.</li>
-    <li><b>A band-count flip needs Bulwark's own crossfade.</b> The first build switched the stand-in's band count in one sample and the bait set's Bulwark flip read
-      33 dB in round 3 too; with ADR-195's 20 ms internal switch it reads 3.3 dB. The cables cannot smooth a discontinuity inside a module.</li>
-    <li><b>(a) and (b) differ only on reorders.</b> Most transitions add, drop or re-enter one module, which makes no cycle, so the two strategies play the same cables.
-      On a reorder (a) lets the new cable in at once on one block of delay and holds the loop at ${DEFAULTS.bound} (unbounded it reaches 1.5 on the four presets and 1.9 on round 1's pairs, at the default glide);
-      (b) holds the new cable until the old one is gone and opens a −6 dB bypass meanwhile. <i>Listen</i> for (a)'s brief delayed-loop colour against (b)'s brief dry flash.</li>
-    <li><b>What is left of the clicks is the lane normaliser.</b> A path is the product of its cables, so k cables gliding together sag like the k-th power; the normaliser
-      boosts the lane up to ×4 to hold the level, fast enough to read as a few dB of impulsiveness (normaliser off: the worst transition drops from 7.2 to 2.2 dB at τ 40 ms).
-      Gliding which cables count as "the target's" was needed: a binary choice stepped a lane's source cable by 0.74 in 4 ms.</li>
-    <li><b>Glide time trades clicks for speed.</b> Worst click 7.2 dB at τ = 40 ms, 6.0 at 60 ms (the default), 5.1 at 80 ms; a slower glide follows the puck more slowly.</li>
-    <li><b>Sleep must read memory, not output.</b> The first build slept a disconnected ECHO at once; it woke later replaying a frozen echo (a 0.033 step). Now a node sleeps
-      only when its input, its output and what its buffers hold are all under the threshold, and steps stay under −80 dB. CPU averages 8.6 points against 15 with every node awake.</li>
-    <li><b>The rules hold as cable rules.</b> On the bait set, without the path guard, a naive crossfade opens a live Scape ⇝ Sluice path for 416 ticks; with it, never.
-      A multiband Bulwark sits beside an unphased branch for at most 0.32 s (one glide is 0.6 s); blended continuously it would for 1.97 s.</li>
+    <li><b>The Filter ↔ Drive reversal click was a two-node loop.</b> In (a) the reversed cable came in at once on a backward part, so Drive fed Filter one tick late
+      and the loop rang on the saw edges: 10–12 dB measured as heard (48 kHz, saws). Now a reversal between two modules with no delay line hands over IN PARALLEL
+      (series → parallel → series: the old outer cables held at half while the middle one retreats), in both strategies. Filter ↔ Drive reversals now read ≤ 4.4 dB;
+      every reversal stays under ${REV_CEIL_DB} dB (self-check 9; v1 as shipped reads 7.6 at the new levels).</li>
+    <li><b>Equal-gain, not equal-power (p = 1 is now the default)</b>, from Sluice's blend-law answer: crossfades here are between paths carrying the same input.
+      The four presets' worst step click fell 4.3 → 1.7 dB (none over 3 dB), live reversals 6.2 → 4.4 dB, the normaliser's largest makeup ×2.11 → ×1.78.</li>
+    <li><b>Gain staging.</b> The demo was square, not clipped: every Drive ran at 3–8 on a chord already at its reference, the EQ peaked at +4 dBFS inside the chain.
+      Lanes are 4 dB quieter, drives halved, Shriek, EQ, resonance and reverb mixes eased, the output trim set so the default sweeps peak at −6.4 dBFS (true peak the
+      same) with RMS −20 to −24 dBFS and no node above −0.4 dBFS. No limiter.</li>
+    <li><b>A backward cable is one SAMPLE late</b> (it was one 64-sample tick): while a cycle is live the rack runs per sample. Renders are bit-identical in host
+      buffers of 64, 128 and 512 (self-check 11). Cost while a cycle is live: 39 against 25 ms of rack time per second of audio; on these transitions the clicks are
+      the same (0 dB) either way.</li>
+    <li><b>No start-up sweeps.</b> A woken ECHO started up to 33 ms off its delay time and glided there (a pitch sweep); woken and first-fed modules now snap their
+      smoothers to target (self-check 10). Snapping exposed a latent wrap bug in round 2's ECHO (NaN when the time lands exactly), fixed.
+      A never-decaying module is FLUSHED as it sleeps, so its howl cannot return. A released cable lands on exactly 0 (−60 dB at 277 ms, zero at 427 ms).</li>
+    <li><b>A loop limiter</b> (a soft tanh on every backward cable) changes the output by −36 dB and no click: with the bound on, circulating energy already falls
+      ≥ 6 dB per round trip. It is a dev toggle, off by default — on by default it would shape silently, which ADR-197 forbids.</li>
   </ol>
   <p><b>Open for the listening pass.</b></p>
   <ol class="q">
-    <li><b>(a) or (b)</b>, by ear on reorders (the circle path crosses most of them).</li>
-    <li><b>Glide τ</b>: 60 ms is a compromise; <i>choose</i> by ear with the advanced slider.</li>
-    <li><b>QUANTUM's "per-cable thresholds"</b> are read here as round 2's keyed draws (one per module, one per ordered pair — the pair's draw decides which way the cable
-      between them runs); no separate per-cable draw was added. <i>Confirm</i> that reading.</li>
-    <li><b>The loop bound (${DEFAULTS.bound}) and the declared node gains</b> are declarations, not measurements; a module that exceeds its declaration breaks the bound's promise.</li>
-    <li><b>The normaliser</b> is now the main transient. A path-aware glide (cables on a long path move together as one) could remove the sag it compensates; not built.</li>
-    <li><b>A self-oscillating Sluice</b> (feedback ≥ 1) never decays: it is put to sleep loud after its tail cap and ramps back in over one glide when fed again, so its
-      old howl returns. <i>Decide</i> whether a resident module may keep that state.</li>
-    <li><b>ADR-195's "brief"</b> is read as one glide (${MB_BRIEF_TAU} τ). <i>Confirm</i>, or name a number.</li>
-    <li><b>The click metric</b> is on a sine probe, sees 2 ms slices against ±32 ms, and watches 1 s after a change: slower bumps and later tail releases are outside it.</li>
-    <li><b>Not wired into <code>./verify</code></b>: this self-check runs at load only (as round 2's did).</li>
+    <li><b>Which layout lands?</b> Six views of one cable state; the choice persists. Which to keep, which to drop, what to merge.</li>
+    <li><b>p = 1</b> is a lab default changed on measurement; D8 leaves p to your ear, and a product default change would need an ADR and a migration (ADR-197).</li>
+    <li><b>Is the demo still muddy?</b> The levels are clean by the numbers; the stand-ins are crude (one-pole tone, Schroeder reverb), and the four presets stack a
+      lowpass, two delays and a reverb by design.</li>
+    <li><b>The reversal ceiling is close to its plant</b> (fixed worst 5.9 dB, ceiling 7, v1 7.6); close·right's Drive → Filter swap is a timbre jump that reads the
+      same under round 2 and softens with a slower glide.</li>
+    <li><b>(a) or (b)</b>: with reversals handled in parallel by both, they now differ only on cycles through a delay line or of three modules or more.</li>
+    <li><b>Glide τ</b> (60 ms); the per-cable-threshold reading; the declared gains; ADR-195's "brief" (one glide) — still open from round 3.</li>
+    <li><b>Not wired into <code>./verify</code></b>: this self-check runs at load only.</li>
   </ol>`;
 }
 
@@ -2498,7 +2825,7 @@ function frame() {
   if (dirty) { paintAt(); dirty = false; }
   else if (live && frameN % 3 === 0) paintAt();
   else if (live) { VS = viewState(); paintCables(VS); }
-  else if (!REDUCED && VS) paintCables(VS);
+  else if (VS && (!REDUCED || LAYOUT === 'roll')) paintCables(VS);
   paintScope(); paintMeter();
   requestAnimationFrame(frame);
 }
@@ -2555,6 +2882,7 @@ document.addEventListener('click', e => {
   else if (box === 'pPills') setOpt({ p: +k });
   else if (box === 'kPills') setOpt({ K: +k });
   else if (box === 'pathPills') { sweepId = k; renderControls(); dirty = true; }
+  else if (box === 'layoutPills') setLayout(k);
 });
 function padAt(e) {
   const r = $('pad').getBoundingClientRect(), m = 14;
@@ -2566,7 +2894,7 @@ window.addEventListener('pointerup', () => { dragPad = false; });
 window.addEventListener('resize', () => { dirty = true; });
 if (qb('adv', false)) $('advBox').open = true;
 
-readPal(); recompute(); applyTheme(); startCheck();
+readPal(); renderLayoutCtl(); recompute(); applyTheme(); startCheck();
 requestAnimationFrame(frame);
 </script>
 </body></html>
