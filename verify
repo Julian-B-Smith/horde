@@ -337,6 +337,19 @@ PY
     tail -1 /tmp/legacyport.$$   # the harness prints its own name; do not prefix it twice
     rm -f /tmp/legacyport.$$
 
+    # A DEFAULT CHANGE KEEPS SAVED STATE'S SOUND (B445, ADR-191, ADR-197 rule E).
+    # The device default moved from os 2 to os 1 (LAB_DEF.os); state saved before it
+    # must keep playing at os 2. The marker is the record's own `os` field: a frozen
+    # pre-flip fixture loads at os 2, a post-flip record without `os` loads at os 1,
+    # the live porter still writes `os` on every record, and the lab holds no surface
+    # that stores or exports patch state (a new one needs its own migration). Must-fail
+    # controls: the fixture with its `os` removed, a lab still at os 2, a porter record
+    # without `os`, and three planted persistence surfaces (~1 s). Added under ADR-180 §1.
+    node tools/labharness/os_default_check.mjs > /tmp/osdefault.$$ 2>&1 || {
+      echo "verify: os default migration check FAILED" >&2; cat /tmp/osdefault.$$ >&2; ok=1; }
+    tail -1 /tmp/osdefault.$$   # the harness prints its own name; do not prefix it twice
+    rm -f /tmp/osdefault.$$
+
     # THE PATCH-SPACE METRICS READ WHAT THEY CLAIM (B316 P2). tools/patchspace/metrics.mjs
     # measures rendered patches (aliasing, noise, root presence, roughness, DC, level,
     # silence, clicks, non-finite, CPU) — MEASUREMENTS, not gates. This validates each

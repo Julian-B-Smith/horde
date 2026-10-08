@@ -1565,7 +1565,7 @@ R('gain', 'Volume', '17', 'T1', 'c', 0, 1, 'lin', '%');
 R('polyMode', 'Voicing', '32 + 34', 'T3', 'e', 0, 2, '', '', [[0, 'poly'], [1, 'mono'], [2, 'legato']]);
 R('glide', 'Note lag', '33', 'T3', 'c', 0, 2000, 'pow', 'ms');
 R('glideAlways', 'Glide when', '90', 'T3', 'e', 0, 1, '', '', [[0, 'overlapping'], [1, 'always']]);
-R('os', 'Oversample', '88', 'T3', 'e', 1, 2, '', '', [[1, '1×'], [2, '2×']]);
+R('os', 'Oversample', '88', 'T3', 'e', 1, 2, '', '', [[1, '1×'], [2, '2× (HQ)']]);   // B445: 1× is the default (LAB_DEF)
 R('aa', 'Band-limit', '16', 'T3', 'e', 0, 1, '', '', [[1, 'clean'], [0, 'raw']]);
 /* B293: the one key the bench presets carry that B271's table lacked (5 of the 76
    set it to 1). ACCOUNTING §1.4 row 30: MERGES → absK (31) under horde's law, T3. */
@@ -1639,7 +1639,13 @@ const ORK = new Set(REF ? Object.keys(REF.t).concat(Object.keys(REF.d), ['os']) 
    horde rows it lacks at the accounting's defaults. B309: onset, dissolve and driftDepth
    left this list; the composed engine's constructor supplies them (loadEngine) */
 const LAB_DEF = { b1on: 1, enable: 1, octave: 0, semi: 0, fine: 0, rtone: 0,
-  vol2: 0.4, subLvl: 0, master: 0.8 };
+  vol2: 0.4, subLvl: 0, master: 0.8,
+  /* B445 / ADR-191 (the human, 2026-10-05: "I had always intended it as optional"): the DEVICE
+     default is os 1 and os 2 is the HQ setting, kept by any preset that carries `os: 2`
+     (applyPreset writes a preset's own keys over DEF). It overrides the oracle's os 2 here,
+     NOT in the engine: the engine's setOS(2) (h2/engine/engine.h), every parity scenario and
+     both self-digests stay at os 2. Landed after the human's listening gate (B445). */
+  os: 1 };
 function oracleDefaults() {
   if (REF) return Object.assign({}, REF.t, REF.d, { os: REF.os });
   const o = {};                                           // load-checker fallback: nothing is drawn from it
