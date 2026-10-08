@@ -7,6 +7,7 @@
  * column is therefore MEASURED, not asserted — the report cannot claim an
  * improvement the code does not actually produce.
  */
+import './sandbox_guard.mjs';   // FIRST import: lab code runs under the permission model (B446 W3c)
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';

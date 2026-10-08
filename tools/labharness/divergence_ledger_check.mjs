@@ -75,6 +75,7 @@
  *   engine before the first divergence (L4), so each divergence stays attributable whatever its default.
  * Deterministic, no model calls, no clock. Both references are required, never edited.
  */
+import './sandbox_guard.mjs';   // FIRST import: lab code runs under the permission model (B446 W3c)
 import { readFileSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';

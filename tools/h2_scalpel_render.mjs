@@ -47,6 +47,7 @@
  * Workers: the renders are independent, so they run on worker threads; the
  * stream is written in scenario order regardless of completion order.
  */
+import './labharness/sandbox_guard.mjs';   // FIRST import: lab code runs under the permission model (B446 W3c)
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';

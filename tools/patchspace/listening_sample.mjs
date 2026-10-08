@@ -48,6 +48,7 @@
  * (`heard: drift`) and calibrate.mjs leaves it out of the fit. The roughness-origin render (N 1) is only computed for the draws it
  * needs, in the same seeded order.
  */
+import '../labharness/sandbox_guard.mjs';   // FIRST import: lab code runs under the permission model (B446 W3c)
 import { writeFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { readRun, samplePatch, measure, THRESH, A_SCRIPT, B_SCRIPT } from './gauntlet.mjs';

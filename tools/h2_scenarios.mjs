@@ -12,6 +12,7 @@
  * Also the instrumented scratch copy of the blade oracle both renderers count
  * blade events with (loadInstrumented): the oracle file is never edited.
  */
+import './labharness/sandbox_guard.mjs';   // FIRST import: lab code runs under the permission model (B446 W3c)
 import { readFileSync } from 'node:fs';
 
 export const SR = 48000, BLK = 128;

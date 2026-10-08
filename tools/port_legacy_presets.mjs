@@ -59,12 +59,13 @@
  *
  * Deterministic: no clock, no random draw. Same store in, same bytes out.
  */
+import './labharness/sandbox_guard.mjs';   // FIRST import: lab code runs under the permission model (B446 W3c)
 import { readFileSync, readdirSync, statSync, mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve, relative, isAbsolute, basename } from 'node:path';
 import { homedir } from 'node:os';
-import { execFileSync } from 'node:child_process';
+import { registryText, gitIgnored } from './labharness/sandbox_facts.mjs';   // the two child processes, answered by the launcher
 
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 export const CATEGORY_PRESET = 'Your presets (legacy)';
@@ -252,7 +253,7 @@ export function parseMorphOrder(text) {
    rather than re-parsed here: it already strips comments before reading the
    kGlobalIds block, a trap it documents. */
 export function loadRegistry(root = ROOT) {
-  const txt = execFileSync('python3', [join(root, 'tools/registry_decl.py')], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+  const txt = registryText(root);
   const byId = new Map(), byKey = new Map();
   for (const line of txt.split('\n')) {
     const [id, key, g] = line.split('\t');
@@ -448,10 +449,7 @@ export function portCorner(json, ctx, name, opts = {}) {
 export function outDirIsSafe(dir, root = ROOT) {
   const rel = relative(root, resolve(dir));
   if (rel.startsWith('..') || isAbsolute(rel)) return true;
-  try {
-    execFileSync('git', ['-C', root, 'check-ignore', '-q', '--no-index', join(rel, 'probe.json')], { stdio: 'ignore' });
-    return true;
-  } catch (_) { return false; }
+  return gitIgnored(root, join(rel, 'probe.json'), true);
 }
 
 /* --------------------------------------------------------------- report --- */

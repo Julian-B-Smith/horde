@@ -8,6 +8,7 @@
  * would be free to drift from the one the human auditioned, and then the
  * review table would describe a synth that does not exist.
  */
+import './sandbox_guard.mjs';   // FIRST import: lab code runs under the permission model (B446 W3c)
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';

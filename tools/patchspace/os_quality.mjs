@@ -37,10 +37,11 @@
  * DETERMINISM: Math.random is a seeded mulberry32 around every instance (space.mjs's convention); no
  * clock is read. Same tree in, same numbers and same WAV bytes out.
  */
+import '../labharness/sandbox_guard.mjs';   // FIRST import: lab code runs under the permission model (B446 W3c)
 import { createRequire } from 'node:module';
 import { readFileSync, mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { join, resolve, relative, isAbsolute } from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { gitIgnored } from '../labharness/sandbox_facts.mjs';   // git check-ignore, answered by the launcher
 import { ROOT, mulberry32, FILES, readRepo } from './space.mjs';
 import * as M from './metrics.mjs';
 import { THRESH } from './gauntlet.mjs';
@@ -196,8 +197,7 @@ function wav() {
      repo that git would track (port_legacy_presets.mjs's rule, safety by construction) */
   const rel = relative(ROOT, out);
   if (!rel.startsWith('..') && !isAbsolute(rel)) {
-    let ignored = false;
-    try { execFileSync('git', ['check-ignore', '-q', rel], { cwd: ROOT }); ignored = true; } catch (_) { ignored = false; }
+    const ignored = gitIgnored(ROOT, rel);
     if (!ignored) throw new Error(`os_quality: --out ${rel} is inside the repo and not git-ignored`);
   }
   if (!existsSync(out)) mkdirSync(out, { recursive: true });

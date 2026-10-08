@@ -35,6 +35,7 @@
  * and the check refuses the exclusion unless the JS alone misses max-abs by at
  * least as much as the C++ does.
  */
+import './labharness/sandbox_guard.mjs';   // FIRST import: lab code runs under the permission model (B446 W3c)
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';

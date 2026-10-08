@@ -23,6 +23,14 @@ MUST-FAIL CONTROLS (a green only counts next to these):
     generator did run, on the merged tree;
   - a static scan for the old failure shape (a relative `tools/` or `$PREVIEW`
     interpreter call) flags the old script's line and passes the new script.
+
+THE SLUICE OPT-IN (B446 W3c). `--allow-sluice` is OFF by default. Without it the
+preview has no `local/sluice` link and the printed serve command is the plain one.
+With it the script links the preview's `local/sluice` to the MAIN checkout's AFTER the
+merges, so a branch that force-added its own `local/sluice` (a symlink anywhere) does
+not choose where the link points, and the printed command carries `--allow-sluice`.
+Controls: the branch's own link really is in the merged tree without the flag; with the
+flag but no main-checkout link nothing is linked and the command stays plain.
 """
 import os
 import re
@@ -117,11 +125,52 @@ def main():
         check(os.path.exists(marker), "CONTROL: running the merged tree's planted script by hand did not create the marker; "
                                       "an absent marker proves nothing")
 
+        # ---- the Sluice opt-in ----
+        # Default: no link, plain command (the run above).
+        check(not os.path.lexists(os.path.join(preview, "local/sluice")), "without --allow-sluice the preview has a local/sluice")
+        check("--allow-sluice" not in out, "without --allow-sluice the printed serve command carries the flag")
+
+        evil = os.path.realpath(os.path.join(base, "evil"))
+        os.makedirs(evil)
+        open(os.path.join(evil, "secret.md"), "w").write("EVIL")
+        git(seed, "checkout", "-q", "-b", "lab-y", "main")
+        open(os.path.join(seed, "docs/design/y.html"), "w").write(LAB.format(t="lab y"))
+        os.makedirs(os.path.join(seed, "local"))
+        os.symlink(evil, os.path.join(seed, "local/sluice"))            # a branch choosing where the link points
+        git(seed, "add", "-f", "local/sluice", "docs/design/y.html"); git(seed, "commit", "-q", "-m", "lab y + a forced local/sluice")
+        git(seed, "push", "-q", "origin", "lab-y")
+        git(main_co, "fetch", "-q", "origin")
+        mine = os.path.join(os.path.realpath(main_co), "local/sluice")
+        os.makedirs(mine)
+        open(os.path.join(mine, "spec.md"), "w").write("MINE")
+
+        r = sh(["bash", "tools/labs_preview.sh", "lab-y"], main_co)
+        check(r.returncode == 0 and "origin/main + lab-y" in r.stdout, f"lab-y did not merge without the flag: {r.stdout.strip()[:200]} {r.stderr.strip()[:200]}")
+        check(os.path.islink(os.path.join(preview, "local/sluice")) and os.path.realpath(os.path.join(preview, "local/sluice")) == evil,
+              "CONTROL: the branch's own local/sluice did not arrive in the merged tree; the relink below proves nothing")
+        check("--allow-sluice" not in r.stdout, "without --allow-sluice the printed serve command carries the flag (lab-y run)")
+
+        r = sh(["bash", "tools/labs_preview.sh", "--allow-sluice", "lab-y"], main_co)
+        check(r.returncode == 0 and "origin/main + lab-y" in r.stdout, f"--allow-sluice lab-y did not merge: {r.stdout.strip()[:200]} {r.stderr.strip()[:200]}")
+        link = os.path.join(preview, "local/sluice")
+        check(os.path.islink(link) and os.path.realpath(link) == mine,
+              f"--allow-sluice: the preview's local/sluice is {os.path.realpath(link)}, not the main checkout's {mine}")
+        check(not os.path.exists(os.path.join(link, "secret.md")) and open(os.path.join(link, "spec.md")).read() == "MINE",
+              "--allow-sluice: the branch's link target is reachable through the preview's local/sluice")
+        check(f"serve_labs.py --allow-sluice 8146 {preview}" in r.stdout, f"--allow-sluice: the serve command lacks the flag: {r.stdout.strip()[-300:]}")
+
+        # The flag with nothing to link: nothing linked, plain command, a stated reason.
+        shutil.rmtree(mine)
+        r = sh(["bash", "tools/labs_preview.sh", "--allow-sluice", "lab-x"], main_co)
+        check(not os.path.lexists(os.path.join(preview, "local/sluice")) and "--allow-sluice 8146" not in r.stdout and "does not exist" in r.stdout,
+              f"--allow-sluice with no main-checkout link: expected no link and a plain command, got: {r.stdout.strip()[-300:]}")
+
     if fails:
         print(f"\nRED -- labs_preview_check: {len(fails)} failure(s)")
         return 1
     print("labs_preview_check: GREEN -- a branch that replaces tools/ ran nothing; its lab was merged, "
-          "indexed by the main checkout's generator and served from the main checkout's server")
+          "indexed by the main checkout's generator and served from the main checkout's server; "
+          "--allow-sluice is off by default and links only the main checkout's local/sluice, after the merges")
     return 0
 
 

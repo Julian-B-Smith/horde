@@ -63,6 +63,7 @@
  * the mod matrix (destination eligibility) read it. The schema is provisional,
  * local, and marked for swap-in when FOUNDATIONS' manifest schema lands (B275 P3).
  */
+import '../labharness/sandbox_guard.mjs';   // FIRST import: lab code runs under the permission model (B446 W3c)
 import { writeFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';

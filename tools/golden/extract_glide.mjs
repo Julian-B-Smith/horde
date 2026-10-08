@@ -7,6 +7,7 @@
 // `class Inertia` — located by the line that closes it, found by brace depth
 // rather than a magic line number, so an edit inside the class cannot silently
 // truncate the slice.
+import '../labharness/sandbox_guard.mjs';   // FIRST import: lab code runs under the permission model (B446 W3c)
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
