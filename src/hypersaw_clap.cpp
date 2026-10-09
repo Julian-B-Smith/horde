@@ -2477,7 +2477,10 @@ struct Plugin
     kMsgModPolarity = 8,   // id = route index, a = polarity
     kMsgModClear = 9,      // a load's "replace wholesale": every generic route goes
     kMsgModWheel = 10,     // value = the wheel, 0..1
-    kMsgMorphAdopt = 11,   // id = the staged field's generation (morphStageState)
+    kMsgMorphAdopt = 11,   // id = the staged field's generation (morphGate)
+    kMsgCornerAdopt = 12,  // id = the staged corner's generation (cornerGate), a = the corner
+    kMsgMorphCapture = 13, // id = the corner
+    kMsgMorphExempt = 14,  // id = the morphIds slot, a = 1 exempt / 0 not
   };
   /* 2048, not 1024 and certainly not 256 (B110, 2026-09-10): a FULL preset
      applied through applyStateJson enqueues ~323 keys plus the osc-2 twins
@@ -3596,6 +3599,7 @@ struct Plugin
     // here once so the audio thread's adoption is a copy and never a resize.
     for (int k = 0; k < 4; k++) morphStage.corner[k].assign(morphIds.size(), 0.0);
     morphStage.exempt.assign(morphIds.size(), 0);
+    cornerStage.assign(morphIds.size(), 0.0);
     morphGroupSplit.assign(morphIds.size(), 0);   // B222: sized here, never on the audio thread
     morph.reshuffle(morphSeed, (int)morphIds.size(), kMorphL9Slots);   // B240: draws frozen at layout 9
     // A fresh instance's corners all hold the DEFAULT patch, so switching morph
@@ -3616,6 +3620,12 @@ struct Plugin
      no knowledge of morphIds ordering. Writing the live value into ALL FOUR
      corners on exempt is the recorded design lean: un-exempting is then
      seamless (no jump), and the corners honestly record what was playing. */
+  /* THE MORPH EDITOR'S VERBS (exempt, capture, corner preset) write the field
+     the audio thread reads and writes, so they follow the mod verbs' rule:
+     direct when not processing, a queue kind applied by the audio thread
+     while processing. The exempt toggle's TARGET state is decided here, from
+     the editor's view, and travels with the entry, so two toggles inside one
+     block agree with what the editor showed rather than cancelling. */
   bool morphToggleExempt(clap_id id)
   {
     morphInit();
@@ -3623,24 +3633,31 @@ struct Plugin
       if (morphIds[i] == id)
       {
         const bool on = !morphExempt[i];
-        // A group exempts as a unit, for the same reason it flips as one.
-        size_t lo, hi;
-        morphGroupRange(i, lo, hi);
-        for (size_t j = lo; j <= hi; j++)
-        {
-          if (morphGroupLead(j) != morphGroupLead(i)) continue;   // gaps: FX groups
-
-          morphExempt[j] = on ? 1 : 0;
-          if (on)
-          {
-            const double live = readParam(morphIds[j]);
-            for (int k = 0; k < 4; k++) morphCorner[k][j] = live;
-            morphCornersAuthored = true;
-          }
-        }
+        DirectScope ds(*this);
+        if (ds.owned) morphSetExemptNow((uint32_t)i, on);
+        else enqueueParam((uint32_t)i, 0, kMsgMorphExempt, on ? 1 : 0);
         return on;
       }
     return false;
+  }
+  void morphSetExemptNow(uint32_t i, bool on)
+  {
+    if (i >= morphIds.size()) return;
+    // A group exempts as a unit, for the same reason it flips as one.
+    size_t lo, hi;
+    morphGroupRange(i, lo, hi);
+    for (size_t j = lo; j <= hi; j++)
+    {
+      if (morphGroupLead(j) != morphGroupLead(i)) continue;   // gaps: FX groups
+
+      morphExempt[j] = on ? 1 : 0;
+      if (on)
+      {
+        const double live = readParam(morphIds[j]);
+        for (int k = 0; k < 4; k++) morphCorner[k][j] = live;
+        morphCornersAuthored = true;
+      }
+    }
   }
   /* ADR-110: which corner owns each parameter RIGHT NOW, for the GUI's colour
      coding. The same pickCorner the audio path uses and the same group lead, so
@@ -3747,6 +3764,16 @@ struct Plugin
   {
     if (k < 0 || k > 3) return;
     morphInit();
+    {
+      DirectScope ds(*this);
+      if (ds.owned) morphCaptureNow(k);
+      else enqueueParam((uint32_t)k, 0, kMsgMorphCapture);
+    }
+    undoMarkCorner(k, "captured", nullptr); cornerName[k] = "";   // B84 / B122
+  }
+  void morphCaptureNow(int k)
+  {
+    if (k < 0 || k > 3 || morphIds.empty()) return;
     for (size_t i = 0; i < morphIds.size(); i++)
     {
       const uint32_t id = morphIds[i];
@@ -3773,7 +3800,6 @@ struct Plugin
       morphCorner[k][i] = v;
     }
     morphCornersAuthored = true;
-    undoMarkCorner(k, "captured", nullptr); cornerName[k] = "";   // B84 / B122
   }
 
   /* One morph step, on the 256-sample gravity grid (heavier than the bend grid
@@ -4285,12 +4311,17 @@ struct Plugin
      patch that loads. */
   void applyEnsembleChunk(uint32_t k, const std::string &chunk)
   {
-    if (k >= kNumOsc) return;
-    const size_t s1 = chunk.find(';');
-    if (s1 == std::string::npos) return;
-    const size_t s2 = chunk.find(';', s1 + 1);
-    if (s2 == std::string::npos) return;
     hypersaw::SwarmCore::EnsembleTiming e{};
+    if (k < kNumOsc && parseEnsembleChunk(chunk, e)) cores[k].setEnsembleTiming(e);
+  }
+  // The parse alone, so a queued load can stage what a direct load applies.
+  static bool parseEnsembleChunk(const std::string &chunk, hypersaw::SwarmCore::EnsembleTiming &e)
+  {
+    const size_t s1 = chunk.find(';');
+    if (s1 == std::string::npos) return false;
+    const size_t s2 = chunk.find(';', s1 + 1);
+    if (s2 == std::string::npos) return false;
+    e = hypersaw::SwarmCore::EnsembleTiming{};
     e.seed = std::atof(chunk.c_str());
     e.rng = (uint32_t)std::strtoul(chunk.c_str() + s1 + 1, nullptr, 10);
     size_t pos = s2 + 1;
@@ -4301,7 +4332,7 @@ struct Plugin
       if (comma == std::string::npos) break;
       pos = comma + 1;
     }
-    cores[k].setEnsembleTiming(e);
+    return true;
   }
 
   /* B171 — the LFOs' stream state, one line of the chunk, B149's rule applied
@@ -4330,22 +4361,40 @@ struct Plugin
      rather than refusing the load — the chunk is append-only and a future build
      may write more lanes; a patch that half-loads its LFO phases is still a
      patch that loads. */
-  void applyLfoChunk(const std::string &chunk)
+  struct LfoLoad   // the lanes a chunk line set, in order
   {
+    int n = 0;
+    double phase[kNumLfo] = {};
+    uint32_t rng[kNumLfo] = {};
+  };
+  static LfoLoad parseLfoChunk(const std::string &chunk)
+  {
+    LfoLoad l;
     size_t pos = 0;
     for (int i = 0; i < kNumLfo && pos < chunk.size(); i++)
     {
       const size_t semi = chunk.find(';', pos);
-      if (semi == std::string::npos) return;
-      lfo[i].phase = std::atof(chunk.c_str() + pos);
-      lfo[i].rng = (uint32_t)std::strtoul(chunk.c_str() + semi + 1, nullptr, 10);
-      lfo[i].drawn = true;
-      lfo[i].restored = true;
+      if (semi == std::string::npos) return l;
+      l.phase[i] = std::atof(chunk.c_str() + pos);
+      l.rng[i] = (uint32_t)std::strtoul(chunk.c_str() + semi + 1, nullptr, 10);
+      l.n = i + 1;
       const size_t comma = chunk.find(',', semi + 1);
-      if (comma == std::string::npos) return;
+      if (comma == std::string::npos) return l;
       pos = comma + 1;
     }
+    return l;
   }
+  void applyLfoLoad(const LfoLoad &l)
+  {
+    for (int i = 0; i < l.n; i++)
+    {
+      lfo[i].phase = l.phase[i];
+      lfo[i].rng = l.rng[i];
+      lfo[i].drawn = true;
+      lfo[i].restored = true;
+    }
+  }
+  void applyLfoChunk(const std::string &chunk) { applyLfoLoad(parseLfoChunk(chunk)); }
   bool lfoRestoredPending() const
   {
     for (const auto &L : lfo) if (L.restored) return true;
@@ -5116,6 +5165,10 @@ struct Plugin
     intentRangeHi.assign(4 * n, 1.0);
     intentBind.assign((size_t)4 * kIntents * n, 0.0);
     for (int k = 0; k < 4; k++) { intentHomeX[k] = 0.5; intentHomeY[k] = 0.5; }
+    // The queued load's copy (morphAdopt), the same shape, sized here once.
+    morphStage.intentLo.assign(4 * n, 0.0);
+    morphStage.intentHi.assign(4 * n, 1.0);
+    morphStage.intentBind.assign((size_t)4 * kIntents * n, 0.0);
     for (int i = 0; i < kIntents; i++) intentName[i] = kIntentDefaultName[i];
 
     intentMinV.assign(n, 0.0);
@@ -5251,20 +5304,84 @@ struct Plugin
     return out + body;
   }
 
+  /* The staged-adoption types (see THE MORPH FIELD A LOAD WRITES, below):
+     declared here because the loaders' signatures name them. */
+  /* The handshake of one stage, shared by the load's stage and the corner
+     preset's (cornerApply). state = (generation << 2) | phase. */
+  struct StageGate
+  {
+    std::atomic<uint64_t> state{0};
+    uint64_t gen = 0;   // main thread only
+    // MAIN: own the stage before writing it (takes back a published, unadopted one).
+    void claim()
+    {
+      for (;;)
+      {
+        uint64_t st = state.load(std::memory_order_acquire);
+        if ((st & 3) == 0) return;
+        if ((st & 3) == 1 && state.compare_exchange_weak(st, st & ~uint64_t(3), std::memory_order_acq_rel))
+          return;
+        std::this_thread::yield();   // phase 2: an adoption is copying; it never waits on us
+      }
+    }
+    // MAIN: hand the written stage over; returns the generation its marker names.
+    uint32_t publish()
+    {
+      const uint64_t g = ++gen;
+      state.store((g << 2) | 1, std::memory_order_release);
+      return (uint32_t)g;
+    }
+    // AUDIO: true when `g` is the published generation and this call now owns it.
+    bool beginAdopt(uint32_t g, uint64_t &st)
+    {
+      st = state.load(std::memory_order_acquire);
+      if ((st & 3) != 1 || (uint32_t)(st >> 2) != g) return false;   // superseded: a later marker follows
+      uint64_t want = st;
+      return state.compare_exchange_strong(want, (st & ~uint64_t(3)) | 2, std::memory_order_acq_rel);
+    }
+    void endAdopt(uint64_t st) { state.store(st & ~uint64_t(3), std::memory_order_release); }
+  };
+  struct MorphStage
+  {
+    std::vector<double> corner[4];
+    std::vector<uint8_t> exempt;
+    bool authored = false;
+    std::vector<double> intentLo, intentHi, intentBind;   // sized in intentInit
+    double homeX[4] = {0.5, 0.5, 0.5, 0.5}, homeY[4] = {0.5, 0.5, 0.5, 0.5};
+    LfoLoad lfo;                       // applied only when the chunk carried `lfo=`
+    bool lfoCarried = false;
+    hypersaw::SwarmCore::EnsembleTiming ens[kNumOsc] = {};   // likewise `ens=`, per oscillator
+    bool ensCarried[kNumOsc] = {};
+    int engineRev = 0;                 // 0 = not set by this load
+  };
+  struct MorphFieldRef
+  {
+    std::vector<double> *corner;   // four of them
+    std::vector<uint8_t> *exempt;
+    bool *authored;
+    MorphStage *stage;             // set only for a queued load
+  };
   /* A load is a load: EVERY table returns to its default first, so a patch
      with no `intent=` key loads unbound rather than inheriting whatever the
      previous patch bound. `O` is READ, not trusted-and-ignored: a slot key
      this build does not know ends the mapping for that patch's later slots,
      which is what append-only buys. */
-  void applyIntentChunk(const std::string &chunk)
+  void applyIntentChunk(const std::string &chunk) { applyIntentChunk(chunk, liveField()); }
+  // `f.stage` set: a queued load, which writes the stage's tables (morphAdopt).
+  void applyIntentChunk(const std::string &chunk, const MorphFieldRef &into)
   {
     morphInit();
-    if (intentBind.empty()) return;
+    std::vector<double> &rangeLo = into.stage ? into.stage->intentLo : intentRangeLo;
+    std::vector<double> &rangeHi = into.stage ? into.stage->intentHi : intentRangeHi;
+    std::vector<double> &bind = into.stage ? into.stage->intentBind : intentBind;
+    double *homeX = into.stage ? into.stage->homeX : intentHomeX;
+    double *homeY = into.stage ? into.stage->homeY : intentHomeY;
+    if (bind.empty()) return;
     const size_t n = morphIds.size();
-    std::fill(intentRangeLo.begin(), intentRangeLo.end(), 0.0);
-    std::fill(intentRangeHi.begin(), intentRangeHi.end(), 1.0);
-    std::fill(intentBind.begin(), intentBind.end(), 0.0);
-    for (int k = 0; k < 4; k++) { intentHomeX[k] = 0.5; intentHomeY[k] = 0.5; }
+    std::fill(rangeLo.begin(), rangeLo.end(), 0.0);
+    std::fill(rangeHi.begin(), rangeHi.end(), 1.0);
+    std::fill(bind.begin(), bind.end(), 0.0);
+    for (int k = 0; k < 4; k++) { homeX[k] = 0.5; homeY[k] = 0.5; }
     for (int i = 0; i < kIntents; i++) intentName[i] = kIntentDefaultName[i];
     if (chunk.empty()) return;
 
@@ -5322,8 +5439,8 @@ struct Plugin
           const int k = std::atoi(f[1].c_str());
           const size_t i = intentSlotOf(id);
           if (k < 0 || k > 3 || i == SIZE_MAX) break;
-          intentRangeLo[(size_t)k * n + i] = std::atof(f[2].c_str());
-          intentRangeHi[(size_t)k * n + i] = std::atof(f[3].c_str());
+          rangeLo[(size_t)k * n + i] = std::atof(f[2].c_str());
+          rangeHi[(size_t)k * n + i] = std::atof(f[3].c_str());
           break;
         }
         case 'B':
@@ -5334,7 +5451,7 @@ struct Plugin
           const int j = std::atoi(f[2].c_str());
           const size_t i = intentSlotOf(id);
           if (k < 0 || k > 3 || j < 0 || j >= kIntents || stored[j] < 0 || i == SIZE_MAX) break;
-          intentBind[((size_t)k * kIntents + stored[j]) * n + i] = std::atof(f[3].c_str());
+          bind[((size_t)k * kIntents + stored[j]) * n + i] = std::atof(f[3].c_str());
           break;
         }
         case 'H':
@@ -5342,8 +5459,8 @@ struct Plugin
           if (f.size() < 3) break;
           const int k = std::atoi(f[0].c_str());
           if (k < 0 || k > 3) break;
-          intentHomeX[k] = hypersaw::IntentCore::clamp01(std::atof(f[1].c_str()));
-          intentHomeY[k] = hypersaw::IntentCore::clamp01(std::atof(f[2].c_str()));
+          homeX[k] = hypersaw::IntentCore::clamp01(std::atof(f[1].c_str()));
+          homeY[k] = hypersaw::IntentCore::clamp01(std::atof(f[2].c_str()));
           break;
         }
         default: break;
@@ -5999,6 +6116,9 @@ struct Plugin
     case kMsgModClear: modClearGeneric(); modPublish(); break;
     case kMsgModWheel: srcWheel = m.value; break;
     case kMsgMorphAdopt: morphAdopt(m.id); break;
+    case kMsgCornerAdopt: cornerAdopt(m.id, m.a); break;
+    case kMsgMorphCapture: morphCaptureNow((int)m.id); break;
+    case kMsgMorphExempt: morphSetExemptNow(m.id, m.a != 0); break;
     default: break;
     }
   }
@@ -6687,16 +6807,22 @@ struct Plugin
     // ADR-159: a corner-preset FILE is the same positional array as a corner
     // chunk, so it takes the same remap (the human's corners/*.json, Aug 21-30).
     const std::vector<size_t> map = morphSlotMap(parseMorphLayout(json), countArray(c));
-    resetCorner(k);   // B124
-    c++;
-    morphCornersAuthored = true;
-    for (size_t j = 0; j < map.size(); j++)
     {
-      if (map[j] != SIZE_MAX) morphCorner[k][map[j]] = std::atof(c);
-      const char *nx = std::strchr(c, ',');
-      const char *cl = std::strchr(c, ']');
-      if (!nx || (cl && cl < nx)) break;
-      c = nx + 1;
+      DirectScope ds(*this);
+      cornerGate.claim();   // either way: a stale staged corner must not land after this one
+      std::vector<double> &dst = ds.owned ? morphCorner[k] : cornerStage;
+      resetCornerIn(dst);   // B124
+      c++;
+      for (size_t j = 0; j < map.size(); j++)
+      {
+        if (map[j] != SIZE_MAX) dst[map[j]] = std::atof(c);
+        const char *nx = std::strchr(c, ',');
+        const char *cl = std::strchr(c, ']');
+        if (!nx || (cl && cl < nx)) break;
+        c = nx + 1;
+      }
+      if (ds.owned) morphCornersAuthored = true;
+      else enqueueParam(cornerGate.publish(), 0, kMsgCornerAdopt, (uint8_t)k);
     }
     undoMarkCorner(k, "loaded", nullptr);   // B84 / B122: the GUI names it next
     return true;
@@ -6828,7 +6954,10 @@ struct Plugin
   }
 
   /* THE MORPH FIELD A LOAD WRITES: the four corners, the exempt set and the
-     authored flag. A load that runs while processing must not write the live
+     authored flag — and with them the rest of what a load writes that the
+     audio thread reads: the intent tables, the LFO streams and the ensemble
+     timing a chunk carries, and the engine revision. A load that runs while
+     processing must not write the live
      field — the audio thread reads it every morph tick and writes it on every
      armed edit — so it writes this STAGE instead, and the audio thread adopts
      the stage whole, at a block boundary, when it drains the load's batch
@@ -6850,55 +6979,56 @@ struct Plugin
 
      A load that does not queue (not processing) writes the live field
      directly, exactly as before; the stage is only ever the queued path's. */
-  struct MorphStage
-  {
-    std::vector<double> corner[4];
-    std::vector<uint8_t> exempt;
-    bool authored = false;
-  };
   MorphStage morphStage;
-  std::atomic<uint64_t> morphStageState{0};
-  uint64_t morphStageGen = 0;   // main thread only
-  struct MorphFieldRef
-  {
-    std::vector<double> *corner;   // four of them
-    std::vector<uint8_t> *exempt;
-    bool *authored;
-  };
-  MorphFieldRef liveField() { return {morphCorner, &morphExempt, &morphCornersAuthored}; }
-  MorphFieldRef stageField() { return {morphStage.corner, &morphStage.exempt, &morphStage.authored}; }
-  // MAIN: own the stage before writing it.
+  StageGate morphGate;
+  MorphFieldRef liveField() { return {morphCorner, &morphExempt, &morphCornersAuthored, nullptr}; }
+  MorphFieldRef stageField() { return {morphStage.corner, &morphStage.exempt, &morphStage.authored, &morphStage}; }
   void morphStageClaim()
   {
-    for (;;)
-    {
-      uint64_t st = morphStageState.load(std::memory_order_acquire);
-      if ((st & 3) == 0) return;
-      if ((st & 3) == 1 &&
-          morphStageState.compare_exchange_weak(st, st & ~uint64_t(3), std::memory_order_acq_rel))
-        return;
-      std::this_thread::yield();   // phase 2: an adoption is copying; it never waits on us
-    }
+    morphGate.claim();
+    cornerGate.claim();   // a corner preset staged before this load is older than it
+    morphStage.lfoCarried = false;
+    for (bool &c : morphStage.ensCarried) c = false;
+    morphStage.engineRev = 0;
   }
   // MAIN: hand the written stage to the audio thread; the marker rides the batch.
-  void morphStagePublish()
-  {
-    const uint64_t gen = ++morphStageGen;
-    morphStageState.store((gen << 2) | 1, std::memory_order_release);
-    enqueueParam((uint32_t)gen, 0, kMsgMorphAdopt);
-  }
+  void morphStagePublish() { enqueueParam(morphGate.publish(), 0, kMsgMorphAdopt); }
   // AUDIO (drainQueue): adopt the stage whole, then hand it back.
   void morphAdopt(uint32_t gen)
   {
-    uint64_t st = morphStageState.load(std::memory_order_acquire);
-    if ((st & 3) != 1 || (uint32_t)(st >> 2) != gen) return;   // superseded: a later marker follows
-    if (!morphStageState.compare_exchange_strong(st, (st & ~uint64_t(3)) | 2, std::memory_order_acq_rel))
-      return;
+    uint64_t st = 0;
+    if (!morphGate.beginAdopt(gen, st)) return;
     for (int k = 0; k < 4; k++)
       std::copy(morphStage.corner[k].begin(), morphStage.corner[k].end(), morphCorner[k].begin());
     std::copy(morphStage.exempt.begin(), morphStage.exempt.end(), morphExempt.begin());
     morphCornersAuthored = morphStage.authored;
-    morphStageState.store(st & ~uint64_t(3), std::memory_order_release);
+    std::copy(morphStage.intentLo.begin(), morphStage.intentLo.end(), intentRangeLo.begin());
+    std::copy(morphStage.intentHi.begin(), morphStage.intentHi.end(), intentRangeHi.begin());
+    std::copy(morphStage.intentBind.begin(), morphStage.intentBind.end(), intentBind.begin());
+    for (int k = 0; k < 4; k++) { intentHomeX[k] = morphStage.homeX[k]; intentHomeY[k] = morphStage.homeY[k]; }
+    if (morphStage.lfoCarried) applyLfoLoad(morphStage.lfo);
+    for (uint32_t k = 0; k < kNumOsc; k++)
+      if (morphStage.ensCarried[k]) cores[k].setEnsembleTiming(morphStage.ens[k]);
+    if (morphStage.engineRev > 0) patchEngineRevision.store(morphStage.engineRev, std::memory_order_relaxed);
+    morphGate.endAdopt(st);
+  }
+  // A load's engine revision: lands with the batch on a queued load.
+  void loadEngineRevision(const MorphFieldRef &f, long rev)
+  {
+    if (f.stage) f.stage->engineRev = clampRevision(rev);
+    else setEngineRevision(rev);
+  }
+  /* A CORNER PRESET (cornerApply) stages its one corner the same way while
+     processing; the marker carries the corner. */
+  std::vector<double> cornerStage;   // sized in morphInit
+  StageGate cornerGate;
+  void cornerAdopt(uint32_t gen, int k)
+  {
+    uint64_t st = 0;
+    if (k < 0 || k > 3 || !cornerGate.beginAdopt(gen, st)) return;
+    std::copy(cornerStage.begin(), cornerStage.end(), morphCorner[k].begin());
+    morphCornersAuthored = true;
+    cornerGate.endAdopt(st);
   }
   /* ADR-159: where stored slot j lands in the live order. Layout 1 arrays of
      exactly kMorphAdr150Size were written with 181/1181 inside the prefix;
@@ -7129,11 +7259,8 @@ struct Plugin
   static constexpr int kEngineRevision = 2;   // ADR-183: the off-corner blend rule
   std::atomic<int> patchEngineRevision{kEngineRevision};
   int engineRevision() const { return patchEngineRevision.load(std::memory_order_relaxed); }
-  void setEngineRevision(long rev)
-  {
-    const long r = std::max(1L, std::min((long)kEngineRevision, rev));
-    patchEngineRevision.store((int)r, std::memory_order_relaxed);
-  }
+  static int clampRevision(long rev) { return (int)std::max(1L, std::min((long)kEngineRevision, rev)); }
+  void setEngineRevision(long rev) { patchEngineRevision.store(clampRevision(rev), std::memory_order_relaxed); }
 
   /* B174: THE GLOBAL PRESET'S NAME, in the shell — the B122 corner mechanism
      one level up, for the same two reasons.
@@ -7403,14 +7530,14 @@ struct Plugin
     // hands the mod-route table and the routing cells to the audio thread.
     if (viaQueue) enqueueModRoutesChunk("");
     else applyModRoutesChunk("");
-    applyIntentChunk("");
+    applyIntentChunk("", field);
     if (chunkOnlyState)
     {
       if (viaQueue) routingChunkCells("", [&](clap_id id, double v) { enqueueParam(id, v, 3); });
       else applyRoutingChunk("");
     }
     setPresetName("");
-    setEngineRevision(1);
+    loadEngineRevision(field, 1);
   }
 
   /* A LOAD DECIDES ITS MODE ONCE, AT ITS START (beginMainDirect): DIRECT
@@ -7534,7 +7661,7 @@ struct Plugin
         if (q0 != std::string::npos && q1 != std::string::npos)
           chunk = json.substr(q0 + 1, q1 - q0 - 1);
       }
-      applyIntentChunk(chunk);
+      applyIntentChunk(chunk, ls.field);
     }
     /* ---- A LOAD IS A LOAD, AND IT NOW MEANS THE SAME THING FOR PARAMETERS
        (B181 note 6, human 2026-09-20: "Sub currently seems to be ignored by
@@ -7660,7 +7787,7 @@ struct Plugin
         er = json.find(':', er);
         if (er != std::string::npos) rev = std::atol(json.c_str() + er + 1);
       }
-      setEngineRevision(rev);
+      loadEngineRevision(ls.field, rev);
     }
     /* Pre-ADR-100 patches have no "enable" key and were saved when every
        oscillator always rendered — restore them that way, whatever the new
@@ -9573,6 +9700,21 @@ struct Plugin
 };
 
 Plugin *self(const clap_plugin_t *p) { return static_cast<Plugin *>(p->plugin_data); }
+/* RIG DOORS. A load, a route verb or PANIC made while `processing` is true
+   only QUEUES or REQUESTS: the audio thread applies it at its next block
+   start. A test rig is single-threaded — between its process() calls it IS
+   the audio thread's only user — so the test exports below drain the WHOLE
+   queue here, in order, with the function the block start runs (parameters,
+   commands, and a load's adoption marker exactly where its batch put it), so
+   a read straight after them sees what a read one block later would. The
+   whole queue, never the morph field alone: a door that adopted the stage by
+   itself would hide a load whose marker never landed. Not processing, the
+   work was already done directly and nothing is drained. Test surface only:
+   the editor reaches these members through gui_create, never these exports. */
+static void rigDrainIfQueued(Plugin *pl)
+{
+  if (pl->processing.load(std::memory_order_acquire)) pl->drainQueue(nullptr);
+}
 
 /* ---- lifecycle ---- */
 
@@ -10080,7 +10222,7 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
     std::string key = line.substr(0, eq);
     if (key == "engine_revision")   // B100: the patch's pinned revision
     {
-      pl->setEngineRevision(std::atol(line.c_str() + eq + 1));
+      pl->loadEngineRevision(ls.field, std::atol(line.c_str() + eq + 1));
       continue;
     }
     if (key == "build") continue;   // B100: provenance only, never read back
@@ -10106,7 +10248,7 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
     }
     if (key == "intent")      // ADR-176: intent bindings/ranges/homes/names
     {
-      pl->applyIntentChunk(line.substr(eq + 1));
+      pl->applyIntentChunk(line.substr(eq + 1), ls.field);
       continue;
     }
     if (key == "presetname")  // B174: the global preset's name
@@ -10146,10 +10288,26 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
     // B149: the one non-parameter key that takes the `o<k>.` prefix, so it is
     // read here rather than beside morph/routing above — the prefix split is
     // this loop's, and a second copy of it is a second thing to keep in step.
-    if (key == "ens") { pl->applyEnsembleChunk(keyOsc, line.substr(eq + 1)); continue; }
+    if (key == "ens")
+    {
+      if (ls.direct()) pl->applyEnsembleChunk(keyOsc, line.substr(eq + 1));
+      else if (keyOsc < kNumOsc &&
+               Plugin::parseEnsembleChunk(line.substr(eq + 1), pl->morphStage.ens[keyOsc]))
+        pl->morphStage.ensCarried[keyOsc] = true;   // adopted with the batch
+      continue;
+    }
     // B171: the LFO streams. Not prefixed (the LFOs are global), but read here
     // beside `ens` because both are non-parameter keys emitted after `seed`.
-    if (key == "lfo") { pl->applyLfoChunk(line.substr(eq + 1)); continue; }
+    if (key == "lfo")
+    {
+      if (ls.direct()) pl->applyLfoChunk(line.substr(eq + 1));
+      else
+      {
+        pl->morphStage.lfo = Plugin::parseLfoChunk(line.substr(eq + 1));   // adopted with the batch
+        pl->morphStage.lfoCarried = true;
+      }
+      continue;
+    }
     /* B172 engine blocks. AFTER the `o<k>.` split (an engine key never carries
        one, and asking first would mean two prefix vocabularies) and BEFORE the
        kParams scans below, which is the ordering that matters: `sub.wave` must
@@ -10271,13 +10429,22 @@ extern "C" void hypersaw_debug_lfocycle(const clap_plugin_t *p, char *out, uint3
   const std::string j = self(p)->lfoCycleJson();
   std::snprintf(out, cap, "%s", j.c_str());
 }
-extern "C" bool hypersaw_debug_exempt(const clap_plugin_t *p, uint32_t id) { return self(p)->morphToggleExempt((clap_id)id); }
+extern "C" bool hypersaw_debug_exempt(const clap_plugin_t *p, uint32_t id)
+{
+  const bool on = self(p)->morphToggleExempt((clap_id)id);
+  rigDrainIfQueued(self(p));   // see RIG DOORS
+  return on;
+}
 /* The GUI bridge's other two corner verbs, headless — the same reason the
    exempt door above exists. B89 2c (e) has to prove capture still bakes and an
    armed edit still lands in the armed corner WITH THE RESOLVER RUNNING, and
    both gestures reach the shell only through hostIf, which no oracle can
    drive. `arm` is the parameter (159), so it needs no door of its own. */
-extern "C" void hypersaw_debug_capture(const clap_plugin_t *p, int k) { self(p)->morphCapture(k); }
+extern "C" void hypersaw_debug_capture(const clap_plugin_t *p, int k)
+{
+  self(p)->morphCapture(k);
+  rigDrainIfQueued(self(p));   // see RIG DOORS
+}
 extern "C" const char *hypersaw_debug_cornervals(const clap_plugin_t *p, int k)
 { static std::string j; j = self(p)->morphCornerValsJson(k); return j.c_str(); }
 extern "C" const char *hypersaw_debug_ownersjson(const clap_plugin_t *p)
@@ -10496,21 +10663,6 @@ extern "C" int hypersaw_debug_intent_homeowner(const clap_plugin_t *p)
   if (pl->intentOwnerAtom.empty()) return -1;
   return pl->intentOwnerAtom[(size_t)pl->intentHomeAtom];
 }
-/* RIG DOORS. A load, a route verb or PANIC made while `processing` is true
-   only QUEUES or REQUESTS: the audio thread applies it at its next block
-   start. A test rig is single-threaded — between its process() calls it IS
-   the audio thread's only user — so the test exports below drain the WHOLE
-   queue here, in order, with the function the block start runs (parameters,
-   commands, and a load's adoption marker exactly where its batch put it), so
-   a read straight after them sees what a read one block later would. The
-   whole queue, never the morph field alone: a door that adopted the stage by
-   itself would hide a load whose marker never landed. Not processing, the
-   work was already done directly and nothing is drained. Test surface only:
-   the editor reaches these members through gui_create, never these exports. */
-static void rigDrainIfQueued(Plugin *pl)
-{
-  if (pl->processing.load(std::memory_order_acquire)) pl->drainQueue(nullptr);
-}
 extern "C" bool hypersaw_debug_apply(const clap_plugin_t *p, const char *json)
 {
   const bool ok = self(p)->applyStateJson(json ? json : "");
@@ -10554,7 +10706,12 @@ extern "C" void hypersaw_debug_notelaw(const clap_plugin_t *p, char *out, uint32
                 q.model, q.tau, q.gtime, q.rate, q.springF, q.damp, q.distOver, q.retMul, q.quant, q.qhyst, q.qTime,
                 self(p)->noteLink, self(p)->bendLaw.model, self(p)->bendLaw.springF);
 }
-extern "C" bool hypersaw_debug_cornerapply(const clap_plugin_t *p, int k, const char *json) { return self(p)->cornerApply(k, json ? json : ""); }
+extern "C" bool hypersaw_debug_cornerapply(const clap_plugin_t *p, int k, const char *json)
+{
+  const bool ok = self(p)->cornerApply(k, json ? json : "");
+  rigDrainIfQueued(self(p));   // see RIG DOORS
+  return ok;
+}
 extern "C" const char *hypersaw_debug_cornernames(const clap_plugin_t *p) { static std::string j; j = self(p)->cornerNamesJson(); return j.c_str(); }
 extern "C" void hypersaw_debug_cornername(const clap_plugin_t *p, int k, const char *n) { self(p)->setCornerName(k, n ? n : ""); }
 extern "C" bool hypersaw_debug_cornermatches(const clap_plugin_t *p, int k, const char *json) { return self(p)->cornerMatches(k, json ? json : ""); }

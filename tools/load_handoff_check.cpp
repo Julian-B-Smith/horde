@@ -607,6 +607,34 @@ void flushRows(const std::string &json)
   row(d0 > 0 && stats(c.p).depth == 0, "F-CTL", "control: a flush outside a load drains (" + std::to_string(d0) + " -> 0)");
 }
 
+/* THE REST OF A LOAD: intent tables, LFO streams, ensemble timing (both
+   oscillators) and the engine revision ride the same staged adoption as the
+   morph field on a queued load. The chunk carries every one of them. */
+std::string withExtras(const std::string &chunk)
+{
+  std::string c = chunk;
+  if (!c.empty() && c.back() != '\n') c += '\n';
+  c += "intent=L:1,B:4:0:2:0.5,R:4:1:0.2:0.8,H:2:0.25:0.75\n";
+  c += "lfo=0.25;12345,0.75;67890\n";
+  c += "ens=0.5;4242;0.001,0.002,0.003\n";
+  c += "o1.ens=0.25;99;0.004,0.005\n";
+  c += "engine_revision=1\n";
+  return c;
+}
+void extrasRows(const std::string &a)
+{
+  const std::string x = withExtras(a);
+  const Seen ref = idleLoad(x), q = queuedLoad({x});
+  const bool carries = ref.state.find("\nintent=") != std::string::npos &&
+                       ref.state.find("\nlfo=") != std::string::npos &&
+                       ref.state.find("\nens=") != std::string::npos &&
+                       ref.state.find("\no1.ens=") != std::string::npos &&
+                       ref.state.find("\nengine_revision=1") != std::string::npos;
+  row(carries, "X-NONZERO", "an idle load of the chunk re-saves its intent, lfo, ens, o1.ens and engine_revision=1 lines");
+  row(q.state == ref.state, "X-STATE", "a queued load's whole state equals an idle load's, extras included");
+  row(queuedLoad({a}).state != ref.state, "X-CTL", "control: the same chunk without the extras differs");
+}
+
 std::string defaultJson()
 {
   Inst d;
@@ -624,6 +652,7 @@ int main()
   const std::string a = makeRichChunk(0.37), b = makeRichChunk(0.63);
   queuedRows(a, b);
   overflowRows(a);
+  extrasRows(a);
   const std::string json = defaultJson();
   silentRows(json);
   flushRows(json);
