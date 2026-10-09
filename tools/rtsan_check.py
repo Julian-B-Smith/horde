@@ -211,7 +211,12 @@ def main():
         print(f"rtsan_check: probe build FAILED (see {build}/rtsan.build.log)")
         return 1
 
-    env = dict(os.environ, RTSAN_OPTIONS="halt_on_error=false")
+    # HOME is redirected into the build dir: the probe presses PANIC, whose
+    # forensic dump is written under the user's preset store, and a test run
+    # must not leave files there (tsan_stress_check does the same).
+    home = os.path.join(build, "rtsan_home")
+    os.makedirs(home, exist_ok=True)
+    env = dict(os.environ, HOME=home, RTSAN_OPTIONS="halt_on_error=false")
 
     def probe(mode, argv):
         log = os.path.join(build, f"rtsan.{mode}.log")
