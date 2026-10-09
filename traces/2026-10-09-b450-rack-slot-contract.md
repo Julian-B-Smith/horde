@@ -34,7 +34,10 @@
   dry/wet and breaks ADR-195 for multiband Bulwark); keeping `ModulePreset` as a third preset format
   beside the cascade (recommended conversion at import instead, Q7); requiring `loadState` from every
   module (FOUNDATIONS made it optional, Q8).
-- **Verify:** see the PR; `./verify fast` and the leak check were run on the final tree.
+- **Verify:** `./verify fast` exit 0 on `c21085e` (`.harness/last-verify.json`:
+  `{"target":"fast","exit":0,"git":"c21085e","ts":"2026-10-09T17:27:23Z"}`). The leak check
+  (`git grep -I -i -F -f .leakcheck-names`) returned nothing. `verify full` was not run: the change is
+  docs-only, and the lead runs `full` before closing the item.
 - **Open questions:** Q1–Q13 in §10 of the document. For the lead only: §7.2 states B448's privately
   recorded shell rules generically, as the brief listed them. Confirm this is disclosure-safe before
   merging.
