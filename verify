@@ -117,6 +117,14 @@ fast() {
   # cheap half, in `fast`. Self-calibrating (blob, missing, zero-pin controls). Added under
   # ADR-180 §1.
   python3 tools/golden_pin_check.py || ok=1
+  # THE USER MANUAL'S PLACEHOLDERS AND ITS FIGURE REGISTRY AGREE (B451). Every
+  # [[FIG|TAB|AUD:id]] in docs/manual/NN-*.md has one docs/manual/figures.json entry and
+  # every entry one placeholder; ids are unique; fields, kinds and statuses are
+  # known; every depends_on id is a real H2-PLAN part, ROADMAP row or ADR; every
+  # section carries a PENDING / READY-TO-WRITE status. Two lists describing one set
+  # drift silently, and no audio oracle sees it. Self-calibrating (seven planted
+  # faults must read red, the untouched copy green). ~0.1 s. Added under ADR-180 §1.
+  python3 tools/manual_scaffold_check.py || ok=1
   # EVERY COMPARISON TOLERANCE IS PINNED (B448 A3, ADR-197 armor edit G, "tolerance
   # creep"). Tolerances widen a little per PR until the test means nothing, and the
   # widened test still passes, so no oracle sees it. docs/armor/tolerances.json pins
