@@ -276,7 +276,7 @@ struct Tally
   uint64_t blocks = 0, flushes = 0, noteOns = 0, noteOffs = 0, chokes = 0, exprs = 0, midis = 0,
            tempos = 0, paramEvs = 0, bursts = 0, bypasses = 0, reactivations = 0, refused = 0;
   uint64_t guiSets = 0, gestures = 0, stateLoads = 0, presetLoads = 0, modEdits = 0, morphOps = 0,
-           undoOps = 0;
+           undoOps = 0, panics = 0;
 };
 
 struct Ctx
@@ -404,11 +404,10 @@ void mainOp(Ctx &c, Rng &r)
     switch (r.below(5))
     {
     case 0: pl->modAddRoute(r.below(24), pi.id); break;
-    case 1: { const int i = (int)r.below(8);
-              if (i < pl->mod.nRoutes) pl->mod.routes[i].depth = r.next() * 2 - 1; } break;
+    case 1: pl->modSetDepth((int)r.below(8), r.next() * 2 - 1); break;
     case 2: pl->modSetSource((int)r.below(8), r.below(24)); break;
     case 3: pl->modSetPolarity((int)r.below(8), (int)r.below(2)); break;
-    default: pl->mod.removeRoute((int)r.below(8)); break;
+    default: pl->modRemoveRoute((int)r.below(8)); break;
     }
     c.t.modEdits++;
     break;
@@ -617,6 +616,15 @@ void runSchedule(Ctx &c)
       hostEvents(c, r, ev, frames, sc[s], b == 0 || r.oneIn(60));
       // Staged work lands on the audio thread HERE: the drain at the top of the next process().
       if (r.oneIn(5)) mainOp(c, r);
+      /* The editor's PANIC, once per scene, mid-scene: while processing it is a
+         request the audio thread performs at the top of the next process()
+         (forensic capture + clear), so that work is inside the realtime scope.
+         Positional, not drawn, so the seeded schedule above is unchanged. */
+      if (b == perScene / 2)
+      {
+        c.pl->panicWithDump();
+        c.t.panics++;
+      }
       processBlock(c, ev, frames, r.oneIn(8), 60.0 + (double)((b / 17) % 15) * 10.0);
       if (r.oneIn(9))
       {
@@ -718,9 +726,9 @@ int main(int argc, char **argv)
               (unsigned long long)t.chokes, (unsigned long long)t.exprs, (unsigned long long)t.midis,
               (unsigned long long)t.tempos, (unsigned long long)t.paramEvs);
   std::printf("rtsan_probe: main-thread staging: guiSet=%llu gesture=%llu stateLoad=%llu presetLoad=%llu "
-              "mod=%llu morph=%llu undo=%llu\n",
+              "mod=%llu morph=%llu undo=%llu panic=%llu\n",
               (unsigned long long)t.guiSets, (unsigned long long)t.gestures, (unsigned long long)t.stateLoads,
               (unsigned long long)t.presetLoads, (unsigned long long)t.modEdits, (unsigned long long)t.morphOps,
-              (unsigned long long)t.undoOps);
+              (unsigned long long)t.undoOps, (unsigned long long)t.panics);
   return 0;
 }

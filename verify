@@ -645,6 +645,15 @@ full() {
   # The directory argument is where it finds the factory Init patch.
   "$build_dir/offcorner_check"   docs/presets/factory   || return 1   # B232 off-corner blend rule, rev-gated
   "$build_dir/modreadback_check" tests/state_fixtures/chunk-v2-rev1.txt || return 1   # B241 a modulated row persists at its BASE
+  # A HOST STATE LOAD STAYS THE LOADED PATCH WHATEVER PROCESSING DOES AROUND IT
+  # (B448 B2). Single-threaded and deterministic: a stop_processing that lands
+  # inside a load must not split it (STOP), and a load while processing writes
+  # nothing into the morph corners (HOOK, B125), each beside controls that must
+  # read green (idle, no stop, morph off) and must-read-nonzero guards. The
+  # ordering companion of tsan_stress_check, which cannot see either row. In
+  # `full`, not `fast`, because it links the shell and `fast` has no build tree.
+  # Sub-second. Added under ADR-180 §1.
+  "$build_dir/load_handoff_check"                       || return 1   # B448 B2 a load decides its mode once
   # SCALPEL's own oracle battery (ADR-184, ingested 2026-09-24; v1.1 2026-09-27, B300):
   # 24 numeric checks (18 at v1; v1.1 adds six on blade interplay) against
   # reference/scalpel/prototype/razor-core.js, ~9 s, exit 0 only when all
@@ -921,6 +930,19 @@ full() {
   # WARNING + SKIPPED, never GREEN. Never baselined or allowlisted. Added under
   # ADR-180 §1.
   python3 tools/rtsan_check.py || return 1
+
+  # THREAD SAFETY, THE MAIN-THREAD/AUDIO-THREAD HANDOFF (B448 B2, ADR-197 risk
+  # row 2, ADR-199). The real shell under ThreadSanitizer: the audio thread
+  # renders while the host/editor main thread loads, saves, edits, morphs,
+  # navigates history and presses PANIC, over three seeded schedules. Red on
+  # ANY report whose main-thread access is a WRITE (TSan's own access type,
+  # the human's ruling of 2026-10-09); reports where the main thread only
+  # READS are counted and printed as accepted. Calibrated every run: a planted
+  # main-thread write must be reported and filed as a WRITE, a planted
+  # main-thread read as a READ, and the audio-thread-only control must have no
+  # report at all. No compiler prints WARNING + SKIPPED, never GREEN. ~5 min
+  # here. Added under ADR-180 §1.
+  python3 tools/tsan_stress_check.py || return 1
 
   # PARAMETER SCOPE (A12, 2026-08-11; ADR-089 conditions met). A GLOBAL core
   # param must reach EVERY oscillator, and a PER-OSC param must reach ONLY its

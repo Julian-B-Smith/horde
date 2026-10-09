@@ -422,14 +422,20 @@ int main()
     }
     p->destroy(p);
   }
-  {   // ... and the OTHER load order: while processing, parameters are queued
-      // to the audio thread and therefore arrive AFTER the ens= key. The key
-      // carries the seed it was derived under so this restores the same state.
+  {   // ... and the queued load: while processing, the whole load (its
+      // parameters and the ens= key) is handed to the audio thread and lands
+      // at the next drain. The key carries the seed it was derived under, so
+      // the restored state does not depend on which path applied it.
     const clap_plugin_t *p = statefix::makePlugin();
     statefix::loadChunk(p, blob);
     {
       Phrase ph(p);
       statefix::loadChunk(p, mid);
+      // A load while processing lands at the next block start, the ens= key
+      // with its parameters; the flush is the host's answer to the load's
+      // request_flush. The human's ruling of 2026-10-09, extended from
+      // routing_check to this row the same day (ADR-200).
+      statefix::drain(p);
       reQueued = ensLine(statefix::saveChunk(p));
     }
     p->destroy(p);

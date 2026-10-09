@@ -14,12 +14,14 @@
  * only when inactive, so touching the core there is race-free.
  */
 
+#include <cassert>
 #include <cstring>
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
 #include <atomic>
 #include <string>
+#include <thread>   // std::this_thread::yield: morphStageClaim waits out an in-flight adoption
 #include <filesystem>
 #include <clap/clap.h>
 #include <clapwrapper/vst3.h>
@@ -2165,14 +2167,6 @@ struct Plugin
     traceWrite.store(w + 1, std::memory_order_release);
   }
 
-  /* Write the trace and the live voice tables to a file, and return its path.
-     MAIN/GUI THREAD ONLY — this opens a file, which the audio thread may never
-     do. It reads state the audio thread is concurrently writing and does not
-     lock: a diagnostic that stalls the audio thread to describe it is worse
-     than a diagnostic with one torn row.
-
-     The path is derived at RUNTIME, never baked in — a machine-absolute path in
-     a tracked file is both an identity leak and wrong on any other machine. */
 /* Empty string = nothing to say. Deliberately silent until enough notes have
      arrived to be sure: a hint that fires on the first note would fire on every
      load, and a warning that is usually wrong gets ignored when it is right. */
@@ -2187,7 +2181,77 @@ struct Plugin
            "plugin in your host - per-note pitch and pressure will be flattened.";
   }
 
-    std::string dumpForensics(const char *why)
+  /* THE FORENSIC SNAPSHOT: everything the dump prints, copied out of the live
+     tables into plain storage. Two halves because they belong on different
+     threads: capture reads audio-owned state, so while processing it runs on
+     the audio thread (fixed-size copies, no allocation, no lock — coreKeys are
+     short enough for the small-string buffer); the WRITE opens a file, so it
+     runs on the main thread, from the snapshot alone. */
+  static constexpr int kDumpPatchIds[] = {1, 4, 6, 8, 14, 17, 19, 20, 21, 22, 32, 34, 42, 94};
+  static constexpr int kDumpPatchN = (int)(sizeof(kDumpPatchIds) / sizeof(kDumpPatchIds[0]));
+  struct ForensicSnap
+  {
+    uint64_t w = 0;
+    double sampleRate = 0;
+    bool spectra = false;
+    int mono = 0, legato = 0, monoSlot = -1, heldCount = 0;
+    int heldKey[16] = {};
+    bool patchHave[kDumpPatchN] = {};
+    const char *patchKey[kDumpPatchN] = {};
+    double patch[kDumpPatchN][kNumOsc] = {};
+    bool any[hypersaw::kPoly] = {};
+    int slot[hypersaw::kPoly][kNumOsc] = {}, midi[hypersaw::kPoly][kNumOsc] = {};
+    bool gate[hypersaw::kPoly][kNumOsc] = {};
+    double env[hypersaw::kPoly][kNumOsc] = {};
+    bool tagActive[hypersaw::kPoly] = {};
+    int tagKey[hypersaw::kPoly] = {}, tagNoteId[hypersaw::kPoly] = {};
+    NoteTrace trace[kTraceLen] = {};
+  };
+  void captureForensics(ForensicSnap &s) const
+  {
+    s.w = traceWrite.load(std::memory_order_acquire);
+    s.sampleRate = sampleRate;
+    s.spectra = spectraMode();
+    s.mono = (int)voiceMono;
+    s.legato = (int)voiceLegato;
+    s.monoSlot = monoSlot;
+    s.heldCount = std::max(0, std::min(heldCount, 16));
+    for (int i = 0; i < s.heldCount; i++) s.heldKey[i] = heldStack[i].key;
+    for (int j = 0; j < kDumpPatchN; j++)
+    {
+      const ParamDef *d0 = findParam((clap_id)kDumpPatchIds[j]);
+      s.patchHave[j] = d0 != nullptr;
+      if (!d0) continue;
+      s.patchKey[j] = d0->coreKey;
+      for (uint32_t k = 0; k < kNumOsc; k++) s.patch[j][k] = cores[k].getParam(d0->coreKey);
+    }
+    for (int i = 0; i < hypersaw::kPoly; i++)
+    {
+      bool any = false;
+      for (uint32_t k = 0; k < kNumOsc; k++)
+        if (cores[k].voiceAt(i).gate || cores[k].voiceAt(i).env > 1e-4) any = true;
+      s.any[i] = any;
+      for (uint32_t k = 0; k < kNumOsc; k++)
+      {
+        const auto &v = cores[k].voiceAt(slotOf[i][k]);
+        s.slot[i][k] = slotOf[i][k];
+        s.midi[i][k] = v.midi;
+        s.gate[i][k] = v.gate != 0;
+        s.env[i][k] = v.env;
+      }
+      s.tagActive[i] = tags[i].active;
+      s.tagKey[i] = tags[i].key;
+      s.tagNoteId[i] = tags[i].noteId;
+    }
+    for (uint32_t n = 0; n < kTraceLen; n++) s.trace[n] = trace[n];
+  }
+
+  /* Write a snapshot to a file and return its path. MAIN/GUI THREAD ONLY —
+     this opens a file, which the audio thread may never do.
+
+     The path is derived at RUNTIME, never baked in — a machine-absolute path in
+     a tracked file is both an identity leak and wrong on any other machine. */
+  std::string writeForensics(const ForensicSnap &s, const char *why) const
   {
     namespace fs = std::filesystem;
     std::error_code ec;
@@ -2202,16 +2266,15 @@ struct Plugin
     fs::create_directories(dir, ec);
     // Named by the trace counter, not by a clock: the charter bans wall-clock
     // reads in the core, and a monotonic counter also sorts correctly.
-    const uint64_t w = traceWrite.load(std::memory_order_acquire);
+    const uint64_t w = s.w;
     const fs::path out = dir / ("panic-" + std::to_string(w) + ".txt");
     std::FILE *f = std::fopen(out.string().c_str(), "w");
     if (!f) return {};
 
     std::fprintf(f, "HYPERSAW forensic dump\nreason: %s\nbuild: %s\nsample rate: %.1f\n",
-                 why, HYPERSAW_BUILD_STAMP, sampleRate);
+                 why, HYPERSAW_BUILD_STAMP, s.sampleRate);
     std::fprintf(f, "engine: %s  mono: %d  legato: %d  monoSlot: %d  heldCount: %d\n",
-                 spectraMode() ? "SPECTRA" : "SAW", (int)voiceMono, (int)voiceLegato,
-                 monoSlot, heldCount);
+                 s.spectra ? "SPECTRA" : "SAW", s.mono, s.legato, s.monoSlot, s.heldCount);
 
     /* THE PATCH, because "the envelope sounds wrong" is unanswerable without it.
        The 2026-08-12 Expressive Chords report needed attack/decay/sustain/release
@@ -2220,21 +2283,16 @@ struct Plugin
        STREAM and left the sound unexplained. A forensic dump that records the
        input but not the configuration answers only half of any question. */
     std::fprintf(f, "\n-- patch (the params that shape what you hear) --\n");
+    for (int j = 0; j < kDumpPatchN; j++)
     {
-      static const int kWanted[] = {1, 4, 6, 8, 14, 17, 19, 20, 21, 22, 32, 34, 42, 94};
-      for (int id : kWanted)
-      {
-        const ParamDef *d0 = findParam((clap_id)id);
-        if (!d0) continue;
-        std::fprintf(f, "  %-14s", d0->coreKey);
-        for (uint32_t k = 0; k < kNumOsc; k++)
-          std::fprintf(f, "  osc%u %-9.4f", k, cores[k].getParam(d0->coreKey));
-        std::fprintf(f, "\n");
-      }
+      if (!s.patchHave[j]) continue;
+      std::fprintf(f, "  %-14s", s.patchKey[j]);
+      for (uint32_t k = 0; k < kNumOsc; k++) std::fprintf(f, "  osc%u %-9.4f", k, s.patch[j][k]);
+      std::fprintf(f, "\n");
     }
 
     std::fprintf(f, "\n-- held stack --\n");
-    for (int i = 0; i < heldCount; i++) std::fprintf(f, "  [%d] key %d\n", i, heldStack[i].key);
+    for (int i = 0; i < s.heldCount; i++) std::fprintf(f, "  [%d] key %d\n", i, s.heldKey[i]);
 
     /* The voice tables per core, side by side with slotOf. This is the exact
        view that would have shown the stuck-note orphan at a glance: a gated
@@ -2243,19 +2301,13 @@ struct Plugin
     std::fprintf(f, "\n-- voices (shell slot -> each core's own slot) --\n");
     for (int i = 0; i < hypersaw::kPoly; i++)
     {
-      bool any = false;
-      for (uint32_t k = 0; k < kNumOsc; k++)
-        if (cores[k].voiceAt(i).gate || cores[k].voiceAt(i).env > 1e-4) any = true;
-      if (!any && !tags[i].active) continue;
+      if (!s.any[i] && !s.tagActive[i]) continue;
       std::fprintf(f, "  %2d:", i);
       for (uint32_t k = 0; k < kNumOsc; k++)
-      {
-        const auto &v = cores[k].voiceAt(slotOf[i][k]);
-        std::fprintf(f, "  core%u[slot %d] midi %3d %s env %.4f |", k, slotOf[i][k],
-                     v.midi, v.gate ? "GATED" : "  off", v.env);
-      }
-      std::fprintf(f, "  tag %s key %d note_id %d\n", tags[i].active ? "active" : "  --",
-                   tags[i].key, tags[i].noteId);
+        std::fprintf(f, "  core%u[slot %d] midi %3d %s env %.4f |", k, s.slot[i][k], s.midi[i][k],
+                     s.gate[i][k] ? "GATED" : "  off", s.env[i][k]);
+      std::fprintf(f, "  tag %s key %d note_id %d\n", s.tagActive[i] ? "active" : "  --",
+                   s.tagKey[i], s.tagNoteId[i]);
     }
 
     std::fprintf(f, "\n-- last %u note events, oldest first (pos = absolute sample) --\n",
@@ -2263,7 +2315,7 @@ struct Plugin
     const uint64_t first = w > kTraceLen ? w - kTraceLen : 0;
     for (uint64_t n = first; n < w; n++)
     {
-      const NoteTrace &r = trace[n & (kTraceLen - 1)];
+      const NoteTrace &r = s.trace[n & (kTraceLen - 1)];
       const char *t = r.type == CLAP_EVENT_NOTE_ON ? "ON   "
                     : r.type == CLAP_EVENT_NOTE_OFF ? "OFF  "
                     : r.type == CLAP_EVENT_NOTE_CHOKE ? "CHOKE" : "?????";
@@ -2274,16 +2326,71 @@ struct Plugin
     return out.string();
   }
 
+  /* Capture now and write. For a caller that owns the state (not processing,
+     or a single-threaded rig): the test hook and the direct PANIC. */
+  std::string dumpForensics(const char *why)
+  {
+    captureForensics(dumpScratch);
+    return writeForensics(dumpScratch, why);
+  }
+  ForensicSnap dumpScratch;   // main thread only: dumpForensics' own copy
+
   /* Panic: capture, THEN clear. The ordering is the whole feature — a dump
      taken after the clear faithfully records a synth in perfect health and
      proves nothing, and panic is precisely the human's tell that the bug just
      happened. Extracted from the GUI lambda so the ordering is reachable from a
      headless oracle; when it lived inline it was guarded only by a comment,
      which trace_check recorded as a known coverage boundary rather than
-     pretending to cover. */
+     pretending to cover.
+
+     WHO PERFORMS IT. The clear writes voice state and the pending-END table,
+     both of which the audio thread writes while it renders, so while
+     processing the main thread only REQUESTS it: the audio thread captures
+     and clears at the start of its next block (panicPerformRequested) and
+     hands the snapshot back, and the main thread writes the file on its next
+     tick (panicService, from the GUI frame) or the next PANIC. Not processing,
+     it is done here, directly, exactly as before.
+     panicState: 0 idle, 1 requested (main -> audio), 2 captured (audio ->
+     main). Each side touches panicSnap only in the state that hands it the
+     snapshot, so the two never overlap. */
+  ForensicSnap panicSnap;
+  std::atomic<int> panicState{0};
   void panicWithDump()
   {
-    lastDumpPath = dumpForensics("panic");
+    panicService();   // a capture still waiting for its file is written first
+    {
+      DirectScope ds(*this);
+      if (ds.owned)
+      {
+        int requested = 1;
+        panicState.compare_exchange_strong(requested, 0);   // a request this direct panic supersedes
+        captureForensics(dumpScratch);
+        panicClear();
+        ds.release();   // the file write below is I/O: it never holds the state
+        lastDumpPath = writeForensics(dumpScratch, "panic");
+        return;
+      }
+    }
+    int idle = 0;
+    panicState.compare_exchange_strong(idle, 1);   // already requested: one panic is owed, not two
+  }
+  // AUDIO THREAD, block start. Allocation-free: fixed copies and the clear.
+  void panicPerformRequested()
+  {
+    if (panicState.load(std::memory_order_acquire) != 1) return;
+    captureForensics(panicSnap);
+    panicClear();
+    panicState.store(2, std::memory_order_release);
+  }
+  // MAIN THREAD: write the file for a capture the audio thread handed back.
+  void panicService()
+  {
+    if (panicState.load(std::memory_order_acquire) != 2) return;
+    lastDumpPath = writeForensics(panicSnap, "panic");
+    panicState.store(0, std::memory_order_release);
+  }
+  void panicClear()
+  {
     /* RETIRE the outstanding notes; do not DISCARD them. This used to do
        `pendingEndCount = 0` and clear every tag directly, which destroyed every
        NOTE_END the host was owed — a host tracking `note_id`s was left holding
@@ -2354,7 +2461,27 @@ struct Plugin
   {
     uint32_t id;
     double value;
-    uint8_t kind;  // 0=value, 1=gesture begin, 2=gesture end, 3=load value (B125)
+    uint8_t kind;  // 0=value, 1=gesture begin, 2=gesture end, 3=load value (B125), 4.. below
+    uint8_t a = 0, b = 0;   // the mod-route kinds' small operands (source slot, polarity)
+  };
+  /* The kinds past 3 carry what is NOT a parameter, so that the audio thread
+     stays the only writer of it while processing: the mod-route table
+     (ModCore has no lock and addRoute checks-then-writes a count), the mod
+     wheel source (CC1 writes it on the audio thread too), and the adoption
+     of a staged morph field. Each is applied by drainQueue in queue order. */
+  enum : uint8_t
+  {
+    kMsgModAdd = 4,        // id = dest, value = depth, a = source slot, b = polarity
+    kMsgModRemove = 5,     // id = route index
+    kMsgModDepth = 6,      // id = route index, value = depth
+    kMsgModSource = 7,     // id = route index, a = source slot
+    kMsgModPolarity = 8,   // id = route index, a = polarity
+    kMsgModClear = 9,      // a load's "replace wholesale": every generic route goes
+    kMsgModWheel = 10,     // value = the wheel, 0..1
+    kMsgMorphAdopt = 11,   // id = the staged field's generation (morphGate)
+    kMsgCornerAdopt = 12,  // id = the staged corner's generation (cornerGate), a = the corner
+    kMsgMorphCapture = 13, // id = the corner
+    kMsgMorphExempt = 14,  // id = the morphIds slot, a = 1 exempt / 0 not
   };
   /* 2048, not 1024 and certainly not 256 (B110, 2026-09-10): a FULL preset
      applied through applyStateJson enqueues ~323 keys plus the osc-2 twins
@@ -2369,17 +2496,33 @@ struct Plugin
      ignored, params still apply" — the tail of a burst silently dropped, which
      is B110's failure with a new cause. Peak in-flight depth over state_check's
      corpus, measured with a temporary counter in enqueueParam: 1471 of 2048.
-     Static array, 32 KB, RT-safe.
+     4096 since B448 B2: a load while processing is now ONE batch the audio
+     thread drains whole, so two loads inside one block (a host restoring a
+     session, a GUI load straight after another) sit in the queue together —
+     two peak loads are about 2940 entries, and the second load's tail must not
+     be the part that is dropped. Static array, 96 KB (4096 x 24-byte entries),
+     preallocated, RT-safe.
      KNOWN AND PRE-EXISTING, so that a future reader does not mistake it for
      this change's doing: a rig that keeps `processing` true and loads
      repeatedly WITHOUT calling process() between loads never drains, so it
-     saturates whatever this constant is (morphlayout_check reaches exactly
-     kQCap at 1024 on main and at 2048 here). The shipping paths drain every
+     saturates whatever this constant is (morphlayout_check once reached
+     exactly kQCap; its doors drain now). The shipping paths drain every
      block; raising the cap cannot fix a rig that never drains, and no rig
      assertion depends on the drops. */
-  static constexpr uint32_t kQCap = 2048;
+  static constexpr uint32_t kQCap = 4096;
   ParamMsg queue[kQCap];
   std::atomic<uint32_t> qHead{0}, qTail{0};
+  /* A LOAD IS ONE BATCH. While a queued load runs, its entries are written
+     past qHead but qHead is published once, at the end (endQueueBatch), so
+     the audio thread drains the whole load in one drainQueue call at one block
+     start, never half of it with a block rendered in between. Main thread
+     only; the queue stays single-producer. */
+  bool qBatchOpen = false;
+  uint32_t qBatchHead = 0;
+  /* Overflow is REPORTED, never silent: every refused entry counts here, and
+     the load whose batch overflowed returns false to its caller. */
+  std::atomic<uint32_t> qDropped{0};
+  bool qBatchOverflow = false;
 
   /* B84 / ADR-160 — UNDO HISTORY, main thread only. The tree, the pending
      MARK (a node is owed, and what to call it), and the monotone counter that
@@ -2402,7 +2545,11 @@ struct Plugin
   // Spectrum feed: mono ring written on the audio thread (write-only, cheap);
   // the FFT runs on the GUI thread on demand — zero audio-thread analysis
   // cost, torn reads are cosmetic-only (visualizer).
-  float specRing[4096] = {0};
+  /* Relaxed atomics, not plain floats: the GUI thread reads samples the audio
+     thread may be writing. Torn or stale samples were always cosmetic here;
+     this makes the access defined behaviour at the cost of nothing (a relaxed
+     float store is a plain store on arm64 and x86-64). */
+  std::atomic<float> specRing[4096] = {};
   std::atomic<uint32_t> specPos{0};
   // Scope feed (2026-08-03): STEREO, unlike specRing's mono sum — the whole
   // point of a scope here is watching L against R (super-width's polarity
@@ -2423,6 +2570,196 @@ struct Plugin
   std::atomic<uint32_t> scopePos[kMaxOsc] = {};
   uint32_t guiW = 980, guiH = 720;  // resizable (clamped in gui_adjust_size)
   std::atomic<bool> processing{false};
+  /* WHO OWNS THE STATE FOR A MAIN-THREAD WRITE SEQUENCE (a load, PANIC, a
+     mod-route verb). The rule: while processing, the audio thread is the only
+     writer, and main-thread writes travel as queue entries or requests; while
+     not processing, the main thread writes directly. The sequence asks ONCE,
+     at its start, and keeps the answer to its end.
+
+     Asking once is what makes a host's stop_processing part-way through a load
+     harmless: the load keeps queueing, and the restart (or a flush) drains
+     the whole of it in order. Asking per write split such a load into queued
+     defaults followed by direct writes, and the drain then landed the
+     defaults over the direct writes (load_handoff_check, row STOP).
+
+     The other direction is the reason this is a flag and not a plain read of
+     `processing`: a host may START processing while a direct sequence runs (a
+     wrapper that starts lazily on its first process call, at session open).
+     So `mainDirect` is raised BEFORE `processing` is read, both seq_cst, and
+     process() reads `mainDirect` after start_processing stored `processing`:
+     whichever store comes first in the single total order, the other side
+     sees it. Either the sequence sees `processing` and queues, or process()
+     sees `mainDirect` and renders that block as silence without touching any
+     state (see process()). Neither side waits on the other. */
+  std::atomic<bool> mainDirect{false};
+  /* params_flush and reset are audio-thread entry points too, and the host
+     may call them while active but NOT processing — exactly when a sequence
+     takes the direct path. So they join the same pair: each raises
+     `audioFlushing` (seq_cst) on entry and reads `mainDirect`; if a direct
+     sequence owns the state it touches nothing (flush defers its events,
+     reset is deferred; both land at the next entry that may run). A direct
+     sequence that finds `audioFlushing` raised waits for it to clear: the
+     entry either finishes or sees `mainDirect` and leaves, a bounded wait on
+     the main thread, never on the audio thread. */
+  std::atomic<bool> audioFlushing{false};
+  bool beginMainDirect()
+  {
+    mainDirect.store(true, std::memory_order_seq_cst);
+    for (;;)
+    {
+      if (processing.load(std::memory_order_seq_cst))
+      {
+        mainDirect.store(false, std::memory_order_seq_cst);
+        return false;
+      }
+      if (!audioFlushing.load(std::memory_order_seq_cst)) return true;
+      std::this_thread::yield();
+    }
+  }
+  void endMainDirect() { mainDirect.store(false, std::memory_order_seq_cst); }
+  // AUDIO side of the pair, for params_flush and reset. False: leave now.
+  bool beginAudioEntry()
+  {
+    audioFlushing.store(true, std::memory_order_seq_cst);
+    if (!mainDirect.load(std::memory_order_seq_cst)) return true;
+    audioFlushing.store(false, std::memory_order_seq_cst);
+    return false;
+  }
+  void endAudioEntry() { audioFlushing.store(false, std::memory_order_seq_cst); }
+  /* One direct sequence's ownership, released on every path out of the scope
+     (an early return cannot leave `mainDirect` raised, which would silence
+     every later block). */
+  struct DirectScope
+  {
+    Plugin &pl;
+    const bool owned;
+    bool released = false;
+    /* Never nested: an inner scope's release would end the outer one's
+       ownership early. Checked in debug builds (main thread only; nothing on
+       the audio thread, nothing at all in release). */
+    explicit DirectScope(Plugin &p) : pl(p), owned(enter(p)) {}
+    DirectScope(const DirectScope &) = delete;
+    DirectScope &operator=(const DirectScope &) = delete;
+    ~DirectScope() { release(); }
+    void release()
+    {
+      if (!released)
+      {
+        if (owned) pl.endMainDirect();
+#ifndef NDEBUG
+        pl.directDepth--;
+#endif
+      }
+      released = true;
+    }
+    static bool enter(Plugin &p)
+    {
+#ifndef NDEBUG
+      assert(p.directDepth == 0 && "DirectScope nested");
+      p.directDepth++;
+#endif
+      return p.beginMainDirect();
+    }
+  };
+#ifndef NDEBUG
+  int directDepth = 0;   // main thread only
+#endif
+
+  /* EVENTS THAT ARRIVE WHILE A DIRECT SEQUENCE OWNS THE STATE (a silent
+     process() block, a flush that left) are not handled then — handling them
+     writes the state the sequence is writing — and not dropped either: a
+     host sends a parameter change once and a note-off once. They are copied
+     here and replayed at the head of the next block or flush that may run.
+     Fixed size, so the copy allocates nothing; what does not fit is counted.
+     SysEx is not copied: its payload pointer dies with the call, and the
+     shell never reads SysEx. Only one thread writes this at a time: the
+     audio thread, or the main thread in a flush that runs while not active. */
+  static constexpr uint32_t kDeferBytes = 16384;
+  alignas(8) unsigned char deferBuf[kDeferBytes] = {};
+  uint32_t deferUsed = 0;
+  std::atomic<uint32_t> deferDropped{0};
+  /* A reset that arrived while the state was owned, and WHERE in the deferred
+     events it arrived: the events before it are replayed, then the reset, then
+     the rest, so a note deferred before the host's reset does not outlive it. */
+  bool resetDeferred = false;
+  uint32_t resetAt = 0;
+  /* The smallest `size` an event of this type may claim: handleEvent reads the
+     type's whole struct, so a shorter copy would be read past its end. */
+  static uint32_t minEventSize(const clap_event_header_t *e)
+  {
+    if (e->space_id != CLAP_CORE_EVENT_SPACE_ID) return sizeof(clap_event_header_t);
+    switch (e->type)
+    {
+    case CLAP_EVENT_NOTE_ON: case CLAP_EVENT_NOTE_OFF:
+    case CLAP_EVENT_NOTE_CHOKE: case CLAP_EVENT_NOTE_END: return sizeof(clap_event_note_t);
+    case CLAP_EVENT_NOTE_EXPRESSION: return sizeof(clap_event_note_expression_t);
+    case CLAP_EVENT_PARAM_VALUE: return sizeof(clap_event_param_value_t);
+    case CLAP_EVENT_PARAM_MOD: return sizeof(clap_event_param_mod_t);
+    case CLAP_EVENT_PARAM_GESTURE_BEGIN:
+    case CLAP_EVENT_PARAM_GESTURE_END: return sizeof(clap_event_param_gesture_t);
+    case CLAP_EVENT_TRANSPORT: return sizeof(clap_event_transport_t);
+    case CLAP_EVENT_MIDI: return sizeof(clap_event_midi_t);
+    case CLAP_EVENT_MIDI2: return sizeof(clap_event_midi2_t);
+    default: return sizeof(clap_event_header_t);
+    }
+  }
+  void resetNow()
+  {
+    resetDeferred = false;
+    // The host-MPE counters describe the CURRENT note stream, so a reset clears
+    // them: after a transport reset the evidence for "no expressions have arrived"
+    // has to be re-earned, or the hint would report a stream that is over.
+    sawNotes.store(0, std::memory_order_relaxed);
+    sawExprs.store(0, std::memory_order_relaxed);
+    sawNonZeroChan.store(0, std::memory_order_relaxed);
+    allOffAll();
+    for (double &b : mpeBendSemis) b = 0.0;
+  }
+  void deferEvents(const clap_input_events_t *in)
+  {
+    if (!in) return;
+    for (uint32_t i = 0, n = in->size(in); i < n; i++)
+    {
+      const clap_event_header_t *e = in->get(in, i);
+      if (!e) continue;
+      if (e->space_id == CLAP_CORE_EVENT_SPACE_ID && e->type == CLAP_EVENT_MIDI_SYSEX) continue;
+      /* The size is the HOST's claim: bounded BEFORE it is rounded, because
+         rounding a size near 2^32 up to 8 wraps to a small number that would
+         pass the room test and copy gigabytes. */
+      const uint32_t room = kDeferBytes - deferUsed;
+      if (e->size < minEventSize(e) || e->size > room || ((e->size + 7u) & ~7u) > room)
+      {
+        deferDropped.fetch_add(1, std::memory_order_relaxed);
+        continue;
+      }
+      std::memcpy(deferBuf + deferUsed, e, e->size);
+      deferUsed += (e->size + 7u) & ~7u;
+    }
+  }
+  /* Replays the deferred events with a deferred reset in its place among
+     them. Runs BEFORE the queue is drained: the queue holds what the editor
+     and the loads handed over since the last drain, which is the newer intent
+     whenever both name the same parameter. */
+  void replayDeferred()
+  {
+    const uint32_t cut = resetDeferred ? resetAt : deferUsed;
+    for (uint32_t off = 0; off < deferUsed;)
+    {
+      if (off == cut && resetDeferred) resetNow();
+      const auto *e = (const clap_event_header_t *)(deferBuf + off);
+      handleEvent(e);
+      off += (e->size + 7u) & ~7u;
+    }
+    if (resetDeferred) resetNow();   // a reset after every deferred event
+    deferUsed = 0;
+    resetAt = 0;
+  }
+  void clearDeferred()   // deactivate: nothing owed survives into the next activation
+  {
+    deferUsed = 0;
+    resetDeferred = false;
+    resetAt = 0;
+  }
   // ADR-024: the inertia KNOB value (params/state domain). The core holds
   // sqrt(knob) — squaring the core value back is not bit-exact, and
   // state_check demands exact round-trips, so the knob domain gets this one
@@ -3325,6 +3662,11 @@ struct Plugin
     for (int k = 0; k < 4; k++) morphCorner[k].assign(morphIds.size(), 0.0);
     morphCur.assign(morphIds.size(), -1e30);
     morphExempt.assign(morphIds.size(), 0);
+    // The staged field a queued load writes (morphAdopt): the same shape, sized
+    // here once so the audio thread's adoption is a copy and never a resize.
+    for (int k = 0; k < 4; k++) morphStage.corner[k].assign(morphIds.size(), 0.0);
+    morphStage.exempt.assign(morphIds.size(), 0);
+    cornerStage.assign(morphIds.size(), 0.0);
     morphGroupSplit.assign(morphIds.size(), 0);   // B222: sized here, never on the audio thread
     morph.reshuffle(morphSeed, (int)morphIds.size(), kMorphL9Slots);   // B240: draws frozen at layout 9
     // A fresh instance's corners all hold the DEFAULT patch, so switching morph
@@ -3345,6 +3687,12 @@ struct Plugin
      no knowledge of morphIds ordering. Writing the live value into ALL FOUR
      corners on exempt is the recorded design lean: un-exempting is then
      seamless (no jump), and the corners honestly record what was playing. */
+  /* THE MORPH EDITOR'S VERBS (exempt, capture, corner preset) write the field
+     the audio thread reads and writes, so they follow the mod verbs' rule:
+     direct when not processing, a queue kind applied by the audio thread
+     while processing. The exempt toggle's TARGET state is decided here, from
+     the editor's view, and travels with the entry, so two toggles inside one
+     block agree with what the editor showed rather than cancelling. */
   bool morphToggleExempt(clap_id id)
   {
     morphInit();
@@ -3352,24 +3700,31 @@ struct Plugin
       if (morphIds[i] == id)
       {
         const bool on = !morphExempt[i];
-        // A group exempts as a unit, for the same reason it flips as one.
-        size_t lo, hi;
-        morphGroupRange(i, lo, hi);
-        for (size_t j = lo; j <= hi; j++)
-        {
-          if (morphGroupLead(j) != morphGroupLead(i)) continue;   // gaps: FX groups
-
-          morphExempt[j] = on ? 1 : 0;
-          if (on)
-          {
-            const double live = readParam(morphIds[j]);
-            for (int k = 0; k < 4; k++) morphCorner[k][j] = live;
-            morphCornersAuthored = true;
-          }
-        }
+        DirectScope ds(*this);
+        if (ds.owned) morphSetExemptNow((uint32_t)i, on);
+        else enqueueParam((uint32_t)i, 0, kMsgMorphExempt, on ? 1 : 0);
         return on;
       }
     return false;
+  }
+  void morphSetExemptNow(uint32_t i, bool on)
+  {
+    if (i >= morphIds.size()) return;
+    // A group exempts as a unit, for the same reason it flips as one.
+    size_t lo, hi;
+    morphGroupRange(i, lo, hi);
+    for (size_t j = lo; j <= hi; j++)
+    {
+      if (morphGroupLead(j) != morphGroupLead(i)) continue;   // gaps: FX groups
+
+      morphExempt[j] = on ? 1 : 0;
+      if (on)
+      {
+        const double live = readParam(morphIds[j]);
+        for (int k = 0; k < 4; k++) morphCorner[k][j] = live;
+        morphCornersAuthored = true;
+      }
+    }
   }
   /* ADR-110: which corner owns each parameter RIGHT NOW, for the GUI's colour
      coding. The same pickCorner the audio path uses and the same group lead, so
@@ -3476,6 +3831,16 @@ struct Plugin
   {
     if (k < 0 || k > 3) return;
     morphInit();
+    {
+      DirectScope ds(*this);
+      if (ds.owned) morphCaptureNow(k);
+      else enqueueParam((uint32_t)k, 0, kMsgMorphCapture);
+    }
+    undoMarkCorner(k, "captured", nullptr); cornerName[k] = "";   // B84 / B122
+  }
+  void morphCaptureNow(int k)
+  {
+    if (k < 0 || k > 3 || morphIds.empty()) return;
     for (size_t i = 0; i < morphIds.size(); i++)
     {
       const uint32_t id = morphIds[i];
@@ -3502,7 +3867,6 @@ struct Plugin
       morphCorner[k][i] = v;
     }
     morphCornersAuthored = true;
-    undoMarkCorner(k, "captured", nullptr); cornerName[k] = "";   // B84 / B122
   }
 
   /* One morph step, on the 256-sample gravity grid (heavier than the bend grid
@@ -3733,8 +4097,9 @@ struct Plugin
      Stepped destinations are refused — a zippered enum is not modulation, and
      the GUI mirrors the rule by not offering the menu item. Source is a slot
      index (0 = ENV 1, 1 = ENV 2). */
-  bool modAddRoute(uint32_t srcSlot, clap_id destId)
+  bool modRouteAllowed(uint32_t srcSlot, clap_id destId) const
   {
+    if (srcSlot >= (uint32_t)hypersaw::ModCore::kMaxSources) return false;
     const ParamDef *pd = findParam(destId);
     if (!pd || pd->stepped) return false;
     // No self-reference: the matrix's own controls (161-165) and the macros +
@@ -3748,7 +4113,70 @@ struct Plugin
        output without that rule is a matrix that can deadlock or run away.
        modDestOptions() in gui2.html mirrors this exclusion. */
     if (destId >= 269 && destId <= 288) return false;
-    return mod.addRoute(srcSlot, destId, 0.25, hypersaw::ModCore::kGlobal);
+    return true;
+  }
+  /* THE MOD-ROUTE TABLE HAS ONE WRITER: the audio thread while processing,
+     the main thread otherwise (beginMainDirect). addRoute is check-then-write,
+     so the table takes one writer. The editor's verbs below
+     therefore apply directly when not processing and travel as queue kinds
+     while processing; drainQueue applies them (applyCommand).
+
+     THE EDITOR'S ANSWER STAYS HONEST without reading the table: the audio
+     thread publishes its route count after every change (modPublish), and
+     the main thread adds the adds it has queued that the audio thread has not
+     yet applied. That over-counts while a remove is in flight, never under:
+     an add refused here might have fitted, an add accepted here fits. */
+  std::atomic<int> modRoutesPub{0};
+  std::atomic<uint32_t> modAddsDone{0}, modRefused{0};
+  uint32_t modAddsQueued = 0;   // main thread only
+  void modPublish() { modRoutesPub.store(mod.nRoutes, std::memory_order_relaxed); }
+  bool modAddRoute(uint32_t srcSlot, clap_id destId)
+  {
+    if (!modRouteAllowed(srcSlot, destId)) return false;
+    {
+      DirectScope ds(*this);
+      if (ds.owned)
+      {
+        const bool ok = mod.addRoute(srcSlot, destId, 0.25, hypersaw::ModCore::kGlobal);
+        modPublish();
+        return ok;
+      }
+    }
+    const uint32_t done = modAddsDone.load(std::memory_order_acquire);   // before the count: see modPublish's order in applyCommand
+    const int pending = (int)(modAddsQueued - done);
+    if (modRoutesPub.load(std::memory_order_relaxed) + pending >= hypersaw::ModCore::kMaxRoutes) return false;
+    return enqueueModAdd(srcSlot, destId, 0.25, hypersaw::ModCore::kAsIs);
+  }
+  bool enqueueModAdd(uint32_t srcSlot, clap_id destId, double depth, int pol)
+  {
+    if (!enqueueParam(destId, depth, kMsgModAdd, (uint8_t)srcSlot, (uint8_t)pol)) return false;
+    modAddsQueued++;
+    return true;
+  }
+  void modSetDepth(int idx, double v)
+  {
+    // No index-0 special case: ADR-138 made knob 161 find its route BY DEST,
+    // so the depth of whatever sits at index 0 is nobody's secret twin.
+    if (idx < 0) return;
+    DirectScope ds(*this);
+    if (!ds.owned) { enqueueParam((uint32_t)idx, v, kMsgModDepth); return; }
+    if (idx < mod.nRoutes) mod.routes[idx].depth = v;
+  }
+  void modRemoveRoute(int idx)
+  {
+    if (idx < 0) return;
+    DirectScope ds(*this);
+    if (!ds.owned) { enqueueParam((uint32_t)idx, 0, kMsgModRemove); return; }
+    mod.removeRoute(idx);
+    modPublish();
+  }
+  // The editor's twin of CC1, which the audio thread writes into srcWheel too.
+  void setModWheel(double v)
+  {
+    v = v < 0 ? 0 : (v > 1 ? 1 : v);
+    DirectScope ds(*this);
+    if (!ds.owned) { enqueueParam(0, v, kMsgModWheel); return; }
+    srcWheel = v;
   }
   /* ADR-141: re-aim a live route's SOURCE. The human's ruling moved the
      modulator choice out of the right-click menu and into the table, so this
@@ -3756,6 +4184,14 @@ struct Plugin
      contract (knob 161 IS that route's depth, ENV 2 IS its source), not a
      user choice. */
   bool modSetSource(int idx, uint32_t srcSlot)
+  {
+    if (idx < 0 || srcSlot >= (uint32_t)hypersaw::ModCore::kMaxSources) return false;
+    // Queued: the index and the pitch-route refusal are judged by the table's owner.
+    DirectScope ds(*this);
+    if (!ds.owned) return enqueueParam((uint32_t)idx, 0, kMsgModSource, (uint8_t)srcSlot);
+    return modSetSourceNow(idx, srcSlot);
+  }
+  bool modSetSourceNow(int idx, uint32_t srcSlot)
   {
     if (idx < 0 || idx >= mod.nRoutes) return false;
     if (srcSlot >= (uint32_t)hypersaw::ModCore::kMaxSources) return false;
@@ -3768,6 +4204,13 @@ struct Plugin
      route's whole meaning (ADR-135), and a polarity on it would be a second,
      invisible author of the semitone offset. */
   bool modSetPolarity(int idx, int pol)
+  {
+    if (idx < 0 || pol < hypersaw::ModCore::kAsIs || pol > hypersaw::ModCore::kInverted) return false;
+    DirectScope ds(*this);
+    if (!ds.owned) return enqueueParam((uint32_t)idx, 0, kMsgModPolarity, (uint8_t)pol);
+    return modSetPolarityNow(idx, pol);
+  }
+  bool modSetPolarityNow(int idx, int pol)
   {
     if (idx < 0 || idx >= mod.nRoutes) return false;
     if (pol < hypersaw::ModCore::kAsIs || pol > hypersaw::ModCore::kInverted) return false;
@@ -3934,12 +4377,17 @@ struct Plugin
      patch that loads. */
   void applyEnsembleChunk(uint32_t k, const std::string &chunk)
   {
-    if (k >= kNumOsc) return;
-    const size_t s1 = chunk.find(';');
-    if (s1 == std::string::npos) return;
-    const size_t s2 = chunk.find(';', s1 + 1);
-    if (s2 == std::string::npos) return;
     hypersaw::SwarmCore::EnsembleTiming e{};
+    if (k < kNumOsc && parseEnsembleChunk(chunk, e)) cores[k].setEnsembleTiming(e);
+  }
+  // The parse alone, so a queued load can stage what a direct load applies.
+  static bool parseEnsembleChunk(const std::string &chunk, hypersaw::SwarmCore::EnsembleTiming &e)
+  {
+    const size_t s1 = chunk.find(';');
+    if (s1 == std::string::npos) return false;
+    const size_t s2 = chunk.find(';', s1 + 1);
+    if (s2 == std::string::npos) return false;
+    e = hypersaw::SwarmCore::EnsembleTiming{};
     e.seed = std::atof(chunk.c_str());
     e.rng = (uint32_t)std::strtoul(chunk.c_str() + s1 + 1, nullptr, 10);
     size_t pos = s2 + 1;
@@ -3950,7 +4398,7 @@ struct Plugin
       if (comma == std::string::npos) break;
       pos = comma + 1;
     }
-    cores[k].setEnsembleTiming(e);
+    return true;
   }
 
   /* B171 — the LFOs' stream state, one line of the chunk, B149's rule applied
@@ -3979,22 +4427,40 @@ struct Plugin
      rather than refusing the load — the chunk is append-only and a future build
      may write more lanes; a patch that half-loads its LFO phases is still a
      patch that loads. */
-  void applyLfoChunk(const std::string &chunk)
+  struct LfoLoad   // the lanes a chunk line set, in order
   {
+    int n = 0;
+    double phase[kNumLfo] = {};
+    uint32_t rng[kNumLfo] = {};
+  };
+  static LfoLoad parseLfoChunk(const std::string &chunk)
+  {
+    LfoLoad l;
     size_t pos = 0;
     for (int i = 0; i < kNumLfo && pos < chunk.size(); i++)
     {
       const size_t semi = chunk.find(';', pos);
-      if (semi == std::string::npos) return;
-      lfo[i].phase = std::atof(chunk.c_str() + pos);
-      lfo[i].rng = (uint32_t)std::strtoul(chunk.c_str() + semi + 1, nullptr, 10);
-      lfo[i].drawn = true;
-      lfo[i].restored = true;
+      if (semi == std::string::npos) return l;
+      l.phase[i] = std::atof(chunk.c_str() + pos);
+      l.rng[i] = (uint32_t)std::strtoul(chunk.c_str() + semi + 1, nullptr, 10);
+      l.n = i + 1;
       const size_t comma = chunk.find(',', semi + 1);
-      if (comma == std::string::npos) return;
+      if (comma == std::string::npos) return l;
       pos = comma + 1;
     }
+    return l;
   }
+  void applyLfoLoad(const LfoLoad &l)
+  {
+    for (int i = 0; i < l.n; i++)
+    {
+      lfo[i].phase = l.phase[i];
+      lfo[i].rng = l.rng[i];
+      lfo[i].drawn = true;
+      lfo[i].restored = true;
+    }
+  }
+  void applyLfoChunk(const std::string &chunk) { applyLfoLoad(parseLfoChunk(chunk)); }
   bool lfoRestoredPending() const
   {
     for (const auto &L : lfo) if (L.restored) return true;
@@ -4023,10 +4489,36 @@ struct Plugin
   }
   void applyModRoutesChunk(const std::string &chunk)
   {
-    // Existing generic routes are replaced wholesale (a load is a load); the
-    // pitch route, if present, is untouched — it belongs to param 161.
+    modClearGeneric();
+    modRoutesChunkEntries(chunk, [&](unsigned src, unsigned dest, double depth, int pol) {
+      mod.addRoute(src, dest, depth, hypersaw::ModCore::kGlobal, pol);
+    });
+    modPublish();
+  }
+  /* The same chunk on a load that queues (the audio thread owns the table):
+     the wholesale clear and then one add per entry, in the load's batch. At
+     most kMaxRoutes adds survive the parse's own refusals, so a load costs the
+     queue at most 65 entries here. */
+  void enqueueModRoutesChunk(const std::string &chunk)
+  {
+    enqueueParam(0, 0, kMsgModClear);
+    modRoutesChunkEntries(chunk, [&](unsigned src, unsigned dest, double depth, int pol) {
+      enqueueModAdd(src, dest, depth, pol);
+    });
+  }
+  // Existing generic routes are replaced wholesale (a load is a load); the
+  // pitch route, if present, is untouched — it belongs to param 161.
+  void modClearGeneric()
+  {
     for (int r = mod.nRoutes - 1; r >= 0; r--)
       if (!(mod.routes[r].dest & kModDestSynthetic)) mod.removeRoute(r);
+  }
+  /* The chunk's meaning, once (the routingChunkCells pattern): each entry that
+     survives the refusals, with its depth and polarity, handed to `add`. The
+     two writers differ only in WHERE the add happens. */
+  template <class Add> void modRoutesChunkEntries(const std::string &chunk, Add &&add) const
+  {
+    int accepted = 0;
     size_t pos = 0;
     while (pos < chunk.size())
     {
@@ -4043,10 +4535,12 @@ struct Plugin
       if (got < 4 || pol < hypersaw::ModCore::kAsIs || pol > hypersaw::ModCore::kInverted)
         pol = hypersaw::ModCore::kAsIs;     // a garbage field degrades, never poisons
       // Through the shipped refusal path — a chunk naming a stepped dest, the
-      // matrix's own controls, or a bad source is dropped, never trusted.
-      if (!modAddRoute(src, dest)) continue;
-      mod.routes[mod.nRoutes - 1].depth = std::max(-1.0, std::min(1.0, depth));
-      mod.routes[mod.nRoutes - 1].polarity = pol;
+      // matrix's own controls, or a bad source is dropped, never trusted. A
+      // table that is full refuses too (addRoute's own check); counting here
+      // keeps the queued path from spending entries the table cannot take.
+      if (!modRouteAllowed(src, dest) || accepted >= hypersaw::ModCore::kMaxRoutes) continue;
+      accepted++;
+      add(src, dest, std::max(-1.0, std::min(1.0, depth)), pol);
     }
   }
   int modAccum = 0;
@@ -4737,6 +5231,10 @@ struct Plugin
     intentRangeHi.assign(4 * n, 1.0);
     intentBind.assign((size_t)4 * kIntents * n, 0.0);
     for (int k = 0; k < 4; k++) { intentHomeX[k] = 0.5; intentHomeY[k] = 0.5; }
+    // The queued load's copy (morphAdopt), the same shape, sized here once.
+    morphStage.intentLo.assign(4 * n, 0.0);
+    morphStage.intentHi.assign(4 * n, 1.0);
+    morphStage.intentBind.assign((size_t)4 * kIntents * n, 0.0);
     for (int i = 0; i < kIntents; i++) intentName[i] = kIntentDefaultName[i];
 
     intentMinV.assign(n, 0.0);
@@ -4872,20 +5370,84 @@ struct Plugin
     return out + body;
   }
 
+  /* The staged-adoption types (see THE MORPH FIELD A LOAD WRITES, below):
+     declared here because the loaders' signatures name them. */
+  /* The handshake of one stage, shared by the load's stage and the corner
+     preset's (cornerApply). state = (generation << 2) | phase. */
+  struct StageGate
+  {
+    std::atomic<uint64_t> state{0};
+    uint64_t gen = 0;   // main thread only
+    // MAIN: own the stage before writing it (takes back a published, unadopted one).
+    void claim()
+    {
+      for (;;)
+      {
+        uint64_t st = state.load(std::memory_order_acquire);
+        if ((st & 3) == 0) return;
+        if ((st & 3) == 1 && state.compare_exchange_weak(st, st & ~uint64_t(3), std::memory_order_acq_rel))
+          return;
+        std::this_thread::yield();   // phase 2: an adoption is copying; it never waits on us
+      }
+    }
+    // MAIN: hand the written stage over; returns the generation its marker names.
+    uint32_t publish()
+    {
+      const uint64_t g = ++gen;
+      state.store((g << 2) | 1, std::memory_order_release);
+      return (uint32_t)g;
+    }
+    // AUDIO: true when `g` is the published generation and this call now owns it.
+    bool beginAdopt(uint32_t g, uint64_t &st)
+    {
+      st = state.load(std::memory_order_acquire);
+      if ((st & 3) != 1 || (uint32_t)(st >> 2) != g) return false;   // superseded: a later marker follows
+      uint64_t want = st;
+      return state.compare_exchange_strong(want, (st & ~uint64_t(3)) | 2, std::memory_order_acq_rel);
+    }
+    void endAdopt(uint64_t st) { state.store(st & ~uint64_t(3), std::memory_order_release); }
+  };
+  struct MorphStage
+  {
+    std::vector<double> corner[4];
+    std::vector<uint8_t> exempt;
+    bool authored = false;
+    std::vector<double> intentLo, intentHi, intentBind;   // sized in intentInit
+    double homeX[4] = {0.5, 0.5, 0.5, 0.5}, homeY[4] = {0.5, 0.5, 0.5, 0.5};
+    LfoLoad lfo;                       // applied only when the chunk carried `lfo=`
+    bool lfoCarried = false;
+    hypersaw::SwarmCore::EnsembleTiming ens[kNumOsc] = {};   // likewise `ens=`, per oscillator
+    bool ensCarried[kNumOsc] = {};
+    int engineRev = 0;                 // 0 = not set by this load
+  };
+  struct MorphFieldRef
+  {
+    std::vector<double> *corner;   // four of them
+    std::vector<uint8_t> *exempt;
+    bool *authored;
+    MorphStage *stage;             // set only for a queued load
+  };
   /* A load is a load: EVERY table returns to its default first, so a patch
      with no `intent=` key loads unbound rather than inheriting whatever the
      previous patch bound. `O` is READ, not trusted-and-ignored: a slot key
      this build does not know ends the mapping for that patch's later slots,
      which is what append-only buys. */
-  void applyIntentChunk(const std::string &chunk)
+  void applyIntentChunk(const std::string &chunk) { applyIntentChunk(chunk, liveField()); }
+  // `f.stage` set: a queued load, which writes the stage's tables (morphAdopt).
+  void applyIntentChunk(const std::string &chunk, const MorphFieldRef &into)
   {
     morphInit();
-    if (intentBind.empty()) return;
+    std::vector<double> &rangeLo = into.stage ? into.stage->intentLo : intentRangeLo;
+    std::vector<double> &rangeHi = into.stage ? into.stage->intentHi : intentRangeHi;
+    std::vector<double> &bind = into.stage ? into.stage->intentBind : intentBind;
+    double *homeX = into.stage ? into.stage->homeX : intentHomeX;
+    double *homeY = into.stage ? into.stage->homeY : intentHomeY;
+    if (bind.empty()) return;
     const size_t n = morphIds.size();
-    std::fill(intentRangeLo.begin(), intentRangeLo.end(), 0.0);
-    std::fill(intentRangeHi.begin(), intentRangeHi.end(), 1.0);
-    std::fill(intentBind.begin(), intentBind.end(), 0.0);
-    for (int k = 0; k < 4; k++) { intentHomeX[k] = 0.5; intentHomeY[k] = 0.5; }
+    std::fill(rangeLo.begin(), rangeLo.end(), 0.0);
+    std::fill(rangeHi.begin(), rangeHi.end(), 1.0);
+    std::fill(bind.begin(), bind.end(), 0.0);
+    for (int k = 0; k < 4; k++) { homeX[k] = 0.5; homeY[k] = 0.5; }
     for (int i = 0; i < kIntents; i++) intentName[i] = kIntentDefaultName[i];
     if (chunk.empty()) return;
 
@@ -4943,8 +5505,8 @@ struct Plugin
           const int k = std::atoi(f[1].c_str());
           const size_t i = intentSlotOf(id);
           if (k < 0 || k > 3 || i == SIZE_MAX) break;
-          intentRangeLo[(size_t)k * n + i] = std::atof(f[2].c_str());
-          intentRangeHi[(size_t)k * n + i] = std::atof(f[3].c_str());
+          rangeLo[(size_t)k * n + i] = std::atof(f[2].c_str());
+          rangeHi[(size_t)k * n + i] = std::atof(f[3].c_str());
           break;
         }
         case 'B':
@@ -4955,7 +5517,7 @@ struct Plugin
           const int j = std::atoi(f[2].c_str());
           const size_t i = intentSlotOf(id);
           if (k < 0 || k > 3 || j < 0 || j >= kIntents || stored[j] < 0 || i == SIZE_MAX) break;
-          intentBind[((size_t)k * kIntents + stored[j]) * n + i] = std::atof(f[3].c_str());
+          bind[((size_t)k * kIntents + stored[j]) * n + i] = std::atof(f[3].c_str());
           break;
         }
         case 'H':
@@ -4963,8 +5525,8 @@ struct Plugin
           if (f.size() < 3) break;
           const int k = std::atoi(f[0].c_str());
           if (k < 0 || k > 3) break;
-          intentHomeX[k] = hypersaw::IntentCore::clamp01(std::atof(f[1].c_str()));
-          intentHomeY[k] = hypersaw::IntentCore::clamp01(std::atof(f[2].c_str()));
+          homeX[k] = hypersaw::IntentCore::clamp01(std::atof(f[1].c_str()));
+          homeY[k] = hypersaw::IntentCore::clamp01(std::atof(f[2].c_str()));
           break;
         }
         default: break;
@@ -5506,13 +6068,40 @@ struct Plugin
     }
   }
 
-  void enqueueParam(uint32_t id, double value, uint8_t kind)
+  bool enqueueParam(uint32_t id, double value, uint8_t kind, uint8_t a = 0, uint8_t b = 0)
   {
-    const uint32_t head = qHead.load(std::memory_order_relaxed);
-    if (head - qTail.load(std::memory_order_acquire) >= kQCap) return;  // drop on overflow
-    queue[head % kQCap] = {id, value, kind};
-    qHead.store(head + 1, std::memory_order_release);
+    const uint32_t head = qBatchOpen ? qBatchHead : qHead.load(std::memory_order_relaxed);
+    /* The LAST slot is the adoption marker's while a batch is open: a load
+       that overflows loses parameter writes (counted) but never its morph
+       field, which would otherwise leave the field of neither load. */
+    const uint32_t cap = qBatchOpen && kind != kMsgMorphAdopt ? kQCap - 1 : kQCap;
+    if (head - qTail.load(std::memory_order_acquire) >= cap)   // full: refused, and counted
+    {
+      qDropped.fetch_add(1, std::memory_order_relaxed);
+      if (qBatchOpen) qBatchOverflow = true;
+      return false;
+    }
+    queue[head % kQCap] = {id, value, kind, a, b};
+    if (qBatchOpen) qBatchHead = head + 1;
+    else qHead.store(head + 1, std::memory_order_release);
     if (hostParams && hostParams->request_flush) hostParams->request_flush(host);
+    return true;
+  }
+  void beginQueueBatch()
+  {
+    qBatchHead = qHead.load(std::memory_order_relaxed);
+    qBatchOverflow = false;
+    qBatchOpen = true;
+  }
+  /* Publishes the batch. An overflowed batch still publishes what fit (the
+     queue's long-standing behaviour, which no rig depends on either way) and
+     returns false, so the load reports the overflow to its caller. */
+  bool endQueueBatch()
+  {
+    qBatchOpen = false;
+    qHead.store(qBatchHead, std::memory_order_release);
+    if (hostParams && hostParams->request_flush) hostParams->request_flush(host);
+    return !qBatchOverflow;
   }
 
   void drainQueue(const clap_output_events_t *out)
@@ -5522,7 +6111,9 @@ struct Plugin
     while (tail != head)
     {
       const ParamMsg &m = queue[tail % kQCap];
-      if (m.kind == 0 || m.kind == 3)   // 3 = a LOAD's value (B125): bypasses corner routing
+      if (m.kind >= kMsgModAdd)
+        applyCommand(m);
+      else if (m.kind == 0 || m.kind == 3)   // 3 = a LOAD's value (B125): bypasses corner routing
       {
         loadingState = m.kind == 3;
         editorWrite = m.kind == 0;
@@ -5569,6 +6160,33 @@ struct Plugin
       tail++;
     }
     qTail.store(tail, std::memory_order_release);
+  }
+
+  /* The non-parameter kinds, applied where everything else the main thread
+     hands over is applied. Whatever needs the live table to be judged (an
+     index in range, the pitch route's refusals) is judged HERE, by its owner. */
+  void applyCommand(const ParamMsg &m)
+  {
+    switch (m.kind)
+    {
+    case kMsgModAdd:
+      if (!mod.addRoute(m.a, m.id, m.value, hypersaw::ModCore::kGlobal, m.b))
+        modRefused.fetch_add(1, std::memory_order_relaxed);
+      modPublish();   // BEFORE the release below: modAddRoute reads them in the other order
+      modAddsDone.fetch_add(1, std::memory_order_release);
+      break;
+    case kMsgModRemove: mod.removeRoute((int)m.id); modPublish(); break;
+    case kMsgModDepth: if ((int)m.id < mod.nRoutes) mod.routes[m.id].depth = m.value; break;
+    case kMsgModSource: modSetSourceNow((int)m.id, m.a); break;
+    case kMsgModPolarity: modSetPolarityNow((int)m.id, m.a); break;
+    case kMsgModClear: modClearGeneric(); modPublish(); break;
+    case kMsgModWheel: srcWheel = m.value; break;
+    case kMsgMorphAdopt: morphAdopt(m.id); break;
+    case kMsgCornerAdopt: cornerAdopt(m.id, m.a); break;
+    case kMsgMorphCapture: morphCaptureNow((int)m.id); break;
+    case kMsgMorphExempt: morphSetExemptNow(m.id, m.a != 0); break;
+    default: break;
+    }
   }
 
   /* B106: the per-oscillator carpet block, addressed by INDEX. Filled last, at
@@ -5785,7 +6403,7 @@ struct Plugin
     for (int i = 0; i < N; i++)
     {
       const double hann = 0.5 - 0.5 * std::cos(2 * 3.141592653589793 * i / N);
-      re[i] = (double)specRing[(w - N + i) & 4095] * hann;
+      re[i] = (double)specRing[(w - N + i) & 4095].load(std::memory_order_relaxed) * hann;
       im[i] = 0;
     }
     // iterative radix-2
@@ -6255,16 +6873,22 @@ struct Plugin
     // ADR-159: a corner-preset FILE is the same positional array as a corner
     // chunk, so it takes the same remap (the human's corners/*.json, Aug 21-30).
     const std::vector<size_t> map = morphSlotMap(parseMorphLayout(json), countArray(c));
-    resetCorner(k);   // B124
-    c++;
-    morphCornersAuthored = true;
-    for (size_t j = 0; j < map.size(); j++)
     {
-      if (map[j] != SIZE_MAX) morphCorner[k][map[j]] = std::atof(c);
-      const char *nx = std::strchr(c, ',');
-      const char *cl = std::strchr(c, ']');
-      if (!nx || (cl && cl < nx)) break;
-      c = nx + 1;
+      DirectScope ds(*this);
+      cornerGate.claim();   // either way: a stale staged corner must not land after this one
+      std::vector<double> &dst = ds.owned ? morphCorner[k] : cornerStage;
+      resetCornerIn(dst);   // B124
+      c++;
+      for (size_t j = 0; j < map.size(); j++)
+      {
+        if (map[j] != SIZE_MAX) dst[map[j]] = std::atof(c);
+        const char *nx = std::strchr(c, ',');
+        const char *cl = std::strchr(c, ']');
+        if (!nx || (cl && cl < nx)) break;
+        c = nx + 1;
+      }
+      if (ds.owned) morphCornersAuthored = true;
+      else enqueueParam(cornerGate.publish(), 0, kMsgCornerAdopt, (uint8_t)k);
     }
     undoMarkCorner(k, "loaded", nullptr);   // B84 / B122: the GUI names it next
     return true;
@@ -6389,9 +7013,88 @@ struct Plugin
     const ParamDef *d = findParam(morphIds[i]);
     return d ? defaultFor(*d, morphIds[i] / 1000) : 0.0;
   }
-  void resetCorner(int k)
+  void resetCorner(int k) { resetCornerIn(morphCorner[k]); }
+  void resetCornerIn(std::vector<double> &corner) const
   {
-    for (size_t i = 0; i < morphIds.size(); i++) morphCorner[k][i] = cornerSlotDefault(i);
+    for (size_t i = 0; i < morphIds.size(); i++) corner[i] = cornerSlotDefault(i);
+  }
+
+  /* THE MORPH FIELD A LOAD WRITES: the four corners, the exempt set and the
+     authored flag — and with them the rest of what a load writes that the
+     audio thread reads: the intent tables, the LFO streams and the ensemble
+     timing a chunk carries, and the engine revision. A load that runs while
+     processing must not write the live
+     field — the audio thread reads it every morph tick and writes it on every
+     armed edit — so it writes this STAGE instead, and the audio thread adopts
+     the stage whole, at a block boundary, when it drains the load's batch
+     (kMsgMorphAdopt, the batch's last entry, so the field lands together with
+     the parameters it was saved with). Not through the queue itself: four
+     corners of ~300 slots would not fit beside a load's parameters.
+
+     The handshake, morphStageState = (generation << 2) | phase:
+       phase 0 free      the main thread may write the stage.
+       phase 1 published the main thread wrote it and queued the marker.
+       phase 2 adopting  the audio thread is copying it out (a few microseconds).
+     The audio thread adopts only the generation its marker names. A second
+     load that arrives before the first was drained takes the stage back
+     (1 -> 0, compare-exchange, so it cannot race an adoption already begun)
+     and supersedes it; the first load's marker then names a stale generation
+     and is skipped, and the second's marker brings the second field. That is
+     the right outcome: a load replaces the whole field, and the later load is
+     the one that stands.
+
+     A load that does not queue (not processing) writes the live field
+     directly, exactly as before; the stage is only ever the queued path's. */
+  MorphStage morphStage;
+  StageGate morphGate;
+  MorphFieldRef liveField() { return {morphCorner, &morphExempt, &morphCornersAuthored, nullptr}; }
+  MorphFieldRef stageField() { return {morphStage.corner, &morphStage.exempt, &morphStage.authored, &morphStage}; }
+  void morphStageClaim()
+  {
+    morphGate.claim();
+    cornerGate.claim();   // a corner preset staged before this load is older than it
+    morphStage.lfoCarried = false;
+    for (bool &c : morphStage.ensCarried) c = false;
+    morphStage.engineRev = 0;
+  }
+  // MAIN: hand the written stage to the audio thread; the marker rides the batch.
+  void morphStagePublish() { enqueueParam(morphGate.publish(), 0, kMsgMorphAdopt); }
+  // AUDIO (drainQueue): adopt the stage whole, then hand it back.
+  void morphAdopt(uint32_t gen)
+  {
+    uint64_t st = 0;
+    if (!morphGate.beginAdopt(gen, st)) return;
+    for (int k = 0; k < 4; k++)
+      std::copy(morphStage.corner[k].begin(), morphStage.corner[k].end(), morphCorner[k].begin());
+    std::copy(morphStage.exempt.begin(), morphStage.exempt.end(), morphExempt.begin());
+    morphCornersAuthored = morphStage.authored;
+    std::copy(morphStage.intentLo.begin(), morphStage.intentLo.end(), intentRangeLo.begin());
+    std::copy(morphStage.intentHi.begin(), morphStage.intentHi.end(), intentRangeHi.begin());
+    std::copy(morphStage.intentBind.begin(), morphStage.intentBind.end(), intentBind.begin());
+    for (int k = 0; k < 4; k++) { intentHomeX[k] = morphStage.homeX[k]; intentHomeY[k] = morphStage.homeY[k]; }
+    if (morphStage.lfoCarried) applyLfoLoad(morphStage.lfo);
+    for (uint32_t k = 0; k < kNumOsc; k++)
+      if (morphStage.ensCarried[k]) cores[k].setEnsembleTiming(morphStage.ens[k]);
+    if (morphStage.engineRev > 0) patchEngineRevision.store(morphStage.engineRev, std::memory_order_relaxed);
+    morphGate.endAdopt(st);
+  }
+  // A load's engine revision: lands with the batch on a queued load.
+  void loadEngineRevision(const MorphFieldRef &f, long rev)
+  {
+    if (f.stage) f.stage->engineRev = clampRevision(rev);
+    else setEngineRevision(rev);
+  }
+  /* A CORNER PRESET (cornerApply) stages its one corner the same way while
+     processing; the marker carries the corner. */
+  std::vector<double> cornerStage;   // sized in morphInit
+  StageGate cornerGate;
+  void cornerAdopt(uint32_t gen, int k)
+  {
+    uint64_t st = 0;
+    if (k < 0 || k > 3 || !cornerGate.beginAdopt(gen, st)) return;
+    std::copy(cornerStage.begin(), cornerStage.end(), morphCorner[k].begin());
+    morphCornersAuthored = true;
+    cornerGate.endAdopt(st);
   }
   /* ADR-159: where stored slot j lands in the live order. Layout 1 arrays of
      exactly kMorphAdr150Size were written with 181/1181 inside the prefix;
@@ -6465,17 +7168,23 @@ struct Plugin
   struct LoadedValue { clap_id id; double v; };          // one parameter write of a load, in order
   void morphFillUncarried(const MorphCarried &carried, const std::vector<LoadedValue> &loaded)
   {
+    morphFillUncarried(carried, loaded, liveField());
+  }
+  void morphFillUncarried(const MorphCarried &carried, const std::vector<LoadedValue> &loaded,
+                          const MorphFieldRef &f)
+  {
     for (const LoadedValue &lv : loaded)   // in write order: the last write wins, as it does live
       for (size_t i = 0; i < morphIds.size(); i++)
         if (morphIds[i] == lv.id)
         {
           for (int k = 0; k < 4; k++)
-            if (carried.slot[k].size() == morphIds.size() && !carried.slot[k][i]) morphCorner[k][i] = lv.v;
+            if (carried.slot[k].size() == morphIds.size() && !carried.slot[k][i]) f.corner[k][i] = lv.v;
           break;
         }
   }
 
-  MorphCarried applyMorphChunk(const std::string &json)
+  MorphCarried applyMorphChunk(const std::string &json) { return applyMorphChunk(json, liveField()); }
+  MorphCarried applyMorphChunk(const std::string &json, const MorphFieldRef &f)
   {
     MorphCarried carried;
     const int layout = parseMorphLayout(json);
@@ -6513,11 +7222,11 @@ struct Plugin
         if (c)
         {
           const std::vector<size_t> map = morphSlotMap(layout, countArray(c));
-          for (size_t i = 0; i < morphExempt.size(); i++) morphExempt[i] = 0;   // B124: uncarried slots = not exempt
+          for (size_t i = 0; i < f.exempt->size(); i++) (*f.exempt)[i] = 0;   // B124: uncarried slots = not exempt
           c++;
           for (size_t j = 0; j < map.size(); j++)
           {
-            if (map[j] != SIZE_MAX) morphExempt[map[j]] = (uint8_t)(std::atoi(c) != 0);
+            if (map[j] != SIZE_MAX) (*f.exempt)[map[j]] = (uint8_t)(std::atoi(c) != 0);
             const char *nx = std::strchr(c, ',');
             const char *cl = std::strchr(c, ']');
             if (!nx || (cl && cl < nx)) break;
@@ -6540,13 +7249,13 @@ struct Plugin
           if (!c) break;
           if (k == 0) { c = std::strchr(c + 1, '['); if (!c) break; }   // outer, then inner
           const std::vector<size_t> map = morphSlotMap(layout, countArray(c));   // ADR-159
-          resetCorner(k);   // B124: what the file does not carry is the default, never the previous load
+          resetCornerIn(f.corner[k]);   // B124: what the file does not carry is the default, never the previous load
           carried.slot[k].assign(morphIds.size(), 0);   // B255: ...unless the patch names its value
           c++;
           for (size_t j = 0; j < map.size(); j++)
           {
-            if (map[j] != SIZE_MAX) { morphCorner[k][map[j]] = std::atof(c); carried.slot[k][map[j]] = 1; }
-            morphCornersAuthored = true;
+            if (map[j] != SIZE_MAX) { f.corner[k][map[j]] = std::atof(c); carried.slot[k][map[j]] = 1; }
+            *f.authored = true;
             const char *nx = std::strchr(c, ',');
             const char *cl = std::strchr(c, ']');
             if (!nx || (cl && cl < nx)) { c = cl ? cl + 1 : c; break; }
@@ -6616,11 +7325,8 @@ struct Plugin
   static constexpr int kEngineRevision = 2;   // ADR-183: the off-corner blend rule
   std::atomic<int> patchEngineRevision{kEngineRevision};
   int engineRevision() const { return patchEngineRevision.load(std::memory_order_relaxed); }
-  void setEngineRevision(long rev)
-  {
-    const long r = std::max(1L, std::min((long)kEngineRevision, rev));
-    patchEngineRevision.store((int)r, std::memory_order_relaxed);
-  }
+  static int clampRevision(long rev) { return (int)std::max(1L, std::min((long)kEngineRevision, rev)); }
+  void setEngineRevision(long rev) { patchEngineRevision.store(clampRevision(rev), std::memory_order_relaxed); }
 
   /* B174: THE GLOBAL PRESET'S NAME, in the shell — the B122 corner mechanism
      one level up, for the same two reasons.
@@ -6845,9 +7551,8 @@ struct Plugin
      emitted only once a stream has drawn, precisely so a patch that never ran
      one is byte-for-byte what it was. Resetting them is a separate question
      about stream identity across a load, and no row asks it yet. */
-  void initState(bool chunkOnlyState)
+  void initState(bool chunkOnlyState, bool viaQueue, const MorphFieldRef &field)
   {
-    const bool viaQueue = processing.load(std::memory_order_acquire);
     auto setDefault = [&](clap_id id, double v) {
       if (viaQueue)
       {
@@ -6881,19 +7586,76 @@ struct Plugin
     morphInit();
     for (int k = 0; k < 4; k++)
     {
-      resetCorner(k);
-      cornerName[k].clear();
+      resetCornerIn(field.corner[k]);
+      cornerName[k].clear();   // main-thread state: names are never read by the audio thread
     }
-    for (auto &e : morphExempt) e = 0;
-    morphCornersAuthored = false;
+    for (auto &e : *field.exempt) e = 0;
+    *field.authored = false;
     // The chunks, each by the rule it already states for itself: an absent key
-    // means the default, never "whatever the previous patch had".
-    applyModRoutesChunk("");
-    applyIntentChunk("");
-    if (chunkOnlyState) applyRoutingChunk("");
+    // means the default, never "whatever the previous patch had". A queued load
+    // hands the mod-route table and the routing cells to the audio thread.
+    if (viaQueue) enqueueModRoutesChunk("");
+    else applyModRoutesChunk("");
+    applyIntentChunk("", field);
+    if (chunkOnlyState)
+    {
+      if (viaQueue) routingChunkCells("", [&](clap_id id, double v) { enqueueParam(id, v, 3); });
+      else applyRoutingChunk("");
+    }
     setPresetName("");
-    setEngineRevision(1);
+    loadEngineRevision(field, 1);
   }
+
+  /* A LOAD DECIDES ITS MODE ONCE, AT ITS START (beginMainDirect): DIRECT
+     (not processing — the main thread owns the state for the whole load and
+     writes the live field, exactly as loads always have) or QUEUED
+     (processing — the audio thread owns it: parameters, routing cells and
+     mod routes are queue entries, the morph field is staged, and the whole
+     load is one batch adopted at one block start). The decision is never
+     re-taken per write; LoadScope carries it to the end, and its destructor
+     ends the load on every path out (no early return can leave the state
+     owned or a batch unpublished).
+
+     Both modes CLAIM the stage first: a direct load must also take back a
+     stage an earlier queued load published and nobody drained, or that
+     stage's marker would later adopt an older field over this load's. */
+  struct LoadScope
+  {
+    Plugin &pl;
+    DirectScope ds;
+    MorphFieldRef field{};
+    bool ended = false;
+    explicit LoadScope(Plugin &p) : pl(p), ds(p)
+    {
+      if (!ds.owned)
+      {
+        p.morphInit();   // a no-op once activated; sizes the stage before it is written
+        p.beginQueueBatch();
+      }
+      p.morphStageClaim();
+      field = ds.owned ? p.liveField() : p.stageField();
+    }
+    LoadScope(const LoadScope &) = delete;
+    LoadScope &operator=(const LoadScope &) = delete;
+    ~LoadScope() { end(); }
+    bool direct() const { return ds.owned; }
+    /* Returns false when the queued batch overflowed. The count is in
+       qDropped; neither load door turns it into its own return value, because
+       a rig that loads repeatedly while processing and never drains
+       (state_check's B100 rows) asserts that those loads succeed. */
+    bool end()
+    {
+      if (ended) return true;
+      ended = true;
+      if (ds.owned)
+      {
+        ds.release();
+        return true;
+      }
+      pl.morphStagePublish();   // the batch's last entry: the field lands with its parameters
+      return pl.endQueueBatch();
+    }
+  };
 
   /* `nameFromLoader` is the name of the preset being loaded, or "" to take the
      patch's own (see the naming block at the end of this function).
@@ -6907,6 +7669,7 @@ struct Plugin
     // "key" and parse the number after the colon. Queued to the audio
     // thread — never applied directly from the GUI thread.
     if (json.find("\"params\"") == std::string::npos) return false;
+    LoadScope ls(*this);
     /* B192 — RESET TO INIT, THEN APPLY. The FIRST act of the load, before any
        chunk and before any parameter, so nothing the instance happened to hold
        can survive into a patch that does not name it. The per-key defaulting
@@ -6914,7 +7677,7 @@ struct Plugin
        (B174 moved it into jsonNumber to answer "would a load change
        anything?"), and two independent statements of "absent means default"
        is the cheap kind of redundancy. */
-    initState(/*chunkOnlyState=*/false);
+    initState(/*chunkOnlyState=*/false, !ls.direct(), ls.field);
     /* B222: a HISTORY snapshot carries the routing matrix (historyJson), and
        only a history restore reads it. A preset or GUI load ignores the key
        even if a file carries one, and leaves the matrix alone exactly as on
@@ -6948,7 +7711,8 @@ struct Plugin
         if (q0 != std::string::npos && q1 != std::string::npos)
           chunk = json.substr(q0 + 1, q1 - q0 - 1);
       }
-      applyModRoutesChunk(chunk);
+      if (ls.direct()) applyModRoutesChunk(chunk);
+      else enqueueModRoutesChunk(chunk);
     }
     /* B89 phase 2b, and a load is a load for the same reason: an ABSENT key
        means unbound (full ranges, zero bindings, centred homes, default
@@ -6963,7 +7727,7 @@ struct Plugin
         if (q0 != std::string::npos && q1 != std::string::npos)
           chunk = json.substr(q0 + 1, q1 - q0 - 1);
       }
-      applyIntentChunk(chunk);
+      applyIntentChunk(chunk, ls.field);
     }
     /* ---- A LOAD IS A LOAD, AND IT NOW MEANS THE SAME THING FOR PARAMETERS
        (B181 note 6, human 2026-09-20: "Sub currently seems to be ignored by
@@ -7059,7 +7823,7 @@ struct Plugin
       load(137, 0, 3);                                  // own settings
       load(138, hypersaw::GlideCore::kLag, 3);          // lag, as it always was
     }
-    const MorphCarried carried = applyMorphChunk(json);   // B255: filled below, after the migrations
+    const MorphCarried carried = applyMorphChunk(json, ls.field);   // B255: filled below, after the migrations
     /* ADR-103: schema<2 patches saved glideMode=1 when that option behaved as
        ALWAYS (silence included) — the new mode 1 (ringing-gated) did not exist.
        Migrate the stored 1 to 2: same sound, new number. */
@@ -7089,7 +7853,7 @@ struct Plugin
         er = json.find(':', er);
         if (er != std::string::npos) rev = std::atol(json.c_str() + er + 1);
       }
-      setEngineRevision(rev);
+      loadEngineRevision(ls.field, rev);
     }
     /* Pre-ADR-100 patches have no "enable" key and were saved when every
        oscillator always rendered — restore them that way, whatever the new
@@ -7099,7 +7863,8 @@ struct Plugin
       load(150, 1, 3);
       load(1150, 1, 3);
     }
-    morphFillUncarried(carried, loaded);   // B255: every write is known now, migrations included
+    morphFillUncarried(carried, loaded, ls.field);   // B255: every write is known now, migrations included
+    ls.end();
     /* B174 — THE NAME IS SET HERE, NOT BY A SECOND CALL AFTERWARDS.
        B122's setCornerName amends a mark that is still PENDING, and PR #703
        found the hole that leaves: let a GUI frame land between the load and
@@ -7250,6 +8015,9 @@ struct Plugin
 
   void undoService()
   {
+    /* The GUI frame's main-thread tick is also where a PANIC the audio thread
+       performed gets its file written (panicWithDump says why it is split). */
+    panicService();
     /* The ROOT. Without it the first edit's node has no parent and Undo is
        dead until the second one — the history would begin one state too late,
        and that state is exactly the one a player wants back. Taken at the
@@ -7563,7 +8331,10 @@ struct Plugin
         const int pr = modPitchRouteIdx();
         if (pr >= 0) mod.routes[pr].depth = applied;
         else if (applied != 0.0)
+        {
           mod.addRoute(1, kModDestPitch, applied, hypersaw::ModCore::kGlobal);
+          modPublish();
+        }
         return;
       }
       if (id >= 162 && id <= 165)
@@ -8747,11 +9518,26 @@ struct Plugin
 
   clap_process_status process(const clap_process_t *p)
   {
+    /* A main-thread sequence that began while not processing owns the state
+       until it ends (beginMainDirect): this block is silence and touches
+       nothing, not even the tempo. Only reachable when the host starts
+       processing during a direct load or PANIC; never in an offline render. */
+    if (mainDirect.load(std::memory_order_seq_cst))
+    {
+      deferEvents(p->in_events);   // replayed at the head of the next block
+      for (uint32_t o = 0; o < p->audio_outputs_count; o++)
+        for (uint32_t c = 0; c < p->audio_outputs[o].channel_count; c++)
+          if (p->audio_outputs[o].data32 && p->audio_outputs[o].data32[c])
+            std::fill(p->audio_outputs[o].data32[c], p->audio_outputs[o].data32[c] + p->frames_count, 0.0f);
+      return CLAP_PROCESS_CONTINUE;
+    }
     // Host tempo drives the grid law (ADR-022); fallback stays at the last
     // known (or default 120) when the host provides none.
     if (p->transport && (p->transport->flags & CLAP_TRANSPORT_HAS_TEMPO))
       core.p.bpm = p->transport->tempo;
 
+    replayDeferred();   // events (and a reset) that arrived while a direct sequence owned the state
+    panicPerformRequested();   // before the drain: the click came before any later edit
     drainQueue(p->out_events);
 
     float *outL = p->audio_outputs[0].data32[0];
@@ -8958,7 +9744,7 @@ struct Plugin
     {
       uint32_t w = specPos.load(std::memory_order_relaxed);
       for (uint32_t i = 0; i < nframes; i++)
-        specRing[(w + i) & 4095] = outL[i] + outR[i];
+        specRing[(w + i) & 4095].store(outL[i] + outR[i], std::memory_order_relaxed);
       specPos.store(w + nframes, std::memory_order_release);
       for (uint32_t i = 0; i < nframes; i++)
       {
@@ -8979,6 +9765,23 @@ struct Plugin
 };
 
 Plugin *self(const clap_plugin_t *p) { return static_cast<Plugin *>(p->plugin_data); }
+/* RIG DOORS. A load, a route verb or PANIC made while `processing` is true
+   only QUEUES or REQUESTS: the audio thread applies it at its next block
+   start. A test rig is single-threaded — between its process() calls it IS
+   the audio thread's only user — so the test exports below drain the WHOLE
+   queue here, in order, with the function the block start runs (parameters,
+   commands, and a load's adoption marker exactly where its batch put it), so
+   a read straight after them sees what a read one block later would. The
+   whole queue, never the morph field alone: a door that adopted the stage by
+   itself would hide a load whose marker never landed. Not processing, the
+   work was already done directly and nothing is drained. Test surface only:
+   the editor reaches these members through gui_create, never these exports. */
+static void rigDrainIfQueued(Plugin *pl)
+{
+  if (!pl->processing.load(std::memory_order_acquire)) return;
+  pl->replayDeferred();   // in the block start's order: deferred events, then the queue
+  pl->drainQueue(nullptr);
+}
 
 /* ---- lifecycle ---- */
 
@@ -9069,27 +9872,30 @@ bool plug_activate(const clap_plugin_t *p, double sr, uint32_t, uint32_t maxFram
   return true;
 }
 
-void plug_deactivate(const clap_plugin_t *) {}
+void plug_deactivate(const clap_plugin_t *p) { self(p)->clearDeferred(); }
 bool plug_start_processing(const clap_plugin_t *p)
 {
-  self(p)->processing.store(true, std::memory_order_release);
+  // seq_cst, not release: half of the Dekker pair beginMainDirect() relies on.
+  self(p)->processing.store(true, std::memory_order_seq_cst);
   return true;
 }
 void plug_stop_processing(const clap_plugin_t *p)
 {
-  self(p)->processing.store(false, std::memory_order_release);
+  self(p)->processing.store(false, std::memory_order_seq_cst);
 }
 void plug_reset(const clap_plugin_t *p)
 {
-  // The host-MPE counters describe the CURRENT note stream, so a reset clears
-  // them: after a transport reset the evidence for "no expressions have arrived"
-  // has to be re-earned, or the hint would report a stream that is over.
-  self(p)->sawNotes.store(0, std::memory_order_relaxed);
-  self(p)->sawExprs.store(0, std::memory_order_relaxed);
-  self(p)->sawNonZeroChan.store(0, std::memory_order_relaxed);
   auto *pl = self(p);
-  pl->allOffAll();
-  for (double &b : pl->mpeBendSemis) b = 0.0;
+  // A direct main-thread sequence owns the state: the reset waits for the
+  // next block or flush (Plugin::beginAudioEntry).
+  if (!pl->beginAudioEntry())
+  {
+    pl->resetDeferred = true;
+    pl->resetAt = pl->deferUsed;   // after the events already waiting, before any later ones
+    return;
+  }
+  pl->resetNow();
+  pl->endAudioEntry();
 }
 
 clap_process_status plug_process(const clap_plugin_t *p, const clap_process_t *proc)
@@ -9303,9 +10109,19 @@ bool params_text_to_value(const clap_plugin_t *, clap_id id, const char *text, d
 void params_flush(const clap_plugin_t *p, const clap_input_events_t *in,
                   const clap_output_events_t *out)
 {
-  self(p)->drainQueue(out);
+  auto *pl = self(p);
+  /* A direct main-thread sequence owns the state: no drain, and the host's
+     events are kept for the next block or flush (Plugin::beginAudioEntry). */
+  if (!pl->beginAudioEntry())
+  {
+    pl->deferEvents(in);
+    return;
+  }
+  pl->replayDeferred();
+  pl->drainQueue(out);
   const uint32_t nev = in->size(in);
-  for (uint32_t i = 0; i < nev; i++) self(p)->handleEvent(in->get(in, i));
+  for (uint32_t i = 0; i < nev; i++) pl->handleEvent(in->get(in, i));
+  pl->endAudioEntry();
 }
 
 const clap_plugin_params_t s_params = {params_count, params_get_info, params_get_value,
@@ -9441,6 +10257,9 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
   if (!v1 && !v2) return false;
   size_t pos = blob.find('\n') + 1;
   auto *pl = self(p);
+  // Decided once, here, for the whole load (Plugin::beginLoad): a host that
+  // stops processing part-way through cannot split it into two modes.
+  Plugin::LoadScope ls(*pl);
   /* B192 / B183 — RESET TO INIT, THEN APPLY. This REPLACES five hand-listed
      resets (modroutes, routing, intent, presetname, engine_revision), each of
      which stated "an absent key means the default" for its own chunk and none
@@ -9450,7 +10269,7 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
      note 6's way when a host re-uses an instance, which is the common case in
      a long session. `true` = this transport carries the routing matrix, so
      resetting it here is restorable; see initState. */
-  pl->initState(/*chunkOnlyState=*/true);
+  pl->initState(/*chunkOnlyState=*/true, !ls.direct(), ls.field);
   /* B255: the parameter lines this chunk names, in file order, and which morph
      slots its corner arrays carried — filled after the loop, so a slot the
      chunk predates takes the patch's value whether the parameters were
@@ -9470,28 +10289,33 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
     std::string key = line.substr(0, eq);
     if (key == "engine_revision")   // B100: the patch's pinned revision
     {
-      pl->setEngineRevision(std::atol(line.c_str() + eq + 1));
+      pl->loadEngineRevision(ls.field, std::atol(line.c_str() + eq + 1));
       continue;
     }
     if (key == "build") continue;   // B100: provenance only, never read back
     if (key == "morph")   // ADR-112 A3: the field's chunk, shared parser
     {
-      carried = pl->applyMorphChunk(line.substr(eq + 1));
+      carried = pl->applyMorphChunk(line.substr(eq + 1), ls.field);
       continue;
     }
     if (key == "modroutes")   // ADR-138: generic routes, canonical (src,dest,depth)
     {
-      pl->applyModRoutesChunk(line.substr(eq + 1));
+      if (ls.direct()) pl->applyModRoutesChunk(line.substr(eq + 1));
+      else pl->enqueueModRoutesChunk(line.substr(eq + 1));
       continue;
     }
     if (key == "routing")     // ADR-088: crosspoint cells that left their default
     {
-      pl->applyRoutingChunk(line.substr(eq + 1));
+      /* Queued: the cells travel as LOAD values (kind 3, the history restore's
+         path), so the morph hook knows them for a load and never routes them
+         into a corner (B125). Direct: applyParam, as always. */
+      if (ls.direct()) pl->applyRoutingChunk(line.substr(eq + 1));
+      else pl->routingChunkCells(line.substr(eq + 1), [&](clap_id id, double v) { pl->enqueueParam(id, v, 3); });
       continue;
     }
     if (key == "intent")      // ADR-176: intent bindings/ranges/homes/names
     {
-      pl->applyIntentChunk(line.substr(eq + 1));
+      pl->applyIntentChunk(line.substr(eq + 1), ls.field);
       continue;
     }
     if (key == "presetname")  // B174: the global preset's name
@@ -9531,10 +10355,26 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
     // B149: the one non-parameter key that takes the `o<k>.` prefix, so it is
     // read here rather than beside morph/routing above — the prefix split is
     // this loop's, and a second copy of it is a second thing to keep in step.
-    if (key == "ens") { pl->applyEnsembleChunk(keyOsc, line.substr(eq + 1)); continue; }
+    if (key == "ens")
+    {
+      if (ls.direct()) pl->applyEnsembleChunk(keyOsc, line.substr(eq + 1));
+      else if (keyOsc < kNumOsc &&
+               Plugin::parseEnsembleChunk(line.substr(eq + 1), pl->morphStage.ens[keyOsc]))
+        pl->morphStage.ensCarried[keyOsc] = true;   // adopted with the batch
+      continue;
+    }
     // B171: the LFO streams. Not prefixed (the LFOs are global), but read here
     // beside `ens` because both are non-parameter keys emitted after `seed`.
-    if (key == "lfo") { pl->applyLfoChunk(line.substr(eq + 1)); continue; }
+    if (key == "lfo")
+    {
+      if (ls.direct()) pl->applyLfoChunk(line.substr(eq + 1));
+      else
+      {
+        pl->morphStage.lfo = Plugin::parseLfoChunk(line.substr(eq + 1));   // adopted with the batch
+        pl->morphStage.lfoCarried = true;
+      }
+      continue;
+    }
     /* B172 engine blocks. AFTER the `o<k>.` split (an engine key never carries
        one, and asking first would mean two prefix vocabularies) and BEFORE the
        kParams scans below, which is the ordering that matters: `sub.wave` must
@@ -9543,7 +10383,7 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
     if (keyOsc == 0)
       if (const ParamDef *ed = findEngineParamByKey(key))
       {
-        if (pl->processing.load(std::memory_order_acquire)) pl->enqueueParam(ed->id, val, 3);
+        if (!ls.direct()) pl->enqueueParam(ed->id, val, 3);
         else pl->applyParam(ed->id, val);
         loaded.push_back({ed->id, val});   // B255
         continue;
@@ -9555,7 +10395,7 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
     // back immediately after setState). Processing: route through the param
     // queue; the audio thread applies next block and drainQueue's outgoing
     // param events tell the host the new values.
-    if (pl->processing.load(std::memory_order_acquire))
+    if (!ls.direct())
     {
       for (const auto &d : kParams)
         if (key == d.coreKey)
@@ -9585,7 +10425,8 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
       if (!known) continue;  // unknown/future keys ignored (state_check pins this)
     }
   }
-  pl->morphFillUncarried(carried, loaded);   // B255
+  pl->morphFillUncarried(carried, loaded, ls.field);   // B255
+  ls.end();
   pl->undoMark("host load");   // B84: main thread, per the CLAP state contract
   return true;
 }
@@ -9655,13 +10496,22 @@ extern "C" void hypersaw_debug_lfocycle(const clap_plugin_t *p, char *out, uint3
   const std::string j = self(p)->lfoCycleJson();
   std::snprintf(out, cap, "%s", j.c_str());
 }
-extern "C" bool hypersaw_debug_exempt(const clap_plugin_t *p, uint32_t id) { return self(p)->morphToggleExempt((clap_id)id); }
+extern "C" bool hypersaw_debug_exempt(const clap_plugin_t *p, uint32_t id)
+{
+  const bool on = self(p)->morphToggleExempt((clap_id)id);
+  rigDrainIfQueued(self(p));   // see RIG DOORS
+  return on;
+}
 /* The GUI bridge's other two corner verbs, headless — the same reason the
    exempt door above exists. B89 2c (e) has to prove capture still bakes and an
    armed edit still lands in the armed corner WITH THE RESOLVER RUNNING, and
    both gestures reach the shell only through hostIf, which no oracle can
    drive. `arm` is the parameter (159), so it needs no door of its own. */
-extern "C" void hypersaw_debug_capture(const clap_plugin_t *p, int k) { self(p)->morphCapture(k); }
+extern "C" void hypersaw_debug_capture(const clap_plugin_t *p, int k)
+{
+  self(p)->morphCapture(k);
+  rigDrainIfQueued(self(p));   // see RIG DOORS
+}
 extern "C" const char *hypersaw_debug_cornervals(const clap_plugin_t *p, int k)
 { static std::string j; j = self(p)->morphCornerValsJson(k); return j.c_str(); }
 extern "C" const char *hypersaw_debug_ownersjson(const clap_plugin_t *p)
@@ -9675,6 +10525,18 @@ extern "C" void hypersaw_debug_morph_redraw(const clap_plugin_t *p, int nSlots, 
    and the bridge that normally carries it is a webview no oracle can drive. */
 extern "C" const char *hypersaw_debug_modroutes(const clap_plugin_t *p)
 { static std::string j; j = self(p)->modRoutesJson(); return j.c_str(); }
+extern "C" void hypersaw_debug_handoff_stats(const clap_plugin_t *p, uint32_t *queueDepth,
+                                             uint32_t *queueDropped, uint32_t *deferredBytes,
+                                             uint32_t *deferDropped, uint32_t *queueCap)
+{
+  auto *pl = self(p);
+  if (queueDepth)
+    *queueDepth = pl->qHead.load(std::memory_order_acquire) - pl->qTail.load(std::memory_order_acquire);
+  if (queueDropped) *queueDropped = pl->qDropped.load(std::memory_order_relaxed);
+  if (deferredBytes) *deferredBytes = pl->deferUsed;
+  if (deferDropped) *deferDropped = pl->deferDropped.load(std::memory_order_relaxed);
+  if (queueCap) *queueCap = Plugin::kQCap;
+}
 /* B171 — the LIVE source slot, not a readParam round-trip. The distinction is
    the whole value of the export: a probe that asked readParam(269) would learn
    what the RATE KNOB says, which is a fact about the parameter store, while
@@ -9871,7 +10733,9 @@ extern "C" int hypersaw_debug_intent_homeowner(const clap_plugin_t *p)
 }
 extern "C" bool hypersaw_debug_apply(const clap_plugin_t *p, const char *json)
 {
-  return self(p)->applyStateJson(json ? json : "");
+  const bool ok = self(p)->applyStateJson(json ? json : "");
+  rigDrainIfQueued(self(p));
+  return ok;
 }
 /* B174: the GUI's LOAD button, whose one call both applies the patch and says
    which preset it is — the window-free path (see applyStateJson's naming
@@ -9880,7 +10744,9 @@ extern "C" bool hypersaw_debug_apply(const clap_plugin_t *p, const char *json)
 extern "C" bool hypersaw_debug_apply_named(const clap_plugin_t *p, const char *json,
                                            const char *name)
 {
-  return self(p)->applyStateJson(json ? json : "", name ? name : "");
+  const bool ok = self(p)->applyStateJson(json ? json : "", name ? name : "");
+  rigDrainIfQueued(self(p));
+  return ok;
 }
 /* B174: true iff applying `json` would leave the patch exactly as it is — the
    GUI's asterisk, headless. */
@@ -9908,7 +10774,12 @@ extern "C" void hypersaw_debug_notelaw(const clap_plugin_t *p, char *out, uint32
                 q.model, q.tau, q.gtime, q.rate, q.springF, q.damp, q.distOver, q.retMul, q.quant, q.qhyst, q.qTime,
                 self(p)->noteLink, self(p)->bendLaw.model, self(p)->bendLaw.springF);
 }
-extern "C" bool hypersaw_debug_cornerapply(const clap_plugin_t *p, int k, const char *json) { return self(p)->cornerApply(k, json ? json : ""); }
+extern "C" bool hypersaw_debug_cornerapply(const clap_plugin_t *p, int k, const char *json)
+{
+  const bool ok = self(p)->cornerApply(k, json ? json : "");
+  rigDrainIfQueued(self(p));   // see RIG DOORS
+  return ok;
+}
 extern "C" const char *hypersaw_debug_cornernames(const clap_plugin_t *p) { static std::string j; j = self(p)->cornerNamesJson(); return j.c_str(); }
 extern "C" void hypersaw_debug_cornername(const clap_plugin_t *p, int k, const char *n) { self(p)->setCornerName(k, n ? n : ""); }
 extern "C" bool hypersaw_debug_cornermatches(const clap_plugin_t *p, int k, const char *json) { return self(p)->cornerMatches(k, json ? json : ""); }
@@ -10060,15 +10931,11 @@ bool gui_create(const clap_plugin_t *p, const char *api, bool is_floating)
   hostIf.modRoutesJson = [pl]() { return pl->modRoutesJson(); };
   hostIf.modLiveJson = [pl]() { return pl->modLiveJson(); };
   hostIf.modAddRoute = [pl](uint32_t src, uint32_t dest) { return pl->modAddRoute(src, dest); };
-  hostIf.modSetDepth = [pl](int i, double v) {
-    // No index-0 special case: ADR-138 made knob 161 find its route BY DEST,
-    // so the depth of whatever sits at index 0 is nobody's secret twin.
-    if (i >= 0 && i < pl->mod.nRoutes) pl->mod.routes[i].depth = v;
-  };
+  hostIf.modSetDepth = [pl](int i, double v) { pl->modSetDepth(i, v); };
   hostIf.modSetSource = [pl](int i, uint32_t src) { return pl->modSetSource(i, src); };
   hostIf.modSetPolarity = [pl](int i, int pol) { return pl->modSetPolarity(i, pol); };
-  hostIf.setModWheel = [pl](double v) { pl->srcWheel = v < 0 ? 0 : (v > 1 ? 1 : v); };
-  hostIf.modRemoveRoute = [pl](int i) { pl->mod.removeRoute(i); };
+  hostIf.setModWheel = [pl](double v) { pl->setModWheel(v); };
+  hostIf.modRemoveRoute = [pl](int i) { pl->modRemoveRoute(i); };
   hostIf.morphCornerValsJson = [pl](int k) { return pl->morphCornerValsJson(k); };
   hostIf.morphCornerApply = [pl](uint32_t k, const std::string &j) { return pl->cornerApply((int)k, j); };
   hostIf.morphCornerNamesJson = [pl]() { return pl->cornerNamesJson(); };                      // B122
@@ -10248,8 +11115,16 @@ extern "C"
 const char *hypersaw_test_panic(const clap_plugin_t *p)
 {
   static std::string held;
-  self(p)->panicWithDump();
-  held = self(p)->lastDumpPath;
+  auto *pl = self(p);
+  pl->panicWithDump();
+  /* While processing, the button only REQUESTS the panic; the audio thread
+     performs it at its next block. A test rig is single-threaded — between its
+     process() calls it IS the audio thread's only user — so it performs the
+     request here with the same function the block start calls, then writes
+     the file the way the GUI frame would. Not processing, both are no-ops. */
+  pl->panicPerformRequested();
+  pl->panicService();
+  held = pl->lastDumpPath;
   return held.empty() ? nullptr : held.c_str();
 }
 
@@ -10326,11 +11201,20 @@ bool hypersaw_test_slot_gated(const clap_plugin_t *p, int slot)
   return self(p)->core.voiceAt(slot).gate != 0;
 }
 
+// The editor's route verbs, through the shipped members (see RIG DOORS).
 bool hypersaw_test_mod_add(const clap_plugin_t *p, uint32_t srcSlot, uint32_t destId)
 {
-  return self(p)->modAddRoute(srcSlot, destId);
+  auto *pl = self(p);
+  const uint32_t refusedBefore = pl->modRefused.load(std::memory_order_relaxed);
+  const bool ok = pl->modAddRoute(srcSlot, destId);
+  rigDrainIfQueued(pl);
+  return ok && pl->modRefused.load(std::memory_order_relaxed) == refusedBefore;
 }
-void hypersaw_test_mod_remove(const clap_plugin_t *p, int idx) { self(p)->mod.removeRoute(idx); }
+void hypersaw_test_mod_remove(const clap_plugin_t *p, int idx)
+{
+  self(p)->modRemoveRoute(idx);
+  rigDrainIfQueued(self(p));
+}
 double hypersaw_test_mod_applied(const clap_plugin_t *p, uint32_t destId)
 {
   for (auto &d : self(p)->modDests)

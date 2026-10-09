@@ -781,6 +781,20 @@ if(NOT MSVC)
   target_compile_options(bridge_utf8_check PRIVATE -O2)
   target_compile_options(hostile_events_check PRIVATE -O2)
 endif()
+# load_handoff_check (B448 B2): a host state load stays the loaded patch when
+# processing stops part-way through it, and a processing load writes nothing
+# into the morph corners. Single-threaded and deterministic — the ordering
+# companion to tools/tsan_stress_check.py. Links the impl; wired in verify full.
+add_executable(load_handoff_check tools/load_handoff_check.cpp)
+target_link_libraries(load_handoff_check PRIVATE ${PROJECT_NAME}-impl)
+# render_neutral_digest (B448 B2): one FNV-1a digest per idle/offline render
+# (state fixtures, factory presets). A measurement, not a gate: neutrality is
+# the diff of a baseline run and an after run.
+add_executable(render_neutral_digest tools/render_neutral_digest.cpp)
+target_link_libraries(render_neutral_digest PRIVATE ${PROJECT_NAME}-impl)
+if(NOT MSVC)
+  target_compile_options(render_neutral_digest PRIVATE -O2)
+endif()
 # gui_webview_check (B446 W3a, wired into ./verify full on macOS): the shipped
 # GUI on a real WKWebView — one page only, its content policy, the bridge's
 # sender check, no script clipboard read, file names as text — each beside a
