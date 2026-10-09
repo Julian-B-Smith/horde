@@ -375,10 +375,11 @@ type (ADR-172, ADR-193 D7), a slot contract for every type, cyclic topologies pe
 - Governing: B450, B439, B50, B281, B262, B393, B435, B429. ADR-172, ADR-175, ADR-128, ADR-190,
   ADR-193, ADR-195.
 - Status: **planned**. horde 2's rack is unbuilt. The hosted-module rack-slot contract is
-  drafted (`docs/proposals/rack-slot-contract.md`, merged #1007) and is **PROPOSED** until the
-  human ratifies it. It takes FOUNDATIONS' FX-operator ABI as the code-level interface.
+  **RATIFIED** (`docs/proposals/rack-slot-contract.md`, ADR-201, 2026-10-09); Q3 and Q9 are
+  provisional until measured. It takes FOUNDATIONS' FX-operator ABI as the code-level interface.
 - Needs first: `mix` (inferred); `seams` (B281).
-- Open: ratify the contract and answer its 13 open questions (B450); the module cutoff date.
+- Open: measure Q3 (the click ceiling) and Q9 (the state budget); build the admission test with
+  the shell (B398); the module cutoff date.
 
 **Shriek, formerly MAW** (`maw`). The three-stage saturator, FX-C, a hosted sibling module.
 Renamed by the human on 2026-10-04 (B433); the part id stays `maw`. B318, B373, B393, B433.
@@ -524,7 +525,7 @@ rounds long before the rack exists.
 | S2 | S2 (part) | **Modulation, promoted:** the modulators and envelopes lab, then the mod matrix lab (B392, with B57's spring source), then the modulator-morph workshop (B396). | `modulators`, `modmatrix`, `modmorph` |
 | S3 | S2 (part) + S4 (head) | **Morph, with the FX algorithm morph promoted**: the morph editor with stepped morph glide (B424), the FX algorithm morph (ADR-193; rounds 2–3b built), the patch model (B263, the state schema), then the intent slots (ADR-192). | `morph`, `fxmorph`, `patch`, `intent` |
 | S4 | S1 (part) + S3 | Sources, routing, stereo and performance input: the Sub workshop, the noise oscillator, filters, the stereo lab (B408), the mixer and routing with the master strip (B402, B438), the MPE design (B388) and the arpeggiator. | `sub`, `noise`, `filters`, `stereo`, `mix`, `master`, `mpe`, `arps` |
-| S5 | S4 | FX modules and screens: the rack-slot contract first (B450, drafted), then the hosted siblings (Shriek, Sluice at V1, Scape, Bulwark) and horde's own (ECHO, EQ, FX filter, drive); the conditionals by the module cutoff; then the screen aesthetic and logos. | `rack`, `maw`, `sluice`, `reverb`, `echo`, `bulwark`, `eq`, `fxfilter`, `drive`, `ott`, `kchorus` |
+| S5 | S4 | FX modules and screens: the rack-slot contract first (B450, ratified, ADR-201), then the hosted siblings (Shriek, Sluice at V1, Scape, Bulwark) and horde's own (ECHO, EQ, FX filter, drive); the conditionals by the module cutoff; then the screen aesthetic and logos. | `rack`, `maw`, `sluice`, `reverb`, `echo`, `bulwark`, `eq`, `fxfilter`, `drive`, `ott`, `kchorus` |
 | S6 | S5 | Presentation, then GUI 3. The settings lab (B261) comes first; B449's rules and B432's accessibility level apply. | `gui3` |
 | S7 | S6 | Calibration and content: the Serum gauntlet (B381) and the listening pass, the random patch P4/P5, the legacy preset import (B312), the presets lab and factory bank (B395, B257), and the manual's prose and screenshots (B451). | `testing`, `presets`, `manual` |
 | 1.0 | — | The legacy tag is cut and archived before the human moves their work (ADR-186 §2, §6). Modules that miss the cutoff ship after 1.0 (ADR-190 A1). Then the stability line. | `freeze`, `release` |
@@ -548,7 +549,7 @@ What it says:
   parity, so the C++ is no longer what the path waits on. The remaining head of the path is the
   seam gate (B275 (a), (c), (d), B277) and the bend-laws port (B397), neither dispatched.
 - **The long pole is still sources → routing → rack.** The Sub workshop (B399) and the mixer lab
-  (B402) have not started, and the rack-slot contract is a proposal (B450).
+  (B402) have not started, though the rack-slot contract is now ratified (B450, ADR-201).
 - **Sluice is on it.** The FX algorithm morph cannot finish without ADR-188's structural class for
   Sluice patches, and Sluice's code enters horde only at Sluice V1, when Sluice goes public (B328,
   Sluice D-096). That date is Sluice's, not horde's.
