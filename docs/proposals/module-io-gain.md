@@ -92,8 +92,9 @@ option 1) and the human's master-limiter ruling (B438: "Approved, master only fo
   not a new placement.
 - **The master limiter (B438)** is the one limiter in horde 1.0: Bulwark's limiter face, fixed
   as the last stage before the output, never a rack slot. On the mixer page's master strip,
-  its `io.outGain` IS the master **Volume** (−∞ … 0 dB; cut-only, so nothing after the
-  limiter passes the ceiling). It is one control, never two.
+  its `io.outGain` IS the master **Volume** (cut-only, so nothing after the limiter passes the
+  ceiling). It follows A1's law over −24 … 0 dB and adds a **−∞ mute detent at v = 0**, as
+  accepted in B438, so its full range is −∞ … 0 dB. It is one control, never two.
 - Every other module, including Bulwark's compressor and OTT faces, keeps the standard as
   written above.
 
