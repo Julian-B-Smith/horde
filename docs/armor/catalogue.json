@@ -5,8 +5,8 @@
       "id": "R1",
       "title": "Realtime safety on the audio thread",
       "status": "partial",
-      "gates": ["rtsafety_probe"],
-      "gaps": "rtsafety_probe counts allocations in process() while it sweeps parameter ids 1-99 only, and runs no planted fault of its own. No RealtimeSanitizer job (needs upstream clang on Linux CI, Wave B). No lint of the realtime ban list.",
+      "gates": ["rtsafety_probe", "rtsan_check"],
+      "gaps": "rtsan_check (RealtimeSanitizer, ADR-199) runs the real process() over all parameter ids, both engines, morph, intents, mod matrix, MIDI, loads, bypass and reactivation, with a planted fault and a clean control, in verify full; it is macOS-local and SKIPs without Homebrew LLVM, and CI does not run it. Paths outside its seeded schedule are unproven. No lint of the realtime ban list. horde 2 has no shell to probe yet.",
       "tracked_by": "B448",
       "tripwire": "RT violations: 0"
     },
