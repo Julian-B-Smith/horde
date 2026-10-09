@@ -28,6 +28,11 @@
  *            TUNING 1e6 / 1e300 / -1e6 render exactly what ±120 renders; an
  *            in-range TUNING still takes effect; key 127 at +120 stays finite.
  *   Every render also checks the oscillator's voice phases are finite.
+ *   LATCH    (B448 B1) every run above left the output guard a count of 0 (finite
+ *            output cannot tell "stopped at the boundary" from "repaired at the
+ *            end"); then hypersaw_test_guard_output (the shipped guardOutput) gets
+ *            a planted NaN, +Inf, -Inf: zeroed, counted, latched, latch survives
+ *            clean blocks, reset clears. Faulty versions: tools/nan_latch_check.
  *
  * The rows are shell-level on purpose (L0031: a check that builds the core
  * directly gives the shell's path zero coverage) — only CONTROL is core-direct,
@@ -57,6 +62,8 @@ constexpr int kBlocks = 52;   // ~0.3 s: the NaN appears within the first block
 constexpr clap_id kSawBase = 129, kRound = 131;
 const double kInf = std::numeric_limits<double>::infinity();
 const double kNaN = std::numeric_limits<double>::quiet_NaN();
+const float kNaNf = std::numeric_limits<float>::quiet_NaN();
+const float kInff = std::numeric_limits<float>::infinity();
 
 int g_fail = 0;
 void row(bool ok, const char *tag, const std::string &what)
@@ -140,6 +147,12 @@ struct Render
   bool gated60 = false;     // is any slot keyed to 60 still gated
 };
 
+/* B448 B1: what the shell's last-line output guard saw, summed over every run().
+   The event-boundary guards are meant to leave it NOTHING to catch — finite
+   output alone cannot tell "stopped upstream" from "repaired at the end". */
+uint64_t g_guardSamples = 0;
+bool g_guardLatched = false;
+
 /* A fresh instance with Roundness and Saw Base at 0.5 — the condition under
    which the voice phase indexes the anchor tables — then `first` delivered in
    block 0 and `second` in block 1, then silence to kBlocks. */
@@ -193,6 +206,8 @@ Render run(const EvList &first, const EvList &second)
         }
       }
   }
+  g_guardSamples += hypersaw_test_nonfinite_samples(p);
+  g_guardLatched = g_guardLatched || hypersaw_test_nonfinite_latched(p);
   p->stop_processing(p);
   p->deactivate(p);
   p->destroy(p);
@@ -318,6 +333,54 @@ int main()
         "TUNING 7.25 (in range): takes effect, unclamped");
     const Render top = withExpr(CLAP_NOTE_EXPRESSION_TUNING, 127, 120.0, 127);
     row(top.finite, "EXPR", "key 127 at TUNING +120 (the extreme valid input): output finite");
+  }
+
+  /* ---- LATCH (B448 B1) ------------------------------------------------------ */
+  row(g_guardSamples == 0 && !g_guardLatched, "LATCH",
+      "every hostile run above: the output guard replaced 0 samples and never latched "
+      "(the boundary guards stop it upstream) — got " + std::to_string(g_guardSamples));
+  {
+    /* The only way to put a non-finite sample on the bus now is to plant one: run
+       the shell's own guard (Plugin::guardOutput, the call process() ends with)
+       on a buffer, then keep rendering through the real process(). */
+    auto *factory = (const clap_plugin_factory_t *)hypersaw_entry_get_factory(CLAP_PLUGIN_FACTORY_ID);
+    const clap_plugin_t *p = factory->create_plugin(factory, &kHost, "com.lifted-truck.hypersaw");
+    p->init(p);
+    p->activate(p, kSR, 32, kBlock);
+    p->start_processing(p);
+    row(hypersaw_test_nonfinite_samples(p) == 0 && hypersaw_test_nonfinite_blocks(p) == 0 &&
+            !hypersaw_test_nonfinite_latched(p),
+        "LATCH", "a fresh plugin reads 0 / 0 / unlatched");
+    float l[8] = {0.5f, kNaNf, -0.25f, 0, 0, 0, 0, 0}, r[8] = {0, 0, 0, kInff, -kInff, 0, 0, 0.125f};
+    const uint32_t hit = hypersaw_test_guard_output(p, l, r, 8);
+    row(hit == 3 && l[1] == 0.0f && r[3] == 0.0f && r[4] == 0.0f && l[0] == 0.5f && l[2] == -0.25f &&
+            r[7] == 0.125f,
+        "LATCH", "the shell's guard zeroes planted NaN, +Inf, -Inf and touches nothing else");
+    row(hypersaw_test_nonfinite_samples(p) == 3 && hypersaw_test_nonfinite_blocks(p) == 1 &&
+            hypersaw_test_nonfinite_latched(p),
+        "LATCH", "...and the shell COUNTED them (3 samples, 1 block) and latched");
+    std::vector<float> L(kBlock), R(kBlock);
+    float *chans[2] = {L.data(), R.data()};
+    clap_audio_buffer_t ob{};
+    ob.data32 = chans;
+    ob.channel_count = 2;
+    clap_process_t proc{};
+    proc.frames_count = kBlock;
+    proc.audio_outputs = &ob;
+    proc.audio_outputs_count = 1;
+    proc.out_events = &kOut;
+    EvList none;
+    proc.in_events = &none.list;
+    for (int i = 0; i < 4; i++) p->process(p, &proc);
+    row(hypersaw_test_nonfinite_latched(p) && hypersaw_test_nonfinite_samples(p) == 3, "LATCH",
+        "four clean process() blocks later: still latched, count unchanged");
+    hypersaw_test_nonfinite_reset(p);
+    row(!hypersaw_test_nonfinite_latched(p) && hypersaw_test_nonfinite_samples(p) == 0 &&
+            hypersaw_test_nonfinite_blocks(p) == 0,
+        "LATCH", "reset clears the latch and the counts");
+    p->stop_processing(p);
+    p->deactivate(p);
+    p->destroy(p);
   }
 
   if (g_fail)

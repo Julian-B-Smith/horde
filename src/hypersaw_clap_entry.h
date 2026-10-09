@@ -6,6 +6,8 @@
  */
 #pragma once
 
+#include <cstdint>
+
 #include <clap/clap.h>
 
 extern "C"
@@ -30,6 +32,18 @@ extern "C"
   /* TEST HOOK — the host-misconfiguration hint, empty when there is nothing to
      say. Exposed so the DETECTION can be gated; the GUI presentation cannot be. */
   const char *hypersaw_test_host_hint(const clap_plugin_t *p);
+
+  /* TEST HOOKS — B448 B1, the last-line output guard's latch. The first four
+     read or clear it (reset is the ONLY thing that clears the latch); the
+     fifth runs the shipped guard (Plugin::guardOutput, the call process() ends
+     with) on the caller's buffers, zeroing non-finite samples and returning how
+     many it replaced — the one way a headless probe can plant a NaN, since the
+     event-boundary guards stop real ones upstream. */
+  uint64_t hypersaw_test_nonfinite_samples(const clap_plugin_t *p);
+  uint64_t hypersaw_test_nonfinite_blocks(const clap_plugin_t *p);
+  bool hypersaw_test_nonfinite_latched(const clap_plugin_t *p);
+  void hypersaw_test_nonfinite_reset(const clap_plugin_t *p);
+  uint32_t hypersaw_test_guard_output(const clap_plugin_t *p, float *l, float *r, uint32_t n);
 
   /* TEST HOOKS — note-bookkeeping introspection for the FOUNDATIONS
      note-lifecycle conformance suite (their R5). Read-only windows onto the tag
