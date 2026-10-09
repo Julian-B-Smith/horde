@@ -1,6 +1,6 @@
 # The module 1.0 bar — the minimum every module meets to ship in horde 1.0 (B439)
 
-**Status: RATIFIED by the human, 2026-10-04** ("bar ratified, propose a CPU budget"). The CPU budget below is PROPOSED. The human asked for
+**Status: RATIFIED by the human, 2026-10-04** ("bar ratified, propose a CPU budget"). The CPU budget below was APPROVED 2026-10-04 ("Budget approved", B439). The human asked for
 it: "Let's also set a standard for where each module needs to be to be ready for 1.0. We can
 keep improving them independently beyond that, but let's set the minimum."
 
@@ -10,8 +10,8 @@ master limiter, and the modulators. A sibling project (Scape, Bulwark, Sluice, M
 bar in its own repo. horde checks it at admission, the moment the module is hosted in
 horde's rack.
 
-**The rule.** A module is in 1.0 only if every MUST row below holds by the feature freeze.
-A module that misses the freeze does not ship in 1.0. This is the OTT rule the human gave:
+**The rule.** A module is in 1.0 only if every MUST row below holds by the module cutoff
+(ADR-190 A1, which amends this bar's timing). A module that misses the cutoff ships after 1.0. This is the OTT rule the human gave:
 "if its construction keeps up with other modules and it can be shipped in time". It keeps
 improving after 1.0, on its own schedule. SHOULD rows are expected but may ship as known
 gaps, listed in the release notes.
@@ -27,10 +27,10 @@ gaps, listed in the release notes.
 
 | | requirement | evidence |
 |---|---|---|
-| MUST | **The rack slot contract** (B50 / B281): admission, bypass, the "off" state, latency and tail reporting (B429). | a rack admission test |
+| MUST | **The rack slot contract** (B450, `docs/proposals/rack-slot-contract.md`, ratified 2026-10-09): admission, bypass, the "off" state, latency and tail reporting (B429). For hosted modules it supersedes the legacy `fx-slot-contract.md` proposal (B50 / B281), whose rack-owned mix does not apply to them. | a rack admission test |
 | MUST | **The I/O gain standard** (B435 + A1): `io.inGain` / `io.outGain` with the law, plus pre and post meter taps with clip latches. | the standard's acceptance tests 1–7 |
 | MUST | **Macros, where the module offers them** (ADR-169 A4, 2026-10-05; replaces the retired four-role face): up to 8 macros, ordered, carrying the preset's own labels and optional curves (A3), round-tripping with presets. Nothing in the module is driven by horde's intents unless a preset's designer binds it. Modules with deep internals (Sluice, Shriek) are expected to offer macros so presets stay usable without the advanced controls. | a macro round-trip test |
-| MUST | **Morph and presets** (ADR-188): the module's state is per corner; patches transfer as horde FX-slot presets; Device-class controls never morph. | a corner-flip test, plus preset save and load |
+| MUST | **Morph and presets** (ADR-188): the module's patch is per corner (its own XY holds one patch), while its I/O gains are not (B435); patches transfer as horde FX-slot presets; Device-class controls never morph. | a corner-flip test, plus preset save and load |
 
 ## 3. It is correct
 
@@ -75,7 +75,7 @@ gaps, listed in the release notes.
 - Not new machinery. Every row reuses an existing contract, check or row. The bar only
   collects them into one admission list.
 
-## Appendix: CPU budget (PROPOSED 2026-10-04, for the human)
+## Appendix: CPU budget (APPROVED by the human 2026-10-04, "Budget approved")
 
 **The anchor is our own ratified envelope** (specs/ACCEPTANCE.md E-6). A patch holds
 **< 50 % of one core on min-spec**: Apple M1 base, or a 4-core 2018-class Intel ultrabook;
