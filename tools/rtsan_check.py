@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """rtsan_check — tools/rtsan_probe under RealtimeSanitizer (ADR-197 risk row 1).
 
-UNWIRED: 1 realtime violation on main; wired when it is fixed (B448)
+WIRED: ./verify full
 
 Builds the probe of the real plugin's audio-thread entry points with
 -fsanitize=realtime, runs it, and exits non-zero on ANY violation in the full
@@ -51,8 +51,10 @@ function-local static that initialises on the first call is a real offence (the
 first block is the one a live set hears). It found one on main, 2026-10-09:
 swarm_core.h anchorTables() builds 2 x 5 x 16385 doubles behind a
 __cxa_guard mutex on the first rendered voice, under a comment that says
-"never on the audio thread". RealtimeSanitizer reports it as four stacks
+"never on the audio thread". RealtimeSanitizer reported it as four stacks
 (guard acquire and release, each a lock and an unlock) at one source line.
+Fixed in the shell, not the core (h2 lifts swarm_core.h byte-for-byte):
+plug_activate touches anchorTables() on the main thread.
 
 CALIBRATION beyond --plant (which proves the scope, not the plugin path): a
 malloc planted in a COPY of src/ at the top of Plugin::process was reported at
