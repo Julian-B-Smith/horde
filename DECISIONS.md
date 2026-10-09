@@ -7291,3 +7291,35 @@ corner) are placeholders, not measurements. They are set from a capped listening
 and from Sluice's largest factory patch respectively, before 1.0.
 
 **Consumers are noticed** after this ruling, as the contract's §0 promised.
+
+## ADR-202 — RULED by the human: hosted modules' presets inside horde (B395, B450, 2026-10-09)
+
+**Rulings.** The human, 2026-10-09:
+- "I think each module should get its own preset browser (Serum does this for its oscillators and
+  FX modules and it's clean and comprehensive)".
+- Then, on the lead's two follow-up questions:
+  - the browser reads horde's own module folder;
+  - the lead's answers to Sluice's seq 39 are ratified as the rule for every hosted module.
+
+**Decision.** For every hosted module (Bulwark, Sluice, Shriek, Scape and any later one):
+1. **A per-module preset browser.** Each module slot in horde has its own preset browser, in the
+   manner of Serum's per-oscillator and per-FX browsers. Picking a preset loads it into the
+   current morph corner (ADR-188).
+2. **horde's own store.** The browser reads horde's own per-module preset folder, factory and
+   user. A module's standalone library is a separate store. horde never reads it directly, and
+   there is no shared folder.
+3. **The module's library model does not run inside horde.** Its snapshot lists, drafts, corner
+   bindings, its own XY and its library file stay with the standalone. horde's global preset owns
+   the patch. Each corner's module patch is a FOUNDATIONS cascade `Preset` at the module's scope
+   (ADR-201 Q7).
+4. **The module's own patch file is the interchange format, in both directions.** Import converts
+   it to cascade presets; export writes it. A file carrying four corner snapshots may fill horde's
+   four corners in one import. Storage stays one patch per corner.
+5. **The module's library code is not consumed now.** That waits for the presets lab (B395), which
+   builds import and export. Nothing enters horde's public tree without the human (Sluice D-094).
+
+**Consequences.**
+- B395's acceptance gains a per-module browser per hosted module.
+- The rack-slot contract's §6 (presets) reads with this ADR.
+- Consumers are noticed: Sluice's answer (seq 40) is confirmed as ruled; Bulwark, Shriek and Scape
+  are told the same rules apply to them.
