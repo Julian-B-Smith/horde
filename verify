@@ -182,6 +182,17 @@ fast() {
   # upstream choc's clipboard grant and a known-kinds deny-list, both must read
   # red. ~1 s. Added under ADR-180 §1.
   python3 tools/embedded_page_policy_check.py || ok=1
+  # THE OUTPUT GUARD LATCHES AND REPORTS (B448 B1, ADR-197 risk row 3). The last
+  # line before the host's bus still zeroes a non-finite sample, but now counts it
+  # and sets a latch only reset() clears (src/output_latch.h, shared with the
+  # plugin). Compiled with the host compiler (no build tree): planted NaN / +Inf /
+  # -Inf, in each channel, are zeroed AND counted AND latch; a clean buffer counts
+  # 0 and stays bit-identical; beside five faulty guards (zero-without-count,
+  # count-without-latch, self-clearing latch, right channel unreported, reset keeps
+  # the latch) that must each read red; plus a text check that process() reaches
+  # the latch, with a planted bare zeroNonFinite as its control. ~2 s. Added under
+  # ADR-180 §1.
+  python3 tools/nan_latch_check.py || ok=1
   # ONE SIZE CAP ON STATE TEXT FROM THE PAGE AND THE CLIPBOARD (B446, critic
   # MEDIUM-3 on PR #973). kMaxPastedStateBytes is re-derived from the factory
   # bank; hzApplyState and both backends' hzPasteState test it before copying;
@@ -888,6 +899,20 @@ full() {
   # operator new/delete inside the process() window makes it deterministic.
   # Calibrated: a planted (non-elidable) allocation gives 320 hits and exit 1.
   "$build_dir/rtsafety_probe" || return 1
+
+  # REAL-TIME SAFETY, THE LIBC LAYER (B448 B3, ADR-197 risk row 1, ADR-199). The
+  # probe above counts operator new over param ids 1-99; this one builds the real
+  # process() with Homebrew LLVM's RealtimeSanitizer and reports ANY malloc, lock,
+  # I/O or blocking call inside the audio-thread entry points (process, flush,
+  # start/stop, reset) with its src/ line, over a seeded schedule that reaches all
+  # 397 param ids, voice stealing, morph, intent, mod, MIDI, state-load drains,
+  # bypass and reactivation. Calibrated: a planted malloc must be reported and an
+  # empty scope must read clean, in the same run, before the full verdict counts;
+  # the first run found anchorTables()'s first-use guard lock (fixed in
+  # plug_activate). No compiler (HORDE_SANITIZER_CXX / brew llvm) prints
+  # WARNING + SKIPPED, never GREEN. Never baselined or allowlisted. Added under
+  # ADR-180 §1.
+  python3 tools/rtsan_check.py || return 1
 
   # PARAMETER SCOPE (A12, 2026-08-11; ADR-089 conditions met). A GLOBAL core
   # param must reach EVERY oscillator, and a PER-OSC param must reach ONLY its
