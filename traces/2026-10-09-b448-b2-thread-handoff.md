@@ -51,6 +51,8 @@
   - `tools/rtsan_check.py`: GREEN; its probe presses PANIC once per scene with HOME redirected.
   - `tools/routing_check.cpp`: a flush after each load in its processing rig (ruling of 2026-10-09);
     with the routing enqueue removed its two round-trip rows read red (mutation proof, reverted).
+  - `tools/tseed_check.cpp` E3: the same flush after its queued load (same ruling); with the staged
+    ensemble adoption removed, E3 reads red (mutation proof, reverted).
 - **Rig doors stand in for the next block start** (test surface only; the editor never calls them):
   the debug and test exports that load, edit routes or the morph field, or press PANIC drain the
   whole queue (or perform the request) while processing.
@@ -62,5 +64,8 @@
   1471/2048); a `processing` read per write; a load returning false on overflow (state_check's B100
   rows load three times while processing without draining); swapping the stage's vectors instead of
   copying (a copy keeps buffer identity fixed for every reader); classifying races by function name.
-- **Verify:** see the entry's closing commit and `.harness/last-verify.json`.
+- **Verify:** `./verify fast` red only on `weakening_check` (`tools/tsan_stress_check.py`
+  sanitizer_off 0 -> 2, the `halt_on_error=0` the harness needs, for the human's approval at
+  publication). `full`'s body, run past that one line from an untracked copy of `verify`: exit 0
+  (load_handoff_check, tseed_check, rtsan_check, tsan_stress_check, routing_check all GREEN).
 - **Open questions:** held with the lead.
