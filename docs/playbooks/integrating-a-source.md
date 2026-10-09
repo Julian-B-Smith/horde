@@ -719,8 +719,8 @@ exists only on the pick path.
   and a history node do.
 - **A load is a load.** `src/hypersaw_clap.cpp:7254 void initState(bool chunkOnlyState, bool viaQueue`
   resets everything, chunks included, **before** any key is applied:
-  - from a preset: `src/hypersaw_clap.cpp:7369 initState(/*chunkOnlyState=*/false, !ls.direct, ls.field);`;
-  - from the host: `src/hypersaw_clap.cpp:9930 pl->initState(/*chunkOnlyState=*/true, !ls.direct, ls.field);`.
+  - from a preset: `src/hypersaw_clap.cpp:7369 initState(/*chunkOnlyState=*/false, !ls.direct(), ls.field);`;
+  - from the host: `src/hypersaw_clap.cpp:9930 pl->initState(/*chunkOnlyState=*/true, !ls.direct(), ls.field);`.
   An absent key also loads as its default (`src/hypersaw_clap.cpp:6210 static bool jsonNumber`).
 - **Migrations run after that and are keyed on the JSON text.** An example is the
   missing-`enable` rule at `src/hypersaw_clap.cpp:6635 if (json.find("\"enable\"") == std::string::npos)`.

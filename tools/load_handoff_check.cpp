@@ -560,7 +560,9 @@ void silentRows(const std::string &json)
   std::snprintf(b, sizeof b, "the owned block ran and was silent (peak %.3g)", silent);
   row(silent == 0.0, "E-SILENT", b);
   std::snprintf(b, sizeof b, "the note-on was replayed: peak %.3g after, against %.3g with no note (control)", after, ca);
-  row(after > 1e-3 && ca < 1e-6, "E-NOTE", b);
+  // Exact, not a threshold: the patch is silent without a note (the control
+  // reads exactly 0), so any sound at all after the block is the replayed note.
+  row(after > 0.0 && ca == 0.0, "E-NOTE", b);
   std::snprintf(b, sizeof b, "the parameter value was replayed: masterVol %.6g (want 0.123)", vol);
   row(vol == 0.123, "E-PARAM", b);
   row(st.deferred == 0 && st.deferDropped == 0, "E-NONE-LOST",

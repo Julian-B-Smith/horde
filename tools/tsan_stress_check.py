@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """tsan_stress_check — tools/tsan_stress under ThreadSanitizer (ADR-197 risk row 2).
 
+WIRED: ./verify full
+
 Builds the multi-thread stress harness for parameters, presets and state with
 -fsanitize=thread and runs it.
 
@@ -55,8 +57,6 @@ only counts, deduplicated by the top frame of each report's two stacks.
 TSAN_OPTIONS here: halt_on_error=0 so one run lists every distinct report
 rather than the first (tools/sanitize_oracles.sh halts on the first, which
 suits a pass/fail matrix and hides the second race behind the first here).
-
-WIRED: ./verify full
 """
 import os
 import re
