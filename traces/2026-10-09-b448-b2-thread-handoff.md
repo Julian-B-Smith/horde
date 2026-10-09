@@ -11,8 +11,12 @@
      process(), `audioFlushing` for params_flush and reset, `beginAudioEntry`). Either the sequence
      queues, or the audio side leaves untouched: process() renders a silent block, flush skips its
      drain, reset is deferred. Events that arrive in such a block or flush are copied into a fixed
-     buffer and replayed after the next drain (`deferEvents` / `replayDeferred`); what does not fit is
-     counted. `DirectScope` and `LoadScope` release ownership and end a load on every path.
+     buffer and replayed at the next entry that may run, BEFORE its drain, so a queued entry for the
+     same parameter (the newer intent) lands last (`deferEvents` / `replayDeferred`). A deferred reset
+     keeps its place among them (`resetAt`). An event is copied only if its size is no larger than the
+     room left and no smaller than its type's struct, tested before rounding; anything refused is
+     counted. Deactivate clears what is deferred. `DirectScope` and `LoadScope` release ownership and
+     end a load on every path (DirectScope asserts it is never nested, debug builds only).
   2. **PANIC**: while processing, a request the audio thread performs at block start
      (`panicPerformRequested`: fixed-size forensic capture, then the clear); the file is written on the
      main thread from the snapshot (`panicService`). Not processing, it runs directly and writes the
@@ -21,7 +25,8 @@
      processing, queue kinds 4-14 while processing, applied by `applyCommand` in `drainQueue`. The
      route add's answer comes from the audio thread's published count plus the adds still queued; the
      exempt toggle's target state travels with its entry; a corner preset stages its corner.
-  4. **A queued load is one batch** published with one `qHead` store, its routing cells LOAD values
+  4. **A queued load is one batch** published with one `qHead` store (the queue holds 4096 entries,
+     96 KB, so back-to-back loads inside one block fit whole), its routing cells LOAD values
      (kind 3), its mod routes a clear plus one add per entry. Everything else it writes — the morph
      field, intent tables, LFO streams, ensemble timing, engine revision — is written into a
      preallocated stage and adopted whole by the audio thread at the batch's last entry
@@ -33,16 +38,22 @@
   plus the verbatim stdout of state_check, undo_check, presetstore_check, anchor_check, penv_check,
   twocluster_check, trajectory_check, statefix_check, bank_check, morphlayout_check, parity_check
   and the 543 digest rows of h2_engine_selfdigest_check. Baseline at e5ab96d (before any change),
-  after at 3f68421: identical.
+  after at 72e9292: identical.
 - **Gates:**
   - `tools/load_handoff_check.cpp` (in `verify full`; it links the shell, and `fast` has no build tree):
     a stop inside a load does not split it; a processing load writes no corner; a queued load equals
     an idle load (mod routes, whole saved state, and with intent/lfo/ens/engine-revision lines); two
     loads in one block leave the second whole; an overflowing load still lands its morph field and
     counts what it refused; a block owned by a direct load is silent and its note and parameter
-    events are replayed, none lost; a flush during a direct load does not drain, and the next one
-    does. Each row has a control; mutation proofs (reverted): no marker reservation, no replay, a flush
-    that ignores ownership, and no staged extras each turn the matching rows red.
+    events are replayed, none lost, and a queued entry for the same parameter is not overwritten;
+    a flush during a direct load does not drain, and the next one does; two and three back-to-back
+    loads in one block leave the last whole with nothing refused; a reset deferred after a deferred
+    note ends it; events whose size is near 2^32, 0, or shorter than their type are refused and
+    counted. Each row has a control. Mutation proofs (reverted): no marker reservation, no replay,
+    a flush that ignores ownership, no staged extras, the reset before the replay, the replay after
+    the drain, a 2048-entry queue — each turns its rows red; without the size test made before
+    rounding, the check dies copying ~4 GB, and under AddressSanitizer (Homebrew LLVM) reports
+    it in `deferEvents`, while the fixed source runs clean under ASan.
   - `tools/tsan_stress_check.py` (in `verify full`): fails on any report whose main-thread access is
     a write, by ThreadSanitizer's own access type; main-thread reads are counted as accepted. A planted
     main-thread write must be reported and filed as a write, a planted read as a read, and the
