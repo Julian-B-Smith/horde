@@ -35,6 +35,7 @@
  */
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -69,6 +70,7 @@ struct HostState
 {
   const clap_plugin_t *plug = nullptr;
   bool stopOnFlush = false, stopped = false;
+  void (*onFlush)() = nullptr;   // run ONCE, on the first request_flush, then cleared
 } g_host;
 void hpRescan(const clap_host_t *, clap_param_rescan_flags) {}
 void hpClear(const clap_host_t *, clap_id, clap_param_clear_flags) {}
@@ -78,6 +80,12 @@ void hpRequestFlush(const clap_host_t *)
   {
     g_host.stopped = true;
     g_host.plug->stop_processing(g_host.plug);
+  }
+  if (g_host.onFlush)
+  {
+    void (*f)() = g_host.onFlush;
+    g_host.onFlush = nullptr;
+    f();
   }
 }
 const clap_host_params_t kHostParams = {hpRescan, hpClear, hpRequestFlush};
@@ -94,7 +102,7 @@ const clap_output_events_t kOut = {nullptr, outPush};
 struct EvList
 {
   clap_input_events_t list{};
-  std::vector<clap_event_param_value_t> evs;
+  std::vector<clap_event_param_value_t> evs;   // a note-on rides in a param-sized slot (it is smaller)
   EvList()
   {
     list.ctx = this;
@@ -115,6 +123,22 @@ struct EvList
     e.key = -1;
     e.value = v;
     evs.push_back(e);
+  }
+  void noteOn(int16_t key)
+  {
+    clap_event_param_value_t slot;
+    std::memset(&slot, 0, sizeof slot);
+    clap_event_note_t n;
+    std::memset(&n, 0, sizeof n);
+    n.header = {sizeof n, 0, CLAP_CORE_EVENT_SPACE_ID, CLAP_EVENT_NOTE_ON, 0};
+    n.note_id = -1;
+    n.port_index = 0;
+    n.channel = 0;
+    n.key = key;
+    n.velocity = 1.0;
+    static_assert(sizeof n <= sizeof slot, "a note event fits a param event's slot");
+    std::memcpy(&slot, &n, sizeof n);
+    evs.push_back(slot);
   }
 };
 
@@ -353,6 +377,243 @@ void hookRows(const std::string &chunk)
   d = diff(scenario(true), refOn.first, &n);
   row(n == 0, "HOOK", std::to_string(n) + " corner slot(s) written by the load, outgoing morph ON" + d);
 }
+
+/* ---- B448 B2 rework: the rest of the handoff contract ------------------- */
+
+struct Stats
+{
+  uint32_t depth = 0, dropped = 0, deferred = 0, deferDropped = 0;
+};
+Stats stats(const clap_plugin_t *p)
+{
+  Stats s;
+  hypersaw_debug_handoff_stats(p, &s.depth, &s.dropped, &s.deferred, &s.deferDropped);
+  return s;
+}
+
+/* A patch that touches every part a load writes: every parameter at `frac`
+   of its range (as makeChunk), two mod routes, and corner B captured from
+   that sound, so the morph field differs from the defaults too. */
+std::string makeRichChunk(double frac)
+{
+  Inst src;
+  EvList ev;
+  for (uint32_t i = 0, n = src.params->count(src.p); i < n; i++)
+  {
+    clap_param_info_t inf{};
+    if (!src.params->get_info(src.p, i, &inf)) continue;
+    if (inf.id == kMorphOn || inf.id == 159 || inf.id == 178) continue;
+    double v = inf.min_value + frac * (inf.max_value - inf.min_value);
+    if (inf.flags & CLAP_PARAM_IS_STEPPED) v = (double)(int64_t)(v + 0.5);
+    if (v == inf.default_value) v = inf.max_value;
+    ev.param(inf.id, v);
+  }
+  src.flushIdle(ev);
+  hypersaw_test_mod_add(src.p, 18, 4);    // LFO 1 -> detune
+  hypersaw_test_mod_add(src.p, 2, 11);    // Macro 1 -> inertia
+  hypersaw_debug_capture(src.p, 1);
+  return src.save();
+}
+
+// The chunk with every line starting `key=` removed.
+std::string withoutKey(const std::string &chunk, const char *key)
+{
+  std::string out, k = std::string("\n") + key + "=";
+  size_t pos = 0;
+  while (pos < chunk.size())
+  {
+    const size_t eol = chunk.find('\n', pos);
+    const size_t end = eol == std::string::npos ? chunk.size() : eol + 1;
+    if (pos == 0 || chunk.compare(pos - 1, k.size(), k) != 0) out.append(chunk, pos, end - pos);
+    pos = end;
+  }
+  return out;
+}
+
+struct Seen
+{
+  std::string state, routes;
+  std::map<std::string, double> corners;
+};
+Seen seen(Inst &i) { return {i.save(), hypersaw_debug_modroutes(i.p), i.corners()}; }
+
+// The reference: loaded while NOT processing (direct), then three blocks.
+Seen idleLoad(const std::string &chunk)
+{
+  Inst r;
+  r.load(chunk);
+  r.p->start_processing(r.p);
+  for (int b = 0; b < 3; b++) r.block();
+  return seen(r);
+}
+// Loaded while processing (queued); `chunks` in order, no block between them.
+Seen queuedLoad(const std::vector<std::string> &chunks)
+{
+  Inst s;
+  s.p->start_processing(s.p);
+  for (const auto &c : chunks) s.load(c);
+  for (int b = 0; b < 3; b++) s.block();
+  return seen(s);
+}
+
+void queuedRows(const std::string &a, const std::string &b)
+{
+  const Seen ref = idleLoad(a), q = queuedLoad({a});
+  row(!ref.routes.empty() && ref.routes != "[]", "Q-NONZERO", "the chunk's mod routes load: " + ref.routes);
+  row(q.routes == ref.routes, "Q-ROUTES", "a queued load's mod routes equal an idle load's");
+  row(q.state == ref.state, "Q-STATE", "a queued load's whole saved state equals an idle load's (" +
+                                           std::to_string(ref.state.size()) + " bytes)");
+  // Sense checks: the same comparisons must SEE a difference that is there.
+  const Seen noRoutes = queuedLoad({withoutKey(a, "modroutes")});
+  row(noRoutes.routes != ref.routes, "Q-ROUTES-CTL", "control: the chunk without its modroutes line differs");
+  row(queuedLoad({b}).state != ref.state, "Q-STATE-CTL", "control: a different chunk's state differs");
+
+  // SUPERSESSION: two loads within one block; the last one stands, whole.
+  const Seen refB = idleLoad(b), ab = queuedLoad({a, b});
+  row(refB.corners != ref.corners, "S-NONZERO", "the two chunks' morph fields differ");
+  row(ab.state == refB.state && ab.corners == refB.corners, "SUPERSEDE",
+      "two queued loads in one block leave the second load, whole (state and corners)");
+  int n = 0;
+  diff(ab.corners, ref.corners, &n);
+  row(n > 0, "SUPERSEDE-CTL", "control: the first load's corners are not what stands (" + std::to_string(n) +
+                                  " slot(s) differ)");
+}
+
+/* OVERFLOW: the queue is filled to within `room` entries before a queued
+   load; parameter writes beyond the room are refused and counted, and the
+   load's morph field still lands (its marker has a reserved slot). */
+void overflowRows(const std::string &a)
+{
+  const Seen ref = idleLoad(a);
+  Inst s;
+  s.p->start_processing(s.p);
+  const uint32_t room = 64;
+  for (uint32_t k = 0; s.p && k < 4096; k++)
+  {
+    if (stats(s.p).depth >= 2048 - room) break;
+    hypersaw_debug_gesture(s.p, 4, (k & 1) == 0);
+  }
+  const Stats before = stats(s.p);
+  s.load(a);
+  const Stats after = stats(s.p);
+  for (int b = 0; b < 3; b++) s.block();
+  const auto corners = s.corners();
+  Inst fresh;
+  int nz = 0;
+  diff(fresh.corners(), ref.corners, &nz);
+  row(nz > 0, "O-NONZERO", "the chunk's corners differ from a fresh instance's in " + std::to_string(nz) + " slot(s)");
+  row(after.dropped > before.dropped, "O-COUNTED", std::to_string(after.dropped - before.dropped) +
+                                                      " entr(ies) refused and counted");
+  int n = 0;
+  const std::string d = diff(corners, ref.corners, &n);
+  row(n == 0, "O-MARKER", "the overflowed load's morph field still landed" + d);
+}
+
+/* EVENTS DURING AN OWNED BLOCK: the host starts processing while a direct
+   load runs (from inside the load, at its first request_flush) and sends a
+   note-on and a parameter value in that block. The block is silent; both
+   events are replayed at the next block; none is lost. */
+Inst *g_inst = nullptr;
+double g_silentPeak = -1;
+bool g_sendNote = true;
+void silentBlock()
+{
+  g_inst->p->start_processing(g_inst->p);
+  EvList ev;
+  if (g_sendNote) ev.noteOn(57);
+  ev.param(100, 0.123);
+  g_inst->block(&ev);
+  g_silentPeak = 0;
+  for (uint32_t i = 0; i < kBlock; i++)
+    g_silentPeak = std::max(g_silentPeak, (double)std::fabs(g_inst->L[i]) + std::fabs(g_inst->R[i]));
+}
+double peakAfter(Inst &s, int blocks)
+{
+  double pk = 0;
+  for (int b = 0; b < blocks; b++)
+  {
+    s.block();
+    for (uint32_t i = 0; i < kBlock; i++) pk = std::max(pk, (double)std::fabs(s.L[i]) + std::fabs(s.R[i]));
+  }
+  return pk;
+}
+void silentRows(const std::string &json)
+{
+  auto run = [&](bool note, double &silent, double &after, double &vol, Stats &st) {
+    Inst s;
+    g_inst = &s;
+    g_sendNote = note;
+    g_silentPeak = -1;
+    g_host.onFlush = silentBlock;
+    hypersaw_debug_apply(s.p, json.c_str());
+    g_host.onFlush = nullptr;
+    silent = g_silentPeak;
+    after = peakAfter(s, 8);
+    s.params->get_value(s.p, 100, &vol);
+    st = stats(s.p);
+  };
+  double silent = 0, after = 0, vol = 0, cs = 0, ca = 0, cv = 0;
+  Stats st, cst;
+  run(true, silent, after, vol, st);
+  run(false, cs, ca, cv, cst);
+  char b[200];
+  std::snprintf(b, sizeof b, "the owned block ran and was silent (peak %.3g)", silent);
+  row(silent == 0.0, "E-SILENT", b);
+  std::snprintf(b, sizeof b, "the note-on was replayed: peak %.3g after, against %.3g with no note (control)", after, ca);
+  row(after > 1e-3 && ca < 1e-6, "E-NOTE", b);
+  std::snprintf(b, sizeof b, "the parameter value was replayed: masterVol %.6g (want 0.123)", vol);
+  row(vol == 0.123, "E-PARAM", b);
+  row(st.deferred == 0 && st.deferDropped == 0, "E-NONE-LOST",
+      std::to_string(st.deferred) + " byte(s) still waiting, " + std::to_string(st.deferDropped) + " dropped");
+}
+
+/* A FLUSH DURING A DIRECT LOAD does not drain: the host calls params.flush
+   (not processing, so legal on the main thread) from inside the load. The
+   control makes the same flush outside a load, where it must drain. */
+uint32_t g_depthIn = 0, g_depthOut = 0, g_deferredIn = 0;
+void flushInside()
+{
+  g_depthIn = stats(g_inst->p).depth;
+  EvList ev;
+  ev.param(100, 0.321);
+  g_inst->params->flush(g_inst->p, &ev.list, &kOut);
+  g_depthOut = stats(g_inst->p).depth;
+  g_deferredIn = stats(g_inst->p).deferred;
+}
+void flushRows(const std::string &json)
+{
+  Inst s;
+  g_inst = &s;
+  g_host.onFlush = flushInside;
+  hypersaw_debug_apply(s.p, json.c_str());
+  g_host.onFlush = nullptr;
+  row(g_depthIn > 0 && g_depthOut == g_depthIn && g_deferredIn > 0, "F-NODRAIN",
+      "a flush inside a direct load drained " + std::to_string(g_depthIn - g_depthOut) + " of " +
+          std::to_string(g_depthIn) + " queued entr(ies) and kept its event");
+  EvList none;
+  s.flushIdle(none);
+  double vol = 0;
+  s.params->get_value(s.p, 100, &vol);
+  const Stats after = stats(s.p);
+  char b[160];
+  std::snprintf(b, sizeof b, "after the load, the next flush drained (depth %u) and replayed the event (masterVol %.6g, want 0.321)",
+                after.depth, vol);
+  row(after.depth == 0 && after.deferred == 0 && vol == 0.321, "F-LATER", b);
+  // Control: the same kind of flush, no load around it, drains.
+  Inst c;
+  hypersaw_debug_gesture(c.p, 4, true);
+  const uint32_t d0 = stats(c.p).depth;
+  c.flushIdle(none);
+  row(d0 > 0 && stats(c.p).depth == 0, "F-CTL", "control: a flush outside a load drains (" + std::to_string(d0) + " -> 0)");
+}
+
+std::string defaultJson()
+{
+  Inst d;
+  static char buf[1 << 17];
+  hypersaw_debug_state(d.p, buf, sizeof buf);
+  return buf;
+}
 }  // namespace
 
 int main()
@@ -360,6 +621,12 @@ int main()
   const std::string chunk = makeChunk();
   stopRows(chunk);
   hookRows(chunk);
+  const std::string a = makeRichChunk(0.37), b = makeRichChunk(0.63);
+  queuedRows(a, b);
+  overflowRows(a);
+  const std::string json = defaultJson();
+  silentRows(json);
+  flushRows(json);
   std::printf("load_handoff_check: %s (%d failure(s))\n", g_fail ? "RED" : "GREEN", g_fail);
   return g_fail ? 1 : 0;
 }
