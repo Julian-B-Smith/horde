@@ -7251,3 +7251,43 @@ control that must not be.
 
 **Consequence.** B448 B3, the RealtimeSanitizer gate, can run locally in `verify full` on macOS, so
 it no longer needs a Linux CI job or a workflow edit by the human. A CI job is still possible later.
+
+## ADR-201 — RULED by the human: the hosted-module rack-slot contract (B450, 2026-10-09)
+
+**Ruling.** The human, 2026-10-09: "contract ratified". This accepts the lead's recommendation on
+each of the contract's open questions (`docs/proposals/rack-slot-contract.md` §10), with Q3 and Q9
+held provisional.
+
+**Decision.** `docs/proposals/rack-slot-contract.md` is the contract a hosted FX module (Bulwark,
+Sluice, Shriek, Scape) meets to sit in horde 2's rack. In particular:
+- **Interface (Q1).** The slot's code-level interface is FOUNDATIONS' FX-operator ABI (their OQ
+  #32). A shim module is admitted before the ABI freezes when its gaps are only renames.
+- **The product rack (Q2).** The static-node model of the FX-chain lab's round 3 (B265) becomes the
+  product rack:
+  - modules are resident and warm, and the morph moves only cable weights;
+  - sleep keeps state, and feedback cables carry one sample;
+  - crossfades are equal-gain.
+
+  This turns round 3's direction into law. ADR-193 held only round 2. Equal-gain is a default change
+  under ADR-197 rule E; its migration is empty, because no horde 2 state has been saved yet.
+  ADR-175 and ADR-173 apply to hosted modules.
+- **Switching and "off" (Q4–Q6).**
+  - A module that cannot switch cleanly declares `gate`, and the slot ducks the wet path.
+  - "Off" belongs to the router; ADR-095's rack-owned mix is not extended to hosted modules.
+  - A setting that changes latency is Device class, fixed at activate.
+- **Presets (Q7).** A module patch at a corner is a FOUNDATIONS cascade `Preset` at the module's
+  scope. Module formats convert at import, so there is no third format.
+- **Load entry (Q8).** A module without a load entry loads by ramped `setParam` in 1.0, listed as its
+  known difference.
+- **History (Q10).** A module's state is complete, restores deterministically, has a bounded size,
+  and excludes its live state.
+- **Cost (Q11, Q12).** Memory per instance is a MUST. horde measures every module's CPU on its own
+  bench at the E-6 reference.
+- **Admission (Q13).** The admission test is a new horde `tools/` check, built with the horde 2
+  shell (B398).
+
+**Provisional.** Q3 (a 3 dB click ceiling on the B265 metric) and Q9 (2 KiB of module state per
+corner) are placeholders, not measurements. They are set from a capped listening batch (ADR-197)
+and from Sluice's largest factory patch respectively, before 1.0.
+
+**Consumers are noticed** after this ruling, as the contract's §0 promised.

@@ -6,8 +6,10 @@
 > preset and history clauses were added at the lead's direction, after the human asked what
 > FOUNDATIONS says about them.
 
-**Status: PROPOSED until the human ratifies this document.** The human said "draft ratified"
-before this text existed, and the lead reads that as approval of the outline only. Last verified
+**Status: RATIFIED by the human 2026-10-09** ("contract ratified"), with the lead's recommendation
+on every open question (§10) accepted. Q3 (the 3 dB click ceiling) and Q9 (the 2 KiB state budget)
+are PROVISIONAL: set from measurement before 1.0. ADR-201 records the ruling. Clauses marked P
+below are now ruled, except where §10 says provisional. Last verified
 2026-10-09 against horde `main` at `cebe17e`, FOUNDATIONS `1a5995e` (`fx_operator.h`), Bulwark
 `d2a4f2d`, Sluice `04fb7a1`, Shriek `bab145c` and Scape `8b5dc33`. Queue item: **B450**.
 
