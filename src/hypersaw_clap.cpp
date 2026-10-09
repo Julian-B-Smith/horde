@@ -9034,6 +9034,12 @@ bool plug_activate(const clap_plugin_t *p, double sr, uint32_t, uint32_t maxFram
   pl->spectra = hypersaw::SpectraCore(sr);
   pl->spectra.p = sp;
   pl->spectra.rebuild();
+  /* B448 B3 (RealtimeSanitizer): anchorTables() is a function-local static, so its
+     first use took the __cxa_guard mutex and built 2x5x16385 doubles on the audio
+     thread. Touch it here: clap_plugin.activate is [main-thread] and every process()
+     comes after it (clap/plugin.h), so the render's guard check is the inline fast
+     path and never calls __cxa_guard_acquire. swarm_core.h is untouched (h2 lift). */
+  (void)hypersaw::anchorTables();
   pl->rack.setSampleRate(sr);  // ADR-071: size comb lines + derive comp coeffs at sr
   /* B172: the sub's sixteen voices follow the host rate. setSampleRate RECALCS
      (subosc_core.h) rather than replacing the object, so the parameters survive
