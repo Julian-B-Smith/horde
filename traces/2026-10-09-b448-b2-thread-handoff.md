@@ -42,10 +42,12 @@
   audio-thread half of PANIC runs inside the realtime scope. `tools/tsan_stress_check.py`: plant fires,
   control 0 on all seeds, full not zero; NOT wired (see open questions; family counts are in the private
   notes).
-- **Two rig doors adopt a staged field:** `hypersaw_debug_apply` / `_apply_named` call
-  `rigAdoptStagedField` after the load (morphlayout_check T2-T5 read corners right after a load in a
-  processing rig that never renders), and `hypersaw_test_panic` performs a pending request and writes the
-  file (trace_check, endprobe). Both stand in for the next block start; the editor never calls them.
+- **Rig doors stand in for the next block start** (test surface only; the editor never calls them):
+  `hypersaw_debug_apply` / `_apply_named` adopt a pending staged field (`rigAdoptStagedField`;
+  morphlayout_check T2-T5 read corners right after a load in a processing rig that never renders);
+  `hypersaw_test_mod_add` / `_mod_remove` drain the queue while processing (lfoenv_check G saves right
+  after adding routes); `hypersaw_test_panic` performs a pending request and writes the file
+  (trace_check, endprobe).
 - **Evidence consulted:** private plan, critic report and TSan findings rev 3 (local/security);
   `src/hypersaw_clap.cpp` (queue, drainQueue, initState, applyStateJson, state_load, morph field, PANIC,
   mod verbs, gui_create); `src/mod_core.h`; `tools/tsan_stress.cpp`, `tools/load_handoff_check.cpp`,
@@ -56,8 +58,16 @@
   false on queue overflow (state_check's B100 rows load three times while processing without draining
   and assert success, so the count lives in `qDropped` only); swapping the stage's vectors instead of
   copying (a copy keeps buffer identity fixed for every reader of `morphCorner`).
-- **Verify:** see the closing entry below for the commands and their exit codes.
-- **Open questions:** (1) `tsan_stress_check` is not zero and every remaining report is in an accepted
+- **Verify:** `./verify fast` exit 1 (`.harness/last-verify.json`: target fast, exit 1, git 63758df),
+  red ONLY on `weakening_check` (`tools/tsan_stress_check.py`: sanitizer_off 0 -> 2, unwired 0 -> 1).
+  `./verify full` cannot get past fast, so its body was run from an untracked copy of `verify` with
+  that one line (and the record call) changed, and once more continuing past `routing_check`: every gate
+  in the body GREEN except `routing_check`, 2 rows ("round-trip carried no"): its rig loads through the
+  CLAP state extension while processing and reads the matrix without a block or a flush; with a flush
+  after each load (tried locally, reverted, not committed) it is GREEN. `load_handoff_check` GREEN,
+  `rtsan_check` GREEN (panic=7 in the probe's staging line).
+- **Open questions:** (0) `routing_check`'s two round-trip rows: a flush after the load in its rig is
+  a change to an existing gate, the human's call; (1) `tsan_stress_check` is not zero and every remaining report is in an accepted
   family per the private classification, so it stays UNWIRED and the lead decides the gate rule with the
   human; (2) the weakening counter rises by `sanitizer_off` +2 and `unwired` +1 in
   `tools/tsan_stress_check.py`, unapproved; (3) `load_handoff_check` sits in `full`, not `fast` as the
