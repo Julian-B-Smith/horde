@@ -2,24 +2,43 @@
 """tsan_stress_check — tools/tsan_stress under ThreadSanitizer (ADR-197 risk row 2).
 
 Builds the multi-thread stress harness for parameters, presets and state with
--fsanitize=thread, runs it, and exits non-zero on ANY ThreadSanitizer report
-in the control or full run.
+-fsanitize=thread and runs it.
 
-  PLANT    a deliberate race on a plain int, no plugin. MUST be reported, or the
-           check is red before it runs anything else: a sanitizer that cannot
-           start reads exactly like a clean plugin.
-  CONTROL  audio thread only (host events + params_flush). Nothing else touches
-           the instance, so a report here is either an audio-thread-only race
-           or a harness defect. Either way the full run's verdict cannot be
-           trusted until it is explained, so the control is gated, not advisory.
-  FULL     audio thread + the host/editor main thread (param writes, state
-           load/save, preset apply, morph, history, editor polling).
+THE RULE (the human's ruling of 2026-10-09): the full run fails on any report
+whose MAIN-THREAD access is a WRITE — "Write of size", "Previous write of
+size" or their atomic forms on the stack TSan attributes to "main thread".
+That is ThreadSanitizer's own access type, never a guess from function names
+(names break under inlining and lambdas, and a load reached through the undo
+history would have been filed as a read by its caller's name). Reports whose
+main-thread access is a READ are counted and printed as ACCEPTED: the main
+thread reading state the audio thread owns, for a save, an undo snapshot or
+the editor's polling. A report with no main-thread access at all fails too:
+nothing in the rule accepts it.
+
+  PLANT       the main thread WRITES a plain int another thread reads. MUST be
+              reported, and filed as a main-thread WRITE (the failing class),
+              or the check is red before it runs anything else: a sanitizer
+              that cannot start reads exactly like a clean plugin, and a
+              classifier that cannot see a write passes everything.
+  PLANT-READ  the mirror: another thread writes, the main thread only reads.
+              MUST be reported and filed as a READ (accepted), so the
+              classifier is shown to separate the two, not to call everything
+              one thing.
+  CONTROL     audio thread only (host events + params_flush). Must have NO
+              report at all: nothing else touches the instance, so a report is
+              an audio-thread-only race or a harness defect, and either way the
+              full run's verdict cannot be trusted until it is explained.
+  FULL        audio thread + the host/editor main thread (param writes, state
+              load/save, preset apply, morph, history, editor polling), three
+              seeds: zero main-thread WRITE reports and zero unattributed ones.
 
     tools/tsan_stress_check.py [build-dir] [--seed N] [--blocks N] [--ops N]
 
 COMPILER: $HORDE_SANITIZER_CXX, else Homebrew llvm's clang++ (ADR-199), always
-with -isysroot from xcrun on macOS. With neither, it prints a WARNING and exits
-77 (SKIP) — never 0, because a run that measured nothing is not a pass.
+with -isysroot from xcrun on macOS. With neither, it prints a WARNING and
+"SKIPPED — nothing was measured; this is NOT a pass" and exits 0, as
+rtsan_check does (ADR-199), so `verify full` still runs elsewhere; the SKIP
+is a visible hole, never a GREEN.
 
 HOW IT BUILDS, and why not through HYPERSAW_SANITIZE: that option instruments
 host-side executables only, never the impl library, so a probe linked against
@@ -37,7 +56,7 @@ TSAN_OPTIONS here: halt_on_error=0 so one run lists every distinct report
 rather than the first (tools/sanitize_oracles.sh halts on the first, which
 suits a pass/fail matrix and hides the second race behind the first here).
 
-UNWIRED: red on main by design until the main-thread/audio-thread handoff is fixed (B446 Tier C); wired with the fix
+WIRED: ./verify full
 """
 import os
 import re
@@ -60,7 +79,6 @@ def flags_make(build):
     return out
 
 
-SKIP = 77   # the automake "skipped" status: not a pass, not a failure
 
 
 def sanitizer_cxx():
@@ -101,17 +119,35 @@ def run(cmd, log):
 FRAME = re.compile(r"^\s+#0 (.*?)(?: \(\S+\+0x[0-9a-f]+\))?$")
 
 
+# "  Previous write of size 8 at 0x1 by main thread:" / "  Atomic read of size 4 at 0x2 by thread T1:"
+ACCESS = re.compile(r"^\s+(?:Previous )?(?:[Aa]tomic )?([Rr]ead|[Ww]rite) of size \d+ at \S+ by "
+                    r"(main thread|thread T\d+)")
+
+
+def main_access(block):
+    """'write' if the main thread's access in this report writes, 'read' if it
+    only reads, None if the report has no main-thread access. TSan's own
+    header lines, nothing else."""
+    kinds = [m.group(1).lower() for m in map(ACCESS.match, block.splitlines())
+             if m and m.group(2) == "main thread"]
+    if "write" in kinds:
+        return "write"
+    return "read" if kinds else None
+
+
 def reports(log):
-    """Distinct reports: (kind, first stack's #0, second stack's #0)."""
+    """(total, distinct by (kind, both stacks' #0), {'write': n, 'read': n, None: n})."""
     text = open(log, encoding="utf-8", errors="replace").read()
     blocks = text.split("WARNING: ThreadSanitizer: ")[1:]
     seen = {}
+    side = {"write": 0, "read": 0, None: 0}
     for b in blocks:
         kind = b.split(" (pid", 1)[0].split("\n", 1)[0].strip()
         tops = [FRAME.match(l).group(1) for l in b.splitlines() if FRAME.match(l)][:2]
         key = (kind,) + tuple(tops)
         seen[key] = seen.get(key, 0) + 1
-    return len(blocks), seen
+        side[main_access(b)] += 1
+    return len(blocks), seen, side
 
 
 def main():
@@ -124,8 +160,9 @@ def main():
     cxx = sanitizer_cxx()
     if not cxx:
         print("WARNING: tsan_stress_check: no TSan-capable compiler (set HORDE_SANITIZER_CXX, or "
-              "install Homebrew llvm) — SKIPPED, nothing was measured")
-        return SKIP
+              "install Homebrew llvm)")
+        print("tsan_stress_check: SKIPPED — nothing was measured; this is NOT a pass (ADR-199)")
+        return 0
 
     # Every log goes INSIDE the build dir: `build-*/` is ignored, a sibling
     # `build-x.log` is not, and its absolute paths trip the leak gate.
@@ -170,34 +207,45 @@ def main():
                                 env=env).returncode
         return log, rc
 
-    # THE PLANT FIRST. A clean plugin run means nothing unless this same binary,
-    # under these same options, reports a race it was handed. Found necessary on
-    # the first run (macOS 26 + Command Line Tools 16): the TSan runtime
-    # segfaulted at startup on a ten-line program, and every mode "had no
-    # reports" for that reason alone.
-    log, rc = harness("plant", ["--plant"])
-    total, _ = reports(log)
-    print(f"== plant: exit {rc}, {total} report(s) (must be >= 1)")
-    if total == 0:
-        print("== tsan_stress_check: RED — the planted race was NOT reported, so ThreadSanitizer is "
-              f"not working in this build/runtime and no other verdict is meaningful (see {log})")
-        return 1
+    # THE PLANTS FIRST. A clean plugin run means nothing unless this same
+    # binary, under these same options, reports a race it was handed, AND the
+    # classifier files each plant on the right side of the rule. Found
+    # necessary on the first run (macOS 26 + Command Line Tools 16): the TSan
+    # runtime segfaulted at startup on a ten-line program, and every mode "had
+    # no reports" for that reason alone.
+    for mode, want in (("plant", "write"), ("plant-read", "read")):
+        log, rc = harness(mode, ["--" + mode])
+        total, _, side = reports(log)
+        ok = total >= 1 and side[want] >= 1 and (want == "write" or side["write"] == 0)
+        print(f"== {mode}: exit {rc}, {total} report(s), main-thread write {side['write']} / read "
+              f"{side['read']} / none {side[None]} (must be >= 1 {want.upper()}"
+              f"{'' if want == 'write' else ', 0 WRITE'})")
+        if not ok:
+            print(f"== tsan_stress_check: RED — the planted {want} race was not reported as a main-thread "
+                  f"{want.upper()}, so no verdict below would mean anything (see {log})")
+            return 1
 
     red = False
     # THREE SEEDS by default: which pairs TSan catches depends on the OS's
     # interleaving, so one seed under-samples; a zero verdict means zero on all.
     runs = [harness_args] if args else [["--seed", s, "--blocks", "3000", "--ops", "400"] for s in "123"]
-    for i, run_args in enumerate(runs):
+    for run_args in runs:
         for mode, extra in (("control", ["--control"]), ("full", [])):
             tag = mode if len(runs) == 1 else f"{mode}.s{run_args[1]}"
             log, rc = harness(tag, ["--root", ROOT] + run_args + extra)
-            total, distinct = reports(log)
+            total, distinct, side = reports(log)
             tail = [l for l in open(log, encoding="utf-8", errors="replace") if l.startswith("tsan_stress:")]
-            print(f"== {tag}: exit {rc}, {total} report(s), {len(distinct)} distinct  "
+            print(f"== {tag}: exit {rc}, {total} report(s), {len(distinct)} distinct; main-thread WRITE "
+                  f"{side['write']}, READ {side['read']} (accepted), unattributed {side[None]}  "
                   f"{tail[-1].strip() if tail else '(harness printed no summary)'}")
-            # A non-zero exit with no report (crash, usage error, empty corpus)
-            # is red too: a run that did not complete has measured nothing.
-            if total or rc != 0 or not tail:
+            # A run that did not finish (no summary line), or that exited
+            # non-zero with no report to explain it (TSan exits non-zero
+            # after reporting), measured nothing: red.
+            if not tail or (rc != 0 and total == 0):
+                red = True
+            if mode == "control" and total:
+                red = True
+            if mode == "full" and (side["write"] or side[None]):
                 red = True
     print(f"== tsan_stress_check: {'RED' if red else 'GREEN'} (logs: {build}/tsan_stress.<mode>.log)")
     return 1 if red else 0

@@ -769,12 +769,17 @@ int main()
     Rig b(factory);
     auto *stB = (const clap_plugin_state_t *)b.p->get_extension(b.p, CLAP_EXT_STATE);
     IStr in{{nullptr, istrRead}, routed.data, 0};
+    // The rig is processing (Rig's constructor), and a load while processing lands at the
+    // next block start, as its parameters always did: the flush is the host's answer to the
+    // request_flush the load makes. Added by the human's ruling of 2026-10-09 (B448 B2).
     stB->load(b.p, &in.s);
+    b.flush();
     const bool carried = matrixEqual(a.p, b.p, cells);
 
     // The silence test: b is rerouted now; loading the CHAIN chunk must undo it.
     IStr back{{nullptr, istrRead}, plain.data, 0};
     stB->load(b.p, &back.s);
+    b.flush();
     Rig c(factory);
     const bool restored = matrixEqual(b.p, c.p, cells);
 
@@ -962,11 +967,16 @@ int main()
     Rig b(factory);
     auto *stB = (const clap_plugin_state_t *)b.p->get_extension(b.p, CLAP_EXT_STATE);
     IStr in{{nullptr, istrRead}, wet.data, 0};
+    // The rig is processing (Rig's constructor), and a load while processing lands at the
+    // next block start, as its parameters always did: the flush is the host's answer to the
+    // request_flush the load makes. Added by the human's ruling of 2026-10-09 (B448 B2).
     stB->load(b.p, &in.s);
+    b.flush();
     const bool carried = hypersaw_debug_routing_srcout(b.p, 0) == 0.625;
 
     IStr back{{nullptr, istrRead}, plain.data, 0};
     stB->load(b.p, &back.s);
+    b.flush();
     const bool restored = hypersaw_debug_routing_srcout(b.p, 0) == 0.0;
 
     std::snprintf(d, sizeof(d),

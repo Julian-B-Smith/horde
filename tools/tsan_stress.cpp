@@ -47,8 +47,13 @@
  * reproducible, but the operation sequence of each thread is. All file reads
  * happen before any thread starts.
  *
- * MODES.  --plant   no plugin: a deliberate two-thread race on a plain int,
- *                   which the check requires TSan to report (detector proof).
+ * MODES.  --plant   no plugin: a deliberate race on a plain int that the MAIN
+ *                   thread WRITES and a second thread reads. The check requires
+ *                   TSan to report it, and its classifier to file it as a
+ *                   main-thread WRITE (the gate's failing class).
+ *         --plant-read  the mirror: the second thread writes, the MAIN thread
+ *                   only reads. Must be reported AND filed as a READ, so the
+ *                   classifier is proven both ways.
  *         default   audio + main, every category.
  *         --control audio thread only: host events and params_flush. Nothing
  *                   else touches the instance while it processes, so any
@@ -400,17 +405,30 @@ int main(int argc, char **argv)
   {
     const std::string a = argv[i];
     auto val = [&](uint32_t &dst) { if (i + 1 < argc) dst = (uint32_t)std::strtoul(argv[++i], nullptr, 10); };
-    if (a == "--plant")
+    if (a == "--plant" || a == "--plant-read")
     {
-      /* The detector's own control: one unsynchronised int written from two
-         threads, no plugin involved. The check requires TSan to REPORT this
-         before it believes any clean run — a sanitizer that is absent, or a
-         runtime that cannot start on this OS, would otherwise read clean. */
+      /* The detector's own controls: one unsynchronised int, no plugin
+         involved. The check requires TSan to REPORT these before it believes
+         any clean run — a sanitizer that is absent, or a runtime that cannot
+         start on this OS, would otherwise read clean — and requires its
+         classifier to put each on the right side of the WRITE rule. */
       static int planted = 0;
-      std::thread t([] { for (int k = 0; k < 1000; k++) planted++; });
-      for (int k = 0; k < 1000; k++) planted++;
+      static volatile int sink = 0;
+      const bool mainWrites = a == "--plant";
+      std::thread t([mainWrites] {
+        for (int k = 0; k < 1000; k++)
+        {
+          if (mainWrites) sink = sink + planted;   // the other thread only READS
+          else planted = k;                        // the other thread WRITES
+        }
+      });
+      for (int k = 0; k < 1000; k++)
+      {
+        if (mainWrites) planted = k;               // the main thread WRITES
+        else sink = sink + planted;                // the main thread only READS
+      }
       t.join();
-      std::printf("tsan_stress: plant done (%d)\n", planted);
+      std::printf("tsan_stress: plant done (%d)\n", planted + sink * 0);
       return 0;
     }
     if (a == "--control") c.control = true;
@@ -418,9 +436,24 @@ int main(int argc, char **argv)
     else if (a == "--blocks") val(c.blocks);
     else if (a == "--ops") val(c.ops);
     else if (a == "--root" && i + 1 < argc) root = argv[++i];
-    else { std::fprintf(stderr, "usage: tsan_stress [--control] [--seed N] [--blocks N] [--ops N] [--root DIR]\n"); return 2; }
+    else { std::fprintf(stderr, "usage: tsan_stress [--plant | --plant-read | --control] [--seed N] [--blocks N] [--ops N] [--root DIR]\n"); return 2; }
   }
   collect(root + "/tests/state_fixtures", ".txt", c.chunks);
+  /* One more chunk, built here: the first fixture plus every load line the
+     corpus does not carry — intent bindings, ranges and a home, both LFO
+     streams, both oscillators' ensemble timing — so the stress run's loads
+     reach those writes. (The fixture corpus is golden-bound and append-only;
+     a line appended in memory changes no fixture.) */
+  if (!c.chunks.empty())
+  {
+    std::string x = c.chunks[0];
+    if (!x.empty() && x.back() != '\n') x += '\n';
+    x += "intent=L:1,B:4:0:2:0.5,R:4:1:0.2:0.8,H:2:0.25:0.75\n";
+    x += "lfo=0.25;12345,0.75;67890\n";
+    x += "ens=0.5;4242;0.001,0.002,0.003\n";
+    x += "o1.ens=0.25;99;0.004,0.005\n";
+    c.chunks.push_back(x);
+  }
   collect(root + "/docs/presets/factory", ".json", c.presets);
   if (!c.control && (c.chunks.empty() || c.presets.empty()))
   {
@@ -443,6 +476,15 @@ int main(int argc, char **argv)
       c.info.push_back({inf.id, inf.min_value, inf.max_value, (inf.flags & CLAP_PARAM_IS_STEPPED) != 0});
   }
   c.plug->activate(c.plug, kSR, 1, kBlock);
+  {
+    /* The intent bus ON (param 266), so the audio thread's intentStep reads
+       the tables the loads write; set before either thread starts (a flush
+       on the main thread is legal while not processing). The audio thread's
+       seeded host events may switch it later, as a host could. */
+    EvList on;
+    on.param(266, 1, 0);
+    c.params->flush(c.plug, &on.list, &kOut);
+  }
 
   std::thread audio([&c] { audioLoop(c); });
   while (!c.audioStarted.load(std::memory_order_acquire)) std::this_thread::yield();
