@@ -10831,11 +10831,29 @@ bool hypersaw_test_slot_gated(const clap_plugin_t *p, int slot)
   return self(p)->core.voiceAt(slot).gate != 0;
 }
 
+/* The editor's route verbs, through the shipped members. While processing
+   they only QUEUE (the audio thread owns the table); a test rig is single-
+   threaded, so between its process() calls it is the audio thread's only
+   user and drains the queue here, in order, the way the next block start
+   would, so a save or a read straight after the verb sees the route. Not
+   processing, the verb already applied directly and the drain is skipped. */
+static void rigDrainIfQueued(Plugin *pl)
+{
+  if (pl->processing.load(std::memory_order_acquire)) pl->drainQueue(nullptr);
+}
 bool hypersaw_test_mod_add(const clap_plugin_t *p, uint32_t srcSlot, uint32_t destId)
 {
-  return self(p)->modAddRoute(srcSlot, destId);
+  auto *pl = self(p);
+  const uint32_t refusedBefore = pl->modRefused.load(std::memory_order_relaxed);
+  const bool ok = pl->modAddRoute(srcSlot, destId);
+  rigDrainIfQueued(pl);
+  return ok && pl->modRefused.load(std::memory_order_relaxed) == refusedBefore;
 }
-void hypersaw_test_mod_remove(const clap_plugin_t *p, int idx) { self(p)->modRemoveRoute(idx); }
+void hypersaw_test_mod_remove(const clap_plugin_t *p, int idx)
+{
+  self(p)->modRemoveRoute(idx);
+  rigDrainIfQueued(self(p));
+}
 double hypersaw_test_mod_applied(const clap_plugin_t *p, uint32_t destId)
 {
   for (auto &d : self(p)->modDests)
