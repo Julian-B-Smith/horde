@@ -7251,3 +7251,88 @@ control that must not be.
 
 **Consequence.** B448 B3, the RealtimeSanitizer gate, can run locally in `verify full` on macOS, so
 it no longer needs a Linux CI job or a workflow edit by the human. A CI job is still possible later.
+
+## ADR-200 — RULED by the human: one handoff discipline between the main thread and the audio thread (B446 C1, B448 B2, 2026-10-09)
+
+**Rulings.** The human, 2026-10-09:
+- "Yes, I click presets mid-session; plan ratified".
+- Then three rulings, after a pre-publication critic pass:
+  - the race gate counts main-thread WRITE races;
+  - the remaining load-path state is fixed, not accepted;
+  - a flush is added to `routing_check`'s rig after its loads.
+- Then "All three approved":
+  - the `halt_on_error=0` weakening;
+  - the same rig correction for `tseed_check` E3;
+  - a recorded queue bound.
+
+**Context.**
+- B448 B2 built a ThreadSanitizer stress harness (ADR-199 toolchain) that drives the legacy shell's
+  real CLAP entry points from a host-like main thread while the audio thread renders.
+- Two deterministic single-thread oracles cover load ordering, which a sanitizer cannot see.
+- Three Opus critic passes reviewed the findings and the fixes.
+- Under the B446 security method's disclosure rule, the findings and this ADR's draft stayed private until the fixes
+  landed with them.
+
+**Decision: the legacy shell.** ADR-186 §1 permits crash, real-time and state-integrity fixes
+after the freeze.
+1. **Panic** is a request that the audio thread performs at the start of its next block. Its
+   forensic capture is fixed-size, and the dump file is written on the main thread after release.
+2. **The mod-route table has one writer, the audio thread.**
+   - While processing, editor verbs and a load's routes travel as queue entries.
+   - The editor's add/refuse answer comes from a published count plus the entries still queued,
+     never from the table itself.
+3. **Routing cells from a load** travel on the existing restore path, carrying load provenance, so
+   morph never records a load as an edit (B125).
+4. **A load decides direct-or-queued once, at its start.**
+   - Direct loads and every audio-thread entry point (process, params flush, reset) exclude each
+     other through a sequentially consistent pairing.
+   - Host events that arrive during an excluded block go to a fixed 16 KB buffer, sized and checked
+     before any copy. They are replayed in order at the next block, with a host reset kept in its
+     place.
+   - Overflow is counted.
+5. **A queued load's morph field, intent tables, LFO and ensemble state, and engine revision** are
+   staged in preallocated memory and adopted whole by the audio thread at a block boundary.
+   - A later load supersedes an earlier staged one.
+   - The adoption marker's queue slot is reserved.
+6. **Morph editor verbs** (corner adopt, capture, exempt) travel as queue entries while processing.
+7. **The command queue holds 4096 entries**: +48 KB per instance, preallocated.
+   - **Recorded bound:** more than about 4096 entries of loads within ONE audio block (three
+     full-size GUI preset loads in about 3 ms) overflow. The overflow is counted and readable, never
+     silent.
+   - Growing the queue further was weighed and declined.
+
+**Accepted risk, with an expiry.** Main-thread and host reads of audio-owned state (display values,
+save and undo snapshots, host value queries) remain. They are read-only, and the race gate counts
+and prints them on every run. They expire at the legacy park trigger (ADR-186 §6). The armor
+catalogue's R2 row carries them.
+
+**Render neutrality, measured not argued.** Digests of 48 renders were taken before any fix
+(`e5ab96d`) and after (`72e9292`): the 3 state fixtures and the 45 factory presets, idle and
+offline. All are bit-identical, as are 11 checks' stdout and 543 horde 2 self-digest rows.
+
+**Gates.** Added under ADR-180 §1, with the rulings above.
+- **`tsan_stress_check`** (`verify full`):
+  - a planted race must fire, a planted main-thread write must classify as WRITE, a planted read as
+    READ, and the audio-only control must be clean;
+  - the full run must show ZERO main-thread write races over seeds 1–3, classified by the
+    sanitizer's own access header;
+  - read races are printed as accepted;
+  - without Homebrew LLVM it SKIPs, and the dashboard shows the skip as a hole.
+- **`load_handoff_check`** (`verify full`, which needs a build tree): 40 rows covering load
+  ordering across a processing stop, load provenance, supersession, overflow, deferred-event bounds,
+  reset order and replay precedence. Each row has a must-fail control or a recorded mutation proof.
+- **`rtsan_check` stays green** with panic exercised inside the real-time scope.
+- **Rig corrections, ruled:** `routing_check` and `tseed_check` E3 flush after a load made while
+  processing, because a load made while processing lands at the next block, as parameter lines
+  already did. Each has a mutation proof.
+- **Weakening, approved:** `sanitizer_off` +2 for `halt_on_error=0`, so one run lists every race.
+  The check still fails on any write race.
+
+**horde 2 shell rules (B398), binding.**
+- one writer per state object;
+- the main thread never reads audio-owned memory; reads come from an audio-published snapshot;
+- edits are typed commands on bounded channels that report overflow;
+- loads are adopted whole at a block boundary;
+- no cross-thread guard flags;
+- every function-local static reached from render is warmed at activate (B448 B3);
+- this ADR's harness and oracles are the shell's acceptance gate.

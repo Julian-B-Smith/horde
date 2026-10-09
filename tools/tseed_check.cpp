@@ -433,8 +433,8 @@ int main()
       statefix::loadChunk(p, mid);
       // A load while processing lands at the next block start, the ens= key
       // with its parameters; the flush is the host's answer to the load's
-      // request_flush. Pending the human's ruling (same class as the
-      // routing_check ruling of 2026-10-09).
+      // request_flush. The human's ruling of 2026-10-09, extended from
+      // routing_check to this row the same day (ADR-200).
       statefix::drain(p);
       reQueued = ensLine(statefix::saveChunk(p));
     }

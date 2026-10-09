@@ -62,8 +62,8 @@
   - `tools/rtsan_check.py`: GREEN; its probe presses PANIC once per scene with HOME redirected.
   - `tools/routing_check.cpp`: a flush after each load in its processing rig (ruling of 2026-10-09);
     with the routing enqueue removed its two round-trip rows read red (mutation proof, reverted).
-  - `tools/tseed_check.cpp` E3: the same flush after its queued load, pending the human's ruling (same
-    class as the routing_check ruling of 2026-10-09); with the staged
+  - `tools/tseed_check.cpp` E3: the same flush after its queued load, under the human's ruling of
+    2026-10-09, extended from routing_check the same day (ADR-200); with the staged
     ensemble adoption removed, E3 reads red (mutation proof, reverted).
 - **Rig doors stand in for the next block start** (test surface only; the editor never calls them):
   the debug and test exports that load, edit routes or the morph field, or press PANIC drain the

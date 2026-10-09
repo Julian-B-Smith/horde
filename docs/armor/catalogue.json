@@ -14,8 +14,8 @@
       "id": "R2",
       "title": "Thread races between UI, host and audio threads",
       "status": "partial",
-      "gates": ["sanitize"],
-      "gaps": "CI's sanitize job runs ThreadSanitizer over the compiled oracles, which are single-threaded by construction. No stress harness that hammers parameters, presets and save/load during render (Wave B).",
+      "gates": ["sanitize", "tsan_stress_check", "load_handoff_check"],
+      "gaps": "tsan_stress_check (ADR-200) drives the legacy shell's real entry points from a host-like main thread during render and holds ZERO main-thread write races over 3 seeds; load_handoff_check covers load ordering the sanitizer cannot see. Accepted until the legacy park trigger (ADR-186 section 6): read-only main-thread and host reads of audio-owned state, counted every run. Both run in verify full only, macOS-local; tsan_stress_check SKIPs without Homebrew LLVM (ADR-199), and CI runs neither. Paths outside the seeded schedule are unproven. horde 2 has no shell yet; ADR-200's shell rules make this harness its gate.",
       "tracked_by": "B448",
       "tripwire": "TSan stress: clean"
     },

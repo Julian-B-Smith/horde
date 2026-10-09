@@ -45,6 +45,10 @@
     "tools/sanitize_oracles.sh": {
       "approved": "baseline 2026-10-08",
       "count": 2
+    },
+    "tools/tsan_stress_check.py": {
+      "approved": "ADR-200; approved by the human 2026-10-09 (halt_on_error=0 lists every race in one run; the check still fails on any main-thread write race)",
+      "count": 2
     }
   },
   "skip": {
