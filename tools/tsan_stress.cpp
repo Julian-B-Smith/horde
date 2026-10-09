@@ -34,9 +34,10 @@
  *      would be invisible and the harness would read clean for that reason.
  *   2. The editor bridge is a set of lambdas local to gui_create, which needs
  *      a webview to reach. Inside this TU the harness calls the SAME Plugin
- *      members those lambdas call (see guiOp); two lambda bodies that are
- *      inline one-liners (modSetDepth, setModWheel) are mirrored here and must
- *      track gui_create if it changes.
+ *      members those lambdas call (see mainOp). Every editor lambda is a
+ *      one-line call of a Plugin member now (modSetDepth, setModWheel and
+ *      modRemoveRoute were inline bodies once and were mirrored here), so a
+ *      new lambda with a body of its own must be given a member, not a mirror.
  * The GUI object (hypersaw_gui.mm) is linked uninstrumented only to satisfy
  * gui_create's symbols; no editor is ever created.
  *
@@ -326,12 +327,11 @@ void mainOp(Ctx &c, Rng &r)
     switch (r.below(6))
     {
     case 0: pl->modAddRoute(r.below(24), pi.id); break;                       // hostIf.modAddRoute
-    case 1: { const int i = (int)r.below(8);                                   // hostIf.modSetDepth (mirrored body)
-              if (i < pl->mod.nRoutes) pl->mod.routes[i].depth = r.next() * 2 - 1; } break;
+    case 1: pl->modSetDepth((int)r.below(8), r.next() * 2 - 1); break;       // hostIf.modSetDepth
     case 2: pl->modSetSource((int)r.below(8), r.below(24)); break;            // hostIf.modSetSource
     case 3: pl->modSetPolarity((int)r.below(8), (int)r.below(2)); break;      // hostIf.modSetPolarity
-    case 4: pl->mod.removeRoute((int)r.below(8)); break;                      // hostIf.modRemoveRoute
-    default: pl->srcWheel = r.next(); break;                                  // hostIf.setModWheel (mirrored body)
+    case 4: pl->modRemoveRoute((int)r.below(8)); break;                       // hostIf.modRemoveRoute
+    default: pl->setModWheel(r.next()); break;                                // hostIf.setModWheel
     }
     break;
   case 3:   // (b) host state_load of a fixture chunk

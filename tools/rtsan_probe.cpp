@@ -404,11 +404,10 @@ void mainOp(Ctx &c, Rng &r)
     switch (r.below(5))
     {
     case 0: pl->modAddRoute(r.below(24), pi.id); break;
-    case 1: { const int i = (int)r.below(8);
-              if (i < pl->mod.nRoutes) pl->mod.routes[i].depth = r.next() * 2 - 1; } break;
+    case 1: pl->modSetDepth((int)r.below(8), r.next() * 2 - 1); break;
     case 2: pl->modSetSource((int)r.below(8), r.below(24)); break;
     case 3: pl->modSetPolarity((int)r.below(8), (int)r.below(2)); break;
-    default: pl->mod.removeRoute((int)r.below(8)); break;
+    default: pl->modRemoveRoute((int)r.below(8)); break;
     }
     c.t.modEdits++;
     break;
