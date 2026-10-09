@@ -7214,3 +7214,40 @@ explicit exception to the ADR-014 alias rule for private siblings. Neither name 
 `.leakcheck-names`, which would turn the leak gate red on hundreds of existing lines. Mailbox
 exchanges continue as before. The fine-grained agent token, when created, must include both
 repositories. If either one stays private long-term, the human revisits this.
+
+## ADR-199 — RULED by the human: the sanitizers build with Homebrew LLVM, the product with Apple clang (B448, 2026-10-09)
+
+**Ruling.** The human, 2026-10-09: "Installed llvm; go with option A."
+
+**Context.** ThreadSanitizer and AddressSanitizer crash at startup with this Mac's Command Line
+Tools 16.2 (Apple clang 16) on macOS 26.6. A five-line racy program exits 139 with no report. That
+blocked B448 B2, the thread-race harness. Updating the Command Line Tools would have re-keyed the
+self-digest and parity-floor references, which are tied to `appleclang-16`, and those checks would
+SKIP until re-pinned (FOUNDATIONS' criterion 1 now says a SKIP does not count). The other option, a
+private Linux CI repo, costs a repository and Actions minutes.
+
+**Decision.**
+- Sanitizer builds (ThreadSanitizer, RealtimeSanitizer, and any later local ASan/UBSan) use
+  Homebrew LLVM, built against the installed Command Line Tools SDK
+  (`-isysroot "$(xcrun --show-sdk-path)"`), because Homebrew's clang otherwise looks for an SDK
+  newer than the one installed.
+- Product builds, parity, goldens and self-digests stay on Apple clang, so no reference moves.
+- Tools locate the compiler through `HORDE_SANITIZER_CXX`, falling back to `brew --prefix llvm`. No
+  machine path is committed.
+- When it is absent, a sanitizer check prints a WARNING and SKIPS. It never passes.
+- Homebrew LLVM is a dev-time tool, not shipped, so it gets no SBOM entry.
+
+**Evidence (LLVM 23.1.3, 2026-10-09):**
+
+| Program | Result |
+|---|---|
+| ThreadSanitizer, racy | 1 race reported, exit 134 |
+| ThreadSanitizer, atomic control | 0 reports, exit 0 |
+| RealtimeSanitizer, `malloc` in a nonblocking function | `unsafe-library-call`, exit 134 |
+| RealtimeSanitizer, clean nonblocking function | 0 reports, exit 0 |
+
+Every sanitizer check keeps that pairing: a planted fault that must be reported, and a clean
+control that must not be.
+
+**Consequence.** B448 B3, the RealtimeSanitizer gate, can run locally in `verify full` on macOS, so
+it no longer needs a Linux CI job or a workflow edit by the human. A CI job is still possible later.

@@ -23,8 +23,8 @@
       "id": "R3",
       "title": "NaN, Inf and denormals",
       "status": "partial",
-      "gates": ["denormal_check", "hostile_events_check", "stability_check"],
-      "gaps": "Oracles count non-finite samples in test renders and at the event boundary, and check denormal silence in tails. The shipped output guard replaces non-finite samples with zero and its count is discarded, so nothing latches or reports at run time; the latch-and-report guard is Wave B. No flush-to-zero audit.",
+      "gates": ["denormal_check", "hostile_events_check", "stability_check", "nan_latch_check"],
+      "gaps": "The legacy output guard now latches and counts (nan_latch_check; hostile_events_check reads the real plugin's counter), but the count reaches no user-visible surface yet. horde 2's engine has no output guard: it ends in tanh, and a NaN passes through. Flush-to-zero is set nowhere (audited 2026-10-08); denormals are snapped in software in the swarm and sub cores, and no per-block FTZ is planned without an ADR.",
       "tracked_by": "B448",
       "tripwire": "NaN events: 0, plus the guard's trip count"
     },
