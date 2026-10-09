@@ -18,7 +18,9 @@
  *          factory presets, (c) state_save and the editor's state read,
  *          (d) morph capture / corner apply / morph toggle and mode writes,
  *          plus the editor's polling reads (params, mod-live, spectrum,
- *          history service).
+ *          history service), the editor's PANIC, the host's params
+ *          value/value_to_text reads, and a burst past the editor queue's
+ *          capacity.
  * ONE main thread, not one per category: in a CLAP host every [main-thread]
  * call and every editor callback (macOS webview messages) run on the same
  * thread, and the editor's param queue is single-producer. Two producer
@@ -297,8 +299,21 @@ void mainOp(Ctx &c, Rng &r)
 {
   Plugin *pl = c.pl;
   const ParamInfo &pi = c.info[r.below((uint32_t)c.info.size())];
-  switch (r.below(10))
+  switch (r.below(13))
   {
+  case 10:  // hostIf.panic: the editor's PANIC button (also writes a forensic dump under $HOME's store)
+    pl->panicWithDump();
+    break;
+  case 11:  // the host's own main-thread reads: params.value and params.value_to_text
+  {
+    double v = 0;
+    char text[64];
+    if (c.params->get_value(c.plug, pi.id, &v)) c.params->value_to_text(c.plug, pi.id, v, text, sizeof text);
+    break;
+  }
+  case 12:  // enqueue overflow: one burst past the editor queue's capacity (it drops on overflow)
+    for (uint32_t k = 0; k < Plugin::kQCap + 64; k++) pl->guiSetParam(pi.id, pick(r, pi));
+    break;
   case 0:   // (a) hostIf.setParam
     pl->guiSetParam(pi.id, pick(r, pi));
     break;

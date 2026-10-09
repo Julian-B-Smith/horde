@@ -119,7 +119,7 @@ def main():
     build = os.path.join(ROOT, "build-tsan-stress")
     if args and not args[0].startswith("--"):
         build = os.path.abspath(args.pop(0))
-    harness_args = args or ["--seed", "1", "--blocks", "3000", "--ops", "400"]
+    harness_args = args
 
     cxx = sanitizer_cxx()
     if not cxx:
@@ -153,7 +153,15 @@ def main():
         print(f"tsan_stress_check: harness build FAILED (see {build}/tsan_stress.build.log)")
         return 1
 
-    env = dict(os.environ, TSAN_OPTIONS="halt_on_error=0:second_deadlock_stack=1")
+    # history_size=7 (the maximum): with the default, TSan forgets the older
+    # access of a pair once enough happens in between, and that report is
+    # silently lost. HOME is redirected into the build dir because the PANIC
+    # op writes a forensic dump under the user's preset store, and a test run
+    # must not leave files in it.
+    home = os.path.join(build, "tsan_home")
+    os.makedirs(home, exist_ok=True)
+    env = dict(os.environ, HOME=home,
+               TSAN_OPTIONS="halt_on_error=0:second_deadlock_stack=1:history_size=7")
 
     def harness(mode, argv):
         log = os.path.join(build, f"tsan_stress.{mode}.log")
@@ -176,16 +184,21 @@ def main():
         return 1
 
     red = False
-    for mode, extra in (("control", ["--control"]), ("full", [])):
-        log, rc = harness(mode, ["--root", ROOT] + harness_args + extra)
-        total, distinct = reports(log)
-        tail = [l for l in open(log, encoding="utf-8", errors="replace") if l.startswith("tsan_stress:")]
-        print(f"== {mode}: exit {rc}, {total} report(s), {len(distinct)} distinct  "
-              f"{tail[-1].strip() if tail else '(harness printed no summary)'}")
-        # A non-zero exit with no report (crash, usage error, empty corpus) is
-        # red too: a run that did not complete has measured nothing.
-        if total or rc != 0 or not tail:
-            red = True
+    # THREE SEEDS by default: which pairs TSan catches depends on the OS's
+    # interleaving, so one seed under-samples; a zero verdict means zero on all.
+    runs = [harness_args] if args else [["--seed", s, "--blocks", "3000", "--ops", "400"] for s in "123"]
+    for i, run_args in enumerate(runs):
+        for mode, extra in (("control", ["--control"]), ("full", [])):
+            tag = mode if len(runs) == 1 else f"{mode}.s{run_args[1]}"
+            log, rc = harness(tag, ["--root", ROOT] + run_args + extra)
+            total, distinct = reports(log)
+            tail = [l for l in open(log, encoding="utf-8", errors="replace") if l.startswith("tsan_stress:")]
+            print(f"== {tag}: exit {rc}, {total} report(s), {len(distinct)} distinct  "
+                  f"{tail[-1].strip() if tail else '(harness printed no summary)'}")
+            # A non-zero exit with no report (crash, usage error, empty corpus)
+            # is red too: a run that did not complete has measured nothing.
+            if total or rc != 0 or not tail:
+                red = True
     print(f"== tsan_stress_check: {'RED' if red else 'GREEN'} (logs: {build}/tsan_stress.<mode>.log)")
     return 1 if red else 0
 

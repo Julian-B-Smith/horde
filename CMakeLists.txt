@@ -781,6 +781,12 @@ if(NOT MSVC)
   target_compile_options(bridge_utf8_check PRIVATE -O2)
   target_compile_options(hostile_events_check PRIVATE -O2)
 endif()
+# load_handoff_check (B448 B2): a host state load stays the loaded patch when
+# processing stops part-way through it, and a processing load writes nothing
+# into the morph corners. Single-threaded and deterministic — the ordering
+# companion to tools/tsan_stress_check.py. Links the impl; unwired (its header).
+add_executable(load_handoff_check tools/load_handoff_check.cpp)
+target_link_libraries(load_handoff_check PRIVATE ${PROJECT_NAME}-impl)
 # gui_webview_check (B446 W3a, wired into ./verify full on macOS): the shipped
 # GUI on a real WKWebView — one page only, its content policy, the bridge's
 # sender check, no script clipboard read, file names as text — each beside a
