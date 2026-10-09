@@ -1,4 +1,6 @@
 /*
+ * WIRED: ./verify full
+ *
  * load_handoff_check — a host state load stays the loaded patch, whatever the
  * processing state does around it (B448 B2, deterministic companion to
  * tools/tsan_stress_check.py).
@@ -50,8 +52,6 @@
  *                parameter, and its routing cells differ from the reference's
  *                corner values in at least one cell — otherwise both rows
  *                would compare equal values and read green blind.
- *
- * WIRED: ./verify full
  */
 
 #include <algorithm>

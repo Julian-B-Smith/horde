@@ -739,7 +739,7 @@ exists only on the pick path.
   - A load sets the revision from the header, or 1 if the header is absent.
 - **The queue.** A load pushes *two* writes per parameter through the queue: the default
   first, then the value. Per-osc rows cost four. The queue
-  (`src/hypersaw_clap.cpp:2372 static constexpr uint32_t kQCap = 2048;`) has a measured
+  (`src/hypersaw_clap.cpp:2512 static constexpr uint32_t kQCap = 4096;`) has a measured
   peak of 1471. A large new block eats into that headroom.
 
 **(b) Invariant.**
