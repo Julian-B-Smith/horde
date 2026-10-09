@@ -31,7 +31,7 @@
  *                corner values in at least one cell — otherwise both rows
  *                would compare equal values and read green blind.
  *
- * UNWIRED: red on main by design until the main-thread/audio-thread handoff is fixed (B446 Tier C); wired with the fix
+ * WIRED: ./verify full
  */
 
 #include <algorithm>

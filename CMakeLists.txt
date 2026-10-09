@@ -784,7 +784,7 @@ endif()
 # load_handoff_check (B448 B2): a host state load stays the loaded patch when
 # processing stops part-way through it, and a processing load writes nothing
 # into the morph corners. Single-threaded and deterministic — the ordering
-# companion to tools/tsan_stress_check.py. Links the impl; unwired (its header).
+# companion to tools/tsan_stress_check.py. Links the impl; wired in verify full.
 add_executable(load_handoff_check tools/load_handoff_check.cpp)
 target_link_libraries(load_handoff_check PRIVATE ${PROJECT_NAME}-impl)
 # render_neutral_digest (B448 B2): one FNV-1a digest per idle/offline render

@@ -591,7 +591,7 @@ exists only on the pick path.
 - **Depth units.** Depth is a **fraction of the destination's full range**:
   `src/hypersaw_clap.cpp:4019 double want = md->base + deltas[i] * span;`. The result is
   clamped to the destination's range, and polarity is applied before depth. A new route
-  starts at a depth of 0.25 (`src/hypersaw_clap.cpp:3556 return mod.addRoute(srcSlot, destId, 0.25`).
+  starts at a depth of 0.25 (`src/hypersaw_clap.cpp:3943 mod.addRoute(srcSlot, destId, 0.25`).
 - **The base.** The shell keeps each destination's base (`src/hypersaw_clap.cpp:2737 struct ModDest`)
   and writes `base + offset` through `applyParam`, guarded by `modFromMatrix`.
 - **Pitch.** Pitch is a *synthetic* destination
@@ -717,10 +717,10 @@ exists only on the pick path.
   The host chunk (`state_save`) writes the same key set as `key=value` lines, plus a
   `routing=` line. **The preset JSON carries no routing** (B193). Only the host chunk
   and a history node do.
-- **A load is a load.** `src/hypersaw_clap.cpp:6393 void initState(bool chunkOnlyState)`
+- **A load is a load.** `src/hypersaw_clap.cpp:7254 void initState(bool chunkOnlyState, bool viaQueue`
   resets everything, chunks included, **before** any key is applied:
-  - from a preset: `src/hypersaw_clap.cpp:6462 initState(/*chunkOnlyState=*/false);`;
-  - from the host: `src/hypersaw_clap.cpp:8903 pl->initState(/*chunkOnlyState=*/true);`.
+  - from a preset: `src/hypersaw_clap.cpp:7369 initState(/*chunkOnlyState=*/false, !ls.direct, ls.field);`;
+  - from the host: `src/hypersaw_clap.cpp:9930 pl->initState(/*chunkOnlyState=*/true, !ls.direct, ls.field);`.
   An absent key also loads as its default (`src/hypersaw_clap.cpp:6210 static bool jsonNumber`).
 - **Migrations run after that and are keyed on the JSON text.** An example is the
   missing-`enable` rule at `src/hypersaw_clap.cpp:6635 if (json.find("\"enable\"") == std::string::npos)`.
