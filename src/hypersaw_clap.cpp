@@ -31,6 +31,7 @@
 #include "gui/hypersaw_gui.h"
 #include "gui/preset_store.h"   // presetRoot(): the ONE store path (B129)
 #include "input_guards.h"   // B446: names cut at a character boundary; host values checked at the event boundary
+#include "output_latch.h"   // B448 B1: the output guard counts and latches (wraps input_guards.h zeroNonFinite)
 #include "spectra_core.h"
 #include "subosc_core.h"   // B172: the SUB OSC engine block's core, one per voice
 #include "glide_core.h"
@@ -2407,6 +2408,13 @@ struct Plugin
   // point of a scope here is watching L against R (super-width's polarity
   // modes are invisible in a sum). Write-only on the audio thread.
   double outPeakViz = 0;   // peak since the last viz publish (see publishViz)
+  /* B448 B1: how often the last-line output guard (process(), below) had to
+     replace a non-finite sample. Atomic: the audio thread writes, probes read. */
+  hypersaw::NonFiniteLatch nonFiniteLatch;
+  /* The ONE call site of the guard: process() ends its chain with it and
+     hypersaw_test_guard_output drives it on a planted buffer, so a probe
+     exercises the shipped function rather than a copy (L0031). */
+  uint32_t guardOutput(float *l, float *r, uint32_t n) { return nonFiniteLatch.guard(l, r, n); }
   /* B106: one ring PER OSCILLATOR, not one for whichever osc the viz followed.
      MAIN draws both waves, so both taps must exist at once. Fixed-size member
      arrays — preallocated by construction, so the audio-thread write below is
@@ -8939,9 +8947,12 @@ struct Plugin
     /* B446: the last line before the host's bus — a non-finite sample becomes
        0 (defence in depth behind the event-boundary guards). It writes only
        non-finite samples, so finite output is bit-identical, and it runs
-       before the meters so they never read a NaN either. */
-    hypersaw::zeroNonFinite(outL, nframes);
-    hypersaw::zeroNonFinite(outR, nframes);
+       before the meters so they never read a NaN either.
+       B448 B1: it also COUNTS and LATCHES (hypersaw::NonFiniteLatch) — a guard
+       that repairs silently hides the bug behind it. The repair is the same
+       zeroNonFinite, so output is unchanged. Read it with
+       hypersaw_test_nonfinite_*; reset() is the only thing that clears it. */
+    guardOutput(outL, outR, nframes);
 
     publishViz();
     {
@@ -10251,6 +10262,21 @@ const char *hypersaw_test_dump_forensics(const clap_plugin_t *p, const char *why
    decision still happens where it lives (swarm_core.h alloc()). An adapter that
    recomputed "who should have been stolen" would be an oracle checking its own
    copy of the rule (L0031). */
+
+/* ---- B448 B1: the output guard's counters ----------------------------------
+   Read-only windows onto the latch the last-line output guard sets, plus the
+   one explicit reset, and a driver that runs the SHIPPED guard on a caller's
+   buffer — the only way a headless probe can produce a non-finite sample, since
+   the event-boundary guards (input_guards.h) now stop the real ones upstream.
+   Owner: nan_latch_check (the shared code), hostile_events_check (the plugin). */
+uint64_t hypersaw_test_nonfinite_samples(const clap_plugin_t *p) { return self(p)->nonFiniteLatch.samples(); }
+uint64_t hypersaw_test_nonfinite_blocks(const clap_plugin_t *p) { return self(p)->nonFiniteLatch.blocks(); }
+bool hypersaw_test_nonfinite_latched(const clap_plugin_t *p) { return self(p)->nonFiniteLatch.latched(); }
+void hypersaw_test_nonfinite_reset(const clap_plugin_t *p) { self(p)->nonFiniteLatch.reset(); }
+uint32_t hypersaw_test_guard_output(const clap_plugin_t *p, float *l, float *r, uint32_t n)
+{
+  return self(p)->guardOutput(l, r, n);
+}
 
 int hypersaw_test_poly(void) { return (int)hypersaw::kPoly; }
 
