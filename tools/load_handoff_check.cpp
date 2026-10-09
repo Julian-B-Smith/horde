@@ -21,6 +21,26 @@
  *            loaded chunk carries routing cells. After the load and two
  *            blocks, all four corners must equal the reference's (a load is
  *            not an edit, B125).
+ *   Q-*      a queued load equals an idle load: mod routes, the whole saved
+ *            state (Q-ROUTES-CTL / Q-STATE-CTL see a difference that is there).
+ *   S-*      SUPERSEDE: two queued loads inside one block leave the second,
+ *            whole; the first's corners are not what stands.
+ *   O-*      an overflowing load: refused entries are counted, its morph
+ *            field still lands (the marker's slot is reserved).
+ *   X-*      a queued load carrying intent / lfo / ens / engine_revision lines
+ *            equals an idle one; without them it differs.
+ *   P-*      two and three back-to-back host loads in one block: the last
+ *            stands whole, nothing refused.
+ *   E-*      events of a block owned by a direct load: the block is silent,
+ *            the note and a value no queued entry names are replayed, a value
+ *            the queue also names keeps the queued one (E-ORDER), none lost.
+ *   F-*      a flush during a direct load does not drain; the next one does;
+ *            a flush outside a load drains (control).
+ *   R-*      a host reset during an owned block ends the deferred note that
+ *            came before it; with no reset the note holds (control).
+ *   D-*      deferred events with an impossible size (near 2^32, 0, a note
+ *            shorter than a note) are refused and counted, nothing copied; a
+ *            valid one beside them is kept and replayed.
  * Controls (the rows above are only meaningful if these hold):
  *   STOP-IDLE    the same load, never processing: must match.
  *   STOP-NOSTOP  processing throughout, no stop: must match. If this fails,
@@ -382,12 +402,12 @@ void hookRows(const std::string &chunk)
 
 struct Stats
 {
-  uint32_t depth = 0, dropped = 0, deferred = 0, deferDropped = 0;
+  uint32_t depth = 0, dropped = 0, deferred = 0, deferDropped = 0, cap = 0;
 };
 Stats stats(const clap_plugin_t *p)
 {
   Stats s;
-  hypersaw_debug_handoff_stats(p, &s.depth, &s.dropped, &s.deferred, &s.deferDropped);
+  hypersaw_debug_handoff_stats(p, &s.depth, &s.dropped, &s.deferred, &s.deferDropped, &s.cap);
   return s;
 }
 
@@ -490,7 +510,7 @@ void overflowRows(const std::string &a)
   const uint32_t room = 64;
   for (uint32_t k = 0; s.p && k < 4096; k++)
   {
-    if (stats(s.p).depth >= 2048 - room) break;
+    if (stats(s.p).depth >= stats(s.p).cap - room) break;
     hypersaw_debug_gesture(s.p, 4, (k & 1) == 0);
   }
   const Stats before = stats(s.p);
@@ -521,7 +541,8 @@ void silentBlock()
   g_inst->p->start_processing(g_inst->p);
   EvList ev;
   if (g_sendNote) ev.noteOn(57);
-  ev.param(100, 0.123);
+  ev.param(100, 0.123);   // the load also writes masterVol: its queued value must win (E-ORDER)
+  ev.param(178, 0);       // no load writes specimen: the deferred value must land (E-PARAM)
   g_inst->block(&ev);
   g_silentPeak = 0;
   for (uint32_t i = 0; i < kBlock; i++)
@@ -539,6 +560,7 @@ double peakAfter(Inst &s, int blocks)
 }
 void silentRows(const std::string &json)
 {
+  double spec = -1;
   auto run = [&](bool note, double &silent, double &after, double &vol, Stats &st) {
     Inst s;
     g_inst = &s;
@@ -550,6 +572,7 @@ void silentRows(const std::string &json)
     silent = g_silentPeak;
     after = peakAfter(s, 8);
     s.params->get_value(s.p, 100, &vol);
+    if (note) s.params->get_value(s.p, 178, &spec);
     st = stats(s.p);
   };
   double silent = 0, after = 0, vol = 0, cs = 0, ca = 0, cv = 0;
@@ -563,8 +586,11 @@ void silentRows(const std::string &json)
   // Exact, not a threshold: the patch is silent without a note (the control
   // reads exactly 0), so any sound at all after the block is the replayed note.
   row(after > 0.0 && ca == 0.0, "E-NOTE", b);
-  std::snprintf(b, sizeof b, "the parameter value was replayed: masterVol %.6g (want 0.123)", vol);
-  row(vol == 0.123, "E-PARAM", b);
+  std::snprintf(b, sizeof b, "a deferred value no queued entry names was replayed: specimen %.6g (want 0)", spec);
+  row(spec == 0.0, "E-PARAM", b);
+  std::snprintf(b, sizeof b, "a deferred host value does not overwrite the queued entry for the same id: "
+                             "masterVol %.6g (want the load's 1, not 0.123)", vol);
+  row(vol == 1.0, "E-ORDER", b);
   row(st.deferred == 0 && st.deferDropped == 0, "E-NONE-LOST",
       std::to_string(st.deferred) + " byte(s) still waiting, " + std::to_string(st.deferDropped) + " dropped");
 }
@@ -577,7 +603,7 @@ void flushInside()
 {
   g_depthIn = stats(g_inst->p).depth;
   EvList ev;
-  ev.param(100, 0.321);
+  ev.param(178, 0);   // specimen: no load writes it, so its replay is visible
   g_inst->params->flush(g_inst->p, &ev.list, &kOut);
   g_depthOut = stats(g_inst->p).depth;
   g_deferredIn = stats(g_inst->p).deferred;
@@ -594,13 +620,13 @@ void flushRows(const std::string &json)
           std::to_string(g_depthIn) + " queued entr(ies) and kept its event");
   EvList none;
   s.flushIdle(none);
-  double vol = 0;
-  s.params->get_value(s.p, 100, &vol);
+  double spec = -1;
+  s.params->get_value(s.p, 178, &spec);
   const Stats after = stats(s.p);
   char b[160];
-  std::snprintf(b, sizeof b, "after the load, the next flush drained (depth %u) and replayed the event (masterVol %.6g, want 0.321)",
-                after.depth, vol);
-  row(after.depth == 0 && after.deferred == 0 && vol == 0.321, "F-LATER", b);
+  std::snprintf(b, sizeof b, "after the load, the next flush drained (depth %u) and replayed the event (specimen %.6g, want 0)",
+                after.depth, spec);
+  row(after.depth == 0 && after.deferred == 0 && spec == 0.0, "F-LATER", b);
   // Control: the same kind of flush, no load around it, drains.
   Inst c;
   hypersaw_debug_gesture(c.p, 4, true);
@@ -637,6 +663,144 @@ void extrasRows(const std::string &a)
   row(queuedLoad({a}).state != ref.state, "X-CTL", "control: the same chunk without the extras differs");
 }
 
+/* PEAK-SIZE SUPERSESSION: back-to-back host loads inside one block, each a
+   full batch. The last one stands, whole, and nothing is refused. Three loads
+   of this chunk pass the old 2048-entry queue; they must fit this one. */
+void peakRows(const std::string &a, const std::string &b)
+{
+  const std::string xa = withExtras(a), xb = withExtras(b);
+  const Seen refA = idleLoad(xa), refB = idleLoad(xb);
+  for (int n : {2, 3})
+  {
+    Inst s;
+    s.p->start_processing(s.p);
+    std::vector<std::string> seq;
+    for (int k = 0; k < n; k++) seq.push_back(k % 2 == n % 2 ? xa : xb);   // ... ending with xb
+    uint32_t perLoad = 0;
+    for (size_t k = 0; k < seq.size(); k++)
+    {
+      s.load(seq[k]);
+      if (k == 0) perLoad = stats(s.p).depth;
+    }
+    const Stats st = stats(s.p);
+    for (int bl = 0; bl < 3; bl++) s.block();
+    const Seen got = seen(s);
+    char d[200];
+    std::snprintf(d, sizeof d, "%d loads in one block (%u entries each, %u queued of %u): the last stands whole, %u refused",
+                  n, perLoad, st.depth, st.cap, st.dropped);
+    row(st.dropped == 0 && got.state == refB.state && got.corners == refB.corners,
+        n == 2 ? "P-TWO" : "P-THREE", d);
+  }
+  row(refA.state != refB.state, "P-CTL", "control: the loads differ, so the last one is distinguishable");
+}
+
+/* A HOST RESET DURING AN OWNED BLOCK: the block's note-on is deferred, then
+   the host resets (also deferred, in order). Replayed, the note must be
+   ended by the reset that came after it. Control: no reset, the note holds. */
+bool g_withReset = false;
+void ownedBlockThenReset()
+{
+  silentBlock();
+  if (g_withReset) g_inst->p->reset(g_inst->p);
+}
+bool anyGated(const clap_plugin_t *p)
+{
+  for (int slot = 0; slot < 64; slot++)
+    if (hypersaw_test_slot_gated(p, slot)) return true;
+  return false;
+}
+void resetRows(const std::string &json)
+{
+  bool gated[2] = {false, false};
+  for (int withReset = 0; withReset < 2; withReset++)
+  {
+    Inst s;
+    g_inst = &s;
+    g_sendNote = true;
+    g_withReset = withReset != 0;
+    g_host.onFlush = ownedBlockThenReset;
+    hypersaw_debug_apply(s.p, json.c_str());
+    g_host.onFlush = nullptr;
+    s.block();
+    gated[withReset] = anyGated(s.p);
+  }
+  row(!gated[1], "R-RESET", "a reset deferred AFTER a deferred note-on ends it (no voice gated after replay)");
+  row(gated[0], "R-CTL", "control: the same note with no reset is still gated");
+}
+
+/* DEFERRED EVENTS ARE COPIED ONLY WHEN THEIR SIZE IS POSSIBLE: a size near
+   2^32, a size of 0, and a note event shorter than a note event are each
+   refused and counted, nothing is copied, and the instance keeps running.
+   Control: a valid event of the same flush is kept. Fed through a flush made
+   inside a direct load, which defers everything it is given. */
+struct RawList
+{
+  clap_input_events_t list{};
+  std::vector<const clap_event_header_t *> evs;
+  RawList()
+  {
+    list.ctx = this;
+    list.size = [](const clap_input_events_t *l) -> uint32_t { return (uint32_t)((RawList *)l->ctx)->evs.size(); };
+    list.get = [](const clap_input_events_t *l, uint32_t i) { return ((RawList *)l->ctx)->evs[i]; };
+  }
+};
+struct SizeCase
+{
+  const char *tag;
+  uint32_t size;
+  uint16_t type;
+  bool kept;
+};
+const SizeCase kSizes[] = {
+    {"D-HUGE", 0xFFFFFFFFu, CLAP_EVENT_PARAM_VALUE, false},
+    {"D-ZERO", 0, CLAP_EVENT_PARAM_VALUE, false},
+    {"D-SHORT", (uint32_t)sizeof(clap_event_header_t), CLAP_EVENT_NOTE_ON, false},
+    {"D-VALID", (uint32_t)sizeof(clap_event_param_value_t), CLAP_EVENT_PARAM_VALUE, true},
+};
+Stats g_sizeBefore[4], g_sizeAfter[4];
+void flushOddSizes()
+{
+  for (int i = 0; i < 4; i++)
+  {
+    clap_event_param_value_t ev;   // the backing storage is always a whole param event
+    std::memset(&ev, 0, sizeof ev);
+    ev.header = {kSizes[i].size, 0, CLAP_CORE_EVENT_SPACE_ID, kSizes[i].type, 0};
+    ev.param_id = 178;
+    ev.note_id = -1;
+    ev.port_index = -1;
+    ev.channel = -1;
+    ev.key = -1;
+    ev.value = 0;
+    RawList l;
+    l.evs.push_back(&ev.header);
+    g_sizeBefore[i] = stats(g_inst->p);
+    g_inst->params->flush(g_inst->p, &l.list, &kOut);
+    g_sizeAfter[i] = stats(g_inst->p);
+  }
+}
+void sizeRows(const std::string &json)
+{
+  Inst s;
+  g_inst = &s;
+  g_host.onFlush = flushOddSizes;
+  hypersaw_debug_apply(s.p, json.c_str());
+  g_host.onFlush = nullptr;
+  for (int i = 0; i < 4; i++)
+  {
+    const uint32_t refused = g_sizeAfter[i].deferDropped - g_sizeBefore[i].deferDropped;
+    const uint32_t copied = g_sizeAfter[i].deferred - g_sizeBefore[i].deferred;
+    char d[160];
+    std::snprintf(d, sizeof d, "size %u, type %u: %s (refused %u, copied %u byte(s))", kSizes[i].size,
+                  kSizes[i].type, kSizes[i].kept ? "kept" : "refused and counted", refused, copied);
+    row(kSizes[i].kept ? (refused == 0 && copied == kSizes[i].size) : (refused == 1 && copied == 0), kSizes[i].tag, d);
+  }
+  EvList none;
+  s.flushIdle(none);   // replays what was kept; the instance is still sound
+  double spec = -1;
+  s.params->get_value(s.p, 178, &spec);
+  row(spec == 0.0, "D-REPLAY", "the kept event replayed after the load (specimen 0)");
+}
+
 std::string defaultJson()
 {
   Inst d;
@@ -655,9 +819,12 @@ int main()
   queuedRows(a, b);
   overflowRows(a);
   extrasRows(a);
+  peakRows(a, b);
   const std::string json = defaultJson();
   silentRows(json);
   flushRows(json);
+  resetRows(json);
+  sizeRows(json);
   std::printf("load_handoff_check: %s (%d failure(s))\n", g_fail ? "RED" : "GREEN", g_fail);
   return g_fail ? 1 : 0;
 }

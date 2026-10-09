@@ -14,6 +14,7 @@
  * only when inactive, so touching the core there is race-free.
  */
 
+#include <cassert>
 #include <cstring>
 #include <cstdio>
 #include <cstdlib>
@@ -2495,15 +2496,20 @@ struct Plugin
      ignored, params still apply" — the tail of a burst silently dropped, which
      is B110's failure with a new cause. Peak in-flight depth over state_check's
      corpus, measured with a temporary counter in enqueueParam: 1471 of 2048.
-     Static array, 32 KB, RT-safe.
+     4096 since B448 B2: a load while processing is now ONE batch the audio
+     thread drains whole, so two loads inside one block (a host restoring a
+     session, a GUI load straight after another) sit in the queue together —
+     two peak loads are about 2940 entries, and the second load's tail must not
+     be the part that is dropped. Static array, 96 KB (4096 x 24-byte entries),
+     preallocated, RT-safe.
      KNOWN AND PRE-EXISTING, so that a future reader does not mistake it for
      this change's doing: a rig that keeps `processing` true and loads
      repeatedly WITHOUT calling process() between loads never drains, so it
-     saturates whatever this constant is (morphlayout_check reaches exactly
-     kQCap at 1024 on main and at 2048 here). The shipping paths drain every
+     saturates whatever this constant is (morphlayout_check once reached
+     exactly kQCap; its doors drain now). The shipping paths drain every
      block; raising the cap cannot fix a rig that never drains, and no rig
      assertion depends on the drops. */
-  static constexpr uint32_t kQCap = 2048;
+  static constexpr uint32_t kQCap = 4096;
   ParamMsg queue[kQCap];
   std::atomic<uint32_t> qHead{0}, qTail{0};
   /* A LOAD IS ONE BATCH. While a queued load runs, its entries are written
@@ -2628,16 +2634,36 @@ struct Plugin
     Plugin &pl;
     const bool owned;
     bool released = false;
-    explicit DirectScope(Plugin &p) : pl(p), owned(p.beginMainDirect()) {}
+    /* Never nested: an inner scope's release would end the outer one's
+       ownership early. Checked in debug builds (main thread only; nothing on
+       the audio thread, nothing at all in release). */
+    explicit DirectScope(Plugin &p) : pl(p), owned(enter(p)) {}
     DirectScope(const DirectScope &) = delete;
     DirectScope &operator=(const DirectScope &) = delete;
     ~DirectScope() { release(); }
     void release()
     {
-      if (owned && !released) pl.endMainDirect();
+      if (!released)
+      {
+        if (owned) pl.endMainDirect();
+#ifndef NDEBUG
+        pl.directDepth--;
+#endif
+      }
       released = true;
     }
+    static bool enter(Plugin &p)
+    {
+#ifndef NDEBUG
+      assert(p.directDepth == 0 && "DirectScope nested");
+      p.directDepth++;
+#endif
+      return p.beginMainDirect();
+    }
   };
+#ifndef NDEBUG
+  int directDepth = 0;   // main thread only
+#endif
 
   /* EVENTS THAT ARRIVE WHILE A DIRECT SEQUENCE OWNS THE STATE (a silent
      process() block, a flush that left) are not handled then — handling them
@@ -2652,7 +2678,31 @@ struct Plugin
   alignas(8) unsigned char deferBuf[kDeferBytes] = {};
   uint32_t deferUsed = 0;
   std::atomic<uint32_t> deferDropped{0};
+  /* A reset that arrived while the state was owned, and WHERE in the deferred
+     events it arrived: the events before it are replayed, then the reset, then
+     the rest, so a note deferred before the host's reset does not outlive it. */
   bool resetDeferred = false;
+  uint32_t resetAt = 0;
+  /* The smallest `size` an event of this type may claim: handleEvent reads the
+     type's whole struct, so a shorter copy would be read past its end. */
+  static uint32_t minEventSize(const clap_event_header_t *e)
+  {
+    if (e->space_id != CLAP_CORE_EVENT_SPACE_ID) return sizeof(clap_event_header_t);
+    switch (e->type)
+    {
+    case CLAP_EVENT_NOTE_ON: case CLAP_EVENT_NOTE_OFF:
+    case CLAP_EVENT_NOTE_CHOKE: case CLAP_EVENT_NOTE_END: return sizeof(clap_event_note_t);
+    case CLAP_EVENT_NOTE_EXPRESSION: return sizeof(clap_event_note_expression_t);
+    case CLAP_EVENT_PARAM_VALUE: return sizeof(clap_event_param_value_t);
+    case CLAP_EVENT_PARAM_MOD: return sizeof(clap_event_param_mod_t);
+    case CLAP_EVENT_PARAM_GESTURE_BEGIN:
+    case CLAP_EVENT_PARAM_GESTURE_END: return sizeof(clap_event_param_gesture_t);
+    case CLAP_EVENT_TRANSPORT: return sizeof(clap_event_transport_t);
+    case CLAP_EVENT_MIDI: return sizeof(clap_event_midi_t);
+    case CLAP_EVENT_MIDI2: return sizeof(clap_event_midi2_t);
+    default: return sizeof(clap_event_header_t);
+    }
+  }
   void resetNow()
   {
     resetDeferred = false;
@@ -2673,25 +2723,42 @@ struct Plugin
       const clap_event_header_t *e = in->get(in, i);
       if (!e) continue;
       if (e->space_id == CLAP_CORE_EVENT_SPACE_ID && e->type == CLAP_EVENT_MIDI_SYSEX) continue;
-      const uint32_t step = (e->size + 7u) & ~7u;
-      if (e->size < sizeof(clap_event_header_t) || step > kDeferBytes - deferUsed)
+      /* The size is the HOST's claim: bounded BEFORE it is rounded, because
+         rounding a size near 2^32 up to 8 wraps to a small number that would
+         pass the room test and copy gigabytes. */
+      const uint32_t room = kDeferBytes - deferUsed;
+      if (e->size < minEventSize(e) || e->size > room || ((e->size + 7u) & ~7u) > room)
       {
         deferDropped.fetch_add(1, std::memory_order_relaxed);
         continue;
       }
       std::memcpy(deferBuf + deferUsed, e, e->size);
-      deferUsed += step;
+      deferUsed += (e->size + 7u) & ~7u;
     }
   }
+  /* Replays the deferred events with a deferred reset in its place among
+     them. Runs BEFORE the queue is drained: the queue holds what the editor
+     and the loads handed over since the last drain, which is the newer intent
+     whenever both name the same parameter. */
   void replayDeferred()
   {
+    const uint32_t cut = resetDeferred ? resetAt : deferUsed;
     for (uint32_t off = 0; off < deferUsed;)
     {
+      if (off == cut && resetDeferred) resetNow();
       const auto *e = (const clap_event_header_t *)(deferBuf + off);
       handleEvent(e);
       off += (e->size + 7u) & ~7u;
     }
+    if (resetDeferred) resetNow();   // a reset after every deferred event
     deferUsed = 0;
+    resetAt = 0;
+  }
+  void clearDeferred()   // deactivate: nothing owed survives into the next activation
+  {
+    deferUsed = 0;
+    resetDeferred = false;
+    resetAt = 0;
   }
   // ADR-024: the inertia KNOB value (params/state domain). The core holds
   // sqrt(knob) — squaring the core value back is not bit-exact, and
@@ -4049,9 +4116,8 @@ struct Plugin
     return true;
   }
   /* THE MOD-ROUTE TABLE HAS ONE WRITER: the audio thread while processing,
-     the main thread otherwise (beginMainDirect). ModCore has no lock, and
-     addRoute checks the count and then writes routes[nRoutes], so two
-     writers near a full table can write past it. The editor's verbs below
+     the main thread otherwise (beginMainDirect). addRoute is check-then-write,
+     so the table takes one writer. The editor's verbs below
      therefore apply directly when not processing and travel as queue kinds
      while processing; drainQueue applies them (applyCommand).
 
@@ -9470,10 +9536,9 @@ struct Plugin
     if (p->transport && (p->transport->flags & CLAP_TRANSPORT_HAS_TEMPO))
       core.p.bpm = p->transport->tempo;
 
-    if (resetDeferred) resetNow();   // a reset that arrived while the state was owned
+    replayDeferred();   // events (and a reset) that arrived while a direct sequence owned the state
     panicPerformRequested();   // before the drain: the click came before any later edit
     drainQueue(p->out_events);
-    replayDeferred();   // events that arrived while a direct sequence owned the state
 
     float *outL = p->audio_outputs[0].data32[0];
     float *outR = p->audio_outputs[0].data32[1];
@@ -9713,7 +9778,9 @@ Plugin *self(const clap_plugin_t *p) { return static_cast<Plugin *>(p->plugin_da
    the editor reaches these members through gui_create, never these exports. */
 static void rigDrainIfQueued(Plugin *pl)
 {
-  if (pl->processing.load(std::memory_order_acquire)) pl->drainQueue(nullptr);
+  if (!pl->processing.load(std::memory_order_acquire)) return;
+  pl->replayDeferred();   // in the block start's order: deferred events, then the queue
+  pl->drainQueue(nullptr);
 }
 
 /* ---- lifecycle ---- */
@@ -9805,7 +9872,7 @@ bool plug_activate(const clap_plugin_t *p, double sr, uint32_t, uint32_t maxFram
   return true;
 }
 
-void plug_deactivate(const clap_plugin_t *) {}
+void plug_deactivate(const clap_plugin_t *p) { self(p)->clearDeferred(); }
 bool plug_start_processing(const clap_plugin_t *p)
 {
   // seq_cst, not release: half of the Dekker pair beginMainDirect() relies on.
@@ -9824,6 +9891,7 @@ void plug_reset(const clap_plugin_t *p)
   if (!pl->beginAudioEntry())
   {
     pl->resetDeferred = true;
+    pl->resetAt = pl->deferUsed;   // after the events already waiting, before any later ones
     return;
   }
   pl->resetNow();
@@ -10049,9 +10117,8 @@ void params_flush(const clap_plugin_t *p, const clap_input_events_t *in,
     pl->deferEvents(in);
     return;
   }
-  if (pl->resetDeferred) pl->resetNow();
-  pl->drainQueue(out);
   pl->replayDeferred();
+  pl->drainQueue(out);
   const uint32_t nev = in->size(in);
   for (uint32_t i = 0; i < nev; i++) pl->handleEvent(in->get(in, i));
   pl->endAudioEntry();
@@ -10460,7 +10527,7 @@ extern "C" const char *hypersaw_debug_modroutes(const clap_plugin_t *p)
 { static std::string j; j = self(p)->modRoutesJson(); return j.c_str(); }
 extern "C" void hypersaw_debug_handoff_stats(const clap_plugin_t *p, uint32_t *queueDepth,
                                              uint32_t *queueDropped, uint32_t *deferredBytes,
-                                             uint32_t *deferDropped)
+                                             uint32_t *deferDropped, uint32_t *queueCap)
 {
   auto *pl = self(p);
   if (queueDepth)
@@ -10468,6 +10535,7 @@ extern "C" void hypersaw_debug_handoff_stats(const clap_plugin_t *p, uint32_t *q
   if (queueDropped) *queueDropped = pl->qDropped.load(std::memory_order_relaxed);
   if (deferredBytes) *deferredBytes = pl->deferUsed;
   if (deferDropped) *deferDropped = pl->deferDropped.load(std::memory_order_relaxed);
+  if (queueCap) *queueCap = Plugin::kQCap;
 }
 /* B171 — the LIVE source slot, not a readParam round-trip. The distinction is
    the whole value of the export: a probe that asked readParam(269) would learn

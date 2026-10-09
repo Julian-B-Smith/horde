@@ -134,11 +134,12 @@ extern "C"
 
   /* The editor queue's depth (entries published, not yet drained), the entries
      it refused for want of room, the events a block or flush deferred while a
-     direct main-thread sequence owned the state that are still waiting, and
-     the deferred events that did not fit. Any pointer may be null.
+     direct main-thread sequence owned the state that are still waiting, the
+     deferred events refused (no room, or a size the event cannot have), and
+     the queue's capacity. Any pointer may be null.
      Owner: load_handoff_check. */
   void hypersaw_debug_handoff_stats(const clap_plugin_t *p, uint32_t *queueDepth, uint32_t *queueDropped,
-                                    uint32_t *deferredBytes, uint32_t *deferDropped);
+                                    uint32_t *deferredBytes, uint32_t *deferDropped, uint32_t *queueCap);
 
   /* --- Mod matrix (ADR-136) ---------------------------------------------- */
 
