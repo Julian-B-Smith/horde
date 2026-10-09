@@ -1,0 +1,3318 @@
+{
+  "about": "Registry of every figure, diagram, table, screenshot and audio example the horde 1.0 user manual needs (B451). One entry per [[FIG:id]] / [[TAB:id]] / [[AUD:id]] placeholder in docs/manual/NN-*.md; tools/manual_scaffold_check.py keeps the two in step. Field meanings and statuses: docs/manual/README.md.",
+  "entries": [
+    {
+      "id": "welcome.hero",
+      "kind": "screenshot",
+      "chapter": "01-welcome",
+      "purpose": "Show the reader what horde looks like before anything else.",
+      "content": "The full horde 1.0 window on its default page with the init patch loaded, at default size.",
+      "source": "GUI 3 main window, once built",
+      "depends_on": [
+        "gui3",
+        "B302"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "welcome.signal-overview",
+      "kind": "diagram",
+      "chapter": "01-welcome",
+      "purpose": "One picture of the whole instrument.",
+      "content": "Block diagram: OSC 1 and OSC 2 (SCALPEL on the swarm), Sub, noise -> filters -> mixer/routing -> FX rack -> master limiter -> out; modulation, morph and the intent bus drawn as layers acting on all blocks.",
+      "source": "docs/H2-PLAN.md parts table; ADR-190 roster",
+      "depends_on": [
+        "engine",
+        "sub",
+        "filters",
+        "mix",
+        "rack",
+        "ADR-190"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "welcome.signature-swarm",
+      "kind": "audio",
+      "chapter": "01-welcome",
+      "purpose": "Let the reader hear the swarm's coupling as its signature.",
+      "content": "10-15 s: one held chord while coupling moves from free-running to locked to repulsive; dry, no FX.",
+      "source": "A sound designer's demo on the C++ engine",
+      "depends_on": [
+        "engine",
+        "port",
+        "B413"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "welcome.signature-blades",
+      "kind": "audio",
+      "chapter": "01-welcome",
+      "purpose": "Let the reader hear what blades do.",
+      "content": "10-15 s: one note, a blade swept in position and cut rate through two or three modes; dry.",
+      "source": "A sound designer's demo on the C++ engine",
+      "depends_on": [
+        "engine",
+        "port",
+        "B413"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "welcome.signature-morph",
+      "kind": "audio",
+      "chapter": "01-welcome",
+      "purpose": "Let the reader hear a morph move.",
+      "content": "15 s: a phrase played while the morph position travels corner to corner, once in blend and once in quantum.",
+      "source": "A sound designer's demo preset with four contrasting corners",
+      "depends_on": [
+        "morph",
+        "B413"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "welcome.signature-intent",
+      "kind": "audio",
+      "chapter": "01-welcome",
+      "purpose": "Let the reader hear the fixed four intents.",
+      "content": "15 s: one phrase repeated four times, each time sweeping one of Tone, Space, Time, Motion from 0 to full.",
+      "source": "A demo preset with Tone, Space, Time and Motion bound",
+      "depends_on": [
+        "intent",
+        "ADR-192",
+        "B413"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "welcome.quickstart-first-sound",
+      "kind": "screenshot",
+      "chapter": "01-welcome",
+      "purpose": "Show where to load a preset and play.",
+      "content": "The window with the init patch loaded and the preset browser visible, annotated with numbered steps 1-3.",
+      "source": "GUI 3 with the init patch and the preset browser open",
+      "depends_on": [
+        "gui3",
+        "presets",
+        "B431"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "welcome.quickstart-tour",
+      "kind": "screenshot",
+      "chapter": "01-welcome",
+      "purpose": "Guide the five-minute tour.",
+      "content": "Annotated window: the morph pad, the four fixed macros, one module screen and the undo control, numbered in tour order.",
+      "source": "GUI 3, annotated",
+      "depends_on": [
+        "gui3",
+        "morph",
+        "intent",
+        "history"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "welcome.quickstart-tour-demo",
+      "kind": "audio",
+      "chapter": "01-welcome",
+      "purpose": "Let the reader check they hear what the tour describes.",
+      "content": "The same short phrase at each tour step: preset as loaded, morph moved, a macro turned, after undo.",
+      "source": "A factory preset chosen for the quick start",
+      "depends_on": [
+        "presets",
+        "morph",
+        "intent"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "welcome.legacy-vs-horde",
+      "kind": "table",
+      "chapter": "01-welcome",
+      "purpose": "Tell a legacy user what carried over, changed or was archived.",
+      "content": "Rows per legacy feature or engine (SWARM SAW, SPECTRA, STATION, CANTO, the legacy Sub, MAW, Delay, gui2, history, bend laws, intent bus): status in horde 1.0 (carried, changed, archived, post-1.0) and where it is now.",
+      "source": "ADR-186; B386 legacy roundup decisions; ADR-190",
+      "depends_on": [
+        "freeze",
+        "ADR-186",
+        "B386"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "welcome.chapter-guide",
+      "kind": "table",
+      "chapter": "01-welcome",
+      "purpose": "Point the reader at the right chapter for a task.",
+      "content": "Columns: I want to... / read chapter. About 20 common tasks (make a pad, tame CPU, use MPE, morph between sounds, map a macro, fix clipping).",
+      "source": "docs/manual/README.md map",
+      "depends_on": [
+        "B413",
+        "ADR-190"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    },
+    {
+      "id": "install.requirements",
+      "kind": "table",
+      "chapter": "02-installing",
+      "purpose": "State what a machine needs to run horde.",
+      "content": "Rows macOS and Windows x64: OS minimum, CPU architecture (universal or Apple silicon only; x64), RAM, disk, display; the min-spec core used for CPU figures.",
+      "source": "B432 platform rulings; the B439 min-spec core; the macOS minimum (open)",
+      "depends_on": [
+        "B432",
+        "B439"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "install.formats",
+      "kind": "table",
+      "chapter": "02-installing",
+      "purpose": "Show which formats ship and which do not.",
+      "content": "Rows CLAP, VST3, AU (macOS), AAX (out), standalone (out, first post-1.0), AUv3, Linux, Windows on ARM (out): platform, in 1.0 yes/no, note.",
+      "source": "ADR-186 §3; ADR-190 A10/A11; B432",
+      "depends_on": [
+        "ADR-186",
+        "ADR-190"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    },
+    {
+      "id": "install.mac-installer",
+      "kind": "screenshot",
+      "chapter": "02-installing",
+      "purpose": "Show the installer's steps.",
+      "content": "The installer's screens in order, with any component choices (formats) visible.",
+      "source": "The notarised macOS installer, once built",
+      "depends_on": [
+        "B433",
+        "B412"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "install.mac-paths",
+      "kind": "table",
+      "chapter": "02-installing",
+      "purpose": "Tell the reader where each file lands on a Mac.",
+      "content": "Rows CLAP, VST3, AU, preset store root, support folder: path pattern relative to the user Library or the system Library.",
+      "source": "ADR-186 §3 identities; the shell build (B398)",
+      "depends_on": [
+        "shell",
+        "ADR-186",
+        "B398"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "install.win-installer",
+      "kind": "screenshot",
+      "chapter": "02-installing",
+      "purpose": "Show the Windows installer's steps.",
+      "content": "The installer's screens, including WebView2 runtime handling if the installer carries it.",
+      "source": "The signed Windows installer, once built",
+      "depends_on": [
+        "B433",
+        "B447"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "install.win-paths",
+      "kind": "table",
+      "chapter": "02-installing",
+      "purpose": "Tell the reader where each file lands on Windows.",
+      "content": "Rows CLAP, VST3, preset store root, support folder, web view user-data folder: path pattern.",
+      "source": "The shell build (B398); B432 WebView2 strategy",
+      "depends_on": [
+        "shell",
+        "B432",
+        "B398"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "install.daw-browser",
+      "kind": "screenshot",
+      "chapter": "02-installing",
+      "purpose": "Show the reader what to look for in the DAW.",
+      "content": "A plugin browser listing horde under the vendor Mindlathe, in CLAP and VST3 (and AU on macOS), next to horde legacy.",
+      "source": "A DAW's plugin browser after a scan",
+      "depends_on": [
+        "shell",
+        "B398"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "install.identities",
+      "kind": "table",
+      "chapter": "02-installing",
+      "purpose": "Explain the names and ids a DAW stores.",
+      "content": "Rows: display name, vendor, CLAP id, VST3 class id (pinned), AU type/subtype/manufacturer (the manufacturer code is open, ADR-186 §3), bundle name; columns value, frozen from 1.0 yes/no.",
+      "source": "ADR-186 §3; B428 frozen identities",
+      "depends_on": [
+        "ADR-186",
+        "B428"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    },
+    {
+      "id": "install.third-party-notices",
+      "kind": "table",
+      "chapter": "02-installing",
+      "purpose": "List bundled open-source components and licences.",
+      "content": "Generated from the notices file: component, version, licence (clap MIT, clap-wrapper MIT, choc ISC, VST3 SDK MIT, AudioUnitSDK Apache-2.0, MTS-ESP 0BSD, and any later additions).",
+      "source": "The third-party notices file shipped in the installer (B433)",
+      "depends_on": [
+        "B433"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "interface.overview",
+      "kind": "screenshot",
+      "chapter": "03-interface",
+      "purpose": "Name the main regions of the window.",
+      "content": "The full window with callouts: header (preset, morph, macros), page tabs, the active page, the meters, the status area.",
+      "source": "GUI 3 main window",
+      "depends_on": [
+        "gui3",
+        "B302"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "interface.page-map",
+      "kind": "diagram",
+      "chapter": "03-interface",
+      "purpose": "Show how the pages connect.",
+      "content": "A map of every page and modal (oscillator, modulation, morph, mixer, FX and module screens, history, settings, preset browser) and how each is reached.",
+      "source": "GUI 3 navigation, once designed",
+      "depends_on": [
+        "gui3",
+        "B302"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "interface.page-osc",
+      "kind": "screenshot",
+      "chapter": "03-interface",
+      "purpose": "Orient the reader on the oscillator page.",
+      "content": "The oscillator page with OSC 1 selected, callouts on swarm, blade 1, blade 2, spreads and envelopes.",
+      "source": "docs/design/scalpel-interface-lab.html, carried into GUI 3",
+      "depends_on": [
+        "gui3",
+        "engine",
+        "B271"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "interface.page-mod",
+      "kind": "screenshot",
+      "chapter": "03-interface",
+      "purpose": "Orient the reader on the modulation page.",
+      "content": "The modulation page with an LFO, an envelope and three matrix routes visible, callouts on each region.",
+      "source": "docs/design/modulator-lab.html and docs/design/mod-matrix-lab.html, carried into GUI 3",
+      "depends_on": [
+        "gui3",
+        "modulators",
+        "modmatrix"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "interface.page-morph",
+      "kind": "screenshot",
+      "chapter": "03-interface",
+      "purpose": "Orient the reader on the morph page.",
+      "content": "The morph page with the pad, the four corners, mode selector and the advanced settings entry point called out.",
+      "source": "docs/design/morph-editor-lab.html, carried into GUI 3",
+      "depends_on": [
+        "gui3",
+        "morph",
+        "B269"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "interface.page-mixer",
+      "kind": "screenshot",
+      "chapter": "03-interface",
+      "purpose": "Orient the reader on the mixer page.",
+      "content": "The mixer page with source strips, routing matrix, meters and the master strip called out.",
+      "source": "docs/design/mixer-lab.html, carried into GUI 3",
+      "depends_on": [
+        "gui3",
+        "mix",
+        "B402"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "interface.page-fx",
+      "kind": "screenshot",
+      "chapter": "03-interface",
+      "purpose": "Orient the reader on the FX page.",
+      "content": "The FX page with a chain of three modules, one module screen open, callouts on presence, I/O gain and macros.",
+      "source": "docs/design/fx-screens-workshop.html, carried into GUI 3",
+      "depends_on": [
+        "gui3",
+        "rack",
+        "B322"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "interface.page-history",
+      "kind": "screenshot",
+      "chapter": "03-interface",
+      "purpose": "Orient the reader on the history page.",
+      "content": "The history page with a tree of about ten nodes and one branch, the current node highlighted.",
+      "source": "GUI 3 history page",
+      "depends_on": [
+        "gui3",
+        "history",
+        "B389"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "interface.page-settings",
+      "kind": "screenshot",
+      "chapter": "03-interface",
+      "purpose": "Orient the reader on the settings page.",
+      "content": "The settings page with quality, theme or screen style, and file manager sections called out.",
+      "source": "The settings lab (B261, not started), carried into GUI 3",
+      "depends_on": [
+        "gui3",
+        "B261"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "interface.gestures",
+      "kind": "table",
+      "chapter": "03-interface",
+      "purpose": "One reference for every gesture on every control kind.",
+      "content": "Rows: knob, slider, switch, choice, XY pad, matrix cell, value readout; columns: drag, fine drag, double-click, Alt/Option-click, right-click, scroll wheel, type.",
+      "source": "B449 R1-R11 and the numeric-entry ruling; GUI 3 control set",
+      "depends_on": [
+        "B449",
+        "B302"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "interface.value-entry",
+      "kind": "screenshot",
+      "chapter": "03-interface",
+      "purpose": "Show typed value entry in action.",
+      "content": "A knob's value readout opened as an inline text field with a typed value and unit; a second frame showing the red invalid state.",
+      "source": "B449 numeric-entry design",
+      "depends_on": [
+        "B449",
+        "gui3"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "interface.value-entry-units",
+      "kind": "table",
+      "chapter": "03-interface",
+      "purpose": "List what can be typed into a value field.",
+      "content": "Rows per unit (Hz, k, dB, %, ms, s, st, cents, oct, choice labels): example input, what it means, which parameters accept it.",
+      "source": "B449 numeric-entry design: units parsed by the shell",
+      "depends_on": [
+        "B449"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    },
+    {
+      "id": "interface.context-menu",
+      "kind": "screenshot",
+      "chapter": "03-interface",
+      "purpose": "Show the control's context menu.",
+      "content": "The right-click menu on a knob with Reset to default and the other entries GUI 3 offers (for example MIDI learn, add modulation).",
+      "source": "GUI 3 right-click menu",
+      "depends_on": [
+        "B449",
+        "gui3"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "interface.xy-pad",
+      "kind": "screenshot",
+      "chapter": "03-interface",
+      "purpose": "Show how an XY pad reads, including modulation.",
+      "content": "An XY pad with its dot, the two axis labels and a modulation trail or range shown.",
+      "source": "GUI 3 XY pad component",
+      "depends_on": [
+        "gui3",
+        "B223"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "interface.play-while-editing",
+      "kind": "table",
+      "chapter": "03-interface",
+      "purpose": "Turn the GUI promises into player-facing guarantees.",
+      "content": "Rows R1-R11 rewritten as guarantees (keyboard focus only while a text field is open, keys reach the DAW at once, notes unaffected by editing, a gesture end is never lost, one undo step per action, hidden editors stop polling); column: what you will notice.",
+      "source": "B449 design rules R1-R11",
+      "depends_on": [
+        "B449"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    },
+    {
+      "id": "interface.mod-rings",
+      "kind": "screenshot",
+      "chapter": "03-interface",
+      "purpose": "Show how modulation appears on a control.",
+      "content": "A knob with a positive, a negative and a bipolar route drawn on it, and the live modulated value indicator.",
+      "source": "docs/design/mod-matrix-lab.html, carried into GUI 3",
+      "depends_on": [
+        "gui3",
+        "B207",
+        "modmatrix"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "interface.clip-latch",
+      "kind": "screenshot",
+      "chapter": "03-interface",
+      "purpose": "Show a latched clip warning.",
+      "content": "A meter with peak hold and a lit clip latch, before and after it is clicked to clear.",
+      "source": "docs/design/mixer-lab.html",
+      "depends_on": [
+        "gui3",
+        "B225"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "interface.screen-styles",
+      "kind": "figure",
+      "chapter": "03-interface",
+      "purpose": "Show the screen styles FX modules run in.",
+      "content": "A grid of module screens, one per style ruled for 1.0 (one style for all or one each is open, B322).",
+      "source": "docs/design/fx-screens-workshop.html",
+      "depends_on": [
+        "B322",
+        "B336"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "interface.shortcuts",
+      "kind": "table",
+      "chapter": "03-interface",
+      "purpose": "List every keyboard shortcut.",
+      "content": "Columns: action, macOS keys, Windows keys, where it works (any page, a text field, history).",
+      "source": "GUI 3 keyboard map",
+      "depends_on": [
+        "B302",
+        "B449"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "interface.accessibility",
+      "kind": "table",
+      "chapter": "03-interface",
+      "purpose": "State what accessibility support 1.0 offers.",
+      "content": "Rows: keyboard navigation, focus order, screen-reader labels, contrast, scaling, reduced motion; column: supported in 1.0, how.",
+      "source": "B432 accessibility ruling (the approved level)",
+      "depends_on": [
+        "B432"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "engine.overview",
+      "kind": "diagram",
+      "chapter": "04-engine",
+      "purpose": "Show that the engine is two SCALPEL oscillators.",
+      "content": "OSC 1 and OSC 2 side by side, each a swarm of members carrying blade 1 and blade 2, both feeding the mixer; what they share (voice, pitch, envelopes) drawn between them.",
+      "source": "B327 lineup; docs/design/scalpel-horde-engine.js (the composed engine golden)",
+      "depends_on": [
+        "engine",
+        "B327"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    },
+    {
+      "id": "engine.signal-flow",
+      "kind": "diagram",
+      "chapter": "04-engine",
+      "purpose": "Show the path one note takes inside a voice.",
+      "content": "Note -> voice (amp envelope, blade envelopes, glide) -> N members (base wave + blade 1 + blade 2 + edge correction - DC) -> pan -> sum x amp env x velocity -> decimation when oversampled -> output saturation. Drawn without formulas.",
+      "source": "specs/SPEC-SCALPEL.md §2 signal flow; docs/design/scalpel-horde-engine.js",
+      "depends_on": [
+        "engine",
+        "port",
+        "B378"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    },
+    {
+      "id": "engine.detune-spread",
+      "kind": "diagram",
+      "chapter": "04-engine",
+      "purpose": "Show how members are spread in pitch.",
+      "content": "A pitch axis with N = 3, 5 and 9 members placed evenly across ±detune cents around the played note.",
+      "source": "specs/SPEC-SCALPEL.md §3 member frequencies",
+      "depends_on": [
+        "engine",
+        "B376"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    },
+    {
+      "id": "engine.members-compare",
+      "kind": "audio",
+      "chapter": "04-engine",
+      "purpose": "Let the reader hear what more members do.",
+      "content": "Three 3 s renders of the same note and detune with N = 1, 3 and 9; no FX; peak-normalised alike.",
+      "source": "Deterministic render of the C++ engine, one note, members N = 1, 3, 9 at fixed detune",
+      "depends_on": [
+        "engine",
+        "port",
+        "B376"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "engine.coupling-phases",
+      "kind": "diagram",
+      "chapter": "04-engine",
+      "purpose": "Show what coupling does to the members' phases.",
+      "content": "Members as dots on a phase circle at K = 0 (scattered, drifting), K = +1 (locked cluster) and K = -1 (evenly splayed), with the order parameter R drawn as an arrow.",
+      "source": "specs/SPEC-SCALPEL.md §3 coupling; reference/kuramoto-views.html",
+      "depends_on": [
+        "engine",
+        "ADR-184"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    },
+    {
+      "id": "engine.coupling-sweep",
+      "kind": "audio",
+      "chapter": "04-engine",
+      "purpose": "Let the reader hear coupling as one continuous control.",
+      "content": "12 s render of a held note while K sweeps from -1 through 0 to +1; fixed detune and N; no FX.",
+      "source": "Deterministic render of the C++ engine: K swept -1 -> 0 -> +1",
+      "depends_on": [
+        "engine",
+        "port"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "engine.onset-settled-vs-free",
+      "kind": "audio",
+      "chapter": "04-engine",
+      "purpose": "Contrast a settled note start with a free one.",
+      "content": "Two short phrases, the same notes, settled start then free start.",
+      "source": "Deterministic render once the onset controls are audited",
+      "depends_on": [
+        "engine",
+        "B298",
+        "B335"
+      ],
+      "status": "pending-design",
+      "generated": true
+    },
+    {
+      "id": "engine.blade-anatomy",
+      "kind": "diagram",
+      "chapter": "04-engine",
+      "purpose": "Name the parts of a blade.",
+      "content": "One cycle of a saw with a blade window marked: position (centre), width, edge hardness (cosine gates), depth; the replaced segment shaded.",
+      "source": "specs/SPEC-SCALPEL.md §4.1 geometry",
+      "depends_on": [
+        "engine",
+        "ADR-184"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    },
+    {
+      "id": "engine.blade-modes",
+      "kind": "table",
+      "chapter": "04-engine",
+      "purpose": "Summarise every blade mode.",
+      "content": "Rows Sync, FM reset, FM free, Noise, Fold, Ring, Crush: what happens inside the blade, the character, a typical use, which controls matter most.",
+      "source": "specs/SPEC-SCALPEL.md §4.2 modes, subject to the B376 keep/cull decisions",
+      "depends_on": [
+        "engine",
+        "audit",
+        "B376"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "engine.blade-mode-waveforms",
+      "kind": "figure",
+      "chapter": "04-engine",
+      "purpose": "Show each mode's effect on one cycle.",
+      "content": "Seven small waveform plots, one per mode, same base wave, position, width and cut rate.",
+      "source": "Rendered single cycles from the C++ engine (or the composed JS until the port)",
+      "depends_on": [
+        "engine",
+        "port",
+        "B376"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "engine.blade-modes-tour",
+      "kind": "audio",
+      "chapter": "04-engine",
+      "purpose": "Let the reader hear each blade mode.",
+      "content": "Seven 3 s renders, same phrase and settings, mode changed each time, announced in order.",
+      "source": "Deterministic render, one phrase per mode",
+      "depends_on": [
+        "engine",
+        "port",
+        "B376"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "engine.cut-rate-sweep",
+      "kind": "audio",
+      "chapter": "04-engine",
+      "purpose": "Let the reader hear the formant-like cut-rate sweep.",
+      "content": "8 s held note, Sync mode, cut rate swept low to high, then the same in Hz units for comparison.",
+      "source": "Deterministic render: cut rate swept per blade",
+      "depends_on": [
+        "engine",
+        "port"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "engine.blade-waves",
+      "kind": "table",
+      "chapter": "04-engine",
+      "purpose": "List the waves a blade can carry.",
+      "content": "Rows sine, tri, saw, rev saw, square, sine-to-saw: description, harmonic content in words, the shape control's effect.",
+      "source": "specs/SPEC-SCALPEL.md §4.3 waves and modulator shapes",
+      "depends_on": [
+        "engine",
+        "audit",
+        "B376"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "engine.mirror-twin",
+      "kind": "diagram",
+      "chapter": "04-engine",
+      "purpose": "Show reflect, twin - and twin +.",
+      "content": "One cycle with the blade, its reflected form, and the twin half a cycle later (inverted for twin -), with a spectrum inset showing even harmonics removed for twin - on a symmetric base.",
+      "source": "specs/SPEC-SCALPEL.md §4.5 mirror",
+      "depends_on": [
+        "engine",
+        "ADR-184"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    },
+    {
+      "id": "engine.twin-even-harmonics",
+      "kind": "audio",
+      "chapter": "04-engine",
+      "purpose": "Let the reader hear even harmonics vanish.",
+      "content": "Two 3 s renders, twin off then twin -; same note and blade.",
+      "source": "Deterministic render: twin off vs twin - on a square base",
+      "depends_on": [
+        "engine",
+        "port"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "engine.rotation",
+      "kind": "diagram",
+      "chapter": "04-engine",
+      "purpose": "Show a blade travelling around the cycle.",
+      "content": "Successive cycles with the blade window advancing; restart-per-note and free-running contrasted on two notes.",
+      "source": "specs/SPEC-SCALPEL.md §6 rotation",
+      "depends_on": [
+        "engine",
+        "ADR-184"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    },
+    {
+      "id": "engine.rotation-demo",
+      "kind": "audio",
+      "chapter": "04-engine",
+      "purpose": "Let the reader hear rotation.",
+      "content": "Four 3 s renders of one note at rotation 0, +0.5 Hz, +4 Hz and -1 Hz.",
+      "source": "Deterministic render: rotation rates 0, slow, fast, negative",
+      "depends_on": [
+        "engine",
+        "port"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "engine.blade-interplay",
+      "kind": "diagram",
+      "chapter": "04-engine",
+      "purpose": "Show how blade 2 composes with blade 1.",
+      "content": "Two blades on one cycle: serial composition and collision regions marked, per the §13 rules, once B311's triage settles what ships.",
+      "source": "specs/SPEC-SCALPEL.md §13 blade interplay (v1.1)",
+      "depends_on": [
+        "engine",
+        "B311",
+        "ADR-184"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "engine.blade-interplay-demo",
+      "kind": "audio",
+      "chapter": "04-engine",
+      "purpose": "Let the reader hear two blades interacting.",
+      "content": "Blade 1 alone, blade 2 alone, both together with interplay on.",
+      "source": "Deterministic render once B311 rules the interplay scope",
+      "depends_on": [
+        "engine",
+        "B311"
+      ],
+      "status": "pending-design",
+      "generated": true
+    },
+    {
+      "id": "engine.blade-envelope",
+      "kind": "figure",
+      "chapter": "04-engine",
+      "purpose": "Show a blade envelope moving cut rate and width.",
+      "content": "An AD envelope over one note and the resulting cut rate and width traces, at two velocity-sensitivity settings.",
+      "source": "specs/SPEC-SCALPEL.md §6 blade envelopes, after envelope decision 1",
+      "depends_on": [
+        "engine",
+        "B366",
+        "B377"
+      ],
+      "status": "pending-design",
+      "generated": true
+    },
+    {
+      "id": "engine.spread-laws",
+      "kind": "diagram",
+      "chapter": "04-engine",
+      "purpose": "Show gradient, random and drift.",
+      "content": "Members on the x axis, each member's offset on y: a straight line (gradient), scattered points redrawn per note (random), wandering traces over time (drift).",
+      "source": "specs/SPEC-SCALPEL.md §5 spread laws",
+      "depends_on": [
+        "engine",
+        "ADR-184"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    },
+    {
+      "id": "engine.spreads",
+      "kind": "table",
+      "chapter": "04-engine",
+      "purpose": "List what each spread moves.",
+      "content": "Rows position, cut rate, cut rule, width, depth, shape, FM index, rotate: what it varies per member and the sound it gives.",
+      "source": "specs/SPEC-SCALPEL.md §5 offsets table, subject to the B376 decisions",
+      "depends_on": [
+        "engine",
+        "audit",
+        "B376"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "engine.cut-rules",
+      "kind": "table",
+      "chapter": "04-engine",
+      "purpose": "List the cut-rule ladders.",
+      "content": "Rows harmonic, undertone, octaves, major, minor, fifths, golden, primes, custom: the ratio series per member and the character.",
+      "source": "specs/SPEC-SCALPEL.md §5 cut rules",
+      "depends_on": [
+        "engine",
+        "audit",
+        "B376"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "engine.cut-rules-demo",
+      "kind": "audio",
+      "chapter": "04-engine",
+      "purpose": "Let the reader hear the cut rules.",
+      "content": "One chord per rule, 3 s each, same patch otherwise.",
+      "source": "Deterministic render per cut rule",
+      "depends_on": [
+        "engine",
+        "port"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "engine.cross-member-ring",
+      "kind": "diagram",
+      "chapter": "04-engine",
+      "purpose": "Show the ring of members modulating each other.",
+      "content": "Members drawn in a ring; arrows from each member's output to its neighbour's blade phase (cross-mod) and to itself (feedback), with the one-sample delay labelled.",
+      "source": "specs/SPEC-SCALPEL.md §6 cross-member modulation and feedback",
+      "depends_on": [
+        "engine",
+        "ADR-189"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    },
+    {
+      "id": "engine.pan-order",
+      "kind": "diagram",
+      "chapter": "04-engine",
+      "purpose": "Show how members are spread across the stereo field.",
+      "content": "The pan slots for N = 5 and N = 9 in balanced and fan order, members coloured by index.",
+      "source": "specs/SPEC-SCALPEL.md §6 pan (balanced and fan orders)",
+      "depends_on": [
+        "engine",
+        "B408"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    },
+    {
+      "id": "sub.signal-path",
+      "kind": "diagram",
+      "chapter": "05-sub-and-noise",
+      "purpose": "Show where the Sub sits.",
+      "content": "The Sub's path from pitch through shape, tone and level to its mixer strip, beside the engine.",
+      "source": "B399 workshop output; specs/SPEC-SUBOSC.md §2 as the starting point",
+      "depends_on": [
+        "sub",
+        "B399"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "sub.shapes",
+      "kind": "table",
+      "chapter": "05-sub-and-noise",
+      "purpose": "List the Sub's shapes.",
+      "content": "Rows per shape the new Sub ships (the reference has seven, BUMP among them): description and use.",
+      "source": "B399 workshop; specs/SPEC-SUBOSC.md §3 as the starting point",
+      "depends_on": [
+        "sub",
+        "B399",
+        "ADR-178"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "sub.shape-gallery",
+      "kind": "figure",
+      "chapter": "05-sub-and-noise",
+      "purpose": "Show each Sub shape.",
+      "content": "One small waveform plot per shape at the same pitch and tone.",
+      "source": "Rendered single cycles from the new Sub's core",
+      "depends_on": [
+        "sub",
+        "B399"
+      ],
+      "status": "pending-design",
+      "generated": true
+    },
+    {
+      "id": "sub.shapes-demo",
+      "kind": "audio",
+      "chapter": "05-sub-and-noise",
+      "purpose": "Let the reader hear each Sub shape.",
+      "content": "One bass phrase per shape, 3 s each, alone and then under a pad.",
+      "source": "Deterministic render of each Sub shape",
+      "depends_on": [
+        "sub",
+        "B399"
+      ],
+      "status": "pending-design",
+      "generated": true
+    },
+    {
+      "id": "sub.mono-overlap",
+      "kind": "audio",
+      "chapter": "05-sub-and-noise",
+      "purpose": "Demonstrate clean mono re-strikes.",
+      "content": "A legato bass line with overlapping notes and varying velocity, showing no clicks.",
+      "source": "Deterministic render: overlapping mono notes at changing velocity",
+      "depends_on": [
+        "sub",
+        "B399",
+        "B205"
+      ],
+      "status": "pending-design",
+      "generated": true
+    },
+    {
+      "id": "noise.types",
+      "kind": "table",
+      "chapter": "05-sub-and-noise",
+      "purpose": "List the noise types.",
+      "content": "Rows per noise type offered, with colour, character and typical use.",
+      "source": "The noise oscillator's design (no row yet; ADR-190 A6)",
+      "depends_on": [
+        "ADR-190"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "noise.types-demo",
+      "kind": "audio",
+      "chapter": "05-sub-and-noise",
+      "purpose": "Let the reader hear each noise type.",
+      "content": "2 s of each noise type at the same level.",
+      "source": "Deterministic render of each noise type",
+      "depends_on": [
+        "ADR-190"
+      ],
+      "status": "pending-design",
+      "generated": true
+    },
+    {
+      "id": "noise.in-a-patch",
+      "kind": "audio",
+      "chapter": "05-sub-and-noise",
+      "purpose": "Show noise used musically.",
+      "content": "A pluck and a pad, each with and without a noise layer.",
+      "source": "A sound designer's demo once the noise oscillator exists",
+      "depends_on": [
+        "ADR-190",
+        "mix"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "filters.overview",
+      "kind": "diagram",
+      "chapter": "06-filters",
+      "purpose": "Show where filters sit.",
+      "content": "Sources -> filter placements (per source, serial, parallel, per note) -> mixer, as one picture.",
+      "source": "docs/design/filter-lab.html signal-path picture (B274)",
+      "depends_on": [
+        "filters",
+        "mix",
+        "B274"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "filters.types",
+      "kind": "table",
+      "chapter": "06-filters",
+      "purpose": "List every filter type.",
+      "content": "Rows per type: slope, character, resonance behaviour, keytracking default, per-note availability.",
+      "source": "docs/design/filter-lab.html type list after B287/B290",
+      "depends_on": [
+        "filters",
+        "B274",
+        "B290"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "filters.responses",
+      "kind": "figure",
+      "chapter": "06-filters",
+      "purpose": "Show each type's frequency response.",
+      "content": "One plot per type: magnitude vs frequency at cutoff 1 kHz, resonance at 0, 50 and 90 %.",
+      "source": "Measured magnitude responses from the filter fidelity programme (tools/labharness/filter_fidelity_check.mjs)",
+      "depends_on": [
+        "filters",
+        "B274"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "filters.types-tour",
+      "kind": "audio",
+      "chapter": "06-filters",
+      "purpose": "Let the reader hear each filter type.",
+      "content": "A saw chord through each type with a slow cutoff sweep, 4 s each.",
+      "source": "Deterministic render: one patch through each type",
+      "depends_on": [
+        "filters",
+        "port"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "filters.resonance-sweep",
+      "kind": "audio",
+      "chapter": "06-filters",
+      "purpose": "Let the reader hear resonance.",
+      "content": "6 s render per two representative types, resonance swept 0 -> maximum.",
+      "source": "Deterministic render: resonance swept at fixed cutoff",
+      "depends_on": [
+        "filters"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "filters.keytracking",
+      "kind": "diagram",
+      "chapter": "06-filters",
+      "purpose": "Show cutoff following the played note.",
+      "content": "Cutoff vs note number for keytracking 0 %, 50 %, 100 %.",
+      "source": "B278 one published per-voice pitch; docs/design/filter-lab.html",
+      "depends_on": [
+        "filters",
+        "B278"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    },
+    {
+      "id": "filters.comb-response",
+      "kind": "figure",
+      "chapter": "06-filters",
+      "purpose": "Show the comb's harmonic peaks.",
+      "content": "Comb magnitude response at two notes, peaks aligned with the note's harmonics.",
+      "source": "docs/design/filter-lab.html comb type, measured",
+      "depends_on": [
+        "filters",
+        "B288"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "filters.comb-keytracked",
+      "kind": "audio",
+      "chapter": "06-filters",
+      "purpose": "Let the reader hear a comb play in tune.",
+      "content": "A short melody played by noise through the keytracked comb.",
+      "source": "Deterministic render: comb filter on noise, a melody played",
+      "depends_on": [
+        "filters",
+        "B288"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "filters.serial-parallel",
+      "kind": "diagram",
+      "chapter": "06-filters",
+      "purpose": "Show serial and parallel placement and the + inlet.",
+      "content": "Two filters in series, then in parallel with the + inlet summing a source in, labelled.",
+      "source": "docs/design/filter-lab.html placement modes",
+      "depends_on": [
+        "filters",
+        "B274"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "filters.fidelity",
+      "kind": "table",
+      "chapter": "06-filters",
+      "purpose": "Report each type's measured guarantees.",
+      "content": "Rows per type; columns: response accuracy, cutoff and resonance accuracy, fast-modulation behaviour, aliasing, level at resonance, DC; values as measured.",
+      "source": "The filter lab's fidelity programme verdicts (filter_fidelity_check)",
+      "depends_on": [
+        "filters",
+        "B290",
+        "B287"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "mixer.page",
+      "kind": "screenshot",
+      "chapter": "07-mixer",
+      "purpose": "Orient the reader on the mixer page.",
+      "content": "The mixer page with every region called out.",
+      "source": "docs/design/mixer-lab.html carried into GUI 3",
+      "depends_on": [
+        "mix",
+        "gui3",
+        "B402"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "mixer.signal-flow",
+      "kind": "diagram",
+      "chapter": "07-mixer",
+      "purpose": "Show the default path through horde.",
+      "content": "Sources -> filters -> FX rack -> master, with the default routing shown and where the crosspoint matrix can reroute.",
+      "source": "B402; docs/design/routing-lab.html",
+      "depends_on": [
+        "mix",
+        "B402",
+        "ADR-175"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "mixer.routing-matrix",
+      "kind": "screenshot",
+      "chapter": "07-mixer",
+      "purpose": "Show the routing matrix.",
+      "content": "The crosspoint matrix with a default routing and one extra send, rows and columns labelled.",
+      "source": "docs/design/routing-lab.html carried into GUI 3",
+      "depends_on": [
+        "mix",
+        "B402"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "mixer.tap-map",
+      "kind": "diagram",
+      "chapter": "07-mixer",
+      "purpose": "Show every metering point.",
+      "content": "The signal path with every tap numbered and marked meter or lamp, per the B225 ruling.",
+      "source": "docs/design/mixer-lab.html tap list (18 taps; B225)",
+      "depends_on": [
+        "mix",
+        "B225"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "mixer.taps",
+      "kind": "table",
+      "chapter": "07-mixer",
+      "purpose": "List each tap.",
+      "content": "Rows per tap: where it is, full meter or lamp, peak hold, clip latch.",
+      "source": "B225 tap ruling",
+      "depends_on": [
+        "B225",
+        "B402"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "mixer.io-gain",
+      "kind": "diagram",
+      "chapter": "07-mixer",
+      "purpose": "Show the standard input and output gain on a module.",
+      "content": "One module with Input Gain before and Output Gain after, their meters and clip latches, and the mixer page control that binds them.",
+      "source": "docs/proposals/module-io-gain.md; B435",
+      "depends_on": [
+        "B435",
+        "B450"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "mixer.gain-staging-before-after",
+      "kind": "audio",
+      "chapter": "07-mixer",
+      "purpose": "Let the reader hear a gain-staging fix.",
+      "content": "The same phrase with one stage clipping, then after the fix.",
+      "source": "A demo patch overdriving one FX input",
+      "depends_on": [
+        "mix",
+        "B435"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "mixer.corner-buses",
+      "kind": "diagram",
+      "chapter": "07-mixer",
+      "purpose": "Show how per-corner chains reach shared buses.",
+      "content": "Four corner chains feeding a global bus, with what is shared and what is per corner, once B258 is ruled.",
+      "source": "B258 (discussion owed); ADR-193 per-corner chains",
+      "depends_on": [
+        "B258",
+        "ADR-193"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "mixer.width-equation",
+      "kind": "diagram",
+      "chapter": "07-mixer",
+      "purpose": "Show what one width control drives.",
+      "content": "Width control fanning out to pan spread, filter L/R offsets, delay offsets and modulator phase offsets, with their amounts.",
+      "source": "The stereo lab's width equation (B408), docs/design/width-lab.html",
+      "depends_on": [
+        "B408",
+        "B414"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "mixer.width",
+      "kind": "audio",
+      "chapter": "07-mixer",
+      "purpose": "Let the reader hear true stereo.",
+      "content": "A pad at three width settings, then folded to mono at full width.",
+      "source": "Deterministic render: width 0, 50, 100 %",
+      "depends_on": [
+        "B408"
+      ],
+      "status": "pending-design",
+      "generated": true
+    },
+    {
+      "id": "mixer.mono-fold",
+      "kind": "table",
+      "chapter": "07-mixer",
+      "purpose": "Report how patches fold to mono.",
+      "content": "Rows per width setting and per representative preset: inter-channel correlation, mono-fold loss in dB.",
+      "source": "The stereo lab's measurements (correlation, mono-fold loss)",
+      "depends_on": [
+        "B408"
+      ],
+      "status": "pending-design",
+      "generated": true
+    },
+    {
+      "id": "mod.overview",
+      "kind": "diagram",
+      "chapter": "08-modulation",
+      "purpose": "Show how modulation is wired.",
+      "content": "Sources (LFOs, envelopes, MIDI, randoms, followers, macros) -> routes with depth and polarity -> destinations, plus a route modulating another route's depth.",
+      "source": "docs/design/mod-matrix-lab.html",
+      "depends_on": [
+        "modmatrix",
+        "modulators",
+        "B392"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "mod.lfo-shape-list",
+      "kind": "table",
+      "chapter": "08-modulation",
+      "purpose": "List the LFO shapes.",
+      "content": "Rows per shape (including S&H and smoothed random): description and a typical use.",
+      "source": "docs/design/modulator-lab.html",
+      "depends_on": [
+        "modulators",
+        "B208",
+        "B237"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "mod.lfo-shapes",
+      "kind": "figure",
+      "chapter": "08-modulation",
+      "purpose": "Show every LFO shape.",
+      "content": "One small plot per shape over two cycles.",
+      "source": "Rendered from the modulator lab's shape functions",
+      "depends_on": [
+        "modulators",
+        "B208"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "mod.kuro-lfo",
+      "kind": "figure",
+      "chapter": "08-modulation",
+      "purpose": "Show the Kuramoto LFO's motion.",
+      "content": "Several coupled LFO traces drifting into and out of step, with the output trace below.",
+      "source": "docs/design/kuramoto-lfo-prototypes/swarmlfo.html",
+      "depends_on": [
+        "modulators",
+        "B226"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "mod.kuro-lfo-demo",
+      "kind": "audio",
+      "chapter": "08-modulation",
+      "purpose": "Let the reader hear the Kuramoto LFO.",
+      "content": "A pad with the Kuramoto LFO on filter cutoff at low and high coupling.",
+      "source": "Deterministic render: Kuramoto LFO on cutoff",
+      "depends_on": [
+        "modulators",
+        "port"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "mod.orbital",
+      "kind": "figure",
+      "chapter": "08-modulation",
+      "purpose": "Show ORBITAL's bodies and what they output.",
+      "content": "The ORBITAL view with three bodies, their trails, and the position and speed signals they produce.",
+      "source": "reference/gravity-modulator.html",
+      "depends_on": [
+        "modulators",
+        "B126"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "mod.orbital-demo",
+      "kind": "audio",
+      "chapter": "08-modulation",
+      "purpose": "Let the reader hear ORBITAL.",
+      "content": "A held chord with ORBITAL x on blade position and y on cutoff.",
+      "source": "Deterministic render: ORBITAL driving two destinations",
+      "depends_on": [
+        "modulators",
+        "B126"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "mod.midi-sources",
+      "kind": "table",
+      "chapter": "08-modulation",
+      "purpose": "List the performance sources.",
+      "content": "Rows: velocity, note, mod wheel, pitch bend, channel aftertouch, sustain, MPE dimensions (pending): range, polarity, per note or global.",
+      "source": "docs/design/modulator-lab.html MIDI trackers; B431; ADR-190 A4",
+      "depends_on": [
+        "modulators",
+        "B226",
+        "B431"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "mod.coherence",
+      "kind": "diagram",
+      "chapter": "08-modulation",
+      "purpose": "Show coherence as a source.",
+      "content": "The phase circle at low and high R beside the source's output value.",
+      "source": "B253; specs/SPEC-SCALPEL.md §3 mean field",
+      "depends_on": [
+        "B253",
+        "engine"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    },
+    {
+      "id": "mod.envelope-hierarchy",
+      "kind": "diagram",
+      "chapter": "08-modulation",
+      "purpose": "Show which envelopes exist and how they relate.",
+      "content": "The global envelope and per-note envelopes as a tree, with what each drives by default.",
+      "source": "docs/design/envelope-hierarchy-lab.html, after envelope decision 1",
+      "depends_on": [
+        "modulators",
+        "B377",
+        "B229"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "mod.envelope-curves",
+      "kind": "figure",
+      "chapter": "08-modulation",
+      "purpose": "Show stage curve shapes.",
+      "content": "One ADSR drawn with linear, exponential and logarithmic-ish stage curves, time axis labelled.",
+      "source": "The envelope stage-curve law once ruled (envelope decision 1)",
+      "depends_on": [
+        "modulators",
+        "B366",
+        "B377"
+      ],
+      "status": "pending-design",
+      "generated": true
+    },
+    {
+      "id": "mod.matrix",
+      "kind": "screenshot",
+      "chapter": "08-modulation",
+      "purpose": "Show the mod matrix.",
+      "content": "The matrix with four routes: sources, destinations, depths and polarity visible.",
+      "source": "docs/design/mod-matrix-lab.html carried into GUI 3",
+      "depends_on": [
+        "modmatrix",
+        "gui3",
+        "B392"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "mod.polarity",
+      "kind": "diagram",
+      "chapter": "08-modulation",
+      "purpose": "Explain unipolar and bipolar routes.",
+      "content": "One LFO feeding two routes: unipolar (pushes up from the knob's value) and bipolar (swings both ways), drawn as ranges on two knobs.",
+      "source": "ADR-168 polarity is a property of the route",
+      "depends_on": [
+        "ADR-168"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    },
+    {
+      "id": "mod.mod-on-mod",
+      "kind": "diagram",
+      "chapter": "08-modulation",
+      "purpose": "Show a route modulating another.",
+      "content": "An envelope scaling an LFO route's depth over a note, with the resulting modulation drawn.",
+      "source": "docs/design/mod-matrix-lab.html",
+      "depends_on": [
+        "modmatrix",
+        "B207"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "mod.max-rates",
+      "kind": "table",
+      "chapter": "08-modulation",
+      "purpose": "Report how fast each destination can be modulated cleanly.",
+      "content": "Rows per destination class: maximum clean rate, what happens beyond it.",
+      "source": "B282 measurement of maximum viable modulation rate per destination; the manifest's mod limits",
+      "depends_on": [
+        "seams",
+        "B282",
+        "B275"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "mod.modulator-morph",
+      "kind": "diagram",
+      "chapter": "08-modulation",
+      "purpose": "Show modulators morphing between corners.",
+      "content": "An LFO's rate and shape at two corners and the path between them (continuous in Hz, stepped in sync), and a mapping flipping at a point.",
+      "source": "The modulator-morph workshop (B396)",
+      "depends_on": [
+        "modmorph",
+        "B396"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "mod.morph-per-type",
+      "kind": "table",
+      "chapter": "08-modulation",
+      "purpose": "List how each modulator type morphs.",
+      "content": "Rows LFO, envelope, ORBITAL, randoms, followers: which settings blend, which step, which flip.",
+      "source": "B396 per-type morph laws",
+      "depends_on": [
+        "modmorph",
+        "B396"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "mod.cycle-guard",
+      "kind": "diagram",
+      "chapter": "08-modulation",
+      "purpose": "Explain why some in-between states are refused.",
+      "content": "Two modulators that would modulate each other mid-morph, the loop marked, and the guard refusing that state.",
+      "source": "B396 cycle detector",
+      "depends_on": [
+        "modmorph",
+        "B396"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "mod.sources",
+      "kind": "table",
+      "chapter": "08-modulation",
+      "purpose": "List every modulation source.",
+      "content": "Generated: source, kind, range, polarity, per note or global, rate.",
+      "source": "The manifest's source list (B275)",
+      "depends_on": [
+        "modmatrix",
+        "seams",
+        "B275"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "morph.concept",
+      "kind": "diagram",
+      "chapter": "09-morph",
+      "purpose": "Show four corners and a position between them.",
+      "content": "A square pad with a preset's four corners at its vertices, the morph position as a dot, and the sound at the dot as a mix of the four.",
+      "source": "ADR-104; ADR-192 discovery model",
+      "depends_on": [
+        "morph",
+        "ADR-104",
+        "ADR-192"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    },
+    {
+      "id": "morph.corner-editor",
+      "kind": "screenshot",
+      "chapter": "09-morph",
+      "purpose": "Show where corners are captured and edited.",
+      "content": "The corner boxes with one selected, its capture and load actions visible.",
+      "source": "docs/design/morph-editor-lab.html carried into GUI 3",
+      "depends_on": [
+        "morph",
+        "gui3",
+        "B269"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "morph.global-vs-corner",
+      "kind": "table",
+      "chapter": "09-morph",
+      "purpose": "Separate preset-wide material from corner material.",
+      "content": "Two columns, global attributes and corner material, listing which parameter groups belong to each.",
+      "source": "ADR-192 §4; the patch model (B263) for the full list",
+      "depends_on": [
+        "ADR-192",
+        "patch"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "morph.modes-compare",
+      "kind": "table",
+      "chapter": "09-morph",
+      "purpose": "Compare blend, quantum and stepped.",
+      "content": "Rows blend, quantum, stepped: what moves, whether in-between values are heard, typical use, controls (glide, rate, sync).",
+      "source": "ADR-104; B424; docs/design/morph-editor-lab.html",
+      "depends_on": [
+        "morph",
+        "B424",
+        "ADR-104"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "morph.blend",
+      "kind": "diagram",
+      "chapter": "09-morph",
+      "purpose": "Show a blended move.",
+      "content": "One parameter's value along a path from corner A to corner B: a smooth curve.",
+      "source": "ADR-104 (blend as the continuous class)",
+      "depends_on": [
+        "morph",
+        "ADR-104"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    },
+    {
+      "id": "morph.blend-demo",
+      "kind": "audio",
+      "chapter": "09-morph",
+      "purpose": "Let the reader hear blend.",
+      "content": "8 s: a held chord while the position moves A -> B in blend mode.",
+      "source": "Deterministic render of a two-corner preset with the morph position automated",
+      "depends_on": [
+        "morph",
+        "port"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "morph.quantum-flip-map",
+      "kind": "figure",
+      "chapter": "09-morph",
+      "purpose": "Show where each parameter flips across the pad.",
+      "content": "The pad overlaid with each parameter's flip boundary, coloured by parameter group.",
+      "source": "The quantum draw (ADR-185) rendered from a real preset's seeds",
+      "depends_on": [
+        "morph",
+        "ADR-104",
+        "ADR-185"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "morph.quantum",
+      "kind": "audio",
+      "chapter": "09-morph",
+      "purpose": "Let the reader hear quantum.",
+      "content": "8 s: the same held chord and path, quantum mode.",
+      "source": "Deterministic render of the same preset and path as morph.blend-demo, quantum mode",
+      "depends_on": [
+        "morph",
+        "port"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "morph.stepped",
+      "kind": "diagram",
+      "chapter": "09-morph",
+      "purpose": "Show a stepped move.",
+      "content": "Position vs time travelling in discrete steps, each edge softened by morph glide; rate and sync labelled.",
+      "source": "B424 stepped morph glide design (morph editor lab)",
+      "depends_on": [
+        "B424"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "morph.stepped-demo",
+      "kind": "audio",
+      "chapter": "09-morph",
+      "purpose": "Let the reader hear stepped morph glide.",
+      "content": "The same chord and path as the other morph examples, stepped at a synced rate.",
+      "source": "Deterministic render once B424 is built",
+      "depends_on": [
+        "B424"
+      ],
+      "status": "pending-design",
+      "generated": true
+    },
+    {
+      "id": "morph.classes",
+      "kind": "table",
+      "chapter": "09-morph",
+      "purpose": "Explain morph classes and which parameters have which.",
+      "content": "A short hand-written header (class, meaning) plus a generated count of parameters per class per page.",
+      "source": "The manifest's morph class per parameter (B275)",
+      "depends_on": [
+        "seams",
+        "B275"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "morph.pad",
+      "kind": "screenshot",
+      "chapter": "09-morph",
+      "purpose": "Show the morph pad.",
+      "content": "The pad with corners, current position, a glide trail and the mode selector.",
+      "source": "docs/design/morph-editor-lab.html carried into GUI 3",
+      "depends_on": [
+        "morph",
+        "gui3",
+        "B269"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "morph.waypoints",
+      "kind": "figure",
+      "chapter": "09-morph",
+      "purpose": "Show a waypoint path.",
+      "content": "A pad with three waypoints and a custom curve between corners, once B269's items are ruled.",
+      "source": "docs/design/morph-editor-lab.html waypoints round (B268, B269)",
+      "depends_on": [
+        "morph",
+        "B235",
+        "B268"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "morph.reshuffle",
+      "kind": "figure",
+      "chapter": "09-morph",
+      "purpose": "Show what reshuffle changes.",
+      "content": "Two flip maps of the same preset, before and after Reshuffle, side by side.",
+      "source": "The quantum draw before and after a reshuffle, same preset",
+      "depends_on": [
+        "morph",
+        "ADR-185",
+        "B308"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "morph.mixed-corners",
+      "kind": "diagram",
+      "chapter": "09-morph",
+      "purpose": "Show corners taken from different presets.",
+      "content": "A pad whose four corners come from three presets, the global attributes taken from the starting preset, and a named macro phrase aligned into one slot.",
+      "source": "ADR-192 rulings 1-5 and the align-by-phrase ruling",
+      "depends_on": [
+        "ADR-192",
+        "morph"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "morph.advanced-page",
+      "kind": "screenshot",
+      "chapter": "09-morph",
+      "purpose": "Show the fine-tuning controls.",
+      "content": "The advanced page with sharpening, cohesion, exempt and locks, and the global-parameter import list.",
+      "source": "The advanced morph page in GUI 3",
+      "depends_on": [
+        "morph",
+        "B269",
+        "ADR-193"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "intent.macro-strip",
+      "kind": "screenshot",
+      "chapter": "10-intent-and-macros",
+      "purpose": "Show the eight macros.",
+      "content": "The macro strip: Tone, Space, Time, Motion, then four named macros with their current labels.",
+      "source": "GUI 3 macro strip",
+      "depends_on": [
+        "intent",
+        "gui3"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "intent.fixed-four",
+      "kind": "table",
+      "chapter": "10-intent-and-macros",
+      "purpose": "Define the fixed four.",
+      "content": "Rows Tone, Space, Time, Motion: direction at 0 and at full (dark -> bright; close/dry -> far/wide; tight/short -> long/slow; still -> moving), and what each typically moves.",
+      "source": "ADR-192 decision 1",
+      "depends_on": [
+        "ADR-192"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    },
+    {
+      "id": "intent.fixed-four-demo",
+      "kind": "audio",
+      "chapter": "10-intent-and-macros",
+      "purpose": "Let the reader hear each fixed intent.",
+      "content": "One phrase, four times, sweeping one intent each time.",
+      "source": "A demo preset with all four bound",
+      "depends_on": [
+        "intent",
+        "ADR-192"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "intent.phrase-list",
+      "kind": "table",
+      "chapter": "10-intent-and-macros",
+      "purpose": "List the phrases a named macro can carry.",
+      "content": "The phrase list, grouped by family, once it is chosen.",
+      "source": "The phrase list (not decided, ADR-192)",
+      "depends_on": [
+        "ADR-192",
+        "B443"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "intent.named-flip-map",
+      "kind": "figure",
+      "chapter": "10-intent-and-macros",
+      "purpose": "Show named slots flipping as units.",
+      "content": "The pad with each of slots 5-8's flip boundary and the label on each side.",
+      "source": "A preset's named-slot flip points, rendered",
+      "depends_on": [
+        "intent",
+        "ADR-192"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "intent.offset-from-rest",
+      "kind": "diagram",
+      "chapter": "10-intent-and-macros",
+      "purpose": "Show how a named macro moves a parameter.",
+      "content": "A parameter range for two corners, each with its own rest value, and the macro's offset applied from each rest value, clamped to the range.",
+      "source": "ADR-192 decision 2 (offset from the current owner's rest value)",
+      "depends_on": [
+        "ADR-192"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    },
+    {
+      "id": "intent.binding-editor",
+      "kind": "screenshot",
+      "chapter": "10-intent-and-macros",
+      "purpose": "Show how a binding is made.",
+      "content": "The binding editor with a destination, depth, curve and per-corner override visible.",
+      "source": "GUI 3 binding editor (the intent bus routing half, unbuilt)",
+      "depends_on": [
+        "intent",
+        "gui3",
+        "B270"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "intent.binding-curves",
+      "kind": "figure",
+      "chapter": "10-intent-and-macros",
+      "purpose": "Show the three binding curves.",
+      "content": "Three curves from macro value 0 to 1 against the parameter from lo to hi, plotted from the closed forms.",
+      "source": "ADR-169 Amendment 3 closed forms (lin, exp = v squared, log = geometric)",
+      "depends_on": [
+        "ADR-169"
+      ],
+      "status": "ready-to-make",
+      "generated": true
+    },
+    {
+      "id": "intent.curve-laws",
+      "kind": "table",
+      "chapter": "10-intent-and-macros",
+      "purpose": "Define the binding curves.",
+      "content": "Rows lin, exp, log: formula in words, when to use it, the constraint (log needs both ends non-zero and of one sign).",
+      "source": "ADR-169 Amendment 3",
+      "depends_on": [
+        "ADR-169"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    },
+    {
+      "id": "intent.module-macro-binding",
+      "kind": "diagram",
+      "chapter": "10-intent-and-macros",
+      "purpose": "Show horde intents reaching module macros.",
+      "content": "horde's Tone macro bound per corner to a module's macro and to another module's parameter, with depth and curve; a note that nothing binds automatically.",
+      "source": "ADR-169 Amendment 4; ADR-192",
+      "depends_on": [
+        "ADR-169",
+        "ADR-192"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    },
+    {
+      "id": "intent.daw-names",
+      "kind": "table",
+      "chapter": "10-intent-and-macros",
+      "purpose": "Show how macros are named in a DAW.",
+      "content": "Rows macros 1-8: the name a DAW shows (Tone, Space, Time, Motion, Macro 5 ... Macro 8) and why 5-8 are numbered.",
+      "source": "ADR-192 decision 5",
+      "depends_on": [
+        "ADR-192"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    },
+    {
+      "id": "fx.rack",
+      "kind": "screenshot",
+      "chapter": "11-fx-rack",
+      "purpose": "Show the rack.",
+      "content": "The rack with modules in a chain, the add-module control and presence switches.",
+      "source": "GUI 3 FX page",
+      "depends_on": [
+        "rack",
+        "gui3",
+        "B50"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "fx.rack-signal",
+      "kind": "diagram",
+      "chapter": "11-fx-rack",
+      "purpose": "Show the rack's place in the signal and the 1.0 module set.",
+      "content": "The chain between the mixer and the master, with the 1.0 module types (Shriek, Sluice, Scape, ECHO, Bulwark, EQ, FX filter, drive; Kuramoto chorus conditional) listed.",
+      "source": "ADR-172 one instance per type; B393 roster; ADR-190",
+      "depends_on": [
+        "rack",
+        "ADR-172",
+        "B393"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "fx.module-common",
+      "kind": "table",
+      "chapter": "11-fx-rack",
+      "purpose": "List what every module shares.",
+      "content": "Rows: input gain, output gain, presence, presets, macros, tails, latency, meters; columns: what it does, where it is on the panel.",
+      "source": "The module 1.0 bar (B439) and the rack-slot contract (B450)",
+      "depends_on": [
+        "B439",
+        "B450"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "fx.tail-ringout",
+      "kind": "diagram",
+      "chapter": "11-fx-rack",
+      "purpose": "Show a tail continuing after a module leaves the chain.",
+      "content": "A timeline: a reverb removed from the chain mid-morph, its tail decaying while the new chain plays.",
+      "source": "ADR-193 D5 (tails ring out); B429 (no sleep while a tail rings)",
+      "depends_on": [
+        "ADR-193",
+        "B429"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    },
+    {
+      "id": "fx.per-corner-chains",
+      "kind": "diagram",
+      "chapter": "11-fx-rack",
+      "purpose": "Show four corners with different chains.",
+      "content": "Four corner chains of different order and membership around the pad.",
+      "source": "ADR-193; docs/proposals/fx-chain-morph-round2.md",
+      "depends_on": [
+        "fxmorph",
+        "ADR-193"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "fx.chain-morph",
+      "kind": "figure",
+      "chapter": "11-fx-rack",
+      "purpose": "Show a chain changing across a morph.",
+      "content": "The chain at five positions between two corners, with switch points and crossfades marked.",
+      "source": "docs/design/fx-chain-morph-lab-r3.html once round 2 is built and ruled",
+      "depends_on": [
+        "fxmorph",
+        "B394",
+        "B266"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "fx.chain-morph-demo",
+      "kind": "audio",
+      "chapter": "11-fx-rack",
+      "purpose": "Let the reader hear a chain morph.",
+      "content": "10 s: a phrase while the position moves between two corners with different chains.",
+      "source": "Deterministic render once the FX-chain morph is built",
+      "depends_on": [
+        "fxmorph",
+        "B394"
+      ],
+      "status": "pending-design",
+      "generated": true
+    },
+    {
+      "id": "fx.house-order",
+      "kind": "table",
+      "chapter": "11-fx-rack",
+      "purpose": "List the ordering rules.",
+      "content": "Rows per rule in plain language, with a reason (sound or CPU) and an example.",
+      "source": "The approved set (ADR-193 D3) once round 2 rules it",
+      "depends_on": [
+        "B265",
+        "ADR-193"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "fx.module-patch-corners",
+      "kind": "diagram",
+      "chapter": "11-fx-rack",
+      "purpose": "Show a module's patch at each corner.",
+      "content": "One module, four corners, each holding its own patch; the module's own XY inside each patch.",
+      "source": "ADR-188",
+      "depends_on": [
+        "ADR-188"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    },
+    {
+      "id": "fx.shriek-screen",
+      "kind": "screenshot",
+      "chapter": "11-fx-rack",
+      "purpose": "Show Shriek's face.",
+      "content": "Shriek's screen with its main controls and macros.",
+      "source": "docs/design/maw-horde-lab.html carried into GUI 3",
+      "depends_on": [
+        "maw",
+        "B318",
+        "B322"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "fx.shriek-stages",
+      "kind": "diagram",
+      "chapter": "11-fx-rack",
+      "purpose": "Show Shriek's three stages.",
+      "content": "The three saturation stages in order, with what each controls.",
+      "source": "specs/SPEC-MAW.md three-stage structure",
+      "depends_on": [
+        "maw",
+        "B318"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "fx.shriek",
+      "kind": "audio",
+      "chapter": "11-fx-rack",
+      "purpose": "Let the reader hear Shriek.",
+      "content": "A dry phrase, then through three Shriek settings from gentle to extreme.",
+      "source": "Deterministic render through Shriek presets",
+      "depends_on": [
+        "maw"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "fx.sluice-screen",
+      "kind": "screenshot",
+      "chapter": "11-fx-rack",
+      "purpose": "Show Sluice's face.",
+      "content": "Sluice's screen with its XY, macros and network view.",
+      "source": "docs/design/sluice-horde-lab.html carried into GUI 3",
+      "depends_on": [
+        "sluice",
+        "B361"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "fx.sluice-network",
+      "kind": "diagram",
+      "chapter": "11-fx-rack",
+      "purpose": "Show what a Sluice network is.",
+      "content": "A small network of shifters, delays, allpasses and filters in a feedback graph, in player terms.",
+      "source": "Sluice's network model as horde consumes it (B328)",
+      "depends_on": [
+        "sluice",
+        "B328"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "fx.sluice",
+      "kind": "audio",
+      "chapter": "11-fx-rack",
+      "purpose": "Let the reader hear Sluice.",
+      "content": "A phrase through three Sluice patches.",
+      "source": "Deterministic render through Sluice patches",
+      "depends_on": [
+        "sluice",
+        "B328"
+      ],
+      "status": "pending-design",
+      "generated": true
+    },
+    {
+      "id": "fx.scape-screen",
+      "kind": "screenshot",
+      "chapter": "11-fx-rack",
+      "purpose": "Show Scape's face.",
+      "content": "Scape's screen with its main controls and macros.",
+      "source": "docs/design/reverb-lab.html carried into GUI 3",
+      "depends_on": [
+        "reverb",
+        "B421"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "fx.scape",
+      "kind": "audio",
+      "chapter": "11-fx-rack",
+      "purpose": "Let the reader hear Scape.",
+      "content": "A short pluck phrase through small, medium and huge Scape settings.",
+      "source": "Deterministic render through Scape settings",
+      "depends_on": [
+        "reverb",
+        "B152"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "fx.echo-screen",
+      "kind": "screenshot",
+      "chapter": "11-fx-rack",
+      "purpose": "Show ECHO's face.",
+      "content": "ECHO's screen with time, feedback, sync, mode and filter controls.",
+      "source": "GUI 3 ECHO face",
+      "depends_on": [
+        "B425",
+        "gui3"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "fx.echo-modes",
+      "kind": "diagram",
+      "chapter": "11-fx-rack",
+      "purpose": "Show ECHO's modes.",
+      "content": "Signal diagrams for stereo, ping-pong and mid/side delay.",
+      "source": "B425 scope (stereo, ping-pong, mid/side)",
+      "depends_on": [
+        "B425"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "fx.echo-modes-demo",
+      "kind": "audio",
+      "chapter": "11-fx-rack",
+      "purpose": "Let the reader hear ECHO's modes.",
+      "content": "One stab through stereo, ping-pong and mid/side delays.",
+      "source": "Deterministic render through each ECHO mode",
+      "depends_on": [
+        "B425"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "fx.bulwark-screen",
+      "kind": "screenshot",
+      "chapter": "11-fx-rack",
+      "purpose": "Show the compressor's face.",
+      "content": "The compressor screen with threshold, ratio, attack, release, gain-reduction meter and macros.",
+      "source": "Bulwark's face carried into GUI 3",
+      "depends_on": [
+        "B421",
+        "gui3"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "fx.bulwark-transfer",
+      "kind": "figure",
+      "chapter": "11-fx-rack",
+      "purpose": "Show what the compressor does to level.",
+      "content": "Input vs output level for two ratios and two knee settings.",
+      "source": "The compressor's static transfer curve, measured (as the FX lab measures it, B234)",
+      "depends_on": [
+        "B421",
+        "B234"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "fx.bulwark",
+      "kind": "audio",
+      "chapter": "11-fx-rack",
+      "purpose": "Let the reader hear compression.",
+      "content": "The same phrase dry, lightly compressed and heavily compressed.",
+      "source": "Deterministic render: drum loop or plucks through the compressor",
+      "depends_on": [
+        "B421"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "fx.eq-screen",
+      "kind": "screenshot",
+      "chapter": "11-fx-rack",
+      "purpose": "Show the EQ's face.",
+      "content": "The EQ screen with bands and the response curve.",
+      "source": "GUI 3 EQ face",
+      "depends_on": [
+        "ADR-190",
+        "gui3"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "fx.eq-curves",
+      "kind": "figure",
+      "chapter": "11-fx-rack",
+      "purpose": "Show what each band type does.",
+      "content": "Response curves for each band type at two gains and widths.",
+      "source": "The EQ's measured response (the FX lab's EQ curve check, B234)",
+      "depends_on": [
+        "ADR-190",
+        "B234"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "fx.fx-filter-screen",
+      "kind": "screenshot",
+      "chapter": "11-fx-rack",
+      "purpose": "Show the FX filter's face.",
+      "content": "The FX filter screen with type, cutoff, resonance and modulation.",
+      "source": "GUI 3 FX filter face",
+      "depends_on": [
+        "ADR-190",
+        "gui3"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "fx.drive-screen",
+      "kind": "screenshot",
+      "chapter": "11-fx-rack",
+      "purpose": "Show the drive module's face.",
+      "content": "The drive screen with drive, tone and mix.",
+      "source": "GUI 3 drive face",
+      "depends_on": [
+        "ADR-190",
+        "gui3"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "fx.drive-around-reverb",
+      "kind": "audio",
+      "chapter": "11-fx-rack",
+      "purpose": "Show why a separate drive module exists.",
+      "content": "The same phrase: drive before the reverb, then after it.",
+      "source": "A demo patch: drive before and after Scape",
+      "depends_on": [
+        "ADR-190",
+        "reverb"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "fx.kchorus-screen",
+      "kind": "screenshot",
+      "chapter": "11-fx-rack",
+      "purpose": "Show the Kuramoto chorus's face.",
+      "content": "The chorus screen, if it meets the 1.0 bar.",
+      "source": "The Kuramoto chorus lab (B401, to start)",
+      "depends_on": [
+        "kchorus",
+        "B401"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "fx.kchorus",
+      "kind": "audio",
+      "chapter": "11-fx-rack",
+      "purpose": "Let the reader hear the Kuramoto chorus.",
+      "content": "A pad dry, then through the chorus at low and high coupling.",
+      "source": "Deterministic render once the module exists",
+      "depends_on": [
+        "kchorus",
+        "B401"
+      ],
+      "status": "pending-design",
+      "generated": true
+    },
+    {
+      "id": "master.strip",
+      "kind": "screenshot",
+      "chapter": "12-master",
+      "purpose": "Show the master strip.",
+      "content": "The master strip: limiter on/off, Ceiling, Release, gain-reduction meter, clip latch, Volume.",
+      "source": "docs/design/mixer-lab.html master strip, carried into GUI 3",
+      "depends_on": [
+        "mix",
+        "B438",
+        "gui3"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "master.controls",
+      "kind": "table",
+      "chapter": "12-master",
+      "purpose": "List the master strip's controls.",
+      "content": "Rows on/off, Ceiling (default -1.0 dBFS, range -24 ... 0), Release (auto or ms), Volume (-inf ... 0 dB); columns: range, default, what it does.",
+      "source": "B438; B402; ADR-195",
+      "depends_on": [
+        "B438",
+        "ADR-195"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "master.ceiling",
+      "kind": "audio",
+      "chapter": "12-master",
+      "purpose": "Let the reader hear the limiter at work.",
+      "content": "The same loud phrase with the limiter off (latched clip), at -1.0 dBFS and at -6 dBFS.",
+      "source": "Deterministic render: a hot patch at ceilings -1.0 and -6 dBFS",
+      "depends_on": [
+        "B438"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "master.gr-meter",
+      "kind": "screenshot",
+      "chapter": "12-master",
+      "purpose": "Show the gain-reduction meter.",
+      "content": "The meter during a loud passage, with its scale labelled.",
+      "source": "GUI 3 master strip",
+      "depends_on": [
+        "B438",
+        "gui3"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "master.intersample-peak",
+      "kind": "diagram",
+      "chapter": "12-master",
+      "purpose": "Explain inter-sample peaks.",
+      "content": "Samples at the ceiling and the reconstructed waveform peaking above them between samples.",
+      "source": "ADR-195 (inter-sample overs up to about 3 dB near fs/4)",
+      "depends_on": [
+        "ADR-195"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    },
+    {
+      "id": "pitch.lanes",
+      "kind": "diagram",
+      "chapter": "13-pitch",
+      "purpose": "Show the two pitch lanes and the one pitch.",
+      "content": "The bend lane and the note lane, each with its law, summing into one published pitch per voice, read by the engine, the Sub and the filters.",
+      "source": "ADR-096 (the note lane travels by the bend lane's laws); B278 one published pitch",
+      "depends_on": [
+        "bend",
+        "B278",
+        "ADR-096"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    },
+    {
+      "id": "pitch.bend-laws",
+      "kind": "table",
+      "chapter": "13-pitch",
+      "purpose": "List the bend laws.",
+      "content": "Rows per law (the inertial mass-spring among them): how pitch travels, how it feels, controls.",
+      "source": "GlideCore's five laws (legacy glide_core.h) as ported by B397",
+      "depends_on": [
+        "bend",
+        "B397",
+        "ADR-096"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "pitch.bend-law-curves",
+      "kind": "figure",
+      "chapter": "13-pitch",
+      "purpose": "Show each law's response to a bend.",
+      "content": "One plot per law: wheel position and resulting pitch over time for the same gesture.",
+      "source": "Pitch-vs-time renders of each law from the ported glide core",
+      "depends_on": [
+        "bend",
+        "B397"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "pitch.bend-laws-demo",
+      "kind": "audio",
+      "chapter": "13-pitch",
+      "purpose": "Let the reader hear the laws.",
+      "content": "One held note, the same recorded wheel gesture, once per law.",
+      "source": "Deterministic render: the same bend gesture under each law",
+      "depends_on": [
+        "bend",
+        "port"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "pitch.mass-spring",
+      "kind": "diagram",
+      "chapter": "13-pitch",
+      "purpose": "Explain the inertial mass-spring.",
+      "content": "A mass on a spring pulled toward the target pitch, and the pitch trace overshooting and settling.",
+      "source": "ADR-096; the legacy spring law",
+      "depends_on": [
+        "bend",
+        "ADR-096"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    },
+    {
+      "id": "pitch.mass-spring-demo",
+      "kind": "audio",
+      "chapter": "13-pitch",
+      "purpose": "Let the reader hear the spring.",
+      "content": "A bend up and back, soft spring then stiff spring.",
+      "source": "Deterministic render: mass-spring bend at two stiffness settings",
+      "depends_on": [
+        "bend",
+        "port"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "pitch.glide-from",
+      "kind": "table",
+      "chapter": "13-pitch",
+      "purpose": "List where a glide can start.",
+      "content": "Rows per Glide From source: where the glide starts, when to use it.",
+      "source": "B397 (Glide From's three sources)",
+      "depends_on": [
+        "bend",
+        "B397"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "pitch.glide-laws",
+      "kind": "audio",
+      "chapter": "13-pitch",
+      "purpose": "Let the reader hear glide laws.",
+      "content": "A four-note legato line, once per law.",
+      "source": "Deterministic render of the same legato line under each glide law",
+      "depends_on": [
+        "bend",
+        "port"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "pitch.scale-editor",
+      "kind": "screenshot",
+      "chapter": "13-pitch",
+      "purpose": "Show the root and scale controls.",
+      "content": "The quantizer's root selector and twelve-step scale mask with a minor scale set.",
+      "source": "GUI 3 quantizer controls",
+      "depends_on": [
+        "quant",
+        "gui3",
+        "B391"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "pitch.quantizer-placement",
+      "kind": "diagram",
+      "chapter": "13-pitch",
+      "purpose": "Show where quantizing happens.",
+      "content": "The bend lane with the quantizer anchored on it, the note's base pitch, and the snapped result; a bend that crosses scale steps.",
+      "source": "ADR-106 (the quantiser is anchored: base + offset); ADR-158",
+      "depends_on": [
+        "quant",
+        "ADR-106",
+        "ADR-158"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    },
+    {
+      "id": "pitch.quantized-bend",
+      "kind": "audio",
+      "chapter": "13-pitch",
+      "purpose": "Let the reader hear a quantized bend.",
+      "content": "A slow bend over an octave, quantizer off, then on in a minor scale.",
+      "source": "Deterministic render: a bend through the quantizer",
+      "depends_on": [
+        "quant",
+        "port"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "pitch.mts-precedence",
+      "kind": "table",
+      "chapter": "13-pitch",
+      "purpose": "Explain which tuning wins.",
+      "content": "Rows: MTS-ESP off/on x quantizer off/on; column: the resulting pitch behaviour.",
+      "source": "The stated precedence between horde's quantizer and MTS-ESP (B431)",
+      "depends_on": [
+        "B431",
+        "B390"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "presets.global-and-corners",
+      "kind": "diagram",
+      "chapter": "14-presets",
+      "purpose": "Show what saving a global preset files.",
+      "content": "One global preset saved, producing the preset itself plus four corner entries in the library.",
+      "source": "B395 corner auto-ingest; ADR-192",
+      "depends_on": [
+        "presets",
+        "B395",
+        "ADR-192"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "presets.browser",
+      "kind": "screenshot",
+      "chapter": "14-presets",
+      "purpose": "Show the preset browser.",
+      "content": "The browser with categories, tags, search, a preset selected and its corners listed.",
+      "source": "The settings lab's preset and file manager (B261) carried into GUI 3",
+      "depends_on": [
+        "presets",
+        "B261",
+        "gui3"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "presets.init-values",
+      "kind": "table",
+      "chapter": "14-presets",
+      "purpose": "Document the init patch.",
+      "content": "Generated: every parameter group and its init value.",
+      "source": "The documented init patch (B431), generated from the manifest defaults",
+      "depends_on": [
+        "presets",
+        "B431"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "presets.naming-rules",
+      "kind": "table",
+      "chapter": "14-presets",
+      "purpose": "State the naming rules.",
+      "content": "Rows per rule (length, characters, reserved words): the rule and an example.",
+      "source": "The preset naming gate (B349)",
+      "depends_on": [
+        "B349"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "presets.contents",
+      "kind": "table",
+      "chapter": "14-presets",
+      "purpose": "List what a preset stores.",
+      "content": "Rows: oscillators, Sub and noise, filters, mixer and routing, FX chain per corner and module patches, modulation, morph corners and draw, macros and bindings, quality (os); column: stored in the preset or device-wide.",
+      "source": "The patch model (B263) as the state schema; B395 (os saved per preset)",
+      "depends_on": [
+        "patch",
+        "B263",
+        "B395"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "presets.factory-categories",
+      "kind": "table",
+      "chapter": "14-presets",
+      "purpose": "Map the factory library.",
+      "content": "Rows per category: count, what it shows off, a starting preset.",
+      "source": "The factory library plan (B395, B257), not yet built",
+      "depends_on": [
+        "presets",
+        "B395",
+        "B257"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "presets.factory-tour",
+      "kind": "audio",
+      "chapter": "14-presets",
+      "purpose": "Let the reader hear the factory library.",
+      "content": "About 60 s: short excerpts of one preset per category.",
+      "source": "A curated audio tour of the factory library",
+      "depends_on": [
+        "presets",
+        "B395"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "presets.compat-promises",
+      "kind": "table",
+      "chapter": "14-presets",
+      "purpose": "State what is promised about old projects.",
+      "content": "Rows: before 1.0, after 1.0; columns: parameter ids, ranges, sound laws, how a law change is selected (the state header's version).",
+      "source": "ADR-186 §5(f) the stability line",
+      "depends_on": [
+        "ADR-186"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    },
+    {
+      "id": "history.recorded-actions",
+      "kind": "table",
+      "chapter": "15-history",
+      "purpose": "List what makes a history step.",
+      "content": "Rows: knob gesture, typed value, preset load, morph move, mapping change, routing change, FX module edit, modulated values in motion; column: one step, no step, or merged.",
+      "source": "B389 (including the open question on modulated values)",
+      "depends_on": [
+        "history",
+        "B389"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "history.tree",
+      "kind": "diagram",
+      "chapter": "15-history",
+      "purpose": "Show branching history.",
+      "content": "A tree of nodes: a linear run of edits, a jump back, a new edit forming a branch, both branches kept.",
+      "source": "ADR-160 (snapshot tree, gesture-level nodes, fork on restore)",
+      "depends_on": [
+        "history",
+        "ADR-160"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    },
+    {
+      "id": "history.page",
+      "kind": "screenshot",
+      "chapter": "15-history",
+      "purpose": "Show the history page.",
+      "content": "The history page with a branched tree and the current node.",
+      "source": "GUI 3 history page",
+      "depends_on": [
+        "history",
+        "gui3"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "history.survives",
+      "kind": "table",
+      "chapter": "15-history",
+      "purpose": "List what history survives.",
+      "content": "Rows: preset change, morphing, modulation, mapping change, signal-flow change, FX module edit; column: what undo restores.",
+      "source": "B389 acceptance list; B222 regression rows",
+      "depends_on": [
+        "history",
+        "B389",
+        "B222"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "perf.cost-drivers",
+      "kind": "table",
+      "chapter": "16-performance",
+      "purpose": "Show what costs CPU.",
+      "content": "Generated: setting or module, cost at default, cost at worst case, as % of the min-spec core.",
+      "source": "Release-build CPU measurements (B441 campaign; B262 FX cost bench)",
+      "depends_on": [
+        "perf",
+        "B441",
+        "B262"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "perf.aliasing-standard-vs-hq",
+      "kind": "figure",
+      "chapter": "16-performance",
+      "purpose": "Show what HQ removes.",
+      "content": "Spectra of the same heavy-class note at standard and HQ, aliasing products marked.",
+      "source": "B445 aliasing measurement at os 1 vs os 2 on the heavy class (B346 method)",
+      "depends_on": [
+        "B445",
+        "ADR-191"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "perf.standard-vs-hq",
+      "kind": "audio",
+      "chapter": "16-performance",
+      "purpose": "Let the reader hear standard vs HQ.",
+      "content": "The same phrase at standard then HQ, chosen where the difference is audible.",
+      "source": "Deterministic render: a heavy-class preset at os 1 and os 2",
+      "depends_on": [
+        "B445"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "perf.hq-cost",
+      "kind": "table",
+      "chapter": "16-performance",
+      "purpose": "Show what HQ costs.",
+      "content": "Generated: per ledger preset, CPU at standard and at HQ.",
+      "source": "B445 timing at the default for the ledger presets",
+      "depends_on": [
+        "B445",
+        "B441"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "perf.cpu-tips",
+      "kind": "table",
+      "chapter": "16-performance",
+      "purpose": "List the ways to lower CPU.",
+      "content": "Rows per tip in payoff order: what to change, saving, what it costs in sound.",
+      "source": "The CPU campaign's findings (B441)",
+      "depends_on": [
+        "B441",
+        "ADR-191"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "perf.cpu-by-preset",
+      "kind": "table",
+      "chapter": "16-performance",
+      "purpose": "Show each factory preset's cost.",
+      "content": "Generated: preset, voices, CPU at 44.1 kHz / 128 samples and at 48 kHz.",
+      "source": "Release-build CPU per factory preset, measured",
+      "depends_on": [
+        "B441",
+        "presets"
+      ],
+      "status": "pending-design",
+      "generated": true
+    },
+    {
+      "id": "midi.messages",
+      "kind": "table",
+      "chapter": "17-midi-and-mpe",
+      "purpose": "List the MIDI horde answers.",
+      "content": "Rows per message (note on/off, velocity, pitch bend, CC1, CC64 sustain, channel aftertouch, MPE per-note messages, program change if any): what it does by default.",
+      "source": "B431 (sustain CC64 ship-blocking; CC1, channel pressure, bend); ADR-190 A4",
+      "depends_on": [
+        "B431",
+        "ADR-190"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "midi.voicing-modes",
+      "kind": "table",
+      "chapter": "17-midi-and-mpe",
+      "purpose": "Compare voicing modes.",
+      "content": "Rows poly, mono, legato (and portamento): voice assignment, envelope retrigger, glide behaviour.",
+      "source": "B431 (mono, legato, portamento in horde 2); B310 voice law",
+      "depends_on": [
+        "B431",
+        "B310"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "midi.legato-vs-retrigger",
+      "kind": "audio",
+      "chapter": "17-midi-and-mpe",
+      "purpose": "Let the reader hear mono vs legato.",
+      "content": "The same overlapping line in mono and in legato.",
+      "source": "Deterministic render once the voicing modes are built",
+      "depends_on": [
+        "B431"
+      ],
+      "status": "pending-design",
+      "generated": true
+    },
+    {
+      "id": "midi.mpe-dimensions",
+      "kind": "table",
+      "chapter": "17-midi-and-mpe",
+      "purpose": "List the MPE dimensions and their default targets.",
+      "content": "Rows pitch, pressure, timbre (slide), per-note bend: default destination and range.",
+      "source": "B388 MPE design (pending)",
+      "depends_on": [
+        "mpe",
+        "B388"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "midi.mpe-hosts",
+      "kind": "table",
+      "chapter": "17-midi-and-mpe",
+      "purpose": "Show how to enable MPE per DAW and format.",
+      "content": "Rows per common DAW: format, setting to enable MPE, notes.",
+      "source": "B388; B429 (MPE via CLAP per-note expressions, not the MIDI-dialect proxies)",
+      "depends_on": [
+        "mpe",
+        "B388",
+        "B429"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "midi.learn",
+      "kind": "screenshot",
+      "chapter": "17-midi-and-mpe",
+      "purpose": "Show MIDI learn.",
+      "content": "A control in learn mode, then mapped, with the mapping listed.",
+      "source": "GUI 3 MIDI learn flow",
+      "depends_on": [
+        "B431",
+        "gui3"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "midi.arp-modes",
+      "kind": "table",
+      "chapter": "17-midi-and-mpe",
+      "purpose": "List the arpeggiator modes.",
+      "content": "Rows per mode (up, down, up-down, random, as played, as designed): description.",
+      "source": "ADR-190 A5 (a simple arpeggiator is in 1.0); B391",
+      "depends_on": [
+        "arps",
+        "ADR-190",
+        "B391"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "midi.arp",
+      "kind": "audio",
+      "chapter": "17-midi-and-mpe",
+      "purpose": "Let the reader hear the arpeggiator.",
+      "content": "A held chord through two arp modes at two rates.",
+      "source": "Deterministic render once the arpeggiator exists",
+      "depends_on": [
+        "arps",
+        "B391"
+      ],
+      "status": "pending-design",
+      "generated": true
+    },
+    {
+      "id": "midi.automation-by-format",
+      "kind": "table",
+      "chapter": "17-midi-and-mpe",
+      "purpose": "Explain automation per format.",
+      "content": "Rows CLAP, VST3, AU: per-note modulation support, automatable parameters, parameter naming, notes.",
+      "source": "B429(4) modulation fallback in VST3 and AU; B432(6) parameter names; B428 frozen ids",
+      "depends_on": [
+        "B429",
+        "B432",
+        "B428"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "trouble.not-appearing",
+      "kind": "table",
+      "chapter": "18-troubleshooting",
+      "purpose": "Fix a missing plugin.",
+      "content": "Symptom / cause / fix rows: not scanned, wrong architecture, blocked by OS security, old cache, wrong format folder.",
+      "source": "B427 conformance gates; B433 signing; ADR-186 identities",
+      "depends_on": [
+        "shell",
+        "B427",
+        "B433"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "trouble.no-sound",
+      "kind": "table",
+      "chapter": "18-troubleshooting",
+      "purpose": "Fix silence.",
+      "content": "An ordered checklist: MIDI arriving, voice playing, source levels, routing, FX presence, master Volume and limiter, DAW track.",
+      "source": "B402 routing; B438 master",
+      "depends_on": [
+        "mix",
+        "B438"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "trouble.bug-report",
+      "kind": "table",
+      "chapter": "18-troubleshooting",
+      "purpose": "Tell the reader what to send with a bug report.",
+      "content": "Rows: horde version, format, DAW and version, OS, preset or patch, steps, audio or screen capture; column: how to get it.",
+      "source": "The support channel (B413)",
+      "depends_on": [
+        "B413"
+      ],
+      "status": "pending-design",
+      "generated": false
+    },
+    {
+      "id": "params.columns",
+      "kind": "table",
+      "chapter": "19-parameter-reference",
+      "purpose": "Explain the reference's columns.",
+      "content": "Columns explained: name, path, range, default, unit, morph class, modulatable, per note.",
+      "source": "The manifest schema (B275)",
+      "depends_on": [
+        "seams",
+        "B275"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    },
+    {
+      "id": "params.engine",
+      "kind": "table",
+      "chapter": "19-parameter-reference",
+      "purpose": "List every engine parameter.",
+      "content": "Generated from the lockfile and the manifest.",
+      "source": "The engine manifest and the parameter lockfile",
+      "depends_on": [
+        "engine",
+        "seams",
+        "B376"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "params.sub-noise",
+      "kind": "table",
+      "chapter": "19-parameter-reference",
+      "purpose": "List every Sub and noise parameter.",
+      "content": "Generated from the lockfile and the manifests.",
+      "source": "The Sub's and the noise oscillator's manifests",
+      "depends_on": [
+        "sub",
+        "ADR-190"
+      ],
+      "status": "pending-design",
+      "generated": true
+    },
+    {
+      "id": "params.filters",
+      "kind": "table",
+      "chapter": "19-parameter-reference",
+      "purpose": "List every filter parameter.",
+      "content": "Generated from the lockfile and the manifest.",
+      "source": "The filters' manifest and the lockfile",
+      "depends_on": [
+        "filters",
+        "seams"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "params.mixer-master",
+      "kind": "table",
+      "chapter": "19-parameter-reference",
+      "purpose": "List every mixer and master parameter.",
+      "content": "Generated from the lockfile and the manifest.",
+      "source": "The mixer's and master strip's manifest and the lockfile",
+      "depends_on": [
+        "mix",
+        "B438"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "params.modulation",
+      "kind": "table",
+      "chapter": "19-parameter-reference",
+      "purpose": "List every modulation parameter.",
+      "content": "Generated from the lockfile and the manifests.",
+      "source": "The modulation manifests and the lockfile",
+      "depends_on": [
+        "modmatrix",
+        "modulators"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "params.morph-macros",
+      "kind": "table",
+      "chapter": "19-parameter-reference",
+      "purpose": "List every morph and macro parameter.",
+      "content": "Generated from the lockfile and the manifests.",
+      "source": "The morph and intent-bus manifests and the lockfile",
+      "depends_on": [
+        "morph",
+        "intent"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "params.pitch-performance",
+      "kind": "table",
+      "chapter": "19-parameter-reference",
+      "purpose": "List every pitch and performance parameter.",
+      "content": "Generated from the lockfile and the manifests.",
+      "source": "The pitch and performance manifests and the lockfile",
+      "depends_on": [
+        "bend",
+        "quant",
+        "B397"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "params.fx",
+      "kind": "table",
+      "chapter": "19-parameter-reference",
+      "purpose": "List every FX module parameter.",
+      "content": "Generated: one table per module.",
+      "source": "Each module's manifest (the rack-slot contract, B450) and the lockfile",
+      "depends_on": [
+        "rack",
+        "B450"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "params.settings",
+      "kind": "table",
+      "chapter": "19-parameter-reference",
+      "purpose": "List every device setting.",
+      "content": "Generated from the lockfile and the manifest.",
+      "source": "The device-settings manifest and the lockfile",
+      "depends_on": [
+        "shell",
+        "B261"
+      ],
+      "status": "needed",
+      "generated": true
+    },
+    {
+      "id": "glossary.product-terms",
+      "kind": "table",
+      "chapter": "20-glossary",
+      "purpose": "Define product and format terms.",
+      "content": "Term / definition rows: horde, horde legacy, stability line, CLAP, VST3, AU, preset, global preset, corner.",
+      "source": "ADR-186; ADR-192",
+      "depends_on": [
+        "ADR-186",
+        "ADR-192"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    },
+    {
+      "id": "glossary.engine-terms",
+      "kind": "table",
+      "chapter": "20-glossary",
+      "purpose": "Define engine terms.",
+      "content": "Term / definition rows: swarm, member, detune, coupling, coherence, blade, cut rate, spread, cut rule, mirror, twin, rotation.",
+      "source": "specs/SPEC-SCALPEL.md; the B376 audit's names",
+      "depends_on": [
+        "engine",
+        "B376"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "glossary.morph-terms",
+      "kind": "table",
+      "chapter": "20-glossary",
+      "purpose": "Define morph and macro terms.",
+      "content": "Term / definition rows: blend, quantum, stepped, flip, reshuffle, morph class, intent, named macro, binding, curve.",
+      "source": "ADR-104; ADR-185; ADR-192; ADR-169",
+      "depends_on": [
+        "ADR-104",
+        "ADR-192",
+        "ADR-169"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    },
+    {
+      "id": "glossary.mix-fx-terms",
+      "kind": "table",
+      "chapter": "20-glossary",
+      "purpose": "Define mixing and FX terms.",
+      "content": "Term / definition rows: tap, clip latch, gain staging, ceiling, inter-sample peak, tail, module, rack, chain morph.",
+      "source": "B225; B435; B438; ADR-193; ADR-195",
+      "depends_on": [
+        "B225",
+        "B438",
+        "ADR-193"
+      ],
+      "status": "needed",
+      "generated": false
+    },
+    {
+      "id": "glossary.former-names",
+      "kind": "table",
+      "chapter": "20-glossary",
+      "purpose": "Map old names to new.",
+      "content": "Old name / current name / note: MAW -> Shriek; Dynamite -> Bulwark; HYPERSAW -> horde legacy; SWARM SAW -> the swarm in the composed engine; SPECTRA, STATION, CANTO, swarmalator -> archived.",
+      "source": "ADR-190 (Shriek formerly MAW); B421 and its rename note (Dynamite to Bulwark); B330 archived engines",
+      "depends_on": [
+        "ADR-190",
+        "B421",
+        "B330"
+      ],
+      "status": "ready-to-make",
+      "generated": false
+    }
+  ]
+}
