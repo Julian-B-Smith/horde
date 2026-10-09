@@ -430,6 +430,10 @@ int main()
     {
       Phrase ph(p);
       statefix::loadChunk(p, mid);
+      // A load while processing lands at the next block start, the ens= key
+      // with its parameters; the flush is the host's answer to the load's
+      // request_flush (the human's ruling of 2026-10-09, B448 B2).
+      statefix::drain(p);
       reQueued = ensLine(statefix::saveChunk(p));
     }
     p->destroy(p);
