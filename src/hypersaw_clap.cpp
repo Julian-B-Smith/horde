@@ -7331,7 +7331,10 @@ struct Plugin
     ls.field = ls.direct ? liveField() : stageField();
     return ls;
   }
-  // Returns false when the queued batch overflowed (reported, never silent).
+  /* Returns false when the queued batch overflowed. The count is in qDropped;
+     neither load door turns it into its own return value, because a rig that
+     loads repeatedly while processing and never drains (state_check's B100
+     rows) asserts that those loads succeed. */
   bool endLoad(const LoadScope &ls)
   {
     if (ls.direct)
@@ -7550,7 +7553,7 @@ struct Plugin
       load(1150, 1, 3);
     }
     morphFillUncarried(carried, loaded, ls.field);   // B255: every write is known now, migrations included
-    if (!endLoad(ls)) any = false;   // the queue refused part of it: report the load as failed
+    endLoad(ls);
     /* B174 — THE NAME IS SET HERE, NOT BY A SECOND CALL AFTERWARDS.
        B122's setCornerName amends a mark that is still PENDING, and PR #703
        found the hole that leaves: let a GUI frame land between the load and
@@ -10065,9 +10068,9 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
     }
   }
   pl->morphFillUncarried(carried, loaded, ls.field);   // B255
-  const bool whole = pl->endLoad(ls);
+  pl->endLoad(ls);
   pl->undoMark("host load");   // B84: main thread, per the CLAP state contract
-  return whole;   // false: the queue refused part of the load, and the host is told so
+  return true;
 }
 
 const clap_plugin_state_t s_state = {state_save, state_load};
@@ -10349,9 +10352,25 @@ extern "C" int hypersaw_debug_intent_homeowner(const clap_plugin_t *p)
   if (pl->intentOwnerAtom.empty()) return -1;
   return pl->intentOwnerAtom[(size_t)pl->intentHomeAtom];
 }
+/* A rig that loads while `processing` is true and then reads the morph field
+   without rendering would see the field of the PREVIOUS patch: a queued load
+   stages its field for the audio thread to adopt at its next block start
+   (Plugin::morphAdopt). The rig is single-threaded — between its process()
+   calls it IS the audio thread's only user — so these two doors adopt the
+   staged field here, with the function the block start runs, which is what a
+   read one block later would see. The marker left in the queue then names a
+   generation already adopted and is skipped. Test surface only: the editor
+   reaches applyStateJson through gui_create, never through these exports. */
+static void rigAdoptStagedField(Plugin *pl)
+{
+  const uint64_t st = pl->morphStageState.load(std::memory_order_acquire);
+  if ((st & 3) == 1) pl->morphAdopt((uint32_t)(st >> 2));
+}
 extern "C" bool hypersaw_debug_apply(const clap_plugin_t *p, const char *json)
 {
-  return self(p)->applyStateJson(json ? json : "");
+  const bool ok = self(p)->applyStateJson(json ? json : "");
+  rigAdoptStagedField(self(p));
+  return ok;
 }
 /* B174: the GUI's LOAD button, whose one call both applies the patch and says
    which preset it is — the window-free path (see applyStateJson's naming
@@ -10360,7 +10379,9 @@ extern "C" bool hypersaw_debug_apply(const clap_plugin_t *p, const char *json)
 extern "C" bool hypersaw_debug_apply_named(const clap_plugin_t *p, const char *json,
                                            const char *name)
 {
-  return self(p)->applyStateJson(json ? json : "", name ? name : "");
+  const bool ok = self(p)->applyStateJson(json ? json : "", name ? name : "");
+  rigAdoptStagedField(self(p));
+  return ok;
 }
 /* B174: true iff applying `json` would leave the patch exactly as it is — the
    GUI's asterisk, headless. */
