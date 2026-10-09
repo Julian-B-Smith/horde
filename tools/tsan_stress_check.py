@@ -17,6 +17,10 @@ in the control or full run.
 
     tools/tsan_stress_check.py [build-dir] [--seed N] [--blocks N] [--ops N]
 
+COMPILER: $HORDE_SANITIZER_CXX, else Homebrew llvm's clang++ (ADR-199), always
+with -isysroot from xcrun on macOS. With neither, it prints a WARNING and exits
+77 (SKIP) — never 0, because a run that measured nothing is not a pass.
+
 HOW IT BUILDS, and why not through HYPERSAW_SANITIZE: that option instruments
 host-side executables only, never the impl library, so a probe linked against
 HYPERSAW-impl would never see the shell's accesses (see tools/tsan_stress.cpp's
@@ -56,12 +60,36 @@ def flags_make(build):
     return out
 
 
-def cxx_compiler(build):
-    with open(os.path.join(build, "CMakeCache.txt"), encoding="utf-8") as f:
-        for line in f:
-            if line.startswith("CMAKE_CXX_COMPILER:"):
-                return line.split("=", 1)[1].strip()
-    return "c++"
+SKIP = 77   # the automake "skipped" status: not a pass, not a failure
+
+
+def sanitizer_cxx():
+    """The TSan-capable compiler: $HORDE_SANITIZER_CXX, else `brew --prefix llvm`/bin/clang++.
+
+    NOT the CMake compiler. Apple's Command Line Tools 16 TSan runtime dies in
+    its own initialisation on macOS 26 (ADR-199), so the compiler the plugin
+    builds with is the wrong one to sanitize with. Returns None if neither
+    exists; the caller SKIPs, never passes."""
+    env = os.environ.get("HORDE_SANITIZER_CXX")
+    if env:
+        return env if os.access(env, os.X_OK) else None
+    try:
+        prefix = subprocess.run(["brew", "--prefix", "llvm"], capture_output=True, text=True,
+                                check=True).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    cxx = os.path.join(prefix, "bin", "clang++")
+    return cxx if os.access(cxx, os.X_OK) else None
+
+
+def sysroot_flags():
+    """-isysroot is REQUIRED with Homebrew clang on macOS: without it the
+    compiler looks for an SDK matching the OS version, which the Command Line
+    Tools may not ship, and <pthread.h> / <cstring> fail to resolve."""
+    if sys.platform != "darwin":
+        return []
+    sdk = subprocess.run(["xcrun", "--show-sdk-path"], capture_output=True, text=True).stdout.strip()
+    return ["-isysroot", sdk] if sdk else []
 
 
 def run(cmd, log):
@@ -93,6 +121,12 @@ def main():
         build = os.path.abspath(args.pop(0))
     harness_args = args or ["--seed", "1", "--blocks", "3000", "--ops", "400"]
 
+    cxx = sanitizer_cxx()
+    if not cxx:
+        print("WARNING: tsan_stress_check: no TSan-capable compiler (set HORDE_SANITIZER_CXX, or "
+              "install Homebrew llvm) — SKIPPED, nothing was measured")
+        return SKIP
+
     # Every log goes INSIDE the build dir: `build-*/` is ignored, a sibling
     # `build-x.log` is not, and its absolute paths trip the leak gate.
     os.makedirs(build, exist_ok=True)
@@ -108,7 +142,7 @@ def main():
 
     fm = flags_make(build)
     exe = os.path.join(build, "tsan_stress")
-    cmd = [cxx_compiler(build)] + fm.get("CXX_FLAGS", []) + fm.get("CXX_DEFINES", []) \
+    cmd = [cxx] + sysroot_flags() + fm.get("CXX_FLAGS", []) + fm.get("CXX_DEFINES", []) \
         + fm.get("CXX_INCLUDES", []) \
         + ["-O1", "-g", "-fno-omit-frame-pointer", "-fsanitize=thread",
            os.path.join(ROOT, "tools", "tsan_stress.cpp"), "-o", exe]

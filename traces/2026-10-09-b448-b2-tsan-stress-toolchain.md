@@ -1,0 +1,8 @@
+# b448-b2-tsan-stress-toolchain — the stress check compiles with a TSan-capable compiler
+
+- **Queue item:** B448 Wave B item B2 (ADR-197 risk row 2), continuing `traces/2026-10-08-b448-b2-tsan-stress-harness.md`.
+- **Why:** ADR-199 recorded that the Command Line Tools TSan runtime cannot start on this macOS, and the human installed Homebrew LLVM. `tools/tsan_stress_check.py` now compiles the harness with `$HORDE_SANITIZER_CXX`, falling back to `$(brew --prefix llvm)/bin/clang++`, always with `-isysroot $(xcrun --show-sdk-path)` on macOS. With neither compiler it prints a WARNING and exits 77 (SKIP), never 0. The plant-first design is unchanged: the planted race must be reported before any other verdict counts.
+- **Evidence consulted:** the lead's toolchain confirmation (must-fire race exits 134 with one report, and the atomic control exits 0 with none); the 2026-10-08 trace; the check's own plant, control and full runs.
+- **Alternatives rejected:** the CMake compiler (that is the runtime that cannot start); a hard-coded LLVM path (a machine path in a tracked file, and not portable).
+- **Verify:** `./verify fast` exit 1. Only `weakening_check` is red: `unwired` 0 -> 1 and `sanitizer_off` 0 -> 2 in `tools/tsan_stress_check.py`. Both are expected and stay unapproved on this local branch per the lead. The check itself: plant detected, control clean, full red. Counts and details are in the local findings file only.
+- **Open questions:** OUT-OF-SCOPE RED: the two weakening-counter increases await the human. The full-run report count varies between runs of the same seed because the OS schedules the threads; the families are stable.
