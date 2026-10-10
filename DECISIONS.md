@@ -7486,3 +7486,27 @@ that extension, was not taken.
 - The ten release questions in `docs/LICENSES-THIRD-PARTY.md`.
 
 This is an engineering decision recorded for the release review. It is not legal advice.
+
+## ADR-205 — RULED by the human: the license allow list, and two follow-ups from Wave C (B448, B454, 2026-10-10)
+
+**Ruling.** The human, 2026-10-10: "go with your recommendations". This covers the lead's three
+recommendations of 2026-10-09.
+
+**Decision.**
+1. **The third-party license allow list is ratified** (`tools/license_allowlist.json`).
+   - A component that ships may carry only a permissive license on the `ships` list.
+   - Copyleft licenses are allowed only for components that never ship: build, test and docs tools.
+   - Anything else is an exception that only the human approves, with an expiry.
+   - This binds what horde may depend on. It does not choose horde's own license
+     (`docs/LICENSE-OPTIONS.md` stays open).
+2. **The sanitizer loop is fixed** (B454 item 1). It moves below the last target in
+   `CMakeLists.txt`, so CI's sanitize job instruments the 12 executables it skipped. The flag pin
+   is re-approved for those targets, citing this ADR. If a newly instrumented check reports a
+   fault, that is a finding to fix. The loop is not narrowed to avoid it.
+3. **A third carried choc patch is approved.** It exposes WebView2's external-drop switch so the
+   Windows backend can turn external drops off. It follows ADR-196's rules for a carried patch:
+   minimal, additive, documented, checked by `choc_patch_check`, and filed upstream. It is verified
+   on Windows in the human's test pass (B447).
+
+**Not ruled here.** The audit's remaining pending item (a docs-only runtime file with no stated
+license) and the ten release questions in `docs/LICENSES-THIRD-PARTY.md`.
