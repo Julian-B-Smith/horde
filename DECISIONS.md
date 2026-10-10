@@ -7471,9 +7471,9 @@ a contract the human may design. It stays on B453.
 shipping component it could not place on the allow list.
 - **What it is.** `ipslgainreduction.h`, a PreSonus plug-in extension header. It rides inside
   clap-wrapper and is compiled into the VST3 build through `src/wrapasvst3.h`.
-- **Why the list cannot hold it.** It carries no license text, only the statement "Written and
-  placed in the PUBLIC DOMAIN by PreSonus Software Ltd." and an as-is disclaimer. A public-domain
-  statement has no SPDX id.
+- **Why the list cannot hold it.** It carries no license text, only a one-line public-domain dedication by
+  its author and an as-is disclaimer (quoted in `tools/license_inventory.json`). Such a dedication
+  has no SPDX id.
 
 **Decision.** The header is accepted as a recorded exception: `presonus-extensions` in
 `tools/license_allowlist.json`, approved, expiring 2027-10-09. It is re-reviewed at each
