@@ -428,6 +428,57 @@ Pass `-DHYPERSAW_GUI2=OFF` for the legacy single-column interface (GUI1), which 
 second oscillator, the mixer, the FX rack and the morph grid and cannot show any of them. It
 is kept building so the escape hatch stays real.
 
+### Trying unmerged changes in a host: the test identity
+
+A host finds a plugin by its identity, not its name, so a build of unmerged code under the
+real identity *replaces* the installed plugin that real projects load. `-DHORDE_TEST_IDENTITY=ON`
+(default OFF) builds the same sources as a second plugin that installs beside it (B456):
+
+| | real (default, frozen) | test (`-DHORDE_TEST_IDENTITY=ON`) |
+|---|---|---|
+| Name in the host | `horde` | `horde TEST` |
+| CLAP id | `com.lifted-truck.hypersaw` | `com.lifted-truck.hypersaw.test` |
+| VST3 class id (derived from the CLAP id) | `F730E1CE68C657DB87D2452E272BD28F` | `B97E86E35E255030BEA8313DFA385F26` |
+| AU type / subtype / manufacturer | `aumu` / `Hsaw` / `LfTk` | `aumu` / `HsTs` / `LfTk` |
+| Bundle identifier | `com.lifted-truck.hypersaw.{clap,vst3,auv2}` | `com.lifted-truck.hypersaw.test.{clap,vst3,auv2}` |
+| Files | `horde.vst3` · `horde.component` · `horde.clap` | `horde-test.vst3` · `horde-test.component` · `horde-test.clap` |
+| Preset folder (under `~/Library/Application Support/LiftedTruck/`) | `HYPERSAW` | `HYPERSAW-TEST` |
+
+Use a separate build directory, and build only the plugin and its store check there (the other
+oracles create the plugin by its real id, and that tree's SWARM-FX bundles carry SWARM-FX's
+real identity, so neither belongs in a test-identity tree):
+
+```bash
+cmake -S . -B build-test-identity -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DHORDE_TEST_IDENTITY=ON
+cmake --build build-test-identity --target HYPERSAW_all identity_store_check -j
+python3 tools/test_identity_check.py --built build-test-identity test   # the bundles carry the test ids, sealed
+build-test-identity/identity_store_check test                           # the store is HYPERSAW-TEST only
+```
+
+The two can be installed side by side: no id, file name or folder is shared, and
+`tools/test_identity_check.py` (in `./verify fast`) keeps it so. The test build never reads or
+writes the real preset folder. It starts with the factory bank, which is embedded in the binary
+and copied into `HYPERSAW-TEST` the first time its interface opens; user presets come across
+only if someone copies them. A session saved with one identity does not open with the other.
+The test bundles are signed by their own build; the real ones are still signed by `./install`.
+
+**Installing is the lead's step, on the human's say-so, never an agent's.** The test bundles
+are copied by hand (`./install` installs the real plugin only):
+
+```bash
+A=build-test-identity/HYPERSAW_assets
+rm -rf ~/Library/Audio/Plug-Ins/VST3/horde-test.vst3 ~/Library/Audio/Plug-Ins/Components/horde-test.component ~/Library/Audio/Plug-Ins/CLAP/horde-test.clap
+cp -R "$A/horde-test.vst3"      ~/Library/Audio/Plug-Ins/VST3/
+cp -R "$A/horde-test.component" ~/Library/Audio/Plug-Ins/Components/
+cp -R "$A/horde-test.clap"      ~/Library/Audio/Plug-Ins/CLAP/
+codesign --verify --deep --strict ~/Library/Audio/Plug-Ins/Components/horde-test.component
+killall -9 AudioComponentRegistrar
+auval -v aumu HsTs LfTk
+```
+
+To remove it, delete those three bundles and, if its presets are not wanted, the
+`HYPERSAW-TEST` folder.
+
 ## Map
 
 | Path | Purpose |

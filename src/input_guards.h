@@ -1,8 +1,8 @@
 /*
  * input_guards.h — the boundary guards for values that arrive from OUTSIDE the
- * plugin: text that crosses the GUI bridge, and the note and expression values
- * a host delivers. Each guard sits at the one place the value enters, so the
- * code behind it may assume a well-formed value rather than re-checking it.
+ * plugin: text that crosses the GUI bridge, and the note, expression, tempo
+ * and sample-rate values a host delivers. Each guard sits at the one place the value enters, so
+ * the code behind it may assume a well-formed value rather than re-checking it.
  *
  * Dependency-free on purpose (standard library only, no choc, no CLAP), the
  * preset_store.h idiom: the shell, the GUI backends and a headless check all
@@ -14,6 +14,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <string>
 #include <string_view>
 
@@ -103,7 +104,7 @@ int pasteStatus(std::string_view text, Apply &&apply)
   return apply(text) ? 1 : 2;
 }
 
-/* ---- host note and expression values -------------------------------------- */
+/* ---- host note, expression and tempo values ------------------------------- */
 
 /* CLAP's note key range (clap/events.h: "0..127, same as MIDI1 Key Number, -1
    for wildcard"). A note-on must name a real key; -1 is meaningful only on
@@ -129,6 +130,41 @@ inline bool finiteClamp(double v, double lo, double hi, double &out)
   if (!std::isfinite(v)) return false;
   out = v < lo ? lo : (v > hi ? hi : v);
   return true;
+}
+
+/* The lowest host tempo the shell takes, in BPM. Not a new number: it is the
+   bound the tempo's readers already share (`bpm > 1`, in the shell's LFO and
+   quantise-time sync, fx_rack.h setTempo and delay_core.h setTempo). Named
+   once here so the entry site applies the readers' rule, not a second one.
+   The code defines no upper bound for a tempo, so none is applied. */
+constexpr double kHostTempoFloorBpm = 1.0;
+
+/* Is a host tempo one the shell can take: finite and above the floor. The
+   value is tested, never altered — a tempo that passes is stored exactly. */
+inline bool hostTempoUsable(double bpm)
+{
+  double finite = 0;
+  return finiteClamp(bpm, kHostTempoFloorBpm, std::numeric_limits<double>::max(), finite) &&
+         bpm > kHostTempoFloorBpm;
+}
+
+/* The host sample rates the shell activates at, in Hz (B455).
+   STRUCTURAL bounds (what can be a real rate at all), NOT the certified
+   range, which stays 44.1 to 192 kHz (docs/ROBUSTNESS.md).
+   The one buffer sized from the rate is the rack's comb bank (fx_rack.h
+   setSampleRate: 8 lines x 2 channels of rate/20 samples), about 2.5 MB of
+   floats at the upper bound; every other line is a fixed buffer that clamps.
+   A rate inside the bounds is taken exactly as sent. */
+constexpr double kHostSampleRateMin = 8000.0;
+constexpr double kHostSampleRateMax = 768000.0;
+
+/* Is a host sample rate one the shell activates at: finite and inside the
+   bounds above. The value is tested, never altered (hostTempoUsable's rule):
+   finiteClamp returns the rate itself only when it was already in range. */
+inline bool hostSampleRateUsable(double sr)
+{
+  double inRange = 0;
+  return finiteClamp(sr, kHostSampleRateMin, kHostSampleRateMax, inRange) && inRange == sr;
 }
 
 /* The last line before the host's bus: any sample that is not finite becomes
