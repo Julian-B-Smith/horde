@@ -34,6 +34,12 @@ namespace hypersaw
      for every view; both go off, so page script has no clipboard read. PASTE
      reads natively instead (hzPasteState, below) and the text never reaches
      the page.
+   - DROPS (B448 C3). The GUI has no drag-and-drop feature, so the view
+     registers for no dragged type: AppKit then never offers it a file or link
+     dragged over it. Measured: a plain choc view registers 17 types, this one
+     0, after the page has loaded (gui_webview_check DROP). The page refuses
+     drops in script as well (gui2.html, refuseDrop); each stands without the
+     other. Not re-asserted at attach: the count is 0 after attach.
    Installed from the ready callback, after choc has built the view and its
    bindings and BEFORE setHTML, so the first navigation the policy sees is the
    page's own. The guard is a runtime class with a unique name (choc's
@@ -94,6 +100,7 @@ void lockToEmbeddedPage(choc::ui::WebView &w)
     [config.preferences setValue:@NO forKey:@"javaScriptCanAccessClipboard"];
     [config.preferences setValue:@NO forKey:@"DOMPasteAllowed"];
   } @catch (NSException *) {}
+  [wk unregisterDraggedTypes];
 }
 }  // namespace
 

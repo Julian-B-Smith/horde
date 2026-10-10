@@ -417,6 +417,26 @@
 
 <script>
 "use strict";
+/* THE PAGE REFUSES EVERY DROP (B448 C3, ADR-197; a hardening guard beside the
+   navigation lock in src/gui/embedded_page_policy.h and hypersaw_gui.mm). This
+   GUI has no drag-and-drop feature, so a file or link dragged onto the web view
+   is always a stray one; left alone the engine may navigate to it or hand the
+   page its contents. preventDefault on all three events at DOCUMENT level in the
+   CAPTURE phase runs before any element's own handler could take the drop, and
+   dropEffect 'none' tells the OS the target accepts nothing. Knobs and sliders
+   use pointer events, which these three never touch. effectAllowed is the
+   DRAG SOURCE's to set (dragstart only), so there is nothing to set here.
+   tools/gui_sink_check.py holds this shape (the three registrations are written
+   out literally so a scan can read them); tools/gui_webview_check drives a
+   synthetic drop in the real web view. */
+function refuseDrop(ev) {
+  ev.preventDefault();
+  if (ev.dataTransfer) ev.dataTransfer.dropEffect = 'none';
+}
+document.addEventListener('dragenter', refuseDrop, true);
+document.addEventListener('dragover', refuseDrop, true);
+document.addEventListener('drop', refuseDrop, true);
+
 const $ = s => document.querySelector(s);
 // Param defaults (mirror of the shell's kParams) for double-click reset.
 const DEFAULTS = {100:1,101:0,102:0,1017:0,1014:0.8,1:7,2:1,3:1234,4:0.28,5:0,6:0,7:0,8:0.63,9:0,10:0.4,11:0,12:0,13:0.75,14:0.8,

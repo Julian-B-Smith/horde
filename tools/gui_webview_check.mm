@@ -30,11 +30,16 @@
  *             inline handler arriving through markup.
  *   FRAME     a message posted to the bridge from a subframe is not delivered.
  *   CLIPBOARD script-initiated paste is not supported; hzPasteState is bound.
+ *   DROP      a dragenter, dragover and drop carrying a File, dispatched at a
+ *             control, are cancelled before the control's own handler sees them
+ *             and leave the URL alone (B448 C3); and the view registers no drag
+ *             type with AppKit. Synthetic events never run WebKit's default
+ *             action, so this measures the guard's cancelling, not a real drop.
  *   NAV       location to about:blank and to file:, a link to a remote page and
  *             window.open all leave the page where it is.
  *   CONTROL   the same detectors against a plain choc web view with none of the
- *             above (no policy, no navigation lock, choc's default clipboard
- *             preferences), plus the pre-fix dropdown pattern replayed in it.
+ *             above (no policy, no navigation lock, no drop guard, choc's default
+ *             clipboard and drag-type registrations), plus the pre-fix dropdown pattern replayed in it.
  *             Every detector must REGISTER there (each reads the opposite of
  *             its row above). A control that registers nothing means the
  *             detector is blind, and the check is RED.
@@ -197,6 +202,60 @@ std::string clipboardPrefs(WKWebView *wk)
          " DOMPasteAllowed=" + rd(@"_domPasteAllowed");
 }
 
+/* Dispatches dragenter, dragover and drop at a control, each carrying a
+   DataTransfer that holds a File, and reads back what the page did.
+   `atElement` is defaultPrevented as an ELEMENT-level listener sees it on
+   arrival: true only if a capture-phase listener above it already cancelled the
+   event, which is what makes the guard run before any element's own handler.
+   `href` is whether the page URL is unchanged after all three.
+   WHAT THIS PROVES: the guard's listeners are live in the shipped page under its
+   policy in real WebKit, cancel all three events, and run before any element's
+   own handler. WHAT IT CANNOT: a script-dispatched event is untrusted, so WebKit
+   never runs its default action (navigate to the dropped file), with the guard or
+   without it; the guard's job is to cancel that action, and the cancelling is
+   what is measured. dropEffect is NOT read: WebKit pins it to 'none' on a
+   constructed DataTransfer, guard or no guard (measured on the control view,
+   2026-10-09), so a read of it would pass for the wrong reason. */
+std::string dropProbe(WKWebView *wk)
+{
+  return run(wk,
+      "const target = document.getElementById('presetList') || document.body;"
+      "const href0 = location.href; const res = {};"
+      "for (const t of ['dragenter', 'dragover', 'drop']) {"
+      "  const dt = new DataTransfer();"
+      "  dt.items.add(new File(['x'], 'dropped.txt', { type: 'text/plain' }));"
+      "  let atElement = null;"
+      "  const h = e => { atElement = e.defaultPrevented; };"
+      "  target.addEventListener(t, h);"
+      "  const ev = new DragEvent(t, { bubbles: true, cancelable: true, dataTransfer: dt });"
+      "  target.dispatchEvent(ev);"
+      "  target.removeEventListener(t, h);"
+      "  res[t] = { prevented: ev.defaultPrevented, atElement, files: dt.files.length };"
+      "}"
+      "res.href = location.href === href0;"
+      "return JSON.stringify(res);");
+}
+
+/* What dropProbe must read on the shipped page, and on a page with no guard. */
+std::string expectDropProbe(bool guarded)
+{
+  auto one = [&](const char *name) {
+    const char *v = guarded ? "true" : "false";
+    return std::string("\"") + name + "\":{\"prevented\":" + v + ",\"atElement\":" + v + ",\"files\":1}";
+  };
+  return "{" + one("dragenter") + "," + one("dragover") + "," + one("drop") + ",\"href\":true}";
+}
+
+/* The pasteboard types the view accepts as a drag destination, as a count and
+   the first few names. Zero means AppKit never offers the view a drop. */
+std::string dragTypes(WKWebView *wk)
+{
+  NSArray<NSPasteboardType> *t = wk.registeredDraggedTypes;
+  std::string names;
+  for (NSUInteger i = 0; i < t.count && i < 3; i++) names += " " + std::string([t[i] UTF8String]);
+  return std::to_string((unsigned long)t.count) + names;
+}
+
 /* "page" when our page is still the document, else what replaced it. */
 std::string afterNav(WKWebView *wk, const std::string &attempt)
 {
@@ -311,6 +370,16 @@ int main(int argc, char **argv)
       const std::string ps = run(wk, "return typeof window.hzPasteState;");
       row(ps == "function", "CLIPBOARD", "PASTE's native path hzPasteState is bound: " + ps);
 
+      // DROP
+      const std::string dp = dropProbe(wk);
+      row(dp == expectDropProbe(true), "DROP",
+          "a file-carrying dragenter, dragover and drop are cancelled before the element sees them, the URL is unchanged: " + dp);
+      const std::string dpAgain = run(wk, "return String(!!document.getElementById('presetList')) + ' ' + typeof window.hzPresetName;");
+      row(dpAgain == "true function", "DROP", "the page and its bridge are intact after the drops: " + dpAgain);
+
+      const std::string dt0 = dragTypes(wk);
+      row(dt0 == "0", "DROP", "the web view accepts no drag type, so AppKit never offers it a drop: " + dt0);
+
       // NAV (last: a failure here replaces the page)
       for (const char *attempt : {"location.href = 'about:blank'", "location.href = 'file:///'",
                                   "const a = document.createElement('a'); a.href = 'https://example.invalid/';"
@@ -369,6 +438,11 @@ int main(int argc, char **argv)
           "return JSON.stringify({ parsed, roundTrip: want.every(n => texts.includes(n)) });");
       row(old == "{\"parsed\":false,\"roundTrip\":false}", "CONTROL",
           "NAMES detector registers on the pre-fix pattern: " + old);
+      const std::string dtc = dragTypes(cw2);
+      row(dtc != "0", "CONTROL", "dragged-types detector registers on a plain view: " + dtc);
+      const std::string dpc = dropProbe(cw2);
+      row(dpc == expectDropProbe(false), "CONTROL",
+          "DROP detector registers on a page with no guard (nothing cancelled): " + dpc);
       const std::string r = afterNav(cw2, "location.href = 'about:blank'");
       row(r.rfind("replaced:", 0) == 0 && r.find("bridge=function") != std::string::npos, "CONTROL",
           "NAV detector registers: " + r);
