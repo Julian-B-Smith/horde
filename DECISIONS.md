@@ -7510,3 +7510,75 @@ recommendations of 2026-10-09.
 
 **Not ruled here.** The audit's remaining pending item (a docs-only runtime file with no stated
 license) and the ten release questions in `docs/LICENSES-THIRD-PARTY.md`.
+
+## ADR-206 — RULED by the human: the morning rulings after the 2026-10-10 audit (B455, B454, B448)
+
+**Ruling.** The human, 2026-10-10: "Merged all; go with your recommendations". This covers the
+lead's list of decisions from the overnight batch.
+
+**Decision.**
+1. **Parity scenario floors (audit H1).** Each golden-parity gate fails below a pinned scenario
+   count. A count may rise and never fall without an approval.
+2. **The privately reported input-validation finding is fixed** as a small boundary fix with test
+   rows, and published together with its fix (the B446 disclosure rule).
+3. **The Stop gate's two blind spots are fixed** (audit H2).
+   - This is the lead's first-hand edit to `.claude/hooks/`, approved here.
+   - The gate judges the tree's state, not which tool made an edit.
+   - A missing verify record no longer passes when the tree has changed.
+   - A check exercises the hook against planted cases.
+4. **A second license exception is accepted.** It is the design tool's exported runtime
+   `support.js`, docs-only: `dc-runtime` in `tools/license_allowlist.json`, expiring 2027-10-10.
+   With ADR-204, the audit has no pending item.
+5. **Three small build items go ahead** (B454 items 8, 9 and 10):
+   - the Windows stack-size loop gets the sanitizer loop's fix;
+   - `src/glide_core.h` gains its missing include;
+   - `preset_probe` is rewritten to assert the voice's pitch directly, given a must-fail control,
+     and wired.
+
+**The legacy freeze, as already ruled.** The audit asked whether the freeze admits correctness
+fixes. The lead gave no recommendation, and none is taken from this ruling. ADR-186 §1 stands as
+written: the frozen legacy shell admits crash, real-time-safety and state-integrity fixes.
+Therefore:
+- **Audit H4, a load made while not processing,** is MEASURED first by new rows. It is fixed only if
+  it is shown to corrupt state.
+- **Audit M11, the mono-mode velocity source,** is a feature bug, not one of those classes. It is
+  measured and brought back to the human.
+
+**Not ruled here.** The phase 2 proposal (`docs/strategy/blind-spot-armor-phase2.md`) and its
+thirteen decisions.
+
+## ADR-207 — RULED by the human: the legacy shell keeps receiving integrity fixes; host values are checked where they enter (B455, 2026-10-10)
+
+**Rulings.** The human, 2026-10-10:
+- "Sample rate rule ratified".
+- After the lead explained that these fixes change the legacy plugin's own source: "I'm comfortable
+  with making this kind of fix to the legacy plugin."
+
+**Decision.**
+1. **The legacy shell keeps receiving fixes of this kind.**
+   - The kind is boundary validation of host input, real-time safety and state integrity, as
+     ADR-186 §1 allows.
+   - The human's installed plugin changes only when they choose to rebuild and install it.
+   - Unmerged changes are tried in a host under the side-by-side test identity (B456), never by
+     replacing the installed plugin.
+2. **Host values are checked where they enter the shell.** Each check reuses the existing boundary
+   helpers.
+   - **Events.** An event that is absent, or smaller than its type requires, is refused and counted.
+     An absent event list is treated as empty, for input and for output.
+   - **Sample rate.** Activation is refused for a rate that is non-finite, not positive, below
+     8 000 Hz or above 768 000 Hz.
+     - These are structural bounds: they refuse only what cannot be a real rate.
+     - The certified range stays 44.1 to 192 kHz (`docs/ROBUSTNESS.md`).
+     - A plugin whose activation was refused writes silence if it is processed anyway, because one
+       pinned wrapper processes regardless of the result.
+   - **Output buffers.** A missing bus, fewer than two channels, or a null buffer returns
+     `CLAP_PROCESS_ERROR`. The block's input events are kept and replayed at the next good block.
+   - **MIDI.** A message with the top bit set in a data byte is dropped and counted.
+3. **Evidence.**
+   - `hostile_events_check` grows to 187 rows, each fix with a mutation proof.
+   - Output for valid input is unchanged: 48 of 48 render digests identical.
+   - `rtsan_check` is green, and `tsan_stress_check` shows zero main-thread write races on three
+     seeds.
+
+**Not ruled here.** The idle-load fixes and the mono velocity fix follow in their own PRs, after a
+hands-on host check in the test identity.

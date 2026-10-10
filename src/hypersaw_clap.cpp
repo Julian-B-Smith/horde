@@ -30,6 +30,7 @@
 #include <vector>
 
 #include "swarm_core.h"
+#include "plugin_identity.h"   // B456: the id, the name, the store folder — the ONE place they are spelled
 #include "gui/hypersaw_gui.h"
 #include "gui/preset_store.h"   // presetRoot(): the ONE store path (B129)
 #include "input_guards.h"   // B446: names cut at a character boundary; host values checked at the event boundary
@@ -63,11 +64,14 @@ static const char *s_features[] = {CLAP_PLUGIN_FEATURE_INSTRUMENT, CLAP_PLUGIN_F
    re-finds this plugin in an already-saved session; renaming it would orphan
    every project that has ever loaded the device — a rename is a new plugin as
    far as a DAW is concerned. The id is an identifier that happens to read like
-   a name, which is exactly why it is tempting to "fix". */
+   a name, which is exactly why it is tempting to "fix".
+   Both strings are spelled in plugin_identity.h (B456), which also carries the
+   side-by-side TEST identity: a second id and name for the same code, so an
+   unmerged build can sit in a host beside this plugin instead of replacing it. */
 static const clap_plugin_descriptor_t s_desc = {
     CLAP_VERSION_INIT,
-    "com.lifted-truck.hypersaw",   // FROZEN — see above; not a display string
-    "horde",
+    hypersaw::identity::kIdentity.clapId,   // FROZEN for the real identity — see above; not a display string
+    hypersaw::identity::kIdentity.displayName,
     "Mindlathe",
     "https://github.com/Julian-B-Smith/horde",
     "",
@@ -2262,7 +2266,7 @@ struct Plugin
        when the platform's home variable is genuinely unset. */
     fs::path dir = hypersaw::presetRoot();
     if (!dir.empty()) dir /= "logs";
-    if (dir.empty()) dir = fs::temp_directory_path(ec) / "HYPERSAW";
+    if (dir.empty()) dir = fs::temp_directory_path(ec) / hypersaw::identity::kIdentity.storeFolder;
     fs::create_directories(dir, ec);
     // Named by the trace counter, not by a clock: the charter bans wall-clock
     // reads in the core, and a monotonic counter also sorts correctly.
@@ -2570,6 +2574,9 @@ struct Plugin
   std::atomic<uint32_t> scopePos[kMaxOsc] = {};
   uint32_t guiW = 980, guiH = 720;  // resizable (clamped in gui_adjust_size)
   std::atomic<bool> processing{false};
+  /* Set while the host's last activate() was refused, cleared by the next one
+     that is taken. Written on the main thread, read by process(). */
+  std::atomic<bool> activationRefused{false};
   /* WHO OWNS THE STATE FOR A MAIN-THREAD WRITE SEQUENCE (a load, PANIC, a
      mod-route verb). The rule: while processing, the audio thread is the only
      writer, and main-thread writes travel as queue entries or requests; while
@@ -2677,6 +2684,9 @@ struct Plugin
   static constexpr uint32_t kDeferBytes = 16384;
   alignas(8) unsigned char deferBuf[kDeferBytes] = {};
   uint32_t deferUsed = 0;
+  /* Host events the shell did not take: no room here, or (deferred or live,
+     handleEvent) an absent event, one smaller than its type's struct, or a
+     MIDI message whose data byte is not 7 bits. */
   std::atomic<uint32_t> deferDropped{0};
   /* A reset that arrived while the state was owned, and WHERE in the deferred
      events it arrived: the events before it are replayed, then the reset, then
@@ -6011,7 +6021,8 @@ struct Plugin
       // pitch: "stuck for longer than it should, most when I've recently
       // changed the K value" (human, 2026-08-03). Survivors are compacted and
       // retried next block.
-      if (out->try_push(out, &ev.header)) continue;
+      // No list at all is the same refusal (B455): the end stays pending.
+      if (out && out->try_push(out, &ev.header)) continue;
       pendingEnds[kept++] = pendingEnds[k];
     }
     pendingEndCount = kept;
@@ -6064,7 +6075,7 @@ struct Plugin
       // Same rule: only retire the tag once the host has ACCEPTED the end.
       // A rejected push leaves the tag active so the next block tries again —
       // the note is resolved late rather than never.
-      if (out->try_push(out, &ev.header)) tags[i].active = false;
+      if (out && out->try_push(out, &ev.header)) tags[i].active = false;
     }
   }
 
@@ -8993,6 +9004,16 @@ struct Plugin
 
   void handleEvent(const clap_event_header_t *ev)
   {
+    /* B455: the pointer and the size are the HOST's. Every case below reads
+       its type's whole struct, so an event that is absent, or claims fewer
+       bytes than that struct, is refused HERE — the one point a live block,
+       a flush and the deferred replay all pass — and counted where
+       deferEvents counts the same refusal. */
+    if (!ev || ev->size < minEventSize(ev))
+    {
+      deferDropped.fetch_add(1, std::memory_order_relaxed);
+      return;
+    }
     if (ev->space_id != CLAP_CORE_EVENT_SPACE_ID) return;
     switch (ev->type)
     {
@@ -9252,14 +9273,27 @@ struct Plugin
         // Channel 1 (index 0) is excluded: see mpeBendSemis.
         auto *m = reinterpret_cast<const clap_event_midi_t *>(ev);
         const int ch = m->data[0] & 0x0F;
+        const int status = m->data[0] & 0xF0;
+        if (status != 0xB0 && status != 0xD0 && status != 0xE0) break;   // nothing else is read here
+        /* B455: a MIDI data byte is 7 bits. A message read here whose data
+           byte has the top bit set is not that message: it is DROPPED and
+           counted, the rule a NOTE_ON's velocity follows above — not masked,
+           which would turn it into a different, well-formed message. Channel
+           pressure has ONE data byte, so its third byte is not asked. */
+        if ((m->data[1] & 0x80) || (status != 0xD0 && (m->data[2] & 0x80)))
+        {
+          deferDropped.fetch_add(1, std::memory_order_relaxed);
+          break;
+        }
+        const int d1 = m->data[1], d2 = m->data[2];
         /* ADR-149: CC1 and channel pressure were DROPPED here until now — the
            handler read only 0xE0. They become matrix sources 15 and 16. */
-        if ((m->data[0] & 0xF0) == 0xB0 && m->data[1] == 1)
-        { srcWheel = m->data[2] / 127.0; break; }
-        if ((m->data[0] & 0xF0) == 0xD0)
-        { srcPress = m->data[1] / 127.0; break; }
-        if ((m->data[0] & 0xF0) != 0xE0) break;
-        const int v14 = (int)m->data[1] | ((int)m->data[2] << 7);
+        if (status == 0xB0 && d1 == 1)
+        { srcWheel = d2 / 127.0; break; }
+        if (status == 0xD0)
+        { srcPress = d1 / 127.0; break; }
+        if (status != 0xE0) break;
+        const int v14 = d1 | (d2 << 7);
         if (ch == 0)
         {
           /* THE PLAIN PITCH WHEEL. Channel 0 is the MPE manager / ordinary
@@ -9544,6 +9578,18 @@ struct Plugin
     }
   }
 
+  /* Zeroes every output channel the host handed over that has a 32-bit
+     buffer, and asks before each read: a missing list, a missing buffer
+     array and a missing channel are each passed over. */
+  static void silenceOutputs(const clap_process_t *p)
+  {
+    if (!p->audio_outputs) return;
+    for (uint32_t o = 0; o < p->audio_outputs_count; o++)
+      for (uint32_t c = 0; c < p->audio_outputs[o].channel_count; c++)
+        if (p->audio_outputs[o].data32 && p->audio_outputs[o].data32[c])
+          std::fill(p->audio_outputs[o].data32[c], p->audio_outputs[o].data32[c] + p->frames_count, 0.0f);
+  }
+
   clap_process_status process(const clap_process_t *p)
   {
     /* A main-thread sequence that began while not processing owns the state
@@ -9553,11 +9599,17 @@ struct Plugin
     if (mainDirect.load(std::memory_order_seq_cst))
     {
       deferEvents(p->in_events);   // replayed at the head of the next block
-      for (uint32_t o = 0; o < p->audio_outputs_count; o++)
-        for (uint32_t c = 0; c < p->audio_outputs[o].channel_count; c++)
-          if (p->audio_outputs[o].data32 && p->audio_outputs[o].data32[c])
-            std::fill(p->audio_outputs[o].data32[c], p->audio_outputs[o].data32[c] + p->frames_count, 0.0f);
+      silenceOutputs(p);
       return CLAP_PROCESS_CONTINUE;
+    }
+    /* B455: the last activation was REFUSED (plug_activate), so the cores were
+       not rebuilt for the rate the host is now running at. A host that
+       processes anyway gets silence and nothing is touched: rendering here
+       would be rendering at whatever rate the cores were last built for. */
+    if (activationRefused.load(std::memory_order_acquire))
+    {
+      silenceOutputs(p);
+      return CLAP_PROCESS_ERROR;
     }
     // Host tempo drives the grid law (ADR-022); fallback stays at the last
     // known (or default 120) when the host provides none.
@@ -9567,14 +9619,25 @@ struct Plugin
     panicPerformRequested();   // before the drain: the click came before any later edit
     drainQueue(p->out_events);
 
-    float *outL = p->audio_outputs[0].data32[0];
-    float *outR = p->audio_outputs[0].data32[1];
     const uint32_t nframes = p->frames_count;
     /* B23 increment 3: the source buffers are fixed-size, so a block past them
        is REFUSED rather than truncated — see their declaration. plug_activate
        refuses the same ceiling up front; this is the belt for a host that
-       processes without activating, or that exceeds its own declared maximum. */
-    if (nframes > kSrcBufFrames) return CLAP_PROCESS_ERROR;
+       processes without activating, or that exceeds its own declared maximum.
+       B455: the same refusal for a block with nowhere to render — no output
+       bus, fewer than the two channels the port declares (aports_get), or a
+       channel with no 32-bit buffer. Asked before the first buffer is read.
+       The block's events are not handled here and not dropped either: they
+       are kept for the head of the next block that renders (deferEvents), for
+       the reason an owned block keeps its own — a host sends a note-off once. */
+    const clap_audio_buffer_t *ob = p->audio_outputs_count >= 1 ? p->audio_outputs : nullptr;
+    if (nframes > kSrcBufFrames || !ob || ob->channel_count < 2 || !ob->data32 || !ob->data32[0] || !ob->data32[1])
+    {
+      deferEvents(p->in_events);
+      return CLAP_PROCESS_ERROR;
+    }
+    float *outL = ob->data32[0];
+    float *outR = ob->data32[1];
     /* Sources 1.. start the block SILENT. Zeroing here rather than at each
        skip site is what makes "a disabled oscillator's source is silent" true
        for every path through the span loop at once — the SPECTRA branch, a
@@ -9592,7 +9655,7 @@ struct Plugin
        as a bonus when the host supplies something plausible. */
     tracePos += nframes;
     blockPos = p->steady_time > 0 ? (uint64_t)p->steady_time : tracePos;
-    const uint32_t nev = p->in_events->size(p->in_events);
+    const uint32_t nev = p->in_events ? p->in_events->size(p->in_events) : 0;   // deferEvents' rule
 
     uint32_t frame = 0, evIndex = 0;
     while (frame < nframes)
@@ -9601,7 +9664,8 @@ struct Plugin
       while (evIndex < nev)
       {
         const clap_event_header_t *ev = p->in_events->get(p->in_events, evIndex);
-        if (ev->time > frame)
+        // An absent event has no time: it goes straight to handleEvent, which refuses and counts it.
+        if (ev && ev->time > frame)
         {
           until = ev->time < nframes ? ev->time : nframes;
           break;
@@ -9838,7 +9902,13 @@ bool plug_activate(const clap_plugin_t *p, double sr, uint32_t, uint32_t maxFram
      is the documented outcome, rather than discovered mid-block. The ceiling is
      ~0.74 s at 44.1 kHz; the argument was unused until this increment gave the
      shell something that depends on it. */
-  if (maxFrames > Plugin::kSrcBufFrames) return false;
+  /* B455: a value that cannot be a sample rate is refused the same way
+     (input_guards.h hostSampleRateUsable). Either refusal comes before
+     anything is rebuilt, and is remembered: process() renders silence until
+     an activation is taken. */
+  const bool taken = maxFrames <= Plugin::kSrcBufFrames && hypersaw::hostSampleRateUsable(sr);
+  pl->activationRefused.store(!taken, std::memory_order_release);
+  if (!taken) return false;
   pl->sampleRate = sr;
   // Recreate the core at the host rate, preserving params (constructor cost
   // is trivial; activate is main-thread and never concurrent with process).
@@ -10146,7 +10216,7 @@ void params_flush(const clap_plugin_t *p, const clap_input_events_t *in,
   }
   pl->replayDeferred();
   pl->drainQueue(out);
-  const uint32_t nev = in->size(in);
+  const uint32_t nev = in ? in->size(in) : 0;   // deferEvents' rule; handleEvent checks each event
   for (uint32_t i = 0; i < nev; i++) pl->handleEvent(in->get(in, i));
   pl->endAudioEntry();
 }
@@ -10910,7 +10980,7 @@ extern "C" void hypersaw_debug_voices(const clap_plugin_t *p, char *out, uint32_
     // noteTune last (ADR-162): the per-note pitch multiplier is what carries
     // the pitch envelope now, so the voice table has to show it or the
     // per-note claim is unfalsifiable from outside. Appended, never inserted —
-    // preset_probe prints this line positionally.
+    // preset_pitch_check reads this line positionally.
     n += (uint32_t)std::snprintf(out + n, cap > n ? cap - n : 0, "%d,%d,%d,%.3f,%.3f,%d,%.6f;", i, v.midi, v.gate, v.f0, v.f0cur, v.glideActive, v.noteTune);
     if (n >= cap) break;
   }

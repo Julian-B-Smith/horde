@@ -2,11 +2,11 @@
   "about": "SPDX ids a third-party component may carry. `ships` binds anything that reaches a binary or its installer; `not_shipped` widens it for build-, test- and docs-only components. An id on neither list needs an entry in `exceptions`, which only the human approves: `approved` takes the human's ref (an ADR, a ROADMAP row), never an agent's. `pending_human` names the unapproved exceptions the check tolerates, each with the date it was raised; they print as PENDING THE HUMAN and go red on `expires`.",
   "exceptions": {
     "dc-runtime": {
-      "approved": "",
-      "expires": "2027-01-31",
-      "note": "support.js states no license and no copyright, is not ours, and is tracked twice under docs/ in a public repository. It never ships in the plugin. The choice turns on whether the tool's terms allow redistributing its runtime, or whether both copies should leave the repository.",
+      "approved": "ADR-206; the human, 2026-10-10 (\"go with your recommendations\"): keep it as a docs-only exception",
+      "expires": "2027-10-10",
+      "note": "support.js states no license and no copyright, is not ours, and is tracked twice under docs/ in a public repository. It never ships in the plugin. The choice turns on whether the tool's terms allow redistributing its runtime, or whether both copies should leave the repository. APPROVED 2026-10-10 as a recorded docs-only exception: six tracked design pages load it and it never ships in the plugin. Still worth checking the design tool's terms on redistributing its exported runtime.",
       "spdx": "NOASSERTION",
-      "status": "needs-human"
+      "status": "approved"
     },
     "presonus-extensions": {
       "approved": "ADR-204; the human, 2026-10-09 (\"I'll go with your recommendation\"): accept the bare public-domain statement for this one interface header",
@@ -19,12 +19,7 @@
   "not_shipped": {
     "GPL-3.0-only": "copyleft; proposed ONLY for a tool CI runs as a separate program and never links, modifies or redistributes (pluginval). The human may prefer an exception instead"
   },
-  "pending_human": [
-    {
-      "component": "dc-runtime",
-      "raised": "2026-10-09"
-    }
-  ],
+  "pending_human": [],
   "ships": {
     "Apache-2.0": "permissive, with notice duties and an express patent grant; carried by the AudioUnitSDK",
     "BSD-2-Clause": "permissive; seeded from the brief, no component carries it today",

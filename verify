@@ -139,6 +139,20 @@ fast() {
   # level, a changed -ffp-contract, a removed target, a new global flag, an --append
   # that would alter an entry, an empty approval ref). ~0.3 s. Added under ADR-180 §1.
   python3 tools/build_flags_check.py || ok=1
+  # THE REAL PLUGIN AND ITS SIDE-BY-SIDE TEST IDENTITY SHARE NO ID (B456). The same
+  # sources build under a second identity (a CMake option, default OFF) so unmerged
+  # code can run in a host BESIDE the plugin real projects load. A host finds a
+  # plugin by its CLAP id (the VST3 class id derives from it) and its AU triple, and
+  # the user's presets sit in one folder: a test build that kept any of those would
+  # be loaded in place of the real plugin, or write its preset store, and no audio
+  # oracle sees either. Static, from src/plugin_identity.h and CMakeLists.txt: the
+  # real identity equals this check's frozen table (so changing it is red); CLAP id,
+  # name, store folder, bundle identifier, output name and AU subtype all differ
+  # between the two; the option defaults OFF and nothing the harness runs turns it
+  # on; no source outside the identity header hard-codes an id or a store folder.
+  # Self-calibrating (eighteen planted faults, each must read red with its own tag).
+  # ~0.6 s. Added under ADR-180 §1. Its built-bundle and run-time halves are in `full`.
+  python3 tools/test_identity_check.py || ok=1
   # A LIFTED h2 core is its legacy source plus its lift ledger, byte for byte
   # (B379; ADR-187 L3: a byte-identical lift carries the legacy parity proof).
   # Any unledgered difference, or a ledger entry the tree no longer carries, is
@@ -197,6 +211,14 @@ fast() {
   # ADR-180 §1.
   python3 tools/weakening_check.py || ok=1
   python3 tools/deny_hook_check.py || ok=1   # B446 D-S6: the deny hook's verdict table
+  # THE CLOSING GATE'S VERDICT TABLE (B455 H2, ADR-206 item 3). The Stop hook is what
+  # makes "a session cannot finish on unverified edits" true, and nothing exercised
+  # it. It runs the real hook file in scratch repositories against 16 situations:
+  # an edit made through the shell, a new file, and a commit made with no verify
+  # record must each block; verify-then-commit must not. Two faulty hooks are the
+  # controls: one that never blocks, and the hook as it stood before this change,
+  # which must fail exactly the tree-state rows. ~2 s. Added under ADR-180 §1.
+  python3 tools/stop_gate_check.py || ok=1
   # GUI PAGE SINKS AND POLICY (B446 W3a). In src/gui/*.html every innerHTML /
   # outerHTML / insertAdjacentHTML / document.write gets literals only (named
   # exceptions carry a reason), and the content policy the build embeds is
@@ -636,6 +658,20 @@ full() {
   # fast-math-family token and for every pinned flag. Added under ADR-180 §1.
   python3 tools/param_id_lock_check.py --runtime "$build_dir/param_id_dump" || return 1
   python3 tools/build_flags_check.py --built "$build_dir" || return 1
+  # THE BUILT BUNDLES CARRY THE REAL, FROZEN IDENTITY (B456; macOS, where the three
+  # bundles have this layout). The static half in `fast` reads the sources; this
+  # reads what the build produced: each bundle's Info.plist (bundle identifier, the
+  # AU triple and name), the CLAP descriptor as the built plugin reports it, and
+  # the VST3 class id as the built plugin reports it, which must equal the frozen
+  # one (a wrapper bump that changed its derivation would orphan every saved VST3
+  # session). Red if this tree was configured as the test identity. ~0.7 s. Added
+  # under ADR-180 §1.
+  if [ "$(uname)" = Darwin ]; then
+    python3 tools/test_identity_check.py --built "$build_dir" real > /tmp/identbuilt.$$ 2>&1 || {
+      echo "verify[full]: test_identity_check --built FAILED" >&2; cat /tmp/identbuilt.$$ >&2
+      rm -f /tmp/identbuilt.$$; return 1; }
+    tail -1 /tmp/identbuilt.$$; rm -f /tmp/identbuilt.$$
+  fi
 
   # Phase 1 oracle chain: golden generator determinism -> fresh goldens ->
   # L0-1 parity (C++ vs JS reference, eps=1e-6) -> L0-2..5 + L0-13
@@ -685,6 +721,13 @@ full() {
   "$build_dir/penv_check"                               || return 1   # B116 ENV 2 per-note, retriggers
   "$build_dir/twocluster_check"                         || return 1   # ADR-164 negative K repels
   "$build_dir/morphlayout_check" tests/morph_order.txt "docs/presets/factory/morph/MO - Quantum Morph.json" || return 1   # B124 layout-1 remap, corner reset; B240 whole order + quantum draws frozen
+  # After a preset load a newly struck voice sounds at its OWN pitch (B454 item 10, ADR-206
+  # item 5): every gated voice's f0 within 1 cent of its note, read from the voice table over the
+  # whole factory bank x five voice-mode overlays x five scenarios, glides waited out on the
+  # plugin's own flag. Replaces the unwired autocorrelation probe whose gate sat inside its
+  # estimator's error. Controls: a clean row, a reading-layer plant, and a real slow-glide plant
+  # read before and after it lands. ~15 s here. Added under ADR-180 §1.
+  "$build_dir/preset_pitch_check" docs/presets/factory  || return 1   # B454 a new voice sounds at its own pitch, every factory patch
   "$build_dir/fxxfade_check"                            || return 1   # B117 crossfade handover as measured
   "$build_dir/polarity_check"                           || return 1   # B134 polarity before depth, as-is exact
   "$build_dir/lfoenv_check"                             || return 1   # B171 LFO 1/2 + ENV 3/4 as mod sources
@@ -913,6 +956,23 @@ full() {
       echo "verify[full]: gui_webview_check FAILED" >&2; cat /tmp/guiweb.$$ >&2
       rm -f /tmp/guiweb.$$; return 1; }
     tail -1 /tmp/guiweb.$$; rm -f /tmp/guiweb.$$
+  fi
+  # THE BUILT PLUGIN KEEPS ITS STORE IN ITS OWN IDENTITY'S FOLDER (B456; macOS).
+  # Under a scratch HOME, with the OTHER identity's folder planted beside it (a
+  # preset, a prefs file and a factory stamp naming the current bank), the shipped
+  # plugin opens its GUI and saves, loads, lists and deletes through the page's own
+  # bridge, and writes a forensic dump. Everything lands in LiftedTruck/HYPERSAW;
+  # the planted folder keeps its files, bytes and modification times, its preset is
+  # never listed, loaded or deleted, and its stamp does not stop the bank install
+  # (a plugin that read that folder would install nothing). Its CONTROL judges the
+  # same run as the other identity, which must fail. Here it proves the real build
+  # still uses the real folder; the test-identity tree runs the same binary with
+  # `test`. ~3 s. Added under ADR-180 §1.
+  if [ "$(uname)" = Darwin ]; then
+    "$build_dir/identity_store_check" real > /tmp/identstore.$$ 2>&1 || {
+      echo "verify[full]: identity_store_check FAILED" >&2; cat /tmp/identstore.$$ >&2
+      rm -f /tmp/identstore.$$; return 1; }
+    tail -1 /tmp/identstore.$$; rm -f /tmp/identstore.$$
   fi
   "$build_dir/hostile_events_check" > /tmp/hostile.$$ 2>&1 || {
     echo "verify[full]: hostile_events_check FAILED" >&2; cat /tmp/hostile.$$ >&2
@@ -1153,6 +1213,19 @@ full() {
   node tools/golden/gen_time_goldens.mjs --selfcheck || return 1
   node tools/golden/gen_time_goldens.mjs > /dev/null || return 1
   "$build_dir/time_check" "$(dirname "$build_dir")/build-golden/time" || return 1
+
+  # The floor under the eight golden-parity gates above (B455 H1; added under
+  # ADR-180 §1). parity_check, filter_check, notch_check, spectra_check,
+  # swarmalator_check, time_check, station_check and subosc_check read GREEN on an
+  # empty manifest, so a dropped scenario block shrank them silently; each now
+  # fails below its pinned scenario count. This runs each against the real corpus
+  # (must read green), an empty manifest and the manifest minus its last scenario
+  # (both must read RED, by the floor's own message), in symlinked scratch copies
+  # so no golden is touched. Every golden directory exists by here. ~25 s. It also
+  # floors, from outside their sources, the verbatim h2_swarm_parity_check and the
+  # swarm48 pair (swarm48_check, h2_swarm48_check); the other seven carry their floor
+  # in their own source (tools/scenario_floor.h).
+  python3 tools/parity_floor_check.py "$build_dir" || return 1
 
   # Intent-bus resolver oracle (B89 phase 2a/2b, ADR-176): fixtures sliced live
   # from reference/intent-bus.html -> intent_check (parity with a must-MISMATCH
