@@ -1322,6 +1322,80 @@ void directLoadRows(const std::string &a, const std::string &bFull)
   }
 }
 
+/* THE PITCH ROUTE AND A ZERO (B455). Knob 161 is the pitch route's depth: its
+   first non-zero value creates the route, and a LOAD's zero takes it out, so
+   the table a load leaves does not depend on the patch before it (IS-PRE-PRE
+   reads that). Only a load's: a zero the host sends, to an idle instance or
+   in a block, is a depth like any other and the route stays.
+     IS-ROUTE-IDLE  not processing: a host value creates the route, a host
+                    zero keeps it (depth 0), a later value moves it.
+     IS-ROUTE-PROC  the same, each value in its own block.
+     IS-ROUTE-LOAD  control: after a host value created the route, a load of a
+                    patch whose knob is 0 leaves no pitch route. */
+constexpr clap_id kPitchDepth = 161;
+int pitchRoutes(const Inst &s)
+{
+  const std::string j = hypersaw_debug_modroutes(s.p), needle = "\"dest\":2147483649";   // the route's synthetic dest
+  int n = 0;
+  for (size_t pos = 0; (pos = j.find(needle, pos)) != std::string::npos; pos += needle.size()) n++;
+  return n;
+}
+void pitchRouteRows()
+{
+  double depth = 0;
+  std::string zeroPatch;
+  {
+    Inst d;
+    for (uint32_t i = 0, n = d.params->count(d.p); i < n; i++)
+    {
+      clap_param_info_t inf{};
+      if (d.params->get_info(d.p, i, &inf) && inf.id == kPitchDepth) depth = inf.max_value;
+    }
+    zeroPatch = d.save();   // a fresh instance's state: the knob at its default
+  }
+  auto send = [](Inst &s, double v, bool processing) {
+    EvList ev;
+    ev.param(kPitchDepth, v);
+    if (processing) s.block(&ev);
+    else s.flushIdle(ev);
+  };
+  for (bool processing : {false, true})
+  {
+    Inst s;
+    if (processing) s.p->start_processing(s.p);
+    const int r0 = pitchRoutes(s);
+    send(s, depth, processing);
+    const int r1 = pitchRoutes(s);
+    send(s, 0, processing);
+    const int r2 = pitchRoutes(s);
+    double at0 = -1, atHalf = -1;
+    s.params->get_value(s.p, kPitchDepth, &at0);
+    send(s, depth / 2, processing);
+    const int r3 = pitchRoutes(s);
+    s.params->get_value(s.p, kPitchDepth, &atHalf);
+    row(depth != 0.0 && r0 == 0 && r1 == 1 && r2 == 1 && r3 == 1 && at0 == 0.0 && atHalf == depth / 2,
+        processing ? "IS-ROUTE-PROC" : "IS-ROUTE-IDLE",
+        std::string(processing ? "processing, one block each" : "not processing, by flush") + ": pitch routes " +
+            std::to_string(r0) + " at first, " + std::to_string(r1) + " after a host value, " + std::to_string(r2) +
+            " after a host ZERO (the knob reads " + std::to_string(at0) + "), " + std::to_string(r3) +
+            " after a later value");
+  }
+  {
+    Inst s;
+    send(s, depth, false);
+    const int r1 = pitchRoutes(s);
+    double knob = -1;
+    Inst probe;
+    probe.load(zeroPatch);
+    probe.params->get_value(probe.p, kPitchDepth, &knob);
+    s.load(zeroPatch);
+    const int r2 = pitchRoutes(s);
+    row(knob == 0.0 && r1 == 1 && r2 == 0, "IS-ROUTE-LOAD",
+        "control: a host value created the route (" + std::to_string(r1) + "), then a load of a patch whose knob is 0: " +
+            std::to_string(r2) + " pitch route(s)");
+  }
+}
+
 /* HOOK-ENGINE-IDLE (audit M5). The direct host load applies an engine-block
    line (`sub.*`) through applyParam. state_save writes
    the table first, so a chunk saved with morph ON has switched morph on by
@@ -1625,6 +1699,7 @@ int main()
   idleSaveRows(a, b);        // B455: audit H4, reader 1
   idleSupersedeRows(a, b);   // B455: audit H4, reader 2
   directLoadRows(a, b);      // B455: the queue under a direct load, and how the host hears
+  pitchRouteRows();          // B455: a load's zero and a host's zero on the pitch-route knob
   hookEngineRows(a, b);       // B455: audit M5
   std::printf("load_handoff_check: %s (%d failure(s))\n", g_fail ? "RED" : "GREEN", g_fail);
   return g_fail ? 1 : 0;

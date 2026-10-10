@@ -8462,7 +8462,18 @@ struct Plugin
            sit at index 0), and it was already corruptible by removing the
            pitch route in the GUI and then automating this knob. */
         const int pr = modPitchRouteIdx();
-        if (pr >= 0) mod.routes[pr].depth = applied;
+        /* A LOAD'S ZERO IS "NO ROUTE" (B455). Every load writes this knob's
+           default, 0, before the patch's own value (initState), on both
+           lanes. Taking the route out there means the patch's value creates
+           it afresh, so the table a load leaves is the one a fresh instance
+           would hold — the same routes in the same order, whatever the
+           previous patch had. A live edit to 0 keeps the route, as before. */
+        if (pr >= 0 && loadingState && applied == 0.0)
+        {
+          mod.removeRoute(pr);
+          modPublish();
+        }
+        else if (pr >= 0) mod.routes[pr].depth = applied;
         else if (applied != 0.0)
         {
           mod.addRoute(1, kModDestPitch, applied, hypersaw::ModCore::kGlobal);
