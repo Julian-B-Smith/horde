@@ -43,14 +43,16 @@
  *   D-*      deferred events with an impossible size (near 2^32, 0, a note
  *            shorter than a note) are refused and counted, nothing copied; a
  *            valid one beside them is kept and replayed.
- *   I-* IS-* B455 MEASURING rows (repo audit 2026-10-10, H4): a load made
- *            while NOT processing, then a save at once (I-SAVE*) or a second
- *            load (I-SUPERSEDE, IS-*). Each block comment below names its
- *            controls.
- *   HE-* HOOK-ENGINE-*  B455 MEASURING rows (audit M5): a direct host load of
- *            a chunk saved with morph ON, against "a load is not an edit".
- *            These rows report what today's shell does; a FAIL among them is
- *            the measurement, and none is marked expected-fail.
+ *   I-* IS-* B455 (repo audit 2026-10-10, H4): a load made while NOT
+ *            processing, then a save at once (I-SAVE*) or a second load
+ *            (I-SUPERSEDE, IS-*); what a direct load does with the queue and
+ *            how the host hears of it (I-TELL*, I-BRACKET*); the name a save
+ *            writes while a queued load waits (I-QWIN-*). Each block comment
+ *            below names its controls.
+ *   HE-* HOOK-ENGINE-*  B455 (audit M5): a direct host load of a chunk saved
+ *            with morph ON, against "a load is not an edit".
+ *            These rows were written to MEASURE the shell before it was
+ *            changed (twelve of them read red then); they are held green now.
  * Controls (the rows above are only meaningful if these hold):
  *   STOP-IDLE    the same load, never processing: must match.
  *   STOP-NOSTOP  processing throughout, no stop: must match. If this fails,
@@ -99,8 +101,19 @@ struct HostState
   const clap_plugin_t *plug = nullptr;
   bool stopOnFlush = false, stopped = false;
   void (*onFlush)() = nullptr;   // run ONCE, on the first request_flush, then cleared
+  // What the plugin told the host: rescan calls (and what a row reads inside
+  // one), and the out-events its drains raised, by kind.
+  int rescans = 0;
+  clap_param_rescan_flags rescanFlags = 0;
+  void (*onRescan)() = nullptr;
+  int outValues = 0, outGestures = 0;
 } g_host;
-void hpRescan(const clap_host_t *, clap_param_rescan_flags) {}
+void hpRescan(const clap_host_t *, clap_param_rescan_flags flags)
+{
+  g_host.rescans++;
+  g_host.rescanFlags = flags;
+  if (g_host.onRescan) g_host.onRescan();
+}
 void hpClear(const clap_host_t *, clap_id, clap_param_clear_flags) {}
 void hpRequestFlush(const clap_host_t *)
 {
@@ -124,7 +137,12 @@ const void *hostGetExtension(const clap_host_t *, const char *id)
 void hostNoop(const clap_host_t *) {}
 const clap_host_t kHost = {CLAP_VERSION, nullptr, "load_handoff_check", "", "", "1.0",
                            hostGetExtension, hostNoop, hostNoop, hostNoop};
-bool outPush(const clap_output_events_t *, const clap_event_header_t *) { return true; }
+bool outPush(const clap_output_events_t *, const clap_event_header_t *e)
+{
+  if (e->type == CLAP_EVENT_PARAM_VALUE) g_host.outValues++;
+  if (e->type == CLAP_EVENT_PARAM_GESTURE_BEGIN || e->type == CLAP_EVENT_PARAM_GESTURE_END) g_host.outGestures++;
+  return true;
+}
 const clap_output_events_t kOut = {nullptr, outPush};
 
 struct EvList
@@ -817,11 +835,11 @@ std::string defaultJson()
   return buf;
 }
 
-/* ---- B455 (repo audit 2026-10-10, H4 and M5): MEASURING rows --------------
+/* ---- B455 (repo audit 2026-10-10, H4 and M5) ------------------------------
    Loads made while NOT processing. The audit read three claims from the code
-   and ran none of them; these rows run them. A row that fails here is the
-   measurement, not a regression of this file, and nothing below is marked
-   expected-fail. Each row sits beside a control that reads the other way. */
+   and ran none of them; these rows run them. They were written to measure
+   the shell before it was changed, and nothing below is marked expected-fail.
+   Each row sits beside a control that reads the other way. */
 
 // The chunk as key -> text, one entry per `key=` line (the header has no '=').
 std::map<std::string, std::string> linesOf(const std::string &chunk)
@@ -1000,8 +1018,11 @@ void idleSaveRows(const std::string &a, const std::string &bFull)
    run. The reference is B alone through the same door on a fresh instance,
    taken through the same flush and the same blocks.
      IS-HOST-HOST  host A, host B: both direct, nothing queued.
-     IS-PRE-PRE    preset A, preset B: both queue every value, in order.
-     I-SUPERSEDE   preset A, host B: A's values are queued, B is direct.
+     IS-PRE-PRE    preset A, preset B. (When these rows were written both
+                   queued every value; each now applies its own before it
+                   returns, so B meets A's whole state, mod-route table
+                   included, and must still read as B on a fresh instance.)
+     I-SUPERSEDE   preset A, host B.
      IS-EDIT       the editor's morph toggle (one queued edit), host B.
    Controls, which must read clean:
      IS-CTL-FLUSH / IS-EDIT-CTL  the same, with a host flush before B.
@@ -1077,6 +1098,158 @@ void idleSupersedeRows(const std::string &a, const std::string &b)
   report("I-SUPERSEDE", "idle: preset A, host B", run(kPresetDoor, kHostDoor, false, false), hostB, true);
   report("IS-EDIT-CTL", "control: idle, editor morph-on, host FLUSH, host B", run(kEditorMorphOn, kHostDoor, true, false), hostB, true);
   report("IS-EDIT", "idle: editor morph-on, host B", run(kEditorMorphOn, kHostDoor, false, false), hostB, true);
+}
+
+/* WHAT A DIRECT LOAD DOES WITH THE QUEUE, AND HOW THE HOST HEARS OF IT (B455).
+   A load made while not processing applies its own values before it returns,
+   so nothing it wrote waits for a flush. A drain is how the host hears a
+   queued value, and the main thread has no out-events, so the load tells the
+   host by rescan(VALUES) instead (clap/ext/params.h, "Loading a preset").
+     I-TELL         idle preset load: ONE rescan, flagged VALUES; inside the
+                    call nothing is queued and every value already reads as
+                    the loaded patch; the next flush raises no value event.
+     I-TELL-HOST    control: an idle HOST load is the host's own; no rescan.
+     I-TELL-QUEUED  control: the same preset load with an event deferred
+                    during it keeps its values queued behind the event; no
+                    rescan, and the next flush raises one value event each.
+     I-BRACKET      a gesture bracket queued before a direct load is for the
+                    host: it is still queued after the load and the next flush
+                    raises it. The load itself stands whole.
+     I-BRACKET-CTL  control: with no bracket queued, nothing is left queued.
+     I-QWIN-NAME    processing: the name a save writes in the queued window is
+                    the outgoing patch's, through two loads; after the block it
+                    is the last load's.
+     I-QWIN-CLEAR   processing: a load of an unnamed patch over a named one
+                    leaves no name line once the block has run. */
+Inst *g_rescanInst = nullptr;
+uint32_t g_rescanDepth = 0;
+std::map<clap_id, double> g_rescanValues;
+void readInsideRescan()
+{
+  g_rescanDepth = stats(g_rescanInst->p).depth;
+  g_rescanValues = g_rescanInst->values();
+}
+std::string nameLine(const std::string &chunk)
+{
+  const auto l = linesOf(chunk);
+  auto it = l.find("presetname");
+  return it == l.end() ? std::string("(none)") : it->second;
+}
+void directLoadRows(const std::string &a, const std::string &bFull)
+{
+  // The held patch carries no routing cells, for idleSaveRows' reason (B193).
+  const std::string b = withoutKey(bFull, "routing");
+  const std::string ja = presetJsonOf(a);
+  EvList none;
+  std::map<clap_id, double> wholeValues;
+  { Inst r; hypersaw_debug_apply_named(r.p, ja.c_str(), "PRESET-A"); r.flushIdle(none); wholeValues = r.values(); }
+
+  {
+    Inst s;
+    s.load(b);
+    g_rescanInst = &s;
+    g_rescanDepth = 0;
+    g_rescanValues.clear();
+    g_host.rescans = 0;
+    g_host.rescanFlags = 0;
+    g_host.onRescan = readInsideRescan;
+    hypersaw_debug_apply_named(s.p, ja.c_str(), "PRESET-A");
+    g_host.onRescan = nullptr;
+    const int calls = g_host.rescans;
+    g_host.outValues = 0;
+    s.flushIdle(none);
+    int n = 0;
+    const std::string d = diff(g_rescanValues, wholeValues, &n);
+    row(calls == 1 && g_host.rescanFlags == CLAP_PARAM_RESCAN_VALUES && g_rescanDepth == 0 && n == 0 &&
+            !g_rescanValues.empty() && g_host.outValues == 0,
+        "I-TELL", "idle preset load: " + std::to_string(calls) + " rescan(s), flags " + std::to_string(g_host.rescanFlags) +
+                      "; inside the call " + std::to_string(g_rescanDepth) + " entr(ies) queued and " + std::to_string(n) +
+                      " of " + std::to_string(g_rescanValues.size()) + " value(s) not the loaded patch's" + d +
+                      "; the next flush raised " + std::to_string(g_host.outValues) + " value event(s)");
+  }
+  {
+    Inst s;
+    g_host.rescans = 0;
+    s.load(a);
+    row(g_host.rescans == 0, "I-TELL-HOST", "control: idle HOST load: " + std::to_string(g_host.rescans) + " rescan(s)");
+  }
+  {
+    Inst s;
+    s.load(b);
+    g_inst = &s;
+    g_host.rescans = 0;
+    g_host.onFlush = flushInside;   // a flush inside the load: its event is deferred
+    hypersaw_debug_apply_named(s.p, ja.c_str(), "PRESET-A");
+    g_host.onFlush = nullptr;
+    const uint32_t depth = stats(s.p).depth;
+    g_host.outValues = 0;
+    s.flushIdle(none);
+    row(g_host.rescans == 0 && depth > 0 && g_host.outValues == (int)depth && s.values() == [&] {
+          auto w = wholeValues;
+          if (w.count(178)) w[178] = 0;   // flushInside's own event: specimen, which no load writes
+          return w;
+        }(),
+        "I-TELL-QUEUED", "control: the same load with an event deferred during it: " + std::to_string(g_host.rescans) +
+                             " rescan(s), " + std::to_string(depth) + " entr(ies) left queued, the next flush raised " +
+                             std::to_string(g_host.outValues) + " value event(s) and left the loaded patch");
+  }
+
+  // A gesture bracket queued before a direct load.
+  {
+    std::string ref;
+    { Inst r; r.load(b); r.flushIdle(none); ref = r.save(); }
+    auto run = [&](bool bracket, uint32_t *before, uint32_t *after, int *raised) {
+      Inst s;
+      if (bracket) hypersaw_debug_gesture(s.p, 4, true);
+      *before = stats(s.p).depth;
+      s.load(b);
+      *after = stats(s.p).depth;
+      g_host.outGestures = 0;
+      g_host.outValues = 0;
+      s.flushIdle(none);
+      *raised = g_host.outGestures;
+      return s.save();
+    };
+    uint32_t b0 = 0, b1 = 0, c0 = 0, c1 = 0;
+    int raised = 0, craised = 0;
+    const std::string got = run(true, &b0, &b1, &raised);
+    row(b0 == 1 && b1 == 1 && raised == 1 && g_host.outValues == 0 && got == ref, "I-BRACKET",
+        "a gesture begin queued before an idle host load: " + std::to_string(b0) + " queued before, " + std::to_string(b1) +
+            " after; the next flush raised " + std::to_string(raised) + " gesture event(s) and " +
+            std::to_string(g_host.outValues) + " value event(s); the load: " + show(lineDiff(got, ref)));
+    const std::string ctl = run(false, &c0, &c1, &craised);
+    row(c0 == 0 && c1 == 0 && craised == 0 && ctl == ref, "I-BRACKET-CTL",
+        "control: no bracket queued: " + std::to_string(c1) + " queued after the load, " + std::to_string(craised) +
+            " gesture event(s) raised");
+  }
+
+  // The name a save writes while a queued load waits.
+  {
+    Inst s;
+    s.p->start_processing(s.p);
+    s.load(b + "presetname=PATCH-B\n");
+    s.block();
+    const std::string held = nameLine(s.save());
+    s.load(a);                             // unnamed
+    const std::string mid1 = nameLine(s.save());
+    s.load(a + "presetname=PATCH-C\n");    // a second load before any block
+    const std::string mid2 = nameLine(s.save());
+    s.block();
+    const std::string after = nameLine(s.save());
+    row(held == "PATCH-B" && mid1 == "PATCH-B" && mid2 == "PATCH-B" && after == "PATCH-C", "I-QWIN-NAME",
+        "processing, two host loads before the next block: the save's name line reads '" + held + "', then '" + mid1 +
+            "' and '" + mid2 + "' in the window, then '" + after + "' after the block");
+  }
+  {
+    Inst s;
+    s.p->start_processing(s.p);
+    s.load(b + "presetname=PATCH-B\n");
+    s.block();
+    s.load(a);
+    s.block();
+    const std::string after = nameLine(s.save());
+    row(after == "(none)", "I-QWIN-CLEAR", "processing, an unnamed patch loaded over a named one, one block: name line '" + after + "'");
+  }
 }
 
 /* HOOK-ENGINE-IDLE (audit M5). The direct host load applies an engine-block
@@ -1381,6 +1554,7 @@ int main()
   sizeRows(json);
   idleSaveRows(a, b);        // B455: audit H4, reader 1
   idleSupersedeRows(a, b);   // B455: audit H4, reader 2
+  directLoadRows(a, b);      // B455: the queue under a direct load, and how the host hears
   hookEngineRows(a, b);       // B455: audit M5
   std::printf("load_handoff_check: %s (%d failure(s))\n", g_fail ? "RED" : "GREEN", g_fail);
   return g_fail ? 1 : 0;

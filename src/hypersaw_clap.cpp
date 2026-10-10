@@ -7407,6 +7407,28 @@ struct Plugin
     for (char c : hypersaw::utf8Clean(n, 60))
       if ((unsigned char)c >= 0x20) presetName += c;
   }
+  /* THE NAME A SAVE WRITES (B455). A queued load sets `presetName` at once —
+     it is main-thread state and the editor shows it — while the load's
+     parameters and field land at the next block. A save taken in between
+     writes the outgoing patch's values, so it writes the outgoing patch's
+     name with them: one patch, whole, never one patch under the other's name.
+     The name is held here from the queued load's start until the audio thread
+     has adopted that load's batch, which the main thread reads off the stage
+     gate (phase 0 again under the published generation; the marker is the
+     batch's last entry, so the parameters have landed by then). Main thread
+     only; the audio thread never touches a string. `known` is false while the
+     load is still writing, so nothing is released on a generation it has not
+     published yet. */
+  std::string nameBeforeBatch;
+  bool nameHeld = false, nameGenKnown = false;
+  uint64_t nameBatchGen = 0;
+  bool nameStillHeld()
+  {
+    if (nameHeld && nameGenKnown && morphGate.state.load(std::memory_order_acquire) == (nameBatchGen << 2))
+      nameHeld = false;
+    return nameHeld;
+  }
+  const std::string &savedPresetName() { return nameStillHeld() ? nameBeforeBatch : presetName; }
 
   /* One reader for "the number this JSON gives for `needle`, or `def` when it
      does not name the key". applyStateJson (what a load DOES) and
@@ -7686,7 +7708,14 @@ struct Plugin
       {
         p.morphInit();   // a no-op once activated; sizes the stage before it is written
         p.beginQueueBatch();
+        /* savedPresetName: the outgoing name is held from here. A second
+           queued load before the first was adopted keeps the name already
+           held — that is still the patch the live parameters belong to. */
+        if (!p.nameStillHeld()) p.nameBeforeBatch = p.presetName;
+        p.nameHeld = true;
+        p.nameGenKnown = false;
       }
+      else p.nameHeld = false;   // a direct load leaves nothing waiting: the name it sets is the patch's
       p.morphStageClaim();
       if (ds.owned) p.drainQueueOwned();
       field = ds.owned ? p.liveField() : p.stageField();
@@ -7716,6 +7745,8 @@ struct Plugin
         return true;
       }
       pl.morphStagePublish();   // the batch's last entry: the field lands with its parameters
+      pl.nameBatchGen = pl.morphGate.gen;   // savedPresetName: released when this generation is adopted
+      pl.nameGenKnown = true;
       return pl.endQueueBatch();
     }
   };
@@ -10257,7 +10288,9 @@ bool state_save(const clap_plugin_t *p, const clap_ostream_t *stream)
   // none). Emitted ONLY when non-empty, exactly as `routing=` below, so a
   // session saved before names is byte-identical. setPresetName strips control
   // characters, which is what keeps this one line one line.
-  if (!self(p)->presetName.empty()) blob += "presetname=" + self(p)->presetName + "\n";
+  // savedPresetName, not presetName: while a queued load waits, the values
+  // above are still the outgoing patch's, and so is the name written with them.
+  if (const std::string &nm = self(p)->savedPresetName(); !nm.empty()) blob += "presetname=" + nm + "\n";
   // ADR-138: generic mod routes ride the session. Emitted ONLY when routes
   // exist, so a routeless patch's bytes are unchanged and every existing
   // state round-trip stays exactly what it was. Old builds ignore the key.
