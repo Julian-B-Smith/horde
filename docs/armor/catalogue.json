@@ -59,8 +59,8 @@
       "id": "R7",
       "title": "State and preset compatibility",
       "status": "partial",
-      "gates": ["statefix_check", "state_check", "modreadback_check", "param_id_lock_check"],
-      "gaps": "Three state fixtures load bit-identically, and param_id_lock_check locks all 397 host-visible parameter ids append-only (removal, renumbering, re-ranging and reuse are red; its full row asks the real plugin). Defaults are deliberately not locked: a default change is caught only by the ADR-and-migration rule in review. No per-release saved-state corpus rendered in CI (nothing is released yet). horde 2 has no parameter manifest, so its lock section is a stub (B308 H4).",
+      "gates": ["statefix_check", "state_check", "modreadback_check", "param_id_lock_check", "load_handoff_check"],
+      "gaps": "Three state fixtures load bit-identically; load_handoff_check holds that a load is whole whether or not the plugin is processing (ADR-200, ADR-208); and param_id_lock_check locks all 397 host-visible parameter ids append-only (removal, renumbering, re-ranging and reuse are red; its full row asks the real plugin). Defaults are deliberately not locked: a default change is caught only by the ADR-and-migration rule in review. No per-release saved-state corpus rendered in CI (nothing is released yet). horde 2 has no parameter manifest, so its lock section is a stub (B308 H4).",
       "tracked_by": "B448",
       "tripwire": "Old sets render unchanged: yes"
     },
@@ -142,8 +142,8 @@
       "id": "S4",
       "title": "Quiet disabling",
       "status": "partial",
-      "gates": ["test_table_check", "weakening_check"],
-      "gaps": "test_table_check makes every check declare whether ./verify runs it, and cross-checks the claim. weakening_check counts skips, suppressions, disabled sanitizers, soft-fails, UNWIRED declarations and DSP guards against a baseline and fails on any increase. Not yet: markers assembled by macro, and proof that an `approved` reference was written by the human rather than an agent.",
+      "gates": ["test_table_check", "weakening_check", "parity_floor_check"],
+      "gaps": "test_table_check makes every check declare whether ./verify runs it, and cross-checks the claim. weakening_check counts skips, suppressions, disabled sanitizers, soft-fails, UNWIRED declarations and DSP guards against a baseline and fails on any increase. Every golden-parity gate now fails below a pinned scenario count, so a corpus cannot shrink quietly (parity_floor_check and in-source floors, thirteen gates; found by the 2026-10-10 audit). Not yet: markers assembled by macro, and proof that an `approved` reference was written by the human rather than an agent.",
       "tracked_by": "B448",
       "tripwire": "Skips, suppressions and disabled sanitizers: no increase"
     },
