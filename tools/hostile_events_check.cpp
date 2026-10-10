@@ -37,7 +37,8 @@
  *            and matrix source 14 reads 1; 0.6 strikes, reads 0.6 exactly and
  *            renders differently from velocity 1 (the row that shows velocity
  *            reaches the render at all, so the equalities above are not blind).
- *            The Sub Osc is on for these rows: it is a second reader of velocity.
+ *            SUB On is set for these rows (and shown to sound): the sub is a
+ *            second reader of velocity.
  *   TEMPO    (B455) host tempo is checked where it enters, through BOTH doors (a
  *            transport event, and the block's transport), under the tempo-grid
  *            detune law: NaN, +inf, -inf, 0, -97, the 1 BPM floor and 1e-310 are
@@ -79,7 +80,8 @@ constexpr double kSR = 44100.0;
 constexpr uint32_t kBlock = 256;
 constexpr int kBlocks = 52;   // ~0.3 s: the NaN appears within the first block
 constexpr clap_id kSawBase = 129, kRound = 131;
-constexpr clap_id kLaw = 5, kSubOn = 52;   // Detune Law (3 = tempo-grid), Sub Osc
+constexpr clap_id kLaw = 5;        // Detune Law; 3 = tempo-grid
+constexpr clap_id kSubOn = 4015;   // SUB On, the SUB OSC source's gate (NOT id 52: that is SPECTRA's sub)
 constexpr int kSrcVelocity = 14;           // matrix source slot: last note-on velocity
 const double kInf = std::numeric_limits<double>::infinity();
 const double kNaN = std::numeric_limits<double>::quiet_NaN();
@@ -408,6 +410,8 @@ int main()
     const Render full = strike(1.0), silent = run(empty, empty, sub), held0 = onHeld(0.0);
     row(full.finite && full.voices == 1 && full.srcVel == 1.0 && full.out != silent.out, "VEL",
         "baseline: velocity 1 strikes one voice, source 14 reads 1, the render is not silence");
+    row(full.out != base.out, "VEL",
+        "baseline: SUB On changes the velocity-1 render (the sub is sounding in these rows)");
     row(held0.finite && !held0.gated60 && held0.out != full.out, "VEL",
         "baseline: velocity 0 on a held key releases it (the meaning this site already gives it)");
     const Render part = strike(0.6);
