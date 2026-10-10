@@ -122,12 +122,13 @@ fast() {
   # parity, h2 product, the FMA controls, tools/oracles), the explicit compile and link
   # options and their conditions, plus the global settings (C++ standard, deployment
   # target, architectures), the sanitizer loops and each script's build type. Any
-  # difference is red until `--approve <target> <ref>`; any fast-math-family flag in
+  # difference is red until `--approve <target> <ref>`, except that a NEW target whose flags
+  # equal its class's is recorded by `--append` (never alters an entry); any fast-math-family flag in
   # CMakeLists.txt, verify, tools/ or the workflows is red outright (comments and
   # docstrings are blanked first). Static, no configure; `full` also reads the emitted
   # flags.make. Self-calibrating (planted -ffast-math and each sibling, a changed -O
-  # level, a changed -ffp-contract, a removed target, a new global flag, an empty
-  # approval ref). ~0.3 s. Added under ADR-180 §1.
+  # level, a changed -ffp-contract, a removed target, a new global flag, an --append
+  # that would alter an entry, an empty approval ref). ~0.3 s. Added under ADR-180 §1.
   python3 tools/build_flags_check.py || ok=1
   # A LIFTED h2 core is its legacy source plus its lift ledger, byte for byte
   # (B379; ADR-187 L3: a byte-identical lift carries the legacy parity proof).

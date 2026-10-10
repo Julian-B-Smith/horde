@@ -39,7 +39,8 @@ appears as a code token in CMakeLists.txt, cmake/, verify, tools/*.sh, tools/*.p
 workflows (comments and docstrings are blanked first: nan_latch_check.py names the flag in a
 comment). And -ffp-contract=fast/on may only sit on a target named *_fma_control.
 
-MODES. (none) check;  --init first pin;  --approve <target|section> <ref>  a HUMAN-approved
+MODES. (none) check;  --init first pin;  --append add NEW targets whose flags equal their
+class's (never alters an entry; refuses anything else);  --approve <target|section> <ref>  a HUMAN-approved
 re-pin of one item to the tree (non-empty <ref> recorded; refused while fast-math is present);
 --built <dir>  also read <dir>/CMakeFiles/*/flags.make.
 SELF-CALIBRATING: selftest() plants -ffast-math (and each sibling), a changed -O level, a changed
@@ -334,12 +335,35 @@ def to_pin(tree, approved=None):
             "classes": classes, "approved": approved or {}}
 
 
+APPENDABLE = "new target, class"      # the message prefix --append recognises as its own business
+
+
+def appendable_targets(pin, tree):
+    """-> {name: class} of tree targets the pin lacks whose flags are EXACTLY those of a pinned
+    member of the class the classifier puts them in. (Every pinned member of a class carries one of
+    a few flag sets: tools_oracles has -O2, -O3 and none. A newcomer must equal one of them; -O1,
+    or a new link option, is a different set and needs a human.)"""
+    pt, out = pin_targets(pin), {}
+    for t, v in tree["targets"].items():
+        if t in pt:
+            continue
+        cls = classify(t, v)
+        if any(v == pv for pn, pv in pin["classes"][cls]["targets"].items()):
+            out[t] = cls
+    return out
+
+
 def compare(pin, tree):
-    """-> failures. Pure: pin dict vs extraction dict."""
+    """-> failures. Pure: pin dict vs extraction dict. A new target whose flags equal its class's
+    is reported with the APPENDABLE prefix (still red until `--append` records it, like a new id)."""
     fails = []
+    new_ok = appendable_targets(pin, tree)
     for sec in ("global", "dynamic_loops", "entry_points", "direct_compiles"):
-        if pin[sec] != tree[sec]:
-            a, b = pin[sec], tree[sec]
+        a, b = pin[sec], tree[sec]
+        if sec == "dynamic_loops":       # an appendable executable declared before a loop joins its reach
+            b = [dict(d, executables_covered=[e for e in d["executables_covered"] if e not in new_ok])
+                 for d in b]
+        if a != b:
             if isinstance(a, dict) and isinstance(b, dict):
                 for k in sorted(set(a) | set(b)):
                     if a.get(k) != b.get(k):
@@ -350,8 +374,12 @@ def compare(pin, tree):
     for t in sorted(set(pt) | set(tt)):
         if t not in tt:
             fails.append(f"target {t}: pinned but REMOVED from the tree")
+        elif t in new_ok:
+            fails.append(f"target {t}: {APPENDABLE} {new_ok[t]}, flags identical: run "
+                         "`python3 tools/build_flags_check.py --append`")
         elif t not in pt:
-            fails.append(f"target {t}: NEW and unpinned (flags {json.dumps(tt[t])})")
+            fails.append(f"target {t}: NEW with flags that differ from every pinned {classify(t, tt[t])} "
+                         f"target ({json.dumps(tt[t])}); needs --approve {t} <ref>")
         elif pt[t] != tt[t]:
             fails.append(f"target {t}: pinned {json.dumps(pt[t])}\n      tree   {json.dumps(tt[t])}")
         else:
@@ -362,6 +390,24 @@ def compare(pin, tree):
         if any(CONTRACT_ON.search(f) for x in v for f in x["compile"]) and not t.endswith("_fma_control"):
             fails.append(f"target {t}: -ffp-contract=fast/on is allowed only on a *_fma_control target")
     return fails
+
+
+def append_new(pin, tree, fastmath):
+    """--append: add the appendable new targets, ALTER NOTHING. -> (new_pin, added names) or
+    ValueError. Any other difference (a changed or removed target, a new global flag, a newcomer
+    whose flags differ, fast-math) refuses, so --append can never launder a break into the pin."""
+    others = [f for f in compare(pin, tree) if f"{APPENDABLE} " not in f]
+    if fastmath or others:
+        raise ValueError("refusing to --append; the pin is not otherwise intact:\n  "
+                         + "\n  ".join(fastmath + others))
+    new_ok = appendable_targets(pin, tree)
+    if not new_ok:
+        raise ValueError("no new targets to append")
+    out = copy.deepcopy(pin)
+    for t, cls in new_ok.items():
+        out["classes"][cls]["targets"][t] = tree["targets"][t]
+    out["dynamic_loops"] = tree["dynamic_loops"]
+    return out, sorted(new_ok)
 
 
 def approve(pin, tree, name, ref, fastmath):
@@ -455,6 +501,9 @@ def check_built(pin, build):
 
 # ---- self-calibration --------------------------------------------------------------------
 
+NEW_ZZ = ("\nadd_executable(zz_new tools/zz.cpp)\nif(NOT MSVC)\n  target_compile_options(zz_new PRIVATE -O2)\nendif()\n")
+
+
 def selftest(files):
     """Plant each fault on a COPY of the real sources; every one must be refused. -> (problems, n)."""
     bad, n = [], [0]
@@ -507,8 +556,40 @@ def selftest(files):
         "allowed only on a *_fma_control")
     red("removed target", cm(lambda t: "\n".join(l for l in t.splitlines() if "h2_swarm48_check" not in l)),
         "target h2_swarm48_check: pinned but REMOVED")
-    red("new unpinned target", cm(lambda t: t + "\nadd_executable(zz_new tools/zz.cpp)\n"
-                                    "target_compile_options(zz_new PRIVATE -O2)\n"), "target zz_new: NEW")
+    newt = lambda opt: cm(lambda t: t + "\nadd_executable(zz_new tools/zz.cpp)\n"
+                          f"if(NOT MSVC)\n  target_compile_options(zz_new PRIVATE {opt})\nendif()\n")
+    red("new target, identical flags: red until --append", newt("-O2"),
+        "target zz_new: new target, class tools_oracles, flags identical")
+    red("new target, different -O", newt("-O1"), "target zz_new: NEW with flags that differ")
+    red("new target, contraction off but -O1 (an h2 class it does not match)", newt("-O1 -ffp-contract=off"),
+        "target zz_new: NEW with flags that differ")
+    n[0] += 1
+    grown = extract_all(newt("-O2"))
+    try:
+        appended, added = append_new(pin, grown, [])
+        if added != ["zz_new"] or compare(appended, grown) or "zz_new" not in appended["classes"]["tools_oracles"]["targets"]:
+            bad.append("control 'new target with identical flags is green after --append' did not hold")
+        if "zz_new" in pin_targets(pin):
+            bad.append("control '--append' mutated its input pin")
+    except ValueError as e:
+        bad.append(f"control '--append of an identical-flags target' was refused: {e}")
+    for label, f, fm in (
+            ("--append of a new target with a different -O", newt("-O1"), []),
+            ("--append that alters an existing entry",
+             cm(lambda t: t.replace("measure_h2_engine PRIVATE -O3", "measure_h2_engine PRIVATE -O2", 1)
+                + NEW_ZZ), []),
+            ("--append that removes a target",
+             cm(lambda t: "\n".join(l for l in t.splitlines() if "h2_swarm48_check" not in l)
+                + NEW_ZZ), []),
+            ("--append with a new global flag", cm(lambda t: t + "\nadd_compile_options(-march=native)\n"
+                + NEW_ZZ), []),
+            ("--append while fast-math is present", newt("-O2"), ["f: fast-math"])):
+        n[0] += 1
+        try:
+            append_new(pin, extract_all(f), fm)
+            bad.append(f"control '{label}' was NOT refused")
+        except ValueError:
+            pass
     red("new global flag setter", cm(lambda t: t + "\nadd_compile_options(-march=native)\n"), "global")
     red("changed C++ standard", cm(lambda t: t.replace("CMAKE_CXX_STANDARD 20", "CMAKE_CXX_STANDARD 23", 1)),
         "CMAKE_CXX_STANDARD")
@@ -586,6 +667,11 @@ def main(argv):
                 raise ValueError("refusing to pin while fast-math is present:\n  " + "\n  ".join(fast))
             PIN.write_text(dump_pin(to_pin(tree)) + "\n", encoding="utf-8")
             print(f"build_flags_check: wrote {PIN.relative_to(ROOT)} ({len(tree['targets'])} targets)")
+            return 0
+        if args[:1] == ["--append"]:
+            pin2, added = append_new(load_pin(), tree, fast)
+            PIN.write_text(dump_pin(pin2) + "\n", encoding="utf-8")
+            print(f"build_flags_check: appended {len(added)} new target(s): {added}")
             return 0
         if args[:1] == ["--approve"]:
             if len(args) != 3:

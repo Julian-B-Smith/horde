@@ -29,15 +29,15 @@
   `flags.make` to prove the pin is what CMake emitted. (3) A static id extractor alone: the
   routing and engine blocks are built at load time, so `full` runs the real plugin and demands
   field-for-field equality with the extractor. (4) Pinning defaults in the id lock: a default
-  change is its own contract (ADR-197: an ADR plus a migration). (5) Auto-accepting a new
-  target whose flags match an existing class: kept strict, so every new target is a pin edit;
-  the lead may want to relax that if it proves a merge-conflict magnet.
+  change is its own contract (ADR-197: an ADR plus a migration). (5) Strict-on-every-new-target: first built that way, then relaxed on the lead's ruling to the
+  id lock's shape (a new target whose flags equal a pinned member of its class is recorded with
+  `--append`; anything else needs `--approve <target> <ref>`).
 - **Verify:** `./verify fast` exit 0 at `d571efc` (`.harness/last-verify.json`:
   `{"target":"fast","exit":0,"git":"d571efc"}`). The `full` rows were run by hand against a
   fresh Release tree: `param_id_lock_check.py --runtime build-release/param_id_dump` GREEN
   (real plugin equals the static extraction and the lock) and `build_flags_check.py --built
   build-release` GREEN. `./verify full` as a whole was NOT run (human-paced).
-- **Open questions:** (a) The pin is strict about new targets (see 5 above). (b) `registry_dump`
+- **Open questions:** (a) none on the new-target rule (resolved, see 5 above). (b) `registry_dump`
   is stale (FOUNDATIONS' emitter) and nothing runs it. (c) The h2 section of the id lock is a
   stub until the generated parameter table (B308 H4) exists. (d) Findings that are facts about
   the tree, not changes: no explicit `-O` on the legacy plugin (a bare `cmake` without
