@@ -6185,6 +6185,27 @@ struct Plugin
     qTail.store(tail, std::memory_order_release);
   }
 
+  /* A RESCAN THE HOST IS OWED (applyStateJson): 0 none, 1 owed, 2 asked for.
+     The call is [main-thread], and the moment it becomes true is on the audio
+     side: after the deferred events were replayed and the queue drained. So
+     that side asks the host for a main-thread callback, once (request_callback
+     is [thread-safe] and is one flag in the wrappers), and
+     plug_on_main_thread makes the call. Nothing waits on anything. */
+  std::atomic<int> rescanOwed{0};
+  void askForOwedRescan()
+  {
+    if (rescanOwed.load(std::memory_order_relaxed) != 1) return;
+    int owed = 1;
+    if (rescanOwed.compare_exchange_strong(owed, 2, std::memory_order_acq_rel) && host && host->request_callback)
+      host->request_callback(host);
+  }
+  void makeOwedRescan()   // main thread
+  {
+    int asked = 2;
+    if (rescanOwed.compare_exchange_strong(asked, 0, std::memory_order_acq_rel) && hostParams && hostParams->rescan)
+      hostParams->rescan(host, CLAP_PARAM_RESCAN_VALUES);
+  }
+
   /* MAIN THREAD, INSIDE A DIRECT SEQUENCE (the caller owns the state, so no
      other drain can be running): apply everything queued, in order, with the
      function a block start runs. Returns whether anything was queued.
@@ -7980,9 +8001,18 @@ struct Plugin
        a plugin-side load (clap/ext/params.h, "I. Loading a preset": rescan
        with CLAP_PARAM_RESCAN_VALUES, [main-thread] — the host reads every
        value again and records no automation). LAST, with the load ended and
-       named: a host may read values or save from inside the call. */
-    if (ls.appliedOwn && hostParams && hostParams->rescan)
-      hostParams->rescan(host, CLAP_PARAM_RESCAN_VALUES);
+       named: a host may read values or save from inside the call.
+       A direct load whose values stayed queued (LoadScope::end) cannot make
+       the call yet: its own values will go out as events when they drain, but
+       what its START applied from the queue went out as nothing. That rescan
+       is OWED, and made once the audio side has replayed and drained
+       (askForOwedRescan, plug_on_main_thread). */
+    if (ls.appliedOwn)
+    {
+      rescanOwed.store(0, std::memory_order_release);   // this call covers anything owed before
+      if (hostParams && hostParams->rescan) hostParams->rescan(host, CLAP_PARAM_RESCAN_VALUES);
+    }
+    else if (ls.direct()) rescanOwed.store(1, std::memory_order_release);
     return any;
   }
 
@@ -9642,6 +9672,7 @@ struct Plugin
     replayDeferred();   // events (and a reset) that arrived while a direct sequence owned the state
     panicPerformRequested();   // before the drain: the click came before any later edit
     drainQueue(p->out_events);
+    askForOwedRescan();
 
     float *outL = p->audio_outputs[0].data32[0];
     float *outR = p->audio_outputs[0].data32[1];
@@ -10222,6 +10253,7 @@ void params_flush(const clap_plugin_t *p, const clap_input_events_t *in,
   }
   pl->replayDeferred();
   pl->drainQueue(out);
+  pl->askForOwedRescan();
   const uint32_t nev = in->size(in);
   for (uint32_t i = 0; i < nev; i++) pl->handleEvent(in->get(in, i));
   pl->endAudioEntry();
@@ -10892,7 +10924,7 @@ extern "C" bool hypersaw_debug_cornermatches(const clap_plugin_t *p, int k, cons
    check drives exactly the calls the GUI binds drive — a second entry point
    would be a second implementation of the thing under test.
      service | tree | json <i> | restore <i> | undo | redo | mark <label-id>
-     | live | setmorph <0|1>   (B222; hypersaw_debug.h's op list predates them)
+     | live | setmorph <0|1> | setspec <0|1>   (B222, B455; hypersaw_debug.h's op list predates them)
    Everything returns a string because two of the ops return JSON; the numeric
    ops return a decimal. */
 extern "C" const char *hypersaw_debug_undo(const clap_plugin_t *p, const char *op, int arg)
@@ -10915,6 +10947,8 @@ extern "C" const char *hypersaw_debug_undo(const clap_plugin_t *p, const char *o
   // (the value half of the checkbox; the bracket is hypersaw_debug_gesture).
   else if (o == "live") r = pl->historyJson();
   else if (o == "setmorph") { pl->guiSetParam(151, arg ? 1.0 : 0.0); r = "1"; }
+  // B455: the editor's write of a parameter NO load writes (specimen, ADR-147), for load_handoff_check.
+  else if (o == "setspec") { pl->guiSetParam(178, arg ? 1.0 : 0.0); r = "1"; }
   else r = "?";
   return r.c_str();
 }
@@ -11167,7 +11201,7 @@ const void *plug_get_extension(const clap_plugin_t *, const char *id)
   return nullptr;
 }
 
-void plug_on_main_thread(const clap_plugin_t *) {}
+void plug_on_main_thread(const clap_plugin_t *p) { self(p)->makeOwedRescan(); }
 
 /* ---- factory ---- */
 

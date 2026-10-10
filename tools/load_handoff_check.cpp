@@ -52,7 +52,7 @@
  *   HE-* HOOK-ENGINE-*  B455 (audit M5): a direct host load of a chunk saved
  *            with morph ON, against "a load is not an edit".
  *            These rows were written to MEASURE the shell before it was
- *            changed (twelve of them read red then); they are held green now.
+ *            changed; they are held green now.
  * Controls (the rows above are only meaningful if these hold):
  *   STOP-IDLE    the same load, never processing: must match.
  *   STOP-NOSTOP  processing throughout, no stop: must match. If this fails,
@@ -106,7 +106,8 @@ struct HostState
   int rescans = 0;
   clap_param_rescan_flags rescanFlags = 0;
   void (*onRescan)() = nullptr;
-  int outValues = 0, outGestures = 0;
+  int outValues = 0, outGestures = 0, outSpecimen = 0;
+  int callbacks = 0;   // request_callback calls
 } g_host;
 void hpRescan(const clap_host_t *, clap_param_rescan_flags flags)
 {
@@ -135,11 +136,13 @@ const void *hostGetExtension(const clap_host_t *, const char *id)
   return std::strcmp(id, CLAP_EXT_PARAMS) == 0 ? &kHostParams : nullptr;
 }
 void hostNoop(const clap_host_t *) {}
+void hostRequestCallback(const clap_host_t *) { g_host.callbacks++; }   // a row calls on_main_thread itself
 const clap_host_t kHost = {CLAP_VERSION, nullptr, "load_handoff_check", "", "", "1.0",
-                           hostGetExtension, hostNoop, hostNoop, hostNoop};
+                           hostGetExtension, hostNoop, hostNoop, hostRequestCallback};
 bool outPush(const clap_output_events_t *, const clap_event_header_t *e)
 {
   if (e->type == CLAP_EVENT_PARAM_VALUE) g_host.outValues++;
+  if (e->type == CLAP_EVENT_PARAM_VALUE && ((const clap_event_param_value_t *)e)->param_id == 178) g_host.outSpecimen++;
   if (e->type == CLAP_EVENT_PARAM_GESTURE_BEGIN || e->type == CLAP_EVENT_PARAM_GESTURE_END) g_host.outGestures++;
   return true;
 }
@@ -1112,15 +1115,31 @@ void idleSupersedeRows(const std::string &a, const std::string &b)
      I-TELL-QUEUED  control: the same preset load with an event deferred
                     during it keeps its values queued behind the event; no
                     rescan, and the next flush raises one value event each.
+     I-TELL-LATER   the rescan a load owes when its values stayed queued: an
+                    editor write to a parameter no load writes (specimen) is
+                    queued, then the preset load with an event deferred during
+                    it. The load's start applied the write with no event; the
+                    flush raises none for it either; after that flush the
+                    plugin has asked for ONE main-thread callback, and the
+                    callback makes ONE rescan in which the write reads back.
      I-BRACKET      a gesture bracket queued before a direct load is for the
                     host: it is still queued after the load and the next flush
-                    raises it. The load itself stands whole.
+                    raises it. The load itself stands whole. Three shapes: a
+                    begin alone, a begin and its end, an end alone.
      I-BRACKET-CTL  control: with no bracket queued, nothing is left queued.
      I-QWIN-NAME    processing: the name a save writes in the queued window is
                     the outgoing patch's, through two loads; after the block it
                     is the last load's.
      I-QWIN-CLEAR   processing: a load of an unnamed patch over a named one
                     leaves no name line once the block has run. */
+// A flush from inside a load whose event is not one a row reads back
+// (masterVol: the load writes it too, and the load's value stands, E-ORDER).
+void flushInsideVol()
+{
+  EvList ev;
+  ev.param(100, 0.123);
+  g_inst->params->flush(g_inst->p, &ev.list, &kOut);
+}
 Inst *g_rescanInst = nullptr;
 uint32_t g_rescanDepth = 0;
 std::map<clap_id, double> g_rescanValues;
@@ -1194,13 +1213,14 @@ void directLoadRows(const std::string &a, const std::string &bFull)
                              std::to_string(g_host.outValues) + " value event(s) and left the loaded patch");
   }
 
-  // A gesture bracket queued before a direct load.
+  // Gesture brackets queued before a direct load.
   {
     std::string ref;
     { Inst r; r.load(b); r.flushIdle(none); ref = r.save(); }
-    auto run = [&](bool bracket, uint32_t *before, uint32_t *after, int *raised) {
+    // `shape`: 'b' a begin, 'e' an end, in queue order; "" queues nothing.
+    auto run = [&](const std::string &shape, uint32_t *before, uint32_t *after, int *raised) {
       Inst s;
-      if (bracket) hypersaw_debug_gesture(s.p, 4, true);
+      for (char c : shape) hypersaw_debug_gesture(s.p, 4, c == 'b');
       *before = stats(s.p).depth;
       s.load(b);
       *after = stats(s.p).depth;
@@ -1210,17 +1230,67 @@ void directLoadRows(const std::string &a, const std::string &bFull)
       *raised = g_host.outGestures;
       return s.save();
     };
-    uint32_t b0 = 0, b1 = 0, c0 = 0, c1 = 0;
-    int raised = 0, craised = 0;
-    const std::string got = run(true, &b0, &b1, &raised);
-    row(b0 == 1 && b1 == 1 && raised == 1 && g_host.outValues == 0 && got == ref, "I-BRACKET",
-        "a gesture begin queued before an idle host load: " + std::to_string(b0) + " queued before, " + std::to_string(b1) +
-            " after; the next flush raised " + std::to_string(raised) + " gesture event(s) and " +
-            std::to_string(g_host.outValues) + " value event(s); the load: " + show(lineDiff(got, ref)));
-    const std::string ctl = run(false, &c0, &c1, &craised);
+    struct Shape { const char *queue, *what; };
+    for (const Shape &sh : {Shape{"b", "a gesture begin"}, Shape{"be", "a gesture begin and its end"}, Shape{"e", "a gesture end alone"}})
+    {
+      const uint32_t want = (uint32_t)std::strlen(sh.queue);
+      uint32_t b0 = 0, b1 = 0;
+      int raised = 0;
+      const std::string got = run(sh.queue, &b0, &b1, &raised);
+      row(b0 == want && b1 == want && raised == (int)want && g_host.outValues == 0 && got == ref, "I-BRACKET",
+          std::string(sh.what) + " queued before an idle host load: " + std::to_string(b0) + " queued before, " +
+              std::to_string(b1) + " after; the next flush raised " + std::to_string(raised) + " gesture event(s) and " +
+              std::to_string(g_host.outValues) + " value event(s); the load: " + show(lineDiff(got, ref)));
+    }
+    uint32_t c0 = 0, c1 = 0;
+    int craised = 0;
+    const std::string ctl = run("", &c0, &c1, &craised);
     row(c0 == 0 && c1 == 0 && craised == 0 && ctl == ref, "I-BRACKET-CTL",
         "control: no bracket queued: " + std::to_string(c1) + " queued after the load, " + std::to_string(craised) +
             " gesture event(s) raised");
+  }
+
+  // The rescan a load owes when its values stayed queued behind deferred events.
+  {
+    Inst s;
+    s.load(b);
+    double spec0 = 0, specAfter = -1;
+    s.params->get_value(s.p, 178, &spec0);
+    const int written = spec0 != 0.0 ? 0 : 1;
+    hypersaw_debug_undo(s.p, "setspec", written);   // the editor's write: queued, and no load writes this parameter
+    const uint32_t queued = stats(s.p).depth;
+    g_inst = &s;
+    g_rescanInst = &s;
+    g_host.rescans = 0;
+    g_host.callbacks = 0;
+    g_host.outSpecimen = 0;
+    g_host.onFlush = flushInsideVol;   // an event deferred during the load
+    hypersaw_debug_apply_named(s.p, ja.c_str(), "PRESET-A");
+    g_host.onFlush = nullptr;
+    s.params->get_value(s.p, 178, &specAfter);
+    const int rescansAtReturn = g_host.rescans, callbacksAtReturn = g_host.callbacks;
+    s.flushIdle(none);
+    s.flushIdle(none);
+    const int callbacks = g_host.callbacks, byEvent = g_host.outSpecimen, rescansAfterFlush = g_host.rescans;
+    g_rescanValues.clear();
+    g_host.rescanFlags = 0;
+    g_host.onRescan = readInsideRescan;
+    s.p->on_main_thread(s.p);
+    s.p->on_main_thread(s.p);
+    g_host.onRescan = nullptr;
+    auto want = wholeValues;
+    if (want.count(178)) want[178] = written;
+    int n = 0;
+    const std::string d = diff(g_rescanValues, want, &n);
+    row(queued == 1 && specAfter == written && rescansAtReturn == 0 && callbacksAtReturn == 0 && byEvent == 0 &&
+            callbacks == 1 && rescansAfterFlush == 0 && g_host.rescans == 1 &&
+            g_host.rescanFlags == CLAP_PARAM_RESCAN_VALUES && n == 0 && !g_rescanValues.empty(),
+        "I-TELL-LATER",
+        "an editor write queued, then a preset load with an event deferred during it: at the load's return " +
+            std::to_string(rescansAtReturn) + " rescan(s) and the write applied; two flushes raised " +
+            std::to_string(byEvent) + " event(s) for it and asked for " + std::to_string(callbacks) +
+            " callback(s); two callbacks made " + std::to_string(g_host.rescans) + " rescan(s), in which " +
+            std::to_string(n) + " of " + std::to_string(g_rescanValues.size()) + " value(s) read wrong" + d);
   }
 
   // The name a save writes while a queued load waits.
@@ -1253,7 +1323,7 @@ void directLoadRows(const std::string &a, const std::string &bFull)
 }
 
 /* HOOK-ENGINE-IDLE (audit M5). The direct host load applies an engine-block
-   line (`sub.*`) through applyParam with no load bracket. state_save writes
+   line (`sub.*`) through applyParam. state_save writes
    the table first, so a chunk saved with morph ON has switched morph on by
    the time its `sub.` lines are read. Is a loaded value then treated as an
    edit: recorded into a corner, or (a corner armed) kept from the live
