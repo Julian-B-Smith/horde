@@ -55,7 +55,7 @@ gaps, listed in the release notes.
 
 | | requirement | evidence |
 |---|---|---|
-| MUST | **A face and an expanded view** in GUI 3's design system, keyboard-reachable, with every control named for the host (B432). | the GUI review |
+| MUST | **A face and an expanded view** in GUI 3's design system, keyboard-reachable, with every control named for the host (B432). **Ruled 2026-10-09 (ADR-203):** a module gives EVERY key a display name and a normalised law, so horde can expose any of them. What horde shows the DAW by default is the module's macro slots (SPEC-MODULE-MACROS §6); exposing more is horde's later choice, never the module's. | the GUI review |
 | MUST | **Undo** covers every control (B389). | an undo test |
 | MUST | **Factory presets**: at least an init plus a small set that shows the module's range. The size is set by the presets lab (B395). | presets in the bank |
 | SHOULD | **A manual page**: what each control does, in plain words (B413). | the page |
@@ -64,9 +64,22 @@ gaps, listed in the release notes.
 
 | | requirement | evidence |
 |---|---|---|
-| MUST | **An independent critic review** of the module's port and its oracles, sourced separately from the author, with no open HIGH findings. | the review |
+| MUST | **An independent critic review** of the module's port and its oracles, sourced separately from the author, with no open HIGH findings. **Ruled 2026-10-09 (ADR-203):** before 1.0, a fresh-context critic from the same model family, with no shared conversation, an adversarial brief and planted faults it must catch, satisfies this row. Before any binary ships to people outside the project, the review must ALSO come from a different model family or a human code reviewer. | the review |
 | MUST | **The human's listening sign-off** on the module, on its factory presets and at least one stress case (maximum feedback, extreme settings). | recorded in ROADMAP |
 | MUST | **Its name cleared** (B433): trademark clearance for any user-visible module name. | the clearance memo |
+
+## The master limiter (ruled 2026-10-09, ADR-203)
+
+Bulwark's master limiter sits outside the rack (B438), so the bar applies to it row by row:
+- **Not applicable:** the macro row and the factory-presets row. It has no macros and no presets of
+  its own; its settings are part of the horde preset.
+- **Not applicable:** the rack slot contract's morph and corner clauses. It never morphs.
+- **Applies:** everything else. That includes the I/O gain standard as amended by A1 (cut-only
+  output, which IS the master Volume), latency and tail reporting, the correctness rows, the CPU
+  budget, undo, the critic review and the listening sign-off.
+- **Its clip latch reads the PRE-limiter tap.** A latch after the limiter can never fire, so the
+  useful warning is that the limiter is being driven hard. True-peak detection stays post-1.0
+  (ADR-195).
 
 ## What the bar is NOT
 
