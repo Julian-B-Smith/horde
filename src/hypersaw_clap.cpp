@@ -9006,6 +9006,18 @@ struct Plugin
            large keys. Recorded first, so the forensic trace still shows what
            the host sent. */
         if (!hypersaw::noteKeyInRange(n->key, /*wildcardOk=*/false)) break;
+        /* B455: the velocity is checked HERE, the one place it enters, like
+           the key above and the expression values below. A value that is not
+           finite is not a velocity: the event is DROPPED, exactly as an
+           out-of-range key is. It is not routed to the release below, because
+           a malformed note-on must not end a note that is sounding on its
+           key. A finite value is clamped to CLAP's documented range
+           (clap/events.h: "velocity; // 0..1", the bounds PRESSURE takes
+           below). Every reader after this line takes `vel`, never
+           n->velocity, so the voice gain, the sub, the note tag and matrix
+           source 14 agree. A velocity in (0, 1] passes through exactly. */
+        double vel = 0;
+        if (!hypersaw::finiteClamp(n->velocity, 0.0, 1.0, vel)) break;
         sawNotes.fetch_add(1, std::memory_order_relaxed);
         if (n->channel > 0) sawNonZeroChan.fetch_add(1, std::memory_order_relaxed);
         // MIDI 1.0: note-on velocity 0 IS a note-off, and the AU wrapper
@@ -9013,16 +9025,7 @@ struct Plugin
         // synth ignores velocity, so without the remap such a release struck
         // a fresh full-gain voice that no note-off ever ends — the
         // 2026-07-18 "doesn't stop when you let go" hang.
-        /* B455: the velocity is checked HERE, the one place it enters, like
-           the expression values below. A finite value is clamped to CLAP's
-           documented range (clap/events.h: "velocity; // 0..1", the bounds
-           PRESSURE takes below); a value that is not finite is not a
-           velocity, and takes the path this site already gives 0 and below.
-           Every reader after this line takes `vel`, never n->velocity, so the
-           voice gain, the sub, the note tag and matrix source 14 agree. A
-           velocity in (0, 1] passes through exactly. */
-        double vel = 0;
-        if (!hypersaw::finiteClamp(n->velocity, 0.0, 1.0, vel) || vel <= 0.0)
+        if (vel <= 0.0)
         {
           handleNoteOff(n);
           break;

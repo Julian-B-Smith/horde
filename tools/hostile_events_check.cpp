@@ -30,10 +30,10 @@
  *            dropped (the render equals the no-expression render bit for bit);
  *            TUNING 1e6 / 1e300 / -1e6 render exactly what ±120 renders; an
  *            in-range TUNING still takes effect; key 127 at +120 stays finite.
- *   VEL      (B455) note velocity is checked where it enters: NaN, +inf and -inf
- *            take the path velocity 0 takes (a fresh key strikes nothing, a held
- *            key is released, bit for bit the velocity-0 render); 0 and a negative
- *            keep that meaning; 7 and 1e300 render exactly what velocity 1 renders
+ *   VEL      (B455) note velocity is checked where it enters: a NOTE_ON with NaN,
+ *            +inf or -inf is DROPPED (a fresh key strikes nothing; a held key
+ *            stays held, bit for bit the untouched render); 0 and a negative keep
+ *            their meaning, the release; 7 and 1e300 render what velocity 1 renders
  *            and matrix source 14 reads 1; 0.6 strikes, reads 0.6 exactly and
  *            renders differently from velocity 1 (the row that shows velocity
  *            reaches the render at all, so the equalities above are not blind).
@@ -417,13 +417,25 @@ int main()
     const Render part = strike(0.6);
     row(part.finite && part.voices == 1 && part.srcVel == 0.6 && part.out != full.out && part.out != silent.out,
         "VEL", "velocity 0.6 (in range): strikes, source 14 reads 0.6 exactly, render != the velocity-1 render");
-    for (double v : {kNaN, kInf, -kInf, 0.0, -0.5})
+    /* Not finite: the NOTE_ON is dropped. `full` is also the render of key 60
+       struck in block 0 and left alone, so equality with it on a held key means
+       the event did nothing at all: no release (held0 differs from full, the
+       row above), no second strike. */
+    for (double v : {kNaN, kInf, -kInf})
+    {
+      const Render a = strike(v), b = onHeld(v);
+      row(a.finite && a.voices == 0 && a.srcVel == 0.0 && a.out == silent.out, "VEL",
+          "velocity " + num(v) + " on a fresh key: dropped (no voice, source 14 stays 0, the render is silence)");
+      row(b.finite && b.gated60 && b.voices == 1 && b.srcVel == 1.0 && b.out == full.out, "VEL",
+          "velocity " + num(v) + " on a held key: dropped (key 60 still held, render == the untouched held render)");
+    }
+    for (double v : {0.0, -0.5})
     {
       const Render a = strike(v), b = onHeld(v);
       row(a.finite && a.voices == 0 && a.srcVel == 0.0 && a.out == silent.out, "VEL",
           "velocity " + num(v) + " on a fresh key: strikes nothing, source 14 stays 0, the render is silence");
       row(b.finite && !b.gated60 && b.out == held0.out, "VEL",
-          "velocity " + num(v) + " on a held key: render == the velocity-0 render");
+          "velocity " + num(v) + " on a held key: releases it (render == the velocity-0 render)");
     }
     for (double v : {7.0, 1e300})
     {
