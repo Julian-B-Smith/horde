@@ -2678,6 +2678,11 @@ struct Plugin
   alignas(8) unsigned char deferBuf[kDeferBytes] = {};
   uint32_t deferUsed = 0;
   std::atomic<uint32_t> deferDropped{0};
+  /* True while events wait above. The buffer itself belongs to whichever
+     thread is deferring, so a direct sequence on the main thread cannot look
+     into it; this is the one fact about it that sequence needs (see
+     LoadScope::end), published where it can be read. */
+  std::atomic<bool> deferWaiting{false};
   /* A reset that arrived while the state was owned, and WHERE in the deferred
      events it arrived: the events before it are replayed, then the reset, then
      the rest, so a note deferred before the host's reset does not outlive it. */
@@ -2734,6 +2739,7 @@ struct Plugin
       }
       std::memcpy(deferBuf + deferUsed, e, e->size);
       deferUsed += (e->size + 7u) & ~7u;
+      deferWaiting.store(true, std::memory_order_release);
     }
   }
   /* Replays the deferred events with a deferred reset in its place among
@@ -2753,12 +2759,14 @@ struct Plugin
     if (resetDeferred) resetNow();   // a reset after every deferred event
     deferUsed = 0;
     resetAt = 0;
+    deferWaiting.store(false, std::memory_order_release);
   }
   void clearDeferred()   // deactivate: nothing owed survives into the next activation
   {
     deferUsed = 0;
     resetDeferred = false;
     resetAt = 0;
+    deferWaiting.store(false, std::memory_order_release);
   }
   // ADR-024: the inertia KNOB value (params/state domain). The core holds
   // sqrt(knob) — squaring the core value back is not bit-exact, and
@@ -6162,6 +6170,28 @@ struct Plugin
     qTail.store(tail, std::memory_order_release);
   }
 
+  /* MAIN THREAD, INSIDE A DIRECT SEQUENCE (the caller owns the state, so no
+     other drain can be running): apply everything queued, in order, with the
+     function a block start runs. Returns whether anything was queued.
+     The gesture brackets are the one kind that is FOR the host, and no host
+     is listening on this thread (out-events exist only inside process and
+     flush), so they are queued again, in order, for the next drain that has
+     one. Their latch (intentNoteGesture) is a plain set, so meeting it twice
+     leaves what meeting it once leaves. The copy is taken before the
+     re-enqueue because the ring may hand the same slot back. */
+  bool drainQueueOwned()
+  {
+    const uint32_t from = qTail.load(std::memory_order_relaxed);
+    const uint32_t to = qHead.load(std::memory_order_relaxed);
+    drainQueue(nullptr);
+    for (uint32_t i = from; i != to; i++)
+    {
+      const ParamMsg m = queue[i % kQCap];
+      if (m.kind == 1 || m.kind == 2) enqueueParam(m.id, m.value, m.kind);
+    }
+    return from != to;
+  }
+
   /* The non-parameter kinds, applied where everything else the main thread
      hands over is applied. Whatever needs the live table to be judged (an
      index in range, the pitch route's refusals) is judged HERE, by its owner. */
@@ -7618,13 +7648,25 @@ struct Plugin
 
      Both modes CLAIM the stage first: a direct load must also take back a
      stage an earlier queued load published and nobody drained, or that
-     stage's marker would later adopt an older field over this load's. */
+     stage's marker would later adopt an older field over this load's.
+
+     A DIRECT LOAD OWNS THE QUEUE TOO, at both ends (B455):
+       at its start it applies whatever was queued before it — an editor
+       write, an earlier load's values — in order, so none of it can land
+       AFTER this load. After the claim, so a field an earlier queued load
+       staged is superseded rather than adopted, which is the queued lane's
+       rule for two loads in one block.
+       at its end it applies what the load itself queued (the preset door
+       hands its values over in order through enqueueParam), so the load is
+       whole when it returns and a reader that comes before the host's next
+       flush reads the loaded state. See end() for the one case that waits. */
   struct LoadScope
   {
     Plugin &pl;
     DirectScope ds;
     MorphFieldRef field{};
     bool ended = false;
+    bool appliedOwn = false;   // end() applied this load's own queued values on the main thread
     explicit LoadScope(Plugin &p) : pl(p), ds(p)
     {
       if (!ds.owned)
@@ -7633,6 +7675,7 @@ struct Plugin
         p.beginQueueBatch();
       }
       p.morphStageClaim();
+      if (ds.owned) p.drainQueueOwned();
       field = ds.owned ? p.liveField() : p.stageField();
     }
     LoadScope(const LoadScope &) = delete;
@@ -7649,6 +7692,13 @@ struct Plugin
       ended = true;
       if (ds.owned)
       {
+        /* EVENTS THE AUDIO SIDE DEFERRED DURING THIS SEQUENCE are replayed
+           before the queue is drained (replayDeferred), which is what lets a
+           load's value stand over an older host value for the same
+           parameter — and only the audio side may touch them. So when any
+           are waiting the load's values stay queued behind them, as they
+           always did, and the next block or flush lands both in that order. */
+        if (!pl.deferWaiting.load(std::memory_order_acquire)) appliedOwn = pl.drainQueueOwned();
         ds.release();
         return true;
       }
@@ -7880,6 +7930,15 @@ struct Plugin
     const std::string label =
         presetName.empty() ? std::string("load") : "load \xe2\x86\x90 " + presetName;   // "←" as UTF-8
     undoMark(label.c_str());   // B84: a preset load is ONE history node
+    /* THE HOST HEARS A QUEUED VALUE as an out-event when the queue drains.
+       Values the load applied itself raised none, and a main-thread call has
+       no out-events to raise, so the host is told the way the contract gives
+       a plugin-side load (clap/ext/params.h, "I. Loading a preset": rescan
+       with CLAP_PARAM_RESCAN_VALUES, [main-thread] — the host reads every
+       value again and records no automation). LAST, with the load ended and
+       named: a host may read values or save from inside the call. */
+    if (ls.appliedOwn && hostParams && hostParams->rescan)
+      hostParams->rescan(host, CLAP_PARAM_RESCAN_VALUES);
     return any;
   }
 
