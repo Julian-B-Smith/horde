@@ -7546,3 +7546,39 @@ Therefore:
 
 **Not ruled here.** The phase 2 proposal (`docs/strategy/blind-spot-armor-phase2.md`) and its
 thirteen decisions.
+
+## ADR-207 — RULED by the human: the legacy shell keeps receiving integrity fixes; host values are checked where they enter (B455, 2026-10-10)
+
+**Rulings.** The human, 2026-10-10:
+- "Sample rate rule ratified".
+- After the lead explained that these fixes change the legacy plugin's own source: "I'm comfortable
+  with making this kind of fix to the legacy plugin."
+
+**Decision.**
+1. **The legacy shell keeps receiving fixes of this kind.**
+   - The kind is boundary validation of host input, real-time safety and state integrity, as
+     ADR-186 §1 allows.
+   - The human's installed plugin changes only when they choose to rebuild and install it.
+   - Unmerged changes are tried in a host under the side-by-side test identity (B456), never by
+     replacing the installed plugin.
+2. **Host values are checked where they enter the shell.** Each check reuses the existing boundary
+   helpers.
+   - **Events.** An event that is absent, or smaller than its type requires, is refused and counted.
+     An absent event list is treated as empty, for input and for output.
+   - **Sample rate.** Activation is refused for a rate that is non-finite, not positive, below
+     8 000 Hz or above 768 000 Hz.
+     - These are structural bounds: they refuse only what cannot be a real rate.
+     - The certified range stays 44.1 to 192 kHz (`docs/ROBUSTNESS.md`).
+     - A plugin whose activation was refused writes silence if it is processed anyway, because one
+       pinned wrapper processes regardless of the result.
+   - **Output buffers.** A missing bus, fewer than two channels, or a null buffer returns
+     `CLAP_PROCESS_ERROR`. The block's input events are kept and replayed at the next good block.
+   - **MIDI.** A message with the top bit set in a data byte is dropped and counted.
+3. **Evidence.**
+   - `hostile_events_check` grows to 187 rows, each fix with a mutation proof.
+   - Output for valid input is unchanged: 48 of 48 render digests identical.
+   - `rtsan_check` is green, and `tsan_stress_check` shows zero main-thread write races on three
+     seeds.
+
+**Not ruled here.** The idle-load fixes and the mono velocity fix follow in their own PRs, after a
+hands-on host check in the test identity.
