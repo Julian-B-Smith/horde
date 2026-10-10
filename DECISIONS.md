@@ -7408,3 +7408,32 @@ and from Sluice's largest factory patch respectively, before 1.0.
 - The rack-slot contract's §6 (presets) reads with this ADR.
 - Consumers are noticed: Sluice's answer (seq 40) is confirmed as ruled; Bulwark, Shriek and Scape
   are told the same rules apply to them.
+
+## ADR-203 — RULED by the human: the module bar's open readings, from Bulwark's audit (B439, 2026-10-09)
+
+**Ruling.** The human, 2026-10-09: "go with your suggestions on the Bulwark questions". The
+questions came from Bulwark's bar-audit brief (seq 13).
+
+**Decision.**
+1. **Critic independence (bar §6).** A two-stage rule:
+   - **Before 1.0:** a fresh-context critic from the same model family satisfies the row when it
+     has no shared conversation, an adversarial brief, and planted faults it must catch. horde's
+     own modules have used exactly this.
+   - **Before any binary ships to people outside the project:** the review must also come from a
+     different model family or a human code reviewer. This matches the independence ruling the
+     kit adopted for security.
+2. **The macro spec's header (protected file, sanctioned edit).** `specs/SPEC-MODULE-MACROS.md` is
+   marked ADOPTED as amended. The retired four-role acceptance line is struck, and §10 is marked
+   retired. No rule changes: Amendments 3 and 4 already governed.
+3. **Host-visible controls (bar §5).** A module gives every key a display name and a normalised
+   law. By default horde exposes the module's macro slots to the DAW. Exposing more is horde's
+   later choice.
+4. **The master limiter and the bar.**
+   - The macro row and the factory-presets row do not apply to it.
+   - The rack's morph and corner clauses do not apply to it.
+   - Every other row applies, with I/O gain as amended by A1.
+5. **The master clip latch reads the pre-limiter tap.** A post-limiter latch can never fire.
+   True-peak detection stays post-1.0 (ADR-195).
+
+**Also recorded.** Bulwark's other audit items were fixed in the consistency pass (#1014). Its
+tail rule is on B429.

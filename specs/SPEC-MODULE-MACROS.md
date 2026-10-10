@@ -1,6 +1,6 @@
 # Module macro tiers — spec recommendation
 
-**Status:** recommendation, not yet adopted. Staged for HORDE agent review.
+**Status:** ADOPTED as amended. Amendments 3 (curves) and 4 (roles retired) are RULED by the human (ADR-169 A3, A4). Where the body below still describes role-keyed slots (§2–§3, §9–§10, §12.4), Amendment 4 governs. (Header updated 2026-10-09 with the human's approval, ADR-203.)
 **ball:** horde
 **Parity oracle:** `horde-module-macros.html` (browser prototype, 2026-09-15)
 **Scope:** applies to every modular FX module hosted in HORDE (the Roar-derived shaper, the allpass/delay rack) and is intended to be lifted unchanged into FOUNDATIONS later.
@@ -168,6 +168,8 @@ Both live instances receive the **same slot values** and map them through their 
 
 ## 10. Role vocabulary and the Roar module
 
+> **RETIRED by Amendment 4** (ADR-169 A4, 2026-10-05). Kept as history; it no longer governs.
+
 Roles are the cross-module contract. Before the shaper module's preset format ships, confirm its presets can be expressed in the same four roles (`Amount` = drive, `Tone` = curve/shape, `Regen` = feedback/pre-post color, `Motion` = internal LFO if any). If the shaper genuinely needs a fifth role, add it by ADR with a one-line justification and apply it to the rack too. Do not let modules define private roles.
 
 ## 11. Parity with the prototype
@@ -212,6 +214,6 @@ Do **not** replicate (incidental to the browser prototype):
 - [ ] Cross-preset morph in crossfade mode produces no discontinuity in module output at t = 0.5 (null test over a sweep); flip mode produces exactly one.
 - [ ] Quantum resolve is bit-reproducible under a fixed seed.
 - [ ] Binding curves (A3): for each of `lin`, `exp`, `log` over v ∈ {0, ¼, ½, ¾, 1} and at least one decreasing range, the resolved value matches the §4 closed form to 1e-12, and the endpoints are exact. A `log` binding with endpoints of mixed sign or a zero endpoint fails manifest validation, and when forced past it resolves as `lin` with no NaN.
-- [ ] Shaper module presets round-trip through the four-role vocabulary without a private role.
+- ~~Shaper module presets round-trip through the four-role vocabulary without a private role.~~ RETIRED by Amendment 4 (2026-10-05); struck 2026-10-09 (ADR-203).
 - [ ] Corner editor disables (does not hide) base sliders and binding columns for global-tier slots.
 - [ ] Trace artifact: per-block dump of `slot[h][r]` alongside `base`, `off`, and instance weights, viewable in the existing visual trace tooling.
