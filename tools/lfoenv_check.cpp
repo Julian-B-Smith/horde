@@ -64,14 +64,17 @@
  *      ever reads non-zero, every "the LFO moved it" assertion above is
  *      measuring something other than the LFO.
  *
- *   J  THE VELOCITY SOURCE IN MONO (B455, repo audit 2026-10-10 M11 — a
- *      MEASURING section: the audit read from the code that the mono note-on
- *      branch never writes the source, and did not run it). Velocity (slot
- *      14) routed to Detune; note 1 at 0.2, note 2 at 0.9. After note 2 the
- *      slot reads 0.9 and the destination sits at base + depth * 0.9, in mono
- *      legato, mono retrigger (overlapping), and mono with note 1 released
- *      first (a fresh strike). CONTROL: the same two notes in poly read 0.2
- *      then 0.9, so the row can read right.
+ *   J  THE VELOCITY SOURCE IN MONO (B455, repo audit 2026-10-10 M11).
+ *      Velocity (slot 14) routed to Detune; note 1 at 0.2, note 2 at 0.9.
+ *      After note 2 the slot reads 0.9 and the destination sits at
+ *      base + depth * 0.9, in mono legato, mono retrigger (overlapping), and
+ *      mono with note 1 released first (a fresh strike). CONTROL: the same
+ *      two notes in poly read 0.2 then 0.9, so the row can read right.
+ *      AND IN THE RENDER: mono legato, a held note, a second note over it at
+ *      0.2 or at 0.9. A legato retarget keeps the voice's gain, so the second
+ *      velocity reaches the samples through the route alone: with the route
+ *      the two renders differ, and with no route they are the same samples
+ *      (the control that shows nothing else carries the velocity there).
  *
  * Reuses tools/notefuzz_scaffold.inc (the stub host, event lists, note/param
  * makers) rather than growing another copy of the CLAP scaffold.
@@ -757,6 +760,55 @@ void sectionVelocityMono()
   check(right(leg), "MONO legato, note 2 over a held note 1", text(leg));
   check(right(ret), "MONO retrigger (legato off), note 2 over a held note 1", text(ret));
   check(right(fresh), "MONO, note 1 released first (a fresh strike)", text(fresh));
+
+  /* THE RENDER. The rows above read the source slot and the applied
+     destination; these read the samples. Mono legato on purpose: the second
+     note RETARGETS the sounding voice, which keeps the gain the first note
+     gave it, so the second note's velocity can reach the audio only through
+     the route. The no-route control renders the same samples at both
+     velocities, which is what makes the routed difference the route's. */
+  auto render = [](bool route, double secondVelocity) {
+    Rig r;
+    r.boot();
+    char routes[64] = "";
+    if (route) std::snprintf(routes, sizeof routes, "%d:%u:0.25:0;", kSlotVelocity, (unsigned)kDetune);
+    r.patch("\"voiceMono\":1,\"voiceLegato\":1", routes);
+    r.note(60, true, 0.5);
+    r.tick(2);
+    std::vector<float> out;
+    auto keep = [&] {
+      out.insert(out.end(), r.L.begin(), r.L.end());
+      out.insert(out.end(), r.R.begin(), r.R.end());
+    };
+    r.note(64, true, secondVelocity);
+    keep();
+    for (int t = 0; t < 40; t++)
+    {
+      r.tick();
+      keep();
+    }
+    r.kill();
+    return out;
+  };
+  auto differing = [](const std::vector<float> &a, const std::vector<float> &b) {
+    size_t n = 0;
+    for (size_t i = 0; i < a.size() && i < b.size(); i++) n += a[i] != b[i];
+    return n;
+  };
+  const std::vector<float> lowRouted = render(true, 0.2), highRouted = render(true, 0.9);
+  const std::vector<float> lowPlain = render(false, 0.2), highPlain = render(false, 0.9);
+  bool sounds = false;
+  for (float v : lowPlain) sounds = sounds || v != 0.0f;
+  check(sounds && lowPlain == highPlain,
+        "control: MONO legato, NO route: the second note's velocity changes no sample",
+        std::to_string(differing(lowPlain, highPlain)) + " of " + std::to_string(lowPlain.size()) + " samples differ");
+  check(lowRouted != highRouted,
+        "MONO legato, Velocity -> Detune: the render with the second note at 0.2 differs from the one at 0.9",
+        std::to_string(differing(lowRouted, highRouted)) + " of " + std::to_string(lowRouted.size()) + " samples differ");
+  check(lowRouted != lowPlain && highRouted != highPlain,
+        "MONO legato: each routed render differs from its no-route render (the route is what moved them)",
+        std::to_string(differing(lowRouted, lowPlain)) + " and " + std::to_string(differing(highRouted, highPlain)) +
+            " samples differ");
 }
 
 }  // namespace
