@@ -84,6 +84,7 @@
  * because showing the unguarded hazard is exactly what the shell must not allow.
  */
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
