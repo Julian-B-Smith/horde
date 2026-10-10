@@ -323,6 +323,14 @@ if(NOT MSVC)
   target_compile_options(registry_dump PRIVATE -O2)
 endif()
 
+# param_id_dump (B448 C2): the host-visible parameter list, for the append-only
+# id lock (tools/param_id_lock_check.py --runtime, in ./verify full).
+add_executable(param_id_dump tools/param_id_dump.cpp)
+target_link_libraries(param_id_dump PRIVATE ${PROJECT_NAME}-impl)
+if(NOT MSVC)
+  target_compile_options(param_id_dump PRIVATE -O2)
+endif()
+
 # paramscope_check: a parameter's SCOPE must be what it claims — globals reach
 # every oscillator, per-osc params reach only their own (ADR-089 conditions met).
 add_executable(paramscope_check tools/paramscope_check.cpp)
