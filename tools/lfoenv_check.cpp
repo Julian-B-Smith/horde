@@ -64,6 +64,15 @@
  *      ever reads non-zero, every "the LFO moved it" assertion above is
  *      measuring something other than the LFO.
  *
+ *   J  THE VELOCITY SOURCE IN MONO (B455, repo audit 2026-10-10 M11 — a
+ *      MEASURING section: the audit read from the code that the mono note-on
+ *      branch never writes the source, and did not run it). Velocity (slot
+ *      14) routed to Detune; note 1 at 0.2, note 2 at 0.9. After note 2 the
+ *      slot reads 0.9 and the destination sits at base + depth * 0.9, in mono
+ *      legato, mono retrigger (overlapping), and mono with note 1 released
+ *      first (a fresh strike). CONTROL: the same two notes in poly read 0.2
+ *      then 0.9, so the row can read right.
+ *
  * Reuses tools/notefuzz_scaffold.inc (the stub host, event lists, note/param
  * makers) rather than growing another copy of the CLAP scaffold.
  */
@@ -114,6 +123,7 @@ enum : clap_id
 };
 constexpr int kSlotLfo1 = 18, kSlotLfo2 = 19, kSlotEnv3 = 20, kSlotEnv4 = 21;
 constexpr int kSlotUnassigned = 22;
+constexpr int kSlotVelocity = 14;   // ADR-149: the last note-on's velocity, 0..1
 // The shell's mod tick: 256 frames, the grid modStep() runs on. Every timing
 // tolerance below is expressed in ticks, because the tick IS the resolution.
 constexpr double kTickFrames = 256.0;
@@ -160,11 +170,11 @@ struct Rig
   }
   void tick(int n = 1) { for (int i = 0; i < n; i++) { EvList e; step(e); } }
   void set(clap_id id, double v) { EvList e; e.params.push_back(mkParam(id, v)); step(e); }
-  void note(int m, bool on)
+  void note(int m, bool on, double vel = 0.8)
   {
     EvList e;
     e.notes.push_back(mkNote(on ? CLAP_EVENT_NOTE_ON : CLAP_EVENT_NOTE_OFF, 0, (int16_t)m,
-                             -1, on ? 0.8 : 0));
+                             -1, on ? vel : 0));
     step(e);
   }
   /* The host's tempo, delivered on clap_process_t::transport — the door
@@ -699,6 +709,56 @@ void sectionZero()
   r.kill();
 }
 
+/* ---- J: the velocity source follows the last note-on in every voice mode -- */
+void sectionVelocityMono()
+{
+  std::printf("\n-- J. Velocity (slot 14) reads the LAST note-on's velocity, mono as well as poly --\n");
+  struct Read
+  {
+    double src1, src2, applied2, base;
+  };
+  // `overlap`: note 2 arrives while note 1 is held (mono then retargets the one
+  // voice, legato or not); otherwise note 1 is released first and note 2 is a
+  // fresh strike. Those are the mono branch's three ways through a note-on.
+  auto play = [](int mono, int legato, bool overlap) {
+    Rig r;
+    r.boot();
+    char params[96], routes[64];
+    std::snprintf(params, sizeof params, "\"voiceMono\":%d,\"voiceLegato\":%d", mono, legato);
+    std::snprintf(routes, sizeof routes, "%d:%u:0.25:0;", kSlotVelocity, (unsigned)kDetune);
+    r.patch(params, routes);
+    r.note(60, true, 0.2);
+    r.tick(2);
+    const double s1 = r.src(kSlotVelocity);
+    if (!overlap)
+    {
+      r.note(60, false);
+      r.tick(2);
+    }
+    r.note(64, true, 0.9);
+    r.tick(2);
+    const Read out{s1, r.src(kSlotVelocity), hypersaw_test_mod_applied(r.p, kDetune), r.base(kDetune)};
+    r.kill();
+    return out;
+  };
+  auto text = [](const Read &g) {
+    return "source " + num(g.src1) + " then " + num(g.src2) + "; Detune applied " + num(g.applied2) +
+           " (base " + num(g.base) + ", want " + num(g.base + 0.25 * 0.9) + ")";
+  };
+  // Exact on purpose, and no tolerance: the velocities arrive as the doubles
+  // sent, and the route's sum is one multiply and one add (the poly control
+  // reads it exactly, which is what shows `==` is the right comparison).
+  auto right = [](const Read &g) {
+    return g.src1 == 0.2 && g.src2 == 0.9 && g.applied2 == g.base + 0.25 * 0.9;
+  };
+  const Read poly = play(0, 1, true);
+  check(right(poly), "control: POLY, note 1 at 0.2 then note 2 at 0.9", text(poly));
+  const Read leg = play(1, 1, true), ret = play(1, 0, true), fresh = play(1, 1, false);
+  check(right(leg), "MONO legato, note 2 over a held note 1", text(leg));
+  check(right(ret), "MONO retrigger (legato off), note 2 over a held note 1", text(ret));
+  check(right(fresh), "MONO, note 1 released first (a fresh strike)", text(fresh));
+}
+
 }  // namespace
 
 int main()
@@ -714,6 +774,7 @@ int main()
   sectionChunk();
   sectionPolarity();
   sectionZero();
+  sectionVelocityMono();   // B455: audit M11
   std::printf("\n%s lfoenv_check: %d failure(s)\n", g_failures ? "FAIL" : "OK  ", g_failures);
   return g_failures ? 1 : 0;
 }
