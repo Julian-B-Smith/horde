@@ -34,7 +34,9 @@ Not pinned, and why: -DNDEBUG, -O3 and -arch come from CMake's Release defaults,
 file here (the entry point's build type is what is pinned); clap-wrapper's own targets get their
 flags from libs/. `--built <build-dir>` reads the configured tree's flags.make to check those.
 
-ALSO CHECKED EVERY RUN, with no pin involved: no member of the fast-math family (see FASTMATH)
+ALSO CHECKED EVERY RUN, with no pin involved: every add_executable is reached by the HYPERSAW_SANITIZE
+loop (sanitizer_reach_gaps; B454 item 1 -- the loop stamps "executables declared so far", and 12 sat
+below it, never instrumented). The loop is LAST in CMakeLists.txt for that reason. Also: no member of the fast-math family (see FASTMATH)
 appears as a code token in CMakeLists.txt, cmake/, verify, tools/*.sh, tools/*.py or the
 workflows (comments and docstrings are blanked first: nan_latch_check.py names the flag in a
 comment). And -ffp-contract=fast/on may only sit on a target named *_fma_control.
@@ -43,7 +45,8 @@ MODES. (none) check;  --init first pin;  --append add NEW targets whose flags eq
 class's (never alters an entry; refuses anything else);  --approve <target|section> <ref>  a HUMAN-approved
 re-pin of one item to the tree (non-empty <ref> recorded; refused while fast-math is present);
 --built <dir>  also read <dir>/CMakeFiles/*/flags.make.
-SELF-CALIBRATING: selftest() plants -ffast-math (and each sibling), a changed -O level, a changed
+SELF-CALIBRATING: selftest() plants an executable below the sanitizer loop, the loop moved back mid-file and
+no loop at all (each red), an executable above it, bare or under if() (no gap), and plants -ffast-math (and each sibling), a changed -O level, a changed
 -ffp-contract, a removed target, a new global flag, a new target and an empty approval ref on
 COPIES of the real sources; each must read red / be refused, and the untouched copy must read green.
 """
@@ -195,7 +198,8 @@ VISIBILITY = {"PRIVATE", "PUBLIC", "INTERFACE"}
 
 
 def extract_cmake(text):
-    """-> (targets, global_, dynamic_loops).
+    """-> (targets, global_, dynamic_loops, executables).
+    executables: every add_executable name, in declaration order (the sanitizer-reach guard reads it).
     targets: {name: [{"when","compile","link"}...]} (every add_executable/add_library, even
     with no options -- a target with none is exactly the legacy plugin).
     `when` is the conjunction of the enclosing if() conditions, so `-O2` under `if(NOT MSVC)` and
@@ -267,7 +271,7 @@ def extract_cmake(text):
         d["executables_covered"] = sorted(covered)
         covered_by[d["when"]] = covered
     targets = {t: [v for v in vs if v["compile"] or v["link"]] for t, vs in targets.items()}
-    return targets, global_, dyn
+    return targets, global_, dyn, exes
 
 
 PLUGIN_TARGETS = ("HYPERSAW-impl", "SWARMFX-impl")
@@ -298,7 +302,7 @@ CLASS_DOC = {
 # ---- the whole extraction ------------------------------------------------------------
 
 def extract_all(files):
-    targets, global_, dyn = extract_cmake(files.get("CMakeLists.txt", ""))
+    targets, global_, dyn, exes = extract_cmake(files.get("CMakeLists.txt", ""))
     entry, direct = {}, {}
     for rel, text in files.items():
         if rel.endswith(".py"):
@@ -318,7 +322,7 @@ def extract_all(files):
         if cfg:
             entry[rel] = list(dict.fromkeys(cfg))
     return {"global": global_, "dynamic_loops": dyn, "entry_points": entry, "direct_compiles": direct,
-            "targets": {t: v for t, v in sorted(targets.items())}}
+            "targets": {t: v for t, v in sorted(targets.items())}, "executables": exes}
 
 
 def pin_targets(pin):
@@ -353,10 +357,24 @@ def appendable_targets(pin, tree):
     return out
 
 
+def sanitizer_reach_gaps(tree):
+    """-> failures. EVERY add_executable must be reached by the HYPERSAW_SANITIZE loop. The loop
+    stamps flags on "the executables declared so far", so one declared BELOW it is silently never
+    instrumented (B454 item 1: 12 were skipped, and CI's sanitize job never saw them, until this
+    tool read the CMake). Reads the tree alone, not the pin: re-pinning cannot approve a gap away."""
+    loops = [d for d in tree["dynamic_loops"] if any(f.startswith("-fsanitize") for f in d["compile"])]
+    if not loops:
+        return ["sanitizer loop: no foreach(... IN LISTS <targets>) applying -fsanitize= was found"]
+    reached = set().union(*(d["executables_covered"] for d in loops))
+    return [f"target {t}: add_executable is declared after the HYPERSAW_SANITIZE loop, so the sanitizer "
+            "flags never reach it (move the loop below it, or the target above the loop)"
+            for t in tree["executables"] if t not in reached]
+
+
 def compare(pin, tree):
     """-> failures. Pure: pin dict vs extraction dict. A new target whose flags equal its class's
     is reported with the APPENDABLE prefix (still red until `--append` records it, like a new id)."""
-    fails = []
+    fails = sanitizer_reach_gaps(tree)
     new_ok = appendable_targets(pin, tree)
     for sec in ("global", "dynamic_loops", "entry_points", "direct_compiles"):
         a, b = pin[sec], tree[sec]
@@ -502,6 +520,14 @@ def check_built(pin, build):
 # ---- self-calibration --------------------------------------------------------------------
 
 NEW_ZZ = ("\nadd_executable(zz_new tools/zz.cpp)\nif(NOT MSVC)\n  target_compile_options(zz_new PRIVATE -O2)\nendif()\n")
+SAN_LOOP = "set(HYPERSAW_SANITIZE OFF CACHE"      # the first code line of the sanitizer block
+
+
+def before_san_loop(text, code):
+    """Insert `code` ABOVE the sanitizer block, where a new executable belongs. (The block is last in
+    the file, so appending to the file would plant the very shape this tool refuses.)"""
+    assert text.count(SAN_LOOP) == 1, "selftest: the sanitizer block moved; update SAN_LOOP"
+    return text.replace(SAN_LOOP, code + SAN_LOOP, 1)
 
 
 def selftest(files):
@@ -556,8 +582,8 @@ def selftest(files):
         "allowed only on a *_fma_control")
     red("removed target", cm(lambda t: "\n".join(l for l in t.splitlines() if "h2_swarm48_check" not in l)),
         "target h2_swarm48_check: pinned but REMOVED")
-    newt = lambda opt: cm(lambda t: t + "\nadd_executable(zz_new tools/zz.cpp)\n"
-                          f"if(NOT MSVC)\n  target_compile_options(zz_new PRIVATE {opt})\nendif()\n")
+    newt = lambda opt: cm(lambda t: before_san_loop(t, "\nadd_executable(zz_new tools/zz.cpp)\n"
+                          f"if(NOT MSVC)\n  target_compile_options(zz_new PRIVATE {opt})\nendif()\n"))
     red("new target, identical flags: red until --append", newt("-O2"),
         "target zz_new: new target, class tools_oracles, flags identical")
     red("new target, different -O", newt("-O1"), "target zz_new: NEW with flags that differ")
@@ -576,13 +602,13 @@ def selftest(files):
     for label, f, fm in (
             ("--append of a new target with a different -O", newt("-O1"), []),
             ("--append that alters an existing entry",
-             cm(lambda t: t.replace("measure_h2_engine PRIVATE -O3", "measure_h2_engine PRIVATE -O2", 1)
-                + NEW_ZZ), []),
+             cm(lambda t: before_san_loop(t.replace("measure_h2_engine PRIVATE -O3",
+                                                    "measure_h2_engine PRIVATE -O2", 1), NEW_ZZ)), []),
             ("--append that removes a target",
-             cm(lambda t: "\n".join(l for l in t.splitlines() if "h2_swarm48_check" not in l)
-                + NEW_ZZ), []),
-            ("--append with a new global flag", cm(lambda t: t + "\nadd_compile_options(-march=native)\n"
-                + NEW_ZZ), []),
+             cm(lambda t: before_san_loop("\n".join(l for l in t.splitlines() if "h2_swarm48_check" not in l),
+                                          NEW_ZZ)), []),
+            ("--append with a new global flag", cm(lambda t: before_san_loop(
+                t + "\nadd_compile_options(-march=native)\n", NEW_ZZ)), []),
             ("--append while fast-math is present", newt("-O2"), ["f: fast-math"])):
         n[0] += 1
         try:
@@ -590,6 +616,28 @@ def selftest(files):
             bad.append(f"control '{label}' was NOT refused")
         except ValueError:
             pass
+    # The sanitizer-reach guard (B454 item 1). The OLD shape -- an executable below the loop, and the
+    # whole loop back in mid-file -- must read red; an executable above the loop, bare or under an
+    # if(), must give no gap; a loop that is gone must read red (an empty reach would pass vacuously).
+    red("executable declared after the sanitizer loop (the old shape)",
+        cm(lambda t: t + "\nadd_executable(zz_late tools/zz.cpp)\n"),
+        "target zz_late: add_executable is declared after the HYPERSAW_SANITIZE loop")
+
+    def loop_to_midfile(t):
+        a, b = t.index("# HYPERSAW_SANITIZE (B101)"), t.index("# anchor_check: the wheel lane")
+        assert a > b, "selftest: expected the sanitizer block below anchor_check"
+        return t[:b] + t[a:] + "\n" + t[b:a]
+    red("the sanitizer loop moved back above anchor_check .. bank_check", cm(loop_to_midfile),
+        "target bank_check: add_executable is declared after the HYPERSAW_SANITIZE loop")
+    red("no sanitizer loop at all", cm(lambda t: t.replace("-fsanitize=", "-fsomething=")),
+        "sanitizer loop: no foreach")
+    for label, code in (("executable above the sanitizer loop", "\nadd_executable(zz_early tools/zz.cpp)\n"),
+                        ("conditional executable above the sanitizer loop",
+                         "\nif(APPLE)\n  add_executable(zz_early tools/zz.cpp)\nendif()\n")):
+        n[0] += 1
+        gaps = sanitizer_reach_gaps(extract_all(cm(lambda t, code=code: before_san_loop(t, code))))
+        if gaps:
+            bad.append(f"control '{label}' (must read ZERO gaps) tripped the sanitizer-reach guard: {gaps[:1]}")
     red("new global flag setter", cm(lambda t: t + "\nadd_compile_options(-march=native)\n"), "global")
     red("changed C++ standard", cm(lambda t: t.replace("CMAKE_CXX_STANDARD 20", "CMAKE_CXX_STANDARD 23", 1)),
         "CMAKE_CXX_STANDARD")
