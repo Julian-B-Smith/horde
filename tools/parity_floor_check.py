@@ -4,6 +4,8 @@
 WIRED: ./verify full
 
   python3 tools/parity_floor_check.py <abs-build-dir>      (verify full passes build-release)
+  python3 tools/parity_floor_check.py --stream <abs-build-dir> <gate> <stream-file>
+                                                           (verify full, once per stream gate)
 
 WHY (B455 H1, docs/audits/2026-10-10-repo-audit.md; added under ADR-180 §1). parity_check,
 filter_check, notch_check, spectra_check, swarmalator_check, time_check, station_check and
@@ -34,6 +36,22 @@ A RED control must be red BECAUSE OF THE FLOOR: its output has to carry the floo
 ("below the pinned floor"), so a gate that fell over for some other reason cannot pass as a
 control (the detector must not share the assumption it tests). A control that reads the
 wrong colour makes this check red.
+
+THE TWO horde 2 STREAM GATES (--stream; B455 H1 follow-up, ADR-206 item 1). h2_engine_parity_check
+and h2_scalpel_parity_check read a binary stream (tools/h2_*_stream.h), not a manifest, and carry
+their floor in their own source (kMinScenarios via tools/scenario_floor.h). The header and END
+counts they check agree with the rows read, so a stream with a scenario consistently dropped passed
+until the floor existed. The stream takes 25-40 s to render, so ./verify renders it ONCE, runs the
+gate on it (that run IS the POSITIVE control: the untouched stream, green), then calls --stream with
+the same file. Controls here, run on scratch files derived from the real stream:
+  DROP         the stream minus its LAST scenario, header and END rewritten to agree (the shape that
+               passed before the floor) reads RED, and the floor's line is the ONLY FAIL line, naming
+               N-1 scenarios and a floor of N (so nothing else turned it red);
+  HEADER-ONLY  a header and an END 0, no scenario, reads RED by the floor;
+  EMPTY        a zero-byte file reads RED;
+  ABSENT       a path that does not exist reads RED.
+The stream is walked exactly as the gate's own reader does (LIBM: n*3 float64; DATA: frames*2 float64
+closes a scenario), not guessed.
 """
 import os
 import re
@@ -114,9 +132,119 @@ def drop_last_scenario(lines):
     return lines
 
 
+# gate -> (the stream's magic word, the flag that declares a file the full render)
+STREAM_GATES = {
+    "h2_engine_parity_check": (b"H2ENGINE", "--full-from"),
+    "h2_scalpel_parity_check": (b"H2SCALPEL", "--full-from"),
+}
+
+
+def walk_stream(data, magic):
+    """(header_line, [(start, end) byte range of each SCN block], offset of the END line).
+
+    Mirrors tools/h2_engine_stream.h / h2_scalpel_stream.h: text lines, with LIBM carrying n*3 float64
+    after its line and DATA carrying frames*2 float64 (closing the scenario)."""
+    nl = data.index(b"\n")
+    header = data[:nl]
+    if not header.startswith(magic + b" 1 "):
+        raise ValueError(f"header {header!r} is not {magic.decode()} 1 <n>")
+    pos, start, scns = nl + 1, None, []
+    while True:
+        nl = data.index(b"\n", pos)
+        words = data[pos:nl].split(b" ")
+        op = words[0]
+        if op == b"END":
+            return header, scns, pos
+        if op == b"SCN":
+            start = pos
+        if op == b"LIBM":
+            nxt = nl + 1 + int(words[2]) * 24
+        elif op == b"DATA":
+            nxt = nl + 1 + int(words[1]) * 16
+            if start is None:
+                raise ValueError("DATA outside a scenario")
+            scns.append((start, nxt))
+            start = None
+        else:
+            nxt = nl + 1
+        pos = nxt
+
+
+def restream(magic, count, body):
+    """A self-consistent stream: header and END both say `count`."""
+    n = str(count).encode()
+    return magic + b" 1 " + n + b"\n" + body + b"END " + n + b"\n"
+
+
+def run_stream(binary, flag, path):
+    p = subprocess.run([binary, flag, path], capture_output=True, text=True, timeout=300)
+    return p.returncode, p.stdout + p.stderr
+
+
+def stream_main(build, gate, stream):
+    """The must-fail controls for one stream gate; the untouched stream's green run is verify's own."""
+    binary = os.path.join(build, gate)
+    magic, flag = STREAM_GATES[gate]
+    if not (os.path.isfile(binary) and os.path.isfile(stream)):
+        print(f"FAIL  {gate}: binary or stream missing")
+        return 1
+    with open(stream, "rb") as f:
+        data = f.read()
+    header, scns, end_at = walk_stream(data, magic)
+    n = len(scns)
+    if header.split(b" ")[2] != str(n).encode() or data[end_at:] != b"END " + str(n).encode() + b"\n":
+        print(f"FAIL  {gate}: the real stream is not self-consistent (header {header!r}, {n} scenarios, "
+              f"tail {data[end_at:]!r}); the DROP control would prove nothing")
+        return 1
+    body_at = data.index(b"\n") + 1
+    # (label, file content or None for a path that does not exist, red by the floor?, scenarios it holds)
+    controls = (
+        ("DROP        the stream minus its last scenario, header and END rewritten to agree",
+         restream(magic, n - 1, data[body_at:scns[-1][0]]), True, n - 1),
+        ("HEADER-ONLY a header and an END 0, no scenario", restream(magic, 0, b""), True, 0),
+        ("EMPTY       a zero-byte file", b"", False, None),
+        ("ABSENT      a path that does not exist", None, False, None),
+    )
+    fails = []
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, "stream.bin")
+        for label, content, by_floor, held in controls:
+            if content is not None:
+                with open(path, "wb") as f:
+                    f.write(content)
+            elif os.path.exists(path):
+                os.remove(path)
+            rc, out = run_stream(binary, flag, path)
+            floor = re.search(r"FAIL \S+: (\d+) scenarios, " + re.escape(FLOOR_WORDS) + r" of (\d+)", out)
+            fail_lines = [ln for ln in out.splitlines() if ln.startswith("FAIL")]
+            ok = rc != 0
+            why = f"exit {rc}"
+            if by_floor:
+                # red BECAUSE OF THE FLOOR, naming both numbers (held scenarios, the pinned floor = today's count)
+                ok = ok and floor is not None and int(floor.group(1)) == held and int(floor.group(2)) == n
+                why += ", " + (floor.group(0) if floor else "NO floor line")
+                if held:   # a stream with rows: nothing but the floor may be red
+                    ok = ok and len(fail_lines) == 1 and FLOOR_WORDS in fail_lines[0]
+                    if len(fail_lines) != 1:
+                        why += f", {len(fail_lines)} FAIL lines (want only the floor's)"
+            print(f"{'PASS' if ok else 'FAIL'}  {gate:<24} {label} (read {'RED' if rc else 'GREEN'}; {why})")
+            if not ok:
+                fails.append(f"{gate}: {label.split()[0]}")
+                print(out[-2000:], file=sys.stderr)
+    if fails:
+        print("parity_floor_check --stream: RED -- " + "; ".join(fails), file=sys.stderr)
+        return 1
+    print(f"parity_floor_check --stream: GREEN ({gate}: {n} scenarios; {len(controls)} controls red; "
+          f"the untouched stream is the gate's own green run)")
+    return 0
+
+
 def main():
+    if len(sys.argv) == 5 and sys.argv[1] == "--stream" and sys.argv[3] in STREAM_GATES:
+        return stream_main(sys.argv[2], sys.argv[3], sys.argv[4])
     if len(sys.argv) != 2:
-        print("usage: parity_floor_check.py <abs-build-dir>", file=sys.stderr)
+        print("usage: parity_floor_check.py <abs-build-dir> | --stream <abs-build-dir> <gate> <stream-file>",
+              file=sys.stderr)
         return 64
     build = sys.argv[1]
     golden_root = os.path.join(os.path.dirname(build.rstrip("/")), "build-golden")

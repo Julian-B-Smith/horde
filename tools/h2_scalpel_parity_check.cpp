@@ -64,10 +64,20 @@
  * WHY IN full, NOT fast: Node renders ~390 scenarios twice (pristine and
  * instrumented), ~30 s on this Mac's worker threads — station_check's reason.
  *
- * Usage:  h2_scalpel_parity_check [--only REGEX] [stream-file | -]
+ * Usage:  h2_scalpel_parity_check [--only REGEX] [--full-from FILE | stream-file | -]
  *   With no stream file it runs `node tools/h2_scalpel_render.mjs` itself, so
  *   it must be started from the repo root (./verify and sanitize_oracles.sh do).
- *   The controls, the floor and the exclusion pin run only on a full stream.
+ *   --full-from FILE (./verify): that renderer's full output, rendered once and fed to
+ *   this check, its FMA control and the DROP control (tools/parity_floor_check.py
+ *   --stream). A file cannot say it was rendered without --only, so the caller's flag
+ *   declares it full, never the file. A plain stream-file or `-` is a SUBSET.
+ *   The controls, the scenario floor and the exclusion pin run only on a full stream.
+ *
+ * SCENARIO FLOOR (ADR-206 item 1, B455 H1). A stream with scenarios dropped still read
+ * green: the exclusion pin counts only the chaotic rows. The total is pinned at what the
+ * renderer writes today (kMinScenarios, tools/scenario_floor.h); fewer is a failure that
+ * names both numbers. The DROP control (a stream minus its last scenario, header and END
+ * rewritten to agree) must read red BY the floor.
  */
 #include <cmath>
 #include <cstdint>
@@ -86,6 +96,7 @@
 #define H2_SCALPEL_FAULTS 1
 #include "../h2/cores/scalpel/razor_core.h"
 #include "h2_scalpel_stream.h"
+#include "scenario_floor.h"
 
 using horde2::scalpel::EventLog;
 using h2stream::Scenario;
@@ -148,11 +159,17 @@ bool sameSamples(const std::vector<double>& a, const std::vector<double>& b) {
 
 int main(int argc, char** argv) {
   std::string only, path;
+  bool fullFrom = false;   // --full-from FILE: the caller declares FILE the full render
   for (int i = 1; i < argc; i++) {
     if (std::strcmp(argv[i], "--only") == 0 && i + 1 < argc) only = argv[++i];
+    else if (std::strcmp(argv[i], "--full-from") == 0 && i + 1 < argc) { path = argv[++i]; fullFrom = true; }
     else path = argv[i];
   }
-  const bool fullStream = only.empty() && path.empty();
+  if (fullFrom && !only.empty()) {
+    std::fprintf(stderr, "h2_scalpel_parity_check: --full-from takes a file, and no --only\n");
+    return 2;
+  }
+  const bool fullStream = only.empty() && (path.empty() || fullFrom);
   FILE* f = nullptr;
   bool piped = false;
   if (path == "-") {
@@ -260,6 +277,12 @@ int main(int argc, char** argv) {
   std::printf("%s  NONINV  the instrumented scratch oracle rendered the pristine oracle's samples bit for bit on %d of %d scenarios\n",
               niBad == 0 && total > 0 ? "PASS" : "FAIL", total - niBad, total);
   if (niBad) infra = true;
+  // The floor under the corpus (ADR-206 item 1, B455 H1): pinned at the count the renderer writes
+  // today; raise it in the same PR that adds a scenario, never lower it without a recorded
+  // decision. A short stream is infrastructure (the FMA control reports exit 2, never "fired").
+  // Full streams only: a --only or plain-file subset is short by design.
+  constexpr int kMinScenarios = 386;
+  if (fullStream && !scenarioFloorHolds("h2_scalpel_parity", total, kMinScenarios)) infra = true;
   if (infra) red++;
 
 #ifdef H2_SCALPEL_FMA_CONTROL
