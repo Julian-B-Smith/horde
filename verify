@@ -685,6 +685,13 @@ full() {
   "$build_dir/penv_check"                               || return 1   # B116 ENV 2 per-note, retriggers
   "$build_dir/twocluster_check"                         || return 1   # ADR-164 negative K repels
   "$build_dir/morphlayout_check" tests/morph_order.txt "docs/presets/factory/morph/MO - Quantum Morph.json" || return 1   # B124 layout-1 remap, corner reset; B240 whole order + quantum draws frozen
+  # After a preset load a newly struck voice sounds at its OWN pitch (B454 item 10, ADR-206
+  # item 5): every gated voice's f0 within 1 cent of its note, read from the voice table over the
+  # whole factory bank x five voice-mode overlays x five scenarios, glides waited out on the
+  # plugin's own flag. Replaces the unwired autocorrelation probe whose gate sat inside its
+  # estimator's error. Controls: a clean row, a reading-layer plant, and a real slow-glide plant
+  # read before and after it lands. ~15 s here. Added under ADR-180 §1.
+  "$build_dir/preset_pitch_check" docs/presets/factory  || return 1   # B454 a new voice sounds at its own pitch, every factory patch
   "$build_dir/fxxfade_check"                            || return 1   # B117 crossfade handover as measured
   "$build_dir/polarity_check"                           || return 1   # B134 polarity before depth, as-is exact
   "$build_dir/lfoenv_check"                             || return 1   # B171 LFO 1/2 + ENV 3/4 as mod sources

@@ -1,5 +1,8 @@
 {
- "approved": {"dynamic_loops": ["ADR-205 item 2; approved by the human 2026-10-10"]},
+ "approved": {
+  "dynamic_loops": ["ADR-205 item 2; approved by the human 2026-10-10"],
+  "preset_probe": ["ADR-206 item 5; approved by the human 2026-10-10"]
+ },
  "classes": {
   "h2_fma_control": {
    "targets": {
@@ -103,7 +106,6 @@
     "pitch_probe": [],
     "polarity_check": [{"compile": ["-O2"], "link": [], "when": "NOT MSVC"}],
     "preset_check": [{"compile": ["-O2"], "link": [], "when": "NOT MSVC"}],
-    "preset_probe": [],
     "presetstore_check": [{"compile": ["-O2"], "link": [], "when": "NOT MSVC"}],
     "ratchet_probe": [{"compile": ["-O2"], "link": [], "when": "NOT MSVC"}],
     "registry_dump": [{"compile": ["-O2"], "link": [], "when": "NOT MSVC"}],
