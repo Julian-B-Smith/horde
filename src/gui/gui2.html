@@ -1825,6 +1825,26 @@
 </div>
 
 <script>
+/* THE PAGE REFUSES EVERY DROP (B448 C3, ADR-197; a hardening guard beside the
+   navigation lock in src/gui/embedded_page_policy.h and hypersaw_gui.mm). This
+   GUI has no drag-and-drop feature, so a file or link dragged onto the web view
+   is always a stray one; left alone the engine may navigate to it or hand the
+   page its contents. preventDefault on all three events at DOCUMENT level in the
+   CAPTURE phase runs before any element's own handler could take the drop, and
+   dropEffect 'none' tells the OS the target accepts nothing. Knobs and sliders
+   use pointer events, which these three never touch. effectAllowed is the
+   DRAG SOURCE's to set (dragstart only), so there is nothing to set here.
+   tools/gui_sink_check.py holds this shape (the three registrations are written
+   out literally so a scan can read them); tools/gui_webview_check drives a
+   synthetic drop in the real web view. */
+function refuseDrop(ev) {
+  ev.preventDefault();
+  if (ev.dataTransfer) ev.dataTransfer.dropEffect = 'none';
+}
+document.addEventListener('dragenter', refuseDrop, true);
+document.addEventListener('dragover', refuseDrop, true);
+document.addEventListener('drop', refuseDrop, true);
+
 /* TOKEN BRIDGE (ADR-118). A <canvas> takes strings, not CSS variables, so every
    painted colour in this file has been a literal — 17 distinct ones, including
    three pairs that are the same intended colour typed twice (#e8ecf4/#e8ecf2,

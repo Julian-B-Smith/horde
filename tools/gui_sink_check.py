@@ -33,12 +33,31 @@ replaceState, location.hash or href="#…": the Windows bridge admits messages b
 the sending document's URL, macOS by main frame, and the page must not move its
 own URL. Planted cases of each are flagged, and an ordinary href is not.
 
+DROPS (B448 C3). The GUI has no drag-and-drop feature, so every shipped page
+must refuse every drop: a document-level, capture-phase listener for each of
+dragenter, dragover and drop, whose handler calls preventDefault(). A stray file
+or link dropped on the web view can then neither navigate it away nor hand the
+page a file. The three registrations are read as written (a literal
+`document.addEventListener('drop', fn, true)` or `{capture: true}`; the handler
+is inline or a named function in the page), comments blanked first, so a guard
+that is only commented out reads as absent. Also refused anywhere in a page
+(fail closed, comments included): a read of dataTransfer.files / .items /
+.getData, getAsFile, webkitGetAsEntry, FileReader, and draggable="true", unless
+DRAGGABLE_EXCEPTIONS names it with a reason. Limit: preventDefault is found in
+the handler's text, not proven to run on every path; that is the run-time half,
+gui_webview_check, which dispatches a drop in the real web view.
+
 MUST-FAIL CONTROLS, on in-memory text every run: a planted `el.innerHTML = name`,
 a planted concatenation and template with a variable, each other sink, and the
 pre-fix corner-dropdown line are all flagged; literal sinks (plain, joined
 across lines, an empty string) are not; `with_csp` refuses a page with an
 inline handler, an external script, or a policy of its own; a page whose script
-changes after embedding no longer matches its hash. If any control misreads,
+changes after embedding no longer matches its hash. The drop guard's controls are
+copies of the real gui2.html with one defect planted, written to a temp dir and
+scanned by the same file-level function the real pages go through: the drop
+listener removed, the handler without preventDefault, a non-capture listener, a
+non-document listener, the guard only in a comment, a planted dataTransfer.files
+read, a planted draggable="true". If any control misreads,
 the check is RED: a scanner that cannot see a planted sink proves nothing about
 the tree.
 """
@@ -47,6 +66,7 @@ import hashlib
 import pathlib
 import re
 import sys
+import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
@@ -58,6 +78,10 @@ EXCEPTIONS = [
      "rt is built from constant strings and Number.toFixed() output only "
      "(the per-frame coherence readout); no outside text can reach it"),
 ]
+
+# (file name, the matched text, reason): a draggable="true" element a page may keep.
+# None today: the GUI has no drag-and-drop feature (B448 C3). Keep short.
+DRAGGABLE_EXCEPTIONS = []
 
 _ASSIGN = re.compile(r"\.(innerHTML|outerHTML)\s*(\+?=)(?!=)")
 _CALL = re.compile(r"(\binsertAdjacentHTML|\bdocument\s*\.\s*write(?:ln)?)\s*\(")
@@ -241,6 +265,132 @@ def policy_problems(name, html):
     return probs
 
 
+# DROPS (B448 C3): the three events a page must cancel, and what a page must not do.
+_DROP_EVENTS = ("dragenter", "dragover", "drop")
+_CAPTURE_ARG = re.compile(r"true|\{[^{}]*\bcapture\s*:\s*true\b[^{}]*\}")
+_IDENT = re.compile(r"[A-Za-z_$][\w$]*")
+_DT_READ = re.compile(r"\bdataTransfer\s*\??\s*(?:\.|\[\s*['\"])\s*(?:files|items|getData)\b"
+                      r"|\b(?:getAsFile|getAsFileSystemHandle|webkitGetAsEntry|FileReader)\b")
+# (?<![\w-]) so data-draggable and a class name are not draggable.
+_DRAGGABLE = re.compile(r"(?<![\w-])draggable\s*=\s*[\"']?\s*true\b[\"']?|\.draggable\s*=\s*true\b"
+                        r"|setAttribute\s*\(\s*['\"]draggable['\"]\s*,\s*['\"]?\s*true")
+
+
+def _blank_comments(js):
+    """`js` with every // and /* */ comment replaced by spaces (newlines kept), so a
+    guard that only exists in a comment is not read as present. Strings are skipped
+    whole, so a // inside one is not a comment."""
+    out, i = [], 0
+    while i < len(js):
+        if js.startswith("//", i):
+            nl = js.find("\n", i)
+            end = len(js) if nl < 0 else nl
+        elif js.startswith("/*", i):
+            close = js.find("*/", i + 2)
+            end = len(js) if close < 0 else close + 2
+        elif js[i] in "'\"`":
+            end, _ = _skip_string(js, i)
+            out.append(js[i:end])
+            i = end
+            continue
+        else:
+            out.append(js[i])
+            i += 1
+            continue
+        out.append(re.sub(r"[^\n]", " ", js[i:end]))
+        i = end
+    return "".join(out)
+
+
+def _call_args(text):
+    """The top-level arguments of the call whose `(` has just been consumed."""
+    args_text, _ = _expression(text, 0, stop_at_comma=False)
+    parts, k = [], 0
+    while k < len(args_text):
+        a, k = _expression(args_text, k, stop_at_comma=True)
+        parts.append(a)
+        k += 1
+    return parts
+
+
+def _handler_text(js, handler):
+    """The source of a listener argument: itself when inline, else the page's
+    `function name(...) {...}` or `const name = ...` definition; None if absent."""
+    if not _IDENT.fullmatch(handler):
+        return handler
+    d = re.search(r"\bfunction\s+" + re.escape(handler) + r"\s*\(", js)
+    if d:
+        return _expression(js, d.end() - 1, stop_at_comma=False)[0]
+    d = re.search(r"\b(?:const|let|var)\s+" + re.escape(handler) + r"\s*=(?!=)", js)
+    return _expression(js, d.end(), stop_at_comma=False)[0] if d else None
+
+
+def drop_guard_problems(name, src, exceptions=DRAGGABLE_EXCEPTIONS):
+    """Problems with how `src` (a GUI page) handles drags and drops; [] when it
+    refuses every drop, reads no dropped data and has no draggable element."""
+    js = _blank_comments("\n".join(m.group(2) for m in embed_file._SCRIPT_RE.finditer(src)))
+    probs = []
+    for ev in _DROP_EVENTS:
+        why = f"no document-level listener for '{ev}'"
+        for m in re.finditer(r"\bdocument\s*\.\s*addEventListener\s*\(", js):
+            args = _call_args(js[m.end():])
+            if len(args) < 2 or args[0] not in (f"'{ev}'", f'"{ev}"'):
+                continue
+            if len(args) < 3 or not _CAPTURE_ARG.fullmatch(args[2]):
+                why = f"the '{ev}' listener is not capture-phase"
+                continue
+            body = _handler_text(js, args[1])
+            if body is None or not re.search(r"\.\s*preventDefault\s*\(\s*\)", body):
+                why = f"the '{ev}' handler does not call preventDefault()"
+                continue
+            why = None
+            break
+        if why:
+            probs.append(f"{name}: {why}")
+    for m in _DT_READ.finditer(src):
+        probs.append(f"{name}:{src.count(chr(10), 0, m.start()) + 1}: reads dropped data: {m.group(0)}")
+    for m in _DRAGGABLE.finditer(src):
+        if not any(e[0] == name and e[1] == m.group(0) for e in exceptions):
+            probs.append(f"{name}:{src.count(chr(10), 0, m.start()) + 1}: draggable element: {m.group(0)}")
+    return probs
+
+
+def drop_guard_controls():
+    """The drop guard's must-fail controls. Each plant is the REAL gui2.html with
+    one defect, written to a temp dir and scanned through the same file read the
+    real pages take; the real page must read clean."""
+    real = (ROOT / "src/gui/gui2.html").read_text(encoding="utf-8")
+    fn = "function refuseDrop(ev) {\n  ev.preventDefault();"
+    line = {e: f"document.addEventListener('{e}', refuseDrop, true);" for e in _DROP_EVENTS}
+    plants = [
+        ("the drop listener removed", real.replace(line["drop"], "", 1)),
+        ("the dragover listener removed", real.replace(line["dragover"], "", 1)),
+        ("the handler without preventDefault", real.replace(fn, "function refuseDrop(ev) {\n  void ev;", 1)),
+        ("a listener that is not capture-phase",
+         real.replace(line["drop"], "document.addEventListener('drop', refuseDrop);", 1)),
+        ("a listener on window, not document", real.replace(line["drop"], line["drop"].replace("document", "window"), 1)),
+        ("a listener on an element", real.replace(line["drop"], line["drop"].replace("document", "document.body"), 1)),
+        ("the guard only in a comment", real.replace(line["drop"], "// " + line["drop"], 1)),
+        ("a planted dataTransfer.files read", real.replace(fn, fn + "\n  const f = ev.dataTransfer.files;", 1)),
+        ("a planted dataTransfer.items read", real.replace(fn, fn + "\n  const f = ev.dataTransfer?.items;", 1)),
+        ("a planted draggable=\"true\" element", real.replace("<script>", "<div draggable=\"true\"></div>\n<script>", 1)),
+    ]
+    out = [("drops: the real gui2.html reads clean", not drop_guard_problems("gui2.html", real))]
+    with tempfile.TemporaryDirectory() as tmp:
+        for i, (label, text) in enumerate(plants):
+            path = pathlib.Path(tmp) / f"plant{i}.html"
+            path.write_text(text, encoding="utf-8")
+            # a plant that changed nothing would read clean for the wrong reason
+            out.append((f"drops: refuses {label}",
+                        text != real and bool(drop_guard_problems(path.name, path.read_text(encoding="utf-8")))))
+    out.append(("drops: data-draggable and a .drag class are not draggable",
+                not drop_guard_problems("x.html", real + '<i data-draggable="true" class="drag"></i>')))
+    planted = real.replace("<script>", '<div draggable="true"></div><script>', 1)
+    out.append(("drops: a named exception excuses its element",
+                planted != real and not drop_guard_problems("gui2.html", planted, [("gui2.html", 'draggable="true"', "r")])))
+    return out
+
+
 def controls():
     """Each planted case and whether the scanner reads it correctly."""
     flagged = lambda s: bool(findings("plant.html", s, [])[0])
@@ -276,6 +426,7 @@ def controls():
     ]
     out += [(f"url change: {label}", bool(url_changes("plant.html", src)) == want)
             for label, src, want in url_cases]
+    out += drop_guard_controls()
     # an exception matches by statement and is reported when unused
     bad, used = findings("plant.html", "el.innerHTML = rt;", [("plant.html", "el.innerHTML = rt", "r")])
     out.append(("exception excuses its own statement", not bad and used == {"el.innerHTML = rt"}))
@@ -321,6 +472,10 @@ def main(argv):
             print(f"gui_sink_check: non-literal HTML sink {b}", file=sys.stderr)
             print("    build it with DOM nodes and textContent / new Option(text, value),"
                   " or add an EXCEPTION with its reason", file=sys.stderr)
+            red = True
+        for p in drop_guard_problems(f.name, src):
+            print(f"gui_sink_check: DROPS {p}", file=sys.stderr)
+            print("    every shipped page must refuse every drop (see DROPS in the file header)", file=sys.stderr)
             red = True
         for p in policy_problems(f.name, src):
             print(f"gui_sink_check: POLICY {p}", file=sys.stderr)
