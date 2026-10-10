@@ -37,5 +37,5 @@
     "Unlicense": "public-domain dedication with a fallback license; seeded from the brief, no component carries it today",
     "Zlib": "permissive; seeded from the brief, no component carries it today"
   },
-  "status": "PROPOSED for the human (B448 Wave C C1, 2026-10-09); not ratified"
+  "status": "RATIFIED by the human 2026-10-10 (ADR-205); proposed 2026-10-09 (B448 Wave C C1)"
 }
