@@ -23,5 +23,5 @@
   - A loop over the three event names in the page: unreadable to the scan and no shorter.
   - Re-calling `unregisterDraggedTypes` at attach: the count is already 0 after attach.
 - **Not covered:** the lab pages in `docs/design/` are not shipped and not scanned. Three of them (`envelope-hierarchy-lab.html`, `maw-horde-lab.html`, `scalpel-interface-lab.html`) mention drag or drop handlers of their own, so a blanket guard would break them; none would benefit.
-- **Verify:** see the PR; `./verify fast` result recorded from `.harness/last-verify.json` there and in the report.
+- **Verify:** `./verify fast` exit 0, `.harness/last-verify.json` `{"target":"fast","exit":0,"git":"d571efc","ts":"2026-10-10T02:14:38Z"}` (git is the base commit; the change was uncommitted when it ran). `gui_sink_check: OK (2 pages, 5 sinks, 1 excepted, 42 controls)`. `gui_webview_check: OK (29 rows, 0 failed)` (the GUI part of `full`, built Release on macOS; the rest of `./verify full` was not run).
 - **Open questions:** (1) A choc patch for Windows `put_AllowExternalDrop` is the human's call. (2) Whether the macOS drag-type count survives a host that re-parents the view is unmeasured.
