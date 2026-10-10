@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """choc_patch_check -- the vendored choc carries its patches, the build compiles
 the patched copy, and the Windows GUI uses the hooks they add (B446, ADR-194
-D-S5, ADR-196).
+D-S5, ADR-196; the external-drop patch: B448 C3, ADR-205 item 3).
 
 WIRED: ./verify fast
 
   python3 tools/choc_patch_check.py
 
-WHY. On Windows the GUI admits only its embedded page, and refuses page script
-every permission (clipboard reads included), through two options that
-libs/patches/choc-webview2-navigation.patch and
-libs/patches/choc-webview2-permissions.patch add to choc. A patch carried beside
+WHY. On Windows the GUI admits only its embedded page, refuses page script
+every permission (clipboard reads included), and turns off drops from outside
+the view, through three options that libs/patches/choc-webview2-navigation.patch,
+libs/patches/choc-webview2-permissions.patch and
+libs/patches/choc-webview2-external-drop.patch add to choc. A patch carried beside
 a submodule can be lost four quiet ways: an upstream bump stops it applying, the
 build stops listing it, a relative include compiles the unpatched header
 instead, or the backend stops passing the hook. Each is a row here.
@@ -41,24 +42,47 @@ ROWS.
                deletion check first, so a deleted owner is never read; critic
                MEDIUM-1), refuses with STATE_DENY, maps an
                unknown kind to `other`, and keeps upstream's grant intact for
-               the unset case.
-  ALONE    each patch also applies by itself to the pristine header, so either
-           can be dropped when upstream takes its half (each patch's header
+               the unset case;
+             - passes the DROP rules below, and declares the controller chain
+               from IUnknown to ICoreWebView2Controller4 with the SDK's bases,
+               interface ids and method order (the two interfaces upstream
+               already has included: their methods fill the vtable slots ahead
+               of the patch's), with the new block inside
+               webviewControllerCreationComplete, after the controller is
+               held and before the page is told it is ready.
+  DROP     read from the external-drop patch's ADDED lines, so it holds with no
+           choc checkout: Options::allowExternalDrop is a bool that defaults
+           to TRUE (choc's behaviour for every other user of the patch is
+           unchanged); ICoreWebView2Controller3 and ICoreWebView2Controller4
+           carry the interface ids, bases and method order of Microsoft's
+           WebView2 SDK header (SDK_CHAIN below records them and their
+           source; a wrong order would call the wrong vtable slot); getIID()
+           returns the same id as the MIDL_INTERFACE line; and
+           put_AllowExternalDrop is called once, with FALSE, only when the
+           option is false and only after QueryInterface for Controller4
+           returned S_OK with a non-null pointer, so an older runtime is left
+           as it was and the default path calls nothing.
+  ALONE    each patch also applies by itself to the pristine header, so any one
+           can be dropped when upstream takes its part (each patch's header
            promises this).
-  ORDER    the list applied in REVERSE order gives the same bytes as in order,
-           so neither patch depends on the other having run first.
+  ORDER    the list applied in EVERY other order (reverse included) gives the
+           same bytes as in list order, so no patch depends on another having
+           run first.
   CRLF     a CRLF copy of the header (Git for Windows' core.autocrlf checkout)
            patches, through the same list, to the same bytes as the LF one.
            Before 2026-10-08 it did not: file(READ) drops the CRs, so the
            script's CRLF test never fired (traces/2026-10-08-b446-choc-win-clipboard.md).
-  UPSTREAM the unpatched header has neither `allowNavigation` nor
-           `allowPermission`. Red the day upstream adds a name: that is a
-           removal condition arriving.
+  UPSTREAM the unpatched header has none of `allowNavigation`,
+           `allowPermission`, `allowExternalDrop` and
+           `ICoreWebView2Controller4`. Red the day upstream adds a name: that
+           is a removal condition arriving.
   WIRING   CMakeLists.txt runs apply_patch.cmake with the quoted list and puts
            the copy on the impl's PUBLIC include path; no file in src/ or tools/
            includes choc_WebView.h through a path into libs/choc; the shared
-           makeWebView assigns opts.allowNavigation and opts.allowPermission
-           from its parameters; the Windows backend passes
+           makeWebView assigns opts.allowNavigation, opts.allowPermission and
+           opts.allowExternalDrop from its parameters, and takes the last as
+           a bool defaulting to true, just ahead of the origin; the Windows
+           backend passes `false` there; the Windows backend passes
            detail::embeddedPagePolicy and detail::webPermissionPolicy to
            makeWebView and binds hzPasteState; the Windows backend passes
            detail::kEmbeddedOrigin as customSchemeURI and makeWebView assigns
@@ -70,8 +94,8 @@ ROWS.
            rules DO is tools/embedded_page_policy_check's business, by
            behaviour, not here by token.
   Where libs/choc is not checked out (CI's verify-fast job checks out no
-  submodules) APPLY, ORDER, ALONE, CRLF, UPSTREAM and controls C1, C2, C10, C11
-  and C17 print a WARNING instead, and the origin rules are checked against
+  submodules) APPLY, ORDER, ALONE, CRLF, UPSTREAM and controls C1, C2, C10, C11,
+  C17 and C35 to C38 print a WARNING instead, and the origin rules are checked against
   FALLBACK_SERVING (choc's default home and page path at the pin, recorded here)
   rather than read from the header. Every CI build job configures, and so
   applies the patches with a hard stop.
@@ -92,13 +116,28 @@ fails the permission rules (C17); kEmbeddedOrigin set to choc's shared default
 (C18), the backend not passing the origin (C19), makeWebView without the origin
 assignment (C20), and the macOS backend using the origin (C21) fail WIRING; a
 reverse-order result that differs fails ORDER (C22); a list naming a patch twice
-fails LIST (C23). If any control reads green the check is red.
+fails LIST (C23). For the external-drop patch: the backend without its
+argument (C24) or passing true (C25) and the shared header without the
+assignment (C26) fail WIRING; a list missing the patch fails LIST (C27); the
+patch with a removed line fails SHAPE (C28); the option defaulting to false
+(C29), a call made whatever the option says (C30), two Controller3 methods
+swapped (C31), an interface id one digit off (C32), a getIID() that disagrees
+with its MIDL_INTERFACE line (C33) and a call made when the query did not
+succeed (C34) fail DROP; an upstream controller interface with a method missing fails
+the chain rule (C35); a choc whose controller set-up drifted stops the patch
+applied alone (C36); and a planted patch that leans on the navigation patch's
+lines fails ALONE (C37) and ORDER (C38). If any control reads green the check
+is red.
 
 WHAT THIS DOES NOT SHOW. That WebView2 at run time cancels what the navigation
-rule refuses or denies what the permission rule refuses, or that native PASTE
-works. No Windows runtime exists on this Mac; CI's build-windows job compiles
+rule refuses or denies what the permission rule refuses, that native PASTE
+works, or that a real drop from another application is refused once
+AllowExternalDrop is off. The interface ids and method order are compared with a
+RECORD of the SDK header (SDK_CHAIN), not with the header itself, which this
+repository does not carry. No Windows runtime exists on this Mac; CI's build-windows job compiles
 the patched backend, and the runtime behaviour is a recorded residual (B447).
 """
+import itertools
 import pathlib
 import re
 import shutil
@@ -113,6 +152,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 PATCH_DIR = ROOT / "libs/patches"
 NAV_PATCH = "libs/patches/choc-webview2-navigation.patch"
 PERM_PATCH = "libs/patches/choc-webview2-permissions.patch"
+DROP_PATCH = "libs/patches/choc-webview2-external-drop.patch"
 README = PATCH_DIR / "README.md"
 SCRIPT = PATCH_DIR / "apply_patch.cmake"
 CHOC = ROOT / "libs/choc"
@@ -124,6 +164,30 @@ MM = ROOT / "src/gui/hypersaw_gui.mm"
 CMAKELISTS = ROOT / "CMakeLists.txt"
 KINDS = ("page", "frame", "newWindow", "message")
 PERM_KINDS = ("clipboardRead", "microphone", "camera", "geolocation", "notifications", "otherSensors", "other")
+# The WebView2 controller chain as Microsoft's SDK header declares it: (interface,
+# id, base, methods in vtable order). Source: build/native/include/WebView2.h in
+# the NuGet package Microsoft.Web.WebView2, version 1.0.2903.40, read 2026-10-10.
+# The first two are upstream choc's own declarations; the external-drop patch adds
+# the last two. A COM call goes by slot number, not by name, so put_AllowExternalDrop
+# reaches the right function only if every method ahead of it is declared, in this
+# order. That is why the whole chain is held here and not only the two new methods.
+SDK_CHAIN = (
+    ("ICoreWebView2Controller", "4d00c0d1-9434-4eb6-8078-8697a560334f", "IUnknown",
+     ("get_IsVisible", "put_IsVisible", "get_Bounds", "put_Bounds", "get_ZoomFactor", "put_ZoomFactor",
+      "add_ZoomFactorChanged", "remove_ZoomFactorChanged", "SetBoundsAndZoomFactor", "MoveFocus",
+      "add_MoveFocusRequested", "remove_MoveFocusRequested", "add_GotFocus", "remove_GotFocus",
+      "add_LostFocus", "remove_LostFocus", "add_AcceleratorKeyPressed", "remove_AcceleratorKeyPressed",
+      "get_ParentWindow", "put_ParentWindow", "NotifyParentWindowPositionChanged", "Close", "get_CoreWebView2")),
+    ("ICoreWebView2Controller2", "c979903e-d4ca-4228-92eb-47ee3fa96eab", "ICoreWebView2Controller",
+     ("get_DefaultBackgroundColor", "put_DefaultBackgroundColor")),
+    ("ICoreWebView2Controller3", "f9614724-5d2b-41dc-aef7-73d62b51543b", "ICoreWebView2Controller2",
+     ("get_RasterizationScale", "put_RasterizationScale", "get_ShouldDetectMonitorScaleChanges",
+      "put_ShouldDetectMonitorScaleChanges", "add_RasterizationScaleChanged", "remove_RasterizationScaleChanged",
+      "get_BoundsMode", "put_BoundsMode")),
+    ("ICoreWebView2Controller4", "97d418d5-a426-4e49-a151-e1a10f327d9e", "ICoreWebView2Controller3",
+     ("get_AllowExternalDrop", "put_AllowExternalDrop")),
+)
+UPSTREAM_CHAIN, PATCH_CHAIN = SDK_CHAIN[:2], SDK_CHAIN[2:]
 
 
 # ---------------------------------------------------------------- pure rules
@@ -148,7 +212,7 @@ def rule_list(listed, on_disk, readme_text):
             errs.append(f"HS_CHOC_PATCHES lists {rel}, which does not exist")
         if pathlib.PurePosixPath(rel).name not in readme_text:
             errs.append(f"libs/patches/README.md does not name {pathlib.PurePosixPath(rel).name}")
-    for need in (NAV_PATCH, PERM_PATCH):
+    for need in (NAV_PATCH, PERM_PATCH, DROP_PATCH):
         if need not in listed:
             errs.append(f"HS_CHOC_PATCHES does not list {need}")
     return errs
@@ -272,8 +336,119 @@ def rule_permission(text):
     return errs
 
 
+def added_lines(patch_text):
+    """The lines a patch adds, as one text. It is what the patch itself says, so
+    rules on it need no choc checkout (CI's fast job has none)."""
+    body_at = patch_text.find("\n--- a/")
+    return "\n".join(ln[1:] for ln in patch_text[body_at + 1:].splitlines()
+                     if ln.startswith("+") and not ln.startswith("+++ "))
+
+
+def interface_decl(text, name):
+    """(id, base, methods in declared order, body) of interface `name`, or None."""
+    m = re.search(r'MIDL_INTERFACE\("([0-9a-fA-F-]+)"\)\s*' + name + r" : public (\w+)\s*\{(.*?)\n\};", text, re.S)
+    if not m:
+        return None
+    return (m.group(1).lower(), m.group(2),
+            tuple(re.findall(r"virtual HRESULT STDMETHODCALLTYPE (\w+)\s*\(", m.group(3))), m.group(3))
+
+
+def getter_iid(body):
+    """The id a `static IID getIID()` returns, in MIDL_INTERFACE's text form, or None."""
+    hx = r"(0x[0-9a-fA-F]+)"
+    m = re.search(r"static IID getIID\(\)\s*\{ return \{ " + hx + ", " + hx + ", " + hx
+                  + r", \{ ((?:0x[0-9a-fA-F]+(?:, )?){8}) \} \}; \}", body)
+    if not m:
+        return None
+    d = [int(x, 16) for x in re.findall(r"0x[0-9a-fA-F]+", m.group(4))]
+    return "%08x-%04x-%04x-%02x%02x-%s" % (int(m.group(1), 16), int(m.group(2), 16), int(m.group(3), 16),
+                                           d[0], d[1], "".join("%02x" % x for x in d[2:]))
+
+
+def rule_chain(text, chain):
+    """Each interface in `chain` is declared in `text` with the SDK's id, base and
+    method order, and a getIID() (where it has one) that returns the same id."""
+    errs = []
+    for name, iid, base, methods in chain:
+        decl = interface_decl(text, name)
+        if decl is None:
+            errs.append(f"no MIDL_INTERFACE declaration of {name}")
+            continue
+        got_iid, got_base, got_methods, body = decl
+        if got_iid != iid:
+            errs.append(f"{name} is declared with id {got_iid}; the SDK's is {iid}")
+        if got_base != base:
+            errs.append(f"{name} derives from {got_base}; in the SDK it derives from {base}")
+        if got_methods != methods:
+            errs.append(f"{name} declares {got_methods}; the SDK's order is {methods}. A method missing or "
+                        "out of order moves every later vtable slot, and a call lands in the wrong function")
+        if body.count("virtual") != len(got_methods):
+            errs.append(f"{name} has a virtual member this rule cannot read, so its slot count is unknown")
+        if "getIID" in body and getter_iid(body) != got_iid:
+            errs.append(f"{name}::getIID() returns {getter_iid(body)}, not the {got_iid} of its MIDL_INTERFACE line")
+    return errs
+
+
+# The whole of the added block: gated on the option being OFF (so the default path
+# calls nothing), the query's result checked before use (so a runtime without
+# Controller4 is left as it was), and FALSE passed.
+DROP_CALL = (r"if \(! options\.allowExternalDrop\)\s*\{\s*"
+             r"COMPtr<ICoreWebView2Controller4> controller4;\s*(?://[^\n]*\n\s*)*"
+             r"if \(controller->QueryInterface \(ICoreWebView2Controller4::getIID\(\), "
+             r"\(void\*\*\) controller4\.getAddress\(\)\) == S_OK\s*&& controller4 != nullptr\)\s*\{\s*"
+             r"controller4->put_AllowExternalDrop \(FALSE\);\s*\}\s*\}")
+
+
+def rule_drop(text):
+    """The external-drop rules that the patch's added lines carry by themselves;
+    `text` is those lines or the patched header."""
+    errs = rule_chain(text, PATCH_CHAIN)
+    decl = interface_decl(text, "ICoreWebView2Controller4")
+    if decl is not None and "getIID" not in decl[3]:
+        errs.append("ICoreWebView2Controller4 has no getIID() for the QueryInterface call")
+    defaults = re.findall(r"^\s*bool allowExternalDrop = (\w+);", text, re.M)
+    if defaults != ["true"]:
+        errs.append(f"Options must declare `bool allowExternalDrop = true;` exactly once (found {defaults}): "
+                    "any other default changes choc's behaviour for every user of the patch")
+    if not re.search(DROP_CALL, text):
+        errs.append("put_AllowExternalDrop (FALSE) is not called under `if (! options.allowExternalDrop)`, "
+                    "after a QueryInterface for ICoreWebView2Controller4 that returned S_OK with a non-null pointer")
+    if len(re.findall(r"->put_AllowExternalDrop \(", text)) != 1:
+        errs.append("put_AllowExternalDrop must be called exactly once")
+    if len(re.findall(r"options\.allowExternalDrop\b", text)) != 1:
+        errs.append("allowExternalDrop must be read exactly once (the gate)")
+    return errs
+
+
+def rule_drop_in_header(text):
+    """What only the patched header can show: the slots AHEAD of the patch's
+    interfaces are the SDK's, and the call sits where the controller exists."""
+    errs = rule_chain(text, UPSTREAM_CHAIN)
+    m = re.search(r"void webviewControllerCreationComplete \(ICoreWebView2Controller\* controller, "
+                  r"ICoreWebView2\* view\)\s*\{(.*?)\n    \}", text, re.S)
+    fn = m.group(1) if m else ""
+    held = fn.find("coreWebViewController = controller;")
+    call = fn.find("controller4->put_AllowExternalDrop")
+    ready = fn.find("options.webviewIsReady (owner)")
+    if not 0 <= held < call < ready:
+        errs.append("put_AllowExternalDrop is not called inside webviewControllerCreationComplete, after the "
+                    "controller is held and before webviewIsReady")
+    return errs
+
+
+def dependent_patch(nav_only_text):
+    """A planted patch that adds one line straight after the navigation patch's
+    last Options line. Its context exists only once that patch has run, which is
+    the fault ALONE and ORDER exist for (controls C37, C38)."""
+    lines = nav_only_text.split("\n")
+    at = next(i for i, ln in enumerate(lines) if ln.endswith("> allowNavigation;")) + 1
+    hunk = ([f"@@ -{at - 2},6 +{at - 2},7 @@"] + [" " + s for s in lines[at - 3:at]]
+            + ["+        bool planted = true;"] + [" " + s for s in lines[at:at + 3]])
+    return f"planted\n\n--- a/{TARGET}\n+++ b/{TARGET}\n" + "\n".join(hunk) + "\n"
+
+
 def rule_patched(text):
-    return rule_navigation(text) + rule_permission(text)
+    return rule_navigation(text) + rule_permission(text) + rule_drop(text) + rule_drop_in_header(text)
 
 
 def call_span(text, start):
@@ -309,6 +484,14 @@ def rule_wiring(win_text, common_text, policy_text, cmake_text, includers, servi
     for opt in ("allowNavigation", "allowPermission", "customSchemeURI"):
         if not re.search(r"opts\." + opt + r"\s*=\s*std::move\(" + opt + r"\);", cc):
             errs.append(f"hypersaw_gui_common.h: makeWebView does not assign opts.{opt} from its parameter")
+    if not re.search(r"opts\.allowExternalDrop\s*=\s*allowExternalDrop;", cc):
+        errs.append("hypersaw_gui_common.h: makeWebView does not assign opts.allowExternalDrop from its parameter")
+    # Position and default: the backend's `false` is positional, and macOS passes
+    # nothing, so it must keep choc's default.
+    if not re.search(r"allowPermission\s*=\s*\{\},\s*bool allowExternalDrop\s*=\s*true,\s*"
+                     r"std::string customSchemeURI\s*=\s*\{\}\)", cc):
+        errs.append("hypersaw_gui_common.h: makeWebView does not take `bool allowExternalDrop = true` between "
+                    "allowPermission and customSchemeURI")
     wc = strip_comments(win_text)
     at = wc.find("detail::makeWebView(")
     if at < 0:
@@ -327,6 +510,9 @@ def rule_wiring(win_text, common_text, policy_text, cmake_text, includers, servi
         if not re.search(r",\s*std::string\(detail::kEmbeddedOrigin\)\s*\)$", call):
             errs.append("hypersaw_gui_win.cpp: makeWebView is not passed std::string(detail::kEmbeddedOrigin) "
                         "as its customSchemeURI, so the page shares choc's default origin")
+        if not re.search(r"\}\s*,\s*false\s*,\s*std::string\(detail::kEmbeddedOrigin\)\s*\)$", call):
+            errs.append("hypersaw_gui_win.cpp: makeWebView is not passed `false` as allowExternalDrop, between "
+                        "the permission policy and the origin, so WebView2 keeps accepting external drops")
     pc = strip_comments(policy_text)
     page = re.search(r'kEmbeddedPage\s*=\s*"([^"]*)"', pc)
     origin = re.search(r'kEmbeddedOrigin\s*=\s*"([^"]*)"', pc)
@@ -414,6 +600,10 @@ def main():
         name = pathlib.PurePosixPath(rel).name
         row(f"PIN {name}", ["libs/choc has no gitlink in the index"] if link is None else rule_pin(texts[rel], link))
         row(f"SHAPE {name}", rule_shape(texts[rel]))
+    # From the patch's own added lines, so it runs where there is no choc checkout.
+    drop_text = texts.get(DROP_PATCH, "")
+    drop_added = added_lines(drop_text)
+    row("DROP", rule_drop(drop_added) if drop_text else [f"{DROP_PATCH} is missing"])
 
     pristine_path = CHOC / TARGET
     have_choc = pristine_path.exists()
@@ -430,9 +620,17 @@ def main():
                 patched = (tmp / "ok" / TARGET).read_text() if rc == 0 else ""
                 row("APPLY", [f"apply_patch.cmake exited {rc}:\n{log}"] if rc else rule_patched(patched))
                 serving = windows_serving(patched) if rc == 0 else None
-                rcr, _ = run_apply(CHOC / "choc", tmp / "rev", list(reversed(order)))
-                rev = (tmp / "rev" / TARGET).read_bytes() if rcr == 0 else b""
-                row("ORDER", rule_order(rcr, rev, (tmp / "ok" / TARGET).read_bytes() if rc == 0 else b"?"))
+                # Every ordering but the list's own; the reverse is among them.
+                ok_bytes = (tmp / "ok" / TARGET).read_bytes() if rc == 0 else b"?"
+                order_errs = []
+                for i, perm in enumerate(itertools.permutations(order)):
+                    if list(perm) == order:
+                        continue
+                    rcr, _ = run_apply(CHOC / "choc", tmp / f"perm{i}", list(perm))
+                    rev = (tmp / f"perm{i}" / TARGET).read_bytes() if rcr == 0 else b""
+                    names = ", ".join(pathlib.PurePosixPath(r).name for r in perm)
+                    order_errs += [f"{e} [{names}]" for e in rule_order(rcr, rev, ok_bytes)]
+                row("ORDER", order_errs)
                 for i, rel in enumerate(order):
                     rc1, log1 = run_apply(CHOC / "choc", tmp / f"alone{i}", [rel])
                     row(f"ALONE {pathlib.PurePosixPath(rel).name}",
@@ -449,7 +647,8 @@ def main():
                 pristine = pristine_path.read_text()
                 row("UPSTREAM", [f"the unpatched choc already has `{n}`: upstream may now provide the "
                                  "hook; see the matching patch's REMOVAL CONDITION"
-                                 for n in ("allowNavigation", "allowPermission") if n in pristine])
+                                 for n in ("allowNavigation", "allowPermission", "allowExternalDrop",
+                                           "ICoreWebView2Controller4") if n in pristine])
                 # C1: a drifted choc stops the build's patch step.
                 drift = tmp / "drift" / "choc" / "gui"
                 drift.mkdir(parents=True)
@@ -475,9 +674,37 @@ def main():
                                        "if (ownerPimpl.options.allowPermission && ! deletionCheckerRef->deleted)", 1)
                 control("C17 a gate that reads the owner before checking deletion fails the permission rules",
                         late != patched and bool(rule_permission(late)))
+                # C35: upstream's own controller interface a method short. Every later
+                # slot moves, the patch's included, and only the chain rule can see it.
+                short_chain = patched.replace(
+                    "    virtual HRESULT STDMETHODCALLTYPE NotifyParentWindowPositionChanged() = 0;\n", "", 1)
+                control("C35 an upstream controller interface with a method missing fails the chain rule",
+                        short_chain != patched and not rule_drop(short_chain)
+                        and bool(rule_drop_in_header(short_chain)))
+                # C36: the lines the external-drop patch's third hunk sits on, changed.
+                drift3 = tmp / "drift3" / "choc" / "gui"
+                drift3.mkdir(parents=True)
+                (drift3 / "choc_WebView.h").write_text(
+                    pristine.replace("controller2->put_DefaultBackgroundColor ({ 0, 0, 0, 0 });",
+                                     "controller2->put_DefaultBackgroundColor ({});", 1))
+                rc5, _ = run_apply(tmp / "drift3" / "choc", tmp / "drift3out", [DROP_PATCH])
+                control("C36 a drifted controller set-up stops the external-drop patch applied alone", rc5 != 0)
+                # C37, C38: a patch that leans on another's lines. In list order it
+                # applies (so the plant is a real patch); alone it does not, and
+                # ahead of the patch it leans on it does not.
+                dep = tmp / "dependent.patch"
+                dep.write_text(dependent_patch(nav_only) if rc3 == 0 else "")
+                rc6, _ = run_apply(CHOC / "choc", tmp / "dep_ok", [NAV_PATCH, dep])
+                rc7, _ = run_apply(CHOC / "choc", tmp / "dep_alone", [dep])
+                rc8, _ = run_apply(CHOC / "choc", tmp / "dep_rev", [dep, NAV_PATCH])
+                dep_ok = (tmp / "dep_ok" / TARGET).read_bytes() if rc6 == 0 else b"?"
+                dep_rev = (tmp / "dep_rev" / TARGET).read_bytes() if rc8 == 0 else b""
+                control("C37 a patch that leans on another's lines does not apply alone", rc6 == 0 and rc7 != 0)
+                control("C38 a patch that leans on another's lines fails ORDER",
+                        rc6 == 0 and bool(rule_order(rc8, dep_rev, dep_ok)))
         else:
             notes.append("WARNING: libs/choc is not checked out; APPLY, ORDER, ALONE, CRLF, UPSTREAM and controls "
-                         "C1, C2, C10, C11 and C17 not run here, and the origin rules use FALLBACK_SERVING "
+                         "C1, C2, C10, C11, C17 and C35 to C38 not run here, and the origin rules use FALLBACK_SERVING "
                          "(every build job applies the patches at configure, with a hard stop)")
 
     row("WIRING", rule_wiring(win_text, common_text, policy_text, cmake_text, relative_includers(files),
@@ -539,6 +766,42 @@ def main():
     control("C23 a list naming a patch twice fails LIST",
             bool(listed) and bool(rule_list(listed + listed[:1], on_disk, readme_text)))
 
+    # The external-drop patch (ADR-205 item 3). C24 to C28: the wiring, the list
+    # and the shape. C29 to C34: the patch's own added lines, each with one fault.
+    no_drop = re.sub(r"\n[ \t]*false,\n", "\n", win_text, count=1)
+    control("C24 the backend without its external-drop argument fails WIRING",
+            no_drop != win_text and wiring(win=no_drop))
+    drop_on = re.sub(r"(\n[ \t]*)false,\n", r"\1true,\n", win_text, count=1)
+    control("C25 the backend passing true for external drops fails WIRING",
+            drop_on != win_text and wiring(win=drop_on))
+    no_drop_assign = common_text.replace("opts.allowExternalDrop = allowExternalDrop;", "", 1)
+    control("C26 makeWebView without the external-drop assignment fails WIRING",
+            no_drop_assign != common_text and wiring(common=no_drop_assign))
+    no_drop_listed = [r for r in listed if r != DROP_PATCH]
+    control("C27 a list missing the external-drop patch fails LIST",
+            no_drop_listed != listed and bool(rule_list(no_drop_listed, on_disk, readme_text)))
+    drop_removal = re.sub(r"(\n@@[^\n]*\n) ", r"\1-", drop_text, count=1)
+    control("C28 the external-drop patch with a removed upstream line fails SHAPE",
+            drop_removal != drop_text and bool(rule_shape(drop_removal)))
+
+    def drop_fault(old, new):
+        """True if the patch's added lines, with `old` turned into `new`, fail DROP."""
+        planted = drop_added.replace(old, new, 1)
+        return planted != drop_added and bool(rule_drop(planted))
+
+    control("C29 the option defaulting to false fails DROP",
+            drop_fault("bool allowExternalDrop = true;", "bool allowExternalDrop = false;"))
+    control("C30 a call made whatever the option says fails DROP",
+            drop_fault("if (! options.allowExternalDrop)", "if (true)"))
+    swap = ("    virtual HRESULT STDMETHODCALLTYPE get_RasterizationScale(double*) = 0;\n",
+            "    virtual HRESULT STDMETHODCALLTYPE put_RasterizationScale(double) = 0;\n")
+    control("C31 two Controller3 methods swapped fails DROP", drop_fault(swap[0] + swap[1], swap[1] + swap[0]))
+    control("C32 an interface id one digit off fails DROP",
+            drop_fault('MIDL_INTERFACE("97d418d5-', 'MIDL_INTERFACE("97d418d6-'))
+    control("C33 a getIID() that disagrees with its MIDL_INTERFACE line fails DROP",
+            drop_fault("0x97d418d5,", "0x97d418d6,"))
+    control("C34 a call made when the query did not succeed fails DROP", drop_fault(" == S_OK", " != S_OK"))
+
     for n in notes:
         print(f"  {n}")
     if fails:
@@ -546,9 +809,9 @@ def main():
         for f in fails:
             print(f"    {f}", file=sys.stderr)
         return 1
-    print(f"choc_patch_check: OK ({len(order)} patches; list, pin, shape, wiring"
+    print(f"choc_patch_check: OK ({len(order)} patches; list, pin, shape, drop, wiring"
           + (", apply, order, alone, crlf, upstream" if have_choc else "")
-          + f"; {18 + (5 if have_choc else 0)} controls red as designed)")
+          + f"; {29 + (9 if have_choc else 0)} controls red as designed)")
     return 0
 
 

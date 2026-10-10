@@ -203,15 +203,21 @@ fast() {
   # hash-only for scripts with default-src 'none'. Self-calibrating. Added under
   # ADR-180 §1. Its run-time half is gui_webview_check in `full`.
   python3 tools/gui_sink_check.py || ok=1
-  # THE CHOC PATCHES ARE CARRIED, COMPILED AND USED (B446, ADR-194 D-S5, ADR-196).
-  # The Windows GUI admits only its embedded page, and refuses page script every
-  # permission (clipboard reads included), through two options libs/patches adds
+  # THE CHOC PATCHES ARE CARRIED, COMPILED AND USED (B446, ADR-194 D-S5, ADR-196;
+  # the third patch: B448 C3, ADR-205 item 3). The Windows GUI admits only its
+  # embedded page, refuses page script every permission (clipboard reads
+  # included), and turns off drops from outside the view, through three options
+  # libs/patches adds
   # to choc. Red if the build's list and the patch files disagree, if a patch's
   # base is not the libs/choc pin, if one removes an upstream line, if the build's
-  # own apply step fails on the list, in reverse or on either patch alone, if
+  # own apply step fails on the list, in any other order or on any patch alone, if
   # anything includes the unpatched header, or if the Windows backend stops
   # passing its policies, its own origin (not choc's shared one) or binding
-  # native PASTE. Twenty-three must-fail controls. Without a choc
+  # native PASTE. For the third patch it is also red if the new option does not
+  # default to true (choc's behaviour for other users), if the two WebView2
+  # interfaces it declares differ from the recorded SDK ids or method order (a
+  # wrong order calls the wrong vtable slot), or if the call is not gated on the
+  # option and on the interface query. Thirty-eight must-fail controls. Without a choc
   # checkout (CI's fast job) the apply rows print a WARNING; every build job
   # applies the patches with a hard stop. Added under ADR-180 §1.
   python3 tools/choc_patch_check.py || ok=1

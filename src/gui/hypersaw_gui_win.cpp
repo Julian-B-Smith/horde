@@ -46,7 +46,19 @@ namespace hypersaw
 
    B446 — ITS OWN ORIGIN (critic HIGH-1, PR #973). The page loads from
    detail::kEmbeddedOrigin, passed to choc as customSchemeURI, not from choc's
-   shared default: embedded_page_policy.h ORIGIN says why. */
+   shared default: embedded_page_policy.h ORIGIN says why.
+
+   B448 C3 — NO DROPS FROM OUTSIDE THE VIEW (ADR-205 item 3). The GUI has no
+   drag-and-drop feature. The allowExternalDrop option that
+   libs/patches/choc-webview2-external-drop.patch adds is passed false, which
+   sets WebView2's AllowExternalDrop off: the Windows counterpart of
+   unregisterDraggedTypes in hypersaw_gui.mm. It is one layer of three, and
+   each stands without the others: the page refuses dragenter, dragover and
+   drop in script (tools/gui_sink_check.py), and the navigation rule above
+   refuses any navigation a drop could start. Where the installed WebView2
+   runtime lacks ICoreWebView2Controller4 the switch is not set, and those two
+   still apply. Runtime-unverified on Windows as of 2026-10-10 (B447); see
+   traces/2026-10-10-choc-patch-external-drop.md. */
 namespace
 {
 // Closes the clipboard and unlocks its block on every path out, exceptions
@@ -138,6 +150,11 @@ struct HypersawGui::Impl
         [](choc::ui::WebView::Options::PermissionKind kind) {
           return detail::webPermissionPolicy(kind);
         },
+        // allowExternalDrop: off (NO DROPS FROM OUTSIDE THE VIEW, above). The
+        // comment sits before the argument: choc_patch_check's planted faults
+        // edit this call as text, and one after the comma would hide the origin
+        // argument from control C19.
+        false,
         std::string(detail::kEmbeddedOrigin));
   }
 };
