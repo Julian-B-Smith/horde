@@ -35,8 +35,9 @@ file here (the entry point's build type is what is pinned); clap-wrapper's own t
 flags from libs/. `--built <build-dir>` reads the configured tree's flags.make to check those.
 
 ALSO CHECKED EVERY RUN, with no pin involved: every add_executable is reached by the HYPERSAW_SANITIZE
-loop (sanitizer_reach_gaps; B454 item 1 -- the loop stamps "executables declared so far", and 12 sat
-below it, never instrumented). The loop is LAST in CMakeLists.txt for that reason. Also: no member of the fast-math family (see FASTMATH)
+loop AND the MSVC /STACK loop (sanitizer_reach_gaps; B454 items 1 and 8 -- each loop stamps "executables
+declared so far", and 12 sat below them, never instrumented and left on the default 1 MB Windows stack).
+Both loops are LAST in CMakeLists.txt for that reason. Also: no member of the fast-math family (see FASTMATH)
 appears as a code token in CMakeLists.txt, cmake/, verify, tools/*.sh, tools/*.py or the
 workflows (comments and docstrings are blanked first: nan_latch_check.py names the flag in a
 comment). And -ffp-contract=fast/on may only sit on a target named *_fma_control.
@@ -45,8 +46,8 @@ MODES. (none) check;  --init first pin;  --append add NEW targets whose flags eq
 class's (never alters an entry; refuses anything else);  --approve <target|section> <ref>  a HUMAN-approved
 re-pin of one item to the tree (non-empty <ref> recorded; refused while fast-math is present);
 --built <dir>  also read <dir>/CMakeFiles/*/flags.make.
-SELF-CALIBRATING: selftest() plants an executable below the sanitizer loop, the loop moved back mid-file and
-no loop at all (each red), an executable above it, bare or under if() (no gap), and plants -ffast-math (and each sibling), a changed -O level, a changed
+SELF-CALIBRATING: selftest() plants an executable below the sanitizer loop, one below the /STACK loop only, each loop
+moved back mid-file and each loop absent (all red), an executable above it, bare or under if() (no gap), and plants -ffast-math (and each sibling), a changed -O level, a changed
 -ffp-contract, a removed target, a new global flag, a new target and an empty approval ref on
 COPIES of the real sources; each must read red / be refused, and the untouched copy must read green.
 """
@@ -357,18 +358,28 @@ def appendable_targets(pin, tree):
     return out
 
 
+# The two loops that stamp flags on "every executable declared so far": (label, predicate on the loop's entry).
+REACH_LOOPS = (("HYPERSAW_SANITIZE", lambda d: any(f.startswith("-fsanitize") for f in d["compile"])),
+               ("MSVC /STACK", lambda d: any(f.startswith("/STACK") for f in d["link"])))
+
+
 def sanitizer_reach_gaps(tree):
-    """-> failures. EVERY add_executable must be reached by the HYPERSAW_SANITIZE loop. The loop
-    stamps flags on "the executables declared so far", so one declared BELOW it is silently never
-    instrumented (B454 item 1: 12 were skipped, and CI's sanitize job never saw them, until this
-    tool read the CMake). Reads the tree alone, not the pin: re-pinning cannot approve a gap away."""
-    loops = [d for d in tree["dynamic_loops"] if any(f.startswith("-fsanitize") for f in d["compile"])]
-    if not loops:
-        return ["sanitizer loop: no foreach(... IN LISTS <targets>) applying -fsanitize= was found"]
-    reached = set().union(*(d["executables_covered"] for d in loops))
-    return [f"target {t}: add_executable is declared after the HYPERSAW_SANITIZE loop, so the sanitizer "
-            "flags never reach it (move the loop below it, or the target above the loop)"
-            for t in tree["executables"] if t not in reached]
+    """-> failures. EVERY add_executable must be reached by BOTH the HYPERSAW_SANITIZE loop and the MSVC
+    /STACK loop. Each stamps flags on "the executables declared so far", so one declared BELOW a loop
+    is silently never reached (B454 item 1: 12 skipped by the sanitizer loop, and CI's sanitize job
+    never saw them; item 8: the same 12 got the default 1 MB stack on Windows, until this tool read the
+    CMake). Reads the tree alone, not the pin: re-pinning cannot approve a gap away."""
+    fails = []
+    for label, is_loop in REACH_LOOPS:
+        loops = [d for d in tree["dynamic_loops"] if is_loop(d)]
+        if not loops:
+            fails.append(f"{label} loop: no foreach(... IN LISTS <targets>) applying it was found")
+            continue
+        reached = set().union(*(d["executables_covered"] for d in loops))
+        fails += [f"target {t}: add_executable is declared after the {label} loop, so its flags "
+                  "never reach it (move the loop below it, or the target above the loop)"
+                  for t in tree["executables"] if t not in reached]
+    return fails
 
 
 def compare(pin, tree):
@@ -520,13 +531,13 @@ def check_built(pin, build):
 # ---- self-calibration --------------------------------------------------------------------
 
 NEW_ZZ = ("\nadd_executable(zz_new tools/zz.cpp)\nif(NOT MSVC)\n  target_compile_options(zz_new PRIVATE -O2)\nendif()\n")
-SAN_LOOP = "set(HYPERSAW_SANITIZE OFF CACHE"      # the first code line of the sanitizer block
+SAN_LOOP = "# LAST IN THE FILE, with the sanitizer loop below"   # first line of the loop blocks (stack, then sanitizer)
 
 
 def before_san_loop(text, code):
-    """Insert `code` ABOVE the sanitizer block, where a new executable belongs. (The block is last in
+    """Insert `code` ABOVE both loop blocks, where a new executable belongs. (The blocks are last in
     the file, so appending to the file would plant the very shape this tool refuses.)"""
-    assert text.count(SAN_LOOP) == 1, "selftest: the sanitizer block moved; update SAN_LOOP"
+    assert text.count(SAN_LOOP) == 1, "selftest: the loop blocks moved; update SAN_LOOP"
     return text.replace(SAN_LOOP, code + SAN_LOOP, 1)
 
 
@@ -616,7 +627,7 @@ def selftest(files):
             bad.append(f"control '{label}' was NOT refused")
         except ValueError:
             pass
-    # The sanitizer-reach guard (B454 item 1). The OLD shape -- an executable below the loop, and the
+    # The loop-reach guard (B454 items 1 and 8). The OLD shape -- an executable below the loop, and the
     # whole loop back in mid-file -- must read red; an executable above the loop, bare or under an
     # if(), must give no gap; a loop that is gone must read red (an empty reach would pass vacuously).
     red("executable declared after the sanitizer loop (the old shape)",
@@ -630,14 +641,31 @@ def selftest(files):
     red("the sanitizer loop moved back above anchor_check .. bank_check", cm(loop_to_midfile),
         "target bank_check: add_executable is declared after the HYPERSAW_SANITIZE loop")
     red("no sanitizer loop at all", cm(lambda t: t.replace("-fsanitize=", "-fsomething=")),
-        "sanitizer loop: no foreach")
-    for label, code in (("executable above the sanitizer loop", "\nadd_executable(zz_early tools/zz.cpp)\n"),
-                        ("conditional executable above the sanitizer loop",
+        "HYPERSAW_SANITIZE loop: no foreach")
+
+    # The MSVC /STACK twin of the above (B454 item 8): the same 12 sat below it. Planted below the
+    # stack loop ONLY (between the two blocks), the old mid-file shape, and a loop that is gone.
+    SAN_BLOCK = "# LAST IN THE FILE, ON PURPOSE (B454 item 1, ADR-205)"
+    red("executable declared between the loops (after the /STACK loop, before the sanitizer loop)",
+        cm(lambda t: t.replace(SAN_BLOCK, "\nadd_executable(zz_mid tools/zz.cpp)\n" + SAN_BLOCK, 1)),
+        "target zz_mid: add_executable is declared after the MSVC /STACK loop")
+
+    def stack_to_midfile(t):
+        a, c = t.index(SAN_LOOP), t.index(SAN_BLOCK)
+        b = t.index("# anchor_check: the wheel lane")
+        assert a > b and c > a, "selftest: expected the stack block below anchor_check, above the sanitizer block"
+        return t[:b] + t[a:c] + "\n" + t[b:a] + t[c:]
+    red("the /STACK loop moved back above anchor_check .. bank_check", cm(stack_to_midfile),
+        "target bank_check: add_executable is declared after the MSVC /STACK loop")
+    red("no /STACK loop at all", cm(lambda t: t.replace("/STACK:", "/SOMETHING:")),
+        "MSVC /STACK loop: no foreach")
+    for label, code in (("executable above both loops", "\nadd_executable(zz_early tools/zz.cpp)\n"),
+                        ("conditional executable above both loops",
                          "\nif(APPLE)\n  add_executable(zz_early tools/zz.cpp)\nendif()\n")):
         n[0] += 1
         gaps = sanitizer_reach_gaps(extract_all(cm(lambda t, code=code: before_san_loop(t, code))))
         if gaps:
-            bad.append(f"control '{label}' (must read ZERO gaps) tripped the sanitizer-reach guard: {gaps[:1]}")
+            bad.append(f"control '{label}' (must read ZERO gaps) tripped the loop-reach guard: {gaps[:1]}")
     red("new global flag setter", cm(lambda t: t + "\nadd_compile_options(-march=native)\n"), "global")
     red("changed C++ standard", cm(lambda t: t.replace("CMAKE_CXX_STANDARD 20", "CMAKE_CXX_STANDARD 23", 1)),
         "CMAKE_CXX_STANDARD")
