@@ -9152,6 +9152,7 @@ struct Plugin
           penv[monoSlot].retrig = true;
           resetNoteExpr(monoSlot);
           tags[monoSlot] = {n->note_id, n->port_index, n->channel, n->key, true, (float)vel};
+          srcVel = vel;   // ADR-149: matrix source 14, in mono as in the two branches beside this one
           struck = monoSlot;
         }
         else
