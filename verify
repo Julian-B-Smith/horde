@@ -1161,7 +1161,10 @@ full() {
   # fails below its pinned scenario count. This runs each against the real corpus
   # (must read green), an empty manifest and the manifest minus its last scenario
   # (both must read RED, by the floor's own message), in symlinked scratch copies
-  # so no golden is touched. Every golden directory exists by here. ~15 s.
+  # so no golden is touched. Every golden directory exists by here. ~25 s. It also
+  # floors, from outside their sources, the verbatim h2_swarm_parity_check and the
+  # swarm48 pair (swarm48_check, h2_swarm48_check); the other seven carry their floor
+  # in their own source (tools/scenario_floor.h).
   python3 tools/parity_floor_check.py "$build_dir" || return 1
 
   # Intent-bus resolver oracle (B89 phase 2a/2b, ADR-176): fixtures sliced live

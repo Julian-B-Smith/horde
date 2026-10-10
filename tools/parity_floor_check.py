@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""parity_floor_check -- the eight golden-parity gates cannot read green on a shrunken corpus.
+"""parity_floor_check -- the golden-parity gates cannot read green on a shrunken corpus.
 
 WIRED: ./verify full
 
@@ -12,10 +12,15 @@ failure was COUNTED. An empty manifest, or a deleted scenario block, counted non
 GREEN while the gate compared nothing. Each gate now pins a floor, the count it holds today:
 
   - seven gates carry theirs in their own source (kMinScenarios, via tools/scenario_floor.h);
-  - parity_check carries it HERE (PARITY_FLOOR), because tools/parity_check.cpp is the pinned
-    source of horde 2's lift (h2/cores/swarm/lift-ledger.json holds its git blob, and
-    tools/h2_swarm_parity_check.cpp is rebuilt from it byte for byte), so editing it would turn
-    h2_lift_check red and need an h2/ re-lift. The floor is read off its own summary line.
+  - parity_check and h2_swarm_parity_check carry theirs HERE (PARITY_FLOOR), because
+    tools/parity_check.cpp is the pinned source of horde 2's lift (h2/cores/swarm/lift-ledger.json
+    holds its git blob, and tools/h2_swarm_parity_check.cpp is rebuilt from it byte for byte), so
+    editing either would turn h2_lift_check red and need an h2/ re-lift. The floor is read off the
+    gate's own summary line ("N/M scenarios", M being the corpus size);
+  - swarm48_check and h2_swarm48_check (one body, tools/swarm_sr_parity.h, over
+    build-golden/sr48000) are floored HERE too (SWARM48_FLOOR), read off their summary line
+    ("N scenarios at 48 kHz"). That body is shared, unlifted and unprotected, so an in-source
+    floor was possible; the script keeps the floors that guard a verbatim pair in one place.
 
 A count above a floor is reported, not failed: the floor ratchets up in the PR that adds
 scenarios, and lowering it is a gate-weakening event.
@@ -37,6 +42,7 @@ import sys
 import tempfile
 
 PARITY_FLOOR = 156   # scenarios in build-golden/manifest.tsv today (gen_goldens.mjs)
+SWARM48_FLOOR = 171  # scenarios in build-golden/sr48000/manifest.tsv today (gen_goldens_sr.mjs)
 
 # gate -> (golden dir relative to build-golden, manifest file name)
 GATES = {
@@ -48,9 +54,20 @@ GATES = {
     "time_check": ("time", "time-manifest.tsv"),
     "station_check": ("station", "station-manifest.tsv"),
     "subosc_check": ("subosc", "subosc-manifest.tsv"),
+    "h2_swarm_parity_check": (".", "manifest.tsv"),
+    "swarm48_check": ("sr48000", "manifest.tsv"),
+    "h2_swarm48_check": ("sr48000", "manifest.tsv"),
+}
+# Gates whose floor is judged HERE: gate -> (regex whose group 1 is the scenario count, floor).
+# Every other gate in GATES judges its own floor (tools/scenario_floor.h).
+_PARITY_LINE = re.compile(r"parity_check: \d+/(\d+) scenarios")
+SCRIPT_FLOORS = {
+    "parity_check": (_PARITY_LINE, PARITY_FLOOR),
+    "h2_swarm_parity_check": (_PARITY_LINE, PARITY_FLOOR),   # verbatim copy: prints "parity_check:"
+    "swarm48_check": (re.compile(r"swarm48_check: (\d+) scenarios at 48 kHz"), SWARM48_FLOOR),
+    "h2_swarm48_check": (re.compile(r"h2_swarm48_check: (\d+) scenarios at 48 kHz"), SWARM48_FLOOR),
 }
 FLOOR_WORDS = "below the pinned floor"
-PARITY_LINE = re.compile(r"parity_check: (\d+)/(\d+) scenarios")
 
 
 def run(binary, golden):
@@ -59,17 +76,18 @@ def run(binary, golden):
 
 
 def verdict(gate, binary, golden):
-    """(red, output). parity_check's floor is judged here; the others judge their own."""
+    """(red, output). The script-floored gates are judged here; the others judge their own."""
     rc, out = run(binary, golden)
-    if gate != "parity_check":
+    if gate not in SCRIPT_FLOORS:
         return rc != 0, out
-    m = PARITY_LINE.search(out)
-    n = int(m.group(2)) if m else 0     # no summary line (a missing manifest) counts zero
-    if n < PARITY_FLOOR:
-        out += f"parity_check: {n} scenarios, {FLOOR_WORDS} of {PARITY_FLOOR}\n"
+    pattern, floor = SCRIPT_FLOORS[gate]
+    m = pattern.search(out)
+    n = int(m.group(1)) if m else 0     # no summary line (a missing manifest) counts zero
+    if n < floor:
+        out += f"{gate}: {n} scenarios, {FLOOR_WORDS} of {floor}\n"
         return True, out
-    if n > PARITY_FLOOR:
-        print(f"NOTE  parity_check: {n} scenarios (floor {PARITY_FLOOR}): raise PARITY_FLOOR in the same PR")
+    if n > floor:
+        print(f"NOTE  {gate}: {n} scenarios (floor {floor}): raise its floor in this script in the same PR")
     return rc != 0, out
 
 
@@ -132,7 +150,8 @@ def main():
     if fails:
         print("parity_floor_check: RED -- " + "; ".join(fails), file=sys.stderr)
         return 1
-    print(f"parity_floor_check: GREEN ({len(GATES)} gates x 3 controls)")
+    print(f"parity_floor_check: GREEN ({len(GATES)} gates x 3 controls; {len(SCRIPT_FLOORS)} floored "
+          f"here, {len(GATES) - len(SCRIPT_FLOORS)} in their own source)")
     return 0
 
 
