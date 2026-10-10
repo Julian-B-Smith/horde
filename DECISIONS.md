@@ -7510,3 +7510,39 @@ recommendations of 2026-10-09.
 
 **Not ruled here.** The audit's remaining pending item (a docs-only runtime file with no stated
 license) and the ten release questions in `docs/LICENSES-THIRD-PARTY.md`.
+
+## ADR-206 — RULED by the human: the morning rulings after the 2026-10-10 audit (B455, B454, B448)
+
+**Ruling.** The human, 2026-10-10: "Merged all; go with your recommendations". This covers the
+lead's list of decisions from the overnight batch.
+
+**Decision.**
+1. **Parity scenario floors (audit H1).** Each golden-parity gate fails below a pinned scenario
+   count. A count may rise and never fall without an approval.
+2. **The privately reported input-validation finding is fixed** as a small boundary fix with test
+   rows, and published together with its fix (the B446 disclosure rule).
+3. **The Stop gate's two blind spots are fixed** (audit H2).
+   - This is the lead's first-hand edit to `.claude/hooks/`, approved here.
+   - The gate judges the tree's state, not which tool made an edit.
+   - A missing verify record no longer passes when the tree has changed.
+   - A check exercises the hook against planted cases.
+4. **A second license exception is accepted.** It is the design tool's exported runtime
+   `support.js`, docs-only: `dc-runtime` in `tools/license_allowlist.json`, expiring 2027-10-10.
+   With ADR-204, the audit has no pending item.
+5. **Three small build items go ahead** (B454 items 8, 9 and 10):
+   - the Windows stack-size loop gets the sanitizer loop's fix;
+   - `src/glide_core.h` gains its missing include;
+   - `preset_probe` is rewritten to assert the voice's pitch directly, given a must-fail control,
+     and wired.
+
+**The legacy freeze, as already ruled.** The audit asked whether the freeze admits correctness
+fixes. The lead gave no recommendation, and none is taken from this ruling. ADR-186 §1 stands as
+written: the frozen legacy shell admits crash, real-time-safety and state-integrity fixes.
+Therefore:
+- **Audit H4, a load made while not processing,** is MEASURED first by new rows. It is fixed only if
+  it is shown to corrupt state.
+- **Audit M11, the mono-mode velocity source,** is a feature bug, not one of those classes. It is
+  measured and brought back to the human.
+
+**Not ruled here.** The phase 2 proposal (`docs/strategy/blind-spot-armor-phase2.md`) and its
+thirteen decisions.
