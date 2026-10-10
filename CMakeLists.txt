@@ -1035,9 +1035,12 @@ endif()
 add_executable(anchor_check tools/anchor_check.cpp)
 target_link_libraries(anchor_check PRIVATE ${PROJECT_NAME}-impl)
 
-# preset_probe: load a saved preset, run the 2026-09-11 two-note + chord symptoms. Diagnostic, unwired.
-add_executable(preset_probe tools/preset_probe.cpp)
-target_link_libraries(preset_probe PRIVATE ${PROJECT_NAME}-impl)
+# preset_pitch_check (was preset_probe, an unwired autocorrelation diagnostic that read a false
+# positive; B454 item 10, ADR-206 item 5): after a preset load a newly struck voice sounds at its
+# own pitch, asserted on the voice table over the whole factory bank. WIRED in ./verify full,
+# next to morphlayout_check. Added under ADR-180 §1.
+add_executable(preset_pitch_check tools/preset_pitch_check.cpp)
+target_link_libraries(preset_pitch_check PRIVATE ${PROJECT_NAME}-impl)
 
 # morphlayout_check: the morph field array layout is append-only (ADR-159). Wired in ./verify full (B124; B240 T13-T15).
 add_executable(morphlayout_check tools/morphlayout_check.cpp)

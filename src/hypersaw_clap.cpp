@@ -10909,7 +10909,7 @@ extern "C" void hypersaw_debug_voices(const clap_plugin_t *p, char *out, uint32_
     // noteTune last (ADR-162): the per-note pitch multiplier is what carries
     // the pitch envelope now, so the voice table has to show it or the
     // per-note claim is unfalsifiable from outside. Appended, never inserted —
-    // preset_probe prints this line positionally.
+    // preset_pitch_check reads this line positionally.
     n += (uint32_t)std::snprintf(out + n, cap > n ? cap - n : 0, "%d,%d,%d,%.3f,%.3f,%d,%.6f;", i, v.midi, v.gate, v.f0, v.f0cur, v.glideActive, v.noteTune);
     if (n >= cap) break;
   }

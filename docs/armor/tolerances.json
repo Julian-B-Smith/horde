@@ -973,13 +973,13 @@
       "value": ">1.0 | <-1.0 | >1.0 | <1e-9"
     },
     {
-      "approved": "baseline 2026-10-08",
-      "file": "tools/preset_probe.cpp",
-      "governs": "non-zero float literals in comparisons (over-inclusive: also float loop bounds and clamps)",
-      "id": "tools/preset_probe.cpp::inline-float-compare",
-      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
-      "ref": "unattributed",
-      "value": ">0.95 | >0.3 | >0.01"
+      "approved": "ADR-206 item 5; approved by the human 2026-10-10 (preset_probe rewritten to assert a new voice's pitch within 1 cent; the old probe's 30-cent audio-estimate gate was removed with its file)",
+      "file": "tools/preset_pitch_check.cpp",
+      "governs": "the human-approved bar (ADR-206 item 5); the voice row prints f0 to 3 decimals (0.05 cent at the low",
+      "id": "tools/preset_pitch_check.cpp::kPitchTolCents",
+      "locator": "(?<![\\w])kPitchTolCents(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "ref": "ADR-206",
+      "value": "1.0"
     },
     {
       "approved": "baseline 2026-10-08",

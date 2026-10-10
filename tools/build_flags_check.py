@@ -447,9 +447,18 @@ def approve(pin, tree, name, ref, fastmath):
         raise ValueError("refusing to re-pin while a fast-math flag is present:\n  " + "\n  ".join(fastmath))
     keep = copy.deepcopy(pin)
     if name in ("global", "dynamic_loops", "entry_points", "direct_compiles"):
-        if pin[name] == tree[name]:
+        want = tree[name]
+        if name == "dynamic_loops":
+            # Pin what compare() compares: the loops' reach WITHOUT the appendable newcomers. A
+            # rename is a removal plus a newcomer; pinning the full reach here would put the
+            # newcomer into the pin before --append has recorded it, and --append would then refuse
+            # (the pin "not otherwise intact") with no command left that could finish the rename.
+            new_ok = appendable_targets(pin, tree)
+            want = [dict(d, executables_covered=[e for e in d["executables_covered"] if e not in new_ok])
+                    for d in want]
+        if pin[name] == want:
             raise ValueError(f"{name} already matches the tree; nothing to approve")
-        keep[name] = tree[name]
+        keep[name] = want
     else:
         pt, tt = pin_targets(pin), tree["targets"]
         if pt.get(name) == tt.get(name):
@@ -701,6 +710,21 @@ def selftest(files):
         bad.append("control 'approve with nothing to approve' was NOT refused")
     except ValueError:
         pass
+    # A RENAME is a removal plus a newcomer, and must be finishable with the three commands the
+    # messages name: approve the removed target, approve the loops' reach, then --append. Before
+    # this control the middle step pinned the newcomer into the reach and --append refused forever.
+    n[0] += 1
+    rn = extract_all(cm(lambda t: t.replace("sr_check", "zz_renamed_check")))
+    try:
+        step = approve(pin, rn, "sr_check", "ADR-test", [])
+        step = approve(step, rn, "dynamic_loops", "ADR-test", [])
+        if any("zz_renamed_check" in d["executables_covered"] for d in step["dynamic_loops"]):
+            bad.append("control 'rename': approving the loops' reach pinned the not-yet-appended newcomer")
+        done, added = append_new(step, rn, [])
+        if added != ["zz_renamed_check"] or compare(done, rn):
+            bad.append(f"control 'rename' did not end green with the newcomer appended (added {added})")
+    except ValueError as e:
+        bad.append(f"control 'rename (approve removed, approve reach, --append)' could not finish: {e}")
     return bad, n[0]
 
 

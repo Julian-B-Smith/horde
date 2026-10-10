@@ -1,6 +1,11 @@
 {
  "approved": {
-  "dynamic_loops": ["ADR-205 item 2; approved by the human 2026-10-10", "ADR-206 item 5; approved by the human 2026-10-10"]
+  "dynamic_loops": [
+   "ADR-205 item 2; approved by the human 2026-10-10",
+   "ADR-206 item 5; approved by the human 2026-10-10",
+   "ADR-206 item 5; approved by the human 2026-10-10 (preset_probe renamed preset_pitch_check)"
+  ],
+  "preset_probe": ["ADR-206 item 5; approved by the human 2026-10-10"]
  },
  "classes": {
   "h2_fma_control": {
@@ -105,7 +110,7 @@
     "pitch_probe": [],
     "polarity_check": [{"compile": ["-O2"], "link": [], "when": "NOT MSVC"}],
     "preset_check": [{"compile": ["-O2"], "link": [], "when": "NOT MSVC"}],
-    "preset_probe": [],
+    "preset_pitch_check": [],
     "presetstore_check": [{"compile": ["-O2"], "link": [], "when": "NOT MSVC"}],
     "ratchet_probe": [{"compile": ["-O2"], "link": [], "when": "NOT MSVC"}],
     "registry_dump": [{"compile": ["-O2"], "link": [], "when": "NOT MSVC"}],
@@ -228,7 +233,7 @@
     "pitch_probe",
     "polarity_check",
     "preset_check",
-    "preset_probe",
+    "preset_pitch_check",
     "presetstore_check",
     "ratchet_probe",
     "registry_dump",
@@ -341,7 +346,7 @@
     "pitch_probe",
     "polarity_check",
     "preset_check",
-    "preset_probe",
+    "preset_pitch_check",
     "presetstore_check",
     "ratchet_probe",
     "registry_dump",
