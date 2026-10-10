@@ -7582,3 +7582,49 @@ thirteen decisions.
 
 **Not ruled here.** The idle-load fixes and the mono velocity fix follow in their own PRs, after a
 hands-on host check in the test identity.
+
+## ADR-208 — RULED by the human: a load made while not processing is whole; two small legacy fixes go in without a host test (B455, 2026-10-10)
+
+**Ruling.** The human, 2026-10-10, after the lead explained the two remaining changes and offered a
+side-by-side test build to try them in: "I think I would prefer we just make these proposed changes
+to the actual legacy plugin. The stakes are low."
+
+**Decision.**
+1. **A load made while the plugin is not processing is whole when it returns.**
+   - It applies its own values under the load bracket, so a save made at once returns the loaded
+     state.
+   - It supersedes anything queued before it.
+   - Its routing cells and engine-block values carry load provenance, so a load is never recorded
+     in the morph corners as an edit (B125).
+   - A save names the patch whose values it writes.
+   - ADR-200's mechanisms are unchanged: the audio thread and a direct load still exclude each
+     other, and nothing is added on the audio thread.
+2. **The host is told of such a load by a parameter rescan.** The call is
+   `rescan(CLAP_PARAM_RESCAN_VALUES)` on the main thread, which the CLAP contract names for a
+   plugin-side load. If the audio side had deferred events during the load, the rescan is made after
+   they replay.
+   - **This is the one behaviour verified by reading and not in a host.** Before, the host heard
+     each value as a separate change. How a given host shows values, or marks a project modified,
+     after a rescan is the host's own behaviour.
+   - The human waived the hands-on check before merging. It is owed the next time the plugin is
+     rebuilt and installed: click a preset while stopped, confirm the values and the modified flag,
+     then save, reopen and confirm the preset.
+3. **The mod-route fix ships with it.** A load's zero for the "Env > Pitch" depth removes that
+   route, so the mod-route table a load leaves is the one a fresh instance would hold. A zero from
+   a live edit or a host value keeps the route, as before. It is inaudible and nothing saved
+   changes; a zero-depth pitch row no longer lingers in the list after a load.
+4. **The mono velocity fix goes in, as a recorded exception to ADR-186 §1.** It is a feature bug,
+   not a crash, real-time or state-integrity fix. In mono mode the Velocity modulation source was
+   never written, so every route from Velocity did nothing. It is now written as in poly mode. A
+   patch in mono mode with a Velocity route will sound different: the route now works. It lands in
+   its own PR.
+
+**Evidence.**
+- `load_handoff_check` holds 84 rows, each fix with a mutation proof.
+- Render digests are 48 of 48 identical to before the change.
+- `rtsan_check` is green, and `tsan_stress_check` shows zero main-thread write races on three
+  seeds.
+- One Opus critic pass and a rework preceded publication.
+
+**The side-by-side test identity (B456) stays available** for any later change the human would
+rather try first.
