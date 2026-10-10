@@ -197,6 +197,14 @@ fast() {
   # ADR-180 §1.
   python3 tools/weakening_check.py || ok=1
   python3 tools/deny_hook_check.py || ok=1   # B446 D-S6: the deny hook's verdict table
+  # THE CLOSING GATE'S VERDICT TABLE (B455 H2, ADR-206 item 3). The Stop hook is what
+  # makes "a session cannot finish on unverified edits" true, and nothing exercised
+  # it. It runs the real hook file in scratch repositories against 16 situations:
+  # an edit made through the shell, a new file, and a commit made with no verify
+  # record must each block; verify-then-commit must not. Two faulty hooks are the
+  # controls: one that never blocks, and the hook as it stood before this change,
+  # which must fail exactly the tree-state rows. ~2 s. Added under ADR-180 §1.
+  python3 tools/stop_gate_check.py || ok=1
   # GUI PAGE SINKS AND POLICY (B446 W3a). In src/gui/*.html every innerHTML /
   # outerHTML / insertAdjacentHTML / document.write gets literals only (named
   # exceptions carry a reason), and the content policy the build embeds is
@@ -1153,6 +1161,19 @@ full() {
   node tools/golden/gen_time_goldens.mjs --selfcheck || return 1
   node tools/golden/gen_time_goldens.mjs > /dev/null || return 1
   "$build_dir/time_check" "$(dirname "$build_dir")/build-golden/time" || return 1
+
+  # The floor under the eight golden-parity gates above (B455 H1; added under
+  # ADR-180 §1). parity_check, filter_check, notch_check, spectra_check,
+  # swarmalator_check, time_check, station_check and subosc_check read GREEN on an
+  # empty manifest, so a dropped scenario block shrank them silently; each now
+  # fails below its pinned scenario count. This runs each against the real corpus
+  # (must read green), an empty manifest and the manifest minus its last scenario
+  # (both must read RED, by the floor's own message), in symlinked scratch copies
+  # so no golden is touched. Every golden directory exists by here. ~25 s. It also
+  # floors, from outside their sources, the verbatim h2_swarm_parity_check and the
+  # swarm48 pair (swarm48_check, h2_swarm48_check); the other seven carry their floor
+  # in their own source (tools/scenario_floor.h).
+  python3 tools/parity_floor_check.py "$build_dir" || return 1
 
   # Intent-bus resolver oracle (B89 phase 2a/2b, ADR-176): fixtures sliced live
   # from reference/intent-bus.html -> intent_check (parity with a must-MISMATCH

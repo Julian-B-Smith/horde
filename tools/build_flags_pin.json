@@ -1,5 +1,7 @@
 {
- "approved": {"dynamic_loops": ["ADR-205 item 2; approved by the human 2026-10-10"]},
+ "approved": {
+  "dynamic_loops": ["ADR-205 item 2; approved by the human 2026-10-10", "ADR-206 item 5; approved by the human 2026-10-10"]
+ },
  "classes": {
   "h2_fma_control": {
    "targets": {
@@ -158,7 +160,9 @@
    "compile": [],
    "executables_covered": [
     "alias_check",
+    "anchor_check",
     "auhost",
+    "bank_check",
     "bendsweep_probe",
     "blocksize_check",
     "bridge_utf8_check",
@@ -174,7 +178,9 @@
     "filter_check",
     "force_check",
     "fxxfade_check",
+    "fxxfade_plugin_check",
     "gain_probe",
+    "gen_factory_bank",
     "gen_state_fixtures",
     "glide_check",
     "glidepath_probe",
@@ -191,6 +197,7 @@
     "hostile_events_check",
     "intent_check",
     "kstuck_probe",
+    "lfoenv_check",
     "load_handoff_check",
     "measure_alias",
     "measure_cpu",
@@ -201,12 +208,15 @@
     "measure_modsources",
     "mixer_check",
     "mod_check",
+    "modreadback_check",
+    "morphlayout_check",
     "morphscope_probe",
     "mpe_check",
     "ncap_check",
     "notch_check",
     "notchslot_check",
     "notefuzz_check",
+    "offcorner_check",
     "onset_ref_check",
     "param_id_dump",
     "paramclass_check",
@@ -214,9 +224,12 @@
     "paramleak_probe",
     "paramscope_check",
     "parity_check",
+    "penv_check",
     "pitch_probe",
     "polarity_check",
     "preset_check",
+    "preset_probe",
+    "presetstore_check",
     "ratchet_probe",
     "registry_dump",
     "render_neutral_digest",
@@ -246,6 +259,7 @@
     "trace_check",
     "trajectory_check",
     "tseed_check",
+    "twocluster_check",
     "undo_check",
     "user_patch_bench",
     "voicetap_check",

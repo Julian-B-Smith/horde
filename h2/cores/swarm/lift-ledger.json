@@ -2,11 +2,11 @@
  "schema": "hypersaw.lift-ledger/2",
  "core": "swarm",
  "about": "EVERY difference between horde 2's lifted swarm core and the legacy source it was copied from (ADR-186 item 4, ROADMAP B379). tools/h2_lift_check.py (./verify fast) rebuilds each lifted file from its CURRENT src original by applying these entries in order, as bytes, and demands byte equality. Red: an unledgered difference, an entry that no longer applies, an anchor or block that is not unique, a *.h in this directory that 'files' does not list, a divergence entry whose id is not in this directory's divergences.json, and a source that has moved since the lift (its git blob no longer equals src_blob: re-lift deliberately). THE ONE PATH FOR EDITS (the lead, 2026-09-30): every change to a lifted copy lives here as a hunk, lift edits (E1, ...) and later divergences alike. A divergence hunk has kind 'divergence' and carries its ADR-187 ledger id ('divergence': 'Dn', defined in divergences.json beside this file), so the byte gate stays meaningful after the first B378 fix instead of being loosened by it. The non-divergence entries (NS1, NS2, NS3, E1, T1, T2) are FROZEN in tools/h2_lift_check.py: any other hunk must be a divergence, and a new lift edit is a deliberate re-lift (frozen set + src_blob/lifted_at re-pin, recorded by the lead in ROADMAP). Ops: 'replace' (one source line that occurs exactly once -> one line), 'insert_after' (a unique anchor line; one line inserted after it), 'patch' (an exact block of consecutive lines that occurs exactly once -> a new block; either may span many lines).",
- "lifted_at": "origin/main 1c421b5 (2026-09-30)",
+ "lifted_at": "origin/main 1c421b5 (2026-09-30); glide_core.h re-lifted 2026-10-10 (B454 item 9: #include <cstdlib>, no ledger entry, FROZEN unchanged)",
  "files": {
   "h2/cores/swarm/swarm_core.h": { "src": "src/swarm_core.h", "src_blob": "399be5d40ecd808cdbf65941aa83a66bd77dd618" },
   "h2/cores/swarm/force_core.h": { "src": "src/force_core.h", "src_blob": "a8be38879ff611922bb7569262f99feb07f539a3" },
-  "h2/cores/swarm/glide_core.h": { "src": "src/glide_core.h", "src_blob": "714bd31fca2525d766c95f4ef8650341d4f5cb2a" },
+  "h2/cores/swarm/glide_core.h": { "src": "src/glide_core.h", "src_blob": "5cf891a176fdc525f81fd7f8a568e11e7b5aa79d" },
   "tools/h2_swarm_parity_check.cpp": {
    "src": "tools/parity_check.cpp",
    "src_blob": "6dc4b8fff7ea3fd23b7b2d92462413cfbf6f3ad5",

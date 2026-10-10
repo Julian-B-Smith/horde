@@ -23,6 +23,7 @@
 #include <cstdlib>
 
 #include "../src/time_core.h"
+#include "scenario_floor.h"
 
 using hypersaw::TimeCore;
 
@@ -92,9 +93,11 @@ int main(int argc, char **argv)
   }
   std::string line;
   double worst = 0;
+  int nScen = 0;
   while (std::getline(mf, line))
   {
     if (line.empty()) continue;
+    nScen++;
     const auto tab = line.find('\t');
     const std::string name = line.substr(0, tab);
     const std::string spec = tab == std::string::npos ? "" : line.substr(tab + 1);
@@ -176,6 +179,11 @@ int main(int argc, char **argv)
     check(std::isfinite(peak) && peak <= 1.0 && std::fabs(dc) <= 0.05,
           "L0-21 room 12s regen=0.95: bounded + DC-controlled got peak=%g", peak);
   }
+
+  // The floor under the parity corpus (ADR-180 §1, B455 H1): pinned at the count the generator
+  // writes today. Raise it in the same PR that adds a scenario; lowering it is a gate-weakening event.
+  constexpr int kMinScenarios = 11;
+  if (!scenarioFloorHolds("time", nScen, kMinScenarios)) g_failures++;
 
   std::printf("time_check: %s (%d failure%s; worst parity rms %g)\n", g_failures ? "RED" : "GREEN",
               g_failures, g_failures == 1 ? "" : "s", worst);
