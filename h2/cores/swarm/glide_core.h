@@ -29,6 +29,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 
 namespace horde2::swarm::hypersaw
 {
