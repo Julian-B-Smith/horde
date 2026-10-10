@@ -26,6 +26,25 @@
 >    the role). Reserved ids keep their numbers (ADR-169 A1: `300 + 8·host + slot`).
 > 6. **Retired outright:** §3's `role` row, §10 (role vocabulary), ADR-MM-2, and §14's "four-role
 >    vocabulary" criterion. The rest of the spec stands, with "role" read as "slot index".
+>
+> **Amendment 5 (2026-10-09, RULED by the human; ADR-169 A5). A slot's `home`: where a macro starts
+> when a module preset loads into a fresh slot.**
+> 1. **The field.** A slot in a module preset may carry an optional `home`, a value in [0, 1]. An
+>    absent `home` is 0.5, so every preset written before A5 keeps its meaning.
+>    Example: `"7": {label: "Squash", bind: {cmpAmt: [0, 0.8]}, home: 0}`.
+> 2. **When it applies.** When a module preset loads into a slot for which the HORDE preset stores
+>    NO value, `slot_base` (corner tier) or `global_value` (global tier) starts at `home`. Once the
+>    HORDE preset stores a value, that value wins. §14's rule stands: loading a different module
+>    preset never changes a stored `slot_base`.
+> 3. **What it is not.** `home` is a load-time default only. It is not morphed, it is not a
+>    modulation source, and nothing is driven automatically (A4.3 stands).
+> 4. **Validation.** A `home` outside [0, 1] is invalid and fails validation. A host that meets one
+>    anyway uses 0.5.
+> 5. **Acceptance (added to §14).** For slots with `home` 0, absent, and 1, a fresh load resolves
+>    each bound parameter at `shape(curve, lo, hi, home)`. A slot with a stored value is unchanged
+>    by the same load.
+> 6. **The prototype is unchanged.** `horde-module-macros.html` does not model a fresh-slot load, so
+>    it stays the parity oracle for §5's resolution. A5 is checked by its own acceptance row.
 
 ---
 
@@ -213,6 +232,7 @@ Do **not** replicate (incidental to the browser prototype):
 - [ ] A HORDE preset saved with an embedded module preset reloads correctly when the origin module preset is deleted.
 - [ ] Cross-preset morph in crossfade mode produces no discontinuity in module output at t = 0.5 (null test over a sweep); flip mode produces exactly one.
 - [ ] Quantum resolve is bit-reproducible under a fixed seed.
+- [ ] Slot `home` (A5): for slots with `home` 0, absent (0.5) and 1, a fresh module-preset load into a slot with no stored value resolves each bound parameter at `shape(curve, lo, hi, home)`; a slot with a stored value is unchanged by the same load; a `home` outside [0, 1] fails validation.
 - [ ] Binding curves (A3): for each of `lin`, `exp`, `log` over v ∈ {0, ¼, ½, ¾, 1} and at least one decreasing range, the resolved value matches the §4 closed form to 1e-12, and the endpoints are exact. A `log` binding with endpoints of mixed sign or a zero endpoint fails manifest validation, and when forced past it resolves as `lin` with no NaN.
 - ~~Shaper module presets round-trip through the four-role vocabulary without a private role.~~ RETIRED by Amendment 4 (2026-10-05); struck 2026-10-09 (ADR-203).
 - [ ] Corner editor disables (does not hide) base sliders and binding columns for global-tier slots.
