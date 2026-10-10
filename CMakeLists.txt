@@ -1049,35 +1049,6 @@ if(MSVC)
   endforeach()
 endif()
 
-# HYPERSAW_SANITIZE (B101): OFF, or a -fsanitize= list — "address,undefined"
-# or "thread" — applied to the HOST-SIDE EXECUTABLES only: the oracles and
-# probes above, never the plugin libraries. tools/sanitize_oracles.sh and the
-# CI `sanitize` job build with it ON into their own tree; the shipped build is
-# OFF, and OFF is bit-inert by construction — nothing here runs unless the
-# value is set. The header-only cores (swarm_core.h, filter_core.h, ...) are
-# compiled INTO each oracle that includes them, so they are instrumented
-# there; the impl static library (the shell) is linked uninstrumented, and
-# what ASan sees of it is heap misuse at malloc/free boundaries only. A
-# STRING rather than option() so the list itself is the value; MSVC has
-# /fsanitize=address but a different flag shape, so it is not attempted.
-set(HYPERSAW_SANITIZE OFF CACHE STRING
-    "OFF, or a -fsanitize= list (address,undefined | thread) for host-side executables only")
-if(HYPERSAW_SANITIZE)
-  if(MSVC)
-    message(WARNING "HYPERSAW_SANITIZE is not wired for MSVC; ignored")
-  else()
-    get_property(_hs_san_exes DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
-    foreach(_t IN LISTS _hs_san_exes)
-      get_target_property(_ty ${_t} TYPE)
-      if(_ty STREQUAL "EXECUTABLE")
-        target_compile_options(${_t} PRIVATE -fsanitize=${HYPERSAW_SANITIZE} -fno-omit-frame-pointer -g)
-        target_link_options(${_t} PRIVATE -fsanitize=${HYPERSAW_SANITIZE})
-      endif()
-    endforeach()
-    message(STATUS "HYPERSAW_SANITIZE=${HYPERSAW_SANITIZE} on host-side executables")
-  endif()
-endif()
-
 # anchor_check: the wheel lane must not transpose held notes when its anchor
 # (lastNoteKey) moves — the 2026-09-11 chord-transposition report. Standalone,
 # unwired (human gate).
@@ -1153,4 +1124,37 @@ target_link_libraries(bank_check PRIVATE ${PROJECT_NAME}-impl)
 if(NOT MSVC)
   target_compile_options(gen_factory_bank PRIVATE -O2)
   target_compile_options(bank_check PRIVATE -O2)
+endif()
+
+# LAST IN THE FILE, ON PURPOSE (B454 item 1, ADR-205): this loop stamps flags on the executables
+# declared ABOVE it. It used to sit mid-file and silently skipped the 12 declared after it
+# (anchor_check .. bank_check), so CI's sanitize job never instrumented them. Add every new
+# add_executable ABOVE this block; tools/build_flags_check.py goes RED on one declared below it.
+# HYPERSAW_SANITIZE (B101): OFF, or a -fsanitize= list — "address,undefined"
+# or "thread" — applied to the HOST-SIDE EXECUTABLES only: the oracles and
+# probes above, never the plugin libraries. tools/sanitize_oracles.sh and the
+# CI `sanitize` job build with it ON into their own tree; the shipped build is
+# OFF, and OFF is bit-inert by construction — nothing here runs unless the
+# value is set. The header-only cores (swarm_core.h, filter_core.h, ...) are
+# compiled INTO each oracle that includes them, so they are instrumented
+# there; the impl static library (the shell) is linked uninstrumented, and
+# what ASan sees of it is heap misuse at malloc/free boundaries only. A
+# STRING rather than option() so the list itself is the value; MSVC has
+# /fsanitize=address but a different flag shape, so it is not attempted.
+set(HYPERSAW_SANITIZE OFF CACHE STRING
+    "OFF, or a -fsanitize= list (address,undefined | thread) for host-side executables only")
+if(HYPERSAW_SANITIZE)
+  if(MSVC)
+    message(WARNING "HYPERSAW_SANITIZE is not wired for MSVC; ignored")
+  else()
+    get_property(_hs_san_exes DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+    foreach(_t IN LISTS _hs_san_exes)
+      get_target_property(_ty ${_t} TYPE)
+      if(_ty STREQUAL "EXECUTABLE")
+        target_compile_options(${_t} PRIVATE -fsanitize=${HYPERSAW_SANITIZE} -fno-omit-frame-pointer -g)
+        target_link_options(${_t} PRIVATE -fsanitize=${HYPERSAW_SANITIZE})
+      endif()
+    endforeach()
+    message(STATUS "HYPERSAW_SANITIZE=${HYPERSAW_SANITIZE} on host-side executables")
+  endif()
 endif()
