@@ -7437,3 +7437,28 @@ questions came from Bulwark's bar-audit brief (seq 13).
 
 **Also recorded.** Bulwark's other audit items were fixed in the consistency pass (#1014). Its
 tail rule is on B429.
+
+## ADR-169 Amendment 5 — RULED by the human: a slot's `home` (B453, 2026-10-09)
+
+**Ruling.** The human, 2026-10-09: "accept home". The proposal is Shriek's (brief maw-003,
+`integrations/maw/brief-module-preset-home.md` §1).
+
+**The gap.** SPEC-MODULE-MACROS §5 takes a slot's value from the HORDE preset and never said what
+it starts at when a module preset loads into a fresh slot. So a module preset's designed sound
+depended on a number its author could not see. One-sided controls (a compressor amount whose home
+is 0, a mix whose home is 1) could not be bound without changing the sound on load.
+
+**Decision.** A slot in a module preset may carry an optional `home` in [0, 1], default 0.5.
+- **When it applies.** It sets `slot_base` or `global_value` only when the HORDE preset stores no
+  value for that slot. A stored value always wins.
+- **What it is not.** It is a load-time default: not morphed, not a modulation source.
+- **Validation.** Out of range is invalid. A host that meets an invalid value uses 0.5.
+
+`specs/SPEC-MODULE-MACROS.md` carries it as Amendment 5, with an acceptance row. That is a
+sanctioned edit to a protected file. The prototype is not edited.
+
+**Applies to every hosted module** that offers macros. Module presets written before A5 are
+unchanged, since an absent `home` is 0.5.
+
+**Not ruled here.** The brief's §2 (module presets that depend on horde's modulators) is input for
+a contract the human may design. It stays on B453.
