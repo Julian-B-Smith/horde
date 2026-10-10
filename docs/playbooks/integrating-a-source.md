@@ -107,7 +107,8 @@ parts:
   A parameter you no longer want is **retired in place**: the row stays, its label says
   "(retired)", it keeps round-tripping through state, and it reaches nothing. See
   `src/hypersaw_clap.cpp:1261 {4011, "sync", "SUB Sync (retired)"`, pinned by subosc_check
-  row 11e. The plugin id is frozen too (`src/hypersaw_clap.cpp:65 "com.lifted-truck.hypersaw",`).
+  row 11e. The plugin id is frozen too (`src/plugin_identity.h:38 kReal = {"com.lifted-truck.hypersaw",`,
+  pinned by `tools/test_identity_check.py`).
 - **Raw id or base id.** This is the trap behind B187, B219 and B220.
   - Per-oscillator dispatch must test `baseIdOf(id)` (`src/hypersaw_clap.cpp:919 inline clap_id baseIdOf`).
   - Patch-scope (global) dispatch tests the raw id.

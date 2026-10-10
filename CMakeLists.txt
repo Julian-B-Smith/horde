@@ -193,6 +193,37 @@ endif()
 
 set(HYPERSAW_PLUGIN_FORMATS CLAP VST3 AUV2)
 
+# PLUGIN IDENTITY (B456). OFF builds the real plugin: the frozen CLAP id, AU
+# triple, bundle identifier and file names every saved session and the human's
+# installed copy depend on. ON builds the SAME sources as a second plugin that
+# installs BESIDE it (its own CLAP id, so its own VST3 UID; its own AU subtype,
+# bundle identifier, file names and preset folder), for trying unmerged changes
+# in a real host without replacing the plugin real projects load.
+#
+# The values a host or the disk sees at RUN time (CLAP id, display name, store
+# folder) are in src/plugin_identity.h, selected by the one definition set
+# below. The values the BUILD consumes are the ones set here (the test
+# identity's AU display name is used only by its own post-build step, further
+# down). The real column is frozen; tools/test_identity_check.py pins it,
+# requires the two columns to share nothing, and requires this option to
+# default OFF.
+#
+# PUBLIC on the definition: preset_store.h's inline path helper is compiled into
+# every tool that links the impl, and one binary holding two bodies of it (one
+# per identity) would be an ODR violation the linker resolves silently.
+option(HORDE_TEST_IDENTITY "Build the side-by-side TEST identity (horde-test.*) instead of the real plugin" OFF)
+if(HORDE_TEST_IDENTITY)
+  set(HORDE_OUTPUT_NAME "horde-test")
+  set(HORDE_BUNDLE_IDENTIFIER "com.lifted-truck.hypersaw.test")
+  set(HORDE_AUV2_SUBTYPE_CODE "HsTs")
+  set(HORDE_AUV2_DISPLAY_NAME "horde TEST")
+  target_compile_definitions(${PROJECT_NAME}-impl PUBLIC HORDE_TEST_IDENTITY=1)
+else()
+  set(HORDE_OUTPUT_NAME "horde")
+  set(HORDE_BUNDLE_IDENTIFIER "com.lifted-truck.hypersaw")
+  set(HORDE_AUV2_SUBTYPE_CODE "Hsaw")
+endif()
+
 make_clapfirst_plugins(
         TARGET_NAME ${PROJECT_NAME}
         IMPL_TARGET ${PROJECT_NAME}-impl
@@ -214,11 +245,12 @@ make_clapfirst_plugins(
         # THE ONE REAL COST: this produces NEW bundles (horde.vst3,
         # horde.component). They do not replace HYPERSAW.vst3 / .component, so
         # the old pair must be deleted by hand or both show in the browser.
-        OUTPUT_NAME "horde"
+        # The value is the identity block's, above ("horde" for the real plugin).
+        OUTPUT_NAME "${HORDE_OUTPUT_NAME}"
 
         ENTRY_SOURCE "src/hypersaw_clap_entry.cpp"
 
-        BUNDLE_IDENTIFIER "com.lifted-truck.hypersaw"
+        BUNDLE_IDENTIFIER "${HORDE_BUNDLE_IDENTIFIER}"
         BUNDLE_VERSION ${PROJECT_VERSION}
 
         COPY_AFTER_BUILD FALSE
@@ -231,10 +263,35 @@ make_clapfirst_plugins(
         AUV2_MANUFACTURER_CODE "LfTk"
         # FROZEN, exactly like the CLAP id: `aumu`/`Hsaw`/`LfTk` is the triple a
         # host stores to re-find this AU in a saved session. The DISPLAY name may
-        # change freely; these three may not.
-        AUV2_SUBTYPE_CODE "Hsaw"
+        # change freely; these three may not. (`Hsaw` is the identity block's
+        # real value; the test identity has its own subtype and the same
+        # manufacturer.)
+        AUV2_SUBTYPE_CODE "${HORDE_AUV2_SUBTYPE_CODE}"
         AUV2_INSTRUMENT_TYPE "aumu"
 )
+
+# TEST IDENTITY ONLY (B456), macOS: two things the wrapper leaves undone.
+# (1) The AU's browser name. clap-wrapper writes it from OUTPUT_NAME (see the
+#     comment above), which would show "horde-test" where the CLAP and the VST3
+#     show the descriptor's "horde TEST". Rewritten in the built Info.plist so
+#     all three formats show one name.
+# (2) The seal. Every bundle leaves the wrapper's build with a signature that
+#     does not verify, and a host's scanner skips such a bundle without a log
+#     line. `./install` re-signs the real bundles at install time; the test
+#     bundles are installed by hand, so they are sealed here, after (1).
+# The real identity gets neither step: its build is unchanged by this option.
+if(APPLE AND HORDE_TEST_IDENTITY)
+  add_custom_command(TARGET ${PROJECT_NAME}_auv2 POST_BUILD
+    COMMAND /usr/libexec/PlistBuddy -c
+            "Set :AudioComponents:0:name Mindlathe: ${HORDE_AUV2_DISPLAY_NAME}"
+            "$<TARGET_BUNDLE_CONTENT_DIR:${PROJECT_NAME}_auv2>/Info.plist"
+    VERBATIM)
+  foreach(HS_FMT clap vst3 auv2)
+    add_custom_command(TARGET ${PROJECT_NAME}_${HS_FMT} POST_BUILD
+      COMMAND codesign --force -s - "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${HS_FMT}>"
+      VERBATIM)
+  endforeach()
+endif()
 
 # SWARM-FX: the effects product line as a standalone AUDIO-EFFECT plugin
 # (Track E1.3). Its own impl/entry/factory — the instrument shell is untouched
@@ -812,6 +869,19 @@ endif()
 if(APPLE)
   add_executable(gui_webview_check tools/gui_webview_check.mm)
   target_link_libraries(gui_webview_check PRIVATE ${PROJECT_NAME}-impl)
+endif()
+# identity_store_check (B456, wired into ./verify full on macOS): the built
+# plugin, run under a scratch HOME, keeps its whole store in ITS identity's
+# folder and leaves the other identity's planted folder untouched. Built in
+# both trees and told which identity to expect (`real` here, `test` in a
+# -DHORDE_TEST_IDENTITY=ON tree); its expected values are its own, not the
+# identity header's. The generated bank header is on its include path for the
+# file count and the stamp it plants; linking the impl is what orders the
+# header's generation before this compiles.
+if(APPLE)
+  add_executable(identity_store_check tools/identity_store_check.mm)
+  target_include_directories(identity_store_check PRIVATE src ${CMAKE_CURRENT_BINARY_DIR}/generated)
+  target_link_libraries(identity_store_check PRIVATE ${PROJECT_NAME}-impl)
 endif()
 
 # trace_check: the forensic note trace (FOUNDATIONS ask (c)). Links the impl so

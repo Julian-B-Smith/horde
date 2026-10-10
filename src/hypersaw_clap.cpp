@@ -30,6 +30,7 @@
 #include <vector>
 
 #include "swarm_core.h"
+#include "plugin_identity.h"   // B456: the id, the name, the store folder — the ONE place they are spelled
 #include "gui/hypersaw_gui.h"
 #include "gui/preset_store.h"   // presetRoot(): the ONE store path (B129)
 #include "input_guards.h"   // B446: names cut at a character boundary; host values checked at the event boundary
@@ -63,11 +64,14 @@ static const char *s_features[] = {CLAP_PLUGIN_FEATURE_INSTRUMENT, CLAP_PLUGIN_F
    re-finds this plugin in an already-saved session; renaming it would orphan
    every project that has ever loaded the device — a rename is a new plugin as
    far as a DAW is concerned. The id is an identifier that happens to read like
-   a name, which is exactly why it is tempting to "fix". */
+   a name, which is exactly why it is tempting to "fix".
+   Both strings are spelled in plugin_identity.h (B456), which also carries the
+   side-by-side TEST identity: a second id and name for the same code, so an
+   unmerged build can sit in a host beside this plugin instead of replacing it. */
 static const clap_plugin_descriptor_t s_desc = {
     CLAP_VERSION_INIT,
-    "com.lifted-truck.hypersaw",   // FROZEN — see above; not a display string
-    "horde",
+    hypersaw::identity::kIdentity.clapId,   // FROZEN for the real identity — see above; not a display string
+    hypersaw::identity::kIdentity.displayName,
     "Mindlathe",
     "https://github.com/Julian-B-Smith/horde",
     "",
@@ -2262,7 +2266,7 @@ struct Plugin
        when the platform's home variable is genuinely unset. */
     fs::path dir = hypersaw::presetRoot();
     if (!dir.empty()) dir /= "logs";
-    if (dir.empty()) dir = fs::temp_directory_path(ec) / "HYPERSAW";
+    if (dir.empty()) dir = fs::temp_directory_path(ec) / hypersaw::identity::kIdentity.storeFolder;
     fs::create_directories(dir, ec);
     // Named by the trace counter, not by a clock: the charter bans wall-clock
     // reads in the core, and a monotonic counter also sorts correctly.
