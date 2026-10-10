@@ -139,6 +139,20 @@ fast() {
   # level, a changed -ffp-contract, a removed target, a new global flag, an --append
   # that would alter an entry, an empty approval ref). ~0.3 s. Added under ADR-180 §1.
   python3 tools/build_flags_check.py || ok=1
+  # THE REAL PLUGIN AND ITS SIDE-BY-SIDE TEST IDENTITY SHARE NO ID (B456). The same
+  # sources build under a second identity (a CMake option, default OFF) so unmerged
+  # code can run in a host BESIDE the plugin real projects load. A host finds a
+  # plugin by its CLAP id (the VST3 class id derives from it) and its AU triple, and
+  # the user's presets sit in one folder: a test build that kept any of those would
+  # be loaded in place of the real plugin, or write its preset store, and no audio
+  # oracle sees either. Static, from src/plugin_identity.h and CMakeLists.txt: the
+  # real identity equals this check's frozen table (so changing it is red); CLAP id,
+  # name, store folder, bundle identifier, output name and AU subtype all differ
+  # between the two; the option defaults OFF and nothing the harness runs turns it
+  # on; no source outside the identity header hard-codes an id or a store folder.
+  # Self-calibrating (eighteen planted faults, each must read red with its own tag).
+  # ~0.6 s. Added under ADR-180 §1. Its built-bundle and run-time halves are in `full`.
+  python3 tools/test_identity_check.py || ok=1
   # A LIFTED h2 core is its legacy source plus its lift ledger, byte for byte
   # (B379; ADR-187 L3: a byte-identical lift carries the legacy parity proof).
   # Any unledgered difference, or a ledger entry the tree no longer carries, is
@@ -644,6 +658,20 @@ full() {
   # fast-math-family token and for every pinned flag. Added under ADR-180 §1.
   python3 tools/param_id_lock_check.py --runtime "$build_dir/param_id_dump" || return 1
   python3 tools/build_flags_check.py --built "$build_dir" || return 1
+  # THE BUILT BUNDLES CARRY THE REAL, FROZEN IDENTITY (B456; macOS, where the three
+  # bundles have this layout). The static half in `fast` reads the sources; this
+  # reads what the build produced: each bundle's Info.plist (bundle identifier, the
+  # AU triple and name), the CLAP descriptor as the built plugin reports it, and
+  # the VST3 class id as the built plugin reports it, which must equal the frozen
+  # one (a wrapper bump that changed its derivation would orphan every saved VST3
+  # session). Red if this tree was configured as the test identity. ~0.7 s. Added
+  # under ADR-180 §1.
+  if [ "$(uname)" = Darwin ]; then
+    python3 tools/test_identity_check.py --built "$build_dir" real > /tmp/identbuilt.$$ 2>&1 || {
+      echo "verify[full]: test_identity_check --built FAILED" >&2; cat /tmp/identbuilt.$$ >&2
+      rm -f /tmp/identbuilt.$$; return 1; }
+    tail -1 /tmp/identbuilt.$$; rm -f /tmp/identbuilt.$$
+  fi
 
   # Phase 1 oracle chain: golden generator determinism -> fresh goldens ->
   # L0-1 parity (C++ vs JS reference, eps=1e-6) -> L0-2..5 + L0-13
@@ -928,6 +956,23 @@ full() {
       echo "verify[full]: gui_webview_check FAILED" >&2; cat /tmp/guiweb.$$ >&2
       rm -f /tmp/guiweb.$$; return 1; }
     tail -1 /tmp/guiweb.$$; rm -f /tmp/guiweb.$$
+  fi
+  # THE BUILT PLUGIN KEEPS ITS STORE IN ITS OWN IDENTITY'S FOLDER (B456; macOS).
+  # Under a scratch HOME, with the OTHER identity's folder planted beside it (a
+  # preset, a prefs file and a factory stamp naming the current bank), the shipped
+  # plugin opens its GUI and saves, loads, lists and deletes through the page's own
+  # bridge, and writes a forensic dump. Everything lands in LiftedTruck/HYPERSAW;
+  # the planted folder keeps its files, bytes and modification times, its preset is
+  # never listed, loaded or deleted, and its stamp does not stop the bank install
+  # (a plugin that read that folder would install nothing). Its CONTROL judges the
+  # same run as the other identity, which must fail. Here it proves the real build
+  # still uses the real folder; the test-identity tree runs the same binary with
+  # `test`. ~3 s. Added under ADR-180 §1.
+  if [ "$(uname)" = Darwin ]; then
+    "$build_dir/identity_store_check" real > /tmp/identstore.$$ 2>&1 || {
+      echo "verify[full]: identity_store_check FAILED" >&2; cat /tmp/identstore.$$ >&2
+      rm -f /tmp/identstore.$$; return 1; }
+    tail -1 /tmp/identstore.$$; rm -f /tmp/identstore.$$
   fi
   "$build_dir/hostile_events_check" > /tmp/hostile.$$ 2>&1 || {
     echo "verify[full]: hostile_events_check FAILED" >&2; cat /tmp/hostile.$$ >&2

@@ -23,6 +23,8 @@
 #include <string>
 #include <vector>
 
+#include "../plugin_identity.h"  // relative on purpose: a check may compile this header with no src/ on its include path
+
 namespace hypersaw
 {
 
@@ -48,22 +50,28 @@ inline constexpr StorePlatform kStorePlatform =
 
 /* Returns an EMPTY path when the platform's home variable is unset. Callers
    must treat empty as "no store available" and fall back (the shell dumps to
-   the temp dir); silently rooting at "/" would write into the filesystem root. */
+   the temp dir); silently rooting at "/" would write into the filesystem root.
+
+   The leaf folder is the build's identity (plugin_identity.h, B456): HYPERSAW
+   for the real plugin, a sibling folder for the side-by-side test build, which
+   therefore cannot read or write the real one. It is read HERE and nowhere
+   else, so the single-path rule above covers both identities. */
 inline std::filesystem::path presetRootFor(StorePlatform p, const char *home, const char *appdata)
 {
   namespace fs = std::filesystem;
   const auto nonEmpty = [](const char *s) { return s && *s; };
+  const char *const folder = identity::kIdentity.storeFolder;
   switch (p)
   {
     case StorePlatform::macOS:
       if (!nonEmpty(home)) return {};
-      return fs::path(home) / "Library" / "Application Support" / "LiftedTruck" / "HYPERSAW";
+      return fs::path(home) / "Library" / "Application Support" / "LiftedTruck" / folder;
     case StorePlatform::Windows:
       if (!nonEmpty(appdata)) return {};
-      return fs::path(appdata) / "LiftedTruck" / "HYPERSAW";
+      return fs::path(appdata) / "LiftedTruck" / folder;
     case StorePlatform::Other:
       if (!nonEmpty(home)) return {};
-      return fs::path(home) / ".local" / "share" / "LiftedTruck" / "HYPERSAW";
+      return fs::path(home) / ".local" / "share" / "LiftedTruck" / folder;
   }
   return {};
 }
