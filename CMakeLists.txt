@@ -54,10 +54,11 @@ set(CLAP_WRAPPER_DOWNLOAD_DEPENDENCIES OFF CACHE BOOL "" FORCE)
 add_subdirectory(libs/clap EXCLUDE_FROM_ALL)
 add_subdirectory(libs/clap-wrapper EXCLUDE_FROM_ALL)
 
-# choc, PATCHED (B446, ADR-194 D-S5, ADR-196): the WebView2 backend gains an
+# choc, PATCHED (B446, ADR-194 D-S5, ADR-196; ADR-205 item 3): the WebView2 backend gains an
 # allowNavigation option, which the Windows GUI uses to admit only its embedded
-# page, and an allowPermission option, which it uses to refuse page script the
-# clipboard. libs/choc stays the upstream pin; the patches are applied in list
+# page, an allowPermission option, which it uses to refuse page script the
+# clipboard, and an allowExternalDrop option, which it uses to turn off drops
+# from outside the view. libs/choc stays the upstream pin; the patches are applied in list
 # order at configure time to a copy in the build tree, and the configure STOPS
 # if one no longer applies (libs/patches/README.md). HS_CHOC_PATCHES is the one
 # list of them: tools/gen_sbom.py reads it for the SBOM's pedigree.patches. Every choc include in our code is therefore
@@ -66,7 +67,8 @@ add_subdirectory(libs/clap-wrapper EXCLUDE_FROM_ALL)
 set(HS_CHOC_DIR ${CMAKE_CURRENT_BINARY_DIR}/choc-patched)
 set(HS_CHOC_PATCHES
     ${CMAKE_CURRENT_SOURCE_DIR}/libs/patches/choc-webview2-navigation.patch
-    ${CMAKE_CURRENT_SOURCE_DIR}/libs/patches/choc-webview2-permissions.patch)
+    ${CMAKE_CURRENT_SOURCE_DIR}/libs/patches/choc-webview2-permissions.patch
+    ${CMAKE_CURRENT_SOURCE_DIR}/libs/patches/choc-webview2-external-drop.patch)
 # Quoted: unquoted, the list's `;` would split it into separate arguments.
 execute_process(COMMAND ${CMAKE_COMMAND} -DSRC=${CMAKE_CURRENT_SOURCE_DIR}/libs/choc/choc
                         -DOUT=${HS_CHOC_DIR} "-DPATCH=${HS_CHOC_PATCHES}"

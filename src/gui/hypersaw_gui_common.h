@@ -620,19 +620,24 @@ inline void installBridge(choc::ui::WebView &web, GuiHost &host)
 
 // allowNavigation / allowPermission: the platform's navigation and permission
 // policies, where choc implements the hooks (WebView2, through the patched
-// options in libs/patches). customSchemeURI: the page's origin, horde's own on
-// Windows (kEmbeddedOrigin, embedded_page_policy.h ORIGIN). macOS passes none of
-// the three and applies the same policies in its own wrapper (hypersaw_gui.mm).
+// options in libs/patches). allowExternalDrop: false turns off WebView2's native
+// acceptance of content dragged in from outside the view (the third patched
+// option, ADR-205 item 3); the default is choc's own, true. customSchemeURI: the
+// page's origin, horde's own on Windows (kEmbeddedOrigin, embedded_page_policy.h
+// ORIGIN). macOS passes none of the four and applies the same policies in its own
+// wrapper (hypersaw_gui.mm), where it unregisters the view's dragged types.
 inline std::unique_ptr<choc::ui::WebView>
 makeWebView(GuiHost &host, std::function<void(choc::ui::WebView &)> platformBinds,
             decltype(choc::ui::WebView::Options::allowNavigation) allowNavigation = {},
             decltype(choc::ui::WebView::Options::allowPermission) allowPermission = {},
+            bool allowExternalDrop = true,
             std::string customSchemeURI = {})
 {
   choc::ui::WebView::Options opts;
   opts.enableDebugMode = false;
   opts.allowNavigation = std::move(allowNavigation);
   opts.allowPermission = std::move(allowPermission);
+  opts.allowExternalDrop = allowExternalDrop;
   opts.customSchemeURI = std::move(customSchemeURI);
   opts.acceptsFirstMouseClick = true;  // click-through focus in hosts
   // Bindings before the page: they install document-created scripts, so the

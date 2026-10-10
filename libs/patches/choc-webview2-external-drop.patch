@@ -1,0 +1,138 @@
+choc-webview2-external-drop.patch: the WebView2 backend can turn off drops
+that come from outside the web view (B448 C3, ADR-205 item 3).
+
+Base:     choc a08bfd84494921700703a8433b9d1a304edfafd2 (the libs/choc pin)
+Applied:  at configure time, to a build-tree copy of libs/choc/choc, by
+          libs/patches/apply_patch.cmake, after choc-webview2-navigation.patch
+          and choc-webview2-permissions.patch. The submodule is never edited.
+Checked:  tools/choc_patch_check.py (./verify fast).
+
+PURPOSE. WebView2 has a native switch for content dragged in from outside the
+view, ICoreWebView2Controller4::put_AllowExternalDrop. An app cannot reach it
+through choc: the controller is private, and choc declares only
+ICoreWebView2Controller and ICoreWebView2Controller2. This adds one option,
+WebView::Options::allowExternalDrop, and the two interface declarations the
+call needs. horde's Windows backend (src/gui/hypersaw_gui_win.cpp) sets it to
+false. It is a second layer: both shipped pages already refuse dragenter,
+dragover and drop (tools/gui_sink_check.py), and the navigation rule already
+stops a drop from navigating the view. On macOS the backend unregisters the
+view's dragged types instead (hypersaw_gui.mm).
+
+DEFAULT UNCHANGED. The patch only adds lines. The option defaults to true,
+which is WebView2's own default, and the new block runs only when the option
+is false: left at its default, no interface is queried and nothing is called,
+so the controller is set up exactly as upstream.
+
+INTERFACES. Declarations follow WebView2.h in Microsoft's WebView2 SDK (NuGet
+package Microsoft.Web.WebView2, build/native/include/WebView2.h; read from
+version 1.0.2903.40):
+  ICoreWebView2Controller3  f9614724-5d2b-41dc-aef7-73d62b51543b
+      : public ICoreWebView2Controller2. Eight methods, in the SDK's order:
+      get/put_RasterizationScale, get/put_ShouldDetectMonitorScaleChanges,
+      add/remove_RasterizationScaleChanged, get/put_BoundsMode.
+  ICoreWebView2Controller4  97d418d5-a426-4e49-a151-e1a10f327d9e
+      : public ICoreWebView2Controller3. get_AllowExternalDrop,
+      put_AllowExternalDrop.
+Controller3 is declared only because Controller4 derives from it: its eight
+methods fill the vtable slots ahead of Controller4's, and a missing or
+reordered one would make put_AllowExternalDrop call the wrong slot. Its event
+handler is declared void* and COREWEBVIEW2_BOUNDS_MODE as an empty enum, as
+choc does for the types it never uses; neither method is called.
+tools/choc_patch_check.py holds the two IIDs and the method order, and is red
+if the patched header differs.
+
+OLDER RUNTIME. Where the installed WebView2 runtime does not provide
+ICoreWebView2Controller4, QueryInterface fails, nothing is called, and the
+view is created as before. The page's own guard still applies there.
+
+SEPARATE FILE. It is carried apart from the navigation and permission patches
+so that each can be dropped when upstream takes its part. It is made against
+the pristine pin and changes no line their hunks rely on, so it applies alone
+and in any order with them; tools/choc_patch_check.py checks every order.
+
+UPSTREAM STATUS. Not yet proposed. A feature request for the option is
+drafted for the human's review (choc takes feature requests as issues, not
+pull requests; its CONTRIBUTING.md); posting it outside the fleet takes the
+human's explicit yes.
+
+REMOVAL CONDITION. Delete this patch and its wiring (libs/patches/README.md
+lists every piece) when the pinned choc provides an equivalent option. If the
+upstream shape differs, port src/gui/hypersaw_gui_win.cpp to it in the same
+change. Any bump of libs/choc turns tools/choc_patch_check.py red until the
+Base line above is updated, so the question is asked at every bump.
+
+--- a/choc/gui/choc_WebView.h
++++ b/choc/gui/choc_WebView.h
+@@ -80,6 +80,15 @@
+         /// webview to be used as input, rather than the default behaviour, which is
+         /// for the first click to give the webview focus but not trigger any action.
+         bool acceptsFirstMouseClick = false;
++
++        /// Where supported, setting this to false stops the webview accepting
++        /// content dragged in from outside it and dropped on it (for example a
++        /// file from the desktop, or a link from another application). The
++        /// default, true, leaves the browser's own behaviour unchanged.
++        /// Currently implemented by the WebView2 (Windows) backend, where the
++        /// installed runtime provides ICoreWebView2Controller4; on a runtime
++        /// without it, false has no effect.
++        bool allowExternalDrop = true;
+ 
+         /// Optional user-agent string which can be used to override the default. Leave
+         // this empty for default behaviour.
+@@ -1267,6 +1276,35 @@
+     static IID getIID()     { return { 0xc979903e, 0xd4ca, 0x4228, { 0x92, 0xeb, 0x47, 0xee, 0x3f, 0xa9, 0x6e, 0xab } }; }
+ 
+ };
++
++// ICoreWebView2Controller3 is declared only because ICoreWebView2Controller4
++// derives from it: its eight methods fill the vtable slots ahead of
++// Controller4's, so all eight must be here, in the SDK's order. Both
++// declarations follow WebView2.h in Microsoft's WebView2 SDK (NuGet package
++// Microsoft.Web.WebView2, build/native/include/WebView2.h).
++enum COREWEBVIEW2_BOUNDS_MODE {};
++
++MIDL_INTERFACE("f9614724-5d2b-41dc-aef7-73d62b51543b")
++ICoreWebView2Controller3 : public ICoreWebView2Controller2
++{
++    virtual HRESULT STDMETHODCALLTYPE get_RasterizationScale(double*) = 0;
++    virtual HRESULT STDMETHODCALLTYPE put_RasterizationScale(double) = 0;
++    virtual HRESULT STDMETHODCALLTYPE get_ShouldDetectMonitorScaleChanges(BOOL*) = 0;
++    virtual HRESULT STDMETHODCALLTYPE put_ShouldDetectMonitorScaleChanges(BOOL) = 0;
++    virtual HRESULT STDMETHODCALLTYPE add_RasterizationScaleChanged(void*, EventRegistrationToken*) = 0;
++    virtual HRESULT STDMETHODCALLTYPE remove_RasterizationScaleChanged(EventRegistrationToken) = 0;
++    virtual HRESULT STDMETHODCALLTYPE get_BoundsMode(COREWEBVIEW2_BOUNDS_MODE*) = 0;
++    virtual HRESULT STDMETHODCALLTYPE put_BoundsMode(COREWEBVIEW2_BOUNDS_MODE) = 0;
++};
++
++MIDL_INTERFACE("97d418d5-a426-4e49-a151-e1a10f327d9e")
++ICoreWebView2Controller4 : public ICoreWebView2Controller3
++{
++    virtual HRESULT STDMETHODCALLTYPE get_AllowExternalDrop(BOOL*) = 0;
++    virtual HRESULT STDMETHODCALLTYPE put_AllowExternalDrop(BOOL) = 0;
++
++    static IID getIID()     { return { 0x97d418d5, 0xa426, 0x4e49, { 0xa1, 0x51, 0xe1, 0xa1, 0x0f, 0x32, 0x7d, 0x9e } }; }
++};
+ 
+ STDAPI CreateCoreWebView2EnvironmentWithOptions(PCWSTR, PCWSTR, void*, ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler*);
+ 
+@@ -1472,6 +1510,20 @@
+                 controller2->put_DefaultBackgroundColor ({ 0, 0, 0, 0 });
+             }
+         }
++
++        // Only when the option is turned off: left at its default, nothing is called.
++        if (! options.allowExternalDrop)
++        {
++            COMPtr<ICoreWebView2Controller4> controller4;
++
++            // A runtime without Controller4 fails this query, and external drops
++            // then stay as the runtime has them.
++            if (controller->QueryInterface (ICoreWebView2Controller4::getIID(), (void**) controller4.getAddress()) == S_OK
++                  && controller4 != nullptr)
++            {
++                controller4->put_AllowExternalDrop (FALSE);
++            }
++        }
+ 
+         auto wildcardFilter = createUTF16StringFromUTF8 (defaultURI + "*");
+         coreWebView->AddWebResourceRequestedFilter (wildcardFilter.c_str(), COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL);
