@@ -9,11 +9,11 @@
       "status": "needs-human"
     },
     "presonus-extensions": {
-      "approved": "",
-      "expires": "2027-01-31",
-      "note": "One header compiled into the VST3 wrapper says \"Written and placed in the PUBLIC DOMAIN by PreSonus Software Ltd.\" and carries no license text. A public-domain statement has no SPDX id, so it cannot be on the shipping list. The choice turns on whether the human accepts a bare public-domain statement for a component that ships.",
+      "approved": "ADR-204; the human, 2026-10-09 (\"I'll go with your recommendation\"): accept the bare public-domain statement for this one interface header",
+      "expires": "2027-10-09",
+      "note": "One header compiled into the VST3 wrapper says \"Written and placed in the PUBLIC DOMAIN by PreSonus Software Ltd.\" and carries no license text. A public-domain statement has no SPDX id, so it cannot be on the shipping list. The choice turns on whether the human accepts a bare public-domain statement for a component that ships. APPROVED 2026-10-09 as a recorded exception; re-review at each clap-wrapper bump, and by the expiry at the latest.",
       "spdx": "LicenseRef-PublicDomain-PreSonus",
-      "status": "needs-human"
+      "status": "approved"
     }
   },
   "not_shipped": {
@@ -22,10 +22,6 @@
   "pending_human": [
     {
       "component": "dc-runtime",
-      "raised": "2026-10-09"
-    },
-    {
-      "component": "presonus-extensions",
       "raised": "2026-10-09"
     }
   ],

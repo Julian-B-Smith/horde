@@ -7462,3 +7462,27 @@ unchanged, since an absent `home` is 0.5.
 
 **Not ruled here.** The brief's §2 (module presets that depend on horde's modulators) is input for
 a contract the human may design. It stays on B453.
+
+## ADR-204 — RULED by the human: one license exception accepted (B448 C1, 2026-10-09)
+
+**Ruling.** The human, 2026-10-09, on the lead's recommendation: "I'll go with your recommendation".
+
+**Context.** The third-party license audit (`tools/license_audit_check.py`, B448 C1) found one
+shipping component it could not place on the allow list.
+- **What it is.** `ipslgainreduction.h`, a PreSonus plug-in extension header. It rides inside
+  clap-wrapper and is compiled into the VST3 build through `src/wrapasvst3.h`.
+- **Why the list cannot hold it.** It carries no license text, only the statement "Written and
+  placed in the PUBLIC DOMAIN by PreSonus Software Ltd." and an as-is disclaimer. A public-domain
+  statement has no SPDX id.
+
+**Decision.** The header is accepted as a recorded exception: `presonus-extensions` in
+`tools/license_allowlist.json`, approved, expiring 2027-10-09. It is re-reviewed at each
+clap-wrapper bump, and by the expiry at the latest. The alternative, building the wrapper without
+that extension, was not taken.
+
+**Not decided here.**
+- The audit's other pending item: the design tool's `support.js` under docs.
+- The allow list itself, which stays PROPOSED.
+- The ten release questions in `docs/LICENSES-THIRD-PARTY.md`.
+
+This is an engineering decision recorded for the release review. It is not legal advice.
