@@ -7432,7 +7432,7 @@ struct Plugin
      it is main-thread state and the editor shows it — while the load's
      parameters and field land at the next block. A save taken in between
      writes the outgoing patch's values, so it writes the outgoing patch's
-     name with them: one patch, whole, never one patch under the other's name.
+     name with them: one patch, whole.
      The name is held here from the queued load's start until the audio thread
      has adopted that load's batch, which the main thread reads off the stage
      gate (phase 0 again under the published generation; the marker is the
