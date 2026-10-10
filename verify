@@ -756,7 +756,7 @@ full() {
   echo "scalpel oracle: $(grep -c '^PASS' /tmp/scalpel.$$) checks PASS ($(tail -1 /tmp/scalpel.$$))"; rm -f /tmp/scalpel.$$
   # horde 2's SCALPEL blade engine, h2/cores/scalpel/razor_core.h (B332 phase 1a;
   # ADR-186 copy-forward, ADR-187 item 6 parity strength). The check spawns
-  # `node tools/h2_scalpel_render.mjs`, which renders ~390 scenarios (all 83 bench
+  # `node tools/h2_scalpel_render.mjs` (here: once, to a file it reads), which renders 386 scenarios (all 83 bench
   # presets x phrases, plus targeted rows) through the protected oracle above, and
   # demands rms < 1e-6, max-abs < 1e-6 and identical blade events for each. A
   # chaotic exclusion is exempt from max-abs only, is re-justified every run
@@ -768,26 +768,46 @@ full() {
   # The FMA control is the same source built with contraction forced on, run over
   # the full stream: exit 0 = the parity gate CAUGHT the fused build, 1 = it did
   # not fire, 2 = the run itself broke (never counted as firing).
-  "$build_dir/h2_scalpel_parity_check" > /tmp/h2scalpel.$$ 2>&1 || {
+  # THE SCENARIO FLOOR (ADR-206 item 1, B455 H1 follow-up): the stream is rendered ONCE to a
+  # file (the gate and its FMA control used to render it twice), and all three read it with
+  # --full-from. The gate pins the total (kMinScenarios, its own source): a stream with a scenario
+  # dropped and its header and END rewritten to agree used to pass. This run of the gate on the
+  # untouched file is the POSITIVE control; tools/parity_floor_check.py --stream then runs the
+  # must-fail controls (DROP, HEADER-ONLY, EMPTY, ABSENT) against files derived from it.
+  local h2sc="/tmp/h2scalpelstream.$$" h2sr="/tmp/h2scalpelrender.$$"
+  node tools/h2_scalpel_render.mjs > "$h2sc" 2> "$h2sr" || {
+    echo "verify[full]: tools/h2_scalpel_render.mjs FAILED (the oracle's stream)" >&2; cat "$h2sr" >&2
+    rm -f "$h2sc" "$h2sr"; return 1; }
+  tail -1 "$h2sr"; rm -f "$h2sr"
+  "$build_dir/h2_scalpel_parity_check" --full-from "$h2sc" > /tmp/h2scalpel.$$ 2>&1 || {
     echo "verify[full]: h2_scalpel_parity_check FAILED" >&2; grep -v '^PASS  rms' /tmp/h2scalpel.$$ >&2
-    rm -f /tmp/h2scalpel.$$; return 1; }
-  grep -E '^(EXCL|PASS  (PIN|FLOOR))|chaotic\?' /tmp/h2scalpel.$$
+    rm -f /tmp/h2scalpel.$$ "$h2sc"; return 1; }
+  grep -E '^(EXCL|PASS  (PIN|FLOOR)|OK   h2_scalpel_parity|NOTE h2_scalpel_parity)|chaotic\?' /tmp/h2scalpel.$$
   tail -1 /tmp/h2scalpel.$$; rm -f /tmp/h2scalpel.$$
   local h2fma=0
-  "$build_dir/h2_scalpel_fma_control" > /tmp/h2fma.$$ 2>&1 || h2fma=$?
+  "$build_dir/h2_scalpel_fma_control" --full-from "$h2sc" > /tmp/h2fma.$$ 2>&1 || h2fma=$?
   if [ "$h2fma" -ne 0 ]; then
     if [ "$h2fma" -eq 1 ]; then
       echo "verify[full]: h2_scalpel_fma_control did not fire (the FMA-contracted build passed parity)" >&2
     else
       echo "verify[full]: h2_scalpel_fma_control run broke (exit $h2fma) — infrastructure, not a verdict" >&2
     fi
-    grep -v '^PASS  rms' /tmp/h2fma.$$ >&2; rm -f /tmp/h2fma.$$; return 1
+    grep -v '^PASS  rms' /tmp/h2fma.$$ >&2; rm -f /tmp/h2fma.$$ "$h2sc"; return 1
   fi
   tail -1 /tmp/h2fma.$$; rm -f /tmp/h2fma.$$
+  python3 tools/parity_floor_check.py --stream "$build_dir" h2_scalpel_parity_check "$h2sc" || {
+    echo "verify[full]: h2_scalpel_parity_check scenario-floor controls FAILED" >&2; rm -f "$h2sc"; return 1; }
+  rm -f "$h2sc"
   # horde 2's ONE engine, the composed engine h2/engine/ (B385; wired by B405 under
-  # ADR-187 A2 and ADR-180 §1). `node tools/h2_engine_render.mjs` renders the 543
+  # ADR-187 A2 and ADR-180 §1). `node tools/h2_engine_render.mjs` renders the
   # scenarios through the composed JS golden ONCE, to a temp file both binaries read
   # with --full-from (B405 rework, critic M4: it used to render twice). The check
+  # pins their COUNT in its own source (kMinScenarios, 543 today; ADR-206 item 1,
+  # B455 H1 follow-up): the header/END/row agreement it always checked is a
+  # consistency check, not a floor, so a stream with a scenario dropped and its
+  # header and END rewritten to agree passed until then. tools/parity_floor_check.py
+  # --stream runs that shape as a must-fail control (DROP) beside HEADER-ONLY, EMPTY
+  # and ABSENT, after the real run below, which is the POSITIVE. The check
   # demands rms < 1e-6, max-abs < 1e-6, identical blade events and identical load
   # readouts for each. The three Cross-mod ring (watch) rows, pinned by name, are
   # judged on a measured onset window, events, readouts and a finite render instead
@@ -827,8 +847,10 @@ full() {
     echo "verify[full]: h2_engine_parity_check FAILED" >&2; grep -v '^PASS  rms' "$h2e" >&2
     rm -f $h2tmp; return 1; }
   grep '^WARNING: bit-exact floor' "$h2e" >&2
-  grep -E '^(EXCL|SKIP|WARNING|PASS  (STREAM|PIN|FLOOR|BITEXACT|control X1|control BF))|^        (onset profile|red: |margin sweep|\(ring, not judged\))' "$h2e"
+  grep -E '^(EXCL|SKIP|WARNING|OK   h2_engine_parity|NOTE h2_engine_parity|PASS  (STREAM|PIN|FLOOR|BITEXACT|control X1|control BF))|^        (onset profile|red: |margin sweep|\(ring, not judged\))' "$h2e"
   tail -1 "$h2e"
+  python3 tools/parity_floor_check.py --stream "$build_dir" h2_engine_parity_check "$h2s" || {
+    echo "verify[full]: h2_engine_parity_check scenario-floor controls FAILED" >&2; rm -f $h2tmp; return 1; }
   h2x=0
   "$build_dir/h2_engine_fma_control" --full-from "$h2s" > "$h2f" 2>&1 || h2x=$?
   if [ "$h2x" -ne 0 ]; then

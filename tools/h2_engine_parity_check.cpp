@@ -88,6 +88,8 @@
  *       and 2.0 planted there: a test of the detector code only, a state the
  *       engine cannot reach (its output is a tanh)
  *   TRUNC  (./verify) the stream file cut short, no END     red, never read as full
+ *   DROP   (./verify, tools/parity_floor_check.py --stream) one scenario removed, header and END
+ *                                                           rewritten to agree: red by the floor
  * DETECTION FLOOR (printed, not judged; 1e-3 must be red): the swarm's pitch
  * scaled by (1 + eps).
  * DETERMINISM: three fixed scripts (the swarm with the ensemble and gravity; the
@@ -133,6 +135,7 @@
 #define H2_ENGINE_FAULTS 1
 #include "../h2/engine/engine.h"
 #include "h2_engine_stream.h"
+#include "scenario_floor.h"
 
 using horde2::engine::EventLog;
 using h2engine_stream::Cmd;
@@ -563,6 +566,13 @@ int main(int argc, char** argv) {
     need("T/mode 0 :: chord");
     const bool ok = ended && !missing && endN == headerN && total == headerN;
     if (!ok) infra = true;
+    // The floor under the corpus (ADR-206 item 1, B455 H1): the checks above only prove the
+    // header, END and the rows read AGREE, so a stream with a scenario consistently dropped
+    // (header and END rewritten too) passed. Pinned at the count the renderer writes today; raise it
+    // in the same PR that adds a scenario, never lower it without a recorded decision. A short
+    // stream is infrastructure (the FMA control reports exit 2, never "fired").
+    constexpr int kMinScenarios = 543;
+    if (!scenarioFloorHolds("h2_engine_parity", total, kMinScenarios)) infra = true;
     std::printf("%s  STREAM  full stream (%s): %d scenarios read, header %ld, END %s; %d control/ring row(s) missing%s%s\n", ok ? "PASS" : "FAIL",
                 fullFrom ? "--full-from FILE" : "rendered by this run", total, headerN, ended ? std::to_string(endN).c_str() : "ABSENT", missing,
                 missing ? ", first: " : "", first.c_str());
