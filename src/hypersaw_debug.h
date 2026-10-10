@@ -68,7 +68,7 @@ extern "C"
   void hypersaw_debug_lfocycle(const clap_plugin_t *p, char *out, uint32_t cap);
 
   /* The GUI load button's applyStateJson, headless; the apply is QUEUED.
-     Owner: state_check, preset_probe, morphlayout_check, penv_check,
+     Owner: state_check, preset_pitch_check, morphlayout_check, penv_check,
      bank_check, statefix_common.h. */
   bool hypersaw_debug_apply(const clap_plugin_t *p, const char *json);
 
@@ -94,8 +94,7 @@ extern "C"
 
   /* Corner `k`'s slot->value JSON; also publishes the slot->id order the
      intent exports are addressed by. Owner: state_check, intent_check,
-     corner_probe, morphlayout_check, gen_factory_bank, paramclass_check,
-     preset_probe. */
+     corner_probe, morphlayout_check, gen_factory_bank, paramclass_check. */
   const char *hypersaw_debug_cornervals(const clap_plugin_t *p, int k);
 
   /* Applies a corner's values as JSON (the GUI's corner-edit path).
@@ -228,13 +227,14 @@ extern "C"
   /* --- Note law, bend, pitch envelope ------------------------------------ */
 
   /* The wheel lane's EMITTED value (what updateTuneAll multiplies by).
-     Owner: anchor_check, preset_probe. */
+     Owner: anchor_check. */
   double hypersaw_debug_pitchbend(const clap_plugin_t *p);
 
-  /* The bend's anchor key. Owner: anchor_check, preset_probe. */
+  /* The bend's anchor key. Owner: anchor_check. */
   int hypersaw_debug_lastnotekey(const clap_plugin_t *p);
 
-  /* Oscillator 0's note law as its core holds it, as text. Owner: preset_probe. */
+  /* Oscillator 0's note law as its core holds it, as text. Owner: none since
+     preset_probe became preset_pitch_check (2026-10-10), which reads the voice row. */
   void hypersaw_debug_notelaw(const clap_plugin_t *p, char *out, uint32_t cap);
 
   /* ENV 2's GLOBAL projection (ADR-162), its winning slot's stage, and the
@@ -260,8 +260,8 @@ extern "C"
   int hypersaw_debug_phases(const clap_plugin_t *p, int osc, double *out, int cap);
 
   /* The sounding voices as `slot,midi,gate,f0,f0cur,glideActive,noteTune;` —
-     read POSITIONALLY by preset_probe, so fields are appended, never inserted.
-     Owner: preset_probe, bank_check, penv_check. */
+     read POSITIONALLY by preset_pitch_check, so fields are appended, never inserted.
+     Owner: preset_pitch_check, bank_check, penv_check. */
   void hypersaw_debug_voices(const clap_plugin_t *p, char *out, uint32_t cap);
 
 }
