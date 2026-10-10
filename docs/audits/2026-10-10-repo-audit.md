@@ -44,7 +44,7 @@ samples.
 | M6 | MEDIUM | a law with no gate | "Every default change carries an ADR and a migration" has one check on one key and no catalogue row |
 | M7 | MEDIUM | stale record | The armor catalogue still lists three gaps that PRs #1020 and #1021 closed; its coverage check is one-directional |
 | M8 | MEDIUM | stale comment, protected | `verify` and `docs/ROBUSTNESS.md` describe a pan-motion exclusion ADR-177 retired, and two more past shapes |
-| M9 | MEDIUM | doc drift | 31 false statements in eight documents, 56 with H5, M4 and M8; each with the contradicting fact (Appendix A) |
+| M9 | MEDIUM | doc drift | 31 false statements in eight documents, 57 with H5, M4 and M8; each with the contradicting fact (Appendix A) |
 | M10 | MEDIUM | carried | Eight findings of the 2026-09-19 audit are still open; one has got worse |
 | M11 | MEDIUM | one rule, three call sites | In mono mode the velocity modulation source is never written (BY READING) |
 | L1-L8 | LOW | dead, duplicate, cost | Dead functions, literal strides, per-entry host callbacks, never-run targets, overlapping checks, loop hygiene |
@@ -629,7 +629,7 @@ not failed, in the idiom `presentation_check` uses for its gaps.
 
 ---
 
-### M8 — `verify` describes three past shapes of itself
+### M8 — `verify` describes four past shapes of itself
 
 `verify` is a protected path, so each of these is a sanction the human would have to
 give. They are comment-only.
@@ -645,6 +645,8 @@ give. They are comment-only.
   real L0 suite ... lands in Phase 1". `fast()` runs 43 commands today. `:614-616` says
   "Phase 0: the plugin builds cleanly ... Phase 1+ adds golden parity renders", above 500
   lines of exactly that.
+- `verify:358` — the filter lab's programme "measures twelve filter types". The gate
+  printed "20 types" tonight.
 - The seven cost figures in M2.
 
 `verify` grew from 421 to 1,168 lines since the last audit, and most of the growth is
@@ -658,14 +660,15 @@ stale ones matter.
 The lead asked for every false statement with its line and the contradicting fact.
 Appendix A has 31 across `CLAUDE.md` §Domain, `h2/README.md`, `docs/ENGINEERING.md`,
 `docs/ROBUSTNESS.md`, `docs/PARKED.md`, `TESTING.md`, `CHANGELOG.md` and `SESSION.md`.
-With H5's eleven, M4's ten and M8's four that is 56. Three patterns account for most:
+With H5's eleven, M4's ten and M8's five that is 57. Three patterns account for most:
 
-1. **A transcribed count.** About 15 of the 56. ADR-180 §1 already rules the answer for
+1. **A transcribed count.** About 16 of the 57. ADR-180 §1 already rules the answer for
    CLAUDE.md: name the gate that prints the number.
 2. **A candidate that shipped, or was archived.** CLAUDE.md §Domain still reads as an
    ingest log: eight "CANDIDATE arrived" paragraphs, of which one is now the product
    (the composed engine), one was renamed, one became a hosted sibling module, one was
-   ported, and three are parked or archived. B403 records this; the appendix gives the lines.
+   ported, three are parked or archived, and one (ORBITAL) was not checked. B403 records
+   this; the appendix gives the lines.
 3. **A dated protocol nobody follows.** `TESTING.md:3-4` says every PR that changes
    human-testable behaviour updates the file. Its last commit is 2026-08-03, 876 merges
    ago, and its build under test is the one after PR 135. `CHANGELOG.md` says each line is
@@ -910,7 +913,8 @@ files more.
 | L7 | about 500 lines | 3 shared files |
 | **total** | **about 1,000 lines, 3 files, 15 s per fast run** | **about 240 lines, 4 files, 1 check, about 14 rows** |
 
-No finding removes a check, an assertion or a tolerance.
+No finding removes a check, an assertion or a tolerance. Every optimisation proposed (M2,
+L3) is bit-identical; none changes output.
 
 ## A clean bill, where the sweep found one
 
@@ -961,13 +965,13 @@ The lead assigns ids and wording. Each is one dispatchable item with its accepta
 | 7 | **Widen wired-or-explained to every check and probe** | M1 | The glob covers `tools/**`; the two late declarations are moved into the window; the count the gate prints rises by eight. |
 | 8 | **`verify fast` cost** | M2 | `build_flags_check` under 2 s with identical rows; the cost comments re-measured (a sanction); the human rules on running the node gates concurrently. |
 | 9 | **A skip census** | M3 | A green run prints how many gates ran and names each one skipped; the dashboard shows the last run's skips. |
-| 10 | **One dead-and-stale PR** | M4, M8, L1, L2, L5 | The ten CMake sentences gone; the four `verify` comments corrected (a sanction); five functions and four literals gone; the three orphan tools ruled on. |
+| 10 | **One dead-and-stale PR** | M4, M8, L1, L2, L5 | The ten CMake sentences gone; the five `verify` comments corrected (a sanction); five functions and four literals gone; the three orphan tools ruled on. |
 | 11 | **A gate for the default-change law** | M6 | A catalogue row for edit E now; `default` in the id lock when the h2 manifest lands. |
 | 12 | **Catalogue rows R7, R11, R12** | M7 | The three `gaps` texts match `verify`; `armor_coverage_check` prints gates added since the catalogue last changed. |
 
 ## Appendix A — false statements, with the fact that contradicts each
 
-README's eleven are in H5, `CMakeLists.txt`'s ten in M4, `verify`'s four in M8. B403
+README's eleven are in H5, `CMakeLists.txt`'s ten in M4, `verify`'s five in M8. B403
 already records that CLAUDE.md §Domain is stale; this is the line-level list it asks for.
 
 | file:line | says | the tree says |
