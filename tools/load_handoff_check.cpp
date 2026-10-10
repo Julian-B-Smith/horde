@@ -43,6 +43,16 @@
  *   D-*      deferred events with an impossible size (near 2^32, 0, a note
  *            shorter than a note) are refused and counted, nothing copied; a
  *            valid one beside them is kept and replayed.
+ *   I-* IS-* B455 (repo audit 2026-10-10, H4): a load made while NOT
+ *            processing, then a save at once (I-SAVE*) or a second load
+ *            (I-SUPERSEDE, IS-*); what a direct load does with the queue and
+ *            how the host hears of it (I-TELL*, I-BRACKET*); the name a save
+ *            writes while a queued load waits (I-QWIN-*). Each block comment
+ *            below names its controls.
+ *   HE-* HOOK-ENGINE-*  B455 (audit M5): a direct host load of a chunk saved
+ *            with morph ON, against "a load is not an edit".
+ *            These rows were written to MEASURE the shell before it was
+ *            changed; they are held green now.
  * Controls (the rows above are only meaningful if these hold):
  *   STOP-IDLE    the same load, never processing: must match.
  *   STOP-NOSTOP  processing throughout, no stop: must match. If this fails,
@@ -91,8 +101,20 @@ struct HostState
   const clap_plugin_t *plug = nullptr;
   bool stopOnFlush = false, stopped = false;
   void (*onFlush)() = nullptr;   // run ONCE, on the first request_flush, then cleared
+  // What the plugin told the host: rescan calls (and what a row reads inside
+  // one), and the out-events its drains raised, by kind.
+  int rescans = 0;
+  clap_param_rescan_flags rescanFlags = 0;
+  void (*onRescan)() = nullptr;
+  int outValues = 0, outGestures = 0, outSpecimen = 0;
+  int callbacks = 0;   // request_callback calls
 } g_host;
-void hpRescan(const clap_host_t *, clap_param_rescan_flags) {}
+void hpRescan(const clap_host_t *, clap_param_rescan_flags flags)
+{
+  g_host.rescans++;
+  g_host.rescanFlags = flags;
+  if (g_host.onRescan) g_host.onRescan();
+}
 void hpClear(const clap_host_t *, clap_id, clap_param_clear_flags) {}
 void hpRequestFlush(const clap_host_t *)
 {
@@ -114,9 +136,16 @@ const void *hostGetExtension(const clap_host_t *, const char *id)
   return std::strcmp(id, CLAP_EXT_PARAMS) == 0 ? &kHostParams : nullptr;
 }
 void hostNoop(const clap_host_t *) {}
+void hostRequestCallback(const clap_host_t *) { g_host.callbacks++; }   // a row calls on_main_thread itself
 const clap_host_t kHost = {CLAP_VERSION, nullptr, "load_handoff_check", "", "", "1.0",
-                           hostGetExtension, hostNoop, hostNoop, hostNoop};
-bool outPush(const clap_output_events_t *, const clap_event_header_t *) { return true; }
+                           hostGetExtension, hostNoop, hostNoop, hostRequestCallback};
+bool outPush(const clap_output_events_t *, const clap_event_header_t *e)
+{
+  if (e->type == CLAP_EVENT_PARAM_VALUE) g_host.outValues++;
+  if (e->type == CLAP_EVENT_PARAM_VALUE && ((const clap_event_param_value_t *)e)->param_id == 178) g_host.outSpecimen++;
+  if (e->type == CLAP_EVENT_PARAM_GESTURE_BEGIN || e->type == CLAP_EVENT_PARAM_GESTURE_END) g_host.outGestures++;
+  return true;
+}
 const clap_output_events_t kOut = {nullptr, outPush};
 
 struct EvList
@@ -808,6 +837,848 @@ std::string defaultJson()
   hypersaw_debug_state(d.p, buf, sizeof buf);
   return buf;
 }
+
+/* ---- B455 (repo audit 2026-10-10, H4 and M5) ------------------------------
+   Loads made while NOT processing. The audit read three claims from the code
+   and ran none of them; these rows run them. They were written to measure
+   the shell before it was changed, and nothing below is marked expected-fail.
+   Each row sits beside a control that reads the other way. */
+
+// The chunk as key -> text, one entry per `key=` line (the header has no '=').
+std::map<std::string, std::string> linesOf(const std::string &chunk)
+{
+  std::map<std::string, std::string> out;
+  size_t pos = 0;
+  while (pos < chunk.size())
+  {
+    const size_t eol = chunk.find('\n', pos);
+    const std::string line = chunk.substr(pos, eol == std::string::npos ? std::string::npos : eol - pos);
+    pos = eol == std::string::npos ? chunk.size() : eol + 1;
+    const size_t eq = line.find('=');
+    if (eq != std::string::npos) out[line.substr(0, eq)] = line.substr(eq + 1);
+  }
+  return out;
+}
+
+/* Two saved states, line by line. A PARAMETER line is one number; the rest
+   are the chunks a load writes by other roads (state_save's own list), named
+   in full because there are few of them and which one differs is the point. */
+struct LineDiff
+{
+  int n = 0, params = 0;
+  std::string firstParams, chunks;
+  std::vector<std::string> paramKeys;
+};
+LineDiff lineDiff(const std::string &got, const std::string &want)
+{
+  static const char *const kChunkKeys[] = {"morph", "modroutes", "routing", "intent", "presetname",
+                                           "ens", "o1.ens", "lfo", "engine_revision", "build"};
+  const auto g = linesOf(got), w = linesOf(want);
+  LineDiff d;
+  auto note = [&](const std::string &k) {
+    d.n++;
+    bool chunk = false;
+    for (const char *c : kChunkKeys) chunk = chunk || k == c;
+    if (chunk)
+    {
+      d.chunks += " " + k;
+      return;
+    }
+    if (d.params++ < 4) d.firstParams += " " + k;
+    d.paramKeys.push_back(k);
+  };
+  for (const auto &kv : w)
+  {
+    auto it = g.find(kv.first);
+    if (it == g.end() || it->second != kv.second) note(kv.first);
+  }
+  for (const auto &kv : g)
+    if (!w.count(kv.first)) note(kv.first);
+  return d;
+}
+std::string show(const LineDiff &d)
+{
+  if (d.n == 0) return "0 lines differ";
+  std::string s = std::to_string(d.n) + " line(s) differ: " + std::to_string(d.params) + " parameter line(s)";
+  if (d.params) s += " (first:" + d.firstParams + ")";
+  if (!d.chunks.empty()) s += ", chunk line(s):" + d.chunks;
+  return s;
+}
+// Of the parameter lines `d` names, how many of `got`'s hold exactly `other`'s text.
+int heldFrom(const LineDiff &d, const std::string &got, const std::string &other)
+{
+  const auto g = linesOf(got), o = linesOf(other);
+  int n = 0;
+  for (const auto &k : d.paramKeys)
+  {
+    auto gi = g.find(k), oi = o.find(k);
+    if (gi != g.end() && oi != o.end() && gi->second == oi->second) n++;
+  }
+  return n;
+}
+
+// The preset JSON (the GUI's SAVE) of the patch a chunk holds.
+std::string presetJsonOf(const std::string &chunk)
+{
+  Inst s;
+  s.load(chunk);
+  static char buf[1 << 18];
+  hypersaw_debug_state(s.p, buf, sizeof buf);
+  return buf;
+}
+
+/* I-SAVE (audit H4, reader 1). The instance holds patch B and is not
+   processing; a load of patch A returns; the host saves AT ONCE, before it
+   has honoured the request_flush the load raised (this file's host never
+   flushes unless a row asks). Is the save patch A, whole?
+     I-SAVE       the PRESET door (applyStateJson, the editor's LOAD button).
+     I-SAVE-HOST  the HOST door (state_load): the same sequence must read clean.
+     I-SAVE-CTL   the preset door with the flush made first: must read clean.
+     I-SAVE-PROC  the preset door while processing, one block, then the save.
+     I-SAVE-QWIN  the host door while processing, saved BEFORE the next block:
+                  the save must be ONE patch whole, the old or the new. */
+void idleSaveRows(const std::string &a, const std::string &bFull)
+{
+  /* The held patch carries NO routing cells. The preset JSON has none and a
+     preset load leaves the matrix alone on purpose (B193, initState's
+     `chunkOnlyState`), so held cells would survive every preset-door row here
+     and each would read B193's recorded limit instead of the queue. */
+  const std::string b = withoutKey(bFull, "routing");
+  const std::string ja = presetJsonOf(a);
+  row(ja.size() > 2 && ja.back() == '}', "I-JSON", "patch A's preset JSON is whole (" + std::to_string(ja.size()) + " bytes)");
+  EvList none;
+  std::string whole, hostWhole, fresh, heldB;
+  { Inst r; hypersaw_debug_apply_named(r.p, ja.c_str(), "PRESET-A"); r.flushIdle(none); whole = r.save(); }
+  { Inst r; r.load(a); hostWhole = r.save(); }
+  { Inst r; fresh = r.save(); }
+  { Inst r; r.load(b); heldB = r.save(); }
+  const LineDiff nz = lineDiff(fresh, whole), nzB = lineDiff(heldB, whole);
+  row(nz.params > 0 && nzB.params > 0, "I-NONZERO", "preset A differs from the defaults in " + std::to_string(nz.params) +
+                                                        " parameter line(s) and from the held patch B in " +
+                                                        std::to_string(nzB.params));
+
+  auto run = [&](bool presetDoor, bool flushFirst, uint32_t *depth) {
+    Inst s;
+    s.load(b);   // the patch the instance holds: a direct load, nothing queued
+    if (presetDoor) hypersaw_debug_apply_named(s.p, ja.c_str(), "PRESET-A");
+    else s.load(a);
+    *depth = stats(s.p).depth;
+    if (flushFirst) s.flushIdle(none);
+    return s.save();
+  };
+  uint32_t depth = 0, depthCtl = 0, depthHost = 0;
+  const std::string ctl = run(true, true, &depthCtl);
+  row(ctl == whole, "I-SAVE-CTL", "control: idle preset load, host flush, THEN save: " + show(lineDiff(ctl, whole)));
+  const std::string host = run(false, false, &depthHost);
+  row(host == hostWhole, "I-SAVE-HOST", "idle HOST load, saved at once (" + std::to_string(depthHost) +
+                                            " entr(ies) queued): " + show(lineDiff(host, hostWhole)));
+  const std::string got = run(true, false, &depth);
+  const LineDiff d = lineDiff(got, whole);
+  const auto gl = linesOf(got);
+  auto nm = gl.find("presetname");
+  row(got == whole, "I-SAVE", "idle PRESET load, saved at once (" + std::to_string(depth) + " entr(ies) still queued): " +
+                                  show(d) + "; of those parameter lines " + std::to_string(heldFrom(d, got, fresh)) +
+                                  " hold the DEFAULT and " + std::to_string(heldFrom(d, got, heldB)) +
+                                  " hold patch B's value; the save is labelled '" +
+                                  (nm == gl.end() ? std::string() : nm->second) + "'");
+
+  // The processing path: the same preset load is one queued batch; a block later the save is A.
+  {
+    auto proc = [&](bool holdB) {
+      Inst s;
+      s.p->start_processing(s.p);
+      if (holdB) s.load(b);
+      s.block();
+      hypersaw_debug_apply_named(s.p, ja.c_str(), "PRESET-A");
+      s.block();
+      return s.save();
+    };
+    const std::string p = proc(true), pref = proc(false);
+    row(p == pref, "I-SAVE-PROC", "processing, preset load over patch B, one block, save, against the same on a fresh instance: " +
+                                      show(lineDiff(p, pref)));
+  }
+  // The queued window: a host load made while processing lands at the next block (ADR-200).
+  {
+    Inst s;
+    s.p->start_processing(s.p);
+    s.load(b + "presetname=PATCH-B\n");
+    s.block();
+    const std::string before = s.save();
+    s.load(a);
+    const std::string mid = s.save();
+    s.block();
+    const std::string after = s.save();
+    const LineDiff dOld = lineDiff(mid, before), dNew = lineDiff(mid, after);
+    row(mid == before || mid == after, "I-SAVE-QWIN", "processing, host load, saved BEFORE the next block: against the old patch " +
+                                                          show(dOld) + "; against the new patch " + show(dNew));
+  }
+}
+
+/* I-SUPERSEDE (audit H4, reader 2). Not processing: something is queued (a
+   preset load's values, or one editor write), then a load of patch B is made.
+   Does B stand, whole, once the queue drains? Read twice: after a host flush
+   (the drain alone, no audio), and after processing starts and three blocks
+   run. The reference is B alone through the same door on a fresh instance,
+   taken through the same flush and the same blocks.
+     IS-HOST-HOST  host A, host B: both direct, nothing queued.
+     IS-PRE-PRE    preset A, preset B. (When these rows were written both
+                   queued every value; each now applies its own before it
+                   returns, so B meets A's whole state, mod-route table
+                   included, and must still read as B on a fresh instance.)
+     I-SUPERSEDE   preset A, host B.
+     IS-EDIT       the editor's morph toggle (one queued edit), host B.
+   Controls, which must read clean:
+     IS-CTL-FLUSH / IS-EDIT-CTL  the same, with a host flush before B.
+     IS-CTL-PROC   preset A, host B, both made while processing. */
+enum Door { kHostDoor, kPresetDoor, kEditorMorphOn };
+void idleSupersedeRows(const std::string &a, const std::string &b)
+{
+  const std::string ja = presetJsonOf(a), jb = presetJsonOf(b);
+  EvList none;
+  auto through = [&](Inst &s, Door d, bool isA) {
+    if (d == kHostDoor) s.load(isA ? a : b);
+    else if (d == kPresetDoor) hypersaw_debug_apply_named(s.p, (isA ? ja : jb).c_str(), isA ? "PRESET-A" : "PRESET-B");
+    else hypersaw_debug_undo(s.p, "setmorph", 1);   // guiSetParam(151, 1): the editor's write, always queued
+  };
+  struct Two
+  {
+    std::string flushed;   // saved after the drain alone (idle rows only)
+    Seen run;              // after processing started and three blocks ran
+    uint32_t depthAtB = 0;
+  };
+  auto finish = [&](Inst &s, bool processing) {
+    Two t;
+    if (!processing)
+    {
+      s.flushIdle(none);
+      t.flushed = s.save();
+      s.p->start_processing(s.p);
+    }
+    for (int bl = 0; bl < 3; bl++) s.block();
+    t.run = seen(s);
+    return t;
+  };
+  auto alone = [&](Door d, bool isA) {
+    Inst r;
+    through(r, d, isA);
+    return finish(r, false);
+  };
+  auto run = [&](Door first, Door second, bool flushBetween, bool processing) {
+    Inst s;
+    if (processing) s.p->start_processing(s.p);
+    through(s, first, true);
+    if (flushBetween) s.flushIdle(none);
+    const uint32_t depth = stats(s.p).depth;
+    through(s, second, false);
+    Two t = finish(s, processing);
+    t.depthAtB = depth;
+    return t;
+  };
+  const Two hostB = alone(kHostDoor, false), hostA = alone(kHostDoor, true), presetB = alone(kPresetDoor, false);
+  const LineDiff nz = lineDiff(hostA.flushed, hostB.flushed);
+  row(nz.params > 0 && hostA.run.corners != hostB.run.corners, "IS-NONZERO",
+      "patches A and B differ in " + std::to_string(nz.params) + " parameter line(s) and in their corners");
+
+  auto report = [&](const char *tag, const char *what, const Two &got, const Two &ref, bool idle) {
+    const LineDiff ds = idle ? lineDiff(got.flushed, ref.flushed) : LineDiff{};
+    const LineDiff dr = lineDiff(got.run.state, ref.run.state);
+    int nc = 0;
+    diff(got.run.corners, ref.run.corners, &nc);
+    const bool ok = (!idle || got.flushed == ref.flushed) && got.run.state == ref.run.state &&
+                    got.run.corners == ref.run.corners && got.run.routes == ref.run.routes;
+    std::string s = std::string(what) + " (" + std::to_string(got.depthAtB) + " entr(ies) queued when B began): ";
+    if (idle)
+      s += "after the drain " + show(ds) + ", " + std::to_string(heldFrom(ds, got.flushed, hostA.flushed)) +
+           " of them holding A's value; ";
+    s += "after 3 blocks " + show(dr) + ", " + std::to_string(nc) + " corner slot(s), routes " +
+         (got.run.routes == ref.run.routes ? "equal" : "DIFFER");
+    row(ok, tag, s);
+  };
+  report("IS-HOST-HOST", "idle: host A, host B", run(kHostDoor, kHostDoor, false, false), hostB, true);
+  report("IS-PRE-PRE", "idle: preset A, preset B", run(kPresetDoor, kPresetDoor, false, false), presetB, true);
+  report("IS-CTL-FLUSH", "control: idle, preset A, host FLUSH, host B", run(kPresetDoor, kHostDoor, true, false), hostB, true);
+  report("IS-CTL-PROC", "control: PROCESSING, preset A, host B", run(kPresetDoor, kHostDoor, false, true), hostB, false);
+  report("I-SUPERSEDE", "idle: preset A, host B", run(kPresetDoor, kHostDoor, false, false), hostB, true);
+  report("IS-EDIT-CTL", "control: idle, editor morph-on, host FLUSH, host B", run(kEditorMorphOn, kHostDoor, true, false), hostB, true);
+  report("IS-EDIT", "idle: editor morph-on, host B", run(kEditorMorphOn, kHostDoor, false, false), hostB, true);
+}
+
+/* WHAT A DIRECT LOAD DOES WITH THE QUEUE, AND HOW THE HOST HEARS OF IT (B455).
+   A load made while not processing applies its own values before it returns,
+   so nothing it wrote waits for a flush. A drain is how the host hears a
+   queued value, and the main thread has no out-events, so the load tells the
+   host by rescan(VALUES) instead (clap/ext/params.h, "Loading a preset").
+     I-TELL         idle preset load: ONE rescan, flagged VALUES; inside the
+                    call nothing is queued and every value already reads as
+                    the loaded patch; the next flush raises no value event.
+     I-TELL-HOST    control: an idle HOST load is the host's own; no rescan.
+     I-TELL-QUEUED  control: the same preset load with an event deferred
+                    during it keeps its values queued behind the event; no
+                    rescan, and the next flush raises one value event each.
+     I-TELL-LATER   the rescan a load owes when its values stayed queued: an
+                    editor write to a parameter no load writes (specimen) is
+                    queued, then the preset load with an event deferred during
+                    it. The load's start applied the write with no event; the
+                    flush raises none for it either; after that flush the
+                    plugin has asked for ONE main-thread callback, and the
+                    callback makes ONE rescan in which the write reads back.
+     I-BRACKET      a gesture bracket queued before a direct load is for the
+                    host: it is still queued after the load and the next flush
+                    raises it. The load itself stands whole. Three shapes: a
+                    begin alone, a begin and its end, an end alone.
+     I-BRACKET-CTL  control: with no bracket queued, nothing is left queued.
+     I-QWIN-NAME    processing: the name a save writes in the queued window is
+                    the outgoing patch's, through two loads; after the block it
+                    is the last load's.
+     I-QWIN-CLEAR   processing: a load of an unnamed patch over a named one
+                    leaves no name line once the block has run. */
+// A flush from inside a load whose event is not one a row reads back
+// (masterVol: the load writes it too, and the load's value stands, E-ORDER).
+void flushInsideVol()
+{
+  EvList ev;
+  ev.param(100, 0.123);
+  g_inst->params->flush(g_inst->p, &ev.list, &kOut);
+}
+Inst *g_rescanInst = nullptr;
+uint32_t g_rescanDepth = 0;
+std::map<clap_id, double> g_rescanValues;
+void readInsideRescan()
+{
+  g_rescanDepth = stats(g_rescanInst->p).depth;
+  g_rescanValues = g_rescanInst->values();
+}
+std::string nameLine(const std::string &chunk)
+{
+  const auto l = linesOf(chunk);
+  auto it = l.find("presetname");
+  return it == l.end() ? std::string("(none)") : it->second;
+}
+void directLoadRows(const std::string &a, const std::string &bFull)
+{
+  // The held patch carries no routing cells, for idleSaveRows' reason (B193).
+  const std::string b = withoutKey(bFull, "routing");
+  const std::string ja = presetJsonOf(a);
+  EvList none;
+  std::map<clap_id, double> wholeValues;
+  { Inst r; hypersaw_debug_apply_named(r.p, ja.c_str(), "PRESET-A"); r.flushIdle(none); wholeValues = r.values(); }
+
+  {
+    Inst s;
+    s.load(b);
+    g_rescanInst = &s;
+    g_rescanDepth = 0;
+    g_rescanValues.clear();
+    g_host.rescans = 0;
+    g_host.rescanFlags = 0;
+    g_host.onRescan = readInsideRescan;
+    hypersaw_debug_apply_named(s.p, ja.c_str(), "PRESET-A");
+    g_host.onRescan = nullptr;
+    const int calls = g_host.rescans;
+    g_host.outValues = 0;
+    s.flushIdle(none);
+    int n = 0;
+    const std::string d = diff(g_rescanValues, wholeValues, &n);
+    row(calls == 1 && g_host.rescanFlags == CLAP_PARAM_RESCAN_VALUES && g_rescanDepth == 0 && n == 0 &&
+            !g_rescanValues.empty() && g_host.outValues == 0,
+        "I-TELL", "idle preset load: " + std::to_string(calls) + " rescan(s), flags " + std::to_string(g_host.rescanFlags) +
+                      "; inside the call " + std::to_string(g_rescanDepth) + " entr(ies) queued and " + std::to_string(n) +
+                      " of " + std::to_string(g_rescanValues.size()) + " value(s) not the loaded patch's" + d +
+                      "; the next flush raised " + std::to_string(g_host.outValues) + " value event(s)");
+  }
+  {
+    Inst s;
+    g_host.rescans = 0;
+    s.load(a);
+    row(g_host.rescans == 0, "I-TELL-HOST", "control: idle HOST load: " + std::to_string(g_host.rescans) + " rescan(s)");
+  }
+  {
+    Inst s;
+    s.load(b);
+    g_inst = &s;
+    g_host.rescans = 0;
+    g_host.onFlush = flushInside;   // a flush inside the load: its event is deferred
+    hypersaw_debug_apply_named(s.p, ja.c_str(), "PRESET-A");
+    g_host.onFlush = nullptr;
+    const uint32_t depth = stats(s.p).depth;
+    g_host.outValues = 0;
+    s.flushIdle(none);
+    row(g_host.rescans == 0 && depth > 0 && g_host.outValues == (int)depth && s.values() == [&] {
+          auto w = wholeValues;
+          if (w.count(178)) w[178] = 0;   // flushInside's own event: specimen, which no load writes
+          return w;
+        }(),
+        "I-TELL-QUEUED", "control: the same load with an event deferred during it: " + std::to_string(g_host.rescans) +
+                             " rescan(s), " + std::to_string(depth) + " entr(ies) left queued, the next flush raised " +
+                             std::to_string(g_host.outValues) + " value event(s) and left the loaded patch");
+  }
+
+  // Gesture brackets queued before a direct load.
+  {
+    std::string ref;
+    { Inst r; r.load(b); r.flushIdle(none); ref = r.save(); }
+    // `shape`: 'b' a begin, 'e' an end, in queue order; "" queues nothing.
+    auto run = [&](const std::string &shape, uint32_t *before, uint32_t *after, int *raised) {
+      Inst s;
+      for (char c : shape) hypersaw_debug_gesture(s.p, 4, c == 'b');
+      *before = stats(s.p).depth;
+      s.load(b);
+      *after = stats(s.p).depth;
+      g_host.outGestures = 0;
+      g_host.outValues = 0;
+      s.flushIdle(none);
+      *raised = g_host.outGestures;
+      return s.save();
+    };
+    struct Shape { const char *queue, *what; };
+    for (const Shape &sh : {Shape{"b", "a gesture begin"}, Shape{"be", "a gesture begin and its end"}, Shape{"e", "a gesture end alone"}})
+    {
+      const uint32_t want = (uint32_t)std::strlen(sh.queue);
+      uint32_t b0 = 0, b1 = 0;
+      int raised = 0;
+      const std::string got = run(sh.queue, &b0, &b1, &raised);
+      row(b0 == want && b1 == want && raised == (int)want && g_host.outValues == 0 && got == ref, "I-BRACKET",
+          std::string(sh.what) + " queued before an idle host load: " + std::to_string(b0) + " queued before, " +
+              std::to_string(b1) + " after; the next flush raised " + std::to_string(raised) + " gesture event(s) and " +
+              std::to_string(g_host.outValues) + " value event(s); the load: " + show(lineDiff(got, ref)));
+    }
+    uint32_t c0 = 0, c1 = 0;
+    int craised = 0;
+    const std::string ctl = run("", &c0, &c1, &craised);
+    row(c0 == 0 && c1 == 0 && craised == 0 && ctl == ref, "I-BRACKET-CTL",
+        "control: no bracket queued: " + std::to_string(c1) + " queued after the load, " + std::to_string(craised) +
+            " gesture event(s) raised");
+  }
+
+  // The rescan a load owes when its values stayed queued behind deferred events.
+  {
+    Inst s;
+    s.load(b);
+    double spec0 = 0, specAfter = -1;
+    s.params->get_value(s.p, 178, &spec0);
+    const int written = spec0 != 0.0 ? 0 : 1;
+    hypersaw_debug_undo(s.p, "setspec", written);   // the editor's write: queued, and no load writes this parameter
+    const uint32_t queued = stats(s.p).depth;
+    g_inst = &s;
+    g_rescanInst = &s;
+    g_host.rescans = 0;
+    g_host.callbacks = 0;
+    g_host.outSpecimen = 0;
+    g_host.onFlush = flushInsideVol;   // an event deferred during the load
+    hypersaw_debug_apply_named(s.p, ja.c_str(), "PRESET-A");
+    g_host.onFlush = nullptr;
+    s.params->get_value(s.p, 178, &specAfter);
+    const int rescansAtReturn = g_host.rescans, callbacksAtReturn = g_host.callbacks;
+    s.flushIdle(none);
+    s.flushIdle(none);
+    const int callbacks = g_host.callbacks, byEvent = g_host.outSpecimen, rescansAfterFlush = g_host.rescans;
+    g_rescanValues.clear();
+    g_host.rescanFlags = 0;
+    g_host.onRescan = readInsideRescan;
+    s.p->on_main_thread(s.p);
+    s.p->on_main_thread(s.p);
+    g_host.onRescan = nullptr;
+    auto want = wholeValues;
+    if (want.count(178)) want[178] = written;
+    int n = 0;
+    const std::string d = diff(g_rescanValues, want, &n);
+    row(queued == 1 && specAfter == written && rescansAtReturn == 0 && callbacksAtReturn == 0 && byEvent == 0 &&
+            callbacks == 1 && rescansAfterFlush == 0 && g_host.rescans == 1 &&
+            g_host.rescanFlags == CLAP_PARAM_RESCAN_VALUES && n == 0 && !g_rescanValues.empty(),
+        "I-TELL-LATER",
+        "an editor write queued, then a preset load with an event deferred during it: at the load's return " +
+            std::to_string(rescansAtReturn) + " rescan(s) and the write applied; two flushes raised " +
+            std::to_string(byEvent) + " event(s) for it and asked for " + std::to_string(callbacks) +
+            " callback(s); two callbacks made " + std::to_string(g_host.rescans) + " rescan(s), in which " +
+            std::to_string(n) + " of " + std::to_string(g_rescanValues.size()) + " value(s) read wrong" + d);
+  }
+
+  // The name a save writes while a queued load waits.
+  {
+    Inst s;
+    s.p->start_processing(s.p);
+    s.load(b + "presetname=PATCH-B\n");
+    s.block();
+    const std::string held = nameLine(s.save());
+    s.load(a);                             // unnamed
+    const std::string mid1 = nameLine(s.save());
+    s.load(a + "presetname=PATCH-C\n");    // a second load before any block
+    const std::string mid2 = nameLine(s.save());
+    s.block();
+    const std::string after = nameLine(s.save());
+    row(held == "PATCH-B" && mid1 == "PATCH-B" && mid2 == "PATCH-B" && after == "PATCH-C", "I-QWIN-NAME",
+        "processing, two host loads before the next block: the save's name line reads '" + held + "', then '" + mid1 +
+            "' and '" + mid2 + "' in the window, then '" + after + "' after the block");
+  }
+  {
+    Inst s;
+    s.p->start_processing(s.p);
+    s.load(b + "presetname=PATCH-B\n");
+    s.block();
+    s.load(a);
+    s.block();
+    const std::string after = nameLine(s.save());
+    row(after == "(none)", "I-QWIN-CLEAR", "processing, an unnamed patch loaded over a named one, one block: name line '" + after + "'");
+  }
+}
+
+/* THE PITCH ROUTE AND A ZERO (B455). Knob 161 is the pitch route's depth: its
+   first non-zero value creates the route, and a LOAD's zero takes it out, so
+   the table a load leaves does not depend on the patch before it (IS-PRE-PRE
+   reads that). Only a load's: a zero the host sends, to an idle instance or
+   in a block, is a depth like any other and the route stays.
+     IS-ROUTE-IDLE  not processing: a host value creates the route, a host
+                    zero keeps it (depth 0), a later value moves it.
+     IS-ROUTE-PROC  the same, each value in its own block.
+     IS-ROUTE-LOAD  control: after a host value created the route, a load of a
+                    patch whose knob is 0 leaves no pitch route. */
+constexpr clap_id kPitchDepth = 161;
+int pitchRoutes(const Inst &s)
+{
+  const std::string j = hypersaw_debug_modroutes(s.p), needle = "\"dest\":2147483649";   // the route's synthetic dest
+  int n = 0;
+  for (size_t pos = 0; (pos = j.find(needle, pos)) != std::string::npos; pos += needle.size()) n++;
+  return n;
+}
+void pitchRouteRows()
+{
+  double depth = 0;
+  std::string zeroPatch;
+  {
+    Inst d;
+    for (uint32_t i = 0, n = d.params->count(d.p); i < n; i++)
+    {
+      clap_param_info_t inf{};
+      if (d.params->get_info(d.p, i, &inf) && inf.id == kPitchDepth) depth = inf.max_value;
+    }
+    zeroPatch = d.save();   // a fresh instance's state: the knob at its default
+  }
+  auto send = [](Inst &s, double v, bool processing) {
+    EvList ev;
+    ev.param(kPitchDepth, v);
+    if (processing) s.block(&ev);
+    else s.flushIdle(ev);
+  };
+  for (bool processing : {false, true})
+  {
+    Inst s;
+    if (processing) s.p->start_processing(s.p);
+    const int r0 = pitchRoutes(s);
+    send(s, depth, processing);
+    const int r1 = pitchRoutes(s);
+    send(s, 0, processing);
+    const int r2 = pitchRoutes(s);
+    double at0 = -1, atHalf = -1;
+    s.params->get_value(s.p, kPitchDepth, &at0);
+    send(s, depth / 2, processing);
+    const int r3 = pitchRoutes(s);
+    s.params->get_value(s.p, kPitchDepth, &atHalf);
+    row(depth != 0.0 && r0 == 0 && r1 == 1 && r2 == 1 && r3 == 1 && at0 == 0.0 && atHalf == depth / 2,
+        processing ? "IS-ROUTE-PROC" : "IS-ROUTE-IDLE",
+        std::string(processing ? "processing, one block each" : "not processing, by flush") + ": pitch routes " +
+            std::to_string(r0) + " at first, " + std::to_string(r1) + " after a host value, " + std::to_string(r2) +
+            " after a host ZERO (the knob reads " + std::to_string(at0) + "), " + std::to_string(r3) +
+            " after a later value");
+  }
+  {
+    Inst s;
+    send(s, depth, false);
+    const int r1 = pitchRoutes(s);
+    double knob = -1;
+    Inst probe;
+    probe.load(zeroPatch);
+    probe.params->get_value(probe.p, kPitchDepth, &knob);
+    s.load(zeroPatch);
+    const int r2 = pitchRoutes(s);
+    row(knob == 0.0 && r1 == 1 && r2 == 0, "IS-ROUTE-LOAD",
+        "control: a host value created the route (" + std::to_string(r1) + "), then a load of a patch whose knob is 0: " +
+            std::to_string(r2) + " pitch route(s)");
+  }
+}
+
+/* HOOK-ENGINE-IDLE (audit M5). The direct host load applies an engine-block
+   line (`sub.*`) through applyParam. state_save writes
+   the table first, so a chunk saved with morph ON has switched morph on by
+   the time its `sub.` lines are read. Is a loaded value then treated as an
+   edit: recorded into a corner, or (a corner armed) kept from the live
+   parameter altogether?
+   SYNTHETIC chunks are ONE patch: `a` with its morphOn line set to 1, and
+   that with morphArm set to 3. Their `morph=`, `sub.` and `routing=` lines
+   are the same bytes, so a load that is not an edit leaves the same corners
+   and the same engine-block values for all three.
+     HE-CTL            morph OFF in the chunk: every sub. line comes back.
+     HE-SEES-EDIT      control: with morph on, a real host write to an engine
+                       parameter DOES move a corner, so the corner comparison
+                       can see an edit when there is one.
+     HOOK-ENGINE-IDLE  morph ON, no corner armed.
+     HOOK-ENGINE-ARM   morph ON, corner C armed (not B: B was captured from
+                       this very sound, so a loaded value written into B
+                       would compare equal and read green blind).
+     HE-NOROUTING      morph ON, the chunk's `routing=` line removed: names
+                       WHICH direct write the corners record (measured: the
+                       routing cells, read after `morph=`; not the sub. lines,
+                       which `morph=` overwrites).
+     HE-RUN / -ARM     the same chunks after three blocks, idle load against
+                       queued load (the lane ADR-200 fixed).
+   NATURAL chunks are saved by an instance that ran with morph on, so their
+   live values are the field's own output, as a session's are. The reference
+   is the SAVING instance's corners.
+     HE-NAT-QUEUED     control: loaded while processing.
+     HE-NAT-IDLE       loaded while not processing.
+     HE-NAT-ARM-*      the same with corner C armed when it was saved. */
+bool isEngineKey(const std::string &k)   // `sub.wave`: a prefix that is not an oscillator's `o<k>.`
+{
+  const size_t dot = k.find('.');
+  return dot != std::string::npos && !(k[0] == 'o' && k.size() > 1 && k[1] >= '0' && k[1] <= '9');
+}
+std::string withValue(const std::string &chunk, const char *key, const char *value)
+{
+  const std::string k = std::string("\n") + key + "=";
+  const size_t at = chunk.find(k);
+  if (at == std::string::npos) return chunk;
+  const size_t eol = chunk.find('\n', at + 1);
+  return chunk.substr(0, at + k.size()) + value + chunk.substr(eol);
+}
+// Corner slots that differ, by what the slot is; `worst` is the largest difference.
+struct CornerDiff
+{
+  int engine = 0, routing = 0, other = 0;
+  double worst = 0;
+  int total() const { return engine + routing + other; }
+};
+CornerDiff cornerDiff(const std::map<std::string, double> &got, const std::map<std::string, double> &want)
+{
+  CornerDiff d;
+  for (const auto &kv : want)
+  {
+    auto it = got.find(kv.first);
+    if (it != got.end() && it->second == kv.second) continue;
+    const clap_id id = (clap_id)std::strtoul(kv.first.c_str() + 2, nullptr, 10);
+    if (id >= kRoutingIdBase) d.routing++;
+    else if (id >= 3000) d.engine++;   // ADR-088's engine span, [3000, kRoutingIdBase)
+    else d.other++;
+    if (it != got.end()) d.worst = std::max(d.worst, std::fabs(it->second - kv.second));
+  }
+  return d;
+}
+std::string show(const CornerDiff &d)
+{
+  char b[160];
+  std::snprintf(b, sizeof b, "%d corner slot(s) differ (%d routing, %d engine-block, %d other; largest by %.3g)",
+                d.total(), d.routing, d.engine, d.other, d.worst);
+  return b;
+}
+// Engine-block lines of `saved` that are not what `chunk` said.
+int engineWrong(const std::string &saved, const std::string &chunk, std::string *names)
+{
+  const auto ls = linesOf(saved), lc = linesOf(chunk);
+  int n = 0;
+  for (const auto &kv : lc)
+  {
+    if (!isEngineKey(kv.first)) continue;
+    auto it = ls.find(kv.first);
+    if (it != ls.end() && it->second == kv.second) continue;
+    if (n++ < 3 && names)
+      *names += " " + kv.first + "=" + (it == ls.end() ? "(absent)" : it->second) + "(want " + kv.second + ")";
+  }
+  return n;
+}
+struct Natural
+{
+  std::string chunk;
+  std::map<std::string, double> corners;
+};
+/* A chunk a host would hold from a running session: a rich patch (corner B
+   captured), morph switched on at the editor, audio run so the field drives
+   the live values, then saved. `arm` != 0 arms that corner first.
+   CALLED WITH THE 0.63 PATCH, NOT THE 0.37 ONE: at 0.37 every stepped enable
+   rounds to OFF, so corner B carries no live weight (ADR-183), the field's
+   output is the defaults, and a load's write into a corner would compare
+   equal (measured: the rows read green on that chunk for that reason).
+   The run length does not matter to the rows: 40, 400, 4000 and 20000 blocks
+   gave the same counts. */
+Natural naturalMorphChunk(const std::string &rich, int arm, int blocks = 40)
+{
+  Inst s;
+  s.load(rich);
+  s.p->start_processing(s.p);
+  hypersaw_debug_undo(s.p, "setmorph", 1);   // the editor's toggle (guiSetParam), as a player switches it on
+  for (int bl = 0; bl <= blocks; bl++) s.block();
+  if (arm)
+  {
+    EvList e;
+    e.param(159, arm);
+    s.block(&e);
+  }
+  return {s.save(), s.corners()};
+}
+
+void hookEngineRows(const std::string &a, const std::string &b)
+{
+  const std::string on = withValue(a, "morphOn", "1"), armed = withValue(on, "morphArm", "3");
+  std::string fresh;
+  { Inst f; fresh = f.save(); }
+  int engineLines = 0;
+  for (const auto &kv : linesOf(a))
+    if (isEngineKey(kv.first)) engineLines++;
+  const int offDefault = engineWrong(fresh, a, nullptr);
+  row(offDefault > 0 && on != a && armed != on, "HE-NONZERO",
+      std::to_string(offDefault) + " of the chunk's " + std::to_string(engineLines) +
+          " engine-block line(s) are off default; the morphOn and morphArm lines were rewritten");
+
+  struct Got
+  {
+    std::string saved;
+    std::map<std::string, double> corners;
+  };
+  auto idle = [](const std::string &c) {
+    Inst s;
+    s.load(c);
+    return Got{s.save(), s.corners()};
+  };
+  const Got off = idle(a), gOn = idle(on), gArm = idle(armed);
+  int engineSlots = 0;
+  for (const auto &kv : off.corners)
+  {
+    const clap_id id = (clap_id)std::strtoul(kv.first.c_str() + 2, nullptr, 10);
+    if (kv.first[0] == '0' && id >= 3000 && id < kRoutingIdBase) engineSlots++;
+  }
+  std::string names;
+  const int w = engineWrong(off.saved, a, &names);
+  row(w == 0 && engineSlots > 0, "HE-CTL", "control: morph OFF in the chunk, " + std::to_string(w) +
+                                               " engine-block line(s) wrong after an idle load; " +
+                                               std::to_string(engineSlots) + " engine-block id(s) are morph slots" + names);
+
+  // Control: a real edit of an engine parameter with morph on moves a corner.
+  {
+    Inst s;
+    s.load(on);
+    const auto before = s.corners();
+    clap_id target = 0;
+    double newValue = 0;
+    for (uint32_t i = 0, n = s.params->count(s.p); i < n && !target; i++)
+    {
+      clap_param_info_t inf{};
+      if (!s.params->get_info(s.p, i, &inf) || inf.id < 3000 || inf.id >= kRoutingIdBase) continue;
+      if (inf.flags & CLAP_PARAM_IS_STEPPED) continue;
+      if (!before.count("0:" + std::to_string(inf.id))) continue;
+      target = inf.id;
+      newValue = inf.min_value + 0.81 * (inf.max_value - inf.min_value);
+    }
+    EvList ev;
+    ev.param(target, newValue);
+    s.flushIdle(ev);
+    const CornerDiff d = cornerDiff(s.corners(), before);
+    row(target != 0 && d.engine > 0, "HE-SEES-EDIT", "control: morph on, a host write to engine id " + std::to_string(target) +
+                                                         ": " + show(d));
+  }
+
+  auto report = [&](const char *tag, const char *what, const Got &g, const Got &ref, const std::string &chunk) {
+    std::string nm;
+    const int wrong = engineWrong(g.saved, chunk, &nm);
+    const CornerDiff dc = cornerDiff(g.corners, ref.corners);
+    row(wrong == 0 && dc.total() == 0, tag, std::string(what) + ": " + std::to_string(wrong) + " of " +
+                                               std::to_string(engineLines) + " engine-block value(s) not the chunk's" + nm +
+                                               "; against the morph-off load " + show(dc) + "; load then save: " +
+                                               show(lineDiff(g.saved, chunk)));
+  };
+  report("HOOK-ENGINE-IDLE", "idle host load, morph ON in the chunk, no corner armed", gOn, off, on);
+  report("HOOK-ENGINE-ARM", "idle host load, morph ON in the chunk, corner C armed", gArm, off, armed);
+  {
+    const std::string onNoRt = withoutKey(on, "routing");
+    report("HE-NOROUTING", "the same unarmed chunk with NO routing= line", idle(onNoRt), idle(withoutKey(a, "routing")), onNoRt);
+  }
+
+  // What stands once audio runs: the idle lane against the queued lane.
+  auto lanes = [&](const char *tag, const char *what, const std::string &chunk) {
+    const Seen i = idleLoad(chunk), q = queuedLoad({chunk});
+    const CornerDiff dc = cornerDiff(i.corners, q.corners);
+    row(i.state == q.state && dc.total() == 0, tag,
+        std::string(what) + ", three blocks, idle load against queued load: " + show(lineDiff(i.state, q.state)) + "; " +
+            show(dc) + "; against the chunk's own corners the idle load differs in " +
+            std::to_string(cornerDiff(i.corners, off.corners).total()) + " slot(s), the queued load in " +
+            std::to_string(cornerDiff(q.corners, off.corners).total()));
+  };
+  lanes("HE-RUN-CTL", "control: morph OFF", a);
+  lanes("HE-RUN", "morph ON", on);
+  lanes("HE-RUN-ARM", "morph ON, corner C armed", armed);
+
+  // A chunk saved by a running morph-on instance, against the corners that instance held.
+  for (int arm : {0, 3})
+  {
+    const Natural nat = naturalMorphChunk(b, arm);
+    const auto ln = linesOf(nat.chunk);
+    // Text, not numbers: state_save writes a stepped value as its integer.
+    const bool isOn = ln.count("morphOn") && ln.at("morphOn") == "1" && ln.count("morphArm") &&
+                      ln.at("morphArm") == std::to_string(arm);
+    Got q, i = idle(nat.chunk);
+    {
+      Inst s;
+      s.p->start_processing(s.p);
+      s.load(nat.chunk);
+      s.block();
+      q = {s.save(), s.corners()};
+    }
+    const CornerDiff dq = cornerDiff(q.corners, nat.corners), di = cornerDiff(i.corners, nat.corners);
+    std::string nm;
+    const int wrong = engineWrong(i.saved, nat.chunk, &nm);
+    row(isOn && dq.total() == 0, arm ? "HE-NAT-ARM-Q" : "HE-NAT-QUEUED",
+        std::string("control: a session chunk (morph on") + (arm ? ", corner C armed" : "") +
+            ") loaded while PROCESSING, against the saving instance: " + show(dq));
+    row(isOn && di.total() == 0 && wrong == 0, arm ? "HE-NAT-ARM-I" : "HE-NAT-IDLE",
+        std::string("the same chunk loaded while NOT processing: ") + show(di) + "; " + std::to_string(wrong) + " of " +
+            std::to_string(engineLines) + " engine-block value(s) not the chunk's" + nm + "; load then save: " +
+            show(lineDiff(i.saved, nat.chunk)));
+  }
+
+  /* WHAT IS HEARD. The session chunk through both lanes, then the same block
+     and the same note, with the puck left alone (HE-AUDIO-STILL) or moved to
+     corner A (HE-AUDIO); 2.3 s of audio compared sample for sample. HE-AUDIO-CTL is the chunk with its `routing=` line
+     removed: the lanes must then render the SAME samples, or the comparison
+     is reading something other than the corners. */
+  auto render = [](const std::string &chunk, bool queued, bool movePuck) {
+    Inst s;
+    if (queued) s.p->start_processing(s.p);
+    s.load(chunk);
+    if (!queued) s.p->start_processing(s.p);
+    s.block();
+    EvList ev;
+    ev.noteOn(57);
+    if (movePuck)
+    {
+      ev.param(152, 0.0);   // morphX
+      ev.param(153, 0.0);   // morphY
+    }
+    std::vector<float> out;
+    for (int bl = 0; bl < 400; bl++)
+    {
+      s.block(bl == 0 ? &ev : nullptr);
+      out.insert(out.end(), s.L.begin(), s.L.end());
+      out.insert(out.end(), s.R.begin(), s.R.end());
+    }
+    return out;
+  };
+  auto audio = [&](const char *tag, const char *what, const std::string &chunk, bool movePuck) {
+    const std::vector<float> i = render(chunk, false, movePuck), q = render(chunk, true, movePuck);
+    double peak = 0, worst = 0, se = 0, sq = 0;
+    for (size_t k = 0; k < q.size(); k++)
+    {
+      peak = std::max(peak, (double)std::fabs(q[k]));
+      worst = std::max(worst, (double)std::fabs(i[k] - q[k]));
+      se += ((double)i[k] - q[k]) * ((double)i[k] - q[k]);
+      sq += (double)q[k] * q[k];
+    }
+    char bb[220];
+    std::snprintf(bb, sizeof bb, "%s: idle load against queued load, largest sample difference %.3g (peak %.3g, "
+                                 "difference RMS %.1f dB below the signal)", what, worst, peak,
+                  se > 0 && sq > 0 ? -10.0 * std::log10(se / sq) : 999.0);
+    row(peak > 0 && worst == 0.0, tag, bb);
+  };
+  const Natural nat = naturalMorphChunk(b, 0);
+  audio("HE-AUDIO-CTL", "control: the session chunk with no routing= line, puck moved", withoutKey(nat.chunk, "routing"), true);
+  audio("HE-AUDIO-STILL", "the session chunk, puck left where it was saved", nat.chunk, false);
+  audio("HE-AUDIO", "the session chunk, puck moved to corner A", nat.chunk, true);
+}
 }  // namespace
 
 int main()
@@ -825,6 +1696,11 @@ int main()
   flushRows(json);
   resetRows(json);
   sizeRows(json);
+  idleSaveRows(a, b);        // B455: audit H4, reader 1
+  idleSupersedeRows(a, b);   // B455: audit H4, reader 2
+  directLoadRows(a, b);      // B455: the queue under a direct load, and how the host hears
+  pitchRouteRows();          // B455: a load's zero and a host's zero on the pitch-route knob
+  hookEngineRows(a, b);       // B455: audit M5
   std::printf("load_handoff_check: %s (%d failure(s))\n", g_fail ? "RED" : "GREEN", g_fail);
   return g_fail ? 1 : 0;
 }

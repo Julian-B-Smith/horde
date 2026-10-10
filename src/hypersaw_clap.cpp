@@ -2688,6 +2688,11 @@ struct Plugin
      handleEvent) an absent event, one smaller than its type's struct, or a
      MIDI message whose data byte is not 7 bits. */
   std::atomic<uint32_t> deferDropped{0};
+  /* True while events wait above. The buffer itself belongs to whichever
+     thread is deferring, so a direct sequence on the main thread cannot look
+     into it; this is the one fact about it that sequence needs (see
+     LoadScope::end), published where it can be read. */
+  std::atomic<bool> deferWaiting{false};
   /* A reset that arrived while the state was owned, and WHERE in the deferred
      events it arrived: the events before it are replayed, then the reset, then
      the rest, so a note deferred before the host's reset does not outlive it. */
@@ -2744,6 +2749,7 @@ struct Plugin
       }
       std::memcpy(deferBuf + deferUsed, e, e->size);
       deferUsed += (e->size + 7u) & ~7u;
+      deferWaiting.store(true, std::memory_order_release);
     }
   }
   /* Replays the deferred events with a deferred reset in its place among
@@ -2763,12 +2769,14 @@ struct Plugin
     if (resetDeferred) resetNow();   // a reset after every deferred event
     deferUsed = 0;
     resetAt = 0;
+    deferWaiting.store(false, std::memory_order_release);
   }
   void clearDeferred()   // deactivate: nothing owed survives into the next activation
   {
     deferUsed = 0;
     resetDeferred = false;
     resetAt = 0;
+    deferWaiting.store(false, std::memory_order_release);
   }
   // ADR-024: the inertia KNOB value (params/state domain). The core holds
   // sqrt(knob) — squaring the core value back is not bit-exact, and
@@ -4323,14 +4331,29 @@ struct Plugin
     }
     return out;
   }
+  /* A LOAD'S DIRECT WRITE: applyParam under the load bracket (B125), so the
+     morph hook reads the value as loaded state and never as an edit — nothing
+     is recorded into a corner, and an armed corner does not keep the value
+     from the live parameter. The queued lane says the same thing with kind 3
+     (drainQueue). ONE helper for every direct write a load makes — the
+     defaults, the parameter lines, the engine-block lines and the routing
+     cells — because the bracket used to be written out at each site, and the
+     two sites that lacked it were the two that were not (B455). */
+  void applyLoadValue(clap_id id, double v)
+  {
+    loadingState = true;
+    applyParam(id, v);
+    loadingState = false;
+  }
   /* A load is a load: EVERY cell returns to its default first, so a patch
      without the key loads the series chain rather than inheriting whatever the
      previous patch was routed to. Written through applyParam so the presence
-     bits, the morph hooks and the mod base all see the load exactly as they see
-     any other write — one write path, no second one to drift. */
+     bits and the mod base see the load exactly as they see any other write —
+     one write path, no second one to drift — and as a LOAD's write, so the
+     chunk's own `morph=` corners are what stands. */
   void applyRoutingChunk(const std::string &chunk)
   {
-    routingChunkCells(chunk, [&](clap_id id, double v) { applyParam(id, v); });
+    routingChunkCells(chunk, [&](clap_id id, double v) { applyLoadValue(id, v); });
   }
   /* The chunk's meaning, once: every cell at its default, then the cells the
      chunk names. Two writers consume it — the host chunk applies directly
@@ -6173,6 +6196,49 @@ struct Plugin
     qTail.store(tail, std::memory_order_release);
   }
 
+  /* A RESCAN THE HOST IS OWED (applyStateJson): 0 none, 1 owed, 2 asked for.
+     The call is [main-thread], and the moment it becomes true is on the audio
+     side: after the deferred events were replayed and the queue drained. So
+     that side asks the host for a main-thread callback, once (request_callback
+     is [thread-safe] and is one flag in the wrappers), and
+     plug_on_main_thread makes the call. Nothing waits on anything. */
+  std::atomic<int> rescanOwed{0};
+  void askForOwedRescan()
+  {
+    if (rescanOwed.load(std::memory_order_relaxed) != 1) return;
+    int owed = 1;
+    if (rescanOwed.compare_exchange_strong(owed, 2, std::memory_order_acq_rel) && host && host->request_callback)
+      host->request_callback(host);
+  }
+  void makeOwedRescan()   // main thread
+  {
+    int asked = 2;
+    if (rescanOwed.compare_exchange_strong(asked, 0, std::memory_order_acq_rel) && hostParams && hostParams->rescan)
+      hostParams->rescan(host, CLAP_PARAM_RESCAN_VALUES);
+  }
+
+  /* MAIN THREAD, INSIDE A DIRECT SEQUENCE (the caller owns the state, so no
+     other drain can be running): apply everything queued, in order, with the
+     function a block start runs. Returns whether anything was queued.
+     The gesture brackets are the one kind that is FOR the host, and no host
+     is listening on this thread (out-events exist only inside process and
+     flush), so they are queued again, in order, for the next drain that has
+     one. Their latch (intentNoteGesture) is a plain set, so meeting it twice
+     leaves what meeting it once leaves. The copy is taken before the
+     re-enqueue because the ring may hand the same slot back. */
+  bool drainQueueOwned()
+  {
+    const uint32_t from = qTail.load(std::memory_order_relaxed);
+    const uint32_t to = qHead.load(std::memory_order_relaxed);
+    drainQueue(nullptr);
+    for (uint32_t i = from; i != to; i++)
+    {
+      const ParamMsg m = queue[i % kQCap];
+      if (m.kind == 1 || m.kind == 2) enqueueParam(m.id, m.value, m.kind);
+    }
+    return from != to;
+  }
+
   /* The non-parameter kinds, applied where everything else the main thread
      hands over is applied. Whatever needs the live table to be judged (an
      index in range, the pitch route's refusals) is judged HERE, by its owner. */
@@ -7373,6 +7439,28 @@ struct Plugin
     for (char c : hypersaw::utf8Clean(n, 60))
       if ((unsigned char)c >= 0x20) presetName += c;
   }
+  /* THE NAME A SAVE WRITES (B455). A queued load sets `presetName` at once —
+     it is main-thread state and the editor shows it — while the load's
+     parameters and field land at the next block. A save taken in between
+     writes the outgoing patch's values, so it writes the outgoing patch's
+     name with them: one patch, whole.
+     The name is held here from the queued load's start until the audio thread
+     has adopted that load's batch, which the main thread reads off the stage
+     gate (phase 0 again under the published generation; the marker is the
+     batch's last entry, so the parameters have landed by then). Main thread
+     only; the audio thread never touches a string. `known` is false while the
+     load is still writing, so nothing is released on a generation it has not
+     published yet. */
+  std::string nameBeforeBatch;
+  bool nameHeld = false, nameGenKnown = false;
+  uint64_t nameBatchGen = 0;
+  bool nameStillHeld()
+  {
+    if (nameHeld && nameGenKnown && morphGate.state.load(std::memory_order_acquire) == (nameBatchGen << 2))
+      nameHeld = false;
+    return nameHeld;
+  }
+  const std::string &savedPresetName() { return nameStillHeld() ? nameBeforeBatch : presetName; }
 
   /* One reader for "the number this JSON gives for `needle`, or `def` when it
      does not name the key". applyStateJson (what a load DOES) and
@@ -7570,9 +7658,7 @@ struct Plugin
         enqueueParam(id, v, 3);
         return;
       }
-      loadingState = true;
-      applyParam(id, v);
-      loadingState = false;
+      applyLoadValue(id, v);
     };
     for (const auto &d : kParams)
     {
@@ -7629,21 +7715,41 @@ struct Plugin
 
      Both modes CLAIM the stage first: a direct load must also take back a
      stage an earlier queued load published and nobody drained, or that
-     stage's marker would later adopt an older field over this load's. */
+     stage's marker would later adopt an older field over this load's.
+
+     A DIRECT LOAD OWNS THE QUEUE TOO, at both ends (B455):
+       at its start it applies whatever was queued before it — an editor
+       write, an earlier load's values — in order, so none of it can land
+       AFTER this load. After the claim, so a field an earlier queued load
+       staged is superseded rather than adopted, which is the queued lane's
+       rule for two loads in one block.
+       at its end it applies what the load itself queued (the preset door
+       hands its values over in order through enqueueParam), so the load is
+       whole when it returns and a reader that comes before the host's next
+       flush reads the loaded state. See end() for the one case that waits. */
   struct LoadScope
   {
     Plugin &pl;
     DirectScope ds;
     MorphFieldRef field{};
     bool ended = false;
+    bool appliedOwn = false;   // end() applied this load's own queued values on the main thread
     explicit LoadScope(Plugin &p) : pl(p), ds(p)
     {
       if (!ds.owned)
       {
         p.morphInit();   // a no-op once activated; sizes the stage before it is written
         p.beginQueueBatch();
+        /* savedPresetName: the outgoing name is held from here. A second
+           queued load before the first was adopted keeps the name already
+           held — that is still the patch the live parameters belong to. */
+        if (!p.nameStillHeld()) p.nameBeforeBatch = p.presetName;
+        p.nameHeld = true;
+        p.nameGenKnown = false;
       }
+      else p.nameHeld = false;   // a direct load leaves nothing waiting: the name it sets is the patch's
       p.morphStageClaim();
+      if (ds.owned) p.drainQueueOwned();
       field = ds.owned ? p.liveField() : p.stageField();
     }
     LoadScope(const LoadScope &) = delete;
@@ -7660,10 +7766,19 @@ struct Plugin
       ended = true;
       if (ds.owned)
       {
+        /* EVENTS THE AUDIO SIDE DEFERRED DURING THIS SEQUENCE are replayed
+           before the queue is drained (replayDeferred), which is what lets a
+           load's value stand over an older host value for the same
+           parameter — and only the audio side may touch them. So when any
+           are waiting the load's values stay queued behind them, as they
+           always did, and the next block or flush lands both in that order. */
+        if (!pl.deferWaiting.load(std::memory_order_acquire)) appliedOwn = pl.drainQueueOwned();
         ds.release();
         return true;
       }
       pl.morphStagePublish();   // the batch's last entry: the field lands with its parameters
+      pl.nameBatchGen = pl.morphGate.gen;   // savedPresetName: released when this generation is adopted
+      pl.nameGenKnown = true;
       return pl.endQueueBatch();
     }
   };
@@ -7891,6 +8006,24 @@ struct Plugin
     const std::string label =
         presetName.empty() ? std::string("load") : "load \xe2\x86\x90 " + presetName;   // "←" as UTF-8
     undoMark(label.c_str());   // B84: a preset load is ONE history node
+    /* THE HOST HEARS A QUEUED VALUE as an out-event when the queue drains.
+       Values the load applied itself raised none, and a main-thread call has
+       no out-events to raise, so the host is told the way the contract gives
+       a plugin-side load (clap/ext/params.h, "I. Loading a preset": rescan
+       with CLAP_PARAM_RESCAN_VALUES, [main-thread] — the host reads every
+       value again and records no automation). LAST, with the load ended and
+       named: a host may read values or save from inside the call.
+       A direct load whose values stayed queued (LoadScope::end) cannot make
+       the call yet: its own values will go out as events when they drain, but
+       what its START applied from the queue went out as nothing. That rescan
+       is OWED, and made once the audio side has replayed and drained
+       (askForOwedRescan, plug_on_main_thread). */
+    if (ls.appliedOwn)
+    {
+      rescanOwed.store(0, std::memory_order_release);   // this call covers anything owed before
+      if (hostParams && hostParams->rescan) hostParams->rescan(host, CLAP_PARAM_RESCAN_VALUES);
+    }
+    else if (ls.direct()) rescanOwed.store(1, std::memory_order_release);
     return any;
   }
 
@@ -8340,7 +8473,18 @@ struct Plugin
            sit at index 0), and it was already corruptible by removing the
            pitch route in the GUI and then automating this knob. */
         const int pr = modPitchRouteIdx();
-        if (pr >= 0) mod.routes[pr].depth = applied;
+        /* A LOAD'S ZERO IS "NO ROUTE" (B455). Every load writes this knob's
+           default, 0, before the patch's own value (initState), on both
+           lanes. Taking the route out there means the patch's value creates
+           it afresh, so the table a load leaves is the one a fresh instance
+           would hold — the same routes in the same order, whatever the
+           previous patch had. A live edit to 0 keeps the route, as before. */
+        if (pr >= 0 && loadingState && applied == 0.0)
+        {
+          mod.removeRoute(pr);
+          modPublish();
+        }
+        else if (pr >= 0) mod.routes[pr].depth = applied;
         else if (applied != 0.0)
         {
           mod.addRoute(1, kModDestPitch, applied, hypersaw::ModCore::kGlobal);
@@ -9617,6 +9761,7 @@ struct Plugin
     replayDeferred();   // events (and a reset) that arrived while a direct sequence owned the state
     panicPerformRequested();   // before the drain: the click came before any later edit
     drainQueue(p->out_events);
+    askForOwedRescan();
 
     const uint32_t nframes = p->frames_count;
     /* B23 increment 3: the source buffers are fixed-size, so a block past them
@@ -10215,6 +10360,7 @@ void params_flush(const clap_plugin_t *p, const clap_input_events_t *in,
   }
   pl->replayDeferred();
   pl->drainQueue(out);
+  pl->askForOwedRescan();
   const uint32_t nev = in ? in->size(in) : 0;   // deferEvents' rule; handleEvent checks each event
   for (uint32_t i = 0; i < nev; i++) pl->handleEvent(in->get(in, i));
   pl->endAudioEntry();
@@ -10281,7 +10427,9 @@ bool state_save(const clap_plugin_t *p, const clap_ostream_t *stream)
   // none). Emitted ONLY when non-empty, exactly as `routing=` below, so a
   // session saved before names is byte-identical. setPresetName strips control
   // characters, which is what keeps this one line one line.
-  if (!self(p)->presetName.empty()) blob += "presetname=" + self(p)->presetName + "\n";
+  // savedPresetName, not presetName: while a queued load waits, the values
+  // above are still the outgoing patch's, and so is the name written with them.
+  if (const std::string &nm = self(p)->savedPresetName(); !nm.empty()) blob += "presetname=" + nm + "\n";
   // ADR-138: generic mod routes ride the session. Emitted ONLY when routes
   // exist, so a routeless patch's bytes are unchanged and every existing
   // state round-trip stays exactly what it was. Old builds ignore the key.
@@ -10404,7 +10552,9 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
     {
       /* Queued: the cells travel as LOAD values (kind 3, the history restore's
          path), so the morph hook knows them for a load and never routes them
-         into a corner (B125). Direct: applyParam, as always. */
+         into a corner (B125). Direct: the same provenance, by the load bracket
+         (applyLoadValue) — this line is read AFTER `morph=`, so a cell recorded
+         as an edit would be left standing in the corners the chunk just set. */
       if (ls.direct()) pl->applyRoutingChunk(line.substr(eq + 1));
       else pl->routingChunkCells(line.substr(eq + 1), [&](clap_id id, double v) { pl->enqueueParam(id, v, 3); });
       continue;
@@ -10480,7 +10630,7 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
       if (const ParamDef *ed = findEngineParamByKey(key))
       {
         if (!ls.direct()) pl->enqueueParam(ed->id, val, 3);
-        else pl->applyParam(ed->id, val);
+        else pl->applyLoadValue(ed->id, val);
         loaded.push_back({ed->id, val});   // B255
         continue;
       }
@@ -10511,9 +10661,7 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
         if (key == d.coreKey)
         {
           if (keyOsc && isGlobalId(d.id)) break;   // globals have no per-osc mirror
-          pl->loadingState = true;                  // B125: a load is not an edit
-          pl->applyParam((clap_id)(d.id + idOff), val);
-          pl->loadingState = false;
+          pl->applyLoadValue((clap_id)(d.id + idOff), val);   // B125: a load is not an edit
           loaded.push_back({(clap_id)(d.id + idOff), val});   // B255
           known = true;
           break;
@@ -10883,7 +11031,7 @@ extern "C" bool hypersaw_debug_cornermatches(const clap_plugin_t *p, int k, cons
    check drives exactly the calls the GUI binds drive — a second entry point
    would be a second implementation of the thing under test.
      service | tree | json <i> | restore <i> | undo | redo | mark <label-id>
-     | live | setmorph <0|1>   (B222; hypersaw_debug.h's op list predates them)
+     | live | setmorph <0|1> | setspec <0|1>   (B222, B455; hypersaw_debug.h's op list predates them)
    Everything returns a string because two of the ops return JSON; the numeric
    ops return a decimal. */
 extern "C" const char *hypersaw_debug_undo(const clap_plugin_t *p, const char *op, int arg)
@@ -10906,6 +11054,8 @@ extern "C" const char *hypersaw_debug_undo(const clap_plugin_t *p, const char *o
   // (the value half of the checkbox; the bracket is hypersaw_debug_gesture).
   else if (o == "live") r = pl->historyJson();
   else if (o == "setmorph") { pl->guiSetParam(151, arg ? 1.0 : 0.0); r = "1"; }
+  // B455: the editor's write of a parameter NO load writes (specimen, ADR-147), for load_handoff_check.
+  else if (o == "setspec") { pl->guiSetParam(178, arg ? 1.0 : 0.0); r = "1"; }
   else r = "?";
   return r.c_str();
 }
@@ -11158,7 +11308,7 @@ const void *plug_get_extension(const clap_plugin_t *, const char *id)
   return nullptr;
 }
 
-void plug_on_main_thread(const clap_plugin_t *) {}
+void plug_on_main_thread(const clap_plugin_t *p) { self(p)->makeOwedRescan(); }
 
 /* ---- factory ---- */
 
