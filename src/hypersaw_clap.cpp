@@ -4321,14 +4321,29 @@ struct Plugin
     }
     return out;
   }
+  /* A LOAD'S DIRECT WRITE: applyParam under the load bracket (B125), so the
+     morph hook reads the value as loaded state and never as an edit — nothing
+     is recorded into a corner, and an armed corner does not keep the value
+     from the live parameter. The queued lane says the same thing with kind 3
+     (drainQueue). ONE helper for every direct write a load makes — the
+     defaults, the parameter lines, the engine-block lines and the routing
+     cells — because the bracket used to be written out at each site, and the
+     two sites that lacked it were the two that were not (B455). */
+  void applyLoadValue(clap_id id, double v)
+  {
+    loadingState = true;
+    applyParam(id, v);
+    loadingState = false;
+  }
   /* A load is a load: EVERY cell returns to its default first, so a patch
      without the key loads the series chain rather than inheriting whatever the
      previous patch was routed to. Written through applyParam so the presence
-     bits, the morph hooks and the mod base all see the load exactly as they see
-     any other write — one write path, no second one to drift. */
+     bits and the mod base see the load exactly as they see any other write —
+     one write path, no second one to drift — and as a LOAD's write, so the
+     chunk's own `morph=` corners are what stands. */
   void applyRoutingChunk(const std::string &chunk)
   {
-    routingChunkCells(chunk, [&](clap_id id, double v) { applyParam(id, v); });
+    routingChunkCells(chunk, [&](clap_id id, double v) { applyLoadValue(id, v); });
   }
   /* The chunk's meaning, once: every cell at its default, then the cells the
      chunk names. Two writers consume it — the host chunk applies directly
@@ -7589,9 +7604,7 @@ struct Plugin
         enqueueParam(id, v, 3);
         return;
       }
-      loadingState = true;
-      applyParam(id, v);
-      loadingState = false;
+      applyLoadValue(id, v);
     };
     for (const auto &d : kParams)
     {
@@ -10367,7 +10380,9 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
     {
       /* Queued: the cells travel as LOAD values (kind 3, the history restore's
          path), so the morph hook knows them for a load and never routes them
-         into a corner (B125). Direct: applyParam, as always. */
+         into a corner (B125). Direct: the same provenance, by the load bracket
+         (applyLoadValue) — this line is read AFTER `morph=`, so a cell recorded
+         as an edit would be left standing in the corners the chunk just set. */
       if (ls.direct()) pl->applyRoutingChunk(line.substr(eq + 1));
       else pl->routingChunkCells(line.substr(eq + 1), [&](clap_id id, double v) { pl->enqueueParam(id, v, 3); });
       continue;
@@ -10443,7 +10458,7 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
       if (const ParamDef *ed = findEngineParamByKey(key))
       {
         if (!ls.direct()) pl->enqueueParam(ed->id, val, 3);
-        else pl->applyParam(ed->id, val);
+        else pl->applyLoadValue(ed->id, val);
         loaded.push_back({ed->id, val});   // B255
         continue;
       }
@@ -10474,9 +10489,7 @@ bool state_load(const clap_plugin_t *p, const clap_istream_t *stream)
         if (key == d.coreKey)
         {
           if (keyOsc && isGlobalId(d.id)) break;   // globals have no per-osc mirror
-          pl->loadingState = true;                  // B125: a load is not an edit
-          pl->applyParam((clap_id)(d.id + idOff), val);
-          pl->loadingState = false;
+          pl->applyLoadValue((clap_id)(d.id + idOff), val);   // B125: a load is not an edit
           loaded.push_back({(clap_id)(d.id + idOff), val});   // B255
           known = true;
           break;
