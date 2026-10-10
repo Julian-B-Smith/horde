@@ -105,7 +105,7 @@
       "title": "Worst-case CPU and licensing exposure",
       "status": "partial",
       "gates": ["release_path_check", "release", "license_audit_check"],
-      "gaps": "license_audit_check holds 11 third-party components (8 ship) against an allow list ratified 2026-10-10 (ADR-205), each license read from the component's own files at its pin. One exception is accepted with an expiry (ADR-204). One is PENDING THE HUMAN: a docs-only runtime file with no stated license, red from 2027-01-31. The SBOM generator omits three nested shipping components. Ten release questions are open in docs/LICENSES-THIRD-PARTY.md. The B439 budget and the CPU ledger exist as documents, and the CPU measurement is run by hand; no per-release gate on the worst-case patch.",
+      "gaps": "license_audit_check holds 11 third-party components (8 ship) against an allow list ratified 2026-10-10 (ADR-205), each license read from the component's own files at its pin. Two exceptions are accepted with expiries (ADR-204, ADR-206); none is pending. The SBOM generator omits three nested shipping components. Ten release questions are open in docs/LICENSES-THIRD-PARTY.md. The B439 budget and the CPU ledger exist as documents, and the CPU measurement is run by hand; no per-release gate on the worst-case patch.",
       "tracked_by": "B448",
       "tripwire": "Worst-case CPU: X% of budget; Licenses: clear"
     },

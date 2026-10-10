@@ -22,6 +22,7 @@
 #include <cstdlib>
 
 #include "../src/swarmalator_core.h"
+#include "scenario_floor.h"
 
 using hypersaw::SwarmalatorCore;
 
@@ -97,9 +98,11 @@ int main(int argc, char **argv)
   }
   std::string line;
   double worst = 0;
+  int nScen = 0;
   while (std::getline(mf, line))
   {
     if (line.empty()) continue;
+    nScen++;
     const auto tab = line.find('\t');
     const std::string name = line.substr(0, tab);
     const std::string spec = tab == std::string::npos ? "" : line.substr(tab + 1);
@@ -157,6 +160,11 @@ int main(int argc, char **argv)
         "anchor sync+rainbow: R and max(R+,R-) both raised got=%g", std::max(both.Rp, both.Rm));
   check(std::isfinite(stab.peak) && stab.peak <= 1.0,
         "anchor stability: bounded + NaN-clean at K=J=drift=1 got peak=%g", stab.peak);
+
+  // The floor under the parity corpus (ADR-180 §1, B455 H1): pinned at the count the generator
+  // writes today. Raise it in the same PR that adds a scenario; lowering it is a gate-weakening event.
+  constexpr int kMinScenarios = 9;
+  if (!scenarioFloorHolds("swarmalator", nScen, kMinScenarios)) g_failures++;
 
   std::printf("swarmalator_check: %s (%d failure%s; worst parity rms %g)\n",
               g_failures ? "RED" : "GREEN", g_failures, g_failures == 1 ? "" : "s", worst);

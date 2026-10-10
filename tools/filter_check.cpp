@@ -21,6 +21,7 @@
 #include <cstdlib>
 
 #include "../src/filter_core.h"
+#include "scenario_floor.h"
 
 using hypersaw::FilterCore;
 
@@ -81,9 +82,11 @@ int main(int argc, char **argv)
   }
   std::string line;
   double worst = 0;
+  int nScen = 0;
   while (std::getline(mf, line))
   {
     if (line.empty()) continue;
+    nScen++;
     const auto tab = line.find('\t');
     const std::string name = line.substr(0, tab);
     const std::string spec = tab == std::string::npos ? "" : line.substr(tab + 1);
@@ -133,6 +136,11 @@ int main(int argc, char **argv)
     check(sync.qEffective() > qFree * 1.5 && sync.collapse() >= 0.75,
           "L0-14 collapse->Q: sync raises effective Q got=%g", sync.qEffective());
   }
+
+  // The floor under the parity corpus (ADR-180 §1, B455 H1): pinned at the count the generator
+  // writes today. Raise it in the same PR that adds a scenario; lowering it is a gate-weakening event.
+  constexpr int kMinScenarios = 11;
+  if (!scenarioFloorHolds("filter", nScen, kMinScenarios)) g_failures++;
 
   std::printf("filter_check: %s (%d failure%s; worst parity rms %g)\n", g_failures ? "RED" : "GREEN",
               g_failures, g_failures == 1 ? "" : "s", worst);
