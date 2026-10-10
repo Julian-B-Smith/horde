@@ -1,0 +1,393 @@
+{
+  "about": "Third-party components in or beside horde (B448 Wave C C1). Read by tools/license_audit_check.py; every SPDX id here was read from the component's own license text at the pinned revision. Keep the file canonical: sorted keys, two-space indent.",
+  "build": {
+    "plugin_formats": [
+      "AUV2",
+      "CLAP",
+      "VST3"
+    ]
+  },
+  "components": {
+    "audiounitsdk": {
+      "copyright": "\u00a9 2000-2021 Apple Inc. All rights reserved. (from a source file header, src/AudioUnitSDK/AUBase.cpp; LICENSE.txt's own copyright line is the unfilled template)",
+      "license": {
+        "blob": "d645695673349e3947e8e5ae42332d0ac3164cd7",
+        "fingerprint": "sha256:948703bcf1cb4a2dafd21676dd01e40a58fe21bd9b425c000b9070eccb441092",
+        "source": "upstream",
+        "url": "https://raw.githubusercontent.com/apple/AudioUnitSDK/53a9a2008aae7fb1b0a9f093dd523b9b12f6c0d9/LICENSE.txt"
+      },
+      "name": "Apple AudioUnitSDK",
+      "obligations": [
+        "Section 4 asks that recipients be given a copy of the License, that modified files carry a notice of the change, that source redistributions keep the copyright, patent, trademark and attribution notices, and that the contents of a NOTICE file be carried if one exists. The pinned commit has no NOTICE file at its root.",
+        "Section 3 grants a patent license, which ends for a party that starts patent litigation over the Work.",
+        "Section 6 grants no permission to use the licensor's trade names or trademarks, beyond describing the origin of the Work."
+      ],
+      "pin": {
+        "commit": "53a9a2008aae7fb1b0a9f093dd523b9b12f6c0d9",
+        "declare": "horde_audiounitsdk",
+        "kind": "fetchcontent"
+      },
+      "sbom": [
+        "AudioUnitSDK"
+      ],
+      "scope": "ships",
+      "ships_in": "AUv2, macOS only",
+      "spdx": "Apache-2.0",
+      "version": "AudioUnitSDK-1.1.0",
+      "where": "fetched at configure time into the build tree (_deps/horde_audiounitsdk-src); not in the repository"
+    },
+    "choc": {
+      "copyright": "Copyright (c) 2025 Tracktion Corporation",
+      "license": {
+        "fingerprint": "sha256:19758ed14f6fc42b05b656a68f58bf283a1688b1393c80ad5990e20db62ff371",
+        "path": "libs/choc/LICENSE.md",
+        "source": "tree"
+      },
+      "name": "choc",
+      "obligations": [
+        "The ISC text asks that the copyright notice and the permission notice appear in all copies.",
+        "libs/patches/*.patch quote context lines of choc_WebView.h, so the repository itself carries a few lines of choc beside the submodule.",
+        "choc's LICENSE.md points at the Microsoft code embedded in choc_WebView.h. See the WebView2Loader entry."
+      ],
+      "pin": {
+        "commit": "a08bfd84494921700703a8433b9d1a304edfafd2",
+        "kind": "submodule",
+        "path": "libs/choc"
+      },
+      "sbom": [
+        "choc"
+      ],
+      "scope": "ships",
+      "ships_in": "the macOS and Windows GUI: choc_WebView.h and the headers it includes, built from a patched copy (libs/patches/)",
+      "spdx": "ISC",
+      "version": "1.0.1 (VERSION.txt)",
+      "where": "libs/choc"
+    },
+    "clap": {
+      "copyright": "Copyright (c) 2021 Alexandre BIQUE",
+      "license": {
+        "fingerprint": "sha256:d7233dc8bff45b319695fb2a73a62c894424bda9beff9682fa668a4545e29d09",
+        "path": "libs/clap/LICENSE",
+        "source": "tree"
+      },
+      "name": "CLAP (CLever Audio Plug-in API)",
+      "obligations": [
+        "The MIT text asks that the copyright notice and the permission notice be included in all copies or substantial portions of the software.",
+        "libs/clap/artwork/ holds the CLAP logos and a `CLAP Logo Guidelines.pdf`. They matter only if a CLAP logo is displayed; this audit did not read the PDF."
+      ],
+      "pin": {
+        "commit": "195b42a004144fab0b3cf95e9c067187d15365b7",
+        "kind": "submodule",
+        "path": "libs/clap"
+      },
+      "sbom": [
+        "clap"
+      ],
+      "scope": "ships",
+      "ships_in": "every format",
+      "spdx": "MIT",
+      "version": "1.2.10",
+      "where": "libs/clap"
+    },
+    "clap-wrapper": {
+      "copyright": "Copyright (c) 2022 defiantnerd",
+      "license": {
+        "fingerprint": "sha256:ebb32a81c1a315538e00439fb7280cdd822810006515b0c48d22cc43c08345af",
+        "path": "libs/clap-wrapper/LICENSE",
+        "source": "tree"
+      },
+      "name": "clap-wrapper",
+      "obligations": [
+        "The MIT text asks that the copyright notice and the permission notice be included in all copies or substantial portions of the software.",
+        "It carries three further components inside its tree: {fmt}, the PreSonus extension header and the CPM.cmake script. Each has its own entry."
+      ],
+      "pin": {
+        "commit": "35f524b771ec09f54c164720bb90f271273b37d3",
+        "kind": "submodule",
+        "path": "libs/clap-wrapper"
+      },
+      "sbom": [
+        "clap-wrapper"
+      ],
+      "scope": "ships",
+      "ships_in": "VST3 and AUv2: the wrapper code is compiled into both",
+      "spdx": "MIT",
+      "version": "v0.15.1",
+      "where": "libs/clap-wrapper"
+    },
+    "cpm": {
+      "copyright": "Copyright (c) 2019-2023 Lars Melchior and contributors",
+      "license": {
+        "fingerprint": "sha256:508f319143bdc0a18f60dedffb51888745cb9fb553628e84cb839d445a3d3070",
+        "lines": [
+          1,
+          3
+        ],
+        "path": "libs/clap-wrapper/cmake/external/CPM.cmake",
+        "source": "tree"
+      },
+      "name": "CPM.cmake (bootstrap script)",
+      "obligations": [
+        "A CMake script, so nothing of it reaches a binary. clap-wrapper calls it only on its download paths, and this build switches those off (CLAP_WRAPPER_DOWNLOAD_DEPENDENCIES OFF).",
+        "The file carries an SPDX tag and a copyright line, not the license text."
+      ],
+      "pin": {
+        "kind": "rides-with",
+        "parent": "clap-wrapper",
+        "version_probe": {
+          "path": "libs/clap-wrapper/cmake/external/CPM.cmake",
+          "regex": "set\\(CPM_DOWNLOAD_VERSION ([0-9.]+)\\)",
+          "value": "0.40.2"
+        }
+      },
+      "sbom_absent": "vendored inside clap-wrapper; tools/gen_sbom.py lists pins, not what rides inside them",
+      "scope": "build",
+      "spdx": "MIT",
+      "version": "0.40.2",
+      "where": "libs/clap-wrapper/cmake/external/CPM.cmake"
+    },
+    "dc-runtime": {
+      "copyright": "none stated",
+      "license": {
+        "source": "none"
+      },
+      "name": "Claude Design canvas runtime (support.js)",
+      "obligations": [
+        "The file states no license and no copyright. Its first line says it is generated from `dc-runtime/src/*.ts`, and docs/design-system/README.md calls it the Claude Design canvas runtime and says it is not ours.",
+        "Two byte-identical copies are tracked in this public repository so the .dc.html design specs render from a checkout. It is never compiled into or embedded in the plugin.",
+        "At run time it loads React 18.3.1, ReactDOM 18.3.1 and @babel/standalone 7.29.0 from unpkg.com; those are not in the repository."
+      ],
+      "pin": {
+        "files": {
+          "docs/design-system/support.js": "8fe7df74405f3c55f49b7249c74ea1397e65d07dea2b1bd3b4a489bec2e28cbe",
+          "docs/design/logo/support.js": "8fe7df74405f3c55f49b7249c74ea1397e65d07dea2b1bd3b4a489bec2e28cbe"
+        },
+        "kind": "tracked-file"
+      },
+      "sbom_absent": "a tracked docs file, not a build input",
+      "scope": "docs",
+      "spdx": "NOASSERTION",
+      "version": "not stated in the file",
+      "where": "docs/design-system/support.js and docs/design/logo/support.js"
+    },
+    "fmt": {
+      "copyright": "Copyright (c) 2012 - present, Victor Zverovich",
+      "license": {
+        "fingerprint": "sha256:00390b74308e1e88c7e223356478009954c9d3f34dcedc8d60682dd9c7d4f97d",
+        "lines": [
+          1,
+          31
+        ],
+        "path": "libs/clap-wrapper/libs/fmt/fmt/format.h",
+        "source": "tree"
+      },
+      "name": "{fmt}",
+      "obligations": [
+        "The MIT text asks that the copyright notice and the permission notice be included in all copies or substantial portions of the software.",
+        "The header's \"Optional exception\" says that portions embedded into a machine-executable object form as a result of compiling may be redistributed in that form without including the notices."
+      ],
+      "pin": {
+        "kind": "rides-with",
+        "parent": "clap-wrapper",
+        "version_probe": {
+          "path": "libs/clap-wrapper/libs/fmt/fmt/base.h",
+          "regex": "#define FMT_VERSION (\\d+)",
+          "value": "110104"
+        }
+      },
+      "sbom_absent": "vendored inside clap-wrapper; tools/gen_sbom.py lists pins, not what rides inside them",
+      "scope": "ships",
+      "ships_in": "VST3 and AUv2: header-only, included by clap-wrapper's shared code (src/detail/os/log.h)",
+      "spdx": "MIT WITH fmt-exception",
+      "version": "11.1.4",
+      "where": "libs/clap-wrapper/libs/fmt"
+    },
+    "pluginval": {
+      "copyright": "Tracktion (the README at the tag: \"Licensing is under the `GPLv3`\")",
+      "license": {
+        "blob": "94a9ed024d3859793618152ea559a168bbcbb5e2",
+        "fingerprint": "sha256:13e61ba5071e671e299fb8dec45a6786c3c6aa4efef1dc3c7c772f16dfb69cf3",
+        "source": "upstream",
+        "url": "https://raw.githubusercontent.com/Tracktion/pluginval/ed19c2c16b57a6d94db391bea3ef4a80b769d5bf/LICENSE"
+      },
+      "name": "pluginval",
+      "obligations": [
+        "CI downloads the release binary, checks its SHA-256 and runs it against the built plugin. It is not linked, not modified and not redistributed, and no release artifact contains it.",
+        "The README at the tag says GPLv3 with no \"or later\", so the id on record is GPL-3.0-only."
+      ],
+      "pin": {
+        "kind": "ci-download",
+        "tag_commit": "ed19c2c16b57a6d94db391bea3ef4a80b769d5bf",
+        "version": "v1.0.4"
+      },
+      "sbom": [
+        "pluginval_Windows.zip",
+        "pluginval_macOS.zip"
+      ],
+      "scope": "test",
+      "spdx": "GPL-3.0-only",
+      "version": "v1.0.4",
+      "where": ".github/workflows/ci.yml (the PLUGINVAL_* pins); downloaded by CI, never in the repository"
+    },
+    "presonus-extensions": {
+      "copyright": "none: \"Written and placed in the PUBLIC DOMAIN by PreSonus Software Ltd.\"",
+      "license": {
+        "fingerprint": "sha256:942a7d37fd5a883b6fbf5d31f2b1eddd0617dac5656635d421018a576333d3b3",
+        "lines": [
+          1,
+          17
+        ],
+        "path": "libs/clap-wrapper/libs/psl/presonus-plugin-extensions/ipslgainreduction.h",
+        "source": "tree"
+      },
+      "name": "PreSonus Plug-In Extensions (ipslgainreduction.h)",
+      "obligations": [
+        "The header states no condition.",
+        "It carries a disclaimer: the extensions are \"host-specific extensions of existing proprietary technologies, provided to the community on an AS IS basis\", and PreSonus \"is not affiliated with the owner of the underlying technology in any way\".",
+        "A public-domain statement has no SPDX id, so this entry is an exception for the human."
+      ],
+      "pin": {
+        "kind": "rides-with",
+        "parent": "clap-wrapper"
+      },
+      "sbom_absent": "vendored inside clap-wrapper; tools/gen_sbom.py lists pins, not what rides inside them",
+      "scope": "ships",
+      "ships_in": "VST3: one interface header, included by clap-wrapper's src/wrapasvst3.h",
+      "spdx": "LicenseRef-PublicDomain-PreSonus",
+      "version": "not stated in the header",
+      "where": "libs/clap-wrapper/libs/psl"
+    },
+    "vst3sdk": {
+      "copyright": "Copyright (c) 2025, Steinberg Media Technologies GmbH",
+      "license": {
+        "blob": "6598b81c885ef3638ef607b526098b0ab92b0e9a",
+        "fingerprint": "sha256:60a1ec700ba4055ef4b55fdcce8a77c4365908712986c4a0adf08809e415dfb7",
+        "source": "upstream",
+        "url": "https://raw.githubusercontent.com/steinbergmedia/vst3sdk/9fad9770f2ae8542ab1a548a68c1ad1ac690abe0/LICENSE.txt"
+      },
+      "name": "Steinberg VST 3 SDK",
+      "obligations": [
+        "The MIT text asks that the copyright notice and the permission notice be included in all copies or substantial portions of the software.",
+        "The four sub-repositories the build fetches (base, cmake, pluginterfaces, public.sdk) each carry a LICENSE.txt with the same git blob as the top-level one at the pinned commit.",
+        "The README at the pin says trademark use (the \"VST\" name or logo) is optional, must follow the Steinberg VST Usage Guidelines if used (VST3_Usage_Guidelines.pdf, in the SDK), and lists using \"VST\" in a company or product name as prohibited. This audit did not read the PDF.",
+        "The same README says in one place that licensing under GPLv3 and the Steinberg proprietary license \"is no longer available\", and in another that the full SDK contains a \"Steinberg VST 3 Plug-In SDK Licensing Agreement that you have to sign if you want to develop or host VST 3 plug-ins\". See the questions."
+      ],
+      "pin": {
+        "commit": "9fad9770f2ae8542ab1a548a68c1ad1ac690abe0",
+        "declare": "horde_vst3sdk",
+        "kind": "fetchcontent",
+        "subrepos": {
+          "base": "3d2e82f8e6bff59c1d8b7a27491a29c2286b5206",
+          "cmake": "de6e54eeaaab35b7145f5c32c279b5e892146e04",
+          "pluginterfaces": "31d6eeba6daaa3e2a8bfbe3e7a90ca0b7fbfbc1c",
+          "public.sdk": "a3911a4615dabbfdfd9d181ee26b05c70c289a95"
+        }
+      },
+      "sbom": [
+        "vst3sdk"
+      ],
+      "scope": "ships",
+      "ships_in": "VST3: sources from base, pluginterfaces and public.sdk are compiled into the bundle",
+      "spdx": "MIT",
+      "version": "v3.8.0_build_66",
+      "where": "fetched at configure time into the build tree (_deps/horde_vst3sdk-src); not in the repository"
+    },
+    "webview2loader": {
+      "copyright": "Copyright (C) Microsoft Corporation. All rights reserved.",
+      "license": {
+        "fingerprint": "sha256:8a05b92c635fa838375138e2db8f75465d9adb7dff5e4dfdaa1a2b8c71706262",
+        "lines": [
+          2093,
+          2119
+        ],
+        "path": "libs/choc/choc/gui/choc_WebView.h",
+        "source": "tree"
+      },
+      "name": "Microsoft WebView2Loader.dll (binary embedded in choc_WebView.h)",
+      "obligations": [
+        "The text asks that redistributions in binary form reproduce the copyright notice, the list of conditions and the disclaimer in the documentation and/or other materials provided with the distribution.",
+        "The text says the name of Microsoft Corporation, or the names of its contributors, may not be used to endorse or promote derived products without specific prior written permission.",
+        "This is a Microsoft binary, not source. choc's header says: \"if you embed this code in your own app, you'll need to comply with this license!\""
+      ],
+      "pin": {
+        "kind": "rides-with",
+        "parent": "choc",
+        "registered_as": "WebView2Loader"
+      },
+      "sbom_absent": "embedded in a choc header; tools/gen_sbom.py lists pins, not what rides inside them",
+      "scope": "ships",
+      "ships_in": "Windows only: the DLL bytes are compiled in unless CHOC_FIND_WEBVIEW2LOADER_DLL is defined, and nothing in src/ or CMakeLists.txt defines it",
+      "spdx": "BSD-3-Clause",
+      "version": "not stated in the header",
+      "where": "libs/choc/choc/gui/choc_WebView.h"
+    }
+  },
+  "nested_fetches": {
+    "libs/clap-wrapper": {
+      "AudioUnitSDK": "covered:audiounitsdk",
+      "aaxsdk": "not-built: AAX is not in HYPERSAW_PLUGIN_FORMATS",
+      "clap": "covered:clap",
+      "gulrak/filesystem": "not-built: fetched only for a macOS deployment target below 10.15; CMakeLists.txt sets 11.0",
+      "rtaudio": "not-built: the standalone format is not in HYPERSAW_PLUGIN_FORMATS",
+      "rtmidi": "not-built: the standalone format is not in HYPERSAW_PLUGIN_FORMATS",
+      "vst3sdk": "covered:vst3sdk",
+      "wil": "not-built: Windows standalone only, and the standalone format is not in HYPERSAW_PLUGIN_FORMATS"
+    }
+  },
+  "not_covered": [
+    "Whether an id is acceptable. The allow list is the human's, and it is proposed, not ratified.",
+    "Toolchain and platform runtimes: the MSVC static runtime, the C++ standard library, Apple's system frameworks, and the WebView2 runtime on the user's machine.",
+    "The GitHub Actions CI uses. They are pinned by commit in .github/workflows/ (tools/workflow_pin_check.py), they build, and they never ship.",
+    "Fonts and scripts that lab pages and prototypes load at run time from fonts.googleapis.com and unpkg.com (docs/design/, reference/). None is in the repository, and no shipped GUI page loads one; the check fails if one does.",
+    "Third-party code pasted into one of our files with no license marker. The marker scan cannot see it.",
+    "Code embedded in a submodule file outside a vendor directory, unless choc registers it. choc also embeds FLAC, Ogg Vorbis, minimp3, zlib, QuickJS, Duktape, RtAudio and RtMidi, in headers this project does not include.",
+    "The license text of a fetched SDK between `--online` runs. Offline it is held by the pinned commit.",
+    "Published algorithms the cores implement. They are not components; docs/PRIOR-ART.md is where the project cites prior art."
+  ],
+  "own_files": {
+    "docs/LICENSE-OPTIONS.md": "the candidate texts for horde's own license (B101), quoted for the human to choose from"
+  },
+  "release_questions": [
+    {
+      "question": "Eight components ship, and seven of their texts ask for a notice or a copy of the license to travel with copies ({fmt}'s exception lifts that for compiled code). No file in the release path carries one today: the release attaches the pkg, two zips, SHA256SUMS and the SBOM, and neither GUI page mentions a license or a third party. ROADMAP row B433 plans a third-party notices file for five components (clap, clap-wrapper, choc, the VST 3 SDK, the AudioUnitSDK). This audit finds three more that ship: WebView2Loader on Windows, {fmt}, and the PreSonus header. Where should the notices go (About box, a file in the bundle, the installer, the download page), and does B433 take the three?",
+      "title": "Where the notices ship."
+    },
+    {
+      "question": "The SDK's README says use of the \"VST\" name or logo is optional, must follow the Steinberg VST Usage Guidelines if used, and may not be part of a company or product name. horde ships a `.vst3` bundle and its documents call the format VST3. Does the human want the VST Compatible logo or the name in marketing, and who reads VST3_Usage_Guidelines.pdf for the wording it asks for? This audit did not read it.",
+      "title": "The VST name and logo."
+    },
+    {
+      "question": "The pinned README says both that GPLv3 and proprietary licensing are \"no longer available\" and that the full SDK contains a licensing agreement \"that you have to sign if you want to develop or host VST 3 plug-ins\". docs/LICENSE-OPTIONS.md (B434) takes the first as the one that governs, on the strength of LICENSE.txt. Does the human want that confirmed against Steinberg's own page (www.steinberg.net/sdklicenses_vst3) before a release?",
+      "title": "The Steinberg agreement."
+    },
+    {
+      "question": "The AudioUnitSDK's license grants no trademark rights (section 6), and no file at the pinned commit sets terms for an Audio Units logo. If a logo is wanted on packaging, its terms have to come from Apple. Not read here.",
+      "title": "Audio Units."
+    },
+    {
+      "question": "One interface header in the VST3 wrapper says it was \"placed in the PUBLIC DOMAIN\" and carries no license text. Does the human accept a bare public-domain statement for a component that ships? The alternative is a VST3 wrapper built without the PreSonus gain-reduction extension, which would mean changing clap-wrapper (its src/wrapasvst3.h includes the header).",
+      "title": "The PreSonus header (pending exception)."
+    },
+    {
+      "question": "support.js is tracked twice in a public repository, is not ours, and states no license. Do the tool's terms allow redistributing its runtime? If that is unknown, the alternative is to remove both copies and read the .dc.html specs another way.",
+      "title": "The Claude Design runtime in docs (pending exception)."
+    },
+    {
+      "question": "libs/clap/artwork/ carries `CLAP Logo Guidelines.pdf`. It matters only if a CLAP logo is displayed. Not read here.",
+      "title": "The CLAP logo."
+    },
+    {
+      "question": "{fmt}, the PreSonus header and WebView2Loader ship, and tools/gen_sbom.py lists none of them: it lists submodules, FetchContent pins and pluginval. Should the SBOM name what rides inside a pin? That is a change to gen_sbom.py and release_path_check, outside this audit.",
+      "title": "What the SBOM leaves out."
+    },
+    {
+      "question": "The Windows build links the MSVC runtime statically (CMAKE_MSVC_RUNTIME_LIBRARY in CMakeLists.txt), and the macOS build links system frameworks and the C++ standard library. This audit does not inventory toolchain runtimes. Should it?",
+      "title": "Platform runtimes."
+    },
+    {
+      "question": "docs/design/logo/text_distortion.hpp, example_main.cpp and the .dc.html files carry no license header; the commit that filed the port calls it Claude Design's. They are treated here as the project's own. docs/LICENSE-OPTIONS.md already asks for an authorship check on ingested material before a LICENSE is committed; do these join that list?",
+      "title": "Delivered design artifacts."
+    }
+  ],
+  "schema": 1
+}

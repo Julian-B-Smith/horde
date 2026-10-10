@@ -99,6 +99,15 @@ fast() {
   # header current. Structure and staleness only — whether a declared
   # dependency is CORRECT is a human act (see the tool's own docstring).
   python3 tools/depends_check.py || ok=1
+  # THIRD-PARTY LICENSES (B448 Wave C C1; armor risk row 12). Every component in
+  # or beside the tree (submodules, fetched SDKs, what rides inside them, vendored
+  # files) is in tools/license_inventory.json; its license text still reads as
+  # the SPDX id on record; nothing ships under an id off the allow list; the
+  # SBOM agrees; docs/LICENSES-THIRD-PARTY.md is current. An unapproved exception
+  # listed in `pending_human` prints PENDING THE HUMAN and exits 0: a visible
+  # hole, not a pass. Self-calibrating: its planted controls run every time.
+  # Added under ADR-180 §1.
+  python3 tools/license_audit_check.py || ok=1
   # horde 2's structural rules (ADR-186 item 4, ADR-187 item 3; B332 critic
   # review): h2 and src never include each other, no h2 target links the legacy
   # shell, every h2 build is contraction-off (ruled 2026-09-30: the shipped
