@@ -56,6 +56,7 @@
 #include <vector>
 
 #include "../src/station_core.h"
+#include "scenario_floor.h"
 
 using hypersaw::StationCore;
 
@@ -1185,6 +1186,11 @@ int main(int argc, char **argv)
     std::printf("   audit §3.4 Node lab reads 18.71 %% -> this build is %.1fx the lab (ROADMAP B162 owns the optimisation queue item)\n",
                 18.71 / std::max(pct, 1e-9));
   }
+
+  // The floor under the parity corpus (ADR-180 §1, B455 H1): pinned at the count the generator
+  // writes today. Raise it in the same PR that adds a scenario; lowering it is a gate-weakening event.
+  constexpr int kMinScenarios = 32;
+  if (!scenarioFloorHolds("station", (int)scenarios.size(), kMinScenarios)) g_failures++;
 
   std::printf("station_check: %s (%d failure%s; worst parity rms %.3e)\n",
               g_failures ? "RED" : "GREEN", g_failures, g_failures == 1 ? "" : "s", worst);

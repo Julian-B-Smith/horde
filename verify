@@ -1154,6 +1154,16 @@ full() {
   node tools/golden/gen_time_goldens.mjs > /dev/null || return 1
   "$build_dir/time_check" "$(dirname "$build_dir")/build-golden/time" || return 1
 
+  # The floor under the eight golden-parity gates above (B455 H1; added under
+  # ADR-180 §1). parity_check, filter_check, notch_check, spectra_check,
+  # swarmalator_check, time_check, station_check and subosc_check read GREEN on an
+  # empty manifest, so a dropped scenario block shrank them silently; each now
+  # fails below its pinned scenario count. This runs each against the real corpus
+  # (must read green), an empty manifest and the manifest minus its last scenario
+  # (both must read RED, by the floor's own message), in symlinked scratch copies
+  # so no golden is touched. Every golden directory exists by here. ~15 s.
+  python3 tools/parity_floor_check.py "$build_dir" || return 1
+
   # Intent-bus resolver oracle (B89 phase 2a/2b, ADR-176): fixtures sliced live
   # from reference/intent-bus.html -> intent_check (parity with a must-MISMATCH
   # control per fixture, the coupling invariants the prototype has no analogue
