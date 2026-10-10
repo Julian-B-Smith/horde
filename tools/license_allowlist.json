@@ -1,0 +1,45 @@
+{
+  "about": "SPDX ids a third-party component may carry. `ships` binds anything that reaches a binary or its installer; `not_shipped` widens it for build-, test- and docs-only components. An id on neither list needs an entry in `exceptions`, which only the human approves: `approved` takes the human's ref (an ADR, a ROADMAP row), never an agent's. `pending_human` names the unapproved exceptions the check tolerates, each with the date it was raised; they print as PENDING THE HUMAN and go red on `expires`.",
+  "exceptions": {
+    "dc-runtime": {
+      "approved": "",
+      "expires": "2027-01-31",
+      "note": "support.js states no license and no copyright, is not ours, and is tracked twice under docs/ in a public repository. It never ships in the plugin. The choice turns on whether the tool's terms allow redistributing its runtime, or whether both copies should leave the repository.",
+      "spdx": "NOASSERTION",
+      "status": "needs-human"
+    },
+    "presonus-extensions": {
+      "approved": "",
+      "expires": "2027-01-31",
+      "note": "One header compiled into the VST3 wrapper says \"Written and placed in the PUBLIC DOMAIN by PreSonus Software Ltd.\" and carries no license text. A public-domain statement has no SPDX id, so it cannot be on the shipping list. The choice turns on whether the human accepts a bare public-domain statement for a component that ships.",
+      "spdx": "LicenseRef-PublicDomain-PreSonus",
+      "status": "needs-human"
+    }
+  },
+  "not_shipped": {
+    "GPL-3.0-only": "copyleft; proposed ONLY for a tool CI runs as a separate program and never links, modifies or redistributes (pluginval). The human may prefer an exception instead"
+  },
+  "pending_human": [
+    {
+      "component": "dc-runtime",
+      "raised": "2026-10-09"
+    },
+    {
+      "component": "presonus-extensions",
+      "raised": "2026-10-09"
+    }
+  ],
+  "ships": {
+    "Apache-2.0": "permissive, with notice duties and an express patent grant; carried by the AudioUnitSDK",
+    "BSD-2-Clause": "permissive; seeded from the brief, no component carries it today",
+    "BSD-3-Clause": "permissive, with a no-endorsement clause; carried by WebView2Loader",
+    "BSL-1.0": "permissive; seeded from the brief, no component carries it today",
+    "CC0-1.0": "public-domain dedication with a fallback license; seeded from the brief, no component carries it today",
+    "ISC": "permissive; carried by choc",
+    "MIT": "permissive; carried by CLAP, clap-wrapper, the VST 3 SDK and CPM.cmake",
+    "MIT WITH fmt-exception": "MIT plus an exception that lifts the notice duty for compiled code; carried by {fmt}",
+    "Unlicense": "public-domain dedication with a fallback license; seeded from the brief, no component carries it today",
+    "Zlib": "permissive; seeded from the brief, no component carries it today"
+  },
+  "status": "PROPOSED for the human (B448 Wave C C1, 2026-10-09); not ratified"
+}
