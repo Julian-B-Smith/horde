@@ -25,6 +25,7 @@
 
 #include "../src/spectra_core.h"
 #include "../src/swarm_core.h"
+#include "scenario_floor.h"
 
 using hypersaw::SpectraCore;
 
@@ -98,9 +99,11 @@ int main(int argc, char **argv)
   }
   std::string line;
   double worstAll = 0;
+  int nScen = 0;
   while (std::getline(mf, line))
   {
     if (line.empty()) continue;
+    nScen++;
     const auto tab = line.find('\t');
     const std::string name = line.substr(0, tab), spec = line.substr(tab + 1);
     std::ifstream gf(dir + "/" + name + ".f32", std::ios::binary);
@@ -226,6 +229,11 @@ int main(int argc, char **argv)
     check(worstR <= 1e-9, "P=1 gate (ADR-037a): SAW vs SPECTRA R tick-locked, worst dR=%g",
           worstR);
   }
+
+  // The floor under the parity corpus (ADR-180 §1, B455 H1): pinned at the count the generator
+  // writes today. Raise it in the same PR that adds a scenario; lowering it is a gate-weakening event.
+  constexpr int kMinScenarios = 9;
+  if (!scenarioFloorHolds("spectra", nScen, kMinScenarios)) g_failures++;
 
   std::printf("spectra_check: %s (%d failure%s; worst parity rms %g)\n",
               g_failures ? "RED" : "GREEN", g_failures, g_failures == 1 ? "" : "s", worstAll);

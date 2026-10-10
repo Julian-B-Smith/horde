@@ -68,6 +68,7 @@
 #include "../src/hypersaw_clap_entry.h"
 #include "../src/hypersaw_debug.h"
 #include "../src/subosc_core.h"
+#include "scenario_floor.h"
 
 using hypersaw::SubOscCore;
 
@@ -2144,6 +2145,11 @@ int main(int argc, char **argv)
                 "(282 transcendentals each, phase 1 finding 4) — that is a CONTROL-path "
                 "cost this steady-state number does not contain.\n");
   }
+
+  // The floor under the parity corpus (ADR-180 §1, B455 H1): pinned at the count the generator
+  // writes today. Raise it in the same PR that adds a scenario; lowering it is a gate-weakening event.
+  constexpr int kMinScenarios = 54;
+  if (!scenarioFloorHolds("subosc", (int)scenarios.size(), kMinScenarios)) g_failures++;
 
   std::printf("\nsubosc_check: %s (%d failure%s; worst parity rms %.3e)\n",
               g_failures ? "RED" : "GREEN", g_failures, g_failures == 1 ? "" : "s", worst);
