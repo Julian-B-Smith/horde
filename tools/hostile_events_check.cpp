@@ -1,6 +1,7 @@
 /*
- * hostile_events_check — out-of-range host note and expression values are
- * handled at the event boundary, and the output stays finite (B446 P1).
+ * hostile_events_check — out-of-range host note, expression, velocity and
+ * tempo values are handled at the event boundary, and the output stays finite
+ * (B446 P1; velocity and tempo B455).
  *
  * WHY. CLAP defines a note key as 0..127 (-1 a wildcard on events that match
  * existing notes) and TUNING as -120..+120 semitones, but nothing enforced
@@ -27,6 +28,22 @@
  *            dropped (the render equals the no-expression render bit for bit);
  *            TUNING 1e6 / 1e300 / -1e6 render exactly what ±120 renders; an
  *            in-range TUNING still takes effect; key 127 at +120 stays finite.
+ *   VEL      (B455) note velocity is checked where it enters: NaN, +inf and -inf
+ *            take the path velocity 0 takes (a fresh key strikes nothing, a held
+ *            key is released, bit for bit the velocity-0 render); 0 and a negative
+ *            keep that meaning; 7 and 1e300 render exactly what velocity 1 renders
+ *            and matrix source 14 reads 1; 0.6 strikes, reads 0.6 exactly and
+ *            renders differently from velocity 1 (the row that shows velocity
+ *            reaches the render at all, so the equalities above are not blind).
+ *            The Sub Osc is on for these rows: it is a second reader of velocity.
+ *   TEMPO    (B455) host tempo is checked where it enters, through BOTH doors (a
+ *            transport event, and the block's transport), under the tempo-grid
+ *            detune law: NaN, +inf, -inf, 0, -97, the 1 BPM floor and 1e-310 are
+ *            ignored (the render equals the no-transport render bit for bit, on
+ *            a different valid tempo too: the last one is kept); 97 takes effect
+ *            and both doors agree (the not-blind row); 120 sent explicitly equals
+ *            the default; 1e300 is taken as sent and renders finite.
+ *            hostTempoUsable, the function both doors call, is tabled directly.
  *   Every render also checks the oscillator's voice phases are finite.
  *   LATCH    (B448 B1) every run above left the output guard a count of 0 (finite
  *            output cannot tell "stopped at the boundary" from "repaired at the
@@ -46,6 +63,7 @@
 #include <cstring>
 #include <limits>
 #include <string>
+#include <utility>
 #include <vector>
 #include <clap/clap.h>
 
@@ -60,6 +78,8 @@ constexpr double kSR = 44100.0;
 constexpr uint32_t kBlock = 256;
 constexpr int kBlocks = 52;   // ~0.3 s: the NaN appears within the first block
 constexpr clap_id kSawBase = 129, kRound = 131;
+constexpr clap_id kLaw = 5, kSubOn = 52;   // Detune Law (3 = tempo-grid), Sub Osc
+constexpr int kSrcVelocity = 14;           // matrix source slot: last note-on velocity
 const double kInf = std::numeric_limits<double>::infinity();
 const double kNaN = std::numeric_limits<double>::quiet_NaN();
 const float kNaNf = std::numeric_limits<float>::quiet_NaN();
@@ -84,7 +104,14 @@ const clap_output_events_t kOut = {nullptr, oev_try_push};
    headers stable while the vector grows. */
 struct Ev
 {
-  union { clap_event_header_t h; clap_event_note_t n; clap_event_note_expression_t x; clap_event_param_value_t p; };
+  union
+  {
+    clap_event_header_t h;
+    clap_event_note_t n;
+    clap_event_note_expression_t x;
+    clap_event_param_value_t p;
+    clap_event_transport_t t;
+  };
 };
 struct EvList
 {
@@ -98,7 +125,7 @@ struct EvList
       return &((EvList *)l->ctx)->evs[i].h;
     };
   }
-  void note(uint16_t type, int key)
+  void note(uint16_t type, int key, double velocity = 1.0)
   {
     Ev e;
     std::memset(&e, 0, sizeof e);   // a union: zero every byte, not just the first member
@@ -107,7 +134,7 @@ struct EvList
     e.n.port_index = 0;
     e.n.channel = 0;
     e.n.key = (int16_t)key;
-    e.n.velocity = 1.0;
+    e.n.velocity = velocity;
     evs.push_back(e);
   }
   void expr(clap_note_expression id, int key, double v)
@@ -122,6 +149,15 @@ struct EvList
     e.x.channel = -1;
     e.x.key = (int16_t)key;
     e.x.value = v;
+    evs.push_back(e);
+  }
+  void tempo(double bpm)
+  {
+    Ev e;
+    std::memset(&e, 0, sizeof e);   // a union: zero every byte, not just the first member
+    e.t.header = {sizeof(clap_event_transport_t), 0, CLAP_CORE_EVENT_SPACE_ID, CLAP_EVENT_TRANSPORT, 0};
+    e.t.flags = CLAP_TRANSPORT_HAS_TEMPO;
+    e.t.tempo = bpm;
     evs.push_back(e);
   }
   void param(clap_id id, double v)
@@ -145,6 +181,18 @@ struct Render
   bool finite = true;       // every output sample and every voice phase
   int voices = 0;           // active note tags after the events
   bool gated60 = false;     // is any slot keyed to 60 still gated
+  double srcVel = 0;        // matrix source 14 after block 1
+};
+
+/* What a run adds to the common setup. `blockTempo` is the SECOND door a tempo
+   comes through: the block's own transport (clap_process.transport), which a
+   host fills every block, here from block 1 on. The first door is a transport
+   event (EvList::tempo). */
+struct RunOpt
+{
+  std::vector<std::pair<clap_id, double>> params;   // applied with the setup block
+  bool hasBlockTempo = false;
+  double blockTempo = 0;
 };
 
 /* B448 B1: what the shell's last-line output guard saw, summed over every run().
@@ -156,7 +204,7 @@ bool g_guardLatched = false;
 /* A fresh instance with Roundness and Saw Base at 0.5 — the condition under
    which the voice phase indexes the anchor tables — then `first` delivered in
    block 0 and `second` in block 1, then silence to kBlocks. */
-Render run(const EvList &first, const EvList &second)
+Render run(const EvList &first, const EvList &second, const RunOpt &opt = {})
 {
   auto *factory = (const clap_plugin_factory_t *)hypersaw_entry_get_factory(CLAP_PLUGIN_FACTORY_ID);
   const clap_plugin_t *p = factory->create_plugin(factory, &kHost, "com.lifted-truck.hypersaw");
@@ -177,6 +225,11 @@ Render run(const EvList &first, const EvList &second)
   EvList setup, b0 = first, b1 = second, none;
   setup.param(kRound, 0.5);
   setup.param(kSawBase, 0.5);
+  for (const auto &kv : opt.params) setup.param(kv.first, kv.second);
+  clap_event_transport_t tr{};
+  tr.header = {sizeof(clap_event_transport_t), 0, CLAP_CORE_EVENT_SPACE_ID, CLAP_EVENT_TRANSPORT, 0};
+  tr.flags = CLAP_TRANSPORT_HAS_TEMPO;
+  tr.tempo = opt.blockTempo;
   b0.list.ctx = &b0;
   b1.list.ctx = &b1;
   Render r;
@@ -184,6 +237,7 @@ Render run(const EvList &first, const EvList &second)
   for (int blk = -1; blk < kBlocks; blk++)
   {
     proc.in_events = blk == -1 ? &setup.list : blk == 0 ? &b0.list : blk == 1 ? &b1.list : &none.list;
+    proc.transport = opt.hasBlockTempo && blk >= 1 ? &tr : nullptr;
     p->process(p, &proc);
     if (blk < 0) continue;
     for (uint32_t i = 0; i < kBlock; i++)
@@ -195,6 +249,7 @@ Render run(const EvList &first, const EvList &second)
     const int n = hypersaw_debug_phases(p, 0, ph, 64);
     for (int i = 0; i < n; i++)
       if (!std::isfinite(ph[i])) r.finite = false;
+    if (blk == 1) r.srcVel = hypersaw_debug_modsrc(p, kSrcVelocity);
     if (blk == 1)
       for (int s = 0; s < hypersaw_test_poly(); s++)
       {
@@ -333,6 +388,102 @@ int main()
         "TUNING 7.25 (in range): takes effect, unclamped");
     const Render top = withExpr(CLAP_NOTE_EXPRESSION_TUNING, 127, 120.0, 127);
     row(top.finite, "EXPR", "key 127 at TUNING +120 (the extreme valid input): output finite");
+  }
+
+  /* ---- VEL (B455) ----------------------------------------------------------- */
+  {
+    RunOpt sub;
+    sub.params = {{kSubOn, 1.0}};   // the Sub Osc reads velocity too
+    auto strike = [&](double vel) {
+      EvList on;
+      on.note(CLAP_EVENT_NOTE_ON, 60, vel);
+      return run(on, empty, sub);
+    };
+    auto onHeld = [&](double vel) {   // a second NOTE_ON for the key block 0 struck
+      EvList on;
+      on.note(CLAP_EVENT_NOTE_ON, 60, vel);
+      return run(hold60, on, sub);
+    };
+    const Render full = strike(1.0), silent = run(empty, empty, sub), held0 = onHeld(0.0);
+    row(full.finite && full.voices == 1 && full.srcVel == 1.0 && full.out != silent.out, "VEL",
+        "baseline: velocity 1 strikes one voice, source 14 reads 1, the render is not silence");
+    row(held0.finite && !held0.gated60 && held0.out != full.out, "VEL",
+        "baseline: velocity 0 on a held key releases it (the meaning this site already gives it)");
+    const Render part = strike(0.6);
+    row(part.finite && part.voices == 1 && part.srcVel == 0.6 && part.out != full.out && part.out != silent.out,
+        "VEL", "velocity 0.6 (in range): strikes, source 14 reads 0.6 exactly, render != the velocity-1 render");
+    for (double v : {kNaN, kInf, -kInf, 0.0, -0.5})
+    {
+      const Render a = strike(v), b = onHeld(v);
+      row(a.finite && a.voices == 0 && a.srcVel == 0.0 && a.out == silent.out, "VEL",
+          "velocity " + num(v) + " on a fresh key: strikes nothing, source 14 stays 0, the render is silence");
+      row(b.finite && !b.gated60 && b.out == held0.out, "VEL",
+          "velocity " + num(v) + " on a held key: render == the velocity-0 render");
+    }
+    for (double v : {7.0, 1e300})
+    {
+      const Render r = strike(v);
+      row(r.finite && r.voices == 1 && r.srcVel == 1.0 && r.out == full.out, "VEL",
+          "velocity " + num(v) + ": renders exactly what velocity 1 renders, source 14 reads 1");
+    }
+  }
+
+  /* ---- TEMPO (B455) --------------------------------------------------------- */
+  {
+    for (double v : {kNaN, kInf, -kInf, 0.0, -97.0, 0.5, 1.0, 1e-310})
+      row(!hypersaw::hostTempoUsable(v), "TEMPO", "hostTempoUsable(" + num(v) + ") is false");
+    for (double v : {1.5, 20.0, 97.0, 120.0, 999.0, 1e300})
+      row(hypersaw::hostTempoUsable(v), "TEMPO", "hostTempoUsable(" + num(v) + ") is true");
+
+    /* The tempo-grid detune law is what reads the tempo in the oscillator, so
+       it is on for every render here. `firstBpm`, when given, is a valid tempo
+       delivered by event in block 0, ahead of the tempo under test. */
+    RunOpt grid;
+    grid.params = {{kLaw, 3.0}};
+    auto block0 = [&](double firstBpm) {
+      EvList on;
+      if (firstBpm != 0) on.tempo(firstBpm);
+      on.note(CLAP_EVENT_NOTE_ON, 60);
+      return on;
+    };
+    auto byEvent = [&](double bpm, double firstBpm = 0) {
+      EvList t;
+      t.tempo(bpm);
+      return run(block0(firstBpm), t, grid);
+    };
+    auto byBlock = [&](double bpm, double firstBpm = 0) {
+      RunOpt o = grid;
+      o.hasBlockTempo = true;
+      o.blockTempo = bpm;
+      return run(block0(firstBpm), empty, o);
+    };
+    const Render none = run(block0(0), empty, grid);     // no transport at all: the 120 default
+    const Render only97 = run(block0(97.0), empty, grid);   // 97 in block 0, nothing after
+    const Render e97 = byEvent(97.0), b97 = byBlock(97.0);
+    row(none.finite && none.voices == 1 && none.out != base.out, "TEMPO",
+        "baseline: the tempo-grid law renders finite, and differently from the default law");
+    row(e97.finite && e97.out != none.out && only97.finite && only97.out != none.out, "TEMPO",
+        "tempo 97 by event: takes effect (render != the no-transport render)");
+    row(b97.finite && b97.out == e97.out, "TEMPO",
+        "tempo 97 by the block's transport: the same render as by event");
+    row(byEvent(120.0).out == none.out && byBlock(120.0).out == none.out, "TEMPO",
+        "tempo 120 sent by either door: render == the no-transport render (120 is the default)");
+    for (double v : {kNaN, kInf, -kInf, 0.0, -97.0, 1.0, 1e-310})
+    {
+      const Render e = byEvent(v), b = byBlock(v);
+      row(e.finite && e.out == none.out, "TEMPO",
+          "tempo " + num(v) + " by event: ignored (render == the no-transport render)");
+      row(b.finite && b.out == none.out, "TEMPO",
+          "tempo " + num(v) + " by the block's transport: ignored (render == the no-transport render)");
+      const Render ek = byEvent(v, 97.0), bk = byBlock(v, 97.0);
+      row(ek.finite && bk.finite && ek.out == only97.out && bk.out == only97.out, "TEMPO",
+          "tempo " + num(v) + " after 97, either door: 97 is kept (render == the 97-only render)");
+    }
+    {
+      const Render e = byEvent(1e300), b = byBlock(1e300);
+      row(e.finite && b.finite && e.out == b.out && e.out != none.out, "TEMPO",
+          "tempo 1e+300, either door: taken as sent (no upper bound is defined), renders finite");
+    }
   }
 
   /* ---- LATCH (B448 B1) ------------------------------------------------------ */

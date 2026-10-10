@@ -8976,6 +8976,21 @@ struct Plugin
     }
   }
 
+  /* B455: the host's tempo, checked at the one place it enters. Both doors
+     call this: the block's transport (process) and a transport event
+     (handleEvent). A tempo that is not usable (hypersaw::hostTempoUsable: not
+     finite, or at or below the 1 BPM floor the tempo's readers already apply)
+     is treated as the host providing none, so the tempo keeps its last usable
+     value, which is the 120 default (swarm_core.h Params) until a usable one
+     arrives. Kept rather than reset to 120: one unusable transport between two
+     good ones must not move a playing patch to another tempo and back. A
+     usable tempo is stored exactly as sent. */
+  void takeHostTempo(const clap_event_transport_t *tr)
+  {
+    if ((tr->flags & CLAP_TRANSPORT_HAS_TEMPO) && hypersaw::hostTempoUsable(tr->tempo))
+      core.p.bpm = tr->tempo;
+  }
+
   void handleEvent(const clap_event_header_t *ev)
   {
     if (ev->space_id != CLAP_CORE_EVENT_SPACE_ID) return;
@@ -8998,7 +9013,16 @@ struct Plugin
         // synth ignores velocity, so without the remap such a release struck
         // a fresh full-gain voice that no note-off ever ends — the
         // 2026-07-18 "doesn't stop when you let go" hang.
-        if (n->velocity <= 0.0)
+        /* B455: the velocity is checked HERE, the one place it enters, like
+           the expression values below. A finite value is clamped to CLAP's
+           documented range (clap/events.h: "velocity; // 0..1", the bounds
+           PRESSURE takes below); a value that is not finite is not a
+           velocity, and takes the path this site already gives 0 and below.
+           Every reader after this line takes `vel`, never n->velocity, so the
+           voice gain, the sub, the note tag and matrix source 14 agree. A
+           velocity in (0, 1] passes through exactly. */
+        double vel = 0;
+        if (!hypersaw::finiteClamp(n->velocity, 0.0, 1.0, vel) || vel <= 0.0)
         {
           handleNoteOff(n);
           break;
@@ -9017,7 +9041,7 @@ struct Plugin
           // SOURCE beside them, not a feature of the swarm, so a sub that went
           // silent when the engine selector moved would be a source that exists
           // only in one mode — with nothing saying so.
-          subNoteOn(slot, n->key, n->velocity);
+          subNoteOn(slot, n->key, vel);
           retireTag(slot);
           lastNoteKey = n->key;
           // ADR-162: this slot's pitch envelope restarts (from its current
@@ -9025,8 +9049,8 @@ struct Plugin
           // is cleared with it — the core just reset this voice's noteTune.
           penv[slot].retrig = true;
           resetNoteExpr(slot);
-          tags[slot] = {n->note_id, n->port_index, n->channel, n->key, true, (float)n->velocity};
-          srcVel = n->velocity;   // ADR-149: matrix source 14
+          tags[slot] = {n->note_id, n->port_index, n->channel, n->key, true, (float)vel};
+          srcVel = vel;   // ADR-149: matrix source 14
           break;
         }
         int struck;
@@ -9107,13 +9131,13 @@ struct Plugin
             if (monoSlot >= 0 && core.voiceAt(monoSlot).gate)
               noteOffAll(core.voiceAt(monoSlot).midi);
             monoSlot = core.noteOn(n->key, freq);
-            core.setNoteVelocity(monoSlot, n->velocity);
-            subNoteOn(monoSlot, n->key, n->velocity);   // B172
+            core.setNoteVelocity(monoSlot, vel);
+            subNoteOn(monoSlot, n->key, vel);   // B172
             bindSlots(monoSlot, 0, monoSlot);
             for (uint32_t k = 1; k < kNumOsc; k++)
             {
               const int sk = cores[k].noteOn(n->key, freq);
-              cores[k].setNoteVelocity(sk, n->velocity);
+              cores[k].setNoteVelocity(sk, vel);
               bindSlots(monoSlot, k, sk);   // sk may differ from monoSlot
             }
           }
@@ -9124,19 +9148,19 @@ struct Plugin
           // is cleared with it — the core just reset this voice's noteTune.
           penv[monoSlot].retrig = true;
           resetNoteExpr(monoSlot);
-          tags[monoSlot] = {n->note_id, n->port_index, n->channel, n->key, true, (float)n->velocity};
+          tags[monoSlot] = {n->note_id, n->port_index, n->channel, n->key, true, (float)vel};
           struck = monoSlot;
         }
         else
         {
           const int slot = core.noteOn(n->key, freq);
-          core.setNoteVelocity(slot, n->velocity);
-          subNoteOn(slot, n->key, n->velocity);   // B172
+          core.setNoteVelocity(slot, vel);
+          subNoteOn(slot, n->key, vel);   // B172
           bindSlots(slot, 0, slot);
           for (uint32_t k = 1; k < kNumOsc; k++)
           {
             const int sk = cores[k].noteOn(n->key, freq);
-            cores[k].setNoteVelocity(sk, n->velocity);
+            cores[k].setNoteVelocity(sk, vel);
             bindSlots(slot, k, sk);   // sk may differ from slot
           }
           retireTag(slot);
@@ -9146,8 +9170,8 @@ struct Plugin
           // is cleared with it — the core just reset this voice's noteTune.
           penv[slot].retrig = true;
           resetNoteExpr(slot);
-          tags[slot] = {n->note_id, n->port_index, n->channel, n->key, true, (float)n->velocity};
-          srcVel = n->velocity;   // ADR-149: matrix source 14
+          tags[slot] = {n->note_id, n->port_index, n->channel, n->key, true, (float)vel};
+          srcVel = vel;   // ADR-149: matrix source 14
           struck = slot;
         }
         // ADR-038: a fresh strike resets noteTune (ADR-036), so re-apply the
@@ -9266,7 +9290,7 @@ struct Plugin
       case CLAP_EVENT_TRANSPORT:
       {
         auto *tr = reinterpret_cast<const clap_event_transport_t *>(ev);
-        if (tr->flags & CLAP_TRANSPORT_HAS_TEMPO) core.p.bpm = tr->tempo;
+        takeHostTempo(tr);
         break;
       }
       default:
@@ -9533,8 +9557,7 @@ struct Plugin
     }
     // Host tempo drives the grid law (ADR-022); fallback stays at the last
     // known (or default 120) when the host provides none.
-    if (p->transport && (p->transport->flags & CLAP_TRANSPORT_HAS_TEMPO))
-      core.p.bpm = p->transport->tempo;
+    if (p->transport) takeHostTempo(p->transport);
 
     replayDeferred();   // events (and a reset) that arrived while a direct sequence owned the state
     panicPerformRequested();   // before the drain: the click came before any later edit
