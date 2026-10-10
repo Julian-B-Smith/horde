@@ -2570,6 +2570,9 @@ struct Plugin
   std::atomic<uint32_t> scopePos[kMaxOsc] = {};
   uint32_t guiW = 980, guiH = 720;  // resizable (clamped in gui_adjust_size)
   std::atomic<bool> processing{false};
+  /* Set while the host's last activate() was refused, cleared by the next one
+     that is taken. Written on the main thread, read by process(). */
+  std::atomic<bool> activationRefused{false};
   /* WHO OWNS THE STATE FOR A MAIN-THREAD WRITE SEQUENCE (a load, PANIC, a
      mod-route verb). The rule: while processing, the audio thread is the only
      writer, and main-thread writes travel as queue entries or requests; while
@@ -2678,7 +2681,8 @@ struct Plugin
   alignas(8) unsigned char deferBuf[kDeferBytes] = {};
   uint32_t deferUsed = 0;
   /* Host events the shell did not take: no room here, or (deferred or live,
-     handleEvent) an absent event or one smaller than its type's struct. */
+     handleEvent) an absent event, one smaller than its type's struct, or a
+     MIDI message whose data byte is not 7 bits. */
   std::atomic<uint32_t> deferDropped{0};
   /* A reset that arrived while the state was owned, and WHERE in the deferred
      events it arrived: the events before it are replayed, then the reset, then
@@ -6013,7 +6017,8 @@ struct Plugin
       // pitch: "stuck for longer than it should, most when I've recently
       // changed the K value" (human, 2026-08-03). Survivors are compacted and
       // retried next block.
-      if (out->try_push(out, &ev.header)) continue;
+      // No list at all is the same refusal (B455): the end stays pending.
+      if (out && out->try_push(out, &ev.header)) continue;
       pendingEnds[kept++] = pendingEnds[k];
     }
     pendingEndCount = kept;
@@ -6066,7 +6071,7 @@ struct Plugin
       // Same rule: only retire the tag once the host has ACCEPTED the end.
       // A rejected push leaves the tag active so the next block tries again —
       // the note is resolved late rather than never.
-      if (out->try_push(out, &ev.header)) tags[i].active = false;
+      if (out && out->try_push(out, &ev.header)) tags[i].active = false;
     }
   }
 
@@ -9263,17 +9268,26 @@ struct Plugin
         // Channel 1 (index 0) is excluded: see mpeBendSemis.
         auto *m = reinterpret_cast<const clap_event_midi_t *>(ev);
         const int ch = m->data[0] & 0x0F;
-        /* B455: a MIDI data byte is 7 bits. Both are masked HERE, where they
-           are read, so every reader below works in 0..127: the sources stay in
-           0..1 and the 14-bit bend in 0..16383. A well-formed byte is unchanged. */
-        const int d1 = m->data[1] & 0x7F, d2 = m->data[2] & 0x7F;
+        const int status = m->data[0] & 0xF0;
+        if (status != 0xB0 && status != 0xD0 && status != 0xE0) break;   // nothing else is read here
+        /* B455: a MIDI data byte is 7 bits. A message read here whose data
+           byte has the top bit set is not that message: it is DROPPED and
+           counted, the rule a NOTE_ON's velocity follows above — not masked,
+           which would turn it into a different, well-formed message. Channel
+           pressure has ONE data byte, so its third byte is not asked. */
+        if ((m->data[1] & 0x80) || (status != 0xD0 && (m->data[2] & 0x80)))
+        {
+          deferDropped.fetch_add(1, std::memory_order_relaxed);
+          break;
+        }
+        const int d1 = m->data[1], d2 = m->data[2];
         /* ADR-149: CC1 and channel pressure were DROPPED here until now — the
            handler read only 0xE0. They become matrix sources 15 and 16. */
-        if ((m->data[0] & 0xF0) == 0xB0 && d1 == 1)
+        if (status == 0xB0 && d1 == 1)
         { srcWheel = d2 / 127.0; break; }
-        if ((m->data[0] & 0xF0) == 0xD0)
+        if (status == 0xD0)
         { srcPress = d1 / 127.0; break; }
-        if ((m->data[0] & 0xF0) != 0xE0) break;
+        if (status != 0xE0) break;
         const int v14 = d1 | (d2 << 7);
         if (ch == 0)
         {
@@ -9559,6 +9573,18 @@ struct Plugin
     }
   }
 
+  /* Zeroes every output channel the host handed over that has a 32-bit
+     buffer, and asks before each read: a missing list, a missing buffer
+     array and a missing channel are each passed over. */
+  static void silenceOutputs(const clap_process_t *p)
+  {
+    if (!p->audio_outputs) return;
+    for (uint32_t o = 0; o < p->audio_outputs_count; o++)
+      for (uint32_t c = 0; c < p->audio_outputs[o].channel_count; c++)
+        if (p->audio_outputs[o].data32 && p->audio_outputs[o].data32[c])
+          std::fill(p->audio_outputs[o].data32[c], p->audio_outputs[o].data32[c] + p->frames_count, 0.0f);
+  }
+
   clap_process_status process(const clap_process_t *p)
   {
     /* A main-thread sequence that began while not processing owns the state
@@ -9568,11 +9594,17 @@ struct Plugin
     if (mainDirect.load(std::memory_order_seq_cst))
     {
       deferEvents(p->in_events);   // replayed at the head of the next block
-      for (uint32_t o = 0; o < p->audio_outputs_count; o++)
-        for (uint32_t c = 0; c < p->audio_outputs[o].channel_count; c++)
-          if (p->audio_outputs[o].data32 && p->audio_outputs[o].data32[c])
-            std::fill(p->audio_outputs[o].data32[c], p->audio_outputs[o].data32[c] + p->frames_count, 0.0f);
+      silenceOutputs(p);
       return CLAP_PROCESS_CONTINUE;
+    }
+    /* B455: the last activation was REFUSED (plug_activate), so the cores were
+       not rebuilt for the rate the host is now running at. A host that
+       processes anyway gets silence and nothing is touched: rendering here
+       would be rendering at whatever rate the cores were last built for. */
+    if (activationRefused.load(std::memory_order_acquire))
+    {
+      silenceOutputs(p);
+      return CLAP_PROCESS_ERROR;
     }
     // Host tempo drives the grid law (ADR-022); fallback stays at the last
     // known (or default 120) when the host provides none.
@@ -9589,10 +9621,16 @@ struct Plugin
        processes without activating, or that exceeds its own declared maximum.
        B455: the same refusal for a block with nowhere to render — no output
        bus, fewer than the two channels the port declares (aports_get), or a
-       channel with no 32-bit buffer. Asked before the first buffer is read. */
+       channel with no 32-bit buffer. Asked before the first buffer is read.
+       The block's events are not handled here and not dropped either: they
+       are kept for the head of the next block that renders (deferEvents), for
+       the reason an owned block keeps its own — a host sends a note-off once. */
     const clap_audio_buffer_t *ob = p->audio_outputs_count >= 1 ? p->audio_outputs : nullptr;
     if (nframes > kSrcBufFrames || !ob || ob->channel_count < 2 || !ob->data32 || !ob->data32[0] || !ob->data32[1])
+    {
+      deferEvents(p->in_events);
       return CLAP_PROCESS_ERROR;
+    }
     float *outL = ob->data32[0];
     float *outR = ob->data32[1];
     /* Sources 1.. start the block SILENT. Zeroing here rather than at each
@@ -9859,12 +9897,13 @@ bool plug_activate(const clap_plugin_t *p, double sr, uint32_t, uint32_t maxFram
      is the documented outcome, rather than discovered mid-block. The ceiling is
      ~0.74 s at 44.1 kHz; the argument was unused until this increment gave the
      shell something that depends on it. */
-  if (maxFrames > Plugin::kSrcBufFrames) return false;
-  /* B455: the rate is the host's, and everything below divides by it or sizes
-     a buffer from it. A value that is not a rate the shell runs at is refused
-     the same way, before anything is rebuilt, so the instance stays as it was
-     (input_guards.h says where the range comes from). */
-  if (!hypersaw::hostSampleRateUsable(sr)) return false;
+  /* B455: a value that cannot be a sample rate is refused the same way
+     (input_guards.h hostSampleRateUsable). Either refusal comes before
+     anything is rebuilt, and is remembered: process() renders silence until
+     an activation is taken. */
+  const bool taken = maxFrames <= Plugin::kSrcBufFrames && hypersaw::hostSampleRateUsable(sr);
+  pl->activationRefused.store(!taken, std::memory_order_release);
+  if (!taken) return false;
   pl->sampleRate = sr;
   // Recreate the core at the host rate, preserving params (constructor cost
   // is trivial; activate is main-thread and never concurrent with process).

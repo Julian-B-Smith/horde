@@ -57,21 +57,29 @@
  *            size is refused too (the row a sanitizer build reads). A flush
  *            takes its valid value and refuses the two beside it; a flush with
  *            no list at all does nothing.
- *   RATE     (B455) the sample rate is checked at activate: 0, a negative,
- *            NaN, the infinities, 1e12, and one step outside either end of the
- *            range are refused (activate returns false) and leave the instance
- *            as it was, so the 44.1 kHz render after a refusal equals the
- *            render with none; the ends of the range and the usual rates
- *            activate and render a note, finite. hostSampleRateUsable is
- *            tabled directly.
+ *   RATE     (B455) the sample rate is checked at activate against the two
+ *            bounds in input_guards.h (read from the header, never restated
+ *            here): 0, a negative, NaN, the infinities, far past the upper
+ *            bound, half the lower one, and one step outside either bound are
+ *            refused (activate returns false) and leave the instance as it
+ *            was; the bounds and the usual rates inside them activate and
+ *            render a note, finite. An instance whose activation was refused
+ *            and which is processed anyway renders exact silence, fresh or
+ *            holding a sounding note, and plays again once an activation is
+ *            taken. hostSampleRateUsable is tabled directly.
  *   OUT      (B455) a block with nowhere to render — a null channel, no 32-bit
  *            buffers, one channel, no bus — is refused (CLAP_PROCESS_ERROR),
  *            writes nothing, and the blocks after it render exactly what they
- *            render when no such block was sent.
- *   MIDI     (B455) a MIDI data byte is read as 7 bits: CC1, channel pressure
- *            and pitch bend (wheel and member-channel) sent with the top bit
- *            set read exactly as the same bytes without it; the in-range rows
- *            show each reaches its reader, so the equalities are not blind.
+ *            render when no such block was sent. Its events are kept: a
+ *            NOTE_OFF sent in it ends the note at the next block that renders.
+ *            With no out-event list a note end stays pending and is sent when
+ *            a list is back. A block processed while a load owns the state is
+ *            silence, with or without an output list to write it to.
+ *   MIDI     (B455) a MIDI data byte is 7 bits: CC1, channel pressure and
+ *            pitch bend (wheel and member-channel) with the top bit set in a
+ *            data byte, a CC number byte included, are dropped and counted;
+ *            the in-range rows show each reaches its reader, and the controls
+ *            show a byte that is not one of the message's is not asked.
  *   Every render also checks the oscillator's voice phases are finite.
  *   LATCH    (B448 B1) every run above left the output guard a count of 0 (finite
  *            output cannot tell "stopped at the boundary" from "repaired at the
@@ -122,11 +130,33 @@ void row(bool ok, const char *tag, const std::string &what)
   if (!ok) g_fail++;
 }
 
-const void *host_get_extension(const clap_host_t *, const char *) { return nullptr; }
+/* The host. It offers the params extension only for request_flush, which the
+   shell calls synchronously on a load's first enqueue: the seam the OUT rows
+   use to process a block while a load owns the state. */
+void (*g_onFlush)() = nullptr;   // run ONCE, on the next request_flush, then cleared
+int g_noteEnds = 0;              // NOTE_END events the plugin pushed
+void hp_rescan(const clap_host_t *, clap_param_rescan_flags) {}
+void hp_clear(const clap_host_t *, clap_id, clap_param_clear_flags) {}
+void hp_request_flush(const clap_host_t *)
+{
+  if (!g_onFlush) return;
+  void (*f)() = g_onFlush;
+  g_onFlush = nullptr;
+  f();
+}
+const clap_host_params_t kHostParams = {hp_rescan, hp_clear, hp_request_flush};
+const void *host_get_extension(const clap_host_t *, const char *id)
+{
+  return std::strcmp(id, CLAP_EXT_PARAMS) == 0 ? &kHostParams : nullptr;
+}
 void host_noop(const clap_host_t *) {}
 const clap_host_t kHost = {CLAP_VERSION, nullptr, "hostile_events_check", "", "", "1.0",
                            host_get_extension, host_noop, host_noop, host_noop};
-bool oev_try_push(const clap_output_events_t *, const clap_event_header_t *) { return true; }
+bool oev_try_push(const clap_output_events_t *, const clap_event_header_t *e)
+{
+  if (e->type == CLAP_EVENT_NOTE_END) g_noteEnds++;
+  return true;
+}
 const clap_output_events_t kOut = {nullptr, oev_try_push};
 
 /* One block's events, in delivery order (all at time 0, which is legal: CLAP
@@ -348,6 +378,115 @@ Render run(const EvList &first, const EvList &second, const RunOpt &opt = {})
   p->deactivate(p);
   p->destroy(p);
   return r;
+}
+
+// What a row fills a buffer with before a block, to see whether the block wrote it.
+const float kMark = 0.5f;
+
+/* One instance driven block by block, for the rows that need more than run()'s
+   fixed schedule: its own activation, blocks with other buffers or no event
+   lists, and reads between blocks. The output guard's counters join the LATCH
+   row's sum when it goes. */
+struct Rig
+{
+  const clap_plugin_t *p = nullptr;
+  bool activated = false;
+  std::vector<float> L = std::vector<float>(kBlock), R = std::vector<float>(kBlock);
+  float *chans[2] = {nullptr, nullptr};
+  clap_audio_buffer_t ob{};
+  clap_process_t proc{};
+  std::vector<float> out;   // every block rendered through block(), interleaved
+  bool finite = true;
+  EvList none;
+
+  explicit Rig(double rate = kSR, uint32_t maxFrames = kBlock)
+  {
+    auto *factory = (const clap_plugin_factory_t *)hypersaw_entry_get_factory(CLAP_PLUGIN_FACTORY_ID);
+    p = factory->create_plugin(factory, &kHost, "com.lifted-truck.hypersaw");
+    p->init(p);
+    activated = p->activate(p, rate, 32, maxFrames);
+    plainBuffers();
+    proc.frames_count = kBlock;
+    proc.out_events = &kOut;
+  }
+  Rig(const Rig &) = delete;
+  Rig &operator=(const Rig &) = delete;
+  ~Rig()
+  {
+    g_guardSamples += hypersaw_test_nonfinite_samples(p);
+    g_guardLatched = g_guardLatched || hypersaw_test_nonfinite_latched(p);
+    p->stop_processing(p);
+    p->deactivate(p);
+    p->destroy(p);
+  }
+  void plainBuffers()
+  {
+    chans[0] = L.data();
+    chans[1] = R.data();
+    ob.data32 = chans;
+    ob.channel_count = 2;
+    proc.audio_outputs = &ob;
+    proc.audio_outputs_count = 1;
+  }
+  void mark(float v)
+  {
+    std::fill(L.begin(), L.end(), v);
+    std::fill(R.begin(), R.end(), v);
+  }
+  bool holds(float v) const
+  {
+    for (uint32_t i = 0; i < kBlock; i++)
+      if (L[i] != v || R[i] != v) return false;
+    return true;
+  }
+  // One block as the fields stand; a rendered block's samples join `out`.
+  clap_process_status block(const EvList &ev, bool keep = true)
+  {
+    proc.in_events = &ev.list;
+    const clap_process_status st = p->process(p, &proc);
+    for (uint32_t i = 0; keep && i < kBlock; i++)
+    {
+      out.push_back(L[i]);
+      out.push_back(R[i]);
+      if (!std::isfinite(L[i]) || !std::isfinite(R[i])) finite = false;
+    }
+    return st;
+  }
+  bool gated(int key) const
+  {
+    for (int s = 0; s < hypersaw_test_poly(); s++)
+    {
+      int16_t k = 0;
+      if (hypersaw_test_tag_at(p, s, nullptr, nullptr, nullptr, &k) && k == key && hypersaw_test_slot_gated(p, s))
+        return true;
+    }
+    return false;
+  }
+  bool sounds() const
+  {
+    for (float v : out)
+      if (v != 0.0f) return true;
+    return false;
+  }
+};
+
+// The block the OWNED rows process from inside a load (the request_flush seam).
+Rig *g_ownedRig = nullptr;
+int g_ownedShape = 0;   // 0 plain buffers, 1 no output list (count 1), 2 no 32-bit buffers
+bool g_ownedSilent = false;
+void ownedBlock()
+{
+  Rig &r = *g_ownedRig;
+  r.p->start_processing(r.p);
+  EvList on;
+  on.note(CLAP_EVENT_NOTE_ON, 60);
+  r.plainBuffers();
+  r.mark(kMark);
+  if (g_ownedShape == 1) r.proc.audio_outputs = nullptr;
+  if (g_ownedShape == 2) r.ob.data32 = nullptr;
+  r.block(on, /*keep=*/false);
+  g_ownedSilent = g_ownedShape == 0 ? r.holds(0.0f) : r.holds(kMark);   // zeroed, or (nowhere to write) untouched
+  r.plainBuffers();
 }
 
 bool coreRendersNonFinite(double freq, double tuneSemis)
@@ -663,13 +802,19 @@ int main()
 
   /* ---- RATE (B455) ---------------------------------------------------------- */
   {
+    /* Every rate here is derived from the two bounds in input_guards.h, so the
+       rows follow the bounds and pin no number of their own. */
     const double lo = hypersaw::kHostSampleRateMin, hi = hypersaw::kHostSampleRateMax;
     const double under = std::nextafter(lo, 0.0), over = std::nextafter(hi, kInf);
-    const std::vector<double> refusedRates = {0.0, -44100.0, kNaN, kInf, -kInf, 1e12, 1e300, 1.0, 5e-324, under, over};
-    const std::vector<double> takenRates = {lo, 22050.0, 44100.0, 48000.0, 88200.0, 96000.0, 176400.0, hi};
-    auto rate = [&](double v) {   // %g prints the two neighbours as the ends themselves
+    const std::vector<double> refusedRates = {0.0, -kSR, kNaN, kInf, -kInf, hi * 1000, lo / 2, 5e-324, under, over};
+    std::vector<double> takenRates = {lo, hi};
+    for (double usual : {22050.0, 44100.0, 48000.0, 88200.0, 96000.0, 176400.0, 192000.0, 384000.0})
+      if (hypersaw::hostSampleRateUsable(usual) && usual != lo && usual != hi) takenRates.push_back(usual);
+    auto rate = [&](double v) {   // %g prints the two neighbours as the bounds themselves
       return v == under ? "one step under " + num(lo) : v == over ? "one step over " + num(hi) : num(v);
     };
+    row(lo > 0.0 && lo < kSR && kSR < hi && takenRates.size() > 2, "RATE",
+        "the bounds are " + num(lo) + " and " + num(hi) + " Hz (input_guards.h); " + num(kSR) + " is inside them");
     for (double v : refusedRates)
       row(!hypersaw::hostSampleRateUsable(v), "RATE", "hostSampleRateUsable(" + rate(v) + ") is false");
     for (double v : takenRates)
@@ -682,7 +827,7 @@ int main()
       const Render r = run(hold60, empty, o);
       row(r.firstRefused && r.activated && r.finite && r.out == base.out, "RATE",
           "activate at " + rate(v) + ": refused (" + (r.firstRefused ? "false" : "TRUE") +
-              "), and the 44.1 kHz render after it == the render with no refusal");
+              "), and the render after a taken activation == the render with no refusal");
       RunOpt only;
       only.hasRate = true;
       only.sampleRate = v;
@@ -699,6 +844,53 @@ int main()
       row(r.activated && r.finite && r.voices == 1 && r.out != quiet.out && quiet.out == silent.out, "RATE",
           "activate at " + rate(v) + ": taken, key 60 strikes one voice, the render is finite and not silence");
     }
+
+    /* A REFUSED ACTIVATION, THEN process() ANYWAY (a host or wrapper that does
+       not read activate's result). The cores were not rebuilt for the rate the
+       host is running at, so the blocks are silence: the buffers are written
+       with zeros, whatever is sent. `soundFirst`: the instance was activated
+       properly and holds a sounding note when the refused activation comes. */
+    auto refusedThenProcess = [&](double badRate, uint32_t maxFrames, bool soundFirst, const std::string &what) {
+      Rig g(soundFirst ? kSR : badRate, soundFirst ? kBlock : maxFrames);
+      EvList on;
+      on.note(CLAP_EVENT_NOTE_ON, 60);
+      bool sounded = true, refused = !g.activated;
+      if (soundFirst)
+      {
+        g.p->start_processing(g.p);
+        g.block(on);
+        g.block(g.none);
+        sounded = g.sounds();
+        g.p->stop_processing(g.p);
+        g.p->deactivate(g.p);
+        refused = !g.p->activate(g.p, badRate, 32, maxFrames);
+      }
+      g.p->start_processing(g.p);
+      bool zeroed = true;
+      int errors = 0;
+      for (int b = 0; b < 6; b++)
+      {
+        g.mark(kMark);
+        if (g.block(b == 0 ? on : g.none, /*keep=*/false) == CLAP_PROCESS_ERROR) errors++;
+        zeroed = zeroed && g.holds(0.0f);
+      }
+      g.p->stop_processing(g.p);
+      // ...and a taken activation afterwards plays again.
+      const bool taken = g.p->activate(g.p, kSR, 32, kBlock);
+      g.p->start_processing(g.p);
+      g.out.clear();
+      g.block(on);
+      g.block(g.none);
+      row(refused && sounded && zeroed && errors == 6 && taken && g.sounds() && g.finite, "RATE",
+          what + ": refused, then 6 blocks processed anyway are exact silence (" + std::to_string(errors) +
+              " refused with CLAP_PROCESS_ERROR); a taken activation afterwards renders a note, finite");
+    };
+    for (double v : {0.0, kNaN, under, over})
+    {
+      refusedThenProcess(v, kBlock, false, "a fresh instance, activate at " + rate(v));
+      refusedThenProcess(v, kBlock, true, "an instance holding a sounding note, re-activated at " + rate(v));
+    }
+    refusedThenProcess(kSR, 1u << 30, true, "an instance holding a sounding note, re-activated with a block size past the ceiling");
   }
 
   /* ---- OUT (B455) ----------------------------------------------------------- */
@@ -782,6 +974,105 @@ int main()
         "the plain blocks around the refused ones render exactly what they render without them");
   }
 
+  /* ---- OUT, continued: a refused block keeps its events; no out-event list;
+          an owned block with nowhere to write (B455) ----------------------- */
+  {
+    EvList on, off;
+    on.note(CLAP_EVENT_NOTE_ON, 60);
+    off.note(CLAP_EVENT_NOTE_OFF, 60);
+
+    /* The NOTE_OFF rides a block refused for its buffers. It must end the note
+       at the next block that renders, exactly as if it had been sent there. */
+    {
+      Rig ref;
+      ref.p->start_processing(ref.p);
+      ref.block(on);
+      ref.block(off);
+      const bool refGated = ref.gated(60);
+      for (int b = 0; b < 3; b++) ref.block(ref.none);
+
+      Rig g;
+      g.p->start_processing(g.p);
+      g.block(on);
+      const bool heldBefore = g.gated(60);
+      g.chans[1] = nullptr;
+      const clap_process_status st = g.block(off, /*keep=*/false);
+      const bool heldInside = g.gated(60);
+      g.plainBuffers();
+      g.block(g.none);
+      const bool heldAfter = g.gated(60);
+      for (int b = 0; b < 3; b++) g.block(g.none);
+      row(st == CLAP_PROCESS_ERROR && heldBefore && heldInside && !heldAfter && !refGated && refusedEvents(g.p) == 0 &&
+              g.finite && g.out == ref.out,
+          "OUT", std::string("a NOTE_OFF sent in a refused block: the note is held through it (") +
+                     (heldInside ? "yes" : "NO") + "), released at the next block that renders (" +
+                     (heldAfter ? "NO" : "yes") + "), 0 events refused, and the render == the render with the " +
+                     "NOTE_OFF sent in that next block");
+    }
+
+    /* No out-event list. A note end has nowhere to go, so it stays pending and
+       is sent when a list is there again; nothing else differs. Two places
+       hold an owed end: the note's own tag (a note struck and released), and
+       the retired-tag list (`steal`: one key more than there are voices, so a
+       sounding note's tag is retired while its end is still owed). */
+    {
+      auto session = [&](bool steal, bool withoutList, int *endsWhileAbsent, int *endsAfter) {
+        Rig g;
+        g.p->start_processing(g.p);
+        g_noteEnds = 0;
+        if (withoutList) g.proc.out_events = nullptr;
+        EvList many;
+        for (int k = 0; k <= hypersaw_test_poly(); k++) many.note(CLAP_EVENT_NOTE_ON, 36 + k);
+        g.block(steal ? many : on);
+        g.block(steal ? g.none : off);
+        for (int b = 0; b < 4; b++) g.block(g.none);
+        *endsWhileAbsent = g_noteEnds;
+        g.proc.out_events = &kOut;
+        for (int b = 0; b < 4; b++) g.block(g.none);
+        *endsAfter = g_noteEnds;
+        return std::make_pair(g.out, g.finite);
+      };
+      for (bool steal : {false, true})
+      {
+        int a0 = 0, a1 = 0, b0 = 0, b1 = 0;
+        const auto with = session(steal, false, &a0, &a1), without = session(steal, true, &b0, &b1);
+        const std::string what = steal ? "one key more than there are voices" : "a note struck and released";
+        row(a0 == 1 && a1 == 1 && with.second, "OUT", "baseline, " + what + ": with an out-event list, one NOTE_END (" +
+                                                          std::to_string(a1) + ")");
+        row(b0 == 0 && b1 == 1 && without.second && without.first == with.first, "OUT",
+            what + ", six blocks with NO out-event list: " + std::to_string(b0) + " NOTE_END sent meanwhile, " +
+                std::to_string(b1) + " once a list is back, and the render == the baseline");
+      }
+    }
+
+    /* A block processed while a load owns the state is silence. Its buffers
+       are asked for one by one, the list included. */
+    {
+      static char json[1 << 17];
+      {
+        Rig src;
+        hypersaw_debug_state(src.p, json, sizeof json);
+      }
+      static const char *const kShape[] = {"plain buffers", "no output list (count 1)", "no 32-bit buffers"};
+      for (int shape = 0; shape < 3; shape++)
+      {
+        Rig g;
+        g_ownedRig = &g;
+        g_ownedShape = shape;
+        g_ownedSilent = false;
+        g_onFlush = ownedBlock;
+        const bool applied = hypersaw_debug_apply(g.p, json);
+        const bool ran = g_onFlush == nullptr;   // the seam fired: the block ran inside the load
+        g_onFlush = nullptr;
+        for (int b = 0; b < 4; b++) g.block(g.none);
+        row(applied && ran && g_ownedSilent && g.finite && g.sounds() && refusedEvents(g.p) == 0, "OUT",
+            std::string("a block inside a load, ") + kShape[shape] + ": " +
+                (shape == 0 ? "written with zeros" : "nothing written, nothing read") +
+                "; its NOTE_ON plays in the blocks after the load");
+      }
+    }
+  }
+
   /* ---- MIDI (B455) ---------------------------------------------------------- */
   {
     auto sent = [&](int status, int d1, int d2, int noteChannel = 0) {
@@ -790,26 +1081,57 @@ int main()
       m.midi(status, d1, d2);
       return run(on, m);
     };
-    const Render w7f = sent(0xB0, 1, 0x7F), wFF = sent(0xB0, 1, 0xFF), w40 = sent(0xB0, 1, 0x40), wC0 = sent(0xB0, 1, 0xC0);
-    row(w7f.finite && w7f.srcWheel > base.srcWheel && w40.srcWheel > base.srcWheel && w40.srcWheel < w7f.srcWheel, "MIDI",
-        "CC1 at 0x40 and 0x7F: source 15 reads " + num(w40.srcWheel) + " and " + num(w7f.srcWheel) + " (in range, and they differ)");
-    row(wFF.finite && wFF.srcWheel == w7f.srcWheel && wC0.srcWheel == w40.srcWheel, "MIDI",
-        "CC1 at 0xFF and 0xC0: source 15 reads " + num(wFF.srcWheel) + " and " + num(wC0.srcWheel) +
-            ", exactly the 0x7F and 0x40 readings");
-    const Render p7f = sent(0xD0, 0x7F, 0), pFF = sent(0xD0, 0xFF, 0), p40 = sent(0xD0, 0x40, 0), pC0 = sent(0xD0, 0xC0, 0);
-    row(p7f.finite && p7f.srcPress > base.srcPress && p40.srcPress > base.srcPress && p40.srcPress < p7f.srcPress, "MIDI",
-        "channel pressure at 0x40 and 0x7F: source 16 reads " + num(p40.srcPress) + " and " + num(p7f.srcPress));
-    row(pFF.finite && pFF.srcPress == p7f.srcPress && pC0.srcPress == p40.srcPress, "MIDI",
-        "channel pressure at 0xFF and 0xC0: source 16 reads " + num(pFF.srcPress) + " and " + num(pC0.srcPress) +
-            ", exactly the 0x7F and 0x40 readings");
-    const Render b7f = sent(0xE0, 0x7F, 0x7F), bFF = sent(0xE0, 0xFF, 0xFF), bMix = sent(0xE0, 0xFF, 0x7F);
-    row(b7f.finite && b7f.out != base.out, "MIDI", "pitch wheel at its top (0x7F 0x7F): takes effect (render != the baseline)");
-    row(bFF.finite && bFF.out == b7f.out && bMix.finite && bMix.out == b7f.out, "MIDI",
-        "pitch wheel 0xFF 0xFF and 0xFF 0x7F: render == the 0x7F 0x7F render");
-    const Render m0 = sent(0xE1, 0, 0x40, 1), m7f = sent(0xE1, 0x7F, 0x7F, 1), mFF = sent(0xE1, 0xFF, 0xFF, 1);
-    row(m7f.finite && m7f.out != m0.out, "MIDI",
-        "member-channel bend at its top (channel 2, 0x7F 0x7F): takes effect (render != the centred render)");
-    row(mFF.finite && mFF.out == m7f.out, "MIDI", "member-channel bend 0xFF 0xFF: render == the 0x7F 0x7F render");
+    // In range: each message reaches its reader, so the rows below are not blind.
+    const Render w7f = sent(0xB0, 1, 0x7F), w40 = sent(0xB0, 1, 0x40);
+    row(w7f.finite && w7f.refused == 0 && w7f.srcWheel > base.srcWheel && w40.srcWheel > base.srcWheel &&
+            w40.srcWheel < w7f.srcWheel,
+        "MIDI", "CC1 at 0x40 and 0x7F: taken, source 15 reads " + num(w40.srcWheel) + " and " + num(w7f.srcWheel));
+    const Render p7f = sent(0xD0, 0x7F, 0), p40 = sent(0xD0, 0x40, 0);
+    row(p7f.finite && p7f.refused == 0 && p7f.srcPress > base.srcPress && p40.srcPress > base.srcPress &&
+            p40.srcPress < p7f.srcPress,
+        "MIDI", "channel pressure at 0x40 and 0x7F: taken, source 16 reads " + num(p40.srcPress) + " and " + num(p7f.srcPress));
+    const Render b7f = sent(0xE0, 0x7F, 0x7F);
+    row(b7f.finite && b7f.refused == 0 && b7f.out != base.out, "MIDI",
+        "pitch wheel at its top (0x7F 0x7F): taken (render != the baseline)");
+    EvList onCh1;
+    onCh1.note(CLAP_EVENT_NOTE_ON, 60, 1.0, 1);
+    const Render noBend = run(onCh1, empty), m7f = sent(0xE1, 0x7F, 0x7F, 1);
+    row(m7f.finite && m7f.refused == 0 && m7f.out != noBend.out, "MIDI",
+        "member-channel bend at its top (channel 2, 0x7F 0x7F): taken (render != the render with no bend)");
+
+    // A data byte with the top bit set: the message is dropped and counted.
+    struct Bad { int status, d1, d2; const char *what; };
+    for (const Bad &b : {Bad{0xB0, 1, 0xFF, "CC1 with value byte 0xFF"}, Bad{0xB0, 1, 0xC0, "CC1 with value byte 0xC0"},
+                         Bad{0xB0, 0x81, 0x7F, "a CC whose NUMBER byte is 0x81 (value 0x7F)"},
+                         Bad{0xD0, 0xFF, 0, "channel pressure 0xFF"}, Bad{0xD0, 0xC0, 0, "channel pressure 0xC0"}})
+    {
+      const Render r = sent(b.status, b.d1, b.d2);
+      row(r.finite && r.refused == 1 && r.srcWheel == base.srcWheel && r.srcPress == base.srcPress && r.out == base.out,
+          "MIDI", std::string(b.what) + ": dropped and counted (" + std::to_string(r.refused) +
+                      "), sources 15 and 16 unmoved, render == the baseline");
+    }
+    for (const Bad &b : {Bad{0xE0, 0xFF, 0xFF, "pitch wheel 0xFF 0xFF"}, Bad{0xE0, 0xFF, 0x7F, "pitch wheel 0xFF 0x7F"},
+                         Bad{0xE0, 0x7F, 0xFF, "pitch wheel 0x7F 0xFF"}})
+    {
+      const Render r = sent(b.status, b.d1, b.d2);
+      row(r.finite && r.refused == 1 && r.out == base.out, "MIDI",
+          std::string(b.what) + ": dropped and counted, render == the baseline (no bend)");
+    }
+    {
+      const Render r = sent(0xE1, 0xFF, 0xFF, 1);
+      row(r.finite && r.refused == 1 && r.out == noBend.out, "MIDI",
+          "member-channel bend 0xFF 0xFF: dropped and counted, render == the render with no bend");
+    }
+    // Controls: what is NOT a data byte of a message read here is not asked.
+    {
+      const Render third = sent(0xD0, 0x7F, 0xFF), other = sent(0xB0, 2, 0x7F), note = sent(0x90, 0xFF, 0xFF);
+      row(third.refused == 0 && third.srcPress == p7f.srcPress, "MIDI",
+          "channel pressure 0x7F with a third byte of 0xFF: taken (the message has one data byte)");
+      row(other.refused == 0 && other.srcWheel == base.srcWheel && other.out == base.out, "MIDI",
+          "a well-formed CC other than CC1: read by nothing, and not counted");
+      row(note.refused == 0 && note.out == base.out, "MIDI",
+          "a status this handler does not read (0x90): passed over, not counted");
+    }
   }
 
   /* ---- LATCH (B448 B1) ------------------------------------------------------ */

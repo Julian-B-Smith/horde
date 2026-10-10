@@ -148,26 +148,18 @@ inline bool hostTempoUsable(double bpm)
          bpm > kHostTempoFloorBpm;
 }
 
-/* The host sample rates the shell activates at, in Hz (B455). Not new numbers:
-   they are the lowest and the highest rate anything renders this plugin at.
-     11 025  the lowest rate Apple's AU validator renders at (its render tests
-             run 11 025, 22 050, 44 100, 48 000, 96 000 and 192 000 Hz, and
-             passing it is a release gate), so a floor above it would fail
-             validation. No oracle in this repo renders below 44.1 kHz, the
-             rate specs/ACCEPTANCE.md states its numbers at; the cores clamp
-             every cutoff under Nyquist, so they run there.
-     192 000 the highest rate docs/ROBUSTNESS.md certifies (robustness_matrix)
-             and the validator's top. The delay lines are fixed buffers
-             (delay_core.h kBuf, sized against 96 kHz; time_core.h kEBuf) that
-             clamp their longest times as the rate rises; the rack's comb
-             lines are allocated from the rate (fx_rack.h setSampleRate), so a
-             rate with no ceiling is an allocation with no ceiling.
-   A rate inside the range is taken exactly as sent. */
-constexpr double kHostSampleRateMin = 11025.0;
-constexpr double kHostSampleRateMax = 192000.0;
+/* The host sample rates the shell activates at, in Hz (B455).
+   STRUCTURAL bounds (what can be a real rate at all), NOT the certified
+   range, which stays 44.1 to 192 kHz (docs/ROBUSTNESS.md).
+   The one buffer sized from the rate is the rack's comb bank (fx_rack.h
+   setSampleRate: 8 lines x 2 channels of rate/20 samples), about 2.5 MB of
+   floats at the upper bound; every other line is a fixed buffer that clamps.
+   A rate inside the bounds is taken exactly as sent. */
+constexpr double kHostSampleRateMin = 8000.0;
+constexpr double kHostSampleRateMax = 768000.0;
 
 /* Is a host sample rate one the shell activates at: finite and inside the
-   range above. The value is tested, never altered (hostTempoUsable's rule):
+   bounds above. The value is tested, never altered (hostTempoUsable's rule):
    finiteClamp returns the rate itself only when it was already in range. */
 inline bool hostSampleRateUsable(double sr)
 {
