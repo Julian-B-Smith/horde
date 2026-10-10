@@ -2,6 +2,8 @@
  * hostile_events_check — out-of-range host note, expression, velocity and
  * tempo values are handled at the event boundary, and the output stays finite
  * (B446 P1; velocity and tempo B455).
+ * WIRED: ./verify full.
+ * (Declared up here because test_table_check reads only a file's first 40 lines.)
  *
  * WHY. CLAP defines a note key as 0..127 (-1 a wildcard on events that match
  * existing notes) and TUNING as -120..+120 semitones, but nothing enforced
@@ -54,7 +56,6 @@
  * The rows are shell-level on purpose (L0031: a check that builds the core
  * directly gives the shell's path zero coverage) — only CONTROL is core-direct,
  * because showing the unguarded hazard is exactly what the shell must not allow.
- * WIRED: ./verify full.
  */
 
 #include <cmath>
