@@ -8,7 +8,7 @@
   and the B448 armor gates.
 - **What changed:** one new file, `docs/audits/2026-10-10-repo-audit.md`, and this trace.
   No code, spec, reference, check, hook or ROADMAP file was touched.
-  - 6 HIGH, 10 MEDIUM and 8 LOW findings, each with file:line evidence and a minimal delta.
+  - 6 HIGH, 11 MEDIUM and 8 LOW findings, each with file:line evidence and a minimal delta.
   - 12 proposed ROADMAP rows, each with an acceptance test, for the lead to word and number.
   - Appendix A: 31 false statements in eight documents, with the contradicting fact.
   - One finding is withheld from the report and was given to the lead directly.
@@ -31,7 +31,7 @@
   - PROVEN: eleven golden-parity binaries and three directory-driven ones run against an
     empty manifest or an empty directory. The binaries were the main checkout's existing
     Release build of 2026-10-04; their sources were last changed 2026-09-21.
-  - BY READING: H4 and M5. Neither was executed; the report names the rows that would.
+  - BY READING: H4, M5 and M11. None was executed; the report names the rows that would.
   - The machine was under a load average of 6 to 10 on 8 cores throughout, so wall times
     are upper bounds. `verify full` was not run: no build tree in the worktree.
 - **Verify:** `./verify fast` exit 0 at `4a3dbaf` before the report was written, and again

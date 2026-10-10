@@ -46,6 +46,7 @@ samples.
 | M8 | MEDIUM | stale comment, protected | `verify` and `docs/ROBUSTNESS.md` describe a pan-motion exclusion ADR-177 retired, and two more past shapes |
 | M9 | MEDIUM | doc drift | 31 false statements in eight documents, 56 with H5, M4 and M8; each with the contradicting fact (Appendix A) |
 | M10 | MEDIUM | carried | Eight findings of the 2026-09-19 audit are still open; one has got worse |
+| M11 | MEDIUM | one rule, three call sites | In mono mode the velocity modulation source is never written (BY READING) |
 | L1-L8 | LOW | dead, duplicate, cost | Dead functions, literal strides, per-entry host callbacks, never-run targets, overlapping checks, loop hygiene |
 
 One finding reported privately to the lead.
@@ -56,7 +57,8 @@ One finding reported privately to the lead.
 
 **None.** No finding shows a defect that ships wrong audio today, a violated invariant in
 the product, or an irreversible loss. H1 to H3 are gates that would stay green through a
-regression; H4 is a narrow ordering window read from the code and not yet measured.
+regression; H4 is a narrow ordering window read from the code and not yet measured. M11
+is a defect in a shipped feature of the frozen legacy plugin, read and not yet run.
 
 ---
 
@@ -700,6 +702,37 @@ dead card tonight). M8 was corrected and has rotted again (H5).
 
 ---
 
+### M11 — In mono mode the velocity modulation source is never written (BY READING)
+
+Velocity is matrix source 14 (ADR-149). The shell keeps it in `srcVel`
+(`src/hypersaw_clap.cpp:3260`) and hands it to the matrix at `:4684`. The note-on handler
+has three branches, and two of them write it:
+
+| note-on branch | writes `srcVel` |
+|---|---|
+| SPECTRA, `:9010-9031` | yes, `:9029` |
+| mono, `:9033-9129` | **no** |
+| poly, `:9130-9152` | yes, `:9150` |
+
+Those two lines are the only writes in the file. With the voice mode set to mono, a route
+from Velocity to any destination therefore reads the velocity of the last note played in
+poly mode, or 0 on an instance that has only ever been mono. The per-voice gain path is
+unaffected: the mono branch does call `setNoteVelocity` (`:9110`).
+
+No oracle can see it. `mod_check`, `lfoenv_check`, `polarity_check` and
+`modreadback_check` contain no reference to the velocity source or to mono mode, and
+parity renders have no matrix. It is the fan-out class `mpe_check` exists for
+(`verify:1058-1069`): a per-note operation written by hand at each call site.
+
+Not executed. The row that would measure it: in `lfoenv_check` or `mod_check`, a Velocity
+route to an audible destination, two mono notes at different velocities, the destination
+read back after each; the control is the same pair in poly mode, which must differ.
+
+**Minimal delta.** One line in the mono branch, after the row is red. A legacy `src/`
+edit, so it falls under the question at the end of this report.
+
+---
+
 ## LOW
 
 ### L1 — Five functions nothing calls
@@ -863,7 +896,7 @@ files more.
 | H1 | 0 | 16 lines (8 floors, 8 constants) |
 | H2 | 0 | about 12 lines in two hooks; about 10 rows in an existing check |
 | H3 | 0 | about 10 lines in the driver; the `src/` move is net zero |
-| H4, M5 | 0 | 3 rows in `load_handoff_check` (about 90 lines); fixes only on evidence |
+| H4, M5, M11 | 0 | 4 rows in two existing checks (about 120 lines); fixes only on evidence |
 | H5 | 5 transcribed counts | 1 paragraph, 2 Map rows |
 | H6 | 2 duplicate rows, 20 stale statuses | 1 check, about 40 lines |
 | M1 | 0 | 3 lines |
@@ -875,7 +908,7 @@ files more.
 | L1 | about 20 lines | 0 |
 | L5 | 462 lines, 3 files (a human gate each) | 0 |
 | L7 | about 500 lines | 3 shared files |
-| **total** | **about 1,000 lines, 3 files, 15 s per fast run** | **about 210 lines, 4 files, 1 check, about 13 rows** |
+| **total** | **about 1,000 lines, 3 files, 15 s per fast run** | **about 240 lines, 4 files, 1 check, about 14 rows** |
 
 No finding removes a check, an assertion or a tolerance.
 
@@ -906,9 +939,9 @@ No finding removes a check, an assertion or a tolerance.
 - **Per-sample cost** in `h2/engine/engine.h` and the legacy cores was not measured. The
   CPU campaign (B441) keeps its own ledger, and a timing taken tonight under a load
   average of 6 to 10 would not be worth recording.
-- **H4 and M5 were not executed.** They are read from the code. The private notes that
+- **H4, M5 and M11 were not executed.** They are read from the code. The private notes that
   record ADR-200's accepted risks are outside the tracked tree and were not read, so
-  either finding may restate something already accepted there. The lead should check
+  H4 or M5 may restate something already accepted there. The lead should check
   before turning them into rows.
 - **Storage branching** (a to b to a) was taken on `undo_check`'s word, not re-derived.
 - **`reference/`**, the lab pages' content and the 434 traces were not read.
@@ -922,7 +955,7 @@ The lead assigns ids and wording. Each is one dispatchable item with its accepta
 | 1 | **A scenario floor on the eight golden-parity gates** | H1 | Each gate run against an empty manifest exits non-zero; each prints the floor it holds; `verify full` green. |
 | 2 | **The Stop gate sees shell edits and an absent record** | H2 | A planted shell edit in a scratch repo with no record blocks; a record from another commit blocks; both rows live in `deny_hook_check`. A brief to the kit carries the same change. |
 | 3 | **B256, re-scoped: 18 oracles never run on CI** | H3 | The sanitize job reports 0 "not built" for the debug-export cause; the driver passes every argument `verify` passes; rows R2, R11 and SEC-input state the real count until then. |
-| 4 | **Three rows for idle loads** | H4, M5 | `load_handoff_check` gains I-SAVE, I-SUPERSEDE and HOOK-ENGINE-IDLE, each with its control. A red row becomes its own fix row; a green one closes the finding with the measurement. |
+| 4 | **Three rows for idle loads, one for mono velocity** | H4, M5, M11 | `load_handoff_check` gains I-SAVE, I-SUPERSEDE and HOOK-ENGINE-IDLE, and a mod check gains a mono Velocity row, each with its control. A red row becomes its own fix row; a green one closes the finding with the measurement. |
 | 5 | **README and CLAUDE.md §Domain say what the repo is** | H5, M9, B403 | No transcribed count remains in either; horde 2 and `h2/` appear in both; "last verified" is the day it was re-read; `TESTING.md`, `CHANGELOG.md` and `SESSION.md` each carry a status line or are retired by the human. |
 | 6 | **ROADMAP gets a shape and a check** | H6, B403 | Unique ids; a status token from a closed list on every row; the 20 contradictory rows resolved; `roadmap_check` in `verify fast`. |
 | 7 | **Widen wired-or-explained to every check and probe** | M1 | The glob covers `tools/**`; the two late declarations are moved into the window; the count the gate prints rises by eight. |
@@ -984,8 +1017,8 @@ already records that CLAUDE.md §Domain is stale; this is the line-level list it
 5. **H6** — the ROADMAP's shape. Every other row in this report becomes a line in a file
    no session can read whole.
 
-**The one question for the human.** The legacy shell is frozen (ADR-186), and four
-findings here end in a change to it: H3's debug exports, H4 and M5 if their rows go red,
-and L1. Does the freeze admit correctness fixes to the legacy state and load path, or is
-legacy now changed only for security, with everything else recorded as a rule for the
-horde 2 shell (B398)? The answer decides whether those four are fix rows or rule rows.
+**The one question for the human.** The legacy shell is frozen (ADR-186), and five
+findings here end in a change to it: H3's debug exports; H4, M5 and M11 if their rows go
+red; and L1. Does the freeze admit correctness fixes to the legacy plugin, or is legacy
+now changed only for security, with everything else recorded as a rule for the horde 2
+shell (B398)? The answer decides whether those are fix rows or rule rows.
