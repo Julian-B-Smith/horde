@@ -1,7 +1,7 @@
 /*
  * input_guards.h — the boundary guards for values that arrive from OUTSIDE the
- * plugin: text that crosses the GUI bridge, and the note, expression and tempo
- * values a host delivers. Each guard sits at the one place the value enters, so
+ * plugin: text that crosses the GUI bridge, and the note, expression, tempo
+ * and sample-rate values a host delivers. Each guard sits at the one place the value enters, so
  * the code behind it may assume a well-formed value rather than re-checking it.
  *
  * Dependency-free on purpose (standard library only, no choc, no CLAP), the
@@ -146,6 +146,33 @@ inline bool hostTempoUsable(double bpm)
   double finite = 0;
   return finiteClamp(bpm, kHostTempoFloorBpm, std::numeric_limits<double>::max(), finite) &&
          bpm > kHostTempoFloorBpm;
+}
+
+/* The host sample rates the shell activates at, in Hz (B455). Not new numbers:
+   they are the lowest and the highest rate anything renders this plugin at.
+     11 025  the lowest rate Apple's AU validator renders at (its render tests
+             run 11 025, 22 050, 44 100, 48 000, 96 000 and 192 000 Hz, and
+             passing it is a release gate), so a floor above it would fail
+             validation. No oracle in this repo renders below 44.1 kHz, the
+             rate specs/ACCEPTANCE.md states its numbers at; the cores clamp
+             every cutoff under Nyquist, so they run there.
+     192 000 the highest rate docs/ROBUSTNESS.md certifies (robustness_matrix)
+             and the validator's top. The delay lines are fixed buffers
+             (delay_core.h kBuf, sized against 96 kHz; time_core.h kEBuf) that
+             clamp their longest times as the rate rises; the rack's comb
+             lines are allocated from the rate (fx_rack.h setSampleRate), so a
+             rate with no ceiling is an allocation with no ceiling.
+   A rate inside the range is taken exactly as sent. */
+constexpr double kHostSampleRateMin = 11025.0;
+constexpr double kHostSampleRateMax = 192000.0;
+
+/* Is a host sample rate one the shell activates at: finite and inside the
+   range above. The value is tested, never altered (hostTempoUsable's rule):
+   finiteClamp returns the rate itself only when it was already in range. */
+inline bool hostSampleRateUsable(double sr)
+{
+  double inRange = 0;
+  return finiteClamp(sr, kHostSampleRateMin, kHostSampleRateMax, inRange) && inRange == sr;
 }
 
 /* The last line before the host's bus: any sample that is not finite becomes

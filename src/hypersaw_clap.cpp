@@ -2677,6 +2677,8 @@ struct Plugin
   static constexpr uint32_t kDeferBytes = 16384;
   alignas(8) unsigned char deferBuf[kDeferBytes] = {};
   uint32_t deferUsed = 0;
+  /* Host events the shell did not take: no room here, or (deferred or live,
+     handleEvent) an absent event or one smaller than its type's struct. */
   std::atomic<uint32_t> deferDropped{0};
   /* A reset that arrived while the state was owned, and WHERE in the deferred
      events it arrived: the events before it are replayed, then the reset, then
@@ -8993,6 +8995,16 @@ struct Plugin
 
   void handleEvent(const clap_event_header_t *ev)
   {
+    /* B455: the pointer and the size are the HOST's. Every case below reads
+       its type's whole struct, so an event that is absent, or claims fewer
+       bytes than that struct, is refused HERE — the one point a live block,
+       a flush and the deferred replay all pass — and counted where
+       deferEvents counts the same refusal. */
+    if (!ev || ev->size < minEventSize(ev))
+    {
+      deferDropped.fetch_add(1, std::memory_order_relaxed);
+      return;
+    }
     if (ev->space_id != CLAP_CORE_EVENT_SPACE_ID) return;
     switch (ev->type)
     {
@@ -9251,14 +9263,18 @@ struct Plugin
         // Channel 1 (index 0) is excluded: see mpeBendSemis.
         auto *m = reinterpret_cast<const clap_event_midi_t *>(ev);
         const int ch = m->data[0] & 0x0F;
+        /* B455: a MIDI data byte is 7 bits. Both are masked HERE, where they
+           are read, so every reader below works in 0..127: the sources stay in
+           0..1 and the 14-bit bend in 0..16383. A well-formed byte is unchanged. */
+        const int d1 = m->data[1] & 0x7F, d2 = m->data[2] & 0x7F;
         /* ADR-149: CC1 and channel pressure were DROPPED here until now — the
            handler read only 0xE0. They become matrix sources 15 and 16. */
-        if ((m->data[0] & 0xF0) == 0xB0 && m->data[1] == 1)
-        { srcWheel = m->data[2] / 127.0; break; }
+        if ((m->data[0] & 0xF0) == 0xB0 && d1 == 1)
+        { srcWheel = d2 / 127.0; break; }
         if ((m->data[0] & 0xF0) == 0xD0)
-        { srcPress = m->data[1] / 127.0; break; }
+        { srcPress = d1 / 127.0; break; }
         if ((m->data[0] & 0xF0) != 0xE0) break;
-        const int v14 = (int)m->data[1] | ((int)m->data[2] << 7);
+        const int v14 = d1 | (d2 << 7);
         if (ch == 0)
         {
           /* THE PLAIN PITCH WHEEL. Channel 0 is the MPE manager / ordinary
@@ -9566,14 +9582,19 @@ struct Plugin
     panicPerformRequested();   // before the drain: the click came before any later edit
     drainQueue(p->out_events);
 
-    float *outL = p->audio_outputs[0].data32[0];
-    float *outR = p->audio_outputs[0].data32[1];
     const uint32_t nframes = p->frames_count;
     /* B23 increment 3: the source buffers are fixed-size, so a block past them
        is REFUSED rather than truncated — see their declaration. plug_activate
        refuses the same ceiling up front; this is the belt for a host that
-       processes without activating, or that exceeds its own declared maximum. */
-    if (nframes > kSrcBufFrames) return CLAP_PROCESS_ERROR;
+       processes without activating, or that exceeds its own declared maximum.
+       B455: the same refusal for a block with nowhere to render — no output
+       bus, fewer than the two channels the port declares (aports_get), or a
+       channel with no 32-bit buffer. Asked before the first buffer is read. */
+    const clap_audio_buffer_t *ob = p->audio_outputs_count >= 1 ? p->audio_outputs : nullptr;
+    if (nframes > kSrcBufFrames || !ob || ob->channel_count < 2 || !ob->data32 || !ob->data32[0] || !ob->data32[1])
+      return CLAP_PROCESS_ERROR;
+    float *outL = ob->data32[0];
+    float *outR = ob->data32[1];
     /* Sources 1.. start the block SILENT. Zeroing here rather than at each
        skip site is what makes "a disabled oscillator's source is silent" true
        for every path through the span loop at once — the SPECTRA branch, a
@@ -9591,7 +9612,7 @@ struct Plugin
        as a bonus when the host supplies something plausible. */
     tracePos += nframes;
     blockPos = p->steady_time > 0 ? (uint64_t)p->steady_time : tracePos;
-    const uint32_t nev = p->in_events->size(p->in_events);
+    const uint32_t nev = p->in_events ? p->in_events->size(p->in_events) : 0;   // deferEvents' rule
 
     uint32_t frame = 0, evIndex = 0;
     while (frame < nframes)
@@ -9600,7 +9621,8 @@ struct Plugin
       while (evIndex < nev)
       {
         const clap_event_header_t *ev = p->in_events->get(p->in_events, evIndex);
-        if (ev->time > frame)
+        // An absent event has no time: it goes straight to handleEvent, which refuses and counts it.
+        if (ev && ev->time > frame)
         {
           until = ev->time < nframes ? ev->time : nframes;
           break;
@@ -9838,6 +9860,11 @@ bool plug_activate(const clap_plugin_t *p, double sr, uint32_t, uint32_t maxFram
      ~0.74 s at 44.1 kHz; the argument was unused until this increment gave the
      shell something that depends on it. */
   if (maxFrames > Plugin::kSrcBufFrames) return false;
+  /* B455: the rate is the host's, and everything below divides by it or sizes
+     a buffer from it. A value that is not a rate the shell runs at is refused
+     the same way, before anything is rebuilt, so the instance stays as it was
+     (input_guards.h says where the range comes from). */
+  if (!hypersaw::hostSampleRateUsable(sr)) return false;
   pl->sampleRate = sr;
   // Recreate the core at the host rate, preserving params (constructor cost
   // is trivial; activate is main-thread and never concurrent with process).
@@ -10145,7 +10172,7 @@ void params_flush(const clap_plugin_t *p, const clap_input_events_t *in,
   }
   pl->replayDeferred();
   pl->drainQueue(out);
-  const uint32_t nev = in->size(in);
+  const uint32_t nev = in ? in->size(in) : 0;   // deferEvents' rule; handleEvent checks each event
   for (uint32_t i = 0; i < nev; i++) pl->handleEvent(in->get(in, i));
   pl->endAudioEntry();
 }
