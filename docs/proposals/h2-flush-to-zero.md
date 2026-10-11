@@ -207,7 +207,8 @@ zero. On the arm64 CPU measured here, the one FZ bit does both. **So the x86-64 
 both FTZ and DAZ.** With FTZ alone, a subnormal that arrives as an input would still be
 computed with, and `flushToZeroState()` reports that case as neither on nor off.
 
-**None of the x86-64 half was measured on an x86 CPU.** What it has had:
+**None of the x86-64 half could be measured on the dev machine, and none of it has run on
+Windows.** What it has had:
 
 - It was written from the documentation.
 - It was compiled as an x86-64 binary and run on the dev Mac under Rosetta 2 translation: the
@@ -215,10 +216,19 @@ computed with, and `flushToZeroState()` reports that case as neither on nor off.
   self-digest tool was run the same way and its `control FZ` passed (control word 0x1fa2
   before and after, 0x9fe2 inside; 543 of 543 replays with the bits set; no reference exists
   for that key, so no digest was judged). That is a translator, not an x86 CPU.
-- The Microsoft compiler's spelling has not been compiled by anyone yet. CI's Windows job
-  builds every target, so it will be the first to try.
-- CI's Linux sanitizer lanes run both self-digest tools on x86-64, and the tools' `control FZ`
-  is judged on every platform. So the first real x86 result is CI's run of this pull request.
+- **CI's first run of this pull request** (run 38165894374, 2026-10-11) is its first run on
+  x86 hardware. Both Linux sanitizer lanes (x86-64, gcc 13; one under the address and
+  undefined-behaviour sanitizers, one under the thread sanitizer) ran both self-digest tools,
+  and each ended `SKIP — unkeyed (linux-x86_64.gcc-13.node22), controls fired`. The tool
+  prints "controls fired" only when every control fired, `FZ` among them. The control's own
+  line is not in the log: that lane prints a tool's full output only when it fails.
+- The same run's Windows job built both self-digest tools, and so this header, with the
+  Microsoft compiler. It does not run them. **So on Windows the switch is compiled and never
+  run.**
+
+(Both sanitizer lanes ended red in that run for another reason: `h2_harness_render`, run
+with no arguments, exits 2. That is the base branch's known state, fixed there by a later
+commit that this branch was told not to take.)
 
 Known ways x86-64 will differ from arm64, argued from the two manuals:
 
@@ -260,4 +270,4 @@ mode is there to remove.
    without changing any scenario. The tool's `--repin` rewrites that line; this PR did not carry
    that change, because only the eight rows are sanctioned.
 6. **For the human, later: Windows.** One run of the two self-digest tools on the Windows PC
-   would turn the x86-64 half from "written from the documentation" into "measured".
+   would turn "compiled and never run on Windows" into "measured".

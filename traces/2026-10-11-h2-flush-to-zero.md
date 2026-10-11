@@ -120,6 +120,24 @@ only the eight rows are sanctioned. It was stale before this change and is as st
     differ; 0 red"; FZ, ULP and KEYSELF PASS; 543 of 543 rows share the parity digest.
 - `./verify full` as a whole was NOT run by this dispatch (the brief leaves it to the lead).
 
+## After the push: what CI's first run showed (run 38165894374, 2026-10-11)
+
+Added in a second commit, with the wording about x86-64 in the header, the proposal and
+`h2/README.md` brought in line. No code changed in that commit (one code comment did).
+
+- **Linux x86-64, gcc 13, both sanitizer lanes:** `h2_engine_selfdigest_check: SKIP — unkeyed
+  (linux-x86_64.gcc-13.node22), controls fired` and the same for `h2_engine_selfdigest_product`.
+  The tool prints "controls fired" only when every control fired, `FZ` among them. This is
+  the switch's first run on x86 hardware. The control's own line is not in the log (the lane
+  prints a tool's full output only when it fails).
+- **Windows, the Microsoft compiler:** both self-digest tools built. They are not run there.
+- **Both sanitizer lanes ended red**, for a reason outside this change: `h2_harness_render`
+  run with no arguments exits 2 ("usage: ..."). The base branch fixed that in a later commit
+  (`2c6903b`), which arrived after this branch was cut; the brief says not to rebase or merge.
+- `verify-fast` passed on both workflows.
+- The second commit's own verify: `./verify fast` exit 0 on git `305ef70` plus that commit,
+  staged; both self-digest tools rebuilt and re-run by hand, GREEN, 0 differ, `control FZ` PASS.
+
 ## Open questions
 
 All are in `docs/proposals/h2-flush-to-zero.md` section 8. In short:
@@ -131,5 +149,4 @@ All are in `docs/proposals/h2-flush-to-zero.md` section 8. In short:
 3. The engine harness renders with the mode off.
 4. `h2/flush_to_zero.h` sits directly in `h2/`, where `engine_enrolment_check` does not look.
 5. The stale ORACLE header line in both references.
-6. x86-64 is not measured on an x86 CPU. CI's Linux sanitizer lanes and Windows build are its
-   first real run and first Microsoft-compiler build.
+6. On Windows the switch is compiled and has never run (see "After the push").

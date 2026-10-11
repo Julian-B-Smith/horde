@@ -21,17 +21,21 @@
  *            arm64 CPU without FEAT_AFP has no separate input bit; with FEAT_AFP
  *            the split only appears when FPCR.AH is set, which nothing here does.
  *   x86-64   bits 15 (FTZ, results) and 6 (DAZ, inputs) of MXCSR, both, because
- *            arm64's one bit does both jobs. WRITTEN FROM THE DOCUMENTATION AND
- *            NOT MEASURED ON AN x86 CPU. The only run it has had is as an x86-64
- *            binary under Rosetta 2 translation on the dev Mac (2026-10-11): the
- *            bits read back, results and inputs both flush, the word is restored.
- *            That is a translator, not a CPU. It is NOT expected to match arm64
- *            bit for bit: x86 decides that a result is tiny after rounding and
- *            arm64 before, so a result that rounds up to the smallest normal
- *            number is kept on x86 and flushed on arm64 (the two manuals; seen
- *            once, native arm64 against the Rosetta run, on 1.5 * DBL_MIN times
- *            the double nearest 2/3). The engine's bits are pinned per platform
- *            for that kind of reason.
+ *            arm64's one bit does both jobs. WRITTEN FROM THE DOCUMENTATION, and
+ *            never run on a Windows machine. The runs it has had (2026-10-11):
+ *            as an x86-64 binary under Rosetta 2 translation on the dev Mac (the
+ *            bits read back, results and inputs both flush, the word is
+ *            restored; a translator, not a CPU); and on CI's Linux x86-64
+ *            runners (gcc 13, under the sanitizers), where both self-digest
+ *            tools reported that every control fired, this file's among them.
+ *            CI's Windows job compiles it with the Microsoft compiler and does
+ *            not run it. It is NOT expected to match arm64 bit for bit: x86
+ *            decides that a result is tiny after rounding and arm64 before, so
+ *            a result that rounds up to the smallest normal number is kept on
+ *            x86 and flushed on arm64 (the two manuals; seen once, native arm64
+ *            against the Rosetta run, on 1.5 * DBL_MIN times the double nearest
+ *            2/3). The engine's bits are pinned per platform for that kind of
+ *            reason.
  *   others   nothing: kFlushToZeroAvailable is false and the calls below run
  *            `f` unchanged. A caller that pins bits must check flushToZeroState().
  * Only those bits are changed, and on the way out the WHOLE word is written back
@@ -79,7 +83,7 @@ inline uint64_t fpControlWord() noexcept { uint64_t v; __asm__ volatile("mrs %0,
 inline void setFpControlWord(uint64_t v) noexcept { __asm__ volatile("msr fpcr, %0" : : "r"(v)); }
 #elif defined(__x86_64__) || defined(_M_X64)
 inline constexpr bool kFlushToZeroAvailable = true;
-inline constexpr uint64_t kFlushToZeroBits = (1ull << 15) | (1ull << 6);   // MXCSR.FTZ | MXCSR.DAZ; unmeasured (header)
+inline constexpr uint64_t kFlushToZeroBits = (1ull << 15) | (1ull << 6);   // MXCSR.FTZ | MXCSR.DAZ; never run on Windows (header)
 inline uint64_t fpControlWord() noexcept { return _mm_getcsr(); }
 inline void setFpControlWord(uint64_t v) noexcept { _mm_setcsr(static_cast<unsigned int>(v)); }
 #else

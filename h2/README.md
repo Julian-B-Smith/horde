@@ -140,9 +140,10 @@ build is the tested build (ADR-187 A1), so both self-digest tools switch the mod
 on around every replay, over the whole of it (the engine's construction, every
 event call, every render), and the references pin those bits.
 - The switch is `flush_to_zero.h`, at the top of this directory: the one copy
-  the tools use today and the shell will use. Its arm64 half is measured. Its
-  x86-64 half is written from the documentation and has run only under Rosetta 2
-  translation, never on an x86 CPU.
+  the tools use today and the shell will use. Its arm64 half is measured on the
+  dev Mac. Its x86-64 half is written from the documentation; it has run under
+  Rosetta 2 translation and on CI's Linux x86-64 runners (the tools' controls
+  fired there), and on Windows it is compiled and has never run.
 - Eight of the 543 rows differ from the mode-off bits, each sample by less than
   4.1e-308 (a subnormal that became zero). They were re-pinned once, on that
   ruling; that re-pin is none of the three reasons above and adds no fourth.
