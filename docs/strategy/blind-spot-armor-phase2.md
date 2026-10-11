@@ -1,6 +1,6 @@
 # Blind-Spot Armor — phase 2 proposal
 
-**Status: PROPOSED, for the human to rule on.** Written 2026-10-10 by a read-only planning agent for the lead (B448, ADR-197).
+**Status: RULED 2026-10-10 (ADR-209). All thirteen decisions of §6 are answered; decision 3's mechanism is the one part still open. The text below is the proposal as filed.** Written 2026-10-10 by a read-only planning agent for the lead (B448, ADR-197).
 
 **Evidence base.** `origin/main` at `4a3dbaf`, which matched the remote head (no fetch was run). ADR-205 and the Wave C catalogue rows for R7, R11 and R12 are only on the lead's unmerged local branch `lead-records-230` (`45df963`), and are cited as "(unmerged)". Run times are estimates unless a source is named.
 
