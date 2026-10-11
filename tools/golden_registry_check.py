@@ -108,6 +108,7 @@ EXCLUDED = [
     ("docs/armor/acceptances.json", "approval ledger: accepted limits and hole expiries (ADR-209 item 2), approved by the human; not an expected result"),
     ("docs/armor/engines.json", "the engine enrolment registry (B448 P2): which units under h2/ are enrolled and why; a ledger, not an expected result"),
     ("h2/harness/patches.json", "inputs: the harness's reference patches, generated from the ledger presets and the declared ranges; its loud/silent label is checked live by the harness selftest, it stores no result"),
+    ("tools/h2_fuzz_kept.json", "inputs: fuzz cases that once failed (B448 P3), replayed first by h2_fuzz_check and judged live against its own thresholds; it stores no result"),
     ("docs/armor/weakening-baseline.json", "approval ledger: the accepted count of gate-weakening patterns (S4); not an expected result"),
     ("docs/armor/catalogue.json", "the risk catalogue: data about gates, not an expected result"),
     ("docs/armor/goldens.json", "the registry itself"),
