@@ -42,7 +42,8 @@ unless stated, and one combined regex per category so overlapping spellings coun
                  validation at a trust boundary and a guard that latches and reports are
                  legitimate; they are approved into the baseline WITH a reason.
 
-SCOPE. Tracked files only (`git ls-files`): src/ h2/ tools/ tests/ verify
+SCOPE. Tracked files, and new files that are not ignored (`git ls-files --cached --others
+--exclude-standard`): src/ h2/ tools/ tests/ verify
 .github/workflows/ CMakeLists.txt cmake/. Excluded: libs/, reference/ (third-party and
 spec-as-code), and this checker + its baseline (their own pattern text would count).
 Binary files (a NUL byte) are skipped; a tracked file deleted in the working tree is
@@ -137,8 +138,11 @@ def git_env():
 
 
 def list_scope_files(cwd):
-    r = subprocess.run(["git", "ls-files", "-z", "--", *SCOPE], cwd=cwd,
-                       capture_output=True, text=True, env=git_env())
+    # --others --exclude-standard is load-bearing: a new file that is not yet tracked and not
+    # ignored is about to be committed. Reading tracked files only, a local verify run before
+    # `git add` passed while CI, which sees the file committed, failed (PR #1048, 2026-10-11).
+    r = subprocess.run(["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", *SCOPE],
+                       cwd=cwd, capture_output=True, text=True, env=git_env())
     if r.returncode != 0:
         return None, f"git ls-files failed (exit {r.returncode})"
     files = [f for f in r.stdout.split("\0") if f
@@ -331,6 +335,18 @@ def selftest():
         if verdict()[0] != [("unwired", "tools/new_check.py", 0, 1)]:
             return "selftest: a new file carrying a marker did not read as an increase from 0"
         _git(td, "rm", "-q", "-f", "--", "tools/new_check.py")
+
+        # the same file NOT yet tracked is still an increase; an ignored one is not seen
+        (td / "tools/untracked_check.py").write_text("# UNWIRED: x\n")
+        if verdict()[0] != [("unwired", "tools/untracked_check.py", 0, 1)]:
+            return "selftest: an untracked new file carrying a marker did not read as an increase from 0"
+        (td / "tools/untracked_check.py").unlink()
+        (td / ".gitignore").write_text("tools/ignored_check.py\n")
+        (td / "tools/ignored_check.py").write_text("# UNWIRED: x\n")
+        if verdict()[0]:
+            return "selftest: an ignored file was counted and must read zero"
+        (td / "tools/ignored_check.py").unlink()
+        (td / ".gitignore").unlink()
 
         # --approve: an empty or blank ref is refused and writes nothing; a real ref raises one entry
         rel, extra = PLANTS["unwired"]
