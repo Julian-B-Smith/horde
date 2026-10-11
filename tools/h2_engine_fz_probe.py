@@ -8,9 +8,12 @@ tools/h2_engine_fz_probe.cpp's header.
 It first gave ADR-209 item 6 its number (8 of 543 rows change with flush-to-zero
 on, PR #1047). The human then ruled the mode on in the horde 2 shell (ADR-211 item
 1), and since 2026-10-11 the self-digest references pin the engine WITH the mode
-on. So it now answers, for the parity build and the product build:
-  - with the mode forced off, which rows differ from the pinned bits, and by how
-    much (none would mean the pin does not depend on the mode: a failure);
+on, set by the one replay every tool uses (tools/h2_engine_stream.h). So it now
+answers, for the parity build and the product build:
+  - with the mode forced off, which rows differ from the pinned bits, in what
+    (their samples, their blade events, their load readouts: each counted on its
+    own) and by how much (none would mean the pin does not depend on the mode: a
+    failure);
   - whether switching the mode on in a narrower scope (inside render only, or
     around every engine call) gives the same bits as the pinned scope (the whole
     replay).

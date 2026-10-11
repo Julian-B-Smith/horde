@@ -133,28 +133,40 @@ change under A2 item 3. An output-neutral PR never re-pins; it re-runs
 `tools/h2_libm_count.py --write` so a moved libm call shows in its diff
 (`engine/libm-calls.<platform>.<compiler>.txt`, context, never a verdict).
 
-**The digests pin the engine with flush-to-zero ON (ADR-211 item 1, 2026-10-11).**
+**Every gate judges the engine with flush-to-zero ON (ADR-211 item 1, 2026-10-11).**
 The human ruled that the horde 2 shell runs with flush-to-zero on from its first
-build: arithmetic that would produce a subnormal number produces zero. The shipped
-build is the tested build (ADR-187 A1), so both self-digest tools switch the mode
-on around every replay, over the whole of it (the engine's construction, every
-event call, every render), and the references pin those bits.
+build: arithmetic that would produce a subnormal number produces zero. So the
+one replay every tool uses (`h2engine_stream::replay` in
+`tools/h2_engine_stream.h`) runs the whole replay inside the switch: the engine's
+construction, every event call, every render. The parity check, its FMA
+control, both self-digest tools and the RealtimeSanitizer probe therefore judge
+one engine, the one that ships, and the references pin its bits.
 - The switch is `flush_to_zero.h`, at the top of this directory: the one copy
-  the tools use today and the shell will use. Its arm64 half is measured on the
-  dev Mac. Its x86-64 half is written from the documentation; it has run under
-  Rosetta 2 translation and on CI's Linux x86-64 runners (the tools' controls
-  fired there), and on Windows it is compiled and has never run.
+  the tools use today and the shell will use. arm64 is measured on the dev Mac;
+  x86-64 is written from the documentation, and what it has and has not run on
+  is in `docs/proposals/h2-flush-to-zero.md`, section 7. Any other target is a
+  compile error. The caller's control word comes back on every way out of the
+  switch, a throw included.
+- Each gate proves the mode on every run, with two lines from
+  `tools/h2_engine_stream.h`: `control FZ` (every replay ran with the mode on,
+  counted from inside the switch; the switch works from a host that enters with
+  the mode off and from one that enters with it on) and `control ROUND` (every
+  replay ran rounding to nearest). A tool that silently ran in another mode is
+  red, with or without a reference.
+- The pinned bits also need round-to-nearest, which the switch does NOT set: it
+  keeps the host's rounding mode. Whether the shell forces it or refuses a host
+  without it is the human's open choice (the proposal, section 8).
 - Eight of the 543 rows differ from the mode-off bits, each sample by less than
   4.1e-308 (a subnormal that became zero). They were re-pinned once, on that
   ruling; that re-pin is none of the three reasons above and adds no fourth.
-- Each run proves the mode was really on (the tools' `control FZ`), so a build in
-  which the switch does nothing is red, with or without a reference.
-- The parity check, its FMA control and the engine harness do NOT set the mode.
-  Measured with it on, their verdicts do not change. Whether they should set it,
-  and how the eight rows stand in the divergence ledger, are open questions in
-  `docs/proposals/h2-flush-to-zero.md`.
+  How those rows stand in the divergence ledger is the human's open ruling (the
+  proposal, section 4).
+- The engine harness (`h2/harness/`) does NOT set the mode yet. Nor does the CPU
+  ledger (`tools/measure_h2_engine.cpp`): only its stream-replay mode goes
+  through that replay; its ledger modes construct the engine themselves.
 - `tools/h2_engine_fz_probe.py` (a measurement, in no gate) re-measures the eight
-  rows against the mode off and compares narrower scopes with the pinned one.
+  rows against the mode off, in samples, events and readouts, and compares
+  narrower scopes with the pinned one.
 
 The full account of what is ported, what is not, and which oracle quirks are
 divergence candidates is in `docs/port/scalpel-phase-1a.md`. The swarm lift and

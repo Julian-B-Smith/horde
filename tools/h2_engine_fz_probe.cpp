@@ -5,9 +5,9 @@
  * HISTORY. It was written to give ADR-209 item 6 its number while the references
  * pinned the engine with flush-to-zero OFF: 8 of 543 rows changed with it on (PR
  * #1047). The human then ruled the mode on in the horde 2 shell (ADR-211 item 1),
- * and since 2026-10-11 the references pin the engine with it ON, set by the
- * self-digest tools over the whole replay (their header). So the probe now asks
- * the two questions that pin leaves:
+ * and since 2026-10-11 the references pin the engine with it ON, set over the
+ * whole replay by the one replay every tool uses (tools/h2_engine_stream.h). So
+ * the probe now asks the two questions that pin leaves:
  *   OFF     with the mode forced off, which rows differ from the pinned bits, and
  *           by how much? (The pin must depend on the mode: none is a failure.)
  *   SCOPES  does it matter WHERE the mode is switched on? Two narrower scopes are
@@ -18,8 +18,8 @@
  * self-digest builds' own flags, and runs it. It reads the pinned references and
  * NEVER writes one: there is no re-pin path in this file.
  *
- * WHAT IS SET. The switch is h2/flush_to_zero.h's, the one copy the self-digest
- * tools use and the shell will: on arm64, bit 24 (FZ) of FPCR for the calling
+ * WHAT IS SET. The switch is h2/flush_to_zero.h's, the one copy every tool's
+ * replay uses and the shell will: on arm64, bit 24 (FZ) of FPCR for the calling
  * thread, the whole register restored on the way out. The SET line prints the
  * register before, inside and after, and the SEMANTICS line prints what the bit
  * did to one subnormal RESULT and one subnormal INPUT on this CPU, so the meaning
@@ -28,12 +28,16 @@
  *
  * THE SCOPES. Each row is replayed once per scope:
  *   thread  the mode on from before the engine is constructed to after the
- *           replay. THE PINNED SCOPE: what the self-digest tools do;
+ *           replay. THE PINNED SCOPE: h2engine_hooked::replay, which runs its
+ *           whole body through the scope h2engine_stream::replay uses;
  *   off     the mode forced off throughout;
  *   render  the mode on inside Engine::render only, switched per render call;
  *   calls   the mode on inside every call a host block makes (render and the
  *           event calls: set, setString, snap, noteOn, noteOff, retune, panic,
  *           the cap setters), the engine constructed with it off.
+ * The last three run the hooked body with the host's own mode forced OFF around
+ * the whole replay, so they mean the same whatever mode this process was
+ * entered in.
  *
  * WHAT IS REUSED. The digest, the reference key, the reference reader and the
  * row-by-row verdict are tools/h2_engine_selfdigest_check.cpp's own, included
@@ -53,18 +57,24 @@
  *              key, or one differing row: the probe stops and reports no number.
  *   COUNT      per other scope, the rows whose digest differs from the same
  *              run's pinned-scope digest (which BASELINE showed equal to the
- *              pin). A digest says THAT a row changed, never by how much, so
- *              each such row's samples are also compared: how many differ, from
- *              which frame, and the largest difference. For `off`, no differing
+ *              pin). A digest says THAT a row changed, never what or by how
+ *              much, so each such row is taken apart into the three things the
+ *              digest covers, and each is counted on its own: its samples (how
+ *              many differ, from which frame, the largest difference), its
+ *              blade events, and its load readouts. A row whose digest differs
+ *              and in which none of the three differs is a FAILURE (the
+ *              comparison missed what the digest saw). For `off`, no differing
  *              row at all is a FAILURE: the pin would not depend on the mode.
  *
- * FLAGS, context only. FPSR's cumulative bits are cleared before the pinned-scope
+ * FLAGS, context only. FPSR's cumulative bits are cleared before the calls-scope
  * and the off replay and read after each: UFC (bit 3) is set when a result is
  * flushed, IDC (bit 7) when a subnormal input is. A row that raised neither with
  * the mode on ran no operation the bit changes (argued from the architecture's
  * definition of the two bits; the SEMANTICS line shows both being raised on this
  * CPU). UFC is also raised by an ordinary underflow to zero with the mode off, so
- * it over-counts.
+ * it over-counts. The mode-on reading is taken in the calls scope and not the
+ * pinned one, because the pinned scope's own proof that the mode is on
+ * (tools/h2_engine_stream.h) multiplies into a subnormal and raises both flags.
  *
  * Usage: h2_engine_fz_probe --full-from FILE [--rows]
  *   --rows prints every differing row by name. Run from the repo root.
@@ -85,15 +95,16 @@
 
 namespace {
 
-// The control register and the switch are h2/flush_to_zero.h's (included by the
-// self-digest source above). Only the status register is read here, for FLAGS.
+// The control register and the switch are h2/flush_to_zero.h's (included through
+// the self-digest source above). Only the status register is read here, for FLAGS.
 #if defined(__aarch64__)
-constexpr uint64_t kFZ = horde2::kFlushToZeroBits;       // FPCR.FZ
+constexpr bool kArm64 = true;
 constexpr uint64_t kUFC = 1ull << 3, kIDC = 1ull << 7;   // FPSR: underflow, input denormal (cumulative)
 inline uint64_t fpsrGet() { uint64_t v; __asm__ volatile("mrs %0, fpsr" : "=r"(v)); return v; }
 inline void fpsrSet(uint64_t v) { __asm__ volatile("msr fpsr, %0" : : "r"(v)); }
 #else
-constexpr uint64_t kFZ = 0, kUFC = 0, kIDC = 0;   // not arm64: main refuses before anything is measured
+constexpr bool kArm64 = false;   // main refuses before anything is measured
+constexpr uint64_t kUFC = 0, kIDC = 0;
 inline uint64_t fpsrGet() { return 0; }
 inline void fpsrSet(uint64_t) {}
 #endif
@@ -104,34 +115,43 @@ inline uint64_t fpcrGet() { return horde2::fpControlWord(); }
 template <class F>
 __attribute__((noinline)) void callOut(F&& f) { f(); }
 
-/* THE switch: h2/flush_to_zero.h's two calls behind one name. Every scope and both
-   controls go through it, so the DENORMAL control proves the switch the counts
-   depend on, which is the switch the self-digest tools pin with. */
+/* THE switch: h2/flush_to_zero.h's two calls behind one name. Every narrower scope
+   and both controls go through it, so the DENORMAL control proves the switch the
+   counts depend on, which is the switch every tool's replay pins with. */
 template <class F>
 void underFz(bool on, F&& f) {
   if (on) horde2::underFlushToZero(f);
-  else horde2::withoutFlushToZero(f);
+  else horde2::flush_tools_only::withoutFlushToZero(f);
 }
 
-// kThread is the pinned scope (the self-digest tools'); the others are compared with it.
+// kThread is the pinned scope (every tool's replay); the others are compared with it.
 enum Scope { kThread = 0, kOff, kRenderOnly, kCalls, kScopes };
 const char* const kScopeName[kScopes] = {"thread", "off", "render", "calls"};
 
-uint64_t replayDigest(const Scenario& sc, Scope scope, std::vector<double>& out, uint64_t* fpsr = nullptr) {
-  EventLog log;
-  ReplayInfo info;
-  auto run = [&] {
-    h2engine_hooked::replay(sc, out, &log, &info, [&](h2engine_hooked::Call kind, auto&& call) {
-      const bool on = scope == kCalls || (scope == kRenderOnly && kind == h2engine_hooked::kRender);
-      if (scope == kThread) callOut(call);   // already on, set once outside
-      else underFz(on, call);
-    });
-  };
+// One replay: its digest, and the two things the digest covers besides the samples.
+struct Replayed { uint64_t digest = 0; EventLog log; ReplayInfo info; };
+bool sameEvents(const EventLog& a, const EventLog& b) {   // the fields digest() folds in
+  return std::memcmp(&a.count[1], &b.count[1], 4 * sizeof(uint64_t)) == 0 && a.h1 == b.h1 && a.h2 == b.h2;
+}
+bool sameReadouts(const ReplayInfo& a, const ReplayInfo& b) { return std::memcmp(a.cnt, b.cnt, sizeof a.cnt) == 0; }
+
+Replayed replayDigest(const Scenario& sc, Scope scope, std::vector<double>& out, uint64_t* fpsr = nullptr) {
+  Replayed r;
   if (fpsr) fpsrSet(0);
-  if (scope == kThread) underFz(true, run);
-  else run();
+  if (scope == kThread) {
+    // THE PINNED SCOPE: the hooked replay, its whole body inside the one mode scope
+    h2engine_hooked::replay(sc, out, &r.log, &r.info, [](h2engine_hooked::Call, auto&& call) { callOut(call); });
+  } else {
+    // the host's own mode forced off around the whole replay, then the scope's switch per call
+    underFz(false, [&] {
+      h2engine_hooked::replayBare(sc, out, &r.log, &r.info, [&](h2engine_hooked::Call kind, auto&& call) {
+        underFz(scope == kCalls || (scope == kRenderOnly && kind == h2engine_hooked::kRender), call);
+      });
+    });
+  }
   if (fpsr) *fpsr = fpsrGet();
-  return digest(out, log, info);
+  r.digest = digest(out, r.log, r.info);
+  return r;
 }
 
 // The control's signal: one pole with no input, decaying from 1. `frames` 1200 runs
@@ -158,17 +178,23 @@ int main(int argc, char** argv) {
     else if (std::strcmp(argv[i], "--rows") == 0) rows = true;
     else { std::fprintf(stderr, "usage: h2_engine_fz_probe --full-from FILE [--rows]\n"); return 2; }
   }
-  if (!kFZ) { std::printf("h2_engine_fz_probe: not arm64: this probe sets FPCR.FZ and nothing else; NOTHING MEASURED\n"); return 2; }
+  if (!kArm64) { std::printf("h2_engine_fz_probe: not arm64: this probe reads FPSR and nothing else; NOTHING MEASURED\n"); return 2; }
   int red = 0;
 
-  // SET: the bit must read back, and must be gone afterwards.
-  const uint64_t before = fpcrGet();
-  uint64_t inside = 0;
-  underFz(true, [&] { inside = fpcrGet(); });
-  const uint64_t after = fpcrGet();
-  const bool setOk = !(before & kFZ) && (inside & kFZ) && after == before;
+  // SET: from a host that enters with the mode OFF (forced, whatever this process
+  // was entered in), the bits must read back inside the switch and be gone after it.
+  uint64_t before = 0, inside = 0, after = 0;
+  bool bitsBefore = true, bitsInside = false, bitsAfter = true;
+  underFz(false, [&] {
+    bitsBefore = horde2::flushToZeroState().bits;
+    before = fpcrGet();
+    underFz(true, [&] { inside = fpcrGet(); bitsInside = horde2::flushToZeroState().bits; });
+    after = fpcrGet();
+    bitsAfter = horde2::flushToZeroState().bits;
+  });
+  const bool setOk = !bitsBefore && bitsInside && !bitsAfter && after == before;
   if (!setOk) red++;
-  std::printf("%s  SET  FPCR bit 24 (FZ): 0x%llx before, 0x%llx inside the scope, 0x%llx after\n", setOk ? "PASS" : "FAIL",
+  std::printf("%s  SET  FPCR bit 24 (FZ), from a host with it off: 0x%llx before, 0x%llx inside the scope, 0x%llx after\n", setOk ? "PASS" : "FAIL",
               static_cast<unsigned long long>(before), static_cast<unsigned long long>(inside), static_cast<unsigned long long>(after));
 
   // SEMANTICS (printed, not judged): what the bit does to a subnormal result and to a subnormal input here.
@@ -214,23 +240,25 @@ int main(int argc, char** argv) {
   FILE* f = path.empty() ? nullptr : std::fopen(path.c_str(), "rb");
   if (!f) { std::fprintf(stderr, "h2_engine_fz_probe: cannot open the stream '%s'\n", path.c_str()); return 2; }
   Digests run[kScopes];
-  // Per scope: how far the changed rows moved. A digest says THAT a row changed, never by how much.
-  struct Moved { std::string name; size_t samples = 0, total = 0, firstFrame = 0; double maxAbs = 0; bool sizeDiffers = false; };
+  // Per scope: what changed in each row whose digest differs. A digest says THAT a row changed, never what or by how much.
+  struct Moved { std::string name; size_t samples = 0, total = 0, firstFrame = 0; double maxAbs = 0; bool sizeDiffers = false, events = false, readouts = false; };
   std::vector<Moved> moved[kScopes];
   int flagOn = 0, flagOff = 0;
   const h2engine_hooked::Stream s = h2engine_hooked::walk(f, [&](const Scenario& sc) {
     uint64_t fpsrOff = 0, fpsrOn = 0;
     std::vector<double> pinned, other;
-    const uint64_t dPinned = replayDigest(sc, kThread, pinned, &fpsrOn);
-    run[kThread].emplace_back(sc.name, dPinned);
+    const Replayed rp = replayDigest(sc, kThread, pinned);
+    run[kThread].emplace_back(sc.name, rp.digest);
     for (int k = kOff; k < kScopes; k++) {
-      const uint64_t d = replayDigest(sc, static_cast<Scope>(k), other, k == kOff ? &fpsrOff : nullptr);
-      run[k].emplace_back(sc.name, d);
-      if (d == dPinned) continue;
+      const Replayed ro = replayDigest(sc, static_cast<Scope>(k), other, k == kOff ? &fpsrOff : (k == kCalls ? &fpsrOn : nullptr));
+      run[k].emplace_back(sc.name, ro.digest);
+      if (ro.digest == rp.digest) continue;
       Moved m;
       m.name = sc.name;
       m.total = pinned.size();
       m.sizeDiffers = other.size() != pinned.size();
+      m.events = !sameEvents(ro.log, rp.log);
+      m.readouts = !sameReadouts(ro.info, rp.info);
       for (size_t i = 0; i < pinned.size() && i < other.size(); i++) {
         if (std::memcmp(&pinned[i], &other[i], sizeof(double)) == 0) continue;
         if (!m.samples++) m.firstFrame = i / 2;
@@ -271,17 +299,24 @@ int main(int argc, char** argv) {
   for (int sc = kOff; sc < kScopes; sc++) {
     const Diff d = verdict(run[sc], self);
     double worst = 0;
-    size_t silent = 0;   // rows whose samples are equal: only the events or the readouts moved
+    size_t inSamples = 0, inEvents = 0, inReadouts = 0, inNone = 0;
     for (const Moved& m : moved[sc]) {
       if (m.maxAbs > worst || m.maxAbs != m.maxAbs) worst = m.maxAbs;
-      if (!m.samples && !m.sizeDiffers) silent++;
-      if (rows) std::printf("CHANGED  %-6s  %zu of %zu samples differ, first at frame %zu, largest |difference| %.3g  %s\n", kScopeName[sc], m.samples, m.total,
-                            m.firstFrame, m.maxAbs, m.name.c_str());
+      const bool samples = m.samples || m.sizeDiffers;
+      if (samples) inSamples++;
+      if (m.events) inEvents++;
+      if (m.readouts) inReadouts++;
+      if (!samples && !m.events && !m.readouts) inNone++;
+      if (rows) std::printf("CHANGED  %-6s  %zu of %zu samples differ, first at frame %zu, largest |difference| %.3g; events %s, readouts %s  %s\n", kScopeName[sc],
+                            m.samples, m.total, m.firstFrame, m.maxAbs, m.events ? "DIFFER" : "equal", m.readouts ? "DIFFER" : "equal", m.name.c_str());
     }
-    std::printf("COUNT  %s build, %s: %zu of %d rows differ from the pinned bits; largest |difference| in any sample %.3g; %zu differ in events or readouts only\n",
-                kBuild, sc == kOff ? "FZ forced OFF" : (sc == kRenderOnly ? "FZ on, scope render" : "FZ on, scope calls "), d.size(), n, worst, silent);
+    std::printf("COUNT  %s build, %s: %zu of %d rows differ from the pinned bits: %zu in their samples (largest |difference| in any sample %.3g), "
+                "%zu in their events, %zu in their readouts\n",
+                kBuild, sc == kOff ? "FZ forced OFF" : (sc == kRenderOnly ? "FZ on, scope render" : "FZ on, scope calls "), d.size(), n, inSamples, worst, inEvents,
+                inReadouts);
     if (sc == kOff) offDiffer = d.size();
     if (d.size() != moved[sc].size()) { std::printf("FAIL  the verdict's count (%zu) and the per-row comparison (%zu) disagree\n", d.size(), moved[sc].size()); red++; }
+    if (inNone) { std::printf("FAIL  %zu row(s) differ by digest and in none of samples, events, readouts: the comparison missed what the digest saw\n", inNone); red++; }
   }
   if (red) { std::printf("h2_engine_fz_probe: the counts are INCONSISTENT (%s build); NOTHING MEASURED\n", kBuild); return 1; }
   // The pin must depend on the mode: with it forced off, at least one pinned row has to differ.
@@ -289,8 +324,13 @@ int main(int argc, char** argv) {
     std::printf("FAIL  control OFF  %s build: with FZ forced off NO row differs from the pinned bits, so the pin does not depend on the mode\n", kBuild);
     return 1;
   }
-  std::printf("FLAGS  %s build (context): %d of %d rows raised UFC or IDC with FZ on (the pinned scope); %d of %d raised UFC with FZ off\n", kBuild, flagOn, n,
+  std::printf("FLAGS  %s build (context): %d of %d rows raised UFC or IDC with FZ on (the calls scope); %d of %d raised UFC with FZ off\n", kBuild, flagOn, n,
               flagOff, n);
+  // The pinned-scope replays went through the one mode scope: its two controls, over those n replays.
+  if (!h2engine_stream::printModeControls(static_cast<uint64_t>(n))) {
+    std::printf("h2_engine_fz_probe: the mode controls FAILED (%s build); NOTHING MEASURED\n", kBuild);
+    return 1;
+  }
   std::printf("h2_engine_fz_probe: MEASURED — %s build, %d rows, key %s\n", kBuild, n, kv.key.c_str());
   return 0;
 }

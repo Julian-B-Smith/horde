@@ -28,6 +28,18 @@
  * So the count cannot be reached by a hooked replay that quietly renders
  * something else, or nothing.
  *
+ * THE MODE (ADR-211 item 1). Both replays run with flush-to-zero on over the
+ * whole replay, through the one scope in tools/h2_engine_stream.h, as the horde
+ * 2 shell will run the engine. Two things follow here:
+ *   - nothing is judged unless that file's two mode controls fired and every
+ *     replay this process made, hooked or not, ran with flush-to-zero on and
+ *     rounding to nearest. A probe that ran the engine in another mode reports
+ *     "judged 0", which tools/h2_engine_rtsan_check.py reads as red;
+ *   - the switch itself runs INSIDE the realtime scope, around every engine
+ *     call, because a shell will make it on the audio thread at every entry
+ *     (h2/flush_to_zero.h: two register writes). So RealtimeSanitizer judges the
+ *     switch, its restore included, as often as it judges the engine.
+ *
  * MODES.
  *   --plant    the first scenario only, with ONE malloc made inside the realtime
  *              scope straight after its first render call, through the same
@@ -68,7 +80,8 @@ using h2engine_stream::Scenario;
 
 /* THE realtime scope. Every engine call goes through this one function, and so
    does the plant, so "the plant was reported" proves this wrapper arms the
-   sanitizer. */
+   sanitizer. The full run puts the flush-to-zero switch inside it too (header:
+   THE MODE): nested in the replay's own switch, it changes no bit. */
 template <class F>
 void inRealtime(F&& f) {
   __rtsan_realtime_enter();
@@ -114,7 +127,7 @@ int main(int argc, char** argv) {
         std::free(sink);
         return;
       }
-      inRealtime(call);
+      inRealtime([&] { horde2::underFlushToZero(call); });
     }, calls);
     if (plant || control) return;
     // Outside any scope: the parity gate's own replay of the same script.
@@ -132,6 +145,11 @@ int main(int argc, char** argv) {
                 plant ? (planted ? ", one malloc planted" : ", NOTHING PLANTED") : ", every one empty");
     return s.read == 1 && (!plant || planted) ? 0 : 2;
   }
+  // THE MODE (header): the two controls, over every replay made above (two per scenario).
+  const bool modeHeld = h2engine_stream::printModeControls(static_cast<uint64_t>(s.read) * 2);
+  std::printf("h2_engine_rtsan_probe: %s\n", modeHeld ? "every replay ran with flush-to-zero on and rounding to nearest, and the switch ran inside the realtime scope"
+                                                       : "the mode controls FAILED (see the two control lines): NOTHING is judged");
+  if (!modeHeld) judged = 0;
   std::printf("h2_engine_rtsan_probe: stream header %ld, END %s, %d scenarios read\n", s.headerN, s.ended ? std::to_string(s.endN).c_str() : "ABSENT", s.read);
   std::printf("h2_engine_rtsan_probe: %llu render calls and %llu event calls inside the realtime scope\n",
               static_cast<unsigned long long>(calls[h2engine_hooked::kRender]), static_cast<unsigned long long>(calls[h2engine_hooked::kEvent]));

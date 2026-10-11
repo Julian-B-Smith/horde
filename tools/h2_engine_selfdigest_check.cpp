@@ -42,20 +42,21 @@
  *
  * FLUSH-TO-ZERO IS ON FOR EVERY REPLAY (ADR-211 item 1, ruled by the human
  * 2026-10-11; docs/proposals/h2-flush-to-zero.md). The horde 2 shell runs the
- * engine with flush-to-zero on, and ADR-187 A1 says the shipped build is the
- * tested build, so the bits pinned here are the engine's bits WITH the mode on.
- * Every replay in this file goes through replayPinned(), which wraps the WHOLE
- * h2engine_stream::replay (the engine's construction and seeding, every event
- * call, every render) in horde2::underFlushToZero (h2/flush_to_zero.h, the one
- * copy the shell will use). The scope is the widest one on purpose: the replay is
- * the function the parity check uses, unedited, and "the engine never runs with
- * the mode off" is a rule a shell can be held to at one boundary. Measured on
- * the keyed platform, 2026-10-11: the mode on inside render only, on around
- * every engine call, and on for the whole replay give the same bits on all 543
- * rows, in both builds. Against the mode off, 8 rows differ, each sample by less
- * than 4.1e-308 (a subnormal that became zero): tools/h2_engine_fz_probe.py
- * re-measures both statements. The parity check and the other gates do not set
- * the mode; what that leaves open is in the proposal.
+ * engine with flush-to-zero on, so the bits pinned here are the engine's bits
+ * WITH the mode on. Nothing in this file sets it: h2engine_stream::replay does
+ * (tools/h2_engine_stream.h), for this tool, the parity check, its FMA control and
+ * every other tool that replays the stream, so the engine pinned here is the
+ * engine parity judges against the JS. The scope is the whole replay (the
+ * engine's construction and seeding, every event call, every render), the widest
+ * one on purpose: "the engine never runs with the mode off" is a rule a shell
+ * can be held to at one boundary. Measured on the keyed platform, 2026-10-11:
+ * the mode on inside render only, on around every engine call, and on for the
+ * whole replay give the same bits on all 543 rows, in both builds. Against the
+ * mode off, 8 rows differ, each sample by less than 4.1e-308 (a subnormal that
+ * became zero): tools/h2_engine_fz_probe.py re-measures both statements.
+ * THE PINNED BITS ALSO NEED ROUND-TO-NEAREST, which the switch does not set
+ * (h2/flush_to_zero.h): the ROUND control below is red when a replay ran in any
+ * other rounding mode.
  *
  * THE REFERENCES are h2/engine/selfdigest.<build>.<platform>.<compiler>.node<major>.txt,
  * keyed like the parity check's bit-exact floor: the platform and compiler (libm,
@@ -99,15 +100,24 @@
  *   FAULT  (parity build) fault 9 (K1, M1 reverted: the swarm's K smoother back to
  *          the constant 0.08 per tick) planted in the engine, every scenario
  *          re-rendered: at least kFaultMinRed scenarios red.
- *   FZ     (both builds, every platform) flush-to-zero must be OFF before the
- *          switch, ON inside it (the bits read back, and a subnormal result and a
- *          subnormal input both come out zero), OFF again inside a nested
- *          forced-off call (so "on" is not a reading that is always true), and
- *          the control word must come back bit for bit. Every clean replay must
- *          also have run with the bits set, through the same switch. So a build
- *          in which the switch silently does nothing is red here, on platforms
- *          with no reference too, and never "bit-identical for the wrong reason".
- *          An architecture with no switch in h2/flush_to_zero.h is red.
+ *   FZ     (both builds, every platform; tools/h2_engine_stream.h's, shared with
+ *          the parity check) every clean replay ran with flush-to-zero ON,
+ *          counted from inside the switch: the bits read back, and a subnormal
+ *          result and a subnormal input both came out zero. And the switch
+ *          itself, from a host that enters with the mode OFF and from one that
+ *          enters with it ON: on inside, off inside a nested forced-off call (so
+ *          "on" is not a reading that is always true), the host's own state and
+ *          control word back bit for bit afterwards; and after a THROW inside
+ *          it, the word exactly as it was. The state this process was entered
+ *          in is printed and NOT judged: a host that enters with the mode on is
+ *          not a broken switch. So a build in which the switch silently does
+ *          nothing is red here, on platforms with no reference too, and never
+ *          "bit-identical for the wrong reason". An architecture with no switch
+ *          in h2/flush_to_zero.h does not compile.
+ *   ROUND  (both builds, every platform; the same file's) every clean replay ran
+ *          rounding to nearest, judged by arithmetic inside the switch; and that
+ *          reading, taken under each of the four rounding modes a host can call
+ *          in with, is true for nearest alone.
  *
  * COVERAGE (parity build, every run; B441 C3): the engine is built with
  * H2_ENGINE_KERNELS, which counts the member steps each specialised member kernel
@@ -160,8 +170,7 @@
 #define H2_ENGINE_KERNELS 1   // the COVERAGE counter (measurement only; never in the product build)
 #endif
 #include "../h2/engine/engine.h"
-#include "../h2/flush_to_zero.h"
-#include "h2_engine_stream.h"
+#include "h2_engine_stream.h"   // its replay() sets flush-to-zero (h2/flush_to_zero.h)
 
 using horde2::engine::EventLog;
 using h2engine_stream::ReplayInfo;
@@ -263,46 +272,6 @@ void printDiff(const char* tag, const Diff& d) {
   for (const std::string& x : d.changed) std::printf("%s changed  %s\n", tag, x.c_str());
   for (const std::string& x : d.added) std::printf("%s added    %s  (not in the reference)\n", tag, x.c_str());
   for (const std::string& x : d.removed) std::printf("%s removed  %s  (pinned, not rendered)\n", tag, x.c_str());
-}
-
-// THE replay every digest in this file is taken from: h2engine_stream::replay,
-// whole, with flush-to-zero on (header: FLUSH-TO-ZERO IS ON FOR EVERY REPLAY).
-// The counters feed the FZ control: a replay that ran without the bits is counted
-// apart, so the control judges the replays themselves and not a demonstration.
-struct FzReplays { uint64_t made = 0, withBits = 0; };
-FzReplays gFzReplays;
-void replayPinned(const Scenario& sc, std::vector<double>& out, int fault, EventLog* log, ReplayInfo* info) {
-  horde2::underFlushToZero([&] {
-    gFzReplays.made++;
-    if (horde2::kFlushToZeroAvailable && (horde2::fpControlWord() & horde2::kFlushToZeroBits) == horde2::kFlushToZeroBits) gFzReplays.withBits++;
-    h2engine_stream::replay(sc, out, fault, log, 0, info);
-  });
-}
-
-// The FZ control's readings (header: MUST-FAIL CONTROLS). The two words are read
-// immediately around the switch, with no arithmetic in between: on x86-64 the
-// register also holds sticky exception flags, which the readings before and after
-// would otherwise move.
-struct FzControl {
-  horde2::FlushToZeroState before, inside, forcedOff, backOn, after;
-  uint64_t word0 = 0, wordIn = 0, word1 = 0;
-  bool fired() const {
-    return horde2::kFlushToZeroAvailable && before.off() && inside.on() && forcedOff.off() && backOn.on() && after.off() && word1 == word0;
-  }
-};
-FzControl fzControl() {
-  FzControl c;
-  c.before = horde2::flushToZeroState();
-  c.word0 = horde2::fpControlWord();
-  horde2::underFlushToZero([&] {
-    c.wordIn = horde2::fpControlWord();
-    c.inside = horde2::flushToZeroState();
-    horde2::withoutFlushToZero([&] { c.forcedOff = horde2::flushToZeroState(); });
-    c.backOn = horde2::flushToZeroState();
-  });
-  c.word1 = horde2::fpControlWord();
-  c.after = horde2::flushToZeroState();
-  return c;
 }
 
 std::string refKey(const std::string& platform, const std::string& compiler, int nodeMajor) {
@@ -444,7 +413,7 @@ int main(int argc, char** argv) {
     for (uint64_t& c : horde2::engine::kernelSteps) c = 0;
     for (auto& o : horde2::engine::kernelSerial) o[0] = o[1] = 0;
 #endif
-    replayPinned(sc, out, 0, &log, &info);
+    h2engine_stream::replay(sc, out, 0, &log, 0, &info);
     run.emplace_back(sc.name, digest(out, log, info));
 #ifdef H2_ENGINE_KERNELS
     std::string ids, sids;
@@ -524,23 +493,10 @@ int main(int argc, char** argv) {
   }
 #endif
 
-  // FZ: the mode the digests above were taken under was really on, through the
-  // switch the replays used, and the caller's control word came back. Judged
-  // everywhere: it needs no reference. It runs before the FAULT pass, so the
-  // replays it counts are exactly the n clean ones.
-  {
-    const FzControl c = fzControl();
-    const bool all = gFzReplays.made == static_cast<uint64_t>(n) && gFzReplays.withBits == gFzReplays.made;
-    const bool fired = c.fired() && all;
-    if (!fired) red++;
-    auto st = [](const horde2::FlushToZeroState& s) { return s.on() ? "on" : (s.off() ? "off" : "HALF-SET"); };
-    std::printf("%s  control FZ  flush-to-zero (h2/flush_to_zero.h%s): %s before, %s inside the switch (bits %d, a subnormal result zero %d, a subnormal input zero %d), "
-                "%s forced off inside it, %s again, %s after; control word 0x%llx before, 0x%llx inside, 0x%llx after; %llu of %llu clean replays ran with the bits set\n",
-                fired ? "PASS" : "FAIL", horde2::kFlushToZeroAvailable ? "" : ", NO SWITCH FOR THIS ARCHITECTURE", st(c.before), st(c.inside), c.inside.bits,
-                c.inside.results, c.inside.inputs, st(c.forcedOff), st(c.backOn), st(c.after), static_cast<unsigned long long>(c.word0),
-                static_cast<unsigned long long>(c.wordIn), static_cast<unsigned long long>(c.word1), static_cast<unsigned long long>(gFzReplays.withBits),
-                static_cast<unsigned long long>(gFzReplays.made));
-  }
+  // FZ and ROUND: the mode the digests above were taken under (header: MUST-FAIL
+  // CONTROLS). Judged everywhere: they need no reference. They run before the
+  // FAULT pass, so the replays they count are the n clean ones.
+  if (!h2engine_stream::printModeControls(static_cast<uint64_t>(n))) red++;
 
   // ULP: one sample one ULP up, mid-render; exactly that row red, by name. Judged
   // as the CHANGE from this run's own verdict against `judgeBy`, so a red reference
@@ -596,7 +552,7 @@ int main(int argc, char** argv) {
       std::vector<double> out;
       EventLog log;
       ReplayInfo info;
-      replayPinned(sc, out, kFaultId, &log, &info);
+      h2engine_stream::replay(sc, out, kFaultId, &log, 0, &info);
       faulted.emplace_back(sc.name, digest(out, log, info));
     }
     const Diff r = verdict(faulted, self);   // against this run: the fault's own effect
