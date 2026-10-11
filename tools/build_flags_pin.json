@@ -37,6 +37,7 @@
    "targets": {
     "auhost": [{"compile": ["-O3", "-ffp-contract=off"], "link": [], "when": "APPLE"}],
     "h2_engine_selfdigest_product": [{"compile": ["-O3", "-ffp-contract=off"], "link": [], "when": "NOT MSVC"}],
+    "h2_harness_render": [{"compile": ["-O3", "-ffp-contract=off"], "link": [], "when": "NOT MSVC"}],
     "measure_h2_engine": [{"compile": ["-O3", "-ffp-contract=off"], "link": [], "when": "NOT MSVC"}],
     "measure_h2_engine_stages": [{"compile": ["-O3", "-ffp-contract=off"], "link": [], "when": "NOT MSVC"}],
     "measure_h2_scalpel": [{"compile": ["-O3", "-ffp-contract=off"], "link": [], "when": "NOT MSVC"}]
@@ -197,6 +198,7 @@
     "h2_engine_parity_check",
     "h2_engine_selfdigest_check",
     "h2_engine_selfdigest_product",
+    "h2_harness_render",
     "h2_scalpel_fma_control",
     "h2_scalpel_parity_check",
     "h2_swarm48_check",
@@ -311,6 +313,7 @@
     "h2_engine_parity_check",
     "h2_engine_selfdigest_check",
     "h2_engine_selfdigest_product",
+    "h2_harness_render",
     "h2_scalpel_fma_control",
     "h2_scalpel_parity_check",
     "h2_swarm48_check",

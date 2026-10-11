@@ -52,6 +52,7 @@ LEDGERS = [
     "docs/armor/weakening-baseline.json",
     "docs/armor/tolerances.json",
     "docs/armor/acceptances.json",
+    "docs/armor/engines.json",
     "tools/param_id_lock.json",
     "tools/build_flags_pin.json",
     "tools/license_allowlist.json",

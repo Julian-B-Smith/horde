@@ -5,8 +5,8 @@
       "id": "R1",
       "title": "Realtime safety on the audio thread",
       "status": "partial",
-      "gates": ["rtsafety_probe", "rtsan_check"],
-      "gaps": "rtsan_check (RealtimeSanitizer, ADR-199) runs the real process() over all parameter ids, both engines, morph, intents, mod matrix, MIDI, loads, bypass and reactivation, with a planted fault and a clean control, in verify full; it is macOS-local and SKIPs without Homebrew LLVM, and CI does not run it. Paths outside its seeded schedule are unproven. No lint of the realtime ban list. horde 2 has no shell to probe yet.",
+      "gates": ["rtsafety_probe", "rtsan_check", "h2_rt_lint_check", "h2_engine_rtsan_check"],
+      "gaps": "rtsan_check (RealtimeSanitizer, ADR-199) runs the real process() over all parameter ids, both engines, morph, intents, mod matrix, MIDI, loads, bypass and reactivation, with a planted fault and a clean control, in verify full; it is macOS-local and SKIPs without Homebrew LLVM, and CI does not run it. Paths outside its seeded schedule are unproven. For horde 2's engine: h2_rt_lint_check (verify fast) bans nine classes of allocating, locking, blocking or throwing construct under h2/, with the offline harness exempt and printed and four std::string uses in the frozen swarm core listed as waivers; h2_engine_rtsan_check (verify full, macOS-local like rtsan_check) runs RealtimeSanitizer over every engine call on the 543 parity scenarios, with a planted allocation. horde 2 has no shell to probe yet: waits on B398, whose acceptance rows are drafted in docs/proposals/h2-shell-acceptance.md.",
       "tracked_by": "B448",
       "tripwire": "RT violations: 0"
     },
@@ -24,7 +24,7 @@
       "title": "NaN, Inf and denormals",
       "status": "partial",
       "gates": ["denormal_check", "hostile_events_check", "stability_check", "nan_latch_check"],
-      "gaps": "The legacy output guard now latches and counts (nan_latch_check; hostile_events_check reads the real plugin's counter), but the count reaches no user-visible surface yet. horde 2's engine has no output guard: it ends in tanh, and a NaN passes through. Flush-to-zero is set nowhere (audited 2026-10-08); denormals are snapped in software in the swarm and sub cores, and no per-block FTZ is planned without an ADR.",
+      "gaps": "The legacy output guard now latches and counts (nan_latch_check; hostile_events_check reads the real plugin's counter), but the count reaches no user-visible surface yet. horde 2's engine has no output guard: it ends in tanh, and a NaN passes through. Flush-to-zero is ruled ON for the horde 2 shell from its first build (ADR-211; measured, 8 of 543 engine digests change, each sample by less than 4.1e-308), but it is set nowhere yet and the eight rows are not re-pinned; legacy keeps snapping denormals in software in the swarm and sub cores. The horde 2 shell's latch-and-report guard and its user-visible count are ruled (ADR-209 item 7) and wait on B398.",
       "tracked_by": "B448",
       "tripwire": "NaN events: 0, plus the guard's trip count"
     },
@@ -86,8 +86,8 @@
       "id": "R10",
       "title": "The parity-golden trap",
       "status": "partial",
-      "gates": ["parity_check", "h2_engine_parity_check", "divergence_ledger_check", "twocluster_check", "svf_check"],
-      "gaps": "Parity with the prototypes is provisional under ADR-187. Few closed-form, conservation or metamorphic tests independent of the prototypes, and no count of goldens carrying an independent check.",
+      "gates": ["parity_check", "h2_engine_parity_check", "divergence_ledger_check", "twocluster_check", "svf_check", "golden_registry_check"],
+      "gaps": "Parity with the prototypes is provisional under ADR-187. Few closed-form, conservation or metamorphic tests independent of the prototypes, and golden_registry_check now counts them: 1 of 39 goldens carries an independent check, and none is closed-form.",
       "tracked_by": "B448",
       "tripwire": "Goldens with independent check: N of M"
     },
@@ -122,11 +122,10 @@
     {
       "id": "S2",
       "title": "Snapshot of the bug",
-      "status": "hole",
-      "gates": [],
-      "gaps": "No check that a new golden names its independent justification (closed form, prototype plus listening sign-off, or measurement).",
+      "status": "partial",
+      "gates": ["golden_registry_check"],
+      "gaps": "golden_registry_check (verify fast) discovers every golden and pin by rule and is red for one with no registry entry, for an entry citing a check verify does not run, and for an independence claim with no evidence. Not yet: an entry may still be registered as prototype-parity-only, and 38 of the 39 are, so nothing forces a NEW golden to carry an independent justification; whether bit-identity pins count as goldens is the lead's reading, not yet ruled",
       "tracked_by": "B448",
-      "expires": "2027-01-31",
       "tripwire": "New goldens without a named justification: 0"
     },
     {
@@ -150,11 +149,10 @@
     {
       "id": "S5",
       "title": "Happy-path tests",
-      "status": "hole",
-      "gates": [],
-      "gaps": "No check that each engine test suite includes extreme-parameter and automation-sweep cases.",
+      "status": "partial",
+      "gates": ["engine_enrolment_check"],
+      "gaps": "engine_enrolment_check (verify fast) is red for any code directory under h2/ with no entry in docs/armor/engines.json, and the harness selftest (verify full) proves each enrolled adapter makes sound, with a silent adapter failing. Not yet: the extreme-parameter fuzz and the sweep matrix that run over every enrolled engine (phase 2 packages P3 and P4), so enrolment does not yet imply those cases",
       "tracked_by": "B448",
-      "expires": "2027-01-31",
       "tripwire": "Engine suites without extreme and sweep cases: 0"
     },
     {

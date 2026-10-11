@@ -894,6 +894,21 @@ full() {
   grep '^WARNING: self-digest' "$h2e" >&2
   grep -E '^(TOTAL|SKIP|CONTEXT|PASS  (control|KEYSELF|SELFDIGEST))' "$h2e"
   tail -1 "$h2e"; rm -f $h2tmp
+  # The engine harness's gates (B448 phase 2, h2/harness/). First its own selftest: each
+  # enrolled engine's adapter makes sound, and an adapter that returns silence must fail.
+  node h2/harness/selftest.mjs --bin "$build_dir/h2_harness_render" || {
+    echo "verify[full]: h2 harness selftest FAILED" >&2; return 1; }
+  # Each later package adds its ONE line under its own marker below. The blank comment
+  # lines between markers keep parallel pull requests from colliding.
+  #
+  # [harness gate: P3 parameter fuzz]
+  #
+  #
+  # [harness gate: P4 invariance matrix]
+  #
+  #
+  # [harness gate: P6 soak, the short local cell]
+  #
   # horde 2's lifted swarm core (B379 step 1, h2/cores/swarm/): lift edit E1
   # re-proven. A Voice the caller owns, started with initVoice() and ticked
   # through the one public forwarder E1 adds, must match the core's own voice
