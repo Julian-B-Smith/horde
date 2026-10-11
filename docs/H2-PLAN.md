@@ -6,6 +6,12 @@ refresh covers everything since the 2026-10-01 verification: rows B403–B451, A
 with their amendments, and the parts the B451 manual scaffold found without an id. The previous
 verification (2026-10-01, records PR #888, `ecbb205`) is in git history.
 
+**Partial refresh, 2026-10-11**, against main `6dd5884`, through B457 and ADR-212, for the ten
+parts those records touch: `armor`, `shell`, `freeze`, `testing`, `perf`, `distrib`, `rack`,
+`presets`, `master`, `intent`. Their notes and open decisions are current in the visual map; the
+parts table below carries the new rows. Every other part stands as verified on 2026-10-09. Open
+decision 37 (the freeze tag's corpus) is ruled: skipped (ADR-209 item 11).
+
 This is the README-level orientation for horde 2: every part, the rows and ADRs that govern it,
 its status, what it needs first, the order of work, and what 1.0 is. It is a MAP of the records,
 not a second copy of them.
@@ -98,7 +104,7 @@ post-1.0 noise osc / sampler; now the 1.0 noise oscillator, the sampler is `samp
 | Mod matrix | `modmatrix` | in progress | B392, B207, B57, B270, B282 | `modulators`, `seams`, `audit` | in |
 | Modulator morph | `modmorph` | planned | B396 | `modmatrix`, `morph` | in |
 | Morph: editor, laws, quantum | `morph` | in progress | B211, B235, B268, B269, B272, B424, B240, B308 | `seams` | in |
-| Macros + intent bus | `intent` | ruled | B443, B442, B170, B270, B354 | `morph`, `modmatrix` | in |
+| Macros + intent bus | `intent` | ruled | B443, B442, B170, B270, B354, B453 | `morph`, `modmatrix` | in |
 | FX algorithm morph | `fxmorph` | in progress | B265, B394, B266, B352 | `morph`, `rack`, `sluice` | in |
 | Patch model → state schema | `patch` | in progress | B263, B308, B258 | `shell`, `morph`, `modmatrix`, `mix` | in |
 | History tree | `history` | planned | B389, B84, B119, B122, B186, B222, B193 | `shell`, `patch`, `fxmorph`, `intent` | in |
@@ -120,13 +126,13 @@ post-1.0 noise osc / sampler; now the 1.0 noise oscillator, the sampler is `samp
 | Bulwark multiband + ATM (was OTT) | `ott` | planned | B423, B400, B393 | `bulwark` | conditional |
 | Kuramoto chorus | `kchorus` | planned | B401, B393 | `rack` | conditional |
 | horde 2 plugin shell | `shell` | ruled | B398, B428, B429, B449, B305, B308, B306 | `seams`, `port` | in |
-| Legacy freeze tag | `freeze` | ruled | B255, B308, B305 | — | in |
-| Testing apparatus | `testing` | in progress | B316, B324, B340, B344, B350, B381, B186 | `port` | in |
+| Legacy freeze tag | `freeze` | ruled | B255, B308, B305, B456 | — | in |
+| Testing apparatus | `testing` | in progress | B316, B324, B340, B344, B350, B381, B186, B457 | `port` | in |
 | Performance | `perf` | in progress | B441, B445, B323, B372, B375, B357, B262 | `port`, `edges` | in |
-| Blind-Spot Armor + security gates | `armor` | in progress | B448, B446, B430 | — | in |
+| Blind-Spot Armor + security gates | `armor` | in progress | B448, B446, B430, B455, B457 | — | in |
 | Conformance, distribution + legal | `distrib` | planned | B427, B447, B412, B433 | `shell` | in |
 | GUI 3 + the screens | `gui3` | planned | B302, B449, B432, B271, B322, B336, B261, B308 | `shell`, `fxmorph`, `intent`, `modmorph`, `mix`, `maw`, `sluice` | in |
-| Presets + factory library | `presets` | planned | B395, B257, B261, B312, B349 | `history`, `testing`, `intent`, `maw`, `sluice`, `reverb`, `echo`, `bulwark`, `eq`, `fxfilter`, `drive`, `gui3` | in |
+| Presets + factory library | `presets` | planned | B395, B257, B261, B312, B349, B453 | `history`, `testing`, `intent`, `maw`, `sluice`, `reverb`, `echo`, `bulwark`, `eq`, `fxfilter`, `drive`, `gui3` | in |
 | User manual | `manual` | in progress | B451, B413 | `gui3` | open |
 | 1.0 — the stability line | `release` | planned | B305, B327, B440 | `presets`, `gui3`, `perf`, `freeze`, `quant`, `sub`, `noise`, `stereo`, `master`, `mpe`, `mts`, `arps`, `distrib`, `armor` | in |
 | Tonality integration | `tonality` | post-1.0 | B390 | `release`, `quant` | out |
@@ -461,8 +467,10 @@ option, a WASM build for the labs, R2 and R3, FX cost.
 `./verify` or a visible hole on the dashboard; correctness and security share one catalogue.
 Includes the runtime safety nets (B430).
 - Governing: B448, B446, B430. ADR-197, ADR-194, ADR-196, ADR-199.
-- Status: **in progress**. It has been law since 2026-10-08, and phase 1 is a retrofit, now. At
-  ratification: 0 of 12 rows fully gated, 11 partial, 1 missing (soak).
+- Status: **in progress**. It has been law since 2026-10-08. Phase 1 (the retrofit) is complete.
+  Phase 2 is ruled (ADR-209: engine now, shell at birth, legacy frozen) and its Wave 1 is built
+  and merged (2026-10-11). Score on 2026-10-11: 0 of 12 risk rows fully gated, 12 partial, none
+  missing; at ratification it was 0, 11 and 1 (soak).
 - Needs first: nothing.
 
 **Conformance, distribution and legal** (`distrib`). What a release must clear outside the DSP:
@@ -514,7 +522,7 @@ rounds long before the rack exists.
 | A2 | The shell skeleton (ADR-186 §5): the new identity; the manifest feeding a generated parameter lockfile (B308 H4), from B376's decided audit through B277 re-scoped to horde 2; the state schema version; the counter-based draw ADR (B308 H3). Frozen identities (B428), the wrapper boundary (B429) and the GUI rules R1–R11 (B449) land with it. | `seams`, `shell` |
 | A3 | History on the skeleton (B389), ported as soon as horde 2 has state, its acceptance grown as each feature lands. | `history` |
 | A4 | The pitch seam: the bend laws on one published per-voice pitch, the quantizer as a service, MTS-ESP with its stated precedence, and MPE through CLAP per-note expressions; room for Tonality (B390). | `bend`, `quant`, `mts`, `mpe` |
-| A5 | The gates 1.0 must pass: the Blind-Spot Armor retrofit, now (ADR-197), and the conformance gates once a signed shell exists (B427). | `armor`, `distrib` |
+| A5 | The gates 1.0 must pass: Blind-Spot Armor (ADR-197; phase 1 done, phase 2 on the engine now and on the shell at its birth, ADR-209), and the conformance gates once a signed shell exists (B427). | `armor`, `distrib` |
 
 **Track B — lab sync** (human-paced, one lab per review session; B331 reordered):
 
