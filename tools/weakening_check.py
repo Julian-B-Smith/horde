@@ -38,9 +38,35 @@ unless stated, and one combined regex per category so overlapping spellings coun
   dsp_guard      Symptom clamping (armor: "Symptom clamping"). In src/ and h2/ only:
                  std::isfinite, std::isnan, std::clamp, bare isfinite( and isnan(. C/C++
                  files are matched on code only (comments, strings blanked with
-                 banned_api_check.strip_noncode) so prose never counts. NOT banned: input
-                 validation at a trust boundary and a guard that latches and reports are
-                 legitimate; they are approved into the baseline WITH a reason.
+                 banned_api_check.strip_noncode) so prose never counts. An approval here
+                 must cite a root cause: see DSP_GUARD APPROVALS.
+  dsp_guard_tagged  The same markers, on a line that carries the text `dsp_guard: boundary`
+                 or `dsp_guard: latch` (in a comment on the SAME physical line; a tag on
+                 the line above tags nothing). A tagged marker is counted here INSTEAD of
+                 under dsp_guard, never in neither, so a tag cannot lower the total.
+
+DSP_GUARD APPROVALS (B448 P14; the law's "Symptom clamping" rule and its edit D).
+  dsp_guard         --approve refuses unless REF contains `traces/<name>.md` (a file directly
+                    under traces/; if REF names several, the first is the one checked), that
+                    file is readable, it names FILE (the path, as text), and it has a
+                    root-cause section: a markdown heading of any level
+                    whose text starts with "Root cause" (any case; `## Root cause` or
+                    `## Root cause: the wrap rounds to len`), followed by at least one
+                    non-blank line before the next heading. "The guard hides X; X happens
+                    because Y" is what belongs there.
+  dsp_guard_tagged  --approve needs a non-empty REF like every other category, and no trace.
+                    Edit D: input validation at a trust boundary is exempt from the
+                    root-cause rule, and an output guard is allowed if it latches and
+                    reports. --approve prints each tagged line, because the tag is the
+                    author's claim and only the human's reading tests it.
+  WHY A TAG IS NOT AN EXEMPTION. If a tag made a guard uncounted, an agent could add a clamp,
+  write "boundary" beside it, and need nobody: the tag would quiet the ratchet. So a tag only
+  chooses WHICH approval the human gives (one that needs no trace); it never removes the need
+  for one. Entries already in the baseline are not re-judged; the rule acts on --approve only.
+  LIMITS. The tool checks that a trace exists, names the file and has the section; it cannot
+  tell whether the root cause is true, nor whether a `latch` guard really latches. A ledger
+  edited by hand skips --approve and this rule with it (ledger_owner_check and code-owner
+  review are the guard there).
 
 SCOPE. Tracked files, and new files that are not ignored (`git ls-files --cached --others
 --exclude-standard`): src/ h2/ tools/ tests/ verify
@@ -55,14 +81,22 @@ USAGE.
   weakening_check.py --init                  write the baseline from this tree (refuses if one exists)
   weakening_check.py --tighten               lower baseline entries the tree has fallen below; never raises
   weakening_check.py --approve CAT FILE REF  raise ONE entry to the current count; REF (an ADR /
-                                             ROADMAP / trace ref, non-empty) is recorded. The
-                                             human's decision, never the agent's own.
+                                             ROADMAP / trace ref, non-empty) is recorded. For
+                                             dsp_guard REF must cite a trace with a root-cause
+                                             section (DSP_GUARD APPROVALS). The human's decision,
+                                             never the agent's own.
 
 MUST-FAIL CONTROLS, every run, in a scratch git repo with a copied baseline: one marker
 planted per category reads red; the clean layout reads green; a new file with markers
 counts as an increase from 0; --tighten never raises; --approve with an empty ref is
-refused and writes nothing; --approve then clears the planted marker. If any control
-fails to go red (or green where it must), this check is red. No wall-clock values.
+refused and writes nothing; --approve then clears the planted marker. For dsp_guard: a
+planted guard approved with a bare ref, with a missing trace, with a file outside traces/,
+with a trace that has no root-cause section, an empty one, or one that does not name the
+file, is refused each time and writes nothing; the same guard citing a proper trace is
+accepted and reads green. A tagged guard is still red until approved, is counted under
+dsp_guard_tagged and not dsp_guard, and is approved without a trace; a tag on the line above
+tags nothing. If any control fails to go red (or green where it must), this check is red.
+No wall-clock values.
 """
 import argparse
 import json
@@ -87,6 +121,16 @@ CPP_EXTS = {".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".ipp", ".tpp", ".
 # (regex, restrict) per category; restrict is None (whole scope), or a tuple of path
 # prefixes/names the category applies to.
 VERIFY_AND_CI = ("verify", ".github/workflows/")
+DSP_PATHS = ("src/", "h2/")
+DSP_GUARD = re.compile(r"\bstd::(?:isfinite|isnan|clamp)\b|(?<![\w:.>])(?:isfinite|isnan)\s*\(")
+# The tag that moves a marker from dsp_guard to dsp_guard_tagged. Same physical line only: a
+# counter cannot tell which following line a tag on its own line was meant for.
+DSP_TAG = re.compile(r"\bdsp_guard:\s*(?:boundary|latch)\b")
+# A dsp_guard approval's REF must contain one of these. `[\w.-]+` has no slash, so the name
+# cannot climb out of traces/ (traces/../x.md does not match).
+TRACE_REF = re.compile(r"(?<![\w./-])traces/[\w.-]+\.md(?![\w-])")
+ROOT_CAUSE_HEADING = re.compile(r"^#{1,6}[ \t]+root cause\b[^\n]*$", re.I | re.M)
+ANY_HEADING = re.compile(r"^#{1,6}[ \t]+\S", re.M)
 CATEGORIES = {
     "skip": (re.compile(
         r"GTEST_SKIP|\bDISABLED_[A-Za-z0-9_]"
@@ -105,8 +149,8 @@ CATEGORIES = {
         r"continue-on-error:\s*true\b|\|\|\s*true\b|\|\|\s*:(?=\s*(?:$|[;)&|#]))"
         r"|^\s*(?:-\s*)?if:\s*(?:false|\$\{\{\s*false\s*\}\})\s*$", re.M), VERIFY_AND_CI),
     "unwired": (re.compile(r"UNWIRED:"), None),
-    "dsp_guard": (re.compile(
-        r"\bstd::(?:isfinite|isnan|clamp)\b|(?<![\w:.>])(?:isfinite|isnan)\s*\("), ("src/", "h2/")),
+    "dsp_guard": (DSP_GUARD, DSP_PATHS),
+    "dsp_guard_tagged": (DSP_GUARD, DSP_PATHS),     # the same markers, split by line tag in count_text
 }
 # `verify`-only: an echo/printf that announces a SKIP, per-line (a gate that prints SKIPPED exits 0).
 VERIFY_SKIP_PRINT = re.compile(r"(?:echo|printf)\b[^\n]*\bSKIP(?:PED)?\b")
@@ -116,16 +160,36 @@ def in_restrict(rel, restrict):
     return restrict is None or any(rel == r or rel.startswith(r) for r in restrict)
 
 
+def dsp_guard_markers(rel, text):
+    """-> [(line_number, tagged)], one per dsp_guard marker in this file, in file order.
+
+    C/C++ is matched on code only, but the tag lives in a comment, so the tag is looked up on
+    the ORIGINAL line. strip_noncode blanks with spaces and keeps newlines, so a match offset
+    in the stripped text falls on the same line of the original."""
+    body = strip_noncode(text) if pathlib.PurePosixPath(rel).suffix in CPP_EXTS else text
+    lines = text.split("\n")
+    out = []
+    for m in DSP_GUARD.finditer(body):
+        ln = body.count("\n", 0, m.start())
+        out.append((ln + 1, bool(DSP_TAG.search(lines[ln]))))
+    return out
+
+
 def count_text(rel, text):
     """-> {category: n} for one file's text (zero categories omitted)."""
     out = {}
     for cat, (rx, restrict) in CATEGORIES.items():
         if not in_restrict(rel, restrict):
             continue
-        body = text
-        if cat == "dsp_guard" and pathlib.PurePosixPath(rel).suffix in CPP_EXTS:
-            body = strip_noncode(text)
-        n = len(rx.findall(body))
+        if cat == "dsp_guard_tagged":
+            continue                                    # counted with dsp_guard, just below
+        if cat == "dsp_guard":
+            marks = dsp_guard_markers(rel, text)
+            n = sum(1 for _, tagged in marks if not tagged)
+            if len(marks) - n:
+                out["dsp_guard_tagged"] = len(marks) - n
+        else:
+            n = len(rx.findall(text))
         if cat == "skip" and rel == "verify":
             n += len(VERIFY_SKIP_PRINT.findall(text))
         if n:
@@ -229,25 +293,75 @@ def tightened(counts, baseline):
     return out
 
 
-def approved(counts, baseline, cat, f, ref):
-    """-> (new_baseline, error). Raises exactly one entry to the current count."""
+TAG_WORDS = "'dsp_guard: boundary' or 'dsp_guard: latch'"
+
+
+def root_cause_trace(root, f, ref):
+    """-> (why, error) for a dsp_guard approval of file f: the rule in DSP_GUARD APPROVALS.
+
+    Mechanical on purpose: a trace that exists, names the file and has a non-empty root-cause
+    section. Whether the cause is TRUE is the human's reading, not this function's."""
+    names = TRACE_REF.findall(ref)
+    if not names:
+        return None, (f"refused: a dsp_guard approval must cite its root cause. REF must contain "
+                      f"traces/<name>.md, a trace with a '## Root cause' section that names {f}. "
+                      f"(If the guard is input validation at a trust boundary, or an output guard "
+                      f"that latches and reports, tag its line {TAG_WORDS} instead: it is then "
+                      f"counted, and approved, as dsp_guard_tagged, which needs no trace.)")
+    rel = names[0]
+    try:
+        text = (pathlib.Path(root) / rel).read_text(encoding="utf-8")
+    except (OSError, ValueError) as e:
+        return None, f"refused: {rel} cannot be read ({type(e).__name__}) -- a dsp_guard approval cites a trace that exists"
+    head = ROOT_CAUSE_HEADING.search(text)
+    if not head:
+        return None, f"refused: {rel} has no root-cause section (a heading that starts 'Root cause', e.g. '## Root cause')"
+    rest = text[head.end():]
+    nxt = ANY_HEADING.search(rest)
+    if not (rest[:nxt.start()] if nxt else rest).strip():
+        return None, f"refused: the root-cause section of {rel} is empty"
+    if f not in text:
+        return None, f"refused: {rel} does not name {f} -- a trace about another file explains nothing here"
+    return f"{rel} names {f} and has a root-cause section (read it: the tool cannot tell whether the cause is true)", None
+
+
+def approved(counts, baseline, cat, f, ref, root=ROOT):
+    """-> (new_baseline, error, why). Raises exactly one entry to the current count.
+
+    `why` is the plain-words reason a dsp_guard / dsp_guard_tagged approval was accepted (None
+    for the other categories); `root` is where a cited trace is looked up."""
     if not ref or not ref.strip():
-        return None, "refused: --approve needs a non-empty ref (an ADR / ROADMAP / trace id the human gave)"
+        return None, "refused: --approve needs a non-empty ref (an ADR / ROADMAP / trace id the human gave)", None
     if cat not in CATEGORIES:
-        return None, f"refused: unknown category {cat!r} (one of {', '.join(sorted(CATEGORIES))})"
+        return None, f"refused: unknown category {cat!r} (one of {', '.join(sorted(CATEGORIES))})", None
     new = counts.get(cat, {}).get(f, 0)
     old = baseline.get(cat, {}).get(f, {}).get("count", 0)
     if new <= old:
-        return None, f"refused: {cat} {f} is {new}, baseline {old} -- nothing to approve (--tighten lowers)"
+        return None, f"refused: {cat} {f} is {new}, baseline {old} -- nothing to approve (--tighten lowers)", None
+    why = None
+    if cat == "dsp_guard":
+        why, err = root_cause_trace(root, f, ref)
+        if err:
+            return None, err, None
+    elif cat == "dsp_guard_tagged":
+        why = (f"every marker counted here sits on a line tagged {TAG_WORDS}, so no trace is needed "
+               f"(the tag is the author's claim: read the lines)")
     out = json.loads(json.dumps(baseline))
     out.setdefault(cat, {})[f] = {"count": new, "approved": ref.strip()}
-    return out, None
+    return out, None, why
 
 
 def increase_message(cat, f, old, new):
-    return (f"{f}: {cat} {old} -> {new}. An increase is a gate-weakening event: it needs the "
-            f"human's approval, recorded as a ROADMAP/ADR/trace ref in the baseline's \"approved\" "
-            f"field ({SELF_REL} --approve {cat} {f} <ref>)")
+    msg = (f"{f}: {cat} {old} -> {new}. An increase is a gate-weakening event: it needs the "
+           f"human's approval, recorded as a ROADMAP/ADR/trace ref in the baseline's \"approved\" "
+           f"field ({SELF_REL} --approve {cat} {f} <ref>)")
+    if cat == "dsp_guard":
+        msg += (f". For dsp_guard the ref must cite traces/<name>.md with a '## Root cause' section "
+                f"that names the file; a boundary check or a latching output guard is tagged "
+                f"{TAG_WORDS} on its line instead, and still needs the human's approval")
+    elif cat == "dsp_guard_tagged":
+        msg += ". A tagged guard needs no trace, but it is counted and it needs the human's approval like any other"
+    return msg
 
 
 # ---- must-fail controls, in a scratch git repo ----
@@ -270,6 +384,9 @@ PLANTS = {
     "soft_fail": ("verify", "false || true\n"),
     "unwired": ("tools/t.py", "# UNWIRED: not yet\n"),
     "dsp_guard": ("src/a.cpp", "bool g(float v) { return std::isfinite(v); }\n"),
+    # exactly (dsp_guard_tagged, 0, 1) also proves the tag did not ALSO leave it in dsp_guard,
+    # and that a tagged guard is still an increase: a tag never reads green on its own
+    "dsp_guard_tagged": ("h2/b.h", "inline bool gb(float v) { return std::isfinite(v); }  // dsp_guard: boundary\n"),
 }
 # text that must count as nothing: scope, strengthening-flag and comment/prose traps
 MUST_READ_ZERO = {
@@ -280,6 +397,8 @@ MUST_READ_ZERO = {
     "|| true outside verify and workflows": ("tools/t.py", "x = 'a || true'\n"),
     "-Wno- inside an identifier": ("src/a.cpp", "int a-Wno-b = 0;\n"),
     "a member isnan(": ("src/a.cpp", "int y = obj.isnan(1);\n"),
+    "a dsp_guard tag on a line with no guard": ("src/a.cpp", "int z = 0;  // dsp_guard: boundary\n"),
+    "a tagged guard outside src/ and h2/": ("tools/t.py", "# std::isnan(v)  dsp_guard: latch\n"),
 }
 
 
@@ -348,18 +467,94 @@ def selftest():
         (td / "tools/ignored_check.py").unlink()
         (td / ".gitignore").unlink()
 
+        # a tag on the line ABOVE tags nothing: the guard stays in dsp_guard, where it needs a trace
+        got = with_text("src/a.cpp", "// dsp_guard: boundary\nbool g2(float v) { return std::isnan(v); }\n")
+        if got != [("dsp_guard", "src/a.cpp", 0, 1)]:
+            return f"selftest: a tag on the line above a guard was honoured (got {got}); only a same-line tag counts"
+        got = with_text("h2/b.h", "inline bool gl(float v) { return std::isnan(v); }  // dsp_guard: latch\n")
+        if got != [("dsp_guard_tagged", "h2/b.h", 0, 1)]:
+            return f"selftest: a guard tagged 'latch' did not read as exactly one dsp_guard_tagged increase (got {got})"
+
+        # dsp_guard --approve: the root-cause rule. One planted guard, six refs that must each be
+        # refused and write nothing, then the one that must be accepted.
+        rel, extra = PLANTS["dsp_guard"]
+        (td / rel).write_text(LAYOUT[rel] + extra)
+        counts = scan(td)[0]
+        cause = f"# t\n\n## Root cause\n\nThe guard in {rel} hides a divide by zero at note-on.\n\n## Next\n"
+        scratch_traces = {
+            "traces/good.md": cause,
+            "traces/no-cause.md": f"# t\n\n{rel}: added a guard. No cause was looked for.\n",
+            "traces/empty-cause.md": f"# t\n\n{rel}\n\n## Root cause\n\n## Next\n\ntext\n",
+            "traces/other-file.md": cause.replace(rel, "src/elsewhere.cpp"),
+            "docs/outside.md": cause,
+        }
+        for trel, body in scratch_traces.items():
+            (td / trel).parent.mkdir(parents=True, exist_ok=True)
+            (td / trel).write_text(body)
+        before = bpath.read_bytes()
+        # what -> (ref, words the refusal must contain): each row must be refused for ITS reason,
+        # or a row could pass because a different rule happened to fire first
+        refused = {
+            "a bare ref": ("ADR-TEST", "must cite its root cause"),
+            "a trace that does not exist": ("traces/absent.md", "cannot be read"),
+            "a trace with no root-cause section": ("traces/no-cause.md", "has no root-cause section"),
+            "a trace whose root-cause section is empty": ("traces/empty-cause.md", "is empty"),
+            "a trace that names another file": ("traces/other-file.md", "does not name"),
+            "a file outside traces/": ("docs/outside.md", "must cite its root cause"),
+            "a path that climbs out of traces/": ("traces/../docs/outside.md", "must cite its root cause"),
+        }
+        for what, (ref, words) in refused.items():
+            out, err, _ = approved(counts, base(), "dsp_guard", rel, ref, root=td)
+            if out is not None or not err or words not in err:
+                return f"selftest: a dsp_guard --approve citing {what} ({ref}) was NOT refused for that reason (got {err!r})"
+        if bpath.read_bytes() != before:
+            return "selftest: a refused dsp_guard --approve changed the baseline"
+        out, err, why = approved(counts, base(), "dsp_guard", rel, "ADR-TEST, traces/good.md", root=td)
+        if err or not why or out != {"dsp_guard": {rel: {"count": 1, "approved": "ADR-TEST, traces/good.md"}}}:
+            return f"selftest: a dsp_guard --approve citing a proper trace was not accepted ({err}, {out})"
+        bpath.write_text(dump_baseline(out))
+        if verdict() != ([], []):
+            return "selftest: a dsp_guard marker approved with a root-cause trace still read red"
+        bpath.write_bytes(before)
+        (td / rel).write_text(LAYOUT[rel])
+
+        # a TAGGED guard: red until approved; approved with a bare ref and no trace; and the
+        # tag buys nothing for dsp_guard itself (there is no dsp_guard increase to approve)
+        rel, extra = PLANTS["dsp_guard_tagged"]
+        (td / rel).write_text(LAYOUT[rel] + extra)
+        counts = scan(td)[0]
+        if verdict()[0] != [("dsp_guard_tagged", rel, 0, 1)]:
+            return "selftest: a tagged guard read green before any approval (a tag must never approve itself)"
+        out, err, _ = approved(counts, base(), "dsp_guard", rel, "traces/good.md", root=td)
+        if out is not None or not err:
+            return "selftest: a tagged guard was approvable under dsp_guard, where it is not counted"
+        out, err, why = approved(counts, base(), "dsp_guard_tagged", rel, "ADR-TEST", root=td)
+        if err or not why or out != {"dsp_guard_tagged": {rel: {"count": 1, "approved": "ADR-TEST"}}}:
+            return f"selftest: a tagged guard was not approved with a bare ref ({err}, {out})"
+        bpath.write_text(dump_baseline(out))
+        if verdict() != ([], []):
+            return "selftest: an approved tagged guard still read red"
+        # ... and an UNTAGGED guard beside the approved tagged one is still red, as dsp_guard
+        (td / rel).write_text(LAYOUT[rel] + extra + "inline bool gu(float v) { return std::isnan(v); }\n")
+        if verdict()[0] != [("dsp_guard", rel, 0, 1)]:
+            return "selftest: an untagged guard beside an approved tagged one did not read red as dsp_guard"
+        bpath.write_bytes(before)
+        (td / rel).write_text(LAYOUT[rel])
+        for trel in scratch_traces:
+            (td / trel).unlink()
+
         # --approve: an empty or blank ref is refused and writes nothing; a real ref raises one entry
         rel, extra = PLANTS["unwired"]
         (td / rel).write_text(LAYOUT[rel] + extra)
         counts = scan(td)[0]
         before = bpath.read_bytes()
         for ref in ("", "   ", None):
-            out, err = approved(counts, base(), "unwired", rel, ref)
+            out, err, _ = approved(counts, base(), "unwired", rel, ref)
             if out is not None or not err:
                 return f"selftest: --approve with ref {ref!r} was not refused"
         if bpath.read_bytes() != before:
             return "selftest: a refused --approve changed the baseline"
-        out, err = approved(counts, base(), "unwired", rel, "ADR-TEST")
+        out, err, _ = approved(counts, base(), "unwired", rel, "ADR-TEST")
         if err or out != {"unwired": {rel: {"count": 1, "approved": "ADR-TEST"}}}:
             return f"selftest: --approve with a ref did not raise exactly one entry ({err}, {out})"
         bpath.write_text(dump_baseline(out))
@@ -441,7 +636,7 @@ def main(argv=None):
 
     if args.approve:
         cat, f, ref = args.approve
-        new, err = approved(counts, baseline, cat, f, ref)
+        new, err, why = approved(counts, baseline, cat, f, ref)
         if err:
             print(f"weakening_check: {err}", file=sys.stderr)
             return 1
@@ -449,6 +644,13 @@ def main(argv=None):
         print(f"weakening_check: APPROVING (the human's call only): this raises the allowed '{cat}' "
               f"weakening markers in {f} from {old} to {new[cat][f]['count']}, so the extra "
               f"marker(s) stop reading red; ref {ref.strip()}. Writing {BASELINE_REL}.")
+        if why:
+            print(f"weakening_check: accepted because {why}.")
+        if cat == "dsp_guard_tagged":                   # show the claim the human is approving
+            src = (ROOT / f).read_text(encoding="utf-8", errors="replace")
+            lines = src.split("\n")
+            for ln in sorted({ln for ln, tagged in dsp_guard_markers(f, src) if tagged}):
+                print(f"  {f}:{ln}: {lines[ln - 1].strip()}")
         _write(bpath, new)
         print(f"weakening: approved {cat} {f} ->{new[cat][f]['count']} ({ref.strip()})")
         return 0
