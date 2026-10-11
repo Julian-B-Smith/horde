@@ -166,6 +166,7 @@ fast() {
   # cheap half, in `fast`. Self-calibrating (blob, missing, zero-pin controls). Added under
   # ADR-180 §1.
   python3 tools/golden_pin_check.py || ok=1
+  python3 tools/golden_registry_check.py || ok=1
   # THE USER MANUAL'S PLACEHOLDERS AND ITS FIGURE REGISTRY AGREE (B451). Every
   # [[FIG|TAB|AUD:id]] in docs/manual/NN-*.md has one docs/manual/figures.json entry and
   # every entry one placeholder; ids are unique; fields, kinds and statuses are

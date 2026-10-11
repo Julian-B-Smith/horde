@@ -1,0 +1,384 @@
+{
+ "schema": "hypersaw.golden-registry/1",
+ "about": "Every golden and pin, with the kind of reason it deserves trust and the evidence for that reason. Kept honest by tools/golden_registry_check.py (B448 P8, ADR-209). `independent` is true only when a recorded closed form, listening sign-off or measurement was found and is cited. An honest low count is the point of this file.",
+ "open_rulings": [
+  "Bit-identity pins and self-digest references are counted as goldens here. That is the lead's reading of docs/strategy/blind-spot-armor-phase2.md section 7 ('Do bit-identity pins count as goldens under S2?', recommend yes, registered as prototype parity at pin, sign-off pending). The human has not ruled on it.",
+  "tests/morph_order.txt is a compatibility freeze (saved sessions read it by slot position). The four kinds do not name that justification, so it sits as prototype_parity_at_pin, not independent. Whether it needs a fifth kind is the human's to rule."
+ ],
+ "kinds": {
+  "closed_form": "the expected value follows from mathematics, independent of our code",
+  "prototype_plus_signoff": "parity with the JS prototype AND a recorded listening sign-off by the human",
+  "measurement": "a measured number with its method recorded, judged by a tolerance or regime rather than by byte equality with code output",
+  "prototype_parity_at_pin": "matches the prototype or the code as of the day it was pinned, and nothing more; sign-off pending"
+ },
+ "known_limits": [
+  "Generators are registered as the golden: the rendered files live in build-golden/ at verify time and are never committed (ADR-187 item 7).",
+  "Pinned numbers embedded in check sources are found only where the scenario-floor marker tokens appear (see RULES, FLOOR). Other literals (kMinBank in preset_pitch_check, kLayoutPins in morphlayout_check, per-check tolerances) are not discovered by this tool; tolerances are covered by docs/armor/tolerances.json.",
+  "Closed-form checks that keep their expectations in code (svf_check and twocluster_check, which blind-spot-armor-phase2.md section 1 row R10 names as prototype-independent) hold no golden file and are not listed. The closed-form suite is P7.",
+  "A measurement is credited only when it is a recorded number with its method, judged by a tolerance or regime. A byte-for-byte snapshot of the code's own probe output is not."
+ ],
+ "entries": [
+  {
+   "path": "tools/golden/gen_goldens.mjs",
+   "pins": "156 renders of SwarmSynth (SAW) and DynSynth (dynamics) at 44.1 kHz, sliced live from reference/swarmsaw.html and reference/swarmdynamics.html: the L0-1 parity set",
+   "check": "parity_check",
+   "also_checks": [
+    "h2_swarm_parity_check"
+   ],
+   "kind": "prototype_parity_at_pin",
+   "evidence": "ADR-003 (DECISIONS.md:9); count 156 at tools/parity_floor_check.py:62; sign-offs at ROADMAP.md:8853 and ROADMAP.md:8863",
+   "independent": false,
+   "note": "Not credited as independent. ROADMAP.md:8853 and ROADMAP.md:8863 record the human's Layer-E sign-offs for the SAW gate (E-1, E-2, E-5) and the dynamics gate (E-3), but they are by criterion, not by scenario, and this set has grown since 2026-07-21 (stretch, pan-fan, pivot and later scenarios). If the human rules which scenarios those sign-offs cover, that part could become prototype_plus_signoff."
+  },
+  {
+   "path": "tools/golden/gen_goldens_sr.mjs",
+   "pins": "171 scenarios of the same matrix at 48 kHz (B382), the set that tested the 48 kHz differences of the swarm core",
+   "check": "swarm48_check",
+   "also_checks": [
+    "h2_swarm48_check"
+   ],
+   "kind": "prototype_parity_at_pin",
+   "evidence": "tools/golden/gen_goldens_sr.mjs:2-3 (B382, the human asked for a 48 kHz set); ADR-003; count 171 at tools/parity_floor_check.py:63",
+   "independent": false,
+   "note": "The human asked for the set (B382); no listening sign-off of its renders is recorded."
+  },
+  {
+   "path": "tools/golden/gen_filter_goldens.mjs",
+   "pins": "11 renders of the resonator bank (FilterLab) from reference/swarmfilter.html, noise 0",
+   "check": "filter_check",
+   "kind": "prototype_parity_at_pin",
+   "evidence": "ADR-043 (DECISIONS.md:166); ADR-003; ROADMAP.md:9078 (E1 ported bit-exact; a human sign-off is not recorded there)",
+   "independent": false
+  },
+  {
+   "path": "tools/golden/gen_notch_goldens.mjs",
+   "pins": "11 renders of the notch swarm (PhaserLab) from reference/swarmphaser.html, noise 0",
+   "check": "notch_check",
+   "kind": "prototype_parity_at_pin",
+   "evidence": "ADR-046 (DECISIONS.md:189); ADR-003; ROADMAP.md:9078 (E1 ported bit-exact; a human sign-off is not recorded there)",
+   "independent": false
+  },
+  {
+   "path": "tools/golden/gen_force_goldens.mjs",
+   "pins": "population trajectory checkpoints of the shared force system, run headlessly from the Track E labs (17 scenarios)",
+   "check": "force_check",
+   "kind": "prototype_parity_at_pin",
+   "evidence": "ADR-034 (DECISIONS.md:128); ROADMAP.md:9076 (gate close PROPOSED 2026-07-18; ratification is not recorded there)",
+   "independent": false
+  },
+  {
+   "path": "tools/golden/gen_glide_goldens.mjs",
+   "pins": "control-rate travel-law trajectories of bend-lab's Inertia model, one gesture per scenario",
+   "check": "glide_check",
+   "kind": "prototype_parity_at_pin",
+   "evidence": "tools/golden/gen_glide_goldens.mjs:1-3 (A1 fold); ADR-003",
+   "independent": false
+  },
+  {
+   "path": "tools/golden/gen_intent_goldens.mjs",
+   "pins": "per-tick resolver fixtures driven out of reference/intent-bus.html (base, control and expected groups)",
+   "check": "intent_check",
+   "kind": "prototype_parity_at_pin",
+   "evidence": "ADR-176 (DECISIONS.md:5877, RATIFIED: the resolver design, not these fixtures); tools/golden/gen_intent_goldens.mjs:1-12",
+   "independent": false,
+   "note": "The ratification covers the resolver's design; the expected values are recorded from the prototype's own base run."
+  },
+  {
+   "path": "tools/golden/gen_spectra_goldens.mjs",
+   "pins": "9 renders of SpectraSynth from reference/swarmspectra.html at 44.1 kHz",
+   "check": "spectra_check",
+   "kind": "prototype_parity_at_pin",
+   "evidence": "ADR-037 (DECISIONS.md:141); ROADMAP.md:8886 (Layer-E 4 sign-off listed as remaining)",
+   "independent": false,
+   "note": "SPECTRA is parked indefinitely (CLAUDE.md); the Layer-E 4 sign-off was never recorded. A gap."
+  },
+  {
+   "path": "tools/golden/gen_station_goldens.mjs",
+   "pins": "StationCore renders at 48 000 and 44 100 Hz from reference/station.html, monitor tanh inverted (scenario floor 32)",
+   "check": "station_check",
+   "kind": "prototype_parity_at_pin",
+   "evidence": "tools/golden/gen_station_goldens.mjs:1-9 (ADR-122); ADR-182: out of 1.0, built core stays gated",
+   "independent": false
+  },
+  {
+   "path": "tools/golden/gen_subosc_goldens.mjs",
+   "pins": "SubOscCore renders at 48 000 and 44 100 Hz from reference/subosc.html (scenario floor 54)",
+   "check": "subosc_check",
+   "kind": "prototype_parity_at_pin",
+   "evidence": "ADR-178 (DECISIONS.md:6054); tools/golden/gen_subosc_goldens.mjs:1-9",
+   "independent": false
+  },
+  {
+   "path": "tools/golden/gen_swarmalator_goldens.mjs",
+   "pins": "9 stereo renders of the Swarmalator core from reference/swarmalator.html",
+   "check": "swarmalator_check",
+   "kind": "prototype_parity_at_pin",
+   "evidence": "ADR-048 (DECISIONS.md:195, experimental engine); ADR-003",
+   "independent": false
+  },
+  {
+   "path": "tools/golden/gen_time_goldens.mjs",
+   "pins": "11 renders of the time engines (echo and room modes) from reference/swarmtime.html, 1.5 s each",
+   "check": "time_check",
+   "kind": "prototype_parity_at_pin",
+   "evidence": "ADR-049 (DECISIONS.md:198); ADR-030 (DECISIONS.md:107); ADR-003",
+   "independent": false
+  },
+  {
+   "path": "reference/swarmsaw.html",
+   "pins": "SwarmSynth, pinned by blob e47da6c9: the swarm law the composed engine copies",
+   "check": "golden_pin_check",
+   "also_checks": [
+    "h2_engine_parity_check"
+   ],
+   "kind": "prototype_parity_at_pin",
+   "evidence": "h2/README.md:119; ADR-187 item 3 (DECISIONS.md:6589); ROADMAP.md:8853 (SAW gate sign-offs, by criterion)",
+   "independent": false,
+   "note": "A pin by content: the file cannot move unnoticed. It says which prototype the engine is judged against, not that the prototype is right."
+  },
+  {
+   "path": "docs/design/scalpel-horde-engine.js",
+   "pins": "the composed JS engine at main c64cfdb, pinned by blob 581d7942: horde 2's parity target",
+   "check": "golden_pin_check",
+   "also_checks": [
+    "h2_engine_parity_check"
+   ],
+   "kind": "prototype_parity_at_pin",
+   "evidence": "h2/README.md:119; ADR-187 item 3 (DECISIONS.md:6589)",
+   "independent": false,
+   "note": "A pin by content: the file cannot move unnoticed. It says which prototype the engine is judged against, not that the prototype is right."
+  },
+  {
+   "path": "reference/scalpel/prototype/razor-core.js",
+   "pins": "the SCALPEL blade oracle v1.1, pinned by blob 0ce6a713",
+   "check": "golden_pin_check",
+   "also_checks": [
+    "h2_scalpel_parity_check",
+    "h2_engine_parity_check"
+   ],
+   "kind": "prototype_parity_at_pin",
+   "evidence": "h2/README.md:118; ADR-184 (DECISIONS.md:6474); ADR-187 item 3 (DECISIONS.md:6589)",
+   "independent": false,
+   "note": "A pin by content: the file cannot move unnoticed. It says which prototype the engine is judged against, not that the prototype is right."
+  },
+  {
+   "path": "reference/scalpel/data/presets.json",
+   "pins": "the SCALPEL preset bank, pinned by blob 44b48d72: scenario source for the engine parity set",
+   "check": "golden_pin_check",
+   "also_checks": [
+    "h2_engine_parity_check"
+   ],
+   "kind": "prototype_parity_at_pin",
+   "evidence": "h2/README.md:119; ADR-187 item 3 (DECISIONS.md:6589)",
+   "independent": false,
+   "note": "A pin by content: the file cannot move unnoticed. It says which prototype the engine is judged against, not that the prototype is right."
+  },
+  {
+   "path": "docs/design/scalpel-interface-lab.html",
+   "pins": "the lab's B366 presets, pinned by blob 77ccee77",
+   "check": "golden_pin_check",
+   "also_checks": [
+    "h2_engine_parity_check"
+   ],
+   "kind": "prototype_parity_at_pin",
+   "evidence": "h2/README.md:119; traces/2026-10-02-b419-golden-pin-check.md:1",
+   "independent": false,
+   "note": "A pin by content: the file cannot move unnoticed. It says which prototype the engine is judged against, not that the prototype is right."
+  },
+  {
+   "path": "h2/engine/selfdigest.parity.darwin-arm64.appleclang-16.node24.txt",
+   "pins": "543 digests of the composed engine's C++ output, -O2 parity build, keyed darwin-arm64 / Apple clang 16 / Node 24",
+   "check": "h2_engine_selfdigest_check",
+   "kind": "prototype_parity_at_pin",
+   "evidence": "h2/README.md:121; ADR-187 A1 (DECISIONS.md:6771); traces/2026-10-04-b441-e1-selfdigest.md:1",
+   "independent": false,
+   "note": "A self-digest records the code's own output on the day it was pinned, so it proves only that nothing changed. That is its purpose (output-neutral changes); it is not a correctness claim."
+  },
+  {
+   "path": "h2/engine/selfdigest.product.darwin-arm64.appleclang-16.node24.txt",
+   "pins": "543 digests of the composed engine's C++ output, -O3 product build with the release flags, same key",
+   "check": "h2_engine_selfdigest_product",
+   "kind": "prototype_parity_at_pin",
+   "evidence": "h2/README.md:121; ADR-187 A1 (DECISIONS.md:6771); traces/2026-10-04-b441-e1-selfdigest-product.md:1",
+   "independent": false,
+   "note": "A self-digest records the code's own output on the day it was pinned, so it proves only that nothing changed. That is its purpose (output-neutral changes); it is not a correctness claim."
+  },
+  {
+   "path": "specs/ACCEPTANCE.md",
+   "pins": "the L0 anchors: measured R values, regime classifications and trajectory numbers, each with a stated tolerance",
+   "check": "trajectory_check",
+   "also_checks": [
+    "force_check",
+    "spectra_check"
+   ],
+   "kind": "measurement",
+   "evidence": "specs/ACCEPTANCE.md:3 (every number measured on the JS reference implementations); specs/ACCEPTANCE.md:5 (the standard test note: A3, 44.1 kHz, defaults); specs/ACCEPTANCE.md:24 (tolerance: regime classification must match, R values +-0.08)",
+   "independent": true,
+   "note": "Credited because each pinned number is a recorded measurement with its method and a tolerance, judged by regime and band, not byte-for-byte equality with code output. Limit: the instrument that measured it was the JS prototype, so it is independent of the C++ but not of the prototype. A reviewer may reasonably ask for this to be demoted; the rule used is in known_limits."
+  },
+  {
+   "path": "tests/morph_order.txt",
+   "pins": "the frozen slot order of the morph field (append-only); saved sessions are read by slot position",
+   "check": "morphlayout_check",
+   "kind": "prototype_parity_at_pin",
+   "evidence": "tests/morph_order.txt:1-8 (B240, generated from the code of 2026-09-24)",
+   "independent": false,
+   "note": "A compatibility freeze, not a claim about sound. The four kinds cannot express 'frozen for compatibility'; see open_rulings."
+  },
+  {
+   "path": "tests/state_fixtures/chunk-v1.f32",
+   "pins": "byte-for-byte render (A3 held, 172 blocks of 256) of the real state blob chunk-v1.txt: chunk v1, osc-0 keys only",
+   "check": "statefix_check",
+   "kind": "prototype_parity_at_pin",
+   "evidence": "tests/state_fixtures/README.md:1-8 (B100 item 4); generated 2026-09-10 by tools/gen_state_fixtures.cpp",
+   "independent": false,
+   "note": "Rendered by the shell on the day it was added; the rule is that it is never regenerated. It pins load-and-render stability, not sound quality."
+  },
+  {
+   "path": "tests/state_fixtures/chunk-v2-noheader.f32",
+   "pins": "byte-for-byte render (A3 held, 172 blocks of 256) of the real state blob chunk-v2-noheader.txt: chunk v2 without the B100 header",
+   "check": "statefix_check",
+   "kind": "prototype_parity_at_pin",
+   "evidence": "tests/state_fixtures/README.md:1-8 (B100 item 4); generated 2026-09-10 by tools/gen_state_fixtures.cpp",
+   "independent": false,
+   "note": "Rendered by the shell on the day it was added; the rule is that it is never regenerated. It pins load-and-render stability, not sound quality."
+  },
+  {
+   "path": "tests/state_fixtures/chunk-v2-rev1.f32",
+   "pins": "byte-for-byte render (A3 held, 172 blocks of 256) of the real state blob chunk-v2-rev1.txt: chunk v2 with the B100 header, engine_revision=1",
+   "check": "statefix_check",
+   "kind": "prototype_parity_at_pin",
+   "evidence": "tests/state_fixtures/README.md:1-8 (B100 item 4); generated 2026-09-10 by tools/gen_state_fixtures.cpp",
+   "independent": false,
+   "note": "Rendered by the shell on the day it was added; the rule is that it is never regenerated. It pins load-and-render stability, not sound quality."
+  },
+  {
+   "path": "tools/labharness/onset_ref_cpp.json",
+   "pins": "the ensemble timing of src/swarm_core.h rendered by the C++ itself, the reference for the composed engine's JS transcription (B335)",
+   "check": "onset_ref_check",
+   "also_checks": [
+    "composed_engine_check"
+   ],
+   "kind": "prototype_parity_at_pin",
+   "evidence": "tools/onset_ref_check.cpp:2-12 (B335: no JS reference exists; the C++ is the oracle)",
+   "independent": false,
+   "note": "The C++ of the day is the reference by construction, so there is no second opinion on the numbers."
+  },
+  {
+   "path": "tools/patchspace/dependency_tree.json",
+   "pins": "which parameters are live under which conditions, probed on the engine (B316)",
+   "check": "dependency_tree_check",
+   "kind": "measurement",
+   "evidence": "tools/patchspace/dependency_tree_check.mjs:5-12 (T1 byte-for-byte fresh, T2 zero structural disagreement with the declared roles); B316",
+   "independent": false,
+   "note": "Not credited: the pinned file is the engine's own probe output, held byte for byte. T2 compares it with declared roles, which is a real second source, but both come from the lab's own tables. A candidate for the human to rule on."
+  },
+  {
+   "path": "docs/design/listening-pass.json",
+   "pins": "the stratified gauntlet sample (36 patches) and their measured metrics for the blind listening pass (B324)",
+   "check": "listening_pass_check",
+   "kind": "prototype_parity_at_pin",
+   "evidence": "ROADMAP.md:7364 (B324: built, 'nobody has listened'); tools/patchspace/listening_pass_check.mjs:1-3",
+   "independent": false,
+   "note": "The sample is a golden against the engine of the day. No ratings are committed (they are gitignored), so no sign-off is citable."
+  },
+  {
+   "path": "docs/design/fx-chain-morph-gallery.json",
+   "pins": "recorded counterexamples of the FX-chain morph law; each must still fail exactly as recorded",
+   "check": "fxmorph_check",
+   "kind": "prototype_parity_at_pin",
+   "evidence": "tools/labharness/fxmorph_check.mjs:19-24 (B266)",
+   "independent": false
+  },
+  {
+   "path": "tools/filter_check.cpp",
+   "pins": "scenario-count floor kMinScenarios = 11",
+   "check": "filter_check",
+   "kind": "prototype_parity_at_pin",
+   "evidence": "tools/scenario_floor.h:1-12 (B455 H1, ADR-180 section 1)",
+   "independent": false,
+   "note": "A pinned count of the generator's scenarios today; it stops a shrunken corpus reading green. It records a count, not a reason."
+  },
+  {
+   "path": "tools/notch_check.cpp",
+   "pins": "scenario-count floor kMinScenarios = 11",
+   "check": "notch_check",
+   "kind": "prototype_parity_at_pin",
+   "evidence": "tools/scenario_floor.h:1-12 (B455 H1, ADR-180 section 1)",
+   "independent": false,
+   "note": "A pinned count of the generator's scenarios today; it stops a shrunken corpus reading green. It records a count, not a reason."
+  },
+  {
+   "path": "tools/spectra_check.cpp",
+   "pins": "scenario-count floor kMinScenarios = 9",
+   "check": "spectra_check",
+   "kind": "prototype_parity_at_pin",
+   "evidence": "tools/scenario_floor.h:1-12 (B455 H1, ADR-180 section 1)",
+   "independent": false,
+   "note": "A pinned count of the generator's scenarios today; it stops a shrunken corpus reading green. It records a count, not a reason."
+  },
+  {
+   "path": "tools/swarmalator_check.cpp",
+   "pins": "scenario-count floor kMinScenarios = 9",
+   "check": "swarmalator_check",
+   "kind": "prototype_parity_at_pin",
+   "evidence": "tools/scenario_floor.h:1-12 (B455 H1, ADR-180 section 1)",
+   "independent": false,
+   "note": "A pinned count of the generator's scenarios today; it stops a shrunken corpus reading green. It records a count, not a reason."
+  },
+  {
+   "path": "tools/time_check.cpp",
+   "pins": "scenario-count floor kMinScenarios = 11",
+   "check": "time_check",
+   "kind": "prototype_parity_at_pin",
+   "evidence": "tools/scenario_floor.h:1-12 (B455 H1, ADR-180 section 1)",
+   "independent": false,
+   "note": "A pinned count of the generator's scenarios today; it stops a shrunken corpus reading green. It records a count, not a reason."
+  },
+  {
+   "path": "tools/station_check.cpp",
+   "pins": "scenario-count floor kMinScenarios = 32",
+   "check": "station_check",
+   "kind": "prototype_parity_at_pin",
+   "evidence": "tools/scenario_floor.h:1-12 (B455 H1, ADR-180 section 1)",
+   "independent": false,
+   "note": "A pinned count of the generator's scenarios today; it stops a shrunken corpus reading green. It records a count, not a reason."
+  },
+  {
+   "path": "tools/subosc_check.cpp",
+   "pins": "scenario-count floor kMinScenarios = 54",
+   "check": "subosc_check",
+   "kind": "prototype_parity_at_pin",
+   "evidence": "tools/scenario_floor.h:1-12 (B455 H1, ADR-180 section 1)",
+   "independent": false,
+   "note": "A pinned count of the generator's scenarios today; it stops a shrunken corpus reading green. It records a count, not a reason."
+  },
+  {
+   "path": "tools/h2_scalpel_parity_check.cpp",
+   "pins": "scenario-count floor kMinScenarios = 386, and 3 chaotic scenarios excluded by name",
+   "check": "h2_scalpel_parity_check",
+   "kind": "prototype_parity_at_pin",
+   "evidence": "tools/scenario_floor.h:1-12 (B455 H1); h2/README.md:118 (383 of 386 at parity, 3 excluded as chaotic); ADR-065 (DECISIONS.md:278)",
+   "independent": false,
+   "note": "A pinned count of the generator's scenarios today; it stops a shrunken corpus reading green. It records a count, not a reason."
+  },
+  {
+   "path": "tools/h2_engine_parity_check.cpp",
+   "pins": "scenario-count floor kMinScenarios = 543, the 3 chaotic cross-mod rows by name, and the bit-exact share floor 30% keyed darwin-arm64 / Apple clang 16 / Node 24",
+   "check": "h2_engine_parity_check",
+   "kind": "prototype_parity_at_pin",
+   "evidence": "h2/README.md:119 (540 of 543 at parity, floor 30%); ADR-187 A2 (DECISIONS.md:6783, ruled by the human); tools/scenario_floor.h:1-12",
+   "independent": false,
+   "note": "The 30% floor was ruled by the human (ADR-187 A2 item 2) from a measured 37.00%. It guards drift, not correctness."
+  },
+  {
+   "path": "tools/parity_floor_check.py",
+   "pins": "scenario-count floors PARITY_FLOOR = 156 and SWARM48_FLOOR = 171 for the verbatim-lift gates",
+   "check": "parity_floor_check",
+   "kind": "prototype_parity_at_pin",
+   "evidence": "tools/parity_floor_check.py:62-63 (B455 H1, ADR-180 section 1)",
+   "independent": false,
+   "note": "A pinned count of the generator's scenarios today; it stops a shrunken corpus reading green. It records a count, not a reason."
+  }
+ ]
+}
