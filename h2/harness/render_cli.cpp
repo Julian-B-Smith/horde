@@ -9,6 +9,13 @@
  *   c++ -std=c++20 -O3 -ffp-contract=off h2/harness/render_cli.cpp -o <dir>/h2_harness_render
  *
  * MODES.
+ *   h2_harness_render                (no arguments)
+ *       A smoke run: every adapter in the table plays one short note at varying
+ *       block sizes and must return the frames asked for at a level in range; the tone
+ *       control must be loud and the silent control exactly zero. It exists because
+ *       CI's sanitizer job (tools/sanitize_oracles.sh) runs every "$build_dir/<name>"
+ *       that ./verify names, bare: this is what puts each engine's render under
+ *       AddressSanitizer, UBSan and ThreadSanitizer on Linux.
  *   h2_harness_render --list
  *       One line per adapter in the table: `<id> engine` or `<id> control`.
  *   h2_harness_render --jobs <file> --out <file>
@@ -149,9 +156,57 @@ int runJobs(const char* jobsPath, const char* outPath) {
   return 0;
 }
 
+// What the smoke run keeps of a render: how much, and how loud the output was.
+struct SmokeSink final : Sink {
+  uint64_t frames = 0;
+  double sumSq = 0;
+  void write(const double* L, const double* R, const double*, const double*, int n) override {
+    for (int i = 0; i < n; i++) sumSq += L[i] * L[i] + R[i] * R[i];
+    frames += static_cast<uint64_t>(n);
+  }
+};
+
+int smoke() {
+  constexpr int kNote = 4800;
+  int bad = 0, n = 0;
+  for (const AdapterRow& r : kAdapters) {
+    Job job;
+    job.name = "smoke";
+    job.engine = r.id;
+    job.seed = 1;
+    job.block = 64;
+    job.vary = true;
+    job.pre = true;
+    Cmd on;  on.op = "on";  on.a = 60; on.b = 261.6255653005986; on.c = 0.8;
+    Cmd run; run.op = "render"; run.a = kNote;
+    Cmd off; off.op = "off"; off.a = 60;
+    job.cmds = {on, run, off, run};
+    const std::unique_ptr<Adapter> a = r.make();
+    SmokeSink sink;
+    JobInfo info;
+    runJob(*a, job, sink, info);
+    const double rms = std::sqrt(sink.sumSq / (2.0 * static_cast<double>(sink.frames ? sink.frames : 1)));
+    std::string why;
+    if (sink.frames != 2u * kNote) why = "returned the wrong number of frames";
+    // An engine's output ends in a soft limiter, so its level is under 1. A level that is
+    // not (a NaN or an infinity in the sum reads so too) means the render is broken.
+    // Controls are exempt: control/block answers with block sizes, not audio.
+    else if (!r.control && !(rms <= 1.0)) why = "output level out of range";
+    else if (std::strcmp(r.id, "control/tone") == 0 && !(rms > 1e-3)) why = "the tone control is not loud";
+    else if (std::strcmp(r.id, "control/silent") == 0 && sink.sumSq != 0.0) why = "the silent control is not silent";
+    std::printf("%s  smoke %-16s %llu frames, rms %.6g%s%s\n", why.empty() ? "PASS" : "FAIL", r.id,
+                static_cast<unsigned long long>(sink.frames), rms, why.empty() ? "" : "  -- ", why.c_str());
+    if (!why.empty()) bad++;
+    n++;
+  }
+  std::printf("h2_harness_render smoke: %s (%d adapters, %d failed)\n", bad ? "RED" : "GREEN", n, bad);
+  return bad ? 1 : 0;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
+  if (argc == 1) return smoke();
   if (argc >= 2 && std::strcmp(argv[1], "--list") == 0) return list();
   if (argc >= 2 && std::strcmp(argv[1], "--pre-roundtrip") == 0) return preRoundtrip(argc, argv);
   const char* jobs = nullptr;
