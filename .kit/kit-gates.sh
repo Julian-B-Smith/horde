@@ -49,7 +49,14 @@ kit_tree_hash() {
     mkdir "$tmp/objects" || exit 1
     # Start from a copy of the real index to keep git's stat cache (this then
     # costs about what `git status` does). No copy = a fresh, empty index.
-    [ -f "$real" ] && cp "$real" "$tmp/index"
+    # `-p` is load-bearing (kit 2.9.1, horde report hypersaw-014): git trusts a
+    # file's recorded size and time only if the entry is OLDER than the index
+    # file itself, and re-reads by content otherwise ("racy git"). A plain `cp`
+    # stamps the copy with the current time, which is later than every entry,
+    # so a same-size edit made in the same second git recorded the file was
+    # never opened: 20 of 20 such edits passed the gate. Keeping the index's
+    # own time puts git's protection back.
+    [ -f "$real" ] && cp -p "$real" "$tmp/index"
     excl=(':(exclude).harness' ':(exclude).kit-currency-plant-*' ':(exclude,glob)**/.DS_Store')
     # A relative HARNESS_DIR is verify's own state wherever it lives. An
     # absolute one is outside the tree, and naming it would be a fatal pathspec.

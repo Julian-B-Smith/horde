@@ -42,8 +42,9 @@ NEVER_BLOCKS = "#!/usr/bin/env bash\ncat >/dev/null\nexit 0\n"
 # git last recorded for that file, is not seen by the fingerprint when the gate runs in
 # a later second (60 of 60 allowed). The fingerprint works on a copy of the index, and
 # the copy's fresh time makes git trust the recorded size and time. With same-size
-# edits this table passed or failed by the clock. The finding and a tested one-word fix
-# are filed with the kit (thread stop-gate-tree-state); the kit owns that file.
+# edits this table passed or failed by the clock. Fixed in kit 2.9.1, which also tests it
+# with the timing arranged (thread stop-gate-tree-state). The edits here still change size,
+# so this table never depends on the clock.
 EDIT = "a second version, longer\n"
 
 
