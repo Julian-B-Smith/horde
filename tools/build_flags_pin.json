@@ -1,5 +1,6 @@
 {
  "approved": {
+  "direct_compiles": ["ADR-212 (the human, 2026-10-11: approve the probe's flags)"],
   "dynamic_loops": [
    "ADR-205 item 2; approved by the human 2026-10-10",
    "ADR-206 item 5; approved by the human 2026-10-10",
@@ -155,6 +156,7 @@
  "direct_compiles": {
   ".github/workflows/cpu-derate.yml": ["-O3", "-std=c++20"],
   "tools/embedded_page_policy_check.py": ["-std=c++20", "-O1", "-Wall", "-Wextra", "-Werror"],
+  "tools/h2_engine_rtsan_check.py": ["-std=gnu++20", "-O1", "-g", "-fno-omit-frame-pointer", "-ffp-contract=off", "-fsanitize=realtime"],
   "tools/h2_libm_count.py": ["-O3", "-DNDEBUG", "-ffp-contract=off", "-O2", "-std=gnu++20"],
   "tools/nan_latch_check.py": ["-std=c++20", "-O1", "-Wall", "-Wextra", "-Werror"],
   "tools/paste_cap_check.py": ["-std=c++20", "-O1", "-Wall", "-Wextra", "-Werror"],

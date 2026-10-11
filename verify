@@ -502,6 +502,7 @@ PY
   # writers must agree, and no engine source may read a clock or an unseeded
   # RNG (SPEC §5.7's invariant, which no gate enforced). Sub-second.
   python3 tools/playbook_check.py || ok=1
+  python3 tools/h2_rt_lint_check.py || ok=1
 
   return $ok
 }
@@ -1063,6 +1064,7 @@ full() {
   # WARNING + SKIPPED, never GREEN. Never baselined or allowlisted. Added under
   # ADR-180 §1.
   python3 tools/rtsan_check.py || return 1
+  python3 tools/h2_engine_rtsan_check.py || return 1
 
   # THREAD SAFETY, THE MAIN-THREAD/AUDIO-THREAD HANDOFF (B448 B2, ADR-197 risk
   # row 2, ADR-199). The real shell under ThreadSanitizer: the audio thread
