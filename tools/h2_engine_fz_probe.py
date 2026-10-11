@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
 """h2_engine_fz_probe -- builds and runs the flush-to-zero probe on both self-digest builds.
 
-This is a measurement for the human's ruling (ADR-209 item 6), not a gate: nothing
-in ./verify runs it. ROADMAP B448 phase 2, package P16. What is measured, what is
-set and the order of proof are in tools/h2_engine_fz_probe.cpp's header.
+This is a measurement, not a gate: nothing in ./verify runs it. ROADMAP B448 phase
+2, package P16. What is measured, what is set and the order of proof are in
+tools/h2_engine_fz_probe.cpp's header.
 
-It answers one question: with flush-to-zero on, how many of the composed engine's
-543 self-digest rows change, in the parity build and in the product build?
+It first gave ADR-209 item 6 its number (8 of 543 rows change with flush-to-zero
+on, PR #1047). The human then ruled the mode on in the horde 2 shell (ADR-211 item
+1), and since 2026-10-11 the self-digest references pin the engine WITH the mode
+on. So it now answers, for the parity build and the product build:
+  - with the mode forced off, which rows differ from the pinned bits, and by how
+    much (none would mean the pin does not depend on the mode: a failure);
+  - whether switching the mode on in a narrower scope (inside render only, or
+    around every engine call) gives the same bits as the pinned scope (the whole
+    replay).
 
     tools/h2_engine_fz_probe.py [--full-from STREAM] [--rows] [build-dir]
 
@@ -19,18 +26,17 @@ It answers one question: with flush-to-zero on, how many of the composed engine'
                   cmake -S . -B build-release -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release
   --full-from   tools/h2_engine_render.mjs's full output, if the caller holds one;
                 otherwise it is rendered here (about 35 s).
-  --rows        name every changed row, with how far its samples moved.
+  --rows        name every differing row, with how far its samples moved.
 
 IT WRITES NO REFERENCE. The probe has no re-pin path, and this script writes only
-inside the build directory. Whatever the count is, h2/engine/selfdigest.*.txt stay
-as they are until the human rules (ADR-209 item 6: "Nothing is re-pinned before
-that").
+inside the build directory. The eight rows were re-pinned once, on ADR-211 item 1,
+with the self-digest tools' own --repin; nothing here can do that again.
 
 Each build's probe proves, in order, that the bit is set, that the switch and the
 digest see a difference on a signal that decays through the subnormal range and
-none on one that does not, and that with the bit off it reproduces every pinned
-row. Only then does it count. A build whose proof fails reports no number, and
-this script exits non-zero.
+none on one that does not, and that with the mode on over the whole replay it
+reproduces every pinned row. Only then does it count. A build whose proof fails
+reports no number, and this script exits non-zero.
 
 Measured cost on the dev Mac, 2026-10-10: about 75 to 95 s per build (four replays
 of the stream each), plus 35 s when it renders the stream itself.

@@ -133,6 +133,28 @@ change under A2 item 3. An output-neutral PR never re-pins; it re-runs
 `tools/h2_libm_count.py --write` so a moved libm call shows in its diff
 (`engine/libm-calls.<platform>.<compiler>.txt`, context, never a verdict).
 
+**The digests pin the engine with flush-to-zero ON (ADR-211 item 1, 2026-10-11).**
+The human ruled that the horde 2 shell runs with flush-to-zero on from its first
+build: arithmetic that would produce a subnormal number produces zero. The shipped
+build is the tested build (ADR-187 A1), so both self-digest tools switch the mode
+on around every replay, over the whole of it (the engine's construction, every
+event call, every render), and the references pin those bits.
+- The switch is `flush_to_zero.h`, at the top of this directory: the one copy
+  the tools use today and the shell will use. Its arm64 half is measured. Its
+  x86-64 half is written from the documentation and has run only under Rosetta 2
+  translation, never on an x86 CPU.
+- Eight of the 543 rows differ from the mode-off bits, each sample by less than
+  4.1e-308 (a subnormal that became zero). They were re-pinned once, on that
+  ruling; that re-pin is none of the three reasons above and adds no fourth.
+- Each run proves the mode was really on (the tools' `control FZ`), so a build in
+  which the switch does nothing is red, with or without a reference.
+- The parity check, its FMA control and the engine harness do NOT set the mode.
+  Measured with it on, their verdicts do not change. Whether they should set it,
+  and how the eight rows stand in the divergence ledger, are open questions in
+  `docs/proposals/h2-flush-to-zero.md`.
+- `tools/h2_engine_fz_probe.py` (a measurement, in no gate) re-measures the eight
+  rows against the mode off and compares narrower scopes with the pinned one.
+
 The full account of what is ported, what is not, and which oracle quirks are
 divergence candidates is in `docs/port/scalpel-phase-1a.md`. The swarm lift and
 the questions that stopped a composed layer over `razor_core.h` are in

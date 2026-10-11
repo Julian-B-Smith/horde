@@ -187,19 +187,19 @@
   },
   {
    "path": "h2/engine/selfdigest.parity.darwin-arm64.appleclang-16.node24.txt",
-   "pins": "543 digests of the composed engine's C++ output, -O2 parity build, keyed darwin-arm64 / Apple clang 16 / Node 24",
+   "pins": "543 digests of the composed engine's C++ output with flush-to-zero on over the whole replay, -O2 parity build, keyed darwin-arm64 / Apple clang 16 / Node 24",
    "check": "h2_engine_selfdigest_check",
    "kind": "prototype_parity_at_pin",
-   "evidence": "h2/README.md:121; ADR-187 A1 (DECISIONS.md:6771); traces/2026-10-04-b441-e1-selfdigest.md:1",
+   "evidence": "h2/README.md:121; ADR-187 A1 (DECISIONS.md:6771); traces/2026-10-04-b441-e1-selfdigest.md:1; flush-to-zero on since 2026-10-11, eight rows re-pinned: ADR-211 item 1 (DECISIONS.md:7771), h2/README.md:136, traces/2026-10-11-h2-flush-to-zero.md:1",
    "independent": false,
    "note": "A self-digest records the code's own output on the day it was pinned, so it proves only that nothing changed. That is its purpose (output-neutral changes); it is not a correctness claim."
   },
   {
    "path": "h2/engine/selfdigest.product.darwin-arm64.appleclang-16.node24.txt",
-   "pins": "543 digests of the composed engine's C++ output, -O3 product build with the release flags, same key",
+   "pins": "543 digests of the composed engine's C++ output with flush-to-zero on over the whole replay, -O3 product build with the release flags, same key",
    "check": "h2_engine_selfdigest_product",
    "kind": "prototype_parity_at_pin",
-   "evidence": "h2/README.md:121; ADR-187 A1 (DECISIONS.md:6771); traces/2026-10-04-b441-e1-selfdigest-product.md:1",
+   "evidence": "h2/README.md:121; ADR-187 A1 (DECISIONS.md:6771); traces/2026-10-04-b441-e1-selfdigest-product.md:1; flush-to-zero on since 2026-10-11, eight rows re-pinned: ADR-211 item 1 (DECISIONS.md:7771), h2/README.md:136, traces/2026-10-11-h2-flush-to-zero.md:1",
    "independent": false,
    "note": "A self-digest records the code's own output on the day it was pinned, so it proves only that nothing changed. That is its purpose (output-neutral changes); it is not a correctness claim."
   },
