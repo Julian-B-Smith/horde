@@ -7628,3 +7628,91 @@ to the actual legacy plugin. The stakes are low."
 
 **The side-by-side test identity (B456) stays available** for any later change the human would
 rather try first.
+
+## ADR-209 — RULED by the human: the thirteen Blind-Spot Armor phase 2 decisions (B448, 2026-10-10)
+
+**Ruling.** The human, 2026-10-10, answered each of the thirteen decisions in
+`docs/strategy/blind-spot-armor-phase2.md` §6, one question at a time. Every answer below is the
+option the human chose. Where a ruling is conditional or partial, the item says so.
+
+**Decision.**
+1. **Strategy: engine now, shell at birth, legacy frozen.** Adopted as §2 of the proposal states
+   it.
+   - New checks are built on horde 2's engine now.
+   - Shell risks are written now as acceptance rows for the horde 2 shell (B398) and built with it.
+   - Legacy gets no new gates. It still gets fixes (ADR-207).
+   - Cost accepted: R1, R2, R7 and R8 stay partial until the shell exists, with their gaps reworded
+     "waits on B398".
+2. **A green row may carry accepted limits.** Each limit is approved by the human and has an expiry
+   date. When one expires, the row is partial again.
+3. **Approvals will be authenticated; the mechanism is not chosen.** The human agreed that only they
+   may approve the ratchet ledgers, and asked the lead to find the mechanism first. Code-owner
+   review as the proposal's P1 describes it cannot work today; see "Approvals" below. P1 does not
+   start until the human rules on a mechanism.
+4. **A nightly run on GitHub.** One scheduled workflow calls `./verify nightly`. A row may be green
+   on a nightly result less than 48 hours old.
+   - The human pushes the workflow file; the agent token cannot.
+   - Night jobs on the development Mac were offered and not chosen.
+5. **Thresholds: measured worst plus a stated margin, in three bands** (pass, fail, and a grey band
+   that goes to the human's ears). One thresholds ADR per wave, which the human ratifies.
+6. **Flush-to-zero in the horde 2 shell: measure first.** P16 runs the 543 engine digests with it
+   on.
+   - If none change, it is on per block from the shell's first build. No migration is owed, since no
+     horde 2 state has been saved.
+   - If any change, the count comes back to the human. Nothing is re-pinned before that.
+7. **The horde 2 shell carries the output guard forward.** It is the latch-and-report guard of
+   ADR-186 §4: a non-finite sample is zeroed, counted and latched. The count is shown in the horde 2
+   GUI. Both are written as B398 acceptance rows now and built with the shell.
+8. **Intel macOS is not a horde 1.0 platform.** 1.0 ships for macOS arm64 and Windows x64.
+   - R11's "both archs" means those two.
+   - No universal build and no Rosetta leg are owed for 1.0.
+   - B432 already said "macOS and Windows x64". ADR-186 §2 calls the legacy freeze archive
+     "universal", while CI builds the native architecture only (B454 item 4). This ruling is about
+     1.0; the wording of the legacy archive is left as it stands and is listed under "Open".
+9. **The diff-only reviewer is run by the lead now, and by CI later.**
+   - Now: the lead dispatches it on risky PRs. S6 stays partial.
+   - Before any binary goes to someone outside: it becomes a required CI check, under ADR-203's
+     different-model-family rule. That step needs an API key the human creates, and spend per PR.
+10. **The CPU check is a receipt plus counters, not a wall-clock gate.** Each release carries a
+    measured CPU receipt, and deterministic operation counters catch regressions in `./verify`.
+    This follows ADR-187 §8 and replaces the brief's "gated per release" wording. Two things come
+    first:
+    - a heavy-patch policy (B441 phase 3), because the worst known patch is over budget today;
+    - one measurement on the human's Windows PC, to replace the assumed ×1.5 slow-machine factor.
+11. **The legacy real-blob corpus is skipped** (B308 H5; `docs/H2-PLAN.md` open decision 37). Legacy
+    state loading stays covered by the synthetic tests only. The freeze tag no longer waits on it.
+12. **The tolerance registry covers only the `.mjs` checks that `./verify` runs.** Lab UI code is
+    outside it.
+13. **Listening sessions.**
+    - No fixed slot. The lead says when a batch is ready and the human takes it when it suits them.
+      Nothing else interrupts the human for listening in between.
+    - A batch is capped at 15 items or 20 minutes, whichever comes first.
+    - The first batch is ADR-201's click ceiling: a ladder of slot-switch clicks, marked where it
+      becomes unacceptable.
+
+**Approvals: why P1 cannot run as written, and the options (item 3; not ruled).**
+- Measured on 2026-10-10: every agent PR is authored by the human's own GitHub account, because the
+  agent's token belongs to it. The human's account also merges. The main ruleset requires zero
+  approvals and no code-owner review, and has no bypass actors.
+- GitHub does not let a PR's author approve it. So with the human as the only code owner, an
+  agent-authored PR that touches a ledger could never be merged.
+- The deeper point: while the agent acts as the human's account, nothing GitHub records can tell the
+  two apart.
+- **Option A, a machine account (the lead's recommendation).** A second GitHub account that only the
+  agent uses, invited to this repo and to the sibling repos the lead files notices in. Agent PRs are
+  then authored by it, and the human's review is a real second identity. About 30 minutes once, then
+  one click on each PR that touches a ledger. Side effect: "the agent never merges" can become a
+  ruleset fact, not a promise.
+- **Option B, a GitHub App.** The same separation, with finer permissions. Its tokens last one hour,
+  so long agent runs need a token helper. More parts to maintain.
+- **Option C, signed approvals.** Each ledger entry carries a signature made with a key that needs
+  the human's touch, and `./verify` checks it. It does not depend on GitHub. It needs a per-approval
+  command and touch, and a protected list of trusted keys, which returns to the same question.
+- **A limit all three share.** The agent and the human use the same Mac. A mechanism that needs the
+  human's physical touch is the only one the machine itself cannot stand in for.
+
+**Open.**
+- The mechanism for item 3.
+- Whether ADR-186 §2's "universal" legacy archive is read as "the bundles CI builds" (item 8).
+- Whether GitHub bills this account for macOS runner minutes. CI already has macOS jobs
+  on this public repo; the agent token cannot read the billing page.

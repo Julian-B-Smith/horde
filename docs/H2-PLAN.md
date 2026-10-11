@@ -439,7 +439,7 @@ bundles; old projects depend on that archive (ADR-186 §2). Legacy sessions stay
 (ADR-197).
 - Governing: B255, B308 (H1, H5, M4), B305. ADR-186. Status: **ruled**. No tag exists
   (checked 2026-10-09). Needs first: nothing in this graph.
-- Open: cut the tag; whether B308 H5's real-blob corpus must land before it.
+- Open: cut the tag. (The real-blob corpus of B308 H5 is skipped: ADR-209 item 11.)
 
 **Testing apparatus** (`testing`). The patch-space gauntlet, the blind listening passes, the
 aliasing metric, the Serum 2 reference test and the C++ quality suites.
@@ -676,7 +676,7 @@ a noise oscillator in 1.0 (ADR-190 A6).
 34. **Screen styles:** one for every FX module, or one each (B322).
 35. **Spec:** which protected spec horde 2 answers to (B308 M2).
 36. **AU code:** the manufacturer code (ADR-186 §3; autonomous may rule a fleet code).
-37. **Freeze tag:** cut it, and decide whether B308 H5's real-blob corpus must precede it.
+37. **Freeze tag:** cut it, and decide whether B308 H5's real-blob corpus must precede it. **Ruled 2026-10-10 (ADR-209 item 11): the corpus is skipped. Cutting the tag remains.**
 38. **Voice limit:** a deterministic count or a documented CPU-adaptive mode (B323).
 39. **WASM:** install the toolchain (B372).
 40. **R2 and R3:** rule after the critic (B357).
