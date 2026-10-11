@@ -73,3 +73,77 @@
   - The rule lives on `--approve`. A ledger edited by hand skips it; code-owner review is the guard.
   - The tool cannot tell a true root cause from a written one, or whether a `latch` guard latches.
   - `docs/armor/README.md` and catalogue row S1 still need the lead's edit (out of this brief's scope).
+
+## 2026-10-11, later: rework after the critic's review of PR #1057
+
+Nothing above is rewritten. Where this section and the text above disagree, this section is the
+later record. Two statements above no longer hold: "Entries already in the baseline are not re-judged"
+is now true only of entries that carry the initial-baseline text, and "the rule lives on `--approve`"
+is no longer so (see M1).
+
+- **Queue item:** B448 phase 2, package P14, the same PR. The brief's acceptance items were the
+  critic's findings (H1, H2, M1, M4 and a list of smaller ones), not text quoted from ROADMAP.md.
+- **Why:** the critic showed two ways a tag could let an untagged clamp in with no trace, a rule that
+  the oracle itself never ran, and four mutations of the tool that its own controls did not catch.
+- **What changed** (`tools/weakening_check.py` only; no ledger, no `verify`, no catalogue row):
+  - **H1, a move leaves no headroom.** Tagging an existing guard moves it between the two categories,
+    and the category it left kept its old allowance. `--approve` in either `dsp_guard` category now
+    also lowers the other category's entry for the same file to the tree's count, removing it at
+    zero, in the same write, and prints that it did. The brief asked for the tagged direction; the
+    mirror (tags removed, approved under a trace, the tagged allowance left behind) is the same
+    hole, so both are closed. The lowering never raises.
+  - **H2, a retag hiding a new clamp.** No rule was added, because none can work: see the next
+    bullet. Instead the red line and `--approve` state the most new untagged guards the counts
+    could be hiding, and `--approve dsp_guard_tagged` prints every guard line in the file, tagged
+    and untagged, with both categories' ledger and tree numbers and one plain sentence that the
+    tool cannot tell which guard is new.
+  - **Why no rule separates the mixed case.** For one file, write the change as (untagged, tagged)
+    relative to the ledger. One new tagged guard is (0, +1). One old guard retagged plus one new
+    untagged clamp is also (0, +1), from the same ledger. A counter that sees two identical states
+    must give them the same answer. Asking that state for a trace would ask every honest new tagged
+    guard for one, in every file that already holds an untagged guard (all ten files in today's
+    ledger), and edit D exempts those. The exception that can be proved is used: where the ledger
+    allows no untagged guard in the file there was nothing to retag, and the "may hide" number is 0.
+    The five cases and the formula are in the docstring under RETAG OR NEW, one control per row;
+    the controls for the two indistinguishable rows expect the same reading on purpose.
+  - **M1, the rule is in the oracle.** Every ordinary run applies the trace rule to each `dsp_guard`
+    ledger entry whose `approved` text is not exactly the initial-baseline text. A reference typed
+    in by hand, a trace that is not in the tree, and a trace deleted later are red.
+  - **M4, four surviving mutations.** Controls added: an untagged guard directly above a tagged one;
+    `dsp_guard: fine`; a comment that only says "boundary"; a trace with "root cause" only in prose.
+  - **Smaller items.** In C/C++ the tag counts only inside a comment that opens on the marker's own
+    line (a string literal, code, and a block comment opened on an earlier line tag nothing). A
+    heading inside a code fence is not a root-cause section. The trace must name the whole path,
+    not a longer path that contains it. `--approve` says so prominently when one reference raises
+    an entry by more than one, and says the dashboard must be regenerated when the ledger's category
+    count changes (it does not regenerate it). `approved()` returns two values again.
+- **Evidence consulted:** the brief; `tools/weakening_check.py` and `tools/banned_api_check.py`
+  (`strip_noncode`) in full; `docs/armor/weakening-baseline.json` (read only: ten `dsp_guard`
+  entries, all ten carrying exactly the initial-baseline text, no `dsp_guard_tagged` entry);
+  `tools/armor_dashboard.py` (`optional_input` embeds the number of top-level ledger entries).
+- **Alternatives rejected:** adding a comment-keeping mode to `strip_noncode` (the right home for it,
+  but that file was out of scope; the tool asks the existing lexer whether an offset is in code
+  instead); a second small C lexer in this file (a copy to keep in step); storing which lines are
+  guards in the ledger, or reading them from `git diff`, to tell a new guard from an old one (a
+  ledger schema change, and a result that depends on which base is fetched); requiring a trace
+  whenever the counts could be hiding a new untagged guard (it would demand a trace from honest
+  tagged guards, which is the reading the lead asked to keep).
+- **Verify:** `./verify fast` exit 0 on 6a77eb6 with this change staged, recorded in
+  `.harness/last-verify.json`; `weakening: 80 markers across 6 categories, 0 increases`, the ledger
+  byte-identical before and after (same SHA-256). On the real tree the trace rule was applied to
+  ledger entries zero times, measured by counting the calls. Measured on scratch copies: 36
+  mutations of the tool, each breaking one rule above, 36 caught by the controls; and `main()` run
+  end to end on a scratch tree and scratch ledger for H1, H2, M1 and the several-guards line.
+  `--approve`, `--tighten` and `--init` were never run against the real ledger.
+- **Open questions:**
+  - H2 is narrowed, not closed. In a file that already holds an untagged guard, a retag plus a new
+    untagged clamp is approved with no trace if the human does not read the printed lines.
+    Closing it needs something a counter does not have: which lines are guards, kept in the ledger.
+  - M1 trusts the initial-baseline text. A count raised by hand under that text is not seen here;
+    `ledger_owner_check` and code-owner review are the guard.
+  - M1's wiring into `main()` is covered by the end-to-end scratch run, not by a control that runs
+    on every `./verify`: the controls call the function, and `main()` calls the same function.
+  - A tag in a block comment that was opened on an earlier line is not honoured. That is stricter
+    than "in a comment on that line"; the docstring says so.
+  - Carried over, still open: the wording of the control against what is built, the widened
+    patterns, and the lead's edits to `docs/armor/README.md` and catalogue row S1.
