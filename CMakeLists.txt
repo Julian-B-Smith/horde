@@ -1090,6 +1090,14 @@ add_executable(measure_h2_engine tools/measure_h2_engine.cpp)
 if(NOT MSVC)
   target_compile_options(measure_h2_engine PRIVATE -O3 -ffp-contract=off)
 endif()
+# h2_harness_render (B448 P2): the engine harness's render tool, one adapter per enrolled
+# engine (h2/harness/). The harness gates in ./verify full drive it: the selftest
+# (each adapter makes sound; a silent one must fail), then the fuzz, invariance and soak
+# packages. Release flags, contraction off like every h2 target (h2 rule 7).
+add_executable(h2_harness_render h2/harness/render_cli.cpp)
+if(NOT MSVC)
+  target_compile_options(h2_harness_render PRIVATE -O3 -ffp-contract=off)
+endif()
 # measure_h2_engine_stages (B441): the same file with H2_ENGINE_STAGES, the
 # measurement-only stage toggles in h2/engine/engine.h (--stages; the cost
 # attribution in docs/port/cpu-ledger.md). Never the shipped or the parity build.

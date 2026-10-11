@@ -432,7 +432,7 @@ def main():
     print(f"engine_enrolment_check: GREEN ({len(units)} units under h2/: {len(enrolled)} enrolled [{', '.join(enrolled)}], "
           f"{len(exempt)} not enrolled with a reason [{', '.join(exempt)}]; {len(model['patches']['patches'])} reference patches; "
           f"{fired} must-fail controls fired on the {' and the '.join(bases)} tree, the conforming tree read green. "
-          f"STATIC ONLY: that each adapter makes sound is {SELFTEST}'s to show, and ./verify does not run it yet)")
+          f"STATIC: that each adapter makes sound is {SELFTEST}'s to show, in ./verify full)")
     return 0
 
 

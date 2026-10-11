@@ -379,6 +379,15 @@
    "evidence": "tools/parity_floor_check.py:62-63 (B455 H1, ADR-180 section 1)",
    "independent": false,
    "note": "A pinned count of the generator's scenarios today; it stops a shrunken corpus reading green. It records a count, not a reason."
+  },
+  {
+   "path": "tools/h2_engine_rtsan_check.py",
+   "pins": "scenario-count floor 543 for the engine RealtimeSanitizer probe, the same number as the parity gate's kMinScenarios",
+   "check": "h2_engine_rtsan_check",
+   "kind": "prototype_parity_at_pin",
+   "evidence": "tools/h2_engine_rtsan_check.py:80-82 (B448 P16, ADR-206 item 1)",
+   "independent": false,
+   "note": "A pinned count, so a probe that judged fewer scenarios cannot read green. It records a count, not a reason."
   }
  ]
 }

@@ -22,6 +22,7 @@
 /docs/armor/weakening-baseline.json @Julian-B-Smith
 /docs/armor/tolerances.json @Julian-B-Smith
 /docs/armor/acceptances.json @Julian-B-Smith
+/docs/armor/engines.json @Julian-B-Smith
 /tools/param_id_lock.json @Julian-B-Smith
 /tools/build_flags_pin.json @Julian-B-Smith
 /tools/license_allowlist.json @Julian-B-Smith

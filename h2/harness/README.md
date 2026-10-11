@@ -147,6 +147,9 @@ gave the same digests (measured 2026-10-10, this machine only).
 
 ## Wiring the selftest
 
+**Done 2026-10-11:** option 1 below. `h2_harness_render` is a CMake target and the selftest
+runs in `./verify full`. The rest of this section is kept as the record of why.
+
 `tools/engine_enrolment_check.py` is static and runs in `./verify fast`. `selftest.mjs`
 needs the binary, and this package could not build one inside `./verify`:
 
