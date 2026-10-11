@@ -58,6 +58,19 @@ LEDGERS = [
     "h2/engine/selfdigest.*",
 ]
 
+# The files that keep the ledgers honest (ADR-211 item 4): the owner record itself, this check,
+# and each ratchet tool's source. A pull request that could edit one of these could unhook a
+# ledger without touching it, so each is owned exactly as a ledger is.
+GUARDS = [
+    ".github/CODEOWNERS",
+    "tools/ledger_owner_check.py",
+    "tools/weakening_check.py",
+    "tools/tolerance_registry_check.py",
+    "tools/param_id_lock_check.py",
+    "tools/build_flags_check.py",
+    "tools/license_audit_check.py",
+]
+
 # Pinned files a check reads that the brief did not list as ledgers. Not owned, not hidden: they
 # print on every run until the human rules each in or out. Adding one here is a visible choice.
 KNOWN_UNLISTED = {
@@ -117,10 +130,10 @@ def owners_of(rules, path):
 def expand_ledgers(tracked):
     """-> (concrete ledger paths, problems). A ledger entry matching no tracked file is a problem."""
     paths, problems = [], []
-    for led in LEDGERS:
+    for led in LEDGERS + GUARDS:
         hits = [t for t in tracked if pattern_regex("/" + led).match(t)]
         if not hits:
-            problems.append(f"listed ledger {led} matches no tracked file")
+            problems.append(f"listed ledger or guard {led} matches no tracked file")
         paths += hits
     return sorted(set(paths)), problems
 
@@ -236,6 +249,11 @@ def controls(codeowners_text, tracked, today):
     victim = expand_ledgers(tracked)[0][0]
     kept = "\n".join(ln for ln in codeowners_text.splitlines() if "/" + victim not in ln.split("#")[0])
     red(f"CODEOWNERS without the rule for {victim}", check_owners(kept, tracked)[0])
+    guard = "tools/weakening_check.py"
+    red(f"CODEOWNERS without the rule for the guard {guard}", check_owners(
+        "\n".join(ln for ln in codeowners_text.splitlines() if "/" + guard not in ln.split("#")[0]), tracked)[0])
+    red("CODEOWNERS without the rule for itself", check_owners(
+        "\n".join(ln for ln in codeowners_text.splitlines() if "/.github/CODEOWNERS" not in ln.split("#")[0]), tracked)[0])
     red("CODEOWNERS plus a catch-all `*`", check_owners(codeowners_text + "\n* @someone\n", tracked)[0])
     red("CODEOWNERS plus a rule naming a missing file",
         check_owners(codeowners_text + "\n/docs/armor/no-such-ledger.json @someone\n", tracked)[0])

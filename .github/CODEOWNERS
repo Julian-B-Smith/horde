@@ -13,7 +13,9 @@
 # be approved by the human). Until then this file is a record, and
 # tools/ledger_owner_check.py guards it.
 #
-# ONLY LEDGERS GET AN OWNER. There is deliberately no catch-all `*` rule. To add a ledger: add
+# ONLY LEDGERS AND THEIR GUARDS GET AN OWNER. A guard is a file that keeps the ledgers honest:
+# this file, the check that reads it, and each ratchet tool's source (ADR-211 item 4).
+# There is deliberately no catch-all `*` rule. To add a ledger: add
 # its rule here AND its path in tools/ledger_owner_check.py (LEDGERS); that check is red if the
 # two disagree, or if a ratchet tool pins a file that is in neither.
 
@@ -24,3 +26,12 @@
 /tools/build_flags_pin.json @Julian-B-Smith
 /tools/license_allowlist.json @Julian-B-Smith
 /h2/engine/selfdigest.* @Julian-B-Smith
+
+# Guards (tools/ledger_owner_check.py, GUARDS).
+/.github/CODEOWNERS @Julian-B-Smith
+/tools/ledger_owner_check.py @Julian-B-Smith
+/tools/weakening_check.py @Julian-B-Smith
+/tools/tolerance_registry_check.py @Julian-B-Smith
+/tools/param_id_lock_check.py @Julian-B-Smith
+/tools/build_flags_check.py @Julian-B-Smith
+/tools/license_audit_check.py @Julian-B-Smith
