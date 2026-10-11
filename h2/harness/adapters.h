@@ -31,8 +31,9 @@ inline std::unique_ptr<Adapter> makeComposedAdapter() { return std::make_unique<
 inline std::unique_ptr<Adapter> makeSilentControl() { return std::make_unique<SilentControl>(); }
 inline std::unique_ptr<Adapter> makeToneControl() { return std::make_unique<ToneControl>(); }
 inline std::unique_ptr<Adapter> makeBlockControl() { return std::make_unique<BlockControl>(); }
-// The parameter fuzz's three planted faults (control_fuzz.h, package P3).
+// The parameter fuzz's four planted faults (control_fuzz.h, package P3).
 inline std::unique_ptr<Adapter> makeFuzzBlowupControl() { return std::make_unique<FuzzPlantControl>(FuzzPlantControl::kBlowup); }
+inline std::unique_ptr<Adapter> makeFuzzLoudControl() { return std::make_unique<FuzzPlantControl>(FuzzPlantControl::kLoud); }
 inline std::unique_ptr<Adapter> makeFuzzNanControl() { return std::make_unique<FuzzPlantControl>(FuzzPlantControl::kNan); }
 inline std::unique_ptr<Adapter> makeFuzzHangControl() { return std::make_unique<FuzzPlantControl>(FuzzPlantControl::kHang); }
 
@@ -42,6 +43,7 @@ inline constexpr AdapterRow kAdapters[] = {
   {"control/tone", true, &makeToneControl},
   {"control/block", true, &makeBlockControl},
   {"control/fuzz-blowup", true, &makeFuzzBlowupControl},
+  {"control/fuzz-loud", true, &makeFuzzLoudControl},
   {"control/fuzz-nan", true, &makeFuzzNanControl},
   {"control/fuzz-hang", true, &makeFuzzHangControl},
 };
