@@ -84,3 +84,4 @@ swarm-dynamics · parity-oracle · plugin-platform · realtime-perf
 - [L0072] Per-scenario bit-exact share swings with 1-ULP nudges; gate on the mean share, per platform (oracles · parity)
 - [L0073] A design lab can be a pinned golden; a metadata-only edit breaks whole-blob pins and verify fast cannot see it (oracles · labs · ci)
 - [L0074] A folder move breaks every CMake cache, nested FetchContent sub-builds included; verify fast cannot see it (build · tooling · rename)
+- [L0075] A new check cannot wait unwired or self-compile from tools/; discover-by-rule checks make parallel PRs order-dependent (gates · delegation · ratchets)

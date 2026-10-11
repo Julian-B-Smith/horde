@@ -7767,3 +7767,53 @@ the P17 agent.
 
 **Not ruled here.** Whether bit-identity pins count as goldens (the proposal's §7). P8 registers
 them as "prototype parity at pin, sign-off pending" on the lead's reading, and says so in its file.
+
+## ADR-211 — RULED by the human: flush-to-zero is on in the horde 2 shell; the held Wave 1 work is released; the ledgers' guards are owned (B448, 2026-10-11)
+
+**Ruling.** The human, 2026-10-11, in reply to the lead's five waiting items: "Yes, fix the sketch;
+go with your recommendations on the rest". Each item below states the recommendation that was on
+the table.
+
+**Decision.**
+1. **Flush-to-zero is on in the horde 2 shell from its first build** (closes ADR-209 item 6).
+   - The measurement (P16, PR #1047): with the flag on, 8 of 543 engine digests change, in both
+     the parity build and the product build. Every differing sample moves by less than 4.1e-308:
+     subnormal outputs become exact zeros. With the flag off, all 543 pinned rows reproduce.
+   - Not measured: x86, any other compiler, anything audible.
+   - The eight rows are re-pinned once. That edit to the self-digest references is sanctioned by
+     this ruling and is NOT yet made. It is its own dispatch, because the digest tools must set the
+     flag as the shell will, and the dispatch must settle how those eight rows stand against the
+     JS parity target, which cannot set the flag (ADR-187's divergence rules).
+   - No migration is owed: no horde 2 state has been saved.
+   - The shell acceptance list's flush-to-zero row takes its "on" branch.
+2. **The held Wave 1 work is released.** The permission system had refused three agents' steps
+   that touched `verify` or a check's header, and the lead had not done those steps for them. With
+   the human's word the lead did the wiring itself: P8 (PR #1048), P5 (PR #1049, with the
+   `nightly` target) and P16's lint (in PR #1047).
+3. **The build-flags approval for the new RealtimeSanitizer probe is not given here.** The lead's
+   statement was that this approval is the human's to make, so "go with your recommendations" does
+   not make it. The probe's wrapper stays out of `tools/` until the human approves its flags.
+4. **The ledgers' guards are owned.** The code-owners file itself, `ledger_owner_check` and the
+   five ratchet tools' sources are owned as the ledgers are (PR #1050). `docs/armor/engines.json`
+   joins the owned ledgers once it is on `main`.
+
+**Unchanged.** The machine account is the human's to create (ADR-210 item 1), and "require
+code-owner review" stays off until agent PRs come from it.
+
+## ADR-212 — RULED by the human: the engine RealtimeSanitizer probe's compiler flags are approved (B448 P16, 2026-10-11)
+
+**Ruling.** The human, 2026-10-11: "approve the probe's flags".
+
+**Decision.**
+- `tools/h2_engine_rtsan_check.py` compiles its probe with `-std=gnu++20 -O1 -g
+  -fno-omit-frame-pointer -ffp-contract=off -fsanitize=realtime`. These join the `direct_compiles`
+  section of `tools/build_flags_pin.json`. The pin changes by two lines: the new entry and this
+  reference.
+- The flags are the legacy `rtsan_check`'s plus `-ffp-contract=off`, which every target that
+  includes the horde 2 engine must carry (`h2_rules_check`).
+- The lead made the ledger edit on the human's word, with `build_flags_check.py --approve`. Under
+  ADR-210 item 1 such an edit will need the human's own review once agent PRs come from the
+  machine account; until then this record is the trace.
+
+**Evidence.** The probe, in PR #1047: 543 of 543 scenarios judged, 0 violations; its planted
+allocation is reported on every run; a run that judges fewer than 543 is red.
