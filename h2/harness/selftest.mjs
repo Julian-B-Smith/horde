@@ -59,9 +59,10 @@
  *   PRE_MAP_TOL    1e-12: tanh(atanh(y)) differs from y by a few rounding steps.
  * No clock, no randomness: the same binary gives the same rows.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { nonFinite, peak, rms, silence } from '../../tools/patchspace/metrics.mjs';
 import { build as buildPatches, OUT as PATCHES_OUT } from './gen_patches.mjs';
 import { ROOT, binPath, enrolled, jobFor, listAdapters, loadPatches, mtof, patchesFor, run } from './harness.mjs';
@@ -201,4 +202,7 @@ function main(argv) {
   return failed ? 1 : 0;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) process.exitCode = main(process.argv.slice(2));
+// Run only as the entry script. Two file URLs made the same way are compared: a hand-built
+// `file://${argv[1]}` differs from import.meta.url whenever the path holds a space or is
+// reached through a symlink, and then this file ran nothing and exited 0.
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) process.exitCode = main(process.argv.slice(2));

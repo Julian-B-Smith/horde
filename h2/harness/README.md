@@ -18,6 +18,7 @@ Last verified: 2026-10-10 (darwin-arm64, Apple clang, Node 24). Static check wir
 | `harness.h` | The `Adapter` interface, the job language and its runner, and three control adapters. Includes no engine. |
 | `adapter_composed.h` | The adapter for the composed engine (`h2/engine/`). States what the pre-limiter bus can and cannot say. |
 | `adapters.h` | The table: one row per enrolled engine, then the controls. |
+| `control_fuzz.h` | The parameter fuzz's ten planted faults (below). Control adapters, never enrolled. |
 | `render_cli.cpp` | `h2_harness_render`: runs job files, writes what was rendered. Measures and judges nothing. |
 | `harness.mjs` | The interface tools use: enrolled engines, reference patches, `render`, `features`. |
 | `patches.json` | The reference patches. **Generated; never edit it by hand.** |
@@ -26,6 +27,27 @@ Last verified: 2026-10-10 (darwin-arm64, Apple clang, Node 24). Static check wir
 
 Beside it: `docs/armor/engines.json` (the enrolment registry) and
 `tools/engine_enrolment_check.py` (the gate that finds un-enrolled directories).
+
+### The parameter fuzz's plants (`control_fuzz.h`)
+
+`tools/h2_fuzz_check.mjs` (package P3) runs its own cases through these on every run and is
+red unless it reads each exactly as built. Each takes every key and watches one corner of
+the declared table (`tools/patchspace/dependency_tree.json`). While a note is held both
+channels carry a level of 0.5 x gain through tanh; **the fault is on the right channel
+only**. The fuzz's header says what each must read as, and why.
+
+| adapter | corner | the fault |
+|---|---|---|
+| `control/fuzz-blowup` | `fb` max, `K` min | the level doubles every 40 ms, without end |
+| `control/fuzz-slow` | `stretchB` max | the level doubles every 400 ms |
+| `control/fuzz-plateau` | `colB` max, `width` min | doubles every 40 ms, then stops at 64 x gain |
+| `control/fuzz-burst` | `inertia` max, `harmReach` min | bursts of 12 times the level, 20 ms in every 350 ms; never grows |
+| `control/fuzz-loud` | `xm` max, `kRuleAmt` min | a steady level of 4096 x gain |
+| `control/fuzz-keyed` | `spread` max, `onset` min | 16 x gain, multiplied by 8 where that is above 10: not linear in gain |
+| `control/fuzz-nan` | `detune` max, `S` min, `aa` 0 | a NaN while a note is held |
+| `control/fuzz-nan-tail` | `hard` max, `depth` min | a NaN only after the last note is released |
+| `control/fuzz-hang` | `R` min, `A` max | a level of 0.001 x gain that never stops after the release |
+| `control/fuzz-late` | `R` min, `D` max | the same, stopping 0.65 s after the release |
 
 ## Using it (for the P3, P4 and P6 authors)
 
