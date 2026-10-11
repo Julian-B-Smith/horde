@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # verify — oracle dispatcher. The harness's only interface to project QC.
-# Usage: ./verify fast | full | report
+# Usage: ./verify fast | full | nightly | report
 # Contract: exit 0 = green, nonzero = red. Writes .harness/last-verify.json.
 set -uo pipefail
 
@@ -195,6 +195,7 @@ fast() {
   # feature the GUI shows has at least one row. Both failure modes — an oracle
   # nobody wrote, a feature nobody tests — are silent by construction.
   python3 tools/test_table_check.py || ok=1
+  python3 tools/nightly_check.py || ok=1
   portability_gate || ok=1   # MSVC-only breakage, caught locally not in CI
 
   # BANNED C LIBRARY CALLS (B446 W1b): no strcpy/strcat/sprintf/vsprintf/gets/
@@ -1269,6 +1270,9 @@ full() {
 case "$TARGET" in
   fast)   fast;  record fast  $? ;;
   full)   full;  record full  $? ;;
+  # The nightly's long jobs (B448 P5, ADR-209 item 4). No `record`: a local nightly or a drill
+  # must not overwrite the fast/full record that the push gate and the Stop gate read.
+  nightly) shift; exec python3 tools/nightly/run.py "$@" ;;
   report) cat "$HARNESS_DIR/last-verify.json" 2>/dev/null || { echo '{"target":null,"exit":null}'; exit 1; } ;;
-  *)      echo "usage: ./verify fast|full|report" >&2; exit 64 ;;
+  *)      echo "usage: ./verify fast|full|nightly|report" >&2; exit 64 ;;
 esac

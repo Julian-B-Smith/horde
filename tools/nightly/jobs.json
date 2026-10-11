@@ -1,0 +1,23 @@
+{
+  "_about": "The nightly job list (B448 P5, ADR-209 item 4). To add a job, add ONE entry here and nothing else: tools/nightly/run.py, ./verify and the workflow never change. name: unique. command: a shell line run from the repo root; it must exit 0 to pass. platforms: any of linux, macos. floor: the fewest cases the job must judge; 0 means it is not a corpus loop. A job with a floor must print the line KIT-GATE cases=<n>; a job that cannot run here prints KIT-GATE skipped: <reason> and exits 0, which the receipt records as skipped, never as ran. See tools/nightly/README.md.",
+  "jobs": [
+    {
+      "name": "stability-legacy-saw",
+      "command": "python3 tools/nightly/stability_job.py --seconds=3600",
+      "platforms": ["linux"],
+      "floor": 9
+    },
+    {
+      "name": "rtsan-legacy-process",
+      "command": "python3 tools/nightly/legacy_gate.py python3 tools/rtsan_check.py",
+      "platforms": ["macos"],
+      "floor": 0
+    },
+    {
+      "name": "tsan-stress-handoff",
+      "command": "python3 tools/nightly/legacy_gate.py python3 tools/tsan_stress_check.py",
+      "platforms": ["macos"],
+      "floor": 0
+    }
+  ]
+}

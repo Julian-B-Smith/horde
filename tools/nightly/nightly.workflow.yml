@@ -1,0 +1,100 @@
+# DRAFT -- NOT ACTIVE. This file lives under tools/nightly/ because the agent token
+# cannot push under .github/workflows/ (B448, ADR-209 item 4). To install it, the
+# human copies it, from their own login, to
+#
+#     .github/workflows/nightly.yml
+#
+# and pushes that one file. The name matters: tools/nightly/freshness.py asks GitHub
+# for the workflow `nightly.yml`. Nothing else needs to change, ever: this workflow
+# only calls `./verify nightly`, and the jobs it runs are the entries in
+# tools/nightly/jobs.json, so a later package adds a job without editing this file.
+#
+# WHAT IT DOES. Once a night on main (and on demand) it runs `./verify nightly` on a
+# Linux runner and on a macOS runner, and uploads each runner's receipt as an artifact.
+# Receipts are CI artifacts, never commits (the repo is public). A manual run with
+# `drill` ticked runs the planted-fault drill instead (tools/nightly/run.py --drill):
+# the monthly proof that the nightly can go red. Its run title ends "(drill)" so the
+# freshness reader never counts it as a night.
+#
+# HOUSE STYLE. Copied from ci.yml: actions pinned by commit SHA with a version
+# comment, the same checkout options, a read-only token. tools/workflow_pin_check.py
+# holds those rules once the file is installed; tools/nightly_check.py runs it on
+# this draft today.
+#
+# UNVERIFIED (nothing here has run on GitHub): the cron time, the runners' memory and
+# speed against the dev Mac, `brew install llvm` on the macOS runner, and whether
+# Homebrew LLVM's sanitizers start there (ADR-199's crash was specific to one
+# toolchain). The macOS jobs print SKIPPED, recorded as skipped and never as ran, when
+# they cannot measure.
+name: nightly
+run-name: "nightly${{ inputs.drill && ' (drill)' || '' }}"
+on:
+  schedule:
+    - cron: '17 3 * * *'   # 03:17 UTC; an off-the-hour minute, as scheduled load is heaviest on the hour
+  workflow_dispatch:
+    inputs:
+      drill:
+        description: 'Run the planted-fault drill (must go red on each plant) instead of the jobs'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: nightly
+        if: ${{ !inputs.drill }}
+        run: ./verify nightly --receipt "$RUNNER_TEMP/nightly-receipt-linux.json"
+      - name: nightly drill
+        if: ${{ inputs.drill }}
+        run: ./verify nightly --drill --receipt "$RUNNER_TEMP/nightly-receipt-linux.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: ${{ always() }}
+        with:
+          name: nightly-receipt-linux
+          path: ${{ runner.temp }}/nightly-receipt-linux.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  macos:
+    # macOS is the 10x runner (see ci.yml). Free on a public repository only if the
+    # brief's recorded answer holds; unverified for macOS runners.
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          submodules: recursive
+          persist-credentials: false
+      # UNVERIFIED on GitHub's runners: the compiler for the sanitizer checks
+      # (ADR-199). tools/rtsan_check.py and tools/tsan_stress_check.py find it
+      # through `brew --prefix llvm`. If this step or the sanitizers fail to start
+      # there, the checks print SKIPPED and the receipt says skipped, not ran.
+      - name: Homebrew LLVM (unverified on GitHub's runners)
+        if: ${{ !inputs.drill }}
+        run: brew install llvm
+      - name: nightly
+        if: ${{ !inputs.drill }}
+        run: ./verify nightly --receipt "$RUNNER_TEMP/nightly-receipt-macos.json"
+      - name: nightly drill
+        if: ${{ inputs.drill }}
+        run: ./verify nightly --drill --receipt "$RUNNER_TEMP/nightly-receipt-macos.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: ${{ always() }}
+        with:
+          name: nightly-receipt-macos
+          path: ${{ runner.temp }}/nightly-receipt-macos.json
+          if-no-files-found: warn
+          retention-days: 30
