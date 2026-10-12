@@ -35,9 +35,9 @@
  *   node h2/harness/gen_patches.mjs --check    exit 1 if the committed file is stale
  * Deterministic: no clock, no randomness; the same sources give the same bytes.
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 export const OUT = 'h2/harness/patches.json';
@@ -149,4 +149,7 @@ function main(argv) {
   return 0;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) process.exitCode = main(process.argv.slice(2));
+// Run only as the entry script. Two file URLs made the same way are compared: a hand-built
+// `file://${argv[1]}` differs from import.meta.url whenever the path holds a space or is
+// reached through a symlink, and then this file ran nothing and exited 0.
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) process.exitCode = main(process.argv.slice(2));

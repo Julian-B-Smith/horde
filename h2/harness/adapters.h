@@ -16,6 +16,7 @@
 #include <memory>
 
 #include "adapter_composed.h"
+#include "control_fuzz.h"
 #include "harness.h"
 
 namespace horde2::harness {
@@ -30,12 +31,33 @@ inline std::unique_ptr<Adapter> makeComposedAdapter() { return std::make_unique<
 inline std::unique_ptr<Adapter> makeSilentControl() { return std::make_unique<SilentControl>(); }
 inline std::unique_ptr<Adapter> makeToneControl() { return std::make_unique<ToneControl>(); }
 inline std::unique_ptr<Adapter> makeBlockControl() { return std::make_unique<BlockControl>(); }
+// The parameter fuzz's ten planted faults (control_fuzz.h, package P3).
+inline std::unique_ptr<Adapter> makeFuzzBlowupControl() { return std::make_unique<FuzzPlantControl>(FuzzPlantControl::kBlowup); }
+inline std::unique_ptr<Adapter> makeFuzzSlowControl() { return std::make_unique<FuzzPlantControl>(FuzzPlantControl::kSlow); }
+inline std::unique_ptr<Adapter> makeFuzzPlateauControl() { return std::make_unique<FuzzPlantControl>(FuzzPlantControl::kPlateau); }
+inline std::unique_ptr<Adapter> makeFuzzBurstControl() { return std::make_unique<FuzzPlantControl>(FuzzPlantControl::kBurst); }
+inline std::unique_ptr<Adapter> makeFuzzLoudControl() { return std::make_unique<FuzzPlantControl>(FuzzPlantControl::kLoud); }
+inline std::unique_ptr<Adapter> makeFuzzKeyedControl() { return std::make_unique<FuzzPlantControl>(FuzzPlantControl::kKeyed); }
+inline std::unique_ptr<Adapter> makeFuzzNanControl() { return std::make_unique<FuzzPlantControl>(FuzzPlantControl::kNan); }
+inline std::unique_ptr<Adapter> makeFuzzNanTailControl() { return std::make_unique<FuzzPlantControl>(FuzzPlantControl::kNanTail); }
+inline std::unique_ptr<Adapter> makeFuzzHangControl() { return std::make_unique<FuzzPlantControl>(FuzzPlantControl::kHang); }
+inline std::unique_ptr<Adapter> makeFuzzLateControl() { return std::make_unique<FuzzPlantControl>(FuzzPlantControl::kLate); }
 
 inline constexpr AdapterRow kAdapters[] = {
   {"composed", false, &makeComposedAdapter},
   {"control/silent", true, &makeSilentControl},
   {"control/tone", true, &makeToneControl},
   {"control/block", true, &makeBlockControl},
+  {"control/fuzz-blowup", true, &makeFuzzBlowupControl},
+  {"control/fuzz-slow", true, &makeFuzzSlowControl},
+  {"control/fuzz-plateau", true, &makeFuzzPlateauControl},
+  {"control/fuzz-burst", true, &makeFuzzBurstControl},
+  {"control/fuzz-loud", true, &makeFuzzLoudControl},
+  {"control/fuzz-keyed", true, &makeFuzzKeyedControl},
+  {"control/fuzz-nan", true, &makeFuzzNanControl},
+  {"control/fuzz-nan-tail", true, &makeFuzzNanTailControl},
+  {"control/fuzz-hang", true, &makeFuzzHangControl},
+  {"control/fuzz-late", true, &makeFuzzLateControl},
 };
 
 // Null for an id the table does not have.

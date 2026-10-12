@@ -1,0 +1,5 @@
+{
+ "schema": "horde2.fuzz.kept/1",
+ "note": "INPUTS ONLY. Cases of tools/h2_fuzz_check.mjs that once failed, replayed first on every run; each must now read clean, judged live against the tool's own thresholds. Nothing here is an expected result. To add one, paste the object the tool prints after KEEP into `cases`. `was` says how the case failed when it was found, for the reader; the tool does not read it.",
+ "cases": []
+}

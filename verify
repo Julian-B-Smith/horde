@@ -902,6 +902,7 @@ full() {
   # lines between markers keep parallel pull requests from colliding.
   #
   # [harness gate: P3 parameter fuzz]
+  node tools/h2_fuzz_check.mjs --bin "$build_dir/h2_harness_render" || { echo "verify[full]: h2 fuzz FAILED" >&2; return 1; }
   #
   #
   # [harness gate: P4 invariance matrix]

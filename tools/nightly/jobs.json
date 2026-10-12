@@ -8,6 +8,12 @@
       "floor": 9
     },
     {
+      "name": "fuzz-h2-engines",
+      "command": "cmake -S . -B build-nightly -G \"Unix Makefiles\" -DCMAKE_BUILD_TYPE=Release && cmake --build build-nightly --target h2_harness_render -j 4 && node tools/h2_fuzz_check.mjs --deep --cases 20000 --bin build-nightly/h2_harness_render",
+      "platforms": ["linux"],
+      "floor": 20000
+    },
+    {
       "name": "rtsan-legacy-process",
       "command": "python3 tools/nightly/legacy_gate.py python3 tools/rtsan_check.py",
       "platforms": ["macos"],
