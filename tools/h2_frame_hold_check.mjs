@@ -50,22 +50,33 @@
  *   spread law's one route to the blade's POSITION closed (`bspread` 0), flag on.
  *
  *   LOCKED rows (acceptance 3). Every reference patch in h2/harness/patches.json,
- *   one held C3, 4 s, with the members locked BY CONSTRUCTION and the frame on, so
- *   that each lead does reach a blade: kLock below (one frequency, one start phase,
- *   no coupling, no onset burst, no swarm drift, no member waiting; R is 1). The
- *   flag-on render against the flag-off render, largest |difference| over both
- *   output channels. With the swarm locked the frame IS the measured centre bit for
- *   bit (holdFrame), so the leads' targets are the present law's and only their
- *   last-bit wobble is ramped instead of stepped.
- *   The ceiling is MEASURED, not chosen to pass: 2026-10-12, darwin-arm64, the
- *   worst judged row read 6.7e-14 (`ledger/defaults`); kLockCeil is 1e-11, about
- *   150 times that, five orders under the parity bound (1e-6).
- *   A patch that cannot show a difference that small is NOT JUDGED, on evidence
- *   re-measured every run (ADR-065's rule): each patch is also rendered against
- *   ITSELF, flag off, its note one ULP sharp. If that alone moves the output by
- *   more than the ceiling, the patch amplifies a last-bit change (feedback and
- *   cross-modulation at their maxima: the two loud corner patches) and its row is
- *   printed as such. At least kLockMinJudged rows must be judged.
+ *   one held C3, 4 s, the frame on (`frame` 1) and six members (`N` 6, so that D6 is
+ *   engaged in every patch: with one member there is no lead), flag on against flag
+ *   off, largest |difference| over both output channels. Two cases:
+ *     UNISON  kUnison: one frequency, one start phase, no coupling, no onset burst,
+ *             no swarm drift, no member waiting. Every lead is zero. This shows only
+ *             that D6 leaves a unison alone. Judged over the whole render.
+ *     COUPLED kCoupled: the same with `detune` 14 and `K` 1: the members lock at
+ *             DISTINCT lags, so the leads are not zero and the frame has a centre to
+ *             follow. The leads slide into place over the first seconds, and there
+ *             the ramp differs from the step BY DESIGN; so it is judged from
+ *             kCoupledFrom seconds on, and the earlier window's difference is
+ *             printed, unjudged, so the ramp's effect on a lock that is still
+ *             forming is on the record.
+ *   With the swarm locked the frame IS the measured centre bit for bit (holdFrame),
+ *   so the leads' targets are the present law's and only their last-bit wobble is
+ *   ramped instead of stepped.
+ *   The ceilings are MEASURED, not chosen to pass (2026-10-12, darwin-arm64, the
+ *   worst judged row of each case, then a stated margin): see kUnisonCeil and
+ *   kCoupledCeil below.
+ *   A silent render differs from nothing, so a patch that renders silence is never
+ *   counted. A patch that cannot show a difference that small is NOT JUDGED, on
+ *   evidence re-measured every run (ADR-065's rule): each patch is also rendered
+ *   against ITSELF, flag off, its note one ULP sharp. If that alone moves the
+ *   output by more than the ceiling, the patch amplifies a last-bit change
+ *   (feedback and cross-modulation at their maxima: the two loud corner patches)
+ *   and its row is printed as such. At least kLockMinJudged patches must be judged
+ *   in each case.
  *
  * ALSO REQUIRED OF EVERY JOB: the engine knew every key (a misspelt `frameHold`
  * would render the present law twice and read as "no difference").
@@ -91,10 +102,17 @@ const kControlMustFire = ['C3', 'C4'];
 // the detector (header): a step over kStepFloor AND over kRatio x the local 99th percentile
 const kStepFloor = 0.02, kRatio = 3, kPercentile = 0.99;
 const kWindow = Math.round(0.1 * SR), kFlank = kWindow / 2, kMerge = 480;
-// the locked case (header)
-export const kLock = { frame: 1, phaseMode: 2, detune: 0, K: 0, onset: 0, driftDepth: 0, onsetScatter: 0 };
-const kLockNote = 48, kLockVel = 0.9, kLockSeconds = 4;
-const kLockCeil = 1e-11, kLockMinJudged = 5;
+// the locked cases (header)
+export const kUnison = { frame: 1, N: 6, phaseMode: 2, detune: 0, K: 0, onset: 0, driftDepth: 0, onsetScatter: 0 };
+export const kCoupled = { ...kUnison, detune: 14, K: 1 };
+const kLockNote = 48, kLockVel = 0.9, kLockSeconds = 4, kCoupledFrom = 2;
+// Measured worst 2026-10-12 (darwin-arm64): unison 7.3e-14 (ledger/defaults and
+// ledger/quarter-sync); coupled, from 2 s on, 1.5e-11 (ledger/fold-over-sync; the
+// critic read up to 1.3e-11). Each ceiling is about 40 times its measured worst, and
+// both are three orders or more under the parity bound (1e-6).
+const kUnisonCeil = 3e-12, kCoupledCeil = 6e-10;
+const kSilentPeak = Math.pow(10, -90 / 20);   // tools/patchspace/metrics.mjs's silence line, -90 dBFS peak
+const kLockMinJudged = 5;
 
 /* isolated jumps in one channel -> [{ at, step, ratio }], merged (header) */
 export function isolatedJumps(x) {
@@ -118,20 +136,21 @@ export function isolatedJumps(x) {
 }
 const describe = j => (j.length ? `${j.length} (${j.map(e => `${e.step.toFixed(3)} at ${e.at}, ${e.ratio.toFixed(1)}x`).join('; ')})` : '0');
 const nextUp = x => { const f = new Float64Array([x]), b = new BigUint64Array(f.buffer); b[0] += 1n; return f[0]; };
-function maxDiff(a, b) {
+function maxDiff(a, b, from = 0, to = a.L.length) {   // frames [from, to), both output channels
   let m = 0;
-  for (let i = 0; i < a.L.length; i++) {
+  for (let i = from; i < to; i++) {
     const l = Math.abs(a.L[i] - b.L[i]), r = Math.abs(a.R[i] - b.R[i]);
     if (!(l <= m)) m = l;   // a NaN difference is kept, and fails every bound
     if (!(r <= m)) m = r;
   }
   return m;
 }
+const peak = r => { let pk = 0; for (let i = 0; i < r.L.length; i++) pk = Math.max(pk, Math.abs(r.L[i]), Math.abs(r.R[i])); return pk; };
 
 const padJob = (n, over) => jobFor({ patch: PAD, sr: SR, seed: SEED, seconds: kJumpSeconds, notes: [n.note], vel: n.vel, pre: true,
   overrides: { ...kPadPinned, ...over } });
-const lockJob = (p, flag, freq) => jobFor({ patch: p, sr: SR, seed: SEED,
-  cmds: [...patchCmds(p, { ...kLock, frameHold: flag }), ['on', kLockNote, freq, kLockVel], ['render', kLockSeconds * SR]] });
+const lockJob = (p, set, flag, freq) => jobFor({ patch: p, sr: SR, seed: SEED,
+  cmds: [...patchCmds(p, { ...set, frameHold: flag }), ['on', kLockNote, freq, kLockVel], ['render', kLockSeconds * SR]] });
 
 export function main(argv) {
   const bi = argv.indexOf('--bin'), opt = bi >= 0 ? { bin: argv[bi + 1] } : {};
@@ -140,11 +159,13 @@ export function main(argv) {
   const patches = loadPatches().patches;
   patch(PAD);   // throws if the pad has left the reference set
 
-  // one process renders everything: 3 x (on, off), then 3 per reference patch
+  // one process renders everything: 3 x (on, off), then per reference patch and locked
+  // case the flag on, off, and off with the note one ULP sharp
   const jobs = [];
   for (const n of NOTES) jobs.push(padJob(n, { frameHold: 1 }), padJob(n, { frameHold: 0 }));
   const f0 = mtof(kLockNote);
-  for (const p of patches) jobs.push(lockJob(p, 1, f0), lockJob(p, 0, f0), lockJob(p, 0, nextUp(f0)));
+  const CASES = [['unison', kUnison, kUnisonCeil, 0], ['coupled', kCoupled, kCoupledCeil, kCoupledFrom * SR]];
+  for (const p of patches) for (const [, set] of CASES) jobs.push(lockJob(p, set, 1, f0), lockJob(p, set, 0, f0), lockJob(p, set, 0, nextUp(f0)));
   const rs = run(jobs, opt);
   const unknown = rs.filter(r => r.summary.unknownKeys);
   row(!unknown.length, 'KEYS', `the engine knew every key on ${rs.length - unknown.length} of ${rs.length} jobs${unknown.length ? `; first refused on: ${unknown[0].name}` : ''}`);
@@ -167,21 +188,26 @@ export function main(argv) {
       `Position spread 0 reads ${describe(isolatedJumps(ar[3 * i + 1].preL))} with frameHold 1 and ${describe(isolatedJumps(ar[3 * i + 2].preL))} with frameHold 0`));
   }
 
-  console.log(`locked by construction, the frame on: ${JSON.stringify(kLock)}; one held C3, ${kLockSeconds} s; ceiling ${kLockCeil}`);
-  let judged = 0, worst = 0, worstId = '';
-  patches.forEach((p, i) => {
-    const b = 2 * NOTES.length + 3 * i, d = maxDiff(rs[b], rs[b + 1]), self = maxDiff(rs[b + 1], rs[b + 2]);
-    if (self > kLockCeil || self !== self) {
-      console.log(`SKIP  LOCKED   ${p.id}: max |on - off| ${d.toExponential(2)}; NOT JUDGED, the patch alone turns one ULP of its note into ${self.toExponential(2)}`);
-      return;
-    }
-    judged++;
-    if (d > worst) { worst = d; worstId = p.id; }
-    row(d <= kLockCeil, 'LOCKED', `${p.id}: max |on - off| ${d.toExponential(2)} (its own one-ULP divergence ${self.toExponential(2)})`);
+  CASES.forEach(([c, set, ceil, from], ci) => {
+    console.log(`locked, ${c}: ${JSON.stringify(set)}; one held C3, ${kLockSeconds} s, judged from ${from / SR} s on; ceiling ${ceil}`);
+    let judged = 0, worst = 0, worstId = '';
+    patches.forEach((p, i) => {
+      const b = 2 * NOTES.length + 3 * (CASES.length * i + ci), on = rs[b], off = rs[b + 1];
+      const d = maxDiff(on, off, from), self = maxDiff(off, rs[b + 2], from);
+      const early = from ? `; before ${from / SR} s (not judged) ${maxDiff(on, off, 0, from).toExponential(2)}` : '';
+      if (peak(on) < kSilentPeak && peak(off) < kSilentPeak) { console.log(`NOTE  LOCKED   ${c} ${p.id}: silent; not counted`); return; }
+      if (!(self <= ceil)) {
+        console.log(`SKIP  LOCKED   ${c} ${p.id}: max |on - off| ${d.toExponential(2)}${early}; NOT JUDGED, the patch alone turns one ULP of its note into ${self.toExponential(2)}`);
+        return;
+      }
+      judged++;
+      if (d > worst) { worst = d; worstId = p.id; }
+      row(d <= ceil, 'LOCKED', `${c} ${p.id}: max |on - off| ${d.toExponential(2)} (its own one-ULP divergence ${self.toExponential(2)})${early}`);
+    });
+    row(judged >= kLockMinJudged, 'LOCKED', `${c}: ${judged} of ${patches.length} reference patches judged (need at least ${kLockMinJudged}); worst ${worst.toExponential(2)}${worstId ? ` (${worstId})` : ''}, ceiling ${ceil}`);
   });
-  row(judged >= kLockMinJudged, 'LOCKED', `${judged} of ${patches.length} reference patches judged (need at least ${kLockMinJudged}); worst ${worst.toExponential(2)}${worstId ? ` (${worstId})` : ''}, ceiling ${kLockCeil}`);
 
-  console.log(`h2_frame_hold_check: ${red ? 'RED' : 'GREEN'} (${red} row(s) failed; flag on, control, locked case over ${patches.length} reference patches)`);
+  console.log(`h2_frame_hold_check: ${red ? 'RED' : 'GREEN'} (${red} row(s) failed; flag on, control, the locked cases over ${patches.length} reference patches)`);
   return red ? 1 : 0;
 }
 
