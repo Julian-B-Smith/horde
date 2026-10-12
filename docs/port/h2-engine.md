@@ -35,7 +35,7 @@ pinned to.
 
 | file | role | blob |
 |---|---|---|
-| `docs/design/scalpel-horde-engine.js` | the composed engine (`makeComposedEngine`) | `28b5f79c45a3499e8c661980e2f38ccf57a6ba07` |
+| `docs/design/scalpel-horde-engine.js` | the composed engine (`makeComposedEngine`) | `0902e11f8dd8df6cc59eb45e80632ce7418c561f` |
 | `reference/scalpel/prototype/razor-core.js` | the blade oracle it extends | `0ce6a713410d89c65bf55f761f1dc791fae61b16` |
 | `reference/swarmsaw.html` | SwarmSynth, the swarm it drives (DSP section) | `e47da6c9e0b4a058e18d79f62d71ab31c3d3b1b0` |
 | `reference/scalpel/data/presets.json` | the 83 bench presets | `44b48d72a9bed4717edd0ac5cf9ef4b8d7b0de93` |

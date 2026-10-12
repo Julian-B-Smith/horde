@@ -287,8 +287,10 @@ function makeComposedEngine(RazorCore, swarmSrc) {
      needs a measurement): the order parameter R at and below which the frame ignores the measured
      centre, the R at and above which it follows it in full (linear between), and the fastest the
      frame is corrected, in CYCLES PER SECOND (converted per tick in holdFrame, ADR-009).
-     COUPLE_SAMPLES is the oracle's couple tick (razor-core.js render :752, `this.cnt = 32`). */
-  const FRAME_R_LO = 0.05, FRAME_R_HI = 0.25, FRAME_RATE = 8, COUPLE_SAMPLES = 32;
+     COUPLE_SAMPLES is the oracle's couple tick (razor-core.js render :752, `this.cnt = 32`).
+     FRAME_DT_REF is the tick g(R) is stated for (the lead, under ADR-216's delegation, 2026-10-12):
+     32 samples at 48 kHz, 1/1500 s. At 48 kHz the exponent in holdFrame is exactly 1. */
+  const FRAME_R_LO = 0.05, FRAME_R_HI = 0.25, FRAME_RATE = 8, COUPLE_SAMPLES = 32, FRAME_DT_REF = 32 / 48000;
   // p keys whose change makes SwarmSynth.setParam() rebuild x[] (swarmsaw.html:247)
   const REBUILD = ['n', 'dist', 'seed', 'law'];
   /* B323's cull fade, in SECONDS (ADR-009): a LINEAR gain ramp from 1 to 0 over CULL_FADE,
@@ -913,8 +915,11 @@ function makeComposedEngine(RazorCore, swarmSrc) {
            (v.fhAdv, summed in stepM where the phases step), not predicted from the member
            frequencies: the swarm retunes the members every 16 samples, between two couple ticks, a
            frequency glide moves them every sample, and a waiting member stands still;
-         - it then moves toward the measured angle by g(R) of the difference, g rising linearly from
-           0 at FRAME_R_LO to 1 at FRAME_R_HI, and by no more than FRAME_RATE cycles a second;
+         - it then moves toward the measured angle by a fraction of the difference, and by no more
+           than FRAME_RATE cycles a second. g(R), rising linearly from 0 at FRAME_R_LO to 1 at
+           FRAME_R_HI, is that fraction per REFERENCE tick (FRAME_DT_REF seconds); a tick of another
+           length takes 1 - (1 - g)^(dt / FRAME_DT_REF), so the frame closes on the centre in the same
+           TIME at every sample rate (ADR-009). g 0 gives 0 and g 1 gives 1, exactly;
          - where that correction is whole and inside the rate (a locked swarm) the frame IS the
            measured angle, assigned and not summed, so the leads under it are the oracle's own bit
            for bit. psiP + (psiM - psiP) is psiM only to a rounding.
@@ -947,6 +952,8 @@ function makeComposedEngine(RazorCore, swarmSrc) {
       const R = Math.sqrt(rx * rx + ry * ry);
       let g = (R - FRAME_R_LO) / (FRAME_R_HI - FRAME_R_LO);
       g = g < 0 ? 0 : g > 1 ? 1 : g;
+      /* this tick's share of g (above); the ends are exact and take no pow */
+      if (g > 0 && g < 1) g = 1 - Math.pow(1 - g, COUPLE_SAMPLES / this.sr / FRAME_DT_REF);
       const lim = FRAME_RATE * COUPLE_SAMPLES / this.sr;   // cycles a second, over one tick
       let st = g * e;
       st = st > lim ? lim : st < -lim ? -lim : st;

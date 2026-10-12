@@ -1162,9 +1162,12 @@ class Engine {
   //     from the member frequencies: the swarm retunes the members every 16 samples,
   //     between two couple ticks, a frequency glide moves them every sample, and a
   //     waiting member stands still;
-  //   - it then moves toward the measured angle by g(R) of the difference, g rising
-  //     linearly from 0 at kFrameRLo to 1 at kFrameRHi, and by no more than
-  //     kFrameRate cycles a second;
+  //   - it then moves toward the measured angle by a fraction of the difference, and
+  //     by no more than kFrameRate cycles a second. g(R), rising linearly from 0 at
+  //     kFrameRLo to 1 at kFrameRHi, is that fraction per REFERENCE tick (kFrameDtRef
+  //     seconds); a tick of another length takes 1 - (1 - g)^(dt / kFrameDtRef), so
+  //     the frame closes on the centre in the same TIME at every sample rate (ADR-009).
+  //     g 0 gives 0 and g 1 gives 1, exactly;
   //   - where that correction is whole and inside the rate (a locked swarm) the frame
   //     IS the measured angle, assigned and not summed, so the leads under it are the
   //     blade law's own bit for bit. psiP + (psiM - psiP) is psiM only to a rounding.
@@ -1193,6 +1196,8 @@ class Engine {
     const double R = std::sqrt(rx * rx + ry * ry);
     double g = (R - kFrameRLo) / (kFrameRHi - kFrameRLo);
     g = g < 0 ? 0 : g > 1 ? 1 : g;
+    // this tick's share of g (above); the ends are exact and take no pow
+    if (g > 0 && g < 1) g = 1 - js::pow(1 - g, kCoupleSamples / sr / kFrameDtRef);
     const double lim = kFrameRate * kCoupleSamples / sr;   // cycles a second, over one tick
     double st = g * e;
     st = st > lim ? lim : st < -lim ? -lim : st;
@@ -1772,6 +1777,9 @@ class Engine {
   // it in full (linear between), and the fastest the frame is corrected, in cycles
   // per second (converted per tick in holdFrame, ADR-009).
   static constexpr double kFrameRLo = 0.05, kFrameRHi = 0.25, kFrameRate = 8;
+  // The tick g(R) is stated for (the lead, under ADR-216's delegation, 2026-10-12): 32
+  // samples at 48 kHz, 1/1500 s. At 48 kHz the exponent in holdFrame is exactly 1.
+  static constexpr double kFrameDtRef = 32.0 / 48000;
 
   double sr;
   SwarmField field;
