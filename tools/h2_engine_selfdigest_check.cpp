@@ -81,8 +81,8 @@
  * so a libm call that moved under the same bits is visible in its diff.
  * ONE RE-PIN ON RECORD IS NONE OF a-c, and it adds no fourth case: 2026-10-11, the
  * eight rows that differ with flush-to-zero on (above), in both references, on the
- * human's ruling in ADR-211 item 1. Whether that change also belongs in the
- * divergence ledger is an open question in docs/proposals/h2-flush-to-zero.md.
+ * human's ruling in ADR-211 item 1. ADR-213 item 3 rules it a non-divergence: no
+ * ledger entry is owed, and those two rulings are its record.
  *
  * RE-PIN (a human-visible act; both builds):
  *   node tools/h2_engine_render.mjs > /tmp/h2s
