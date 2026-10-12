@@ -917,6 +917,7 @@ full() {
   #
   #
   # [harness gate: P6 soak, the short local cell]
+  node tools/h2_soak_check.mjs --bin "$build_dir/h2_harness_render" || { echo "verify[full]: h2 soak FAILED" >&2; return 1; }
   #
   # horde 2's lifted swarm core (B379 step 1, h2/cores/swarm/): lift edit E1
   # re-proven. A Voice the caller owns, started with initVoice() and ticked

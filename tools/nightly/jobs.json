@@ -24,6 +24,18 @@
       "command": "python3 tools/nightly/legacy_gate.py python3 tools/tsan_stress_check.py",
       "platforms": ["macos"],
       "floor": 0
+    },
+    {
+      "name": "soak-h2-long",
+      "command": "cmake -S . -B build-nightly -G \"Unix Makefiles\" -DCMAKE_BUILD_TYPE=Release && cmake --build build-nightly --target h2_harness_render -j 4 && node tools/h2_soak_check.mjs --size long --night \"$(( $(date -u +%s) / 86400 ))\" --bin build-nightly/h2_harness_render",
+      "platforms": ["linux"],
+      "floor": 899
+    },
+    {
+      "name": "soak-h2-extreme",
+      "command": "cmake -S . -B build-nightly -G \"Unix Makefiles\" -DCMAKE_BUILD_TYPE=Release && cmake --build build-nightly --target h2_harness_render -j 4 && node tools/h2_soak_check.mjs --size extreme --night \"$(( $(date -u +%s) / 86400 ))\" --bin build-nightly/h2_harness_render",
+      "platforms": ["linux"],
+      "floor": 149
     }
   ]
 }

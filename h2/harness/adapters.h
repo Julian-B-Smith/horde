@@ -20,6 +20,7 @@
 // [control includes: P4 invariance matrix]
 //
 // [control includes: P6 soak]
+#include "control_soak.h"
 //
 #include "harness.h"
 
@@ -53,6 +54,14 @@ inline std::unique_ptr<Adapter> makeFuzzLateControl() { return std::make_unique<
 //
 //
 // [control makers: P6 soak]
+// The long-run soak's seven plants (control_soak.h, package P6).
+inline std::unique_ptr<Adapter> makeSoakSteadyControl() { return std::make_unique<SoakPlantControl>(SoakPlantControl::kSteady); }
+inline std::unique_ptr<Adapter> makeSoakLevelControl() { return std::make_unique<SoakPlantControl>(SoakPlantControl::kLevel); }
+inline std::unique_ptr<Adapter> makeSoakDcControl() { return std::make_unique<SoakPlantControl>(SoakPlantControl::kDc); }
+inline std::unique_ptr<Adapter> makeSoakWrap31Control() { return std::make_unique<SoakPlantControl>(SoakPlantControl::kWrap31); }
+inline std::unique_ptr<Adapter> makeSoakWrap32Control() { return std::make_unique<SoakPlantControl>(SoakPlantControl::kWrap32); }
+inline std::unique_ptr<Adapter> makeSoakNanControl() { return std::make_unique<SoakPlantControl>(SoakPlantControl::kNan); }
+inline std::unique_ptr<Adapter> makeSoakHangControl() { return std::make_unique<SoakPlantControl>(SoakPlantControl::kHang); }
 //
 
 inline constexpr AdapterRow kAdapters[] = {
@@ -74,6 +83,13 @@ inline constexpr AdapterRow kAdapters[] = {
   //
   //
   // [control rows: P6 soak]
+  {"control/soak-steady", true, &makeSoakSteadyControl},
+  {"control/soak-level", true, &makeSoakLevelControl},
+  {"control/soak-dc", true, &makeSoakDcControl},
+  {"control/soak-wrap31", true, &makeSoakWrap31Control},
+  {"control/soak-wrap32", true, &makeSoakWrap32Control},
+  {"control/soak-nan", true, &makeSoakNanControl},
+  {"control/soak-hang", true, &makeSoakHangControl},
   //
 };
 
