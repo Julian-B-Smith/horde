@@ -40,6 +40,24 @@
  * One line per scenario, `<16 hex>  <name>`, then `TOTAL <16 hex> <n>` (FNV-1a 64
  * over the lines, in stream order).
  *
+ * FLUSH-TO-ZERO IS ON FOR EVERY REPLAY (ADR-211 item 1, ruled by the human
+ * 2026-10-11; docs/proposals/h2-flush-to-zero.md). The horde 2 shell runs the
+ * engine with flush-to-zero on, so the bits pinned here are the engine's bits
+ * WITH the mode on. Nothing in this file sets it: h2engine_stream::replay does
+ * (tools/h2_engine_stream.h), for this tool, the parity check, its FMA control and
+ * every other tool that replays the stream, so the engine pinned here is the
+ * engine parity judges against the JS. The scope is the whole replay (the
+ * engine's construction and seeding, every event call, every render), the widest
+ * one on purpose: "the engine never runs with the mode off" is a rule a shell
+ * can be held to at one boundary. Measured on the keyed platform, 2026-10-11:
+ * the mode on inside render only, on around every engine call, and on for the
+ * whole replay give the same bits on all 543 rows, in both builds. Against the
+ * mode off, 8 rows differ, each sample by less than 4.1e-308 (a subnormal that
+ * became zero): tools/h2_engine_fz_probe.py re-measures both statements.
+ * THE PINNED BITS ALSO NEED ROUND-TO-NEAREST, which the switch does not set
+ * (h2/flush_to_zero.h): the ROUND control below is red when a replay ran in any
+ * other rounding mode.
+ *
  * THE REFERENCES are h2/engine/selfdigest.<build>.<platform>.<compiler>.node<major>.txt,
  * keyed like the parity check's bit-exact floor: the platform and compiler (libm,
  * codegen) and the golden's Node major (V8's libm computes the scripts' note
@@ -61,6 +79,10 @@
  * An "output-neutral" optimisation PR NEVER re-pins: a red here is the experiment
  * failing. It re-runs tools/h2_libm_count.py --write instead and commits its counts,
  * so a libm call that moved under the same bits is visible in its diff.
+ * ONE RE-PIN ON RECORD IS NONE OF a-c, and it adds no fourth case: 2026-10-11, the
+ * eight rows that differ with flush-to-zero on (above), in both references, on the
+ * human's ruling in ADR-211 item 1. Whether that change also belongs in the
+ * divergence ledger is an open question in docs/proposals/h2-flush-to-zero.md.
  *
  * RE-PIN (a human-visible act; both builds):
  *   node tools/h2_engine_render.mjs > /tmp/h2s
@@ -78,6 +100,24 @@
  *   FAULT  (parity build) fault 9 (K1, M1 reverted: the swarm's K smoother back to
  *          the constant 0.08 per tick) planted in the engine, every scenario
  *          re-rendered: at least kFaultMinRed scenarios red.
+ *   FZ     (both builds, every platform; tools/h2_engine_stream.h's, shared with
+ *          the parity check) every clean replay ran with flush-to-zero ON,
+ *          counted from inside the switch: the bits read back, and a subnormal
+ *          result and a subnormal input both came out zero. And the switch
+ *          itself, from a host that enters with the mode OFF and from one that
+ *          enters with it ON: on inside, off inside a nested forced-off call (so
+ *          "on" is not a reading that is always true), the host's own state and
+ *          control word back bit for bit afterwards; and after a THROW inside
+ *          it, the word exactly as it was. The state this process was entered
+ *          in is printed and NOT judged: a host that enters with the mode on is
+ *          not a broken switch. So a build in which the switch silently does
+ *          nothing is red here, on platforms with no reference too, and never
+ *          "bit-identical for the wrong reason". An architecture with no switch
+ *          in h2/flush_to_zero.h does not compile.
+ *   ROUND  (both builds, every platform; the same file's) every clean replay ran
+ *          rounding to nearest, judged by arithmetic inside the switch; and that
+ *          reading, taken under each of the four rounding modes a host can call
+ *          in with, is true for nearest alone.
  *
  * COVERAGE (parity build, every run; B441 C3): the engine is built with
  * H2_ENGINE_KERNELS, which counts the member steps each specialised member kernel
@@ -130,7 +170,7 @@
 #define H2_ENGINE_KERNELS 1   // the COVERAGE counter (measurement only; never in the product build)
 #endif
 #include "../h2/engine/engine.h"
-#include "h2_engine_stream.h"
+#include "h2_engine_stream.h"   // its replay() sets flush-to-zero (h2/flush_to_zero.h)
 
 using horde2::engine::EventLog;
 using h2engine_stream::ReplayInfo;
@@ -452,6 +492,11 @@ int main(int argc, char** argv) {
                 unhit || serUnhit ? "FAIL" : "PASS", kK - 1 - unhit, kK - 1, serN - serUnhit, serN);
   }
 #endif
+
+  // FZ and ROUND: the mode the digests above were taken under (header: MUST-FAIL
+  // CONTROLS). Judged everywhere: they need no reference. They run before the
+  // FAULT pass, so the replays they count are the n clean ones.
+  if (!h2engine_stream::printModeControls(static_cast<uint64_t>(n))) red++;
 
   // ULP: one sample one ULP up, mid-render; exactly that row red, by name. Judged
   // as the CHANGE from this run's own verdict against `judgeBy`, so a red reference

@@ -16,6 +16,14 @@
  * every scenario (in the same binary), and the flush-to-zero probe demands the
  * hooked digests equal all the pinned self-digest rows before it measures anything.
  *
+ * THE MODE IS THE ORIGINAL'S (ADR-211 item 1). h2engine_stream::replay runs its
+ * whole body with flush-to-zero on, through h2engine_stream::inMode. replay()
+ * here runs ITS whole body through the same inMode, so the two cannot set the
+ * mode differently, and both are counted in the same tally
+ * (h2engine_stream::gModeTally). replayBare() is the body with no mode of its
+ * own, for the one caller whose measurement IS the mode: the flush-to-zero
+ * probe's narrower scopes.
+ *
  * WHAT IS INSIDE THE HOOK: exactly one engine call (set, setString, snap, noteOn,
  * noteOff, retune, panic, setVoiceCap, setCapPolicy, render). The engine's
  * construction, seeding, the script's bookkeeping and the copy of the rendered
@@ -40,11 +48,12 @@ using h2engine_stream::Scenario;
 // shell may make the event calls on the audio thread or stage them elsewhere.
 enum Call { kEvent = 0, kRender = 1 };
 
-// `around(kind, fn)` must call fn() exactly once. `calls`, when given, receives the
-// number of event and render calls made through the hook.
+// The hooked body, with no mode of its own (header: THE MODE). `around(kind, fn)`
+// must call fn() exactly once. `calls`, when given, receives the number of event
+// and render calls made through the hook.
 template <class Around>
-inline void replay(const Scenario& sc, std::vector<double>& out, horde2::engine::EventLog* log, ReplayInfo* info, Around&& around,
-                   uint64_t* calls = nullptr) {
+inline void replayBare(const Scenario& sc, std::vector<double>& out, horde2::engine::EventLog* log, ReplayInfo* info, Around&& around,
+                       uint64_t* calls = nullptr) {
   // No fault is armed: a fresh engine's own initialisers leave its must-fail hooks
   // off (engine.h), which is what h2engine_stream::replay's defaults set by hand.
   auto* c = new horde2::engine::Engine(sc.sr);
@@ -84,6 +93,14 @@ inline void replay(const Scenario& sc, std::vector<double>& out, horde2::engine:
   if (info) { info->cnt[0] = c->culled(); info->cnt[1] = c->refused(); info->cnt[2] = c->stolen(); }
   if (calls) { calls[kEvent] += made[kEvent]; calls[kRender] += made[kRender]; }
   delete c;
+}
+
+// THE hooked replay: the body above with flush-to-zero on over the whole of it,
+// exactly as h2engine_stream::replay runs its own.
+template <class Around>
+inline void replay(const Scenario& sc, std::vector<double>& out, horde2::engine::EventLog* log, ReplayInfo* info, Around&& around,
+                   uint64_t* calls = nullptr) {
+  h2engine_stream::inMode([&] { replayBare(sc, out, log, info, around, calls); });
 }
 
 // What the walk saw of the stream's frame. A probe judges nothing unless full().

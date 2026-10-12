@@ -279,12 +279,12 @@ f0ea0fbeb47e6063  E/Pad · slow bloom :: arp
 a2a82945133e9047  E/Swell · two seconds :: chord
 c6dce7975b0d4b15  E/Swell · two seconds :: repeat
 b4f329d0b87db649  E/Swell · two seconds :: arp
-d42d1dd12fb5fe87  E/Swell · cut at the key-off :: chord
-ead0c2f0d433e182  E/Swell · cut at the key-off :: repeat
-db9710bef6166a53  E/Swell · cut at the key-off :: arp
-c7f438b0fb280893  E/Gated stab · organ :: chord
-c5db030555c78adf  E/Gated stab · organ :: repeat
-11fe7faa79fdcacf  E/Gated stab · organ :: arp
+68bc87760cd77e30  E/Swell · cut at the key-off :: chord
+27d804b6acbc4266  E/Swell · cut at the key-off :: repeat
+085e3c3b2456a786  E/Swell · cut at the key-off :: arp
+2b2a5949f3c59255  E/Gated stab · organ :: chord
+61197cc1ddf49007  E/Gated stab · organ :: repeat
+6b9861b968e38438  E/Gated stab · organ :: arp
 bb739d061ac2d922  E/Stab · short decay :: chord
 d5a51a700cebefcc  E/Stab · short decay :: repeat
 10e78df001a73f54  E/Stab · short decay :: arp
@@ -416,7 +416,7 @@ a173b112632bec37  T/sr 44100 :: arp
 a3726ea7ac9247dd  T/poly 2 steals :: arp
 48cd83931b6a83e6  T/mono retrig :: legato
 b4e7d1222c992cd5  T/legato glide always :: legato
-f5cd40047e7beead  T/restrike after full release :: restrike
+6d4748f47b64a8ea  T/restrike after full release :: restrike
 cab46ff79fa01afe  T/blade 1 off (w 0) :: chord
 530923705fe880a7  T/blade 2 off (w2 0) :: chord
 ff93cb62bfc9a6f5  T/collision swept off :: chord
@@ -432,7 +432,7 @@ ab596d851b879dc3  T/retune message :: retune
 e52ad5d5879cecf9  T/modX wrap :: long
 59e5a17778b4d68d  C/VL repeat, the first release rings
 8a56c9f3e8b9fe4f  C/VL tiers 2 and 3
-18ace7b618eef8cc  C/VL tier 1, a faded slot
+080426d7718177af  C/VL tier 1, a faded slot
 2b5e6761e7b5afa9  C/CAP cull, the cap lowered mid-phrase
 3595d07ce004fff0  C/CAP refuse
 a492ae2f6858bfca  C/CAP steal
@@ -549,4 +549,4 @@ c320b7a2eca53edb  C/SW anchor and spread
 90d999772ead71a1  C/A2 Quantized Cut spread 2.5
 eec47885967308ec  C/A2 Quantized blade 2 Cut spread -1.5
 2e8d7ffec2af6795  C/OS 2 -> 4 -> 1 mid-note
-TOTAL 4d1ad7f1ed674d88 543
+TOTAL 894c3bc4b62bcab0 543
