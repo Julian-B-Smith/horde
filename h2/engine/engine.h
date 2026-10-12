@@ -949,9 +949,10 @@ class Engine {
     // ADR-216 D6: while the frame is held, `lead` is the ramp the blade reads; spread
     // law 3 reads the lead under the frame (leadT), which is the blade law's own value
     // wherever the frame is the measured centre. Swapped in for the law, and back.
-    if (v.fhInit) for (int i = 0; i < N; i++) std::swap(v.m[i].lead, v.m[i].leadT);
+    // Only the members the hold last ticked with: a joined one's `lead` is the blade law's.
+    if (v.fhInit) for (int i = 0; i < N && i < v.fhN; i++) std::swap(v.m[i].lead, v.m[i].leadT);
     for (int i = 0; i < N; i++) spreadMember(v.m[i], i, N, d.law, v.m[i].inc, nyq);
-    if (v.fhInit) for (int i = 0; i < N; i++) std::swap(v.m[i].lead, v.m[i].leadT);
+    if (v.fhInit) for (int i = 0; i < N && i < v.fhN; i++) std::swap(v.m[i].lead, v.m[i].leadT);
     if (q) { s.kspread = k1; s.kspread2 = k2; }
     // A2 (1): Rotate spread is bipolar. The law ran on the magnitude; the sign
     // turns the members the other way. Blade 2 follows unless it owns its spreads.
@@ -1178,10 +1179,14 @@ class Engine {
   // the measured angle and the leads outright, which is the blade law. A note-on's
   // couple() on a voice already sounding (a mono retrigger) is not a tick: it leaves
   // the frame and the ramps as they stand.
+  // Only the members the hold last ticked with (below v.fhN) have a ramp. A member at
+  // or above it has just joined: until the next tick it keeps the blade law's lead,
+  // and at that tick its lead is SET to its value under the frame, not ramped from
+  // whatever its fields last held.
   void holdFrame(Voice& v, int N, double rx, double ry, bool tick) {
     const double psiM = std::atan2(ry, rx) / TAU;
     if (!v.fhInit) {
-      v.fhInit = true; v.psiF = psiM; v.fhAdv = 0;
+      v.fhInit = true; v.psiF = psiM; v.fhAdv = 0; v.fhN = N;
       for (int i = 0; i < N; i++) {
         Member& m = v.m[i];
         double l = m.phi - psiM + 0.5; l -= std::floor(l);
@@ -1189,7 +1194,10 @@ class Engine {
       }
       return;
     }
-    if (!tick) return;
+    if (!tick) {   // the joined members take the blade law's lead, as its couple() gives them
+      for (int i = v.fhN; i < N; i++) { double l = v.m[i].phi - psiM + 0.5; l -= std::floor(l); v.m[i].lead = l - 0.5; }
+      return;
+    }
     const double psiP = v.psiF + v.fhAdv / N;
     v.fhAdv = 0;
     double e = psiM - psiP + 0.5; e -= std::floor(e); e -= 0.5;
@@ -1207,6 +1215,7 @@ class Engine {
       Member& m = v.m[i];
       double l = m.phi - v.psiF + 0.5; l -= std::floor(l);
       m.leadT = l - 0.5;
+      if (i >= v.fhN) { m.lead = m.leadT; m.leadStep = 0; continue; }   // just joined: set
       double cur = m.lead;
       // a ramp that crossed the seam left the lead outside -1/2..1/2: bring it back, so
       // it cannot wander off over a long note (the blade reads it modulo 1)
@@ -1215,6 +1224,7 @@ class Engine {
       m.leadStep = dl / kCoupleSamples;
       m.lead = cur + m.leadStep;
     }
+    v.fhN = N;
   }
   // The blade law's member bookkeeping (each member's lead on the mean field, for
   // frames and spread law 3), then the member frequencies from the swarm. `tick` is
@@ -2049,7 +2059,8 @@ inline void Engine::renderCallK(double* L, double* R, int n) {
     // stepM, on a member's last step of the sample: the blade oracle's render reads
     // `lead` with no hook before it). A sample that begins with a couple tick takes
     // its share in holdFrame instead, from the new step.
-    if (coupleTick > 1) for (Voice& v : voices) if (v.active && v.fhInit) for (int q = 0; q < N; q++) v.m[q].lead += v.m[q].leadStep;
+    // Only the members the hold last ticked with have a ramp (v.fhN).
+    if (coupleTick > 1) for (Voice& v : voices) if (v.active && v.fhInit) for (int q = 0; q < N && q < v.fhN; q++) v.m[q].lead += v.m[q].leadStep;
     // cross-mod and feedback make a cycle depend on the previous sample, which the
     // per-cycle estimate cannot see: the blocker drains any residual offset
     if (H2E_SKIP(kStageOut)) { L[i] = yl; R[i] = yr; continue; }

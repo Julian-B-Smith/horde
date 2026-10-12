@@ -253,6 +253,18 @@ function composedRows(presets) {
   row('D6 37-sample blocks', { ...F, K: 0 }, [on(45), rb(37, 5), on(52), rb(37, 600), off(45), off(52), rb(37, 40)]);
   row('D6 at 44.1 kHz', { ...F, K: 0 }, held, { sr: 44100 });
   row('D6 at os 1', { ...F, K: 0, os: 1 }, held);
+  // Members that JOIN a held frame (the critic's history, found by reading): the flag
+  // off at N 8 with the notes sounding, then on at N 4, then N back to 8, and N moved
+  // twice more. 100-sample blocks, so each change lands inside a couple tick. A member
+  // above the N the frame last ticked with has no ramp to continue: its lead is SET.
+  row('D6 members join a held frame', { ...F, K: 0.2, N: 8, frameHold: 0 },
+    spliceAt([on(45), on(52), rb(100, 400), off(45), off(52), rb(100, 30)],
+      [[50, ['set', 'N', 4]], [50, ['set', 'frameHold', 1]], [101, ['set', 'N', 8]], [250, ['set', 'N', 5]], [301, ['set', 'N', 8]]]));
+  // ... and the same join met by a note-on's couple() before any tick: N raised, then a
+  // mono retrigger on the sounding voice inside the same couple tick, with spread law 3
+  // reading the leads.
+  row('D6 members join before a mono retrigger', { ...F, K: 0.1, N: 4, polyMode: 1, law: 3, bspread: 0.3 },
+    [on(45), rb(100, 30), ['set', 'N', 8], on(50), rb(100, 30), off(50), rb(100, 20), off(45), rb(100, 20)]);
   return C;
 }
 

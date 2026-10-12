@@ -517,6 +517,7 @@ function makeComposedEngine(RazorCore, swarmSrc) {
         });
         v.fx0 = 0;                                     // ADR-189 D3: member 0's sample before it steps (loopIn)
         v.psiF = 0; v.fhAdv = 0; v.fhInit = false;     // ADR-216 D6: the frame's angle, the members' summed advance, held or not
+        v.fhN = 0;                                     // ... and how many members the hold last ticked with (holdFrame)
       });
       this.inRender = false;                           // ADR-216 D6: a couple() from the oracle's render is a tick (renderPlain)
       /* ADR-189: every blade state gets the same fields up front, so V8 keeps one shape per state
@@ -563,10 +564,10 @@ function makeComposedEngine(RazorCore, swarmSrc) {
       /* ADR-216 D6: while the frame is held, m.lead is the RAMP the oracle's render reads; spread
          law 3 reads the lead UNDER THE FRAME (leadT), which is the oracle's own value wherever the
          frame is the measured centre. Put in for the oracle's law, and the ramp put back. */
-      const held = v.fhInit;
-      if (held) for (let i = 0; i < this.d.N; i++) v.m[i].lead = v.m[i].leadT;
+      const held = v.fhInit, nh = Math.min(this.d.N, v.fhN);   // only the members the hold last ticked with
+      if (held) for (let i = 0; i < nh; i++) v.m[i].lead = v.m[i].leadT;
       super.spread(v);
-      if (held) for (let i = 0; i < this.d.N; i++) v.m[i].lead = v.m[i].leadR;
+      if (held) for (let i = 0; i < nh; i++) v.m[i].lead = v.m[i].leadR;
       if (q) { s.kspread = k1; s.kspread2 = k2; }
       const g = this.rotSign;
       if (!g || (g.rotSpread > 0 && g.rotSpread2 > 0)) return;
@@ -929,6 +930,10 @@ function makeComposedEngine(RazorCore, swarmSrc) {
        angle and keeps the oracle's leads, which is the oracle's law. A note-on's couple() on a voice
        already sounding (a mono retrigger) is not a tick (this.inRender is false): the frame and the
        ramps stay as they stand.
+       Only the members the hold last ticked with (below v.fhN) have a ramp. A member at or above it
+       has just joined (N was raised, or the flag came on at a smaller N): until the next tick it
+       keeps the oracle's lead, and at that tick its lead is SET to its value under the frame, not
+       ramped from whatever its fields last held (m.leadR is never written with the flag off).
        R is Math.sqrt of the squares, not the oracle's v.r (Math.hypot): sqrt is correctly rounded
        everywhere, so the C++ computes the same bits.
        JS-ONLY MECHANISM: m.leadR. The oracle's couple() overwrites m.lead on every call and its
@@ -941,11 +946,12 @@ function makeComposedEngine(RazorCore, swarmSrc) {
       const rx = this.Rx[1], ry = this.Ry[1];
       const psiM = Math.atan2(ry, rx) / TAU;           // the oracle's psi, the same expression (:468)
       if (!v.fhInit) {
-        v.fhInit = true; v.psiF = psiM; v.fhAdv = 0;
+        v.fhInit = true; v.psiF = psiM; v.fhAdv = 0; v.fhN = N;
         for (let i = 0; i < N; i++) { const m = v.m[i]; m.leadR = m.leadT = m.lead; m.leadStep = 0; }
         return;
       }
-      if (!this.inRender) { for (let i = 0; i < N; i++) v.m[i].lead = v.m[i].leadR; return; }
+      /* the joined members keep the oracle's lead, which its couple() has just written */
+      if (!this.inRender) { for (let i = 0; i < N && i < v.fhN; i++) v.m[i].lead = v.m[i].leadR; return; }
       const psiP = v.psiF + v.fhAdv / N;
       v.fhAdv = 0;
       let e = psiM - psiP + 0.5; e -= Math.floor(e); e -= 0.5;
@@ -963,6 +969,7 @@ function makeComposedEngine(RazorCore, swarmSrc) {
         const m = v.m[i];
         let l = m.phi - v.psiF + 0.5; l -= Math.floor(l);
         m.leadT = l - 0.5;
+        if (i >= v.fhN) { m.lead = m.leadR = m.leadT; m.leadStep = 0; continue; }   // just joined: set
         let cur = m.leadR;
         /* a ramp that crossed the seam left the lead outside -1/2..1/2: bring it back, so it cannot
            wander off over a long note (the blade reads it modulo 1) */
@@ -971,6 +978,7 @@ function makeComposedEngine(RazorCore, swarmSrc) {
         m.leadStep = dl / COUPLE_SAMPLES;
         m.lead = m.leadR = cur + m.leadStep;
       }
+      v.fhN = N;
     }
 
     /* RazorCore's couple() still supplies what is frame-invariant (v.r, each
@@ -1089,7 +1097,7 @@ function makeComposedEngine(RazorCore, swarmSrc) {
          before that read, so this is the one place the ramp can move. A sample that begins with a
          couple tick (the oracle's countdown this.cnt is 1 now) takes its share in holdFrame instead,
          from the new step. */
-      if (m.j === 0 && v.fhInit && this.cnt > 1) m.lead = (m.leadR += m.leadStep);
+      if (m.j === 0 && v.fhInit && m.i < v.fhN && this.cnt > 1) m.lead = (m.leadR += m.leadStep);
       /* B335 THE MEMBER'S GAIN rides RazorCore's pan gains. Its render sums each member as
          `vl += y·gl[q]` right after this call returns (razor-core.js :839-860), with the DC estimate
          already taken off y, so scaling gl[q] here scales the member's DC-corrected output and

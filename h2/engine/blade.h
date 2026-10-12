@@ -135,6 +135,10 @@ struct Voice {
   // by the first couple() of a note with the flag on, cleared by any with it off
   double psiF = 0, fhAdv = 0;
   bool fhInit = false;
+  // ... and how many members the hold last ticked with: only members below it have a
+  // ramp (leadT, leadStep) to continue. One at or above it has just joined (N was
+  // raised, or the flag came on at a smaller N) and its lead is set outright.
+  int fhN = 0;
 };
 
 struct Biquad { double b0 = 0, b1 = 0, b2 = 0, a1 = 0, a2 = 0, z1 = 0, z2 = 0; };

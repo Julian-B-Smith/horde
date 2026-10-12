@@ -1,7 +1,7 @@
 # h2_engine_selfdigest_check reference (tools/h2_engine_selfdigest_check.cpp): parity build, key darwin-arm64.appleclang-16.node24
 # FNV-1a 64 of each scenario's C++ samples, events and readouts. A golden fixture (protected): re-pin only
 # for a reason stated in the PR and the trace (the tool header's cases a-c); an output-neutral PR never re-pins.
-# ORACLE docs/design/scalpel-horde-engine.js 0902e11f8dd8df6cc59eb45e80632ce7418c561f
+# ORACLE docs/design/scalpel-horde-engine.js ad8e679141c905b15563c17461bd9dd7fa35518b
 # ORACLE reference/scalpel/prototype/razor-core.js 0ce6a713410d89c65bf55f761f1dc791fae61b16
 # ORACLE reference/swarmsaw.html e47da6c9e0b4a058e18d79f62d71ab31c3d3b1b0
 # ORACLE reference/scalpel/data/presets.json 44b48d72a9bed4717edd0ac5cf9ef4b8d7b0de93
@@ -563,10 +563,12 @@ b1a592e19852a9de  C/D6 a framed two-blade pad
 1b27ff9afc624f28  C/D6 switched on and off mid-note
 249476fe7f39b8c6  C/D6 mono retrigger on a sounding voice
 4a649ce55da5405e  C/D6 members waiting on onset scatter
-a49e03fb088d961f  C/D6 N changes mid-note
+ba36e5a839de1a06  C/D6 N changes mid-note
 022daccce56c5084  C/D6 frequency glide under drift and retune
 359146544aa72313  C/D6 under the cull, the cap lowered mid-phrase
 4978b5e9721bb109  C/D6 37-sample blocks
 a7e961d5dfd22748  C/D6 at 44.1 kHz
 c5b1675f74661574  C/D6 at os 1
-TOTAL f5f1b2971eaa33e7 563
+9d8d176b7e18efe4  C/D6 members join a held frame
+642a66bac3fe192e  C/D6 members join before a mono retrigger
+TOTAL 548c2feb9554d558 565
