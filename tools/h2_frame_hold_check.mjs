@@ -17,37 +17,48 @@
  * WHAT IS RENDERED. Everything goes through the engine harness (h2/harness/), so
  * this is the C++ engine as it ships, never the JS one.
  *
- *   JUMP rows. One held note of `ledger/breathing-pad`, 48 kHz, 8 s, host seed 1, at
- *   C3 (velocity 0.9), G3 (0.9) and C4 (0.8), with frameHold 1. An ISOLATED JUMP is a
+ *   JUMP rows (judged, at os 2: the engine's own default, the parity set's rate). One
+ *   held note of `ledger/breathing-pad`, 48 kHz, 8 s, host seed 1, at C3 (velocity
+ *   0.9), G3 (0.9) and C4 (0.8), with frameHold 1. An ISOLATED JUMP is a
  *   sample-to-sample step on the left channel of the pre-limiter bus that is BOTH
  *   over 0.02 AND over 3 times the 99th percentile of the steps around it: the
  *   percentile is taken per 100 ms window (4800 samples) over the window and 2400
  *   samples either side, and events within 480 samples are one. Required: none, at
  *   all three notes.
  *
- *   CONTROL rows (LIBRARY L0032: a detector that cannot see the fault proves
- *   nothing). The same three renders with frameHold 0, the present law. Required:
- *   at least one isolated jump at C3 AND at C4, or this check is RED whatever the
- *   flag-on rows read. (The lead measured 5 and 2 there on 2026-10-12, the largest
- *   0.34 and 0.60. G3 is printed and not required.)
+ *   CONTROL rows (judged; LIBRARY L0032: a detector that cannot see the fault proves
+ *   nothing). The same renders with frameHold 0, the present law. Required: at least
+ *   one isolated jump at C3 AND at C4, or this check is RED whatever the flag-on rows
+ *   read. Judged at os 2 AND at os 1. (The lead measured 5 and 2 at os 2 on
+ *   2026-10-12, the largest 0.34 and 0.60. G3 is printed and not required.)
  *
- *   THE PAD'S SETTINGS ARE PINNED HERE, NOT LEFT TO THE BANK (the lead, 2026-10-12).
- *   The click needs the members to drift apart and re-form, so it depends on the
- *   patch: `detune` 14 and `K` 0.45 (with detune 0 the members stay locked and there
- *   is nothing to reproduce), a frame that follows the swarm (`frame` 1), settled
- *   start phases (`phaseMode` 2), six members (`N` 6) and the drifting spread law
- *   (`law` 4 at `driftRate` 0.1). Those seven are the values under which the lead
- *   measured the click. They are written over the reference patch on every JUMP and
- *   CONTROL job, so an edit of the bank's pad cannot quietly blind the control: the
- *   rest of the patch is still the bank's, and if a later edit there removes the
- *   click the CONTROL row turns this check red and says so.
+ *   OS 1 (the device default since B445, and what the preview plays). The same rows
+ *   at os 1. The control is judged there; the flag-on rows are printed as NOTE lines
+ *   and NOT judged yet: their rule waits on the human's ruling on acceptance 2.
  *
- *   ATTRIBUTION rows, printed only when a flag-on note reads a jump, never judged.
- *   The same detector also sees steps that are not the frame's (B460: the spread
- *   law's values reach the blades unsmoothed every 32 samples). For each such note
- *   two more renders say which it is: the pad with the frame off altogether
- *   (`frame` 0: whatever it reads, the frame did not make), and the pad with the
- *   spread law's one route to the blade's POSITION closed (`bspread` 0), flag on.
+ *   SPREAD rows (NOTE lines, not judged yet). The same detector also sees steps that
+ *   are not the frame's: B460, the spread law's values reaching the blades unsmoothed
+ *   every 32 samples. With that law's one route to the blade's POSITION closed
+ *   (`bspread` 0) what is left is the frame's. Printed at both os, flag on and off.
+ *   When a judged flag-on note is red, an ATTRIB line also prints the pad with the
+ *   frame off altogether (`frame` 0): whatever that reads, the frame did not make.
+ *
+ *   THE PAD'S SETTINGS ARE PINNED HERE, NOT LEFT TO THE BANK (the lead's amendment to
+ *   this check's brief, 2026-10-12, when ADR-217 ordered an edit of the bank's
+ *   Breathing pad to detune 0 and K -0.3). The click needs the members to drift
+ *   apart and re-form, so it depends on the patch: `detune` 14 and `K` 0.45 (with
+ *   detune 0 the members stay locked and there is nothing to reproduce), a frame
+ *   that follows the swarm (`frame` 1), settled start phases (`phaseMode` 2), six
+ *   members (`N` 6) and the drifting spread law (`law` 4 at `driftRate` 0.1). Those
+ *   seven are the values under which the lead measured the click. They are written
+ *   over the reference patch on every pad job, so an edit of the bank's pad cannot
+ *   quietly blind the control: the rest of the patch is still the bank's, and if a
+ *   later edit there removes the click the CONTROL rows turn this check red.
+ *
+ *   LIVENESS rows (judged). A silent render reads zero jumps and zero difference. So
+ *   every flag-on render must be audible and within kLiveDb of its flag-off twin in
+ *   rms, the pad rows and the locked rows alike. The one patch the reference set
+ *   declares silent (`expect: silent`) must be silent, and is counted nowhere.
  *
  *   LOCKED rows (acceptance 3). Every reference patch in h2/harness/patches.json,
  *   one held C3, 4 s, the frame on (`frame` 1) and six members (`N` 6, so that D6 is
@@ -69,14 +80,19 @@
  *   The ceilings are MEASURED, not chosen to pass (2026-10-12, darwin-arm64, the
  *   worst judged row of each case, then a stated margin): see kUnisonCeil and
  *   kCoupledCeil below.
- *   A silent render differs from nothing, so a patch that renders silence is never
- *   counted. A patch that cannot show a difference that small is NOT JUDGED, on
- *   evidence re-measured every run (ADR-065's rule): each patch is also rendered
- *   against ITSELF, flag off, its note one ULP sharp. If that alone moves the
- *   output by more than the ceiling, the patch amplifies a last-bit change
- *   (feedback and cross-modulation at their maxima: the two loud corner patches)
- *   and its row is printed as such. At least kLockMinJudged patches must be judged
- *   in each case.
+ *   A patch that cannot show a difference that small is NOT JUDGED, on evidence
+ *   re-measured every run (ADR-065's rule): each patch is also rendered against
+ *   ITSELF, flag off, its note one ULP sharp. If that alone moves the output by
+ *   more than the ceiling, the patch amplifies a last-bit change. Only the two
+ *   patches named in kMaySkip (feedback and cross-modulation at their maxima) may
+ *   be excused that way; any other patch that fails the test is RED. At least
+ *   kLockMinJudged patches must be judged in each case.
+ *   One of those two is not even locked in the COUPLED case: `corner/continuous-max`
+ *   carries `spread` 24, which multiplies the detune, and a scratch probe read R
+ *   down to 0.005 and 53 hold exits in its 4 s. Its difference there (about 1.4) is
+ *   D6 at work on an unlocked swarm, which is what D6 is for, and says nothing
+ *   about a lock. The settings are the lead's (the unison case plus detune 14 and
+ *   K 1) and are not widened here to force it.
  *
  * ALSO REQUIRED OF EVERY JOB: the engine knew every key (a misspelt `frameHold`
  * would render the present law twice and read as "no difference").
@@ -92,16 +108,26 @@ import { realpathSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { jobFor, loadPatches, mtof, patch, patchCmds, run } from '../h2/harness/harness.mjs';
 
-const SR = 48000, SEED = 1;
+const SR = 48000;
+// The host random stream. The literal JUMP C3 row reads 0 on some host seeds (3, 8, 9,
+// 13 and 17 of 1 to 18, the critic's count, 2026-10-12): whether B460's step falls
+// inside the 8 seconds depends on the trajectory. CHANGING THE SEED IS NEVER A FIX.
+const SEED = 1;
 const PAD = 'ledger/breathing-pad';
 // The seven settings the click depends on, as the lead measured it (header).
 export const kPadPinned = { frame: 1, phaseMode: 2, N: 6, law: 4, driftRate: 0.1, detune: 14, K: 0.45 };
 const NOTES = [{ name: 'C3', note: 48, vel: 0.9 }, { name: 'G3', note: 55, vel: 0.9 }, { name: 'C4', note: 60, vel: 0.8 }];
 const kJumpSeconds = 8;
 const kControlMustFire = ['C3', 'C4'];
+const kOsJudged = 2, kOsList = [2, 1];
 // the detector (header): a step over kStepFloor AND over kRatio x the local 99th percentile
 const kStepFloor = 0.02, kRatio = 3, kPercentile = 0.99;
 const kWindow = Math.round(0.1 * SR), kFlank = kWindow / 2, kMerge = 480;
+// liveness (header): flag on within this many dB of flag off, and neither silent.
+// Measured 2026-10-12: the largest |difference| over the 30 pairs was 0.56 dB (the pad
+// at os 1, C3), so 3 dB is about five times that.
+const kLiveDb = 3;
+const kSilentPeak = Math.pow(10, -90 / 20);   // tools/patchspace/metrics.mjs's silence line, -90 dBFS peak
 // the locked cases (header)
 export const kUnison = { frame: 1, N: 6, phaseMode: 2, detune: 0, K: 0, onset: 0, driftDepth: 0, onsetScatter: 0 };
 export const kCoupled = { ...kUnison, detune: 14, K: 1 };
@@ -111,7 +137,7 @@ const kLockNote = 48, kLockVel = 0.9, kLockSeconds = 4, kCoupledFrom = 2;
 // critic read up to 1.3e-11). Each ceiling is about 40 times its measured worst, and
 // both are three orders or more under the parity bound (1e-6).
 const kUnisonCeil = 3e-12, kCoupledCeil = 6e-10;
-const kSilentPeak = Math.pow(10, -90 / 20);   // tools/patchspace/metrics.mjs's silence line, -90 dBFS peak
+const kMaySkip = ['corner/continuous-max', 'corner/continuous-max-toggles-on'];
 const kLockMinJudged = 5;
 
 /* isolated jumps in one channel -> [{ at, step, ratio }], merged (header) */
@@ -136,7 +162,8 @@ export function isolatedJumps(x) {
 }
 const describe = j => (j.length ? `${j.length} (${j.map(e => `${e.step.toFixed(3)} at ${e.at}, ${e.ratio.toFixed(1)}x`).join('; ')})` : '0');
 const nextUp = x => { const f = new Float64Array([x]), b = new BigUint64Array(f.buffer); b[0] += 1n; return f[0]; };
-function maxDiff(a, b, from = 0, to = a.L.length) {   // frames [from, to), both output channels
+/* largest |a - b| over both output channels, frames [from, to) */
+function maxDiff(a, b, from = 0, to = a.L.length) {
   let m = 0;
   for (let i = from; i < to; i++) {
     const l = Math.abs(a.L[i] - b.L[i]), r = Math.abs(a.R[i] - b.R[i]);
@@ -145,7 +172,12 @@ function maxDiff(a, b, from = 0, to = a.L.length) {   // frames [from, to), both
   }
   return m;
 }
-const peak = r => { let pk = 0; for (let i = 0; i < r.L.length; i++) pk = Math.max(pk, Math.abs(r.L[i]), Math.abs(r.R[i])); return pk; };
+/* a render's level over both output channels: { rms, peak } */
+function level(r) {
+  let e = 0, pk = 0;
+  for (let i = 0; i < r.L.length; i++) { e += r.L[i] * r.L[i] + r.R[i] * r.R[i]; pk = Math.max(pk, Math.abs(r.L[i]), Math.abs(r.R[i])); }
+  return { rms: Math.sqrt(e / (2 * r.L.length)), peak: pk };
+}
 
 const padJob = (n, over) => jobFor({ patch: PAD, sr: SR, seed: SEED, seconds: kJumpSeconds, notes: [n.note], vel: n.vel, pre: true,
   overrides: { ...kPadPinned, ...over } });
@@ -156,58 +188,97 @@ export function main(argv) {
   const bi = argv.indexOf('--bin'), opt = bi >= 0 ? { bin: argv[bi + 1] } : {};
   let red = 0;
   const row = (ok, tag, text) => { console.log(`${ok ? 'PASS' : 'FAIL'}  ${tag.padEnd(8)} ${text}`); if (!ok) red++; };
+  const note = (tag, text) => console.log(`NOTE  ${tag.padEnd(8)} ${text}`);
   const patches = loadPatches().patches;
   patch(PAD);   // throws if the pad has left the reference set
 
-  // one process renders everything: 3 x (on, off), then per reference patch and locked
-  // case the flag on, off, and off with the note one ULP sharp
-  const jobs = [];
-  for (const n of NOTES) jobs.push(padJob(n, { frameHold: 1 }), padJob(n, { frameHold: 0 }));
+  // One process renders everything. The pad: per os, per note, the flag on and off, as
+  // pinned and with Position spread 0. The locked cases: per patch, unison and coupled,
+  // the flag on, off, and off with the note one ULP sharp.
+  const jobs = [], at = {};
+  const add = (key, job) => { at[key] = jobs.length; jobs.push(job); };
+  for (const os of kOsList) for (const n of NOTES) for (const sp of ['pad', 'bs0']) for (const fh of [1, 0])
+    add(`${os}/${n.name}/${sp}/${fh}`, padJob(n, { os, frameHold: fh, ...(sp === 'bs0' ? { bspread: 0 } : {}) }));
   const f0 = mtof(kLockNote);
-  const CASES = [['unison', kUnison, kUnisonCeil, 0], ['coupled', kCoupled, kCoupledCeil, kCoupledFrom * SR]];
-  for (const p of patches) for (const [, set] of CASES) jobs.push(lockJob(p, set, 1, f0), lockJob(p, set, 0, f0), lockJob(p, set, 0, nextUp(f0)));
-  const rs = run(jobs, opt);
+  const CASES = [['unison', kUnison], ['coupled', kCoupled]];
+  for (const p of patches) for (const [c, set] of CASES) {
+    add(`${p.id}/${c}/1`, lockJob(p, set, 1, f0));
+    add(`${p.id}/${c}/0`, lockJob(p, set, 0, f0));
+    add(`${p.id}/${c}/ulp`, lockJob(p, set, 0, nextUp(f0)));
+  }
+  const rs = run(jobs, opt), R = key => rs[at[key]];
   const unknown = rs.filter(r => r.summary.unknownKeys);
   row(!unknown.length, 'KEYS', `the engine knew every key on ${rs.length - unknown.length} of ${rs.length} jobs${unknown.length ? `; first refused on: ${unknown[0].name}` : ''}`);
 
+  // ---- the jumps
   console.log(`pinned over ${PAD}: ${JSON.stringify(kPadPinned)}; ${kJumpSeconds} s at ${SR} Hz, seed ${SEED}, left pre-limiter bus`);
+  const J = key => isolatedJumps(R(key).preL);
   const redNotes = [];
-  NOTES.forEach((n, i) => {
-    const on = isolatedJumps(rs[2 * i].preL), off = isolatedJumps(rs[2 * i + 1].preL);
-    row(on.length === 0, 'JUMP', `${n.name} frameHold 1: isolated jumps ${describe(on)}; required 0`);
-    if (on.length) redNotes.push(n);
-    const must = kControlMustFire.includes(n.name);
-    row(!must || off.length > 0, 'CONTROL', `${n.name} frameHold 0 (the present law): isolated jumps ${describe(off)}; ${must ? 'required at least 1' : 'not required'}`);
-  });
+  for (const os of kOsList) {
+    const judged = os === kOsJudged;
+    for (const n of NOTES) {
+      const on = J(`${os}/${n.name}/pad/1`), off = J(`${os}/${n.name}/pad/0`);
+      if (judged) { row(on.length === 0, 'JUMP', `os ${os} ${n.name} frameHold 1: isolated jumps ${describe(on)}; required 0`); if (on.length) redNotes.push(n); }
+      else note('JUMP', `os ${os} ${n.name} frameHold 1: isolated jumps ${describe(on)} (not judged at os ${os}: the rule waits on the ruling on acceptance 2)`);
+      const must = kControlMustFire.includes(n.name);
+      row(!must || off.length > 0, 'CONTROL', `os ${os} ${n.name} frameHold 0 (the present law): isolated jumps ${describe(off)}; ${must ? 'required at least 1' : 'not required'}`);
+    }
+    note('SPREAD', `os ${os}, Position spread 0 (not judged), C3 / G3 / C4: frameHold 1 reads ` +
+      `${NOTES.map(n => J(`${os}/${n.name}/bs0/1`).length).join(' / ')}, frameHold 0 reads ${NOTES.map(n => J(`${os}/${n.name}/bs0/0`).length).join(' / ')}`);
+  }
   if (redNotes.length) {
-    // which steps are the frame's (header, ATTRIBUTION): printed, never judged
-    const aj = [];
-    for (const n of redNotes) aj.push(padJob(n, { frameHold: 1, frame: 0 }), padJob(n, { frameHold: 1, bspread: 0 }), padJob(n, { frameHold: 0, bspread: 0 }));
-    const ar = run(aj, opt);
-    redNotes.forEach((n, i) => console.log(`NOTE  ATTRIB   ${n.name} (not judged): the frame off altogether (frame 0) reads ${describe(isolatedJumps(ar[3 * i].preL))}; ` +
-      `Position spread 0 reads ${describe(isolatedJumps(ar[3 * i + 1].preL))} with frameHold 1 and ${describe(isolatedJumps(ar[3 * i + 2].preL))} with frameHold 0`));
+    // which steps are the frame's (header, ATTRIB): printed, never judged
+    const ar = run(redNotes.map(n => padJob(n, { os: kOsJudged, frameHold: 1, frame: 0 })), opt);
+    redNotes.forEach((n, i) => note('ATTRIB', `os ${kOsJudged} ${n.name} (not judged): with the frame off altogether (frame 0) the pad reads ${describe(isolatedJumps(ar[i].preL))}; ` +
+      `with Position spread 0 it reads ${describe(J(`${kOsJudged}/${n.name}/bs0/1`))} with frameHold 1 and ${describe(J(`${kOsJudged}/${n.name}/bs0/0`))} with frameHold 0`));
   }
 
-  CASES.forEach(([c, set, ceil, from], ci) => {
+  // ---- liveness: every flag-on render audible, and as loud as its flag-off twin
+  const live = [];
+  for (const os of kOsList) for (const n of NOTES) for (const sp of ['pad', 'bs0']) live.push([`pad os ${os} ${n.name}${sp === 'bs0' ? ' bspread 0' : ''}`, `${os}/${n.name}/${sp}`, false]);
+  for (const p of patches) for (const [c] of CASES) live.push([`${p.id} ${c}`, `${p.id}/${c}`, p.expect === 'silent']);
+  let liveBad = 0, liveWorst = 0, liveWorstName = '', liveN = 0, nSilent = 0, firstBad = '';
+  for (const [name, key, wantSilent] of live) {
+    const a = level(R(key + '/1')), b = level(R(key + '/0'));
+    if (wantSilent) {   // the set's must-read-zero patch: silent it must be
+      if (a.peak < kSilentPeak && b.peak < kSilentPeak) nSilent++;
+      else { liveBad++; firstBad = firstBad || `${name}: declared silent, peaks ${a.peak.toExponential(2)} and ${b.peak.toExponential(2)}`; }
+      continue;
+    }
+    liveN++;
+    const db = 20 * Math.log10(a.rms / b.rms);
+    if (!(a.peak >= kSilentPeak && b.peak >= kSilentPeak && Math.abs(db) <= kLiveDb)) { liveBad++; firstBad = firstBad || `${name}: rms ${a.rms.toExponential(2)} against ${b.rms.toExponential(2)} (${db.toFixed(2)} dB)`; }
+    if (Math.abs(db) > liveWorst) { liveWorst = Math.abs(db); liveWorstName = name; }
+  }
+  row(liveBad === 0, 'LIVENESS', `${liveN - liveBad} of ${liveN} flag-on renders are audible and within ${kLiveDb} dB of their flag-off twin in rms (largest ${liveWorst.toFixed(2)} dB, ${liveWorstName}); ` +
+    `${nSilent} render pair(s) of the declared-silent patch silent${firstBad ? `; first failure: ${firstBad}` : ''}`);
+
+  // ---- the locked cases
+  for (const [c, set] of CASES) {
+    const ceil = c === 'unison' ? kUnisonCeil : kCoupledCeil, from = c === 'coupled' ? kCoupledFrom * SR : 0;
     console.log(`locked, ${c}: ${JSON.stringify(set)}; one held C3, ${kLockSeconds} s, judged from ${from / SR} s on; ceiling ${ceil}`);
     let judged = 0, worst = 0, worstId = '';
-    patches.forEach((p, i) => {
-      const b = 2 * NOTES.length + 3 * (CASES.length * i + ci), on = rs[b], off = rs[b + 1];
-      const d = maxDiff(on, off, from), self = maxDiff(off, rs[b + 2], from);
+    for (const p of patches) {
+      const on = R(`${p.id}/${c}/1`), off = R(`${p.id}/${c}/0`), ulp = R(`${p.id}/${c}/ulp`);
+      const d = maxDiff(on, off, from), self = maxDiff(off, ulp, from);
       const early = from ? `; before ${from / SR} s (not judged) ${maxDiff(on, off, 0, from).toExponential(2)}` : '';
-      if (peak(on) < kSilentPeak && peak(off) < kSilentPeak) { console.log(`NOTE  LOCKED   ${c} ${p.id}: silent; not counted`); return; }
+      // a silent render differs from nothing: it is never counted (LIVENESS judges that
+      // the one patch declared silent is, and that no other is)
+      if (level(on).peak < kSilentPeak && level(off).peak < kSilentPeak) { note('LOCKED', `${c} ${p.id}: silent; not counted`); continue; }
       if (!(self <= ceil)) {
-        console.log(`SKIP  LOCKED   ${c} ${p.id}: max |on - off| ${d.toExponential(2)}${early}; NOT JUDGED, the patch alone turns one ULP of its note into ${self.toExponential(2)}`);
-        return;
+        const text = `${c} ${p.id}: max |on - off| ${d.toExponential(2)}${early}; NOT JUDGED, the patch alone turns one ULP of its note into ${self.toExponential(2)}`;
+        if (kMaySkip.includes(p.id)) console.log(`SKIP  LOCKED   ${text} (one of the ${kMaySkip.length} patches that may be excused)`);
+        else row(false, 'LOCKED', `${text}, and it is not one of the ${kMaySkip.length} patches that may be excused (${kMaySkip.join(', ')})`);
+        continue;
       }
       judged++;
       if (d > worst) { worst = d; worstId = p.id; }
       row(d <= ceil, 'LOCKED', `${c} ${p.id}: max |on - off| ${d.toExponential(2)} (its own one-ULP divergence ${self.toExponential(2)})${early}`);
-    });
+    }
     row(judged >= kLockMinJudged, 'LOCKED', `${c}: ${judged} of ${patches.length} reference patches judged (need at least ${kLockMinJudged}); worst ${worst.toExponential(2)}${worstId ? ` (${worstId})` : ''}, ceiling ${ceil}`);
-  });
+  }
 
-  console.log(`h2_frame_hold_check: ${red ? 'RED' : 'GREEN'} (${red} row(s) failed; flag on, control, the locked cases over ${patches.length} reference patches)`);
+  console.log(`h2_frame_hold_check: ${red ? 'RED' : 'GREEN'} (${red} row(s) failed; the jumps at os ${kOsList.join(' and ')}, their controls, liveness, and the locked cases over ${patches.length} reference patches)`);
   return red ? 1 : 0;
 }
 
