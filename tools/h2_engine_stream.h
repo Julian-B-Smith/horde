@@ -6,8 +6,11 @@
  * script differently. Include AFTER engine.h (the check defines H2_ENGINE_FAULTS
  * first, which this file honours).
  *
- * EVERY REPLAY RUNS WITH FLUSH-TO-ZERO ON (ADR-211 item 1, ruled by the human
- * 2026-10-11: the horde 2 shell runs the engine in that mode). replay() below is
+ * EVERY REPLAY RUNS WITH FLUSH-TO-ZERO ON AND ROUNDING TO NEAREST (ADR-211 item
+ * 1, ruled by the human 2026-10-11: the horde 2 shell runs the engine with
+ * flush-to-zero on; and the human's ruling of 2026-10-12, which the lead records
+ * as ADR-213: the same switch forces round-to-nearest inside its scope and gives
+ * the host its own mode back). replay() below is
  * the whole replay inside h2/flush_to_zero.h's switch, the one copy the shell
  * will use: the engine's construction and seeding, every event call, every
  * render. So the parity check, its FMA control, both self-digest tools, the
@@ -17,12 +20,38 @@
  * replay with the mode off by forgetting something: the only replay offered here
  * sets it, and a replay made any other way is missing from the count below.
  * Each replay also records the mode it really ran in (gModeTally), and
- * printModeControls() turns that into two must-fire lines a gate prints and judges:
+ * printModeControls() turns that into three must-fire lines a gate prints and judges:
  *   control FZ     every replay ran with flush-to-zero on; the switch works from a
  *                  host that enters with the mode off AND from one that enters
  *                  with it on; a throw inside it leaves the host's word as it was;
- *   control ROUND  every replay ran rounding to nearest, which the pinned bits
- *                  need and the switch does NOT set (h2/flush_to_zero.h).
+ *   control ROUND  the switch SETS round-to-nearest. Every replay ran rounding to
+ *                  nearest, ties to even. And a host that calls in rounding to
+ *                  nearest, toward zero, upward and downward each gets: nearest
+ *                  inside, its own mode named in the switch's report, and its
+ *                  own mode back afterwards, also after a throw. Three sources
+ *                  must agree on each of those: arithmetic (roundingSeen below),
+ *                  the C library (the host's mode is set and read with <cfenv>,
+ *                  never with the header's own constants) and the header's
+ *                  read-back. Then the first clean replay this gate made is
+ *                  made again from each of the four hosts: through the switch
+ *                  it must give the bits the gate judged; and with NO switch
+ *                  the three other modes must each give OTHER bits, so "the
+ *                  same bits" is not the reading of a script that does not
+ *                  care how it is rounded (the must-differ half);
+ *   control WORD   the switch writes its two fields and no other. The bits that
+ *                  really move are measured (the rounding field is what <cfenv>
+ *                  moves between its modes; the flush bits are what differs
+ *                  between the switch and its forced-off form) and must be
+ *                  exactly what the header declares it owns. Then, from each of
+ *                  the four hosts as it came AND with every field the switch
+ *                  does not own flipped (trap enables, default-NaN and the rest
+ *                  on arm64; the sticky flags on x86-64), the word inside must
+ *                  be the host's with the flush bits set and the rounding field
+ *                  cleared, bit for bit, and the word after must be the host's.
+ * What the controls do not reach: the whole 543-scenario set from a host in
+ * another mode is a measurement made by hand (docs/proposals/h2-flush-to-zero.md,
+ * section 8), and the numbers of a script are read OUTSIDE the switch (strtod
+ * below), in whatever mode the process is in.
  *
  * The stream is line-oriented text with binary payloads:
  *   H2ENGINE 1 <n>                                    header
@@ -44,6 +73,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -135,23 +165,36 @@ struct ReplayInfo { int unknownKeys = 0; std::string firstUnknown; double cnt[3]
 #define H2S_NOINLINE __attribute__((noinline))
 #endif
 
-// Whether arithmetic rounds to nearest RIGHT NOW on the calling thread, judged by
-// two additions and not by reading the mode's field. Never inlined and its
-// operands volatile, for horde2::flushToZeroState()'s reasons: the additions must
-// run where it is called and must not be folded. 1 plus three quarters of its
-// ULP reaches the next double only when rounding to nearest or upward; 1 plus a
-// quarter stays 1 unless rounding upward. Nearest is the one mode that gives both.
-H2S_NOINLINE inline bool roundsToNearest() noexcept {
-  volatile double one = 1.0;
-  volatile double threeQuarterUlp = 0x1.8p-53, quarterUlp = 0x1p-54;   // of 1.0, whose ULP is 2^-52
-  const double a = one + threeQuarterUlp;
-  const double b = one + quarterUlp;
-  return a != 1.0 && b == 1.0;
+// The direction arithmetic rounds in RIGHT NOW on the calling thread, as one of
+// <cfenv>'s four names, or -1 for none of them. Judged by three additions and
+// never by reading a field, so it leans on neither h2/flush_to_zero.h's
+// constants nor the C library's: control ROUND holds all three to each other.
+// Never inlined and its operands volatile, for horde2::flushToZeroState()'s
+// reasons: the additions must run where it is called and must not be folded.
+// 1 plus a quarter of its ULP moves off 1 only when rounding upward; minus 1
+// minus the same moves off minus 1 only when rounding downward; 1 plus three
+// quarters reaches the next double when rounding to nearest, and stays 1 when
+// rounding toward zero.
+H2S_NOINLINE inline int roundingSeen() noexcept {
+  volatile double one = 1.0, minusOne = -1.0;
+  volatile double quarterUlp = 0x1p-54, threeQuarterUlp = 0x1.8p-53;   // of 1.0, whose ULP is 2^-52
+  const double a = one + quarterUlp;
+  const double b = minusOne - quarterUlp;
+  const double c = one + threeQuarterUlp;
+  const bool up = a != 1.0, down = b != -1.0;
+  if (up && down) return -1;
+  if (up) return FE_UPWARD;
+  if (down) return FE_DOWNWARD;
+  return c != 1.0 ? FE_TONEAREST : FE_TOWARDZERO;
 }
 
 // What every replay in this process really ran in, counted from INSIDE the switch
-// (so a switch that silently does nothing is counted as it is, not as it was asked).
-struct ModeTally { uint64_t replays = 0, flushed = 0, nearest = 0; };
+// (so a switch that silently does nothing is counted as it is, not as it was
+// asked). `enteredOther` is the one count taken outside it: the replays whose
+// caller arrived in another rounding mode, from what the switch returns. It is
+// the count a shell's latch will keep (h2/flush_to_zero.h, "the caller's rounding
+// mode is reported"), printed here and never judged.
+struct ModeTally { uint64_t replays = 0, flushed = 0, nearest = 0, enteredOther = 0; };
 inline ModeTally gModeTally;
 
 // THE mode scope. replay() below and the hooked copy
@@ -159,17 +202,21 @@ inline ModeTally gModeTally;
 // two replays can set the mode differently.
 template <class F>
 inline void inMode(F&& f) {
-  horde2::underFlushToZero([&] {
+  const horde2::Rounding arrived = horde2::underFlushToZero([&] {
     gModeTally.replays++;
-    if (horde2::flushToZeroState().on()) gModeTally.flushed++;
-    if (roundsToNearest()) gModeTally.nearest++;
+    const horde2::FlushToZeroState in = horde2::flushToZeroState();
+    if (in.on()) gModeTally.flushed++;
+    if (in.nearest()) gModeTally.nearest++;
     f();
   });
+  if (arrived != horde2::Rounding::nearest) gModeTally.enteredOther++;
 }
 
 // The replay's body, with no mode of its own. NOT for tools: call replay(), which
 // runs this inside the switch. A tool that called it directly would leave those
 // replays out of gModeTally, and the FZ control's count would come up short.
+// (One caller below does so on purpose: control ROUND's no-switch half, which
+// needs a host's rounding mode to reach the engine.)
 inline void replayBody(const Scenario& sc, std::vector<double>& out, int fault, horde2::engine::EventLog* log, double eps, ReplayInfo* info,
                        int block) {
   auto* c = new horde2::engine::Engine(sc.sr);   // 114 KB (arm64): the heap, not a small stack
@@ -218,6 +265,26 @@ inline void replayBody(const Scenario& sc, std::vector<double>& out, int fault, 
   delete c;
 }
 
+// The first CLEAN replay this process made (no planted fault): its script, the
+// host block it was cut at, and the samples the gate went on to judge. Control
+// ROUND replays that script again from hosts in other rounding modes and holds
+// the result to these samples, so "the pinned bits out" is about a row this gate
+// judged, not a script made up for the control. Kept once per process, without
+// the golden's samples (replayBody never reads them).
+struct FirstClean { bool have = false; Scenario sc; int block = 0; std::vector<double> out; };
+inline FirstClean gFirstClean;
+inline void keepFirstClean(const Scenario& sc, int block, const std::vector<double>& out) {
+  if (gFirstClean.have) return;
+  gFirstClean.have = true;
+  gFirstClean.sc.index = sc.index;
+  gFirstClean.sc.name = sc.name;
+  gFirstClean.sc.sr = sc.sr;
+  gFirstClean.sc.seed = sc.seed;
+  gFirstClean.sc.cmds = sc.cmds;
+  gFirstClean.block = block;
+  gFirstClean.out = out;
+}
+
 // Replays `sc` through a fresh engine, seeded as the golden was, WITH FLUSH-TO-ZERO
 // ON over the whole of it (header). `out` receives the interleaved samples.
 // `fault` / `eps` plant a must-fail control where the engine was compiled with
@@ -228,9 +295,10 @@ inline void replayBody(const Scenario& sc, std::vector<double>& out, int fault, 
 inline void replay(const Scenario& sc, std::vector<double>& out, int fault = 0, horde2::engine::EventLog* log = nullptr,
                    double eps = 0, ReplayInfo* info = nullptr, int block = 0) {
   inMode([&] { replayBody(sc, out, fault, log, eps, info, block); });
+  if (fault == 0 && eps == 0) keepFirstClean(sc, block, out);
 }
 
-// ---- the two mode controls (header; LIBRARY L0032) ----
+// ---- the three mode controls (header; LIBRARY L0032) ----
 
 // The switch, watched from a host that enters with the mode in a KNOWN state. The
 // two words are read immediately around the switch, with no arithmetic in
@@ -264,22 +332,144 @@ inline SwitchSeen switchFrom(bool hostOn) {
   return h;
 }
 
+inline bool sameSamples(const std::vector<double>& a, const std::vector<double>& b) {
+  return a.size() == b.size() && !a.empty() && std::memcmp(a.data(), b.data(), a.size() * sizeof(double)) == 0;
+}
+inline bool sameEvents(const horde2::engine::EventLog& a, const horde2::engine::EventLog& b) {
+  return std::memcmp(&a.count[1], &b.count[1], 4 * sizeof(uint64_t)) == 0 && a.h1 == b.h1 && a.h2 == b.h2;
+}
+
+// The switch, watched from a host that calls in under ONE rounding mode. The
+// host's mode is set with <cfenv>'s fesetround, not with anything from
+// h2/flush_to_zero.h, so the header's constants are judged against the C
+// library's and against arithmetic (roundingSeen), never against themselves.
+struct RoundHost {
+  int fe = 0;                                            // the mode this host calls in with
+  horde2::Rounding want = horde2::Rounding::nearest;     // what the switch must report for it
+  bool set = false;                                      // fesetround took it
+  int seenBefore = -2, seenInside = -2, seenAfter = -2;  // arithmetic: before, inside the switch, after
+  int feAfter = -2;                                      // <cfenv>'s reading after
+  horde2::Rounding reported = horde2::Rounding::nearest;
+  horde2::FlushToZeroState inside, forcedOff;            // the header's own read-back, in the switch and forced off in it
+  uint64_t word0 = 0, wordIn = 0, wordOff = 0, word1 = 0;   // the control word: before, inside, forced off, after
+  // The same host with the fields the switch does not own FLIPPED, so each of
+  // those bits is seen set from one host and clear from the other. Words only: no
+  // arithmetic may run there (flush_tools_only::asHostWithOtherFieldsFlipped).
+  // oBase is the word as it came, read immediately before the flip.
+  uint64_t oBase = 0, oWord0 = 0, oWordIn = 0, oWordOff = 0, oWord1 = 0;
+  bool threw = false;                                    // a throw inside the switch
+  uint64_t tWord0 = 0, tWord1 = 0;
+  // The first clean replay, made again from this host.
+  bool replayed = false;
+  bool pinnedBits = false;    // through replay(): the samples the gate judged, the same events and readouts
+  bool bareDiffers = false;   // the body alone, with NO switch: other samples than the same body rounding to nearest
+
+  // Arithmetic, the C library and the header agree on the host's mode before and
+  // after, and on round-to-nearest inside; the caller's mode is reported.
+  bool modeOk() const {
+    return set && seenBefore == fe && reported == want && inside.engineMode() && seenInside == FE_TONEAREST && forcedOff.off() &&
+           forcedOff.nearest() && seenAfter == fe && feAfter == fe && threw;
+  }
+  // Inside, the word is the host's with the flush bits set and the rounding field
+  // cleared, and NOTHING else differs; after, it is the host's bit for bit. From
+  // the host as it came and from the host with its other fields flipped (which
+  // must really be another word, and differ in no field the switch owns).
+  bool wordOk(uint64_t flushBits, uint64_t roundingField) const {
+    auto one = [&](uint64_t w0, uint64_t in, uint64_t off, uint64_t w1) {
+      return in == ((w0 | flushBits) & ~roundingField) && off == (w0 & ~flushBits & ~roundingField) && w1 == w0;
+    };
+    const bool flipped = oWord0 != oBase && ((oWord0 ^ oBase) & (flushBits | roundingField)) == 0;
+    return one(word0, wordIn, wordOff, word1) && flipped && one(oWord0, oWordIn, oWordOff, oWord1) && tWord1 == tWord0;
+  }
+  bool replayOk() const { return replayed && pinnedBits && (fe == FE_TONEAREST || bareDiffers); }
+};
+
+// What the nearest-entered host's control replays gave, for the other three to be
+// held to.
+struct RoundRef { horde2::engine::EventLog log; ReplayInfo info; std::vector<double> bare; bool bareIsPinned = false; };
+
+inline RoundHost roundHost(int fe, horde2::Rounding want, RoundRef& ref) {
+  RoundHost h;
+  h.fe = fe;
+  h.want = want;
+  // fesetround also writes the x87 control word on x86, which the switch's restore
+  // does not hold: the mode this thread came with is put back by hand, last.
+  const int came = std::fegetround();
+  h.set = std::fesetround(fe) == 0;
+  h.seenBefore = roundingSeen();
+  h.word0 = horde2::fpControlWord();
+  h.reported = horde2::underFlushToZero([&] {
+    h.wordIn = horde2::fpControlWord();
+    // the nested call first: its word is read before any arithmetic in this scope can raise an x86 flag
+    horde2::flush_tools_only::withoutFlushToZero([&] {
+      h.wordOff = horde2::fpControlWord();
+      h.forcedOff = horde2::flushToZeroState();
+    });
+    h.inside = horde2::flushToZeroState();
+    h.seenInside = roundingSeen();
+  });
+  h.word1 = horde2::fpControlWord();
+  h.seenAfter = roundingSeen();
+  h.feAfter = std::fegetround();
+  // WORDS ONLY in here (the trap enables may be set): no arithmetic, no read-back.
+  h.oBase = horde2::fpControlWord();
+  horde2::flush_tools_only::asHostWithOtherFieldsFlipped([&] {
+    h.oWord0 = horde2::fpControlWord();
+    horde2::underFlushToZero([&] {
+      h.oWordIn = horde2::fpControlWord();
+      horde2::flush_tools_only::withoutFlushToZero([&] { h.oWordOff = horde2::fpControlWord(); });
+    });
+    h.oWord1 = horde2::fpControlWord();
+  });
+  h.tWord0 = horde2::fpControlWord();
+  try {
+    horde2::underFlushToZero([] { throw 0; });
+  } catch (int) {
+    h.threw = true;
+  }
+  h.tWord1 = horde2::fpControlWord();
+  if (gFirstClean.have) {
+    const FirstClean& k = gFirstClean;
+    std::vector<double> out, bare;
+    horde2::engine::EventLog log;
+    ReplayInfo info;
+    replay(k.sc, out, 0, &log, 0, &info, k.block);        // the gate's own replay, entered in this host's mode
+    replayBody(k.sc, bare, 0, nullptr, 0, nullptr, k.block);   // NO switch: this host's mode reaches the engine
+    h.replayed = true;
+    if (fe == FE_TONEAREST) {
+      ref.log = log;
+      ref.info = info;
+      ref.bare = bare;
+      ref.bareIsPinned = sameSamples(bare, k.out);
+    }
+    h.pinnedBits = sameSamples(out, k.out) && sameEvents(log, ref.log) && std::memcmp(info.cnt, ref.info.cnt, sizeof info.cnt) == 0;
+    h.bareDiffers = !sameSamples(bare, ref.bare);
+  }
+  std::fesetround(came);
+  return h;
+}
+
 struct ModeControls {
   // The state this thread is in where the controls run. REPORTED, never judged by
-  // itself: a process entered with the mode already on is not a broken switch.
-  // What IS judged is what each replay ran in (the tally) and what the switch does
-  // from each known state.
+  // itself: a process entered with the mode already on, or in another rounding
+  // mode, is not a broken switch. What IS judged is what each replay ran in (the
+  // tally) and what the switch does from each known state.
   horde2::FlushToZeroState entered;
-  bool enteredNearest = false;
+  int enteredSeen = -2;
   SwitchSeen fromOff, fromOn;
   // A throw inside the switch, from a host that entered off.
   bool threw = false;
   uint64_t throwWord0 = 0, throwWord1 = 0;
   horde2::FlushToZeroState throwInside, throwAfter;
-  // roundsToNearest() read INSIDE the switch under each rounding mode a host may
-  // call in with. It must tell them apart, and it shows that the switch leaves
-  // the host's rounding mode in force.
-  bool readNearest = false, readTowardZero = true, readUpward = true, readDownward = true;
+  // The switch from a host in each rounding mode; to nearest first (it is the
+  // others' reference).
+  RoundHost hosts[4];
+  RoundRef roundRef;
+  // The bits that really move, measured: the rounding field is what <cfenv>
+  // changes between its four modes (words read back to back, no arithmetic in
+  // between), the flush bits are what differs between the switch and its
+  // forced-off form. Held to what the header declares it owns.
+  uint64_t roundingMoved = 0, flushMoved = 0;
   ModeTally tally;
   uint64_t need = 0;
 
@@ -288,18 +478,28 @@ struct ModeControls {
     return counted() && tally.flushed == tally.replays && fromOff.ok(false) && fromOn.ok(true) && threw && throwInside.on() &&
            throwWord1 == throwWord0 && throwAfter.off();
   }
-  bool round() const { return counted() && tally.nearest == tally.replays && readNearest && !readTowardZero && !readUpward && !readDownward; }
-  bool fired() const { return fz() && round(); }
+  bool round() const {
+    bool ok = counted() && tally.nearest == tally.replays;
+    for (const RoundHost& h : hosts) ok = ok && h.modeOk() && h.replayOk();
+    return ok;
+  }
+  bool word() const {
+    const uint64_t fb = horde2::flush_tools_only::kFlushBits, rf = horde2::flush_tools_only::kRoundingField;
+    bool ok = flushMoved == fb && roundingMoved == rf;
+    for (const RoundHost& h : hosts) ok = ok && h.wordOk(fb, rf);
+    return ok;
+  }
+  bool fired() const { return fz() && round() && word(); }
 };
 
-// Runs both controls. `need` is the fewest replays the caller must have made by
-// now (its scenario count): zero replays, or fewer, is red.
+// Runs the three controls. `need` is the fewest replays the caller must have made
+// by now (its scenario count): zero replays, or fewer, is red.
 inline ModeControls modeControls(uint64_t need) {
   ModeControls c;
   c.need = need;
-  c.tally = gModeTally;
+  c.tally = gModeTally;   // first: the controls below replay too, and are not the gate's replays
   c.entered = horde2::flushToZeroState();
-  c.enteredNearest = roundsToNearest();
+  c.enteredSeen = roundingSeen();
   c.fromOff = switchFrom(false);
   c.fromOn = switchFrom(true);
   horde2::flush_tools_only::withoutFlushToZero([&] {
@@ -315,28 +515,30 @@ inline ModeControls modeControls(uint64_t need) {
     c.throwWord1 = horde2::fpControlWord();
     c.throwAfter = horde2::flushToZeroState();
   });
-  // fesetround also writes the x87 control word on x86, which the switch's restore
-  // does not hold: the host's rounding mode is put back by hand, last.
-  const int hostRounding = std::fegetround();
-  auto readUnder = [](int rounding) {
-    std::fesetround(rounding);
-    bool r = false;
-    horde2::underFlushToZero([&] { r = roundsToNearest(); });
-    return r;
-  };
-  c.readNearest = readUnder(FE_TONEAREST);
-  c.readTowardZero = readUnder(FE_TOWARDZERO);
-  c.readUpward = readUnder(FE_UPWARD);
-  c.readDownward = readUnder(FE_DOWNWARD);
-  std::fesetround(hostRounding);
+  static const int kFe[4] = {FE_TONEAREST, FE_TOWARDZERO, FE_UPWARD, FE_DOWNWARD};
+  static const horde2::Rounding kWant[4] = {horde2::Rounding::nearest, horde2::Rounding::towardZero, horde2::Rounding::upward,
+                                            horde2::Rounding::downward};
+  const int came = std::fegetround();
+  uint64_t w[4];
+  for (int i = 0; i < 4; i++) { std::fesetround(kFe[i]); w[i] = horde2::fpControlWord(); }
+  std::fesetround(came);
+  c.roundingMoved = (w[1] ^ w[0]) | (w[2] ^ w[0]) | (w[3] ^ w[0]);
+  for (int i = 0; i < 4; i++) c.hosts[i] = roundHost(kFe[i], kWant[i], c.roundRef);
+  c.flushMoved = c.hosts[0].wordIn ^ c.hosts[0].wordOff;
   return c;
 }
 
-// The two lines a gate prints. Returns whether both controls fired.
+// The three lines a gate prints. Returns whether every control fired.
 inline bool printModeControls(uint64_t need) {
   const ModeControls c = modeControls(need);
   auto st = [](const horde2::FlushToZeroState& s) { return s.on() ? "on" : (s.off() ? "off" : "HALF-SET"); };
   auto ull = [](uint64_t v) { return static_cast<unsigned long long>(v); };
+  auto fe = [](int m) {
+    return m == FE_TONEAREST ? "to nearest" : m == FE_TOWARDZERO ? "toward zero" : m == FE_UPWARD ? "upward" : m == FE_DOWNWARD ? "downward" : "IN NO MODE";
+  };
+  auto rn = [](horde2::Rounding r) {
+    return r == horde2::Rounding::nearest ? "to nearest" : r == horde2::Rounding::towardZero ? "toward zero" : r == horde2::Rounding::upward ? "upward" : "downward";
+  };
   std::printf("%s  control FZ  flush-to-zero (h2/flush_to_zero.h, set inside h2engine_stream::replay): %llu of %llu replays ran with it on (need >= %llu); "
               "the switch from a host that enters off: %s, %s inside (bits %d, a subnormal result zero %d, a subnormal input zero %d), %s forced off inside it, "
               "%s again, %s after, control word 0x%llx, 0x%llx inside, 0x%llx after; from a host that enters on: %s, %s inside, %s forced off, %s again, %s after, "
@@ -347,11 +549,35 @@ inline bool printModeControls(uint64_t need) {
               ull(c.fromOff.wordIn), ull(c.fromOff.word1), st(c.fromOn.before), st(c.fromOn.inside), st(c.fromOn.forcedOff), st(c.fromOn.backOn),
               st(c.fromOn.after), ull(c.fromOn.word0), ull(c.fromOn.wordIn), ull(c.fromOn.word1), c.threw ? "thrown and caught" : "NOT THROWN",
               st(c.throwInside), ull(c.throwWord0), ull(c.throwWord1), st(c.throwAfter), st(c.entered));
-  std::printf("%s  control ROUND  %llu of %llu replays ran rounding to nearest (need >= %llu; the pinned bits need it and the switch does not set it); "
-              "the reading inside the switch when the host rounds to nearest %d, toward zero %d, upward %d, downward %d (must be 1 0 0 0); "
-              "this thread %s here (reported, not judged)\n",
-              c.round() ? "PASS" : "FAIL", ull(c.tally.nearest), ull(c.tally.replays), ull(c.need), c.readNearest, c.readTowardZero, c.readUpward,
-              c.readDownward, c.enteredNearest ? "rounds to nearest" : "does NOT round to nearest");
+  std::printf("%s  control ROUND  round-to-nearest (h2/flush_to_zero.h, set by the same switch): %llu of %llu replays ran rounding to nearest, ties to even "
+              "(need >= %llu), %llu of them called from another rounding mode (the switch's own report: counted, not judged)",
+              c.round() ? "PASS" : "FAIL", ull(c.tally.nearest), ull(c.tally.replays), ull(c.need), ull(c.tally.enteredOther));
+  for (const RoundHost& h : c.hosts)
+    std::printf("; a host that rounds %s%s: arithmetic rounds %s before, %s inside the switch (the header reads the field %s, ties to even %d, flush-to-zero %s), "
+                "%s forced off inside it, the switch reports its caller %s, arithmetic rounds %s after and <cfenv> reads %s, a throw inside it %s",
+                fe(h.fe), h.set ? "" : " (NOT SET)", fe(h.seenBefore), fe(h.seenInside), rn(h.inside.roundingField), h.inside.roundsToNearest, st(h.inside),
+                h.forcedOff.nearest() ? "to nearest" : "NOT TO NEAREST", rn(h.reported), fe(h.seenAfter), fe(h.feAfter),
+                h.threw ? "thrown and caught" : "NOT THROWN");
+  if (gFirstClean.have)
+    std::printf("; the first clean replay ('%s', %llu frames) made again from each host: through the switch, the bits this gate judged %d %d %d %d "
+                "(must be 1 1 1 1); with NO switch, other bits than the same body rounding to nearest - %d %d %d (must be - 1 1 1; that body is %s the "
+                "gate's bits, reported)",
+                gFirstClean.sc.name.c_str(), ull(gFirstClean.out.size() / 2), c.hosts[0].pinnedBits, c.hosts[1].pinnedBits, c.hosts[2].pinnedBits,
+                c.hosts[3].pinnedBits, c.hosts[1].bareDiffers, c.hosts[2].bareDiffers, c.hosts[3].bareDiffers,
+                c.roundRef.bareIsPinned ? "bit for bit" : "NOT");
+  else std::printf("; NO clean replay was made, so none could be made again from each host");
+  std::printf("; this thread rounds %s here (reported, not judged)\n", fe(c.enteredSeen));
+  std::printf("%s  control WORD  the switch writes its two fields and nothing else: the flush bits that move 0x%llx (declared 0x%llx), the rounding field "
+              "<cfenv> moves 0x%llx (declared 0x%llx)",
+              c.word() ? "PASS" : "FAIL", ull(c.flushMoved), ull(horde2::flush_tools_only::kFlushBits), ull(c.roundingMoved),
+              ull(horde2::flush_tools_only::kRoundingField));
+  for (const RoundHost& h : c.hosts)
+    std::printf("; a host that rounds %s: control word 0x%llx, 0x%llx inside, 0x%llx forced off, 0x%llx after; with its other fields flipped (0x%llx as it "
+                "came) 0x%llx, 0x%llx inside, 0x%llx forced off, 0x%llx after; around a throw 0x%llx, 0x%llx",
+                fe(h.fe), ull(h.word0), ull(h.wordIn), ull(h.wordOff), ull(h.word1), ull(h.oBase), ull(h.oWord0), ull(h.oWordIn), ull(h.oWordOff),
+                ull(h.oWord1), ull(h.tWord0), ull(h.tWord1));
+  std::printf(" (inside must be the word before with the flush bits set and the rounding field cleared, forced off the same with the flush bits clear, "
+              "after the word before)\n");
   return c.fired();
 }
 

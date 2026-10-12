@@ -87,10 +87,14 @@
  *       (after its onset window)                             by the finite guard alone
  *       and 2.0 planted there: a test of the detector code only, a state the
  *       engine cannot reach (its output is a tanh)
- *   FZ, ROUND  every replay in this process ran with flush-to-zero ON and rounding
- *       to nearest, as the horde 2 shell will run the engine (ADR-211 item 1) and
- *       as the self-digests pin it: h2engine_stream::replay sets the mode, and
- *       these two lines are tools/h2_engine_stream.h's own controls, shared with
+ *   FZ, ROUND, WORD  every replay in this process ran with flush-to-zero ON and
+ *       rounding to nearest, as the horde 2 shell will run the engine (ADR-211
+ *       item 1) and as the self-digests pin it: h2engine_stream::replay sets both
+ *       through one switch, which a host's own rounding mode cannot defeat (it
+ *       is made to call in under each of the four, and the first clean replay of
+ *       this run must come out the same bits from all of them), and which
+ *       writes no other field of the control word. These three lines are
+ *       tools/h2_engine_stream.h's own controls, shared with
  *       the self-digest tools (their header describes them). Judged last, over
  *       every replay made: the scenarios, the controls and the determinism rows.
  *       The determinism rows' child process judges its own replays and exits
@@ -408,7 +412,7 @@ int main(int argc, char** argv) {
   for (int i = 1; i < argc; i++) {
     if (std::strcmp(argv[i], "--det-digest") == 0) {   // the child half of the determinism rows
       for (const auto& kv : detDigests()) std::printf("%s %llu\n", kv.first.c_str(), static_cast<unsigned long long>(kv.second));
-      // this child's own replays, judged here (header: FZ, ROUND); nothing is printed, the parent parses every line
+      // this child's own replays, judged here (header: FZ, ROUND, WORD); nothing is printed, the parent parses every line
       return h2engine_stream::modeControls(1).fired() ? 0 : 2;
     }
     if (std::strcmp(argv[i], "--only") == 0 && i + 1 < argc) only = argv[++i];
@@ -606,7 +610,7 @@ int main(int argc, char** argv) {
   }
 
 #ifdef H2_ENGINE_FMA_CONTROL
-  // header: FZ, ROUND. A fused build that ran in another mode has judged another engine: the run broke.
+  // header: FZ, ROUND, WORD. A fused build that ran in another mode has judged another engine: the run broke.
   if (!h2engine_stream::printModeControls(static_cast<uint64_t>(total))) infra = true;
   if (infra) {
     std::printf("h2_engine_fma_control: INFRASTRUCTURE FAILURE — the run broke (renderer, stream or instrumentation); "
@@ -914,7 +918,7 @@ int main(int argc, char** argv) {
                   compilerId().c_str(), nodeMajor, 100 * meanExact, fv.held ? "holds" : "is UNDER", 100 * fv.floor);
     }
   }
-  // header: FZ, ROUND. Last, so every replay this process made is counted.
+  // header: FZ, ROUND, WORD. Last, so every replay this process made is counted.
   if (!h2engine_stream::printModeControls(static_cast<uint64_t>(total))) red++;
   std::printf("events counted (C++ side): edge/base BLEPs %llu, carrier BLEPs %llu, blade-1 entries %llu, blade-2 entries %llu\n",
               static_cast<unsigned long long>(evTotal[1]), static_cast<unsigned long long>(evTotal[2]),

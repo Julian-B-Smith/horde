@@ -17,7 +17,8 @@
  * hooked digests equal all the pinned self-digest rows before it measures anything.
  *
  * THE MODE IS THE ORIGINAL'S (ADR-211 item 1). h2engine_stream::replay runs its
- * whole body with flush-to-zero on, through h2engine_stream::inMode. replay()
+ * whole body with flush-to-zero on and rounding to nearest, through
+ * h2engine_stream::inMode. replay()
  * here runs ITS whole body through the same inMode, so the two cannot set the
  * mode differently, and both are counted in the same tally
  * (h2engine_stream::gModeTally). replayBare() is the body with no mode of its
@@ -96,11 +97,15 @@ inline void replayBare(const Scenario& sc, std::vector<double>& out, horde2::eng
 }
 
 // THE hooked replay: the body above with flush-to-zero on over the whole of it,
-// exactly as h2engine_stream::replay runs its own.
+// exactly as h2engine_stream::replay runs its own. Like it, it offers its first
+// clean replay to control ROUND (h2engine_stream::keepFirstClean), which makes
+// that script again through h2engine_stream::replay from hosts in other rounding
+// modes: a probe that only ever replays through the hook still has a row for it.
 template <class Around>
 inline void replay(const Scenario& sc, std::vector<double>& out, horde2::engine::EventLog* log, ReplayInfo* info, Around&& around,
                    uint64_t* calls = nullptr) {
   h2engine_stream::inMode([&] { replayBare(sc, out, log, info, around, calls); });
+  h2engine_stream::keepFirstClean(sc, 0, out);
 }
 
 // What the walk saw of the stream's frame. A probe judges nothing unless full().

@@ -7865,6 +7865,32 @@ recommendation that was on the table.
 `h2/`); the fuzz's thresholds; whether a pre-limiter level near 21 on a full-velocity chord, and a
 held note at zero sustain that never frees its voice, are acceptable engine behaviour.
 
+## ADR-214 — RULED by the human: the lab load check's time limit is 120 seconds (B448, 2026-10-12)
+
+**Ruling.** The human, 2026-10-12, to the lead's recommendation to raise the limit from 20 to 120
+seconds: "Go with your recommendation".
+
+**Decision.**
+- `tools/labharness/lab_load_check.mjs` gives each lab script 120 seconds of wall-clock time, up
+  from 20.
+- The limit is a watchdog for a script that never returns. It is not a performance bar, and
+  nothing reads how long a lab took.
+
+**Why.** On 2026-10-11 and 2026-10-12 the check failed four times by the clock: three times for
+the lead and once for an agent, each time on `fx-chain-morph-lab-r3.html`, a file nobody had
+touched, and each time with the machine's load average between 50 and 150 because several agents
+were building and rendering. It passed when the load dropped. A gate that fails by load teaches
+its readers to re-run until green, and it blocked a records push that had nothing wrong with it.
+
+**This relaxes a gate, which is why it is the human's ruling.** What is given up: a lab script
+that takes between 20 and 120 seconds to load on a quiet machine is no longer caught here. No lab
+is near that today.
+
+**Two more checks read a clock and are NOT changed by this ruling:** the STATION lab check's
+cost-scaling row, which went red once under load on 2026-10-11, and `filter_fidelity_check`. The
+armor's rule is no stopwatch in `./verify`. They are listed on ROADMAP B448 for a ruling of their
+own.
+
 ## ADR-215 — RULED by the human: build first. A playable preview of horde 2 comes before the skeleton's rules, and new armor work waits (B458, B448, B398, 2026-10-12)
 
 **Ruling.** The human, 2026-10-12:
