@@ -24,6 +24,13 @@
  * to that launcher; the launcher also builds the default file list from
  * `git ls-files`, so an untracked HTML dropped into a lab tree is never executed.
  *
+ * THE TIME LIMIT is a watchdog for a lab script that never returns, not a
+ * performance bar. It was 20 s until 2026-10-12, and on a machine loaded by
+ * several agents a healthy lab took longer and the gate failed by the clock
+ * (three times in one day, on files nobody had touched). It is 120 s by the
+ * human's ruling (ADR-214): a hang is still caught, and load no longer decides
+ * the verdict.
+ *
  * Usage: node tools/labharness/lab_load_check.mjs [file.html ...]
  * Exit 1 if any lab throws.
  * WIRED: ./verify fast.
@@ -32,6 +39,8 @@ import './sandbox_guard.mjs';   // B446 W3b: re-runs this file under the permiss
 import { readFileSync } from 'node:fs';
 import { resolve, basename } from 'node:path';
 import vm from 'node:vm';
+
+const LOAD_TIMEOUT_MS = 120000;   // a watchdog, not a bar: see THE TIME LIMIT above (ADR-214)
 
 // The sweep's directories live in sandboxed_node.mjs (LAB_HTML_DIRS), which owns
 // the tracked-file list. History of why each is swept:
@@ -102,7 +111,7 @@ function checkFile(file) {
   for (let i = 0; i < blocks.length; i++) {
     try {
       new vm.Script(blocks[i], { filename: `${basename(file)}#script${i + 1}` })
-        .runInContext(ctx, { timeout: 20000 });
+        .runInContext(ctx, { timeout: LOAD_TIMEOUT_MS });
     } catch (e) {
       // Report the lab's own failures. A stub can never satisfy every DOM
       // contract, so errors that are clearly the stub's fault are not the
