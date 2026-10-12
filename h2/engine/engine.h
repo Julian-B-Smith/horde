@@ -1599,14 +1599,14 @@ class Engine {
       if (glideOn) S.fRun[i] += gCoefS * (S.eff[i] - S.fRun[i]);
       if (!(v.pv && m.hold)) {   // a waiting member's phase stands still
         const double f = glideOn ? S.fRun[i] : S.eff[i];
+        const double dph = js::max(0, f) / sr;   // one value, read by the phase and by D6's sum below
         if (!H2E_SKIP(kStagePhase)) {
-          const double dph = js::max(0, f) / sr;
           double ph = S.phase[i] + dph;
           ph -= std::floor(ph);
           S.phase[i] = ph;
         }
         m.dph = js::max(0, f) / (sr * os);
-        if (v.fhInit) v.fhAdv += js::max(0, f) / sr;   // ADR-216 D6: what the frame advances by (holdFrame)
+        if (v.fhInit) v.fhAdv += dph;   // ADR-216 D6: what the frame advances by (holdFrame)
       }
     }
     if (++m.j >= os) m.j = 0;
