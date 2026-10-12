@@ -223,10 +223,11 @@ function composedRows(presets) {
   // ADR-216 D6 (B461), the frame hold ON. Appended AFTER every earlier row, so no
   // earlier row's place in the stream or in the self-digest references moves.
   // First five of the six bench presets in its scope (a frame on, or spread law 3).
-  // The sixth, Breathing pad, is left out on the lead's word (2026-10-12): the bank's
-  // pad is about to be edited in another PR, and a row built on it would move with
-  // it. 'D6 a framed two-blade pad' below carries the settings its click depends on,
-  // written out here, so no bank edit reaches it.
+  // The sixth, Breathing pad, is left out under the lead's amendment to this work's
+  // brief (2026-10-12): ADR-217 orders an edit of the bank's pad, which lands in
+  // another PR, and a row built on it would move with it. 'D6 a framed two-blade pad'
+  // below carries the settings its click depends on, written out here, so no bank
+  // edit reaches it.
   for (const name of ['Swarm-linked spread', 'Anchored horde', 'Smear and strike', 'Drift and lock', 'Cross-mod shimmer']) {
     const p = preset(name);
     C.push({ name: `C/D6 :: ${name}`, sr: SR, seed: 0xB461, cmds: [...presetCmds({ ...p.params, frameHold: 1 }), ...PHRASES.chord(notesFor(p.category))] });

@@ -426,7 +426,7 @@ substring test for `h2/cores/` or `h2/engine/`, never narrower than the original
 Self-cases cover `"h2/cores/x.h"`, `<h2/engine/engine.h>`, `"../h2/engine/engine.h"`
 and a tab-separated include.
 
-## Scenario families (as built: 563 scenarios)
+## Scenario families (as built: 567 scenarios)
 
 All at 48 kHz in 128-sample blocks unless a row says otherwise. The seeds are per
 family.
@@ -436,7 +436,7 @@ family.
 2. **E/, the 12 B366 lab presets** × chord, repeat and arp (+ legato for the 2
    mono ones): 38. They are read from the lab's `ENV_PRESETS` text.
 3. **T/, phase 1a's 125 blade rows**, re-run through the composed engine.
-4. **C/, 139 composed rows:**
+4. **C/, 143 composed rows:**
    - **VL 3:** repeat, tiers 2 and 3, tier 1.
    - **CAP 7:**
      - the cull with the cap lowered mid-phrase while three tails release and the
@@ -470,18 +470,26 @@ family.
    - **SW 24:** the swarm's own parameters.
    - **A2 6.**
    - **OS 1.**
-   - **D6 20** (ADR-216, B461; `frameHold` 1), appended after every earlier row:
+   - **D6 24** (ADR-216, B461; `frameHold` 1), appended after every earlier row:
      - five of the six bench presets in its scope (a frame on, or spread law
        3): Swarm-linked spread, Anchored horde, Smear and strike, Drift and lock,
-       Cross-mod shimmer. Breathing pad is left out on purpose (the bank's pad is
-       being edited in another PR); `a framed two-blade pad` carries the settings
-       its click depends on, written out in the renderer;
+       Cross-mod shimmer. Breathing pad is left out on purpose (ADR-217 orders an
+       edit of the bank's pad, in another PR); `a framed two-blade pad` carries the
+       settings its click depends on, written out in the renderer;
      - the centre undefined at K 0 (the frame holds, then turns at its rate); a
        splayed swarm; a locked swarm; spread law 3; blade 2 alone on the frame;
      - switched on and off mid-note; a mono retrigger on a sounding voice;
        members waiting on onset scatter; N changed mid-note; frequency glide
        under drift and retune; under the cull (one render call per sample);
-     - 37-sample blocks, 44.1 kHz, and os 1.
+     - 37-sample blocks, 44.1 kHz, and os 1;
+     - members that JOIN a held frame (the flag off at N 8, on at N 4, N back to 8,
+       in 100-sample blocks), and the same join met by a mono retrigger before any
+       tick: a joined member's lead is set, not ramped;
+     - TWO MEMBERS, at detune 14 and 30. With two, every exit from a hold is half
+       a cycle to within a rounding, and the turn's direction is decided by it.
+       Both rows hold as written and miss on 2 of 30 renders with the note
+       frequencies moved 1 to 15 ULP (`--nudge`): they hold where the two libms
+       agree. A red on them after a toolchain change is that tie, not a port bug.
 
 ## Results (darwin-arm64, Apple clang 16, Node 24.10, `-O2 -ffp-contract=off`)
 
@@ -490,12 +498,12 @@ family.
 | P/ | 261 | 258, plus the 3 ring rows excluded (A2 item 1; all three hold) | 1.1e-12 | 9.9e-11 | 32.87% |
 | E/ | 38 | 38 | 1.9e-14 | 4.5e-13 | 46.33% |
 | T/ | 125 | 125 | 2.0e-12 | 1.4e-10 | 43.39% |
-| C/ | 139 | 139 | 2.1e-12 | 1.8e-10 | 34.45% |
+| C/ | 143 | 143 | 2.1e-12 | 1.8e-10 | 34.19% |
 
-The C/ row was re-measured on 2026-10-12 with D6's 20 rows (their own worst: rms
-4.1e-14, max-abs 1.2e-12; mean bit-exact 23.6%); the whole set's mean is 36.52%.
+The C/ row was re-measured on 2026-10-12 with D6's 24 rows (their own worst: rms
+4.1e-14, max-abs 1.1e-12; mean bit-exact 23.9%); the whole set's mean is 36.44%.
 
-- Events and readouts are identical on all 563, the ring rows included.
+- Events and readouts are identical on all 567, the ring rows included.
 - No scenario sets a key the engine lacks.
 
 **Before the ruling, not at parity under rule 1a: P/Starting points / Cross-mod
