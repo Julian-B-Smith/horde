@@ -24,7 +24,10 @@
  * register before, inside and after, and the SEMANTICS line prints what the bit
  * did to one subnormal RESULT and one subnormal INPUT on this CPU, so the meaning
  * of "on" is measured, not assumed. The probe itself is arm64 only (it reads
- * FPSR): on other architectures it refuses.
+ * FPSR): on other architectures it refuses. Since the human's ruling of
+ * 2026-10-12 the same switch also forces round-to-nearest, on AND forced off,
+ * so every scope below rounds to nearest whatever mode this process was entered
+ * in, and what differs between two scopes is flush-to-zero alone.
  *
  * THE SCOPES. Each row is replayed once per scope:
  *   thread  the mode on from before the engine is constructed to after the
@@ -326,7 +329,7 @@ int main(int argc, char** argv) {
   }
   std::printf("FLAGS  %s build (context): %d of %d rows raised UFC or IDC with FZ on (the calls scope); %d of %d raised UFC with FZ off\n", kBuild, flagOn, n,
               flagOff, n);
-  // The pinned-scope replays went through the one mode scope: its two controls, over those n replays.
+  // The pinned-scope replays went through the one mode scope: its three controls, over those n replays.
   if (!h2engine_stream::printModeControls(static_cast<uint64_t>(n))) {
     std::printf("h2_engine_fz_probe: the mode controls FAILED (%s build); NOTHING MEASURED\n", kBuild);
     return 1;

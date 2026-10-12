@@ -54,9 +54,14 @@
  * whole replay give the same bits on all 543 rows, in both builds. Against the
  * mode off, 8 rows differ, each sample by less than 4.1e-308 (a subnormal that
  * became zero): tools/h2_engine_fz_probe.py re-measures both statements.
- * THE PINNED BITS ALSO NEED ROUND-TO-NEAREST, which the switch does not set
- * (h2/flush_to_zero.h): the ROUND control below is red when a replay ran in any
- * other rounding mode.
+ * THE PINNED BITS ALSO NEED ROUND-TO-NEAREST, AND THE SAME SWITCH SETS IT (the
+ * human's ruling of 2026-10-12, which the lead records as ADR-213;
+ * h2/flush_to_zero.h). A host's rounding mode therefore cannot move a row.
+ * Measured on the keyed platform, 2026-10-12, with every replay of this tool
+ * entered rounding toward zero (a scratch copy; then upward, then downward): 543
+ * of 543 rows bit-identical to the references, in both builds. Until that ruling
+ * the switch left the mode to the host, and the same entry differed on all 543.
+ * The ROUND and WORD controls below hold it on every run.
  *
  * THE REFERENCES are h2/engine/selfdigest.<build>.<platform>.<compiler>.node<major>.txt,
  * keyed like the parity check's bit-exact floor: the platform and compiler (libm,
@@ -114,10 +119,19 @@
  *          nothing is red here, on platforms with no reference too, and never
  *          "bit-identical for the wrong reason". An architecture with no switch
  *          in h2/flush_to_zero.h does not compile.
- *   ROUND  (both builds, every platform; the same file's) every clean replay ran
- *          rounding to nearest, judged by arithmetic inside the switch; and that
- *          reading, taken under each of the four rounding modes a host can call
- *          in with, is true for nearest alone.
+ *   ROUND  (both builds, every platform; the same file's) the switch SETS
+ *          round-to-nearest. Every clean replay ran rounding to nearest, ties to
+ *          even, judged by arithmetic inside the switch. A host that calls in
+ *          rounding to nearest, toward zero, upward and downward each gets
+ *          nearest inside, its own mode reported by the switch, and its own
+ *          mode back afterwards. And the first row of this run is replayed
+ *          again from each of those hosts: through the switch it must give the
+ *          bits digested above, and with no switch each of the three other
+ *          modes must give other bits (so the row does depend on the mode).
+ *   WORD   (both builds, every platform; the same file's) the switch writes the
+ *          flush bits and the rounding field and no other bit of the control
+ *          word, from each of those four hosts as it came and with every other
+ *          field flipped; the word comes back bit for bit, also after a throw.
  *
  * COVERAGE (parity build, every run; B441 C3): the engine is built with
  * H2_ENGINE_KERNELS, which counts the member steps each specialised member kernel
@@ -493,9 +507,10 @@ int main(int argc, char** argv) {
   }
 #endif
 
-  // FZ and ROUND: the mode the digests above were taken under (header: MUST-FAIL
-  // CONTROLS). Judged everywhere: they need no reference. They run before the
-  // FAULT pass, so the replays they count are the n clean ones.
+  // FZ, ROUND and WORD: the mode the digests above were taken under, and the
+  // switch that set it (header: MUST-FAIL CONTROLS). Judged everywhere: they need
+  // no reference. They run before the FAULT pass, so the replays they count are
+  // the n clean ones.
   if (!h2engine_stream::printModeControls(static_cast<uint64_t>(n))) red++;
 
   // ULP: one sample one ULP up, mid-render; exactly that row red, by name. Judged

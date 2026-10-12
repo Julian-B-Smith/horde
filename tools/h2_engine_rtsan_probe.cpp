@@ -31,7 +31,7 @@
  * THE MODE (ADR-211 item 1). Both replays run with flush-to-zero on over the
  * whole replay, through the one scope in tools/h2_engine_stream.h, as the horde
  * 2 shell will run the engine. Two things follow here:
- *   - nothing is judged unless that file's two mode controls fired and every
+ *   - nothing is judged unless that file's three mode controls fired and every
  *     replay this process made, hooked or not, ran with flush-to-zero on and
  *     rounding to nearest. A probe that ran the engine in another mode reports
  *     "judged 0", which tools/h2_engine_rtsan_check.py reads as red;
@@ -145,10 +145,10 @@ int main(int argc, char** argv) {
                 plant ? (planted ? ", one malloc planted" : ", NOTHING PLANTED") : ", every one empty");
     return s.read == 1 && (!plant || planted) ? 0 : 2;
   }
-  // THE MODE (header): the two controls, over every replay made above (two per scenario).
+  // THE MODE (header): the three controls, over every replay made above (two per scenario).
   const bool modeHeld = h2engine_stream::printModeControls(static_cast<uint64_t>(s.read) * 2);
   std::printf("h2_engine_rtsan_probe: %s\n", modeHeld ? "every replay ran with flush-to-zero on and rounding to nearest, and the switch ran inside the realtime scope"
-                                                       : "the mode controls FAILED (see the two control lines): NOTHING is judged");
+                                                       : "the mode controls FAILED (see the three control lines): NOTHING is judged");
   if (!modeHeld) judged = 0;
   std::printf("h2_engine_rtsan_probe: stream header %ld, END %s, %d scenarios read\n", s.headerN, s.ended ? std::to_string(s.endN).c_str() : "ABSENT", s.read);
   std::printf("h2_engine_rtsan_probe: %llu render calls and %llu event calls inside the realtime scope\n",
