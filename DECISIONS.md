@@ -7977,3 +7977,23 @@ correct with a measurement, reported):
 **What this does not change.** B460 (the spread law's steps under drift) stays open and unchased.
 The acceptance rows of B459 and B461 stand; where they speak of digests moving, that now happens
 in the two default PRs and not in the building PR.
+
+## ADR-217 — RULED by the human: the bank's Breathing pad plays locked, at detune 0 and coupling -0.3 (B462, 2026-10-12)
+
+**Ruling.** The human, 2026-10-12, after hearing the preset click in the lab (B461): "I want the
+breathing pad preset to have detune set to zero and coupling set to -0.3".
+
+**Decision.** In `reference/scalpel/data/presets.json` the preset "Breathing pad" changes two
+values: `detune` 14 to 0, and `K` 0.45 to -0.3. Nothing else in the bank changes. The bank is a
+protected reference and a golden pinned by content, so this is a spec change made on the human's
+word, and its pins are moved on purpose (ADR-187 item 3): the pin in `h2/README.md`, the bank's
+row in `docs/port/h2-engine.md`, the ORACLE line of both self-digest files, and the digest rows of
+the scenarios built on this preset. The harness's copy (`h2/harness/patches.json`,
+`ledger/breathing-pad`) is regenerated from the bank.
+
+**What this does not change.**
+- The inline preset list in `reference/scalpel/prototype/scalpel-bench.html` is the prototype as
+  its packet shipped it, and it stays.
+- B461 stands: the click is in the engine, and any patch with detuned members can meet it. Its
+  check now names the settings it reproduces the click with, so that it does not lean on this
+  preset staying as it was.
