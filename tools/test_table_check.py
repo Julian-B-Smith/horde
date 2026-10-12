@@ -113,7 +113,12 @@ def wired_checks():
     read that explanation as the wiring."""
     v = VERIFY.read_text(encoding="utf-8")
     lab = set(re.findall(r"node tools/labharness/([a-z_0-9]+)\.mjs", v))
-    return known_oracles() | lab
+    # `node tools/name_check.mjs` joined 2026-10-12 (B448 P3): the first check written as a
+    # top-level .mjs was the parameter fuzz, and neither this parse nor the census below saw
+    # it, so its WIRED claim was cross-checked by nothing (a critic deleted its verify line
+    # in a scratch clone and every gate stayed green).
+    top = set(re.findall(r"node tools/([a-z_0-9]+_check)\.mjs", v))
+    return known_oracles() | lab | top
 
 
 def declarations(head):
@@ -179,7 +184,7 @@ def declaration_rule():
     # to the rule that exists to make every check declare itself. Found when an
     # agent's new check sat UNWIRED and the census count did not move.
     files = (sorted(ROOT.glob("tools/*_check.cpp")) + sorted(ROOT.glob("tools/*_check.py"))
-             + sorted(ROOT.glob("tools/labharness/*_check.mjs")))
+             + sorted(ROOT.glob("tools/labharness/*_check.mjs")) + sorted(ROOT.glob("tools/*_check.mjs")))
     bad, n_unwired, n_wired = [], 0, 0
     for f in files:
         rel = f.relative_to(ROOT).as_posix()
