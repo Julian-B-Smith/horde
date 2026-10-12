@@ -17,6 +17,10 @@
 
 #include "adapter_composed.h"
 #include "control_fuzz.h"
+// [control includes: P4 invariance matrix]
+//
+// [control includes: P6 soak]
+//
 #include "harness.h"
 
 namespace horde2::harness {
@@ -42,6 +46,14 @@ inline std::unique_ptr<Adapter> makeFuzzNanControl() { return std::make_unique<F
 inline std::unique_ptr<Adapter> makeFuzzNanTailControl() { return std::make_unique<FuzzPlantControl>(FuzzPlantControl::kNanTail); }
 inline std::unique_ptr<Adapter> makeFuzzHangControl() { return std::make_unique<FuzzPlantControl>(FuzzPlantControl::kHang); }
 inline std::unique_ptr<Adapter> makeFuzzLateControl() { return std::make_unique<FuzzPlantControl>(FuzzPlantControl::kLate); }
+// Each later package adds its makers under its own marker; the blank comment lines keep
+// parallel pull requests from colliding.
+//
+// [control makers: P4 invariance matrix]
+//
+//
+// [control makers: P6 soak]
+//
 
 inline constexpr AdapterRow kAdapters[] = {
   {"composed", false, &makeComposedAdapter},
@@ -58,6 +70,11 @@ inline constexpr AdapterRow kAdapters[] = {
   {"control/fuzz-nan-tail", true, &makeFuzzNanTailControl},
   {"control/fuzz-hang", true, &makeFuzzHangControl},
   {"control/fuzz-late", true, &makeFuzzLateControl},
+  // [control rows: P4 invariance matrix]
+  //
+  //
+  // [control rows: P6 soak]
+  //
 };
 
 // Null for an id the table does not have.

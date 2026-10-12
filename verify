@@ -852,7 +852,7 @@ full() {
     echo "verify[full]: h2_engine_parity_check FAILED" >&2; grep -v '^PASS  rms' "$h2e" >&2
     rm -f $h2tmp; return 1; }
   grep '^WARNING: bit-exact floor' "$h2e" >&2
-  grep -E '^(EXCL|SKIP|WARNING|OK   h2_engine_parity|NOTE h2_engine_parity|PASS  (STREAM|PIN|FLOOR|BITEXACT|control X1|control BF))|^        (onset profile|red: |margin sweep|\(ring, not judged\))' "$h2e"
+  grep -E '^(EXCL|SKIP|WARNING|OK   h2_engine_parity|NOTE h2_engine_parity|PASS  (STREAM|PIN|FLOOR|BITEXACT|control X1|control BF|control FZ|control ROUND))|^        (onset profile|red: |margin sweep|\(ring, not judged\))' "$h2e"
   tail -1 "$h2e"
   python3 tools/parity_floor_check.py --stream "$build_dir" h2_engine_parity_check "$h2s" || {
     echo "verify[full]: h2_engine_parity_check scenario-floor controls FAILED" >&2; rm -f $h2tmp; return 1; }
@@ -902,7 +902,15 @@ full() {
   # lines between markers keep parallel pull requests from colliding.
   #
   # [harness gate: P3 parameter fuzz]
-  node tools/h2_fuzz_check.mjs --bin "$build_dir/h2_harness_render" || { echo "verify[full]: h2 fuzz FAILED" >&2; return 1; }
+  # Judged twice: by exit code, and by its last line, which must say GREEN with a case count
+  # above zero. A run that printed nothing once read as a pass (found 2026-10-11).
+  h2fz="$(mktemp)"
+  node tools/h2_fuzz_check.mjs --bin "$build_dir/h2_harness_render" > "$h2fz" 2>&1 || {
+    cat "$h2fz" >&2; rm -f "$h2fz"; echo "verify[full]: h2 fuzz FAILED" >&2; return 1; }
+  cat "$h2fz"
+  tail -1 "$h2fz" | grep -Eq '^h2_fuzz_check: GREEN \([1-9][0-9]* cases judged' || {
+    rm -f "$h2fz"; echo "verify[full]: h2 fuzz printed no GREEN verdict line with a case count" >&2; return 1; }
+  rm -f "$h2fz"
   #
   #
   # [harness gate: P4 invariance matrix]

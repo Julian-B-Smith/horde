@@ -7817,3 +7817,50 @@ code-owner review" stays off until agent PRs come from it.
 
 **Evidence.** The probe, in PR #1047: 543 of 543 scenarios judged, 0 violations; its planted
 allocation is reported on every run; a run that judges fewer than 543 is red.
+
+## ADR-213 — RULED by the human: the clamp rule's reading, flush-to-zero as a non-divergence, round-to-nearest in the switch, the fuzz's level check, the engine's unranged keys, and loupe's configure (B448, B422, 2026-10-12)
+
+**Ruling.** The human, 2026-10-12, merged PRs #1057, #1058 and #1059 and replied to the lead's
+list of open questions: "Merged all; go with your recommendations". Each item states the
+recommendation that was on the table.
+
+**Decision.**
+1. **The clamp rule's control is read as built.** The phase 2 proposal's control for package P14
+   says "a tagged boundary guard is green". It means: green once the human approves it, with no
+   root-cause trace needed. It does not mean green with no approval. A tag picks which approval is
+   needed and never replaces one, because a tag that made a guard uncounted would let an agent
+   quiet the ratchet by itself.
+2. **Its remaining blind spot is an accepted, stated limit.** One change that tags an old guard and
+   adds a new untagged one gives the same counts as an honest new tagged guard, and no rule on
+   counts can separate them. The approval prints every guard line in the file and how many the
+   change could hide; the human reads them. Closing it would need the ledger to record which lines
+   are guards, and that is not built.
+3. **Flush-to-zero is a ruled non-divergence** (settles the condition of ADR-211 item 1).
+   - Flush-to-zero is part of the floating-point environment the shell is ruled to run the engine
+     in, as `-ffp-contract=off` is part of its build. No scenario leaves the parity bound (the
+     largest difference is 4.09e-308 against a bound of 1e-6), so under ADR-187 item 5 it is not a
+     divergence and no ledger entry is owed.
+   - For ADR-187 item 7, which says a golden is re-baselined only through a divergence record:
+     ADR-211 item 1 and this item stand as the record for the one re-pin of the eight rows.
+   - The exception stays single. The reference files' header line is not edited; the digest tool's
+     header cites this ruling in place of its "open question" sentence.
+4. **The switch forces round-to-nearest inside the engine,** restores the host's control word
+   after, and reports the mode the host arrived with, so the shell can count the entries where it
+   was something else. Measured before the ruling: entered rounding toward zero, 484 of 543
+   scenarios leave the parity bound. In work (branch `h2-switch-rounding`).
+5. **The fuzz's level check stays a runaway alarm.** Its bands hang off the loudest chord measured,
+   so an engine twice as loud on every patch would pass. That is accepted for the fuzz. A level
+   regression is a different kind of check and belongs to the per-patch measurements (phase 2
+   package P9), which hold each reference patch to its own band. Row R6 stays partial.
+   - The thresholds table is NOT ratified by this ruling. It waits until the nightly deep run has
+     run once.
+6. **loupe's brief 002 is answered: accept, with its counter-design 1.** Its crawl may run `cmake`
+   configure in a horde session, with the configure command horde names, in a scratch directory
+   outside the tree. The reply is `integrations/loupe/response-002.md`.
+7. **Ranges are to be declared for the 21 engine keys that have none,** so the fuzz reaches them.
+   How the declared table gains them is being worked out; if it needs an edit to a pinned golden,
+   that edit comes back to the human first.
+
+**Not ruled here.** The one-time re-baseline for the clamp rule's wider patterns (75 lines under
+`h2/`); the fuzz's thresholds; whether a pre-limiter level near 21 on a full-velocity chord, and a
+held note at zero sustain that never frees its voice, are acceptable engine behaviour.

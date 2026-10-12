@@ -23,8 +23,8 @@
       "id": "R3",
       "title": "NaN, Inf and denormals",
       "status": "partial",
-      "gates": ["denormal_check", "hostile_events_check", "stability_check", "nan_latch_check"],
-      "gaps": "The legacy output guard now latches and counts (nan_latch_check; hostile_events_check reads the real plugin's counter), but the count reaches no user-visible surface yet. horde 2's engine has no output guard: it ends in tanh, and a NaN passes through. Flush-to-zero is ruled ON for the horde 2 shell from its first build (ADR-211; measured, 8 of 543 engine digests change, each sample by less than 4.1e-308), but it is set nowhere yet and the eight rows are not re-pinned; legacy keeps snapping denormals in software in the swarm and sub cores. The horde 2 shell's latch-and-report guard and its user-visible count are ruled (ADR-209 item 7) and wait on B398.",
+      "gates": ["denormal_check", "hostile_events_check", "stability_check", "nan_latch_check", "h2_fuzz_check"],
+      "gaps": "The legacy output guard now latches and counts (nan_latch_check; hostile_events_check reads the real plugin's counter), but the count reaches no user-visible surface yet. horde 2's engine has no output guard: it ends in tanh, and a NaN passes through. Flush-to-zero is ruled ON for the horde 2 shell from its first build (ADR-211; measured, 8 of 543 engine digests change, each sample by less than 4.1e-308), and since 2026-10-12 every gate that replays the engine runs it with the mode on, set in one shared switch (h2/flush_to_zero.h) inside the stream replay, with a must-fire line proving it per gate; the eight rows are re-pinned. No shell exists to set it for a host, the switch has never run on Windows, and it does not yet fix the rounding mode (ruled, ADR-213; in work). Legacy keeps snapping denormals in software in the swarm and sub cores. The parameter fuzz (h2_fuzz_check, verify full) counts non-finite samples over the engine's ranged keys: none in 12,000 measured cases. The horde 2 shell's latch-and-report guard and its user-visible count are ruled (ADR-209 item 7) and wait on B398.",
       "tracked_by": "B448",
       "tripwire": "NaN events: 0, plus the guard's trip count"
     },
@@ -50,8 +50,8 @@
       "id": "R6",
       "title": "Numerical stability at the edges",
       "status": "partial",
-      "gates": ["notefuzz_check", "hostile_events_check", "kstuck_probe"],
-      "gaps": "Note-stream fuzzing, hostile-event checks and a high-coupling lifecycle probe exist. No property-based fuzz of the full parameter space with automation sweeps, modulation stacking and output-bound assertions.",
+      "gates": ["notefuzz_check", "hostile_events_check", "kstuck_probe", "h2_fuzz_check"],
+      "gaps": "Legacy: note-stream fuzzing, hostile-event checks and a high-coupling lifecycle probe. horde 2's engine: h2_fuzz_check (verify full; a deep run in the nightly job list) draws seeded cases over the 112 keys the declared table gives a range, with sweeps and stacked changes, and judges every sample for non-finite values, growth, and silence after release; planted faults (blow-up, slow growth, plateau, burst, NaN, hang, misread) must be found on every run. Not yet: 21 engine keys have no declared range and are never fuzzed (printed as a hole on every run); the level bands are a runaway alarm and would pass an engine twice as loud on every patch, so level regression waits on the per-patch measurements (phase 2 package P9); growth that only appears during a sweep is not followed; the thresholds are proposed, not ratified; the nightly workflow is not installed, so the deep run has never run.",
       "tracked_by": "B448",
       "tripwire": "Param fuzz: N runs, 0 failures"
     },
@@ -112,11 +112,10 @@
     {
       "id": "S1",
       "title": "Symptom clamping",
-      "status": "hole",
-      "gates": [],
-      "gaps": "No check flags a new clamp, isfinite guard or limiter in DSP code that lacks a root-cause trace. Review only.",
+      "status": "partial",
+      "gates": ["weakening_check"],
+      "gaps": "weakening_check counts isfinite, isnan and std::clamp in src/ and h2/ and is red on any increase the human has not approved. Since 2026-10-12 that approval must cite a trace with a root-cause section that names the file, and the rule is re-checked on every run; a guard tagged as boundary validation or a latching output guard still needs the approval but no trace (ADR-213). Not yet: min/max nests, ternary and if-assign clamps, tanh-style limits and home-made clamp helpers are unseen until the human approves a one-time re-baseline of 75 lines under h2/; a change that tags an old guard and adds a new untagged one reads the same as an honest new tagged guard, so the approval prints every guard line and the human must read them; a ledger edited by hand skips the approval path",
       "tracked_by": "B448",
-      "expires": "2027-01-31",
       "tripwire": "New DSP clamps without a root-cause trace: 0"
     },
     {

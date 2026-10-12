@@ -39,6 +39,26 @@ Specifics of any unfixed finding stay in the gitignored `local/security/`.
    check runs.
 3. Update `gaps` and `status`, then run `python3 tools/armor_dashboard.py` and commit both files.
 
+## Approve a new guard in DSP code
+
+`weakening_check` counts `isfinite`, `isnan` and `std::clamp` in `src/` and `h2/` (category
+`dsp_guard`) and is red on any increase. Only the human approves one, and the approval must say
+why the guard is not hiding a fault:
+
+- **An ordinary guard needs a root cause.** `--approve dsp_guard FILE REF` is refused unless REF
+  cites `traces/<name>.md`, that file names FILE, and it has a section under a heading that starts
+  "Root cause" with text in it. The same rule is re-checked on every `./verify` run for every
+  entry that is not an initial-baseline entry, so a deleted trace or a hand-edited ledger line
+  turns the check red.
+- **A boundary check or a latching output guard needs no trace, and still needs the approval.**
+  Tag the guard's own line, in a comment: `// dsp_guard: boundary` or `// dsp_guard: latch`. It is
+  then counted as `dsp_guard_tagged`. A tag never makes a guard uncounted (ADR-213).
+- **Read every line the approval prints.** The tool cannot tell a newly tagged guard from an old
+  guard tagged to make room for a new untagged one, so `--approve dsp_guard_tagged` prints every
+  guard line in the file, tagged and untagged, and how many the change could be hiding.
+- When `dsp_guard_tagged` first appears in the ledger, regenerate the dashboard
+  (`python3 tools/armor_dashboard.py`).
+
 ## Retire a hole
 
 Land a gate for it, list the gate, set the status to `partial` (or `guarded` if nothing is left

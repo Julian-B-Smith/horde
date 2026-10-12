@@ -15,6 +15,8 @@ holds a C or C++ file, tracked or new-and-not-ignored (`ls-files -co
 --exclude-standard`; a brand-new directory is exactly the case). Nobody has to
 remember to list one. Then, against docs/armor/engines.json:
   UNENROLLED  a found directory has no registry entry.
+  TOPLEVEL    a code file sits directly in h2/ and TOP_LEVEL_SUPPORT does not name it, or
+              names a file that is gone.
   STALE       a registry entry names a directory that holds no code.
   SHAPE       an entry is malformed: an unknown kind, a duplicate, an engine or
               module with no id or adapter, an exemption with no reason, or a
@@ -101,10 +103,26 @@ def list_h2_files(cwd):
     return sorted(set(files)), None
 
 
+# Code files that sit directly in h2/, by name. The level used to be skipped whole, so a new
+# engine dropped there was seen by nothing (a critic planted one, 2026-10-11). A file here is
+# support code that every unit may include and that is no engine or module itself; anything
+# else directly in h2/ is red until it moves into a unit or is entered here with its reason.
+TOP_LEVEL_SUPPORT = {
+    "h2/flush_to_zero.h": "the flush-to-zero switch (ADR-211): floating-point environment, no engine or module",
+}
+
+
 def units_of(files):
     """The directories under h2/ that directly hold C or C++ code."""
     return sorted({posixpath.dirname(f) for f in files
                    if posixpath.splitext(f)[1] in CODE_EXTS and posixpath.dirname(f) != "h2"})
+
+
+def stray_top_level(files):
+    """Code files directly in h2/ that TOP_LEVEL_SUPPORT does not name."""
+    return sorted(f for f in files
+                  if posixpath.splitext(f)[1] in CODE_EXTS and posixpath.dirname(f) == "h2"
+                  and f not in TOP_LEVEL_SUPPORT)
 
 
 def load_model(cwd):
@@ -176,6 +194,13 @@ def judge(model):
                 fails.append(f"SHAPE: {path} is entered as `harness`; only {HARNESS_DIR} is the harness")
         else:
             fails.append(f"SHAPE: {path} has kind {kind!r}; the kinds are {', '.join(ENROLLED_KINDS + EXEMPT_KINDS)}")
+
+    for f in stray_top_level(files):
+        fails.append(f"TOPLEVEL: {f} is code directly in h2/ that nothing names. Move it into a unit, or "
+                     f"enter it in TOP_LEVEL_SUPPORT with the reason it is support code and no engine")
+    for f in sorted(TOP_LEVEL_SUPPORT):
+        if f not in files:
+            fails.append(f"TOPLEVEL: {f} is named in TOP_LEVEL_SUPPORT and does not exist (a stale entry)")
 
     for d in found:
         if d not in by_path:
@@ -249,7 +274,7 @@ def clean_model():
                '  {"composed", false, &makeComposedAdapter},\n  {"control/silent", true, &makeSilentControl},\n};\n',
     }
     return {
-        "files": sorted(list(texts) + ["h2/README.md", "h2/harness/patches.json"]),
+        "files": sorted(list(texts) + ["h2/README.md", "h2/harness/patches.json"] + sorted(TOP_LEVEL_SUPPORT)),
         "texts": texts,
         "registry": {"units": [
             {"path": "h2/engine", "kind": "engine", "id": "composed", "adapter": "h2/harness/adapter_composed.h"},
@@ -333,6 +358,7 @@ def plants(model):
 
     return [
         ("a new engine directory at the top level", new_dir("h2/newengine/newengine.h"), "UNENROLLED", "h2/newengine "),
+        ("a new code file directly in h2/", new_dir("h2/rogue_engine.h"), "TOPLEVEL", "h2/rogue_engine.h "),
         ("a new directory under cores/", new_dir("h2/cores/newcore/core.h"), "UNENROLLED", "h2/cores/newcore "),
         ("a new module two levels down", new_dir("h2/modules/filter/filter.cpp"), "UNENROLLED", "h2/modules/filter "),
         ("the engine's entry deleted", drop_entry, "UNENROLLED", path + " "),
