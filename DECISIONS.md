@@ -7932,3 +7932,48 @@ the first build and two of those rules wait on decisions that were never brought
 **What this does not change.** ADR-197 remains law for a release: every risk row is a gate or a
 visible hole before anything ships to anyone else. This ruling changes the ORDER of work, not the
 bar for a release.
+
+## ADR-216 — RULED by the human: the blade's frame never jumps, and a taken voice fades; both as ledgered divergences from the SCALPEL oracle (B461, B459, B458, 2026-10-12)
+
+**Ruling.** The human, 2026-10-12, after the first playtest of the preview (B458):
+- On the click inside one held note: "watching the phase circle, it appears to be where the voices
+  cross each other ... The clicking stops when I turn detune off". The lead measured it (B461).
+- To the lead's three proposals (reinstall the preview at os 1; fix the frame, B461; fade a taken
+  voice, B459, in the same pass): "Yes to all three; go with your recommendations".
+
+**Decision.**
+1. **The frame never jumps (B461, divergence D6, flag `frameHold`).** Today a member's blade sits
+   at `c + lead`, and `lead` is measured from psi, the angle of the summed phase vectors. That
+   angle is undefined where the order parameter R is zero, and it swings there. Under D6 each
+   voice keeps its own frame angle. Every 32-sample tick the frame advances by the members' mean
+   rate, then moves toward the measured psi by `g(R)` of the difference, where g is 0 below a
+   lower R and 1 above an upper R, and no faster than a stated rate in cycles per second. Where
+   the swarm is locked the frame equals the measured psi, as today. A member's lead reaches the
+   blade as a ramp across the tick, never as a step.
+2. **A taken voice fades (B459, divergence D7, flag `stealFade`).** When a poly note-on must take
+   a voice whose envelope is above the engine's faded threshold (1e-3), the old sound fades over a
+   stated length in seconds, and the new note starts from silence when the fade ends. It is late
+   by that length, on a steal only.
+3. **Both follow ADR-187 A1.** Each is a flag in the C++ engine and in the composed JS engine,
+   entered in `docs/port/divergences.json`, both positions built and parity-checked. The building
+   PR leaves both OFF, so no pinned digest moves in it. Turning each ON by default is one PR per
+   divergence. The lab gets one toggle per divergence. The prototype under `reference/` is
+   protected and stays as it is.
+4. **The preview plays at os 1 (ADR-191 applied),** and sets both flags ON as soon as they exist,
+   so the human hears the fixes without waiting for the default PRs.
+
+**Decided by the lead under that delegation** (each is a constant or a rule the implementer may
+correct with a measurement, reported):
+- D6: g rises linearly from R 0.05 to R 0.25; the frame's correction is limited to 8 cycles per
+  second; at a note's start the frame is the measured psi and the leads are set, not ramped.
+- D7: the fade is 0.005 s and has its own constant. While a voice fades toward a waiting note:
+  - it counts as HELD by that note, so tiers 1 and 2 never pick it;
+  - a note-off for the waiting note is remembered: the note starts, then releases at once;
+  - a retune reaches the waiting note; a panic cancels it;
+  - if tier 3 picks the voice again, the newer note replaces the waiting one and the fade is
+    not restarted.
+  Mono and legato are untouched. A voice below the faded threshold restarts at once, as today.
+
+**What this does not change.** B460 (the spread law's steps under drift) stays open and unchased.
+The acceptance rows of B459 and B461 stand; where they speak of digests moving, that now happens
+in the two default PRs and not in the building PR.
