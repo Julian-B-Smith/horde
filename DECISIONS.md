@@ -7890,3 +7890,45 @@ is near that today.
 cost-scaling row, which went red once under load on 2026-10-11, and `filter_fidelity_check`. The
 armor's rule is no stopwatch in `./verify`. They are listed on ROADMAP B448 for a ruling of their
 own.
+
+## ADR-215 — RULED by the human: build first. A playable preview of horde 2 comes before the skeleton's rules, and new armor work waits (B458, B448, B398, 2026-10-12)
+
+**Ruling.** The human, 2026-10-12:
+- "I want to make some real progress soon toward being able to test things out myself. … I worry
+  that we've gone on for weeks digging deeper into debugging and security and harness tightening
+  and I haven't seen any visible movement toward 1.0. Anything is better than nothing, and I need
+  us to clear some of these dependencies so we can make headway."
+- "At a certain point we need to accept that 1.0 will be imperfect and that it just needs to be
+  built."
+- To the lead's proposal of a playable preview shell built before the skeleton's rules: "let's set
+  a course for tomorrow; I would like to test in Ableton and then work through a few labs".
+
+**What the record showed.** A rough sort of the 253 pull requests merged from 2026-09-28 to
+2026-10-12, by title: in the week to 2026-10-04, 35 were design labs and 20 the engine port; from
+2026-10-08 to 2026-10-12, 40 were gates, armor, security or harness, 4 were labs and none moved the
+engine or anything the human can play. horde 2's engine exists in C++ at parity with its reference;
+its plugin shell (B398) had never been started, because ADR-186 §5 puts the skeleton's rules before
+the first build and two of those rules wait on decisions that were never brought to the human.
+
+**Decision.**
+1. **A playable preview of horde 2 is built now (B458).** A thin plugin around the existing C++
+   engine: MIDI in, stereo out, every ranged engine parameter exposed to the host, no custom GUI,
+   under its own identity so it installs beside the legacy plugin.
+2. **This departs from ADR-186 §5 on purpose, for the preview only.** The generated parameter
+   lockfile, the state schema with migrations, the seam readiness gate, history and presets are
+   NOT required of the preview. They are owed before the first RELEASE of horde 2, not before its
+   first sound. The preview makes no promise that a saved project opens in a later build, and its
+   name and its state say so.
+3. **A small safety floor stays,** because it costs little and protects the human's ears and
+   session: the flush-to-zero switch around the audio callback, a latching guard on non-finite
+   output, and no allocation on the audio thread.
+4. **New armor work waits until the preview plays.** Work already in flight finishes; nothing new
+   starts. Findings from that work become ROADMAP rows and are not chased now: the engine's
+   block-size dependence found by the invariance matrix, the fuzz's thresholds, the clamp rule's
+   re-baseline, declared ranges for the 21 unranged keys, the nightly workflow.
+5. **Critic passes are for product code,** not for test tooling.
+6. **1.0 will be imperfect.** A gate is built when a built thing needs it, not ahead of the thing.
+
+**What this does not change.** ADR-197 remains law for a release: every risk row is a gate or a
+visible hole before anything ships to anyone else. This ruling changes the ORDER of work, not the
+bar for a release.
