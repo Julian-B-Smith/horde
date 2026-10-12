@@ -7997,3 +7997,13 @@ the scenarios built on this preset. The harness's copy (`h2/harness/patches.json
 - B461 stands: the click is in the engine, and any patch with detuned members can meet it. Its
   check now names the settings it reproduces the click with, so that it does not lean on this
   preset staying as it was.
+
+**ADR-216 A1 — decided by the lead under ADR-216's delegation, after the critic's pass on the first build of D6 (2026-10-12).** Each item is a reading of the ruling or a constant, and none changes what the human ratified.
+1. **The frame's advance is measured, not predicted.** "The members' mean rate" is the mean of what the engine actually adds to each member's phase over the tick. No field holds a mean rate over a tick (the swarm retunes every 16 samples), and cross-modulation and feedback push the carrier's input, not the member's phase, so the measured sum is exactly the mean phase advance. One consequence: a member waiting on onset scatter advances by zero and is in the mean, so the frame lags the measured centre while members wait. The present law steps the same lead further there, so this is no regression.
+2. **The tracking fraction is in seconds** (charter: slew math is expressed in seconds). `g(R)` as ADR-216 writes it is the fraction per reference tick of 32 samples at 48 kHz. At a tick of length dt the fraction is `1 - (1 - g)^(dt / dtRef)`; g 0 gives 0 and g 1 gives 1 exactly.
+3. **Where the correction is whole and inside the rate limit the frame is ASSIGNED the measured centre,** because adding the difference back missed it by a rounding on most ticks, and "where the swarm is locked the frame equals the measured psi" is meant bit for bit.
+4. **A member that joins a held frame has its lead set, not ramped,** as at a note's start.
+5. **Spread law 3 reads the lead through `spread()`, as a step per tick.** It is the one exception to "never as a step", and it belongs to B460.
+6. **The ramp's share is taken at the end of each sample for the next,** because the oracle's render reads the lead with no hook before it.
+
+**Not decided here, and the human's:** what the frame does after a crossing (turn back at the rate limit, as built, or count a half-cycle flip of the centre as no change), and with it any tie rule; and the wording of B461's acceptance (2).
