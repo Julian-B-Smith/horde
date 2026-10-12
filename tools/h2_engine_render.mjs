@@ -220,6 +220,39 @@ function composedRows(presets) {
   row('A2 Quantized blade 2 Cut spread -1.5', { ...B2, N: 6, b2sp: 1, kspread2: -1.5, kq: 1 }, chord);
   // oversampling changed mid-note
   row('OS 2 -> 4 -> 1 mid-note', { ...B2 }, spliceAt(chord, [[30, ['set', 'os', 4]], [60, ['set', 'os', 1]]]));
+  // ADR-216 D6 (B461), the frame hold ON. Appended AFTER every earlier row, so no
+  // earlier row's place in the stream or in the self-digest references moves.
+  // First five of the six bench presets in its scope (a frame on, or spread law 3).
+  // The sixth, Breathing pad, is left out on the lead's word (2026-10-12): the bank's
+  // pad is about to be edited in another PR, and a row built on it would move with
+  // it. 'D6 a framed two-blade pad' below carries the settings its click depends on,
+  // written out here, so no bank edit reaches it.
+  for (const name of ['Swarm-linked spread', 'Anchored horde', 'Smear and strike', 'Drift and lock', 'Cross-mod shimmer']) {
+    const p = preset(name);
+    C.push({ name: `C/D6 :: ${name}`, sr: SR, seed: 0xB461, cmds: [...presetCmds({ ...p.params, frameHold: 1 }), ...PHRASES.chord(notesFor(p.category))] });
+  }
+  // ... then each path of the law alone. F is a framed, detuned swarm on an uneven
+  // placement (dist 2, seeded): on an even one with aligned starts the summed phase
+  // vector stays on the swarm's axis of symmetry, the centre flips by exactly half a
+  // cycle at R = 0, and which way the frame then turns is decided by a rounding.
+  const F = { ...B1, N: 5, frame: 1, detune: 40, dist: 2, seed: 77, frameHold: 1 };
+  const held = [on(45), on(52), blocks(300), off(45), off(52), blocks(20)];   // 0.8 s held: R passes through zero
+  row('D6 a framed two-blade pad', { ...B2, N: 6, frame: 1, phaseMode: 2, law: 4, driftRate: 0.1, bspread: 0.3, detune: 14, K: 0.45, A: 300, frameHold: 1 }, held);
+  row('D6 the centre undefined, K 0', { ...F, K: 0 }, held);
+  row('D6 a splayed swarm, K -.6', { ...F, K: -0.6 }, held);
+  row('D6 a locked swarm, K 1', { ...F, K: 1, detune: 10 }, chord);
+  row('D6 spread law 3', { ...F, frame: 0, law: 3, bspread: 0.3, wspread: 0.2, kspread: 1, K: 0.1 }, held);
+  row('D6 blade 2 on the frame, blade 1 off it', { ...B2, N: 5, frame: 0, frame2: 1, detune: 40, dist: 2, seed: 77, K: 0.1, frameHold: 1 }, held);
+  row('D6 switched on and off mid-note', { ...F, K: 0.1, frameHold: 0 }, spliceAt(held, [[40, ['set', 'frameHold', 1]], [200, ['set', 'frameHold', 0]]]));
+  row('D6 mono retrigger on a sounding voice', { ...F, K: 0.1, polyMode: 1 }, PHRASES.legato([45]));
+  row('D6 members waiting on onset scatter', { ...F, K: 0.1, onsetScatter: 12, A: 20, R: 250 }, arp);
+  row('D6 N changes mid-note', { ...F, K: 0.2 }, spliceAt(held, [[60, ['set', 'N', 8]], [150, ['set', 'N', 1]], [200, ['set', 'N', 4]]]));
+  row('D6 frequency glide under drift and retune', { ...F, K: 0.1, freqGlide: 0.05, driftDepth: 20 }, PHRASES.retune([45]));
+  row('D6 under the cull, the cap lowered mid-phrase', { ...F, K: 0.1, R: 1500 }, [on(45), on(52), on(57), blocks(40), off(52), off(57), blocks(3),
+    ['cap', 1], blocks(60), off(45), blocks(30)]);
+  row('D6 37-sample blocks', { ...F, K: 0 }, [on(45), rb(37, 5), on(52), rb(37, 600), off(45), off(52), rb(37, 40)]);
+  row('D6 at 44.1 kHz', { ...F, K: 0 }, held, { sr: 44100 });
+  row('D6 at os 1', { ...F, K: 0, os: 1 }, held);
   return C;
 }
 

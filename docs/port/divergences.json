@@ -244,6 +244,59 @@
    "js_limit": null
   },
   {
+   "id": "D6",
+   "adr": "ADR-216",
+   "status": "built",
+   "flag": "frameHold",
+   "description": "The blade's frame holds its course where the swarm's phase centre is undefined, and a member's lead reaches its blade as a ramp, never a step (ROADMAP B461; the human, 2026-10-12, heard a click inside one held note and saw it 'where the voices cross each other'). The oracle measures each member's lead from psi, the angle of the summed phase vectors, every 32 samples, and its render reads the lead at once; where the order parameter R passes through zero psi swings by up to half a cycle in one tick and every blade jumps. With the flag on each voice keeps a frame angle: every tick it advances by the members' mean phase advance (measured where the phases step, not predicted from the member frequencies, which the swarm moves every 16 samples), then moves toward psi by g(R) of the difference, g rising linearly from 0 at R 0.05 to 1 at R 0.25, and by no more than 8 cycles per second (converted per tick from seconds). Where that correction is whole and inside the rate the frame is assigned psi itself, so in a locked swarm the leads' targets are the oracle's bit for bit. Each lead then travels to its value under the frame over the 32 samples of the tick, the shortest way round. A note's first tick sets the frame to psi and the leads outright (the oracle's law). Spread law 3 reads the lead under the frame, not its ramp. The three constants were set by ADR-216.",
+   "oracle": {
+    "file": "reference/scalpel/prototype/razor-core.js",
+    "blob": "0ce6a713410d89c65bf55f761f1dc791fae61b16",
+    "sites": "couple() :466-470 (psi and each member's lead); render() :752 (the 32-sample tick), :822 and :830 (the blades read lead); spread() :105 (law 3 reads lead)"
+   },
+   "cpp": "h2/engine/engine.h holdFrame(), couple(), spread(), stepMember() (the measured advance), the end of renderCallK's sample loop (the ramp); h2/engine/blade.h DP::frameHold, Member::leadT/leadStep, Voice::psiF/fhAdv/fhInit",
+   "target": "docs/design/scalpel-horde-engine.js holdFrame(), couple(), spread(), stepM(), renderPlain(), HORDE_D frameHold, FRAME_R_LO / FRAME_R_HI / FRAME_RATE",
+   "scope": "patches where a member's lead is heard: a frame that follows the swarm (frame on, or blade 2's frame2 on) or spread law 3, with more than one member; 6 of the 83 bench presets as shipped (Swarm-linked spread, Anchored horde, Smear and strike, Drift and lock, Cross-mod shimmer, Breathing pad). Every other patch is bit-identical with the flag on: nothing reads the lead",
+   "outOfScope": [
+    "Quarter sync",
+    "Crunch horde",
+    "Zap bass",
+    {
+     "preset": "Anchored horde",
+     "over": {
+      "frame": 0
+     }
+    }
+   ],
+   "inScope": "Anchored horde",
+   "metric": {
+    "detector": "tools/h2_frame_hold_check.mjs (./verify full), on the C++ engine: an isolated jump is a sample step on the left pre-limiter bus over 0.02 and over 3 times the 99th percentile of the steps in the surrounding 100 ms; one held note, 8 s, 48 kHz, seed 1, of ledger/breathing-pad with the click's settings pinned (frame 1, phaseMode 2, N 6, law 4, driftRate 0.1, detune 14, K 0.45)",
+    "isolatedJumps": {
+     "flagOff": {
+      "C3": 5,
+      "G3": 1,
+      "C4": 2,
+      "largest": "0.350 at C3, 0.620 at C4"
+     },
+     "flagOn": {
+      "C3": 1,
+      "G3": 0,
+      "C4": 0,
+      "largest": "0.238 at C3"
+     }
+    },
+    "residual": "The one jump left at C3 with the flag on is not the frame's. The same pad with the frame off altogether (frame 0) reads 1 at C3 too, and with the spread law's route to the blade position closed (bspread 0) it reads 0 with the flag on against 3 with it off. It is B460's: the drifting spread law's values reach the blades unsmoothed every 32 samples.",
+    "locked": "Members locked by construction and the frame on (frame 1, phaseMode 2, detune 0, K 0, onset 0, driftDepth 0, onsetScatter 0), one held C3 for 4 s, flag on against off: 0 to 6.7e-14 on the 8 reference patches that can show it (worst ledger/defaults); the two loud corner patches turn one ULP of their own note into 2.8e-6 and 1.3 and are not judged. In a locked swarm the frame equals psi bit for bit on every tick measured (4571 of 4571 full-correction ticks on the pad at C3; 5999 of 5999 on a corner patch); the literal sum psiP + (psi - psiP) misses it on 2816 and 4277 of those ticks, by up to 2.2e-16 cycles, which is why it is assigned.",
+    "parity": "20 flag-on scenarios (C/D6 ...) at C++/JS parity: worst rms 4.1e-14, worst max-abs 1.2e-12, events and readouts identical",
+    "cpu": "not measured (Layer-E). With the flag off the cost is one test per member per sample and one per sample; with it on, one add per member per sample and the tick's arithmetic"
+   },
+   "finding": "(1) The frame's jumps are gone at all three notes; acceptance 2's 'no isolated jump at C3' is not met on the pad as shipped, because the detector also sees B460's steps there (the residual above). (2) After the frame has held through R near zero the measured centre is about half a cycle away, and the frame then turns to it at the rate limit: about 60 ms of every blade sweeping half a cycle, in place of the jump. (3) Where the swarm is exactly symmetric the centre flips by exactly half a cycle and the direction of that turn would be decided by a rounding; on the cases measured (the pad; an even 5-member swarm at K 0) the error on leaving the hold was 0.45 to 0.49 cycles, 0.01 or more clear of the tie.",
+   "evidence": [
+    "traces/2026-10-12-b461-frame-hold-d6.md"
+   ],
+   "js_limit": null
+  },
+  {
    "id": "D3",
    "adr": "ADR-189, ADR-189 A1",
    "status": "built",

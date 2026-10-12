@@ -191,6 +191,19 @@
  *                    factory next to its own reasons, behind its own flag in `d` whose 0 is SwarmSynth's
  *                    expression, DEFAULT ON (ADR-187 A1: a default that changes what the listener hears
  *                    is one divergence per PR), ledgered in docs/port/divergences.json.
+ *   ADR-216  D6 `frameHold`: THE BLADE'S FRAME HOLDS ITS COURSE (B461; the human, 2026-10-12, in the
+ *                    lab: "a distinct click as the envelope moves from the attack to the decay ...
+ *                    watching the phase circle, it appears to be where the voices cross each other").
+ *                    A DIVERGENCE FROM THE ORACLE, behind its own flag in `d`, DEFAULT 0 (ADR-187 A1),
+ *                    ledgered in docs/port/divergences.json. The oracle measures each member's lead
+ *                    from psi, the angle of the summed phase vectors (razor-core.js couple :466-470),
+ *                    every 32 samples, and its render reads the lead at once (:822, :830). Where the
+ *                    members are balanced the order parameter R passes through zero, psi is undefined
+ *                    and swings by up to half a cycle in one tick, and every blade jumps. With the
+ *                    flag on each voice keeps a frame angle that advances by the members' mean phase
+ *                    advance and is corrected toward psi in proportion to R, no faster than a stated
+ *                    rate, and each lead reaches the blade as a ramp across the tick. With the flag 0
+ *                    no line below changes a sample. See holdFrame(), couple(), spread() and stepM().
  * NOT COMPOSED THIS ROUND (stated, not hidden): the output stage and voice
  * (rows 12, 13, 15, 17-20, 66 and D11: vol/normExp, width, the tanh, ADSR, the
  * pan image) stay RazorCore's. SwarmSynth's per-member amplitude terms (hiTame,
@@ -223,7 +236,7 @@
  * anchor, onset, dissolve, driftDepth, h.driftRate, driftMode, motionCenter,
  * inertia, inertiaCurve, freqGlide, keepPhase, pivotMode, and (B335) grav, basin,
  * onsetScatter, onsetAlpha, attackScatter, voiceEnv, relScatter, and (B355, ADR-189)
- * aaCarrier, aaXin, aaLoop.
+ * aaCarrier, aaXin, aaLoop, and (B461, ADR-216) frameHold.
  *
  * DETERMINISM. The swarm draws only SwarmSynth's seeded mulberry32 streams
  * (rngG/rngS) and (B335) the ensemble stream, mulberry32 from
@@ -267,8 +280,15 @@ function makeComposedEngine(RazorCore, swarmSrc) {
     grav: 0, basin: 35,                                // B335 rows 27, 28 (basin in cents)
     onsetScatter: 0, onsetAlpha: 0.25, attackScatter: 0, voiceEnv: 0, relScatter: 0,   // B335 rows 70-74 (onsetScatter in ms)
     aaCarrier: 0, aaXin: 0, aaLoop: 0,                 // ADR-189 D1, D2, D3 (B355): OFF is the oracle's sound
+    frameHold: 0,                                      // ADR-216 D6 (B461): OFF is the oracle's frame
     ksmPerRate: 1,                                     // B382 M1: ON, the C++'s per-rate coupling smoother
   };
+  /* ADR-216 D6's three constants, set by ADR-216 (the lead, under the human's delegation; a change
+     needs a measurement): the order parameter R at and below which the frame ignores the measured
+     centre, the R at and above which it follows it in full (linear between), and the fastest the
+     frame is corrected, in CYCLES PER SECOND (converted per tick in holdFrame, ADR-009).
+     COUPLE_SAMPLES is the oracle's couple tick (razor-core.js render :752, `this.cnt = 32`). */
+  const FRAME_R_LO = 0.05, FRAME_R_HI = 0.25, FRAME_RATE = 8, COUPLE_SAMPLES = 32;
   // p keys whose change makes SwarmSynth.setParam() rebuild x[] (swarmsaw.html:247)
   const REBUILD = ['n', 'dist', 'seed', 'law'];
   /* B323's cull fade, in SECONDS (ADR-009): a LINEAR gain ramp from 1 to 0 over CULL_FADE,
@@ -491,9 +511,12 @@ function makeComposedEngine(RazorCore, swarmSrc) {
           m.onsD = 0; m.onsD0 = 0; m.onsC = 0; m.relC = 0; m.aMul = 1; m.rMul = 1;
           m.onsE = 0; m.eS = 0; m.eE = 0; m.hold = false; m.pg = 1; m.eCall = -1; m.eAi = 0; m.eRc = 0;
           m.fu = 0; m.f1 = 0; m.f2 = 0;                // ADR-189 D3: the loop filter's state and its taps (bladeStep)
+          m.leadT = 0; m.leadStep = 0; m.leadR = 0;    // ADR-216 D6: the lead under the frame, the ramp's step, the ramp (holdFrame)
         });
         v.fx0 = 0;                                     // ADR-189 D3: member 0's sample before it steps (loopIn)
+        v.psiF = 0; v.fhAdv = 0; v.fhInit = false;     // ADR-216 D6: the frame's angle, the members' summed advance, held or not
       });
+      this.inRender = false;                           // ADR-216 D6: a couple() from the oracle's render is a tick (renderPlain)
       /* ADR-189: every blade state gets the same fields up front, so V8 keeps one shape per state
          (B346 measured a shape change as a cost of its own). aaReal marks the MEMBER states, the
          only ones D1 filters (scratch states serve the BLEP height probe and the DC estimators);
@@ -535,7 +558,13 @@ function makeComposedEngine(RazorCore, swarmSrc) {
          The smoothed values are put back at once: nothing else in spread() reads them. */
       const s = this.s, q = this.d.kq, k1 = s.kspread, k2 = s.kspread2;
       if (q) { s.kspread = roundAway(k1); s.kspread2 = roundAway(k2); }
+      /* ADR-216 D6: while the frame is held, m.lead is the RAMP the oracle's render reads; spread
+         law 3 reads the lead UNDER THE FRAME (leadT), which is the oracle's own value wherever the
+         frame is the measured centre. Put in for the oracle's law, and the ramp put back. */
+      const held = v.fhInit;
+      if (held) for (let i = 0; i < this.d.N; i++) v.m[i].lead = v.m[i].leadT;
       super.spread(v);
+      if (held) for (let i = 0; i < this.d.N; i++) v.m[i].lead = v.m[i].leadR;
       if (q) { s.kspread = k1; s.kspread2 = k2; }
       const g = this.rotSign;
       if (!g || (g.rotSpread > 0 && g.rotSpread2 > 0)) return;
@@ -677,6 +706,7 @@ function makeComposedEngine(RazorCore, swarmSrc) {
 
     startVoice(v, note, freq, vel, fresh, retrig) {
       v.cull = false;                                  // a re-allocated slot is a new voice, never still fading
+      if (fresh) v.fhInit = false;                     // ADR-216 D6: a new note's frame starts at the measured centre (holdFrame)
       super.startVoice(v, note, freq, vel, fresh, retrig);
       /* ADR-189: a fresh voice's loop starts from silence, as the oracle's does (y1 = y2 = 0,
          razor-core.js :401), so D3's filter and taps start at 0 too */
@@ -873,11 +903,75 @@ function makeComposedEngine(RazorCore, swarmSrc) {
 
     settle(v) { if (this.src === 'razor') super.settle(v); }
 
+    /* ADR-216 D6 (B461): THE FRAME THE LEADS ARE MEASURED FROM. Called from couple(), after the
+       oracle's own couple() has left the summed phase vectors in this.Rx[1], this.Ry[1] (already
+       divided by N, razor-core.js :459-463) and each member's lead on psi, their angle, in m.lead.
+       That angle is undefined where the order parameter R is zero, and swings by up to half a cycle
+       in one 32-sample tick there; the oracle's render reads m.lead at once, so every blade jumps.
+       With the flag on each voice keeps a frame angle of its own, v.psiF:
+         - it advances by the members' MEAN PHASE ADVANCE since the last tick. That is measured
+           (v.fhAdv, summed in stepM where the phases step), not predicted from the member
+           frequencies: the swarm retunes the members every 16 samples, between two couple ticks, a
+           frequency glide moves them every sample, and a waiting member stands still;
+         - it then moves toward the measured angle by g(R) of the difference, g rising linearly from
+           0 at FRAME_R_LO to 1 at FRAME_R_HI, and by no more than FRAME_RATE cycles a second;
+         - where that correction is whole and inside the rate (a locked swarm) the frame IS the
+           measured angle, assigned and not summed, so the leads under it are the oracle's own bit
+           for bit. psiP + (psiM - psiP) is psiM only to a rounding.
+       Each lead then travels to its value under the frame (m.leadT) across the tick, the shortest
+       way round: this sample's share here, the rest once a sample (stepM).
+       A note's first couple() (and the first after the flag turns on) sets the frame to the measured
+       angle and keeps the oracle's leads, which is the oracle's law. A note-on's couple() on a voice
+       already sounding (a mono retrigger) is not a tick (this.inRender is false): the frame and the
+       ramps stay as they stand.
+       R is Math.sqrt of the squares, not the oracle's v.r (Math.hypot): sqrt is correctly rounded
+       everywhere, so the C++ computes the same bits.
+       JS-ONLY MECHANISM: m.leadR. The oracle's couple() overwrites m.lead on every call and its
+       render reads m.lead by name, so the ramp is kept in m.leadR and copied into m.lead wherever it
+       moves. The C++ has no oracle call to undo and ramps `lead` itself; leadR is not part of the
+       divergence. The horde source only: the razor source is the oracle's own swarm half. */
+    holdFrame(v, d) {
+      const N = d.N;
+      if (!d.frameHold || N < 2) { v.fhInit = false; return; }   // OFF (or one member): the oracle's leads
+      const rx = this.Rx[1], ry = this.Ry[1];
+      const psiM = Math.atan2(ry, rx) / TAU;           // the oracle's psi, the same expression (:468)
+      if (!v.fhInit) {
+        v.fhInit = true; v.psiF = psiM; v.fhAdv = 0;
+        for (let i = 0; i < N; i++) { const m = v.m[i]; m.leadR = m.leadT = m.lead; m.leadStep = 0; }
+        return;
+      }
+      if (!this.inRender) { for (let i = 0; i < N; i++) v.m[i].lead = v.m[i].leadR; return; }
+      const psiP = v.psiF + v.fhAdv / N;
+      v.fhAdv = 0;
+      let e = psiM - psiP + 0.5; e -= Math.floor(e); e -= 0.5;
+      const R = Math.sqrt(rx * rx + ry * ry);
+      let g = (R - FRAME_R_LO) / (FRAME_R_HI - FRAME_R_LO);
+      g = g < 0 ? 0 : g > 1 ? 1 : g;
+      const lim = FRAME_RATE * COUPLE_SAMPLES / this.sr;   // cycles a second, over one tick
+      let st = g * e;
+      st = st > lim ? lim : st < -lim ? -lim : st;
+      if (g === 1 && st === e) v.psiF = psiM;
+      else { let f = psiP + st + 0.5; f -= Math.floor(f); v.psiF = f - 0.5; }
+      for (let i = 0; i < N; i++) {
+        const m = v.m[i];
+        let l = m.phi - v.psiF + 0.5; l -= Math.floor(l);
+        m.leadT = l - 0.5;
+        let cur = m.leadR;
+        /* a ramp that crossed the seam left the lead outside -1/2..1/2: bring it back, so it cannot
+           wander off over a long note (the blade reads it modulo 1) */
+        if (cur < -0.5 || cur >= 0.5) { cur += 0.5; cur -= Math.floor(cur); cur -= 0.5; }
+        let dl = m.leadT - cur + 0.5; dl -= Math.floor(dl); dl -= 0.5;
+        m.leadStep = dl / COUPLE_SAMPLES;
+        m.lead = m.leadR = cur + m.leadStep;
+      }
+    }
+
     /* RazorCore's couple() still supplies what is frame-invariant (v.r, each
        member's lead on the mean field); the member frequency is the swarm's. */
     couple(v, s, d) {
       super.couple(v, s, d);
       if (this.src !== 'horde') return;
+      this.holdFrame(v, d);                            // ADR-216 D6; with the flag 0 the leads stay the oracle's
       const S = this.sw.swarms[v.si], N = d.N;
       /* B325: the pitch moved since the look-ahead (a later note-on on a mono voice, a retune)
          and no sample has rendered yet: look again, so m.inc is the swarm's for the pitch now */
@@ -978,9 +1072,17 @@ function makeComposedEngine(RazorCore, swarmSrc) {
           ph -= Math.floor(ph);
           S.phase[i] = ph;
           m.dph = Math.max(0, f) / (this.sr * this.os);
+          if (v.fhInit) v.fhAdv += dph;                // ADR-216 D6: what the frame advances by (holdFrame)
         }
       }
       if (++m.j >= this.os) m.j = 0;
+      /* ADR-216 D6: on the member's LAST step of the sample its lead takes the NEXT sample's share of
+         the ramp. The oracle's render read m.lead for this step before calling here (razor-core.js
+         :822, :830) and reads it next at the following sample's first step, and it offers no hook
+         before that read, so this is the one place the ramp can move. A sample that begins with a
+         couple tick (the oracle's countdown this.cnt is 1 now) takes its share in holdFrame instead,
+         from the new step. */
+      if (m.j === 0 && v.fhInit && this.cnt > 1) m.lead = (m.leadR += m.leadStep);
       /* B335 THE MEMBER'S GAIN rides RazorCore's pan gains. Its render sums each member as
          `vl += y·gl[q]` right after this call returns (razor-core.js :839-860), with the DC estimate
          already taken off y, so scaling gl[q] here scales the member's DC-corrected output and
@@ -1153,13 +1255,15 @@ function makeComposedEngine(RazorCore, swarmSrc) {
       let fading = false;
       this.pvLive = false;
       for (const v of this.voices) if (v.active) { if (v.cull) fading = true; if (v.pv) this.pvLive = true; }
-      if (!fading) { this.preCall(); super.render(L, R); this.nBase += L.length; }
+      /* ADR-216 D6: inRender marks the couple() calls the oracle's render makes (its 32-sample tick)
+         apart from a note-on's (holdFrame) */
+      if (!fading) { this.preCall(); this.inRender = true; super.render(L, R); this.inRender = false; this.nBase += L.length; }
       else {
         const one = this.one || (this.one = [new Float32Array(1), new Float32Array(1)]);
         const step = 1 / (CULL_FADE * this.sr);
         for (let i = 0; i < L.length; i++) {
           this.preCall();
-          super.render(one[0], one[1]);
+          this.inRender = true; super.render(one[0], one[1]); this.inRender = false;
           L[i] = one[0][0]; R[i] = one[1][0];            // R may BE L (a mono host): R last, as RazorCore writes
           this.nBase++;
           for (const v of this.voices) if (v.cull && v.active) {

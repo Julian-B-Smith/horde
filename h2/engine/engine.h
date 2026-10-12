@@ -38,6 +38,9 @@
  *     seeded stream whose offsets carry across notes.
  *   - ADR-189 D1-D3, each off by default: carrier ADAA, a BLEP scanner that
  *     follows the xin phase push, and a 5 kHz one-pole in the feedback loop.
+ *   - ADR-216 D6 (B461), off by default: the blade's frame holds its course where
+ *     the swarm's phase centre is undefined, and a member's lead reaches the blade
+ *     as a ramp across the couple tick, never as a step (holdFrame).
  *
  * NUMBERS: doubles, built -ffp-contract=off (h2 rule 7: the shipped build is the
  * tested build), with JS semantics where they differ from C++ (js.h).
@@ -57,6 +60,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <utility>
 
 #include "blade.h"
 #include "js.h"
@@ -326,7 +330,7 @@ class Engine {
       {"grav", &DP::grav}, {"basin", &DP::basin}, {"onsetScatter", &DP::onsetScatter},
       {"onsetAlpha", &DP::onsetAlpha}, {"attackScatter", &DP::attackScatter}, {"voiceEnv", &DP::voiceEnv},
       {"relScatter", &DP::relScatter}, {"aaCarrier", &DP::aaCarrier}, {"aaXin", &DP::aaXin},
-      {"aaLoop", &DP::aaLoop},
+      {"aaLoop", &DP::aaLoop}, {"frameHold", &DP::frameHold},
     };
     for (const DKey& e : K) if (std::strcmp(e.k, k) == 0) return e.p;
     return nullptr;
@@ -942,7 +946,12 @@ class Engine {
         }
       }
     }
+    // ADR-216 D6: while the frame is held, `lead` is the ramp the blade reads; spread
+    // law 3 reads the lead under the frame (leadT), which is the blade law's own value
+    // wherever the frame is the measured centre. Swapped in for the law, and back.
+    if (v.fhInit) for (int i = 0; i < N; i++) std::swap(v.m[i].lead, v.m[i].leadT);
     for (int i = 0; i < N; i++) spreadMember(v.m[i], i, N, d.law, v.m[i].inc, nyq);
+    if (v.fhInit) for (int i = 0; i < N; i++) std::swap(v.m[i].lead, v.m[i].leadT);
     if (q) { s.kspread = k1; s.kspread2 = k2; }
     // A2 (1): Rotate spread is bipolar. The law ran on the magnitude; the sign
     // turns the members the other way. Blade 2 follows unless it owns its spreads.
@@ -1042,6 +1051,7 @@ class Engine {
   void startVoice(Voice& v, int note, double freq, double vel, bool fresh, bool retrig) {
     v.cull = false;   // a re-allocated slot is a new voice, never still fading
     if (fresh) {
+      v.fhInit = false;   // ADR-216 D6: a new note's frame starts at the measured centre (holdFrame)
       if (!v.active) v.env = 0;
       // These draws come from the host stream and the start phase is overwritten
       // below by the swarm's. They are taken anyway: every later draw depends on them.
@@ -1142,17 +1152,81 @@ class Engine {
     if (fb != v.gfb) { v.gf0 *= fb / v.gfb; v.gfb = fb; }
     return v.gf0;
   }
+  // ADR-216 D6 (B461): the frame the leads are measured from. The blade law measures
+  // each member's lead from psi, the angle of the summed phase vectors (rx, ry), and
+  // hands it to the blade at once. That angle is undefined where the order parameter
+  // R is zero and swings by up to half a cycle in one tick there, and every blade
+  // jumps with it. Here each voice keeps a frame angle of its own, psiF:
+  //   - it advances by the members' mean phase advance since the last tick. That is
+  //     MEASURED (fhAdv, summed where the phases step, in stepMember), not predicted
+  //     from the member frequencies: the swarm retunes the members every 16 samples,
+  //     between two couple ticks, a frequency glide moves them every sample, and a
+  //     waiting member stands still;
+  //   - it then moves toward the measured angle by g(R) of the difference, g rising
+  //     linearly from 0 at kFrameRLo to 1 at kFrameRHi, and by no more than
+  //     kFrameRate cycles a second;
+  //   - where that correction is whole and inside the rate (a locked swarm) the frame
+  //     IS the measured angle, assigned and not summed, so the leads under it are the
+  //     blade law's own bit for bit. psiP + (psiM - psiP) is psiM only to a rounding.
+  // Each lead then travels to its value under the frame (leadT) across the tick, the
+  // shortest way round: this sample's share here, the rest once a sample (the end of
+  // renderCallK's sample loop).
+  // A note's first couple() (and the first after the flag turns on) sets the frame to
+  // the measured angle and the leads outright, which is the blade law. A note-on's
+  // couple() on a voice already sounding (a mono retrigger) is not a tick: it leaves
+  // the frame and the ramps as they stand.
+  void holdFrame(Voice& v, int N, double rx, double ry, bool tick) {
+    const double psiM = std::atan2(ry, rx) / TAU;
+    if (!v.fhInit) {
+      v.fhInit = true; v.psiF = psiM; v.fhAdv = 0;
+      for (int i = 0; i < N; i++) {
+        Member& m = v.m[i];
+        double l = m.phi - psiM + 0.5; l -= std::floor(l);
+        m.lead = m.leadT = l - 0.5; m.leadStep = 0;
+      }
+      return;
+    }
+    if (!tick) return;
+    const double psiP = v.psiF + v.fhAdv / N;
+    v.fhAdv = 0;
+    double e = psiM - psiP + 0.5; e -= std::floor(e); e -= 0.5;
+    const double R = std::sqrt(rx * rx + ry * ry);
+    double g = (R - kFrameRLo) / (kFrameRHi - kFrameRLo);
+    g = g < 0 ? 0 : g > 1 ? 1 : g;
+    const double lim = kFrameRate * kCoupleSamples / sr;   // cycles a second, over one tick
+    double st = g * e;
+    st = st > lim ? lim : st < -lim ? -lim : st;
+    if (g == 1 && st == e) v.psiF = psiM;
+    else { double f = psiP + st + 0.5; f -= std::floor(f); v.psiF = f - 0.5; }
+    for (int i = 0; i < N; i++) {
+      Member& m = v.m[i];
+      double l = m.phi - v.psiF + 0.5; l -= std::floor(l);
+      m.leadT = l - 0.5;
+      double cur = m.lead;
+      // a ramp that crossed the seam left the lead outside -1/2..1/2: bring it back, so
+      // it cannot wander off over a long note (the blade reads it modulo 1)
+      if (cur < -0.5 || cur >= 0.5) { cur += 0.5; cur -= std::floor(cur); cur -= 0.5; }
+      double dl = m.leadT - cur + 0.5; dl -= std::floor(dl); dl -= 0.5;
+      m.leadStep = dl / kCoupleSamples;
+      m.lead = cur + m.leadStep;
+    }
+  }
   // The blade law's member bookkeeping (each member's lead on the mean field, for
-  // frames and spread law 3), then the member frequencies from the swarm.
-  void couple(Voice& v) {
+  // frames and spread law 3), then the member frequencies from the swarm. `tick` is
+  // true for the render's couple tick and false for a note-on's call (D6 only).
+  void couple(Voice& v, bool tick = false) {
     const int N = static_cast<int>(d.N);
     v.fc = v.freq;
     double sx = 0, sy = 0;
     for (int i = 0; i < N; i++) { const double a = TAU * v.m[i].phi; sx += std::cos(a); sy += std::sin(a); }
-    if (N > 1) {
-      const double psi = std::atan2(sy / N, sx / N) / TAU;
-      for (int i = 0; i < N; i++) { double l = v.m[i].phi - psi + 0.5; l -= std::floor(l); v.m[i].lead = l - 0.5; }
-    } else v.m[0].lead = 0;
+    if (N > 1 && js::truthy(d.frameHold)) holdFrame(v, N, sx / N, sy / N, tick);
+    else {
+      v.fhInit = false;   // D6 off (or one member): the blade law's own leads
+      if (N > 1) {
+        const double psi = std::atan2(sy / N, sx / N) / TAU;
+        for (int i = 0; i < N; i++) { double l = v.m[i].phi - psi + 0.5; l -= std::floor(l); v.m[i].lead = l - 0.5; }
+      } else v.m[0].lead = 0;
+    }
     Swarm& S = v.sw;
     // the pitch moved since the look-ahead and no sample has rendered: look again
     if (v.tick0 && (S.fBase != v.freq || S.f0 != f0Of(v))) lookAhead(v, false);
@@ -1517,6 +1591,7 @@ class Engine {
           S.phase[i] = ph;
         }
         m.dph = js::max(0, f) / (sr * os);
+        if (v.fhInit) v.fhAdv += js::max(0, f) / sr;   // ADR-216 D6: what the frame advances by (holdFrame)
       }
     }
     if (++m.j >= os) m.j = 0;
@@ -1689,6 +1764,14 @@ class Engine {
   // D3's loop filter. The highest cutoff measured to clear the rate-locked limit
   // cycle at every os on the patches that had it (ADR-189 A1, the B355 trace).
   static constexpr double kLoopFc = 5000;
+  // The couple tick, in samples: couple() and spread() run once per this many.
+  static constexpr int kCoupleSamples = 32;
+  // ADR-216 D6's three constants, set by ADR-216 (the lead, under the human's
+  // delegation; a change needs a measurement): the order parameter R at and below
+  // which the frame ignores the measured centre, the R at and above which it follows
+  // it in full (linear between), and the fastest the frame is corrected, in cycles
+  // per second (converted per tick in holdFrame, ADR-009).
+  static constexpr double kFrameRLo = 0.05, kFrameRHi = 0.25, kFrameRate = 8;
 
   double sr;
   SwarmField field;
@@ -1806,7 +1889,7 @@ inline void Engine::renderCallK(double* L, double* R, int n) {
     s.depth += (t.depth - s.depth) * a1; s.I += (t.I - s.I) * a1; s.hard += (t.hard - s.hard) * a1;
     s.w2 += (t.w2 - s.w2) * a1; s.k2 += (t.k2 - s.k2) * a1; s.kHz2 += (t.kHz2 - s.kHz2) * a1; s.c2 += (t.c2 - s.c2) * a1;
     s.b2mix += (t.b2mix - s.b2mix) * a1;
-    if (--coupleTick <= 0) { coupleTick = 32; if (!H2E_SKIP(kStageCouple)) for (Voice& v : voices) if (v.active) { couple(v); spread(v); } }
+    if (--coupleTick <= 0) { coupleTick = kCoupleSamples; if (!H2E_SKIP(kStageCouple)) for (Voice& v : voices) if (v.active) { couple(v, true); spread(v); } }
     const double gk = 1 - std::exp(-3 / js::max(1, s.glide * 0.001 * sr));
     const double beA = 1 / js::max(1, s.benvA * 0.001 * sr), beD = 1 - std::exp(-4 / js::max(1, s.benvD * 0.001 * sr));
     const double beA2 = 1 / js::max(1, s.benvA2 * 0.001 * sr), beD2 = 1 - std::exp(-4 / js::max(1, s.benvD2 * 0.001 * sr));
@@ -1883,7 +1966,8 @@ inline void Engine::renderCallK(double* L, double* R, int n) {
           // fields read here (the smoothers, render-call setup), v.rot/rot2, gRot/gRot2,
           // mm.rot/rot2, v.gr, v.kE/kE2, v.wE/wE2 (the per-sample voice pass above),
           // and mm.inc, lead, cOff*, kAdd*, kMul*, wMul*, dAdd*, iMul*, mr*, mn* (couple
-          // and spread, every 32 samples, above). Inside the loop, stepMember's swarm
+          // and spread, every 32 samples, above), and mm.lead again under ADR-216 D6,
+          // once a sample AFTER this loop (the lead ramp, below). Inside the loop, stepMember's swarm
           // work (tickSwarm, unLookAhead, memberStep) writes v.sw, v.tick0, v.gf0/gfb,
           // v.env and the members' entry and envelope state; the DC estimates write the
           // scratch states sc/sc2/bxs and only borrow gmr/gmn; fillG2 never reads the
@@ -1951,6 +2035,13 @@ inline void Engine::renderCallK(double* L, double* R, int n) {
       }
       yl = accL; yr = accR;
     }
+    // ADR-216 D6: every held frame's leads take the NEXT sample's share of their ramp.
+    // Here, after the sample's last read of them, and not in the per-sample pass
+    // above, because this is the one place the composed JS can do the same (its
+    // stepM, on a member's last step of the sample: the blade oracle's render reads
+    // `lead` with no hook before it). A sample that begins with a couple tick takes
+    // its share in holdFrame instead, from the new step.
+    if (coupleTick > 1) for (Voice& v : voices) if (v.active && v.fhInit) for (int q = 0; q < N; q++) v.m[q].lead += v.m[q].leadStep;
     // cross-mod and feedback make a cycle depend on the previous sample, which the
     // per-cycle estimate cannot see: the blocker drains any residual offset
     if (H2E_SKIP(kStageOut)) { L[i] = yl; R[i] = yr; continue; }
