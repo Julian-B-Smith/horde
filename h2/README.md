@@ -147,15 +147,28 @@ one engine, the one that ships, and the references pin its bits.
   is in `docs/proposals/h2-flush-to-zero.md`, section 7. Any other target is a
   compile error. The caller's control word comes back on every way out of the
   switch, a throw included.
-- Each gate proves the mode on every run, with two lines from
+- The switch owns two fields of the control word inside its scope and no other:
+  the flush-to-zero bits, and the rounding field, which it sets to
+  round-to-nearest whatever mode the host called in with (the human's ruling of
+  2026-10-12, which the lead records as ADR-213; the proposal, section 8). The
+  pinned bits need that mode, so a host's rounding mode cannot change the
+  sound. The trap enables, default-NaN and the exception masks stay the
+  caller's. The switch returns the rounding mode its caller arrived with, so
+  the shell can count the entries where a host called in under another one.
+  `flushToZeroState()` reads back what is in force, never what was asked for:
+  the fields, and arithmetic for both flush-to-zero and rounding.
+- Each gate proves the mode on every run, with three lines from
   `tools/h2_engine_stream.h`: `control FZ` (every replay ran with the mode on,
   counted from inside the switch; the switch works from a host that enters with
-  the mode off and from one that enters with it on) and `control ROUND` (every
-  replay ran rounding to nearest). A tool that silently ran in another mode is
-  red, with or without a reference.
-- The pinned bits also need round-to-nearest, which the switch does NOT set: it
-  keeps the host's rounding mode. Whether the shell forces it or refuses a host
-  without it is the human's open choice (the proposal, section 8).
+  the mode off and from one that enters with it on), `control ROUND` (every
+  replay ran rounding to nearest; a host that calls in rounding toward zero,
+  upward or downward gets nearest inside, the same bits out for the first row
+  the gate judged, and its own mode back) and `control WORD` (the switch writes
+  its two fields and no other bit, and the word comes back bit for bit). A tool
+  that silently ran in another mode is red, with or without a reference.
+- What the switch cannot reach is arithmetic done OUTSIDE it. A value the shell
+  computes for the engine before it enters the switch is computed in the
+  host's rounding mode (the proposal, section 8, has the measurement).
 - Eight of the 543 rows differ from the mode-off bits, each sample by less than
   4.1e-308 (a subnormal that became zero). They were re-pinned once, on that
   ruling; that re-pin is none of the three reasons above and adds no fourth.
