@@ -571,4 +571,6 @@ a7e961d5dfd22748  C/D6 at 44.1 kHz
 c5b1675f74661574  C/D6 at os 1
 9d8d176b7e18efe4  C/D6 members join a held frame
 642a66bac3fe192e  C/D6 members join before a mono retrigger
-TOTAL 548c2feb9554d558 565
+a020b904a3ba3eda  C/D6 two members, detune 14
+3540b226cafc3a6e  C/D6 two members, detune 30
+TOTAL 536c13ac223d9538 567
