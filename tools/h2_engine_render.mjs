@@ -224,8 +224,8 @@ function composedRows(presets) {
   // earlier row's place in the stream or in the self-digest references moves.
   // First five of the six bench presets in its scope (a frame on, or spread law 3).
   // The sixth, Breathing pad, is left out under the lead's amendment to this work's
-  // brief (2026-10-12): ADR-217 orders an edit of the bank's pad, which lands in
-  // another PR, and a row built on it would move with it. 'D6 a framed two-blade pad'
+  // brief (2026-10-12): ADR-217 edited the bank's pad to play locked (detune 0, K -0.3;
+  // B462), and a row built on it moves with the bank. 'D6 a framed two-blade pad'
   // below carries the settings its click depends on, written out here, so no bank
   // edit reaches it.
   for (const name of ['Swarm-linked spread', 'Anchored horde', 'Smear and strike', 'Drift and lock', 'Cross-mod shimmer']) {

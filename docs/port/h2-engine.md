@@ -38,7 +38,7 @@ pinned to.
 | `docs/design/scalpel-horde-engine.js` | the composed engine (`makeComposedEngine`) | `5d3e3a37cc8f634772ae4c72fefeaf7b446cd15e` |
 | `reference/scalpel/prototype/razor-core.js` | the blade oracle it extends | `0ce6a713410d89c65bf55f761f1dc791fae61b16` |
 | `reference/swarmsaw.html` | SwarmSynth, the swarm it drives (DSP section) | `e47da6c9e0b4a058e18d79f62d71ab31c3d3b1b0` |
-| `reference/scalpel/data/presets.json` | the 83 bench presets | `44b48d72a9bed4717edd0ac5cf9ef4b8d7b0de93` |
+| `reference/scalpel/data/presets.json` | the 83 bench presets | `45c4f1d5cff97922b88b1fab778eccca3d511bcd` |
 | `docs/design/scalpel-interface-lab.html` | the 12 B366 envelope presets (`ENV_PRESETS`); since B445 also the device default `os: 1` (`LAB_DEF`), which no scenario reads | `65d587e9f562008ba9285818cc74d621acebb74b` |
 
 The engine's flags at their ledgered defaults (`docs/port/divergences.json`):
@@ -474,8 +474,8 @@ family.
    - **D6 22** (ADR-216 with A1, B461; `frameHold` 1), appended after every earlier row:
      - five of the six bench presets in its scope (a frame on, or spread law
        3): Swarm-linked spread, Anchored horde, Smear and strike, Drift and lock,
-       Cross-mod shimmer. Breathing pad is left out on purpose (ADR-217 orders an
-       edit of the bank's pad, in another PR); `a framed two-blade pad` carries the
+       Cross-mod shimmer. Breathing pad is left out on purpose (ADR-217 edited the
+       bank's pad to play locked: B462); `a framed two-blade pad` carries the
        settings its click depends on, written out in the renderer;
      - the centre undefined at K 0 (the frame holds, then turns at its rate); a
        splayed swarm; a locked swarm; spread law 3; blade 2 alone on the frame;

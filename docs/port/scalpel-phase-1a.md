@@ -124,6 +124,17 @@ The harness covers 386 scenarios:
 
 - **Preset scenarios:** all 83 bench presets × {held chord, repeated note,
   arpeggio}, plus a legato phrase for the 12 mono presets (261 scenarios).
+  - **One preset is rendered with an override, and its rows say so in their names**
+    (ADR-217 A2, 2026-10-12): `Breathing pad [frame 0]`. Since ADR-217 that preset is
+    detune 0, K -0.3; under the oracle's swarm law its members settle into a balanced
+    ring, the order parameter falls to 1e-10, and with `frame` 1 the blade positions
+    hang on the angle of a near-zero vector. The port's phases agree with the oracle's
+    to 1e-15 of a cycle and the renders still differ by 6e-2: an ill-conditioned
+    readout, not a port fault. With `frame` 0 the three rows are at parity over the
+    whole render (max-abs 7e-15, events identical). The frame stays judged here by
+    `Anchored horde` and by the targeted rows `frame swarm` and `b2 frame`. The list is
+    `SCENARIO_OVERRIDES` in `tools/h2_scalpel_render.mjs`; an override that names no
+    preset, or changes nothing, stops the render.
 - **Targeted rows (125)**, which cover:
   - each blade mode, blade wave, base wave, FM type and modulator shape;
   - the lock units, mirror, twins, frames and hard edges;
