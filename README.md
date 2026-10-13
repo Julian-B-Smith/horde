@@ -520,3 +520,9 @@ Stated rather than omitted:
   plays in Live); residuals are listed in ROADMAP B99 — keys still die while a control is
   dragged, and the preset store's path is not yet portable there. Reaper and Bitwig loads
   remain deferred by choice.
+
+## Licence
+
+**All rights reserved until 1.0.** horde is public so that it can be read; until its first release
+there is no licence to use, copy, modify or redistribute it. At 1.0 it will be released under the
+GPL (ADR-219, 2026-10-13). The repository's author holds the rights in it.
