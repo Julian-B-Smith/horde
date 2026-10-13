@@ -89,7 +89,8 @@ export const CHAOTIC = {
    preset is rendered with these keys written over its own, and its rows carry the
    override in their names, so no row reads as the preset when it is not.
 
-   'Breathing pad' -> frame 0. Since ADR-217 the preset is detune 0, K -0.3. Under the
+   'Breathing pad' -> frame 0. Since ADR-217 A3 the preset is detune 8, K -0.3 (it was
+   detune 0, K -0.3 from ADR-217 to A3, and the measurements below were taken then). Under the
    ORACLE'S swarm law its six members then settle into a balanced ring: the order
    parameter falls to 1e-10 and below, and stays there. With `frame` 1 every blade hangs
    on psi = atan2 of that near-zero vector (razor-core.js couple()), so the last bit of
