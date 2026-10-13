@@ -8028,3 +8028,26 @@ the scenarios built on this preset. The harness's copy (`h2/harness/patches.json
 - **Decision.** `tools/h2_scalpel_render.mjs` carries a named list of scenario overrides (one entry: `Breathing pad`, `frame` 0). An overridden row says so in its name. An override that names no preset, or changes nothing, stops the render. The exclusion list stays at its pinned 3; no tolerance is added.
 - **What stays covered.** The frame, in that check: the bank's other frame-on preset (`Anchored horde`) and the targeted rows `frame swarm` and `b2 frame`. This preset with its frame on: the composed engine's parity check, under horde's swarm law, where its members stay 35 to 93 % aligned.
 - **A consequence worth knowing.** In the PROTOTYPE's own bench the edited values would sit on the frame fault permanently. The prototype's inline list is not edited (ADR-217), and the lab plays the composed engine, so nobody hears that.
+
+## ADR-218 — RULED by the human: the rack-slot contract's click ceiling is suspended as pass/fail; four amendments answer Bulwark's readiness notice (B463, B450, 2026-10-13)
+
+**Ruling.** Bulwark's notice `m4-readiness` (seq 18, 2026-10-12) reported that it does not meet the contract's 3 dB click ceiling on flip-class keys (A11, RS-4.4): 244 of 2,940 flips read over it, worst 60.7 dB on a 30 Hz probe. The lead read our side and put four recommendations to the human. The human, 2026-10-13: "Go with your recommendations on all four."
+
+**What the lead found: the fault is mostly in our contract.**
+- The B265 click metric divides a transition's second-difference energy by that of the steady signal around it. A sine's own second difference falls with the square of its frequency over the sample rate. So one and the same switch reads far higher on a low probe, or at a high sample rate, than on a high probe or a low rate. Bulwark measured 0.1 dB at 1 kHz and 8 dB at 30 Hz for one flip.
+- A11 says "a sine probe" and RS-4.4 "on a sine probe", and neither names a frequency, a level or a rate. The 3 dB figure was calibrated in the round-3 lab on its own probe (sines at 55, 110, 130.81 and 164.81 Hz) rendered at 16 kHz. Bulwark's sweep at 48 kHz from 30 Hz to 5 kHz was a fair reading of what we wrote.
+- Part of what Bulwark found is real on any probe: `comp.scOn` and `comp.detector` switch a detector with no crossfade and read 20 to 60 dB.
+
+**Decision (the four, as recommended and ruled).**
+1. **The 3 dB ceiling is SUSPENDED as a pass/fail rule** (RS-4.4, A11's flip-class clause, and the wake clause of RS-7.6 and A16) until the first listening batch (ADR-201; ADR-209 item 13, "the click ceiling") sets a ceiling that does not depend on the probe's frequency or the sample rate. Until then:
+   - the PASS RULE for a flip-class key is structural: the module declares how each such key switches (an equal-gain crossfade of a stated length, RS-3.6, or a declared `gate`, RS-4.3), and a bare jump of a signal-path or detector state is not admitted;
+   - the click reading is REPORTED, never judged, on two pinned probes at 48 kHz: the lab's chord (sines at 55, 110, 130.81 and 164.81 Hz, equal amplitude, the sum peaking at -6 dBFS) and a 1 kHz sine at -6 dBFS; at the module's defaults and at each factory preset; both directions; beside each reading, the reading of an ideal offline equal-gain crossfade of the two steady renders over the same length. The probe levels are set by the lead for reporting only; the listening batch may replace them.
+2. **Bulwark is asked to crossfade its two detector switches** (`comp.scOn`, `comp.detector`: its option (b)), and not to declare `gate` on them: ducking the wet path of a compressor is heard. Its `comp.bands` and `comp.stereo` switches are crossfades already and are admitted under item 1.
+3. **A module's declared tail may mean "the time until the instance is at rest"** (output zero and every envelope recovered), which is what the slot's sleep needs (RS-7.6): a compressor put to sleep mid-recovery started the next note 13 to 19 dB too quiet. The bound on audible output that horde reports to a DAW stays the module's separate constant (`tailBound()` in Bulwark). A long at-rest tail only means the slot seldom sleeps that module.
+4. **Two rows are clarified.**
+   - A16 (wake): judged against an identical instance that never slept, given the same input: the two outputs agree from the wake on, to a stated tolerance. The click metric is not the judge: a compressor's own attack on a note out of silence reads 6.6 dB with no wake involved.
+   - A4 (latency): the frequency-dependent group delay of a minimum-phase crossover is part of the DECLARED residual. A module with modes declares the residual per mode (Bulwark's multiband: about 7 samples).
+
+**What this weakens, said plainly.** Item 1 removes a numeric admission gate that was never well defined, and replaces it with a structural rule and a reported figure. It is recorded as a weakening on the human's word, with its end condition (the listening batch).
+
+**What it does not change.** RS-3.6 (equal-gain crossfades), RS-4.3 (the module switches cleanly itself, or declares `gate`), A14's bound on a loop (the slot's, RS-3.5), the state budget (Q9).
