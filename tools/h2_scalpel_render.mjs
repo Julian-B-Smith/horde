@@ -85,13 +85,47 @@ export const CHAOTIC = {
 
 // The phrases and the blade rows are tools/h2_scenarios.mjs's (PHRASES, bladeRows).
 
+/* SCENARIO OVERRIDES (ADR-217 A2, ruled by the human 2026-10-12; ROADMAP B462). A bank
+   preset is rendered with these keys written over its own, and its rows carry the
+   override in their names, so no row reads as the preset when it is not.
+
+   'Breathing pad' -> frame 0. Since ADR-217 the preset is detune 0, K -0.3. Under the
+   ORACLE'S swarm law its six members then settle into a balanced ring: the order
+   parameter falls to 1e-10 and below, and stays there. With `frame` 1 every blade hangs
+   on psi = atan2 of that near-zero vector (razor-core.js couple()), so the last bit of
+   sin and cos decides the blade positions. The port's member phases agree with the
+   oracle's to 1e-15 of a cycle, and the two renders still differ by 6e-2 (chord) with
+   the blade events apart, from the first sample on: an ill-conditioned readout, not a
+   port fault and not chaos (the fault B461 fixes in the composed engine, held for the
+   whole note). No onset window exists to judge (measured: 0 frames under 1e-8 over 25
+   one-ULP nudges), so an exclusion was refused and this was ruled instead: with frame 0
+   the three rows are at parity over the whole render (max-abs 7e-15, events identical).
+   What it gives up: this check no longer judges this preset with its frame on. The
+   composed engine's check does, under horde's swarm law, where the same preset keeps
+   its members 35 to 93 % aligned.
+   The frame itself stays judged here by 'Anchored horde' (the bank's other frame-on
+   preset, three rows) and by the blade rows 'frame swarm' and 'b2 frame'.
+
+   Guards: an override must name exactly one bank preset and must change it, or the
+   render stops. A preset that is edited again and no longer needs its override shows
+   here, not as a silently weaker row. */
+const SCENARIO_OVERRIDES = { 'Breathing pad': { frame: 0 } };
+const overrideTag = o => Object.entries(o).map(([k, v]) => `${k} ${v}`).join(', ');
+
 function buildScenarios() {
   const presets = JSON.parse(readFileSync(PRESETS, 'utf8')).presets;
+  for (const [name, o] of Object.entries(SCENARIO_OVERRIDES)) {
+    const hit = presets.filter(pr => pr.name === name);
+    if (hit.length !== 1) throw new Error(`SCENARIO_OVERRIDES: '${name}' names ${hit.length} bank presets, not 1`);
+    if (!Object.entries(o).some(([k, v]) => hit[0].params[k] !== v)) throw new Error(`SCENARIO_OVERRIDES: '${name}' already has ${overrideTag(o)}: the override changes nothing, remove it`);
+  }
   const out = [];
   for (const pr of presets) {
-    const tag = `${pr.category} / ${pr.name}`, root = notesFor(pr.category);
-    const phrases = pr.params.polyMode ? ['chord', 'repeat', 'arp', 'legato'] : ['chord', 'repeat', 'arp'];
-    for (const ph of phrases) out.push({ name: `P/${tag} :: ${ph}`, sr: SR, seed: 0xC0FFEE, cmds: [...presetCmds(pr.params), ...PHRASES[ph](root)] });
+    const o = SCENARIO_OVERRIDES[pr.name];
+    const tag = `${pr.category} / ${pr.name}${o ? ` [${overrideTag(o)}]` : ''}`, root = notesFor(pr.category);
+    const params = o ? { ...pr.params, ...o } : pr.params;
+    const phrases = params.polyMode ? ['chord', 'repeat', 'arp', 'legato'] : ['chord', 'repeat', 'arp'];
+    for (const ph of phrases) out.push({ name: `P/${tag} :: ${ph}`, sr: SR, seed: 0xC0FFEE, cmds: [...presetCmds(params), ...PHRASES[ph](root)] });
   }
   for (const t of bladeRows()) out.push(rowScenario(t, 0xB332));
   return out;

@@ -163,7 +163,7 @@
   },
   {
    "path": "reference/scalpel/data/presets.json",
-   "pins": "the SCALPEL preset bank, pinned by blob 44b48d72: scenario source for the engine parity set",
+   "pins": "the SCALPEL preset bank, pinned by blob 45c4f1d5: scenario source for the engine parity set",
    "check": "golden_pin_check",
    "also_checks": [
     "h2_engine_parity_check"
