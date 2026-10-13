@@ -1183,6 +1183,8 @@ class Engine {
   // or above it has just joined: until the next tick it keeps the blade law's lead,
   // and at that tick its lead is SET to its value under the frame, not ramped from
   // whatever its fields last held.
+  // The readings of the ruling this rests on (the measured advance, the fraction in
+  // seconds, the assignment, the joined member, the ramp's place) are ADR-216 A1.
   void holdFrame(Voice& v, int N, double rx, double ry, bool tick) {
     const double psiM = std::atan2(ry, rx) / TAU;
     if (!v.fhInit) {
@@ -1787,8 +1789,8 @@ class Engine {
   // it in full (linear between), and the fastest the frame is corrected, in cycles
   // per second (converted per tick in holdFrame, ADR-009).
   static constexpr double kFrameRLo = 0.05, kFrameRHi = 0.25, kFrameRate = 8;
-  // The tick g(R) is stated for (the lead, under ADR-216's delegation, 2026-10-12): 32
-  // samples at 48 kHz, 1/1500 s. At 48 kHz the exponent in holdFrame is exactly 1.
+  // The tick g(R) is stated for (ADR-216 A1 item 2): 32 samples at 48 kHz, 1/1500 s.
+  // At 48 kHz the exponent in holdFrame is exactly 1.
   static constexpr double kFrameDtRef = 32.0 / 48000;
 
   double sr;

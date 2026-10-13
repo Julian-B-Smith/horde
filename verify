@@ -922,10 +922,13 @@ full() {
   #
   # [engine gate: B461 the frame hold, ADR-216 D6]
   # tools/h2_frame_hold_check.mjs, on the C++ engine through the harness: one held note
-  # of the pad the human heard click (its settings pinned in the check), at C3, G3 and
-  # C4, reads no isolated jump with frameHold 1; its CONTROL, the present law
-  # (frameHold 0), must read at least one at C3 and at C4, or the check is red; and
-  # with the swarm locked the flag moves no reference patch above a measured ceiling.
+  # of the pad the human heard click (its settings pinned in the check), with Position
+  # spread 0, at C3, G3 and C4, at os 2 and at os 1, reads no isolated jump with
+  # frameHold 1 (the human's ruling of 2026-10-12 on B461's acceptance 2); its CONTROL,
+  # the present law (frameHold 0), must read at least one at C3 and at C4 at each os, or
+  # the check is red. The pad as shipped is printed and not judged: that row is B460's.
+  # Every flag-on render must be audible (LIVENESS), and with the swarm locked, in
+  # unison and coupled, the flag moves no reference patch above a measured ceiling.
   # Its last line is its verdict. Added under ADR-180 §1.
   node tools/h2_frame_hold_check.mjs --bin "$build_dir/h2_harness_render" || {
     echo "verify[full]: h2_frame_hold_check FAILED" >&2; return 1; }

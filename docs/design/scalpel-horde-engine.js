@@ -288,8 +288,8 @@ function makeComposedEngine(RazorCore, swarmSrc) {
      centre, the R at and above which it follows it in full (linear between), and the fastest the
      frame is corrected, in CYCLES PER SECOND (converted per tick in holdFrame, ADR-009).
      COUPLE_SAMPLES is the oracle's couple tick (razor-core.js render :752, `this.cnt = 32`).
-     FRAME_DT_REF is the tick g(R) is stated for (the lead, under ADR-216's delegation, 2026-10-12):
-     32 samples at 48 kHz, 1/1500 s. At 48 kHz the exponent in holdFrame is exactly 1. */
+     FRAME_DT_REF is the tick g(R) is stated for (ADR-216 A1 item 2): 32 samples at 48 kHz,
+     1/1500 s. At 48 kHz the exponent in holdFrame is exactly 1. */
   const FRAME_R_LO = 0.05, FRAME_R_HI = 0.25, FRAME_RATE = 8, COUPLE_SAMPLES = 32, FRAME_DT_REF = 32 / 48000;
   // p keys whose change makes SwarmSynth.setParam() rebuild x[] (swarmsaw.html:247)
   const REBUILD = ['n', 'dist', 'seed', 'law'];
@@ -934,6 +934,8 @@ function makeComposedEngine(RazorCore, swarmSrc) {
        has just joined (N was raised, or the flag came on at a smaller N): until the next tick it
        keeps the oracle's lead, and at that tick its lead is SET to its value under the frame, not
        ramped from whatever its fields last held (m.leadR is never written with the flag off).
+       The readings of the ruling this rests on (the measured advance, the fraction in seconds, the
+       assignment, the joined member, the ramp's place) are ADR-216 A1.
        R is Math.sqrt of the squares, not the oracle's v.r (Math.hypot): sqrt is correctly rounded
        everywhere, so the C++ computes the same bits.
        JS-ONLY MECHANISM: m.leadR. The oracle's couple() overwrites m.lead on every call and its

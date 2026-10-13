@@ -266,22 +266,15 @@ function composedRows(presets) {
   // reading the leads.
   row('D6 members join before a mono retrigger', { ...F, K: 0.1, N: 4, polyMode: 1, law: 3, bspread: 0.3 },
     [on(45), rb(100, 30), ['set', 'N', 8], on(50), rb(100, 30), off(50), rb(100, 20), off(45), rb(100, 20)]);
-  // TWO MEMBERS (the critic's H1). With two the summed phase vector lies on their
-  // bisector, so each time the frame leaves its hold the measured centre is half a
-  // cycle away TO WITHIN A ROUNDING (measured: within 8.5e-15 of the tie, either
-  // sign), and which way the frame turns is decided by that rounding. The C++ and the
-  // JS do not share sin, cos or atan2. The pad's pinned settings at N 2 with a static
-  // spread law, 2.4 s held, so each note passes several exits.
-  // THESE TWO ROWS HOLD WHERE THE TWO LIBMS HAPPEN TO AGREE, and are here to say so.
-  // Measured 2026-10-12 (darwin-arm64, Node 24) with --nudge 0..15: at parity as
-  // written, and RED on 2 of the 30 nudged renders (detune 30 at 2 ULP, detune 14 at 13
-  // ULP: rms 2.7e-2, max-abs 0.6, the frame turning the other way). A red here after a
-  // compiler, Node or platform change is that tie, not a port bug. No tie rule is
-  // built: what the frame does after a crossing is the human's open question (B461).
-  const two = { ...B2, N: 2, frame: 1, phaseMode: 2, law: 0, driftRate: 0.1, bspread: 0.3, detune: 14, K: 0.45, A: 300, frameHold: 1 };
-  const held2 = [on(45), on(52), blocks(900), off(45), off(52), blocks(20)];
-  row('D6 two members, detune 14', two, held2);
-  row('D6 two members, detune 30', { ...two, detune: 30 }, held2);
+  // TWO MEMBERS: NO ROW, ON PURPOSE (held out until the human rules what the frame
+  // does after a crossing, ROADMAP B461). With two members the summed phase vector
+  // lies on their bisector, so each time the frame leaves its hold the measured centre
+  // is half a cycle away to within a rounding, and which way the frame turns is decided
+  // by that rounding. The C++ and the JS do not share sin, cos or atan2, so such a row
+  // holds only where the two libraries agree to the last bit (measured: at parity as
+  // written, red on 2 of 30 renders with the note frequencies moved 1 to 15 ULP), and
+  // CI's lanes run another libm. The two rows' definitions and their numbers are in
+  // traces/2026-10-12-b461-frame-hold-d6-rework2.md and the ledger's D6 finding.
   return C;
 }
 

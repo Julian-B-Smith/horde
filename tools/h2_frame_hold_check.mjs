@@ -1,8 +1,9 @@
 /*
  * h2_frame_hold_check.mjs — ADR-216 D6 (`frameHold`, ROADMAP B461) does what it was
  * ruled to do, on the C++ engine: with the flag on, a held note of the pad the human
- * heard click reads no isolated jump; with it off (the present law) it reads them;
- * and where the swarm is locked the flag changes nothing above a stated ceiling.
+ * heard click reads no isolated jump of the frame's making; with it off (the present
+ * law) it reads them; and where the swarm is locked the flag changes nothing above a
+ * stated ceiling.
  *
  * WIRED: ./verify full
  *
@@ -14,34 +15,49 @@
  * a held note. D6 gives each voice a frame that holds its course there, and hands
  * each lead to its blade as a ramp (h2/engine/engine.h, holdFrame).
  *
- * WHAT IS RENDERED. Everything goes through the engine harness (h2/harness/), so
- * this is the C++ engine as it ships, never the JS one.
+ * WHAT IS JUDGED, AND WHO RULED IT. The human, 2026-10-12, on the lead's
+ * recommendation (ROADMAP B461's note; to be recorded by the lead as ADR-216 A2):
+ * "judge the fix with Position spread at 0, at both 1x and 2x oversampling. The
+ * present law must still read at least one jump there, so the test can see the
+ * fault. The pad-as-shipped row is printed but not judged, and becomes B460's test."
  *
- *   JUMP rows (judged, at os 2: the engine's own default, the parity set's rate). One
- *   held note of `ledger/breathing-pad`, 48 kHz, 8 s, host seed 1, at C3 (velocity
- *   0.9), G3 (0.9) and C4 (0.8), with frameHold 1. An ISOLATED JUMP is a
- *   sample-to-sample step on the left channel of the pre-limiter bus that is BOTH
- *   over 0.02 AND over 3 times the 99th percentile of the steps around it: the
- *   percentile is taken per 100 ms window (4800 samples) over the window and 2400
- *   samples either side, and events within 480 samples are one. Required: none, at
- *   all three notes.
+ * WHAT IS RENDERED. Everything goes through the engine harness (h2/harness/), so
+ * this is the C++ engine as it ships, never the JS one. One held note of
+ * `ledger/breathing-pad`, 48 kHz, 8 s, host seed 1, at C3 (velocity 0.9), G3 (0.9)
+ * and C4 (0.8), at os 2 (the engine's own default, the parity set's rate) and at
+ * os 1 (the device default since B445, and what the preview plays). An ISOLATED
+ * JUMP is a sample-to-sample step on the left channel of the pre-limiter bus that
+ * is BOTH over 0.02 AND over 3 times the 99th percentile of the steps around it:
+ * the percentile is taken per 100 ms window (4800 samples) over the window and
+ * 2400 samples either side, and events within 480 samples are one.
+ *
+ *   JUMP rows (judged). The pad with Position spread 0 (`bspread` 0) and
+ *   frameHold 1. Required: no isolated jump, on every one of the six renders
+ *   (three notes, two os).
  *
  *   CONTROL rows (judged; LIBRARY L0032: a detector that cannot see the fault proves
- *   nothing). The same renders with frameHold 0, the present law. Required: at least
- *   one isolated jump at C3 AND at C4, or this check is RED whatever the flag-on rows
- *   read. Judged at os 2 AND at os 1. (The lead measured 5 and 2 at os 2 on
- *   2026-10-12, the largest 0.34 and 0.60. G3 is printed and not required.)
+ *   nothing). The same six renders with frameHold 0, the present law. Required: at
+ *   least one isolated jump at C3 AND at C4, at each os, or this check is RED
+ *   whatever the flag-on rows read. G3 is printed and not required. (Measured
+ *   2026-10-12: 3 / 1 / 2 at os 2 and 5 / 2 / 4 at os 1.)
  *
- *   OS 1 (the device default since B445, and what the preview plays). The same rows
- *   at os 1. The control is judged there; the flag-on rows are printed as NOTE lines
- *   and NOT judged yet: their rule waits on the human's ruling on acceptance 2.
+ *   WHY POSITION SPREAD 0. The same detector also sees steps that are not the
+ *   frame's: ROADMAP B460, the spread law's values reaching the blades unsmoothed
+ *   every 32 samples. On this pad the drifting law (law 4) walks each blade's
+ *   POSITION offset by `bspread` times a random step per tick, and at C3 such a
+ *   step is the size of the phase's own advance per sample. `bspread` 0 closes
+ *   that one route and leaves the frame's. The critic's seed sweep (2026-10-12) is
+ *   the evidence that what is left on the pad as shipped is not the frame's: the
+ *   residue moves with the host seed, which only the spread's drift draws from;
+ *   all 28 hits over 18 seeds fall on sample 1 of a tick; and with `bspread` 0 the
+ *   flag-on render reads 0 on 18 of 18 seeds.
  *
- *   SPREAD rows (NOTE lines, not judged yet). The same detector also sees steps that
- *   are not the frame's: B460, the spread law's values reaching the blades unsmoothed
- *   every 32 samples. With that law's one route to the blade's POSITION closed
- *   (`bspread` 0) what is left is the frame's. Printed at both os, flag on and off.
- *   When a judged flag-on note is red, an ATTRIB line also prints the pad with the
- *   frame off altogether (`frame` 0): whatever that reads, the frame did not make.
+ *   B460 rows (NOTE lines, NOT judged). The pad AS SHIPPED, without the `bspread`
+ *   override, flag on and flag off, at both os. They belong to ROADMAP B460: its
+ *   acceptance promotes the flag-on line to a judged row requiring 0 / 0 / 0.
+ *   They are printed so that the reading stays on the record every run. Where a
+ *   flag-on line reads a jump, an ATTRIB line also prints the pad with the frame
+ *   off altogether (`frame` 0): whatever that reads, the frame did not make.
  *
  *   THE PAD'S SETTINGS ARE PINNED HERE, NOT LEFT TO THE BANK (the lead's amendment to
  *   this check's brief, 2026-10-12, when ADR-217 ordered an edit of the bank's
@@ -119,7 +135,7 @@ export const kPadPinned = { frame: 1, phaseMode: 2, N: 6, law: 4, driftRate: 0.1
 const NOTES = [{ name: 'C3', note: 48, vel: 0.9 }, { name: 'G3', note: 55, vel: 0.9 }, { name: 'C4', note: 60, vel: 0.8 }];
 const kJumpSeconds = 8;
 const kControlMustFire = ['C3', 'C4'];
-const kOsJudged = 2, kOsList = [2, 1];
+const kOsList = [2, 1];   // both judged (header)
 // the detector (header): a step over kStepFloor AND over kRatio x the local 99th percentile
 const kStepFloor = 0.02, kRatio = 3, kPercentile = 0.99;
 const kWindow = Math.round(0.1 * SR), kFlank = kWindow / 2, kMerge = 480;
@@ -213,24 +229,28 @@ export function main(argv) {
   // ---- the jumps
   console.log(`pinned over ${PAD}: ${JSON.stringify(kPadPinned)}; ${kJumpSeconds} s at ${SR} Hz, seed ${SEED}, left pre-limiter bus`);
   const J = key => isolatedJumps(R(key).preL);
-  const redNotes = [];
+  const b460 = [];   // the as-shipped renders whose flag-on line reads a jump
   for (const os of kOsList) {
-    const judged = os === kOsJudged;
+    // judged: Position spread 0 (header)
+    for (const n of NOTES) {
+      const on = J(`${os}/${n.name}/bs0/1`), off = J(`${os}/${n.name}/bs0/0`);
+      row(on.length === 0, 'JUMP', `os ${os} ${n.name}, Position spread 0, frameHold 1: isolated jumps ${describe(on)}; required 0`);
+      const must = kControlMustFire.includes(n.name);
+      row(!must || off.length > 0, 'CONTROL', `os ${os} ${n.name}, Position spread 0, frameHold 0 (the present law): isolated jumps ${describe(off)}; ${must ? 'required at least 1' : 'not required'}`);
+    }
+    // not judged: the pad as shipped, which is B460's (header)
     for (const n of NOTES) {
       const on = J(`${os}/${n.name}/pad/1`), off = J(`${os}/${n.name}/pad/0`);
-      if (judged) { row(on.length === 0, 'JUMP', `os ${os} ${n.name} frameHold 1: isolated jumps ${describe(on)}; required 0`); if (on.length) redNotes.push(n); }
-      else note('JUMP', `os ${os} ${n.name} frameHold 1: isolated jumps ${describe(on)} (not judged at os ${os}: the rule waits on the ruling on acceptance 2)`);
-      const must = kControlMustFire.includes(n.name);
-      row(!must || off.length > 0, 'CONTROL', `os ${os} ${n.name} frameHold 0 (the present law): isolated jumps ${describe(off)}; ${must ? 'required at least 1' : 'not required'}`);
+      if (on.length) b460.push([os, n]);
+      note('B460', `os ${os} ${n.name}, the pad as shipped (NOT judged): frameHold 1 reads ${describe(on)}, frameHold 0 reads ${describe(off)}. ` +
+        `This row is ROADMAP B460's (the spread law's steps): B460's acceptance promotes the flag-on reading to a judged row requiring 0 / 0 / 0; it is printed so the reading is on the record every run`);
     }
-    note('SPREAD', `os ${os}, Position spread 0 (not judged), C3 / G3 / C4: frameHold 1 reads ` +
-      `${NOTES.map(n => J(`${os}/${n.name}/bs0/1`).length).join(' / ')}, frameHold 0 reads ${NOTES.map(n => J(`${os}/${n.name}/bs0/0`).length).join(' / ')}`);
   }
-  if (redNotes.length) {
+  if (b460.length) {
     // which steps are the frame's (header, ATTRIB): printed, never judged
-    const ar = run(redNotes.map(n => padJob(n, { os: kOsJudged, frameHold: 1, frame: 0 })), opt);
-    redNotes.forEach((n, i) => note('ATTRIB', `os ${kOsJudged} ${n.name} (not judged): with the frame off altogether (frame 0) the pad reads ${describe(isolatedJumps(ar[i].preL))}; ` +
-      `with Position spread 0 it reads ${describe(J(`${kOsJudged}/${n.name}/bs0/1`))} with frameHold 1 and ${describe(J(`${kOsJudged}/${n.name}/bs0/0`))} with frameHold 0`));
+    const ar = run(b460.map(([os, n]) => padJob(n, { os, frameHold: 1, frame: 0 })), opt);
+    b460.forEach(([os, n], i) => note('ATTRIB', `os ${os} ${n.name} (not judged): with the frame off altogether (frame 0) the pad as shipped reads ${describe(isolatedJumps(ar[i].preL))}; ` +
+      `with Position spread 0 it reads ${describe(J(`${os}/${n.name}/bs0/1`))} with frameHold 1 and ${describe(J(`${os}/${n.name}/bs0/0`))} with frameHold 0`));
   }
 
   // ---- liveness: every flag-on render audible, and as loud as its flag-off twin

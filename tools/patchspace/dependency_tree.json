@@ -10298,7 +10298,7 @@
     },
     {
      "file": "docs/design/scalpel-horde-engine.js",
-     "line": 1001,
+     "line": 1003,
      "text": "for (let i = 0; i < N; i++) v.m[i].inc = Math.max(0, glideOn ? S.fRun[i] : S.eff[i]);"
     }
    ],
