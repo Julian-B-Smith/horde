@@ -410,6 +410,66 @@ function composedRows(presets) {
   // a panic while a late off is pending releases at once, and the pending off is gone
   row('D7 a panic while a late off is pending', { ...S7, poly: 2 }, [on(45), on(52), blocks(10), on(57), rb(300, 1), off(57), rb(100, 1), ['panic'], blocks(10),
     on(60), blocks(10), off(60), blocks(20)]);
+  // ---- added after the second critic's read (2026-10-13; the rules are ADR-216 A3) ----
+  // THE TIERS JUDGE A VOICE BY ITS KEY, NOT BY ITS DELAYED GATE. A held chord of two and
+  // a back-to-back line at a pool of 3, the line's next note-on 0, 96 and 240 samples
+  // after its last note-off (a sequencer sends the two at one instant). Each line note
+  // after the first takes the last one's voice, which is still sounding out its late
+  // release (key up, gate on); the chord is never touched. As first built that voice
+  // read as held and the line took a chord voice from its third note on.
+  const LINE = [72, 74, 76, 77, 79, 77, 76, 74];
+  const lineOver = gap => [on(45), on(52), blocks(10),
+    ...LINE.flatMap((n, i) => [...(i ? [off(LINE[i - 1]), ...(gap ? [rb(gap, 1)] : [])] : []), on(n), blocks(20)]),
+    off(LINE[LINE.length - 1]), off(45), off(52), blocks(20)];
+  for (const gap of [0, 96, 240]) row(`D7 a held chord under a back-to-back line, the next note-on ${gap} samples after the off`, { ...S7, poly: 3 }, lineOver(gap));
+  // ... and the two sides of the start, at a pool of 2: 45 and 52 held, 57 takes the
+  // oldest, is released X samples after its note-on, and 60 is struck Y after it. In
+  // every one 60 takes 57's voice and the held 52 survives. (X 96, Y 192 is 'D7 a
+  // released waiting note is a tail to the tiers', above.) As first built 52 was lost
+  // at four of the eight (X 96 with Y 244 and 264; X 300 with Y 400 and 536) and kept
+  // at the timings on either side of them: a step.
+  for (const [X, Y] of [[96, 236], [96, 244], [96, 264], [96, 340], [300, 400], [300, 536], [300, 544]])
+    row(`D7 a note released ${X} samples after its take, the next struck ${Y} after`, { ...S7, poly: 2 },
+      [on(45), on(52), blocks(10), on(57), rb(X, 1), off(57), rb(Y - X, 1), on(60), blocks(20), off(52), off(60), blocks(20)]);
+  // sustain 0: the stolen note has decayed to nothing with its gate still on. Its key
+  // is lifted and the next note is struck inside the late release: tier 1 restarts that
+  // voice at once (under the threshold), and the held 52, as quiet, is passed by
+  row('D7 sustain 0 with a stolen note', { ...S7, S: 0, D: 20, poly: 2 }, [on(45), on(52), rb(300, 1), on(57), blocks(20), off(57), rb(100, 1), on(60), blocks(20),
+    off(52), off(60), blocks(20)]);
+  // a mode change while a late off is pending: every voice is released at once and the
+  // pending off is gone (the mono note then plays voice 0 by the mono law)
+  row('D7 a mode change while a late off is pending', { ...S7, poly: 2 }, [on(45), on(52), blocks(10), on(57), rb(300, 1), off(57), rb(100, 1), ['set', 'polyMode', 1],
+    on(60), blocks(20), off(60), blocks(20)]);
+  // a full cap of 2 in a pool of 3. Under capPolicy 2, 57 takes the oldest held voice
+  // and starts late. Then capPolicy 1, and 60 is struck while 57 sounds out its late
+  // release: 57 is a tail, so 60 takes it (the tiers) and the held 52 is not stolen
+  capRow('D7 capPolicy 1 while a late off is pending', { ...S7, poly: 3 }, 2, 2, [on(45), on(52), blocks(10), on(57), rb(300, 1), off(57), rb(100, 1), ['capPolicy', 1], on(60), blocks(20),
+    off(52), off(60), blocks(20)]);
+  // the cap is lowered while a late off is pending: the cull picks that voice (a tail)
+  // and releases it there, so its fade runs on a released voice
+  row('D7 the cull takes a tail whose late off is pending', { ...S7, poly: 2 }, [on(45), on(52), blocks(10), on(57), rb(300, 1), off(57), rb(100, 1), ['cap', 1], blocks(20),
+    off(52), blocks(20)]);
+  // key 57 twice: started late on one voice and still waiting on the other when its
+  // off arrives. One off releases both, each as late as it started
+  row('D7 one key started late on one voice and waiting on another', { ...S7, poly: 2 }, [on(45), on(52), blocks(10), on(57), rb(300, 1), on(57), rb(100, 1), off(57), blocks(20),
+    blocks(20)]);
+  // a retune between an off and its effect reaches the note: it is still sounding
+  row('D7 a retune between an off and its effect', { ...S7, poly: 2 }, [on(45), on(52), blocks(10), on(57), rb(300, 1), off(57), rb(100, 1), ['re', 57, mtof(59)], blocks(20),
+    off(52), blocks(20)]);
+  // THE OTHER ARM of the culled tail's take: culled 200 samples before, the cull has
+  // 184 samples left, fewer than the steal's 240, and the note waits 185 (the product
+  // the ceil reads stands 2.7e-12 above 184: take(), engine.h). 'D7 a take of a voice
+  // fading under the cull', above, takes 100 samples in and waits the steal's 240.
+  row('D7 a culled tail taken late, the cull\'s remainder the shorter', S7, [on(45), on(52), on(57), blocks(10), off(52), off(57), blocks(3), ['cap', 1], rb(200, 1), on(60), blocks(20),
+    off(45), off(60), blocks(20)]);
+  // KEEP-PHASE, A VOICE THAT DIES UNDER ITS RAMP. R 5 ms: taken 370 samples after its
+  // release the tail is at 0.002, and its own release floor ends it 134 samples into
+  // the fade. The waiting note is cancelled, and 57 is struck 148 samples in, inside
+  // the fade: it restarts the silent voice at once and reads the snapshot. The faded
+  // voice counts as sounding for the whole fade, so that is its phases as they stood
+  // when it stopped, not the snapshot of the last 37-sample block it was heard in.
+  row('D7 keep phase, a voice that dies under its ramp', { ...B1, N: 5, R: 5, stealFade: 1, poly: 1, keepPhase: 1, phaseMode: 0, detune: 20 },
+    [on(45), rb(37, 20), off(45), rb(37, 10), on(52), ['panic'], rb(37, 4), on(57), rb(37, 60), off(57), rb(37, 40)]);
   return C;
 }
 
