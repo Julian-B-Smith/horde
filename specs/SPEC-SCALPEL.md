@@ -8,7 +8,7 @@
 
 ## 1. Recommendation
 
-Add SCALPEL to HORDE as a new engine type. It is a Waverazor-style *sectional* oscillator: a base waveform is cut by one or two **blades** (windows over the cycle) and each blade replaces its span with a transformation — hard sync, FM, noise, fold, ring, or crush. It sits naturally in HORDE because every voice is a **Kuramoto swarm** of 1–9 members, so the same coupling law HORDE already uses for detune now also governs where the cuts land, how they spread, and how members modulate each other.
+Add SCALPEL to HORDE as a new engine type. It is a *sectional* oscillator: a base waveform is cut by one or two **blades** (windows over the cycle) and each blade replaces its span with a transformation — hard sync, FM, noise, fold, ring, or crush. It sits naturally in HORDE because every voice is a **Kuramoto swarm** of 1–9 members, so the same coupling law HORDE already uses for detune now also governs where the cuts land, how they spread, and how members modulate each other.
 
 The bench validated the design musically and numerically: 76 starting points covering growls, FM sines, leads, pads and moving textures; a trance "crunch" that matches the Operator/Serum idiom; anti-aliasing better than −115 dB between harmonics at A5 within HORDE's 2× oversampling ceiling; per-cycle DC correction accurate to 0.0055 across 240 mode combinations.
 
