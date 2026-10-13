@@ -31,6 +31,9 @@
      ?hf=60..108 · ?blind=1 (starts a blind round, for screenshots).
 
      L0026: all state above all wiring; nothing at setup reaches forward to a const below it.
+     B468 (2026-10-13): the level match trims on the AC part (core block K2), §3 tabulates the DC each
+     option adds, (e)'s card carries its notch caveat (B466 F7), and the self-check has a sixth row,
+     LEVEL, with a planted-DC control. No option's formula and no table changed.
      STUB-SAFETY (lab_load_check and lab_wheel_scroll_check run this under DOMs whose numbers are 0):
      painters loop over data, never over a canvas's size. Wheel: alt/⌥ + wheel only, through the
      shared onAltWheel (B301); this lab is in lab_wheel_scroll_check's LABS. -->
@@ -157,6 +160,7 @@
   .opt h4 { font-size:11px; letter-spacing:.04em; margin-bottom:3px; display:flex; align-items:center; gap:6px; }
   .opt h4 .sw { width:10px; height:10px; border-radius:2px; display:inline-block; border:1px solid var(--line); }
   .opt .fx { font-size:10px; color:var(--t2); line-height:1.5; margin:3px 0 5px; min-height:45px; }
+  .opt .caveat { font-size:10px; color:var(--caution-tx); background:var(--caution-bg); border:1px solid var(--caution); border-radius:4px; padding:3px 6px; margin:3px 0 5px; line-height:1.45; }
   .opt .facts { font-size:10px; color:var(--text); display:flex; gap:10px; flex-wrap:wrap; margin:4px 0; }
   .opt .facts span b { color:var(--t2); font-weight:400; }
   .opt canvas { height:74px; }
@@ -247,6 +251,8 @@
   <div id="heatTbl"></div>
   <h3>CPU — timed in a worker, relative to (a) at the same note (this harness's saw; see §6)</h3>
   <div id="cpuTbl"></div>
+  <h3>THE DC EACH OPTION ADDS — mean of (the option's render − the naive render), against the AC level of the option (B468)</h3>
+  <div id="dcTbl"></div>
   <h3>SUMMARY</h3>
   <div id="sumTbl"></div>
 </section>
@@ -262,7 +268,7 @@
 
 <section class="cluster" id="s5">
   <h2>§5 SELF-CHECK — each check with a must-fail control</h2>
-  <div class="tp"><button class="pill" id="chkBtn">run the self-check</button><span class="note" id="chkNote" style="margin:0">runs on request, or at load with <code>?check=1</code>: about 60 estimator runs on the worker pool</span></div>
+  <div class="tp"><button class="pill" id="chkBtn">run the self-check</button><span class="note" id="chkNote" style="margin:0">runs on request, or at load with <code>?check=1</code>: about 60 estimator runs on the worker pool, and six options' renders for the level row</span></div>
   <table class="chk" id="chkTbl"></table>
   <canvas id="contCv" class="hidden"></canvas>
   <div class="verdict" id="chkVerdict">not run</div>
@@ -311,7 +317,8 @@ const OPTS = [
   { id: 'd', name: 'minimum-phase BLEP table', kind: 'min',
     formula: 'the same |H| as (c), made minimum-phase by the real cepstrum (fold the cepstrum onto n ≥ 0, exponentiate); causal, 0 ≤ x < 2W; R = S − 1. No look-ahead, the same tap count as (c).' },
   { id: 'e', name: 'note-dependent: polyBLEP ↔ min-phase', kind: 'noteE',
-    formula: 'per edge, keyed on the member\'s pitch p: w = ½ − ½cos(π·clamp((p − X + B/2)/B, 0, 1)); R = (1−w)·R(a) + w·R(d). Below X − B/2 pure (a), above X + B/2 pure (d).' },
+    formula: 'per edge, keyed on the member\'s pitch p: w = ½ − ½cos(π·clamp((p − X + B/2)/B, 0, 1)); R = (1−w)·R(a) + w·R(d). Below X − B/2 pure (a), above X + B/2 pure (d).',
+    caveat: 'Caution: the blend mixes two kernels that arrive a few samples apart (the polyBLEP\'s and the minimum-phase table\'s), which dips the response inside the blend band; the report measured up to 18 dB near 6 kHz at equal weights (B466 F7). See docs/research/2026-10-13-edge-table-design.md, finding F7; that report is a pull request (#1077), not yet merged.' },
   { id: 'f', name: 'note-dependent: scaled min-phase', kind: 'noteF',
     formula: 'eight min-phase tables at C1..C8; octave k has W_k = round(W₁·(W₈/W₁)^(k/7)), c_k = c₁ + (c₈ − c₁)·k/7. Between anchors a raised-cosine crossfade over ±F/2 semitones around the midpoint; otherwise the nearer table alone. Long, high-cut tables where edges are rare; short, low-cut where they are dense.' },
 ];
@@ -761,6 +768,75 @@ function kernelShape(id, P) {
   return { xs, ys, W: P.W };
 }
 
+/* ---------------------------------------------------------------- K2. the level match (B468) */
+/* THE TRIM READS THE AC PART. A minimum-phase table puts a DC offset on the wave (its residual does
+   not balance round zero), and that offset grows with pitch. Read as part of the RMS it turned the
+   whole option down, and its audible part came out quieter than (a)'s: the ear test above C6 was not
+   level-matched (B466 F6). The mean is now removed before the RMS is read.
+   WHICH SAMPLES: the same as before, the whole played render, its 3 ms onset and 20 ms release
+   included (`env: true`); only the mean comes off first.
+   WHAT IS PLAYED is untouched: the buffer keeps each option's own DC, because the DC is part of what
+   that option does. Only the trim's reading changed.
+   `rmsRaw` is the OLD reading (DC included). Nothing trims by it now; it is kept so the self-check's
+   must-fail control can apply the old rule to a planted-DC signal and watch it read red. */
+const TARGET_RMS = 0.1;                                   // level match: every render is trimmed to −20 dBFS RMS (AC part)
+function levelOf(y) {
+  const n = Math.max(1, y.length); let sum = 0, sq = 0, ac = 0;
+  for (let i = 0; i < y.length; i++) sum += y[i];
+  const dc = sum / n;
+  for (let i = 0; i < y.length; i++) { const v = y[i], d = v - dc; sq += v * v; ac += d * d; }
+  return { dc, rms: Math.sqrt(ac / n), rmsRaw: Math.sqrt(sq / n) };
+}
+/* what ▶ plays for one option: the render with its envelope, as a Float32 buffer, and its levels */
+function audioRender(spec) {
+  const r = render(spec, { env: true }), y = new Float32Array(r.y.length); let pk = 0;
+  for (let i = 0; i < y.length; i++) { const v = r.y[i]; y[i] = v; if (Math.abs(v) > pk) pk = Math.abs(v); }
+  const L = levelOf(r.y);
+  return { y, rms: L.rms, rmsRaw: L.rmsRaw, dc: L.dc, peak: pk, edges: r.edges, taps: r.taps };
+}
+/* THE SELF-CHECK'S LEVEL LEG. For each option in `ids` on `spec`: the AC level, in dBFS, of the buffer
+   AFTER the trim has scaled it, under the new rule (trim by the AC rms) and under the old (trim by
+   the raw rms). The trim is applied to the played-format buffer and the AC part re-read from the
+   scaled samples, so the number is the level of what would be heard, not the trim's own arithmetic
+   handed back. Then the PLANTED signal: the first option's render with `dc` added to every sample,
+   read both ways against the same option unplanted. */
+function levelMatch(spec, ids, dc) {
+  const db = x => 20 * Math.log10(Math.max(x, 1e-12));
+  /* THE METER IS NOT levelOf. A meter that shared levelOf's mean removal would read a levelOf that had
+     lost it as clean (the detector shares the assumption it checks): this one takes the AC power as
+     E[x²] − E[x]², a separate formulation, so a levelOf that stopped removing the mean turns the row red. */
+  const acDb = y => { let s = 0, q = 0; for (let i = 0; i < y.length; i++) { s += y[i]; q += y[i] * y[i]; } const m = s / y.length; return db(Math.sqrt(q / y.length - m * m)); };
+  const trimmedAcDb = (y, read) => acDb(Float32Array.from(y, v => v * TARGET_RMS / read));
+  const per = [];
+  let first = null;
+  for (const id of ids) {
+    const r = audioRender(Object.assign({}, spec, { opt: id }));
+    if (!first) first = r;
+    per.push({ id, dcDb: db(Math.abs(r.dc)), newDb: trimmedAcDb(r.y, r.rms), oldDb: trimmedAcDb(r.y, r.rmsRaw) });
+  }
+  const spread = k => Math.max(...per.map(p => p[k])) - Math.min(...per.map(p => p[k]));
+  const yp = Float32Array.from(first.y, v => v + dc), Lp = levelOf(yp);
+  return { per, spreadNew: spread('newDb'), spreadOld: spread('oldDb'),
+    planted: { dc, newDb: trimmedAcDb(yp, Lp.rms), oldDb: trimmedAcDb(yp, Lp.rmsRaw), refNew: per[0].newDb, refOld: per[0].oldDb } };
+}
+/* THE DC EACH OPTION ADDS (B468): per option and note, the mean of (the option's render minus the
+   NAIVE render of the same spec), so what the saw's own partial last cycle contributes cancels and
+   what is left is the correction's. Steady state, 1 s, as the heat map. `acDb` is the AC level of the
+   option's render in dBFS, the figure the DC is read against. */
+function dcTable(spec, ids, notes) {
+  const rows = {}; for (const id of ids) rows[id] = [];
+  for (const note of notes) {
+    const s = Object.assign({}, spec, { mat: 'note', note, dur: 1 }), o = { align: true, pre: MEAS_PRE };
+    const naive = render(Object.assign({}, s, { opt: 'naive' }), o).y;
+    for (const id of ids) {
+      const y = render(Object.assign({}, s, { opt: id }), o).y; let sum = 0;
+      for (let i = 0; i < y.length; i++) sum += y[i] - naive[i];
+      rows[id].push({ dc: sum / y.length, acDb: 20 * Math.log10(Math.max(levelOf(y).rms, 1e-12)) });
+    }
+  }
+  return { notes, rows };
+}
+
 /* ---------------------------------------------------------------- L. one entry point for every job */
 /* The audit's measured rows (docs/audits/2026-09-30-swarm-core-audit.md §2.1) at C2 C4 C6 C8: the
    synthetic copy of the core's polyBLEP (its h/alias2.mjs) and the core itself (n1 polyBLEP, vol .05). */
@@ -769,11 +845,9 @@ function doJob(MET, j, clock) {
   switch (j.kind) {
     case 'alias': return aliasOf(MET, j.spec, j.pre);
     case 'track': return aliasTrack(MET, j.spec);
-    case 'audio': {
-      const r = render(j.spec, { env: true }), y = new Float32Array(r.y.length); let s = 0, pk = 0;
-      for (let i = 0; i < y.length; i++) { const v = r.y[i]; y[i] = v; s += v * v; if (Math.abs(v) > pk) pk = Math.abs(v); }
-      return { y, rms: Math.sqrt(s / Math.max(1, y.length)), peak: pk, edges: r.edges, taps: r.taps };
-    }
+    case 'audio': return audioRender(j.spec);
+    case 'level': return levelMatch(j.spec, j.ids, j.dc);
+    case 'dc': return dcTable(j.spec, j.ids, j.notes);
     case 'cpu': return cpuTable(j.spec, j.ids, j.notes, j.rounds, clock);
     case 'cpuScale': { let c = 0; return cpuScale(j.spec, j.fakeClock ? () => (c += 1) : clock); }
     case 'hf': return hfOf(MET, j.spec, j.ids);
@@ -802,7 +876,6 @@ const MAT_NOTE = {
   glide: 'X−12 ↔ X+12 (X = (e)\'s crossover), 0.6 s glides with 0.4 s holds, twice: a hard switch at X would be heard here.',
   cross: 'X−9 → X+9 in 4 s: one slow pass over (e)\'s blend band (the self-check\'s continuity material).',
   chord: 'root, +4, +7, +11, +14 from the chosen note, 2.5 s.', vibrato: '5.5 Hz vibrato around the chosen note, 3 s.' };
-const TARGET_RMS = 0.1;                                   // level match: every render is trimmed to −20 dBFS RMS
 const S = {
   dark: qp('theme', '') === 'dark',
   src: ['swarm', 'single', 'blade'].indexOf(qp('src', '')) >= 0 ? qp('src', '') : 'swarm', N: 7, detune: 30, ratio: 2.5, seed: 1,
@@ -836,7 +909,7 @@ const CACHE = new Map();                                  // key -> result (ever
 const AUDIO_KEYS = [];
 const PLAY = { ctx: null, nodes: null, playing: false, seq: 0 };
 const BLIND = { seed: 1, round: 0, cur: null, hist: [] };
-const HEAT = { gen: 0, res: {}, cpu: null, hf: null, track: null, trackGen: 0, cpuTag: 0, hfGen: 0, raf: 0 };
+const HEAT = { gen: 0, res: {}, cpu: null, dc: null, hf: null, track: null, trackGen: 0, cpuTag: 0, hfGen: 0, raf: 0 };
 const CHK = { running: false, rows: [], verdict: '', cont: null };
 const DIRTY = { t: 0, r: 0 };
 const STAT = { peak: 0 };                                // the status bar's high-water mark of outstanding jobs
@@ -865,8 +938,8 @@ function keyOf(j) {                                       // the cache key: the 
   if (s && s.src !== 'blade') delete s.ratio;
   if (s && s.mat !== 'vibrato') delete s.vib;
   // cpu and hf render every option from one spec, so they depend on ALL the option parameters
-  const rp = j.spec ? (j.kind === 'cpu' || j.kind === 'hf' ? j.spec.P : relPOf(j.spec)) : null;
-  return JSON.stringify([j.kind, s, rp, j.ids, j.notes, j.pre, j.W, j.cut, j.cutMin, j.id, j.P, j.fakeClock, j.rounds, j.tag]);
+  const rp = j.spec ? (j.kind === 'cpu' || j.kind === 'hf' || j.kind === 'dc' ? j.spec.P : relPOf(j.spec)) : null;
+  return JSON.stringify([j.kind, s, rp, j.ids, j.notes, j.pre, j.W, j.cut, j.cutMin, j.id, j.P, j.fakeClock, j.rounds, j.tag, j.dc]);
 }
 function relPOf(spec) { const o = {}; for (const k of OPT_P[spec.opt] || []) o[k] = spec.P[k]; return o; }
 
@@ -983,7 +1056,7 @@ function status() {
 function buildOptions() {
   const g = $('optGrid');
   g.innerHTML = OPTS.map(o => `<div class="opt" id="opt_${o.id}"><h4><span class="sw" style="background:${OCOL[o.id]}"></span>(${o.id}) ${o.name}</h4>
-    <div class="fx">${o.formula}</div><div class="facts" id="facts_${o.id}"></div>
+    <div class="fx">${o.formula}</div>${o.caveat ? `<div class="caveat">${o.caveat}</div>` : ''}<div class="facts" id="facts_${o.id}"></div>
     <canvas id="kcv_${o.id}"></canvas><div id="osl_${o.id}"></div>
     <div class="slot"><button class="pill slotA" data-slot="A" data-id="${o.id}">→ A</button><button class="pill slotB" data-slot="B" data-id="${o.id}">→ B</button></div></div>`).join('');
   for (const o of OPTS) $('osl_' + o.id).innerHTML = OPT_SLIDERS[o.id].map(sliderRow).join('');
@@ -1076,7 +1149,9 @@ function paintListen() {
 }
 const srcLabel = () => S.src === 'swarm' ? `swarm-style unison, ${S.N} members ±${S.detune} ct, seed ${S.seed}` : S.src === 'blade' ? `sync blade, ratio ${S.ratio.toFixed(2)}` : 'one saw';
 function audioJob(id) { return { kind: 'audio', spec: specFor(id) }; }
-function trimOf(r) { return Math.pow(10, S.gain / 20) * (S.match && r && r.rms > 0 ? TARGET_RMS / r.rms : 0.25); }
+/* r.rms is the AC part's RMS (levelOf, B468); TARGET_RMS is declared in the core block */
+const levelTrim = rms => TARGET_RMS / rms;
+function trimOf(r) { return Math.pow(10, S.gain / 20) * (S.match && r && r.rms > 0 ? levelTrim(r.rms) : 0.25); }
 function paintAB() {
   const hearing = BLIND.cur && BLIND.cur.listening ? null : S.hear;
   for (const slot of ['A', 'B']) {
@@ -1084,7 +1159,7 @@ function paintAB() {
     if (!box) continue;
     box.classList.toggle('live', PLAY.playing && hearing === slot);
     box.innerHTML = `<b style="color:${OCOL[id]}">${slot} = (${id})</b> ${OPTS.find(o => o.id === id).name}<br>` +
-      (r ? `level trim ${S.match ? (20 * Math.log10(TARGET_RMS / r.rms)).toFixed(2) + ' dB (to −20 dBFS RMS)' : 'off (raw, −12 dB)'} · peak ${(20 * Math.log10(r.peak * trimOf(r) + 1e-12)).toFixed(1)} dBFS<br>${r.edges} edges · ${r.taps} kernel taps · latency ${latencyOf(id, S.P)} smp`
+      (r ? `level trim ${S.match ? (20 * Math.log10(levelTrim(r.rms))).toFixed(2) + ' dB (AC part to −20 dBFS RMS)' : 'off (raw, −12 dB)'} · peak ${(20 * Math.log10(r.peak * trimOf(r) + 1e-12)).toFixed(1)} dBFS<br>${r.edges} edges · ${r.taps} kernel taps · latency ${latencyOf(id, S.P)} smp`
          : 'rendering…');
   }
   const ab = $('abBtn');
@@ -1184,14 +1259,19 @@ function runTrack() {
 
 /* ---------------------------------------------------------------- §3 the heat map, CPU, summary */
 function runHeat() {
-  const gen = ++HEAT.gen, ps = []; HEAT.res = {};
-  paintHeat();
+  const gen = ++HEAT.gen, ps = []; HEAT.res = {}; HEAT.dc = null;
+  paintHeat(); runDc();
   for (const id of IDS) for (const note of NOTES_C) {
     ps.push(submit({ kind: 'alias', spec: specFor(id, { mat: 'note', note, dur: 1 }) }, 1).then(r => { if (gen !== HEAT.gen) return; HEAT.res[id + note] = r; paintHeatSoon(); }, () => {}));
   }
   // CPU is timed only once the estimator runs are done: timed beside six busy workers, the first
   // version read (c) at C1 as ×0.76 and at C2 as ×2.13 of (a) — the machine's load, not the option's
   Promise.all(ps).then(() => { if (gen === HEAT.gen) runCpu(false); });
+}
+/* the DC table: one slow-lane job for all six options and eight notes (seven short renders per note) */
+function runDc() {
+  const gen = HEAT.gen;
+  submit({ kind: 'dc', spec: specFor('a', { mat: 'note', P: Object.assign({}, S.P) }), ids: IDS, notes: NOTES_C }, 1).then(r => { if (gen !== HEAT.gen) return; HEAT.dc = r; paintDc(); }, () => {});
 }
 function runCpu(force) {
   const job = { kind: 'cpu', spec: specFor('a', { mat: 'note', P: Object.assign({}, S.P) }), ids: IDS, notes: NOTES_C, rounds: 7, tag: force ? ++HEAT.cpuTag : HEAT.cpuTag };
@@ -1258,7 +1338,20 @@ function paintHeat() {
     let worst = -200; const cells = NOTES_C.map(m => { const r = HEAT.res[id + m]; if (r) worst = Math.max(worst, r.excessDb); return `<td class="${r ? (r.excessDb <= -100 ? 'good' : r.excessDb <= -60 ? 'warn' : 'bad') : ''}">${r ? fmtDb(r.excessDb) + ' ' + clsL(r.cls) : '…'}</td>`; }).join('');
     return `<tr><td style="color:${OCOL[id]}">(${id}) ${OPTS.find(o => o.id === id).name}</td>${cells}<td>${worst > -200 ? worst.toFixed(1) : '…'}</td></tr>`;
   }).join('') + `</table>`;
-  paintCpu(); paintSummary();
+  paintCpu(); paintDc(); paintSummary();
+}
+/* DC against the AC level: green at or under −60 dB (the kernel's sampling residue and the window's
+   edge: every (a), (b) and (c) cell reads there), red at or over −16 dB (the bar the self-check's LEVEL
+   row holds: a DC that large moves the OLD trim by 0.1 dB or more), amber between. */
+const DC_GOOD_DB = -60, DC_BAD_DB = -16;
+function paintDc() {
+  const t = $('dcTbl'), r = HEAT.dc; if (!t) return;
+  if (!r) { t.innerHTML = '<div class="note">measuring…</div>'; return; }
+  const db = x => 20 * Math.log10(Math.max(x, 1e-12));
+  t.innerHTML = `<table class="pt"><tr><th>option</th>${r.notes.map(m => `<th>${noteName(m)}</th>`).join('')}</tr>` + IDS.map(id => `<tr><td style="color:${OCOL[id]}">(${id})</td>${r.rows[id].map(c => {
+    const dBfs = db(Math.abs(c.dc)), rel = dBfs - c.acDb;
+    return `<td class="${rel <= DC_GOOD_DB ? 'good' : rel < DC_BAD_DB ? 'warn' : 'bad'}" title="DC ${c.dc.toExponential(3)} · AC level ${c.acDb.toFixed(1)} dBFS">${c.dc < 0 ? '−' : '+'}${Math.abs(dBfs).toFixed(1)} dBFS<br><small>${rel.toFixed(1)} dB vs AC</small></td>`; }).join('')}</tr>`).join('') +
+    `</table><div class="note">${srcLabel()}, steady state, 1 s. Each cell: the offset the correction adds to the wave (its sign, then its level in dBFS) and, under it, that level against the AC level of the same render. <b>(d) and (f) add a DC that grows with pitch</b> (it doubles with each octave), and (e) carries it above its blend; (a), (b) and (c) read at the sampling residue and the window's edge, far under (d), not an offset. Green ≤ ${DC_GOOD_DB} dB against AC; red ≥ ${DC_BAD_DB} dB (the level trim used to count it; see §6); amber between. <b>What is played keeps this DC</b>: it is part of what the option does. Hover a cell for the raw offset.</div>`;
 }
 function paintCpu() {
   const t = $('cpuTbl'), r = HEAT.cpu; if (!t) return;
@@ -1360,9 +1453,18 @@ async function runChecks() {
     add({ name: 'CPU', bar: 'the readout tracks work: a 2 s block of (a) times 2–8× a 0.5 s block, and (d) at C8 times ≥ 1.5× (d) at C1 (7-member swarm: 128× the edges)',
       got: `2 s / 0.5 s = ×${cs.durRatio.toFixed(2)} · C8 / C1 = ×${cs.noteRatio.toFixed(2)} (${cs.ms.map(x => x.toFixed(3)).join(' / ')} ms)`,
       ctl: `control: the same code on a constant clock: ×${cf.durRatio.toFixed(2)} · ×${cf.noteRatio.toFixed(2)}`, pass: cpuOk(cs), ctlFired: !cpuOk(cf) });
+    // 6 LEVEL (B468): the trim reads the AC part. The signal is the six options on one saw at C7 (where
+    // the minimum-phase DC is large) and, for the control, one option with a DC offset planted in it.
+    const LV_NOTE = 96, LV_DC = 0.1;
+    const lv = await J({ kind: 'level', spec: one('a', { note: LV_NOTE }), ids: IDS, dc: LV_DC });
+    const pl = lv.planted, shiftNew = pl.newDb - pl.refNew, shiftOld = pl.oldDb - pl.refOld;
+    add({ name: 'LEVEL', bar: 'the level match trims on the AC part: after the trim the AC levels of all six options at ' + noteName(LV_NOTE) + ' agree within 0.1 dB, and an option given a planted DC of ' + LV_DC + ' (' + fmtDb(20 * Math.log10(LV_DC)) + ' dBFS) keeps its trimmed AC level within 0.1 dB',
+      got: `six options ${lv.per.map(q => '(' + q.id + ') ' + q.newDb.toFixed(3)).join(' · ')} dBFS, spread ${lv.spreadNew.toFixed(3)} dB · planted ${pl.newDb.toFixed(3)} against ${pl.refNew.toFixed(3)} unplanted (Δ ${shiftNew.toFixed(3)} dB)`,
+      ctl: `control: the OLD rule (trim by the RMS with the DC in it) on the same signals: spread ${lv.spreadOld.toFixed(2)} dB · planted ${pl.oldDb.toFixed(2)} against ${pl.refOld.toFixed(2)} (Δ ${shiftOld.toFixed(2)} dB) — must read > 0.1 dB`,
+      pass: lv.spreadNew <= 0.1 && Math.abs(shiftNew) <= 0.1, ctlFired: Math.abs(shiftOld) > 0.1 });
   } catch (e) { add({ name: 'ERROR', bar: '', got: String(e && e.message || e), ctl: '', pass: false, ctlFired: false }); }
   const n = CHK.rows.filter(r => r.pass && r.ctlFired).length;
-  CHK.verdict = (n === CHK.rows.length && n === 5 ? 'SELF-CHECK GREEN' : 'SELF-CHECK RED') + ` — ${n}/${CHK.rows.length} checks pass with their controls firing`;
+  CHK.verdict = (n === CHK.rows.length && n === 6 ? 'SELF-CHECK GREEN' : 'SELF-CHECK RED') + ` — ${n}/${CHK.rows.length} checks pass with their controls firing`;
   CHK.running = false; paintChecks(); paintCont();
   try { window.__B383 = { verdict: CHK.verdict, rows: CHK.rows }; } catch (e) { /* no window */ }
 }
@@ -1388,12 +1490,12 @@ function paintCont() {
 /* ---------------------------------------------------------------- §6 method */
 function paintMethod() {
   $('method').innerHTML = [
-    '<b>The estimator (MEASURED).</b> B346\'s <code>aliasConvergence</code>, imported from <code>tools/patchspace/metrics.mjs</code> by each worker. Every option is rendered at 1, 2, 4, 8 and 16× the rate, each decimated to 44.1 kHz by a centred Kaiser FIR (pass 20 kHz, stop 24.1 kHz, 120 dB: the audit\'s method), plus the 8× stream before decimation for the source test. The number is the power in the 1× render that the finer renders do not have, as a fraction of the total, in dB; −120 is its floor. It is THRESHOLDED (a bin counts only 10 dB over the references), so a blend reads as a fast fall to clean rather than a ramp, and a held note whose period is a whole number of samples reads falsely clean (its aliases land on its harmonics: G2, 44100/98 = 450, reads the polyBLEP at −120). The heat map measures steady state: 50 ms run before a 1 s window.',
+    '<b>The estimator (MEASURED).</b> B346\'s <code>aliasConvergence</code>, imported from <code>tools/patchspace/metrics.mjs</code> by each worker. Every option is rendered at 1, 2, 4, 8 and 16× the rate, each decimated to 44.1 kHz by a centred Kaiser FIR (pass 20 kHz, stop 24.1 kHz, 120 dB: the audit\'s method), plus the 8× stream before decimation for the source test. The number is the power in the 1× render that the finer renders do not have, as a fraction of the total, in dB; −120 is its floor. It counts 20 Hz to 20 kHz only and clamps at −120 dB, so a \u201c−120\u201d in §3 means nothing was counted: it is the estimator\'s floor, not a measurement (B466 F1, <code>metrics.mjs</code>). It is THRESHOLDED (a bin counts only 10 dB over the references), so a blend reads as a fast fall to clean rather than a ramp, and a held note whose period is a whole number of samples reads falsely clean (its aliases land on its harmonics: G2, 44100/98 = 450, reads the polyBLEP at −120). The heat map measures steady state: 50 ms run before a 1 s window.',
     '<b>Why steady state.</b> With the audit\'s 3 ms fade-in inside the window, (d) read −109 dB at C8 at 0.5 s and −113 at 1 s, a floor that moved with the window length and with nothing else (not W, cutoff, FFT padding, the log floor or table density). A minimum-phase table delays edge energy by its group delay, which is shorter at 16× than at 1×, so the onset frames disagree between the render and its references. Self-check AUDIT keeps the audit\'s onset so its numbers are comparable; (a) reads the same either way (−47.5 vs −47.4 at C2).',
     '<b>The tables.</b> The linear-phase impulse is a Blackman-Harris-windowed sinc over ±W samples; the minimum-phase one is its real-cepstrum companion (8× zero-padded, |H| floored 200 dB down). Both are integrated to a step on a 128-point-per-sample grid and read by cubic Hermite interpolation with the exact derivative (the audit\'s linear interpolation needed 16384 points per sample to stop reading its own noise). Self-check MAGNITUDE proves the two have the same |H|.',
     '<b>CPU (MEASURED, a proxy).</b> Timed in worker 0 with <code>performance.now()</code> around whole 1× renders; see §3\'s note. These are JavaScript timings of THIS HARNESS\'S saw, which does far less per sample than the engine\'s member kernel (no envelope, pan, coupling, smoothing), so the relative cost of a correction is overstated here against the engine. The kernel-tap counts (hover a CPU cell) are exact and engine-independent: (c)/(d) cost 2W taps per edge, edges per second = f per member, so the cost scales with pitch. The audit estimated the C++ cost at about +8% at C4 and +130% at C8 scalar for W 16, cheaper than 2× everywhere (F3).',
     '<b>Latency.</b> (c) needs W samples of look-ahead: a real-time version reports W samples to the host; its listening renders here are really delayed by W. (b) inherits the core halfband\'s group delay, 31 samples at 2× = 15.5 at 1× (the core does not compensate it). (a), (d), (e), (f): 0.',
-    '<b>Listening.</b> Renders are pre-computed in worker 0 and cached (48 renders); both slots play looped and in sync, and A/B or X/Y moves only their gains (4 ms), so a switch is instant and in place. Level match trims every render to −20 dBFS RMS over the whole render; the trim is shown per slot. Blind rounds assign X/Y from a seeded mulberry32 stream (seed 1 × round), never Math.random.',
+    '<b>Listening.</b> Renders are pre-computed in worker 0 and cached (48 renders); both slots play looped and in sync, and A/B or X/Y moves only their gains (4 ms), so a switch is instant and in place. Level match trims every render to −20 dBFS RMS over the whole render, reading the AC part: the render\'s mean is removed before the RMS is read (B468). It used to read the RMS with the DC in it, and the minimum-phase tables add a DC that grows with pitch (§3), so (d), (f) and (e) above its blend were turned down and their audible part came out quieter than (a)\'s, by 5 dB at C7 and 10 dB at C8 on the default swarm; the ear test above C6 was not level-matched (B466 F6). What is played still carries each option\'s own DC; only the trim\'s reading changed. The trim is shown per slot. Blind rounds assign X/Y from a seeded mulberry32 stream (seed 1 × round), never Math.random.',
     '<b>JUDGEMENT, not measurement.</b> Which option sounds better is the human\'s call, by ear; the recommendation in the PR is the lab author\'s reading of the numbers. The sources are test harnesses (the banner above); a source-specific effect in the engine (coupling, envelopes, the output tanh, F16) is outside what this page can show.',
   ].map(p => '<p style="margin:0 0 6px">' + p + '</p>').join('');
 }
