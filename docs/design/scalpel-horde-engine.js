@@ -208,18 +208,17 @@
  *                    preview: "Breathing Pad is very clicky"). A DIVERGENCE FROM HORDE'S VOICE LAW AS
  *                    B310 BUILT IT, behind its own flag in `d`, DEFAULT 0 (ADR-187 A1); its record is
  *                    ADR-216, ADR-216 A3 (the rules of a taken voice: its release, what the voice law
- *                    sees of it, the cull, keep-phase) and the B459 trace. With the pool full a
- *                    poly note-on takes a voice that
- *                    is still sounding (ADR-083 tier 2 or 3) and restarts it as a fresh voice: the
- *                    envelope keeps its level while the phases, filters and DC state reset, so the
- *                    output jumps in one sample. With the flag on a voice whose envelope is at or
- *                    above 1e-3 is not restarted: its sound fades to zero over STEAL_FADE (a linear
- *                    ramp, the cull's arithmetic), the note waits in the voice, and it starts from
- *                    silence at the exact sample the fade ends, late by that length in every respect
- *                    (every note-off for it takes effect as late as it started; from the moment its
- *                    key is up the voice law reads it as a releasing tail). With the flag 0
- *                    no line below changes a sample. See take(), startWaiting(), noteOn(), render()
- *                    and renderPlain().
+ *                    sees of it, the cull, keep-phase) and the B459 trace. With the pool full a poly
+ *                    note-on takes a voice that is still sounding (ADR-083 tier 2 or 3) and restarts it
+ *                    as a fresh voice: the envelope keeps its level while the phases, filters and DC
+ *                    state reset, so the output jumps in one sample. With the flag on a voice whose
+ *                    envelope is at or above 1e-3 is not restarted: its sound fades to zero over
+ *                    STEAL_FADE (a linear ramp, the cull's arithmetic), the note waits in the voice,
+ *                    and it starts from silence at the exact sample the fade ends, late by that length
+ *                    in every respect (every note-off for it takes effect as late as it started; from
+ *                    the moment its key is up the voice law reads it as a releasing tail). With the
+ *                    flag 0 no line below changes a sample. See take(), startWaiting(), noteOn(),
+ *                    render() and renderPlain().
  * NOT COMPOSED THIS ROUND (stated, not hidden): the output stage and voice
  * (rows 12, 13, 15, 17-20, 66 and D11: vol/normExp, width, the tanh, ADSR, the
  * pan image) stay RazorCore's. SwarmSynth's per-member amplitude terms (hiTame,
@@ -543,12 +542,12 @@ function makeComposedEngine(RazorCore, swarmSrc) {
         /* ADR-216 D7: the steal's fade (samples left; 0 when none runs) and the note that waits for it
            (take): whether one waits, the note as struck (wNote, wFreq, wVel), its frequency after any
            retune (wTune), sfLeft when it began to wait (wFrom), whether its note-off came while it
-           waited (wOff) and how many samples after its take (wOffK). A stolen note is late by its
-           wait in every respect: `late` is how many samples late the note now on this voice started
-           (0 on a free voice), and every off for it takes effect that much late (offIn counts a
-           pending off down; 0 when none). The fade and the wait are apart on purpose: a cancelled
-           wait (a panic) leaves its fade to run out. sfEnd: the fade ended on the last sample rendered (read and cleared by
-           the keep-phase snapshot). */
+           waited (wOff) and how many samples after its take (wOffK). A stolen note is late by its wait
+           in every respect (ADR-216 A3, not ADR-216's own bullet): `late` is how many samples late the
+           note now on this voice started (0 on a free voice), and every off for it takes effect that
+           much late (offIn counts a pending off down; 0 when none). The fade and the wait are apart on
+           purpose: a cancelled wait (a panic) leaves its fade to run out. sfEnd: the fade ended on the
+           last sample rendered (read and cleared by the keep-phase snapshot). */
         v.sfLeft = 0; v.sfEnd = false; v.wait = false; v.wOff = false; v.wNote = 0; v.wFrom = 0; v.wOffK = 0; v.offIn = 0; v.late = 0;
         v.wFreq = 0; v.wTune = 0; v.wVel = 0;
       });
@@ -762,11 +761,10 @@ function makeComposedEngine(RazorCore, swarmSrc) {
        - A retune that reached it while it waited is applied as the oracle's 're' applies it to a
          started note (razor-core.js :353): the played frequency moves, the glide target stays the
          struck one. With no retune the two are equal and the write changes nothing.
-       - It is late by its wait in every respect (noteOff, ADR-216 A3): v.late is how late it
-         starts, and every
-         off for it takes effect that much late. If its off came k samples after its take, it is
-         released k samples after this start (offIn; render cuts there). k = 0 is an on and an off
-         at one instant, released at once, as the host's own would be. */
+       - It is late by its wait in every respect (noteOff, ADR-216 A3): v.late is how late it starts,
+         and every off for it takes effect that much late. If its off came k samples after its take, it
+         is released k samples after this start (offIn; render cuts there). k = 0 is an on and an off at
+         one instant, released at once, as the host's own would be. */
     startWaiting(v) {
       const struck = v.age, tune = v.wTune, off = v.wOff, k = v.wOffK, late = v.wFrom;
       this.startVoice(v, v.wNote, v.wFreq, v.wVel, true, true);
@@ -864,11 +862,10 @@ function makeComposedEngine(RazorCore, swarmSrc) {
     msg(o) {
       if (o && o.t === 'cap') { this.voiceCap = Math.max(0, Math.floor(+o.n || 0)); return; }
       if (o && o.t === 'capPolicy') { const n = Math.floor(+o.n || 0); this.capPolicy = n === 1 || n === 2 ? n : 0; return; }   // B375
-      /* ADR-216 D7 (A3), ahead of the oracle's own handling of the same two messages: a retune
-         reaches a
-         waiting note as it reaches a started one (the played frequency, wTune; the struck one stays
-         its glide target), and a panic cancels every waiting note (a fade already running runs
-         out) and every off still to take effect */
+      /* ADR-216 D7 (A3), ahead of the oracle's own handling of the same two messages: a retune reaches
+         a waiting note as it reaches a started one (the played frequency, wTune; the struck one stays
+         its glide target), and a panic cancels every waiting note (a fade already running runs out) and
+         every off still to take effect */
       if (o && o.t === 're') for (const v of this.voices) if (v.wait && v.wNote === o.note) v.wTune = o.freq;
       if (o && o.t === 'panic') for (const v of this.voices) { v.wait = false; v.offIn = 0; }
       super.msg(o);

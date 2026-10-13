@@ -120,8 +120,11 @@
  *              as a share of that bus's peak over the 50 ms before the take: at most
  *              kRampCeil. `without` is the render in which the old sound goes on
  *              (no chord). The tails are already releasing, so the take changes
- *              nothing of them but the ramp, and the two differ by the ramp alone;
- *              what is left (0.0016) is the DC blocker's memory of it.
+ *              nothing of them but the ramp, and the two differ by the ramp alone.
+ *              What is left (0.0016) is the memory of the oversampling's decimation
+ *              filter, which the summed voices pass through after the ramp has scaled
+ *              them (MEASURED on a plain patch in a scratch probe: 0.0019 at os 2,
+ *              0.0000 at os 1; for the pad it is ARGUED from that, not measured apart).
  *
  *   THE PLANTS: WHICH FAULT EACH ROW IS THERE TO CATCH, AND ITS MUST-FAIL (LIBRARY
  *   L0032). Each is the same job through a control adapter in the same binary

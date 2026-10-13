@@ -147,10 +147,10 @@ struct Voice {
   // voice when the fade ends; wNote, wFreq and wVel are that note as struck, and wTune
   // its frequency after any retune. wFrom is sfLeft when the note began to wait. wOff
   // says its note-off came while it waited, wOffK how many samples after its take.
-  // A stolen note is late by its wait in every respect: `late` is how many samples
-  // late the note now on this voice started (0 for a note on a free voice), and
-  // every off for it takes effect that much late (offIn counts an off's remaining
-  // samples down on the started note; 0 when none is pending).
+  // A stolen note is late by its wait in every respect (ADR-216 A3, not ADR-216's own
+  // bullet): `late` is how many samples late the note now on this voice started (0 for a
+  // note on a free voice), and every off for it takes effect that much late (offIn counts
+  // an off's remaining samples down on the started note; 0 when none is pending).
   // The fade and the wait are apart on purpose: a cancelled wait (a panic) leaves its
   // fade to run out.
   int sfLeft = 0;

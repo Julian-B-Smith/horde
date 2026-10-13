@@ -138,7 +138,7 @@
   },
   {
    "path": "docs/design/scalpel-horde-engine.js",
-   "pins": "the composed JS engine as B459 left it (main c64cfdb plus ADR-216's D6 and D7), pinned by blob 087f92e6: horde 2's parity target",
+   "pins": "the composed JS engine as B459 left it (main c64cfdb plus ADR-216's D6 and D7), pinned by blob b0ed52df: horde 2's parity target",
    "check": "golden_pin_check",
    "also_checks": [
     "h2_engine_parity_check"

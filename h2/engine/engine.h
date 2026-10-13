@@ -42,12 +42,12 @@
  *     the swarm's phase centre is undefined, and a member's lead reaches the blade
  *     as a ramp across the couple tick, never as a step (holdFrame).
  *   - ADR-216 D7 (B459; its rules are ADR-216 A3), off by default: a poly note-on
- *     that takes a voice still
- *     sounding (envelope at or above 1e-3) does not restart it. The old sound fades
- *     over kStealFade and the note starts from silence at the sample the fade ends,
- *     late by that length in every respect, its release included: every note-off for
- *     it takes effect as late as the note started, so it sounds for as long as its
- *     key was held (take, startWaiting, noteOff; render splits itself at those samples).
+ *     that takes a voice still sounding (envelope at or above 1e-3) does not restart
+ *     it. The old sound fades over kStealFade and the note starts from silence at the
+ *     sample the fade ends, late by that length in every respect, its release
+ *     included: every note-off for it takes effect as late as the note started, so it
+ *     sounds for as long as its key was held (take, startWaiting, noteOff; render
+ *     splits itself at those samples).
  *
  * NUMBERS: doubles, built -ffp-contract=off (h2 rule 7: the shipped build is the
  * tested build), with JS semantics where they differ from C++ (js.h).
@@ -1218,11 +1218,10 @@ class Engine {
   //     a started note: the played frequency moves, the glide target stays the struck
   //     one. With no retune the two are equal and the write changes nothing.
   //   - It is late by its wait in every respect (noteOff, ADR-216 A3): v.late is how
-  //     late it starts,
-  //     and every off for it takes effect that much late. If its off came k samples
-  //     after its take, it is released k samples after this start (offIn; render cuts
-  //     there). k = 0 is an on and an off at one instant, released at once, as the
-  //     host's own would be.
+  //     late it starts, and every off for it takes effect that much late. If its off
+  //     came k samples after its take, it is released k samples after this start
+  //     (offIn; render cuts there). k = 0 is an on and an off at one instant, released
+  //     at once, as the host's own would be.
   void startWaiting(Voice& v) {
     const double struck = v.age, tune = v.wTune;
     const bool off = v.wOff;
