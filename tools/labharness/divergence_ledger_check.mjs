@@ -56,6 +56,11 @@
  *       not seen here.
  *   L9  THE ENTRIES' ORDER DOES NOT MATTER (B465). Every rule above, run on the ledger with its entries
  *       reversed, gives the same findings (and the same L5 reading per flag) as on the ledger as written.
+ *   L10 EVERY BUILT ENTRY'S FLAG IS A DERIVED ONE (L8's converse; B465, added 2026-10-13 after an
+ *       independent critic's read: L8 alone asks only that each derived flag has an entry, so a flag
+ *       taken OUT of the lab's AA189 list, a dead toggle, read green with a smaller count). Each built
+ *       entry's flag must be in L8's derived set: in the lab's push list, or a registered SwarmSynth
+ *       patch's. With L8 the two sets are one.
  * A SCENARIO MAY CARRY A NOTE SCRIPT (B465, extended 2026-10-13, for ADR-216 D7). The fixed script above
  *   strikes both notes at sample 0 into an empty pool, so a divergence that acts on EVENT TIMING (D7: a
  *   note that takes a voice already sounding) could move no fingerprint this check can take. A scope
@@ -95,6 +100,8 @@
  *   C11 the reversed ledger with one pin off by a digit (L9's comparison must read a difference);
  *   C12 a scripted scenario with an event the script language does not have, and one that renders
  *       nothing (L1 must reject each).
+ *   C13 per flag of the lab's AA189 list, the lab's text with that flag taken out of the list, read by
+ *       the same function (L10 must reject the entry whose toggle is now dead).
  * PER-PLATFORM PINS (B382, ADR-187 item 7: digests are pinned per canonical platform). A `moves` value is
  *   a fingerprint, or {platform: fingerprint} keyed by Node's process.platform (darwin, linux, win32) for
  *   a render whose float32 bits differ between platforms. L4 compares it with the pin for the platform
@@ -307,6 +314,11 @@ function ledgeredErrors(led, Composed, flags) {
   }
   return e;
 }
+/* L10: L8's converse (header): every built entry's flag is one of the derived flags */
+function derivedErrors(led, flags) {
+  return built(led).filter(d => !flags.some(f => f.flag === d.flag))
+    .map(d => `${d.id}: its flag ${d.flag} is a built entry's, and is neither in the lab's AA189 push list nor a registered SwarmSynth patch's (a dead toggle, or a flag the engine no longer offers)`);
+}
 /* L7: the engine's SwarmSynth patches and the ledger's swarmsaw.html entries are one set */
 const SWARM_ORACLE = 'reference/swarmsaw.html';
 function patchErrors(led, Composed) {
@@ -332,6 +344,7 @@ function findings(led, Composed, flags) {
     L1: sorted(shapeErrors(led)), L2: sorted(oracleErrors(led)), L3: sorted(flagErrors(led, Composed)), L4: sorted(all), L4skips: sorted(all.skips),
     L5: Object.fromEntries(built(led).map(d => [d.id, wiredBy(led, Composed, d)]).sort((a, b) => (a[0] < b[0] ? -1 : 1))),
     L6: sorted(scopeErrors(led, Composed)), L7: sorted(patchErrors(led, Composed)), L8: sorted(ledgeredErrors(led, Composed, flags)),
+    L10: sorted(derivedErrors(led, flags)),
   });
 }
 
@@ -368,6 +381,9 @@ if (main) {
   const labText = readFileSync(join(root, LAB), 'utf8'), flags = engineFlags(Composed, labText);
   e = ledgeredErrors(led, Composed, flags);
   row(!e.length, 'L8', `every engine divergence flag is a built entry's: ${flags.length} derived, ${flags.filter(f => f.from.startsWith('the lab')).map(f => f.flag).join(', ')} from the lab's AA189 push list (${LAB}) and ${flags.filter(f => !f.from.startsWith('the lab')).map(f => f.flag).join(', ') || 'none'} from the engine's SwarmSynth patches${e.length ? ': ' + e.join('; ') : ''}`);
+
+  e = derivedErrors(led, flags);
+  row(!e.length, 'L10', `every built entry's flag is a derived engine divergence flag: ${B.length - e.length} of ${B.length}${e.length ? ': ' + e.join('; ') : ''}`);
 
   const reversed = x => { const y = JSON.parse(JSON.stringify(x)); y.divergences.reverse(); return y; };
   const asWritten = findings(led, Composed, flags);
@@ -427,6 +443,15 @@ if (main) {
   const kPlant = 'keepPhase';   // an engine key that is not a divergence flag, so no entry ledgers it
   e = ledgeredErrors(led, Composed, engineFlags(Composed, labText.replace('const AA189 = [', `const AA189 = ['${kPlant}', `))).filter(s => s.startsWith(kPlant + ':'));
   row(e.length > 0, 'C10', `CONTROL a flag planted in a scratch copy of the lab's push list (${kPlant}, an engine key with no entry) is caught: ${e[0] || 'NOT CAUGHT'}`);
+  /* L10's control: each flag of the lab's push list taken out of a scratch copy of the lab's text (a dead
+     toggle), read by the same function. The entry that ledgers it must be reported. */
+  const labFlags = flags.filter(f => f.from.startsWith('the lab')).map(f => f.flag);
+  for (const flag of labFlags) {
+    const without = labText.replace(/^const AA189 = \[[^\]]*\];/m, `const AA189 = [${labFlags.filter(x => x !== flag).map(x => `'${x}'`).join(', ')}];`);
+    const d = B.find(x => x.flag === flag);
+    e = derivedErrors(led, engineFlags(Composed, without)).filter(s => d && s.startsWith(d.id + ':'));
+    row(e.length > 0, 'C13', `CONTROL ${flag} taken out of a scratch copy of the lab's push list is caught: ${e[0] || 'NOT CAUGHT'}`);
+  }
   /* L9's control: the comparison can read a difference */
   const diff = findings(plant(x => { x.divergences.reverse(); const f = x.allOff.fingerprints[k0]; x.allOff.fingerprints[k0] = (f[0] === '0' ? '1' : '0') + f.slice(1); }), Composed, flags) !== asWritten;
   row(diff, 'C11', `CONTROL the reversed ledger with one pin off by a digit ${diff ? 'reads different findings' : 'reads THE SAME findings: NOT CAUGHT'}`);
