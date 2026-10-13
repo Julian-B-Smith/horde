@@ -101,7 +101,7 @@ PROPOSED) — the rule for how a hosted FX module's presets carry role-keyed mac
 under the intent bus; one sanctioned edit: seed `quantumPick`. A seventh CANDIDATE, a
 SOURCE this time, 2026-09-19: **SUB OSC** (`reference/subosc.html`, `specs/SPEC-SUBOSC.md`,
 ADR-178) — the honest sub (seven shapes incl. BUMP, pitch, tone, sync; no swarm), a routing
-source row when ported; its one sanctioned edit (peak-normalise BUMP) landed 2026-09-19. An eighth CANDIDATE, 2026-09-24: **SCALPEL** (`reference/scalpel/`, `specs/SPEC-SCALPEL.md`, ADR-184) — Waverazor-style blade synthesis on the Kuramoto swarm, replacing hard sync and likely the saw-shape panel; its integration shape (a swarm extension or an engine block) is the open question. CLAP-native instrument
+source row when ported; its one sanctioned edit (peak-normalise BUMP) landed 2026-09-19. An eighth CANDIDATE, 2026-09-24: **SCALPEL** (`reference/scalpel/`, `specs/SPEC-SCALPEL.md`, ADR-184) — blade synthesis (windows that cut each cycle and replace their span) on the Kuramoto swarm, replacing hard sync and likely the saw-shape panel; its integration shape (a swarm extension or an engine block) is the open question. CLAP-native instrument
 plugin, VST3 via clap-wrapper (ADR-002). The DEVICE is **horde** (ADR-114,
 settled 2026-08-23); HYPERSAW is the founding ENGINE, the frozen legacy plugin id, and
 our correspondent name in sibling mailboxes. The GitHub repo and the local folder are both

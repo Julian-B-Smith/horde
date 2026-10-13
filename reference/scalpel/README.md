@@ -1,6 +1,6 @@
 # SCALPEL handoff packet
 
-Recommendation spec and oracle for porting the Scalpel bench (Waverazor-style blade synthesis on a Kuramoto swarm) into HORDE.
+Recommendation spec and oracle for porting the Scalpel bench (blade synthesis on a Kuramoto swarm) into HORDE.
 
 **v1.1 (addendum):** blade interplay — serial stacking, stacking order, collision → pitch / bite. See SPEC §13; verifier checks 14–18. Everything else is unchanged from v1, and patches with interplay off render identically.
 
