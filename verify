@@ -487,10 +487,11 @@ PY
     # its declared scope (a scenario may carry a note script, for a divergence that acts
     # on event timing), the engine's SwarmSynth patches and their entries must be one
     # set, every divergence flag the engine has (read from the lab's push list and the
-    # engine's patches) must have a built entry, and the entries' order must change no
-    # finding. Its controls C1 to C12 are planted faults that must come back red, one
-    # per flag where the fault is a flag's (about 16 s, measured 2026-10-13 on a busy machine;
-    # it took about 3 s before B465). Added under ADR-180 §1.
+    # engine's patches) must have a built entry and every built entry's flag must be one
+    # of those, and the entries' order must change no finding. Its controls C1 to C13
+    # are planted faults that must come back red, one per flag where the fault is a
+    # flag's (about 16 s, measured 2026-10-13 on a busy machine; it took about 3 s
+    # before B465). Added under ADR-180 §1.
     node tools/labharness/divergence_ledger_check.mjs > /tmp/divledger.$$ 2>&1 || {
       echo "verify: divergence ledger check FAILED" >&2; cat /tmp/divledger.$$ >&2; ok=1; }
     tail -1 /tmp/divledger.$$   # the harness prints its own name; do not prefix it twice
@@ -948,14 +949,19 @@ full() {
   # taken whole (loud tails, and held voices). With stealFade 1 the jump at each chord
   # that takes sounding voices is under a measured ceiling of its class, the old sound
   # ends through a fade (what is left of it in the ramp's last tenth is under a
-  # ceiling), its notes start exactly 0.005 s after the take and add nothing there,
-  # and host blocks of 16, 37 and 128 frames agree as well as they do with the flag
-  # off, with keep-phase too. Its CONTROLS: the present law (stealFade 0) must read at
-  # least 5 % at every taken chord; a chord on free voices must read under 1 % either
-  # way; and the same job through the harness's no-ramp plant (control/steal-cut)
-  # must read as a missing fade, or the check is red. Mono and legato must render the
-  # same samples with the flag on and off. The header says which rows have the pad's
-  # noise blade off, and why. Its last line is its verdict. Added under ADR-180 §1.
+  # ceiling, and every sample of the ramp is within a ceiling of the gain it should
+  # have), its notes start exactly 0.005 s after the take and add nothing there, a
+  # held chord under a back-to-back line keeps its notes, and host blocks of 16, 37
+  # and 128 frames agree as well as they do with the flag off, with keep-phase too
+  # (and bit for bit where a voice dies under its ramp). Its CONTROLS: the present law
+  # (stealFade 0) must read at least 5 % at every taken chord; a chord on free voices
+  # must read under 1 % either way; the same job through each of the harness's five
+  # plants (h2/harness/control_steal.h: no ramp, a cut inside the ramp, a ramp that
+  # stops short, a start that steps, a start one sample early) must be read as that
+  # fault by the row named for it; and a line at a pool the chord fills must read the
+  # lost note, or the check is red. Mono and legato must render the same samples with
+  # the flag on and off. The header says which rows have the pad's noise blade off,
+  # and why. Its last line is its verdict. Added under ADR-180 §1.
   node tools/h2_steal_fade_check.mjs --bin "$build_dir/h2_harness_render" || {
     echo "verify[full]: h2_steal_fade_check FAILED" >&2; return 1; }
   #
