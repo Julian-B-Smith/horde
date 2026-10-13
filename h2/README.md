@@ -17,7 +17,7 @@ copies their proven code instead of including them:
 So nothing drifts between two SCALPELs. The design, what is copied from where,
 and the parity plan are in `docs/port/h2-engine.md`.
 
-Last verified: 2026-10-13 (B459, on top of B461's D6, which `h2_frame_hold_check` judges as the human ruled it on 2026-10-12: ADR-216's divergence D7, `stealFade`, built in the C++ and the composed JS, default OFF, with 25 flag-on scenarios; 587 of 590 scenarios at parity, the 3 ring rows judged on a measured 384-frame onset window, events, readouts and a finite render (a NaN/Inf guard; |x| ≤ 1 holds by construction after the output tanh); all 565 earlier self-digest rows unchanged in both builds; `h2_steal_fade_check` judges the jump at a taken voice, with ceilings PROPOSED for the human. **D7 is NOT yet in the divergence ledger:** the ledger's check cannot hear it, see rule 4).
+Last verified: 2026-10-13 (B459, on top of B461's D6, which `h2_frame_hold_check` judges as the human ruled it on 2026-10-12: ADR-216's divergence D7, `stealFade`, built in the C++ and the composed JS, default OFF, with 25 flag-on scenarios; 587 of 590 scenarios at parity, the 3 ring rows judged on a measured 384-frame onset window, events, readouts and a finite render (a NaN/Inf guard; |x| ≤ 1 holds by construction after the output tanh); all 565 earlier self-digest rows unchanged in both builds; `h2_steal_fade_check` judges the jump at a taken voice, with ceilings PROPOSED for the human; D7 is in the divergence ledger with a scripted scenario, and the ledger's check was extended to hear it and to see an unledgered flag (B465, rule 4)).
 
 ## Rules
 
@@ -58,25 +58,23 @@ The rest are enforced by each core's parity check.
    where the browser can follow it. Where it cannot, the entry is marked
    `js_limit`. The composed engine's ledger is `docs/port/divergences.json`
    (checked by `tools/labharness/divergence_ledger_check.mjs` in `verify fast`).
-   As of 2026-10-01 it held 7 entries; B461 added D6 (2026-10-12):
-   - **D1, D2 and D3** (ADR-189 with A1) and **D6** (ADR-216, B461): built, default OFF;
+   As of 2026-10-01 it held 7 entries; B461 added D6 (2026-10-12) and B459 added
+   D7 (2026-10-13):
+   - **D1, D2 and D3** (ADR-189 with A1), **D6** (ADR-216, B461) and **D7**
+     (ADR-216, B459): built, default OFF;
    - **M1, M2 and M3** (B382): built, default ON;
    - **D4** (ADR-189): planned. It changes the random-patch sampler, not the
      engine.
 
-   All seven built ones are in the composed JS, so they are part of the engine's
+   All eight built ones are in the composed JS, so they are part of the engine's
    parity target. The B378 fixes enter later, one ledgered divergence each.
 
-   **One built divergence is NOT in the ledger yet: D7** (`stealFade`, ADR-216,
-   B459; 2026-10-13), built in the C++ and the composed JS, default OFF. The
-   ledger's check requires every built flag to change one of its scenarios (L5,
-   and control C5), and every scenario there is two notes struck at sample 0 into
-   an empty pool. A steal needs a voice that is already sounding, so no such
-   scenario can hear D7, and a built D7 entry turns the check red on those two
-   rows (measured; the drafted entry and the check's output are in
-   `traces/2026-10-13-b459-steal-fade-d7.md`). The check is ROADMAP B465's to
-   change. Until then D7's record is ADR-216, that trace, its 25 parity rows and
-   `tools/h2_steal_fade_check.mjs`.
+   Since B465 (2026-10-13) the check also fails when the engine has a divergence
+   flag with no entry (the flags are read from the lab's own push list, `AA189`,
+   and from the engine's registered SwarmSynth patches), and a ledger scenario
+   may carry a note script, for a divergence that acts on event timing: D7 needs
+   a voice that is already sounding, which the check's fixed two notes at sample
+   0 cannot give. The entries' order no longer matters.
 5. **Real-time safe by construction.** All state is preallocated in the core
    object. `render()` allocates nothing, locks nothing and reads no clock.
    Randomness comes only from seeded streams.
@@ -127,7 +125,7 @@ The rest are enforced by each core's parity check.
 |---|---|---|---|---|
 | Swarm (Swarm Core 1) | `cores/swarm/swarm_core.h` + `force_core.h` + `glide_core.h` (`horde2::swarm::hypersaw::SwarmCore`) | LIFTED 2026-09-30 (B379 step 1) from `src/` at `1c421b5`: byte-identical apart from 3 namespace lines and one access-only edit (E1, a public `tickVoice()` forwarder to the private `controlTick`), listed in `cores/swarm/lift-ledger.json`. It carries the legacy chain's proof against SwarmSynth (156/156 within 1e-6, B378 audit §2.9). The legacy L0-1 chain is DUPLICATED onto the copy under h2 flags (`-O2 -ffp-contract=off`): 156/156 within 1e-6 against SwarmSynth's goldens, worst 2.485e-9 @ saw-glass.seed1234 (2026-09-30). A TEST REFERENCE since B385 (not the composed engine's swarm: `h2/engine/` carries SwarmSynth's law with M1–M3 and copies this core's constants). At 48 kHz (B382's golden set) it is within 1e-6 of SwarmSynth with the divergences the composed engine registers mirrored (`docs/port/divergences.json`; negative onset and law 3 are reported as KNOWN differences until M2 and M3 are registered), and of DynSynth with M1's coefficient in its smoother. | Legacy: `reference/swarmsaw.html` SwarmSynth (44.1 kHz goldens, `tools/golden/gen_goldens.mjs`). | `tools/h2_swarm_parity_check.cpp` (full; a ledgered copy of `tools/parity_check.cpp`); `tools/h2_lift_check.py` (fast); `tools/h2_swarm_lift_check.cpp` (full); `tools/h2_swarm48_check.cpp` (full, 48 kHz, B382). |
 | SCALPEL blade engine | `cores/scalpel/razor_core.h` (`horde2::scalpel::RazorCore`) | A TEST REFERENCE since B385 (the engine copies its blade path). JS-normative. Parity-proven against the blade oracle (phase 1a): 383 of 386 scenarios at parity, 3 excluded as chaotic (a pinned count) with evidence re-measured every run. | Phase 1a: `reference/scalpel/prototype/razor-core.js@0ce6a713410d89c65bf55f761f1dc791fae61b16` (git blob; v1.1 as ingested). | `tools/h2_scalpel_parity_check.cpp` + `tools/h2_scalpel_render.mjs`, in `./verify full`. |
-| Composed engine (horde 2's one engine) | `engine/` (`horde2::engine::Engine`: `js.h`, `swarm.h`, `blade.h`, `engine.h`) | BUILT 2026-10-01 (B385 checkpoint 2; `docs/port/h2-engine.md`). JS-normative. 587 of 590 scenarios at parity (rms < 1e-6, max-abs < 1e-6, events and load readouts identical; worst rms 2.1e-12, worst max-abs 1.8e-10), and the mean bit-exact share is 37.12% (measured 2026-10-13 with B461's 22 and B459's 25 flag-on rows; floor 30%, ruled ADR-187 A2 item 2, keyed darwin-arm64 / Apple clang 16 / Node 24; printed and not judged elsewhere; on darwin-arm64 after a compiler or Node upgrade, printed with a LOUD warning to re-measure and re-pin). The 3 Cross-mod ring (watch) rows are chaotic (ADR-065) and leave whole-render parity (ADR-187 A2 item 1): pinned by name, each holds max-abs < 1e-6 over a measured 384-frame onset window, identical events and readouts, and a finite render (a NaN/Inf guard; |x| ≤ 1 holds by construction after the output tanh). Any change to the composed engine lands as the JS and the C++ together, in one PR, parity green (A2 item 3). M1–M3 are built in; D1–D3, D6 (`frameHold`, ADR-216) and D7 (`stealFade`, ADR-216; not yet ledgered, rule 4) are flags, default off. | The composed JS as B459 left it (2026-10-13: D7 added; 2026-10-12, B461: D6 added; before that, main `c64cfdb`): `docs/design/scalpel-horde-engine.js@809e1265cb03682c0e11d1d91ebe72005a29e3dd` over the blade oracle (the pin in the row above) and `reference/swarmsaw.html@e47da6c9e0b4a058e18d79f62d71ab31c3d3b1b0` (SwarmSynth), with `reference/scalpel/data/presets.json@45c4f1d5cff97922b88b1fab778eccca3d511bcd` and the B366 presets in `docs/design/scalpel-interface-lab.html@b47fbe3cb26a8df7de7cc993c40ab9a1eaa492ed`. The ledger's defaults: M1–M3 on, D1–D3 and D6 off; D7 (not in the ledger yet) off. | `tools/h2_engine_parity_check.cpp` + `tools/h2_engine_render.mjs`, with its FMA control `h2_engine_fma_control`, in `./verify full` (B405). |
+| Composed engine (horde 2's one engine) | `engine/` (`horde2::engine::Engine`: `js.h`, `swarm.h`, `blade.h`, `engine.h`) | BUILT 2026-10-01 (B385 checkpoint 2; `docs/port/h2-engine.md`). JS-normative. 587 of 590 scenarios at parity (rms < 1e-6, max-abs < 1e-6, events and load readouts identical; worst rms 2.1e-12, worst max-abs 1.8e-10), and the mean bit-exact share is 37.12% (measured 2026-10-13 with B461's 22 and B459's 25 flag-on rows; floor 30%, ruled ADR-187 A2 item 2, keyed darwin-arm64 / Apple clang 16 / Node 24; printed and not judged elsewhere; on darwin-arm64 after a compiler or Node upgrade, printed with a LOUD warning to re-measure and re-pin). The 3 Cross-mod ring (watch) rows are chaotic (ADR-065) and leave whole-render parity (ADR-187 A2 item 1): pinned by name, each holds max-abs < 1e-6 over a measured 384-frame onset window, identical events and readouts, and a finite render (a NaN/Inf guard; |x| ≤ 1 holds by construction after the output tanh). Any change to the composed engine lands as the JS and the C++ together, in one PR, parity green (A2 item 3). M1–M3 are built in; D1–D3, D6 (`frameHold`, ADR-216) and D7 (`stealFade`, ADR-216) are flags, default off. | The composed JS as B459 left it (2026-10-13: D7 added; 2026-10-12, B461: D6 added; before that, main `c64cfdb`): `docs/design/scalpel-horde-engine.js@809e1265cb03682c0e11d1d91ebe72005a29e3dd` over the blade oracle (the pin in the row above) and `reference/swarmsaw.html@e47da6c9e0b4a058e18d79f62d71ab31c3d3b1b0` (SwarmSynth), with `reference/scalpel/data/presets.json@45c4f1d5cff97922b88b1fab778eccca3d511bcd` and the B366 presets in `docs/design/scalpel-interface-lab.html@b47fbe3cb26a8df7de7cc993c40ab9a1eaa492ed`. The ledger's defaults: M1–M3 on, D1–D3, D6 and D7 off. | `tools/h2_engine_parity_check.cpp` + `tools/h2_engine_render.mjs`, with its FMA control `h2_engine_fma_control`, in `./verify full` (B405). |
 
 **The composed engine against itself (B441 phase 2, 2026-10-04).** Parity within
 1e-6 cannot prove a change output-neutral. `tools/h2_engine_selfdigest_check.cpp`

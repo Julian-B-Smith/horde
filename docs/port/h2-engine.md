@@ -55,10 +55,10 @@ The engine's flags at their ledgered defaults (`docs/port/divergences.json`):
 - **D7 `stealFade`: OFF** (ADR-216, B459: a poly note-on that takes a voice still
   sounding fades it over 0.005 s and starts from silence when the fade ends,
   instead of restarting it mid-wave). Both positions are built and
-  parity-checked; turning it on by default is a PR of its own. **It is NOT in
-  the ledger yet:** the ledger's check plays two notes at sample 0 into an empty
-  pool, where no voice can be taken, so its rows L5 and C5 cannot be met by any
-  D7 entry (measured; `traces/2026-10-13-b459-steal-fade-d7.md`, ROADMAP B465).
+  parity-checked; turning it on by default is a PR of its own. Its ledger
+  scenarios are note scripts (a chord over a releasing chord, at a pool of 3 and
+  of 6): the ledger's fixed two notes at sample 0 take no voice, so ROADMAP B465
+  gave the check's scenarios a script (`traces/2026-10-13-b459-steal-fade-d7.md`).
 
 What the golden contains, each with its site in the composed JS:
 
