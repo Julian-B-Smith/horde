@@ -1,9 +1,11 @@
 /*
  * h2_steal_fade_check.mjs — ADR-216 D7 (`stealFade`, ROADMAP B459) does what it was
  * ruled to do, on the C++ engine: with the flag on, a chord that takes sounding
- * voices makes no jump in the output, the old sound ends through a fade, its notes
- * start when the fade ends and from silence, and nothing depends on the host's
- * block size; with the flag off (the present law) the same chords read the jump.
+ * voices makes no jump in the output, the old sound ends through a fade that keeps
+ * its shape from its first sample to its last, its notes start when the fade ends and
+ * from silence, a held note is never taken while a released one sounds, and the flag
+ * adds no dependence on the host's block size; with the flag off (the present law)
+ * the same chords read the jump.
  *
  * WIRED: ./verify full
  *
@@ -108,6 +110,62 @@
  *     LATE, END  as above (END with the ceiling above).
  *   CONTROL, per class, blade 2 off: stealFade 0 reads at least kControlMin.
  *
+ *   THE WHOLE RAMP, on the "tails" class (added 2026-10-13, after a second critic's
+ *   read: JUMP reads the first 4 samples and FADE the last 24, and the 212 between
+ *   were judged by nothing. An engine that cut the voice at the fifth sample, and one
+ *   whose ramp stopped at 15/240 of the level, both read GREEN).
+ *     RAMP     every sample of the fade against the gain it should have: over k = 0 ..
+ *              N - 1 the largest |with[k] - ((N - k) / N) * without[k]|, on the
+ *              pre-limiter bus (the harness's, atanh of the output), either channel,
+ *              as a share of that bus's peak over the 50 ms before the take: at most
+ *              kRampCeil. `without` is the render in which the old sound goes on
+ *              (no chord). The tails are already releasing, so the take changes
+ *              nothing of them but the ramp, and the two differ by the ramp alone;
+ *              what is left (0.0016) is the DC blocker's memory of it.
+ *
+ *   THE PLANTS: WHICH FAULT EACH ROW IS THERE TO CATCH, AND ITS MUST-FAIL (LIBRARY
+ *   L0032). Each is the same job through a control adapter in the same binary
+ *   (h2/harness/control_steal.h, built from two shipped engines), read by the same
+ *   measure, on every run; the check is red unless the row reads it as a fault AND the
+ *   plant is, sample for sample, what it claims. Tails class, blade 2 off and on.
+ *     row    the fault it catches             its must-fail             that plant reads
+ *     JUMP   a ramp that is too fast          CONTROL (the present law: the fastest
+ *            (the old sound gone at once)     there is)                 430 %
+ *     FADE   no ramp                          NO-RAMP  steal-cut        0.60, 0.63
+ *     RAMP   a cut inside the ramp;           CUT-IN   steal-cut5       0.71, 0.56
+ *            a ramp that stops short          SHORT    steal-short      0.026, 0.023
+ *     LATE   a start that is not N samples    EARLY    steal-early      239 (N - 1)
+ *            after the take
+ *     END    a start that steps (not from     STEP     steal-step       199 %, 196 %
+ *            silence)
+ *   CUT-IN prints what JUMP and FADE read on its plant, and SHORT what FADE reads: the
+ *   readings of the real engine or better, which is why those two rows could not see
+ *   them. On the critics' own mutants of the ENGINE (scratch builds, not in the tree;
+ *   blade 2 off / on), this check reads:
+ *     the ramp's scaling removed                    FADE 0.598 / 0.626, RAMP 0.513 / 0.534: RED
+ *     right for 4 samples, the voice cut at the 5th RAMP 0.8141 / 0.6416: RED (JUMP and FADE green)
+ *     the ramp stops at 15/240 and is cut at its end  RAMP 0.0255 / 0.0227: RED (JUMP and FADE green)
+ *     a ramp ten times too fast                     JUMP 21.2 % / 18.1 % (ceiling 3 %), RAMP 0.28 / 0.29: RED
+ *
+ *     LATE at 44.1 kHz  the same take at 44 100 Hz: 0.005 s is 220.5 samples there, the
+ *              engine rounds it to 221, and the notes must start 221 after the take.
+ *
+ *   HELD rows (judged; ADR-216 A3: THE TIERS JUDGE A VOICE BY ITS KEY, NOT BY ITS
+ *   DELAYED GATE; added 2026-10-13 after the second critic's read). A chord of two
+ *   held at a pool of 3 (attack 10 ms, release 100 ms), and a line of eight 0.1 s
+ *   notes over it, each struck 0, 96 or 240 samples after the last one's release (0
+ *   is what a sequencer sends). Each line note after the first takes the voice of
+ *   the one before, which with the flag on is still sounding out its late release:
+ *   its key is up, so it is a tail, and the chord is never touched. The reading is
+ *   the level of the last quarter second, a second after the line's last release,
+ *   against the same render with no line: within kHeldDb. As first built the late
+ *   release read as HELD, the line took a chord voice from its third note on, and
+ *   this row reads -2.4 dB at 0 and at 96 samples (measured on a scratch build with
+ *   that put back). With the flag off it reads the same as with it on.
+ *   LOST     its must-fail, every run: the same line at a pool of 2, which the chord
+ *            fills, so the line's first note MUST take a chord voice. Required: at
+ *            least kHeldLossDb under the chord alone.
+ *
  *   WHICH ROWS NEED BLADE 2 OFF, AND WHICH DO NOT. A comparison of two renders is
  *   confounded only if one of them draws from the shared stream where the other
  *   does not WHILE a noise blade sounds. A take draws nothing at the note-on (the
@@ -133,6 +191,20 @@
  *   ends, the keep-phase snapshot was the one left at the host's last block
  *   boundary (1.08 and 1.01 at 16 and 37 frames with that fault put back). The
  *   fade's end falls inside a host block at 37 and at 128.
+ *   A third script, required BIT-IDENTICAL outright with the flag on (the second
+ *   critic's case): `keepPhase` 1, a pool of 1 and a release of 5 ms. A tail taken
+ *   300 samples after its release, just above the threshold, dies of its own release
+ *   floor under the ramp; the take is cancelled by a panic; a note is struck 200
+ *   samples into the fade and restarts the silent voice at once. The faded voice must
+ *   count as sounding for the whole fade (engine.h renderSpan), or that note reads
+ *   the snapshot of the last host block the voice was heard in: 0.60 at 16 frames and 0.42 at 37
+ *   with that fault put back (scratch build). The flag-off render of the script is
+ *   printed and not judged.
+ *   WHAT THESE ROWS DO NOT CLAIM. With `keepPhase` on the engine has a block-size
+ *   dependence of its own, older than D7 and present with the flag off: a voice with
+ *   NO fade on it that dies of its release floor when nothing else sounds leaves the
+ *   snapshot of the last host block it was heard in. A flag-on render that contains
+ *   such a death carries it too. D7 adds none (the B459 trace has the fuzz).
  *
  *   MONO rows (judged). Mono and legato are untouched: an overlapping phrase with
  *   `polyMode` 1 and with 2 renders the same samples with the flag on and off.
@@ -160,6 +232,12 @@
  *               about twice. The ramp's own gain over its last tenth is under 0.1.
  *   kEndCeil    0.05 %. Worst 0.016 % (pool 8, chord 5; 0.010 % at the pool taken
  *               whole); about three times that.
+ *   kRampCeil   0.005. Worst 0.0016 (tails, blade 2 off and on); about three times
+ *               that. The weakest plant it must see, the ramp that stops short,
+ *               reads 0.0227: four and a half times the ceiling.
+ * TWO BOUNDS THAT ARE NOT CEILINGS OF THE FADE, also PROPOSED: kHeldDb 0.25 dB (the
+ * held chord after the line: the worst measured is 0.004 dB, and a lost chord note
+ * reads 2.4 dB) and kHeldLossDb 1 dB (what the LOST control must read at least).
  * NOT ceilings of mine: kControlMin (5 %) and kFreeCeil (1 %) are the brief's, from
  * ROADMAP B459's acceptance.
  *
@@ -196,7 +274,9 @@ const kWindow = kFadeSamples + 64;   // rendered after a strike: the fade, the s
 // the bounds (header)
 const kJumpCeil = 0.005, kEndCeil = 0.0005;   // PROPOSED: measured worst plus margin
 // ... and for a pool taken whole (PROPOSED the same way; header, "THE CEILINGS")
-const kWholeJumpCeil = { tails: 0.03, held: 0.015 }, kWholeEndCeil = kEndCeil, kFadeCeil = 0.08;
+const kWholeJumpCeil = { tails: 0.03, held: 0.015 }, kWholeEndCeil = kEndCeil, kFadeCeil = 0.08, kRampCeil = 0.005;
+// the held chord under a line (header, HELD): how near the chord alone it must read, and how far under a lost note must
+const kHeldDb = 0.25, kHeldLossDb = 1;
 const kControlMin = 0.05, kFreeCeil = 0.01;   // ROADMAP B459's acceptance
 // Liveness: measured 2026-10-13, the flag-on six-chord renders are 0.30 dB (pool 6)
 // and 0.12 dB (pool 8) under their flag-off twins: a restarted voice attacks from its
@@ -266,10 +346,37 @@ const kBases = [['off', 'blade 2 off', kJudgedPinned], ['on', 'blade 2 ON', kLea
 const classJob = (pinned, flag, c, kind) => [...head(pinned, kWholePool, flag), ...c.hist(),
   ...(kind === 'without' ? [] : strike(kChords[1])), ...(kind === 'cancel' ? [['panic']] : []), ['render', kWindow]];
 const kFadeTail = Math.round(kFadeSamples / 10);   // the fade's last tenth, in samples
-const kPlant = 'control/steal-cut';                // h2/harness/control_steal.h: a steal with no ramp
+// h2/harness/control_steal.h: the planted faults, and the row each must be read by (header, "THE PLANTS")
+const kPlants = { cut: 'control/steal-cut', cut5: 'control/steal-cut5', short: 'control/steal-short', step: 'control/steal-step', early: 'control/steal-early' };
+const kCutAt = 4, kShortLeft = 15;                 // control_steal.h's kCutAt and kShortLeft
+const kPlantClass = 'tails';                       // the class the whole-ramp row and the four later plants are played on
+const SR441 = 44100, kFadeSamples441 = Math.max(1, Math.round(kStealFade * SR441));
 /* keep-phase at a pool the chords take whole: four triads, each held and released */
 const kKeepPinned = { ...kLeadPinned, keepPhase: 1, phaseMode: 0 };
 const keepJob = flag => [...head(kKeepPinned, kWholePool, flag), ...played(4)];
+/* keep-phase and a voice that DIES UNDER ITS RAMP (header, BLOCKS): a pool of 1, a release of 5 ms. The note is
+   released, taken kDieTake samples later while it is just above the threshold, and the take is cancelled by a
+   panic; the next note is struck kDieNext samples into the fade, after the voice's own release floor ended it */
+const kDiePinned = { ...kLeadPinned, keepPhase: 1, phaseMode: 0, A: 5, R: 5 };
+const kDieTake = 300, kDieNext = 200;
+const dieJob = flag => [...head(kDiePinned, 1, flag), ['on', 48, mtof(48), VEL], ['render', 4800], ['off', 48], ['render', kDieTake],
+  ['on', 53, mtof(53), VEL], ['panic'], ['render', kDieNext], ['on', 57, mtof(57), VEL], ['render', 9600]];
+/* a held chord under a back-to-back line (header, HELD): the chord's two notes held throughout; eight line notes,
+   each struck `gap` samples after the last one's release (0: at the same instant, as a sequencer sends them);
+   then a second of the chord alone. `line` false: the chord and no line, the same length. */
+const kHeldPinned = { ...kJudgedPinned, A: 10, R: 100 };
+const kHeldChord = [48, 55], kLine = [72, 74, 76, 77, 79, 77, 76, 74];
+const kLineNote = Math.round(0.1 * SR), kHeldLead = Math.round(0.4 * SR), kHeldTail = SR, kHeldRead = SR / 4;
+const kHeldGaps = [0, 96, 240], kHeldPool = 3, kHeldLossPool = 2;
+const heldJob = (pool, flag, gap, line) => {
+  const c = [...head(kHeldPinned, pool, flag), ...strike(kHeldChord), ['render', kHeldLead]];
+  if (!line) return [...c, ['render', kLine.length * kLineNote + kHeldTail]];
+  kLine.forEach((n, i) => {
+    if (i) { c.push(['off', kLine[i - 1]]); if (gap) c.push(['render', gap]); }
+    c.push(['on', n, mtof(n), VEL], ['render', kLineNote - (i ? gap : 0)]);
+  });
+  return [...c, ['off', kLine[kLine.length - 1]], ['render', kHeldTail]];
+};
 
 export function main(argv) {
   const bi = argv.indexOf('--bin'), opt = bi >= 0 ? { bin: argv[bi + 1] } : {};
@@ -280,7 +387,11 @@ export function main(argv) {
 
   // One process renders everything.
   const jobs = [], at = {};
-  const add = (key, cmds, block) => { at[key] = jobs.length; jobs.push(jobFor({ patch: PAD, sr: SR, seed: SEED, block, cmds, name: key })); };
+  // o.engine: a control adapter in the composed engine's place; o.pre: the pre-limiter bus too; o.sr: another rate
+  const add = (key, cmds, block, o = {}) => {
+    at[key] = jobs.length;
+    jobs.push(jobFor({ ...(o.engine ? { engine: o.engine } : { patch: PAD }), sr: o.sr || SR, seed: SEED, block, cmds, pre: !!o.pre, name: key }));
+  };
   for (const pool of kPools) for (const fl of [1, 0]) {
     for (const b of pool === 6 ? kBlocks : [kBlocks[0]]) add(`J/${pool}/${fl}/whole/${b}`, whole(kJudgedPinned, pool, fl), b);
     for (const k of [kFreeChord, ...kTakenChords]) add(`J/${pool}/${fl}/without/${k}`, without(kJudgedPinned, pool, fl, k));
@@ -288,15 +399,25 @@ export function main(argv) {
   for (const pool of kPools) for (const k of kAllWait[pool]) add(`J/${pool}/cancel/${k}`, cancelled(kJudgedPinned, pool, 1, k));
   for (const mode of [1, 2]) for (const fl of [1, 0]) add(`M/${mode}/${fl}`, monoPhrase(mode, fl));
   // a pool taken whole: per class and basis, with the flag on: the chord, no chord, the
-  // chord cancelled, and the chord through the no-ramp plant; with the flag off (blade 2
-  // off only: a restart draws): the chord and no chord
+  // chord cancelled, and the chord through the plants (no ramp on both classes; the
+  // other four on kPlantClass); with the flag off (blade 2 off only: a restart
+  // draws): the chord and no chord
   for (const c of kClasses) for (const [b, , pinned] of kBases) {
-    for (const kind of ['with', 'without', 'cancel']) add(`W/${c.id}/${b}/1/${kind}`, classJob(pinned, 1, c, kind));
-    at[`W/${c.id}/${b}/plant`] = jobs.length;
-    jobs.push(jobFor({ engine: kPlant, sr: SR, seed: SEED, cmds: classJob(pinned, 1, c, 'with'), name: `W/${c.id}/${b}/plant` }));
+    for (const kind of ['with', 'without', 'cancel']) add(`W/${c.id}/${b}/1/${kind}`, classJob(pinned, 1, c, kind), undefined, { pre: true });
+    for (const [pid, engine] of Object.entries(kPlants)) if (pid === 'cut' || c.id === kPlantClass)
+      add(`W/${c.id}/${b}/plant/${pid}`, classJob(pinned, 1, c, 'with'), undefined, { engine, pre: true });
     if (b === 'off') for (const kind of ['with', 'without']) add(`W/${c.id}/${b}/0/${kind}`, classJob(pinned, 0, c, kind));
   }
+  // ... and the same take at 44.1 kHz, for the start's lateness there
+  for (const kind of ['with', 'cancel']) add(`W441/${kind}`, classJob(kJudgedPinned, 1, kClasses[0], kind), undefined, { sr: SR441 });
   for (const fl of [1, 0]) for (const b of kBlocks) add(`K/${fl}/${b}`, keepJob(fl), b);
+  for (const fl of [1, 0]) for (const b of kBlocks) add(`D/${fl}/${b}`, dieJob(fl), b);
+  // a held chord under a line: the pool the chord leaves a voice in, flag on at each gap and
+  // flag off at the first; the chord alone; and the pool the chord fills (the loss control)
+  for (const gap of kHeldGaps) add(`H/${kHeldPool}/1/${gap}`, heldJob(kHeldPool, 1, gap, true));
+  add(`H/${kHeldPool}/0/${kHeldGaps[0]}`, heldJob(kHeldPool, 0, kHeldGaps[0], true));
+  add(`H/${kHeldLossPool}/1/${kHeldGaps[0]}`, heldJob(kHeldLossPool, 1, kHeldGaps[0], true));
+  for (const pool of [kHeldPool, kHeldLossPool]) add(`H/${pool}/chord`, heldJob(pool, 1, 0, false));
   // not judged: blade 2 on (the lead's seven pins), and that with spread law 4
   const NOTES = [['blade2', 'blade 2 ON, spread law off', kLeadPinned], ['law4', 'blade 2 ON, spread law 4', { ...kLeadPinned, law: 4 }]];
   const lastNote = Math.max(...kNoteChords);
@@ -354,7 +475,8 @@ export function main(argv) {
   for (const c of kClasses) {
     console.log(`pool ${kWholePool} taken whole, ${c.id}: ${c.what}; chord ${JSON.stringify(kChords[1])} struck over ${JSON.stringify(kChords[0])}`);
     for (const [b, bName] of kBases) {
-      const w = R(`W/${c.id}/${b}/1/with`), wo = R(`W/${c.id}/${b}/1/without`), cn = R(`W/${c.id}/${b}/1/cancel`), pl = R(`W/${c.id}/${b}/plant`), t = c.t;
+      const w = R(`W/${c.id}/${b}/1/with`), wo = R(`W/${c.id}/${b}/1/without`), cn = R(`W/${c.id}/${b}/1/cancel`), t = c.t;
+      const plant = pid => R(`W/${c.id}/${b}/plant/${pid}`), pl = plant('cut');
       const lv = level(w, t - kLevelWindow, t), end = t + kFadeSamples, tail = r => peak(r, end - kFadeTail, end) / lv.peak;
       const j = maxDiff(w, t, wo, t, kJumpSamples) / lv.rms;
       row(j <= kWholeJumpCeil[c.id], 'JUMP', `${c.id}, ${bName}, stealFade 1: ${pct(j, 3)}; ceiling ${pct(kWholeJumpCeil[c.id], 1)} (PROPOSED)`);
@@ -363,19 +485,76 @@ export function main(argv) {
       row(f <= kFadeCeil, 'FADE', `${c.id}, ${bName}: the peak over the fade's last ${kFadeTail} samples is ${f.toFixed(3)} of the peak before the take; ceiling ${kFadeCeil} (PROPOSED)`);
       // ... and its must-fail: the same job through the no-ramp plant, which must be what it
       // claims (the chord-less render for the fade's length, then this render) and must read over the ceiling
-      const isPlant = firstDiff(pl, t, wo, t, kFadeSamples) < 0 && firstDiff(pl, end, w, end, kWindow - kFadeSamples) < 0 && firstDiff(pl, t, w, t, kFadeSamples) >= 0;
-      row(isPlant && fp > kFadeCeil, 'NO-RAMP', `CONTROL ${c.id}, ${bName}: the same job through ${kPlant} (the old sound unfaded for ${kFadeSamples} samples, then cut) reads ${fp.toFixed(3)}; ` +
+      const after = r => firstDiff(r, end, w, end, kWindow - kFadeSamples) < 0;   // the plant hands back to the engine's own render
+      const isPlant = firstDiff(pl, t, wo, t, kFadeSamples) < 0 && after(pl) && firstDiff(pl, t, w, t, kFadeSamples) >= 0;
+      row(isPlant && fp > kFadeCeil, 'NO-RAMP', `CONTROL ${c.id}, ${bName}: the same job through ${kPlants.cut} (the old sound unfaded for ${kFadeSamples} samples, then cut) reads ${fp.toFixed(3)}; ` +
         `required over ${kFadeCeil}, and the plant ${isPlant ? 'is' : 'IS NOT'} the chord-less render for the fade's length and this render after it`);
       const first = firstDiff(w, t, cn, t, kWindow);
       row(first === kFadeSamples, 'LATE', `${c.id}, ${bName}: its notes start ${first < 0 ? 'NOWHERE in the window' : `${first} samples (${(1000 * first / SR).toFixed(3)} ms)`} after the take; required ${kFadeSamples}`);
+      const endOf = (r, from) => maxDiff(r, t + from, cn, t + from, kJumpSamples) / lv.rms;
       if (first >= 0) {
-        const e = maxDiff(w, t + first, cn, t + first, kJumpSamples) / lv.rms;
+        const e = endOf(w, first);
         row(e <= kWholeEndCeil, 'END', `${c.id}, ${bName}: over the ${kJumpSamples} samples from the start, the starting notes add ${pct(e, 4)}; ceiling ${pct(kWholeEndCeil, 2)} (PROPOSED)`);
       }
+      if (c.id !== kPlantClass) continue;
+
+      // THE WHOLE RAMP (header): every sample of the fade against the gain it should have,
+      // on the pre-limiter bus, as a share of the peak before the take
+      const N = kFadeSamples, prePeak = Math.max(...[w.preL, w.preR].map(a => { let m = 0; for (let i = t - kLevelWindow; i < t; i++) m = Math.max(m, Math.abs(a[i])); return m; }));
+      const ramp = r => {
+        let m = 0;
+        for (let k = 0; k < N; k++) for (const [a, o] of [[r.preL, wo.preL], [r.preR, wo.preR]]) {
+          const d = Math.abs(a[t + k] - ((N - k) / N) * o[t + k]);
+          if (!(d <= m)) m = d;   // a NaN or an infinity (the limiter's rail) is kept, and fails the bound
+        }
+        return m / prePeak;
+      };
+      const rw = ramp(w);
+      row(rw <= kRampCeil, 'RAMP', `${c.id}, ${bName}: over the fade's ${N} samples the output is within ${rw.toFixed(4)} of (the gain it should have) x (the old sound going on), as a share of the peak before the take; ceiling ${kRampCeil} (PROPOSED)`);
+      // ... and its two must-fails, each of which the rows above are blind to
+      const p5 = plant('cut5'), ps = plant('short');
+      const zero = (r, from, to) => { for (let i = from; i < to; i++) if (r.L[i] !== 0 || r.R[i] !== 0) return false; return true; };
+      const is5 = firstDiff(p5, t, w, t, kCutAt) < 0 && zero(p5, t + kCutAt, end) && after(p5);
+      const j5 = maxDiff(p5, t, wo, t, kJumpSamples) / lv.rms, f5 = tail(p5), r5 = ramp(p5);
+      row(is5 && r5 > kRampCeil, 'CUT-IN', `CONTROL ${c.id}, ${bName}: the same job through ${kPlants.cut5} (the ramp right for ${kCutAt} samples, then nothing) reads ${r5.toFixed(4)} on RAMP; required over ${kRampCeil}, ` +
+        `and the plant ${is5 ? 'is' : 'IS NOT'} this render for ${kCutAt} samples, zero to the fade's end and this render after it. JUMP reads it ${pct(j5, 3)} and FADE ${f5.toFixed(3)}: neither can see it`);
+      const kept = N - kShortLeft + 1;   // samples 0 .. N - kShortLeft are the engine's own: its gain there is at least kShortLeft / N
+      const isS = firstDiff(ps, t, w, t, kept) < 0 && firstDiff(ps, t + kept, w, t + kept, kShortLeft - 1) >= 0 && after(ps);
+      const fS = tail(ps), rS = ramp(ps);
+      row(isS && rS > kRampCeil, 'SHORT', `CONTROL ${c.id}, ${bName}: the same job through ${kPlants.short} (the ramp stops at ${kShortLeft}/${N} of the level, then a cut) reads ${rS.toFixed(4)} on RAMP; required over ${kRampCeil}, ` +
+        `and the plant ${isS ? 'is' : 'IS NOT'} this render until the ramp's gain is ${kShortLeft}/${N}, another after, and this render from the fade's end. FADE reads it ${fS.toFixed(3)}${fS <= kFadeCeil ? ': it cannot see it' : ''}`);
+      note('RAMP', `${c.id}, ${bName}: ${kPlants.cut} (no ramp) reads ${ramp(pl).toFixed(4)} on RAMP (NOT judged here; FADE's control is NO-RAMP)`);
+      // LATE's and END's must-fails: a start one sample early, and a start on time that steps
+      const pe = plant('early'), pstep = plant('step');
+      const firstE = firstDiff(pe, t, cn, t, kWindow), isE = firstDiff(pe, t, w, t, N - 1) < 0;
+      row(isE && firstE === N - 1, 'EARLY', `CONTROL ${c.id}, ${bName}: through ${kPlants.early} (the notes start one sample before the fade's end) LATE reads ${firstE}; required ${N - 1}, which LATE fails, ` +
+        `and the plant ${isE ? 'is' : 'IS NOT'} this render for the ${N - 1} samples before`);
+      const firstS = firstDiff(pstep, t, cn, t, kWindow), isSt = firstDiff(pstep, t, w, t, N) < 0, eS = firstS >= 0 ? endOf(pstep, firstS) : NaN;
+      row(isSt && firstS === N && eS > kWholeEndCeil, 'STEP', `CONTROL ${c.id}, ${bName}: through ${kPlants.step} (the notes start on time, at the old envelope's level) LATE reads ${firstS} (required ${N}: on time) and END reads ${pct(eS, 2)}; ` +
+        `required over ${pct(kWholeEndCeil, 2)}, and the plant ${isSt ? 'is' : 'IS NOT'} this render for the fade's length`);
     }
     const w0 = R(`W/${c.id}/off/0/with`), wo0 = R(`W/${c.id}/off/0/without`);
     const j0 = maxDiff(w0, c.t, wo0, c.t, kJumpSamples) / level(w0, c.t - kLevelWindow, c.t).rms;
     row(j0 >= kControlMin, 'CONTROL', `${c.id}, blade 2 off, stealFade 0 (the present law): ${pct(j0)}; required at least ${pct(kControlMin, 0)}`);
+  }
+  // ... and the start's lateness at 44.1 kHz, where 0.005 s is 220.5 samples and the engine rounds it up
+  {
+    const c = kClasses[0], first = firstDiff(R('W441/with'), c.t, R('W441/cancel'), c.t, kWindow);
+    row(first === kFadeSamples441, 'LATE', `${c.id}, blade 2 off, at ${SR441} Hz: its notes start ${first < 0 ? 'NOWHERE in the window' : `${first} samples (${(1000 * first / SR441).toFixed(3)} ms)`} after the take; required ${kFadeSamples441}`);
+  }
+
+  // ---- a held chord under a back-to-back line (ADR-216 A3: the tiers judge a voice by its key)
+  {
+    const tailDb = (r, ref) => { const n = r.L.length; return 20 * Math.log10(level(r, n - kHeldRead, n).rms / level(ref, n - kHeldRead, n).rms); };
+    const alone = R(`H/${kHeldPool}/chord`), lone = level(alone, alone.L.length - kHeldRead, alone.L.length);
+    console.log(`a held chord ${JSON.stringify(kHeldChord)} under a line ${JSON.stringify(kLine)} of ${kLineNote / SR} s notes, ${JSON.stringify(kHeldPinned)}: the level of the last ${kHeldRead / SR} s, ` +
+      `${kHeldTail / SR} s after the line's last release, against the chord alone (rms ${lone.rms.toFixed(4)})`);
+    for (const [fl, gap] of [...kHeldGaps.map(g => [1, g]), [0, kHeldGaps[0]]]) {
+      const db = tailDb(R(`H/${kHeldPool}/${fl}/${gap}`), alone);
+      row(lone.peak >= kSilentPeak && Math.abs(db) <= kHeldDb, 'HELD', `pool ${kHeldPool}, stealFade ${fl}, each line note struck ${gap} samples after the last one's release: the chord reads ${db.toFixed(3)} dB against the chord alone; required within ${kHeldDb} dB`);
+    }
+    const lossDb = tailDb(R(`H/${kHeldLossPool}/1/${kHeldGaps[0]}`), R(`H/${kHeldLossPool}/chord`));
+    row(lossDb <= -kHeldLossDb, 'LOST', `CONTROL pool ${kHeldLossPool} (the chord fills it, so the line must take a chord voice), stealFade 1: the chord reads ${lossDb.toFixed(3)} dB against the chord alone; required at least ${kHeldLossDb} dB under`);
   }
 
   // ---- the host's block size
@@ -390,6 +569,13 @@ export function main(argv) {
     const bOn = spread(key)(1), bOff = spread(key)(0);
     row(worstB(bOn) <= worstB(bOff) && [...bOn, ...bOff].every(x => x.same === (x.d === 0)), 'BLOCKS',
       `${what}, largest |difference| from the ${kBlocks[0]}-frame render: stealFade 1: ${tell(bOn)}; stealFade 0: ${tell(bOff)}; required: the flag adds none`);
+  }
+  // a voice that dies under its ramp, and a note struck before the ramp ends: required bit-identical outright
+  {
+    const key = (fl, b) => `D/${fl}/${b}`, bOn = spread(key)(1), bOff = spread(key)(0), lv = level(R(key(1, kBlocks[0])), 4800 + kDieTake + kDieNext);
+    row(worstB(bOn) === 0 && bOn.every(x => x.same) && lv.peak >= kSilentPeak, 'BLOCKS',
+      `keepPhase 1, a pool of 1, release 5 ms: a tail taken ${kDieTake} samples after its release dies under its ramp, the take is cancelled, and a note is struck ${kDieNext} samples into the fade (peak after ${lv.peak.toFixed(3)}); ` +
+      `largest |difference| from the ${kBlocks[0]}-frame render: stealFade 1: ${tell(bOn)}; required bit-identical. (stealFade 0, NOT judged: ${tell(bOff)})`);
   }
 
   // ---- mono and legato
@@ -413,7 +599,7 @@ export function main(argv) {
       `Chord ${kFreeChord} takes no voice, so what it reads is the confound alone`);
   }
 
-  console.log(`h2_steal_fade_check: ${red ? 'RED' : 'GREEN'} (${red} row(s) failed; the jump at ${kTakenChords.length} taken chords at pools ${kPools.join(' and ')} and at a pool of ${kWholePool} taken whole (tails and held voices, blade 2 off and on), its controls, the free-voice control, the fade itself and its no-ramp control, the start's lateness and step, block sizes ${kBlocks.join(', ')} with and without keepPhase, mono and legato, liveness)`);
+  console.log(`h2_steal_fade_check: ${red ? 'RED' : 'GREEN'} (${red} row(s) failed; the jump at ${kTakenChords.length} taken chords at pools ${kPools.join(' and ')} and at a pool of ${kWholePool} taken whole (tails and held voices, blade 2 off and on), its controls, the free-voice control, the fade's last tenth and its whole ramp, the start's lateness and step, the ${Object.keys(kPlants).length} planted faults, a held chord under a line and its control, block sizes ${kBlocks.join(', ')} with and without keepPhase, mono and legato, liveness)`);
   return red ? 1 : 0;
 }
 

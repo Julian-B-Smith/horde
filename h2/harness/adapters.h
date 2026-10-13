@@ -67,8 +67,13 @@ inline std::unique_ptr<Adapter> makeSoakNanControl() { return std::make_unique<S
 inline std::unique_ptr<Adapter> makeSoakHangControl() { return std::make_unique<SoakPlantControl>(SoakPlantControl::kHang); }
 //
 // [control makers: B459 the steal fade]
-// The steal fade's plant: a steal with no ramp (control_steal.h).
-inline std::unique_ptr<Adapter> makeStealCutControl() { return std::make_unique<StealCutControl>(); }
+// The steal fade's five plants (control_steal.h): no ramp; a cut inside the ramp; a ramp
+// that stops short; a start that steps; a start that is not late enough.
+inline std::unique_ptr<Adapter> makeStealCutControl() { return std::make_unique<StealPlantControl>(StealPlantControl::kCut); }
+inline std::unique_ptr<Adapter> makeStealCut5Control() { return std::make_unique<StealPlantControl>(StealPlantControl::kCut5); }
+inline std::unique_ptr<Adapter> makeStealShortControl() { return std::make_unique<StealPlantControl>(StealPlantControl::kShort); }
+inline std::unique_ptr<Adapter> makeStealStepControl() { return std::make_unique<StealPlantControl>(StealPlantControl::kStep); }
+inline std::unique_ptr<Adapter> makeStealEarlyControl() { return std::make_unique<StealPlantControl>(StealPlantControl::kEarly); }
 //
 
 inline constexpr AdapterRow kAdapters[] = {
@@ -100,6 +105,10 @@ inline constexpr AdapterRow kAdapters[] = {
   //
   // [control rows: B459 the steal fade]
   {"control/steal-cut", true, &makeStealCutControl},
+  {"control/steal-cut5", true, &makeStealCut5Control},
+  {"control/steal-short", true, &makeStealShortControl},
+  {"control/steal-step", true, &makeStealStepControl},
+  {"control/steal-early", true, &makeStealEarlyControl},
   //
 };
 
