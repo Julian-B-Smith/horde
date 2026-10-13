@@ -882,6 +882,7 @@
     <button class="chip" id="aaD1" data-lab="ADR-189 D1 (aaCarrier): first-order ADAA on a blade carrier, replacing its wrap BLEPs, only where it beats them: carrier shape not sine, AND (an FM mode OR Band-limit off), AND not an S&amp;H modulator. ?d1=1 starts it on.">D1 carrier <b>OFF</b></button>
     <button class="chip" id="aaD2" data-lab="ADR-189 D2 (aaXin): the PolyBLEP scanner tracks the feedback / cross-mod phase input, so it BLEPs the carrier's real edges. ?d2=1 starts it on.">D2 xin <b>OFF</b></button>
     <button class="chip" id="aaD3" data-lab="ADR-189 D3 (aaLoop): the feedback / cross-mod loop through a 5 kHz one-pole filter, which removes the rate-locked limit cycle (broad#828). ?d3=1 starts it on.">D3 loop <b>OFF</b></button>
+    <button class="chip" id="frD6" data-lab="B461, ADR-216 D6 (frameHold): the blade's frame holds its course where the swarm's phase centre is undefined (the members balanced, the order parameter near zero), and each member's lead reaches its blade as a ramp across the 32-sample tick instead of a step. A divergence from the SCALPEL oracle, OFF by default (ADR-187 A1: it turns ON by default in a PR of its own); ON auditions it against the oracle's sound. A lab setting, not a patch value. ?d6=1 starts it on.">D6 frame <b>OFF</b></button>
     <button class="chip" id="capBtn" data-lab="B375, a lab setting FOR TESTING: what the audio does when the load loop's voice cap (B323) is full and every sounding voice is held. REFUSE (the default, the human's ruling): the new note is not played and the held notes are untouched. STEAL: the oldest held note is released and faded out over 8 ms, and the new note plays. ?steal=1 starts it on STEAL.">full cap (test) <b>REFUSE</b></button>
     <button class="chip" id="themeBtn" data-lab="theme audition">theme <b>LIGHT</b></button>
     <button class="chip" id="scrBtn" data-lab="audition the screen scheme (the data wells only) — gui2's SCR chip, ADR-121" title="audition the screen scheme (the data wells only): TUBE · ORCHID · FROST · EMBER · DUSK">screen <b>ORCHID</b></button>
@@ -1740,7 +1741,10 @@ const LAB = {
      is one divergence per PR: three follow-up PRs, one each). ?aa189=1 starts all three on to audition;
      ?d1=1, ?d2=1, ?d3=1 one each */
   aa: { aaCarrier: qp('aa189', '0') === '1' || qp('d1', '0') === '1', aaXin: qp('aa189', '0') === '1' || qp('d2', '0') === '1',
-    aaLoop: qp('aa189', '0') === '1' || qp('d3', '0') === '1' },
+    aaLoop: qp('aa189', '0') === '1' || qp('d3', '0') === '1',
+    /* B461, ADR-216 D6: the frame hold, one toggle of its own, OFF by default like the three above (it is
+       kept with them because the same code pushes every divergence flag); ?d6=1 starts it on */
+    frameHold: qp('d6', '0') === '1' },
   /* B375: at a full voice cap, refuse the new note (false, the default) or steal the oldest held one
      (true, the test toggle). A lab setting for the AUDIO instance only: the engine takes it as an input
      (msg capPolicy), like the cap itself; no patch, preset or check scratch instance carries it */
@@ -2056,7 +2060,7 @@ function cornerVal(j, k) {
    morph or macro writes it, and the patch space (tools/patchspace/space.mjs, which reads the
    SP table) never samples it. Self-check scratch instances built from DEF alone hear them off,
    as the drawing's per-point function does (checkDrawnHeard: drawn = heard sample for sample). */
-const AA189 = ['aaCarrier', 'aaXin', 'aaLoop'];
+const AA189 = ['aaCarrier', 'aaXin', 'aaLoop', 'frameHold'];   // and ADR-216 D6's frameHold (B461): the same push
 function oracleParams(E) {
   const o = {};
   for (const k in E) if (ORK.has(k)) o[k] = E[k];
@@ -8244,7 +8248,7 @@ function chrome() {
   const tb = $('themeBtn'); if (tb) tb.innerHTML = 'theme <b>' + (LAB.theme === 'dark' ? 'DARK' : 'LIGHT') + '</b>';
   const sb = $('scrBtn'); if (sb) sb.innerHTML = 'screen <b>' + LAB.scheme + '</b>';
   const vb = $('valsBtn'); if (vb) vb.innerHTML = 'values <b>' + (LAB.showVals ? 'SHOWN' : 'HOVER') + '</b>';
-  [['aaD1', 'aaCarrier', 'D1 carrier'], ['aaD2', 'aaXin', 'D2 xin'], ['aaD3', 'aaLoop', 'D3 loop']].forEach(([id, k, t]) => {
+  [['aaD1', 'aaCarrier', 'D1 carrier'], ['aaD2', 'aaXin', 'D2 xin'], ['aaD3', 'aaLoop', 'D3 loop'], ['frD6', 'frameHold', 'D6 frame']].forEach(([id, k, t]) => {
     const b = $(id); if (b) b.innerHTML = t + ' <b>' + (LAB.aa[k] ? 'ON' : 'OFF') + '</b>'; });
   const rb = $('restrikeBtn'); if (rb && rb.classList) rb.classList.toggle('on', LAB.restrike);
   const cb = $('capBtn'); if (cb) cb.innerHTML = 'full cap (test) <b>' + (LAB.capSteal ? 'STEAL' : 'REFUSE') + '</b>';
@@ -8339,7 +8343,7 @@ function wireChrome() {
   on('scrBtn', 'click', () => { const i = SCHEMES.findIndex(s => s.name === LAB.scheme); LAB.scheme = SCHEMES[(i + 1) % SCHEMES.length].name; applyBodyClasses(); chrome(); rebuild(); });
   on('valsBtn', 'click', () => { LAB.showVals = !LAB.showVals; applyBodyClasses(); chrome(); });
   /* B355: one toggle per ADR-189 divergence; the engine reads each flag live */
-  [['aaD1', 'aaCarrier'], ['aaD2', 'aaXin'], ['aaD3', 'aaLoop']].forEach(([id, k]) => on(id, 'click', () => { LAB.aa[k] = !LAB.aa[k]; pushOracle(); chrome(); }));
+  [['aaD1', 'aaCarrier'], ['aaD2', 'aaXin'], ['aaD3', 'aaLoop'], ['frD6', 'frameHold']].forEach(([id, k]) => on(id, 'click', () => { LAB.aa[k] = !LAB.aa[k]; pushOracle(); chrome(); }));
   on('capBtn', 'click', () => { LAB.capSteal = !LAB.capSteal; capPolicyPush(); chrome(); });   // B375
   on('pwr', 'click', () => { audioStart(); });
   on('panic', 'click', () => { audioMsg({ t: 'panic' }); AUD.drone = false; const d = $('droneBtn'); if (d) d.classList.remove('on'); });

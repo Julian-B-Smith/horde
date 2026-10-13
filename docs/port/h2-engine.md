@@ -28,17 +28,18 @@ whole render.
 
 ## The golden (the parity target, ADR-187 item 3)
 
-The composed engine as the lab runs it, at main `c64cfdb` (2026-10-01). The
+The composed engine as the lab runs it: main `c64cfdb` (2026-10-01) plus B461's
+divergence D6 (2026-10-12; the engine and the lab's one toggle for it). The
 renderer streams each file's git blob, and the check fails on a blob it was not
 pinned to.
 
 | file | role | blob |
 |---|---|---|
-| `docs/design/scalpel-horde-engine.js` | the composed engine (`makeComposedEngine`) | `581d7942684c91245e4a6637dd40d137335b5d69` |
+| `docs/design/scalpel-horde-engine.js` | the composed engine (`makeComposedEngine`) | `5d3e3a37cc8f634772ae4c72fefeaf7b446cd15e` |
 | `reference/scalpel/prototype/razor-core.js` | the blade oracle it extends | `0ce6a713410d89c65bf55f761f1dc791fae61b16` |
 | `reference/swarmsaw.html` | SwarmSynth, the swarm it drives (DSP section) | `e47da6c9e0b4a058e18d79f62d71ab31c3d3b1b0` |
 | `reference/scalpel/data/presets.json` | the 83 bench presets | `45c4f1d5cff97922b88b1fab778eccca3d511bcd` |
-| `docs/design/scalpel-interface-lab.html` | the 12 B366 envelope presets (`ENV_PRESETS`); since B445 also the device default `os: 1` (`LAB_DEF`), which no scenario reads | `77ccee779baa09ce9fddb9d6527ecc0d68e77a8f` |
+| `docs/design/scalpel-interface-lab.html` | the 12 B366 envelope presets (`ENV_PRESETS`); since B445 also the device default `os: 1` (`LAB_DEF`), which no scenario reads | `65d587e9f562008ba9285818cc74d621acebb74b` |
 
 The engine's flags at their ledgered defaults (`docs/port/divergences.json`):
 
@@ -46,6 +47,11 @@ The engine's flags at their ledgered defaults (`docs/port/divergences.json`):
 - **D1 `aaCarrier`, D2 `aaXin`, D3 `aaLoop`: OFF** (ADR-189: the instrument's default
   is ruled when horde 2's shell is built). Both positions of each are built and
   parity-checked.
+- **D6 `frameHold`: OFF** (ADR-216, B461: the blade's frame holds its course
+  where the swarm's phase centre is undefined, and a member's lead reaches its
+  blade as a ramp; the lead's readings of the ruling are ADR-216 A1). Both
+  positions are built and parity-checked; turning it on by default is a PR of its
+  own (ADR-187 A1).
 
 What the golden contains, each with its site in the composed JS:
 
@@ -421,7 +427,7 @@ substring test for `h2/cores/` or `h2/engine/`, never narrower than the original
 Self-cases cover `"h2/cores/x.h"`, `<h2/engine/engine.h>`, `"../h2/engine/engine.h"`
 and a tab-separated include.
 
-## Scenario families (as built: 543 scenarios)
+## Scenario families (as built: 565 scenarios)
 
 All at 48 kHz in 128-sample blocks unless a row says otherwise. The seeds are per
 family.
@@ -431,7 +437,7 @@ family.
 2. **E/, the 12 B366 lab presets** × chord, repeat and arp (+ legato for the 2
    mono ones): 38. They are read from the lab's `ENV_PRESETS` text.
 3. **T/, phase 1a's 125 blade rows**, re-run through the composed engine.
-4. **C/, 119 composed rows:**
+4. **C/, 141 composed rows:**
    - **VL 3:** repeat, tiers 2 and 3, tier 1.
    - **CAP 7:**
      - the cull with the cap lowered mid-phrase while three tails release and the
@@ -465,6 +471,29 @@ family.
    - **SW 24:** the swarm's own parameters.
    - **A2 6.**
    - **OS 1.**
+   - **D6 22** (ADR-216 with A1, B461; `frameHold` 1), appended after every earlier row:
+     - five of the six bench presets in its scope (a frame on, or spread law
+       3): Swarm-linked spread, Anchored horde, Smear and strike, Drift and lock,
+       Cross-mod shimmer. Breathing pad is left out on purpose (ADR-217 edited the
+       bank's pad to play locked: B462); `a framed two-blade pad` carries the
+       settings its click depends on, written out in the renderer;
+     - the centre undefined at K 0 (the frame holds, then turns at its rate); a
+       splayed swarm; a locked swarm; spread law 3; blade 2 alone on the frame;
+     - switched on and off mid-note; a mono retrigger on a sounding voice;
+       members waiting on onset scatter; N changed mid-note; frequency glide
+       under drift and retune; under the cull (one render call per sample);
+     - 37-sample blocks, 44.1 kHz, and os 1;
+     - members that JOIN a held frame (the flag off at N 8, on at N 4, N back to 8,
+       in 100-sample blocks), and the same join met by a mono retrigger before any
+       tick: a joined member's lead is set, not ramped.
+     - NO two-member row, on purpose: HELD OUT until the human rules what the frame
+       does after a crossing (ROADMAP B461). With two members every exit from a
+       hold is half a cycle to within a rounding, and the turn's direction is
+       decided by it, so such a row holds only where the C++'s and the JS's math
+       libraries agree to the last bit (measured: two rows at parity as written,
+       red on 2 of 30 renders with the note frequencies moved 1 to 15 ULP). Their
+       definitions and numbers are in the ledger's D6 finding and in
+       `traces/2026-10-12-b461-frame-hold-d6-rework2.md`.
 
 ## Results (darwin-arm64, Apple clang 16, Node 24.10, `-O2 -ffp-contract=off`)
 
@@ -473,9 +502,12 @@ family.
 | P/ | 261 | 258, plus the 3 ring rows excluded (A2 item 1; all three hold) | 1.1e-12 | 9.9e-11 | 32.87% |
 | E/ | 38 | 38 | 1.9e-14 | 4.5e-13 | 46.33% |
 | T/ | 125 | 125 | 2.0e-12 | 1.4e-10 | 43.39% |
-| C/ | 119 | 119 | 2.1e-12 | 1.8e-10 | 36.28% |
+| C/ | 141 | 141 | 2.1e-12 | 1.8e-10 | 34.35% |
 
-- Events and readouts are identical on all 543, the ring rows included.
+The C/ row was re-measured on 2026-10-12 with D6's 22 rows (their own worst: rms
+4.1e-14, max-abs 1.1e-12; mean bit-exact 24.0%); the whole set's mean is 36.49%.
+
+- Events and readouts are identical on all 565, the ring rows included.
 - No scenario sets a key the engine lacks.
 
 **Before the ruling, not at parity under rule 1a: P/Starting points / Cross-mod

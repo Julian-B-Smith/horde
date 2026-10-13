@@ -1,11 +1,11 @@
 # h2_engine_selfdigest_check reference (tools/h2_engine_selfdigest_check.cpp): parity build, key darwin-arm64.appleclang-16.node24
 # FNV-1a 64 of each scenario's C++ samples, events and readouts. A golden fixture (protected): re-pin only
 # for a reason stated in the PR and the trace (the tool header's cases a-c); an output-neutral PR never re-pins.
-# ORACLE docs/design/scalpel-horde-engine.js 581d7942684c91245e4a6637dd40d137335b5d69
+# ORACLE docs/design/scalpel-horde-engine.js 5d3e3a37cc8f634772ae4c72fefeaf7b446cd15e
 # ORACLE reference/scalpel/prototype/razor-core.js 0ce6a713410d89c65bf55f761f1dc791fae61b16
 # ORACLE reference/swarmsaw.html e47da6c9e0b4a058e18d79f62d71ab31c3d3b1b0
 # ORACLE reference/scalpel/data/presets.json 45c4f1d5cff97922b88b1fab778eccca3d511bcd
-# ORACLE docs/design/scalpel-interface-lab.html 77ccee779baa09ce9fddb9d6527ecc0d68e77a8f
+# ORACLE docs/design/scalpel-interface-lab.html 65d587e9f562008ba9285818cc74d621acebb74b
 6f1035ccaec449df  P/Starting points / Quarter sync :: chord
 5bc5dc32109a280e  P/Starting points / Quarter sync :: repeat
 428b94da88f2c1f5  P/Starting points / Quarter sync :: arp
@@ -549,4 +549,26 @@ c320b7a2eca53edb  C/SW anchor and spread
 90d999772ead71a1  C/A2 Quantized Cut spread 2.5
 eec47885967308ec  C/A2 Quantized blade 2 Cut spread -1.5
 2e8d7ffec2af6795  C/OS 2 -> 4 -> 1 mid-note
-TOTAL 4082b8942aefb398 543
+c7fdcc3d8b2c3c13  C/D6 :: Swarm-linked spread
+0b1bbade8c4d1b39  C/D6 :: Anchored horde
+a8c7793d97e47e5d  C/D6 :: Smear and strike
+7c79945a3a771cac  C/D6 :: Drift and lock
+ed59f1fa16aa2edc  C/D6 :: Cross-mod shimmer
+b1a592e19852a9de  C/D6 a framed two-blade pad
+1f393deb19f85eba  C/D6 the centre undefined, K 0
+87ea8c14f39f24aa  C/D6 a splayed swarm, K -.6
+6c1e0098b0468fb0  C/D6 a locked swarm, K 1
+44e3bf7bcd568031  C/D6 spread law 3
+1f09c18ade8a131f  C/D6 blade 2 on the frame, blade 1 off it
+1b27ff9afc624f28  C/D6 switched on and off mid-note
+249476fe7f39b8c6  C/D6 mono retrigger on a sounding voice
+4a649ce55da5405e  C/D6 members waiting on onset scatter
+ba36e5a839de1a06  C/D6 N changes mid-note
+022daccce56c5084  C/D6 frequency glide under drift and retune
+359146544aa72313  C/D6 under the cull, the cap lowered mid-phrase
+4978b5e9721bb109  C/D6 37-sample blocks
+a7e961d5dfd22748  C/D6 at 44.1 kHz
+c5b1675f74661574  C/D6 at os 1
+9d8d176b7e18efe4  C/D6 members join a held frame
+642a66bac3fe192e  C/D6 members join before a mono retrigger
+TOTAL 5b3a91ffac2f6590 565

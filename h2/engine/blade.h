@@ -55,6 +55,9 @@ struct DP {
          attackScatter = 0, voiceEnv = 0, relScatter = 0;
   // ADR-189's anti-aliasing divergences from the blade oracle, each off by default
   double aaCarrier = 0, aaXin = 0, aaLoop = 0;
+  // ADR-216 D6 (B461): the blade's frame holds its course where the swarm's centre is
+  // undefined (Engine::holdFrame). Off by default: 0 is the blade oracle's frame.
+  double frameHold = 0;
   static constexpr int kCustomCap = 256;
   char kCustom[kCustomCap] = "1, 5/4, 3/2";
 };
@@ -99,6 +102,9 @@ struct Member {
   bool hold = false;
   // ADR-189 D3: the loop filter's state and its two taps
   double fu = 0, f1 = 0, f2 = 0;
+  // ADR-216 D6, read only while the voice's frame is held (Voice::fhInit): the lead
+  // under the frame, which `lead` ramps toward, and the ramp's step per sample
+  double leadT = 0, leadStep = 0;
 };
 
 struct Voice {
@@ -124,6 +130,15 @@ struct Voice {
   double gf0 = 0, gfb = 0;
   bool pv = false;      // B335: per-member state (onset scatter or per-partial envelopes)
   double fx0 = 0;       // D3: member 0's filtered tap before it steps
+  // ADR-216 D6: the frame's angle (cycles, -1/2..1/2), the members' summed phase
+  // advance since the last couple tick (cycles), and whether the frame is held: set
+  // by the first couple() of a note with the flag on, cleared by any with it off
+  double psiF = 0, fhAdv = 0;
+  bool fhInit = false;
+  // ... and how many members the hold last ticked with: only members below it have a
+  // ramp (leadT, leadStep) to continue. One at or above it has just joined (N was
+  // raised, or the flag came on at a smaller N) and its lead is set outright.
+  int fhN = 0;
 };
 
 struct Biquad { double b0 = 0, b1 = 0, b2 = 0, a1 = 0, a2 = 0, z1 = 0, z2 = 0; };
