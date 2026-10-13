@@ -204,6 +204,21 @@
  *                    advance and is corrected toward psi in proportion to R, no faster than a stated
  *                    rate, and each lead reaches the blade as a ramp across the tick. With the flag 0
  *                    no line below changes a sample. See holdFrame(), couple(), spread() and stepM().
+ *   ADR-216  D7 `stealFade`: A TAKEN VOICE FADES (B459; the human, 2026-10-12, first playtest of the
+ *                    preview: "Breathing Pad is very clicky"). A DIVERGENCE FROM HORDE'S VOICE LAW AS
+ *                    B310 BUILT IT, behind its own flag in `d`, DEFAULT 0 (ADR-187 A1); its record is
+ *                    ADR-216, ADR-216 A3 (the rules of a taken voice: its release, what the voice law
+ *                    sees of it, the cull, keep-phase) and the B459 trace. With the pool full a poly
+ *                    note-on takes a voice that is still sounding (ADR-083 tier 2 or 3) and restarts it
+ *                    as a fresh voice: the envelope keeps its level while the phases, filters and DC
+ *                    state reset, so the output jumps in one sample. With the flag on a voice whose
+ *                    envelope is at or above 1e-3 is not restarted: its sound fades to zero over
+ *                    STEAL_FADE (a linear ramp, the cull's arithmetic), the note waits in the voice,
+ *                    and it starts from silence at the exact sample the fade ends, late by that length
+ *                    in every respect (every note-off for it takes effect as late as it started; from
+ *                    the moment its key is up the voice law reads it as a releasing tail). With the
+ *                    flag 0 no line below changes a sample. See take(), startWaiting(), noteOn(),
+ *                    render() and renderPlain().
  * NOT COMPOSED THIS ROUND (stated, not hidden): the output stage and voice
  * (rows 12, 13, 15, 17-20, 66 and D11: vol/normExp, width, the tanh, ADSR, the
  * pan image) stay RazorCore's. SwarmSynth's per-member amplitude terms (hiTame,
@@ -236,7 +251,7 @@
  * anchor, onset, dissolve, driftDepth, h.driftRate, driftMode, motionCenter,
  * inertia, inertiaCurve, freqGlide, keepPhase, pivotMode, and (B335) grav, basin,
  * onsetScatter, onsetAlpha, attackScatter, voiceEnv, relScatter, and (B355, ADR-189)
- * aaCarrier, aaXin, aaLoop, and (B461, ADR-216) frameHold.
+ * aaCarrier, aaXin, aaLoop, and (B461, ADR-216) frameHold, and (B459, ADR-216) stealFade.
  *
  * DETERMINISM. The swarm draws only SwarmSynth's seeded mulberry32 streams
  * (rngG/rngS) and (B335) the ensemble stream, mulberry32 from
@@ -281,6 +296,7 @@ function makeComposedEngine(RazorCore, swarmSrc) {
     onsetScatter: 0, onsetAlpha: 0.25, attackScatter: 0, voiceEnv: 0, relScatter: 0,   // B335 rows 70-74 (onsetScatter in ms)
     aaCarrier: 0, aaXin: 0, aaLoop: 0,                 // ADR-189 D1, D2, D3 (B355): OFF is the oracle's sound
     frameHold: 0,                                      // ADR-216 D6 (B461): OFF is the oracle's frame
+    stealFade: 0,                                      // ADR-216 D7 (B459): OFF restarts a taken voice at once
     ksmPerRate: 1,                                     // B382 M1: ON, the C++'s per-rate coupling smoother
   };
   /* ADR-216 D6's three constants, set by ADR-216 (the lead, under the human's delegation; a change
@@ -301,6 +317,11 @@ function makeComposedEngine(RazorCore, swarmSrc) {
      enough to shed the load within three or four 128-sample blocks. The fading voice still costs
      its render until it is freed, and the load it measures counts that. */
   const CULL_FADE = 0.008;
+  /* ADR-216 D7's fade, in SECONDS (ADR-009), set by ADR-216 (the lead, under the human's delegation;
+     a change needs a measurement): a linear gain ramp from 1 to 0 on a voice a note-on takes while
+     it still sounds, and how late that note starts. Converted to whole samples at the take (240 at
+     48 kHz), so the ramp's end is an exact sample. */
+  const STEAL_FADE = 0.005;
   /* ADR-189 D3's loop filter, in Hz (ADR-009: a time constant, converted per internal sample in setOS),
      on the ORACLE'S OWN TAP (ADR-189 A1). MEASURED, not tuned by ear (B355 trace; the line-over-floor
      probe: a line at R/5, 2R/5 or R/3 of the internal rate against the same-width bands 0.02 R and
@@ -518,6 +539,17 @@ function makeComposedEngine(RazorCore, swarmSrc) {
         v.fx0 = 0;                                     // ADR-189 D3: member 0's sample before it steps (loopIn)
         v.psiF = 0; v.fhAdv = 0; v.fhInit = false;     // ADR-216 D6: the frame's angle, the members' summed advance, held or not
         v.fhN = 0;                                     // ... and how many members the hold last ticked with (holdFrame)
+        /* ADR-216 D7: the steal's fade (samples left; 0 when none runs) and the note that waits for it
+           (take): whether one waits, the note as struck (wNote, wFreq, wVel), its frequency after any
+           retune (wTune), sfLeft when it began to wait (wFrom), whether its note-off came while it
+           waited (wOff) and how many samples after its take (wOffK). A stolen note is late by its wait
+           in every respect (ADR-216 A3, not ADR-216's own bullet): `late` is how many samples late the
+           note now on this voice started (0 on a free voice), and every off for it takes effect that
+           much late (offIn counts a pending off down; 0 when none). The fade and the wait are apart on
+           purpose: a cancelled wait (a panic) leaves its fade to run out. sfEnd: the fade ended on the
+           last sample rendered (read and cleared by the keep-phase snapshot). */
+        v.sfLeft = 0; v.sfEnd = false; v.wait = false; v.wOff = false; v.wNote = 0; v.wFrom = 0; v.wOffK = 0; v.offIn = 0; v.late = 0;
+        v.wFreq = 0; v.wTune = 0; v.wVel = 0;
       });
       this.inRender = false;                           // ADR-216 D6: a couple() from the oracle's render is a tick (renderPlain)
       /* ADR-189: every blade state gets the same fields up front, so V8 keeps one shape per state
@@ -548,6 +580,10 @@ function makeComposedEngine(RazorCore, swarmSrc) {
         m = Object.assign({}, m);
         for (const k of ['rotSpread', 'rotSpread2']) if (k in m) { const x = +m[k]; g[k] = x < 0 ? -1 : 1; m[k] = Math.abs(x); }
       }
+      /* ADR-216 D7 (A3): a mode change releases every voice (the oracle's set, razor-core.js :357) and
+         cancels every waiting note and every off still to take effect with them, as a panic does
+         (wait is false and offIn 0 on every voice unless stealFade has been on) */
+      if (m && 'polyMode' in m && m.polyMode !== this.d.polyMode) for (const v of this.voices) { v.wait = false; v.offIn = 0; }
       super.set(m);
     }
 
@@ -625,13 +661,17 @@ function makeComposedEngine(RazorCore, swarmSrc) {
        Every allocated slot is a NEW voice, so startVoice runs with fresh = true
        (the oracle's steal path did the same; only its same-note reuse was not).
        Mono/legato (d.polyMode) is RazorCore's path, untouched.
-       NOTE-OFF IS INHERITED, deliberately: RazorCore releases every voice with
-       that note that is STILL GATED (razor-core.js:433), which is horde's rule
-       (SwarmCore::noteOff releases by key, every gated match, swarm_core.h
-       noteOff; the shell releases by key, hypersaw_clap.cpp noteOffAll). So on
-       A-on, A-off, A-on, A-off the second off finds the new, gated voice and the
-       first tail is left to ring; a doubly-held A is released whole by one off,
-       so a host that merges the two offs into one cannot strand a stuck note.
+       NOTE-OFF RELEASES BY KEY, EVERY GATED MATCH: RazorCore's own poly line
+       (razor-core.js:433), which is horde's rule (SwarmCore::noteOff releases by key,
+       every gated match, swarm_core.h noteOff; the shell releases by key,
+       hypersaw_clap.cpp noteOffAll). So on A-on, A-off, A-on, A-off the second off
+       finds the new, gated voice and the first tail is left to ring; a doubly-held A
+       is released whole by one off, so a host that merges the two offs into one
+       cannot strand a stuck note. B310 INHERITED that line. Since ADR-216 D7 it is
+       REPEATED in noteOff() below, not inherited: the oracle's noteOff cannot be told
+       to pass by a voice whose note started late (its off takes effect late). With
+       stealFade 0 no note is late and the repeated line is the oracle's, write for
+       write. Mono and legato are still the oracle's noteOff, untouched.
        Deterministic: no draw, no clock. */
     noteOn(note, freq, vel) {
       const d = this.d;
@@ -641,7 +681,7 @@ function makeComposedEngine(RazorCore, swarmSrc) {
          same tiers (a sounding tail first; only if none, the oldest held). Below the cap, or
          with no cap, `busy` is false and this is B310's law exactly. */
       const busy = this.voiceCap > 0 && this.liveCount() >= this.voiceCap;
-      let v = this.tierPick(pool, busy ? x => !x.active : null);
+      let v = this.tierPick(pool, busy ? x => !x.active && !x.wait : null);   // D7: a waiting voice is its note's, sounding or not
       /* B375: a full cap and no tail to take, so only held voices sound. B323 re-struck the oldest
          held one at once (REPLACE, policy 2, below). REFUSE (0, the default) drops the note: no
          voice is touched. STEAL (1) releases the oldest held voice and hands it to the cull's 8 ms
@@ -650,16 +690,31 @@ function makeComposedEngine(RazorCore, swarmSrc) {
          is none, and then it is REPLACE, horde's own full-pool law (ADR-083 tier 3, at once). */
       if (!v && busy && this.capPolicy !== 2) {
         if (this.capPolicy !== 1) { this.refused++; return; }
+        /* ADR-216 D7 (A3): held is judged by the KEY, as the tiers judge it (heldTo). A voice a note
+           waits on is held by that note until its off is remembered, so it can be the oldest held;
+           a late note sounding out its delayed release (offIn counting) has its key up and is not
+           held. So `h` never has an off pending. */
         let h = null;
-        for (const x of pool) if (x.active && x.gate && !x.cull && (!h || x.age < h.age)) h = x;
-        const f = this.tierPick(pool, x => x.active);
+        for (const x of pool) if (((x.wait && !x.wOff) || (x.active && x.gate && !x.cull && x.offIn === 0)) && (!h || x.age < h.age)) h = x;
+        const f = this.tierPick(pool, x => x.active || x.wait);
         if (h && f) {
-          h.gate = false; h.stage = 4;                  // released, so its own envelope falls under the ramp too
-          h.cull = true; h.cullG = 1; this.stolen++;
+          /* D7: stealing a note that has not started yet cancels it; its voice's fade, already
+             running, is the fade the steal would have given it */
+          if (h.wait) h.wait = false;
+          else {
+            h.gate = false; h.stage = 4;                // released, so its own envelope falls under the ramp too
+            h.cull = true; h.cullG = 1;
+          }
+          this.stolen++;
           v = f;
         }
       }
-      if (!v) for (const x of pool) if ((!busy || x.active) && (!v || x.age < v.age)) v = x;
+      // tier 3: the oldest held voice (D7: a waiting voice counts, sounding or not)
+      if (!v) for (const x of pool) if ((!busy || x.active || x.wait) && (!v || x.age < v.age)) v = x;
+      /* ADR-216 D7 (the second sentence is ADR-216 A3): a voice still sounding is not restarted
+         mid-wave: it fades, and the note waits for the fade's end. A voice a note already waits on
+         takes the newer note whatever its level, flag on or off, so no wait is ever left standing. */
+      if (v.wait || (d.stealFade && v.active && v.env >= 1e-3)) { this.take(v, note, freq, vel); return; }
       // the rest is RazorCore's noteOn tail (razor-core.js:376-379), unchanged
       this.startVoice(v, note, freq, vel, true, true);
       v.freq = v.freqT = freq;
@@ -667,16 +722,113 @@ function makeComposedEngine(RazorCore, swarmSrc) {
       this.spread(v);
     }
 
+    /* ADR-216 D7 (B459): `v` is still sounding and a poly note-on has picked it. It is not
+       restarted. Its sound fades to zero over STEAL_FADE, a linear ramp on top of its own envelope
+       (the cull's arithmetic, counted in whole samples so the end is exact: renderPlain), and the
+       note waits in the voice and starts when the ramp ends (render). While it waits the voice is
+       the note's: it takes the note's age here, and the tiers see it as held by that note until
+       the note's off is remembered, and as the quietest releasing tail after that (heldTo, levelTo).
+       The cases below are ADR-216 A3's.
+       - A voice a note already waits on: the newer note replaces it. The fade is not restarted,
+         and an off remembered for the replaced note is forgotten with it.
+       - A voice already in a steal's fade whose note was cancelled: the note attaches.
+       - A voice fading under the cull: the steal's ramp takes over the cull's from its present
+         gain, over the samples the cull had left or the steal's own length, whichever is shorter,
+         so a note never waits longer than STEAL_FADE. The voice is the note's now, so it is no
+         longer a culled tail. The samples the cull had left are ceil(cullG * (CULL_FADE * sr)), and
+         cullG is 1 less a sum of rounded steps: at 48 kHz that product stands about 2e-12 ABOVE a
+         whole number, so the wait is the cull's remainder plus one sample (a tail culled 200
+         samples ago: 185, not 184). Plain IEEE arithmetic with no Math call, the same in the C++.
+       The old sound is released at the take: a later note-off for its key finds nothing, and an off
+       it was still waiting on (offIn) goes with it. */
+    take(v, note, freq, vel) {
+      v.wNote = note; v.wFreq = v.wTune = freq; v.wVel = vel; v.wOff = false; v.wOffK = 0;
+      v.age = ++this.age;
+      if (!v.wait) {
+        v.wait = true;
+        v.gate = false; v.stage = 4; v.offIn = 0;
+        if (v.sfLeft === 0) {
+          const len = Math.max(1, Math.round(STEAL_FADE * this.sr));
+          if (v.cull) { v.cull = false; v.sfLeft = Math.min(len, Math.max(1, Math.ceil(v.cullG * (CULL_FADE * this.sr)))); }
+          else v.sfLeft = len;
+        }
+      }
+      v.wFrom = v.sfLeft;                              // this note's wait is counted from here (noteOff)
+    }
+    /* The steal's fade has ended on `v` (it is silent and free): its waiting note starts exactly as
+       noteOn starts a note on a free voice. It keeps the age of its take: it was struck then, and
+       the voice law orders notes by when they were struck.
+       - A retune that reached it while it waited is applied as the oracle's 're' applies it to a
+         started note (razor-core.js :353): the played frequency moves, the glide target stays the
+         struck one. With no retune the two are equal and the write changes nothing.
+       - It is late by its wait in every respect (noteOff, ADR-216 A3): v.late is how late it starts,
+         and every off for it takes effect that much late. If its off came k samples after its take, it
+         is released k samples after this start (offIn; render cuts there). k = 0 is an on and an off at
+         one instant, released at once, as the host's own would be. */
+    startWaiting(v) {
+      const struck = v.age, tune = v.wTune, off = v.wOff, k = v.wOffK, late = v.wFrom;
+      this.startVoice(v, v.wNote, v.wFreq, v.wVel, true, true);
+      v.freq = v.freqT = v.wFreq;
+      this.couple(v, this.s, this.d);
+      this.spread(v);
+      v.freq = tune;
+      v.age = struck;
+      v.late = late;
+      if (off) { if (k > 0) v.offIn = k; else { v.gate = false; v.stage = 4; } }
+    }
+
+    /* ADR-216 D7 (ADR-216 A3, which replaces ADR-216's own bullet here: "the note starts, then
+       releases at once"): a stolen note is late by its wait in every respect, its release included.
+       Every off for it takes effect as many samples after it arrives as the note started late (W),
+       so it sounds for as long as its key was held:
+       - while the note still waits, the off is remembered with how long after the take it came
+         (wOffK); the note is released that long after it starts (startWaiting), which is W after
+         the off arrived;
+       - once it has started (v.late = W), the off is counted down (offIn) and takes effect W
+         samples on; render cuts there.
+       The first off counts; a second before it takes effect changes nothing. A note that started
+       on a free voice has late 0 and is released at once: the oracle's own poly line
+       (razor-core.js :433), which B310 inherited and which is REPEATED here, because the oracle's
+       noteOff cannot be told to pass a late voice by. Mono and legato are the oracle's, untouched.
+       From the moment its off arrives the note's KEY is up, and the voice law reads the key
+       (tierPick): it is a releasing tail to the tiers while its gate is still on. */
+    noteOff(note) {
+      if (this.d.polyMode) return super.noteOff(note);
+      for (const v of this.voices) if (v.wait && v.wNote === note && !v.wOff) { v.wOff = true; v.wOffK = v.wFrom - v.sfLeft; }
+      for (const v of this.voices) if (v.active && v.note === note && v.gate) {
+        if (v.late > 0) { if (v.offIn === 0) v.offIn = v.late; }
+        else { v.gate = false; v.stage = 4; }
+      }
+    }
+
     /* ADR-083 tiers 1 and 2, shared by note-on (B310) and the cull (B323): the oldest FADED
-       slot (not gated, env < 1e-3), else the QUIETEST releasing tail (age breaks ties, strict
-       `<` so ties fall to pool order). Never a gated voice: tier 3 (the oldest held) belongs to
-       note-on alone. `skip(x)` removes candidates (the cull skips silent and fading voices). */
+       slot (not held, level < 1e-3), else the QUIETEST releasing tail (age breaks ties, strict
+       `<` so ties fall to pool order). Never a held voice: tier 3 (the oldest held) belongs to
+       note-on alone. `skip(x)` removes candidates (the cull skips silent and fading voices).
+       WHAT THE TIERS SEE OF A VOICE (ADR-216 D7; ADR-216 A3: THE TIERS JUDGE A VOICE BY ITS KEY, NOT
+       BY ITS DELAYED GATE). A note whose key is up is a releasing tail to the tiers, whether it is
+       still waiting to start or is sounding out its late release:
+       - a voice a note waits on is HELD by that note, so tiers 1 and 2 pass it by, until the note's
+         off has been remembered: then it is a releasing tail like any other, and the quietest,
+         because the note has not sounded yet (its level reads 0; the old sound under the fade is
+         not its);
+       - a late note that has STARTED and whose off has arrived but not yet taken effect (offIn
+         counting) is gated for those samples and its key is up: a tail, at its own level.
+       So a note struck after a stolen note's release takes that note's voice, as it would have with
+       the flag off, and never a held one in its place. (As first built the second case read as
+       held: a held chord under a back-to-back line at a pool of 3 lost a chord note at six of
+       eight line notes, where the flag off lost none.) With no note waiting and no off pending
+       these are the voice's own gate and envelope.
+       What then happens to a tail whose gate is still on: taken by a note, its pending off goes
+       with everything else of the old sound (take); restarted under the threshold, startVoice
+       clears it; picked by the cull, it is released there (cull). */
     tierPick(pool, skip) {
+      const heldTo = x => (x.wait ? !x.wOff : x.gate && x.offIn === 0), levelTo = x => (x.wait ? 0 : x.env);
       let v = null;
-      for (const x of pool) if (!x.gate && x.env < 1e-3 && !(skip && skip(x)) && (!v || x.age < v.age)) v = x;
+      for (const x of pool) if (!heldTo(x) && levelTo(x) < 1e-3 && !(skip && skip(x)) && (!v || x.age < v.age)) v = x;
       if (v) return v;
       for (const x of pool)
-        if (!x.gate && !(skip && skip(x)) && (!v || x.env < v.env || (x.env === v.env && x.age < v.age))) v = x;
+        if (!heldTo(x) && !(skip && skip(x)) && (!v || levelTo(x) < levelTo(v) || (levelTo(x) === levelTo(v) && x.age < v.age))) v = x;
       return v;
     }
 
@@ -691,12 +843,18 @@ function makeComposedEngine(RazorCore, swarmSrc) {
        (noteOn above) ever takes a held note, as it always has at a full pool. A culled tail is
        never cut: its gain ramps linearly to 0 over CULL_FADE (8 ms), per sample, and only then
        is the slot freed (render below). */
-    liveCount() { let n = 0; for (const v of this.voices) if (v.active && !v.cull) n++; return n; }
+    /* Sounding and not on its way out. ADR-216 D7: a voice in a steal's fade is on its way out like
+       a culled one, unless a note waits on it: then it is that note's voice. */
+    liveCount() { let n = 0; for (const v of this.voices) if (v.wait || (v.active && !v.cull && v.sfLeft === 0)) n++; return n; }
     cull() {
       let live = this.liveCount();
       while (live > this.voiceCap) {
-        const v = this.tierPick(this.voices, x => !x.active || x.cull);
+        const v = this.tierPick(this.voices, x => !x.active || x.cull || x.sfLeft > 0);   // D7's fade is a fade
         if (!v) break;                                  // only held voices are left: never culled
+        /* ADR-216 D7 (A3): a tail that is still sounding out a late release (its key is up, heldTo)
+           is released HERE, at most STEAL_FADE before its off was due: the cull's fade runs on a
+           released voice, as it always has, and never on a gated one */
+        if (v.offIn > 0) { v.gate = false; v.stage = 4; v.offIn = 0; }
         v.cull = true; v.cullG = 1; live--; this.culled++;
       }
     }
@@ -704,11 +862,18 @@ function makeComposedEngine(RazorCore, swarmSrc) {
     msg(o) {
       if (o && o.t === 'cap') { this.voiceCap = Math.max(0, Math.floor(+o.n || 0)); return; }
       if (o && o.t === 'capPolicy') { const n = Math.floor(+o.n || 0); this.capPolicy = n === 1 || n === 2 ? n : 0; return; }   // B375
+      /* ADR-216 D7 (A3), ahead of the oracle's own handling of the same two messages: a retune reaches
+         a waiting note as it reaches a started one (the played frequency, wTune; the struck one stays
+         its glide target), and a panic cancels every waiting note (a fade already running runs out) and
+         every off still to take effect */
+      if (o && o.t === 're') for (const v of this.voices) if (v.wait && v.wNote === o.note) v.wTune = o.freq;
+      if (o && o.t === 'panic') for (const v of this.voices) { v.wait = false; v.offIn = 0; }
       super.msg(o);
     }
 
     startVoice(v, note, freq, vel, fresh, retrig) {
       v.cull = false;                                  // a re-allocated slot is a new voice, never still fading
+      v.sfLeft = 0; v.wait = false; v.offIn = 0; v.late = 0;   // ... under ADR-216 D7's fade either; no note waits on it, no off is pending, and its note is on time
       if (fresh) v.fhInit = false;                     // ADR-216 D6: a new note's frame starts at the measured centre (holdFrame)
       super.startVoice(v, note, freq, vel, fresh, retrig);
       /* ADR-189: a fresh voice's loop starts from silence, as the oracle's does (y1 = y2 = 0,
@@ -1222,7 +1387,45 @@ function makeComposedEngine(RazorCore, swarmSrc) {
        renderBlock, exactly the pre-B335 render: RazorCore re-reads a few smoothed controls once
        per call (the pan law, the envelope rates), so segmenting a gravity-off block could move a
        sample while those glide; it is never done. */
+    /* ADR-216 D7 (the late off is ADR-216 A3): a steal's fade ends on an exact sample, counted from
+       the take, and a waiting note starts there; a late note's off (offIn) takes effect on an exact
+       sample too. So the render is cut at every such sample and each part is a whole render of its
+       own (renderSpan), which is what the host would have produced by delivering that note-on or
+       note-off at that sample: where D7 starts a note or releases one does not depend on where
+       the host's own calls begin and end (what the keep-phase snapshot guarantees, and what it
+       does not, is stated at renderSpan). Every fade's end is a cut, waited on or not, so the
+       per-sample path it needs (renderPlain) covers exactly the fade's samples at any host block
+       size. With no fade running and no off pending this is one renderSpan of the host's own
+       buffers, as before D7. */
     render(L, R) {
+      const n = L.length;
+      let done = 0;
+      do {
+        let seg = n - done;
+        for (const v of this.voices) {
+          if (v.sfLeft > 0 && v.sfLeft < seg) seg = v.sfLeft;
+          if (v.offIn > 0 && v.offIn < seg) seg = v.offIn;
+        }
+        if (seg === n) this.renderSpan(L, R);
+        else this.renderSpan(L.subarray(done, done + seg), R.subarray(done, done + seg));
+        done += seg;
+        /* the late offs that take effect here: noteOff's own two writes, on the note the off was
+           for. It is still that note, gated and sounding: every other way a voice is released or
+           restarted clears offIn (a take, a start, a panic, a mode change, the cull), and the steal
+           policy never picks a voice with an off pending */
+        for (const v of this.voices) if (v.offIn > 0 && (v.offIn -= seg) === 0 && v.active && v.gate) { v.gate = false; v.stage = 4; }
+        /* the notes whose fade has just ended, in the order they were struck (the age each took at
+           its take), so the shared random stream is drawn in that order */
+        for (;;) {
+          let w = null;
+          for (const v of this.voices) if (v.wait && v.sfLeft === 0 && (!w || v.age < w.age)) w = v;
+          if (!w) break;
+          this.startWaiting(w);
+        }
+      } while (done < n);
+    }
+    /* one render between two steal-fade ends (D7), or the host's whole call when none falls inside it */
+    renderSpan(L, R) {
       if (this.voiceCap > 0) this.cull();
       const grid = this.gravGrid;
       if (!(this.d.grav >= 0.005) || this.src !== 'horde') {
@@ -1237,11 +1440,25 @@ function makeComposedEngine(RazorCore, swarmSrc) {
           if (this.gravAccum >= grid) { this.gravityStep(grid / this.sr); this.gravAccum = 0; }
         }
       }
-      if (this.src !== 'horde') return;
-      /* keep-phase snapshot of the newest sounding swarm (swarmsaw.html:714) */
-      let lv = null;
-      for (const v of this.voices) if (v.active && (!lv || v.age > lv.age)) lv = v;
-      if (lv) this.sw.lastPhase.set(this.sw.swarms[lv.si].phase);
+      /* keep-phase snapshot of the newest sounding swarm (swarmsaw.html:714). ADR-216 D7 (A3): a
+         voice under a steal's fade counts as sounding for the fade's WHOLE length, whether or not
+         its own release floor ended it sooner (sfLeft > 0: its phases stand where it stopped), and
+         at the sample the fade ends (sfEnd: this span was cut there). So the snapshot a note reads
+         during a fade or at its end is the one taken at that sample, whatever else sounds and
+         wherever the host's block boundary fell. It holds for a fade nobody waits on too (a
+         cancelled one).
+         WHAT IS GUARANTEED, EXACTLY: the way D7 ends a voice never leaves a snapshot that depends
+         on the host's block size. WHAT IS NOT, and is not D7's: a voice that dies of its own
+         release floor with NO fade on it, when nothing else sounds, leaves the snapshot of the last
+         span end at which it still sounded, which is the host's block boundary. The engine does
+         that with the flag off (it is older than D7), and a flag-on render that contains such a
+         death carries it too. */
+      if (this.src === 'horde') {
+        let lv = null;
+        for (const v of this.voices) if ((v.active || v.sfEnd || v.sfLeft > 0) && (!lv || v.age > lv.age)) lv = v;
+        if (lv) this.sw.lastPhase.set(this.sw.swarms[lv.si].phase);
+      }
+      for (const v of this.voices) v.sfEnd = false;    // whatever the source: the mark is this span's alone
     }
 
     /* B335: the state RazorCore's render reads ONCE PER CALL, taken just before the call so that it
@@ -1269,14 +1486,22 @@ function makeComposedEngine(RazorCore, swarmSrc) {
     }
 
     renderPlain(L, R) {
-      let fading = false;
+      let fading = false, stealing = false;
       this.pvLive = false;
       for (const v of this.voices) if (v.active) { if (v.cull) fading = true; if (v.pv) this.pvLive = true; }
+      /* ADR-216 D7: a steal's fade takes the same one call per sample for its length, and counts
+         down whether or not its voice still sounds */
+      for (const v of this.voices) if (v.sfLeft > 0) stealing = true;
       /* ADR-216 D6: inRender marks the couple() calls the oracle's render makes (its 32-sample tick)
          apart from a note-on's (holdFrame) */
-      if (!fading) { this.preCall(); this.inRender = true; super.render(L, R); this.inRender = false; this.nBase += L.length; }
+      if (!fading && !stealing) { this.preCall(); this.inRender = true; super.render(L, R); this.inRender = false; this.nBase += L.length; }
       else {
-        const one = this.one || (this.one = [new Float32Array(1), new Float32Array(1)]);
+        /* the cull's one-sample buffers are float32, as B323 built them, and its samples pass
+           through them. D7's are float64, so a steal's fade rounds nothing (a host that hands
+           float32 blocks rounds on its own); with a culled voice fading in the same call the
+           cull's buffers are used */
+        const one = fading ? this.one || (this.one = [new Float32Array(1), new Float32Array(1)])
+          : this.one64 || (this.one64 = [new Float64Array(1), new Float64Array(1)]);
         const step = 1 / (CULL_FADE * this.sr);
         for (let i = 0; i < L.length; i++) {
           this.preCall();
@@ -1291,6 +1516,18 @@ function makeComposedEngine(RazorCore, swarmSrc) {
                  ramp scales the members and the bookkeeping level follows them */
               const f = g / v.cullG;
               v.env *= f; v.cullG = g;
+              if (v.pv) for (const m of v.m) m.eE *= f;
+            }
+          }
+          /* ADR-216 D7: the steal's ramp, the same scaling counted in whole samples: after k of its
+             N samples the gain is (N − k) / N. At its end the slot is silent and free; render()
+             cuts the call there and starts the waiting note. */
+          for (const v of this.voices) if (v.sfLeft > 0) {
+            const left = --v.sfLeft;
+            if (left === 0) { v.env = 0; v.active = false; v.sfEnd = true; }
+            else if (v.active) {
+              const f = left / (left + 1);
+              v.env *= f;
               if (v.pv) for (const m of v.m) m.eE *= f;
             }
           }

@@ -26,6 +26,9 @@
  *     24 bits, so there the rail is reached from about |pre| = 9 and the error is
  *     larger by the same ratio (ARGUED from the format, not measured: the harness
  *     does not expose the voice cap, so no harness render takes that path).
+ *     A steal's fade (ADR-216 D7, `stealFade` 1) takes the same one call per sample
+ *     and harness renders DO take it (tools/h2_steal_fade_check.mjs), but its output
+ *     is not passed through a float: only a culled voice's fade is.
  * So a bound of a few units on the pre-limiter bus is tested exactly enough, and
  * a blow-up reads as infinity, which no bound passes. A tool that needs the bus
  * beyond that (its true size when it is far above 19, or it before the DC

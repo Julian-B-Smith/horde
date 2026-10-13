@@ -19,6 +19,7 @@ Last verified: 2026-10-10 (darwin-arm64, Apple clang, Node 24). Static check wir
 | `adapter_composed.h` | The adapter for the composed engine (`h2/engine/`). States what the pre-limiter bus can and cannot say. |
 | `adapters.h` | The table: one row per enrolled engine, then the controls. |
 | `control_fuzz.h` | The parameter fuzz's ten planted faults (below). Control adapters, never enrolled. |
+| `control_steal.h` | The steal fade's planted faults (B459, ADR-216 D7), each built from two shipped engines: `control/steal-cut` (no ramp), `control/steal-cut5` (the ramp right for four samples, then a cut), `control/steal-short` (a ramp that stops short of zero), `control/steal-step` (a start at the old level instead of from silence), `control/steal-early` (a start one sample before the fade's end). `tools/h2_steal_fade_check.mjs` must read each as a fault, on the row named for it, on every run. Control adapters, never enrolled. |
 | `render_cli.cpp` | `h2_harness_render`: runs job files, writes what was rendered. Measures and judges nothing. |
 | `harness.mjs` | The interface tools use: enrolled engines, reference patches, `render`, `features`. |
 | `patches.json` | The reference patches. **Generated; never edit it by hand.** |

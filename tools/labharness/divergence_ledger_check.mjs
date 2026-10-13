@@ -44,6 +44,34 @@
  *       text patches (Composed.swarmPatches, its SWARM_PATCHES) and the built entries whose oracle is
  *       reference/swarmsaw.html are the same set, id for id and flag for flag: a patch cannot enter the
  *       engine without its entry, and an entry cannot claim a patch the engine does not make.
+ *   L8  EVERY ENGINE DIVERGENCE FLAG IS LEDGERED (B465, extended 2026-10-13: until then this check was
+ *       green while the engine carried a flag with no entry). The engine's divergence flags are DERIVED,
+ *       never listed here: (a) the lab's own push list, `const AA189 = [...]` in
+ *       docs/design/scalpel-interface-lab.html, read from the lab's text (the list its oracleParams()
+ *       walks to send each divergence toggle to the engine; a flag missing from it has a dead toggle), and
+ *       (b) the flags of the engine's registered SwarmSynth patches (Composed.swarmPatches, L7's source).
+ *       Each must be an engine key and the flag of a built entry. WHAT A NEW FLAG'S AUTHOR DOES TO BE
+ *       SEEN: give it its lab toggle (ADR-187 A1 requires one per divergence), which means adding it to
+ *       AA189; or register it as a SwarmSynth patch. THE LIMIT, stated: an engine flag with neither is
+ *       not seen here.
+ *   L9  THE ENTRIES' ORDER DOES NOT MATTER (B465). Every rule above, run on the ledger with its entries
+ *       reversed, gives the same findings (and the same L5 reading per flag) as on the ledger as written.
+ *   L10 EVERY BUILT ENTRY'S FLAG IS A DERIVED ONE (L8's converse; B465, added 2026-10-13 after an
+ *       independent critic's read: L8 alone asks only that each derived flag has an entry, so a flag
+ *       taken OUT of the lab's AA189 list, a dead toggle, read green with a smaller count). Each built
+ *       entry's flag must be in L8's derived set: in the lab's push list, or a registered SwarmSynth
+ *       patch's. With L8 the two sets are one.
+ * A SCENARIO MAY CARRY A NOTE SCRIPT (B465, extended 2026-10-13, for ADR-216 D7). The fixed script above
+ *   strikes both notes at sample 0 into an empty pool, so a divergence that acts on EVENT TIMING (D7: a
+ *   note that takes a voice already sounding) could move no fingerprint this check can take. A scope
+ *   scenario may therefore be {preset, over, sr, script}, where `script` is a list of events played in
+ *   order after the patch is set:
+ *       "on <note> [<note> ...]"    note-ons at velocity 0.9, at 440 * 2^((note - 69) / 12) Hz
+ *       "off <note> [<note> ...]"   note-offs
+ *       "render <samples>"          that many samples, in 128-sample blocks (the last one shorter)
+ *   The fingerprint is the same SHA-256 of the float32 L then R of everything rendered. A scenario WITHOUT
+ *   a script is fingerprinted by the very code it always was, so no pin moves (L4's pins are the proof,
+ *   every run). L1 checks a script's shape; L5, L6 and C5 mean what they always meant.
  * TWO PIN SETS, ON PURPOSE: L4's fingerprints here (this script: notes 57 + 64 at 0, 12032 samples,
  * seed 45909) and composed_engine_check's AA0 (its own renderWith: two notes and a release, 24064
  * samples, seed 0xB355) were both taken on main d443eb6. They pin the same fact through two different
@@ -52,8 +80,11 @@
  * whatever you expect), each run through the same functions as the rows above:
  *   C1  an entry whose flag the engine does not have (L3 must reject it);
  *   C2  a pinned fingerprint off by one hex digit (L4 must reject it);
- *   C3  an engine whose constructor defaults one default-0 flag ON (L4 must reject it: the defaults no
- *       longer are the pins);
+ *   C3  per default-0 built flag (B465: every one, where it was the last in the file), an engine whose
+ *       constructor defaults it ON. L3 must reject it (the default is not the ledger's), AND L4 must
+ *       reject it wherever an all-off scenario can hear the flag (L5's own reading: the flag on alone
+ *       moves one), because there the defaults no longer are the pins. For a flag no all-off scenario
+ *       reaches (D6, D7) L4 cannot see a flipped default, and L3 is what holds it;
  *   C4  an oracle blob pin off by one digit (L2 must reject it);
  *   C5  per built flag, its `inScope` scenario planted into its `outOfScope` list (L6 must reject it);
  *   C6  per default-ON entry that claims `moves`, an engine defaulting its flag OFF (L4 must reject it:
@@ -61,6 +92,16 @@
  *   C7  a planted SwarmSynth entry the engine does not register (L7 must reject it);
  *   C8  per PER-PLATFORM claim: its pin for this platform off by one digit (L4 must reject it), and the
  *       same claim read on a platform it has no pin for (L4 must SKIP it, never pass it).
+ *   C9  per built flag, the ledger stating the OTHER default for it (L3 must reject it: B465's
+ *       wrong-default control);
+ *   C10 per derived engine flag, the ledger with that flag's entry removed (L8 must reject it); and the
+ *       lab's text with one more flag planted in its AA189 list, read by the same function (L8 must
+ *       reject the unledgered flag);
+ *   C11 the reversed ledger with one pin off by a digit (L9's comparison must read a difference);
+ *   C12 a scripted scenario with an event the script language does not have, and one that renders
+ *       nothing (L1 must reject each).
+ *   C13 per flag of the lab's AA189 list, the lab's text with that flag taken out of the list, read by
+ *       the same function (L10 must reject the entry whose toggle is now dead).
  * PER-PLATFORM PINS (B382, ADR-187 item 7: digests are pinned per canonical platform). A `moves` value is
  *   a fingerprint, or {platform: fingerprint} keyed by Node's process.platform (darwin, linux, win32) for
  *   a render whose float32 bits differ between platforms. L4 compares it with the pin for the platform
@@ -107,9 +148,45 @@ const PRESETS = JSON.parse(readFileSync(join(root, 'reference/scalpel/data/prese
 /* one scenario: the preset, then `over`, notes 57 and 64 struck at 0, 12032 samples (94 blocks of 128)
    at 48 kHz (or `sr`, B382), Math.random seeded (the lab's convention) and restored; SHA-256 of the
    float32 L then R, first 16 hex digits (composed_engine_check ZERO's form) */
-export function fingerprint(Composed, preset, over, seed, sr) {
+/* a scenario's note script (header, "A SCENARIO MAY CARRY A NOTE SCRIPT") -> [{op, n: [numbers]}], or
+   throws naming what is wrong with it. One grammar for the shape rule (L1) and for the render. */
+export function parseScript(script) {
+  if (!Array.isArray(script) || !script.length) throw new Error('a script is a non-empty list of events');
+  const ev = script.map(s => {
+    const m = typeof s === 'string' && /^(on|off|render)((?: \d+)+)$/.exec(s);
+    if (!m) throw new Error(`"${s}" is not "on <note>...", "off <note>..." or "render <samples>"`);
+    const n = m[2].trim().split(' ').map(Number);
+    if (m[1] === 'render' ? n.length !== 1 || n[0] < 1 : n.some(x => x > 127)) throw new Error(`"${s}": ${m[1] === 'render' ? 'render takes one sample count of 1 or more' : 'a note is 0..127'}`);
+    return { op: m[1], n };
+  });
+  if (!ev.some(e => e.op === 'on')) throw new Error('the script strikes no note');
+  if (!ev.some(e => e.op === 'render')) throw new Error('the script renders nothing');
+  return ev;
+}
+const BLOCK = 128, VEL = 0.9, hz = note => 440 * Math.pow(2, (note - 69) / 12);
+/* a SCRIPTED scenario's fingerprint: the preset, then `over`, then the events in order; SHA-256 of the
+   float32 L then R of everything rendered, first 16 hex digits (the script-less form's hash) */
+function scriptFingerprint(Composed, p, over, seed, sr, script) {
+  const ev = parseScript(script), n = ev.reduce((a, e) => a + (e.op === 'render' ? e.n[0] : 0), 0);
+  const saved = Math.random;
+  Math.random = mulberry32(seed >>> 0);
+  try {
+    const c = new Composed(sr || 48000); c.set(Object.assign({}, p.params, over || {})); Object.assign(c.s, c.t);
+    const L = new Float32Array(n), R = new Float32Array(n);
+    let at = 0;
+    for (const e of ev) {
+      if (e.op === 'on') for (const k of e.n) c.noteOn(k, hz(k), VEL);
+      else if (e.op === 'off') for (const k of e.n) c.noteOff(k);
+      else { const end = at + e.n[0]; for (; at < end; at += Math.min(BLOCK, end - at)) c.render(L.subarray(at, Math.min(at + BLOCK, end)), R.subarray(at, Math.min(at + BLOCK, end))); }
+    }
+    return createHash('sha256').update(Buffer.from(L.buffer)).update(Buffer.from(R.buffer)).digest('hex').slice(0, 16);
+  } finally { Math.random = saved; }
+}
+export function fingerprint(Composed, preset, over, seed, sr, script) {
   const p = PRESETS.find(x => x.name === preset);
   if (!p) throw new Error('divergence_ledger_check: preset missing: ' + preset);
+  if (script) return scriptFingerprint(Composed, p, over, seed, sr, script);
+  // no script: the fixed two-note form, the very lines every pinned fingerprint was taken with
   const saved = Math.random;
   Math.random = mulberry32(seed >>> 0);
   try {
@@ -124,9 +201,22 @@ export function fingerprint(Composed, preset, over, seed, sr) {
 /* ---------------------------------------------------------------- the rules, as functions the controls reuse */
 const FIELDS = ['id', 'adr', 'status', 'description', 'oracle', 'target', 'scope', 'evidence', 'js_limit'];
 const BUILT_FIELDS = ['flag', 'outOfScope', 'inScope'];
-/* a scope scenario: a preset name, or {preset, over, sr} (B382) */
-const scen = x => (typeof x === 'string' ? { preset: x, over: null, sr: 48000 } : { preset: x.preset, over: x.over || null, sr: x.sr || 48000 });
-const scenName = x => { const s = scen(x); return s.preset + (s.over ? ' ' + JSON.stringify(s.over) : '') + (s.sr !== 48000 ? ` @${s.sr}` : ''); };
+/* a scope scenario: a preset name, or {preset, over, sr} (B382), or that with a note `script` (B465) */
+const scen = x => (typeof x === 'string' ? { preset: x, over: null, sr: 48000, script: null }
+  : { preset: x.preset, over: x.over || null, sr: x.sr || 48000, script: x.script || null });
+const scenName = x => { const s = scen(x); return s.preset + (s.over ? ' ' + JSON.stringify(s.over) : '') + (s.sr !== 48000 ? ` @${s.sr}` : '') + (s.script ? ` [${s.script.join(' | ')}]` : ''); };
+/* every scope scenario an entry names, with where it is named */
+const scenariosOf = d => [...(d.inScope ? [['inScope', d.inScope]] : []), ...(Array.isArray(d.outOfScope) ? d.outOfScope.map((x, i) => [`outOfScope[${i}]`, x]) : [])];
+/* fingerprint(), remembered per engine class: the rules ask for the same render many times (L9 asks for
+   all of them again), and a render is a pure function of its arguments (Math.random is seeded inside) */
+const FP = new WeakMap();
+function fp(Composed, preset, over, seed, sr, script) {
+  let m = FP.get(Composed);
+  if (!m) FP.set(Composed, m = new Map());
+  const key = JSON.stringify([preset, over || null, seed, sr || 48000, script || null]);
+  if (!m.has(key)) m.set(key, fingerprint(Composed, preset, over, seed, sr, script));
+  return m.get(key);
+}
 const defaultOf = d => (d.default === undefined ? 0 : d.default);
 function shapeErrors(led) {
   const e = [], ids = new Set();
@@ -141,6 +231,10 @@ function shapeErrors(led) {
     if (defaultOf(d) === 1 && (d.status !== 'built' || typeof d.ruled !== 'string')) e.push(`${d.id}: default 1 needs status built and a 'ruled' statement (ADR-187 A1)`);
     if (d.moves !== undefined && (defaultOf(d) !== 1 || !Object.values(d.moves).every(pinShape))) e.push(`${d.id}: moves needs default 1 and 16-hex fingerprints, bare or per platform (${PLATFORMS.join(', ')})`);
     for (const m of Object.keys(d.moves || {})) if (!(m in led.allOff.fingerprints)) e.push(`${d.id}: moves ${m}, which is not an allOff scenario`);
+    // a scenario's note script must be one the render can play (B465)
+    for (const [where, x] of scenariosOf(d)) if (x && typeof x === 'object' && 'script' in x) {
+      try { parseScript(x.script); } catch (err) { e.push(`${d.id}: ${where} script: ${err.message}`); }
+    }
   }
   return e;
 }
@@ -182,7 +276,7 @@ function allOffErrors(led, Composed, platform) {
   platform = platform || process.platform;
   const zero = allZero(led), { want, e } = defaultsWant(led, platform), skips = [];
   for (const [name, pin] of Object.entries(led.allOff.fingerprints)) {
-    const a = fingerprint(Composed, name, null, led.allOff.seed), b = fingerprint(Composed, name, zero, led.allOff.seed), w = want[name];
+    const a = fp(Composed, name, null, led.allOff.seed), b = fp(Composed, name, zero, led.allOff.seed), w = want[name];
     if (b !== pin) e.push(`${name}: ${b} with every flag written 0, pinned ${pin}`);
     if (w.skip) skips.push(`${name}: ${a} at the defaults, claimed by ${w.by}'s moves, ${w.skip}`);
     else if (a !== w.f) e.push(`${name}: ${a} at the defaults, ${w.by ? `claimed by ${w.by}'s moves${w.per ? ` (${w.per} pin)` : ''}` : 'pinned'} ${w.f}`);
@@ -196,10 +290,34 @@ function scopeErrors(led, Composed) {
   const e = [], zero = allZero(led);
   for (const d of built(led)) for (const x of d.outOfScope) {
     const s = scen(x), base = Object.assign({}, zero, s.over || {});
-    const off = fingerprint(Composed, s.preset, base, led.allOff.seed, s.sr), on = fingerprint(Composed, s.preset, Object.assign({}, base, { [d.flag]: 1 }), led.allOff.seed, s.sr);
+    const off = fp(Composed, s.preset, base, led.allOff.seed, s.sr, s.script), on = fp(Composed, s.preset, Object.assign({}, base, { [d.flag]: 1 }), led.allOff.seed, s.sr, s.script);
     if (on !== off) e.push(`${d.id}: ${d.flag} on changes ${scenName(x)} (${off} -> ${on}), outside its declared scope`);
   }
   return e;
+}
+/* L8: every divergence flag the engine has is a built entry's flag (header, L8). The flags are derived:
+   the lab's own push list, read from its text, and the engine's registered SwarmSynth patches. */
+export const LAB = 'docs/design/scalpel-interface-lab.html';
+export function engineFlags(Composed, labText) {
+  const m = labText.match(/^const AA189 = \[([^\]]*)\];/mg);
+  if (!m || m.length !== 1) throw new Error(`divergence_ledger_check: ${LAB}: \`const AA189 = [...]\` found ${m ? m.length : 0} times (want 1); the lab's push list moved, re-read it`);
+  const lab = [...m[0].matchAll(/'([^']+)'/g)].map(x => x[1]);
+  if (!lab.length) throw new Error(`divergence_ledger_check: ${LAB}: AA189 lists no flag`);
+  return [...lab.map(flag => ({ flag, from: `the lab's AA189 push list` })),
+    ...Composed.swarmPatches.map(x => ({ flag: x.flag, from: `the engine's SwarmSynth patch ${x.id}` }))];
+}
+function ledgeredErrors(led, Composed, flags) {
+  const e = [], d0 = new Composed(48000).d;
+  for (const { flag, from } of flags) {
+    if (!(flag in d0)) e.push(`${flag} (${from}) is not an engine key`);
+    else if (!built(led).some(d => d.flag === flag)) e.push(`${flag}: an engine divergence flag (${from}) that no built entry ledgers`);
+  }
+  return e;
+}
+/* L10: L8's converse (header): every built entry's flag is one of the derived flags */
+function derivedErrors(led, flags) {
+  return built(led).filter(d => !flags.some(f => f.flag === d.flag))
+    .map(d => `${d.id}: its flag ${d.flag} is a built entry's, and is neither in the lab's AA189 push list nor a registered SwarmSynth patch's (a dead toggle, or a flag the engine no longer offers)`);
 }
 /* L7: the engine's SwarmSynth patches and the ledger's swarmsaw.html entries are one set */
 const SWARM_ORACLE = 'reference/swarmsaw.html';
@@ -212,10 +330,22 @@ function patchErrors(led, Composed) {
 /* L5: what a flag on alone moves, among the allOff scenarios and its own inScope scenario */
 function wiredBy(led, Composed, d) {
   const zero = allZero(led), on = Object.assign({}, zero, { [d.flag]: 1 });
-  const moved = Object.entries(led.allOff.fingerprints).filter(([name, want]) => fingerprint(Composed, name, on, led.allOff.seed) !== want).map(([n]) => n);
+  const moved = Object.entries(led.allOff.fingerprints).filter(([name, want]) => fp(Composed, name, on, led.allOff.seed) !== want).map(([n]) => n);
   const s = scen(d.inScope), base = Object.assign({}, zero, s.over || {});
-  const own = fingerprint(Composed, s.preset, Object.assign({}, base, { [d.flag]: 1 }), led.allOff.seed, s.sr) !== fingerprint(Composed, s.preset, base, led.allOff.seed, s.sr);
+  const own = fp(Composed, s.preset, Object.assign({}, base, { [d.flag]: 1 }), led.allOff.seed, s.sr, s.script) !== fp(Composed, s.preset, base, led.allOff.seed, s.sr, s.script);
   return { moved, own };
+}
+/* L9: every rule's findings on a ledger, in a form two ledgers can be compared by. Findings are sorted,
+   so the order they were found in (which is the entries' order) is not itself a difference. */
+function findings(led, Composed, flags) {
+  const sorted = a => [...a].sort();
+  const all = allOffErrors(led, Composed);
+  return JSON.stringify({
+    L1: sorted(shapeErrors(led)), L2: sorted(oracleErrors(led)), L3: sorted(flagErrors(led, Composed)), L4: sorted(all), L4skips: sorted(all.skips),
+    L5: Object.fromEntries(built(led).map(d => [d.id, wiredBy(led, Composed, d)]).sort((a, b) => (a[0] < b[0] ? -1 : 1))),
+    L6: sorted(scopeErrors(led, Composed)), L7: sorted(patchErrors(led, Composed)), L8: sorted(ledgeredErrors(led, Composed, flags)),
+    L10: sorted(derivedErrors(led, flags)),
+  });
 }
 
 /* ---------------------------------------------------------------- main */
@@ -248,6 +378,17 @@ if (main) {
   e = patchErrors(led, Composed);
   row(!e.length, 'L7', `the engine's SwarmSynth patches are the ledger's ${SWARM_ORACLE} entries (${Composed.swarmPatches.map(x => x.id).join(', ') || 'none'})${e.length ? ': ' + e.join('; ') : ''}`);
 
+  const labText = readFileSync(join(root, LAB), 'utf8'), flags = engineFlags(Composed, labText);
+  e = ledgeredErrors(led, Composed, flags);
+  row(!e.length, 'L8', `every engine divergence flag is a built entry's: ${flags.length} derived, ${flags.filter(f => f.from.startsWith('the lab')).map(f => f.flag).join(', ')} from the lab's AA189 push list (${LAB}) and ${flags.filter(f => !f.from.startsWith('the lab')).map(f => f.flag).join(', ') || 'none'} from the engine's SwarmSynth patches${e.length ? ': ' + e.join('; ') : ''}`);
+
+  e = derivedErrors(led, flags);
+  row(!e.length, 'L10', `every built entry's flag is a derived engine divergence flag: ${B.length - e.length} of ${B.length}${e.length ? ': ' + e.join('; ') : ''}`);
+
+  const reversed = x => { const y = JSON.parse(JSON.stringify(x)); y.divergences.reverse(); return y; };
+  const asWritten = findings(led, Composed, flags);
+  row(findings(reversed(led), Composed, flags) === asWritten, 'L9', `the entries' order does not matter: every rule's findings, and each flag's L5 reading, are the same on the ledger reversed (${[...led.divergences].reverse().map(d => d.id).join(', ')})`);
+
   /* must-fail controls: the same functions on planted faults */
   const plant = f => { const x = JSON.parse(JSON.stringify(led)); f(x); return x; };
   e = flagErrors(plant(x => { built(x)[0].flag = 'aaNoSuchFlag'; }), Composed);
@@ -255,10 +396,13 @@ if (main) {
   const k0 = Object.keys(led.allOff.fingerprints)[0];
   e = allOffErrors(plant(x => { const f = x.allOff.fingerprints[k0]; x.allOff.fingerprints[k0] = (f[0] === '0' ? '1' : '0') + f.slice(1); }), Composed);
   row(e.length > 0, 'C2', `CONTROL a pin off by one digit is caught: ${e[0] || 'NOT CAUGHT'}`);
-  const off0 = B.filter(d => defaultOf(d) === 0), c3 = off0[off0.length - 1];
-  const OnByDefault = class extends Composed { constructor(sr) { super(sr); this.d[c3.flag] = 1; } };
-  e = allOffErrors(led, OnByDefault);
-  row(e.length > 0, 'C3', `CONTROL an engine defaulting ${c3.flag} ON is caught: ${e[0] || 'NOT CAUGHT'}`);
+  /* C3 (header): EVERY default-0 built flag, not the last in the file. L3 must reject each; L4 must too
+     wherever an all-off scenario can hear the flag (L5's reading of it). */
+  for (const d of B.filter(x => defaultOf(x) === 0)) {
+    const OnByDefault = class extends Composed { constructor(sr) { super(sr); this.d[d.flag] = 1; } };
+    const e3 = flagErrors(led, OnByDefault), e4 = allOffErrors(led, OnByDefault), heard = wiredBy(led, Composed, d).moved.length > 0;
+    row(e3.length > 0 && (!heard || e4.length > 0), 'C3', `CONTROL an engine defaulting ${d.id}'s ${d.flag} ON is caught by L3: ${e3[0] || 'NOT CAUGHT'}; by L4: ${e4[0] || (heard ? 'NOT CAUGHT' : 'not caught, and not required: no all-off scenario can hear this flag (L5)')}`);
+  }
   e = oracleErrors(plant(x => { const b = x.divergences[0].oracle.blob; x.divergences[0].oracle.blob = (b[0] === '0' ? '1' : '0') + b.slice(1); }));
   row(e.length > 0, 'C4', `CONTROL an oracle pin off by one digit is caught: ${e[0] || 'NOT CAUGHT'}`);
   for (const d of B) {
@@ -283,6 +427,38 @@ if (main) {
     e = allOffErrors(led, Composed, 'aix');
     row(e.skips.some(s => s.startsWith(name + ':')) && !e.some(s => s.startsWith(name + ':')), 'C8',
       `CONTROL ${d.id}'s claim on ${name} read on a platform it has no pin for (aix) is SKIPPED, not passed: ${e.skips.find(s => s.startsWith(name + ':')) || 'NOT SKIPPED'}`);
+  }
+
+  /* B465: L3's wrong-default control, per built flag */
+  for (const d of B) {
+    e = flagErrors(plant(x => { const y = x.divergences.find(z => z.id === d.id); y.default = 1 - defaultOf(y); }), Composed).filter(s => s.startsWith(d.id + ':'));
+    row(e.length > 0, 'C9', `CONTROL the ledger stating default ${1 - defaultOf(d)} for ${d.id}'s ${d.flag} is caught: ${e[0] || 'NOT CAUGHT'}`);
+  }
+  /* L8's controls: each derived flag with its entry gone; and the lab's text with one more flag in its
+     push list (an engine key no entry ledgers), read by the same function */
+  for (const f of flags) {
+    e = ledgeredErrors(plant(x => { x.divergences = x.divergences.filter(z => z.flag !== f.flag); }), Composed, flags).filter(s => s.startsWith(f.flag + ':'));
+    row(e.length > 0, 'C10', `CONTROL the ledger without its ${f.flag} entry is caught: ${e[0] || 'NOT CAUGHT'}`);
+  }
+  const kPlant = 'keepPhase';   // an engine key that is not a divergence flag, so no entry ledgers it
+  e = ledgeredErrors(led, Composed, engineFlags(Composed, labText.replace('const AA189 = [', `const AA189 = ['${kPlant}', `))).filter(s => s.startsWith(kPlant + ':'));
+  row(e.length > 0, 'C10', `CONTROL a flag planted in a scratch copy of the lab's push list (${kPlant}, an engine key with no entry) is caught: ${e[0] || 'NOT CAUGHT'}`);
+  /* L10's control: each flag of the lab's push list taken out of a scratch copy of the lab's text (a dead
+     toggle), read by the same function. The entry that ledgers it must be reported. */
+  const labFlags = flags.filter(f => f.from.startsWith('the lab')).map(f => f.flag);
+  for (const flag of labFlags) {
+    const without = labText.replace(/^const AA189 = \[[^\]]*\];/m, `const AA189 = [${labFlags.filter(x => x !== flag).map(x => `'${x}'`).join(', ')}];`);
+    const d = B.find(x => x.flag === flag);
+    e = derivedErrors(led, engineFlags(Composed, without)).filter(s => d && s.startsWith(d.id + ':'));
+    row(e.length > 0, 'C13', `CONTROL ${flag} taken out of a scratch copy of the lab's push list is caught: ${e[0] || 'NOT CAUGHT'}`);
+  }
+  /* L9's control: the comparison can read a difference */
+  const diff = findings(plant(x => { x.divergences.reverse(); const f = x.allOff.fingerprints[k0]; x.allOff.fingerprints[k0] = (f[0] === '0' ? '1' : '0') + f.slice(1); }), Composed, flags) !== asWritten;
+  row(diff, 'C11', `CONTROL the reversed ledger with one pin off by a digit ${diff ? 'reads different findings' : 'reads THE SAME findings: NOT CAUGHT'}`);
+  /* the script's shape (L1): an event the language does not have, and a script that renders nothing */
+  for (const [what, bad] of [['an unknown event', ['on 57', 'hold 100', 'render 128']], ['no render', ['on 57', 'off 57']]]) {
+    e = shapeErrors(plant(x => { const y = built(x)[0]; y.inScope = { preset: scen(y.inScope).preset, script: bad }; }));
+    row(e.length > 0, 'C12', `CONTROL a scripted scenario with ${what} is caught: ${e[0] || 'NOT CAUGHT'}`);
   }
 
   console.log(`\n${red ? 'RED' : 'GREEN'} — divergence_ledger_check: ${B.length} built divergence(s), ${red} row(s) failed`);

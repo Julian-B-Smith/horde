@@ -1,11 +1,11 @@
 # h2_engine_selfdigest_product reference (tools/h2_engine_selfdigest_check.cpp): product build, key darwin-arm64.appleclang-16.node24
 # FNV-1a 64 of each scenario's C++ samples, events and readouts. A golden fixture (protected): re-pin only
 # for a reason stated in the PR and the trace (the tool header's cases a-c); an output-neutral PR never re-pins.
-# ORACLE docs/design/scalpel-horde-engine.js 5d3e3a37cc8f634772ae4c72fefeaf7b446cd15e
+# ORACLE docs/design/scalpel-horde-engine.js b0ed52df0d2f5a777fa25d5db75fec27c0860b75
 # ORACLE reference/scalpel/prototype/razor-core.js 0ce6a713410d89c65bf55f761f1dc791fae61b16
 # ORACLE reference/swarmsaw.html e47da6c9e0b4a058e18d79f62d71ab31c3d3b1b0
 # ORACLE reference/scalpel/data/presets.json 45c4f1d5cff97922b88b1fab778eccca3d511bcd
-# ORACLE docs/design/scalpel-interface-lab.html 65d587e9f562008ba9285818cc74d621acebb74b
+# ORACLE docs/design/scalpel-interface-lab.html b47fbe3cb26a8df7de7cc993c40ab9a1eaa492ed
 6f1035ccaec449df  P/Starting points / Quarter sync :: chord
 5bc5dc32109a280e  P/Starting points / Quarter sync :: repeat
 428b94da88f2c1f5  P/Starting points / Quarter sync :: arp
@@ -571,4 +571,66 @@ a7e961d5dfd22748  C/D6 at 44.1 kHz
 c5b1675f74661574  C/D6 at os 1
 9d8d176b7e18efe4  C/D6 members join a held frame
 642a66bac3fe192e  C/D6 members join before a mono retrigger
-TOTAL 5b3a91ffac2f6590 565
+7e9d8fe8192eca92  C/D7 a chord over a releasing chord, pool 6
+779386f7a4521d19  C/D7 every slot held
+f7bb2c5a80756ec7  C/D7 a waiting note released before its fade ends
+232ed90e3ecf01cd  C/D7 a waiting note retuned
+0fd685d478786f06  C/D7 a panic during a fade
+720a1c7bb7357d69  C/D7 a second take of the same voice during its fade
+075f99bc1272dc04  C/D7 a take under a voice cap
+586a35a513a82fdf  C/D7 a take at a full cap, capPolicy 2
+586a35a513a82fdf  C/D7 capPolicy 1 with no free slot
+cd19a2f1ee7a3a59  C/D7 capPolicy 1 cancels a waiting note
+7d2e421901091217  C/D7 a take of a voice fading under the cull
+0df5cedce2a6dfec  C/D7 a same-note repeat
+89dba1a9c29244c4  C/D7 mono, the flag on
+00a5940df822b51a  C/D7 legato, the flag on
+00a5940df822b51a  C/D7 legato, the flag off
+736b25f4a228c995  C/D7 switched on and off mid-phrase
+2b611a192124fae9  C/D7 37-sample blocks
+a1821a37d018d250  C/D7 at 44.1 kHz
+9bdd8530ccb65198  C/D7 at os 1
+874bb9ced5cf4efd  C/D7 and D6 both on
+1b49151328d5d68f  C/D7 a take of per-partial voices
+e5255d6e5ca0314a  C/D7 a take while gravity steps
+0f3afcf9b046d45e  C/D7 keep phase
+e019064617f5f585  C/D7 a tail under the threshold, and one that dies inside its fade
+f00269a3fb03f6ec  C/D7 a mode change during a fade
+3686cfc1d09b0d99  C/D7 keep phase, the pool taken whole
+866467baecfb1f3f  C/D7 keep phase after a cancelled fade
+ba7e28af63a981d4  C/D7 a note struck and released at once on a taken voice
+2479c4f7c106a74e  C/D7 a note with a late off pending is taken
+ddd0a36f3c307ce8  C/D7 a released waiting note is a tail to the tiers
+52905a865a18e614  C/D7 a note attaches to a cancelled fade
+a0ee8a5436b1ed3f  C/D7 tier 1 restarts a voice under a cancelled fade
+9ece39a9ecc27165  C/D7 an off exactly at the fade's end
+c663ba611d11db94  C/D7 an off one sample after the fade's end
+6278e82adb1034b5  C/D7 a third take of one voice
+681d39c814b42258  C/D7 a take while another voice holds the same key
+ccf01fd4f3267af8  C/D7 one key as an old sound and as a waiting note
+df51d559009bc032  C/D7 the pool shrinks during a fade
+7e527aab73007158  C/D7 N changes during a fade
+3731a7c825b1a31b  C/D7 a waiting voice whose old sound died, under a cap
+d570ace3dd5c2f72  C/D7 an off 239 samples after the take
+c4426df7c22205ef  C/D7 an off long after the start
+0fa4308f4b51c72b  C/D7 a second off before the first takes effect
+5a49b535ea7d8a9f  C/D7 a panic while a late off is pending
+aa86437a7c8973e5  C/D7 a held chord under a back-to-back line, the next note-on 0 samples after the off
+fc646891ebe35c76  C/D7 a held chord under a back-to-back line, the next note-on 96 samples after the off
+d4b558a5c15755e0  C/D7 a held chord under a back-to-back line, the next note-on 240 samples after the off
+f808956105201ee6  C/D7 a note released 96 samples after its take, the next struck 236 after
+75494dca98771336  C/D7 a note released 96 samples after its take, the next struck 244 after
+f7bd3389a6cbb323  C/D7 a note released 96 samples after its take, the next struck 264 after
+4264e1142a28f344  C/D7 a note released 96 samples after its take, the next struck 340 after
+0ffbd1ad230adf9d  C/D7 a note released 300 samples after its take, the next struck 400 after
+cc9dcfe20b40d243  C/D7 a note released 300 samples after its take, the next struck 536 after
+aac3554dca43847f  C/D7 a note released 300 samples after its take, the next struck 544 after
+17b72c6e4bf4fe73  C/D7 sustain 0 with a stolen note
+00b54b79b4d43916  C/D7 a mode change while a late off is pending
+0ffbd1ad230adf9d  C/D7 capPolicy 1 while a late off is pending
+a32da400e0afa0dc  C/D7 the cull takes a tail whose late off is pending
+970df46ab41bf37e  C/D7 one key started late on one voice and waiting on another
+0f0c2da1045d9cb4  C/D7 a retune between an off and its effect
+1b8565d2d7b75ea2  C/D7 a culled tail taken late, the cull's remainder the shorter
+4b9826773dd10866  C/D7 keep phase, a voice that dies under its ramp
+TOTAL 4c4a53846977a824 627
