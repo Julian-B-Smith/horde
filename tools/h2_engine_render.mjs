@@ -361,12 +361,13 @@ function composedRows(presets) {
   // end, not a snapshot left at some earlier block boundary
   row('D7 keep phase after a cancelled fade', { ...S7, poly: 1, N: 5, keepPhase: 1, phaseMode: 0, detune: 20 }, [on(45), rb(37, 40), on(52), rb(37, 2), ['panic'], rb(37, 30),
     on(57), rb(37, 60), off(57), rb(37, 40)]);
-  // a stolen note keeps its gate: the off came 100 samples after the take ('a waiting
-  // note released before its fade ends', above), or at the same instant (here: k 0,
-  // released at its start, as a host's own on and off at one instant)
+  // a stolen note is late by its wait in every respect, its release included: the off
+  // came 100 samples after the take ('a waiting note released before its fade ends',
+  // above), or at the same instant (here: a gate of 0, released at its start, as a
+  // host's own on and off at one instant)
   row('D7 a note struck and released at once on a taken voice', { ...S7, poly: 1 }, [on(45), blocks(10), on(52), off(52), blocks(10), on(57), blocks(10), off(57), blocks(20)]);
-  // ... and a note that is taken again while it keeps a gate: the gate goes with it
-  row('D7 a note with a kept gate is taken', { ...S7, poly: 1 }, [on(45), blocks(10), on(52), rb(200, 1), off(52), rb(100, 1), on(57), blocks(20), off(57), blocks(20)]);
+  // ... and a note that is taken again while its off is still to take effect: the off goes with it
+  row('D7 a note with a late off pending is taken', { ...S7, poly: 1 }, [on(45), blocks(10), on(52), rb(200, 1), off(52), rb(100, 1), on(57), blocks(20), off(57), blocks(20)]);
   // a waiting note whose off is remembered is a releasing tail to the tiers: the next
   // note replaces it, and the held 52 survives (with the flag off the next note takes
   // the voice 57 was restarted on)
@@ -378,8 +379,9 @@ function composedRows(presets) {
   // with 10 samples of its fade left to count. Tier 1 restarts it at once; the count stops.
   row('D7 tier 1 restarts a voice under a cancelled fade', { ...B1, poly: 1, R: 5, stealFade: 1 }, [on(45), blocks(5), on(52), rb(20, 1), ['panic'], rb(210, 1), on(57), blocks(10),
     off(57), blocks(10)]);
-  // an off on the very sample the note starts (an ordinary off: the note has started),
-  // and one sample later
+  // an off on the very sample the note starts, and one sample later: the note has
+  // started, and its off still takes effect 240 samples after it arrives, so the
+  // note sounds for the 240 and 241 samples its key was held
   row('D7 an off exactly at the fade\'s end', { ...S7, poly: 2 }, [on(45), on(52), blocks(10), on(57), rb(240, 1), off(57), blocks(20), off(52), blocks(20)]);
   row('D7 an off one sample after the fade\'s end', { ...S7, poly: 2 }, [on(45), on(52), blocks(10), on(57), rb(241, 1), off(57), blocks(20), off(52), blocks(20)]);
   row('D7 a third take of one voice', { ...S7, poly: 1 }, [on(45), blocks(10), on(52), rb(60, 1), on(57), rb(60, 1), on(60), blocks(20), off(60), blocks(20)]);
@@ -396,6 +398,18 @@ function composedRows(presets) {
   // 2) replaces the waiting note on that voice
   capRow('D7 a waiting voice whose old sound died, under a cap', { ...B1, poly: 2, R: 5, stealFade: 1 }, 1, 2, [on(45), blocks(5), off(45), blocks(1), on(52), rb(236, 1), on(57), blocks(10),
     off(57), blocks(10)]);
+  // ---- the release rule as corrected (2026-10-13): EVERY off for a stolen note takes
+  // effect as late as the note started, whenever it arrives ----
+  // one sample before the note starts (the last off that is remembered while it waits)
+  row('D7 an off 239 samples after the take', { ...S7, poly: 2 }, [on(45), on(52), blocks(10), on(57), rb(239, 1), off(57), blocks(20), off(52), blocks(20)]);
+  // long after the note has started: the delay still applies, 240 samples
+  row('D7 an off long after the start', { ...S7, poly: 2 }, [on(45), on(52), blocks(10), on(57), rb(2400, 1), off(57), blocks(20), off(52), blocks(20)]);
+  // a second off before the first has taken effect changes nothing
+  row('D7 a second off before the first takes effect', { ...S7, poly: 2 }, [on(45), on(52), blocks(10), on(57), rb(300, 1), off(57), rb(100, 1), off(57), blocks(20),
+    off(52), blocks(20)]);
+  // a panic while a late off is pending releases at once, and the pending off is gone
+  row('D7 a panic while a late off is pending', { ...S7, poly: 2 }, [on(45), on(52), blocks(10), on(57), rb(300, 1), off(57), rb(100, 1), ['panic'], blocks(10),
+    on(60), blocks(10), off(60), blocks(20)]);
   return C;
 }
 

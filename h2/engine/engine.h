@@ -44,8 +44,9 @@
  *   - ADR-216 D7 (B459), off by default: a poly note-on that takes a voice still
  *     sounding (envelope at or above 1e-3) does not restart it. The old sound fades
  *     over kStealFade and the note starts from silence at the sample the fade ends,
- *     late by that length, its release included: a stolen note keeps its gate (take,
- *     startWaiting; render splits itself at those samples).
+ *     late by that length in every respect, its release included: every note-off for
+ *     it takes effect as late as the note started, so it sounds for as long as its
+ *     key was held (take, startWaiting, noteOff; render splits itself at those samples).
  *
  * NUMBERS: doubles, built -ffp-contract=off (h2 rule 7: the shipped build is the
  * tested build), with JS semantics where they differ from C++ (js.h).
@@ -172,8 +173,8 @@ class Engine {
       value = std::fabs(value);
     }
     if (std::strcmp(key, "polyMode") == 0 && value != d.polyMode) {
-      // D7: a mode change cancels every waiting note and every kept gate, as a panic
-      // does (wait is false and offIn 0 on every voice unless stealFade has been on)
+      // D7: a mode change cancels every waiting note and every off still to take effect,
+      // as a panic does (wait is false and offIn 0 on every voice unless stealFade has been on)
       for (Voice& v : voices) { v.gate = false; v.stage = 4; v.wait = false; v.offIn = 0; }
       stackN = 0;
     }
@@ -257,12 +258,22 @@ class Engine {
       } else { v.gate = false; v.stage = 4; }
       return;
     }
-    // D7: a stolen note keeps its gate. An off for a note still waiting is remembered
-    // with how long after its take it came (wOffK), and the note is released that long
-    // after it starts (startWaiting). The first off counts; a second changes nothing.
+    // D7: a stolen note is late by its wait in every respect, its release included.
+    // Every off for it takes effect as many samples after it arrives as the note
+    // started late (W), so it sounds for as long as its key was held:
+    //   - while the note still waits, the off is remembered with how long after the
+    //     take it came (wOffK); the note is released that long after it starts
+    //     (startWaiting), which is W after the off arrived;
+    //   - once it has started (v.late = W), the off is counted down (offIn) and takes
+    //     effect W samples on; render cuts there.
+    // The first off counts; a second before it takes effect changes nothing. A note
+    // that started on a free voice has late 0 and is released at once, as before D7.
     for (Voice& v : voices) if (v.wait && v.wNote == note && !v.wOff) { v.wOff = true; v.wOffK = v.wFrom - v.sfLeft; }
     // every gated voice with this key: a host that merges two offs cannot strand a note
-    for (Voice& v : voices) if (v.active && v.note == note && v.gate) { v.gate = false; v.stage = 4; }
+    for (Voice& v : voices) if (v.active && v.note == note && v.gate) {
+      if (v.late > 0) { if (v.offIn == 0) v.offIn = v.late; }
+      else { v.gate = false; v.stage = 4; }
+    }
   }
   void retune(int note, double freq) {
     // D7: a waiting note is retuned as a started one is: the played frequency moves
@@ -271,17 +282,17 @@ class Engine {
     for (Voice& v : voices) if (v.active && v.note == note) v.freq = freq;
   }
   // D7: a panic cancels every waiting note (a fade already running runs out to silence)
-  // and every kept gate
+  // and every off still to take effect
   void panic() { for (Voice& v : voices) { v.gate = false; v.stage = 4; v.wait = false; v.offIn = 0; } }
 
   // D7 (ADR-216): a steal's fade ends on an exact sample, counted from the take, and a
-  // waiting note starts there; a kept gate (offIn) ends on an exact sample too. So the
+  // waiting note starts there; a late note's off (offIn) takes effect on an exact sample too. So the
   // render is cut at every such sample and each part is a whole render of its own
   // (renderSpan), which is what the host would have produced by delivering that
   // note-on or note-off at that sample: the result does not depend on where the
   // host's own calls begin and end. Every fade's end is a cut, waited on or not, so
   // the per-sample path it needs (renderCalls) covers exactly the fade's samples at
-  // any host block size. With no fade running and no gate kept this is one renderSpan
+  // any host block size. With no fade running and no off pending this is one renderSpan
   // of the whole call, as before D7.
   void render(double* L, double* R, int n) {
     int done = 0;
@@ -293,8 +304,8 @@ class Engine {
       }
       renderSpan(L + done, R + done, seg);
       done += seg;
-      // The kept gates that end here: noteOff's own two writes, on the note that kept it
-      // (any restart of the voice clears offIn, so it is still that note).
+      // The late offs that take effect here: noteOff's own two writes, on the note the off
+      // was for (any restart or take of the voice clears offIn, so it is still that note).
       for (Voice& v : voices) if (v.offIn > 0 && (v.offIn -= seg) == 0 && v.active && v.gate) { v.gate = false; v.stage = 4; }
       // The notes whose fade has just ended, in the order they were struck (the age
       // each took at its take), so the shared random stream is drawn in that order.
@@ -1067,7 +1078,9 @@ class Engine {
   // has not sounded yet (its level reads 0; the old sound under the fade is not its).
   // So a note struck after a short stolen note takes that note's voice, as it would
   // have with the flag off, and never a held one in its place. With no note waiting
-  // these are the voice's own gate and envelope.
+  // these are the voice's own gate and envelope. So a late note that has STARTED and
+  // whose off has arrived but not yet taken effect (offIn counting) is still gated
+  // and sounding: a held voice to the tiers until its release takes effect.
   static bool heldTo(const Voice& x) { return x.wait ? !x.wOff : x.gate; }
   static double levelTo(const Voice& x) { return x.wait ? 0 : x.env; }
   // ADR-083 tiers 1 and 2 over the first P voices: the oldest FADED slot (not
@@ -1146,7 +1159,7 @@ class Engine {
   //     whichever is shorter, so a note never waits longer than kStealFade. The voice
   //     is the note's now, so it is no longer a culled tail.
   // The old sound is released at the take: a later note-off for its key finds nothing,
-  // and a gate it was keeping (offIn) goes with it.
+  // and an off it was still waiting on (offIn) goes with it.
   void take(Voice& v, int note, double freq, double vel) {
     v.wNote = note; v.wFreq = v.wTune = freq; v.wVel = vel; v.wOff = false; v.wOffK = 0;
     v.age = ++age;
@@ -1167,24 +1180,27 @@ class Engine {
   //   - A retune that reached it while it waited is applied as retune() applies it to
   //     a started note: the played frequency moves, the glide target stays the struck
   //     one. With no retune the two are equal and the write changes nothing.
-  //   - A stolen note keeps its gate: if its off came k samples after its take, it is
-  //     released k samples after this start (offIn; render cuts there). k = 0 is an on
-  //     and an off at one instant, released at once, as the host's own would be.
+  //   - It is late by its wait in every respect (noteOff): v.late is how late it starts,
+  //     and every off for it takes effect that much late. If its off came k samples
+  //     after its take, it is released k samples after this start (offIn; render cuts
+  //     there). k = 0 is an on and an off at one instant, released at once, as the
+  //     host's own would be.
   void startWaiting(Voice& v) {
     const double struck = v.age, tune = v.wTune;
     const bool off = v.wOff;
-    const int k = v.wOffK;
+    const int k = v.wOffK, late = v.wFrom;
     startVoice(v, v.wNote, v.wFreq, v.wVel, true, true);
     v.freq = v.freqT = v.wFreq;
     couple(v);
     spread(v);
     v.freq = tune;
     v.age = struck;
+    v.late = late;
     if (off) { if (k > 0) v.offIn = k; else { v.gate = false; v.stage = 4; } }
   }
   void startVoice(Voice& v, int note, double freq, double vel, bool fresh, bool retrig) {
     v.cull = false;   // a re-allocated slot is a new voice, never still fading
-    v.sfLeft = 0; v.wait = false; v.offIn = 0;   // ... under D7's fade either; no note waits on it, and no gate is kept for its last one
+    v.sfLeft = 0; v.wait = false; v.offIn = 0; v.late = 0;   // ... under D7's fade either; no note waits on it, no off is pending for its last one, and its note is on time
     if (fresh) {
       v.fhInit = false;   // ADR-216 D6: a new note's frame starts at the measured centre (holdFrame)
       if (!v.active) v.env = 0;

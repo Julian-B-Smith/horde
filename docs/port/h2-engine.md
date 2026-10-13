@@ -35,7 +35,7 @@ check fails on a blob it was not pinned to.
 
 | file | role | blob |
 |---|---|---|
-| `docs/design/scalpel-horde-engine.js` | the composed engine (`makeComposedEngine`) | `ad55bdd61f6d205519a4de9b332be658ef78b3bf` |
+| `docs/design/scalpel-horde-engine.js` | the composed engine (`makeComposedEngine`) | `64c05e31a346fd13632484f377732d988903f9cd` |
 | `reference/scalpel/prototype/razor-core.js` | the blade oracle it extends | `0ce6a713410d89c65bf55f761f1dc791fae61b16` |
 | `reference/swarmsaw.html` | SwarmSynth, the swarm it drives (DSP section) | `e47da6c9e0b4a058e18d79f62d71ab31c3d3b1b0` |
 | `reference/scalpel/data/presets.json` | the 83 bench presets | `45c4f1d5cff97922b88b1fab778eccca3d511bcd` |
@@ -54,9 +54,10 @@ The engine's flags at their ledgered defaults (`docs/port/divergences.json`):
   own (ADR-187 A1).
 - **D7 `stealFade`: OFF** (ADR-216, B459: a poly note-on that takes a voice still
   sounding fades it over 0.005 s and starts from silence when the fade ends,
-  instead of restarting it mid-wave; a stolen note keeps its gate, and a waiting
-  note whose off has come is a releasing tail to the voice law: two rules
-  PROPOSED for the human, in the ledger's D7 entry). Both positions are built and
+  instead of restarting it mid-wave; a stolen note is late by its wait in every
+  respect, so every note-off for it takes effect as late as it started, and a
+  waiting note whose off has arrived is a releasing tail to the voice law: two
+  rules PROPOSED for the human, in the ledger's D7 entry). Both positions are built and
   parity-checked; turning it on by default is a PR of its own. Its ledger
   scenarios are note scripts (a chord over a releasing chord, at a pool of 3 and
   of 6): the ledger's fixed two notes at sample 0 take no voice, so ROADMAP B465
@@ -436,7 +437,7 @@ substring test for `h2/cores/` or `h2/engine/`, never narrower than the original
 Self-cases cover `"h2/cores/x.h"`, `<h2/engine/engine.h>`, `"../h2/engine/engine.h"`
 and a tab-separated include.
 
-## Scenario families (as built: 605 scenarios)
+## Scenario families (as built: 609 scenarios)
 
 All at 48 kHz in 128-sample blocks unless a row says otherwise. The seeds are per
 family.
@@ -446,7 +447,7 @@ family.
 2. **E/, the 12 B366 lab presets** × chord, repeat and arp (+ legato for the 2
    mono ones): 38. They are read from the lab's `ENV_PRESETS` text.
 3. **T/, phase 1a's 125 blade rows**, re-run through the composed engine.
-4. **C/, 181 composed rows:**
+4. **C/, 185 composed rows:**
    - **VL 3:** repeat, tiers 2 and 3, tier 1.
    - **CAP 7:**
      - the cull with the cap lowered mid-phrase while three tails release and the
@@ -503,7 +504,7 @@ family.
        red on 2 of 30 renders with the note frequencies moved 1 to 15 ULP). Their
        definitions and numbers are in the ledger's D6 finding and in
        `traces/2026-10-12-b461-frame-hold-d6-rework2.md`.
-   - **D7 40** (ADR-216, B459; `stealFade` 1), appended after every earlier row.
+   - **D7 44** (ADR-216, B459; `stealFade` 1), appended after every earlier row.
      Each sets a small pool and a long release, so that a voice is still sounding
      when it is taken:
      - a chord over a releasing chord at pool 6 (tier 2); every slot held (tier 3);
@@ -526,13 +527,18 @@ family.
      - added after an independent critic's read (2026-10-13), 15 rows: keep-phase
        with the pool taken whole, and after a cancelled fade has run out into
        silence (37-sample blocks); a note struck and released at once on a taken
-       voice; a note with a kept gate taken again; a released waiting note as a
+       voice; a note with a late off pending taken again; a released waiting note as a
        tail to the tiers; a note attaching to a cancelled fade; tier 1 restarting a
        voice under a cancelled fade; an off exactly at the fade's end and one
        sample after; a third take of one voice; a take while another voice holds
        the same key; one key as an old sound and as a waiting note; the pool
        shrinking, and N changing, during a fade; a waiting voice whose old sound
-       died, under a cap.
+       died, under a cap;
+     - the release rule as corrected (2026-10-13: every off for a stolen note
+       takes effect as late as the note started), 4 rows, with the rows above for
+       an off 100 samples into the wait, at the fade's end and one sample after:
+       an off 239 samples after the take; an off long after the start; a second
+       off before the first takes effect; a panic while a late off is pending.
 
 ## Results (darwin-arm64, Apple clang 16, Node 24.10, `-O2 -ffp-contract=off`)
 
@@ -541,14 +547,14 @@ family.
 | P/ | 261 | 258, plus the 3 ring rows excluded (A2 item 1; all three hold) | 1.1e-12 | 9.9e-11 | 32.87% |
 | E/ | 38 | 38 | 1.9e-14 | 4.5e-13 | 46.33% |
 | T/ | 125 | 125 | 2.0e-12 | 1.4e-10 | 43.39% |
-| C/ | 181 | 181 | 2.1e-12 | 1.8e-10 | 37.86% |
+| C/ | 185 | 185 | 2.1e-12 | 1.8e-10 | 37.95% |
 
 The C/ row was re-measured on 2026-10-12 with D6's 22 rows (their own worst: rms
-4.1e-14, max-abs 1.1e-12; mean bit-exact 24.0%) and on 2026-10-13 with D7's 40
-(their own worst: rms 1.4e-14, max-abs 5.8e-13; mean bit-exact 50.2%); the whole
-set's mean is 37.40%.
+4.1e-14, max-abs 1.1e-12; mean bit-exact 24.0%) and on 2026-10-13 with D7's 44
+(their own worst: rms 1.4e-14, max-abs 5.8e-13; mean bit-exact 49.5%); the whole
+set's mean is 37.43%.
 
-- Events and readouts are identical on all 605, the ring rows included.
+- Events and readouts are identical on all 609, the ring rows included.
 - No scenario sets a key the engine lacks.
 
 **Before the ruling, not at parity under rule 1a: P/Starting points / Cross-mod

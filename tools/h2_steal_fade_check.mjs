@@ -21,6 +21,11 @@
  * release is 3 s, so the pool of 6 is full after two triads and every chord from
  * the third on takes three voices. At 8 the third chord takes one, the rest three.
  *
+ * With the flag on a stolen note is late by its wait in every respect, so each chord
+ * that waited is also RELEASED 0.005 s after its keys are lifted (its notes sound for
+ * the 1.6 s they were held). The render with a chord and the render without it share
+ * that history, so no row reads it as a difference.
+ *
  * THE JUMP at a chord is the largest |difference|, over the first four samples
  * after its note-ons, on either output channel, between a render WITH the chord
  * and one WITHOUT it (the same history, the same flag), as a share of the rms of
@@ -193,8 +198,8 @@ const kJumpCeil = 0.005, kEndCeil = 0.0005;   // PROPOSED: measured worst plus m
 // ... and for a pool taken whole (PROPOSED the same way; header, "THE CEILINGS")
 const kWholeJumpCeil = { tails: 0.03, held: 0.015 }, kWholeEndCeil = kEndCeil, kFadeCeil = 0.08;
 const kControlMin = 0.05, kFreeCeil = 0.01;   // ROADMAP B459's acceptance
-// Liveness: measured 2026-10-13, the flag-on six-chord renders are 0.31 dB (pool 6)
-// and 0.13 dB (pool 8) under their flag-off twins: a restarted voice attacks from its
+// Liveness: measured 2026-10-13, the flag-on six-chord renders are 0.30 dB (pool 6)
+// and 0.12 dB (pool 8) under their flag-off twins: a restarted voice attacks from its
 // old level, a waiting note from silence. 3 dB is tools/h2_frame_hold_check.mjs's
 // bound, about ten times the larger, and far under a render that lost its notes.
 const kLiveDb = 3;
