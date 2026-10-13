@@ -463,6 +463,81 @@
     "tools/labharness/os_default_check.mjs"
    ],
    "js_limit": null
+  },
+  {
+   "id": "D7",
+   "adr": "ADR-216",
+   "status": "built",
+   "flag": "stealFade",
+   "description": "A taken voice fades (ROADMAP B459; the human, 2026-10-12, first playtest of the preview: 'Breathing Pad is very clicky'). With the pool full a poly note-on takes a voice that is still sounding (ADR-083 tier 2, the quietest releasing tail, or tier 3, the oldest held voice; the same picks at a voice cap) and restarts it as a fresh voice: the envelope keeps its level while the phases, filters and DC state reset, so the output jumps in one sample. With the flag on, a picked voice that is active with its envelope at or above 1e-3 is not restarted. Its sound fades to zero over 0.005 s (a linear gain ramp on top of its own envelope, the cull's arithmetic, counted in whole samples: 240 at 48 kHz, 221 at 44.1 kHz), the note waits in the voice, and it starts from silence at the exact sample the ramp ends, as a note on a free voice starts. The render cuts itself at that sample, so the start does not depend on the host's block size. While a note waits its voice is held by it: tiers 1 and 2 skip the voice, the live count and the cap count it, it carries the note's age from the take, a note-off for the waiting note is remembered (it starts, then releases at once), a retune reaches it, a panic or a mode change cancels it (the fade runs out), and if tier 3 picks the voice again the newer note replaces the waiting one without restarting the fade. At a full cap with capPolicy 1, a waiting note that is the oldest held is cancelled and the new note takes the free slot. A voice already fading under the cull keeps that ramp's remaining length. Mono and legato are untouched, and a voice below 1e-3 restarts at once as before. The constant was set by ADR-216.",
+   "oracle": {
+    "file": "reference/scalpel/prototype/razor-core.js",
+    "blob": "0ce6a713410d89c65bf55f761f1dc791fae61b16",
+    "sites": "noteOn() :368-379 (a voice taken from the pool is restarted at once); startVoice() :394-418 (`if (!v.active) v.env = 0`: a sounding voice keeps its level)"
+   },
+   "cpp": "h2/engine/engine.h take(), startWaiting(), noteOn(), noteOff(), retune(), panic(), render() and renderSpan(), renderCalls() (the ramp), liveCount(), tierPick(), kStealFade; h2/engine/blade.h DP::stealFade, Voice::sfLeft/wait/wOff/wNote/wFreq/wVel",
+   "target": "docs/design/scalpel-horde-engine.js take(), startWaiting(), noteOn(), noteOff(), msg(), set(), render() and renderSpan(), renderPlain() (the ramp), liveCount(), tierPick(), HORDE_D stealFade, STEAL_FADE",
+   "scope": "poly note-ons that take a voice still sounding: a full pool, or a full voice cap. No preset is in or out of scope by its parameters: any patch reaches it once its pool is full, and none does before. So its scenarios here are note scripts (the ledger check's scripted form, B465): a chord struck over a releasing chord, with a pool of 3 (every voice is taken: in scope) and with the preset's own pool of 6 (free voices: out of scope)",
+   "outOfScope": [
+    {
+     "preset": "Quarter sync",
+     "over": {
+      "poly": 6,
+      "R": 1500
+     },
+     "script": [
+      "on 57 61 64",
+      "render 2560",
+      "off 57 61 64",
+      "render 512",
+      "on 59 62 66",
+      "render 2560",
+      "off 59 62 66",
+      "render 1024"
+     ]
+    },
+    "Quarter sync",
+    "Crunch horde",
+    "Zap bass"
+   ],
+   "inScope": {
+    "preset": "Quarter sync",
+    "over": {
+     "poly": 3,
+     "R": 1500
+    },
+    "script": [
+     "on 57 61 64",
+     "render 2560",
+     "off 57 61 64",
+     "render 512",
+     "on 59 62 66",
+     "render 2560",
+     "off 59 62 66",
+     "render 1024"
+    ]
+   },
+   "metric": {
+    "detector": "tools/h2_steal_fade_check.mjs (./verify full), on the C++ engine through the harness: ledger/breathing-pad with its settings pinned (detune 14, K 0.45, law 0, A 1500, S 0.9, R 3000, N 6, and b2on 0), six triads (C F G Am Em Dm from C3) at velocity 0.85, each held 1.6 s and struck 0.1 s after the last release, 48 kHz, seed 1, at a pool of 6 and of 8. The jump at a chord is the largest |difference| over the first four samples after its note-ons, on either channel, between a render with the chord and one without it (the same history, the same flag), as a share of the rms of the 50 ms before",
+    "jump": {
+     "flagOff": "pool 6, chords 3 to 6 (three voices taken each): 29.41 %, 12.23 %, 40.79 %, 15.23 %. Pool 8: 12.14 %, 3.56 %, 14.39 %, 4.76 %",
+     "flagOn": "pool 6: 0.227 %, 0.084 %, 0.058 %, 0.071 %. Pool 8: 0.054 %, 0.040 %, 0.164 %, 0.045 %",
+     "freeVoices": "chord 2 (no voice taken): 0.008 % with the flag on and off, at both pools",
+     "ceiling": "0.5 %, PROPOSED for the human (the measured worst 0.227 %, about twice); the flag-off control must read at least 5 % at every taken chord at pool 6, and the free-voice control under 1 %"
+    },
+    "lateness": "240 samples (5.000 ms) at 48 kHz at all seven chords whose three notes all wait, to the sample: the first sample at which the render differs from the same render with the waiting notes cancelled by a panic. 221 samples at 44.1 kHz (the parity row)",
+    "startStep": "what the starting notes add over their first four samples: 0.0086 % to 0.0162 % of the level; ceiling 0.05 %, PROPOSED for the human",
+    "blockSize": "the six chords at pool 6 at host blocks of 16, 37 and 128 frames: bit-identical with the flag on and with it off. Of the 25 parity rows, 24 are bit-identical at blocks of 1, 16, 37, 128 and 1000; the one taken from under the cull carries the cull's known float32 dependence (flag on at most 1.49e-8 from the 1-frame render, the same script with the flag off 2.96e-8)",
+    "monoLegato": "bit-identical with the flag on and off (the check's two renders; and in the self-digests, `C/D7 mono, the flag on` has the digest of `C/FT chord on a mono voice in one block`, and the two legato rows share one)",
+    "liveness": "the flag-on six-chord renders are 0.31 dB (pool 6) and 0.13 dB (pool 8) under their flag-off twins: a restarted voice attacks from its old level, a waiting note from silence",
+    "parity": "25 flag-on scenarios (C/D7 ...) at C++/JS parity: worst rms 1.4e-14, worst max-abs 5.8e-13, events and readouts identical",
+    "cpu": "not measured (Layer-E). With the flag off the cost is a few tests per voice per render call; while a fade runs, one render call per sample for 5 ms, as under the cull"
+   },
+   "finding": "(1) THE JUDGED BASIS HAS BLADE 2 OFF, AND WHY. The pad's second blade is a noise blade (mode2 3), which draws from the engine's shared random stream on every noise step while it renders; a note-on draws from the same stream. So a render with a chord and one without it hear different noise from the note-on onwards, whether or not a voice is taken, and a with/without comparison reads that as a jump. With the lead's seven settings and blade 2 on, a chord that takes NO voice read 2 % to 50 % depending on its notes and on the host seed (ROADMAP B459's row read 1 %), and one held note plus a note on a free voice read 0.007 % at C3 and 94 % at E3. With blade 2 off no line of the render draws: the free-voice control reads 0.008 % and the present law still reads 12 % to 41 % at pool 6. The check prints the pad with blade 2 on, and with spread law 4, unjudged, on every run (chord 2, no voice taken: 50.3 % and 17.4 %). (2) NOT CHASED: that noise blade's draws are themselves a way one note changes another's sound (every note-on re-seeds every other voice's noise from that sample on). It is not D7's. (3) Choices the ruling left open, each the lead's to overrule and accepted by the lead on 2026-10-13: the fade is counted in whole samples (round(0.005 * sr)); the old sound is released at the take; the waiting voice takes the note's age at the take and keeps it; notes whose fades end together start in the order they were struck; the fade runs its whole length even if the old voice's own release ends first; a fade outlives a cancelled wait; and two rules the ruling does not cover: capPolicy 1 cancels a waiting note that is the oldest held, and a polyMode change cancels every waiting note. (4) THE LEDGER CHECK COULD NOT HEAR THIS DIVERGENCE: its fixed script strikes both notes at sample 0 into an empty pool, where no voice can be taken. ROADMAP B465 gave its scenarios a note script, which this entry's two scripted scenarios use.",
+   "evidence": [
+    "traces/2026-10-13-b459-steal-fade-d7.md"
+   ],
+   "js_limit": null
   }
  ]
 }
