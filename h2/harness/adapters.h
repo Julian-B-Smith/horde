@@ -22,6 +22,9 @@
 // [control includes: P6 soak]
 #include "control_soak.h"
 //
+// [control includes: B459 the steal fade]
+#include "control_steal.h"
+//
 #include "harness.h"
 
 namespace horde2::harness {
@@ -63,6 +66,10 @@ inline std::unique_ptr<Adapter> makeSoakWrap32Control() { return std::make_uniqu
 inline std::unique_ptr<Adapter> makeSoakNanControl() { return std::make_unique<SoakPlantControl>(SoakPlantControl::kNan); }
 inline std::unique_ptr<Adapter> makeSoakHangControl() { return std::make_unique<SoakPlantControl>(SoakPlantControl::kHang); }
 //
+// [control makers: B459 the steal fade]
+// The steal fade's plant: a steal with no ramp (control_steal.h).
+inline std::unique_ptr<Adapter> makeStealCutControl() { return std::make_unique<StealCutControl>(); }
+//
 
 inline constexpr AdapterRow kAdapters[] = {
   {"composed", false, &makeComposedAdapter},
@@ -90,6 +97,9 @@ inline constexpr AdapterRow kAdapters[] = {
   {"control/soak-wrap32", true, &makeSoakWrap32Control},
   {"control/soak-nan", true, &makeSoakNanControl},
   {"control/soak-hang", true, &makeSoakHangControl},
+  //
+  // [control rows: B459 the steal fade]
+  {"control/steal-cut", true, &makeStealCutControl},
   //
 };
 
