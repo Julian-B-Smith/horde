@@ -1,7 +1,7 @@
 # h2_engine_selfdigest_product reference (tools/h2_engine_selfdigest_check.cpp): product build, key darwin-arm64.appleclang-16.node24
 # FNV-1a 64 of each scenario's C++ samples, events and readouts. A golden fixture (protected): re-pin only
 # for a reason stated in the PR and the trace (the tool header's cases a-c); an output-neutral PR never re-pins.
-# ORACLE docs/design/scalpel-horde-engine.js 809e1265cb03682c0e11d1d91ebe72005a29e3dd
+# ORACLE docs/design/scalpel-horde-engine.js ad55bdd61f6d205519a4de9b332be658ef78b3bf
 # ORACLE reference/scalpel/prototype/razor-core.js 0ce6a713410d89c65bf55f761f1dc791fae61b16
 # ORACLE reference/swarmsaw.html e47da6c9e0b4a058e18d79f62d71ab31c3d3b1b0
 # ORACLE reference/scalpel/data/presets.json 45c4f1d5cff97922b88b1fab778eccca3d511bcd
@@ -571,29 +571,44 @@ a7e961d5dfd22748  C/D6 at 44.1 kHz
 c5b1675f74661574  C/D6 at os 1
 9d8d176b7e18efe4  C/D6 members join a held frame
 642a66bac3fe192e  C/D6 members join before a mono retrigger
-ec4aa459cf9a5f57  C/D7 a chord over a releasing chord, pool 6
-3078fabf0ba69fa5  C/D7 every slot held
-0492d46dd7613294  C/D7 a waiting note released before its fade ends
-b2277a658fa7ccb4  C/D7 a waiting note retuned
-8b7bba59aecb2d23  C/D7 a panic during a fade
-840c537617e091a7  C/D7 a second take of the same voice during its fade
-161fefccf7b9f84b  C/D7 a take under a voice cap
-f56abba433bf5489  C/D7 a take at a full cap, capPolicy 2
-f56abba433bf5489  C/D7 capPolicy 1 with no free slot
-dd9a885b1925cdf6  C/D7 capPolicy 1 cancels a waiting note
-0474331a057060ef  C/D7 a take of a voice fading under the cull
-7d9d39513c77d601  C/D7 a same-note repeat
+c35e0d8c0f954fa0  C/D7 a chord over a releasing chord, pool 6
+af7b522255cc57fc  C/D7 every slot held
+f7bb2c5a80756ec7  C/D7 a waiting note released before its fade ends
+d1e6b25325bf5dc0  C/D7 a waiting note retuned
+0fd685d478786f06  C/D7 a panic during a fade
+eab3073e0ae6edc6  C/D7 a second take of the same voice during its fade
+dd2506045c41a910  C/D7 a take under a voice cap
+e0c6d390536d165f  C/D7 a take at a full cap, capPolicy 2
+e0c6d390536d165f  C/D7 capPolicy 1 with no free slot
+8d1076054d1d1e53  C/D7 capPolicy 1 cancels a waiting note
+ed298a1479a2d69c  C/D7 a take of a voice fading under the cull
+28fe95d7c9389037  C/D7 a same-note repeat
 89dba1a9c29244c4  C/D7 mono, the flag on
 00a5940df822b51a  C/D7 legato, the flag on
 00a5940df822b51a  C/D7 legato, the flag off
-5a469ed08fb4b71d  C/D7 switched on and off mid-phrase
-7ae91a284d97af5c  C/D7 37-sample blocks
-c16b00ad2d1d3987  C/D7 at 44.1 kHz
-eb8e6d777195b24a  C/D7 at os 1
-e90a234d6c593de7  C/D7 and D6 both on
-1a46d2cf682b99a4  C/D7 a take of per-partial voices
-55eb474da2e75956  C/D7 a take while gravity steps
-c4400d608bd2ed38  C/D7 keep phase
-b08dd24a436b08fb  C/D7 a tail under the threshold, and one that dies inside its fade
-6351e2ec198f1bb6  C/D7 a mode change during a fade
-TOTAL 8de60f1a4cbb16aa 590
+d5ffc8f92d5226e3  C/D7 switched on and off mid-phrase
+4a325afa517721e5  C/D7 37-sample blocks
+16a269ba14a36756  C/D7 at 44.1 kHz
+f3a93aabc555b24e  C/D7 at os 1
+7339420d0338ee1f  C/D7 and D6 both on
+0f9e97052529f115  C/D7 a take of per-partial voices
+9c8c453b2fa46218  C/D7 a take while gravity steps
+5f85b3e31fc9ccec  C/D7 keep phase
+baf1b38e4afc8cf9  C/D7 a tail under the threshold, and one that dies inside its fade
+f00269a3fb03f6ec  C/D7 a mode change during a fade
+bef86a9cf68fc877  C/D7 keep phase, the pool taken whole
+866467baecfb1f3f  C/D7 keep phase after a cancelled fade
+ba7e28af63a981d4  C/D7 a note struck and released at once on a taken voice
+dfd81c9347534ecf  C/D7 a note with a kept gate is taken
+a67bfabb75c31d9d  C/D7 a released waiting note is a tail to the tiers
+e0c1e7ade0be09c6  C/D7 a note attaches to a cancelled fade
+a0ee8a5436b1ed3f  C/D7 tier 1 restarts a voice under a cancelled fade
+43462379571f1372  C/D7 an off exactly at the fade's end
+56ccbedfc1d4c755  C/D7 an off one sample after the fade's end
+b5e2dfeae67a3b8f  C/D7 a third take of one voice
+89e6a105d559eb65  C/D7 a take while another voice holds the same key
+8225e1eedd30b28c  C/D7 one key as an old sound and as a waiting note
+88ad9ac2fcb2ee0b  C/D7 the pool shrinks during a fade
+1fdf8143f4be6382  C/D7 N changes during a fade
+69c1dd9f6591627e  C/D7 a waiting voice whose old sound died, under a cap
+TOTAL 8792c4c7bb87acc9 605

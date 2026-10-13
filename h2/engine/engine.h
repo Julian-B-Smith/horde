@@ -44,7 +44,8 @@
  *   - ADR-216 D7 (B459), off by default: a poly note-on that takes a voice still
  *     sounding (envelope at or above 1e-3) does not restart it. The old sound fades
  *     over kStealFade and the note starts from silence at the sample the fade ends,
- *     late by that length (take, startWaiting; render splits itself at that sample).
+ *     late by that length, its release included: a stolen note keeps its gate (take,
+ *     startWaiting; render splits itself at those samples).
  *
  * NUMBERS: doubles, built -ffp-contract=off (h2 rule 7: the shipped build is the
  * tested build), with JS semantics where they differ from C++ (js.h).
@@ -171,9 +172,9 @@ class Engine {
       value = std::fabs(value);
     }
     if (std::strcmp(key, "polyMode") == 0 && value != d.polyMode) {
-      // D7: a mode change cancels every waiting note, as a panic does (wait is false
-      // on every voice unless stealFade has been on)
-      for (Voice& v : voices) { v.gate = false; v.stage = 4; v.wait = false; }
+      // D7: a mode change cancels every waiting note and every kept gate, as a panic
+      // does (wait is false and offIn 0 on every voice unless stealFade has been on)
+      for (Voice& v : voices) { v.gate = false; v.stage = 4; v.wait = false; v.offIn = 0; }
       stackN = 0;
     }
     if (std::strcmp(key, "os") == 0) { if (value != os) setOS(value); return true; }
@@ -218,9 +219,10 @@ class Engine {
       // STEAL: release the oldest held voice into the cull's fade (so it no longer
       // counts as live) and play the note in a free slot. With none free, fall
       // through to horde's full-pool law.
-      // D7: a voice a note waits on is held by that note, so it can be the oldest held.
+      // D7: a voice a note waits on is held by that note (until its off is remembered),
+      // so it can be the oldest held.
       Voice* h = nullptr;
-      for (int i = 0; i < P; i++) { Voice& x = voices[i]; if ((x.wait || (x.active && x.gate && !x.cull)) && (!h || x.age < h->age)) h = &x; }
+      for (int i = 0; i < P; i++) { Voice& x = voices[i]; if (((x.wait && !x.wOff) || (x.active && x.gate && !x.cull)) && (!h || x.age < h->age)) h = &x; }
       Voice* f = tierPick(P, kSkipActive);
       if (h && f) {
         // D7: stealing a note that has not started yet cancels it; its voice's fade,
@@ -255,33 +257,45 @@ class Engine {
       } else { v.gate = false; v.stage = 4; }
       return;
     }
-    // D7: an off for a note still waiting is remembered; the note starts, then releases
-    for (Voice& v : voices) if (v.wait && v.wNote == note) v.wOff = true;
+    // D7: a stolen note keeps its gate. An off for a note still waiting is remembered
+    // with how long after its take it came (wOffK), and the note is released that long
+    // after it starts (startWaiting). The first off counts; a second changes nothing.
+    for (Voice& v : voices) if (v.wait && v.wNote == note && !v.wOff) { v.wOff = true; v.wOffK = v.wFrom - v.sfLeft; }
     // every gated voice with this key: a host that merges two offs cannot strand a note
     for (Voice& v : voices) if (v.active && v.note == note && v.gate) { v.gate = false; v.stage = 4; }
   }
   void retune(int note, double freq) {
-    for (Voice& v : voices) if (v.wait && v.wNote == note) v.wFreq = freq;   // D7: the waiting note is retuned too
+    // D7: a waiting note is retuned as a started one is: the played frequency moves
+    // (wTune), the struck one stays its glide target (wFreq)
+    for (Voice& v : voices) if (v.wait && v.wNote == note) v.wTune = freq;
     for (Voice& v : voices) if (v.active && v.note == note) v.freq = freq;
   }
-  // D7: a panic cancels every waiting note; a fade already running runs out to silence
-  void panic() { for (Voice& v : voices) { v.gate = false; v.stage = 4; v.wait = false; } }
+  // D7: a panic cancels every waiting note (a fade already running runs out to silence)
+  // and every kept gate
+  void panic() { for (Voice& v : voices) { v.gate = false; v.stage = 4; v.wait = false; v.offIn = 0; } }
 
   // D7 (ADR-216): a steal's fade ends on an exact sample, counted from the take, and a
-  // waiting note starts there. So the render is cut at every such sample and each
-  // part is a whole render of its own (renderSpan), which is what the host would have
-  // produced by delivering that note-on at that sample: the result does not depend on
-  // where the host's own calls begin and end. Every fade's end is a cut, waited on or
-  // not, so the per-sample path it needs (renderCalls) covers exactly the fade's
-  // samples at any host block size. With no fade running this is one renderSpan of the
-  // whole call, as before D7.
+  // waiting note starts there; a kept gate (offIn) ends on an exact sample too. So the
+  // render is cut at every such sample and each part is a whole render of its own
+  // (renderSpan), which is what the host would have produced by delivering that
+  // note-on or note-off at that sample: the result does not depend on where the
+  // host's own calls begin and end. Every fade's end is a cut, waited on or not, so
+  // the per-sample path it needs (renderCalls) covers exactly the fade's samples at
+  // any host block size. With no fade running and no gate kept this is one renderSpan
+  // of the whole call, as before D7.
   void render(double* L, double* R, int n) {
     int done = 0;
     do {
       int seg = n - done;
-      for (const Voice& v : voices) if (v.sfLeft > 0 && v.sfLeft < seg) seg = v.sfLeft;
+      for (const Voice& v : voices) {
+        if (v.sfLeft > 0 && v.sfLeft < seg) seg = v.sfLeft;
+        if (v.offIn > 0 && v.offIn < seg) seg = v.offIn;
+      }
       renderSpan(L + done, R + done, seg);
       done += seg;
+      // The kept gates that end here: noteOff's own two writes, on the note that kept it
+      // (any restart of the voice clears offIn, so it is still that note).
+      for (Voice& v : voices) if (v.offIn > 0 && (v.offIn -= seg) == 0 && v.active && v.gate) { v.gate = false; v.stage = 4; }
       // The notes whose fade has just ended, in the order they were struck (the age
       // each took at its take), so the shared random stream is drawn in that order.
       for (;;) {
@@ -316,10 +330,17 @@ class Engine {
         if (gravAccum >= gravGrid) { gravityStep(gravGrid / sr); gravAccum = 0; }
       }
     }
-    // keep-phase: the newest sounding swarm
+    // keep-phase: the newest sounding swarm. D7: a voice whose steal fade has just ended
+    // (sfEnd: this span was cut there) counts as sounding at its last sample, so the
+    // snapshot a waiting note reads is taken AT the cut whatever else sounds. Without
+    // that, a pool taken whole left the snapshot of the last span end, which is
+    // wherever the host's block boundary fell (ADR-216, the lead's reading). It holds
+    // for a fade nobody waits on too (a cancelled one), so that the way D7 ends a
+    // voice never leaves a stale snapshot behind for the next note.
     const Voice* lv = nullptr;
-    for (const Voice& v : voices) if (v.active && (!lv || v.age > lv->age)) lv = &v;
+    for (const Voice& v : voices) if ((v.active || v.sfEnd) && (!lv || v.age > lv->age)) lv = &v;
     if (lv) std::memcpy(field.lastPhase, lv->sw.phase, sizeof field.lastPhase);
+    for (Voice& v : voices) v.sfEnd = false;
   }
 
   // ---- parameter tables -------------------------------------------------------
@@ -1033,23 +1054,32 @@ class Engine {
   enum Skip { kSkipNone, kSkipInactive, kSkipActive, kSkipInactiveOrFading };
   static bool skipped(const Voice& x, Skip k) {
     switch (k) {
-      case kSkipInactive: return !x.active;
-      case kSkipActive: return x.active;
+      // D7: a voice a note waits on is that note's, sounding or not: never free
+      case kSkipInactive: return !x.active && !x.wait;
+      case kSkipActive: return x.active || x.wait;
       case kSkipInactiveOrFading: return !x.active || x.cull || x.sfLeft > 0;   // D7's fade is a fade
       default: return false;
     }
   }
+  // What the tiers see of a voice (D7, ADR-216). A voice a note waits on is HELD by
+  // that note, so tiers 1 and 2 pass it by, until the note's off has been remembered:
+  // then it is a releasing tail like any other, and the quietest, because the note
+  // has not sounded yet (its level reads 0; the old sound under the fade is not its).
+  // So a note struck after a short stolen note takes that note's voice, as it would
+  // have with the flag off, and never a held one in its place. With no note waiting
+  // these are the voice's own gate and envelope.
+  static bool heldTo(const Voice& x) { return x.wait ? !x.wOff : x.gate; }
+  static double levelTo(const Voice& x) { return x.wait ? 0 : x.env; }
   // ADR-083 tiers 1 and 2 over the first P voices: the oldest FADED slot (not
-  // gated, env < 1e-3), else the QUIETEST releasing tail (age breaks ties; strict
-  // `<` lets ties fall to pool order). Never a gated voice: tier 3 is note-on's.
-  // Nor (D7) a voice a note waits on: it is held by that note (ADR-216).
+  // held, level < 1e-3), else the QUIETEST releasing tail (age breaks ties; strict
+  // `<` lets ties fall to pool order). Never a held voice: tier 3 is note-on's.
   Voice* tierPick(int P, Skip k) {
     Voice* v = nullptr;
-    for (int i = 0; i < P; i++) { Voice& x = voices[i]; if (!x.gate && !x.wait && x.env < 1e-3 && !skipped(x, k) && (!v || x.age < v->age)) v = &x; }
+    for (int i = 0; i < P; i++) { Voice& x = voices[i]; if (!heldTo(x) && levelTo(x) < 1e-3 && !skipped(x, k) && (!v || x.age < v->age)) v = &x; }
     if (v) return v;
     for (int i = 0; i < P; i++) {
       Voice& x = voices[i];
-      if (!x.gate && !x.wait && !skipped(x, k) && (!v || x.env < v->env || (x.env == v->env && x.age < v->age))) v = &x;
+      if (!heldTo(x) && !skipped(x, k) && (!v || levelTo(x) < levelTo(*v) || (levelTo(x) == levelTo(*v) && x.age < v->age))) v = &x;
     }
     return v;
   }
@@ -1105,42 +1135,56 @@ class Engine {
   // not restarted. Its sound fades to zero over kStealFade, a linear ramp on top of
   // its own envelope (the cull's arithmetic, counted in whole samples so the end is
   // exact), and the note waits in the voice and starts when the ramp ends (render).
-  // While it waits the voice is held by that note: it takes the note's age here, so
-  // the tiers see it as they would have seen the restarted voice.
+  // While it waits the voice is the note's: it takes the note's age here, and the
+  // tiers see it as held by that note until the note's off is remembered, and as the
+  // quietest releasing tail after that (heldTo, levelTo).
   //   - A voice a note already waits on: the newer note replaces it. The fade is not
   //     restarted, and an off remembered for the replaced note is forgotten with it.
   //   - A voice already in a steal's fade whose note was cancelled: the note attaches.
   //   - A voice fading under the cull: the steal's ramp takes over the cull's from its
-  //     present gain, over the samples the cull had left, so it is neither restarted
-  //     nor lengthened. The voice is the note's now, so it is no longer a culled tail.
-  // The old sound is released at the take: a later note-off for its key finds nothing.
+  //     present gain, over the samples the cull had left or the steal's own length,
+  //     whichever is shorter, so a note never waits longer than kStealFade. The voice
+  //     is the note's now, so it is no longer a culled tail.
+  // The old sound is released at the take: a later note-off for its key finds nothing,
+  // and a gate it was keeping (offIn) goes with it.
   void take(Voice& v, int note, double freq, double vel) {
-    v.wNote = note; v.wFreq = freq; v.wVel = vel; v.wOff = false;
+    v.wNote = note; v.wFreq = v.wTune = freq; v.wVel = vel; v.wOff = false; v.wOffK = 0;
     v.age = ++age;
-    if (v.wait) return;
-    v.wait = true;
-    v.gate = false; v.stage = 4;
-    if (v.sfLeft > 0) return;
-    if (v.cull) {
-      v.cull = false;
-      v.sfLeft = static_cast<int>(js::max(1, std::ceil(v.cullG * (kCullFade * sr))));
-    } else v.sfLeft = static_cast<int>(js::max(1, js::round(kStealFade * sr)));
+    if (!v.wait) {
+      v.wait = true;
+      v.gate = false; v.stage = 4; v.offIn = 0;
+      if (v.sfLeft == 0) {
+        const double len = js::max(1, js::round(kStealFade * sr));
+        if (v.cull) { v.cull = false; v.sfLeft = static_cast<int>(js::min(len, js::max(1, std::ceil(v.cullG * (kCullFade * sr))))); }
+        else v.sfLeft = static_cast<int>(len);
+      }
+    }
+    v.wFrom = v.sfLeft;   // this note's wait is counted from here (noteOff)
   }
   // The steal's fade has ended on `v` (it is silent and free): its waiting note starts
   // exactly as noteOn starts a note on a free voice. It keeps the age of its take: it
   // was struck then, and the voice law orders notes by when they were struck.
+  //   - A retune that reached it while it waited is applied as retune() applies it to
+  //     a started note: the played frequency moves, the glide target stays the struck
+  //     one. With no retune the two are equal and the write changes nothing.
+  //   - A stolen note keeps its gate: if its off came k samples after its take, it is
+  //     released k samples after this start (offIn; render cuts there). k = 0 is an on
+  //     and an off at one instant, released at once, as the host's own would be.
   void startWaiting(Voice& v) {
-    const double struck = v.age;
+    const double struck = v.age, tune = v.wTune;
+    const bool off = v.wOff;
+    const int k = v.wOffK;
     startVoice(v, v.wNote, v.wFreq, v.wVel, true, true);
     v.freq = v.freqT = v.wFreq;
     couple(v);
     spread(v);
+    v.freq = tune;
     v.age = struck;
-    if (v.wOff) { v.gate = false; v.stage = 4; }   // its off came while it waited: noteOff's own two writes
+    if (off) { if (k > 0) v.offIn = k; else { v.gate = false; v.stage = 4; } }
   }
   void startVoice(Voice& v, int note, double freq, double vel, bool fresh, bool retrig) {
     v.cull = false;   // a re-allocated slot is a new voice, never still fading
-    v.sfLeft = 0; v.wait = false;   // ... under D7's fade either, and no note waits on it
+    v.sfLeft = 0; v.wait = false; v.offIn = 0;   // ... under D7's fade either; no note waits on it, and no gate is kept for its last one
     if (fresh) {
       v.fhInit = false;   // ADR-216 D6: a new note's frame starts at the measured centre (holdFrame)
       if (!v.active) v.env = 0;
@@ -1837,20 +1881,23 @@ class Engine {
   // 1 - t/8 ms sample by sample. A per-sample call re-reads the per-call setup (the
   // pan law, the envelope rates), as the JS does, and its output passes through a
   // float, as the JS's one-sample Float32Array does.
+  // D7: a steal's fade takes the same one call per sample for its length, and counts
+  // down whether or not its voice still sounds. Its output is NOT passed through a
+  // float (the JS uses a one-sample Float64Array for it) unless a culled voice is
+  // fading in the same call: the cull's rounding is the cull's alone.
   void renderCalls(double* L, double* R, int n) {
-    bool fading = false;
+    bool fading = false, stealing = false;
     pvLive = false;
     for (const Voice& v : voices) if (v.active) { if (v.cull) fading = true; if (v.pv) pvLive = true; }
-    // D7: a steal's fade counts down here whether or not its voice still sounds
-    for (const Voice& v : voices) if (v.sfLeft > 0) fading = true;
-    if (!fading) { preCall(); renderCall(L, R, n); nBase += static_cast<uint64_t>(n); return; }
+    for (const Voice& v : voices) if (v.sfLeft > 0) stealing = true;
+    if (!fading && !stealing) { preCall(); renderCall(L, R, n); nBase += static_cast<uint64_t>(n); return; }
     const double step = 1 / (kCullFade * sr);
     for (int i = 0; i < n; i++) {
       preCall();
       double l1, r1;
       renderCall(&l1, &r1, 1);
-      L[i] = static_cast<double>(static_cast<float>(l1));
-      R[i] = static_cast<double>(static_cast<float>(r1));
+      L[i] = fading ? static_cast<double>(static_cast<float>(l1)) : l1;
+      R[i] = fading ? static_cast<double>(static_cast<float>(r1)) : r1;
       nBase++;
       for (Voice& v : voices) if (v.cull && v.active) {
         const double g = v.cullG - step;
@@ -1867,7 +1914,7 @@ class Engine {
       // render() cuts the call there and starts the waiting note.
       for (Voice& v : voices) if (v.sfLeft > 0) {
         const int left = --v.sfLeft;
-        if (left == 0) { v.env = 0; v.active = false; }
+        if (left == 0) { v.env = 0; v.active = false; v.sfEnd = true; }
         else if (v.active) {
           const double f = static_cast<double>(left) / (left + 1);
           v.env *= f;

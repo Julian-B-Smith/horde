@@ -144,13 +144,18 @@ struct Voice {
   int fhN = 0;
   // ADR-216 D7: the steal's fade and the note that waits for it (Engine::take).
   // sfLeft: samples left of the fade, 0 when none runs. wait: a note starts on this
-  // voice when the fade ends; wNote, wFreq and wVel are that note, and wOff says its
-  // note-off came while it waited (it starts, then releases at once). The two are
-  // apart on purpose: a cancelled wait (a panic) leaves its fade to run out.
+  // voice when the fade ends; wNote, wFreq and wVel are that note as struck, and wTune
+  // its frequency after any retune. wFrom is sfLeft when the note began to wait. wOff
+  // says its note-off came while it waited, wOffK how many samples after its take:
+  // the note keeps its gate, so once started it is released that long after its
+  // start (offIn counts those samples down on the started note; 0 when none).
+  // The fade and the wait are apart on purpose: a cancelled wait (a panic) leaves its
+  // fade to run out.
   int sfLeft = 0;
+  bool sfEnd = false;   // the fade ended on the last sample rendered (read and cleared by the keep-phase snapshot)
   bool wait = false, wOff = false;
-  int wNote = 0;
-  double wFreq = 0, wVel = 0;
+  int wNote = 0, wFrom = 0, wOffK = 0, offIn = 0;
+  double wFreq = 0, wTune = 0, wVel = 0;
 };
 
 struct Biquad { double b0 = 0, b1 = 0, b2 = 0, a1 = 0, a2 = 0, z1 = 0, z2 = 0; };

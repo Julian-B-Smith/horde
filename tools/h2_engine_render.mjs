@@ -350,6 +350,52 @@ function composedRows(presets) {
   // a mode change cancels the waiting note; the mono note then re-enters voice 0's
   // attack from where its fade stood, by the mono law, and the fade stops
   row('D7 a mode change during a fade', { ...S7, poly: 2 }, [on(45), on(52), blocks(10), on(57), mid, ['set', 'polyMode', 1], on(60), blocks(20), off(60), blocks(20)]);
+  // ---- added after the critic's read of the first build (2026-10-13) ----
+  // keep-phase with the pool taken whole: nothing else sounds when the fade ends, so
+  // the snapshot the waiting note reads must be the faded voice's own, taken at the
+  // cut. In 37-sample blocks, so the cut falls inside a host block.
+  row('D7 keep phase, the pool taken whole', { ...S7, poly: 1, N: 5, keepPhase: 1, phaseMode: 0, detune: 20 }, [on(45), rb(37, 40), on(52), rb(37, 40), off(52), rb(37, 10),
+    on(57), rb(37, 60), off(57), rb(37, 40)]);
+  // ... and after a fade nobody waits on (a panic cancelled its note) has run out into
+  // silence: the next note reads the faded voice's phases as they stood at the fade's
+  // end, not a snapshot left at some earlier block boundary
+  row('D7 keep phase after a cancelled fade', { ...S7, poly: 1, N: 5, keepPhase: 1, phaseMode: 0, detune: 20 }, [on(45), rb(37, 40), on(52), rb(37, 2), ['panic'], rb(37, 30),
+    on(57), rb(37, 60), off(57), rb(37, 40)]);
+  // a stolen note keeps its gate: the off came 100 samples after the take ('a waiting
+  // note released before its fade ends', above), or at the same instant (here: k 0,
+  // released at its start, as a host's own on and off at one instant)
+  row('D7 a note struck and released at once on a taken voice', { ...S7, poly: 1 }, [on(45), blocks(10), on(52), off(52), blocks(10), on(57), blocks(10), off(57), blocks(20)]);
+  // ... and a note that is taken again while it keeps a gate: the gate goes with it
+  row('D7 a note with a kept gate is taken', { ...S7, poly: 1 }, [on(45), blocks(10), on(52), rb(200, 1), off(52), rb(100, 1), on(57), blocks(20), off(57), blocks(20)]);
+  // a waiting note whose off is remembered is a releasing tail to the tiers: the next
+  // note replaces it, and the held 52 survives (with the flag off the next note takes
+  // the voice 57 was restarted on)
+  row('D7 a released waiting note is a tail to the tiers', { ...S7, poly: 2 }, [on(45), on(52), blocks(10), on(57), rb(96, 1), off(57), rb(96, 1), on(60), blocks(20),
+    off(52), off(60), blocks(20)]);
+  // a note attaches to a fade whose note was cancelled and which is still running
+  row('D7 a note attaches to a cancelled fade', { ...S7, poly: 2 }, [on(45), on(52), blocks(10), on(57), mid, ['panic'], rb(50, 1), on(60), blocks(20), off(60), blocks(20)]);
+  // R 5 ms: 230 samples into a cancelled fade the voice is under 1e-3 and still sounding,
+  // with 10 samples of its fade left to count. Tier 1 restarts it at once; the count stops.
+  row('D7 tier 1 restarts a voice under a cancelled fade', { ...B1, poly: 1, R: 5, stealFade: 1 }, [on(45), blocks(5), on(52), rb(20, 1), ['panic'], rb(210, 1), on(57), blocks(10),
+    off(57), blocks(10)]);
+  // an off on the very sample the note starts (an ordinary off: the note has started),
+  // and one sample later
+  row('D7 an off exactly at the fade\'s end', { ...S7, poly: 2 }, [on(45), on(52), blocks(10), on(57), rb(240, 1), off(57), blocks(20), off(52), blocks(20)]);
+  row('D7 an off one sample after the fade\'s end', { ...S7, poly: 2 }, [on(45), on(52), blocks(10), on(57), rb(241, 1), off(57), blocks(20), off(52), blocks(20)]);
+  row('D7 a third take of one voice', { ...S7, poly: 1 }, [on(45), blocks(10), on(52), rb(60, 1), on(57), rb(60, 1), on(60), blocks(20), off(60), blocks(20)]);
+  // the taken voice's key is still held by another voice: the later off releases that one
+  row('D7 a take while another voice holds the same key', { ...S7, poly: 2 }, [on(45), on(45), blocks(10), on(52), blocks(5), off(45), blocks(5), off(52), blocks(20)]);
+  // key 45 is the old sound of one voice and the waiting note of the other: a retune
+  // and an off for 45 reach the waiting note (and, the retune, the old sound too)
+  row('D7 one key as an old sound and as a waiting note', { ...S7, poly: 2 }, [on(45), on(52), blocks(10), on(57), on(45), mid, ['re', 45, mtof(47)], rb(50, 1), off(45), blocks(20),
+    off(57), blocks(20)]);
+  row('D7 the pool shrinks during a fade', { ...S7, poly: 2 }, [on(45), on(52), blocks(10), on(57), rb(50, 1), ['set', 'poly', 1], on(60), blocks(20), off(52), off(60), blocks(20)]);
+  row('D7 N changes during a fade', { ...S7, poly: 2 }, [on(45), on(52), blocks(10), on(57), rb(50, 1), ['set', 'N', 5], blocks(20), off(52), off(57), blocks(20)]);
+  // R 5 ms and a cap of 1: the taken tail dies inside its fade, so the waiting voice
+  // sounds nothing, and it still counts: the next note finds the cap full and (policy
+  // 2) replaces the waiting note on that voice
+  capRow('D7 a waiting voice whose old sound died, under a cap', { ...B1, poly: 2, R: 5, stealFade: 1 }, 1, 2, [on(45), blocks(5), off(45), blocks(1), on(52), rb(236, 1), on(57), blocks(10),
+    off(57), blocks(10)]);
   return C;
 }
 

@@ -13,9 +13,9 @@ fmod                  15       7
 ldexp                  1       1
 log                   29      27
 log2                  15       3
-nan                  568     550
+nan                  570     552
 pow                   10      10
 sin                  123     119
 tan                    1       1
 tanh                  34      34
-TOTAL               1351    1236
+TOTAL               1353    1238
