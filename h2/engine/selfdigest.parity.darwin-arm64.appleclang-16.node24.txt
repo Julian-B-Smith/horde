@@ -4,8 +4,8 @@
 # ORACLE docs/design/scalpel-horde-engine.js 581d7942684c91245e4a6637dd40d137335b5d69
 # ORACLE reference/scalpel/prototype/razor-core.js 0ce6a713410d89c65bf55f761f1dc791fae61b16
 # ORACLE reference/swarmsaw.html e47da6c9e0b4a058e18d79f62d71ab31c3d3b1b0
-# ORACLE reference/scalpel/data/presets.json 44b48d72a9bed4717edd0ac5cf9ef4b8d7b0de93
-# ORACLE docs/design/scalpel-interface-lab.html 6abf848e91065bc33275724a6967a7399ba40a07
+# ORACLE reference/scalpel/data/presets.json 45c4f1d5cff97922b88b1fab778eccca3d511bcd
+# ORACLE docs/design/scalpel-interface-lab.html 77ccee779baa09ce9fddb9d6527ecc0d68e77a8f
 6f1035ccaec449df  P/Starting points / Quarter sync :: chord
 5bc5dc32109a280e  P/Starting points / Quarter sync :: repeat
 428b94da88f2c1f5  P/Starting points / Quarter sync :: arp
@@ -234,9 +234,9 @@ decc20e78096d08b  P/Showcase / Pads / Undertone cathedral :: arp
 38b2bf15ca8f2391  P/Showcase / Pads / Cross-mod shimmer :: chord
 ebe2518edc2d5b3a  P/Showcase / Pads / Cross-mod shimmer :: repeat
 18b27acd89c72d7d  P/Showcase / Pads / Cross-mod shimmer :: arp
-6765c4b964d419cd  P/Showcase / Pads / Breathing pad :: chord
-aeeeacb9231d2b63  P/Showcase / Pads / Breathing pad :: repeat
-7b48a1ce845bd336  P/Showcase / Pads / Breathing pad :: arp
+af73b143736abc8f  P/Showcase / Pads / Breathing pad :: chord
+8a3d9b2e9c304fbf  P/Showcase / Pads / Breathing pad :: repeat
+9dac2ff2aa5ee0b7  P/Showcase / Pads / Breathing pad :: arp
 caa269c407aa8127  P/Showcase / Interplay / Fold over sync :: chord
 f01d92b90755ac96  P/Showcase / Interplay / Fold over sync :: repeat
 08e0fcee9262aaf3  P/Showcase / Interplay / Fold over sync :: arp
@@ -549,4 +549,4 @@ c320b7a2eca53edb  C/SW anchor and spread
 90d999772ead71a1  C/A2 Quantized Cut spread 2.5
 eec47885967308ec  C/A2 Quantized blade 2 Cut spread -1.5
 2e8d7ffec2af6795  C/OS 2 -> 4 -> 1 mid-note
-TOTAL 894c3bc4b62bcab0 543
+TOTAL 4082b8942aefb398 543
