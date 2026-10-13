@@ -118,3 +118,18 @@ Read with the placeholder window of 384 frames, on the full stream (every readin
   3. Whether `:: arp` stays under the present rule, at 8 of 25.
   4. `:: repeat` is the covering row only while its one voice keeps r near 1e-05. A longer phrase would lose it.
   5. This is not chaos in ADR-065's sense: the phases agree and the readout is ill-conditioned. The engine's frame hold (B461, D6) addresses the same centre; the blade prototype has none.
+
+## 2026-10-12, later still: RULED, no exclusion. The three rows render with `frame` 0 (ADR-217 A2)
+
+The lead's entry.
+
+- **The cause, corrected.** The lead had told the human the oracle's swarm law goes chaotic on this preset. The implementer's measurements above say otherwise: the member phases agree to 1e-15 of a cycle, and the two renders differ from the first sample. It is B461's fault held for the whole note: under the oracle's law the six members settle into a balanced ring, the order parameter falls to 1e-10 and below, the preset has `frame` 1, and every blade then hangs on psi = atan2 of a near-zero vector, where the last bit of sin and cos decides.
+- **The measurement that settled the way through** (the lead, a scratch edit, reverted): the three rows rendered with `frame` 0 against the unmodified check: chord rms 6.1e-16, max 6.8e-15; repeat max 4.1e-16; arp max 6.4e-16; blade events identical on all three.
+- **The ruling.** The lead put it to the human: no exclusion; in this one check render the preset's rows with the blade frame off; what it gives up is that this check no longer judges this preset with its frame on. The human, 2026-10-12: "Go with your recommendation". Recorded as ADR-217 A2, which replaces A1 item 2.
+- **What changed:**
+  - `tools/h2_scalpel_render.mjs`: `SCENARIO_OVERRIDES = { 'Breathing pad': { frame: 0 } }`, applied in `buildScenarios`. The override is written into the row names (`P/Showcase / Pads / Breathing pad [frame 0] :: chord`, `:: repeat`, `:: arp`). Two guards stop the render: an override that does not name exactly one bank preset, and one that changes nothing.
+  - `docs/port/scalpel-phase-1a.md`: the scenario list says so.
+  - Nothing else: the exclusion list stays at its pinned 3, no tolerance is added, the check's C++ is untouched. The implementer's onset-window machinery stays out of the repo (a patch in the session's scratch directory), unused.
+- **What stays covered.** The frame, in this check: `Anchored horde` (the bank's other frame-on preset) and the targeted rows `frame swarm` and `b2 frame`. This preset with its frame on: the composed engine's parity check, under horde's swarm law.
+- **Evidence:** the check on a fresh full stream: `h2_scalpel_parity_check: GREEN — 383/386 scenarios at parity (rms < 1e-06, max < 1e-06, events identical), 3 excluded as chaotic with evidence, 0 red`, with the three rows as measured above.
+- **Verify:** `./verify full` on the final tree; the result is quoted in the PR body.
