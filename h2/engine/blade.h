@@ -58,6 +58,9 @@ struct DP {
   // ADR-216 D6 (B461): the blade's frame holds its course where the swarm's centre is
   // undefined (Engine::holdFrame). Off by default: 0 is the blade oracle's frame.
   double frameHold = 0;
+  // ADR-216 D7 (B459): a poly note-on that takes a sounding voice fades it and starts
+  // when the fade ends (Engine::take). Off by default: 0 restarts the voice at once.
+  double stealFade = 0;
   static constexpr int kCustomCap = 256;
   char kCustom[kCustomCap] = "1, 5/4, 3/2";
 };
@@ -139,6 +142,15 @@ struct Voice {
   // ramp (leadT, leadStep) to continue. One at or above it has just joined (N was
   // raised, or the flag came on at a smaller N) and its lead is set outright.
   int fhN = 0;
+  // ADR-216 D7: the steal's fade and the note that waits for it (Engine::take).
+  // sfLeft: samples left of the fade, 0 when none runs. wait: a note starts on this
+  // voice when the fade ends; wNote, wFreq and wVel are that note, and wOff says its
+  // note-off came while it waited (it starts, then releases at once). The two are
+  // apart on purpose: a cancelled wait (a panic) leaves its fade to run out.
+  int sfLeft = 0;
+  bool wait = false, wOff = false;
+  int wNote = 0;
+  double wFreq = 0, wVel = 0;
 };
 
 struct Biquad { double b0 = 0, b1 = 0, b2 = 0, a1 = 0, a2 = 0, z1 = 0, z2 = 0; };

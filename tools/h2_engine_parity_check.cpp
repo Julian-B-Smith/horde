@@ -585,7 +585,7 @@ int main(int argc, char** argv) {
     // (header and END rewritten too) passed. Pinned at the count the renderer writes today; raise it
     // in the same PR that adds a scenario, never lower it without a recorded decision. A short
     // stream is infrastructure (the FMA control reports exit 2, never "fired").
-    constexpr int kMinScenarios = 565;
+    constexpr int kMinScenarios = 590;
     if (!scenarioFloorHolds("h2_engine_parity", total, kMinScenarios)) infra = true;
     std::printf("%s  STREAM  full stream (%s): %d scenarios read, header %ld, END %s; %d control/ring row(s) missing%s%s\n", ok ? "PASS" : "FAIL",
                 fullFrom ? "--full-from FILE" : "rendered by this run", total, headerN, ended ? std::to_string(endN).c_str() : "ABSENT", missing,

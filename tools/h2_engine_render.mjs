@@ -275,6 +275,81 @@ function composedRows(presets) {
   // written, red on 2 of 30 renders with the note frequencies moved 1 to 15 ULP), and
   // CI's lanes run another libm. The two rows' definitions and their numbers are in
   // traces/2026-10-12-b461-frame-hold-d6-rework2.md and the ledger's D6 finding.
+
+  // ADR-216 D7 (B459), the steal fade ON. Appended AFTER every earlier row, D6's
+  // included, so no earlier row's place in the stream or in the self-digest
+  // references moves. A take needs a full pool, so each row sets a small one and a
+  // release long enough that a tail is still sounding (above 1e-3) when it is taken.
+  // A fade is 240 samples at 48 kHz: `mid` renders 100, so an event after it lands
+  // inside the fade.
+  const S7 = { ...B1, R: 1500, stealFade: 1 }, mid = rb(100, 1);
+  const tri = (r, minor) => [r, r + (minor ? 3 : 4), r + 7];
+  const struck = (ns, k) => [...ns.map(n => on(n)), blocks(k)], let_go = (ns, k) => [...ns.map(off), blocks(k)];
+  // tier 2: each chord from the third on takes the quietest releasing tails
+  row('D7 a chord over a releasing chord, pool 6', { ...S7, poly: 6, A: 100 },
+    [...struck(tri(45), 20), ...let_go(tri(45), 4), ...struck(tri(50), 20), ...let_go(tri(50), 4), ...struck(tri(52), 20), ...let_go(tri(52), 4),
+      ...struck(tri(57, 1), 20), ...let_go(tri(57, 1), 30)]);
+  // tier 3: every slot gated, so the oldest held voice is taken; an off for a key
+  // whose voice was taken finds nothing
+  row('D7 every slot held', { ...S7, poly: 3 }, [on(45), on(52), on(57), blocks(10), on(60), blocks(10), off(45), on(64), on(67), blocks(20),
+    off(52), off(57), off(60), off(64), off(67), blocks(30)]);
+  row('D7 a waiting note released before its fade ends', { ...S7, poly: 2 }, [on(45), on(52), blocks(10), on(57), mid, off(57), blocks(20), off(45), off(52), blocks(20)]);
+  row('D7 a waiting note retuned', { ...S7, poly: 2 }, [on(45), on(52), blocks(10), on(57), mid, ['re', 57, mtof(59)], blocks(20), off(52), off(57), blocks(20)]);
+  row('D7 a panic during a fade', { ...S7, poly: 2 }, [on(45), on(52), blocks(10), on(57), mid, ['panic'], blocks(10), on(60), blocks(10), off(60), blocks(20)]);
+  // the replace rule: one slot, so tier 3 picks the fading voice again. The off
+  // remembered for the first waiting note goes with it.
+  row('D7 a second take of the same voice during its fade', { ...S7, poly: 1 }, [on(45), blocks(10), on(52), rb(60, 1), off(52), rb(60, 1), on(57), blocks(20), off(57), blocks(20)]);
+  // the cap: a tail taken at the cap, the oldest held voice replaced at a full cap,
+  // and the steal policy with no free slot (horde's full-pool law)
+  capRow('D7 a take under a voice cap', S7, 2, 0, [on(45), on(52), blocks(10), off(45), blocks(3), on(57), blocks(20), off(52), off(57), blocks(20)]);
+  capRow('D7 a take at a full cap, capPolicy 2', S7, 2, 2, [on(45), on(52), blocks(10), on(57), blocks(20), off(52), off(57), blocks(20)]);
+  capRow('D7 capPolicy 1 with no free slot', { ...S7, poly: 2 }, 2, 1, [on(45), on(52), blocks(10), on(57), blocks(20), off(52), off(57), blocks(20)]);
+  // the steal policy meets a note still waiting: two notes wait (policy 2), then
+  // policy 1 finds the older of them the oldest held, cancels it, and plays the new
+  // note in the free slot
+  capRow('D7 capPolicy 1 cancels a waiting note', { ...S7, poly: 3 }, 2, 2, [on(45), on(52), blocks(10), on(57), on(60), rb(50, 1), ['capPolicy', 1], on(64), blocks(20),
+    off(60), off(64), blocks(20)]);
+  // the cull's fade taken over: the cap is lowered while two tails ring, the render
+  // culls both, and 100 samples into their 8 ms ramps a note takes the quieter
+  row('D7 a take of a voice fading under the cull', S7, [on(45), on(52), on(57), blocks(10), off(52), off(57), blocks(3), ['cap', 1], mid, on(60), blocks(20),
+    off(45), off(60), blocks(20)]);
+  row('D7 a same-note repeat', { ...S7, poly: 2 }, [on(45), blocks(10), off(45), blocks(3), on(45), blocks(10), off(45), blocks(3), on(45), blocks(20), off(45), blocks(30)]);
+  // mono and legato are untouched: with the flag on they must render what they render
+  // with it off. Shown by the self-digests (C++ against C++, bit for bit): the mono
+  // row's digest equals 'C/FT chord on a mono voice in one block', whose script it is
+  // but for the flag, and the two legato rows' digests equal each other.
+  row('D7 mono, the flag on', { ...B1, polyMode: 1, lock: 2, kHz: 900, stealFade: 1 }, [on(45), on(52), on(57), blocks(40), off(57), off(52), off(45), blocks(20)]);
+  row('D7 legato, the flag on', { ...B1, polyMode: 2, glide: 60, R: 600, stealFade: 1 }, PHRASES.legato([45]));
+  row('D7 legato, the flag off', { ...B1, polyMode: 2, glide: 60, R: 600, stealFade: 0 }, PHRASES.legato([45]));
+  // the flag read at each note-on: off (a restart at once), on (a take), then off
+  // again while a note waits. That note still starts when its fade ends, the next
+  // note restarts a held voice at once, and the one after replaces the waiting note.
+  row('D7 switched on and off mid-phrase', { ...S7, poly: 2, stealFade: 0 }, [on(45), on(52), blocks(10), on(57), blocks(10), ['set', 'stealFade', 1], on(60), blocks(10),
+    on(64), rb(50, 1), ['set', 'stealFade', 0], rb(50, 1), on(67), rb(50, 1), on(69), blocks(20), off(67), off(69), blocks(20)]);
+  // the cut at the fade's end falls inside the host's block, and off the 16-sample grid
+  row('D7 37-sample blocks', { ...S7, poly: 2 }, [on(45), rb(37, 3), on(52), rb(37, 40), on(57), rb(37, 2), on(60), rb(37, 40), off(57), off(60), rb(37, 5), on(64), rb(37, 60),
+    off(64), rb(37, 30)]);
+  row('D7 at 44.1 kHz', { ...S7, poly: 2 }, [on(45), on(52), blocks(10), on(57), blocks(10), off(52), blocks(3), on(60), blocks(20), off(57), off(60), blocks(20)], { sr: 44100 });
+  row('D7 at os 1', { ...S7, poly: 2, os: 1 }, [on(45), on(52), blocks(10), on(57), blocks(10), off(52), blocks(3), on(60), blocks(20), off(57), off(60), blocks(20)]);
+  // D6 and D7 together: the waiting note's frame starts as any fresh note's does
+  row('D7 and D6 both on', { ...F, K: 0.1, R: 1500, poly: 2, stealFade: 1 }, [on(45), on(52), blocks(40), on(57), blocks(40), off(52), blocks(3), on(60), blocks(60),
+    off(57), off(60), blocks(20)]);
+  // the ramp scales each member's own envelope, and the waiting note draws its ensemble
+  row('D7 a take of per-partial voices', { ...S7, poly: 2, N: 5, voiceEnv: 1, onsetScatter: 8, attackScatter: 0.5, relScatter: 0.5, A: 30 },
+    [on(45), on(52), blocks(15), on(57), blocks(15), off(52), blocks(3), on(60), blocks(20), off(57), off(60), blocks(30)]);
+  // the fade's cut inside gravity's segments
+  row('D7 a take while gravity steps', { ...S7, poly: 2, grav: 1 }, [on(57), on(64), blocks(40), on(60), blocks(40), off(64), blocks(3), on(67), blocks(40), off(60), off(67), blocks(20)]);
+  // keep-phase reads the newest sounding swarm at the cut, as at any render's end
+  row('D7 keep phase', { ...S7, poly: 2, N: 5, keepPhase: 1, phaseMode: 0, detune: 20 }, [on(45), on(52), blocks(10), on(57), blocks(10), off(52), blocks(3), on(60), blocks(20),
+    off(57), off(60), blocks(20)]);
+  // R 5 ms. Four blocks after its release a tail is under 1e-3 and restarts at once,
+  // as today; one block after it is still above, is taken, and dies inside its fade:
+  // the note starts at the fade's end all the same
+  row('D7 a tail under the threshold, and one that dies inside its fade', { ...B1, poly: 1, R: 5, stealFade: 1 }, [on(45), blocks(5), off(45), blocks(4), on(52), blocks(5), off(52), blocks(1),
+    on(57), blocks(10), off(57), blocks(10)]);
+  // a mode change cancels the waiting note; the mono note then re-enters voice 0's
+  // attack from where its fade stood, by the mono law, and the fade stops
+  row('D7 a mode change during a fade', { ...S7, poly: 2 }, [on(45), on(52), blocks(10), on(57), mid, ['set', 'polyMode', 1], on(60), blocks(20), off(60), blocks(20)]);
   return C;
 }
 

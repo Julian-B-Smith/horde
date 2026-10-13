@@ -933,6 +933,22 @@ full() {
   node tools/h2_frame_hold_check.mjs --bin "$build_dir/h2_harness_render" || {
     echo "verify[full]: h2_frame_hold_check FAILED" >&2; return 1; }
   #
+  #
+  # [engine gate: B459 the steal fade, ADR-216 D7]
+  # tools/h2_steal_fade_check.mjs, on the C++ engine through the harness: six triads
+  # on the pad (its settings pinned in the check, blade 2 off so that no render draws
+  # from the shared random stream), each struck 0.1 s after the last release, at a
+  # pool of 6 and of 8. With stealFade 1 the jump at each chord that takes sounding
+  # voices is under a measured ceiling, its notes start exactly 0.005 s after the take
+  # and add nothing there, and host blocks of 16, 37 and 128 frames agree as well as
+  # they do with the flag off. Its CONTROL, the present law (stealFade 0), must read at
+  # least 5 % at every taken chord at pool 6, and a chord on free voices must read
+  # under 1 % either way, or the check is red. Mono and legato must render the same
+  # samples with the flag on and off. Its last line is its verdict. Added under
+  # ADR-180 §1.
+  node tools/h2_steal_fade_check.mjs --bin "$build_dir/h2_harness_render" || {
+    echo "verify[full]: h2_steal_fade_check FAILED" >&2; return 1; }
+  #
   # horde 2's lifted swarm core (B379 step 1, h2/cores/swarm/): lift edit E1
   # re-proven. A Voice the caller owns, started with initVoice() and ticked
   # through the one public forwarder E1 adds, must match the core's own voice

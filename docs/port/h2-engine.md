@@ -29,17 +29,17 @@ whole render.
 ## The golden (the parity target, ADR-187 item 3)
 
 The composed engine as the lab runs it: main `c64cfdb` (2026-10-01) plus B461's
-divergence D6 (2026-10-12; the engine and the lab's one toggle for it). The
-renderer streams each file's git blob, and the check fails on a blob it was not
-pinned to.
+divergence D6 (2026-10-12) and B459's D7 (2026-10-13), each in the engine with
+the lab's one toggle for it. The renderer streams each file's git blob, and the
+check fails on a blob it was not pinned to.
 
 | file | role | blob |
 |---|---|---|
-| `docs/design/scalpel-horde-engine.js` | the composed engine (`makeComposedEngine`) | `5d3e3a37cc8f634772ae4c72fefeaf7b446cd15e` |
+| `docs/design/scalpel-horde-engine.js` | the composed engine (`makeComposedEngine`) | `809e1265cb03682c0e11d1d91ebe72005a29e3dd` |
 | `reference/scalpel/prototype/razor-core.js` | the blade oracle it extends | `0ce6a713410d89c65bf55f761f1dc791fae61b16` |
 | `reference/swarmsaw.html` | SwarmSynth, the swarm it drives (DSP section) | `e47da6c9e0b4a058e18d79f62d71ab31c3d3b1b0` |
 | `reference/scalpel/data/presets.json` | the 83 bench presets | `45c4f1d5cff97922b88b1fab778eccca3d511bcd` |
-| `docs/design/scalpel-interface-lab.html` | the 12 B366 envelope presets (`ENV_PRESETS`); since B445 also the device default `os: 1` (`LAB_DEF`), which no scenario reads | `65d587e9f562008ba9285818cc74d621acebb74b` |
+| `docs/design/scalpel-interface-lab.html` | the 12 B366 envelope presets (`ENV_PRESETS`); since B445 also the device default `os: 1` (`LAB_DEF`), which no scenario reads | `b47fbe3cb26a8df7de7cc993c40ab9a1eaa492ed` |
 
 The engine's flags at their ledgered defaults (`docs/port/divergences.json`):
 
@@ -52,6 +52,13 @@ The engine's flags at their ledgered defaults (`docs/port/divergences.json`):
   blade as a ramp; the lead's readings of the ruling are ADR-216 A1). Both
   positions are built and parity-checked; turning it on by default is a PR of its
   own (ADR-187 A1).
+- **D7 `stealFade`: OFF** (ADR-216, B459: a poly note-on that takes a voice still
+  sounding fades it over 0.005 s and starts from silence when the fade ends,
+  instead of restarting it mid-wave). Both positions are built and
+  parity-checked; turning it on by default is a PR of its own. **It is NOT in
+  the ledger yet:** the ledger's check plays two notes at sample 0 into an empty
+  pool, where no voice can be taken, so its rows L5 and C5 cannot be met by any
+  D7 entry (measured; `traces/2026-10-13-b459-steal-fade-d7.md`, ROADMAP B465).
 
 What the golden contains, each with its site in the composed JS:
 
@@ -427,7 +434,7 @@ substring test for `h2/cores/` or `h2/engine/`, never narrower than the original
 Self-cases cover `"h2/cores/x.h"`, `<h2/engine/engine.h>`, `"../h2/engine/engine.h"`
 and a tab-separated include.
 
-## Scenario families (as built: 565 scenarios)
+## Scenario families (as built: 590 scenarios)
 
 All at 48 kHz in 128-sample blocks unless a row says otherwise. The seeds are per
 family.
@@ -437,7 +444,7 @@ family.
 2. **E/, the 12 B366 lab presets** × chord, repeat and arp (+ legato for the 2
    mono ones): 38. They are read from the lab's `ENV_PRESETS` text.
 3. **T/, phase 1a's 125 blade rows**, re-run through the composed engine.
-4. **C/, 141 composed rows:**
+4. **C/, 166 composed rows:**
    - **VL 3:** repeat, tiers 2 and 3, tier 1.
    - **CAP 7:**
      - the cull with the cap lowered mid-phrase while three tails release and the
@@ -494,6 +501,26 @@ family.
        red on 2 of 30 renders with the note frequencies moved 1 to 15 ULP). Their
        definitions and numbers are in the ledger's D6 finding and in
        `traces/2026-10-12-b461-frame-hold-d6-rework2.md`.
+   - **D7 25** (ADR-216, B459; `stealFade` 1), appended after every earlier row.
+     Each sets a small pool and a long release, so that a voice is still sounding
+     when it is taken:
+     - a chord over a releasing chord at pool 6 (tier 2); every slot held (tier 3);
+       a same-note repeat;
+     - the waiting note: released before its fade ends, retuned, cancelled by a
+       panic, replaced by a second take of the same voice, cancelled by a mode
+       change;
+     - the cap: a take under a voice cap, at a full cap with `capPolicy` 2, with
+       `capPolicy` 1 and no free slot, `capPolicy` 1 cancelling a note that still
+       waits, and a take of a voice already fading under the cull;
+     - mono and legato with the flag on. They must render what they render with
+       it off, and the self-digests show it: `mono, the flag on` has the digest of
+       `FT chord on a mono voice in one block` (its script but for the flag), and
+       the two legato rows (flag on, flag off) have one digest;
+     - the flag switched on and off mid-phrase; 37-sample blocks; 44.1 kHz (a
+       221-sample fade); os 1; D6 and D7 both on;
+     - a take of per-partial voices; a take while gravity steps; keep-phase; a
+       tail under the 1e-3 threshold (restarted at once) and one that dies inside
+       its fade.
 
 ## Results (darwin-arm64, Apple clang 16, Node 24.10, `-O2 -ffp-contract=off`)
 
@@ -502,12 +529,14 @@ family.
 | P/ | 261 | 258, plus the 3 ring rows excluded (A2 item 1; all three hold) | 1.1e-12 | 9.9e-11 | 32.87% |
 | E/ | 38 | 38 | 1.9e-14 | 4.5e-13 | 46.33% |
 | T/ | 125 | 125 | 2.0e-12 | 1.4e-10 | 43.39% |
-| C/ | 141 | 141 | 2.1e-12 | 1.8e-10 | 34.35% |
+| C/ | 166 | 166 | 2.1e-12 | 1.8e-10 | 36.90% |
 
 The C/ row was re-measured on 2026-10-12 with D6's 22 rows (their own worst: rms
-4.1e-14, max-abs 1.1e-12; mean bit-exact 24.0%); the whole set's mean is 36.49%.
+4.1e-14, max-abs 1.1e-12; mean bit-exact 24.0%) and on 2026-10-13 with D7's 25
+(their own worst: rms 1.4e-14, max-abs 5.8e-13; mean bit-exact 51.3%); the whole
+set's mean is 37.12%.
 
-- Events and readouts are identical on all 565, the ring rows included.
+- Events and readouts are identical on all 590, the ring rows included.
 - No scenario sets a key the engine lacks.
 
 **Before the ruling, not at parity under rule 1a: P/Starting points / Cross-mod
