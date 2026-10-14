@@ -1,11 +1,11 @@
 # h2_engine_selfdigest_product reference (tools/h2_engine_selfdigest_check.cpp): product build, key darwin-arm64.appleclang-16.node24
 # FNV-1a 64 of each scenario's C++ samples, events and readouts. A golden fixture (protected): re-pin only
 # for a reason stated in the PR and the trace (the tool header's cases a-c); an output-neutral PR never re-pins.
-# ORACLE docs/design/scalpel-horde-engine.js 4c0d25ab5c6edc6aaa43356ef956d6dcbeb2ec90
+# ORACLE docs/design/scalpel-horde-engine.js 76cb367b8d422efe32ce27a18df9bede80eb7d30
 # ORACLE reference/scalpel/prototype/razor-core.js 0ce6a713410d89c65bf55f761f1dc791fae61b16
 # ORACLE reference/swarmsaw.html e47da6c9e0b4a058e18d79f62d71ab31c3d3b1b0
 # ORACLE reference/scalpel/data/presets.json 7b9d55efd7db217c5c881f6644519dbf137af19a
-# ORACLE docs/design/scalpel-interface-lab.html c9e724599e1afe46162b7666e5c4fe5f8d354770
+# ORACLE docs/design/scalpel-interface-lab.html 577c522195009daba088221ec0bd29265de96733
 6f1035ccaec449df  P/Starting points / Quarter sync :: chord
 5bc5dc32109a280e  P/Starting points / Quarter sync :: repeat
 428b94da88f2c1f5  P/Starting points / Quarter sync :: arp
@@ -305,165 +305,165 @@ c905db65d2330ab2  E/Mono retrigger pluck :: legato
 8757fcf6611d6650  E/Legato swell lead :: repeat
 015d02794484b10e  E/Legato swell lead :: arp
 a0b96dbfc88a568e  E/Legato swell lead :: legato
-530923705fe880a7  T/mode 0 :: chord
-101050a86fca8bc6  T/mode 1 :: chord
-6150990dd0c097a2  T/mode 2 :: chord
-d9673c3afeaee47c  T/mode 3 :: chord
-a9d64bd7e3d2abc7  T/mode 4 :: chord
-5f1bea1e6dc61834  T/mode 5 :: chord
-fe476aaa3071ce32  T/mode 6 :: chord
-131a6818fb5abb3f  T/hot 0 :: chord
-f3f57d1ad8270d16  T/hot 1 :: chord
-530923705fe880a7  T/hot 2 :: chord
-5e0a5c04edce1d00  T/hot 3 :: chord
-fce739b84486604a  T/hot 4 :: chord
-daa49aad0bd77e9b  T/hot 6 :: chord
-530923705fe880a7  T/base 0 :: chord
-f389f8dcada324f4  T/base 1 :: chord
-21084e462b58f0a1  T/base 2 :: chord
-cf76a402408caec1  T/base 3 :: chord
-5f263fa6e1038070  T/base 4 :: chord
-4b95140f1db7a4d1  T/fm mode 1 type 0 :: chord
-92c167f62e521a39  T/fm mode 1 type 1 :: chord
-31dc192380b1d19f  T/fm mode 2 type 0 :: chord
-c6d4979d9acbb309  T/fm mode 2 type 1 :: chord
-60c9b2fd5bb225bc  T/fm mshape 0 :: chord
-111f00dc946a3b4d  T/fm mshape 1 :: chord
-5d25e88a7fa2f006  T/fm mshape 2 :: chord
-e3724e37d5c50094  T/fm mshape 3 :: chord
-ba09f26740eeed84  T/fm mshape 4 :: chord
-0ffb336604199686  T/fm mshape 5 :: chord
-a4ea40f285c05445  T/fm mshape 6 :: chord
-e9da7c0b445a43a6  T/fm mshape 7 :: chord
-598e44541634d145  T/fm Hz units :: chord
-6e13c3530d967d17  T/lock width :: chord
-5c143ac389455cf4  T/lock Hz :: chord
-6f55ea6274607af8  T/mirror 1 :: chord
-467b0a64f38e1a9a  T/mirror 2 :: chord
-886b2837829b890f  T/mirror 3 :: chord
-64e5bfbd696a7ace  T/frame swarm :: chord
-7ed0f2eaf7fec0f6  T/hard edges :: chord
-fe476aaa3071ce32  T/crush hard (BLEP steps) :: chord
-c76e06b8830cf8f1  T/crush slew :: chord
-fefc39441e42743a  T/noise S&H :: chord
-6fec432bbbf0883d  T/rotate + :: chord
-0b100d84f51a13c2  T/rotate - :: chord
-59c2c1b18c5cdf33  T/rotate spread :: chord
-48165897619fe813  T/rotate free clock :: chord
-2c9eeb36b572a3ca  T/rotate then home :: chord
-6b6aceac9c68b3a4  T/b2 mode 0 :: chord
-c65385bf2256db52  T/b2 mode 1 :: chord
-29f20bd586fb2a02  T/b2 mode 2 :: chord
-73d75bc5c88e49e9  T/b2 mode 3 :: chord
-b80dda49d982c13a  T/b2 mode 5 :: chord
-cbe4501e68167f05  T/b2 mode 6 :: chord
-fc8af921e206ecaf  T/b2 own fm :: chord
-5c979f171dc1bae1  T/b2 sine-to-saw own mod :: chord
-5de2fbe1f154f6fb  T/b2 twin mirror :: chord
-32795dc743882f30  T/b2 inverted twin :: chord
-35893f765238509b  T/b2 frame :: chord
-4c992b7c1bdec011  T/b2 own clock :: chord
-b86f55940aae530d  T/b2 own spreads :: chord
-bb22009835dc74d6  T/b2 envelope :: chord
-a45a06b1f486ef8d  T/b2 Hz lock :: chord
-10db374aa0dbf377  T/serial l0.5 o0 :: chord
-10db374aa0dbf377  T/serial l0.5 o1 :: chord
-10db374aa0dbf377  T/serial l1 o0 :: chord
-10db374aa0dbf377  T/serial l1 o1 :: chord
-43849a67a4ba8a84  T/serial twins :: chord
-a8cc7e1618379925  T/serial crush over sync :: chord
-8dacf2b3d9b8e230  T/collision pitch :: chord
-2b41d64bf440ad94  T/collision bite :: chord
-0ac259386dec70df  T/collision upper b1 :: chord
-7f41cfd81205c29e  T/interplay sweep :: chord
-0a64cef021dd329d  T/dc 0 :: chord
-6ee572bbed405035  T/dc 1 :: chord
-a03d69bd73dfd871  T/dc 2 :: chord
-9ce57ccb816f6ea0  T/os 1 :: chord
-ef502d7426674f1f  T/os 2 :: chord
-c5a345a2b39952b6  T/os 4 :: chord
-a84e787e0b8233b2  T/aa off :: chord
-754e01e8e04bfe26  T/law 0 :: chord
-a607cfe251b356c2  T/law 1 :: chord
-aed9f5e663c613b2  T/law 2 :: chord
-0fe6422984d97841  T/law 3 :: chord
-5ad71f4279fa97f8  T/law 4 :: chord
-3bb822fea3fb4f95  T/rule 1 :: chord
-6518247d9c5888f2  T/rule 2 :: chord
-0f856a67f2e3ecb1  T/rule 3 :: chord
-b3b8ca9fcc64667f  T/rule 4 :: chord
-7618addc097de3c2  T/rule 5 :: chord
-f62794fdbcc366f3  T/rule 6 :: chord
-7466e848d9c7acf3  T/rule 7 :: chord
-1225af225151d359  T/rule 8 :: chord
-ffc1010669af87a3  T/rule 9 custom :: chord
-65325938d28e28cf  T/rule snapped :: chord
-3ec52c52c4a7b808  T/spread snapped :: chord
-d563da0f2273e25d  T/spread snapped -half :: chord
-9d98d47a49cb0c04  T/blade envelope :: chord
-39fc2589eb8b0df9  T/cross-mod :: chord
-42279783e7b1e104  T/feedback :: chord
-d861ad8687b3266e  T/splay K<0 :: chord
-71fc2d41e49a2fba  T/strong lock :: chord
-7b64b5437a418d1c  T/cycles coupling :: chord
-bfac2bc23a19d7ea  T/phase random :: chord
-7b64b5437a418d1c  T/phase zero :: chord
-9ccbcfaba41bc39f  T/pan order :: chord
-cf8ad530765e79d2  T/bend :: chord
-910a05d7d9e76a93  T/sweep k w c :: chord
-656308cda4a194be  T/sweep swarm :: chord
-a173b112632bec37  T/sr 44100 :: arp
-a3726ea7ac9247dd  T/poly 2 steals :: arp
-48cd83931b6a83e6  T/mono retrig :: legato
-b4e7d1222c992cd5  T/legato glide always :: legato
-6d4748f47b64a8ea  T/restrike after full release :: restrike
-cab46ff79fa01afe  T/blade 1 off (w 0) :: chord
-530923705fe880a7  T/blade 2 off (w2 0) :: chord
-ff93cb62bfc9a6f5  T/collision swept off :: chord
-0a94bc48c36058b4  T/b2 own clock at rest :: chord
-64957656536341d3  T/b2 own clock homing :: chord
-8297895482c05712  T/mono glide 1 ms :: legato
-f7784d5897840e90  T/settle skipped (K 0) :: chord
-ba2686a05a8c36ae  T/gate mode 6 collision :: chord
-e4651f37d2b296d0  T/b2 lock 1 FM collision :: chord
-ab596d851b879dc3  T/retune message :: retune
-5457fa77b08da3d2  T/panic message :: panic
-334f25acea20c781  T/polyMode switch mid-note :: chord
-e52ad5d5879cecf9  T/modX wrap :: long
-59e5a17778b4d68d  C/VL repeat, the first release rings
-8a56c9f3e8b9fe4f  C/VL tiers 2 and 3
-080426d7718177af  C/VL tier 1, a faded slot
-2b5e6761e7b5afa9  C/CAP cull, the cap lowered mid-phrase
-3595d07ce004fff0  C/CAP refuse
-a492ae2f6858bfca  C/CAP steal
-0532d38b0b5c3b62  C/CAP replace
-0532d38b0b5c3b62  C/CAP steal with no free slot
-64b78a2f659c8bdc  C/CAP not binding
-02d2499e86830741  C/CAP cull per-partial voices, the cap lowered mid-phrase
-81d59baa2d9ee93c  C/FT lock 2, 37-sample blocks
-8c2fb60abf5d1a35  C/FT Hz modulator, 100-sample blocks
-89dba1a9c29244c4  C/FT chord on a mono voice in one block
-70d5f8a7739c4d45  C/FT retune before the first sample
-61182e9dcce711de  C/GRAV a sharp fifth
-acecdf43f9ba4aec  C/GRAV a triad, K .35
-253f82f90e630e59  C/GRAV an octave-folded twelfth
-ed542d467d3c8baf  C/GRAV a pair outside the basin
-9a5c030f95c11a3a  C/GRAV switched on mid-note
-a772fd259c93cae1  C/GRAV 100-sample blocks
-813cffaf82ff2409  C/GRAV a bend while settled
-c2eb3efc7babe8cf  C/GRAV at 44.1 kHz
-ba0bb775e15bb783  C/ONS onset scatter, alpha 0
-061bd7853ab238cb  C/ONS onset scatter, alpha 0.25
-78b6b8b68694a7d7  C/ONS onset scatter, alpha 1
-3937cf7ddfd68a65  C/ONS attack and release scatter
-60af08d5e0839273  C/ONS per-partial envelopes
-0cc88935675bb099  C/ONS per-partial envelopes, arp
-569fa4574eeda77d  C/ONS scatter and envelopes together
-623432d86062a2e0  C/ONS a seed change re-derives the offsets
-a87998b11dc582f2  C/ONS mono retrigger with per-partial envelopes
-75094434d1634ab9  C/ONS at 44.1 kHz
-f3be4cafb000ebaf  C/ONS onset scatter switched off mid-note
-32cdf360cc3cad83  C/ONS per-partial envelopes switched off mid-note
+c53e537c7bcfb963  T/mode 0 :: chord
+597336d7890651e0  T/mode 1 :: chord
+0b91d95255af863b  T/mode 2 :: chord
+a185ad24f59de0d3  T/mode 3 :: chord
+c78cdbf55be52b1d  T/mode 4 :: chord
+e7da9087dbe683d0  T/mode 5 :: chord
+312f0b54173a129d  T/mode 6 :: chord
+8db7fb3293f8c635  T/hot 0 :: chord
+a866a0ad0738dc73  T/hot 1 :: chord
+c53e537c7bcfb963  T/hot 2 :: chord
+852e350379c1d126  T/hot 3 :: chord
+3887129122555b7b  T/hot 4 :: chord
+31405cbd73a02d9f  T/hot 6 :: chord
+c53e537c7bcfb963  T/base 0 :: chord
+239d1707fe54342b  T/base 1 :: chord
+bc00aa4eab46e520  T/base 2 :: chord
+1743ba46012c6929  T/base 3 :: chord
+a453b37bd56f4ace  T/base 4 :: chord
+0ad327e468ed4895  T/fm mode 1 type 0 :: chord
+1aeccd7f0816647e  T/fm mode 1 type 1 :: chord
+59fc1c9a7a71b19e  T/fm mode 2 type 0 :: chord
+d4d86098b4f51cfb  T/fm mode 2 type 1 :: chord
+364d7e3dc9f02602  T/fm mshape 0 :: chord
+72b2fb6062c27fd4  T/fm mshape 1 :: chord
+2ebd59599449cd41  T/fm mshape 2 :: chord
+c2b785a9fbe2d9ac  T/fm mshape 3 :: chord
+04dd117059e932ec  T/fm mshape 4 :: chord
+4592bde48887df32  T/fm mshape 5 :: chord
+dd309bda9ee8ed42  T/fm mshape 6 :: chord
+2e0ad7ef81f4e51a  T/fm mshape 7 :: chord
+48200774d3331c16  T/fm Hz units :: chord
+e41cbab23cbb6abe  T/lock width :: chord
+62f214e2fd7938ed  T/lock Hz :: chord
+c05562a40ec16aeb  T/mirror 1 :: chord
+9667c16c3512407f  T/mirror 2 :: chord
+bbf34c62a9b4832b  T/mirror 3 :: chord
+17f8edd0d6954705  T/frame swarm :: chord
+e17772a1d84d602b  T/hard edges :: chord
+312f0b54173a129d  T/crush hard (BLEP steps) :: chord
+94eea1b58277e59b  T/crush slew :: chord
+0b83e6479737d929  T/noise S&H :: chord
+7d936c8c397e3723  T/rotate + :: chord
+06ea15ff2b54138e  T/rotate - :: chord
+d1c5f1f455e13f70  T/rotate spread :: chord
+9e9b2edee250f931  T/rotate free clock :: chord
+219ca83ebc0937c0  T/rotate then home :: chord
+79fb116c8647a849  T/b2 mode 0 :: chord
+2f153128fbee3501  T/b2 mode 1 :: chord
+2ae696b256d3193a  T/b2 mode 2 :: chord
+c12d897cbe76d853  T/b2 mode 3 :: chord
+a44ed871d3c17789  T/b2 mode 5 :: chord
+526fdc910a1e6e1e  T/b2 mode 6 :: chord
+a4bad5cff2fab4d8  T/b2 own fm :: chord
+27129d24d65d1970  T/b2 sine-to-saw own mod :: chord
+0ea4422a1e5bd0f4  T/b2 twin mirror :: chord
+5e7c53faf57ba4ed  T/b2 inverted twin :: chord
+8cede2b2390170e1  T/b2 frame :: chord
+b1b6c222c2176af4  T/b2 own clock :: chord
+0abe987e8bf9a6c9  T/b2 own spreads :: chord
+4cfa753ad03b1d93  T/b2 envelope :: chord
+fdfb657f1658bec2  T/b2 Hz lock :: chord
+fff4c5b5d49c0f50  T/serial l0.5 o0 :: chord
+fff4c5b5d49c0f50  T/serial l0.5 o1 :: chord
+fff4c5b5d49c0f50  T/serial l1 o0 :: chord
+fff4c5b5d49c0f50  T/serial l1 o1 :: chord
+755f39aed132e385  T/serial twins :: chord
+3c6089b55a30199f  T/serial crush over sync :: chord
+27a413ecf9d602bc  T/collision pitch :: chord
+7ee935e2d467499c  T/collision bite :: chord
+ed830dd2c07a84d3  T/collision upper b1 :: chord
+7e64f716f293cbeb  T/interplay sweep :: chord
+c69fb8edc74c45bc  T/dc 0 :: chord
+3af490caf000f9c3  T/dc 1 :: chord
+4123b593a43c0a69  T/dc 2 :: chord
+f099b20d95a5ae17  T/os 1 :: chord
+3acbed6fa92e5812  T/os 2 :: chord
+0ee542c637d7e3be  T/os 4 :: chord
+fb34530e1868ee54  T/aa off :: chord
+0c5c9c9e561f8262  T/law 0 :: chord
+86d8f8a8d9cf5adf  T/law 1 :: chord
+4bc7208ce0692b75  T/law 2 :: chord
+6e843f3d97418a0d  T/law 3 :: chord
+62ea6c8de9f272d9  T/law 4 :: chord
+c0b5ed23ea73dae4  T/rule 1 :: chord
+e1cbe3f0ce11109b  T/rule 2 :: chord
+35ab39a3e5dc54dd  T/rule 3 :: chord
+360b3e8e2cf3b8c9  T/rule 4 :: chord
+8f38103d95015f34  T/rule 5 :: chord
+4a4313a313e1e76a  T/rule 6 :: chord
+5964435a836c5589  T/rule 7 :: chord
+d6f851e3bb93a543  T/rule 8 :: chord
+4af85a78fea1f647  T/rule 9 custom :: chord
+d3ac1e59673bbe04  T/rule snapped :: chord
+4b7931a21cb3f31c  T/spread snapped :: chord
+682e21e561301ef7  T/spread snapped -half :: chord
+d2a1b0188548e67c  T/blade envelope :: chord
+724ac8fea9a30389  T/cross-mod :: chord
+23723c1a575b17bf  T/feedback :: chord
+084f1d796b9c4931  T/splay K<0 :: chord
+4e42d66e00aeeb8b  T/strong lock :: chord
+89a5771dba55e961  T/cycles coupling :: chord
+bfe32bdddc2a3dbe  T/phase random :: chord
+89a5771dba55e961  T/phase zero :: chord
+0f6bcc647e180854  T/pan order :: chord
+90102af0ef7bbdb9  T/bend :: chord
+80d221002186ea4a  T/sweep k w c :: chord
+78eea6ec66df351e  T/sweep swarm :: chord
+00429fd6f45c18f1  T/sr 44100 :: arp
+ee8cdd1cee00bfd5  T/poly 2 steals :: arp
+a7ff0e6d24bd9d81  T/mono retrig :: legato
+3b7fb6519b2cb61f  T/legato glide always :: legato
+a5ae44aad629408b  T/restrike after full release :: restrike
+3a5ba5b1f085ad87  T/blade 1 off (w 0) :: chord
+c53e537c7bcfb963  T/blade 2 off (w2 0) :: chord
+24b5a01c389475e1  T/collision swept off :: chord
+5affe76e5819b039  T/b2 own clock at rest :: chord
+3a26db438927249e  T/b2 own clock homing :: chord
+86f628d8130785f0  T/mono glide 1 ms :: legato
+6f939ea180b5a993  T/settle skipped (K 0) :: chord
+ccd746eb5aa4d3e8  T/gate mode 6 collision :: chord
+a23df7859bcff21e  T/b2 lock 1 FM collision :: chord
+8aa1036faa3394c7  T/retune message :: retune
+097499223368d774  T/panic message :: panic
+ff8a7d278547d3a9  T/polyMode switch mid-note :: chord
+367890b8e557c41e  T/modX wrap :: long
+54ef6a33d77e5457  C/VL repeat, the first release rings
+8169dbb9b4d8043b  C/VL tiers 2 and 3
+35ca1ec63eda32e8  C/VL tier 1, a faded slot
+098d9ca8d3b7ac95  C/CAP cull, the cap lowered mid-phrase
+9f1d5bb42d9568cc  C/CAP refuse
+d436a0402139b156  C/CAP steal
+45bff86ffbb8ce92  C/CAP replace
+45bff86ffbb8ce92  C/CAP steal with no free slot
+462ab9732927534a  C/CAP not binding
+4e78355989a737df  C/CAP cull per-partial voices, the cap lowered mid-phrase
+bb4ff19c0d69f762  C/FT lock 2, 37-sample blocks
+fa0fbc2f85712c8e  C/FT Hz modulator, 100-sample blocks
+635f269198018c85  C/FT chord on a mono voice in one block
+eff3c963ce1b40af  C/FT retune before the first sample
+8557b37874a0b803  C/GRAV a sharp fifth
+37c0195459aa77af  C/GRAV a triad, K .35
+6361b0ebeaf06447  C/GRAV an octave-folded twelfth
+d233a96a38d4d052  C/GRAV a pair outside the basin
+0734fc81e62beb02  C/GRAV switched on mid-note
+5a494d996242c906  C/GRAV 100-sample blocks
+409182b998719c07  C/GRAV a bend while settled
+0aba23e81caf0648  C/GRAV at 44.1 kHz
+7abaf5d7bc4e65d4  C/ONS onset scatter, alpha 0
+5d9f5d3448fe677a  C/ONS onset scatter, alpha 0.25
+c36ec482a345ea48  C/ONS onset scatter, alpha 1
+0eb807af71060036  C/ONS attack and release scatter
+aeb0e6ed8dc6945a  C/ONS per-partial envelopes
+8f747e3a76500e89  C/ONS per-partial envelopes, arp
+874281de149c9bfa  C/ONS scatter and envelopes together
+5249741a1b69c172  C/ONS a seed change re-derives the offsets
+3434386030b7201e  C/ONS mono retrigger with per-partial envelopes
+3000af4223c2fdec  C/ONS at 44.1 kHz
+03637110c9460fd4  C/ONS onset scatter switched off mid-note
+9daaba2ae6e26ab9  C/ONS per-partial envelopes switched off mid-note
 9e934cdfbfd9d42e  C/D1 :: Zap bass
 fec627aa6415df80  C/D2 :: Zap bass
 fec627aa6415df80  C/D3 :: Zap bass
@@ -484,185 +484,185 @@ f4c68ba525458c03  C/D1 :: Cross-mod roar
 6b6c8d66a98de7df  C/D2 :: Cross-mod roar
 085fed67e6cb85b7  C/D3 :: Cross-mod roar
 d450b16ed0aec274  C/D1-D3 :: Cross-mod roar
-1c8c5d20510ded31  C/D1 a sync carrier with Band-limit off
-d9038ce4d947f1e8  C/D1 a ring carrier with Band-limit off
-125e614435c74827  C/D1 an FM carrier, pitch FM
-f4ad06934e513e44  C/D1 an S&H modulator (out of scope)
-6f33fd965aaa802c  C/D1 switched on mid-note
-4226c13120bbb80b  C/D2 blade 2 carrier under feedback
-15c7c939aad3a09e  C/D1 width-locked FM carrier
-ccddb9eb8a18efcc  C/D1 mirrored FM carrier
-24e866f96b53c9a4  C/D1 under collision
-57fee04ef386f72f  C/D1 on a serial input
-bc017d3a384be1b0  C/D1 serial twins
-39f1fa98908c6668  C/D2 under phase FM
-73394e47ce4b2e58  C/D2 width-locked
-1a0fff6ced01b9c9  C/D2 mirrored
-4f1280a18cc51cc8  C/D2 under collision
-f9aaa2f458991011  C/D3 a cross-mod ring
-a4f92d83c0f8004f  C/D3 switched on mid-note
-2baeccf025b79244  C/M1 K .35 at 44100
-cc65eae245ab545b  C/M1 K 1 at 44100
-4aae847edff2847e  C/M1 K -.6 at 44100
-9c42d80bc01e98e7  C/M1 K .35 at 48000
-71fc2d41e49a2fba  C/M1 K 1 at 48000
-2f82624af87c71db  C/M1 K -.6 at 48000
-56d7a50eff84d4bd  C/M1 K .35 at 96000
-19355c1d13190bb1  C/M1 K 1 at 96000
-ac9217781ceb7823  C/M1 K -.6 at 96000
-e0efe19aa40a3771  C/M2 onset +.5 at 44100
-5e780c95dab28750  C/M2 onset -.5 at 44100
-a4d79ac42708e3e7  C/M3 law 3 at 120 bpm, 44100
-5ba161ad3e04b62c  C/M3 law 3 at 140 bpm x2, 44100
-da7ad4864d6d2a66  C/M2 onset +.5 at 48000
-5720a6e1dc4504b6  C/M2 onset -.5 at 48000
-c51640a3dbfb67fe  C/M3 law 3 at 120 bpm, 48000
-db5bd848adfd85fa  C/M3 law 3 at 140 bpm x2, 48000
-46166f4adb717dad  C/SW dist 0
-a713e05142bb5391  C/SW dist 1
-dd88497ed0fd2b48  C/SW dist 2
-a942684d996abd4b  C/SW dist 3
-97136fb4e1ccb4fd  C/SW dist 4
-e3b2a2b222ff6935  C/SW law 0
-d534ee2b4a0dbc78  C/SW law 1
-6956e8b3dd2cf898  C/SW law 2
-e3e56450ead7d0c9  C/SW law 4
-6324c5a1214fb259  C/SW law 5
-039ebca53373b9d8  C/SW drift mode 0
-6178d3880bf11a27  C/SW drift mode 1
-5d34200a10eb3f23  C/SW drift mode 2
-ef060ec0e4687575  C/SW drift with the centre pin
-6aa396f890659e61  C/SW inertia, curve 0.5
-586073809e83fbb8  C/SW inertia, curve 2.5
-d42dc30fb6500e44  C/SW frequency glide under drift and retune
-971df514d113a60b  C/SW keep phase
-c9a0e1a60fce3f1b  C/SW random start phases (retrig off)
-45f50f27b75d9363  C/SW pivot, K 0.6
-b5640b386018d522  C/SW pivot, K -0.6
-c320b7a2eca53edb  C/SW anchor and spread
-71cdd3f6b906bb3c  C/SW a seed change mid-phrase
-9253af61e5d00a71  C/SW N changes mid-note
-396fc9d21890bf47  C/A2 negative Rotate spread
-9937bcb702a657cd  C/A2 blade 2 own negative Rotate spread
-242290c22b659e56  C/A2 Rotate spread flips sign mid-note
-67ae9ca587f65934  C/A2 Quantized Cut spread -2.5
-90d999772ead71a1  C/A2 Quantized Cut spread 2.5
-eec47885967308ec  C/A2 Quantized blade 2 Cut spread -1.5
-2e8d7ffec2af6795  C/OS 2 -> 4 -> 1 mid-note
+acbb28d47ee3f67c  C/D1 a sync carrier with Band-limit off
+400cff1aae5ed919  C/D1 a ring carrier with Band-limit off
+2461289bbf5ca9f8  C/D1 an FM carrier, pitch FM
+2a15f94db97c8716  C/D1 an S&H modulator (out of scope)
+ed4f237aecd89d1d  C/D1 switched on mid-note
+8fb03286811fc8fb  C/D2 blade 2 carrier under feedback
+976a5d780f6d696f  C/D1 width-locked FM carrier
+df7d96ec675a66c9  C/D1 mirrored FM carrier
+9b0d63bb259b5656  C/D1 under collision
+5b7e7f8be67a3fa1  C/D1 on a serial input
+7b99f92ecf7ee15e  C/D1 serial twins
+79b92bf5e912036a  C/D2 under phase FM
+f04483d023536e7e  C/D2 width-locked
+3fb9256aaba8349b  C/D2 mirrored
+a6f11985c7854c91  C/D2 under collision
+df2a2bd1e3f0ea18  C/D3 a cross-mod ring
+b95251b96419cf2b  C/D3 switched on mid-note
+22e3fcb3f6713263  C/M1 K .35 at 44100
+a3dbbc8456c2a847  C/M1 K 1 at 44100
+45a444a2fc74ee38  C/M1 K -.6 at 44100
+39cda59cc6979ab0  C/M1 K .35 at 48000
+4e42d66e00aeeb8b  C/M1 K 1 at 48000
+fb7b1196242ea323  C/M1 K -.6 at 48000
+73f0cff3497c5c7a  C/M1 K .35 at 96000
+eb1e6b021d191752  C/M1 K 1 at 96000
+7afa7d5453d377e3  C/M1 K -.6 at 96000
+dbdc87f2a6d37ab9  C/M2 onset +.5 at 44100
+b2613e4204d4680c  C/M2 onset -.5 at 44100
+9781461400bb1858  C/M3 law 3 at 120 bpm, 44100
+dc504451e9aeece9  C/M3 law 3 at 140 bpm x2, 44100
+8db26342142d8b43  C/M2 onset +.5 at 48000
+c5387057130a57db  C/M2 onset -.5 at 48000
+2c5cdec1a54714f6  C/M3 law 3 at 120 bpm, 48000
+2e3c54350c2df307  C/M3 law 3 at 140 bpm x2, 48000
+cb6c09193ca05bcc  C/SW dist 0
+1eccf28ce772ac85  C/SW dist 1
+ce34df6a131df11f  C/SW dist 2
+302238e195cc2b2a  C/SW dist 3
+ef7add0ba9edbd52  C/SW dist 4
+bba0dbd7d246fc7a  C/SW law 0
+7a1ae2576fdaa770  C/SW law 1
+b7dc66190ba6311e  C/SW law 2
+f3ea8878cb08f7a2  C/SW law 4
+0ccebf675472b2a3  C/SW law 5
+391c03fe38814395  C/SW drift mode 0
+4e0eb0add4038d37  C/SW drift mode 1
+def16fcdac6491ad  C/SW drift mode 2
+92f84bff8d073f9f  C/SW drift with the centre pin
+5791c01cdd7761d5  C/SW inertia, curve 0.5
+1ff2b063eac75d94  C/SW inertia, curve 2.5
+41c8b4818cd202d4  C/SW frequency glide under drift and retune
+714f2c2f75dc5365  C/SW keep phase
+67c573dc5b9c7a7e  C/SW random start phases (retrig off)
+c74e94ac96ad34f6  C/SW pivot, K 0.6
+d44bb82c09fe352f  C/SW pivot, K -0.6
+c9799356a9c34f54  C/SW anchor and spread
+4004413ea350e8d4  C/SW a seed change mid-phrase
+14348d74a6f5e702  C/SW N changes mid-note
+02788d1819452843  C/A2 negative Rotate spread
+2dc32be6b06e5894  C/A2 blade 2 own negative Rotate spread
+03d680134d144214  C/A2 Rotate spread flips sign mid-note
+41565c2397f4233a  C/A2 Quantized Cut spread -2.5
+d2fb6a98c0295520  C/A2 Quantized Cut spread 2.5
+867c74bad7b537ce  C/A2 Quantized blade 2 Cut spread -1.5
+2c1dea6d40d7ee2c  C/OS 2 -> 4 -> 1 mid-note
 c7fdcc3d8b2c3c13  C/D6 :: Swarm-linked spread
 0b1bbade8c4d1b39  C/D6 :: Anchored horde
 a8c7793d97e47e5d  C/D6 :: Smear and strike
 7c79945a3a771cac  C/D6 :: Drift and lock
 ed59f1fa16aa2edc  C/D6 :: Cross-mod shimmer
-b1a592e19852a9de  C/D6 a framed two-blade pad
-1f393deb19f85eba  C/D6 the centre undefined, K 0
-87ea8c14f39f24aa  C/D6 a splayed swarm, K -.6
-6c1e0098b0468fb0  C/D6 a locked swarm, K 1
-44e3bf7bcd568031  C/D6 spread law 3
-1f09c18ade8a131f  C/D6 blade 2 on the frame, blade 1 off it
-1b27ff9afc624f28  C/D6 switched on and off mid-note
-249476fe7f39b8c6  C/D6 mono retrigger on a sounding voice
-4a649ce55da5405e  C/D6 members waiting on onset scatter
-ba36e5a839de1a06  C/D6 N changes mid-note
-022daccce56c5084  C/D6 frequency glide under drift and retune
-359146544aa72313  C/D6 under the cull, the cap lowered mid-phrase
-4978b5e9721bb109  C/D6 37-sample blocks
-a7e961d5dfd22748  C/D6 at 44.1 kHz
-c5b1675f74661574  C/D6 at os 1
-9d8d176b7e18efe4  C/D6 members join a held frame
-642a66bac3fe192e  C/D6 members join before a mono retrigger
-7e9d8fe8192eca92  C/D7 a chord over a releasing chord, pool 6
-779386f7a4521d19  C/D7 every slot held
-f7bb2c5a80756ec7  C/D7 a waiting note released before its fade ends
-232ed90e3ecf01cd  C/D7 a waiting note retuned
-0fd685d478786f06  C/D7 a panic during a fade
-720a1c7bb7357d69  C/D7 a second take of the same voice during its fade
-075f99bc1272dc04  C/D7 a take under a voice cap
-586a35a513a82fdf  C/D7 a take at a full cap, capPolicy 2
-586a35a513a82fdf  C/D7 capPolicy 1 with no free slot
-cd19a2f1ee7a3a59  C/D7 capPolicy 1 cancels a waiting note
-7d2e421901091217  C/D7 a take of a voice fading under the cull
-0df5cedce2a6dfec  C/D7 a same-note repeat
-89dba1a9c29244c4  C/D7 mono, the flag on
-00a5940df822b51a  C/D7 legato, the flag on
-00a5940df822b51a  C/D7 legato, the flag off
-736b25f4a228c995  C/D7 switched on and off mid-phrase
-2b611a192124fae9  C/D7 37-sample blocks
-a1821a37d018d250  C/D7 at 44.1 kHz
-9bdd8530ccb65198  C/D7 at os 1
-874bb9ced5cf4efd  C/D7 and D6 both on
-1b49151328d5d68f  C/D7 a take of per-partial voices
-e5255d6e5ca0314a  C/D7 a take while gravity steps
-0f3afcf9b046d45e  C/D7 keep phase
-e019064617f5f585  C/D7 a tail under the threshold, and one that dies inside its fade
-f00269a3fb03f6ec  C/D7 a mode change during a fade
-3686cfc1d09b0d99  C/D7 keep phase, the pool taken whole
-866467baecfb1f3f  C/D7 keep phase after a cancelled fade
-ba7e28af63a981d4  C/D7 a note struck and released at once on a taken voice
-2479c4f7c106a74e  C/D7 a note with a late off pending is taken
-ddd0a36f3c307ce8  C/D7 a released waiting note is a tail to the tiers
-52905a865a18e614  C/D7 a note attaches to a cancelled fade
-a0ee8a5436b1ed3f  C/D7 tier 1 restarts a voice under a cancelled fade
-9ece39a9ecc27165  C/D7 an off exactly at the fade's end
-c663ba611d11db94  C/D7 an off one sample after the fade's end
-6278e82adb1034b5  C/D7 a third take of one voice
-681d39c814b42258  C/D7 a take while another voice holds the same key
-ccf01fd4f3267af8  C/D7 one key as an old sound and as a waiting note
-df51d559009bc032  C/D7 the pool shrinks during a fade
-7e527aab73007158  C/D7 N changes during a fade
-3731a7c825b1a31b  C/D7 a waiting voice whose old sound died, under a cap
-d570ace3dd5c2f72  C/D7 an off 239 samples after the take
-c4426df7c22205ef  C/D7 an off long after the start
-0fa4308f4b51c72b  C/D7 a second off before the first takes effect
-5a49b535ea7d8a9f  C/D7 a panic while a late off is pending
-aa86437a7c8973e5  C/D7 a held chord under a back-to-back line, the next note-on 0 samples after the off
-fc646891ebe35c76  C/D7 a held chord under a back-to-back line, the next note-on 96 samples after the off
-d4b558a5c15755e0  C/D7 a held chord under a back-to-back line, the next note-on 240 samples after the off
-f808956105201ee6  C/D7 a note released 96 samples after its take, the next struck 236 after
-75494dca98771336  C/D7 a note released 96 samples after its take, the next struck 244 after
-f7bd3389a6cbb323  C/D7 a note released 96 samples after its take, the next struck 264 after
-4264e1142a28f344  C/D7 a note released 96 samples after its take, the next struck 340 after
-0ffbd1ad230adf9d  C/D7 a note released 300 samples after its take, the next struck 400 after
-cc9dcfe20b40d243  C/D7 a note released 300 samples after its take, the next struck 536 after
-aac3554dca43847f  C/D7 a note released 300 samples after its take, the next struck 544 after
-17b72c6e4bf4fe73  C/D7 sustain 0 with a stolen note
-00b54b79b4d43916  C/D7 a mode change while a late off is pending
-0ffbd1ad230adf9d  C/D7 capPolicy 1 while a late off is pending
-a32da400e0afa0dc  C/D7 the cull takes a tail whose late off is pending
-970df46ab41bf37e  C/D7 one key started late on one voice and waiting on another
-0f0c2da1045d9cb4  C/D7 a retune between an off and its effect
-1b8565d2d7b75ea2  C/D7 a culled tail taken late, the cull's remainder the shorter
-4b9826773dd10866  C/D7 keep phase, a voice that dies under its ramp
+4ba66c53a5eeca3c  C/D6 a framed two-blade pad
+5cfa9bc5670214ba  C/D6 the centre undefined, K 0
+9930bbeb9eade919  C/D6 a splayed swarm, K -.6
+3f77dfd656379e69  C/D6 a locked swarm, K 1
+b5fa9cc2b6ae18ef  C/D6 spread law 3
+b8f76878f0fc2b85  C/D6 blade 2 on the frame, blade 1 off it
+450550b1d5390772  C/D6 switched on and off mid-note
+5e0ebf88485a7fbc  C/D6 mono retrigger on a sounding voice
+8dece8b63d099a01  C/D6 members waiting on onset scatter
+cc476e8f5944d312  C/D6 N changes mid-note
+72726de26d0371ea  C/D6 frequency glide under drift and retune
+8bc37469e7cda5df  C/D6 under the cull, the cap lowered mid-phrase
+88618e53066d9398  C/D6 37-sample blocks
+809d6981d09971e5  C/D6 at 44.1 kHz
+f08afd46c36e534f  C/D6 at os 1
+3701fdd6ba4d2933  C/D6 members join a held frame
+7037fbe5b94a8877  C/D6 members join before a mono retrigger
+f47de7ed14546fad  C/D7 a chord over a releasing chord, pool 6
+4db7cedd92cb578a  C/D7 every slot held
+24d50754bd398d76  C/D7 a waiting note released before its fade ends
+bd39e2edea5f2535  C/D7 a waiting note retuned
+60a9a5e86209bcc6  C/D7 a panic during a fade
+50a9351d1147cb25  C/D7 a second take of the same voice during its fade
+89ac76eb238ac1a4  C/D7 a take under a voice cap
+1b45e2c82c240bb1  C/D7 a take at a full cap, capPolicy 2
+1b45e2c82c240bb1  C/D7 capPolicy 1 with no free slot
+e6f51f84d29a0c50  C/D7 capPolicy 1 cancels a waiting note
+6065ce8ad37a5229  C/D7 a take of a voice fading under the cull
+78f472e36e3b5488  C/D7 a same-note repeat
+635f269198018c85  C/D7 mono, the flag on
+e56b93fd31e35cc4  C/D7 legato, the flag on
+e56b93fd31e35cc4  C/D7 legato, the flag off
+ebada58116f0e0c4  C/D7 switched on and off mid-phrase
+518911d2bdb918f5  C/D7 37-sample blocks
+b73f98819a8b06e8  C/D7 at 44.1 kHz
+2df36c9ddc7509be  C/D7 at os 1
+eab3ccd71aa1565f  C/D7 and D6 both on
+3de0ef9c8d7ebdb3  C/D7 a take of per-partial voices
+bfce14b43d1a1414  C/D7 a take while gravity steps
+c582c3393e641c5d  C/D7 keep phase
+6317e8b13114b6ad  C/D7 a tail under the threshold, and one that dies inside its fade
+8d47fd8cfde51e8e  C/D7 a mode change during a fade
+2ddbeb99c47f73f3  C/D7 keep phase, the pool taken whole
+fc4be56d95be1142  C/D7 keep phase after a cancelled fade
+1b23695180bd62df  C/D7 a note struck and released at once on a taken voice
+a02074b789f99f27  C/D7 a note with a late off pending is taken
+20f8b075b5345b08  C/D7 a released waiting note is a tail to the tiers
+46eae45d647e2a34  C/D7 a note attaches to a cancelled fade
+9e4be35302fd9af8  C/D7 tier 1 restarts a voice under a cancelled fade
+0eb07e5175447b30  C/D7 an off exactly at the fade's end
+44b9a591e596a917  C/D7 an off one sample after the fade's end
+df142ac3cc9020a5  C/D7 a third take of one voice
+88199144ba90555d  C/D7 a take while another voice holds the same key
+e7f4512650d0c73b  C/D7 one key as an old sound and as a waiting note
+dc25a2216e82bbab  C/D7 the pool shrinks during a fade
+208efabd37eaf1cc  C/D7 N changes during a fade
+75fea9e7402d4ad9  C/D7 a waiting voice whose old sound died, under a cap
+7c0fba20b4e3c94e  C/D7 an off 239 samples after the take
+e126ed41ea3a3c30  C/D7 an off long after the start
+0418466d0c3bb47e  C/D7 a second off before the first takes effect
+0a79c272ec81beef  C/D7 a panic while a late off is pending
+9aff22dcfa9155b2  C/D7 a held chord under a back-to-back line, the next note-on 0 samples after the off
+d256f722690d9fbf  C/D7 a held chord under a back-to-back line, the next note-on 96 samples after the off
+ab2b73f6823b030c  C/D7 a held chord under a back-to-back line, the next note-on 240 samples after the off
+44abfca5533e32c5  C/D7 a note released 96 samples after its take, the next struck 236 after
+64c8da99104eeadb  C/D7 a note released 96 samples after its take, the next struck 244 after
+77b9afd2b28c4fcf  C/D7 a note released 96 samples after its take, the next struck 264 after
+1581a576fe8e42fc  C/D7 a note released 96 samples after its take, the next struck 340 after
+81863c6fa15747dd  C/D7 a note released 300 samples after its take, the next struck 400 after
+e373a9c852d59e31  C/D7 a note released 300 samples after its take, the next struck 536 after
+f40692bd100c1d57  C/D7 a note released 300 samples after its take, the next struck 544 after
+cc51aa4200e4ae3d  C/D7 sustain 0 with a stolen note
+77284e84b0db6e05  C/D7 a mode change while a late off is pending
+81863c6fa15747dd  C/D7 capPolicy 1 while a late off is pending
+b29a369f9f5249f8  C/D7 the cull takes a tail whose late off is pending
+a557e18f2c948d03  C/D7 one key started late on one voice and waiting on another
+d8d5bb41e6429a90  C/D7 a retune between an off and its effect
+0529e37fa84e99b1  C/D7 a culled tail taken late, the cull's remainder the shorter
+9d5067bbc87af52d  C/D7 keep phase, a voice that dies under its ramp
 587272b9167c6884  C/D8 :: Breathing pad
 463145edff7fda85  C/D8 :: Breathing pad, D6 on
 bdaafc275dfa06a2  C/D8 :: Breathing pad, D6 on, os 1
-939c69407ec401f3  C/D8 every spread at once, the drift law
-41850019b9178771  C/D8 drift rate 1
-ca4988496ac98265  C/D8 the fastest drift
-6467220824ef40d1  C/D8 spread on blade 1 alone
-61572eaccce1df8e  C/D8 spread on blade 2 alone
-8ea9467903098dda  C/D8 spread law 3 with a frame, D6 on
-42496dc9b6ce6974  C/D8 spread law 3 with a frame, D6 off
-6753379e848b86f3  C/D8 spread law 3, the seam, Position spread 1
-2562f54947afd4e9  C/D8 the gradient law, the amounts moved mid-note
-05436baa1fc873fa  C/D8 the random law, a retrigger glides to a new draw
-b8f3906dcf0aa6f2  C/D8 Quantized Cut spread is set, not ramped
-41115e1596f87f19  C/D8 a cut rule, quantized
-26d36f95d9310ec7  C/D8 a cut rule, continuous
-af030c52bd8fee83  C/D8 the band-limit across its threshold
-d11886d95868c3d8  C/D8 negative Rotate spread, blade 2 its own
-2bcd0f6685b9d527  C/D8 members join mid-ramp
-540773894f66ee4d  C/D8 members waiting on onset scatter
-37d9c2342c81b561  C/D8 per-partial voices
-e82a73646e461eba  C/D8 mono retrigger on a sounding voice
-0cd1e45afa859ceb  C/D8 members join before a mono retrigger
-4f8fe2bc92b602db  C/D8 switched on and off mid-note
-500eae99a421ce56  C/D8 and D6 both on, the drift law on a frame
-28931dfa81fa49d7  C/D8 and D7 both on
-566f06f8d38bdbde  C/D8, D6 and D7 all on
-46d554535e7c1000  C/D8 37-sample blocks
-81ad57a172938677  C/D8 at 44.1 kHz
-9918a974eacd3cc5  C/D8 at os 1
-126e498c17f3e3ef  C/D8 at os 4
-c7979d72169662c1  C/D8 under the cull, the cap lowered mid-phrase
-TOTAL 9bac02ef35f3908d 659
+e8b95483f982e88b  C/D8 every spread at once, the drift law
+42f22f4a47fef8a5  C/D8 drift rate 1
+649c5258a2acc0e6  C/D8 the fastest drift
+69435efe380e1a90  C/D8 spread on blade 1 alone
+ad80db7222c200fc  C/D8 spread on blade 2 alone
+41da61490bec8762  C/D8 spread law 3 with a frame, D6 on
+5164f0695a18fa32  C/D8 spread law 3 with a frame, D6 off
+4c69842616061eb4  C/D8 spread law 3, the seam, Position spread 1
+704c26d38ef5b30e  C/D8 the gradient law, the amounts moved mid-note
+f09c8cc95da2bb29  C/D8 the random law, a retrigger glides to a new draw
+14f7f9144da650e6  C/D8 Quantized Cut spread is set, not ramped
+991efc2bb05dd934  C/D8 a cut rule, quantized
+3d6fc60b44f84771  C/D8 a cut rule, continuous
+e8747fdb80bbb63c  C/D8 the band-limit across its threshold
+cf136e569a363220  C/D8 negative Rotate spread, blade 2 its own
+2efecc96cd1c7530  C/D8 members join mid-ramp
+393886941c96bc37  C/D8 members waiting on onset scatter
+e075fcf3f6557a36  C/D8 per-partial voices
+3e875c4a2c71ac16  C/D8 mono retrigger on a sounding voice
+6bc7fc45932ddcb7  C/D8 members join before a mono retrigger
+dc790a957200eeab  C/D8 switched on and off mid-note
+abd89890876fb041  C/D8 and D6 both on, the drift law on a frame
+9bb5d4a226fe1506  C/D8 and D7 both on
+1fad0ebf531bdfda  C/D8, D6 and D7 all on
+9cefd00b4f553dda  C/D8 37-sample blocks
+c2861652b57f8fd8  C/D8 at 44.1 kHz
+a6f3012ab6c5a4a4  C/D8 at os 1
+704452414d138a65  C/D8 at os 4
+276863069dc04e99  C/D8 under the cull, the cap lowered mid-phrase
+TOTAL eb850588903b6ee7 659

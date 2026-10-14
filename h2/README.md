@@ -140,7 +140,11 @@ release flags, ADR-187 A1). Whether the two builds' digests agree is printed as
 context. The references are golden fixtures (protected): a re-pin states its
 reason in the PR and the trace, and the reason is a ledgered divergence, a
 scenario-set change (the re-pin lists the rows it touches) or a joint JS+C++
-change under A2 item 3. An output-neutral PR never re-pins; it re-runs
+change under A2 item 3. Under `--repin` the one-ULP control is judged against
+the run itself, not the reference it replaces (ADR-221 A2: a change that moves
+the control's own row left it nothing to turn newly red, so no re-pin could
+pass); in check mode it is judged against the reference. An output-neutral PR
+never re-pins; it re-runs
 `tools/h2_libm_count.py --write` so a moved libm call shows in its diff
 (`engine/libm-calls.<platform>.<compiler>.txt`, context, never a verdict).
 
