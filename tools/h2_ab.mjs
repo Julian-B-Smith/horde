@@ -62,6 +62,9 @@
  *   (b) a known difference: B = A x 0.5 through the same metrics code reads -6.02 dB (+- 0.01)
  *       and a level match of +6.02 dB (+- 0.01).
  *   (c) the WAV writer round-trips: write, read back with this file's reader, equal bit for bit.
+ *   (d) the page's Switch moves the volume and nothing else (pageSwitchProbe: the page's script in a
+ *       stub DOM with audio elements; no seek, play or pause on Switch, the new element already within
+ *       20 ms of the other). Must-fail: the old Switch (a seek) and a planted seek to 0 read red.
  *
  * Deterministic but for the render time printed on stdout. No dependency but Node's own and
  * h2/harness/harness.mjs.
@@ -241,7 +244,10 @@ button{font:inherit;padding:.2rem .7rem;border:1px solid var(--line);background:
 button:hover{border-color:var(--acc)}.which{display:inline-block;width:1.6rem;text-align:center;font-weight:700;color:var(--acc)}
 .which.b{color:var(--hot)}.seek{width:11rem;vertical-align:middle}.num{font-variant-numeric:tabular-nums;white-space:nowrap}
 .same{color:var(--dim)}.bar{display:flex;gap:1.5rem;align-items:center;flex-wrap:wrap;margin:.6rem 0}`;
-const PAGE_JS = `(()=>{
+/* THE PAGE'S SCRIPT is this function's source, shipped as `(pageMain)(document)`. It is a real function, not a
+   string, so the Switch probe below can run it against a stub DOM without an evaluator (tools/labharness/
+   sandbox_check.mjs flags any `new Function`/vm/eval/non-literal import() under tools/). */
+export function pageMain(document) {
 const match=document.getElementById('match');
 const rows=[...document.querySelectorAll('tr.row')].map(tr=>{
   const r={tr,a:tr.querySelector('audio.a'),b:tr.querySelector('audio.b'),which:'A',gain:parseFloat(tr.dataset.gain)||1,
@@ -253,25 +259,30 @@ const dur=r=>isFinite(r.a.duration)?r.a.duration:0;
 function levels(r){const g=match.checked?r.gain:1;let va=1,vb=g;if(vb>1){va=1/vb;vb=1;}
   r.a.volume=r.which==='A'?va:0;r.b.volume=r.which==='B'?vb:0;}
 function show(r){const d=dur(r),c=audible(r).currentTime;r.t.textContent=c.toFixed(1)+' / '+d.toFixed(1)+' s';r.seek.value=d?Math.round(1000*c/d):0;}
+// the silent element follows the audible one, never the other way round; a seek on the silent one cannot be heard
+function align(r){const au=audible(r),hid=au===r.a?r.b:r.a;if(!au.paused&&Math.abs(hid.currentTime-au.currentTime)>0.02)hid.currentTime=au.currentTime;}
 function stop(r){r.a.pause();r.b.pause();r.pp.textContent='Play';}
 rows.forEach(r=>{
   levels(r);
   r.pp.onclick=()=>{
     if(!r.a.paused){stop(r);return;}
     rows.forEach(o=>{if(o!==r)stop(o);});
-    levels(r);r.b.currentTime=r.a.currentTime;
+    levels(r);{const au=audible(r);(au===r.a?r.b:r.a).currentTime=au.currentTime;}   // both paused: line the silent one up with the audible one
     Promise.all([r.a.play(),r.b.play()]).then(()=>{r.pp.textContent='Pause';}).catch(e=>{r.t.textContent=String(e);});};
+  // SWITCH ONLY MOVES THE VOLUME. Both elements play in step all the time; a seek on a playing element is
+  // asynchronous and landed at a stale time (the lead's browser run: A 1.23 s, B 0.45 s after one click).
   r.sw.onclick=()=>{
-    const from=audible(r);r.which=r.which==='A'?'B':'A';audible(r).currentTime=from.currentTime;  // same playback position
+    r.which=r.which==='A'?'B':'A';
     levels(r);r.lab.textContent=r.which;r.lab.classList.toggle('b',r.which==='B');};
   r.seek.oninput=()=>{const t=dur(r)*r.seek.value/1000;r.a.currentTime=t;r.b.currentTime=t;show(r);};
-  r.a.ontimeupdate=r.b.ontimeupdate=()=>show(r);
+  r.a.ontimeupdate=r.b.ontimeupdate=()=>{show(r);align(r);};
   r.a.onended=r.b.onended=()=>{stop(r);r.a.currentTime=0;r.b.currentTime=0;show(r);};
   r.a.onloadedmetadata=()=>show(r);
 });
 match.onchange=()=>rows.forEach(levels);
 document.getElementById('stop').onclick=()=>rows.forEach(stop);
-})();`;
+}
+export const PAGE_JS = `(${pageMain.toString()})(document);`;
 
 export function pageHtml(set, pairs, files, osText) {
   const builds = ['A', 'B'].map(s => `<tr><td><b>${s}</b></td><td><code>${esc(set.builds[s].id)}</code></td><td><code>${set.builds[s].sha256.slice(0, 16)}</code></td><td class="dim">${esc(describeSets(set.sets[s]))}</td></tr>`).join('');
@@ -331,6 +342,47 @@ function synthetic() {
   for (let i = 0; i < n; i++) { const t = i / SR; L[i] = 0.3 * Math.sin(2 * Math.PI * 220 * t) + 0.1 * Math.sin(2 * Math.PI * 331 * t); R[i] = 0.25 * Math.sin(2 * Math.PI * 261.6 * t + 1); }
   return { L, R };
 }
+/* The page's script (pageMain) against a stub DOM (no browser here): Play, let time pass, let the silent element
+   drift, Switch. Returns { problems, text }. Switch must move the volumes and nothing else: no seek, play or
+   pause (a seek on a playing element is asynchronous, and landed at a stale time in the browser), and the
+   newly audible element must already be where the other one is, within 20 ms. */
+export function pageSwitchProbe(main, afterSwitch) {
+  const log = [];
+  const audio = name => {
+    let v = 1;
+    const el = { name, paused: true, duration: 7, t: 0, onended: null, ontimeupdate: null, onloadedmetadata: null,
+      get currentTime() { return el.t; }, set currentTime(x) { el.t = x; log.push(`seek ${name} to ${x.toFixed(3)}`); },
+      get volume() { return v; }, set volume(x) { v = x; },
+      play() { el.paused = false; log.push(`play ${name}`); return Promise.resolve(); }, pause() { el.paused = true; log.push(`pause ${name}`); } };
+    return el;
+  };
+  const A = audio('A'), B = audio('B');
+  const plain = () => ({ textContent: '', value: 0, onclick: null, oninput: null, classList: { toggle() {} } });
+  const pp = plain(), sw = plain(), seek = plain(), t = plain(), lab = plain();
+  const byClass = { 'audio.a': A, 'audio.b': B, '.pp': pp, '.sw': sw, '.seek': seek, '.t': t, '.which': lab };
+  const tr = { dataset: { gain: '1.5' }, querySelector: q => byClass[q] };
+  const match = { checked: true, onchange: null }, stop = plain();
+  const doc = { getElementById: id => (id === 'match' ? match : stop), querySelectorAll: () => [tr] };
+  main(doc);
+  const advance = dt => { for (const el of [A, B]) if (!el.paused) el.t += dt; };   // the clock, not a seek
+  pp.onclick();                         // Play
+  advance(0.74); A.ontimeupdate();
+  B.t += 0.1;                           // the silent one drifts ahead
+  A.ontimeupdate();                     // the page may line the SILENT one up
+  const drifted = Math.abs(A.t - B.t);
+  advance(0.5);
+  const mark = log.length;
+  sw.onclick();                         // Switch
+  if (afterSwitch) afterSwitch(A, B);   // a planted fault: what a wrong handler would have done next
+  const ops = log.slice(mark), problems = [];
+  if (ops.length) problems.push(`Switch issued ${ops.length} media call(s): ${ops.join('; ')}`);
+  if (Math.abs(A.t - B.t) > 0.02) problems.push(`after Switch B is at ${B.t.toFixed(3)} s and A at ${A.t.toFixed(3)} s`);
+  if (!(B.volume > 0 && A.volume === 0)) problems.push(`after Switch the volumes are A ${A.volume}, B ${B.volume} (B should be the audible one)`);
+  if (drifted > 0.02) problems.push(`the silent element was left ${drifted.toFixed(3)} s out of step`);
+  if (A.paused || B.paused) problems.push('Switch left an element paused');
+  return { problems, text: `A ${A.t.toFixed(3)} s, B ${B.t.toFixed(3)} s after Switch; ${ops.length} media calls on Switch` };
+}
+
 export function selfTest(binOpt) {
   let red = 0;
   const row = (ok, tag, text) => { console.log(`${ok ? 'PASS' : 'FAIL'}  ${tag} ${text}`); if (!ok) red++; };
@@ -376,6 +428,17 @@ export function selfTest(binOpt) {
   row(back.sr === SR && bits(gl, back.L) && bits(gr, back.R) && wav.equals(again), '(c)', `${n} frames written and read back: sample rate ${back.sr}, every sample bit for bit, and the re-written file byte for byte`);
   const rt = decodeWav(encodeWav(base.L, base.R, SR));
   row(base.L.every((x, i) => Math.abs(rt.L[i] - x) <= 0.5 / FULL + 1e-15), '(c)', `a ${haveBin ? 'rendered' : 'synthetic'} signal (${base.L.length} frames) comes back within half a 24-bit step`);
+  // (d) the page's Switch moves the volume and nothing else. Its must-fail, on every run: what the old Switch did
+  // (seek the new element to the other one's time) and a seek to 0, done right after the real handler, must each
+  // read red. They are planted around the handler, not by editing it, so the probe's eyes are what is tested.
+  const good = pageSwitchProbe(pageMain);
+  row(!good.problems.length, '(d)', `the page's Switch, in a stub DOM: ${good.problems.length ? good.problems.join(' | ') : good.text}`);
+  const plants = [['the old Switch (a seek of the new element to the other one\'s time)', (A, B) => { B.currentTime = A.currentTime; }],
+    ['a seek to 0', (A, B) => { B.currentTime = 0; }]];
+  for (const [what, plant] of plants) {
+    const bad = pageSwitchProbe(pageMain, plant);
+    row(bad.problems.length > 0, '(d)', `CONTROL ${what} reads: ${bad.problems.join(' | ') || 'GREEN (the probe is blind)'}`);
+  }
   console.log(`h2_ab --self-test: ${red ? 'FAIL' : 'PASS'}`);
   return red ? 1 : 0;
 }

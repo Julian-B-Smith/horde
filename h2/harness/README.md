@@ -204,7 +204,8 @@ table, loudest difference first; `pairs.jsonl` is one JSON line per pair.
   the page are outputs.
 - **Controls.** `node tools/h2_ab.mjs --self-test` (in `./verify fast`; `full` runs it on the
   engine just built): the same binary as A and B reads bit-identical, B = A x 0.5 reads
-  -6.02 dB, the WAV writer round-trips.
+  -6.02 dB, the WAV writer round-trips, and the page's Switch (run in a stub DOM) moves only the
+  volume, never a seek: a seek on a playing element landed at a stale time in the browser.
 
 ## Wiring the selftest
 

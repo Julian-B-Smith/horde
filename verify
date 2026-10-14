@@ -519,7 +519,8 @@ PY
   # (the difference's level, the level match, bit-identity) for the human to play. Its
   # controls: the same binary as A and B reads bit-identical (and one sample moved by an
   # ulp reads different, at that sample); B = A x 0.5 reads -6.02 dB and a +6.02 dB match;
-  # the 24-bit WAV writer round-trips bit for bit. With no h2_harness_render built (this
+  # the 24-bit WAV writer round-trips bit for bit; the page's Switch moves only the
+  # volume (its script in a stub DOM, with a seek planted as the must-fail). With no h2_harness_render built (this
   # target builds none) the first two run on a synthetic signal and print SKIP for the
   # engine half, which `./verify full` runs on the engine. Added under ADR-180 §1.
   if command -v node >/dev/null; then
