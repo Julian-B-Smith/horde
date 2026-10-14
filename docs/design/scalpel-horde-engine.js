@@ -529,6 +529,11 @@ function makeComposedEngine(RazorCore, swarmSrc) {
     constructor(sr) {
       super(sr);
       Object.assign(this.d, HORDE_D);
+      /* ADR-221: the default output level is the oracle's .35 lowered 12 dB, to .35 / 4,
+         because at .35 a four-note chord drove the output tanh over 1 on 71 of the bank's
+         83 presets (ROADMAP B486/B489). The oracle's constructor is not edited; its t and
+         s start equal, and stay so here. h2/engine/blade.h has the same value. */
+      this.t.gain = this.s.gain = 0.0875;
       this.src = 'horde';
       this.origin = 0.5;                 // §1.6.6
       this.sw = new SwarmSynth(sr);

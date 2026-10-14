@@ -2080,7 +2080,7 @@
     "liveInDeclared": 21,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -3,
+    "minLiveDeltaDecade": -4,
     "inertExactlyZero": true
    }
   },
@@ -2283,7 +2283,7 @@
     "liveInDeclared": 12,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -2,
+    "minLiveDeltaDecade": -3,
     "inertExactlyZero": true
    }
   },
@@ -3118,7 +3118,7 @@
     "liveInDeclared": 7,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -3,
+    "minLiveDeltaDecade": -4,
     "inertExactlyZero": true
    }
   },
@@ -3362,7 +3362,7 @@
     "liveInDeclared": 3,
     "regime": 0,
     "sideChannelHits": 3,
-    "minLiveDeltaDecade": -5,
+    "minLiveDeltaDecade": -6,
     "inertExactlyZero": true
    }
   },
@@ -3474,7 +3474,7 @@
     "liveInDeclared": 22,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -2,
+    "minLiveDeltaDecade": -3,
     "inertExactlyZero": true
    }
   },
@@ -3547,7 +3547,7 @@
     "liveInDeclared": 21,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -3,
+    "minLiveDeltaDecade": -4,
     "inertExactlyZero": true
    }
   },
@@ -3693,7 +3693,7 @@
     "liveInDeclared": 21,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -3,
+    "minLiveDeltaDecade": -4,
     "inertExactlyZero": true
    }
   },
@@ -3935,7 +3935,7 @@
    "source": [
     {
      "file": "docs/design/scalpel-horde-engine.js",
-     "line": 741,
+     "line": 746,
      "text": "p.retrig = d.phaseMode === 0 ? 0 : 1;"
     },
     {
@@ -4012,7 +4012,7 @@
     "liveInDeclared": 21,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -2,
+    "minLiveDeltaDecade": -3,
     "inertExactlyZero": true
    }
   },
@@ -5053,7 +5053,7 @@
     "liveInDeclared": 6,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -1,
+    "minLiveDeltaDecade": -2,
     "inertExactlyZero": true
    }
   },
@@ -5347,7 +5347,7 @@
     "liveInDeclared": 20,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -4,
+    "minLiveDeltaDecade": -5,
     "inertExactlyZero": true
    }
   },
@@ -5885,7 +5885,7 @@
     "liveInDeclared": 8,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -3,
+    "minLiveDeltaDecade": -4,
     "inertExactlyZero": true
    }
   },
@@ -6073,7 +6073,7 @@
     "liveInDeclared": 3,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -1,
+    "minLiveDeltaDecade": -2,
     "inertExactlyZero": true
    }
   },
@@ -6336,7 +6336,7 @@
     "liveInDeclared": 17,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -3,
+    "minLiveDeltaDecade": -4,
     "inertExactlyZero": true
    }
   },
@@ -8388,7 +8388,7 @@
     "liveInDeclared": 4,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -3,
+    "minLiveDeltaDecade": -4,
     "inertExactlyZero": true
    }
   },
@@ -8492,7 +8492,7 @@
     "liveInDeclared": 4,
     "regime": 0,
     "sideChannelHits": 3,
-    "minLiveDeltaDecade": -3,
+    "minLiveDeltaDecade": -4,
     "inertExactlyZero": false
    }
   },
@@ -9389,7 +9389,7 @@
    "source": [
     {
      "file": "docs/design/scalpel-horde-engine.js",
-     "line": 728,
+     "line": 733,
      "text": "const want = { n: d.N, dist: d.dist, seed: d.seed, law: d['h.law'] };"
     }
    ],
@@ -9499,7 +9499,7 @@
     "liveInDeclared": 26,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -1,
+    "minLiveDeltaDecade": -2,
     "inertExactlyZero": true
    }
   },
@@ -9524,7 +9524,7 @@
    "source": [
     {
      "file": "docs/design/scalpel-horde-engine.js",
-     "line": 732,
+     "line": 737,
      "text": "p.detune = t.detune / 100;"
     },
     {
@@ -9638,7 +9638,7 @@
     "liveInDeclared": 24,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -2,
+    "minLiveDeltaDecade": -3,
     "inertExactlyZero": true
    }
   },
@@ -9808,7 +9808,7 @@
     "min": 0,
     "max": 1,
     "taper": "lin",
-    "default": 0.35
+    "default": 0.0875
    },
    "active_when": true,
    "depends_on": [],
@@ -9855,7 +9855,7 @@
    "source": [
     {
      "file": "docs/design/scalpel-horde-engine.js",
-     "line": 779,
+     "line": 784,
      "text": "if (d.polyMode) return super.noteOn(note, freq, vel);"
     }
    ],
@@ -9923,7 +9923,7 @@
     "liveInDeclared": 21,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -1,
+    "minLiveDeltaDecade": -2,
     "inertExactlyZero": true
    }
   },
@@ -9979,7 +9979,7 @@
     "liveInDeclared": 21,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -1,
+    "minLiveDeltaDecade": -2,
     "inertExactlyZero": true
    }
   },
@@ -10293,12 +10293,12 @@
     },
     {
      "file": "docs/design/scalpel-horde-engine.js",
-     "line": 1174,
+     "line": 1179,
      "text": "settle(v) { if (this.src === 'razor') super.settle(v); }"
     },
     {
      "file": "docs/design/scalpel-horde-engine.js",
-     "line": 1270,
+     "line": 1275,
      "text": "for (let i = 0; i < N; i++) v.m[i].inc = Math.max(0, glideOn ? S.fRun[i] : S.eff[i]);"
     }
    ],
@@ -10359,7 +10359,7 @@
     "liveInDeclared": 24,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -1,
+    "minLiveDeltaDecade": -2,
     "inertExactlyZero": true
    }
   },
@@ -10496,7 +10496,7 @@
     "liveInDeclared": 19,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -2,
+    "minLiveDeltaDecade": -3,
     "inertExactlyZero": true
    }
   },
@@ -10658,7 +10658,7 @@
     "liveInDeclared": 6,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -1,
+    "minLiveDeltaDecade": -2,
     "inertExactlyZero": true
    }
   },
@@ -10753,7 +10753,7 @@
     "liveInDeclared": 17,
     "regime": 0,
     "sideChannelHits": 0,
-    "minLiveDeltaDecade": -1,
+    "minLiveDeltaDecade": -2,
     "inertExactlyZero": true
    }
   },
@@ -10823,7 +10823,7 @@
     },
     {
      "file": "docs/design/scalpel-horde-engine.js",
-     "line": 738,
+     "line": 743,
      "text": "p.inertia = c === 0.5 ? Math.sqrt(k) : Math.pow(k, c);"
     }
    ],
@@ -10917,7 +10917,7 @@
    "source": [
     {
      "file": "docs/design/scalpel-horde-engine.js",
-     "line": 738,
+     "line": 743,
      "text": "p.inertia = c === 0.5 ? Math.sqrt(k) : Math.pow(k, c);"
     }
    ],

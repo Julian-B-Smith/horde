@@ -141,8 +141,11 @@ The missing ones are package P9's to add to `metrics.mjs`. P4's rate axis needs 
 
 - **Seven ledger presets** (`ledger/...`): the names are read from `kLedger` in
   `tools/measure_h2_engine.cpp`, the values from the bank
-  (`reference/scalpel/data/presets.json`), played as the parity scenarios play them (the
-  params, then gain 0.35). `ledger/defaults` is the engine with no preset.
+  (`reference/scalpel/data/presets.json`): the params, then gain at the engine's default,
+  read from `h2/engine/blade.h` (0.0875 since ADR-221; the bank sets no gain, so this is
+  how the device plays a bank preset). Until ADR-221 it was the parity scenarios' 0.35,
+  which they keep. `ledger/defaults` is the engine with no preset. The corners keep the
+  declared ends of the range, gain 1 and gain 0.
 - **Three corners** (`corner/...`), from the declared ranges in
   `tools/patchspace/dependency_tree.json`: every continuous parameter at its maximum; the
   same with every toggle on; every continuous parameter at its minimum. They are
