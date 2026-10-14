@@ -80,7 +80,9 @@ The engine's flags at their ledgered defaults (`docs/port/divergences.json`):
     sine and reads no normaliser; the ramp's target there is r itself, asin's
     limit, or a ramp between 1 and asin(r) would silence the member on the way;
   - **set, not ramped:** cut under Quantize (`kq`), which the law itself steps;
-    and every value at a note's first tick, for a member that has just joined (N
+    and every value at the note-on's own `spread()` (the note's first couple
+    tick then RAMPS from there, so a new note's spread values follow the swarm
+    one tick later than with the flag off), for a member that has just joined (N
     raised) and for a member still waiting on onset scatter (ADR-216 A1 item 4);
   - **not touched:** `mor` and `kEff`, which no blade reads.
   A note-on's `spread()` on a voice already sounding (a mono retrigger) is not a
