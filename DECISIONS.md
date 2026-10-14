@@ -8128,3 +8128,17 @@ the scenarios built on this preset. The harness's copy (`h2/harness/patches.json
 
 **The lead's reading, stated to the human:** "subtle" is judged by the human's ears on the A/B, not by a threshold the lead picks; the measured difference is reported, never used as a gate on its own.
 
+## ADR-221 — RULED by the human: the engine's default output is about 12 dB lower, so chords do not clip (B489, B486, 2026-10-14)
+
+**Context.** The engine's only saturating stage is the output's `tanh(y * gain * 1.6)` on the sum of every voice, at the default Volume 0.35. A four-note chord at velocity 0.85 drives it over 1 on 71 of the 83 bank presets and over 2 on 21, so chords clip for their first tens to hundreds of milliseconds (B486). The lead offered three options (B489): (a) a default output about 12 dB lower with no make-up; (b) a pad before the `tanh` with make-up after it and a limiter; (c) random start phases by default; and recommended (a), with the rack's master stage (ADR-203) restoring level for the device and the grit offered back as an explicit drive control where a preset wants it.
+
+**The ruling.** The human: "I say lower the default output as recommended."
+
+**Decision.**
+1. The default output level goes down by about 12 dB (Volume 0.35 to a quarter of it), in the composed engine and its JS twin together. The blade oracle (`reference/`) is not edited.
+2. Factory sounds that carry the old default as a value move with it, so their balance with one another is kept. Which those are, and whether any preset sets a level of its own, is listed in the PR.
+3. **Migration:** a saved state keeps the level it stored, so a project saved before sounds as it did. Only new instances and factory presets change.
+4. The bank's chord drive is measured again (four notes at velocity 0.85): none over 1, or a stated list of exceptions.
+5. An A/B set (ADR-220), level-matched, so the human hears what changes besides loudness.
+6. **Not decided here:** the explicit drive control, and the master stage's make-up gain, which arrive with the rack.
+
