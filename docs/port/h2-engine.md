@@ -92,15 +92,35 @@ The engine's flags at their ledgered defaults (`docs/port/divergences.json`):
   the records give "the member spread values ramp across the tick" and no more.
   Both positions are built and parity-checked; turning it on by default is a PR
   of its own. **What `h2_spread_ramp_check` judges is PROPOSED (ADR-216 A4):**
-  on the bank's pad as shipped, no isolated jump at a tick boundary (the tick
-  positions a step of the law can reach: 0 and 1 at os 1, 0 to 6 at os 2 after
-  the decimation filter), and on its twin with the noise blade silent, no
-  isolated jump at all; each over eight seeds, three notes and both os, with
-  the present law and a skipped-tick plant as controls. **ROADMAP B460's first
-  added acceptance (0 / 0 / 0 on the pad as shipped at os 1 and os 2) is NOT met
-  at os 1:** at seed 1 the pad reads 1 / 0 / 0 there, a step of its own noise
-  blade at tick position 11 (ROADMAP B481), which no ramp can remove. That
-  count is printed on every run, attributed, and not judged. See the ledger's
+  - *The values are the proof.* Each of the eighteen values is read sample by
+    sample through the engine's public voice view, on a job that moves it, and
+    scored per tick against equal shares; judged per kind and per blade, with a
+    plant that leaves that kind stepped. All seven kinds are shown to ramp this
+    way. The limit, measured on a scratch mutant: this reads the fields the
+    render reads today, so an engine that fed a blade another value would pass
+    it.
+  - *The sound.* Four kinds are also HEARD to ramp (position, cut, width,
+    index): a one-kind plant on the sound turns a row red. Three are NOT heard
+    (rotation rate, depth, the band-limit pair): no measure of the output here
+    tells them stepped from ramped, and they rest on their values alone.
+  - *A coarse count.* On the pad with `mode2` 0 and `depth2` 0, where the
+    spread walks alike with the flag on and off (shown on every run), at C2 to
+    C4, eight seeds and both os: with the ramp, the raw detector hits at a
+    tick boundary (positions 0 and 1 at os 1, 0 to 6 at os 2 after the
+    decimation filter) are at most 5 % of those without it. Measured: 1
+    against 245 at os 2 and 0 against 526 at os 1; a skipped-tick plant, 44 %
+    and 49 %.
+  - *The tick measure* under a 1.0 dB ceiling on the jobs it is judged on. One
+    job it is printed on and not judged reads over it with the ramp on (the
+    band-limit pair at the fastest drift, about 2.5 dB against 24 dB with the
+    ramp off; ROADMAP B483).
+  **ROADMAP B460's first added acceptance (0 / 0 / 0 on the pad as shipped at
+  os 1 and os 2) is NOT met at os 1:** at seed 1 the pad reads 1 / 0 / 0
+  there, a step of its own noise blade at tick position 11 (ROADMAP B481),
+  which no ramp can remove. The pad as shipped is printed on every run,
+  attributed, and not judged: this check answers whether the spread law's
+  steps are gone, not whether that pad clicks. CPU with the flag on: +2.7 % to
+  +9.9 % (ROADMAP B482, an independent critic's measurement). See the ledger's
   D8 entry and `traces/2026-10-13-b460-spread-ramp-d8.md`.
 
 What the golden contains, each with its site in the composed JS:

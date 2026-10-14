@@ -24,7 +24,8 @@
  * every jump attributed, and not judged. Two earlier forms of this check judged them
  * and held only by the seeds chosen (an independent critic, 2026-10-14: at seed 14 a
  * noise jump of 0.141 falls on tick position 0; at C2 the twin's own wave edges read
- * as jumps); this one judges neither.
+ * as jumps); this one judges neither. THE VALUES ARE THE PROOF (the PROBE rows); the
+ * jump count is a coarse reading of the sound (ADR-216 A4 item 12).
  *
  * WHAT IS RENDERED. Everything goes through the engine harness (h2/harness/), so this
  * is the C++ engine as it ships, never the JS one. 48 kHz; every job pins `os`,
@@ -50,9 +51,17 @@
  *   on the pad AS SHIPPED the same probe must read MORE than 0 (its control: it can
  *   see two walks part).
  *
- *   JUMP rows (judged). The walk job, spreadRamp 1, at C2, G2, C3, G3 (velocity 0.9)
- *   and C4 (0.8), seeds 1 to 8, os 1 and os 2 (80 renders): no RAW DETECTOR HIT at a
- *   tick boundary. A raw hit is one sample at which tools/h2_frame_hold_check.mjs's
+ *   JUMP rows (judged; a COARSE READING OF THE SOUND, not the proof: the proof is the
+ *   PROBE rows below. PROPOSED, ADR-216 A4 item 12). The walk job at C2, G2, C3, G3
+ *   (velocity 0.9) and C4 (0.8), seeds 1 to 8, os 1 and os 2 (80 renders a flag). With
+ *   spreadRamp 1 the RAW DETECTOR HITS at a tick boundary are at most kJumpShare (5 %)
+ *   of those with spreadRamp 0, at each os, on at least kJumpMinOff (100) of the
+ *   latter. Not "none": a raw hit need not be a step. At C2 the wave is slow and the
+ *   detector's percentile low, and the crest of the wave's own steepest slope fires it
+ *   (measured: 0.088 between neighbours of 0.083 and 0.084, the same slope in the
+ *   flag-off render), and one such crest in four falls in the boundary set by chance.
+ *   Every flag-on hit is printed with the two steps either side of it.
+ *   A raw hit is one sample at which tools/h2_frame_hold_check.mjs's
  *   detector fires (a step on the left pre-limiter bus over 0.02 and over 3 times the
  *   99th percentile of the steps around it), BEFORE that check merges hits within 480
  *   samples into one event named by its largest step: merged, a law's step can hide
@@ -62,12 +71,14 @@
  *   copy's hits must be the original's events, on every one of the 160 renders.
  *
  *   CONTROL rows (judged; LIBRARY L0032). The same renders with spreadRamp 0, the
- *   present law. Required: at least one raw hit at a tick boundary at each os.
+ *   present law. Required: at least kJumpMinOff raw hits at a tick boundary at each os.
  *
- *   SKIP row (judged). The os 1 walk jobs through control/ramp-skip (the ramp dropped
- *   at one tick in four, so two ticks in four step), read as the JUMP row reads the
- *   engine. Required: at least one raw hit at a tick boundary, which is to say the
- *   JUMP row would be red on an engine that left those steps.
+ *   SKIP rows (judged, at both os). The walk jobs through control/ramp-skip (the ramp
+ *   dropped at one tick in four, so two ticks in four step), read as the JUMP row
+ *   reads the engine. Required: OVER kJumpShare of the spreadRamp 0 count at that os,
+ *   which is to say the JUMP row would be red on an engine that left those steps.
+ *   (Measured 2026-10-14: the engine 0.4 % at os 2 and 0 % at os 1; this plant 44 %
+ *   and 49 %.)
  *
  * AT A TICK BOUNDARY: THE POSITIONS A STEP OF THE LAW CAN REACH, from the engine's
  * code and not from where a jump was seen. The tick falls on every 32nd sample counted
@@ -86,9 +97,11 @@
  *         first internal step) and 0.068, 0.781, 0.259, -0.164, 0.084, -0.038, 0.015,
  *         -0.005 (at the second); computed from the filter's own coefficients. The set
  *         is every position at which either moves by at least 1 % of its largest move.
- * A hit that is not the law's (the wave's own edge) falls in the set by chance about 2
- * times in 32 at os 1 and 7 in 32 at os 2, and would turn the JUMP row red; it is not
- * excused here.
+ * A hit that is not the law's (the wave's own slope) falls in the set by chance about 2
+ * times in 32 at os 1 and 7 in 32 at os 2. It is counted, not excused: the JUMP row's
+ * share has room for it. THE BOUNDS, ALL PROPOSED: the tick ceiling 1.0 dB, the
+ * composition 1e-12, the probe 1e-6, the jump share 5 % on at least 100, and the os 2
+ * boundary set's 1 % line.
  *
  * EVERY KIND OF VALUE (ADR-216 A4 item 6). The pad moves only position (its other
  * spreads are 0 and its cut is quantized), so a ramp that reached position alone
@@ -109,6 +122,17 @@
  *   value that moved on neither job is printed UNPROVEN and counted in the verdict
  *   line; it does not turn the check red. This row also sees a ramp that ends one
  *   sample short, which no measure of the output here can.
+ *   THE PROBE'S LIMIT, measured (2026-10-14, two scratch mutants of the engine): it
+ *   reads the values the engine HOLDS, the fields the render reads today, through the
+ *   public view. An engine that kept those fields ramping and FED A BLADE the stepped
+ *   value from somewhere else would pass every PROBE row: with width fed so, the
+ *   PROBE's width row stayed green (2.0e-11) and five KIND rows went red (the width
+ *   job's engine read 6.62 dB, its plant's own reading); with DEPTH fed so, the PROBE
+ *   stayed green and SO DID THE WHOLE CHECK. So for position, cut, width and index a
+ *   blade fed the wrong value is caught on the sound; for rotation rate, depth and the
+ *   band-limit pair NOTHING HERE catches it. (Entailed, not run: the C++/JS parity
+ *   rows C/D8 move every kind, so such a change made in one of the two engines alone
+ *   would miss parity.)
  *
  *   KIND rows (the SOUND; judged for the kinds the tick measure can hear). Per kind
  *   and per blade, a job in which ONE blade moves that kind and nothing else while
@@ -122,10 +146,12 @@
  *   PAIR the tick measure does not tell the plant from the engine (a rate's step is a
  *   kink in a position, not a step; a depth's is a few per cent of one blade's level;
  *   the pair stepped together stays a matched pair): their lines are printed, NOT
- *   judged, and those kinds rest on the PROBE rows alone. ONE LINE THERE IS OVER THE
- *   CEILING AND IS NOT JUDGED: on the band-limit job the engine itself, ramp on, reads
- *   about 2.5 dB at this drift rate (24 dB with the ramp off). It is printed on every
- *   run, marked, and is the lead's to rule (the trace, round 3).
+ *   judged, and those kinds are shown to ramp on their VALUES ONLY, not heard (ADR-216
+ *   A4 item 13, PROPOSED; a NOTE row and the verdict line say so on every run). ONE
+ *   LINE THERE IS OVER THE CEILING AND IS NOT JUDGED (ROADMAP B483): on the band-limit
+ *   job the engine itself, ramp on, reads about 2.5 dB at this drift rate (24 dB with
+ *   the ramp off). The 1.0 dB ceiling is a bound on the jobs it is judged on (ADR-216
+ *   A4 item 14, PROPOSED); this line is printed on every run so that limit stays seen.
  *
  * THE TICK MEASURE (TICK rows, judged against a ceiling that is PROPOSED). B460's own
  * measure, as this check defines it (the row's text gives no formula): the second
@@ -160,6 +186,7 @@
  *
  * Deterministic: no clock, no randomness but the engine's seeded streams. One render
  * process per seed and section, so that no more than a section's samples are held.
+ * 2 min 46 s here (2026-10-14, darwin-arm64; 454 jobs).
  */
 import { realpathSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
@@ -189,6 +216,11 @@ const kTick = 32;
 // the last tick position a step of the law can reach, per os (header, AT A TICK BOUNDARY)
 const kBoundaryLast = { 1: 1, 2: 6 };
 const atBoundary = (os, at) => at % kTick <= kBoundaryLast[os];
+// PROPOSED (ADR-216 A4 item 12): with the ramp, the raw hits at a tick boundary are at
+// most this share of those without it, on at least kJumpMinOff of the latter. Measured
+// 2026-10-14: the engine 1 of 245 (0.4 %) at os 2 and 0 of 526 at os 1; the
+// skipped-tick plant 259 of 526 (49 %) at os 1. 5 % is near the geometric middle.
+const kJumpShare = 0.05, kJumpMinOff = 100;
 // the detector, tools/h2_frame_hold_check.mjs's own numbers (the DETECTOR row holds this copy to it)
 const kStepFloor = 0.02, kRatio = 3, kPercentile = 0.99, kWindow = Math.round(0.1 * SR), kFlank = kWindow / 2, kMerge = 480;
 // the tick measure's positions: the step lands on position 1, and a second difference
@@ -323,6 +355,8 @@ export function main(argv) {
     for (const os of kOsList) for (const n of kWalkNotes) {
       for (const sr of [1, 0]) {
         const r = W[`${os}/${n.name}/${sr}`], hits = rawHits(r.preL);
+        // a flag-on hit keeps the two steps either side of it, to show what it is
+        if (sr === 1) for (const e of hits) e.near = [-2, -1, 0, 1, 2].map(k => Math.abs(r.preL[e.at + k] - r.preL[e.at + k - 1]));
         (walk[`${os}/${sr}`] ||= []).push({ seed, note: n.name, hits });
         // the copy against the original
         const a = mergedAt(hits), b = isolatedJumps(r.preL).map(e => e.at);
@@ -334,7 +368,7 @@ export function main(argv) {
     // the walk probe, the skipped-tick plant, and the printed pad and twin
     const pj = [];
     for (const os of kOsList) for (const n of kWalkNotes) if (os === 1 || seed === SEED) pj.push([`probe/${os}/${n.name}`, job(seed, n, os, { ...kWalk, spreadRamp: 1 }, 'control/walk-probe', kSeconds, false)]);
-    for (const n of kWalkNotes) pj.push([`skip/${n.name}`, job(seed, n, kPlantOs, { ...kWalk, spreadRamp: 1 }, 'control/ramp-skip')]);
+    for (const os of kOsList) for (const n of kWalkNotes) pj.push([`skip/${os}/${n.name}`, job(seed, n, os, { ...kWalk, spreadRamp: 1 }, 'control/ramp-skip')]);
     for (const os of kOsList) for (const n of kPadNotes) {
       pj.push([`pad/${os}/${n.name}`, job(seed, n, os, { spreadRamp: 1 })]);
       pj.push([`twin/${os}/${n.name}`, job(seed, n, os, { ...kTwin, spreadRamp: 1 })]);
@@ -343,7 +377,7 @@ export function main(argv) {
     for (const [key, r] of Object.entries(P)) {
       const [kind, a, b] = key.split('/');
       if (kind === 'probe') { let far = 0, members = Infinity; for (let i = 0; i < r.L.length; i++) { if (!(r.L[i] <= far)) far = r.L[i]; if (!(r.R[i] >= members)) members = r.R[i]; } probes.push({ name: `seed ${seed} os ${a} ${b}`, far, members }); }
-      else if (kind === 'skip') (walk.skip ||= []).push({ seed, note: a, hits: rawHits(r.preL) });
+      else if (kind === 'skip') (walk[`skip/${a}`] ||= []).push({ seed, note: b, hits: rawHits(r.preL) });
       else (printed[`${kind}/${a}`] ||= []).push({ seed, note: b, jumps: isolatedJumps(r.preL) });
     }
     if (seed === SEED) {
@@ -400,16 +434,19 @@ export function main(argv) {
   for (const os of kOsList) {
     const on = flat(`${os}/1`), off = flat(`${os}/0`), onB = on.filter(e => atBoundary(os, e.at)), offB = off.filter(e => atBoundary(os, e.at));
     const n = (walk[`${os}/1`] || []).length;
-    row(onB.length === 0 && n === rendersWant, 'JUMP', `os ${os}, the walk job, spreadRamp 1, ${n} renders: raw detector hits at a tick boundary ${list(onB)}; required 0 (${on.length} raw hit(s) in all, none of them judged: off the boundary a hit is the wave's own)`);
-    row(offB.length > 0, 'CONTROL', `os ${os}, the same renders with spreadRamp 0 (the present law): raw detector hits at a tick boundary ${offB.length}, of ${off.length} in all; required at least 1`);
+    const share = c => `${(100 * c / offB.length).toFixed(1)} %`;
+    row(offB.length >= kJumpMinOff, 'CONTROL', `os ${os}, the walk job, spreadRamp 0 (the present law), ${n} renders: raw detector hits at a tick boundary ${offB.length}, of ${off.length} in all; required at least ${kJumpMinOff}, or a share of them would mean nothing`);
+    row(onB.length <= kJumpShare * offB.length && offB.length >= kJumpMinOff && n === rendersWant, 'JUMP',
+      `os ${os}, the walk job, spreadRamp 1, ${n} renders: raw detector hits at a tick boundary ${onB.length}, which is ${share(onB.length)} of the ${offB.length} with spreadRamp 0; required at most ${100 * kJumpShare} % (PROPOSED, ADR-216 A4 item 12). ` +
+      `${on.length} raw hit(s) in all with spreadRamp 1; a hit is not a step unless it stands out from its neighbours, which this count does not ask`);
+    for (const e of on) note('JUMP', `os ${os}, a spreadRamp 1 hit: ${one({ ...e })}, ${atBoundary(os, e.at) ? 'AT a tick boundary (counted)' : 'not at a tick boundary (not counted)'}; the steps from two samples before it to two after: ${e.near.map(v => v.toFixed(3)).join(' ')}`);
     for (const nn of kWalkNotes) {
       const c = k => flat(k).filter(e => e.note === nn.name);
       note('JUMP', `os ${os} ${nn.name} (the row above, by note): raw hits at a tick boundary / in all: spreadRamp 1 ${c(`${os}/1`).filter(e => atBoundary(os, e.at)).length} / ${c(`${os}/1`).length}; spreadRamp 0 ${c(`${os}/0`).filter(e => atBoundary(os, e.at)).length} / ${c(`${os}/0`).length}`);
     }
-  }
-  {
-    const os = kPlantOs, js = flat('skip'), b = js.filter(e => atBoundary(os, e.at));
-    row(b.length > 0, 'SKIP', `os ${os}, control/ramp-skip (the ramp dropped at one tick in four) on the ${(walk.skip || []).length} walk jobs of that os, read as the JUMP row reads the engine: raw detector hits at a tick boundary ${b.length}, of ${js.length} in all; required at least 1, or the JUMP row could not see a step the ramp leaves`);
+    const sk = flat(`skip/${os}`), skB = sk.filter(e => atBoundary(os, e.at));
+    row(skB.length > kJumpShare * offB.length && offB.length >= kJumpMinOff, 'SKIP', `os ${os}, control/ramp-skip (the ramp dropped at one tick in four) on the same ${(walk[`skip/${os}`] || []).length} jobs, read as the JUMP row reads the engine: ` +
+      `raw detector hits at a tick boundary ${skB.length}, which is ${share(skB.length)} of the ${offB.length} with spreadRamp 0 (${sk.length} in all); required OVER ${100 * kJumpShare} %, or the JUMP row could not see the steps the ramp leaves`);
   }
 
   // ---- printed, not judged: the pad as shipped and its noise-silent twin (ADR-216 A4 item 8)
@@ -495,12 +532,15 @@ export function main(argv) {
     if (kind.heard) row(eng <= kTickCeil && plant > kTickCeil && d <= kComposeCeil, 'KIND', `${text}; required: the engine at or under ${dB(kTickCeil)}, the plant over it, the composition within ${kComposeCeil}`);
     else {
       row(Number.isFinite(plant) && d <= kComposeCeil, 'KIND', `${text}; required here only that the plant took the job and the composition is within ${kComposeCeil}`);
-      note('KIND', `${kind.name}, blade ${blade} (NOT judged on the sound): the tick measure does not tell this plant (${dB(plant)}) from the engine (${dB(eng)}); this kind rests on its PROBE row` +
-        `${eng > kTickCeil ? `. THE ENGINE ITSELF, RAMP ON, IS OVER THE PROPOSED CEILING ON THIS JOB (${dB(eng)} against ${dB(kTickCeil)}): reported, not judged (header)` : ''}`);
+      note('KIND', `${kind.name}, blade ${blade} (NOT judged on the sound): the tick measure does not tell this plant (${dB(plant)}) from the engine (${dB(eng)}); this kind is shown to ramp on its VALUES (its PROBE row) and NOT on the sound`);
+      if (eng > kTickCeil) note('B483', `${kind.name}, blade ${blade}: THE ENGINE ITSELF, RAMP ON, READS OVER THE PROPOSED TICK CEILING ON THIS JOB (${dB(eng)} against ${dB(kTickCeil)}; ROADMAP B483). Printed on every run, not judged: the ceiling is a bound on the jobs it is judged on (ADR-216 A4 item 14, PROPOSED)`);
     }
   }
   const unproven = kKinds.flatMap(kind => [1, 2].filter(b => !proven.has(`${kind.name}/${b}`)).map(b => `${kind.name} (blade ${b})`));
   for (const u of unproven) console.log(`UNPROVEN ${u}: no judged row shows that this kind ramps`);
+  const valuesOnly = kKinds.filter(k => !k.heard).map(k => k.name), heardToo = kKinds.filter(k => k.heard).map(k => k.name);
+  note('KINDS', `shown to ramp on the VALUES and ALSO HEARD to (a plant on the sound turns a row red): ${heardToo.join(', ')}. Shown on the VALUES ONLY, and NOT heard (no row on the sound tells them stepped from ramped): ${valuesOnly.join(', ')} (ADR-216 A4 item 13, PROPOSED). ` +
+    `"0 unproven" below means every kind has a row on its values, not that every kind was heard`);
 
   // ---- liveness: every spreadRamp 1 walk render audible, and as loud as its spreadRamp 0 twin
   let liveBad = 0, liveWorst = 0, liveWorstName = '', firstBad = '';
@@ -513,8 +553,8 @@ export function main(argv) {
     `${firstBad ? `; first failure: ${firstBad}` : ''}`);
 
   console.log(`h2_spread_ramp_check: ${red ? 'RED' : 'GREEN'} (${red} row(s) failed; ${unproven.length} kind(s) unproven${unproven.length ? ': ' + unproven.join(', ') : ''}; ` +
-    `the walk job at a tick boundary over ${kSeeds.length} seeds, ${kWalkNotes.length} notes and os ${kOsList.join(' and ')}, its walk, its controls, ` +
-    `every kind of value by the probe and ${kKinds.filter(k => k.heard).length} of ${kKinds.length} kinds on the sound, the tick measure, the plants, liveness; the pad as shipped printed, not judged)`);
+    `${kKinds.length} kinds shown on their values, of which ${heardToo.length} also heard and ${valuesOnly.length} NOT heard (${valuesOnly.join(', ')}); ` +
+    `the walk job's hits at a tick boundary as a share over ${kSeeds.length} seeds, ${kWalkNotes.length} notes and os ${kOsList.join(' and ')}, its walk, its controls, the tick measure, the plants, liveness; the pad as shipped printed, not judged)`);
   return red ? 1 : 0;
 }
 

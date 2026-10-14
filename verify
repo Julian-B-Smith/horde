@@ -967,25 +967,26 @@ full() {
   #
   #
   # [engine gate: B460 the spread ramp, ADR-216 D8]
-  # tools/h2_spread_ramp_check.mjs, on the C++ engine through the harness: one held
-  # note of the bank's Breathing pad AS SHIPPED (no patch setting written over it), at
-  # C3, G3 and C4, at os 2 and at os 1, at host seeds 1 to 8, with frameHold 1. Judged as
-  # the lead ruled (PROPOSED, ADR-216 A4), the frame-hold check's own detector: with
-  # spreadRamp 1 the pad reads no isolated jump AT A TICK BOUNDARY (the tick positions a
-  # step of the law can reach; the check's header derives them), and its TWIN, the same
-  # render with the pad's noise blade silent and the random stream untouched, reads no
-  # isolated jump at all. Their CONTROLS: the present law (spreadRamp 0) must read at
-  # least one at each os, and the skipped-tick plant must read at least one at a tick
-  # boundary. The pad's whole count is printed, not judged: ROADMAP B460's first added
-  # acceptance (0 on the pad as shipped) is not met at os 1, where the noise blade
-  # steps by itself (ROADMAP B481). B460's own measure (the second
-  # difference's energy at the first samples of each 32-sample tick over the median
-  # position) must read at or under a ceiling PROPOSED for the human with the flag on,
-  # and over it with the flag off, at drift rates 0.1 and 1. Its PLANTS
-  # (h2/harness/control_spread.h): the ramp on one blade only, each way, and the ramp
-  # dropped at one tick in four must each read over that ceiling, and the composition
-  # two of them are built on must render what the engine renders, or the check is
-  # red. Its last line is its verdict. Added under ADR-180 §1.
+  # tools/h2_spread_ramp_check.mjs, on the C++ engine through the harness: are the
+  # spread law's steps gone with spreadRamp 1? What it judges is PROPOSED (ADR-216 A4).
+  # THE VALUES ARE THE PROOF: each of the eighteen spread values, on a job that moves it,
+  # is read sample by sample through the engine's public voice view and scored per tick
+  # against equal shares, per kind and per blade, with a plant that leaves that kind
+  # stepped (h2/harness/control_spread.h). THE SOUND: one-kind plants turn a row red for
+  # position, cut, width and index; rotation rate, depth and the band-limit pair are
+  # NOT heard and rest on their values (the check says so on every run). A COARSE COUNT:
+  # on the pad with mode2 0 and depth2 0, where the spread walks alike with the flag on
+  # and off (shown by a probe on every run), at C2 to C4, seeds 1 to 8, os 1 and 2, the
+  # frame-hold detector's raw hits at a tick boundary with the ramp must be at most 5 %
+  # of those without it, on at least 100; a skipped-tick plant must read over 5 %.
+  # B460's own measure (the second difference's energy at the first samples of each
+  # 32-sample tick over the median position) must read at or under a 1.0 dB ceiling
+  # with the flag on, and over it with the flag off, on the pad at drift rates 0.1 and
+  # 1; one job it is printed on and not judged reads over it (ROADMAP B483). The bank's
+  # pad AS SHIPPED is printed with every jump attributed and NOT judged: ROADMAP B460's
+  # first added acceptance (0 on it) is not met at os 1, where its noise blade steps by
+  # itself (ROADMAP B481). About 3 minutes. Its last line is its verdict. Added under
+  # ADR-180 §1.
   node tools/h2_spread_ramp_check.mjs --bin "$build_dir/h2_harness_render" || {
     echo "verify[full]: h2_spread_ramp_check FAILED" >&2; return 1; }
   #
