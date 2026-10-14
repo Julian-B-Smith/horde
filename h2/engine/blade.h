@@ -61,6 +61,10 @@ struct DP {
   // ADR-216 D7 (B459): a poly note-on that takes a sounding voice fades it and starts
   // when the fade ends (Engine::take). Off by default: 0 restarts the voice at once.
   double stealFade = 0;
+  // ADR-216 D8 (B460): every member spread value the blades read reaches them as a
+  // ramp across the couple tick (Engine::rampSpread). Off by default: 0 hands each
+  // tick's values over at once, the blade oracle's step.
+  double spreadRamp = 0;
   static constexpr int kCustomCap = 256;
   char kCustom[kCustomCap] = "1, 5/4, 3/2";
 };
@@ -83,6 +87,10 @@ struct BX {
   double c = 0, k = 3, modX = 0, mr = 0, mn = 1;
   NS ns3, ns4;
 };
+
+// ADR-216 D8 (B460): how many member spread values the blades read, in the order
+// Engine::kSpreadKeys lists them: nine of blade 1, then blade 2's nine.
+inline constexpr int kSpreadKeyCount = 18;
 
 struct Member {
   // the blade
@@ -108,6 +116,10 @@ struct Member {
   // ADR-216 D6, read only while the voice's frame is held (Voice::fhInit): the lead
   // under the frame, which `lead` ramps toward, and the ramp's step per sample
   double leadT = 0, leadStep = 0;
+  // ADR-216 D8, read only while the voice's spread values ramp (Voice::srInit): each
+  // value's step per sample, in Engine::kSpreadKeys' order. 0 for a value that was set
+  // at the last tick instead of ramped.
+  double srStep[kSpreadKeyCount] = {};
 };
 
 struct Voice {
@@ -142,6 +154,12 @@ struct Voice {
   // ramp (leadT, leadStep) to continue. One at or above it has just joined (N was
   // raised, or the flag came on at a smaller N) and its lead is set outright.
   int fhN = 0;
+  // ADR-216 D8: whether this voice's spread values are ramps (set by the first
+  // spread() of a note with the flag on, cleared by any with it off), and how many
+  // members the ramp last ticked with: one at or above it has just joined and its
+  // values are set outright (Engine::rampSpread).
+  bool srInit = false;
+  int srN = 0;
   // ADR-216 D7: the steal's fade and the note that waits for it (Engine::take).
   // sfLeft: samples left of the fade, 0 when none runs. wait: a note starts on this
   // voice when the fade ends; wNote, wFreq and wVel are that note as struck, and wTune

@@ -470,6 +470,81 @@ function composedRows(presets) {
   // when it stopped, not the snapshot of the last 37-sample block it was heard in.
   row('D7 keep phase, a voice that dies under its ramp', { ...B1, N: 5, R: 5, stealFade: 1, poly: 1, keepPhase: 1, phaseMode: 0, detune: 20 },
     [on(45), rb(37, 20), off(45), rb(37, 10), on(52), ['panic'], rb(37, 4), on(57), rb(37, 60), off(57), rb(37, 40)]);
+
+  // ADR-216 D8 (B460), the spread ramp ON. Appended AFTER every earlier row, D6's and
+  // D7's included, so no earlier row's place in the stream or in the self-digest
+  // references moves.
+  // The pad as shipped: the bank's Breathing pad as it stands (spread law 4, drift
+  // rate 0.1, Position spread 0.3, a noise blade), with the flag alone, with D6, and
+  // with D6 at os 1. These three rows move with the bank, on purpose: B460's acceptance
+  // reads this preset as shipped.
+  {
+    const p = preset('Breathing pad'), ch = PHRASES.chord(notesFor(p.category));
+    for (const [tag, fl] of [['', {}], [', D6 on', { frameHold: 1 }], [', D6 on, os 1', { frameHold: 1, os: 1 }]])
+      C.push({ name: `C/D8 :: Breathing pad${tag}`, sr: SR, seed: 0xB460, cmds: [...presetCmds({ ...p.params, ...fl, spreadRamp: 1 }), ...ch] });
+  }
+  // ... then each path of the law alone. W spreads every value a blade reads at once,
+  // under the drift law (law 4), without Quantize so that cut ramps too, on a sine->saw
+  // carrier (hot 6) so that the band-limit's r and normaliser are heard.
+  const R8 = { spreadRamp: 1 };
+  const W = { ...B2, N: 6, hot: 6, morph: 0.4, law: 4, driftRate: 0.5, bspread: 0.3, kspread: 1.5, wspread: 0.3, dspread: 0.2, ispread: 0.3, mspread: 0.3, rotSpread: 0.4,
+    detune: 14, K: 0.3, ...R8 };
+  row('D8 every spread at once, the drift law', W, held);
+  row('D8 drift rate 1', { ...W, driftRate: 1 }, held);
+  row('D8 the fastest drift', { ...W, driftRate: 12 }, chord);
+  // each blade alone: blade 2 owns its spreads (b2sp), and only one of the two has any
+  row('D8 spread on blade 1 alone', { ...W, b2sp: 1 }, held);
+  row('D8 spread on blade 2 alone', { ...B2, N: 6, mode2: 0, hot2: 6, morph2: 0.4, law: 4, driftRate: 0.5, b2sp: 1, bspread2: 0.4, kspread2: 2, wspread2: 0.3, dspread2: 0.2,
+    ispread2: 0.3, mspread2: 0.3, rotSpread2: 0.3, rot2Follow: 0, detune: 14, K: 0.3, ...R8 }, held);
+  // spread law 3 reads each member's lead (ADR-216 A1 item 5): with a frame, under D6's
+  // held frame and under the oracle's own; and its seam, where a lead passes half a
+  // cycle and every value turns over (a position takes the shortest way round)
+  row('D8 spread law 3 with a frame, D6 on', { ...F, law: 3, bspread: 0.3, wspread: 0.2, kspread: 1, K: 0.1, ...R8 }, held);
+  row('D8 spread law 3 with a frame, D6 off', { ...F, frameHold: 0, law: 3, bspread: 0.3, wspread: 0.2, kspread: 1, K: 0.1, ...R8 }, held);
+  row('D8 spread law 3, the seam, Position spread 1', { ...F, frame: 0, law: 3, bspread: 1, dspread: 0.3, K: 0, ...R8 }, held);
+  // the other laws: the gradient and the alternating law hold still unless a
+  // parameter moves (the smoother's 16-sample steps then reach the blades as ramps);
+  // the random law glides to each note's draw
+  row('D8 the gradient law, the amounts moved mid-note', { ...B2, N: 5, law: 0, bspread: 0.1, wspread: 0.1, ...R8 },
+    spliceAt(chord, [[20, ['set', 'bspread', 0.8]], [20, ['set', 'wspread', -0.4]], [45, ['set', 'bspread', -0.5]], [45, ['set', 'law', 2]]]));
+  row('D8 the random law, a retrigger glides to a new draw', { ...B1, N: 5, law: 1, bspread: 0.5, wspread: 0.3, dspread: 0.2, polyMode: 1, ...R8 }, PHRASES.legato([45]));
+  // Quantize: cut is stepped by the law and is set, everything else ramps; and a cut
+  // rule, with Quantize and without
+  row('D8 Quantized Cut spread is set, not ramped', { ...W, kq: 1, kspread: 2.5 }, held);
+  row('D8 a cut rule, quantized', { ...W, kq: 1, kRule: 1, kRuleAmt: 1 }, chord);
+  row('D8 a cut rule, continuous', { ...W, kRule: 6, kRuleAmt: 0.7 }, chord);
+  // the sine->saw band-limit: its r crosses the law's threshold where Shape spread walks
+  // a member's shape to plain sine and back (base 6 is the shape that reads it)
+  row('D8 the band-limit across its threshold', { ...B1, N: 6, base: 6, hot: 6, morph: 0.05, mspread: 0.5, law: 4, driftRate: 4, ...R8 }, held);
+  // Rotate spread's sign (ADR-184 A2) is applied to the law's value before it ramps
+  row('D8 negative Rotate spread, blade 2 its own', { ...B2, N: 5, law: 4, driftRate: 2, b2sp: 1, rotSpread: -0.4, rotSpread2: 0.3, rot2Follow: 0, rotRate2: 0.5, ...R8 }, chord);
+  // WHO IS SET: a member that joins mid-ramp (N raised inside a couple tick, in
+  // 100-sample blocks), with the flag off at first; members waiting on onset scatter;
+  // a mono retrigger's spread() on a sounding voice, which is not a tick
+  row('D8 members join mid-ramp', { ...W, N: 8, spreadRamp: 0 },
+    spliceAt([on(45), on(52), rb(100, 400), off(45), off(52), rb(100, 30)],
+      [[50, ['set', 'N', 4]], [50, ['set', 'spreadRamp', 1]], [101, ['set', 'N', 8]], [250, ['set', 'N', 5]], [301, ['set', 'N', 8]]]));
+  row('D8 members waiting on onset scatter', { ...W, onsetScatter: 12, A: 20, R: 250 }, arp);
+  row('D8 per-partial voices', { ...W, voiceEnv: 1, onsetScatter: 8, attackScatter: 0.5, relScatter: 0.5, A: 30 }, arp);
+  row('D8 mono retrigger on a sounding voice', { ...W, polyMode: 1 }, PHRASES.legato([45]));
+  row('D8 members join before a mono retrigger', { ...W, N: 4, polyMode: 1, law: 3, frame: 1 },
+    [on(45), rb(100, 30), ['set', 'N', 8], on(50), rb(100, 30), off(50), rb(100, 20), off(45), rb(100, 20)]);
+  row('D8 switched on and off mid-note', { ...W, spreadRamp: 0 }, spliceAt(held, [[40, ['set', 'spreadRamp', 1]], [200, ['set', 'spreadRamp', 0]]]));
+  // with the other two divergences of ADR-216: D6's held frame (spread law 3 then reads
+  // the lead under it), and D7's take (the waiting note's values are set at its start)
+  row('D8 and D6 both on, the drift law on a frame', { ...W, frame: 1, frameHold: 1, dist: 2, seed: 77, detune: 40, K: 0 }, held);
+  row('D8 and D7 both on', { ...W, R: 1500, poly: 2, stealFade: 1 }, [on(45), on(52), blocks(40), on(57), blocks(40), off(52), blocks(3), on(60), blocks(60),
+    off(57), off(60), blocks(20)]);
+  row('D8, D6 and D7 all on', { ...W, frame: 1, frameHold: 1, R: 1500, poly: 2, stealFade: 1 }, [on(45), on(52), blocks(40), on(57), blocks(40), off(52), blocks(3), on(60), blocks(60),
+    off(57), off(60), blocks(20)]);
+  // rates and blocks: a tick is 32 samples at every rate; 37-sample host blocks put
+  // every note and every block edge inside a ramp
+  row('D8 37-sample blocks', W, [on(45), rb(37, 5), on(52), rb(37, 600), off(45), off(52), rb(37, 40)]);
+  row('D8 at 44.1 kHz', W, held, { sr: 44100 });
+  row('D8 at os 1', { ...W, os: 1 }, held);
+  row('D8 at os 4', { ...W, os: 4 }, chord);
+  row('D8 under the cull, the cap lowered mid-phrase', { ...W, R: 1500 }, [on(45), on(52), on(57), blocks(40), off(52), off(57), blocks(3),
+    ['cap', 1], blocks(60), off(45), blocks(30)]);
   return C;
 }
 

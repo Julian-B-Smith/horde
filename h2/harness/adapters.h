@@ -25,6 +25,9 @@
 // [control includes: B459 the steal fade]
 #include "control_steal.h"
 //
+// [control includes: B460 the spread ramp]
+#include "control_spread.h"
+//
 #include "harness.h"
 
 namespace horde2::harness {
@@ -75,6 +78,33 @@ inline std::unique_ptr<Adapter> makeStealShortControl() { return std::make_uniqu
 inline std::unique_ptr<Adapter> makeStealStepControl() { return std::make_unique<StealPlantControl>(StealPlantControl::kStep); }
 inline std::unique_ptr<Adapter> makeStealEarlyControl() { return std::make_unique<StealPlantControl>(StealPlantControl::kEarly); }
 //
+// [control makers: B460 the spread ramp]
+// The spread ramp's plants (control_spread.h): the ramp on blade 1 only; on blade 2 only;
+// dropped at one tick in four; and the two-blade composition with nothing planted.
+inline std::unique_ptr<Adapter> makeRampBlade1Control() { return std::make_unique<SpreadPlantControl>(SpreadPlantControl::kBlade1); }
+inline std::unique_ptr<Adapter> makeRampBlade2Control() { return std::make_unique<SpreadPlantControl>(SpreadPlantControl::kBlade2); }
+inline std::unique_ptr<Adapter> makeRampBothControl() { return std::make_unique<SpreadPlantControl>(SpreadPlantControl::kBoth); }
+inline std::unique_ptr<Adapter> makeRampSkipControl() { return std::make_unique<SpreadPlantControl>(SpreadPlantControl::kSkip); }
+// One kind of value left stepped on one blade, everything else ramped (seven kinds, two
+// blades), and the walk probe (two engines, one with the ramp: how far apart they walk).
+inline std::unique_ptr<Adapter> makeStepControl(int kind, int blade) { return std::make_unique<SpreadPlantControl>(SpreadPlantControl::kStep, kind, blade); }
+inline std::unique_ptr<Adapter> makeStepPositionB1() { return makeStepControl(SpreadPlantControl::kPosition, 1); }
+inline std::unique_ptr<Adapter> makeStepPositionB2() { return makeStepControl(SpreadPlantControl::kPosition, 2); }
+inline std::unique_ptr<Adapter> makeStepCutB1() { return makeStepControl(SpreadPlantControl::kCut, 1); }
+inline std::unique_ptr<Adapter> makeStepCutB2() { return makeStepControl(SpreadPlantControl::kCut, 2); }
+inline std::unique_ptr<Adapter> makeStepRotationB1() { return makeStepControl(SpreadPlantControl::kRotation, 1); }
+inline std::unique_ptr<Adapter> makeStepRotationB2() { return makeStepControl(SpreadPlantControl::kRotation, 2); }
+inline std::unique_ptr<Adapter> makeStepWidthB1() { return makeStepControl(SpreadPlantControl::kWidth, 1); }
+inline std::unique_ptr<Adapter> makeStepWidthB2() { return makeStepControl(SpreadPlantControl::kWidth, 2); }
+inline std::unique_ptr<Adapter> makeStepDepthB1() { return makeStepControl(SpreadPlantControl::kDepth, 1); }
+inline std::unique_ptr<Adapter> makeStepDepthB2() { return makeStepControl(SpreadPlantControl::kDepth, 2); }
+inline std::unique_ptr<Adapter> makeStepIndexB1() { return makeStepControl(SpreadPlantControl::kIndex, 1); }
+inline std::unique_ptr<Adapter> makeStepIndexB2() { return makeStepControl(SpreadPlantControl::kIndex, 2); }
+inline std::unique_ptr<Adapter> makeStepBandB1() { return makeStepControl(SpreadPlantControl::kBand, 1); }
+inline std::unique_ptr<Adapter> makeStepBandB2() { return makeStepControl(SpreadPlantControl::kBand, 2); }
+inline std::unique_ptr<Adapter> makeWalkProbeControl() { return std::make_unique<SpreadPlantControl>(SpreadPlantControl::kWalk); }
+inline std::unique_ptr<Adapter> makeRampProbeControl() { return std::make_unique<SpreadPlantControl>(SpreadPlantControl::kProbe); }
+//
 
 inline constexpr AdapterRow kAdapters[] = {
   {"composed", false, &makeComposedAdapter},
@@ -109,6 +139,28 @@ inline constexpr AdapterRow kAdapters[] = {
   {"control/steal-short", true, &makeStealShortControl},
   {"control/steal-step", true, &makeStealStepControl},
   {"control/steal-early", true, &makeStealEarlyControl},
+  //
+  // [control rows: B460 the spread ramp]
+  {"control/ramp-blade1", true, &makeRampBlade1Control},
+  {"control/ramp-blade2", true, &makeRampBlade2Control},
+  {"control/ramp-both", true, &makeRampBothControl},
+  {"control/ramp-skip", true, &makeRampSkipControl},
+  {"control/step-position-b1", true, &makeStepPositionB1},
+  {"control/step-position-b2", true, &makeStepPositionB2},
+  {"control/step-cut-b1", true, &makeStepCutB1},
+  {"control/step-cut-b2", true, &makeStepCutB2},
+  {"control/step-rotation-b1", true, &makeStepRotationB1},
+  {"control/step-rotation-b2", true, &makeStepRotationB2},
+  {"control/step-width-b1", true, &makeStepWidthB1},
+  {"control/step-width-b2", true, &makeStepWidthB2},
+  {"control/step-depth-b1", true, &makeStepDepthB1},
+  {"control/step-depth-b2", true, &makeStepDepthB2},
+  {"control/step-index-b1", true, &makeStepIndexB1},
+  {"control/step-index-b2", true, &makeStepIndexB2},
+  {"control/step-band-b1", true, &makeStepBandB1},
+  {"control/step-band-b2", true, &makeStepBandB2},
+  {"control/walk-probe", true, &makeWalkProbeControl},
+  {"control/ramp-probe", true, &makeRampProbeControl},
   //
 };
 

@@ -48,6 +48,10 @@
  *     included: every note-off for it takes effect as late as the note started, so it
  *     sounds for as long as its key was held (take, startWaiting, noteOff; render
  *     splits itself at those samples).
+ *   - ADR-216 D8 (B460), off by default: the member spread values the blades read
+ *     (position, cut, rotation, width, depth, index and the sine->saw band-limit, of
+ *     both blades) are recomputed once per couple tick and reach the blades as a
+ *     ramp across that tick, never as a step (rampSpread).
  *
  * NUMBERS: doubles, built -ffp-contract=off (h2 rule 7: the shipped build is the
  * tested build), with JS semantics where they differ from C++ (js.h).
@@ -430,6 +434,7 @@ class Engine {
       {"onsetAlpha", &DP::onsetAlpha}, {"attackScatter", &DP::attackScatter}, {"voiceEnv", &DP::voiceEnv},
       {"relScatter", &DP::relScatter}, {"aaCarrier", &DP::aaCarrier}, {"aaXin", &DP::aaXin},
       {"aaLoop", &DP::aaLoop}, {"frameHold", &DP::frameHold}, {"stealFade", &DP::stealFade},
+      {"spreadRamp", &DP::spreadRamp},
     };
     for (const DKey& e : K) if (std::strcmp(e.k, k) == 0) return e.p;
     return nullptr;
@@ -1017,10 +1022,87 @@ class Engine {
       m.mr2 = r2; m.mn2 = r2 > 1e-4 ? std::asin(r2) : 1;
     }
   }
+  // ADR-216 D8 (B460): the member spread values a blade reads, blade 1's nine and then
+  // blade 2's in the same order (so index % 9 names the kind): 0 position, 1 and 2 cut
+  // (offset, ratio), 3 rotation rate, 4 width, 5 depth, 6 index, 7 and 8 the sine->saw
+  // band-limit (r and its normaliser). `mor` and `kEff` are the law's too, and no blade
+  // reads them: they stay as the law writes them.
+  static constexpr double Member::* kSpreadKeys[kSpreadKeyCount] = {
+      &Member::cOff,  &Member::kAdd,  &Member::kMul,  &Member::rotOff,  &Member::wMul,  &Member::dAdd,  &Member::iMul,  &Member::mr,  &Member::mn,
+      &Member::cOff2, &Member::kAdd2, &Member::kMul2, &Member::rotOff2, &Member::wMul2, &Member::dAdd2, &Member::iMul2, &Member::mr2, &Member::mn2};
+  // ADR-216 D8 (B460): THE SPREAD VALUES REACH THE BLADES AS RAMPS. The law above
+  // recomputes every member's values once per couple tick and the render reads them
+  // every sample, so each tick's change arrived in one sample: a step in the sound
+  // every kCoupleSamples (under the drift law, a random one). With the flag on, at
+  // each tick every value in kSpreadKeys travels from where it stands (`cur`, saved by
+  // spread() before the law overwrote it) to the law's new value in kCoupleSamples
+  // equal steps: this sample's share here, the rest once a sample (the end of
+  // renderCallK's sample loop), so it arrives on the tick's last sample. The rules,
+  // each PROPOSED in the B460 trace (the records give the ramp and no more):
+  //   - A POSITION (cOff, cOff2) is read modulo one cycle, so it travels the shortest
+  //     way round, as a lead does under D6. The value it starts from is first moved by
+  //     whole cycles onto the target's branch, which no blade can hear, so it cannot
+  //     wander off over a long note.
+  //   - CUT under Quantize (kq) is stepped by the law itself (a whole-number offset, or
+  //     a slot of the rule's list): it is SET, not ramped, or it would sweep through
+  //     the rates Quantize exists to avoid. Without Quantize it ramps.
+  //   - THE BAND-LIMIT'S NORMALISER (mn) is asin(r), and 1 where r is at or under the
+  //     law's threshold, where the wave is a plain sine and reads no normaliser. A
+  //     ramp between 1 and asin(r) would silence the member on the way, so there the
+  //     target is r itself, asin's own limit: r and its normaliser then stay a
+  //     matched pair along any ramp (the chord of asin lies above it, so the wave's
+  //     level is never over 1 and dips by at most 1 - r/asin(r) of the larger r).
+  //   - Every other value ramps linearly in its own units.
+  // WHO IS SET INSTEAD (ADR-216 A1 item 4's rule for a lead, applied here): a note's
+  // first spread() and the first after the flag turns on (srInit); a member at or
+  // above v.srN, which has just joined (N was raised); and a member still waiting on
+  // onset scatter (onsD > 0: it is silent, and holds the law's own values until the
+  // first tick after it starts). A note-on's spread() on a voice already sounding (a
+  // mono retrigger) is not a tick: the law runs, so its draws keep their order, and
+  // the ramps stay as they stand; the next tick travels to the law's values then.
+  // Spread law 3 reads each member's lead; its values are ramped like any other
+  // law's, which is how that lead reaches the blade as a ramp (ADR-216 A1 item 5).
+  void rampSpread(Voice& v, int N, bool tick, const double cur[][kSpreadKeyCount], int nCur) {
+    if (!js::truthy(d.spreadRamp)) { v.srInit = false; return; }   // OFF: the law's values, at once
+    for (int i = 0; i < N; i++) {   // the normaliser's target under the threshold (above)
+      Member& m = v.m[i];
+      if (!(m.mr > 1e-4)) m.mn = m.mr;
+      if (!(m.mr2 > 1e-4)) m.mn2 = m.mr2;
+    }
+    if (!v.srInit) {
+      v.srInit = true; v.srN = N;
+      for (int i = 0; i < N; i++) for (double& st : v.m[i].srStep) st = 0;
+      return;
+    }
+    if (!tick) {   // the ramps stay as they stand; a joined member keeps the law's values
+      for (int i = 0; i < nCur; i++) for (int k = 0; k < kSpreadKeyCount; k++) v.m[i].*kSpreadKeys[k] = cur[i][k];
+      return;
+    }
+    const bool stepped = js::truthy(d.kq);
+    for (int i = 0; i < N; i++) {
+      Member& m = v.m[i];
+      if (i >= v.srN || (v.pv && m.onsD > 0)) { for (double& st : m.srStep) st = 0; continue; }   // joined, or waiting: set
+      for (int k = 0; k < kSpreadKeyCount; k++) {
+        const int kind = k % 9;
+        const double T = m.*kSpreadKeys[k];
+        if (stepped && (kind == 1 || kind == 2)) { m.srStep[k] = 0; continue; }
+        double c = cur[i][k], dl = T - c;
+        if (kind == 0) { dl += 0.5; dl -= std::floor(dl); dl -= 0.5; c = T - dl; }
+        m.srStep[k] = dl / kCoupleSamples;
+        m.*kSpreadKeys[k] = c + m.srStep[k];
+      }
+    }
+    v.srN = N;
+  }
   // Every 32 samples and at note-on. The random law glides each member's slots
-  // toward the note's draw; the drift law walks them (Ornstein-Uhlenbeck).
-  void spread(Voice& v) {
+  // toward the note's draw; the drift law walks them (Ornstein-Uhlenbeck). `tick` is
+  // true for the render's couple tick and false for a note-on's call (D8 only).
+  void spread(Voice& v, bool tick = false) {
     const int N = static_cast<int>(d.N);
+    // ADR-216 D8: where each ramp stands, before the law overwrites it (rampSpread)
+    double cur[kMembers][kSpreadKeyCount];
+    const int nCur = js::truthy(d.spreadRamp) && v.srInit ? (N < v.srN ? N : v.srN) : 0;
+    for (int i = 0; i < nCur; i++) for (int k = 0; k < kSpreadKeyCount; k++) cur[i][k] = v.m[i].*kSpreadKeys[k];
     // A2 (2): under Quantize, Cut spread rounds half AWAY from zero so that -x
     // mirrors +x. An integer passes the law's own floor(x + 0.5) unchanged, so only
     // a negative half differs from the blade oracle.
@@ -1055,13 +1137,15 @@ class Engine {
     if (q) { s.kspread = k1; s.kspread2 = k2; }
     // A2 (1): Rotate spread is bipolar. The law ran on the magnitude; the sign
     // turns the members the other way. Blade 2 follows unless it owns its spreads.
-    if ((rotSign1 > 0 && rotSign2 > 0) || H2E_FAULT(10)) return;
-    const bool own = js::truthy(d.b2sp);
-    for (int i = 0; i < N; i++) {
-      Member& m = v.m[i];
-      if (rotSign1 < 0) m.rotOff = -m.rotOff;
-      m.rotOff2 = own ? (rotSign2 < 0 ? -m.rotOff2 : m.rotOff2) : m.rotOff;
+    if (!((rotSign1 > 0 && rotSign2 > 0) || H2E_FAULT(10))) {
+      const bool own = js::truthy(d.b2sp);
+      for (int i = 0; i < N; i++) {
+        Member& m = v.m[i];
+        if (rotSign1 < 0) m.rotOff = -m.rotOff;
+        m.rotOff2 = own ? (rotSign2 < 0 ? -m.rotOff2 : m.rotOff2) : m.rotOff;
+      }
     }
+    rampSpread(v, N, tick, cur, nCur);   // ADR-216 D8; with the flag 0 the values stay the law's
   }
   static double roundAway(double x) { return x < 0 ? -js::round(-x) : js::round(x); }
   // glide a wrapped rotation offset back to 0 the shortest way round (rotation switched off)
@@ -1240,6 +1324,7 @@ class Engine {
     v.sfLeft = 0; v.wait = false; v.offIn = 0; v.late = 0;   // ... under D7's fade either; no note waits on it, no off is pending for its last one, and its note is on time
     if (fresh) {
       v.fhInit = false;   // ADR-216 D6: a new note's frame starts at the measured centre (holdFrame)
+      v.srInit = false;   // ADR-216 D8: a new note's spread values are set, not ramped (rampSpread)
       if (!v.active) v.env = 0;
       // These draws come from the host stream and the start phase is overwritten
       // below by the swarm's. They are taken anyway: every later draw depends on them.
@@ -2117,7 +2202,7 @@ inline void Engine::renderCallK(double* L, double* R, int n) {
     s.depth += (t.depth - s.depth) * a1; s.I += (t.I - s.I) * a1; s.hard += (t.hard - s.hard) * a1;
     s.w2 += (t.w2 - s.w2) * a1; s.k2 += (t.k2 - s.k2) * a1; s.kHz2 += (t.kHz2 - s.kHz2) * a1; s.c2 += (t.c2 - s.c2) * a1;
     s.b2mix += (t.b2mix - s.b2mix) * a1;
-    if (--coupleTick <= 0) { coupleTick = kCoupleSamples; if (!H2E_SKIP(kStageCouple)) for (Voice& v : voices) if (v.active) { couple(v, true); spread(v); } }
+    if (--coupleTick <= 0) { coupleTick = kCoupleSamples; if (!H2E_SKIP(kStageCouple)) for (Voice& v : voices) if (v.active) { couple(v, true); spread(v, true); } }
     const double gk = 1 - std::exp(-3 / js::max(1, s.glide * 0.001 * sr));
     const double beA = 1 / js::max(1, s.benvA * 0.001 * sr), beD = 1 - std::exp(-4 / js::max(1, s.benvD * 0.001 * sr));
     const double beA2 = 1 / js::max(1, s.benvA2 * 0.001 * sr), beD2 = 1 - std::exp(-4 / js::max(1, s.benvD2 * 0.001 * sr));
@@ -2195,7 +2280,9 @@ inline void Engine::renderCallK(double* L, double* R, int n) {
           // mm.rot/rot2, v.gr, v.kE/kE2, v.wE/wE2 (the per-sample voice pass above),
           // and mm.inc, lead, cOff*, kAdd*, kMul*, wMul*, dAdd*, iMul*, mr*, mn* (couple
           // and spread, every 32 samples, above), and mm.lead again under ADR-216 D6,
-          // once a sample AFTER this loop (the lead ramp, below). Inside the loop, stepMember's swarm
+          // once a sample AFTER this loop (the lead ramp, below), where ADR-216 D8 also
+          // moves the spread values among them (rotOff* too, read in the pass above).
+          // Inside the loop, stepMember's swarm
           // work (tickSwarm, unLookAhead, memberStep) writes v.sw, v.tick0, v.gf0/gfb,
           // v.env and the members' entry and envelope state; the DC estimates write the
           // scratch states sc/sc2/bxs and only borrow gmr/gmn; fillG2 never reads the
@@ -2271,6 +2358,12 @@ inline void Engine::renderCallK(double* L, double* R, int n) {
     // its share in holdFrame instead, from the new step.
     // Only the members the hold last ticked with have a ramp (v.fhN).
     if (coupleTick > 1) for (Voice& v : voices) if (v.active && v.fhInit) for (int q = 0; q < N && q < v.fhN; q++) v.m[q].lead += v.m[q].leadStep;
+    // ADR-216 D8: the same for every ramped spread value (rampSpread), at the same
+    // place and for the same reason. Only the members the ramp last ticked with (v.srN).
+    if (coupleTick > 1) for (Voice& v : voices) if (v.active && v.srInit) for (int q = 0; q < N && q < v.srN; q++) {
+      Member& mm = v.m[q];
+      for (int k = 0; k < kSpreadKeyCount; k++) mm.*kSpreadKeys[k] += mm.srStep[k];
+    }
     // cross-mod and feedback make a cycle depend on the previous sample, which the
     // per-cycle estimate cannot see: the blocker drains any residual offset
     if (H2E_SKIP(kStageOut)) { L[i] = yl; R[i] = yr; continue; }
