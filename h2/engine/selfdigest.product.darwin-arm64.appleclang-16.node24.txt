@@ -4,7 +4,7 @@
 # ORACLE docs/design/scalpel-horde-engine.js b0ed52df0d2f5a777fa25d5db75fec27c0860b75
 # ORACLE reference/scalpel/prototype/razor-core.js 0ce6a713410d89c65bf55f761f1dc791fae61b16
 # ORACLE reference/swarmsaw.html e47da6c9e0b4a058e18d79f62d71ab31c3d3b1b0
-# ORACLE reference/scalpel/data/presets.json 45c4f1d5cff97922b88b1fab778eccca3d511bcd
+# ORACLE reference/scalpel/data/presets.json 7b9d55efd7db217c5c881f6644519dbf137af19a
 # ORACLE docs/design/scalpel-interface-lab.html b47fbe3cb26a8df7de7cc993c40ab9a1eaa492ed
 6f1035ccaec449df  P/Starting points / Quarter sync :: chord
 5bc5dc32109a280e  P/Starting points / Quarter sync :: repeat
@@ -234,9 +234,9 @@ decc20e78096d08b  P/Showcase / Pads / Undertone cathedral :: arp
 38b2bf15ca8f2391  P/Showcase / Pads / Cross-mod shimmer :: chord
 ebe2518edc2d5b3a  P/Showcase / Pads / Cross-mod shimmer :: repeat
 18b27acd89c72d7d  P/Showcase / Pads / Cross-mod shimmer :: arp
-af73b143736abc8f  P/Showcase / Pads / Breathing pad :: chord
-8a3d9b2e9c304fbf  P/Showcase / Pads / Breathing pad :: repeat
-9dac2ff2aa5ee0b7  P/Showcase / Pads / Breathing pad :: arp
+77cf7ec0c16ed09c  P/Showcase / Pads / Breathing pad :: chord
+703ac0bc64e9ac3a  P/Showcase / Pads / Breathing pad :: repeat
+3b113df6f859caac  P/Showcase / Pads / Breathing pad :: arp
 caa269c407aa8127  P/Showcase / Interplay / Fold over sync :: chord
 f01d92b90755ac96  P/Showcase / Interplay / Fold over sync :: repeat
 08e0fcee9262aaf3  P/Showcase / Interplay / Fold over sync :: arp
@@ -633,4 +633,4 @@ a32da400e0afa0dc  C/D7 the cull takes a tail whose late off is pending
 0f0c2da1045d9cb4  C/D7 a retune between an off and its effect
 1b8565d2d7b75ea2  C/D7 a culled tail taken late, the cull's remainder the shorter
 4b9826773dd10866  C/D7 keep phase, a voice that dies under its ramp
-TOTAL 4c4a53846977a824 627
+TOTAL 26b4da8f05e19861 627

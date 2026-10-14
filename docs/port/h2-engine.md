@@ -38,7 +38,7 @@ check fails on a blob it was not pinned to.
 | `docs/design/scalpel-horde-engine.js` | the composed engine (`makeComposedEngine`) | `b0ed52df0d2f5a777fa25d5db75fec27c0860b75` |
 | `reference/scalpel/prototype/razor-core.js` | the blade oracle it extends | `0ce6a713410d89c65bf55f761f1dc791fae61b16` |
 | `reference/swarmsaw.html` | SwarmSynth, the swarm it drives (DSP section) | `e47da6c9e0b4a058e18d79f62d71ab31c3d3b1b0` |
-| `reference/scalpel/data/presets.json` | the 83 bench presets | `45c4f1d5cff97922b88b1fab778eccca3d511bcd` |
+| `reference/scalpel/data/presets.json` | the 83 bench presets | `7b9d55efd7db217c5c881f6644519dbf137af19a` |
 | `docs/design/scalpel-interface-lab.html` | the 12 B366 envelope presets (`ENV_PRESETS`); since B445 also the device default `os: 1` (`LAB_DEF`), which no scenario reads | `b47fbe3cb26a8df7de7cc993c40ab9a1eaa492ed` |
 
 The engine's flags at their ledgered defaults (`docs/port/divergences.json`):

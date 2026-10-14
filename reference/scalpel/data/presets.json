@@ -5706,7 +5706,7 @@
     "depth": 1,
     "I": 1,
     "m": 2,
-    "detune": 0,
+    "detune": 8,
     "K": -0.3,
     "bspread": 0.3,
     "kspread": 0,
