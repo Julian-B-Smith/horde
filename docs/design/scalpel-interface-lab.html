@@ -884,6 +884,7 @@
     <button class="chip" id="aaD3" data-lab="ADR-189 D3 (aaLoop): the feedback / cross-mod loop through a 5 kHz one-pole filter, which removes the rate-locked limit cycle (broad#828). ?d3=1 starts it on.">D3 loop <b>OFF</b></button>
     <button class="chip" id="frD6" data-lab="B461, ADR-216 D6 (frameHold): the blade's frame holds its course where the swarm's phase centre is undefined (the members balanced, the order parameter near zero), and each member's lead reaches its blade as a ramp across the 32-sample tick instead of a step. A divergence from the SCALPEL oracle, OFF by default (ADR-187 A1: it turns ON by default in a PR of its own); ON auditions it against the oracle's sound. A lab setting, not a patch value. ?d6=1 starts it on.">D6 frame <b>OFF</b></button>
     <button class="chip" id="sfD7" data-lab="B459, ADR-216 D7 (stealFade): when every voice of the pool is sounding, a new note takes one of them (the quietest releasing tail, else the oldest held note). Today that voice restarts at once, mid-wave: a click. With this ON the taken voice fades out over 5 ms and the new note starts from silence when the fade ends, 5 ms late, on a steal only. A divergence from the voice law as built, OFF by default (ADR-187 A1: it turns ON by default in a PR of its own); ON auditions it. A lab setting, not a patch value. ?d7=1 starts it on.">D7 steal <b>OFF</b></button>
+    <button class="chip" id="srD8" data-lab="B460, ADR-216 D8 (spreadRamp): the spread law recomputes each member's values (position, cut, rotation, width, depth, index, shape) once per 32-sample tick, and today the blades take each tick's change in one sample: a step 1500 times a second, a random one under the drift law. With this ON every value a blade reads travels to its new value across the tick instead, a position the shortest way round; a Quantized cut still steps, as Quantize means it to. A divergence from the SCALPEL oracle, OFF by default (ADR-187 A1: it turns ON by default in a PR of its own); ON auditions it against the oracle's sound. A lab setting, not a patch value. ?d8=1 starts it on.">D8 spread <b>OFF</b></button>
     <button class="chip" id="capBtn" data-lab="B375, a lab setting FOR TESTING: what the audio does when the load loop's voice cap (B323) is full and every sounding voice is held. REFUSE (the default, the human's ruling): the new note is not played and the held notes are untouched. STEAL: the oldest held note is released and faded out over 8 ms, and the new note plays. ?steal=1 starts it on STEAL.">full cap (test) <b>REFUSE</b></button>
     <button class="chip" id="themeBtn" data-lab="theme audition">theme <b>LIGHT</b></button>
     <button class="chip" id="scrBtn" data-lab="audition the screen scheme (the data wells only) — gui2's SCR chip, ADR-121" title="audition the screen scheme (the data wells only): TUBE · ORCHID · FROST · EMBER · DUSK">screen <b>ORCHID</b></button>
@@ -1748,7 +1749,10 @@ const LAB = {
     frameHold: qp('d6', '0') === '1',
     /* B459, ADR-216 D7: the steal fade, one toggle of its own, OFF by default, pushed with the others;
        ?d7=1 starts it on */
-    stealFade: qp('d7', '0') === '1' },
+    stealFade: qp('d7', '0') === '1',
+    /* B460, ADR-216 D8: the spread ramp, one toggle of its own, OFF by default, pushed with the others;
+       ?d8=1 starts it on */
+    spreadRamp: qp('d8', '0') === '1' },
   /* B375: at a full voice cap, refuse the new note (false, the default) or steal the oldest held one
      (true, the test toggle). A lab setting for the AUDIO instance only: the engine takes it as an input
      (msg capPolicy), like the cap itself; no patch, preset or check scratch instance carries it */
@@ -2064,7 +2068,7 @@ function cornerVal(j, k) {
    morph or macro writes it, and the patch space (tools/patchspace/space.mjs, which reads the
    SP table) never samples it. Self-check scratch instances built from DEF alone hear them off,
    as the drawing's per-point function does (checkDrawnHeard: drawn = heard sample for sample). */
-const AA189 = ['aaCarrier', 'aaXin', 'aaLoop', 'frameHold', 'stealFade'];   // and ADR-216's D6 frameHold (B461) and D7 stealFade (B459): the same push
+const AA189 = ['aaCarrier', 'aaXin', 'aaLoop', 'frameHold', 'stealFade', 'spreadRamp'];   // and ADR-216's D6 frameHold (B461), D7 stealFade (B459) and D8 spreadRamp (B460): the same push
 function oracleParams(E) {
   const o = {};
   for (const k in E) if (ORK.has(k)) o[k] = E[k];
@@ -8252,7 +8256,7 @@ function chrome() {
   const tb = $('themeBtn'); if (tb) tb.innerHTML = 'theme <b>' + (LAB.theme === 'dark' ? 'DARK' : 'LIGHT') + '</b>';
   const sb = $('scrBtn'); if (sb) sb.innerHTML = 'screen <b>' + LAB.scheme + '</b>';
   const vb = $('valsBtn'); if (vb) vb.innerHTML = 'values <b>' + (LAB.showVals ? 'SHOWN' : 'HOVER') + '</b>';
-  [['aaD1', 'aaCarrier', 'D1 carrier'], ['aaD2', 'aaXin', 'D2 xin'], ['aaD3', 'aaLoop', 'D3 loop'], ['frD6', 'frameHold', 'D6 frame'], ['sfD7', 'stealFade', 'D7 steal']].forEach(([id, k, t]) => {
+  [['aaD1', 'aaCarrier', 'D1 carrier'], ['aaD2', 'aaXin', 'D2 xin'], ['aaD3', 'aaLoop', 'D3 loop'], ['frD6', 'frameHold', 'D6 frame'], ['sfD7', 'stealFade', 'D7 steal'], ['srD8', 'spreadRamp', 'D8 spread']].forEach(([id, k, t]) => {
     const b = $(id); if (b) b.innerHTML = t + ' <b>' + (LAB.aa[k] ? 'ON' : 'OFF') + '</b>'; });
   const rb = $('restrikeBtn'); if (rb && rb.classList) rb.classList.toggle('on', LAB.restrike);
   const cb = $('capBtn'); if (cb) cb.innerHTML = 'full cap (test) <b>' + (LAB.capSteal ? 'STEAL' : 'REFUSE') + '</b>';
@@ -8347,7 +8351,7 @@ function wireChrome() {
   on('scrBtn', 'click', () => { const i = SCHEMES.findIndex(s => s.name === LAB.scheme); LAB.scheme = SCHEMES[(i + 1) % SCHEMES.length].name; applyBodyClasses(); chrome(); rebuild(); });
   on('valsBtn', 'click', () => { LAB.showVals = !LAB.showVals; applyBodyClasses(); chrome(); });
   /* B355: one toggle per ADR-189 divergence; the engine reads each flag live */
-  [['aaD1', 'aaCarrier'], ['aaD2', 'aaXin'], ['aaD3', 'aaLoop'], ['frD6', 'frameHold'], ['sfD7', 'stealFade']].forEach(([id, k]) => on(id, 'click', () => { LAB.aa[k] = !LAB.aa[k]; pushOracle(); chrome(); }));
+  [['aaD1', 'aaCarrier'], ['aaD2', 'aaXin'], ['aaD3', 'aaLoop'], ['frD6', 'frameHold'], ['sfD7', 'stealFade'], ['srD8', 'spreadRamp']].forEach(([id, k]) => on(id, 'click', () => { LAB.aa[k] = !LAB.aa[k]; pushOracle(); chrome(); }));
   on('capBtn', 'click', () => { LAB.capSteal = !LAB.capSteal; capPolicyPush(); chrome(); });   // B375
   on('pwr', 'click', () => { audioStart(); });
   on('panic', 'click', () => { audioMsg({ t: 'panic' }); AUD.drone = false; const d = $('droneBtn'); if (d) d.classList.remove('on'); });

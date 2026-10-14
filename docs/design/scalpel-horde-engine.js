@@ -219,6 +219,16 @@
  *                    the moment its key is up the voice law reads it as a releasing tail). With the
  *                    flag 0 no line below changes a sample. See take(), startWaiting(), noteOn(),
  *                    render() and renderPlain().
+ *   ADR-216  D8 `spreadRamp`: THE SPREAD VALUES REACH THE BLADES AS RAMPS (B460; the lead, 2026-10-12,
+ *                    measuring B459: "the spread law steps the sound every 32 samples"). A DIVERGENCE
+ *                    FROM THE ORACLE, behind its own flag in `d`, DEFAULT 0 (ADR-187 A1), ledgered in
+ *                    docs/port/divergences.json. The oracle recomputes every member's spread values
+ *                    once per 32-sample tick (razor-core.js spread :482-502, spreadMember :103-142)
+ *                    and its render reads them every sample (:800-836), so each tick's change arrives
+ *                    in one sample; under the drift law that is a random step of every blade's
+ *                    position 1500 times a second. With the flag on each value a blade reads travels
+ *                    from where it stands to the law's new value across the tick, in equal steps. With
+ *                    the flag 0 no line below changes a sample. See spread(), rampSpread() and stepM().
  * NOT COMPOSED THIS ROUND (stated, not hidden): the output stage and voice
  * (rows 12, 13, 15, 17-20, 66 and D11: vol/normExp, width, the tanh, ADSR, the
  * pan image) stay RazorCore's. SwarmSynth's per-member amplitude terms (hiTame,
@@ -251,7 +261,8 @@
  * anchor, onset, dissolve, driftDepth, h.driftRate, driftMode, motionCenter,
  * inertia, inertiaCurve, freqGlide, keepPhase, pivotMode, and (B335) grav, basin,
  * onsetScatter, onsetAlpha, attackScatter, voiceEnv, relScatter, and (B355, ADR-189)
- * aaCarrier, aaXin, aaLoop, and (B461, ADR-216) frameHold, and (B459, ADR-216) stealFade.
+ * aaCarrier, aaXin, aaLoop, and (B461, ADR-216) frameHold, and (B459, ADR-216) stealFade, and
+ * (B460, ADR-216) spreadRamp.
  *
  * DETERMINISM. The swarm draws only SwarmSynth's seeded mulberry32 streams
  * (rngG/rngS) and (B335) the ensemble stream, mulberry32 from
@@ -297,7 +308,8 @@ function makeComposedEngine(RazorCore, swarmSrc) {
     aaCarrier: 0, aaXin: 0, aaLoop: 0,                 // ADR-189 D1, D2, D3 (B355): OFF is the oracle's sound
     frameHold: 0,                                      // ADR-216 D6 (B461): OFF is the oracle's frame
     stealFade: 0,                                      // ADR-216 D7 (B459): OFF restarts a taken voice at once
-    ksmPerRate: 1,                                     // B382 M1: ON, the C++'s per-rate coupling smoother
+    spreadRamp: 0,                                     // ADR-216 D8 (B460): OFF hands each tick's spread values over at once
+    ksmPerRate: 1,                                    // B382 M1: ON, the C++'s per-rate coupling smoother
   };
   /* ADR-216 D6's three constants, set by ADR-216 (the lead, under the human's delegation; a change
      needs a measurement): the order parameter R at and below which the frame ignores the measured
@@ -359,6 +371,20 @@ function makeComposedEngine(RazorCore, swarmSrc) {
   /* ADR-184 A2 (2): round half AWAY from zero, so −x rounds to exactly −(round x). Equal to
      Math.round everywhere except the negative halves (Math.round(−2.5) is −2). */
   const roundAway = x => (x < 0 ? -Math.round(-x) : Math.round(x));
+  /* ADR-216 D8 (B460): the member spread values a blade reads, blade 1's nine and then blade 2's in
+     the same order (so index % 9 names the kind): 0 position, 1 and 2 cut (offset, ratio), 3 rotation
+     rate, 4 width, 5 depth, 6 index, 7 and 8 the sine->saw band-limit (r and its normaliser). The
+     C++'s kSpreadKeys, in its order. m.mor and m.kEff are the law's too and no blade reads them.
+     srGet copies a member's values into an array, srPut writes an array back (rampSpread, stepM). */
+  const SPREAD_KEYS = 18;
+  const srGet = (m, a) => {
+    a[0] = m.cOff; a[1] = m.kAdd; a[2] = m.kMul; a[3] = m.rotOff; a[4] = m.wMul; a[5] = m.dAdd; a[6] = m.iMul; a[7] = m.mr; a[8] = m.mn;
+    a[9] = m.cOff2; a[10] = m.kAdd2; a[11] = m.kMul2; a[12] = m.rotOff2; a[13] = m.wMul2; a[14] = m.dAdd2; a[15] = m.iMul2; a[16] = m.mr2; a[17] = m.mn2;
+  };
+  const srPut = (m, a) => {
+    m.cOff = a[0]; m.kAdd = a[1]; m.kMul = a[2]; m.rotOff = a[3]; m.wMul = a[4]; m.dAdd = a[5]; m.iMul = a[6]; m.mr = a[7]; m.mn = a[8];
+    m.cOff2 = a[9]; m.kAdd2 = a[10]; m.kMul2 = a[11]; m.rotOff2 = a[12]; m.wMul2 = a[13]; m.dAdd2 = a[14]; m.iMul2 = a[15]; m.mr2 = a[16]; m.mn2 = a[17];
+  };
   /* B382 M3 `tempoGrid` (ruled 2026-09-30, B379; ADR-022, ADR-005). In the C++ law 3 is the TEMPO GRID
      (swarm_core.h :1803-1812): cents placement, then each member's Hz offset snapped to the nearest
      multiple of u = (bpm/60)·beatMult, so every pairwise beat rate is an exact multiple of the grid.
@@ -535,7 +561,10 @@ function makeComposedEngine(RazorCore, swarmSrc) {
           m.onsE = 0; m.eS = 0; m.eE = 0; m.hold = false; m.pg = 1; m.eCall = -1; m.eAi = 0; m.eRc = 0;
           m.fu = 0; m.f1 = 0; m.f2 = 0;                // ADR-189 D3: the loop filter's state and its taps (bladeStep)
           m.leadT = 0; m.leadStep = 0; m.leadR = 0;    // ADR-216 D6: the lead under the frame, the ramp's step, the ramp (holdFrame)
+          m.srC = new Float64Array(SPREAD_KEYS);       // ADR-216 D8: where each spread value's ramp stands (rampSpread) ...
+          m.srS = new Float64Array(SPREAD_KEYS);       // ... and its step per sample (0 for a value that was set)
         });
+        v.srInit = false; v.srN = 0;                   // ADR-216 D8: the spread values are ramps, and how many members the ramp last ticked with
         v.fx0 = 0;                                     // ADR-189 D3: member 0's sample before it steps (loopIn)
         v.psiF = 0; v.fhAdv = 0; v.fhInit = false;     // ADR-216 D6: the frame's angle, the members' summed advance, held or not
         v.fhN = 0;                                     // ... and how many members the hold last ticked with (holdFrame)
@@ -552,6 +581,7 @@ function makeComposedEngine(RazorCore, swarmSrc) {
         v.wFreq = 0; v.wTune = 0; v.wVel = 0;
       });
       this.inRender = false;                           // ADR-216 D6: a couple() from the oracle's render is a tick (renderPlain)
+      this.srT = new Float64Array(SPREAD_KEYS);        // ADR-216 D8: one member's values as the law has just written them (rampSpread)
       /* ADR-189: every blade state gets the same fields up front, so V8 keeps one shape per state
          (B346 measured a shape change as a cost of its own). aaReal marks the MEMBER states, the
          only ones D1 filters (scratch states serve the BLEP height probe and the DC estimators);
@@ -606,13 +636,84 @@ function makeComposedEngine(RazorCore, swarmSrc) {
       if (held) for (let i = 0; i < nh; i++) v.m[i].lead = v.m[i].leadR;
       if (q) { s.kspread = k1; s.kspread2 = k2; }
       const g = this.rotSign;
-      if (!g || (g.rotSpread > 0 && g.rotSpread2 > 0)) return;
-      const own = this.d.b2sp, N = this.d.N;
-      for (let i = 0; i < N; i++) {
-        const m = v.m[i];
-        if (g.rotSpread < 0) m.rotOff = -m.rotOff;
-        m.rotOff2 = own ? (g.rotSpread2 < 0 ? -m.rotOff2 : m.rotOff2) : m.rotOff;
+      if (g && !(g.rotSpread > 0 && g.rotSpread2 > 0)) {
+        const own = this.d.b2sp, N = this.d.N;
+        for (let i = 0; i < N; i++) {
+          const m = v.m[i];
+          if (g.rotSpread < 0) m.rotOff = -m.rotOff;
+          m.rotOff2 = own ? (g.rotSpread2 < 0 ? -m.rotOff2 : m.rotOff2) : m.rotOff;
+        }
       }
+      this.rampSpread(v, this.inRender);               // ADR-216 D8; with the flag 0 the values stay the oracle's
+    }
+
+    /* ADR-216 D8 (B460): THE SPREAD VALUES REACH THE BLADES AS RAMPS. Called at the end of spread(),
+       when the oracle's law (and the sign of Rotate spread) has written every member's values for
+       this tick. The oracle's render reads them every sample, so each tick's change arrived in one
+       sample: a step in the sound every 32 samples (under the drift law, a random one). With the
+       flag on, at each tick every value in srGet's list travels from where it stands (m.srC) to the
+       law's new value in COUPLE_SAMPLES equal steps: this sample's share here, the rest once a
+       sample (stepM), so it arrives on the tick's last sample. The rules, each PROPOSED in the B460
+       trace (the records give the ramp and no more):
+         - A POSITION (cOff, cOff2) is read modulo one cycle, so it travels the shortest way round,
+           as a lead does under D6. The value it starts from is first moved by whole cycles onto the
+           target's branch, which no blade can hear, so it cannot wander off over a long note.
+         - CUT under Quantize (kq) is stepped by the law itself (a whole-number offset, or a slot of
+           the rule's list): it is SET, not ramped, or it would sweep through the rates Quantize
+           exists to avoid. Without Quantize it ramps.
+         - THE BAND-LIMIT'S NORMALISER (mn) is asin(r), and 1 where r is at or under the law's
+           threshold (razor-core.js :122), where the wave is a plain sine and reads no normaliser
+           (:23). A ramp between 1 and asin(r) would silence the member on the way, so there the
+           target is r itself, asin's own limit: r and its normaliser then stay a matched pair along
+           any ramp (the chord of asin lies above it, so the wave's level is never over 1 and dips
+           by at most 1 - r/asin(r) of the larger r).
+         - Every other value ramps linearly in its own units.
+       WHO IS SET INSTEAD (ADR-216 A1 item 4's rule for a lead, applied here): a note's first
+       spread() and the first after the flag turns on (v.srInit); a member at or above v.srN, which
+       has just joined (N was raised); and a member still waiting on onset scatter (onsD > 0: it is
+       silent, and holds the law's own values until the first tick after it starts). A note-on's
+       spread() on a voice already sounding (a mono retrigger; `tick` is false) is not a tick: the
+       law has run, so its draws keep their order, and the ramps stay as they stand; the next tick
+       travels to the law's values then. Spread law 3 reads each member's lead; its values are
+       ramped like any other law's, which is how that lead reaches the blade as a ramp (ADR-216 A1
+       item 5).
+       JS-ONLY MECHANISM: m.srC. The oracle's law overwrites the fields its render reads by name, so
+       the ramp is kept in m.srC and copied into the fields wherever it moves. The C++ ramps the
+       fields themselves and saves them before its law runs; srC is not part of the divergence. The
+       horde source only: stepM moves the ramp, and the razor source never reaches that line. */
+    rampSpread(v, tick) {
+      const d = this.d, N = d.N;
+      if (!d.spreadRamp || this.src !== 'horde') { v.srInit = false; return; }   // OFF: the oracle's values, at once
+      for (let i = 0; i < N; i++) {                    // the normaliser's target under the threshold (above)
+        const m = v.m[i];
+        if (!(m.mr > 1e-4)) m.mn = m.mr;
+        if (!(m.mr2 > 1e-4)) m.mn2 = m.mr2;
+      }
+      if (!v.srInit) {
+        v.srInit = true; v.srN = N;
+        for (let i = 0; i < N; i++) { const m = v.m[i]; srGet(m, m.srC); m.srS.fill(0); }
+        return;
+      }
+      if (!tick) {                                     // the ramps stay as they stand; a joined member keeps the law's values
+        for (let i = 0; i < N && i < v.srN; i++) srPut(v.m[i], v.m[i].srC);
+        return;
+      }
+      const stepped = d.kq, T = this.srT;
+      for (let i = 0; i < N; i++) {
+        const m = v.m[i], C = m.srC, S = m.srS;
+        if (i >= v.srN || (v.pv && m.onsD > 0)) { srGet(m, C); S.fill(0); continue; }   // joined, or waiting: set
+        srGet(m, T);
+        for (let k = 0; k < SPREAD_KEYS; k++) {
+          const kind = k % 9, t = T[k];
+          if (stepped && (kind === 1 || kind === 2)) { S[k] = 0; C[k] = t; continue; }
+          let c = C[k], dl = t - c;
+          if (kind === 0) { dl += 0.5; dl -= Math.floor(dl); dl -= 0.5; c = t - dl; }
+          S[k] = dl / COUPLE_SAMPLES;
+          C[k] = c + S[k];
+        }
+        srPut(m, C);
+      }
+      v.srN = N;
     }
 
     setOS(n) {
@@ -875,6 +976,7 @@ function makeComposedEngine(RazorCore, swarmSrc) {
       v.cull = false;                                  // a re-allocated slot is a new voice, never still fading
       v.sfLeft = 0; v.wait = false; v.offIn = 0; v.late = 0;   // ... under ADR-216 D7's fade either; no note waits on it, no off is pending, and its note is on time
       if (fresh) v.fhInit = false;                     // ADR-216 D6: a new note's frame starts at the measured centre (holdFrame)
+      if (fresh) v.srInit = false;                     // ADR-216 D8: a new note's spread values are set, not ramped (rampSpread)
       super.startVoice(v, note, freq, vel, fresh, retrig);
       /* ADR-189: a fresh voice's loop starts from silence, as the oracle's does (y1 = y2 = 0,
          razor-core.js :401), so D3's filter and taps start at 0 too */
@@ -1265,6 +1367,14 @@ function makeComposedEngine(RazorCore, swarmSrc) {
          couple tick (the oracle's countdown this.cnt is 1 now) takes its share in holdFrame instead,
          from the new step. */
       if (m.j === 0 && v.fhInit && m.i < v.fhN && this.cnt > 1) m.lead = (m.leadR += m.leadStep);
+      /* ADR-216 D8: the same for every ramped spread value (rampSpread), at the same place and for the
+         same reason: the oracle's render read them for this step before calling here (:800-836) and
+         reads them next at the following sample. Only the members the ramp last ticked with (v.srN). */
+      if (m.j === 0 && v.srInit && m.i < v.srN && this.cnt > 1) {
+        const C = m.srC, S = m.srS;
+        for (let k = 0; k < SPREAD_KEYS; k++) C[k] += S[k];
+        srPut(m, C);
+      }
       /* B335 THE MEMBER'S GAIN rides RazorCore's pan gains. Its render sums each member as
          `vl += y·gl[q]` right after this call returns (razor-core.js :839-860), with the DC estimate
          already taken off y, so scaling gl[q] here scales the member's DC-corrected output and
