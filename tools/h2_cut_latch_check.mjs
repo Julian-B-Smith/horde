@@ -91,6 +91,12 @@
  *   difference's mean square at the worst of the tick's first four positions less its
  *   median position, on the pad at C3, seed 1, both os, flag off and on.
  *
+ *   D8OFF (printed, NOT judged; the lead's addition, 2026-10-14). The human's blind A/B
+ *   preferred the spread ramp OFF (B460's note), so the pad may ship with D8 off. The
+ *   same renders with `spreadRamp` 0, cutLatch 0 against 1: hits at a tick boundary and
+ *   in all, by note, and tickAbs at C3. With D8 off blade 2's Position steps at the tick
+ *   remain (D8's to remove), so a flag-on count is not expected to reach 0 here.
+ *
  *   LIVENESS row (judged). Every cutLatch 1 render of the JUMP rows is audible and within
  *   kLiveDb of its cutLatch 0 twin in rms.
  *
@@ -206,6 +212,8 @@ export function main(argv) {
     for (const os of kOsList) for (const n of kNotes) {
       for (const cl of [1, 0]) sj.push([`${os}/${n.name}/${cl}`, job(seed, n, os, { cutLatch: cl })]);
       fj.push([`${os}/${n.name}/plant`, job(seed, n, os, { cutLatch: 1 }, 'control/latch-f15')]);
+      // printed, not judged: the same pad with D8 OFF (the human's preference, B460's A/B note)
+      for (const cl of [1, 0]) sj.push([`${os}/${n.name}/d8off/${cl}`, job(seed, n, os, { spreadRamp: 0, cutLatch: cl })]);
     }
     const S = batch(sj, bin), F = batch(fj, faultBin);
     for (const os of kOsList) for (const n of kNotes) {
@@ -214,6 +222,9 @@ export function main(argv) {
         if (cl === 1) for (const e of h) e.near = [-2, -1, 0, 1, 2].map(k => Math.abs(r.preL[e.at + k] - r.preL[e.at + k - 1]));
         (hits[`${os}/${cl}`] ||= []).push({ seed, note: n.name, hits: h });
         if (seed === SEED && n === C3) ticks[`${os}/${cl}`] = tickAbs(r.preL);
+        const r8 = S[`${os}/${n.name}/d8off/${cl}`];
+        (hits[`${os}/d8off/${cl}`] ||= []).push({ seed, note: n.name, hits: rawHits(r8.preL) });
+        if (seed === SEED && n === C3) ticks[`${os}/d8off/${cl}`] = tickAbs(r8.preL);
       }
       (hits[`${os}/plant`] ||= []).push({ seed, note: n.name, hits: rawHits(F[`${os}/${n.name}/plant`].preL) });
       live.push([`seed ${seed} os ${os} ${n.name}`, level(S[`${os}/${n.name}/1`]), level(S[`${os}/${n.name}/0`])]);
@@ -284,6 +295,18 @@ export function main(argv) {
       `raw detector hits at a tick boundary ${plB.length}, which is ${share(plB.length)} of the ${offB.length} with cutLatch 0 (${pl.length} in all); required OVER ${100 * kJumpShare} %, or the JUMP row could not see a latch that does nothing`);
   }
   for (const os of kOsList) note('TICKABS', `os ${os} C3 seed ${SEED} (B485's measure, not judged): cutLatch 0 ${ticks[`${os}/0`].toExponential(3)}, cutLatch 1 ${ticks[`${os}/1`].toExponential(3)}`);
+  // printed, NOT judged: the same measure with D8 OFF (header, D8OFF)
+  for (const os of kOsList) {
+    const on = flat(`${os}/d8off/1`), off = flat(`${os}/d8off/0`);
+    note('D8OFF', `os ${os}, the pad as shipped with spreadRamp 0, ${(hits[`${os}/d8off/1`] || []).length} renders (printed, not judged): raw detector hits at a tick boundary / in all: ` +
+      `cutLatch 0 ${off.filter(e => atBoundary(os, e.at)).length} / ${off.length}, cutLatch 1 ${on.filter(e => atBoundary(os, e.at)).length} / ${on.length}; ` +
+      `tickAbs at C3 seed ${SEED}: cutLatch 0 ${ticks[`${os}/d8off/0`].toExponential(3)}, cutLatch 1 ${ticks[`${os}/d8off/1`].toExponential(3)}`);
+    for (const nn of kNotes) {
+      const c = k => flat(k).filter(e => e.note === nn.name);
+      note('D8OFF', `os ${os} ${nn.name} (by note): at a tick boundary / in all: cutLatch 0 ${c(`${os}/d8off/0`).filter(e => atBoundary(os, e.at)).length} / ${c(`${os}/d8off/0`).length}; ` +
+        `cutLatch 1 ${c(`${os}/d8off/1`).filter(e => atBoundary(os, e.at)).length} / ${c(`${os}/d8off/1`).length}`);
+    }
+  }
 
   // ---- what the blades are fed: the probe
   console.log(`what each blade is FED (control/latch-probe, the fault build's tap): the pad with ${JSON.stringify(kProbeJob)}, C3, seed ${SEED}, ${kProbeSeconds} s; a change is on a cycle start when the step's place in that blade's window is under one step's increment`);

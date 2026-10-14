@@ -1006,7 +1006,7 @@ full() {
   # the same with the flag on and off (a noise-blade job, which walks apart, is its
   # control); seven plants (ignored, a step late, a step early, one blade only either way,
   # never released, fed stale) each turn their row red; a fed-stale engine renders the
-  # flag-off samples, which the DIFF row would read. About 4 minutes. Its last line is its
+  # flag-off samples, which the DIFF row would read. The same pad with D8 OFF is printed, not judged. About 6 minutes. Its last line is its
   # verdict. Added under ADR-180 §1.
   node tools/h2_cut_latch_check.mjs --bin "$build_dir/h2_harness_render" --fault-bin "$build_dir/h2_harness_render_faults" || {
     echo "verify[full]: h2_cut_latch_check FAILED" >&2; return 1; }
