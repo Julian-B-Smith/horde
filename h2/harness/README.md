@@ -168,6 +168,44 @@ c++ -std=c++20 -O3 -ffp-contract=off h2/harness/render_cli.cpp -o <dir>/h2_harne
 `build-release/h2_harness_render`. On the ten reference patches the `-O2` and `-O3` builds
 gave the same digests (measured 2026-10-10, this machine only).
 
+## An A/B set between two engine builds (B488 step 0, ADR-220)
+
+`tools/h2_ab.mjs` renders a fixed set of phrases on a fixed set of presets from two builds of
+this tool and writes a page the human can play: A and B side by side, a switch that keeps the
+playback position, a level match, and the difference's level beside each pair. Every PR that
+changes how the engine sounds carries one (ADR-220 item 2).
+
+```
+c++ -std=c++20 -O3 -ffp-contract=off h2/harness/render_cli.cpp -o <dir>/main/h2_harness_render   # on main
+c++ -std=c++20 -O3 -ffp-contract=off h2/harness/render_cli.cpp -o <dir>/mine/h2_harness_render   # on the branch
+node tools/h2_ab.mjs --a <dir>/main/h2_harness_render --b <dir>/mine/h2_harness_render --out <dir>/ab
+```
+
+Build main's renderer from a clean tree of main (a worktree, or an export of its `h2/` into a
+scratch directory), not from your branch with the change stashed. Then open
+`<dir>/ab/index.html` in a browser, straight from the file system. `summary.md` is the same
+table, loudest difference first; `pairs.jsonl` is one JSON line per pair.
+
+- **The set.** Four phrases (`note`, `chord`, `line`, `steal`) on seven presets (the five
+  heaviest of the CPU ledger, Quarter sync, the oracle defaults): 28 pairs, 56 renders, about
+  40 s and 110 MB of WAV (measured 2026-10-14). The tool's header lists the phrases, the
+  presets and the settings (`os 1`, `frameHold 1`, `stealFade 1`, `poly 8`, as the installed
+  preview plays); `--presets "Name,Name"` narrows the set and `--os 2` changes the oversampling.
+- **A flag only one build has.** `--b-sets spreadRamp=1` writes extra settings on the B side
+  only (`--a-sets` for A). A key the build does not know stops the run, so a misspelt flag
+  never reads as "no difference".
+- **Reading the difference.** It is rms(B - A) / rms(A) in dB. `-inf` is the same samples.
+  Near -20 dB is a change you may hear; near 0 dB the two renders have stopped being the
+  same waveform (the phases or a noise draw moved), and at +3 dB they are as unrelated as
+  two independent signals of one level. That says nothing about which is louder: listen. The WAV files are
+  not level-matched; the page matches B to A by the measured gain at play time (it turns the
+  louder side down, because a media element's volume cannot go above 1).
+- **Nothing here is committed.** The default output is `build-ab/` (gitignored); WAV files and
+  the page are outputs.
+- **Controls.** `node tools/h2_ab.mjs --self-test` (in `./verify fast`; `full` runs it on the
+  engine just built): the same binary as A and B reads bit-identical, B = A x 0.5 reads
+  -6.02 dB, the WAV writer round-trips.
+
 ## Wiring the selftest
 
 **Done 2026-10-11:** option 1 below. `h2_harness_render` is a CMake target and the selftest
