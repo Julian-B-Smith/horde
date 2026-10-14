@@ -229,6 +229,15 @@
  *                    position 1500 times a second. With the flag on each value a blade reads travels
  *                    from where it stands to the law's new value across the tick, in equal steps. With
  *                    the flag 0 no line below changes a sample. See spread(), rampSpread() and stepM().
+ *   ADR-216  D9 `cutLatch`: A QUANTIZED CUT CHANGES AT ITS BLADE'S NEXT CYCLE START (B487; B485's
+ *                    measurement of Glass horde pad's crackle, 2026-10-14). A DIVERGENCE FROM THE ORACLE,
+ *                    behind its own flag in `d`, DEFAULT 0 (ADR-187 A1), ledgered in
+ *                    docs/port/divergences.json. Under a cut rule and Quantize the spread law's walk flips
+ *                    a member's slot between the rule's ratios, the oracle's render feeds the new cut at
+ *                    once (:826, :832), and the carrier phase is the cut times the phase into the window, so
+ *                    each flip is a jump in the wave. With the flag on the new cut waits for that blade's
+ *                    next window entry, where its carrier phase restarts. With the flag 0 no line below
+ *                    changes a sample. See spread(), latchCut(), latchStep() and stepM().
  * NOT COMPOSED THIS ROUND (stated, not hidden): the output stage and voice
  * (rows 12, 13, 15, 17-20, 66 and D11: vol/normExp, width, the tanh, ADSR, the
  * pan image) stay RazorCore's. SwarmSynth's per-member amplitude terms (hiTame,
@@ -262,7 +271,7 @@
  * inertia, inertiaCurve, freqGlide, keepPhase, pivotMode, and (B335) grav, basin,
  * onsetScatter, onsetAlpha, attackScatter, voiceEnv, relScatter, and (B355, ADR-189)
  * aaCarrier, aaXin, aaLoop, and (B461, ADR-216) frameHold, and (B459, ADR-216) stealFade, and
- * (B460, ADR-216) spreadRamp.
+ * (B460, ADR-216) spreadRamp, and (B487, ADR-216) cutLatch.
  *
  * DETERMINISM. The swarm draws only SwarmSynth's seeded mulberry32 streams
  * (rngG/rngS) and (B335) the ensemble stream, mulberry32 from
@@ -309,6 +318,7 @@ function makeComposedEngine(RazorCore, swarmSrc) {
     frameHold: 0,                                      // ADR-216 D6 (B461): OFF is the oracle's frame
     stealFade: 0,                                      // ADR-216 D7 (B459): OFF restarts a taken voice at once
     spreadRamp: 0,                                     // ADR-216 D8 (B460): OFF hands each tick's spread values over at once
+    cutLatch: 0,                                       // ADR-216 D9 (B487): OFF hands a quantized cut over at once, mid-cycle
     ksmPerRate: 1,                                    // B382 M1: ON, the C++'s per-rate coupling smoother
   };
   /* ADR-216 D6's three constants, set by ADR-216 (the lead, under the human's delegation; a change
@@ -563,8 +573,10 @@ function makeComposedEngine(RazorCore, swarmSrc) {
           m.leadT = 0; m.leadStep = 0; m.leadR = 0;    // ADR-216 D6: the lead under the frame, the ramp's step, the ramp (holdFrame)
           m.srC = new Float64Array(SPREAD_KEYS);       // ADR-216 D8: where each spread value's ramp stands (rampSpread) ...
           m.srS = new Float64Array(SPREAD_KEYS);       // ... and its step per sample (0 for a value that was set)
+          m.cuP = new Float64Array([0, 1, 0, 1]);      // ADR-216 D9: the law's cut, waiting for each blade's cycle start (latchCut)
         });
         v.srInit = false; v.srN = 0;                   // ADR-216 D8: the spread values are ramps, and how many members the ramp last ticked with
+        v.cuInit = false; v.cuN = 0;                   // ADR-216 D9: the cut is latched, and how many members it last latched
         v.fx0 = 0;                                     // ADR-189 D3: member 0's sample before it steps (loopIn)
         v.psiF = 0; v.fhAdv = 0; v.fhInit = false;     // ADR-216 D6: the frame's angle, the members' summed advance, held or not
         v.fhN = 0;                                     // ... and how many members the hold last ticked with (holdFrame)
@@ -582,6 +594,7 @@ function makeComposedEngine(RazorCore, swarmSrc) {
       });
       this.inRender = false;                           // ADR-216 D6: a couple() from the oracle's render is a tick (renderPlain)
       this.srT = new Float64Array(SPREAD_KEYS);        // ADR-216 D8: one member's values as the law has just written them (rampSpread)
+      this.cuT = new Float64Array(36);                 // ADR-216 D9: the cut the blades read before a spread(), four a member (spread, latchCut)
       /* ADR-189: every blade state gets the same fields up front, so V8 keeps one shape per state
          (B346 measured a shape change as a cost of its own). aaReal marks the MEMBER states, the
          only ones D1 filters (scratch states serve the BLEP height probe and the DC estimators);
@@ -632,6 +645,9 @@ function makeComposedEngine(RazorCore, swarmSrc) {
          frame is the measured centre. Put in for the oracle's law, and the ramp put back. */
       const held = v.fhInit, nh = Math.min(this.d.N, v.fhN);   // only the members the hold last ticked with
       if (held) for (let i = 0; i < nh; i++) v.m[i].lead = v.m[i].leadT;
+      /* ADR-216 D9: the cut each blade reads now, before the oracle's law overwrites it (latchCut) */
+      const latch = this.cutLatchOn(), cu = this.cuT, nCu = latch && v.cuInit ? Math.min(this.d.N, v.cuN) : 0;
+      for (let i = 0; i < nCu; i++) { const m = v.m[i], o = 4 * i; cu[o] = m.kAdd; cu[o + 1] = m.kMul; cu[o + 2] = m.kAdd2; cu[o + 3] = m.kMul2; }
       super.spread(v);
       if (held) for (let i = 0; i < nh; i++) v.m[i].lead = v.m[i].leadR;
       if (q) { s.kspread = k1; s.kspread2 = k2; }
@@ -644,7 +660,92 @@ function makeComposedEngine(RazorCore, swarmSrc) {
           m.rotOff2 = own ? (g.rotSpread2 < 0 ? -m.rotOff2 : m.rotOff2) : m.rotOff;
         }
       }
+      /* ADR-216 D9: the law's cut, pending, taken before rampSpread can put D8's ramps back over it */
+      if (latch) for (let i = 0; i < this.d.N; i++) { const m = v.m[i], P = m.cuP; P[0] = m.kAdd; P[1] = m.kMul; P[2] = m.kAdd2; P[3] = m.kMul2; }
       this.rampSpread(v, this.inRender);               // ADR-216 D8; with the flag 0 the values stay the oracle's
+      this.latchCut(v, cu, nCu);                       // ADR-216 D9; with the flag 0 the cut stays the oracle's
+    }
+
+    /* ADR-216 D9 (B487): UNDER QUANTIZE A NEW CUT WAITS FOR ITS BLADE'S NEXT CYCLE START. A blade's
+       carrier phase is the cut times the member's phase into the window, in closed form (razor-core.js
+       voice :183, hp = kk*er), so a cut that changes inside the window moves the carrier there in one step:
+       under a cut rule and Quantize the drift walk flips a member's slot between the rule's ratios
+       (B485: about 99 times a second per member on Glass horde pad), and every flip is a jump in the
+       wave. D8 SETS a quantized cut rather than ramping it (a ramp would sweep through the rates
+       Quantize exists to avoid). With this flag on, the law's cut (kAdd, kMul, and blade 2's) is held as
+       PENDING (m.cuP) and the blade keeps reading the cut it has, until that blade next STARTS A CYCLE:
+       the step on which the member's phase passes the window's start (e1 < e0, the oracle's own window
+       entry, where fmStep restarts an FM reset blade and the carrier phase restarts from 0). latchStep
+       applies it there, on each blade alone. The value the law computes is unchanged; only when a blade
+       starts reading it moves. The rules, each PROPOSED in the B487 trace:
+         - Only under Quantize (kq), the one case in which the law steps the cut (D8's "stepped" kinds).
+         - Several flips before one cycle start: the latest wins (cuP is overwritten).
+         - SET at once, as D8 sets: a note's first spread() and the first after the flag or Quantize
+           turns on (v.cuInit), a member that has just joined (at or above v.cuN), one waiting on onset
+           scatter (silent), and blade 2 while it is off (nothing reads its cut). A note-on on a voice
+           already sounding (a mono retrigger) is not a cycle start: its new cut waits like any other.
+         - The latency is one blade cycle where the window holds still: the member's period, 30.6 ms at
+           C1 and 1.9 ms at C5; a flip shorter than that is never heard. A restart the WINDOW makes by
+           moving back over the phase (rotation, or a position the walk moves) is not an entry by the
+           oracle's test, which reads entry from the phase's own advance, so the cut waits for the next
+           entry there (B487 measured two cycles at worst, Glass horde pad's blade 2). Where the window
+           moves forward faster than the phase (rotation faster than the member's own frequency: notes
+           under about 10 Hz) that test reads an entry on every step, the oracle's FM reset with it, and
+           the cut is taken at once.
+         - With D8 on, D8 sets the cut under Quantize and this latch then holds it.
+       `cu`: the cut as the blades read it before this spread(), four a member, for the first nCu.
+       JS-ONLY MECHANISM: the D8 shadow m.srC. D8's stepM writes every value it ramps back from srC once
+       a sample, the cut included (a cut under Quantize sits there with no step), so the cut a blade
+       reads is kept in srC too wherever D8 is on. The C++ adds D8's step (0 for a set cut) to the field
+       itself; srC is not part of the divergence. The horde source only. */
+    cutLatchOn() { return !!(this.d.cutLatch && this.d.kq && this.src === 'horde'); }
+    latchCut(v, cu, nCu) {
+      const d = this.d, N = d.N;
+      if (!this.cutLatchOn()) { v.cuInit = false; return; }   // OFF: the oracle's cut, at once
+      const b2 = !!d.b2on;
+      for (let i = 0; i < N; i++) {
+        const m = v.m[i], P = m.cuP, o = 4 * i;
+        const hold = i < nCu && !(v.pv && m.onsD > 0);   // not a note's first, not joined, not waiting
+        if (hold) { m.kAdd = cu[o]; m.kMul = cu[o + 1]; } else { m.kAdd = P[0]; m.kMul = P[1]; }
+        if (hold && b2) { m.kAdd2 = cu[o + 2]; m.kMul2 = cu[o + 3]; } else { m.kAdd2 = P[2]; m.kMul2 = P[3]; }
+        if (v.srInit) { const C = m.srC; C[1] = m.kAdd; C[2] = m.kMul; C[10] = m.kAdd2; C[11] = m.kMul2; }
+      }
+      v.cuInit = true; v.cuN = N;
+    }
+    /* ADR-216 D9: one member step, before its blade step (stepM). Each blade whose cycle starts on this
+       step takes its pending cut, and is fed it from this step on: blade 1's as this step's k (the
+       oracle's render computes the next step's from the fields again), blade 2's in bx.k. The window
+       entry is the oracle's stepM arithmetic (razor-core.js :655-662), on the same phase, increment and
+       window, so it is the step the oracle's blade step itself enters on; the cut is the oracle's render
+       expression (:826, :832), so a latched cut is fed exactly as the render would feed it. The DC
+       estimate taken on this sample keeps the cut the render computed before this call. Returns blade
+       1's cut for this step. */
+    latchStep(m, c, k, s) {
+      const v = m.v, d = this.d, p0 = m.phi, P = m.cuP;
+      let p1 = p0 + m.dph; p1 -= Math.floor(p1);
+      let st = c - s.w * 0.5; st -= Math.floor(st);
+      let e0 = p0 - st; e0 -= Math.floor(e0);
+      let e1 = p1 - st; e1 -= Math.floor(e1);
+      const fi = Math.max(1, m.inc * v.gr), kCap = 0.45 * this.sr * this.os / fi;
+      const D8 = v.srInit, C = m.srC;
+      if (e1 < e0 && (m.kAdd !== P[0] || m.kMul !== P[1])) {
+        m.kAdd = P[0]; m.kMul = P[1];
+        if (D8) { C[1] = m.kAdd; C[2] = m.kMul; }
+        k = Math.min((d.lock === 2 ? Math.max(0.05, s.kHz / fi + m.kAdd) : Math.max(0.25, s.k + m.kAdd)) * m.kMul * v.kE, kCap);
+      }
+      if (s.b2on) {
+        const bx = m.bx;
+        let st3 = bx.c - bx.g.w * 0.5; st3 -= Math.floor(st3);
+        let a0 = p0 - st3; a0 -= Math.floor(a0);
+        let a1 = p1 - st3; a1 -= Math.floor(a1);
+        if (a1 < a0 && (m.kAdd2 !== P[2] || m.kMul2 !== P[3])) {
+          m.kAdd2 = P[2]; m.kMul2 = P[3];
+          if (D8) { C[10] = m.kAdd2; C[11] = m.kMul2; }
+          const lock2 = d.lock2 < 0 ? d.lock : d.lock2;
+          bx.k = Math.min((lock2 === 2 ? Math.max(0.05, s.kHz2 / fi + m.kAdd2) : Math.max(0.25, s.k2 + m.kAdd2)) * m.kMul2 * v.kE2, kCap);
+        }
+      }
+      return k;
     }
 
     /* ADR-216 D8 (B460): THE SPREAD VALUES REACH THE BLADES AS RAMPS. Called at the end of spread(),
@@ -977,6 +1078,7 @@ function makeComposedEngine(RazorCore, swarmSrc) {
       v.sfLeft = 0; v.wait = false; v.offIn = 0; v.late = 0;   // ... under ADR-216 D7's fade either; no note waits on it, no off is pending, and its note is on time
       if (fresh) v.fhInit = false;                     // ADR-216 D6: a new note's frame starts at the measured centre (holdFrame)
       if (fresh) v.srInit = false;                     // ADR-216 D8: a new note's spread values are set, not ramped (rampSpread)
+      if (fresh) v.cuInit = false;                     // ADR-216 D9: ... and its cut is set, not latched (latchCut)
       super.startVoice(v, note, freq, vel, fresh, retrig);
       /* ADR-189: a fresh voice's loop starts from silence, as the oracle's does (y1 = y2 = 0,
          razor-core.js :401), so D3's filter and taps start at 0 too */
@@ -1388,6 +1490,7 @@ function makeComposedEngine(RazorCore, swarmSrc) {
         this.gl[q] = this.glB[q] * g; this.gr[q] = this.grB[q] * g;
       }
       if (v.pv && m.hold) return 0;                    // not started: no output, no blade step
+      if (v.cuInit && this.cutLatchOn()) k = this.latchStep(m, c, k, s);   // ADR-216 D9: a pending cut, at its blade's cycle start
       return this.bladeStep(m, m.dph, c, k, s);
     }
 

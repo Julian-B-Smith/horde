@@ -1098,6 +1098,17 @@ add_executable(h2_harness_render h2/harness/render_cli.cpp)
 if(NOT MSVC)
   target_compile_options(h2_harness_render PRIVATE -O3 -ffp-contract=off)
 endif()
+# h2_harness_render_faults (B487): the same tool with the engine's must-fail hooks
+# compiled in (H2_ENGINE_FAULTS, as the parity and self-digest builds have them), so the
+# cut latch's plants and its probe of what each blade is fed (h2/harness/control_latch.h,
+# faults 15 to 21) can run. Never the shipped harness: tools/h2_cut_latch_check.mjs shows
+# on every run that this build at fault 0 renders what h2_harness_render renders, bit
+# for bit. The release flags, contraction off (h2 rule 7).
+add_executable(h2_harness_render_faults h2/harness/render_cli.cpp)
+target_compile_definitions(h2_harness_render_faults PRIVATE H2_ENGINE_FAULTS)
+if(NOT MSVC)
+  target_compile_options(h2_harness_render_faults PRIVATE -O3 -ffp-contract=off)
+endif()
 # measure_h2_engine_stages (B441): the same file with H2_ENGINE_STAGES, the
 # measurement-only stage toggles in h2/engine/engine.h (--stages; the cost
 # attribution in docs/port/cpu-ledger.md). Never the shipped or the parity build.

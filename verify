@@ -990,6 +990,27 @@ full() {
   node tools/h2_spread_ramp_check.mjs --bin "$build_dir/h2_harness_render" || {
     echo "verify[full]: h2_spread_ramp_check FAILED" >&2; return 1; }
   #
+  #
+  # [engine gate: B487 the cut latch, ADR-216 D9]
+  # tools/h2_cut_latch_check.mjs, on the C++ engine through the harness: under a cut rule
+  # and Quantize, does a new cut reach each blade only at that blade's next cycle start
+  # with cutLatch 1? What it judges is PROPOSED (the B487 trace). THE ACCEPTANCE, read as
+  # a share: Glass horde pad as shipped with D8 on (frameHold 1, stealFade 1, poly 8), at
+  # C2, C3, C4 and a four-note chord, seeds 1 to 8, os 2 and 1: the frame-hold detector's
+  # raw hits at a tick boundary with the latch at most 5 % of those without it, on at
+  # least 100; the plant that takes the flip at once (control/latch-f15) must read over
+  # 5 %. WHAT EACH BLADE IS FED, read through the FAULT BUILD's tap (h2_harness_render_faults,
+  # h2/harness/control_latch.h; shown bit-identical to the shipped harness at fault 0 on
+  # every run): in each blade mode, no change of a blade's fed cut off a cycle start; at
+  # every cycle start the latched cut is exactly the law's latest; the spread's walk is
+  # the same with the flag on and off (a noise-blade job, which walks apart, is its
+  # control); seven plants (ignored, a step late, a step early, one blade only either way,
+  # never released, fed stale) each turn their row red; a fed-stale engine renders the
+  # flag-off samples, which the DIFF row would read. About 4 minutes. Its last line is its
+  # verdict. Added under ADR-180 §1.
+  node tools/h2_cut_latch_check.mjs --bin "$build_dir/h2_harness_render" --fault-bin "$build_dir/h2_harness_render_faults" || {
+    echo "verify[full]: h2_cut_latch_check FAILED" >&2; return 1; }
+  #
   # horde 2's lifted swarm core (B379 step 1, h2/cores/swarm/): lift edit E1
   # re-proven. A Voice the caller owns, started with initVoice() and ticked
   # through the one public forwarder E1 adds, must match the core's own voice

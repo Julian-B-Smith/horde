@@ -29,17 +29,17 @@ whole render.
 ## The golden (the parity target, ADR-187 item 3)
 
 The composed engine as the lab runs it: main `c64cfdb` (2026-10-01) plus B461's
-divergence D6 (2026-10-12), B459's D7 and B460's D8 (2026-10-13), each in the
-engine with the lab's one toggle for it. The renderer streams each file's git blob, and the
+divergence D6 (2026-10-12), B459's D7 and B460's D8 (2026-10-13) and B487's D9
+(2026-10-14), each in the engine with the lab's one toggle for it. The renderer streams each file's git blob, and the
 check fails on a blob it was not pinned to.
 
 | file | role | blob |
 |---|---|---|
-| `docs/design/scalpel-horde-engine.js` | the composed engine (`makeComposedEngine`) | `4c0d25ab5c6edc6aaa43356ef956d6dcbeb2ec90` |
+| `docs/design/scalpel-horde-engine.js` | the composed engine (`makeComposedEngine`) | `fdd5cb93797589812f67382ec2ab9c5e2209130d` |
 | `reference/scalpel/prototype/razor-core.js` | the blade oracle it extends | `0ce6a713410d89c65bf55f761f1dc791fae61b16` |
 | `reference/swarmsaw.html` | SwarmSynth, the swarm it drives (DSP section) | `e47da6c9e0b4a058e18d79f62d71ab31c3d3b1b0` |
 | `reference/scalpel/data/presets.json` | the 83 bench presets | `7b9d55efd7db217c5c881f6644519dbf137af19a` |
-| `docs/design/scalpel-interface-lab.html` | the 12 B366 envelope presets (`ENV_PRESETS`); since B445 also the device default `os: 1` (`LAB_DEF`), which no scenario reads | `c9e724599e1afe46162b7666e5c4fe5f8d354770` |
+| `docs/design/scalpel-interface-lab.html` | the 12 B366 envelope presets (`ENV_PRESETS`); since B445 also the device default `os: 1` (`LAB_DEF`), which no scenario reads | `47806cd0b8aaac354d6244a24b8c451b40ea746a` |
 
 The engine's flags at their ledgered defaults (`docs/port/divergences.json`):
 
@@ -122,6 +122,39 @@ The engine's flags at their ledgered defaults (`docs/port/divergences.json`):
   steps are gone, not whether that pad clicks. CPU with the flag on: +2.7 % to
   +9.9 % (ROADMAP B482, an independent critic's measurement). See the ledger's
   D8 entry and `traces/2026-10-13-b460-spread-ramp-d8.md`.
+- **D9 `cutLatch`: OFF** (ADR-216, B487). Under Quantize (`kq`) with a cut rule
+  or a Cut spread, the drift walk flips a member's cut between whole values (on
+  Glass horde pad between the rule's ratios, about 99 times a second per member,
+  B485), and a blade's carrier phase is the cut times its phase into the window
+  in closed form, so each flip fed at once is a jump in the wave. With the flag
+  on the law's new cut (`kAdd`, `kMul` and blade 2's) is PENDING (`cuP`) until
+  that blade next starts a cycle: the step its phase passes the window's start
+  (the blade law's own entry test, e1 < e0), where the carrier restarts. It is
+  applied there on each blade alone (`latchStep`, before the blade step), fed
+  through the same expression the member override uses (`cutK1`, `cutK2`). The
+  rules, each PROPOSED (the records give "latch until the blade next starts a
+  cycle" and no more): only under Quantize; the latest flip wins; SET at once at
+  a note's first `spread()`, the first after the flag or Quantize turns on, for
+  a member that has just joined, one waiting on onset scatter, and blade 2 while
+  it is off; a mono retrigger's new cut waits like any other; one event in every
+  blade mode; the DC estimate on the very sample a latch applies keeps the cut
+  the sample began with (the JS render's own copy). LATENCY: one blade cycle
+  where the window holds still (30.6 ms at C1, 1.9 ms at C5); a restart the
+  window makes by moving back over the phase is not an entry by that test, so
+  there the cut waits for the next (measured: two cycles at worst, 14.6 ms on
+  Glass horde pad's blade 2 at C3). With D8 on, D8 sets the quantized cut and the
+  latch then holds it. **What `h2_cut_latch_check` judges is PROPOSED (the B487
+  trace):** the pad as shipped with D8 on (`frameHold` 1, `stealFade` 1, `poly`
+  8), C2 to C4 and a chord, eight seeds, both os: the raw detector hits at a
+  tick boundary with the latch at most 5 % of those without it (measured 0 of
+  196 at os 2 and 0 of 1458 at os 1, and 0 anywhere; the plant that takes the
+  flip at once, 100 %); WHAT EACH BLADE IS FED, through a tap in a FAULT BUILD
+  of the harness (`h2_harness_render_faults`, shown bit-identical to the shipped
+  harness at fault 0), changes only on a cycle start, in every blade mode, and
+  at every cycle start is exactly the law's latest; the walk is the same with
+  the flag on and off; seven plants (ignored, a step late or early, one blade
+  only either way, never released, fed stale) each turn a row red. See the
+  ledger's D9 entry and `traces/2026-10-14-b487-cut-latch-d9.md`.
 
 What the golden contains, each with its site in the composed JS:
 
@@ -635,6 +668,23 @@ family.
        mono retrigger on a sounding voice; members that join before one;
      - the flag switched on and off mid-note; with D6; with D7; with both;
        37-sample blocks; 44.1 kHz; os 1; os 4; under the cull.
+   - **D9 43** (ADR-216, B487; `cutLatch` 1), appended after every earlier row:
+     - the bank's Glass horde pad as shipped, with the flag alone, with D8, and
+       with D8 at os 1 (3 rows; they move with the bank, on purpose);
+     - a cut rule under Quantize and a fast drift walk: on blade 1; on blade 2
+       alone (`b2sp`); on each blade; a quantized Cut spread with no rule; and
+       Quantize off, where nothing is latched (it renders as the flag off);
+     - every blade mode on blade 1 (sync, FM reset, FM free, noise, fold, ring,
+       crush), pitch FM reset and free, and blade 2 as noise and as crush under
+       its own cut rule;
+     - the window: full (w 1), a palindrome (mirror 1), the twin (mirror 2), the
+       lock in cycles per window (lock 1) and in Hz (lock 2); rotation carrying
+       the window; cross-modulation and feedback; C1 and C5;
+     - who is set: a mono retrigger mid-latch; a new note while others latch;
+       members that join mid-latch (the flag off at first); members waiting on
+       onset scatter; the flag, Quantize and blade 2 switched mid-note;
+     - with D8 on; D8 switched mid-note; D8 and a mono retrigger; D6, D7, D8
+       and D9 all on; 37-sample blocks; 44.1 kHz; os 1; os 4.
 
 ## Results (darwin-arm64, Apple clang 16, Node 24.10, `-O2 -ffp-contract=off`)
 
@@ -643,15 +693,17 @@ family.
 | P/ | 261 | 258, plus the 3 ring rows excluded (A2 item 1; all three hold) | 1.1e-12 | 9.9e-11 | 32.87% |
 | E/ | 38 | 38 | 1.9e-14 | 4.5e-13 | 46.33% |
 | T/ | 125 | 125 | 2.0e-12 | 1.4e-10 | 43.39% |
-| C/ | 235 | 235 | 2.1e-12 | 1.8e-10 | 35.90% |
+| C/ | 278 | 278 | 2.1e-12 | 1.8e-10 | 35.42% |
 
 The C/ row was re-measured on 2026-10-12 with D6's 22 rows (their own worst: rms
 4.1e-14, max-abs 1.1e-12; mean bit-exact 24.0%), on 2026-10-13 with D7's 62
 (their own worst: rms 1.4e-14, max-abs 5.8e-13; mean bit-exact 50.0%), and the
 same day with D8's 32 (their own worst: rms 1.0e-14, max-abs 3.9e-13; mean
-bit-exact 15.4%); the whole set's mean is 36.74%.
+bit-exact 15.4%), and on 2026-10-14 with D9's 43 (their own worst: rms 2.6e-14,
+max-abs 4.9e-13, `C/D9 mono retrigger mid-latch`; mean bit-exact 32.8%); the
+whole set's mean is 36.50%.
 
-- Events and readouts are identical on all 659, the ring rows included.
+- Events and readouts are identical on all 702, the ring rows included.
 - No scenario sets a key the engine lacks.
 
 **Before the ruling, not at parity under rule 1a: P/Starting points / Cross-mod

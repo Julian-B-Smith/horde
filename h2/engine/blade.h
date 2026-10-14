@@ -65,6 +65,10 @@ struct DP {
   // ramp across the couple tick (Engine::rampSpread). Off by default: 0 hands each
   // tick's values over at once, the blade oracle's step.
   double spreadRamp = 0;
+  // ADR-216 D9 (B487): under Quantize, a member's new cut reaches each blade at that
+  // blade's next cycle start, where its carrier phase restarts (Engine::latchCut). Off
+  // by default: 0 hands the law's cut over at once, mid-cycle.
+  double cutLatch = 0;
   static constexpr int kCustomCap = 256;
   char kCustom[kCustomCap] = "1, 5/4, 3/2";
 };
@@ -120,6 +124,14 @@ struct Member {
   // value's step per sample, in Engine::kSpreadKeys' order. 0 for a value that was set
   // at the last tick instead of ramped.
   double srStep[kSpreadKeyCount] = {};
+  // ADR-216 D9, read only while the voice's cut is latched (Voice::cuInit): the cut the
+  // law last wrote, waiting for each blade's next cycle start (kAdd, kMul, kAdd2, kMul2;
+  // Engine::latchCut). The fields above hold what the blades read until then.
+  double cuP[4] = {0, 1, 0, 1};
+#ifdef H2_ENGINE_FAULTS
+  // D9's "one step late" plant (fault 16) only: a cycle start was passed on each blade
+  bool cuLate[2] = {false, false};
+#endif
 };
 
 struct Voice {
@@ -160,6 +172,11 @@ struct Voice {
   // values are set outright (Engine::rampSpread).
   bool srInit = false;
   int srN = 0;
+  // ADR-216 D9: whether this voice's cut is latched (set by the first spread() of a note
+  // with the flag and Quantize on, cleared by any with either off), and how many members
+  // it last latched: one at or above it has just joined and is set (Engine::latchCut).
+  bool cuInit = false;
+  int cuN = 0;
   // ADR-216 D7: the steal's fade and the note that waits for it (Engine::take).
   // sfLeft: samples left of the fade, 0 when none runs. wait: a note starts on this
   // voice when the fade ends; wNote, wFreq and wVel are that note as struck, and wTune

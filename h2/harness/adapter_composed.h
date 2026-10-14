@@ -6,7 +6,9 @@
  * seedRandom, set, setString, snap, noteOn, noteOff, panic, render. Nothing in
  * h2/engine/ is edited or re-declared, and no test hook is switched on
  * (H2_ENGINE_FAULTS, H2_ENGINE_STAGES and H2_ENGINE_KERNELS stay undefined), so
- * this is the engine as it ships.
+ * this is the engine as it ships. (The one exception is the B487 fault build,
+ * h2_harness_render_faults, which defines H2_ENGINE_FAULTS for control_latch.h's
+ * plants; there the fault stays 0 unless one of those adapters sets it.)
  *
  * THE PRE-LIMITER BUS, AND ITS LIMITS. The engine has no accessor for the value
  * that enters its output limiter. Its last line is

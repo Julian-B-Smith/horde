@@ -52,6 +52,9 @@
  *     (position, cut, rotation, width, depth, index and the sine->saw band-limit, of
  *     both blades) are recomputed once per couple tick and reach the blades as a
  *     ramp across that tick, never as a step (rampSpread).
+ *   - ADR-216 D9 (B487), off by default: under Quantize, a member's new cut (its
+ *     offset and ratio, each blade's) waits for that blade's next cycle start, where
+ *     the carrier phase restarts, and is never applied mid-cycle (latchCut, latchStep).
  *
  * NUMBERS: doubles, built -ffp-contract=off (h2 rule 7: the shipped build is the
  * tested build), with JS semantics where they differ from C++ (js.h).
@@ -119,6 +122,15 @@ class Engine {
 #define H2E_EPS13(x) (fault == 13 ? (x) * (1 + 1e-9) \
                      : (fault == 14 && evSample >= kX1LateFrame) ? (x) * (1 + (faultEps != 0 ? faultEps : 1e-9)) : (x))
   void armFaults() { if (fault == 9) field.faultKsm(0.08); }
+  // ADR-216 D9's probe (h2/harness/control_latch.h): the cut each blade is FED on every
+  // member step (the argument stepBlade receives, and bx.k), with where the step's phase
+  // stands in each blade's window, computed apart from the latch (tapCut). Faults 15 to
+  // 21 are D9's plants (latchCut, latchFault, renderCallK).
+  struct CutTap {
+    virtual void step(int voice, int member, double k1, double k2, bool b2, double e1, double a1, double dphi) = 0;
+    virtual ~CutTap() = default;
+  };
+  CutTap* cutTap = nullptr;
 #else
 #define H2E_FAULT(n) false
 #define H2E_EPS(x) (x)
@@ -434,7 +446,7 @@ class Engine {
       {"onsetAlpha", &DP::onsetAlpha}, {"attackScatter", &DP::attackScatter}, {"voiceEnv", &DP::voiceEnv},
       {"relScatter", &DP::relScatter}, {"aaCarrier", &DP::aaCarrier}, {"aaXin", &DP::aaXin},
       {"aaLoop", &DP::aaLoop}, {"frameHold", &DP::frameHold}, {"stealFade", &DP::stealFade},
-      {"spreadRamp", &DP::spreadRamp},
+      {"spreadRamp", &DP::spreadRamp}, {"cutLatch", &DP::cutLatch},
     };
     for (const DKey& e : K) if (std::strcmp(e.k, k) == 0) return e.p;
     return nullptr;
@@ -1094,6 +1106,117 @@ class Engine {
     }
     v.srN = N;
   }
+  // The cut rate each blade is fed, from a member's cut offset and ratio: the member
+  // overrides in renderCallK (once a sample) and latchStep (at a cycle start) both
+  // call these, so a latched cut is fed exactly as the override would feed it.
+  double cutK1(const Voice& v, double kAdd, double kMul, double fi, double kCap) const {
+    return js::min((d.lock == 2 ? js::max(0.05, s.kHz / fi + kAdd) : js::max(0.25, s.k + kAdd)) * kMul * v.kE, kCap);
+  }
+  double cutK2(const Voice& v, double kAdd2, double kMul2, double fi, double kCap) const {
+    const double lock2 = d.lock2 < 0 ? d.lock : d.lock2;
+    return js::min((lock2 == 2 ? js::max(0.05, s.kHz2 / fi + kAdd2) : js::max(0.25, s.k2 + kAdd2)) * kMul2 * v.kE2, kCap);
+  }
+  bool cutLatched(const Voice& v) const { return js::truthy(d.cutLatch) && js::truthy(d.kq) && v.cuInit; }
+  // ADR-216 D9 (B487): UNDER QUANTIZE A NEW CUT WAITS FOR ITS BLADE'S NEXT CYCLE START.
+  // A blade's carrier phase is the cut times the member's phase into the window, in
+  // closed form (voicePlainK: hp = kk·er), so a cut that changes inside the window moves
+  // the carrier there in one step: under a cut rule and Quantize the drift walk flips a
+  // member's slot between the rule's ratios (B485: about 99 times a second per member on
+  // Glass horde pad), and every flip is a jump in the wave. D8 SETS a quantized cut
+  // rather than ramping it (a ramp would sweep through the rates Quantize exists to
+  // avoid). With this flag on, the law's cut (kAdd, kMul, and blade 2's) is held as
+  // PENDING (cuP) and the blade keeps reading the cut it has, until that blade next
+  // STARTS A CYCLE: the step on which the member's phase passes the window's start
+  // (e1 < e0, the blade law's own window entry, where fmStep restarts an FM reset blade
+  // and the carrier phase hp restarts from 0). latchStep applies it there, on each blade
+  // alone. The value the law computes is unchanged; only when a blade starts reading it
+  // moves. The rules, each PROPOSED in the B487 trace:
+  //   - Only under Quantize (kq), the one case in which the law steps the cut (D8's
+  //     "stepped" kinds 1 and 2). Without it nothing changes.
+  //   - Several flips before one cycle start: the latest wins (cuP is overwritten).
+  //   - SET at once, as D8 sets: a note's first spread() and the first after the flag or
+  //     Quantize turns on (cuInit), a member that has just joined (at or above cuN), one
+  //     waiting on onset scatter (silent), and blade 2 while it is off (nothing reads its
+  //     cut). A note-on on a voice already sounding (a mono retrigger) is not a cycle
+  //     start: its new cut waits like any other.
+  //   - The latency is one blade cycle where the window holds still: the member's
+  //     period, 30.6 ms at C1 and 1.9 ms at C5; a flip shorter than that is never heard.
+  //     A restart the WINDOW makes by moving back over the phase (rotation, or a
+  //     position the walk moves) is not an entry by the blade law's test, which reads
+  //     entry from the phase's own advance, so the cut waits for the next entry there
+  //     (B487 measured two cycles at worst, Glass horde pad's blade 2). Where the window
+  //     moves forward faster than the phase (rotation faster than the member's own
+  //     frequency: notes under about 10 Hz) that test reads an entry on every step,
+  //     the oracle's FM reset with it, and the cut is taken at once.
+  //   - With D8 on, D8 sets the cut under Quantize and this latch then holds it; the two
+  //     do not interact otherwise.
+  // `cu`: each member's cut as the blades read it before this spread(), for the first
+  // nCu members (0 unless the cut was latched then). cuP already holds the law's new cut
+  // (spread() takes it before D8 can put its ramps back over it on a call that is not a
+  // tick), so every blade that is not latched here is SET from it.
+  void latchCut(Voice& v, int N, const double cu[][4], int nCu) {
+    if (!js::truthy(d.cutLatch) || !js::truthy(d.kq)) { v.cuInit = false; return; }   // OFF: the law's cut, at once
+    const bool b1 = !H2E_FAULT(19), b2 = js::truthy(d.b2on) && !H2E_FAULT(18);   // faults 18, 19: a latch on one blade only
+    for (int i = 0; i < N; i++) {
+      Member& m = v.m[i];
+      const bool hold = i < nCu && !(v.pv && m.onsD > 0);   // not a note's first, not joined, not waiting
+      if (hold && b1) { m.kAdd = cu[i][0]; m.kMul = cu[i][1]; } else { m.kAdd = m.cuP[0]; m.kMul = m.cuP[1]; }
+      if (hold && b2) { m.kAdd2 = cu[i][2]; m.kMul2 = cu[i][3]; } else { m.kAdd2 = m.cuP[2]; m.kMul2 = m.cuP[3]; }
+    }
+    v.cuInit = true; v.cuN = N;
+  }
+#ifdef H2_ENGINE_FAULTS
+  // D9's must-fail plants (h2/harness/control_latch.h): when blade b applies its pending
+  // cut, in place of its cycle start `in`. p1 and e1 are this step's phase and its place
+  // in the window, st the window's start.
+  bool latchFault(Member& m, int b, bool in, double p1, double st, double e1) {
+    switch (fault) {
+      case 15: return true;                                                           // the latch ignored: at once
+      case 16: { const bool late = m.cuLate[b]; m.cuLate[b] = in; return late; }      // one step late
+      case 17: { double p2 = p1 + m.dph; p2 -= std::floor(p2); double e2 = p2 - st; e2 -= std::floor(e2); return e2 < e1; }   // one step early
+      case 20: return false;                                                          // never released
+      default: return in;
+    }
+  }
+#endif
+  // ADR-216 D9: one member step, before its blade step. Each blade whose cycle starts on
+  // this step takes its pending cut, and is fed it from this step on (blade 1's through
+  // the member override o.kq, which the sample's later steps replay; blade 2's in bx.k).
+  // The window entry is stepBlade's own arithmetic, on the same phase, increment and
+  // window, so it is the step stepBlade itself enters on. Returns blade 1's cut for this
+  // step. The DC estimate taken on this sample keeps the cut the sample began with
+  // (renderCallK reads its own kq), as the composed JS's render does.
+  double latchStep(Voice& v, Member& m, double c, double k) {
+    const double p0 = m.phi;
+    double p1 = p0 + m.dph; p1 -= std::floor(p1);
+    double st = c - s.w * 0.5; st -= std::floor(st);
+    double e0 = p0 - st; e0 -= std::floor(e0);
+    double e1 = p1 - st; e1 -= std::floor(e1);
+    bool in = e1 < e0;
+#ifdef H2_ENGINE_FAULTS
+    in = latchFault(m, 0, in, p1, st, e1);
+#endif
+    const double fi = js::max(1, m.inc * v.gr), kCap = 0.45 * sr * os / fi;
+    if (in && (m.kAdd != m.cuP[0] || m.kMul != m.cuP[1])) {
+      m.kAdd = m.cuP[0]; m.kMul = m.cuP[1];
+      if (!H2E_FAULT(21)) k = memberOv[&v - voices][m.i].kq = cutK1(v, m.kAdd, m.kMul, fi, kCap);
+    }
+    if (js::truthy(s.b2on)) {
+      BX& bx = m.bx;
+      double st3 = bx.c - bx.g->w * 0.5; st3 -= std::floor(st3);
+      double a0 = p0 - st3; a0 -= std::floor(a0);
+      double a1 = p1 - st3; a1 -= std::floor(a1);
+      bool in2 = a1 < a0;
+#ifdef H2_ENGINE_FAULTS
+      in2 = latchFault(m, 1, in2, p1, st3, a1);
+#endif
+      if (in2 && (m.kAdd2 != m.cuP[2] || m.kMul2 != m.cuP[3])) {
+        m.kAdd2 = m.cuP[2]; m.kMul2 = m.cuP[3];
+        if (!H2E_FAULT(21)) bx.k = cutK2(v, m.kAdd2, m.kMul2, fi, kCap);
+      }
+    }
+    return k;
+  }
   // Every 32 samples and at note-on. The random law glides each member's slots
   // toward the note's draw; the drift law walks them (Ornstein-Uhlenbeck). `tick` is
   // true for the render's couple tick and false for a note-on's call (D8 only).
@@ -1103,6 +1226,10 @@ class Engine {
     double cur[kMembers][kSpreadKeyCount];
     const int nCur = js::truthy(d.spreadRamp) && v.srInit ? (N < v.srN ? N : v.srN) : 0;
     for (int i = 0; i < nCur; i++) for (int k = 0; k < kSpreadKeyCount; k++) cur[i][k] = v.m[i].*kSpreadKeys[k];
+    // ADR-216 D9: the cut each blade reads now, before the law overwrites it (latchCut)
+    double cu[kMembers][4];
+    const int nCu = js::truthy(d.cutLatch) && js::truthy(d.kq) && v.cuInit ? (N < v.cuN ? N : v.cuN) : 0;
+    for (int i = 0; i < nCu; i++) { const Member& m = v.m[i]; cu[i][0] = m.kAdd; cu[i][1] = m.kMul; cu[i][2] = m.kAdd2; cu[i][3] = m.kMul2; }
     // A2 (2): under Quantize, Cut spread rounds half AWAY from zero so that -x
     // mirrors +x. An integer passes the law's own floor(x + 0.5) unchanged, so only
     // a negative half differs from the blade oracle.
@@ -1145,7 +1272,11 @@ class Engine {
         m.rotOff2 = own ? (rotSign2 < 0 ? -m.rotOff2 : m.rotOff2) : m.rotOff;
       }
     }
+    // ADR-216 D9: the law's cut, pending (latchCut)
+    if (js::truthy(d.cutLatch) && js::truthy(d.kq))
+      for (int i = 0; i < N; i++) { Member& m = v.m[i]; m.cuP[0] = m.kAdd; m.cuP[1] = m.kMul; m.cuP[2] = m.kAdd2; m.cuP[3] = m.kMul2; }
     rampSpread(v, N, tick, cur, nCur);   // ADR-216 D8; with the flag 0 the values stay the law's
+    latchCut(v, N, cu, nCu);             // ADR-216 D9; with the flag 0 the cut stays the law's
   }
   static double roundAway(double x) { return x < 0 ? -js::round(-x) : js::round(x); }
   // glide a wrapped rotation offset back to 0 the shortest way round (rotation switched off)
@@ -1325,6 +1456,7 @@ class Engine {
     if (fresh) {
       v.fhInit = false;   // ADR-216 D6: a new note's frame starts at the measured centre (holdFrame)
       v.srInit = false;   // ADR-216 D8: a new note's spread values are set, not ramped (rampSpread)
+      v.cuInit = false;   // ADR-216 D9: ... and its cut is set, not latched (latchCut)
       if (!v.active) v.env = 0;
       // These draws come from the host stream and the start phase is overwritten
       // below by the swarm's. They are taken anyway: every later draw depends on them.
@@ -1893,6 +2025,10 @@ class Engine {
       gl[q] = glB[q] * g; gr[q] = grB[q] * g;
     }
     if (v.pv && m.hold) return 0;   // not started: no output, no blade step
+    if (cutLatched(v)) k = latchStep(v, m, c, k);   // ADR-216 D9: a pending cut, at its blade's cycle start
+#ifdef H2_ENGINE_FAULTS
+    if (cutTap) tapCut(v, m, c, k);
+#endif
     const bool xOn = s.xm > 0.0005 || s.fb > 0.0005;
     if (xOn && js::truthy(d.aaLoop)) loopIn(v, m);
     const double y = stepBlade<K>(m, m.dph, c, k);
@@ -1901,6 +2037,18 @@ class Engine {
     if (xOn) { m.fu += loopA * (y - m.fu); m.f2 = m.f1; m.f1 = m.fu; }
     return y;
   }
+#ifdef H2_ENGINE_FAULTS
+  // D9's probe: the step's place in each window from the raw phase, increment and window
+  // (not latchStep's arithmetic), and what each blade is fed on it
+  void tapCut(Voice& v, Member& m, double c, double k) {
+    double p1 = m.phi + m.dph; p1 -= std::floor(p1);
+    double e1 = p1 - (c - s.w * 0.5); e1 -= std::floor(e1);
+    double a1 = 0;
+    const bool b2 = js::truthy(s.b2on);
+    if (b2) { a1 = p1 - (m.bx.c - m.bx.g->w * 0.5); a1 -= std::floor(a1); }
+    cutTap->step(static_cast<int>(&v - voices), m.i, k, m.bx.k, b2, e1, a1, m.dph);
+  }
+#endif
   // ADR-189 D3: the loop's input, the blade law's own formula over the FILTERED taps.
   // The ring's next member has not stepped yet this sample, except round the ring
   // (member 0, stepped first), whose tap was kept before it stepped.
@@ -2298,13 +2446,18 @@ inline void Engine::renderCallK(double* L, double* R, int n) {
             o.c = s.c + rotAll + mm.cOff + (js::truthy(d.frame) ? mm.lead : 0); o.c -= std::floor(o.c);
             const double fi = js::max(1, mm.inc * v.gr);
             const double kCap = 0.45 * sr * os / fi;   // every carrier under the oversampled Nyquist
-            o.kq = js::min((d.lock == 2 ? js::max(0.05, s.kHz / fi + mm.kAdd) : js::max(0.25, s.k + mm.kAdd)) * mm.kMul * v.kE, kCap);
+            o.kq = cutK1(v, mm.kAdd, mm.kMul, fi, kCap);
+#ifdef H2_ENGINE_FAULTS
+            if (fault == 21 && cutLatched(v)) o.kq = cutK1(v, mm.cuP[0], mm.cuP[1], fi, kCap);   // D9's fed-stale plant
+#endif
             if (js::truthy(s.b2on)) {
               BX& bx = mm.bx;
               const double rot2All = own2 ? (rotPerNote ? v.rot2 : gRot2) + mm.rot2 : rotAll;
               bx.c = s.c2 + rot2All + mm.cOff2 + (js::truthy(fr2) ? mm.lead : 0); bx.c -= std::floor(bx.c);
-              const double lock2 = d.lock2 < 0 ? d.lock : d.lock2;
-              bx.k = js::min((lock2 == 2 ? js::max(0.05, s.kHz2 / fi + mm.kAdd2) : js::max(0.25, s.k2 + mm.kAdd2)) * mm.kMul2 * v.kE2, kCap);
+              bx.k = cutK2(v, mm.kAdd2, mm.kMul2, fi, kCap);
+#ifdef H2_ENGINE_FAULTS
+              if (fault == 21 && cutLatched(v)) bx.k = cutK2(v, mm.cuP[2], mm.cuP[3], fi, kCap);
+#endif
               const double mEff2 = js::truthy(d.b2fm) ? (js::truthy(d.mUnit2) ? s.mHz2 / fi : s.m2) : (js::truthy(d.mUnit) ? s.mHz / fi : s.m);
               fillG2(*bx.g, s.w2 < 0.004 ? s.w2 : js::min(1, s.w2 * mm.wMul2 * v.wE2), js::min(1, js::max(0, s.depth2 + mm.dAdd2)),
                      (js::truthy(d.b2fm) ? s.I2 : I0) * mm.iMul2, mEff2);

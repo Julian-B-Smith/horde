@@ -79,7 +79,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PROBE = os.path.join("tools", "h2_engine_rtsan_probe.cpp")
 # The parity gate's floor (tools/h2_engine_parity_check.cpp kMinScenarios). A
 # scenario set that GROWS passes; one that shrinks is red until a human moves this.
-MIN_SCENARIOS = 659
+MIN_SCENARIOS = 702
 
 OWN = {"h2_engine_rtsan_probe.cpp", "h2_engine_hooked_replay.h", "h2_engine_stream.h"}
 OWN.update(f for f in os.listdir(os.path.join(ROOT, "h2", "engine")) if f.endswith(".h"))

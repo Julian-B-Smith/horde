@@ -1,11 +1,11 @@
 # h2_engine_selfdigest_check reference (tools/h2_engine_selfdigest_check.cpp): parity build, key darwin-arm64.appleclang-16.node24
 # FNV-1a 64 of each scenario's C++ samples, events and readouts. A golden fixture (protected): re-pin only
 # for a reason stated in the PR and the trace (the tool header's cases a-c); an output-neutral PR never re-pins.
-# ORACLE docs/design/scalpel-horde-engine.js 4c0d25ab5c6edc6aaa43356ef956d6dcbeb2ec90
+# ORACLE docs/design/scalpel-horde-engine.js fdd5cb93797589812f67382ec2ab9c5e2209130d
 # ORACLE reference/scalpel/prototype/razor-core.js 0ce6a713410d89c65bf55f761f1dc791fae61b16
 # ORACLE reference/swarmsaw.html e47da6c9e0b4a058e18d79f62d71ab31c3d3b1b0
 # ORACLE reference/scalpel/data/presets.json 7b9d55efd7db217c5c881f6644519dbf137af19a
-# ORACLE docs/design/scalpel-interface-lab.html c9e724599e1afe46162b7666e5c4fe5f8d354770
+# ORACLE docs/design/scalpel-interface-lab.html 47806cd0b8aaac354d6244a24b8c451b40ea746a
 6f1035ccaec449df  P/Starting points / Quarter sync :: chord
 5bc5dc32109a280e  P/Starting points / Quarter sync :: repeat
 428b94da88f2c1f5  P/Starting points / Quarter sync :: arp
@@ -665,4 +665,47 @@ e82a73646e461eba  C/D8 mono retrigger on a sounding voice
 9918a974eacd3cc5  C/D8 at os 1
 126e498c17f3e3ef  C/D8 at os 4
 c7979d72169662c1  C/D8 under the cull, the cap lowered mid-phrase
-TOTAL 9bac02ef35f3908d 659
+a096e731b6a3e234  C/D9 :: Glass horde pad
+536315c9369b6034  C/D9 :: Glass horde pad, D8 on
+153678a95817e6a3  C/D9 :: Glass horde pad, D8 on, os 1
+367816e0a831d67e  C/D9 a cut rule on blade 1
+890994cc8d44c447  C/D9 a cut rule on blade 2 alone
+f89bb1c10ff9562f  C/D9 a cut rule on each blade
+e3fd8a1148e6fe67  C/D9 a quantized Cut spread, no rule
+a82c11f885ca0b42  C/D9 Quantize off: nothing is latched
+95670bd902031316  C/D9 blade 1 mode 0 (sync)
+cc0a0b436d511c49  C/D9 blade 1 mode 1 (FM reset)
+738a08c939ce44a6  C/D9 blade 1 mode 2 (FM free)
+d496d6e063a9bef4  C/D9 blade 1 mode 3 (noise)
+4a917b09bd917ee8  C/D9 blade 1 mode 4 (fold)
+c57e7697eec0434a  C/D9 blade 1 mode 5 (ring)
+e6a4ab03c90eed5f  C/D9 blade 1 mode 6 (crush)
+849fbb4c03fcd746  C/D9 blade 1 pitch FM, reset
+6a721d1e51e228e1  C/D9 blade 1 pitch FM, free
+99c21b074b7e1370  C/D9 blade 2 noise, its own cut rule
+aac7d9c7dbf10955  C/D9 blade 2 crush, its own cut rule
+c0d311774a5a595e  C/D9 the window full
+ddd87a7eea95b50a  C/D9 mirror 1
+6a478b8b15667a72  C/D9 mirror 2, the twin
+a3ac77253166990b  C/D9 lock 1
+65fe0242c1c65245  C/D9 lock 2 (Hz)
+ba7f9b8b9e6462d7  C/D9 rotation carries the window
+2ead7a723fbd5d26  C/D9 cross-modulation and feedback
+d07b197efdf1ce4d  C/D9 at C1
+8258590b5092d32b  C/D9 at C5
+db4e4ec388c715c6  C/D9 mono retrigger mid-latch
+4bbb83d80e01db76  C/D9 a new note while others latch
+cae0a867bc4b4353  C/D9 members join mid-latch
+30761e2ace89aad7  C/D9 members waiting on onset scatter
+71408a1c1101e66d  C/D9 switched on and off mid-note
+8accfb7bb01096a2  C/D9 Quantize switched off and on mid-note
+b5a0794cc818ff88  C/D9 blade 2 switched off and on mid-note
+315abf4071cb5666  C/D9 and D8 both on
+3f16c516ab34bdad  C/D9 and D8, D8 switched mid-note
+db4e4ec388c715c6  C/D9 and D8, a mono retrigger
+b8bad0bcb3d11a1b  C/D9, D8, D7 and D6 all on
+a71095f8b6c83dde  C/D9 37-sample blocks
+375307f07d864c02  C/D9 at 44.1 kHz
+b300da367d019fff  C/D9 at os 1
+563e69d9480ea5ce  C/D9 at os 4
+TOTAL 68307fe73beae070 702

@@ -28,6 +28,9 @@
 // [control includes: B460 the spread ramp]
 #include "control_spread.h"
 //
+// [control includes: B487 the cut latch] (the fault build only: empty without H2_ENGINE_FAULTS)
+#include "control_latch.h"
+//
 #include "harness.h"
 
 namespace horde2::harness {
@@ -105,6 +108,14 @@ inline std::unique_ptr<Adapter> makeStepBandB2() { return makeStepControl(Spread
 inline std::unique_ptr<Adapter> makeWalkProbeControl() { return std::make_unique<SpreadPlantControl>(SpreadPlantControl::kWalk); }
 inline std::unique_ptr<Adapter> makeRampProbeControl() { return std::make_unique<SpreadPlantControl>(SpreadPlantControl::kProbe); }
 //
+// [control makers: B487 the cut latch] (the fault build only, h2_harness_render_faults)
+// The engine at each of D9's fault numbers (0: nothing planted), and the probe of what
+// each blade is fed, on the engine at each (control_latch.h).
+#ifdef H2_ENGINE_FAULTS
+template <int F> std::unique_ptr<Adapter> makeLatchPlant() { return std::make_unique<LatchPlantControl>(F); }
+template <int F> std::unique_ptr<Adapter> makeLatchProbe() { return std::make_unique<LatchProbeControl>(F); }
+#endif
+//
 
 inline constexpr AdapterRow kAdapters[] = {
   {"composed", false, &makeComposedAdapter},
@@ -161,6 +172,26 @@ inline constexpr AdapterRow kAdapters[] = {
   {"control/step-band-b2", true, &makeStepBandB2},
   {"control/walk-probe", true, &makeWalkProbeControl},
   {"control/ramp-probe", true, &makeRampProbeControl},
+  //
+  // [control rows: B487 the cut latch] (the fault build only)
+#ifdef H2_ENGINE_FAULTS
+  {"control/latch-f0", true, &makeLatchPlant<0>},
+  {"control/latch-f15", true, &makeLatchPlant<15>},
+  {"control/latch-f16", true, &makeLatchPlant<16>},
+  {"control/latch-f17", true, &makeLatchPlant<17>},
+  {"control/latch-f18", true, &makeLatchPlant<18>},
+  {"control/latch-f19", true, &makeLatchPlant<19>},
+  {"control/latch-f20", true, &makeLatchPlant<20>},
+  {"control/latch-f21", true, &makeLatchPlant<21>},
+  {"control/latch-probe", true, &makeLatchProbe<0>},
+  {"control/latch-probe-f15", true, &makeLatchProbe<15>},
+  {"control/latch-probe-f16", true, &makeLatchProbe<16>},
+  {"control/latch-probe-f17", true, &makeLatchProbe<17>},
+  {"control/latch-probe-f18", true, &makeLatchProbe<18>},
+  {"control/latch-probe-f19", true, &makeLatchProbe<19>},
+  {"control/latch-probe-f20", true, &makeLatchProbe<20>},
+  {"control/latch-probe-f21", true, &makeLatchProbe<21>},
+#endif
   //
 };
 

@@ -545,6 +545,71 @@ function composedRows(presets) {
   row('D8 at os 4', { ...W, os: 4 }, chord);
   row('D8 under the cull, the cap lowered mid-phrase', { ...W, R: 1500 }, [on(45), on(52), on(57), blocks(40), off(52), off(57), blocks(3),
     ['cap', 1], blocks(60), off(45), blocks(30)]);
+
+  // ADR-216 D9 (B487), the cut latch ON. Appended AFTER every earlier row, D8's
+  // included, so no earlier row's place in the stream or in the self-digest references
+  // moves. Glass horde pad as shipped (a cut rule under Quantize, the drift law), with
+  // the flag alone, with D8, and with D8 at os 1: these move with the bank, on purpose
+  // (B487's acceptance reads this preset as shipped).
+  {
+    const p = preset('Glass horde pad'), ch = PHRASES.chord(notesFor(p.category));
+    for (const [tag, fl] of [['', {}], [', D8 on', { spreadRamp: 1 }], [', D8 on, os 1', { spreadRamp: 1, os: 1 }]])
+      C.push({ name: `C/D9 :: Glass horde pad${tag}`, sr: SR, seed: 0xB487, cmds: [...presetCmds({ ...p.params, ...fl, cutLatch: 1 }), ...ch] });
+  }
+  // ... then each path of the latch alone. Q flips blade 1's quantized cut quickly (a
+  // cut rule under Quantize and a fast drift walk); blade 2 is a fold blade, its cut its
+  // own where b2sp is set.
+  const Q = { ...B2, N: 6, kq: 1, kRule: 4, kRuleAmt: 1, law: 4, driftRate: 1, detune: 14, K: 0.3, cutLatch: 1 };
+  row('D9 a cut rule on blade 1', Q, held);
+  row('D9 a cut rule on blade 2 alone', { ...Q, b2sp: 1, kRule: 0, kRule2: 4, kRuleAmt2: 1, mode2: 0, hot2: 2 }, held);
+  row('D9 a cut rule on each blade', { ...Q, b2sp: 1, kRule2: 6, kRuleAmt2: 0.7, mode2: 5, hot2: 0 }, chord);
+  row('D9 a quantized Cut spread, no rule', { ...Q, kRule: 0, kspread: 2.5, b2sp: 1, kspread2: -1.5 }, held);
+  row('D9 Quantize off: nothing is latched', { ...Q, kq: 0 }, held);
+  // every blade mode, on blade 1 (sync, FM reset, FM free, noise, fold, ring, crush),
+  // pitch FM on both FM modes, and blade 2 as noise and as crush
+  for (const [mode, tag] of [[0, 'sync'], [1, 'FM reset'], [2, 'FM free'], [3, 'noise'], [4, 'fold'], [5, 'ring'], [6, 'crush']])
+    row(`D9 blade 1 mode ${mode} (${tag})`, { ...Q, mode, I: 2, m: 1.5 }, held);
+  row('D9 blade 1 pitch FM, reset', { ...Q, mode: 1, fmType: 1, I: 3 }, held);
+  row('D9 blade 1 pitch FM, free', { ...Q, mode: 2, fmType: 1, I: 3 }, held);
+  row('D9 blade 2 noise, its own cut rule', { ...Q, b2sp: 1, kRule2: 4, kRuleAmt2: 1, mode2: 3, w2: 0.2 }, held);
+  row('D9 blade 2 crush, its own cut rule', { ...Q, b2sp: 1, kRule2: 4, kRuleAmt2: 1, mode2: 6, hard2: 0.3 }, held);
+  // the window: full (w 1, the cycle start is the window's own start), a palindrome
+  // (mirror 1), the twin half a cycle later (mirror 2), the lock in cycles per window
+  // (lock 1) and in Hz (lock 2)
+  row('D9 the window full', { ...Q, w: 1 }, held);
+  row('D9 mirror 1', { ...Q, mirror: 1 }, held);
+  row('D9 mirror 2, the twin', { ...Q, mirror: 2, w: 0.4 }, held);
+  row('D9 lock 1', { ...Q, lock: 1 }, held);
+  row('D9 lock 2 (Hz)', { ...Q, lock: 2, kHz: 600 }, held);
+  // rotation carries the window round the cycle; cross-modulation pushes the carrier
+  row('D9 rotation carries the window', { ...Q, rotRate: 1.5, rotSpread: 0.4 }, held);
+  row('D9 cross-modulation and feedback', { ...Q, xm: 0.2, fb: 0.1 }, held);
+  // C1 (the longest cycle) and C5
+  row('D9 at C1', Q, [on(24), blocks(300), off(24), blocks(20)]);
+  row('D9 at C5', Q, [on(72), blocks(300), off(72), blocks(20)]);
+  // WHO IS SET: a note's first values; a mono retrigger on a sounding voice (a note-on
+  // mid-latch: its new cut waits); members that join while others latch; members
+  // waiting on onset scatter; the flag, Quantize and blade 2 switched mid-note
+  row('D9 mono retrigger mid-latch', { ...Q, polyMode: 1 }, PHRASES.legato([45]));
+  row('D9 a new note while others latch', Q, [on(45), rb(37, 40), on(52), rb(37, 40), on(57), rb(37, 400), off(45), off(52), off(57), rb(37, 40)]);
+  row('D9 members join mid-latch', { ...Q, N: 8, cutLatch: 0 },
+    spliceAt([on(45), on(52), rb(100, 400), off(45), off(52), rb(100, 30)],
+      [[50, ['set', 'N', 4]], [50, ['set', 'cutLatch', 1]], [101, ['set', 'N', 8]], [250, ['set', 'N', 5]], [301, ['set', 'N', 8]]]));
+  row('D9 members waiting on onset scatter', { ...Q, onsetScatter: 12, A: 20, R: 250 }, arp);
+  row('D9 switched on and off mid-note', { ...Q, cutLatch: 0 }, spliceAt(held, [[40, ['set', 'cutLatch', 1]], [200, ['set', 'cutLatch', 0]]]));
+  row('D9 Quantize switched off and on mid-note', Q, spliceAt(held, [[60, ['set', 'kq', 0]], [150, ['set', 'kq', 1]]]));
+  row('D9 blade 2 switched off and on mid-note', { ...Q, b2sp: 1, kRule2: 4, kRuleAmt2: 1 }, spliceAt(held, [[60, ['set', 'b2on', 0]], [150, ['set', 'b2on', 1]]]));
+  // with D8 (which SETS the quantized cut, then the latch holds it), and with D6, D7, D8
+  row('D9 and D8 both on', { ...Q, spreadRamp: 1, bspread: 0.3, wspread: 0.2 }, held);
+  row('D9 and D8, D8 switched mid-note', { ...Q, bspread: 0.3 }, spliceAt(held, [[40, ['set', 'spreadRamp', 1]], [200, ['set', 'spreadRamp', 0]]]));
+  row('D9 and D8, a mono retrigger', { ...Q, spreadRamp: 1, polyMode: 1 }, PHRASES.legato([45]));
+  row('D9, D8, D7 and D6 all on', { ...Q, frame: 1, frameHold: 1, spreadRamp: 1, R: 1500, poly: 2, stealFade: 1 }, [on(45), on(52), blocks(40), on(57), blocks(40), off(52), blocks(3), on(60), blocks(60),
+    off(57), off(60), blocks(20)]);
+  // rates and blocks
+  row('D9 37-sample blocks', Q, [on(45), rb(37, 5), on(52), rb(37, 600), off(45), off(52), rb(37, 40)]);
+  row('D9 at 44.1 kHz', Q, held, { sr: 44100 });
+  row('D9 at os 1', { ...Q, os: 1 }, held);
+  row('D9 at os 4', { ...Q, os: 4 }, chord);
   return C;
 }
 
