@@ -199,14 +199,20 @@ table, loudest difference first; `pairs.jsonl` is one JSON line per pair.
   Near -20 dB is a change you may hear; near 0 dB the two renders have stopped being the
   same waveform (the phases or a noise draw moved), and at +3 dB they are as unrelated as
   two independent signals of one level. That says nothing about which is louder: listen. The WAV files are
-  not level-matched; the page matches B to A by the measured gain at play time (it turns the
-  louder side down, because a media element's volume cannot go above 1).
+  not level-matched; the page matches B to A by the measured gain at play time (B is raised to A).
 - **Nothing here is committed.** The default output is `build-ab/` (gitignored); WAV files and
   the page are outputs.
+- **Playing it.** Serve the folder (`python3 -m http.server` in it) and open the page over http:
+  both builds of a row then play together on Web Audio, looped, and Switch is a 10 ms crossfade
+  at one sample (keys: Space, S or X, the arrows; a playhead per row). Blind mode relabels the
+  sides X and Y at random per row, takes a preference per row and reveals a tally. Opened straight
+  from the file system the browser blocks the fetch, and the page falls back to plain audio
+  elements with a note: it plays, but its switch is not sample-tight.
 - **Controls.** `node tools/h2_ab.mjs --self-test` (in `./verify fast`; `full` runs it on the
   engine just built): the same binary as A and B reads bit-identical, B = A x 0.5 reads
-  -6.02 dB, the WAV writer round-trips, and the page's Switch (run in a stub DOM) moves only the
-  volume, never a seek: a seek on a playing element landed at a stale time in the browser.
+  -6.02 dB, the WAV writer round-trips, and the page (`tools/h2_ab_page.mjs`, run in stub
+  objects) starts both sources together and looping, switches by gain ramps only, keeps blind
+  mode a permutation; each with a must-fail.
 
 ## Wiring the selftest
 

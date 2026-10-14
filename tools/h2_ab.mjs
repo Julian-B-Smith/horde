@@ -47,12 +47,14 @@
  *   max |B - A| in dBFS; identical (every float64 sample equal, not the quantised WAV) and
  *   firstDiffSample.
  *
- * THE PAGE plays the WAVs through plain <audio> elements, volume only, so it works opened from
- * file:// (a fetch() or a media-element source of a file:// URL is blocked or silent in the
- * browsers, and tools/serve_labs.py serves only the lab trees, never a build directory). A
- * media element's volume cannot go above 1, so with the level match on the louder side is
- * turned DOWN by the measured gain instead of B being turned up: the pair is matched, the
- * pair's absolute level is not.
+ * THE PAGE (tools/h2_ab_page.mjs) plays on Web Audio: both WAVs of a row are fetched and decoded on its first
+ * Play, two looping sources start at one `when` on one AudioContext clock, each into its own GainNode, and
+ * Switch only ramps the two gains across each other over 10 ms (never a seek or a restart). The level match
+ * is a gain on B, which may exceed 1. It also has a playhead, keys (Space, S or X, the arrows) and a blind
+ * mode (X and Y in a random order per row from crypto.getRandomValues, a preference per row, reveal, tally).
+ * Opened from file:// the fetch fails and the page falls back to plain <audio> elements (volume only, the
+ * switch not sample-tight) with a note saying to serve the folder; tools/serve_labs.py serves only the lab
+ * trees, never a build directory, so `python3 -m http.server` in the output folder is the way.
  *
  * THE CONTROLS (--self-test; each prints PASS or FAIL, any FAIL exits 1; with a binary they run
  * on the engine, without one on a synthetic signal and the engine half prints SKIP):
@@ -62,9 +64,11 @@
  *   (b) a known difference: B = A x 0.5 through the same metrics code reads -6.02 dB (+- 0.01)
  *       and a level match of +6.02 dB (+- 0.01).
  *   (c) the WAV writer round-trips: write, read back with this file's reader, equal bit for bit.
- *   (d) the page's Switch moves the volume and nothing else (pageSwitchProbe: the page's script in a
- *       stub DOM with audio elements; no seek, play or pause on Switch, the new element already within
- *       20 ms of the other). Must-fail: the old Switch (a seek) and a planted seek to 0 read red.
+ *   (d) the page, run in stub objects with no browser (h2_ab_page.mjs): Play starts both sources at one
+ *       `when`, looping; Switch issues gain ramps only (no start, stop or new node), complementary;
+ *       blind mode is a per-row permutation, hidden until reveal, with a tally; the fallback's Switch
+ *       seeks nothing. Must-fail: a re-start on Switch, sources started apart, a source with loop false,
+ *       and (fallback) a seek on Switch and a seek to 0, each read red.
  *
  * Deterministic but for the render time printed on stdout. No dependency but Node's own and
  * h2/harness/harness.mjs.
@@ -74,6 +78,7 @@ import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from
 import { basename, join, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { ROOT, binPath, jobFor, loadPatches, mtof, run } from '../h2/harness/harness.mjs';
+import { PAGE_CSS, PAGE_JS, pageFallbackProbe, pageWebAudioProbe } from './h2_ab_page.mjs';
 
 const SR = 48000, SEED = 1, VEL = 0.85, BLOCK = 128, PRESET_GAIN = 0.35;
 const BANK = 'reference/scalpel/data/presets.json';
@@ -234,80 +239,37 @@ export function summaryTable(pairs) {
 }
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const PAGE_CSS = `:root{color-scheme:light dark;--bg:#fafafa;--fg:#1c1c1c;--dim:#666;--line:#d8d8d8;--acc:#1f6feb;--hot:#c2410c}
-@media (prefers-color-scheme:dark){:root{--bg:#161616;--fg:#e8e8e8;--dim:#9a9a9a;--line:#333;--acc:#58a6ff;--hot:#fb923c}}
-body{font:15px/1.4 system-ui,sans-serif;background:var(--bg);color:var(--fg);margin:0 auto;padding:1rem 1.25rem;max-width:72rem}
-h1{font-size:1.2rem;margin:.2rem 0}code{font-family:ui-monospace,Menlo,monospace;font-size:.9em}
-.dim{color:var(--dim)}table{border-collapse:collapse;width:100%}th,td{border-bottom:1px solid var(--line);padding:.4rem .5rem;text-align:left;vertical-align:middle}
-th{font-weight:600;color:var(--dim);font-size:.85rem}tr.grp td{font-weight:600;padding-top:1rem;border-bottom:2px solid var(--line)}
-button{font:inherit;padding:.2rem .7rem;border:1px solid var(--line);background:transparent;color:var(--fg);border-radius:4px;cursor:pointer}
-button:hover{border-color:var(--acc)}.which{display:inline-block;width:1.6rem;text-align:center;font-weight:700;color:var(--acc)}
-.which.b{color:var(--hot)}.seek{width:11rem;vertical-align:middle}.num{font-variant-numeric:tabular-nums;white-space:nowrap}
-.same{color:var(--dim)}.bar{display:flex;gap:1.5rem;align-items:center;flex-wrap:wrap;margin:.6rem 0}`;
-/* THE PAGE'S SCRIPT is this function's source, shipped as `(pageMain)(document)`. It is a real function, not a
-   string, so the Switch probe below can run it against a stub DOM without an evaluator (tools/labharness/
-   sandbox_check.mjs flags any `new Function`/vm/eval/non-literal import() under tools/). */
-export function pageMain(document) {
-const match=document.getElementById('match');
-const rows=[...document.querySelectorAll('tr.row')].map(tr=>{
-  const r={tr,a:tr.querySelector('audio.a'),b:tr.querySelector('audio.b'),which:'A',gain:parseFloat(tr.dataset.gain)||1,
-    pp:tr.querySelector('.pp'),sw:tr.querySelector('.sw'),seek:tr.querySelector('.seek'),t:tr.querySelector('.t'),lab:tr.querySelector('.which')};
-  return r;});
-const audible=r=>r.which==='A'?r.a:r.b;
-const dur=r=>isFinite(r.a.duration)?r.a.duration:0;
-// volume cannot exceed 1: with the match on, the louder side is turned down by the measured gain (B is matched to A)
-function levels(r){const g=match.checked?r.gain:1;let va=1,vb=g;if(vb>1){va=1/vb;vb=1;}
-  r.a.volume=r.which==='A'?va:0;r.b.volume=r.which==='B'?vb:0;}
-function show(r){const d=dur(r),c=audible(r).currentTime;r.t.textContent=c.toFixed(1)+' / '+d.toFixed(1)+' s';r.seek.value=d?Math.round(1000*c/d):0;}
-// the silent element follows the audible one, never the other way round; a seek on the silent one cannot be heard
-function align(r){const au=audible(r),hid=au===r.a?r.b:r.a;if(!au.paused&&Math.abs(hid.currentTime-au.currentTime)>0.02)hid.currentTime=au.currentTime;}
-function stop(r){r.a.pause();r.b.pause();r.pp.textContent='Play';}
-rows.forEach(r=>{
-  levels(r);
-  r.pp.onclick=()=>{
-    if(!r.a.paused){stop(r);return;}
-    rows.forEach(o=>{if(o!==r)stop(o);});
-    levels(r);{const au=audible(r);(au===r.a?r.b:r.a).currentTime=au.currentTime;}   // both paused: line the silent one up with the audible one
-    Promise.all([r.a.play(),r.b.play()]).then(()=>{r.pp.textContent='Pause';}).catch(e=>{r.t.textContent=String(e);});};
-  // SWITCH ONLY MOVES THE VOLUME. Both elements play in step all the time; a seek on a playing element is
-  // asynchronous and landed at a stale time (the lead's browser run: A 1.23 s, B 0.45 s after one click).
-  r.sw.onclick=()=>{
-    r.which=r.which==='A'?'B':'A';
-    levels(r);r.lab.textContent=r.which;r.lab.classList.toggle('b',r.which==='B');};
-  r.seek.oninput=()=>{const t=dur(r)*r.seek.value/1000;r.a.currentTime=t;r.b.currentTime=t;show(r);};
-  r.a.ontimeupdate=r.b.ontimeupdate=()=>{show(r);align(r);};
-  r.a.onended=r.b.onended=()=>{stop(r);r.a.currentTime=0;r.b.currentTime=0;show(r);};
-  r.a.onloadedmetadata=()=>show(r);
-});
-match.onchange=()=>rows.forEach(levels);
-document.getElementById('stop').onclick=()=>rows.forEach(stop);
-}
-export const PAGE_JS = `(${pageMain.toString()})(document);`;
-
 export function pageHtml(set, pairs, files, osText) {
   const builds = ['A', 'B'].map(s => `<tr><td><b>${s}</b></td><td><code>${esc(set.builds[s].id)}</code></td><td><code>${set.builds[s].sha256.slice(0, 16)}</code></td><td class="dim">${esc(describeSets(set.sets[s]))}</td></tr>`).join('');
   let lastPreset = null;
   const body = pairs.map(({ preset, phrase, m }, i) => {
-    const grp = preset !== lastPreset ? `<tr class="grp"><td colspan="3">${esc(preset)}</td></tr>` : '';
+    const grp = preset !== lastPreset ? `<h2>${esc(preset)}</h2>` : '';
     lastPreset = preset;
-    const diff = m.identical ? '<span class="same">identical, bit for bit</span>'
-      : `<b>${fmt(m.diffDb)} dB</b> <span class="dim">against A; peak ${fmt(m.diffPeakDb)} dBFS; B ${fmt(m.gainBDb)} dB to match</span>`;
-    return `${grp}<tr class="row" data-gain="${m.gainB === null ? 1 : m.gainB}"><td>${esc(phrase.id)}<div class="dim">${esc(phrase.what)}</div></td>` +
-      `<td>${diff}</td><td class="num"><button class="pp">Play</button> <button class="sw">Switch</button> <span class="which">A</span> ` +
-      `<input type="range" class="seek" min="0" max="1000" value="0"> <span class="t dim">0.0 / 0.0 s</span>` +
-      `<audio class="a" preload="metadata" src="${esc(files[i].a)}"></audio><audio class="b" preload="metadata" src="${esc(files[i].b)}"></audio></td></tr>`;
+    // the direction of a difference (which side is louder, the gain B needs) is hidden in blind mode (.dir)
+    const diff = m.identical ? 'identical, bit for bit'
+      : `difference <b>${fmt(m.diffDb)} dB</b> against A; peak ${fmt(m.diffPeakDb)} dBFS<span class="dir">; B ${fmt(m.gainBDb)} dB to match A</span>`;
+    return `${grp}<section class="row" data-gain="${m.gainB === null ? 1 : m.gainB}" data-a="${esc(files[i].a)}" data-b="${esc(files[i].b)}">` +
+      `<div><span class="what">${esc(phrase.id)}</span> <span class="dim">${esc(phrase.what)}</span></div><div class="diff">${diff}</div>` +
+      `<div class="sides"><div class="side side0">A</div><div class="side side1">B</div></div>` +
+      `<div class="ctl"><button class="pp">Play</button><button class="sw">Switch</button>` +
+      `<span class="prefs" hidden><button class="pref0">prefer X</button><button class="pref1">prefer Y</button></span><span class="st dim"></span></div>` +
+      `<div class="track"><i class="ph"></i></div><div class="t dim">0.0 / 0.0 s</div>` +
+      `<audio class="a" preload="none" src="${esc(files[i].a)}"></audio><audio class="b" preload="none" src="${esc(files[i].b)}"></audio></section>`;
   }).join('\n');
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>horde 2 engine A/B</title><style>${PAGE_CSS}</style></head><body>
 <h1>horde 2 engine A/B</h1>
-<p class="dim">Rendered offline by the C++ engine (tools/h2_ab.mjs): 48 kHz, velocity 0.85, host seed 1, ${esc(osText)}. Each row plays A and B at one position; Switch flips between them without moving.
+<p class="dim">Rendered offline by the C++ engine (tools/h2_ab.mjs): 48 kHz, velocity 0.85, host seed 1, ${esc(osText)}. Each row loops the whole render, release tail included, on A and B at once; Switch changes which you hear without moving or restarting anything.
 Difference = rms(B - A) / rms(A), in dB: the lower, the nearer. The WAV files are unmatched; the level match is applied when playing.</p>
 <table><tr><th></th><th>build</th><th>sha-256</th><th>settings</th></tr>${builds}</table>
-<div class="bar"><label><input type="checkbox" id="match" checked> match levels (B to A, by the measured gain)</label><button id="stop">Stop all</button></div>
-<table><tr><th>phrase</th><th>difference</th><th>play</th></tr>
+<p class="keys"><kbd>Space</kbd> play / stop the outlined row &nbsp; <kbd>S</kbd> or <kbd>X</kbd> switch &nbsp; <kbd>&uarr;</kbd> <kbd>&darr;</kbd> move between rows</p>
+<div class="bar"><label><input type="checkbox" id="match" checked> match levels (B raised to A by the measured gain)</label>
+<label><input type="checkbox" id="blind"> blind mode (sides become X and Y, in a random order per row)</label>
+<button id="reveal" hidden>Reveal</button><button id="stop">Stop all</button></div>
+<div id="tally"></div>
+<div class="note" id="note" hidden>Opened from the file system, so the browser will not let this page load the audio for Web Audio: it plays through plain audio elements, and the switch is not sample-tight. For the tight switch, run <code>python3 -m http.server</code> in this folder and open the page over http (localhost).</div>
 ${body}
-</table>
 <script>${PAGE_JS}</script></body></html>
 `;
 }
@@ -342,48 +304,7 @@ function synthetic() {
   for (let i = 0; i < n; i++) { const t = i / SR; L[i] = 0.3 * Math.sin(2 * Math.PI * 220 * t) + 0.1 * Math.sin(2 * Math.PI * 331 * t); R[i] = 0.25 * Math.sin(2 * Math.PI * 261.6 * t + 1); }
   return { L, R };
 }
-/* The page's script (pageMain) against a stub DOM (no browser here): Play, let time pass, let the silent element
-   drift, Switch. Returns { problems, text }. Switch must move the volumes and nothing else: no seek, play or
-   pause (a seek on a playing element is asynchronous, and landed at a stale time in the browser), and the
-   newly audible element must already be where the other one is, within 20 ms. */
-export function pageSwitchProbe(main, afterSwitch) {
-  const log = [];
-  const audio = name => {
-    let v = 1;
-    const el = { name, paused: true, duration: 7, t: 0, onended: null, ontimeupdate: null, onloadedmetadata: null,
-      get currentTime() { return el.t; }, set currentTime(x) { el.t = x; log.push(`seek ${name} to ${x.toFixed(3)}`); },
-      get volume() { return v; }, set volume(x) { v = x; },
-      play() { el.paused = false; log.push(`play ${name}`); return Promise.resolve(); }, pause() { el.paused = true; log.push(`pause ${name}`); } };
-    return el;
-  };
-  const A = audio('A'), B = audio('B');
-  const plain = () => ({ textContent: '', value: 0, onclick: null, oninput: null, classList: { toggle() {} } });
-  const pp = plain(), sw = plain(), seek = plain(), t = plain(), lab = plain();
-  const byClass = { 'audio.a': A, 'audio.b': B, '.pp': pp, '.sw': sw, '.seek': seek, '.t': t, '.which': lab };
-  const tr = { dataset: { gain: '1.5' }, querySelector: q => byClass[q] };
-  const match = { checked: true, onchange: null }, stop = plain();
-  const doc = { getElementById: id => (id === 'match' ? match : stop), querySelectorAll: () => [tr] };
-  main(doc);
-  const advance = dt => { for (const el of [A, B]) if (!el.paused) el.t += dt; };   // the clock, not a seek
-  pp.onclick();                         // Play
-  advance(0.74); A.ontimeupdate();
-  B.t += 0.1;                           // the silent one drifts ahead
-  A.ontimeupdate();                     // the page may line the SILENT one up
-  const drifted = Math.abs(A.t - B.t);
-  advance(0.5);
-  const mark = log.length;
-  sw.onclick();                         // Switch
-  if (afterSwitch) afterSwitch(A, B);   // a planted fault: what a wrong handler would have done next
-  const ops = log.slice(mark), problems = [];
-  if (ops.length) problems.push(`Switch issued ${ops.length} media call(s): ${ops.join('; ')}`);
-  if (Math.abs(A.t - B.t) > 0.02) problems.push(`after Switch B is at ${B.t.toFixed(3)} s and A at ${A.t.toFixed(3)} s`);
-  if (!(B.volume > 0 && A.volume === 0)) problems.push(`after Switch the volumes are A ${A.volume}, B ${B.volume} (B should be the audible one)`);
-  if (drifted > 0.02) problems.push(`the silent element was left ${drifted.toFixed(3)} s out of step`);
-  if (A.paused || B.paused) problems.push('Switch left an element paused');
-  return { problems, text: `A ${A.t.toFixed(3)} s, B ${B.t.toFixed(3)} s after Switch; ${ops.length} media calls on Switch` };
-}
-
-export function selfTest(binOpt) {
+export async function selfTest(binOpt) {
   let red = 0;
   const row = (ok, tag, text) => { console.log(`${ok ? 'PASS' : 'FAIL'}  ${tag} ${text}`); if (!ok) red++; };
   const bin = binPath(binOpt ? { bin: binOpt } : undefined);
@@ -428,15 +349,22 @@ export function selfTest(binOpt) {
   row(back.sr === SR && bits(gl, back.L) && bits(gr, back.R) && wav.equals(again), '(c)', `${n} frames written and read back: sample rate ${back.sr}, every sample bit for bit, and the re-written file byte for byte`);
   const rt = decodeWav(encodeWav(base.L, base.R, SR));
   row(base.L.every((x, i) => Math.abs(rt.L[i] - x) <= 0.5 / FULL + 1e-15), '(c)', `a ${haveBin ? 'rendered' : 'synthetic'} signal (${base.L.length} frames) comes back within half a 24-bit step`);
-  // (d) the page's Switch moves the volume and nothing else. Its must-fail, on every run: what the old Switch did
-  // (seek the new element to the other one's time) and a seek to 0, done right after the real handler, must each
-  // read red. They are planted around the handler, not by editing it, so the probe's eyes are what is tested.
-  const good = pageSwitchProbe(pageMain);
-  row(!good.problems.length, '(d)', `the page's Switch, in a stub DOM: ${good.problems.length ? good.problems.join(' | ') : good.text}`);
-  const plants = [['the old Switch (a seek of the new element to the other one\'s time)', (A, B) => { B.currentTime = A.currentTime; }],
-    ['a seek to 0', (A, B) => { B.currentTime = 0; }]];
+  // (d) the page, in stub objects (tools/h2_ab_page.mjs). Web Audio: Play starts both sources at one `when`, looping;
+  // Switch issues gain ramps only, complementary; blind mode is a per-row permutation, hidden until reveal.
+  // Each has its must-fail, on every run: a re-start on Switch, sources started apart, a source that does not loop.
+  const good = await pageWebAudioProbe();
+  row(!good.problems.length, '(d)', `the page on Web Audio, in a stub browser: ${good.problems.length ? good.problems.join(' | ') : good.text}`);
+  const plants = [['a re-start on Switch (a new source started)', { afterSwitch: T => { T.ctx.createBufferSource().start(T.now); } }],
+    ['sources started 10 ms apart', { skewStart: true }], ['a source with loop false', { noLoop: true }]];
   for (const [what, plant] of plants) {
-    const bad = pageSwitchProbe(pageMain, plant);
+    const bad = await pageWebAudioProbe(plant);
+    row(bad.problems.length > 0, '(d)', `CONTROL ${what} reads: ${bad.problems.join(' | ') || 'GREEN (the probe is blind)'}`);
+  }
+  // the fallback (file://): Switch moves volumes only, no seek. Must-fail: the old Switch's seek, and a seek to 0.
+  const fb = await pageFallbackProbe();
+  row(!fb.problems.length, '(d)', `the page's fallback (fetch failed), in a stub: ${fb.problems.length ? fb.problems.join(' | ') : fb.text}`);
+  for (const [what, plant] of [['the old Switch (a seek of the new element to the other one\'s time)', (A, B) => { B.currentTime = A.currentTime; }], ['a seek to 0', (A, B) => { B.currentTime = 0; }]]) {
+    const bad = await pageFallbackProbe(plant);
     row(bad.problems.length > 0, '(d)', `CONTROL ${what} reads: ${bad.problems.join(' | ') || 'GREEN (the probe is blind)'}`);
   }
   console.log(`h2_ab --self-test: ${red ? 'FAIL' : 'PASS'}`);
@@ -445,8 +373,8 @@ export function selfTest(binOpt) {
 
 /* ---------------------------------------------------------------- the command line */
 function arg(argv, name) { const i = argv.indexOf(name); return i >= 0 ? argv[i + 1] : undefined; }
-export function main(argv) {
-  if (argv.includes('--self-test')) return selfTest(arg(argv, '--bin'));
+export async function main(argv) {
+  if (argv.includes('--self-test')) return await selfTest(arg(argv, '--bin'));
   const a = arg(argv, '--a'), b = arg(argv, '--b');
   if (!a || !b) { console.error('usage: node tools/h2_ab.mjs --a <binA> --b <binB> [--out <dir>] [--presets "A,B"] [--os 1|2] [--a-sets k=v,..] [--b-sets k=v,..]\n       node tools/h2_ab.mjs --self-test [--bin <h2_harness_render>]'); return 2; }
   const os = Number(arg(argv, '--os') || 1);
@@ -461,5 +389,5 @@ export function main(argv) {
   return 0;
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
-  try { process.exitCode = main(process.argv.slice(2)); } catch (e) { console.error(`h2_ab: ${e.message}`); process.exitCode = 2; }
+  main(process.argv.slice(2)).then(code => { process.exitCode = code; }, e => { console.error(`h2_ab: ${e.message}`); process.exitCode = 2; });
 }
