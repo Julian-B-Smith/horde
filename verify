@@ -965,6 +965,25 @@ full() {
   node tools/h2_steal_fade_check.mjs --bin "$build_dir/h2_harness_render" || {
     echo "verify[full]: h2_steal_fade_check FAILED" >&2; return 1; }
   #
+  #
+  # [engine gate: B460 the spread ramp, ADR-216 D8]
+  # tools/h2_spread_ramp_check.mjs, on the C++ engine through the harness: one held
+  # note of the bank's Breathing pad AS SHIPPED (no patch setting written over it), at
+  # C3, G3 and C4, at os 2 and at os 1, with frameHold 1. With spreadRamp 1 it must read
+  # no isolated jump (ROADMAP B460's acceptance, the frame-hold check's own detector);
+  # its CONTROL, the present law (spreadRamp 0), must read at least one at each os. A
+  # TWIN of every render, with the pad's noise blade silent and the random stream
+  # untouched, is judged the same way beside it. B460's own measure (the second
+  # difference's energy at the first samples of each 32-sample tick over the median
+  # position) must read at or under a ceiling PROPOSED for the human with the flag on,
+  # and over it with the flag off, at drift rates 0.1 and 1. Its PLANTS
+  # (h2/harness/control_spread.h): the ramp on one blade only, each way, and the ramp
+  # dropped at one tick in four must each read over that ceiling, and the composition
+  # two of them are built on must render what the engine renders, or the check is
+  # red. Its last line is its verdict. Added under ADR-180 §1.
+  node tools/h2_spread_ramp_check.mjs --bin "$build_dir/h2_harness_render" || {
+    echo "verify[full]: h2_spread_ramp_check FAILED" >&2; return 1; }
+  #
   # horde 2's lifted swarm core (B379 step 1, h2/cores/swarm/): lift edit E1
   # re-proven. A Voice the caller owns, started with initVoice() and ticked
   # through the one public forwarder E1 adds, must match the core's own voice

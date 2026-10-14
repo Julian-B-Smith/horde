@@ -29,17 +29,17 @@ whole render.
 ## The golden (the parity target, ADR-187 item 3)
 
 The composed engine as the lab runs it: main `c64cfdb` (2026-10-01) plus B461's
-divergence D6 (2026-10-12) and B459's D7 (2026-10-13), each in the engine with
-the lab's one toggle for it. The renderer streams each file's git blob, and the
+divergence D6 (2026-10-12), B459's D7 and B460's D8 (2026-10-13), each in the
+engine with the lab's one toggle for it. The renderer streams each file's git blob, and the
 check fails on a blob it was not pinned to.
 
 | file | role | blob |
 |---|---|---|
-| `docs/design/scalpel-horde-engine.js` | the composed engine (`makeComposedEngine`) | `b0ed52df0d2f5a777fa25d5db75fec27c0860b75` |
+| `docs/design/scalpel-horde-engine.js` | the composed engine (`makeComposedEngine`) | `4c0d25ab5c6edc6aaa43356ef956d6dcbeb2ec90` |
 | `reference/scalpel/prototype/razor-core.js` | the blade oracle it extends | `0ce6a713410d89c65bf55f761f1dc791fae61b16` |
 | `reference/swarmsaw.html` | SwarmSynth, the swarm it drives (DSP section) | `e47da6c9e0b4a058e18d79f62d71ab31c3d3b1b0` |
 | `reference/scalpel/data/presets.json` | the 83 bench presets | `7b9d55efd7db217c5c881f6644519dbf137af19a` |
-| `docs/design/scalpel-interface-lab.html` | the 12 B366 envelope presets (`ENV_PRESETS`); since B445 also the device default `os: 1` (`LAB_DEF`), which no scenario reads | `b47fbe3cb26a8df7de7cc993c40ab9a1eaa492ed` |
+| `docs/design/scalpel-interface-lab.html` | the 12 B366 envelope presets (`ENV_PRESETS`); since B445 also the device default `os: 1` (`LAB_DEF`), which no scenario reads | `c9e724599e1afe46162b7666e5c4fe5f8d354770` |
 
 The engine's flags at their ledgered defaults (`docs/port/divergences.json`):
 
@@ -64,6 +64,35 @@ The engine's flags at their ledgered defaults (`docs/port/divergences.json`):
   scenarios are note scripts (a chord over a releasing chord, at a pool of 3 and
   of 6): the ledger's fixed two notes at sample 0 take no voice, so ROADMAP B465
   gave the check's scenarios a script (`traces/2026-10-13-b459-steal-fade-d7.md`).
+- **D8 `spreadRamp`: OFF** (ADR-216, B460). The spread law recomputes each
+  member's values once per 32-sample couple tick, and the blades read them every
+  sample, so each tick's change arrived in one sample. With the flag on every
+  value a blade reads travels to its new value across the tick in equal steps,
+  its share taken at the end of each sample for the next (ADR-216 A1 item 6, as
+  D6's lead). Which values, and how:
+  - **ramped linearly:** rotation rate (`rotOff`), width (`wMul`), depth (`dAdd`),
+    index (`iMul`) and the sine->saw band-limit's r (`mr`), of both blades; and
+    cut (`kAdd`, `kMul`) while Quantize is off;
+  - **ramped the shortest way round:** position (`cOff`, `cOff2`), which a blade
+    reads modulo one cycle;
+  - **ramped as a matched pair with r:** the band-limit's normaliser (`mn`). The
+    law writes 1 where r is at or under its threshold, where the wave is a plain
+    sine and reads no normaliser; the ramp's target there is r itself, asin's
+    limit, or a ramp between 1 and asin(r) would silence the member on the way;
+  - **set, not ramped:** cut under Quantize (`kq`), which the law itself steps;
+    and every value at a note's first tick, for a member that has just joined (N
+    raised) and for a member still waiting on onset scatter (ADR-216 A1 item 4);
+  - **not touched:** `mor` and `kEff`, which no blade reads.
+  A note-on's `spread()` on a voice already sounding (a mono retrigger) is not a
+  tick: the law runs and the ramps stay as they stand. Spread law 3 reads each
+  member's lead, and its values ramp like any other law's, so that lead reaches
+  the blade as a ramp too (ADR-216 A1 item 5). Each of these rules is PROPOSED:
+  the records give "the member spread values ramp across the tick" and no more.
+  Both positions are built and parity-checked; turning it on by default is a PR
+  of its own. **B460's acceptance row is not met at os 1** (the bank's pad as
+  shipped reads 0 / 0 / 0 at os 2 and 1 / 0 / 0 at os 1; the one jump is the
+  pad's own noise blade, not a tick's): see the ledger's D8 entry and
+  `traces/2026-10-13-b460-spread-ramp-d8.md`.
 
 What the golden contains, each with its site in the composed JS:
 
@@ -439,7 +468,7 @@ substring test for `h2/cores/` or `h2/engine/`, never narrower than the original
 Self-cases cover `"h2/cores/x.h"`, `<h2/engine/engine.h>`, `"../h2/engine/engine.h"`
 and a tab-separated include.
 
-## Scenario families (as built: 627 scenarios)
+## Scenario families (as built: 659 scenarios)
 
 All at 48 kHz in 128-sample blocks unless a row says otherwise. The seeds are per
 family.
@@ -556,6 +585,27 @@ family.
        dies under its ramp, and a note struck before the ramp ends (37-sample
        blocks). With the tiers' rule put back in a scratch build, 9 of these
        18 leave the JS golden; with the keep-phase rule put back, the last one.
+   - **D8 32** (ADR-216, B460; `spreadRamp` 1), appended after every earlier row:
+     - the bank's Breathing pad as shipped, with the flag alone, with D6, and
+       with D6 at os 1 (3 rows; they move with the bank, on purpose);
+     - every spread at once under the drift law, without Quantize, on a
+       sine->saw carrier (so cut ramps and the band-limit is heard): at drift
+       rate 0.5, at 1 and at the fastest (12); spread on blade 1 alone and on
+       blade 2 alone (`b2sp`);
+     - spread law 3 with a frame, under D6's held frame and under the oracle's
+       own; and its seam at Position spread 1, where a lead passes half a cycle
+       and a position takes the shortest way round;
+     - the gradient law with the amounts and the law moved mid-note; the random
+       law, a retrigger gliding to a new draw;
+     - Quantized Cut spread (set, not ramped); a cut rule, quantized and
+       continuous; the band-limit across its threshold (base 6, Shape spread
+       walking a member to plain sine and back); negative Rotate spread with
+       blade 2 its own;
+     - who is set: members that join mid-ramp (N raised inside a tick, the flag
+       off at first); members waiting on onset scatter; per-partial voices; a
+       mono retrigger on a sounding voice; members that join before one;
+     - the flag switched on and off mid-note; with D6; with D7; with both;
+       37-sample blocks; 44.1 kHz; os 1; os 4; under the cull.
 
 ## Results (darwin-arm64, Apple clang 16, Node 24.10, `-O2 -ffp-contract=off`)
 
@@ -564,14 +614,15 @@ family.
 | P/ | 261 | 258, plus the 3 ring rows excluded (A2 item 1; all three hold) | 1.1e-12 | 9.9e-11 | 32.87% |
 | E/ | 38 | 38 | 1.9e-14 | 4.5e-13 | 46.33% |
 | T/ | 125 | 125 | 2.0e-12 | 1.4e-10 | 43.39% |
-| C/ | 203 | 203 | 2.1e-12 | 1.8e-10 | 39.13% |
+| C/ | 235 | 235 | 2.1e-12 | 1.8e-10 | 35.90% |
 
 The C/ row was re-measured on 2026-10-12 with D6's 22 rows (their own worst: rms
-4.1e-14, max-abs 1.1e-12; mean bit-exact 24.0%) and on 2026-10-13 with D7's 62
-(their own worst: rms 1.4e-14, max-abs 5.8e-13; mean bit-exact 50.0%); the whole
-set's mean is 37.83%.
+4.1e-14, max-abs 1.1e-12; mean bit-exact 24.0%), on 2026-10-13 with D7's 62
+(their own worst: rms 1.4e-14, max-abs 5.8e-13; mean bit-exact 50.0%), and the
+same day with D8's 32 (their own worst: rms 1.0e-14, max-abs 3.9e-13; mean
+bit-exact 15.4%); the whole set's mean is 36.74%.
 
-- Events and readouts are identical on all 627, the ring rows included.
+- Events and readouts are identical on all 659, the ring rows included.
 - No scenario sets a key the engine lacks.
 
 **Before the ruling, not at parity under rule 1a: P/Starting points / Cross-mod

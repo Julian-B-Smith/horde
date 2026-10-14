@@ -1,11 +1,11 @@
 # h2_engine_selfdigest_product reference (tools/h2_engine_selfdigest_check.cpp): product build, key darwin-arm64.appleclang-16.node24
 # FNV-1a 64 of each scenario's C++ samples, events and readouts. A golden fixture (protected): re-pin only
 # for a reason stated in the PR and the trace (the tool header's cases a-c); an output-neutral PR never re-pins.
-# ORACLE docs/design/scalpel-horde-engine.js b0ed52df0d2f5a777fa25d5db75fec27c0860b75
+# ORACLE docs/design/scalpel-horde-engine.js 4c0d25ab5c6edc6aaa43356ef956d6dcbeb2ec90
 # ORACLE reference/scalpel/prototype/razor-core.js 0ce6a713410d89c65bf55f761f1dc791fae61b16
 # ORACLE reference/swarmsaw.html e47da6c9e0b4a058e18d79f62d71ab31c3d3b1b0
 # ORACLE reference/scalpel/data/presets.json 7b9d55efd7db217c5c881f6644519dbf137af19a
-# ORACLE docs/design/scalpel-interface-lab.html b47fbe3cb26a8df7de7cc993c40ab9a1eaa492ed
+# ORACLE docs/design/scalpel-interface-lab.html c9e724599e1afe46162b7666e5c4fe5f8d354770
 6f1035ccaec449df  P/Starting points / Quarter sync :: chord
 5bc5dc32109a280e  P/Starting points / Quarter sync :: repeat
 428b94da88f2c1f5  P/Starting points / Quarter sync :: arp
@@ -633,4 +633,36 @@ a32da400e0afa0dc  C/D7 the cull takes a tail whose late off is pending
 0f0c2da1045d9cb4  C/D7 a retune between an off and its effect
 1b8565d2d7b75ea2  C/D7 a culled tail taken late, the cull's remainder the shorter
 4b9826773dd10866  C/D7 keep phase, a voice that dies under its ramp
-TOTAL 26b4da8f05e19861 627
+587272b9167c6884  C/D8 :: Breathing pad
+463145edff7fda85  C/D8 :: Breathing pad, D6 on
+bdaafc275dfa06a2  C/D8 :: Breathing pad, D6 on, os 1
+939c69407ec401f3  C/D8 every spread at once, the drift law
+41850019b9178771  C/D8 drift rate 1
+ca4988496ac98265  C/D8 the fastest drift
+6467220824ef40d1  C/D8 spread on blade 1 alone
+61572eaccce1df8e  C/D8 spread on blade 2 alone
+8ea9467903098dda  C/D8 spread law 3 with a frame, D6 on
+42496dc9b6ce6974  C/D8 spread law 3 with a frame, D6 off
+6753379e848b86f3  C/D8 spread law 3, the seam, Position spread 1
+2562f54947afd4e9  C/D8 the gradient law, the amounts moved mid-note
+05436baa1fc873fa  C/D8 the random law, a retrigger glides to a new draw
+b8f3906dcf0aa6f2  C/D8 Quantized Cut spread is set, not ramped
+41115e1596f87f19  C/D8 a cut rule, quantized
+26d36f95d9310ec7  C/D8 a cut rule, continuous
+af030c52bd8fee83  C/D8 the band-limit across its threshold
+d11886d95868c3d8  C/D8 negative Rotate spread, blade 2 its own
+2bcd0f6685b9d527  C/D8 members join mid-ramp
+540773894f66ee4d  C/D8 members waiting on onset scatter
+37d9c2342c81b561  C/D8 per-partial voices
+e82a73646e461eba  C/D8 mono retrigger on a sounding voice
+0cd1e45afa859ceb  C/D8 members join before a mono retrigger
+4f8fe2bc92b602db  C/D8 switched on and off mid-note
+500eae99a421ce56  C/D8 and D6 both on, the drift law on a frame
+28931dfa81fa49d7  C/D8 and D7 both on
+566f06f8d38bdbde  C/D8, D6 and D7 all on
+46d554535e7c1000  C/D8 37-sample blocks
+81ad57a172938677  C/D8 at 44.1 kHz
+9918a974eacd3cc5  C/D8 at os 1
+126e498c17f3e3ef  C/D8 at os 4
+c7979d72169662c1  C/D8 under the cull, the cap lowered mid-phrase
+TOTAL 9bac02ef35f3908d 659

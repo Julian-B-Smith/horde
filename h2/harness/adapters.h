@@ -25,6 +25,9 @@
 // [control includes: B459 the steal fade]
 #include "control_steal.h"
 //
+// [control includes: B460 the spread ramp]
+#include "control_spread.h"
+//
 #include "harness.h"
 
 namespace horde2::harness {
@@ -75,6 +78,14 @@ inline std::unique_ptr<Adapter> makeStealShortControl() { return std::make_uniqu
 inline std::unique_ptr<Adapter> makeStealStepControl() { return std::make_unique<StealPlantControl>(StealPlantControl::kStep); }
 inline std::unique_ptr<Adapter> makeStealEarlyControl() { return std::make_unique<StealPlantControl>(StealPlantControl::kEarly); }
 //
+// [control makers: B460 the spread ramp]
+// The spread ramp's plants (control_spread.h): the ramp on blade 1 only; on blade 2 only;
+// dropped at one tick in four; and the two-blade composition with nothing planted.
+inline std::unique_ptr<Adapter> makeRampBlade1Control() { return std::make_unique<SpreadPlantControl>(SpreadPlantControl::kBlade1); }
+inline std::unique_ptr<Adapter> makeRampBlade2Control() { return std::make_unique<SpreadPlantControl>(SpreadPlantControl::kBlade2); }
+inline std::unique_ptr<Adapter> makeRampBothControl() { return std::make_unique<SpreadPlantControl>(SpreadPlantControl::kBoth); }
+inline std::unique_ptr<Adapter> makeRampSkipControl() { return std::make_unique<SpreadPlantControl>(SpreadPlantControl::kSkip); }
+//
 
 inline constexpr AdapterRow kAdapters[] = {
   {"composed", false, &makeComposedAdapter},
@@ -109,6 +120,12 @@ inline constexpr AdapterRow kAdapters[] = {
   {"control/steal-short", true, &makeStealShortControl},
   {"control/steal-step", true, &makeStealStepControl},
   {"control/steal-early", true, &makeStealEarlyControl},
+  //
+  // [control rows: B460 the spread ramp]
+  {"control/ramp-blade1", true, &makeRampBlade1Control},
+  {"control/ramp-blade2", true, &makeRampBlade2Control},
+  {"control/ramp-both", true, &makeRampBothControl},
+  {"control/ramp-skip", true, &makeRampSkipControl},
   //
 };
 
