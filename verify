@@ -969,11 +969,16 @@ full() {
   # [engine gate: B460 the spread ramp, ADR-216 D8]
   # tools/h2_spread_ramp_check.mjs, on the C++ engine through the harness: one held
   # note of the bank's Breathing pad AS SHIPPED (no patch setting written over it), at
-  # C3, G3 and C4, at os 2 and at os 1, with frameHold 1. With spreadRamp 1 it must read
-  # no isolated jump (ROADMAP B460's acceptance, the frame-hold check's own detector);
-  # its CONTROL, the present law (spreadRamp 0), must read at least one at each os. A
-  # TWIN of every render, with the pad's noise blade silent and the random stream
-  # untouched, is judged the same way beside it. B460's own measure (the second
+  # C3, G3 and C4, at os 2 and at os 1, at host seeds 1 to 8, with frameHold 1. Judged as
+  # the lead ruled (PROPOSED, ADR-216 A4), the frame-hold check's own detector: with
+  # spreadRamp 1 the pad reads no isolated jump AT A TICK BOUNDARY (the tick positions a
+  # step of the law can reach; the check's header derives them), and its TWIN, the same
+  # render with the pad's noise blade silent and the random stream untouched, reads no
+  # isolated jump at all. Their CONTROLS: the present law (spreadRamp 0) must read at
+  # least one at each os, and the skipped-tick plant must read at least one at a tick
+  # boundary. The pad's whole count is printed, not judged: ROADMAP B460's first added
+  # acceptance (0 on the pad as shipped) is not met at os 1, where the noise blade
+  # steps by itself (ROADMAP B481). B460's own measure (the second
   # difference's energy at the first samples of each 32-sample tick over the median
   # position) must read at or under a ceiling PROPOSED for the human with the flag on,
   # and over it with the flag off, at drift rates 0.1 and 1. Its PLANTS

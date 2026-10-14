@@ -89,10 +89,17 @@ The engine's flags at their ledgered defaults (`docs/port/divergences.json`):
   the blade as a ramp too (ADR-216 A1 item 5). Each of these rules is PROPOSED:
   the records give "the member spread values ramp across the tick" and no more.
   Both positions are built and parity-checked; turning it on by default is a PR
-  of its own. **B460's acceptance row is not met at os 1** (the bank's pad as
-  shipped reads 0 / 0 / 0 at os 2 and 1 / 0 / 0 at os 1; the one jump is the
-  pad's own noise blade, not a tick's): see the ledger's D8 entry and
-  `traces/2026-10-13-b460-spread-ramp-d8.md`.
+  of its own. **What `h2_spread_ramp_check` judges is PROPOSED (ADR-216 A4):**
+  on the bank's pad as shipped, no isolated jump at a tick boundary (the tick
+  positions a step of the law can reach: 0 and 1 at os 1, 0 to 6 at os 2 after
+  the decimation filter), and on its twin with the noise blade silent, no
+  isolated jump at all; each over eight seeds, three notes and both os, with
+  the present law and a skipped-tick plant as controls. **ROADMAP B460's first
+  added acceptance (0 / 0 / 0 on the pad as shipped at os 1 and os 2) is NOT met
+  at os 1:** at seed 1 the pad reads 1 / 0 / 0 there, a step of its own noise
+  blade at tick position 11 (ROADMAP B481), which no ramp can remove. That
+  count is printed on every run, attributed, and not judged. See the ledger's
+  D8 entry and `traces/2026-10-13-b460-spread-ramp-d8.md`.
 
 What the golden contains, each with its site in the composed JS:
 
