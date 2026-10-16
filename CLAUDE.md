@@ -140,6 +140,10 @@ the global CLAUDE.md audio-plugin section before any build/install/validate.
   demoted by ruling, by its frozen goldens, divergence ledger and Layer-0 invariant
   suite. Divergences are mirrored into the lab JS where possible; `js_limit` marks
   where the browser cannot follow, and it never slows the C++.
+  **Scoped again by ADR-224 (RATIFIED 2026-10-15):** the NEW composed engine (ADR-223,
+  ROADMAP B494) is held to no JS parity at all: its correctness is its ratified spec
+  (`specs/SPEC-ENGINE.md`), its Layer-0 invariant suite and the human's ears on the bank.
+  The current composed engine stays under ADR-187 until the new one replaces it.
 - All slew/time-constant math is expressed in seconds and converted to
   per-tick coefficients (16-sample tick = 2756/s at 44.1 kHz). Hand-tuned
   per-tick constants are banned — ADR-009 records the trap.
