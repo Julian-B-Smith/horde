@@ -8234,3 +8234,11 @@ the scenarios built on this preset. The harness's copy (`h2/harness/patches.json
 12. **Bank coupling: rescale** in translation so each preset keeps the pull it was voiced with, provisionally (the human asked what is changing; the lead explains; confirmed by ear in the preset round).
 13. **Negative-coupling presets' start:** deferred to the preset round, judged A/B.
 
+## ADR-227 — RULED by the human: the click detector's numbers (X20, B490, 2026-10-16)
+
+**Context.** ADR-225 item 12 ratified the method (a predictor from the preceding samples; a click is a residual far over the local residual level; planted-step controls) and left the numbers to the test author's proposal. PR #1103 built it (`tools/click_detector.mjs`, `tools/click_detector_check.mjs`; `./verify fast` and `full` green): two predictors (short-term, order 24, fitted on the 10 ms before each block; and a pitch predictor), the smaller residual per sample, scored against the RMS of the 20 ms around it, events over k merged within 1.5 ms. Level-relative. At k 10: every planted step of 0.05 × peak caught on a sine, band-limited saws at C2 and C6, and Crushed bells C4 (the old detector: 0 of 10); no events on the clean reference set. Three stated exceptions where a patch steps by itself as much as the plant (Glass horde pad and Breathing pad at C3/C4, a dense chord): 0 to 5 of 10 at 0.05, 7 to 9 of 10 at 0.2. Real clicks it found in today's engine: Glass horde pad's steps at the control tick from blade 1's quantized cut (B485/B487), and the plain saw base wave rendered naive (aliasing at C1 and C2).
+
+**The ruling.** The human: "ratify the detector at k 10".
+
+**Decision.** The detector's numbers are ratified as proposed: k 10, predictor order 24 over a 10 ms fit window refitted every 1.25 ms, the local level the RMS of the 20 ms around a sample, events merged within 1.5 ms, the clean reference set's bound of no events. The bank's events are reported by class and judged nowhere. The detector is the test author's first instrument for the new engine (B494) and for B490.
+
