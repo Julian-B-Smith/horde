@@ -8242,3 +8242,11 @@ the scenarios built on this preset. The harness's copy (`h2/harness/patches.json
 
 **Decision.** The detector's numbers are ratified as proposed: k 10, predictor order 24 over a 10 ms fit window refitted every 1.25 ms, the local level the RMS of the 20 ms around a sample, events merged within 1.5 ms, the clean reference set's bound of no events. The bank's events are reported by class and judged nowhere. The detector is the test author's first instrument for the new engine (B494) and for B490.
 
+## ADR-228 — RULED by the human: a mono re-run follows the retrigger toggle; legato keeps the phases running (X25, B494, 2026-10-16)
+
+**Context.** The spec's second clean-room dry run found that a mono re-run restarted the swarm's phases mid-note (retrigger on by default), a waveform jump the click standard forbids. The lead recommended letting the retrigger toggle govern mono too (on: restart, crossfaded 5 ms; off: phases continue, only the envelope restarts). Today's engine behaves as retrigger off in mono.
+
+**The ruling.** The human: "I think the mono thing should be a toggle. To me, legato implies the phase continues but it could also be a separate toggle."
+
+**Decision (the lead's reading of those words).** In mono, the `retrigger` toggle governs a re-run: on, the phases restart through a 5 ms equal-gain crossfade from the old state; off, the phases continue and only ENV 1 re-runs, the new velocity ramped. In legato the phases always continue (ADR-226 item 3). A separate toggle for legato's phase continuity is not added now; it is recorded as a possible later addition (the spec's X26, after the build), since the human said it could be one, not that it must.
+
