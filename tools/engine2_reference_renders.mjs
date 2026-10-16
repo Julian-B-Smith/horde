@@ -111,7 +111,10 @@ export function phraseProblems(doc) {
         if (ons.has(e.note_id)) bad.push(`${p.id}: note ${e.note_id} starts twice`);
         ons.set(e.note_id, e);
         if (!(e.velocity > 0 && e.velocity <= 1)) bad.push(`${p.id} note ${e.note_id}: velocity ${e.velocity}`);
-        if (e.hz !== mtof(e.key)) bad.push(`${p.id} note ${e.note_id}: hz ${e.hz} is not 12-TET from key ${e.key}`);
+        // Relative 1e-13, not exact: Math.pow differs in the last bit between macOS and Linux (CI
+        // read keys 51 and 63 as off by one ULP). 1e-13 is ~450 ULP; the planted control's +1e-9 Hz
+        // is >= 3e-12 relative on every note here, so it still reads red.
+        if (!(Math.abs(e.hz - mtof(e.key)) <= 1e-13 * mtof(e.key))) bad.push(`${p.id} note ${e.note_id}: hz ${e.hz} is not 12-TET from key ${e.key}`);
       } else if (e.type === 'note_off') {
         if (offs.has(e.note_id)) bad.push(`${p.id}: note ${e.note_id} ends twice`);
         offs.set(e.note_id, e); end = Math.max(end, e.sample);
