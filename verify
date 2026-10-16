@@ -553,12 +553,12 @@ PY
   # §1). engine2/ is built from the spec alone, by a builder who sees no earlier engine. Two
   # blocks. (1) tools/engine2_cleanroom_check.py makes a fresh sparse worktree from the recipe
   # (tools/engine2_cleanroom.sh, local, no network) and goes red if it holds any path outside
-  # engine2/ and the spec, the old engine's directories, the test author's data, a file named like
-  # the twin or the prototypes, a symlink, or an old-engine identifier; it also keeps engine2's copy
-  # of the click detector byte-identical to tools/'s and the envelope data equal to the spec's
-  # Appendix A. Ten must-fail controls (a recipe variant that adds the old engine, one that adds a
-  # source file, one that hands over the reference renders, and four planted faults, ...) run every
-  # time. (2) engine2/build.sh builds the empty library and runs the empty suite and the runner's
+  # engine2/ and the spec, the old engine's directories, the test author's data, the declared
+  # structure, a file named like the twin or the prototypes, a symlink, or an old-engine identifier;
+  # it also keeps engine2's copy of the click detector byte-identical to tools/'s and the envelope
+  # data equal to the spec's Appendix A. Eleven must-fail controls (a recipe variant that adds the old
+  # engine, one that adds a source file, one that hands over the reference renders, one that hands
+  # over the declared structure, and four planted faults, ...) run every time. (2) engine2/build.sh builds the empty library and runs the empty suite and the runner's
   # own must-fail control, in a scratch build directory. About 4 s together; needs cmake and git.
   python3 tools/engine2_cleanroom_check.py || ok=1
   engine2_build_dir="$(mktemp -d)"
@@ -566,6 +566,20 @@ PY
     echo "verify: engine2 build / empty suite FAILED" >&2; cat "$engine2_build_dir.log" >&2; ok=1; }
   tail -1 "$engine2_build_dir.log"
   rm -rf "$engine2_build_dir" "$engine2_build_dir.log"
+
+  # THE NEW ENGINE'S DECLARED STRUCTURE (ROADMAP B500; added under ADR-180 §1).
+  # engine2/structure/engine-structure.json is the engine's blocks, slots, boundary and edges as data,
+  # from which loupe draws the diagram with no inference; the builder never sees it (the recipe above
+  # leaves it out). tools/engine2_structure_check.py holds it to the spec: every cite exists in the
+  # spec's own headings and tables, every stage of §4.2's diagram is mapped, every RC-n is cited, ids
+  # unique, no dangling end or parent cycle, edge kinds from the closed list, its own counts true, the
+  # deny list held, canonical form, and spec.blob equal to the spec's blob, so every spec edit turns it
+  # red until the declaration is reviewed. Nine must-fail controls on in-memory copies run every
+  # time. Well under 1 s; python only.
+  python3 tools/engine2_structure_check.py > /tmp/e2struct.$$ 2>&1 || {
+    echo "verify: engine2_structure_check FAILED" >&2; cat /tmp/e2struct.$$ >&2; ok=1; }
+  tail -1 /tmp/e2struct.$$
+  rm -f /tmp/e2struct.$$
 
   return $ok
 }

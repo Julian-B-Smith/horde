@@ -29,6 +29,7 @@ runner turns red when an item fails.
 | `core/` | The engine, one directory per concept as the spec proposes (section 3). Headers are empty, one purpose line each; adapt the layout (BD-1: one concept per file, BD-2: each concept exists once). |
 | `tests/` | `runner.cpp` and `suite.h` (items register themselves), `items/` (the suite, empty until the test author writes it), `harness/` (the harness header, when it lands), `controls/` (the runner's own must-fail control). |
 | `data/` | The input data: the bank, the 12 envelope presets, the phrase set. See `data/README.md`. |
+| `structure/` | The engine's declared structure, as data, from which loupe draws the engine's diagram (B500); checked against the spec by `tools/engine2_structure_check.py`. Not for the builder: the clean-room recipe leaves it out. See `structure/README.md`. |
 | `tools/click_detector.mjs` | The click detector of QS-4: `node engine2/tools/click_detector.mjs <file.wav>`. It reads WAV files and needs nothing else. |
 | `wasm/` | The WebAssembly build: a stub that refuses to configure until the human approves an exact toolchain version. |
 | `build.sh` | Configure, build, test. |

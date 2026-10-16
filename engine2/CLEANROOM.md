@@ -19,6 +19,7 @@ its own header; they are the whole recipe:
 |---|---|
 | `/engine2/` | the new engine's tree: the spec's counterpart in code, the input data, the click detector, the build scaffolding |
 | `!/engine2/data/reference-renders/`, `!/engine2/data/version0-states/` | the test author's input data; the builder does not receive it (spec 10.1, IF-4) |
+| `!/engine2/structure/` | the declared structure loupe draws the diagram from (B500): a reading of the spec, and the builder reads the spec itself (BD-10) |
 | `/specs/SPEC-ENGINE.md` | the spec, the only reference |
 
 The CLAP headers are not in the recipe: the engine's API is plain data in the spec's units, and
@@ -47,7 +48,7 @@ fails if the tree holds any path outside `engine2/` and the spec, anything from 
 directories of the old engine, any file named like the old engine's twin or prototypes, a symlink,
 or any file whose text carries one of the old engine's identifiers. Its must-fail controls (a recipe
 variant that adds the old engine's directory, one that adds a source file, one that hands the builder
-the reference renders, and a planted identifier, name, root file and symlink) run every time. It
+the reference renders, one that hands the builder the declared structure, and a planted identifier, name, root file and symlink) run every time. It
 also keeps `tools/click_detector.mjs` here byte-identical to the tools copy, and the envelope data
 equal to the spec's Appendix A. Run it alone with `python3 tools/engine2_cleanroom_check.py`
 (`--build` also builds and tests the recipe's tree).
