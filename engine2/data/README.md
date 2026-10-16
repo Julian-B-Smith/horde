@@ -7,6 +7,6 @@ spec says how each file's keys translate to the engine's parameters.
 |---|---|
 | `bank/presets.json` | The bank as voiced: 83 presets in the input format of Appendix B (B.1), every preset fully resolved. Its `note` member names a sibling file that is not part of this tree; Appendix B's base values and key tables are the reference for the keys. |
 | `envelopes/presets.json` | The 12 envelope presets of Appendix A in the same format, each with the envelope `shape` it must play (acceptance item 16) added to the bank format's members. Only the listed keys are present; the others take their base values (B.1). Equal to Appendix A, checked on every verify. |
-| `phrases/` | The phrase set (10.3). The spec fixes its names and some durations but not its events: see the README there. |
-| `version0-states/` | Example version-0 states (IF-4, B.2), for the test author. Not in the builder's tree. |
-| `reference-renders/` | The frozen renders of the bank, for the test author. Not in the builder's tree (spec 10.1). |
+| `phrases/` | The phrase set (10.3): `phrases.json`, the four phrases as sample-timed event lists at 44.1 kHz, supplied by the lead and shared by the reference renders and the tests. The README there says what each is and how glide is read. |
+| `version0-states/` | 13 example version-0 states (IF-4, B.2), for the test author, with a README listing what each exercises. Not in the builder's tree. |
+| `reference-renders/` | The frozen renders of the bank and the envelope presets on the four phrases: the manifest of hashes and each render's parameter metadata, for the test author. The audio is a release asset, not in git. Not in the builder's tree (spec 10.1). |
