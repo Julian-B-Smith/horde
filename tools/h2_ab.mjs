@@ -79,8 +79,12 @@ import { basename, join, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { ROOT, binPath, jobFor, loadPatches, mtof, run } from '../h2/harness/harness.mjs';
 import { PAGE_CSS, PAGE_JS, pageFallbackProbe, pageWebAudioProbe } from './h2_ab_page.mjs';
+import { presetGain } from '../h2/harness/gen_patches.mjs';
 
-const SR = 48000, SEED = 1, VEL = 0.85, BLOCK = 128, PRESET_GAIN = 0.35;
+const SR = 48000, SEED = 1, VEL = 0.85, BLOCK = 128;
+// A bank preset plays at the engine's default level, read where patches.json reads it, so the two can
+// never disagree (they did at 0.35 against 0.0875 once ADR-221 landed: the self-test went red on main).
+const PRESET_GAIN = presetGain();
 const BANK = 'reference/scalpel/data/presets.json';
 const sec = s => Math.round(s * SR);
 const on = n => ['on', n, mtof(n), VEL], off = n => ['off', n];
@@ -107,7 +111,7 @@ export const PHRASES = [
 // the five heaviest of the frozen CPU ledger, then two light references
 export const DEFAULT_PRESETS = ['Glass horde pad', 'Breathing pad', 'Crushed bells', 'Crush vs FM', 'Sync over fold', 'Quarter sync', 'defaults'];
 
-/* A preset as `set` commands: the bank's params in its order, then gain 0.35; "defaults" is no preset.
+/* A preset as `set` commands: the bank's params in its order, then the engine's default gain; "defaults" is no preset.
    Where h2/harness/patches.json holds the same preset it must agree to the value (one source, no drift). */
 let bankCache = null;
 export function presetSets(name) {

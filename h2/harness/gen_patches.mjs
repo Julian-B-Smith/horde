@@ -89,6 +89,10 @@ function ledgerCell(src) {
   };
 }
 
+// The level every bank preset plays at: the engine's default (ADR-221). Exported so a tool that
+// rebuilds a preset from the bank (tools/h2_ab.mjs) agrees with patches.json to the value.
+export const presetGain = () => engineGain(read(DEFAULTS));
+
 export function build() {
   const bank = JSON.parse(read(BANK)).presets, tree = JSON.parse(read(TREE)), ledgerSrc = read(LEDGER);
   const PRESET_GAIN = engineGain(read(DEFAULTS));
