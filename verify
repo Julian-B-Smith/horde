@@ -996,9 +996,11 @@ full() {
   # output level is gain 0.0875 to the bit (a render at the default equals one with 0.0875
   # written), the drive into the output tanh at it is 0.25 times the drive at the old 0.35
   # within the bus reading's own tolerance, and a four-note chord at velocity 0.85 on the
-  # engine's defaults (os 1) drives the tanh under 1. Its CONTROLS: the old default 0.35
-  # must drive it over 1, and a level 1 % off must fail the scale comparison. The JS twin's
-  # half is composed_engine_check's GAIN rows. Seconds. Its last line is its verdict. Added
+  # engine's defaults (os 1) drives the tanh under 1, and so does the same chord on every one
+  # of the 83 bank presets as the preview plays them (BANK). Its CONTROLS: the old default
+  # 0.35 must drive it over 1, the bank at 0.35 must read over 1 on at least 60 presets, and
+  # a level 1 % off must fail the scale comparison. The JS twin's half is
+  # composed_engine_check's GAIN rows. About 30 s. Its last line is its verdict. Added
   # under ADR-180 §1.
   node tools/h2_output_headroom_check.mjs --bin "$build_dir/h2_harness_render" || {
     echo "verify[full]: h2_output_headroom_check FAILED" >&2; return 1; }

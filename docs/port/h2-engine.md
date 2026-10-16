@@ -36,7 +36,7 @@ check fails on a blob it was not pinned to.
 
 | file | role | blob |
 |---|---|---|
-| `docs/design/scalpel-horde-engine.js` | the composed engine (`makeComposedEngine`) | `76cb367b8d422efe32ce27a18df9bede80eb7d30` |
+| `docs/design/scalpel-horde-engine.js` | the composed engine (`makeComposedEngine`) | `27dbb5bdd8a15b5bf7d202177624c52630d3afa9` |
 | `reference/scalpel/prototype/razor-core.js` | the blade oracle it extends | `0ce6a713410d89c65bf55f761f1dc791fae61b16` |
 | `reference/swarmsaw.html` | SwarmSynth, the swarm it drives (DSP section) | `e47da6c9e0b4a058e18d79f62d71ab31c3d3b1b0` |
 | `reference/scalpel/data/presets.json` | the 83 bench presets | `7b9d55efd7db217c5c881f6644519dbf137af19a` |

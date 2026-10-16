@@ -231,7 +231,7 @@
  *                    the flag 0 no line below changes a sample. See spread(), rampSpread() and stepM().
  * NOT COMPOSED THIS ROUND (stated, not hidden): the output stage and voice
  * (rows 12, 13, 15, 17-20, 66 and D11: vol/normExp, width, the tanh, ADSR, the
- * pan image) stay RazorCore's. SwarmSynth's per-member amplitude terms (hiTame,
+ * pan image) stay RazorCore's code; only the level's default differs (ADR-221: gain 0.0875, the constructor). SwarmSynth's per-member amplitude terms (hiTame,
  * tone tilt, :458-470) are inert at their defaults and are not composed.
  *
  * TWO PHASE INTEGRATORS, ON PURPOSE. The swarm's φ_horde advances with

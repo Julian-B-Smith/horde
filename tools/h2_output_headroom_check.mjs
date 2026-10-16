@@ -25,20 +25,35 @@
  *            output, whose error grows toward the rail (1.3e-15 at 3, README). Measured worst
  *            2026-10-14 (darwin-arm64): 3.3e-16, printed on every run; the 1 % control reads 5.6e-3.
  *   HEADROOM the default render's peak drive is under 1 (and over 0.1, so the render is live).
+ *   BANK     ADR-221 item 4 (the critic's M2, round 4): all 83 bank presets, each as the preview
+ *            plays it (its params, then os 1, frameHold 1, stealFade 1, snap, poly 8), the same
+ *            chord held 3 s, B486's hold (10 presets peak after 1 s, the latest at 2.95 s: a
+ *            shorter hold would judge them on less than their peak), at the default
+ *            level: the peak drive is under 1 on every preset; the worst three are printed
+ *            (measured 2026-10-14: Two-formant vowel 0.815, Ring of sines 0.701, Orbiting cuts 0.685).
  *   CONTROLS (LIBRARY L0032: a detector that cannot see the fault proves nothing): the old default,
  *            0.35, must read a peak drive over 1 (2.227 measured, ROADMAP B486/B489); a level 1 %
- *            off (0.0875 x 1.01) must fail SCALE's comparison.
+ *            off (0.0875 x 1.01) must fail SCALE's comparison; the bank at 0.35 must read over 1 on
+ *            at least 60 presets (71 measured, as B486).
+ *
+ * About 30 s (166 three-second renders in one harness process), measured 2026-10-15.
  *
  * By hand (repo root): node tools/h2_output_headroom_check.mjs [--bin <h2_harness_render>]
  * Deterministic: no clock, no randomness but the harness's seeded streams. Its last line is its verdict.
  */
-import { realpathSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
+import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { jobFor, run } from '../h2/harness/harness.mjs';
+import { ROOT, jobFor, mtof, run } from '../h2/harness/harness.mjs';
 
 const PATCH = 'ledger/defaults', CHORD = [60, 64, 67, 71], VEL = 0.85, SR = 48000, SECONDS = 1;
 const kDefault = 0.0875, kOld = 0.35;
 const kScaleTol = 1e-12;   // atanh's reading of the bus, not the drive (header, SCALE)
+// BANK (header): the bank (protected, read only), as the preview plays it
+const BANK = 'reference/scalpel/data/presets.json';
+const kBankPinned = { os: 1, frameHold: 1, stealFade: 1 };
+const kBankSeconds = 3;        // B486's hold; 10 presets peak after 1 s (measured 2026-10-15)
+const kBankControlMin = 60;    // measured 71 of 83 over 1 at 0.35 (B486; this row, 2026-10-15)
 
 const job = over => jobFor({ patch: PATCH, sr: SR, seed: 1, seconds: SECONDS, notes: CHORD, vel: VEL, pre: true,
   overrides: Object.assign({ os: 1 }, over) });
@@ -61,7 +76,22 @@ export function main(argv) {
   const pd = peak(def), po = peak(old);
   row(pd < 1 && pd > 0.1, 'HEADROOM', `peak drive into the output tanh at the default: ${pd.toFixed(3)} — must be under 1 (and over 0.1: the render is live)`);
   row(po > 1, 'CONTROL', `the old default, gain ${kOld}: peak drive ${po.toFixed(3)} — must read over 1 (the clipping ADR-221 removes)`);
-  console.log(`h2_output_headroom_check: ${red ? 'RED' : 'GREEN'} (${red} row(s) failed; the default level, its scale against the old one, the chord's headroom, and their controls)`);
+
+  // BANK (ADR-221 item 4, the critic's M2): every bank preset, as the preview plays it.
+  const bank = JSON.parse(readFileSync(join(ROOT, BANK), 'utf8')).presets;
+  const bankJob = (pr, over) => jobFor({ engine: 'composed', name: `bank ${pr.name} ${JSON.stringify(over)}`, sr: SR, seed: 1, pre: true, cmds: [
+    ...Object.entries(pr.params).map(([k, v]) => (typeof v === 'string' ? ['sets', k, v] : ['set', k, v])),
+    ...Object.entries({ ...kBankPinned, ...over }).map(([k, v]) => ['set', k, v]), ['snap'], ['set', 'poly', 8],
+    ...CHORD.map(n => ['on', n, mtof(n), VEL]), ['render', Math.round(kBankSeconds * SR)]] });
+  const rs = run([...bank.map(pr => bankJob(pr, {})), ...bank.map(pr => bankJob(pr, { gain: kOld }))], opt);
+  const unk = rs.filter(r => r.summary.unknownKeys).length;
+  // "at the default level" holds only while no preset stores a level of its own (none does today)
+  const own = bank.filter(pr => 'gain' in pr.params).map(pr => pr.name);
+  const now = bank.map((pr, i) => ({ name: pr.name, pk: peak(rs[i]) })), was = bank.map((pr, i) => peak(rs[bank.length + i]));
+  const over1 = now.filter(x => !(x.pk < 1)), worst = [...now].sort((a, b) => b.pk - a.pk).slice(0, 3), wasOver = was.filter(x => x > 1).length;
+  row(!unk && !own.length && bank.length === 83 && !over1.length, 'BANK', `${bank.length} bank presets, chord ${CHORD.join(' ')} at velocity ${VEL}, ${JSON.stringify(kBankPinned)}, poly 8, ${kBankSeconds} s, at the default level: peak drive under 1 on every preset${over1.length ? '; OVER on ' + over1.map(x => `${x.name} ${x.pk.toFixed(3)}`).join(', ') : ''}; worst ${worst.map(x => `${x.name} ${x.pk.toFixed(3)}`).join(', ')}${unk ? `; ${unk} job(s) with unknown keys` : ''}${own.length ? `; NOT at the default: ${own.join(', ')} set their own gain` : ''}`);
+  row(wasOver >= kBankControlMin, 'CONTROL', `the same ${bank.length} presets at gain ${kOld}: ${wasOver} read over 1 — must be at least ${kBankControlMin}`);
+  console.log(`h2_output_headroom_check: ${red ? 'RED' : 'GREEN'} (${red} row(s) failed; the default level, its scale against the old one, the chord's headroom, the bank's headroom, and their controls)`);
   return red ? 1 : 0;
 }
 

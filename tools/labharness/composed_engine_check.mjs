@@ -100,7 +100,9 @@
  *       the same chord's at 0.35, bit for bit, and under 1, while the CONTROL, the old
  *       default 0.35, drives it over 1. Because the two defaults differ, every row above
  *       that compares the engines or renders a pre-ADR-221 pin writes gain 0.35 (A1_GAIN).
- *       The C++ engine's half of this is tools/h2_output_headroom_check.mjs.
+ *       So the same exact 0.25 comparison also runs on O2's twelve presets (four with
+ *       blade 2 on) at the default: the one place a preset meets the shipped level
+ *       (ADR-221 round 4, the critic's M1). The C++ engine's half of this is tools/h2_output_headroom_check.mjs.
  *   DET determinism: same seed and note order give identical output; a
  *       different horde seed does not; the module reads no clock and draws no
  *       unseeded random of its own; the toString() bundle (the AudioWorklet
@@ -1564,9 +1566,9 @@ section('GAIN — ADR-221: the default output level, a quarter of the oracle\'s,
   row(q === 0.25 && c0.s.gain === c0.t.gain && c0.t.gain === 0.0875, 'GAIN',
     `default gain: composed t ${c0.t.gain} s ${c0.s.gain}, oracle ${o.t.gain}: the composed engine's is exactly ${q} of the oracle's (must be 0.25)`);
   const CHORD = [60, 64, 67, 71], total = 48000;
-  const drives = over => {
+  const drives = (over, params) => {
     Math.random = mulberry32(0xB489);
-    const c = new Composed(SR); c.set(Object.assign({ os: 1 }, over)); Object.assign(c.s, c.t);
+    const c = new Composed(SR); c.set(Object.assign({ os: 1 }, params || {}, over)); Object.assign(c.s, c.t);
     for (const n of CHORD) c.noteOn(n, 440 * Math.pow(2, (n - 69) / 12), 0.85);
     const args = [], tanh = Math.tanh, L = new Float32Array(128), R = new Float32Array(128);
     Math.tanh = x => { args.push(x); return tanh(x); };
@@ -1580,6 +1582,21 @@ section('GAIN — ADR-221: the default output level, a quarter of the oracle\'s,
   row(exact && now.pk < 1 && now.pk > 0.1, 'GAIN',
     `defaults chord C4 E4 G4 B4, velocity 0.85, os 1, 1 s: ${now.args.length} output-stage drives (want ${2 * total}), each exactly 0.25 × the same chord's at 0.35 (worst |Δ| ${worst}); peak drive at the default ${now.pk.toFixed(3)} — must be under 1`);
   row(old.pk > 1, 'GAINc', `CONTROL the old default, gain 0.35: peak drive ${old.pk.toFixed(3)} — must read over 1 (the clipping ADR-221 removes)`);
+  /* THE SHIPPED LEVEL ON PRESETS (the critic's M1, round 4). A1 makes every row above that compares
+     the engines run at 0.35 written, so without this nothing compares the engine AT ITS DEFAULT on a
+     preset: a defect that acts only at the shipped level (a 1e-6 error on s.gain under 0.1 with blade
+     2 on, the critic's mutant) passed every row. The same exact comparison as the chord's, on O2's
+     twelve presets (blade 2 on in several), each at its own settings and the default level. */
+  const bad = [];
+  let nB2 = 0;
+  for (const name of O2_SET) {
+    const p = byName(name), a = drives({}, p), b = drives(A1_GAIN, p);
+    if (p.b2on) nB2++;
+    let ok = a.args.length === 2 * total && b.args.length === a.args.length;
+    for (let i = 0; ok && i < a.args.length; i++) if (a.args[i] !== 0.25 * b.args[i]) ok = false;
+    if (!ok || a.pk === 0) bad.push(`${name} (${a.args.length} drives, peak ${a.pk.toFixed(3)})`);
+  }
+  row(bad.length === 0 && nB2 > 0, 'GAIN', `${O2_SET.length} O2 presets (${nB2} with blade 2 on), the same chord at the default level: every output-stage drive exactly 0.25 × the preset's at 0.35${bad.length ? '; NOT on ' + bad.join(', ') : ''}`);
 }
 
 /* ---------------------------------------------------------------- determinism */
