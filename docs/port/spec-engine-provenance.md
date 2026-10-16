@@ -14,7 +14,7 @@
 
 The records each requirement or law rests on. "SPEC" is `specs/SPEC.md`; "SPEC-SCALPEL" `specs/SPEC-SCALPEL.md`; "SPEC-SUBOSC" `specs/SPEC-SUBOSC.md`; "ACCEPTANCE" `specs/ACCEPTANCE.md`; "audit Sn/Bn/Vn/Nn/Kn/Pn" the B493 audit's §2 rows; "rack contract" `docs/proposals/rack-slot-contract.md`; "research note" `docs/research/2026-10-13-edge-table-design.md`; "envelope conflicts" `docs/design/scalpel-envelope-conflicts.md`.
 
-Where ADR-225 or ADR-226 ruled a question a requirement depends on, the ruling's item is added after the row's sources. "ADR-226 B" marks a finding of the verification round that needed no ruling (the five agents' reports on `7d5f7b6`, as the lead listed them for round 5). Code anchors are `file:line` on `main` as merged in round 5 (`31ce152`).
+Where ADR-225 or ADR-226 ruled a question a requirement depends on, the ruling's item is added after the row's sources. "Dry run 2" marks a finding of the second clean-room dry run (of `2f1a389`, round 6). "ADR-226 B" marks a finding of the verification round that needed no ruling (the five agents' reports on `7d5f7b6`, as the lead listed them for round 5). Code anchors are `file:line` on `main` as merged in round 5 (`31ce152`).
 
 | id | sources |
 |---|---|
@@ -27,38 +27,38 @@ Where ADR-225 or ADR-226 ruled a question a requirement depends on, the ruling's
 | SW-7 | audit S9 |
 | SW-8 | SPEC §5.3; audit S11; ADR-225 item 11; departure 40 |
 | SW-9 | ADR-056; audit S3 |
-| SW-10 | audit S13; B475; ADR-216 A3 item 11 (resume); ADR-226 item 2 (Phase, Random and Retrigger replace the start modes; the settled start removed); today's start draw `h2/engine/swarm.h:121-131` |
+| SW-10 | audit S13; B475; ADR-216 A3 item 11 (resume); ADR-226 item 2 (Phase, Random and Retrigger replace the start modes; the settled start removed); today's start draw `h2/engine/swarm.h:121-131`; dry run 2 (#25): resume when the source voice had another member count |
 | SW-11 | ADR-008; ADR-086 A1; ACCEPTANCE L0-8; audit S15, P2; ADR-225 item 8; ADR-226 item 1 (a key held by the pedal is held) |
 | SW-12 | ADR-077; audit S16; ADR-226 B (C.7's definitions) |
 | SW-13 | B378 F2; audit S17 |
 | SW-14 | ADR-009; charter §Domain; audit S2 |
-| SW-15 | B325; audit V5 |
+| SW-15 | B325; audit V5; dry run 2 (#18): S and P rise from 0 by C.1's smoother, stated as the law's own onset |
 | SW-16 | ADR-224 item 5; B460; ADR-216 item 1; audit B5; ADR-225 item 3 |
-| SW-17 | audit B6, M1 |
-| SW-18 | SPEC-SCALPEL §6, §9; ADR-086 amendment; audit V9; the legacy core's pan laws (`h2/cores/swarm/swarm_core.h:1570-1660`: the balanced seats, the pitch fan, its invert) and its pan motion (`swarm_core.h:886-918`: per-member rates 0.08 + 0.021·i Hz on the grid, added after width: departure 30); the prototype's balanced table and spread fan (`reference/scalpel/prototype/razor-core.js:62-65, 733-737, 904`); ADR-226 item 5 (per-oscillator pan); ADR-226 B (the brightness measure and the U 10 to 16 seat rule) |
+| SW-17 | audit B6, M1; dry run 2 (#19): C.0 now ramps each new gᵢ across the following interval (departure 46) |
+| SW-18 | SPEC-SCALPEL §6, §9; ADR-086 amendment; audit V9; the legacy core's pan laws (`h2/cores/swarm/swarm_core.h:1570-1660`: the balanced seats, the pitch fan, its invert) and its pan motion (`swarm_core.h:886-918`: per-member rates 0.08 + 0.021·i Hz on the grid, added after width: departure 30); the prototype's balanced table and spread fan (`reference/scalpel/prototype/razor-core.js:62-65, 733-737, 904`); ADR-226 item 5 (per-oscillator pan); ADR-226 B (the brightness measure and the U 10 to 16 seat rule); dry run 2: the test patch has blade 1 on |
 | SW-19 | audit round 2 `normExp` lock; audit V10 |
 | BL-1 | SPEC-SCALPEL §4.1; audit B1 |
 | BL-2 | SPEC-SCALPEL §4.2, §4.4; audit B1 |
 | BL-3 | SPEC-SCALPEL §4.3; audit B1 |
 | BL-4 | SPEC-SCALPEL §4.1 |
 | BL-5 | SPEC-SCALPEL §4.2 |
-| BL-6 | SPEC-SCALPEL §4.5 |
-| BL-7 | SPEC-SCALPEL §4.4, §9; ADR-226 B (measured on the crush blade's contribution alone, at a stated pitch, Edges and sweep) |
-| BL-8 | SPEC-SCALPEL §6 |
+| BL-6 | SPEC-SCALPEL §4.5; dry run 2 (#29): the claim's mode scope |
+| BL-7 | SPEC-SCALPEL §4.4, §9; ADR-226 B (measured on the crush blade's contribution alone, at a stated pitch, Edges and sweep); dry run 2: round 5's measure failed a correct crush (D = output − x includes the base's own jumps: at the default 0.875 / 0.25 the window ends on the square's edge, max \|ΔD\| 2.0; and the law's own slews exceed 0.01 per sample: at C3, Edges 0.3, sine 0.079, triangle 0.056, saw 0.028). Now judged on the output inside a window that holds no base edge, against 1.25 × the law's own largest step |
+| BL-8 | SPEC-SCALPEL §6; dry run 2 (#40): one free-running clock per blade per oscillator against per-voice `rotate` offsets |
 | BL-9 | SPEC-SCALPEL §4.6 |
 | BL-10 | ADR-216 item 1, A1; B461; audit B4 |
 | BL-11 | SPEC-SCALPEL §13; audit B1; ADR-226 B (the collision-bite law restored: SPEC-SCALPEL §13.1's `colB` row; `razor-core.js:189, 199`) |
-| BL-12 | SPEC-SCALPEL §6; ADR-189 A1 (D3); audit B9 |
+| BL-12 | SPEC-SCALPEL §6; ADR-189 A1 (D3); audit B9; dry run 2 (#42): the limit-cycle measure (the output repeats with a whole-sample period) |
 | BL-13 | SPEC-SCALPEL §5; audit B2 |
 | BL-14 | ADR-184 A2; B315; audit B3 |
 | BL-15 | SPEC-SCALPEL §5; the ratio lists `razor-core.js:77-100`; the refusal of an unreadable custom list is a departure (row 38: the prototype falls back to [1], `razor-core.js:77`) |
-| BL-16 | B487; B485; audit B5; ADR-225 item 3. **Evidence (the click detector, PR #1103):** Glass horde pad's steps at the control tick come from blade 1's cut (they vanish with `kRule` 0 or with its depth `kRuleAmt` 0) and persist with the spread ramp on (D8): the quantized cut changing mid-cycle, which this requirement's latch addresses |
+| BL-16 | B487; B485; audit B5; ADR-225 item 3. **Evidence (the click detector, PR #1103):** Glass horde pad's steps at the control tick come from blade 1's cut (they vanish with `kRule` 0 or with its depth `kRuleAmt` 0) and persist with the spread ramp on (D8): the quantized cut changing mid-cycle, which this requirement's latch addresses; dry run 2 (#42): the duration, rate and pitch of the no-tone-bias measure |
 | BL-17 | ADR-216 A4; B460; B484; audit B5, H4; ADR-225 item 3. Under Quantize the cut is set, not ramped (ADR-216 A4 item 2), as BL-17's last sentence states |
 | BL-18 | B469; B481; audit B16, B17 |
-| BL-19 | SPEC-SCALPEL §7, §9; audit B13; C.16's sources |
+| BL-19 | SPEC-SCALPEL §7, §9; audit B13; C.16's sources; dry run 2: the 0.003 bound stated relative to `out.level` |
 | ED-1 | ADR-222; ADR-189 (D1, D2 aims); SPEC-SCALPEL §8.2; audit B11, B14; ED-1a's source: PR #1103's click detector (departure 43) |
 | ED-2 | ADR-222 |
-| ED-3 | ADR-222 item 2(b); research note F5. The note's 0.23 is for the lab's ±0.36 saw; on the spec's ±1 saw the same offset is about 0.63 (0.23/0.36), as the verification round found (ADR-226 B) |
+| ED-3 | ADR-222 item 2(b); research note F5. The note's 0.23 is for the lab's ±0.36 saw; on the spec's ±1 saw the same offset is about 0.63 (0.23/0.36), as the verification round found (ADR-226 B); dry run 2 (#30): the mechanism stated as a formula: subtract the corrections' mean, Ā·(fᵢ/f_s)·Σhₑ, with C.16's estimate. A per-edge zero-area table was considered and rejected: its 32-sample compensation would itself add unband-limited steps at both ends |
 | ED-4 | ADR-222 item 2(a), (c); research note F3, F4 |
 | ED-5 | ADR-222 item 4 |
 | ED-6 | ADR-222 item 3; audit B12 |
@@ -67,7 +67,7 @@ Where ADR-225 or ADR-226 ruled a question a requirement depends on, the ruling's
 | VO-3 | ADR-216 item 2, A3 items 1–8; B459; audit V3; ADR-226 item 1 (a pedal-held key counts as held for the wait) |
 | VO-4 | B323; B375; audit V2; ADR-225 item 13 (no CPU-adaptive limiting by default, Q3); departure 41 (the STEAL path) |
 | VO-5 | ADR-224 item 1; audit V8; ADR-225 item 13 |
-| VO-6 | SPEC-SCALPEL §6; ADR-084; ADR-208; audit V4; envelope conflicts decision 5; ADR-226 item 3 (the table; a legato change keeps the strike's velocity: departure 27; the mono velocity ramp: departure 28) |
+| VO-6 | SPEC-SCALPEL §6; ADR-084; ADR-208; audit V4; envelope conflicts decision 5; ADR-226 item 3 (the table; a legato change keeps the strike's velocity: departure 27; the mono velocity ramp: departure 28); dry run 2: a mono re-run reset the start phases, the rotation clock, the sub's phase and the frame mid-note, a waveform jump against QS-4; the lead's recommendation, PROPOSED as X25 pending the human (departure 47) |
 | VO-7 | rack contract A5 |
 | VO-8 | ADR-084; audit V10 |
 | VO-9 | ADR-224 item 2; B303 |
@@ -83,10 +83,10 @@ Where ADR-225 or ADR-226 ruled a question a requirement depends on, the ruling's
 | PA-5 | B479; rack contract RS-3.6, RS-4.3; ADR-218; audit B7; ADR-225 item 4; ADR-226 B (both settings render from one shared member state; RT-1 sized for it) |
 | PA-6 | audit B7; ADR-225 item 4; ADR-226 B (the seats and U^−0.75 ramp over 5 ms) |
 | PA-7 | ADR-207 item 2; ADR-213; audit N14 |
-| PA-8 | ADR-187 item 4(b) (the dependency probe); ADR-226 B (the live-when table) |
+| PA-8 | ADR-187 item 4(b) (the dependency probe); ADR-226 B (the live-when table); dry run 2: `phaseLag` live through the onset burst at coupling 0; `phase` and `phaseRandom` live with `retrigger` off (a start with nothing to resume); `crossMod` live at U = 1 (its own neighbour); the sub's `startPhase` and `keytrack` inert under the noise wave; "can" defined. Found while correcting them: `onsetScatter` is live at U = 1 (its entry fade), `panMotion` and `width` at U = 1 depend on each other, and `onsetLock`, `dissolve`, `motionGrain`, `spreadLaw`, `quantize`, `anchor`, `distribution` and `harmonicReach` are inert at U = 1 |
 | DT-1 | ADR-224 item 6; charter §Domain; audit N1 |
 | DT-2 | module 1.0 bar §3; rack contract RS-7.11; audit V7 |
-| DT-3 | SW-14; ADR-197 armor row 4; ADR-226 B (the metric named: harmonic levels within 0.5 dB, event times within 1 ms) |
+| DT-3 | SW-14; ADR-197 armor row 4; ADR-226 B (the metric named: harmonic levels within 0.5 dB, event times within 1 ms); dry run 2: the patches and the analysis window named |
 | DT-4 | charter §Domain invariant 1; SPEC-SCALPEL §9; B308 H3; B469; audit N2, N6; ADR-225 item 5; ADR-226 item 2 (the Random draw); ADR-226 B (which streams are per note and which per oscillator; the voice's seed; the note counter) |
 | DT-5 | charter §Domain; SPEC §5.7 |
 | DT-6 | rack contract A2 |
@@ -95,17 +95,17 @@ Where ADR-225 or ADR-226 ruled a question a requirement depends on, the ruling's
 | RT-3 | ADR-197; rack contract RS-7.9; audit N15 |
 | RT-4 | ADR-211; ADR-213 item 3; audit N13 |
 | OU-1 | SPEC-SCALPEL §10; ADR-221 item 6; audit V13; ADR-226 item 8 (a clip warning plus the master limiter; no peak guarantee) |
-| OU-2 | ADR-221 items 1, 2, 4; B489; audit V12. The chord is the bank headroom row's: keys 60, 64, 67, 71 at velocity 0.85, held 3 s (`tools/h2_output_headroom_check.mjs:49, 55`) |
+| OU-2 | ADR-221 items 1, 2, 4; B489; audit V12. The chord is the bank headroom row's: keys 60, 64, 67, 71 at velocity 0.85, held 3 s (`tools/h2_output_headroom_check.mjs:49, 55`); dry run 2 (#61): a failing preset's translated level is lowered by its shortfall; the 0 dB definition and the new-patch default stand |
 | OU-3 | ADR-221 item 3 (a saved state keeps its level); ADR-197 (every default change carries a migration); B445; audit V14, K2; ADR-226 B (B.2's added rows and the `out.level` ceiling of +26 dB, which keeps every stored gain up to 1 at N ≤ 9: 20·log₁₀(1/0.0875) + 5·log₁₀(9) = 21.2 + 4.8 = 26.0 dB) |
 | OU-4 | rack contract A5, RS-7.6 |
 | SN-1 | SPEC-SUBOSC §1, §2, §4; audit §3.6; ADR-225 items 6, 7; ADR-226 item 5 (the sub's pan) |
 | SN-2 | SPEC-SUBOSC §3, §5.2, §10.6; ADR-226 B (the shape formulas) |
 | SN-3 | SPEC-SUBOSC §5.1, §5.3; ADR-225 item 6 |
-| SN-4 | ADR-190 A6; B452; audit §3.6; ADR-226 item 5 (the noise oscillator's pan) |
-| IF-1 | ADR-190 A4; ADR-084; ADR-208; ADR-224 item 1; audit §3.1; ADR-226 items 1 (the pedal), 4 (velocity and aftertouch as sources; pressure never to level unless mapped), 6 (all notes off, all sound off); ADR-226 B (CLAP's other expressions) |
+| SN-4 | ADR-190 A6; B452; audit §3.6; ADR-226 item 5 (the noise oscillator's pan); dry run 2 (#42): the slope tolerance |
+| IF-1 | ADR-190 A4; ADR-084; ADR-208; ADR-224 item 1; audit §3.1; ADR-226 items 1 (the pedal), 4 (velocity and aftertouch as sources; pressure never to level unless mapped), 6 (all notes off, all sound off); ADR-226 B (CLAP's other expressions); dry run 2: CLAP's volume expression is a linear gain, 0 to 4 |
 | IF-2 | B278; B397; B431; ADR-096; audit P1–P3, §3.2; ADR-225 items 7, 8; ADR-226 B (the order: input, gravity, transposition; the 12-TET fallback) |
 | IF-3 | ADR-224 items 4, 5; ADR-169 A3; ADR-192; B429; audit §3.3; ADR-226 item 4 |
-| IF-4 | ADR-104; ADR-185; ADR-188; ADR-208; rack contract RS-6.6–6.13, A17–A20; audit §3.4; ADR-226 B (the state format named, `version` 1) |
+| IF-4 | ADR-104; ADR-185; ADR-188; ADR-208; rack contract RS-6.6–6.13, A17–A20; audit §3.4; ADR-226 B (the state format named, `version` 1); dry run 2: the state's text syntax for version 1 and version 0; the version-0 example states are supplied by the lead with the reference renders |
 | IF-5 | ADR-224 items 1, 2; B303; ADR-226 items 5, 7 (each voice's signal to the filters; RC-1) |
 | IF-6 | B225; B402; B376; ADR-221; ADR-203 item 5; audit §3.5; ADR-226 item 5 (mute and solo in the engine); ADR-226 item 8 (the clip latch) |
 | IF-7 | ADR-222; rack contract RS-2.8, RS-7.1; ADR-226 item 7 (RC-5) |
@@ -113,12 +113,12 @@ Where ADR-225 or ADR-226 ruled a question a requirement depends on, the ruling's
 | IF-9 | ADR-191; B445; ADR-187 item 8 |
 | IF-10 | ADR-223 item 4; audit §3.10, N21; ADR-225 item 10; ADR-226 B (the observation view's list for suite item 0) |
 | IF-11 | B308 H4; B428; ADR-207 item 2; audit §3.11; ADR-226 B (the normalised domain, −∞ at v = 0, the sample-rate guard) |
-| QS-1 | ADR-222; research note F1; audit B11; ADR-226 B (per-pitch floors over 20 Hz to 20 kHz: departure 34) |
+| QS-1 | ADR-222; research note F1; audit B11; ADR-226 B (per-pitch floors over 20 Hz to 20 kHz: departure 34); dry run 2: round 5's 4-term Blackman–Harris window read an ideal saw as failing (each harmonic spreads about ±3 bins; an ideal float64 additive saw read 0.0 dB at C2 to C8, a rectangular window 233 to 251 dB), and "below −140 dB counts as −140" summed over about 30,000 bins floored near −95 dB; now a rectangular window and a 140 dB cap. The reference design (0.45·f_s, Kaiser β 10: 134.8, 130.0, 123.7, 115.4 dB; QS-2 −1.5 dB) is the dry run's measurement |
 | QS-2 | ADR-222 item 2(a) |
 | QS-3 | ADR-191; B346; B445 |
-| QS-4 | B490; B459; B461; B485; B486; ADR-218; ADR-225 item 12 (the method ratified; p, M and k proposed by the test author with both controls); ADR-226 item 9 (calibrated first on the reference renders). The details beyond the ratified method (the −6 dBFS normalisation, the planted step and its two presets, the must-not-fire set) are the spec author's proposal. Round 4's "0.05 × the render's peak" and "0.05 of full scale" are reconciled as 0.05 of full scale after normalising each render to a 0.5 peak, so a tenth of the normalised peak |
+| QS-4 | B490; B459; B461; B485; B486; ADR-218; ADR-225 item 12 (the method ratified; p, M and k proposed by the test author with both controls); ADR-226 item 9 (calibrated first on the reference renders). The details beyond the ratified method (the −6 dBFS normalisation, the planted step and its two presets, the must-not-fire set) are the spec author's proposal. Round 4's "0.05 × the render's peak" and "0.05 of full scale" are reconciled as 0.05 of full scale after normalising each render to a 0.5 peak, so a tenth of the normalised peak; ADR-227 (the detector's numbers RATIFIED, the human, 2026-10-16: k 10, p 24, a 10 ms fit window, a 20 ms local window, a 1.5 ms merge, the rest as proposed; `tools/click_detector.mjs` and `docs/research/2026-10-16-click-detector.md` on the `click-detector` branch). The must-fire set follows the research note: round 5 named the Breathing pad, on which the detector cannot see a 0.05 plant (its own sound is made of steps that large), so it is replaced by the note's judged set; those patches are named as beyond a per-sample detector |
 | QS-5 | ADR-221 item 4; B489 |
-| QS-6 | SPEC-SCALPEL §9 |
+| QS-6 | SPEC-SCALPEL §9; dry run 2: as BL-19 |
 | QS-7 | rack contract A5; SPEC-SUBOSC §10.5; RT-4 |
 | QS-8 | ADR-197 armor rows 3, 6; ACCEPTANCE L0-13; ADR-226 item 8. **ACCEPTANCE L0-13's "master peak ≤ 1.0" does not bind the new engine:** the engine guarantees no peak; the device's master limiter holds it. Scoping L0-13 is the lead's records task with the human's sanction, as L0-1 was scoped (ADR-187) |
 | QS-9 | ADR-197 armor row 5 |
@@ -135,7 +135,7 @@ Where ADR-225 or ADR-226 ruled a question a requirement depends on, the ruling's
 | C.2 (Placement) | SPEC.md §3 layer 1; `h2/engine/swarm.h:76-108` (the five distributions, the placement stream) |
 | C.4 (Drift) | `h2/engine/swarm.h:144-158` (mode 2, the walk). *Correction to the brief's transcription:* the formula Tᵢ ← Tᵢ − α(Tᵢ − mean) + N(0, σ) is the ensemble's timing correction (C.7), not the drift; the drift is this walk |
 | C.5 (Inertia) | SPEC.md §5.3; `h2/engine/swarm.h:228-246`; ADR-225 item 11 (offsets only, the skip kept); the knob-0 finish is departure 40 |
-| C.6 (Gravity) | ADR-008; ADR-086 A1; `h2/engine/engine.h:1532-1576`; ADR-225 item 8 (gravity after the tuning, only when its knob is up) |
+| C.6 (Gravity) | ADR-008; ADR-086 A1; `h2/engine/engine.h:1532-1576`; ADR-225 item 8 (gravity after the tuning, only when its knob is up); dry run 2: the pair step uses the grid's actual interval at every rate |
 | C.7 (The ensemble (onset scatter)) | ADR-077; `h2/engine/engine.h:1578-1678`; ADR-226 B (the fresh start, Tᵢ when U changes, the α = 0 bound at μ ± 4 standard deviations, the entry fade at s > 0 on every member and none at s = 0) |
 | C.8 (Pan and density) | SPEC-SCALPEL §6, §9; the legacy core's pitch fan (ADR-070, ADR-073; `swarm_core.h:1570-1660`); ADR-064 and ADR-086's amendment; `razor-core.js:733-737, 904` (the balanced table, the spread fan); ADR-226 item 5 (per-oscillator pan as an image shift); departures 29 (`panInvert`) and 30 (the pan-motion order); ADR-226 B (U = 1, the U 10 to 16 rule) |
 | C.12 (ENV 1's curve) | B377 (the human: shapeable curves at every stage); the spec author's proposal of the form (round 2), now ADR-226 item 10 (a stage's time is exactly when it ends). The curve range ±2.5 (±2 until round 5) holds the bank's translation at u = 2.303 (departure 36); the Hold stage is new (departure 39). Today's envelope: `h2/engine/engine.h:2190-2232` |
@@ -148,23 +148,23 @@ Where ADR-225 or ADR-226 ruled a question a requirement depends on, the ruling's
 | BD-5 | B308 H4 |
 | BD-6 | B494 (the rebuild's brief: self-documenting and concise); the audit's size estimate (§4.1) |
 | BD-7 | ADR-224 item 6; audit §1.3; audit N3–N9 |
-| BD-8 | audit §5.5; ADR-226 B (the stage order and the suite-to-stage map) |
+| BD-8 | audit §5.5; ADR-226 B (the stage order and the suite-to-stage map); dry run 2: item 11 moved to stage 6 and item 13's render half to stage 7 (nothing renders at stage 1) |
 | BD-9 | audit N10; `h2/README.md` rule 7's purpose |
 | BD-10 | ADR-223 item 2 (a clean-room build from the spec and the tests alone); the human, 2026-10-16 ("the build should be fresh from the spec"); ADR-226 item 9 (the reference renders go to the test author, not the builder) |
 | VO-11 | ADR-225 item 13 (the human asked about polyphony; "voices not sounding cost no CPU"); ADR-226 B (judged on operation counters, not timing) |
 | PF-9 | ADR-225 item 13 |
-| ED-1a | PR #1103's click detector (the lead, round 5): today's plain saw base (`base` 2) is rendered naive (36 and 40 detector events at C1 and C2; the band-limited sine→saw base reads none); ADR-222 (every hard step band-limited); X3 (the triangle's corners); departure 43 |
-| VO-12 | ADR-226 item 1 (the human: "Let's add the sustain pedal to the spec"; a sustained note is stolen before held keys) |
+| ED-1a | PR #1103's click detector (the lead, round 5): today's plain saw base (`base` 2) is rendered naive (36 and 40 detector events at C1 and C2; the band-limited sine→saw base reads none); ADR-222 (every hard step band-limited); X3 (the triangle's corners); departure 43; dry run 2: the detector's ratified numbers must pass this control as they stand |
+| VO-12 | ADR-226 item 1 (the human: "Let's add the sustain pedal to the spec"; a sustained note is stolen before held keys); dry run 2: one term for the pedal (held, sustained, gated, 6.4); how the engine knows MPE mode and its master channels |
 | VO-13 | ADR-226 item 6 (no panel control; the host's all-notes-off and all-sound-off handled); today's only form is the prototype's panic (`razor-core.js:354`: every voice released) |
 | VO-14 | ADR-226 B (voicing, quality and polyphony changed while notes sound) |
 | RC-1 to RC-5 | ADR-226 item 7 (the human: "leave room in the spec for the things we know still need to be added … Gain staging in the mixer panel might qualify too, as well as the bend laws"); RC-1 ADR-224 items 1, 2, B303, X13; RC-2 B225, B376, ADR-221; RC-3 Q6, Q7, ADR-225 items 7, 8, the bank's `glide` and `glideAlways`; RC-4 ADR-224 items 4, 5, ADR-226 items 4, 10; RC-5 the rack contract, ADR-203 (the master limiter), ADR-226 item 8 |
-| C.0 (Conventions) | the audit §1.8; today's one-offset bridge `h2/engine/engine.h:1342` (φ_S = frac(φ_H + ½)); the control interval ADR-224 item 5; the frequency guards ADR-226 B |
+| C.0 (Conventions) | the audit §1.8; today's one-offset bridge `h2/engine/engine.h:1342` (φ_S = frac(φ_H + ½)); the control interval ADR-224 item 5; the frequency guards ADR-226 B; dry run 2 (#19): the ramp of gᵢ. Checked by simulating C.1 at SW-4's conditions with the ramp against the step: every anchor reads the same (R 0.965, 0.924, 0.23 to 0.79, 0.04 to 0.92; R_N 0.44 at −0.7 and 0.84 at −1.0) |
 | C.3 (Detune laws) | SPEC.md §4; `h2/engine/swarm.h:163-198` (the four laws, ERB at 251, σ at 198); the merged range X11; the natural-frequency floor of 1 Hz ADR-226 B |
 | C.9 (The blade) | SPEC-SCALPEL §4.1–4.5 (copied with the edits of departure 23); `reference/scalpel/prototype/razor-core.js:13-60` (waves, modulator shapes, antiderivatives, crush), `163-256` (FM step, the voice, the gate); items 1 to 9: the verification of round 2 against the same lines; item 8's caps departure 6 |
 | C.10 (Spreads) | SPEC-SCALPEL §5; `razor-core.js:77-162` (the rule lists, spreadMember, kSpread), `482-502` (the spread laws and the OU step); departures 7 and 8 |
 | C.11 (Interplay) | SPEC-SCALPEL §13.1–13.3; `razor-core.js:189, 199` (bite), `239-303` (collide, out, outSerial); the bite law restored in round 5 (ADR-226 B) |
 | C.15 (Time constants and grids) | `h2/engine/engine.h:2073-2090` (the steal fade, the loop filter, the frame's rates); ADR-224 item 5 (the control interval); C.16's refresh and smoothing from `razor-core.js:842-860` |
-| C.16 (DC removal) | SPEC-SCALPEL §7, §13.4; `razor-core.js:542-600` (dcEst, dcPair), `842-860` (the refresh every 256/44100 s × ⌈J/64⌉, the smoothing at 0.003 per sample, about 7.56 ms at 44.1 kHz), `871-876` (the 8 Hz blocker); ADR-226 B (the BLOCKER: the law stated); departures 32 and 33 |
+| C.16 (DC removal) | SPEC-SCALPEL §7, §13.4; `razor-core.js:542-600` (dcEst, dcPair), `842-860` (the refresh every 256/44100 s × ⌈J/64⌉, the smoothing at 0.003 per sample, about 7.56 ms at 44.1 kHz), `871-876` (the 8 Hz blocker); ADR-226 B (the BLOCKER: the law stated); departures 32 and 33; dry run 2: FM free's mean over 32 modulator start phases (its cycle mean depends on the modulator's phase); the FM point count F = w·(kk + I·mEff + mEff) (round 5's under-resolved, an error up to 0.0099 per member); every J a minimum; the Sync taper read at eʳ under reflect |
 
 ADR-225's items, as appended to the rows above (the list kept for reading by item): X10 → `unison`, RT-1 (item 1); X16 → PA-4, rate column `A` (item 2); X8 → SW-16, BL-16, BL-17, `motionGrain` (item 3); Q14 → PA-5, PA-6 (item 4); Q16 → DT-4 (item 5); Q21 → SN-1, SN-3 (item 6); Q9 → IF-2, SN-1 (item 7); Q8 → SW-11, IF-2 (item 8); X18 → the rules gate (item 9; section 3 below); Q30 → IF-10 (item 10); X19 → SW-8, C.5 (item 11); X20 → QS-4, 10.1 (item 12); polyphony → `voice.polyphony`, VO-4, VO-5, VO-11, RT-1, PF-5, PF-9 (item 13; Q3 and Q4 with it).
 
@@ -223,10 +223,14 @@ Each is stated in the spec as plain law or requirement, without this history. Re
 | 43 | Every discontinuity of the base wave is band-limited (ED-1a) | **the click detector (PR #1103) found today's plain saw base (`base` 2) rendered naive:** 36 and 40 detector events at C1 and C2, where the band-limited sine→saw base reads none | the lead's round-5 addition; ADR-222's every-hard-step aim | ED-1a, ED-1 |
 | 44 | A held key is never taken ahead of a tail | round 4's VO-2 let a faded held note at sustain 0 count as a tail | ADR-226 item 11 (the human: "delete the stealing rule") | VO-2 |
 | 45 | Velocity and aftertouch are modulation sources mapped by default; pressure never reaches the level unless mapped | today's engine scales level by velocity only (`benvVel` and the voice's `vel`); no aftertouch | ADR-226 item 4; the destinations are X21 | IF-1, RC-4 |
+| 46 | Each control interval's new member frequency is reached by a linear ramp across the following interval | today's engine sets `eff` once per 16-sample tick (`swarm.h:228-246`) and holds it | SW-17: automating coupling or detune never steps a frequency (dry run 2, #19); every SW-4 anchor reads the same under the ramp (C.0's source row) | C.0, SW-17 |
+| 47 | PROPOSED (X25): a fresh start on a sounding voice follows `retrigger`: on, it restarts and crossfades over 5 ms from the old state; off, only ENV 1 re-runs | today's mono retrigger keeps the swarm and the ensemble draws and re-enters each member's envelope (`engine.h:1352-1356`): the retrigger-off behaviour | the lead's recommendation, the human being asked; a restart without the crossfade is a waveform jump (dry run 2) | VO-6, RT-1 |
 
 **Corrections made to the lead's transcription of the laws (round 2):** the composed engine has no α term (row 3); σ is the RMS spread of the natural frequencies (after the detune law and drift, before coupling); the formula given as the drift walk is the ensemble's timing correction (C.7), and the drift is a leaky walk (C.4); the root pivot has no R factor and anchors the splay on the root member; gravity's "new chord" is no chord reset (each newly struck note starts at its played pitch; held notes keep theirs), with |e| ≤ 35 c and pairs applied in sorted order; the ensemble's entry fade is a one-pole of τ = max(2 ms, attack) on every member; the loop filter is 5 kHz (row 12). In round 3 the critic corrected SW-5 (row 4).
 
 **Corrections made in round 5 (ADR-226 B):** the collision-bite law, dropped from C.11 in round 4, restored (I_b = I·(1 + 4·colB·ov)); C.9.4 under reflect uses w_e = w/2, as C.9 item 7; ED-3's figure 0.63 (round 4 carried the lab's 0.23); row 3's framing (the legacy core has α in both forms); row 7's framing (today's engine already rounds half away); the departures' row 17 withdrawn; the source rows ED-3, OU-3, BD-1, BD-6, SW-1, SW-10, C.12 and QS-4 corrected as above.
+
+**Corrections made in round 6 (dry run 2):** QS-1's measuring rule (rectangular window, a 140 dB cap: round 5's rule failed an ideal saw); BL-7's measure (round 5's failed a correct crush); PA-8's rows; C.16's FM free and FM point count; BD-8's stage map; QS-4's must-fire set (round 5's named a patch the ratified detector cannot judge); the detector's numbers now ratified (ADR-227). Departure 34's floors are unchanged; with the corrected rule they sit well under the reference design's measurement and may be raised.
 
 ---
 
@@ -428,9 +432,15 @@ The audit (§3.12) listed 31 interface questions; the spec added X1 to X24 (X21 
 
 **Dropped as already ruled by earlier records (6):** Q4 (one pool, by ADR-224 item 1; since ADR-225 item 13 the pool is 1 to 64, default 16); Q5 (chords as copies, post-1.0 by ADR-190 A2); Q27's per-preset part (quality saved per preset, ADR-191 and B445); Q22's allocation and ENV 1 part (ADR-224 item 1); X14 (no per-source ENV 1 opt-out, B370); Q3 (a fixed count, no CPU-adaptive limiting by default, ADR-225 item 13).
 
-**Still open, with the reasons the recommendations rest on** (the spec's section 11 carries only what is built until each is ruled). Since round 5 the spec lists 25 during the build and 7 after (X1 ruled; X21 and X22 added during, X23 and X24 after), and this file lists them the same way; the spec does not carry Q30's prototypes part, which concerns the repository, not the build (keep `reference/` as protected history; it is listed here only).
+**Still open, with the reasons the recommendations rest on** (the spec's section 11 carries only what is built until each is ruled). Since round 6 the spec lists 1 before the build (X25, which the lead is putting to the human), 25 during and 7 after (round 5: X1 ruled; X21 and X22 added during, X23 and X24 after), and this file lists them the same way; the spec does not carry Q30's prototypes part, which concerns the repository, not the build (keep `reference/` as protected history; it is listed here only).
 
 **The spec's appendix letters since round 4:** Appendix A is the 12 envelope presets as input data, Appendix B the bank and version-0 state formats with their translation, Appendix C the laws; the round-3 traceability appendix is this file's section 5.
+### 6.0 To be ruled before the build (1)
+
+| # | question | recommendation | reason | depends |
+|---|---|---|---|---|
+| X25 | A fresh start on a sounding voice (a mono re-run; legato's first note over a tail): what re-runs, and how without a click. | The lead's: `retrigger` governs it; on, the restart crossfades over 5 ms with equal gain from the old state; off, the phases run on and only ENV 1 re-runs. | Dry run 2: the round-5 table reset the phases, the rotation clock, the sub's phase and the frame mid-note, which QS-4 forbids. | VO-6, RT-1 |
+
 ### 6.1 To be ruled during the build, before the stage that needs them (25, plus Q30's repository part)
 
 | # | question | recommendation | reason | depends |
@@ -484,4 +494,5 @@ The audit (§3.12) listed 31 interface questions; the spec added X1 to X24 (X21 
 | 2 | `8d3b792` | the human: "copy the laws"; the laws became normative (Appendix C); the critic's HIGH and MEDIUM findings closed; the questions sorted before / during / after the build |
 | 3 | `78214e9` | the critic's re-read: SW-5's anchor at a lockable K; inertia's scope and the detector's method put to the human |
 | 4 | `7d5f7b6` | ADR-225's thirteen rulings folded in; the spec split from this file, so the builder's text names no old file, prototype or engine (the human: "the build should be fresh from the spec") |
-| 5 | this change | ADR-226's thirteen rulings and the verification round's findings: the pedal, Phase/Random/Retrigger, the legato table, velocity and aftertouch as sources, pan, mute and solo, all notes off and all sound off, the reserved contracts (7.2), output peaks, the reference renders, the envelope timing and translation, the stealing rule, the coupling rescale; the DC law (C.16) and the collision bite restored; every base wave band-limited (ED-1a, from PR #1103's detector); this file's corrections and departures 26 to 45 |
+| 5 | `2f1a389` | ADR-226's thirteen rulings and the verification round's findings: the pedal, Phase/Random/Retrigger, the legato table, velocity and aftertouch as sources, pan, mute and solo, all notes off and all sound off, the reserved contracts (7.2), output peaks, the reference renders, the envelope timing and translation, the stealing rule, the coupling rescale; the DC law (C.16) and the collision bite restored; every base wave band-limited (ED-1a, from PR #1103's detector); this file's corrections and departures 26 to 45 |
+| 6 | this change | the second clean-room dry run: QS-1's measuring rule and a reference table design; BL-7's measure; X25 (the re-run crossfade, PROPOSED, before the build); PA-8's rows; C.16's FM laws; BD-8's stage map; the detector's ratified numbers (ADR-227); the state's text syntax; the earlier open items #18, #19, #25, #29, #30, #38, #40, #42, #51, #52, #61; departures 46 and 47 |
