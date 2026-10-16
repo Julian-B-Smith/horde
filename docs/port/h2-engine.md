@@ -30,16 +30,27 @@ whole render.
 
 The composed engine as the lab runs it: main `c64cfdb` (2026-10-01) plus B461's
 divergence D6 (2026-10-12), B459's D7 and B460's D8 (2026-10-13), each in the
-engine with the lab's one toggle for it. The renderer streams each file's git blob, and the
+engine with the lab's one toggle for it, and ADR-221's default output level
+(2026-10-14, below). The renderer streams each file's git blob, and the
 check fails on a blob it was not pinned to.
 
 | file | role | blob |
 |---|---|---|
-| `docs/design/scalpel-horde-engine.js` | the composed engine (`makeComposedEngine`) | `4c0d25ab5c6edc6aaa43356ef956d6dcbeb2ec90` |
+| `docs/design/scalpel-horde-engine.js` | the composed engine (`makeComposedEngine`) | `27dbb5bdd8a15b5bf7d202177624c52630d3afa9` |
 | `reference/scalpel/prototype/razor-core.js` | the blade oracle it extends | `0ce6a713410d89c65bf55f761f1dc791fae61b16` |
 | `reference/swarmsaw.html` | SwarmSynth, the swarm it drives (DSP section) | `e47da6c9e0b4a058e18d79f62d71ab31c3d3b1b0` |
 | `reference/scalpel/data/presets.json` | the 83 bench presets | `7b9d55efd7db217c5c881f6644519dbf137af19a` |
-| `docs/design/scalpel-interface-lab.html` | the 12 B366 envelope presets (`ENV_PRESETS`); since B445 also the device default `os: 1` (`LAB_DEF`), which no scenario reads | `c9e724599e1afe46162b7666e5c4fe5f8d354770` |
+| `docs/design/scalpel-interface-lab.html` | the 12 B366 envelope presets (`ENV_PRESETS`); since B445 also the device default `os: 1` (`LAB_DEF`), which no scenario reads; since ADR-221 the lab takes the engine's own default `gain` (`loadEngine`), which no scenario reads either | `577c522195009daba088221ec0bd29265de96733` |
+
+**The default output level is not the oracle's** (ADR-221, B489, 2026-10-14): `gain`
+0.0875, a quarter of the blade oracle's 0.35 (`h2/engine/blade.h` SP; the composed JS
+sets it after RazorCore's constructor). At 0.35 a four-note chord at velocity 0.85 drove
+the output tanh over 1 on 71 of the 83 bank presets; at 0.0875 on none (worst 0.815).
+`gain` is read only at the output stage, so a state that stores a level plays as it did.
+The parity scenarios' presets keep `presetCmds`' 0.35 (render-goldens.js's override, the
+blade check's too), and the rows that compare the composed engine with the oracle write
+0.35 on both sides (ADR-221 A1); `tools/h2_output_headroom_check.mjs` (C++) and
+composed_engine_check's GAIN rows (JS) hold the default itself.
 
 The engine's flags at their ledgered defaults (`docs/port/divergences.json`):
 

@@ -532,7 +532,11 @@ int main(int argc, char** argv) {
   {
     size_t newly = 0;
     std::string first;
-    const bool fired = ulpControl(keyed ? ref : self, newly, first);
+    // ADR-221 A2: under --repin the basis is this run (self, KEYSELF's basis), never the reference
+    // being replaced: a change that moves kUlpScenario's own row (ADR-221's default level did) leaves
+    // nothing to turn NEWLY red against the old reference, so judged by it the control could never
+    // fire and every honest re-pin would be refused. Check mode keeps the reference.
+    const bool fired = ulpControl(keyed && !repin ? ref : self, newly, first);
     if (!fired) red++;
     std::printf("%s  control ULP  sample %zu of '%s' nudged one ULP: %zu row(s) newly red%s%s\n", fired ? "PASS" : "FAIL", ulpAt, kUlpScenario,
                 newly, first.empty() ? "" : ", first: ", first.c_str());

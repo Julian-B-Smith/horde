@@ -94,6 +94,15 @@
  *       pins a render taken before them (ZERO, AA0, AA3's broad#828 evidence): those rows keep proving
  *       what they were written for, against the engine they were measured on. Each divergence's own
  *       rows (M1, M2, M3) run it ON and check it against the C++ law, flag off against SwarmSynth.
+ *   GAIN ADR-221 and its A1. The composed engine's default output level is exactly a
+ *       quarter of the oracle's (t and s); on a defaults chord (C4 E4 G4 B4, velocity
+ *       0.85, os 1) every drive into the output tanh at the default is exactly 0.25 times
+ *       the same chord's at 0.35, bit for bit, and under 1, while the CONTROL, the old
+ *       default 0.35, drives it over 1. Because the two defaults differ, every row above
+ *       that compares the engines or renders a pre-ADR-221 pin writes gain 0.35 (A1_GAIN).
+ *       So the same exact 0.25 comparison also runs on O2's twelve presets (four with
+ *       blade 2 on) at the default: the one place a preset meets the shipped level
+ *       (ADR-221 round 4, the critic's M1). The C++ engine's half of this is tools/h2_output_headroom_check.mjs.
  *   DET determinism: same seed and note order give identical output; a
  *       different horde seed does not; the module reads no clock and draws no
  *       unseeded random of its own; the toString() bundle (the AudioWorklet
@@ -330,6 +339,11 @@ section('M2 — B382: bipolar onset (ADR-056) mirrored into the composed engine'
 /* ---------------------------------------------------------------- O2 */
 const PRESETS = JSON.parse(readFileSync(join(root, 'reference/scalpel/data/presets.json'), 'utf8')).presets;
 const byName = n => { const p = PRESETS.find(x => x.name === n); if (!p) throw new Error('preset missing: ' + n); return p.params; };
+/* ADR-221 A1: the composed engine's default gain is a quarter of the oracle's (0.0875 against 0.35),
+   so a row that compares the two engines, or renders a fingerprint pinned before ADR-221, writes the
+   oracle's level on every render it makes. What each row judges is unchanged; only the level it is
+   judged at is written instead of inherited. The level relation itself is the GAIN row's (below). */
+const A1_GAIN = { gain: 0.35 };
 const O2_SET = ['Quarter sync', 'Two blades', 'Crush vs FM', 'Golden bells', 'Wandering blades', 'Cross-mod horde',
   'Feedback screech', 'Splayed blades', 'Breath and bite', 'Folded slice', 'Swarm-linked spread', 'Glass horde pad'];
 function events(c, total, L, R) {
@@ -356,14 +370,15 @@ section('O2 — blade half: composed engine fed RazorCore\'s own trajectories vs
   const total = 24064;
   let n = 0;
   for (const name of O2_SET) for (const pm of [0, 1]) {
-    const params = Object.assign({}, byName(name), { phaseMode: pm });
+    const params = Object.assign({}, byName(name), { phaseMode: pm }, A1_GAIN);   // ADR-221 A1: both engines at 0.35
     const seed = 0xB298 + n++;
     const o = renderWith(() => new RazorCore(SR), params, seed, total);
     const c = renderWith(() => { const e = new Composed(SR); e.src = 'razor'; return e; }, params, seed, total);
     const d = maxDiff(o, c);
     row(d === 0 && rms(o) > 1e-4, 'O2', `${name.padEnd(20)} phaseMode ${pm}: max|Δ| ${d.toExponential(1)} (oracle RMS ${rms(o).toFixed(4)})`);
   }
-  const params = Object.assign({}, byName('Two blades'), { phaseMode: 0 });
+  // ADR-221 A1: the control too, so it can differ only by the origin it plants
+  const params = Object.assign({}, byName('Two blades'), { phaseMode: 0 }, A1_GAIN);
   const o = renderWith(() => new RazorCore(SR), params, 0xB2A0, total);
   const c = renderWith(() => { const e = new Composed(SR); e.src = 'razor'; e.origin = 0; return e; }, params, 0xB2A0, total);
   row(maxDiff(o, c) > 1e-3, 'O2c', `CONTROL phase-origin mapping broken (origin 0, not ½): max|Δ| ${maxDiff(o, c).toFixed(4)} — must be large`);
@@ -374,7 +389,7 @@ section('O2 — blade half: composed engine fed RazorCore\'s own trajectories vs
 section('O3 — neutral case and the coupling-law difference');
 {
   /* (a) coincide: K 0, onset 0, drift 0, inertia 0, dist 0, law 0, aligned start */
-  const blade = { N: 5, detune: 14, K: 0, phaseMode: 1 };
+  const blade = Object.assign({ N: 5, detune: 14, K: 0, phaseMode: 1 }, A1_GAIN);   // ADR-221 A1: every run here, the control too
   const total = 24000;
   const h = Object.assign({}, H0, { n: 5, cents: 14, K: 0, retrig: 1 });
   const run = (makeC, shift) => {
@@ -922,7 +937,8 @@ section('B325 — the blade reads the swarm\'s member frequencies from the first
     ev = ev || [[0, 57], [3072, 64], [6144, 60], [9216, 67]];
     const go = (make) => {
       Math.random = mulberry32(0xB325);
-      const c = make(); c.set(Object.assign({}, byName(name), { K: 0, phaseMode: 1 }, over || {})); Object.assign(c.s, c.t);
+      // ADR-221 A1: both engines (and every control through here) at 0.35
+      const c = make(); c.set(Object.assign({}, byName(name), { K: 0, phaseMode: 1 }, over || {}, A1_GAIN)); Object.assign(c.s, c.t);
       const L = new Float32Array(24064), R = new Float32Array(24064);
       let e = 0;
       for (let i = 0; i < L.length; i += 128) {
@@ -1051,7 +1067,8 @@ section('ZERO — gravity 0 and every scatter 0 are bit-identical to the pre-B33
   const pOf = name => (name === 'horde rows' ? { N: 7, detune: 28, K: 0.4, phaseMode: 0, driftDepth: 20, onset: 0.8, inertia: 0.6 } : byName(name));
   const fp = (params, cls) => {
     Math.random = mulberry32(0xB335);
-    const c = new (cls || Composed)(SR); c.set(Object.assign({}, params, SWARM_OFF)); Object.assign(c.s, c.t);
+    // ADR-221 A1: the pins were made at 0.35, so every render here (the twins too) is made at it
+    const c = new (cls || Composed)(SR); c.set(Object.assign({}, params, SWARM_OFF, A1_GAIN)); Object.assign(c.s, c.t);
     const total = 24064, L = new Float32Array(total), R = new Float32Array(total), B = 128;
     const ev = [[0, 'on', 57], [0, 'on', 64], [0, 'on', 69], [9600, 'on', 60], [14336, 'off', 57], [14336, 'off', 64]];
     for (let i = 0, e = 0; i < total; i += B) {
@@ -1153,7 +1170,8 @@ section('M1 — B382: the per-rate coupling smoother (B150) mirrored into the co
      four-note script) at the DEFAULTS, each beside its pre-B382 pin (which AA0/ZERO keep with M1 off) */
   const fpDefaults = (params, seed, ev) => {
     Math.random = mulberry32(seed);
-    const c = new Composed(SR); c.set(params); Object.assign(c.s, c.t);
+    // ADR-221 A1: the pins were made at 0.35 ("at the defaults" is every default but the level)
+    const c = new Composed(SR); c.set(Object.assign({}, params, A1_GAIN)); Object.assign(c.s, c.t);
     const total = 24064, L = new Float32Array(total), R = new Float32Array(total);
     for (let i = 0, e = 0; i < total; i += 128) {
       while (e < ev.length && ev[e][0] <= i) { const [, k, n] = ev[e++]; if (k === 'on') c.noteOn(n, 440 * Math.pow(2, (n - 69) / 12), 0.9); else c.noteOff(n); }
@@ -1380,7 +1398,8 @@ function onsRender(q, cls) {
 section('AA — ADR-189 anti-aliasing divergences (B355): all off is main; D1, D2, D3 each do what they claim');
 {
   const fpAA = (params, cls) => {
-    const A = renderWith(() => new (cls || Composed)(SR), Object.assign({}, params, SWARM_OFF), 0xB355, 24064);
+    // ADR-221 A1: the pins were made at 0.35, so every render here (the controls too) is made at it
+    const A = renderWith(() => new (cls || Composed)(SR), Object.assign({}, params, SWARM_OFF, A1_GAIN), 0xB355, 24064);
     return createHash('sha256').update(Buffer.from(A.L.buffer)).update(Buffer.from(A.R.buffer)).digest('hex').slice(0, 16);
   };
   /* AA0: pinned on main at d443eb6 (docs/design/scalpel-horde-engine.js blob 5f96285) with this very
@@ -1530,6 +1549,54 @@ section('M3 — B382: law 3 is the tempo grid (ADR-022) in the composed engine')
   const same = [0, 1, 2, 4, 5].filter(l => maxDiff(lawRender(l, 1), lawRender(l, 0)) === 0), l3 = maxDiff(lawRender(3, 1), lawRender(3, 0));
   row(same.length === 5, 'M3o', `laws ${same.join(', ')} render bit-identically with M3 on and off (must be all five)`);
   row(l3 > 1e-4, 'M3oc', `CONTROL law 3 itself, M3 on against off: max|Δ| ${l3.toFixed(4)} — must differ`);
+}
+
+/* ---------------------------------------------------------------- ADR-221 output headroom */
+/* THE DEFAULT LEVEL (ADR-221, A1). The drive into the output stage is read EXACTLY: Math.tanh is
+   wrapped for the render and every argument recorded. The oracle's only tanh is the output stage
+   (razor-core.js render, L and R per output sample), and the count is checked against 2 per frame,
+   so a tanh anywhere else would fail the row instead of mixing into it. Exact, not a tolerance:
+   0.0875 is 0.35 / 4 to the bit (a power-of-two scale commutes with rounding), so y·0.0875·1.6
+   and (y·0.35·1.6) / 4 are the same double, given the same y, which the level never feeds back
+   into. The chord is ledger/defaults' in the harness: the engine at its defaults, os 1. */
+section('GAIN — ADR-221: the default output level, a quarter of the oracle\'s, keeps a chord under the tanh\'s knee');
+{
+  const o = new RazorCore(SR), c0 = new Composed(SR);
+  const q = c0.t.gain / o.t.gain;
+  row(q === 0.25 && c0.s.gain === c0.t.gain && c0.t.gain === 0.0875, 'GAIN',
+    `default gain: composed t ${c0.t.gain} s ${c0.s.gain}, oracle ${o.t.gain}: the composed engine's is exactly ${q} of the oracle's (must be 0.25)`);
+  const CHORD = [60, 64, 67, 71], total = 48000;
+  const drives = (over, params) => {
+    Math.random = mulberry32(0xB489);
+    const c = new Composed(SR); c.set(Object.assign({ os: 1 }, params || {}, over)); Object.assign(c.s, c.t);
+    for (const n of CHORD) c.noteOn(n, 440 * Math.pow(2, (n - 69) / 12), 0.85);
+    const args = [], tanh = Math.tanh, L = new Float32Array(128), R = new Float32Array(128);
+    Math.tanh = x => { args.push(x); return tanh(x); };
+    try { for (let i = 0; i < total; i += 128) c.render(L, R); } finally { Math.tanh = tanh; }
+    let pk = 0; for (const x of args) pk = Math.max(pk, Math.abs(x));
+    return { args, pk };
+  };
+  const now = drives({}), old = drives(A1_GAIN);
+  let exact = now.args.length === 2 * total && old.args.length === now.args.length, worst = 0;
+  for (let i = 0; exact && i < now.args.length; i++) { worst = Math.max(worst, Math.abs(now.args[i] - 0.25 * old.args[i])); if (now.args[i] !== 0.25 * old.args[i]) exact = false; }
+  row(exact && now.pk < 1 && now.pk > 0.1, 'GAIN',
+    `defaults chord C4 E4 G4 B4, velocity 0.85, os 1, 1 s: ${now.args.length} output-stage drives (want ${2 * total}), each exactly 0.25 × the same chord's at 0.35 (worst |Δ| ${worst}); peak drive at the default ${now.pk.toFixed(3)} — must be under 1`);
+  row(old.pk > 1, 'GAINc', `CONTROL the old default, gain 0.35: peak drive ${old.pk.toFixed(3)} — must read over 1 (the clipping ADR-221 removes)`);
+  /* THE SHIPPED LEVEL ON PRESETS (the critic's M1, round 4). A1 makes every row above that compares
+     the engines run at 0.35 written, so without this nothing compares the engine AT ITS DEFAULT on a
+     preset: a defect that acts only at the shipped level (a 1e-6 error on s.gain under 0.1 with blade
+     2 on, the critic's mutant) passed every row. The same exact comparison as the chord's, on O2's
+     twelve presets (blade 2 on in several), each at its own settings and the default level. */
+  const bad = [];
+  let nB2 = 0;
+  for (const name of O2_SET) {
+    const p = byName(name), a = drives({}, p), b = drives(A1_GAIN, p);
+    if (p.b2on) nB2++;
+    let ok = a.args.length === 2 * total && b.args.length === a.args.length;
+    for (let i = 0; ok && i < a.args.length; i++) if (a.args[i] !== 0.25 * b.args[i]) ok = false;
+    if (!ok || a.pk === 0) bad.push(`${name} (${a.args.length} drives, peak ${a.pk.toFixed(3)})`);
+  }
+  row(bad.length === 0 && nB2 > 0, 'GAIN', `${O2_SET.length} O2 presets (${nB2} with blade 2 on), the same chord at the default level: every output-stage drive exactly 0.25 × the preset's at 0.35${bad.length ? '; NOT on ' + bad.join(', ') : ''}`);
 }
 
 /* ---------------------------------------------------------------- determinism */
