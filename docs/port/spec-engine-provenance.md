@@ -507,4 +507,5 @@ The audit (§3.12) listed 31 interface questions; the spec added X1 to X24 (X21 
 | 7 | `22ec5ea` | X25 ruled (ADR-228): in mono `retrigger` governs a re-run; in legato the phases always continue; X26 (a separate legato-phase toggle) after the build |
 | 8 | `c9068cb`, `6798521` | ADR-229: five more reserved contracts, RC-6 (the source slot), RC-7 (tempo and transport), RC-8 (the GUI's readout path), RC-9 (adding parameters later), RC-10 (the quality-tier hook), with requirements RC-6.1 to RC-10.4 and suite items 18 to 22; ADR-229 A1: RC-11 (history support), RC-11.1 to RC-11.4 and suite item 23; X27 (an audio input) after the build |
 | 9 | `ad6e898` | ADR-230: the make-up gain before the FX rack (RC-2, RC-5, IF-6); the gain-staging view (RC-2); the meters in the snapshot (RC-8) |
-| 10 | this change | ADR-230 A1: the make-up gain is a user control (default ×4); a gain control at every stage (RC-2) |
+| 10 | `035b299` | ADR-230 A1: the make-up gain is a user control (default ×4); a gain control at every stage (RC-2) |
+| 11 | this change | §4.2's diagram shows ADR-230's make-up gain between the output and the FX rack (found while scoping B500) |

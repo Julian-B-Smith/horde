@@ -139,7 +139,7 @@ note id, key, velocity, per-note expressions          pitch input (Hz, per note 
   │                                              × ENV 1 × velocity      │
   └───────────────────────────────────────────────────────────────────┬────┘
                                                                       ▼
-                         Σ voices ─► output stage (Level, guards) ─► stereo out ─► FX rack
+        Σ voices ─► output stage (Level, guards) ─► stereo out ─► make-up gain (the mixer's, RC-2) ─► FX rack
 ```
 
 - The oscillators run at the internal rate (host rate × quality) and return to the host rate before the per-voice filter slot; the sub and the noise oscillator may run at the host rate.
