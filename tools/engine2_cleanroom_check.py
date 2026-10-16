@@ -21,12 +21,14 @@ WHAT IT CHECKS.
      recipe was never meant to carry is red whatever it is); (b) none is under a denied top-level
      directory (named, so the message says what came back), and none is under the test author's
      data (the reference renders and the version-0 states, which the builder does not receive,
-     spec 10.1 and IF-4); (c) no file is named like the old engine's
+     spec 10.1 and IF-4) or under the declared structure (engine2/structure/, loupe's diagram source,
+     B500: a reading of the spec, not the spec); (c) no file is named like the old engine's
      twin or prototypes; (d) no file's text holds one of the old engine's identifiers, except the
      spec's BD-10 line; (e) no symlink. With --build the tree is also built and its suite run from
      there, which proves it needs nothing outside itself.
   4. MUST-FAIL CONTROLS, every run: a recipe variant that adds the old engine's directory, a variant
-     that adds one source file, a variant that gives the builder the reference renders, and (on the
+     that adds one source file, a variant that gives the builder the reference renders, a variant that
+     gives the builder the declared structure, and (on the
      green tree) a planted identifier, a planted twin-named file,
      a planted file at the root and a planted symlink must each read red with their own tag; the
      untouched tree reads green; an altered detector copy, a changed envelope value and a short bank
@@ -69,6 +71,10 @@ DENIED_PREFIXES = (
 
 # Inside engine2/, the test author's input data: the builder does not receive it (spec 10.1, IF-4).
 TEST_AUTHOR_ONLY = ("engine2/data/reference-renders/", "engine2/data/version0-states/")
+
+# Inside engine2/, the declared structure loupe draws the diagram from (B500). It is a reading of the
+# spec; BD-10 gives the builder the spec itself, so the recipe leaves it out.
+DIAGRAM_ONLY = ("engine2/structure/",)
 
 # File names that mark the old engine's twin and prototypes, tested on each path component's name.
 OLD_NAME = re.compile(
@@ -176,6 +182,9 @@ def audit_tree(tree: Path):
             for prefix in TEST_AUTHOR_ONLY:
                 if rel.startswith(prefix):
                     problems.append(("test-author-only", f"{rel}: under {prefix}, which the builder does not receive"))
+            for prefix in DIAGRAM_ONLY:
+                if rel.startswith(prefix):
+                    problems.append(("diagram-only", f"{rel}: under {prefix}, the declared structure, which the builder does not receive"))
             for part in Path(rel).parts:
                 if OLD_NAME.search(part):
                     problems.append(("old-name", f"{rel}: {part!r} is named like the old engine's twin or prototypes"))
@@ -301,6 +310,8 @@ def main():
             ("a recipe that adds one legacy source file", ["/src/hypersaw_clap.cpp"], "denied-directory"),
             ("a recipe that gives the builder the reference renders", ["/engine2/data/reference-renders/"],
              "test-author-only"),
+            ("a recipe that gives the builder the declared structure", ["/engine2/structure/"],
+             "diagram-only"),
         ):
             with RecipeTree(also=also) as tree:
                 tags = {t for t, _ in audit_tree(tree)}
@@ -312,7 +323,7 @@ def main():
     if failures:
         print(f"engine2_cleanroom_check: FAILED ({len(failures)}): {'; '.join(failures)}")
         return 1
-    print("engine2_cleanroom_check: ok (detector copy, data, recipe tree, 10 must-fail controls)")
+    print("engine2_cleanroom_check: ok (detector copy, data, recipe tree, 11 must-fail controls)")
     return 0
 
 

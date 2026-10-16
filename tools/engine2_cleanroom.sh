@@ -19,11 +19,14 @@
 # INCLUDE and the tree grows, which engine2_cleanroom_check.py then reads as red unless it is
 # also allowed there.
 #
-# THE TWO EXCLUSIONS. The reference renders and the version-0 example states are the test author's
+# THE THREE EXCLUSIONS. The reference renders and the version-0 example states are the test author's
 # input data: spec 10.1 says "the test author receives the reference renders ... the builder does
 # not", and IF-4 sends the example states to the test author with them. They live under engine2/data/
-# so the test author has one tree, and the builder's recipe leaves them out. A later pattern wins
-# over an earlier one, which is how --also can put them back (the control does).
+# so the test author has one tree, and the builder's recipe leaves them out. engine2/structure/ is the
+# declared structure loupe draws the diagram from (B500): a reading of the spec, and BD-10 gives the
+# builder the spec and the tests, not a reading of them. It lives under engine2/ because loupe's
+# export reads engine2/. A later pattern wins over an earlier one, which is how --also can put any of
+# them back (the controls do).
 #
 # libs/clap is NOT in the recipe: the engine's API is plain data in the units of the spec's
 # section 5 (IF-1 names CLAP's expressions only as a mapping), and CLAP lives in the plugin shell.
@@ -33,6 +36,7 @@ INCLUDE=(
   "/engine2/"
   "!/engine2/data/reference-renders/"
   "!/engine2/data/version0-states/"
+  "!/engine2/structure/"
   "/specs/SPEC-ENGINE.md"
 )
 
