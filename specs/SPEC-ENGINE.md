@@ -424,7 +424,7 @@ Each requirement states what the player hears; where a law is the sound, the req
 | VO-3 | **A taken voice fades.** When a note takes an audible voice, the old sound fades to silence linearly over 5 ms and the new note starts from silence when the fade ends. Everything about that note is late by its wait, its release included, so it sounds for as long as its key was held. While waiting it counts as held by its key (tiers 1 and 2 never pick it); a retune reaches it (its sounding pitch moves; the struck pitch stays the glide target); a panic or a voicing change cancels it with any pending release; a second take replaces the waiting note without restarting the fade. A culled tail that is taken waits no longer than the shorter of the steal fade and what the cull had left. A zero-length note on a taken voice is silent. If the cull picks a tail whose key is up but whose late release is still pending, it is released at the cull (the pending release cleared); a taken tail's pending release is cancelled by the take. A faded voice restarts at once. |
 | VO-4 | **Under load.** The engine accepts a voice cap from the device: an integer from 1 to `voice.polyphony`, or none (an input, never a clock reading); by default the device sets none, so there is no CPU-adaptive limiting. Over a cap, the quietest releasing tails fade out over 8 ms, never a held voice. A note at a full cap with no tail to take is refused (the default) or, by the device's choice, takes the oldest held voice by VO-3. With no cap the engine never culls. |
 | VO-5 | `voice.polyphony` sets how many voices exist, 1 to 64 in one pool (default 16). VO-2 and VO-3 hold unchanged at every setting, including when every voice is in use. Lowering it while voices sound releases the excess by VO-4's fade, never a cut. |
-| VO-6 | **Mono and legato.** Mono: one voice; every new note re-runs the voice's start from its current level, with that note's own velocity, the level moving from the old velocity's to the new over 5 ms (no step). Legato: the voice re-runs its start only when a note arrives with no other key held; otherwise it is a **legato change**: the swarm and blades keep running and the voice keeps its strike's velocity and envelope. In both, the voice sounds the pitch and the expressions of the newest held note id, and releasing it while others are held returns to the most recent held one by a legato change. A note change reports which note the voice moves from and to, so the pitch system can glide (IF-2). What re-runs, by kind of start: see the table below. **A fresh start on a sounding voice** (a mono re-run, or legato's first note while the voice's tail still sounds) follows `retrigger` (PROPOSED [X25]): with `retrigger` on, the table's fresh-start column re-runs and the voice's output crossfades over 5 ms with equal gain from its continuing state to the restarted one, so no waveform jump is heard; with `retrigger` off, everything continues as on a legato change and only ENV 1 re-runs (with the new note's velocity, ramped over 5 ms). |
+| VO-6 | **Mono and legato.** Mono: one voice; every new note re-runs the voice's start from its current level, with that note's own velocity, the level moving from the old velocity's to the new over 5 ms (no step). Legato: the voice re-runs its start only when a note arrives with no other key held; otherwise it is a **legato change**: the swarm and blades keep running and the voice keeps its strike's velocity and envelope. In both, the voice sounds the pitch and the expressions of the newest held note id, and releasing it while others are held returns to the most recent held one by a legato change. A note change reports which note the voice moves from and to, so the pitch system can glide (IF-2). What re-runs, by kind of start: see the table below. **A fresh start on a sounding voice.** In mono, a re-run follows `retrigger`: with it on, the table's fresh-start column re-runs and the voice's output crossfades over 5 ms with equal gain from its continuing state to the restarted one, so no waveform jump is heard; with it off, the phases continue, everything continues as on a legato change, and only ENV 1 re-runs (with the new note's velocity, ramped over 5 ms). In legato the phases always continue: legato's first note while the voice's tail still sounds continues everything as a legato change does and re-runs only ENV 1, with the new note's velocity ramped over 5 ms. |
 | VO-7 | A freed voice outputs exact zeros and holds no state that a later note could hear. |
 | VO-8 | Velocity (0..1) scales the voice's level by (1 − v + v·velocity), v = `env1.velocity`, velocity's default mapping; at v = 1 level is proportional to velocity. Velocity is also a modulation source (IF-1). |
 | VO-9 | **The voice's path** is: each source at its level, summed, through the filter slot, times ENV 1 and velocity. Each source's signal exists separately before the sum for the filter slot's routing and the meters. |
@@ -436,7 +436,7 @@ Each requirement states what the player hears; where a law is the sound, the req
 
 **What re-runs at each kind of voice start** (VO-6):
 
-| state | a fresh start (poly; mono's first note; legato's first note; a mono re-run, which crossfades by VO-6 [X25]) | a legato change |
+| state | a fresh start (poly; mono's first note; legato's first note from silence; a mono re-run with `retrigger` on, which crossfades by VO-6) | a legato change (also a mono re-run with `retrigger` off and legato's first note over a tail, except that ENV 1 re-runs, VO-6) |
 |---|---|---|
 | start phases (SW-10) | re-run (`retrigger` on) or resume (off) | continue |
 | onset lock burst (C.1) | re-run | continue (no new burst) |
@@ -525,7 +525,7 @@ Each requirement states what the player hears; where a law is the sound, the req
 
 | id | requirement |
 |---|---|
-| RT-1 | Processing, parameter and modulation input, note events, observation reads and `reset()` allocate nothing, take no lock, make no system call or I/O, and run no unbounded loop. Everything is allocated at prepare, sized by the maxima: 64 voices, 16 members, both oscillators, both blades, room for PA-5's second setting on every oscillator, and a second voice state for VO-6's re-run crossfade. Every lazily built table is built at prepare. |
+| RT-1 | Processing, parameter and modulation input, note events, observation reads and `reset()` allocate nothing, take no lock, make no system call or I/O, and run no unbounded loop. Everything is allocated at prepare, sized by the maxima: 64 voices, 16 members, both oscillators, both blades, room for PA-5's second setting on every oscillator, and a second voice state for VO-6's mono re-run crossfade. Every lazily built table is built at prepare. |
 | RT-2 | The work per sample is bounded by a constant set by the parameter maxima. At most 8 edges are corrected per member per internal sample; any further edge in that sample is left uncorrected and counted. |
 | RT-3 | **A non-finite value is contained where it arises and reported.** A voice in which any state becomes non-finite (a member's phase or output, a loop tap, a filter or envelope state) has that voice's state reset to a fresh voice's (its sound stops for that note), and the event is counted; without the reset, a NaN in a feedback or cross-mod loop would latch the voice into silence or noise for good. A non-finite output sample is also replaced by zero, counted and latched. Every count and latch is readable from another thread until cleared; nothing is repaired silently. |
 | RT-4 | The engine produces no subnormal output samples and no subnormal-driven slowdown: tails reach exact zero; flush-to-zero is set by the shell around processing, and the engine does not depend on it for correctness. |
@@ -705,11 +705,11 @@ PF-1, PF-2, PF-5 and PF-9 measured under PF-3 and reported to the human with PF-
 
 Each is built as written here until it is ruled; a ruling changes only the requirements tagged with it.
 
-### 11.0 To be ruled before the build (1)
+### 11.0 To be ruled before the build (0)
 
 | # | the item | what is built until it is ruled | tagged |
 |---|---|---|---|
-| X25 | a fresh start on a sounding voice (a mono re-run; legato's first note over a tail) (PROPOSED; the human is being asked) | `retrigger` governs it: on, the restart crossfades over 5 ms with equal gain from the old state to the restarted one; off, the phases run on and only ENV 1 re-runs | VO-6, RT-1 |
+| — | none | | |
 
 ### 11.1 To be ruled during the build, before the stage that needs them (25)
 
@@ -741,7 +741,7 @@ Each is built as written here until it is ruled; a ruling changes only the requi
 | X21 | aftertouch's default destination | channel pressure and per-note pressure route to `coupling` on both oscillators, +0.25 of its range (+0.125 in v) at full pressure, in the init patch and every factory preset unless the preset says otherwise: a held note locks tighter as it is pressed, the instrument's own gesture | IF-1, RC-4 |
 | X22 | the envelopes' translation from the bank (PROPOSED) | B.1's ENV 1 rule (decay and release × 2.30, curve +2.30) and the blade envelopes as one-shot ENV 2 and ENV 3 (RC-4) | B.1, RC-4 |
 
-### 11.2 Can be ruled after the build (7)
+### 11.2 Can be ruled after the build (8)
 
 | # | the item | what is built until it is ruled | tagged |
 |---|---|---|---|
@@ -752,6 +752,7 @@ Each is built as written here until it is ruled; a ruling changes only the requi
 | X9 | a twin wider than half a cycle under the cut latch | the edge stays as stated in BL-16 | BL-16 |
 | X23 | the bank's coupling rescale (PROPOSED) | B.1's rule; confirmed by ear in the preset round | B.1 |
 | X24 | the start phases of the bank's negative-coupling presets | B.1's rule; judged A/B in the preset round | B.1 |
+| X26 | a separate toggle for legato's phase continuity (the human: "it could also be a separate toggle") | not built for 1.0 unless ruled: in legato the phases always continue (VO-6) | VO-6 |
 
 ---
 

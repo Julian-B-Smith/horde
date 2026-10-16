@@ -224,7 +224,7 @@ Each is stated in the spec as plain law or requirement, without this history. Re
 | 44 | A held key is never taken ahead of a tail | round 4's VO-2 let a faded held note at sustain 0 count as a tail | ADR-226 item 11 (the human: "delete the stealing rule") | VO-2 |
 | 45 | Velocity and aftertouch are modulation sources mapped by default; pressure never reaches the level unless mapped | today's engine scales level by velocity only (`benvVel` and the voice's `vel`); no aftertouch | ADR-226 item 4; the destinations are X21 | IF-1, RC-4 |
 | 46 | Each control interval's new member frequency is reached by a linear ramp across the following interval | today's engine sets `eff` once per 16-sample tick (`swarm.h:228-246`) and holds it | SW-17: automating coupling or detune never steps a frequency (dry run 2, #19); every SW-4 anchor reads the same under the ramp (C.0's source row) | C.0, SW-17 |
-| 47 | PROPOSED (X25): a fresh start on a sounding voice follows `retrigger`: on, it restarts and crossfades over 5 ms from the old state; off, only ENV 1 re-runs | today's mono retrigger keeps the swarm and the ensemble draws and re-enters each member's envelope (`engine.h:1352-1356`): the retrigger-off behaviour | the lead's recommendation, the human being asked; a restart without the crossfade is a waveform jump (dry run 2) | VO-6, RT-1 |
+| 47 | Ruled (X25, ADR-228): a mono re-run follows `retrigger`: on, it restarts and crossfades over 5 ms from the old state; off, only ENV 1 re-runs; in legato the phases always continue | today's mono retrigger keeps the swarm and the ensemble draws and re-enters each member's envelope (`engine.h:1352-1356`): the retrigger-off behaviour | the lead's recommendation, the human being asked; a restart without the crossfade is a waveform jump (dry run 2) | VO-6, RT-1 |
 
 **Corrections made to the lead's transcription of the laws (round 2):** the composed engine has no α term (row 3); σ is the RMS spread of the natural frequencies (after the detune law and drift, before coupling); the formula given as the drift walk is the ensemble's timing correction (C.7), and the drift is a leaky walk (C.4); the root pivot has no R factor and anchors the splay on the root member; gravity's "new chord" is no chord reset (each newly struck note starts at its played pitch; held notes keep theirs), with |e| ≤ 35 c and pairs applied in sorted order; the ensemble's entry fade is a one-pole of τ = max(2 ms, attack) on every member; the loop filter is 5 kHz (row 12). In round 3 the critic corrected SW-5 (row 4).
 
@@ -432,14 +432,16 @@ The audit (§3.12) listed 31 interface questions; the spec added X1 to X24 (X21 
 
 **Dropped as already ruled by earlier records (6):** Q4 (one pool, by ADR-224 item 1; since ADR-225 item 13 the pool is 1 to 64, default 16); Q5 (chords as copies, post-1.0 by ADR-190 A2); Q27's per-preset part (quality saved per preset, ADR-191 and B445); Q22's allocation and ENV 1 part (ADR-224 item 1); X14 (no per-source ENV 1 opt-out, B370); Q3 (a fixed count, no CPU-adaptive limiting by default, ADR-225 item 13).
 
-**Still open, with the reasons the recommendations rest on** (the spec's section 11 carries only what is built until each is ruled). Since round 6 the spec lists 1 before the build (X25, which the lead is putting to the human), 25 during and 7 after (round 5: X1 ruled; X21 and X22 added during, X23 and X24 after), and this file lists them the same way; the spec does not carry Q30's prototypes part, which concerns the repository, not the build (keep `reference/` as protected history; it is listed here only).
+**Still open, with the reasons the recommendations rest on** (the spec's section 11 carries only what is built until each is ruled). Since round 7 the spec lists 0 before the build (X25 ruled by ADR-228), 25 during and 8 after (X26 added) (round 5: X1 ruled; X21 and X22 added during, X23 and X24 after), and this file lists them the same way; the spec does not carry Q30's prototypes part, which concerns the repository, not the build (keep `reference/` as protected history; it is listed here only).
 
 **The spec's appendix letters since round 4:** Appendix A is the 12 envelope presets as input data, Appendix B the bank and version-0 state formats with their translation, Appendix C the laws; the round-3 traceability appendix is this file's section 5.
-### 6.0 To be ruled before the build (1)
+### 6.0 To be ruled before the build (0)
+
+**X25, ruled by the human (ADR-228):** "I think the mono thing should be a toggle. To me, legato implies the phase continues but it could also be a separate toggle." The lead's reading: in mono `retrigger` governs a re-run (on, a 5 ms equal-gain crossfade to the restarted state; off, the phases continue and only ENV 1 re-runs, the new velocity ramped); in legato the phases always continue (ADR-226 item 3). A separate legato-phase toggle is not added now: X26, after the build, with no recommendation to add it. The row below is kept as the history.
 
 | # | question | recommendation | reason | depends |
 |---|---|---|---|---|
-| X25 | A fresh start on a sounding voice (a mono re-run; legato's first note over a tail): what re-runs, and how without a click. | The lead's: `retrigger` governs it; on, the restart crossfades over 5 ms with equal gain from the old state; off, the phases run on and only ENV 1 re-runs. | Dry run 2: the round-5 table reset the phases, the rotation clock, the sub's phase and the frame mid-note, which QS-4 forbids. | VO-6, RT-1 |
+| X25 (RULED, ADR-228) | A fresh start on a sounding voice (a mono re-run; legato's first note over a tail): what re-runs, and how without a click. | The lead's: `retrigger` governs it; on, the restart crossfades over 5 ms with equal gain from the old state; off, the phases run on and only ENV 1 re-runs. | Dry run 2: the round-5 table reset the phases, the rotation clock, the sub's phase and the frame mid-note, which QS-4 forbids. | VO-6, RT-1 |
 
 ### 6.1 To be ruled during the build, before the stage that needs them (25, plus Q30's repository part)
 
@@ -472,7 +474,7 @@ The audit (§3.12) listed 31 interface questions; the spec added X1 to X24 (X21 
 | X21 | The default destinations of velocity and aftertouch (ADR-226 item 4). | Velocity → level through `env1.velocity` (1, level proportional to velocity). Aftertouch (channel and per-note pressure) → `coupling` on both oscillators, +0.25 of its range at full pressure. | Coupling is the instrument's own gesture (a held note locks tighter as it is pressed) and cannot silence a note; level is the one destination pressure must not reach unmapped. Alternatives for the human: blade 1's depth, or the cut. | IF-1, RC-4 |
 | X22 | The bank's envelopes in translation (ADR-226 item 10, PROPOSED). | ENV 1 decay and release × 2.303 with curve +2.303; the blade envelopes as ENV 2 and ENV 3 in a one-shot mode. | Keeps each tail's audible length and each blade swell on short notes (departures 36, 37); the lead explains it to the human first. | B.1, RC-4 |
 
-### 6.2 Can be ruled after the build (7)
+### 6.2 Can be ruled after the build (8)
 
 | # | question | recommendation | reason | depends |
 |---|---|---|---|---|
@@ -482,6 +484,7 @@ The audit (§3.12) listed 31 interface questions; the spec added X1 to X24 (X21 
 | X6 | Does a sound-change ledger continue against the new engine's own goldens. | Yes: every change after the goldens freeze is recorded with its A/B and the human's word. | ADR-220 item 1 names the ledger as part of correctness. | 10.2 |
 | X9 | A twin wider than half a cycle under the cut latch: give the twin its own latch. | Not in 1.0; the edge stays stated. | No bank preset uses it (B487's critic). | BL-16 |
 | X23 | The bank's coupling rescale (ADR-226 item 12, provisional). | B.1's rule at 110 Hz. | It restores the lock on the locked presets (departure 35); the human confirms it by ear in the preset round. | B.1 |
+| X26 | A separate toggle for legato's phase continuity (ADR-228). | None: not built for 1.0 unless ruled. | The human: "it could also be a separate toggle"; legato already keeps the phases running (ADR-226 item 3). | VO-6 |
 | X24 | The start of the bank's negative-coupling presets (ADR-226 item 13). | B.1's phase rule (Random 0 or 100 as stored). | Deferred by the human to the preset round, judged A/B. | B.1 |
 
 ---
@@ -495,4 +498,5 @@ The audit (§3.12) listed 31 interface questions; the spec added X1 to X24 (X21 
 | 3 | `78214e9` | the critic's re-read: SW-5's anchor at a lockable K; inertia's scope and the detector's method put to the human |
 | 4 | `7d5f7b6` | ADR-225's thirteen rulings folded in; the spec split from this file, so the builder's text names no old file, prototype or engine (the human: "the build should be fresh from the spec") |
 | 5 | `2f1a389` | ADR-226's thirteen rulings and the verification round's findings: the pedal, Phase/Random/Retrigger, the legato table, velocity and aftertouch as sources, pan, mute and solo, all notes off and all sound off, the reserved contracts (7.2), output peaks, the reference renders, the envelope timing and translation, the stealing rule, the coupling rescale; the DC law (C.16) and the collision bite restored; every base wave band-limited (ED-1a, from PR #1103's detector); this file's corrections and departures 26 to 45 |
-| 6 | this change | the second clean-room dry run: QS-1's measuring rule and a reference table design; BL-7's measure; X25 (the re-run crossfade, PROPOSED, before the build); PA-8's rows; C.16's FM laws; BD-8's stage map; the detector's ratified numbers (ADR-227); the state's text syntax; the earlier open items #18, #19, #25, #29, #30, #38, #40, #42, #51, #52, #61; departures 46 and 47 |
+| 6 | `b277634` | the second clean-room dry run: QS-1's measuring rule and a reference table design; BL-7's measure; X25 (the re-run crossfade, PROPOSED, before the build); PA-8's rows; C.16's FM laws; BD-8's stage map; the detector's ratified numbers (ADR-227); the state's text syntax; the earlier open items #18, #19, #25, #29, #30, #38, #40, #42, #51, #52, #61; departures 46 and 47 |
+| 7 | this change | X25 ruled (ADR-228): in mono `retrigger` governs a re-run; in legato the phases always continue; X26 (a separate legato-phase toggle) after the build |
