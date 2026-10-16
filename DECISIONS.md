@@ -8258,3 +8258,5 @@ the scenarios built on this preset. The harness's copy (`h2/harness/patches.json
 
 **Decision.** Items 1 to 5 become reserved contracts RC-6 to RC-10 in `specs/SPEC-ENGINE.md`, each stating what the engine provides now, what is deferred, and what a later module must not require of it. Item 6 is an after-the-build question (X27), with no space reserved.
 
+**ADR-229 A1 — the lead's reading of the human's follow-up (2026-10-16): history support is RC-11.** The human, during round 8: "Oh, and should there be any history hooks?" The lead reads it as undo/redo and snapshot history (the module 1.0 bar lists undo under "usable"). The undo stack lives in the shell and GUI; the spec reserves what the engine must guarantee for it (RC-11): no hidden user state, a deterministic and real-time-safe snapshot and restore crossfaded during playback, the host's parameter gestures passed through so one drag is one undo step, and a restore that never re-triggers notes. If the human meant something else by "history", this reading is corrected before the spec is approved.
+
