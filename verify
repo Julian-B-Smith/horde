@@ -567,6 +567,25 @@ PY
   tail -1 "$engine2_build_dir.log"
   rm -rf "$engine2_build_dir" "$engine2_build_dir.log"
 
+  # THE REFERENCE RENDERS' METADATA READS ITS SOURCES (ROADMAP B497 part 2; added under ADR-180 §1).
+  # tools/engine2_reference_renders.mjs --static-check: the tracked manifest.json and parameters.json
+  # under engine2/data/reference-renders/ are what the generator would write from the bank, the
+  # envelope presets, the phrase set and B.1's base values (everything but the hashes and levels,
+  # which only a render makes), and the phrase set is consistent (samples, order, 12-TET pitch,
+  # lengths). Thirteen must-fail controls run every time (a changed value, a wrong frame count, a
+  # dropped render, a wrong glide flag, an edited input hash, a changed setting, a missing hash, four
+  # broken phrases, two glide cases). No engine, no audio; about 1 s. The 380 renders themselves are made and
+  # checked by hand (--out, --verify): they take a minute and the built harness, and the audio is a
+  # release asset, not in git.
+  if command -v node >/dev/null; then
+    node tools/engine2_reference_renders.mjs --static-check > /tmp/e2refr.$$ 2>&1 || {
+      echo "verify: engine2_reference_renders --static-check FAILED" >&2; cat /tmp/e2refr.$$ >&2; ok=1; }
+    tail -1 /tmp/e2refr.$$
+    rm -f /tmp/e2refr.$$
+  else
+    echo "verify: node missing — engine2_reference_renders --static-check NOT RUN (the other node gates above say the same)" >&2
+  fi
+
   return $ok
 }
 
