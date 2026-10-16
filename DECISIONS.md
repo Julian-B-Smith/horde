@@ -8250,3 +8250,11 @@ the scenarios built on this preset. The harness's copy (`h2/harness/patches.json
 
 **Decision (the lead's reading of those words).** In mono, the `retrigger` toggle governs a re-run: on, the phases restart through a 5 ms equal-gain crossfade from the old state; off, the phases continue and only ENV 1 re-runs, the new velocity ramped. In legato the phases always continue (ADR-226 item 3). A separate toggle for legato's phase continuity is not added now; it is recorded as a possible later addition (the spec's X26, after the build), since the human said it could be one, not that it must.
 
+## ADR-229 — RULED by the human: five more reserved contracts in the new engine's spec (B494, 2026-10-16)
+
+**Context.** Before approving the spec, the human asked: "are there any other things you anticipate we still need to add to the engine after this which can have proper space left for?" The spec already reserved contracts for the filters, the mixer's gain staging, the pitch system, the modulator bank and the FX rack (ADR-226 item 7). The lead proposed five more and one to leave out: (1) a source slot in the voice, so later engines plug in beside the swarm oscillators, the sub and the noise; (2) tempo and transport from the host as a deterministic input, for the arpeggiator, the shared quantizer and synced modulation; (3) a real-time-safe readout path for the GUI; (4) adding parameters later without breaking saved projects (append-only ids, defaults that reproduce the old sound, unknown keys kept); (5) a quality-tier hook for heavy patches, off by default; and (6) an audio input into the voice, recorded but not reserved now.
+
+**The ruling.** The human: "add 1–5".
+
+**Decision.** Items 1 to 5 become reserved contracts RC-6 to RC-10 in `specs/SPEC-ENGINE.md`, each stating what the engine provides now, what is deferred, and what a later module must not require of it. Item 6 is an after-the-build question (X27), with no space reserved.
+
