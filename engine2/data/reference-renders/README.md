@@ -57,6 +57,12 @@ are `os` 1 (Standard), `frameHold` 1, `stealFade` 1, `poly` 8, no voice cap, hos
 128 (`parameters.json`, `settings`). All are the settings of the A/B tool (`tools/h2_ab.mjs`), which
 plays a bank preset as the installed preview does. The first render of the set took 58 s.
 
+**The voice pool is 8.** The engine that made these renders has a pool of 8 voices (`h2/engine/engine.h`,
+`kVoices`), and a `poly` above 8 is clamped to it: `poly` 16 and 64 render bit-identically to 8 (checked on
+the trill, the phrase that stacks the most voices). So under long releases (the trill on a preset with a
+long release) the renders steal voices where a 16-voice pool would not. The
+renders cannot show a larger pool.
+
 ## Reproducing them
 
 The renders are deterministic: no clock, no unseeded random number. To make them again (the same
