@@ -8242,3 +8242,21 @@ the scenarios built on this preset. The harness's copy (`h2/harness/patches.json
 
 **Decision.** The detector's numbers are ratified as proposed: k 10, predictor order 24 over a 10 ms fit window refitted every 1.25 ms, the local level the RMS of the 20 ms around a sample, events merged within 1.5 ms, the clean reference set's bound of no events. The bank's events are reported by class and judged nowhere. The detector is the test author's first instrument for the new engine (B494) and for B490.
 
+## ADR-228 — RULED by the human: a mono re-run follows the retrigger toggle; legato keeps the phases running (X25, B494, 2026-10-16)
+
+**Context.** The spec's second clean-room dry run found that a mono re-run restarted the swarm's phases mid-note (retrigger on by default), a waveform jump the click standard forbids. The lead recommended letting the retrigger toggle govern mono too (on: restart, crossfaded 5 ms; off: phases continue, only the envelope restarts). Today's engine behaves as retrigger off in mono.
+
+**The ruling.** The human: "I think the mono thing should be a toggle. To me, legato implies the phase continues but it could also be a separate toggle."
+
+**Decision (the lead's reading of those words).** In mono, the `retrigger` toggle governs a re-run: on, the phases restart through a 5 ms equal-gain crossfade from the old state; off, the phases continue and only ENV 1 re-runs, the new velocity ramped. In legato the phases always continue (ADR-226 item 3). A separate toggle for legato's phase continuity is not added now; it is recorded as a possible later addition (the spec's X26, after the build), since the human said it could be one, not that it must.
+
+## ADR-229 — RULED by the human: five more reserved contracts in the new engine's spec (B494, 2026-10-16)
+
+**Context.** Before approving the spec, the human asked: "are there any other things you anticipate we still need to add to the engine after this which can have proper space left for?" The spec already reserved contracts for the filters, the mixer's gain staging, the pitch system, the modulator bank and the FX rack (ADR-226 item 7). The lead proposed five more and one to leave out: (1) a source slot in the voice, so later engines plug in beside the swarm oscillators, the sub and the noise; (2) tempo and transport from the host as a deterministic input, for the arpeggiator, the shared quantizer and synced modulation; (3) a real-time-safe readout path for the GUI; (4) adding parameters later without breaking saved projects (append-only ids, defaults that reproduce the old sound, unknown keys kept); (5) a quality-tier hook for heavy patches, off by default; and (6) an audio input into the voice, recorded but not reserved now.
+
+**The ruling.** The human: "add 1–5".
+
+**Decision.** Items 1 to 5 become reserved contracts RC-6 to RC-10 in `specs/SPEC-ENGINE.md`, each stating what the engine provides now, what is deferred, and what a later module must not require of it. Item 6 is an after-the-build question (X27), with no space reserved.
+
+**ADR-229 A1 — the lead's reading of the human's follow-up (2026-10-16): history support is RC-11.** The human, during round 8: "Oh, and should there be any history hooks?" The lead reads it as undo/redo and snapshot history (the module 1.0 bar lists undo under "usable"). The undo stack lives in the shell and GUI; the spec reserves what the engine must guarantee for it (RC-11): no hidden user state, a deterministic and real-time-safe snapshot and restore crossfaded during playback, the host's parameter gestures passed through so one drag is one undo step, and a restore that never re-triggers notes. If the human meant something else by "history", this reading is corrected before the spec is approved.
+
