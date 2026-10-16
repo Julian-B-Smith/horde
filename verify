@@ -533,6 +533,22 @@ PY
     echo "verify: node missing — h2_ab self-test NOT RUN (the other node gates above say the same)" >&2
   fi
 
+  # THE CLICK DETECTOR'S CONTROLS, synthetic half (ROADMAP B490, ADR-225 item 12; added under
+  # ADR-180 §1). tools/click_detector.mjs judges a sample against what the samples before it
+  # predict (a short-term and a pitch predictor), so a bright tone's own large steps do not raise
+  # its bar. Here, on signals built in the check (no engine): smooth signals read no event, 0.05
+  # steps on a sine and on band-limited saws at C2 and C6 are caught every time, the pitch stage
+  # is load-bearing, the same events at gains 0.01, 1 and 4, a NaN throws. About 5 s. Its numbers
+  # are PROPOSED, awaiting the human. The engine half is in full.
+  if command -v node >/dev/null; then
+    node tools/click_detector_check.mjs --synthetic > /tmp/clickdet.$$ 2>&1 || {
+      echo "verify: click_detector_check (synthetic) FAILED" >&2; cat /tmp/clickdet.$$ >&2; ok=1; }
+    tail -1 /tmp/clickdet.$$
+    rm -f /tmp/clickdet.$$
+  else
+    echo "verify: node missing — click_detector_check NOT RUN (the other node gates above say the same)" >&2
+  fi
+
   return $ok
 }
 
@@ -1029,6 +1045,20 @@ full() {
   # under ADR-180 §1.
   node tools/h2_output_headroom_check.mjs --bin "$build_dir/h2_harness_render" || {
     echo "verify[full]: h2_output_headroom_check FAILED" >&2; return 1; }
+  #
+  #
+  # [engine gate: B490 the click detector for bright tones, ADR-225 item 12]
+  # tools/click_detector_check.mjs, engine half, on the C++ engine through the harness as the
+  # preview plays it: 0.05 steps caught every time on a sine at C4, the engine's band-limited saw
+  # at C2 and C6, and Crushed bells at C4, and B490's own 0.05 of full scale on Crushed bells; the
+  # sine and that saw held at C1 to C7 read no event; the analysis band and the first difference
+  # are load-bearing; the same events at gains 0.01, 1 and 4. Printed, not judged: the patches it
+  # cannot see a 0.05 step on (their own steps are that large), the 83 bank presets on a chord and
+  # four patches at C1 to C7 with every event by class, the old detector on the same plants, and
+  # the catch and event counts against k. Its numbers are PROPOSED, awaiting the human. About a
+  # minute. Its last line is its verdict. Added under ADR-180 §1.
+  node tools/click_detector_check.mjs --bin "$build_dir/h2_harness_render" || {
+    echo "verify[full]: click_detector_check FAILED" >&2; return 1; }
   #
   # horde 2's lifted swarm core (B379 step 1, h2/cores/swarm/): lift edit E1
   # re-proven. A Voice the caller owns, started with initVoice() and ticked
