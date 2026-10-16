@@ -97,7 +97,7 @@ The engine must do what a musician expects each control to do to the waveform, a
 ```
 core/
   manifest/   parameters (the one source of truth) and its generators
-  api/        the engine's calls, events (transport included, RC-7), state, observation view, GUI snapshot (RC-8)
+  api/        the engine's calls, events (transport included, RC-7), state, observation view, GUI snapshot (RC-8), history snapshot and gestures (RC-11)
   voice/      allocator and stealing, the pedal, the voice, ENV 1, mono and legato
   swarm/      members, placement, detune laws, coupling, drift, onset, start phase, gravity, pan
   blade/      geometry, modes, waves, FM, mirror, spreads and their laws and rules, interplay, DC
@@ -574,7 +574,7 @@ The engine's API is a set of calls and timed events; everything crossing it is i
 
 ### 7.2 Reserved contracts
 
-Each module still to come meets the engine through a contract that exists now. For each: what the engine provides and accepts now; what each voice hands over or accepts, where it applies; what is deferred to the module; and what the module must not require of the engine. RC-6 to RC-10 also carry numbered requirements (RC-6.1, …), tested by the suite where they can be tested now (10.1 items 18 to 22).
+Each module still to come meets the engine through a contract that exists now. For each: what the engine provides and accepts now; what each voice hands over or accepts, where it applies; what is deferred to the module; and what the module must not require of the engine. RC-6 to RC-11 also carry numbered requirements (RC-6.1, …), tested by the suite where they can be tested now (10.1 items 18 to 23).
 
 #### RC-1. The filters
 
@@ -669,6 +669,18 @@ Each module still to come meets the engine through a contract that exists now. F
 - **Deferred:** the tiers themselves and any policy that chooses one (1.0 has no automatic thinning, Q27).
 - **Must not require:** a tier chosen inside the engine from measured CPU; a voice law that differs between tiers.
 
+#### RC-11. History support
+
+- **Provided now.** What the shell and the GUI need to build undo, redo and snapshot history on the engine. The history itself (the undo stack, its length, compare) lives in the shell and the GUI, not in the engine.
+- **Requirements.**
+  - **RC-11.1 No hidden user state.** Every audible value a user can change is a parameter in the manifest (each oscillator's `seed` included) or a member of the saved state (the `ratios` text). The morph position, the macro values and the intents are the morph, macro and intent systems' own state (RC-4); they reach the engine only as parameter values, which a snapshot holds. Gravity's settled ratios, tails, ramps, stream positions, meters and latches are performance state, not user state: never saved (IF-4) and left as they stand by a restore (RC-11.4).
+  - **RC-11.2 Snapshot and restore.** The engine takes a snapshot of its state (every parameter's v and the `ratios` text) into a buffer allocated at prepare, and restores one from such a buffer, both deterministic and real-time safe (RT-1): no allocation, lock or system call, so the shell may take one per undo step and restore one during playback. The snapshot converts to and from IF-4's text outside the audio thread.
+  - **RC-11.3 Gestures passed through.** The host's parameter gesture begin and end events (CLAP's param gestures) are accepted sample-timed and reported back unchanged in the engine's output events with their parameter ids, so the shell can group one drag into one undo step. They change nothing in the sound.
+  - **RC-11.4 A restore is a change, not a load.** Restoring a snapshot applies its values to the sounding voices as one set of parameter changes: each continuous value glides by PA-1, each stepped value crossfades by PA-5, a `unison` change follows PA-6. Unlike a load (IF-4), it re-triggers no note, frees no voice, resets no voice's phases, streams, gravity or ensemble, and restarts nothing beyond what the restored values imply.
+- **Tests (10.1 item 23):** a snapshot taken mid-render and restored later reproduces the parameter state exactly (every v bit-identical, the `ratios` text byte-identical); a restore mid-note, to a snapshot that differs in continuous and stepped values, produces no event by QS-4's detector.
+- **Deferred:** the undo UI, the history's length, compare (A/B snapshots).
+- **Must not require:** the engine to keep a history itself, to store more than one snapshot buffer per request, or to treat a restore as a load.
+
 ---
 
 ## 8. Sound and quality standards (measurable)
@@ -736,7 +748,8 @@ Written by a different agent from this spec, before the engine exists. Every che
 19. transport events at any sample times and block sizes leave the render bit-identical (RC-7.1, RC-7.3);
 20. a reader thread reading the GUI snapshot continuously leaves the render bit-identical, with no allocation, lock or wait on the audio thread (RC-8.1, RC-8.2);
 21. a state with an unknown key round-trips byte-identically and renders as without it; a state saved before a parameter was added loads to the same render (RC-9.2, RC-9.3);
-22. a tier other than 0 is refused and counted (RC-10.3).
+22. a tier other than 0 is refused and counted (RC-10.3);
+23. a snapshot taken mid-render and restored reproduces the parameter state exactly, and a restore mid-note makes no detected click (RC-11.2, RC-11.4).
 
 Its thresholds are ratified with the suite and pinned; a threshold changes only on the human's approval.
 
@@ -759,7 +772,7 @@ PF-1, PF-2, PF-5 and PF-9 measured under PF-3 and reported to the human with PF-
 
 - **BD-6. Self-documenting and concise.** Names carry what the code does; comments carry only why: the constraint, the rejected alternative, the trap. No comment narrates history. A clean engine of this scope is expected at about 2,100 to 3,000 lines; that is an estimate, not a gate.
 - **BD-7. One arithmetic.** No code emulates another language's number semantics, no random draw exists only to preserve an order, and each constant has one value. Single precision, approximations and fused multiply-add are allowed throughout, judged by the suite and the ears.
-- **BD-8. Built in stages behind the frozen structure**, each stage green on its part of the suite before the next: (1) the manifest, the API, the harness header and the state document (items 12, 22, and 13's document half: the text round trip and the version-0 parse); (2) the voice, ENV 1, the pedal and the output stage on a plain one-member saw (items 1, 2, 3, 5, 10's voice anchors, 17, 19); (3) the swarm, C.1 to C.8 (items 0, 10's swarm anchors); (4) the edge correction (items 7, 9); (5) the blades, C.9 to C.11, C.14, C.16 (items 0, 4, 10's blade anchors, 14); (6) the sub and the noise oscillator (item 10's sub anchor, item 18 for the source slot, and item 11 over every manifest row, now that every row can sound); (7) modulation, morph and state (item 13's render half: reset to fresh, migration rendered; items 14, 20, 21); (8) the WebAssembly build (item 15); then the bank (items 4, 6, 16) and the renders for judging. The parameter table stays open until Q31 is ruled.
+- **BD-8. Built in stages behind the frozen structure**, each stage green on its part of the suite before the next: (1) the manifest, the API, the harness header and the state document (items 12, 22, and 13's document half: the text round trip and the version-0 parse); (2) the voice, ENV 1, the pedal and the output stage on a plain one-member saw (items 1, 2, 3, 5, 10's voice anchors, 17, 19); (3) the swarm, C.1 to C.8 (items 0, 10's swarm anchors); (4) the edge correction (items 7, 9); (5) the blades, C.9 to C.11, C.14, C.16 (items 0, 4, 10's blade anchors, 14); (6) the sub and the noise oscillator (item 10's sub anchor, item 18 for the source slot, and item 11 over every manifest row, now that every row can sound); (7) modulation, morph and state (item 13's render half: reset to fresh, migration rendered; items 14, 20, 21, 23); (8) the WebAssembly build (item 15); then the bank (items 4, 6, 16) and the renders for judging. The parameter table stays open until Q31 is ruled.
 - **BD-9. Exactly what is tested ships**: the build that the suite and the CPU measurement run is the shipped build's code with no product-line branch added.
 - **BD-10. A clean room.** The builder reads only this spec and the acceptance tests (with the input data they carry for the builder: the bank and the phrase set). The build happens in a tree that contains no earlier engine, no earlier engine's tests, no prototype and no legacy plugin; the tree is provided to the builder.
 - BD-1 to BD-5 (section 3).
