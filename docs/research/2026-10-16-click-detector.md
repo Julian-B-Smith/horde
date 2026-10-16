@@ -4,7 +4,7 @@
 · **Read at** `origin/main` `2e4ad6c` · **Author** an implementer dispatched by the horde lead.
 No engine change.
 
-**The numbers here are PROPOSED.** ADR-225 item 12 ratified the method ("a predictor from the
+**The numbers here were PROPOSED and are RATIFIED by the human, 2026-10-16 (ADR-227: k 10 and the rest as proposed).** ADR-225 item 12 ratified the method ("a predictor from the
 preceding samples; a click is a residual far over the local residual level; planted-step
 controls") and left the numbers to the test author, to be ratified by the human with their
 controls. Nothing below is a ruling until the human makes it.

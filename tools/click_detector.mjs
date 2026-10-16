@@ -6,7 +6,7 @@
  * ./verify fast runs on synthetic signals and ./verify full on the engine.
  *
  * THE METHOD IS RATIFIED (ADR-225 item 12): "a predictor from the preceding samples; a click is a
- * residual far over the local residual level; planted-step controls". ITS NUMBERS ARE PROPOSED
+ * residual far over the local residual level; planted-step controls". ITS NUMBERS ARE RATIFIED (ADR-227, 2026-10-16; proposed here first)
  * (DEFAULTS below, and docs/research/2026-10-16-click-detector.md for how each was chosen). They
  * await the human's ratification; until then no number here is a ruling.
  *
@@ -104,7 +104,7 @@
 import { readFileSync, realpathSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
-// PROPOSED (header). Seconds where the number is a time; `guard` is in samples because it
+// RATIFIED (ADR-227; header). Seconds where the number is a time; `guard` is in samples because it
 // belongs to the analysis band's impulse response, which is fixed in samples.
 export const DEFAULTS = Object.freeze({
   band: 0.75, lpOrder: 8, diff: true,        // 1, 2. the analysis band; the first difference

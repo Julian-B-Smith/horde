@@ -539,7 +539,7 @@ PY
   # its bar. Here, on signals built in the check (no engine): smooth signals read no event, 0.05
   # steps on a sine and on band-limited saws at C2 and C6 are caught every time, the pitch stage
   # is load-bearing, the same events at gains 0.01, 1 and 4, a NaN throws. About 5 s. Its numbers
-  # are PROPOSED, awaiting the human. The engine half is in full.
+  # are RATIFIED (ADR-227, k 10). The engine half is in full.
   if command -v node >/dev/null; then
     node tools/click_detector_check.mjs --synthetic > /tmp/clickdet.$$ 2>&1 || {
       echo "verify: click_detector_check (synthetic) FAILED" >&2; cat /tmp/clickdet.$$ >&2; ok=1; }
@@ -1055,7 +1055,7 @@ full() {
   # are load-bearing; the same events at gains 0.01, 1 and 4. Printed, not judged: the patches it
   # cannot see a 0.05 step on (their own steps are that large), the 83 bank presets on a chord and
   # four patches at C1 to C7 with every event by class, the old detector on the same plants, and
-  # the catch and event counts against k. Its numbers are PROPOSED, awaiting the human. About a
+  # the catch and event counts against k. Its numbers are RATIFIED (ADR-227, k 10). About a
   # minute. Its last line is its verdict. Added under ADR-180 §1.
   node tools/click_detector_check.mjs --bin "$build_dir/h2_harness_render" || {
     echo "verify[full]: click_detector_check FAILED" >&2; return 1; }

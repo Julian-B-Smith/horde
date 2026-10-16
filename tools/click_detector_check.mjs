@@ -1,7 +1,7 @@
 /*
  * click_detector_check.mjs — the oracle for tools/click_detector.mjs (ROADMAP B490; ADR-225
  * item 12: the detector is the acceptance-test author's first deliverable, its method ratified,
- * its numbers PROPOSED here with must-fire and must-not-fire controls and ratified by the human).
+ * its numbers proposed here with must-fire and must-not-fire controls, and ratified by the human: ADR-227).
  *
  * WIRED: ./verify fast (--synthetic) and ./verify full (--bin, the engine half)
  *
@@ -211,7 +211,7 @@ function synthetic(row, note) {
   ];
   const sig = name => [...SMOOTH, ...LIMIT].find(s => s[0] === name)[1];
   const top = x => scores(x, SR).score.reduce((m, v) => Math.max(m, v), 0);
-  console.log(`synthetic signals: ${kSynSeconds} s at ${SR} Hz; detector DEFAULTS ${JSON.stringify(DEFAULTS)} (PROPOSED, ADR-225 item 12); first judged sample ${warmup(SR)}`);
+  console.log(`synthetic signals: ${kSynSeconds} s at ${SR} Hz; detector DEFAULTS ${JSON.stringify(DEFAULTS)} (RATIFIED, ADR-227; ADR-225 item 12); first judged sample ${warmup(SR)}`);
   let smoothMax = 0;
   for (const [name, x] of SMOOTH) {
     const res = scores(x, SR), ev = eventsOf(res, SR);
@@ -279,7 +279,7 @@ async function engine(row, note, opt, eventsFile) {
   const unknown = rs.filter(r => r.summary.unknownKeys).length;
   row(!unknown, 'KEYS', `the engine knew every key on ${rs.length - unknown} of ${rs.length} jobs`);
   const R = name => rs[ALL.findIndex(c => c[0] === name)];
-  console.log(`engine: ${kSeconds} s at ${SR} Hz, seed 1, ${JSON.stringify(kPreview)}, poly 8, velocity ${VEL}; output channels; detector DEFAULTS (PROPOSED); k ${K}`);
+  console.log(`engine: ${kSeconds} s at ${SR} Hz, seed 1, ${JSON.stringify(kPreview)}, poly 8, velocity ${VEL}; output channels; detector DEFAULTS (RATIFIED, ADR-227); k ${K}`);
 
   // ---- must-fire, the exceptions, B490
   const table = [];
@@ -408,7 +408,7 @@ export async function main(argv) {
   if (argv.includes('--synthetic')) synthetic(row, note);
   else if (bi >= 0) await engine(row, note, { bin: argv[bi + 1] }, ei >= 0 ? argv[ei + 1] : null);
   else throw new Error('usage: --synthetic | --bin <h2_harness_render> [--events <file>]');
-  console.log(`click_detector_check: ${red ? 'RED' : 'GREEN'} (${red} row(s) failed; ${argv.includes('--synthetic') ? 'the synthetic half' : 'the engine half'}; k ${K} and every number PROPOSED, ADR-225 item 12)`);
+  console.log(`click_detector_check: ${red ? 'RED' : 'GREEN'} (${red} row(s) failed; ${argv.includes('--synthetic') ? 'the synthetic half' : 'the engine half'}; k ${K} and every number RATIFIED (ADR-227), ADR-225 item 12)`);
   return red ? 1 : 0;
 }
 
