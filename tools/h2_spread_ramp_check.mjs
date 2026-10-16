@@ -322,8 +322,16 @@ function level(r) {
   return { rms: Math.sqrt(e / (2 * r.L.length)), peak: pk };
 }
 
+// ADR-221 A1: the level every job here is judged at. The detector's absolute floor (kStepFloor,
+// frame hold's own) and the absolute ceilings (kComposeCeil) read the pre-limiter bus
+// y * gain * 1.6, calibrated with the pad at gain 0.35. ADR-221 lowered the engine's default (and
+// so the regenerated ledger pad) to 0.0875, which read every step a quarter as large: 12 dB less
+// sensitive (the control's hits fell 245 to 226 at os 2, 526 to 414 at os 1). Written beside the
+// pinned settings so a change of the default level cannot quietly blind the check; not printed,
+// so the output is main's line for line.
+const kCalib = { gain: 0.35 };
 const job = (seed, n, os, over, engine, seconds = kSeconds, pre = true) => jobFor({ patch: PAD, engine, sr: SR, seed, seconds, notes: [n.note], vel: n.vel, pre,
-  overrides: { os, ...kPinned, ...over } });
+  overrides: { os, ...kPinned, ...kCalib, ...over } });
 
 export function main(argv) {
   const bi = argv.indexOf('--bin'), opt = bi >= 0 ? { bin: argv[bi + 1] } : {};

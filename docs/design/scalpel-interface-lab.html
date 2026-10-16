@@ -8404,6 +8404,9 @@ async function loadEngine() {
     ENGINE.src = SLICE(await r.text());
     const C = MAKE(RAZOR, ENGINE.src), e = new C(SR);
     for (const k of Object.keys(e.d)) { ORK.add(k); if (!(k in DEF)) DEF[k] = e.d[k]; }
+    /* ADR-221: a smoothed default the composed engine sets apart from the oracle's (today only
+       gain, 0.0875 against 0.35), so the lab plays the engine's level, as the device does */
+    for (const k of Object.keys(e.t)) if (REF && e.t[k] !== REF.t[k]) DEF[k] = e.t[k];
     CORE = C;
     P = Object.assign({}, DEF, { b2on: 1 });
   } catch (e) {

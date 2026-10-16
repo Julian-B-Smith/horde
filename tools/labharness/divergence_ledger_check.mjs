@@ -164,6 +164,11 @@ export function parseScript(script) {
   return ev;
 }
 const BLOCK = 128, VEL = 0.9, hz = note => 440 * Math.pow(2, (note - 69) / 12);
+/* ADR-221 A1: every fingerprint in docs/port/divergences.json (allOff and moves) was taken at gain
+   0.35, the default until ADR-221 lowered the composed engine's to 0.0875. Both forms below write
+   0.35 before `over`, so the pins stand and every rule and control reads what it always read; no
+   scenario's `over` sets a gain. The default level itself is composed_engine_check's GAIN row. */
+const A1_GAIN = { gain: 0.35 };
 /* a SCRIPTED scenario's fingerprint: the preset, then `over`, then the events in order; SHA-256 of the
    float32 L then R of everything rendered, first 16 hex digits (the script-less form's hash) */
 function scriptFingerprint(Composed, p, over, seed, sr, script) {
@@ -171,7 +176,7 @@ function scriptFingerprint(Composed, p, over, seed, sr, script) {
   const saved = Math.random;
   Math.random = mulberry32(seed >>> 0);
   try {
-    const c = new Composed(sr || 48000); c.set(Object.assign({}, p.params, over || {})); Object.assign(c.s, c.t);
+    const c = new Composed(sr || 48000); c.set(Object.assign({}, p.params, A1_GAIN, over || {})); Object.assign(c.s, c.t);
     const L = new Float32Array(n), R = new Float32Array(n);
     let at = 0;
     for (const e of ev) {
@@ -190,7 +195,7 @@ export function fingerprint(Composed, preset, over, seed, sr, script) {
   const saved = Math.random;
   Math.random = mulberry32(seed >>> 0);
   try {
-    const c = new Composed(sr || 48000); c.set(Object.assign({}, p.params, over || {})); Object.assign(c.s, c.t);
+    const c = new Composed(sr || 48000); c.set(Object.assign({}, p.params, A1_GAIN, over || {})); Object.assign(c.s, c.t);
     const n = 12032, L = new Float32Array(n), R = new Float32Array(n);
     c.noteOn(57, 440 * Math.pow(2, -12 / 12), 0.9); c.noteOn(64, 440 * Math.pow(2, -5 / 12), 0.9);
     for (let i = 0; i < n; i += 128) c.render(L.subarray(i, i + 128), R.subarray(i, i + 128));

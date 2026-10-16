@@ -71,9 +71,17 @@ let lastT = process.uptime();
 function section(t) { const n = process.uptime(); console.log(`${t}   [previous section ${(n - lastT).toFixed(1)} s]`); lastT = n; }
 const params = name => { const p = PRESETS.find(x => x.name === name); if (!p) throw new Error('preset missing: ' + name); return p.params; };
 
+/* ADR-221 A1: the composed engine's default gain is a quarter of the oracle's (0.0875 against 0.35),
+   so every render here, in both engines (NEU, MIX, the controls and Z), writes the oracle's 0.35.
+   What each row compares is unchanged; only the level is written instead of inherited. MIX did not
+   go red without it, but its click count is level-dependent, so a quieter composed side would have
+   passed it more easily: that is a row comparing the two engines too. */
+const A1_GAIN = { gain: 0.35 };
+
 /* ---------------------------------------------------------------- NEU */
 const NP = neutralPair();
-const neu = (Composed, name, ph, Oracle) => diffStats(renderPhrase(Oracle || NP.oracle, params(name), PH[ph], { over: NEUTRAL }), renderPhrase(Composed, params(name), PH[ph], { over: NEUTRAL }));
+const NEU_OVER = Object.assign({}, NEUTRAL, A1_GAIN);
+const neu = (Composed, name, ph, Oracle) => diffStats(renderPhrase(Oracle || NP.oracle, params(name), PH[ph], { over: NEU_OVER }), renderPhrase(Composed, params(name), PH[ph], { over: NEU_OVER }));
 section('NEU — the neutral case: composed ≡ oracle, sample for sample (K 0, aligned, the oracle\'s voice law), ' + NEU_SET.length + ' presets × chord/legato/repeat');
 for (const name of NEU_SET) {
   const r = ['chord', 'legato', 'repeat'].map(ph => [ph, neu(NP.composed, name, ph)]);
@@ -84,8 +92,8 @@ for (const name of NEU_SET) {
 const O = engineClass('oracle'), C = engineClass('composed');
 function mix(Cls, name) {
   const out = { events: 0, db: -200 };
-  for (const ph of ['repeat', 'legato']) { const r = renderPhrase(Cls, params(name), PH[ph]), ev = clickEvents(r.L, r.R); out.events += ev.length; out.db = Math.max(out.db, clickEnergyDb(ev)); }
-  const r = renderPhrase(Cls, params(name), PH.hold), a = Math.round(0.25 * SR), b = Math.round(1.15 * SR);
+  for (const ph of ['repeat', 'legato']) { const r = renderPhrase(Cls, params(name), PH[ph], { over: A1_GAIN }), ev = clickEvents(r.L, r.R); out.events += ev.length; out.db = Math.max(out.db, clickEnergyDb(ev)); }
+  const r = renderPhrase(Cls, params(name), PH.hold, { over: A1_GAIN }), a = Math.round(0.25 * SR), b = Math.round(1.15 * SR);
   out.flat = flatness(spectrum(mono(r.L.subarray(a, b), r.R.subarray(a, b)), SR));
   return out;
 }

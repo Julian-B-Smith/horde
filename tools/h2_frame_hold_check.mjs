@@ -195,10 +195,18 @@ function level(r) {
   return { rms: Math.sqrt(e / (2 * r.L.length)), peak: pk };
 }
 
+// ADR-221 A1: the level every job here is judged at. The detector's absolute floor (kStepFloor)
+// and the locked ceilings read the pre-limiter bus y * gain * 1.6, and they were calibrated with
+// the ledger patches at gain 0.35. ADR-221 lowered the engine's default (and so the regenerated
+// ledger patches) to 0.0875, which read every step a quarter as large: 12 dB less sensitive. It is
+// written beside the pinned settings, for the same reason: an edit elsewhere (here, of the default
+// level) must not quietly blind the control. Not printed, so the output is main's line for line.
+// The corner patches keep their own declared levels (1 and 0), as they always had.
+const kCalib = { gain: 0.35 };
 const padJob = (n, over) => jobFor({ patch: PAD, sr: SR, seed: SEED, seconds: kJumpSeconds, notes: [n.note], vel: n.vel, pre: true,
-  overrides: { ...kPadPinned, ...over } });
+  overrides: { ...kPadPinned, ...kCalib, ...over } });
 const lockJob = (p, set, flag, freq) => jobFor({ patch: p, sr: SR, seed: SEED,
-  cmds: [...patchCmds(p, { ...set, frameHold: flag }), ['on', kLockNote, freq, kLockVel], ['render', kLockSeconds * SR]] });
+  cmds: [...patchCmds(p, { ...(p.kind === 'ledger' ? kCalib : {}), ...set, frameHold: flag }), ['on', kLockNote, freq, kLockVel], ['render', kLockSeconds * SR]] });
 
 export function main(argv) {
   const bi = argv.indexOf('--bin'), opt = bi >= 0 ? { bin: argv[bi + 1] } : {};

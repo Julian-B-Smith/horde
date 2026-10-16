@@ -32,8 +32,12 @@ struct SP : Blade {
          w2 = .2, k2 = 3, kHz2 = 800, c2 = .35, depth2 = 1, hard2 = 0, xm = 0, fb = 0, benvA = 2,
          benvD = 250, benvK = 0, benvW = 0, benvVel = .5, glide = 60, driftRate = .5, morph = .5,
          wspread = 0, dspread = 0, mspread = 0, ispread = 0, k = 6, kHz = 1320, mHz = 660, c = .875,
-         rotRate = 0, rotSpread = 0, gain = .35, detune = 14, K = .35, bspread = 0, kspread = 0,
+         rotRate = 0, rotSpread = 0, gain = .0875, detune = 14, K = .35, bspread = 0, kspread = 0,
          width = .7, A = 4, D = 400, Sus = .85, R = 280, bend = 0;
+  // gain is the one default that is NOT the oracle's (.35): ADR-221 lowers it 12 dB to
+  // .35 / 4, because at .35 a four-note chord drove the output tanh over 1 on 71 of the
+  // bank's 83 presets (ROADMAP B486/B489). The composed JS sets the same value after its
+  // RazorCore constructor (scalpel-horde-engine.js). A state that stores a gain keeps it.
   double b2order = 0, lock2 = -1, mirror2 = -1, b2fm = 0, fmType2 = 0, mshape2 = 0, mUnit2 = 0,
          b2sp = 0, kRule2 = 0, kRule = 0, mode2 = 4, hot2 = 2, b2on = 0, aa = 1, kq = 0, law = 0;
   SP() { mode = 0; w = .25; }

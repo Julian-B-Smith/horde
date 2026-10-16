@@ -7,11 +7,13 @@
  * owns it, and each patch records which:
  *   the seven ledger NAMES   the kLedger array of tools/measure_h2_engine.cpp, the
  *                            frozen protocol's implementation (docs/port/cpu-ledger.md)
- *   the presets' VALUES      reference/scalpel/data/presets.json (the bank), played as
- *                            the parity scenarios play them: the params in the bank's
- *                            order, then gain 0.35 (tools/h2_scenarios.mjs presetCmds,
- *                            restated as PRESET_GAIN because that file evaluates lab
- *                            text under the lab sandbox and this one must not).
+ *   the presets' VALUES      reference/scalpel/data/presets.json (the bank): the params
+ *                            in the bank's order, then gain at the ENGINE'S DEFAULT, read
+ *                            from h2/engine/blade.h (ADR-221: the device plays a bank
+ *                            preset, which sets no gain, at the engine's default). Until
+ *                            ADR-221 this was the parity scenarios' gain 0.35
+ *                            (tools/h2_scenarios.mjs presetCmds, render-goldens.js's
+ *                            override), which they keep: it is the blade oracle's goldens'.
  *                            "defaults" is the engine with no preset, as in the ledger.
  *   the CELL                 the ledger's 8-voice cell: poly 8, keys 48 + 3k, velocity
  *                            0.85 (tools/measure_h2_engine.cpp, "THE CELL").
@@ -45,7 +47,7 @@ const BANK = 'reference/scalpel/data/presets.json';
 const TREE = 'tools/patchspace/dependency_tree.json';
 const LEDGER = 'tools/measure_h2_engine.cpp';
 const ENGINE = 'composed';
-const PRESET_GAIN = 0.35;   // tools/h2_scenarios.mjs presetCmds: "render-goldens.js's gain override"
+const DEFAULTS = 'h2/engine/blade.h';
 
 const read = rel => readFileSync(join(ROOT, rel), 'utf8');
 const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -56,6 +58,14 @@ function once(text, anchor, what) {
   const n = text.split(anchor).length - 1;
   if (n !== 1) throw new Error(`gen_patches: ${what}: anchor "${anchor}" found ${n} times (want 1)`);
   return text.indexOf(anchor);
+}
+
+// The engine's default gain: SP's one `gain = <number>` initialiser (ADR-221).
+function engineGain(src) {
+  const a = once(src, 'struct SP : Blade {', `${DEFAULTS} SP`), z = src.indexOf('};', a);
+  const m = [...src.slice(a, z).matchAll(/\bgain = ([0-9.]+)[,;]/g)];
+  if (m.length !== 1) throw new Error(`gen_patches: ${DEFAULTS} SP has ${m.length} gain initialisers (want 1)`);
+  return Number(m[0][1]);
 }
 
 function ledgerNames(src) {
@@ -79,8 +89,13 @@ function ledgerCell(src) {
   };
 }
 
+// The level every bank preset plays at: the engine's default (ADR-221). Exported so a tool that
+// rebuilds a preset from the bank (tools/h2_ab.mjs) agrees with patches.json to the value.
+export const presetGain = () => engineGain(read(DEFAULTS));
+
 export function build() {
   const bank = JSON.parse(read(BANK)).presets, tree = JSON.parse(read(TREE)), ledgerSrc = read(LEDGER);
+  const PRESET_GAIN = engineGain(read(DEFAULTS));
   const patches = [];
 
   for (const name of ledgerNames(ledgerSrc)) {
@@ -94,7 +109,7 @@ export function build() {
     const sets = Object.entries(hits[0].params);
     sets.push(['gain', PRESET_GAIN]);
     patches.push({ id: `ledger/${slug(name)}`, engine: ENGINE, kind: 'ledger', name, expect: 'loud',
-      source: `${BANK} "${name}" (${hits[0].category}): its params in the bank's order, then gain ${PRESET_GAIN} (tools/h2_scenarios.mjs presetCmds)`, sets });
+      source: `${BANK} "${name}" (${hits[0].category}): its params in the bank's order, then gain ${PRESET_GAIN}, the engine's default (${DEFAULTS}, ADR-221)`, sets });
   }
 
   const params = Object.entries(tree.params);
@@ -122,7 +137,7 @@ export function build() {
     // File names only, no content hashes: --check regenerates and compares the whole
     // text, so a source change that alters a patch is caught, and one that does not
     // (a comment in the ledger tool) costs nobody a re-pin.
-    sources: { bank: BANK, ranges: TREE, ledger: LEDGER },
+    sources: { bank: BANK, ranges: TREE, ledger: LEDGER, defaults: DEFAULTS },
     how_a_patch_is_played: 'set every entry of `sets` in order (a string value is a setString), then snap, then the cell\'s `sets`; then the cell\'s notes go on together at the cell\'s velocity. h2/harness/harness.mjs jobFor() does exactly this.',
     cell: ledgerCell(ledgerSrc),
   };

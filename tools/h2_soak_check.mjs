@@ -728,6 +728,11 @@ export function factLines(facts, lay, T) {
  * A CELL WHOSE PATCH IS TOO LOUD OR SILENT SETS ITS OWN GAIN, low enough that the bus
  * stays readable (under busReadMax) and high enough to be heard. The header says why
  * that loses nothing (THE BUS, NOT THE OUTPUT). */
+/* ADR-221 A1: every cell on a ledger patch that took the patch's level writes gain 0.35, the level its
+   absolute readings were calibrated at (SILENCE's -90 dBFS line, the signal check, busReadMax's margin).
+   ADR-221 lowered the engine's default, and so the regenerated ledger patches, to 0.0875: 12 dB less
+   level against those absolute lines. A cell that already sets its own gain keeps it. */
+const A1_GAIN = { gain: 0.35 };
 const P16 = 16, FOUR_HOURS = 4 * 3600 / P16 - 1, FORTY_MIN = 40 * 60 / P16 - 1;   // judged windows: 899 and 149, after one warm-up period
 const ENGINES = {
   composed: {
@@ -737,13 +742,13 @@ const ENGINES = {
     release: v => v.R / 1000 * Math.log(1e4) / 4,
     cells: [
       // SHORT: the oracle defaults at 48 kHz, and the 192 kHz path on the cheapest patch there is
-      { id: 'short', size: 'short', patch: 'ledger/defaults', sets: {}, sr: 48000, periodS: 8, windows: 16, density: 'full' },
+      { id: 'short', size: 'short', patch: 'ledger/defaults', sets: { ...A1_GAIN }, sr: 48000, periodS: 8, windows: 16, density: 'full' },
       { id: 'short-192', size: 'short', patch: 'corner/continuous-min', sets: { gain: 0.35 }, sr: 192000, periodS: 8, windows: 6, density: 'thin' },
       // LONG: four simulated hours each. 192 kHz, past 2^31 frames; the oracle defaults at
       // 48 kHz; two blades in series at 44.1 kHz.
-      { id: 'long-192', size: 'long', patch: 'ledger/quarter-sync', sets: {}, sr: 192000, periodS: P16, windows: FOUR_HOURS, density: 'thin' },
-      { id: 'long-defaults', size: 'long', patch: 'ledger/defaults', sets: {}, sr: 48000, periodS: P16, windows: FOUR_HOURS, density: 'full' },
-      { id: 'long-fold', size: 'long', patch: 'ledger/fold-over-sync', sets: {}, sr: 44100, periodS: P16, windows: FOUR_HOURS, density: 'full' },
+      { id: 'long-192', size: 'long', patch: 'ledger/quarter-sync', sets: { ...A1_GAIN }, sr: 192000, periodS: P16, windows: FOUR_HOURS, density: 'thin' },
+      { id: 'long-defaults', size: 'long', patch: 'ledger/defaults', sets: { ...A1_GAIN }, sr: 48000, periodS: P16, windows: FOUR_HOURS, density: 'full' },
+      { id: 'long-fold', size: 'long', patch: 'ledger/fold-over-sync', sets: { ...A1_GAIN }, sr: 44100, periodS: P16, windows: FOUR_HOURS, density: 'full' },
       // LOCAL: run by hand (--cell), in no rotation. Four hours of every continuous key at its
       // declared minimum: sustain 0, so every held voice decays and is never freed. Without
       // flush-to-zero (the harness sets none) those voices compute on subnormal numbers for as
@@ -756,7 +761,7 @@ const ENGINES = {
       // densest ledger preset; every continuous key at its declared maximum. IN THIS ORDER, so
       // that the night of the 192 kHz cell, the dearest long one, carries the cheapest of these.
       { id: 'extreme-loud', size: 'extreme', patch: 'ledger/defaults', sets: { base: 3, b2on: 1, mode2: 3, c2: 1, mirror2: 3, N: 9, detune: 0, gain: 0.1 }, sr: 44100, periodS: P16, windows: FORTY_MIN, density: 'full' },
-      { id: 'extreme-dense', size: 'extreme', patch: 'ledger/glass-horde-pad', sets: {}, sr: 48000, periodS: P16, windows: FORTY_MIN, density: 'full' },
+      { id: 'extreme-dense', size: 'extreme', patch: 'ledger/glass-horde-pad', sets: { ...A1_GAIN }, sr: 48000, periodS: P16, windows: FORTY_MIN, density: 'full' },
       { id: 'extreme-max', size: 'extreme', patch: 'corner/continuous-max', sets: { gain: 0.35 }, sr: 48000, periodS: P16, windows: FORTY_MIN, density: 'full' },
     ],
   },

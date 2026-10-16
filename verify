@@ -514,6 +514,25 @@ PY
   python3 tools/playbook_check.py || ok=1
   python3 tools/h2_rt_lint_check.py || ok=1
 
+  # THE A/B TOOL READS WHAT IT CLAIMS (B488 step 0, ADR-220). tools/h2_ab.mjs renders a
+  # fixed phrase set on a fixed preset set from two engine builds and measures each pair
+  # (the difference's level, the level match, bit-identity) for the human to play. Its
+  # controls: the same binary as A and B reads bit-identical (and one sample moved by an
+  # ulp reads different, at that sample); B = A x 0.5 reads -6.02 dB and a +6.02 dB match;
+  # the 24-bit WAV writer round-trips bit for bit; the page (tools/h2_ab_page.mjs, in
+  # stub objects) starts both sources together and looping and switches by gain ramps
+  # only, with planted faults as the must-fails. With no h2_harness_render built (this
+  # target builds none) the first two run on a synthetic signal and print SKIP for the
+  # engine half, which `./verify full` runs on the engine. Added under ADR-180 §1.
+  if command -v node >/dev/null; then
+    node tools/h2_ab.mjs --self-test > /tmp/h2ab.$$ 2>&1 || {
+      echo "verify: h2_ab self-test FAILED" >&2; cat /tmp/h2ab.$$ >&2; ok=1; }
+    tail -1 /tmp/h2ab.$$   # the tool prints its own name; do not prefix it twice
+    rm -f /tmp/h2ab.$$
+  else
+    echo "verify: node missing — h2_ab self-test NOT RUN (the other node gates above say the same)" >&2
+  fi
+
   return $ok
 }
 
@@ -965,6 +984,12 @@ full() {
   node tools/h2_steal_fade_check.mjs --bin "$build_dir/h2_harness_render" || {
     echo "verify[full]: h2_steal_fade_check FAILED" >&2; return 1; }
   #
+  # [engine gate: B488 step 0, ADR-220] tools/h2_ab.mjs --self-test on the engine just
+  # built: the same binary as A and B reads bit-identical on every pair of a heavy pad's
+  # four phrases (the engine half the fast target prints SKIP for), and the A/B tool's
+  # other controls (a known -6.02 dB difference, the WAV round trip). Added under ADR-180 §1.
+  node tools/h2_ab.mjs --self-test --bin "$build_dir/h2_harness_render" || {
+    echo "verify[full]: h2_ab self-test FAILED" >&2; return 1; }
   #
   # [engine gate: B460 the spread ramp, ADR-216 D8]
   # tools/h2_spread_ramp_check.mjs, on the C++ engine through the harness: are the
@@ -989,6 +1014,21 @@ full() {
   # ADR-180 §1.
   node tools/h2_spread_ramp_check.mjs --bin "$build_dir/h2_harness_render" || {
     echo "verify[full]: h2_spread_ramp_check FAILED" >&2; return 1; }
+  #
+  #
+  # [engine gate: B489 the output headroom, ADR-221]
+  # tools/h2_output_headroom_check.mjs, on the C++ engine through the harness: the default
+  # output level is gain 0.0875 to the bit (a render at the default equals one with 0.0875
+  # written), the drive into the output tanh at it is 0.25 times the drive at the old 0.35
+  # within the bus reading's own tolerance, and a four-note chord at velocity 0.85 on the
+  # engine's defaults (os 1) drives the tanh under 1, and so does the same chord on every one
+  # of the 83 bank presets as the preview plays them (BANK). Its CONTROLS: the old default
+  # 0.35 must drive it over 1, the bank at 0.35 must read over 1 on at least 60 presets, and
+  # a level 1 % off must fail the scale comparison. The JS twin's half is
+  # composed_engine_check's GAIN rows. About 30 s. Its last line is its verdict. Added
+  # under ADR-180 §1.
+  node tools/h2_output_headroom_check.mjs --bin "$build_dir/h2_harness_render" || {
+    echo "verify[full]: h2_output_headroom_check FAILED" >&2; return 1; }
   #
   # horde 2's lifted swarm core (B379 step 1, h2/cores/swarm/): lift edit E1
   # re-proven. A Voice the caller owns, started with initVoice() and ticked
