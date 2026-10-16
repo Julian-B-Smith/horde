@@ -1,0 +1,9 @@
+# Audio waits on the storage ruling; metadata and this README are tracked.
+*.wav
+*.flac
+*.aif
+*.aiff
+*.f32
+*.raw
+*.mp3
+*.ogg
