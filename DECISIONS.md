@@ -8192,3 +8192,24 @@ the scenarios built on this preset. The harness's copy (`h2/harness/patches.json
 
 **ADR-216 A3, status (the lead, 2026-10-16):** A3 was written "PROPOSED ... for the human to ratify when PR #1079 is merged". The human merged PR #1079 on 2026-10-13 (`4b73c41`), so A3's items 1 to 11 stand RATIFIED by that merge, as the new engine's spec (VO-3) cites them. Its header is left as written (append-only); this line records the change of status. Found by the spec's critic.
 
+## ADR-225 — RULED by the human: the new engine's thirteen before-the-build questions (B494, 2026-10-16)
+
+**Context.** The new engine's spec (`specs/SPEC-ENGINE.md`, PR #1097, three rounds and two critic passes) listed twelve questions that must be ruled before the build starts; the human asked about polyphony and the lead added a thirteenth. The lead recommended an answer for each.
+
+**The ruling.** The human: "go with your recommendations".
+
+**Decision.**
+1. **X10, Unison:** 1 to 16 members per oscillator.
+2. **X16, audio-rate destinations:** voice pitch, oscillator pitch and fine, sub fine, the blades' cut rates, FM depth. Everything else is control-rate, ramped (ADR-224 item 5).
+3. **X8, micro-motion:** the texture control (`motionGrain`) steps only the spread law's values, default stepped (the human's blind preference, B460); the frame's correction always ramps (ADR-216 item 1); the quantized-cut latch applies at every setting.
+4. **Q14, stepped settings while a note sounds:** they change at once through a 5 ms equal-gain crossfade; a second change waits for the first to finish.
+5. **Q16, random draws:** position-free mulberry32 streams keyed by seed, purpose, note counter and member, so a note-on never changes a voice already sounding.
+6. **Q21, the sub's phase:** the sub integrates its own phase from `startPhase`, starting with the voice's master phase. Two departures from `specs/SPEC-SUBOSC.md` §2, ratified here: its phase does not come from oscillator 1 (a swarm has no single phase), and ENV 1 acts after the sub's tone filter (one envelope position for every source). SPEC-SUBOSC itself is not edited.
+7. **Q9, the published pitch:** the sounding pitch (the input times gravity's ratio).
+8. **Q8, tuning and gravity:** the tuning system sets the target; gravity acts on top only when its knob is up (default 0).
+9. **X18, a gate:** `tools/h2_rules_check.py` rule 2 (`-ffp-contract=off` on h2 cores) does not apply to the new engine (ADR-224 item 6 allows fused multiply-add); it stays for the legacy and frozen cores. The change to the gate is sanctioned here and is made in the build's own PR.
+10. **Q30, the WebAssembly toolchain:** one pinned version, approved in principle now; installing it is done at the lab stage with the human's word on the exact version, as any new dependency.
+11. **X19, inertia:** acts on members' offsets from the voice pitch only (glide, bends and audio-rate pitch stay crisp; the detune and pull swing); today's skip at knob ≤ about 0.063 is kept. No bank preset sets inertia.
+12. **X20, the click detector:** its method is ratified now (a predictor from the preceding samples; a click is a residual far over the local residual level; planted-step controls); its numbers (p, M, k) are proposed by the test author with must-fire and must-not-fire controls and ratified then. It is the test author's first deliverable, before any engine stage.
+13. **Polyphony:** up to 64 voices, preallocated; default 16; set in Settings, not a sound parameter; voices not sounding cost no CPU (a requirement); the voice law and the steal fade are unchanged past the limit; no CPU-adaptive limiting by default. The CPU budget stays measured at 8 voices.
+
