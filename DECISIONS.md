@@ -8172,3 +8172,19 @@ the scenarios built on this preset. The harness's copy (`h2/harness/patches.json
 5. **ADR-221 is finished** on the current engine (it fixes clipping heard today). **D9 and D10 are parked** on their branches; their findings and rulings (ADR-222 among them) go into the spec as requirements.
 6. ADR-187's parity rule and ADR-220's A/B rule continue to govern the current engine until the new one replaces it.
 
+## ADR-224 — RULED by the human: the six structural rulings for the new engine, its terminology, and its truth standard (B493, B494, 2026-10-15)
+
+**Context.** The engine audit (B493, PR #1096) listed 31 interface questions and named six that shape the new engine; the lead recommended an answer for each, and asked for the human's sanction to reword the charter and `specs/ACCEPTANCE.md`, which still defined correctness as parity with the JS.
+
+**The rulings.** The human: "1. One instrument-wide voice as you recommend (just confirming verbiage; I think we've gone back and forth on "voice" referring to note vs. swarm member. Let's make sure to lock in whatever the industry standard terminology is) 2. - 6. I agree with all other recommendations. I ratify your decision to change the truth standard."
+
+**Decision.**
+1. **Q1, voices.** One instrument-wide voice per played note: one allocator, one amplitude envelope (ENV 1), per-voice filters, and inside it both swarm oscillators, the sub and the noise oscillator. Voices are addressed by note id (CLAP), not by MIDI note number, so MPE works.
+2. **Q18, the per-voice signal.** Each oscillator hands its voice's signal up before any mixing; the voice's envelope and filters act on it; the voices are summed after.
+3. **Q25, stereo.** Swarm members stay mono sources panned across the field (as today); true-stereo processing happens after the voice. No member is rendered separately per channel.
+4. **Q10, per-voice modulation.** Every continuous engine parameter accepts per-voice modulation through one uniform mechanism (at minimum the blades' cut and width, whose envelopes moved to the matrix).
+5. **Q11, modulation rate.** A control rate of about 1,500 updates a second with every change ramped across the interval, plus true audio rate for a few named destinations (pitch among them). Because the human preferred the stepped sound in a blind A/B (ROADMAP B460), the spec treats the swarm's micro-motion as a deliberate, controllable texture, not as a side effect of stepping.
+6. **Q28, precision.** Single precision, approximations and fused multiply-add are allowed throughout, judged by the invariant suite and the human's ears. Same seed and same notes give identical output on one build; bit-identity across platforms is not required.
+7. **Terminology, the industry's:** a **voice** is one sounding note (polyphony counts voices; "8 voices" means eight notes). The copies stacked inside one oscillator are what synthesizers call **unison voices**; horde's spec calls them **members** of the oscillator's **swarm**, and the user-facing label is the industry's ("Unison", its count "voices" in that context only, as Serum and Vital do). The spec carries a glossary and every record from here uses these words.
+8. **The truth standard.** The charter's domain invariant and `specs/ACCEPTANCE.md` L0-1 are scoped by this ADR: the new engine is held to no JS parity; its correctness is its ratified spec (`specs/SPEC-ENGINE.md`), its Layer-0 invariant suite and the human's ears. (Edited on the human's sanction in the same change; the earlier texts stand for the legacy shell and, until it is replaced, the current engine.)
+
