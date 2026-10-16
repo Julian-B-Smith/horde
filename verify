@@ -549,6 +549,24 @@ PY
     echo "verify: node missing — click_detector_check NOT RUN (the other node gates above say the same)" >&2
   fi
 
+  # THE NEW ENGINE'S CLEAN-ROOM TREE (ROADMAP B497 part 1, ADR-223; spec BD-10; added under ADR-180
+  # §1). engine2/ is built from the spec alone, by a builder who sees no earlier engine. Two
+  # blocks. (1) tools/engine2_cleanroom_check.py makes a fresh sparse worktree from the recipe
+  # (tools/engine2_cleanroom.sh, local, no network) and goes red if it holds any path outside
+  # engine2/ and the spec, the old engine's directories, the test author's data, a file named like
+  # the twin or the prototypes, a symlink, or an old-engine identifier; it also keeps engine2's copy
+  # of the click detector byte-identical to tools/'s and the envelope data equal to the spec's
+  # Appendix A. Ten must-fail controls (a recipe variant that adds the old engine, one that adds a
+  # source file, one that hands over the reference renders, and four planted faults, ...) run every
+  # time. (2) engine2/build.sh builds the empty library and runs the empty suite and the runner's
+  # own must-fail control, in a scratch build directory. About 4 s together; needs cmake and git.
+  python3 tools/engine2_cleanroom_check.py || ok=1
+  engine2_build_dir="$(mktemp -d)"
+  bash engine2/build.sh "$engine2_build_dir" > "$engine2_build_dir.log" 2>&1 || {
+    echo "verify: engine2 build / empty suite FAILED" >&2; cat "$engine2_build_dir.log" >&2; ok=1; }
+  tail -1 "$engine2_build_dir.log"
+  rm -rf "$engine2_build_dir" "$engine2_build_dir.log"
+
   return $ok
 }
 

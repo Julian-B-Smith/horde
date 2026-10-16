@@ -1,0 +1,253 @@
+{
+ "note": "The twelve envelope presets of Appendix A, in the bank format (B.1) with the shape each plays added as `shape`. Keys not listed take their base values (B.1).",
+ "presets": [
+  {
+   "category": "Envelope presets",
+   "name": "Pluck · sync blade",
+   "shape": "pluck",
+   "params": {
+    "hot": 2,
+    "w": 0.3,
+    "c": 0.8,
+    "k": 2,
+    "hard": 0.05,
+    "N": 5,
+    "detune": 12,
+    "K": 0.5,
+    "benvA": 1,
+    "benvD": 220,
+    "benvK": 0.55,
+    "benvW": 0.2,
+    "benvVel": 0.6,
+    "A": 1,
+    "D": 260,
+    "S": 0,
+    "R": 140
+   }
+  },
+  {
+   "category": "Envelope presets",
+   "name": "Pluck · FM glass",
+   "shape": "pluck",
+   "params": {
+    "mode": 1,
+    "w": 1,
+    "k": 1,
+    "c": 0.5,
+    "I": 1.6,
+    "m": 2,
+    "N": 1,
+    "detune": 12,
+    "K": 0.5,
+    "benvA": 2,
+    "benvD": 600,
+    "benvK": 0.12,
+    "A": 1,
+    "D": 700,
+    "S": 0,
+    "R": 400
+   }
+  },
+  {
+   "category": "Envelope presets",
+   "name": "Pad · slow bloom",
+   "shape": "pad",
+   "params": {
+    "mode": 1,
+    "base": 1,
+    "w": 0.5,
+    "k": 6,
+    "c": 0.5,
+    "hard": 0.7,
+    "I": 0.9,
+    "m": 2,
+    "N": 7,
+    "detune": 22,
+    "K": 0.35,
+    "width": 1,
+    "A": 900,
+    "D": 1500,
+    "S": 0.8,
+    "R": 2500
+   }
+  },
+  {
+   "category": "Envelope presets",
+   "name": "Swell · two seconds",
+   "shape": "swell",
+   "params": {
+    "w": 0.35,
+    "k": 4,
+    "c": 0.6,
+    "N": 7,
+    "detune": 30,
+    "K": 0.2,
+    "rotRate": 0.25,
+    "A": 2000,
+    "D": 400,
+    "S": 1,
+    "R": 1200
+   }
+  },
+  {
+   "category": "Envelope presets",
+   "name": "Swell · cut at the key-off",
+   "shape": "swell cut at the key-off",
+   "params": {
+    "mode": 4,
+    "w": 0.4,
+    "k": 3,
+    "c": 0.5,
+    "N": 5,
+    "detune": 18,
+    "K": 0.3,
+    "A": 1500,
+    "D": 10,
+    "S": 1,
+    "R": 10
+   }
+  },
+  {
+   "category": "Envelope presets",
+   "name": "Gated stab · organ",
+   "shape": "gate",
+   "params": {
+    "mode": 4,
+    "w": 0.3,
+    "k": 3,
+    "c": 0.7,
+    "N": 3,
+    "detune": 8,
+    "K": 0.5,
+    "A": 1,
+    "D": 4000,
+    "S": 1,
+    "R": 10
+   }
+  },
+  {
+   "category": "Envelope presets",
+   "name": "Stab · short decay",
+   "shape": "stab",
+   "params": {
+    "mode": 5,
+    "w": 0.35,
+    "k": 5,
+    "c": 0.4,
+    "hard": 0.2,
+    "N": 4,
+    "detune": 10,
+    "K": 0.4,
+    "A": 1,
+    "D": 150,
+    "S": 0.25,
+    "R": 90
+   }
+  },
+  {
+   "category": "Envelope presets",
+   "name": "Long tail · five seconds",
+   "shape": "tail",
+   "params": {
+    "w": 0.25,
+    "k": 6,
+    "c": 0.875,
+    "N": 5,
+    "detune": 18,
+    "K": 0.35,
+    "A": 4,
+    "D": 600,
+    "S": 0.6,
+    "R": 5000
+   }
+  },
+  {
+   "category": "Envelope presets",
+   "name": "Tail pile-up · steal and cull",
+   "shape": "steal (new notes take the quietest tails; under a cap the cull thins them)",
+   "params": {
+    "w": 0.3,
+    "k": 4,
+    "c": 0.8,
+    "N": 6,
+    "detune": 20,
+    "K": 0.3,
+    "b2on": 1,
+    "mode2": 4,
+    "w2": 0.25,
+    "k2": 3,
+    "c2": 0.35,
+    "A": 1,
+    "D": 300,
+    "S": 0.7,
+    "R": 4000
+   }
+  },
+  {
+   "category": "Envelope presets",
+   "name": "Blade sweep outlives the amp",
+   "shape": "pluck",
+   "params": {
+    "w": 0.3,
+    "k": 3,
+    "c": 0.8,
+    "hard": 0.1,
+    "N": 3,
+    "detune": 10,
+    "K": 0.5,
+    "benvA": 1,
+    "benvD": 5000,
+    "benvK": 0.8,
+    "benvVel": 0.5,
+    "A": 1,
+    "D": 250,
+    "S": 0,
+    "R": 120
+   }
+  },
+  {
+   "category": "Envelope presets",
+   "name": "Mono retrigger pluck",
+   "shape": "pluck",
+   "params": {
+    "polyMode": 1,
+    "glide": 40,
+    "w": 0.3,
+    "k": 2.5,
+    "c": 0.8,
+    "N": 5,
+    "detune": 14,
+    "K": 0.4,
+    "benvA": 1,
+    "benvD": 300,
+    "benvK": 0.5,
+    "A": 1,
+    "D": 300,
+    "S": 0,
+    "R": 200
+   }
+  },
+  {
+   "category": "Envelope presets",
+   "name": "Legato swell lead",
+   "shape": "swell",
+   "params": {
+    "polyMode": 2,
+    "glide": 150,
+    "mode": 1,
+    "w": 0.6,
+    "k": 1,
+    "c": 0.5,
+    "I": 1.2,
+    "m": 1,
+    "N": 3,
+    "detune": 16,
+    "K": 0.5,
+    "A": 600,
+    "D": 400,
+    "S": 1,
+    "R": 800
+   }
+  }
+ ]
+}
