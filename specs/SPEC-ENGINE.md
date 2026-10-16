@@ -97,12 +97,12 @@ The engine must do what a musician expects each control to do to the waveform, a
 ```
 core/
   manifest/   parameters (the one source of truth) and its generators
-  api/        the engine's calls, events, state and observation view
+  api/        the engine's calls, events (transport included, RC-7), state, observation view, GUI snapshot (RC-8)
   voice/      allocator and stealing, the pedal, the voice, ENV 1, mono and legato
   swarm/      members, placement, detune laws, coupling, drift, onset, start phase, gravity, pan
   blade/      geometry, modes, waves, FM, mirror, spreads and their laws and rules, interplay, DC
   edges/      the band-limited step and corner tables
-  sources/    sub, noise
+  sources/    the source slot (RC-6), sub, noise
   output/     level, non-finite guard, clip latch
   wasm/       the WebAssembly entry the labs load
 tests/        the invariant suite, the renders for judging, the CPU measurement
@@ -561,20 +561,20 @@ The engine's API is a set of calls and timed events; everything crossing it is i
 | id | area | the engine exposes or accepts |
 |---|---|---|
 | IF-1 | **Notes, voices, expressions** | Accepts note-on (note id, channel, key, velocity), note-off (note id, release velocity), the sustain pedal (VO-12), all-notes-off and all-sound-off (VO-13), channel pressure, and per-note expressions, each sample-timed. Expressions are addressed like note-offs (VO-1). CLAP's expressions map so: tuning → that note's pitch (IF-2); volume → a per-voice linear gain on the voice's output (0 to 4, as CLAP sends it); pan → an offset added to every source's pan for that voice; vibrato, expression, brightness (MPE timbre) and pressure (MPE per-note pressure) → per-voice modulation sources. **Velocity and aftertouch** (channel pressure, and per-note pressure under MPE) are modulation sources; velocity's default mapping is `env1.velocity` (VO-8); aftertouch's is [X21]. Pressure never reaches the level unless a route maps it, so a keyboard's aftertouch cannot silence held notes. In mono and legato the voice follows the expressions of the newest held note id (VO-6). Publishes VO-10's lifecycle events and the load readouts (voices culled, refused, taken). [Q2] |
-| IF-2 | **Pitch** | **Pitch is addressed by note id**, like the expressions: the pitch system sends each note's pitch in Hz (bend, note lane and glide, quantizer, MTS-ESP, transpose and per-note tuning already applied), at audio rate when it moves. Until a note's pitch is set, the note plays 12-TET from its key (A4 = 440 Hz) × 2^(tuning/12), tuning the note's tuning expression in semitones. The order is: the input, then gravity's ratio (the **sounding pitch**), then each oscillator's transposition. In mono and legato the voice follows the pitch of the newest held note id. Accepts the host tempo as an input (reserved). Publishes each voice's sounding pitch and **master phase** (the integral of the sounding pitch from 0 at the voice's fresh start) for the sub, the noise oscillator and keytracked filters. Gravity's settled ratio rides the input multiplicatively (C.6), so a bend or glide keeps the interval gravity settled. [Q6, Q7] |
+| IF-2 | **Pitch** | **Pitch is addressed by note id**, like the expressions: the pitch system sends each note's pitch in Hz (bend, note lane and glide, quantizer, MTS-ESP, transpose and per-note tuning already applied), at audio rate when it moves. Until a note's pitch is set, the note plays 12-TET from its key (A4 = 440 Hz) × 2^(tuning/12), tuning the note's tuning expression in semitones. The order is: the input, then gravity's ratio (the **sounding pitch**), then each oscillator's transposition. In mono and legato the voice follows the pitch of the newest held note id. Accepts the host's tempo and transport (RC-7). Publishes each voice's sounding pitch and **master phase** (the integral of the sounding pitch from 0 at the voice's fresh start) for the sub, the noise oscillator and keytracked filters. Gravity's settled ratio rides the input multiplicatively (C.6), so a bend or glide keeps the interval gravity settled. [Q6, Q7] |
 | IF-3 | **Modulation, the intent bus and macros** | Every continuous parameter is a destination by its manifest key and id, with unit, range, law, class and rate (section 5). Per-voice offsets (PA-2) at the control rate (PA-3), audio-rate offsets on the destinations of PA-4. Every modulation destination is also an automatable host parameter, because wrappers drop CLAP's parameter-modulation events. Sources the engine publishes per voice: R and ψ of each oscillator's swarm, the onset burst's level, gravity's settled offset in cents, velocity, and the voice's expressions (IF-1). Macros and intents bind by key and curve (`lin`, `exp`, `log`) and need nothing more. [Q12] |
-| IF-4 | **Morph and state** | The manifest's class column is the morph's input: Morphable values blend; Structural values flip at the morph's seeded point (hysteresis band 0.1) and change on sounding voices by PA-5; Device values stay out. The engine reports the heard value of every stepped key per oscillator, so the GUI shows what is heard where the morph and the stored patch differ. **State** is a key-value document carrying `version` 1, the parameter values (in their normalised form v), the `ratios` text and the quality setting: saving, loading and saving again gives byte-identical text and bit-identical renders; floats round-trip exactly; live state (tails, ramps in flight, meters, latches, stream positions) is never saved; a document without `version` is the version-0 format (B.2). A load made while not processing is whole when it returns; a load while voices sound fades them over 5 ms and starts fresh (the engine's memory is reset: streams rewound from their seeds, gravity, the ensemble's carried offsets and the resume snapshot cleared). A saved project restores as saved. **The text:** version 1 is a UTF-8 JSON object with no whitespace and exactly the members `version` (1), `params` (manifest key → v, in ascending manifest id order) and `ratios` (`{"osc1": text, "osc2": text}`), each number written as the shortest decimal that reads back as the same value; version 0 is a JSON object of B.2's keys → numbers (and `kCustom` → text) with no `version` member. A set of version-0 example states is supplied to the test author as input data with the reference renders. [Q15, Q17] |
+| IF-4 | **Morph and state** | The manifest's class column is the morph's input: Morphable values blend; Structural values flip at the morph's seeded point (hysteresis band 0.1) and change on sounding voices by PA-5; Device values stay out. The engine reports the heard value of every stepped key per oscillator, so the GUI shows what is heard where the morph and the stored patch differ. **State** is a key-value document carrying `version` 1, the parameter values (in their normalised form v), the `ratios` text and the quality setting: saving, loading and saving again gives byte-identical text and bit-identical renders; floats round-trip exactly; live state (tails, ramps in flight, meters, latches, stream positions) is never saved; a document without `version` is the version-0 format (B.2). A load made while not processing is whole when it returns; a load while voices sound fades them over 5 ms and starts fresh (the engine's memory is reset: streams rewound from their seeds, gravity, the ensemble's carried offsets and the resume snapshot cleared). A saved project restores as saved. **The text:** version 1 is a UTF-8 JSON object with no whitespace and exactly the members `version` (1), `params` (manifest key → v, in ascending manifest id order) and `ratios` (`{"osc1": text, "osc2": text}`), with any keys and members this build does not know kept after them (RC-9.3), each number written as the shortest decimal that reads back as the same value; version 0 is a JSON object of B.2's keys → numbers (and `kCustom` → text) with no `version` member. A set of version-0 example states is supplied to the test author as input data with the reference renders. [Q15, Q17] |
 | IF-5 | **The per-voice filter slot** | RC-1. |
 | IF-6 | **Mixer, mute and solo, meters** | Levels are named by the rule Gain = a stage's multiplier, Level = a contribution to a mix, Volume = the master only. **Mute and solo** are each source's gate, driven by the device mixer: a muted source is silent; while any source is soloed, every source that is not soloed is silent; a soloed source that is also muted is silent; the gate opens and closes by a 5 ms ramp, and a gated source keeps rendering, so un-muting is phase-continuous. **Meters** (peak, and a latching clip flag that catches a single sample over 0 dBFS, readable and clearable from another thread): each source after its level, pan and gate, times its voice's ENV 1 and velocity, summed over voices (a metering tap only; the filters are not in it); and the engine's output. The master stage restores loudness; the engine does not. [Q20] |
 | IF-7 | **The FX rack** | RC-5. |
 | IF-8 | **True stereo** | Members are mono and panned (SW-18); the stereo field after the voice is the device's. The engine exposes each oscillator's width and pan to whatever width equation the device settles; it guarantees no member is polarity-inverted between channels. [Q26] |
 | IF-9 | **Quality and CPU** | `quality` is per patch (saved), Device class, never morphed (VO-14 for changes while notes sound). **Operation counters**, deterministic and readable: member-samples rendered, edges corrected, edges left over (RT-2), envelope steps, voices sounding. [Q27] |
 | IF-10 | **The labs and the observation view** | A WebAssembly build of the same source, with the same API, which a lab loads in an AudioWorklet, built with one pinned toolchain version (the exact version is chosen with the human's word at the lab stage). An observation view, read without changing the audio, per voice and oscillator: members' phases, natural and coupled frequencies, σ, S, P, Kenv, drift values D, spread positions p, effective blade values (C.9 item 8), pan gains, levels, R, ψ, the frame angle, gravity's ratios, onset waits, and the heard stepped values. The invariant suite's law checks (10.1 item 0) read it. No lab carries its own engine. |
-| IF-11 | **The host (CLAP)** | Through the shell: the manifest generates the host parameter table, committed as a lockfile (id, key, min, max, default, taper, steps), ids explicit, append-only, below 0xB00000. **Every host parameter's value is its normalised v ∈ [0, 1]** (the law maps it; stepped keys in steps of 1/(n − 1)); its display shows the unit, and v = 0 of a dB row shows −∞. Activation refuses a sample rate that is non-finite or outside 8,000 to 768,000 Hz (the certified range is 44.1 to 192 kHz); the engine takes host tempo and transport as inputs. [Q31] |
+| IF-11 | **The host (CLAP)** | Through the shell: the manifest generates the host parameter table, committed as a lockfile (id, key, min, max, default, taper, steps), ids explicit, append-only, below 0xB00000. **Every host parameter's value is its normalised v ∈ [0, 1]** (the law maps it; stepped keys in steps of 1/(n − 1)); its display shows the unit, and v = 0 of a dB row shows −∞. Activation refuses a sample rate that is non-finite or outside 8,000 to 768,000 Hz (the certified range is 44.1 to 192 kHz); the engine takes host tempo and transport as inputs (RC-7). [Q31] |
 
 ### 7.2 Reserved contracts
 
-Each module still to come meets the engine through a contract that exists now. For each: what the engine provides and accepts now; what is deferred to the module; and what the module must not require of the engine.
+Each module still to come meets the engine through a contract that exists now. For each: what the engine provides and accepts now; what each voice hands over or accepts, where it applies; what is deferred to the module; and what the module must not require of the engine. RC-6 to RC-10 also carry numbered requirements (RC-6.1, …), tested by the suite where they can be tested now (10.1 items 18 to 22).
 
 #### RC-1. The filters
 
@@ -608,6 +608,66 @@ Each module still to come meets the engine through a contract that exists now. F
 - **Provided now.** One stereo pair at the host rate with zero latency into the rack's first slot; the silent report and skipped-samples rule (OU-4). The engine offers no insert point of its own [Q23].
 - **Deferred:** the rack, its modules, and the device's master limiter (which holds the device's peaks, OU-1).
 - **Must not require:** a peak guarantee from the engine (OU-1, QS-8), a sidechain from inside a voice, or a latency from the engine.
+
+#### RC-6. A source slot in the voice
+
+- **Provided now.** The voice holds its sources through one contract, the **source slot**. osc 1, osc 2, the sub and the noise oscillator are the slot's first four instances and are built through it, so a later source (a formant source, the blade-to-blade controls of a later blade version, any other engine) is added beside them without restructuring the voice.
+- **What each voice hands a source:** its published sounding pitch and master phase (IF-2), to which the source adds its own transposition; the gate (held, sustained, released, taken, freed: 6.4); velocity; the note's expressions (IF-1); the per-voice modulation offsets of the source's own parameters (PA-2, PA-4); the control-interval tick (PA-3); the voice's note counter and seeded streams under the source's own purposes (DT-4).
+- **What a source hands the voice:** its per-voice stereo signal, panned by its own law, before its level and gate (VO-9); a published phase where it has one (as the sub's, SN-1); its readouts (RC-8) and observation values (IF-10); its operation counters (IF-9, VO-11); its parameters, in the manifest under its own id range.
+- **Requirements.**
+  - **RC-6.1** The four sources are instances of the slot: the voice's code names no source kind, and each source's parameters occupy a contiguous manifest id range of their own, append-only within it (RC-9.1).
+  - **RC-6.2** A source allocates nothing after prepare, reads no clock, and reaches no other source's state except through what the voice hands it: a source that follows another's phase reads the voice's published phase, never the other source.
+  - **RC-6.3** A source that is off renders nothing and costs nothing (PF-6, VO-11).
+  - **RC-6.4** Adding a source changes no other source's output. Tested (10.1 item 18) by a test build that adds a fifth source through the slot (a plain sine at the voice's pitch): the four existing sources render bit-identically with and without it, and its counters read zero while it is off.
+- **Deferred:** the later sources themselves; a fifth source's place in the mixer (RC-2).
+- **Must not require:** a change to the voice law, ENV 1 or the filter slot; another source's internal state; an allocation by the voice; a second voice for one note.
+
+#### RC-7. Tempo and transport from the host
+
+- **Accepted now.** The host's tempo (beats per minute), time signature, song position (in quarter notes) and play state (playing or stopped, and the loop's bounds when looping) as **sample-timed transport events**, like note events (IF-1): each event's values hold from its sample on. Nothing reads a clock (DT-5); every tempo-dependent behaviour is a function of these events and the sample count.
+- **Without a host transport:** 120 beats per minute, 4/4, stopped, at position 0, until the first transport event.
+- **Jumps and loops:** a position that does not follow from the previous event's position, tempo and the samples elapsed (a locate, a loop's wrap) is a **jump**, delivered to the consumers as a jump at that sample and never interpolated.
+- **Requirements.**
+  - **RC-7.1** Transport events take effect at their sample time, independent of the host's block size (DT-2).
+  - **RC-7.2** Between events, while playing, the position advances as position(n) = position(n₀) + (n − n₀)·tempo/(60·f_host) quarter notes; while stopped it holds.
+  - **RC-7.3** In 1.0 no sound of the engine depends on the transport: a render is bit-identical with and without any transport events (10.1 item 19).
+- **Deferred:** the consumers: the arpeggiator and the shared quantizer (in the 1.0 roster, outside the engine), tempo-synced LFOs, synced glide, a tempo-grid detune law (Q31).
+- **Must not require:** the engine to learn the transport by any path but these events; a clock; a look at events that have not yet arrived.
+
+#### RC-8. A readout path for the GUI
+
+- **Provided now.** A **snapshot** the audio thread publishes at the end of every processing call, and within a longer call at the first control-interval boundary after each 1/60 s of audio, which the GUI thread reads without blocking. It holds: per voice and oscillator, R and ψ, the members' phases and levels, each blade's window (position and width) and the frame angle; per voice, its level and ENV 1's stage; the output's clip and non-finite latches (IF-6, RT-3); the operation counters (IF-9).
+- **The mechanism:** three frames allocated at prepare (one being written, the latest, one being read), published by an atomic index exchange and a sequence counter. The writer never waits. The reader takes the latest complete frame; if the counter shows the frame changed while it read, it discards that read and keeps the frame it had. A late or skipped frame is normal: the GUI draws the latest frame it has.
+- **Requirements.**
+  - **RC-8.1** Publishing allocates nothing, takes no lock and never waits (RT-1).
+  - **RC-8.2** Reading never changes the audio: a render while a reader thread reads continuously is bit-identical to one without a reader (10.1 item 20, under the sanitizer run of item 8).
+  - **RC-8.3** The snapshot is not the observation view: IF-10's view is read between processing calls, complete and exact, for the tests; the snapshot is asynchronous and lossy, for display, and no test of the sound reads it.
+- **Deferred:** the GUI, its drawing, and which readouts each view draws.
+- **Must not require:** the audio thread to wait for the GUI, to publish more often than stated, or to keep a history; a readout the engine does not already compute.
+
+#### RC-9. Adding parameters later without breaking saved projects
+
+- **Provided now.** The manifest's ids (5.1, IF-11) and the state format (IF-4).
+- **Requirements.**
+  - **RC-9.1** Manifest ids are append-only: never reused, renumbered or removed; a retired parameter keeps its id and is inert.
+  - **RC-9.2** A new parameter's default reproduces the sound every patch had before it existed.
+  - **RC-9.3** A state's keys that the build does not know (in `params`, and top-level members) are kept and written back unchanged, after the known ones in the order read; they are never dropped and never change the sound.
+  - **RC-9.4** `version` rises only for a breaking change (a key's meaning or law changed), which carries a migration, as B.2 does, from every earlier version.
+- **Tests (10.1 item 21):** a version-1 state with an unknown key round-trips byte-identically and renders as without it; a version-1 state saved before a parameter was added (a test build adds one with a neutral default) loads to the same render, bit for bit.
+- **Deferred:** the parameters still to come.
+- **Must not require:** a new `version` for an added parameter; a changed meaning or law of an existing key without a migration.
+
+#### RC-10. A quality-tier hook
+
+- **Provided now.** One input, the **tier**, an integer from the device (a setting, or a policy outside the engine), never a clock reading or a load measured inside the engine. Tier 0 is the default and the only tier in 1.0; at tier 0 the engine is exactly as this spec states.
+- **What a later tier may vary:** a cap on the members per swarm, a longer control interval, the quality (High to Standard), a cheaper edge table. **What no tier may vary:** the voice law, the steal and cull fades, the pedal, determinism within the tier (DT-1, DT-2), the manifest, the state and the parameter values.
+- **Requirements.**
+  - **RC-10.1** A tier change while notes sound reaches them through PA-5's 5 ms equal-gain crossfade.
+  - **RC-10.2** Within a tier the output is deterministic and independent of block size.
+  - **RC-10.3** In 1.0 a tier other than 0 is refused and counted (PA-7) (10.1 item 22).
+  - **RC-10.4** The CPU targets (PF-1, PF-2) are measured at tier 0.
+- **Deferred:** the tiers themselves and any policy that chooses one (1.0 has no automatic thinning, Q27).
+- **Must not require:** a tier chosen inside the engine from measured CPU; a voice law that differs between tiers.
 
 ---
 
@@ -671,7 +731,12 @@ Written by a different agent from this spec, before the engine exists. Every che
 14. the zipper measure: a host staircase of 128-sample steps against a per-sample ramp, high-passed at 250 Hz, on every continuous parameter (PA-1, PA-2, PA-3);
 15. the WebAssembly build renders the same sound as the native build: on every bank preset's held-note and chord phrases (2 s each), the difference of the two renders is at least 90 dB below the render's RMS (IF-10); the bound allows the two toolchains' different math libraries and operation orders (BD-7) and is ratified with the suite;
 16. each of the 12 envelope presets (Appendix A), translated by Appendix B, plays the envelope shape it is named for: on a 2 s note its ENV 1 level (IF-10) follows C.12 for the translated values within 10⁻⁴ at every sample, and the shape's defining feature holds: pluck, below −60 dB before the key-up; pad and swell, an attack of at least 0.5 s; gate and the swell cut at the key-off, below −60 dB within 30 ms of the key-up; stab, its sustain reached by the end of the decay and held; tail, audible (−60 dB or above) 4 s after the key-up; steal, under a full pool new notes take the quietest tails first (VO-2) with no detected click;
-17. a voice that is not sounding costs nothing, by the operation counters (VO-11).
+17. a voice that is not sounding costs nothing, by the operation counters (VO-11);
+18. a fifth source added through the slot by a test build leaves the four sources' renders bit-identical, and costs nothing while off (RC-6.3, RC-6.4);
+19. transport events at any sample times and block sizes leave the render bit-identical (RC-7.1, RC-7.3);
+20. a reader thread reading the GUI snapshot continuously leaves the render bit-identical, with no allocation, lock or wait on the audio thread (RC-8.1, RC-8.2);
+21. a state with an unknown key round-trips byte-identically and renders as without it; a state saved before a parameter was added loads to the same render (RC-9.2, RC-9.3);
+22. a tier other than 0 is refused and counted (RC-10.3).
 
 Its thresholds are ratified with the suite and pinned; a threshold changes only on the human's approval.
 
@@ -694,7 +759,7 @@ PF-1, PF-2, PF-5 and PF-9 measured under PF-3 and reported to the human with PF-
 
 - **BD-6. Self-documenting and concise.** Names carry what the code does; comments carry only why: the constraint, the rejected alternative, the trap. No comment narrates history. A clean engine of this scope is expected at about 2,100 to 3,000 lines; that is an estimate, not a gate.
 - **BD-7. One arithmetic.** No code emulates another language's number semantics, no random draw exists only to preserve an order, and each constant has one value. Single precision, approximations and fused multiply-add are allowed throughout, judged by the suite and the ears.
-- **BD-8. Built in stages behind the frozen structure**, each stage green on its part of the suite before the next: (1) the manifest, the API, the harness header and the state document (items 12, and 13's document half: the text round trip and the version-0 parse); (2) the voice, ENV 1, the pedal and the output stage on a plain one-member saw (items 1, 2, 3, 5, 10's voice anchors, 17); (3) the swarm, C.1 to C.8 (items 0, 10's swarm anchors); (4) the edge correction (items 7, 9); (5) the blades, C.9 to C.11, C.14, C.16 (items 0, 4, 10's blade anchors, 14); (6) the sub and the noise oscillator (item 10's sub anchor, and item 11 over every manifest row, now that every row can sound); (7) modulation, morph and state (item 13's render half: reset to fresh, migration rendered; item 14); (8) the WebAssembly build (item 15); then the bank (items 4, 6, 16) and the renders for judging. The parameter table stays open until Q31 is ruled.
+- **BD-8. Built in stages behind the frozen structure**, each stage green on its part of the suite before the next: (1) the manifest, the API, the harness header and the state document (items 12, 22, and 13's document half: the text round trip and the version-0 parse); (2) the voice, ENV 1, the pedal and the output stage on a plain one-member saw (items 1, 2, 3, 5, 10's voice anchors, 17, 19); (3) the swarm, C.1 to C.8 (items 0, 10's swarm anchors); (4) the edge correction (items 7, 9); (5) the blades, C.9 to C.11, C.14, C.16 (items 0, 4, 10's blade anchors, 14); (6) the sub and the noise oscillator (item 10's sub anchor, item 18 for the source slot, and item 11 over every manifest row, now that every row can sound); (7) modulation, morph and state (item 13's render half: reset to fresh, migration rendered; items 14, 20, 21); (8) the WebAssembly build (item 15); then the bank (items 4, 6, 16) and the renders for judging. The parameter table stays open until Q31 is ruled.
 - **BD-9. Exactly what is tested ships**: the build that the suite and the CPU measurement run is the shipped build's code with no product-line branch added.
 - **BD-10. A clean room.** The builder reads only this spec and the acceptance tests (with the input data they carry for the builder: the bank and the phrase set). The build happens in a tree that contains no earlier engine, no earlier engine's tests, no prototype and no legacy plugin; the tree is provided to the builder.
 - BD-1 to BD-5 (section 3).
@@ -741,7 +806,7 @@ Each is built as written here until it is ruled; a ruling changes only the requi
 | X21 | aftertouch's default destination | channel pressure and per-note pressure route to `coupling` on both oscillators, +0.25 of its range (+0.125 in v) at full pressure, in the init patch and every factory preset unless the preset says otherwise: a held note locks tighter as it is pressed, the instrument's own gesture | IF-1, RC-4 |
 | X22 | the envelopes' translation from the bank (PROPOSED) | B.1's ENV 1 rule (decay and release × 2.30, curve +2.30) and the blade envelopes as one-shot ENV 2 and ENV 3 (RC-4) | B.1, RC-4 |
 
-### 11.2 Can be ruled after the build (8)
+### 11.2 Can be ruled after the build (9)
 
 | # | the item | what is built until it is ruled | tagged |
 |---|---|---|---|
@@ -752,6 +817,7 @@ Each is built as written here until it is ruled; a ruling changes only the requi
 | X9 | a twin wider than half a cycle under the cut latch | the edge stays as stated in BL-16 | BL-16 |
 | X23 | the bank's coupling rescale (PROPOSED) | B.1's rule; confirmed by ear in the preset round | B.1 |
 | X24 | the start phases of the bank's negative-coupling presets | B.1's rule; judged A/B in the preset round | B.1 |
+| X27 | an audio input into the voice (an envelope follower as a modulation source, a vocoder-style input) | recorded; no space reserved now | — |
 | X26 | a separate toggle for legato's phase continuity (the human: "it could also be a separate toggle") | not built for 1.0 unless ruled: in legato the phases always continue (VO-6) | VO-6 |
 
 ---

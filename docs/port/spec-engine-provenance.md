@@ -2,7 +2,7 @@
 
 **The builder of the new engine does not read this file (ADR-223: the build is fresh from the spec).** It is for the human, the lead, the critic and the judge: where each requirement and law of `specs/SPEC-ENGINE.md` came from, where the spec departs from today's engine and its prototypes and why, what the rebuild retires at cutover, how the new engine is judged against today's, and the history of the open questions.
 
-**Origin.** Written 2026-10-16 by the horde lead's spec agent, splitting round 4 of PR #1097 at the human's instruction, and extended in round 5 with the verification round's rulings (ADR-226): "I think the new engine spec should entirely elide reference to the existing engine files and JS prototypes. The whole idea is the build should be fresh from the spec." Records: ADR-223, ADR-224, ADR-225, ADR-226; ROADMAP B493, B494; the engine audit `docs/audits/2026-10-15-engine-rebuild-audit.md`.
+**Origin.** Written 2026-10-16 by the horde lead's spec agent, splitting round 4 of PR #1097 at the human's instruction, and extended in round 5 with the verification round's rulings (ADR-226): "I think the new engine spec should entirely elide reference to the existing engine files and JS prototypes. The whole idea is the build should be fresh from the spec." Records: ADR-223 to ADR-229; ROADMAP B493, B494; the engine audit `docs/audits/2026-10-15-engine-rebuild-audit.md`.
 
 **How to use it.** Every requirement and law in the spec has an id (`SW-4`, `C.6`, …). Section 1 gives each id its sources. Section 2 lists every place the spec departs from today's engine or its prototypes. Sections 3 to 6 hold what the spec no longer carries.
 
@@ -153,6 +153,7 @@ Where ADR-225 or ADR-226 ruled a question a requirement depends on, the ruling's
 | BD-10 | ADR-223 item 2 (a clean-room build from the spec and the tests alone); the human, 2026-10-16 ("the build should be fresh from the spec"); ADR-226 item 9 (the reference renders go to the test author, not the builder) |
 | VO-11 | ADR-225 item 13 (the human asked about polyphony; "voices not sounding cost no CPU"); ADR-226 B (judged on operation counters, not timing) |
 | PF-9 | ADR-225 item 13 |
+| RC-6 to RC-10 | ADR-229 (round 8): the human asked "are there any other things you anticipate we still need to add to the engine after this which can have proper space left for?" and ruled "add 1–5" on the lead's list: RC-6 the source slot (a formant source, a later blade version's blade-to-blade controls), RC-7 tempo and transport (the arpeggiator and shared quantizer on the 1.0 roster, tempo-synced LFOs, synced glide), RC-8 the GUI's readout path, RC-9 adding parameters without breaking projects (ADR-197's migration rule), RC-10 the quality-tier hook (Q27 kept: no automatic thinning in 1.0). The lead's sixth item, an audio input into the voice, was agreed to be not for now: X27 |
 | ED-1a | PR #1103's click detector (the lead, round 5): today's plain saw base (`base` 2) is rendered naive (36 and 40 detector events at C1 and C2; the band-limited sine→saw base reads none); ADR-222 (every hard step band-limited); X3 (the triangle's corners); departure 43; dry run 2: the detector's ratified numbers must pass this control as they stand |
 | VO-12 | ADR-226 item 1 (the human: "Let's add the sustain pedal to the spec"; a sustained note is stolen before held keys); dry run 2: one term for the pedal (held, sustained, gated, 6.4); how the engine knows MPE mode and its master channels |
 | VO-13 | ADR-226 item 6 (no panel control; the host's all-notes-off and all-sound-off handled); today's only form is the prototype's panic (`razor-core.js:354`: every voice released) |
@@ -432,7 +433,7 @@ The audit (§3.12) listed 31 interface questions; the spec added X1 to X24 (X21 
 
 **Dropped as already ruled by earlier records (6):** Q4 (one pool, by ADR-224 item 1; since ADR-225 item 13 the pool is 1 to 64, default 16); Q5 (chords as copies, post-1.0 by ADR-190 A2); Q27's per-preset part (quality saved per preset, ADR-191 and B445); Q22's allocation and ENV 1 part (ADR-224 item 1); X14 (no per-source ENV 1 opt-out, B370); Q3 (a fixed count, no CPU-adaptive limiting by default, ADR-225 item 13).
 
-**Still open, with the reasons the recommendations rest on** (the spec's section 11 carries only what is built until each is ruled). Since round 7 the spec lists 0 before the build (X25 ruled by ADR-228), 25 during and 8 after (X26 added) (round 5: X1 ruled; X21 and X22 added during, X23 and X24 after), and this file lists them the same way; the spec does not carry Q30's prototypes part, which concerns the repository, not the build (keep `reference/` as protected history; it is listed here only).
+**Still open, with the reasons the recommendations rest on** (the spec's section 11 carries only what is built until each is ruled). Since round 8 the spec lists 0 before the build (X25 ruled by ADR-228), 25 during and 9 after (X26 in round 7, X27 in round 8) (round 5: X1 ruled; X21 and X22 added during, X23 and X24 after), and this file lists them the same way; the spec does not carry Q30's prototypes part, which concerns the repository, not the build (keep `reference/` as protected history; it is listed here only).
 
 **The spec's appendix letters since round 4:** Appendix A is the 12 envelope presets as input data, Appendix B the bank and version-0 state formats with their translation, Appendix C the laws; the round-3 traceability appendix is this file's section 5.
 ### 6.0 To be ruled before the build (0)
@@ -474,7 +475,7 @@ The audit (§3.12) listed 31 interface questions; the spec added X1 to X24 (X21 
 | X21 | The default destinations of velocity and aftertouch (ADR-226 item 4). | Velocity → level through `env1.velocity` (1, level proportional to velocity). Aftertouch (channel and per-note pressure) → `coupling` on both oscillators, +0.25 of its range at full pressure. | Coupling is the instrument's own gesture (a held note locks tighter as it is pressed) and cannot silence a note; level is the one destination pressure must not reach unmapped. Alternatives for the human: blade 1's depth, or the cut. | IF-1, RC-4 |
 | X22 | The bank's envelopes in translation (ADR-226 item 10, PROPOSED). | ENV 1 decay and release × 2.303 with curve +2.303; the blade envelopes as ENV 2 and ENV 3 in a one-shot mode. | Keeps each tail's audible length and each blade swell on short notes (departures 36, 37); the lead explains it to the human first. | B.1, RC-4 |
 
-### 6.2 Can be ruled after the build (8)
+### 6.2 Can be ruled after the build (9)
 
 | # | question | recommendation | reason | depends |
 |---|---|---|---|---|
@@ -484,6 +485,7 @@ The audit (§3.12) listed 31 interface questions; the spec added X1 to X24 (X21 
 | X6 | Does a sound-change ledger continue against the new engine's own goldens. | Yes: every change after the goldens freeze is recorded with its A/B and the human's word. | ADR-220 item 1 names the ledger as part of correctness. | 10.2 |
 | X9 | A twin wider than half a cycle under the cut latch: give the twin its own latch. | Not in 1.0; the edge stays stated. | No bank preset uses it (B487's critic). | BL-16 |
 | X23 | The bank's coupling rescale (ADR-226 item 12, provisional). | B.1's rule at 110 Hz. | It restores the lock on the locked presets (departure 35); the human confirms it by ear in the preset round. | B.1 |
+| X27 | An audio input into the voice (an envelope follower as a modulation source, a vocoder-style input) (ADR-229). | Recorded; no space reserved now. | The human agreed it is not for now. | — |
 | X26 | A separate toggle for legato's phase continuity (ADR-228). | None: not built for 1.0 unless ruled. | The human: "it could also be a separate toggle"; legato already keeps the phases running (ADR-226 item 3). | VO-6 |
 | X24 | The start of the bank's negative-coupling presets (ADR-226 item 13). | B.1's phase rule (Random 0 or 100 as stored). | Deferred by the human to the preset round, judged A/B. | B.1 |
 
@@ -499,4 +501,5 @@ The audit (§3.12) listed 31 interface questions; the spec added X1 to X24 (X21 
 | 4 | `7d5f7b6` | ADR-225's thirteen rulings folded in; the spec split from this file, so the builder's text names no old file, prototype or engine (the human: "the build should be fresh from the spec") |
 | 5 | `2f1a389` | ADR-226's thirteen rulings and the verification round's findings: the pedal, Phase/Random/Retrigger, the legato table, velocity and aftertouch as sources, pan, mute and solo, all notes off and all sound off, the reserved contracts (7.2), output peaks, the reference renders, the envelope timing and translation, the stealing rule, the coupling rescale; the DC law (C.16) and the collision bite restored; every base wave band-limited (ED-1a, from PR #1103's detector); this file's corrections and departures 26 to 45 |
 | 6 | `b277634` | the second clean-room dry run: QS-1's measuring rule and a reference table design; BL-7's measure; X25 (the re-run crossfade, PROPOSED, before the build); PA-8's rows; C.16's FM laws; BD-8's stage map; the detector's ratified numbers (ADR-227); the state's text syntax; the earlier open items #18, #19, #25, #29, #30, #38, #40, #42, #51, #52, #61; departures 46 and 47 |
-| 7 | this change | X25 ruled (ADR-228): in mono `retrigger` governs a re-run; in legato the phases always continue; X26 (a separate legato-phase toggle) after the build |
+| 7 | `22ec5ea` | X25 ruled (ADR-228): in mono `retrigger` governs a re-run; in legato the phases always continue; X26 (a separate legato-phase toggle) after the build |
+| 8 | this change | ADR-229: five more reserved contracts, RC-6 (the source slot), RC-7 (tempo and transport), RC-8 (the GUI's readout path), RC-9 (adding parameters later), RC-10 (the quality-tier hook), with requirements RC-6.1 to RC-10.4 and suite items 18 to 22; X27 (an audio input) after the build |
