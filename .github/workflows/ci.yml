@@ -73,24 +73,56 @@ jobs:
       - name: verify fast
         run: ./verify fast
 
-  # ASan+UBSan and TSan over every compiled oracle ./verify runs, parsed from
-  # ./verify itself (tools/sanitize_oracles.sh) so the list cannot drift.
-  # Linux is the 1x runner, so this rides on every PR. The oracles are
-  # single-threaded by construction, so TSan's verdict covers the DSP and the
-  # shell's event path only — the GUI<->audio parameter queue is not exercised.
+  # Linux is the 1x runner, so both legs ride on every PR (ADR-233, B505).
+  #   address,undefined  every compiled oracle ./verify runs, parsed from
+  #     ./verify itself (tools/sanitize_oracles.sh) so the list cannot drift,
+  #     run in parallel across the runner's cores, each in its own HOME/TMPDIR.
+  #   thread  tools/tsan_stress_check.py, the real thread-race test (ADR-200,
+  #     armor R2): an audio thread and a host/editor main thread on one plugin
+  #     instance, red on any main-thread WRITE race. Its must-fire controls run
+  #     first: a planted main-thread write race must be reported AND filed as a
+  #     write, its mirror as a read, or the job is red before any verdict. It
+  #     replaced TSan over the oracles, none of which starts a second thread,
+  #     so TSan there could never report (the human's ruling, ADR-233).
+  #     HORDE_SANITIZER_CXX is the runner's g++, the compiler that built the
+  #     impl's flags.make it reads; Homebrew LLVM is a macOS-only need (ADR-199).
+  #   The address,undefined leg is SHARDED over two runners (B505 round 2: one
+  #     4-vCPU runner took 38 min, the heavy h2 oracles slowing each other).
+  #     SANITIZE_SHARD=i/n is a partition by construction (each oracle in
+  #     exactly one shard; see the script), and each shard prints its list and
+  #     the parsed total. Check names: "sanitize (address,undefined, 1/2)",
+  #     "sanitize (address,undefined, 2/2)", "sanitize (thread)".
   sanitize:
+    name: sanitize (${{ matrix.sanitizer }}${{ matrix.shard && format(', {0}', matrix.shard) || '' }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        sanitizer: ['address,undefined', 'thread']
+        include:
+          - sanitizer: 'address,undefined'
+            shard: '1/2'
+          - sanitizer: 'address,undefined'
+            shard: '2/2'
+          - sanitizer: 'thread'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           submodules: recursive
           persist-credentials: false
-      - name: oracles under -fsanitize=${{ matrix.sanitizer }}
+      - name: oracles under -fsanitize=${{ matrix.sanitizer }}, shard ${{ matrix.shard }}
+        if: matrix.sanitizer != 'thread'
+        env:
+          SANITIZE_SHARD: ${{ matrix.shard }}
         run: tools/sanitize_oracles.sh "${{ matrix.sanitizer }}" build-sanitize
+      - name: tsan_stress_check (the thread-race test)
+        if: matrix.sanitizer == 'thread'
+        # The check exits 0 with "SKIPPED" when it finds no TSan compiler (right
+        # for a dev machine, a hole here), so a SKIP fails this step.
+        run: |
+          set -o pipefail
+          cxx="$(command -v g++)" || { echo "no g++ on the runner"; exit 1; }
+          HORDE_SANITIZER_CXX="$cxx" python3 tools/tsan_stress_check.py build-tsan-stress | tee "$RUNNER_TEMP/tsan_stress.out"
+          if grep -q "SKIPPED" "$RUNNER_TEMP/tsan_stress.out"; then echo "tsan_stress_check measured nothing"; exit 1; fi
 
   build-windows:
     runs-on: windows-latest
