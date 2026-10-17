@@ -200,8 +200,9 @@ have to do one more engine refresh", ADR-223).
 - Open: the spec's 25 questions ruled during the build and 9 after it (§11.1, §11.2); three gaps
   the structure declaration exposed (B500): where the oscillators return to the host rate, where
   IF-1's per-note volume and pan act, and who receives VO-10's lifecycle and IF-1's load readouts
-  (ADR-232, proposed, names the pitch system as the lifecycle's consumer); the WebAssembly
-  toolchain's exact version (ADR-225 item 10).
+  (ADR-232, proposed, names the pitch system as the lifecycle's consumer); ADR-189's D1–D3
+  defaults in the instrument (the lead's reading: spec ED-1, BL-12 and C.14 may cover them; for
+  the human to confirm); the WebAssembly toolchain's exact version (ADR-225 item 10).
 
 **Engine audit and legacy roundup** (`audit`). Every control across the swarm core, the legacy
 shell, the composed engine and SCALPEL, decided keep, lock, cull or merge. Then every Legacy
@@ -225,8 +226,8 @@ replaces it, it is the engine that plays, under ADR-187 (ADR-223 item 6): the pl
 wraps it (B458, ADR-215, built and installed 2026-10-12); its frame hold (D6) and steal fade (D7)
 landed as ledgered divergences (ADR-216); its default output is about 12 dB lower (ADR-221); it may
 change its sound for speed when the change is heard A/B (ADR-220); D9 and D10 are parked (ADR-223
-item 5). Its open decisions moved: envelope decision 1 to spec Q31 and ADR-226 item 10, ADR-189's
-anti-aliasing defaults to spec ED-1 (always on), and law 3's tempo grid is cut from 1.0 in Q31's
+item 5). Its open decisions moved: envelope decision 1 to spec Q31 and ADR-226 item 10;
+ADR-189's D1–D3 defaults to `engine2`, still open; law 3's tempo grid is cut from 1.0 in Q31's
 proposal. B327, B298, B252, B335, B310, B382, B355, B458.
 
 **Edge correction** (`edges`), **superseded**. RULED 2026-10-14: option (d), a 32-tap
@@ -831,9 +832,6 @@ a noise oscillator in 1.0 (ADR-190 A6); the freeze tag's real-blob corpus (skipp
 
 Answered since 2026-10-09 and removed (their numbers in the 2026-10-09 list in brackets):
 - [4] **edge correction:** option (d), the minimum-phase table (ADR-222, B383);
-- [5] **ADR-189's D1–D3 defaults:** absorbed by the new engine's ratified spec, which band-limits
-  every hard step, carrier wraps under FM, cross-mod and feedback among them (ED-1, BL-12, C.14;
-  #1097). This is this plan's reading; no record names ADR-189's defaults as answered;
 - [8] **JS demotion:** the new engine is held to no JS parity and the JS twin is retired for
   WebAssembly (ADR-223 items 3, 4; ADR-224 item 8); ADR-187 governs the composed engine only until
   cutover (ADR-223 item 6);
@@ -845,14 +843,15 @@ Answered since 2026-10-09 and removed (their numbers in the 2026-10-09 list in b
   (ADR-226 item 10). The default curves remain, in spec Q31 (item 2 below);
 - half of [26] **true stereo:** per voice or post-sum: members stay mono sources panned across the
   field, each voice is a stereo pair through the filter slot, and true-stereo processing follows
-  the voice (ADR-224 item 3). The width candidates remain (item 34);
+  the voice (ADR-224 item 3). The width candidates remain (item 30);
 - **the make-up gain, a control or fixed** (new since, ADR-230): a user control, default ×4
   (ADR-230 A1).
 
 Narrowed, not removed: [2] the 19 deferred rows are now spec Q31 (item 2); [35] which spec horde 2
-answers to is answered for the engine only (item 41); [39] the WebAssembly toolchain is approved in
-principle (item 48); [45] the commercial model's licence half is ruled (ADR-219; item 60). Kept:
-[6] and [7], the `verify full` runtime and the floor warning (B406): the composed engine's gates
+answers to is answered for the engine only (item 38); [39] the WebAssembly toolchain is approved in
+principle (item 45); [45] the commercial model's licence half is ruled (ADR-219; item 57). Kept:
+[5] ADR-189's D1–D3 defaults (item 6): no record says the new spec absorbs them, so the reading
+that it does stays a proposal for the human; [6] and [7], the `verify full` runtime and the floor warning (B406): the composed engine's gates
 run until cutover, and no record retires them with the port.
 
 1. **Order of work:** approve or reorder the lab-sync order (B331; this plan's proposal above).
@@ -865,75 +864,77 @@ run until cutover, and no record retires them with the port.
    IF-1's per-note volume and pan expressions act; who receives VO-10's lifecycle and IF-1's load
    readouts (ADR-232, PROPOSED on PR #1117, names the pitch system as the lifecycle's consumer;
    the load readouts' consumer stays open).
-6. **verify full runtime:** a budget or a split into staged gates; a `./verify` edit (B406 item 4).
-7. **Floor warning:** should the floor's key-mismatch warning fail the gate (B406 item 5).
-8. **Seams:** B275 (a) the seam list and "ready" (whether the spec's RC-1 to RC-11 answer it),
+6. **ADR-189 defaults:** the D1–D3 defaults in the instrument (ruled when the shell is built).
+   The lead's reading: spec ED-1, BL-12 and C.14 may cover them; for the human to confirm.
+7. **verify full runtime:** a budget or a split into staged gates; a `./verify` edit (B406 item 4).
+8. **Floor warning:** should the floor's key-mismatch warning fail the gate (B406 item 5).
+9. **Seams:** B275 (a) the seam list and "ready" (whether the spec's RC-1 to RC-11 answer it),
    (c) the FOUNDATIONS / horde split, and (d) proceeding on the provisional schema.
-9. **Poly glide:** do the bank's 22 poly presets that store a glide time glide by default?
+10. **Poly glide:** do the bank's 22 poly presets that store a glide time glide by default?
    Deferred by the human; B497's open item, moving to B504 (PR #1117).
-10. **Scale sidechain:** whether a MIDI sidechain sets the scale in 1.0 (B260).
-11. **MPE:** its design (B388); which expressions reach the swarm and the blades (spec Q2).
-12. **Note-on randoms:** the form of the linked pair (B264).
-13. **ORBITAL velocity:** signed components or speed (B267).
-14. **Onset scatter:** the recommendation (B370); where it lives is spec Q13.
-15. **Modulator morph:** a morph law per modulator type (B396).
-16. **Morph editor:** B269's items: per-group cohesion, boundary editing, exempt and locks.
-17. **Counter-based draws:** ratify the draw ADR before the first horde 2 patch is saved (B308 H3).
-18. **Intent phrases:** the phrase list for the named slots 5–8 (ADR-192).
-19. **Intent spec:** approve the SPEC-INTENT-BUS amendment for §3.1 and principle 2 (ADR-192).
-20. **The legacy Sub:** what the human dislikes in it (B327, B399).
-21. **Noise oscillator:** its design (spec X15; its design lab, B452).
-22. **Filters:** re-ruling the filter tolerances physics refuses (B287 → B290).
-23. **Per-note filters:** the type list, after the Release cost measurement (B303).
-24. **Filter count and routing:** in the voice (spec X13).
-25. **Rack-input clip lamp:** how it treats an over, when it will light on most bank chords
+11. **Scale sidechain:** whether a MIDI sidechain sets the scale in 1.0 (B260).
+12. **MPE:** its design (B388); which expressions reach the swarm and the blades (spec Q2).
+13. **Note-on randoms:** the form of the linked pair (B264).
+14. **ORBITAL velocity:** signed components or speed (B267).
+15. **Onset scatter:** the recommendation (B370); where it lives is spec Q13.
+16. **Modulator morph:** a morph law per modulator type (B396).
+17. **Morph editor:** B269's items: per-group cohesion, boundary editing, exempt and locks.
+18. **Counter-based draws:** ratify the draw ADR before the first horde 2 patch is saved (B308 H3).
+19. **Intent phrases:** the phrase list for the named slots 5–8 (ADR-192).
+20. **Intent spec:** approve the SPEC-INTENT-BUS amendment for §3.1 and principle 2 (ADR-192).
+21. **The legacy Sub:** what the human dislikes in it (B327, B399).
+22. **Noise oscillator:** its design (spec X15; its design lab, B452).
+23. **Filters:** re-ruling the filter tolerances physics refuses (B287 → B290).
+24. **Per-note filters:** the type list, after the Release cost measurement (B303).
+25. **Filter count and routing:** in the voice (spec X13).
+26. **Rack-input clip lamp:** how it treats an over, when it will light on most bank chords
     (ADR-230; still open by its A1 item 4; B402).
-26. **Make-up range:** the make-up gain's range and the faders' laws (B402; ADR-230 A1 item 2).
-27. **Adaptive make-up:** whether it ships, after its lab's A/B (B503).
-28. **Corner FX buses:** the discussion is owed (B258).
-29. **True stereo:** which width candidates are in 1.0, and the mono-fold guarantee (B408; spec
+27. **Make-up range:** the make-up gain's range and the faders' laws (B402; ADR-230 A1 item 2).
+28. **Adaptive make-up:** whether it ships, after its lab's A/B (B503).
+29. **Corner FX buses:** the discussion is owed (B258).
+30. **True stereo:** which width candidates are in 1.0, and the mono-fold guarantee (B408; spec
     Q26).
-30. **Rack-slot contract:** Q3 and Q9 by measurement, and the slot-switch click ceiling by ear in
+31. **Rack-slot contract:** Q3 and Q9 by measurement, and the slot-switch click ceiling by ear in
     the first listening batch, which also replaces the ceiling ADR-218 suspended (ADR-201, ADR-209
     item 13, ADR-218).
-31. **Module cutoff:** the date the module 1.0 bar's MUST rows are judged (ADR-190 A1).
-32. **Shriek:** FX-C as a fixed post-stage or a rack slot (spec Q23 builds a slot until then), and
+32. **Module cutoff:** the date the module 1.0 bar's MUST rows are judged (ADR-190 A1).
+33. **Shriek:** FX-C as a fixed post-stage or a rack slot (spec Q23 builds a slot until then), and
     B318's other items (B318, B435).
-33. **Sluice tails:** label, stand-in gate, or leave (B369).
-34. **Module names:** ten glasses or six (B336).
-35. **FX algorithm morph:** p and K by ear (ADR-193 D8), and the items B265 still lists.
-36. **Patch model:** ratify it (B263).
-37. **Spec:** which spec the rest of horde 2 (the shell, the rack, GUI 3) answers to (B308 M2);
+34. **Sluice tails:** label, stand-in gate, or leave (B369).
+35. **Module names:** ten glasses or six (B336).
+36. **FX algorithm morph:** p and K by ear (ADR-193 D8), and the items B265 still lists.
+37. **Patch model:** ratify it (B263).
+38. **Spec:** which spec the rest of horde 2 (the shell, the rack, GUI 3) answers to (B308 M2);
     the engine's is `specs/SPEC-ENGINE.md` (ADR-224 item 8).
-38. **AU code:** the manufacturer code (ADR-186 §3; autonomous may rule a fleet code).
-39. **Shell acceptance:** ratify the drafted list with B398 (ADR-209, package P17).
-40. **Freeze tag:** cut it (ADR-186 §2).
-41. **History scope:** confirm "modulated values in motion are not history; mapping changes are"
+39. **AU code:** the manufacturer code (ADR-186 §3; autonomous may rule a fleet code).
+40. **Shell acceptance:** ratify the drafted list with B398 (ADR-209, package P17).
+41. **Freeze tag:** cut it (ADR-186 §2).
+42. **History scope:** confirm "modulated values in motion are not history; mapping changes are"
     (B389).
-42. **Serum 2:** load it after seeing stage 1 (B381).
-43. **aliasDb:** the re-ruling (B350).
-44. **WebAssembly:** the toolchain's exact version, at the lab stage (approved in principle,
+43. **Serum 2:** load it after seeing stage 1 (B381).
+44. **aliasDb:** the re-ruling (B350).
+45. **WebAssembly:** the toolchain's exact version, at the lab stage (approved in principle,
     ADR-225 item 10; B372).
-45. **R2 and R3:** rule after the critic (B357).
-46. **Heavy patches:** the policy for the worst known patch, over budget today (B441 phase 3);
+46. **R2 and R3:** rule after the critic (B357).
+47. **Heavy patches:** the policy for the worst known patch, over budget today (B441 phase 3);
     B488's restated target is the lead's arithmetic, for the human to confirm.
-47. **Windows CPU:** one measurement on the human's Windows PC, replacing the assumed ×1.5
+48. **Windows CPU:** one measurement on the human's Windows PC, replacing the assumed ×1.5
     slow-machine factor (ADR-209 item 10).
-48. **Screen styles:** one for every FX module, or one each (B322).
-49. **Corner auto-ingest:** what "everything that fits under corner rule" means (B395).
-50. **Sound designers:** whether to commission them for the 150–400-preset norm (B395).
-51. **Bank coupling:** the coupling rescale and the negative-coupling presets' starts, by ear in
+49. **Screen styles:** one for every FX module, or one each (B322).
+50. **Corner auto-ingest:** what "everything that fits under corner rule" means (B395).
+51. **Sound designers:** whether to commission them for the 150–400-preset norm (B395).
+52. **Bank coupling:** the coupling rescale and the negative-coupling presets' starts, by ear in
     the preset round (ADR-226 items 12, 13; spec X23, X24).
-52. **Machine account:** create it for agent PRs, then switch on code-owner review (ADR-210).
-53. **Nightly workflow:** install it from the draft in `tools/nightly/` (ADR-209 item 4).
-54. **Armor thresholds:** ratify each wave's thresholds table (ADR-209 item 5).
-55. **Golden pins:** do bit-identity pins count as goldens? (the phase 2 proposal, section 7).
-56. **Commercial model:** copy protection, signed installers and the update path (B412); the
+53. **Machine account:** create it for agent PRs, then switch on code-owner review (ADR-210).
+54. **Nightly workflow:** install it from the draft in `tools/nightly/` (ADR-209 item 4).
+55. **Armor thresholds:** ratify each wave's thresholds table (ADR-209 item 5).
+56. **Golden pins:** do bit-identity pins count as goldens? (the phase 2 proposal, section 7).
+57. **Commercial model:** copy protection, signed installers and the update path (B412); the
     GPL's version and the copyright holder's formal name, when the licence file is written
     (ADR-219 item 3).
-57. **Counsel items:** trademark screening and licences (B433), and the patent read before any
+58. **Counsel items:** trademark screening and licences (B433), and the patent read before any
     paid build (B472).
-58. **Manual:** the lead's defaults, including "the manual is for 1.0" (B451).
+59. **Manual:** the lead's defaults, including "the manual is for 1.0" (B451).
 
 ## Inconsistencies found
 
@@ -983,7 +984,7 @@ new in this refresh.
 19. **RESOLVED (2026-10-09 consistency pass).** B439 and B423 now read "by the module cutoff".
 20. **RESOLVED (2026-10-09 consistency pass).** B425 drops "the four-role face".
 21. **RESOLVED (2026-10-09 consistency pass).** B435 now cites B318 for the FX-C question. (This
-    refresh renumbers the decision list again; it is item 32 now.)
+    refresh renumbers the decision list again; it is item 33 now.)
 22. **RESOLVED in part (2026-10-09 consistency pass).** B331 notes that S0 is done in substance and
     S1's B376 and B386 are decided. Since then S1's edge listening and SCALPEL interface are also
     done (ADR-222; the spec), which B331 does not say; the order itself still awaits the human
