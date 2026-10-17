@@ -63,6 +63,55 @@ fi
 
 in_list() { case " $2 " in *" $1 "*) return 0 ;; esac; return 1; }
 
+# SANITIZE_SHARD="i/n" (B505 round 2, CI's two address,undefined legs) builds
+# and runs only shard i of n. ALLOWED under CI, unlike SANITIZE_ONLY, because
+# the shards are a partition by construction: every parsed oracle lands in
+# exactly one shard, so n legs together run every oracle once. The heavy
+# oracles (HEAVY, longest first: CI run 39005256368's ASan times) are dealt
+# round-robin so no shard holds two of the slowest; every other oracle goes to
+# shard (its index among the non-heavy, in ./verify's order) mod n. Each shard
+# prints its list and the parsed total, so the union is checkable from the
+# logs. HEAVY is also the launch order (slowest first) inside a shard.
+HEAVY="h2_engine_selfdigest_check h2_engine_parity_check h2_engine_selfdigest_product h2_engine_fma_control stability_check h2_scalpel_parity_check h2_scalpel_fma_control"
+ALLNAMES=$(echo "$ORACLES" | cut -d' ' -f1 | tr '\n' ' ')
+NALL=$(echo "$ORACLES" | grep -c .)
+SHARD_I=1 SHARD_N=1 SHARDTAG=""
+if [ -n "${SANITIZE_SHARD:-}" ]; then
+  # Strict: positive integers, no leading zero (bash arithmetic reads 08 as bad octal).
+  if ! printf '%s' "$SANITIZE_SHARD" | grep -qE '^[1-9][0-9]*/[1-9][0-9]*$'; then
+    echo "sanitize_oracles: SANITIZE_SHARD='$SANITIZE_SHARD' is malformed (want i/n, 1 <= i <= n)" >&2
+    exit 1
+  fi
+  SHARD_I=${SANITIZE_SHARD%/*} SHARD_N=${SANITIZE_SHARD#*/}
+  if [ "$SHARD_I" -gt "$SHARD_N" ]; then
+    echo "sanitize_oracles: SANITIZE_SHARD='$SANITIZE_SHARD' is malformed (want i/n, 1 <= i <= n)" >&2
+    exit 1
+  fi
+  SHARDTAG=" shard $SHARD_I/$SHARD_N of $NALL parsed;"
+fi
+MINE=""
+k=0
+for h in $HEAVY; do
+  in_list "$h" "$ALLNAMES" || continue
+  [ $((k % SHARD_N + 1)) -eq "$SHARD_I" ] && MINE="$MINE $h"
+  k=$((k + 1))
+done
+k=0
+for name in $ALLNAMES; do
+  in_list "$name" "$HEAVY" && continue
+  [ $((k % SHARD_N + 1)) -eq "$SHARD_I" ] && MINE="$MINE $name"
+  k=$((k + 1))
+done
+if [ -n "$SUBSET" ]; then
+  KEEP=""
+  for name in $MINE; do in_list "$name" "$SANITIZE_ONLY" && KEEP="$KEEP $name"; done
+  MINE="$KEEP"
+fi
+selected() { in_list "$1" "$MINE"; }
+if [ -n "$SHARDTAG" ]; then
+  echo "== shard $SHARD_I/$SHARD_N: $(echo $MINE | wc -w | tr -d ' ') of $NALL parsed oracle(s):${MINE}"
+fi
+
 cmake -S "$ROOT" -B "$BUILD" -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=RelWithDebInfo \
       -DHYPERSAW_SANITIZE="$SAN" || exit 1
 
@@ -70,24 +119,37 @@ cmake -S "$ROOT" -B "$BUILD" -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=RelWithDebIn
 KNOWN=$(cmake --build "$BUILD" --target help | grep -oE '^\.\.\. [A-Za-z_0-9-]+' | sed 's/^\.\.\. //')
 TARGETS=()
 while read -r name _; do
-  if [ -n "$SUBSET" ] && ! in_list "$name" "$SANITIZE_ONLY"; then continue; fi
+  selected "$name" || continue
   if grep -qx "$name" <<<"$KNOWN"; then TARGETS+=("$name"); else echo "   $name: no target in this tree — SKIPPED"; fi
 done <<<"$ORACLES"
 NPROC=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
-# The shared impl library first (one parallel build), then each oracle on its
-# own so that ONE that cannot link on this platform is reported as a loud
-# SKIP rather than taking every other verdict with it. The first Linux run
+# The shared impl library first, then ALL the oracle targets in ONE parallel
+# keep-going build (`make -k`; B505 round 2: one target at a time cost ~18 min
+# of a CI run), so that ONE that cannot link on this platform is reported as a
+# loud SKIP rather than taking every other verdict with it. The first Linux run
 # died exactly that way: state_check references hypersaw_debug_* hooks that
 # src/hypersaw_clap.cpp compiles for Apple/Windows only, so the whole job was
-# red and 24 oracles went unmeasured. A skip is printed per oracle and counted
-# in the summary; it is a coverage gap, never a pass.
+# red and 24 oracles went unmeasured. Built means "its executable exists after
+# the build"; each one is deleted first, so a stale binary from an earlier
+# build can never stand in for a target that no longer builds. A skip is
+# printed per oracle and counted in the summary; it is a coverage gap, never a
+# pass.
 cmake --build "$BUILD" --target HYPERSAW-impl -j"$NPROC" || exit 1
 UNBUILT=""   # a string, not an array: bash 3.2 + set -u (see the run loop)
 NUNBUILT=0
+BUILDLOG="$BUILD/oracles.build.log"
+if [ ${#TARGETS[@]} -gt 0 ]; then
+  for t in "${TARGETS[@]}"; do rm -f "$BUILD/$t"; done
+  # Exit status ignored on purpose: per-target existence below is the verdict.
+  cmake --build "$BUILD" -j"$NPROC" --target "${TARGETS[@]}" -- -k > "$BUILDLOG" 2>&1
+fi
 for t in ${TARGETS[@]+"${TARGETS[@]}"}; do   # empty-safe under bash 3.2 + set -u
-  if ! cmake --build "$BUILD" --target "$t" -j"$NPROC" > "$BUILD/$t.build.log" 2>&1; then
-    echo "   $t: DOES NOT BUILD on this platform — SKIPPED (see $BUILD/$t.build.log)"
-    grep -E "undefined reference|error:" "$BUILD/$t.build.log" | head -3 | sed 's/^/      /'
+  if [ ! -x "$BUILD/$t" ]; then
+    echo "   $t: DOES NOT BUILD on this platform — SKIPPED (see $BUILDLOG)"
+    # The log is interleaved (-j); this target's lines are the ones naming its
+    # object dir or its source file, plus make's own "*** [...]" line.
+    grep -E "(CMakeFiles/$t\.dir/|/$t\.(cpp|mm)[:(]).*(undefined reference|error:)|\*\*\*.*CMakeFiles/$t\.dir/" "$BUILDLOG" \
+      | head -3 | sed 's/^/      /'
     UNBUILT="$UNBUILT $t"
     NUNBUILT=$((NUNBUILT + 1))
   fi
@@ -136,22 +198,26 @@ NOT_UNDER_SANITIZER="rtsafety_probe"
 # here-string (none reads stdin; only an explicit "-" argument would, and
 # none is passed).
 #
-# Launch order is SLOWEST FIRST (measured under TSan, CI run 38991514882), so
-# the longest oracle is not the last one started; this changes when an oracle
-# starts, never whether it runs or how its verdict is reported.
-SLOW_FIRST="stability_check h2_engine_selfdigest_check h2_engine_parity_check h2_engine_selfdigest_product h2_engine_fma_control"
-
-RUNLIST=""   # "name golden" lines, slowest first, then ./verify's order
-for first in 1 0; do
-  while read -r name golden; do
-    [ -x "$BUILD/$name" ] || continue
-    [ "$name" = "$NOT_UNDER_SANITIZER" ] && continue
-    if [ -n "$SUBSET" ] && ! in_list "$name" "$SANITIZE_ONLY"; then continue; fi
-    if in_list "$name" "$SLOW_FIRST"; then [ $first -eq 1 ] || continue; else [ $first -eq 0 ] || continue; fi
-    RUNLIST="$RUNLIST$name $golden
+# Launch order is SLOWEST FIRST (HEAVY's order, then the rest in ./verify's
+# order), so the longest oracle is not the last one started; this changes
+# when an oracle starts, never whether it runs or how its verdict is reported.
+RUNLIST=""   # "name golden" lines
+for h in $HEAVY; do
+  RUNLIST="$RUNLIST$(echo "$ORACLES" | grep -E "^$h " )
 "
-  done <<<"$ORACLES"
 done
+RUNLIST="$RUNLIST$(echo "$ORACLES" | while read -r name golden; do in_list "$name" "$HEAVY" || echo "$name $golden"; done)
+"
+KEPT=""
+while read -r name golden; do
+  [ -n "$name" ] || continue
+  [ -x "$BUILD/$name" ] || continue
+  [ "$name" = "$NOT_UNDER_SANITIZER" ] && continue
+  selected "$name" || continue
+  KEPT="$KEPT$name $golden
+"
+done <<<"$RUNLIST"
+RUNLIST="$KEPT"
 
 # One oracle: its own sandbox, its log, then "<exit> <seconds>" into its .rc.
 # The runner itself always exits 0, because xargs stops launching new commands
@@ -171,7 +237,8 @@ RUN_ONE='[ -n "${1:-}" ] || exit 0   # GNU xargs runs once on empty input
 export SAN_ROOT="$ROOT" SAN_BUILD="$BUILD"
 while read -r name _; do [ -n "$name" ] && rm -f "$BUILD/$name.sanitize.rc"; done <<<"$RUNLIST"
 NRUN=$(printf '%s' "$RUNLIST" | grep -c .)
-echo "== running $NRUN oracle(s), $NPROC at a time${SUBSET:+ —$SUBSET}"
+SCOPE="$SHARDTAG$SUBSET"
+echo "== running $NRUN oracle(s), $NPROC at a time${SCOPE:+ —$SCOPE}"
 t_batch=$SECONDS
 printf '%s' "$RUNLIST" | xargs -n 2 -P "$NPROC" bash -c "$RUN_ONE" _
 t_batch=$((SECONDS - t_batch))
@@ -181,12 +248,12 @@ pass=0
 TIMES=""
 while read -r name golden; do
   exe="$BUILD/$name"
+  selected "$name" || continue
   [ -x "$exe" ] || continue
   if [ "$name" = "$NOT_UNDER_SANITIZER" ]; then
     echo "== $name: NOT RUN under -fsanitize (replaces the allocation operators the sanitizer interposes; verdict is ./verify full's)"
     continue
   fi
-  if [ -n "$SUBSET" ] && ! in_list "$name" "$SANITIZE_ONLY"; then continue; fi
   # A plain string, not an array: macOS ships bash 3.2, where an empty array
   # under `set -u` is an "unbound variable" (the first run died on every
   # golden-less oracle that way).
@@ -209,5 +276,5 @@ done <<<"$ORACLES"
 
 echo "== parallel batch: ${t_batch}s wall for $NRUN oracle(s) on $NPROC job(s); slowest:" \
      $(printf '%s' "$TIMES" | sort -rn | head -5 | awk '{printf "%s (%ss) ", $2, $1}')
-echo "== sanitize_oracles [$SAN]: $pass oracle(s) passed, $NUNBUILT not built on this platform (${UNBUILT# }) —$SUBSET $([ $status -eq 0 ] && echo GREEN || echo RED)"
+echo "== sanitize_oracles [$SAN]: $pass oracle(s) passed, $NUNBUILT not built on this platform (${UNBUILT# }) —$SHARDTAG$SUBSET $([ $status -eq 0 ] && echo GREEN || echo RED)"
 exit $status

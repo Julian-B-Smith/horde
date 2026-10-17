@@ -86,19 +86,33 @@ jobs:
   #     so TSan there could never report (the human's ruling, ADR-233).
   #     HORDE_SANITIZER_CXX is the runner's g++, the compiler that built the
   #     impl's flags.make it reads; Homebrew LLVM is a macOS-only need (ADR-199).
+  #   The address,undefined leg is SHARDED over two runners (B505 round 2: one
+  #     4-vCPU runner took 38 min, the heavy h2 oracles slowing each other).
+  #     SANITIZE_SHARD=i/n is a partition by construction (each oracle in
+  #     exactly one shard; see the script), and each shard prints its list and
+  #     the parsed total. Check names: "sanitize (address,undefined, 1/2)",
+  #     "sanitize (address,undefined, 2/2)", "sanitize (thread)".
   sanitize:
+    name: sanitize (${{ matrix.sanitizer }}${{ matrix.shard && format(', {0}', matrix.shard) || '' }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        sanitizer: ['address,undefined', 'thread']
+        include:
+          - sanitizer: 'address,undefined'
+            shard: '1/2'
+          - sanitizer: 'address,undefined'
+            shard: '2/2'
+          - sanitizer: 'thread'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           submodules: recursive
           persist-credentials: false
-      - name: oracles under -fsanitize=${{ matrix.sanitizer }}
+      - name: oracles under -fsanitize=${{ matrix.sanitizer }}, shard ${{ matrix.shard }}
         if: matrix.sanitizer != 'thread'
+        env:
+          SANITIZE_SHARD: ${{ matrix.shard }}
         run: tools/sanitize_oracles.sh "${{ matrix.sanitizer }}" build-sanitize
       - name: tsan_stress_check (the thread-race test)
         if: matrix.sanitizer == 'thread'
