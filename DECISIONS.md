@@ -8377,3 +8377,5 @@ The amendments are written as `docs/proposals/rack-slot-contract.md` §12.2. The
    - **ADR-202 item 3 is amended.** Sluice's library model runs inside horde's slot: patches with their presets (Sluice's seq 48 format: corners, XY, knobs, macros, tail), snapshots and the XY, browsable and loadable from the slot's own browser. Item 2 (horde's own per-module store) stands for what horde SAVES. Whether the slot also browses the user's standalone Sluice library directly, read-only, is the one open question, and the lead recommends yes.
    - **"A little harder to find"** is the human's to settle when the slot UI is designed. Their current lean is "not hidden".
    - **For every hosted module:** the same rule applies to a module that has an XY or a library of its own. It is shown and loadable inside its slot.
+
+**ADR-186 item 2 status: DONE 2026-10-17.** The human cut `v0.9-legacy` ("Cut v0.9-legacy.") and published the CI-drafted release. Its assets and SHA-256s are recorded on B255. The plan's `freeze` part is built.
