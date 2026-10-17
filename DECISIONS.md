@@ -8291,6 +8291,28 @@ the scenarios built on this preset. The harness's copy (`h2/harness/patches.json
 4. **The adaptive mode** is a lab item (B503): opt-in, off by default, judged by A/B. Nothing is built for it in the engine.
 5. **The test author's copy of the spec** predates this change. The change reaches it batched with any other spec changes at its next stage boundary (B502). It affects only the bank stage's checks, so no earlier stage waits on it.
 
+## ADR-232 — PROPOSED (ratified by merging its PR): the engine leaves room for the glide system (B504, 2026-10-17)
+
+**Context.** The human, 2026-10-17: "while I'm happy to save poly glide for another day, I do think it's important for you to see what's coming down the chute; the glide system (particularly inertial spring mode with scale quantization) is a big part of what excites me about this synth, and many of my favorite legacy presets were poly with glide."
+
+The legacy instrument already has that system: four travel laws (constant time, constant rate, lag, and a spring that overshoots and rings), with scale quantization as a modifier on any of them (ADR-111, ADR-112). Poly glide is automatic: every new voice bends in from the last-played pitch (ADR-076, ADR-102). Glide From has three sources: held note, ringing note including its release tail, and always (ADR-103). The chord case, where each voice comes from its own nearest predecessor, was left as a follow-up (ADR-076). The new engine's spec puts all of it in the pitch system, upstream (RC-3, Q6). That is the right owner. But two engine-side gaps would have broken it.
+
+**Decision (the lead, under ADR-226 item 7's standing ruling to leave room for what is known to be coming; the human's merge ratifies it).**
+1. **A note's first sample (IF-2).** A pitch sent for a note id at its note-on's sample applies from that note's first sample, in either event order, so a glide starts at its start pitch and never sounds one sample of 12-TET first. A note waiting for a taken voice (VO-3) keeps its pitch input moving and starts where it has reached.
+2. **The lifecycle's consumer (VO-10).** The pitch system is named as a consumer: "ringing" needs to know which notes still sound, release tails included. This closes one of the three gaps the structure declaration exposed (B500): who receives the lifecycle. The load readouts' consumer stays open.
+3. **RC-3 names what is coming:**
+   - poly glide as well as mono and legato;
+   - the four travel laws;
+   - quantization as a modifier, with hysteresis and a minimum step time;
+   - the three glide-from sources;
+   - the chord case.
+
+   It also names the bank's 22 poly presets that store a glide time. The engine computes none of it; it promises the per-note pitch from the first sample and the lifecycle.
+4. **Not decided here:** whether the 22 poly-glide presets glide by default, and how the phrase stand-in of 10.3 treats them. The human deferred that ("happy to save poly glide for another day"); it stays B497's open question and moves to B504. Their reference renders do not glide, because the engine that made them glides only in mono and legato. So for glide they are not a reference.
+5. The structure declaration's `allocator->pitch_system` edge now cites VO-10, and its `spec.blob` is updated after review.
+
+**ADR-232 status: RATIFIED 2026-10-17** by the human's merge of #1117.
+
 ## ADR-233 — RULED by the human: the CI sanitizer jobs run in parallel, and the thread sanitizer runs the thread test (B505, 2026-10-17)
 
 **Context.** The human: "Is there anything we can do to get it to run for less time? It's now averaging 30 minutes. If this is defensible as the most responsible way to work, I'll accept it, but I want to make sure it isn't just spinning gears for no reason."
