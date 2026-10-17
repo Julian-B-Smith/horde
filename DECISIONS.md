@@ -8061,7 +8061,7 @@ the scenarios built on this preset. The harness's copy (`h2/harness/patches.json
 2. **Until 1.0, all rights are reserved, and the README says so.** horde has been public since 2026-07-17 with no licence file, which already means readable and not reusable. The notice makes that state deliberate. A restrictive state can be loosened later; a permissive grant cannot be taken back.
 3. **At 1.0 horde is released under the GPL.** It lets the author offer builds for money or for what a player chooses to pay, keeps forks open, and, with one author holding the copyright, leaves other licensing possible. Which version (the lead assumes version 3 or later) and the formal name of the copyright holder are settled when the licence file is written; they are not ruled here.
 4. **The sibling modules can go public, one repo at a time, each after the hygiene playbook's pre-publication audit** (a real secrets scanner over full history, every branch, binaries, and a read of its security notes). An open horde cannot host modules nobody else can build. That audit and each flip are the human's acts in those repos; horde files nothing for them. Sluice is asked about separately: the human has treated it as the most proprietary.
-5. **Before any build is offered for money: a prior-art and patent read of blade synthesis** (B472). `docs/PRIOR-ART.md` covers the tuning work and is silent on SCALPEL, which the charter described by reference to another maker's product. Nobody has checked whether anything there is patented.
+5. **Before any build is offered for money: a pre-commercial legal read of blade synthesis** (B472), held privately. *(Reworded 2026-10-17 by the human's ruling: tracked files name no legal subject.)*
 
 **What this does not change.** The alias rule (ADR-014, ADR-198) stands while a sibling is private. The disclosure rule for security findings stands. Nothing is installed, signed or sold by this ruling.
 
@@ -8379,3 +8379,5 @@ The amendments are written as `docs/proposals/rack-slot-contract.md` §12.2. The
    - **For every hosted module:** the same rule applies to a module that has an XY or a library of its own. It is shown and loadable inside its slot.
 
 **ADR-186 item 2 status: DONE 2026-10-17.** The human cut `v0.9-legacy` ("Cut v0.9-legacy.") and published the CI-drafted release. Its assets and SHA-256s are recorded on B255. The plan's `freeze` part is built.
+
+**2026-10-17, the human ruled: reword going forward.** Tracked files name no legal-claim subject. ROADMAP B472, B474, B414 and B467's acceptance, and ADR-219 item 5, are reworded in place. Their earlier wording stays in git history: the human chose to reword going forward, not to rewrite history. Licence texts that quote their own standard clauses, and the protected `docs/PRIOR-ART.md`, are unchanged.
