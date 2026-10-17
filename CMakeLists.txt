@@ -135,6 +135,14 @@ add_custom_command(
           --bank ${FACTORY_BANK_DIR} ${FACTORY_BANK_HEADER} kFactoryBank
   DEPENDS ${FACTORY_BANK_FILES} tools/embed_file.py
   COMMENT "Embedding factory bank: ${FACTORY_BANK_DIR}")
+# ONE target owns the generation (B501). The header was listed in the sources of
+# two independent targets (the impl and presetstore_check), and CMake then gives
+# each its own copy of the rule: under make -j both could run embed_file.py at
+# once and write the same file while a third compile reads it (CMake's
+# add_custom_command docs warn against exactly this). Consumers depend on this
+# target instead of listing the OUTPUT themselves. Found by loupe's first crawl
+# (its notice-003).
+add_custom_target(factory_bank_gen DEPENDS ${FACTORY_BANK_HEADER})
 
 # clap-first idiom (see libs/clap-wrapper/tests/clap-first-example): a static
 # impl lib carrying the factory, wrapped per-format by make_clapfirst_plugins.
@@ -167,7 +175,7 @@ add_custom_target(hypersaw_build_stamp ALL
 
 add_library(${PROJECT_NAME}-impl STATIC src/hypersaw_clap.cpp)
 target_compile_definitions(${PROJECT_NAME}-impl PRIVATE HYPERSAW_BUILD_ID="${HS_GIT_HASH}")
-add_dependencies(${PROJECT_NAME}-impl hypersaw_build_stamp)
+add_dependencies(${PROJECT_NAME}-impl hypersaw_build_stamp factory_bank_gen)
 # ${CMAKE_CURRENT_SOURCE_DIR}/src is load-bearing for the GENERATED headers:
 # generated/factory_bank.h includes "gui/preset_store.h", and a quoted include
 # from a generated file has no src/ to be relative to.
@@ -178,15 +186,13 @@ target_link_libraries(${PROJECT_NAME}-impl PUBLIC clap clap-wrapper-extensions)
 # header, or one binary would hold two definitions of WebView::Options.
 target_include_directories(${PROJECT_NAME}-impl PUBLIC ${HS_CHOC_DIR})
 if(APPLE)
-  target_sources(${PROJECT_NAME}-impl PRIVATE src/gui/hypersaw_gui.mm ${GUI_HTML_HEADER}
-                                              ${FACTORY_BANK_HEADER})
+  target_sources(${PROJECT_NAME}-impl PRIVATE src/gui/hypersaw_gui.mm ${GUI_HTML_HEADER})
   target_include_directories(${PROJECT_NAME}-impl PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
   target_link_libraries(${PROJECT_NAME}-impl PUBLIC "-framework WebKit" "-framework Cocoa")
 elseif(WIN32)
   # WebView2 via choc (COM declarations embedded — no external SDK).
   # CI-compile-verified; runtime validation is a recorded residual.
-  target_sources(${PROJECT_NAME}-impl PRIVATE src/gui/hypersaw_gui_win.cpp ${GUI_HTML_HEADER}
-                                              ${FACTORY_BANK_HEADER})
+  target_sources(${PROJECT_NAME}-impl PRIVATE src/gui/hypersaw_gui_win.cpp ${GUI_HTML_HEADER})
   target_include_directories(${PROJECT_NAME}-impl PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
   target_link_libraries(${PROJECT_NAME}-impl PUBLIC ole32 shlwapi version)
 endif()
@@ -882,6 +888,7 @@ if(APPLE)
   add_executable(identity_store_check tools/identity_store_check.mm)
   target_include_directories(identity_store_check PRIVATE src ${CMAKE_CURRENT_BINARY_DIR}/generated)
   target_link_libraries(identity_store_check PRIVATE ${PROJECT_NAME}-impl)
+  add_dependencies(identity_store_check factory_bank_gen)  # explicit, not only via the impl (B501)
 endif()
 
 # trace_check: the forensic note trace (FOUNDATIONS ask (c)). Links the impl so
@@ -1167,7 +1174,8 @@ target_link_libraries(twocluster_check PRIVATE ${PROJECT_NAME}-impl)
 # edit or deletion survives a newer bank. Links nothing (preset_store.h is
 # header-only and choc-free) but DOES consume the generated bank, so it also
 # proves the real embedded array installs. Standalone, unwired (human gate).
-add_executable(presetstore_check tools/presetstore_check.cpp ${FACTORY_BANK_HEADER})
+add_executable(presetstore_check tools/presetstore_check.cpp)
+add_dependencies(presetstore_check factory_bank_gen)
 target_include_directories(presetstore_check PRIVATE src ${CMAKE_CURRENT_BINARY_DIR}/generated)
 if(NOT MSVC)
   target_compile_options(presetstore_check PRIVATE -O2)
