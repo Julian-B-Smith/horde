@@ -49,7 +49,9 @@ gaps, listed in the release notes.
 | | requirement | evidence |
 |---|---|---|
 | MUST | **A measured CPU cost** in Release, as a ratio to the calibration loop (B262 / B236), at its default and worst settings. It fits the per-module budget the human sets for 1.0. | a cost-bench row |
-| SHOULD | **A memory figure** per instance, worst case included. | measured |
+| MUST | **Automated and morphing cost** (PROPOSED 2026-10-17, ADR-236 item 4; the numbers are the human's to confirm): the module's cost with one continuous parameter automated by a 1 Hz full-range sine, and under a horde-morph sweep, measured like the default row. Proposed ceiling: the worst-case figure (4 %). | a cost-bench row per case |
+| — | **Over budget does not cut a module** (ADR-236 item 3). The cost is measured, reported and worked down, by a module's own rewrite if that is what it takes. A module is left out of 1.0 only if its process drags past the release, and that is the human's call. | — |
+| MUST | **A memory figure** per instance, worst case included, all of it allocated at prepare. **Raised to MUST 2026-10-17 (ADR-236 item 6),** matching the rack-slot contract (ADR-201 Q11). | measured |
 
 ## 5. It is usable
 
@@ -66,7 +68,7 @@ gaps, listed in the release notes.
 |---|---|---|
 | MUST | **An independent critic review** of the module's port and its oracles, sourced separately from the author, with no open HIGH findings. **Ruled 2026-10-09 (ADR-203):** before 1.0, a fresh-context critic from the same model family, with no shared conversation, an adversarial brief and planted faults it must catch, satisfies this row. Before any binary ships to people outside the project, the review must ALSO come from a different model family or a human code reviewer. | the review |
 | MUST | **The human's listening sign-off** on the module, on its factory presets and at least one stress case (maximum feedback, extreme settings). | recorded in ROADMAP |
-| MUST | **Its name cleared** (B433): trademark clearance for any user-visible module name. | the clearance memo |
+| MUST | **Its name cleared** (B433): trademark clearance for any user-visible module name. **For 1.0 (ADR-236 item 5),** the self-run knockout screen of B433 counts, recorded privately; counsel stays a pre-commercial step. | the screen's private record |
 
 ## The master limiter (ruled 2026-10-09, ADR-203)
 
