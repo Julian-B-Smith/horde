@@ -420,3 +420,13 @@ Ruled by the human: "Go with your recommendations on all four." Where a row abov
 | **A4** | The frequency-dependent group delay of a minimum-phase crossover belongs in the **declared residual**. A module with modes declares the residual per mode. |
 
 **What the modules are asked.** Bulwark: crossfade `comp.scOn` and `comp.detector`, which switch a detector with no crossfade today; declare its multiband residual. Every module: declare each flip-class key's switch method and length.
+
+### 12.2 ADR-234 (2026-10-17), on Bulwark's brief `switch-classes` (seq 20)
+
+Q1 was ruled by the human ("go with B for Bulwark Q1"); Q2 and Q3 are the lead's amendments, ratified by the merge of their PR. Where a row above and this section disagree, this section holds.
+
+| Row | As amended |
+|---|---|
+| **A11**, flip-class clause | A flip-class key may also switch by a **declared seeded jump**: the state that starts running is seeded from the value being applied at the switch sample, so the applied gain (or level) does not step and only its slope changes. A seeded jump is admitted only when the module's switch table lists it with its reported click reading on the wide probe set, and the module's tests hold a must-fail control: a planted unseeded jump on the same key reads red. Bulwark's `comp.autoRel` and `lim.autoRel` are the first two (0.04 and 0.06 dB on the wide set). |
+| **A4** | Replaces 12.1's A4 row. FOUNDATIONS' `LatencyDecl::residual` means the rounding error of a whole-sample latency, bounded to [0, 0.5] samples. A frequency-dependent group delay (a minimum-phase crossover's) is **not** latency and is not a residual. The module reports the latency the host should compensate (0 for Bulwark's multiband compressor) and states the group delay, with its frequency range, in its manifest or notice outside `OperatorProperties`, until FOUNDATIONS offers a field for it. horde compensates only declared latency, never a group delay. |
+| **Morph classes (Bulwark)** | `comp.scOn` is a **Device** key: set by a preset's designer and never morphed, like `comp.bypass`. A morph between presets that differ in it holds one value. `comp.scHz` stays continuous and morphable, so a preset can morph the sidechain corner down to 20 Hz to reach "effectively off". No crossfade of `comp.scOn` is owed. |
