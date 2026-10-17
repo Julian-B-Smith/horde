@@ -67,12 +67,17 @@ in_list() { case " $2 " in *" $1 "*) return 0 ;; esac; return 1; }
 # and runs only shard i of n. ALLOWED under CI, unlike SANITIZE_ONLY, because
 # the shards are a partition by construction: every parsed oracle lands in
 # exactly one shard, so n legs together run every oracle once. The heavy
-# oracles (HEAVY, longest first: CI run 39005256368's ASan times) are dealt
-# round-robin so no shard holds two of the slowest; every other oracle goes to
+# oracles (HEAVY) are dealt round-robin in the order below; every other oracle goes to
 # shard (its index among the non-heavy, in ./verify's order) mod n. Each shard
 # prints its list and the parsed total, so the union is checkable from the
-# logs. HEAVY is also the launch order (slowest first) inside a shard.
-HEAVY="h2_engine_selfdigest_check h2_engine_parity_check h2_engine_selfdigest_product h2_engine_fma_control stability_check h2_scalpel_parity_check h2_scalpel_fma_control"
+# logs. HEAVY is also the launch order inside a shard. The ORDER is the
+# balance, from the sharded run 39008555080: shard 1 got selfdigest_check 586 s,
+# selfdigest_product 510, stability_check 668 (the longest single oracle) and
+# scalpel_fma 214, and took 21.4 min; shard 2 got parity 351, fma_control 334
+# and scalpel_parity 157, and took 12.5. A shard's batch is bounded by its
+# longest oracle, so stability_check moves to shard 2 (position 4 below):
+# shard 1 is then bounded by selfdigest_check, shard 2 by stability_check.
+HEAVY="h2_engine_selfdigest_check h2_engine_parity_check h2_engine_selfdigest_product stability_check h2_engine_fma_control h2_scalpel_parity_check h2_scalpel_fma_control"
 ALLNAMES=$(echo "$ORACLES" | cut -d' ' -f1 | tr '\n' ' ')
 NALL=$(echo "$ORACLES" | grep -c .)
 SHARD_I=1 SHARD_N=1 SHARDTAG=""

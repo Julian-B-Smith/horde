@@ -15,7 +15,7 @@
       "title": "Thread races between UI, host and audio threads",
       "status": "partial",
       "gates": ["sanitize", "tsan_stress_check", "load_handoff_check"],
-      "gaps": "tsan_stress_check (ADR-200) drives the legacy shell's real entry points from a host-like main thread during render and holds ZERO main-thread write races over 3 seeds; load_handoff_check covers load ordering the sanitizer cannot see. Accepted until the legacy park trigger (ADR-186 section 6): read-only main-thread and host reads of audio-owned state, counted every run. Both run in verify full only, macOS-local; tsan_stress_check SKIPs without Homebrew LLVM (ADR-199), and CI runs neither. Paths outside the seeded schedule are unproven. horde 2 has no shell yet; ADR-200's shell rules make this harness its gate.",
+      "gaps": "tsan_stress_check (ADR-200) drives the legacy shell's real entry points from a host-like main thread during render and holds ZERO main-thread write races over 3 seeds; load_handoff_check covers load ordering the sanitizer cannot see. Accepted until the legacy park trigger (ADR-186 section 6): read-only main-thread and host reads of audio-owned state, counted every run. Both run in verify full, macOS-local; tsan_stress_check SKIPs there without Homebrew LLVM (ADR-199). Since ADR-233 (B505) CI's sanitize (thread) leg runs tsan_stress_check on every PR with the runner's g++, its must-fire plants first and a SKIP failing the step; load_handoff_check still runs in verify full only. Paths outside the seeded schedule are unproven. horde 2 has no shell yet; ADR-200's shell rules make this harness its gate.",
       "tracked_by": "B448",
       "tripwire": "TSan stress: clean"
     },
