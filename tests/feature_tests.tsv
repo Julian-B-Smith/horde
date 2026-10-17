@@ -27,7 +27,7 @@
 # coverage from an oracle that was never written. Rows with oracle=none are the
 # real gaps and are counted every run.
 id	page	feature	kind	pins	owner	oracle	assertion
-INV-1	*	determinism	agentic	RULING	spec	parity_check	same seed + note order renders identically; 147 scenarios within 1e-6 RMS
+INV-1	*	determinism	agentic	RULING	spec	parity_check	same seed + note order renders identically; 156 scenarios within 1e-6 RMS
 INV-2	*	rt-safety	agentic	RULING	spec	rtsafety_probe	the audio thread allocates nothing across 320 process() calls, blocks 33..2048
 INV-3	*	subdivision	agentic	RULING	adr-086	subdiv_check	output does not depend on how the host splits the buffer
 INV-4	*	sample-rate	agentic	RULING	adr-009	samplerate_check	time constants are seconds, not per-tick — behaviour holds across rates

@@ -13,11 +13,19 @@ wrong. Newest first.
 
 ## [Unreleased]
 
-> **TODO (human): LICENSE.** No `LICENSE` file exists; the tree is
-> all-rights-reserved by default. Two complete candidate texts and what each
-> implies for the reference prototypes and the ingested specs are in
-> `docs/LICENSE-OPTIONS.md`. Choose, copy one to `LICENSE`, record the ADR,
-> and strike this note.
+> **LICENSE (ADR-219, 2026-10-13).** All rights reserved until 1.0; at 1.0 horde is released
+> under the GPL. The `LICENSE` file is written then, with the GPL's version and the copyright
+> holder's formal name.
+
+## [0.9-legacy] — 2026-10-17
+
+The frozen legacy plugin (`com.lifted-truck.hypersaw`; ADR-186), archived as the CI-built bundles
+that old projects depend on (ADR-186 item 2): macOS universal pkg and zip (ad-hoc signed), Windows
+x64 zip, an SBOM and `SHA256SUMS`. Tag `v0.9-legacy` on main `57d61f9`; release
+https://github.com/Julian-B-Smith/horde/releases/tag/v0.9-legacy. Its changes are the lines
+under Unreleased up to that commit. This section was written after the tag, so the release's
+note "CHANGELOG.md at this tag" points at the file before it existed; ROADMAP B255 holds the
+record.
 
 ### Added
 
