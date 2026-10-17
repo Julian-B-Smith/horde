@@ -11,9 +11,15 @@ One knob — **coupling** — turns a stack of detuned voices into a dynamical s
 drift as a loose cloud; raised, they herd, shimmer, then lock; negative, they push apart and
 multiply harmonics. **Inertia** gives the swarm weight, so lock is arrived at rather than set.
 **Gravity** lets a held chord settle into just intonation — you hear the beating slow and stop.
-It ships as a CLAP-native instrument (VST3 and AU through clap-wrapper) with two oscillators,
-an FX rack and a morph grid, and its C++ engine is held to parity (1e-6 RMS) against the
-browser prototypes they were designed in — every run, by the oracle, not by ear.
+
+**Two products live in this repository.** The one you can download is the **legacy plugin**:
+frozen, and released as [`v0.9-legacy`](https://github.com/Julian-B-Smith/horde/releases/tag/v0.9-legacy)
+on 2026-10-17. It is a CLAP-native instrument (VST3 and AU through clap-wrapper) with two
+oscillators, a sub, an FX rack and a morph grid, and its C++ engine is held to parity (1e-6 RMS)
+against the browser prototypes it was designed in — every run, by the oracle, not by ear.
+**horde 2** is in development: a new plugin with its own identity, around a new engine being
+rebuilt from a ratified spec in a clean room, with FX modules developed as sibling projects.
+Nothing of horde 2 is released yet. [Where it is going](#where-it-is-going--horde-2) has the plan.
 
 ### Hear it
 
@@ -27,8 +33,10 @@ browser prototypes they were designed in — every run, by the oracle, not by ea
 
 ### See it
 
-The two shots directly below the rule are real and current — MAIN on both chassis, from the
-2026-08-26 set in `docs/img/` — and OSC and the morph grid appear further down.
+The two shots directly below the rule are real shots of the legacy plugin — MAIN on both
+chassis, from the 2026-08-26 set in `docs/img/` — and OSC and the morph grid appear further
+down. The interface kept changing after that date (the MOD page's LFOs, for one), so a detail
+in a shot may differ from the released build.
 
 > **TODO(human) — the rest of the screenshot set.** `docs/img/README.md` lists what is still
 > owed (labs gallery, chassis/screen schemes, a green `./verify`, FX and MIX) and notes that
@@ -36,33 +44,48 @@ The two shots directly below the rule are real and current — MAIN on both chas
 
 ### Download
 
-> **TODO(human) — no release exists yet.** There are no git tags and CI builds no artifacts;
-> tagged semver releases, CI-built artifacts, a notarized macOS installer and a Windows binary
-> are `ROADMAP.md` B101. Until B101 ships one, the only route is to build from source (see
-> **Build**, below). Do not put a link here that points at nothing.
+**The legacy plugin, `v0.9-legacy`** —
+[the release page](https://github.com/Julian-B-Smith/horde/releases/tag/v0.9-legacy), built and
+drafted by CI from the tag and published by the human on 2026-10-17. Its assets:
+
+| asset | what it is |
+|---|---|
+| `horde-macos-universal-0.9-legacy.pkg` | macOS installer: VST3, AU and CLAP, into `/Library/Audio/Plug-Ins` |
+| `horde-macos-universal-0.9-legacy.zip` | the same three macOS bundles, to copy by hand |
+| `horde-windows-x64-0.9-legacy.zip` | Windows x64: VST3 and CLAP |
+| `horde-0.9-legacy.cdx.json` | the SBOM: every pinned dependency |
+| `SHA256SUMS` | check every download against it |
+
+The macOS bundles are **ad-hoc signed, not notarized** (no Apple Developer ID is configured), so
+macOS may refuse to open them until you allow them. This is the legacy plugin of record: old
+projects depend on this archive, not on a future rebuild (ADR-186). There is no horde 2 download.
 
 ### Read the engineering
 
 - **[docs/ENGINEERING.md](docs/ENGINEERING.md)** — how correctness is defined here, the
   RULING / ENCODING taxonomy, how an agentic process was governed, and the goldens problem
-  with its v2 plan. Five minutes.
+  with its v2 plan. Five minutes. A draft, written about the legacy engine.
 - **[docs/MEASUREMENTS.md](docs/MEASUREMENTS.md)** — aliasing at four notes with the saw-shape
   section engaged, CPU per voice count, and the listening note. The direct answer to "parity
   isn't correctness".
+- **[docs/H2-PLAN.md](docs/H2-PLAN.md)** — horde 2's plan of record: every part, the rows and
+  decisions that govern it, and what 1.0 is.
 
 ---
 
-*Names: the **device** is **horde**; its **engine** is **SWARM SAW**. "HYPERSAW" is now only
-the repository's name and the frozen plugin id hosts use to re-find saved sessions — so that id
-will keep saying `hypersaw` long after nothing on screen does.*
+*Names: the **device** is **horde**; its founding **engine** is **SWARM SAW**; the maker is
+**Mindlathe**. "HYPERSAW" is the frozen legacy plugin id hosts use to re-find saved sessions
+(`com.lifted-truck.hypersaw`), the legacy preset folder's name, and the name this project signs
+in sibling projects' mailboxes — so that id will keep saying `hypersaw` long after nothing on
+screen does. horde 2 has an id of its own, `com.mindlathe.horde` (ADR-235).*
 
 ![horde — MAIN, dark chassis](docs/img/gui-hero.png)
 *MAIN on the **dark** chassis with the **TUBE** screen: the XY pad, patch storage, the bend
 laws with their step-response and vibrato-retention meters, the scale mask, and the swarm's
 phase circle mid-note — the ring is the swarm, the violet vector is the order parameter, and
 the green arc is where the voices have collected. The wordmark is not a graphic; it is being
-warped live by the engine. Build hash sits bottom-right of every shot — that is which code
-drew it.*
+warped live by the engine. The interface carries its build stamp bottom-right, which says which
+code drew it; this set was framed without it.*
 
 ![horde — the same page, light chassis](docs/img/gui-light.png)
 *The **same page** on the **light** chassis with the **EMBER** screen. Chassis and screen are
@@ -71,10 +94,16 @@ signal colours and their meanings are identical — only the ground and the phos
 
 ---
 
-## What it does today
+## What it does today: the legacy plugin
 
-Two **oscillators**, each a full swarm, summed through a shared FX rack and a master stage.
-The interface is six live pages plus a settings page.
+Everything in this section describes the **legacy plugin**, the one you can download
+(`v0.9-legacy`). It is frozen: from here it receives only crash, real-time-safety, state and
+host-validation fixes, display metadata the human asks for, and build fixes for toolchain drift
+(ADR-186 item 1). horde 2 is described under [Where it is going](#where-it-is-going--horde-2).
+
+Two **oscillators**, each a full swarm, and a **sub**, summed through a shared FX rack and a
+master stage. The interface has six playing pages — MAIN, OSC, MIX, FX, MOD and MORPH — plus a
+settings page and an undo-history page.
 
 ### OSC — where the sound is built
 
@@ -95,15 +124,15 @@ decoration — the phase circle shows the swarm's coherence, the voice map shows
 
 Per-oscillator power, level, tuning, mute/solo and meters; master volume and transposition;
 and the output stage — mono fold, bass-mono with an adjustable crossover, and 2× oversampling.
-A disabled oscillator costs **0.03% of a core**: disabled means it does not run, not that it
-runs quietly.
+Disabled means it does not run, not that it runs quietly: with both oscillators switched off
+the shell measured **0.03% of a core** (`docs/research/2026-08-22-two-osc-cpu-measurement.md`).
 
 ### FX — four slots in series
 
 Four slots, order fixed by slot index, each with type / amount / tone. An `Off` slot is a
-**bit-exact passthrough** that does not touch the buffer. Comp and Comb are real cores; Drive,
-Filter and Gain are honest placeholders, labelled as such, kept because slot *order* is audible
-even with them.
+**bit-exact passthrough** that does not touch the buffer. Comp, Comb, Notch, Echo, Room and a
+standard stereo Delay are real cores; Drive, Filter and Gain are honest placeholders, labelled
+as such, kept because slot *order* is audible even with them.
 
 ### MAIN — performance
 
@@ -112,15 +141,19 @@ rate, lag, mass-spring), quantisation to chromatic or to a scale in three flavou
 grid, and an on-screen wheel so every one of them is auditionable without hardware. Glide
 sources, mono/legato, and MPE per-note bend live here too.
 
-**Eight macro knobs, MAIN's own XY pad, a morph mini, and wheels** (2026-09-01): MAIN carries
-its own assignable pad (each axis picks a macro, or None — and lists what it actually reaches
-through the matrix), a light morph position pad that appears while morph is on, and on-screen
-pitch-bend + mod wheels. The OSC pages keep their per-oscillator pads. Macros reach any
-continuous parameter through the **mod matrix** — right-click a knob to send it; modulation
-draws as an offset (a reach arc and a live tick around a stationary knob) — the knob always
-shows the value you authored. Routes persist with the patch. While morph is ON, the macro
-family suspends so corners keep their authored identity (ADR-152); sources beyond the
-envelopes: velocity, mod wheel, pressure, pitch wheel (ADR-149).
+**Eight macro knobs, MAIN's own XY pad, a morph mini, and wheels:** MAIN carries its own
+assignable pad (each axis picks a macro, or None — and lists what it actually reaches through
+the matrix), a light morph position pad that appears while morph is on, and on-screen
+pitch-bend + mod wheels. The OSC pages keep their per-oscillator pads.
+
+### MOD — the mod matrix
+
+Macros reach any continuous parameter through the **mod matrix** — right-click a knob to send
+it; modulation draws as an offset (a reach arc and a live tick around a stationary knob) — the
+knob always shows the value you authored. Routes persist with the patch. The sources: four
+envelopes, two LFOs, the eight macros, velocity, mod wheel, pressure and pitch wheel (ADR-149,
+B171). While morph is ON, the macro family suspends so corners keep their authored identity
+(ADR-152).
 
 ---
 
@@ -259,15 +292,15 @@ errors rather than their size. Each voice nudges itself toward the group's avera
 little motor noise of its own, which is the model measured from actual string quartets
 (Vorberg/Wing): `offset ← offset − α·(offset − group average) + noise`.
 
-Measured from the shipped engine — the **lag-1** column is the pattern, and it is the thing
-conventional humanize cannot produce:
+Measured from the legacy engine when the feature landed (ADR-077) — the **lag-1** column is the
+pattern, and it is the thing conventional humanize cannot produce:
 
 | α | onset SD | lag-1 autocorrelation | what it is |
 |---|---|---|---|
 | 0 | 202 ms | +0.985 | a random walk — drifts without bound |
 | **0.25** | **35.8 ms** | **+0.679** | bounded, *with structure* — real quartets |
 | 1.0 | 26.4 ms | −0.072 | i.i.d. — **exactly what conventional humanize produces** |
-| 1.5 | — | −0.550 | over-correction: alternating early/late |
+| 1.5 | 31.6 ms | −0.550 | over-correction: alternating early/late |
 
 Read the bottom rows: the familiar "humanize" sound is not an alternative to this control, it
 is **one specific value of it** — α = 1.0, where every voice corrects fully and the errors stop
@@ -324,27 +357,50 @@ And the authoring side:
 ## What is deliberately not here
 
 Other engines and modules exist in the tree as parked, parity-gated candidates. None of them
-is part of 1.0, none is reachable from the shipped interface, and none is a feature of this
-instrument until the human re-opens it explicitly — `docs/PARKED.md` is the register, with a
-revisit trigger per entry. This README describes what ships.
+is reachable from the released legacy interface, and none is a feature of this instrument until
+the human re-opens it explicitly — `docs/PARKED.md` is the register, with a revisit trigger per
+entry. The sections above describe what the legacy plugin ships.
 
-## Where it is going — the road to 1.0
+## Where it is going — horde 2
 
-`ROADMAP.md` is the authoritative plan (its §"1.0 — DEFINITION OF DONE" was ratified
-2026-09-10); the short version of what stands between here and a tagged 1.0:
+`ROADMAP.md` is the single source of truth for status. **[docs/H2-PLAN.md](docs/H2-PLAN.md)** is
+the README-level map of it for horde 2 — every part, its governing rows and decisions, its
+status, what it needs first, and what 1.0 is — and
+**[docs/design/h2-plan-map.html](docs/design/h2-plan-map.html)** draws the same plan as a graph
+you can click (serve the repo with `python3 tools/serve_labs.py` and open it). The short version:
 
-| | |
+- **A new plugin, not a new version** (ADR-186). The legacy plugin keeps its id, its state format
+  and its sound. horde 2 is a separate product with all of its identity new — CLAP id
+  `com.mindlathe.horde` (ADR-235), a new AU subtype, its own bundle names and preset store — and it owes
+  nothing to legacy DAW state. **1.0 is horde 2's first human-cut release tag: the stability
+  line.** Before it, laws, parameters and ranges change freely; after it, they are locked and a
+  sound-law change is selected by the state's version.
+- **A new engine, rebuilt from a ratified spec** (ADR-223 to ADR-231). The engine that combined
+  the swarm with SCALPEL's blades (windows that cut each cycle and replace their span) carried too
+  much of its own history, so the human ruled a rebuild: a spec written from the user's side
+  ([`specs/SPEC-ENGINE.md`](specs/SPEC-ENGINE.md)), acceptance tests written from it by a different
+  agent before the engine exists, then a build from the spec and the tests alone, in a clean room
+  (`engine2/`). The instrument's laws — the coupling law, member placement, gravity, the
+  ensemble, every blade law — are copied into the spec as normative math (ADR-224 A1). One
+  instrument-wide voice per played note holds both swarm oscillators with their blades, the sub
+  and the noise oscillator. The labs will run it as WebAssembly.
+- **FX modules developed as sibling projects** — **Shriek** (formerly MAW, a three-stage
+  saturator), **Sluice**, **Scape** (reverb) and **Bulwark** (the compressor, and the master
+  limiter) — hosted in horde's rack through one slot contract, beside horde's own ECHO, EQ, FX
+  filter and drive. **The module cutoff is 2026-12-11** (ADR-236): each module's 1.0 MUST rows
+  are judged on that date, and a module that misses it ships after 1.0.
+
+**The rebuild, stage by stage** (ROADMAP B494; the build's stages are the spec's BD-8):
+
+| stage | status |
 |---|---|
-| **Modulation** | The instrument has no LFOs yet — nothing moves unless you move the morph pad or the wheels. Two or three inertial LFOs through the existing mod matrix is the single largest gap. |
-| **Real Drive and Filter** | Two FX slots are still labelled placeholders. The per-voice SVF core exists and is oracle-covered; wiring it into the rack and a FILT page is the next audio lane. |
-| **The FX routing you can see** | A visual routing matrix in front of the rack, and a ruled module policy (a bounded pool: every module a permanent node, absent = coefficient zero) so morphing between corners never hard-cuts a signal path. |
-| **The XY pads, made honest** | Each oscillator's pad now writes its own detune and K directly; only MAIN's pad is a macro pad. Landed 2026-09-10. |
-| **MAIN shows both oscillators** | Two waveforms, two phase carpets, nothing that quietly refers to "the active one". |
-| **A second modulator on one knob** | Send another modulator to an already-routed parameter, and pick destinations from the MOD page directly. |
-| **State that survives its own future** | A header on every saved blob — schema, engine revision, build — plus a fixture corpus asserted to load and render identically forever. Before anyone but the author saves a session. |
-| **Release engineering** | A licence, a changelog, tagged releases with CI-built macOS and Windows artifacts, a published robustness matrix. |
-| **Factory presets** | Thirty to fifty named, categorised patches built to demonstrate the coupling law, not to fill a menu. |
-| **The evidence layer** | Aliasing and CPU measurements published (`docs/MEASUREMENTS.md`), a five-minute engineering writeup (`docs/ENGINEERING.md`, draft), a landing page and a short video. |
+| The rebuild audit (B493) | Done 2026-10-16 (PR #1096) |
+| The spec, `specs/SPEC-ENGINE.md` (B494 step 1) | **Ratified** by the human's merge of PR #1097, 2026-10-16; amended since by ADR-230 and ADR-231 |
+| The clean-room tree `engine2/` and the 380 reference renders (B497) | Done 2026-10-17: the tree builds an empty library and an empty suite; the renders are release asset `engine2-reference-renders-v1` |
+| Two history-free repositories, one for the test author and one for the builder (B502) | Made 2026-10-17; their sessions are next |
+| The acceptance tests, by a different agent from the spec alone (B498) | Next |
+| The build, in eight stages: manifest and state; the voice, ENV 1, the pedal and the output; the swarm; the edge correction; the blades; the sub and noise; modulation, morph and state; WebAssembly — then the bank | Not started |
+| Judgement and cutover (B494 step 4) | The human's ears on the whole bank A/B, the CPU target (B488), the invariant suite; then it replaces the current engine |
 
 ---
 
@@ -399,25 +455,43 @@ its controls from them.
 
 ## How correctness is defined
 
-Not "it sounds plausible". The C++ engines are **statement-level ports of browser prototypes**
-that you can open and hear, and the oracle re-derives the goldens from those prototypes on
-every run and compares:
+Not "it sounds plausible". What it is depends on which engine you mean, and the records say so
+(ADR-187, ADR-224).
 
-- **`./verify fast | full` — every `tools/*_check` is wired or says why not** (`test_table_check` prints the wired and `UNWIRED:` counts on every run; ADR-180 §1). Parity is **156/156 scenarios within 1e-6 RMS**
-  (worst 4.262e-09; most match to the bit).
+**The legacy plugin: parity with the prototypes.** Its C++ engines are **statement-level ports
+of browser prototypes** that you can open and hear, and the oracle re-derives the goldens from
+those prototypes on every run and compares:
+
+- **Parity, in `./verify full`: 156/156 scenarios within 1e-6 RMS** (worst 4.262e-09; most
+  match to the bit).
 - Alongside parity sit the probes parity structurally **cannot** see: subdivision invariance,
   sample-rate independence, RT-safety (no allocation on the audio thread), note-lifecycle fuzz,
   voice-steal priority, GUI reachability, presentation-table totality, and the dependency graph.
-- **`tests/feature_tests.tsv`** — 124 tests, each declaring whether it pins a **RULING** (a
-  decision that must not silently change) or an **ENCODING** (how it happens to be done today).
-- Note-lifecycle **conformance** against a sibling project's ruled behaviours: 8 passed, 0 ruled
-  failures, 3 divergences ruled conforming and pinned — so an unexpected *pass* also goes red.
+- **`tests/feature_tests.tsv`** — 204 tests (116 an oracle runs, 88 that need ears or a host),
+  each declaring whether it pins a **RULING** (a decision that must not silently change) or an
+  **ENCODING** (how it happens to be done today).
+- Note-lifecycle **conformance** against a sibling project's ruled behaviours, in `./verify full`
+  on the maintainer's Mac only: the sibling's headers are private, so everywhere else the check
+  announces that it skipped.
 
-Validated: pluginval strictness 10, auval, and load + play + MPE in Live.
+**The new engine: its spec, its invariant suite and the human's ears.** It is held to no JS
+parity at all (ADR-224 item 8). Its correctness is the ratified spec, `specs/SPEC-ENGINE.md`; a
+Layer-0 invariant suite written from that spec (determinism, real-time safety, aliasing, clicks,
+CPU); and the human's ears on the whole bank. It need not sound the same as today's engine at
+the same settings; it must do what a player expects of the waveform manipulation, and sound good
+(ADR-223). Its suite is empty today (`suite: 0 items, 0 failed`): the tests come next, written
+before the engine exists. The engine it replaces (`h2/engine/`) stays under parity until the
+cutover.
+
+**For both:** every `tools/*_check` is wired into `./verify` or says why not in its header
+(ADR-180 §1); `test_table_check` prints the wired and `UNWIRED:` counts on every run. CI runs
+`./verify fast`, the oracles under ASan and UBSan, a thread-race test, and the Windows build with
+pluginval at strictness 10 on every pull request that is not docs-only — about 22 minutes (B505).
+auval and host loads on the Mac are run by the human.
 
 ## Build
 
-CLAP-native, wrapped to VST3 and AUv2 by clap-wrapper.
+This builds the **legacy plugin**. CLAP-native, wrapped to VST3 and AUv2 by clap-wrapper.
 
 ```bash
 cmake -S . -B build-release -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release
@@ -427,6 +501,10 @@ cmake --build build-release -j
 Pass `-DHYPERSAW_GUI2=OFF` for the legacy single-column interface (GUI1), which predates the
 second oscillator, the mixer, the FX rack and the morph grid and cannot show any of them. It
 is kept building so the escape hatch stays real.
+
+The new engine builds on its own, from its clean-room tree:
+`engine2/build.sh /absolute/path/to/a/build/dir` configures, builds and runs its suite (today an
+empty library and `suite: 0 items, 0 failed`).
 
 ### Trying unmerged changes in a host: the test identity
 
@@ -485,44 +563,59 @@ To remove it, delete those three bundles and, if its presets are not wanted, the
 |---|---|
 | `ROADMAP.md` | Phase-gated plan — **the single source of truth for status** |
 | `DECISIONS.md` | ADR log, append-only |
+| `docs/H2-PLAN.md` · `docs/design/h2-plan-map.html` | horde 2's plan of record, and the same plan as a clickable map |
 | `specs/` — `SPEC.md`, `SPEC-<NAME>.md`, `ACCEPTANCE.md` | One spec per engine-family member; measured acceptance criteria. Moved 2026-09-07 (ADR-155) |
+| `specs/SPEC-ENGINE.md` | The new engine's ratified spec — the only reference its builder reads |
+| `engine2/` | The new engine's clean-room tree: an empty library and an empty suite until the tests and the staged build land (`engine2/README.md`, `engine2/CLEANROOM.md`) |
+| `h2/` | horde 2's current engine (`h2/engine/`, the composed engine the rebuild replaces), its test harness, and the lifted cores it is checked against |
 | `reference/` | The spec-in-code prototypes the parity oracles extract from — protected; an edit there is a spec change. Design labs stay in `docs/design/` |
-| `src/*_core.h` | The engines: header-only, pure, framework-free |
-| `src/hypersaw_clap.cpp` | CLAP shell: params, state, notes/MPE, the morph field, viz feed |
-| `src/gui/gui2.html` · `src/param_presentation.tsv` | The interface, and the table 197 of its controls are generated from |
+| `src/*_core.h` | The legacy plugin's engines: header-only, pure, framework-free |
+| `src/hypersaw_clap.cpp` | The legacy CLAP shell: params, state, notes/MPE, the morph field, viz feed |
+| `src/gui/gui2.html` · `src/param_presentation.tsv` | The legacy interface, and the table 238 of its controls are generated from |
 | `tools/` | The oracle: golden generator, parity/trajectory/invariant checks |
-| `docs/design/` | 23 labs — where behaviour is auditioned before it becomes code |
+| `docs/design/` | 36 labs, plus review pages such as the plan map — where behaviour is auditioned before it becomes code |
 | `docs/playbooks/` | How to wire a new source or feature through every seam (ids, class, morph, mod matrix, history, presets, GUI, RT safety, parity, checks), with a PR checklist — its citations are re-read by `tools/playbook_check.py` |
+| `integrations/` | The inbound mailbox: briefs other projects file to this one, one folder per sender |
 | `traces/` | Provenance log — one entry per merged change set |
 
 ## Status and known gaps
 
-*Last verified: **2026-09-10** — every claim below re-checked against the gates on that date.
-If this date is old, trust `ROADMAP.md` over this file.*
+*Last verified: **2026-10-17**, against main `5613885` — every claim in this file re-checked
+against the records, the code and the gates on that date. If this date is old, trust
+`ROADMAP.md` over this file.*
 
 Stated rather than omitted:
 
+- **The legacy plugin is frozen, so its known render defects stay.** Changes that would alter its
+  sound (ROADMAP B278, B279, B241) go to horde 2, not into legacy (ADR-186 item 1). Its interface
+  runs in the system's web view, so it can still drift with WebKit; that is stated rather than
+  hidden. Legacy leaves `main` only when the human has moved their own work to horde 2 (ADR-186
+  item 6).
+- **The macOS release is ad-hoc signed, not notarized.** CI notarizes only when Apple Developer
+  ID credentials exist, and none are configured.
+- **horde 2 has no plugin shell on `main` yet.** A playable preview around its current engine has
+  been built and played in a DAW on the maintainer's machine (ROADMAP B458); it is not on `main`
+  and is not distributed.
 - **A parked engine's parameters exist in the parameter table but not in the shipped
   interface** — by ruling, not by accident (`docs/PARKED.md`; the engine source carries a
   STATUS header saying so). `gui_reach` is an either-GUI check and stays green across that
   gap; recorded here because a green gate is exactly where a gap like this hides.
-- **Fourteen test-table rows have no oracle yet** — counted by the gate rather than quietly
+- **Sixteen test-table rows have no oracle yet** — counted by the gate rather than quietly
   carried (`test_table_check` prints the number every run, which is why this line can be
   trusted to be current rather than remembered).
 - **A check that is not wired carries `UNWIRED: <reason>` in its header**, and `test_table_check`
   fails the build otherwise (ADR-180 §1, 2026-09-19). The list of exemptions is the enforcement's
-  own output, not this file; ROADMAP B159 holds the ten whose reasons are still owed.
-- **In-page WebAudio health readouts are untrustworthy**, and the labs deliberately show none:
-  an analyser taps the graph rather than the device, and `ctx.currentTime` advances straight
-  through an underrun. Both reported healthy audio through three rounds while a human heard the
-  output cutting out.
+  own output, not this file.
+- **In-page WebAudio health readouts are untrustworthy:** an analyser taps the graph rather
+  than the device, and `ctx.currentTime` advances straight through an underrun. Both reported
+  healthy audio through three rounds while a human heard the output cutting out.
 - **Windows had its first native run on 2026-09-09** (builds, every oracle green, loads and
-  plays in Live); residuals are listed in ROADMAP B99 — keys still die while a control is
-  dragged, and the preset store's path is not yet portable there. Reaper and Bitwig loads
-  remain deferred by choice.
+  plays in Live), and the release carries a CI-built Windows binary. One residual is open in
+  ROADMAP B99: computer-keyboard MIDI still dies while a control is dragged. Reaper and Bitwig
+  loads have not been tested.
 
 ## Licence
 
-**All rights reserved until 1.0.** horde is public so that it can be read; until its first release
-there is no licence to use, copy, modify or redistribute it. At 1.0 it will be released under the
-GPL (ADR-219, 2026-10-13). The repository's author holds the rights in it.
+**All rights reserved until 1.0.** horde is public so that it can be read; until 1.0 there is no
+licence to use, copy, modify or redistribute it. At 1.0 it will be released under the GPL
+(ADR-219, 2026-10-13). The repository's author holds the rights in it.
