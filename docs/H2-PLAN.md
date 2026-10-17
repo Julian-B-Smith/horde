@@ -545,7 +545,7 @@ an unphased branch). **Planned**, **conditional**. Needs `bulwark`.
 ### Shell, quality and presentation
 
 **horde 2 plugin shell** (`shell`). A separate product with all of its identity new (CLAP id
-`com.mind-lathe.horde`, a new AU subtype, its own bundle, pkg identifier and preset root, the
+`com.mindlathe.horde`, a new AU subtype, its own bundle, pkg identifier and preset root, the
 vendor "Mindlathe", the display name "Horde"). Parameters are generated from manifests into a
 committed lockfile; the state carries a schema version from day one.
 - Governing: B398 (planned), B428 (frozen identities from the first release), B429 (process,
