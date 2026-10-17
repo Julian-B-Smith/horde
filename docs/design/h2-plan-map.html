@@ -5,6 +5,10 @@
      REFRESHED 2026-10-09 (the human: "start the h2 refresh"), against ROADMAP at e8441e8 through B451
      and DECISIONS through ADR-199: 15 parts added, fxsimple retired into eq/fxfilter/drive, noise,
      arps, ott, maw and reverb re-scoped in place (ids kept, because docs/manual cites them).
+     REFRESHED 2026-10-17 (the human: "What are the quickest wins while we work on the engine rebuild?"),
+     against main 3f338ce through B503 and ADR-231 (B504 and ADR-232 read on records PR #1117, cited in
+     prose only): the rebuild of ADR-223 adds engine2; engine, edges and port are superseded (a new
+     status; ids kept for the manual); the critical path and the order of work follow.
 
      WHAT THIS PAGE IS. One node per part of horde 2, an edge per dependency (prerequisite -> dependent),
      colour by status, the critical path to 1.0 highlighted. Clicking a node shows what the part is, its
@@ -20,7 +24,8 @@
      SELF-CHECKS (?check=1, or the button), each with a must-fail control that must go red:
        1. every node cites at least one ROADMAP row that exists in the served ROADMAP.md, and every
           cited ADR exists in DECISIONS.md (control: a planted node citing only B99999);
-       2. the dependency graph has no cycle (control: a planted back-edge release -> engine);
+       2. the dependency graph has no cycle (control: a planted back-edge release -> the critical path's
+          first part);
        3. every edge names real nodes and every status is in the vocabulary (control: an edge to 'nope');
        4. the map agrees with docs/H2-PLAN.md's parts table: same ids, statuses, rows and prerequisites
           (control: a copy of the doc table with one status changed);
@@ -48,7 +53,7 @@
     --shadow:1.5px 1.5px 0 var(--line);
     --focus:0 0 0 2.5px rgba(245,22,156,.45);
     /* status colours: one hue per status, the same in both themes' roles */
-    --s-built:#4E7A00; --s-prog:#00A89D; --s-ruled:#6431F0; --s-planned:#F5A300; --s-post:#9A93A3; --s-parked:#B6AFA0; }
+    --s-built:#4E7A00; --s-prog:#00A89D; --s-ruled:#6431F0; --s-planned:#F5A300; --s-post:#9A93A3; --s-parked:#B6AFA0; --s-super:#8C6E5A; }
   body.dark {
     --bg:#151220; --panel:#1F1B2E; --well:#0E0C16; --panel2:#2C2740;
     --line:#EFE9FA; --hair:#312B47; --div:#3B3455;
@@ -56,7 +61,7 @@
     --value:#FF3DAD; --physics:#A07CFF; --meter:#2DF2E2; --marker:#FFE04D; --celebrate:#C2F53E;
     --caution:#FFB627; --caution-bg:#4A3A12; --caution-tx:#FFD98A; --alarm:#FF5A4D;
     --focus:0 0 0 2.5px rgba(255,61,173,.45);
-    --s-built:#C2F53E; --s-prog:#2DF2E2; --s-ruled:#A07CFF; --s-planned:#FFB627; --s-post:#8A82A3; --s-parked:#514A6B; }
+    --s-built:#C2F53E; --s-prog:#2DF2E2; --s-ruled:#A07CFF; --s-planned:#FFB627; --s-post:#8A82A3; --s-parked:#514A6B; --s-super:#B08E78; }
   * { box-sizing:border-box; margin:0; }
   body { background:var(--bg); color:var(--text); font:12px/1.45 ui-monospace,Menlo,monospace; padding:10px 14px 24px; }
   .hdr { display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin-bottom:10px; }
@@ -173,50 +178,59 @@
 
 <script>
 /* ---------- DATA: the plan's structure (mirrors docs/H2-PLAN.md's parts table; self-check 4) ---------- */
-const STATUSES = ['built', 'in progress', 'ruled', 'planned', 'post-1.0', 'parked'];
-const SCOLOR = { 'built':'--s-built', 'in progress':'--s-prog', 'ruled':'--s-ruled', 'planned':'--s-planned', 'post-1.0':'--s-post', 'parked':'--s-parked' };
+// 'superseded' (2026-10-17): a part replaced by another before it was done (ADR-223's rebuild). Its id
+// stays, because docs/manual/figures.json cites it and manual_scaffold_check refuses unknown ids; it
+// keeps no prerequisites and nothing depends on it, and it is drawn in the bottom row with the parked.
+const STATUSES = ['built', 'in progress', 'ruled', 'planned', 'post-1.0', 'parked', 'superseded'];
+const SCOLOR = { 'built':'--s-built', 'in progress':'--s-prog', 'ruled':'--s-ruled', 'planned':'--s-planned', 'post-1.0':'--s-post', 'parked':'--s-parked', 'superseded':'--s-super' };
 const GROUPS = ['engine', 'pitch', 'modulation', 'morph', 'sources', 'fx', 'state', 'shell', 'quality', 'presentation', 'content', 'milestone', 'post', 'parked'];
 
 const DATA = {
-  asOf: '2026-10-11',
-  records: 'ROADMAP on main 6dd5884; ten parts refreshed through B457 and ADR-212 (armor, shell, freeze, testing, perf, distrib, rack, presets, master, intent); the other parts stand as verified on 2026-10-09',
+  asOf: '2026-10-17',
+  records: 'ROADMAP and DECISIONS on main 3f338ce, through B503 and ADR-231, for every part; B504 and ADR-232 read on records PR #1117 (open, not on main) and cited in prose only',
   nodes: [
-    { id:'engine', name:'Composed engine', group:'engine', status:'in progress', in1:'yes',
-      what:'Two SCALPEL oscillators, each the SCALPEL blades on horde\'s Kuramoto swarm (the "Scalpel + Horde Legacy engines combined" of the human\'s summary). The lab JS docs/design/scalpel-horde-engine.js is the golden the C++ is ported against.',
-      note:'Lineup ruled (B327; ADR-190 adds the plain noise oscillator as a separate part). The composed engine is built in the lab and carries B310, B335, M1–M3 (B382) and ADR-189 D1–D3 (B355). Its parameter surface was decided in the audit (B376 rounds 1–2, 2026-10-02). The lab default is os 1 since #984 (ADR-191, B445).',
-      rows:['B327','B298','B252','B335','B310','B382','B355'], adrs:['ADR-184','ADR-187','ADR-189','ADR-191'],
+    { id:'engine2', name:'The new engine (clean room)', group:'engine', status:'in progress', in1:'yes',
+      what:'horde 2\'s engine, rebuilt from a user-level spec (specs/SPEC-ENGINE.md): one instrument-wide voice per note holding both swarm oscillators with their blades, the sub and the noise oscillator (ADR-224 item 1); the instrument\'s laws copied as normative math (ADR-224 A1); reserved contracts RC-1 to RC-11 for what is still to come (the filters, gain staging, the pitch system, the modulator bank, the FX rack, a source slot, host transport, GUI readouts, append-only parameters, a quality tier, history). Held to no JS parity: its correctness is the spec, its Layer-0 invariant suite and the human\'s ears on the bank (ADR-224 item 8). The labs run it as WebAssembly (ADR-223 item 4).',
+      note:'The rebuild audit is DONE (B493, PR #1096: 35.4 % of today\'s engine is not about the sound). The spec is RATIFIED by the human\'s merge of PR #1097, 2026-10-16 (eight rounds, ADR-223 to ADR-229; 0 questions before the build, 25 during, 9 after), and amended since by ADR-230 (make-up before the rack, the gain-staging view) and ADR-231 (per-preset make-up). The clean-room tree and the test author\'s input data: B497 (380 reference renders, PR #1110, release asset engine2-reference-renders-v1). The structure declaration for loupe\'s diagram: B500 (#1112). The two history-free clean-room repositories are made (B502, 2026-10-17). Next: the human opens the test-author session; then the acceptance tests (B498); then the build in BD-8\'s stages (manifest and state; the voice, ENV 1, pedal and output; the swarm; the edge correction; the blades; the sub and noise; modulation, morph and state; WebAssembly; then the bank). Judged on the bank A/B, the CPU target (about 10.7 % of an M3 performance core per swarm, heaviest patch, 8 voices; B488) and the invariant suite; then it replaces the composed engine (B494). On records PR #1117 (open, not on main): ADR-232, room for the glide system (IF-2 from a note\'s first sample; VO-10\'s lifecycle to the pitch system).',
+      rows:['B494','B493','B497','B498','B500','B502'], adrs:['ADR-223','ADR-224','ADR-225','ADR-226','ADR-227','ADR-228','ADR-229','ADR-230','ADR-231','ADR-222','ADR-189'],
+      deps:[['audit','B494: spec BD-8 keeps the parameter table open until Q31, the audit\'s 19 deferred rows, is ruled']],
+      decisions:['The spec\'s 25 questions ruled during the build, each before the stage that needs it, and 9 after it (SPEC-ENGINE §11.1, §11.2)','Where the oscillators return to the host rate (a gap the structure declaration exposed, B500)','Where IF-1\'s per-note volume and pan expressions act (B500)','Who receives VO-10\'s lifecycle and IF-1\'s load readouts (B500; ADR-232, proposed on PR #1117, names the pitch system as the lifecycle\'s consumer, and the load readouts\' consumer stays open)','ADR-189\'s D1–D3 defaults in the instrument (ruled when the shell is built). The lead\'s reading: spec ED-1, BL-12 and C.14 may cover them; for the human to confirm'] },
+    { id:'engine', name:'Composed engine (superseded)', group:'engine', status:'superseded', in1:'no',
+      what:'Two SCALPEL oscillators, each the SCALPEL blades on horde\'s Kuramoto swarm (the "Scalpel + Horde Legacy engines combined" of the human\'s summary), with the lab JS docs/design/scalpel-horde-engine.js as its golden. The id is kept because the manual cites it.',
+      note:'SUPERSEDED by engine2: the human ruled it rebuilt from a user-level spec, its JS twin retired for WebAssembly, parity with the JS no longer a goal (ADR-223, 2026-10-15). It is still the engine that plays until the new one replaces it, under ADR-187 (ADR-223 item 6): the playable preview wraps it (B458, ADR-215, built and installed 2026-10-12); its frame hold and steal fade landed as ledgered divergences D6 and D7 (ADR-216); its default output is 12 dB lower (ADR-221); it may change its sound for speed when heard A/B (ADR-220). D9 and D10 are parked (ADR-223 item 5). Its open decisions moved: envelope decision 1 to spec Q31 and ADR-226 item 10; ADR-189\'s D1–D3 defaults to engine2, still open; law 3\'s tempo grid is cut from 1.0 in spec Q31\'s proposal.',
+      rows:['B327','B298','B252','B335','B310','B382','B355','B458'], adrs:['ADR-184','ADR-187','ADR-189','ADR-191','ADR-215','ADR-216','ADR-220','ADR-221','ADR-223'],
       deps:[],
-      decisions:['Envelope decision 1: whose law, now which default curves and what a time knob means (B366, B377)','ADR-189 D1–D3 defaults in the instrument (ruled when the shell is built)','Whether the lab offers law 3 with a real bpm (B382)'] },
+      decisions:[] },
     { id:'audit', name:'Engine audit + legacy roundup', group:'engine', status:'ruled', in1:'yes',
-      what:'Every control of the swarm core, the legacy shell, the composed engine and SCALPEL, decided keep / lock / cull / merge; plus every Legacy feature not yet in horde 2, approved or denied. The export becomes the provisional manifest.',
-      note:'Audit rounds 1 and 2 decided by the human 2026-10-02 (exports in docs/audits/; round 2 left 19 rows deferred). Legacy roundup ratified 2026-10-03: all 156 items settled. The provisional manifest went to FOUNDATIONS (#104). B420 holds the deferred tests.',
+      what:'Every control of the swarm core, the legacy shell, the composed engine and SCALPEL, decided keep / lock / cull / merge; plus every Legacy feature not yet in horde 2, approved or denied. The export becomes the provisional manifest. (Not the rebuild audit of 2026-10-15, B493, which is part of engine2.)',
+      note:'Audit rounds 1 and 2 decided by the human 2026-10-02 (exports in docs/audits/; round 2 left 19 rows deferred). Legacy roundup ratified 2026-10-03: all 156 items settled. The provisional manifest went to FOUNDATIONS (#104). The 19 deferred rows and envelope decision 1 are now the new engine\'s spec Q31, built as proposed until ruled during the build (SPEC-ENGINE §11.1). B420 holds the deferred tests, still OPEN — planned.',
       rows:['B376','B386','B416','B420','B312'], adrs:['ADR-186'],
-      deps:[['engine','B376']],
-      decisions:['The 19 deferred audit rows and B420\'s deferred tests (basin, onset scatter, per-member envelopes, …)'] },
-    { id:'edges', name:'Edge correction', group:'engine', status:'in progress', in1:'yes',
-      what:'How the swarm\'s and the blades\' edges are band-limited: 2-point polyBLEP, oversampling, linear- or minimum-phase BLEP tables, or note-dependent schemes (B378 F3).',
-      note:'Listening lab built and merged (B383, PR #878); the choice is the human\'s, by ear. Since the os 1 default (ADR-191), the edges carry more of the anti-aliasing: os 1 aliases where BLEPs do not cover.',
-      rows:['B383','B380','B378'], adrs:['ADR-187','ADR-191'],
       deps:[],
-      decisions:['Which edge correction, options (a)–(f) (B383, B380)'] },
-    { id:'port', name:'Clean C++ port (phase 1b)', group:'engine', status:'in progress', in1:'yes',
-      what:'One C++ composed engine in h2/engine/, written fresh against the composed JS at current main, reusing razor_core.h\'s and the lifted swarm core\'s proven code by copy and cleanup; parity, then the quality suites, then the B378 fixes as ledgered divergences.',
-      note:'h2/engine/ merged to parity (#889–#893, B385); its parity check is wired into verify full (#895, B405; 540/543 plus the 3 ring rows on an onset window, ADR-187 A2). Still owed: the aliasing and zipper suites (B404) and the B378 fixes as ledgered divergences.',
-      rows:['B385','B405','B404','B406','B379','B332','B378'], adrs:['ADR-186','ADR-187'],
-      deps:[['engine','B385'],['edges','B379']],
-      decisions:['verify full runs ~600 s: a budget or a split into staged gates (B406 item 4)','Should the floor\'s key-mismatch warning fail the gate (B406 item 5)','The demotion ruling for the composed engine\'s JS, per ADR-187 §4, once the Layer-0 suite lands'] },
+      decisions:['The 19 deferred audit rows, now spec Q31 (keep, lock or cut each; envelope decision 1\'s default curves), ruled during the build (SPEC-ENGINE §11.1)','B420\'s deferred tests (basin, onset scatter, per-member envelopes, …)'] },
+    { id:'edges', name:'Edge correction (superseded)', group:'engine', status:'superseded', in1:'no',
+      what:'How the swarm\'s and the blades\' edges are band-limited: 2-point polyBLEP, oversampling, linear- or minimum-phase BLEP tables, or note-dependent schemes (B378 F3). The id is kept for the record.',
+      note:'RULED 2026-10-14: option (d), a 32-tap minimum-phase band-limited step table read with interpolation, with the research note\'s three changes (ADR-222). Its build on the composed engine (B491, D10) is PARKED on a local branch (ADR-223 item 5). The ruling lives on as the new engine\'s ED rows (SPEC-ENGINE ED-1 to ED-6), built at BD-8 stage 4 of engine2.',
+      rows:['B383','B380','B378','B491'], adrs:['ADR-187','ADR-191','ADR-222','ADR-223'],
+      deps:[],
+      decisions:[] },
+    { id:'port', name:'Clean C++ port (superseded)', group:'engine', status:'superseded', in1:'no',
+      what:'One C++ composed engine in h2/engine/, written fresh against the composed JS, reusing razor_core.h\'s and the lifted swarm core\'s proven code by copy and cleanup. The id is kept because the manual cites it.',
+      note:'SUPERSEDED (ADR-223): the new engine is a clean-room build from specs/SPEC-ENGINE.md, not a port. h2/engine/ stays at parity (#889–#893, B385; wired into verify full, B405) and plays in the preview until the new engine replaces it (ADR-223 item 6). Its deferred aliasing and zipper suites (B404) are taken over by the new engine\'s invariant suite (SPEC-ENGINE §10.1, B498). The spec counts 27 files and about 14,370 lines to retire at cutover (B494).',
+      rows:['B385','B405','B404','B406','B379','B332','B378'], adrs:['ADR-186','ADR-187','ADR-223'],
+      deps:[],
+      decisions:['verify full runs ~600 s: a budget or a split into staged gates (B406 item 4); the current engine\'s gates run until cutover (ADR-223 item 6)','Should the floor\'s key-mismatch warning fail the gate (B406 item 5); the same'] },
     { id:'seams', name:'Seam contracts + readiness gate', group:'shell', status:'ruled', in1:'yes',
       what:'Every seam\'s expectation contract and an engine manifest per source (morph class, mod limits, relation to the globals, preset participation); a readiness gate refuses an engine whose manifest is incomplete. This is how "all relevant parameters available to modulation and morph" is enforced.',
-      note:'P0 audit done (B276); "every source follows every global" ruled (B275 b); FOUNDATIONS registered the schema (B339); P1 (B277) not dispatched.',
-      rows:['B275','B276','B277','B339'], adrs:['ADR-186'],
+      note:'P0 audit done (B276); "every source follows every global" ruled (B275 b); FOUNDATIONS registered the schema (B339); P1 (B277) not dispatched. The new engine\'s side of the seams is now specified: a manifest with each parameter\'s morph, rate and modulation classes (SPEC-ENGINE §5.1) and eleven reserved contracts, RC-1 to RC-11 (ADR-226 item 7, ADR-229). B275 (a), (c), (d) and B277 have not been re-ruled or re-scoped against them, so the part stays ruled, not answered.',
+      rows:['B275','B276','B277','B339'], adrs:['ADR-186','ADR-226','ADR-229'],
       deps:[['audit','B376']],
-      decisions:['B275 (a) the seam list and what "ready" means at each','B275 (c) the FOUNDATIONS / horde split','B275 (d) proceed on the provisional schema before FOUNDATIONS answers'] },
+      decisions:['B275 (a) the seam list and what "ready" means at each (whether the spec\'s RC-1 to RC-11 answer it is for the lead and the human to say)','B275 (c) the FOUNDATIONS / horde split','B275 (d) proceed on the provisional schema before FOUNDATIONS answers'] },
     { id:'bend', name:'Bend laws + glide', group:'pitch', status:'planned', in1:'yes',
       what:'H1\'s pitch system: GlideCore\'s five laws on the bend and note lanes, including the inertial mass-spring (the human\'s own concept), per-note bend under the same law, Glide From.',
-      note:'Built in legacy. glide_core.h rides in the swarm lift and the clean port (B385); B397 covers the rest (the lanes\' laws, glide units, one published per-voice pitch, the B57 source).',
-      rows:['B397','B278','B57','B32'], adrs:['ADR-096','ADR-097','ADR-102','ADR-103','ADR-180'],
-      deps:[['port','B397'],['seams','B275']],
-      decisions:[] },
+      note:'Built in legacy; B397 covers the port (the lanes\' laws, glide units, the B57 source). The new engine keeps the pitch system upstream and reserves its contract (SPEC-ENGINE RC-3, ADR-226 item 7): it provides the per-note pitch input (IF-2), the published sounding pitch (ADR-225 item 7) and gravity\'s place, and never glides, bends or quantizes itself; glide and bend are spec Q6 and Q7. On records PR #1117 (open, not on main): B504, the glide system in horde 2 (poly glide, the four travel laws with the spring, scale quantization as a modifier, Glide From, the chord case), planned after the engine\'s stage 2, with ADR-232 making room for it in the engine.',
+      rows:['B397','B278','B57','B32'], adrs:['ADR-096','ADR-097','ADR-102','ADR-103','ADR-180','ADR-225','ADR-226'],
+      deps:[['engine2','ADR-226'],['seams','B275']],
+      decisions:['Do the bank\'s 22 poly presets that store a glide time glide by default? Deferred by the human ("happy to save poly glide for another day"); B497\'s open item, moving to B504 on PR #1117'] },
     { id:'quant', name:'Shared pitch quantizer', group:'pitch', status:'planned', in1:'yes',
       what:'Legacy\'s scale quantize (root + 12-bit mask) becomes a service other FX and devices can call, with room left for Tonality.',
       note:'Roadmapped (B391); IN for 1.0 (ADR-190 A5). Seam room for Tonality is required now (B390), and MTS-ESP comes forward with a stated precedence (B431, the mts part).',
@@ -225,16 +239,16 @@ const DATA = {
       decisions:['Whether a MIDI sidechain sets the scale in 1.0 (B260)'] },
     { id:'mpe', name:'MPE, aftertouch + MIDI basics', group:'pitch', status:'planned', in1:'yes',
       what:'Per-note pitch, pressure, timbre and slide reaching the swarm and blades, the mod matrix, morph and the voice law; channel aftertouch as a mod source; the musician basics (sustain pedal CC64, init patch, MIDI learn, mono/legato/portamento modes, per-patch bend range).',
-      note:'IN for 1.0 (ADR-190 A4): MPE through CLAP per-note expressions, not the wrapper\'s MIDI proxies (B429 item 5); channel aftertouch IN. The musician basics are B431 (ship-blocking: CC64). Legacy has per-note bend and note-travel lanes and per-voice ENV2.',
-      rows:['B388','B431','B429'], adrs:['ADR-161','ADR-162','ADR-097','ADR-149','ADR-190'],
-      deps:[['bend','ADR-097'],['modmatrix','ADR-149'],['port','B388']],
-      decisions:['The MPE design itself (B388)'] },
+      note:'IN for 1.0 (ADR-190 A4): MPE through CLAP per-note expressions, not the wrapper\'s MIDI proxies (B429 item 5); channel aftertouch IN. The musician basics are B431 (ship-blocking: CC64). Legacy has per-note bend and note-travel lanes and per-voice ENV2. In the new engine voices are addressed by note id, so MPE works (ADR-224 item 1); the sustain pedal and legato are engine behaviour (ADR-226 items 1, 3); velocity and aftertouch are modulation sources mapped by default (ADR-226 item 4; aftertouch\'s destination is spec X21). Which expressions reach the swarm and the blades is spec Q2.',
+      rows:['B388','B431','B429'], adrs:['ADR-161','ADR-162','ADR-097','ADR-149','ADR-190','ADR-224','ADR-226'],
+      deps:[['bend','ADR-097'],['modmatrix','ADR-149'],['engine2','ADR-224']],
+      decisions:['The MPE design (B388); which expressions reach the swarm and the blades is spec Q2, ruled during the build'] },
     { id:'modulators', name:'Modulators + envelopes', group:'modulation', status:'in progress', in1:'yes',
       what:'The modulator lab (LFOs, Kuro-LFO, ORBITAL, MIDI trackers, note-on randoms, the dry follower, coherence R) and the envelope hierarchy (ENV 1 global, shapeable stage curves). Together they deliver the mod page.',
-      note:'Labs built (B208, B226, B366, B370, B377); envelope decision 1 open.',
-      rows:['B208','B226','B366','B370','B377','B253','B259','B264','B267','B126'], adrs:['ADR-165','ADR-161','ADR-162'],
-      deps:[['engine','B366']],
-      decisions:['Linked note-on randoms: correlation control or fan-out (B264)','ORBITAL velocity: signed components or speed (B267)','Onset scatter recommendation (B370)'] },
+      note:'Labs built (B208, B226, B366, B370, B377). The new engine reserves the modulator bank\'s contract (SPEC-ENGINE RC-4): per-voice offsets by note id at a control rate of about 1,500 a second, ramped, and at audio rate on named destinations (ADR-224 items 4, 5; ADR-225 item 2). Envelope timing is ruled: a stage\'s time is exactly when it ends, one law for ENV 1 and the bank\'s envelopes (ADR-226 item 10); the default curves are spec Q31.',
+      rows:['B208','B226','B366','B370','B377','B253','B259','B264','B267','B126'], adrs:['ADR-165','ADR-161','ADR-162','ADR-224','ADR-226'],
+      deps:[['engine2','ADR-226']],
+      decisions:['Linked note-on randoms: correlation control or fan-out (B264)','ORBITAL velocity: signed components or speed (B267)','Onset scatter recommendation (B370); where it lives is spec Q13'] },
     { id:'modmatrix', name:'Mod matrix', group:'modulation', status:'in progress', in1:'yes',
       what:'Routes, depths, polarity per route, mod-on-mod, per-corner modulation ranges; the spring displacement (B57) joins as a source.',
       note:'Lab built (B207); the human made it a near-term priority (B392).',
@@ -261,55 +275,55 @@ const DATA = {
       decisions:['The phrase list for the named slots 5–8 (ADR-192)','Approve the SPEC-INTENT-BUS amendment (§3.1 names, principle 2 for slots 5–8; ADR-192)'] },
     { id:'sub', name:'The new Sub', group:'sources', status:'planned', in1:'yes',
       what:'A new sub oscillator, workshopped; the legacy Sub is not lifted as it is.',
-      note:'Ruled into 1.0 (B327, ADR-190); the workshop is B399 (planned, not started), a design lab starting from SUB OSC, which first asks what the human dislikes in the legacy Sub.',
-      rows:['B399','B327','B278','B282'], adrs:['ADR-178','ADR-190'],
-      deps:[['seams','B275'],['bend','B278']],
+      note:'Ruled into 1.0 (B327, ADR-190). The new engine specifies a sub inside its voice (SPEC-ENGINE 5.5 and the SN rows; built at BD-8 stage 6): it integrates its own phase from the voice\'s master phase, and ENV 1 acts after its tone filter, two departures from SPEC-SUBOSC §2 that ADR-225 item 6 ratifies. The one published per-voice pitch B278 asked for is the engine\'s (ADR-225 item 7). The workshop is still B399 (planned, not started), a design lab starting from SUB OSC, which first asks what the human dislikes in the legacy Sub.',
+      rows:['B399','B327','B278','B282'], adrs:['ADR-178','ADR-190','ADR-224','ADR-225'],
+      deps:[['seams','B275'],['engine2','ADR-224']],
       decisions:['What the human dislikes in the legacy Sub (B327, B399)'] },
     { id:'filters', name:'Filters', group:'sources', status:'in progress', in1:'yes',
       what:'Many filter types with a fidelity programme, serial/parallel placement with the + inlet, Comb as a keytracked filter type, per-note filters for keytracking.',
-      note:'Lab round 2 merged (B274, #769); fidelity fixes built (B287); B289 and B303 not dispatched; self-oscillation tabled (B292).',
-      rows:['B274','B287','B288','B289','B290','B303'], adrs:['ADR-153'],
-      deps:[['seams','B275'],['bend','B278']],
-      decisions:['Re-ruling of the tolerances physics refuses (B287 → B290)','The per-note filter type list, after a Release cost measurement (B303)'] },
+      note:'Lab round 2 merged (B274, #769); fidelity fixes built (B287); B289 and B303 not dispatched; self-oscillation tabled (B292). The new engine reserves a per-voice stereo filter slot between the sources and ENV 1 (SPEC-ENGINE RC-1, ADR-226 item 7) and hands it each source\'s signal, the sounding pitch for keytracking and the voice\'s lifecycle; the count and routing are spec X13 (built until ruled: two per voice, serial or parallel).',
+      rows:['B274','B287','B288','B289','B290','B303'], adrs:['ADR-153','ADR-226'],
+      deps:[['seams','B275'],['engine2','ADR-226']],
+      decisions:['Re-ruling of the tolerances physics refuses (B287 → B290)','The per-note filter type list, after a Release cost measurement (B303)','The filters\' count and routing in the voice (spec X13, ruled during the build)'] },
     { id:'mix', name:'Mixer + routing', group:'sources', status:'in progress', in1:'yes',
-      what:'Sources → filters → FX routing (the dense crosspoint matrix) and the mixer page with meters and latching clip warnings at every stage.',
-      note:'The horde 2 mixer and routing lab is B402 (planned); it also carries the master strip (B438, the master part). The legacy crosspoint matrix is not ported: a new routing matrix is designed from legacy\'s requirements (B386 item 11). Every module gets the standard Input/Output Gain pair for gain staging (B435). The legacy-era mixer lab is built (B225); corner FX buses still a discussion (B258).',
-      rows:['B402','B225','B435','B23','B258','B263'], adrs:['ADR-088','ADR-175'],
+      what:'Sources → filters → FX routing and the mixer page with meters and latching clip warnings at every stage.',
+      note:'The horde 2 mixer and routing lab is B402 (planned); it also carries the master strip (B438, the master part). The legacy crosspoint matrix is not ported: a new routing matrix is designed from legacy\'s requirements (B386 item 11). Every module gets the standard Input/Output Gain pair for gain staging (B435). The legacy-era mixer lab is built (B225); corner FX buses still a discussion (B258). Ruled 2026-10-16 (ADR-230 and A1): the make-up gain is a user control (default ×4, +12.04 dB, restoring ADR-221\'s 12 dB) between the engine\'s output and the rack\'s first slot, and the gain-staging view gives every stage a gain control, a meter, a peak hold and a latching clip lamp (spec RC-2, RC-8). Per-preset make-up by loudness is ruled for the bank stage (ADR-231, B499); an adaptive mode waits for its lab (B503, after B402).',
+      rows:['B402','B225','B435','B23','B258','B263','B499','B503'], adrs:['ADR-088','ADR-175','ADR-230','ADR-231'],
       deps:[['sub','inferred: the mixer\'s strips are the sources'],['noise','inferred: the mixer\'s strips are the sources'],['filters','inferred: the routing places the filters']],
-      decisions:['Which of the 18 taps become full meters (B225)','Corner FX buses feeding a global bus: discussion owed (B258)'] },
+      decisions:['How the rack-input clip lamp treats an over, when it will light on most bank chords (ADR-230; still open by A1 item 4; B402)','The make-up gain\'s range and the faders\' laws (B402; ADR-230 A1 item 2)','Whether the adaptive make-up mode ships, after its lab\'s A/B (B503)','Corner FX buses feeding a global bus: discussion owed (B258)'] },
     { id:'stereo', name:'True stereo', group:'sources', status:'planned', in1:'yes',
       what:'A width EQUATION, measured in a stereo lab: which parameters one width control drives (per-voice pan, per-channel filter and delay offsets, modulator phase, swarm and blade offsets, M/S) and by how much, with a mono-compatibility guarantee.',
-      note:'IN for 1.0 (ADR-190 A9). The research swarm reported 2026-10-02 (B414); the lab is not started. width-lab.html is prior art (B407).',
-      rows:['B408','B414'], adrs:['ADR-190'],
-      deps:[['engine','B408'],['filters','B408']],
-      decisions:['Is the stereo path per voice (true stereo through the filters) or post-sum? (B408)','Which width candidates belong in 1.0 (B408)'] },
+      note:'IN for 1.0 (ADR-190 A9). The research swarm reported 2026-10-02 (B414); the lab is not started. width-lab.html is prior art (B407). Its shape is ruled for the new engine (ADR-224 item 3, audit Q25): swarm members stay mono sources panned across the field, each voice is a stereo pair through the filter slot, and true-stereo processing happens after the voice; no member is rendered per channel. The width candidates and the mono-fold guarantee are spec Q26, after the build.',
+      rows:['B408','B414'], adrs:['ADR-190','ADR-224'],
+      deps:[['engine2','ADR-224'],['filters','B408']],
+      decisions:['Which width candidates belong in 1.0, and the mono-fold guarantee (B408; spec Q26)'] },
     { id:'master', name:'Master strip + limiter', group:'sources', status:'ruled', in1:'yes',
       what:'One instance of Bulwark\'s limiter face, never a rack slot, the last stage before the output; the mixer page\'s master strip: limiter on/off, Ceiling, Release, a gain-reduction meter, the clip latch, and a cut-only Volume.',
-      note:'Approved 2026-10-04 (B438, "master only for 1.0"); Ceiling default −1.0 dBFS (ADR-195), mirrored in Bulwark\'s lim.ceiling (thread closed 2026-10-09). The strip folds into the mixer lab (B402). The master limiter\'s exemptions from the module bar are ruled, and the clip latch reads the pre-limiter tap (ADR-203).',
-      rows:['B438','B402','B435'], adrs:['ADR-195','ADR-190','ADR-203'],
+      note:'Approved 2026-10-04 (B438, "master only for 1.0"); Ceiling default −1.0 dBFS (ADR-195), mirrored in Bulwark\'s lim.ceiling (thread closed 2026-10-09). The strip folds into the mixer lab (B402). The master limiter\'s exemptions from the module bar are ruled, and the clip latch reads the pre-limiter tap (ADR-203). The make-up sits before the rack (ADR-230), and the engine gives no peak guarantee (ADR-226 item 8, spec OU-1), so this limiter is what holds the device\'s peaks.',
+      rows:['B438','B402','B435'], adrs:['ADR-195','ADR-190','ADR-203','ADR-226','ADR-230'],
       deps:[['mix','B438']],
       decisions:[] },
     { id:'rack', name:'FX rack + slot contract', group:'fx', status:'planned', in1:'yes',
       what:'The FX rack every module plugs into: one instance per module type, the slot contract for every type, cyclic topologies per sample, the cost bench.',
-      note:'Rebuild licence granted in legacy (B50); horde 2\'s rack is unbuilt. The hosted-module rack-slot contract is RATIFIED (B450, docs/proposals/rack-slot-contract.md, ADR-201, 2026-10-09); Q3 and Q9 are provisional until measured; it takes FOUNDATIONS\' FX-operator ABI as the code-level interface. Every module must meet the module 1.0 bar (B439) by the module cutoff (ADR-190 A1). Hosted modules\' presets are ruled: a preset browser per module, horde\'s own store, the module\'s patch file as the interchange format (ADR-202). The module bar\'s readings are ruled (ADR-203).',
-      rows:['B450','B439','B50','B281','B262','B393','B435','B429'], adrs:['ADR-172','ADR-175','ADR-128','ADR-190','ADR-193','ADR-195','ADR-201','ADR-202','ADR-203'],
+      note:'Rebuild licence granted in legacy (B50); horde 2\'s rack is unbuilt. The hosted-module rack-slot contract is RATIFIED (B450, docs/proposals/rack-slot-contract.md, ADR-201, 2026-10-09); Q3 and Q9 are provisional until measured; it takes FOUNDATIONS\' FX-operator ABI as the code-level interface. Every module must meet the module 1.0 bar (B439) by the module cutoff (ADR-190 A1). Hosted modules\' presets are ruled: a preset browser per module, horde\'s own store, the module\'s patch file as the interchange format (ADR-202). The module bar\'s readings are ruled (ADR-203). The 3 dB click ceiling is SUSPENDED as pass/fail until the first listening batch sets one independent of the probe\'s frequency and the sample rate (ADR-218, answering Bulwark\'s readiness notice, B463). The engine\'s side is reserved: one stereo pair at zero latency, after the make-up gain (spec RC-5).',
+      rows:['B450','B439','B50','B281','B262','B393','B435','B429','B463'], adrs:['ADR-172','ADR-175','ADR-128','ADR-190','ADR-193','ADR-195','ADR-201','ADR-202','ADR-203','ADR-218'],
       deps:[['mix','inferred: the rack sits in the routing (B263\'s rack per side)'],['seams','B281']],
-      decisions:['The contract\'s Q3 and Q9 by measurement, and the slot-switch click ceiling by ear: the first listening batch (ADR-201, ADR-209 item 13)','The module cutoff date (ADR-190 A1, set later)'] },
+      decisions:['The contract\'s Q3 and Q9 by measurement, and the slot-switch click ceiling by ear: the first listening batch, which also sets the ceiling ADR-218 suspended (ADR-201, ADR-209 item 13, ADR-218)','The module cutoff date (ADR-190 A1, set later)'] },
     { id:'maw', name:'Shriek (formerly MAW)', group:'fx', status:'in progress', in1:'yes',
       what:'The three-stage saturator (FX-C), a hosted sibling module, as it will live in horde. Renamed Shriek by the human 2026-10-04 (B433); the part id stays maw.',
-      note:'Design lab built (B318) with the workstation skin (B373). Its level contract is answered (B435: design to −12 dBFS RMS at FX-C\'s input). Readiness against the ratified slot contract: 8/18 (B450).',
+      note:'Design lab built (B318) with the workstation skin (B373). Its level contract is answered (B435: design to −12 dBFS RMS at FX-C\'s input). Readiness against the ratified slot contract: 8/18 (B450). The engine-rebuild-audit brief is with it (B494). The new engine\'s spec builds the hosted distortion as a rack slot, with no engine insert, until spec Q23 is ruled after the build.',
       rows:['B318','B373','B393','B433'], adrs:['ADR-170','ADR-092','ADR-190'],
       deps:[['rack','B318']],
       decisions:['FX-C as a fixed post-stage or a matrix slot, and B318\'s other open items'] },
     { id:'sluice', name:'Sluice', group:'fx', status:'in progress', in1:'yes',
       what:'The morphable FX network (covers dispersers, shifters, phasers, chorus), a sibling project; one patch per module XY, different patches at horde\'s morph corners.',
-      note:'Labs built (B319, B329, B337, B348, B361). Consumption RULED on Sluice\'s side 2026-10-04 (Sluice D-096, recorded in B328): horde takes Sluice\'s code into its own tree at Sluice V1, when Sluice goes public, with no tag and no lock file. Readiness against the ratified slot contract: 9/18 (B450).',
-      rows:['B328','B321','B329','B337','B347','B353','B361','B369','B436','B273','B359','B393'], adrs:['ADR-188','ADR-166','ADR-193'],
+      note:'Labs built (B319, B329, B337, B348, B361). Consumption RULED on Sluice\'s side 2026-10-04 (Sluice D-096, recorded in B328): horde takes Sluice\'s code into its own tree at Sluice V1, when Sluice goes public, with no tag and no lock file. Readiness against the ratified slot contract: 9/18 (B450). It answered the engine-rebuild-audit brief (B494): its human ruled a targeted clean-up, not a rebuild (Sluice D-139); horde answered its question about the make-up with ADR-230 (the make-up sits before the slots).',
+      rows:['B328','B321','B329','B337','B347','B353','B361','B369','B436','B273','B359','B393'], adrs:['ADR-188','ADR-166','ADR-193','ADR-230'],
       deps:[['rack','B328']],
       decisions:['Lab tails: label, stand-in gate, or leave (B369); ADR-193 D5 plans a per-module tail cap'] },
     { id:'reverb', name:'Scape (reverb)', group:'fx', status:'in progress', in1:'yes',
       what:'The reverb, now built as the sibling project Scape (B421) and hosted in the rack. Diffusion makes it Scape; discrete repeats make it ECHO; graph morphing makes it Sluice.',
-      note:'Spun up 2026-10-02 (B421). Its first queue is the B152 audit\'s findings, re-measured. Readiness against the ratified slot contract: lab only (B450). ADR-198 lets this repo name it while it is private.',
+      note:'Spun up 2026-10-02 (B421). Its first queue is the B152 audit\'s findings, re-measured. Readiness against the ratified slot contract: lab only (B450). ADR-198 lets this repo name it while it is private. The engine-rebuild-audit brief is with it (B494).',
       rows:['B421','B152','B210','B393'], adrs:['ADR-177','ADR-190','ADR-198'],
       deps:[['rack','B152']],
       decisions:[] },
@@ -321,8 +335,8 @@ const DATA = {
       decisions:[] },
     { id:'bulwark', name:'Bulwark compressor', group:'fx', status:'in progress', in1:'yes',
       what:'The compressor face of the sibling project Bulwark (formerly Dynamite), hosted in the rack. Its limiter face is the master part.',
-      note:'Spun up 2026-10-02/03 (B421); spec ratified 2026-10-04 (B438). Confirmed IN (ADR-190 A8). Its M1–M3 are closed and M4, hosting in horde, waits on the slot contract (B450; readiness 13/18). ADR-198 lets this repo name it while it is private.',
-      rows:['B421','B234','B423','B450'], adrs:['ADR-190','ADR-195','ADR-198'],
+      note:'Spun up 2026-10-02/03 (B421); spec ratified 2026-10-04 (B438). Confirmed IN (ADR-190 A8). Its M1–M3 are closed and M4, hosting in horde, waits on the slot contract (B450; readiness 13/18). ADR-198 lets this repo name it while it is private. Its readiness notice is answered (ADR-218, B463: crossfade its two detector switches; a declared tail may mean the time until the instance is at rest). The engine-rebuild-audit brief is with it (B494).',
+      rows:['B421','B234','B423','B450','B463'], adrs:['ADR-190','ADR-195','ADR-198','ADR-218'],
       deps:[['rack','B450']],
       decisions:[] },
     { id:'eq', name:'EQ', group:'fx', status:'planned', in1:'yes',
@@ -369,68 +383,68 @@ const DATA = {
       decisions:['Ratify the patch model (B263)'] },
     { id:'shell', name:'horde 2 plugin shell', group:'shell', status:'ruled', in1:'yes',
       what:'The new product: new identity (CLAP id com.mind-lathe.horde, new AU subtype, own bundle, pkg and preset root), parameters generated from manifests into a committed lockfile, a schema-versioned state, the stability line.',
-      note:'ADR-186 ratified 2026-09-27; the build is B398 (planned; B385\'s parity and the B376/B386 decisions, its prerequisites, have landed). Owed with it: frozen plugin identities from the first release (B428), process, tails and the wrapper boundary (B429), and the GUI rules R1–R11, MIDI input never stalled by GUI activity (B449). B308\'s follow-ups not dispatched. Saved state makes a clean break from legacy (ADR-197). Since 2026-10-11 its acceptance list is drafted (docs/proposals/h2-shell-acceptance.md: 42 rows, each a named gate with its planted-fault control). Ruled for it: flush-to-zero on from the first build (ADR-211; 8 of 543 engine digests change, each sample by under 4.1e-308), the latch-and-report output guard with its count shown in the GUI (ADR-209), the thread-handoff rules (ADR-200) and the host-boundary checks (ADR-207).',
-      rows:['B398','B428','B429','B449','B305','B308','B306'], adrs:['ADR-186','ADR-197','ADR-200','ADR-207','ADR-209','ADR-211'],
-      deps:[['seams','ADR-186'],['port','B398']],
-      decisions:['Which protected spec horde 2 answers to (B308 M2)','The AU manufacturer code: LfTk unless autonomous rules a fleet code (ADR-186 §3)','Ratify the shell acceptance list together with B398 (ADR-209, package P17)'] },
+      note:'Build first (ADR-215): a playable preview, a thin plugin around the current C++ engine under its own identity, is BUILT and INSTALLED (B458, 2026-10-12), deliberately not the B398 skeleton and skipping ADR-186 §5\'s rules, which are owed before the first release. The skeleton will host the new engine (ADR-223), which reserves what a shell needs: a lock-free GUI readout snapshot (RC-8), append-only parameter ids and kept unknown keys (RC-9), and history support (RC-11). ADR-186 ratified 2026-09-27; the build is B398 (planned; B385\'s parity and the B376/B386 decisions, its prerequisites, have landed). Owed with it: frozen plugin identities from the first release (B428), process, tails and the wrapper boundary (B429), and the GUI rules R1–R11, MIDI input never stalled by GUI activity (B449). B308\'s follow-ups not dispatched. Saved state makes a clean break from legacy (ADR-197). Since 2026-10-11 its acceptance list is drafted (docs/proposals/h2-shell-acceptance.md: 42 rows, each a named gate with its planted-fault control). Ruled for it: flush-to-zero on from the first build (ADR-211; 8 of 543 engine digests change, each sample by under 4.1e-308), the latch-and-report output guard with its count shown in the GUI (ADR-209), the thread-handoff rules (ADR-200) and the host-boundary checks (ADR-207).',
+      rows:['B398','B428','B429','B449','B305','B308','B306','B458'], adrs:['ADR-186','ADR-197','ADR-200','ADR-207','ADR-209','ADR-211','ADR-215','ADR-223','ADR-229'],
+      deps:[['seams','ADR-186'],['engine2','ADR-223']],
+      decisions:['Which spec the rest of horde 2 (the shell, the rack, GUI 3) answers to (B308 M2); the engine\'s is specs/SPEC-ENGINE.md (ADR-224 item 8)','The AU manufacturer code: LfTk unless autonomous rules a fleet code (ADR-186 §3)','Ratify the shell acceptance list together with B398 (ADR-209, package P17)'] },
     { id:'freeze', name:'Legacy freeze tag', group:'shell', status:'ruled', in1:'yes',
       what:'The human cuts the legacy tag; CI archives the universal signed bundles; old projects depend on that archive, not a rebuild.',
-      note:'B255 landed as the last legacy change (#808); the tag is owed by the human (no tag exists, checked 2026-10-09). Legacy sessions stay on the old system (ADR-197). The real-blob corpus is skipped (ADR-209 item 11), so the tag waits on nothing but the human. Legacy keeps receiving integrity fixes until then (ADR-207, ADR-208), and a side-by-side test identity exists for trying changes without replacing the installed plugin (B456).',
+      note:'B255 landed as the last legacy change (#808); the tag is owed by the human (no legacy tag exists, checked 2026-10-17: the remote\'s one tag is engine2-reference-renders-v1). Legacy sessions stay on the old system (ADR-197). The real-blob corpus is skipped (ADR-209 item 11), so the tag waits on nothing but the human. Legacy keeps receiving integrity fixes until then (ADR-207, ADR-208), and a side-by-side test identity exists for trying changes without replacing the installed plugin (B456).',
       rows:['B255','B308','B305','B456'], adrs:['ADR-186','ADR-207','ADR-208','ADR-209'],
       deps:[],
       decisions:['Cut the tag (ADR-186 §2)'] },
     { id:'history', name:'History tree', group:'state', status:'planned', in1:'yes',
       what:'H1\'s history tree (snapshot tree, gesture-level nodes, fork on restore), re-earned on horde 2; must survive preset changes, morphing, modulation, mapping changes, signal-flow changes and FX module edits.',
-      note:'Roadmapped, high priority (B389); B222\'s defects become regression rows.',
-      rows:['B389','B84','B119','B122','B186','B222','B193'], adrs:['ADR-160'],
+      note:'Roadmapped, high priority (B389); B222\'s defects become regression rows. The new engine reserves what history needs (RC-11, ADR-229 A1): no hidden user state, a real-time-safe snapshot and restore, the host\'s gestures passed through so one drag is one undo step, and a restore that re-triggers no note. The undo stack itself lives in the shell and the GUI.',
+      rows:['B389','B84','B119','B122','B186','B222','B193'], adrs:['ADR-160','ADR-229'],
       deps:[['shell','B389'],['patch','B389'],['fxmorph','B389'],['intent','B389']],
       decisions:['Confirm: modulated values in motion are not history; mapping changes are (B389)'] },
     { id:'testing', name:'Testing apparatus', group:'quality', status:'in progress', in1:'yes',
       what:'The patch-space gauntlet, the blind listening passes, the aliasing metric, the Serum 2 reference test (CPU, sound references, imitation gauntlet), and the C++ quality suites.',
-      note:'Gauntlet and listening passes built; Serum stage 1 merged (#886). The engine\'s aliasing and zipper suites are a deferred checkpoint of the port (B404). New 2026-10-11: the engine harness (h2/harness/, one adapter per enrolled engine, ten reference patches) that the fuzz, invariance and soak packages loop over; a nightly runner with a drill (./verify nightly); and the kit-owned closing gate, which compares a fingerprint of the tree with the one ./verify recorded (B457, kit 2.9.1).',
-      rows:['B316','B324','B340','B344','B350','B381','B186','B457'], adrs:['ADR-187','ADR-209'],
-      deps:[['port','B385']],
+      note:'Gauntlet and listening passes built; Serum stage 1 merged (#886). The engine\'s aliasing and zipper suites are a deferred checkpoint of the port (B404). New 2026-10-11: the engine harness (h2/harness/, one adapter per enrolled engine, ten reference patches) that the fuzz, invariance and soak packages loop over; a nightly runner with a drill (./verify nightly); and the kit-owned closing gate, which compares a fingerprint of the tree with the one ./verify recorded (B457, kit 2.9.1). For the new engine, its acceptance tests (SPEC-ENGINE §10.1 items 0 to 23, with §8\'s and §9\'s checks) are written from the spec alone by a different agent before the engine exists (B498, waiting on the test-author session of B502), calibrated on the 380 reference renders (B497). The click detector is ratified at k 10 (ADR-227, B490), the test author\'s first instrument.',
+      rows:['B316','B324','B340','B344','B350','B381','B186','B457','B490'], adrs:['ADR-187','ADR-209','ADR-227'],
+      deps:[['engine2','B498']],
       decisions:['Load Serum 2 after seeing stage 1 (B381)','The aliasDb re-ruling (B350)'] },
     { id:'perf', name:'Performance', group:'quality', status:'in progress', in1:'yes',
       what:'CPU of the C++ engine against the B439 budget (sources ≤ 34 % of a min-spec core, 8 voices), the voice limit, oversampling as a quality option, the WASM build for the labs, the R2/R3 anti-aliasing items, FX cost.',
-      note:'The CPU campaign is in phase 2 (B441): specialised kernels landed bit-identical, but B441 still records heavy patches ×1.06–×1.88 over the slice, with the os 1 default as its next lever. os 1 is now the default and os 2 is HQ (ADR-191; flip built #984 with the ADR-197 migration). Lab overload handling built (B323, B375); the WASM build waits on a human toolchain gate (B372). The CPU check is ruled as a measured receipt per release plus deterministic operation counters in ./verify, never a wall-clock gate (ADR-209 item 10).',
-      rows:['B441','B445','B323','B372','B375','B357','B262'], adrs:['ADR-187','ADR-191','ADR-209'],
-      deps:[['port','B372'],['edges','B380']],
-      decisions:['horde 2\'s voice limit: a deterministic count or a documented CPU-adaptive mode (B323)','Install the WASM toolchain when phase 1b lands (B372)','R2 and R3 after the critic (B357)','The heavy-patch policy (B441 phase 3): the worst known patch is over budget today','One CPU measurement on the human\'s Windows PC, to replace the assumed ×1.5 slow-machine factor (ADR-209 item 10)'] },
+      note:'The CPU campaign is in phase 2 (B441): specialised kernels landed bit-identical, but B441 still records heavy patches ×1.06–×1.88 over the slice, with the os 1 default as its next lever. os 1 is now the default and os 2 is HQ (ADR-191; flip built #984 with the ADR-197 migration). Lab overload handling built (B323, B375); the WASM build waits on a human toolchain gate (B372). The CPU check is ruled as a measured receipt per release plus deterministic operation counters in ./verify, never a wall-clock gate (ADR-209 item 10). The target is restated for the new engine (B488, B494): the heaviest bank patch at about 10.7 % of an M3 performance core per swarm at 8 voices; the rebuild audit estimates a clean engine at about 11.5 % (B493). Polyphony is ruled: up to 64 voices preallocated, default 16, no CPU-adaptive limiting by default, the budget measured at 8 (ADR-225 item 13). On the current engine, sound may change for speed when heard A/B (ADR-220).',
+      rows:['B441','B445','B323','B372','B375','B357','B262','B488'], adrs:['ADR-187','ADR-191','ADR-209','ADR-220','ADR-225'],
+      deps:[['engine2','B494']],
+      decisions:['The WebAssembly toolchain: approved in principle, installed at the lab stage with the human\'s word on the exact version (ADR-225 item 10; B372)','R2 and R3 after the critic (B357)','The heavy-patch policy (B441 phase 3; B488\'s target is the lead\'s arithmetic, for the human to confirm): the worst known patch is over budget today','One CPU measurement on the human\'s Windows PC, to replace the assumed ×1.5 slow-machine factor (ADR-209 item 10)'] },
     { id:'gui3', name:'GUI 3 + the screens', group:'presentation', status:'planned', in1:'yes',
       what:'The labs assembled into a new GUI bound only to generated manifest keys; the FX modules as software on screens; the settings page and file manager.',
-      note:'Phase-gated on the labs (B302); screens workshops built (B322, B336); the settings lab not started (B261). Ruled since: the GUI never interferes with playing, and typed entry opens from double-clicking a value readout while double-clicking a knob resets it (B449, R1–R11); macOS and Windows x64, with accessibility at Surge XT\'s level (B432).',
-      rows:['B302','B449','B432','B271','B322','B336','B261','B308'], adrs:['ADR-116','ADR-186','ADR-190'],
+      note:'Phase-gated on the labs (B302); screens workshops built (B322, B336); the settings lab not started (B261). Ruled since: the GUI never interferes with playing, and typed entry opens from double-clicking a value readout while double-clicking a knob resets it (B449, R1–R11); macOS and Windows x64, with accessibility at Surge XT\'s level (B432). The new engine publishes a lock-free readout snapshot for the GUI (RC-8, ADR-229) and the meter readings for the gain-staging view (ADR-230 item 4).',
+      rows:['B302','B449','B432','B271','B322','B336','B261','B308'], adrs:['ADR-116','ADR-186','ADR-190','ADR-229','ADR-230'],
       deps:[['shell','B308'],['fxmorph','B302'],['intent','B302'],['modmorph','B302'],['mix','B302'],['maw','B322'],['sluice','B322']],
       decisions:['One screen style for all FX modules, or one per module (B322)'] },
     { id:'presets', name:'Presets + factory library', group:'content', status:'planned', in1:'yes',
       what:'Global presets covering everything the synth can do, with corner auto-ingest; every FX module\'s presets roped into the larger system; the factory library informed by the Serum gauntlet and original concepts.',
-      note:'Later, after the functionality (B395, B257); the human\'s user presets already port (B312). The preset format writes os explicitly or carries a format version (B395 acceptance, ADR-197). The naming list lives privately (B349). Hosted modules: each gets its own preset browser over horde\'s own store, with the module\'s patch file as the interchange format (ADR-202); a macro slot carries a home value (ADR-169 A5, B453).',
-      rows:['B395','B257','B261','B312','B349','B453'], adrs:['ADR-186','ADR-167','ADR-197','ADR-202','ADR-169'],
+      note:'Later, after the functionality (B395, B257); the human\'s user presets already port (B312). The preset format writes os explicitly or carries a format version (B395 acceptance, ADR-197). The naming list lives privately (B349). Hosted modules: each gets its own preset browser over horde\'s own store, with the module\'s patch file as the interchange format (ADR-202); a macro slot carries a home value (ADR-169 A5, B453). The bank\'s levels are evened by loudness at the build\'s bank stage (ADR-231, spec OU-2); velocity and aftertouch are mapped by default in the factory presets (ADR-226 item 4).',
+      rows:['B395','B257','B261','B312','B349','B453'], adrs:['ADR-186','ADR-167','ADR-197','ADR-202','ADR-169','ADR-226','ADR-231'],
       deps:[['history','B389'],['testing','B395'],['intent','B257'],['maw','summary 2026-09-30'],['sluice','summary 2026-09-30'],['reverb','summary 2026-09-30'],['echo','summary 2026-09-30'],['bulwark','summary 2026-09-30'],['eq','summary 2026-09-30'],['fxfilter','summary 2026-09-30'],['drive','summary 2026-09-30'],['gui3','inferred: presets are authored and browsed in the shipping GUI']],
-      decisions:['What "everything that fits under corner rule" means for auto-ingest (B395)','Whether to commission sound designers for the 150–400-preset norm (B395)'] },
+      decisions:['What "everything that fits under corner rule" means for auto-ingest (B395)','Whether to commission sound designers for the 150–400-preset norm (B395)','The bank\'s coupling rescale and the negative-coupling presets\' starts, by ear in the preset round (ADR-226 items 12, 13; spec X23, X24)'] },
     { id:'armor', name:'Blind-Spot Armor + security gates', group:'quality', status:'in progress', in1:'yes',
       what:'Every risk-register row (realtime safety, thread races, NaN/denormals, rate/block invariance, drift, state compatibility, host integration, CPU, licensing, …) is a named gate in ./verify or a visible hole on the dashboard; correctness and security share one catalogue. Includes the runtime safety nets (B430).',
-      note:'Law since 2026-10-08 (ADR-197). Phase 1 (Waves A to C) is complete: the ratchets, the sanitizer checks, the thread-handoff rules and the host-boundary checks are in ./verify (ADR-199, ADR-200, ADR-207). Phase 2 is ruled (ADR-209: engine now, shell at birth, legacy frozen) and its Wave 1 is built and merged, 2026-10-11: code owners for the approval ledgers, the engine harness with enrolment, the nightly runner, the golden registry (1 of 39 goldens independently justified), the engine realtime probe and audio-path lint, and the shell acceptance list. Score: 0 of 12 risk rows green, 12 partial, none missing; 4 of 7 agent-signature rows partial, 3 still holes. Dispatched next: the parameter fuzz and the clamp rule; then the invariance matrix and the soak. The security plan follows the lead\'s recommendations (ADR-194, B446).',
-      rows:['B448','B446','B430','B455','B457'], adrs:['ADR-197','ADR-194','ADR-196','ADR-199','ADR-200','ADR-206','ADR-207','ADR-209','ADR-210','ADR-211','ADR-212'],
+      note:'Law since 2026-10-08 (ADR-197). Phase 1 (Waves A to C) is complete: the ratchets, the sanitizer checks, the thread-handoff rules and the host-boundary checks are in ./verify (ADR-199, ADR-200, ADR-207). Phase 2 is ruled (ADR-209: engine now, shell at birth, legacy frozen) and its Wave 1 is built and merged, 2026-10-11: code owners for the approval ledgers, the engine harness with enrolment, the nightly runner, the golden registry (1 of 39 goldens independently justified), the engine realtime probe and audio-path lint, and the shell acceptance list. Score: 0 of 12 risk rows green, 12 partial, none missing; 4 of 7 agent-signature rows partial, 3 still holes. Dispatched next: the parameter fuzz and the clamp rule; then the invariance matrix and the soak. The security plan follows the lead\'s recommendations (ADR-194, B446). Since 2026-10-12 new armor work waits (ADR-215 item 4, "build first"): the gate rows found since are filed and not chased (B470, B473, B492, B495, B496). The scores above are as of 2026-10-11; this refresh did not re-measure them.',
+      rows:['B448','B446','B430','B455','B457'], adrs:['ADR-197','ADR-194','ADR-196','ADR-199','ADR-200','ADR-206','ADR-207','ADR-209','ADR-210','ADR-211','ADR-212','ADR-213','ADR-214','ADR-215'],
       deps:[],
       decisions:['Create the machine account for agent PRs, then switch on code-owner review (ADR-210)','Install the nightly workflow from the draft in tools/nightly/ (ADR-209 item 4)','Ratify each wave\'s thresholds table (ADR-209 item 5); the first arrives with the fuzz','Do bit-identity pins count as goldens? (phase 2 proposal, section 7)'] },
     { id:'distrib', name:'Conformance, distribution + legal', group:'quality', status:'planned', in1:'yes',
       what:'What a release must clear outside the DSP: pluginval, auval and clap-validator on the signed horde 2 builds (B427); the Windows host test before any Windows release (B447); signed installers, licensing and the update path (B412); trademark and licence items (B433).',
-      note:'Ship-blocking gaps from the B426 pass (B427, B433), all planned or with the human. Platforms ruled: macOS and Windows x64 (B432). AAX and a standalone app are OUT of 1.0 (ADR-190 A10, A11). Intel macOS is NOT a 1.0 platform: 1.0 ships for macOS arm64 and Windows x64 (ADR-209 item 8). The licence allow list is ratified, with two dated exceptions (ADR-204, ADR-205).',
-      rows:['B427','B447','B412','B433'], adrs:['ADR-190','ADR-196','ADR-204','ADR-205','ADR-209'],
+      note:'Ship-blocking gaps from the B426 pass (B427, B433), all planned or with the human. Platforms ruled: macOS and Windows x64 (B432). AAX and a standalone app are OUT of 1.0 (ADR-190 A10, A11). Intel macOS is NOT a 1.0 platform: 1.0 ships for macOS arm64 and Windows x64 (ADR-209 item 8). The licence allow list is ratified, with two dated exceptions (ADR-204, ADR-205). The licence direction is ruled (ADR-219, B471): horde stays public, all rights are reserved until 1.0, and 1.0 is released under the GPL; a prior-art and patent read of blade synthesis comes before any build is offered for money (B472).',
+      rows:['B427','B447','B412','B433','B471','B472'], adrs:['ADR-190','ADR-196','ADR-204','ADR-205','ADR-209','ADR-219'],
       deps:[['shell','B427']],
-      decisions:['The commercial model, copy protection, signed installers and the update path (B412)','The counsel items: trademark screening and licences (B433)'] },
+      decisions:['Copy protection, signed installers and the update path (B412); the GPL\'s version and the copyright holder\'s formal name, settled when the licence file is written (ADR-219 item 3)','The counsel items: trademark screening and licences (B433), and the patent read before any paid build (B472)'] },
     { id:'manual', name:'User manual', group:'content', status:'in progress', in1:'open',
       what:'The horde 1.0 user manual: one markdown chapter per topic in docs/manual/, with a registry of every figure, table and audio example; tutorials and a support channel follow (B413).',
-      note:'Scaffold built 2026-10-09 (#1009): 20 chapters, 244 sections, a 233-entry registry, held to this table\'s part ids by manual_scaffold_check. Writing the prose is not dispatched. "The manual is for 1.0" is the lead\'s default, open to the human (B451).',
+      note:'Scaffold built 2026-10-09 (#1009): 20 chapters, 244 sections, a 233-entry registry, held to this table\'s part ids by manual_scaffold_check. Writing the prose is not dispatched. "The manual is for 1.0" is the lead\'s default, open to the human (B451). Its registry cites engine 33 times and port 19 times; both are superseded by engine2 since 2026-10-17, and the ids are kept so it still checks.',
       rows:['B451','B413'], adrs:['ADR-186','ADR-190'],
       deps:[['gui3','B451']],
       decisions:['Confirm the lead\'s defaults: the manual is for horde 1.0 (horde 2), in docs/manual/ (B451)'] },
     { id:'release', name:'1.0 — the stability line', group:'milestone', status:'planned', in1:'yes',
       what:'horde 2\'s first human-cut release tag. Before it, laws, parameters and ranges change freely; after it, sound-law changes are version-selected and ids and ranges are locked.',
-      note:'Defined by ADR-186 §5(f). The roster froze 2026-10-07 (ADR-190); each module\'s MUST rows are judged at a later module cutoff (A1).',
-      rows:['B305','B327','B440'], adrs:['ADR-186','ADR-190'],
+      note:'Defined by ADR-186 §5(f). The roster froze 2026-10-07 (ADR-190); each module\'s MUST rows are judged at a later module cutoff (A1). 1.0 is released under the GPL (ADR-219 item 3).',
+      rows:['B305','B327','B440'], adrs:['ADR-186','ADR-190','ADR-219'],
       deps:[['presets','B395'],['gui3','B302'],['perf','inferred: a shippable CPU cost'],['freeze','inferred: the legacy archive exists before the human switches'],['quant','B391'],['sub','B327'],['noise','ADR-190'],['stereo','ADR-190'],['master','ADR-190'],['mpe','ADR-190'],['mts','ADR-190'],['arps','ADR-190'],['distrib','B427'],['armor','inferred: the armor gates run in verify full, which 1.0 must pass']],
       decisions:[] },
     { id:'tonality', name:'Tonality integration', group:'post', status:'post-1.0', in1:'no',
@@ -477,10 +491,10 @@ const DATA = {
       decisions:[] },
     { id:'noise', name:'Noise oscillator', group:'sources', status:'planned', in1:'yes',
       what:'A plain noise oscillator as a 1.0 source, separate from the post-1.0 sampler.',
-      note:'IN for 1.0 (ADR-190 A6), answering B409\'s question. It has no row of its own and no design yet; like every source it follows every global unless its manifest opts out (B275 b). Re-scoped 2026-10-09: this id was "Noise osc / sampler, post-1.0"; the sampler is now its own part.',
-      rows:['B409','B327'], adrs:['ADR-190'],
-      deps:[['seams','B275']],
-      decisions:[] },
+      note:'IN for 1.0 (ADR-190 A6), answering B409\'s question. It has no row of its own and no design yet; like every source it follows every global unless its manifest opts out (B275 b). Re-scoped 2026-10-09: this id was "Noise osc / sampler, post-1.0"; the sampler is now its own part. The new engine specifies its minimum inside the voice (SPEC-ENGINE 5.6, SN-4; built at BD-8 stage 6); its design is spec X15, ruled during the build. B452 still tracks its design lab.',
+      rows:['B409','B327'], adrs:['ADR-190','ADR-224'],
+      deps:[['seams','B275'],['engine2','ADR-224']],
+      decisions:['The noise oscillator\'s design (spec X15; its design lab, B452)'] },
     { id:'mts', name:'MTS-ESP client', group:'pitch', status:'ruled', in1:'yes',
       what:'A basic MTS-ESP microtuning client (the 0BSD library, real-time safe), with a stated precedence between horde\'s own quantizer/scale and MTS-ESP.',
       note:'Ruled IN 2026-10-04 (B431, "MTS-ESP microtuning in 1.0 is fine"; ADR-190 roster). Not built.',
@@ -501,26 +515,26 @@ const DATA = {
       decisions:[] },
   ],
   order: [
-    { k:'A1', track:'C++ spine', title:'Clean port: parity DONE; quality suites, B378 fixes, CPU campaign', nodes:['port','edges','testing','perf'],
-      why:'Parity merged and wired (B385, B405). Owed: the aliasing and zipper suites (B404), the B378 fixes and the edge correction as ledgered divergences, and the CPU campaign to the B439 budget (B441; os 1 default landed, ADR-191).' },
+    { k:'A1', track:'C++ spine', title:'The new engine: spec RATIFIED; clean room made; tests, then the staged build', nodes:['engine2','testing','perf'],
+      why:'ADR-223: the composed engine is rebuilt from a user-level spec, not ported (port, edges and engine are superseded). Done: the rebuild audit (B493), the spec (#1097, B494), the clean-room tree and reference renders (B497), the two history-free repositories (B502). Next: the human opens the test-author session; the acceptance tests (B498); the build in BD-8\'s stages, the labs on WebAssembly; judged on the bank A/B, the CPU target (B488) and the invariant suite; then cutover. Meanwhile the current engine plays in the preview (B458, ADR-215).' },
     { k:'A2', track:'C++ spine', title:'Shell skeleton: identity, manifest → lockfile, schema version, draw ADR', nodes:['seams','shell'],
-      why:'ADR-186 §5 builds the skeleton first, from the provisional manifest of B376\'s decided audit (B277 re-scoped to horde 2). Frozen identities (B428), the wrapper boundary (B429) and the GUI rules R1–R11 (B449) land with it.' },
+      why:'ADR-186 §5 builds the skeleton, now after a playable preview came first (ADR-215, B458), and hosting the new engine (ADR-223), whose manifest (§5.1) and reserved readout, parameter and history contracts (RC-8, RC-9, RC-11) it binds to; B277 still needs re-scoping to horde 2. Frozen identities (B428), the wrapper boundary (B429) and the GUI rules R1–R11 (B449) land with it.' },
     { k:'A3', track:'C++ spine', title:'History on the skeleton, acceptance grown feature by feature', nodes:['history'],
-      why:'"A must" (B389). Ported as soon as horde 2 has state, so every later feature lands under its gates instead of being retrofitted.' },
-    { k:'A4', track:'C++ spine', title:'Pitch seam: bend laws, published pitch, quantizer, MTS-ESP, MPE input', nodes:['bend','quant','mts','mpe'],
-      why:'The human\'s summary items 2 and 3; B278\'s lesson (one published pitch); MTS-ESP and MPE through CLAP per-note expressions are IN (B431, ADR-190 A4); Tonality room now (B390).' },
+      why:'"A must" (B389). Ported as soon as horde 2 has state, so every later feature lands under its gates instead of being retrofitted. The engine\'s side is RC-11 (ADR-229 A1).' },
+    { k:'A4', track:'C++ spine', title:'Pitch seam: bend laws and glide on the engine\'s pitch input, quantizer, MTS-ESP, MPE input', nodes:['bend','quant','mts','mpe'],
+      why:'The human\'s summary items 2 and 3. The engine provides the per-note pitch input and the published pitch and reserves the pitch system (RC-3, ADR-225 item 7, ADR-226 item 7); B504, the glide system with poly glide and the spring (on records PR #1117), comes after the engine\'s stage 2. MTS-ESP and MPE through CLAP per-note expressions are IN (B431, ADR-190 A4); Tonality room now (B390).' },
     { k:'A5', track:'C++ spine', title:'Armor and conformance: the gates 1.0 must pass', nodes:['armor','distrib'],
-      why:'Blind-Spot Armor is law (ADR-197): phase 1 is complete and phase 2 builds its gates on the horde 2 engine now, with the shell\'s gates written as its acceptance list (ADR-209); conformance gates need the signed shell (B427).' },
+      why:'Blind-Spot Armor is law (ADR-197): phase 1 is complete and phase 2 is ruled (ADR-209), but new armor work waits while horde builds first (ADR-215 item 4); conformance gates need the signed shell (B427); the GPL at 1.0 and the patent read before any paid build (ADR-219, B472).' },
     { k:'S0', track:'Lab sync', title:'Triage', nodes:['archived'],
       why:'Done in substance: the lab navigator archives the dead-engine and superseded labs (B407, built).' },
-    { k:'S1', track:'Lab sync', title:'Engine decisions', nodes:['audit','engine','edges','modulators'],
-      why:'B376 and B386 are decided (2026-10-02/03). Left: the SCALPEL interface (freezing its parameter set), the edge listening and envelope decision 1.' },
+    { k:'S1', track:'Lab sync', title:'Engine decisions', nodes:['audit','engine2','modulators'],
+      why:'Done in substance. B376 and B386 are decided (2026-10-02/03); the edge correction is ruled (ADR-222); the SCALPEL interface became the new engine\'s ratified spec (ADR-223 to ADR-229), with envelope timing ruled (ADR-226 item 10). Left: the spec\'s questions ruled during the build, each before its stage (SPEC-ENGINE §11.1, among them Q31: the 19 deferred rows and the default curves).' },
     { k:'S2', track:'Lab sync', title:'Modulation (PROMOTED)', nodes:['modulators','modmatrix','modmorph'],
       why:'The human: "prioritize working through the mod matrix lab soon" (B392); the modulator-morph workshop is part of it (B396). B450\'s response puts horde at about S1–S2 on 2026-10-09.' },
     { k:'S3', track:'Lab sync', title:'Morph, FX algorithm morph (PROMOTED), patch model, intent bus', nodes:['morph','fxmorph','patch','intent'],
       why:'The FX algorithm morph ran ahead: D1–D8 ruled (ADR-193), lab rounds 2–3b built. Stepped morph glide (B424) and the intent slots (ADR-192) sync here; the patch model becomes the state schema.' },
     { k:'S4', track:'Lab sync', title:'Sources, routing, stereo and performance input', nodes:['sub','noise','filters','stereo','mix','master','mpe','arps'],
-      why:'B331 S1\'s Sub and filters move here: the port\'s parameter input is the audit, and before the stability line the manifest may grow (ADR-186 §5(e)). The noise oscillator, true stereo, the master strip, MPE and the arpeggiator are IN (ADR-190).' },
+      why:'B331 S1\'s Sub and filters move here: the new engine\'s spec already places the sub, the noise oscillator and the filter slot in the voice (5.5, 5.6, RC-1), so these sessions design what fills them (B399, spec X15, X13); before the stability line the manifest may grow (ADR-186 §5(e), RC-9). The mixer\'s gain staging is ruled (ADR-230, ADR-231), with an adaptive make-up lab after it (B503). The noise oscillator, true stereo, the master strip, MPE and the arpeggiator are IN (ADR-190).' },
     { k:'S5', track:'Lab sync', title:'FX modules and screens', nodes:['rack','maw','sluice','reverb','echo','bulwark','eq','fxfilter','drive','ott','kchorus'],
       why:'The rack-slot contract first (B450, ratified, ADR-201); then the hosted siblings (Shriek, Sluice at V1, Scape, Bulwark) and horde\'s own (ECHO, EQ, FX filter, drive); the conditionals by the module cutoff; then the screen aesthetic and logos.' },
     { k:'S6', track:'Lab sync', title:'Presentation → GUI 3', nodes:['gui3'],
@@ -641,7 +655,11 @@ function checkCrit(nodes, path) {
 function runChecks() {
   const N = DATA.nodes, rows = [];
   const plantCite = N.concat([{ id:'zz', name:'planted', status:'planned', in1:'yes', rows:['B99999'], adrs:[], deps:[] }]);
-  const plantCycle = N.map(n => n.id === 'engine' ? Object.assign({}, n, { deps: n.deps.concat([['release','planted']]) }) : n);
+  // The back-edge goes on the critical path's first part, which release always depends on. It was
+  // planted on 'engine' until 2026-10-17; superseded, that part has no dependents, so a back-edge
+  // there closes no cycle and the control would silently stop firing.
+  const root = ST.crit[0] || 'engine2';
+  const plantCycle = N.map(n => n.id === root ? Object.assign({}, n, { deps: n.deps.concat([['release','planted']]) }) : n);
   const plantRef = N.map(n => n.id === 'sub' ? Object.assign({}, n, { deps: n.deps.concat([['nope','planted']]) }) : n);
   let docMut = null; if (ST.dm) { docMut = JSON.parse(JSON.stringify(ST.dm)); if (docMut.engine) docMut.engine.status = 'built'; }
   const crit = ST.crit, critMut = crit.length > 2 ? crit.slice(0, 1).concat(crit.slice(2)) : ['release', 'release'];
@@ -677,7 +695,7 @@ function layout() {
   const maxD = Math.max(...N.map(n => depth[n.id]));
   // A post-1.0 part is drawn below the 1.0 cut even when its prerequisites would allow it higher
   // (arps needs only the quantizer, but it is placed after 1.0 as a proposal).
-  const rowOf = n => n.group === 'parked' ? maxD + 1 : n.group === 'post' ? Math.max(depth[n.id], depth.release + 1) : depth[n.id];
+  const rowOf = n => n.group === 'parked' || n.status === 'superseded' ? maxD + 1 : n.group === 'post' ? Math.max(depth[n.id], depth.release + 1) : depth[n.id];
   for (const n of N) (rows[rowOf(n)] = rows[rowOf(n)] || []).push(n);
   let widest = 0;
   for (let r = 0; r <= maxD + 1; r++) {
@@ -703,7 +721,7 @@ function render() {
   s += '<line class="lane" x1="0" x2="' + L.w + '" y1="' + L.cut + '" y2="' + L.cut + '"/>';
   s += '<text class="lanelbl" x="' + PADX + '" y="' + (L.cut + 13) + '">AFTER 1.0</text>';
   s += '<line class="lane" x1="0" x2="' + L.w + '" y1="' + L.park + '" y2="' + L.park + '"/>';
-  s += '<text class="lanelbl" x="' + PADX + '" y="' + (L.park + 13) + '">PARKED</text>';
+  s += '<text class="lanelbl" x="' + PADX + '" y="' + (L.park + 13) + '">PARKED · SUPERSEDED</text>';
   for (const n of N) for (const [d, basis] of n.deps) {
     const a = L.pos[d], b = L.pos[n.id]; if (!a || !b) continue;
     const x1 = a.x + NW / 2, y1 = a.y + NH, x2 = b.x + NW / 2, y2 = b.y, my = (y1 + y2) / 2;
@@ -734,7 +752,7 @@ function rowHtml(r) {
 }
 function side() {
   const N = DATA.nodes, m = byId(N), id = ST.sel;
-  if (!id) { $('side').innerHTML = '<h3>Click a part</h3><p>Each box is one part of horde 2. The coloured bar is its status; a pink outline marks the critical path; a dashed outline marks a part whose 1.0 membership is open. Dashed edges are the plan\'s inferences; solid edges cite a row or ADR (hover an edge to see which).</p><p style="margin-top:6px">The plan in prose is <code>docs/H2-PLAN.md</code>. ROADMAP.md outranks both.</p>'; return; }
+  if (!id) { $('side').innerHTML = '<h3>Click a part</h3><p>Each box is one part of horde 2. The coloured bar is its status; a pink outline marks the critical path; a dashed outline marks a part whose 1.0 membership is open; a superseded part sits in the bottom row with the parked ones, kept for its id. Dashed edges are the plan\'s inferences; solid edges cite a row or ADR (hover an edge to see which).</p><p style="margin-top:6px">The plan in prose is <code>docs/H2-PLAN.md</code>. ROADMAP.md outranks both.</p>'; return; }
   const n = m[id], dependents = N.filter(x => x.deps.some(d => d[0] === id));
   let h = '<h3>' + esc(n.name) + '</h3><span class="stag" style="--sc:var(' + SCOLOR[n.status] + ')">' + esc(n.status.toUpperCase()) + '</span> <span class="note">id <code>' + n.id + '</code> · 1.0: ' + esc(n.in1) + '</span>';
   h += '<h4>WHAT IT IS</h4><p>' + esc(n.what) + '</p><h4>STATUS</h4><p>' + esc(n.note) + '</p>';
