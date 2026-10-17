@@ -8310,3 +8310,24 @@ The legacy instrument already has that system: four travel laws (constant time, 
    It also names the bank's 22 poly presets that store a glide time. The engine computes none of it; it promises the per-note pitch from the first sample and the lifecycle.
 4. **Not decided here:** whether the 22 poly-glide presets glide by default, and how the phrase stand-in of 10.3 treats them. The human deferred that ("happy to save poly glide for another day"); it stays B497's open question and moves to B504. Their reference renders do not glide, because the engine that made them glides only in mono and legato. So for glide they are not a reference.
 5. The structure declaration's `allocator->pitch_system` edge now cites VO-10, and its `spec.blob` is updated after review.
+
+**ADR-232 status: RATIFIED 2026-10-17** by the human's merge of #1117.
+
+## ADR-233 — RULED by the human: the CI sanitizer jobs run in parallel, and the thread sanitizer runs the thread test (B505, 2026-10-17)
+
+**Context.** The human: "Is there anything we can do to get it to run for less time? It's now averaging 30 minutes. If this is defensible as the most responsible way to work, I'll accept it, but I want to make sure it isn't just spinning gears for no reason."
+
+A typical PR run (38991514882) took 43 minutes:
+- verify-fast and the Windows build and validate: about 4 minutes;
+- `sanitize (address,undefined)`: 39 minutes;
+- `sanitize (thread)`: 43 minutes.
+
+Both sanitizer jobs build and run the 54 compiled oracles that `./verify` names (`tools/sanitize_oracles.sh`), one at a time, on a 4-core runner. The slowest oracles under TSan were `stability_check` (546 s), `h2_engine_selfdigest_check` (377 s), `h2_engine_parity_check` (284 s), `h2_engine_selfdigest_product` (230 s) and `h2_engine_fma_control` (223 s).
+
+**The finding.** None of the 55 oracle sources starts a second thread (no `std::thread`, `pthread_create`, `std::async` or `jthread`), and neither does the plugin core they drive. A thread sanitizer reports races between threads, so the CI thread job could never fire. The repository's real thread-race test, `tools/tsan_stress_check.py` (ADR-200, armor R2), runs only in `./verify full` on the Mac.
+
+**The ruling.** The human: "Go ahead with 1 and 2".
+1. **Parallel runs.** `tools/sanitize_oracles.sh` runs its oracles in parallel across the runner's cores, with no oracle dropped and each oracle's verdict and log kept separate. Before that, the change confirms no two oracles share a temporary file or output path.
+2. **The thread job runs the thread test.** CI's thread-sanitizer job runs `tsan_stress_check` instead of the single-threaded oracles, if the test builds and runs on Linux. If it cannot, the job is removed and the stress test stays in `./verify full`. Either way the change says which, with evidence. The single-threaded oracles under TSan are retired on this finding. This is a recorded removal of a gate that could not fire, made by the human's ruling, as the charter requires.
+
+**Expected effect.** CI from about 43 minutes to about 15, bounded by the slowest single oracle under ASan. No coverage is lost that the sanitizers could provide. **Lead's own fix:** batch pushes to a PR, since each push restarts its run (#1117 restarted four times on 2026-10-17).
