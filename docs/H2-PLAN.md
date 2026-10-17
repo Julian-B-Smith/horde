@@ -3,11 +3,7 @@
 **Last verified: 2026-10-17**, every part, against ROADMAP.md and DECISIONS.md on main `3f338ce`
 (the merge of records PR #1116): rows through B503, ADR-213 to ADR-231 with their amendments.
 ROADMAP B387. This refresh covers everything since the partial refresh of 2026-10-11, above all
-the engine rebuild the human ruled on 2026-10-15 (ADR-223). **Two records are not on main:** B504
-(the glide system) and ADR-232 (PROPOSED, ratified by its merge: the engine leaves room for glide)
-sit on the open records PR #1117 (`origin/lead-records-272`). They were read there and are cited in
-prose only, never in the parts table or the map's row and ADR lists, because the map's check 1
-reads main's files. When #1117 merges, B504 joins `bend`'s rows and ADR-232 `engine2`'s.
+the engine rebuild the human ruled on 2026-10-15 (ADR-223). **Follow-up, later on 2026-10-17** (main `a94e97e` and the records after it, through B511 and ADR-236): B504 and ADR-232 now sit on main and are cited in the table and the map. The decisions the human answered that day (ADR-235, ADR-236) are marked in place, the freeze is built, and three new decisions are added (60–62).
 
 The earlier verifications are in git history: 2026-10-09 (main `b2177c2`, through B451 and
 ADR-199), its partial refresh of 2026-10-11 (main `6dd5884`, through B457 and ADR-212, ten parts),
@@ -110,7 +106,7 @@ B458; `testing` B490; `perf` B488; `distrib` B471, B472; `edges` B491; `engine` 
 | Edge correction | `edges` | superseded | B383, B380, B378, B491 | — | superseded |
 | Clean C++ port (phase 1b) | `port` | superseded | B385, B405, B404, B406, B379, B332, B378 | — | superseded |
 | Seam contracts + readiness gate | `seams` | ruled | B275, B276, B277, B339 | `audit` | in |
-| Bend laws + glide | `bend` | planned | B397, B278, B57, B32 | `engine2`, `seams` | in |
+| Bend laws + glide | `bend` | planned | B397, B278, B57, B32, B504 | `engine2`, `seams` | in |
 | Shared pitch quantizer | `quant` | planned | B391, B88, B260 | `bend` | in |
 | MTS-ESP client | `mts` | ruled | B431, B390 | `quant` | in |
 | MPE, aftertouch + MIDI basics | `mpe` | planned | B388, B431, B429 | `bend`, `modmatrix`, `engine2` | in |
@@ -624,12 +620,12 @@ licence items (B433). Platforms: macOS and Windows x64 (B432).
 - Governing: B427, B447, B412, B433, B471, B472. ADR-190, ADR-196, ADR-204, ADR-205, ADR-209,
   ADR-219. Status: **planned**. Needs first: `shell`.
 - The licence direction is ruled (ADR-219, B471): horde stays public, all rights are reserved
-  until 1.0, and 1.0 is released under the GPL. A prior-art and patent read of blade synthesis
+  until 1.0, and 1.0 is released under the GPL. A prior-art and legal read of blade synthesis
   comes before any build is offered for money (B472). Intel macOS is not a 1.0 platform (ADR-209
   item 8).
 - Open: copy protection, signed installers and the update path (B412); the GPL's version and the
   copyright holder's formal name, settled when the licence file is written (ADR-219 item 3); the
-  counsel items (B433) and the patent read (B472).
+  counsel items (B433) and the pre-commercial legal read (B472).
 
 **GUI 3 and the screens** (`gui3`). The labs assembled into a new GUI that binds only to
 generated manifest keys (B308 L2); FX modules as software on screens; the settings page and file
@@ -684,7 +680,7 @@ rounds long before the rack exists.
 | A2 | The shell skeleton (ADR-186 §5), after the preview that came first (ADR-215, B458): the new identity; the manifest feeding a generated parameter lockfile (B308 H4), now the new engine's manifest (spec §5.1, append-only by RC-9), with B277 re-scoped to horde 2; the state schema version; the counter-based draw ADR (B308 H3). Frozen identities (B428), the wrapper boundary (B429) and the GUI rules R1–R11 (B449) land with it. | `seams`, `shell` |
 | A3 | History on the skeleton (B389), ported as soon as horde 2 has state, its acceptance grown as each feature lands; the engine's side is RC-11 (ADR-229 A1). | `history` |
 | A4 | The pitch seam: the bend laws and glide on the engine's per-note pitch input and published pitch (RC-3, ADR-225 item 7), with B504's glide system after the engine's stage 2 (on PR #1117); the quantizer as a service, MTS-ESP with its stated precedence, and MPE through CLAP per-note expressions; room for Tonality (B390). | `bend`, `quant`, `mts`, `mpe` |
-| A5 | The gates 1.0 must pass: Blind-Spot Armor (ADR-197; phase 1 done, phase 2 ruled, ADR-209, with new armor work waiting while horde builds first, ADR-215 item 4), the conformance gates once a signed shell exists (B427), the GPL at 1.0 and the patent read before any paid build (ADR-219, B472). | `armor`, `distrib` |
+| A5 | The gates 1.0 must pass: Blind-Spot Armor (ADR-197; phase 1 done, phase 2 ruled, ADR-209, with new armor work waiting while horde builds first, ADR-215 item 4), the conformance gates once a signed shell exists (B427), the GPL at 1.0 and the pre-commercial legal read before any paid build (ADR-219, B472). | `armor`, `distrib` |
 
 **Track B — lab sync** (human-paced, one lab per review session; B331 reordered):
 
@@ -870,12 +866,11 @@ run until cutover, and no record retires them with the port.
 8. **Floor warning:** should the floor's key-mismatch warning fail the gate (B406 item 5).
 9. **Seams:** B275 (a) the seam list and "ready" (whether the spec's RC-1 to RC-11 answer it),
    (c) the FOUNDATIONS / horde split, and (d) proceeding on the provisional schema.
-10. **Poly glide:** do the bank's 22 poly presets that store a glide time glide by default?
-   Deferred by the human; B497's open item, moving to B504 (PR #1117).
+10. **Poly glide:** Deferred by the human 2026-10-17; the glide system is B504 (ADR-232 leaves the engine room for poly glide, the spring law and quantize). Their reference renders do not glide (B497).
 11. **Scale sidechain:** whether a MIDI sidechain sets the scale in 1.0 (B260).
 12. **MPE:** its design (B388); which expressions reach the swarm and the blades (spec Q2).
 13. **Note-on randoms:** the form of the linked pair (B264).
-14. **ORBITAL velocity:** signed components or speed (B267).
+14. **ORBITAL velocity:** BACK TO THE LAB 2026-10-17 (ADR-235 item 4), with the human's idea of a 10×/0.1× mass toggle; not ruled.
 15. **Onset scatter:** the recommendation (B370); where it lives is spec Q13.
 16. **Modulator morph:** a morph law per modulator type (B396).
 17. **Morph editor:** B269's items: per-group cohesion, boundary editing, exempt and locks.
@@ -887,8 +882,7 @@ run until cutover, and no record retires them with the port.
 23. **Filters:** re-ruling the filter tolerances physics refuses (B287 → B290).
 24. **Per-note filters:** the type list, after the Release cost measurement (B303).
 25. **Filter count and routing:** in the voice (spec X13).
-26. **Rack-input clip lamp:** how it treats an over, when it will light on most bank chords
-    (ADR-230; still open by its A1 item 4; B402).
+26. **Rack-input clip lamp:** DONE 2026-10-17 (ADR-235 item 3): the rack-input lamp latches an over like every other stage.
 27. **Make-up range:** the make-up gain's range and the faders' laws (B402; ADR-230 A1 item 2).
 28. **Adaptive make-up:** whether it ships, after its lab's A/B (B503).
 29. **Corner FX buses:** the discussion is owed (B258).
@@ -897,20 +891,19 @@ run until cutover, and no record retires them with the port.
 31. **Rack-slot contract:** Q3 and Q9 by measurement, and the slot-switch click ceiling by ear in
     the first listening batch, which also replaces the ceiling ADR-218 suspended (ADR-201, ADR-209
     item 13, ADR-218).
-32. **Module cutoff:** the date the module 1.0 bar's MUST rows are judged (ADR-190 A1).
+32. **Module cutoff:** DONE 2026-10-17 (ADR-236 item 1): **Friday 2026-12-11**; horde-side rows are judged at hosting (item 2).
 33. **Shriek:** FX-C as a fixed post-stage or a rack slot (spec Q23 builds a slot until then), and
     B318's other items (B318, B435).
 34. **Sluice tails:** label, stand-in gate, or leave (B369).
-35. **Module names:** ten glasses or six (B336).
+35. **Module names:** PARTLY ANSWERED 2026-10-17 (ADR-235 item 1): one glass each. Still open: the names themselves, from B336's three to five per module.
 36. **FX algorithm morph:** p and K by ear (ADR-193 D8), and the items B265 still lists.
 37. **Patch model:** ratify it (B263).
 38. **Spec:** which spec the rest of horde 2 (the shell, the rack, GUI 3) answers to (B308 M2);
     the engine's is `specs/SPEC-ENGINE.md` (ADR-224 item 8).
-39. **AU code:** the manufacturer code (ADR-186 §3; autonomous may rule a fleet code).
+39. **AU code:** PROPOSED 2026-10-17 (ADR-235 item 5): `Mndl`, as the fleet code for unreleased Mindlathe plugins; autonomous to rule (its brief hypersaw-017).
 40. **Shell acceptance:** ratify the drafted list with B398 (ADR-209, package P17).
 41. **Freeze tag:** DONE 2026-10-17. `v0.9-legacy` is cut and published (ADR-186 §2, B255); kept here so the numbers do not move.
-42. **History scope:** confirm "modulated values in motion are not history; mapping changes are"
-    (B389).
+42. **History scope:** DONE 2026-10-17 (ADR-235 item 2): confirmed, and loading a preset into a module is history too; hand edits versus DAW automation to be measured per host.
 43. **Serum 2:** load it after seeing stage 1 (B381).
 44. **aliasDb:** the re-ruling (B350).
 45. **WebAssembly:** the toolchain's exact version, at the lab stage (approved in principle,
@@ -920,7 +913,7 @@ run until cutover, and no record retires them with the port.
     B488's restated target is the lead's arithmetic, for the human to confirm.
 48. **Windows CPU:** one measurement on the human's Windows PC, replacing the assumed ×1.5
     slow-machine factor (ADR-209 item 10).
-49. **Screen styles:** one for every FX module, or one each (B322).
+49. **Screen styles:** DONE 2026-10-17 (ADR-235 item 1): one style per module, the simplest may share the house style, plus a backup UI in horde's house style for each.
 50. **Corner auto-ingest:** what "everything that fits under corner rule" means (B395).
 51. **Sound designers:** whether to commission them for the 150–400-preset norm (B395).
 52. **Bank coupling:** the coupling rescale and the negative-coupling presets' starts, by ear in
@@ -932,9 +925,12 @@ run until cutover, and no record retires them with the port.
 57. **Commercial model:** copy protection, signed installers and the update path (B412); the
     GPL's version and the copyright holder's formal name, when the licence file is written
     (ADR-219 item 3).
-58. **Counsel items:** trademark screening and licences (B433), and the patent read before any
+58. **Counsel items:** trademark screening and licences (B433), and the pre-commercial legal read before any
     paid build (B472).
 59. **Manual:** the lead's defaults, including "the manual is for 1.0" (B451).
+60. **Shriek's three questions** (B508; respond by 2026-10-31): the rack's rate for 1.0; whether factory presets may default to an oversampled mode within 4 %; Shriek's 2× latency under RS-7.1.
+61. **Sluice library:** does horde's Sluice slot also browse the standalone Sluice library directly, read-only? (B510; ADR-236 item 7.)
+62. **Automated-parameter budget:** confirm B511's proposed cases and the 4 % ceiling (ADR-236 item 4).
 
 ## Inconsistencies found
 
