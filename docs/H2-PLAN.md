@@ -141,7 +141,7 @@ B458; `testing` B490; `perf` B488; `distrib` B471, B472; `edges` B491; `engine` 
 | Bulwark multiband + ATM (was OTT) | `ott` | planned | B423, B400, B393 | `bulwark` | conditional |
 | Kuramoto chorus | `kchorus` | planned | B401, B393 | `rack` | conditional |
 | horde 2 plugin shell | `shell` | ruled | B398, B428, B429, B449, B305, B308, B306, B458 | `seams`, `engine2` | in |
-| Legacy freeze tag | `freeze` | ruled | B255, B308, B305, B456 | — | in |
+| Legacy freeze tag | `freeze` | built | B255, B308, B305, B456 | — | in |
 | Testing apparatus | `testing` | in progress | B316, B324, B340, B344, B350, B381, B186, B457, B490 | `engine2` | in |
 | Performance | `perf` | in progress | B441, B445, B323, B372, B375, B357, B262, B488 | `engine2` | in |
 | Blind-Spot Armor + security gates | `armor` | in progress | B448, B446, B430, B455, B457 | — | in |
@@ -570,8 +570,8 @@ committed lockfile; the state carries a schema version from day one.
 bundles; old projects depend on that archive (ADR-186 §2). Legacy sessions stay on the old system
 (ADR-197).
 - Governing: B255, B308 (H1, H5, M4), B305, B456. ADR-186, ADR-207, ADR-208, ADR-209. Status:
-  **ruled**. No legacy tag exists (checked 2026-10-17: the remote's one tag is
-  `engine2-reference-renders-v1`). A side-by-side test identity exists for trying legacy changes
+  **built** (2026-10-17). The tag `v0.9-legacy` was cut on main `57d61f9`; CI built, signed
+  (ad-hoc) and drafted the release; the human published it. Its assets are the legacy plugin of record. A side-by-side test identity exists for trying legacy changes
   without replacing the installed plugin (B456). Needs first: nothing in this graph.
 - Open: cut the tag. (The real-blob corpus of B308 H5 is skipped: ADR-209 item 11.)
 
@@ -908,7 +908,7 @@ run until cutover, and no record retires them with the port.
     the engine's is `specs/SPEC-ENGINE.md` (ADR-224 item 8).
 39. **AU code:** the manufacturer code (ADR-186 §3; autonomous may rule a fleet code).
 40. **Shell acceptance:** ratify the drafted list with B398 (ADR-209, package P17).
-41. **Freeze tag:** cut it (ADR-186 §2).
+41. **Freeze tag:** DONE 2026-10-17. `v0.9-legacy` is cut and published (ADR-186 §2, B255); kept here so the numbers do not move.
 42. **History scope:** confirm "modulated values in motion are not history; mapping changes are"
     (B389).
 43. **Serum 2:** load it after seeing stage 1 (B381).
