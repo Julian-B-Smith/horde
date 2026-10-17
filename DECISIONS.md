@@ -8331,3 +8331,18 @@ Both sanitizer jobs build and run the 54 compiled oracles that `./verify` names 
 2. **The thread job runs the thread test.** CI's thread-sanitizer job runs `tsan_stress_check` instead of the single-threaded oracles, if the test builds and runs on Linux. If it cannot, the job is removed and the stress test stays in `./verify full`. Either way the change says which, with evidence. The single-threaded oracles under TSan are retired on this finding. This is a recorded removal of a gate that could not fire, made by the human's ruling, as the charter requires.
 
 **Expected effect.** CI from about 43 minutes to about 15, bounded by the slowest single oracle under ASan. No coverage is lost that the sanitizers could provide. **Lead's own fix:** batch pushes to a PR, since each push restarts its run (#1117 restarted four times on 2026-10-17).
+
+## ADR-234 — Bulwark's switch classes: `comp.scOn` is a Device key (RULED by the human); seeded jumps and group delay amend the rack-slot contract (the lead's, ratified by merging) (B463, 2026-10-17)
+
+**Context.** Bulwark's brief `switch-classes` (thread dynamite-dynamics-consumer, seq 20) asks three questions before it builds the crossfades ADR-218 asked for.
+1. A crossfade of `comp.scOn` (the sidechain high-pass, in or out of the detector) needs a second, temporary detector at each switch. Its reading on bass probes goes from 60.68 dB to 12.83 dB, and the two pinned probes cannot tell the designs apart. Bulwark proposed making the key a Device key (option B).
+2. `comp.autoRel` and `lim.autoRel` switch by a seeded jump: the gain does not step, only its slope, reading 0.04 and 0.06 dB. Does §12's "no bare jump" reach them?
+3. ADR-218 put the multiband crossover's ~7-sample group delay in the declared residual. FOUNDATIONS' `validate()` refuses a residual above 0.5 samples, because the field means the rounding error of a whole-sample latency.
+
+**Rulings and amendments.**
+1. **Q1, RULED by the human:** "go with B for Bulwark Q1". `comp.scOn` becomes a Device key, never morphed. `comp.scHz` stays morphable.
+2. **Q2, the lead:** admit a **declared seeded jump** as a switch method. The rule's purpose, no audible discontinuity in the applied signal, is met when the applied value is continuous by construction. The admission is conditional: the switch table lists it with its reading, and a planted unseeded jump must read red. A third envelope to crossfade a slope change would add cost and fix nothing audible.
+3. **Q3, the lead:** a group delay is not latency and not a residual. Bulwark reports latency 0 and states the group delay outside `OperatorProperties`, until FOUNDATIONS adds a field. Bulwark will ask FOUNDATIONS, and horde supports it. This corrects ADR-218's own A4 row, which misread the field.
+4. **Bulwark's §4 correction is taken:** `comp.stereo` is linear in amplitude over 20 ms, not raised-cosine. No change is asked.
+
+The amendments are written as `docs/proposals/rack-slot-contract.md` §12.2. The response is `integrations/bulwark/response-switch-classes.md` (seq 21, ball Bulwark).
