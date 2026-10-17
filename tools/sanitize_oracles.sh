@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # sanitize_oracles.sh — build and run the compiled ./verify oracles under a
-# sanitizer (B101 robustness matrix; the CI `sanitize` job runs exactly this).
+# sanitizer (B101 robustness matrix). CI's `sanitize (address,undefined)` job
+# runs exactly this; its `sanitize (thread)` job runs tools/tsan_stress_check.py
+# instead, since none of these oracles starts a second thread (ADR-233).
 #
 #   tools/sanitize_oracles.sh address,undefined [build-dir]
 #   tools/sanitize_oracles.sh thread            [build-dir]
@@ -45,6 +47,22 @@ echo "== sanitize_oracles: -fsanitize=$SAN  build=$BUILD"
 echo "== oracles parsed from ./verify:"
 echo "$ORACLES" | sed 's/^/   /'
 
+# SANITIZE_ONLY="a b c" builds and runs only those named oracles: a LOCAL
+# debugging aid (it is how the parallel mechanism was proven on a subset with
+# a planted failure, B505). It is refused under CI (GitHub sets CI=true),
+# because a subset in the workflow would read as coverage it is not; every
+# line that reports on a subset run says SUBSET.
+SUBSET=""
+if [ -n "${SANITIZE_ONLY:-}" ]; then
+  if [ -n "${CI:-}" ]; then
+    echo "sanitize_oracles: SANITIZE_ONLY is refused under CI — every oracle runs there" >&2
+    exit 1
+  fi
+  SUBSET=" SUBSET (SANITIZE_ONLY=$SANITIZE_ONLY), not a coverage verdict;"
+fi
+
+in_list() { case " $2 " in *" $1 "*) return 0 ;; esac; return 1; }
+
 cmake -S "$ROOT" -B "$BUILD" -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=RelWithDebInfo \
       -DHYPERSAW_SANITIZE="$SAN" || exit 1
 
@@ -52,6 +70,7 @@ cmake -S "$ROOT" -B "$BUILD" -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=RelWithDebIn
 KNOWN=$(cmake --build "$BUILD" --target help | grep -oE '^\.\.\. [A-Za-z_0-9-]+' | sed 's/^\.\.\. //')
 TARGETS=()
 while read -r name _; do
+  if [ -n "$SUBSET" ] && ! in_list "$name" "$SANITIZE_ONLY"; then continue; fi
   if grep -qx "$name" <<<"$KNOWN"; then TARGETS+=("$name"); else echo "   $name: no target in this tree — SKIPPED"; fi
 done <<<"$ORACLES"
 NPROC=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
@@ -65,7 +84,7 @@ NPROC=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 cmake --build "$BUILD" --target HYPERSAW-impl -j"$NPROC" || exit 1
 UNBUILT=""   # a string, not an array: bash 3.2 + set -u (see the run loop)
 NUNBUILT=0
-for t in "${TARGETS[@]}"; do
+for t in ${TARGETS[@]+"${TARGETS[@]}"}; do   # empty-safe under bash 3.2 + set -u
   if ! cmake --build "$BUILD" --target "$t" -j"$NPROC" > "$BUILD/$t.build.log" 2>&1; then
     echo "   $t: DOES NOT BUILD on this platform — SKIPPED (see $BUILD/$t.build.log)"
     grep -E "undefined reference|error:" "$BUILD/$t.build.log" | head -3 | sed 's/^/      /'
@@ -93,8 +112,73 @@ export TSAN_OPTIONS="${TSAN_OPTIONS:-halt_on_error=1}"
 # UNSANITIZED gate in ./verify full, unchanged. Printed, never silent.
 NOT_UNDER_SANITIZER="rtsafety_probe"
 
+# PARALLEL RUNS (B505, ADR-233). The oracles run NPROC at a time; each writes
+# its own $BUILD/<name>.sanitize.log and a $BUILD/<name>.sanitize.rc verdict
+# file, and the verdicts are printed below in ./verify's order once all have
+# finished, so the output reads exactly as the serial loop's did.
+#
+# SHARED PATHS, audited before going parallel (2026-10-17, every oracle source
+# and the node scripts the h2 parity checks popen):
+#   - endprobe and trace_check both press PANIC, which writes
+#     $HOME/<store>/logs/panic-<trace counter>.txt; two oracles at the same
+#     counter would write one file, and trace_check reads its dump back.
+#   - preset_pitch_check and presetstore_check use fixed names under the temp
+#     dir (hypersaw_preset_pitch_check, hypersaw_presetstore_check): distinct
+#     from each other, but the temp dir is the one place a new oracle would
+#     collide unseen.
+#   - the golden dirs are written by the generators above, before any run,
+#     and only read after; the h2 render scripts write nothing.
+# Resolution: every oracle runs with its OWN HOME and TMPDIR under
+# $BUILD/sandbox/<name>/ (std::filesystem::temp_directory_path honours
+# TMPDIR; the two macOS-only mkdtemp callers make unique names anyway), so no
+# two can share a store, a dump or a temp file by construction, not by audit
+# alone. stdin is /dev/null: the serial loop's oracles inherited the loop's
+# here-string (none reads stdin; only an explicit "-" argument would, and
+# none is passed).
+#
+# Launch order is SLOWEST FIRST (measured under TSan, CI run 38991514882), so
+# the longest oracle is not the last one started; this changes when an oracle
+# starts, never whether it runs or how its verdict is reported.
+SLOW_FIRST="stability_check h2_engine_selfdigest_check h2_engine_parity_check h2_engine_selfdigest_product h2_engine_fma_control"
+
+RUNLIST=""   # "name golden" lines, slowest first, then ./verify's order
+for first in 1 0; do
+  while read -r name golden; do
+    [ -x "$BUILD/$name" ] || continue
+    [ "$name" = "$NOT_UNDER_SANITIZER" ] && continue
+    if [ -n "$SUBSET" ] && ! in_list "$name" "$SANITIZE_ONLY"; then continue; fi
+    if in_list "$name" "$SLOW_FIRST"; then [ $first -eq 1 ] || continue; else [ $first -eq 0 ] || continue; fi
+    RUNLIST="$RUNLIST$name $golden
+"
+  done <<<"$ORACLES"
+done
+
+# One oracle: its own sandbox, its log, then "<exit> <seconds>" into its .rc.
+# The runner itself always exits 0, because xargs stops launching new commands
+# when one exits 255, and an oracle's own exit code must never do that.
+RUN_ONE='[ -n "${1:-}" ] || exit 0   # GNU xargs runs once on empty input
+  name=$1 golden=$2
+  box="$SAN_BUILD/sandbox/$name"; rm -rf "$box"; mkdir -p "$box/home" "$box/tmp"
+  if [ "$golden" = "-" ]; then arg=""; else arg="$SAN_ROOT/$golden"; fi
+  t0=$SECONDS
+  # The outer braces keep bash'"'"'s own "Abort trap" job notice for a crashed
+  # oracle out of the interleaved output; the crash is in the log and the .rc.
+  { ( cd "$SAN_ROOT" && export HOME="$box/home" TMPDIR="$box/tmp" &&
+      if [ -n "$arg" ]; then exec "$SAN_BUILD/$name" "$arg"; else exec "$SAN_BUILD/$name"; fi
+    ) > "$SAN_BUILD/$name.sanitize.log" 2>&1 < /dev/null; } 2>/dev/null
+  echo "$? $((SECONDS - t0))" > "$SAN_BUILD/$name.sanitize.rc"
+  exit 0'
+export SAN_ROOT="$ROOT" SAN_BUILD="$BUILD"
+while read -r name _; do [ -n "$name" ] && rm -f "$BUILD/$name.sanitize.rc"; done <<<"$RUNLIST"
+NRUN=$(printf '%s' "$RUNLIST" | grep -c .)
+echo "== running $NRUN oracle(s), $NPROC at a time${SUBSET:+ —$SUBSET}"
+t_batch=$SECONDS
+printf '%s' "$RUNLIST" | xargs -n 2 -P "$NPROC" bash -c "$RUN_ONE" _
+t_batch=$((SECONDS - t_batch))
+
 status=0
 pass=0
+TIMES=""
 while read -r name golden; do
   exe="$BUILD/$name"
   [ -x "$exe" ] || continue
@@ -102,20 +186,28 @@ while read -r name golden; do
     echo "== $name: NOT RUN under -fsanitize (replaces the allocation operators the sanitizer interposes; verdict is ./verify full's)"
     continue
   fi
+  if [ -n "$SUBSET" ] && ! in_list "$name" "$SANITIZE_ONLY"; then continue; fi
   # A plain string, not an array: macOS ships bash 3.2, where an empty array
   # under `set -u` is an "unbound variable" (the first run died on every
   # golden-less oracle that way).
   if [ "$golden" = "-" ]; then arg=""; else arg="$ROOT/$golden"; fi
   echo "== $name $arg"
-  if ( cd "$ROOT" && if [ -n "$arg" ]; then "$exe" "$arg"; else "$exe"; fi > "$BUILD/$name.sanitize.log" 2>&1 ); then
+  # No .rc means the runner never finished this oracle: red, never a pass.
+  rc=$(cut -d' ' -f1 "$BUILD/$name.sanitize.rc" 2>/dev/null)
+  secs=$(cut -d' ' -f2 "$BUILD/$name.sanitize.rc" 2>/dev/null)
+  TIMES="$TIMES${secs:-?} $name
+"
+  if [ "$rc" = "0" ]; then
     tail -1 "$BUILD/$name.sanitize.log"
     pass=$((pass + 1))
   else
-    echo "   FAILED (exit $?) — full log follows"
-    cat "$BUILD/$name.sanitize.log"
+    echo "   FAILED (exit ${rc:-none: no verdict recorded}) — full log follows"
+    cat "$BUILD/$name.sanitize.log" 2>/dev/null
     status=1
   fi
 done <<<"$ORACLES"
 
-echo "== sanitize_oracles [$SAN]: $pass oracle(s) passed, $NUNBUILT not built on this platform (${UNBUILT# }) — $([ $status -eq 0 ] && echo GREEN || echo RED)"
+echo "== parallel batch: ${t_batch}s wall for $NRUN oracle(s) on $NPROC job(s); slowest:" \
+     $(printf '%s' "$TIMES" | sort -rn | head -5 | awk '{printf "%s (%ss) ", $2, $1}')
+echo "== sanitize_oracles [$SAN]: $pass oracle(s) passed, $NUNBUILT not built on this platform (${UNBUILT# }) —$SUBSET $([ $status -eq 0 ] && echo GREEN || echo RED)"
 exit $status
