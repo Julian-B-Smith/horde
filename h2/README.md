@@ -4,6 +4,8 @@ This directory holds the DSP of **horde 2**, the new plugin shell ratified in
 ADR-186. The legacy shell in `src/` is frozen. horde 2 is a separate product
 with its own identity, and it shares no code with legacy.
 
+> **Superseded in part, 2026-10-17.** The human ruled a rebuild on 2026-10-15 (ADR-223, ADR-224). horde 2's engine will be the NEW engine: a clean-room build from `specs/SPEC-ENGINE.md` in `engine2/` (ROADMAP B494). The composed engine below stays, gated as described, until that engine replaces it (ADR-223 item 6). Everything below describes the composed engine as it stands; it is no longer the engine horde 2 will ship.
+
 **The plan (ROADMAP B385, the human 2026-10-01: "Confirming clean-port path").**
 horde 2 gets ONE engine: the composed engine (horde's swarm driving SCALPEL's
 blades), a clean C++ port at `h2/engine/` (namespace `horde2::engine`) written

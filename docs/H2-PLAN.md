@@ -489,7 +489,7 @@ type (ADR-172, ADR-193 D7), a slot contract for every type, cyclic topologies pe
   make-up gain (spec RC-5).
 - Needs first: `mix` (inferred); `seams` (B281).
 - Open: measure Q3 (the click ceiling, now with ADR-218's suspension) and Q9 (the state budget);
-  build the admission test with the shell (B398); the module cutoff date.
+  build the admission test with the shell (B398). The module cutoff is set: Friday 2026-12-11 (ADR-236).
 
 **Shriek, formerly MAW** (`maw`). The three-stage saturator, FX-C, a hosted sibling module.
 Renamed by the human on 2026-10-04 (B433); the part id stays `maw`. B318, B373, B393, B433.
@@ -746,7 +746,7 @@ ranges are locked by the lockfile.
 
 **The roster froze on 2026-10-07** (ADR-190, with Amendments 1 and 2). Three dates, not one: the
 roster locked at the freeze; each module's scope list freezes at its lab sync; the MUST rows of
-the module 1.0 bar (B439) are judged at a later module cutoff, not yet set. A module that misses
+the module 1.0 bar (B439) are judged at the module cutoff, **Friday 2026-12-11** (ADR-236), with horde-side rows judged at hosting. A module that misses
 the cutoff ships after 1.0, and anything undecided at the freeze went after 1.0 by default (A2).
 
 What ships in it, by ruling (ADR-190 unless noted):
