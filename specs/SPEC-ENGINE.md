@@ -345,8 +345,8 @@ The sub takes ENV 1 and the voice's seed; it has no envelope or seed of its own.
 
 ### 5.8 Counts
 
-- **Rows:** voice 18 (plus 4 on switches), oscillator 44, blade 30 (plus 2 blade-2-only), sub 12, noise 3: **109 table rows** (the sub's and the noise oscillator's `mute` and `solo` share one row each, so they hold 13 and 4 parameters).
-- **Host parameters:** 18 + 4 + 2 × (44 + 2 × 30 + 2) + 13 + 4 = **251**.
+- **Rows:** voice 18 (plus 4 on switches), oscillator 45 (`loopDrive` added in round 20), blade 30 (plus 2 blade-2-only), sub 12, noise 3: **110 table rows** (the sub's and the noise oscillator's `mute` and `solo` share one row each, so they hold 13 and 4 parameters).
+- **Host parameters:** 18 + 4 + 2 × (45 + 2 × 30 + 2) + 13 + 4 = **253**.
 
 ---
 

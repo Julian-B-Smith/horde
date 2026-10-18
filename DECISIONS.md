@@ -8539,6 +8539,7 @@ Separately:
 - **A new manifest row, `loopDrive`:** label "Loop drive" (a placeholder until the naming workshop), 0.14 to 1, log law, default 0.3, class M, rate C, per-voice.
 - **C.14:** the loop tap reads d·yᵢ.
 - **PA-8:** a live-when row, the same as `crossMod`'s and `feedback`'s.
+- **§5.8:** the counts updated to 45 oscillator rows, 110 table rows and 253 host parameters (the test author's finding).
 - **BL-12:** periodic, and judged, at 0.3 and 0.14; chaotic by design, and reported, above 0.3. Determinism holds everywhere.
 
 **Consequences.**
