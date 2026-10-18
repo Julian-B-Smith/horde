@@ -69,6 +69,7 @@ maps to one ABI entry, or else it is the slot's job (horde's side).
 | `channels()` | not declared: an open `port.h` width axis | stereo in, stereo out for 1.0 (RS-2.8) | none |
 | `minBlock()` | slice 1: `min_block`, undeclared is refused | RS-7.2 | refuse cycle membership when `min_block > 1` |
 | meters | #124: I/O peak, clip and non-finite are the host's at the slot boundary; gain reduction is a module output (OQ #33) | RS-4.7, RS-7.9 | tap the slot boundary when the slot owns the gains |
+| `morphWeights(w[4], exact)` + the corner patches at load (OPTIONAL) | not in the draft: proposed to FOUNDATIONS (brief `morph-position`, 2026-10-18) | RS-4.10, row A21 | send only to a module that declared it; compute `exact` from the movers it knows; stage the corner patches with the load (RS-6.6) |
 
 ### 1.1 Where the three shims diverge from the draft
 
@@ -138,6 +139,7 @@ control: a planted faulty version that must turn the row red, naming the module 
 | A18 Restore exactness | save → load → save | the two saved states are byte-identical, and the renders after each load are bit-identical | a float written through a lossy decimal format (L0008) |
 | A19 State size | every factory preset, and a worst-case state | saved state fits the per-module budget (RS-6.12) | an oversized state, which must be refused before allocation |
 | A20 Live-state exclusion | save during a ringing tail, a ramp in flight and a latched clip | the saved state is identical to one saved at rest with the same parameters | a module that serialises its tail buffer or meter latch |
+| A21 Morph position (RS-4.10, only for a module declaring it) | a morph sweep across four corners with different continuous values, once with `morphWeights` and once from the values alone, and once with a macro offset (`exact` false) | the two renders agree within the module's stated tolerance; with `exact` false the render equals the values-only render | a module that keeps blending designs when `exact` is false; weights in the wrong corner order (a permuted-weights control must read red) |
 
 **Layering.** Rows A1–A20 are Layer-0: deterministic, no listening, CI-blocking once wired.
 CPU is Layer-E: measured and reported, never a verify gate (ADR-187 §8; RS-8.3). The human's
@@ -202,6 +204,7 @@ and ADR-195 call them morph, flip and Device. OQ #33 encodes them as `MorphKind`
 | RS-4.7 | **Who provides the gains.** A module that declares the two keys owns them, and publishes a meter tap after each, with peak and a clip latch. A module that does not declare them gets the identical pair, and the taps, from the slot. Never both: admission checks it (row A6). FOUNDATIONS #124 puts I/O metering on the host side at the slot boundary; that is the second case, and the first case keeps B435's rule, because only the module can tap after its own gain stage. | R (B435) / P (the #124 reconciliation) | B435; FOUNDATIONS DECISIONS #124 |
 | RS-4.8 | **"Off" is the router's.** A module switched off in horde's rack is routed around, with the slot's gain staging kept, so a settled "off" is bit-identical to no module by construction. A module's own bypass key (Bulwark's `comp.bypass`) stays a Device-class parameter that the module's face may show; the rack does not use it for "off". A multiband Bulwark's "off" may be allpass-phased inside the module; the router's "off" is not. | R (B435's bypass; ADR-195's router bypass) / P (the rack ignores the module's own key) | B435 §Bypass; ADR-195 §2 |
 | RS-4.9 | **Host bypass** of the whole plugin passes the input through untouched. | R | B435 §Bypass |
+| RS-4.10 | **Morph position (OPTIONAL; ADR-242, RULED in principle 2026-10-18; the shape below PROPOSED, under review by Scape and FOUNDATIONS).** A module may declare `morphPosition` at admission; one that does not never receives either call. (a) **At load**, inside the staged load (RS-6.6) and off the audio thread, it receives its patch at each of horde's morph corners (ADR-188 §2; an unused corner repeats corner A), so it may precompute a design per corner. (b) **At control rate**, on the same tick as the blended `setParam` targets and before them, it receives `morphWeights(w[4], exact)`: the bilinear weights of the four corners in horde's corner order, each in [0, 1] and summing to 1, and `exact`, true only when every continuous key of the module sits at the bilinear blend of its corner values, with no macro, modulation or automation offset on it. (c) **The values stay the truth.** When `exact` is false, and for every stepped key (RS-4.3), the module renders from the values. A blend of corner designs may differ from the design at the blended values only within the tolerance the module's fidelity suite states (row A21). (d) The call is O(1), allocates nothing and takes no lock, and the slot never smooths the weights (RS-4.2). Compatible with RS-3.1 (weights are not topology) and ADR-188 (corners hold patches; the module's own XY still holds one). | R (ADR-188) / P (the shape) | Scape's brief `morph-corner-designs` (seq 1); ADR-242 |
 
 ## 5. Macros
 
@@ -441,3 +444,12 @@ Ruled by the human, 2026-10-17, from the lead's recommendations.
 | **B439, the oversampling exception** | A module's factory presets may default to its oversampled mode within 4 % (the worst-case figure), provided it offers a cheaper mode within the standard 2 % / 4 % (module 1.0 bar, amended). |
 | **RS-7.1** | A module's oversampling latency, set by a Device-class setting fixed at activate, is declared in whole host samples and held until the next activate, as for Sluice. It is admitted in 1.0 although the module is morphable: the latency is a plugin constant per activation, never a morph variable. Shriek's 2× halfband (about 4 host samples) is the first case. |
 
+### 12.4 ADR-242 (2026-10-18), on Scape's brief `morph-corner-designs` (seq 1)
+
+Ruled by the human, 2026-10-18 ("Offer it, optional"), against the lead's recommendation to wait until after 1.0.
+
+| Row | As amended |
+|---|---|
+| **RS-4.10 (new)** | An optional morph-position call: the corner patches at load, and the bilinear weights with an `exact` flag at control rate. The values stay the truth. |
+| **A21 (new)** | Its admission test, with a permuted-weights control. |
+| **The ABI map** | A new optional entry, proposed to FOUNDATIONS. Until FOUNDATIONS rules, the shape is horde's proposal and a module's local shim carries it. |
