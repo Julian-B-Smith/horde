@@ -860,14 +860,13 @@ run until cutover, and no record retires them with the port.
    IF-1's per-note volume and pan expressions act; who receives VO-10's lifecycle and IF-1's load
    readouts (ADR-232, PROPOSED on PR #1117, names the pitch system as the lifecycle's consumer;
    the load readouts' consumer stays open).
-6. **ADR-189 defaults:** the D1–D3 defaults in the instrument (ruled when the shell is built).
-   The lead's reading: spec ED-1, BL-12 and C.14 may cover them; for the human to confirm.
+6. **ADR-189 defaults:** DONE 2026-10-17 (ADR-237 item 10): superseded by the new engine's spec; ADR-189 stays as the old engine's history.
 7. **verify full runtime:** a budget or a split into staged gates; a `./verify` edit (B406 item 4).
 8. **Floor warning:** should the floor's key-mismatch warning fail the gate (B406 item 5).
 9. **Seams:** B275 (a) the seam list and "ready" (whether the spec's RC-1 to RC-11 answer it),
    (c) the FOUNDATIONS / horde split, and (d) proceeding on the provisional schema.
 10. **Poly glide:** Deferred by the human 2026-10-17; the glide system is B504 (ADR-232 leaves the engine room for poly glide, the spring law and quantize). Their reference renders do not glide (B497).
-11. **Scale sidechain:** whether a MIDI sidechain sets the scale in 1.0 (B260).
+11. **Scale sidechain:** DONE 2026-10-17 (ADR-237 item 8): after 1.0.
 12. **MPE:** its design (B388); which expressions reach the swarm and the blades (spec Q2).
 13. **Note-on randoms:** the form of the linked pair (B264).
 14. **ORBITAL velocity:** BACK TO THE LAB 2026-10-17 (ADR-235 item 4), with the human's idea of a 10×/0.1× mass toggle; not ruled.
@@ -928,9 +927,10 @@ run until cutover, and no record retires them with the port.
 58. **Counsel items:** trademark screening and licences (B433), and the pre-commercial legal read before any
     paid build (B472).
 59. **Manual:** the lead's defaults, including "the manual is for 1.0" (B451).
-60. **Shriek's three questions** (B508; respond by 2026-10-31): the rack's rate for 1.0; whether factory presets may default to an oversampled mode within 4 %; Shriek's 2× latency under RS-7.1.
-61. **Sluice library:** does horde's Sluice slot also browse the standalone Sluice library directly, read-only? (B510; ADR-236 item 7.)
-62. **Automated-parameter budget:** confirm B511's proposed cases and the 4 % ceiling (ADR-236 item 4).
+60. **Shriek's three questions** DONE 2026-10-17 (ADR-237 items 1–3): the rack runs at the host rate; oversampled factory defaults are allowed within 4 %; Shriek's latency is allowed as for Sluice.
+61. **Sluice library:** DONE 2026-10-17 (ADR-237 item 7): yes, read-only.
+62. **Automated-parameter budget:** DONE 2026-10-17 (ADR-237 item 6): 4 %.
+
 
 ## Inconsistencies found
 

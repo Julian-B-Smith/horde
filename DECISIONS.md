@@ -8381,3 +8381,27 @@ The amendments are written as `docs/proposals/rack-slot-contract.md` §12.2. The
 **ADR-186 item 2 status: DONE 2026-10-17.** The human cut `v0.9-legacy` ("Cut v0.9-legacy.") and published the CI-drafted release. Its assets and SHA-256s are recorded on B255. The plan's `freeze` part is built.
 
 **2026-10-17, the human ruled: reword going forward.** Tracked files name no legal-claim subject. ROADMAP B472, B474, B414 and B467's acceptance, and ADR-219 item 5, are reworded in place. Their earlier wording stays in git history: the human chose to reword going forward, not to rewrite history. Licence texts that quote their own standard clauses, and the protected `docs/PRIOR-ART.md`, are unchanged.
+
+## ADR-237 — RULED by the human: the rack's rate, Shriek's oversampling and latency, the stage-2 bound, the spec's clarifications, and more (2026-10-17)
+
+**Context.** The human asked the lead to work through every open item waiting for them, by poll with context. These are the answers of 2026-10-17. Each recommendation was the lead's, and each answer is the human's.
+
+**Rulings.**
+1. **The rack's rate (Shriek's question, B508): the host rate.** Each module oversamples internally as it needs; there is no rack-level 2× (rack-slot contract §12.3).
+2. **The oversampling exception (B439, Shriek's brief maw-004): amended.** A module's factory presets may default to its oversampled mode within 4 %, provided a cheaper mode within 2 % / 4 % exists (module 1.0 bar).
+3. **Shriek's 2× latency: allowed, as for Sluice.** It is declared, and fixed at activate (RS-7.1, contract §12.3).
+4. **The stage-2 peak bound (QS-8, the test author's Q-TA-12): ratified.** |y| ≤ 1.1 × 0.14 × 10^(L/20) × 10^(M/20) × 4 × V. Later stages' class bounds come for ratification as they are written.
+5. **Four spec clarifications, all approved** (the lead's readings, given to the test author):
+   - C.12's "elapsed fraction" is the stage's own;
+   - VO-2's age runs from the note's start, and a voice that never sounded is free;
+   - VO-5 releases the oldest voices first;
+   - B.1's coupling-rescale spread comes from B.1's translation alone.
+
+   All are written into `specs/SPEC-ENGINE.md` (round 14).
+6. **The automated-parameter budget (B511): 4 %**, the worst-case ceiling, measured with a 1 Hz full-range automation and under a horde morph sweep.
+7. **The Sluice slot also browses the standalone Sluice library directly, read-only** (B510); saves go to horde's own folder.
+8. **The scale sidechain (B260): after 1.0.**
+9. **Old patches' glide and blade envelopes are preserved** (the builder's B-3). A version-0 state's `glide`, `glideAlways` and blade-envelope keys are kept in the saved document (RC-9.3) and written back unchanged until the pitch and modulation systems exist (spec B.1, round 14).
+10. **ADR-189's D1–D3 defaults are superseded** by the new engine's spec (plan decision #5 closed). ADR-189 stays as the old engine's history.
+11. **B507: fix it.** `./verify` runs store-touching oracles under a scratch home, with a must-fire control; no oracle's logic changes.
+12. **Module names (B336):** the human will pick from the FX-screens workshop, which the lead serves for browsing.

@@ -49,7 +49,7 @@ gaps, listed in the release notes.
 | | requirement | evidence |
 |---|---|---|
 | MUST | **A measured CPU cost** in Release, as a ratio to the calibration loop (B262 / B236), at its default and worst settings. It fits the per-module budget the human sets for 1.0. | a cost-bench row |
-| MUST | **Automated and morphing cost** (PROPOSED 2026-10-17, ADR-236 item 4; the numbers are the human's to confirm): the module's cost with one continuous parameter automated by a 1 Hz full-range sine, and under a horde-morph sweep, measured like the default row. Proposed ceiling: the worst-case figure (4 %). | a cost-bench row per case |
+| MUST | **Automated and morphing cost** (RULED 2026-10-17, ADR-236 item 4 and ADR-237 item 6): the module's cost with one continuous parameter automated by a 1 Hz full-range sine, and under a horde-morph sweep, measured like the default row. Ceiling: the worst-case figure, **4 %**. | a cost-bench row per case |
 | — | **Over budget does not cut a module** (ADR-236 item 3). The cost is measured, reported and worked down, by a module's own rewrite if that is what it takes. A module is left out of 1.0 only if its process drags past the release, and that is the human's call. | — |
 | MUST | **A memory figure** per instance, worst case included, all of it allocated at prepare. **Raised to MUST 2026-10-17 (ADR-236 item 6),** matching the rack-slot contract (ADR-201 Q11). | measured |
 
@@ -110,8 +110,10 @@ Windows x64 AVX2; 44.1 kHz at a 128-sample buffer; 8-voice poly. The budget spli
 ≤ 4 %. This is what the bar's "fits the per-module budget" means.
 - **Oversampling exception:** a module whose quality needs oversampling (MAW; any saturator)
   may use up to ≤ 6 % at default and ≤ 10 % at worst, but ONLY if it also offers a
-  lower-oversampling mode within the standard 2 % / 4 %, and its defaults in factory presets
-  stay within 2 %. A user may choose the expensive mode; a preset never imposes it.
+  lower-oversampling mode within the standard 2 % / 4 %. **Amended 2026-10-17 (ADR-237 item 2):** its factory
+  presets may default to the oversampled mode, provided they stay within 4 % (the worst-case figure); the cheaper
+  mode stays available. (It was: factory defaults within 2 %, so a preset never imposed the expensive mode. Shriek's
+  2× by ear puts 10 of 13 presets between 2 % and 3.8 %.)
 - **Master limiter:** ≤ 0.5 %. **Each modulator:** ≤ 0.25 %.
 
 **How it is measured.** Use the B262 / B236 pattern: Release build, ratio to the calibration

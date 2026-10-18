@@ -512,4 +512,5 @@ The audit (§3.12) listed 31 interface questions; the spec added X1 to X24 (X21 
 | 10 | `035b299` | ADR-230 A1: the make-up gain is a user control (default ×4); a gain control at every stage (RC-2) |
 | 11 | `2a96714` | §4.2's diagram shows ADR-230's make-up gain between the output and the FX rack (found while scoping B500) |
 | 12 | `ee90144` | ADR-231: OU-2 matches each bank preset's chord to the bank's median loudness (BS.1770-4, ungated), then applies its headroom rule |
-| 13 | this change | ADR-232: room for the glide system: IF-2 (a pitch at the note-on's sample applies from the first sample; a waiting note's pitch keeps moving), VO-10 (the pitch system consumes the lifecycle), RC-3 (what the pitch system brings) |
+| 13 | `9fcfb8a` | ADR-232: room for the glide system: IF-2 (a pitch at the note-on's sample applies from the first sample; a waiting note's pitch keeps moving), VO-10 (the pitch system consumes the lifecycle), RC-3 (what the pitch system brings) |
+| 14 | this change | ADR-237 items 5 and 9: C.12's elapsed fraction is the stage's own; VO-2's age runs from the note's start; VO-5 releases the oldest first; B.1's spread comes from B.1 alone; old patches' glide and blade envelopes are preserved (RC-9.3) |
