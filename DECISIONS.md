@@ -8445,3 +8445,21 @@ The builder changes its fades and its smoother. The spec reaches both clean-room
 - The correction is marked in the text.
 
 The floors, QS-2's bound and its 1 dB target are unchanged. Nothing in the suite changes. The spec reaches both clean-room repos in the same change.
+
+## ADR-241 — RULED by the human: three no-click cases become reported, not judged (B494, spec round 18, 2026-10-17)
+
+**Context.** After round 16 the builder's stage 4 (its B-16) left four 9.3 cases firing QS-4's detector (k = 10). The builder scored each one against an ideal signal built from the spec's law with no engine. Each case's ideal law fires too, so no engine that follows the spec can pass them:
+- a full-range fall to silence of `out.level` (13.5, ideal 13.5) or of `mix.osc1` (10.5, ideal 10.5). PA-1's two 6 ms stages run in v, and the dB law turns that into a fall of up to 86 dB in about 40 ms;
+- an un-mute from silence: 14.0, against 12.5 for an ideal 5 ms raised cosine;
+- mono's return to a held note with no glide: 111, against 58 to 133 for an ideal phase-continuous pitch step. VO-6 moves the pitch at once, and any glide is the pitch system's (RC-3).
+
+**Rulings (the human, by poll, 2026-10-17).** Each case is **reported, not judged**:
+1. **The level fall to silence:** it is a fast fade, the mirror of the onset already reported (ADR-239). The alternatives were to smooth the heard gain after the dB law, or a slower fall; both were declined.
+2. **The un-mute from silence:** a tone entering from silence, like an onset. A longer gate ramp was declined.
+3. **The mono legato change with no glide:** the instant pitch step is the note change itself. A built-in minimum pitch slew was declined, which leaves the glide system untouched (memory: the glide system is core).
+
+**Consequences.**
+- **Spec round 18:** QS-4's no-click list names the three as reported. Every other full-range jump, mute or solo stays gated.
+- **The test author** moves the three 9.3 cases to reported rows.
+- **The engine:** no change.
+- **The clean room:** the spec reaches both clean-room repos in the same change.
