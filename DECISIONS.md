@@ -8463,3 +8463,25 @@ The floors, QS-2's bound and its 1 dB target are unchanged. Nothing in the suite
 - **The test author** moves the three 9.3 cases to reported rows.
 - **The engine:** no change.
 - **The clean room:** the spec reaches both clean-room repos in the same change.
+
+## ADR-242 — RULED by the human: the rack offers an optional morph-position call (rack-slot contract RS-4.10, 2026-10-18)
+
+**Context.** Scape's brief `morph-corner-designs` (seq 1, respond-by 2026-11-01) asks whether horde's slot could tell a module where it sits between the morph corners, as the bilinear weights or the corner patches at load. A module with a costly design could then compute each corner's design once, off the audio thread, and blend the designs while the morph moves. Scape's decay (a per-line graphic EQ fitted by an iterated solve) costs 1.2 % of a min-spec core at rest and 9.4 % while Decay or Damping moves. Its own route, an exact decay, a tracked linear step and a slow background solve, is expected to bring the moving case under 2 %, so nothing waits on this. The lead recommended deferring it to after 1.0: one module needs it today, and the morph is not the only thing that moves a parameter.
+
+**Ruling (the human, by poll, 2026-10-18).** "Offer it, optional."
+
+**Decision.** Rack-slot contract RS-4.10, admission row A21 and §12.4. The shape is the lead's proposal:
+- the corner patches arrive at load, inside the staged load (RS-6.6);
+- `morphWeights(w[4], exact)` arrives at control rate, before the blended targets;
+- `exact` is false whenever a macro, modulation or automation offset moves a continuous key;
+- the values stay the truth, and stepped keys always follow them;
+- a blend of designs must stay within the module's stated tolerance of the design at the blended values;
+- O(1), no allocation, no second smoothing.
+
+The shape is open to review by Scape, its first user, and by FOUNDATIONS, since every contract clause maps to an ABI entry.
+
+**Consequences.**
+- ROADMAP B513.
+- Scape's response, seq 2 (the ball goes to Scape for review of the shape).
+- A brief to FOUNDATIONS for the optional ABI entry.
+- The slot's implementation lands with the horde 2 rack, when a module declares the call.
