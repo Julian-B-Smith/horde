@@ -1,5 +1,7 @@
 {
   "configurations": [
     { "name": "release", "args": ["-G", "Unix Makefiles", "-DCMAKE_BUILD_TYPE=Release"] }
-  ]
+  ],
+  "dialect": "dsp-plugin",
+  "siblings": ["foundations/"]
 }
