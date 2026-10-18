@@ -8525,3 +8525,26 @@ Separately:
   - updates any check that encodes the amended rows.
 - **The builder** builds to round 19.
 - **The clean room:** the spec reaches both clean-room repos in the same change.
+
+## ADR-244 — RULED by the human: chaos as an option, a continuous Loop drive control (B494, spec round 20, 2026-10-18)
+
+**Context.** The builder's B-21 showed that C.14's cross-mod and feedback loop, as written, is chaotic at full amounts: the loop gain is about 2 per sample. On Sync, FM reset and FM free it never repeats, against BL-12's claim that it never settles into a limit cycle. The human heard an A/B lab at loop scales 1.0, 0.5, 0.3 and 0.14. The builder measured BL-12's repeat test as passing in every mode at 0.3 and below.
+
+**Rulings (the human, 2026-10-18).**
+1. "Chaos as an option. It's mostly noise, but each of the settings sound totally different and I like them all for their own reasons."
+2. **The control** is a continuous knob ("Continuous knob"), not four steps.
+3. **Its default is 0.3** ("0.3, stable"), the highest scale that is stable in every mode.
+
+**Decision.** Spec round 20:
+- **A new manifest row, `loopDrive`:** label "Loop drive" (a placeholder until the naming workshop), 0.14 to 1, log law, default 0.3, class M, rate C, per-voice.
+- **C.14:** the loop tap reads d·yᵢ.
+- **PA-8:** a live-when row, the same as `crossMod`'s and `feedback`'s.
+- **BL-12:** periodic, and judged, at 0.3 and 0.14; chaotic by design, and reported, above 0.3. Determinism holds everywhere.
+
+**Consequences.**
+- **No migration is needed.** No state with this key exists, and every translated or saved patch takes the default 0.3, so a stable loop is the sound of every existing patch.
+- **The bank's patches** with cross-mod or feedback are heard at 0.3 at the bank stage.
+- **The test author:** item 11's new row, 10.b6 at the judged scales, and a reported row above 0.3.
+- **The builder:** the knob, through C.14.
+- **The naming workshop** gets "Loop drive" to name.
+- **The clean room:** the spec reaches both clean-room repos in the same change.
