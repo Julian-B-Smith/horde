@@ -8405,3 +8405,14 @@ The amendments are written as `docs/proposals/rack-slot-contract.md` §12.2. The
 10. **ADR-189's D1–D3 defaults are superseded** by the new engine's spec (plan decision #5 closed). ADR-189 stays as the old engine's history.
 11. **B507: fix it.** `./verify` runs store-touching oracles under a scratch home, with a must-fire control; no oracle's logic changes.
 12. **Module names (B336):** the human will pick from the FX-screens workshop, which the lead serves for browsing.
+
+## ADR-238 — RULED by the human: SW-4's 7th harmonic is a power ratio gated at 4.0; the sub's square and blade 2's borrowed settings clarified (B494, 2026-10-17)
+
+**Context.** The clean-room build reached stage 3. The builder showed that SW-4's "the 7th harmonic at least 5 × its uncoupled level" cannot hold as an amplitude ratio: seven in-phase members reach at most √7 ≈ 2.65. As a power ratio it is about 7·R_N², which needs R_N ≥ 0.85 for 5, while SW-4 itself accepts R_N ≥ 0.75. The new engine measures 4.80 at R_N 0.84. The lead's earlier answer to the test author (amplitude, Q-TA-22) was wrong. Two smaller gaps came from the test author's stage 6.
+
+**Rulings (the human, by poll, 2026-10-17).**
+1. **SW-4: power, with a derived gate.** The 7th harmonic's level is its power. The gate is ≥ 4.0, the ratio SW-4's own floor R_N ≥ 0.75 gives (7 × 0.75² ≈ 3.9), and the measured value is printed.
+2. **The sub's square is its pulse at w = 0.5** (SN-2), −1 for the first half-cycle: the sub's own convention.
+3. **Blade 2's borrowed settings:** PA-8's rows for blade 2's FM and spreads are live only when `fmSource` (`spreadSource`) is its own.
+
+All three are in `specs/SPEC-ENGINE.md` (round 15). The structure declaration's `spec.blob` is updated after review: no structure changed. This change stacks on #1134 (round 14).
