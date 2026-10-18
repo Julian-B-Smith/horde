@@ -57,6 +57,25 @@ private_name_gate() {
   python3 tools/private_name_check.py
 }
 
+# B507 (human-approved 2026-10-17, ADR-237 item 11): an oracle that presses PANIC writes
+# $HOME/<store>/logs/panic-<n>.txt, and run under the developer's real HOME that was the
+# real preset store, beside the human's own field dumps. Run such an oracle under a fresh
+# HOME and TMPDIR, removed after, exactly as tools/sanitize_oracles.sh gives each oracle
+# its own. Only the environment of the run changes: the oracle, its arguments and its
+# exit code are untouched, and trace_check still reads its own dump (under the scratch
+# HOME). tools/store_logs_check.py finds the store-touching oracles from their sources,
+# demands each ./verify runs goes through this function, and brackets fast and full with a
+# before/after listing of the real store's logs/ (see the dispatcher at the foot).
+in_scratch_home() {
+  local box rc
+  box="$(mktemp -d)" || return 1
+  mkdir -p "$box/tmp"
+  HOME="$box" TMPDIR="$box/tmp" "$@"
+  rc=$?
+  rm -rf "$box"
+  return $rc
+}
+
 fast() {
   # ---- Layer-0: seconds, not minutes. CI-blocking. -------------------------
   # Honestly-scoped day-zero oracle: structure + manifest sanity. The real L0
@@ -599,6 +618,17 @@ PY
     echo "verify: engine2_structure_check FAILED" >&2; cat /tmp/e2struct.$$ >&2; ok=1; }
   tail -1 /tmp/e2struct.$$
   rm -f /tmp/e2struct.$$
+
+  # THE REAL PRESET STORE'S logs/ STAYS UNTOUCHED BY A RUN (B507; added under ADR-180 §1).
+  # trace_check and endprobe press PANIC, whose dump lands under $HOME's store; they run
+  # under in_scratch_home (above fast). This checks, from the oracles' own sources, that
+  # every store-touching oracle ./verify runs goes through it, and runs five controls on a
+  # FAKE HOME laid out like the store (a planted file, an overwritten dump, an untouched
+  # store that must read clean, ./verify's own wrapper sourced and driven, and the wiring
+  # check on a copy with endprobe unwrapped). The dispatcher below brackets this run with
+  # snapshot / compare of the REAL store. Python only, well under 1 s; quiet but for one
+  # GREEN line.
+  python3 tools/store_logs_check.py || ok=1
 
   return $ok
 }
@@ -1232,7 +1262,7 @@ full() {
   # orphan at a glance). Calibrated — dropping note_id and clamping the ring
   # index each make it FAIL. Known boundary: it does NOT cover panic dumping
   # BEFORE the state clear, which is prose at the panic site, not a gate.
-  "$build_dir/trace_check" || return 1
+  in_scratch_home "$build_dir/trace_check" || return 1
 
   # WHICH VOICE DIES when the pool is full (FOUNDATIONS seam question 1,
   # 2026-08-11). notefuzz proves no voice HANGS — and proves it whether the
@@ -1250,7 +1280,7 @@ full() {
   # output-buffer pressure — four rounds of wrong fixes before it was found.
   # It has been sitting OUTSIDE the gate set ever since, which is worse than
   # absent: a built, passing probe reads as coverage. Wired 2026-08-11.
-  "$build_dir/endprobe" || return 1
+  in_scratch_home "$build_dir/endprobe" || return 1
 
   # COUPLING AXIS FOR NOTE LIFECYCLE (field report 2026-08-12). Every other
   # note-lifecycle oracle runs at ONE value of K — notefuzz never touches id 6 —
@@ -1485,8 +1515,19 @@ full() {
 }
 
 case "$TARGET" in
-  fast)   fast;  record fast  $? ;;
-  full)   full;  record full  $? ;;
+  # fast and full are bracketed by a before/after listing of the REAL store's logs/ (B507):
+  # a run that wrote there is red whatever else it proved. full() runs fast(), so one
+  # bracket per target covers both.
+  fast)   store_snap="$HARNESS_DIR/store-logs.$$.json"
+          python3 tools/store_logs_check.py snapshot "$store_snap" || exit 1
+          fast; rc=$?
+          python3 tools/store_logs_check.py compare "$store_snap" || rc=1
+          rm -f "$store_snap"; record fast $rc ;;
+  full)   store_snap="$HARNESS_DIR/store-logs.$$.json"
+          python3 tools/store_logs_check.py snapshot "$store_snap" || exit 1
+          full; rc=$?
+          python3 tools/store_logs_check.py compare "$store_snap" || rc=1
+          rm -f "$store_snap"; record full $rc ;;
   # The nightly's long jobs (B448 P5, ADR-209 item 4). No `record`: a local nightly or a drill
   # must not overwrite the fast/full record that the push gate and the Stop gate read.
   nightly) shift; exec python3 tools/nightly/run.py "$@" ;;
