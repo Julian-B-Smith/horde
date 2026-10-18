@@ -8432,3 +8432,34 @@ All three are in `specs/SPEC-ENGINE.md` (round 15). The structure declaration's 
 - 9.3's onset case, which becomes reported.
 
 The builder changes its fades and its smoother. The spec reaches both clean-room repos in the same change (memory rule: clean-room spec sync).
+
+## ADR-240 — RULED by the human: QS-1's reference design and its QS-2 figure corrected (B494, spec round 17, 2026-10-17)
+
+**Context.** QS-1 named a reference design for the edge correction, "a reference, not a mandate": a 32-tap minimum-phase step table from a windowed sinc, cutoff 0.45·f_s, Kaiser β 10. It said the design meets all four floors and QS-2 at −1.5 dB. The builder's stage 4 (its B-14) measured that design at 136.5, 132.8, 126.4 and 116.9 dB, so the floors are met, close to the stated figures. But QS-2 read −6.2 dB, outside its 3 dB. The C6 saw's 19th harmonic, at 19.9 kHz, sits just above the 19.85 kHz cutoff, where any such sinc is near −6 dB. The builder's own design (ED-1 leaves the design to the builder), cutoff 0.47·f_s and β 8, measures 119.4, 115.6, 107.9 and 99.0 dB, with QS-2 at −2.5 dB. Every floor has at least 6 dB to spare. At 0.48·f_s, C2 falls under its floor.
+
+**Ruling (the human, 2026-10-17).** "Correct the figure in the next round."
+
+**Consequences.** Spec round 17, one sentence in QS-1:
+- The reference design is now the one that meets both QS-1 and QS-2 as measured: 0.47·f_s, β 8, with its figures.
+- The 0.45 / β 10 design's real figures are stated as the trade.
+- The correction is marked in the text.
+
+The floors, QS-2's bound and its 1 dB target are unchanged. Nothing in the suite changes. The spec reaches both clean-room repos in the same change.
+
+## ADR-241 — RULED by the human: three no-click cases become reported, not judged (B494, spec round 18, 2026-10-17)
+
+**Context.** After round 16 the builder's stage 4 (its B-16) left four 9.3 cases firing QS-4's detector (k = 10). The builder scored each one against an ideal signal built from the spec's law with no engine. Each case's ideal law fires too, so no engine that follows the spec can pass them:
+- a full-range fall to silence of `out.level` (13.5, ideal 13.5) or of `mix.osc1` (10.5, ideal 10.5). PA-1's two 6 ms stages run in v, and the dB law turns that into a fall of up to 86 dB in about 40 ms;
+- an un-mute from silence: 14.0, against 12.5 for an ideal 5 ms raised cosine;
+- mono's return to a held note with no glide: 111, against 58 to 133 for an ideal phase-continuous pitch step. VO-6 moves the pitch at once, and any glide is the pitch system's (RC-3).
+
+**Rulings (the human, by poll, 2026-10-17).** Each case is **reported, not judged**:
+1. **The level fall to silence:** it is a fast fade, the mirror of the onset already reported (ADR-239). The alternatives were to smooth the heard gain after the dB law, or a slower fall; both were declined.
+2. **The un-mute from silence:** a tone entering from silence, like an onset. A longer gate ramp was declined.
+3. **The mono legato change with no glide:** the instant pitch step is the note change itself. A built-in minimum pitch slew was declined, which leaves the glide system untouched (memory: the glide system is core).
+
+**Consequences.**
+- **Spec round 18:** QS-4's no-click list names the three as reported. Every other full-range jump, mute or solo stays gated.
+- **The test author** moves the three 9.3 cases to reported rows.
+- **The engine:** no change.
+- **The clean room:** the spec reaches both clean-room repos in the same change.
