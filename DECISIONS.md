@@ -8416,3 +8416,19 @@ The amendments are written as `docs/proposals/rack-slot-contract.md` §12.2. The
 3. **Blade 2's borrowed settings:** PA-8's rows for blade 2's FM and spreads are live only when `fmSource` (`spreadSource`) is its own.
 
 All three are in `specs/SPEC-ENGINE.md` (round 15). The structure declaration's `spec.blob` is updated after review: no structure changed. This change stacks on #1134 (round 14).
+
+## ADR-239 — RULED by the human: every fade is a raised cosine, the parameter smoother is second-order, and a note's onset is reported, not judged (B494, 2026-10-17)
+
+**Context.** The builder's stage 4 (its B-15) showed that the ratified click detector (QS-4, k = 10) reads a corner in a volume curve, where the slope changes within one sample, as an event on a pure tone. On synthetic sines with no engine: a linear 5 ms fade scores 71.8, a linear 4 ms attack from silence 24.2, and a 12 ms one-pole glide 16.5. A raised-cosine 5 ms fade reads clean. The spec prescribed several such corners: VO-3's and VO-4's linear fades, PA-1's one-pole smoother, and ENV 1's straight default attack. It left others open, which the builder built linear. So no engine following the spec exactly could pass QS-4's no-click cases. The engine's sine scores per case ranged from 12 to 111.
+
+**Rulings (the human, by poll, 2026-10-17).**
+1. **"Smooth them all."** Every fade, gate ramp and crossfade has the raised-cosine shape, g(t) = ½(1 − cos(π t/T)), with equal-gain crossfades. That covers VO-3, VO-4, VO-6, VO-13, VO-14, IF-4, IF-6, PA-5, RC-10.1 and RC-11.4 (spec C.0). PA-1's smoother is second-order: two identical one-pole stages of 6 ms in series, critically damped, so a jump starts with zero slope (spec PA-1, C.15).
+2. **"Attack is sound, report it."** ENV 1's straight default attack stays (C.12). A voice's onset from silence is the patch's own attack: QS-4 reports it and does not judge it.
+
+**Consequences.** Spec round 16. The test author updates:
+- 10.3's steal-linearity check;
+- the PA-1 model in item 0's envelope oracle (the Q-TA-20 glide);
+- item 14's smoothed-zipper expectation;
+- 9.3's onset case, which becomes reported.
+
+The builder changes its fades and its smoother. The spec reaches both clean-room repos in the same change (memory rule: clean-room spec sync).
