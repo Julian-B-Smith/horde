@@ -8485,3 +8485,43 @@ The shape is open to review by Scape, its first user, and by FOUNDATIONS, since 
 - Scape's response, seq 2 (the ball goes to Scape for review of the shape).
 - A brief to FOUNDATIONS for the optional ABI entry.
 - The slot's implementation lands with the horde 2 rack, when a module declares the call.
+
+## ADR-243 — RULED by the human: the builder's edge construction ratified; FM-free DC from the actual phase; three clarifications; two blade cases reported (B494, spec round 19, 2026-10-18)
+
+**Context.** The clean-room builder's stage 5 (the blades) raised B-18 to B-27. A fresh-context critic checked its readings against the spec alone. Three of the builder's constructions went against the spec's method clauses:
+- it corrects every corner of a piecewise-linear blade contribution, beyond ED-6's list;
+- it delays that part's smooth component by the table's delay τ, where ED-3 says "never by delaying the smooth part";
+- it evaluates the blade at each step instant's two limits, where ED-1 says "not by evaluating the whole blade twice".
+
+The spec's own methods measured worse:
+- naive Sync-blade corners cap QS-1 near 84 dB at C2 (floor 110);
+- ED-3's per-cycle mean cost about 50 dB;
+- per-edge heights double-count coinciding steps (40 to 48 dB).
+
+ED-1 already gives the table's design to the builder, "chosen to meet QS-1 and QS-2". With the construction, the Sync blade measures 113.0 / 113.4 / 107.7 / 96.1 dB at C2 / C4 / C6 / C8, and QS-2's top band reads 2.5 dB.
+
+Separately:
+- **C.16 against BL-19:** C.16's 32-start FM-free DC mean is wrong at whole-number and small-ratio mod rates, so BL-19 failed there (−9e-3 at rate 3, bound 3e-3).
+- **C.16 against PA-8:** C.16's blocker ran on parameters PA-8 makes inert.
+- **Silences:** the spec was silent on expressions arriving before their note-on, and ambiguous on blade 2's rotation.
+- **Blade cases:** two 9.3 cases fire the click detector on a blade made of steps. Their ideal law fires too: a quantized Sync cut change scores 135, and a frame crossing's own base fires 98 to 130 events.
+
+**Rulings (the human, by poll, 2026-10-18).**
+1. **"Ratify the builder's"** edge construction, within its limits: piecewise-linear blade parts only, curved ones uncorrected. ED-1, ED-3 and ED-6 are amended. A fresh-context critic reviewed the amended rows (verdict FIX-THEN-SHIP). Its fixes are applied: τ defined as −Ā; the class limited to `crossMod` and `feedback` at 0; a crossfade where a blade enters or leaves the class; blade 2's rotation offset from its own Position; PA-3's either-order exception; QS-4's list closed; BL-16's latch made testable; the blocker engaging and releasing by a 5 ms crossfade.
+2. **"Use actual phase",** then refined. The human first ruled that C.16's FM-free estimate reads the modulator's actual phase at window entry, with its refresh paced by one modulator start's points. The critic then showed that a per-cycle mean at ordinary rates (the default 3.37, or 4.5), sampled every 6 to 90 ms, subtracts a stepped staircase of about ±0.01 that the sound never had. The human then chose **"Average future entries":** the mean over the 32 entries the modulator will make from its actual phase, θ + j·Δ. That gives one phase at a whole number, follows a slow beat, and gives the long-run mean otherwise. Its cost is reported, and keeping up with a note's opening glide is the builder's problem.
+3. **"Accept all three" clarifications.**
+   - C.16's blocker runs only while cross-mod, feedback or collision is live (PA-8).
+   - Every per-note expression at its note-on's sample applies from the first sample, in either order (IF-2).
+   - Blade 2 "with blade 1" turns exactly as blade 1, and its own `rotate` and `rotateSpread` are inert (a new PA-8 row); "its own" uses its own rate under blade 1's restart / free-running choice (BL-8).
+4. **"Report them":** a quantized cut change or a frame crossing on a Sync or Noise blade is reported, not judged (QS-4).
+
+**Still open.** B-21: cross-mod and feedback at full amounts are chaotic as C.14 states them, against BL-12's claim that the loop repeats. The human asked for an A/B by ear before ruling; the builder renders it.
+
+**Consequences.**
+- **Spec round 19.**
+- **The test author:**
+  - fixes B-18's five checks, B-19 (0.b7's oracle through the blocker), B-20 (a flushed value glides, as Q-TA-14 says) and B-27 (14.1's ENV 1 rows);
+  - moves the two blade cases to reported rows;
+  - updates any check that encodes the amended rows.
+- **The builder** builds to round 19.
+- **The clean room:** the spec reaches both clean-room repos in the same change.
