@@ -8653,3 +8653,13 @@ The central finding is a loop: the builder hits a gate, proposes a design or a n
 - **The builder:** the Fold and Crush latch, the impulse-invariant tap, and the open FM-reset non-repeat at High below 0.5, which is now an engine fault under the new BL-12.
 - **The human's Loop drive choice** (keep the law, specify more, or simplify) stays open.
 - **The clean room:** the spec reaches both clean-room repos in the same change.
+
+**Amendment (the human, by poll, 2026-10-19, same round),** on the test author's carrier map and a finding about the measure (cleanroom-tests 1313d9c; engine-free):
+- **Carrier limits.** Contraction ends at about 0.51 for the saw, 0.66 for the triangle and 0.75 for the sine; never for the reverse saw or square (0.71 in Ring); and for sine→saw at 0.24 at C1, rising above 0.44 from C2. High matches Standard.
+- **The phase-slip flaw.** The feedback-step twin failed stable subharmonic cycles by whole-period slips, at 0.46 at Standard and from 0.37 at High, so a correct engine could have failed.
+
+Rulings:
+1. **"Accept the repair":** contraction passes when the twin matches within 10⁻⁶ as rendered, or after a shift of k whole periods (0 < k < 12).
+2. **"Judge them all":** BL-12 judges every carrier wave at both qualities, each up to its limit less 0.05. Sine→saw at C1 is reported.
+3. **"Keep 0.3, report it":** the default stays; a sine→saw patch at low notes with full cross-mod and feedback is reported, and the bank stage's listening decides whether it matters.
+
