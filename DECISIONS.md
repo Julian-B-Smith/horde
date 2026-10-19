@@ -8625,3 +8625,31 @@ The central finding is a loop: the builder hits a gate, proposes a design or a n
 - **B-12, B-13, B-27 and the frozen no-click set** return to the human for a retroactive ruling (B520).
 - **B-24's and B-28's ideal-law evidence** is redone without the engine (B520).
 - **The clean room resumes only after B525's filesystem separation** and B519's relay rules are in force.
+
+## ADR-248 — RULED by the human: the click probe rule, Fold and Crush cuts at window entry, BL-12 made real from the engine-free map (B494, B521, spec round 22, 2026-10-19)
+
+**Context.** The first rulings under ADR-247 ("keep the gate"), each on evidence made without the engine.
+- **The Fold twins (B-31).** The test author reproduced them from the spec's law (cleanroom-tests 69c640b). The Fold cut change fires the ratified detector however the new cut arrives, even for a move from 3 to 3.1, while the held base reads clean. On a Fold tone, a correct PA-1 level move also fires (8 events), so on a rich tone the detector reads a correct within-cycle change as a click. Under Quantize the spec never said when a cut change reaches a blade with no carrier. As written, the frame-crossing check is vacuous: its members never separate.
+- **BL-12 (B521).** The engine-free map (cleanroom-tests b3272fd, corrected in 8523e62) finds that the loop contracts below `loopDrive` 0.5 at every width, pitch and quality, that the linearised instability sits at d = 0.5 exactly, and that the loop is chaotic above 0.5 where the window is long enough. As written, BL-12's measure could not fail at the default width, and its "stable up to 0.3, chaos above" premise (round 20) had come from the engine. C.14 left its one-pole's discretisation open, and the choice moves the departure drives by about ±0.1.
+- **The lead's rerun** of the builder's round 21, from a clean export of 3e01dd6, matches its report: 181 items, 22 failed.
+
+**Rulings (the human, by poll, 2026-10-19).**
+1. **"One rule":** QS-4's judged no-click cases are rendered on a pure-sine probe wherever the case allows. A case whose correct sound is a change of waveform within a cycle on a rich tone is reported, and judged instead by its own gated law test: BL-16's latch timing for a quantized cut change on any blade, and BL-10's frame law, on a patch whose members do cross, for a frame crossing.
+2. **"At window entry":** on a blade with no carrier (Fold, Crush), a quantized cut change waits for the window's next entry (BL-16).
+3. **"Fix it":** BL-12 is rewritten from the map. It judges contraction at every drive from 0.14 to 0.45, a margin of 0.05 below the instability, across widths 0.25 and 1, pitches near C1, C3 and C6, and both qualities. Repetition is judged at width 0.25. At 0.5 and above, the results are reported. C.14's one-pole is impulse-invariant at the host rate, the discretisation the map used (the lead's choice, within the ruling).
+
+**Critic review** (fresh context, verdict FIX-THEN-SHIP; every fix applied):
+- **BL-12 and the `loopDrive` row claim stability below 0.5 for a saw carrier only.** The 0.5 threshold comes from the saw's slope of 2, and a triangle carrier's slope of 4 predicts about 0.25, below the default. So the other carrier waves, High quality and drives of 0.5 and above are reported until the test author maps them.
+- **The contraction twin steps `feedback`** to 0.999 and back through PA-1, so it works through public parameters and survives float32. The earlier nudge of a tap could not be applied and would round away.
+- **BL-12's setup is pinned:** 44.1 kHz, P = 1349, 337 and 42, the blade defaults, `modRate` 2.
+- **Repetition is labelled a regression check only.**
+- **BL-16 covers host cut changes too,** and "the window's next entry" is defined as the sample where C.9.1's e wraps.
+- **QS-4's rule is closed to two cases,** binds every use of the detector, defines the probe, and requires R below 0.01 for the crossing. Any other case whose law render fires goes to the human; the test author never reclassifies a case alone.
+- **C.14's filter is "pole at e^(−2π·5000/f_host), unity gain at DC",** not "impulse-invariant", which would have changed the gain.
+
+**Consequences.**
+- **Spec round 22,** reviewed by a fresh-context critic.
+- **The test author:** 9.3's cut-change and frame-crossing cases become reported on every blade; 10.b9 and a real BL-10 crossing check gate them instead; and 10.b6 is rebuilt to the new BL-12.
+- **The builder:** the Fold and Crush latch, the impulse-invariant tap, and the open FM-reset non-repeat at High below 0.5, which is now an engine fault under the new BL-12.
+- **The human's Loop drive choice** (keep the law, specify more, or simplify) stays open.
+- **The clean room:** the spec reaches both clean-room repos in the same change.
