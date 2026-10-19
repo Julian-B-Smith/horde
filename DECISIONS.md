@@ -8549,3 +8549,36 @@ Separately:
 - **The builder:** the knob, through C.14.
 - **The naming workshop** gets "Loop drive" to name.
 - **The clean room:** the spec reaches both clean-room repos in the same change.
+
+## ADR-245 — RULED by the human: the cross-mod loop at the host rate, the carrier-blade click cases reported, short tapers corrected, carrier rows clarified (B494, spec round 21, 2026-10-19)
+
+**Context.** The clean-room builder committed stage 5, the blades (builder dd6fe91), under spec round 20: 181 items, 23 failed, UBSan clean. The lead rebuilt the tree and reran the suite, and got the same set. Its four questions:
+- **B-21 at High:** C.14's loop ran once per internal sample, so at High it took twice the steps per window, and Sync was chaotic even at `loopDrive` 0.3 and 0.14. The same patch would sound different just from switching quality.
+- **B-28:** round 19's gated FM-reset twins of the Sync click cases fire by the spec's own ideal law: 2 events at 21.3 for the cut change, and 18 events for the frame crossing.
+- **B-29:** a softened edge narrower than a sample is a hard step, but ED-6 gave it no correction. Rejection fell from 95.7 dB to 17.3 dB the instant Edges left 0.
+- **B-30:** a blade's `wave`, `shape` and `shapeSpread` are inert in Fold and Crush, yet PA-8 listed them as live whenever the blade is on.
+
+**Rulings (the human, by poll, 2026-10-19).**
+1. **"Same loop at both":** the loop's tap and xin step once per host sample, held across High's two internal samples (C.14).
+2. **"Report them too":** a quantized cut change or a frame crossing on any carrier blade is reported, not judged (QS-4). BL-16's latch timing (10.b9) and the splay's dynamics (item 0) stay gated, and are green.
+3. **"Correct short tapers":** the builder's construction, a short taper corrected as the step it approaches. A fresh-context critic reviewed the row and found it not yet testable:
+   - the width at which the correction stops, and the range it fades over, are undefined;
+   - "the taper's shape" must mean its slope;
+   - the exit taper's height needs an instant that respects ED-2;
+   - ED-3 must count the faded edge;
+   - Crush's scope is open.
+
+   **The row is held out of round 21.** The builder proposes those numbers from measurement (B-29a); they return to the critic and then to the human.
+4. **"Yes, clarify":** a blade's `wave`, `shape` and `shapeSpread` are live in a carrier mode only (PA-8). The test author settles flushed values before measuring (B-20's glide rule).
+
+**Critic fixes applied** (verdict FIX-THEN-SHIP):
+- C.14 claims only the step count per window, and BL-12 reads "one host sample late";
+- QS-4 reads per oscillator;
+- PA-8's new row names only `wave`, with Noise among the modes that read none, and the `shape` row needs a carrier mode;
+- ED-6's class takes a Noise blade whatever its wave, as the builder built and confirmed.
+
+**Consequences.**
+- **Spec round 21.**
+- **The builder's stage 5** is accepted once these four are built and green.
+- **The test author:** 9.3's carrier-blade twins become reported; item 11's patches are settled, and its carrier rows use a carrier mode.
+- **The clean room:** the spec reaches both clean-room repos in the same change.
