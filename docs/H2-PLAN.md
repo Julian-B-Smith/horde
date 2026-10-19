@@ -129,7 +129,7 @@ B458; `testing` B490; `perf` B488; `distrib` B471, B472; `edges` B491; `engine` 
 | Shriek (formerly MAW) | `maw` | in progress | B318, B373, B393, B433 | `rack` | in |
 | Sluice | `sluice` | in progress | B328, B321, B329, B337, B347, B353, B361, B369, B436, B273, B359, B393 | `rack` | in |
 | Scape (reverb) | `reverb` | in progress | B421, B152, B210, B393 | `rack` | in |
-| ECHO (delay) | `echo` | planned | B425, B386 | `rack` | in |
+| ECHO (delay) | `echo` | planned (sibling, B526) | B425, B526, B386 | `rack` | in |
 | Bulwark compressor | `bulwark` | in progress | B421, B234, B423, B450, B463 | `rack` | in |
 | EQ | `eq` | planned | B234, B210, B336 | `rack` | in |
 | FX filter | `fxfilter` | planned | B210, B288, B336 | `rack` | in |
@@ -513,7 +513,7 @@ B369, B436, B273, B359, B393. ADR-188, ADR-166, ADR-193. **In progress** (labs).
 B421, B152, B210, B393. ADR-177, ADR-190, ADR-198. **In progress.** Needs `rack`. The
 engine-rebuild-audit brief is with it (B494).
 
-**ECHO** (`echo`). horde's standard delay, built in horde, not a sibling (B425, ruled 2026-10-04):
+**ECHO** (`echo`). horde's standard delay, a sibling project hosted in the rack (B526, ADR-249, 2026-10-19; reversing B425's "built in horde"):
 a clean stereo delay with tempo sync, ping-pong, mid/side, feedback filtering and modulation.
 B425, B386. ADR-190, ADR-142. **Planned.** Needs `rack`.
 
