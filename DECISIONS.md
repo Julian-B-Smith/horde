@@ -8597,3 +8597,31 @@ Separately:
 - **B515** is opened for the sampler (post-1.0).
 - **The stage-6 spec round** carries the reservation along with the workshop's rulings.
 - **ADR-190's roster** is unchanged, apart from the B514 exception.
+
+## ADR-247 — RULED by the human: keep the gate by default; the clean-room independence audit's ten changes adopted (B494, B502, B516–B525, 2026-10-19)
+
+**Context.** The human wrote an audit brief, "audit the clean room's independence against an ideal", and gave it to the lead to triage. The lead had run the loop being audited, so it delegated the audit to a fresh-context Opus reviewer with the brief verbatim. The review was read-only, made no contact with the clean-room sessions, and used both repos, horde's records and 82 of the lead's messages as evidence. **Verdict: rework.**
+
+Property by property:
+- **The test author is blind to the engine:** partly. No engine code reached it. But the builder's measurements did, and so did its constructions, rewritten as spec text in rounds 17, 19, 20 and 21.
+- **Failures reach the builder as spec requirements:** partly, and moot by design, since the builder reads the tests.
+- **A sealed hold-out set:** none exists.
+- **Every requirement carries its reason:** partly.
+- **Behaviour outside the spec is caught:** partly.
+- **"It worked" is defined before the build ends:** partly.
+
+The central finding is a loop: the builder hits a gate, proposes a design or a narrower claim, the human ratifies it, it becomes spec text, and the test author then tests the builder's design. The worst case is BL-12, judged at exactly the drives where this engine happens to repeat. The lead had told the human beforehand that it expected property 1 to fail on the measurements and the round-17 and round-19 designs. The audit also found three lapses in the lead's own process:
+- B-13's saw no-click set and B-27's decay-curve case were moved to reported on the lead's reading alone, with no recorded ruling;
+- BL-12's judged points are engine-passing points;
+- B-28's ideal-law evidence used the engine's phases, so it was not engine-free.
+
+**Rulings (the human, 2026-10-19).**
+1. **"Keep the gate by default."** When the engine fails a gate, the default is to change the engine. A gate is narrowed, moved to reported, or re-placed only with evidence produced without the engine: an engine-free ideal-law render or analysis, reproduced by the test author or the lead, never computed from the engine's own state. Each such move also needs the human's ruling, recorded in the rulings log (B516). A builder proposal that becomes normative text is tagged builder-origin and judged by outcome standards only (B518).
+2. **"Adopt all ten."** P1 to P10 become B516 to B525.
+
+**Consequences.**
+- **B-29a is reframed.** The builder may report measurements, but the short-taper row's thresholds come from engine-free analysis, and the hold-out suite judges its outcome.
+- **BL-12's subharmonic question waits on B521's measurement** across pitches and drives, outside the builder's tree.
+- **B-12, B-13, B-27 and the frozen no-click set** return to the human for a retroactive ruling (B520).
+- **B-24's and B-28's ideal-law evidence** is redone without the engine (B520).
+- **The clean room resumes only after B525's filesystem separation** and B519's relay rules are in force.
