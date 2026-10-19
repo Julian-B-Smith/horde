@@ -8582,3 +8582,18 @@ Separately:
 - **The builder's stage 5** is accepted once these four are built and green.
 - **The test author:** 9.3's carrier-blade twins become reported; item 11's patches are settled, and its carrier rows use a carrier mode.
 - **The clean room:** the spec reaches both clean-room repos in the same change.
+
+## ADR-246 — RULED by the human: the noise oscillator will play samples, designed now and shipped after 1.0; the sub and noise workshop is a deliberate exception to the feature freeze (B514, B515, 2026-10-19)
+
+**Context.** The human: "I want the noise osc to also be able to play samples." The records already held a ruling on this. On 2026-09-28 (B327) the human parked "a noise oscillator that can double as a sampler" until after 1.0: "We probably have enough on our plate for 1.0 without that last one". ADR-190 A6 then put only a plain noise oscillator in 1.0. Separately, the 1.0 roster froze on 2026-10-07, and ADR-190 A2 sends anything decided after the freeze to after 1.0. The sub extras ruled on 2026-10-18 (B514) were decided after the freeze, and the lead did not flag that at the time.
+
+**Rulings (the human, by poll, 2026-10-19).**
+1. **When: "Design now, ship after 1.0."** 1.0 ships the plain noise oscillator. The stage-6 spec round reserves the sampler's shape (its parameter ids, a source mode and a sample slot in the state), so the first update adds it without breaking a 1.0 preset.
+2. **What: "Serum-style noise osc".** One sample per patch, one-shot or looping. Keytrack on (pitched) or off (fixed rate). A start position and a random start. The noise oscillator's colour, filter, envelope and character still apply.
+3. **Sources: "Both".** A factory set made in-house (generated or recorded by the project, so no licensing question arises), plus the human's own files by drag-and-drop. A user file is copied into horde's own folder, and the patch stores a reference, never the audio (the plugin-state size limit).
+4. **The freeze: "Reopen for the sub only".** The sub and noise workshop's rulings (B514) belong to the sub that B327 already said would be workshopped, so they are in 1.0 as a recorded exception to ADR-190 A2. Anything new beyond that, the sampler included, stays after 1.0 unless the human says otherwise.
+
+**Consequences.**
+- **B515** is opened for the sampler (post-1.0).
+- **The stage-6 spec round** carries the reservation along with the workshop's rulings.
+- **ADR-190's roster** is unchanged, apart from the B514 exception.
