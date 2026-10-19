@@ -8662,4 +8662,5 @@ Rulings:
 1. **"Accept the repair":** contraction passes when the twin matches within 10⁻⁶ as rendered, or after a shift of k whole periods (0 < k < 12).
 2. **"Judge them all":** BL-12 judges every carrier wave at both qualities, each up to its limit less 0.05. Sine→saw at C1 is reported.
 3. **"Keep 0.3, report it":** the default stays; a sine→saw patch at low notes with full cross-mod and feedback is reported, and the bank stage's listening decides whether it matters.
+4. **"Lower to 0.58 and 0.86"** (the test author's Q-TA-51: over the whole judged grid the law fails 6 of 15,272 points, all Sync at width 1 and C6). The sine carrier at 0.63–0.68 is neutral and quasi-periodic. The square at 0.91 is bistable. Both judged limits are lowered: the sine to 0.58 in every mode, and the square to 0.86 in Sync, with the FM modes keeping the whole knob. Ring's 0.65 applies to every wave but sine→saw.
 
