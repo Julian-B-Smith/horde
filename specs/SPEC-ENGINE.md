@@ -255,6 +255,7 @@ Each source also has an on switch: `osc1.on` (default on), `osc2.on` (off), `sub
 | `baseWave` | Base wave | — | sine, triangle, saw, reverse saw, square | saw | step | S | T | — | The wave the members play and the blades cut into. |
 | `crossMod` | Cross-mod | % | 0..1 | 0 | pow | M | C | yes | Each member's previous output bends the next member's carrier phase (a ring of members). |
 | `feedback` | Feedback | % | 0..1 | 0 | pow | M | C | yes | Each member's own previous output bends its carrier phase. |
+| `loopDrive` | Loop drive | — | 0.14..1 | 0.3 | log | M | C | yes | How hard cross-mod and feedback drive their loop: stable and periodic up to 0.3, increasingly chaotic above, where each setting has its own noise (C.14, BL-12; round 20, ADR-244; the label is a placeholder until the naming workshop). |
 | `spreadLaw` | Spread law | — | gradient, random, drift, alternate, swarm | gradient | step | S | T | — | How every spread is fanned across the members (BL-13). |
 | `spreadDrift` | Spread drift | Hz | 0.02..12 | 0.5 | log | M | C | yes | Drift law only: how fast the spread values wander. |
 | `quantize` | Quantize | — | free, whole | free | step | S | T | — | Whole snaps the cut-rate spreads and rules to whole harmonics. |
@@ -344,8 +345,8 @@ The sub takes ENV 1 and the voice's seed; it has no envelope or seed of its own.
 
 ### 5.8 Counts
 
-- **Rows:** voice 18 (plus 4 on switches), oscillator 44, blade 30 (plus 2 blade-2-only), sub 12, noise 3: **109 table rows** (the sub's and the noise oscillator's `mute` and `solo` share one row each, so they hold 13 and 4 parameters).
-- **Host parameters:** 18 + 4 + 2 × (44 + 2 × 30 + 2) + 13 + 4 = **251**.
+- **Rows:** voice 18 (plus 4 on switches), oscillator 45 (`loopDrive` added in round 20), blade 30 (plus 2 blade-2-only), sub 12, noise 3: **110 table rows** (the sub's and the noise oscillator's `mute` and `solo` share one row each, so they hold 13 and 4 parameters).
+- **Host parameters:** 18 + 4 + 2 × (45 + 2 × 30 + 2) + 13 + 4 = **253**.
 
 ---
 
@@ -392,7 +393,7 @@ Each requirement states what the player hears; where a law is the sound, the req
 | BL-9 | **Blade 2** is a full second blade. Every "as blade 1" or "blade 1's" option makes it follow blade 1's value of that setting. With blade 2 off, the oscillator sounds exactly as with blade 1 alone. |
 | BL-10 | **Frame** follows C.13: in swarm frame each member's window sits at its lead from the voice's frame angle; the frame follows ψ where the swarm has a centre and never jumps where it has none (R near 0); where it is locked the frame equals ψ. At a voice's fresh start the frame is ψ if R ≥ 0.25, else member 0's phase. The lead always reaches the blade as a ramp. What the frame does after a crossing is [X7]. |
 | BL-11 | **Interplay** follows C.11. With `upperHears` 0 and both collisions 0 the output is the same whichever blade is upper. Interplay and collision act only with blade 2 on. |
-| BL-12 | **Cross-mod and feedback** follow C.14: one sample late, in a ring of members, changing timbre only; the loop is low-passed so it never settles into a limit cycle at either quality. **Measure:** one member, `crossMod` 1 and `feedback` 1, each carrier mode (Sync, FM reset, FM free with a whole-number `modRate`, Ring), rotation 0, no drift or noise, at a pitch whose period is a whole number of samples P (44,100/336 Hz at 44.1 kHz), both qualities: after 1 s the output repeats with period P, the RMS of y[n] − y[n − P] over the next second below 10⁻⁴ of the output's RMS (a loop in a limit cycle, or chaotic, does not repeat). |
+| BL-12 | **Cross-mod and feedback** follow C.14: one sample late, in a ring of members, changing timbre only up to `loopDrive` 0.3, where the low-passed loop never settles into a limit cycle at either quality; above 0.3 the loop may be chaotic by design, each setting its own noise, and stays deterministic (DT-1, DT-2) (round 20, ADR-244). **Measure** (judged at `loopDrive` 0.3 and 0.14; at 0.5 and 1 measured and reported, not judged): one member, `crossMod` 1 and `feedback` 1, each carrier mode (Sync, FM reset, FM free with a whole-number `modRate`, Ring), rotation 0, no drift or noise, at a pitch whose period is a whole number of samples P (44,100/336 Hz at 44.1 kHz), both qualities: after 1 s the output repeats with period P, the RMS of y[n] − y[n − P] over the next second below 10⁻⁴ of the output's RMS (a loop in a limit cycle, or chaotic, does not repeat). |
 | BL-13 | **Spreads** follow C.10: each spread's per-member position p comes from the spread law; a single member gets p = 0; blade 2's own spreads use draws independent of blade 1's. |
 | BL-14 | **A negative spread is the mirror image of the positive**, exactly, Quantize included (both roundings of C.10 item 4 go half away from zero, so −s gives exactly the negated offsets of s), rotation included. |
 | BL-15 | **Cut rules** follow C.10 item 5; ratios match those lists to 0.01. An unreadable custom list is refused and reported, and the previous list stays. |
@@ -496,6 +497,7 @@ Each requirement states what the player hears; where a law is the sound, the req
 | blade 2's `rotate` and `rotateSpread` | blade 2's `rotation` is its own (and, for `rotateSpread`, the spreads' condition) |
 | `crossMod` | a blade is on in Sync, FM or Ring mode (at U = 1 the member is its own neighbour, C.14) |
 | `feedback` | a blade is on in Sync, FM or Ring mode |
+| `loopDrive` | a blade is on in Sync, FM or Ring mode |
 | `detune`, `detuneRange`, `coupling`, `onsetLock`, `pivot`, `panImage`, `panInvert`, `motionGrain`, `spreadLaw`, `quantize` | U > 1 |
 | `width` | U > 1, or `panMotion` > 0 |
 | `panMotion` | `width` > 0 |
@@ -1156,7 +1158,7 @@ Consequences: at λ = 1 a generator mode on top (sync, FM, noise) *occludes* the
 
 ### C.14 Cross-mod and feedback
 
-- Each member's output yᵢ passes through a one-pole low-pass at 5 kHz (time constant 1/(2π·5000) s, per internal sample) to give its loop tap ŷᵢ.
+- Each member's output yᵢ, scaled by `loopDrive` d, passes through a one-pole low-pass at 5 kHz (time constant 1/(2π·5000) s, per internal sample) to give its loop tap ŷᵢ (the tap of d·yᵢ; round 20, ADR-244).
 - The carrier phase offset of member i at sample n is **xinᵢ[n] = ½·(`crossMod`·ŷᵢ₊₁[n − 1] + `feedback`·½·(ŷᵢ[n − 1] + ŷᵢ[n − 2]))**, members in a ring (member U − 1's neighbour is member 0). It applies to Sync, FM and Ring carriers on both blades and changes no member frequency.
 
 ### C.15 Time constants and grids
