@@ -8664,3 +8664,19 @@ Rulings:
 3. **"Keep 0.3, report it":** the default stays; a sine→saw patch at low notes with full cross-mod and feedback is reported, and the bank stage's listening decides whether it matters.
 4. **"Lower to 0.58 and 0.86"** (the test author's Q-TA-51: over the whole judged grid the law fails 6 of 15,272 points, all Sync at width 1 and C6). The sine carrier at 0.63–0.68 is neutral and quasi-periodic. The square at 0.91 is bistable. Both judged limits are lowered: the sine to 0.58 in every mode, and the square to 0.86 in Sync, with the FM modes keeping the whole knob. Ring's 0.65 applies to every wave but sine→saw.
 
+
+## ADR-249 — RULED by the human: ECHO becomes a sibling project, reversing B425's "stays in horde" (B425, B526, 2026-10-19)
+
+**Context.** On 2026-10-04 the human ruled (B425) that ECHO, horde's standard delay, stays in horde as no sibling project. ADR-190 A8 confirmed ECHO in 1.0, and H2-PLAN recorded it as "built in horde, not a sibling". On 2026-10-19 the human asked for a separate project: "I feel like I should start developing the delay module ... so it can be on the same schedule as everything else. Please prepare the directory and the contract packet and orientation details and I'll spin it up and create a repo." The lead raised the earlier ruling before acting.
+
+**Rulings (the human, by poll, 2026-10-19).**
+1. **"Yes, a sibling":** ECHO is developed as its own project and hosted in horde's rack like Scape and Shriek. It meets the rack-slot contract (ADR-201) and the module 1.0 bar, including the module cutoff of 2026-12-11.
+2. **"Echo, public":** the folder is `synthetic-worlds/Echo` and the repository github.com/Julian-B-Smith/echo, public. "Echo" is a placeholder name until B433's clearance.
+
+**Scope, in the human's words:** "the standard delay capabilities; sync vs time, L/R offsets, ping pong vs mid/side vs standard, feedback; different modes for delay modulation including repitch, and input/delay-line/output filters. Also interesting visualizers, possibly including impulse response."
+
+**Consequences.**
+- **B526** tracks the spin-up.
+- **The legacy Delay** (rack type 9, ADR-142) and the time-engine echo controls go to Echo as intake references, never parity targets. Retiring them in the legacy shell stays horde's.
+- **Echo's filings** land in horde's `integrations/echo/`.
+- **H2-PLAN's ECHO entry** is corrected.
