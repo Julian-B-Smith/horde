@@ -38,6 +38,8 @@
 | 21 | B-31: a Fold or Crush cut under Quantize | At the window's next entry | BL-16 assumed a carrier | no | engine-free | ADR-248.2 |
 | 22 | B-33: band-limiting inside the loop | Loop reads pre-AA; BL-12 on a lighter grid | C.14 let the edge corrections into the loop, so BL-12's claim held for the naive law only | no | **engine-free** (cleanroom-tests b50798f) | ADR-250 |
 | 23 | B-35: the start-up transient in 10.b6 | Add a settle (0.25 s before the note) | BL-12's measure timed from a note started mid-glide | no | **engine-free** (cleanroom-tests 8839f1d) | ADR-252 |
+| 24 | B-36: PA-1's per-sample step | The exact continuous pair | PA-1 described in continuous time, never discretised; two oracles disagreed | no | engine-free (both oracles' forms) | ADR-253.1 |
+| 25 | The bistable windows off BL-12's grid | Keep the limits, document them | The law's narrow windows near 0.828 and 0.963 (square, High, FM, P 42) | no | **engine-free** (cleanroom-tests 53363bc) | ADR-253.3 |
 
 **Lead readings with no recorded ruling (B520: owed to the human):** B-12 (QS-4's must-fire signals), B-13 (the
 saw no-click set moved to reported), B-27 (`env1.decayCurve` reported), and Q-TA-1/6 (the frozen no-click set).
