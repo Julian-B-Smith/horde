@@ -8723,3 +8723,19 @@ A plausible mechanism: a small push moves a wrap's time, and the edge correction
 - **B527:** horde's slot implements the modify law when the rack is built, with its tests: the A12 round trip holds, since a stored slot value plus the preset's bases determine the heard value.
 - **Response to Shriek** (seq 7).
 - **Sluice** may keep resolving its macros internally (RS-5.5) or adopt the slot's law; one law now exists in the spec for both. That is Sluice's call.
+
+## ADR-252 — RULED by the human: BL-12 is measured from a settled patch (B494, B521, spec round 24, 2026-10-19)
+
+**Context.** The builder's B-34 trace found a fourth engine fault, now fixed (builder 06aceec). C.16's FM-free estimate placed its resets by a straight read of a curved phase, which put it 4.9e-5 off; at drive 0.90 the law tolerates only about ±2e-5. The long run then showed one more red point (B-35). Engine-free (cleanroom-tests 8839f1d), the test author modelled 10.b6's real start-up and found:
+- the patch is flushed and the note starts at sample 0, so cross-mod, feedback, `loopDrive`, width and `modRate` all glide by PA-1 during the note's first ~100 ms;
+- that start-up decides which stable cycle the loop is in when the kick arrives, so the law itself fails on the long-run grid at High, FM free, P 42, 0.82, with two stable cycles;
+- with a 0.25 s settle before the note, nothing on the grid fails;
+- the origin is not the cause, since the static model at the patch's own origin has no window.
+
+**Ruling (the human, by poll, 2026-10-19).** "Add a settle": BL-12's measure sets the patch, renders 0.25 s of silence, then plays the note, timing from the note's start. That applies in the render, its twin and the long run. Items 0 and 11 already settle this way (Q-TA-14, B-30).
+
+**Consequences.**
+- Spec round 24, one sentence in BL-12's measure.
+- **The test author** adds the settle to 10.b6 and its long run.
+- **The builder:** one open point. Its engine reached a different FM-free modulator origin at P 42 from the law's start-up model (0.5436 against 0.5588), so its start-up is checked against the law. The settle removes that from 10.b6, but not from the engine.
+- **The clean room:** the spec reaches both clean-room repos in the same change.
