@@ -8680,3 +8680,19 @@ Rulings:
 - **The legacy Delay** (rack type 9, ADR-142) and the time-engine echo controls go to Echo as intake references, never parity targets. Retiring them in the legacy shell stays horde's.
 - **Echo's filings** land in horde's `integrations/echo/`.
 - **H2-PLAN's ECHO entry** is corrected.
+
+## ADR-251 — RULED by the human: module macros may modify a parameter (Sluice's law), marked per preset; frequency parameters offset in octaves by their unit (Shriek brief maw-005, B527, 2026-10-19)
+
+**Context.** Shriek's brief maw-005 (seq 6; `integrations/maw/brief-macro-modify-law.md`) was raised at the human's own preference for macros that modify a parameter. Under that law, a knob at 0 is the preset's own sound and the binding says how far the knob moves the parameter from there. SPEC-MODULE-MACROS §4–§5 resolved one law only: a bound parameter is **set** to `shape(curve, lo, hi, v)`. So two macros could not share a parameter, and ranges had to be absolute. Sluice resolves its own macros under a modify law (RS-5.5; Sluice D-112/D-113).
+
+**Rulings (the human, by poll, 2026-10-19).**
+1. **"Modify law in the spec":** a per-preset `macroLaw: modify`, with absent meaning today's `set`, resolved by horde's slot under Sluice's law. Contributions from every bound slot add; the heard value is `base ⊕ Σc`, clamped; `base` is the preset's `internal_defaults` value, else the default.
+2. **"By its unit":** a parameter whose manifest unit is Hz offsets in octaves (`base · 2^Σc`, base > 0); every other parameter adds.
+
+**Consequences.**
+- SPEC-MODULE-MACROS §4 (the data model and the macro-law rule) and §5 (resolution) are amended. It is a protected path, changed on the human's ruling.
+- Existing presets are unchanged.
+- Under `modify` a `log` curve is invalid.
+- **B527:** horde's slot implements the modify law when the rack is built, with its tests: the A12 round trip holds, since a stored slot value plus the preset's bases determine the heard value.
+- **Response to Shriek** (seq 7).
+- **Sluice** may keep resolving its macros internally (RS-5.5) or adopt the slot's law; one law now exists in the spec for both. That is Sluice's call.
