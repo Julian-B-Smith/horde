@@ -8785,3 +8785,32 @@ PA-1 says "two identical one-pole stages in series, each with a time constant of
 - **Owed before the clean room's rack stage:** an audit of what in today's horde 2 reads voice state from the FX side (`src/fx_rack.h` and its callers), and the source-kind list above filled in for the current sources.
 - **Proposed for a later spec round, not yet ruled:** SPEC-ENGINE RC-5 gains "Must not require: the engine to be present", so the rack is specified to run on any stereo pair.
 - No cross-repo filing: the modules' contract already covers this.
+
+## ADR-255 — RULED by the human: the sub and the noise oscillator for stage 6 (B514, B515, B494, 2026-10-20)
+
+**Context.** The sub and noise workshop (B514) ran from 2026-10-18 in a browser audition lab, an approximation of the spec's laws with prototypes of the extras. The human played it and gave notes (B514 (a)–(j)). On 2026-10-20 the human asked to finalize the rulings so that stage 6 of the clean-room build can start. Rulings already given in B514 (a)–(j) stand; the polls below close what was open.
+
+**Rulings (the human, by poll, 2026-10-20).**
+1. **Noise sources, all four:** Clean, Crackle, S&H and LFSR.
+2. **Noise stages, all three,** in series and each optional: Resonator → Whisper → Wind.
+3. **The noise keeps its own filter** (Off, LP, BP, HP, with keytracking), ahead of the shared filters.
+4. **The sub's drive characters, all three:** Tube, Diode and Fold-lite, with Crunch (B514 (a)).
+5. **Envelopes:** no source carries an envelope of its own. Each source's level follows ENV 1 by default, and a selector lets it follow any of ENV 2–4 from the shared bank instead (the human: "Route everything through the main envelope first but make it easy to give them a different governing envelope from the shared bank, as in Serum 2"). **The selector is in the source slot (RC-6), so every source has it**, osc 1 and osc 2 included ("Every source"). This replaces the lab's own ADSR and AD envelopes. B514 (c), the noise following global legato, is met by the bank's envelopes following the voice's legato.
+6. **The noise keeps Stereo spread:** 0 is mono, as the spec has it today; above 0, a second seeded noise stream decorrelates the two channels.
+7. **The sub's pitch envelope comes through the modulation bank:** ENV 2–4 route to the sub's Coarse (±48 st) like any destination. The sub has no pitch envelope of its own.
+8. **'Harmonics' and 'ratio' pitch modes after 1.0,** with a pitch-mode key reserved in stage 6 so 1.0 presets load unchanged.
+9. **The sub's DC comes out after its drive** ("After the drive, as the lab"). The drive hears the classic ±1 pulse, so its asymmetry adds even harmonics. The DC is subtracted exactly after the drive, so a note starts without a thump. This corrects the lead's recommendation in B514 (h): subtracting the pulse's mean before the drive would give exactly SN-2's present zero-mean form, and the drive would never hear the classic pulse.
+
+**Standing from B514 (a)–(j).**
+- A mono sub following the lowest held note by default (also highest and newest), and a per-note mode. Its glide comes from the pitch system's bend law.
+- Coarse ±48 st, continuous.
+- Aliasing floors, and each bump harmonic fading near Nyquist.
+- The sub's noise wave removed; the classic ±1 pulse.
+- The bump's two extra harmonics, each choosing any whole harmonic from 2 to 9, with an amount and a phase. Its peak is normalised to 1, and the defaults reproduce today's bump.
+- The noise's Pitch control (±48 st), moving the LFSR's clock, the Resonator's tuning and the noise filter's keytracking.
+- The sampler's reservation (B515): its parameter ids, a source mode and a sample slot in the state document.
+
+**Consequences.**
+- Spec round 26 writes §5.5, §5.6 and §6.10 from these rulings, with their laws in numbers, reasons inline (B524) and §5.8's counts updated. It goes to an Opus critic, then to the human, then to both clean-room repos. The test author writes stage 6's tests from it; the builder builds stage 6.
+- **A design point the round must settle:** today the engine computes only ENV 1 (RC-4: "Must not require: the engine to compute an envelope or LFO other than ENV 1"), and the bank is deferred. Ruling 5 therefore needs a per-voice input through which ENV 2–4 reach a source's level, at a rate that cannot zipper (PA-4's audio-rate path or an equivalent). It also needs the behaviour stated for when the bank is absent.
+- **FX device (ADR-254):** none. Sources, their envelopes and the sub's mono mode are voice-bound and instrument-only. Their ids sit in the source block.
