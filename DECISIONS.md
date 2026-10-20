@@ -8758,3 +8758,30 @@ PA-1 says "two identical one-pole stages in series, each with a time constant of
 - **The test author:** aligns loop.h's kick to the continuous pair, and derives B-29's row.
 - **The builder:** stops at stage 5; stage 6 waits on the sub and noise workshop (B514).
 - **The clean room:** the spec reaches both clean-room repos in the same change.
+
+## ADR-254 — DIRECTION from the human: a horde FX device follows soon after 1.0; decisions from now on leave room for it (B528, 2026-10-20)
+
+**Context.** The human asked how hard it would be to ship a horde FX device: the whole device (the FX rack, the modulators, the mod matrix, macros, morph), fed by the DAW's audio instead of the oscillators, with a MIDI sidechain for what needs notes, after the model of Serum FX. ADR-054 item 2 ruled this shape in July ("one rack, two shells"), and SWARM-FX (ADR-047, parked) was its first, effects-only form. The lead's answer: the shell is small; the work is in the modulation that comes from voices, the per-voice parts, the host-facing duties an instrument never has (latency, tail, bypass, live input on a stopped transport), and a second product's tests, presets and screen.
+
+**The human's direction (2026-10-20):** "We can stay on course to a 1.0 without it, but I want to make sure our decisions moving forward are at least aware that it's going to come soon after, so they can require minimal retrofitting to make it work."
+
+**Rulings.**
+1. **Not in 1.0.** The feature freeze of 2026-10-07 holds; no FX-device work enters the 1.0 queue.
+2. **Design for it from now on.** Every spec round, ADR and module ruling touching the areas below states its FX-device consequence, or "none", in one line. A choice that would need retrofitting later is surfaced to the human at the time, not discovered after 1.0.
+
+**The rules the lead applies (the checklist):**
+- **The rack takes a stereo pair, whoever makes it.** The engine-to-rack boundary stays SPEC-ENGINE RC-5's: one stereo pair at the host rate into the rack's first slot. Nothing in the rack reads a voice, the engine's state or its parameters except through declared mod values and note events.
+- **Every modulation source declares its kind:** voice-bound (needs a note: envelopes, velocity, keytrack, the swarm's observables), audio-derivable (a follower could stand in), or free (LFOs, ORBITAL, macros, the XY pad). A new source names its FX-device stand-in or says it has none.
+- **Note context reaches the rack as events,** the path a MIDI sidechain would feed (ADR-054 item 2), never as a reach into voice internals.
+- **Per-voice processing is marked instrument-only** where it is decided, so the FX device's gaps are a list, not an archaeology.
+- **A preset's FX chain is a separable section,** loadable without the oscillator part, with its own version field.
+- **The rack owns its latency and tail sums.** The rack reports them; a shell passes them to the host. No latency or tail figure is computed in the instrument shell.
+- **Host parameter ids:** the rack's, the modulators' and the macros' ids form blocks of their own, append-only, so a second shell can expose them unchanged.
+- **Screens:** FX screens and the mod matrix do not assume the oscillator panels exist.
+- **Modules** need nothing new: the rack-slot contract is already host-agnostic (stereo in and out, RS-2.8; latency, tails and sleep declared). An audio sidechain stays deferred past 1.0 (RS-2.8).
+
+**Consequences.**
+- ROADMAP B528 holds the FX device, its open questions and this checklist's bookkeeping.
+- **Owed before the clean room's rack stage:** an audit of what in today's horde 2 reads voice state from the FX side (`src/fx_rack.h` and its callers), and the source-kind list above filled in for the current sources.
+- **Proposed for a later spec round, not yet ruled:** SPEC-ENGINE RC-5 gains "Must not require: the engine to be present", so the rack is specified to run on any stereo pair.
+- No cross-repo filing: the modules' contract already covers this.
