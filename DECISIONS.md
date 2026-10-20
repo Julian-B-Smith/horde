@@ -8739,3 +8739,22 @@ A plausible mechanism: a small push moves a wrap's time, and the edge correction
 - **The test author** adds the settle to 10.b6 and its long run.
 - **The builder:** one open point. Its engine reached a different FM-free modulator origin at P 42 from the law's start-up model (0.5436 against 0.5588), so its start-up is checked against the law. The settle removes that from 10.b6, but not from the engine.
 - **The clean room:** the spec reaches both clean-room repos in the same change.
+
+## ADR-253 — RULED by the human: PA-1 stepped as the exact continuous pair; BL-12's known windows documented; stage 5 accepted with B-29 held (B494, spec round 25, 2026-10-20)
+
+**Context.** Stage 5's closing run (builder 65a155c), after round 24, found and fixed a fifth engine fault under keep-the-gate: FM free's modulator advanced into sample n by sample n's rate times sample n−1's phase step. The engine's settled start-up origins now match the spec's start-up law to six digits. The builder's B-36 then showed that the suite's two oracles read PA-1 differently:
+- item 14.4 judges the exact continuous critically damped pair, and the engine follows it;
+- loop.h's kick uses two sampled one-poles.
+
+PA-1 says "two identical one-pole stages in series, each with a time constant of 6 ms" in continuous time, and never pins the per-sample step. Separately, the test author's engine-free sweep (cleanroom-tests 53363bc) found genuine bistable windows of the law just off the judged grid, so a correct engine passes as judged. The default suite stands at 189 items with 22 failing, every red belonging to the bank, stages 6 and 7, or B-29. 10.b6 is green on all 96 lines, and its full-grid long run passes.
+
+**Rulings (the human, by poll, 2026-10-20).**
+1. **"Exact continuous pair":** PA-1 is stepped as the exact discretisation of the continuous pair: errors e₁ ← p·e₁, e₂ ← p·(e₂ + h·e₁), with h = Δt/τ and p = e^(−h). The loop oracle is aligned to it.
+2. **"Accept, B-29 held":** stage 5, the blades, is accepted. The short-taper row (B-29) stays held. The test author derives its numbers from the spec (taper widths, fade range, Crush's scope); they then go to a critic and to the human.
+3. **"Keep limits, document":** BL-12 records the known windows (square carrier, High, FM modes, P 42, near 0.828 and 0.963) as measured facts, and the long run watches them.
+
+**Consequences.**
+- Spec round 25.
+- **The test author:** aligns loop.h's kick to the continuous pair, and derives B-29's row.
+- **The builder:** stops at stage 5; stage 6 waits on the sub and noise workshop (B514).
+- **The clean room:** the spec reaches both clean-room repos in the same change.
