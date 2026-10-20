@@ -8681,6 +8681,33 @@ Rulings:
 - **Echo's filings** land in horde's `integrations/echo/`.
 - **H2-PLAN's ECHO entry** is corrected.
 
+## ADR-250 — RULED by the human: the cross-mod loop reads each member before its edge correction; BL-12 on a lighter grid (B494, B521, spec round 23, 2026-10-19)
+
+**Context.** The builder's B-33 found its round-22 10.b6 failing on 18 width-1 lines with band-limiting on, while passing with `bandLimit` 0. Under ADR-247 the evidence had to be engine-free. The test author built an independent band-limited oracle (cleanroom-tests b50798f, `harness/loop_bl.h`), with 32-tap minimum-phase tables for both of QS-1's designs; they reproduce QS-1's stated figures, and with no table the oracle equals the naive law bit for bit.
+
+On those 18 lines:
+- the naive law fails no judged point;
+- design A (0.47·f_s, β 8) fails 148 of 3,624, and design B (0.45·f_s, β 10) fails 130;
+- the first failures run from 0.22 (square at High) to 0.64, and they differ by design;
+- 87 and 67 of them are genuinely chaotic.
+
+A plausible mechanism: a small push moves a wrap's time, and the edge correction turns that into a large output change inside the loop. BL-12's claim "contracts below 0.5" held for the naive law only. The test author also found that 10.b6's full grid (14,672 points) costs about 5 to 15 minutes in Release. Its first map hung because the band-limited loop runs away above about 0.57; the oracle now follows RT-2 and RT-3 and terminates.
+
+**Rulings (the human, by poll, 2026-10-19).**
+1. **"Loop reads pre-AA."** C.14's tap reads each member's output before its edge correction, without ED-1's and ED-6's corrections or ED-3's removal of their offset. So the loop's dynamics are the mapped naive law for any table design, and the audible output stays band-limited. The lead proposed this option; it was not among the test author's three. Those three were: judge the naive law only, lower the limits below every design's chaos, or gate chaos only.
+2. **"Coarse + edges."** BL-12 is judged at 0.14, every 0.05, and every 0.01 within the top 0.05 of each carrier's judged range (about 4,400 points). The full 0.01 grid becomes a labelled long run before each stage's acceptance, and the law itself stays mapped at every 0.01 by the test author's tool.
+
+**Consequences.**
+- Spec round 23.
+- **The builder** feeds C.14's tap from the member before its edge correction.
+- **The test author** reshapes 10.b6's grid, adds the long-run target, and checks with the band-limited oracle that the pre-correction loop now passes the judged grid under both designs.
+- **The clean room:** the spec reaches both clean-room repos in the same change.
+
+**Critic review** (fresh context, APPROVE-WITH-NOTES; all applied):
+- The loop's input is named y⁰ᵢ: member i's output yᵢ (C.9, C.8) without the edge and corner corrections, ED-6's smooth-part delay or ED-3's offset removal. C.16's estimate is in; the 8 Hz blocker (on the summed output) is out. The lead's first wording listed C.7's entry gain as part of the input, a term the spec applies with the envelope outside the member's output; it is dropped, so the spec keeps its meaning.
+- ED-2 now says the taps read the member before the correction.
+- The grid is stated in hundredths, inclusive, so every line includes its last judged drive. The full-grid long run is judged by the same criteria before each stage's acceptance.
+
 ## ADR-251 — RULED by the human: module macros may modify a parameter (Sluice's law), marked per preset; frequency parameters offset in octaves by their unit (Shriek brief maw-005, B527, 2026-10-19)
 
 **Context.** Shriek's brief maw-005 (seq 6; `integrations/maw/brief-macro-modify-law.md`) was raised at the human's own preference for macros that modify a parameter. Under that law, a knob at 0 is the preset's own sound and the binding says how far the knob moves the parameter from there. SPEC-MODULE-MACROS §4–§5 resolved one law only: a bound parameter is **set** to `shape(curve, lo, hi, v)`. So two macros could not share a parameter, and ranges had to be absolute. Sluice resolves its own macros under a modify law (RS-5.5; Sluice D-112/D-113).
