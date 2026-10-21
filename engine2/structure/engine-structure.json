@@ -1,21 +1,21 @@
 {
   "counts": {
     "edges": {
-      "audio": 45,
-      "control": 43,
+      "audio": 46,
+      "control": 44,
       "event": 7,
       "modulation": 5,
       "observation": 9
     },
     "items": {
-      "block": 64,
+      "block": 65,
       "slot": 12
     },
     "scope": {
-      "engine": 65,
+      "engine": 66,
       "external": 11
     },
-    "stages": 46
+    "stages": 47
   },
   "edge_kinds": [
     "audio",
@@ -457,7 +457,18 @@
         "SN-7"
       ],
       "from": "mono_sub.envelope",
-      "id": "mono_sub.envelope->voice_sum",
+      "id": "mono_sub.envelope->mono_sub.filter_slot",
+      "kind": "audio",
+      "label": null,
+      "to": "mono_sub.filter_slot"
+    },
+    {
+      "cites": [
+        "RC-1",
+        "SN-7"
+      ],
+      "from": "mono_sub.filter_slot",
+      "id": "mono_sub.filter_slot->voice_sum",
       "kind": "audio",
       "label": "joins the voices after their filter slots",
       "to": "voice_sum"
@@ -1086,6 +1097,17 @@
     },
     {
       "cites": [
+        "RC-1",
+        "SN-7"
+      ],
+      "from": "voice.pitch",
+      "id": "voice.pitch->mono_sub.filter_slot",
+      "kind": "control",
+      "label": "the chosen note's voice: pitch, velocity, per-voice modulation, lifecycle",
+      "to": "mono_sub.filter_slot"
+    },
+    {
+      "cites": [
         "SN-8",
         "SN-11"
       ],
@@ -1513,6 +1535,18 @@
       "id": "mono_sub.envelope",
       "kind": "block",
       "label": "its own envelope instance",
+      "multiplicity": null,
+      "parent": "mono_sub",
+      "scope": "engine"
+    },
+    {
+      "cites": [
+        "RC-1",
+        "SN-7"
+      ],
+      "id": "mono_sub.filter_slot",
+      "kind": "block",
+      "label": "its own filter-slot instance, driven by its chosen note",
       "multiplicity": null,
       "parent": "mono_sub",
       "scope": "engine"
@@ -2365,6 +2399,12 @@
     },
     {
       "ids": [
+        "mono_sub.filter_slot"
+      ],
+      "stage": "mono sub: its own filter-slot instance, driven by its chosen note (RC-1)"
+    },
+    {
+      "ids": [
         "voice_sum"
       ],
       "stage": "Σ voices"
@@ -2395,7 +2435,7 @@
     }
   ],
   "spec": {
-    "blob": "66d2a0767fc6d6fc6779b1be535eef7d88afa4ea",
+    "blob": "e16aa43369a959fad03fc55561cd41a5d42d9ec4",
     "path": "specs/SPEC-ENGINE.md"
   }
 }

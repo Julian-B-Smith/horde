@@ -8893,7 +8893,7 @@ Ruling 9's reason was wrong. It said "the drive hears the classic ±1 pulse, so 
 **Readings the rulings did not dictate,** listed in §6.10's rationale and checked by the critics:
 - the engine computes ENV 2–4 (EN-5), with their ids in a block of their own (both deviations from ADR-255's consequences);
 - envelopes act before the filter slot;
-- the mono sub runs outside the voices, so the filter slot never reaches it;
+- the mono sub runs outside the voices (its filtering corrected by the human's ruling below);
 - the classic pulse is +1 first;
 - the bump's peak is taken after its fades;
 - the drive's 2× resampler is pinned to C.15's;
@@ -8907,5 +8907,7 @@ Ruling 9's reason was wrong. It said "the drive hears the classic ±1 pulse, so 
 **Left to the test author, engine-free:** QS-11's floors, the thump and residue bounds of item 25, the spread statistics, the bump peak's tolerance, and the confirmation that the smooth square's ratios fall with n.
 
 **FX device (ADR-254):** none. Sources are voice-bound and instrument-only. ENV 2–4 are voice-bound modulation sources, built with no dependency on the voice, so the FX device can instance them per sidechain note (EN-5).
+
+**A further ruling (the human, by poll, 2026-10-21: "Its own filter, following its note").** The draft had the mono sub bypass the filters, because each filter lives inside a voice. Instead, the mono sub gets one filter-slot instance of its own, driven by the settings and per-voice modulation of the voice holding its chosen note. It behaves as that note's filter, never hops between voices, and carries its state across a hand-off (RC-1, SN-7, X13).
 
 **Consequences.** On merge, the spec goes to both clean-room repos in the same turn. The test author writes stage 6's tests (items 24–33), then the builder builds stage 6.
