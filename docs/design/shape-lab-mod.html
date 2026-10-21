@@ -133,13 +133,33 @@
      seed and demands an exact match, with a Math.random plant that must
      differ.
 
+     ROUND 5 (B541, 2026-10-21, ADR-267 + A1): THE TRIGGER TIMER.
+     Human: "a trigger timer modulator as well; for specific things like
+     "clear" in Sluice (clearing the bank on every bar, for instance)".
+       - An EVENT source in round 2's model: a tempo grid (1/16 .. 8 bars)
+         with offset and swing, or Hz; every N-th or a step pattern; a seeded
+         probability per tick (m32at by tick index); BAR or NOTE origin.
+       - Ticks are computed at each block's first sample from the transport
+         and tempo (host data, core.tp) and put on exact sample offsets.
+       - Its triggers (and a mock arp row's TRIGGER steps, a placeholder for
+         Arp B539, and a FIRE click) go to round 2's actions, to a hosted
+         module's DECLARED action (mock "Sluice · clear", RS-4.12, in the
+         block context), and to an IMPULSE on a mock "Shriek · drive"
+         (attack/decay in s, curve, amount, UNI/BI/INV; retrigger from the
+         current level), heard as the output stage's drive.
+       - A1: a trigger is a performance event. Firing makes no history node
+         and leaves the patch byte-identical; editing is an edit.
+     ttSelfCheck (pure) covers replay, exact sample offsets at 3 tempos x 2
+     block sizes, the tick sets, the clears, A1 and no-click, with plants:
+     a tick on the block start, Math.random, a firing path that records.
+
      L0026: all state above all wiring. No Math.random (mulberry32 only, SPEC
-     §5.7), except round 4's must-fail plant in the UI section, which is a
-     twin's draw in the self-check and never a source the page plays. No wall
-     clock in the render path: the core counts samples. -->
+     §5.7), except the must-fail plants of rounds 4 and 5 in the UI section,
+     each a twin's draw in a self-check and never a source the page plays. No
+     wall clock in the render path: the core counts samples. -->
 <html lang="en"><head><meta charset="utf-8">
 <meta name="lab-part" content="Modulation">
-<title>horde modulator lab: LFO + envelope + sources + S&amp;H/random + 2-D random, one law each (B208, B226, B237, B540)</title>
+<title>horde modulator lab: LFO + envelope + sources + S&amp;H/random + 2-D random + trigger timer, one law each (B208, B226, B237, B540, B541)</title>
 <style>
   /* ============================================================
      TOKENS, copied VERBATIM from src/gui/gui2.html:26-96 (:root),
@@ -355,6 +375,20 @@
   #xyLaneC { height:140px; }
   #xyRows .cap { margin-top:8px; }
   #xyRows input[type=number] { width:84px; }
+
+  /* ============ ROUND 5 (B541) — the same chrome ============ */
+  #ttC { height:170px; } #impC { height:110px; }
+  #ttRows .cap, #impRows .cap, #arpRows .cap { margin-top:8px; }
+  #ttRows input[type=number] { width:84px; }
+  .steps { gap:2px; flex-wrap:nowrap; }
+  .pill.stepb { min-width:0; min-height:22px; padding:1px 0; width:22px; font-size:11px; }
+  #slcBank { display:flex; align-items:center; gap:3px; flex-wrap:wrap; padding:5px; border-radius:var(--r);
+             border:var(--stroke) solid var(--line); background:var(--well); transition:background .08s; }
+  #slcBank .slot { width:14px; height:14px; border-radius:3px; border:1px solid var(--line); background:var(--panel2); }
+  #slcBank .slot.full { background:var(--cC); }
+  #slcBank.flash { background:var(--caution-bg); }
+  #slcBank .slcTxt { font-size:10px; color:var(--t2); margin-left:6px; }
+  #ttCtx { white-space:pre-wrap; word-break:break-all; }
 </style></head><body>
 
 <div class="rev" title="The file's modification time and a fingerprint of its scripts, both read at load, so neither can drift (L0020). If the fingerprint does not change after a reload you are on a cached copy.">rev <span id="revdate">…</span> · fp <span id="revfp">…</span></div>
@@ -845,6 +879,88 @@ seed and the same triggers give the same path, every time.</div>
         two parameters in one gesture. That binding UI is not built here.</li>
       <li><b>No committed gate.</b> The self-check is in-page (and runs headless: its function is in the DSP section). A
         <code>tools/*_check</code> that runs it is the lead's call.</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ======================= ROUND 5 (B541) ======================= -->
+<div class="sect">
+  <div>
+    <h1>trigger timer</h1>
+    <div class="badges">
+      <span class="badge">LAB · B541</span>
+      <span class="sub">AN EVENT SOURCE ON THE TRANSPORT: GRID, STEPS, PROBABILITY · ACTIONS AND IMPULSES · NEVER HISTORY · PROTOTYPE</span>
+    </div>
+  </div>
+</div>
+<div class="tagline">A modulator that fires <b>triggers</b>, not levels (round 2's events model): on a tempo grid with an offset and
+swing, or a free rate; every N-th tick or a step pattern; each tick let through with a seeded probability; counted from the bar
+or from each note-on. Its triggers fire <b>actions</b> (including a hosted module's declared action, "Sluice · clear") and
+<b>impulses</b> on a continuous parameter (a mock "Shriek · drive"). A mock <b>arp row</b> and a <b>click</b> fire the same
+targets. POWER, then <b>PLAY</b>: by default the timer clears the toy bank on every bar and pumps the drive. Hold a key and
+press DRONE to hear the pump. Firing is a performance event: it never moves the history counter, and editing does.</div>
+<div class="audit" id="audit5">round-5 self-check: pending</div>
+
+<div class="r4">
+  <div class="cluster" id="ttPane"><h2>TRIGGER TIMER <span>· the source and its targets</span></h2>
+    <div class="law"><b>Time is data.</b> The transport (play, stop) and the tempo arrive at each render block's first sample,
+      as a host sends them. The timer then works out which grid positions fall inside the block and puts each tick on the
+      <b>first sample at or after its grid position</b>: origin + ⌈g · samples-per-beat⌉. It never reads a clock and never
+      rounds a tick to a block boundary. A tick's fate is <b>the step stage</b> (every N-th, or the pattern at k mod length),
+      then <b>draw k</b> of the seeded stream against the probability. Draw k is read for every tick, so editing the pattern
+      never reshuffles the dice.</div>
+    <div id="ttRows"></div>
+  </div>
+
+  <div class="cluster" id="ttViewPane"><h2>TICKS <span>· the last 3 s · bar lines, beats · fired tall, skipped short</span></h2>
+    <canvas id="ttC"></canvas>
+    <div class="note" id="ttRead"></div>
+    <div class="cap">MOCK SLUICE · 16-SLOT BANK, ONE SLOT PER 16TH · its declared action: clear (RS-4.12)</div>
+    <div id="slcBank"></div>
+    <div class="cap">THE LAST BLOCK CONTEXT THAT CARRIED AN ACTION, HORDE → MODULE</div>
+    <pre id="ttCtx">—</pre>
+    <div class="cap">HISTORY · edits move it, triggers never do (ADR-267 A1)</div>
+    <div class="note" id="ttHist"></div>
+  </div>
+
+  <div class="cluster" id="ttImpPane"><h2>IMPULSE AND ARP <span>· a shape per trigger · a mock arp row</span></h2>
+    <div class="law"><b>An impulse</b> is a one-shot shape that each trigger strikes on a continuous parameter: attack, then
+      decay, in seconds, on round 1's curve law. It is added through the mod matrix like any mapping (here: the mock
+      <b>Shriek · drive</b> knob + amount × the shape), summed and clamped once. A retrigger restarts the attack
+      <b>from the level it has reached</b>, never from 0, so it cannot click. Polarity: <b>UNI</b> pushes up, <b>BI</b> swings
+      from −amount at rest to +amount at the peak, <b>INV</b> pulls down. <b>CONTROL</b> is not offered: it replaces the knob's
+      position with the source's, and a shape that falls back to nothing between strikes would leave the knob ignored.</div>
+    <div id="impRows"></div>
+    <canvas id="impC"></canvas>
+    <div class="cap">MOCK ARP ROW · a placeholder for Arp (B539) · 1/16 on the transport · click a step: rest → step → TRIGGER</div>
+    <div id="arpRows"></div>
+  </div>
+</div>
+
+<div class="r2" style="grid-template-columns:minmax(0,1fr)">
+  <div class="cluster" id="ttQPane"><h2>ROUND 5 · CHOICES AND OPEN QUESTIONS <span>· B541</span></h2>
+    <ol class="find">
+      <li><b>The bar is 4/4.</b> The lab's transport has no meter, so "an offset within the bar" and the bar lines assume four
+        beats. A host's time signature would replace it.</li>
+      <li><b>Offset.</b> A fraction of a bar on the tempo grid and of a period in Hz. On a grid finer than the offset it is
+        taken modulo a swing pair, so the first bar never loses ticks. Is offset better in 16ths only?</li>
+      <li><b>Swing</b> moves the odd tick of each pair from 50% to up to 75% of the pair. Should it apply to grids of a bar
+        or more? It does here.</li>
+      <li><b>NOTE origin runs while a key is held</b> and restarts at every note-on (the round-2 TRIGGER, so the MIDI card's
+        EVERY or FIRST decides what counts as a note-on). Alternatives: run until the next note-on, or for a set count.</li>
+      <li><b>Probability is per tick index</b>, so under NOTE origin every note replays the same dice from tick 0. That makes
+        a repeatable riff; a stream that continues across notes is the alternative.</li>
+      <li><b>A free Hz rate counts from the play (or the note-on)</b>, not from page load, so it starts with the transport.</li>
+      <li><b>BI on an impulse</b> rests at −amount (the bipolar meaning of a shape that starts at 0). A shape centred on 0
+        (a push then a pull) is the alternative.</li>
+      <li><b>One curve for attack and decay.</b> Two curves, or a hold stage, may be wanted.</li>
+      <li><b>Round 2's hosted RANDOMIZE UNLOCKED</b> still records an undo step when a trigger fires it. ADR-267 A1 says a
+        trigger makes no history node, so that stand-in now contradicts the ruling. It was left as it was (round 2's
+        file, round 2's audit). Should it change to the A1 rule?</li>
+      <li><b>The mock arp's 'o' steps</b> do nothing here: only TRIGGER steps fire. Arp (B539) owns the notes.</li>
+      <li><b>Several triggers on one sample</b> (timer, arp and a click together) each fire. Should they merge into one?</li>
+      <li><b>No committed gate.</b> The self-check is in-page and runs headless. A <code>tools/*_check</code> that runs it
+        is the lead's call.</li>
     </ol>
   </div>
 </div>
@@ -1456,7 +1572,7 @@ class ModLabCore {
       ph0: 0, ph1: 0, lp1: 0, lp2: 0, age: 0, env: 0, envG: 0, done: true });
     this.age = 0;
     this.H = { lfo: new Float32Array(HN), lfoG: new Float32Array(HN), env: new Float32Array(HN),
-               envG: new Float32Array(HN), beat: new Uint8Array(HN), w: 0, dec: 0, bt: 0 };
+               envG: new Float32Array(HN), beat: new Uint8Array(HN), drv: new Float32Array(HN), w: 0, dec: 0, bt: 0 };
     this.tapLfo = null; this.tapEnv = null; this.tapN = 0;   // the audit's probes
     this.peak = 0;
     /* ---- ROUND 2 (B226) ---- */
@@ -1485,6 +1601,22 @@ class ModLabCore {
     this.slRing = new Float64Array(8); this.slRingK = new Float64Array(8).fill(NaN);
     /* ---- ROUND 4 (B540) ---- the 2-D random source, stepped every sample in render */
     this.xy = new XYRand(this.sr, S);
+    /* ---- ROUND 5 (B541) ---- the trigger timer, the mock arp row, a click,
+       the impulse they strike and the mock Sluice they clear. The transport
+       is HOST DATA (play/stop), never patch state, so it lives here. */
+    this.tp = { playing: 0 };
+    this.timer = new TriggerTimer(this.sr, S, 'tt', this.tp);
+    this.arpT = new TriggerTimer(this.sr, S, 'arp', this.tp);
+    this.clickPend = 0; this.ttFired = 0;
+    this.hist = null; this.plantHist = false;   // the self-check's A1 plant reaches history through these; nothing else does
+    this.imp = { st: 0, n: 0, L0: 0, lvl: 0 }; this.drive = 0;
+    /* The mock Sluice: a 16-slot bank that fills one slot per 16th while the
+       clock runs (runtime state), and its declared action, clear. */
+    this.slc = { fill: 0, clears: 0, lastN: -1, seq: 0 }; this.slcTap = null;
+    /* The block's context (RS-4.11/4.12): the declared actions fired in this
+       block, at their sample offsets. The last non-empty one is kept to show. */
+    this.blk0 = 0; this.ctxN = 0; this.ctxOff = new Int32Array(16); this.ctxSeq = new Int32Array(16);
+    this.lastCtx = { n0: -1, N: 0, cnt: 0, off: new Int32Array(16), seq: new Int32Array(16) };
     this.shipReseed();
     this.compileRoutes();
   }
@@ -1497,7 +1629,7 @@ class ModLabCore {
     for (let r = 0; r < 2; r++) { const x = SX[this.S.routes[r].src]; this.rtSrc[r] = x === undefined ? -1 : x; }
     const s = SX[this.S.act.shIn]; this.shSrc = s === undefined ? -1 : s;
   }
-  setSr(sr) { this.sr = sr; this.kuro.sr = sr; this.orb.setSr(sr); this.trk.sr = sr; this.xy.setSr(sr); this.xy.replay(); }
+  setSr(sr) { this.sr = sr; this.kuro.sr = sr; this.orb.setSr(sr); this.trk.sr = sr; this.xy.setSr(sr); this.xy.replay(); this.timer.setSr(sr, this.sN); this.arpT.setSr(sr, this.sN); }
   /* Shipped plug_activate: the phase knob is read HERE, which is the whole
      finding for free-running LFOs. The lab calls this at load and on
      RE-ACTIVATE. */
@@ -1532,19 +1664,54 @@ class ModLabCore {
   panic() { for (const v of this.voices) { v.on = false; v.done = true; v.nOff = -1; v.env = 0; v.envG = 0; } this.trk.clear(); this.evq.length = 0; this.evp = 0; }
   /* THE TRIGGER'S DISPATCH. Called at the top of the sample after a note-on
      raised it, so every in-core action lands on the trigger's own sample. */
+  /* B541: the actions, one per index, split out of fire() unchanged so the
+     note trigger and the trigger timer fire the SAME code (ACTIONS order). */
+  doAction(i) {
+    if (i === 0) { this.sh = this.shSrc < 0 ? this.shRng() * 2 - 1 : SOURCES[this.shSrc].read(this); this.shN++; }
+    else if (i === 1) { this.envV0 = this.envLvl; this.envN = 0; this.envOffN = -1; }
+    else if (i === 2) this.lfoRewind();
+    else if (i === 3) this.kuro.initPhases();
+    else if (i === 4) this.orb.kick(this.S.orb.kickBody | 0, this.S.orb.kick);
+    else if (i === 5) this.orb.reset();
+    else if (i === 6) {   // a HOSTED action: post (sequence, fired-at sample); the main thread applies it
+      const P = this.post, j = P.w % POSTN;
+      P.seq[j] = ++this.postSeq; P.at[j] = this.sN; P.w++;
+    }
+  }
   fire() {
     const A = this.S.act.on;
     this.H2.trig++;
-    if (A[0]) { this.sh = this.shSrc < 0 ? this.shRng() * 2 - 1 : SOURCES[this.shSrc].read(this); this.shN++; }
-    if (A[1]) { this.envV0 = this.envLvl; this.envN = 0; this.envOffN = -1; }
-    if (A[2]) this.lfoRewind();
-    if (A[3]) this.kuro.initPhases();
-    if (A[4]) this.orb.kick(this.S.orb.kickBody | 0, this.S.orb.kick);
-    if (A[5]) this.orb.reset();
+    for (let i = 0; i < 6; i++) if (A[i]) this.doAction(i);
     if ((this.S.xy.clock | 0) === 0) this.xy.trig();   // B540: the 2-D random's NOTE clock is this trigger
-    if (A[6]) {   // a HOSTED action: post (sequence, fired-at sample); the main thread applies it
-      const P = this.post, j = P.w % POSTN;
-      P.seq[j] = ++this.postSeq; P.at[j] = this.sN; P.w++;
+    if (A[6]) this.doAction(6);
+    this.timer.noteOn(this.sN);   // B541: the timer's NOTE origin counts from this trigger (a no-op under BAR)
+  }
+  /* B541: ONE trigger from the timer, an arp step or a click. It fires the
+     timer card's targets and strikes the impulse. A1: it changes runtime
+     state only; it never touches S or the history. */
+  trigFire() {
+    const S = this.S, A = S.tt.on;
+    for (let i = 0; i < TT_ACTIONS.length; i++) if (A[i]) { const c = TT_ACT_CORE[i]; if (c >= 0) this.doAction(c); else this.slcClear(); }
+    if (S.tt.imp.on) this.impStrike();
+    this.ttFired++;
+    if (this.plantHist && this.hist) this.hist.record('fire', JSON.stringify(S.tt));   // THE A1 PLANT (self-check only)
+  }
+  /* Sluice · clear, a DECLARED action: entered in the block's context at its
+     offset, and applied by the module at that sample. */
+  slcClear() {
+    const j = this.ctxN; if (j < 16) { this.ctxOff[j] = this.sN - this.blk0; this.ctxSeq[j] = ++this.slc.seq; this.ctxN++; }
+    this.slc.fill = 0; this.slc.clears++; this.slc.lastN = this.sN; if (this.slcTap) this.slcTap.push(this.sN);
+  }
+  impStrike() { const m = this.imp; m.L0 = m.lvl; m.st = 1; m.n = 0; }   // FROM the current level: no click
+  impStep() {
+    const I = this.S.tt.imp, m = this.imp;
+    if (m.st === 1) {
+      const t = m.n / this.sr;
+      if (t >= I.a) { m.st = 2; m.n = 0; } else { m.lvl = m.L0 + (1 - m.L0) * segCurve(t / I.a, I.c); m.n++; }
+    }
+    if (m.st === 2) {
+      const t = m.n / this.sr;
+      if (t >= I.d) { m.st = 0; m.lvl = 0; } else { m.lvl = 1 - segCurve(t / I.d, I.c); m.n++; }
     }
   }
   /* MOD ENV: round 1's envelope law (envAt), started by the trigger FROM the
@@ -1602,6 +1769,9 @@ class ModLabCore {
     const S = this.S, sr = this.sr, E = S.env, L = S.lfo, sy = S.synth;
     const shipped = S.law === 1;
     const H = this.H;
+    /* ROUND 5: the block's transport and tempo, as data, at its first sample */
+    this.blk0 = this.sN; this.ctxN = 0;
+    this.timer.block(this.sN, N); this.arpT.block(this.sN, N);
     for (let i = 0; i < N; i++) {
       /* ROUND 2, top of the sample: note events due now, then the trigger they
          raised, then each source advances one sample. */
@@ -1612,6 +1782,16 @@ class ModLabCore {
       if (this.evp && this.evp === Q.length) { Q.length = 0; this.evp = 0; }
       if (this.trk.trig) { this.trk.trig = 0; this.fire(); }
       this.kuro.advance(1); this.orb.advance(); this.envStep(); this.xy.sample();
+      /* ROUND 5: the trigger sources at their exact samples, then the impulse
+         and the mock Sluice. NOTE origin runs while a key is held. */
+      if ((S.tt.origin | 0) === 1 && this.timer.oS >= 0 && this.trk.cnt === 0) this.timer.halt();
+      let nf = this.timer.due(this.sN);
+      if (S.arp.on) nf += this.arpT.due(this.sN);
+      if (this.clickPend) { this.clickPend = 0; nf++; }
+      for (; nf > 0; nf--) this.trigFire();
+      this.impStep(); this.slc.fill++;
+      { const I = S.tt.imp;   // the mock "Shriek · drive": knob + the impulse mapping, summed and clamped ONCE
+        this.drive = Math.min(1, Math.max(0, S.tt.drive + (I.on ? I.amt * impMap(this.imp.lvl, I.pol | 0) : 0))); }
       this.lfoStep();
       const lfo = this.lfo, dep = L.depth;
       const cutL = L.dest === 0 ? dep * lfo * 0.5 : 0;
@@ -1650,7 +1830,11 @@ class ModLabCore {
         v.lp1 += (osc - v.lp1) * g; v.lp2 += (v.lp1 - v.lp2) * g;
         mix += v.lp2 * v.env;
       }
-      const y = Math.tanh(mix * 0.45) * sy.level * lvl;
+      /* B541: the mock Shriek drive is heard as this output stage's drive when
+         HEAR is on. At drive 0 the line is the old one exactly. */
+      const dv = S.tt.imp.hear ? this.drive : 0;
+      const y = dv === 0 ? Math.tanh(mix * 0.45) * sy.level * lvl
+        : Math.tanh(mix * 0.45 * (1 + 8 * dv)) / (1 + 2 * dv) * sy.level * lvl;
       Lb[i] = y; Rb[i] = y;
       const ay = Math.abs(y); if (ay > this.peak) this.peak = ay;
       if (this.tapLfo && this.tapN < this.tapLfo.length) {
@@ -1662,7 +1846,7 @@ class ModLabCore {
         H.dec = 0;
         H.lfo[H.w] = lfo; H.lfoG[H.w] = this.lfoGhost;
         H.env[H.w] = newest ? newest.env : 0; H.envG[H.w] = newest ? newest.envG : 0;
-        H.beat[H.w] = H.bt; H.bt = 0;
+        H.beat[H.w] = H.bt; H.bt = 0; H.drv[H.w] = this.drive;
         /* Round-2 lanes, logged at the same instant as round 1's, and every one
            through SOURCES or the value a route just applied. */
         const A2 = this.H2.a, w = H.w;
@@ -1673,6 +1857,8 @@ class ModLabCore {
       }
       this.trk.step(); this.sN++;
     }
+    if (this.ctxN) { const C = this.lastCtx; C.n0 = this.blk0; C.N = N; C.cnt = this.ctxN;
+      for (let j = 0; j < this.ctxN; j++) { C.off[j] = this.ctxOff[j]; C.seq[j] = this.ctxSeq[j]; } }
   }
   /* One cycle of the LFO, published FROM the law — the shipped B177 idiom
      (hzGetLfoCycle): the painter asks the core for the curve instead of
@@ -2037,7 +2223,7 @@ function xySelfCheck(S0, plant) {
   /* 5. THE SOUND: x → cutoff on route A, every trigger action off, the
      destination tap against a standalone instance stepped by sample(). */
   const sound = [['WALK', { mode: 0 }], ['JUMP spring, rate clock 4 Hz', { mode: 1, clock: 1, hz: 4, law: 3 }]].map(([name, over]) => {
-    const St = mk(over); St.law = 0; St.act.on = St.act.on.map(() => 0);
+    const St = quietTriggers(mk(over)); St.law = 0; St.act.on = St.act.on.map(() => 0);
     St.routes[0] = { src: 'xy.x', dest: 0, depth: 0.5 }; St.routes[1].src = 'off';
     const n = T * XY_TICK, c = new ModLabCore(sr, St); c.tapRoute = new Float64Array(n);
     const Lb = new Float32Array(256), Rb = new Float32Array(256);
@@ -2076,6 +2262,277 @@ ModLabCore.XYRand = XYRand; ModLabCore.xyMap = xyMap; ModLabCore.xyWarp = xyWarp
 ModLabCore.xyTarget = xyTarget; ModLabCore.xyWeights = xyWeights; ModLabCore.fold01 = fold01; ModLabCore.xyOvershoot = xyOvershoot;
 ModLabCore.xySelfCheck = xySelfCheck; ModLabCore.XY_MODES = XY_MODES; ModLabCore.XY_LAWS = XY_LAWS; ModLabCore.XY_BIAS = XY_BIAS;
 
+/* ================= ROUND 5 (B541): the trigger timer =================
+   ADR-267 (+ A1). An EVENT source: it fires triggers, never a level, and its
+   triggers go to ACTION targets (round 2's events model) and to IMPULSES.
+     - a tempo grid (1/16 .. 8 bars) with an offset within the bar and swing,
+       or a free rate in Hz;
+     - every N-th tick, or a short step pattern ('x' fires, '.' rests);
+     - a probability per tick, draw k of mulberry32 by index (m32at), so a
+       tick's fate depends only on (seed, k) and a replay is identical;
+     - BAR origin (counted from the transport's play) or NOTE origin
+       (counted from each note-on, running while a key is held).
+   TIME COMES AS DATA. The transport (play/stop) and the tempo arrive at each
+   render block's first sample, as a host delivers them. At that sample the
+   timer computes which grid positions fall inside the block and the EXACT
+   sample of each: the first sample at or after the position,
+       sample(k) = origin + ⌈g_k · samples-per-unit − ε⌉,  ε = 1e-7
+   (ε absorbs float order: a position that is exactly a sample must not move
+   by one because 0.1 + 0.2 ≠ 0.3). No wall clock, and nothing is placed on
+   a block boundary unless its grid position is there; ttSelfCheck holds
+   this at three tempos and two block sizes, with the block-start plant.
+   A tempo change re-anchors the count at the block it arrives in.
+
+   A1: A TRIGGER IS A PERFORMANCE EVENT. Firing (timer, arp step, click)
+   changes the sound and the RUNTIME state of what it fires (Sluice's bank
+   empties, ORBITAL is kicked, an impulse starts), and never the patch or the
+   history. Editing the timer's settings is an edit. `History` below is the
+   lab's stand-in history; ttSelfCheck fires 100 triggers and demands the
+   history count and the patch's JSON are byte-identical after. */
+const TT_BAR = 4;            // beats per bar: 4/4 (the lab's transport has no meter yet)
+const TT_EPS = 1e-7, TT_MAXB = 256, TT_RN = 512;
+const TT_ORIGINS = ['BAR', 'NOTE'], TT_RATES = ['TEMPO', 'HZ'], TT_GATES = ['EVERY N', 'PATTERN'];
+/* The trigger targets. The first four are round 2's in-core actions (index
+   into ModLabCore.doAction); the fifth is a hosted module's DECLARED action
+   (RS-4.12), delivered in the block's context at its sample offset. */
+const TT_ACTIONS = ['SAMPLE ON TRIGGER', 'LFO RESTART', 'ORBITAL KICK', 'ORBITAL RESET', 'SLUICE · CLEAR'];
+const TT_ACT_CORE = [0, 2, 4, 5, -1];
+/* The divisions: round 1's list from 1/16 up, plus 4 and 8 bars. [label, beats]. */
+const TT_DIVS = Object.freeze([['8 bars', 32], ['4 bars', 16]].concat(DIVS.filter(d => d[2] >= 0.25).map(d =>
+  [d[0] + (d[1] ? ' · ' + d[1] : '') + (d[2] === 8 ? ' (2 bars)' : d[2] === 4 ? ' (1 bar)' : ''), d[2]])));
+const ttDivIx = beats => { let b = 0, bd = Infinity;
+  for (let i = 0; i < TT_DIVS.length; i++) { const d = Math.abs(Math.log(beats / TT_DIVS[i][1])); if (d < bd - 1e-12) { bd = d; b = i; } }
+  return b; };
+const ttSeedOf = seed => ((seed | 0) ^ 0x243F6A88) | 0;   // its own stream (π's first word), apart from lfoSeed and the XY salts
+/* One tick's length: beats (TEMPO) or seconds (HZ). */
+const ttStepLen = P => (P.rate | 0) === 1 ? 1 / Math.max(1e-3, P.hz) : Math.max(1 / 16, P.beats);
+/* The offset: a fraction of a BAR in tempo mode ("an offset within the bar"),
+   of a PERIOD in Hz mode. Taken modulo a swing pair (two ticks), so a fine
+   grid with a large offset does not lose its first ticks: the offset moves
+   the grid, and tick 0 is the first tick at or after the origin. */
+function ttOff(P) {
+  const st = ttStepLen(P), hz = (P.rate | 0) === 1;
+  let o = hz ? P.off * st : P.off * TT_BAR;
+  o -= 2 * st * Math.floor(o / (2 * st));
+  return o;
+}
+/* Grid position of tick k (units since the origin). SWING: in each pair the
+   odd tick moves from 50% of the pair to `swing` (0.5 straight .. 0.75). */
+function ttGrid(P, k) {
+  const st = ttStepLen(P);
+  return k * st + ttOff(P) + (k & 1 ? (2 * P.swing - 1) * st : 0);
+}
+/* Does tick k pass the step stage? Every N-th (k mod N = 0) or the pattern
+   at k mod length ('x' fires; anything else rests). */
+function ttStep(P, k) {
+  if ((P.gate | 0) === 1) { const s = String(P.pat || ''), L = s.length; return L > 0 && s.charCodeAt(k % L) === 120; }
+  return k % Math.max(1, P.n | 0) === 0;
+}
+/* The whole decision, pure: the step stage, then draw k against p. Draw k is
+   read for every k whatever the step stage says, so editing the pattern never
+   reshuffles which ticks the probability lets through. */
+function ttFires(P, k, draw) { return ttStep(P, k) && draw(ttSeedOf(P.seed), k) < P.prob; }
+
+/* The lab's stand-in HISTORY: an edit records a node; consecutive edits of
+   the same control are one gesture (one node). Triggers never call this. */
+class History {
+  constructor() { this.n = 0; this.key = null; this.top = null; }
+  record(key, patch) { if (key !== this.key) { this.n++; this.key = key; } this.top = patch; }
+}
+
+class TriggerTimer {
+  /* `key` picks the config in S (S.tt for the timer, S.arp for the mock arp
+     row, which is this same class on a 1/16 grid with a step pattern). `tp`
+     is the transport, which is data from the host, not patch state. */
+  constructor(sr, S, key, tp) {
+    this.S = S; this.key = key; this.tp = tp; this.draw = m32at; this.plantBlockStart = false; this.tap = null;
+    this.bs = new Float64Array(TT_MAXB); this.bk = new Int32Array(TT_MAXB); this.bn = 0; this.bp = 0;
+    this.rs = new Float64Array(TT_RN); this.rk = new Int32Array(TT_RN); this.rf = new Uint8Array(TT_RN); this.rw = 0;
+    this.sr = sr; this.reset(0);
+  }
+  get P() { return this.S[this.key]; }
+  reset(n) {
+    this.bpm = this.S.bpm; this.gsA = n; this.gbA = 0;          // the tempo clock: beats since reset, re-anchored on a tempo change
+    this.playing = 0; this.playS = -1; this.playB = 0; this.oMode = this.P.origin | 0;
+    this.oS = -1; this.csA = n; this.rA = 0; this.n1 = n; this.bn = 0; this.bp = 0;
+    this.fired = 0; this.skipped = 0; this.rs.fill(-1); this.rk.fill(0); this.rf.fill(0); this.rw = 0;
+  }
+  setSr(sr, n) { this.sr = sr; this.reset(n); }
+  clockAt(n) { return this.gbA + (n - this.gsA) * this.bpm / 60 / this.sr; }
+  /* The block's transport and tempo, applied at its first sample n0. */
+  block(n0, N) {
+    const S = this.S, P = this.P, sr = this.sr;
+    if (S.bpm !== this.bpm) {
+      const r = this.bpm / 60 / sr;
+      this.gbA += (n0 - this.gsA) * r; this.gsA = n0;
+      if (this.oS >= 0) { this.rA += (n0 - this.csA) * r; this.csA = n0; }
+      this.bpm = S.bpm;
+    }
+    const play = this.tp.playing ? 1 : 0;
+    if (play && !this.playing) { this.playing = 1; this.playS = n0; this.playB = this.clockAt(n0); }
+    else if (!play && this.playing) this.playing = 0;
+    const om = P.origin | 0;
+    if (om === 0) {
+      if (!this.playing) this.oS = -1;
+      /* BAR: the origin is the play sample; joining mid-play (a mode switch)
+         takes the beats already played from the clock. */
+      else if (this.oS < 0 || this.oMode !== 0) { this.oS = this.playS; this.csA = n0; this.rA = this.clockAt(n0) - this.playB; }
+    } else if (this.oMode !== 1) this.oS = -1;   // NOTE: waits for a note-on
+    this.oMode = om;
+    this.n1 = n0 + N; this.scan(n0);
+  }
+  /* NOTE origin: tick 0 is the note-on's own sample (plus the offset). The
+     rest of the current block is scanned again from there. */
+  noteOn(n) { if ((this.P.origin | 0) !== 1) return; this.oS = n; this.csA = n; this.rA = 0; this.scan(n); }
+  halt() { this.oS = -1; this.bn = 0; this.bp = 0; }
+  posAt(n, hz) { return hz ? (n - this.oS) / this.sr : this.rA + (n - this.csA) * this.bpm / 60 / this.sr; }
+  sampleOf(g, hz) {
+    return hz ? this.oS + Math.ceil(g * this.sr - TT_EPS) : this.csA + Math.ceil((g - this.rA) * 60 * this.sr / this.bpm - TT_EPS);
+  }
+  /* Every grid tick whose sample is in [nFrom, block end), in order. */
+  scan(nFrom) {
+    this.bn = 0; this.bp = 0;
+    if (this.oS < 0) return;
+    const P = this.P, hz = (P.rate | 0) === 1, st = ttStepLen(P), u0 = this.posAt(nFrom, hz);
+    for (let k = Math.max(0, Math.floor((u0 - ttOff(P)) / st) - 2); this.bn < TT_MAXB; k++) {
+      const s = this.sampleOf(ttGrid(P, k), hz);
+      if (s >= this.n1) break;
+      if (s < nFrom) continue;
+      this.bs[this.bn] = this.plantBlockStart ? nFrom : s;   // THE PLANT: a tick put on the block's first sample
+      this.bk[this.bn] = k; this.bn++;
+    }
+  }
+  /* Ticks due at sample n: logged (fired or skipped) and counted; returns how
+     many FIRED. The ring keeps the sample, k and the verdict for the lane. */
+  due(n) {
+    let f = 0;
+    while (this.bp < this.bn && this.bs[this.bp] === n) {
+      const k = this.bk[this.bp++], ok = ttFires(this.P, k, this.draw);
+      const w = this.rw; this.rs[w] = n; this.rk[w] = k; this.rf[w] = ok ? 2 : 1; this.rw = (w + 1) % TT_RN;
+      if (ok) { this.fired++; f++; } else this.skipped++;
+      if (this.tap) this.tap.push(n, k, ok ? 1 : 0);
+    }
+    return f;
+  }
+}
+
+/* IMPULSES (A1 §2): a one-shot shape per trigger, attack then decay in
+   SECONDS along round 1's segment law (segCurve, the same curve c for both),
+   0 → 1 → 0. A retrigger restarts the attack FROM THE CURRENT LEVEL, so a
+   strike mid-decay never drops to 0 first (no click). Polarity maps the shape
+   e in [0, 1] onto the mapping: UNI +e, BI 2e − 1, INV −e, times the amount.
+   CONTROL is not offered: it drives a parameter's POSITION in place of its
+   knob (ADR-266 ruling 2), and a momentary shape that returns to nothing
+   would leave the knob ignored between strikes. */
+const IMP_POL = ['UNI', 'BI', 'INV'];
+const impMap = (e, pol) => pol === 1 ? 2 * e - 1 : pol === 2 ? -e : e;
+
+/* Round 2's older audits must not hear a timer the page happens to have on,
+   so they run with every trigger target off, as they already do for act.on. */
+function quietTriggers(St) { St.tt.on = St.tt.on.map(() => 0); St.tt.imp.on = 0; St.arp.on = 0; return St; }
+
+/* ---- THE ROUND-5 SELF-CHECK (pure; the page and node call it) ----------
+   1. REPLAY: one transport script (play, a tempo change, stop, play) with
+      probability and a pattern, run twice: the tick list and the clears are
+      identical. Control: seed + 1.
+   2. EXACT OFFSETS: every grid tick's sample = origin + ⌈g·spu − ε⌉, the grid
+      restated here (not ttGrid), at 120 / 97 / 141.3 BPM × blocks of 128 and
+      333, plus Hz and NOTE origins. Plant: ticks on the block start.
+   3. TICK SETS: pattern x..x...., every 3rd, p = 0.5 (expected from the
+      SEQUENTIAL mulberry32 stream, not m32at). Plant: Math.random as draw.
+   4. Sluice's clears land on exactly the fired samples.
+   5. A1: 100+ fired triggers (timer, arp and clicks) leave the history count
+      and the patch JSON byte-identical. Plant: a firing path that records.
+   6. No click: an impulse retriggered mid-decay moves by at most one
+      sample's slope of its law. */
+function ttSelfCheck(S0, plant) {
+  const sr = 16000;   // sample positions are exact at any rate; 16 kHz keeps the ~40 s of offline render near 0.3 s
+  const mk = (over, arpOver) => { const St = quietTriggers(JSON.parse(JSON.stringify(S0)));
+    St.act.on = St.act.on.map(() => 0); St.routes[0].src = 'off'; St.routes[1].src = 'off'; St.lfo.depth = 0;
+    Object.assign(St.tt, { origin: 0, rate: 0, beats: 0.25, hz: 8, off: 0, swing: 0.5, gate: 0, n: 1, pat: 'x', prob: 1, seed: 541 }, over);
+    if (arpOver) Object.assign(St.arp, arpOver);
+    return St; };
+  /* One offline run: blocks of N, `script(b, c, St)` sets the transport and
+     tempo before block b, as a host would. */
+  const run = (St, N, n, script, setup, rate) => {
+    const c = new ModLabCore(rate || sr, St); c.timer.tap = []; c.slcTap = [];
+    if (setup) setup(c);
+    const Lb = new Float32Array(N), Rb = new Float32Array(N);
+    for (let b = 0, i = 0; i < n; b++, i += N) { if (script) script(b, c, St); c.render(Lb, Rb, Math.min(N, n - i)); }
+    return c;
+  };
+  const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
+  let ok = true;
+  // 1. REPLAY
+  const scr = (b, c, St) => { if (b === 2) c.tp.playing = 1; if (b === 60) St.bpm = 133; if (b === 120) c.tp.playing = 0; if (b === 135) c.tp.playing = 1; };
+  const R1 = { beats: 0.25, swing: 0.58, off: 0.1, gate: 1, pat: 'x.xx', prob: 0.6, on: [0, 0, 0, 0, 1] };
+  const rA = run(mk(R1), 256, sr * 4, scr), rB = run(mk(R1), 256, sr * 4, scr), rC = run(mk(Object.assign({}, R1, { seed: 542 })), 256, sr * 4, scr);
+  const rep = { n: rA.timer.tap.length / 3, fired: rA.timer.fired, same: same(rA.timer.tap, rB.timer.tap) && same(rA.slcTap, rB.slcTap), ctl: !same(rA.timer.tap, rC.timer.tap) };
+  if (!rep.same || !rep.ctl || rep.fired < 10) ok = false;
+  // 2. EXACT OFFSETS
+  const exact = (bpm, N, over, notes, plantIt) => {
+    const P0 = 3 * N, n = Math.round(1.5 * sr), St = mk(over); St.bpm = bpm;
+    const c = run(St, N, n, (b, cc) => { if (!notes && b === 3) cc.tp.playing = 1; }, cc => { if (plantIt) cc.timer.plantBlockStart = true; if (notes) cc.evq = notes.slice(); });
+    const T = c.timer.tap, got = []; for (let i = 0; i < T.length; i += 3) got.push(T[i]);
+    const o = notes ? notes[0][0] : P0, end = notes ? Math.min(n, notes[1][0]) : n, hz = over.rate === 1, st = hz ? 1 / over.hz : over.beats;
+    let off = hz ? (over.off || 0) * st : (over.off || 0) * 4; off = off - 2 * st * Math.floor(off / (2 * st));
+    const want = [];
+    for (let k = 0; ; k++) {
+      const g = k * st + off + (k % 2 ? (2 * (over.swing || 0.5) - 1) * st : 0);
+      const s = o + Math.ceil((hz ? g * sr : g * 60 * sr / bpm) - 1e-7);
+      if (s >= end) break; want.push(s);
+    }
+    let d = got.length === want.length ? 0 : Infinity;
+    for (let i = 0; i < Math.min(got.length, want.length); i++) d = Math.max(d, Math.abs(got[i] - want[i]));
+    return { bpm, N, ticks: want.length, d, label: notes ? 'NOTE' : hz ? 'HZ' : 'TEMPO' };
+  };
+  const G = { beats: 0.25, off: 0.1875, swing: 0.62 };
+  const offs = [];
+  for (const bpm of [120, 97, 141.3]) for (const N of [128, 333]) offs.push(exact(bpm, N, G));
+  offs.push(exact(120, 333, { rate: 1, hz: 7.3, off: 0.25, swing: 0.55 }));
+  offs.push(exact(120, 333, { origin: 1, beats: 0.5, swing: 0.6 }, [[4321, 1, 60, 0.8], [4321 + 20000, 0, 60, 0.5]]));
+  const offPlant = exact(120, 333, G, null, true);
+  if (!offs.every(r => r.d === 0 && r.ticks > 4) || !(offPlant.d > 0)) ok = false;
+  // 3. TICK SETS (the first 32 ticks of a 1/16 grid at 120: 4 s)
+  const firedK = (over, draw) => { const c = run(mk(Object.assign({ beats: 0.25 }, over)), 512, sr * 4.2, (b, cc) => { if (b === 0) cc.tp.playing = 1; }, cc => { if (draw) cc.timer.draw = draw; });
+    const T = c.timer.tap, o = []; for (let i = 0; i < T.length; i += 3) if (T[i + 2] && T[i + 1] < 32) o.push(T[i + 1]); return o; };
+  const seq = mulberry32(ttSeedOf(541)), wantP = []; for (let k = 0; k < 32; k++) if (seq() < 0.5) wantP.push(k);
+  const sets = [
+    ['pattern x..x....', firedK({ gate: 1, pat: 'x..x....' }), [0, 3, 8, 11, 16, 19, 24, 27]],
+    ['every 3rd', firedK({ gate: 0, n: 3 }), [0, 3, 6, 9, 12, 15, 18, 21, 24, 27, 30]],
+    ['p 0.5, seed 541', firedK({ prob: 0.5 }), wantP],
+  ].map(([name, got, want]) => ({ name, got, want, ok: same(got, want) }));
+  if (!sets.every(r => r.ok)) ok = false;
+  let plantP = null;
+  if (typeof plant === 'function') { const pd = () => plant(), a = firedK({ prob: 0.5 }, pd), b = firedK({ prob: 0.5 }, pd); plantP = { a: a.length, b: b.length, differs: !same(a, b) }; if (!plantP.differs) ok = false; }
+  else ok = false;
+  // 4. CLEARS AT THE FIRED SAMPLES
+  const firedS = []; for (let i = 0; i < rA.timer.tap.length; i += 3) if (rA.timer.tap[i + 2]) firedS.push(rA.timer.tap[i]);
+  const clearsOk = same(firedS, rA.slcTap);
+  if (!clearsOk) ok = false;
+  // 5. A1: firing is not an edit. 8 kHz, 4 s: the timer at 50 Hz, the arp's 'x' steps, and a click every 0.2 s
+  const hist5 = plantIt => {
+    const St = mk({ rate: 1, hz: 50, on: [1, 1, 1, 1, 1] }, { on: 1, pat: 'x.x.' }); St.tt.imp.on = 1;
+    const h = new History(), before = JSON.stringify(St), hN = h.n;
+    const c = run(St, 128, 8000 * 4, (b, cc) => { if (b === 0) cc.tp.playing = 1; if (b % 12 === 5) cc.clickPend = 1; },
+      cc => { cc.hist = h; cc.plantHist = !!plantIt; }, 8000);
+    return { fired: c.ttFired, histDelta: h.n - hN, patchSame: JSON.stringify(St) === before };
+  };
+  const H5 = hist5(false), H5p = hist5(true);
+  if (!(H5.fired >= 100 && H5.histDelta === 0 && H5.patchSame && H5p.histDelta > 0)) ok = false;
+  // 6. NO CLICK: decay 0.4 s, attack 5 ms, strikes every 1/8 at 120 (mid-decay); the largest one-sample step
+  const St6 = mk({ beats: 0.5, on: [0, 0, 0, 0, 0] }); Object.assign(St6.tt.imp, { on: 1, a: 0.005, d: 0.4, c: 0.5 });
+  const c6 = run(St6, 256, 1, null);   // a constructed core; stepped by hand below
+  let mx = 0, prev = 0; const I6 = St6.tt.imp;
+  for (let i = 0; i < sr; i++) { if (i % 12000 === 1000) c6.impStrike(); c6.impStep(); mx = Math.max(mx, Math.abs(c6.imp.lvl - prev)); prev = c6.imp.lvl; }
+  const k6 = 2 * K_ONEPOLE * Math.abs(I6.c), slope = Math.abs(k6) < 1e-9 ? 1 : k6 / (1 - Math.exp(-k6));   // the law's steepest slope (at x = 0)
+  const bound = slope / (I6.a * sr) * 1.0001, noClick = mx <= bound;
+  if (!noClick) ok = false;
+  return { ok, rep, offs, offPlant, sets, plantP, clearsOk, nFired: firedS.length, H5, H5p, click: { mx, bound, noClick } };
+}
+ModLabCore.TriggerTimer = TriggerTimer; ModLabCore.ttGrid = ttGrid; ModLabCore.ttFires = ttFires; ModLabCore.ttStep = ttStep;
+ModLabCore.ttSelfCheck = ttSelfCheck; ModLabCore.History = History; ModLabCore.TT_DIVS = TT_DIVS; ModLabCore.impMap = impMap;
+
 /* ================= UI ================= */
 /* ---- STATE: the whole patch, one plain object, above all wiring (L0026) --- */
 const LAWS = ['PROPOSED', 'SHIPPED'];
@@ -2108,6 +2565,15 @@ const S = {
   xy: { mode: 0, seed: 540, hx: 0.5, hy: 0.5, shape: 1, spread: 0.5, bias: 0, amt: 0.6,
         tau: 1.5, sigma: 0.45, smooth: 0.3,
         clock: 1, hz: 1.5, beats: 1, law: 3, gTime: 0.25, gRate: 2, gTau: 0.12, spF: 3, spZ: 0.35, trail: 16 },
+  /* ---- ROUND 5 (B541): the trigger timer (beats 4 = every bar: "clear the
+     bank on every bar"), its targets, the impulse and the mock Shriek drive
+     knob (0, so the lab sounds as before until a trigger strikes). ---- */
+  tt: { origin: 0, rate: 0, beats: 4, hz: 2, off: 0, swing: 0.5, gate: 0, n: 1, pat: 'x..x....', prob: 1, seed: 541,
+        on: [0, 0, 0, 0, 1], drive: 0,
+        imp: { on: 1, a: 0.004, d: 0.35, c: 0.5, amt: 0.7, pol: 0, hear: 1 } },
+  /* The mock arp row (a placeholder for Arp, B539): 16 steps of 1/16 on the
+     transport. '.' rest, 'o' a step, 'x' a step flagged as a TRIGGER. */
+  arp: { on: 0, origin: 0, rate: 0, beats: 0.25, hz: 8, off: 0, swing: 0.5, gate: 1, n: 1, pat: 'x.o.o.x.o.o.x.o.', prob: 1, seed: 0 },
 };
 /* The hosted module is NOT the core's: it lives on the main thread, as a
    module's patch does. Six generic parameters, a lock each, its own seed.
@@ -2668,7 +3134,7 @@ function auditOneLaw() {
   try {
     /* kind 0: this audit is of the BREAKPOINT law, whatever shape the card is
        on. S&H and RANDOM have their own twin in auditRound3. */
-    const St = JSON.parse(JSON.stringify(S)); St.law = 0; St.lfo.kind = 0;
+    const St = quietTriggers(JSON.parse(JSON.stringify(S))); St.law = 0; St.lfo.kind = 0;
     const sr = 8000, E = St.env, s = susOf(E.pts, E.sus);
     const nOff = Math.round(sr * ((s >= 0 ? E.pts[s].t : 0) + 0.15));
     const endT = s >= 0 ? E.pts[s].t + 0.15 + (E.pts[E.pts.length - 1].t - E.pts[s].t) : E.pts[E.pts.length - 1].t;
@@ -2753,7 +3219,7 @@ function onEdit() {
   for (const f of REPAINT) f();
   for (const f of GHOSTS) f();
   core.kuro.drawn = S.lfo.pts;   // B226: DRAWN reads the card's CURRENT points (a preset replaces the array)
-  paintSus(); paintDivRead(); paintLaw(); serialize(); auditOneLaw(); scheduleAudit2(); scheduleAudit3(); scheduleAudit4();
+  paintSus(); paintDivRead(); paintLaw(); serialize(); auditOneLaw(); scheduleAudit2(); scheduleAudit3(); scheduleAudit4(); scheduleAudit5();
   const w = $('envWarn');
   if (w) { const on = S.env.custom; w.style.display = on ? 'block' : 'none';
     w.textContent = 'Breakpoints edited: the A/D/S/R sliders no longer describe this shape (moving one rewrites it). HEAR = SHIPPED still plays the sliders as τ, because the shipped envelope has no breakpoints.'; }
@@ -3139,7 +3605,7 @@ function auditRound2() {
   const box = $('audit2'); if (!box) return;
   try {
     const sr = 8000, n = Math.round(sr * 3.2);
-    const base = src => { const St = JSON.parse(JSON.stringify(S)); St.law = 0;
+    const base = src => { const St = quietTriggers(JSON.parse(JSON.stringify(S))); St.law = 0;
       St.act.on = St.act.on.map(() => 0); St.routes[0] = { src, dest: 0, depth: 0.5 }; St.routes[1].src = 'off'; return St; };
     const run = (St, evs) => {
       const c = new ModLabCore(sr, St); c.tapRoute = new Float64Array(n);
@@ -3306,7 +3772,7 @@ function audit3Pass(over) {
   const sr = 4000, n = Math.round(sr * 3.2), strikes = [0, Math.round(0.913 * sr), Math.round(2.31 * sr)], strikeAt = new Set(strikes);
   const L = Object.assign({}, S.lfo, over), bps = S.bpm / 60 / sr, beats = Math.max(0.01, L.beats), per = L.sync ? beats * 60 / S.bpm : 1 / L.hz;
   const slewLong = Math.min(2000, Math.max(1, 3000 * per));   // 3 cycles, inside the control's range
-  const cfg = (kind, smooth, slewMs, law) => { const St = JSON.parse(JSON.stringify(S)); St.law = law || 0; Object.assign(St.lfo, over);
+  const cfg = (kind, smooth, slewMs, law) => { const St = quietTriggers(JSON.parse(JSON.stringify(S))); St.law = law || 0; Object.assign(St.lfo, over);
     St.lfo.kind = kind; St.lfo.smooth = smooth; St.lfo.slewMs = slewMs; St.lfo.retrig = 1; St.act.on = St.act.on.map(() => 0);
     /* Lightened where the LFO tap reads nothing: a 4 ms one-shot envelope (so
        the struck voices finish at once), no ORBITAL bodies, one Kuro voice.
@@ -3570,7 +4036,7 @@ function paintXYLanes() {
 }
 
 /* ---- THE ROUND-4 SELF-CHECK on the page: xySelfCheck (DSP section) does the
-   work; this formats it. THE PLANT is the ONE Math.random on this page: the
+   work; this formats it. THE PLANT is one of the page's two Math.randoms: the
    check hands it to a twin as its draw, and two runs of that twin must
    DIFFER. It never reaches a source the page plays. */
 function auditRound4() {
@@ -3596,6 +4062,196 @@ function auditRound4() {
 let audit4T = 0;
 function scheduleAudit4() { if (audit4T) clearTimeout(audit4T); audit4T = setTimeout(() => { audit4T = 0; auditRound4(); }, 250); }
 
+/* ====================== ROUND 5 (B541) — UI ====================== */
+/* THE PAGE'S HISTORY (A1). Every control on the timer, impulse and arp cards
+   records an edit here (one node per gesture: consecutive edits of one
+   control merge). The FIRE button, PLAY/STOP, the tempo and every trigger
+   never call it. */
+const hist = new History();
+const ttEdit = key => hist.record(key, JSON.stringify({ tt: S.tt, arp: S.arp }));
+const E = (key, f) => x => { f(x); ttEdit(key); };
+let slcSeen = 0, slcFlash = 0;
+const STEP_GL = { '.': '·', o: '○', x: '●' };
+/* A row of step buttons over a pattern string. `cycle` is the states a click
+   walks through. A length slider when `withLen`. */
+function stepRow(host, label, get, set, cycle, withLen, key) {
+  const row = el('div', 'row wide'), box = el('div', 'pills steps'), btns = [];
+  for (let i = 0; i < 16; i++) {
+    const b = el('button', 'pill stepb', '·');
+    b.addEventListener('click', () => { const p = get().split(''); if (i >= p.length) return;
+      p[i] = cycle[(cycle.indexOf(p[i]) + 1) % cycle.length]; set(p.join('')); ttEdit(key); onEdit(); });
+    box.appendChild(b); btns.push(b);
+  }
+  row.appendChild(el('label', null, label)); row.appendChild(box); host.appendChild(row);
+  REPAINT.push(() => { const p = get(); btns.forEach((b, i) => { b.style.display = i < p.length ? '' : 'none';
+    b.textContent = STEP_GL[p[i]] || '·'; b.classList.toggle('on', p[i] === 'x'); }); });
+  let lr = null;
+  if (withLen) lr = slider(host, { label: 'length', min: 1, max: 16, step: 1, get: () => get().length,
+    set: E(key + '.len', x => { const n = Math.round(x), p = get(); set(n <= p.length ? p.slice(0, n) : p + '.'.repeat(n - p.length)); }), fmt: x => String(Math.round(x)) });
+  return [row, btns, lr];
+}
+function buildTT() {
+  const host = $('ttRows'); if (!host) return;
+  const T = S.tt, gh = [], live = (r, f) => { gh.push([r, f]); return r; };
+  /* TRANSPORT: host data. Neither PLAY nor the tempo is a patch edit. */
+  const tr = el('div', 'row wide'), tb = el('div', 'pills');
+  const pl = el('button', 'pill', '▶ PLAY'), st = el('button', 'pill', '■ STOP'), pw = el('button', 'pill', 'POWER'), dr = el('button', 'pill', 'DRONE');
+  pw.id = 'pwr5'; dr.id = 'droneBtn5';
+  pl.addEventListener('click', () => { power(); core.tp.playing = 1; });
+  st.addEventListener('click', () => { core.tp.playing = 0; });
+  pw.addEventListener('click', power); dr.addEventListener('click', toggleDrone);
+  [pw, pl, st, dr].forEach(b => tb.appendChild(b));
+  tr.appendChild(el('label', null, 'transport')); tr.appendChild(tb); host.appendChild(tr);
+  REPAINT.push(() => { pl.classList.toggle('on', !!core.tp.playing); });
+  slider(host, { label: 'tempo', min: 40, max: 220, step: 1, get: () => S.bpm, set: x => { S.bpm = Math.round(x); }, fmt: x => Math.round(x) + ' BPM' });
+  host.appendChild(el('div', 'cap', 'WHEN · the grid'));
+  pillRow(host, 'count from', TT_ORIGINS, () => T.origin, E('tt.origin', i => { T.origin = i; }));
+  pillRow(host, 'clock', TT_RATES, () => T.rate, E('tt.rate', i => { T.rate = i; }));
+  live(selectRow(host, 'division', TT_DIVS.map(d => d[0]), () => ttDivIx(T.beats), E('tt.beats', i => { T.beats = TT_DIVS[i][1]; })), () => T.rate === 0);
+  live(slider(host, { label: 'rate', min: 0.1, max: 40, log: true, get: () => T.hz, set: E('tt.hz', x => { T.hz = x; }), fmt: x => x.toFixed(2) + ' Hz' }), () => T.rate === 1);
+  slider(host, { label: 'offset', min: 0, max: 1, step: 1 / 64, get: () => T.off, set: E('tt.off', x => { T.off = x; }),
+    fmt: x => T.rate === 0 ? (x * 16).toFixed(x * 16 % 1 ? 2 : 0) + '/16 bar' : f2(x) + ' period' });
+  slider(host, { label: 'swing', min: 0.5, max: 0.75, step: 0.005, get: () => T.swing, set: E('tt.swing', x => { T.swing = x; }), fmt: x => (x * 100).toFixed(1) + '%' });
+  host.appendChild(el('div', 'cap', 'WHICH · steps and dice'));
+  pillRow(host, 'step stage', TT_GATES, () => T.gate, E('tt.gate', i => { T.gate = i; }));
+  live(slider(host, { label: 'every N', min: 1, max: 16, step: 1, get: () => T.n, set: E('tt.n', x => { T.n = Math.round(x); }), fmt: x => 'every ' + Math.round(x) }), () => T.gate === 0);
+  const [pr, , plr] = stepRow(host, 'pattern', () => T.pat, x => { T.pat = x; }, ['.', 'x'], true, 'tt.pat');
+  live(pr, () => T.gate === 1); live(plr, () => T.gate === 1);
+  slider(host, { label: 'probability', min: 0, max: 1, step: 0.01, get: () => T.prob, set: E('tt.prob', x => { T.prob = x; }), fmt: x => Math.round(x * 100) + '%' });
+  const sr = el('div', 'row wide'), sb = el('div', 'pills'), sd = el('input');
+  sd.type = 'number'; sd.value = String(T.seed); sd.title = 'the timer\'s seed: draw k of mulberry32(seed ^ 0x243F6A88) decides tick k';
+  sd.addEventListener('input', () => { T.seed = (parseInt(sd.value, 10) || 0) | 0; ttEdit('tt.seed'); onEdit(); });
+  REPAINT.push(() => { sd.value = String(T.seed); });
+  sb.appendChild(sd); sr.appendChild(el('label', null, 'seed')); sr.appendChild(sb); host.appendChild(sr);
+  host.appendChild(el('div', 'cap', 'WHAT · the targets (the arp row and FIRE fire them too)'));
+  const ar = el('div', 'row wide'), ab = el('div', 'pills'), abt = [];
+  TT_ACTIONS.forEach((nm, i) => { const b = el('button', 'pill', nm);
+    if (i === 4) b.title = 'a DECLARED action of the hosted module (RS-4.12): sample-accurate in the block context, not a parameter, no undo step';
+    b.addEventListener('click', () => { T.on[i] = T.on[i] ? 0 : 1; ttEdit('tt.on'); onEdit(); }); ab.appendChild(b); abt.push(b); });
+  const fi = el('button', 'pill', 'FIRE'); fi.title = 'one trigger now, by hand (a click is a performance event: no history)';
+  fi.addEventListener('click', () => { power(); core.clickPend = 1; });
+  ab.appendChild(fi);
+  REPAINT.push(() => abt.forEach((b, i) => b.classList.toggle('on', !!T.on[i])));
+  ar.appendChild(el('label', null, 'fires')); ar.appendChild(ab); host.appendChild(ar);
+  REPAINT.push(() => gh.forEach(([r, f]) => r && r.classList.toggle('ghost', !f())));
+  buildImp();
+}
+function buildImp() {
+  const host = $('impRows'); if (!host) return;
+  const I = S.tt.imp, gh = [], live = (r) => { gh.push(r); return r; };
+  pillRow(host, 'impulse', ['OFF', 'ON'], () => I.on, E('imp.on', i => { I.on = i; }));
+  live(slider(host, { label: 'attack', min: 0.0005, max: 1, log: true, get: () => I.a, set: E('imp.a', x => { I.a = x; }), fmt: fSec }));
+  live(slider(host, { label: 'decay', min: 0.01, max: 4, log: true, get: () => I.d, set: E('imp.d', x => { I.d = x; }), fmt: fSec }));
+  live(slider(host, { label: 'curve', min: -1, max: 1, step: 0.01, get: () => I.c, set: E('imp.c', x => { I.c = x; }), fmt: x => (x >= 0 ? '+' : '') + f2(x) }));
+  live(slider(host, { label: 'amount', min: 0, max: 1, step: 0.01, get: () => I.amt, set: E('imp.amt', x => { I.amt = x; }), fmt: f2 }));
+  const pr = live(pillRow(host, 'polarity', IMP_POL, () => I.pol, E('imp.pol', i => { I.pol = i; })));
+  const cb = el('button', 'pill', 'CONTROL'); cb.disabled = true; cb.style.opacity = '0.4'; cb.style.cursor = 'not-allowed';
+  cb.title = 'not for impulses: CONTROL replaces the knob\'s position with the source\'s (ADR-266 r2); a momentary shape would leave the knob ignored between strikes';
+  const pb = pr.querySelector ? pr.querySelector('.pills') : null; if (pb && pb.appendChild) pb.appendChild(cb);
+  host.appendChild(el('div', 'cap', 'THE TARGET · mock "Shriek · drive", knob + impulse, clamped once'));
+  slider(host, { label: 'drive knob', min: 0, max: 1, step: 0.01, get: () => S.tt.drive, set: E('tt.drive', x => { S.tt.drive = x; }), fmt: f2 });
+  pillRow(host, 'hear', ['OFF', 'ON'], () => I.hear, E('imp.hear', i => { I.hear = i; }));
+  REPAINT.push(() => gh.forEach(r => r && r.classList.toggle('ghost', !I.on)));
+  const ah = $('arpRows'); if (!ah) return;
+  pillRow(ah, 'arp row', ['OFF', 'ON'], () => S.arp.on, E('arp.on', i => { S.arp.on = i; }));
+  stepRow(ah, 'steps', () => S.arp.pat, x => { S.arp.pat = x; }, ['.', 'o', 'x'], false, 'arp.pat');
+}
+/* The ticks lane: the last HN·HDEC samples, the same window as the drive lane. */
+function paintTT() {
+  const cv = $('ttC'), G = ground(cv); if (!G) return;
+  const { g, w, h, v } = G, T = core.timer, W = HN * HDEC, n1 = core.sN, n0 = n1 - W, x0 = 4 * v, x1 = w - 4 * v;
+  const X = n => x0 + (n - n0) / W * (x1 - x0), bh = h / 2;
+  g.font = FONT(v);
+  // beat and bar lines from the tempo clock (current tempo segment: display only)
+  const spb = 60 * T.sr / T.bpm, ref = T.playS >= 0 ? T.playB : 0, b1 = T.clockAt(n1);
+  for (let j = Math.ceil(T.clockAt(n0) - ref), j0 = j; j + ref <= b1 && j - j0 < 200; j++) {   // beats counted from the play
+    const n = T.gsA + (j + ref - T.gbA) * spb, bar = ((j % 4) + 4) % 4 === 0;
+    g.strokeStyle = TOKA('--scr-grid', bar ? 0.6 : 0.18); g.lineWidth = (bar ? 1.4 : 1) * v;
+    g.beginPath(); g.moveTo(X(n), 0); g.lineTo(X(n), h); g.stroke();
+  }
+  const band = (tm, k, label) => {
+    const top = k * bh + 12 * v, bot = (k + 1) * bh - 4 * v;
+    g.fillStyle = TOKA('--scr-grid', 0.9); g.fillText(label, x0 + 2 * v, k * bh + 9 * v);
+    for (let i = 0; i < TT_RN; i++) {
+      const f = tm.rf[i], n = tm.rs[i]; if (!f || n < n0 || n > n1) continue;
+      const x = X(n);
+      if (f === 2) { g.strokeStyle = TOK('--scr-value'); g.lineWidth = 2 * v; g.beginPath(); g.moveTo(x, top); g.lineTo(x, bot); g.stroke();
+        g.fillStyle = TOK('--scr-value'); g.beginPath(); g.arc(x, top, 2.6 * v, 0, TAU); g.fill(); }
+      else { g.strokeStyle = TOKA('--scr-grid', 0.55); g.lineWidth = v; g.beginPath(); g.moveTo(x, bot - (bot - top) * 0.3); g.lineTo(x, bot); g.stroke(); }
+    }
+  };
+  band(T, 0, 'TIMER · fired ' + T.fired + ' · skipped ' + T.skipped);
+  band(core.arpT, 1, 'ARP ROW (mock, B539) · ' + (S.arp.on ? 'TRIGGER steps fire ' + core.arpT.fired : 'off'));
+  if (!ac) bandLabel(g, 'POWER, then PLAY', w / 2 - 40 * v, h / 2 - 8 * v, v);
+  const e = $('ttRead');
+  if (e) { const P = S.tt, p = T.playing ? T.clockAt(n1) - T.playB : 0;
+    const pos = T.playing ? (Math.floor(p / 4) + 1) + '.' + (Math.floor(p % 4) + 1) + '.' + (Math.floor((p % 1) * 4) + 1) : '—';
+    const stepS = P.rate === 1 ? 1 / P.hz : ttStepLen(P) * 60 / S.bpm;
+    e.innerHTML = 'transport <b>' + (T.playing ? 'PLAYING' : 'STOPPED') + '</b> · position <b>' + pos + '</b> · ' + S.bpm + ' BPM'
+      + ' · tick every <b>' + fSec(stepS) + '</b> (' + (P.rate === 1 ? P.hz.toFixed(2) + ' Hz' : TT_DIVS[ttDivIx(P.beats)][0]) + ')'
+      + ' · counted from <b>' + TT_ORIGINS[P.origin] + '</b>' + (P.origin === 1 ? (T.oS >= 0 ? ' (a key is held)' : ' (hold a key)') : '')
+      + ' · ' + (P.gate === 1 ? 'pattern <b>' + P.pat + '</b>' : 'every <b>' + P.n + '</b>') + ' · p <b>' + Math.round(P.prob * 100) + '%</b>'
+      + ' · triggers fired, all sources <b>' + core.ttFired + '</b>'; }
+  // the mock Sluice bank
+  const bk = $('slcBank');
+  if (bk) {
+    if (core.slc.clears !== slcSeen) { slcSeen = core.slc.clears; slcFlash = 10; }
+    const n = Math.min(16, Math.floor(core.slc.fill * S.bpm / 60 / core.sr * 4)), fl = slcFlash > 0; if (slcFlash > 0) slcFlash--;
+    let s = '';
+    for (let i = 0; i < 16; i++) s += '<span class="slot' + (i < n ? ' full' : '') + '"></span>';
+    bk.className = fl ? 'flash' : '';
+    bk.innerHTML = s + '<span class="slcTxt">' + (fl ? '<b>CLEAR</b> ' : '') + 'clears ' + core.slc.clears + (core.slc.lastN >= 0 ? ' · last at sample ' + core.slc.lastN : '') + '</span>';
+  }
+  const cx = $('ttCtx'), C = core.lastCtx;
+  if (cx) cx.textContent = C.n0 < 0 ? 'no declared action has fired yet (turn on SLUICE · CLEAR, then PLAY)'
+    : JSON.stringify({ block: C.n0, frames: C.N, notes: '(the RS-4.11 note context rides here too)',
+        actions: Array.from({ length: C.cnt }, (_, j) => ({ module: 'Sluice', action: 'clear', offset: C.off[j], seq: C.seq[j] })) })
+      + '\nSluice declares: ["clear"] · an action is not a parameter, so automation cannot fire it · it makes no undo step';
+  const hh = $('ttHist');
+  if (hh) { const t = JSON.stringify(S); let f = 0x811c9dc5; for (let i = 0; i < t.length; i++) { f ^= t.charCodeAt(i); f = Math.imul(f, 0x01000193); }
+    hh.innerHTML = 'history nodes <b>' + hist.n + '</b> (edits to this round\'s cards; one per gesture) · triggers fired <b>' + core.ttFired
+      + '</b> · patch fingerprint <b>' + (f >>> 0).toString(16).padStart(8, '0') + '</b> (FNV-1a of the saved state: firing never changes it)'; }
+}
+/* The drive lane: the knob, and the drive the sound reads (logged by the render). */
+function paintImp() {
+  const cv = $('impC'), G = ground(cv); if (!G) return;
+  const { g, w, h, v } = G, x0 = 4 * v, x1 = w - 4 * v, top = 12 * v, bot = h - 4 * v, Y = q => bot - q * (bot - top), A = core.H.drv, w0 = core.H.w;
+  g.font = FONT(v);
+  g.setLineDash([4 * v, 3 * v]); g.strokeStyle = TOKA('--scr-grid', 0.7); g.lineWidth = v;
+  g.beginPath(); g.moveTo(x0, Y(S.tt.drive)); g.lineTo(x1, Y(S.tt.drive)); g.stroke(); g.setLineDash([]);
+  g.strokeStyle = TOK('--scr-value'); g.lineWidth = 1.5 * v; g.beginPath();
+  for (let q = 0; q < HN; q += 2) { const i = (w0 + q) % HN, x = x0 + q / (HN - 1) * (x1 - x0); if (q) g.lineTo(x, Y(A[i])); else g.moveTo(x, Y(A[i])); }
+  g.stroke();
+  g.fillStyle = TOKA('--scr-grid', 0.9);
+  g.fillText('SHRIEK · DRIVE (mock) ' + core.drive.toFixed(3) + ' · dashed = the knob · ' + (S.tt.imp.hear ? 'HEARD as the output drive' : 'not heard'), x0 + 2 * v, 9 * v);
+}
+
+/* ---- THE ROUND-5 SELF-CHECK on the page: ttSelfCheck (DSP section) does the
+   work. THE PLANT: Math.random as the probability draw, in a twin only. */
+function auditRound5() {
+  const box = $('audit5'); if (!box) return;
+  try {
+    const R = ttSelfCheck(S, () => Math.random());
+    const yes = b => b ? 'yes' : '<b>NO</b>';
+    box.classList.toggle('bad', !R.ok);
+    box.innerHTML = 'round-5 self-check (offline renders of the core, every trigger target off except as named). '
+      + '<b>Same seed and transport, run twice</b> (play, tempo 120 → 133, stop, play; pattern x.xx, p 0.6, swing 58%): ' + R.rep.n + ' ticks, '
+      + R.rep.fired + ' fired, identical ' + yes(R.rep.same) + ' (control, seed + 1, differs: ' + yes(R.rep.ctl) + '). '
+      + '<b>Each tick at its grid sample</b> (1/16, offset 3/16 bar, swing 62%), max |Δ| in samples: '
+      + R.offs.map(r => r.label + ' ' + r.bpm + ' BPM / ' + r.N + ' <b>' + r.d + '</b> (' + r.ticks + ')').join(' · ')
+      + '. <b>Tick sets</b>: ' + R.sets.map(s => s.name + ' ' + yes(s.ok)).join(' · ')
+      + '. Sluice\'s clears on the fired samples: ' + yes(R.clearsOk) + ' (' + R.nFired + ')'
+      + '. <b>A1, firing is not an edit</b>: ' + R.H5.fired + ' triggers (timer, arp, clicks) moved the history by <b>' + R.H5.histDelta + '</b>, patch identical ' + yes(R.H5.patchSame)
+      + '. No click: largest one-sample impulse step ' + R.click.mx.toFixed(4) + ' ≤ ' + R.click.bound.toFixed(4) + ' ' + yes(R.click.noClick)
+      + '. <b>Plants that must fail</b>: a tick put on the block start, off by up to <b>' + R.offPlant.d + '</b> samples ' + (R.offPlant.d > 0 ? '(fires)' : '<b>DID NOT FIRE</b>')
+      + ' · Math.random as the draw, two runs ' + (R.plantP ? (R.plantP.differs ? 'differ (fires)' : '<b>agree: DID NOT FIRE</b>') : '<b>not run</b>')
+      + ' · a firing path that records history: ' + R.H5p.histDelta + ' node(s) ' + (R.H5p.histDelta > 0 ? '(fires)' : '<b>DID NOT FIRE</b>')
+      + (R.ok ? ' · <b>all pass</b>' : ' · <b>FAILED</b>');
+  } catch (err) { box.classList.add('bad'); box.textContent = 'round-5 self-check threw: ' + String((err && err.message) || err); }
+}
+let audit5T = 0;
+function scheduleAudit5() { if (audit5T) clearTimeout(audit5T); audit5T = setTimeout(() => { audit5T = 0; auditRound5(); }, 400); }
+
 /* ---- audio (the page's job; the core is graph-free) ---- */
 let ac = null, spn = null, blocks = 0;
 function power() {
@@ -3607,7 +4263,7 @@ function power() {
     spn.onaudioprocess = ev => { const L = ev.outputBuffer.getChannelData(0), R = ev.outputBuffer.getChannelData(1);
       core.render(L, R, L.length); blocks++; };
     spn.connect(ac.destination);
-    for (const id of ['pwr', 'pwr3', 'pwr4']) { const b = $(id); if (b && b.classList) b.classList.add('on'); }   // B237/B540: three POWER pills
+    for (const id of ['pwr', 'pwr3', 'pwr4', 'pwr5']) { const b = $(id); if (b && b.classList) b.classList.add('on'); }   // B237/B540: three POWER pills
   } catch (e) { const st = $('audioStat'); if (st) st.textContent = 'AUDIO: ' + String((e && e.message) || e); }
 }
 
@@ -3637,7 +4293,7 @@ function buildKbd() {
 function toggleDrone() {
   power(); droning = !droning;
   if (droning) { press(48); press(55); } else { release(48); release(55); }
-  for (const id of ['droneBtn', 'droneBtn3', 'droneBtn4']) { const b = $(id); if (b && b.classList) b.classList.toggle('on', droning); }   // B237/B540: three DRONE pills, one state
+  for (const id of ['droneBtn', 'droneBtn3', 'droneBtn4', 'droneBtn5']) { const b = $(id); if (b && b.classList) b.classList.toggle('on', droning); }   // B237/B540: three DRONE pills, one state
 }
 
 /* ---- theme: `?theme=dark` opens dark, so a screenshot of it is a LOAD ---- */
@@ -3660,13 +4316,13 @@ function audioStat() {
 }
 function frame() {
   paintEditor('lfo'); paintEditor('env'); paintHeard(); paintBeat(); audioStat();
-  drainHost(); paintKuro(); paintOrb(); paintMidi(); midiNow(); paintRoutes(); paintEv(); paintSm(); paintXY();
+  drainHost(); paintKuro(); paintOrb(); paintMidi(); midiNow(); paintRoutes(); paintEv(); paintSm(); paintXY(); paintTT(); paintImp();
   if (window.requestAnimationFrame) window.requestAnimationFrame(frame);
 }
 
 /* ============ SETUP: everything above is declared (L0026) ============ */
 buildLfo(); buildEnv(); buildDivs(); buildKbd();
-buildKuro(); buildOrb(); buildMidi(); buildRoutes(); buildActs(); buildHost(); buildRand(); buildXY();
+buildKuro(); buildOrb(); buildMidi(); buildRoutes(); buildActs(); buildHost(); buildRand(); buildXY(); buildTT();
 (() => {
   const lp = $('lawPills');
   if (lp) { const btns = LAWS.map((nm, i) => { const b = el('button', 'pill', nm);
@@ -3682,7 +4338,7 @@ buildKuro(); buildOrb(); buildMidi(); buildRoutes(); buildActs(); buildHost(); b
   const on = (id, f) => { const b = $(id); if (b && b.addEventListener) b.addEventListener('click', f); };
   on('pwr', power);
   on('panic', () => { core.panic(); for (const n in held) release(+n); droning = false;
-    for (const id of ['droneBtn', 'droneBtn3', 'droneBtn4']) { const d = $(id); if (d && d.classList) d.classList.remove('on'); } });
+    for (const id of ['droneBtn', 'droneBtn3', 'droneBtn4', 'droneBtn5']) { const d = $(id); if (d && d.classList) d.classList.remove('on'); } });
   on('themeBtn', () => { dark = !dark; applyTheme(); });
   on('droneBtn', toggleDrone);
   on('reactBtn', () => { core.activate(); });
