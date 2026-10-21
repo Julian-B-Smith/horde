@@ -658,7 +658,7 @@ level. <b>EVENTS</b> sends the trigger to actions. POWER, then play the keys (th
     <div id="hostRows"></div>
     <div class="cap">LAST MESSAGE, HORDE → MODULE</div>
     <pre id="hostMsg">—</pre>
-    <div class="cap">UNDO: ONE PATCH JSON PER STEP (the shape the hosted sibling filed, integrations/sluice/notice-undo-history.md)</div>
+    <div class="cap">UNDO: ONE PATCH JSON PER STEP (the shape the hosted sibling filed, integrations/sluice/notice-undo-history.md) · a click by hand is a step; a trigger is not (ADR-267 A1)</div>
     <pre id="hostUndo">—</pre>
   </div>
 </div>
@@ -940,8 +940,10 @@ press DRONE to hear the pump. Firing is a performance event: it never moves the 
 <div class="r2" style="grid-template-columns:minmax(0,1fr)">
   <div class="cluster" id="ttQPane"><h2>ROUND 5 · CHOICES AND OPEN QUESTIONS <span>· B541</span></h2>
     <ol class="find">
-      <li><b>The bar is 4/4.</b> The lab's transport has no meter, so "an offset within the bar" and the bar lines assume four
-        beats. A host's time signature would replace it.</li>
+      <li><b>The meter is transport data</b> (4/4, 3/4, 5/4, 6/8, 7/8), read at each block's first sample like the tempo. Bar
+        divisions ("1 bar", "2 bars", ...) and the offset count from the bar's real length (7/8 = 3.5 beats). Note values
+        (1/4, 1/8T, ...) stay fixed in beats. A meter change mid-play recomputes the grid from the origin, so the next tick can
+        land off the old grid. Should a meter change re-anchor at the next bar instead?</li>
       <li><b>Offset.</b> A fraction of a bar on the tempo grid and of a period in Hz. On a grid finer than the offset it is
         taken modulo a swing pair, so the first bar never loses ticks. Is offset better in 16ths only?</li>
       <li><b>Swing</b> moves the odd tick of each pair from 50% to up to 75% of the pair. Should it apply to grids of a bar
@@ -954,9 +956,10 @@ press DRONE to hear the pump. Firing is a performance event: it never moves the 
       <li><b>BI on an impulse</b> rests at −amount (the bipolar meaning of a shape that starts at 0). A shape centred on 0
         (a push then a pull) is the alternative.</li>
       <li><b>One curve for attack and decay.</b> Two curves, or a hold stage, may be wanted.</li>
-      <li><b>Round 2's hosted RANDOMIZE UNLOCKED</b> still records an undo step when a trigger fires it. ADR-267 A1 says a
-        trigger makes no history node, so that stand-in now contradicts the ruling. It was left as it was (round 2's
-        file, round 2's audit). Should it change to the A1 rule?</li>
+      <li><b>Round 2's hosted RANDOMIZE UNLOCKED follows A1 now</b>: a click by hand on its button records an undo step (an
+        edit), and a trigger firing it (round 2's note trigger, or this timer's HOSTED target) records none. Its patch still
+        changes when a trigger fires it: is a hosted randomize a module's RUNTIME state, as A1 allows, or should it be
+        refused as a trigger target?</li>
       <li><b>The mock arp's 'o' steps</b> do nothing here: only TRIGGER steps fire. Arp (B539) owns the notes.</li>
       <li><b>Several triggers on one sample</b> (timer, arp and a click together) each fire. Should they merge into one?</li>
       <li><b>No committed gate.</b> The self-check is in-page and runs headless. A <code>tools/*_check</code> that runs it
@@ -1604,7 +1607,7 @@ class ModLabCore {
     /* ---- ROUND 5 (B541) ---- the trigger timer, the mock arp row, a click,
        the impulse they strike and the mock Sluice they clear. The transport
        is HOST DATA (play/stop), never patch state, so it lives here. */
-    this.tp = { playing: 0 };
+    this.tp = { playing: 0, num: 4, den: 4 };   // play/stop and the meter: host data
     this.timer = new TriggerTimer(this.sr, S, 'tt', this.tp);
     this.arpT = new TriggerTimer(this.sr, S, 'arp', this.tp);
     this.clickPend = 0; this.ttFired = 0;
@@ -2289,38 +2292,47 @@ ModLabCore.xySelfCheck = xySelfCheck; ModLabCore.XY_MODES = XY_MODES; ModLabCore
    history. Editing the timer's settings is an edit. `History` below is the
    lab's stand-in history; ttSelfCheck fires 100 triggers and demands the
    history count and the patch's JSON are byte-identical after. */
-const TT_BAR = 4;            // beats per bar: 4/4 (the lab's transport has no meter yet)
+/* THE METER is transport data (core.tp.num / tp.den), as the tempo is: the
+   bar's length in quarter-note beats is num · 4 / den (4/4 → 4, 6/8 → 3,
+   7/8 → 3.5). It is read at each block's first sample. */
+const TT_METERS = Object.freeze([[4, 4], [3, 4], [5, 4], [6, 8], [7, 8]]);
+const barBeatsOf = tp => (tp && tp.num > 0 && tp.den > 0) ? tp.num * 4 / tp.den : 4;
 const TT_EPS = 1e-7, TT_MAXB = 256, TT_RN = 512;
 const TT_ORIGINS = ['BAR', 'NOTE'], TT_RATES = ['TEMPO', 'HZ'], TT_GATES = ['EVERY N', 'PATTERN'];
 /* The trigger targets. The first four are round 2's in-core actions (index
    into ModLabCore.doAction); the fifth is a hosted module's DECLARED action
    (RS-4.12), delivered in the block's context at its sample offset. */
-const TT_ACTIONS = ['SAMPLE ON TRIGGER', 'LFO RESTART', 'ORBITAL KICK', 'ORBITAL RESET', 'SLUICE · CLEAR'];
-const TT_ACT_CORE = [0, 2, 4, 5, -1];
-/* The divisions: round 1's list from 1/16 up, plus 4 and 8 bars. [label, beats]. */
-const TT_DIVS = Object.freeze([['8 bars', 32], ['4 bars', 16]].concat(DIVS.filter(d => d[2] >= 0.25).map(d =>
-  [d[0] + (d[1] ? ' · ' + d[1] : '') + (d[2] === 8 ? ' (2 bars)' : d[2] === 4 ? ' (1 bar)' : ''), d[2]])));
-const ttDivIx = beats => { let b = 0, bd = Infinity;
-  for (let i = 0; i < TT_DIVS.length; i++) { const d = Math.abs(Math.log(beats / TT_DIVS[i][1])); if (d < bd - 1e-12) { bd = d; b = i; } }
+const TT_ACTIONS = ['SAMPLE ON TRIGGER', 'LFO RESTART', 'ORBITAL KICK', 'ORBITAL RESET', 'SLUICE · CLEAR', 'HOSTED: RANDOMIZE UNLOCKED'];
+const TT_ACT_CORE = [0, 2, 4, 5, -1, 6];   // 6: round 2's posted hosted action
+/* The divisions, [label, beats, bars]: BAR lengths (counted from the bar's
+   actual length, so "1 bar" in 7/8 is 3.5 beats) and round 1's note values
+   from 1/16 up to below a whole note (fixed in beats, whatever the meter).
+   S.tt.bars > 0 picks a bar length, else S.tt.beats is the note value. */
+const TT_DIVS = Object.freeze([['8 bars', 0, 8], ['4 bars', 0, 4], ['2 bars', 0, 2], ['1 bar', 0, 1]].concat(
+  DIVS.filter(d => d[2] >= 0.25 && d[2] < 4).map(d => [d[0] + (d[1] ? ' · ' + d[1] : ''), d[2], 0])));
+const ttDivIx = P => { if (P.bars > 0) { const i = TT_DIVS.findIndex(d => d[2] === P.bars); return i < 0 ? 3 : i; }
+  let b = 4, bd = Infinity;
+  for (let i = 4; i < TT_DIVS.length; i++) { const d = Math.abs(Math.log(P.beats / TT_DIVS[i][1])); if (d < bd - 1e-12) { bd = d; b = i; } }
   return b; };
 const ttSeedOf = seed => ((seed | 0) ^ 0x243F6A88) | 0;   // its own stream (π's first word), apart from lfoSeed and the XY salts
-/* One tick's length: beats (TEMPO) or seconds (HZ). */
-const ttStepLen = P => (P.rate | 0) === 1 ? 1 / Math.max(1e-3, P.hz) : Math.max(1 / 16, P.beats);
+/* One tick's length: beats (TEMPO, a bar length times the bar's beats, or a
+   note value) or seconds (HZ). `bar` = barBeatsOf(the transport). */
+const ttStepLen = (P, bar) => (P.rate | 0) === 1 ? 1 / Math.max(1e-3, P.hz) : P.bars > 0 ? P.bars * bar : Math.max(1 / 16, P.beats);
 /* The offset: a fraction of a BAR in tempo mode ("an offset within the bar"),
    of a PERIOD in Hz mode. Taken modulo a swing pair (two ticks), so a fine
    grid with a large offset does not lose its first ticks: the offset moves
    the grid, and tick 0 is the first tick at or after the origin. */
-function ttOff(P) {
-  const st = ttStepLen(P), hz = (P.rate | 0) === 1;
-  let o = hz ? P.off * st : P.off * TT_BAR;
+function ttOff(P, bar) {
+  const st = ttStepLen(P, bar), hz = (P.rate | 0) === 1;
+  let o = hz ? P.off * st : P.off * bar;
   o -= 2 * st * Math.floor(o / (2 * st));
   return o;
 }
 /* Grid position of tick k (units since the origin). SWING: in each pair the
    odd tick moves from 50% of the pair to `swing` (0.5 straight .. 0.75). */
-function ttGrid(P, k) {
-  const st = ttStepLen(P);
-  return k * st + ttOff(P) + (k & 1 ? (2 * P.swing - 1) * st : 0);
+function ttGrid(P, k, bar) {
+  const st = ttStepLen(P, bar);
+  return k * st + ttOff(P, bar) + (k & 1 ? (2 * P.swing - 1) * st : 0);
 }
 /* Does tick k pass the step stage? Every N-th (k mod N = 0) or the pattern
    at k mod length ('x' fires; anything else rests). */
@@ -2353,7 +2365,7 @@ class TriggerTimer {
   get P() { return this.S[this.key]; }
   reset(n) {
     this.bpm = this.S.bpm; this.gsA = n; this.gbA = 0;          // the tempo clock: beats since reset, re-anchored on a tempo change
-    this.playing = 0; this.playS = -1; this.playB = 0; this.oMode = this.P.origin | 0;
+    this.playing = 0; this.playS = -1; this.playB = 0; this.oMode = this.P.origin | 0; this.bar = barBeatsOf(this.tp);
     this.oS = -1; this.csA = n; this.rA = 0; this.n1 = n; this.bn = 0; this.bp = 0;
     this.fired = 0; this.skipped = 0; this.rs.fill(-1); this.rk.fill(0); this.rf.fill(0); this.rw = 0;
   }
@@ -2368,6 +2380,7 @@ class TriggerTimer {
       if (this.oS >= 0) { this.rA += (n0 - this.csA) * r; this.csA = n0; }
       this.bpm = S.bpm;
     }
+    this.bar = barBeatsOf(this.tp);   // the meter, as data, at the block's first sample
     const play = this.tp.playing ? 1 : 0;
     if (play && !this.playing) { this.playing = 1; this.playS = n0; this.playB = this.clockAt(n0); }
     else if (!play && this.playing) this.playing = 0;
@@ -2393,9 +2406,9 @@ class TriggerTimer {
   scan(nFrom) {
     this.bn = 0; this.bp = 0;
     if (this.oS < 0) return;
-    const P = this.P, hz = (P.rate | 0) === 1, st = ttStepLen(P), u0 = this.posAt(nFrom, hz);
-    for (let k = Math.max(0, Math.floor((u0 - ttOff(P)) / st) - 2); this.bn < TT_MAXB; k++) {
-      const s = this.sampleOf(ttGrid(P, k), hz);
+    const P = this.P, hz = (P.rate | 0) === 1, bar = this.bar, st = ttStepLen(P, bar), u0 = this.posAt(nFrom, hz);
+    for (let k = Math.max(0, Math.floor((u0 - ttOff(P, bar)) / st) - 2); this.bn < TT_MAXB; k++) {
+      const s = this.sampleOf(ttGrid(P, k, bar), hz);
       if (s >= this.n1) break;
       if (s < nFrom) continue;
       this.bs[this.bn] = this.plantBlockStart ? nFrom : s;   // THE PLANT: a tick put on the block's first sample
@@ -2427,6 +2440,35 @@ class TriggerTimer {
 const IMP_POL = ['UNI', 'BI', 'INV'];
 const impMap = (e, pol) => pol === 1 ? 2 * e - 1 : pol === 2 ? -e : e;
 
+/* ROUND 2's HOSTED STAND-IN, moved here from the UI section (B541) so the
+   self-check runs the page's own code. The module's own RANDOMIZE UNLOCKED:
+   its stream, its locks, its patch. A fresh mulberry32 per click from
+   (seed, click), drawn ONLY for the unlocked parameters, in order. A1: only
+   a click BY HAND ('button') is an edit and records an undo step (the patch,
+   with (seed, click) as provenance); a TRIGGER firing it is a performance
+   event and records none. `plantUndo` is the self-check's plant. */
+function hostApply(H, by, seq, at, plantUndo) {
+  H.clicks++;
+  const r = mulberry32((H.seed + Math.imul(0x9E3779B9, H.clicks)) >>> 0);
+  for (let i = 0; i < H.p.length; i++) if (!H.lock[i]) H.p[i] = Math.round(r() * 1000) / 1000;
+  if (by !== 'button' && !plantUndo) return;
+  H.undo.push({ step: H.undo.length + 1, patch: { p: H.p.slice(), lock: H.lock.slice() },
+                provenance: { seed: H.seed, click: H.clicks, by, seq: seq || null, firedAtSample: at === undefined ? null : at } });
+  if (H.undo.length > 64) H.undo.shift();
+}
+/* The main thread's side of the boundary: drain what the audio thread posted
+   (core c's ring) into the module H. */
+function hostDrain(c, H, plantUndo) {
+  const P = c.post;
+  if (P.w - P.r > POSTN) { H.dropped += P.w - P.r - POSTN; P.r = P.w - POSTN; }
+  while (P.r < P.w) {
+    const j = P.r % POSTN, seq = P.seq[j], at = P.at[j]; P.r++;
+    H.msg = { to: 'hosted slot (stand-in)', action: 'randomize-unlocked', seq, firedAtSample: at };
+    H.lagMs = (c.sN - at) / c.sr * 1000; H.applied++;
+    hostApply(H, 'trigger', seq, at, plantUndo);
+  }
+}
+
 /* Round 2's older audits must not hear a timer the page happens to have on,
    so they run with every trigger target off, as they already do for act.on. */
 function quietTriggers(St) { St.tt.on = St.tt.on.map(() => 0); St.tt.imp.on = 0; St.arp.on = 0; return St; }
@@ -2449,7 +2491,7 @@ function ttSelfCheck(S0, plant) {
   const sr = 16000;   // sample positions are exact at any rate; 16 kHz keeps the ~40 s of offline render near 0.3 s
   const mk = (over, arpOver) => { const St = quietTriggers(JSON.parse(JSON.stringify(S0)));
     St.act.on = St.act.on.map(() => 0); St.routes[0].src = 'off'; St.routes[1].src = 'off'; St.lfo.depth = 0;
-    Object.assign(St.tt, { origin: 0, rate: 0, beats: 0.25, hz: 8, off: 0, swing: 0.5, gate: 0, n: 1, pat: 'x', prob: 1, seed: 541 }, over);
+    Object.assign(St.tt, { origin: 0, rate: 0, bars: 0, beats: 0.25, hz: 8, off: 0, swing: 0.5, gate: 0, n: 1, pat: 'x', prob: 1, seed: 541 }, over);
     if (arpOver) Object.assign(St.arp, arpOver);
     return St; };
   /* One offline run: blocks of N, `script(b, c, St)` sets the transport and
@@ -2465,17 +2507,19 @@ function ttSelfCheck(S0, plant) {
   let ok = true;
   // 1. REPLAY
   const scr = (b, c, St) => { if (b === 2) c.tp.playing = 1; if (b === 60) St.bpm = 133; if (b === 120) c.tp.playing = 0; if (b === 135) c.tp.playing = 1; };
-  const R1 = { beats: 0.25, swing: 0.58, off: 0.1, gate: 1, pat: 'x.xx', prob: 0.6, on: [0, 0, 0, 0, 1] };
+  const R1 = { beats: 0.25, swing: 0.58, off: 0.1, gate: 1, pat: 'x.xx', prob: 0.6, on: [0, 0, 0, 0, 1, 0] };
   const rA = run(mk(R1), 256, sr * 4, scr), rB = run(mk(R1), 256, sr * 4, scr), rC = run(mk(Object.assign({}, R1, { seed: 542 })), 256, sr * 4, scr);
   const rep = { n: rA.timer.tap.length / 3, fired: rA.timer.fired, same: same(rA.timer.tap, rB.timer.tap) && same(rA.slcTap, rB.slcTap), ctl: !same(rA.timer.tap, rC.timer.tap) };
   if (!rep.same || !rep.ctl || rep.fired < 10) ok = false;
   // 2. EXACT OFFSETS
-  const exact = (bpm, N, over, notes, plantIt) => {
+  const exact = (bpm, N, over, notes, plantIt, meter) => {
     const P0 = 3 * N, n = Math.round(1.5 * sr), St = mk(over); St.bpm = bpm;
-    const c = run(St, N, n, (b, cc) => { if (!notes && b === 3) cc.tp.playing = 1; }, cc => { if (plantIt) cc.timer.plantBlockStart = true; if (notes) cc.evq = notes.slice(); });
+    const c = run(St, N, n, (b, cc) => { if (!notes && b === 3) cc.tp.playing = 1; }, cc => { if (plantIt) cc.timer.plantBlockStart = true; if (notes) cc.evq = notes.slice();
+      if (meter) { cc.tp.num = meter[0]; cc.tp.den = meter[1]; } });
     const T = c.timer.tap, got = []; for (let i = 0; i < T.length; i += 3) got.push(T[i]);
-    const o = notes ? notes[0][0] : P0, end = notes ? Math.min(n, notes[1][0]) : n, hz = over.rate === 1, st = hz ? 1 / over.hz : over.beats;
-    let off = hz ? (over.off || 0) * st : (over.off || 0) * 4; off = off - 2 * st * Math.floor(off / (2 * st));
+    const barQ = meter ? meter[0] * 4 / meter[1] : 4;   // the bar in quarter notes, restated
+    const o = notes ? notes[0][0] : P0, end = notes ? Math.min(n, notes[1][0]) : n, hz = over.rate === 1, st = hz ? 1 / over.hz : over.bars ? over.bars * barQ : over.beats;
+    let off = hz ? (over.off || 0) * st : (over.off || 0) * barQ; off = off - 2 * st * Math.floor(off / (2 * st));
     const want = [];
     for (let k = 0; ; k++) {
       const g = k * st + off + (k % 2 ? (2 * (over.swing || 0.5) - 1) * st : 0);
@@ -2484,15 +2528,18 @@ function ttSelfCheck(S0, plant) {
     }
     let d = got.length === want.length ? 0 : Infinity;
     for (let i = 0; i < Math.min(got.length, want.length); i++) d = Math.max(d, Math.abs(got[i] - want[i]));
-    return { bpm, N, ticks: want.length, d, label: notes ? 'NOTE' : hz ? 'HZ' : 'TEMPO' };
+    return { bpm, N, ticks: want.length, d, label: (notes ? 'NOTE' : hz ? 'HZ' : 'TEMPO') + (meter ? ' ' + meter[0] + '/' + meter[1] + (over.bars ? ' every bar' : '') : '') };
   };
   const G = { beats: 0.25, off: 0.1875, swing: 0.62 };
   const offs = [];
   for (const bpm of [120, 97, 141.3]) for (const N of [128, 333]) offs.push(exact(bpm, N, G));
   offs.push(exact(120, 333, { rate: 1, hz: 7.3, off: 0.25, swing: 0.55 }));
   offs.push(exact(120, 333, { origin: 1, beats: 0.5, swing: 0.6 }, [[4321, 1, 60, 0.8], [4321 + 20000, 0, 60, 0.5]]));
+  // 7/8: the offset is 3/16 of a 3.5-beat bar, and "every bar" is 3.5 beats (2 s at 210 BPM covers ~1.7 bars, so 4 s)
+  offs.push(exact(141.3, 333, G, null, false, [7, 8]));
+  offs.push(exact(210, 128, { bars: 1, off: 0.25 }, null, false, [7, 8]));
   const offPlant = exact(120, 333, G, null, true);
-  if (!offs.every(r => r.d === 0 && r.ticks > 4) || !(offPlant.d > 0)) ok = false;
+  if (!offs.every(r => r.d === 0 && r.ticks >= (r.label.indexOf('every bar') >= 0 ? 2 : 5)) || !(offPlant.d > 0)) ok = false;
   // 3. TICK SETS (the first 32 ticks of a 1/16 grid at 120: 4 s)
   const firedK = (over, draw) => { const c = run(mk(Object.assign({ beats: 0.25 }, over)), 512, sr * 4.2, (b, cc) => { if (b === 0) cc.tp.playing = 1; }, cc => { if (draw) cc.timer.draw = draw; });
     const T = c.timer.tap, o = []; for (let i = 0; i < T.length; i += 3) if (T[i + 2] && T[i + 1] < 32) o.push(T[i + 1]); return o; };
@@ -2511,15 +2558,24 @@ function ttSelfCheck(S0, plant) {
   const clearsOk = same(firedS, rA.slcTap);
   if (!clearsOk) ok = false;
   // 5. A1: firing is not an edit. 8 kHz, 4 s: the timer at 50 Hz, the arp's 'x' steps, and a click every 0.2 s
-  const hist5 = plantIt => {
-    const St = mk({ rate: 1, hz: 50, on: [1, 1, 1, 1, 1] }, { on: 1, pat: 'x.x.' }); St.tt.imp.on = 1;
+  /* The hosted module (round 2's stand-in) is fired by the timer too and
+     drained every block, as the page's main thread does; its undo count must
+     not move. Then ONE click by hand must add one step (an edit still is). */
+  const hist5 = (plantIt, plantUndo) => {
+    const St = mk({ rate: 1, hz: 50, on: [1, 1, 1, 1, 1, 1] }, { on: 1, pat: 'x.x.' }); St.tt.imp.on = 1;
+    const H = { p: [0.5, 0.3, 0.7, 0.2, 0.6, 0.4], lock: [0, 1, 0, 0, 1, 0], seed: 77, clicks: 0, undo: [], msg: null, applied: 0, lagMs: 0, dropped: 0 };
     const h = new History(), before = JSON.stringify(St), hN = h.n;
-    const c = run(St, 128, 8000 * 4, (b, cc) => { if (b === 0) cc.tp.playing = 1; if (b % 12 === 5) cc.clickPend = 1; },
+    const c = run(St, 128, 8000 * 4, (b, cc) => { hostDrain(cc, H, plantUndo); if (b === 0) cc.tp.playing = 1; if (b % 12 === 5) cc.clickPend = 1; },
       cc => { cc.hist = h; cc.plantHist = !!plantIt; }, 8000);
-    return { fired: c.ttFired, histDelta: h.n - hN, patchSame: JSON.stringify(St) === before };
+    hostDrain(c, H, plantUndo);
+    const undoAfterFires = H.undo.length;
+    hostApply(H, 'button');
+    return { fired: c.ttFired, histDelta: h.n - hN, patchSame: JSON.stringify(St) === before,
+             hostApplied: H.applied, hostUndo: undoAfterFires, hostClickUndo: H.undo.length - undoAfterFires };
   };
-  const H5 = hist5(false), H5p = hist5(true);
+  const H5 = hist5(false, false), H5p = hist5(true, false), H5u = hist5(false, true);
   if (!(H5.fired >= 100 && H5.histDelta === 0 && H5.patchSame && H5p.histDelta > 0)) ok = false;
+  if (!(H5.hostApplied >= 100 && H5.hostUndo === 0 && H5.hostClickUndo === 1 && H5u.hostUndo > 0)) ok = false;
   // 6. NO CLICK: decay 0.4 s, attack 5 ms, strikes every 1/8 at 120 (mid-decay); the largest one-sample step
   const St6 = mk({ beats: 0.5, on: [0, 0, 0, 0, 0] }); Object.assign(St6.tt.imp, { on: 1, a: 0.005, d: 0.4, c: 0.5 });
   const c6 = run(St6, 256, 1, null);   // a constructed core; stepped by hand below
@@ -2528,7 +2584,7 @@ function ttSelfCheck(S0, plant) {
   const k6 = 2 * K_ONEPOLE * Math.abs(I6.c), slope = Math.abs(k6) < 1e-9 ? 1 : k6 / (1 - Math.exp(-k6));   // the law's steepest slope (at x = 0)
   const bound = slope / (I6.a * sr) * 1.0001, noClick = mx <= bound;
   if (!noClick) ok = false;
-  return { ok, rep, offs, offPlant, sets, plantP, clearsOk, nFired: firedS.length, H5, H5p, click: { mx, bound, noClick } };
+  return { ok, rep, offs, offPlant, sets, plantP, clearsOk, nFired: firedS.length, H5, H5p, H5u, click: { mx, bound, noClick } };
 }
 ModLabCore.TriggerTimer = TriggerTimer; ModLabCore.ttGrid = ttGrid; ModLabCore.ttFires = ttFires; ModLabCore.ttStep = ttStep;
 ModLabCore.ttSelfCheck = ttSelfCheck; ModLabCore.History = History; ModLabCore.TT_DIVS = TT_DIVS; ModLabCore.impMap = impMap;
@@ -2568,12 +2624,12 @@ const S = {
   /* ---- ROUND 5 (B541): the trigger timer (beats 4 = every bar: "clear the
      bank on every bar"), its targets, the impulse and the mock Shriek drive
      knob (0, so the lab sounds as before until a trigger strikes). ---- */
-  tt: { origin: 0, rate: 0, beats: 4, hz: 2, off: 0, swing: 0.5, gate: 0, n: 1, pat: 'x..x....', prob: 1, seed: 541,
-        on: [0, 0, 0, 0, 1], drive: 0,
+  tt: { origin: 0, rate: 0, bars: 1, beats: 1, hz: 2, off: 0, swing: 0.5, gate: 0, n: 1, pat: 'x..x....', prob: 1, seed: 541,
+        on: [0, 0, 0, 0, 1, 0], drive: 0,
         imp: { on: 1, a: 0.004, d: 0.35, c: 0.5, amt: 0.7, pol: 0, hear: 1 } },
   /* The mock arp row (a placeholder for Arp, B539): 16 steps of 1/16 on the
      transport. '.' rest, 'o' a step, 'x' a step flagged as a TRIGGER. */
-  arp: { on: 0, origin: 0, rate: 0, beats: 0.25, hz: 8, off: 0, swing: 0.5, gate: 1, n: 1, pat: 'x.o.o.x.o.o.x.o.', prob: 1, seed: 0 },
+  arp: { on: 0, origin: 0, rate: 0, bars: 0, beats: 0.25, hz: 8, off: 0, swing: 0.5, gate: 1, n: 1, pat: 'x.o.o.x.o.o.x.o.', prob: 1, seed: 0 },
 };
 /* The hosted module is NOT the core's: it lives on the main thread, as a
    module's patch does. Six generic parameters, a lock each, its own seed.
@@ -3513,26 +3569,12 @@ const hostEls = [];
    parameters, in order. So (seed, click) alone does not rebuild the patch:
    the result depends on the lock mask and the patch it started from. That is
    why the undo step stores the PATCH, with (seed, click) as provenance only. */
-function hostRandomize(by, seq, at) {
-  HOST.clicks++;
-  const r = mulberry32((HOST.seed + Math.imul(0x9E3779B9, HOST.clicks)) >>> 0);
-  for (let i = 0; i < HOST.p.length; i++) if (!HOST.lock[i]) HOST.p[i] = Math.round(r() * 1000) / 1000;
-  HOST.undo.push({ step: HOST.undo.length + 1, patch: { p: HOST.p.slice(), lock: HOST.lock.slice() },
-                   provenance: { seed: HOST.seed, click: HOST.clicks, by, seq: seq || null, firedAtSample: at === undefined ? null : at } });
-  if (HOST.undo.length > 64) HOST.undo.shift();
-  paintHost();
-}
+/* B541 (ADR-267 A1): the law moved to hostApply / hostDrain in the DSP
+   section, so the round-5 self-check runs the same code. A click by hand is
+   an edit and records an undo step; a trigger firing it does not. */
+function hostRandomize(by, seq, at) { hostApply(HOST, by, seq, at); paintHost(); }
 /* The main thread's side of the boundary: drain what the audio thread posted. */
-function drainHost() {
-  const P = core.post;
-  if (P.w - P.r > POSTN) { HOST.dropped += P.w - P.r - POSTN; P.r = P.w - POSTN; }
-  while (P.r < P.w) {
-    const j = P.r % POSTN, seq = P.seq[j], at = P.at[j]; P.r++;
-    HOST.msg = { to: 'hosted slot (stand-in)', action: 'randomize-unlocked', seq, firedAtSample: at };
-    HOST.lagMs = (core.sN - at) / core.sr * 1000; HOST.applied++;
-    hostRandomize('trigger', seq, at);
-  }
-}
+function drainHost() { const a = HOST.applied; hostDrain(core, HOST); if (HOST.applied !== a) paintHost(); }
 function buildHost() {
   const host = $('hostRows'); if (!host) return;
   HOST.p.forEach((_, i) => {
@@ -4104,10 +4146,15 @@ function buildTT() {
   tr.appendChild(el('label', null, 'transport')); tr.appendChild(tb); host.appendChild(tr);
   REPAINT.push(() => { pl.classList.toggle('on', !!core.tp.playing); });
   slider(host, { label: 'tempo', min: 40, max: 220, step: 1, get: () => S.bpm, set: x => { S.bpm = Math.round(x); }, fmt: x => Math.round(x) + ' BPM' });
+  /* The meter: transport data like the tempo, so not an edit and not patch. */
+  const mr = el('div', 'row wide'), mb = el('div', 'pills'), mbt = TT_METERS.map(([nu, de]) => { const b = el('button', 'pill', nu + '/' + de);
+    b.addEventListener('click', () => { core.tp.num = nu; core.tp.den = de; }); mb.appendChild(b); return b; });
+  mr.appendChild(el('label', null, 'meter')); mr.appendChild(mb); host.appendChild(mr);
+  REPAINT.push(() => mbt.forEach((b, i) => b.classList.toggle('on', core.tp.num === TT_METERS[i][0] && core.tp.den === TT_METERS[i][1])));
   host.appendChild(el('div', 'cap', 'WHEN · the grid'));
   pillRow(host, 'count from', TT_ORIGINS, () => T.origin, E('tt.origin', i => { T.origin = i; }));
   pillRow(host, 'clock', TT_RATES, () => T.rate, E('tt.rate', i => { T.rate = i; }));
-  live(selectRow(host, 'division', TT_DIVS.map(d => d[0]), () => ttDivIx(T.beats), E('tt.beats', i => { T.beats = TT_DIVS[i][1]; })), () => T.rate === 0);
+  live(selectRow(host, 'division', TT_DIVS.map(d => d[0]), () => ttDivIx(T), E('tt.div', i => { const d = TT_DIVS[i]; T.bars = d[2]; if (!d[2]) T.beats = d[1]; })), () => T.rate === 0);
   live(slider(host, { label: 'rate', min: 0.1, max: 40, log: true, get: () => T.hz, set: E('tt.hz', x => { T.hz = x; }), fmt: x => x.toFixed(2) + ' Hz' }), () => T.rate === 1);
   slider(host, { label: 'offset', min: 0, max: 1, step: 1 / 64, get: () => T.off, set: E('tt.off', x => { T.off = x; }),
     fmt: x => T.rate === 0 ? (x * 16).toFixed(x * 16 % 1 ? 2 : 0) + '/16 bar' : f2(x) + ' period' });
@@ -4163,9 +4210,13 @@ function paintTT() {
   const X = n => x0 + (n - n0) / W * (x1 - x0), bh = h / 2;
   g.font = FONT(v);
   // beat and bar lines from the tempo clock (current tempo segment: display only)
-  const spb = 60 * T.sr / T.bpm, ref = T.playS >= 0 ? T.playB : 0, b1 = T.clockAt(n1);
-  for (let j = Math.ceil(T.clockAt(n0) - ref), j0 = j; j + ref <= b1 && j - j0 < 200; j++) {   // beats counted from the play
-    const n = T.gsA + (j + ref - T.gbA) * spb, bar = ((j % 4) + 4) % 4 === 0;
+  const spb = 60 * T.sr / T.bpm, ref = T.playS >= 0 ? T.playB : 0, b1 = T.clockAt(n1), BB = T.bar;
+  for (let j = Math.ceil(T.clockAt(n0) - ref), j0 = j; j + ref <= b1 && j - j0 < 200; j++) {   // quarter beats counted from the play
+    const n = T.gsA + (j + ref - T.gbA) * spb;
+    g.strokeStyle = TOKA('--scr-grid', 0.18); g.lineWidth = v; g.beginPath(); g.moveTo(X(n), 0); g.lineTo(X(n), h); g.stroke();
+  }
+  for (let m = Math.ceil((T.clockAt(n0) - ref) / BB), m0 = m; m * BB + ref <= b1 && m - m0 < 100; m++) {   // bar lines: the meter's bar
+    const n = T.gsA + (m * BB + ref - T.gbA) * spb, bar = true;
     g.strokeStyle = TOKA('--scr-grid', bar ? 0.6 : 0.18); g.lineWidth = (bar ? 1.4 : 1) * v;
     g.beginPath(); g.moveTo(X(n), 0); g.lineTo(X(n), h); g.stroke();
   }
@@ -4185,10 +4236,11 @@ function paintTT() {
   if (!ac) bandLabel(g, 'POWER, then PLAY', w / 2 - 40 * v, h / 2 - 8 * v, v);
   const e = $('ttRead');
   if (e) { const P = S.tt, p = T.playing ? T.clockAt(n1) - T.playB : 0;
-    const pos = T.playing ? (Math.floor(p / 4) + 1) + '.' + (Math.floor(p % 4) + 1) + '.' + (Math.floor((p % 1) * 4) + 1) : '—';
-    const stepS = P.rate === 1 ? 1 / P.hz : ttStepLen(P) * 60 / S.bpm;
+    const BB = T.bar, pos = T.playing ? 'bar ' + (Math.floor(p / BB) + 1) + ' · beat ' + ((p % BB) + 1).toFixed(2) : '—';
+    const stepS = P.rate === 1 ? 1 / P.hz : ttStepLen(P, BB) * 60 / S.bpm;
     e.innerHTML = 'transport <b>' + (T.playing ? 'PLAYING' : 'STOPPED') + '</b> · position <b>' + pos + '</b> · ' + S.bpm + ' BPM'
-      + ' · tick every <b>' + fSec(stepS) + '</b> (' + (P.rate === 1 ? P.hz.toFixed(2) + ' Hz' : TT_DIVS[ttDivIx(P.beats)][0]) + ')'
+      + ' · ' + core.tp.num + '/' + core.tp.den + ' (a bar = ' + BB + ' beats)'
+      + ' · tick every <b>' + fSec(stepS) + '</b> (' + (P.rate === 1 ? P.hz.toFixed(2) + ' Hz' : TT_DIVS[ttDivIx(P)][0]) + ')'
       + ' · counted from <b>' + TT_ORIGINS[P.origin] + '</b>' + (P.origin === 1 ? (T.oS >= 0 ? ' (a key is held)' : ' (hold a key)') : '')
       + ' · ' + (P.gate === 1 ? 'pattern <b>' + P.pat + '</b>' : 'every <b>' + P.n + '</b>') + ' · p <b>' + Math.round(P.prob * 100) + '%</b>'
       + ' · triggers fired, all sources <b>' + core.ttFired + '</b>'; }
@@ -4242,10 +4294,12 @@ function auditRound5() {
       + '. <b>Tick sets</b>: ' + R.sets.map(s => s.name + ' ' + yes(s.ok)).join(' · ')
       + '. Sluice\'s clears on the fired samples: ' + yes(R.clearsOk) + ' (' + R.nFired + ')'
       + '. <b>A1, firing is not an edit</b>: ' + R.H5.fired + ' triggers (timer, arp, clicks) moved the history by <b>' + R.H5.histDelta + '</b>, patch identical ' + yes(R.H5.patchSame)
+      + '; the hosted RANDOMIZE UNLOCKED fired ' + R.H5.hostApplied + ' times by trigger made <b>' + R.H5.hostUndo + '</b> undo steps, and one click by hand made ' + R.H5.hostClickUndo
       + '. No click: largest one-sample impulse step ' + R.click.mx.toFixed(4) + ' ≤ ' + R.click.bound.toFixed(4) + ' ' + yes(R.click.noClick)
       + '. <b>Plants that must fail</b>: a tick put on the block start, off by up to <b>' + R.offPlant.d + '</b> samples ' + (R.offPlant.d > 0 ? '(fires)' : '<b>DID NOT FIRE</b>')
       + ' · Math.random as the draw, two runs ' + (R.plantP ? (R.plantP.differs ? 'differ (fires)' : '<b>agree: DID NOT FIRE</b>') : '<b>not run</b>')
       + ' · a firing path that records history: ' + R.H5p.histDelta + ' node(s) ' + (R.H5p.histDelta > 0 ? '(fires)' : '<b>DID NOT FIRE</b>')
+      + ' · a hosted drain that records undo on a trigger: ' + R.H5u.hostUndo + ' step(s) ' + (R.H5u.hostUndo > 0 ? '(fires)' : '<b>DID NOT FIRE</b>')
       + (R.ok ? ' · <b>all pass</b>' : ' · <b>FAILED</b>');
   } catch (err) { box.classList.add('bad'); box.textContent = 'round-5 self-check threw: ' + String((err && err.message) || err); }
 }
