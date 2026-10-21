@@ -8814,3 +8814,31 @@ PA-1 says "two identical one-pole stages in series, each with a time constant of
 - Spec round 26 writes §5.5, §5.6 and §6.10 from these rulings, with their laws in numbers, reasons inline (B524) and §5.8's counts updated. It goes to an Opus critic, then to the human, then to both clean-room repos. The test author writes stage 6's tests from it; the builder builds stage 6.
 - **A design point the round must settle:** today the engine computes only ENV 1 (RC-4: "Must not require: the engine to compute an envelope or LFO other than ENV 1"), and the bank is deferred. Ruling 5 therefore needs a per-voice input through which ENV 2–4 reach a source's level, at a rate that cannot zipper (PA-4's audio-rate path or an equivalent). It also needs the behaviour stated for when the bank is absent.
 - **FX device (ADR-254):** none. Sources, their envelopes and the sub's mono mode are voice-bound and instrument-only. Their ids sit in the source block.
+
+## ADR-256 — RULED by the human: QS-1 keeps its Sync floor with design B as reference; B-29 takes the remainder correction (B494, B-29a, 2026-10-20)
+
+**Context.** B-29, the short-taper row, was held at stage 5's acceptance (ADR-253.2). The test author derived it engine-free (cleanroom-tests c636400, 80f0b53, 2a8fb7f, b440cb9). Two Opus critics reviewed it, and both gave FIX-THEN-SHIP. Two points needed the human:
+- **QS-1.** The test author confirmed that QS-1's own reference design A reads 91.7 dB on the Sync blade at C8 with its corners corrected, under QS-1's 93 dB floor. Design B reads 110.5. The spec contradicted itself; no engine was involved.
+- **B-29.** Under the row as first proposed, the window edges' corner correction is continuous as Edges leaves 0, but its benefit fades within about a tenth of a sample of taper (B at C2: 134 → 86 dB). Correcting the in-taper remainder as well keeps the benefit to the fade (134–136 dB through Edges 2⁻⁴). The engine cost is one more kernel table built at prepare, and about a third more work per tapered window-edge corner, inside RT-2's cap. That estimate is the critic's, inferred from the construction, not measured.
+
+**Rulings (the human, by poll, 2026-10-20).**
+1. **"Keep 93; B is the reference":** QS-1's Sync floor at C8 stays at 93 dB, and QS-1 names design B as its reference design for the Sync case. The gate is kept (ADR-247). The reference table R no longer takes design A where A does not conform. The test author re-derives R and the margin X (proposed at 5 dB) on that basis.
+2. **"With the remainder":** the B-29 row includes the remainder correction, so the corners' benefit lasts to the fade. R's column is "with the remainder".
+
+**Consequences.**
+- The test author applies the second critic's fixes:
+  - a fourth control, a build without the remainder;
+  - one more judged blade, Sync with a triangle carrier on a saw base;
+  - the Crush width's kk;
+  - ED-2's sentence that a held-input closed-form read ahead of the sample is not look-ahead;
+  - the table's header hashing its own generator and compiler flags, with the Layer-0 subset seeded from a constant;
+  - a bound on the engine's kernel-interpolation error inside X.
+
+  It then builds the Layer-0 item and the long run.
+- The row and QS-1's amendment enter a spec round after the lead's review. That round is delivered to both clean-room repos.
+- The builder's stage 6 is not blocked. B-29's row is a stage-5 amendment, built when the round lands.
+- **FX device (ADR-254):** none.
+
+## ADR-255 A1 — correction (2026-10-20)
+
+Ruling 9's reason was wrong. It said "the drive hears the classic ±1 pulse, so its asymmetry adds even harmonics". The round-26 critic showed otherwise: a memoryless curve maps a two-level pulse to a two-level pulse of the same width, so it changes only the pulse's levels and mean. The ruling itself stands, the DC removed exactly after the drive. What the drive does to a pulse depends on the sub's chain order, which the human is A/B-testing in the lab (round 26, SN-3 pending). With Tone and the envelope before the drive, the drive sees softened, falling edges.
