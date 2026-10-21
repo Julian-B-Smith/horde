@@ -9008,3 +9008,22 @@ The design system (B531, https://claude.ai/artifact/EGDwetDHwcvxhTbNffCzJc) is p
   - each corner's saved state and edited flag, for revert;
   - the census (each corner's share of owned or resolved parameters), published through the GUI readout (RC-8).
 - **FX device (ADR-254):** ruling 1 as stated; the others are shell-independent.
+
+## ADR-264 — RULED by the human: the arpeggiator becomes a sibling project, Arp, the home of note generation (B539, 2026-10-21)
+
+**The human (2026-10-21):** "I would like to start developing the arpeggiator so it's ready for 1.0. Maybe that should get its own repo and agent."
+
+**Rulings (by poll).**
+1. **Working name: Arp** (folder `synthetic-worlds/Arp`, a public repository). Any user-visible name goes through B433's clearance before 1.0.
+2. **Scope: "Note generation home."** Arp ships the simple arpeggiator for 1.0 (ADR-190 A5). After 1.0 it owns the step sequencer and generators (H2-PLAN `seqgen`), so they share one engine and one test suite.
+
+**Why a sibling.**
+- The boundary is clean: notes in, notes out, with tempo, transport and the shared scale as data.
+- It speaks the ecosystem's ruled note vocabulary (B92 and FOUNDATIONS #115, ADR-257 A1).
+- It assumes no engine downstream, so the FX device (ADR-254) can run it on sidechain notes.
+
+**Consequences.**
+- The lead prepared `synthetic-worlds/Arp/`: a spin-up brief and an intake packet (the note vocabulary, the engine's note-interface rows, the quantizer, the tempo divisions), with the survey's proposed answers.
+- The human spins it up and creates the repository. Arp files to horde under `integrations/arp/`.
+- H2-PLAN's `arps` entry names Arp as its home.
+- **FX device:** shell-independent by construction.
