@@ -8839,6 +8839,8 @@ PA-1 says "two identical one-pole stages in series, each with a time constant of
 - The builder's stage 6 is not blocked. B-29's row is a stage-5 amendment, built when the round lands.
 - **FX device (ADR-254):** none.
 
+**ADR-256 A1 — the reference corrected (the human, by poll, 2026-10-20: "The conforming design").** The test author found that design B (cutoff 0.45·f_s, β 10) fails QS-2: QS-1's own text gives −6.2 dB against QS-2's 3 dB. It then scanned the same family (a 32-tap minimum-phase Kaiser sinc) and found exactly one design that meets the plain-saw floors, the Sync floors and QS-2 together: **cutoff 0.466·f_s, β 7.0**, with 0.22 dB of room on QS-1 (Sync C8 93.2) and 0.09 dB on QS-2 (2.91). It replaces B as QS-1's reference in ruling 1. The floors stay. R and X are re-derived on it. Longer tables and other window families are searched for a design with more room, reported only. QS-1's sentence saying the 0.47/β 8 design meets every floor is corrected in the same spec round. Rulings log row 28.
+
 ## ADR-255 A1 — correction (2026-10-20)
 
 Ruling 9's reason was wrong. It said "the drive hears the classic ±1 pulse, so its asymmetry adds even harmonics". The round-26 critic showed otherwise: a memoryless curve maps a two-level pulse to a two-level pulse of the same width, so it changes only the pulse's levels and mean. The ruling itself stands, the DC removed exactly after the drive. What the drive does to a pulse depends on the sub's chain order, which the human is A/B-testing in the lab (round 26, SN-3 pending). With Tone and the envelope before the drive, the drive sees softened, falling edges.
