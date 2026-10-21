@@ -8846,3 +8846,25 @@ PA-1 says "two identical one-pole stages in series, each with a time constant of
 ## ADR-255 A1 — correction (2026-10-20)
 
 Ruling 9's reason was wrong. It said "the drive hears the classic ±1 pulse, so its asymmetry adds even harmonics". The round-26 critic showed otherwise: a memoryless curve maps a two-level pulse to a two-level pulse of the same width, so it changes only the pulse's levels and mean. The ruling itself stands, the DC removed exactly after the drive. What the drive does to a pulse depends on the sub's chain order, which the human is A/B-testing in the lab (round 26, SN-3 pending). With Tone and the envelope before the drive, the drive sees softened, falling edges.
+
+## ADR-257 — RULED by the human: a module's fixed controls are a declared row; FX modules get a per-block note context (Shriek briefs maw-006 and maw-007, B529, B530, 2026-10-20)
+
+**Context.** Shriek filed two briefs on 2026-10-20.
+- **maw-006.** Shriek now has four fixed controls on every preset (Drive, Tone, Output, Mix), after Sluice's four, plus up to four macros. It asks how horde shows them, what the modify law's base is when a user moves one, and whether horde assumes eight macro slots.
+- **maw-007.** Shriek's pitch-tracked feedback needs the pitch of the note being played, and the contract has no way to hand a hosted FX module the note.
+
+**Rulings (the human, by poll, 2026-10-20).**
+1. **"A declared fixed row":** a module declares up to four fixed controls as ordered (label, key) pairs. horde shows them as one fixed row beside the macro slots, on every preset and for every module (contract RS-5.8, new).
+2. **"A per-block note context":** a module that declares `noteContext` receives, before each `process`, the last note's sounding pitch in Hz, whether a note is held, and the block's note events (contract RS-4.11, new). This is one mechanism for Shriek now, for note-aware modules later, and for the FX device's MIDI sidechain (ADR-254, ADR-054 item 2).
+
+**The lead's readings within the rulings** (PROPOSED in the contract, open to the human's strike):
+- **Host parameters.** Each fixed control gets a host parameter id per FX slot, allocated like the macro slots and named `FX<n> Fixed <k>` (RS-5.6's rule; the label stays in horde's UI).
+- **The modify law's base** (ADR-251) is the parameter's value as the preset and the user set it, macro contributions excluded. ADR-251's "the preset's `internal_defaults` value" is that value at load.
+- **Four macro slots used of eight** need nothing; empty slots are hidden.
+- **`lastHz`** includes bend and glide. It holds after release, is 0 before the first note, and is the newest note's pitch when several are held. The events are capped and preallocated.
+- **Admission row A22** tests the note context: determinism, and the output with the entry absent equal to a no-note run.
+
+**Consequences.**
+- The rack-slot contract gains §12.5. Responses go to Shriek (seq 11 and 12). A brief to FOUNDATIONS proposes the optional ABI entry, as RS-4.10's was; a module's local shim carries it until FOUNDATIONS rules. A notice to Sluice asks it to declare its four fixed controls.
+- ROADMAP B529 (fixed controls) and B530 (the note context). Both are built with the horde 2 rack (B513).
+- **FX device (ADR-254):** the note context is the path its MIDI sidechain will feed; the fixed row is shell-independent.
