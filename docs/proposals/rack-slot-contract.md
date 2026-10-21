@@ -454,3 +454,18 @@ Ruled by the human, 2026-10-18 ("Offer it, optional"), against the lead's recomm
 | **A21 (new)** | Its admission test, with a permuted-weights control. |
 | **The ABI map** | A new optional entry, proposed to FOUNDATIONS. Until FOUNDATIONS rules, the shape is horde's proposal and a module's local shim carries it. |
 | **RS-4.10, after Scape's review (seq 3, 2026-10-18)** | Three refinements, accepted by the lead within the ruling: the corner map is fixed (A = (0, 0), B = (1, 0), C = (0, 1), D = (1, 1), QM-0 §2's weights); `exact` is judged over the module's declared design keys only; an edited corner is delivered again through the staged load. The shape stays PROPOSED until FOUNDATIONS answers; then it goes to the human for ratification (B513). |
+
+### 12.5 ADR-257 (2026-10-20), on Shriek's briefs `maw-006` (seq 9) and `maw-007` (seq 10)
+
+Ruled by the human, 2026-10-20 ("A declared fixed row", "A per-block note context"). The shapes below are the lead's,
+PROPOSED.
+
+| Row | As amended |
+|---|---|
+| **RS-5.8 (new): fixed controls** | A module **may** declare up to **four fixed controls**: ordered (label, key) pairs naming its own parameters, present in every preset. horde shows them as one fixed row beside the macro slots, in the declared order, on every preset. A fixed control is a module parameter, never a macro. Each gets a host parameter id per FX slot, allocated like the macro slots (RS-5.6), named `FX<n> Fixed <k>`. The label stays in horde's UI. |
+| **RS-5.3 / ADR-251, the modify law's base** | The base is the parameter's value as the preset and the user set it, a fixed control's value included, macro contributions excluded. "The preset's `internal_defaults` value" is that value at load. |
+| **RS-5.1** | Unchanged: "up to 8". A module may use fewer, and empty slots are hidden. |
+| **A12** | Its round trip includes the fixed controls' values. |
+| **RS-4.11 (new): the note context** | A module **may** declare `noteContext`. Before each `process` it then receives a read-only context, valid for the call only: `lastHz`, the sounding pitch in Hz (bend and glide included) of the last note played under horde's last-note priority, at the block's start, held after release and 0 before the first note; `held`, whether any note is held; and the block's note events (on and off, each with its sample offset, key, velocity and sounding pitch in Hz), capped and preallocated. It is data, so the same notes give the same context (determinism, RS-7). In the FX device (ADR-254) the MIDI sidechain feeds the same context. |
+| **A22 (new)** | **Judge:** a scripted note stream gives the same output twice, and with the entry absent the output equals a no-note run. **Must fail:** a shim that delivers the events at the wrong sample offsets. |
+| **The ABI map** | A new optional entry, proposed to FOUNDATIONS (brief `note-context`). Until FOUNDATIONS rules, a module's local shim carries it. |
