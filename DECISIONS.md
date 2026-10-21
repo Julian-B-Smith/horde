@@ -9102,6 +9102,39 @@ The test author's audit found no item that expects a glided value, so no test ch
 - B540 holds the 2-D random source's prototype.
 - **FX device (ADR-254):** the 2-D random source and the Control state are free sources and states, so they are shell-independent.
 
+## ADR-267 — RULED by the human: a trigger timer modulator, and hosted modules declare their actions (B541, 2026-10-21)
+
+**The human (2026-10-21):** "Maybe we could have a trigger timer modulator as well; for specific things like "clear" in Sluice (clearing the bank on every bar, for instance)."
+
+**Rulings (by poll).**
+1. **A trigger timer** is an event source: it fires triggers rather than producing a level, and its triggers route to action targets in the modulator lab's events model. It offers all four of the following.
+   - **A tempo grid with an offset:** a division from 1/16 to 8 bars, an offset within the bar, and swing, or a free rate in Hz.
+   - **Every Nth tick, or a short step pattern.**
+   - **Probability** per tick, seeded so a patch replays identically.
+   - **Note-relative timing:** counting from each note-on instead of the bar.
+
+   It is deterministic: tempo and transport arrive as data, ticks are computed from the transport and placed at sample offsets, and no wall clock is read.
+2. **Hosted modules declare their actions** ("Declared actions"). A module may declare a list of named actions, for example Sluice's clear. horde fires them as sample-accurate events in the per-block context, beside the note context (RS-4.11). Actions are never host-automatable parameters, so automation cannot fire a stray clear. This settles the open question of hosted-module triggers (B226 Q1) for the timer's use.
+
+**Consequences.**
+- The rack contract gains RS-4.12 (§12.6), PROPOSED.
+- A notice goes to Sluice asking it to declare its actions.
+- The FOUNDATIONS ABI entry for the per-block context (brief `note-context`) is to carry actions too; it will be raised when FOUNDATIONS answers.
+- The modulator lab prototypes the timer (B541).
+- **FX device (ADR-254):** the timer is a free source (tempo and transport), apart from its note-relative mode, which takes the sidechain's notes.
+
+**ADR-267 A1: triggers are performance events, never history (the human, 2026-10-21).** The human: "So the trigger doesn't ever create a history node, there needs to be a category of event that is causal but isolated to trigger events and doesn't change the state of the synth (like the clear sluice event). Maybe certain arp notes can cause triggers as well, and triggers can send impulses to certain parameters (like pumping the drive on Shriek, etc)." This corrects ruling 2's "one undo step".
+1. **A trigger is a performance event.** It is causal (it changes the sound) but isolated from the synth's state. Firing an action, whether from the timer, a click or an arp step, creates **no history node**, no undo step and no change to the saved patch or preset. Editing a trigger source's settings or routes is an edit, and is recorded as one. A module's action may change the module's runtime state (clear empties Sluice's bank), but never its saved state.
+2. **Impulses.** A trigger can also send an **impulse** to a continuous parameter: a one-shot shape (attack, decay in seconds, curve, amount) added through the mod matrix like a mapping, summed and clamped once, polarity uni, bi or inverse. Control is excluded, because an impulse is momentary. A retrigger restarts it from its current level, so it never clicks. "Pumping the drive on Shriek" is one.
+3. **Arp notes can cause triggers.** Arp (B539) may flag steps as triggers that fire the same targets. This is noted in Arp's spin-up brief.
+
+**ADR-267 A2: triggered switches and iterators, after 1.0, with room left now (the human, 2026-10-21).** The human: "Maybe a trigger can also flip a switch, but not permanently. Like it can be a type of modulator exclusive to switches, but only some switches qualify and there's some button (also triggerable) that returns all switches and iterators to home. If this is too complex we could roadmap it for after 1.0." The lead's reading: it crosses ADR-136, under which stepped destinations are refused by the mod matrix, so it is scheduled **after 1.0** (ROADMAP B542). The design is recorded now:
+1. **Qualifying switches** are only those that already switch click-free mid-note (PA-5's crossfade or gate duck), each rated once. A Device-class or structural switch (voice mode, oversampling) never qualifies.
+2. **A temporary offset layer for switches.** A trigger **flips** a two-state switch or **iterates** a multi-option one (the next option, wrapping) as an offset on top of the switch's own value and the morph's. The offset makes no history and no change to the saved patch (A1).
+3. **Home** is an action, itself triggerable, that clears every switch and iterator offset at once.
+
+**Room left in 1.0:** stepped parameters keep their click-free class ratings (PA-5, RS-4.3); the mod matrix's destination list keeps a kind field, so a "stepped" kind can be added later; and nothing writes a stepped parameter except an edit or the morph.
+
 ## ADR-268 — RULED by the human: stage 6 accepted (B494, B514, 2026-10-21)
 
 **Context.** The builder committed stage 6, the sub and the noise oscillator, as `bc84ae4` (cleanroom-engine), to spec rounds 26–28 with the tests as of `c5fe78d`. Its closing run:
