@@ -8911,3 +8911,23 @@ Ruling 9's reason was wrong. It said "the drive hears the classic ±1 pulse, so 
 **A further ruling (the human, by poll, 2026-10-21: "Its own filter, following its note").** The draft had the mono sub bypass the filters, because each filter lives inside a voice. Instead, the mono sub gets one filter-slot instance of its own, driven by the settings and per-voice modulation of the voice holding its chosen note. It behaves as that note's filter, never hops between voices, and carries its state across a hand-off (RC-1, SN-7, X13).
 
 **Consequences.** On merge, the spec goes to both clean-room repos in the same turn. The test author writes stage 6's tests (items 24–33), then the builder builds stage 6.
+
+## ADR-259 — RULED by the human: the house design system's eight questions (B531, 2026-10-21)
+
+**Context.** B531's survey (2026-10-21) found the colours and sizes were already one system: every current lab copies GUI 2's tokens, and GUI 2 is the UI Spec's §1 and §8. What the human prefers over GUI 2 (B302) is composition: the 980×720 window, the XY pad over the Specimen, the locked logo (B375), the face/Advanced split (B227), module cards, and screens as software. The human's three design files are byte-identical to the tracked copies in `docs/design-system/`. Eight conflicts went to the human.
+
+**Rulings (the human, by poll, 2026-10-21).**
+1. **Fonts: Archivo with Roboto Mono,** the UI Spec's pair, bundled so the plugin looks the same on every system. The wordmark stays the locked, baked logo.
+2. **Window: 980×720, resizable.**
+3. **Corner glyphs: always** (closes ADR-117's open question). Each morph corner's colour always comes with its glyph, for colour-blind users and single-colour screens.
+4. **Corner colours inside a screen: the chassis carries them.** horde's frame around each FX screen shows the corner colours; inside, a screen uses its own glyphs or A–D, so each skin stays true to itself.
+5. **Screens: follow the working skins.** Shriek on the 80s workstation (B373), Sluice on the Game Boy Color (B361). Scape, Bulwark and Echo audition the remaining styles, and a plain Drive uses horde's house screen.
+6. **Keyboard: an opt-in keyboard mode,** off by default, with a visible lamp. A gate proves notes stay bit-identical while it is off (B449 R1 with B432).
+7. **The dark theme: ratified after a contrast audit.** Light (cream) stays the default.
+8. **Contrast and hit targets:** darker text and line colours that meet contrast (from the ORCHID screen scheme), and every hit target back to at least 28 px.
+
+**Consequences.**
+- The design system is built from the Design System Artifact type: tokens, components with live previews, and guidelines.
+- The dark theme's contrast audit is part of the build; the human reviews it.
+- **FX device (ADR-254):** the Specimen is driven by notes, so the FX device needs an audio-driven stand-in. This is recorded for B528.
+- B432's screen-reader view doubles as each module's house-style backup UI (ADR-235).
