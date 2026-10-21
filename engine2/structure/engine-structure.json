@@ -1,21 +1,21 @@
 {
   "counts": {
     "edges": {
-      "audio": 31,
-      "control": 36,
-      "event": 6,
-      "modulation": 3,
+      "audio": 45,
+      "control": 43,
+      "event": 7,
+      "modulation": 5,
       "observation": 9
     },
     "items": {
-      "block": 53,
+      "block": 64,
       "slot": 12
     },
     "scope": {
-      "engine": 54,
+      "engine": 65,
       "external": 11
     },
-    "stages": 32
+    "stages": 46
   },
   "edge_kinds": [
     "audio",
@@ -25,6 +25,16 @@
     "observation"
   ],
   "edges": [
+    {
+      "cites": [
+        "SN-7"
+      ],
+      "from": "allocator",
+      "id": "allocator->mono_sub",
+      "kind": "event",
+      "label": "the gated notes: the chosen note, its starts",
+      "to": "mono_sub"
+    },
     {
       "cites": [
         "RC-3",
@@ -433,13 +443,66 @@
     },
     {
       "cites": [
-        "§4.2"
+        "SN-7"
+      ],
+      "from": "mono_sub",
+      "id": "mono_sub->mono_sub.envelope",
+      "kind": "audio",
+      "label": "the sub's signal, after its pan, gate and level",
+      "to": "mono_sub.envelope"
+    },
+    {
+      "cites": [
+        "RC-1",
+        "SN-7"
+      ],
+      "from": "mono_sub.envelope",
+      "id": "mono_sub.envelope->voice_sum",
+      "kind": "audio",
+      "label": "joins the voices after their filter slots",
+      "to": "voice_sum"
+    },
+    {
+      "cites": [
+        "SN-4"
       ],
       "from": "noise.colour",
-      "id": "noise.colour->noise.pan",
+      "id": "noise.colour->noise.resonator",
       "kind": "audio",
       "label": null,
-      "to": "noise.pan"
+      "to": "noise.resonator"
+    },
+    {
+      "cites": [
+        "SN-7",
+        "SN-14"
+      ],
+      "from": "noise.filter",
+      "id": "noise.filter->mono_sub",
+      "kind": "modulation",
+      "label": "Erode: the chosen note's voice's noise",
+      "to": "mono_sub"
+    },
+    {
+      "cites": [
+        "SN-4"
+      ],
+      "from": "noise.filter",
+      "id": "noise.filter->noise.spread",
+      "kind": "audio",
+      "label": null,
+      "to": "noise.spread"
+    },
+    {
+      "cites": [
+        "SN-4",
+        "SN-14"
+      ],
+      "from": "noise.filter",
+      "id": "noise.filter->sub.wave",
+      "kind": "modulation",
+      "label": "Erode: the noise before its envelope, level and pan bends the sub's time",
+      "to": "sub.wave"
     },
     {
       "cites": [
@@ -451,6 +514,46 @@
       "kind": "audio",
       "label": null,
       "to": "voice.noise_gate"
+    },
+    {
+      "cites": [
+        "SN-4"
+      ],
+      "from": "noise.resonator",
+      "id": "noise.resonator->noise.whisper",
+      "kind": "audio",
+      "label": null,
+      "to": "noise.whisper"
+    },
+    {
+      "cites": [
+        "SN-4"
+      ],
+      "from": "noise.spread",
+      "id": "noise.spread->noise.pan",
+      "kind": "audio",
+      "label": null,
+      "to": "noise.pan"
+    },
+    {
+      "cites": [
+        "SN-4"
+      ],
+      "from": "noise.whisper",
+      "id": "noise.whisper->noise.wind",
+      "kind": "audio",
+      "label": null,
+      "to": "noise.wind"
+    },
+    {
+      "cites": [
+        "SN-4"
+      ],
+      "from": "noise.wind",
+      "id": "noise.wind->noise.filter",
+      "kind": "audio",
+      "label": null,
+      "to": "noise.filter"
     },
     {
       "cites": [
@@ -644,6 +747,17 @@
     },
     {
       "cites": [
+        "RC-3",
+        "SN-7"
+      ],
+      "from": "pitch_system",
+      "id": "pitch_system->mono_sub",
+      "kind": "control",
+      "label": "the mono sub's glide, once the pitch system sends it",
+      "to": "mono_sub"
+    },
+    {
+      "cites": [
         "IF-2",
         "RC-3"
       ],
@@ -665,6 +779,57 @@
     },
     {
       "cites": [
+        "SN-3"
+      ],
+      "from": "sub.dc",
+      "id": "sub.dc->sub.pan",
+      "kind": "audio",
+      "label": "the default order",
+      "to": "sub.pan"
+    },
+    {
+      "cites": [
+        "SN-3"
+      ],
+      "from": "sub.dc",
+      "id": "sub.dc->sub.tone",
+      "kind": "audio",
+      "label": "in the order drive → tone, env (SN-3)",
+      "to": "sub.tone"
+    },
+    {
+      "cites": [
+        "SN-6"
+      ],
+      "from": "sub.drive",
+      "id": "sub.drive->sub.dc",
+      "kind": "audio",
+      "label": null,
+      "to": "sub.dc"
+    },
+    {
+      "cites": [
+        "SN-3",
+        "SN-5"
+      ],
+      "from": "sub.envelope",
+      "id": "sub.envelope->sub.drive",
+      "kind": "audio",
+      "label": "the default order",
+      "to": "sub.drive"
+    },
+    {
+      "cites": [
+        "SN-3"
+      ],
+      "from": "sub.envelope",
+      "id": "sub.envelope->sub.pan",
+      "kind": "audio",
+      "label": "in the order drive → tone, env (SN-3)",
+      "to": "sub.pan"
+    },
+    {
+      "cites": [
         "RC-6",
         "§4.2"
       ],
@@ -676,13 +841,24 @@
     },
     {
       "cites": [
-        "§4.2"
+        "SN-3"
       ],
       "from": "sub.tone",
-      "id": "sub.tone->sub.pan",
+      "id": "sub.tone->sub.envelope",
       "kind": "audio",
       "label": null,
-      "to": "sub.pan"
+      "to": "sub.envelope"
+    },
+    {
+      "cites": [
+        "SN-3",
+        "SN-5"
+      ],
+      "from": "sub.wave",
+      "id": "sub.wave->sub.drive",
+      "kind": "audio",
+      "label": "in the order drive → tone, env (SN-3)",
+      "to": "sub.drive"
     },
     {
       "cites": [
@@ -691,7 +867,7 @@
       "from": "sub.wave",
       "id": "sub.wave->sub.tone",
       "kind": "audio",
-      "label": null,
+      "label": "the default order",
       "to": "sub.tone"
     },
     {
@@ -722,7 +898,7 @@
       "from": "voice",
       "id": "voice->gui_snapshot",
       "kind": "observation",
-      "label": "R, ψ, phases, windows, frame, level, ENV 1 stage",
+      "label": "R, ψ, phases, windows, frame, level, envelope stages",
       "to": "gui_snapshot"
     },
     {
@@ -732,18 +908,19 @@
       "from": "voice",
       "id": "voice->meters",
       "kind": "observation",
-      "label": "each source after its level, pan and gate, × ENV 1 × velocity, summed over voices",
+      "label": "each source after its level, pan and gate, × its governing envelope, summed over voices",
       "to": "meters"
     },
     {
       "cites": [
+        "EN-5",
         "IF-3",
         "RC-4"
       ],
       "from": "voice",
       "id": "voice->modulation",
       "kind": "observation",
-      "label": "published sources: R, ψ, onset burst, gravity offset, velocity, expressions",
+      "label": "published sources: ENV 1 to ENV 4, R, ψ, onset burst, gravity offset, velocity, expressions",
       "to": "modulation"
     },
     {
@@ -758,25 +935,37 @@
     },
     {
       "cites": [
-        "§4.1",
-        "§4.2"
+        "RC-6.5",
+        "SN-3",
+        "VO-8"
       ],
-      "from": "voice.amp",
-      "id": "voice.amp->voice_sum",
-      "kind": "audio",
-      "label": null,
-      "to": "voice_sum"
+      "from": "voice.envelopes",
+      "id": "voice.envelopes->sub.envelope",
+      "kind": "control",
+      "label": "the governing envelope's level × its velocity factor",
+      "to": "sub.envelope"
     },
     {
       "cites": [
-        "C.12",
-        "VO-9"
+        "RC-6.5",
+        "VO-8"
       ],
-      "from": "voice.env1",
-      "id": "voice.env1->voice.amp",
+      "from": "voice.envelopes",
+      "id": "voice.envelopes->voice.noise_env",
       "kind": "control",
-      "label": "envelope level",
-      "to": "voice.amp"
+      "label": "the governing envelope's level × its velocity factor",
+      "to": "voice.noise_env"
+    },
+    {
+      "cites": [
+        "RC-6.5",
+        "VO-8"
+      ],
+      "from": "voice.envelopes",
+      "id": "voice.envelopes->voice.osc_env",
+      "kind": "control",
+      "label": "the governing envelope's level × its velocity factor",
+      "to": "voice.osc_env"
     },
     {
       "cites": [
@@ -784,10 +973,10 @@
         "§4.2"
       ],
       "from": "voice.filter_slot",
-      "id": "voice.filter_slot->voice.amp",
+      "id": "voice.filter_slot->voice_sum",
       "kind": "audio",
       "label": "one stereo signal per voice",
-      "to": "voice.amp"
+      "to": "voice_sum"
     },
     {
       "cites": [
@@ -824,6 +1013,17 @@
     },
     {
       "cites": [
+        "RC-1",
+        "VO-9"
+      ],
+      "from": "voice.noise_env",
+      "id": "voice.noise_env->voice.filter_slot",
+      "kind": "audio",
+      "label": null,
+      "to": "voice.filter_slot"
+    },
+    {
+      "cites": [
         "§4.2"
       ],
       "from": "voice.noise_gate",
@@ -834,11 +1034,21 @@
     },
     {
       "cites": [
+        "§4.2"
+      ],
+      "from": "voice.noise_level",
+      "id": "voice.noise_level->voice.noise_env",
+      "kind": "audio",
+      "label": null,
+      "to": "voice.noise_env"
+    },
+    {
+      "cites": [
         "RC-1",
         "VO-9"
       ],
-      "from": "voice.noise_level",
-      "id": "voice.noise_level->voice.filter_slot",
+      "from": "voice.osc_env",
+      "id": "voice.osc_env->voice.filter_slot",
       "kind": "audio",
       "label": null,
       "to": "voice.filter_slot"
@@ -855,14 +1065,57 @@
     },
     {
       "cites": [
-        "RC-1",
-        "VO-9"
+        "§4.2"
       ],
       "from": "voice.osc_level",
-      "id": "voice.osc_level->voice.filter_slot",
+      "id": "voice.osc_level->voice.osc_env",
       "kind": "audio",
       "label": null,
-      "to": "voice.filter_slot"
+      "to": "voice.osc_env"
+    },
+    {
+      "cites": [
+        "IF-2",
+        "SN-7"
+      ],
+      "from": "voice.pitch",
+      "id": "voice.pitch->mono_sub",
+      "kind": "control",
+      "label": "the chosen note's sounding pitch",
+      "to": "mono_sub"
+    },
+    {
+      "cites": [
+        "SN-8",
+        "SN-11"
+      ],
+      "from": "voice.pitch",
+      "id": "voice.pitch->noise.colour",
+      "kind": "control",
+      "label": "the note's pitch × Pitch: the LFSR's clock",
+      "to": "noise.colour"
+    },
+    {
+      "cites": [
+        "SN-10",
+        "SN-11"
+      ],
+      "from": "voice.pitch",
+      "id": "voice.pitch->noise.filter",
+      "kind": "control",
+      "label": "the note's pitch × Pitch: keytracking",
+      "to": "noise.filter"
+    },
+    {
+      "cites": [
+        "SN-9",
+        "SN-11"
+      ],
+      "from": "voice.pitch",
+      "id": "voice.pitch->noise.resonator",
+      "kind": "control",
+      "label": "the note's pitch × Pitch: the tuning",
+      "to": "noise.resonator"
     },
     {
       "cites": [
@@ -1235,15 +1488,40 @@
       ],
       "id": "modulation",
       "kind": "slot",
-      "label": "the modulation and morph systems: ENV 2 to 4, LFOs, matrix, macros, intents, morph",
+      "label": "the modulation and morph systems: LFOs, matrix and routes, macros, intents, morph",
       "multiplicity": null,
       "parent": "instrument",
       "scope": "external"
     },
     {
       "cites": [
+        "RC-6.6",
+        "SN-7"
+      ],
+      "id": "mono_sub",
+      "kind": "block",
+      "label": "the mono sub: the sub, once for the instrument",
+      "multiplicity": null,
+      "parent": "engine",
+      "scope": "engine"
+    },
+    {
+      "cites": [
+        "C.12",
+        "SN-7"
+      ],
+      "id": "mono_sub.envelope",
+      "kind": "block",
+      "label": "its own envelope instance",
+      "multiplicity": null,
+      "parent": "mono_sub",
+      "scope": "engine"
+    },
+    {
+      "cites": [
         "RC-6",
         "SN-4",
+        "SN-13",
         "§5.6"
       ],
       "id": "noise",
@@ -1255,11 +1533,24 @@
     },
     {
       "cites": [
-        "SN-4"
+        "SN-4",
+        "SN-8"
       ],
       "id": "noise.colour",
       "kind": "block",
-      "label": "per-voice seeded noise, colour",
+      "label": "per-voice seeded source, colour",
+      "multiplicity": null,
+      "parent": "noise",
+      "scope": "engine"
+    },
+    {
+      "cites": [
+        "SN-10",
+        "SN-11"
+      ],
+      "id": "noise.filter",
+      "kind": "block",
+      "label": "noise filter",
       "multiplicity": null,
       "parent": "noise",
       "scope": "engine"
@@ -1267,11 +1558,56 @@
     {
       "cites": [
         "C.8",
-        "SN-4"
+        "SN-12"
       ],
       "id": "noise.pan",
       "kind": "block",
       "label": "pan",
+      "multiplicity": null,
+      "parent": "noise",
+      "scope": "engine"
+    },
+    {
+      "cites": [
+        "SN-9",
+        "SN-11"
+      ],
+      "id": "noise.resonator",
+      "kind": "block",
+      "label": "Resonator",
+      "multiplicity": null,
+      "parent": "noise",
+      "scope": "engine"
+    },
+    {
+      "cites": [
+        "SN-12"
+      ],
+      "id": "noise.spread",
+      "kind": "block",
+      "label": "stereo spread",
+      "multiplicity": null,
+      "parent": "noise",
+      "scope": "engine"
+    },
+    {
+      "cites": [
+        "SN-9"
+      ],
+      "id": "noise.whisper",
+      "kind": "block",
+      "label": "Whisper",
+      "multiplicity": null,
+      "parent": "noise",
+      "scope": "engine"
+    },
+    {
+      "cites": [
+        "SN-9"
+      ],
+      "id": "noise.wind",
+      "kind": "block",
+      "label": "Wind",
       "multiplicity": null,
       "parent": "noise",
       "scope": "engine"
@@ -1512,6 +1848,41 @@
     },
     {
       "cites": [
+        "SN-6"
+      ],
+      "id": "sub.dc",
+      "kind": "block",
+      "label": "DC removal: the driven shape's exact mean, then a 2 Hz blocker",
+      "multiplicity": null,
+      "parent": "sub",
+      "scope": "engine"
+    },
+    {
+      "cites": [
+        "SN-5"
+      ],
+      "id": "sub.drive",
+      "kind": "block",
+      "label": "drive: saturator and Crunch, at twice the host rate",
+      "multiplicity": null,
+      "parent": "sub",
+      "scope": "engine"
+    },
+    {
+      "cites": [
+        "RC-6.5",
+        "SN-3",
+        "VO-9"
+      ],
+      "id": "sub.envelope",
+      "kind": "block",
+      "label": "× its envelope, inside the sub's chain",
+      "multiplicity": null,
+      "parent": "sub",
+      "scope": "engine"
+    },
+    {
+      "cites": [
         "C.8",
         "SN-1"
       ],
@@ -1536,11 +1907,12 @@
     {
       "cites": [
         "SN-1",
-        "SN-2"
+        "SN-2",
+        "SN-14"
       ],
       "id": "sub.wave",
       "kind": "block",
-      "label": "one phase, one shape",
+      "label": "one phase, one shape, eroded",
       "multiplicity": null,
       "parent": "sub",
       "scope": "engine"
@@ -1572,25 +1944,16 @@
     },
     {
       "cites": [
-        "VO-8",
-        "VO-9"
-      ],
-      "id": "voice.amp",
-      "kind": "block",
-      "label": "× ENV 1 × velocity",
-      "multiplicity": null,
-      "parent": "voice",
-      "scope": "engine"
-    },
-    {
-      "cites": [
         "C.12",
         "EN",
-        "EN-1"
+        "EN-1",
+        "EN-5",
+        "RC-4",
+        "VO-8"
       ],
-      "id": "voice.env1",
+      "id": "voice.envelopes",
       "kind": "block",
-      "label": "ENV 1",
+      "label": "ENV 1 to ENV 4, each × its velocity factor",
       "multiplicity": null,
       "parent": "voice",
       "scope": "engine"
@@ -1633,6 +1996,18 @@
     },
     {
       "cites": [
+        "RC-6.5",
+        "VO-9"
+      ],
+      "id": "voice.noise_env",
+      "kind": "block",
+      "label": "× its envelope",
+      "multiplicity": null,
+      "parent": "voice",
+      "scope": "engine"
+    },
+    {
+      "cites": [
         "IF-6",
         "§4.2"
       ],
@@ -1652,6 +2027,18 @@
       "kind": "block",
       "label": "noise level",
       "multiplicity": null,
+      "parent": "voice",
+      "scope": "engine"
+    },
+    {
+      "cites": [
+        "RC-6.5",
+        "VO-9"
+      ],
+      "id": "voice.osc_env",
+      "kind": "block",
+      "label": "× its envelope",
+      "multiplicity": "2: osc 1 and osc 2",
       "parent": "voice",
       "scope": "engine"
     },
@@ -1761,6 +2148,12 @@
     },
     {
       "ids": [
+        "voice.envelopes"
+      ],
+      "stage": "envelopes: ENV 1 to ENV 4 (C.12), each × its velocity factor (VO-8)"
+    },
+    {
+      "ids": [
         "member",
         "osc"
       ],
@@ -1822,6 +2215,12 @@
     },
     {
       "ids": [
+        "voice.osc_env"
+      ],
+      "stage": "osc 1: × its envelope (RC-6.5)"
+    },
+    {
+      "ids": [
         "osc"
       ],
       "stage": "osc 2: the same, independent"
@@ -1834,10 +2233,39 @@
     },
     {
       "ids": [
-        "sub.tone",
+        "voice.osc_env"
+      ],
+      "stage": "osc 2: × its envelope"
+    },
+    {
+      "ids": [
         "sub.wave"
       ],
-      "stage": "sub: one phase, one shape, tone"
+      "stage": "sub: one phase, one shape, eroded"
+    },
+    {
+      "ids": [
+        "sub.tone"
+      ],
+      "stage": "sub: tone"
+    },
+    {
+      "ids": [
+        "sub.envelope"
+      ],
+      "stage": "sub: × its envelope"
+    },
+    {
+      "ids": [
+        "sub.drive"
+      ],
+      "stage": "sub: drive"
+    },
+    {
+      "ids": [
+        "sub.dc"
+      ],
+      "stage": "sub: DC removal"
     },
     {
       "ids": [
@@ -1861,7 +2289,37 @@
       "ids": [
         "noise.colour"
       ],
-      "stage": "noise: per-voice seeded noise, colour"
+      "stage": "noise: per-voice seeded source, colour"
+    },
+    {
+      "ids": [
+        "noise.resonator"
+      ],
+      "stage": "noise: Resonator"
+    },
+    {
+      "ids": [
+        "noise.whisper"
+      ],
+      "stage": "noise: Whisper"
+    },
+    {
+      "ids": [
+        "noise.wind"
+      ],
+      "stage": "noise: Wind"
+    },
+    {
+      "ids": [
+        "noise.filter"
+      ],
+      "stage": "noise: noise filter"
+    },
+    {
+      "ids": [
+        "noise.spread"
+      ],
+      "stage": "noise: stereo spread"
     },
     {
       "ids": [
@@ -1883,16 +2341,27 @@
     },
     {
       "ids": [
+        "voice.noise_env"
+      ],
+      "stage": "noise: × its envelope"
+    },
+    {
+      "ids": [
         "voice.filter_slot"
       ],
       "stage": "per-voice filter slot (stereo-linked)"
     },
     {
       "ids": [
-        "voice.amp",
-        "voice.env1"
+        "mono_sub"
       ],
-      "stage": "× ENV 1 × velocity"
+      "stage": "mono sub: the sub, once for the instrument (SN-7)"
+    },
+    {
+      "ids": [
+        "mono_sub.envelope"
+      ],
+      "stage": "mono sub: its own envelope"
     },
     {
       "ids": [
@@ -1926,7 +2395,7 @@
     }
   ],
   "spec": {
-    "blob": "7f61797edb9c7c20c28e48ad5c64241d8c2e60a3",
+    "blob": "66d2a0767fc6d6fc6779b1be535eef7d88afa4ea",
     "path": "specs/SPEC-ENGINE.md"
   }
 }
