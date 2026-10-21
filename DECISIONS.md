@@ -8932,6 +8932,22 @@ Ruling 9's reason was wrong. It said "the drive hears the classic ±1 pulse, so 
 - **FX device (ADR-254):** the Specimen is driven by notes, so the FX device needs an audio-driven stand-in. This is recorded for B528.
 - B432's screen-reader view doubles as each module's house-style backup UI (ADR-235).
 
+## ADR-260 — Spec round 27: stage 6's open readings pinned (B494, B514; Q-TA-54 to 58, 2026-10-21)
+
+**Context.** Writing stage 6's tests, the test author found discretisations round 26 left open (Q-TA-55, 56, 57), a host event on a reserved id (Q-TA-54), and a key its harness needs from the fifth-source test build (Q-TA-58). Readings that bind the engine belong in the spec, not only in the test author's questions file, so round 27 pins them. Each reading comes from the test author, engine-free, and none is builder-origin. The test author would pin none differently.
+
+**The human's ruling (by poll, 2026-10-21):** a `Param` event on a reserved row's id is **refused and counted by PA-7 like an unknown id**; a state's stored value is still kept and read as 0 (§5.1).
+
+**The lead's pins** (readings with no sound consequence beyond parts in 10⁴, recorded in the rulings log):
+- **SN-5, the drive's resampler:** each biquad goes through the bilinear transform prewarped at its cutoff, and the second of each pair of f₂ samples is kept.
+- **SN-5, Crunch's follower:** e ← e + (1 − e^(−1/(τ·f₂)))·(|y| − e), with τ 1 ms rising and 50 ms falling.
+- **SN-6, the blocker:** y[n] = x[n] − x[n−1] + R·y[n−1], R = e^(−2π·2/f_h).
+- **SN-6, M's envelope level:** read at the interval's first sample, with M ramped across the interval (PA-3). This lets item 25.3's bound tighten.
+- **SN-2, the smooth square:** k may fall below 0.2 near the cap, and at m = 1 the shape is its limit, a sine.
+- **RC-6.4:** the fifth-source test build carries `sine.env` (Step, ENV 1–4, default ENV 1).
+
+**Consequences.** On merge the round reaches both clean-room repos. The test author tests the refused reserved-id event and tightens item 25.3. The builder follows the pins.
+
 ## ADR-261 — The morph knob and map mode specs ingested; four rulings (B532, B531, B392, 2026-10-21)
 
 **Context.** The human delivered five documents on 2026-10-21:
