@@ -8875,3 +8875,39 @@ Ruling 9's reason was wrong. It said "the drive hears the classic ±1 pulse, so 
 - the bus carries canonical pitch: base frequency from the tuning, with bend and glide as per-note pitch-offset events, sample-accurate, and each consumer derives its own hearing.
 
 `lastHz` stays as a convenience, defined from base and offset. The brief to FOUNDATIONS (`note-context`) is updated in place, before FOUNDATIONS reads it. It now cites #115 and OQ #31 and reports that their registered trigger has fired: Shriek's pitch-tracked feedback is horde's second note-hearing FX. Response to Shriek: seq 14. Lesson for the lead: read a thread's earlier rulings before filing on its subject (doctrine: read INTEGRATIONS.md, and the thread, at the start of cross-repo work).
+
+## ADR-258 — Spec round 26: the sub and the noise oscillator for stage 6 (B514, B515, B494; the human's rulings of 2026-10-20)
+
+**Context.** ADR-255 recorded the human's final sub and noise rulings. Round 26 writes them into SPEC-ENGINE §5, §6.10, RC-1/3/4/6, EN-1–5, PA-4/5/8, DT-4, QS-11 and §10.1 items 24–33, from the audition lab's laws (form and numbers only; the lab is not a parity target). Two Opus critics reviewed it, both FIX-THEN-SHIP, and their fixes are applied. A third, focused pass covered the lab additions, also FIX-THEN-SHIP and applied.
+
+**The human's further rulings (by poll, 2026-10-20).**
+1. **The sub keeps an `order` switch:** "tone, env → drive", the lab's order and the default, or "drive → tone, env".
+2. **Erode is added:** the noise oscillator's pre-envelope signal moves the sub's time (θ − f·τ).
+3. **The smooth square is added:** tanh(k·sin)/tanh(k), with a Softness control.
+4. **LFSR Keytrack is added:** off pins the LFSR's clock to C3; the noise Pitch control then sets it.
+5. **"Noise heard" is dropped,** and the noise level's bottom is a true off.
+6. **The filters ring out:** a voice frees only after its filters' tails die away. This is a requirement on the filter slot, RC-1.
+7. **S&H and LFSR stay raw:** their steps are not band-limited (ED-1's one exception), since their alias grit is the sound the human approved.
+8. **Keep the gate on the sub's DC:** in the default order the post-drive mean is computed on the tone-filtered shape, so QS-6 holds in both orders.
+
+**Readings the rulings did not dictate,** listed in §6.10's rationale and checked by the critics:
+- the engine computes ENV 2–4 (EN-5), with their ids in a block of their own (both deviations from ADR-255's consequences);
+- envelopes act before the filter slot;
+- the mono sub runs outside the voices (its filtering corrected by the human's ruling below);
+- the classic pulse is +1 first;
+- the bump's peak is taken after its fades;
+- the drive's 2× resampler is pinned to C.15's;
+- spread's √(2/(2−s)) scaling;
+- the Resonator's 20 Hz floor;
+- Erode's depth is normalised so it matches what the human heard;
+- a voice with a driven sub in the default order frees only at the envelope's end.
+
+**Counts:** 161 table rows, 326 manifest parameters (9 reserved: the pitch modes, the noise's source mode and the sampler's keys), 317 host parameters.
+
+**Left to the test author, engine-free:** QS-11's floors, the thump and residue bounds of item 25, the spread statistics, the bump peak's tolerance, and the confirmation that the smooth square's ratios fall with n.
+
+**FX device (ADR-254):** none. Sources are voice-bound and instrument-only. ENV 2–4 are voice-bound modulation sources, built with no dependency on the voice, so the FX device can instance them per sidechain note (EN-5).
+
+**A further ruling (the human, by poll, 2026-10-21: "Its own filter, following its note").** The draft had the mono sub bypass the filters, because each filter lives inside a voice. Instead, the mono sub gets one filter-slot instance of its own, driven by the settings and per-voice modulation of the voice holding its chosen note. It behaves as that note's filter, never hops between voices, and carries its state across a hand-off (RC-1, SN-7, X13).
+
+**Consequences.** On merge, the spec goes to both clean-room repos in the same turn. The test author writes stage 6's tests (items 24–33), then the builder builds stage 6.
