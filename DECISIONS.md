@@ -9114,7 +9114,7 @@ The test author's audit found no item that expects a glided value, so no test ch
    - **Note-relative timing:** counting from each note-on instead of the bar.
 
    It is deterministic: tempo and transport arrive as data, ticks are computed from the transport and placed at sample offsets, and no wall clock is read.
-2. **Hosted modules declare their actions** ("Declared actions"). A module may declare a list of named actions, for example Sluice's clear. horde fires them as sample-accurate events in the per-block context, beside the note context (RS-4.11). Actions are never host-automatable parameters, so automation cannot fire a stray clear. A gesture that fires one is one undo step. This settles the open question of hosted-module triggers (B226 Q1) for the timer's use.
+2. **Hosted modules declare their actions** ("Declared actions"). A module may declare a list of named actions, for example Sluice's clear. horde fires them as sample-accurate events in the per-block context, beside the note context (RS-4.11). Actions are never host-automatable parameters, so automation cannot fire a stray clear. This settles the open question of hosted-module triggers (B226 Q1) for the timer's use.
 
 **Consequences.**
 - The rack contract gains RS-4.12 (§12.6), PROPOSED.
@@ -9122,3 +9122,8 @@ The test author's audit found no item that expects a glided value, so no test ch
 - The FOUNDATIONS ABI entry for the per-block context (brief `note-context`) is to carry actions too; it will be raised when FOUNDATIONS answers.
 - The modulator lab prototypes the timer (B541).
 - **FX device (ADR-254):** the timer is a free source (tempo and transport), apart from its note-relative mode, which takes the sidechain's notes.
+
+**ADR-267 A1: triggers are performance events, never history (the human, 2026-10-21).** The human: "So the trigger doesn't ever create a history node, there needs to be a category of event that is causal but isolated to trigger events and doesn't change the state of the synth (like the clear sluice event). Maybe certain arp notes can cause triggers as well, and triggers can send impulses to certain parameters (like pumping the drive on Shriek, etc)." This corrects ruling 2's "one undo step".
+1. **A trigger is a performance event.** It is causal (it changes the sound) but isolated from the synth's state. Firing an action, whether from the timer, a click or an arp step, creates **no history node**, no undo step and no change to the saved patch or preset. Editing a trigger source's settings or routes is an edit, and is recorded as one. A module's action may change the module's runtime state (clear empties Sluice's bank), but never its saved state.
+2. **Impulses.** A trigger can also send an **impulse** to a continuous parameter: a one-shot shape (attack, decay in seconds, curve, amount) added through the mod matrix like a mapping, summed and clamped once, polarity uni, bi or inverse. Control is excluded, because an impulse is momentary. A retrigger restarts it from its current level, so it never clicks. "Pumping the drive on Shriek" is one.
+3. **Arp notes can cause triggers.** Arp (B539) may flag steps as triggers that fire the same targets. This is noted in Arp's spin-up brief.
