@@ -53,6 +53,8 @@
 **Lead readings with no recorded ruling (B520: owed to the human):** B-12 (QS-4's must-fire signals), B-13 (the
 saw no-click set moved to reported), B-27 (`env1.decayCurve` reported), and Q-TA-1/6 (the frozen no-click set).
 
+**Off-machine copy (B533).** Pushed 2026-10-21: `horde-cleanroom-tests` at `ade127e`, `horde-cleanroom-engine` at `fbeb224` (contains stage 5's `65a155c`); both at spec round 28.
+
 **Exposures.**
 - **2026-10-19, the builder's opener pasted into the test author's folder.** That session saw a few builder facts:
   that stage 5 was committed, the commit ids, and the file name `swarm.cpp`. It was closed and replaced by a fresh
