@@ -1,0 +1,360 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>HORDE Map Mode</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;600;700&family=Martian+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one plugin panel — top bar (pages + persistent MAP control), live source strip, knob grid beside an inspector rail, hint footer */
+:root{
+  --bg:#0d1014; --panel:#151920; --panel2:#1c2129; --line:#29303a; --fg:#d9dee6; --dim:#7b8594; --faint:#3a424e;
+  --src:#5fd4ff;
+  --display:"Familjen Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --mono:"Martian Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--display);padding-block:20px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));}
+.wrap{max-width:1060px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.intro{color:var(--dim);font-size:13px;line-height:1.5;max-width:70ch}
+.intro b{color:var(--fg);font-weight:600}
+.plugin{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;transition:box-shadow .15s,border-color .15s}
+body.mapping .plugin{border-color:var(--src);box-shadow:0 0 0 1px var(--src),0 0 28px -6px var(--src)}
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--panel2)}
+.brand{font-weight:700;letter-spacing:.18em;font-size:15px}
+.tabs{display:flex;gap:2px;background:var(--bg);border-radius:6px;padding:2px}
+.tabs button{all:unset;cursor:pointer;font-family:var(--mono);font-size:11px;letter-spacing:.08em;padding:6px 12px;border-radius:4px;color:var(--dim)}
+.tabs button[aria-selected="true"]{background:var(--panel2);color:var(--fg)}
+.tabs button:focus-visible,.mapbtn:focus-visible{outline:2px solid var(--src);outline-offset:2px}
+.spacer{flex:1}
+.mapctl{display:flex;align-items:stretch;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.mapbtn{all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;padding:6px 12px;font-family:var(--mono);font-size:11px;letter-spacing:.12em;font-weight:500;background:var(--bg)}
+.mapbtn .led{width:8px;height:8px;border-radius:50%;background:var(--faint);transition:background .1s,box-shadow .1s}
+body.mapping .mapbtn{background:var(--src);color:#0d1014}
+body.mapping .mapbtn .led{background:#0d1014}
+.mapbtn .hold{display:none;font-size:9px;opacity:.75}
+body.momentary .mapbtn .hold{display:inline}
+.mapctl select{font-family:var(--mono);font-size:11px;background:var(--panel);color:var(--fg);border:0;border-left:1px solid var(--line);padding:0 8px;cursor:pointer}
+.sources{display:flex;flex-wrap:wrap;gap:6px;padding:8px 14px;border-bottom:1px solid var(--line)}
+.srcchip{all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;padding:4px 8px 4px 6px;border-radius:5px;border:1px solid transparent;font-family:var(--mono);font-size:10px;color:var(--dim)}
+.srcchip.cur{border-color:var(--c);color:var(--fg)}
+.srcchip .meter{width:38px;height:6px;background:var(--bg);border-radius:3px;overflow:hidden}
+.srcchip .meter i{display:block;height:100%;background:var(--c);width:50%}
+.srcchip kbd{font-family:var(--mono);font-size:9px;color:var(--faint)}
+.main{display:grid;grid-template-columns:1fr 290px}
+@media (max-width:780px){.main{grid-template-columns:1fr}.insp{border-left:0;border-top:1px solid var(--line)}}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:6px;padding:14px;align-content:start;min-width:0}
+.knob{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px 10px;border-radius:8px;user-select:none;-webkit-user-select:none;touch-action:none;cursor:ns-resize;border:1px solid transparent;outline:none}
+.knob:focus-visible{border-color:var(--faint)}
+.knob.sel{background:var(--panel2);border-color:var(--line)}
+body.mapping .knob{cursor:copy}
+body.mapping .knob:hover{background:color-mix(in srgb,var(--src) 10%,transparent)}
+.knob svg{width:84px;height:84px;display:block}
+.knob .name{font-size:12px;font-weight:600;letter-spacing:.02em}
+.knob .val{font-family:var(--mono);font-size:10px;color:var(--dim);font-variant-numeric:tabular-nums;height:14px}
+.knob .focus{font-family:var(--mono);font-size:9px;height:12px;letter-spacing:.06em;opacity:0;transition:opacity .1s}
+body.altheld .knob .focus,body.mapping .knob .focus{opacity:1}
+.insp{border-left:1px solid var(--line);padding:14px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.insp h2{margin:0;font-size:11px;font-family:var(--mono);font-weight:500;letter-spacing:.14em;color:var(--dim);text-transform:uppercase}
+.insp .pname{font-size:20px;font-weight:700;margin-top:2px;text-wrap:balance}
+.mods{display:flex;flex-direction:column;gap:4px}
+.modrow{display:grid;grid-template-columns:10px 1fr auto 44px 20px;align-items:center;gap:8px;padding:6px 8px;border-radius:5px;background:var(--bg);font-family:var(--mono);font-size:10px;border:1px solid transparent}
+.modrow.foc{border-color:var(--c)}
+.modrow .dot{width:8px;height:8px;border-radius:50%;background:var(--c)}
+.modrow .pol{all:unset;cursor:pointer;padding:2px 6px;border-radius:3px;background:var(--panel2);color:var(--fg);font-size:9px;letter-spacing:.06em}
+.modrow .dep{text-align:right;font-variant-numeric:tabular-nums}
+.modrow .x{all:unset;cursor:pointer;color:var(--dim);text-align:center}
+.modrow .x:hover{color:var(--fg)}
+.empty{color:var(--dim);font-size:12px;line-height:1.5}
+.keys{display:grid;grid-template-columns:auto 1fr;gap:5px 10px;font-size:12px;color:var(--dim);line-height:1.35}
+.keys kbd{font-family:var(--mono);font-size:10px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:3px;padding:1px 5px;white-space:nowrap;justify-self:start}
+.keys .grp{grid-column:1/-1;font-family:var(--mono);font-size:9px;letter-spacing:.14em;color:var(--faint);margin-top:4px}
+.foot{display:flex;flex-wrap:wrap;gap:6px 18px;padding:9px 14px;border-top:1px solid var(--line);background:var(--panel2);font-size:12px;color:var(--dim);min-height:36px;align-items:center}
+.foot .log{font-family:var(--mono);font-size:10px;color:var(--fg)}
+.opts{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--dim)}
+.opts label{display:flex;gap:8px;align-items:center;cursor:pointer}
+@media (prefers-reduced-motion:reduce){.plugin,.mapbtn .led{transition:none}}
+</style>
+
+<div class="wrap">
+  <p class="intro"><b>Map mode prototype.</b> The modulators are running live, so mapped knobs move. Turn on <b>MAP</b> (or tap <b>M</b>; hold M for momentary), pick a source, then click or drag knobs on any page. With MAP off, hold <b>⌥ Option</b> and drag a knob to change mod depth, or ⌥-click to switch which modulator you're adjusting.</p>
+
+  <div class="plugin">
+    <div class="top">
+      <div class="brand">HORDE</div>
+      <div class="tabs" role="tablist" id="tabs"></div>
+      <div class="spacer"></div>
+      <div class="mapctl">
+        <button class="mapbtn" id="mapbtn" aria-pressed="false"><span class="led"></span>MAP <span class="hold">HOLD</span></button>
+        <select id="srcsel" aria-label="Modulation source"></select>
+      </div>
+    </div>
+    <div class="sources" id="sources"></div>
+    <div class="main">
+      <div class="grid" id="grid"></div>
+      <aside class="insp">
+        <div>
+          <h2>Selected</h2>
+          <div class="pname" id="pname">—</div>
+        </div>
+        <div class="mods" id="mods"></div>
+        <div class="opts">
+          <label><input type="checkbox" id="optDefault" checked> Click without drag maps at 25% depth</label>
+          <label><input type="checkbox" id="optAutoFocus" checked> Newly mapped source becomes the focused one</label>
+        </div>
+        <div class="keys">
+          <span class="grp">MAP ON</span>
+          <kbd>click</kbd><span>assign current source</span>
+          <kbd>drag ↕</kbd><span>set depth for current source</span>
+          <kbd>P</kbd><span>cycle polarity: uni → bi → inverse</span>
+          <kbd>1–5</kbd><span>switch source</span>
+          <kbd>⌫</kbd><span>remove last mapping</span>
+          <kbd>Esc</kbd><span>exit map mode</span>
+          <span class="grp">MAP OFF</span>
+          <kbd>drag ↕</kbd><span>set value</span>
+          <kbd>⌥ drag</kbd><span>depth of focused modulator</span>
+          <kbd>⌥ click</kbd><span>cycle focused modulator</span>
+          <kbd>⌥ P</kbd><span>polarity of focused modulator</span>
+          <span class="grp">ANYWHERE</span>
+          <kbd>M</kbd><span>tap to latch, hold for momentary</span>
+          <kbd>[ ]</kbd><span>previous / next page</span>
+        </div>
+      </aside>
+    </div>
+    <div class="foot"><span id="hint"></span><span class="log" id="log"></span></div>
+  </div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const clamp=(v,a=0,b=1)=>Math.min(b,Math.max(a,v));
+let ouState=0.5;
+const SRC=[
+  {id:'lfo1',name:'LFO 1',color:'#5fd4ff',f:t=>0.5+0.5*Math.sin(t*Math.PI*2*0.45)},
+  {id:'lfo2',name:'LFO 2',color:'#b791ff',f:t=>{const p=(t*0.16)%1;return p<.5?p*2:2-p*2}},
+  {id:'env2',name:'ENV 2',color:'#ffb35c',f:t=>{const p=(t%1.7);return p<.04?p/.04:Math.exp(-(p-.04)*3.2)}},
+  {id:'rand',name:'RANDOM',color:'#ff6fa3',f:()=>ouState},
+  {id:'mac1',name:'MACRO 1',color:'#9be36b',f:t=>0.5+0.32*Math.sin(t*Math.PI*2*0.05)}
+];
+const srcById=Object.fromEntries(SRC.map(s=>[s.id,s]));
+const pct=v=>Math.round(v*100)+'%';
+const PAGES=[
+  {id:'osc',name:'OSC',params:[
+    ['k','Coupling K',.62,v=>(v*2-1).toFixed(2),true],
+    ['detune','Detune',.35,v=>(v*50).toFixed(1)+' ct'],
+    ['voices','Voices',.45,v=>String(1+Math.round(v*15))],
+    ['spread','Spread',.7,pct],
+    ['inertia','Inertia',.3,v=>(v*2000).toFixed(0)+' ms'],
+    ['level','Level',.8,v=>(v<=0?'-∞':(20*Math.log10(v)).toFixed(1))+' dB']]},
+  {id:'morph',name:'MORPH',params:[
+    ['padx','Pad X',.5,v=>(v*2-1).toFixed(2),true],
+    ['pady','Pad Y',.5,v=>(v*2-1).toFixed(2),true],
+    ['quantum','Quantum',.2,pct],
+    ['stab','Stability',.65,pct]]},
+  {id:'fx',name:'FX',params:[
+    ['drive','Warp Drive',.4,v=>(v*24).toFixed(1)+' dB'],
+    ['fold','Fold',.25,v=>(1+v*7).toFixed(2)],
+    ['shape','Shape',.5,pct],
+    ['cutoff','Cutoff',.6,v=>{const h=20*Math.pow(1000,v);return h>=1000?(h/1000).toFixed(2)+' kHz':h.toFixed(0)+' Hz'}],
+    ['reso','Reso',.3,pct],
+    ['mix','Mix',1,pct]]}
+];
+const P={};
+PAGES.forEach(pg=>pg.params.forEach(([id,name,v,fmt,bip])=>P[id]={id,name,value:v,fmt,bip:!!bip,page:pg.id}));
+
+// state
+let page='osc', mapMode=false, curSrc='lfo1', selected='k', lastMap=null, altHeld=false;
+const maps=[]; // {param,src,depth,pol}
+const focusIdx={}; // param -> index into its mappings
+const POLS=['uni','bi','inv'], POLNAME={uni:'UNIPOLAR',bi:'BIPOLAR',inv:'INVERSE'}, POLSHORT={uni:'UNI',bi:'BI',inv:'INV'};
+const mapsOf=p=>maps.filter(m=>m.param===p);
+const focused=p=>{const l=mapsOf(p);if(!l.length)return null;return l[Math.min(focusIdx[p]||0,l.length-1)]};
+// seed a couple of example mappings so the first view shows the system
+maps.push({param:'detune',src:'lfo2',depth:.3,pol:'bi'},{param:'detune',src:'rand',depth:.18,pol:'uni'},{param:'cutoff',src:'env2',depth:.35,pol:'uni'},{param:'k',src:'mac1',depth:.4,pol:'bi'});
+
+// ---------- UI build ----------
+const tabs=$('#tabs');
+PAGES.forEach(pg=>{const b=document.createElement('button');b.textContent=pg.name;b.setAttribute('role','tab');b.onclick=()=>setPage(pg.id);b.dataset.p=pg.id;tabs.appendChild(b)});
+const sel=$('#srcsel');
+SRC.forEach((s,i)=>{const o=document.createElement('option');o.value=s.id;o.textContent=s.name;sel.appendChild(o)});
+sel.onchange=()=>{setSrc(sel.value);sel.blur()};
+const srcWrap=$('#sources'), meters={};
+SRC.forEach((s,i)=>{const b=document.createElement('button');b.className='srcchip';b.style.setProperty('--c',s.color);
+  b.innerHTML=`<span class="meter"><i></i></span>${s.name}<kbd>${i+1}</kbd>`;b.onclick=()=>setSrc(s.id);b.dataset.s=s.id;srcWrap.appendChild(b);meters[s.id]=b.querySelector('i')});
+
+const NS='http://www.w3.org/2000/svg', C=42, R=22;
+const pt=(r,v)=>{const a=(-135+270*v)*Math.PI/180;return[C+r*Math.sin(a),C-r*Math.cos(a)]};
+function arc(r,v1,v2){v1=clamp(v1);v2=clamp(v2);if(v2<v1)[v1,v2]=[v2,v1];if(v2-v1<.003)return'';
+  const[x1,y1]=pt(r,v1),[x2,y2]=pt(r,v2);return`M${x1.toFixed(2)} ${y1.toFixed(2)}A${r} ${r} 0 ${(v2-v1)*270>180?1:0} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`}
+const el=(tag,attrs)=>{const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);return e};
+let knobs={};
+function buildGrid(){
+  const g=$('#grid');g.innerHTML='';knobs={};
+  PAGES.find(p=>p.id===page).params.forEach(([id])=>{
+    const p=P[id], d=document.createElement('div');d.className='knob';d.tabIndex=0;d.dataset.p=id;
+    const svg=el('svg',{viewBox:'0 0 84 84'});
+    svg.appendChild(el('path',{d:arc(R,0,1),fill:'none',stroke:'#29303a','stroke-width':4,'stroke-linecap':'round'}));
+    const val=el('path',{fill:'none',stroke:'#d9dee6','stroke-width':4,'stroke-linecap':'round'});
+    const rings=el('g',{});
+    const needle=el('line',{stroke:'#d9dee6','stroke-width':2,'stroke-linecap':'round'});
+    const dot=el('circle',{r:3.2,fill:'#0d1014','stroke-width':2});
+    svg.append(val,rings,el('circle',{cx:C,cy:C,r:14,fill:'#1c2129',stroke:'#29303a'}),needle,dot);
+    d.appendChild(svg);
+    d.insertAdjacentHTML('beforeend',`<div class="name">${p.name}</div><div class="val"></div><div class="focus"></div>`);
+    $('#grid').appendChild(d);
+    knobs[id]={d,val,rings,needle,dot,valTxt:d.querySelector('.val'),focTxt:d.querySelector('.focus')};
+    attach(d,id);
+  });
+}
+
+// ---------- interaction ----------
+let drag=null;
+function attach(d,id){
+  d.addEventListener('pointerdown',e=>{
+    if(e.button!==0)return;
+    d.setPointerCapture(e.pointerId);
+    select(id);
+    const st={id,y:e.clientY,moved:false,mode:'value',start:P[id].value,isNew:false,target:null};
+    if(mapMode){
+      let m=maps.find(m=>m.param===id&&m.src===curSrc);
+      if(!m){m={param:id,src:curSrc,depth:0,pol:'uni'};maps.push(m);st.isNew=true;
+        if($('#optAutoFocus').checked)focusIdx[id]=mapsOf(id).length-1;}
+      st.mode='depth';st.target=m;st.start=m.depth;lastMap=m;
+    }else if(e.altKey){
+      st.mode='alt';st.target=focused(id);st.start=st.target?st.target.depth:0;
+      if(st.target)lastMap=st.target;
+    }
+    drag=st;renderInsp();
+  });
+  d.addEventListener('pointermove',e=>{
+    if(!drag||drag.id!==id)return;
+    const dy=drag.y-e.clientY;
+    if(Math.abs(dy)>3)drag.moved=true;
+    if(!drag.moved)return;
+    const fine=e.shiftKey?.25:1;
+    if(drag.mode==='value'){P[id].value=clamp(drag.start+dy/160*fine);log(`${P[id].name} = ${P[id].fmt(P[id].value)}`)}
+    else if(drag.target){drag.target.depth=clamp(drag.start+dy/160*fine);logMap(drag.target);renderInsp()}
+  });
+  const up=()=>{
+    if(!drag||drag.id!==id)return;
+    const st=drag;drag=null;
+    if(!st.moved){
+      if(st.mode==='depth'){
+        if(st.isNew){if($('#optDefault').checked)st.target.depth=.25;logMap(st.target,'mapped')}
+        else logMap(st.target,'already mapped');
+      }else if(st.mode==='alt'){
+        const l=mapsOf(id);
+        if(!l.length)log(`${P[id].name} has no modulators`);
+        else{focusIdx[id]=((focusIdx[id]||0)+1)%l.length;const f=focused(id);lastMap=f;logMap(f,'focus')}
+      }
+    }else if(st.mode==='depth'&&st.isNew&&st.target.depth===0){remove(st.target,true)}
+    renderInsp();
+  };
+  d.addEventListener('pointerup',up);d.addEventListener('pointercancel',up);
+  d.addEventListener('dblclick',e=>{if(!mapMode&&!e.altKey){P[id].value=PAGES.flatMap(p=>p.params).find(x=>x[0]===id)[2];log(`${P[id].name} reset`)}});
+}
+function remove(m,silent){const i=maps.indexOf(m);if(i<0)return;maps.splice(i,1);if(lastMap===m)lastMap=null;if(!silent)log(`removed ${srcById[m.src].name} → ${P[m.param].name}`);renderInsp()}
+function cyclePol(m){if(!m){log('no mapping to change — touch one first');return}m.pol=POLS[(POLS.indexOf(m.pol)+1)%3];logMap(m);renderInsp()}
+
+function setMap(on,momentary){
+  mapMode=on;document.body.classList.toggle('mapping',on);document.body.classList.toggle('momentary',on&&!!momentary);
+  $('#mapbtn').setAttribute('aria-pressed',on);updateHint();
+}
+function setSrc(id){curSrc=id;sel.value=id;document.documentElement.style.setProperty('--src',srcById[id].color);
+  document.querySelectorAll('.srcchip').forEach(c=>c.classList.toggle('cur',c.dataset.s===id));updateHint();log(`source: ${srcById[id].name}`)}
+function setPage(id){page=id;tabs.querySelectorAll('button').forEach(b=>b.setAttribute('aria-selected',b.dataset.p===id));buildGrid();
+  if(P[selected].page!==id)select(PAGES.find(p=>p.id===id).params[0][0]);}
+function select(id){selected=id;document.querySelectorAll('.knob').forEach(k=>k.classList.toggle('sel',k.dataset.p===id));renderInsp()}
+$('#mapbtn').onclick=()=>setMap(!mapMode);
+
+// M: tap to latch, hold for momentary
+let mDown=null;
+addEventListener('keydown',e=>{
+  if(e.target.tagName==='SELECT'||e.target.tagName==='INPUT'&&e.target.type!=='checkbox')return;
+  if(e.key==='Alt'){altHeld=true;document.body.classList.add('altheld');updateHint();e.preventDefault();return}
+  if(e.repeat)return;
+  const k=e.key.toLowerCase();
+  if(e.code==='KeyM'){mDown={t:performance.now(),was:mapMode};if(!mapMode)setMap(true,true);return}
+  if(e.code==='KeyP'){cyclePol(e.altKey?focused(selected):lastMap);e.preventDefault();return}
+  if(/^Digit[1-5]$/.test(e.code)){setSrc(SRC[+e.code.slice(5)-1].id);return}
+  if(e.key==='Escape'){setMap(false);return}
+  if(e.key==='Backspace'||e.key==='Delete'){if(lastMap)remove(lastMap);e.preventDefault();return}
+  if(k==='['||k===']'){const i=PAGES.findIndex(p=>p.id===page);setPage(PAGES[(i+(k===']'?1:PAGES.length-1))%PAGES.length].id)}
+});
+addEventListener('keyup',e=>{
+  if(e.key==='Alt'){altHeld=false;document.body.classList.remove('altheld');updateHint()}
+  if(e.code==='KeyM'&&mDown){const held=performance.now()-mDown.t;
+    if(mDown.was)setMap(false);else if(held>280)setMap(false);else setMap(true,false);mDown=null}
+});
+addEventListener('blur',()=>{altHeld=false;document.body.classList.remove('altheld');if(mDown&&!mDown.was)setMap(false);mDown=null;updateHint()});
+
+// ---------- text ----------
+function updateHint(){
+  const h=$('#hint');
+  if(mapMode)h.textContent=`Mapping ${srcById[curSrc].name}: click a knob to assign, drag ↕ for depth. P polarity · 1–5 source · ⌫ remove · Esc exit`;
+  else if(altHeld)h.textContent='⌥ held: drag a knob to change its focused modulator\'s depth, click to cycle which one is focused';
+  else h.textContent='Drag to set values. ⌥-drag for mod depth, ⌥-click to cycle modulators. M to map.';
+}
+let logT;
+function log(s){const l=$('#log');l.textContent=s;clearTimeout(logT);logT=setTimeout(()=>l.textContent='',2600)}
+function logMap(m,verb){log(`${verb?verb+': ':''}${srcById[m.src].name} → ${P[m.param].name} · ${POLNAME[m.pol]} · ${pct(m.depth)}`)}
+function renderInsp(){
+  $('#pname').textContent=P[selected].name;
+  const l=mapsOf(selected), f=focused(selected), box=$('#mods');box.innerHTML='';
+  if(!l.length){box.innerHTML=`<div class="empty">No modulators. Turn on MAP and click this knob to assign ${srcById[curSrc].name}.</div>`;return}
+  l.forEach((m,i)=>{
+    const r=document.createElement('div');r.className='modrow'+(m===f?' foc':'');r.style.setProperty('--c',srcById[m.src].color);
+    r.innerHTML=`<span class="dot"></span><span>${srcById[m.src].name}${m===f?' ◂':''}</span><button class="pol" title="Cycle polarity">${POLSHORT[m.pol]}</button><span class="dep">${pct(m.depth)}</span><button class="x" title="Remove" aria-label="Remove mapping">×</button>`;
+    r.querySelector('.pol').onclick=()=>{lastMap=m;cyclePol(m)};
+    r.querySelector('.x').onclick=()=>remove(m);
+    r.firstElementChild.nextElementSibling.style.cursor='pointer';
+    r.firstElementChild.nextElementSibling.onclick=()=>{focusIdx[selected]=i;lastMap=m;renderInsp()};
+    box.appendChild(r);
+  });
+}
+
+// ---------- frame ----------
+const t0=performance.now();let last=t0;
+function frame(now){
+  const t=Math.max(0,(now-t0)/1000),dt=clamp((now-last)/1000,0,.05);last=Math.max(last,now);
+  ouState=clamp(ouState+(0.5-ouState)*1.2*dt+(Math.random()-.5)*Math.sqrt(dt)*1.1);
+  if(!Number.isFinite(ouState))ouState=.5;
+  const sv={};SRC.forEach(s=>{sv[s.id]=clamp(s.f(t));meters[s.id].style.width=(sv[s.id]*100)+'%'});
+  for(const id in knobs){
+    const k=knobs[id],p=P[id],l=mapsOf(id),f=focused(id);
+    const contrib=m=>{const s=sv[m.src];return m.pol==='uni'?s*m.depth:m.pol==='bi'?(2*s-1)*m.depth:-s*m.depth};
+    let mod=p.value;
+    l.forEach(m=>{mod+=contrib(m)});
+    mod=clamp(mod);
+    k.val.setAttribute('d',p.bip?arc(R,.5,p.value):arc(R,0,p.value));
+    k.rings.innerHTML='';
+    let run=p.value; // each ring's origin rides on the live output of the rings inside it
+    l.slice(0,4).forEach((m,i)=>{
+      const r=28+i*3.7,b=run,dd=m.depth;
+      run+=contrib(m);
+      const [a,z]=m.pol==='uni'?[b,b+dd]:m.pol==='bi'?[b-dd,b+dd]:[b-dd,b];
+      const emph=(mapMode&&m.src===curSrc)||((altHeld||mapMode)&&m===f)||(!mapMode&&!altHeld);
+      const isF=m===f&&(altHeld||l.length>1);
+      k.rings.appendChild(el('path',{d:arc(r,a,z)||arc(r,b,b+.004),fill:'none',stroke:srcById[m.src].color,'stroke-width':isF&&(altHeld||mapMode)?3.2:2.2,'stroke-linecap':'round',opacity:emph?1:.3}));
+      // live position: short radial tick across the ring
+      const [ix,iy]=pt(r-2.2,clamp(run)),[ox,oy]=pt(r+2.2,clamp(run));
+      k.rings.appendChild(el('line',{x1:ix,y1:iy,x2:ox,y2:oy,stroke:'#d9dee6','stroke-width':1.4,'stroke-linecap':'round',opacity:emph?.95:.3}));
+      // origin dot: end of the arc for unipolar/inverse, centre of the arc for bipolar
+      {const [qx,qy]=pt(r,clamp(b));
+        k.rings.appendChild(el('circle',{cx:qx,cy:qy,r:2.6,fill:srcById[m.src].color,stroke:'#151920','stroke-width':1.2,opacity:emph?1:.3}));}
+    });
+    const [nx,ny]=pt(13,mod),[dx,dy]=pt(R,mod);
+    k.needle.setAttribute('x1',C);k.needle.setAttribute('y1',C);k.needle.setAttribute('x2',nx);k.needle.setAttribute('y2',ny);
+    k.dot.setAttribute('cx',dx);k.dot.setAttribute('cy',dy);
+    k.dot.setAttribute('stroke',l.length?srcById[(f||l[0]).src].color:'#d9dee6');
+    k.valTxt.textContent=p.fmt(l.length?mod:p.value);
+    const curM=mapMode?l.find(m=>m.src===curSrc):null, show=curM||f;
+    k.focTxt.textContent=show?`${srcById[show.src].name} ${POLSHORT[show.pol]} ${pct(show.depth)}${!curM&&l.length>1?` (${l.indexOf(f)+1}/${l.length})`:''}`:'';
+    k.focTxt.style.color=show?srcById[show.src].color:'';
+  }
+  requestAnimationFrame(frame);
+}
+setPage('osc');setSrc('lfo1');select('k');updateHint();$('#log').textContent='';
+requestAnimationFrame(frame);
+</script>
+
+</body></html>

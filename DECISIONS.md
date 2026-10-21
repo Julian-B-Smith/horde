@@ -8931,3 +8931,38 @@ Ruling 9's reason was wrong. It said "the drive hears the classic ±1 pulse, so 
 - The dark theme's contrast audit is part of the build; the human reviews it.
 - **FX device (ADR-254):** the Specimen is driven by notes, so the FX device needs an audio-driven stand-in. This is recorded for B528.
 - B432's screen-reader view doubles as each module's house-style backup UI (ADR-235).
+
+## ADR-261 — The morph knob and map mode specs ingested; four rulings (B532, B531, B392, 2026-10-21)
+
+**Context.** The human delivered five documents on 2026-10-21:
+- `HORDE Morph Knob Spec.md` (2026-10-21);
+- `HORDE Map Mode Spec.md` (2026-10-16);
+- their browser prototypes: HORDE Morph Knobs, HORDE Map Mode, and HORDE Slider Marks, which shows both on sliders.
+
+The Map Mode and Slider Marks files are byte-identical to the artifacts the specs link. They are filed as delivered in `docs/design-system/`, beside the UI Spec.
+
+What they settle:
+- **The knob.** It shows the blended value and the editing corner's own value at once, with weight-sized pips for the other corners. Drag edits the editing corner one to one, latched for the gesture; there is no back-solving.
+- **Map mode.** One persistent control assigns a source to parameters across pages by single clicks, writing into the mod matrix. Stacked mod rings show each mapping's range on the live output of the rings inside it.
+- **Sliders** take the same rules as straight lanes.
+
+**The lead's review against horde's records.** Consistent:
+- B449: double-click resets, relative drags never jump-to-click, and every hotkey has a mouse route.
+- Undo is one step per gesture (B84). Mappings are not automatable.
+- Morph and intent targets are global-only, as already ruled.
+- Clamp once after the sum, as ADR-251's modify law does.
+- The FX device (ADR-254) can use map mode with its free and sidechain sources.
+
+Points needing rulings went to the human.
+
+**Rulings (the human, by poll, 2026-10-21).**
+1. **"Shape-coded pips."** Each corner's pip takes its glyph's shape, so corners stay distinct without colour (ADR-259 ruling 3). The readout and inspector carry the letter.
+2. **"Only in keyboard mode."** The specs' hotkeys (M, P, digits, 0, Esc, Backspace) work only while the opt-in keyboard mode is on (ADR-259 ruling 6, B449 R1). Option/Alt-drag always works, being a mouse modifier. Every action keeps its mouse route.
+3. **"Adopt as written."** Every open decision in both specs takes the spec's own recommendation: ring order as mapped and reorderable; a click on an already-mapped parameter only selects it; 25% default depth; global mapping for 1.0; pips on the page and composition in the inspector; one global corner pin; and so on. The quantum-mode items stay prototype-first.
+4. **"Normative for interaction."** The two specs govern knob, slider and map-mode behaviour and marks, as the UI Spec governs values. The prototypes are behaviour references, not parity targets. All five files are protected paths.
+
+**House rules still win over the prototypes (ADR-259):** Archivo with Roboto Mono, the cream default theme, horde's corner palette, 28 px targets. The specs themselves defer to horde's palette and blend law.
+
+**A requirement found in review, for the morph layer:** the knob reads each parameter's owning corner from the morph engine and never computes it. In quantum mode it reads the resolved corner. The morph layer (H2-PLAN `fxmorph` and `modmorph`) must publish both through the GUI readout snapshot (RC-8). The spec says ownership uses stochastic per-parameter thresholds "in both continuous blend and quantum morph modes". That is to be confirmed against the morph law when that layer is specified. Recorded on B532.
+
+**Consequences.** The design system (B531) takes its knob, slider and MAP control components from these specs. The mod matrix lab (B392) treats map mode as its fast write path. **FX device (ADR-254):** none beyond the above; map mode is shell-independent.

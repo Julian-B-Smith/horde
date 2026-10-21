@@ -1,0 +1,248 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>HORDE Morph Knobs</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;600;700&family=Martian+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: morph pad + controls on the left, knob grid on the right, per-corner inspector below */
+:root{
+  --bg:#0d1014; --panel:#151920; --panel2:#1c2129; --line:#29303a; --fg:#d9dee6; --dim:#7b8594; --faint:#3a424e;
+  --cA:#ff7a59; --cB:#f2d14b; --cC:#4fd6b0; --cD:#8aa2ff; --mod:#ff5fd2;
+  --display:"Familjen Grotesk","Helvetica Neue",Arial,sans-serif;
+  --mono:"Martian Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--display);padding-block:20px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1060px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.intro{color:var(--dim);font-size:13px;line-height:1.5;max-width:72ch;margin:0}
+.intro b{color:var(--fg);font-weight:600}
+.plugin{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--panel2)}
+.brand{font-weight:700;letter-spacing:.18em;font-size:15px}
+.label{font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--dim);text-transform:uppercase}
+.seg{display:flex;gap:2px;background:var(--bg);border-radius:6px;padding:2px}
+.seg button{all:unset;cursor:pointer;font-family:var(--mono);font-size:10px;letter-spacing:.06em;padding:5px 9px;border-radius:4px;color:var(--dim);display:flex;align-items:center;gap:6px}
+.seg button[aria-pressed="true"]{background:var(--panel2);color:var(--fg)}
+.seg button:focus-visible{outline:2px solid var(--fg);outline-offset:1px}
+.sw{width:8px;height:8px;border-radius:2px;display:inline-block}
+.spacer{flex:1}
+.main{display:grid;grid-template-columns:260px 1fr}
+@media (max-width:760px){.main{grid-template-columns:1fr}.left{border-right:0!important;border-bottom:1px solid var(--line)}}
+.left{border-right:1px solid var(--line);padding:14px;display:flex;flex-direction:column;gap:12px}
+.pad{position:relative;width:100%;max-width:232px;aspect-ratio:1;border-radius:8px;border:1px solid var(--line);touch-action:none;cursor:crosshair;
+  background:
+   radial-gradient(circle at 0 0,color-mix(in srgb,var(--cA) 30%,transparent),transparent 62%),
+   radial-gradient(circle at 100% 0,color-mix(in srgb,var(--cB) 26%,transparent),transparent 62%),
+   radial-gradient(circle at 0 100%,color-mix(in srgb,var(--cC) 26%,transparent),transparent 62%),
+   radial-gradient(circle at 100% 100%,color-mix(in srgb,var(--cD) 30%,transparent),transparent 62%),var(--bg)}
+.pad .corner{all:unset;position:absolute;width:24px;height:24px;display:grid;place-items:center;font-family:var(--mono);font-size:11px;font-weight:500;color:#0d1014;border-radius:5px;cursor:pointer}
+.pad .corner.pin{box-shadow:0 0 0 2px var(--fg)}
+.pad .puck{position:absolute;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;border:2px solid var(--fg);background:var(--panel);pointer-events:none}
+.wbars{display:grid;grid-template-columns:14px 1fr 34px;gap:4px 8px;align-items:center;font-family:var(--mono);font-size:10px;color:var(--dim);font-variant-numeric:tabular-nums}
+.wbars .bar{height:5px;background:var(--bg);border-radius:3px;overflow:hidden}
+.wbars .bar i{display:block;height:100%}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:6px;padding:14px;align-content:start;min-width:0}
+.knob{display:flex;flex-direction:column;align-items:center;gap:1px;padding:8px 4px 10px;border-radius:8px;user-select:none;-webkit-user-select:none;touch-action:none;cursor:ns-resize;border:1px solid transparent;outline:none}
+.knob.sel{background:var(--panel2);border-color:var(--line)}
+.knob:focus-visible{border-color:var(--faint)}
+.knob svg{width:92px;height:92px;display:block}
+.knob .name{font-size:12px;font-weight:600}
+.knob .val{font-family:var(--mono);font-size:10px;color:var(--fg);font-variant-numeric:tabular-nums}
+.knob .comp{font-family:var(--mono);font-size:9.5px;letter-spacing:.03em;font-variant-numeric:tabular-nums;height:13px}
+.insp{border-top:1px solid var(--line);padding:12px 14px;display:flex;flex-wrap:wrap;gap:12px 28px;align-items:flex-start}
+.insp .pname{font-size:18px;font-weight:700;min-width:120px}
+.ctable{display:grid;grid-template-columns:auto 90px 64px 64px;gap:4px 12px;align-items:center;font-family:var(--mono);font-size:10px;font-variant-numeric:tabular-nums}
+.ctable .h{color:var(--faint);letter-spacing:.1em;font-size:9px}
+.crow{display:contents;cursor:pointer}
+.crow>*{padding:3px 0}
+.crow.act .cid{outline:1.5px solid var(--fg);outline-offset:2px}
+.cid{width:18px;height:16px;border-radius:3px;display:grid;place-items:center;color:#0d1014;font-weight:500}
+.ctable .bar{height:5px;background:var(--bg);border-radius:3px;overflow:hidden}
+.ctable .bar i{display:block;height:100%}
+.lockrow{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--dim);cursor:pointer}
+.foot{padding:9px 14px;border-top:1px solid var(--line);background:var(--panel2);font-size:12px;color:var(--dim);display:flex;flex-wrap:wrap;gap:6px 18px;min-height:36px;align-items:center}
+.foot .log{font-family:var(--mono);font-size:10px;color:var(--fg)}
+kbd{font-family:var(--mono);font-size:10px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:3px;padding:0 4px}
+</style>
+
+<div class="wrap">
+  <p class="intro"><b>Morph knob prototype.</b> Move the puck to blend between corners. A knob's neutral arc is the blended value. The colored pips on the track are each corner's own value, sized by that corner's weight. Each parameter has its own stochastic boundary, so knobs change owner at different moments (a halo marks each change; turn Drift on to watch). Dragging a knob edits the <b>editing corner</b> (the outlined pip, tethered to the blended value). The blend then moves by that corner's weight. <kbd>⌥</kbd>-drag edits that corner's mod depth (Cutoff and Fold have one).</p>
+  <div class="plugin">
+    <div class="top">
+      <div class="brand">HORDE</div><span class="label">Morph</span>
+      <div class="spacer"></div>
+      <span class="label">Arc style</span>
+      <div class="seg" id="styleSeg"><button data-v="pips" aria-pressed="true">Pips</button><button data-v="comp" aria-pressed="false">Composition</button></div>
+      <span class="label">Drift</span>
+      <div class="seg" id="driftSeg"><button data-v="off" aria-pressed="true">Off</button><button data-v="on" aria-pressed="false">On</button></div>
+    </div>
+    <div class="main">
+      <div class="left">
+        <div class="pad" id="pad"><div class="puck" id="puck"></div></div>
+        <div>
+          <div class="label" style="margin-bottom:6px">Editing corner</div>
+          <div class="seg" id="editSeg"></div>
+        </div>
+        <div class="wbars" id="wbars"></div>
+      </div>
+      <div class="grid" id="grid"></div>
+    </div>
+    <div class="insp">
+      <div><div class="label">Selected</div><div class="pname" id="pname"></div>
+        <label class="lockrow" style="margin-top:8px"><input type="checkbox" id="lock"> Lock (one global value)</label></div>
+      <div class="ctable" id="ctable"></div>
+    </div>
+    <div class="foot"><span id="hint">Drag a knob to edit the editing corner. ⌥-drag for its mod depth. Shift for fine. 1–4 pin a corner, 0 back to Auto.</span><span class="log" id="log"></span></div>
+  </div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const clamp=(v,a=0,b=1)=>Math.min(b,Math.max(a,v));
+const CORNERS=[{id:'A',c:'#ff7a59'},{id:'B',c:'#f2d14b'},{id:'C',c:'#4fd6b0'},{id:'D',c:'#8aa2ff'}];
+const MODC='#ff5fd2';
+const pct=v=>Math.round(v*100)+'%';
+const PARAMS=[
+  {id:'detune',name:'Detune',fmt:v=>(v*50).toFixed(1)+' ct',vals:[.18,.72,.40,.90]},
+  {id:'spread',name:'Spread',fmt:pct,vals:[.85,.30,.62,.55]},
+  {id:'cutoff',name:'Cutoff',fmt:v=>{const h=20*Math.pow(1000,v);return h>=1000?(h/1000).toFixed(2)+' kHz':h.toFixed(0)+' Hz'},vals:[.35,.80,.55,.25],mod:{d:[.10,.22,.05,.30]}},
+  {id:'reso',name:'Reso',fmt:pct,vals:[.20,.20,.65,.40]},
+  {id:'fold',name:'Fold',fmt:v=>(1+v*7).toFixed(2),vals:[.10,.55,.30,.78],mod:{d:[.15,.04,.20,.08]}},
+  {id:'mix',name:'Mix',fmt:pct,vals:[1,1,1,1],locked:true,g:1}
+];
+const P=Object.fromEntries(PARAMS.map(p=>[p.id,p]));
+let pad={x:.3,y:.32}, pinned=null, style='pips', drift=false, selected='detune', drag=null;
+const weights=()=>{const{x,y}=pad;return[(1-x)*(1-y),x*(1-y),(1-x)*y,x*y]};
+const dominant=w=>w.indexOf(Math.max(...w));
+// per-parameter ownership with stochastic boundaries: each param gets its own threshold offsets, so params flip at different moments
+const owner={};
+function ownerOf(p,w){if(!p.jit)p.jit=[0,1,2,3].map(()=>(Math.random()-.5)*.32);
+  let best=0,bv=-1e9;w.forEach((v,i)=>{const s=v+p.jit[i];if(s>bv){bv=s;best=i}});
+  const o=owner[p.id];if(!o)owner[p.id]={i:best,t:-1e9};else if(o.i!==best)owner[p.id]={i:best,t:performance.now()};return best}
+const activeIdx=(p,w)=>pinned??ownerOf(p,w);
+const base=(p,w)=>p.locked?p.g:p.vals.reduce((s,v,i)=>s+v*w[i],0);
+const depth=(p,w)=>p.mod?p.mod.d.reduce((s,d,i)=>s+d*w[i],0):0;
+
+// ---------- pad ----------
+const padEl=$('#pad'),puck=$('#puck');
+const CPOS=[['4px','4px',null,null],[null,'4px','4px',null],['4px',null,null,'4px'],[null,null,'4px','4px']];
+CORNERS.forEach((c,i)=>{const b=document.createElement('button');b.className='corner';b.textContent=c.id;b.style.background=c.c;
+  const [l,t,r,bt]=CPOS[i];if(l)b.style.left=l;if(t)b.style.top=t;if(r)b.style.right=r;if(bt)b.style.bottom=bt;
+  b.title='Pin '+c.id+' as editing corner';b.addEventListener('pointerdown',e=>e.stopPropagation());b.onclick=()=>setPin(pinned===i?null:i);padEl.appendChild(b)});
+function padMove(e){const r=padEl.getBoundingClientRect();pad.x=clamp((e.clientX-r.left)/r.width);pad.y=clamp((e.clientY-r.top)/r.height)}
+padEl.addEventListener('pointerdown',e=>{padEl.setPointerCapture(e.pointerId);setDrift(false);padMove(e);padEl.onpointermove=padMove});
+padEl.addEventListener('pointerup',()=>padEl.onpointermove=null);
+// snap to corners when very close, so "exactly on a corner" is easy to hit
+padEl.addEventListener('dblclick',e=>{const i=(pad.x>.5?1:0)+(pad.y>.5?2:0);pad.x=i&1;pad.y=i>>1;log('snapped to '+CORNERS[i].id)});
+
+// ---------- controls ----------
+const editSeg=$('#editSeg');
+const autoBtn=document.createElement('button');autoBtn.dataset.v='auto';editSeg.appendChild(autoBtn);
+CORNERS.forEach((c,i)=>{const b=document.createElement('button');b.dataset.v=i;b.innerHTML=`<span class="sw" style="background:${c.c}"></span>${c.id}`;editSeg.appendChild(b)});
+editSeg.onclick=e=>{const b=e.target.closest('button');if(!b)return;setPin(b.dataset.v==='auto'?null:+b.dataset.v)};
+function setPin(i){pinned=i;log(i==null?'editing corner: Auto (dominant)':'editing corner pinned: '+CORNERS[i].id)}
+function seg(id,cb){$(id).onclick=e=>{const b=e.target.closest('button');if(!b)return;cb(b.dataset.v)}}
+seg('#styleSeg',v=>{style=v;[...$('#styleSeg').children].forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===v))});
+function setDrift(on){drift=on;[...$('#driftSeg').children].forEach(b=>b.setAttribute('aria-pressed',(b.dataset.v==='on')===on))}
+seg('#driftSeg',v=>setDrift(v==='on'));
+$('#lock').onchange=e=>{const p=P[selected],w=weights();
+  if(e.target.checked){p.g=base(p,w);p.locked=true;log(p.name+' locked at '+p.fmt(p.g))}
+  else{p.locked=false;p.vals=p.vals.map(()=>p.g);log(p.name+' unlocked: all corners start at '+p.fmt(p.g))}};
+const wb=$('#wbars');
+CORNERS.forEach(c=>wb.insertAdjacentHTML('beforeend',`<span style="color:${c.c}">${c.id}</span><span class="bar"><i style="background:${c.c}"></i></span><span class="wv"></span>`));
+const wbI=[...wb.querySelectorAll('i')],wbV=[...wb.querySelectorAll('.wv')];
+
+// ---------- knobs ----------
+const NS='http://www.w3.org/2000/svg',C=46,R=22;
+const pt=(r,v)=>{const a=(-135+270*v)*Math.PI/180;return[C+r*Math.sin(a),C-r*Math.cos(a)]};
+function arc(r,v1,v2){v1=clamp(v1);v2=clamp(v2);if(v2<v1)[v1,v2]=[v2,v1];if(v2-v1<.003)return'';
+  const[x1,y1]=pt(r,v1),[x2,y2]=pt(r,v2);return`M${x1.toFixed(2)} ${y1.toFixed(2)}A${r} ${r} 0 ${(v2-v1)*270>180?1:0} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`}
+const el=(t,a)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e};
+const knobs={};
+PARAMS.forEach(p=>{
+  const d=document.createElement('div');d.className='knob';d.tabIndex=0;
+  const svg=el('svg',{viewBox:'0 0 92 92'}),g=el('g',{});svg.appendChild(g);d.appendChild(svg);
+  d.insertAdjacentHTML('beforeend',`<div class="name">${p.name}</div><div class="val"></div><div class="comp"></div>`);
+  $('#grid').appendChild(d);knobs[p.id]={d,g,val:d.querySelector('.val'),comp:d.querySelector('.comp')};
+  d.addEventListener('pointerdown',e=>{if(e.button!==0)return;d.setPointerCapture(e.pointerId);select(p.id);
+    const w=weights(),ai=activeIdx(p,w),alt=e.altKey&&!!p.mod;
+    drag={id:p.id,y:e.clientY,ai,alt,start:alt?p.mod.d[ai]:p.locked?p.g:p.vals[ai]}});
+  d.addEventListener('pointermove',e=>{if(!drag||drag.id!==p.id)return;
+    const v=clamp(drag.start+(drag.y-e.clientY)/160*(e.shiftKey?.25:1)),c=CORNERS[drag.ai].id,w=weights();
+    if(drag.alt){p.mod.d[drag.ai]=clamp(v,0,.5);log(`${p.name} mod depth in ${c}: ${pct(p.mod.d[drag.ai])} → blended ${pct(depth(p,w))}`)}
+    else if(p.locked){p.g=v;log(`${p.name} (locked) = ${p.fmt(v)}`)}
+    else{p.vals[drag.ai]=v;log(`${p.name} in ${c}: ${p.fmt(v)} → blended ${p.fmt(base(p,w))}  (weight ${pct(w[drag.ai])})`)}});
+  const up=()=>{drag=null};d.addEventListener('pointerup',up);d.addEventListener('pointercancel',up);
+});
+function select(id){selected=id;Object.entries(knobs).forEach(([k,o])=>o.d.classList.toggle('sel',k===id));$('#lock').checked=!!P[id].locked;$('#pname').textContent=P[id].name}
+
+function drawKnob(p,w,t){
+  const k=knobs[p.id],g=k.g;g.innerHTML='';
+  // during a gesture the editing corner is latched, even if drift moves the dominant corner
+  const ai=drag&&drag.id===p.id?drag.ai:activeIdx(p,w), ac=CORNERS[ai].c, b=base(p,w), dep=depth(p,w);
+  const lfo=Math.sin(t*Math.PI*2*.3), out=clamp(b+lfo*dep);
+  g.appendChild(el('path',{d:arc(R,0,1),fill:'none',stroke:'#29303a','stroke-width':4,'stroke-linecap':'round'}));
+  if(p.locked||style==='pips'){
+    g.appendChild(el('path',{d:arc(R,0,b),fill:'none',stroke:'#d9dee6','stroke-width':4,'stroke-linecap':'round'}));
+  }else{ // composition: arc built from each corner's weighted contribution, summing to the blend
+    let cum=0;CORNERS.forEach((c,i)=>{const len=w[i]*p.vals[i];
+      const dd=arc(R,cum,cum+len);if(dd)g.appendChild(el('path',{d:dd,fill:'none',stroke:c.c,'stroke-width':4,opacity:i===ai?1:.42}));cum+=len});
+    const[ex,ey]=pt(R,b);g.appendChild(el('line',{x1:pt(R-3,b)[0],y1:pt(R-3,b)[1],x2:pt(R+3,b)[0],y2:pt(R+3,b)[1],stroke:'#d9dee6','stroke-width':1.6,'stroke-linecap':'round'}));
+  }
+  if(!p.locked){
+    const av=p.vals[ai];
+    // tether: blended value → editing corner's own value
+    const td=arc(16.5,b,av);if(td)g.appendChild(el('path',{d:td,fill:'none',stroke:ac,'stroke-width':1.6,'stroke-dasharray':'2 2.4','stroke-linecap':'round'}));
+    if(style==='pips')CORNERS.forEach((c,i)=>{if(i===ai)return;const[x,y]=pt(R,p.vals[i]);
+      g.appendChild(el('circle',{cx:x,cy:y,r:(1.3+2.3*w[i]).toFixed(2),fill:c.c,stroke:'#151920','stroke-width':1.1,opacity:(.28+.72*w[i]).toFixed(2)}))});
+    const[x,y]=pt(R,av),[fx,fy]=pt(25.2,av),[gx,gy]=pt(27.6,av);
+    g.appendChild(el('circle',{cx:x,cy:y,r:3.9,fill:ac,stroke:'#d9dee6','stroke-width':1.4}));
+    g.appendChild(el('line',{x1:fx,y1:fy,x2:gx,y2:gy,stroke:ac,'stroke-width':1.8,'stroke-linecap':'round'}));
+  }
+  if(p.mod){
+    const r=31;
+    g.appendChild(el('path',{d:arc(r,b-dep,b+dep)||arc(r,b,b+.004),fill:'none',stroke:MODC,'stroke-width':2.2,'stroke-linecap':'round'}));
+    if(!p.locked){const da=p.mod.d[ai],hd=arc(34.2,b-da,b+da);if(hd)g.appendChild(el('path',{d:hd,fill:'none',stroke:ac,'stroke-width':1.1,'stroke-linecap':'round',opacity:.95}))}
+    const[ox,oy]=pt(r,b);g.appendChild(el('circle',{cx:ox,cy:oy,r:2.5,fill:MODC,stroke:'#151920','stroke-width':1.1}));
+    const[ix,iy]=pt(r-2.2,out),[jx,jy]=pt(r+2.2,out);g.appendChild(el('line',{x1:ix,y1:iy,x2:jx,y2:jy,stroke:'#d9dee6','stroke-width':1.4,'stroke-linecap':'round'}));
+  }
+  const ow=owner[p.id];if(!p.locked&&pinned==null&&ow){const age=(performance.now()-ow.t)/500;
+    if(age<1)g.appendChild(el('circle',{cx:C,cy:C,r:(13+age*7).toFixed(2),fill:'none',stroke:ac,'stroke-width':2.2,opacity:(1-age).toFixed(2)}))}
+  g.appendChild(el('circle',{cx:C,cy:C,r:12.5,fill:'#1c2129',stroke:p.locked?'#29303a':ac,'stroke-width':p.locked?1:1.6}));
+  const[nx,ny]=pt(10.5,out);g.appendChild(el('line',{x1:C,y1:C,x2:nx,y2:ny,stroke:'#d9dee6','stroke-width':2,'stroke-linecap':'round'}));
+  k.val.textContent=p.fmt(b);
+  if(p.locked){k.comp.textContent='LOCKED';k.comp.style.color='#7b8594'}
+  else{k.comp.textContent=`${CORNERS[ai].id} ${p.fmt(p.vals[ai])}${w[ai]>.999?'':' · '+pct(w[ai])}`;k.comp.style.color=ac}
+}
+function drawInsp(w){
+  const p=P[selected],ai=drag&&drag.id===p.id?drag.ai:activeIdx(p,w),t=$('#ctable');
+  let h=`<span class="h">CORNER</span><span class="h">WEIGHT</span><span class="h">VALUE</span><span class="h">${p.mod?'MOD DEPTH':''}</span>`;
+  if(p.locked){t.innerHTML=h+`<span style="grid-column:1/-1;color:#7b8594;font-family:var(--display);font-size:12px">Locked: one global value (${p.fmt(p.g)}) at every pad position.</span>`;return}
+  CORNERS.forEach((c,i)=>{h+=`<div class="crow${i===ai?' act':''}" data-i="${i}"><span class="cid" style="background:${c.c}">${c.id}</span><span class="bar"><i style="width:${w[i]*100}%;background:${c.c}"></i></span><span>${p.fmt(p.vals[i])}</span><span>${p.mod?pct(p.mod.d[i]):''}</span></div>`});
+  h+=`<span style="color:#7b8594">MIX</span><span></span><span>${p.fmt(base(p,w))}</span><span>${p.mod?pct(depth(p,w)):''}</span>`;
+  t.innerHTML=h;
+}
+$('#ctable').onclick=e=>{const r=e.target.closest('.crow');if(r)setPin(+r.dataset.i)};
+addEventListener('keydown',e=>{if(e.target.tagName==='INPUT'&&e.target.type!=='checkbox')return;
+  if(/^Digit[1-4]$/.test(e.code))setPin(+e.code.slice(5)-1);else if(e.code==='Digit0'||e.key==='Escape')setPin(null)});
+
+let logT;function log(s){$('#log').textContent=s;clearTimeout(logT);logT=setTimeout(()=>$('#log').textContent='',3000)}
+const t0=performance.now();let lastInsp=0;
+function frame(now){
+  const t=Math.max(0,(now-t0)/1000);
+  if(drift){pad.x=.5+.46*Math.sin(t*.23);pad.y=.5+.46*Math.sin(t*.31+1)}
+  const w=weights(),dom=dominant(w);
+  puck.style.left=pad.x*100+'%';puck.style.top=pad.y*100+'%';
+  [...padEl.querySelectorAll('.corner')].forEach((b,i)=>b.classList.toggle('pin',pinned===i));
+  autoBtn.textContent='Auto (per knob)';
+  [...editSeg.children].forEach(b=>b.setAttribute('aria-pressed',b.dataset.v==='auto'?pinned==null:+b.dataset.v===pinned));
+  w.forEach((v,i)=>{wbI[i].style.width=v*100+'%';wbV[i].textContent=pct(v)});
+  PARAMS.forEach(p=>drawKnob(p,w,t));
+  if(now-lastInsp>80){drawInsp(w);lastInsp=now}
+  requestAnimationFrame(frame);
+}
+select('detune');requestAnimationFrame(frame);
+</script>
+
+</body></html>

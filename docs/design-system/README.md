@@ -7,6 +7,9 @@
 | `HORDE-UI-Spec.dc.html` | **The UI implementation spec, v1** (2026-08-23) — tokens, widget state tables, visualizer recipes, morph presentation. Normative for **values**. |
 | `HORDE-Design-System.dc.html` | **The consolidated system** (2026-08-23) — page compositions for MAIN, OSC, FX, MIX and the bend+scale panels, with the reasoning. Normative for **layout**. |
 | `HORDE-Vaporwave-Phosphor.dc.html` | **The display direction** (2026-08-24, adopted) — data wells become dark phosphor tubes; the cream chrome stays. Normative for **screen tokens and trace rendering**; where it touches chrome values, the UI Spec still wins. |
+| `HORDE-Morph-Knob-Spec.md` | **Morph knobs** (2026-10-21) — how a knob and a slider show and edit a parameter between morph corners: the blended value arc, weight-sized corner pips, the editing corner's pip and tether, latching, ownership cues, per-corner mod depth, locked parameters, quantum mode. Normative for **interaction** (ADR-261). |
+| `HORDE-Map-Mode-Spec.md` | **Map mode** (2026-10-16) — the persistent MAP control and source selector; click to assign a source, drag for depth; stacked mod rings with origin dots and live ticks; the inspector; host constraints. Normative for **interaction** (ADR-261). |
+| `HORDE-Morph-Knobs.html`, `HORDE-Map-Mode.html`, `HORDE-Slider-Marks.html` | The three browser prototypes behind those specs (knobs, map mode, and both on sliders). **Behaviour references, not parity targets**, as the specs say; their bilinear weights, random sources and fonts are illustrative. |
 | `support.js` | The Claude Design canvas runtime both `.dc.html` files load. Vendored beside them **only** so the specs render from a checkout; it is not ours and is not edited. A separately-delivered `hp-support.js` was byte-identical (same SHA-256), so there is one copy, not two. |
 
 The spec is kept **as delivered**, not transcribed into markdown. A normative

@@ -182,7 +182,7 @@ ingested 2026-09-16, ADR-169; one sanctioned edit: seed `quantumPick`), and `spe
 `reference/subosc.html` + `specs/SPEC-SUBOSC.md` (SUB OSC, ingested 2026-09-19, ADR-178; its one
 sanctioned edit is spent), and `specs/SPEC-SCALPEL.md` + `reference/scalpel/**` (SCALPEL, blade
 synthesis on the swarm, ingested 2026-09-24, ADR-184 CANDIDATE; a seed edit is PROPOSED, not yet
-sanctioned) — (they ARE the reference — an edit there is a spec change), `./verify`, golden render fixtures once they exist.
+sanctioned) — and `docs/design-system/HORDE-Morph-Knob-Spec.md` + `docs/design-system/HORDE-Map-Mode-Spec.md` + their three prototypes `HORDE-Morph-Knobs.html`, `HORDE-Map-Mode.html`, `HORDE-Slider-Marks.html` (GUI 3's interaction specs, ingested 2026-10-21, ADR-261) — (they ARE the reference — an edit there is a spec change), `./verify`, golden render fixtures once they exist.
 
 **Verify targets.** `fast`: leak gate + structure/manifest sanity now; grows
 the L0 suite (parity + trajectories) from Phase 1 — seconds-to-minutes,
