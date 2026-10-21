@@ -42,6 +42,8 @@
 | 25 | The bistable windows off BL-12's grid | Keep the limits, document them | The law's narrow windows near 0.828 and 0.963 (square, High, FM, P 42) | no | **engine-free** (cleanroom-tests 53363bc) | ADR-253.3 |
 | 26 | B-29a / QS-1: design A misses QS-1's Sync floor at C8 (91.7 < 93) | Keep 93; design B is QS-1's Sync reference | QS-1's reference design was not checked against its own floor once corners are corrected | no | **engine-free** (cleanroom-tests 2a8fb7f; two critics) | ADR-256.1 |
 | 27 | B-29: must the corners' benefit last past a tenth of a sample of taper? | With the remainder correction (lasts to the fade) | B-29 asked for continuity only; the construction's in-taper remainder was unnamed | no | **engine-free** (cleanroom-tests 2a8fb7f) | ADR-256.2 |
+| 28 | QS-1's reference: design B fails QS-2 (6.2 dB > 3) | The conforming design, 0.466·f_s / β 7.0 (the only one in its family meeting QS-1 and QS-2 together) | QS-1 and QS-2 were never checked together on the Sync case; a knife-edge in the 32-tap family | no | **engine-free** (cleanroom-tests, the family scan) | ADR-256 A1 |
+| 29 | QS-1's reference: a wider scan finds roomier conforming designs (row 28's "only one" was wrong) | Switch to 0.4725·f_s / β 8.0 (0.65 dB QS-1 room, 0.82 dB QS-2) | The test author's first scan was too narrow to support "exactly one" | no | **engine-free** (cleanroom-tests, the 32-tap Kaiser leg of the longer-table search) | ADR-256 A2 |
 
 **Lead readings with no recorded ruling (B520: owed to the human):** B-12 (QS-4's must-fire signals), B-13 (the
 saw no-click set moved to reported), B-27 (`env1.decayCurve` reported), and Q-TA-1/6 (the frozen no-click set).
