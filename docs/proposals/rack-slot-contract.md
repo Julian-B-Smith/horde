@@ -469,3 +469,12 @@ PROPOSED.
 | **RS-4.11 (new): the note context** | A module **may** declare `noteContext`. Before each `process` it then receives a read-only context, valid for the call only. It conforms to ROADMAP B92 (FOUNDATIONS DECISIONS #115), corrected by ADR-257 A1. **Events** (capped and preallocated, in arrival order, each with its sample offset): note-on (identity, base Hz, velocity); per-note pitch offset (identity, semitones: bend and glide); and exactly **one terminal per identity**, through whichever path the note leaves (off, steal or expiry). **Identity** is `NoteRef`-compatible: the host's note id, else (port, channel, key), never a bare key. **Pitch on the bus is canonical:** the note's base frequency from the tuning, without bend, glide or gravity; each consumer derives its own hearing (B92 item 3). **Conveniences:** `lastHz`, the newest held note's base × 2^(offset/12) at the block's start (0 before the first note, held after release); and `held`. It is data, so the same notes give the same context. In the FX device (ADR-254) the MIDI sidechain feeds the same context. |
 | **A22 (new)** | **Judge:** a scripted note stream gives the same output twice, and with the entry absent the output equals a no-note run. **Must fail:** a shim that delivers the events at the wrong sample offsets. |
 | **The ABI map** | A new optional entry, proposed to FOUNDATIONS (brief `note-context`). Until FOUNDATIONS rules, a module's local shim carries it. |
+
+### 12.6 ADR-267 (2026-10-21), on the human's trigger timer
+
+Ruled by the human, 2026-10-21 ("Declared actions"). The shape is the lead's, PROPOSED.
+
+| Row | As amended |
+|---|---|
+| **RS-4.12 (new): declared actions** | A module **may** declare named **actions** (momentary commands such as Sluice's clear), each with a key and a label. horde fires an action as an event, at its sample offset, in the per-block context before `process`, beside the note context (RS-4.11). An action is **not** a host parameter and cannot be automated; a gesture or modulator that fires one is one undo step. Firing is deterministic: the same events at the same offsets give the same output. |
+| **A23 (new)** | **Judge:** an action fired at a given offset gives the same output on every run, and the output is unchanged when no action fires. **Must fail:** a shim that applies the action at the block's start instead of its offset. |

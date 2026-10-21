@@ -9101,3 +9101,24 @@ The test author's audit found no item that expects a glided value, so no test ch
 - The open questions classed "behaviour only" are built with documented placeholders.
 - B540 holds the 2-D random source's prototype.
 - **FX device (ADR-254):** the 2-D random source and the Control state are free sources and states, so they are shell-independent.
+
+## ADR-267 — RULED by the human: a trigger timer modulator, and hosted modules declare their actions (B541, 2026-10-21)
+
+**The human (2026-10-21):** "Maybe we could have a trigger timer modulator as well; for specific things like "clear" in Sluice (clearing the bank on every bar, for instance)."
+
+**Rulings (by poll).**
+1. **A trigger timer** is an event source: it fires triggers rather than producing a level, and its triggers route to action targets in the modulator lab's events model. It offers all four of the following.
+   - **A tempo grid with an offset:** a division from 1/16 to 8 bars, an offset within the bar, and swing, or a free rate in Hz.
+   - **Every Nth tick, or a short step pattern.**
+   - **Probability** per tick, seeded so a patch replays identically.
+   - **Note-relative timing:** counting from each note-on instead of the bar.
+
+   It is deterministic: tempo and transport arrive as data, ticks are computed from the transport and placed at sample offsets, and no wall clock is read.
+2. **Hosted modules declare their actions** ("Declared actions"). A module may declare a list of named actions, for example Sluice's clear. horde fires them as sample-accurate events in the per-block context, beside the note context (RS-4.11). Actions are never host-automatable parameters, so automation cannot fire a stray clear. A gesture that fires one is one undo step. This settles the open question of hosted-module triggers (B226 Q1) for the timer's use.
+
+**Consequences.**
+- The rack contract gains RS-4.12 (§12.6), PROPOSED.
+- A notice goes to Sluice asking it to declare its actions.
+- The FOUNDATIONS ABI entry for the per-block context (brief `note-context`) is to carry actions too; it will be raised when FOUNDATIONS answers.
+- The modulator lab prototypes the timer (B541).
+- **FX device (ADR-254):** the timer is a free source (tempo and transport), apart from its note-relative mode, which takes the sidechain's notes.
