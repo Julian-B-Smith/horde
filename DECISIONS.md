@@ -9008,3 +9008,17 @@ The design system (B531, https://claude.ai/artifact/EGDwetDHwcvxhTbNffCzJc) is p
   - each corner's saved state and edited flag, for revert;
   - the census (each corner's share of owned or resolved parameters), published through the GUI readout (RC-8).
 - **FX device (ADR-254):** ruling 1 as stated; the others are shell-independent.
+
+## ADR-263 — Spec round 28: refused parameter ids counted; rate-N rows read as their target (B494, 2026-10-21)
+
+**Context.** Round 27 ruled that a `Param` event on a reserved id is "refused and counted by PA-7 like an unknown id". But PA-7 named no count for unknown ids. Both clean-room sides found the gap independently. The test author's Q-TA-60 proposed the counter `refused_param_id`, and the lead confirmed it.
+
+Separately, the builder found that the spec never said whether a row of rate N, read once at a voice's start, takes the PA-1 glide's current value or its target.
+
+**Rulings.**
+1. **PA-7:** a `Param` event whose id names no host parameter, whether an unknown id or a reserved row's, is refused, nothing is stored, and it is counted (`refused_param_id`). This completes the human's round-27 ruling, "refused and counted", and needs no new ruling.
+2. **Rate N (the human, by poll, 2026-10-21: "The target"):** a row of rate N is read at a voice's start as its **target value**, not PA-1's glide. A value read once cannot zipper, so a note takes the value that was set. This is **builder-origin** (B518): the builder's reading, judged by its outcome.
+
+The test author's audit found no item that expects a glided value, so no test changes. PA-1 gains a pointer to §5.1.
+
+**Consequences.** The round goes to both clean-room repos when merged. The short-taper row (B-29a) follows in its own round once the test author finishes it. **FX device (ADR-254):** none.

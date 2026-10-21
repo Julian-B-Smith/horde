@@ -47,6 +47,8 @@
 | 30 | Round 26: the sub's DC in the default order (tone, env → drive) broke QS-6 for about a second after onset (≈0.009 vs 0.003) | Keep the gate: compute the post-drive mean on the tone-filtered shape | The closed-form mean held only for a two-level input; Tone and the envelope ahead of the drive break that | no | **engine-free** (the round-26 addendum critic's computation) | ADR-258.8 |
 | 31 | Q-TA-54: a Param event on a reserved row's id | Refuse it and count it, like an unknown id | §5.1 said what a state does with a reserved value, not a host event | no | engine-free (spec reading) | ADR-260 |
 | 32 | Q-TA-55, 56, 57: the drive's resampler, Crunch's follower, the blocker, M's envelope read, the smooth square near its cap | Pinned by the lead as the test author read them (no human ruling: discretisation only, parts in 10⁴) | Round 26 gave analog prototypes and prose where the clean room needs one discretisation | no | **engine-free** (cleanroom-tests 2d9eb64, Q-TA-55 to 57) | ADR-260 |
+| 33 | Q-TA-60 and the builder's §5.1 question: which counter counts a refused parameter id? | `refused_param_id`, for unknown and reserved ids alike (the lead, completing ruling 31) | PA-7 listed no count for unknown ids | no | engine-free (spec reading; both sides independently) | ADR-263.1 |
+| 34 | Does a row of rate N read PA-1's glide or its target at a voice's start? | The target | §5.1's rate N and PA-1 never met | **yes** (the builder's reading) | engine-free (the test author's audit: no item expects a glided value) | ADR-263.2 |
 
 **Lead readings with no recorded ruling (B520: owed to the human):** B-12 (QS-4's must-fire signals), B-13 (the
 saw no-click set moved to reported), B-27 (`env1.decayCurve` reported), and Q-TA-1/6 (the frozen no-click set).
