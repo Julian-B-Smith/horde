@@ -8966,3 +8966,9 @@ Points needing rulings went to the human.
 **A requirement found in review, for the morph layer:** the knob reads each parameter's owning corner from the morph engine and never computes it. In quantum mode it reads the resolved corner. The morph layer (H2-PLAN `fxmorph` and `modmorph`) must publish both through the GUI readout snapshot (RC-8). The spec says ownership uses stochastic per-parameter thresholds "in both continuous blend and quantum morph modes". That is to be confirmed against the morph law when that layer is specified. Recorded on B532.
 
 **Consequences.** The design system (B531) takes its knob, slider and MAP control components from these specs. The mod matrix lab (B392) treats map mode as its fast write path. **FX device (ADR-254):** none beyond the above; map mode is shell-independent.
+
+**ADR-261 A1 — two values settled for the design system (the human, by poll, 2026-10-21).**
+1. **Mod-source colours, "one per kind":** four colours (envelope, LFO, macro, engine), always distinct from the corner palette. Same-kind sources on one knob are told apart by the inspector and the focus caption.
+2. **The knob's sweep, "280°, the UI Spec":** the UI Spec is normative for values. The map spec's ring rules carry over unchanged.
+
+The design system (B531, https://claude.ai/artifact/EGDwetDHwcvxhTbNffCzJc) is published, and is being revised for these rulings and for ruling 1's shape-coded pips.
