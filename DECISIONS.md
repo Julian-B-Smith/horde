@@ -8988,3 +8988,23 @@ Points needing rulings went to the human.
 2. **The knob's sweep, "280°, the UI Spec":** the UI Spec is normative for values. The map spec's ring rules carry over unchanged.
 
 The design system (B531, https://claude.ai/artifact/EGDwetDHwcvxhTbNffCzJc) is published, and is being revised for these rulings and for ruling 1's shape-coded pips.
+
+## ADR-262 — The human's design-system notes: the Specimen, screen schemes, real corner names, per-corner lock and revert, the census ring (B531, B532, 2026-10-21)
+
+**The human (2026-10-21):** "I want to make sure the specimen is included in the design system. And I liked having the variable screen color options from the legacy gui2. I also want to make sure the arbitrary corner placeholder names "glass, grit, hollow, bloom" don't accidentally get cemented it. The corners should hold the actual names of the corner presets. Also you should be able to lock corners and revert corner presets independently." The human also recalled a feature of one of their morph specs: a ring of coloured dots around the XY pad's reader, its colour counts loosely showing each corner's current share. The lead searched the repo and the sibling projects for that spec and did not find it: the census exists only as a four-segment bar. The ring is built from the human's description.
+
+**Rulings.**
+1. **The Specimen** (ADR-139, MAIN's visualizer under the XY pad) is a design-system component. It is voice-bound, so the FX device needs an audio-driven stand-in (ADR-254, B528).
+2. **Screen schemes return,** as in gui2's SCR chip: user-selectable, each scheme redefining the same screen roles at its stated contrast.
+3. **Corners show their presets' real names.** The placeholder names (glass, grit, hollow, bloom, or any invented ones) are never product copy. An empty corner reads "Empty".
+4. **Per-corner lock and revert, independent per corner.** Lock **protects a corner from edits** (the human, by poll: "Protect it from edits"): a gesture that would write to a locked corner is refused, and the control shows why. The corner still morphs. Revert returns one corner to its saved preset; an edited corner shows a mark.
+5. **The census ring:** a fixed count of dots around the reader. Each corner gets dots in proportion to its current share of parameters, apportioned by largest remainder. The dots are shape-coded with the corner glyphs where size allows (ADR-261 ruling 1).
+
+**Consequences.**
+- The design system (https://claude.ai/artifact/EGDwetDHwcvxhTbNffCzJc) is revised for all five. A right-side overflow the human saw in a slider preview is fixed at the root, and every preview is audited across widths.
+- **The morph and preset layers owe**, for rulings 3–5 (recorded on B532):
+  - each corner's preset name;
+  - a per-corner edit lock that refuses writes;
+  - each corner's saved state and edited flag, for revert;
+  - the census (each corner's share of owned or resolved parameters), published through the GUI readout (RC-8).
+- **FX device (ADR-254):** ruling 1 as stated; the others are shell-independent.
