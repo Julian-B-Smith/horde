@@ -114,11 +114,32 @@
      auditRound3 renders every mode offline against a twin that draws from
      the SEQUENTIAL stream (not m32at), with must-fire controls.
 
+     ROUND 4 (B540, 2026-10-21, ADR-266 ruling 8): THE 2-D RANDOM SOURCE.
+     Human: "the most elegant way to generate pairs of random values for
+     automating the traversal of XY pads". Ruled: one point-valued modulator,
+     (x, y) in [0, 1]², mapped to a pad in one gesture, three modes, prototyped
+     here before any ruling on the instrument.
+       - WALK: a 2-D Ornstein–Uhlenbeck drift toward home (exact transition,
+         speed τ in s, range σ, smoothness), reflecting, never clipping.
+       - JUMP: a new point per trigger (note-on, Hz, or a DIVS division),
+         travelled to under the bend lab's laws (constant time, constant rate,
+         lag, spring); the spring bounces off the pad's walls.
+       - SCATTER: JUMP with R2 (plastic-number) points, offset by the seed.
+       - Shared: bias (a WARP of the uniform draws, never rejection, so the
+         draw count is fixed), spread (disc or box round home), seed, replay.
+     Draws are m32at by index, one stream per mode (XYRand, DSP section). It
+     enters SOURCES as xy.x / xy.y, so ROUTES can hear it (AUDITION). The
+     self-check (xySelfCheck, pure, runs headless) repeats every mode from one
+     seed and demands an exact match, with a Math.random plant that must
+     differ.
+
      L0026: all state above all wiring. No Math.random (mulberry32 only, SPEC
-     §5.7). No wall clock in the render path: the core counts samples. -->
+     §5.7), except round 4's must-fail plant in the UI section, which is a
+     twin's draw in the self-check and never a source the page plays. No wall
+     clock in the render path: the core counts samples. -->
 <html lang="en"><head><meta charset="utf-8">
 <meta name="lab-part" content="Modulation">
-<title>horde modulator lab: LFO + envelope + sources + S&amp;H/random, one law each (B208, B226, B237)</title>
+<title>horde modulator lab: LFO + envelope + sources + S&amp;H/random + 2-D random, one law each (B208, B226, B237, B540)</title>
 <style>
   /* ============================================================
      TOKENS, copied VERBATIM from src/gui/gui2.html:26-96 (:root),
@@ -325,6 +346,15 @@
         align-items:start; margin-top:10px; }
   @media (max-width:1180px) { .r3 { grid-template-columns:1fr; } }
   #smC { height:300px; cursor:pointer; }
+
+  /* ============ ROUND 4 (B540) — the same chrome ============ */
+  .r4 { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.1fr) minmax(0,.9fr); gap:10px;
+        align-items:start; margin-top:10px; }
+  @media (max-width:1180px) { .r4 { grid-template-columns:1fr; } }
+  #xyPadC { aspect-ratio:1 / 1; height:auto; max-width:420px; margin:0 auto; cursor:crosshair; touch-action:none; }
+  #xyLaneC { height:140px; }
+  #xyRows .cap { margin-top:8px; }
+  #xyRows input[type=number] { width:84px; }
 </style></head><body>
 
 <div class="rev" title="The file's modification time and a fingerprint of its scripts, both read at load, so neither can drift (L0020). If the fingerprint does not change after a reload you are on a cached copy.">rev <span id="revdate">…</span> · fp <span id="revfp">…</span></div>
@@ -748,6 +778,73 @@ LFO's destination (CUTOFF by default; PITCH makes the steps obvious).</div>
         cycle. S&amp;H never repeats. Both stay: STEPS is a drawn sequence, S&amp;H is a random source.</li>
       <li><b>No committed gate.</b> The round-3 audit is in-page, like rounds 1 and 2. A <code>tools/*_check</code> that runs it
         headless would keep it honest, and that is the lead's call.</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ======================= ROUND 4 (B540) ======================= -->
+<div class="sect">
+  <div>
+    <h1>2-D random</h1>
+    <div class="badges">
+      <span class="badge">LAB · B540</span>
+      <span class="sub">ONE POINT-VALUED SOURCE FOR THE XY PADS: WALK, JUMP, SCATTER · SEEDED, REPLAYABLE · PROTOTYPE</span>
+    </div>
+  </div>
+</div>
+<div class="tagline">A random source whose output is a <b>point</b>, not a number: (x, y) in [0, 1]², so it lands on an XY pad in one
+gesture and the pad's four corners morph with it. <b>WALK</b> drifts, <b>JUMP</b> leaps to a new point on each trigger and
+travels there, <b>SCATTER</b> leaps too but its points spread evenly. Drag on the pad to move <b>home</b>. To hear it, press
+<b>AUDITION</b> (x → cutoff, y → pitch through routes A and B), then <b>DRONE</b>. <b>REPLAY</b> restarts from draw 0: the same
+seed and the same triggers give the same path, every time.</div>
+<div class="audit" id="audit4">round-4 self-check: pending</div>
+
+<div class="r4">
+  <div class="cluster" id="xyPane"><h2>2-D RANDOM <span>· the controls · one seed, three modes</span></h2>
+    <div class="law"><b>One pipeline.</b> A unit point <b>c</b> in [−1, 1]² → <b>bias</b> warp → <b>shape</b> (box, or the
+      disc by an area-preserving map) → <b>home + spread · s</b> → <b>fold</b> into the pad. WALK moves c itself; JUMP and
+      SCATTER draw a new c per trigger and travel to where it lands. The bias is a <b>warp</b> of the same draws, never a
+      redraw, so the draw count is fixed (2 per Walk tick, 2 per trigger) and a replay reads the same numbers under any
+      bias. Nothing clips: the walk and the pad's edges <b>reflect</b>, and the spring bounces off the walls.</div>
+    <div id="xyRows"></div>
+  </div>
+
+  <div class="cluster" id="xyViewPane"><h2>THE PAD <span>· drag to move home · the puck is what the sound reads</span></h2>
+    <canvas id="xyPadC"></canvas>
+    <div class="note" id="xyW"></div>
+    <div class="cap">X AND Y OVER TIME · ticks mark the triggers</div>
+    <canvas id="xyLaneC"></canvas>
+    <div class="note" id="xyRead"></div>
+  </div>
+
+  <div class="cluster" id="xyQPane"><h2>ROUND 4 · CHOICES AND OPEN QUESTIONS <span>· B540</span></h2>
+    <ol class="find">
+      <li><b>Walk's three knobs.</b> <b>speed</b> is the OU time constant τ in seconds (how long the pull toward home takes to
+        forget a push). <b>range</b> is σ, the drift's typical distance from home in units of the spread (the update is the
+        OU's exact transition, so σ holds at any tick rate). <b>smooth</b> is two one-poles in series at smooth · τ / 2: they
+        round the drift's jagged corners and cost some range. Is smoothness better as its own time, in seconds?</li>
+      <li><b>Spring.</b> The ruling names overshoot, tension and damping. Overshoot and damping are one quantity for a
+        spring (overshoot = e<sup>−πζ/√(1−ζ²)</sup>, the bend lab's law), so the lab has <b>tension</b> (Hz) and
+        <b>damping</b> (ζ) as knobs and shows the overshoot as their readout. Should the knob be overshoot % instead, with ζ
+        derived (the bend lab's dist→overshoot does that inversion)?</li>
+      <li><b>Bias strength.</b> Not in the ruling: a single <b>amount</b> control (0 = no bias at any setting). CORNERS pushes
+        each axis outward, EDGES pushes the box radius out, CENTRE pulls it in. In the disc, CORNERS means the four
+        diagonals on the rim.</li>
+      <li><b>The clock is the source's own.</b> RATE and TEMPO count from the replay, not from bar 1 of the transport, so a
+        replay is a true restart. A tempo-locked version (round 1's SYNC rule: phase from the bar) is the alternative.
+        Which?</li>
+      <li><b>The seed is the source's own field</b>, as SAMPLE ON TRIGGER's is, not the patch seed. Each mode has its own
+        stream (seed XOR a fixed word), so switching mode changes the numbers, and a mode change replays.</li>
+      <li><b>Spread past the pad.</b> When home is near an edge and the spread reaches past it, the region folds back in
+        (reflection again), so those points pile up near that edge rather than being lost. Alternative: shrink the spread
+        to fit.</li>
+      <li><b>Update rate.</b> The source runs on the 16-sample tick and holds between ticks. Fine for a morph; a pitch
+        destination at extreme depth might want interpolation.</li>
+      <li><b>One source, two rows.</b> It enters the lab's one source table as <code>xy.x</code> and <code>xy.y</code>
+        (family XY), so any route can read either axis. In the instrument it would be one modulator bound to a pad's
+        two parameters in one gesture. That binding UI is not built here.</li>
+      <li><b>No committed gate.</b> The self-check is in-page (and runs headless: its function is in the DSP section). A
+        <code>tools/*_check</code> that runs it is the lead's call.</li>
     </ol>
   </div>
 </div>
@@ -1386,6 +1483,8 @@ class ModLabCore {
     /* Where each of the last eight cycles' glides STARTED, keyed by k & 7: the
        picture's record of cycles already played (randPage). */
     this.slRing = new Float64Array(8); this.slRingK = new Float64Array(8).fill(NaN);
+    /* ---- ROUND 4 (B540) ---- the 2-D random source, stepped every sample in render */
+    this.xy = new XYRand(this.sr, S);
     this.shipReseed();
     this.compileRoutes();
   }
@@ -1398,7 +1497,7 @@ class ModLabCore {
     for (let r = 0; r < 2; r++) { const x = SX[this.S.routes[r].src]; this.rtSrc[r] = x === undefined ? -1 : x; }
     const s = SX[this.S.act.shIn]; this.shSrc = s === undefined ? -1 : s;
   }
-  setSr(sr) { this.sr = sr; this.kuro.sr = sr; this.orb.setSr(sr); this.trk.sr = sr; }
+  setSr(sr) { this.sr = sr; this.kuro.sr = sr; this.orb.setSr(sr); this.trk.sr = sr; this.xy.setSr(sr); this.xy.replay(); }
   /* Shipped plug_activate: the phase knob is read HERE, which is the whole
      finding for free-running LFOs. The lab calls this at load and on
      RE-ACTIVATE. */
@@ -1442,6 +1541,7 @@ class ModLabCore {
     if (A[3]) this.kuro.initPhases();
     if (A[4]) this.orb.kick(this.S.orb.kickBody | 0, this.S.orb.kick);
     if (A[5]) this.orb.reset();
+    if ((this.S.xy.clock | 0) === 0) this.xy.trig();   // B540: the 2-D random's NOTE clock is this trigger
     if (A[6]) {   // a HOSTED action: post (sequence, fired-at sample); the main thread applies it
       const P = this.post, j = P.w % POSTN;
       P.seq[j] = ++this.postSeq; P.at[j] = this.sN; P.w++;
@@ -1511,7 +1611,7 @@ class ModLabCore {
       }
       if (this.evp && this.evp === Q.length) { Q.length = 0; this.evp = 0; }
       if (this.trk.trig) { this.trk.trig = 0; this.fire(); }
-      this.kuro.advance(1); this.orb.advance(); this.envStep();
+      this.kuro.advance(1); this.orb.advance(); this.envStep(); this.xy.sample();
       this.lfoStep();
       const lfo = this.lfo, dep = L.depth;
       const cutL = L.dest === 0 ? dep * lfo * 0.5 : 0;
@@ -1633,6 +1733,349 @@ ModLabCore.SX = SX; ModLabCore.phraseEvents = phraseEvents; ModLabCore.mulberry3
 ModLabCore.m32at = m32at; ModLabCore.drawV = drawV; ModLabCore.randAt = randAt; ModLabCore.randInterp = randInterp;
 ModLabCore.slewAt = slewAt; ModLabCore.lfoSeedOf = lfoSeedOf; ModLabCore.RAND_MODES = RAND_MODES; ModLabCore.LFO_KINDS = LFO_KINDS;
 
+/* ================= ROUND 4 (B540): the 2-D random source =================
+   ONE point-valued modulator: its output is a point (x, y) in [0, 1]², so it
+   maps onto an XY pad in one gesture. Three modes share one pipeline:
+
+     unit point c in [-1, 1]²  →  BIAS warp  →  SHAPE (box, or the disc by the
+     area-preserving concentric map)  →  home + spread · s  →  FOLD into [0, 1]²
+
+   WALK moves c itself (a 2-D Ornstein–Uhlenbeck drift toward c = 0, which the
+   pipeline sends to home exactly). JUMP and SCATTER draw a new c per trigger,
+   send it through the pipeline to get a TARGET, and travel there in pad
+   space under one of the bend lab's travel laws (bend-lab.html:194-260).
+
+   WHY A WARP AND NOT REJECTION. Rejection sampling ("redraw until it lands in
+   a corner") makes the number of draws depend on the values, so draw k no
+   longer belongs to trigger k and a replay from another bias reads different
+   numbers. Every warp here is a fixed map of the same uniform draws: Walk uses
+   exactly 2 draws per tick, Jump and Scatter exactly 2 per trigger, whatever
+   the bias, the shape or the spread. xySelfCheck counts them.
+
+   WHY FOLD AND NOT CLIP. Clipping parks the point on an edge (a dead zone the
+   ear hears as the modulation stopping). A fold is a reflection: the motion
+   carries on, mirrored. The OU state folds at its own [-1, 1] walls, the
+   mapped point folds at the pad's walls, and the spring reflects position AND
+   velocity (an elastic wall), so its overshoot bounces back inside the pad.
+
+   DETERMINISM. Every draw is m32at(seed ^ salt[mode], k): mulberry32 by index
+   (round 3's identity, audited there against the sequential stream), so a
+   path is a pure function of (seed, triggers, parameters, sample rate). The
+   update runs every XY_TICK = 16 samples (ADR-009's tick: 2756/s at 44.1 kHz)
+   and every time below is in SECONDS, turned into a per-tick coefficient with
+   dt = 16 / sr. No hand-tuned per-tick constant. */
+const XY_MODES = ['WALK', 'JUMP', 'SCATTER'];
+const XY_CLOCKS = ['NOTE', 'RATE', 'TEMPO'];
+const XY_LAWS = ['CONST TIME', 'CONST RATE', 'LAG', 'SPRING'];   // bend-lab.html models 1..4, same order
+const XY_BIAS = ['NONE', 'CORNERS', 'EDGES', 'CENTRE'];
+const XY_SHAPES = ['DISC', 'BOX'];
+const XY_TICK = 16;
+const XY_HN = 1024, XY_HDEC = 8;   // history ring: a point every 8 ticks (128 samples), ≈ 2.7 s at 48 kHz
+/* One stream per mode, so Walk, Jump and Scatter never share numbers. The
+   words are arbitrary odd constants (SHA-256's first IV words); what matters
+   is that they are fixed and differ from lfoSeed's 0x9E3779B9. */
+const XY_SALT = Object.freeze([0x6A09E667, 0xBB67AE85, 0x3C6EF372]);
+const xySeedOf = (seed, mode) => ((seed | 0) ^ XY_SALT[mode]) | 0;
+/* R2 (Roberts 2018): the 2-D Kronecker sequence on the plastic number ρ, the
+   real root of x³ = x + 1. u_j = frac(offset + j·(1/ρ, 1/ρ²)). It is the
+   lowest-discrepancy additive recurrence known in 2-D: consecutive points
+   land far apart and fill the square evenly, with no clumps. The offset is
+   the seed's two draws, so each seed is a different (equally even) sequence. */
+const PLASTIC = 1.324717957244746;
+const R2A1 = 1 / PLASTIC, R2A2 = 1 / (PLASTIC * PLASTIC);
+/* Reflect into [0, 1]: a triangle wave of period 2. Exact on [0, 1] (x − 0). */
+function fold01(x) { x -= 2 * Math.floor(x * 0.5); return x > 1 ? 2 - x : x; }
+const foldPM = c => 2 * fold01(0.5 * (c + 1)) - 1;
+/* The spring's overshoot fraction for damping ζ, transcribed from
+   bend-lab.html:184 (osFromZeta): the readout beside the damping control. */
+const xyOvershoot = z => (z >= 1 ? 0 : Math.exp(-Math.PI * z / Math.sqrt(1 - z * z)));
+
+/* THE BIAS WARP of a unit point c in [-1, 1]². γ = 1 + 3·amount, so amount 0
+   is the identity for every bias. Each warp is monotone with a FINITE slope
+   everywhere (the obvious |c|^(1/γ) has an infinite slope at 0, which would
+   fling a Walk through the centre), so a walk stays continuous through it.
+     CORNERS: each axis pushed out to ±1 on its own:  c → sgn·(1 − (1 − |c|)^γ)
+     EDGES:   the box radius m = max(|cx|, |cy|) pushed out: m → 1 − (1 − m)^γ
+     CENTRE:  the box radius pulled in:                   m → m^γ
+   EDGES and CENTRE scale both axes by one factor, so direction is kept and
+   only the distance from home changes. */
+function xyWarp(cx, cy, bias, amt, out) {
+  const g = 1 + 3 * Math.min(1, Math.max(0, amt));
+  if (bias === 1) {
+    out[0] = Math.sign(cx) * (1 - Math.pow(1 - Math.abs(cx), g));
+    out[1] = Math.sign(cy) * (1 - Math.pow(1 - Math.abs(cy), g));
+  } else if (bias === 2 || bias === 3) {
+    const m = Math.max(Math.abs(cx), Math.abs(cy));
+    const s = !(m > 0) ? 0 : bias === 2 ? (1 - Math.pow(1 - m, g)) / m : Math.pow(m, g - 1);
+    out[0] = cx * s; out[1] = cy * s;
+  } else { out[0] = cx; out[1] = cy; }
+  return out;
+}
+/* The whole pipeline after the warp. DISC uses the Shirley–Chiu concentric
+   map: area-preserving (a uniform square gives a uniform disc) and it sends
+   box rings to circles, so EDGES means "the rim" and CENTRE "near home" in
+   the disc too, and R2's evenness survives the map. c = 0 lands on home
+   exactly, for every bias and shape. */
+function xyMap(cx, cy, P, out) {
+  xyWarp(cx, cy, P.bias | 0, P.amt, out);
+  let a = out[0], b = out[1];
+  if ((P.shape | 0) === 0 && (a !== 0 || b !== 0)) {
+    let r, phi;
+    if (Math.abs(a) > Math.abs(b)) { r = a; phi = 0.25 * Math.PI * (b / a); }
+    else { r = b; phi = 0.5 * Math.PI - 0.25 * Math.PI * (a / b); }
+    a = r * Math.cos(phi); b = r * Math.sin(phi);
+  }
+  out[0] = fold01(P.hx + P.spread * a); out[1] = fold01(P.hy + P.spread * b);
+  return out;
+}
+/* Trigger j's uniform point, PURE: the picture reads past targets through
+   this and never touches the sound's state. JUMP: draws 2j and 2j + 1.
+   SCATTER: R2 point j, offset by draws 0 and 1 (read again by index each
+   time, so this stays pure). `draw` is m32at except in the audit's plant. */
+function xyUnit(P, mode, j, draw, out) {
+  const sd = xySeedOf(P.seed, mode);
+  if (mode === 2) { out[0] = frac(draw(sd, 0) + j * R2A1); out[1] = frac(draw(sd, 1) + j * R2A2); }
+  else { out[0] = draw(sd, 2 * j); out[1] = draw(sd, 2 * j + 1); }
+  return out;
+}
+function xyTarget(P, mode, j, draw, out) { xyUnit(P, mode, j, draw, out); return xyMap(2 * out[0] - 1, 2 * out[1] - 1, P, out); }
+/* The pad's corner weights, bilinear, y UP: A ◆ top-left, B ▲ top-right,
+   C ● bottom-left, D ■ bottom-right (gui2's corner order, :2878). */
+function xyWeights(x, y, out) {
+  out[0] = (1 - x) * y; out[1] = x * y; out[2] = (1 - x) * (1 - y); out[3] = x * (1 - y);
+  return out;
+}
+
+class XYRand {
+  constructor(sr, S) {
+    this.S = S; this.draw = m32at; this.o = new Float64Array(2);
+    this.hx = new Float32Array(XY_HN); this.hy = new Float32Array(XY_HN); this.hm = new Uint8Array(XY_HN);
+    this.setSr(sr); this.replay();
+  }
+  setSr(sr) { this.sr = sr; this.dt = XY_TICK / sr; }
+  /* REPLAY: back to draw 0 at home. The mode is latched here, and a tick that
+     finds it changed replays first, so a Walk state never leaks into a Jump. */
+  replay() {
+    const P = this.S.xy;
+    this.mode = P.mode | 0;
+    this.n = 0; this.sub = 0; this.j = 0; this.pend = 0; this.trigs = 0;
+    /* A clocked Jump's first trigger is its first tick (ph starts AT the wrap),
+       so the motion starts with the replay instead of one period later. */
+    this.ph = 1;
+    this.cx = 0; this.cy = 0; this.s1x = 0; this.s1y = 0; this.s2x = 0; this.s2y = 0;
+    xyMap(0, 0, P, this.o); this.x = this.o[0]; this.y = this.o[1];
+    this.x0 = this.x; this.y0 = this.y; this.tx = this.x; this.ty = this.y; this.vx = 0; this.vy = 0; this.e = 0;
+    this.hw = 0; this.hdec = 0; this.mark = 0;
+    this.hx.fill(this.x); this.hy.fill(this.y); this.hm.fill(0);
+  }
+  /* A note-on TRIGGER (round 2's event) or the card's TRIG. Several on one
+     tick are one jump. */
+  trig() { this.pend = 1; }
+  /* Called once per sample; the law runs on the first sample of every tick
+     and the output holds between ticks. */
+  sample() { if (this.sub === 0) this.tick(); if (++this.sub >= XY_TICK) this.sub = 0; }
+  tick() {
+    const S = this.S, P = S.xy, dt = this.dt, o = this.o;
+    if ((P.mode | 0) !== this.mode) this.replay();
+    if (this.mode === 0) {
+      /* WALK. Exact OU discretisation (not Euler): with a = e^(−dt/τ),
+         c ← a·c + σ·√(1 − a²)·g is the OU's own transition, so the stationary
+         spread is σ at any tick rate and τ is the drift's real time constant.
+         g is a pair of Box–Muller normals from draws 2n and 2n + 1. */
+      const sd = xySeedOf(P.seed, 0), k = 2 * this.n;
+      const u1 = 1 - this.draw(sd, k), u2 = this.draw(sd, k + 1);   // u1 in (0, 1]: log(u1) is finite
+      const rad = Math.sqrt(-2 * Math.log(u1)), gx = rad * Math.cos(TAU * u2), gy = rad * Math.sin(TAU * u2);
+      const tau = Math.max(1e-3, P.tau), a = Math.exp(-dt / tau), b = P.sigma * Math.sqrt(1 - a * a);
+      this.cx = foldPM(a * this.cx + b * gx); this.cy = foldPM(a * this.cy + b * gy);
+      /* SMOOTHNESS: two one-poles in series, each at smooth·τ/2. A one-pole of
+         points inside a box stays inside it (each output is a convex mix), so
+         smoothing cannot push the walk off the region. It rounds the OU's
+         Brownian corners and costs some spread; it adds no draws. */
+      let qx = this.cx, qy = this.cy;
+      if (P.smooth > 0) {
+        const ks = 1 - Math.exp(-dt / (0.5 * P.smooth * tau));
+        this.s1x += (qx - this.s1x) * ks; this.s1y += (qy - this.s1y) * ks;
+        this.s2x += (this.s1x - this.s2x) * ks; this.s2y += (this.s1y - this.s2y) * ks;
+        qx = this.s2x; qy = this.s2y;
+      } else { this.s1x = this.s2x = qx; this.s1y = this.s2y = qy; }
+      xyMap(qx, qy, P, o); this.x = o[0]; this.y = o[1];
+    } else {
+      /* JUMP / SCATTER. The clock: NOTE waits for trig(); RATE and TEMPO are
+         phase accumulators from the replay (TEMPO counts quarter-note beats at
+         the lab's BPM over the division's beats, round 1's DIVS). */
+      const ck = P.clock | 0;
+      if (ck > 0) {
+        this.ph += (ck === 1 ? P.hz : S.bpm / 60 / Math.max(0.01, P.beats)) * dt;
+        if (this.ph >= 1) { this.ph -= Math.floor(this.ph); this.pend = 1; }
+      }
+      if (this.pend) {
+        this.pend = 0; this.trigs++; this.mark = 1;
+        xyTarget(P, this.mode, this.j++, this.draw, o); this.tx = o[0]; this.ty = o[1];
+        this.x0 = this.x; this.y0 = this.y; this.e = 0;
+      }
+      this.glide(P, dt);
+    }
+    this.n++;
+    if (++this.hdec >= XY_HDEC) {
+      this.hdec = 0; const w = this.hw;
+      this.hx[w] = this.x; this.hy[w] = this.y; this.hm[w] = this.mark; this.mark = 0;
+      this.hw = (w + 1) % XY_HN;
+    }
+  }
+  /* The travel laws, bend-lab.html's models 1..4 in two dimensions, in pad
+     units. CONST TIME arrives in exactly gTime seconds whatever the distance
+     (a closed form from the latched start, so it lands ON the target). CONST
+     RATE moves gRate pad-widths per second along the straight line. LAG is the
+     one-pole τ (never arrives). SPRING is the bend lab's mass on a spring at
+     tension spF Hz and damping ζ, its overshoot xyOvershoot(ζ); semi-implicit
+     Euler as there (ω·dt ≤ 2π·12·16/44100 = 0.027). All four but the spring
+     stay on the segment from start to target, so inside the pad; the spring
+     reflects at the walls. */
+  glide(P, dt) {
+    const law = P.law | 0, dx = this.tx - this.x, dy = this.ty - this.y;
+    if (law === 0) {
+      this.e += dt; const T = Math.max(1e-3, P.gTime);
+      if (this.e >= T) { this.x = this.tx; this.y = this.ty; }
+      else { const f = this.e / T; this.x = this.x0 + (this.tx - this.x0) * f; this.y = this.y0 + (this.ty - this.y0) * f; }
+    } else if (law === 1) {
+      const d = Math.hypot(dx, dy), s = P.gRate * dt;
+      if (d <= s) { this.x = this.tx; this.y = this.ty; } else { this.x += dx * s / d; this.y += dy * s / d; }
+    } else if (law === 2) {
+      const k = 1 - Math.exp(-dt / Math.max(1e-4, P.gTau)); this.x += dx * k; this.y += dy * k;
+    } else {
+      const w = TAU * P.spF, z = P.spZ;
+      this.vx += (w * w * dx - 2 * z * w * this.vx) * dt; this.vy += (w * w * dy - 2 * z * w * this.vy) * dt;
+      this.x += this.vx * dt; this.y += this.vy * dt;
+      if (this.x < 0) { this.x = -this.x; this.vx = -this.vx; } else if (this.x > 1) { this.x = 2 - this.x; this.vx = -this.vx; }
+      if (this.y < 0) { this.y = -this.y; this.vy = -this.vy; } else if (this.y > 1) { this.y = 2 - this.y; this.vy = -this.vy; }
+      this.x = fold01(this.x); this.y = fold01(this.y);   // a step past BOTH walls (never at these rates): still a reflection
+      return;
+    }
+    this.vx = 0; this.vy = 0;   // only the spring carries velocity; a switch to it starts from rest
+  }
+}
+/* XY rows in the ONE source table, so ROUTES (and SAMPLE ON TRIGGER) can read
+   the point like any other source. Unipolar: a pad position is 0..1. */
+defSrc('xy.x', 'x', 'XY', false, c => c.xy.x);
+defSrc('xy.y', 'y', 'XY', false, c => c.xy.y);
+
+/* ---- THE ROUND-4 SELF-CHECK (pure: the page and a headless node run call it)
+   1. REPEAT: each mode, run twice from one seed with the same triggers, must
+      match EXACTLY (max |Δ| = 0), every travel law, both clock kinds.
+   2. REPLAY: one instance runs, replays, runs again: the second path equals
+      the first exactly (the button's own code path).
+   3. IN THE PAD: every point of every run in [0, 1]², including a stress
+      case per mode (σ 1.5 from a corner; a 12 Hz spring at ζ 0.05).
+   4. FIXED DRAW COUNT: draws counted under all four biases must be equal
+      (2 per Walk tick, 2 per trigger): the warp is not a rejection.
+   5. THE SOUND: a ModLabCore render routes x to the cutoff; its destination
+      tap must equal a standalone XYRand sample for sample (the core adds
+      nothing to the law).
+   Must-fire controls: seed + 1, one trigger a tick late, the sound twin at
+   seed + 1, and THE PLANT: `plant` (the page passes Math.random) replaces
+   the indexed draw, and two runs must DIFFER. With no plant the check says
+   the plant did not run and does not pass. */
+/* A must-fire control fires when the paths differ AT ALL (the repeat is held
+   to exactly 0, so any difference is information); 1e-9 rather than 1e-3 so a
+   card set to a tiny spread cannot make a true control read as silent. */
+const XY_CTL = 1e-9;
+function xySelfCheck(S0, plant) {
+  const sr = 8000, T = 1500;   // ticks: 1500 × 16 = 3 s at 8 kHz
+  const TR = [0, 37, 120, 121, 300, 555, 800, 1100, 1350];
+  const mk = over => { const St = JSON.parse(JSON.stringify(S0)); Object.assign(St.xy, over); return St; };
+  const run = (St, tr, draw, replayTwice) => {
+    const r = new XYRand(sr, St); if (draw) r.draw = draw;
+    const once = () => { const out = new Float64Array(2 * T); let ti = 0;
+      for (let n = 0; n < T; n++) {
+        while (ti < tr.length && tr[ti] === n) { r.trig(); ti++; }
+        r.tick(); out[2 * n] = r.x; out[2 * n + 1] = r.y;
+      }
+      return out; };
+    const a = once(); if (!replayTwice) return a;
+    r.replay(); return [a, once()];
+  };
+  const maxd = (a, b) => { let m = 0; for (let i = 0; i < a.length; i++) { const d = Math.abs(a[i] - b[i]); if (!(d <= m)) m = d; } return m; };
+  const inPad = a => { for (let i = 0; i < a.length; i++) if (!(a[i] >= 0 && a[i] <= 1)) return false; return true; };
+  const late = TR.map(t => t === 300 ? 301 : t);
+  const CASES = [
+    ['WALK', { mode: 0 }, false],
+    ['WALK σ 1.5, home at a corner', { mode: 0, sigma: 1.5, smooth: 0, hx: 0.03, hy: 0.97, spread: 1, bias: 1, amt: 1 }, false],
+    ['JUMP const time', { mode: 1, clock: 0, law: 0 }, true],
+    ['JUMP const rate', { mode: 1, clock: 0, law: 1 }, true],
+    ['JUMP lag', { mode: 1, clock: 0, law: 2 }, true],
+    ['JUMP spring', { mode: 1, clock: 0, law: 3 }, true],
+    ['JUMP spring 12 Hz ζ 0.05, corner home, EDGES', { mode: 1, clock: 0, law: 3, spF: 12, spZ: 0.05, hx: 0.02, hy: 0.98, spread: 1, bias: 2, amt: 1 }, true],
+    ['JUMP rate clock 7 Hz', { mode: 1, clock: 1, hz: 7, law: 3 }, false],
+    ['JUMP tempo 1/16', { mode: 1, clock: 2, beats: 0.25, law: 1 }, false],
+    ['SCATTER const time', { mode: 2, clock: 0, law: 0 }, true],
+    ['SCATTER spring', { mode: 2, clock: 0, law: 3 }, true],
+    ['SCATTER rate clock 5 Hz, disc, CENTRE', { mode: 2, clock: 1, hz: 5, law: 2, shape: 0, bias: 3 }, false],
+  ];
+  const rows = []; let ok = true;
+  for (const [name, over, noteClk] of CASES) {
+    const St = mk(over), tr = noteClk ? TR : [];
+    const A = run(St, tr), B = run(St, tr);
+    const dRep = maxd(A, B), pad = inPad(A);
+    const cSeed = maxd(A, run(mk(Object.assign({}, over, { seed: (St.xy.seed | 0) + 1 })), tr));
+    const cLate = noteClk ? maxd(A, run(St, late)) : NaN;
+    const good = dRep === 0 && pad && cSeed > XY_CTL && (!noteClk || cLate > XY_CTL);
+    if (!good) ok = false;
+    rows.push({ name, dRep, pad, cSeed, cLate, good });
+  }
+  const rep = [['WALK', { mode: 0 }], ['JUMP spring', { mode: 1, clock: 0, law: 3 }], ['SCATTER lag', { mode: 2, clock: 0, law: 2 }]].map(([name, over]) => {
+    const [a, b] = run(mk(over), TR, null, true), d = maxd(a, b);
+    if (d !== 0) ok = false;
+    return { name, d };
+  });
+  const counts = [0, 1].map(mode => {
+    const per = XY_BIAS.map((nm, bias) => { let c = 0; const cd = (s, k) => { c++; return m32at(s, k); };
+      run(mk({ mode, clock: 0, law: 1, bias, amt: 1 }), TR, cd); return c; });
+    const same = per.every(c => c === per[0]), want = mode === 0 ? 2 * T : 2 * TR.filter((t, i) => TR.indexOf(t) === i).length;
+    if (!same || per[0] !== want) ok = false;
+    return { mode: XY_MODES[mode], per, want, same };
+  });
+  /* 5. THE SOUND: x → cutoff on route A, every trigger action off, the
+     destination tap against a standalone instance stepped by sample(). */
+  const sound = [['WALK', { mode: 0 }], ['JUMP spring, rate clock 4 Hz', { mode: 1, clock: 1, hz: 4, law: 3 }]].map(([name, over]) => {
+    const St = mk(over); St.law = 0; St.act.on = St.act.on.map(() => 0);
+    St.routes[0] = { src: 'xy.x', dest: 0, depth: 0.5 }; St.routes[1].src = 'off';
+    const n = T * XY_TICK, c = new ModLabCore(sr, St); c.tapRoute = new Float64Array(n);
+    const Lb = new Float32Array(256), Rb = new Float32Array(256);
+    for (let i = 0; i < n; i += 256) c.render(Lb, Rb, Math.min(256, n - i));
+    const tw = new XYRand(sr, St), ctl = new XYRand(sr, mk(Object.assign({}, over, { seed: (St.xy.seed | 0) + 1 })));
+    let d = 0, cd = 0;
+    for (let i = 0; i < n; i++) { tw.sample(); ctl.sample(); d = Math.max(d, Math.abs(c.tapRoute[i] - tw.x)); cd = Math.max(cd, Math.abs(c.tapRoute[i] - ctl.x)); }
+    if (!(d === 0 && cd > XY_CTL)) ok = false;
+    return { name, d, cd };
+  });
+  /* THE PLANT. Two runs with an unseeded draw must differ; if they did not,
+     the repeat check above could not tell seeded from unseeded either. */
+  let plantRes = null;
+  if (typeof plant === 'function') {
+    const pd = () => plant();
+    plantRes = [['WALK', { mode: 0 }, []], ['JUMP', { mode: 1, clock: 0, law: 1 }, TR], ['SCATTER', { mode: 2, clock: 0, law: 1 }, TR]].map(([name, over, tr]) => {
+      const d = maxd(run(mk(over), tr, pd), run(mk(over), tr, pd));
+      if (!(d > XY_CTL)) ok = false;
+      return { name, d };
+    });
+  } else ok = false;
+  /* EVENNESS (information, not a gate): the nearest-neighbour gap of 64
+     targets, Jump's uniform draws vs Scatter's R2, the whole pad. */
+  const even = [1, 2].map(mode => {
+    const P = Object.assign({}, S0.xy, { hx: 0.5, hy: 0.5, spread: 0.5, shape: 1, bias: 0 }), o = new Float64Array(2), px = [], py = [];
+    for (let j = 0; j < 64; j++) { xyTarget(P, mode, j, m32at, o); px.push(o[0]); py.push(o[1]); }
+    let mn = Infinity, mean = 0;
+    for (let i = 0; i < 64; i++) { let b = Infinity;
+      for (let k = 0; k < 64; k++) if (k !== i) b = Math.min(b, Math.hypot(px[i] - px[k], py[i] - py[k]));
+      mn = Math.min(mn, b); mean += b / 64; }
+    return { mode: XY_MODES[mode], min: mn, mean };
+  });
+  return { ok, sr, T, rows, rep, counts, sound, plant: plantRes, even };
+}
+ModLabCore.XYRand = XYRand; ModLabCore.xyMap = xyMap; ModLabCore.xyWarp = xyWarp; ModLabCore.xyUnit = xyUnit;
+ModLabCore.xyTarget = xyTarget; ModLabCore.xyWeights = xyWeights; ModLabCore.fold01 = fold01; ModLabCore.xyOvershoot = xyOvershoot;
+ModLabCore.xySelfCheck = xySelfCheck; ModLabCore.XY_MODES = XY_MODES; ModLabCore.XY_LAWS = XY_LAWS; ModLabCore.XY_BIAS = XY_BIAS;
+
 /* ================= UI ================= */
 /* ---- STATE: the whole patch, one plain object, above all wiring (L0026) --- */
 const LAWS = ['PROPOSED', 'SHIPPED'];
@@ -1657,6 +2100,14 @@ const S = {
      and a seeded S&H of each note-on on pitch (the event → level path). */
   routes: [{ src: 'orb.b1.x', dest: 0, depth: 0.3 }, { src: 'act.sh', dest: 1, depth: 0.15 }],
   act: { on: [1, 1, 0, 0, 0, 0, 0], shIn: 'rand', seed: 4242 },
+  /* ---- ROUND 4 (B540): the 2-D random source. Times in SECONDS (tau, gTime,
+     gTau), rates in Hz or pad-widths per second, spread in pad units (box
+     half-width or disc radius), sigma in units of the spread. Its own seed,
+     like SAMPLE ON TRIGGER's. Defaults: the whole pad (box 0.5 round the
+     centre), and the spring, because overshoot is the law a pad cannot fake. */
+  xy: { mode: 0, seed: 540, hx: 0.5, hy: 0.5, shape: 1, spread: 0.5, bias: 0, amt: 0.6,
+        tau: 1.5, sigma: 0.45, smooth: 0.3,
+        clock: 1, hz: 1.5, beats: 1, law: 3, gTime: 0.25, gRate: 2, gTau: 0.12, spF: 3, spZ: 0.35, trail: 16 },
 };
 /* The hosted module is NOT the core's: it lives on the main thread, as a
    module's patch does. Six generic parameters, a lock each, its own seed.
@@ -2302,7 +2753,7 @@ function onEdit() {
   for (const f of REPAINT) f();
   for (const f of GHOSTS) f();
   core.kuro.drawn = S.lfo.pts;   // B226: DRAWN reads the card's CURRENT points (a preset replaces the array)
-  paintSus(); paintDivRead(); paintLaw(); serialize(); auditOneLaw(); scheduleAudit2(); scheduleAudit3();
+  paintSus(); paintDivRead(); paintLaw(); serialize(); auditOneLaw(); scheduleAudit2(); scheduleAudit3(); scheduleAudit4();
   const w = $('envWarn');
   if (w) { const on = S.env.custom; w.style.display = on ? 'block' : 'none';
     w.textContent = 'Breakpoints edited: the A/D/S/R sliders no longer describe this shape (moving one rewrites it). HEAR = SHIPPED still plays the sliders as τ, because the shipped envelope has no breakpoints.'; }
@@ -2518,7 +2969,7 @@ function midiNow() {
 }
 
 /* ---- ROUTES card ---- */
-const FAMS = ['LFO', 'KURO', 'ORBITAL', 'MIDI', 'EVENT → LEVEL'];
+const FAMS = ['LFO', 'KURO', 'ORBITAL', 'MIDI', 'XY', 'EVENT → LEVEL'];   // B540: XY, the 2-D random's two axes
 function srcSelect(get, set, withRandom) {
   const sel = el('select', 'src');
   const op0 = el('option', null, withRandom ? 'RANDOM (seeded)' : 'OFF'); op0.value = withRandom ? 'rand' : 'off'; sel.appendChild(op0);
@@ -2948,6 +3399,203 @@ function audit3Pass(over) {
 let audit3T = 0;
 function scheduleAudit3() { if (audit3T) clearTimeout(audit3T); audit3T = setTimeout(() => { audit3T = 0; auditRound3(); }, 200); }
 
+/* ====================== ROUND 4 (B540) — UI ====================== */
+const XY_CK = ['--cA', '--cB', '--cC', '--cD'], XY_CT = ['--cAtx', '--cBtx', '--cCtx', '--cDtx'], XY_GL = ['◆', '▲', '●', '■'];
+const xyO = new Float64Array(2), xyWt = new Float64Array(4);   // painter scratch: no allocation per frame
+function buildXY() {
+  const host = $('xyRows'); if (!host) return;
+  const X = S.xy, gh = [];
+  const live = (row, f) => { gh.push([row, f]); return row; };
+  pillRow(host, 'mode', XY_MODES, () => X.mode, i => { X.mode = i; core.xy.replay(); });
+  host.appendChild(el('div', 'cap', 'WALK · 2-D Ornstein–Uhlenbeck drift toward home'));
+  const isW = () => X.mode === 0, isJ = () => X.mode > 0;
+  live(slider(host, { label: 'speed τ', min: 0.05, max: 20, log: true, get: () => X.tau, set: x => { X.tau = x; }, fmt: fSec }), isW);
+  live(slider(host, { label: 'range σ', min: 0.02, max: 1.5, log: true, get: () => X.sigma, set: x => { X.sigma = x; }, fmt: f2 }), isW);
+  live(slider(host, { label: 'smooth', min: 0, max: 1, step: 0.01, get: () => X.smooth, set: x => { X.smooth = x; }, fmt: f2 }), isW);
+  host.appendChild(el('div', 'cap', 'JUMP / SCATTER · a new point per trigger, then travel'));
+  live(pillRow(host, 'trigger', XY_CLOCKS, () => X.clock, i => { X.clock = i; }), isJ);
+  live(slider(host, { label: 'rate', min: 0.1, max: 20, log: true, get: () => X.hz, set: x => { X.hz = x; }, fmt: x => x.toFixed(2) + ' Hz' }), () => isJ() && X.clock === 1);
+  live(selectRow(host, 'division', DIVS.map((d, i) => divLabel(i)), () => nearestDiv(X.beats), i => { X.beats = DIVS[i][2]; }), () => isJ() && X.clock === 2);
+  live(selectRow(host, 'glide', XY_LAWS, () => X.law, i => { X.law = i; }), isJ);
+  live(slider(host, { label: 'time', min: 0.005, max: 4, log: true, get: () => X.gTime, set: x => { X.gTime = x; }, fmt: fSec }), () => isJ() && X.law === 0);
+  live(slider(host, { label: 'rate', min: 0.05, max: 20, log: true, get: () => X.gRate, set: x => { X.gRate = x; }, fmt: x => x.toFixed(2) + ' pad/s' }), () => isJ() && X.law === 1);
+  live(slider(host, { label: 'lag τ', min: 0.002, max: 2, log: true, get: () => X.gTau, set: x => { X.gTau = x; }, fmt: fSec }), () => isJ() && X.law === 2);
+  live(slider(host, { label: 'tension', min: 0.2, max: 12, log: true, get: () => X.spF, set: x => { X.spF = x; }, fmt: x => x.toFixed(2) + ' Hz' }), () => isJ() && X.law === 3);
+  live(slider(host, { label: 'damping ζ', min: 0.02, max: 1.5, step: 0.01, get: () => X.spZ, set: x => { X.spZ = x; },
+    fmt: x => x.toFixed(2) + ' · ' + (xyOvershoot(x) * 100).toFixed(0) + '%' }), () => isJ() && X.law === 3);
+  live(slider(host, { label: 'trail N', min: 2, max: 32, step: 1, get: () => X.trail, set: x => { X.trail = Math.round(x); }, fmt: x => String(Math.round(x)) }), () => X.mode === 2);
+  host.appendChild(el('div', 'cap', 'SHARED · bias, spread, seed'));
+  pillRow(host, 'bias', XY_BIAS, () => X.bias, i => { X.bias = i; });
+  live(slider(host, { label: 'amount', min: 0, max: 1, step: 0.01, get: () => X.amt, set: x => { X.amt = x; }, fmt: f2 }), () => X.bias > 0);
+  pillRow(host, 'spread', XY_SHAPES, () => X.shape, i => { X.shape = i; });
+  slider(host, { label: 'radius', min: 0.02, max: 1, step: 0.005, get: () => X.spread, set: x => { X.spread = x; }, fmt: f2 });
+  const row = el('div', 'row wide'), bx = el('div', 'pills');
+  const sd = el('input'); sd.type = 'number'; sd.value = String(X.seed);
+  sd.title = 'the 2-D random\'s own seed: mulberry32 by index, one stream per mode (seed XOR a fixed word). A new seed replays.';
+  sd.addEventListener('input', () => { X.seed = (parseInt(sd.value, 10) || 0) | 0; core.xy.replay(); onEdit(); });
+  const rp = el('button', 'pill', 'REPLAY'); rp.title = 'restart from draw 0, at home';
+  rp.addEventListener('click', () => { core.xy.replay(); onEdit(); });
+  const tg = el('button', 'pill', 'TRIG'); tg.title = 'one trigger now (what a note-on does when the trigger is NOTE)';
+  tg.addEventListener('click', () => core.xy.trig());
+  REPAINT.push(() => { sd.value = String(X.seed); tg.classList.toggle('ghost', !isJ()); });
+  bx.appendChild(sd); bx.appendChild(rp); bx.appendChild(tg);
+  row.appendChild(el('label', null, 'seed')); row.appendChild(bx); host.appendChild(row);
+  /* LISTEN. AUDITION points the lab's two existing routes at the point (the
+     one route path, not a second one) and sets the LFO card's depth to 0 so
+     only the point moves the sound (double-click that slider to restore). */
+  const lr = el('div', 'row wide'), lb = el('div', 'pills');
+  const p = el('button', 'pill', 'POWER'); p.id = 'pwr4'; p.addEventListener('click', power);
+  const d = el('button', 'pill', 'DRONE'); d.id = 'droneBtn4'; d.addEventListener('click', toggleDrone);
+  const au = el('button', 'pill', 'AUDITION');
+  au.title = 'route A ← x → CUTOFF × 0.6, route B ← y → PITCH × 0.2, LFO depth 0';
+  au.addEventListener('click', () => {
+    S.routes[0].src = 'xy.x'; S.routes[0].dest = 0; S.routes[0].depth = 0.6;
+    S.routes[1].src = 'xy.y'; S.routes[1].dest = 1; S.routes[1].depth = 0.2;
+    S.lfo.depth = 0; core.compileRoutes(); power(); onEdit();
+  });
+  REPAINT.push(() => au.classList.toggle('on', S.routes[0].src === 'xy.x' && S.routes[1].src === 'xy.y'));
+  lb.appendChild(p); lb.appendChild(d); lb.appendChild(au);
+  lr.appendChild(el('label', null, 'listen')); lr.appendChild(lb); host.appendChild(lr);
+  REPAINT.push(() => gh.forEach(([r, f]) => r.classList.toggle('ghost', !f())));
+  wireXYPad();
+}
+/* ONE mapping for the pad, shared by paint and pointer. y is UP. */
+function xyGeom(cv) {
+  const v = VS(), w = cv.width, h = cv.height, m = 16 * v, s = Math.max(1, Math.min(w, h) - 2 * m);
+  const x0 = (w - s) / 2, y0 = (h - s) / 2;
+  return { v, s, x0, y0, PX: x => x0 + x * s, PY: y => y0 + (1 - y) * s,
+    IX: px => Math.min(1, Math.max(0, (px - x0) / s)), IY: py => Math.min(1, Math.max(0, 1 - (py - y0) / s)) };
+}
+function wireXYPad() {
+  const cv = $('xyPadC'); if (!cv || !cv.addEventListener) return;
+  let on = false;
+  const put = e => { const r = cv.getBoundingClientRect(), d = VS(), M = xyGeom(cv);
+    S.xy.hx = M.IX((e.clientX - r.left) * d); S.xy.hy = M.IY((e.clientY - r.top) * d); onEdit(); };
+  cv.addEventListener('pointerdown', e => { on = true; if (cv.setPointerCapture) cv.setPointerCapture(e.pointerId); put(e); });
+  cv.addEventListener('pointermove', e => { if (on) put(e); });
+  cv.addEventListener('pointerup', () => { on = false; });
+  cv.addEventListener('pointercancel', () => { on = false; });
+}
+function paintXY() {
+  const cv = $('xyPadC'), G = ground(cv); if (!G) return;
+  const { g, v } = G, X = S.xy, xr = core.xy, M = xyGeom(cv), { PX, PY, s } = M;
+  // the corner field: each corner's colour fading toward the far side (gui2's morph-field idiom)
+  for (let k = 0; k < 4; k++) {
+    const gx = k % 2 ? M.x0 + s : M.x0, gy = k > 1 ? M.y0 + s : M.y0;
+    const gr = g.createRadialGradient(gx, gy, 0, gx, gy, s);
+    gr.addColorStop(0, RGBA(TOK(XY_CK[k]), 0.30)); gr.addColorStop(0.75, RGBA(TOK(XY_CK[k]), 0));
+    g.fillStyle = gr; g.fillRect(M.x0, M.y0, s, s);
+  }
+  g.strokeStyle = TOKA('--scr-grid', 0.18); g.lineWidth = v; g.beginPath();
+  for (let i = 1; i < 4; i++) { g.moveTo(PX(i / 4), PY(0)); g.lineTo(PX(i / 4), PY(1)); g.moveTo(PX(0), PY(i / 4)); g.lineTo(PX(1), PY(i / 4)); }
+  g.stroke();
+  g.strokeStyle = TOKA('--scr-grid', 0.7); g.lineWidth = 1.2 * v; g.strokeRect(M.x0, M.y0, s, s);
+  // the region: dashed, clipped to the pad (what overhangs folds back in)
+  g.save(); g.beginPath(); g.rect(M.x0, M.y0, s, s); g.clip();
+  g.setLineDash([4 * v, 3 * v]); g.strokeStyle = TOKA('--scr-physics', 0.8); g.lineWidth = v; g.beginPath();
+  if (X.shape === 0) g.arc(PX(X.hx), PY(X.hy), X.spread * s, 0, TAU);
+  else g.rect(PX(X.hx - X.spread), PY(X.hy + X.spread), 2 * X.spread * s, 2 * X.spread * s);
+  g.stroke(); g.setLineDash([]); g.restore();
+  // the trail: the last 400 logged points (≈ 1.1 s at 48 kHz), fading with age
+  const TR = 400, n0 = (xr.hw - TR + XY_HN) % XY_HN;
+  for (let q = 1; q < TR; q++) {
+    const a = (n0 + q - 1) % XY_HN, b = (n0 + q) % XY_HN;
+    g.strokeStyle = TOKA('--scr-value', 0.05 + 0.5 * q / TR); g.lineWidth = 1.3 * v;
+    g.beginPath(); g.moveTo(PX(xr.hx[a]), PY(xr.hy[a])); g.lineTo(PX(xr.hx[b]), PY(xr.hy[b])); g.stroke();
+  }
+  // SCATTER: the last N targets, read from the PURE target law (the sound's own function), fading
+  if (xr.mode === 2) {
+    const N = Math.max(1, X.trail | 0);
+    for (let j = Math.max(0, xr.j - N); j < xr.j; j++) {
+      xyTarget(X, 2, j, xr.draw, xyO); const age = (xr.j - 1 - j) / N;
+      g.fillStyle = TOKA('--scr-marker', 0.95 - 0.8 * age); g.beginPath(); g.arc(PX(xyO[0]), PY(xyO[1]), (3.4 - 1.6 * age) * v, 0, TAU); g.fill();
+    }
+  }
+  if (xr.mode > 0 && xr.j > 0) {   // the current target
+    const tx = PX(xr.tx), ty = PY(xr.ty), r = 6 * v;
+    g.strokeStyle = TOK('--scr-marker'); g.lineWidth = 1.2 * v; g.beginPath();
+    g.moveTo(tx - r, ty); g.lineTo(tx + r, ty); g.moveTo(tx, ty - r); g.lineTo(tx, ty + r); g.stroke();
+  }
+  // home: a hollow square
+  g.strokeStyle = TOK('--scr-grid'); g.lineWidth = 1.4 * v; g.strokeRect(PX(X.hx) - 4 * v, PY(X.hy) - 4 * v, 8 * v, 8 * v);
+  // the puck: what the destination reads now
+  g.fillStyle = TOK('--scr-value'); g.beginPath(); g.arc(PX(xr.x), PY(xr.y), 5.5 * v, 0, TAU); g.fill();
+  g.strokeStyle = TOK('--scr-tube'); g.lineWidth = 1.5 * v; g.stroke();
+  // the corner glyphs
+  g.font = 'bold ' + (12 * v) + 'px ui-monospace,Menlo,monospace'; g.textBaseline = 'middle';
+  for (let k = 0; k < 4; k++) {
+    const right = k % 2, bottom = k > 1, gx = right ? M.x0 + s + 2 * v : M.x0 - 2 * v, gy = bottom ? M.y0 + s + 8 * v : M.y0 - 8 * v;
+    g.textAlign = right ? 'right' : 'left'; g.fillStyle = TOK(XY_CT[k]);
+    g.fillText(XY_GL[k] + ' ' + 'ABCD'[k], right ? gx : gx, gy);
+  }
+  g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+  const W = $('xyW');
+  if (W) { xyWeights(xr.x, xr.y, xyWt);
+    W.innerHTML = [0, 1, 2, 3].map(k => '<span style="color:var(' + XY_CT[k] + ');font-weight:700">' + XY_GL[k] + ' ' + 'ABCD'[k] + '</span> '
+      + '<span style="display:inline-block;width:46px;height:7px;border:1px solid var(--line);border-radius:2px;vertical-align:middle;background:linear-gradient(to right,var('
+      + XY_CK[k] + ') ' + (xyWt[k] * 100).toFixed(1) + '%,transparent ' + (xyWt[k] * 100).toFixed(1) + '%)"></span> <b>' + (xyWt[k] * 100).toFixed(0).padStart(3, ' ') + '%</b>').join(' &nbsp; ')
+      + ' &nbsp;·&nbsp; point <b>(' + xr.x.toFixed(3) + ', ' + xr.y.toFixed(3) + ')</b>'; }
+  paintXYLanes();
+}
+function paintXYLanes() {
+  const cv = $('xyLaneC'), G = ground(cv); if (!G) return;
+  const { g, w, h, v } = G, xr = core.xy, bh = h / 2, x0 = 4 * v, x1 = w - 4 * v;
+  g.font = FONT(v);
+  for (let ax = 0; ax < 2; ax++) {
+    const top = ax * bh + 12 * v, bot = (ax + 1) * bh - 4 * v, Y = q => bot - q * (bot - top), A = ax ? xr.hy : xr.hx;
+    g.strokeStyle = TOKA('--scr-grid', 0.2); g.lineWidth = v; g.beginPath(); g.moveTo(x0, Y(0.5)); g.lineTo(x1, Y(0.5)); g.stroke();
+    g.strokeStyle = TOKA('--scr-grid', 0.4); g.beginPath(); g.moveTo(x0, Y(0)); g.lineTo(x1, Y(0)); g.moveTo(x0, Y(1)); g.lineTo(x1, Y(1)); g.stroke();
+    g.strokeStyle = TOK('--scr-value'); g.lineWidth = 1.4 * v; g.beginPath();
+    for (let q = 0; q < XY_HN; q++) { const i = (xr.hw + q) % XY_HN, px = x0 + q / (XY_HN - 1) * (x1 - x0);
+      if (q) g.lineTo(px, Y(A[i])); else g.moveTo(px, Y(A[i])); }
+    g.stroke();
+    g.fillStyle = TOKA('--scr-grid', 0.9);
+    g.fillText((ax ? 'y' : 'x') + '  ' + (ax ? xr.y : xr.x).toFixed(3), x0 + 2 * v, ax * bh + 9 * v);
+  }
+  g.strokeStyle = TOKA('--scr-marker', 0.8); g.lineWidth = v; g.beginPath();
+  for (let q = 0; q < XY_HN; q++) if (xr.hm[(xr.hw + q) % XY_HN]) { const px = x0 + q / (XY_HN - 1) * (x1 - x0); g.moveTo(px, 0); g.lineTo(px, 6 * v); g.moveTo(px, h / 2); g.lineTo(px, h / 2 + 6 * v); }
+  g.stroke();
+  const e = $('xyRead');
+  if (e) { const X = S.xy, m = xr.mode;
+    const span = XY_HN * XY_HDEC * XY_TICK / core.sr;
+    let t = '<b>' + XY_MODES[m] + '</b> · update every ' + XY_TICK + ' samples (' + (core.sr / XY_TICK).toFixed(0) + '/s) · lanes span <b>' + span.toFixed(1) + ' s</b>';
+    if (m === 0) t += ' · ticks since replay <b>' + xr.n + '</b> · draws used <b>' + 2 * xr.n + '</b> (2 per tick) · τ ' + fSec(X.tau) + ', σ ' + f2(X.sigma) + ' of the radius';
+    else t += ' · triggers <b>' + xr.j + '</b> · draws used <b>' + 2 * xr.j + '</b> (2 per trigger)'
+      + ' · trigger ' + XY_CLOCKS[X.clock] + (X.clock === 1 ? ' ' + X.hz.toFixed(2) + ' Hz' : X.clock === 2 ? ' ' + divName(X.beats) + ' at ' + S.bpm + ' BPM' : ' (play a key, or TRIG)')
+      + ' · glide ' + XY_LAWS[X.law] + (X.law === 3 ? ' (overshoot ' + (xyOvershoot(X.spZ) * 100).toFixed(0) + '% of the jump, bounced off the walls)' : '')
+      + (m === 2 ? ' · R2 points: each new one lands far from the last few' : '');
+    t += ' · bias ' + XY_BIAS[X.bias] + (X.bias ? ' ' + f2(X.amt) : '') + ' · ' + XY_SHAPES[X.shape] + ' r ' + f2(X.spread) + ' · seed ' + X.seed
+      + (S.routes[0].src === 'xy.x' || S.routes[1].src === 'xy.y' ? ' · <b>routed</b>: ' + srcName(S.routes[0].src) + ' → ' + DESTS[S.routes[0].dest] + ', ' + srcName(S.routes[1].src) + ' → ' + DESTS[S.routes[1].dest] : ' · not routed (AUDITION)');
+    e.innerHTML = t; }
+}
+
+/* ---- THE ROUND-4 SELF-CHECK on the page: xySelfCheck (DSP section) does the
+   work; this formats it. THE PLANT is the ONE Math.random on this page: the
+   check hands it to a twin as its draw, and two runs of that twin must
+   DIFFER. It never reaches a source the page plays. */
+function auditRound4() {
+  const box = $('audit4'); if (!box) return;
+  try {
+    const R = xySelfCheck(S, () => Math.random());
+    const e = x => x === 0 ? '0' : x.toExponential(1), c3 = x => x.toFixed(3);
+    box.classList.toggle('bad', !R.ok);
+    box.innerHTML = 'round-4 self-check (offline, ' + R.sr + ' Hz, ' + R.T + ' ticks = ' + (R.T * XY_TICK / R.sr).toFixed(1) + ' s per run, the card as set plus the overrides named). '
+      + '<b>Same seed, same triggers, run twice</b>, max|Δ| of the path: ' + R.rows.map(r => r.name + ' <b>' + e(r.dRep) + '</b>' + (r.pad ? '' : ' <b>LEFT THE PAD</b>')).join(' · ')
+      + '. <b>REPLAY</b> on one instance vs its first run: ' + R.rep.map(r => r.name + ' <b>' + e(r.d) + '</b>').join(' · ')
+      + '. <b>Every point inside [0, 1]²</b>: ' + (R.rows.every(r => r.pad) ? 'yes, all ' + R.rows.length + ' runs' : '<b>NO</b>')
+      + '. <b>Draws per run under NONE/CORNERS/EDGES/CENTRE</b>: ' + R.counts.map(c => c.mode + ' ' + c.per.join('/') + ' (want ' + c.want + ')').join(' · ')
+      + '. <b>The sound</b> (route A ← x, destination tap vs a standalone source): ' + R.sound.map(r => r.name + ' <b>' + e(r.d) + '</b>').join(' · ')
+      + '. Controls that must fire: seed + 1 smallest ' + c3(Math.min(...R.rows.map(r => r.cSeed)))
+      + ' · one trigger a tick late smallest ' + c3(Math.min(...R.rows.filter(r => r.cLate === r.cLate).map(r => r.cLate)))
+      + ' · sound twin at seed + 1 ' + R.sound.map(r => c3(r.cd)).join('/')
+      + ' · <b>PLANT, Math.random as the draw, two runs</b>: ' + (R.plant ? R.plant.map(r => r.name + ' ' + c3(r.d)).join(' / ') + (R.plant.every(r => r.d > XY_CTL) ? ' (differs: fires)' : ' <b>DID NOT FIRE</b>') : '<b>not run</b>')
+      + '. Evenness, 64 targets, nearest-neighbour gap min/mean: ' + R.even.map(r => r.mode + ' ' + c3(r.min) + '/' + c3(r.mean)).join(' · ')
+      + (R.ok ? ' · <b>all pass</b>' : ' · <b>FAILED</b>');
+  } catch (err) { box.classList.add('bad'); box.textContent = 'round-4 self-check threw: ' + String((err && err.message) || err); }
+}
+let audit4T = 0;
+function scheduleAudit4() { if (audit4T) clearTimeout(audit4T); audit4T = setTimeout(() => { audit4T = 0; auditRound4(); }, 250); }
+
 /* ---- audio (the page's job; the core is graph-free) ---- */
 let ac = null, spn = null, blocks = 0;
 function power() {
@@ -2959,7 +3607,7 @@ function power() {
     spn.onaudioprocess = ev => { const L = ev.outputBuffer.getChannelData(0), R = ev.outputBuffer.getChannelData(1);
       core.render(L, R, L.length); blocks++; };
     spn.connect(ac.destination);
-    for (const id of ['pwr', 'pwr3']) { const b = $(id); if (b && b.classList) b.classList.add('on'); }   // B237: two POWER pills
+    for (const id of ['pwr', 'pwr3', 'pwr4']) { const b = $(id); if (b && b.classList) b.classList.add('on'); }   // B237/B540: three POWER pills
   } catch (e) { const st = $('audioStat'); if (st) st.textContent = 'AUDIO: ' + String((e && e.message) || e); }
 }
 
@@ -2989,7 +3637,7 @@ function buildKbd() {
 function toggleDrone() {
   power(); droning = !droning;
   if (droning) { press(48); press(55); } else { release(48); release(55); }
-  for (const id of ['droneBtn', 'droneBtn3']) { const b = $(id); if (b && b.classList) b.classList.toggle('on', droning); }   // B237: two DRONE pills, one state
+  for (const id of ['droneBtn', 'droneBtn3', 'droneBtn4']) { const b = $(id); if (b && b.classList) b.classList.toggle('on', droning); }   // B237/B540: three DRONE pills, one state
 }
 
 /* ---- theme: `?theme=dark` opens dark, so a screenshot of it is a LOAD ---- */
@@ -3012,13 +3660,13 @@ function audioStat() {
 }
 function frame() {
   paintEditor('lfo'); paintEditor('env'); paintHeard(); paintBeat(); audioStat();
-  drainHost(); paintKuro(); paintOrb(); paintMidi(); midiNow(); paintRoutes(); paintEv(); paintSm();
+  drainHost(); paintKuro(); paintOrb(); paintMidi(); midiNow(); paintRoutes(); paintEv(); paintSm(); paintXY();
   if (window.requestAnimationFrame) window.requestAnimationFrame(frame);
 }
 
 /* ============ SETUP: everything above is declared (L0026) ============ */
 buildLfo(); buildEnv(); buildDivs(); buildKbd();
-buildKuro(); buildOrb(); buildMidi(); buildRoutes(); buildActs(); buildHost(); buildRand();
+buildKuro(); buildOrb(); buildMidi(); buildRoutes(); buildActs(); buildHost(); buildRand(); buildXY();
 (() => {
   const lp = $('lawPills');
   if (lp) { const btns = LAWS.map((nm, i) => { const b = el('button', 'pill', nm);
@@ -3034,7 +3682,7 @@ buildKuro(); buildOrb(); buildMidi(); buildRoutes(); buildActs(); buildHost(); b
   const on = (id, f) => { const b = $(id); if (b && b.addEventListener) b.addEventListener('click', f); };
   on('pwr', power);
   on('panic', () => { core.panic(); for (const n in held) release(+n); droning = false;
-    for (const id of ['droneBtn', 'droneBtn3']) { const d = $(id); if (d && d.classList) d.classList.remove('on'); } });
+    for (const id of ['droneBtn', 'droneBtn3', 'droneBtn4']) { const d = $(id); if (d && d.classList) d.classList.remove('on'); } });
   on('themeBtn', () => { dark = !dark; applyTheme(); });
   on('droneBtn', toggleDrone);
   on('reactBtn', () => { core.activate(); });
