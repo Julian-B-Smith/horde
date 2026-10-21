@@ -1,0 +1,303 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>HORDE Slider Marks</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;600;700&family=Martian+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: top bar (MAP + editing corner), source strip, morph pad left, horizontal slider column + vertical slider bank right, selection line + hint footer */
+:root{
+  --bg:#0d1014; --panel:#151920; --panel2:#1c2129; --line:#29303a; --fg:#d9dee6; --dim:#7b8594; --faint:#3a424e;
+  --src:#ff5fd2;
+  --display:"Familjen Grotesk","Helvetica Neue",Arial,sans-serif;
+  --mono:"Martian Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--display);padding-block:20px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1100px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.intro{color:var(--dim);font-size:13px;line-height:1.5;max-width:74ch;margin:0}
+.intro b{color:var(--fg);font-weight:600}
+.plugin{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;transition:box-shadow .15s,border-color .15s}
+body.mapping .plugin{border-color:var(--src);box-shadow:0 0 0 1px var(--src),0 0 28px -6px var(--src)}
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--panel2)}
+.brand{font-weight:700;letter-spacing:.18em;font-size:15px}
+.label{font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--dim);text-transform:uppercase}
+.spacer{flex:1}
+.mapctl{display:flex;align-items:stretch;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.mapbtn{all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;padding:6px 12px;font-family:var(--mono);font-size:11px;letter-spacing:.12em;font-weight:500;background:var(--bg)}
+.mapbtn .led{width:8px;height:8px;border-radius:50%;background:var(--faint)}
+body.mapping .mapbtn{background:var(--src);color:#0d1014}
+body.mapping .mapbtn .led{background:#0d1014}
+.mapbtn .hold{display:none;font-size:9px;opacity:.75}
+body.momentary .mapbtn .hold{display:inline}
+.mapctl select{font-family:var(--mono);font-size:11px;background:var(--panel);color:var(--fg);border:0;border-left:1px solid var(--line);padding:0 8px;cursor:pointer}
+.seg{display:flex;gap:2px;background:var(--bg);border-radius:6px;padding:2px}
+.seg button{all:unset;cursor:pointer;font-family:var(--mono);font-size:10px;letter-spacing:.06em;padding:5px 9px;border-radius:4px;color:var(--dim);display:flex;align-items:center;gap:6px}
+.seg button[aria-pressed="true"]{background:var(--panel2);color:var(--fg)}
+.mapbtn:focus-visible,.seg button:focus-visible{outline:2px solid var(--fg);outline-offset:1px}
+.sw{width:8px;height:8px;border-radius:2px;display:inline-block}
+.sources{display:flex;flex-wrap:wrap;gap:6px;padding:8px 14px;border-bottom:1px solid var(--line)}
+.srcchip{all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;padding:4px 8px 4px 6px;border-radius:5px;border:1px solid transparent;font-family:var(--mono);font-size:10px;color:var(--dim)}
+.srcchip.cur{border-color:var(--c);color:var(--fg)}
+.srcchip .meter{width:38px;height:6px;background:var(--bg);border-radius:3px;overflow:hidden}
+.srcchip .meter i{display:block;height:100%;background:var(--c);width:50%}
+.main{display:grid;grid-template-columns:220px 1fr}
+@media (max-width:820px){.main{grid-template-columns:1fr}.left{border-right:0!important;border-bottom:1px solid var(--line)}}
+.left{border-right:1px solid var(--line);padding:14px;display:flex;flex-direction:column;gap:12px}
+.pad{position:relative;width:100%;max-width:192px;aspect-ratio:1;border-radius:8px;border:1px solid var(--line);touch-action:none;cursor:crosshair;
+  background:
+   radial-gradient(circle at 0 0,rgba(255,122,89,.3),transparent 62%),
+   radial-gradient(circle at 100% 0,rgba(242,209,75,.26),transparent 62%),
+   radial-gradient(circle at 0 100%,rgba(79,214,176,.26),transparent 62%),
+   radial-gradient(circle at 100% 100%,rgba(138,162,255,.3),transparent 62%),var(--bg)}
+.pad .corner{all:unset;position:absolute;width:22px;height:22px;display:grid;place-items:center;font-family:var(--mono);font-size:11px;font-weight:500;color:#0d1014;border-radius:5px;cursor:pointer}
+.pad .corner.pin{box-shadow:0 0 0 2px var(--fg)}
+.pad .puck{position:absolute;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;border:2px solid var(--fg);background:var(--panel);pointer-events:none}
+.wbars{display:grid;grid-template-columns:14px 1fr 34px;gap:4px 8px;align-items:center;font-family:var(--mono);font-size:10px;color:var(--dim);font-variant-numeric:tabular-nums}
+.wbars .bar{height:5px;background:var(--bg);border-radius:3px;overflow:hidden}
+.wbars .bar i{display:block;height:100%}
+.sliders{display:flex;flex-wrap:wrap;gap:18px 28px;padding:16px;align-items:flex-start;min-width:0}
+.hcol{display:flex;flex-direction:column;gap:6px;flex:1 1 520px;min-width:0}
+.hs{display:grid;grid-template-columns:78px minmax(0,1fr) 128px;align-items:center;gap:10px;padding:4px 8px;border-radius:7px;border:1px solid transparent}
+@media (max-width:520px){.hs{grid-template-columns:1fr;gap:2px}}
+.hs svg{width:100%;height:auto;display:block;touch-action:none;cursor:ew-resize}
+.vbank{display:flex;gap:6px}
+.vs{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 4px;border-radius:7px;border:1px solid transparent;width:84px}
+.vs svg{width:46px;height:200px;display:block;touch-action:none;cursor:ns-resize}
+.sel{background:var(--panel2);border-color:var(--line)!important}
+body.mapping .sliders svg{cursor:copy}
+.nm{font-size:12px;font-weight:600}
+.rd{font-family:var(--mono);font-size:10px;font-variant-numeric:tabular-nums;line-height:1.5}
+.rd .comp{font-size:9.5px}
+.vs .rd{text-align:center}
+.selline{padding:9px 14px;border-top:1px solid var(--line);font-family:var(--mono);font-size:10px;color:var(--dim);display:flex;flex-wrap:wrap;gap:6px 14px;min-height:34px;align-items:center}
+.selline b{color:var(--fg);font-family:var(--display);font-size:13px}
+.foot{display:flex;flex-wrap:wrap;gap:6px 18px;padding:9px 14px;border-top:1px solid var(--line);background:var(--panel2);font-size:12px;color:var(--dim);min-height:36px;align-items:center}
+.foot .log{font-family:var(--mono);font-size:10px;color:var(--fg)}
+</style>
+
+<div class="wrap">
+  <p class="intro"><b>Slider version of map mode and morph knobs.</b> Mod rings become <b>lanes</b> stacked under (or beside) the track, with the same rules: each lane starts at the live output of the lanes inside it, has an origin dot (at the end for unipolar and inverse, in the middle for bipolar) and a live tick. Morph pips sit on the track. The <b>thumb is the editing corner</b>: it is drawn in that corner's color, at that corner's stored value, and dashed-tethered to the blended value (the end of the neutral fill).</p>
+  <div class="plugin">
+    <div class="top">
+      <div class="brand">HORDE</div>
+      <span class="label">Editing corner</span><div class="seg" id="editSeg"></div>
+      <div class="spacer"></div>
+      <div class="mapctl"><button class="mapbtn" id="mapbtn" aria-pressed="false"><span class="led"></span>MAP <span class="hold">HOLD</span></button><select id="srcsel" aria-label="Modulation source"></select></div>
+    </div>
+    <div class="sources" id="sources"></div>
+    <div class="main">
+      <div class="left">
+        <div class="pad" id="pad"><div class="puck" id="puck"></div></div>
+        <div class="wbars" id="wbars"></div>
+      </div>
+      <div class="sliders"><div class="hcol" id="hcol"></div><div class="vbank" id="vbank"></div></div>
+    </div>
+    <div class="selline" id="selline"></div>
+    <div class="foot"><span id="hint"></span><span class="log" id="log"></span></div>
+  </div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const clamp=(v,a=0,b=1)=>Math.min(b,Math.max(a,v));
+const pct=v=>Math.round(v*100)+'%';
+const CORNERS=[{id:'A',c:'#ff7a59'},{id:'B',c:'#f2d14b'},{id:'C',c:'#4fd6b0'},{id:'D',c:'#8aa2ff'}];
+let ou=.5;
+const SRC=[
+  {id:'lfo1',name:'LFO 1',color:'#ff5fd2',f:t=>.5+.5*Math.sin(t*Math.PI*2*.45)},
+  {id:'lfo2',name:'LFO 2',color:'#c08bff',f:t=>{const p=(t*.16)%1;return p<.5?p*2:2-p*2}},
+  {id:'env2',name:'ENV 2',color:'#9be36b',f:t=>{const p=t%1.7;return p<.04?p/.04:Math.exp(-(p-.04)*3.2)}},
+  {id:'rand',name:'RANDOM',color:'#5fd4ff',f:()=>ou},
+  {id:'mac1',name:'MACRO 1',color:'#e8e8e8',f:t=>.5+.32*Math.sin(t*Math.PI*2*.05)}
+];
+const S=Object.fromEntries(SRC.map(s=>[s.id,s]));
+const PARAMS=[
+  {id:'k',name:'Coupling K',bip:true,fmt:v=>(v*2-1).toFixed(2),vals:[.62,.30,.85,.50]},
+  {id:'detune',name:'Detune',fmt:v=>(v*50).toFixed(1)+' ct',vals:[.18,.72,.40,.90]},
+  {id:'spread',name:'Spread',fmt:pct,vals:[.85,.30,.62,.55]},
+  {id:'cutoff',name:'Cutoff',fmt:v=>{const h=20*Math.pow(1000,v);return h>=1000?(h/1000).toFixed(2)+' kHz':h.toFixed(0)+' Hz'},vals:[.35,.80,.55,.25]},
+  {id:'reso',name:'Reso',fmt:pct,vals:[.20,.20,.65,.40]},
+  {id:'drive',name:'Drive',vert:true,fmt:v=>(v*24).toFixed(1)+' dB',vals:[.30,.70,.20,.55]},
+  {id:'fold',name:'Fold',vert:true,fmt:v=>(1+v*7).toFixed(2),vals:[.10,.55,.30,.78]},
+  {id:'level',name:'Level',vert:true,fmt:pct,vals:[.75,.60,.80,.70]},
+  {id:'mix',name:'Mix',vert:true,fmt:pct,locked:true,g:.85}
+];
+const P=Object.fromEntries(PARAMS.map(p=>[p.id,p]));
+// mapping: {param,src,pol,depth} (global) or {param,src,pol,cd:[4]} (corner-level)
+const maps=[
+  {param:'detune',src:'lfo2',pol:'bi',depth:.25},{param:'detune',src:'rand',pol:'uni',depth:.14},
+  {param:'cutoff',src:'env2',pol:'uni',cd:[.10,.30,.05,.25]},
+  {param:'k',src:'mac1',pol:'bi',depth:.22},{param:'fold',src:'lfo1',pol:'uni',depth:.2}
+];
+const focusIdx={};
+let pad={x:.3,y:.32},pinned=null,mapMode=false,curSrc='lfo1',selected='detune',lastMap=null,altHeld=false,drag=null;
+const POLS=['uni','bi','inv'],PS={uni:'UNI',bi:'BI',inv:'INV'};
+const mapsOf=p=>maps.filter(m=>m.param===p);
+const focused=p=>{const l=mapsOf(p);return l.length?l[Math.min(focusIdx[p]||0,l.length-1)]:null};
+const weights=()=>{const{x,y}=pad;return[(1-x)*(1-y),x*(1-y),(1-x)*y,x*y]};
+const dominant=w=>w.indexOf(Math.max(...w));
+// per-parameter ownership with stochastic boundaries: each param gets its own threshold offsets
+const owner={};
+function ownerOf(p,w){if(!p.jit)p.jit=[0,1,2,3].map(()=>(Math.random()-.5)*.32);
+  let best=0,bv=-1e9;w.forEach((v,i)=>{const s=v+p.jit[i];if(s>bv){bv=s;best=i}});
+  const o=owner[p.id];if(!o)owner[p.id]={i:best,t:-1e9};else if(o.i!==best)owner[p.id]={i:best,t:performance.now()};return best}
+const edIdx=(p,w)=>drag&&drag.id===p.id&&drag.ai!=null?drag.ai:(pinned??ownerOf(p,w));
+const base=(p,w)=>p.locked?p.g:p.vals.reduce((s,v,i)=>s+v*w[i],0);
+const mdepth=(m,w)=>m.cd?m.cd.reduce((s,d,i)=>s+d*w[i],0):m.depth;
+const contrib=(m,s,w)=>{const d=mdepth(m,w);return m.pol==='uni'?s*d:m.pol==='bi'?(2*s-1)*d:-s*d};
+
+// ---------- chrome ----------
+const editSeg=$('#editSeg'),autoBtn=document.createElement('button');autoBtn.dataset.v='auto';editSeg.appendChild(autoBtn);
+CORNERS.forEach((c,i)=>{const b=document.createElement('button');b.dataset.v=i;b.innerHTML=`<span class="sw" style="background:${c.c}"></span>${c.id}`;editSeg.appendChild(b)});
+editSeg.onclick=e=>{const b=e.target.closest('button');if(b)setPin(b.dataset.v==='auto'?null:+b.dataset.v)};
+function setPin(i){pinned=i;log(i==null?'editing corner: Auto':'editing corner pinned: '+CORNERS[i].id)}
+const padEl=$('#pad'),puck=$('#puck');
+const CPOS=[{left:'4px',top:'4px'},{right:'4px',top:'4px'},{left:'4px',bottom:'4px'},{right:'4px',bottom:'4px'}];
+CORNERS.forEach((c,i)=>{const b=document.createElement('button');b.className='corner';b.textContent=c.id;b.style.background=c.c;Object.assign(b.style,CPOS[i]);
+  b.addEventListener('pointerdown',e=>e.stopPropagation());b.onclick=()=>setPin(pinned===i?null:i);padEl.appendChild(b)});
+const padMove=e=>{const r=padEl.getBoundingClientRect();pad.x=clamp((e.clientX-r.left)/r.width);pad.y=clamp((e.clientY-r.top)/r.height)};
+padEl.addEventListener('pointerdown',e=>{padEl.setPointerCapture(e.pointerId);padMove(e);padEl.onpointermove=padMove});
+padEl.addEventListener('pointerup',()=>padEl.onpointermove=null);
+padEl.addEventListener('dblclick',()=>{const i=(pad.x>.5?1:0)+(pad.y>.5?2:0);pad.x=i&1;pad.y=i>>1;log('snapped to '+CORNERS[i].id)});
+const wb=$('#wbars');CORNERS.forEach(c=>wb.insertAdjacentHTML('beforeend',`<span style="color:${c.c}">${c.id}</span><span class="bar"><i style="background:${c.c}"></i></span><span></span>`));
+const wbI=[...wb.querySelectorAll('i')],wbV=[...wb.querySelectorAll('span:nth-child(3n)')];
+const sel=$('#srcsel');SRC.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=s.name;sel.appendChild(o)});
+sel.onchange=()=>{setSrc(sel.value);sel.blur()};
+const meters={};SRC.forEach((s,i)=>{const b=document.createElement('button');b.className='srcchip';b.style.setProperty('--c',s.color);b.dataset.s=s.id;
+  b.innerHTML=`<span class="meter"><i></i></span>${s.name}`;b.onclick=()=>setSrc(s.id);$('#sources').appendChild(b);meters[s.id]=b.querySelector('i')});
+function setSrc(id){curSrc=id;sel.value=id;document.documentElement.style.setProperty('--src',S[id].color);
+  document.querySelectorAll('.srcchip').forEach(c=>c.classList.toggle('cur',c.dataset.s===id));hint()}
+function setMap(on,mom){mapMode=on;document.body.classList.toggle('mapping',on);document.body.classList.toggle('momentary',on&&!!mom);$('#mapbtn').setAttribute('aria-pressed',on);hint()}
+$('#mapbtn').onclick=()=>setMap(!mapMode);
+
+// ---------- sliders ----------
+const NS='http://www.w3.org/2000/svg';
+const el=(t,a)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e};
+const H={len:180,vb:'0 0 200 50'},V={len:180,vb:'0 0 50 200'};
+// P(v, o): point at value v, offset o perpendicular to the track (o>0 = lane side: below / right)
+const geo=p=>p.vert?(v,o)=>[16+o,10+(1-clamp(v))*V.len]:(v,o)=>[10+clamp(v)*H.len,14+o];
+const SL={};
+PARAMS.forEach(p=>{
+  const wrap=document.createElement('div');wrap.className=p.vert?'vs':'hs';
+  const svg=el('svg',{viewBox:p.vert?V.vb:H.vb}),g=el('g',{});svg.appendChild(g);
+  if(p.vert){wrap.appendChild(svg);wrap.insertAdjacentHTML('beforeend',`<div class="nm">${p.name}</div><div class="rd"><div class="v"></div><div class="comp"></div></div>`);$('#vbank').appendChild(wrap)}
+  else{wrap.insertAdjacentHTML('beforeend',`<div class="nm">${p.name}</div>`);wrap.appendChild(svg);wrap.insertAdjacentHTML('beforeend',`<div class="rd"><div class="v"></div><div class="comp"></div></div>`);$('#hcol').appendChild(wrap)}
+  SL[p.id]={wrap,svg,g,v:wrap.querySelector('.v'),comp:wrap.querySelector('.comp')};
+  attach(p,svg);
+});
+function axisPx(p,svg){const r=svg.getBoundingClientRect();return p.vert?r.height*V.len/200:r.width*H.len/200}
+function attach(p,svg){
+  svg.addEventListener('pointerdown',e=>{if(e.button!==0)return;svg.setPointerCapture(e.pointerId);select(p.id);
+    const w=weights(),ai=p.locked?null:(pinned??ownerOf(p,w));
+    const st={id:p.id,x:e.clientX,y:e.clientY,moved:false,mode:'value',ai,px:axisPx(p,svg),isNew:false,target:null,start:0};
+    if(mapMode){let m=maps.find(m=>m.param===p.id&&m.src===curSrc);
+      if(!m){m={param:p.id,src:curSrc,pol:'uni',depth:0};maps.push(m);st.isNew=true;focusIdx[p.id]=mapsOf(p.id).length-1}
+      st.mode='depth';st.target=m;st.start=m.cd?m.cd[ai??0]:m.depth;lastMap=m}
+    else if(e.altKey){st.mode='alt';st.target=focused(p.id);if(st.target){lastMap=st.target;st.start=st.target.cd?st.target.cd[ai??0]:st.target.depth}}
+    else st.start=p.locked?p.g:p.vals[ai];
+    drag=st});
+  svg.addEventListener('pointermove',e=>{if(!drag||drag.id!==p.id)return;
+    const dpx=p.vert?drag.y-e.clientY:e.clientX-drag.x;if(Math.abs(dpx)>3)drag.moved=true;if(!drag.moved)return;
+    const v=clamp(drag.start+dpx/drag.px*(e.shiftKey?.25:1)),w=weights();
+    if(drag.mode==='value'){if(p.locked){p.g=v;log(`${p.name} (locked) = ${p.fmt(v)}`)}
+      else{p.vals[drag.ai]=v;log(`${p.name} in ${CORNERS[drag.ai].id}: ${p.fmt(v)} → blend ${p.fmt(base(p,w))} (weight ${pct(w[drag.ai])})`)}}
+    else if(drag.target){const m=drag.target;if(m.cd)m.cd[drag.ai??0]=v;else m.depth=v;
+      log(`${S[m.src].name} → ${p.name} · ${PS[m.pol]} · ${m.cd?CORNERS[drag.ai].id+' depth ':''}${pct(v)}`)}});
+  const up=()=>{if(!drag||drag.id!==p.id)return;const st=drag;drag=null;
+    if(!st.moved){if(st.mode==='depth'){if(st.isNew){st.target.depth=.25;log(`mapped ${S[curSrc].name} → ${p.name} · UNI · 25%`)}}
+      else if(st.mode==='alt'){const l=mapsOf(p.id);if(l.length){focusIdx[p.id]=((focusIdx[p.id]||0)+1)%l.length;lastMap=focused(p.id);log('focus: '+S[lastMap.src].name)}else log(p.name+' has no modulators')}}
+    else if(st.mode==='depth'&&st.isNew&&st.target.depth===0){maps.splice(maps.indexOf(st.target),1);lastMap=null}};
+  svg.addEventListener('pointerup',up);svg.addEventListener('pointercancel',up);
+}
+function select(id){selected=id;Object.entries(SL).forEach(([k,o])=>o.wrap.classList.toggle('sel',k===id))}
+
+function draw(p,w,sv){
+  const o=SL[p.id],g=o.g,P2=geo(p);g.innerHTML='';
+  const L=(v1,v2,off,a)=>{const[x1,y1]=P2(v1,off),[x2,y2]=P2(v2,off);g.appendChild(el('line',Object.assign({x1,y1,x2,y2,'stroke-linecap':'round'},a)))};
+  const perp=(v,off,h,a)=>{const[x,y]=P2(v,off);const d=p.vert?{x1:x-h,y1:y,x2:x+h,y2:y}:{x1:x,y1:y-h,x2:x,y2:y+h};g.appendChild(el('line',Object.assign(d,{'stroke-linecap':'round'},a)))};
+  const b=base(p,w),ai=p.locked?null:edIdx(p,w),ac=ai==null?'#d9dee6':CORNERS[ai].c;
+  L(0,1,0,{stroke:'#29303a','stroke-width':4});
+  if(p.bip)perp(.5,0,4,{stroke:'#3a424e','stroke-width':1});
+  const fillFrom=p.bip?.5:0;if(Math.abs(b-fillFrom)>.002)L(fillFrom,b,0,{stroke:'#d9dee6','stroke-width':4});
+  // mod lanes, stacked on the live output of the lanes inside them
+  const l=mapsOf(p.id),f=focused(p.id);let run=b,off=11;
+  l.slice(0,4).forEach(m=>{
+    const d=mdepth(m,w),orig=run;run+=contrib(m,sv[m.src],w);
+    const[a,z]=m.pol==='uni'?[orig,orig+d]:m.pol==='bi'?[orig-d,orig+d]:[orig-d,orig];
+    const emph=(mapMode&&m.src===curSrc)||((altHeld||mapMode)&&m===f)||(!mapMode&&!altHeld);
+    const heavy=m===f&&(altHeld||mapMode)&&l.length>1,op=emph?1:.3;
+    L(a,z,off,{stroke:S[m.src].color,'stroke-width':heavy?3.2:2.4,opacity:op});
+    if(m.cd&&ai!=null){const dc=m.cd[ai],[ca,cz]=m.pol==='uni'?[orig,orig+dc]:m.pol==='bi'?[orig-dc,orig+dc]:[orig-dc,orig];
+      L(ca,cz,off+3.4,{stroke:ac,'stroke-width':1.1,opacity:op})}
+    const[ox,oy]=P2(orig,off);g.appendChild(el('circle',{cx:ox,cy:oy,r:2.4,fill:S[m.src].color,stroke:'#151920','stroke-width':1.1,opacity:op}));
+    perp(run,off,2.4,{stroke:'#d9dee6','stroke-width':1.4,opacity:emph?.95:.3});
+    off+=m.cd?8.4:5.4;
+  });
+  if(l.length>4){const[x,y]=P2(1,off);g.appendChild(Object.assign(el('text',{x:p.vert?x-6:x-14,y:y+3,fill:'#7b8594','font-size':7,'font-family':'monospace'}),{textContent:'+'+(l.length-4)}))}
+  // morph: pips on the track, tether on the far side, thumb = editing corner
+  let tv=b;
+  if(!p.locked){
+    CORNERS.forEach((c,i)=>{if(i===ai)return;const[x,y]=P2(p.vals[i],0);
+      g.appendChild(el('circle',{cx:x,cy:y,r:(1.2+2.2*w[i]).toFixed(2),fill:c.c,stroke:'#151920','stroke-width':1.1,opacity:(.28+.72*w[i]).toFixed(2)}))});
+    tv=p.vals[ai];
+    if(Math.abs(tv-b)>.003)L(b,tv,-9.5,{stroke:ac,'stroke-width':1.6,'stroke-dasharray':'2 2.6'});
+    perp(b,0,5,{stroke:'#d9dee6','stroke-width':1.6});  // blend notch
+  }
+  const[tx,ty]=P2(tv,0);
+  const ow=owner[p.id];if(!p.locked&&pinned==null&&ow){const age=(performance.now()-ow.t)/500;
+    if(age<1){const s=1+age*1.3;g.appendChild(el('rect',Object.assign(p.vert?{x:tx-8*s-1,y:ty-3.5*s-1,width:16*s+2,height:7*s+2}:{x:tx-3.5*s-1,y:ty-8*s-1,width:7*s+2,height:16*s+2},{rx:3,fill:'none',stroke:ac,'stroke-width':1.8,opacity:(1-age).toFixed(2)})))}}
+  g.appendChild(el('rect',p.vert?{x:tx-8,y:ty-3.5,width:16,height:7,rx:2}:{x:tx-3.5,y:ty-8,width:7,height:16,rx:2}));
+  g.lastChild.setAttribute('fill',ac);g.lastChild.setAttribute('stroke','#151920');g.lastChild.setAttribute('stroke-width','1.2');
+  o.v.textContent=p.fmt(clamp(run));o.v.title='output after modulation';
+  if(p.locked){o.comp.textContent='LOCKED';o.comp.style.color='#7b8594'}
+  else{o.comp.textContent=`${CORNERS[ai].id} ${p.fmt(p.vals[ai])}${w[ai]>.999?'':' · '+pct(w[ai])}`;o.comp.style.color=ac}
+}
+function selLine(w){
+  const p=P[selected],l=mapsOf(p.id),f=focused(p.id),ai=p.locked?null:edIdx(p,w);
+  let h=`<b>${p.name}</b><span>blend ${p.fmt(base(p,w))}</span>`;
+  h+=p.locked?'<span>locked</span>':`<span style="color:${CORNERS[ai].c}">editing ${CORNERS[ai].id}: ${p.fmt(p.vals[ai])} (${pct(w[ai])})</span>`;
+  l.forEach(m=>{h+=`<span style="color:${S[m.src].color}">${m===f?'◂ ':''}${S[m.src].name} ${PS[m.pol]} ${pct(mdepth(m,w))}${m.cd?' (per corner)':''}</span>`});
+  $('#selline').innerHTML=h;
+}
+
+// ---------- keys ----------
+let mDown=null;
+addEventListener('keydown',e=>{
+  if(e.target.tagName==='SELECT')return;
+  if(e.key==='Alt'){altHeld=true;hint();e.preventDefault();return}
+  if(e.repeat)return;
+  if(e.code==='KeyM'){mDown={t:performance.now(),was:mapMode};if(!mapMode)setMap(true,true);return}
+  if(e.code==='KeyP'){const m=e.altKey?focused(selected):lastMap;if(m){m.pol=POLS[(POLS.indexOf(m.pol)+1)%3];log(`${S[m.src].name} → ${P[m.param].name}: ${PS[m.pol]}`)}e.preventDefault();return}
+  const dg=/^Digit(\d)$/.exec(e.code);
+  if(dg){const n=+dg[1];if(mapMode){if(n>=1&&n<=SRC.length)setSrc(SRC[n-1].id)}else{if(n===0)setPin(null);else if(n<=4)setPin(n-1)}return}
+  if(e.key==='Escape'){if(mapMode)setMap(false);else setPin(null);return}
+  if(e.key==='Backspace'||e.key==='Delete'){if(lastMap){maps.splice(maps.indexOf(lastMap),1);log('removed '+S[lastMap.src].name+' → '+P[lastMap.param].name);lastMap=null}e.preventDefault()}
+});
+addEventListener('keyup',e=>{if(e.key==='Alt'){altHeld=false;hint()}
+  if(e.code==='KeyM'&&mDown){const held=performance.now()-mDown.t;if(mDown.was||held>280)setMap(false);else setMap(true,false);mDown=null}});
+addEventListener('blur',()=>{altHeld=false;if(mDown&&!mDown.was)setMap(false);mDown=null;hint()});
+function hint(){$('#hint').textContent=mapMode?`Mapping ${S[curSrc].name}: click a slider to assign, drag along it for depth. P polarity · 1–5 source · ⌫ remove · Esc exit`
+  :altHeld?'⌥: drag a slider for its focused modulator depth, click to cycle focus':'Drag a slider to edit the editing corner. ⌥-drag mod depth, ⌥-click cycle modulators. M map · 1–4 pin corner · 0 Auto'}
+let logT;function log(s){$('#log').textContent=s;clearTimeout(logT);logT=setTimeout(()=>$('#log').textContent='',3000)}
+
+// ---------- frame ----------
+const t0=performance.now();let last=t0,lastSel=0;
+function frame(now){
+  const t=Math.max(0,(now-t0)/1000),dt=clamp((now-last)/1000,0,.05);last=Math.max(last,now);
+  ou=clamp(ou+(.5-ou)*1.2*dt+(Math.random()-.5)*Math.sqrt(dt)*1.1);if(!Number.isFinite(ou))ou=.5;
+  const sv={};SRC.forEach(s=>{sv[s.id]=clamp(s.f(t));meters[s.id].style.width=sv[s.id]*100+'%'});
+  const w=weights(),dom=dominant(w);
+  puck.style.left=pad.x*100+'%';puck.style.top=pad.y*100+'%';
+  [...padEl.querySelectorAll('.corner')].forEach((b,i)=>b.classList.toggle('pin',pinned===i));
+  autoBtn.textContent='Auto (per slider)';
+  [...editSeg.children].forEach(b=>b.setAttribute('aria-pressed',b.dataset.v==='auto'?pinned==null:+b.dataset.v===pinned));
+  w.forEach((v,i)=>{wbI[i].style.width=v*100+'%';wbV[i].textContent=pct(v)});
+  PARAMS.forEach(p=>draw(p,w,sv));
+  if(now-lastSel>90){selLine(w);lastSel=now}
+  requestAnimationFrame(frame);
+}
+setSrc('lfo1');select('detune');hint();requestAnimationFrame(frame);
+</script>
+
+</body></html>
