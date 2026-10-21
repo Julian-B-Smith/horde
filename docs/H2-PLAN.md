@@ -305,7 +305,7 @@ learn, mono/legato/portamento modes and per-patch bend range.
 - Needs first: `bend`, `modmatrix`, `engine2`.
 - Open: the MPE design (B388); which expressions reach the swarm and the blades is spec Q2.
 
-**Simple arpeggiator** (`arps`). A simple arpeggiator consuming the shared quantizer. **In** for
+**Simple arpeggiator** (`arps`). A simple arpeggiator consuming the shared quantizer. Built by the sibling project **Arp** (ADR-264, B539), which also owns `seqgen` after 1.0. **In** for
 1.0 (ADR-190 A5). Complex patterns, step sequencers and generators are `seqgen`, after 1.0.
 - Governing: B391, B431. ADR-190. Status: **planned**. Needs first: `quant`.
 
