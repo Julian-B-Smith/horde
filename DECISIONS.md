@@ -8869,6 +8869,13 @@ Ruling 9's reason was wrong. It said "the drive hears the classic ±1 pulse, so 
 - ROADMAP B529 (fixed controls) and B530 (the note context). Both are built with the horde 2 rack (B513).
 - **FX device (ADR-254):** the note context is the path its MIDI sidechain will feed; the fixed row is shell-independent.
 
+**ADR-257 A1 — the note context conformed to B92 (the lead, 2026-10-20).** The lead drafted RS-4.11's event fields (key, sounding pitch) without consulting horde's own ratified B92 (2026-09-01, from FOUNDATIONS' `response-note-transport`, their DECISIONS #115), which the fields contradict. Shriek's notice d080 (seq 13) pointed to the conflict. The human's ruling, "a per-block note context", is unchanged; its contents now follow B92:
+- identity is `NoteRef`-compatible, never a bare key;
+- every identity gets exactly one terminal event, through off, steal or expiry;
+- the bus carries canonical pitch: base frequency from the tuning, with bend and glide as per-note pitch-offset events, sample-accurate, and each consumer derives its own hearing.
+
+`lastHz` stays as a convenience, defined from base and offset. The brief to FOUNDATIONS (`note-context`) is updated in place, before FOUNDATIONS reads it. It now cites #115 and OQ #31 and reports that their registered trigger has fired: Shriek's pitch-tracked feedback is horde's second note-hearing FX. Response to Shriek: seq 14. Lesson for the lead: read a thread's earlier rulings before filing on its subject (doctrine: read INTEGRATIONS.md, and the thread, at the start of cross-repo work).
+
 ## ADR-258 — Spec round 26: the sub and the noise oscillator for stage 6 (B514, B515, B494; the human's rulings of 2026-10-20)
 
 **Context.** ADR-255 recorded the human's final sub and noise rulings. Round 26 writes them into SPEC-ENGINE §5, §6.10, RC-1/3/4/6, EN-1–5, PA-4/5/8, DT-4, QS-11 and §10.1 items 24–33, from the audition lab's laws (form and numbers only; the lab is not a parity target). Two Opus critics reviewed it, both FIX-THEN-SHIP, and their fixes are applied. A third, focused pass covered the lab additions, also FIX-THEN-SHIP and applied.
