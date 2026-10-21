@@ -9041,3 +9041,28 @@ The test author's audit found no item that expects a glided value, so no test ch
 - The human spins it up and creates the repository. Arp files to horde under `integrations/arp/`.
 - H2-PLAN's `arps` entry names Arp as its home.
 - **FX device:** shell-independent by construction.
+
+## ADR-265 — Spec round 29: ED-7, short tapers (B494, B-29a; the human's rulings of ADR-256 and 2026-10-21)
+
+**Context.** B-29, the short-taper row, was held at stage 5's acceptance (ADR-253.2). The human ruled on 2026-10-20 that QS-1 keeps its floors with a conforming reference design (ADR-256.1, A1, A2: 0.4725·f_s, β 8.0) and that the row takes the in-taper remainder correction (ADR-256.2). The test author derived the row engine-free (cleanroom-tests c636400 through 0da9a30, d3da81d), and two critics reviewed it. A third critic reviewed its integration into the spec: FIX-THEN-SHIP, with all fixes applied, including the two controls the suite lacked.
+
+**What round 29 writes.**
+- **ED-7, new.** A taper that softens a hard step (a window's edge under C.9.1, every mode but Crush; a Crush slew or exit ramp under C.9.4) is corrected as the step it approaches, convolved with the taper's slope, and faded out by c(T) between 16 and 32 internal samples.
+- **The parts.** Heights and slope changes are kernel-weighted means across the taper. The corner part includes the in-taper remainder, and there is a smooth-part delay.
+- **The measure.** Four blades, at 19 pitches and Edges 0 and 2⁻ᵏ (k 0–20). The rule is a fall of no more than 5 dB below min(the engine's own Edges 0, R). R is the engine-free reference table, 1,672 rows, its body pinned by SHA-256. Five controls are red engine-free, plus a planted margin control.
+- **The neighbouring rows:**
+  - ED-6's class is decided by the taper's width;
+  - ED-3's DC exception is weighted by c(T);
+  - ED-2 states that a held-input closed-form read ahead of the sample is not look-ahead;
+  - ED-1 and X3 point to ED-7;
+  - ED-5's pending span is 32 + 32;
+  - RT-2 counts a taper's step and corner as one edge;
+  - C.14's y⁰ excludes ED-7's corrections.
+- **QS-1's reference sentence** names 0.4725 / β 8.0 with its measured figures, and corrects the 0.47 / β 8 claim.
+- **BD-8:** a stage 5 amendment. The builder implements ED-7 on top of accepted stage 5, with stage 5's items still green, judged by item 7.7. **Stage 6 does not wait on it** (the human, by poll, 2026-10-21: "In parallel").
+
+**The margin X = 5 dB** comes from the oracle alone: the worst conforming design falls 4.49 dB, and an implementation's numerics add at most 0.08. It is re-derived if QS-1's floors move or the builder's window family differs from the 32-tap Kaiser family the scan covered. The convolutions' realisation is the builder's, judged by the measure.
+
+**For a later round, not this one:** at 32 taps no design meets QS-2's 1 dB target. At 48 taps, 22 designs meet every floor and that target; at 64 taps, 74 do. That would change ED-1's fixed 32 taps, with a CPU cost per edge; it is the human's question.
+
+**Consequences.** On merge, round 29 goes to both clean-room repos. Then item 7.7's delivered half goes to the builder (`item07_taper.cpp`, `b29a_table.h`, `sha256.h`, the CSV), and never the oracle half. **FX device (ADR-254):** none.

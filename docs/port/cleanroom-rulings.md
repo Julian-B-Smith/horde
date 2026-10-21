@@ -49,6 +49,7 @@
 | 32 | Q-TA-55, 56, 57: the drive's resampler, Crunch's follower, the blocker, M's envelope read, the smooth square near its cap | Pinned by the lead as the test author read them (no human ruling: discretisation only, parts in 10⁴) | Round 26 gave analog prototypes and prose where the clean room needs one discretisation | no | **engine-free** (cleanroom-tests 2d9eb64, Q-TA-55 to 57) | ADR-260 |
 | 33 | Q-TA-60 and the builder's §5.1 question: which counter counts a refused parameter id? | `refused_param_id`, for unknown and reserved ids alike (the lead, completing ruling 31) | PA-7 listed no count for unknown ids | no | engine-free (spec reading; both sides independently) | ADR-263.1 |
 | 34 | Does a row of rate N read PA-1's glide or its target at a voice's start? | The target | §5.1's rate N and PA-1 never met | **yes** (the builder's reading) | engine-free (the test author's audit: no item expects a glided value) | ADR-263.2 |
+| 35 | ED-7 is a stage 5 amendment: does stage 6 wait for it? | In parallel; stage 6's acceptance does not wait | BD-8 had no rule for amending an accepted stage | no | — | ADR-265 |
 
 **Lead readings with no recorded ruling (B520: owed to the human):** B-12 (QS-4's must-fire signals), B-13 (the
 saw no-click set moved to reported), B-27 (`env1.decayCurve` reported), and Q-TA-1/6 (the frozen no-click set).
