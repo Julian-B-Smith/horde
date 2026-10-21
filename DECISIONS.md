@@ -9134,3 +9134,15 @@ The test author's audit found no item that expects a glided value, so no test ch
 3. **Home** is an action, itself triggerable, that clears every switch and iterator offset at once.
 
 **Room left in 1.0:** stepped parameters keep their click-free class ratings (PA-5, RS-4.3); the mod matrix's destination list keeps a kind field, so a "stepped" kind can be added later; and nothing writes a stepped parameter except an edit or the morph.
+
+## ADR-269 — RULED by the human: Arp's 1.0 bar and how horde consumes its core (B539, 2026-10-21)
+
+**Context.** Arp's spin-up notice (seq 1) asked two questions: Q-H1, which MUST rows bind a note processor for 1.0; and Q-H2, how horde consumes its core.
+
+**Rulings (by poll).**
+1. **Q-H2, "Copied in at its V1":** horde takes Arp's core source into its own tree when Arp reaches V1, by a PR that records Arp's commit hash; updates arrive the same way. There is no submodule and no package. This follows the human's ruling for Sluice (Sluice D-096).
+2. **Arp's CPU, "Within modulation's 2 %":** Arp shares the approved budget's modulation, morph and intent bus slice.
+
+**The lead's reading:** the bar is `docs/proposals/note-processor-1.0-bar.md`, the module 1.0 bar adapted for a note processor. The audio-only rows drop out, and note rows come in: every note ends once on every path, sample-exact timing, no input gives no output, pedal and restart as ruled, scale quantize, and triggers without history.
+
+**Consequences.** The response goes to Arp (seq 2). **FX device (ADR-254):** the bar requires that no engine is assumed downstream.
