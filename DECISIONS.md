@@ -9066,3 +9066,38 @@ The test author's audit found no item that expects a glided value, so no test ch
 **For a later round, not this one:** at 32 taps no design meets QS-2's 1 dB target. At 48 taps, 22 designs meet every floor and that target; at 64 taps, 74 do. That would change ED-1's fixed 32 taps, with a CPU cost per edge; it is the human's question.
 
 **Consequences.** On merge, round 29 goes to both clean-room repos. Then item 7.7's delivered half goes to the builder (`item07_taper.cpp`, `b29a_table.h`, `sha256.h`, the CSV), and never the oracle half. **FX device (ADR-254):** none.
+
+## ADR-266 — RULED by the human: the four labs' open design decisions (B531, B392, B540, 2026-10-21)
+
+**Context.** The human asked to move components from the mod matrix, modulator, morph editor and FX chain morph labs into the design system: "Though maybe we need to finalize some of those decisions first." A survey found the current files: `mod-matrix-lab.html`; `shape-lab-mod.html`, which supersedes `modulator-lab.html`; `morph-editor-lab.html`; and r3 of the FX chain morph lab. It listed their components, the settled rulings they follow, and eleven open decisions that block a component's design. The human ruled them by poll.
+
+**Rulings.**
+1. **The mod matrix page:** a grid (source × destination: depth fill, a live "now" bar) plus trace lanes, and **wires in a compact form**. Arcs on the knobs are already the map rings.
+2. **Polarity, four states:** unipolar, bipolar and inverse (the Map Mode spec), plus **Control** (the human's proposal). Under Control the modulator drives the parameter's position directly, by these rules:
+   - at most one Control mapping per parameter;
+   - the knob's own value is ignored, and the knob shows "controlled by <source>";
+   - instead of a depth, the mapping has a low and a high end that the source sweeps between;
+   - uni, bi and inverse mappings still add on top, clamped once;
+   - removing it restores the knob's own value.
+
+   Depth stays a magnitude; ADR-168's signed depth is superseded.
+3. **A hosted module's macros:** visible in horde's matrix, read-only. They cannot be cross-mapped; each module keeps its own macro mapping (the human's B392 suggestion).
+4. **Mappings of a silent corner:** global mapping for 1.0, as ruled (ADR-261). When corner-level mappings arrive, silent corners' rows show greyed.
+5. **The FX chain views' palette:** each module is drawn in its own screen style's signature colour. Source colours stay reserved for modulation.
+6. **Sample and hold:** an LFO shape, with "Sample on trigger" as a trigger action. It is **also a mode on ORBITAL's mappings**, with its own rate and sync controls.
+7. **Retrigger:** a switch on each modulator's card.
+8. **Pairs of random values for XY pads:** a **2-D random source**, one point-valued modulator mapped to a pad in one gesture. It has three modes:
+   - **Walk:** a drift pulled back toward home;
+   - **Jump:** a new point per trigger, travelled to under the glide or spring law;
+   - **Scatter:** low-discrepancy points that cover the pad evenly.
+
+   It has bias (corners, edges, centre) and spread controls, and is seeded. **All three modes are prototyped first** in the modulator lab, and the human rules after listening (B540).
+9. **Morph grid edits are live,** like the knob: written at once, latched for the gesture, with undo covering mistakes.
+10. **STEPPED morph:** rate plus sync (steps per second, or tempo divisions; B424).
+11. **Morph cohesion:** one control for the whole field. Per-group overrides may come later.
+
+**Consequences.**
+- The design system takes the four labs' settled components, following these rulings and the settled rulings the survey listed.
+- The open questions classed "behaviour only" are built with documented placeholders.
+- B540 holds the 2-D random source's prototype.
+- **FX device (ADR-254):** the 2-D random source and the Control state are free sources and states, so they are shell-independent.
