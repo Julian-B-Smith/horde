@@ -397,9 +397,9 @@ you can click (serve the repo with `python3 tools/serve_labs.py` and open it). T
 | The rebuild audit (B493) | Done 2026-10-16 (PR #1096) |
 | The spec, `specs/SPEC-ENGINE.md` (B494 step 1) | **Ratified** by the human's merge of PR #1097, 2026-10-16; amended since by ADR-230 and ADR-231 |
 | The clean-room tree `engine2/` and the 380 reference renders (B497) | Done 2026-10-17: the tree builds an empty library and an empty suite; the renders are release asset `engine2-reference-renders-v1` |
-| Two history-free repositories, one for the test author and one for the builder (B502) | Made 2026-10-17; their sessions are next |
-| The acceptance tests, by a different agent from the spec alone (B498) | Next |
-| The build, in eight stages: manifest and state; the voice, ENV 1, the pedal and the output; the swarm; the edge correction; the blades; the sub and noise; modulation, morph and state; WebAssembly — then the bank | Not started |
+| Two history-free repositories, one for the test author and one for the builder (B502) | Made 2026-10-17; both sessions running, each repo with a private off-machine remote |
+| The acceptance tests, by a different agent from the spec alone (B498) | Running: the test author delivers each stage's items ahead of the build, and each spec round's changes to both repos the same day (spec round 30 as of 2026-10-22) |
+| The build, in eight stages: manifest and state; the voice, ENV 1, the pedal and the output; the swarm; the edge correction; the blades; the sub and noise; modulation, morph and state; WebAssembly — then the bank | Stages 1 to 6 accepted (stage 5 by ADR-253, 2026-10-20; stage 6 by ADR-268, 2026-10-21); ED-7, the stage-5 amendment of spec round 29, built and awaiting acceptance; stage 7 next. *Row checked 2026-10-22 against DECISIONS.md.* |
 | Judgement and cutover (B494 step 4) | The human's ears on the whole bank A/B, the CPU target (B488), the invariant suite; then it replaces the current engine |
 
 ---
