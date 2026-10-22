@@ -86,3 +86,6 @@ swarm-dynamics · parity-oracle · plugin-platform · realtime-perf
 - [L0074] A folder move breaks every CMake cache, nested FetchContent sub-builds included; verify fast cannot see it (build · tooling · rename)
 - [L0075] A new check cannot wait unwired or self-compile from tools/; discover-by-rule checks make parallel PRs order-dependent (gates · delegation · ratchets)
 - [L0076] Keep git push and gh pr create --base main in separate calls; the deny hook blocks the pair as a push to main (tooling · hooks · git)
+- [L0077] A control-rate suspect: read the value the engine holds, don't infer it from audio (debugging · probes · oracles)
+- [L0078] "My presets" means load the human's files; a derived order needs a frozen fixture, not a comment (debugging · state · presets)
+- [L0079] Write tracked prose through a script file, never a quoted heredoc with shell-quote tricks (tooling · ledgers · shell)
