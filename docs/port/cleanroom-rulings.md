@@ -55,6 +55,7 @@
 saw no-click set moved to reported), B-27 (`env1.decayCurve` reported), and Q-TA-1/6 (the frozen no-click set).
 
 **Off-machine copy (B533).** Pushed 2026-10-21: `horde-cleanroom-tests` at `ade127e`, `horde-cleanroom-engine` at `fbeb224` (contains stage 5's `65a155c`); both at spec round 28.
+Stage 6 accepted (ADR-268), pushed 2026-10-21: `horde-cleanroom-tests` at `4e74e8f` (round 29), `horde-cleanroom-engine` at `bc84ae4`.
 
 **Exposures.**
 - **2026-10-19, the builder's opener pasted into the test author's folder.** That session saw a few builder facts:
