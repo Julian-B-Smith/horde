@@ -9192,3 +9192,13 @@ The lead reran `bc84ae4` from a clean `git archive` export (Release, -j4, nice).
 - **FX device (ADR-254):** none. In the FX device the sidechain's notes are the direct stream.
 
 **ADR-270 A1 — spec round 30 written (2026-10-22).** IF-1 accepts and records a note-on's `stream` tag (`direct` by default, or `arp`), and VO-1's voice keeps it. Each source carries a reserved `stream` row (Both, Direct, Arp; Both is index 0, the only value in 1.0) in its own id block. RC-6.7 holds the deferred behaviour, and SN-7 notes the mono sub's later restriction. §5.8: 164 table rows and 330 manifest parameters, 13 of them reserved, so host parameters stay at 317. Item 30 covers the four rows, plus a check that a tagged note renders bit-identically to an untagged one, with a must-fail control that silences a source on an arp-tagged note. Nothing changes sound in 1.0.
+
+## ADR-271 — RULED by the human: ED-7 accepted, the stage 5 amendment (B494, B-29a, 2026-10-22)
+
+**Context.** Spec round 29 (ADR-265) added ED-7, the short tapers, to stage 5. The builder committed it as `a418265` (cleanroom-engine), against the tests through `28e0983` (item 7.7, the engine-free reference R). In the builder's run, item 7.7 is green. The lead reran `a418265` from a clean `git archive` export (Release, -j4, nice; the first attempt was cut off when the session's process exited, and the tests were rerun on the same build). It found:
+- suite 246 items, 19 failed: the same 19 as at stage 6's acceptance (ADR-268), with item 7.7 now green;
+- ctest as at stage 6: bank_report red (no translator yet), item08_tsan red (item 20, the GUI snapshot, a later stage's item), wasm skipped.
+
+**Ruling (the human, by poll, 2026-10-22): "Accept ED-7."** ED-7 is accepted at `a418265`, closing stage 5's amendment.
+
+**Consequences.** The builder builds spec round 30 next (tests `2605754` and `72e7fe5`), then stage 7. The private remotes get the accepted heads (B533). The progress page is updated.
