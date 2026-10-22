@@ -9167,3 +9167,28 @@ The lead reran `bc84ae4` from a clean `git archive` export (Release, -j4, nice).
 **The lead's reading:** the bar is `docs/proposals/note-processor-1.0-bar.md`, the module 1.0 bar adapted for a note processor. The audio-only rows drop out, and note rows come in: every note ends once on every path, sample-exact timing, no input gives no output, pedal and restart as ruled, scale quantize, and triggers without history.
 
 **Consequences.** The response goes to Arp (seq 2). **FX device (ADR-254):** the bar requires that no engine is assumed downstream.
+
+## ADR-270 — RULED by the human: the arp reaches chosen sources, by a per-source note stream (B543, 2026-10-22)
+
+**The human (2026-10-22):** "I realize I would like to potentially be able to send the arpeggiator to some oscillators but not others. Let's think this through."
+
+**Rulings (by poll).**
+1. **"Per-source stream selector."** Notes arrive tagged by stream, **direct** (what the player holds) or **arp** (what Arp generates). Each source (osc 1, osc 2, the sub, the noise, and any later source through the slot) has a selector: **Both** (the default), **Direct** or **Arp**. A voice records its note's stream. In a voice, only the sources whose selector matches that stream render; the others render nothing and cost nothing (RC-6.3). Both is today's behaviour, so every existing patch is unchanged.
+   - Each source's envelope selector (RC-6.5) lets arp sources take a short envelope while held sources sustain.
+   - The mono sub, which picks its note from the gated notes (SN-7), considers only the notes of its own stream.
+   - Arp and direct notes share the voice pool.
+2. **"Reserve now, build with Arp."** The next spec round reserves:
+   - the stream tag on note events (IF-1), default direct;
+   - the voice's recorded stream;
+   - each source's selector, as a reserved row whose only value in 1.0 is Both (§5.1).
+
+   The behaviour is built when Arp's core lands (ADR-269), aiming for 1.0 as a recorded exception to the feature freeze.
+
+**Why a selector, not layers:** two full voice pools would double the voice and CPU budget, for little the selector cannot do.
+
+**Consequences.**
+- Spec round 30 writes the reservation.
+- Arp is told that its emitted notes carry the arp stream tag.
+- **FX device (ADR-254):** none. In the FX device the sidechain's notes are the direct stream.
+
+**ADR-270 A1 — spec round 30 written (2026-10-22).** IF-1 accepts and records a note-on's `stream` tag (`direct` by default, or `arp`), and VO-1's voice keeps it. Each source carries a reserved `stream` row (Both, Direct, Arp; Both is index 0, the only value in 1.0) in its own id block. RC-6.7 holds the deferred behaviour, and SN-7 notes the mono sub's later restriction. §5.8: 164 table rows and 330 manifest parameters, 13 of them reserved, so host parameters stay at 317. Item 30 covers the four rows, plus a check that a tagged note renders bit-identically to an untagged one, with a must-fail control that silences a source on an arp-tagged note. Nothing changes sound in 1.0.
