@@ -9135,6 +9135,27 @@ The test author's audit found no item that expects a glided value, so no test ch
 
 **Room left in 1.0:** stepped parameters keep their click-free class ratings (PA-5, RS-4.3); the mod matrix's destination list keeps a kind field, so a "stepped" kind can be added later; and nothing writes a stepped parameter except an edit or the morph.
 
+## ADR-268 — RULED by the human: stage 6 accepted (B494, B514, 2026-10-21)
+
+**Context.** The builder committed stage 6, the sub and the noise oscillator, as `bc84ae4` (cleanroom-engine), to spec rounds 26–28 with the tests as of `c5fe78d`. Its closing run:
+- every stage-6 item is green: items 24–33, item 10's sub and noise anchors, item 11 on all 317 live rows, item 12 on 326 rows, item 18 with the selector, and item 30 with 30.4;
+- 19 items red, each of them red at stage 5 too: the bank items (no translator yet) and items owned by later stages (9, 10.c, 13, 14, 16, 20, 21, 23).
+
+The lead reran `bc84ae4` from a clean `git archive` export (Release, -j4, nice). It found the same set, plus item 7.7, which is ED-7's test, delivered after the builder's run and expected red until the amendment is built. ctest matched: suite, bank_report and item08_tsan red, wasm skipped. Tests found seven engine faults, and the builder fixed them (cleanroom B-38):
+- the colour's slopes and level;
+- the note pan on the sub and the noise;
+- the pulse width at 0.5;
+- M's quadrature at a step on a point;
+- M's envelope read;
+- the mono sub's starts;
+- PA-8's solo of an off source.
+
+**Ruling (the human, by poll, 2026-10-21): "Accept stage 6."** Stage 6 is accepted at `bc84ae4`. ED-7 (round 29) follows as a stage 5 amendment, built now (ADR-265).
+
+**Consequences.** The private remotes get the accepted heads (B533); the progress page is updated.
+
+**ADR-266 A1 — the FX chain palette (the human, by poll, 2026-10-21: "A distinct house colour each").** Each FX module in the chain views gets its own distinct house colour, independent of its skin and of the source colours. This replaces ruling 5's "its own screen style's colour", which could not tell modules apart, because five screen schemes share magentas.
+
 ## ADR-269 — RULED by the human: Arp's 1.0 bar and how horde consumes its core (B539, 2026-10-21)
 
 **Context.** Arp's spin-up notice (seq 1) asked two questions: Q-H1, which MUST rows bind a note processor for 1.0; and Q-H2, how horde consumes its core.
