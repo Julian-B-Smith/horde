@@ -9155,3 +9155,15 @@ The lead reran `bc84ae4` from a clean `git archive` export (Release, -j4, nice).
 **Consequences.** The private remotes get the accepted heads (B533); the progress page is updated.
 
 **ADR-266 A1 — the FX chain palette (the human, by poll, 2026-10-21: "A distinct house colour each").** Each FX module in the chain views gets its own distinct house colour, independent of its skin and of the source colours. This replaces ruling 5's "its own screen style's colour", which could not tell modules apart, because five screen schemes share magentas.
+
+## ADR-269 — RULED by the human: Arp's 1.0 bar and how horde consumes its core (B539, 2026-10-21)
+
+**Context.** Arp's spin-up notice (seq 1) asked two questions: Q-H1, which MUST rows bind a note processor for 1.0; and Q-H2, how horde consumes its core.
+
+**Rulings (by poll).**
+1. **Q-H2, "Copied in at its V1":** horde takes Arp's core source into its own tree when Arp reaches V1, by a PR that records Arp's commit hash; updates arrive the same way. There is no submodule and no package. This follows the human's ruling for Sluice (Sluice D-096).
+2. **Arp's CPU, "Within modulation's 2 %":** Arp shares the approved budget's modulation, morph and intent bus slice.
+
+**The lead's reading:** the bar is `docs/proposals/note-processor-1.0-bar.md`, the module 1.0 bar adapted for a note processor. The audio-only rows drop out, and note rows come in: every note ends once on every path, sample-exact timing, no input gives no output, pedal and restart as ruled, scale quantize, and triggers without history.
+
+**Consequences.** The response goes to Arp (seq 2). **FX device (ADR-254):** the bar requires that no engine is assumed downstream.
