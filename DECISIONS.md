@@ -9202,3 +9202,19 @@ The lead reran `bc84ae4` from a clean `git archive` export (Release, -j4, nice).
 **Ruling (the human, by poll, 2026-10-22): "Accept ED-7."** ED-7 is accepted at `a418265`, closing stage 5's amendment.
 
 **Consequences.** The builder builds spec round 30 next (tests `2605754` and `72e7fe5`), then stage 7. The private remotes get the accepted heads (B533). The progress page is updated.
+
+## ADR-272 — RULED by the human: the stream selector takes three streams as toggles; the chain line sets the stage gains (B543, B547, Arp Q-H7, 2026-10-22)
+
+**Context.** Arp's notice seq 5 (Arp D-018) adds a chord stage before the arp. Its notes go out tagged `stream = chord`, and the arp then plays that chord set as `stream = arp`. The human, on Arp's side: "I would like to be able to send the chord to oscillators independently as well (one gets the chord, the other gets the chord → the arp, etc.)". Arp's Q-H7 asks whether ADR-270's per-source selector (Both, Direct, Arp) can route a third stream, in any combination, with the default still today's sound. Separately, the human asked of the design system's Chain line (B545): "Would it be plausible to also control the levels of the gain stages from the horizontal viewer?"
+
+**Rulings (by poll, 2026-10-22).**
+1. **"Three toggles."** Each source's stream selector is three toggles, Direct, Chord and Arp, in any combination. All on is the default: every note plays, which is today's sound.
+   - It is stored as one row with seven values: every non-empty combination, all on at index 0. (Turning off all three would silence the source, which its mute already does, so the empty combination is not a value.)
+   - It stays reserved in 1.0 (§5.1), with all on as its only 1.0 value; the other six arrive with Arp's core (RC-9.4). So no patch changes.
+   - A voice renders a source when its note's stream is among the source's toggles. The mono sub chooses among the notes of its toggled streams.
+   - IF-1's stream tag gains `chord`.
+   - "chord → arp" needs no routing here: arp notes are generated from the chord set inside Arp, and carry `arp`.
+   - FX device (ADR-254): none; the sidechain's notes are the direct stream.
+2. **"Yes, drag a dot."** The Chain line sets each stage's gain: drag a stage's dot up or down, with shift for fine and a double-click to reset. While held, the dot is the gain handle with its dB readout. On release it settles back to the measured level. Gain staging's faders follow, since both views share one model. Source dots stacked in the first column fan out on hover so each can be grabbed. (B547.)
+
+**Consequences.** Spec round 31 writes ruling 1, together with the two corrections owed on B543. Arp is answered in its `integrations/hypersaw/` (Q-H7: yes, three toggles). B547 builds ruling 2 in the design system.
