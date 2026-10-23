@@ -51,6 +51,7 @@
 | 34 | Does a row of rate N read PA-1's glide or its target at a voice's start? | The target | §5.1's rate N and PA-1 never met | **yes** (the builder's reading) | engine-free (the test author's audit: no item expects a glided value) | ADR-263.2 |
 | 35 | ED-7 is a stage 5 amendment: does stage 6 wait for it? | In parallel; stage 6's acceptance does not wait | BD-8 had no rule for amending an accepted stage | no | — | ADR-265 |
 | 36 | B-45: 9.3's culled tail and mono re-run fire on their ideal laws. Judged, and how? | Culled tail: triggered by lowering the cap with no new note, judged alone. Mono re-run: reported, not judged (the onset family) | QS-4 named the cases but not how a case that starts a note is windowed, nor how a cull is triggered | no | engine-free (the test author's ideal-law renders on the probe) | ADR-274 |
+| 37 | B-46: PA-5's crossfade fires QS-4 on the probe for a waveform-changing stepped-key change and morph flip, and in 23.3's restore. Judged, and how? | Report both in 9.3 and judge them by PA-5's crossfade law, gated; 23.3's snapshot takes a stepped value inaudible on the probe | QS-4's law-tested list did not name PA-5; 23.3 left the probe | no | engine-free (the test author's ideal-law renders on the probe, 99c63f6) | ADR-276 |
 
 **Lead readings with no recorded ruling (B520: owed to the human):** B-12 (QS-4's must-fire signals), B-13 (the
 saw no-click set moved to reported), B-27 (`env1.decayCurve` reported), and Q-TA-1/6 (the frozen no-click set).
