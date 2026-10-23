@@ -9279,3 +9279,22 @@ The early estimate is 0.7 to 1.0 % of a min-spec core on the worst row. That is 
 - **FX device (ADR-254):** the same limiter closes the FX device's chain, so the same budget applies there.
 
 **ADR-257 A2 — the FOUNDATIONS trigger has not fired; it fires at B530's acceptance (2026-10-23).** ADR-257 A1 reported FOUNDATIONS' registered trigger (B92) as fired, on the grounds that Shriek's pitch-tracked feedback is the second note-hearing FX. FOUNDATIONS' corrected response (their DECISIONS #137) reads "ships" as hosted in a horde build that ships. horde 1's Comb is retired, Shriek is not yet hosted, and B82 has not landed, so today the shipping product hosts no note-hearing FX. That reading is right. The trigger fires at B530's acceptance, with host-side tests of B92's three properties as well as A22. B92 and B530 are reworded to match, so the jointly registered criterion reads the same in both trees. FOUNDATIONS also retracted its earlier claim that "sounding pitch" was already ruled as the pitch system's output. It now endorses the corrected shape: a base frequency from the tuning, with bend and glide as per-note offsets.
+
+## ADR-276 — RULED by the human: a waveform-changing stepped change or morph flip is judged by PA-5's law, not the click detector; 23.3 stays on the probe (B494, cleanroom B-46, spec round 33, 2026-10-24)
+
+**Context.** In stage 7 the builder reported that PA-5's own crossfade fires QS-4's detector in two 9.3 cases, a stepped-key change and a morph flip. It also fired in 23.3's restore. The builder's ideal was built from engine renders, so under keep-the-gate (ADR-247) it could not move a gate. The test author then rendered each ideal law engine-free on the probe (test-author 99c63f6, a report tool only) and judged it with the ratified detector, unmodified.
+- A held sine, a held square and a held square with the Fold blade read clean from the note's start.
+- The stepped-key change (sine → square) fires 22 events, the morph flip 19 and 23.3's restore 25, all inside their own windows.
+- What fires: once a sine turns into a square-based sound, the detector fires on each new square edge for about 107 ms, until it has learned the new waveform. This is the "correct change of the waveform within a cycle" that QS-4's probe rule names.
+- A PA-1 level glide on a held square also fires, as B-13 found on a band-limited saw.
+
+**Rulings (the human, by poll, 2026-10-24).**
+1. **"Report; judge by PA-5's law."** A stepped-key change and a morph flip whose settings change the waveform are reported in 9.3. They are judged instead by PA-5's crossfade law (C.0's 5 ms raised cosine between the two settings' sounds), gated, beside BL-16 and BL-10 in QS-4's list of law-tested cases.
+2. **"Approve."** 23.3's snapshot takes a stepped value that differs but is inaudible on the probe. The restore still exercises PA-5's crossfade and RC-11.4's glides without leaving the sine, and its ideal (the glides on the sine) reads clean. The audible stepped crossfade is covered by ruling 1.
+
+**Consequences.**
+- Spec round 33 moves the two cases from QS-4's judged list to its law-tested list.
+- The test author updates 9.3 and 23.3. It also confirms that a gated PA-5 law test covers both the stepped-key change and the morph flip.
+- The engine: no change.
+- The clean room: the spec reaches both repositories in the same change.
+- **FX device (ADR-254):** none.
