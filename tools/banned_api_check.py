@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""banned_api_check -- no unbounded-copy or shell-out calls in src/ and h2/ (B446 W1b).
+"""banned_api_check -- no unbounded-copy or shell-out calls in src/, h2/ and engine2/ (B446 W1b; engine2 B535).
 
 WIRED: ./verify fast
 
@@ -19,7 +19,10 @@ are handled on purpose: a C++14 digit separator (`1'000`) is NOT the start of a
 character literal, and a `//` comment ending in a backslash continues onto the
 next line. The controls below fail if either goes wrong.
 
-SCOPE. Every tracked or new-and-not-ignored C/C++ file under src/ and h2/
+SCOPE. Every tracked or new-and-not-ignored C/C++ file under src/, h2/ and engine2/
+(engine2/ joined in B535, repo audit 2026-10-21 H4: the clean-room engine replaces
+h2/engine, and a root list that stops short of it is green over code it never reads;
+all of engine2/ is scanned, tests and tools too, no exclusion)
 (`git ls-files -co --exclude-standard`; a brand-new file is exactly the case that
 would otherwise slip through). A file that cannot be read is RED, and so is a
 tree in which no file is found at all -- a scanner that matched nothing must not
@@ -40,7 +43,7 @@ import sys
 import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-DIRS = ("src", "h2")
+DIRS = ("src", "h2", "engine2")
 EXTS = {".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".ipp", ".tpp", ".inc", ".m", ".mm"}
 BANNED = ("strcpy", "strcat", "sprintf", "vsprintf", "gets", "system", "popen")
 NAME_RE = re.compile(r"(?<![A-Za-z0-9_])(" + "|".join(BANNED) + r")(?![A-Za-z0-9_])")
@@ -212,16 +215,26 @@ def selftest():
             (td / d).mkdir()
         (td / "src" / "ok.cpp").write_text("// system(x)\nint f(){ return snprintf(0,0,\"\"); }\n")
         (td / "h2" / "ok.h").write_text("#pragma once\n")
+        (td / "engine2" / "ok.h").write_text("#pragma once\n")
         if subprocess.run(["git", "init", "-q"], cwd=td, capture_output=True).returncode != 0:
             return "selftest: could not create a scratch repo"
         probs, n = check(td)
-        if probs or n != 2:
+        if probs or n != 3:
             return f"selftest: the clean scratch layout read red or miscounted ({probs}, {n})"
         (td / "h2" / "planted.h").write_text("inline void p(char* a){\n  strcpy(a, \"x\");\n}\n")
         probs, _ = check(td)
         if probs != ["h2/planted.h:2: banned call strcpy"]:
             return f"selftest: the planted line was not reported exactly ({probs})"
         (td / "h2" / "planted.h").unlink()
+        # B535: the same plant under engine2/ -- including a tests/ subdirectory, which no
+        # exclusion may hide -- must be reported at its own path.
+        (td / "engine2" / "tests").mkdir()
+        (td / "engine2" / "tests" / "planted.cpp").write_text("void p(char* a){\n  strcpy(a, \"x\");\n}\n")
+        probs, _ = check(td)
+        if probs != ["engine2/tests/planted.cpp:2: banned call strcpy"]:
+            return f"selftest: the engine2 planted line was not reported exactly ({probs})"
+        (td / "engine2" / "tests" / "planted.cpp").unlink()
+        (td / "engine2" / "ok.h").unlink()
         (td / "h2" / "ok.h").unlink()
         (td / "src" / "ok.cpp").unlink()
         probs, _ = check(td)

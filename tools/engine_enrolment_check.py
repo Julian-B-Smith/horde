@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""engine_enrolment_check -- every engine and module under h2/ is in the harness.
+"""engine_enrolment_check -- every engine and module under h2/ (and engine2/core) is in the harness.
 
 WIRED: ./verify fast
 
@@ -32,6 +32,22 @@ remember to list one. Then, against docs/armor/engines.json:
   REFERENCE   a `test-reference` unit is included by an enrolled unit or by an
               adapter: it is product code after all and must be enrolled.
 
+ENGINE2 (B535, repo audit 2026-10-21 H4). engine2/ is the clean-room engine ADR-223 says replaces
+h2/engine, and a discovery that stops at h2/ would stay green over code it never read. Three rules,
+all of them constants below with their reasons, and no new registry kind:
+  engine2/core  is ONE unit (the builder adapts its layout, engine2/README.md BD-1, so its
+                directories are not units). While EVERY code file in it is a stub (nothing but
+                comments, blank lines, `#pragma once` and `#include`: today's empty headers and
+                one-line translation unit) it needs no entry and the green line says PENDING. The
+                day a file in it holds a line of real code, it is UNENROLLED until docs/armor/
+                engines.json lists `engine2/core` as an engine (adapter, table row, patches: the
+                same demands as h2/engine). That is the point: engine code arriving over a green
+                check it never read is the failure this closes.
+  engine2/{tests,tools,wasm}  hold code that is not the engine (E2_NON_ENGINE names each with its
+                reason); they are not units. This is the ONLY exemption.
+  anywhere else in engine2/   a code file outside core/ and E2_NON_ENGINE is STRAY, as TOPLEVEL is
+                for h2/: a new engine directory dropped beside core/ is seen, not skipped.
+
 WHAT IT DOES NOT PROVE, AND WHERE THAT IS PROVED. This check is STATIC: it reads
 files and builds nothing. It cannot tell an adapter that drives its engine from one
 that returns silence. That is h2/harness/selftest.mjs's job: on the built render
@@ -57,11 +73,14 @@ synthetic tree and once on the REAL one:
   kind; its adapter missing; its adapter including nothing of the engine; its table
   row gone; a table row no entry owns; its patches gone; its loud patches gone; a
   patch for an unknown engine; a stale entry; an exemption with no reason; the
-  engine including a test reference.
+  engine including a test reference; for engine2: real code in engine2/core with no entry,
+  a code file in an unnamed engine2 directory, one directly in engine2/.
 The conforming synthetic tree must read green (the must-read-zero: a judge that is
-always red would pass every plant). One more control runs the DISCOVERY end to end
-in a scratch repository: a staged directory, a new unstaged one, an ignored one and
-one with no code must read as found, found, not found and not found.
+always red would pass every plant); so must the same tree with a new STUB header in
+engine2/core and a code file under engine2/tests (the quiet controls). One more control
+runs the DISCOVERY end to end in a scratch repository: a staged directory, a new unstaged
+one, an ignored one and one with no code must read as found, found, not found and not
+found, and engine2 code, tracked or new, must be listed.
 
 Exit 0 green, 1 red. No clock, no randomness.
 """
@@ -75,11 +94,22 @@ import subprocess
 import sys
 import tempfile
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+# the C/C++ lexer is reused, not copied (and no lint-suppression comment here: weakening_check counts those)
+from banned_api_check import strip_noncode
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 REGISTRY = "docs/armor/engines.json"
 TABLE = "h2/harness/adapters.h"
 PATCHES = "h2/harness/patches.json"
 HARNESS_DIR = "h2/harness"
+E2_CORE = "engine2/core"
+# Directories of engine2/ whose code is not the engine. Each is exempt from discovery, with its reason.
+E2_NON_ENGINE = {
+    "engine2/tests": "the acceptance suite and its runner: they test the engine, they are not an engine or a module",
+    "engine2/tools": "tooling (the click detector); no engine code",
+    "engine2/wasm": "the WebAssembly build stub; build files, no engine code",
+}
 SELFTEST = "h2/harness/selftest.mjs"
 CODE_EXTS = {".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".ipp", ".tpp", ".inc"}
 ENROLLED_KINDS = ("engine", "module")
@@ -92,10 +122,10 @@ TABLE_ROW = re.compile(r'^\s*\{\s*"([^"]+)"\s*,\s*false\s*,', re.M)
 # ---- discovery -----------------------------------------------------------------
 
 def list_h2_files(cwd):
-    """-> (sorted repo-relative files under h2/, error). Tracked files and new files
+    """-> (sorted repo-relative files under h2/ and engine2/, error). Tracked files and new files
     git does not ignore, so a directory nobody has committed yet is seen."""
     env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
-    r = subprocess.run(["git", "ls-files", "-co", "--exclude-standard", "-z", "--", "h2"],
+    r = subprocess.run(["git", "ls-files", "-co", "--exclude-standard", "-z", "--", "h2", "engine2"],
                        cwd=cwd, capture_output=True, text=True, env=env)
     if r.returncode != 0:
         return None, f"git ls-files failed (exit {r.returncode}): {r.stderr.strip()[:200]}"
@@ -113,9 +143,35 @@ TOP_LEVEL_SUPPORT = {
 
 
 def units_of(files):
-    """The directories under h2/ that directly hold C or C++ code."""
-    return sorted({posixpath.dirname(f) for f in files
-                   if posixpath.splitext(f)[1] in CODE_EXTS and posixpath.dirname(f) != "h2"})
+    """The directories under h2/ that directly hold C or C++ code, plus engine2/core as one
+    unit when any code is in it."""
+    out = {posixpath.dirname(f) for f in files
+           if f.startswith("h2/") and posixpath.splitext(f)[1] in CODE_EXTS and posixpath.dirname(f) != "h2"}
+    if core_code(files):
+        out.add(E2_CORE)
+    return sorted(out)
+
+
+def core_code(files):
+    """The C or C++ files anywhere under engine2/core."""
+    return [f for f in files if f.startswith(E2_CORE + "/") and posixpath.splitext(f)[1] in CODE_EXTS]
+
+
+def is_stub(text):
+    """True when the file holds nothing but comments, blank lines, `#pragma once` and `#include`."""
+    for line in strip_noncode(text).split("\n"):
+        t = line.strip()
+        if t and not re.match(r"#\s*(?:pragma\s+once|include\b)", t):
+            return False
+    return True
+
+
+def stray_engine2(files):
+    """Code files in engine2/ that are neither under core/ nor under a E2_NON_ENGINE directory."""
+    return sorted(f for f in files
+                  if f.startswith("engine2/") and posixpath.splitext(f)[1] in CODE_EXTS
+                  and not f.startswith(E2_CORE + "/")
+                  and not any(f.startswith(d + "/") for d in E2_NON_ENGINE))
 
 
 def stray_top_level(files):
@@ -202,7 +258,17 @@ def judge(model):
         if f not in files:
             fails.append(f"TOPLEVEL: {f} is named in TOP_LEVEL_SUPPORT and does not exist (a stale entry)")
 
+    for f in stray_engine2(files):
+        fails.append(f"STRAY: {f} is engine2 code outside {E2_CORE}/ and outside {', '.join(sorted(E2_NON_ENGINE))}. "
+                     f"Move it into {E2_CORE}/ (one unit), or name its directory in E2_NON_ENGINE with the reason it is no engine")
     for d in found:
+        if d == E2_CORE and d not in by_path:
+            real = [f for f in core_code(files) if not is_stub(texts.get(f, ""))]
+            if real:
+                more = f" and {len(real) - 1} more" if len(real) > 1 else ""
+                fails.append(f"UNENROLLED: {E2_CORE} holds code ({real[0]}{more}) and has no entry in {REGISTRY}. "
+                             f"The engine has arrived: enrol it as an engine (h2/harness/README.md) before it is trusted")
+            continue                                   # stub-only: PENDING, no entry needed
         if d not in by_path:
             fails.append(f"UNENROLLED: {d} holds code and has no entry in {REGISTRY}. Enrol it "
                          f"(h2/harness/README.md) or enter it with the reason it is not an engine or a module")
@@ -269,6 +335,9 @@ def clean_model():
         "h2/engine/engine.h": "#pragma once\n",
         "h2/cores/ref/ref.h": "#pragma once\n",
         "h2/harness/harness.h": "#pragma once\n",
+        "engine2/core/api/engine.h": "#pragma once\n// a stub: the engine is not built yet\n",
+        "engine2/core/api/engine.cpp": '#include "engine.h"\n',
+        "engine2/tests/runner.cpp": "int main() { return 0; }\n",
         "h2/harness/adapter_composed.h": '#include "../engine/engine.h"\n#include "harness.h"\n',
         TABLE: '#include "adapter_composed.h"\ninline constexpr AdapterRow kAdapters[] = {\n'
                '  {"composed", false, &makeComposedAdapter},\n  {"control/silent", true, &makeSilentControl},\n};\n',
@@ -356,7 +425,13 @@ def plants(model):
         up = "/".join([".."] * len(path.split("/")))
         m["texts"][src] += f'\n#include "{up}/h2/cores/planted/planted.h"\n'
 
+    def e2_real_code(m):
+        add_file(m, "engine2/core/planted/planted.cpp", "int planted() { return 1; }\n")
+
     return [
+        ("real code in engine2/core, no entry", e2_real_code, "UNENROLLED", "engine2/core "),
+        ("a code file in an unnamed engine2 directory", new_dir("engine2/newengine/newengine.h"), "STRAY", "engine2/newengine/newengine.h "),
+        ("a code file directly in engine2/", new_dir("engine2/rogue.cpp"), "STRAY", "engine2/rogue.cpp "),
         ("a new engine directory at the top level", new_dir("h2/newengine/newengine.h"), "UNENROLLED", "h2/newengine "),
         ("a new code file directly in h2/", new_dir("h2/rogue_engine.h"), "TOPLEVEL", "h2/rogue_engine.h "),
         ("a new directory under cores/", new_dir("h2/cores/newcore/core.h"), "UNENROLLED", "h2/cores/newcore "),
@@ -383,20 +458,26 @@ def discovery_control():
     with tempfile.TemporaryDirectory(prefix="enrolment-") as tmp:
         root = pathlib.Path(tmp)
         for rel, text in (("h2/README.md", "x\n"), ("h2/staged/a.h", "x\n"), ("h2/fresh/deep/b.cpp", "x\n"),
-                          ("h2/ignored/c.h", "x\n"), ("h2/prose/notes.md", "x\n"), (".gitignore", "h2/ignored/\n")):
+                          ("h2/ignored/c.h", "x\n"), ("h2/prose/notes.md", "x\n"), (".gitignore", "h2/ignored/\n"),
+                          ("engine2/core/api/a.cpp", "x\n"), ("engine2/core/fresh/b.h", "x\n"),
+                          ("engine2/tests/t.cpp", "x\n"), ("engine2/data/x.json", "x\n")):
             (root / rel).parent.mkdir(parents=True, exist_ok=True)
             (root / rel).write_text(text)
-        for cmd in (["git", "init", "-q"], ["git", "add", "h2/staged/a.h"]):
+        for cmd in (["git", "init", "-q"], ["git", "add", "h2/staged/a.h", "engine2/core/api/a.cpp"]):
             r = subprocess.run(cmd, cwd=tmp, capture_output=True, text=True, env=env)
             if r.returncode != 0:
                 return f"the discovery control could not run `{' '.join(cmd)}` ({r.stderr.strip()[:120]})"
         files, err = list_h2_files(tmp)
         if err:
             return f"the discovery control: {err}"
-        got, want = units_of(files), ["h2/fresh/deep", "h2/staged"]
+        got, want = units_of(files), ["engine2/core", "h2/fresh/deep", "h2/staged"]
         if got != want:
             return (f"the discovery control found {got}, want {want} (a staged directory and a new one are units; "
-                    f"an ignored one, one with no code, and h2/ itself are not)")
+                    f"an ignored one, one with no code, and h2/ itself are not; engine2/core is one unit, tracked or new)")
+        e2 = sorted(f for f in files if f.startswith("engine2/"))
+        want_e2 = ["engine2/core/api/a.cpp", "engine2/core/fresh/b.h", "engine2/data/x.json", "engine2/tests/t.cpp"]
+        if e2 != want_e2:
+            return f"the discovery control listed {e2} under engine2/, want {want_e2} (staged and new files are both seen)"
     return None
 
 
@@ -427,6 +508,21 @@ def controls(model):
                 fired += 1
             else:
                 problems.append(f"control [{base_name}] {name}: did NOT read {verdict} (looked for {needle!r})")
+    # QUIET controls: what must NOT turn the check red. A judge that is red for every engine2 change would
+    # pass every plant above and make the stub-only allowance a lie.
+    quiet = [("a new stub header in engine2/core", lambda m: add_file(m, "engine2/core/newconcept/newconcept.h",
+                                                                       "#pragma once\n// Pan and density.\n#include \"x.h\"\n")),
+             ("a code file under engine2/tests", lambda m: add_file(m, "engine2/tests/items/item_x.cpp", "int x() { return 1; }\n"))]
+    for base_name, base in bases:
+        for name, mutate in quiet:
+            m = copy.deepcopy(base)
+            mutate(m)
+            if m == base:
+                problems.append(f"quiet control [{base_name}] {name}: the change did nothing (its anchor is gone)")
+            elif judge(m) != judge(base):
+                problems.append(f"quiet control [{base_name}] {name}: turned the check red: {sorted(set(judge(m)) - set(judge(base)))[0]}")
+            else:
+                fired += 1
     err = discovery_control()
     if err:
         problems.append(err)
@@ -453,9 +549,12 @@ def main():
             print("    " + f, file=sys.stderr)
         return 1
     units = model["registry"]["units"]
+    core = core_code(model["files"])
+    e2_state = (f"{E2_CORE} enrolled" if any(u["path"] == E2_CORE for u in units) else
+                f"{E2_CORE} PENDING: {len(core)} stub files, no engine code yet; the first real line there turns this red until it is enrolled")
     enrolled = [f"{u['id']} ({u['path']})" for u in units if u["kind"] in ENROLLED_KINDS]
     exempt = [f"{u['path']} ({u['kind']})" for u in units if u["kind"] in EXEMPT_KINDS]
-    print(f"engine_enrolment_check: GREEN ({len(units)} units under h2/: {len(enrolled)} enrolled [{', '.join(enrolled)}], "
+    print(f"engine_enrolment_check: GREEN ({e2_state}; {len(units)} units under h2/: {len(enrolled)} enrolled [{', '.join(enrolled)}], "
           f"{len(exempt)} not enrolled with a reason [{', '.join(exempt)}]; {len(model['patches']['patches'])} reference patches; "
           f"{fired} must-fail controls fired on the {' and the '.join(bases)} tree, the conforming tree read green. "
           f"STATIC: that each adapter makes sound is {SELFTEST}'s to show, in ./verify full)")

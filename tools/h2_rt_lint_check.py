@@ -1,11 +1,21 @@
 #!/usr/bin/env python3
-"""h2_rt_lint_check -- no construct in h2/ that can allocate, lock, block or throw.
+"""h2_rt_lint_check -- no construct in h2/ or engine2/core/ that can allocate, lock, block or throw.
 
 WIRED: ./verify fast
 
 ROADMAP B448 phase 2, package P16 (docs/strategy/blind-spot-armor-phase2.md §3);
 risk row R1, the engine-level slice. h2/README.md rule 5 says "render() allocates
 nothing, locks nothing"; until now nothing read the text to hold it there.
+
+SCOPE (B535, repo audit 2026-10-21 H4). Two trees, one rule set: h2/ (all of it, bar the
+OFF_AUDIO_PATH harness) and engine2/core/ (the clean-room engine's real-time sources, which
+ADR-223 says replace h2/engine). engine2/tests, engine2/tools, engine2/wasm and engine2/data
+are NOT scanned, on purpose: the suite, the click detector and the build stub are not on the
+audio thread, and a lint applied to them would force waivers onto code the rule is not about
+(the same reason OFF_AUDIO_PATH exempts h2/harness/). engine2/core is scanned whole, with no
+FROZEN entry and no exemption. Its anchor is "some code file was scanned" rather than a
+named file, because the builder adapts that layout (engine2/README.md, BD-1); a scan that
+saw no code at all is red.
 
 WHY A TEXT SCAN beside tools/h2_engine_rtsan_check.py. RealtimeSanitizer judges
 the calls one build makes on the scenarios it is given. A growth call on a path
@@ -63,6 +73,11 @@ visible in review; h2/engine/ takes no FROZEN entry (FROZEN_DIRS).
 
 MUST-FAIL CONTROLS, every run (LIBRARY L0032), through the same scan() as the
 verdict:
+  PLANT2  a temporary copy of engine2/ with one `push_back` planted in a new file under
+          core/: exactly that line is red, by number; the same line planted under
+          engine2/tests/ is NOT red (the scope is the real-time core, and the control
+          holds the scope as well as the reach); the unplanted copy reads the same as
+          the tree.
   PLANT   a temporary copy of h2/ with one `push_back` planted inside
           Engine::render in its engine.h: exactly that line is red, by number,
           and the unplanted copy reads the same as the tree (the plant is the
@@ -180,14 +195,15 @@ def strip(text):
     return "".join(out)
 
 
-def scan(tree):
-    """tree: a directory laid out like h2/. -> (reds, waivers, nfiles).
+def scan(tree, anchor=ANCHOR, frozen=FROZEN, off_path=OFF_AUDIO_PATH):
+    """tree: a directory laid out like h2/ (or, with anchor=None and frozen={}, like
+    engine2/core/). -> (reds, waivers, nfiles).
     reds: [(file, line, class, construct, message)]; waivers: [(file, line, class, construct, reason)]."""
     reds, waivers, nfiles, frozen_hit = [], [], 0, set()
     files = sorted(p for p in tree.rglob("*") if p.is_file())
     for path in files:
         rel = path.relative_to(tree).as_posix()
-        if rel.startswith(tuple(OFF_AUDIO_PATH)):
+        if rel.startswith(tuple(off_path)):
             continue
         if path.suffix not in CODE:
             if path.suffix not in DATA:
@@ -208,14 +224,17 @@ def scan(tree):
             for cls, why, tok in hits:
                 if reason:
                     waivers.append((rel, n, cls, tok, reason))
-                elif key in FROZEN and rel.startswith(FROZEN_DIRS):
+                elif key in frozen and rel.startswith(FROZEN_DIRS):
                     frozen_hit.add(key)
-                    waivers.append((rel, n, cls, tok, "FROZEN: " + FROZEN[key]))
+                    waivers.append((rel, n, cls, tok, "FROZEN: " + frozen[key]))
                 elif not w:
                     reds.append((rel, n, cls, tok, why))
-    if not any(p.relative_to(tree).as_posix() == ANCHOR for p in files):
-        reds.append((ANCHOR, 0, "scope", "absent", "the engine's own file was not scanned: the scan is looking at the wrong tree"))
-    for key in FROZEN:
+    if anchor is None:
+        if not nfiles:
+            reds.append(("", 0, "scope", "absent", "no code file was scanned: the scan is looking at the wrong tree (a scan that saw nothing is not a clean tree)"))
+    elif not any(p.relative_to(tree).as_posix() == anchor for p in files):
+        reds.append((anchor, 0, "scope", "absent", "the engine's own file was not scanned: the scan is looking at the wrong tree"))
+    for key in frozen:
         if not key[0].startswith(FROZEN_DIRS):
             reds.append((key[0], 0, "waiver", "FROZEN", "a FROZEN entry outside the byte-frozen lifted cores"))
         elif key not in frozen_hit and (tree / key[0]).exists():
@@ -271,6 +290,7 @@ MUST_PASS = [
     "#include <cmath>",
     "#include \"swarm.h\"",
 ]
+ENGINE2_PLANT = "    scratchPlant.push_back(1.0);\n"
 PLANT_ANCHOR = "  void render(double* L, double* R, int n) {\n"
 PLANT_LINE = "    scratchPlant.push_back(static_cast<double>(n));\n"
 
@@ -324,7 +344,30 @@ def selftest():
         else:
             print(f"PASS  control PLANT  a temporary copy of h2/ with `push_back` planted inside Engine::render is RED at "
                   f"engine/engine.h:{at} [growth], and the unplanted copy reads the same as the tree")
+
+    # PLANT2 (B535): the same fault in a copy of engine2/. The scan is the one main() runs.
+    with tempfile.TemporaryDirectory() as d:
+        copy = pathlib.Path(d) / "engine2"
+        shutil.copytree(ROOT / "engine2", copy)
+        base = scan_engine2(copy / "core")
+        if base != scan_engine2(ROOT / "engine2" / "core"):
+            bad.append("PLANT2: the unplanted copy of engine2/core does not read the same as the tree")
+        (copy / "core" / "planted_rt.h").write_text("#pragma once\ninline void f() {\n" + ENGINE2_PLANT + "}\n", encoding="utf-8")
+        new = [r for r in scan_engine2(copy / "core")[0] if r not in base[0]]
+        if new != [("planted_rt.h", 3, "growth", ".push_back(", "a growing call on a container can allocate")]:
+            bad.append(f"PLANT2: a push_back planted at engine2/core/planted_rt.h:3 read {new}")
+        (copy / "tests" / "planted_rt.cpp").write_text("void f() {\n" + ENGINE2_PLANT + "}\n", encoding="utf-8")
+        if scan_engine2(copy / "core")[0] != base[0] + new:
+            bad.append("PLANT2: a push_back planted under engine2/tests/ changed the engine2/core verdict (the scope leaked)")
+        if not bad:
+            print("PASS  control PLANT2  a temporary copy of engine2/ with `push_back` planted in a new file under core/ is RED "
+                  "at core/planted_rt.h:3 [growth], the same line under tests/ is not scanned, and the unplanted copy reads the same as the tree")
     return bad
+
+
+def scan_engine2(core):
+    """The engine2 verdict: engine2/core, whole, no FROZEN entry, no exemption, no named anchor."""
+    return scan(core, anchor=None, frozen={}, off_path={})
 
 
 def main():
@@ -341,12 +384,17 @@ def main():
     for d, why in sorted(OFF_AUDIO_PATH.items()):
         if (ROOT / "h2" / d).is_dir():
             print(f"EXEMPT  h2/{d}  not scanned — {why}")
+    r2, w2, n2 = scan_engine2(ROOT / "engine2" / "core")
+    # prefix each tree's paths so a line names its real file
+    reds = [("h2/" + r[0],) + r[1:] for r in reds] + [("engine2/core/" + r[0].lstrip("/"),) + r[1:] for r in r2]
+    waivers = [("h2/" + w[0],) + w[1:] for w in waivers] + [("engine2/core/" + w[0],) + w[1:] for w in w2]
     for rel, n, cls, tok, reason in waivers:
-        print(f"WAIVER  h2/{rel}:{n}  [{cls}] {tok}  — {reason}")
+        print(f"WAIVER  {rel}:{n}  [{cls}] {tok}  — {reason}")
     for rel, n, cls, tok, why in reds:
-        print(f"FAIL  h2/{rel}:{n}  [{cls}] {tok}  — {why}")
+        print(f"FAIL  {rel}:{n}  [{cls}] {tok}  — {why}")
     in_file = sum(1 for w in waivers if not w[4].startswith("FROZEN: "))
-    print(f"h2_rt_lint_check: {'RED' if reds else 'GREEN'} — {nfiles} source files under h2/, {len(reds)} banned construct(s), "
+    print(f"h2_rt_lint_check: {'RED' if reds else 'GREEN'} — {nfiles} source files under h2/, {n2} under engine2/core/, "
+          f"{len(reds)} banned construct(s), "
           f"{len(waivers)} waiver(s) in use ({in_file} in-file, {len(waivers) - in_file} FROZEN)")
     return 1 if reds else 0
 

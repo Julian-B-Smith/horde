@@ -6,7 +6,7 @@
       "title": "Realtime safety on the audio thread",
       "status": "partial",
       "gates": ["rtsafety_probe", "rtsan_check", "h2_rt_lint_check", "h2_engine_rtsan_check"],
-      "gaps": "rtsan_check (RealtimeSanitizer, ADR-199) runs the real process() over all parameter ids, both engines, morph, intents, mod matrix, MIDI, loads, bypass and reactivation, with a planted fault and a clean control, in verify full; it is macOS-local and SKIPs without Homebrew LLVM, and CI does not run it. Paths outside its seeded schedule are unproven. For horde 2's engine: h2_rt_lint_check (verify fast) bans nine classes of allocating, locking, blocking or throwing construct under h2/, with the offline harness exempt and printed and four std::string uses in the frozen swarm core listed as waivers; h2_engine_rtsan_check (verify full, macOS-local like rtsan_check) runs RealtimeSanitizer over every engine call on the 543 parity scenarios, with a planted allocation. horde 2 has no shell to probe yet: waits on B398, whose acceptance rows are drafted in docs/proposals/h2-shell-acceptance.md.",
+      "gaps": "rtsan_check (RealtimeSanitizer, ADR-199) runs the real process() over all parameter ids, both engines, morph, intents, mod matrix, MIDI, loads, bypass and reactivation, with a planted fault and a clean control, in verify full; it is macOS-local and SKIPs without Homebrew LLVM, and CI does not run it. Paths outside its seeded schedule are unproven. For horde 2's engine: h2_rt_lint_check (verify fast) bans nine classes of allocating, locking, blocking or throwing construct under h2/ and engine2/core/ (B535: the clean-room engine, scanned whole with no waiver), with the offline harness exempt and printed and four std::string uses in the frozen swarm core listed as waivers; h2_engine_rtsan_check (verify full, macOS-local like rtsan_check) runs RealtimeSanitizer over every engine call on the 543 parity scenarios, with a planted allocation. horde 2 has no shell to probe yet: waits on B398, whose acceptance rows are drafted in docs/proposals/h2-shell-acceptance.md.",
       "tracked_by": "B448",
       "tripwire": "RT violations: 0"
     },
@@ -114,7 +114,7 @@
       "title": "Symptom clamping",
       "status": "partial",
       "gates": ["weakening_check"],
-      "gaps": "weakening_check counts isfinite, isnan and std::clamp in src/ and h2/ and is red on any increase the human has not approved. Since 2026-10-12 that approval must cite a trace with a root-cause section that names the file, and the rule is re-checked on every run; a guard tagged as boundary validation or a latching output guard still needs the approval but no trace (ADR-213). Not yet: min/max nests, ternary and if-assign clamps, tanh-style limits and home-made clamp helpers are unseen until the human approves a one-time re-baseline of 75 lines under h2/; a change that tags an old guard and adds a new untagged one reads the same as an honest new tagged guard, so the approval prints every guard line and the human must read them; a ledger edited by hand skips the approval path",
+      "gaps": "weakening_check counts isfinite, isnan and std::clamp in src/, h2/ and engine2/core/ (B535) and is red on any increase the human has not approved. Since 2026-10-12 that approval must cite a trace with a root-cause section that names the file, and the rule is re-checked on every run; a guard tagged as boundary validation or a latching output guard still needs the approval but no trace (ADR-213). Not yet: min/max nests, ternary and if-assign clamps, tanh-style limits and home-made clamp helpers are unseen until the human approves a one-time re-baseline of 75 lines under h2/; a change that tags an old guard and adds a new untagged one reads the same as an honest new tagged guard, so the approval prints every guard line and the human must read them; a ledger edited by hand skips the approval path",
       "tracked_by": "B448",
       "tripwire": "New DSP clamps without a root-cause trace: 0"
     },
@@ -150,7 +150,7 @@
       "title": "Happy-path tests",
       "status": "partial",
       "gates": ["engine_enrolment_check"],
-      "gaps": "engine_enrolment_check (verify fast) is red for any code directory under h2/ with no entry in docs/armor/engines.json, and the harness selftest (verify full) proves each enrolled adapter makes sound, with a silent adapter failing. Not yet: the extreme-parameter fuzz and the sweep matrix that run over every enrolled engine (phase 2 packages P3 and P4), so enrolment does not yet imply those cases",
+      "gaps": "engine_enrolment_check (verify fast) is red for any code directory under h2/ with no entry in docs/armor/engines.json, for any real code in engine2/core (B535; stub headers pass as PENDING until the engine lands) and for engine2 code outside core, tests, tools and wasm, and the harness selftest (verify full) proves each enrolled adapter makes sound, with a silent adapter failing. Not yet: the extreme-parameter fuzz and the sweep matrix that run over every enrolled engine (phase 2 packages P3 and P4), so enrolment does not yet imply those cases",
       "tracked_by": "B448",
       "tripwire": "Engine suites without extreme and sweep cases: 0"
     },
