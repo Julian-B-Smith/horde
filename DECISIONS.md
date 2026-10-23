@@ -9218,3 +9218,19 @@ The lead reran `bc84ae4` from a clean `git archive` export (Release, -j4, nice).
 2. **"Yes, drag a dot."** The Chain line sets each stage's gain: drag a stage's dot up or down, with shift for fine and a double-click to reset. While held, the dot is the gain handle with its dB readout. On release it settles back to the measured level. Gain staging's faders follow, since both views share one model. Source dots stacked in the first column fan out on hover so each can be grabbed. (B547.)
 
 **Consequences.** Spec round 31 writes ruling 1, together with the two corrections owed on B543. Arp is answered in its `integrations/hypersaw/` (Q-H7: yes, three toggles). B547 builds ruling 2 in the design system.
+
+## ADR-273 — RULED by the human: FX modules are cream with a small screen each, replacing the house colours (B546, ADR-266 A1, 2026-10-23)
+
+**Context.** ADR-266 A1 gave each FX module "a distinct house colour" (the `fx-` tokens). The human then said they "really don't fit with the aesthetic" and asked for more options (B546). The comparison page (the FX Module Colours artifact) drew six options on one chain, in the Rack, Matrix, Panel and module card, in both themes. Its measurements: today's tokens (A) fail their own 5 L* rule, with two pairs on cream and four on dark. Options B to F pass it.
+
+**Ruling (the human, 2026-10-23): "Let's go with option B for the FX colors."**
+- **A module is the ordinary panel cream with ink edges**, like every other card.
+- **Its identity is a small screen inset**, drawn in the module's own display style. The colour in the chain comes from what is on those screens. Shriek's is the 80s workstation (amber on near-black) and Sluice's is the Game Boy Color (four greens).
+- **The six modules without a chosen skin** (Bulwark, Filter, EQ, Drive, Echo, Scape) show a labelled stand-in until theirs is chosen. The stand-ins' grounds are spread by lightness, so modules stay distinguishable.
+- **Cables, matrix bars and the module's chip take its screen's ink.**
+- **This replaces ADR-266 A1.** The `fx-` fill tokens are retired from the design system in favour of per-module screen tokens (ground, ink, mid).
+
+**Consequences.**
+- B548 applies option B across the design system's FX views (Rack, Matrix, Panel, Cables, Module card), its tokens and its README colour section.
+- Each stand-in is replaced when that module's skin is chosen. For the sibling modules (Bulwark, Echo, Scape) that choice is theirs and arrives through their mailboxes; Filter, EQ and Drive are horde's.
+- **FX device (ADR-254):** the same. The FX device shows the same rack, so it inherits this unchanged.
