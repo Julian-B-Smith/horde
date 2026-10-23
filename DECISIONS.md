@@ -9238,3 +9238,42 @@ The lead reran `bc84ae4` from a clean `git archive` export (Release, -j4, nice).
 **ADR-273 A1 — cables keep the comparison page's colours (the human, 2026-10-23: "Keep cables in the page's colours").** B548 first drew cables in each module's screen ink, so four of them (Filter, Drive, Echo, Sluice) differed from option B as shown on the comparison page. Cables, their arrowheads and the matrix's weight bars now take a fourth per-module token, `fxs-<module>-cable`, with the page's values. Its ink casing stays, so every cable still clears 3:1 in both themes. Ground, ink and mid are unchanged.
 
 **ADR-272 A1 — the Chain line's gains become fixed offset bars, apart from the level dots (the human, 2026-10-23).** The human, after B547: "We should work on the control interface for the gain staging; right now it's a little confusing since the dots move on their own so it's unclear where they end up. Maybe the control should appear as vertical offsets and not move with the shape." The level dots stop being gain handles and only measure. Each stage's gain becomes its own control in a gain lane under the line: a vertical bar from a 0 dB baseline, up for boost and down for cut, that moves only when dragged. It sits in the stage's column, so control and reading share a column but never share a mark. This replaces ruling 2's "drag a dot" (B549).
+
+## ADR-274 — RULED by the human: the culled tail is judged alone, and the mono re-run is reported (B494, cleanroom B-45, spec round 32, 2026-10-23)
+
+**Context.** In stage 7 the builder found three of 9.3's judged no-click cases firing. These were a stolen voice, a culled tail and a mono re-run, and the builder flagged all three at a new note's attack. The test author checked them against the spec without the engine. Each case's ideal law was rendered on QS-4's probe and judged by the ratified detector, unmodified.
+- **The stolen voice was a window error.** 9.3 judged each render whole, so the new note's onset was inside, and ADR-239 reports onsets. The test author fixed it (test-author fe47496): the new note's attack is reported and the steal's fade is judged, and that reads clean.
+- **The culled tail's ideal fires.** Its base (no cap) fires on correct onsets over sounding tails. And the cull is triggered by a new note at the same instant, so no window can hold the cull and exclude that onset.
+- **The mono re-run's ideal fires inside its own event.** The re-run's attack (ENV 1's straight attack, from 0.85 back up) ends in a corner within the 5 ms crossfade.
+
+Under QS-4's probe rule, both went to the human. The test author reclassified nothing.
+
+**Rulings (the human, by poll, 2026-10-23).**
+1. **"Cull by lowering the cap."** 9.3 triggers the cull by lowering the voice cap below the sounding count with no new note. That is VO-4's "over a cap". Any new note's onset is reported, as every onset is. The 8 ms cull fade is then judged alone, and its ideal reads clean.
+2. **"Report it."** The mono re-run is reported, not judged: it replays the patch's own attack, the same family as a note's onset (ADR-239).
+
+**Consequences.**
+- Spec round 32 writes both into QS-4's no-click list, with ADR-239's onset rule stated for every case that starts a note.
+- The test author updates 9.3.
+- The engine: no change.
+- The clean room: the spec reaches both repositories in the same change.
+- **FX device (ADR-254):** none.
+
+## ADR-275 — RULED by the human: the master limiter may use up to 1.0 % for true-peak limiting (Bulwark brief seq 23, 2026-10-23)
+
+**Context.** Bulwark's master limiter held sample peaks exactly at the −1.0 dBFS ceiling. Between samples, though, its reconstructed output reached up to +2.14 dB over under drive, measured by 8× band-limited upsampling. horde's engine gives no peak guarantee (ADR-226 item 8), and the make-up feeds the rack hot (ADR-230). So this limiter is what holds the instrument's output.
+
+Bulwark's human made it a true-peak limiter: 4× interpolated detection with the ITU-R BS.1770 Annex 2 filter, gain still applied at the base rate, and no clipper. Its true peaks are held under the ceiling on Bulwark's test material, measured and not proven.
+
+The early estimate is 0.7 to 1.0 % of a min-spec core on the worst row. That is over the module bar's 0.5 % master-limiter row, inside a master-strip slice of 1 %, with 1 % of headroom in the 50 % budget. The reported latency grows by 6 samples at every rate (73 at 44.1 kHz, 78 at 48, 150 at 96, 294 at 192).
+
+**Ruling (the human, by poll, 2026-10-23): "Allow up to 1.0 %."**
+- The master limiter is always on, at **≤ 1.0 %** of a min-spec core.
+- The master strip slice grows from 1 % to **1.5 %**, taken from the headroom, which goes from 1 % to **0.5 %**.
+- Bulwark sends a quiet-machine figure once its build is optimised.
+
+**Consequences.**
+- The module bar's budget table and its master-limiter row are amended.
+- horde plans for the new latency.
+- Bulwark is answered in `integrations/bulwark/`.
+- **FX device (ADR-254):** the same limiter closes the FX device's chain, so the same budget applies there.
