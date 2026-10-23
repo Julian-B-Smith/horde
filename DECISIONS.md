@@ -9234,3 +9234,5 @@ The lead reran `bc84ae4` from a clean `git archive` export (Release, -j4, nice).
 - B548 applies option B across the design system's FX views (Rack, Matrix, Panel, Cables, Module card), its tokens and its README colour section.
 - Each stand-in is replaced when that module's skin is chosen. For the sibling modules (Bulwark, Echo, Scape) that choice is theirs and arrives through their mailboxes; Filter, EQ and Drive are horde's.
 - **FX device (ADR-254):** the same. The FX device shows the same rack, so it inherits this unchanged.
+
+**ADR-273 A1 — cables keep the comparison page's colours (the human, 2026-10-23: "Keep cables in the page's colours").** B548 first drew cables in each module's screen ink, so four of them (Filter, Drive, Echo, Sluice) differed from option B as shown on the comparison page. Cables, their arrowheads and the matrix's weight bars now take a fourth per-module token, `fxs-<module>-cable`, with the page's values. Its ink casing stays, so every cable still clears 3:1 in both themes. Ground, ink and mid are unchanged.
