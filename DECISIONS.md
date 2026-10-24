@@ -9311,3 +9311,20 @@ The early estimate is 0.7 to 1.0 % of a min-spec core on the worst row. That is 
 **Consequences.**
 - GUI 3 and the design system's Session model follow these rulings.
 - The FX device (ADR-254) has the same morph pad and corners, so the same rules apply there.
+
+## ADR-278 — RULED by the human: QS-1's floors hold at its anchors only; the hold-out's envelope-selector failure is relayed as the fault alone (B517, B494, 2026-10-24)
+
+**Context.** The sealed hold-out suite (B517) ran for the first time on stage 7 (`26a3e72`): 24 passed and 4 failed. OU-2 cannot run before the bank stage. At the human's word ("Validate, then relay"), a fresh Opus critic validated the other three engine-free, from the spec and the suite's own code, never the engine:
+- **EN-4: the check was wrong.** It read ENV 2's sustain inside its decay, where a correct engine reads 0.6002689, digit for digit the failure.
+- **A2:QS-2: the check asked more than the spec.** The spec's own QS-1 reference design (32 taps, 0.4725·f_s, Kaiser β 8) reads 91.4 dB at C6 + 5 cents against the 98 dB floor. Harmonic 23 folds to 19,971 Hz, just inside the judged 20 kHz edge. QS-1 states its floors at C2, C4, C6 and C8 only. A1:QS-1 had the same between-anchors rule: on the reference design it fails at 8 of 219 points, and A1 had passed only by its draw.
+- **A5:QS-4: valid, a real engine fault.** A source's envelope selector, changed mid-note, switches without PA-5's 5 ms crossfade. The ideal law reads clean on the suite's own detector.
+
+**Rulings (the human, by poll, 2026-10-24).**
+1. **"Anchors only."** QS-1's alias floors are judged at C2, C4, C6 and C8. Between them, the alias ratio is reported, not judged. The spec stands. The longer step-table question (48 or 64 taps) stays open separately.
+2. **"The fault, not the diagnosis."** The builder is told that an envelope-selector change mid-note must crossfade by PA-5 and that the hold-out reads an unfaded switch. Nothing more is relayed about how the check is built. A5 is thereby burned.
+
+**Consequences.**
+- The hold-out suite is fixed (EN-4 reads after both decays; A1 judges the four anchors and reports its drawn pitches; A2 judges QS-1 at C6 and reports ±5 cents), and resealed before any rerun. Its 187 controls still read 0 wrong.
+- The builder fixes the envelope selector, and the lead reruns from a clean export.
+- Stage 7's acceptance waits for that fix and for the fixed checks' rerun.
+- **FX device (ADR-254):** none.
