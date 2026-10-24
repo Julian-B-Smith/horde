@@ -9298,3 +9298,16 @@ The early estimate is 0.7 to 1.0 % of a min-spec core on the worst row. That is 
 - The engine: no change.
 - The clean room: the spec reaches both repositories in the same change.
 - **FX device (ADR-254):** none.
+
+## ADR-277 — RULED by the human: how the corner pin, per-corner lock and revert, and map-mode mappings save, undo and branch (B537, 2026-10-24)
+
+**Context.** ADR-261 and ADR-262 added three pieces of user state: a corner pin, a per-corner lock with revert, and map-mode mappings. No decision said how each saves, undoes and branches in B84's history tree (repo audit 2026-10-21). Preset state is saved with the sound and lives in the history tree. Session state is saved with the project, outside the sound, and does not branch.
+
+**Rulings (the human, by poll, 2026-10-24).**
+1. **The corner pin: "Session, no undo."** It is saved with the project, not the preset. It is a view of where edits land, so changing it is never an undo step and it does not branch history.
+2. **Per-corner lock and revert: "Lock session; revert undoable."** The lock is a protection while working: session state, with no undo step. Revert changes the corner's values, so it is one undo step in the history tree and branches like any edit.
+3. **Map-mode mappings: "Preset, one step per gesture."** They are ordinary modulation routes: saved with the preset, one undo step per click-and-drag gesture, and they branch in the history tree like any other edit. Map mode's on and off is session state, with no undo.
+
+**Consequences.**
+- GUI 3 and the design system's Session model follow these rulings.
+- The FX device (ADR-254) has the same morph pad and corners, so the same rules apply there.
