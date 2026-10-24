@@ -41,7 +41,7 @@ Specifics of any unfixed finding stay in the gitignored `local/security/`.
 
 ## Approve a new guard in DSP code
 
-`weakening_check` counts `isfinite`, `isnan` and `std::clamp` in `src/` and `h2/` (category
+`weakening_check` counts `isfinite`, `isnan` and `std::clamp` in `src/`, `h2/` and `engine2/core/` (category
 `dsp_guard`) and is red on any increase. Only the human approves one, and the approval must say
 why the guard is not hiding a fault:
 

@@ -106,8 +106,13 @@ DSP_GUARD APPROVALS (B448 P14; the law's "Symptom clamping" rule and its edit D)
   (ledger_owner_check and code-owner review are the guard for hand edits).
 
 SCOPE. Tracked files, and new files that are not ignored (`git ls-files --cached --others
---exclude-standard`): src/ h2/ tools/ tests/ verify
-.github/workflows/ CMakeLists.txt cmake/. Excluded: libs/, reference/ (third-party and
+--exclude-standard`): src/ h2/ engine2/ tools/ tests/ verify
+.github/workflows/ CMakeLists.txt cmake/. (engine2/ joined in B535, repo audit 2026-10-21 H4:
+the clean-room engine replaces h2/engine, and a skipped test or a muted warning there must
+not be invisible. Every category sees all of engine2/, except dsp_guard and dsp_guard_tagged,
+which see engine2/core/ only: the suite under engine2/tests asserts isfinite on outputs, which
+is a test, not a guard on the signal, and the same split already holds for tests/ and tools/.)
+Excluded: libs/, reference/ (third-party and
 spec-as-code), and this checker + its baseline (their own pattern text would count).
 Binary files (a NUL byte) are skipped; a tracked file deleted in the working tree is
 skipped; any other unreadable file is RED, and so is a scan that finds no file at all.
@@ -157,7 +162,7 @@ from banned_api_check import strip_noncode  # noqa: E402  (reuse the C/C++ lexer
 
 BASELINE_REL = "docs/armor/weakening-baseline.json"
 SELF_REL = "tools/weakening_check.py"
-SCOPE = ("src", "h2", "tools", "tests", "verify", ".github/workflows", "CMakeLists.txt", "cmake")
+SCOPE = ("src", "h2", "engine2", "tools", "tests", "verify", ".github/workflows", "CMakeLists.txt", "cmake")
 EXCLUDE_PREFIXES = ("libs/", "reference/")
 EXCLUDE_FILES = (SELF_REL, BASELINE_REL)
 CPP_EXTS = {".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".ipp", ".tpp", ".inc", ".m", ".mm"}
@@ -165,7 +170,7 @@ CPP_EXTS = {".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".ipp", ".tpp", ".
 # (regex, restrict) per category; restrict is None (whole scope), or a tuple of path
 # prefixes/names the category applies to.
 VERIFY_AND_CI = ("verify", ".github/workflows/")
-DSP_PATHS = ("src/", "h2/")
+DSP_PATHS = ("src/", "h2/", "engine2/core/")
 DSP_GUARD = re.compile(r"\bstd::(?:isfinite|isnan|clamp)\b|(?<![\w:.>])(?:isfinite|isnan)\s*\(")
 # The tag that moves a marker from dsp_guard to dsp_guard_tagged. Same physical line only: a
 # counter cannot tell which following line a tag on its own line was meant for.
@@ -563,6 +568,9 @@ def increase_message(cat, f, old, new, hidden=0):
 LAYOUT = {
     "src/a.cpp": "int f() { return 1; }\n",
     "h2/b.h": "#pragma once\n",
+    "engine2/core/e.h": "#pragma once\n",
+    "engine2/tests/t.cpp": "int t() { return 0; }\n",
+    "engine2/CMakeLists.txt": "project(e)\n",
     "tools/t.py": "print(1)\n",
     "tests/x.txt": "x\n",
     "verify": "#!/bin/sh\necho ok\n",
@@ -582,6 +590,15 @@ PLANTS = {
     # and that a tagged guard is still an increase: a tag never reads green on its own
     "dsp_guard_tagged": ("h2/b.h", "inline bool gb(float v) { return std::isfinite(v); }  // dsp_guard: boundary\n"),
 }
+# B535: the same kinds of marker planted under engine2/, one per file kind that lives there. Each
+# must read exactly (cat, file, 0, 1), through the same scan() as the verdict.
+ENGINE2_PLANTS = {
+    "skip": ("engine2/tests/t.cpp", "GTEST_SKIP();\n"),
+    "suppress": ("engine2/core/e.h", "int x;  // NOLINT\n"),
+    "sanitizer_off": ("engine2/CMakeLists.txt", "add_compile_options(-fno-sanitize=undefined)\n"),
+    "unwired": ("engine2/tests/t.cpp", "// UNWIRED: not yet\n"),
+    "dsp_guard": ("engine2/core/e.h", "inline bool g(float v) { return std::isfinite(v); }\n"),
+}
 # text that must count as nothing: scope, strengthening-flag and comment/prose traps
 MUST_READ_ZERO = {
     "the strengthening flag -fno-sanitize-recover": ("tools/t.py", "# -fno-sanitize-recover=all\n"),
@@ -591,6 +608,7 @@ MUST_READ_ZERO = {
     "|| true outside verify and workflows": ("tools/t.py", "x = 'a || true'\n"),
     "-Wno- inside an identifier": ("src/a.cpp", "int a-Wno-b = 0;\n"),
     "a member isnan(": ("src/a.cpp", "int y = obj.isnan(1);\n"),
+    "isfinite in the engine2 suite (outside engine2/core/)": ("engine2/tests/t.cpp", "bool ok(float v) { return std::isfinite(v); }\n"),
     "a dsp_guard tag on a line with no guard": ("src/a.cpp", "int z = 0;  // dsp_guard: boundary\n"),
     "a tagged guard outside src/ and h2/": ("tools/t.py", "# std::isnan(v)  dsp_guard: latch\n"),
 }
@@ -637,6 +655,10 @@ def selftest():
             got = with_text(rel, extra)
             if got != [(cat, rel, 0, 1)]:
                 return f"selftest: a planted {cat} marker in {rel} did NOT read red as exactly 0 -> 1 (got {got})"
+        for cat, (rel, extra) in ENGINE2_PLANTS.items():
+            got = with_text(rel, extra)
+            if got != [(cat, rel, 0, 1)]:
+                return f"selftest: a planted {cat} marker in {rel} (engine2/) did NOT read red as exactly 0 -> 1 (got {got})"
         for what, (rel, extra) in MUST_READ_ZERO.items():
             got = with_text(rel, extra)
             if got:

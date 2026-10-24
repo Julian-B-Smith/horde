@@ -39,6 +39,17 @@ an entry whose path matches nothing; an entry with a field removed. Each plant m
 add its own tag to the failures and the untouched copy must be green, so a judge that
 is always red, or red for a different reason, is caught (detector-shares-assumption).
 
+ENGINE2 (B535, repo audit 2026-10-21 H4). The clean-room engine's tree is walked like any other
+(the NAME rule always saw it), but nothing found the data that matters there: the reference
+renders' manifests and parameters are named "manifest" and "parameters". Rule E2 therefore
+finds EVERY .json under engine2/, so a new file there must be registered or excluded with a
+reason before it merges. Registered: the three files of engine2/data/reference-renders/ (the
+audio itself is a release asset, not in git; the tracked manifest, with each WAV's SHA-256, is
+the golden). Excluded, each with its reason in EXCLUDED: the bank, the envelope presets and the
+phrase set (INPUTS that the renders were made from), the 13 version-0 example states (INPUTS: no
+file says what it must become, and no ./verify check reads them), and the engine's declared
+structure (data about the engine, read by engine2_structure_check).
+
 DISCOVERY IS BY RULE, FROM THE FILESYSTEM (not `git ls-files`) so a golden that is
 new and untracked is found too. Constants embedded in a check's source are found only
 where a convention marks them (the FLOOR rule); an unmarked literal is a known blind
@@ -94,6 +105,9 @@ RULES = [
                       "h2/**/*.json"],
      "committed machine data in the directories gates read: a new file here is a golden, a ledger or an "
      "input, and must be classified (registered or excluded with a reason) before it merges"),
+    ("E2", "glob", ["engine2/**/*.json"],
+     "every .json in the clean-room engine's tree (B535): the reference-render manifests and parameters are goldens "
+     "and carry no golden-ish name, so the name rule cannot find them; a new file here must be registered or excluded"),
     ("SPEC", "glob", ["specs/ACCEPTANCE.md"],
      "the oracle contract: its L0 numbers are pinned measurements that trajectory_check and others assert"),
     ("FLOOR", "token", ("tools", ("scenarioFloorHolds(", "kMinScenarios", "kFloorPins",
@@ -118,6 +132,11 @@ EXCLUDED = [
     ("tools/license_inventory.json", "an inventory of dependency licences read by license_audit_check; not an expected result"),
     ("docs/port/divergences.json", "approval ledger: divergences from the prototype the human ratified (ADR-187 item 5); it explains golden changes, it is not one"),
     ("h2/cores/*/lift-ledger.json", "provenance ledger of a verbatim source lift (which blob, which edits); pins where code came from, not an output"),
+    ("engine2/data/bank/presets.json", "INPUT: the bank in the spec's input format (B.1), which the reference renders were made from; asserted equal to its source by engine2_reference_renders --static-check, it stores no result"),
+    ("engine2/data/envelopes/presets.json", "INPUT: the 12 envelope presets of Appendix A, equal to the spec on every verify; it stores no result"),
+    ("engine2/data/phrases/phrases.json", "INPUT: the four phrases as event lists, shared by the renders and the tests; it stores no result"),
+    ("engine2/data/version0-states/*.json", "INPUT: version-0 example states for the migration tests to translate; engine2/data/version0-states/README.md says \"no file says what it must become\", and no ./verify check reads them (there is no check to register them against)"),
+    ("engine2/structure/engine-structure.json", "the new engine's declared structure as data (B500), checked against the spec by engine2_structure_check; data about the engine, not an expected result"),
     ("tests/feature_tests.tsv", "the feature-to-test table read by test_table_check; not an expected result"),
     ("tests/state_fixtures/*.txt", "INPUT state blobs; the .f32 render beside each is the golden (tests/state_fixtures/README.md)"),
     ("tools/labharness/fixtures/*.json", "INPUT records (frozen porter output) fed to a check; the expected value is asserted in the check, not stored here"),
@@ -461,8 +480,31 @@ def run_controls(found, entries, real_fails):
     def c_bad_citation(w):
         with_registry(w, lambda es: es[0].__setitem__("evidence", "tools/golden_pin_check.py:999999"))
 
+    # B535: the same faults under engine2/. The first is caught by rule E2 only (no golden-ish name);
+    # the second by the NAME rule inside engine2/tests/ (where the suite's goldens will be); the
+    # third and fourth prove the three registered files are LIVE: a registry that forgets them, or
+    # a manifest that vanishes, must go red.
+    def c_new_e2_json(w):
+        (w / "engine2/data/reference-renders/zz-planted-render-set.json").write_text("{}")
+
+    def c_new_e2_named(w):
+        (w / "engine2/tests/items").mkdir(parents=True, exist_ok=True)
+        (w / "engine2/tests/items/zz-planted-golden.f32").write_bytes(b"\0" * 8)
+
+    def c_e2_entry_dropped(w):
+        def edit(es):
+            es[:] = [e for e in es if e["path"] != "engine2/data/reference-renders/manifest.json"]
+        with_registry(w, edit)
+
+    def c_e2_manifest_gone(w):
+        (w / "engine2/data/reference-renders/manifest-48k.json").unlink()
+
     plants = [
         ("a new golden file with no entry", c_new_golden, "UNREGISTERED"),
+        ("a new .json under engine2/ with no entry (rule E2)", c_new_e2_json, "UNREGISTERED"),
+        ("a new golden-named file under engine2/tests/ with no entry", c_new_e2_named, "UNREGISTERED"),
+        ("the reference-render manifest's entry dropped from the registry", c_e2_entry_dropped, "UNREGISTERED"),
+        ("a registered reference-render manifest deleted", c_e2_manifest_gone, "NO_FILE"),
         ("an entry citing a check ./verify does not run", c_unrun, "UNRUN_CHECK"),
         ("an entry citing a check whose header says UNWIRED", c_unwired_header, "UNRUN_CHECK"),
         ("independent=true with empty evidence", c_indep_no_evidence, "BAD_INDEPENDENT"),

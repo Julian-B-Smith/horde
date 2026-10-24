@@ -21,16 +21,28 @@ TABLE. Symbol -> the header(s) that declare it (any one satisfies). Grow it
 when a new class bites; keep it to symbols that have actually bitten or are
 certain to (containers, strings, C-library wrappers, <algorithm>).
 Comments are stripped before scanning so a mention in prose never counts.
+
+SCOPE (B535, repo audit 2026-10-21 H4). GLOBS names the roots, and engine2/ is one of
+them, ALL of it (core, tests, tools): the clean-room engine and its suite compile into the
+same MSVC targets as h2/, and the rule is per file. No exclusion.
+
+MUST-FAIL CONTROLS, every run (LIBRARY L0032): in a scratch tree laid out like the repo,
+a file under engine2/core/ and one under engine2/tests/ that each use std::vector with no
+<vector> must both be reported by name, and the same files with the include must read
+clean (the must-read-zero), through the same files_of() and scan() as the verdict.
 """
 import pathlib
 import re
 import sys
+import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 GLOBS = ("tools/*.cpp", "src/*.h", "src/*.cpp", "src/gui/*.h", "src/gui/*.cpp", "src/gui/*.mm",
          # widened 2026-09-28 (B332 critic review): horde 2's cores and the tools'
          # shared headers compile into MSVC targets too
-         "tools/*.h", "h2/**/*.h", "h2/**/*.cpp")
+         "tools/*.h", "h2/**/*.h", "h2/**/*.cpp",
+         # B535: the clean-room engine and its suite, whole (no exclusion)
+         "engine2/**/*.h", "engine2/**/*.cpp")
 TABLE = {
     "string": ("string",), "vector": ("vector",), "array": ("array",), "map": ("map",),
     "unordered_map": ("unordered_map",), "set": ("set",), "unique_ptr": ("memory",), "shared_ptr": ("memory",),
@@ -56,8 +68,35 @@ def scan(path):
                   if s in TABLE and not any(h in inc for h in TABLE[s]))
 
 
+def files_of(root):
+    return [p for g in GLOBS for p in sorted(root.glob(g))]
+
+
+def selftest():
+    """-> a failure string, or None."""
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+        planted = ("engine2/core/planted.h", "engine2/tests/planted.cpp")
+        for rel in planted:
+            (td / rel).parent.mkdir(parents=True, exist_ok=True)
+            (td / rel).write_text("#include <cmath>\nstd::vector<double> v;\n")
+        got = sorted(str(f.relative_to(td)) for f in files_of(td) if scan(f))
+        if got != sorted(planted):
+            return f"the engine2 plants read {got}, want {sorted(planted)} (a root that is not in GLOBS is not seen)"
+        for rel in planted:
+            (td / rel).write_text("#include <vector>\nstd::vector<double> v;\n")
+        got = [str(f.relative_to(td)) for f in files_of(td) if scan(f)]
+        if got:
+            return f"the conforming engine2 files read red: {got} (a judge that is always red passes every plant)"
+    return None
+
+
 def main():
-    files = [p for g in GLOBS for p in sorted(ROOT.glob(g))]
+    bad = selftest()
+    if bad:
+        print(f"include_check: FAILED — a must-fail control did not behave: {bad}", file=sys.stderr)
+        return 1
+    files = files_of(ROOT)
     bad = {str(f.relative_to(ROOT)): v for f in files if (v := scan(f))}
     if bad:
         print(f"include_check: FAILED — {len(bad)} file(s) use a std symbol without its header (MSVC does not reach it transitively):", file=sys.stderr)
@@ -65,7 +104,7 @@ def main():
             for line in v:
                 print(f"  {f}: {line}", file=sys.stderr)
         return 1
-    print(f"include_check: GREEN ({len(files)} files, every used std symbol has its header in the file)")
+    print(f"include_check: GREEN ({len(files)} files, every used std symbol has its header in the file; {sum(1 for f in files if f.relative_to(ROOT).parts[0] == 'engine2')} under engine2/; engine2 plants fired)")
     return 0
 
 

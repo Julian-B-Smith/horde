@@ -19,6 +19,10 @@ WHAT IS INVENTORIED (four sources, see `--list`):
   (c) C++ checks           the same, plus EXPECT_NEAR/ASSERT_NEAR third arguments.
       The checks live in tools/**/*.cpp,*.h (src/ and h2/ hold only cores; a src/ or
       h2/ file whose basename says test/probe/check would be scanned too).
+      engine2/ (B535, repo audit 2026-10-21 H4): every C/C++ file under engine2/tests/ is
+      scanned (the clean-room acceptance suite is where its thresholds live, so it is the
+      engine2 counterpart of tools/), and elsewhere under engine2/ a C/C++ file is scanned
+      by the same basename rule as src/ and h2/ (engine2/core holds the engine, not checks).
   (d) verify               NAME=number assignments and --tol-ish=number flags.
   PLUS, in (b) and (c), one `inline-float-compare` entry per file: the NON-ZERO FLOAT
   literals in comparison position (`x >= 0.95`, `fabs(a-b) < 1e-6`). The checks here
@@ -237,8 +241,10 @@ def scan_files(root):
             keep.append(rel)
         elif rel.startswith("tools/") and (rel.endswith(".py") or rel.endswith(C_SUFFIX)):
             keep.append(rel)
-        elif rel.startswith(("src/", "h2/")) and rel.endswith(C_SUFFIX) \
+        elif rel.startswith(("src/", "h2/", "engine2/")) and rel.endswith(C_SUFFIX) \
                 and re.search(r"(?i)test|probe|check", base):
+            keep.append(rel)
+        elif rel.startswith("engine2/tests/") and rel.endswith(C_SUFFIX):
             keep.append(rel)
     return keep
 
@@ -570,6 +576,18 @@ def controls():
     def new_file(root):
         (root / "tools/new_check.py").write_text("TOL = 0.1\n", encoding="utf-8")
 
+    def new_engine2_item(root):                 # B535: the clean-room suite's thresholds are inventoried
+        (root / "engine2/tests/items").mkdir(parents=True, exist_ok=True)
+        (root / "engine2/tests/items/new_item.cpp").write_text("constexpr double kTol = 0.1;\n", encoding="utf-8")
+
+    def new_engine2_probe(root):                # ... and so is a check-named file elsewhere under engine2/
+        (root / "engine2/core").mkdir(parents=True, exist_ok=True)
+        (root / "engine2/core/level_probe.h").write_text("constexpr double kTol = 0.1;\n", encoding="utf-8")
+
+    def new_engine2_core(root):                 # engine code is not a check: a constant there is not inventoried
+        (root / "engine2/core").mkdir(parents=True, exist_ok=True)
+        (root / "engine2/core/swarm.h").write_text("constexpr double kTol = 0.1;\n", encoding="utf-8")
+
     for name, mutate, expect in (
             ("untouched scratch reads green (positive)", lambda r: None, None),
             ("ACCEPTANCE value edited", lambda r: _edit(r, "specs/ACCEPTANCE.md", "±0.08", "±0.18"),
@@ -581,6 +599,11 @@ def controls():
             ("inline comparison threshold loosened", lambda r: _edit(r, "tools/x_check.cpp", ">= 0.95", ">= 0.9"),
              "inline-float-compare: changed"),
             ("new unregistered TOL = 0.1", new_file, "tools/new_check.py::TOL: new tolerance candidate"),
+            ("new unregistered tolerance under engine2/tests", new_engine2_item,
+             "engine2/tests/items/new_item.cpp::kTol: new tolerance candidate"),
+            ("new unregistered tolerance in a check-named file under engine2/core", new_engine2_probe,
+             "engine2/core/level_probe.h::kTol: new tolerance candidate"),
+            ("engine2/core engine code is not inventoried (positive)", new_engine2_core, None),
             ("locator target deleted", lambda r: _edit(r, "tools/x_check.cpp", "constexpr double kEps = 1e-6;\n", ""),
              "tools/x_check.cpp::kEps: locator no longer matches"),
             ("new --tol flag in verify", lambda r: _edit(r, "verify", "ok=0\n", "ok=0\nrun_x --tol=1e-6\n"),
