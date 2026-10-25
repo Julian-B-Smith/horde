@@ -9366,3 +9366,22 @@ The early estimate is 0.7 to 1.0 % of a min-spec core on the worst row. That is 
 - The test author writes 15a's runner and version-1 fixtures, and changes the offline entry's header for 15b's routes.
 - The builder builds the WebAssembly target with Emscripten 6.0.13.
 - **FX device (ADR-254):** none.
+
+## ADR-281 — RULED by the human: a chaotic state is reported in item 15, decided engine-free (B494, cleanroom B-47, spec round 35, 2026-10-25)
+
+**Context.** Item 15a judges the WebAssembly render against the native one at −90 dB. The builder found one of its 30 states diverging (B-47), but that evidence was engine-derived. The test author rendered each state's law engine-free twice, once as written and once perturbed by one ulp or by fused multiply-add (test-author 32bb4d2 and a24c7fd, report tools only).
+- **One chaotic state.** Version-0 state 09 (coupling 0.681 across a ±2-octave spread) passes −90 dB within 50 ms and decorrelates fully by 0.2 s. With weaker coupling, or none, the same swarm stays below −200 dB.
+- **Every other state stays at least 136 dB inside the bound.** That includes states 04–06 with their cross-mod loops (C.14) and state 10 with drift, placement, inertia and voice gravity.
+
+No correct pair of builds under BD-7 can match on a chaotic state.
+
+**Ruling (the human, by poll, 2026-10-25): "Report them."** A state whose law, rendered engine-free with a one-ulp change (or with FMA), passes −90 dB within the phrase is reported in item 15, not judged. The classification comes only from that engine-free render, never from the engine. The same rule applies to 15b's bank presets.
+
+**The rejected alternative, kept on record:** making the builds bit-identical (no FMA anywhere, the engine's own transcendentals on the audio path). It was a larger design change, at a cost in speed.
+
+**Consequences.**
+- Spec round 35 states the rule in item 15.
+- The test author keeps the engine-free list with the suite (state 09 today) and makes 15a report it.
+- 15b's presets are classified the same way at the bank stage.
+- The engine: no change.
+- **FX device (ADR-254):** none.
