@@ -30,7 +30,7 @@
 | MUST | **Deterministic:** the same input notes, transport and seed give identical output; seeded mulberry32 only; no wall clock. | a determinism check |
 | MUST | **Sample-rate and block-size independent:** the same notes at the same musical times across 44.1–192 kHz and blocks 1–4096. | a check |
 | MUST | **Real-time safe:** no allocation, locks or system calls on the audio thread. | a sanitizer run |
-| MUST | **No input, no output:** with no notes held (and no latch), it emits nothing. | a check |
+| MUST | **No input, no output:** with no notes held (and no latch), it emits no notes. Trigger lanes may keep firing with the transport (the human, 2026-10-25, ADR-282; Arp Q-H8). | a check |
 | MUST | **The pedal and restart behave as ruled:** CC 64 holds Arp's input and is not forwarded; each restart mode does what it says. | a check per mode |
 | MUST | **Scale quantize** keeps every emitted note in horde's global scale when it is on. | a check |
 

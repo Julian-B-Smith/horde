@@ -9385,3 +9385,24 @@ No correct pair of builds under BD-7 can match on a chaotic state.
 - 15b's presets are classified the same way at the bank stage.
 - The engine: no change.
 - **FX device (ADR-254):** none.
+
+## ADR-282 — RULED by the human: Arp's admission questions (Q-H5, Q-H6, Q-H8, Q-H10); the pedal holds `direct` voices only (B539, spec round 36, 2026-10-25)
+
+**Context.** Arp's notice seq 7 (`integrations/arp/notice-m3.md`) opens its M3, admission to horde. It answers our chord-stream question: the played note and its added notes are all `chord`, and Arp never emits `direct`. It asks four questions, and Q-H5 from its seq 4 was still ours.
+
+**Rulings (the human, by poll, 2026-10-25).**
+1. **Q-H5, "Direct voices only."** Once the stream behaviour is built (RC-6.7), the engine's sustain pedal (VO-12) holds `direct` voices only. `chord` and `arp` voices are held by Arp's own input hold, so one pedal press rings the held notes and Arp's notes don't pile up as pedal tails. Spec round 36 adds it to RC-6.7's deferred behaviour, so nothing changes in 1.0.
+2. **Q-H8, "Triggers may run."** The note-processor bar's "no input, no output" row is about notes. With nothing held, Arp emits no notes, but its trigger lanes may keep firing with the transport. The row is amended.
+3. **Q-H6, "In the preset; per corner."** Arp's user pattern rides inside its module preset, embedded by value as one versioned blob (ADR-169). Each morph corner may carry its own pattern, flipping at the threshold like any discrete setting.
+4. **Q-H10, "Arp authors them."** Arp writes its factory presets in horde's preset format, once horde fixes that format for a hosted note processor.
+
+**Answered by the lead from the records:**
+- **Q-H9:** horde builds the face and the undo when hosting Arp; Arp supplies every setting's key, display name, unit, range, default and morph class (its `spec/params.json`).
+- **The tee:** confirmed. horde copies the player's input to the engine as `direct`, before Arp.
+
+**Consequences.**
+- Spec round 36, delivered to both clean-room repositories.
+- The note-processor bar's no-input row is amended.
+- Arp is answered in `integrations/arp/` (seq 8).
+- A new row, B550, records that horde owes the preset format for a hosted note processor.
+- **FX device (ADR-254):** the sidechain's notes are the direct stream, so the pedal rule applies there unchanged.
