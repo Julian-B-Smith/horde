@@ -9406,3 +9406,19 @@ No correct pair of builds under BD-7 can match on a chaotic state.
 - Arp is answered in `integrations/arp/` (seq 8).
 - A new row, B550, records that horde owes the preset format for a hosted note processor.
 - **FX device (ADR-254):** the sidechain's notes are the direct stream, so the pedal rule applies there unchanged.
+
+## ADR-283 — RULED by the human: stage 8 accepted; the AudioWorklet wrapper is built with the labs (B494, spec round 37, 2026-10-25)
+
+**Context.** The builder committed stage 8, the WebAssembly build, as `ada5a96`. It uses Emscripten 6.0.13 (ADR-280), with one export: the offline render entry, shared with the native library so both builds run one function.
+- **Item 15a:** 116 of 116 judged renders are within −90 dB of native, and the chaotic version-0 state 09 is reported (ADR-281).
+- **The lead's clean-export rerun:** both builds built; item15a_wasm passes; the native suite shows 260 items and 12 failed, the stage-7 set line for line, all bank stage; sanitizers are green.
+- **Not built:** an AudioWorklet wrapper. IF-10 says a lab "loads it in an AudioWorklet", but item 15 judges only the offline entry.
+
+**Rulings (the human, by poll, 2026-10-25).**
+1. **"Accept stage 8."** Stage 8 is accepted at `ada5a96`. The bank stage is next: the translator, items 3 to 6, 9, 15b and 16, and the hold-out's QS-9 and OU-2.
+2. **"With the labs, later."** The AudioWorklet wrapper is built with the labs that load the module, outside the clean room (row B551). Spec round 37 notes it under IF-10.
+
+**Consequences.**
+- The private remotes get the accepted head (B533).
+- The progress page is updated.
+- **FX device (ADR-254):** none.
