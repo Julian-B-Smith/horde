@@ -9345,3 +9345,24 @@ The early estimate is 0.7 to 1.0 % of a min-spec core on the worst row. That is 
 - The hold-out's QS-9 soak runs before the bank stage's acceptance.
 
 **ADR-275 A1 — Bulwark's true-peak promise is a measured rate (Bulwark notice seq 25, 2026-10-24).** Bulwark built the true-peak limiter and measured its worst row at 0.55–0.60 % of a min-spec core, inside ADR-275's 1.0 %. It also corrected the promise it made in seq 23. An independent reviewer found that about 1–2 % of short runs on fresh hostile material exceed the ceiling. So the promise is now a rate fixed before its test: at most 2 % of 0.4 s runs over the ceiling, none by more than 0.6 dB, below about 0.475 × the sample rate. Measured: 1.17 % over, worst +0.46 dB. At the default ceiling, true peak stays under 0 dBFS. Content within about 5 % of Nyquist is not covered; it can reach about +2.8 dB over, which is measured and reported, never claimed. horde quotes it as "held under the ceiling on our test material, by a measured rate".
+
+## ADR-280 — RULED by the human: stage 8 begins; the WebAssembly toolchain is Emscripten 6.0.13; item 15 splits into 15a and 15b (B494, spec round 34, 2026-10-24)
+
+**Context.** After stage 7's acceptance the human said "go ahead with stage 8": the WebAssembly build (IF-10, item 15). Two blockers stood in the way.
+- **No toolchain on this machine.** IF-10 leaves the pinned toolchain version to the human's word, so the human chose it.
+- **Item 15 compares "on every bank preset".** A bank preset becomes a state only through the bank translator, which is the bank stage's, after stage 8. The test author proposed a split. It would not translate the bank with its own oracle (`harness/appendix_b.h`), since that would hand the builder the bank stage's answers.
+
+**Rulings (the human, by poll, 2026-10-24).**
+1. **"Install emsdk, pin latest."** Emscripten **6.0.13** (emscripten commit e13ee98; Node 24.10.0 bundled) is installed through the official emsdk into `~/emsdk` (about 1.8 GB). It is the one pinned version, and IF-10 names it.
+2. **"Split 15a / 15b."**
+   - **15a, at stage 8:** the comparison runs on translator-free states: the version-0 example states, the default, and new version-1 fixtures written from the manifest alone, covering the transcendental-heavy paths.
+   - **15b, at the bank stage:** the 83 bank presets through the builder's translator.
+3. **"Entry takes the routes."** For 15b, the 12 presets that route B.1's blade envelopes have those routes applied as data beside the state, through PA-2, on both builds, as the render harness does today. (A first recommendation, to map them into the state as modulation routes, was withdrawn before the ruling: the engine's state holds no routes, since the routes belong to the modulation system outside the engine.)
+
+   A preset's glide already reaches the renders as per-note pitch in the phrase (the phrase-set item, B.1).
+
+**Consequences.**
+- Spec round 34: IF-10 names the version, item 15 is split, BD-8 places 15a at stage 8 and 15b at the bank stage, and B.1's route note covers 15b. Delivered to both clean-room repositories.
+- The test author writes 15a's runner and version-1 fixtures, and changes the offline entry's header for 15b's routes.
+- The builder builds the WebAssembly target with Emscripten 6.0.13.
+- **FX device (ADR-254):** none.
