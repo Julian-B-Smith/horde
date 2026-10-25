@@ -9328,3 +9328,20 @@ The early estimate is 0.7 to 1.0 % of a min-spec core on the worst row. That is 
 - The builder fixes the envelope selector, and the lead reruns from a clean export.
 - Stage 7's acceptance waits for that fix and for the fixed checks' rerun.
 - **FX device (ADR-254):** none.
+
+## ADR-279 — RULED by the human: stage 7 accepted (B494, B517, 2026-10-24)
+
+**Context.** The builder committed stage 7 (modulation, morph and state) as `26a3e72`, built to spec round 33.
+- **Tests found five engine faults, all fixed:** a load did not rewind the note counter; per-voice pitch and fine offsets did not reach the voice; one event set's stepped keys made separate crossfades; a new unison member never began its fade-in; a blade switched on was estimated at the switch instead of on C.16's grid.
+- **Five test questions were settled by rulings** (B-42 to B-46: ADR-274, ADR-276 and the test author's fixes).
+- **The sealed hold-out suite (B517) ran for the first time.** A fresh critic validated its failures engine-free (ADR-278). Two checks were wrong and were fixed and resealed. One was a real fault: a source's envelope selector changed mid-note switched without PA-5's crossfade. It was relayed as the fault alone and fixed in `bb6b815`.
+- **The lead's clean-export rerun of `bb6b815`:** 257 items, 12 failed, every one a bank-stage case (items 3, 4, 5 and 9's bank cases, and item 16), the same set line for line as `26a3e72`. ctest is red only on suite and bank_report, and ThreadSanitizer is green. The hold-out reads 27 judged passes plus A5, burned and now passing. QS-9 and OU-2 belong to the bank stage.
+
+**Ruling (the human, by poll, 2026-10-24): "Accept stage 7."** Stage 7 is accepted at `bb6b815`. Stage 8, the WebAssembly build, is next, then the bank.
+
+**Consequences.**
+- The private remotes get the accepted head (B533).
+- The progress page is updated.
+- The hold-out's QS-9 soak runs before the bank stage's acceptance.
+
+**ADR-275 A1 — Bulwark's true-peak promise is a measured rate (Bulwark notice seq 25, 2026-10-24).** Bulwark built the true-peak limiter and measured its worst row at 0.55–0.60 % of a min-spec core, inside ADR-275's 1.0 %. It also corrected the promise it made in seq 23. An independent reviewer found that about 1–2 % of short runs on fresh hostile material exceed the ceiling. So the promise is now a rate fixed before its test: at most 2 % of 0.4 s runs over the ceiling, none by more than 0.6 dB, below about 0.475 × the sample rate. Measured: 1.17 % over, worst +0.46 dB. At the default ceiling, true peak stays under 0 dBFS. Content within about 5 % of Nyquist is not covered; it can reach about +2.8 dB over, which is measured and reported, never claimed. horde quotes it as "held under the ceiling on our test material, by a measured rate".
