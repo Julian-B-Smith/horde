@@ -9353,7 +9353,7 @@ The early estimate is 0.7 to 1.0 % of a min-spec core on the worst row. That is 
 - **Item 15 compares "on every bank preset".** A bank preset becomes a state only through the bank translator, which is the bank stage's, after stage 8. The test author proposed a split. It would not translate the bank with its own oracle (`harness/appendix_b.h`), since that would hand the builder the bank stage's answers.
 
 **Rulings (the human, by poll, 2026-10-24).**
-1. **"Install emsdk, pin latest."** Emscripten **6.0.13** (emscripten commit e13ee98; Node 24.10.0 bundled) is installed through the official emsdk into `~/emsdk` (about 1.8 GB). It is the one pinned version, and IF-10 names it.
+1. **"Install emsdk, pin latest."** Emscripten **6.0.13** (emscripten commit e13ee98; emsdk bundles Node 24.19.0, which the build uses; the 24.10.0 first recorded was the machine's separate Homebrew Node, corrected the same day on the builder's report) is installed through the official emsdk into `~/emsdk` (about 1.8 GB). It is the one pinned version, and IF-10 names it.
 2. **"Split 15a / 15b."**
    - **15a, at stage 8:** the comparison runs on translator-free states: the version-0 example states, the default, and new version-1 fixtures written from the manifest alone, covering the transcendental-heavy paths.
    - **15b, at the bank stage:** the 83 bank presets through the builder's translator.
