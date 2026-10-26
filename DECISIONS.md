@@ -9460,3 +9460,15 @@ No correct pair of builds under BD-7 can match on a chaotic state.
 - The test author writes the law test, and the phrase set's glide source.
 - The rulings log gains rows 39 to 41.
 - **FX device (ADR-254):** none.
+
+## ADR-286 — RULED by the human: a steal's new onset is reported, not judged, in 16.2 as in 9.3 (B494, spec round 40, 2026-10-26)
+
+**Context.** The bank stage's full run read item 16.2 red: Tail pile-up on the probe fires QS-4 twice at about 1.906 s. The builder found the events at the new note's attack corner, not the steal, and asked for an engine-free check (B-53). The test author rendered 16.2's probe scenario engine-free (C.12, VO-2, VO-3; 05fcde0, not delivered). The law fires as 16.2 does. The steal's fade alone reads 0 events. The corner fires at every start phase, scoring 12 to 29 against a threshold of 10, and a free voice's onset fires too. So this is the onset family (ADR-239), the case QS-4 sends to the human.
+
+**Ruling (the human, by poll, 2026-10-26).** **"Report the onset, as 9.3."** 16.2 judges the steal's fade and reports the new note's onset from the fade's end over at least 10 ms, to the attack plus hold plus 9 ms (round 32, ADR-274). Everything outside those spans stays judged.
+
+**Consequences.**
+- Spec round 40 writes it into item 16. Both clean-room repositories receive it.
+- The test author windows 16.2.
+- The rulings log gains row 42.
+- **FX device (ADR-254):** none.
