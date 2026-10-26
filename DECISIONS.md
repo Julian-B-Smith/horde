@@ -9460,3 +9460,27 @@ No correct pair of builds under BD-7 can match on a chaotic state.
 - The test author writes the law test, and the phrase set's glide source.
 - The rulings log gains rows 39 to 41.
 - **FX device (ADR-254):** none.
+
+## ADR-286 — RULED by the human: a steal's new onset is reported, not judged, in 16.2 as in 9.3 (B494, spec round 40, 2026-10-26)
+
+**Context.** The bank stage's full run read item 16.2 red: Tail pile-up on the probe fires QS-4 twice at about 1.906 s. The builder found the events at the new note's attack corner, not the steal, and asked for an engine-free check (B-53). The test author rendered 16.2's probe scenario engine-free (C.12, VO-2, VO-3; 05fcde0, not delivered). The law fires as 16.2 does. The steal's fade alone reads 0 events. The corner fires at every start phase, scoring 12 to 29 against a threshold of 10, and a free voice's onset fires too. So this is the onset family (ADR-239), the case QS-4 sends to the human.
+
+**Ruling (the human, by poll, 2026-10-26).** **"Report the onset, as 9.3."** 16.2 judges the steal's fade and reports the new note's onset from the fade's end over at least 10 ms, to the attack plus hold plus 9 ms (round 32, ADR-274). Everything outside those spans stays judged.
+
+**Consequences.**
+- Spec round 40 writes it into item 16. Both clean-room repositories receive it.
+- The test author windows 16.2.
+- The rulings log gains row 42.
+- **FX device (ADR-254):** none.
+
+## ADR-287 — RULED by the human: a knife-edged sample-and-hold modulator is reported, not judged, in item 15 (B494, spec round 41, 2026-10-26)
+
+**Context.** Item 15b on the bank: 5 of 332 renders parted between the native and WebAssembly builds by more than −90 dB, all at 48 kHz and all FM free with the sample-and-hold noise modulator at 2400 Hz (B-56). The held value is drawn at each whole number of the modulator's phase, which advances by the rate over the host rate per sample. Every Hz-set S&H rate in the bank is a small-denominator fraction of both host rates (1/20 and 8/147 for 2400 Hz, 1/3 for 16 kHz, 1/32 for 1500 Hz, 3/80 for 1800 Hz). The phase therefore reaches a whole number exactly on a sample, and which sample the step falls on turns on the last bit, which BD-7 leaves free. The test author rendered C.9's law engine-free under BD-7-legal variants (product then add, FMA, the direct ratio; one ulp on the rate, the frequency or the increment; the phase wrapped or not). Legal variants part by −9 to −36 dB, on different presets at each rate depending on the arithmetic. The bank classification (ADR-281) perturbed only a member's natural frequency, and did not model FM free.
+
+**Ruling (the human, by poll, 2026-10-26).** **"Structural rule."** A state with a sample-and-hold noise modulator whose rate is set in Hz is knife-edged, and reported, not judged, in item 15, where that rate and the host rate, as exact numbers, stand in a ratio p/q in lowest terms with q no more than the phrase's length in samples. The rule is read off the state and the rate alone, and works whatever a build's arithmetic. The alternatives were a one-ulp perturbation of the modulator's phase, which cannot promise to catch what a given build trips on, and changing the S&H clock so its steps never land on a sample, a change to the sound.
+
+**Consequences.**
+- Spec round 41 writes it into item 15. Both clean-room repositories receive it.
+- The test author adds the knife-edged bank states (by the rule; the candidates are presets 14, 15, 16, 45, 47 and 69, and 57 if FM reset's in-window modulator qualifies) to the bank's list beside the chaotic ones, and models FM free in the bank classification.
+- The rulings log gains row 44.
+- **FX device (ADR-254):** none.
