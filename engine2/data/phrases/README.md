@@ -41,6 +41,8 @@ apply it (RC-3) does not exist yet. 10.3's rule, for a test that needs the pitch
 a note that glides moves from the pitch it starts from (the previous sounding pitch) to its own
 pitch `f` along `ln f(t) = ln f + (ln f_from − ln f) · e^(−3t/T)`, t seconds after its note-on and
 T the preset's `glide` in seconds (the move is 95 % done at t = T). A note glides when it starts
-while another note is held (the chord's simultaneous notes count), or, with `glideAlways`, after
-any earlier note. The trill's overlaps and the chord are what make a gliding preset glide;
-the fast line's notes are detached, so it glides only with `glideAlways`.
+while a note started on an earlier sample is held, or, with `glideAlways`, after any note started
+on an earlier sample, and it glides from the most recent such note. Notes that start on the same
+sample, a chord's, never glide from one another (round 39, the human's ruling, ADR-285). The
+trill's overlaps are what make a gliding preset glide; the chord, with no earlier note, starts on
+pitch; the fast line's notes are detached, so it glides only with `glideAlways`.
