@@ -605,6 +605,25 @@ PY
     echo "verify: node missing — engine2_reference_renders --static-check NOT RUN (the other node gates above say the same)" >&2
   fi
 
+  # THE DIFFERENTIAL REPORT'S CONTROLS (ROADMAP B523, ADR-247 audit P8; spec 10.6 item 3; added under
+  # ADR-180 §1). tools/engine2_differential.mjs ranks the bank's (preset, phrase) pairs of the new engine
+  # against the legacy renders (loudness delta, third-octave distance, envelope correlation, click delta)
+  # into the capped listening batch. REPORTED, NEVER A GATE: the real run is the lead's, at the bank stage.
+  # What is wired here is only that the TOOL reads what it claims, on synthetic WAV pairs built in a temp
+  # dir (no engine, no renders): the BS.1770 calibration and the K-filters against their analytic response,
+  # identical / +6 dB / known-tilt / changed-attack / planted-click pairs, the ranking and the
+  # level-matched blind batch end to end, and nine must-fail controls (no K-weighting, no gates, spectra not
+  # loudness-normalised, a constant correlation, a blind click counter, two broken rankings, a batch that
+  # does not level-match, a batch with several phrases per preset). About 4 s.
+  if command -v node >/dev/null; then
+    node tools/engine2_differential.mjs --selftest > /tmp/e2diff.$$ 2>&1 || {
+      echo "verify: engine2_differential --selftest FAILED" >&2; cat /tmp/e2diff.$$ >&2; ok=1; }
+    tail -1 /tmp/e2diff.$$
+    rm -f /tmp/e2diff.$$
+  else
+    echo "verify: node missing — engine2_differential --selftest NOT RUN (the other node gates above say the same)" >&2
+  fi
+
   # THE NEW ENGINE'S DECLARED STRUCTURE (ROADMAP B500; added under ADR-180 §1).
   # engine2/structure/engine-structure.json is the engine's blocks, slots, boundary and edges as data,
   # from which loupe draws the diagram with no inference; the builder never sees it (the recipe above
