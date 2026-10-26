@@ -9422,3 +9422,23 @@ No correct pair of builds under BD-7 can match on a chaotic state.
 - The private remotes get the accepted head (B533).
 - The progress page is updated.
 - **FX device (ADR-254):** none.
+
+## ADR-284 — RULED by the human: "it worked" is written down before the bank stage (spec §10.6); the bank stage begins (B522, B494, spec round 38, 2026-10-26)
+
+**Context.** The human said "go ahead with the bank stage". ROADMAP B522 (ADR-247, audit P7) requires that a spec §10.6, defining "it worked", be ratified first, so that the bar is fixed before any bank render exists. The engine stood at about 10,050 lines (9,056 code), against BD-6's estimate of 2,100 to 3,000 and about 14,370 lines retired from the current engine.
+
+**Rulings (the human, by poll, 2026-10-26).**
+1. **Listening: "Capped A/B batch, any flag blocks."** About 20 level-matched pairs, new engine against current, ranked by B523's differential report. Any pair marked wrong blocks cutover until the engine is fixed or the human rules the difference acceptable for that preset.
+2. **CPU: "Pass / follow-up / fail."** Against B488 (the heaviest bank patch at 8 voices): at or under 15 % passes; 15 to 29 % is accepted with a recorded follow-up; over 29 % fails.
+3. **Size: "Revise and report."** Reported at cutover, never a gate. BD-6's estimate is corrected.
+4. **Cutover: "All four, then you say go."** The invariant suite, the hold-out resolved, the listening judgement passed and the CPU in an accepted band; then the human's word.
+
+**Consequences.**
+- Spec round 38 writes §10.6 and corrects BD-6. Both clean-room repositories receive it.
+- B494's acceptance points to §10.6.
+- B522 is done.
+- **The bank stage begins:**
+  - the builder builds the translator (Appendix B) and the bank's items;
+  - the test author classifies the 83 presets for chaos engine-free before 15b runs (ADR-281);
+  - the lead runs the hold-out's QS-9 and OU-2, B523's differential report and the listening batch.
+- **FX device (ADR-254):** none.

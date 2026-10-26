@@ -891,9 +891,26 @@ The engine is also judged by the human's ear on the bank. What the build deliver
 
 PF-1, PF-2, PF-5 and PF-9 measured under PF-3 and reported to the human with PF-4's spread. A miss is reported with what would close it, never hidden.
 
+### 10.6 "It worked": the judgement, written before the bank (round 38)
+
+Ratified by the human before the bank stage began (ADR-284, B522), so the bar is fixed before any bank render exists. The new engine replaces the current one only when every condition below holds; nothing switches automatically.
+
+- **1. The invariant suite.** Section 10.1 green, with every item the spec marks reported shown as reported.
+- **2. The hold-out suite (B517).** Every check run, on a copy of the final tree, and every failure resolved: an engine fixed, or a check shown wrong engine-free and resealed. Results go to the human only.
+- **3. The listening judgement.**
+  - **The batch.** The human hears a capped batch of about 20 pairs: each one a bank preset rendered by the new engine and by the current one, on a phrase of the phrase set (10.3), level-matched, labelled. The pairs are ranked by a differential report of the two engines over the whole bank (B523; reported, never a gate), so the most different come first.
+  - **The rule.** Any pair the human marks wrong blocks the cutover until the engine is fixed or the human rules the difference acceptable for that preset, recorded per preset.
+  - **The record.** Each verdict, with the pair it was given on, is kept.
+- **4. The CPU.** The heaviest bank patch at 8 voices, measured under the frozen protocol (PF-3) on a quiet machine, against B488's target of about 15 % of an M3 performance core at os 1:
+  - at or under 15 %: **pass**;
+  - over 15 % and at or under 29 % (no worse than the engine it replaces): **accepted for cutover, with a recorded CPU follow-up**;
+  - over 29 %: **fails the cutover**.
+- **5. The size.** Reported at cutover, never a gate. The engine stood at about 10,050 lines (9,056 of code) before the bank stage, against about 14,370 retired from the current engine. The expectation is that it stays under the retired count. BD-6's estimate of 2,100 to 3,000 lines was wrong for this scope and is corrected, not hidden.
+- **6. The ruling.** When 1 to 4 hold, the human rules the cutover. The current engine is retired only on that word.
+
 ### 10.5 Build requirements
 
-- **BD-6. Self-documenting and concise.** Names carry what the code does; comments carry only why: the constraint, the rejected alternative, the trap. No comment narrates history. A clean engine of this scope is expected at about 2,100 to 3,000 lines; that is an estimate, not a gate.
+- **BD-6. Self-documenting and concise.** Names carry what the code does; comments carry only why: the constraint, the rejected alternative, the trap. No comment narrates history. A clean engine of this scope was first estimated at about 2,100 to 3,000 lines; that estimate was wrong for this scope (about 10,050 lines before the bank stage) and is corrected in 10.6, item 5. It is reported, never a gate.
 - **BD-7. One arithmetic.** No code emulates another language's number semantics, no random draw exists only to preserve an order, and each constant has one value. Single precision, approximations and fused multiply-add are allowed throughout, judged by the suite and the ears.
 - **BD-8. Built in stages behind the frozen structure**, each stage green on its part of the suite before the next: (1) the manifest, the API, the harness header and the state document (items 12, 22, and 13's document half: the text round trip and the version-0 parse); (2) the voice, ENV 1, the pedal and the output stage on a plain one-member saw (items 1, 2, 3, 5, 10's voice anchors, 17, 19); (3) the swarm, C.1 to C.8 (items 0, 10's swarm anchors); (4) the edge correction (items 7, 9); (5) the blades, C.9 to C.11, C.14, C.16 (items 0, 4, 10's blade anchors, 14), with a **stage 5 amendment** (round 29): ED-7, built on top of the accepted stage 5, with stage 5's items still green, and judged by item 7.7; stage 6 does not wait on it (the human's ruling, 2026-10-21: in parallel); (6) the sub and the noise oscillator, ENV 2 to ENV 4 and the source slot's envelope selector (item 10's sub anchors, item 18 for the source slot, items 24 to 33, and item 11 over every manifest row, now that every row can sound); (7) modulation, morph and state (item 13's render half: reset to fresh, migration rendered; items 14, 20, 21, 23); (8) the WebAssembly build (item 15a); then the bank (items 4, 6, 15b, 16) and the renders for judging. The parameter table stays open until Q31 is ruled.
 - **BD-9. Exactly what is tested ships**: the build that the suite and the CPU measurement run is the shipped build's code with no product-line branch added.
