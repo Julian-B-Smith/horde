@@ -9422,3 +9422,41 @@ No correct pair of builds under BD-7 can match on a chaotic state.
 - The private remotes get the accepted head (B533).
 - The progress page is updated.
 - **FX device (ADR-254):** none.
+
+## ADR-284 — RULED by the human: "it worked" is written down before the bank stage (spec §10.6); the bank stage begins (B522, B494, spec round 38, 2026-10-26)
+
+**Context.** The human said "go ahead with the bank stage". ROADMAP B522 (ADR-247, audit P7) requires that a spec §10.6, defining "it worked", be ratified first, so that the bar is fixed before any bank render exists. The engine stood at about 10,050 lines (9,056 code), against BD-6's estimate of 2,100 to 3,000 and about 14,370 lines retired from the current engine.
+
+**Rulings (the human, by poll, 2026-10-26).**
+1. **Listening: "Capped A/B batch, any flag blocks."** About 20 level-matched pairs, new engine against current, ranked by B523's differential report. Any pair marked wrong blocks cutover until the engine is fixed or the human rules the difference acceptable for that preset.
+2. **CPU: "Pass / follow-up / fail."** Against B488 (the heaviest bank patch at 8 voices): at or under 15 % passes; 15 to 29 % is accepted with a recorded follow-up; over 29 % fails.
+3. **Size: "Revise and report."** Reported at cutover, never a gate. BD-6's estimate is corrected.
+4. **Cutover: "All four, then you say go."** The invariant suite, the hold-out resolved, the listening judgement passed and the CPU in an accepted band; then the human's word.
+
+**Consequences.**
+- Spec round 38 writes §10.6 and corrects BD-6. Both clean-room repositories receive it.
+- B494's acceptance points to §10.6.
+- B522 is done.
+- **The bank stage begins:**
+  - the builder builds the translator (Appendix B) and the bank's items;
+  - the test author classifies the 83 presets for chaos engine-free before 15b runs (ADR-281);
+  - the lead runs the hold-out's QS-9 and OU-2, B523's differential report and the listening batch.
+- **FX device (ADR-254):** none.
+
+## ADR-285 — RULED by the human: the harness's reference law is delivered, and the core never borrows from the harness; chords do not glide from themselves; per-voice offsets are judged by their law (B494, spec round 39, 2026-10-26)
+
+**Context.** Three questions arose in the bank stage's first round.
+- **`appendix_b.h`.** The test author's bank-stage commit (cf95e1b) updated `engine2/tests/harness/appendix_b.h`, the reference law for B.1's translation, to write B.1's blade envelopes as ENV 2/3 rows with routes as data. The builder has held a copy since the stage-1 delivery, and items 4 and 16 include it, so withholding the update would break their build.
+- **The chord's glide.** The phrase set (§10, the input data) said a gliding preset's notes glide "from overlapping notes or always". The test author read a chord's notes as gliding up from the note started just before them, so every chord in the listening batch would swoop up from its root. No verdict depends on it.
+- **B-50.** With PA-2 built, item 14.2 failed on 104 of 184 rows: the zipper of per-voice offsets fell less than 16 dB as the host's steps shrank from 128 to 32 samples. The builder argued, engine-free, that PA-3's own law could not reach the bound. The test author modelled PA-3 on item 14's measure engine-free (0c1ee3b, not delivered), reproducing item 14's own fixtures (PA-1 33.2 dB against 33.1 measured; no smoothing 10.5 against 10.5). PA-3 falls 9.3 to 11.9 dB on every row, and a build with no ramp falls slightly more. The 29-sample ramp is a boxcar whose first null (1.5 kHz) the 128-sample steps' error barely reaches, and the 32-sample steps beat against the 29-sample ticks at 47.5 Hz. The frequency rows (pitch, fine, detune, harmonicReach) measure phase drift from a centre-held staircase, not a zipper.
+
+**Rulings (the human, by poll, 2026-10-26).**
+1. **"Deliver the update."** `appendix_b.h` is delivered (engine b125eaf). Item 8 gains a clean-room rule (engine 88f2d07, test author 0c1ee3b): every file under engine2/core, rt-off files and marked lines included, never includes a tests/harness header and never copies six consecutive substantive lines from one. `horde_engine.h`, the contract the engine implements, is the one exception, and its code is not counted as a copy source. Eight controls hold.
+2. **"Chord notes don't glide."** Notes that start on the same sample never glide from one another; a note glides from the most recent note started on an earlier sample. A chord with no earlier note starts on pitch.
+3. **"Test the law, report the zipper."** PA-2/PA-3 is judged as 14.3 judges PA-4: a per-sample read of a view value under a staircase of offsets must follow PA-3's tick-and-ramp law within the suite's tolerance, with a ramp-less build as the must-fail control. The zipper fall is measured and reported, not judged. This is a gate replaced, not weakened: the old bound failed a correct engine and passed a ramp-less one, and the new test separates them.
+
+**Consequences.**
+- Spec round 39 writes rulings 2 and 3 (item 14; the phrase set). Both clean-room repositories receive it.
+- The test author writes the law test, and the phrase set's glide source.
+- The rulings log gains rows 39 to 41.
+- **FX device (ADR-254):** none.
