@@ -1,0 +1,1157 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Shriek — Horde distortion prototype</title>
+<style>
+:root{--bg:#0d0e10;--panel:#15171b;--ink:#d8d6cf;--dim:#7a7e88;--line:#2a2d34;--hot:#ff5c1a;--cold:#4fd1c5;--warn:#ffd23f}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:12px/1.35 ui-monospace,Menlo,Consolas,monospace;padding:12px 14px 40px}
+h1{font-size:15px;margin:0;letter-spacing:.12em}h1 span{color:var(--hot)}
+header{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+button,select,input[type=file]{background:#1e2127;color:var(--ink);border:1px solid var(--line);border-radius:3px;padding:4px 8px;font:inherit;cursor:pointer}
+button.hot{background:var(--hot);color:#000;border-color:var(--hot);font-weight:700}
+button.tog.on{background:var(--cold);color:#000;border-color:var(--cold)}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:8px 10px;min-width:150px}
+.panel h2{margin:0 0 6px;font-size:11px;color:var(--dim);letter-spacing:.14em;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center}
+.stage{flex:1 1 300px}.stage.off{opacity:.45}
+.ctl{display:grid;grid-template-columns:78px minmax(0,1fr) 58px;gap:6px;align-items:center;margin:3px 0}
+/* minmax(0,…) rather than 1fr, and min-width:0 on the controls: a bare `1fr` track keeps an
+   `auto` minimum, so it cannot shrink below the widest <option> ("fold (sine→triangle)",
+   ~183px). That made every .ctl demand ~267px, the two .grid2 columns demand 545px, and a
+   333px stage panel paint its right-hand column straight across the panel beside it. */
+.ctl select,.ctl input{min-width:0;width:100%}
+.ctl label{color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ctl .v{text-align:right;color:var(--cold);font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;height:14px;accent-color:var(--hot);margin:0}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:0 12px}
+/* auto-fit: two columns of controls where the panel is wide enough for them, one where it is
+   not. Fixed 230px minimum, so the tracks can never be narrower than a usable control. */
+canvas.curve{width:100%;height:90px;background:#0a0b0d;border:1px solid var(--line);border-radius:3px;display:block;margin:4px 0}
+canvas.scope{width:100%;height:120px;background:#0a0b0d;border:1px solid var(--line);border-radius:4px;display:block}
+.hint{color:var(--dim)}.status{color:var(--warn)}
+.diagram{color:var(--cold);white-space:pre;font-size:11px;margin:6px 0;line-height:1.3}
+.mhead{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.mgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:4px 14px}
+.mk{display:grid;grid-template-columns:minmax(0,1fr) 40px;gap:2px 6px;align-items:center}
+.mk label{grid-column:1/3;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mk .v{text-align:right;color:var(--cold)}
+.mk.off label,.mk.off .v{color:var(--dim);opacity:.55}
+.mtitle{color:var(--dim);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;margin:8px 0 3px}
+.mk.fixed{grid-template-columns:minmax(0,1fr) 4.6em}   /* room for the value and its unit */
+#meditor{margin-top:10px;border-top:1px solid var(--line);padding-top:8px;display:grid;gap:8px}
+.ms{display:grid;gap:4px;padding:6px 8px;border:1px solid var(--line);border-radius:4px}
+.ms .mrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.ms input[type=text]{background:#1e2127;color:var(--ink);border:1px solid var(--line);border-radius:3px;padding:3px 6px;font:inherit;width:12em}
+.ms input[type=number]{background:#1e2127;color:var(--ink);border:1px solid var(--line);border-radius:3px;padding:3px 4px;font:inherit;width:7em}
+.ms .b{padding-left:14px}.ms .hint{white-space:nowrap}
+.merr{color:var(--hot);white-space:pre-wrap}.mok{color:var(--cold)}
+#mout{white-space:pre-wrap;color:var(--dim);max-height:14em;overflow:auto;background:#0a0b0d;border:1px solid var(--line);border-radius:3px;padding:6px}
+.kbd{position:fixed;bottom:0;left:0;right:0;background:#111318;border-top:1px solid var(--line);padding:5px 14px;color:var(--dim);font-size:11px}
+</style></head><body>
+<header>
+ <h1>Shriek <span>//</span> horde distortion prototype</h1>
+ <button id="start" class="hot">▶ start audio</button>
+ <span id="status" class="status">audio off</span>
+ <select id="preset"></select>
+ <button id="panic">panic</button>
+</header>
+
+<div class="row">
+ <div class="panel" id="p-macro" style="flex:1 1 100%"><h2>module preset · macros <span class="hint" id="m-note"></span></h2>
+  <div class="mhead"><select id="mpreset"></select><select id="engine" title="how the core runs (D-070)"><option value="2x">2× (as shipped)</option><option value="1x">1× + ADAA (cheaper mode)</option><option value="lab">lab engine (prototype os)</option></select><select id="srate" title="the audio context's sample rate (Q-029)"><option value="">device rate</option><option value="44100">44.1 kHz</option><option value="48000">48 kHz</option></select><button id="medit" class="tog" title="edit this preset's macros (Q-028)">edit macros</button></div>
+  <div class="mtitle">fixed controls · every preset</div>
+  <div class="mgrid" id="fgrid"></div>
+  <div class="mtitle">macros · this preset</div>
+  <div class="mgrid" id="mgrid"></div>
+  <div id="meditor" hidden></div></div>
+</div>
+<div class="row">
+ <div class="panel" id="p-src"><h2>source</h2></div>
+ <div class="panel" id="p-route"><h2>routing</h2><div class="diagram" id="diagram"></div></div>
+ <div class="panel" id="p-horde"><h2>horde</h2></div>
+ <div class="panel" id="p-mod"><h2>modulation</h2><div class="grid2" id="p-modgrid"></div></div>
+</div>
+<div class="row" id="stages"></div>
+<div class="row">
+ <div class="panel" style="flex:1"><h2>scope</h2><canvas class="scope" id="scope"></canvas></div>
+ <div class="panel" style="flex:1"><h2>spectrum</h2><canvas class="scope" id="spec"></canvas></div>
+</div>
+<div class="kbd">keys: A W S E D F T G Y H U J K O L P ; play (Ableton layout) · Z/X octave · MIDI in auto-connects · drop a wav/mp3 in the source panel to loop a sample instead</div>
+
+<script>
+function defineCore(){
+'use strict';
+const PI=Math.PI, TAU=2*Math.PI;
+const clamp=(x,a,b)=>x<a?a:(x>b?b:x);
+const dB2g=d=>Math.pow(10,d/20);
+const wrap=x=>{x=(x+1)%2;if(x<0)x+=2;return x-1;};
+class RNG{constructor(seed){this.s0=(seed>>>0)||0x9e3779b9;this.s=this.s0;}
+  reset(){this.s=this.s0;}   // D-036: back to the seed it was built with
+  next(){let x=this.s;x^=x<<13;x>>>=0;x^=x>>>17;x^=x<<5;x>>>=0;this.s=x;return x/4294967296;} // xorshift32, [0,1)
+  bi(){return this.next()*2-1;}
+  gauss(){let u=0,v=0;while(u===0)u=this.next();v=this.next();return Math.sqrt(-2*Math.log(u))*Math.cos(TAU*v);}}
+// D-045: mulberry32, transcribed from the golden (mawcore/rng.h) so inject's noise is parity-checked; imul/>>>0 wrap as uint32 does
+// D-052: first-order tilt (low shelf with DC gain 10^(-12a/20), times 10^(6a/20); 0 dB at fc; bilinear, prewarped); tilt(-a) is the exact reciprocal of tilt(a). As mawcore/core.h Tilt.
+class Tilt{constructor(){this.b0=1;this.b1=0;this.a1=0;this.t0=1;this.t1=0;this.ta=0;this.d0s=0;this.d1s=0;this.das=0;this.x1=[0,0];this.y1=[0,0];}
+  /* set() designs the target at a control tick; the coefficients ramp to it over 32 samples (as ADR-4) — stepping per tick zippered */
+  set(amt,fc,sr,jump){const A=Math.pow(10,-12*amt/20),g=Math.pow(10,6*amt/20),K=Math.tan(PI*fc/sr),sA=Math.sqrt(A),d0=1+K/sA;
+    this.b0=this.t0;this.b1=this.t1;this.a1=this.ta;this.t0=g*(1+K*sA)/d0;this.t1=g*(K*sA-1)/d0;this.ta=(K/sA-1)/d0;
+    if(jump){this.b0=this.t0;this.b1=this.t1;this.a1=this.ta;this.d0s=0;this.d1s=0;this.das=0;return;}
+    this.d0s=(this.t0-this.b0)/32;this.d1s=(this.t1-this.b1)/32;this.das=(this.ta-this.a1)/32;}
+  step(){this.b0+=this.d0s;this.b1+=this.d1s;this.a1+=this.das;}
+  p(x,c){const y=this.b0*x+this.b1*this.x1[c]-this.a1*this.y1[c];this.x1[c]=x;this.y1[c]=y;return y;}
+  pass(x,c){this.x1[c]=x;this.y1[c]=x;} reset(){this.x1[0]=this.x1[1]=this.y1[0]=this.y1[1]=0;}}
+class M32{constructor(seed){this.s0=seed>>>0;this.s=this.s0;} reset(){this.s=this.s0;}
+  next(){this.s=(this.s+0x6D2B79F5)>>>0;let t=this.s;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967296;}
+  bi(){return this.next()*2-1;}}
+
+// A draw-free stand-in RNG for evaluating a curve at the origin (M2, D-018): the
+// noise curve reads its RNG, and f(0,s) must not advance the instance stream.
+const ZRNG={next:()=>0,bi:()=>0,gauss:()=>0};
+
+const MAXDISP=24;   // dispersion sections per channel per stage (spec §2.2, D-028)
+
+// ---------- primitives ----------
+class SVF{ // Zavalishin TPT state-variable filter
+  constructor(){this.ic1=0;this.ic2=0;this.lp=0;this.bp=0;this.hp=0;this.k=1;this.a1=0;this.a2=0;this.a3=0;}
+  reset(){this.ic1=0;this.ic2=0;this.lp=0;this.bp=0;this.hp=0;}
+  set(fc,q,sr){const g=Math.tan(PI*clamp(fc,10,sr*0.45)/sr);const k=1/Math.max(q,0.1);this.k=k;this.a1=1/(1+g*(g+k));this.a2=g*this.a1;this.a3=g*this.a2;}
+  p(v0){const v3=v0-this.ic2;const v1=this.a1*this.ic1+this.a2*v3;const v2=this.ic2+this.a2*this.ic1+this.a3*v3;this.ic1=2*v1-this.ic1;this.ic2=2*v2-this.ic2;this.lp=v2;this.bp=v1;this.hp=v0-this.k*v1-v2;return v2;}
+  // Same filter, coefficients passed in rather than stored (D-028). One quad drives the single
+  // filter and all N dispersion sections; writing it into each section first would cost four
+  // stores per section per sample and buy nothing. `p` stays for LR4, whose sections each own
+  // their own corner.
+  pc(v0,a1,a2,a3,k){const v3=v0-this.ic2;const v1=a1*this.ic1+a2*v3;const v2=this.ic2+a2*this.ic1+a3*v3;this.ic1=2*v1-this.ic1;this.ic2=2*v2-this.ic2;this.lp=v2;this.bp=v1;this.hp=v0-k*v1-v2;return v2;}
+}
+class LR4{ // Linkwitz-Riley 4th-order crossover: lo+hi is allpass
+  constructor(){this.l1=new SVF();this.l2=new SVF();this.h1=new SVF();this.h2=new SVF();this.lo=0;this.hi=0;}
+  reset(){this.l1.reset();this.l2.reset();this.h1.reset();this.h2.reset();this.lo=0;this.hi=0;}
+  set(fc,sr){this.l1.set(fc,0.7071,sr);this.l2.set(fc,0.7071,sr);this.h1.set(fc,0.7071,sr);this.h2.set(fc,0.7071,sr);}
+  split(x){this.l1.p(x);this.lo=this.l2.p(this.l1.lp);this.h1.p(x);this.h2.p(this.h1.hp);this.hi=this.h2.hp;}
+}
+class DCB{constructor(sr){this.R=1-TAU*10/sr;this.x1=0;this.y1=0;} reset(){this.x1=0;this.y1=0;} p(x){const y=x-this.x1+this.R*this.y1;this.x1=x;this.y1=y;return y;}}
+class OnePole{constructor(){this.y=0;this.a=0.1;} reset(){this.y=0;} set(fc,sr){this.a=1-Math.exp(-TAU*clamp(fc,5,sr*0.45)/sr);} p(x){this.y+=this.a*(x-this.y);return this.y;}}
+class Delay{
+  constructor(n){this.b=new Float64Array(n);this.n=n;this.w=0;} /* D-024: float64 line so the lab matches the C++ golden exactly (the Float32Array was the last JS artifact, 8.1e-7 on the feedback route) */
+  reset(){this.b.fill(0);this.w=0;}
+  write(x){this.b[this.w]=x;this.w++;if(this.w>=this.n)this.w=0;}
+  read(t){const n=this.n;t=clamp(t,2,n-3);const r=this.w-t;const i=Math.floor(r),fr=r-i;const b=this.b;
+    const i0=((i-1)%n+n)%n,i1=(i0+1)%n,i2=(i1+1)%n,i3=(i2+1)%n;const y0=b[i0],y1=b[i1],y2=b[i2],y3=b[i3];
+    const c1=0.5*(y2-y0),c2=y0-2.5*y1+2*y2-0.5*y3,c3=0.5*(y3-y0)+1.5*(y1-y2);return ((c3*fr+c2)*fr+c1)*fr+y1;}
+}
+// Inertia: every knob is a mass on a spring. inertia 0 = fast, 1 = heavy, ringing.
+//
+// D-031: a 10 ms one-pole sits IN FRONT of the spring, always. `inertia` 0 used to mean
+// instant, and instant is what made a swept control audibly stepped: a slider emits about
+// 60 times a second, so the parameter was a staircase and the engine reproduced it faithfully
+// (measured: -16.5 dB of difference against a continuous sweep, where the engine's own
+// control tick is 25x faster than the slider and therefore never the bottleneck).
+// In series rather than as a special case at zero, so the knob stays monotonic: at inertia 0
+// the floor is all there is; above it the spring is already slower than 10 ms and the floor
+// contributes almost nothing.
+class Spring{
+  constructor(v,aFloor){this.x=v;this.v=0;this.t=v;this.s=v;this.aF=aFloor;}
+  set(t){this.t=t;}
+  snap(){this.x=this.t;this.s=this.t;this.v=0;}   // D-036: no glide after a reset
+  step(I,dt){ this.s+=this.aF*(this.t-this.s);
+    if(I<=0.001){this.x=this.s;this.v=0;return this.x;}
+    const w=TAU*(30*Math.pow(0.02,I)); const z=1-0.85*I;
+    const a=w*w*(this.s-this.x)-2*z*w*this.v; this.v+=a*dt; this.x+=this.v*dt; return this.x; }
+}
+// N× oversampling wrapper for a memoryless nonlinearity (windowed-sinc FIR up/down, direct form — fine for a prototype)
+const OS_TAPS={};
+function osTaps(f){if(OS_TAPS[f])return OS_TAPS[f];const N=12*f-1,M=(N-1)/2,fc=0.5/f;const h=new Float64Array(N);let s=0;
+  for(let i=0;i<N;i++){const k=i-M;const sinc=k===0?1:Math.sin(2*PI*fc*k)/(2*PI*fc*k);const w=0.54-0.46*Math.cos(TAU*i/(N-1));h[i]=2*fc*sinc*w;s+=h[i];}
+  for(let i=0;i<N;i++)h[i]/=s;return OS_TAPS[f]=h;}
+class OSn{
+  constructor(){this.f=0;this.setFactor(2);}
+  setFactor(f){if(f===this.f)return;this.f=f;this.h=osTaps(f);this.N=this.h.length;this.b1=new Float64Array(this.N);this.b2=new Float64Array(this.N);this.i1=0;this.i2=0;}
+  reset(){this.b1.fill(0);this.b2.fill(0);this.i1=0;this.i2=0;}
+  fir(buf,idx){const h=this.h,N=this.N;let acc=0,j=idx;for(let i=0;i<N;i++){acc+=h[i]*buf[j];j--;if(j<0)j=N-1;}return acc;}
+  run(x,fn){const f=this.f,N=this.N;let out=0;
+    for(let k=0;k<f;k++){this.i1++;if(this.i1>=N)this.i1=0;this.b1[this.i1]=k===0?f*x:0;const u=this.fir(this.b1,this.i1);
+      this.i2++;if(this.i2>=N)this.i2=0;this.b2[this.i2]=fn(u);}
+    return this.fir(this.b2,this.i2);}
+}
+
+// ---------- transfer curves ----------  x = driven+biased input, s = per-stage "shape" 0..1
+// classic overdrive (Doidic piecewise), small-signal slope 1
+function od(x){const u=x*0.5,a=Math.abs(u),sg=u<0?-1:1;if(a<1/3)return 2*u;if(a<2/3)return sg*(3-(2-3*a)*(2-3*a))/3;return sg;}
+function trifold(x){let u=(x+1)%4;if(u<0)u+=4;return 1-Math.abs(u-2);} // continuous fold of R onto [-1,1]
+function tri(u){u=u-Math.floor(u);return 4*Math.abs(u-0.5)-1;}
+// deterministic shard table (same on main thread and in the worklet)
+const SHARDS=(()=>{let seed=1337;const r=()=>{seed=(seed*1103515245+12345)&0x7fffffff;return seed/0x7fffffff;};const t=[];
+  for(let j=0;j<32;j++)t.push({p:r()*2-1,w:0.015+0.08*r()*r(),h:(r()<0.5?-1:1)*(0.15+0.3*r())});return t;})();
+const logcosh=x=>{const a=Math.abs(x);return a>20?a-Math.LN2:Math.log(Math.cosh(x));};
+const clipAD=x=>{const a=Math.abs(x);return a<=1?0.5*x*x:a-0.5;};
+const wrapAD=x=>{const w=wrap(x);return 0.5*w*w;};
+const AD={ // antiderivative F(x,s) with F' = f; only for curves where it is closed-form
+  // D-045: sqrt(1+v^2)-1 as v^2/(1+sqrt(1+v^2)) — no cancellation near half wave (c = 1-2s -> 0), exact at c = 0
+  14:(x,s)=>{if(x>=0)return x*x/(1+Math.sqrt(1+x*x));const c=1-2*s;return c*x*x/(1+Math.sqrt(1+c*c*x*x));},
+  15:(x,s)=>{const a=Math.abs(x);return (1-s)*(a-Math.log1p(a))+s*x*x/(1+Math.sqrt(1+x*x));},
+  0:(x,s)=>(1-s)*logcosh(x)+s*clipAD(x),
+  5:(x,s)=>{let u=(x+1)%4;if(u<0)u+=4;const triAD=u<=2?0.5*(u-1)*(u-1):1-0.5*(3-u)*(3-u);return (1-s)*(-2/PI)*Math.cos(0.5*PI*x)+s*triAD;},
+  8:(x,s)=>(1-s)*clipAD(x)+s*wrapAD(x),
+  // Q-007b: the spec §5 "easy additions", term for term as mawcore/curves.h (the golden) writes them,
+  // where each is derived and verified (F' = f to 1e-9, tests/adaa_test.cpp).
+  1:(x,s)=>{const k=0.9*s,a=Math.abs(x);if(k<1e-4)return clipAD(x);if(a<=1-k)return 0.5*a*a;
+     if(a>=1+k)return 0.5*(1+k)*(1+k)-2.0*k*k/3.0+(a-(1+k));const d=a-(1-k);return 0.5*a*a-d*d*d/(12.0*k);},
+  3:(x,s)=>{if(x>1)return 0.625+s/6.0+(1.0+0.5*s)*(x-1);if(x<-1)return 0.625-s/6.0+(-1.0+0.5*s)*(x+1);
+     return 1.5*(0.5*x*x-x*x*x*x/12.0)+s*x*x*x/6.0;},
+  4:(x,s)=>{const k=1+6*s;return x>0?logcosh(x):logcosh(x*k)/(k*k);},
+  // overdrive (D-041 A2): piecewise polynomial; the middle piece in w = 2-1.5|x| (see curves.h)
+  2:(x,s)=>{const b=Math.abs(x),A=1+1.5*s,B=1.5*s,b1=2.0/3.0;if(b<b1)return A*b*b/2.0-B*b*b*b*b/4.0;
+     const P1=w=>w-w*w*w/9.0,P3=w=>{const w2=w*w;return w-w2*w/3.0+w2*w2*w/15.0-w2*w2*w2*w/189.0;};
+     const G1=A*b1*b1/2.0-B*b1*b1*b1*b1/4.0,bm=b<4.0/3.0?b:4.0/3.0,w=2.0-1.5*bm;
+     const G=G1+(A*(P1(1.0)-P1(w))-B*(P3(1.0)-P3(w)))/1.5;return b<4.0/3.0?G:G+(b-4.0/3.0);},
+  6:(x,s)=>{const p=1+s,m=(1-2*s)*(1+s);if(x>=0)return p*x<=1?0.5*p*x*x:0.5/p+(x-1.0/p);
+     const mx=m*x;if(Math.abs(mx)<=1)return 0.5*m*x*x;const am=Math.abs(m),sg=m<0?1.0:-1.0;return 0.5/m+sg*(x+1.0/am);},
+};
+const SHAPERS=[
+ {name:'soft (tanh→clip)', f:(x,s)=>(1-s)*Math.tanh(x)+s*clamp(x,-1,1)},
+ {name:'hard clip (knee↑)', f:(x,s)=>{const k=0.9*s,a=Math.abs(x),sg=x<0?-1:1;if(k<1e-4||a<=1-k)return clamp(x,-1,1);if(a>=1+k)return sg;const d=a-(1-k);return sg*(a-d*d/(4*k));}},
+ {name:'overdrive (bite↑)', f:(x,s)=>{const y=od(x);return y*(1+1.5*s*(1-y*y));}},
+ {name:'tube (cubic+even)', f:(x,s)=>{const c=clamp(x,-1,1);return 1.5*(c-c*c*c/3)+s*0.5*c*c;}},
+ {name:'diode (asym ceiling)', f:(x,s)=>{const k=1+6*s;return x>0?Math.tanh(x):Math.tanh(x*k)/k;}},
+ {name:'fold (sine→triangle)', f:(x,s)=>(1-s)*Math.sin(0.5*PI*x)+s*trifold(x)},
+ {name:'rectify (half→full)', f:(x,s)=>{const y=(1-s)*x+s*Math.abs(x);return clamp(y*(1+s),-1,1);}},
+ {name:'crush (bits↓)', f:(x,s)=>{const L=Math.pow(2,8-7*s);return clamp(Math.round(x*L)/L,-1,1);}},
+ {name:'clip→wrap', f:(x,s)=>(1-s)*clamp(x,-1,1)+s*wrap(x)},
+ {name:'cheby (harmonic n)', f:(x,s)=>Math.cos((1+4*s)*Math.acos(trifold(x)))},
+ // wiggle whose phase advances fastest near zero, so ridges crowd toward the centre and go chaotic as s rises
+ {name:'polynomial (wiggle↑)', f:(x,s)=>{const c=clamp(x,-1,1),a=Math.abs(c),sg=c<0?-1:1;const N=1+9*s,p=1-0.75*s;return clamp(c+0.45*s*sg*Math.sin(PI*N*Math.pow(a,p))*(1-a*a*a*a)*Math.tanh(6*a),-1,1);}},
+ // triangle-wave octaves: shape adds octaves AND raises ridge amplitude; octaves decay slowly (0.8) so the fine ridges stay strong
+ {name:'fractal (ridges↑)', f:(x,s)=>{const c=clamp(x,-1,1);const K=1+7*s,kf=Math.floor(K),fr=K-kf;let y=0,amp=1,norm=0;
+   for(let k=1;k<=kf+1;k++){const g=k<=kf?1:fr;y+=g*amp*tri(Math.pow(2,k-1)*c*0.5+0.25);norm+=g*amp;amp*=0.8;}
+   return trifold((1-0.5*s)*c+1.6*s*y/norm);}},
+ // fixed pseudorandom smattering of narrow pulse offsets along the curve; s adds more of them
+ {name:'shards (count↑)', f:(x,s)=>{const c=clamp(x,-1,1);const J=Math.min(32,Math.round(s*32));let y=c;for(let j=0;j<J;j++){const sh=SHARDS[j];const d=(c-sh.p)/sh.w;if(d>-1&&d<1){const t=Math.min(1,Math.abs(sh.p)/0.25);y+=sh.h*t*t*(0.5+0.5*Math.cos(PI*d));} /* D-006: shards inside |p|<0.25 taper toward the origin so a decaying note does not stall on a low-level bump */}return clamp(y,-1,1);}},
+ // signal-dependent white noise disturbance (silent when silent)
+ {name:'noise (amount↑)', f:(x,s,r)=>{const c=clamp(x,-1,1);return clamp(c+s*(r?r.bi():0)*Math.abs(c),-1,1);}},
+ // D-045: rectify, then a soft knee with no clamp, so no clip point kicks in up a ramp; s as rectify (0 none, 0.5 half, 1 full)
+ {name:'rectify (soft)', f:(x,s)=>{const u=x>=0?x:(1-2*s)*x;return u/Math.sqrt(1+u*u);}},
+ // D-045 (the curve under inject): gain falls steadily from low levels; s blends x/(1+|x|) to x/sqrt(1+x^2)
+ {name:'gentle', f:(x,s)=>(1-s)*x/(1+Math.abs(x))+s*x/Math.sqrt(1+x*x)},
+];
+
+const ROUTES=['series','parallel','multiband','mid/side','feedback'];
+
+function defaultStage(){return {on:true,drive:6,bias:0,a:0,b:5,morph:0,shape:0.3,floor:0,ft:0,fpos:1,cut:2000,res:0.15,famt:0.5,level:0,mix:1,detail:false,damt:1,dfreq:3000,inject:0};}
+function defaultParams(){return {
+  src:'super',spread:14,inGain:0,latch:false,
+  route:0,os:2,adaa:false,auto:0,driveRef:0,inertia:0,eco:0,flux:0,wet:1,out:0, // D-043: no auto-gain, unity output
+  xo1:200,xo2:2000,
+  fbAmt:0.3,fbMode:0,fbSemi:0,fbMs:8,fbDamp:5000,fbHp:80,fbTap:2,
+  cmpAmt:0,cmpHp:0, // D-044: the output compressor (0 = bit-identical bypass)
+  fbOn:0,fbInv:0,fbGate:0, // D-047: the loop on routes 0-3; invert its return; gate it when the input stops
+  tone:0,toneHz:700,toneComp:0, // D-052: the input Tone (tilt around toneHz) and colour compensation
+  taper:0, // D-067: after the input stops: 0 short (0.25 s hold + 0.25 s fade), 1 long (3 s + 1 s), 2 infinite
+  oversample:1, // D-070: Device, read by the module boundary (C++ MawAbi; lab/oversample.js), never by this core
+  driveTrim:0, // D-077: the fixed Drive control, dB added to every stage's drive target
+  envA:5,envR:80,lfoRate:2,
+  mod:{ed:0,ec:0,em:0,ld:0,lc:0,lb:0},
+  stages:[defaultStage(),Object.assign(defaultStage(),{on:false}),Object.assign(defaultStage(),{on:false})], // D-043: one stage on by default
+};}
+
+// D-039 detail toggle: 2nd-order Butterworth high-pass (RBJ, Q 1/sqrt2), direct form I, written
+// term-for-term as mawcore/primitives.h BiquadHP (the golden) writes it, so the two agree to rounding.
+class BiquadHP{
+  constructor(){this.b0=1;this.b1=0;this.b2=0;this.a1=0;this.a2=0;this.x1=0;this.x2=0;this.y1=0;this.y2=0;}
+  set(fc,sr){const w=TAU*fc/sr,c=Math.cos(w),al=Math.sin(w)/(2*0.7071067811865476);const a0=1+al;
+    this.b0=(1+c)/2/a0;this.b1=-(1+c)/a0;this.b2=this.b0;this.a1=-2*c/a0;this.a2=(1-al)/a0;}
+  reset(){this.x1=0;this.x2=0;this.y1=0;this.y2=0;}
+  p(x){const y=this.b0*x+this.b1*this.x1+this.b2*this.x2-this.a1*this.y1-this.a2*this.y2;this.x2=this.x1;this.x1=x;this.y2=this.y1;this.y1=y;return y;}
+}
+const DETAIL_HZ=3000,DETAIL_HZ_MIN=1000,DETAIL_HZ_MAX=6000; // D-039 A2: dfreq's default (3 kHz, best all-rounder by ear at +18/+27 dB) and range
+const dz=u=>u>1?u-1:(u<-1?u+1:0);                                   // overshoot past +-1 (dead zone)
+const dzAD=u=>u>1?0.5*(u-1)*(u-1):(u<-1?0.5*(u+1)*(u+1):0);          // its antiderivative
+const foldTri=t=>{const q=((t+1)%4+4)%4;return q<2?q-1:3-q;};          // reflect at +-1; NOT an identity inside +-1 (drops low bits)
+const foldAD=t=>{const q=((t+1)%4+4)%4;return q<2?0.5*q*q-q:3*(q-2)-0.5*(q*q-4);}; // antiderivative of foldTri from -1, periodic
+
+// D-042: the tone filter's peak magnitude as loop gain — lp/hp peak at Q/sqrt(1-1/4Q^2) above
+// Q = 1/sqrt2 and at 1 below it (not at Q); bp at Q; peak type 2Q; morph max(lp, Q); notch and
+// dispersion 1. Term for term as mawcore/stage.h filterPeak().
+function filterPeak(ft,res){const Q=0.7071*Math.pow(20,res);const lp=Q>0.70710678118654752?Q/Math.sqrt(1-1/(4*Q*Q)):1;
+  switch(ft){case 1:case 3:return lp;case 2:return Q;case 5:return 2*Q;case 6:return Math.max(lp,Q);default:return 1;}}
+
+// D-044: the output compressor — term for term as mawcore/primitives.h OutComp (see there for the
+// design: stereo-linked peak detector 1/80 ms, amount -> threshold 0..-30 dBFS and ratio 1..10:1,
+// soft knee 6 dB, sidechain HP 120 Hz, NO makeup: gain() <= 1).
+class OutComp{
+  constructor(sr){this.aAtk=1-Math.exp(-1/(0.001*sr));this.aRel=1-Math.exp(-1/(0.080*sr));this.env=0;this.sc=[new BiquadHP(),new BiquadHP()];this.sc[0].set(120,sr);this.sc[1].set(120,sr);}
+  reset(){this.env=0;this.sc[0].reset();this.sc[1].reset();}
+  gain(l,r,hp,a){let dl=l,dr=r;if(hp){dl=this.sc[0].p(l);dr=this.sc[1].p(r);}else{this.sc[0].reset();this.sc[1].reset();}
+    const x=Math.max(Math.abs(dl),Math.abs(dr));this.env+=(x>this.env?this.aAtk:this.aRel)*(x-this.env);if(a<=0)return 1.0;
+    const T=-30*a,R=1+9*a,W=6;const over=20*Math.log10(Math.max(this.env,1e-12))-T;let gr;
+    if(2*over<-W)gr=0;else if(2*Math.abs(over)<=W)gr=(1/R-1)*(over+W/2)*(over+W/2)/(2*W);else gr=(1/R-1)*over;return Math.pow(10,gr/20);}
+}
+
+// ---------- one distortion stage ----------
+class Stage{
+  constructor(sr,G,p){this.sr=sr;this.G=G;this.p=p;
+    this.f=[new SVF(),new SVF()];this.dc=[new DCB(sr),new DCB(sr)];this.os=[new OSn(),new OSn()];this.u1=[0,0];this.adaaOK=false;
+    this.det=[new BiquadHP(),new BiquadHP()];this.detRate=0;this.detHz=0;this.dfLog=Math.log2(clamp(p.dfreq===undefined?DETAIL_HZ:p.dfreq,DETAIL_HZ_MIN,DETAIL_HZ_MAX));
+    this.dAmt=this.dAmt0=this.dAmt1=clamp(p.damt===undefined?1:p.damt,0,1); /* D-039 A2 gradient state */
+    /* D-045 inject: follower 1 ms / 12 ms (12 keeps feedback tails inside spec §11), 3 one-poles at 7 kHz, white scaled by sqrt(sr/44100) so the level holds across rates; term for term as mawcore/stage.h */
+    this.aInjA=1-Math.exp(-1/(0.001*sr));this.aInjR=1-Math.exp(-1/(0.012*sr));this.aInjLp=1-Math.exp(-2*PI*7000/sr);this.injScale=Math.sqrt(sr/44100);
+    this.injK=0.3;this.iAmt=this.iAmt0=this.iAmt1=clamp(p.inject===undefined?0:p.inject,0,1);this.injE=[0,0];this.injLp=[[0,0,0],[0,0,0]];this.injR=[new M32(0),new M32(0)];
+    this.tPrev=[0,0];this.primed=[false,false]; // D-039 detail, D-040 ADAA priming
+    // Dispersion (ft 7): MAXDISP allpass sections per channel, all at the stage's own corner.
+    // Allocated once here — the real-time path allocates nothing — and only `dispN` of them run.
+    this.disp=[[],[]];for(let c=0;c<2;c++)for(let i=0;i<MAXDISP;i++)this.disp[c].push(new SVF());this.dispN=1;
+    // The filter's coefficient quad, computed once per control tick and shared by the single
+    // filter and every dispersion section (D-028).
+    this.ka1=0;this.ka2=0;this.ka3=0;this.kk=1;
+    // The floor's coefficient is in the control-tick domain (tau 10 ms, D-031), derived from sr.
+    const aF=1-Math.exp(-(32/sr)/0.010);this.aF=aF;
+    this.drive=new Spring(p.drive,aF);this.bias=new Spring(p.bias,aF);this.cut=new Spring(Math.log2(p.cut),aF);this.morph=new Spring(p.morph,aF);
+    this.g=1;this.bs=0;this.m=0;this.walk=0;this.env=0;this.envIn=[0,0];this.lvl=1;this.fa0=0;this.fb0=0;this.comp=1;this.g1=1;this.bs1=0;this.m1=0;this.comp1=1;this.g0=1;this.bs0=0;this.m0=0;this.comp0=1;this.pk=1;this.pk0=1;this.pk1=1;this.fa=SHAPERS[0].f;this.fb=SHAPERS[1].f;
+    this.sd=this.shapeDriven.bind(this);this.sdA=(v)=>this.shapeADAA(v,this._ch);this.sdD=(v)=>this.shapeDetail(v,this._ch);this._ch=0;this.tmp=new Float64Array(32);
+    // Time constants in SECONDS (audit M7): the shipped per-sample constants (3e-4, 0.02, 0.0015 per call; 0.25 per
+    // control tick) were only right at 48 kHz. tau values reproduce the 48 kHz behaviour at every rate.
+    this.aIn=1-Math.exp(-1/(0.0694*sr));           // drive-ref / tracked-auto input follower, tau 69.4 ms
+    this.aAtk=1-Math.exp(-1/(0.00104*sr));         // stage output envelope attack (ecology), tau 1.04 ms per call
+    this.aRel=1-Math.exp(-1/(0.0139*sr));          // stage output envelope release, tau 13.9 ms per call
+    this.aComp=1-Math.exp(-(32/sr)/0.00232);       // measured auto-gain smoothing per control tick, tau 2.32 ms
+  }
+  // D-036: AUDIO memory only. The NaN watchdog uses this, so a glitch clears the signal path without
+  // jumping any parameter the user is hearing glide.
+  clearSignal(){for(const f of this.f)f.reset();for(const c of this.disp)for(const f of c)f.reset();for(const d of this.dc)d.reset();for(const o of this.os)o.reset();this.det[0].reset();this.det[1].reset();this.tPrev=[0,0];this.primed=[false,false];this.u1=[0,0];this.env=0;this.envIn=[0,0];this.walk=0;this.clearInject();}
+  clearInject(){for(let c=0;c<2;c++){this.injE[c]=0;for(let j=0;j<3;j++)this.injLp[c][j]=0;}}
+  control(mod,snap){const p=this.p,G=this.G,dt=32/this.sr,I=G.inertia;
+    this.drive.set(p.drive+mod.drive+G.driveTrim); /* D-077: the fixed Drive control; + 0 is exact */this.bias.set(p.bias+mod.bias);this.cut.set(Math.log2(p.cut)+mod.cut);this.morph.set(p.morph+mod.morph+this.walk);
+    if(snap){this.drive.snap();this.bias.snap();this.cut.snap();this.morph.snap();}
+    { // D-039 A2 gradient: 10 ms one-pole in the tick domain (D-031's floor), corner in log2, re-designed once per
+      // tick at the rate the curve runs at (the core's, or the prototype's own oversampler's); snap on reset (D-036).
+      const fT=Math.log2(clamp(p.dfreq===undefined?DETAIL_HZ:p.dfreq,DETAIL_HZ_MIN,DETAIL_HZ_MAX));this.dfLog+=snap?(fT-this.dfLog):this.aF*(fT-this.dfLog);
+      const osf=G.os===true?2:(G.os|0)||1,rate=this.sr*osf,hz=Math.pow(2,this.dfLog);
+      if(hz!==this.detHz||rate!==this.detRate){this.det[0].set(hz,rate);this.det[1].set(hz,rate);this.detHz=hz;this.detRate=rate;}
+      const aT=clamp(p.damt===undefined?1:p.damt,0,1);this.dAmt0=this.dAmt1;this.dAmt1+=snap?(aT-this.dAmt1):this.aF*(aT-this.dAmt1);}
+    { /* D-045: inject glides on the floor and lands EXACTLY on 0, so the branch closes (the DC blocker's memory still decays, A2); idle state rests at 0 */
+      const iT=clamp(p.inject===undefined?0:p.inject,0,1);this.iAmt0=this.iAmt1;this.iAmt1+=snap?(iT-this.iAmt1):this.aF*(iT-this.iAmt1);
+      if(iT===0&&this.iAmt1<1e-6)this.iAmt1=0;if(this.iAmt0===0&&this.iAmt1===0)this.clearInject();}
+    this.g0=this.g1;this.bs0=this.bs1;this.m0=this.m1;this.comp0=this.comp1;this.pk0=this.pk1;
+    this.g1=dB2g(clamp(this.drive.step(I,dt),-12,60));const envIn=Math.max(this.envIn[0],this.envIn[1]);const pk=clamp(envIn*0.5*PI,0.02,1.5); /* M6: linked per-channel followers */this.pk1=G.driveRef?pk:1;if(G.driveRef)this.g1/=pk; /* drive-ref: y = pk·f(g·x/pk) — position on the curve, dynamics preserved */
+    this.bs1=clamp(this.bias.step(I,dt),-1,1);this.m1=clamp(this.morph.step(I,dt),0,1);
+    this.g=this.g1;this.bs=this.bs1;this.m=this.m1; // used by the reference-sine measurement below
+    const fc=Math.pow(2,clamp(this.cut.step(I,dt),4.3,14.3));const q=0.7071*Math.pow(20,p.res);
+    // One coefficient quad per control tick, held across it — the pre-existing behaviour, kept
+    // deliberately. Interpolating it per sample was built and measured (D-027): against a
+    // per-sample-control reference it moved the error by 0.0-0.1 dB at LFO rates from 0.5 to
+    // 20 Hz, so it bought nothing and cost a cold-start hazard. The quad lives on the stage
+    // rather than inside each filter so the dispersion cascade can share it without 24 writes.
+    {const g=Math.tan(PI*clamp(fc,10,this.sr*0.45)/this.sr),k=1/Math.max(q,0.1);
+     this.ka1=1/(1+g*(g+k));this.ka2=g*this.ka1;this.ka3=g*this.ka2;this.kk=k;}
+    this.dispN=1+Math.round(clamp(p.famt===undefined?0.5:p.famt,0,1)*(MAXDISP-1));
+    this.lvl=dB2g(p.level);this.fa=SHAPERS[p.a].f;this.fb=SHAPERS[p.b].f;this.fa0=this.fa(0,p.shape,ZRNG);this.fb0=this.fb(0,p.shape,ZRNG); /* M2: every curve passes through the origin */
+    const osf=G.os===true?2:(G.os|0)||1;if(osf>1){this.os[0].setFactor(osf);this.os[1].setFactor(osf);}
+    /* D-059: decide on BOTH ends of this tick's morph glide (tick() moves m from m0 to m1); on m1 alone a glide into an endpoint blended in a curve with no antiderivative and called a missing FA/FB. m0 == m1: the old rule exactly */ {const mLo=Math.min(this.m0,this.m1),mHi=Math.max(this.m0,this.m1);this.adaaOK=(!!G.adaa||!!G.adaaForce)&&p.floor<=0&&(mLo>=1||!!AD[p.a])&&(mHi<=0||!!AD[p.b]);}this.FA=AD[p.a];this.FB=AD[p.b];
+    // measured auto-gain: RMS of a 0.5-amplitude reference sine through the current curve vs its input RMS
+    if(G.auto>0){const N=32,t=this.tmp;const A=G.driveRef?clamp(envIn*0.5*PI,0.02,1.2):0.5;let mean=0,si=0,so=0;for(let i=0;i<N;i++){const u=A*Math.sin(TAU*i/N);const y=this.shape(u*this.g+this.bs)*this.pk1;t[i]=y;mean+=y;si+=u*u;}
+    mean/=N;for(let i=0;i<N;i++){const d=t[i]-mean;so+=d*d;}
+    const target=clamp(Math.pow(Math.sqrt(si/Math.max(so,1e-9)),G.auto),0.05,20);this.comp1+=snap?(target-this.comp1):this.aComp*(target-this.comp1);}
+    else this.comp1=1; /* M13: at auto 0 the compensation is exactly 1; the reference sine (38% of stage CPU) is skipped */
+    this.g=this.g0;this.bs=this.bs0;this.m=this.m0;this.comp=this.comp0;}
+  tick(t){this.g=this.g0+(this.g1-this.g0)*t;this.bs=this.bs0+(this.bs1-this.bs0)*t;this.m=this.m0+(this.m1-this.m0)*t;this.comp=this.comp0+(this.comp1-this.comp0)*t;this.pk=this.pk0+(this.pk1-this.pk0)*t;this.dAmt=this.dAmt0+(this.dAmt1-this.dAmt0)*t;this.iAmt=this.iAmt0+(this.iAmt1-this.iAmt0)*t;}
+  /* D-045: x + K·inject·n·e — e follows |x| before the noise is added; n is this stage-and-channel's own stream, low-passed */
+  inject(x,ch){const ax=Math.abs(x);this.injE[ch]+=(ax>this.injE[ch]?this.aInjA:this.aInjR)*(ax-this.injE[ch]);if(this.injE[ch]<1e-30)this.injE[ch]=0;
+    let n=this.injR[ch].bi()*this.injScale;const z=this.injLp[ch];for(let j=0;j<3;j++){z[j]+=this.aInjLp*(n-z[j]);n=z[j];}return x+this.injK*this.iAmt*n*this.injE[ch];}
+  shape(u){const s=this.p.shape,m=this.m,r=this.rnd;if(m<=0)return this.fa(u,s,r)-this.fa0;if(m>=1)return this.fb(u,s,r)-this.fb0;return (1-m)*(this.fa(u,s,r)-this.fa0)+m*(this.fb(u,s,r)-this.fb0);}
+  shapeDriven(v){const fl=this.p.floor;const y=this.shape(v*this.g+this.bs);if(fl<=0)return y;
+    const t=clamp((Math.abs(v)-fl)/fl,0,1),w=t*t*(3-2*t);return v*this.g+w*(y-v*this.g);} // below floor: clean gain, smoothstep crossfade over [floor, 2·floor]
+  shapeAD(u){const s=this.p.shape,m=this.m;if(m<=0)return this.FA(u,s)-this.fa0*u;if(m>=1)return this.FB(u,s)-this.fb0*u;return (1-m)*(this.FA(u,s)-this.fa0*u)+m*(this.FB(u,s)-this.fb0*u);} /* antiderivative of f - f(0) */
+  // first-order antiderivative anti-aliasing: y = (F(u)-F(u1))/(u-u1), falling back to f(midpoint) when the step is tiny
+  // D-040: until primed (after a clear, or after the ADAA path sat idle) there is no valid previous point:
+  // a previous antiderivative of 0 is only right for a curve whose antiderivative is 0 at 0 (fold's is -(2/pi)(1-shape)), and
+  // dividing by it spiked the first sample. Take the plain curve once, then difference.
+  // D-058: both ends of the quotient use the CURRENT curve. A stored F(u1) was computed with the previous
+  // sample's shape/morph/curve, so a moving Character macro (shape) or a curve switch mixed two curves in
+  // one difference, and over a tiny step that error is huge: fold's shape swept under ADAA buzzed (3-12 kHz
+  // flatness 0.68 against 0.001 static). One extra antiderivative per sample; output is unchanged while the effective
+  // shape, morph and curve hold still (bit-identical to before on 256 static cases).
+  shapeADAA(v,ch){const u=v*this.g+this.bs;const u1=this.u1[ch];const d=u-u1;let y;
+    if(!this.primed[ch]){y=this.shape(u);this.primed[ch]=true;}
+    else if(Math.abs(d)<1e-4)y=this.shape(0.5*(u+u1));else y=(this.shapeAD(u)-this.shapeAD(u1))/d;this.u1[ch]=u;return y;}
+  // D-039, the detail toggle: y = fold_L(c + HP(overshoot)), L = max(1, |c|). See mawcore/stage.h
+  // shapeDetail() for the full reasoning; this is its twin, term for term. ADAA off: plain fold, exact
+  // and bit-transparent below the ceiling. ADAA on: overshoot and fold both ADAA'd (the ruled trade:
+  // clean highs and an exact ceiling, a one-sample mean below the ceiling).
+  shapeDetail(v,ch){const u=v*this.g+this.bs;const primedBefore=this.primed[ch];const up=this.u1[ch];
+    const c=this.adaaOK?this.shapeADAA(v,ch):this.shapeDriven(v);let o;
+    if(this.adaaOK&&primedBefore){const d=u-up;o=Math.abs(d)<1e-4?dz(0.5*(u+up)):(dzAD(u)-dzAD(up))/d;}else o=dz(u);
+    const h=this.dAmt*this.det[ch].p(o); /* D-039 A2 amount; 0 gives h = 0 exactly */const L=Math.max(1,Math.abs(c));const t=c+h;const tp=this.tPrev[ch];this.tPrev[ch]=t;
+    if(!this.adaaOK||!primedBefore){if(Math.abs(t)<=L)return t;return L*foldTri(t/L);}
+    const a=t/L,b=tp/L,d=a-b;
+    if(Math.abs(d)<1e-6){const m=0.5*(a+b);return L*(Math.abs(m)<=1?m:foldTri(m));}
+    return L*(foldAD(a)-foldAD(b))/d;}
+  // Filter types (spec §2.2, amended D-028). lp/bp/hp are the SVF's own outputs; notch, peak and
+  // the allpass the dispersion cascade uses are exact linear combinations of them, so types 4, 5,
+  // 6 and 7 cost no extra filtering — only the combination.
+  filt(x,ch){const t=this.p.ft;if(!t)return x;
+    if(t===7){ // dispersion: N series allpasses at one corner — phase, not magnitude
+      const arr=this.disp[ch],n=this.dispN,k2=2*this.kk;let y=x;
+      for(let i=0;i<n;i++){const f=arr[i];f.pc(y,this.ka1,this.ka2,this.ka3,this.kk);y=y-k2*f.bp;}
+      return y;}
+    const f=this.f[ch];f.pc(x,this.ka1,this.ka2,this.ka3,this.kk);
+    const lp=f.lp,hp=f.hp;
+    if(t===1)return lp;
+    if(t===2)return f.bp;
+    if(t===3)return hp;
+    if(t===4)return lp+hp;   // notch
+    if(t===5)return lp-hp;   // peak
+    if(t===6){const u=clamp(this.p.famt===undefined?0.5:this.p.famt,0,1)*2; // morph: lp → bp → hp
+      return u<1?lp+(f.bp-lp)*u:f.bp+(hp-f.bp)*(u-1);}
+    return hp;}
+  process(x,ch){const p=this.p;if(!p.on)return x;const dry=x;{const ax=Math.abs(x);this.envIn[ch]+=this.aIn*(ax-this.envIn[ch]);}
+    if(p.ft&&p.fpos===0)x=this.filt(x,ch);
+    if(this.iAmt0>0||this.iAmt1>0)x=this.inject(x,ch); /* D-045: after the pre-filter, before the drive; dry stays clean; a branch, so idle draws nothing */
+    const osf=this.G.os===true?2:(this.G.os|0)||1;let y;
+    if(!this.adaaOK)this.primed[ch]=false; // D-040: an idle ADAA path re-primes when it resumes
+    if(p.detail){
+      // D-039: the high-pass runs at whatever rate the curve runs at — the core's, or the
+      // prototype's own oversampler's (spec §10, incidental; parity renders use os 1).
+      this._ch=ch;y=osf>1?this.os[ch].run(x,this.sdD):this.shapeDetail(x,ch);
+    }else{
+      this.det[ch].reset(); // off means untouched: the filter restarts from rest when switched on
+      if(this.adaaOK){this._ch=ch;y=osf>1?this.os[ch].run(x,this.sdA):this.shapeADAA(x,ch);}
+      else y=osf>1?this.os[ch].run(x,this.sd):this.shapeDriven(x);
+      this.tPrev[ch]=y; // the fold's ADAA remembers its last input, so switching on doesn't click
+    }
+    y=this.dc[ch].p(y)*this.comp*this.pk;
+    if(p.ft&&p.fpos===1)y=this.filt(y,ch);
+    y=(dry*(1-p.mix)+y*p.mix)*this.lvl;
+    const a=Math.abs(y);this.env+=(a>this.env?this.aAtk:this.aRel)*(a-this.env);
+    return y;}
+}
+
+// ---------- the device ----------
+class MawCore{
+  constructor(sr){this.sr=sr;this.P=defaultParams();
+    this.stages=this.P.stages.map(p=>new Stage(sr,this.P,p));
+    this.xo=[[new LR4(),new LR4()],[new LR4(),new LR4()]]; // [ch][xo]
+    this.dl=[new Delay(Math.ceil(sr)),new Delay(Math.ceil(sr))];this.fbLP=[new OnePole(),new OnePole()];this.fbHP=[new SVF(),new SVF()];this.fbT=100;this.fbTarget=100;this.fbNorm=1;this.aFbT=1-Math.exp(-1/(0.00694*sr)); /* M7: loop-time slew tau 6.94 ms (was 0.003/sample) */
+    {const ns=sec=>Math.floor(sec*sr+0.5);this.tpW=ns(0.05);this.tpH=[ns(0.25),ns(3.0)];this.tpF=[ns(0.25),ns(1.0)];this.tpUp=1/(0.002*sr);this.tpSil=0;this.tpG=1;} /* D-067 taper, sample counts as the C++ rounds them */
+    this.voices=[];for(let i=0;i<8;i++)this.voices.push({on:false,gate:false,note:0,f:110,ph:[0,0,0],env:0,age:0});
+    this.lastF=110;this.smp=null;this.spos=0;this.k=0;this.envF=0;this.aA=0.1;this.aR=0.01;this.lfoPh=0;this.lfo=0;
+    this.sL=0;this.sR=0;this.age=0;this.mods=[{},{},{}];this.ig=1;this.og=1;this.wet=1;this.cmp=new OutComp(sr);this.cmpA=0;this.aCmp=1-Math.exp(-(32/sr)/0.010); /* D-044 */this.rng=new RNG(0x51ED);for(const s of this.stages)s.rnd=this.rng;
+    for(let i=0;i<3;i++)this.stages[i].injR=[new M32(0x1A5E0000+2*i),new M32(0x1A5E0000+2*i+1)]; /* D-045: inject's own streams, seeded as mawcore/core.h */
+    /* D-047 fbGate: its own input follower 1 ms / 2 ms (2 keeps "quiet within 100 ms": 10 ms closed at ~107), linear ramp 1 ms up / 50 ms down; as mawcore/core.h */
+    this.aGA=1-Math.exp(-1/(0.001*sr));this.aGR=1-Math.exp(-1/(0.002*sr));this.gUp=1/(0.001*sr);this.gDown=1/(0.050*sr);this.gEnv=0;this.gG=0;this.fbOnT=false;
+    this.lStep=1/(0.010*sr);this.loopF=0;this.loopT=0;this.lastRoute=-1;
+    this.gRampN=0.020*sr;this.igT=1;this.ogT=1;this.igStep=0;this.ogStep=0;this.gainsPrimed=false; /* D-049: gain ramp state (horde B435) */
+    this.tiltPre=new Tilt();this.tiltPost=new Tilt();this.preA=0;this.postA=0;this.toneLog=0;this.tonePrimed=false;} /* D-052 */ /* D-047: loop factor (on/off x polarity), ramped 10 ms; a route change snaps it */
+  // M1: clears every signal state. Called by the NaN/Inf watchdog in process(); exposed for the M1 ABI's reset.
+  // AUDIO memory only — the NaN watchdog calls this (D-036).
+  clearSignal(){for(const s of this.stages)s.clearSignal();for(const c of this.xo){c[0].reset();c[1].reset();}this.dl[0].reset();this.dl[1].reset();this.fbLP[0].reset();this.fbLP[1].reset();this.fbHP[0].reset();this.fbHP[1].reset();this.cmp.reset();this.envF=0;this.sL=0;this.sR=0;this.gEnv=0;this.gG=0;this.tiltPre.reset();this.tiltPost.reset();}
+  // D-036, ruled: a host reset SNAPS TO THE CURRENT SETTINGS. Afterwards the output is a function of
+  // the parameters alone — identical to a module that started at these settings, with no glide —
+  // which is the reset-determinism FOUNDATIONS holds a declaration to. Every piece of state a fresh
+  // module starts from is restored here, and the contract test enumerates nothing: it compares
+  // outputs, so any state this misses fails it. Allocates nothing (hosts reset on the audio thread).
+  reset(){this.clearSignal();this.k=0;this.tpSil=0;this.tpG=1;this.lfoPh=0;this.lfo=0;this.rng.reset(); /* D-067: the taper opens */
+    this.control(true);
+    for(const s of this.stages){s.g0=s.g1;s.bs0=s.bs1;s.m0=s.m1;s.comp0=s.comp1;s.pk0=s.pk1;s.dAmt0=s.dAmt1;s.iAmt0=s.iAmt1;s.injR[0].reset();s.injR[1].reset();}
+    this.loopF=this.loopT; /* D-047: the loop factor lands on its target */
+    this.ig=this.igT;this.og=this.ogT;this.igStep=0;this.ogStep=0; /* D-049: open at the saved gains */
+    this.fbT=this.fbTarget;}
+  msg(d){if(d.t==='p')this.setParams(d.P);else if(d.t==='on')this.noteOn(d.n,d.v);else if(d.t==='off')this.noteOff(d.n);
+    else if(d.t==='smp'){this.smp={L:d.L,R:d.R,n:d.L.length};this.spos=0;}else if(d.t==='panic'){for(const v of this.voices){v.on=false;v.gate=false;}}}
+  setParams(P){const latchWas=this.P.latch;Object.assign(this.P,P);for(let i=0;i<3;i++){Object.assign(this.P.stages[i],P.stages[i]);this.stages[i].p=this.P.stages[i];}
+    if(latchWas&&!this.P.latch)for(const v of this.voices)v.gate=false;}
+  noteOn(n,vel){let v=this.voices.find(v=>v.on&&v.note===n)||this.voices.find(v=>!v.on);
+    if(!v){v=this.voices.reduce((a,b)=>a.age<b.age?a:b);}
+    v.on=true;v.gate=true;v.note=n;v.f=440*Math.pow(2,(n-69)/12);v.age=++this.age;v.vel=vel||1;this.lastF=v.f;}
+  noteOff(n){if(this.P.latch)return;for(const v of this.voices)if(v.on&&v.note===n)v.gate=false;}
+  control(snap){const P=this.P,sr=this.sr,dt=32/sr;
+    {const ti=dB2g(P.inGain),to=dB2g(P.out); /* D-049 (horde B435): 20 ms linear-in-amplitude ramp; the first tick or a reset opens at the target */
+     if(!this.gainsPrimed||snap){this.ig=this.igT=ti;this.og=this.ogT=to;this.igStep=0;this.ogStep=0;this.gainsPrimed=true;}
+     if(ti!==this.igT){this.igT=ti;this.igStep=(this.igT-this.ig)/this.gRampN;}if(to!==this.ogT){this.ogT=to;this.ogStep=(this.ogT-this.og)/this.gRampN;}}this.wet=P.wet;
+    {const t=clamp(P.tone===undefined?0:P.tone,-2,2) /* D-060: ±2 = ±12 dB; 1 is still 6 dB */,preT=P.toneComp?-t:t,postT=P.toneComp?t:0,fT=Math.log2(clamp(P.toneHz===undefined?700:P.toneHz,20,0.45*sr)); /* D-052: Tone glides on the floor; amounts land exactly on 0; the first tick opens at the saved Tone */
+     const land=snap||!this.tonePrimed;this.tonePrimed=true;const preWas=this.preA!==0,postWas=this.postA!==0;
+     this.preA+=land?(preT-this.preA):this.aCmp*(preT-this.preA);this.postA+=land?(postT-this.postA):this.aCmp*(postT-this.postA);this.toneLog+=land?(fT-this.toneLog):this.aCmp*(fT-this.toneLog);
+     if(preT===0&&Math.abs(this.preA)<1e-6)this.preA=0;if(postT===0&&Math.abs(this.postA)<1e-6)this.postA=0;
+     const fc=Math.pow(2,this.toneLog);if(this.preA!==0)this.tiltPre.set(this.preA,fc,sr,land||!preWas);if(this.postA!==0)this.tiltPost.set(this.postA,fc,sr,land||!postWas);}
+    {const t=clamp(P.cmpAmt===undefined?0:P.cmpAmt,0,1);this.cmpA+=snap?(t-this.cmpA):this.aCmp*(t-this.cmpA);if(t===0&&this.cmpA<1e-6)this.cmpA=0;} /* D-044: glide; land exactly on 0 */
+    this.aA=1-Math.exp(-1/(P.envA*0.001*sr));this.aR=1-Math.exp(-1/(P.envR*0.001*sr));
+    this.lfoPh=(this.lfoPh+P.lfoRate*dt)%1;this.lfo=Math.sin(TAU*this.lfoPh);
+    const e0=this.stages[0].env,e1=this.stages[1].env,e2=this.stages[2].env,sum=e0+e1+e2; /* M12: no per-tick allocation */
+    for(let i=0;i<3;i++){const s=this.stages[i];
+      s.walk+=2*(0-s.walk)*dt+P.flux*0.8*Math.sqrt(dt)*this.rng.gauss();s.walk=clamp(s.walk,-0.6,0.6);
+      const other=(sum-this.stages[i].env)*0.5; const eco=-P.eco*36*other;
+      const m=this.mods[i];m.drive=P.mod.ed*24*this.envF+P.mod.ld*24*this.lfo+eco;m.cut=P.mod.ec*4*this.envF+P.mod.lc*3*this.lfo;
+      m.morph=P.mod.em*this.envF;m.bias=P.mod.lb*0.6*this.lfo;s.control(m,snap);}
+    if(P.route===2){for(const c of this.xo){c[0].set(P.xo1,sr);c[1].set(Math.max(P.xo2,P.xo1*1.5),sr);}}
+    this.fbOnT=!!P.fbOn&&P.route!==4; /* D-047: read once per control tick */
+    this.loopT=(P.route===4||this.fbOnT?1:0)*(P.fbInv?-1:1);if(P.route!==this.lastRoute){this.loopF=this.loopT;this.lastRoute=P.route;}
+    {this.fbTarget=clamp(P.fbMode===0?sr/(this.lastF*Math.pow(2,P.fbSemi/12)):P.fbMs*0.001*sr,2,this.dl[0].n-3); /* M15: un-tracking happens here, visibly, not inside read() */ /* D-047: kept current on every route */
+      this.fbLP[0].set(P.fbDamp,sr);this.fbLP[1].set(P.fbDamp,sr);this.fbHP[0].set(P.fbHp,0.7071,sr);this.fbHP[1].set(P.fbHp,0.7071,sr);}
+    if(P.route===4){
+      // Normalise the loop so fbAmt = 1 is the limit-cycle threshold (ADR-1 as amended by D-017): each stage's gain is the
+      // SUPREMUM over amplitude of |f(bs±u)-f(bs)|/u, probed log-spaced over the curve's own domain (u = 1e-4 … 3.2). The
+      // shipped two-point slope at the bias saw neither a quantiser's step (crush read 0.25, true 1.76), a ridge's swing
+      // (polynomial 1.31 vs 2.32) nor a rectifier's DC gain (0.75 vs 1.5), so those loops ran above unity and rang.
+      // The clamp ceiling was 400, then 1e4 (audit M3: fractal's 5.6 × g at 40 dB was clamped), both reasoned for ONE stage.
+      // D-046 (Q-018): stages multiply — three at drive 40 need 1e6 — so the ceiling is now 1e30: finite, never binding.
+      let gain=1;for(let i=0;i<=P.fbTap;i++){if(!this.stages[i].p.on)continue;gain*=this.stageBound(this.stages[i]);}
+      this.fbNorm=1/clamp(gain,0.05,1e30);}
+    else if(this.fbOnT||this.loopF!==0){ /* D-047: per topology (also while ramping out) — series Π, parallel Σ, multiband max (A2), mid/side b3·max(b1,b2); an off stage counts 1 */
+      const b=[0,1,2].map(i=>this.stages[i].p.on?this.stageBound(this.stages[i]):1);let gain;
+      switch(P.route){case 0:gain=b[0]*b[1]*b[2];break;case 1:gain=b[0]+b[1]+b[2];break;
+        case 2:gain=Math.max(b[0],Math.max(b[1],b[2]));break; /* D-047 A2: the hottest band (bands sum to 1 in magnitude); onset 1.00-1.05 measured */default:gain=b[2]*Math.max(b[0],b[1]);}
+      this.fbNorm=1/clamp(gain,0.05,1e30);}}
+  stageBound(s){ /* one stage's loop-gain bound (D-042); draws the RNG through shape() on the noise curve, so the global loop's normaliser runs only while fbOn is on */
+        let sup=0.25;const f0=s.shape(s.bs);for(let q=0;q<16;q++){const u=Math.pow(10,-4+4.5*q/15);const yp=Math.abs(s.shape(s.bs+u)-f0)/u,yn=Math.abs(s.shape(s.bs-u)-f0)/u;if(yp>sup)sup=yp;if(yn>sup)sup=yn;}
+        // D-042 (amends D-030): lvl*((1-mix) + mix*sup*g*pk*comp*filterPeak) — the filter's TRUE
+        // peak on the wet path only (Q under-counts lp/hp: at res 0 route 4 grew at fbAmt 0.9),
+        // drive-ref's pk (g holds g/pk), and each coefficient's larger endpoint (the audio ramps
+        // between them over the next 32 samples). Term for term as mawcore/core.h.
+        const g=Math.max(s.g0,s.g1),pkv=Math.max(s.pk0,s.pk1),cmp=Math.max(s.comp0,s.comp1);
+        const fpk=filterPeak(s.p.ft|0,s.p.res);
+        return s.lvl*((1-s.p.mix)+s.p.mix*sup*g*pkv*cmp*fpk);}
+  loopGain(){const P=this.P;let k=P.fbAmt*this.fbNorm;if(this.loopF!==1)k*=this.loopF;if(P.fbGate)k*=this.gG;return k;} /* D-047: the ramped loop factor keeps the magnitude's bound; the gate multiplies by [0,1] */
+  source(){const P=this.P,sr=this.sr;let L=0,R=0;
+    if(P.src==='sample'){if(this.smp){const s=this.smp;L=s.L[this.spos];R=s.R[this.spos];this.spos++;if(this.spos>=s.n)this.spos=0;}this.sL=L;this.sR=R;return;}
+    const attA=1-Math.exp(-1/(0.003*sr)),relA=1-Math.exp(-1/(0.15*sr));
+    for(const v of this.voices){if(!v.on)continue;
+      v.env+=(v.gate?attA:relA)*((v.gate?1:0)-v.env);if(!v.gate&&v.env<1e-4){v.on=false;continue;}
+      const dt=v.f/sr;let y=0,l=0,r=0;
+      if(P.src==='sine'){v.ph[0]=(v.ph[0]+dt)%1;y=Math.sin(TAU*v.ph[0]);l=r=y;}
+      else if(P.src==='saw'){v.ph[0]=(v.ph[0]+dt)%1;y=saw(v.ph[0],dt);l=r=y;}
+      else if(P.src==='square'){v.ph[0]=(v.ph[0]+dt)%1;y=sqr(v.ph[0],dt);l=r=y;}
+      else if(P.src==='pulse'){v.ph[0]=(v.ph[0]+dt)%1;y=0.5*(saw(v.ph[0],dt)-saw((v.ph[0]+0.12)%1,dt));l=r=y;}
+      else{const d=Math.pow(2,P.spread/1200);const d0=dt,d1=dt/d,d2=dt*d;
+        v.ph[0]=(v.ph[0]+d0)%1;v.ph[1]=(v.ph[1]+d1)%1;v.ph[2]=(v.ph[2]+d2)%1;
+        const c=saw(v.ph[0],d0),a=saw(v.ph[1],d1),b=saw(v.ph[2],d2);
+        l=0.45*c+0.6*a+0.2*b;r=0.45*c+0.2*a+0.6*b;}
+      L+=l*v.env*0.35*v.vel;R+=r*v.env*0.35*v.vel;}
+    this.sL=L;this.sR=R;}
+  process(outL,outR,n){const S=this.stages,P=this.P;
+    for(let i=0;i<n;i++){
+      if((this.k&31)===0)this.control();const tt=(this.k&31)/32;S[0].tick(tt);S[1].tick(tt);S[2].tick(tt);this.k++;
+      if(this.ig!==this.igT)this.ig=this.igStep>0?Math.min(this.igT,this.ig+this.igStep):Math.max(this.igT,this.ig+this.igStep); /* D-049 */
+      if(this.og!==this.ogT)this.og=this.ogStep>0?Math.min(this.ogT,this.og+this.ogStep):Math.max(this.ogT,this.og+this.ogStep);
+      this.source();
+      /* D-067 taper: term for term as the C++ (core.h) */
+      if(P.taper>=2||Math.max(Math.abs(this.sL),Math.abs(this.sR))>=1e-5){this.tpSil=0;if(this.tpG<1)this.tpG=this.tpG===0?1:Math.min(1,this.tpG+this.tpUp);}
+      else{if(this.tpSil<1099511627776)this.tpSil++;const tx=P.taper<1?0:1,pos=this.tpSil-(this.tpW+this.tpH[tx]);if(pos>0&&this.tpG>0){const t=1-pos/this.tpF[tx];this.tpG=Math.min(this.tpG,t>0?t:0);if(this.tpG===0)this.clearSignal();}}
+      const tpMute=this.tpG===0;
+      const xL=tpMute?0:this.sL*this.ig,xR=tpMute?0:this.sR*this.ig;
+      const a=Math.abs(xL+xR)*0.5;this.envF+=(a>this.envF?this.aA:this.aR)*(a-this.envF);
+      let yL,yR;
+      if(this.loopF!==this.loopT)this.loopF=this.loopF<this.loopT?Math.min(this.loopT,this.loopF+this.lStep):Math.max(this.loopT,this.loopF-this.lStep); /* D-047: 10 ms ramp */
+      {const ax=Math.max(Math.abs(xL),Math.abs(xR));this.gEnv+=(ax>this.gEnv?this.aGA:this.aGR)*(ax-this.gEnv); /* D-047 fbGate follower, always warm */
+       if(this.gEnv>0.001)this.gG=Math.min(1,this.gG+this.gUp);else this.gG=Math.max(0,this.gG-this.gDown);}
+      let pL=xL,pR=xR; /* D-052: the input Tone (pre-tilt); dry stays xL/xR; the loop's return is summed after it; skipped at 0 */
+      if(this.preA!==0){this.tiltPre.step();pL=this.tiltPre.p(xL,0);pR=this.tiltPre.p(xR,1);}else{this.tiltPre.pass(xL,0);this.tiltPre.pass(xR,1);}
+      let txL=pL,txR=pR; /* D-047: routes 0-3 in the loop; the delay is read and filtered every sample, only the sum is gated (fbOnT); dry stays xL/xR */
+      if(P.route!==4){this.fbT+=this.aFbT*(this.fbTarget-this.fbT);this.fbHP[0].p(this.fbLP[0].p(this.dl[0].read(this.fbT)));this.fbHP[1].p(this.fbLP[1].p(this.dl[1].read(this.fbT)));
+        if(this.loopF!==0){const kk=this.loopGain();txL=pL+kk*this.fbHP[0].hp;txR=pR+kk*this.fbHP[1].hp;}}
+      switch(P.route){
+        case 0:yL=S[2].process(S[1].process(S[0].process(txL,0),0),0);yR=S[2].process(S[1].process(S[0].process(txR,1),1),1);break;
+        case 1:yL=S[0].process(txL,0)+S[1].process(txL,0)+S[2].process(txL,0);yR=S[0].process(txR,1)+S[1].process(txR,1)+S[2].process(txR,1);break;
+        case 2:{const c=this.xo[0];c[0].split(txL);c[1].split(c[0].hi);yL=S[0].process(c[0].lo,0)+S[1].process(c[1].lo,0)+S[2].process(c[1].hi,0);
+                const d=this.xo[1];d[0].split(txR);d[1].split(d[0].hi);yR=S[0].process(d[0].lo,1)+S[1].process(d[1].lo,1)+S[2].process(d[1].hi,1);break;}
+        case 3:{let m=S[0].process((txL+txR)*0.5,0),s=S[1].process((txL-txR)*0.5,1);yL=S[2].process(m+s,0);yR=S[2].process(m-s,1);break;}
+        default:{this.fbT+=this.aFbT*(this.fbTarget-this.fbT);const k=this.loopGain(); /* D-047: invert / gate if on */
+                this.fbHP[0].p(this.fbLP[0].p(this.dl[0].read(this.fbT)));this.fbHP[1].p(this.fbLP[1].p(this.dl[1].read(this.fbT)));
+                const fL=this.fbHP[0].hp,fR=this.fbHP[1].hp;
+                let tL=S[0].process(pL+k*fL,0),tR=S[0].process(pR+k*fR,1);if(P.fbTap===0){this.dl[0].write(Math.tanh(tL));this.dl[1].write(Math.tanh(tR));}
+                tL=S[1].process(tL,0);tR=S[1].process(tR,1);if(P.fbTap===1){this.dl[0].write(Math.tanh(tL));this.dl[1].write(Math.tanh(tR));}
+                yL=S[2].process(tL,0);yR=S[2].process(tR,1);if(P.fbTap===2){this.dl[0].write(Math.tanh(yL));this.dl[1].write(Math.tanh(yR));}}}
+      {const gc=this.cmp.gain(yL,yR,!!P.cmpHp,this.cmpA);if(this.cmpA>0){yL*=gc;yR*=gc;}} /* D-044: output compressor, wet path, before the mix */
+      if(P.route!==4){this.dl[0].write(Math.tanh(yL));this.dl[1].write(Math.tanh(yR));} /* D-047: the global loop's tap, after the compressor, written whatever fbOn says */
+      if(this.postA!==0){this.tiltPost.step();yL=this.tiltPost.p(yL,0);yR=this.tiltPost.p(yR,1);}else{this.tiltPost.pass(yL,0);this.tiltPost.pass(yR,1);} /* D-052: colour compensation's inverse, after the tap */
+      const w=this.wet;
+      let oL=(xL*(1-w)+yL*w)*this.og,oR=(xR*(1-w)+yR*w)*this.og; /* D-020: no output clamp — the port has none (horde D4) and the clamp was the sole DC source */
+      if(this.tpG!==1){if(tpMute){oL=0;oR=0;}else{oL*=this.tpG;oR*=this.tpG;}} /* D-067 */
+      if(!(Number.isFinite(oL)&&Number.isFinite(oR))){this.clearSignal();oL=0;oR=0;} /* audio-only: a glitch must not jump a parameter (D-036) */ /* M1: a non-finite sample clears all state instead of poisoning it forever */
+      outL[i]=oL;outR[i]=oR;}}
+}
+function blep(t,dt){if(t<dt){t/=dt;return t+t-t*t-1;}if(t>1-dt){t=(t-1)/dt;return t*t+t+t+1;}return 0;}
+function saw(t,dt){return 2*t-1-blep(t,dt);}
+function sqr(t,dt){let y=t<0.5?1:-1;y+=blep(t,dt);y-=blep((t+0.5)%1,dt);return y;}
+return {MawCore,SHAPERS,AD,ROUTES,defaultParams,defaultStage,clamp,dB2g,RNG};
+}
+const CORE=defineCore();
+const {SHAPERS,ROUTES}=CORE;
+/*MODULE-PRESETS:BEGIN*/ /* GENERATED by tools/sync_proto.mjs — do not edit; tools/proto_check.mjs gates it */
+const MODULE_PRESETS=[{"id":"init","label":"Init","internal_defaults":{"s1.drive":0,"s1.shape":1,"s1.b":9,"s1.ft":1,"s1.fpos":1,"s1.cut":16000},"macroLaw":"modify","slots":{"1":{"label":"Character","bind":{"s1.morph":[0,1]},"home":0},"2":{"label":"Filter","bind":{"s1.cut":[-7.321928094887,0]},"home":1},"3":{"label":"Grit","bind":{"s1.inject":[0,1],"s1.res":[0,0.85]},"home":0},"4":{"label":"Squash","bind":{"cmpAmt":[0,1],"out":[0,20.5]},"home":0}}},{"id":"soft-drive","label":"Soft Drive","internal_defaults":{"s1.ft":1,"s1.fpos":1,"s1.cut":18000,"adaa":1,"s1.drive":18,"s1.morph":0.5,"s1.shape":0.5},"macroLaw":"modify","slots":{"1":{"label":"Character","bind":{"s1.morph":[-0.5,0.5],"s1.shape":[-0.3,0.3]}},"2":{"label":"Filter","bind":{"s1.cut":[-7.49185309633,0]},"home":1},"3":{"label":"Grit","bind":{"s1.inject":[0,1],"s1.res":[0,0.85]},"home":0},"4":{"label":"Squash","bind":{"cmpAmt":[0,1],"out":[0,24]},"home":0}}},{"id":"growl","label":"growl","internal_defaults":{"auto":0.7,"eco":0.3,"out":-6,"s2.on":1,"s1.drive":14,"s2.drive":14,"s3.drive":12,"s2.bias":0.2,"s1.a":3,"s2.a":4,"s1.b":10,"s1.morph":0.15,"s1.shape":0.5,"s2.shape":0.5,"s1.ft":1,"s2.ft":5,"s2.fpos":0,"s1.cut":18000,"s2.cut":1000,"s1.res":0.5,"s2.res":0.75},"macroLaw":"modify","slots":{"1":{"label":"Character","bind":{"s1.morph":[-0.15,0.85],"s1.shape":[-0.0882,0.5],"s2.shape":[-0.0882,0.5]},"home":0.15},"2":{"label":"Filter","bind":{"s1.cut":[-6.321928094887,0]},"home":1},"3":{"label":"Grit","bind":{"s1.inject":[0,1],"s1.res":[0,0.5]},"home":0},"4":{"label":"Squash","bind":{"cmpAmt":[0,1],"out":[0,22.4]},"home":0}}},{"id":"cheby-ladder","label":"cheby ladder","internal_defaults":{"auto":0.7,"driveRef":1,"out":2.5,"s2.on":1,"s1.drive":-3,"s3.drive":12,"s1.a":9,"s1.shape":0.5,"s1.mix":0.8,"s2.b":9,"s2.drive":0},"macroLaw":"modify","slots":{"1":{"label":"Character","bind":{"s2.morph":[0,1],"s1.shape":[0,0.5],"s2.shape":[0,0.7]},"home":0},"2":{"label":"Squash","bind":{"cmpAmt":[0,1],"out":[0,14.1]},"home":0}}},{"id":"fold","label":"fold","internal_defaults":{"auto":0.7,"out":-6.2,"s2.on":1,"s1.drive":4,"s2.drive":3,"s3.drive":12,"s1.a":5,"s2.shape":0.2,"s1.ft":1,"s2.ft":5,"s1.fpos":0,"s1.cut":18000,"s1.res":0.2,"s2.res":0.25,"s1.b":6},"macroLaw":"modify","slots":{"1":{"label":"Character","bind":{"s1.morph":[0,1],"s1.shape":[0,0.7],"s2.shape":[0,0.8]},"home":0},"2":{"label":"Filter","bind":{"s1.cut":[-7.684498174272,0]},"home":1},"3":{"label":"Grit","bind":{"s1.inject":[0,1],"s1.res":[0,0.8]},"home":0},"4":{"label":"Squash","bind":{"cmpAmt":[0,1],"out":[0,22.1]},"home":0}}},{"id":"polynomial-screech","label":"polynomial screech","internal_defaults":{"auto":0.7,"out":-4.9,"s2.on":1,"s1.drive":12,"s2.drive":8,"s3.drive":12,"s2.a":2,"s1.b":10,"s1.morph":0.7,"s1.shape":0.8,"s2.shape":0.4,"s1.floor":0.01,"s1.ft":1,"s1.cut":18000,"s1.res":0.3},"macroLaw":"modify","slots":{"1":{"label":"Character","bind":{"s1.morph":[-0.7,0.3],"s1.shape":[-0.4667,0.2],"s2.shape":[-0.4,0.1714]},"home":0.7},"2":{"label":"Filter","bind":{"s1.cut":[-5.169925001442,0]},"home":1},"3":{"label":"Grit","bind":{"s1.inject":[0,1],"s1.res":[0,0.7]},"home":0},"4":{"label":"Squash","bind":{"cmpAmt":[0,1],"out":[0,22.9]},"home":0}}},{"id":"fractal-grit","label":"fractal grit","internal_defaults":{"route":2,"auto":0.7,"eco":0.4,"out":-4.6,"xo1":180,"xo2":2400,"s2.on":1,"s3.on":1,"s1.drive":4,"s3.drive":8,"s1.a":3,"s2.a":11,"s3.a":12,"s3.b":12,"s3.morph":0.3,"s1.shape":0.6,"s2.shape":0.8,"s3.shape":0.6,"s2.floor":0.01,"s3.floor":0.01,"s1.ft":1,"s1.cut":400,"s3.level":-4,"s1.b":12,"s2.b":12},"macroLaw":"modify","slots":{"1":{"label":"Character","bind":{"s1.morph":[0,1],"s2.morph":[0,1],"s3.morph":[0,0.7]},"home":0},"2":{"label":"Grit","bind":{"s1.inject":[0,1],"s2.inject":[0,1],"s3.inject":[0,1]},"home":0},"3":{"label":"Squash","bind":{"cmpAmt":[0,1],"out":[0,23.2]},"home":0}}},{"id":"pitch-tracked-feedback","label":"pitch-tracked feedback","internal_defaults":{"route":4,"auto":0.7,"out":0.1,"fbAmt":0.75,"fbSemi":7,"fbDamp":3500,"fbHp":120,"fbTap":0,"s2.on":1,"s3.on":1,"s1.drive":4,"s3.drive":4,"s1.a":2,"s2.a":1,"s3.a":4,"s2.shape":0.5,"s2.ft":3,"s3.ft":1,"s2.cut":200,"s3.cut":5000,"s2.b":9,"s3.b":9,"adaa":1},"macroLaw":"modify","slots":{"1":{"label":"Character","bind":{"s2.morph":[0,1],"s3.morph":[0,1]},"home":0},"2":{"label":"Filter","bind":{"s2.cut":[-2,2]}},"3":{"label":"Grit","bind":{"s1.inject":[0,1],"s2.res":[0,0.85]},"home":0},"4":{"label":"Squash","bind":{"cmpAmt":[0,1],"out":[0,20.4]},"home":0}}},{"id":"inertia-sweep","label":"inertia sweep","internal_defaults":{"auto":0.7,"inertia":0.7,"out":-4.6,"s2.on":1,"s1.drive":6,"s2.drive":10,"s3.drive":12,"s2.bias":0.1,"s1.a":5,"s2.a":4,"s1.shape":0.6,"s1.ft":2,"s1.cut":1200,"s1.res":0.6,"s2.b":6,"adaa":1},"macroLaw":"modify","slots":{"1":{"label":"Character","bind":{"s2.morph":[0,1],"s1.shape":[0,0.4],"s2.shape":[0,0.7]},"home":0},"2":{"label":"Filter","bind":{"s1.cut":[-2,2]}},"3":{"label":"Grit","bind":{"s1.inject":[0,1],"s1.res":[0,0.4]},"home":0},"4":{"label":"Squash","bind":{"cmpAmt":[0,1],"out":[0,18.1]},"home":0}}},{"id":"flux-chaos","label":"flux chaos","internal_defaults":{"route":1,"eco":-0.4,"flux":0.8,"out":-8.8,"s2.on":1,"s3.on":1,"s1.drive":6,"s3.drive":12,"s1.a":5,"s2.a":8,"s3.a":10,"s1.b":6,"s2.b":9,"s3.b":11,"s1.morph":0.5,"s2.morph":0.5,"s3.morph":0.5,"s2.shape":0.5,"s3.shape":0.7,"s3.floor":0.01,"s1.level":-6,"s2.level":-6,"s3.level":-6},"macroLaw":"modify","slots":{"1":{"label":"Character","bind":{"s1.morph":[-0.5,0.5],"s1.shape":[-0.3,0.3],"s2.shape":[-0.5,0.5],"s3.shape":[-0.3,0.3]}},"2":{"label":"Grit","bind":{"s1.inject":[0,1]},"home":0},"3":{"label":"Motion","bind":{"flux":[-0.2,0.2],"eco":[-0.3,0.3]}},"4":{"label":"Squash","bind":{"cmpAmt":[0,1],"out":[0,27.9]},"home":0}}},{"id":"crush-in-the-feedback-loop","label":"crush in the feedback loop","internal_defaults":{"route":4,"auto":0.7,"out":-4.2,"fbAmt":0.6,"fbMode":1,"fbMs":5,"fbDamp":8000,"fbTap":0,"s1.drive":14,"s2.drive":12,"s3.drive":12,"s1.a":7,"s1.shape":0.5,"s1.floor":0.01,"s1.b":12},"macroLaw":"modify","slots":{"1":{"label":"Character","bind":{"s1.morph":[0,1],"s1.shape":[0,0.5]},"home":0},"2":{"label":"Grit","bind":{"s1.inject":[0,1]},"home":0},"3":{"label":"Squash","bind":{"cmpAmt":[0,1],"out":[0,22.3]},"home":0}}},{"id":"cheby-at-rest","label":"cheby at rest","internal_defaults":{"auto":0.7,"out":-6.6,"s2.on":1,"s1.drive":6,"s2.drive":4,"s3.drive":12,"s1.a":9,"s1.mix":0.9},"macroLaw":"modify","slots":{"1":{"label":"Character","bind":{"s1.shape":[-0.3,0.7],"s2.shape":[-0.3,0.7]},"home":0.3},"2":{"label":"Grit","bind":{"s1.inject":[0,1]},"home":0},"3":{"label":"Squash","bind":{"cmpAmt":[0,1],"out":[0,21.7]},"home":0}}},{"id":"shards-release-tail","label":"shards release tail","internal_defaults":{"auto":0.7,"out":-3.9,"s1.drive":18,"s2.drive":12,"s3.drive":12,"s1.a":12,"s1.shape":0.8,"s1.ft":1,"s1.cut":18000},"macroLaw":"modify","slots":{"1":{"label":"Character","bind":{"s1.shape":[-0.8,0.2]},"home":0.8},"2":{"label":"Filter","bind":{"s1.cut":[-4.169925001442,0]},"home":1},"3":{"label":"Grit","bind":{"s1.inject":[0,1],"s1.res":[0,0.85]},"home":0},"4":{"label":"Squash","bind":{"cmpAmt":[0,1],"out":[0,22.7]},"home":0}}}];
+const STEPPED=new Set(["route","adaa","driveRef","fbMode","fbSemi","fbTap","cmpHp","fbOn","fbInv","fbGate","toneComp","taper","oversample","s1.on","s2.on","s3.on","s1.a","s2.a","s3.a","s1.b","s2.b","s3.b","s1.ft","s2.ft","s3.ft","s1.fpos","s2.fpos","s3.fpos","s1.detail","s2.detail","s3.detail"]);
+const macroShape=function shape(curve, lo, hi, v) {
+  if (v <= 0) return lo;
+  if (v >= 1) return hi;
+  if (curve === 'exp') return lo + (hi - lo) * v * v;
+  if (curve === 'log') return lo * Math.pow(hi / lo, v);
+  return lo + (hi - lo) * v;
+};
+const PARAM_TABLE=new Map([["inGain",{"type":"kS","min":-24,"max":24,"def":0,"device":false,"unit":"dB"}],["route",{"type":"kT","min":0,"max":4,"def":0,"device":false,"unit":""}],["adaa",{"type":"kT","min":0,"max":1,"def":0,"device":false,"unit":""}],["auto",{"type":"kS","min":0,"max":1,"def":0,"device":false,"unit":""}],["driveRef",{"type":"kT","min":0,"max":1,"def":0,"device":false,"unit":""}],["inertia",{"type":"kS","min":0,"max":1,"def":0,"device":false,"unit":""}],["eco",{"type":"kS","min":-1,"max":1,"def":0,"device":false,"unit":""}],["flux",{"type":"kS","min":0,"max":1,"def":0,"device":false,"unit":""}],["wet",{"type":"kS","min":0,"max":1,"def":1,"device":false,"unit":""}],["out",{"type":"kS","min":-36,"max":24,"def":0,"device":false,"unit":"dB"}],["xo1",{"type":"kS","min":40,"max":2000,"def":200,"device":false,"unit":"Hz"}],["xo2",{"type":"kS","min":400,"max":12000,"def":2000,"device":false,"unit":"Hz"}],["fbAmt",{"type":"kS","min":0,"max":1.2,"def":0.3,"device":false,"unit":""}],["fbMode",{"type":"kT","min":0,"max":1,"def":0,"device":false,"unit":""}],["fbSemi",{"type":"kT","min":-24,"max":24,"def":0,"device":false,"unit":"st"}],["fbMs",{"type":"kS","min":0.1,"max":200,"def":8,"device":false,"unit":"ms"}],["fbDamp",{"type":"kS","min":200,"max":16000,"def":5000,"device":false,"unit":"Hz"}],["fbHp",{"type":"kS","min":20,"max":1000,"def":80,"device":false,"unit":"Hz"}],["fbTap",{"type":"kT","min":0,"max":2,"def":2,"device":false,"unit":""}],["cmpAmt",{"type":"kS","min":0,"max":1,"def":0,"device":false,"unit":""}],["cmpHp",{"type":"kT","min":0,"max":1,"def":0,"device":false,"unit":""}],["fbOn",{"type":"kT","min":0,"max":1,"def":0,"device":false,"unit":""}],["fbInv",{"type":"kT","min":0,"max":1,"def":0,"device":false,"unit":""}],["fbGate",{"type":"kT","min":0,"max":1,"def":0,"device":false,"unit":""}],["tone",{"type":"kS","min":-2,"max":2,"def":0,"device":false,"unit":""}],["toneHz",{"type":"kS","min":100,"max":10000,"def":700,"device":false,"unit":"Hz"}],["toneComp",{"type":"kT","min":0,"max":1,"def":0,"device":false,"unit":""}],["taper",{"type":"kT","min":0,"max":2,"def":0,"device":false,"unit":""}],["oversample",{"type":"kT","min":0,"max":1,"def":1,"device":true,"unit":""}],["driveTrim",{"type":"kS","min":-24,"max":36,"def":0,"device":false,"unit":"dB"}],["s1.on",{"type":"kT","min":0,"max":1,"def":1,"unit":""}],["s2.on",{"type":"kT","min":0,"max":1,"def":0,"unit":""}],["s3.on",{"type":"kT","min":0,"max":1,"def":0,"unit":""}],["s1.drive",{"type":"kS","min":-12,"max":48,"def":6,"unit":"dB"}],["s2.drive",{"type":"kS","min":-12,"max":48,"def":6,"unit":"dB"}],["s3.drive",{"type":"kS","min":-12,"max":48,"def":6,"unit":"dB"}],["s1.bias",{"type":"kS","min":-1,"max":1,"def":0,"unit":""}],["s2.bias",{"type":"kS","min":-1,"max":1,"def":0,"unit":""}],["s3.bias",{"type":"kS","min":-1,"max":1,"def":0,"unit":""}],["s1.a",{"type":"kT","min":0,"max":15,"def":0,"unit":""}],["s2.a",{"type":"kT","min":0,"max":15,"def":0,"unit":""}],["s3.a",{"type":"kT","min":0,"max":15,"def":0,"unit":""}],["s1.b",{"type":"kT","min":0,"max":15,"def":5,"unit":""}],["s2.b",{"type":"kT","min":0,"max":15,"def":5,"unit":""}],["s3.b",{"type":"kT","min":0,"max":15,"def":5,"unit":""}],["s1.morph",{"type":"kS","min":0,"max":1,"def":0,"unit":""}],["s2.morph",{"type":"kS","min":0,"max":1,"def":0,"unit":""}],["s3.morph",{"type":"kS","min":0,"max":1,"def":0,"unit":""}],["s1.shape",{"type":"kS","min":0,"max":1,"def":0.3,"unit":""}],["s2.shape",{"type":"kS","min":0,"max":1,"def":0.3,"unit":""}],["s3.shape",{"type":"kS","min":0,"max":1,"def":0.3,"unit":""}],["s1.floor",{"type":"kS","min":0,"max":0.3,"def":0,"unit":""}],["s2.floor",{"type":"kS","min":0,"max":0.3,"def":0,"unit":""}],["s3.floor",{"type":"kS","min":0,"max":0.3,"def":0,"unit":""}],["s1.ft",{"type":"kT","min":0,"max":7,"def":0,"unit":""}],["s2.ft",{"type":"kT","min":0,"max":7,"def":0,"unit":""}],["s3.ft",{"type":"kT","min":0,"max":7,"def":0,"unit":""}],["s1.fpos",{"type":"kT","min":0,"max":1,"def":1,"unit":""}],["s2.fpos",{"type":"kT","min":0,"max":1,"def":1,"unit":""}],["s3.fpos",{"type":"kT","min":0,"max":1,"def":1,"unit":""}],["s1.cut",{"type":"kS","min":20,"max":18000,"def":2000,"unit":"Hz"}],["s2.cut",{"type":"kS","min":20,"max":18000,"def":2000,"unit":"Hz"}],["s3.cut",{"type":"kS","min":20,"max":18000,"def":2000,"unit":"Hz"}],["s1.res",{"type":"kS","min":0,"max":1,"def":0.15,"unit":""}],["s2.res",{"type":"kS","min":0,"max":1,"def":0.15,"unit":""}],["s3.res",{"type":"kS","min":0,"max":1,"def":0.15,"unit":""}],["s1.famt",{"type":"kS","min":0,"max":1,"def":0.5,"unit":""}],["s2.famt",{"type":"kS","min":0,"max":1,"def":0.5,"unit":""}],["s3.famt",{"type":"kS","min":0,"max":1,"def":0.5,"unit":""}],["s1.level",{"type":"kS","min":-24,"max":12,"def":0,"unit":"dB"}],["s2.level",{"type":"kS","min":-24,"max":12,"def":0,"unit":"dB"}],["s3.level",{"type":"kS","min":-24,"max":12,"def":0,"unit":"dB"}],["s1.mix",{"type":"kS","min":0,"max":1,"def":1,"unit":""}],["s2.mix",{"type":"kS","min":0,"max":1,"def":1,"unit":""}],["s3.mix",{"type":"kS","min":0,"max":1,"def":1,"unit":""}],["s1.detail",{"type":"kT","min":0,"max":1,"def":0,"unit":""}],["s2.detail",{"type":"kT","min":0,"max":1,"def":0,"unit":""}],["s3.detail",{"type":"kT","min":0,"max":1,"def":0,"unit":""}],["s1.damt",{"type":"kS","min":0,"max":1,"def":1,"unit":""}],["s2.damt",{"type":"kS","min":0,"max":1,"def":1,"unit":""}],["s3.damt",{"type":"kS","min":0,"max":1,"def":1,"unit":""}],["s1.dfreq",{"type":"kS","min":1000,"max":6000,"def":3000,"unit":"Hz"}],["s2.dfreq",{"type":"kS","min":1000,"max":6000,"def":3000,"unit":"Hz"}],["s3.dfreq",{"type":"kS","min":1000,"max":6000,"def":3000,"unit":"Hz"}],["s1.inject",{"type":"kS","min":0,"max":1,"def":0,"unit":""}],["s2.inject",{"type":"kS","min":0,"max":1,"def":0,"unit":""}],["s3.inject",{"type":"kS","min":0,"max":1,"def":0,"unit":""}]]);
+const FOLDING=[[5,"fold (sine→triangle)"],[8,"clip→wrap"],[9,"cheby (harmonic n)"],[12,"shards (count↑)"]];
+const FIXED_CONTROLS=[{"label":"Drive","key":"driveTrim"},{"label":"Tone","key":"tone"},{"label":"Output","key":"out"},{"label":"Mix","key":"wet"}];
+const VARIABLE_SLOTS=4;
+const macroValidate=function validate(doc, table = PARAM_TABLE, fixed = FIXED_CONTROLS, nSlots = VARIABLE_SLOTS) {
+  const errs = [];
+  if (!Array.isArray(doc.presets) || !doc.presets.length) errs.push('no presets');
+  const seen = new Set();
+  for (const p of doc.presets || []) {
+    if (p.id && seen.has(p.id)) errs.push(`preset ${p.id}: duplicate id`);
+    seen.add(p.id);
+    const at = `preset ${p.id ?? '?'}`;
+    if (!p.id) errs.push(`${at}: no id`);
+    for (const [k, v] of Object.entries(p.internal_defaults || {})) {
+      const r = table.get(k);
+      if (!r) errs.push(`${at}: default ${k} is not a parameter`);
+      else if (r.device) errs.push(`${at}: default ${k} is a Device key (never in a preset)`);
+      else if (!(v >= r.min && v <= r.max)) errs.push(`${at}: default ${k} = ${v} outside [${r.min}, ${r.max}]`);
+    }
+    if (p.macroLaw !== undefined && !['set', 'modify'].includes(p.macroLaw)) errs.push(`${at}: macroLaw ${p.macroLaw} is not set / modify`);
+    const modify = p.macroLaw === 'modify', span = {};   // modify: per key, the sum of every binding's [min, max] contribution
+    for (const [slot, s] of Object.entries(p.slots || {})) {
+      const sat = `${at} slot ${slot}`;
+      if (!(/^\d+$/.test(slot) && +slot >= 1 && +slot <= nSlots)) errs.push(`${sat}: variable slots are 1..${nSlots}`);
+      // D-077: a fixed control is a module parameter on every preset; a slot that binds nothing else duplicates it
+      const keys = Object.keys(s.bind || {});
+      if (keys.length && keys.every(k => fixed.some(f => f.key === k))) errs.push(`${sat}: binds only fixed controls (${keys.join(', ')}); they are module parameters (D-077)`);
+      if (!s.label || typeof s.label !== 'string') errs.push(`${sat}: no label`);
+      if (!s.bind || !Object.keys(s.bind).length) errs.push(`${sat}: no bindings`);
+      if (s.home !== undefined && !(typeof s.home === 'number' && s.home >= 0 && s.home <= 1)) errs.push(`${sat}: home ${s.home} outside [0, 1]`);
+      for (const [k, b] of Object.entries(s.bind || {})) {
+        const r = table.get(k);
+        if (!r) { errs.push(`${sat}: ${k} is not a parameter`); continue; }
+        if (r.device) { errs.push(`${sat}: ${k} is a Device key (never in a preset)`); continue; }
+        if (!Array.isArray(b) || b.length < 2 || b.length > 3) { errs.push(`${sat}: ${k} binding is not [lo, hi(, curve)]`); continue; }
+        const [lo, hi, curve = 'lin'] = b;
+        if (!['lin', 'exp', 'log'].includes(curve)) errs.push(`${sat}: ${k} curve ${curve} is not lin/exp/log`);
+        if (!(Number.isFinite(lo) && Number.isFinite(hi))) { errs.push(`${sat}: ${k} lo / hi are not numbers`); continue; }
+        if (modify) {
+          // horde ADR-251: under modify a `log` curve is invalid (a contribution range may cross zero); the range is
+          // an offset (octaves on a Hz key), checked below as the resolved extremes
+          if (curve === 'log') errs.push(`${sat}: ${k} log is invalid under the modify law`);
+          const sp = span[k] ||= [0, 0]; sp[0] += Math.min(lo, hi); sp[1] += Math.max(lo, hi);
+          continue;
+        }
+        for (const e of [lo, hi]) if (!(e >= r.min && e <= r.max)) errs.push(`${sat}: ${k} endpoint ${e} outside [${r.min}, ${r.max}]`);
+        if (curve === 'log' && !(lo !== 0 && hi !== 0 && Math.sign(lo) === Math.sign(hi))) errs.push(`${sat}: ${k} log needs nonzero endpoints of one sign`);
+      }
+    }
+    // modify: the resolved extremes, base ⊕ Σmin and base ⊕ Σmax, must stay inside the row (horde clamps; a range
+    // that runs past the row is travel the knob cannot be heard to make)
+    for (const [k, [a, z]] of Object.entries(span)) {
+      const r = table.get(k), b = (p.internal_defaults || {})[k] ?? r.def, hz = r.unit === 'Hz' && b > 0;
+      for (const c of [a, z]) { const x = hz ? b * Math.pow(2, c) : b + c, tol = 1e-9 * Math.max(1, Math.abs(x));
+        if (!(x >= r.min - tol && x <= r.max + tol)) errs.push(`${at}: ${k} reaches ${x} (base ${b} ${hz ? '· 2^' : '+ '}${c}), outside [${r.min}, ${r.max}]`); }
+    }
+  }
+  return errs;
+};
+const macroSideSafe=function sideSafe(doc, table = PARAM_TABLE, folding = FOLDING) {
+  // The set of values a key can take in a preset: its default (the preset's, else the table's) plus the whole span
+  // of every binding on it. Returned as [min, max]; for a stepped key every integer in between is reachable.
+  // Under the modify law the reach is base ⊕ the summed contribution span (D-076).
+  const reach = (p, key) => {
+    const d = (p.internal_defaults || {})[key] ?? table.get(key)?.def;
+    if (p.macroLaw === 'modify') {
+      let a = 0, z = 0, any = false;
+      for (const s of Object.values(p.slots || {})) { const b = (s.bind || {})[key]; if (b) { any = true; a += Math.min(b[0], b[1]); z += Math.max(b[0], b[1]); } }
+      if (!any) return [d, d];
+      const hz = table.get(key)?.unit === 'Hz' && d > 0, f = c => hz ? d * Math.pow(2, c) : d + c;
+      return [Math.min(d, f(a)), Math.max(d, f(z))];
+    }
+    let lo = d, hi = d;
+    for (const s of Object.values(p.slots || {})) {
+      const b = (s.bind || {})[key];
+      if (b) { lo = Math.min(lo, b[0], b[1]); hi = Math.max(hi, b[0], b[1]); }
+    }
+    return [lo, hi];
+  };
+  const errs = [];
+  for (const p of doc.presets || []) {
+    const r = k => reach(p, k), within = ([lo, hi], v) => v >= lo && v <= hi;
+    if (!within(r('route'), 3) || r('s2.on')[1] < 0.5) continue;           // never mid/side, or side stage never on
+    const [mLo, mHi] = r('s2.morph'), curves = [];
+    if (mLo < 1) curves.push(r('s2.a'));                                      // curve a sounds unless morph is pinned at 1
+    if (mHi > 0) curves.push(r('s2.b'));                                      // curve b sounds once morph leaves 0
+    const hit = folding.filter(([f]) => curves.some(c => within(c, f)));
+    const limit = r('driveRef')[1] >= 0.5 ? 0 : 6;
+    if (hit.length && r('s2.drive')[1] > limit)
+      errs.push(`preset ${p.id}: mid/side side stage can run ${hit.map(([, name]) => name).join(' / ')} at up to +${r('s2.drive')[1]} dB (limit +${limit} dB${limit ? '' : ', drive-ref on'})`);
+  }
+  return errs;
+};
+const resolveMacros=function resolveMacros(mp, values = {}, table = PARAM_TABLE, shapeFn = macroShape) {
+  const out = {}, idf = mp.internal_defaults || {}, at = (s, n) => values[n] ?? s.home ?? 0.5;
+  for (const [k, d] of Object.entries(idf)) out[k] = d;
+  if (mp.macroLaw === 'modify') {
+    const sum = {};
+    for (const [n, s] of Object.entries(mp.slots || {}))
+      for (const [k, [lo, hi, cv = 'lin']] of Object.entries(s.bind || {})) sum[k] = (sum[k] ?? 0) + shapeFn(cv, lo, hi, at(s, n));
+    for (const [k, c] of Object.entries(sum)) {
+      const r = table.get(k); if (!r) continue;
+      const b = idf[k] ?? r.def, x = r.unit === 'Hz' && b > 0 ? b * Math.pow(2, c) : b + c;
+      out[k] = Math.min(r.max, Math.max(r.min, x));
+    }
+  } else {
+    for (const [n, s] of Object.entries(mp.slots || {}))
+      for (const [k, [lo, hi, cv = 'lin']] of Object.entries(s.bind || {})) out[k] = shapeFn(cv, lo, hi, at(s, n));
+  }
+  for (const k of Object.keys(out)) if (table.get(k)?.type === 'kT') out[k] = Math.floor(out[k] + 0.5);
+  return out;
+};
+const moduleSet=function moduleSet(P, mp, values, resolve, only) {
+  const vals = resolve(mp, values);
+  const keys = only === undefined ? Object.keys(vals) : Object.keys((mp.slots || {})[only]?.bind || {});
+  for (const k of keys) {
+    if (!(k in vals)) continue;
+    const m = /^s([123])\.(\w+)$/.exec(k), o = m ? P.stages[+m[1] - 1] : P, f = m ? m[2] : k;
+    if (f in o) o[f] = typeof o[f] === 'boolean' ? vals[k] >= 0.5 : vals[k];
+  }
+  return P;
+};
+const HALFBAND=[0.03809515727195268,0.14160820281045355,0.2843274335453647,0.4375835543399952,0.5804847741233267,0.7030480085459094,0.8042133041118379,0.8884506495336114,0.9632450304765325];
+const defineHalfband=function defineHalfband(C) {
+  const N = C.length, CLEAR_AFTER = 512;
+  return class Halfband2x {
+    constructor() { this.ux = new Float64Array(N); this.uy = new Float64Array(N); this.dx = new Float64Array(N); this.dy = new Float64Array(N); this.uz = 0; this.dz = 0; }
+    reset() { this.ux.fill(0); this.uy.fill(0); this.dx.fill(0); this.dy.fill(0); this.uz = 0; this.dz = 0; }
+    up(v, out, o) {
+      const X = this.ux, Y = this.uy;
+      if (v === 0) { if (this.uz < CLEAR_AFTER && ++this.uz === CLEAR_AFTER) { X.fill(0); Y.fill(0); } } else this.uz = 0;
+      let a = v, b = v;
+      for (let k = 0; k < N; k += 2) { const y = C[k] * (a - Y[k]) + X[k]; X[k] = a; Y[k] = y; a = y; }
+      for (let k = 1; k < N; k += 2) { const y = C[k] * (b - Y[k]) + X[k]; X[k] = b; Y[k] = y; b = y; }
+      out[o] = a; out[o + 1] = b;
+    }
+    down(v0, v1) {
+      const X = this.dx, Y = this.dy;
+      if (v0 === 0 && v1 === 0) { if (this.dz < CLEAR_AFTER && ++this.dz === CLEAR_AFTER) { X.fill(0); Y.fill(0); } } else this.dz = 0;
+      let a = v1, b = v0;
+      for (let k = 0; k < N; k += 2) { const y = C[k] * (a - Y[k]) + X[k]; X[k] = a; Y[k] = y; a = y; }
+      for (let k = 1; k < N; k += 2) { const y = C[k] * (b - Y[k]) + X[k]; X[k] = b; Y[k] = y; b = y; }
+      return 0.5 * (a + b);
+    }
+  };
+};
+const defineEngine=function defineEngine(MawCore, Halfband2x) {
+  const MAXB = 8192;
+  const clone = P => JSON.parse(JSON.stringify(P));
+  return class Engine {
+    constructor(sr) {
+      this.sr = sr; this.mode = '2x'; this.P = null;
+      this.src = new MawCore(sr); this.main = new MawCore(2 * sr); this.one = new MawCore(sr);
+      this.hb = [new Halfband2x(), new Halfband2x()];
+      this.uL = new Float64Array(2 * MAXB); this.uR = new Float64Array(2 * MAXB); this.vL = new Float64Array(2 * MAXB); this.vR = new Float64Array(2 * MAXB);
+    }
+    params() {   // send the stored params to each core, shaped for the current mode
+      if (!this.P) return;
+      this.src.msg({ t: 'p', P: this.P });
+      const M = clone(this.P); M.src = 'sample'; M.os = 1; M.adaaForce = false; this.main.msg({ t: 'p', P: M });
+      const O = clone(this.P); if (this.mode === '1x') { O.os = 1; O.adaaForce = true; } else O.adaaForce = false; this.one.msg({ t: 'p', P: O });
+    }
+    reset() { this.src.reset(); this.main.reset(); this.one.reset(); this.hb[0].reset(); this.hb[1].reset(); }
+    msg(d) {
+      if (d.t === 'eng') { this.mode = d.mode; this.params(); return; }
+      if (d.t === 'p') { this.P = d.P; this.params(); return; }
+      if (d.t === 'reset') { this.reset(); return; }
+      this.src.msg(d); this.one.msg(d);   // notes, a dropped sample, panic: both source-making cores hear them
+    }
+    process(L, R, n) {
+      if (this.mode !== '2x') { this.one.process(L, R, n); return; }
+      for (let i0 = 0; i0 < n; i0 += MAXB) {
+        const k = Math.min(MAXB, n - i0), uL = this.uL, uR = this.uR;
+        for (let i = 0; i < k; i++) { this.src.source(); this.hb[0].up(this.src.sL, uL, 2 * i); this.hb[1].up(this.src.sR, uR, 2 * i); }
+        this.main.smp = { L: uL, R: uR, n: 2 * k }; this.main.spos = 0;
+        const vL = this.vL.subarray(0, 2 * k), vR = this.vR.subarray(0, 2 * k);
+        this.main.process(vL, vR, 2 * k);
+        for (let i = 0; i < k; i++) { L[i0 + i] = this.hb[0].down(vL[2 * i], vL[2 * i + 1]); R[i0 + i] = this.hb[1].down(vR[2 * i], vR[2 * i + 1]); }
+      }
+    }
+  };
+};
+/*MODULE-PRESETS:END*/
+let P=CORE.defaultParams();
+let ctx=null,node=null,analyser=null,send=()=>{};
+const $=s=>document.querySelector(s);
+
+// ---------- param path helpers ----------
+const get=(o,path)=>path.split('.').reduce((a,k)=>a[k],o);
+const set=(o,path,v)=>{const ks=path.split('.');const last=ks.pop();ks.reduce((a,k)=>a[k],o)[last]=v;};
+const fmt={db:v=>v.toFixed(1)+' dB',pct:v=>Math.round(v*100)+'%',hz:v=>v>=1000?(v/1000).toFixed(2)+'k':Math.round(v)+' Hz',ms:v=>v.toFixed(0)+' ms',x:v=>v.toFixed(2),ct:v=>v.toFixed(0)+' ct',st:v=>(v>0?'+':'')+v+' st',f:v=>v.toFixed(2)+' Hz'};
+const inputs=[];
+function ctl(parent,o){
+  const d=document.createElement('div');d.className='ctl';
+  const lab=document.createElement('label');lab.textContent=o.label;d.appendChild(lab);
+  let el,vv=null;
+  if(o.type==='select'){el=document.createElement('select');o.opts.forEach((t,i)=>{const op=document.createElement('option');op.value=o.strVals?t:(o.vals?o.vals[i]:i);op.textContent=t;el.appendChild(op);});
+    el.value=get(P,o.key);d.style.gridTemplateColumns='78px 1fr';d.appendChild(el);
+    el.oninput=()=>{set(P,o.key,o.strVals?el.value:+el.value);changed(o.key);};
+    inputs.push(()=>{el.value=get(P,o.key);});}
+  else if(o.type==='check'){el=document.createElement('button');el.className='tog';el.textContent=o.text||'on';d.style.gridTemplateColumns='78px 1fr';d.appendChild(el);
+    const paint=()=>el.classList.toggle('on',!!get(P,o.key));paint();
+    el.onclick=()=>{set(P,o.key,!get(P,o.key));paint();changed(o.key);};inputs.push(paint);}
+  else{el=document.createElement('input');el.type='range';el.min=o.min;el.max=o.max;el.step=o.step||0.01;
+    const log=o.log;const toS=v=>log?Math.log(v):v,fromS=v=>log?Math.exp(v):v;
+    if(log){el.min=Math.log(o.min);el.max=Math.log(o.max);el.step=0.001;}
+    vv=document.createElement('span');vv.className='v';d.appendChild(el);d.appendChild(vv);
+    const paint=()=>{el.value=toS(get(P,o.key));vv.textContent=(o.fmt||fmt.x)(get(P,o.key));};paint();
+    el.oninput=()=>{set(P,o.key,fromS(+el.value));vv.textContent=(o.fmt||fmt.x)(get(P,o.key));changed(o.key);};
+    el.ondblclick=()=>{set(P,o.key,o.def!==undefined?o.def:0);paint();changed(o.key);};
+    inputs.push(paint);}
+  parent.appendChild(d);return d;
+}
+function changed(key){send({t:'p',P});if(key.startsWith('fb')||key==='src')paintTrack();if(key.startsWith('stages')||key==='auto')drawCurves();
+  // The filter-amount readout means something different per filter type, so a type change has
+  // to repaint the values. Cheap: a type change is a click, never a drag.
+  // a stage's detail box also moves the all-stages toggle (D-081), which paints from all three
+  if(key.endsWith('.ft')||key.endsWith('.detail'))inputs.forEach(f=>f());if(key==='route'||key==='fbOn')paintRoute();if(key.startsWith('stages')&&key.endsWith('.on'))paintStages();}
+function refreshUI(){inputs.forEach(f=>f());drawCurves();paintRoute();paintStages();send({t:'p',P});}
+
+// ---------- build panels ----------
+const S=$('#p-src');
+ctl(S,{key:'src',label:'osc',type:'select',opts:['super','saw','square','pulse','sine','sample'],strVals:true});
+ctl(S,{key:'spread',label:'spread',min:0,max:60,step:1,fmt:fmt.ct,def:14});
+ctl(S,{key:'inGain',label:'input',min:-24,max:24,step:0.5,fmt:fmt.db,def:0});
+ctl(S,{key:'tone',label:'tone',min:-2,max:2,step:0.01,fmt:v=>(v>0?'+':'')+(v*6).toFixed(1)+' dB',def:0}); /* D-060: ±2 = ±12 dB, shown in dB */ // D-052: + lifts highs / cuts lows into the curves
+ctl(S,{key:'toneHz',label:'tone freq',min:100,max:10000,log:true,fmt:fmt.hz,def:700});
+ctl(S,{key:'toneComp',label:'tone comp',type:'check',text:'restore the balance after (D-052)'});
+ctl(S,{key:'latch',label:'latch',type:'check',text:'hold notes'});
+ctl(S,{key:'wet',label:'dry/wet',min:0,max:1,fmt:fmt.pct,def:1});
+// D-044: the output section — compressor (one amount knob + sidechain HP), then the output gain.
+ctl(S,{key:'cmpAmt',label:'comp',min:0,max:1,fmt:fmt.pct,def:0});
+ctl(S,{key:'cmpHp',label:'comp SC HP',type:'check',text:'ignore lows (120 Hz)'});
+ctl(S,{key:'taper',label:'taper',type:'select',opts:['short (0.55 s)','long (4 s)','infinite']}); /* D-067: after the input stops */
+ctl(S,{key:'out',label:'output',min:-36,max:24,step:0.5,fmt:fmt.db,def:0}); /* D-061: ceiling +24 dB */
+const fi=document.createElement('input');fi.type='file';fi.accept='audio/*';fi.style.marginTop='4px';fi.style.width='100%';S.appendChild(fi);
+fi.onchange=async()=>{if(!ctx)await start();lastFile=await fi.files[0].arrayBuffer();const buf=await ctx.decodeAudioData(lastFile.slice(0));
+  const L=buf.getChannelData(0).slice(),R=(buf.numberOfChannels>1?buf.getChannelData(1):buf.getChannelData(0)).slice();send({t:'smp',L,R});P.src='sample';refreshUI();};
+
+const Rt=$('#p-route');
+ctl(Rt,{key:'route',label:'topology',type:'select',opts:ROUTES});
+const mb=document.createElement('div');Rt.appendChild(mb);
+ctl(mb,{key:'xo1',label:'xover lo',min:40,max:2000,log:true,fmt:fmt.hz,def:200});
+ctl(mb,{key:'xo2',label:'xover hi',min:400,max:12000,log:true,fmt:fmt.hz,def:2000});
+ctl(Rt,{key:'fbOn',label:'loop',type:'check',text:'feedback around this topology (D-047)'}); // routes 0-3; route 4 has its own
+const fb=document.createElement('div');Rt.appendChild(fb);
+ctl(fb,{key:'fbAmt',label:'feedback',min:0,max:1.2,fmt:fmt.pct,def:0.3});
+ctl(fb,{key:'fbMode',label:'delay',type:'select',opts:['pitch-tracked','free (ms)']});
+ctl(fb,{key:'fbSemi',label:'interval',min:-24,max:24,step:1,fmt:fmt.st,def:0});
+ctl(fb,{key:'fbMs',label:'time',min:0.1,max:200,log:true,fmt:v=>v.toFixed(1)+' ms',def:8});
+ctl(fb,{key:'fbDamp',label:'damp (lp)',min:200,max:16000,log:true,fmt:fmt.hz,def:5000});
+ctl(fb,{key:'fbHp',label:'loop hp',min:20,max:1000,log:true,fmt:fmt.hz,def:80});
+ctl(fb,{key:'fbTap',label:'tap after',type:'select',opts:['stage 1','stage 2','stage 3']});
+ctl(fb,{key:'fbInv',label:'invert',type:'check',text:'flip the return (D-047)'});
+ctl(fb,{key:'fbGate',label:'gate',type:'check',text:'loop stops with the input (D-047)'});
+fb.insertAdjacentHTML('beforeend','<div class="hint">loop is normalised: 100% ≈ unity loop gain</div><div class="hint" id="fbtrack"></div>');
+// What the pitch-tracked loop follows (D-078; the human: "it's hard to understand how exactly the feedback is following
+// the pitch"). The page mirrors the core's rule (lab/core.js noteOn, control): the last note played, at
+// 440 · 2^((n − 69)/12) Hz, else 110 Hz before any key; the loop is that times 2^(interval/12), its delay one period.
+// A dropped sample tells it nothing, so it keeps the last key's pitch. In horde the pitch comes from the host (D-078).
+let lastNoteHz=null;
+function paintTrack(){const el=$('#fbtrack');if(!el)return;
+  if(P.fbMode!==0){el.textContent='free delay: '+(+P.fbMs).toFixed(1)+' ms';return;}
+  const f=lastNoteHz??110,lf=f*Math.pow(2,P.fbSemi/12);
+  el.textContent=(lastNoteHz===null?'no key played yet: 110 Hz (the default)':'following the last key played, '+f.toFixed(1)+' Hz')+
+    ' · '+(P.fbSemi>0?'+':'')+P.fbSemi+' st → loop '+lf.toFixed(1)+' Hz, '+(1000/lf).toFixed(2)+' ms'+(P.src==='sample'?' · a sample sets no pitch: play a key to retune':'');}
+const noteHz=n=>440*Math.pow(2,(n-69)/12);
+const DIAG=[
+ 'in → [1] → [2] → [3] → out',
+ 'in ┬→ [1] ┐\n   ├→ [2] ┼→ Σ → out\n   └→ [3] ┘',
+ 'in ┬ lo  → [1] ┐\n   ├ mid → [2] ┼→ Σ → out\n   └ hi  → [3] ┘',
+ 'in ┬ M → [1] ┐\n   └ S → [2] ┴→ L/R → [3] → out',
+ '  ┌── delay·damp ◄─────┐\n  ▼                     │\nin ⊕ → [1] → [2] → [3] ┴→ out'];
+function paintRoute(){$('#diagram').textContent=DIAG[P.route];mb.style.display=P.route===2?'':'none';fb.style.display=(P.route===4||P.fbOn)?'':'none';paintTrack();}
+
+const H=$('#p-horde');
+ctl(H,{key:'os',label:'oversample',type:'select',opts:['1×','2×','4×','8×'],vals:[1,2,4,8]});
+ctl(H,{key:'adaa',label:'ADAA',type:'check',text:'antiderivative AA (soft/hard/overdrive/tube/diode/fold/rectify/wrap)'});
+ctl(H,{key:'auto',label:'auto-gain',min:0,max:1,fmt:fmt.pct,def:0.7});
+ctl(H,{key:'driveRef',label:'drive ref',type:'select',opts:['absolute','input peak = 0 dB']});
+ctl(H,{key:'inertia',label:'inertia',min:0,max:1,fmt:fmt.pct,def:0});
+ctl(H,{key:'eco',label:'ecology',min:-1,max:1,fmt:v=>(v>0?'+':'')+Math.round(v*100)+'%',def:0});
+ctl(H,{key:'flux',label:'flux',min:0,max:1,fmt:fmt.pct,def:0});
+// One toggle for every stage's `detail` (D-081, the human: "a button that toggles 'fold clipped detail back' on or off
+// for all"). A lab convenience, not a parameter: it writes the three per-stage keys, so presets and the macro panel see
+// nothing new. Lit only when all three are on; a click turns all on unless all already are, then all off.
+{const d=document.createElement('div');d.className='ctl';d.style.gridTemplateColumns='78px 1fr';
+  d.innerHTML='<label>detail</label>';const b=document.createElement('button');b.className='tog';d.appendChild(b);H.appendChild(d);
+  const n=()=>P.stages.filter(s=>s.detail).length;
+  const paint=()=>{const k=n();b.classList.toggle('on',k===3);b.textContent='fold clipped detail back: all stages'+(k===3?'':k?' ('+k+' of 3 on)':'');};paint();
+  b.onclick=()=>{const v=n()<3;P.stages.forEach(s=>{s.detail=v;});inputs.forEach(f=>f());changed('stages.0.detail');};inputs.push(paint);}
+H.insertAdjacentHTML('beforeend','<div class="hint" style="margin-top:6px">auto-gain: measured per stage, 100% = unity at nominal level<br>inertia: knobs are masses on springs (ring when high)<br>ecology: + stages starve each other · − stages feed each other<br>flux: OU random walk on each stage\'s morph</div>');
+
+const M=$('#p-modgrid');
+ctl(M,{key:'envA',label:'env attack',min:0.5,max:200,log:true,fmt:fmt.ms,def:5});
+ctl(M,{key:'envR',label:'env release',min:5,max:2000,log:true,fmt:fmt.ms,def:80});
+ctl(M,{key:'lfoRate',label:'lfo rate',min:0.05,max:40,log:true,fmt:fmt.f,def:2});
+M.appendChild(document.createElement('div'));
+ctl(M,{key:'mod.ed',label:'env→drive',min:-1,max:1,fmt:fmt.pct});
+ctl(M,{key:'mod.ld',label:'lfo→drive',min:-1,max:1,fmt:fmt.pct});
+ctl(M,{key:'mod.ec',label:'env→cutoff',min:-1,max:1,fmt:fmt.pct});
+ctl(M,{key:'mod.lc',label:'lfo→cutoff',min:-1,max:1,fmt:fmt.pct});
+ctl(M,{key:'mod.em',label:'env→morph',min:-1,max:1,fmt:fmt.pct});
+ctl(M,{key:'mod.lb',label:'lfo→bias',min:-1,max:1,fmt:fmt.pct});
+
+const stagePanels=[],curves=[];
+for(let i=0;i<3;i++){const k='stages.'+i+'.';
+  const d=document.createElement('div');d.className='panel stage';d.innerHTML='<h2><span>stage '+(i+1)+'</span></h2>';$('#stages').appendChild(d);stagePanels.push(d);
+  const on=document.createElement('button');on.className='tog';on.textContent='on';d.querySelector('h2').appendChild(on);
+  const paintOn=()=>on.classList.toggle('on',!!P.stages[i].on);paintOn();on.onclick=()=>{P.stages[i].on=!P.stages[i].on;paintOn();changed(k+'on');};inputs.push(paintOn);
+  const cv=document.createElement('canvas');cv.className='curve';d.appendChild(cv);curves.push(cv);
+  const g=document.createElement('div');g.className='grid2';d.appendChild(g);
+  ctl(g,{key:k+'a',label:'curve A',type:'select',opts:SHAPERS.map(s=>s.name)});
+  ctl(g,{key:k+'b',label:'curve B',type:'select',opts:SHAPERS.map(s=>s.name)});
+  ctl(g,{key:k+'morph',label:'morph A↔B',min:0,max:1,fmt:fmt.pct,def:0});
+  ctl(g,{key:k+'shape',label:'shape',min:0,max:1,fmt:fmt.pct,def:0.3});
+  ctl(g,{key:k+'drive',label:'drive',min:-12,max:48,step:0.5,fmt:fmt.db,def:12});
+  ctl(g,{key:k+'bias',label:'bias',min:-1,max:1,fmt:fmt.x,def:0});
+  ctl(g,{key:k+'floor',label:'floor',min:0,max:0.3,step:0.001,fmt:v=>v<=0?'off':(20*Math.log10(v)).toFixed(0)+' dB',def:0});
+  // D-039: fold the high-passed overshoot back under the ceiling (the detail-preserving clipper).
+  ctl(g,{key:k+'detail',label:'detail',type:'check',text:'fold clipped detail back'});
+  ctl(g,{key:k+'damt',label:'detail amt',min:0,max:1,fmt:fmt.pct,def:1});
+  ctl(g,{key:k+'dfreq',label:'detail freq',min:1000,max:6000,log:true,fmt:fmt.hz,def:3000});
+  ctl(g,{key:k+'inject',label:'inject',min:0,max:1,fmt:fmt.pct,def:0}); // D-045: pairs with 'gentle' at shape 0
+  ctl(g,{key:k+'ft',label:'filter',type:'select',opts:['off','lowpass','bandpass','highpass','notch','peak','morph','dispersion']});
+  // One control, meaning set by the filter type — the same idiom the curves use for `shape`.
+  ctl(g,{key:k+'famt',label:'filter amt',min:0,max:1,def:0.5,fmt:v=>{const t=P.stages[i].ft;
+    return t===6?['lowpass','\u2192 bandpass','bandpass','\u2192 highpass','highpass'][Math.round(v*4)]
+         : t===7?(1+Math.round(v*23))+' stages' : '\u2014';}});
+  ctl(g,{key:k+'fpos',label:'position',type:'select',opts:['pre-shaper','post-shaper']});
+  ctl(g,{key:k+'cut',label:'cutoff',min:20,max:18000,log:true,fmt:fmt.hz,def:2000});
+  ctl(g,{key:k+'res',label:'resonance',min:0,max:1,fmt:fmt.pct,def:0.15});
+  ctl(g,{key:k+'level',label:'level',min:-24,max:12,step:0.5,fmt:fmt.db,def:0});
+  ctl(g,{key:k+'mix',label:'mix',min:0,max:1,fmt:fmt.pct,def:1});
+}
+function paintStages(){stagePanels.forEach((d,i)=>d.classList.toggle('off',!P.stages[i].on));}
+function drawCurves(){curves.forEach((cv,i)=>{const s=P.stages[i];const W=cv.width=cv.clientWidth*2||600,Hh=cv.height=180;const c=cv.getContext('2d');
+  c.clearRect(0,0,W,Hh);c.strokeStyle='#22252c';c.beginPath();c.moveTo(W/2,0);c.lineTo(W/2,Hh);c.moveTo(0,Hh/2);c.lineTo(W,Hh/2);c.stroke();
+  const g=CORE.dB2g(s.drive),fa=SHAPERS[s.a].f,fb=SHAPERS[s.b].f,m=s.morph;
+  // This preview must trace the SAME function the audio path evaluates, or it is the
+  // §13 defect the spec warns about: a picture that keeps agreeing with you while the
+  // sound disagrees. Two things it used to omit — the M2 origin offset (the core
+  // evaluates every curve as f(x) − f(0), which shifts cheby by −0.95 at its default
+  // shape and shards by +0.15) and the `floor` crossfade. Both are static, so both
+  // belong here. What is NOT drawable is drive-ref: `pk` follows the input envelope,
+  // so the curve you hear with it on is this one re-scaled per note (label says so).
+  const fa0=fa(0,s.shape),fb0=fb(0,s.shape);
+  const sh=u=>(1-m)*(fa(u,s.shape)-fa0)+m*(fb(u,s.shape)-fb0);
+  const driven=x=>{const y=sh(x*g+s.bias);if(s.floor<=0)return y;
+    const t=CORE.clamp((Math.abs(x)-s.floor)/s.floor,0,1),w=t*t*(3-2*t);return x*g+w*(y-x*g);};
+  // Auto-gain reference: the core measures it on `shape()` (no floor), so match that.
+  let mean=0,si=0,so=0;const t=[];for(let i=0;i<32;i++){const u=0.5*Math.sin(Math.PI*2*i/32);const y=sh(u*g+s.bias);t.push(y);mean+=y;si+=u*u;}mean/=32;for(const y of t){so+=(y-mean)*(y-mean);}
+  const comp=CORE.clamp(Math.pow(Math.sqrt(si/Math.max(so,1e-9)),P.auto),0.05,20);
+  c.strokeStyle='#ff5c1a';c.lineWidth=2;c.beginPath();
+  for(let px=0;px<=W;px++){const x=(px/W*2-1)*1.5;const y=driven(x)*comp;const py=Hh/2-CORE.clamp(y,-1.6,1.6)*Hh/3.2;px?c.lineTo(px,py):c.moveTo(px,py);}
+  c.stroke();c.fillStyle='#7a7e88';c.font='18px monospace';
+  c.fillText('in \u00b11.5  /  out \u00b11.6'+(P.driveRef?'  \u00b7 drive-ref on: re-scaled per note':'')+(s.floor>0?'  \u00b7 floor':''),8,20);});}
+
+// ---------- presets ----------
+// Presets reference curves by name; stage fields not listed fall back to defaults.
+const PRESETS={
+ 'init':{out:-4.2},
+ 'growl · sine → tube → diode, env→cutoff':{src:'sine',auto:0.7,eco:0.3,out:-6,envA:3,envR:120,mod:{ed:0.3,ec:0.6},stages:[{drive:20,a:'tube',b:'polynomial',morph:0.15,shape:0.5,ft:1,cut:900,res:0.5},{on:true,drive:14,bias:0.2,a:'diode',shape:0.5,ft:5,fpos:0,cut:1000,res:0.75},{drive:12}]},
+ 'cheby ladder · drive-ref on, 0 dB = pure 12th':{src:'sine',adaa:true,auto:0.7,driveRef:1,out:2.5,lfoRate:0.15,mod:{ld:0.25},stages:[{drive:-3,a:'cheby',shape:0.5,mix:0.8},{on:true},{drive:12}]},
+ 'fold · pre-fold lowpass, shape = ridge hardness':{src:'saw',adaa:true,auto:0.7,out:-6.2,envR:150,mod:{ed:0.4},stages:[{drive:10,a:'fold',ft:1,fpos:0,cut:700,res:0.2},{on:true,drive:3,shape:0.2,ft:5,res:0.25},{drive:12}]},
+ 'polynomial screech · env→morph':{src:'sine',auto:0.7,out:-4.9,envA:2,envR:200,mod:{ec:0.5,em:-0.5},stages:[{drive:18,b:'polynomial',morph:0.7,shape:0.8,floor:0.01,ft:1,cut:3000,res:0.3},{on:true,drive:8,a:'overdrive',shape:0.4},{drive:12}]},
+ 'fractal grit · multiband':{route:2,auto:0.7,eco:0.4,out:-4.6,xo1:180,xo2:2400,stages:[{drive:10,a:'tube',shape:0.6,ft:1,cut:400},{on:true,a:'fractal',shape:0.8,floor:0.01},{on:true,drive:8,a:'shards',b:'crush',morph:0.3,shape:0.6,floor:0.01,level:-4}]},
+ 'pitch-tracked feedback · tamed':{src:'saw',route:4,auto:0.7,out:0.1,fbAmt:0.75,fbSemi:7,fbDamp:3500,fbHp:120,fbTap:0,stages:[{drive:10,a:'overdrive'},{on:true,a:'hard clip',shape:0.5,ft:3,cut:200},{on:true,drive:4,a:'diode',ft:1,cut:5000}]},
+ 'inertia sweep · lfo→cutoff rings':{src:'pulse',auto:0.7,inertia:0.7,out:-4.6,lfoRate:0.3,mod:{ld:0.3,lc:0.8},stages:[{drive:12,a:'fold',shape:0.6,ft:2,cut:1200,res:0.6},{on:true,drive:10,bias:0.1,a:'diode'},{drive:12}]},
+ 'flux chaos · parallel, stages feed each other':{src:'square',route:1,eco:-0.4,flux:0.8,out:-8.8,stages:[{drive:12,a:'fold',b:'rectify',morph:0.5,level:-6},{on:true,a:'clip→wrap',b:'cheby',morph:0.5,shape:0.5,level:-6},{on:true,drive:12,a:'polynomial',b:'fractal',morph:0.5,shape:0.7,floor:0.01,level:-6}]},
+ // Presets that land on the cases Phase P fixed, so the fix can be heard rather than
+ // taken on trust (each names the behaviour it replaced; audit ids in DECISIONS).
+ 'fixed · crush in the feedback loop (was a limit cycle)':{src:'saw',route:4,auto:0.7,out:-4.2,fbAmt:0.6,fbMode:1,fbMs:5,fbDamp:8000,fbTap:0,stages:[{drive:20,a:'crush',shape:0.5,floor:0.01},{drive:12},{drive:12}]},
+ 'fixed · cheby at rest (was a full-scale click on silence)':{src:'sine',auto:0.7,out:-6.6,stages:[{drive:12,a:'cheby',mix:0.9},{on:true,drive:4},{drive:12}]},
+ 'fixed · shards release tail (was 530 ms)':{src:'saw',auto:0.7,out:-3.9,stages:[{drive:24,a:'shards',shape:0.8,ft:1,cut:4000},{drive:12},{drive:12}]},
+};
+function applyPresetTo(base,pr,SHAPERS){const idx=v=>typeof v==='string'?SHAPERS.findIndex(s=>s.name.startsWith(v)):v;
+  for(const k in pr){if(k==='stages'){pr.stages.forEach((s,i)=>{const t=Object.assign({},s);if('a'in t)t.a=idx(t.a);if('b'in t)t.b=idx(t.b);Object.assign(base.stages[i],t);});}
+    else if(k==='mod')Object.assign(base.mod,pr.mod);else base[k]=pr[k];}return base;}
+
+const ps=$('#preset');{const o=document.createElement('option');o.textContent='lab presets…';o.disabled=true;o.value='';ps.appendChild(o);}Object.keys(PRESETS).forEach(k=>{const o=document.createElement('option');o.textContent=k;ps.appendChild(o);});
+// D-083 (the human: "the top-level presets don't have the full set of macros"): a lab preset plays the variable macros
+// of the module preset made from it (its id by rebuild_presets' rule: the title before " · ", or the name after
+// "fixed · "). Under the modify law (D-076) a macro is an offset from the base, so the base here is the LAB preset's own
+// settings, every table key of them: at home every macro adds nothing (rebuild_presets asserts it) and the lab preset
+// sounds as it always did. Its prototype-only settings (source, envelopes, LFO routes, the lab engine) are kept.
+// The ranges were designed around the shipped values, so far from home a lab preset can move differently.
+let labBase=null;
+const labModuleId=name=>{const [t,...r]=name.split(' · '),slug=x=>x.replace(/\(.*\)/,'').replace(/[^a-z0-9]+/gi,'-').replace(/^-|-$/g,'').toLowerCase();return t==='fixed'?slug(r.join(' · ')):slug(t);};
+function tableValues(P){const o={};for(const [k,r] of PARAM_TABLE){if(r.device)continue;const m=/^s([123])\.(\w+)$/.exec(k),src=m?P.stages[+m[1]-1]:P,f=m?m[2]:k;
+  if(f in src)o[k]=typeof src[f]==='boolean'?(src[f]?1:0):src[f];}return o;}
+function applyPreset(name){const latch=P.latch;P=applyPresetTo(CORE.defaultParams(),PRESETS[name],SHAPERS);P.latch=latch;for(const fc of FIXED_CONTROLS)fixedVal[fc.key]=P[fc.key];fknobs.forEach(k=>k.paint());setEngine('lab');
+  const twin=WORK.find(p=>p.id===labModuleId(name));labBase=JSON.parse(JSON.stringify(P));
+  mp=twin?{id:twin.id,label:name,lab:true,macroLaw:'modify',internal_defaults:tableValues(P),slots:twin.slots}:null;
+  for(const n in mval)delete mval[n];if(mp)for(const [n,s] of Object.entries(mp.slots))mval[n]=s.home??0.5;
+  $('#mpreset').value='';paintMacros();paintEditor();refreshUI();}
+ps.onchange=()=>applyPreset(ps.value);
+
+// ---------- module presets + macros (Q-020; D-071) ----------
+// The presets horde ships (presets/shriek-module-presets.json, embedded above by tools/sync_proto.mjs), played as horde
+// plays them: defaults, then the internal defaults, then each slot's bindings at the knob's value through horde's §4 law
+// (macroShape, macro_check's own function). os 1 (the prototype's own oversampler is not in the product), no prototype
+// modulation, and the engine is the shipped 2× unless the cheaper 1× + ADAA mode is picked. Knobs start at home (D-063);
+// double-click returns one there. The source (osc / sample, spread, latch) is the listener's and is kept across presets.
+let mp=null,engine='2x';const mval={};
+// The macro editor (Q-028, D-074) edits WORK, a working copy of the shipped presets kept in this browser
+// (localStorage, a convenience: it may come back empty). The shipped file is changed only by the lead, from
+// "Copy changes" pasted back, through tools/rebuild_presets.mjs, gated by macro_check.
+const SHIPPED=JSON.parse(JSON.stringify(MODULE_PRESETS));
+let WORK=JSON.parse(JSON.stringify(MODULE_PRESETS));
+// Stored edits are keyed to the shipped file they were made against (a fingerprint of it): when the shipped presets
+// change (D-076 moved them to the modify law), older edits are set aside under 'shriek-macro-work-stale', not loaded
+// over the new presets, and the editor says so.
+const SHIPPED_FP=(()=>{let h=2166136261;const t=JSON.stringify(SHIPPED);for(let i=0;i<t.length;i++){h^=t.charCodeAt(i);h=Math.imul(h,16777619)>>>0;}return h.toString(16);})();
+let staleNote='';
+try{const st=JSON.parse(localStorage.getItem('shriek-macro-work')||'null');
+  if(st&&st.fp===SHIPPED_FP&&Array.isArray(st.work))WORK=st.work;
+  else if(st){localStorage.setItem('shriek-macro-work-stale',JSON.stringify(st));localStorage.removeItem('shriek-macro-work');staleNote='Edits saved against an older version of the presets were set aside (browser storage key shriek-macro-work-stale); the editor starts from the shipped presets.';}}catch(e){}
+const saveWork=()=>{try{localStorage.setItem('shriek-macro-work',JSON.stringify({fp:SHIPPED_FP,work:WORK}));}catch(e){}};
+const mps=$('#mpreset');{const o=document.createElement('option');o.textContent='module presets…';o.disabled=true;o.value='';mps.appendChild(o);}
+MODULE_PRESETS.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent=p.label;mps.appendChild(o);});
+function setEngine(e){engine=e;$('#engine').value=e;send({t:'eng',mode:e});paintNote();}
+function paintNote(){$('#m-note').textContent=engine==='2x'?'2× · latency 3 samples':engine==='1x'?'1× · ADAA forced':'lab engine · prototype params as set';}
+// D-077: the panel is partitioned like Sluice's. The FIXED controls (Drive, Tone, Output, Mix: FIXED_CONTROLS from
+// param_table.h) are module parameters every preset has; their sliders set the parameter itself, in its own units,
+// and that value is the BASE the preset's macros offset under the modify law (Squash adds its makeup to Output).
+// Double-click returns one to the preset's own value. The variable macros sit below, slots 1–VARIABLE_SLOTS.
+const fixedVal={};
+const fknobs=FIXED_CONTROLS.map(fc=>{const r=PARAM_TABLE.get(fc.key),d=document.createElement('div');d.className='mk fixed';
+  const lab=document.createElement('label'),el=document.createElement('input'),vv=document.createElement('span');
+  el.type='range';el.min=r.min;el.max=r.max;el.step=(r.max-r.min)/1000;vv.className='v';lab.textContent=fc.label;d.append(lab,el,vv);$('#fgrid').appendChild(d);
+  const k={fc,r,d,el,vv,paint(){const v=fixedVal[fc.key];el.value=v;vv.textContent=v.toFixed(r.max-r.min>10?1:2)+(r.unit?' '+r.unit:'');   /* fixed width: a wrapped value shifted the rows */}};
+  // With a lab preset loaded (no module preset) the control sets the parameter directly; it used to do nothing there,
+  // while its readout kept the last module preset's value (the human: "the drive stuck at -4.7 dB").
+  el.oninput=()=>{fixedVal[fc.key]=+el.value;if(mp)resolveModule();else P[fc.key]=fixedVal[fc.key];k.paint();refreshUI();};
+  el.ondblclick=()=>{fixedVal[fc.key]=mp?((mp.internal_defaults||{})[fc.key]??r.def):(CORE.defaultParams()[fc.key]??r.def);if(mp)resolveModule();else P[fc.key]=fixedVal[fc.key];k.paint();refreshUI();};
+  return k;});
+// The preset as resolved: its internal defaults with the fixed controls' current values as the bases.
+const withFixed=m=>({...m,internal_defaults:{...(m.internal_defaults||{}),...fixedVal}});
+const mknobs=[];
+for(let n=1;n<=VARIABLE_SLOTS;n++){const d=document.createElement('div');d.className='mk';const lab=document.createElement('label'),el=document.createElement('input'),vv=document.createElement('span');
+  el.type='range';el.min=0;el.max=1;el.step=0.001;vv.className='v';d.append(lab,el,vv);$('#mgrid').appendChild(d);
+  const k={n:String(n),d,lab,el,vv};mknobs.push(k);
+  el.oninput=()=>{if(!mp)return;mval[k.n]=+el.value;vv.textContent=Math.round(100*mval[k.n])+'%';moduleSet(P,withFixed(mp),mval,resolveMacros,k.n);refreshUI();};
+  el.ondblclick=()=>{if(!mp||!mp.slots[k.n])return;el.value=mp.slots[k.n].home??0.5;el.oninput();};}
+function paintMacros(){for(const k of mknobs){const s=mp&&mp.slots[k.n];k.d.classList.toggle('off',!s);k.el.disabled=!s;
+  k.lab.textContent=s?k.n+' · '+s.label:k.n+' · —';k.el.value=s?mval[k.n]:0;k.vv.textContent=s?Math.round(100*mval[k.n])+'%':'';
+  k.d.title=s?Object.entries(s.bind).map(([key,[lo,hi,cv='lin']])=>key+' '+lo+' → '+hi+' ('+cv+')').join('\n'):'unbound on this preset';}}
+// Resolve the whole preset from scratch at the knobs' current values (the editor calls this after every edit, so a
+// removed binding falls back to the preset's own value).
+function resolveModule(){const keep={src:P.src,spread:P.spread,latch:P.latch};
+  if(mp.lab){P=JSON.parse(JSON.stringify(labBase));Object.assign(P,keep);moduleSet(P,withFixed(mp),mval,resolveMacros);return;}   // D-083
+  P=CORE.defaultParams();Object.assign(P,keep);P.os=1;for(const k in P.mod)P.mod[k]=0;
+  moduleSet(P,withFixed(mp),mval,resolveMacros);}   // withFixed puts the fixed controls in as bases, so they are set too
+function applyModule(id){mp=WORK.find(p=>p.id===id);
+  for(const n in mval)delete mval[n];for(const [n,s] of Object.entries(mp.slots))mval[n]=s.home??0.5;
+  for(const fc of FIXED_CONTROLS)fixedVal[fc.key]=(mp.internal_defaults||{})[fc.key]??PARAM_TABLE.get(fc.key).def;fknobs.forEach(k=>k.paint());
+  resolveModule();mps.value=id;ps.value='';if(engine==='lab')setEngine('2x');paintMacros();paintEditor();refreshUI();}
+mps.onchange=()=>applyModule(mps.value);
+$('#engine').onchange=()=>setEngine($('#engine').value);
+
+// ---------- the macro editor (Q-028; D-074): after Sluice's lab MACROS panel, in Shriek's own (set) format ----------
+// Per slot: the label, "set home here" (the knob's position becomes the slot's home), the bindings (target, lo, hi
+// in the parameter's own units, curve lin / exp / log), + bind, and adding or clearing a slot. Every edit is heard at
+// once and checked with macro_check's own validate() and sideSafe() (embedded above). Not here, as in Sluice:
+// breakpoint curves, MIDI learn, reordering slots (the 8-slot house layout is fixed, D-054).
+const MKEYS=[...PARAM_TABLE].filter(([,r])=>!r.device).map(([k])=>k);
+const r4=v=>Math.round(v*1e4)/1e4;
+// A new binding: under the modify law (D-076) an offset from the preset's own value, ±1 octave on a Hz key, else a
+// quarter of the row each way, narrowed so the result stays in the row; under the set law, absolute values around it.
+const modifyLaw=()=>mp&&mp.macroLaw==='modify';
+function defaultBind(k){const r=PARAM_TABLE.get(k),own=(mp.internal_defaults||{})[k]??r.def??r.min,span=(r.max-r.min)/4;
+  if(modifyLaw()){if(r.unit==='Hz'&&own>0)return [r4(-Math.min(1,Math.log2(own/r.min))),r4(Math.min(1,Math.log2(r.max/own)))];
+    return [r4(-Math.min(span,own-r.min)),r4(Math.min(span,r.max-own))];}
+  return [r4(Math.max(r.min,own-span)),r4(Math.min(r.max,own+span))];}
+function edited(){saveWork();resolveModule();paintMacros();paintEditor();refreshUI();}
+const ed=$('#meditor');
+$('#medit').onclick=()=>{ed.hidden=!ed.hidden;$('#medit').classList.toggle('on',!ed.hidden);paintEditor();};
+function mkEl(tag,props,...kids){const e=document.createElement(tag);Object.assign(e,props||{});for(const k of kids)e.append(k);return e;}
+function paintEditor(){if(ed.hidden||!mp)return;ed.textContent='';
+  if(mp.lab){ed.append(mkEl('div',{className:'hint',textContent:'A lab preset plays the macros of the module preset "'+mp.id+'". To edit them, pick that module preset.'}));return;}   // D-083
+  for(let n=1;n<=VARIABLE_SLOTS;n++){const key=String(n),sl=mp.slots[key],box=mkEl('div',{className:'ms'});
+    if(!sl){box.append(mkEl('div',{className:'mrow'},mkEl('span',{className:'hint',textContent:n+' · empty'}),mkEl('button',{textContent:'+ macro',onclick:()=>{mp.slots[key]={label:'Macro '+n,bind:{},home:0.5};mval[key]=0.5;edited();}})));ed.append(box);continue;}
+    const head=mkEl('div',{className:'mrow'});
+    head.append(mkEl('span',{className:'hint',textContent:String(n)}),mkEl('input',{type:'text',id:'mlabel-'+n,value:sl.label,onchange:e=>{sl.label=e.target.value;edited();}}),
+      mkEl('button',{textContent:'set home here',title:'the knob\'s current position becomes this slot\'s home',onclick:()=>{sl.home=r4(mval[key]??0.5);edited();}}),
+      mkEl('span',{className:'hint',textContent:'home '+Math.round(100*(sl.home??0.5))+'%'}),
+      mkEl('button',{textContent:'+ bind',onclick:()=>{const k=MKEYS.find(k=>!(k in sl.bind));if(!k)return;sl.bind[k]=defaultBind(k);edited();}}),
+      mkEl('button',{textContent:'✕ clear slot',onclick:()=>{delete mp.slots[key];delete mval[key];edited();}}));
+    box.append(head);
+    for(const [k,b] of Object.entries(sl.bind)){const r=PARAM_TABLE.get(k)||{min:NaN,max:NaN,type:'?'},row=mkEl('div',{className:'mrow b'});
+      const sel=mkEl('select',{onchange:e=>{const nk=e.target.value;const nb={};for(const [kk,vv] of Object.entries(sl.bind))nb[kk===k?nk:kk]=kk===k?defaultBind(nk):vv;sl.bind=nb;edited();}});
+      for(const kk of MKEYS)if(kk===k||!(kk in sl.bind))sel.append(mkEl('option',{value:kk,textContent:kk,selected:kk===k}));
+      const num=(i)=>mkEl('input',{type:'number',step:'any',value:b[i],onchange:e=>{const v=parseFloat(e.target.value);if(Number.isFinite(v)){b[i]=v;edited();}}});
+      const cv=mkEl('select',{onchange:e=>{if(e.target.value==='lin')b.length=2;else b[2]=e.target.value;edited();}});
+      for(const c of modifyLaw()?['lin','exp']:['lin','exp','log'])cv.append(mkEl('option',{value:c,textContent:c,selected:(b[2]||'lin')===c}));
+      const own=(mp.internal_defaults||{})[k]??r.def,oct=modifyLaw()&&r.unit==='Hz'&&own>0;
+      const hint=modifyLaw()?'offset '+(oct?'in octaves':r.unit?'in '+r.unit:'')+' from '+own+(r.unit?' '+r.unit:'')+' · ['+r.min+' … '+r.max+']':'['+r.min+' … '+r.max+']'+(r.unit?' '+r.unit:'');
+      row.append('↳ ',sel,'lo',num(0),'hi',num(1),cv,mkEl('span',{className:'hint',textContent:hint+(r.type==='kT'?' · stepped':'')}),
+        mkEl('button',{textContent:'✕',title:'remove this binding',onclick:()=>{delete sl.bind[k];edited();}}));
+      box.append(row);}
+    ed.append(box);}
+  if(staleNote)ed.append(mkEl('div',{className:'merr',textContent:staleNote}));
+  // checks: macro_check's own rules on this preset; the mid/side rule as a warning
+  const errs=macroValidate({presets:[mp]}),warn=macroSideSafe({presets:[mp]});
+  ed.append(mkEl('div',{className:errs.length?'merr':'mok',textContent:errs.length?'macro_check would refuse this preset:\n'+errs.join('\n'):'macro_check: OK'}));
+  if(warn.length)ed.append(mkEl('div',{className:'merr',textContent:'warning (mid/side fold rule, D-056):\n'+warn.join('\n')}));
+  const out=mkEl('pre',{id:'mout',textContent:changes()||'(no changes from the shipped presets)'});
+  ed.append(mkEl('div',{className:'mrow'},
+    mkEl('button',{className:'hot',textContent:'Copy changes',onclick:()=>{const t=changes();if(!t)return;navigator.clipboard.writeText(t).then(()=>{status.textContent='copied — paste it back in the chat';},()=>{const r=document.createRange();r.selectNodeContents(out);const g=getSelection();g.removeAllRanges();g.addRange(r);status.textContent='selected — copy it with your keyboard';});}}),
+    mkEl('button',{textContent:'Reset this preset',onclick:()=>{const i=WORK.indexOf(mp);WORK[i]=JSON.parse(JSON.stringify(SHIPPED[i]));saveWork();applyModule(WORK[i].id);}}),
+    mkEl('button',{textContent:'Reset all',onclick:()=>{WORK=JSON.parse(JSON.stringify(SHIPPED));saveWork();applyModule(mp.id);}})));
+  const status=mkEl('span',{className:'hint'});ed.lastChild.append(status);
+  ed.append(out);}
+// What differs from the shipped presets, per preset and slot, in words and as JSON (the lead folds it into
+// tools/rebuild_presets.mjs).
+function changes(){const lines=[],json={};
+  const fmtB=b=>b?'['+b[0]+', '+b[1]+(b[2]?', '+b[2]:'')+']':'—';
+  WORK.forEach((w,i)=>{const s0=SHIPPED[i];if(JSON.stringify(w.slots)===JSON.stringify(s0.slots))return;
+    const ps=[];for(let n=1;n<=8;n++){const a=s0.slots[n],b=w.slots[n];if(JSON.stringify(a)===JSON.stringify(b))continue;
+      if(!b){ps.push('slot '+n+' '+a.label+': removed');continue;}
+      if(!a){ps.push('slot '+n+' '+b.label+': added, home '+(b.home??0.5)+', '+Object.entries(b.bind).map(([k,v])=>k+' '+fmtB(v)).join(', '));continue;}
+      const d=[];if(a.label!==b.label)d.push('label "'+a.label+'" → "'+b.label+'"');if((a.home??0.5)!==(b.home??0.5))d.push('home '+(a.home??0.5)+' → '+(b.home??0.5));
+      for(const k of new Set([...Object.keys(a.bind),...Object.keys(b.bind)]))if(JSON.stringify(a.bind[k])!==JSON.stringify(b.bind[k]))d.push(k+' '+fmtB(a.bind[k])+' → '+fmtB(b.bind[k]));
+      ps.push('slot '+n+' '+b.label+': '+d.join('; '));}
+    lines.push(w.label+' ('+w.id+')\n  '+ps.join('\n  '));json[w.id]=w.slots;});
+  return lines.length?'Shriek macro edits (Q-028):\n'+lines.join('\n')+'\n\nJSON (the edited presets\' slots):\n'+JSON.stringify(json):'';}
+
+// ---------- audio ----------
+// latencyHint 0 asks for the smallest render buffer the browser will give: measured
+// 5.8 ms -> 2.9 ms of baseLatency here. It does NOT touch ctx.outputLatency (32 ms on
+// this machine, the device buffer, identical under every hint including 'playback'),
+// so the knob-to-ear round trip stays ~35 ms and that floor is the browser's, not
+// MAW's: the module inside horde runs at the host's buffer instead.
+// Q-029: the sample-rate picker. A rate other than the device's is resampled by the browser on the way out.
+let RATE=0,lastFile=null,drawing=false;   // drawing: one animation loop, however often the context is rebuilt
+async function start(){if(ctx)return;const opts={latencyHint:0};if(RATE)opts.sampleRate=RATE;ctx=new (window.AudioContext||window.webkitAudioContext)(opts);
+  const src='('+defineCore.toString()+')';
+  // D-071: the worklet runs lab/oversample.js's Engine (2× as shipped, 1× + ADAA, or the lab engine), embedded by sync_proto
+  const worklet=`const {MawCore}=${src}();const HALFBAND=${JSON.stringify(HALFBAND)};const defineHalfband=${defineHalfband.toString()};const defineEngine=${defineEngine.toString()};const Engine=defineEngine(MawCore,defineHalfband(HALFBAND));class Proc extends AudioWorkletProcessor{constructor(){super();this.core=new Engine(sampleRate);this.port.onmessage=e=>this.core.msg(e.data);}process(i,o){const c=o[0];this.core.process(c[0],c[1]||c[0],c[0].length);for(const ch of c){for(let k=0;k<ch.length;k++){const v=ch[k];ch[k]=v>1?1:v<-1?-1:v;}}return true;}}registerProcessor('maw',Proc);`;
+  let mode='';
+  const tryUrl=async url=>{await ctx.audioWorklet.addModule(url);node=new AudioWorkletNode(ctx,'maw',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[2]});send=m=>node.port.postMessage(m);};
+  try{await tryUrl(URL.createObjectURL(new Blob([worklet],{type:'application/javascript'})));mode='AudioWorklet';}
+  catch(e1){try{await tryUrl('data:application/javascript;base64,'+btoa(unescape(encodeURIComponent(worklet))));mode='AudioWorklet (data:)';}
+  catch(e2){const core=new (defineEngine(CORE.MawCore,defineHalfband(HALFBAND)))(ctx.sampleRate);node=ctx.createScriptProcessor(1024,0,2);
+    node.onaudioprocess=e=>{const L=e.outputBuffer.getChannelData(0),R=e.outputBuffer.getChannelData(1);core.process(L,R,e.outputBuffer.length);for(const ch of [L,R])for(let k=0;k<ch.length;k++){const v=ch[k];ch[k]=v>1?1:v<-1?-1:v;}};send=m=>core.msg(m);mode='ScriptProcessor fallback';}}
+  analyser=ctx.createAnalyser();analyser.fftSize=2048;analyser.smoothingTimeConstant=0.6;node.connect(analyser);analyser.connect(ctx.destination);
+  send({t:'eng',mode:engine});send({t:'p',P});$('#status').textContent='running · '+mode+' · '+ctx.sampleRate+' Hz';$('#start').style.display='none';if(!drawing){drawing=true;draw();}}
+$('#start').onclick=start;
+// Rebuild the audio context at the picked rate; a loaded sample is decoded again at the new rate.
+$('#srate').onchange=async()=>{RATE=+$('#srate').value||0;if(!ctx)return;try{node.disconnect();}catch(e){}await ctx.close();ctx=null;node=null;send=()=>{};await start();
+  if(lastFile){const buf=await ctx.decodeAudioData(lastFile.slice(0));send({t:'smp',L:buf.getChannelData(0).slice(),R:(buf.numberOfChannels>1?buf.getChannelData(1):buf.getChannelData(0)).slice()});}};$('#panic').onclick=()=>send({t:'panic'});
+
+// ---------- keys + midi ----------
+const KEYS={a:0,w:1,s:2,e:3,d:4,f:5,t:6,g:7,y:8,h:9,u:10,j:11,k:12,o:13,l:14,p:15,';':16};let oct=3;const held={};
+window.addEventListener('keydown',e=>{if(e.repeat||e.target.tagName==='SELECT'||e.target.tagName==='INPUT')return;const k=e.key.toLowerCase();
+  if(k==='z')oct=Math.max(0,oct-1);else if(k==='x')oct=Math.min(7,oct+1);
+  else if(k in KEYS){if(!ctx)start();const n=12*(oct+1)+KEYS[k];held[k]=n;send({t:'on',n,v:1});lastNoteHz=noteHz(n);paintTrack();}});
+window.addEventListener('keyup',e=>{const k=e.key.toLowerCase();if(k in held){send({t:'off',n:held[k]});delete held[k];}});
+if(navigator.requestMIDIAccess)navigator.requestMIDIAccess().then(m=>{for(const i of m.inputs.values())i.onmidimessage=ev=>{const [s,n,v]=ev.data;const st=s&0xf0;if(!ctx)start();if(st===0x90&&v>0)send({t:'on',n,v:v/127}),lastNoteHz=noteHz(n),paintTrack();else if(st===0x80||(st===0x90&&v===0))send({t:'off',n});};}).catch(()=>{});
+
+// ---------- visuals ----------
+function draw(){requestAnimationFrame(draw);if(!analyser)return;
+  const sc=$('#scope'),W=sc.width=sc.clientWidth*2,Hh=sc.height=240,c=sc.getContext('2d');const td=new Float32Array(analyser.fftSize);analyser.getFloatTimeDomainData(td);
+  c.clearRect(0,0,W,Hh);c.strokeStyle='#22252c';c.beginPath();c.moveTo(0,Hh/2);c.lineTo(W,Hh/2);c.stroke();
+  let st=0;for(let i=1;i<td.length-W;i++)if(td[i-1]<0&&td[i]>=0){st=i;break;}
+  c.strokeStyle='#4fd1c5';c.lineWidth=2;c.beginPath();for(let x=0;x<W;x++){const y=Hh/2-td[st+x]*Hh/2.2;x?c.lineTo(x,y):c.moveTo(x,y);}c.stroke();
+  const sp=$('#spec'),W2=sp.width=sp.clientWidth*2,H2=sp.height=240,c2=sp.getContext('2d');const fd=new Float32Array(analyser.frequencyBinCount);analyser.getFloatFrequencyData(fd);
+  c2.clearRect(0,0,W2,H2);c2.fillStyle='#ff5c1a';const nyq=ctx.sampleRate/2;
+  for(let x=0;x<W2;x++){const f=20*Math.pow(nyq/20,x/W2);const b=Math.min(fd.length-1,Math.floor(f/nyq*fd.length));const v=CORE.clamp((fd[b]+100)/100,0,1);c2.fillRect(x,H2-v*H2,1,v*H2);}
+  c2.fillStyle='#7a7e88';c2.font='16px monospace';[100,1000,10000].forEach(f=>{const x=Math.log(f/20)/Math.log(nyq/20)*W2;c2.fillText(f>=1000?f/1000+'k':f,x,H2-6);});}
+
+applyModule(MODULE_PRESETS[0].id);paintNote();
+</script></body></html>

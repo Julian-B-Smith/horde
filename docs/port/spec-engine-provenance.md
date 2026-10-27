@@ -264,7 +264,7 @@ Nothing here is removed before its replacement exists and is wired; each removal
 | the twin's check page | `docs/design/composed-engine-check.html` | 1 | — | it checks the twin against its prototypes |
 | **removed in all** | | **32** | **≥ 15,821** | |
 | the self-digest references (re-baselined, not removed) | `h2/engine/selfdigest.parity.darwin-arm64.appleclang-16.node24.txt`, `h2/engine/selfdigest.product.darwin-arm64.appleclang-16.node24.txt` | 2 | — | they become the new engine's frozen goldens; a protected path, so a sanctioned step (audit M10) |
-| lab code that embeds an engine copy (re-pointed to the WebAssembly build, not removed) | the `<script src>` loads of the twin and its prototypes in `docs/design/scalpel-interface-lab.html`, `docs/design/envelope-hierarchy-lab.html`, `docs/design/listening-pass.html`, `docs/design/maw-horde-lab.html`, `docs/design/sluice-horde-lab.html` | 5 | — | one engine, in one language |
+| lab code that embeds an engine copy (re-pointed to the WebAssembly build, not removed) | the `<script src>` loads of the twin and its prototypes in `docs/design/scalpel-interface-lab.html`, `docs/design/envelope-hierarchy-lab.html`, `docs/design/listening-pass.html`, `docs/design/sluice-horde-lab.html` | 4 (the fifth, `docs/design/maw-horde-lab.html`, was replaced by Shriek's self-contained prototype on 2026-10-27, ADR-292, and loads no engine copy) | — | one engine, in one language |
 
 **Gates and tools that depend on the twin or the old cores** (each changes at cutover; none is removed before its replacement is wired):
 
