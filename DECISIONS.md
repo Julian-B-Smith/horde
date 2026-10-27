@@ -9510,3 +9510,81 @@ No correct pair of builds under BD-7 can match on a chaotic state.
 - **The rulings log** gains rows 45 to 53, and its six stray rows move back into the table.
 - **B520** stays open until the owed checks return.
 - **FX device (ADR-254):** none.
+
+## ADR-290 — RULED by the human: scale quantize is an option on every modulation route into a pitch (B554, B504, 2026-10-27)
+
+**Context.** The human: "I also thought of something I want to set as an option across any pitch modulation lanes: for any modulator that modulates pitch, scale quantize should be an option." The records already hold the pieces this builds on:
+- **B260:** the scale is one global setting, which any consumer reads.
+- **B504 and ADR-232:** the pitch system carries scale quantization as a modifier on the glide laws, with hysteresis and a minimum step time.
+- **ADR-266:** the mod matrix and its route row.
+
+The ruling numbers here skip ADR-289, which is held for spec round 42 (B552, in review).
+
+**Ruling (the human, by poll, 2026-10-27).** **"Per route, snaps the result."** Each route into a pitch destination carries a Quantize toggle on its route row. When on, the destination's resulting pitch (the note plus all its modulation) snaps to the global scale, with the same hysteresis and minimum step time as the glide quantizer. The alternatives were a route's own offset snapped to scale intervals (two quantized routes could still sum off-scale), and one toggle per destination.
+
+**The lead's reading, open for the lab.** The pitch is snapped when any route into it has Quantize on; the toggle sits on each route so it is set where the modulation is made. Whether mixed quantized and unquantized routes into one pitch should behave otherwise is put to the human with the lab.
+
+**Consequences.**
+- ROADMAP B554, built with the pitch system (RC-3, B504). Nothing in the clean-room engine changes: its pitch input is IF-2's per-note pitch, and the quantizer sits in the pitch system above it.
+- The design system's route row gains the toggle when the pitch system's lab lands.
+- **FX device (ADR-254):** the FX device's matrix offers the same toggle on any FX-module pitch destination, reading the same global scale.
+
+## ADR-291 — RULED by the human: the morph pad on every page, a per-page modulator bank, a per-parameter morph mode menu, and Arp's pickers with pictures (B555–B558, 2026-10-27)
+
+**Context.** The human, after playing the legacy plugin: "I realized something when playing around with the legacy plugin and feeling frustrated with a particular UI detail: the morph grid should be available on every page of the device. And maybe there should be a small bank on every page that displays the modulators that are relevant on that page (any that modulate parameters controlled on that page)." And: "in a drop-down menu you should be able to set individual parameters to blend mode: quantum if you want to exclude them from blend (this will be particularly useful for a number of arp parameters)." On the Arp face lab (B553): "the order and pattern selectors should also have dropdowns with visuals of the patterns. I would also in general like to see a basic arp pattern visualizer in the device for whatever is selected."
+
+**Rulings (the human, 2026-10-27; two readings settled by poll).**
+1. **The morph pad on every page** ("The morph pad (XY + corners)"): a compact pad docked on every page (B555).
+2. **A per-page modulator bank:** each page shows the modulators that modulate a parameter on that page, read from the matrix's routes (B556).
+3. **A per-parameter morph mode menu** ("Follow / Quantum / Exempt"): Follow the morph (the default), Quantum (flips at the boundaries instead of blending, whatever the global mode), or Exempt (ADR-109). It is patch state (B557).
+4. **Arp's Order and Pattern pickers show pictures,** and the device shows a basic visualizer of the selected order and pattern (B558).
+
+**Consequences.**
+- B555–B558 are opened. Each lands as a design-system rule or component and a lab, and the human rules on each.
+- **FX device (ADR-254):** rulings 1 to 3 apply to the FX device's pages and FX-module parameters. Ruling 4 has none, because the FX device hosts no note processor.
+
+## ADR-292 — RULED by the human: ATM may rely on horde's master limiter; the lab-sync order approved; Shriek's prototype replaces horde's copy of its lab (Bulwark seq 27, Shriek maw-010, B331, B438, 2026-10-27)
+
+**Context.**
+- **Bulwark's brief seq 27.** Bulwark replaces ATM's multiband band with the OTT model's structure: a level follower on the band's power feeding a static gain, with no gain smoothing. Quiet material comes up about 14 dB more. After a quiet passage a hit keeps its lift for about one attack time: peaks run 2.9 to 4.6 dB over Live's preset, +1.4 dBFS on plucks, and 15.3 dB over the steady output in the computed worst case. Bulwark's human accepted this on the basis that horde's master limiter catches the overs, and asked whether ATM may rely on it. On record, ADR-275 says the limiter is always on, and B438's master strip carries an on/off switch.
+- **Shriek's brief maw-010 (seq 21).** Shriek's scope list freezes at its lab sync (ADR-190 A1), but B331's order was never approved, and horde's copy of its lab, `docs/design/maw-horde-lab.html`, is stale (2026-10-01). Shriek offered its current prototype, gated against its shipped core.
+
+**Rulings (the human, by poll, 2026-10-27).**
+1. **"(a) Yes, horde owns it."** The master limiter is always in horde's output path. It can be off only by the player's explicit choice on horde's master strip, and while it is off the clip latch reports overs. ATM may rely on it.
+2. **"Approve as proposed."** B331's lab-sync order stands, S0 to S6. Shriek syncs in S4, at its turn, and its scope list freezes then.
+3. **"Replace ours with theirs."** Shriek sends its prototype into horde's mailbox, and it replaces `docs/design/maw-horde-lab.html`, with its source commit recorded.
+
+**Consequences.**
+- Bulwark is answered (`integrations/bulwark/response-atm-band-replaced.md`, seq 28) and Shriek (`integrations/maw/response-lab-sync.md`, seq 22).
+- B331 is approved. The freeze proposal's item B1 is closed by this ruling.
+- horde plans the slot's tail handling for ATM's new worst case, about 3 211 s at rest.
+- **FX device (ADR-254):** the same limiter closes the FX device's chain, so ruling 1 holds there. Rulings 2 and 3 concern labs only.
+
+## ADR-293 — RULED by the human: two arps after 1.0, sharing one chord stage (B559, 2026-10-27)
+
+**Context.** The human asked, "Would it be crazy to have two arps that can be set to two different oscillators?" The lead answered that it extends the per-source stream selector the human already ruled (ADR-270, RC-6.7). The selector grows from three toggles to four (Direct, Chord, Arp 1, Arp 2), which gives 15 combinations, appended after the 1.0 values so a stored patch keeps its meaning. Both arps draw on the one voice pool (VO-5). Arp's own design is the main open question.
+
+**Ruling (the human, 2026-10-27).** "After 1.0, shared chord stage; file it with Arp." Two Arp instances, after 1.0, behind one shared chord stage. Each has its own order, pattern, rate, seed and lanes, and each reaches the sources whose selectors pick it.
+
+**Consequences.**
+- ROADMAP B559 (planned, after 1.0).
+- A brief to Arp (seq 9, in Arp's `integrations/hypersaw/`). It asks whether Arp's core can run two arps behind one chord stage, how the second arp's notes are tagged, and how triggers, presets and the user pattern divide. Nothing in 1.0 changes, beyond leaving room.
+- **FX device (ADR-254):** none, because the FX device hosts no note processor.
+
+## ADR-294 — RULED by the human: a module's blob is carried beside its cascade preset; the note-processor preset format is written (B550, 2026-10-27)
+
+**Context.** horde owes Arp the format a horde preset uses to carry a hosted note processor (B550, ADR-282, Arp Q-H6 and Q-H10), before Arp authors its factory presets. The lead drafted it from the human's FX-module rule (ADR-201 Q7: a module's patch at a corner is a FOUNDATIONS cascade `Preset` at the module's scope). One gap remained. Arp's user pattern is a versioned text blob (`arp-user-pattern/1`), but the cascade `Preset::absolute` is a `map<string, double>`, and `payloads` is reserved for adaptive state (RS-6.13). The rack-slot contract's §6.2 had placed a module's structure in `absolute` "as one `kBlob` key", which the type cannot hold.
+
+**Ruling (the human, by poll, 2026-10-27).** **"Beside the preset."** A module's blobs are carried beside its cascade `Preset`, in horde's own corner record (`blobs`). horde stores them verbatim and never parses them, and the module validates them. This needs nothing from FOUNDATIONS. The same reading covers Shriek's macro slots and Sluice's patch blob, so RS §6.2's sentence is corrected to match.
+
+**The format** (`docs/proposals/note-processor-preset-format.md`):
+- **scope `arp`:** continuous settings in `values` and `basis`, discrete settings in `absolute` as their manifest index (append-only lists);
+- **blobs beside the preset;**
+- **factory files** as `horde.module-preset/1` JSON, with every key present and floats that round-trip exactly;
+- **per corner** `np["arp"] = {origin_id, module_version, preset, blobs}`, one preset locked across the corners by default (RS-6.3);
+- `module_version`, until Arp has a lockfile, is the sha256 of Arp's `spec/params.json`.
+
+**Consequences.**
+- Arp is told (notice seq 10 in Arp's `integrations/hypersaw/`). B550 stays open until Arp's init and starter-bank presets load and round-trip.
+- RS §6.2 is amended.
+- **FX device (ADR-254):** the blob rule applies to FX modules' blobs there too. The note-processor format has none, because the FX device hosts no note processor.

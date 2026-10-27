@@ -1,0 +1,873 @@
+<!doctype html>
+<!-- page-chrome-lab — B555 + B556 + B557 (ADR-291): the chrome that every page shares, as a lab.
+     HYPERSAW/horde, 2026-10-27. Origin: the human, 2026-10-27, three asks in one breath: "the morph grid should be
+     available on every page of the device. And maybe there should be a small bank on every page that displays the
+     modulators that are relevant on that page (any that modulate parameters controlled on that page)", and "in a
+     drop-down menu you should be able to set individual parameters to blend mode: quantum if you want to exclude them
+     from blend (this will be particularly useful for a number of arp parameters)". Settled by poll: "the morph grid"
+     means the morph PAD (the XY with four corners and the puck); the menu offers Follow / Quantum / Exempt.
+
+     ROADMAP rows this answers (acceptance, verbatim):
+       B555  "the design system's layout rule and the Main/Osc/FX/Mod/Morph/Mix/Hist/Set compositions carry the docked
+              pad; the human rules on a layout lab."
+       B556  "a design-system component (from the Source strip family) and its rule; the human rules on a lab where
+              moving a route updates the bank."
+       B557  "the rule in the morph layer's design and the design system (knob, slider and morph grid show the
+              override); a lab; the human's ruling."  Follow (the morph's mode, the default), Quantum (flips at the
+              quantum boundaries instead of blending, whatever the global mode), Exempt (out of the morph field, one
+              held value; ADR-109). It is patch state, saved with the preset.
+
+     WHAT THIS IS. One 980 x 720 GUI 3 window (resizable down to 600 px) with its eight page tabs. Osc, FX, Mod, Morph,
+     Mix and Set are drawn; Main and Hist are stubs because the chrome, not the page, is the question. Three things are
+     the same on every page and are the lab's subject:
+       1. the DOCK (B555): the pad, its four corners and the mode switch, always in the left rail;
+       2. the BANK (B556): the modulators that move something on THIS page, derived from the mod matrix's routes against
+          the page's own manifest keys, never a hand-kept list;
+       3. the MODE MENU (B557): Follow / Quantum / Exempt per morphing parameter, from the control's right-click menu and
+          from a small affordance on its label; the override is shown on the control, listed as patch state, and one
+          pick is one undo step.
+
+     WHAT IS MOCK. Everything an engine would supply: the morph ownership (the design system's labelled stand-in,
+     H.Morph.engine), the four corner values (a mulberry32 spread per key), the modulators' values (pure functions of
+     the Session's frame time, so reduced motion holds them still), the preset names (the design system's own SAMPLE
+     names from the SCALPEL bench), the manifest keys (SAMPLE, plausible), the module cards' mini-views. The Arp card is
+     a mock of an Arp-like FX card (ADR-254: the FX device hosts no note processor; this stands in for any FX module
+     with discrete and continuous settings). The undo stack is the morph layer's own (H.Morph.state(S).hist), the one the
+     grid's UNDO button and Cmd+Z read; the bundle's knob drags do not write to it, so only the mode picks, resets and
+     pill clicks are on it, which is what this lab claims about.
+
+     WHAT IT IS NOT. Not the Morph page (morph-editor-lab), not the mod matrix lab, not a spec: the three rules at the
+     foot are PROPOSED text for the human to ratify. Nothing in specs/, reference/ or docs/design-system/ is touched.
+
+     FX DEVICE (ADR-254): all three apply to the FX device's pages too. No page here assumes the oscillator panels: the
+     Osc page is one page among eight and the FX, Mod, Morph, Mix and Set compositions render without it. The dock and
+     the bank read only the Session (corners, mappings, params), never an oscillator.
+
+     No Math.random (mulberry32 only); lab time is the Session's frame time. No wheel listener of this lab's own
+     (B301): the bundle registers its alt+wheel itself. -->
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="lab-part" content="Presentation">
+<meta name="lab-review" content="B555 · B556 · B557 · 2026-10-27">
+<title>page chrome lab — the docked morph pad, the per-page modulator bank, and the per-parameter morph mode</title>
+<!-- the design system is vendored once, by the Arp face lab (B553); this lab reuses it by relative path, never a copy -->
+<link rel="stylesheet" href="arp-face/tokens.css">
+<link rel="stylesheet" href="arp-face/bundle.css">
+<style>
+  /* Lab layout only. Every colour, size and radius is a token; the components bring their own look. */
+  body { padding: var(--space-page); }
+  .lab-col { max-width: 1010px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--space-column); }
+  .lab-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-gap); }
+  .lab-grow { flex: 1 1 auto; }
+  .lab-tag { font: 700 8.5px/1.4 var(--font-sans); letter-spacing: .1em; padding: 0 5px; border-radius: var(--radius-track); color: var(--t2); border: 1px solid var(--div); }
+  .tagline { font: 400 10px/1.5 var(--font-sans); color: var(--t2); max-width: 96ch; }
+  .tagline b { color: var(--ink); font-weight: 600; }
+  .lab-status { margin: 0; }
+  .lab-status b { color: var(--ink); font-weight: 600; }
+  .lab-panel { box-sizing: border-box; background: var(--panel); border: var(--stroke-ink) solid var(--ink); border-radius: var(--radius); padding: var(--space-card-y) var(--space-card-x); display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .lab-two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--space-column); align-items: start; }
+
+  /* THE WINDOW. A size container: the dock lies down above the page below 700 px of WINDOW width, which is not the
+     viewport's (the size buttons shrink the window inside a wide viewport). --ww and --wh are the size buttons'. */
+  #win { container-type: inline-size; width: min(100%, var(--ww, 980px)); min-height: var(--wh, 720px); margin: 0 auto; display: flex; flex-direction: column; gap: var(--space-stack); }
+  .chrome { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-gap) 14px; }
+  .logo-slot { box-sizing: border-box; width: 91px; height: 60px; flex: 0 0 auto; display: grid; place-items: center; text-align: center; border: 1px dashed var(--div); border-radius: var(--radius); font: 400 8px/1.3 var(--font-mono); color: var(--hint); }
+  .tabs { display: grid; grid-template-columns: repeat(4, auto); gap: 4px; justify-content: start; min-width: 0; }
+  .tabs .hd-pill { padding: 0 14px; }
+  .body { display: grid; grid-template-columns: 204px minmax(0, 1fr); gap: var(--space-column) 10px; align-items: stretch; flex: 1 1 auto; }
+  .body > .dock { align-self: start; }
+  .body.rail-min { grid-template-columns: 56px minmax(0, 1fr); }
+  .pagecol { display: flex; flex-direction: column; gap: var(--space-stack); min-width: 0; min-height: 560px; }
+  #pages { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }   /* the bank is pushed to the foot, the same place on every page */
+  .page { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+  .page[hidden] { display: none; }
+  .cl { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .knobs { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: flex-start; }
+  .faders { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: flex-start; }
+  .stubnote { max-width: 70ch; }
+  .fxrow { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
+  .fxrow .hd-card { width: auto; flex: 1 1 320px; min-width: 0; }
+  .hd-card .face { align-items: flex-start; gap: 2px 4px; }
+  .hd-card .viz { background: var(--g, var(--scr-ground)); height: 56px; }
+  .hd-card .viz svg { overflow: hidden; }
+  .face .pcs { flex: 1 1 100%; padding: 0 4px; }
+
+  /* THE DOCK (B555). Same place on every page. Expanded: pad + corners + mode + a way to the Morph page. Collapsed: a
+     56 px strip that keeps the four weights; it never disappears, because the pad is the instrument's one global gesture. */
+  .dock { box-sizing: border-box; background: var(--panel); border: var(--stroke-ink) solid var(--ink); border-radius: var(--radius); padding: 6px 7px 8px; display: flex; flex-direction: column; gap: 6px; min-width: 0; --padsz: 168px; }
+  .dock-head { display: flex; align-items: center; gap: 6px; min-height: var(--size-hit); }
+  .dock-body { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .dock-side { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1 1 200px; }
+  .dock .hd-xy { width: var(--padsz); height: var(--padsz); max-width: 100%; margin: 0 auto; }
+  .dock .cname { width: auto; max-width: none; flex: 1 1 0; }
+  .dock .hd-crow .pick { margin: 0 2px; }
+  .dock .hd-crow { gap: 3px; }
+  .dock-mini { display: none; flex-direction: column; gap: 6px; align-items: center; }
+  .dock-mini .mw { display: flex; flex-direction: column; align-items: center; gap: 2px; font: 400 9px/1 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--ink); }
+  .dock.collapsed .dock-body { display: none; }
+  .dock.collapsed .dock-mini { display: flex; }
+  .dock.collapsed .dock-head .hd-cluster, .dock.collapsed .dock-head .lab-tag { display: none; }
+  .dock.collapsed .dock-head { justify-content: center; }
+  .dock-head .hd-iconbtn { margin-left: auto; }
+  .dock.collapsed .dock-head .hd-iconbtn { margin-left: 0; }
+  @container (max-width: 700px) {
+    .body, .body.rail-min { grid-template-columns: minmax(0, 1fr); }
+    .dock { --padsz: 124px; }
+    .dock-body { flex-direction: row; flex-wrap: wrap; align-items: flex-start; }
+    .dock-body .hd-xy { margin: 0; flex: 0 0 auto; }
+    .dock-mini { flex-direction: row; flex-wrap: wrap; }
+    .dock-mini .mw { flex-direction: row; gap: 4px; }
+    .dock.collapsed .dock-head { justify-content: flex-start; }
+    .dock.collapsed .dock-head .hd-cluster, .dock.collapsed .dock-head .lab-tag { display: inline; }
+    .pagecol { min-height: 0; }
+  }
+
+  /* THE BANK (B556). A constant box: one 40 px line at the foot of every page, so a route added on the Mod page never
+     moves a control on another page. Past the width the rest folds into "+n". */
+  .bank { box-sizing: border-box; display: flex; align-items: center; gap: var(--space-gap); height: 40px; padding: 0 8px; min-width: 0; background: var(--panel); border: var(--stroke-ink) solid var(--ink); border-radius: var(--radius); }
+  .bank .bk-t { flex: 0 0 auto; }
+  .bank .bk-chips { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; }
+  .bank .bk-chips .src-chip { flex: 0 0 auto; }
+  .bank .bk-chips .src-chip[hidden] { display: none; }
+  .bank .bk-chips:empty { flex: 0 0 0; }
+  .bank .bk-more { flex: 0 0 auto; font: 600 9px/1 var(--font-mono); color: var(--t2); padding: 0 4px; }
+  .bank .bk-empty { font: 400 9.5px/1.3 var(--font-mono); color: var(--hint); }
+  /* the activity dot: a ring (always there) around a dot whose SIZE is the source's value now, so it reads without colour */
+  .act { box-sizing: border-box; width: 14px; height: 14px; border-radius: 50%; border: var(--stroke-sub) solid var(--ink); background: var(--well-alt); display: inline-grid; place-items: center; flex: 0 0 auto; }
+  .act b { display: block; width: 9px; height: 9px; border-radius: 50%; background: var(--sc); transform: scale(var(--v, 0)); }
+  .bank .src-chip { gap: 6px; padding: 0 9px 0 6px; }
+
+  /* THE MODE AFFORDANCE and its marks (B557). Never colour alone: a staircase glyph + "Q" for Quantum, a slashed ring +
+     "EX" for Exempt, a plain chevron for Follow; and Exempt dashes the control's box (absence of tint = belongs to nobody). */
+  .maff { position: relative; display: inline-flex; align-items: center; gap: 2px; height: 16px; min-width: 16px; padding: 0 3px; margin-left: 2px; box-sizing: border-box; flex: 0 0 auto;
+          border: 1px solid transparent; border-radius: var(--radius-capsule); background: transparent; color: var(--hint); font: 700 8px/1 var(--font-sans); letter-spacing: .06em; cursor: pointer; vertical-align: middle; }
+  .maff::before { content: ''; position: absolute; left: 50%; top: 50%; width: 28px; height: 28px; transform: translate(-50%, -50%); }
+  .maff svg { width: 9px; height: 9px; flex: 0 0 auto; }
+  .maff:hover { border-color: var(--ink); color: var(--ink); }
+  .maff[data-m="quantum"], .maff[data-m="exempt"] { color: var(--ink); border-color: var(--ink); background: var(--panel); }
+  .mk-name { display: flex; align-items: center; justify-content: center; flex-wrap: nowrap; }
+  .hd-ms > .mk-name { flex: 0 0 88px; justify-content: flex-start; }
+  .hd-mk[data-morph="exempt"], .hd-ms[data-morph="exempt"], .hd-ms-v[data-morph="exempt"], .pcs[data-morph="exempt"] { border-style: dashed; border-color: var(--ink); }
+  .pcs { display: flex; flex-direction: column; gap: 2px; border: 1px solid transparent; border-radius: var(--radius); padding: 2px 4px; box-sizing: border-box; min-width: 0; }
+  .pcs .pl { display: flex; align-items: center; gap: 2px; min-height: 18px; }
+  .pcs .hd-pill { padding: 0 9px; }
+  .og { display: inline-flex; }
+
+  /* the right-click menu (B557 + the system's "Reset to default") */
+  .pm { position: fixed; z-index: 60; box-sizing: border-box; width: 268px; max-width: calc(100vw - 16px); background: var(--panel); border: var(--stroke-ink) solid var(--ink); border-radius: var(--radius); padding: 4px; display: flex; flex-direction: column; gap: 2px; }
+  .pm-h { display: flex; flex-direction: column; gap: 1px; padding: 3px 6px 5px; border-bottom: 1px dashed var(--div); font: 600 10px/1.3 var(--font-sans); color: var(--ink); }
+  .pm-g { padding: 5px 6px 1px; font: 700 8.5px/1.2 var(--font-sans); letter-spacing: .1em; color: var(--t2); }
+  .pm-i { display: grid; grid-template-columns: 12px minmax(0, 1fr); align-items: center; column-gap: 7px; text-align: left; min-height: var(--size-hit); padding: 2px 6px; border: var(--stroke-ink) solid transparent; border-radius: var(--radius); background: transparent; color: var(--text); cursor: pointer; font: 500 10px/1.3 var(--font-sans); }
+  .pm-i:hover { background: var(--well-alt); }
+  .pm-i[aria-checked="true"] { background: var(--sel-neutral); border-color: var(--sel-neutral-edge); }
+  .pm-i[aria-disabled="true"] { opacity: var(--opacity-disabled); cursor: default; }
+  .pm-i .pm-t { grid-column: 2; font-weight: 600; }
+  .pm-i .pm-d { grid-column: 2; color: var(--t2); }
+  .pm-i .pm-r { grid-row: 1 / span 2; width: 10px; height: 10px; box-sizing: border-box; border: var(--stroke-sub) solid var(--ink); border-radius: 50%; background: transparent; }
+  .pm-i[aria-checked="true"] .pm-r { background: var(--ink); box-shadow: inset 0 0 0 2px var(--sel-neutral); }
+  .pm-i.act-plain { grid-template-columns: minmax(0, 1fr); }
+  .pm-i.act-plain .pm-t, .pm-i.act-plain .pm-d { grid-column: 1; }
+  .pm-n { padding: 3px 6px; font: 400 9px/1.5 var(--font-mono); color: var(--hint); }
+  .pm-i:focus-visible { box-shadow: var(--focus-ring); outline: none; }
+
+  /* the morph grid's marks: a Q or EX tag on the name, the exempt rows moved out into their own band */
+  .hm-row.lab-ex { display: none; }
+  .lab-mtag { display: inline-flex; align-items: center; gap: 2px; margin-left: 5px; padding: 0 4px; height: 14px; border: 1px solid var(--ink); border-radius: var(--radius-capsule); font: 700 8px/1 var(--font-sans); letter-spacing: .06em; color: var(--ink); vertical-align: middle; }
+  .lab-mtag svg { width: 9px; height: 9px; }
+  .lab-exband { box-sizing: border-box; border: var(--stroke-ink) dashed var(--ink); border-radius: var(--radius); background: var(--well); padding: 6px 8px; display: flex; flex-direction: column; gap: 3px; }
+  .lab-exrow { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(60px, 1fr) 9ch auto; align-items: center; gap: 8px; min-height: var(--size-hit); }
+  .lab-exrow .nm { font: 500 10.5px/1.2 var(--font-sans); color: var(--ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lab-exrow .nm small { display: block; font: 400 8.5px/1.2 var(--font-mono); color: var(--hint); }
+  .lab-exrow .bar { height: 6px; border-radius: 3px; background: var(--well-alt); overflow: hidden; }
+  .lab-exrow .bar i { display: block; height: 100%; background: var(--ink); }
+  .lab-exrow .v { font: 400 10px/1 var(--font-mono); color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
+  @container (max-width: 560px) { .lab-exrow { grid-template-columns: minmax(0, 1fr) auto; } .lab-exrow .bar, .lab-exrow .v { display: none; } }
+
+  .patch-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; font: 400 9.5px/1.5 var(--font-mono); color: var(--t2); min-height: 18px; }
+  .patch-row b { color: var(--ink); font-weight: 500; }
+  .patch-json { margin: 0; padding: 6px 8px; border: 1px solid var(--div); border-radius: var(--radius); background: var(--well); font: 400 9px/1.5 var(--font-mono); color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .rules { display: flex; flex-direction: column; gap: 10px; }
+  .rules h3 { margin: 0; font: 800 11px/1.2 var(--font-sans); letter-spacing: .1em; text-transform: uppercase; color: var(--ink); }
+  .rules p { margin: 2px 0 0; font: 400 10.5px/1.55 var(--font-sans); color: var(--text); max-width: 96ch; }
+  .rules ul { margin: 4px 0 0; padding-left: 18px; font: 400 10.5px/1.55 var(--font-sans); color: var(--text); max-width: 96ch; }
+  .checks p { margin: 0; }
+  .hd-btn[disabled], .hd-iconbtn[disabled] { opacity: var(--opacity-disabled); cursor: default; box-shadow: none; }
+</style></head><body>
+<div class="lab-col">
+  <header class="lab-bar" id="labbar" data-lab>
+    <span class="hd-cluster">horde · page chrome lab</span><span class="lab-tag">MOCK</span><span class="lab-tag">B555</span><span class="lab-tag">B556</span><span class="lab-tag">B557</span>
+    <span class="lab-grow"></span>
+    <span class="hd-pills" role="group" aria-label="Window width" id="sizes">
+      <button class="hd-pill hd-focus" type="button" data-w="980" aria-pressed="true">980</button>
+      <button class="hd-pill hd-focus" type="button" data-w="760" aria-pressed="false">760</button>
+      <button class="hd-pill hd-focus" type="button" data-w="600" aria-pressed="false">600</button>
+    </span>
+    <button class="hd-btn hd-focus" id="undoBtn" type="button" disabled>Undo</button>
+    <button class="hd-btn hd-focus" id="redoBtn" type="button" disabled>Redo</button>
+    <button class="hd-kbd hd-focus" id="kbd" type="button" aria-pressed="false" aria-label="Keyboard mode"><span class="lampdot"></span><span id="kbdTxt">KEYS</span></button>
+    <button class="hd-btn hd-focus" id="themeBtn" type="button" aria-pressed="false">Dark</button>
+  </header>
+  <div class="tagline">Three pieces of chrome that every page of the device shares, on a GUI 3 window you can resize. <b>The docked morph pad</b> (left rail, every tab),
+    <b>the per-page modulator bank</b> (foot of every tab, computed from the mod matrix's routes), and <b>the per-parameter morph mode</b> (right-click any morphing
+    control, or use the arrow by its name: Follow, Quantum or Exempt). Try: drag the puck on <b>Osc</b>; on <b>Mod</b> click an empty matrix cell to add a route, then look at the bank on <b>Mix</b>;
+    right-click <b>Gate</b> on <b>FX</b> and choose Quantum while the switch says BLEND. All sample data, no engine: MOCK.</div>
+  <p class="hd-msg lab-status" id="status" role="status"><b>Last</b> <span id="stLast">nothing yet</span> · <span id="stUndo"></span> · <span class="lab-tag">MOCK</span></p>
+
+  <div class="hd-window" id="win" aria-label="horde window (MOCK)">
+    <div class="chrome">
+      <div class="logo-slot" title="The locked logo goes here at 91 x 60; the lab does not redraw it">logo<br>91 × 60</div>
+      <div class="tabs" role="tablist" aria-label="Pages" id="tabs"></div>
+    </div>
+    <div class="body" id="bodyGrid">
+      <aside class="dock" id="dock" aria-label="Morph pad, docked">
+        <div class="dock-head">
+          <span class="hd-cluster">Morph</span><span class="lab-tag">SAMPLE</span>
+          <button class="hd-iconbtn hd-focus" id="dockToggle" type="button" aria-expanded="true" aria-controls="dockBody" aria-label="Collapse the morph pad"></button>
+        </div>
+        <div class="dock-mini" id="dockMini" aria-label="Corner weights"></div>
+        <div class="dock-body" id="dockBody">
+          <div id="padHost"></div>
+          <div class="dock-side">
+            <div id="cornersHost"></div>
+            <div id="modeHost"></div>
+            <button class="hd-btn hd-focus" id="toMorph" type="button">Morph page ▸</button>
+          </div>
+        </div>
+      </aside>
+      <div class="pagecol">
+        <main id="pages"></main>
+        <div class="bank mx-strip" id="bank" role="group" aria-label="Modulators on this page">
+          <span class="hd-cluster bk-t">Modulators</span>
+          <span class="bk-chips" id="bkChips"></span><span class="bk-more" id="bkMore" hidden></span><span class="bk-empty" id="bkEmpty" hidden>No modulators on this page</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="lab-two">
+    <section class="lab-panel" id="patchBox" aria-label="Patch state">
+      <div class="lab-bar"><span class="hd-cluster">Patch state</span><span class="lab-tag">SAVED WITH THE PRESET</span></div>
+      <p class="hd-note" id="patchNote"></p>
+      <div id="patchRows"></div>
+      <pre class="patch-json" id="patchJson" aria-label="Patch state as saved"></pre>
+    </section>
+    <section class="lab-panel checks" id="checksBox" aria-label="Lab self-checks">
+      <span class="hd-cluster">Self-checks</span>
+      <div id="checks"></div>
+    </section>
+  </div>
+
+  <section class="lab-panel rules" id="rules" aria-label="Proposed rules">
+    <div class="lab-bar"><span class="hd-cluster">Rules</span><span class="lab-tag">PROPOSED · FOR YOUR RULING</span></div>
+    <div>
+      <h3>B555 · The docked morph pad</h3>
+      <p>The morph pad is on every page, in the same place: the left rail, 204 px wide, under the page tabs. The rail carries the pad, the four corners (glyph, letter, the real preset name, the edited mark, lock and revert), the QUANTUM · BLEND · STEPPED switch and a button to the Morph page, where the full editor lives. It collapses to a 56 px strip that keeps the four weights and a button to open it; it never disappears. Dragging the puck from any page morphs that page's controls live. Below 700 px of window width the rail lies down above the page as a row. A page never assumes the rail's width and never draws a second pad. On the Morph page the rail stays and the page adds the grid; on Set, whose settings are global, the rail stays too, because the pad is the instrument's one global gesture. The FX device's pages carry the same rail (ADR-254).</p>
+    </div>
+    <div>
+      <h3>B556 · The page bank</h3>
+      <p>Every page ends with a bank: one chip per modulator that moves at least one parameter on that page, in its kind colour (<code>src-env</code>, <code>src-lfo</code>, <code>src-macro</code>, <code>src-engine</code>), with a live activity dot and the number of routes it has on the page. The bank is computed, never kept: the mod matrix's routes against the page's own manifest keys (a depth route counts for the parameter whose depth it moves). Nothing on a page is a list of modulators. An empty bank says "No modulators on this page". Clicking a chip rings that source's mappings on the page's controls (the MAP-mode emphasis) and dims the others; click again to clear. The bank is a constant box, one line high; what does not fit folds into "+n" with the names in its tooltip. It is the Source strip's chip, filtered to the page.</p>
+    </div>
+    <div>
+      <h3>B557 · The per-parameter morph mode</h3>
+      <p>A morphing parameter has one of three modes, set from the "Morph mode" group of its right-click menu or from the small arrow by its name:</p>
+      <ul>
+        <li><b>Follow</b> (the default): the morph's own mode, BLEND, QUANTUM or STEPPED.</li>
+        <li><b>Quantum</b>: the parameter flips at the quantum boundaries instead of blending, whatever the global mode. A continuous control shows it as a pure corner (the other corners' pips vanish, the tether goes, the needle steps); a structural one already snaps, so the item is disabled there and says why.</li>
+        <li><b>Exempt</b>: the parameter leaves the morph field and holds one value (ADR-109). The pick writes the value heard now into all four corners, so nothing jumps; it is refused whole, and says so, if a locked corner would change.</li>
+      </ul>
+      <p>The override is never colour alone: a Q (staircase) or EX (slashed ring) tag by the name; Exempt also shows no corner tint, no pips, a dashed box and "EXEMPT · held" where the corner readout was; the morph grid tags the row and moves exempt rows into their own band. It is patch state, saved with the preset (listed above), not a corner value. One pick is one undo step; re-picking the current mode makes none.</p>
+    </div>
+    <div>
+      <h3>For you to rule</h3>
+      <ul>
+        <li>Exempt collapses the four corners to the held value (ADR-109's recorded lean, so nothing jumps either way). The alternative keeps the corners and holds a separate value, so Return to field restores the spread but jumps the sound.</li>
+        <li>Quantum on a structural parameter: disabled with a reason (here), or allowed as a no-op.</li>
+        <li>A Quantum parameter uses the field's quantum regions (the shared stand-in), not boundaries of its own. Whether a parameter may carry its own regions is the morph editor's question.</li>
+        <li>Whether a modulated parameter that is Exempt still takes its mod (here it does: Exempt is about the morph, not the modulators).</li>
+        <li>The rail's width (204 px) and whether it starts collapsed on pages that are not Main and Osc.</li>
+      </ul>
+    </div>
+  </section>
+</div>
+<script src="arp-face/bundle.js"></script>
+<script>
+(function main() {
+'use strict';
+// ===== BLOCK A: constants and every piece of state, declared before any wiring (L0026) =====
+const H = window.Horde, MINUS = '−';
+const $ = id => document.getElementById(id);
+// The design system is a separate file (arp-face/bundle.js). If it did not load, say so on the page instead of throwing half-way
+// through the build (which leaves a window that looks fine and does nothing); lab_load_check also runs this script without it.
+if (!H || !H.Session) { const n = document.createElement('p'); n.className = 'hd-note bad'; n.setAttribute('role', 'alert'); n.textContent = 'The design system did not load (arp-face/bundle.js). Open this lab from docs/design, or through tools/labs_preview.sh.'; document.body.prepend(n); return; }
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const views = [];                                // per-frame updates, run by ONE Session view added after every bundle view
+const OV = Object.create(null);                    // key -> 'quantum' | 'exempt'. Absent means Follow, the default (patch state)
+const MODE_NAME = { follow: 'Follow', quantum: 'Quantum', exempt: 'Exempt' };
+let S = null, M = null, grid = null;
+let HL = null;                                     // the highlighted source id (a bank chip pressed), null = none
+let page = 'osc', menu = null, patchDirty = true, lastStatus = '';
+function h(tag, a, ...kids) {
+  const e = document.createElement(tag);
+  for (const k in (a || {})) {
+    const v = a[k];
+    if (k === 'class') e.className = v; else if (k === 'text') e.textContent = v; else if (k === 'html') e.innerHTML = v;
+    else if (v === true) e.setAttribute(k, ''); else if (v !== false && v != null) e.setAttribute(k, v);
+  }
+  for (const c of kids.flat()) if (c != null) e.append(c);
+  return e;
+}
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function hash32(s) { let x = 2166136261; for (let i = 0; i < s.length; i++) { x ^= s.charCodeAt(i); x = Math.imul(x, 16777619); } return x >>> 0; }
+const PAGES = [['main', 'Main'], ['osc', 'Osc'], ['fx', 'FX'], ['mod', 'Mod'], ['morph', 'Morph'], ['mix', 'Mix'], ['hist', 'Hist'], ['set', 'Set']];   // the system's two rows of four
+const PAGE_NAME = Object.fromEntries(PAGES);
+
+// ===== BLOCK B: the modulators and their routes (SAMPLE). Values are pure functions of the Session's frame time =====
+const noiseTab = (() => { const r = mulberry32(7), a = []; for (let i = 0; i < 64; i++) a.push(r()); return a; })();
+const envAt = (t, period, shift) => { const x = ((((t + shift) % period) + period) % period) / period; return x < .12 ? x / .12 : Math.exp(-(x - .12) * 4.2); };
+const SOURCES = [
+  { id: 'env1', name: 'Env 1', kind: 'env', f: t => envAt(t, 2.6, 0) },
+  { id: 'env2', name: 'Env 2', kind: 'env', f: t => envAt(t, 3.7, 1.1) },
+  { id: 'lfo1', name: 'LFO 1', kind: 'lfo', f: t => .5 + .5 * Math.sin(t * 2 * Math.PI * .31) },
+  { id: 'lfo2', name: 'LFO 2', kind: 'lfo', f: t => .5 + .5 * Math.sin(t * 2 * Math.PI * .83 + 1.3) },
+  { id: 'macro1', name: 'Macro 1', kind: 'macro', f: t => 1 - Math.abs(((t / 9) % 1) * 2 - 1) },
+  { id: 'coh', name: 'Coherence', kind: 'engine', f: t => { const x = t * 1.4, i = Math.floor(x), fr = x - i; return noiseTab[i % 64] * (1 - fr) + noiseTab[(i + 1) % 64] * fr; } }
+];
+const SAMPLE_ROUTES = [                           // the mod matrix, as it opens. Mix and Set start with no route on purpose (the bank must read zero there)
+  { param: 'osc.detune', src: 'lfo1', pol: 'uni', depth: .35 },
+  { param: 'osc.blade', src: 'env1', pol: 'uni', depth: .5 },
+  { param: 'osc.coupling', src: 'coh', pol: 'bi', depth: .25 },
+  { param: 'echo.mix', src: 'macro1', pol: 'uni', depth: .4 },
+  { param: 'arp.gate', src: 'lfo2', pol: 'uni', depth: .2 }
+];
+const CORNER_NAMES = ['Glass horde pad', 'Undertone cathedral', 'Smear and strike', 'Crushed bells'];   // the design system's own SAMPLE names (SCALPEL bench)
+
+// ===== BLOCK C: the manifest-style parameter table (SAMPLE keys; the real law, range and unit come from the manifest, B308 L2) =====
+const pctF = t => Math.round(t * 100) + ' %';
+const dbF = t => { if (t < .002) return MINUS + '∞ dB'; const v = 20 * Math.log10(t / .75); return (v > 0 ? '+' : v < 0 ? MINUS : '') + Math.abs(v).toFixed(1) + ' dB'; };
+const panF = t => { const v = Math.round((t * 2 - 1) * 100); return v === 0 ? 'C' : (v < 0 ? 'L ' : 'R ') + Math.abs(v); };
+const cpl = t => { const v = t * 2 - 1; return (v > 0 ? '+' : v < 0 ? MINUS : '') + Math.abs(v).toFixed(2); };
+const c = (key, pg, mod, name, ui, fmt, x) => Object.assign({ key, page: pg, module: mod, name, ui, fmt, kind: 'c' }, x);
+const s = (key, pg, mod, name, labels) => ({ key, page: pg, module: mod, name, ui: 'pills', labels, kind: 's' });
+const SPEC = [
+  c('osc.coupling', 'osc', 'Swarm', 'Coupling', 'knob', cpl, { bipolar: true, big: true }),
+  c('osc.detune', 'osc', 'Swarm', 'Detune', 'knob', t => Math.round(t * 100) + ' ct'),
+  c('osc.spread', 'osc', 'Swarm', 'Spread', 'knob', pctF),
+  c('osc.drift', 'osc', 'Swarm', 'Drift', 'knob', t => (t * 2).toFixed(2) + ' Hz'),
+  c('osc.blade', 'osc', 'Swarm', 'Blade width', 'knob', pctF),
+  s('osc.shape', 'osc', 'Swarm', 'Shape', ['Saw', 'Tri', 'Pulse', 'Bump']),
+  s('voice.mode', 'osc', 'Voice', 'Mode', ['Poly', 'Mono', 'Legato']),
+  c('echo.time', 'fx', 'Echo', 'Time', 'knob', t => Math.round(20 + t * 980) + ' ms'),
+  c('echo.feedback', 'fx', 'Echo', 'Feedback', 'knob', pctF),
+  c('echo.mix', 'fx', 'Echo', 'Wet mix', 'knob', pctF),
+  s('echo.sync', 'fx', 'Echo', 'Sync', ['Free', 'Sync']),
+  s('arp.order', 'fx', 'Arp', 'Order', ['Up', 'Down', 'Bounce', 'Random']),
+  s('arp.rate', 'fx', 'Arp', 'Rate', ['1/16', '1/8', '1/4']),
+  c('arp.gate', 'fx', 'Arp', 'Gate', 'knob', pctF),
+  c('arp.swing', 'fx', 'Arp', 'Swing', 'knob', t => Math.round(50 + t * 25) + ' %'),
+  c('mix.osc', 'mix', 'Mix', 'Osc level', 'vslider', dbF),
+  c('mix.sub', 'mix', 'Mix', 'Sub level', 'vslider', dbF),
+  c('mix.noise', 'mix', 'Mix', 'Noise level', 'vslider', dbF),
+  c('out.level', 'mix', 'Out', 'Output', 'vslider', dbF, { big: true }),
+  c('out.pan', 'mix', 'Out', 'Pan', 'hslider', panF, { bipolar: true })
+];
+const REG = Object.create(null);                   // key -> its SPEC row, whose .p is the props object the bundle's controls and the grid share
+SPEC.forEach(sp => {
+  const rng = mulberry32(hash32(sp.key));
+  sp.p = sp.kind === 's'
+    ? { key: sp.key, name: sp.name, path: sp.module + ' · ' + sp.name, kind: 's', labels: sp.labels, section: PAGE_NAME[sp.page], group: sp.module, def: 0, vals: [0, 1, 2, 3].map(() => Math.floor(rng() * sp.labels.length)) }
+    : { key: sp.key, name: sp.name, path: sp.module + ' · ' + sp.name, kind: 'c', fmt: sp.fmt, def: .5, bipolar: !!sp.bipolar, big: !!sp.big, vert: sp.ui === 'vslider', section: PAGE_NAME[sp.page], group: sp.module,
+        vals: [0, 1, 2, 3].map(() => clamp(.1 + rng() * .8, 0, 1)) };
+  REG[sp.key] = sp;
+});
+const MODULATABLE = SPEC.filter(sp => sp.kind === 'c');   // a structural parameter has no depth to modulate
+
+// ===== BLOCK D: the Session, the morph state, and the override model =====
+S = new H.Session({ x: .52, y: .46, corners: CORNER_NAMES.slice(), sources: SOURCES, mappings: SAMPLE_ROUTES.map(r => Object.assign({}, r)) });
+M = H.Morph.state(S);                              // FIRST: Session.ownerOf asks the morph layer's stand-in only once S.morph exists, and the knob and the grid must name the same owner
+M.view = 'all';                                    // the grid opens on every row; the default view hides rows whose corners agree, and this lab's rows are few
+S.depthRoutes = [{ src: 'env2', pol: 'uni', depth: .3, of: S.mappings[0] }];   // Env 2 moves the DEPTH of LFO 1 -> Detune: the bank counts it for Detune
+
+const ov = p => OV[p.key] || 'follow';
+const heardPad = () => M.mode === 'stepped' ? M.heard : S.pad;
+const weightsAt = q => [(1 - q.x) * (1 - q.y), q.x * (1 - q.y), (1 - q.x) * q.y, q.x * q.y];
+// What the control is doing NOW: its own override wins over the global mode, and Exempt over everything.
+function effMode(p) { const o = ov(p); return o === 'exempt' ? 'exempt' : o === 'quantum' ? 'quantum' : M.mode; }
+// The design system's blend is a plain weighted sum of the four corners (Session.base). Two things it does not know: a
+// parameter that FLIPS (Quantum, own or global) reads its region's owner's value, and STEPPED reads the heard position.
+// The override is made on the instance so the mod matrix, the knob and the slider all see one answer.
+S.base = function (p) {
+  if (p.locked) return p.g;
+  if (effMode(p) === 'quantum') return p.vals[S.ownerOf(p)];
+  const w = weightsAt(heardPad()); let b = 0; for (let i = 0; i < 4; i++) b += w[i] * p.vals[i]; return b;
+};
+// What a structural parameter reads: the owner's value, or the held one.
+const heardIdx = p => p.locked ? p.g : p.vals[S.ownerOf(p)];
+
+// One undo step on the morph layer's own stack (the one the grid's UNDO and Cmd+Z in keyboard mode read).
+function record(label, undoFn, redoFn) { M.hist.push({ label, undo: undoFn, redo: redoFn }); M.fut.length = 0; S.say(label); }
+function applyState(p, st) {
+  if (st.ov === 'follow') delete OV[p.key]; else OV[p.key] = st.ov;
+  for (let i = 0; i < 4; i++) p.vals[i] = st.vals[i];
+  p.g = st.g; p.locked = st.locked; patchDirty = true;
+  if (grid) grid.build();                           // the grid rebuilds its rows (the Q/EX tags and the exempt band follow)
+}
+const stateOf = p => ({ ov: ov(p), vals: p.vals.slice(), g: p.g, locked: !!p.locked });
+function setOverride(sp, to) {
+  const p = sp.p, from = ov(p);
+  if (from === to) return false;                    // re-picking the current mode is not an edit: no undo step
+  if (to === 'quantum' && p.kind === 's') { S.say(p.name + ' is structural: it already snaps to one corner’s value, so Quantum would change nothing'); return false; }
+  const before = stateOf(p), after = stateOf(p); after.ov = to;
+  if ((from === 'exempt') !== (to === 'exempt')) {   // crossing the field's edge writes the value into all four corners (ADR-109): no jump either way
+    const held = to === 'exempt' ? (p.kind === 's' ? heardIdx(p) : S.base(p)) : p.g;
+    const blocked = [0, 1, 2, 3].filter(i => S.locks[i] && Math.abs(p.vals[i] - held) > 1e-9);
+    if (blocked.length) { S.say('Corner ' + blocked.map(i => H.CORNERS[i].id).join(', ') + ' is locked: ' + MODE_NAME[to] + ' would rewrite it. Unlock it first'); return false; }
+    after.vals = [held, held, held, held]; after.g = held; after.locked = to === 'exempt';
+  }
+  const label = p.path + ' → ' + MODE_NAME[to];
+  applyState(p, after);
+  record(label, () => applyState(p, before), () => applyState(p, after));
+  return true;
+}
+function resetParam(sp) {
+  const p = sp.p, ai = p.locked ? null : S.editing(p);
+  if (!S.ownWritable(p, ai)) return;
+  const before = stateOf(p), after = stateOf(p);
+  if (p.locked) after.g = p.def; else after.vals[ai] = p.def;
+  if (JSON.stringify(before) === JSON.stringify(after)) return;
+  applyState(p, after); record('Reset ' + p.path, () => applyState(p, before), () => applyState(p, after));
+}
+
+// ===== BLOCK E: the bank, DERIVED from the routes (B556) =====
+// Which of THIS page's parameters can a modulator reach? The page's own manifest keys. The Mod page's destinations and the
+// Morph page's rows are every modulatable key, so their banks list every routed source; Main, Hist and Set have none.
+function pageKeys(pg) {
+  if (pg === 'mod' || pg === 'morph') return MODULATABLE.map(sp => sp.key);
+  return MODULATABLE.filter(sp => sp.page === pg).map(sp => sp.key);
+}
+// The bank of a page from the Session's routes alone: [{ s, routes: [{ param, via }] }] in source order. A depth route reaches
+// the parameter whose route's depth it moves, so a source that only moves a depth still shows on that parameter's page.
+function bankOf(pg, mappings, depthRoutes) {
+  const keys = new Set(pageKeys(pg)), hit = new Map();
+  const add = (id, param, via) => { if (!hit.has(id)) hit.set(id, []); hit.get(id).push({ param, via }); };
+  mappings.forEach(m => { if (keys.has(m.param)) add(m.src, m.param, 'route'); });
+  depthRoutes.forEach(d => { if (keys.has(d.of.param)) add(d.src, d.of.param, 'depth'); });
+  return SOURCES.filter(src => hit.has(src.id)).map(src => ({ s: src, routes: hit.get(src.id) }));
+}
+const bankNow = () => bankOf(page, S.mappings, S.depthRoutes || []);
+
+// ===== BLOCK F: the mode menu (B557): right-click, and the small affordance on the label =====
+const LAB_TXT = { follow: () => 'the morph’s mode: ' + M.mode.toUpperCase(), quantum: () => 'flips at the quantum boundaries, whatever the mode', exempt: () => 'out of the morph field, holds one value' };
+const STAIR = '<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 9H4V6H7V2H9.5" style="fill:none;stroke:currentColor;stroke-width:1.6;stroke-linejoin:round"/></svg>';
+const SLASH = '<svg viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="3.6" style="fill:none;stroke:currentColor;stroke-width:1.4"/><path d="M2.4 7.6 7.6 2.4" style="fill:none;stroke:currentColor;stroke-width:1.4"/></svg>';
+const CHEV = '<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 3.5 5 7 8.5 3.5" style="fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round"/></svg>';
+const AFF = { follow: CHEV, quantum: STAIR + 'Q' + CHEV, exempt: SLASH + 'EX' + CHEV };
+function closeMenu() { if (menu) { menu.el.remove(); menu = null; } }
+function openMenu(sp, x, y) {
+  closeMenu();
+  const p = sp.p, morphs = sp.morphs !== false, cur = ov(p);
+  const el = h('div', { class: 'pm', role: 'menu', 'aria-label': p.path + ' menu' }, h('div', { class: 'pm-h' }, h('span', { text: p.path }), h('span', { class: 'hd-hint', text: p.key })));
+  const item = (cls, role, title, desc, fn, checked, dis) => {
+    const b = h('button', { class: 'pm-i hd-focus ' + cls, type: 'button', role, tabindex: S.keys ? 0 : -1 }, cls === 'act-plain' ? null : h('i', { class: 'pm-r' }), h('span', { class: 'pm-t', text: title }), h('span', { class: 'pm-d hd-hint', text: desc }));
+    if (checked !== undefined) b.setAttribute('aria-checked', String(checked));
+    if (dis) b.setAttribute('aria-disabled', 'true'); else b.addEventListener('click', () => { closeMenu(); fn(); });
+    return b;
+  };
+  el.append(item('act-plain', 'menuitem', 'Reset to default', 'the same as a double-click', () => resetParam(sp)));
+  if (morphs) {
+    el.append(h('div', { class: 'pm-g', text: 'MORPH MODE' }));
+    ['follow', 'quantum', 'exempt'].forEach(m => {
+      const blocked = m === 'quantum' && p.kind === 's';
+      el.append(item('mode', 'menuitemradio', MODE_NAME[m], blocked ? 'already snaps: a structural parameter has nothing to flip' : LAB_TXT[m](), () => setOverride(sp, m), cur === m, blocked));
+    });
+  } else el.append(h('div', { class: 'pm-n', text: 'A global setting: it sits outside the morph field, so it has no morph mode.' }));
+  document.body.append(el);
+  const r = el.getBoundingClientRect();
+  el.style.left = Math.max(8, Math.min(x, innerWidth - r.width - 8)) + 'px'; el.style.top = Math.max(8, Math.min(y, innerHeight - r.height - 8)) + 'px';
+  menu = { el, sp };
+  el.addEventListener('keydown', e => {            // arrows move inside the menu in keyboard mode only (accessibility.md)
+    if (!S.keys) return;
+    const its = [...el.querySelectorAll('.pm-i')], i = its.indexOf(document.activeElement);
+    if (e.key === 'ArrowDown') { e.preventDefault(); its[(i + 1) % its.length].focus(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); its[(i - 1 + its.length) % its.length].focus(); }
+    else if (e.key === 'Escape') { e.preventDefault(); closeMenu(); }
+  });
+  if (S.keys) { const first = el.querySelector('.pm-i[aria-checked="true"]') || el.querySelector('.pm-i'); if (first) first.focus(); }
+}
+document.addEventListener('pointerdown', e => { if (menu && !menu.el.contains(e.target)) closeMenu(); }, true);
+
+// The affordance by the name: shows the mode as a tag (shape + letters) and opens the menu below it.
+function modeAff(sp) {
+  const b = h('button', { class: 'maff hd-focus', type: 'button', 'aria-haspopup': 'menu' });
+  let last = '';
+  b.addEventListener('click', e => { e.stopPropagation(); const r = b.getBoundingClientRect(); openMenu(sp, r.left, r.bottom + 2); });
+  b.addEventListener('pointerdown', e => e.stopPropagation());
+  views.push({ update() {
+    const o = ov(sp.p); if (o === last) return; last = o;
+    b.dataset.m = o; b.innerHTML = AFF[o];
+    b.setAttribute('aria-label', sp.p.path + ': morph mode ' + MODE_NAME[o] + '. Open the mode menu');
+    b.title = 'Morph mode: ' + MODE_NAME[o] + ' (' + LAB_TXT[o]() + ')';
+  } });
+  return b;
+}
+
+// ===== BLOCK G: control builders. Each is bound to a SPEC row (a manifest key); none holds a label, range or default of its own =====
+// A knob or slider: the bundle's control, wrapped so that (1) the override reaches how it draws, (2) a pressed bank chip rings its source.
+function hook(sp, host, view) {
+  const p = sp.p, orig = view.render;
+  view.render = function () {
+    const m = effMode(p), on0 = S.map.on, src0 = S.map.src, had = Object.prototype.hasOwnProperty.call(S.focus, p.key), f0 = S.focus[p.key];
+    let weightsSet = false;
+    // The knob draws pips and weights from S.weights(). A flipping parameter is, at every instant, wholly one corner:
+    // one-hot weights make the other pips vanish and the tether shrink, exactly the knob spec's "at a pure corner".
+    if (!p.locked && m === 'quantum') { const w = [0, 0, 0, 0]; w[S.ownerOf(p)] = 1; S.weights = () => w; weightsSet = true; }
+    else if (!p.locked && M.mode === 'stepped') { const w = weightsAt(M.heard); S.weights = () => w; weightsSet = true; }
+    // The map-mode emphasis (rings of other sources dim) is the convention for "this source": borrow it for the render only,
+    // so a real drag still sees the real MAP state.
+    if (HL) { S.map.on = true; S.map.src = HL; const k = S.mapsOf(p.key).findIndex(q => q.src === HL); if (k >= 0) S.focus[p.key] = k; }
+    try { orig(); } finally {
+      S.map.on = on0; S.map.src = src0; if (had) S.focus[p.key] = f0; else delete S.focus[p.key];
+      if (weightsSet) delete S.weights;
+    }
+    const o = ov(p), face = host.querySelector('.mk-face, .ms-face'), r2 = host.querySelector('.mk-v2');
+    host.dataset.morph = o;
+    if (o === 'exempt' && r2) { r2.style.color = ''; r2.textContent = 'EXEMPT · held'; }
+    if (face) {
+      face.setAttribute('aria-valuetext', (face.getAttribute('aria-valuetext') || '') + ', morph mode ' + MODE_NAME[o]);
+      if (HL) face.style.cursor = S.ctlOf(p.key) ? 'not-allowed' : (face.classList.contains('mk-face') || p.vert ? 'ns-resize' : 'ew-resize');   // undo the render's 'copy' cursor: the real MAP is off
+    }
+  };
+  host.addEventListener('contextmenu', e => { e.preventDefault(); openMenu(sp, e.clientX, e.clientY); });
+}
+function mountControl(sp) {
+  if (sp.kind === 's') return mountPills(sp);
+  const p = sp.p, host = h('div', { 'data-key': p.key, title: p.key });
+  const view = sp.ui === 'knob' ? H.Knob(host, p, S) : H.Slider(host, p, S);
+  host.querySelector('.mk-name').append(modeAff(sp));
+  hook(sp, host, view);
+  return host;
+}
+// A structural control: pills, with the owner's 3 px rule and glyph on the LABEL (Switch guidelines). Exempt takes the rule away.
+function mountPills(sp) {
+  const p = sp.p, root = h('div', { class: 'pcs', 'data-key': p.key, title: p.key });
+  const o = h('span', { class: 'hd-owned' }), g = h('span', { class: 'og' }), lab = h('span', { class: 'hd-label' }, o);
+  o.append(g, p.name);
+  const grp = h('div', { class: 'hd-pills', role: 'radiogroup', 'aria-label': p.path });
+  const bs = p.labels.map((text, i) => {
+    const b = h('button', { class: 'hd-pill hd-focus', type: 'button', role: 'radio', text, 'aria-checked': 'false' });
+    b.addEventListener('click', () => pick(i));
+    b.addEventListener('keydown', e => { if (!S.keys) return; const dir = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key]; if (!dir) return; e.preventDefault(); const n = clamp(i + dir, 0, p.labels.length - 1); pick(n); bs[n].focus(); });
+    grp.append(b); return b;
+  });
+  const pick = i => {
+    if (i === heardIdx(p)) return;
+    const before = stateOf(p), after = stateOf(p);
+    if (p.locked) after.g = i; else { const ai = S.editing(p); if (!S.writable(p, ai)) return; after.vals[ai] = i; }
+    applyState(p, after); record(p.path + ' → ' + p.labels[i], () => applyState(p, before), () => applyState(p, after));
+  };
+  root.append(h('div', { class: 'pl' }, lab, modeAff(sp)), grp);
+  root.addEventListener('contextmenu', e => { e.preventDefault(); openMenu(sp, e.clientX, e.clientY); });
+  let lastOwner = -2;
+  views.push({ update() {
+    const cur = heardIdx(p), o2 = ov(p);
+    bs.forEach((b, i) => { const on = String(i === cur); if (b.getAttribute('aria-checked') !== on) b.setAttribute('aria-checked', on); b.tabIndex = S.keys && i === cur ? 0 : -1; });
+    root.dataset.morph = o2;
+    const own = o2 === 'exempt' ? -1 : S.ownerOf(p);       // Exempt belongs to nobody: no rule, no glyph
+    if (own !== lastOwner) { lastOwner = own;
+      o.classList.toggle('hd-owned', own >= 0);
+      if (own >= 0) { const id = H.CORNERS[own].id; o.style.setProperty('--own', 'var(--c' + id + ')'); g.innerHTML = H.glyph(own, 8, 'var(--c' + id + '-tx)'); o.title = 'Owned by corner ' + id; }
+      else { g.innerHTML = ''; o.title = 'Exempt: belongs to no corner'; }
+    }
+  } });
+  return root;
+}
+// A global setting (Set page): outside the morph field, so no mode and no tint. Its menu says so.
+function mountPlain(key, module, name, labels, startAt) {
+  const sp = { p: { key, path: module + ' · ' + name, name }, morphs: false };
+  let cur = startAt || 0;
+  const grp = h('div', { class: 'hd-pills', role: 'radiogroup', 'aria-label': sp.p.path });
+  const bs = labels.map((text, i) => { const b = h('button', { class: 'hd-pill hd-focus', type: 'button', role: 'radio', text, 'aria-checked': String(i === cur) }); b.addEventListener('click', () => { cur = i; bs.forEach((x, k) => x.setAttribute('aria-checked', String(k === cur))); S.say(sp.p.path + ' → ' + text + ' (global setting, not on the morph undo stack)'); }); grp.append(b); return b; });
+  const root = h('div', { class: 'pcs', title: key }, h('div', { class: 'pl' }, h('span', { class: 'hd-label', text: name })), grp);
+  root.addEventListener('contextmenu', e => { e.preventDefault(); openMenu(sp, e.clientX, e.clientY); });
+  return root;
+}
+
+// ----- FX module cards (the Module card anatomy: corner strip, header, mini-view, face, foot) -----
+function fxCard(o) {
+  const strip = h('div', { class: 'strip', role: 'img', 'aria-label': o.title + ': corner shares' });
+  const segs = [0, 1, 2, 3].map(i => { const sgm = h('i'); sgm.style.setProperty('--cc', 'var(--c' + H.CORNERS[i].id + ')'); strip.append(sgm); return sgm; });
+  const census = h('span', { class: 'census' });
+  const viz = h('div', { class: 'viz', role: 'img', 'aria-label': o.title + ' mini-view (MOCK)', style: o.vizStyle });
+  const draw = o.mini(viz);
+  const card = h('section', { class: 'hd-card', 'aria-label': o.title + ' module (MOCK)' }, strip,
+    h('div', { class: 'head' }, h('i', { class: 'dot', role: 'img', 'aria-label': 'active' }), h('span', { class: 'hd-cluster', text: o.title }), h('span', { class: 'tag', text: o.tag }), census),
+    viz, h('div', { class: 'face' }, o.keys.map(k => mountControl(REG[k]))),
+    h('div', { class: 'foot' }, h('span', { class: 'hd-hint', text: o.hint })));
+  views.push({ update() {
+    const n = [0, 0, 0, 0]; let tot = 0;
+    o.keys.forEach(k => { const p = REG[k].p; if (p.locked) return; n[S.ownerOf(p)]++; tot++; });   // an exempt parameter belongs to nobody: it is not counted
+    segs.forEach((sgm, i) => { sgm.style.flex = n[i] + ' 1 0'; sgm.style.display = n[i] ? '' : 'none'; });
+    census.innerHTML = n.map((k, i) => k ? '<b>' + H.glyph(i, 8, 'var(--c' + H.CORNERS[i].id + '-tx)') + Math.round(k / tot * 100) + '</b>' : '').join('');
+    draw();
+  } });
+  return card;
+}
+const SVGNS = 'http://www.w3.org/2000/svg';
+const svgEl = (t, a, parent) => { const e = document.createElementNS(SVGNS, t); for (const k in a) e.setAttribute(k, a[k]); if (parent) parent.append(e); return e; };
+const outOf = key => S.output(REG[key].p);
+// Echo's glass: eight taps, spaced by Time, decaying by Feedback, scaled by Mix. MOCK: a picture of the settings, not a render.
+function echoMini(viz) {
+  const svg = svgEl('svg', { viewBox: '0 0 200 56', preserveAspectRatio: 'none' }, viz), bars = [];
+  svgEl('path', { d: 'M0 50H200', style: 'stroke:var(--m);stroke-width:1;fill:none' }, svg);
+  for (let i = 0; i < 8; i++) bars.push(svgEl('rect', { y: 50, width: 5, height: 0, style: 'fill:var(--i)' }, svg));
+  viz.append(svg);
+  return () => { const t = outOf('echo.time'), fb = outOf('echo.feedback'), mx = outOf('echo.mix');
+    bars.forEach((b, i) => { const hgt = i === 0 ? 40 : 40 * mx * Math.pow(fb * .97, i); b.setAttribute('x', 10 + i * (8 + t * 14)); b.setAttribute('height', Math.max(0, hgt).toFixed(1)); b.setAttribute('y', (50 - Math.max(0, hgt)).toFixed(1)); }); };
+}
+// Arp's glass: eight steps, each as wide as Gate, odd steps late by Swing. MOCK: no notes, a picture of the settings.
+function arpMini(viz) {
+  const svg = svgEl('svg', { viewBox: '0 0 200 56', preserveAspectRatio: 'none' }, viz), steps = [], rng = mulberry32(31), heights = Array.from({ length: 8 }, () => 14 + Math.floor(rng() * 4) * 7);
+  svgEl('path', { d: 'M0 50H200', style: 'stroke:var(--m);stroke-width:1;fill:none' }, svg);
+  for (let i = 0; i < 8; i++) steps.push(svgEl('rect', { y: 50, height: 0, rx: 1.5, style: 'fill:var(--i)' }, svg));
+  const txt = svgEl('text', { x: 6, y: 9, style: 'font:500 7px var(--font-mono);fill:var(--m)' }, svg);
+  viz.append(svg);
+  return () => { const gate = outOf('arp.gate'), sw = outOf('arp.swing'), ord = REG['arp.order'].p, rate = REG['arp.rate'].p;
+    steps.forEach((b, i) => { const w = 3 + gate * 19, x = 8 + i * 23.5 + (i % 2 ? sw * 7 : 0); b.setAttribute('x', x.toFixed(1)); b.setAttribute('width', w.toFixed(1)); b.setAttribute('height', heights[i]); b.setAttribute('y', 50 - heights[i]); });
+    txt.textContent = ord.labels[heardIdx(ord)] + ' · ' + rate.labels[heardIdx(rate)] + ' · MOCK'; };
+}
+
+// ===== BLOCK H: the pages =====
+const pageEls = {};
+function newPage(id) { const el = h('section', { class: 'page', id: 'page-' + id, role: 'tabpanel', 'aria-label': PAGE_NAME[id], 'aria-labelledby': 'tab-' + id, hidden: true }); pageEls[id] = el; $('pages').append(el); return el; }
+const cluster = (title, ...kids) => h('div', { class: 'cl' }, h('span', { class: 'hd-cluster', text: title }), ...kids);
+const stub = (id, text) => newPage(id).append(h('p', { class: 'hd-note stubnote', text }));
+stub('main', 'Main is the performance page: its left column already holds the pad on the real device (the system’s Layout). It is not drawn in this lab; the dock and the bank are here because they are the same on every page.');
+
+{ // Osc
+  const el = newPage('osc');
+  el.append(cluster('Swarm', h('div', { class: 'knobs' }, ['osc.coupling', 'osc.detune', 'osc.spread', 'osc.drift', 'osc.blade'].map(k => mountControl(REG[k])))),
+    cluster('Wave', h('div', { class: 'knobs' }, ['osc.shape', 'voice.mode'].map(k => mountControl(REG[k])))),
+    h('p', { class: 'hd-hint', text: 'SAMPLE keys, bound by key. The dock steers every control on this page; the arrow by a name opens its morph mode.' }));
+}
+{ // FX
+  const el = newPage('fx');
+  el.append(h('div', { class: 'fxrow' },
+    fxCard({ title: 'Echo', tag: 'DELAY', keys: ['echo.sync', 'echo.time', 'echo.feedback', 'echo.mix'], mini: echoMini, hint: 'SAMPLE · mini-view MOCK',
+             vizStyle: '--g:var(--fxs-echo-ground);--i:var(--fxs-echo-ink);--m:var(--fxs-echo-mid)' }),
+    fxCard({ title: 'Arp', tag: 'NOTES', keys: ['arp.order', 'arp.rate', 'arp.gate', 'arp.swing'], mini: arpMini, hint: 'SAMPLE · an Arp-like card, MOCK',
+             vizStyle: '--g:var(--scr-ground);--i:var(--scr-value);--m:var(--scr-grid)' })));
+}
+{ // Mod: the system's source strip, the matrix and the route list. Adding or removing a route here is what moves every bank.
+  const el = newPage('mod'), stripHost = h('div'), gridHost = h('div'), listHost = h('div');
+  H.SourceStrip(stripHost, S, { counts: true, label: 'Modulation sources' });
+  H.ModMatrixGrid(gridHost, S, { dests: MODULATABLE.map(sp => ({ key: sp.key, name: sp.p.path, short: sp.p.name })) });
+  H.RouteList(listHost, S);
+  el.append(cluster('Sources', stripHost), cluster('Matrix', gridHost), cluster('Routes', listHost),
+    h('p', { class: 'hd-hint', text: 'Click an empty cell to map its source at 25%; drag a cell for depth; × on a route row removes it. Then open another tab: its bank has changed. (This page’s own bank lists every routed source: its destinations are every modulatable key.)' }));
+}
+{ // Morph: the grid, whose rows are the same props objects the knobs use, and the band of exempt rows
+  const el = newPage('morph'), gridHost = h('div', { id: 'mg' }), band = h('div', { class: 'lab-exband', id: 'exband', role: 'region', 'aria-label': 'Exempt parameters' });
+  grid = H.MorphGrid(gridHost, S, { title: 'Morph field', rows: SPEC.map(sp => sp.p), maxHeight: 380 });
+  el.append(gridHost, band, h('p', { class: 'hd-hint', text: 'The full Morph page also has the large pad, the Quantum boundaries, the cross-section and the blend maps (morph-editor-lab); the rail beside this grid is the same pad as on every other page.' }));
+}
+{ // Mix
+  const el = newPage('mix');
+  el.append(cluster('Levels', h('div', { class: 'faders' }, ['mix.osc', 'mix.sub', 'mix.noise', 'out.level'].map(k => mountControl(REG[k])))),
+    cluster('Out', h('div', { style: 'max-width:480px' }, mountControl(REG['out.pan']))));
+}
+{ // Set: global settings. Locked controls: no morph, so no tint, no pips and no mode. The pad is still docked.
+  const el = newPage('set'), host = h('div', { title: 'set.master_tune' });
+  H.Knob(host, { key: 'set.master_tune', name: 'Master tune', path: 'Settings · Master tune', locked: true, g: .5, def: .5, bipolar: true, fmt: t => { const v = Math.round((t * 2 - 1) * 50); return (v > 0 ? '+' : v < 0 ? MINUS : '') + Math.abs(v) + ' ct'; } }, S);
+  host.addEventListener('contextmenu', e => { e.preventDefault(); openMenu({ p: { key: 'set.master_tune', path: 'Settings · Master tune', name: 'Master tune' }, morphs: false }, e.clientX, e.clientY); });
+  el.append(cluster('Tuning', h('div', { class: 'knobs' }, host), mountPlain('set.tuning', 'Settings', 'Scale system', ['12-TET', 'Just', 'Meantone'], 0), mountPlain('set.bend_range', 'Settings', 'Bend range', ['2 st', '12 st', '24 st'], 1)),
+    h('p', { class: 'hd-note stubnote', text: 'Settings are global: they sit outside the morph field, so the pad moves nothing here and they have no morph mode (right-click one to see). The dock stays, because the pad is the instrument’s one global gesture.' }));
+}
+stub('hist', 'Hist is the history page. It is not drawn in this lab; the dock and the bank are here because they are the same on every page.');
+
+// ===== BLOCK I: the tabs, the dock and the bank =====
+const tabEls = {};
+PAGES.forEach(([id, label]) => {
+  const t = h('button', { class: 'hd-pill hd-focus', type: 'button', role: 'tab', id: 'tab-' + id, 'aria-controls': 'page-' + id, 'aria-selected': 'false', text: label });
+  t.addEventListener('click', () => selectPage(id)); $('tabs').append(t); tabEls[id] = t;
+});
+function selectPage(id) {
+  page = id; closeMenu();
+  for (const k in pageEls) pageEls[k].hidden = k !== id;
+  for (const k in tabEls) tabEls[k].setAttribute('aria-selected', String(k === id));
+  $('toMorph').disabled = id === 'morph'; $('toMorph').textContent = id === 'morph' ? 'You are on Morph' : 'Morph page ▸';
+  bankSig = '';                                     // rebuild the bank for the new page
+}
+H.XYPad(document.getElementById('padHost'), S);
+H.CornerChips($('cornersHost'), S);
+H.MorphMode($('modeHost'), S);
+$('toMorph').addEventListener('click', () => selectPage('morph'));
+const CHEV_L = '<svg viewBox="0 0 10 10"><path d="M6.5 2 3.5 5l3 3" style="fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"/></svg>';
+const CHEV_R = '<svg viewBox="0 0 10 10"><path d="M3.5 2 6.5 5l-3 3" style="fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round"/></svg>';
+function setDock(min) {
+  $('dock').classList.toggle('collapsed', min); $('bodyGrid').classList.toggle('rail-min', min);
+  const b = $('dockToggle'); b.setAttribute('aria-expanded', String(!min)); b.setAttribute('aria-label', min ? 'Expand the morph pad' : 'Collapse the morph pad'); b.title = b.getAttribute('aria-label'); b.innerHTML = min ? CHEV_R : CHEV_L;
+}
+$('dockToggle').addEventListener('click', () => { setDock(!$('dock').classList.contains('collapsed')); S.say($('dock').classList.contains('collapsed') ? 'Pad collapsed: the morph holds where the puck was' : 'Pad expanded'); });
+setDock(false);
+const mini = [0, 1, 2, 3].map(i => { const w = h('div', { class: 'mw', title: 'Corner ' + H.CORNERS[i].id }); w.innerHTML = H.glyph(i, 9, 'var(--c' + H.CORNERS[i].id + '-tx)') + '<span></span>'; $('dockMini').append(w); return w.querySelector('span'); });
+views.push({ update() { const w = weightsAt(heardPad()); mini.forEach((m, i) => { const t = Math.round(w[i] * 100) + '%'; if (m.textContent !== t) m.textContent = t; }); } });
+
+// The bank. Rebuilt when the set of (page, sources, routes) changes; the dots update every frame by transform only.
+const bkChips = $('bkChips'), bkMore = $('bkMore'), bkEmpty = $('bkEmpty'), bankEl = $('bank');
+let bankSig = '', bankW = -1; const chipRefs = new Map();
+const polText = { uni: 'UNI', bi: 'BI', inv: 'INV', ctl: 'CTL' };
+function buildBank(model) {
+  bkChips.textContent = ''; chipRefs.clear();
+  model.forEach(({ s: src, routes }) => {
+    const b = h('button', { class: 'src-chip bk-chip hd-focus', type: 'button', 'data-src': src.id, 'aria-pressed': String(HL === src.id) },
+      h('i', { class: 'act', 'aria-hidden': 'true' }, h('b')), h('span', { class: 'nm', text: src.name }), h('span', { class: 'ct', 'aria-hidden': 'true', text: '×' + routes.length }));
+    b.style.setProperty('--sc', 'var(--src-' + src.kind + ')');
+    const what = routes.map(r => (REG[r.param] ? REG[r.param].p.path : r.param) + (r.via === 'depth' ? ' (moves a depth)' : ''));
+    b.title = src.name + ' (' + src.kind + ') moves: ' + what.join('; ');
+    b.setAttribute('aria-label', src.name + ', ' + src.kind + ', ' + routes.length + ' route' + (routes.length === 1 ? '' : 's') + ' on this page: ' + what.join(', ') + (HL === src.id ? ', ringed' : '') + '. Press to ring its mappings');
+    b.addEventListener('click', () => { HL = HL === src.id ? null : src.id; S.say(HL ? 'Ringing ' + src.name + ' on this page' : 'Ring cleared'); bankSig = ''; });
+    bkChips.append(b); chipRefs.set(src.id, b.querySelector('.act'));
+  });
+  bkEmpty.hidden = model.length > 0;
+}
+function fitBank() {                                  // fold what does not fit into "+n": the bank stays one line high
+  const chips = [...bkChips.children]; chips.forEach(c => { c.hidden = false; });
+  bkMore.hidden = true; if (!chips.length) return;
+  const avail = bkChips.clientWidth; let used = 0, fit = chips.length;
+  const widths = chips.map(c => c.offsetWidth + 6), total = widths.reduce((a, b) => a + b, 0);
+  if (total > avail) { fit = 0; used = 0; for (let i = 0; i < chips.length; i++) { if (used + widths[i] + 40 > avail) break; used += widths[i]; fit++; } }
+  chips.forEach((c, i) => { c.hidden = i >= fit; });
+  if (fit < chips.length) { bkMore.hidden = false; bkMore.textContent = '+' + (chips.length - fit); bkMore.title = chips.slice(fit).map(c => c.dataset.src).join(', ') + ' also move this page'; bkMore.setAttribute('aria-label', (chips.length - fit) + ' more modulators on this page'); }
+}
+views.push({ update() {
+  const model = bankNow();
+  if (HL && !model.some(m => m.s.id === HL)) HL = null;             // a ring on a source that no longer reaches this page is cleared
+  const sig = page + '|' + HL + '|' + model.map(m => m.s.id + ':' + m.routes.length).join(',');
+  const w = bankEl.clientWidth;
+  if (sig !== bankSig || w !== bankW) { if (sig !== bankSig) buildBank(model); bankSig = sig; bankW = w; fitBank(); }
+  model.forEach(m => { const dot = chipRefs.get(m.s.id); if (dot) dot.style.setProperty('--v', (.2 + .8 * S.sourceValue(m.s.id)).toFixed(3)); });
+} });
+
+// ===== BLOCK J: the grid's marks, the exempt band, the patch-state panel, the status line =====
+function tagHtml(o) { return (o === 'quantum' ? STAIR + 'Q' : SLASH + 'EX'); }
+let exSig = '';
+views.push({ update() {
+  // Morph page: mark rows and move exempt ones out. Idempotent every frame, because the grid repaints its own cells on its own signature.
+  const host = $('mg'); if (!host) return;
+  host.querySelectorAll('.hm-row').forEach(r => {
+    const sp = REG[r.dataset.key]; if (!sp) return;
+    const o = ov(sp.p), t = r.querySelector('.lab-mtag'), want = o === 'follow' ? '' : o;
+    r.classList.toggle('lab-ex', o === 'exempt');
+    if ((t ? t.dataset.m : '') !== want) { if (t) t.remove(); if (want) r.querySelector('.hm-pname').append(h('span', { class: 'lab-mtag', 'data-m': want, title: 'Morph mode: ' + MODE_NAME[want], html: tagHtml(want) })); }
+    if (o === 'quantum' && sp.kind === 'c' && M.mode !== 'quantum') {   // the grid computes HEARING from the global mode; a Quantum row hears its owner whatever it is
+      const own = S.ownerOf(sp.p), v = sp.p.vals[own], hh = r.querySelector('.hm-hear');
+      hh.querySelector('.hm-bar i').style.width = (clamp(v, 0, 1) * 100).toFixed(1) + '%'; hh.querySelector('.hm-tx').textContent = sp.p.fmt(v);
+      hh.querySelector('.hm-hx').innerHTML = H.glyph(own, 7, 'var(--c' + H.CORNERS[own].id + '-tx)') + H.CORNERS[own].id;
+      r.querySelectorAll('.hm-cell').forEach((cell, i) => { cell.classList.toggle('own', i === own); cell.querySelector('.hm-wu').style.width = '0'; });
+    }
+  });
+  const ex = SPEC.filter(sp => ov(sp.p) === 'exempt'), sig = ex.map(sp => sp.key + ':' + sp.p.g).join(',');
+  if (sig !== exSig) { exSig = sig; const band = $('exband'); band.textContent = '';
+    band.append(h('span', { class: 'hd-cluster', text: 'Exempt · held' }));
+    if (!ex.length) band.append(h('span', { class: 'hd-hint', text: 'No exempt parameters. Right-click a control, or use the arrow by its name, and choose Exempt.' }));
+    ex.forEach(sp => { const p = sp.p, fmt = p.kind === 's' ? p.labels[p.g] : p.fmt(p.g), n = p.kind === 's' ? p.g / Math.max(1, p.labels.length - 1) : p.g;
+      const back = h('button', { class: 'hd-btn hd-focus', type: 'button', text: 'Return to field' });
+      back.addEventListener('click', () => setOverride(sp, 'follow'));
+      band.append(h('div', { class: 'lab-exrow' }, h('span', { class: 'nm' }, p.name, h('small', { text: p.key })), h('span', { class: 'bar' }, h('i', { style: 'width:' + (clamp(n, 0, 1) * 100).toFixed(1) + '%' })), h('span', { class: 'v', text: fmt }), back)); });
+  }
+} });
+function patchHeld(sp) { const p = sp.p; return p.kind === 's' ? p.labels[p.g] : p.fmt(p.g); }
+function paintPatch() {
+  const non = SPEC.filter(sp => ov(sp.p) !== 'follow'), rows = $('patchRows'); rows.textContent = '';
+  $('patchNote').textContent = non.length + ' of ' + SPEC.length + ' morphing parameters are not on Follow. Follow is the default and is not stored. Patch state rides the preset’s chunk, not the four corners (ADR-109).';
+  if (!non.length) rows.append(h('div', { class: 'patch-row' }, h('span', { text: 'Every parameter follows the morph.' })));
+  non.forEach(sp => rows.append(h('div', { class: 'patch-row' }, h('span', {}, h('b', { text: sp.p.path }), ' · ' + sp.key), h('span', { text: ov(sp.p) === 'exempt' ? 'EXEMPT · held ' + patchHeld(sp) : 'QUANTUM' }))));
+  const j = {}; non.forEach(sp => { j[sp.key] = ov(sp.p) === 'exempt' ? { mode: 'exempt', held: +sp.p.g.toFixed(4) } : { mode: 'quantum' }; });
+  $('patchJson').textContent = '"morph_mode": ' + JSON.stringify(j, null, 2);
+}
+views.push({ update() { if (patchDirty) { patchDirty = false; paintPatch(); }
+  const msg = S.message || 'nothing yet', n = 'undo depth ' + M.hist.length + (M.fut.length ? ' · redo ' + M.fut.length : '');
+  if (msg + n !== lastStatus) { lastStatus = msg + n; $('stLast').textContent = msg; $('stUndo').textContent = n; }
+  $('undoBtn').disabled = !M.hist.length; $('redoBtn').disabled = !M.fut.length; } });
+
+// ===== BLOCK K: header controls, keyboard mode, theme, size =====
+$('undoBtn').addEventListener('click', () => H.Morph.undo(S)); $('redoBtn').addEventListener('click', () => H.Morph.redo(S));
+$('kbd').addEventListener('click', () => {
+  S.keys = !S.keys; $('kbd').setAttribute('aria-pressed', String(S.keys)); $('kbdTxt').textContent = S.keys ? 'KEYS ON' : 'KEYS'; $('win').classList.toggle('kbd-on', S.keys);
+  if (!S.keys && document.activeElement && document.activeElement !== $('kbd') && $('win').contains(document.activeElement)) document.activeElement.blur();
+});
+const dark = () => document.documentElement.dataset.theme ? document.documentElement.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+const paintTheme = () => $('themeBtn').setAttribute('aria-pressed', String(dark()));
+$('themeBtn').addEventListener('click', () => { document.documentElement.dataset.theme = dark() ? 'light' : 'dark'; paintTheme(); }); paintTheme();
+$('sizes').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+  $('win').style.setProperty('--ww', b.dataset.w + 'px'); $('win').style.setProperty('--wh', b.dataset.w === '980' ? '720px' : '0px');
+  $('sizes').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); bankW = -1;
+}));
+// Keyboard mode, per accessibility.md: off, no plugin control takes focus and every key reaches the host. The bundle's controls set
+// their own tab stops; everything else in the window (tabs, chips, buttons, the matrix) is swept to -1 while the mode is off and given back when it is on.
+let lastKeys = null, sweepN = 0;
+function sweepTabs() {
+  $('win').querySelectorAll('button, input, select, [tabindex]').forEach(e => {
+    if (!S.keys) { if (e.tabIndex !== -1) { e.dataset.tb = e.getAttribute('tabindex') === null ? '' : e.getAttribute('tabindex'); e.tabIndex = -1; } }
+    else if (e.dataset.tb !== undefined) { if (e.dataset.tb === '') e.removeAttribute('tabindex'); else e.setAttribute('tabindex', e.dataset.tb); delete e.dataset.tb; }
+  });
+}
+views.push({ update() { if (S.keys !== lastKeys || (!S.keys && ++sweepN % 20 === 0)) { lastKeys = S.keys; sweepTabs(); } } });
+// This lab draws no MAP control (routes are made in the Mod page's matrix), so M, P and Backspace must not reach the Session's MAP accelerators.
+window.addEventListener('keydown', e => {
+  if (!S.keys) return;
+  if (['KeyM', 'KeyP', 'Backspace', 'Delete'].includes(e.code) && !(e.target && (e.target.tagName === 'INPUT' || e.target.closest && e.target.closest('.mx-grid, .mx-routes')))) { e.stopPropagation(); return; }
+  if (e.key === 'Escape') { if (menu) { closeMenu(); return; } if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur(); }
+}, true);
+
+// ===== BLOCK L: self-checks. Each has a must-fail control, so a check that never ran cannot pass for a check that held =====
+(function checks() {
+  const box = $('checks'), line = (ok, t) => box.append(h('p', { class: ok ? 'hd-hint' : 'hd-note bad', text: (ok ? 'OK · ' : 'FAILED · ') + t }));
+  const ids = pg => bankOf(pg, S.mappings, S.depthRoutes || []).map(m => m.s.id).join(',');
+  line(ids('mix') === '' && ids('set') === '' && ids('main') === '' && ids('hist') === '', 'Bank, control: Mix, Set, Main and Hist read zero modulators with the sample routes.');
+  line(ids('osc') === 'env1,env2,lfo1,coh' && ids('fx') === 'lfo2,macro1', 'Bank derived: Osc is ' + ids('osc') + ' (Env 2 only moves the depth of LFO 1 → Detune), FX is ' + ids('fx') + '.');
+  const probe = { param: 'mix.osc', src: 'lfo2', pol: 'uni', depth: .2 };
+  S.mappings.push(probe); const added = ids('mix'); S.mappings.pop(); const gone = ids('mix');
+  line(added === 'lfo2' && gone === '' && ids('osc') === 'env1,env2,lfo1,coh', 'Moving a route moves the bank: LFO 2 → mix.osc puts LFO 2 on Mix (' + added + '), removing it empties it (' + (gone || 'none') + '); Osc is untouched.');
+  // The override wins over the global mode: in BLEND a Quantum parameter reads its owner's stored value, a Follow one the blend.
+  const gate = REG['arp.gate'], detune = REG['osc.detune'];
+  const m0 = M.mode, hist0 = M.hist.length, snap0 = JSON.stringify([gate.p.vals, gate.p.g, !!gate.p.locked, ov(gate.p)]);
+  M.mode = 'blend';
+  const blend = S.base(gate.p); setOverride(gate, 'quantum');
+  const snapV = S.base(gate.p), own = gate.p.vals[S.ownerOf(gate.p)];
+  line(Math.abs(snapV - own) < 1e-9 && Math.abs(blend - own) > 1e-3 && ov(gate.p) === 'quantum' && M.hist.length === hist0 + 1, 'Override wins: under BLEND, Gate set to Quantum reads its owner’s stored value (' + gate.p.fmt(snapV) + ') where Follow read the blend (' + gate.p.fmt(blend) + '), in one undo step.');
+  H.Morph.undo(S);
+  line(JSON.stringify([gate.p.vals, gate.p.g, !!gate.p.locked, ov(gate.p)]) === snap0 && M.hist.length === hist0, 'Undo restores Gate exactly (mode and corners) and removes the step.');
+  M.mode = m0;
+  // Exempt writes the heard value into all four corners and holds it; undo restores the spread exactly.
+  const sn = JSON.stringify([detune.p.vals, detune.p.g, !!detune.p.locked, ov(detune.p)]), heard = S.base(detune.p);
+  setOverride(detune, 'exempt'); const sx = JSON.stringify([detune.p.vals, detune.p.g, !!detune.p.locked, ov(detune.p)]);
+  const flat = detune.p.vals.every(v => Math.abs(v - heard) < 1e-9) && detune.p.locked === true && Math.abs(detune.p.g - heard) < 1e-9;
+  H.Morph.undo(S);
+  line(flat && sx !== sn && JSON.stringify([detune.p.vals, detune.p.g, !!detune.p.locked, ov(detune.p)]) === sn, 'Exempt holds the heard value (' + detune.p.fmt(heard) + ') in all four corners and out of the field; the state differs from before (control), and undo restores the corner spread exactly.');
+  // The menu, through the real events: right-click opens it, Quantum is refused on a structural parameter, a pick is one step.
+  const host = document.querySelector('#page-fx [data-key="arp.gate"]');
+  if (host) {
+    host.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 40 }));
+    const radios = menu ? [...menu.el.querySelectorAll('[role=menuitemradio] .pm-t')].map(b => b.textContent) : [];
+    closeMenu();
+    const order = document.querySelector('#page-fx [data-key="arp.order"]');
+    order.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 40 }));
+    const qItem = menu && [...menu.el.querySelectorAll('[role=menuitemradio]')].find(b => /^Quantum/.test(b.textContent)), refused = !!(qItem && qItem.getAttribute('aria-disabled') === 'true');
+    closeMenu();
+    const set = document.querySelector('#page-set [title="set.master_tune"]'); set.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 40 }));
+    const plain = menu ? menu.el.querySelectorAll('[role=menuitemradio]').length : -1; closeMenu();
+    line(radios.length === 3 && refused && plain === 0, 'Right-click: a morphing control lists ' + radios.length + ' modes (' + radios.join(', ') + '); Quantum is disabled on structural Order (' + refused + '); a global setting lists ' + plain + ' (control).');
+  }
+  line(M.hist.length === hist0, 'The checks leave the undo stack as they found it (' + hist0 + ' entries).');
+  patchDirty = true; if (grid) grid.build();
+  M.fut.length = 0; S.message = '';                 // the lab opens clean: no stray redo, no message from the checks
+})();
+
+// ===== BLOCK M: go =====
+// A link can open a page at a width: page-chrome-lab.html#fx or #mix,600 (for review and for the headless load check).
+{ const [pg, w] = location.hash.slice(1).split(','); selectPage(pageEls[pg] ? pg : 'osc'); const wb = w && $('sizes').querySelector('[data-w="' + w + '"]'); if (wb) wb.click(); }
+S.add({ render() { for (const v of views) { try { v.update(); } catch (e) { if (!v.failed) { v.failed = true; console.error('page-chrome view failed', e); } } } } });
+S.start();
+})();
+</script>
+</body></html>
