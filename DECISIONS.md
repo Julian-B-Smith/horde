@@ -9484,3 +9484,29 @@ No correct pair of builds under BD-7 can match on a chaotic state.
 - The test author adds the knife-edged bank states (by the rule; the candidates are presets 14, 15, 16, 45, 47 and 69, and 57 if FM reset's in-window modulator qualifies) to the bank's list beside the chaotic ones, and models FM free in the bank classification.
 - The rulings log gains row 44.
 - **FX device (ADR-254):** none.
+
+## ADR-288 — RULED by the human: the gate-relaxation ledger's retroactive rulings (B520, B494, 2026-10-27)
+
+**Context.** ADR-247 requires every move from gated to reported to carry engine-free evidence and a human ruling. B520 lists the moves made before it on the lead's reading alone, or with evidence that used the engine's phases. A read-only audit (Opus, fresh context; it did not read the builder's tree) traced each one through the records and the test author's tree:
+- **Already covered by a later ruling:** B-13, B-24 and B-28 (round 22's probe rule, ADR-248.1), and largely Q-TA-1 (ADR-227).
+- **Needing a ruling:** B-12 and Q-TA-6.
+- **Needing engine-free evidence first:** B-16 and B-27, plus three moves B520 did not list (DT-3's 80 dB floor in item 3; item 25's mid-note `order` change at drive above 0; item 31's selector change between far-apart levels).
+- It also found the rulings log missing ADR-246, ADR-255 and most of ADR-258, with six rows below its footer.
+
+**Rulings (the human, by poll, 2026-10-27).**
+1. **B-12: "Report, after a check."** Item 9.2's must-fire control on the default seven-member patch stays reported. The condition is that the test author shows engine-free that the detector misses planted steps on a law-rendered seven-member detuned saw. If it hears them, the control returns to judged. QS-4's own control list names no swarm, and item 9's bright patch is met by the C6 one-member saw.
+2. **Q-TA-6: "A set per rate."** The frozen no-click set is the 33 clean held renders at 44.1 kHz and the 22 at 48 kHz, so nothing that reads clean at a rate goes unjudged there.
+3. **"Confirm all four."**
+   - Q-TA-1 is recorded under ADR-227, naming the 33.
+   - B-13, B-24 and B-28 are discharged by ADR-248.1.
+   - The test author adds the reported rows ADR-227 promised for the bank presets that fire.
+
+**Consequences.**
+- **The test author:**
+  - runs row 1's check;
+  - makes item 9's frozen set per rate;
+  - writes the firing presets' reported rows;
+  - renders engine-free, after the B-51/B-52 checks: B-16's four cases (ADR-241's ruling stands; its evidence is owed), B-27, DT-3's 80 dB floor, item 25's and item 31's carve-outs. Each comes back for a ruling or returns to judged.
+- **The rulings log** gains rows 45 to 53, and its six stray rows move back into the table.
+- **B520** stays open until the owed checks return.
+- **FX device (ADR-254):** none.
