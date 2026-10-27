@@ -369,7 +369,7 @@ the human rules.
 | Q10 | The history clauses: complete state, deterministic restore, bounded size, live state excluded, and edits as gestures. | RS-6.10–6.14 | **Yes.** Each has an admission row (A13, A17–A20). |
 | Q11 | Should the memory figure be a MUST for hosted modules, not a SHOULD? | RS-2.6, RS-8.5 | **Yes.** Static nodes keep every module resident. |
 | Q12 | Should horde measure every module's CPU itself, judged at the E-6 reference? | RS-8.2 | **Yes.** It is what our seq-12 answer told Bulwark. |
-| Q13 | Where should the admission test live? | §2.2 | **A new check in horde's `tools/`**, wired into `./verify` when it lands (ADR-180 §1). Build it with the horde 2 shell (B398), when the first module can be hosted. |
+| Q13 | Where should the admission test live? | §2.2 | **A new check in horde's `tools/`**, wired into `./verify` when it lands (ADR-180 §1). Build it with the horde 2 shell (B398), when the first module can be hosted. **Amended 2026-10-27 (ADR-295):** built now, standalone (B561), for every row that needs only the module; the slot rows (A6 tests 4–6, A7, A13, A14, A16) wait for the shell. |
 
 ## 11. Per-module readiness
 

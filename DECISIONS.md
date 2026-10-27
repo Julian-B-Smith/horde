@@ -9621,3 +9621,21 @@ The proposed combined law was reviewed twice by fresh-context critics (FIX-THEN-
 - **The builder** rebuilds the band-limiting to round 42. 3.b (B-51) and 9.b1's Hollow double and Harmonic stack (B-52) are then expected to pass.
 - **CPU:** E per member and the exact taper integrals cost more. The 8-point reference is about 1,568 evaluations per output sample per voice on the heaviest tapered preset. The builder's realisation may be cheaper within the 0.5 dB allowance. It is measured at cutover (§10.6 item 4).
 - **FX device (ADR-254):** none, since the FX device has no oscillators.
+
+## ADR-295 — RULED by the human: the hosted-module admission test is built now, standalone, ahead of the shell (B560, B561; amends rack-slot contract Q13; 2026-10-27)
+
+**Context.**
+- **Scape's brief `admission-readiness` (seq 1).** Scape closed its side of the admission rows (Scape D-071) and asks horde to run the hosted admission test (rack-slot contract §2.2, A1–A21) against it, to host it for listening, and to measure its CPU on horde's bench.
+- **The test does not exist.** The contract's Q13 (2026-10-09) put it in horde's `tools/`, built with the horde 2 shell (B398), "when the first module can be hosted". The shell has not started; the clean-room engine is in its bank stage.
+- **Three modules wait on it.** Bulwark ran our rows in its own tree for its M4 (B463). Scape's M2 exit and Shriek's sync (S4) will need it too.
+
+**Ruling (the human, by poll, 2026-10-27): "Now, standalone."**
+1. horde builds the admission test now, as a standalone check in `tools/` that drives a module through its slot interface, with each row's must-fail control (B561).
+2. It covers every row that needs only the module. The rows that need the slot itself (A6 tests 4–6, A7 off, A13 corner presets, A14 cycles, A16 wake) wait for the shell (B398).
+3. Q13's "where" stands (a check in horde's `tools/`, wired into `./verify`); only its "when" changes.
+
+**Consequences.**
+- Scape is answered (B560): the module-only rows on B561's check, the slot rows and the listening sign-off with the shell, and the CPU on an unloaded bench.
+- Each module is reached through a thin adapter over its own shim (contract §1.1). Swapping a shim for the FOUNDATIONS header stays a rename at the adapter.
+- Bulwark and Shriek follow Scape on the same check.
+- **FX device (ADR-254):** the FX device hosts the same modules through the same slot, so the same check admits them there.
