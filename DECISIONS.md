@@ -9528,3 +9528,17 @@ The ruling numbers here skip ADR-289, which is held for spec round 42 (B552, in 
 - ROADMAP B554, built with the pitch system (RC-3, B504). Nothing in the clean-room engine changes: its pitch input is IF-2's per-note pitch, and the quantizer sits in the pitch system above it.
 - The design system's route row gains the toggle when the pitch system's lab lands.
 - **FX device (ADR-254):** the FX device's matrix offers the same toggle on any FX-module pitch destination, reading the same global scale.
+
+## ADR-291 — RULED by the human: the morph pad on every page, a per-page modulator bank, a per-parameter morph mode menu, and Arp's pickers with pictures (B555–B558, 2026-10-27)
+
+**Context.** The human, after playing the legacy plugin: "I realized something when playing around with the legacy plugin and feeling frustrated with a particular UI detail: the morph grid should be available on every page of the device. And maybe there should be a small bank on every page that displays the modulators that are relevant on that page (any that modulate parameters controlled on that page)." And: "in a drop-down menu you should be able to set individual parameters to blend mode: quantum if you want to exclude them from blend (this will be particularly useful for a number of arp parameters)." On the Arp face lab (B553): "the order and pattern selectors should also have dropdowns with visuals of the patterns. I would also in general like to see a basic arp pattern visualizer in the device for whatever is selected."
+
+**Rulings (the human, 2026-10-27; two readings settled by poll).**
+1. **The morph pad on every page** ("The morph pad (XY + corners)"): a compact pad docked on every page (B555).
+2. **A per-page modulator bank:** each page shows the modulators that modulate a parameter on that page, read from the matrix's routes (B556).
+3. **A per-parameter morph mode menu** ("Follow / Quantum / Exempt"): Follow the morph (the default), Quantum (flips at the boundaries instead of blending, whatever the global mode), or Exempt (ADR-109). It is patch state (B557).
+4. **Arp's Order and Pattern pickers show pictures,** and the device shows a basic visualizer of the selected order and pattern (B558).
+
+**Consequences.**
+- B555–B558 are opened. Each lands as a design-system rule or component and a lab, and the human rules on each.
+- **FX device (ADR-254):** rulings 1 to 3 apply to the FX device's pages and FX-module parameters. Ruling 4 has none, because the FX device hosts no note processor.
