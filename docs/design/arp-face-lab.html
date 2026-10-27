@@ -1,0 +1,654 @@
+<!doctype html>
+<!-- arp-face-lab — B553: Arp's face (its GUI) in GUI 3's design system, as a lab.
+     HYPERSAW/horde, 2026-10-27. Origin: the human, 2026-10-27: "get an agent started building the GUI for arp in
+     the horde aesthetic". ROADMAP B553: "Arp's face in GUI 3's design system, as a lab ... drawn from a dated
+     snapshot of Arp's spec/params.json (Arp D-035: key, display name, unit, range, default, morph class, display
+     format), every setting reachable, bound by key; undo one step per control gesture, firing a trigger makes
+     none (ADR-267 A1). Nothing is edited in Arp's tree."
+
+     WHAT THIS IS. A design lab for the question "what does Arp look like as a horde module?". By agreement with
+     Arp (its Q-H9, D-034) horde builds Arp's face and its undo. Arp supplied what a face needs in
+     spec/params.json (D-035); a dated copy is arp-face/params.snapshot.json and the page GENERATES every control
+     from it: key, label, kind, type, range, default, value_labels and display format are read, never typed here.
+     The only hand-written key names are the layout (which cluster a key sits in), and the ledger at the foot
+     proves every snapshot key landed somewhere: the line turns red if one did not.
+
+     WHAT IS MOCK. No engine and no notes. (1) The morph corners hold SAMPLE values: corner A is the snapshot's
+     defaults, the other corners of the three knob settings are a mulberry32 spread, and every discrete setting
+     is the same in all four corners. The corner names are real Arp bank pattern names, labelled SAMPLE (they
+     are not presets: Arp's factory presets wait on B550). (2) Ownership is the design system's labelled
+     stand-in (Session.ownerOf), not the engine's. (3) The step lanes and the playhead run a step clock at a
+     fixed 120 BPM over the selected bank pattern, with SPEC section 10's draw for step probability; no notes are
+     held, so no pitch is drawn. (4) The trigger buttons are the ADR-267 A1 test: Arp's triggers are OUTPUTS
+     (SPEC section 8), so a real face has nothing to fire; the buttons exist so the "no undo entry" rule can be
+     seen to hold.
+
+     WHAT IT IS NOT. Not the user-pattern editor (SPEC 4.6: preset data, not parameters, so not in params.json;
+     horde owns it under Q-H6) and not wired to an engine. Nothing in Arp's tree, specs/, reference/ or
+     docs/design-system/ is touched.
+
+     FILES. arp-face/ holds the vendored design system (tokens.css generated from its tokens.json, bundle.css,
+     bundle.js) and Arp's two snapshots; its README.md records versions and commits. The page FETCHES the
+     snapshots, so open it through tools/labs_preview.sh or tools/serve_labs.py (file:// blocks fetch).
+
+     FX DEVICE (ADR-254): none. The FX device hosts no note processor. No Math.random (mulberry32 only, SPEC 5.7
+     of the horde spec); lab time is the Session's frame time. -->
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="lab-part" content="Presentation">
+<meta name="lab-review" content="B553 · 2026-10-27">
+<title>arp face lab — Arp's settings as a horde module card, generated from a snapshot of its params</title>
+<!-- tokens first (bundle.css reads them); bundle.css pulls Archivo and Roboto Mono from Google Fonts itself,
+     with the token stacks as the fallback (Helvetica Neue / ui-monospace) -->
+<link rel="stylesheet" href="arp-face/tokens.css">
+<link rel="stylesheet" href="arp-face/bundle.css">
+<style>
+  /* Lab layout only. Every colour, size and radius is a token; the components bring their own look. */
+  body { padding: var(--space-page); }
+  .lab-win { max-width: var(--size-window-w); margin: 0 auto; display: flex; flex-direction: column; gap: var(--space-stack); }
+  .lab-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-gap); }
+  .lab-grow { flex: 1 1 auto; }
+  .lab-tag { font: 700 8.5px/1.4 var(--font-sans); letter-spacing: .1em; padding: 0 5px; border-radius: var(--radius-track); color: var(--t2); border: 1px solid var(--div); }
+  .tagline { font: 400 10px/1.5 var(--font-sans); color: var(--t2); max-width: 90ch; }
+  .lab-status { margin: 0; }
+  .lab-status b { color: var(--ink); font-weight: 600; }
+  .cols { display: flex; flex-wrap: wrap; gap: var(--space-column) 14px; align-items: flex-start; }
+  .left { flex: 0 1 262px; min-width: 0; display: flex; flex-direction: column; gap: var(--space-stack); }
+  .right { flex: 1 1 410px; min-width: 0; display: flex; flex-direction: column; gap: var(--space-column); }
+  .toprow { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
+  .lab-panel { box-sizing: border-box; background: var(--panel); border: var(--stroke-ink) solid var(--ink); border-radius: var(--radius); padding: var(--space-card-y) var(--space-card-x); display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .lanes { flex: 1 1 230px; }
+  .adv { width: 100%; }
+  .adv[hidden] { display: none; }
+  .advgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px 18px; }
+  .clu { display: flex; flex-direction: column; gap: 2px; min-width: 0; border-top: 1px dashed var(--div); padding-top: 6px; }
+  .crow { display: grid; grid-template-columns: minmax(72px, 34%) minmax(0, 1fr); align-items: center; gap: var(--space-gap); min-height: var(--space-row); }
+  .crow > .hd-stepper, .cell > .hd-stepper { display: flex; min-width: 0; }
+  .hd-stepper output { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hd-stepper[aria-disabled="true"] { opacity: var(--opacity-disabled); }
+  .og { display: inline-flex; }
+  /* the card: the house anatomy (strip, header, mini-view, face, foot) with Arp's switches row added */
+  .arp-card .sw { display: flex; flex-wrap: wrap; gap: 0 14px; padding: 2px 7px; }
+  .arp-card .sw .it, .arp-card .ensw { display: flex; align-items: center; gap: 8px; }
+  .arp-card .ensw { margin-left: 4px; }
+  .arp-card .head { flex-wrap: wrap; }
+  .arp-card .census { margin-left: auto; }
+  .arp-card .viz { cursor: default; }
+  .faceA { display: flex; flex-direction: column; gap: 4px; padding: 4px 7px 2px; }
+  .faceA .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 2px 10px; }
+  .faceA .rg { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .faceA .rg .rate { flex: 1 1 230px; min-width: 0; }
+  .cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .arp-card.collapsed .sw, .arp-card.collapsed .faceA, .arp-card.collapsed .foot { display: none; }
+  .arp-card .foot .hd-hint { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .slot { display: grid; grid-template-columns: 32px minmax(60px, 1fr) auto; gap: var(--space-gap); align-items: center; min-height: var(--space-row); }
+  .sc-skin { display: none; }                       /* the picker's view toggle is UI-only; the skin follows the quantize key instead */
+  .corners-list { display: flex; flex-direction: column; gap: 2px; font: 500 10px/1.4 var(--font-sans); color: var(--t2); }
+  .corners-list span.cn { display: flex; align-items: center; gap: 6px; min-height: 18px; }
+  .ledger { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 0 14px; font: 400 9px/1.6 var(--font-mono); color: var(--t2); }
+  .ledger span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ledger b { color: var(--ink); font-weight: 400; }
+  .tick-lanes { display: flex; flex-wrap: wrap; gap: 2px; }
+  .tick-lanes .hd-btn { min-width: 28px; padding: 0 6px; }
+  .hd-btn[disabled] { opacity: var(--opacity-disabled); cursor: default; box-shadow: none; }
+</style></head><body>
+<div class="hd-window lab-win" id="win">
+  <header class="lab-head">
+    <span class="hd-cluster">Arp · face lab</span><span class="lab-tag">MOCK</span><span class="lab-tag">B553</span>
+    <span class="lab-grow"></span>
+    <button class="hd-btn hd-focus" id="undoBtn" type="button" disabled>Undo</button>
+    <button class="hd-btn hd-focus" id="redoBtn" type="button" disabled>Redo</button>
+    <button class="hd-kbd hd-focus" id="kbd" type="button" aria-pressed="false" aria-label="Keyboard mode"><span class="lampdot"></span><span id="kbdTxt">KEYS</span></button>
+    <button class="hd-btn hd-focus" id="themeBtn" type="button" aria-pressed="false">Dark</button>
+  </header>
+  <div class="tagline">Arp's <b>settings as a horde Module card</b>, every control generated from a dated snapshot of Arp's params.json and bound by key:
+    four on the face, the rest behind Advanced, one undo step per control gesture and none for a trigger. No engine, no notes: MOCK.</div>
+  <p class="hd-msg lab-status" id="status" role="status"><b>Last</b> <span id="stLast">nothing yet</span> · <span id="stUndo"></span> · <span class="lab-tag">MOCK</span></p>
+  <div class="cols">
+    <aside class="left" id="left" aria-label="Morph (sample)"></aside>
+    <main class="right" id="right"></main>
+  </div>
+  <section class="lab-panel" id="ledgerBox" aria-label="Key ledger">
+    <span class="hd-cluster">Key ledger</span>
+    <p class="hd-note" id="ledgerLine"></p>
+    <div id="checks"></div>
+    <div class="ledger" id="ledger"></div>
+  </section>
+</div>
+<script src="arp-face/bundle.js"></script>
+<script>
+(async function main() {
+'use strict';
+// ===== BLOCK A: all state, declared before any wiring (L0026) =====
+const H = window.Horde;
+const MINUS = '−';
+const BPM = 120;                                  // MOCK host tempo, the design system's own stand-in value
+const SNAP_URL = 'arp-face/params.snapshot.json', BANK_URL = 'arp-face/bank.snapshot.json';
+const RATE_KEYS = ['rate_mode', 'rate', 'step_time_us'];   // one RateSync binds all three (layout choice, SPEC 2.1/2.6)
+const TRIGGER_LANES = 8;                          // SPEC section 8: "Lanes 1-8 are Arp's outputs"
+const CHL = '<svg viewBox="0 0 8 8"><path d="M6 0v8L1 4z"/></svg>', CHR = '<svg viewBox="0 0 8 8"><path d="M2 0v8l5-4z"/></svg>';
+const views = [];                                 // every control's update(), run once a frame by the Session
+const placed = Object.create(null);               // key -> where it lives: the ledger's evidence
+const dupes = [];
+const P = Object.create(null), D = Object.create(null);
+const U = { stack: [], at: 0 };                   // the undo stack: one entry per completed control gesture
+let pending = null, lastAction = 'nothing yet', lastCorner = null, snap = null, bank = null, S = null;
+let pendingFire = 0;                              // trigger presses waiting for the next lane frame
+const $ = id => document.getElementById(id);
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+function h(tag, a, ...kids) {
+  const e = document.createElement(tag);
+  for (const k in (a || {})) {
+    const v = a[k];
+    if (k === 'class') e.className = v; else if (k === 'text') e.textContent = v; else if (k === 'html') e.innerHTML = v;
+    else if (v === true) e.setAttribute(k, ''); else if (v !== false && v != null) e.setAttribute(k, v);
+  }
+  for (const c of kids.flat()) if (c != null) e.append(c);
+  return e;
+}
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function hash32(s) { let x = 2166136261; for (let i = 0; i < s.length; i++) { x ^= s.charCodeAt(i); x = Math.imul(x, 16777619); } return x >>> 0; }
+// Arp SPEC section 10, verbatim: the first mulberry32 output of a mixed seed, as uint32. Used only for the MOCK step probability.
+function draw32(seed, x, lane, epoch) {
+  const s0 = (seed ^ Math.imul(x, 0x9E3779B1) ^ Math.imul(lane, 0x85EBCA77) ^ Math.imul(epoch, 0xC2B2AE3D)) | 0;
+  const s = s0 + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return (t ^ t >>> 14) >>> 0;
+}
+const parseFrac = s => { const [a, b] = String(s).split('/'); return b ? (+a) / (+b) : +a; };
+function fail(msg) { const n = h('p', { class: 'hd-note bad', role: 'alert', text: msg }); $('win').insertBefore(n, $('status')); }
+
+// ===== BLOCK B: load the snapshots (dated copies, see arp-face/README.md) =====
+async function getJSON(u) { const r = await fetch(u); if (!r.ok) throw new Error(u + ' ' + r.status); return r.json(); }
+try { [snap, bank] = await Promise.all([getJSON(SNAP_URL), getJSON(BANK_URL)]); }
+catch (e) { fail('The snapshots did not load (' + e.message + '). Open this lab through tools/labs_preview.sh or tools/serve_labs.py: a file:// page cannot fetch them.'); return; }
+
+// ===== BLOCK C: descriptors, one per snapshot key =====
+snap.params.forEach(p => { P[p.key] = p; });
+const KEYS = snap.params.map(p => p.key);
+// SPEC section 6: quantize, scale_source, scale_root and scale_deg0..11 are ONE morph group, resolved by a single leading-corner
+// decision, so the lab's ownership stand-in answers once for all of them. The snapshot does not say so; the SPEC does.
+const GROUP = {};
+KEYS.filter(k => k === 'quantize' || k === 'scale_source' || /^scale_(root|deg\d+)$/.test(k)).forEach(k => { GROUP[k] = 'scale_root'; });
+
+function enumOptions(p) {
+  if (p.values) return p.values.map(id => ({ id, label: (p.value_labels && p.value_labels[id]) || id }));
+  if (/starter\.json patterns/.test(p.values_from || '')) {       // the pattern setting: the bank's ids plus `user`
+    const m = /"([^"]+)"\s+for\s+`user`/.exec(p.display || '');   // its display text names the user entry
+    if (!m) throw new Error('pattern: no display name for `user` in its display text');
+    return bank.patterns.map(b => ({ id: b.id, label: b.name, purpose: b.purpose, bank: b })).concat([{ id: 'user', label: m[1], purpose: null }]);
+  }
+  if (/^rate\[\]/.test(p.values_from || '')) return snap.rate.map(r => ({ id: r.name, label: r.alias ? r.name + ' · ' + r.alias : r.name, beats: parseFrac(r.beats) }));
+  throw new Error(p.key + ': an enum with no option source');
+}
+function numFmt(d) {
+  const p = d.p, disp = p.display || '', signed = /signed/.test(disp), zero = /^(\d+) shown as (\S+)/.exec(disp);
+  const unit = /^[a-z%]+$/i.test(p.unit || '') ? p.unit : '';      // only a one-word unit rides on the number
+  if (p.type === 'permille') return v => (v / 10).toFixed(1) + ' %';   // its display text: permille shown as a percentage, one decimal
+  return v => { if (zero && v === +zero[1]) return zero[2]; const s = signed ? (v > 0 ? '+' + v : v < 0 ? MINUS + (-v) : '0') : String(v); return unit ? s + ' ' + unit : s; };
+}
+function describe(p) {
+  // a kind other than continuous or discrete gets no morph tint at all (design system: frozen, exempt or morph-off = "belongs to nobody");
+  // the snapshot has none today, so every key below is tinted, but the rule is the system's and stays in the code.
+  const d = { p, key: p.key, label: p.label, path: 'Arp · ' + p.label, morph: (p.kind === 'continuous' || p.kind === 'discrete') ? p.kind : null, vals: null, kp: null };
+  if (p.type === 'bool') { d.t = 'bool'; d.min = 0; d.max = 1; d.def = p.default ? 1 : 0; d.fmt = v => v ? 'On' : 'Off'; }
+  else if (p.type === 'enum') { d.t = 'enum'; d.options = enumOptions(p); d.min = 0; d.max = d.options.length - 1; d.def = d.options.findIndex(o => o.id === p.default);
+    if (d.def < 0) throw new Error(p.key + ': default ' + p.default + ' is not an option'); d.fmt = v => d.options[v].label; }
+  else if (p.type === 'uint32') { d.t = 'uint'; d.min = 0; d.max = 4294967295; d.def = p.default; d.fmt = v => String(v); }
+  else if (p.type === 'int' || p.type === 'percent' || p.type === 'permille') { d.t = p.kind === 'continuous' ? 'cont' : 'int'; d.min = p.min; d.max = p.max; d.def = p.default; d.fmt = numFmt(d); }
+  else { d.t = 'unsupported'; d.fmt = String; }
+  d.knob = d.t === 'cont' && !RATE_KEYS.includes(p.key);
+  return d;
+}
+snap.params.forEach(p => { D[p.key] = describe(p); });
+const need = k => { if (!D[k]) throw new Error('the layout names a key the snapshot lacks: ' + k); return D[k]; };
+
+// ===== BLOCK D: the Session, the stores, and the undo stack =====
+S = new H.Session({ x: 0, y: 0, corners: [0, 1, 2, 3].map(i => bank.patterns[i] ? bank.patterns[i].name : null) });   // puck on corner A: the snapshot's own defaults
+// Storage: a knob setting lives in its Knob props (normalised, because the Knob writes them), every other one in d.vals (raw). Both are
+// read and written through getRaw/setRaw only, so undo, the picture and the ledger never care which.
+Object.values(D).forEach(d => {
+  if (d.knob) {
+    const rng = mulberry32(hash32(d.key)), dn = (d.def - d.min) / (d.max - d.min);
+    d.kp = { key: d.key, name: d.label, path: d.path, def: dn, fmt: t => d.fmt(Math.round(d.min + t * (d.max - d.min))),
+             vals: [dn, 0, 0, 0].map((v, i) => i ? clamp(dn + (rng() - .5) * .7, 0, 1) : v) };   // SAMPLE spread in corners B-D
+  } else d.vals = [d.def, d.def, d.def, d.def];
+});
+const getRaw = (d, i) => d.kp ? Math.round(d.min + d.kp.vals[i] * (d.max - d.min)) : d.vals[i];
+const setRaw = (d, i, v) => { v = clamp(v, d.min, d.max); if (d.kp) d.kp.vals[i] = (v - d.min) / (d.max - d.min); else d.vals[i] = v; };
+const ownerIdx = d => d.morph ? S.ownerOf({ key: GROUP[d.key] || d.key }) : 0;
+const editingIdx = d => !d.morph ? 0 : (S.pinned !== null ? S.pinned : ownerIdx(d));
+// What the setting reads as now: a continuous one is the blend of its corners, a discrete one its owner's value (SPEC 9, Q-A1).
+function resolvedRaw(d) {
+  if (d.morph === 'continuous') { const w = S.weights(); let s = 0; for (let i = 0; i < 4; i++) s += w[i] * getRaw(d, i); return Math.round(s); }
+  return getRaw(d, ownerIdx(d));
+}
+function write(d, raw) {                          // a control's edit lands in the EDITING corner (the owner, or the pinned one)
+  const ai = editingIdx(d);
+  if (!S.writable({ key: d.key, locked: false }, ai)) return false;
+  setRaw(d, ai, raw); lastCorner = d.morph ? H.CORNERS[ai].id : null; return true;
+}
+let lastSnap = null, lastSig = '', stray = false, strayAt = 0;
+const sigOf = () => KEYS.map(k => [0, 1, 2, 3].map(i => getRaw(D[k], i)).join(',')).join(';');
+function baseline() { lastSnap = snapAll(); lastSig = sigOf(); stray = false; }
+// A change nobody bracketed (alt+wheel, an arrow-key burst) is still ONE gesture: it opens at the first changed frame and closes after 450 ms quiet.
+function strayWatch() {
+  if (pending && !stray) return;                  // a bracketed gesture owns the store; end() re-baselines
+  const sig = sigOf(), now = S.now || 0;
+  if (sig !== lastSig) {
+    if (!stray) { stray = true; pending = lastSnap; }
+    lastSig = sig; strayAt = now;
+  } else if (stray && now - strayAt > 450) {
+    stray = false;
+    end(ch => { const ks = [...new Set(ch.map(c => c.k))]; return ks.length === 1 ? lab(D[ks[0]])() : ks.length + ' settings'; });
+  }
+}
+const snapAll = () => { const o = {}; for (const k of KEYS) o[k] = [0, 1, 2, 3].map(i => getRaw(D[k], i)); return o; };
+function begin() { if (!pending) pending = snapAll(); }
+// End of ONE completed control gesture: diff against the snapshot taken at its start, push at most one entry. A gesture that changed
+// nothing (a click on the current pill, a trigger, a drag back to where it began) pushes none.
+function end(labelFn) {
+  if (!pending) return false;
+  const before = pending; pending = null; const ch = [];
+  for (const k of KEYS) for (let i = 0; i < 4; i++) { const a = getRaw(D[k], i); if (a !== before[k][i]) ch.push({ k, i, from: before[k][i], to: a }); }
+  baseline();
+  if (!ch.length) return false;
+  U.stack.length = U.at;                          // a new gesture drops the redo tail
+  const label = typeof labelFn === 'function' ? labelFn(ch) : labelFn;
+  U.stack.push({ label, ch }); U.at++;
+  lastAction = label + (lastCorner ? ' (corner ' + lastCorner + ')' : ''); renderStatus(); return true;
+}
+function edit(fn, labelFn) { begin(); fn(); end(labelFn); }
+const lab = d => () => d.label + ' → ' + d.fmt(resolvedRaw(d));
+function applyEntry(e, dir) { e.ch.forEach(c => setRaw(D[c.k], c.i, dir < 0 ? c.from : c.to)); baseline(); }
+function undo() { if (pending || !U.at) return; const e = U.stack[--U.at]; applyEntry(e, -1); lastAction = 'Undo: ' + e.label; renderStatus(); }
+function redo() { if (pending || U.at >= U.stack.length) return; const e = U.stack[U.at++]; applyEntry(e, 1); lastAction = 'Redo: ' + e.label; renderStatus(); }
+function renderStatus() {
+  $('stLast').textContent = lastAction;
+  $('stUndo').textContent = 'undo depth ' + U.at + (U.stack.length > U.at ? ' · redo ' + (U.stack.length - U.at) : '');
+  $('undoBtn').disabled = U.at === 0; $('redoBtn').disabled = U.at >= U.stack.length;
+}
+function place(key, where) { need(key); if (placed[key]) dupes.push(key + ' (' + placed[key] + ' and ' + where + ')'); else placed[key] = where; }
+views.push({ update() { strayWatch(); } });
+// Off, no control takes focus and every key reaches the host (accessibility.md); a control's tab stop exists only in keyboard mode.
+function kbd(el) { views.push({ update() { el.tabIndex = S.keys ? 0 : -1; } }); return el; }
+
+// ===== BLOCK E: control builders. Each is bound to a descriptor (a snapshot key); none holds a label, range or default of its own =====
+function ownLabel(d, text) {
+  const span = h('span', { class: 'hd-label', title: d.p.note || '' });
+  if (d.morph !== 'discrete') { span.textContent = text || d.label; return span; }   // continuous: its knob shows the pips; no class: no tint
+  const o = h('span', { class: 'hd-owned' }), g = h('span', { class: 'og' });          // discrete: the 3 px corner rule and the glyph on the LABEL
+  o.append(g, document.createTextNode(text || d.label)); span.append(o);
+  let last = -1;
+  const v = { update() { const i = ownerIdx(d); if (i === last) return; last = i; const id = H.CORNERS[i].id;
+    o.style.setProperty('--own', 'var(--c' + id + ')'); g.innerHTML = H.glyph(i, 8, 'var(--c' + id + '-tx)'); o.title = 'Owned by corner ' + id; } };
+  views.push(v); v.update(); return span;
+}
+const row = (d, ctl, text) => h('div', { class: 'crow' }, ownLabel(d, text), ctl);
+
+function mkToggle(d) {
+  const b = h('button', { class: 'hd-toggle hd-focus', type: 'button', role: 'switch', 'aria-label': d.path, 'aria-checked': 'false', title: d.p.note || '' });
+  b.addEventListener('click', () => edit(() => write(d, resolvedRaw(d) ? 0 : 1), () => d.label + ' → ' + d.fmt(resolvedRaw(d))));
+  views.push({ update() { const on = String(!!resolvedRaw(d)); if (b.getAttribute('aria-checked') !== on) b.setAttribute('aria-checked', on); b.tabIndex = S.keys ? 0 : -1; } });
+  return b;
+}
+function mkPills(d) {
+  const g = h('div', { class: 'hd-pills', role: 'radiogroup', 'aria-label': d.path });
+  const bs = d.options.map((o, i) => {
+    const b = h('button', { class: 'hd-pill hd-focus', type: 'button', role: 'radio', text: o.label, 'aria-checked': 'false' });
+    b.addEventListener('click', () => pick(i));
+    b.addEventListener('keydown', e => { if (!S.keys) return; const dir = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key]; if (!dir) return;
+      e.preventDefault(); const n = clamp(i + dir, 0, d.max); pick(n); bs[n].focus(); });
+    g.append(b); return b;
+  });
+  const pick = i => { if (i !== resolvedRaw(d)) edit(() => write(d, i), lab(d)); };
+  views.push({ update() { const cur = resolvedRaw(d); bs.forEach((b, i) => { const on = String(i === cur); if (b.getAttribute('aria-checked') !== on) b.setAttribute('aria-checked', on); b.tabIndex = S.keys && i === cur ? 0 : -1; }); } });
+  return g;
+}
+// Typed entry (Switch/Value readout): double-click the readout, Enter commits as ONE gesture, Esc or leaving cancels, a bad entry stays open and red.
+function openEntry(d, box, out) {
+  const inp = h('input', { class: 'hd-entry hd-focus', type: 'text', inputmode: 'numeric', 'aria-label': d.path + ' · typed entry' });
+  inp.value = String(resolvedRaw(d)).replace('-', MINUS); out.hidden = true; box.insertBefore(inp, out); inp.focus(); inp.select();
+  const close = () => { if (inp.parentNode) inp.remove(); out.hidden = false; };
+  inp.addEventListener('keydown', e => {
+    e.stopPropagation();
+    if (e.key === 'Escape') { close(); return; }
+    if (e.key !== 'Enter') return;
+    const n = parseInt(inp.value.replace(MINUS, '-').replace(/[^\d+-]/g, ''), 10);
+    if (Number.isNaN(n)) { inp.classList.add('bad'); return; }
+    const c = clamp(n, d.min, d.max); edit(() => write(d, c), lab(d)); if (c !== n) lastAction += ' (' + n + ' clamped)'; renderStatus(); close();
+  });
+  inp.addEventListener('blur', close);
+}
+function mkStepper(d, o) {
+  o = o || {};
+  const out = h('output', { class: 'hd-value' }), L = h('button', { type: 'button', tabindex: '-1', 'aria-label': 'less', html: CHL }), R = h('button', { type: 'button', tabindex: '-1', 'aria-label': 'more', html: CHR });
+  const box = h('div', { class: 'hd-stepper hd-focus', role: 'spinbutton', 'aria-label': d.path, 'aria-valuemin': d.min, 'aria-valuemax': d.max, title: d.p.note || '' }, L, out, R);
+  const step = n => { const cur = resolvedRaw(d), nx = clamp(cur + n, d.min, d.max); if (nx !== cur) edit(() => write(d, nx), lab(d)); };
+  L.addEventListener('click', () => step(-1)); R.addEventListener('click', () => step(1));
+  box.addEventListener('keydown', e => { if (!S.keys || e.target !== box) return; const dir = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1 }[e.key]; if (!dir) return; e.preventDefault(); step(dir); });
+  if (o.typed) out.addEventListener('dblclick', () => openEntry(d, box, out));
+  views.push({ update() {
+    const v = resolvedRaw(d), t = d.fmt(v);
+    if (out.textContent !== t) { out.textContent = t; out.title = t; box.setAttribute('aria-valuenow', v); box.setAttribute('aria-valuetext', t); }
+    L.setAttribute('aria-disabled', String(v <= d.min)); R.setAttribute('aria-disabled', String(v >= d.max)); box.tabIndex = S.keys ? 0 : -1; } });
+  return box;
+}
+function mkSeed(d) {                              // a uint32: a typed field, committed with Enter or on leaving it
+  const inp = h('input', { class: 'hd-entry hd-focus', type: 'text', inputmode: 'numeric', 'aria-label': d.path, style: 'width:112px;text-align:right', title: d.p.note || '' });
+  const commit = () => { const n = parseInt(inp.value.replace(/[^\d]/g, ''), 10);
+    if (Number.isNaN(n)) { inp.classList.add('bad'); return; } inp.classList.remove('bad'); edit(() => write(d, n), lab(d)); };
+  inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') commit(); if (e.key === 'Escape') { inp.value = String(resolvedRaw(d)); inp.blur(); } });
+  inp.addEventListener('blur', () => { if (inp.value !== String(resolvedRaw(d)) && !inp.classList.contains('bad')) commit(); });
+  views.push({ update() { if (document.activeElement !== inp) inp.value = String(resolvedRaw(d)); inp.tabIndex = S.keys ? 0 : -1; } });
+  return inp;
+}
+// The Knob has no commit hook, so a drag is bracketed from outside (pointerdown..pointerup) and a double-click reset is one gesture, which keeps
+// the live value from ever making an entry per pixel. This lab registers NO wheel listener of its own (B301: wheel listeners go through
+// onAltWheel only, and that idiom is not in this lab's inventory): the Knob's and RateSync's own alt+wheel and an arrow-key burst are
+// caught by strayWatch() below instead, which turns any change made outside a bracket into one entry after 450 ms of quiet.
+function watchKnob(host, d) {
+  const fin = () => end(lab(d));
+  host.addEventListener('pointerdown', e => { if (e.button === 0) begin(); }, true);
+  host.addEventListener('pointerup', fin); host.addEventListener('pointercancel', fin); host.addEventListener('lostpointercapture', fin);   // a release outside the window must not leave the bracket open
+  host.addEventListener('dblclick', () => begin(), true); host.addEventListener('dblclick', fin);
+}
+function mkKnob(d, big) {
+  const host = h('div'); d.kp.big = !!big; H.Knob(host, d.kp, S); watchKnob(host, d); return host;
+}
+function control(d, where) {
+  place(d.key, where);
+  if (d.t === 'bool') return row(d, mkToggle(d));
+  if (d.t === 'enum') return row(d, d.options.length <= 7 ? mkPills(d) : mkStepper(d));    // Switch guidelines: pills up to about seven, a stepper past that
+  if (d.t === 'int') { const c = mkStepper(d, { typed: true }), u = unitHint(d); return row(d, u ? h('span', { class: 'hd-row' }, c, u) : c); }
+  if (d.t === 'uint') return row(d, mkSeed(d));
+  if (d.knob) return mkKnob(d, false);
+  throw new Error(d.key + ': no control for type ' + d.p.type + ' / kind ' + d.p.kind);
+}
+function unitHint(d) {                            // "semitones or degrees, per step_unit": the unit follows the key it names
+  const m = /per (\w+)$/.exec(d.p.unit || ''); if (!m || !D[m[1]] || D[m[1]].t !== 'enum') return null;
+  const c = D[m[1]], el = h('span', { class: 'hd-hint' }); views.push({ update() { el.textContent = c.options[resolvedRaw(c)].label.toLowerCase(); } }); return el;
+}
+
+// ----- RateSync: rate_mode + rate + step_time_us as the house's one rate-plus-sync control -----
+let rs = null, rateHost = null;
+function mkRate(where) {
+  const dm = need('rate_mode'), dr = need('rate'), dt = need('step_time_us');
+  RATE_KEYS.forEach(k => place(k, where));
+  const idMode = id => dm.options.findIndex(o => o.id === id), syncIdx = idMode('sync'), timeIdx = idMode('time');
+  const beatsOf = i => dr.options[i].beats, optByBeats = b => dr.options.findIndex(o => Math.abs(o.beats - b) < 1e-9);
+  // RateSync is not morph-aware (a plain slider, no pips): it shows the EDITING corner's stored value for the time, and the owners' for mode and rate.
+  const state = () => ({ sync: resolvedRaw(dm) === syncIdx ? 1 : 0, beats: beatsOf(resolvedRaw(dr)), hz: 1e6 / getRaw(dt, editingIdx(dt)) });
+  const s0 = state();
+  rateHost = h('div', { class: 'rate' });
+  const apply = s => {
+    const wantMode = s.sync ? syncIdx : timeIdx; if (wantMode !== resolvedRaw(dm)) write(dm, wantMode);
+    const ri = optByBeats(s.beats); if (ri >= 0 && ri !== resolvedRaw(dr)) write(dr, ri);
+    const us = clamp(Math.round(1e6 / s.hz), dt.min, dt.max); if (us !== getRaw(dt, editingIdx(dt))) write(dt, us);
+  };
+  rs = H.RateSync(rateHost, { name: dr.label, path: dr.path, sync: s0.sync, hz: s0.hz, beats: s0.beats, bpm: () => BPM,
+    min: 1e6 / dt.max, max: 1e6 / dt.min, unit: 'Hz', defHz: 1e6 / dt.def, defBeats: beatsOf(dr.def), keys: () => S.keys,
+    onChange: s => { begin(); apply(s); },        // live, many times in a drag
+    onCommit: () => end(() => 'Rate → ' + (resolvedRaw(dm) === syncIdx ? dr.fmt(resolvedRaw(dr)) : dt.fmt(getRaw(dt, editingIdx(dt))) + ' per step')) });
+  // Re-word what RateSync hard-codes so the face reads Arp's own labels (value_labels) and accessible names (label), not the component's defaults.
+  const pills = rateHost.querySelectorAll('.hd-pills .hd-pill');
+  if (pills.length === 2) { pills[0].textContent = dm.options[timeIdx].label; pills[1].textContent = dm.options[syncIdx].label; }
+  const grp = rateHost.querySelector('[role=radiogroup]'); if (grp) grp.setAttribute('aria-label', dm.path);
+  const labs = rateHost.querySelectorAll('.hd-srow > label.hd-label');
+  const swap = (el, d) => { if (el) el.replaceWith(ownLabel(d, el.textContent)); };
+  if (labs[0]) swap(labs[0], dm);                  // the top row is the mode (its label carries the rule)
+  const free = rateHost.querySelector('.rs-slot > div:first-child .hd-slider'); if (free) free.setAttribute('aria-label', dt.path);
+  const freeLab = rateHost.querySelector('.rs-slot > div:first-child label.hd-label'); if (freeLab) freeLab.textContent = dt.label;
+  const stp = rateHost.querySelector('.rs-step'); if (stp) stp.setAttribute('aria-label', dr.path);
+  const divLab = rateHost.querySelectorAll('.rs-slot > .hd-srow > label.hd-label')[0]; if (divLab) swap(divLab, dr);
+  views.push({ update() {
+    if (pending) return;                           // never fight a gesture in progress
+    const w = state(), g = rs.get();
+    if (g.sync !== w.sync || g.beats !== w.beats || Math.abs(g.hz - w.hz) > 1e-9 * w.hz) rs.set(w);
+  } });
+  return rateHost;
+}
+
+// ----- ScalePicker: scale_root + scale_deg0..11, with quantize and scale_source beside it -----
+let sp = null, scaleHost = null;
+function mkScale(where) {
+  const rootD = need('scale_root');
+  const degs = KEYS.filter(k => /^scale_deg\d+$/.test(k)).sort((a, b) => +a.slice(9) - +b.slice(9)).map(k => D[k]);
+  if (degs.length !== 12) throw new Error('scale: expected 12 degrees, found ' + degs.length);
+  place('scale_root', where); degs.forEach(d => place(d.key, where));
+  const quant = need('quantize');
+  const state = () => ({ root: resolvedRaw(rootD), mask: degs.map(resolvedRaw) });
+  scaleHost = h('div', { class: 'sc' });
+  const s0 = state();
+  sp = H.ScalePicker(scaleHost, { root: s0.root, mask: s0.mask, visual: 'circles', variants: false, onChange: s => {
+    edit(() => { if (s.root !== resolvedRaw(rootD)) write(rootD, s.root); degs.forEach((d, i) => { if (s.mask[i] !== resolvedRaw(d)) write(d, s.mask[i]); }); }, () => 'Own scale'); } });
+  let skin = 'global';
+  views.push({ update() {
+    const w = state(), g = sp.get();
+    if (g.root !== w.root || g.mask.join() !== w.mask.join()) sp.set(w.root, w.mask);
+    // quantize = chord_root is the movable-do "scale (offset)" mode: the shape anchors on the lowest held key and the root means nothing (SPEC 6),
+    // which is exactly the picker's OFFSET skin, so the skin follows the key instead of a control of its own.
+    const want = quant.options[resolvedRaw(quant)].id === 'chord_root' ? 'offset' : 'global';
+    if (want !== skin) { skin = want; const b = scaleHost.querySelector('.sc-skin button[data-v=' + want + ']'); if (b) b.click(); }
+  } });
+  return scaleHost;
+}
+
+// ----- the chord stage: six slots, each an on switch and a signed interval -----
+function mkChordSlots(where) {
+  const ons = KEYS.filter(k => /^chord_on\d+$/.test(k)).sort((a, b) => +a.slice(8) - +b.slice(8));
+  return ons.map(k => {
+    const don = D[k], dsh = need('chord_shift' + k.slice(8));
+    place(don.key, where); place(dsh.key, where);
+    const u = unitHint(dsh);
+    return h('div', { class: 'slot' }, mkToggle(don), ownLabel(dsh), h('span', { class: 'hd-row' }, mkStepper(dsh, { typed: true }), u));
+  });
+}
+
+// ===== BLOCK F: the picture in the card's mini-view, the step lanes, and the MOCK step clock =====
+const clock = { nextT: 0, k: 0, gateEnd: -1, vel: 0, rat: 1, j: 0, still: false };
+let stepsMemo = { id: null, steps: [] };
+function curSteps() {
+  const dp = need('pattern'), o = dp.options[resolvedRaw(dp)];
+  if (stepsMemo.id !== o.id) {                    // bank patterns carry only their overrides; a step is the step_defaults plus them (bank "fields")
+    const len = o.bank ? o.bank.length : 8;       // the user pattern's default is 8 plain steps (SPEC 4.6)
+    stepsMemo = { id: o.id, o, steps: Array.from({ length: len }, (_, j) => Object.assign({}, bank.step_defaults, o.bank && o.bank.steps ? o.bank.steps[j] : {})) };
+  }
+  return stepsMemo;
+}
+function patternSVG(steps) {
+  const W = 396, Hh = 64, n = steps.length, cw = W / n; let g = '';
+  for (let j = 0; j <= n; j += 4) g += '<line x1="' + j * cw + '" x2="' + j * cw + '" y1="0" y2="' + Hh + '" style="stroke:var(--scr-grid);opacity:.35;stroke-width:1"/>';
+  steps.forEach((s, j) => {
+    const x = j * cw, cx = x + cw / 2;
+    if (s.tie) g += '<rect x="' + x + '" y="' + (Hh - 8) + '" width="' + cw + '" height="3" style="fill:var(--scr-value);opacity:.55"/>';
+    else if (!s.on) g += '<circle cx="' + cx + '" cy="' + (Hh - 7) + '" r="2.2" style="fill:none;stroke:var(--scr-grid);stroke-width:1.2"/>';
+    else {
+      const bh = 6 + Math.min(s.vel, 200) / 200 * 40, bw = Math.max(2, cw * Math.min(1, s.gate / 100) * .78), r = Math.max(1, s.ratchet), sw = bw / r, op = (.35 + .65 * s.prob / 100).toFixed(2);
+      for (let q = 0; q < r; q++) g += '<rect x="' + (cx - bw / 2 + q * sw) + '" y="' + (Hh - 4 - bh) + '" width="' + Math.max(1, sw - (r > 1 ? 1.2 : 0)) + '" height="' + bh + '" rx="1.5" style="fill:var(--scr-value);opacity:' + op + '"/>';
+    }
+    if (s.trig) g += '<circle cx="' + cx + '" cy="6" r="2.4" style="fill:var(--scr-marker)"/>' + (cw >= 16 ? '<text x="' + (cx + 4) + '" y="9" style="font:600 8.5px var(--font-mono);fill:var(--scr-marker)">' + s.trig + '</text>' : '');
+  });
+  return { cw, html: '<svg viewBox="0 0 ' + W + ' ' + Hh + '" role="img" aria-label="Pattern, ' + n + ' steps. Bar height is velocity, width is gate, split bars are ratchets, hollow dots are rests, a dot on top is a trigger, a bar across the foot is a tie." preserveAspectRatio="xMidYMid meet">' +
+    g + '<rect class="ph" x="0" y="0" width="' + cw + '" height="' + Hh + '" style="fill:var(--scr-physics);opacity:.16"/></svg>' };
+}
+
+// ===== BLOCK G: build the page =====
+function buildCard() {
+  const dEn = need('enabled'), dArp = need('arp_enabled'), dCh = need('chord_enabled'), dOrd = need('order'), dPat = need('pattern'), dGate = need('gate');
+  place('enabled', 'card header'); place('arp_enabled', 'card switches'); place('chord_enabled', 'card switches');
+  const strip = h('div', { class: 'strip', role: 'img' }), dot = h('i', { class: 'dot bypass', role: 'img' });
+  const census = h('span', { class: 'census' });
+  const collapse = kbd(h('button', { class: 'hd-iconbtn hd-focus', type: 'button', 'aria-expanded': 'true', 'aria-label': 'Collapse Arp' }));
+  const chev = up => '<svg viewBox="0 0 10 10"><path d="' + (up ? 'M5 2 9 7H1Z' : 'M5 8 9 3H1Z') + '"/></svg>';
+  collapse.innerHTML = chev(true);
+  const head = h('div', { class: 'head' }, dot, h('span', { class: 'hd-cluster', text: 'Arp' }), h('span', { class: 'tag', text: 'NOTES' }),
+    h('span', { class: 'ensw' }, ownLabel(dEn), mkToggle(dEn)), census, collapse);
+  const viz = h('div', { class: 'viz' });
+  const sw = h('div', { class: 'sw' }, [dArp, dCh].map(d => h('span', { class: 'it' }, ownLabel(d), mkToggle(d))));
+  const face = h('div', { class: 'faceA' },
+    h('div', { class: 'two' },
+      h('div', { class: 'cell' }, ownLabel(dOrd), mkStepper(dOrd)),
+      h('div', { class: 'cell' }, ownLabel(dPat), mkStepper(dPat))),
+    h('div', { class: 'rg' }, mkRate('face'), mkKnob(dGate, true)));
+  ['order', 'pattern', 'gate'].forEach(k => place(k, 'face'));
+  const advBtn = kbd(h('button', { class: 'hd-btn hd-focus', type: 'button', 'aria-expanded': 'true', 'aria-controls': 'adv', text: 'Advanced' }));
+  const hint = h('span', { class: 'hd-hint' });
+  const foot = h('div', { class: 'foot' }, advBtn, hint);
+  const card = h('section', { class: 'hd-card arp-card', 'aria-label': 'Arp module' }, strip, head, viz, sw, face, foot);
+  collapse.addEventListener('click', () => { const c = card.classList.toggle('collapsed'); collapse.setAttribute('aria-expanded', String(!c)); collapse.setAttribute('aria-label', (c ? 'Expand' : 'Collapse') + ' Arp'); collapse.innerHTML = chev(!c); });
+  advBtn.addEventListener('click', () => { const adv = $('adv'), open = adv.hidden; adv.hidden = !open; advBtn.setAttribute('aria-expanded', String(open)); });
+
+  let lastCensus = '', picId = null, cw = 24, ph = null;
+  views.push({ update() {
+    // header: the module's state dot, and the corner shares (the design system's census), counted over every key with the lab's ownership stand-in
+    const on = !!resolvedRaw(dEn); dot.classList.toggle('bypass', !on); dot.setAttribute('aria-label', on ? 'active' : 'bypassed');
+    const n = [0, 0, 0, 0]; let tot = 0; for (const k of KEYS) { if (!D[k].morph) continue; n[ownerIdx(D[k])]++; tot++; }
+    const key = n.join();
+    if (key !== lastCensus) { lastCensus = key;
+      let first = true;   // an ink rule divides the segments, as the Module card preview draws them
+      strip.innerHTML = n.map((c, i) => { if (!c) return ''; const r = '<i style="--cc:var(--c' + H.CORNERS[i].id + ');flex:' + c + (first ? '' : ';border-left:var(--stroke-ink) solid var(--ink)') + '"></i>'; first = false; return r; }).join('');
+      strip.setAttribute('aria-label', 'Owned by ' + n.map((c, i) => c ? Math.round(c / tot * 100) + '% corner ' + H.CORNERS[i].id : '').filter(Boolean).join(', '));
+      census.innerHTML = n.map((c, i) => c ? '<b>' + H.glyph(i, 8, 'var(--c' + H.CORNERS[i].id + '-tx)') + Math.round(c / tot * 100) + '</b>' : '').join(''); }
+    // the picture: rebuilt only when the pattern changes; the MOCK playhead is one rect moved per frame
+    const cs = curSteps();
+    if (cs.id !== picId) { picId = cs.id; const p = patternSVG(cs.steps); cw = p.cw; viz.innerHTML = p.html; ph = viz.querySelector('.ph');
+      hint.textContent = (cs.o.bank ? cs.o.bank.length + (cs.o.bank.length === 1 ? ' step · ' : ' steps · ') + cs.o.purpose : 'your own pattern: its editor is not in this lab (SPEC 4.6, preset data)'); hint.title = hint.textContent; }
+    if (ph) ph.setAttribute('x', clock.j * cw);
+  } });
+  return card;
+}
+function buildLanes() {
+  const host = h('div'), fire = h('div', { class: 'tick-lanes', role: 'group', 'aria-label': 'Fire a trigger lane (MOCK)' });
+  const gl = H.GateLanes(host, { rows: [{ name: 'GATE', kind: 'level', key: 'g' }, { name: 'VELOCITY', kind: 'step', key: 'v' }, { name: 'RATCHET', kind: 'step', key: 'r' }, { name: 'TRIGGER', kind: 'event', key: 't' }],
+    label: 'Arp mock step lanes', aspect: '2.2 / 1' });
+  for (let n = 1; n <= TRIGGER_LANES; n++) {
+    const b = kbd(h('button', { class: 'hd-btn hd-focus', type: 'button', text: String(n), 'aria-label': 'Fire trigger lane ' + n + ' (mock)' }));
+    // ADR-267 A1: a trigger is a performance event, not a setting. It never touches begin/end, so it can never make an undo entry.
+    b.addEventListener('click', () => { pendingFire++; lastAction = 'Trigger lane ' + n + ' fired (no undo entry)'; renderStatus(); });
+    fire.append(b);
+  }
+  const dGate = need('gate'), dVelMode = need('vel_mode'), dVelFix = need('vel_fixed'), dSeed = need('seed'), dMode = need('rate_mode'), dRate = need('rate'), dTime = need('step_time_us');
+  const tick = () => {
+    const t = S.t, cs = curSteps(), steps = cs.steps;
+    if (S.reduce) { if (!clock.still) { clock.still = true; gl.draw(); } return; }   // reduced motion: one still frame
+    const stepSec = dMode.options[resolvedRaw(dMode)].id === 'sync' ? dRate.options[resolvedRaw(dRate)].beats * 60 / BPM : resolvedRaw(dTime) / 1e6;
+    let fired = pendingFire; pendingFire = 0;
+    if (t - clock.nextT > 1) clock.nextT = t;     // resync after a pause or a rate jump, never replay the gap
+    for (let guard = 0; t >= clock.nextT && guard < 4; guard++) {
+      const kAbs = clock.k++, j = kAbs % steps.length, s = steps[j]; clock.j = j;
+      const fires = draw32(resolvedRaw(dSeed), kAbs, 2, 0) % 100 < s.prob;      // SPEC 4.3 step 1, lane 2 = prob
+      if (s.tie) { if (fires && clock.gateEnd > clock.nextT) clock.gateEnd = clock.nextT + stepSec * 1.0; }
+      else if (s.on && fires) {
+        const base = dVelMode.options[resolvedRaw(dVelMode)].id === 'fixed' ? resolvedRaw(dVelFix) : 100;   // "as played" assumes 100: MOCK, no notes
+        clock.vel = clamp(Math.round(base * s.vel / 100), 1, 127) / 127; clock.rat = s.ratchet;
+        clock.gateEnd = clock.nextT + stepSec * (resolvedRaw(dGate) / 100) * (s.gate / 100);
+      }
+      if (fires && s.trig) fired++;
+      clock.nextT += stepSec;
+    }
+    gl.push({ g: t < clock.gateEnd ? 1 : 0, v: t < clock.gateEnd ? clock.vel : 0, r: t < clock.gateEnd ? clock.rat / 4 : 0 }, fired);
+    if (gl.dirty()) gl.draw();
+  };
+  views.push({ update() { try { tick(); } catch (e) { if (!tick.failed) { tick.failed = true; console.error('lane tick failed', e); } } } });
+  const panel = h('section', { class: 'lab-panel lanes', 'aria-label': 'Step lanes (mock)' },
+    h('div', { class: 'hd-row' }, h('span', { class: 'hd-cluster', text: 'Lanes' }), h('span', { class: 'lab-tag', text: 'MOCK' })),
+    host,
+    h('p', { class: 'hd-hint', text: 'A step clock at ' + BPM + ' BPM over the selected pattern, with the SPEC 10 draw for probability. No notes are held, so no pitch.' }),
+    h('span', { class: 'hd-label', text: 'Trigger lanes (test): fire one, and the undo depth does not move.' }), fire);
+  return panel;
+}
+function buildAdvanced() {
+  const where = n => 'Advanced · ' + n;
+  const clusters = [
+    ['ARP', ['latch', 'restart', 'repeats']],
+    ['TRANSPOSE', ['steps', 'step_size', 'step_unit']],
+    ['RHYTHM', ['swing']],
+    ['VELOCITY', ['vel_mode', 'vel_fixed']],
+    ['SCALE', ['quantize', 'scale_source', '@scale']],
+    ['CHORD', ['chord_unit', '@chord']],
+    ['SEED', ['seed']]];
+  const grid = h('div', { class: 'advgrid' });
+  const mount = (name, items) => {
+    const c = h('div', { class: 'clu' }, h('div', { class: 'hd-cluster', text: name }));
+    items.forEach(k => {
+      if (k === '@scale') { c.append(h('span', { class: 'hd-hint', text: 'Used when ' + need('scale_source').label + ' is ' + need('scale_source').options.find(o => o.id === 'own').label + '.' }), ownLabel(need('scale_root'), need('scale_root').label), mkScale(where(name))); }
+      else if (k === '@chord') c.append(...mkChordSlots(where(name)));
+      else c.append(control(need(k), where(name)));
+    });
+    grid.append(c);
+  };
+  clusters.forEach(([n, ks]) => mount(n, ks));
+  // A key the layout above does not name still gets a control by its type, in OTHER, so a new snapshot can never hide a setting.
+  const rest = KEYS.filter(k => !placed[k]);
+  if (rest.length) mount('OTHER', rest);
+  return h('section', { class: 'hd-card lab-panel adv', id: 'adv', 'aria-label': 'Arp · Advanced' }, h('div', { class: 'hd-cluster', text: 'Advanced' }), grid);
+}
+function buildMorph() {
+  const left = $('left');
+  const padHost = h('div'), pinHost = h('div'), list = h('div', { class: 'corners-list' });
+  for (let i = 0; i < 4; i++) list.append(h('span', { class: 'cn', html: H.glyph(i, 9, 'var(--c' + H.CORNERS[i].id + '-tx)') + '<span>' + H.CORNERS[i].id + ' · ' + (S.corners[i] || 'Empty') + '</span>' }));
+  const showBtn = kbd(h('button', { class: 'hd-btn hd-focus', type: 'button', 'aria-pressed': 'false', text: 'Show morph' }));
+  showBtn.addEventListener('click', () => { const on = showBtn.getAttribute('aria-pressed') !== 'true'; showBtn.setAttribute('aria-pressed', String(on)); showBtn.textContent = on ? 'Back to corner A' : 'Show morph';
+    S.pad.x = on ? .35 : 0; S.pad.y = on ? .3 : 0; S.emit(); });
+  left.append(h('div', { class: 'hd-row' }, h('span', { class: 'hd-cluster', text: 'Morph' }), h('span', { class: 'lab-tag', text: 'SAMPLE' })), padHost,
+    h('span', { class: 'hd-label', text: 'Editing corner' }), pinHost, list, showBtn,
+    h('p', { class: 'hd-hint', text: 'SAMPLE: the corner names are Arp bank pattern names, not presets. Corner A holds the snapshot defaults; the other corners of Gate, Swing and Fixed velocity are a seeded spread. A discrete setting wears its owner as a rule on its label; a continuous one shows every corner as a pip. Move the puck, or press Show morph, to watch ownership change. The pad is the morph cursor, not an Arp setting, so it makes no undo entry.' }));
+  H.XYPad(padHost, S, { size: 200 }); H.CornerPin(pinHost, S);
+}
+
+// ===== BLOCK H: setup (runs last, reaches only what is declared above) =====
+try {
+  buildMorph();
+  const right = $('right'), top = h('div', { class: 'toprow' }, buildCard(), buildLanes());
+  right.append(top, buildAdvanced());
+} catch (e) { console.error(e); fail('The face could not be built: ' + e.message); return; }
+
+// -- the key ledger: the proof that every snapshot key is reachable --
+const unplaced = KEYS.filter(k => !placed[k]), auto = KEYS.filter(k => /^Advanced · OTHER/.test(placed[k] || ''));
+const L = $('ledgerLine');
+if (unplaced.length || dupes.length) { L.className = 'hd-note bad'; L.textContent = 'NOT PLACED: ' + unplaced.join(', ') + (dupes.length ? ' · PLACED TWICE: ' + dupes.join(', ') : ''); }
+else { L.textContent = KEYS.length + ' of ' + KEYS.length + ' snapshot keys placed (' + snap.format + ', ' + snap.status + ')' + (auto.length ? ' · ' + auto.length + ' by type in OTHER (no layout decision yet): ' + auto.join(', ') : '') + '.'; }
+const led = $('ledger');
+KEYS.forEach(k => led.append(h('span', { title: D[k].label + ' · ' + (D[k].morph || 'no morph') }, h('b', { text: k }), ' · ' + (placed[k] || 'NOT PLACED'))));
+// self-checks against the two vocabularies the components bring: the 22 divisions and the 18 scale names
+(function checks() {
+  const box = $('checks'), line = (ok, t) => box.append(h('p', { class: ok ? 'hd-hint' : 'hd-note bad', text: t }));
+  const dr = D.rate; let hit = 0; const g0 = rs.get();
+  dr.options.forEach(o => { rs.set({ sync: 1, beats: o.beats }); const n = rs.get().name; if (n.indexOf(o.id) === 0 && n[0] !== '≈') hit++; });
+  rs.set({ sync: g0.sync, beats: g0.beats, hz: g0.hz });
+  line(hit === dr.options.length, 'Rate table against the RateSync divisions: ' + hit + ' of ' + dr.options.length + ' match by name.');
+  const mine = (H.Glide.SCALES || []).map(s => s[0]), theirs = snap.ui_scale_names.scales.map(s => s[0]);
+  const same = theirs.filter((n, i) => mine[i] === n && H.Glide.SCALES[i][1].join() === snap.ui_scale_names.scales[i][1].join()).length;
+  line(same === theirs.length, 'Scale names against the picker: ' + same + ' of ' + theirs.length + ' match by name and degrees.');
+  line(true, 'Picker rule: the house picker keeps the root lit, so it cannot author scale_deg0 off, which Arp allows (SPEC 6).');
+})();
+
+// -- header: undo, redo, keyboard mode, theme --
+$('undoBtn').addEventListener('click', undo); $('redoBtn').addEventListener('click', redo);
+[$('undoBtn'), $('redoBtn')].forEach(kbd);
+$('kbd').addEventListener('click', () => {
+  S.keys = !S.keys; $('kbd').setAttribute('aria-pressed', String(S.keys)); $('kbdTxt').textContent = S.keys ? 'KEYS ON' : 'KEYS'; $('win').classList.toggle('kbd-on', S.keys);
+  if (S.keys) { rs.refresh(); sp.set(sp.get().root, sp.get().mask); } else if (document.activeElement && document.activeElement !== $('kbd')) document.activeElement.blur();
+  [$('undoBtn'), $('redoBtn')].forEach(b => { b.setAttribute('aria-keyshortcuts', S.keys ? (b.id === 'undoBtn' ? 'Meta+Z' : 'Meta+Shift+Z') : ''); });
+});
+const dark = () => document.documentElement.dataset.theme ? document.documentElement.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+const paintTheme = () => $('themeBtn').setAttribute('aria-pressed', String(dark()));
+$('themeBtn').addEventListener('click', () => { document.documentElement.dataset.theme = dark() ? 'light' : 'dark'; paintTheme(); }); paintTheme();
+// Keyboard mode, per accessibility.md: Cmd/Ctrl+Z undoes and Shift adds redo ONLY while the mode is on; Esc hands focus back. The
+// capture listener also keeps M, P and Backspace away from the Session's MAP accelerators: Arp has no modulation sources to map.
+window.addEventListener('keydown', e => {
+  if (!S.keys) return;
+  if (['KeyM', 'KeyP', 'Backspace', 'Delete'].includes(e.code) && !(e.target && e.target.tagName === 'INPUT')) { e.stopPropagation(); return; }
+  if (e.target && e.target.tagName === 'INPUT') return;
+  if ((e.metaKey || e.ctrlKey) && e.code === 'KeyZ') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); }
+  else if (e.key === 'Escape' && document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+}, true);
+// RateSync and the picker set their own tab stops; with keyboard mode off every one is taken back, so no control holds a Tab.
+views.push({ update() { if (S.keys) return; [rateHost, scaleHost].forEach(c => c.querySelectorAll('button,select,input,[tabindex]').forEach(e => { if (e.tabIndex !== -1) e.tabIndex = -1; })); } });
+
+// The Session runs the frame loop; a view that throws is skipped for good, so each update is fenced and logged once.
+S.add({ render() { for (const v of views) { try { v.update(); } catch (e) { if (!v.failed) { v.failed = true; console.error('arp-face view failed', e); } } } } });
+baseline(); renderStatus(); S.start();
+})();
+</script>
+</body></html>
