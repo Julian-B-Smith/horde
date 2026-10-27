@@ -90,9 +90,14 @@ ROWS = [
 SLOT_ROWS = [("A6 tests 4-6", "I/O gain at the slot"), ("A7", "Off"), ("A13", "Corner presets"),
              ("A14", "Feedback"), ("A16", "Sleep and wake")]
 
-# Known failures: (module, row, failure tag) -> reason. See the docstring: adding one is the
-# human's call.
-PINNED = {}
+# Known failures: (module, row, failure tag) -> the human's ref. See the docstring: adding one
+# is the human's call. A pinned failure still prints as FAIL [PINNED] with its readings; when it
+# stops failing, the run is RED with a STALE PIN notice until the entry is deleted here.
+PINNED = {
+    # Era's switch is a duck / swap / un-duck inside the module, not an admitted method (§12.1).
+    ("scape", "A11", "method[verb.era]"):
+        "ADR-296 / B562 (the human, 2026-10-27: Scape crossfades Era; pinned until Scape's fix lands)",
+}
 
 LINE = re.compile(r"^(FAIL|NOTE|DETAIL|ROW) (A\d+)(?: (\S+))? :: (.*)$")
 
@@ -377,13 +382,14 @@ def main():
         if unpinned:
             red.append(f"{rid}: FAIL — " + "; ".join(f"{t}: {row['fails'][t]}" for t in unpinned[:3]))
         ctl = ", ".join(f"{c['plant']} {'fired' if c['fired'] else 'DID NOT FIRE'}" for c in row["controls"]) or "-"
-        table.append((rid, what, v + (" (pinned)" if pinned and not unpinned else ""), ctl, row["summary"], row))
+        table.append((rid, what, v + (" PINNED" if pinned and not unpinned else ""), ctl, row["summary"], row))
     for (m, rid, tag), why in PINNED.items():
         if m == module and tag not in rows.get(rid, {}).get("fails", {}):
-            red.append(f"{rid}: STALE PIN — {tag} no longer fails; remove it from PINNED ({why})")
+            red.append(f"{rid}: STALE PIN — {tag} no longer fails: remove its entry from PINNED in "
+                       f"tools/admission_check.py ({why})")
 
     head = git_head()
-    write_report(bdir, mod, rev, head, table)
+    write_report(bdir, mod, module, rev, head, table)
     print(f"== admission_check: {mod['name']} at {rev} (horde {head})")
     for rid, what, v, ctl, summary, _ in table:
         print(f"   {rid:<4} {v:<11} {what:<26} controls: {ctl}")
@@ -393,7 +399,8 @@ def main():
         if not row:
             continue
         for t, d in row["fails"].items():
-            print(f"   {rid} FAIL {t}{' [PINNED]' if (module, rid, t) in PINNED else ''}: {d}")
+            pin = PINNED.get((module, rid, t))
+            print(f"   {rid} FAIL {t}{' [PINNED: ' + pin + ']' if pin else ''}: {d}")
         if v.startswith("NOT RUN"):
             print(f"   {rid} NOT RUN: {row['summary']}")
         for n in row["notes"]:
@@ -404,7 +411,9 @@ def main():
         for r in red:
             print("   " + r)
         return 1
-    print("== admission_check: GREEN (every module-only row judged or reported; every control fired)")
+    held = [f"{r} {t}" for (m, r, t) in PINNED if m == module]
+    print("== admission_check: GREEN (every module-only row judged or reported; every control fired"
+          + (f"; {len(held)} PINNED failure(s) still failing, shown above: {', '.join(held)})" if held else ")"))
     return 0
 
 
@@ -413,7 +422,7 @@ def git_head():
     return r.stdout.strip() or "?"
 
 
-def write_report(bdir, mod, rev, head, table):
+def write_report(bdir, mod, module, rev, head, table):
     md = [f"# Admission test: {mod['name']}", "",
           f"- module revision: `{rev}`", f"- horde: `{head}`",
           "- specification: docs/proposals/rack-slot-contract.md §2.2 with §12; tools/admission_check.py", "",
@@ -425,6 +434,8 @@ def write_report(bdir, mod, rev, head, table):
             notes = "; ".join(f"{t}: {d}" for t, d in row["fails"].items()) + " | " + summary
         md.append(f"| {rid} {what} | {v} | {ctl} | {notes} |")
         js["rows"].append({"row": rid, "what": what, "result": v, "summary": summary,
+                           "pinned": {t: PINNED[(module, rid, t)] for t in (row["fails"] if row else {})
+                                      if (module, rid, t) in PINNED},
                            "fails": row["fails"] if row else {}, "notes": row["notes"] if row else [],
                            "details": row["details"] if row else [],
                            "controls": row["controls"] if row else []})
@@ -439,7 +450,8 @@ def write_report(bdir, mod, rev, head, table):
             md.append(f"- control `{c['plant']}` ({c['what']}): {'fired' if c['fired'] else 'DID NOT FIRE'}"
                       + (" — " + "; ".join(c["new"]) if c["new"] else ""))
         for t, d in row["fails"].items():
-            md.append(f"- FAIL `{t}`: {d}")
+            pin = PINNED.get((module, rid, t))
+            md.append(f"- FAIL `{t}`{' **[PINNED: ' + pin + ']**' if pin else ''}: {d}")
         for n in row["notes"]:
             md.append(f"- note: {n}")
         for d in row["details"]:
