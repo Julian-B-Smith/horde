@@ -9559,3 +9559,14 @@ The ruling numbers here skip ADR-289, which is held for spec round 42 (B552, in 
 - B331 is approved. The freeze proposal's item B1 is closed by this ruling.
 - horde plans the slot's tail handling for ATM's new worst case, about 3 211 s at rest.
 - **FX device (ADR-254):** the same limiter closes the FX device's chain, so ruling 1 holds there. Rulings 2 and 3 concern labs only.
+
+## ADR-293 — RULED by the human: two arps after 1.0, sharing one chord stage (B559, 2026-10-27)
+
+**Context.** The human asked, "Would it be crazy to have two arps that can be set to two different oscillators?" The lead answered that it extends the per-source stream selector the human already ruled (ADR-270, RC-6.7). The selector grows from three toggles to four (Direct, Chord, Arp 1, Arp 2), which gives 15 combinations, appended after the 1.0 values so a stored patch keeps its meaning. Both arps draw on the one voice pool (VO-5). Arp's own design is the main open question.
+
+**Ruling (the human, 2026-10-27).** "After 1.0, shared chord stage; file it with Arp." Two Arp instances, after 1.0, behind one shared chord stage. Each has its own order, pattern, rate, seed and lanes, and each reaches the sources whose selectors pick it.
+
+**Consequences.**
+- ROADMAP B559 (planned, after 1.0).
+- A brief to Arp (seq 9, in Arp's `integrations/hypersaw/`). It asks whether Arp's core can run two arps behind one chord stage, how the second arp's notes are tagged, and how triggers, presets and the user pattern divide. Nothing in 1.0 changes, beyond leaving room.
+- **FX device (ADR-254):** none, because the FX device hosts no note processor.
