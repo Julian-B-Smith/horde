@@ -9588,3 +9588,36 @@ The ruling numbers here skip ADR-289, which is held for spec round 42 (B552, in 
 - Arp is told (notice seq 10 in Arp's `integrations/hypersaw/`). B550 stays open until Arp's init and starter-bank presets load and round-trip.
 - RS §6.2 is amended.
 - **FX device (ADR-254):** the blob rule applies to FX modules' blobs there too. The note-processor format has none, because the FX device hosts no note processor.
+
+## ADR-289 — RULED by the human: spec round 42, the combined edge law (B552; cleanroom B-51, B-52; 2026-10-26 and 2026-10-27)
+
+**Context.** In the bank stage the builder found two places where the spec's own edge law could not pass the suite. The test author confirmed both engine-free:
+- **B-51:** DT-3 fails on curved-D blades. ED-1's corrections give each step the table's delay (about 2.4 samples), but a curved smooth part gets none. ED-6's first-order delay could not fix it.
+- **B-52:** ED-7's kernel-mean height leaves a carrier wrap inside a short taper uncorrected, and that clicks.
+
+The proposed combined law was reviewed twice by fresh-context critics (FIX-THEN-SHIP both times). The test author then ran every check the critics asked for (B552; the cleanroom rulings log rows 54–64).
+
+**Rulings (the human, by poll, 2026-10-26 and 2026-10-27).**
+1. **"Adopt the combined law":**
+   - ED-1's filter E (the table's sampled impulse response, its first moment pinned exactly to −Ā);
+   - residual step and corner tables r₂ and q₂;
+   - ED-7's step and corner parts as exact convolutions;
+   - ED-3's subtraction gone;
+   - R regenerated.
+2. **"Filter always on":** `bandLimit` scales only the residuals.
+3. **"Correct curved corners":** every blade's corners, on every base.
+4. **"Sub on the combined law"**, with its exact claims moved to its shape before E.
+5. **"Report looped presets"** in DT-3, and **"Write 80 dB into DT-3"** (ADR-288's floor).
+6. **"Reference + tolerance"** for the taper integral: within 0.5 dB of the 8-point Gauss–Legendre rule, checked by the new item 7.8 against R₂.
+7. **"Add MemberView::y0"**, extended to the sub's y⁰.
+8. **"Per member (exact)"** for E's placement.
+9. **"Report it in DT-3"** for a preset with the sub sounding.
+10. **"Report where it clicks"** for item 25.4: Fold-lite at every drive, Tube up to 0.80 and Diode up to 0.50 judged, the rest reported. (The lead moved Diode from 0.55 to 0.50 on the final evidence: 0.55 fires under E.)
+11. **"Include them"** for Crush's window corners.
+
+**Consequences.**
+- **Spec round 42** rewrites ED-1, ED-2, ED-3, ED-5, ED-6 and ED-7, C.14's tap, SN-2, DT-3, IF-10's view, X3, and items 7 (7.8 new), 24 and 25. Both clean-room repositories receive it. ED-7's R is regenerated (SHA-256 5103df6d…), and R₂ is new (cfc79e8c…).
+- **The test author's round-42 tests** reach the builder after its closing run commits: the new view fields, R and R₂, items 0, 3, 7, 10, 24 and 25. Its oracles (taper_oracle.h, edge_law.h) stay with the test author.
+- **The builder** rebuilds the band-limiting to round 42. 3.b (B-51) and 9.b1's Hollow double and Harmonic stack (B-52) are then expected to pass.
+- **CPU:** E per member and the exact taper integrals cost more. The 8-point reference is about 1,568 evaluations per output sample per voice on the heaviest tapered preset. The builder's realisation may be cheaper within the 0.5 dB allowance. It is measured at cutover (§10.6 item 4).
+- **FX device (ADR-254):** none, since the FX device has no oscillators.
