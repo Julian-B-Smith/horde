@@ -9639,3 +9639,20 @@ The proposed combined law was reviewed twice by fresh-context critics (FIX-THEN-
 - Each module is reached through a thin adapter over its own shim (contract §1.1). Swapping a shim for the FOUNDATIONS header stays a rename at the adapter.
 - Bulwark and Shriek follow Scape on the same check.
 - **FX device (ADR-254):** the FX device hosts the same modules through the same slot, so the same check admits them there.
+
+## ADR-296 — RULED by the human: Scape crossfades Era; the admission failure is pinned until it does (B561, B562, 2026-10-27)
+
+**Context.**
+- **B561's admission test** ran against Scape `21cf07e`. 15 module-only rows pass, each with its control fired. A11 fails on one key, Era.
+- **What Era does.** Switching Era fades the wet out over 10 ms, swaps to an engine that starts empty, and fades back in. The dry is never faded, but the reverb tail is cut at every switch, including at a morph threshold between corners with different Eras.
+- **What the contract admits.** §12.1 (ADR-218) admits only an equal-gain crossfade of a stated length or a declared `gate` for a flip-class key. The click reading is reported, never judged: up to 58.4 dB, against 3.1 dB for an ideal 20 ms crossfade, on the chord probe with wet presets.
+
+**Ruling (the human, by poll, 2026-10-27): "Scape crossfades Era."**
+1. **The contract stands.** Scape is asked to switch Era with an equal-gain crossfade, with both engines running through the fade, and to declare the fade's length. RS-2.7 already allows a second live engine during a flip, and the cost is two engines for the fade's length only.
+2. **Until Scape's fix lands,** B561's check pins `(scape, A11, method[verb.era])` with this ADR as its human ref. A pinned row still prints its failure, marked PINNED, and the pin is removed in the PR that sees the row pass.
+
+**Rejected:** admitting a declared wet dip as a fourth method (Scape changes nothing, and the tail still drops on an Era switch), and pinning until the first listening batch.
+
+**Consequences.**
+- Scape receives its per-row results with this ask (B560's thread, seq 3).
+- **FX device (ADR-254):** the same, since the FX device hosts Scape through the same slot.
