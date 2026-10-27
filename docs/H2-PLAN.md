@@ -1256,7 +1256,7 @@ against main `934449a`; items 30–38 are new in this refresh.
     B402 (still asks whether the make-up is a user control, which ADR-230 A1 answered).
 25. **RESOLVED (B497 reads DONE 2026-10-17).** B498's first marker still reads "PLANNED
     2026-10-16" though its tests have been delivered stage by stage since (item 32).
-26. **OPEN, sharper.** B399 (the Sub workshop) and B452 (the noise oscillator's design lab) both
+26. **RESOLVED (records follow-up, 2026-10-27): B399 and B452 now read DISCHARGED by B514; B399 still owes decision 21.** Was: B399 (the Sub workshop) and B452 (the noise oscillator's design lab) both
     still read "OPEN — planned", though the workshop ran as B514 (DONE 2026-10-21), the human ruled
     both (ADR-255) and stage 6 built them and was accepted (ADR-268). B399's first question, what
     the human dislikes in the legacy Sub, was never answered as such (decision 21). Each row needs
@@ -1271,35 +1271,35 @@ against main `934449a`; items 30–38 are new in this refresh.
 29. **OPEN.** `docs/manual/figures.json` cites the superseded `engine` (33 entries) and `port`
     (19), and `engine2` none (re-counted 2026-10-27). The ids are kept so `manual_scaffold_check`
     holds; re-pointing those entries at `engine2` belongs to the manual's next revision (B451).
-30. **OPEN.** B526 reads "OPEN 2026-10-19: directory prepared; awaiting the human's spin-up",
+30. **RESOLVED (records follow-up, 2026-10-27): B526 is DONE.** Was: B526 reads "OPEN 2026-10-19: directory prepared; awaiting the human's spin-up",
     though Echo spun up on 2026-10-19 and its spin-up notice landed on 2026-10-23 (commit
     `30b5d8a`, `integrations/echo/notice-spinup.md`). B526's acceptance asks that notice and
     "horde's B425 and plan entries are consistent with it"; this refresh makes the plan's entry
     consistent, so the row may be done.
-31. **OPEN.** The AU manufacturer code is ruled in autonomous's tree (`Mndl`, its response to brief
+31. **RESOLVED (records follow-up, 2026-10-27): B398 records `Mndl` as ruled by autonomous's Decision 100.** Was: The AU manufacturer code is ruled in autonomous's tree (`Mndl`, its response to brief
     hypersaw-017, seq 2, 2026-10-17, its Decision 100), but no horde row or ADR records the ruling;
     ADR-235 item 5 still reads "Until autonomous rules, horde 2 plans on `Mndl`".
-32. **OPEN.** B498's first marker reads "PLANNED 2026-10-16", while its own later text records the
+32. **RESOLVED (records follow-up, 2026-10-27): B498 now reads IN PROGRESS.** Was: B498's first marker reads "PLANNED 2026-10-16", while its own later text records the
     acceptance tests delivered stage by stage (stages 1 to 3 on 2026-10-17, and on through the
     bank stage, B494).
-33. **OPEN.** ADR-195 and B438 still say true-peak detection on the master stays after 1.0
+33. **RESOLVED (records follow-up, 2026-10-27): B438 carries ADR-275's note, for itself and ADR-195.** Was: ADR-195 and B438 still say true-peak detection on the master stays after 1.0
     ("detection stays sample-peak, and true peak stays post-1.0"), but Bulwark made the master
     limiter a true-peak limiter and ADR-275 (2026-10-23) allows its cost. Neither carries a note
     of ADR-275.
 34. **RESOLVED (ADR-292 item 1).** ADR-275 says "the master limiter is always on" while B438's
     master strip has a limiter on/off switch; ADR-292 rules that it is always in the path, off
     only by the player's explicit choice, with the clip latch reporting overs.
-35. **OPEN.** B555, B556 and B557 each ask the human to rule on a lab, but none records the page
+35. **RESOLVED (records follow-up, 2026-10-27): B555 lists the six questions.** Was: B555, B556 and B557 each ask the human to rule on a lab, but none records the page
     chrome lab's six open questions; they live only in the lab and its trace
     (`traces/2026-10-27-b555-page-chrome-lab.md`). This plan lists them as decision 63.
-36. **OPEN.** The `window.Horde` bundle, the design system's components vendored into
+36. **RESOLVED (records follow-up, 2026-10-27): the lead's call, recorded on B558: no row while only labs load the bundle.** Was: The `window.Horde` bundle, the design system's components vendored into
     `docs/design/arp-face/` and loaded by the Arp face lab and the page chrome lab, has no row of
     its own; its versions are recorded only in `docs/design/arp-face/README.md`. Whether it needs
     one (re-vendoring, which labs may load it) is the lead's call.
 37. **OPEN.** DECISIONS.md places ADR-289 after ADR-294, because ADR-289 was held for spec round
     42 while ADR-290 to ADR-294 were ruled (ADR-290's context says so). The file is append-only,
     so this is order of writing, not an error; a reader scanning by number will find it last.
-38. **OPEN.** B507 reads "APPROVED 2026-10-17", but it is built: `6abd916` ("B507: store-touching
+38. **RESOLVED (records follow-up, 2026-10-27): B507 is marked BUILT.** Was: B507 reads "APPROVED 2026-10-17", but it is built: `6abd916` ("B507: store-touching
     oracles run under a scratch HOME", 2026-10-17), and `./verify` brackets `fast` and `full` with
     `tools/store_logs_check.py`. The row carries no BUILT or DONE marker.
 
