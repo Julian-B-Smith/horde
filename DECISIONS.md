@@ -9542,3 +9542,20 @@ The ruling numbers here skip ADR-289, which is held for spec round 42 (B552, in 
 **Consequences.**
 - B555–B558 are opened. Each lands as a design-system rule or component and a lab, and the human rules on each.
 - **FX device (ADR-254):** rulings 1 to 3 apply to the FX device's pages and FX-module parameters. Ruling 4 has none, because the FX device hosts no note processor.
+
+## ADR-292 — RULED by the human: ATM may rely on horde's master limiter; the lab-sync order approved; Shriek's prototype replaces horde's copy of its lab (Bulwark seq 27, Shriek maw-010, B331, B438, 2026-10-27)
+
+**Context.**
+- **Bulwark's brief seq 27.** Bulwark replaces ATM's multiband band with the OTT model's structure: a level follower on the band's power feeding a static gain, with no gain smoothing. Quiet material comes up about 14 dB more. After a quiet passage a hit keeps its lift for about one attack time: peaks run 2.9 to 4.6 dB over Live's preset, +1.4 dBFS on plucks, and 15.3 dB over the steady output in the computed worst case. Bulwark's human accepted this on the basis that horde's master limiter catches the overs, and asked whether ATM may rely on it. On record, ADR-275 says the limiter is always on, and B438's master strip carries an on/off switch.
+- **Shriek's brief maw-010 (seq 21).** Shriek's scope list freezes at its lab sync (ADR-190 A1), but B331's order was never approved, and horde's copy of its lab, `docs/design/maw-horde-lab.html`, is stale (2026-10-01). Shriek offered its current prototype, gated against its shipped core.
+
+**Rulings (the human, by poll, 2026-10-27).**
+1. **"(a) Yes, horde owns it."** The master limiter is always in horde's output path. It can be off only by the player's explicit choice on horde's master strip, and while it is off the clip latch reports overs. ATM may rely on it.
+2. **"Approve as proposed."** B331's lab-sync order stands, S0 to S6. Shriek syncs in S4, at its turn, and its scope list freezes then.
+3. **"Replace ours with theirs."** Shriek sends its prototype into horde's mailbox, and it replaces `docs/design/maw-horde-lab.html`, with its source commit recorded.
+
+**Consequences.**
+- Bulwark is answered (`integrations/bulwark/response-atm-band-replaced.md`, seq 28) and Shriek (`integrations/maw/response-lab-sync.md`, seq 22).
+- B331 is approved. The freeze proposal's item B1 is closed by this ruling.
+- horde plans the slot's tail handling for ATM's new worst case, about 3 211 s at rest.
+- **FX device (ADR-254):** the same limiter closes the FX device's chain, so ruling 1 holds there. Rulings 2 and 3 concern labs only.
