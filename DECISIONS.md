@@ -9570,3 +9570,21 @@ The ruling numbers here skip ADR-289, which is held for spec round 42 (B552, in 
 - ROADMAP B559 (planned, after 1.0).
 - A brief to Arp (seq 9, in Arp's `integrations/hypersaw/`). It asks whether Arp's core can run two arps behind one chord stage, how the second arp's notes are tagged, and how triggers, presets and the user pattern divide. Nothing in 1.0 changes, beyond leaving room.
 - **FX device (ADR-254):** none, because the FX device hosts no note processor.
+
+## ADR-294 — RULED by the human: a module's blob is carried beside its cascade preset; the note-processor preset format is written (B550, 2026-10-27)
+
+**Context.** horde owes Arp the format a horde preset uses to carry a hosted note processor (B550, ADR-282, Arp Q-H6 and Q-H10), before Arp authors its factory presets. The lead drafted it from the human's FX-module rule (ADR-201 Q7: a module's patch at a corner is a FOUNDATIONS cascade `Preset` at the module's scope). One gap remained. Arp's user pattern is a versioned text blob (`arp-user-pattern/1`), but the cascade `Preset::absolute` is a `map<string, double>`, and `payloads` is reserved for adaptive state (RS-6.13). The rack-slot contract's §6.2 had placed a module's structure in `absolute` "as one `kBlob` key", which the type cannot hold.
+
+**Ruling (the human, by poll, 2026-10-27).** **"Beside the preset."** A module's blobs are carried beside its cascade `Preset`, in horde's own corner record (`blobs`). horde stores them verbatim and never parses them, and the module validates them. This needs nothing from FOUNDATIONS. The same reading covers Shriek's macro slots and Sluice's patch blob, so RS §6.2's sentence is corrected to match.
+
+**The format** (`docs/proposals/note-processor-preset-format.md`):
+- **scope `arp`:** continuous settings in `values` and `basis`, discrete settings in `absolute` as their manifest index (append-only lists);
+- **blobs beside the preset;**
+- **factory files** as `horde.module-preset/1` JSON, with every key present and floats that round-trip exactly;
+- **per corner** `np["arp"] = {origin_id, module_version, preset, blobs}`, one preset locked across the corners by default (RS-6.3);
+- `module_version`, until Arp has a lockfile, is the sha256 of Arp's `spec/params.json`.
+
+**Consequences.**
+- Arp is told (notice seq 10 in Arp's `integrations/hypersaw/`). B550 stays open until Arp's init and starter-bank presets load and round-trip.
+- RS §6.2 is amended.
+- **FX device (ADR-254):** the blob rule applies to FX modules' blobs there too. The note-processor format has none, because the FX device hosts no note processor.

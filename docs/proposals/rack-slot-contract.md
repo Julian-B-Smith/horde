@@ -250,7 +250,7 @@ from addressing:
 |---|---|
 | `scope` | the module's address prefix, for example `fx.bulwark` |
 | `values` + `basis` | morph-class scalars, stored absolutely with their basis (the cascade's L0008 rule: identity is exact by construction) |
-| `absolute` | flip-class (stepped) values, and the module's own structure as one `kBlob` key: a Sluice patch, or a `ModulePreset`'s macro slots (`<scope>.macros`). horde stores a blob verbatim and never parses it. The module validates it. |
+| `absolute` | flip-class (stepped) values. (A module's own structure, a Sluice patch or a `ModulePreset`'s macro slots, is a blob, and the cascade's `absolute` holds numbers only, so it is carried beside the `Preset` in horde's corner record as `blobs[<scope>.<name>]`: ADR-294, the human's ruling for note processors, applied here. horde stores a blob verbatim and never parses it. The module validates it.) |
 | `routes` / `symbolic` | none in 1.0. horde's intent bindings live on horde's corner, not in the module patch (SPEC-MODULE-MACROS §4 `Corner.bindings`). |
 | `payloads` | adaptive state, only for a component whose OQ 24 policy is "snapshot into preset". None in 1.0 (RS-6.13). |
 | (excluded) | Device-class keys. They are saved once per instance, outside every corner (RS-4.5). |
