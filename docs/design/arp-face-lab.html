@@ -31,13 +31,28 @@
      bundle.js) and Arp's two snapshots; its README.md records versions and commits. The page FETCHES the
      snapshots, so open it through tools/labs_preview.sh or tools/serve_labs.py (file:// blocks fetch).
 
+     ROUND 2 (B558). The human, 2026-10-27: "In the arp bench the order and pattern selectors should also have dropdowns
+     with visuals of the patterns. I would also in general like to see a basic arp pattern visualizer in the device for
+     whatever is selected." So: (1) clicking the value name of Order or Pattern opens a drop-down list, one picture per
+     entry (the stepper arrows stay for quick stepping). An Order picture is the note sequence that order produces over
+     one fixed SAMPLE chord (C4 E4 G4 B4), 16 steps, dashed lines at cycle boundaries; a Pattern picture is that
+     pattern's own step data from the bank snapshot. Both are generated from Arp's definitions: ORDERS below is SPEC
+     4.2 row by row (a reading per row, flagged where the SPEC leaves one open), the patterns come from
+     bank.snapshot.json. Random and Shuffle draw with SPEC 10's seeded mulberry32, one sample draw at the current seed.
+     (2) The card's mini-view is now a PIANO ROLL of what the selected Order, Pattern, Rate, Gate, Steps, Step size,
+     Repeats (and Swing, Seed, Velocity) would play over the sample chord. It REPLACES the old pattern picture in the
+     glass: the Module card has one mini-view slot and its size must not change, and the roll already shows everything
+     that picture drew (rests, ties, ratchets, velocity, gate, triggers) in time and pitch, while the pattern's own
+     step picture lives on in the Pattern list. Everything in it is MOCK: no engine, no held notes; scale quantize is
+     not drawn (a degree is a semitone, SPEC 4.7 with quantize off). With reduced motion it is a still picture.
+
      FX DEVICE (ADR-254): none. The FX device hosts no note processor. No Math.random (mulberry32 only, SPEC 5.7
      of the horde spec); lab time is the Session's frame time. -->
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="lab-part" content="Presentation">
-<meta name="lab-review" content="B553 · 2026-10-27">
-<title>arp face lab — Arp's settings as a horde module card, generated from a snapshot of its params</title>
+<meta name="lab-review" content="B558 · 2026-10-27">
+<title>arp face lab — Arp's settings as a horde module card, with picture pickers and a piano-roll mini-view</title>
 <!-- tokens first (bundle.css reads them); bundle.css pulls Archivo and Roboto Mono from Google Fonts itself,
      with the token stacks as the fallback (Helvetica Neue / ui-monospace) -->
 <link rel="stylesheet" href="arp-face/tokens.css">
@@ -73,7 +88,24 @@
   .arp-card .ensw { margin-left: 4px; }
   .arp-card .head { flex-wrap: wrap; }
   .arp-card .census { margin-left: auto; }
-  .arp-card .viz { cursor: default; }
+  .arp-card .viz { cursor: default; height: auto; aspect-ratio: 396 / 112; }
+  .hd-stepper.pick output { cursor: pointer; border-radius: var(--radius-capsule); }
+  .hd-stepper.pick output:hover { outline: 1px dashed var(--div); }
+  .hd-stepper.pick output::after { content: ''; display: inline-block; margin-left: 6px; vertical-align: middle; border: 3px solid transparent; border-top: 4px solid var(--t2); border-bottom: 0; }
+  /* the picture list (Order, Pattern): a design-system list, 28 px rows at least, the house selection tint on the current entry */
+  .dd { position: fixed; z-index: 50; box-sizing: border-box; width: 340px; max-width: calc(100vw - 16px); max-height: min(60vh, 380px); overflow-y: auto;
+        background: var(--panel); border: var(--stroke-ink) solid var(--ink); border-radius: var(--radius); padding: 4px; display: flex; flex-direction: column; gap: 2px; }
+  .dd:focus { outline: none; }
+  .dd:focus-visible { box-shadow: var(--focus-ring); }
+  .dd-head { font: 400 9px/1.5 var(--font-mono); color: var(--hint); padding: 2px 6px 4px; border-bottom: 1px dashed var(--div); }
+  .dd-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 36px; padding: 2px 6px; box-sizing: border-box;
+            border: var(--stroke-ink) solid transparent; border-radius: var(--radius); cursor: pointer; font: 500 10px/1.3 var(--font-sans); color: var(--text); }
+  .dd-row:hover { background: var(--well-alt); }
+  .dd-row[aria-selected="true"] { background: var(--sel-neutral); border-color: var(--sel-neutral-edge); }
+  .dd-row.act { box-shadow: var(--focus-ring); }
+  .dd-row .hd-hint { color: var(--t2); }
+  .dd .thumb { display: block; background: var(--scr-ground); border: var(--stroke-sub) solid var(--ink); border-radius: var(--radius-meter); overflow: hidden; line-height: 0; }
+  .dd .thumb svg { display: block; }
   .faceA { display: flex; flex-direction: column; gap: 4px; padding: 4px 7px 2px; }
   .faceA .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 2px 10px; }
   .faceA .rg { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
@@ -94,7 +126,7 @@
 </style></head><body>
 <div class="hd-window lab-win" id="win">
   <header class="lab-head">
-    <span class="hd-cluster">Arp · face lab</span><span class="lab-tag">MOCK</span><span class="lab-tag">B553</span>
+    <span class="hd-cluster">Arp · face lab</span><span class="lab-tag">MOCK</span><span class="lab-tag">B553</span><span class="lab-tag">B558</span>
     <span class="lab-grow"></span>
     <button class="hd-btn hd-focus" id="undoBtn" type="button" disabled>Undo</button>
     <button class="hd-btn hd-focus" id="redoBtn" type="button" disabled>Redo</button>
@@ -102,7 +134,8 @@
     <button class="hd-btn hd-focus" id="themeBtn" type="button" aria-pressed="false">Dark</button>
   </header>
   <div class="tagline">Arp's <b>settings as a horde Module card</b>, every control generated from a dated snapshot of Arp's params.json and bound by key:
-    four on the face, the rest behind Advanced, one undo step per control gesture and none for a trigger. No engine, no notes: MOCK.</div>
+    four on the face, the rest behind Advanced, one undo step per control gesture and none for a trigger. Order and Pattern open
+    picture lists; the card's glass is a piano roll of the selection over a sample chord. No engine, no notes: MOCK.</div>
   <p class="hd-msg lab-status" id="status" role="status"><b>Last</b> <span id="stLast">nothing yet</span> · <span id="stUndo"></span> · <span class="lab-tag">MOCK</span></p>
   <div class="cols">
     <aside class="left" id="left" aria-label="Morph (sample)"></aside>
@@ -184,7 +217,7 @@ function numFmt(d) {
   const p = d.p, disp = p.display || '', signed = /signed/.test(disp), zero = /^(\d+) shown as (\S+)/.exec(disp);
   const unit = /^[a-z%]+$/i.test(p.unit || '') ? p.unit : '';      // only a one-word unit rides on the number
   if (p.type === 'permille') return v => (v / 10).toFixed(1) + ' %';   // its display text: permille shown as a percentage, one decimal
-  return v => { if (zero && v === +zero[1]) return zero[2]; const s = signed ? (v > 0 ? '+' + v : v < 0 ? MINUS + (-v) : '0') : String(v); return unit ? s + ' ' + unit : s; };
+  return v => { if (zero && v === +zero[1]) return zero[2]; const s = signed ? (v > 0 ? '+' + v : v < 0 ? MINUS + (-v) : '0') : String(v); return unit ? s + ' ' + (v === 1 || v === -1 ? unit.replace(/sses$/, 'ss').replace(/([^s])s$/, '$1') : unit) : s; };
 }
 function describe(p) {
   // a kind other than continuous or discrete gets no morph tint at all (design system: frozen, exempt or morph-off = "belongs to nobody");
@@ -327,9 +360,14 @@ function mkStepper(d, o) {
   L.addEventListener('click', () => step(-1)); R.addEventListener('click', () => step(1));
   box.addEventListener('keydown', e => { if (!S.keys || e.target !== box) return; const dir = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1 }[e.key]; if (!dir) return; e.preventDefault(); step(dir); });
   if (o.typed) out.addEventListener('dblclick', () => openEntry(d, box, out));
+  if (o.picker) {                                 // the picture list: click the value name, or Enter in keyboard mode (the arrows keep stepping)
+    box.classList.add('pick'); box.setAttribute('aria-haspopup', 'listbox'); box.setAttribute('aria-expanded', 'false'); out.title = 'Click for the list';
+    out.addEventListener('click', () => openPicker(d, box, o.picker));
+    box.addEventListener('keydown', e => { if (S.keys && e.target === box && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openPicker(d, box, o.picker); } });
+  }
   views.push({ update() {
     const v = resolvedRaw(d), t = d.fmt(v);
-    if (out.textContent !== t) { out.textContent = t; out.title = t; box.setAttribute('aria-valuenow', v); box.setAttribute('aria-valuetext', t); }
+    if (out.textContent !== t) { out.textContent = t; if (!o.picker) out.title = t; box.setAttribute('aria-valuenow', v); box.setAttribute('aria-valuetext', t); }
     L.setAttribute('aria-disabled', String(v <= d.min)); R.setAttribute('aria-disabled', String(v >= d.max)); box.tabIndex = S.keys ? 0 : -1; } });
   return box;
 }
@@ -444,19 +482,142 @@ function mkChordSlots(where) {
   });
 }
 
-// ===== BLOCK F: the picture in the card's mini-view, the step lanes, and the MOCK step clock =====
-const clock = { nextT: 0, k: 0, gateEnd: -1, vel: 0, rat: 1, j: 0, still: false };
+// ===== BLOCK F: the order algorithms, the piano roll, the picture lists, and the MOCK step clock =====
+const clock = { nextT: 0, k: 0, gateEnd: -1, vel: 0, rat: 1, j: 0, sec: 0, still: false };
+const mod = (a, b) => ((a % b) + b) % b, fdiv = (a, b) => Math.floor(a / b);
+const gcd = (a, b) => { while (b) [a, b] = [b, a % b]; return a; };
+const noteName = k => H.Glide.PC[mod(k, 12)] + (fdiv(k, 12) - 1);   // MIDI 60 = C4 (the house picker's pitch-class names)
+// The SAMPLE chord every picture is drawn over. E is the sorted held list (SPEC 4.2), Pp the press order, which only `played` reads;
+// pressed out of pitch order so `played` visibly differs from `up`. Not a setting: a labelled MOCK input.
+const SAMPLE_E = [60, 64, 67, 71], SAMPLE_PP = [67, 60, 71, 64];
+const orderCtx = (E, Pp, seed) => ({ E, Pp, H: E, e: E.length, seed, epoch: 0, shuf: [], m: 0, kAbs: 0 });   // epoch 0: no anchor has happened
+
+// ----- ORDERS: Arp SPEC 4.2, one row per order id. period(c) is the table's Period column, at(p, c) its "Note(s) at position p" column,
+// p = mod(m, period). H is in pitch order, so with one sample chord H = E. A step returns every key it plays, in ascending order.
+const convergeAt = (q, c) => q % 2 === 0 ? c.E[q / 2] : c.E[c.e - 1 - (q - 1) / 2];       // 4.2 converge: q even ? E[q/2] : E[e-1-(q-1)/2]
+// 4.2 shuffle: P_c = Fisher-Yates of E using draw(seed, c*256 + i, 1, epoch) for i = e-1 .. 1, then the no-back-to-back swap. READING: step i swaps
+// P[i] with P[j], j = draw mod (i+1) (the SPEC names the draw, not the index formula); the boundary rule compares against the FINAL (post-swap) P_{c-1}.
+function shuffleCycle(cyc, c) {
+  for (let n = c.shuf.length; n <= cyc; n++) {
+    const Pc = c.E.slice();
+    for (let i = c.e - 1; i >= 1; i--) { const j = draw32(c.seed, n * 256 + i, 1, c.epoch) % (i + 1); [Pc[i], Pc[j]] = [Pc[j], Pc[i]]; }
+    if (n > 0 && c.e >= 2 && Pc[0] === c.shuf[n - 1][c.e - 1]) [Pc[0], Pc[1]] = [Pc[1], Pc[0]];
+    c.shuf.push(Pc);
+  }
+  return c.shuf[cyc];
+}
+const ORDERS = {
+  up:            { period: c => c.e,                         at: (p, c) => [c.E[p]] },                                       // 4.2 up
+  down:          { period: c => c.e,                         at: (p, c) => [c.E[c.e - 1 - p]] },                             // 4.2 down
+  bounce:        { period: c => c.e === 1 ? 1 : 2 * c.e - 2, at: (p, c) => [p < c.e ? c.E[p] : c.E[2 * c.e - 2 - p]] },     // 4.2 bounce: ends played once
+  bounce2:       { period: c => 2 * c.e,                     at: (p, c) => [p < c.e ? c.E[p] : c.E[2 * c.e - 1 - p]] },     // 4.2 bounce2: ends played twice
+  played:        { period: c => c.Pp.length,                 at: (p, c) => [c.Pp[p]] },                                      // 4.2 played: press order
+  chord:         { period: c => 1,                           at: (p, c) => c.H.slice() },                                    // 4.2 chord: every key at once
+  // 4.2 random has no period ("—"); 4.7 says to use e for the pass index, which is what period() returns here. READING: epoch 0 and kAbs = the step number.
+  random:        { period: c => c.e, draws: true,            at: (p, c) => [c.E[draw32(c.seed, c.kAbs, 0, c.epoch) % c.e]] },
+  shuffle:       { period: c => c.e, draws: true,            at: (p, c) => [shuffleCycle(fdiv(c.m, c.e), c)[p]] },           // 4.2 shuffle, c = fdiv(m, e)
+  converge:      { period: c => c.e,                         at: (p, c) => [convergeAt(p, c)] },                             // 4.2 converge
+  diverge:       { period: c => c.e,                         at: (p, c) => [convergeAt(c.e - 1 - p, c)] },                   // 4.2 diverge: converge read backwards
+  pedal_low:     { period: c => c.e === 1 ? 1 : 2 * (c.e - 1), at: (p, c) => [p % 2 === 0 ? c.E[0] : c.E[1 + (p - 1) / 2]] },          // 4.2 pedal_low
+  pedal_high:    { period: c => c.e === 1 ? 1 : 2 * (c.e - 1), at: (p, c) => [p % 2 === 0 ? c.E[c.e - 1] : c.E[c.e - 2 - (p - 1) / 2]] }, // 4.2 pedal_high
+  chord_walk:    { period: c => c.e + 1,                     at: (p, c) => p === 0 ? c.H.slice() : [c.E[p - 1]] },           // 4.2 chord_walk: the chord, then each key
+  // 4.2 stride: the bass, then the REST of H as a chord; READING for one held key: that key + 12 (the table's own words), unreachable with the 4-key sample.
+  stride:        { period: c => 2,                           at: (p, c) => p === 0 ? [c.H[0]] : (c.e === 1 ? [c.H[0] + 12] : c.H.slice(1)) },
+  chord_between: { period: c => 2 * c.e,                     at: (p, c) => p % 2 === 0 ? c.H.slice() : [c.E[(p - 1) / 2]] },  // 4.2 chord_between
+  pairs:         { period: c => c.e === 1 ? 1 : c.e - 1,     at: (p, c) => c.e === 1 ? [c.E[0]] : [c.E[p], c.E[p + 1]] }      // 4.2 pairs: overlapping dyads
+};
+function orderKeysAt(id, m, kAbs, c) { c.m = m; c.kAbs = kAbs; const o = ORDERS[id]; return o.at(mod(m, o.period(c)), c); }
+
+// ----- the pattern's steps as data: a step is the bank's step_defaults plus its overrides (SPEC 4.3, the bank "fields") -----
 let stepsMemo = { id: null, steps: [] };
+function stepsOfOption(o) {
+  const len = o.bank ? o.bank.length : 8;        // the user pattern's default is 8 plain steps (SPEC 4.6)
+  return Array.from({ length: len }, (_, j) => Object.assign({}, bank.step_defaults, o.bank && o.bank.steps ? o.bank.steps[j] : {}));
+}
 function curSteps() {
   const dp = need('pattern'), o = dp.options[resolvedRaw(dp)];
-  if (stepsMemo.id !== o.id) {                    // bank patterns carry only their overrides; a step is the step_defaults plus them (bank "fields")
-    const len = o.bank ? o.bank.length : 8;       // the user pattern's default is 8 plain steps (SPEC 4.6)
-    stepsMemo = { id: o.id, o, steps: Array.from({ length: len }, (_, j) => Object.assign({}, bank.step_defaults, o.bank && o.bank.steps ? o.bank.steps[j] : {})) };
-  }
+  if (stepsMemo.id !== o.id) stepsMemo = { id: o.id, o, steps: stepsOfOption(o) };
   return stepsMemo;
 }
-function patternSVG(steps) {
-  const W = 396, Hh = 64, n = steps.length, cw = W / n; let g = '';
+
+// ----- ROLL MODEL: what the selection plays, over a chord, as notes in time (SPEC 4.3 play rule, 4.7 passes, 4.8 repeats, 5.1-5.2 timing, 10 draw) -----
+// Pure function of its inputs i: { order, steps[], patSize, patUnit, passes, size, unit, repeats, L, W, swing, gate, seed, fixed, E, Pp }.
+// Times are in BEATS: L is one step's beats, W the window. Deliberately NOT drawn: scale quantize (a degree is a semitone, as with quantize off),
+// latch and restart, the chord stage, MIDI channels. Probability IS applied, with SPEC 10's draw at the lab's seed, so Sparse chance shows its gaps.
+function rollModel(i) {
+  const c = orderCtx(i.E, i.Pp, i.seed), ord = ORDERS[i.order], P = ord.period(c), Ls = i.steps.length, e = c.e;
+  const N = Math.min(256, Math.ceil(i.W / i.L - 1e-9));
+  const onT = k => k * i.L + (k % 2 ? i.L * (2 * i.swing - 1000) / 1000 : 0);        // 5.1 swingDelay: odd steps late by L*(2*swing-1000)/1000
+  const plays = i.steps.filter(s => s.on && !s.tie && s.pick === 'order').length;      // 4.8: a static count, prob ignored
+  const C = plays > 0 ? Ls * (P * (i.passes + 1) / gcd(P * (i.passes + 1), plays)) : Ls;
+  const stopAt = i.repeats > 0 ? i.repeats * C : Infinity;                              // 4.8: after repeats*C steps the arp is exhausted
+  const picked = (pick, m, kAbs) => pick === 'order' ? orderKeysAt(i.order, m, kAbs, c) : pick === 'low' ? [c.E[0]] : pick === 'high' ? [c.E[e - 1]]
+    : pick === 'chord' ? c.E.slice() : [c.E[mod(pick - 1, e)]];                         // 4.3 pick: order | 1..8 (cyclic) | low | high | chord
+  const notes = [], trigs = []; let m = 0, stoppedAt = null;
+  for (let k = 0; k < N; k++) {
+    if (k >= stopAt) { stoppedAt = k; break; }
+    const j = k % Ls, s = i.steps[j], fires = draw32(i.seed, k, 2, 0) % 100 < s.prob;   // 4.3 step 1, lane 2
+    if (s.tie) { if (fires && s.trig) trigs.push({ t: onT(k), lane: s.trig }); continue; }   // 4.3 step 2: no note, m unchanged
+    if (!(s.on && fires)) { if (fires && s.trig) trigs.push({ t: onT(k), lane: s.trig }); continue; }   // 4.3 steps 4-5: a rest (a trigger-only step still fires)
+    const keys = picked(s.pick, m, k), t = mod(fdiv(m, P), i.passes + 1);              // 4.7: t = mod(fdiv(m, P), steps + 1), m as it is now
+    const sem = (i.unit === 'semitones' ? t * i.size : 0) + (i.patUnit === 'semitones' ? s.step * i.patSize : 0);
+    const deg = (i.unit === 'degrees' ? t * i.size : 0) + (i.patUnit === 'degrees' ? s.step * i.patSize : 0);   // quantize off: a degree IS a semitone
+    if (s.pick === 'order') m++;                                                        // 4.3: only order picks advance m
+    const vel = clamp(fdiv((i.fixed == null ? 100 : i.fixed) * s.vel + 50, 100), 1, 127);   // 4.4; "as played" assumes 100 (MOCK, no notes)
+    if (s.trig) trigs.push({ t: onT(k), lane: s.trig });
+    const r = Math.max(1, s.ratchet), span = onT(k + 1) - onT(k), g = i.gate / 100 * s.gate / 100;
+    let tn = 0; while (tn < Ls && i.steps[(j + 1 + tn) % Ls].tie) tn++;                // 5.2 look-ahead: the ties that follow, read cyclically, prob ignored
+    for (let q = 0; q < r; q++) {
+      const start = onT(k) + q * span / r;
+      let len = r > 1 ? Math.min(span / r, span / r * g) : span * g;                    // 5.2 base length (ratchet capped at span/r)
+      if (q === r - 1 && tn > 0) {                                                       // 5.2 ties: the last sub-note runs to the last tie step's own off
+        const kk = k + tn, sj = i.steps[(j + tn) % Ls];
+        len = onT(kk) + (onT(kk + 1) - onT(kk)) * i.gate / 100 * sj.gate / 100 - start;
+      }
+      keys.slice().sort((a, b) => a - b).forEach(key => { const pitch = key + sem + deg; if (pitch >= 0 && pitch <= 127) notes.push({ t: start, len: Math.max(len, .001), pitch, vel }); });   // 4.7 stages 1-2, 5
+    }
+  }
+  let pmin = Math.min(...i.E), pmax = Math.max(...i.E);
+  notes.forEach(n => { pmin = Math.min(pmin, n.pitch); pmax = Math.max(pmax, n.pitch); });
+  while (pmax - pmin < 11) { pmax++; if (pmax - pmin < 11) pmin--; }                    // never squash a one-note picture to a line
+  return { notes, trigs, N, stoppedAt, stopBeat: stoppedAt == null ? null : onT(stoppedAt), pmin, pmax, P, C };
+}
+// the roll as the card's mini-view: time across (bar and beat lines), pitch up, a bar per note: its length the gate, its shade the velocity
+function rollSVG(model, i) {
+  const VW = 396, VH = 112, x0 = 26, x1 = 392, y0 = 12, y1 = 94, pw = x1 - x0, ph = y1 - y0, rows = model.pmax - model.pmin + 1, rowH = ph / rows;
+  const X = b => x0 + b / i.W * pw, Y = p => y1 - (p - model.pmin + .5) * rowH, bh = clamp(rowH * .8, 2, 8), css = 'font:600 8.5px var(--font-mono);fill:var(--scr-grid)';
+  let g = '';
+  const bstep = i.W <= 32 ? 1 : 4;
+  for (let b = 0; b <= i.W + 1e-9; b += bstep) g += '<line x1="' + X(b) + '" x2="' + X(b) + '" y1="' + y0 + '" y2="' + y1 + '" style="stroke:var(--scr-grid);opacity:' + (b % 4 === 0 ? .45 : .18) + ';stroke-width:1"/>';
+  let lastY = -99;
+  i.E.forEach(k => { const y = Y(k); g += '<line x1="' + x0 + '" x2="' + x1 + '" y1="' + y + '" y2="' + y + '" style="stroke:var(--scr-grid);opacity:.25;stroke-width:1;stroke-dasharray:2 3"/>';
+    if (Math.abs(y - lastY) >= 9) { g += '<text x="2" y="' + (y + 3) + '" style="' + css + '">' + noteName(k) + '</text>'; lastY = y; } });
+  if (model.stopBeat != null) g += '<rect x="' + X(model.stopBeat) + '" y="' + y0 + '" width="' + Math.max(0, x1 - X(model.stopBeat)) + '" height="' + ph + '" style="fill:var(--scr-grid);opacity:var(--opacity-hatch)"/>' +
+    '<text x="' + (x1 - 2) + '" y="' + (y0 + 10) + '" text-anchor="end" style="' + css + '">REPEATS DONE</text>';
+  model.notes.forEach(n => { const x = X(n.t), w = Math.max(1.2, Math.min(X(n.t + n.len), x1) - x);
+    g += '<rect x="' + x.toFixed(2) + '" y="' + (Y(n.pitch) - bh / 2).toFixed(2) + '" width="' + w.toFixed(2) + '" height="' + bh.toFixed(2) + '" rx="1" style="fill:var(--scr-value);opacity:' + (.22 + .78 * n.vel / 127).toFixed(2) + '"/>'; });
+  model.trigs.forEach(t => { g += '<circle cx="' + X(t.t) + '" cy="6" r="2.2" style="fill:var(--scr-marker)"/>'; });
+  g += '<text x="2" y="108" style="' + css + '">MOCK · SAMPLE CHORD ' + i.E.map(noteName).join(' ') + '</text><text x="' + x1 + '" y="108" text-anchor="end" style="' + css + '">' + (i.W / 4) + ' BAR' + (i.W / 4 === 1 ? '' : 'S') + ' · ' + BPM + ' BPM</text>';
+  const label = 'Piano roll, mock: ' + model.notes.length + ' notes over the sample chord ' + i.E.map(noteName).join(' ') + ', ' + (i.W / 4) + ' bars at ' + BPM + ' BPM. Time across, pitch up, bar length is gate, shade is velocity.' + (model.stopBeat != null ? ' The arp stops after its repeats.' : '');
+  return '<svg viewBox="0 0 ' + VW + ' ' + VH + '" role="img" aria-label="' + label + '" preserveAspectRatio="xMidYMid meet">' + g +
+    '<rect class="ph" x="' + x0 + '" y="' + y0 + '" width="1.6" height="' + ph + '" style="fill:var(--scr-physics)"/></svg>';
+}
+// the roll's inputs, read from the lab's state (resolved values: a continuous key is its blend, a discrete one its owner's)
+function rollInputs() {
+  const dO = need('order'), cs = curSteps(), dm = need('rate_mode'), dr = need('rate'), dt = need('step_time_us'), dvm = need('vel_mode');
+  const sync = dm.options[resolvedRaw(dm)].id === 'sync', L = sync ? dr.options[resolvedRaw(dr)].beats : resolvedRaw(dt) / 1e6 * BPM / 60;
+  const ps = Object.assign({}, bank.pattern_defaults); if (cs.o.bank) ['step_size', 'step_unit'].forEach(k => { if (cs.o.bank[k] !== undefined) ps[k] = cs.o.bank[k]; });   // a bank pattern may override (SPEC 4.6)
+  return { order: dO.options[resolvedRaw(dO)].id, steps: cs.steps, patSize: ps.step_size, patUnit: ps.step_unit, passes: resolvedRaw(need('steps')),
+    size: resolvedRaw(need('step_size')), unit: need('step_unit').options[resolvedRaw(need('step_unit'))].id, repeats: resolvedRaw(need('repeats')),
+    L, W: Math.max(8, 8 * L), swing: resolvedRaw(need('swing')), gate: resolvedRaw(need('gate')), seed: resolvedRaw(need('seed')),
+    fixed: dvm.options[resolvedRaw(dvm)].id === 'fixed' ? resolvedRaw(need('vel_fixed')) : null, E: SAMPLE_E, Pp: SAMPLE_PP, patId: cs.id };
+}
+
+// ----- the pictures in the lists -----
+// a pattern's own step data as a compact lane picture: bar height velocity, width gate, split bars ratchets, hollow dot a rest, a foot bar a tie,
+// a dot on top a trigger (its lane beside it when there is room), a small triangle a step offset, dim a probability under 100
+function patternSVG(steps, o) {
+  o = o || {}; const W = 396, Hh = 64, n = steps.length, cw = W / n; let g = '';
   for (let j = 0; j <= n; j += 4) g += '<line x1="' + j * cw + '" x2="' + j * cw + '" y1="0" y2="' + Hh + '" style="stroke:var(--scr-grid);opacity:.35;stroke-width:1"/>';
   steps.forEach((s, j) => {
     const x = j * cw, cx = x + cw / 2;
@@ -466,11 +627,75 @@ function patternSVG(steps) {
       const bh = 6 + Math.min(s.vel, 200) / 200 * 40, bw = Math.max(2, cw * Math.min(1, s.gate / 100) * .78), r = Math.max(1, s.ratchet), sw = bw / r, op = (.35 + .65 * s.prob / 100).toFixed(2);
       for (let q = 0; q < r; q++) g += '<rect x="' + (cx - bw / 2 + q * sw) + '" y="' + (Hh - 4 - bh) + '" width="' + Math.max(1, sw - (r > 1 ? 1.2 : 0)) + '" height="' + bh + '" rx="1.5" style="fill:var(--scr-value);opacity:' + op + '"/>';
     }
-    if (s.trig) g += '<circle cx="' + cx + '" cy="6" r="2.4" style="fill:var(--scr-marker)"/>' + (cw >= 16 ? '<text x="' + (cx + 4) + '" y="9" style="font:600 8.5px var(--font-mono);fill:var(--scr-marker)">' + s.trig + '</text>' : '');
+    if (s.step) g += '<path d="' + (s.step > 0 ? 'M' + (cx - 3.5) + ' 21L' + (cx + 3.5) + ' 21L' + cx + ' 14Z' : 'M' + (cx - 3.5) + ' 14L' + (cx + 3.5) + ' 14L' + cx + ' 21Z') + '" style="fill:var(--scr-physics)"/>';
+    if (s.trig) g += '<circle cx="' + cx + '" cy="6" r="2.4" style="fill:var(--scr-marker)"/>' + (cw >= 16 && !o.thumb ? '<text x="' + (cx + 4) + '" y="9" style="font:600 8.5px var(--font-mono);fill:var(--scr-marker)">' + s.trig + '</text>' : '');
   });
-  return { cw, html: '<svg viewBox="0 0 ' + W + ' ' + Hh + '" role="img" aria-label="Pattern, ' + n + ' steps. Bar height is velocity, width is gate, split bars are ratchets, hollow dots are rests, a dot on top is a trigger, a bar across the foot is a tie." preserveAspectRatio="xMidYMid meet">' +
-    g + '<rect class="ph" x="0" y="0" width="' + cw + '" height="' + Hh + '" style="fill:var(--scr-physics);opacity:.16"/></svg>' };
+  return { cw, html: '<svg viewBox="0 0 ' + W + ' ' + Hh + '"' + (o.thumb ? ' width="140" height="' + Math.round(140 * Hh / W) + '" aria-hidden="true"' : ' role="img"') + ' preserveAspectRatio="xMidYMid meet">' + g + '</svg>' };
 }
+// an order as the note sequence it makes over the sample chord: 16 steps, a dot per key, a vertical stroke joining a chord, a line through the steps,
+// dashed rules where one cycle ends. Random and Shuffle are ONE sample draw at the lab's seed.
+function orderSVG(id) {
+  const o = ORDERS[id]; if (!o) return '';
+  const c = orderCtx(SAMPLE_E, SAMPLE_PP, resolvedRaw(need('seed'))), n = 16, W = 160, Hh = 44, lo = Math.min(...SAMPLE_E), hi = Math.max(...SAMPLE_E);
+  const x = k => 4 + (k + .5) * (W - 8) / n, y = key => Hh - 6 - (key - lo) / (hi - lo) * (Hh - 12), per = o.period(c);
+  const seq = Array.from({ length: n }, (_, m) => orderKeysAt(id, m, m, c).slice().sort((a, b) => a - b));
+  let g = '';
+  for (let b = per; b < n; b += per) g += '<line x1="' + ((x(b - 1) + x(b)) / 2) + '" x2="' + ((x(b - 1) + x(b)) / 2) + '" y1="2" y2="' + (Hh - 2) + '" style="stroke:var(--scr-grid);opacity:.55;stroke-width:1;stroke-dasharray:2 2"/>';
+  g += '<polyline points="' + seq.map((ks, k) => x(k).toFixed(1) + ',' + y(ks.reduce((a, b) => a + b, 0) / ks.length).toFixed(1)).join(' ') + '" style="fill:none;stroke:var(--scr-grid);stroke-width:1"/>';
+  seq.forEach((ks, k) => { if (ks.length > 1) g += '<line x1="' + x(k) + '" x2="' + x(k) + '" y1="' + y(ks[ks.length - 1]) + '" y2="' + y(ks[0]) + '" style="stroke:var(--scr-value);stroke-width:1.3"/>';
+    ks.forEach(key => { g += '<circle cx="' + x(k).toFixed(1) + '" cy="' + y(key).toFixed(1) + '" r="2.1" style="fill:var(--scr-value)"/>'; }); });
+  return '<svg viewBox="0 0 ' + W + ' ' + Hh + '" width="112" height="31" aria-hidden="true">' + g + '</svg>';
+}
+
+// ----- the picture list: one component for Order and Pattern. A selection is ONE gesture (edit()), so one undo entry; opening and closing make none. -----
+let openDD = null;
+function closeDD(refocus) {
+  if (!openDD) return; const dd = openDD; openDD = null; dd.off(); dd.panel.remove(); dd.box.setAttribute('aria-expanded', 'false'); if (refocus && S.keys) dd.box.focus();
+}
+function openPicker(d, box, spec) {
+  if (openDD && openDD.box === box) { closeDD(false); return; }
+  closeDD(false);
+  const cur = resolvedRaw(d); let act = cur;
+  const panel = h('div', { class: 'dd', role: 'listbox', tabindex: '-1', 'aria-label': d.path + ' · choices' });
+  panel.append(h('div', { class: 'dd-head', text: spec.head() }));
+  const choose = i => { if (i !== resolvedRaw(d)) edit(() => write(d, i), lab(d)); closeDD(true); };
+  const rows = d.options.map((o, i) => {
+    const sub = spec.sub ? spec.sub(o) : null;
+    const r = h('div', { class: 'dd-row', role: 'option', id: 'dd-' + d.key + '-' + i, 'aria-selected': String(i === cur) },
+      h('span', {}, o.label, sub ? h('span', { class: 'hd-hint', text: ' · ' + sub }) : null), h('span', { class: 'thumb', html: spec.thumb(o, i) }));
+    r.addEventListener('click', () => choose(i)); panel.append(r); return r;
+  });
+  const paint = () => {
+    rows.forEach((r, i) => r.classList.toggle('act', S.keys && i === act)); panel.setAttribute('aria-activedescendant', rows[act].id);
+    const r = rows[act]; if (r.offsetTop < panel.scrollTop) panel.scrollTop = r.offsetTop; else if (r.offsetTop + r.offsetHeight > panel.scrollTop + panel.clientHeight) panel.scrollTop = r.offsetTop + r.offsetHeight - panel.clientHeight;
+  };
+  panel.addEventListener('keydown', e => {
+    if (!S.keys) return;
+    const mv = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1, PageDown: 5, PageUp: -5 }[e.key];
+    if (mv) { e.preventDefault(); act = clamp(act + mv, 0, d.max); paint(); }
+    else if (e.key === 'Home') { e.preventDefault(); act = 0; paint(); } else if (e.key === 'End') { e.preventDefault(); act = d.max; paint(); }
+    else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(act); }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeDD(true); }
+    else if (e.key === 'Tab') closeDD(false);
+  });
+  document.body.append(panel);
+  const rect = box.getBoundingClientRect(); 
+  const pw = panel.offsetWidth, nh = panel.offsetHeight, below = innerHeight - rect.bottom - 8, above = rect.top - 8;
+  panel.style.left = clamp(rect.left, 8, Math.max(8, innerWidth - pw - 8)) + 'px';
+  if (nh <= below) panel.style.top = (rect.bottom + 4) + 'px';
+  else if (nh <= above) panel.style.top = (rect.top - nh - 4) + 'px';
+  else if (below >= above) { panel.style.top = (rect.bottom + 4) + 'px'; panel.style.maxHeight = below + 'px'; }
+  else { panel.style.maxHeight = above + 'px'; panel.style.top = (rect.top - above - 4) + 'px'; }
+  const away = e => { if (!panel.contains(e.target) && !box.contains(e.target)) closeDD(false); };
+  const gone = e => { if (!(e.target instanceof Node) || !panel.contains(e.target)) closeDD(false); };
+  document.addEventListener('pointerdown', away, true); addEventListener('scroll', gone, true); addEventListener('resize', gone);
+  openDD = { panel, box, off() { document.removeEventListener('pointerdown', away, true); removeEventListener('scroll', gone, true); removeEventListener('resize', gone); } };
+  box.setAttribute('aria-expanded', 'true'); paint(); if (S.keys) panel.focus({ preventScroll: true });
+}
+const orderPicker = { head: () => 'SAMPLE chord ' + SAMPLE_E.map(noteName).join(' ') + ', pressed ' + SAMPLE_PP.map(noteName).join(' ') + '. 16 steps, dashed = one cycle.',
+  thumb: o => orderSVG(o.id), sub: o => ORDERS[o.id] && ORDERS[o.id].draws ? 'one sample draw, seed ' + resolvedRaw(need('seed')) : null };
+const patternPicker = { head: () => 'Each picture is the pattern\'s own step data: height velocity, width gate, split bars ratchets, hollow dot a rest, foot bar a tie, top dot a trigger, triangle a step offset, dim a probability.',
+  thumb: o => patternSVG(stepsOfOption(o), { thumb: true }).html };
 
 // ===== BLOCK G: build the page =====
 function buildCard() {
@@ -487,8 +712,8 @@ function buildCard() {
   const sw = h('div', { class: 'sw' }, [dArp, dCh].map(d => h('span', { class: 'it' }, ownLabel(d), mkToggle(d))));
   const face = h('div', { class: 'faceA' },
     h('div', { class: 'two' },
-      h('div', { class: 'cell' }, ownLabel(dOrd), mkStepper(dOrd)),
-      h('div', { class: 'cell' }, ownLabel(dPat), mkStepper(dPat))),
+      h('div', { class: 'cell' }, ownLabel(dOrd), mkStepper(dOrd, { picker: orderPicker })),
+      h('div', { class: 'cell' }, ownLabel(dPat), mkStepper(dPat, { picker: patternPicker }))),
     h('div', { class: 'rg' }, mkRate('face'), mkKnob(dGate, true)));
   ['order', 'pattern', 'gate'].forEach(k => place(k, 'face'));
   const advBtn = kbd(h('button', { class: 'hd-btn hd-focus', type: 'button', 'aria-expanded': 'true', 'aria-controls': 'adv', text: 'Advanced' }));
@@ -498,7 +723,7 @@ function buildCard() {
   collapse.addEventListener('click', () => { const c = card.classList.toggle('collapsed'); collapse.setAttribute('aria-expanded', String(!c)); collapse.setAttribute('aria-label', (c ? 'Expand' : 'Collapse') + ' Arp'); collapse.innerHTML = chev(!c); });
   advBtn.addEventListener('click', () => { const adv = $('adv'), open = adv.hidden; adv.hidden = !open; advBtn.setAttribute('aria-expanded', String(open)); });
 
-  let lastCensus = '', picId = null, cw = 24, ph = null;
+  let lastCensus = '', rollSig = '', model = null, rollIn = null, ph = null;
   views.push({ update() {
     // header: the module's state dot, and the corner shares (the design system's census), counted over every key with the lab's ownership stand-in
     const on = !!resolvedRaw(dEn); dot.classList.toggle('bypass', !on); dot.setAttribute('aria-label', on ? 'active' : 'bypassed');
@@ -509,11 +734,16 @@ function buildCard() {
       strip.innerHTML = n.map((c, i) => { if (!c) return ''; const r = '<i style="--cc:var(--c' + H.CORNERS[i].id + ');flex:' + c + (first ? '' : ';border-left:var(--stroke-ink) solid var(--ink)') + '"></i>'; first = false; return r; }).join('');
       strip.setAttribute('aria-label', 'Owned by ' + n.map((c, i) => c ? Math.round(c / tot * 100) + '% corner ' + H.CORNERS[i].id : '').filter(Boolean).join(', '));
       census.innerHTML = n.map((c, i) => c ? '<b>' + H.glyph(i, 8, 'var(--c' + H.CORNERS[i].id + '-tx)') + Math.round(c / tot * 100) + '</b>' : '').join(''); }
-    // the picture: rebuilt only when the pattern changes; the MOCK playhead is one rect moved per frame
-    const cs = curSteps();
-    if (cs.id !== picId) { picId = cs.id; const p = patternSVG(cs.steps); cw = p.cw; viz.innerHTML = p.html; ph = viz.querySelector('.ph');
+    // the piano roll: rebuilt only when one of its inputs changes; the MOCK playhead is one rect moved per frame (none under reduced motion)
+    const inp = rollInputs(), sig = [inp.order, inp.patId, inp.L, inp.gate, inp.passes, inp.size, inp.unit, inp.repeats, inp.swing, inp.seed, inp.fixed, inp.patSize, inp.patUnit].join();
+    if (sig !== rollSig) { rollSig = sig; model = rollModel(inp); viz.innerHTML = rollSVG(model, inp); ph = viz.querySelector('.ph'); rollIn = inp;
+      const cs = curSteps();
       hint.textContent = (cs.o.bank ? cs.o.bank.length + (cs.o.bank.length === 1 ? ' step · ' : ' steps · ') + cs.o.purpose : 'your own pattern: its editor is not in this lab (SPEC 4.6, preset data)'); hint.title = hint.textContent; }
-    if (ph) ph.setAttribute('x', clock.j * cw);
+    if (ph) {
+      if (S.reduce || !clock.sec) ph.style.display = 'none';
+      else { ph.style.display = ''; const frac = clamp((S.t - (clock.nextT - clock.sec)) / clock.sec, 0, 1), pos = mod(clock.k - 1 + frac, model.N);
+        ph.setAttribute('x', 26 + pos * rollIn.L / rollIn.W * 366); }
+    }
   } });
   return card;
 }
@@ -532,6 +762,7 @@ function buildLanes() {
     const t = S.t, cs = curSteps(), steps = cs.steps;
     if (S.reduce) { if (!clock.still) { clock.still = true; gl.draw(); } return; }   // reduced motion: one still frame
     const stepSec = dMode.options[resolvedRaw(dMode)].id === 'sync' ? dRate.options[resolvedRaw(dRate)].beats * 60 / BPM : resolvedRaw(dTime) / 1e6;
+    clock.sec = stepSec;
     let fired = pendingFire; pendingFire = 0;
     if (t - clock.nextT > 1) clock.nextT = t;     // resync after a pause or a rate jump, never replay the gap
     for (let guard = 0; t >= clock.nextT && guard < 4; guard++) {
@@ -620,6 +851,23 @@ KEYS.forEach(k => led.append(h('span', { title: D[k].label + ' · ' + (D[k].morp
   const mine = (H.Glide.SCALES || []).map(s => s[0]), theirs = snap.ui_scale_names.scales.map(s => s[0]);
   const same = theirs.filter((n, i) => mine[i] === n && H.Glide.SCALES[i][1].join() === snap.ui_scale_names.scales[i][1].join()).length;
   line(same === theirs.length, 'Scale names against the picker: ' + same + ' of ' + theirs.length + ' match by name and degrees.');
+  // Order algorithms against Arp's vocabulary and against the SPEC's own words (hand-derived rows over the sample chord, and the SPEC's two worked examples).
+  const ids = D.order.options.map(o => o.id).sort(), mine2 = Object.keys(ORDERS).sort();
+  line(ids.join() === mine2.join(), 'Order algorithms: ' + ids.filter(i => ORDERS[i]).length + ' of ' + ids.length + ' snapshot values implemented, ' + mine2.filter(i => !ids.includes(i)).length + ' extra.');
+  const nm = ks => ks.map(noteName).join('+'), one = id => { const c = orderCtx(SAMPLE_E, SAMPLE_PP, 0), n = ORDERS[id].period(c); return Array.from({ length: n }, (_, m) => nm(orderKeysAt(id, m, m, c))).join(' '); };
+  const KNOWN = { up: 'C4 E4 G4 B4', down: 'B4 G4 E4 C4', bounce: 'C4 E4 G4 B4 G4 E4', bounce2: 'C4 E4 G4 B4 B4 G4 E4 C4', played: 'G4 C4 B4 E4', chord: 'C4+E4+G4+B4',
+    converge: 'C4 B4 E4 G4', diverge: 'G4 E4 B4 C4', pedal_low: 'C4 E4 C4 G4 C4 B4', pedal_high: 'B4 G4 B4 E4 B4 C4', chord_walk: 'C4+E4+G4+B4 C4 E4 G4 B4',
+    stride: 'C4 E4+G4+B4', chord_between: 'C4+E4+G4+B4 C4 C4+E4+G4+B4 E4 C4+E4+G4+B4 G4 C4+E4+G4+B4 B4', pairs: 'C4+E4 E4+G4 G4+B4' };
+  const known = Object.keys(KNOWN).filter(id => one(id) === KNOWN[id]).length;
+  let shufOk = true; { const c = orderCtx(SAMPLE_E, SAMPLE_PP, 12345); let prev = null;   // SPEC 11 N2: every key once per cycle, never the same key twice running
+    for (let cyc = 0; cyc < 40; cyc++) { const Pc = shuffleCycle(cyc, c); if (Pc.slice().sort().join() !== SAMPLE_E.join() || (prev !== null && Pc[0] === prev)) shufOk = false; prev = Pc[c.e - 1]; } }
+  line(known === Object.keys(KNOWN).length && shufOk, 'Order known answers over the sample chord: ' + known + ' of ' + Object.keys(KNOWN).length + ' rows, shuffle ' + (shufOk ? 'a permutation per cycle with no repeat across 40 cycles' : 'FAILED') + '.');
+  line(one('up') !== KNOWN.down, 'Control: the checker refuses a wrong row (up read against down\'s answer) as it must.');
+  const base = { order: 'up', steps: [Object.assign({}, bank.step_defaults)], patSize: 12, patUnit: 'semitones', passes: 0, size: 0, unit: 'semitones', repeats: 0, L: 1, W: 12, swing: 500, gate: 80, seed: 0, fixed: null, E: [60, 64, 67], Pp: [60, 64, 67], patId: 'x' };
+  const roll = o => rollModel(Object.assign({}, base, o)), pit = r => r.notes.map(n => n.pitch).join(' ');
+  const ex1 = pit(roll({ passes: 2, size: 7 })), want1 = '60 64 67 67 71 74 74 78 81 60 64 67';   // SPEC 4.7: up over C E G, 2 steps of +7: C E G | G B D | D F# A | C E G
+  const r2 = roll({ repeats: 2 }), ex2 = pit(r2) === '60 64 67 60 64 67' && r2.stoppedAt === 6;       // SPEC 4.8: 2 repeats of up over C E G is C E G C E G, then silence
+  line(ex1 === want1 && ex2 && pit(roll({ passes: 2, size: 0 })) !== want1, 'Roll against the SPEC\'s own examples: 4.7 (up, 2 steps of +7) and 4.8 (2 repeats) both reproduced, and with step size 0 the 4.7 sequence is refused as it must be.');
   line(true, 'Picker rule: the house picker keeps the root lit, so it cannot author scale_deg0 off, which Arp allows (SPEC 6).');
 })();
 
@@ -641,7 +889,7 @@ window.addEventListener('keydown', e => {
   if (['KeyM', 'KeyP', 'Backspace', 'Delete'].includes(e.code) && !(e.target && e.target.tagName === 'INPUT')) { e.stopPropagation(); return; }
   if (e.target && e.target.tagName === 'INPUT') return;
   if ((e.metaKey || e.ctrlKey) && e.code === 'KeyZ') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); }
-  else if (e.key === 'Escape' && document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+  else if (e.key === 'Escape' && !openDD && document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
 }, true);
 // RateSync and the picker set their own tab stops; with keyboard mode off every one is taken back, so no control holds a Tab.
 views.push({ update() { if (S.keys) return; [rateHost, scaleHost].forEach(c => c.querySelectorAll('button,select,input,[tabindex]').forEach(e => { if (e.tabIndex !== -1) e.tabIndex = -1; })); } });
