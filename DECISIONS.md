@@ -9510,3 +9510,21 @@ No correct pair of builds under BD-7 can match on a chaotic state.
 - **The rulings log** gains rows 45 to 53, and its six stray rows move back into the table.
 - **B520** stays open until the owed checks return.
 - **FX device (ADR-254):** none.
+
+## ADR-290 — RULED by the human: scale quantize is an option on every modulation route into a pitch (B554, B504, 2026-10-27)
+
+**Context.** The human: "I also thought of something I want to set as an option across any pitch modulation lanes: for any modulator that modulates pitch, scale quantize should be an option." The records already hold the pieces this builds on:
+- **B260:** the scale is one global setting, which any consumer reads.
+- **B504 and ADR-232:** the pitch system carries scale quantization as a modifier on the glide laws, with hysteresis and a minimum step time.
+- **ADR-266:** the mod matrix and its route row.
+
+The ruling numbers here skip ADR-289, which is held for spec round 42 (B552, in review).
+
+**Ruling (the human, by poll, 2026-10-27).** **"Per route, snaps the result."** Each route into a pitch destination carries a Quantize toggle on its route row. When on, the destination's resulting pitch (the note plus all its modulation) snaps to the global scale, with the same hysteresis and minimum step time as the glide quantizer. The alternatives were a route's own offset snapped to scale intervals (two quantized routes could still sum off-scale), and one toggle per destination.
+
+**The lead's reading, open for the lab.** The pitch is snapped when any route into it has Quantize on; the toggle sits on each route so it is set where the modulation is made. Whether mixed quantized and unquantized routes into one pitch should behave otherwise is put to the human with the lab.
+
+**Consequences.**
+- ROADMAP B554, built with the pitch system (RC-3, B504). Nothing in the clean-room engine changes: its pitch input is IF-2's per-note pitch, and the quantizer sits in the pitch system above it.
+- The design system's route row gains the toggle when the pitch system's lab lands.
+- **FX device (ADR-254):** the FX device's matrix offers the same toggle on any FX-module pitch destination, reading the same global scale.
