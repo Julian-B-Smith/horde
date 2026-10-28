@@ -1190,7 +1190,7 @@ For a blade with centre `c`, width `w` (bypass when the effective width is below
 | Ring | `base · wave(blade wave, frac(hp + xin))` |
 | Crush | box-averaged hold levels with slew (C.9.4) |
 
-**FM phase:** `cp = hp + (I/2π)·mod(shape, x)`. **FM pitch:** `cp = hp + acc`, `acc += ((1 + I/10)^{mod} − 1)·kk·dφ` (exponential deviation, symmetric in cents; depth shown as `±1200·log₂(1 + I/10)` cents); reset mode zeroes `acc` at blade entry. **Mod rate**: `mEff = modRate` (a multiple of the member's frequency fᵢ), or `mEff = modRateHz/max(fᵢ, 1 Hz)`. Under collision, I is the bitten index of C.11.
+**FM phase:** `cp = hp + (I/2π)·mod(shape, x)`. **FM pitch:** `cp = hp + acc`, `acc += ((1 + I/10)^{mod} − 1)·kk·dφ` (exponential deviation, symmetric in cents; depth shown as `±1200·log₂(1 + I/10)` cents); reset mode zeroes `acc` at blade entry. Where the modulator steps within a sample (S&H noise at each whole x; saw, reverse saw and square at their jumps), that sample's increment is integrated exactly: each side of the step contributes its own value of the increment in proportion to the fraction of the sample it holds, so the accumulated phase does not depend on where the host's samples fall (the human's ruling, round 47, ADR-304; engine-free, DT-3 on an S&H pitch-FM blade at index 2 goes from 2.73 dB to 0.06 dB). **Mod rate**: `mEff = modRate` (a multiple of the member's frequency fᵢ), or `mEff = modRateHz/max(fᵢ, 1 Hz)`. Under collision, I is the bitten index of C.11.
 
 #### C.9.3 Waves and modulator shapes
 

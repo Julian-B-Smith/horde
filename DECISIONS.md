@@ -9878,3 +9878,31 @@ Both frames were captured from a local preview.
 - The frozen set's ledger notes the key-off window for Sine-to-saw fan.
 - Rulings rows 76 and 77.
 - **FX device (ADR-254):** none.
+
+## ADR-304 — RULED by the human: spec round 47 (pitch FM integrates a modulator step within its sample) and Split envelopes' key-off reported (B494; cleanroom B-59, B-62; 2026-10-28)
+
+**Context.** The test author's engine-free evidence (test-author `408bef1`, `ceeffbc`):
+- **Split envelopes (B-59), by the fuller law.** The model has Sync residuals inside a taper, FM reset, and both one-shot envelope routes; QS-1 reads 112.4 dB by it.
+  - The key-off fires at 45 of 56 key-up times, scores 10.19 to 21.72, between +1.3 and +4.3 ms of the key-up.
+  - The held renders have no events.
+- **Wobble jaw (B-62): pitch FM free on an S&H modulator at index 2, under round 46.**
+  - DT-3 misses by 2.73 dB, against 0.06 dB for a sine at the same index.
+  - Integrating the step exactly over its sample brings the S&H case to 0.06 dB.
+  - So the miss is the per-sample recurrence's: a step inside a sample enters `acc` whole at that sample.
+
+**Ruling (the human, by poll, 2026-10-28).**
+1. **"Report it too."** Split envelopes' key-off is reported in 9.b1 over its law's window (−0.2 to +5.8 ms), as Sine-to-saw fan's is (ADR-303.2).
+2. **"Integrate exactly."** C.9.2: where the modulator steps within a sample, that sample's pitch-FM increment takes each side's share (spec round 47).
+
+**The lead's readings in the same beat (no ruling needed).**
+- **Sine-to-saw fan's window, −1.2 to +3.7 ms.** It is the law's event span widened by QS-4's 1.5 ms catch tolerance (Q-TA-3), so the reported window covers the detector's own timing. Accepted.
+- **7.9's S&H question.** C.9 item 5 keys S&H noise "by the integer" of the modulator's phase. Under FM reset that phase restarts at each window, so the values repeat each cycle and QS-1 applies.
+
+**Rejected:**
+- for the release: smoothing EN-1's release start;
+- for S&H pitch FM: reporting it.
+
+**Consequences.**
+- Spec round 47, delivered to both clean-room repositories.
+- Rulings rows 79 to 82.
+- **FX device (ADR-254):** none.
