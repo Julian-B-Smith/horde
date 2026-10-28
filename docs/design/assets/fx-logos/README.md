@@ -38,6 +38,8 @@ The workshop checks a dropped file against all three rules and prints the result
   ("Live at S4, still till then", Sluice D-192). It is copied from Sluice's `integrations/hypersaw/sluice-title-parked.png`
   at Sluice `68de946` (git blob `ac03b677`). At S4 the live title (`sluice-mark.html?title`, the hue walk) replaces it,
   and the still stays as the reduced-motion and screenshot fallback.
+- `sluice-icon.png`: none, by ruling (2026-10-28, horde ADR-305): Sluice has no icon, and its 16 × 16 slot stays empty.
+  B326's whirlpool proposal is retired.
 
 ## The lettering rule (B343)
 

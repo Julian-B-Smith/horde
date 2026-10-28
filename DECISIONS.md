@@ -9906,3 +9906,19 @@ Both frames were captured from a local preview.
 - Spec round 47, delivered to both clean-room repositories.
 - Rulings rows 79 to 82.
 - **FX device (ADR-254):** none.
+
+## ADR-305 — RULED by the human: Sluice has no icon (B565; 2026-10-28)
+
+**Context.** The 16 × 16 icon slot beside Sluice's title on its screen held B326's whirlpool, a proposal for the old Sluice that predates the tube mark (ADR-302). The lead showed it in the real GBC frame beside the hue-walking title, with three candidates drawn from the mark: the title's S (live), a tube loop, and a ring.
+
+**Ruling (the human, 2026-10-28):** "Let's just remove the symbol completely; go ahead and send a brief."
+- Sluice has no ICON, and the whirlpool proposal is retired. The icon slot beside Sluice's title stays empty, so the title is Sluice's only mark.
+- horde's design-system rule that each FX module has a TITLE and an ICON gains Sluice as an exception, beside Shriek's 104 × 24 TITLE exception (ADR-302).
+
+**Rejected:** the whirlpool, the S, the loop, the ring.
+
+**Consequences.**
+- Sluice notice seq 65 (Sluice PR #203).
+- At S4, horde's labs (`sluice-horde-lab.html`'s `GBC_SLOT.icon`, and the screens workshop) drop the proposal and leave the slot empty.
+- The fx-logos README records that no `sluice-icon.png` is owed.
+- **FX device (ADR-254):** the same, since Sluice is hosted there through the same slot.
