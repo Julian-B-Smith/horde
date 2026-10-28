@@ -1,530 +1,384 @@
 <!doctype html>
-<!-- filter-lab — B209 (placement: where a filter sits) + B274 (many types, a
-     fidelity programme, ONE signal-path picture) + B287 phase A (fixes for the
-     findings whose tolerance is not in question). HYPERSAW, 2026-09-22 and
-     2026-09-26. Spec-in-code per ADR-003. Round 2 extends round 1 in place (the
-     index link stays valid; no successor file).
+<!-- filter-lab — B209 (placement) + B274 (many types, a fidelity programme, one signal path) +
+     B287 (the fixes) + B566 (round 3: horde 2's filter page). HYPERSAW / horde, 2026-09-22,
+     2026-09-26 and 2026-10-28. Spec-in-code per ADR-003. Each round extends this file in place
+     (the index link stays valid; no successor file).
 
-     WHAT B287 PHASE A CHANGED (human 2026-09-26: "Let's fix all failures."):
-       · C6 resonance gain compensation, its law stated per type (`law` in
-         TYPES, printed in the types card): SVF 12 / SVF 24 BP, HP, PEAK × √(k/k₀);
-         LADDER × (1 + k/2); FORMANT bands × √qs.
-       · C3 LADDER: the resonance law's self-oscillation segment (k 4 → 4·1.05⁴
-         above the unchanged onset) — the 6.7 ¢ was start-up, not tuning.
-       · C2 COMB: the fractional delay is read by 3rd-order Lagrange, not linearly.
-       · C2 SWARM · PROPOSED: P4 range (fitted placement, [10 Hz, 0.49·fs]).
-       · NOT changed, each for a stated reason: COMB ± C6 (compensation would
-         trade the keytracked comb's level), SWARM · REF C2 / C6 (properties of the
-         protected reference), and phase B (C4, C5 — held for the B290 ruling).
-       · THE LAB'S SVF TYPES NOW DIVERGE FROM src/svf_core.h, by exactly one law:
-         the BP, HP and PEAK taps × √(k/k₀) (k₀ = √2 for SVF 12). The Svf class
-         itself is still the literal transcription; porting is B289.
+     WHAT ROUND 3 CHANGES (B566; the human 2026-10-28: "Can we get an agent working on the filter
+     interface and functionality and sound?", and the poll: "Restyle lab in GUI 3"; "Two filters
+     per voice, routing", "Per-note type list + cost", "Keytrack and R tracking", "Comb as a
+     filter type"; "Listening batch"):
+       · GUI 3. The page is re-skinned in the published design system, VENDORED once by the Arp
+         face lab (docs/design/arp-face/: tokens.css, bundle.css, bundle.js; B553) and reused here
+         by relative path, never copied (page-chrome-lab does the same). The filter page is drawn
+         as one 980-px GUI 3 window: four source strips, the routing matrix, two filter module
+         cards (FILTER A, FILTER B) whose knobs are the system's own morph knobs (Horde.Knob),
+         and the voice's signal path. Where the system has no component (the routing matrix, the
+         per-type cost badge, the slot drawing) it is drawn in the system's language and listed
+         as a PROPOSED addition. Without the bundle (file moved, or the headless checks) the page
+         still runs, on plain sliders, and says so.
+       · X13's build (RC-1): two filters per voice, each of horde 2's four sources (two
+         SCALPELS, the SUB, the NOISE oscillator; stand-ins, see SOURCES in the DSP section) into
+         A, B, both or neither, the pair serial or parallel, ONE instance per filter per voice
+         (the routed sources summed into it); the mono sub (SN-7) through its own slot instance,
+         driven by its chosen note. The lab proposes; the human rules X13.
+       · B303: every per-voice type's cost in a Release C++ bench (tools/filter_cost_bench.cpp,
+         transcriptions of this file's DSP checked sample for sample by filter_fidelity_check
+         --parity), 16 voices × 2 filters at 48 kHz, as % of one core, and a proposed per-note
+         type list.
+       · Keytracking from the voice's sounding pitch (RC-1), an amount per filter; per-filter
+         cutoff tracking of R (spec §6, deferred) as a PROPOSAL; B288: the combs keytracked by
+         default.
+       · A LISTENING BATCH of eleven A/B items (cap twelve), each saying what to listen for,
+         rendered offline from this file's core, the louder side at −6 dBFS peak, audio only on
+         a click. filter_fidelity_check holds the batch to its cap, its peak and its sides.
+       · Kept, unchanged: the TYPES interface and every fidelity hook (C1–C7, C4b, COST, the
+         ADAA evaluation, the swarm bank proposals P1–P4); round 1's RACK comparison survives as
+         one batch item and a placement switch below the window.
 
-     WHAT ROUND 2 ADDS (B274, human 2026-09-26: "I want quite a few more filter
-     options. We'll need to do extensive fidelity testing. Let's represent the
-     signal path more coherently; only one representation of each filter,
-     oscillators plugging directly in, a distinct representation of serial
-     versus parallel filters"):
-       · TYPES — twelve filter types behind ONE interface (the registry
-         `TYPES`, DSP section): SVF 12 and SVF 24 (LP/BP/HP/NOTCH/PEAK), LADDER,
-         MS-20, COMB + / COMB −, FORMANT, ALL-PASS ×4, PHASER 4, DJ, and the
-         swarm bank (REF and PROPOSED, rack slot only). Each carries its reason.
-       · FIDELITY — seven checks (C1-C7) run on every type at load, each with a
-         stated tolerance and a must-fail control; the same code runs headless in
-         tools/labharness/filter_fidelity_check.mjs, wired into ./verify fast.
-       · ONE PICTURE — the signal path draws each filter exactly once, as a box
-         holding its own response curve (the curve is still the control);
-         sources plug straight into a filter's input; SERIAL is one line through
-         two boxes, PARALLEL is a split into two branches that sum. Round 1's
-         duplicates are gone: the per-source filter boxes of its flow chart
-         (filter A drawn once per source), the separate filter cards, and the
-         matrix well (routing drawn a second time).
+     WHAT ROUND 2 AND B287 SETTLED (B274, B287, B290, B291) — see the fidelity, manifest, ADAA
+     and types cards, whose texts are kept from those rounds: twelve types behind one `TYPES`
+     interface; seven checks with must-fail controls, run headless by
+     tools/labharness/filter_fidelity_check.mjs (wired into ./verify fast); B287's level laws
+     (THE LAB'S SVF TYPES DIVERGE FROM src/svf_core.h by the BP/HP/PEAK × √(k/k₀) law; the port is
+     B289); the LADDER 2× oversampled, the MS-20 on centred first-order ADAA; the swarm bank
+     CALLED from reference/swarmfilter.html (fetched, sliced, run — never copied, except its
+     per-sample bank loop), so the SWARM types need the labs server (file:// refuses the fetch).
 
-     WHAT ROUND 1 SETTLED AND STILL HOLDS (B209). Three placements you can HEAR
-     under one seeded pattern — PER SOURCE (per voice, before the mix), RACK
-     SLOT (one filter after the sum) and BOTH — and the swarm bank CALLED from
-     reference/swarmfilter.html, never copied: the page fetches the protected
-     reference, slices its DSP section by the banners tools/golden/extract_core
-     .mjs uses, and runs its FilterLab class (placement, forces, drift,
-     coefficients). The ONE thing copied is the per-sample bank loop (reference
-     :362-374), because FilterLab.render() hard-wires its own exciter. Over
-     file:// the fetch is refused and the page says so instead of faking it.
-     Any change to the bank's LAW is a PROPOSAL (P1-P3), never an edit to it.
+     WHAT THIS IS NOT. Not a port and not an oracle. The sources are stand-ins, not the engines.
+     Nothing in src/, specs/, reference/ or docs/design-system/ is touched.
 
-     WHAT THIS IS NOT. Not a port and not an oracle. The sources are the lab's
-     own saw stacks and a sine sub. The Svf class is a literal transcription of
-     src/svf_core.h (B81; svf_check is its oracle) plus two more TAPS of the
-     same pass (NOTCH, PEAK) and a setK() the other types use; the SVF 12 TYPE
-     adds B287's √(k/k₀) on BP/HP/PEAK on top of it. Nothing in src/,
-     specs/ or reference/ is touched.
-
-     L0026/L0041: every const/let is declared above all wiring; nothing at setup
-     reaches forward. No Math.random (mulberry32 only, SPEC §5.7). No wall clock
-     in the audio path or the fidelity programme — both count samples; only
-     painters read time. TOKENS are copied verbatim from src/gui/gui2.html. -->
+     L0026/L0041: every const/let is declared above all wiring; nothing at setup reaches forward.
+     No Math.random (mulberry32 only, SPEC §5.7). No wall clock in the audio path, the batch or
+     the fidelity programme — all count samples; only painters read time. -->
 <html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="lab-part" content="Sources and routing">
-<title>filter lab — twelve types, a fidelity programme, one signal path</title>
+<title>filter lab — two filters per voice, X13 routing, per-note cost, a listening batch</title>
+<!-- the design system is vendored once, by the Arp face lab (B553); this lab reuses it by relative path, never a copy -->
+<link rel="stylesheet" href="arp-face/tokens.css">
+<link rel="stylesheet" href="arp-face/bundle.css">
 <style>
-  /* ============================================================
-     TOKENS — copied VERBATIM from src/gui/gui2.html:26-96 (:root),
-     :103-105 (every canvas is a phosphor tube), :142-144 (body.scr-orchid,
-     the light chassis's screen pairing), :167-185 (body:not(.dark) legibility
-     overrides) and :186-212 (body.dark) — the same copy
-     docs/design/station-page-lab.html carries. Copy, therefore drift: if
-     gui2's tokens move, this file is stale until re-copied.
-     ============================================================ */
-  :root {
-    --bg:#F2EDE2; --panel:#FCFAF4; --well:#FFFFFF; --panel2:#E9E3D4;
-    --line:#191521; --hair:#E5DFD0; --div:#D8D1C0;
-    --text:#191521; --t2:#494356; --dim:#9A93A3; --dis:#B6AFA0;
-    --value:#F5169C; --pull:#F5169C; --physics:#6431F0; --meter:#00D5C8;
-    --marker:#FFD702; --celebrate:#A6F219;
-    --caution:#F5A300; --caution-bg:#FBE9BD; --caution-tx:#6D570B;
-    --amber:#F5A300; --alarm:#C2261A; --ghost:#C9C2FF;
-    --cA:#FFD702; --cAtx:#D4A900; --cB:#FF2E88; --cBtx:#FF2E88;
-    --cC:#00D5C8; --cCtx:#00B3A8; --cD:#A6F219; --cDtx:#6FB200;
-    --text-hi:#191521; --dim2:#494356; --grid:#E5DFD0; --grid2:#E5DFD0;
-    --hot:#F5169C; --bad:#C2261A; --badge-bg:rgba(245,163,0,.9);
-    --scr-tube:#1B0733; --scr-value:#FF5ECF; --scr-meter:#B8F227;
-    --scr-physics:#B48CFF; --scr-marker:#FFB86B; --scr-grid:#4FD8BE;
-    --scr-scan:0.22; --scr-alpha:1;
-    --r-card:10px; --r-well:var(--r-card); --r:var(--r-card); --stroke:1.5px;
-    --shadow:1.5px 1.5px 0 var(--line);
-    --shadow-hover:2.5px 2.5px 0 var(--line);
-    --focus:0 0 0 2.5px rgba(245,22,156,.45); }
-  * { box-sizing:border-box; margin:0; }
-  canvas { border:var(--stroke) solid var(--line); border-radius:var(--r-well);
-           background:var(--scr-tube); display:block; }
-  body:not(.dark) { --scr-tube:#F3EBFF; --scr-value:#D6006B; --scr-meter:#007A73;
-    --scr-physics:#6E14E8; --scr-marker:#C43A00; --scr-grid:#5A3FA8;
-    --scr-scan:0.05; --scr-alpha:1.6;
-    --marker:#8A6A00; --celebrate:#4E7A00; }
-  body.dark {
-    --bg:#151220; --panel:#1F1B2E; --well:#0E0C16; --panel2:#2C2740;
-    --line:#EFE9FA; --hair:#312B47; --div:#3B3455;
-    --text:#EFE9FA; --t2:#BDB4D4; --dim:#8A82A3; --dis:#514A6B;
-    --value:#FF3DAD; --pull:#FF3DAD; --physics:#A07CFF; --meter:#2DF2E2;
-    --marker:#FFE04D; --celebrate:#C2F53E;
-    --caution:#FFB627; --caution-bg:#4A3A12; --caution-tx:#FFD98A;
-    --amber:#FFB627; --alarm:#FF5A4D; --ghost:#5B4E8F;
-    --cA:#FFD702; --cAtx:#FFE566; --cB:#FF2E88; --cBtx:#FF6FAE;
-    --cC:#00D5C8; --cCtx:#4DEDE3; --cD:#A6F219; --cDtx:#C6F86A;
-    --text-hi:#FFFFFF; --dim2:#9A93A8; --grid:#312B47; --grid2:#312B47;
-    --hot:#FF3DAD; --bad:#FF5A4D; --badge-bg:rgba(255,182,39,.9);
-    --focus:0 0 0 2.5px rgba(255,61,173,.45); }
+  /* Lab layout only. Every colour, size and radius is a design-system token (arp-face/tokens.css);
+     the bundle's components bring their own look. */
+  body { margin: 0; padding: var(--space-page); background: var(--bg); color: var(--text); font: 400 10.5px/1.5 var(--font-sans); }
+  .lab-col { max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--space-grid); }
+  .lab-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-gap); }
+  .lab-grow { flex: 1 1 auto; }
+  .lab-tag { font: 700 8.5px/1.4 var(--font-sans); letter-spacing: .1em; padding: 0 5px; border-radius: var(--radius-track); color: var(--t2); border: 1px solid var(--div); }
+  .lab-tag.prop { background: var(--caution-bg); color: var(--caution-tx); border-color: var(--caution); }
+  .tagline { font: 400 10.5px/1.55 var(--font-sans); color: var(--t2); max-width: 130ch; }
+  .tagline b, .lab-panel b { color: var(--ink); font-weight: 600; }
+  .lab-status { margin: 0; border-left: 3px solid var(--meter); padding-left: 8px; }
+  .lab-status.bad { border-left-color: var(--caution); color: var(--caution-tx); }
+  .lab-status b { color: var(--ink); font-weight: 600; }
+  .lab-panel { box-sizing: border-box; background: var(--panel); border: var(--stroke-ink) solid var(--ink); border-radius: var(--radius); padding: var(--space-card-y) var(--space-card-x); display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .lab-panel > .hd-cluster { margin-bottom: 2px; }
+  .lab-two { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: var(--space-grid); align-items: start; }
+  .note { font: 400 10px/1.55 var(--font-sans); color: var(--t2); max-width: 140ch; }
+  .note b { color: var(--ink); font-weight: 600; }
+  code { font: 400 9.5px/1.4 var(--font-mono); }
+  .hd-btn { font: 600 10px/1 var(--font-sans); letter-spacing: .06em; min-height: var(--size-hit); padding: 0 12px; border: var(--stroke-ink) solid var(--ink); border-radius: var(--radius-capsule); background: var(--panel); color: var(--ink); cursor: pointer; box-shadow: var(--shadow-rest); }
+  .hd-btn[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+  .hd-btn.panic { border-color: var(--alarm); color: var(--alarm); box-shadow: none; }
+  .hd-btn.panic:hover { background: var(--alarm); color: var(--on-alarm); }
+  .lab-bar .hd-pill, .win .hd-pill, .lab-panel .hd-pill { width: auto; min-height: var(--size-hit); padding: 0 10px; font: 400 9.5px/1 var(--font-mono); border: var(--stroke-ink) solid var(--ink); border-radius: var(--radius-capsule); background: var(--panel); color: var(--t2); cursor: pointer; }
+  .lab-bar .hd-pill[aria-checked="true"], .win .hd-pill[aria-checked="true"], .lab-panel .hd-pill[aria-checked="true"] { background: var(--ink); color: var(--bg); font-weight: 600; }
+  .hd-pill.dis { opacity: var(--opacity-disabled); pointer-events: none; }
+  .hd-pill.sm { min-height: 22px; padding: 0 7px; font-size: 9px; }
+  .ghost { opacity: var(--opacity-disabled); }
+  .master { display: inline-flex; align-items: center; gap: 6px; }
+  .master input { width: 100px; }
 
-  /* ============ CHROME — the station-page-lab idiom (gui2's markup) ============ */
-  body { background:var(--bg); color:var(--text);
-    font:12px/1.45 ui-monospace,Menlo,monospace; padding:10px 12px 40px; }
-  .hdr { display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin-bottom:8px; }
-  h1 { font-size:34px; line-height:1; letter-spacing:-1px; font-weight:800; }
-  .badges { display:flex; align-items:center; gap:8px; margin-top:4px; }
-  .badge { font-size:9.5px; letter-spacing:.1em; padding:2px 7px;
-           border:var(--stroke) solid var(--line); border-radius:3px;
-           background:var(--cA); color:var(--line); }
-  body.dark .badge { color:var(--bg); }          /* station-page-lab:146 — corner fill, inverted ink */
-  .sub { color:var(--t2); font-size:10.5px; letter-spacing:.12em; }
-  .hdrctl { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-left:auto; }
-  .grp { display:flex; align-items:center; gap:7px; }
-  .lbl { font-size:10px; font-weight:700; letter-spacing:.1em; color:var(--t2); }
-  .pill { padding:3px 10px; border:var(--stroke) solid var(--line);
-    border-radius:999px; min-height:26px; cursor:pointer; color:var(--dim);
-    background:var(--panel); font:inherit; font-size:10px; letter-spacing:.06em; }
-  .pill:hover { box-shadow:var(--shadow); }
-  .pill.on { color:var(--bg); background:var(--line); font-weight:600; }
-  .pill.panic { border-color:var(--alarm); color:var(--alarm); font-weight:700; }
-  .pill.panic:hover { background:var(--alarm); color:var(--bg); }
-  /* The placement pills are THE question this lab asks, so they are the one
-     control drawn larger than house size. Same capsule, same on-state. */
-  .pill.big { font-size:11.5px; padding:5px 15px; min-height:32px; letter-spacing:.08em; }
-  .pills { display:flex; gap:4px; flex-wrap:wrap; }
-  .chip { padding:4px 8px; border:0; background:none; border-radius:var(--r);
-    cursor:pointer; font:inherit; font-size:10px; letter-spacing:.06em;
-    color:var(--dim); min-height:26px; }
-  .chip:hover { background:var(--panel2); }
-  .chip b { color:var(--t2); font-weight:600; letter-spacing:.1em; }
-  .tagline { color:var(--t2); font-size:11px; max-width:130ch; margin-bottom:6px; }
-  .tagline b { color:var(--text); }
-  .audit { font-size:10px; color:var(--t2); margin-bottom:10px;
-           border-left:3px solid var(--meter); padding-left:8px; }
-  .audit.bad { border-left-color:var(--caution); color:var(--caution-tx); }
-  body.dark .audit.bad { color:var(--caution); }
-  .audit b { color:var(--value); }
+  /* THE WINDOW — one GUI 3 window at the ruled 980 × 720 (ADR-259 ruling 2): the filter page as horde 2 shows it. */
+  .win { width: min(100%, var(--size-window-w)); min-height: var(--size-window-h); margin: 0 auto; display: flex; flex-direction: column; gap: var(--space-stack); }
+  .chrome { display: flex; align-items: center; gap: var(--space-gap) 14px; flex-wrap: wrap; }
+  .logo-slot { box-sizing: border-box; width: var(--size-logo-w); height: var(--size-logo-h); flex: 0 0 auto; display: grid; place-items: center; text-align: center; border: 1px dashed var(--div); border-radius: var(--radius); font: 400 8px/1.3 var(--font-mono); color: var(--hint); }
+  .fp { display: grid; grid-template-columns: 236px minmax(0, 1fr); gap: var(--space-column) 10px; align-items: start; }
+  .fp-left, .fp-right { display: flex; flex-direction: column; gap: var(--space-stack); min-width: 0; }
+  .fcards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  @container (max-width: 700px) { .fp, .fcards { grid-template-columns: minmax(0, 1fr); } }
+  .win { container-type: inline-size; }
 
-  .cluster { background:var(--panel); border:var(--stroke) solid var(--line);
-    border-radius:var(--r); padding:8px 10px; min-width:0; }
-  /* NOT IN FORCE: a card whose placement is not selected dims — present, never
-     removed (gui2:764's ghost rule), so flipping placements never moves the page. */
-  .cluster.off > *:not(.ohead) { opacity:.42; }
-  h2 { font-size:11px; color:var(--pull); letter-spacing:1px; margin-bottom:6px; }
-  .row { display:grid; grid-template-columns:62px minmax(0,1fr) 52px;
-    align-items:center; gap:6px; margin:4px 0; }
-  .row label { color:var(--t2); font-size:10px; }
-  .row output { font-size:10px; text-align:right; color:var(--text);
-                font-variant-numeric:tabular-nums; }
-  .row.ghost > *, .arow.ghost > * { opacity:.45; }
-  .row.wide { grid-template-columns:62px minmax(0,1fr); }
-  .note { color:var(--t2); font-size:10px; line-height:1.5; margin-top:6px; }
-  .note b { color:var(--text); }
-  .sep { border-top:1px dashed var(--div); margin:8px 0 6px; }
-  .cap { font-size:9px; letter-spacing:.12em; color:var(--dim); margin:6px 0 3px; }
-  .ohead { display:flex; align-items:center; gap:7px; margin-bottom:6px; flex-wrap:wrap; }
-  .ohead b { font-size:12px; letter-spacing:.06em; }
-  .ohead .where { color:var(--t2); font-size:9.5px; letter-spacing:.1em; }
-  .ohead .state { margin-left:auto; font-size:9px; letter-spacing:.1em; color:var(--dim); }
-  /* PROPOSED — a change to the reference's LAW. Caution, because it is the one
-     thing on this page that needs a human ruling before it can exist. */
-  .prop { display:inline-block; font-size:8.5px; letter-spacing:.12em; padding:1px 6px;
-          border:var(--stroke) solid var(--line); border-radius:3px;
-          background:var(--caution-bg); color:var(--caution-tx); }
+  /* a source strip: name, on, level, a meter, the sub's per-note / mono switch */
+  .srcs { display: flex; flex-direction: column; gap: 4px; }
+  .sstrip { display: grid; grid-template-columns: 74px 30px minmax(0, 1fr) 10px; align-items: center; gap: 6px; min-height: var(--size-hit); }
+  .sstrip .nm { font: 800 9.5px/1.1 var(--font-sans); letter-spacing: .08em; color: var(--ink); }
+  .sstrip .nm small { display: block; font: 400 8px/1.2 var(--font-mono); letter-spacing: 0; color: var(--hint); }
+  .sstrip input[type=range] { width: 100%; }
+  .smeter { width: var(--size-meter-w); height: 22px; box-sizing: border-box; border: var(--stroke-sub) solid var(--ink); border-radius: var(--radius-meter); background: var(--well-alt); position: relative; overflow: hidden; }
+  .smeter i { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: var(--celebrate); }
+  .subrow { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; padding-left: 80px; }
+  .hd-toggle { position: relative; width: var(--size-toggle-w); height: var(--size-toggle-h); box-sizing: border-box; border-radius: var(--radius-capsule); border: var(--stroke-ink) solid var(--ink); background: var(--well-alt); cursor: pointer; padding: 0; }
+  .hd-toggle::after { content: ''; position: absolute; top: 1px; left: 1px; width: 11px; height: 11px; border-radius: 50%; box-sizing: border-box; border: var(--stroke-ink) solid var(--ink); background: var(--panel); transition: transform var(--duration-toggle) ease; }
 
-  input[type=range] { -webkit-appearance:none; appearance:none; width:100%; min-width:0;
-    height:24px; background:transparent; cursor:pointer; }
-  input[type=range]::-webkit-slider-runnable-track {
-    height:6px; border-radius:3px; border:var(--stroke) solid var(--line);
-    background:linear-gradient(to right,
-      var(--value) 0 calc(var(--pct, 0) * 100%),
-      var(--panel2) calc(var(--pct, 0) * 100%) 100%); }
-  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; appearance:none;
-    width:13px; height:13px; border-radius:4px; margin-top:-3.5px;
-    background:var(--panel); border:var(--stroke) solid var(--line); box-shadow:var(--shadow); }
-  input[type=range]:hover::-webkit-slider-thumb { box-shadow:var(--shadow-hover); }
-  input[type=range]:active::-webkit-slider-thumb { background:var(--value); box-shadow:none; }
-  input[type=checkbox] { -webkit-appearance:none; appearance:none; margin:0;
-    width:32px; height:17px; border-radius:999px; cursor:pointer;
-    background:var(--panel2); border:var(--stroke) solid var(--line); position:relative; }
-  input[type=checkbox]::after { content:''; position:absolute; top:1px; left:1px;
-    width:11px; height:11px; border-radius:999px;
-    background:var(--panel); border:var(--stroke) solid var(--line); transition:transform .12s ease; }
-  input[type=checkbox]:checked { background:var(--value); }
-  input[type=checkbox]:checked::after { transform:translateX(15px); }
-  select { -webkit-appearance:none; appearance:none; font:inherit; font-size:10px;
-    padding:3px 18px 3px 9px; min-width:0; border-radius:999px;
-    border:var(--stroke) solid var(--line); background:var(--panel); color:var(--t2);
-    cursor:pointer; min-height:26px;
-    background-image:linear-gradient(45deg,transparent 50%,var(--t2) 50%),
-                     linear-gradient(135deg,var(--t2) 50%,transparent 50%);
-    background-position:calc(100% - 11px) 50%, calc(100% - 7px) 50%;
-    background-size:4px 4px, 4px 4px; background-repeat:no-repeat; }
-  select:hover { box-shadow:var(--shadow); }
+  /* THE ROUTING MATRIX (PROPOSED component): sources down, filters across, one 28 px cell each. */
+  .rmx { display: grid; grid-template-columns: 74px repeat(2, var(--size-hit)) minmax(0, 1fr); gap: 4px 6px; align-items: center; }
+  .rmx .hdr { font: 700 8.5px/1 var(--font-sans); letter-spacing: .1em; color: var(--t2); text-align: center; }
+  .rmx .rl { font: 800 9px/1.1 var(--font-sans); letter-spacing: .08em; color: var(--ink); }
+  .rmx .rd { font: 400 8.5px/1.2 var(--font-mono); color: var(--hint); }
+  .rcell { width: var(--size-hit); height: var(--size-hit); box-sizing: border-box; border: var(--stroke-ink) solid var(--ink); border-radius: var(--radius-track); background: var(--well); cursor: pointer; padding: 0; display: grid; place-items: center; font: 700 9px/1 var(--font-sans); color: var(--ink); }
+  .rcell:hover { box-shadow: var(--shadow-rest); }
+  .rcell[aria-checked="true"] { background: var(--ink); color: var(--bg); }
+  .rcell.via { background: repeating-linear-gradient(45deg, var(--well-alt) 0 3px, var(--well) 3px 6px); color: var(--t2); }
 
+  /* the filter module cards: the system's .hd-card, its screen a canvas */
+  .fcard.hd-card { width: auto; }
+  .fcard .viz { height: 132px; padding: 0; }
+  .fcard .viz canvas { display: block; width: 100%; height: 100%; }
+  .fcard .face { gap: 0 2px; }
+  .fcard .face .hd-mk { flex: 0 0 auto; }
+  .fcard .types { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; padding: 6px 7px 0; }
+  .fcard .types .hd-pill { width: 100%; padding: 0 3px; display: flex; justify-content: space-between; align-items: center; gap: 3px; overflow: hidden; }
+  .fcard .types .hd-pill[aria-checked="true"] { background: var(--ink); color: var(--bg); }
+  .fcard .types .hd-pill .cost { font: 400 8px/1 var(--font-mono); opacity: .8; }
+  .fcard .types .hd-pill.heavy .cost { color: var(--caution-tx); opacity: 1; }
+  .fcard .types .hd-pill[aria-checked="true"].heavy .cost { color: var(--caution); }
+  .fcard .modes { padding: 4px 7px 0; display: flex; gap: 3px; flex-wrap: wrap; }
+  .fcard .extra { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 4px 7px 0; }
+  .fcard .chips { display: flex; gap: 3px; flex-wrap: wrap; }
+  .chip2 { font: 700 8px/1.4 var(--font-sans); letter-spacing: .06em; padding: 0 4px; border-radius: var(--radius-track); border: 1px solid var(--ink); color: var(--t2); background: var(--panel); }
+  .chip2.fail { background: var(--caution-bg); color: var(--caution-tx); }
+  .chip2.pend { border-style: dashed; color: var(--hint); }
+  .fallback .hd-srow { grid-template-columns: 64px minmax(0, 1fr) 58px; }
 
-  /* ============ PAGE SHAPE ============ */
-  .pathgrid { display:grid; grid-template-columns:minmax(560px,2.3fr) minmax(300px,1fr); gap:10px; align-items:start; }
-  .lower { display:grid; grid-template-columns:minmax(250px,1fr) minmax(230px,.8fr) minmax(300px,1.2fr);
-           gap:10px; margin-top:10px; align-items:start; }
-  .full { margin-top:10px; }
-  @media (max-width:1180px) { .pathgrid, .lower { grid-template-columns:1fr; } }
-  /* THE ONE PICTURE. Every filter is drawn exactly once, as a box in this
-     canvas holding its own response curve — the curve is the control. */
-  #pathC { width:100%; height:430px; cursor:crosshair; touch-action:none; }
-  #envC { width:100%; height:70px; }
-  #scopeC { width:100%; height:70px; }
-  .arow { display:grid; grid-template-columns:62px minmax(0,1fr); gap:6px; align-items:center; margin:5px 0; }
-  .arow label { font-size:10px; color:var(--t2); }
-  .plugs { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:4px 14px; margin-top:6px; }
-  @media (max-width:1180px) { .plugs { grid-template-columns:1fr; } }
-  .pill.sm { font-size:9px; padding:2px 7px; min-height:22px; }
-  .pill.dis { opacity:.35; pointer-events:none; }
-  .typegrid { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:4px; margin:4px 0 6px; }
-  .typegrid .pill { width:100%; text-align:center; }
-  .ihead { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; margin-bottom:4px; }
-  .ihead b { font-size:13px; letter-spacing:.06em; }
-  .ihead .where { color:var(--t2); font-size:9.5px; letter-spacing:.1em; }
-  .keys { display:flex; gap:4px; margin-left:auto; }
+  /* the voice's signal path (a screen) and the play strip */
+  #pathC { width: 100%; height: 300px; display: block; cursor: crosshair; touch-action: none; border: var(--stroke-ink) solid var(--ink); border-radius: var(--radius); background: var(--scr-ground); box-sizing: border-box; }
+  #envC, #scopeC { width: 100%; height: 64px; display: block; border: var(--stroke-ink) solid var(--ink); border-radius: var(--radius); background: var(--scr-ground); box-sizing: border-box; }
+  .row3 { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 10px; }
+  #kbd { display: flex; height: 52px; user-select: none; border: var(--stroke-ink) solid var(--ink); border-radius: var(--radius); background: var(--well); overflow: hidden; }
+  .key { flex: 1 1 0; border-right: 1px solid var(--ink); background: var(--well); position: relative; cursor: pointer; min-width: 0; }
+  .key:last-child { border-right: 0; }
+  .key.blk { background: var(--ink); flex: 0 0 14px; width: 14px; margin: 0 -7px; z-index: 2; height: 62%; border-radius: 0 0 3px 3px; border: 0; box-shadow: 0 0 0 1px var(--ink); }
+  .key.on { background: var(--value); }
+  .key span { position: absolute; bottom: 3px; left: 0; right: 0; text-align: center; font: 400 8px/1 var(--font-mono); color: var(--hint); pointer-events: none; }
+  .key.blk span { display: none; }
+  .hd-srow input[type=range], .sstrip input[type=range], .master input[type=range] { -webkit-appearance: none; appearance: none; height: var(--size-hit); background: transparent; cursor: pointer; margin: 0; min-width: 0; }
+  input[type=range]::-webkit-slider-runnable-track { height: var(--size-slider-track); border-radius: var(--radius-track); border: var(--stroke-ink) solid var(--ink);
+    background: linear-gradient(to right, var(--ink) 0 calc(var(--pct, 0) * 100%), var(--well-alt) calc(var(--pct, 0) * 100%) 100%); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 7px; height: 16px; border-radius: 2px; margin-top: -6.5px; background: var(--cA); border: 1.2px solid var(--ink); }
 
-  table.diag { width:100%; border-collapse:collapse; font-size:10.5px; margin-top:6px; }
-  table.diag th { text-align:left; font-size:9px; letter-spacing:.1em; color:var(--dim); font-weight:600;
-                  padding:3px 6px; border-bottom:var(--stroke) solid var(--line); }
-  table.diag td { padding:4px 6px; border-bottom:1px dashed var(--div); vertical-align:top; }
-  table.diag td.n { font-variant-numeric:tabular-nums; white-space:nowrap; }
-  table.diag td.n b { color:var(--value); }
+  /* the listening batch */
+  .batch { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 8px; }
+  .bitem { box-sizing: border-box; border: var(--stroke-ink) solid var(--ink); border-radius: var(--radius); background: var(--well); padding: 6px 8px; display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 2px 8px; align-items: start; }
+  .bitem .n { font: 800 11px/1.4 var(--font-sans); color: var(--ink); }
+  .bitem .t { font: 800 9.5px/1.4 var(--font-sans); letter-spacing: .08em; text-transform: uppercase; color: var(--ink); }
+  .bitem .l { grid-column: 2 / span 2; font: 400 9.5px/1.5 var(--font-sans); color: var(--t2); }
+  .bitem .ab { display: flex; gap: 4px; }
+  .bitem .ab .hd-pill { min-width: 34px; }
+  .bitem .ab .hd-pill[aria-pressed="true"] { background: var(--value); color: var(--on-src); border-color: var(--ink); }
+  .bitem .m { grid-column: 2 / span 2; font: 400 8.5px/1.4 var(--font-mono); color: var(--hint); }
 
-  /* FIDELITY TABLE. A measured verdict is an analyser's reading, so a pass is
-     marked in --meter; a FAIL is a finding and takes --caution (it needs a
-     human's eye, not an alarm); a BLIND control is the one real ALARM — the
-     check could not see the fault it exists for. */
-  .fidwrap { overflow-x:auto; }
-  table.fid { width:100%; table-layout:fixed; border-collapse:separate; border-spacing:3px; font-size:9.5px; margin-top:6px; }
-  table.fid col.tn { width:128px; }
-  table.fid th { text-align:left; font-size:8.5px; letter-spacing:.08em; color:var(--t2); font-weight:700;
-                 padding:3px 5px; vertical-align:bottom; }
-  table.fid th small { display:block; font-weight:400; color:var(--dim); letter-spacing:0; font-size:8.5px; line-height:1.3; margin-top:2px; }
-  table.fid td { padding:3px 5px; border:var(--stroke) solid var(--line); border-radius:4px; vertical-align:top;
-                 font-variant-numeric:tabular-nums; background:var(--panel); line-height:1.3; }
-  table.fid td.tname { border:0; background:none; font-weight:700; letter-spacing:.04em; white-space:nowrap; font-size:10px; }
-  table.fid td.tname span { display:block; font-weight:400; color:var(--dim); font-size:8.5px; }
-  table.fid td b { font-size:9px; letter-spacing:.1em; }
-  table.fid td.pass { border-left:4px solid var(--meter); }
-  table.fid td.pass b { color:var(--t2); }
-  table.fid td.fail { background:var(--caution-bg); color:var(--caution-tx); border-left:4px solid var(--caution); }
-  body.dark table.fid td.fail { color:var(--caution); }
-  table.fid td.blind { outline:2.5px solid var(--alarm); }
-  table.fid td.pend { color:var(--dim); border-style:dashed; }
-  table.fid th.rep, table.fid td.rep { background:none; border-style:dotted; }
-  table.fid td.rep b { color:var(--value); letter-spacing:0; }
-  table.fid td .v { display:block; color:inherit; opacity:.85; overflow-wrap:anywhere; }
-  table.fid td .c { display:block; font-size:8px; color:var(--dim); overflow-wrap:anywhere; }
-  body.dark table.fid td.fail .c { color:var(--caution-tx); }
-  /* A HELD finding (B287): a FAIL kept on purpose — a property of the protected
-     reference, or a fix that would trade another behaviour — says so in the cell. */
-  table.fid td .held { display:block; font-size:8px; font-weight:700; letter-spacing:.02em; margin-top:2px; overflow-wrap:anywhere; }
-  .findings .held { font-weight:700; }
-  table.fid td.tname span.heldtag { color:var(--caution-tx); font-weight:700; }
-  body.dark table.fid td.tname span.heldtag { color:var(--caution); }
-  .qa div .law { display:block; margin-top:4px; }
-  .chips { display:flex; gap:3px; flex-wrap:wrap; margin:6px 0; }
-  .chip2 { font-size:8.5px; letter-spacing:.08em; padding:1px 5px; border-radius:3px; border:var(--stroke) solid var(--line); color:var(--t2); background:var(--panel); }
-  .chip2.fail { background:var(--caution-bg); color:var(--caution-tx); }
-  .chip2.pend { border-style:dashed; color:var(--dim); }
-  .findings { columns:2 380px; column-gap:22px; font-size:10.5px; color:var(--t2); margin-top:8px; }
-  .findings div { break-inside:avoid; margin-bottom:5px; line-height:1.5; }
-  .findings b { color:var(--text); }
-  .qa { display:grid; grid-template-columns:repeat(3, minmax(260px,1fr)); gap:10px 18px; }
-  @media (max-width:1180px) { .qa { grid-template-columns:1fr; } }
-  .qa div { font-size:10.5px; line-height:1.55; color:var(--t2); }
-  .qa div b { color:var(--text); }
-  .qa div .q { display:block; color:var(--pull); font-size:10px; letter-spacing:.08em; margin-bottom:2px; }
-
-  #kbd { display:flex; margin-top:8px; height:60px; user-select:none;
-         border:var(--stroke) solid var(--line); border-radius:var(--r);
-         background:var(--well); overflow:hidden; }
-  .key { flex:1 1 0; border-right:1px solid var(--line); background:var(--well);
-         position:relative; cursor:pointer; min-width:0; }
-  .key:last-child { border-right:0; }
-  .key.blk { background:var(--line); flex:0 0 14px; width:14px; margin:0 -7px;
-             z-index:2; height:62%; border-radius:0 0 3px 3px; border:0; box-shadow:0 0 0 1px var(--line); }
-  .key.on { background:var(--value); }
-  .key span { position:absolute; bottom:3px; left:0; right:0; text-align:center;
-              font-size:8px; color:var(--dim); pointer-events:none; }
-  .key.blk span { display:none; }
-  .rev { position:fixed; top:6px; right:8px; z-index:99; font-size:9.5px; color:var(--dim);
-         background:var(--panel); border:var(--stroke) solid var(--line); border-radius:999px;
-         padding:1px 8px; }
+  /* tables */
+  table.diag { width: 100%; border-collapse: collapse; font: 400 10px/1.4 var(--font-sans); }
+  table.diag th { text-align: left; font: 700 8.5px/1.2 var(--font-sans); letter-spacing: .1em; color: var(--t2); padding: 3px 6px; border-bottom: var(--stroke-ink) solid var(--ink); }
+  table.diag td { padding: 4px 6px; border-bottom: 1px dashed var(--div); vertical-align: top; }
+  table.diag td.n { font: 400 10px/1.4 var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  table.diag td.n b { color: var(--value-ink); font-weight: 600; }
+  table.diag tr.heavy td { background: var(--caution-bg); color: var(--caution-tx); }
+  .bar { display: inline-block; height: 7px; border-radius: 2px; background: var(--ink); vertical-align: middle; margin-right: 6px; }
+  tr.heavy .bar { background: var(--caution); }
+  /* FIDELITY TABLE. A pass is an analyser's reading (--meter edge); a FAIL is a finding (--caution: it needs a human's eye,
+     not an alarm); a BLIND control is the one real ALARM — the check could not see the fault it exists for. */
+  .fidwrap { overflow-x: auto; }
+  table.fid { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 3px; font: 400 9.5px/1.3 var(--font-mono); }
+  table.fid col.tn { width: 128px; }
+  table.fid th { text-align: left; font: 700 8.5px/1.2 var(--font-sans); letter-spacing: .08em; color: var(--t2); padding: 3px 5px; vertical-align: bottom; }
+  table.fid th small { display: block; font: 400 8.5px/1.3 var(--font-sans); color: var(--hint); letter-spacing: 0; margin-top: 2px; }
+  table.fid td { padding: 3px 5px; border: var(--stroke-sub) solid var(--ink); border-radius: var(--radius-meter); vertical-align: top; font-variant-numeric: tabular-nums; background: var(--panel); }
+  table.fid td.tname { border: 0; background: none; font: 800 10px/1.3 var(--font-sans); letter-spacing: .04em; white-space: nowrap; }
+  table.fid td.tname span { display: block; font: 400 8.5px/1.3 var(--font-mono); color: var(--hint); }
+  table.fid td b { font: 700 9px/1.3 var(--font-sans); letter-spacing: .1em; }
+  table.fid td.pass { border-left: 4px solid var(--meter); }
+  table.fid td.fail { background: var(--caution-bg); color: var(--caution-tx); border-left: 4px solid var(--caution); }
+  table.fid td.blind { outline: 2.5px solid var(--alarm); }
+  table.fid td.pend { color: var(--hint); border-style: dashed; }
+  table.fid th.rep, table.fid td.rep { background: none; border-style: dotted; }
+  table.fid td.rep b { color: var(--value-ink); letter-spacing: 0; }
+  table.fid td .v { display: block; overflow-wrap: anywhere; }
+  table.fid td .c { display: block; font-size: 8px; color: var(--hint); overflow-wrap: anywhere; }
+  table.fid td .held { display: block; font-size: 8px; font-weight: 700; margin-top: 2px; overflow-wrap: anywhere; }
+  table.fid td.tname span.heldtag { color: var(--caution-tx); font-weight: 700; }
+  .findings { columns: 2 380px; column-gap: 22px; font: 400 10px/1.5 var(--font-sans); color: var(--t2); }
+  .findings div { break-inside: avoid; margin-bottom: 5px; }
+  .findings .held { font-weight: 700; }
+  .qa { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px 18px; }
+  .qa div { font: 400 10px/1.55 var(--font-sans); color: var(--t2); }
+  .qa div .q { display: block; font: 800 9.5px/1.3 var(--font-sans); letter-spacing: .08em; color: var(--value-ink); margin-bottom: 2px; text-transform: uppercase; }
+  .qa div .law { display: block; margin-top: 4px; }
+  .rev { position: fixed; top: 6px; right: 8px; z-index: 99; font: 400 9px/1.4 var(--font-mono); color: var(--hint); background: var(--panel); border: var(--stroke-sub) solid var(--ink); border-radius: var(--radius-capsule); padding: 1px 8px; }
 </style></head><body>
 <div class="rev" title="file mtime and a fingerprint of the page's code, both read at load — if the fingerprint does not change after a reload you are on a cached copy (hard-reload).">rev <span id="revdate">…</span> · fp <span id="revfp">…</span></div>
+<div class="lab-col">
+  <header class="lab-bar">
+    <span class="hd-cluster">horde · filter lab</span><span class="lab-tag">ROUND 3</span><span class="lab-tag">B566</span><span class="lab-tag">X13</span><span class="lab-tag">B303</span><span class="lab-tag">B288</span>
+    <span class="lab-grow"></span>
+    <button class="hd-btn" id="pwr" type="button" aria-pressed="false">POWER</button>
+    <button class="hd-btn" id="demoBtn" type="button" aria-pressed="false">DEMO ▶</button>
+    <span class="master"><span class="hd-label">Master</span><input id="master" type="range" min="0" max="1" step="0.005" value="0.7"><output id="masterOut" class="hd-value"></output></span>
+    <button class="hd-btn" id="themeBtn" type="button" aria-pressed="false">Dark</button>
+    <button class="hd-btn panic" id="panic" type="button">PANIC</button>
+  </header>
+  <div class="tagline">horde 2's filter page as one GUI 3 window: <b>two filters per voice</b>, each of the four sources (two Scalpels, the Sub, the Noise) routed into
+    <b>A</b>, <b>B</b>, <b>both</b> or <b>neither</b>, the pair <b>serial</b> or <b>parallel</b> (spec X13, built until ruled), the mono sub through its own slot (SN-7).
+    Keytrack follows the voice's sounding pitch; <b>R tracking</b> (PROPOSED) moves a cutoff with a Scalpel's phase alignment; the combs are keytracked by default (B288).
+    Every type carries its <b>Release C++ cost</b> for 16 voices × 2 filters, and a <b>listening batch</b> of eleven A/B items waits below the window. POWER, then hold a chord
+    (A..L, Z/X octave) or press DEMO (space). Drag in the signal path: across = cutoff, up = resonance (⌥/alt + wheel nudges resonance; a plain wheel only scrolls, B301).</div>
+  <p class="hd-msg lab-status" id="dsStat">design system: loading…</p>
+  <p class="hd-msg lab-status" id="refStat">reference: loading…</p>
+  <p class="hd-msg lab-status" id="fidStat">fidelity: queued…</p>
 
-<div class="hdr">
-  <div>
-    <h1>filters</h1>
-    <div class="badges">
-      <span class="badge">LAB · B209 + B274</span>
-      <span class="sub">TWELVE TYPES · A FIDELITY PROGRAMME · ONE SIGNAL PATH</span>
+  <div class="hd-window win" id="win" aria-label="horde window: the filter page (lab)">
+    <div class="chrome">
+      <div class="logo-slot" title="The locked logo goes here at 91 x 60; the lab does not redraw it">logo<br>91 × 60</div>
+      <span class="hd-cluster">Filters</span><span class="lab-tag">PER VOICE · THE SLOT (RC-1)</span>
+      <span class="lab-grow"></span>
+      <span class="hd-label">A · B are</span><span class="hd-pills" id="topoPills" role="radiogroup" aria-label="Serial or parallel"></span>
+    </div>
+    <div class="fp">
+      <div class="fp-left">
+        <section class="lab-panel" aria-label="Sources">
+          <span class="hd-cluster">Sources</span>
+          <div class="srcs" id="srcRows"></div>
+          <p class="hd-note">Stand-ins, not the engines: saw stacks for the Scalpels, a sine sub, white noise from each voice's own seed.</p>
+        </section>
+        <section class="lab-panel" aria-label="Routing">
+          <div class="lab-bar"><span class="hd-cluster">Routing</span><span class="lab-tag prop">PROPOSED COMPONENT</span></div>
+          <div class="rmx" id="rmx"></div>
+          <p class="hd-note" id="rmxNote"></p>
+        </section>
+        <section class="lab-panel" aria-label="Filter envelope">
+          <span class="hd-cluster">Filter env</span>
+          <canvas id="envC"></canvas><div id="envRows"></div>
+        </section>
+      </div>
+      <div class="fp-right">
+        <div class="fcards" id="fcards"></div>
+        <canvas id="pathC" aria-label="The voice's signal path: every filter drawn once"></canvas>
+        <div class="row3">
+          <div><canvas id="scopeC"></canvas><p class="hd-msg" id="audioStat">AUDIO — OFF</p></div>
+          <div id="kbd"></div>
+        </div>
+      </div>
     </div>
   </div>
-  <div class="hdrctl">
-    <div class="grp"><span class="lbl">PLACEMENT</span><div class="pills" id="placePills"></div></div>
-    <button class="pill" id="demoBtn">DEMO ▶</button>
-    <div class="grp"><span class="lbl">MASTER</span>
-      <input id="master" type="range" min="0" max="1" step="0.005" value="0.7" style="width:100px">
-      <output id="masterOut" style="font-size:10px;width:30px;text-align:right"></output></div>
-    <button class="pill" id="pwr">POWER</button>
-    <button class="chip" id="themeBtn">theme</button>
-    <button class="pill panic" id="panic">PANIC</button>
-  </div>
+
+  <section class="lab-panel" id="batchCard" aria-label="Listening batch">
+    <div class="lab-bar"><span class="hd-cluster">Listening batch</span><span class="lab-tag">B566 · FOR YOUR EARS</span><span class="lab-grow"></span>
+      <button class="hd-btn" id="batchStop" type="button">STOP</button></div>
+    <p class="note">Eleven A/B pairs (the cap is twelve), each rendered from this page's own core, offline and seeded, so every play is the same sound. <b>A</b> and
+      <b>B</b> are level-matched by RMS unless the item says otherwise, and the louder side of each pair peaks at <b>−6 dBFS</b>; nothing plays until you click. Listen
+      for the line under each title; the numbers under it are the rendered peaks and the matching gains.</p>
+    <div class="batch" id="batch"></div>
+  </section>
+
+  <section class="lab-panel" id="costCard" aria-label="Per-note cost">
+    <div class="lab-bar"><span class="hd-cluster">Per-note cost — Release C++, 16 voices × 2 filters, 48 kHz</span><span class="lab-tag">B303</span></div>
+    <div class="note" id="costNote"></div>
+    <table class="diag" id="costT"></table>
+    <div class="note" id="perNote"></div>
+  </section>
+
+  <section class="lab-panel" id="trackCard" aria-label="Keytrack and R tracking">
+    <div class="lab-bar"><span class="hd-cluster">Keytrack and R tracking</span><span class="lab-tag prop">R TRACKING PROPOSED</span></div>
+    <div class="note" id="trackNote"></div>
+  </section>
+
+  <section class="lab-panel" id="rackCard" aria-label="Rack comparison">
+    <div class="lab-bar"><span class="hd-cluster">Round 1's comparison — one filter on the sum</span><span class="lab-tag">B209</span><span class="lab-grow"></span>
+      <span class="hd-pills" id="placePills" role="radiogroup" aria-label="Placement"></span></div>
+    <div class="note">horde 2 filters per voice, in the slot (RC-1). Round 1 asked where a filter should sit, and its RACK filter (one instance on the sum) is kept so the
+      difference stays audible: <b>SLOT ONLY</b> is horde 2; <b>RACK ONLY</b> and <b>SLOT + RACK</b> add the one filter after the voices, edited here. The FX rack's own
+      filter module is out of this lab (fxfilter).</div>
+    <div id="rackInsp" class="fallback"></div>
+  </section>
+
+  <section class="lab-panel" id="fidCard" aria-label="Fidelity programme">
+    <span class="hd-cluster">Fidelity programme — seven checks × every type, each with a must-fail control</span>
+    <div class="note">Stated as checks, not taste. Every cell is a measurement on the type's own running DSP (48 kHz, fresh instance, seeded input) against a tolerance
+      written in the column head, and every column carries a <b>control</b> — a planted fault or a known-bad signal that the check MUST fail (its reading is the small
+      second line). A control that passes would mean the check is blind; it is drawn with a red outline and counts as an error. A <b>FAIL</b> is a finding about the type,
+      reported as it is — never met by loosening a tolerance. The same code runs headless in <code>tools/labharness/filter_fidelity_check.mjs</code> (wired into
+      <code>./verify fast</code>), which also pins today's verdicts. <b>B290 re-cut four checks</b> (ruled 2026-09-26): C3's level is relative to the unfiltered
+      source; C4 gates at the plugin's real mod tick (≈ 172 Hz) and <b>C4b</b> reports the fastest modulation each type survives; C5 judges the nominal drive 0.3 and
+      <b>COST</b> is reported beside it; C6 measures two geometries, fixed and keytracked. The last two columns are REPORTS, never gated. Round 3 changed no type, so
+      no verdict moved.</div>
+    <div class="fidwrap"><table class="fid" id="fidT"></table></div>
+    <div class="findings" id="fidFind"></div>
+  </section>
+
+  <section class="lab-panel" id="manCard" aria-label="Manifest">
+    <span class="hd-cluster">Manifest — anti-aliasing, cost and maximum modulation rate, per type (B290)</span>
+    <div class="note">One line per type: the anti-aliasing each nonlinear type carries, its C5 reading at the nominal drive, its <b>cost</b> relative to SVF 12 LP timed in
+      this browser (the Release C++ figures are the per-note cost card's), and its <b>maximum viable modulation rate</b> (C4b), the filter's manifest value (B275).</div>
+    <table class="diag" id="manT"></table>
+  </section>
+
+  <section class="lab-panel" id="aaCard" aria-label="ADAA evaluation">
+    <span class="hd-cluster">ADAA first — every anti-aliasing option for LADDER and MS-20, through the same checks</span>
+    <div class="note">The human asked whether antiderivative anti-aliasing could reduce the need for oversampling, so each option runs through C5 (at the nominal drive;
+      full drive is reported beside it) and through the checks ADAA's half-sample delay threatens: C1 and C2 (the small-signal filter) and C3 (self-oscillation's pitch),
+      plus C7 for DC. <b>ADAA ON THE WHOLE tanh</b> breaks the zero-delay solve (C1). <b>ADAA ON THE RESIDUAL</b> tanh − identity keeps the linear filter exact, but its
+      delay detunes self-oscillation (C3), and the <b>CENTRED</b> window that removes the delay gives back most of the suppression. The chosen option is the cheapest that
+      passes every check. Measured live, one option per frame, after the table above.</div>
+    <table class="diag" id="aaT"></table>
+    <div class="note" id="aaNote">Queued behind the fidelity table…</div>
+  </section>
+
+  <section class="lab-panel" id="typesCard" aria-label="The types">
+    <span class="hd-cluster">The types — and why each is on the menu</span>
+    <div class="note">One interface for all of them (<code>TYPES</code> in the DSP section): <code>make()</code> an instance with <code>set(sr, P)</code> at control rate
+      and <code>tick(x)</code> per sample, <code>H(f)</code> its analytic small-signal response (what the curve draws and C1 checks), and <code>claim(P)</code> — where its
+      cutoff and resonance knobs say the landmark is (what C2 checks). P is the same six knobs for every type: cutoff, modulation (octaves), resonance, drive, morph,
+      mode; a type ghosts the knobs it does not read.</div>
+    <div class="qa" id="typeList"></div>
+  </section>
+
+  <section class="lab-panel" id="propCard" aria-label="Swarm bank proposals">
+    <span class="hd-cluster">Proposed changes to the swarm bank's law — beside reference/swarmfilter.html</span>
+    <div class="note">The rack's <b>SWARM · REF</b> type is the reference's own code, unmodified. <b>SWARM · PROPOSED</b> is the same code plus the switches in its editor
+      (P4 added by B287), each a spec change for the human, auditioned here and made nowhere else. The bank is rack-only (16 resonators and a physics tick): it is not a
+      per-note candidate. Numbers are measured on fresh instances of the reference class (48 kHz, current bands/spread/placement, K = 0, drift 0).</div>
+    <table class="diag">
+      <tr><th>#</th><th>WHAT THE REFERENCE DOES</th><th>PROPOSED</th><th>REFERENCE</th><th>PROPOSED</th></tr>
+      <tr><td>P1</td><td><b>Resonance is a volume knob.</b> N unity-gain bandpasses summed capture less power as they narrow, so the whole curve sinks as <code>qbase</code>
+        rises (reference :369-374). Shown: peak level swing across qbase 0.1 / 0.5 / 0.9.</td>
+        <td>Q compensation — scale the bank sum by √(Q<sub>eff</sub> / Q<sub>mid</sub>), Q<sub>mid</sub> = the reference's default 2·√20, so the default is untouched and
+        the knob stops moving the level.</td><td class="n" id="dP1r">—</td><td class="n" id="dP1p">—</td></tr>
+      <tr><td>P2</td><td><b>No low end.</b> A sum of bandpasses has no DC path: anything below the lowest band is simply gone. Shown: how far 40 Hz sits below the curve's
+        peak.</td><td>LF keep — add back the input through a one-pole low-pass cornered at the lowest band.</td><td class="n" id="dP2r">—</td><td class="n" id="dP2p">—</td></tr>
+      <tr><td>P3</td><td><b>Modulation arrives as a slow glide.</b> Moving <code>center</code> re-places the bands' HOME; the bands then follow on the home spring
+        F = 1.5·(home − v) (reference :276), ≈ 0.67 s time constant, and every <code>center</code> write re-seeds the RNG (:210). Shown: time for the bank's mean to cover
+        90 % of a one-octave <code>center</code> step. <b>Note for the ruling:</b> <code>src/filter_core.h:78-88</code> <code>rebuild()</code> snaps <code>v = tHome</code>
+        on every structural write — the port jumps where this oracle glides (read from source, not measured here).</td>
+        <td>Rigid modulation — keytrack and env TRANSPOSE the whole bank at coefficient time (v + Δ); the physics keeps running in unmodulated coordinates.</td>
+        <td class="n" id="dP3r">—</td><td class="n" id="dP3p">—</td></tr>
+      <tr><td>P4</td><td><b>The bank cannot reach the ends of the range</b> (B287, C2): homes clipped to [40 Hz, 11 kHz] (:240), bands to 5.32…13.42 log2 Hz (:303-304),
+        coefficients to 0.24·fs (:327), ERB placement floored at ERB 1 (:234). Shown: where the centre lands for a 55 Hz and a 12 kHz knob.</td>
+        <td>Range — the SVF core's own range, [10 Hz, 0.49·fs]; the placement FITTED, not clipped; the physics in a frame that keeps the reference's band clamp out of
+        reach.</td><td class="n" id="dP4r">—</td><td class="n" id="dP4p">—</td></tr>
+    </table>
+    <div class="note" id="propNote">Diagnostics need the reference; they fill in when it loads.</div>
+  </section>
+
+  <section class="lab-panel" aria-label="Questions for the human">
+    <div class="lab-bar"><span class="hd-cluster">What the lab answers — and what is left for you</span><span class="lab-tag prop">FOR YOUR RULING</span></div>
+    <div class="qa" id="qaList"></div>
+  </section>
 </div>
-
-<div class="tagline">Every filter is drawn <b>once</b>, in the signal path below, as a box holding its own response curve —
-drag inside a box: across = cutoff, up = resonance (⌥/alt + wheel nudges resonance; a plain wheel only scrolls, B301); click a box to edit it on the right. Sources plug <b>straight
-in</b>: click a source's jack (or its pills) to move its cable. Filters A and B are either <b>SERIAL</b> — one line through
-two boxes — or <b>PARALLEL</b> — a split into two branches that sum. <b>PLACEMENT</b> still decides which filters are in
-force: A and B run per voice before the mix, the RACK filter runs once on the sum. POWER, then hold a chord (A..L, Z/X
-octave) or press <b>DEMO</b> (space); 1 / 2 / 3 flip placement. <b>Violet</b> is what a filter is doing on its own right now;
-<b>magenta</b> is what you set; <b>cyan</b> is the spectrum out, over the dimmed spectrum in. Every type is measured at load
-by the fidelity programme at the bottom of the page.</div>
-<div class="audit" id="refStat">reference: loading…</div>
-<div class="audit" id="fidStat">fidelity: queued…</div>
-
-<div class="pathgrid">
-  <div class="cluster" id="pathCard"><h2>Signal path — each filter drawn once, sources plugged straight in</h2>
-    <canvas id="pathC"></canvas>
-    <div class="arow" style="margin-top:7px"><label>A · B are</label><div class="pills" id="topoPills"></div></div>
-    <div class="plugs" id="plugRows"></div>
-    <div class="note">A cable ends where the source enters. <b>A</b> / <b>B</b>: into that filter's input — in SERIAL, a
-      source into A runs on through B (one line), and a source into B enters the line between them. <b>A+B</b>
-      (PARALLEL only): into the split, so it feeds both branches, which sum at ½Σ. <b>MIX</b>: straight onto the mix
-      bus Σ, past A and B, into the rack filter. <b>DRY</b>: around everything, straight to OUT. A filter out of the
-      current placement is drawn dashed and passes its input through; the violet count on A and B is how many
-      <b>per-voice instances</b> are running.</div>
-  </div>
-  <div class="cluster" id="inspCard"><h2>Edit</h2><div id="insp"></div></div>
-</div>
-
-<div class="lower">
-  <div class="cluster"><h2>Sources</h2><div id="srcRows"></div>
-    <div class="note">The lab's own stand-ins — polyBLEP saw stacks and a sine — not the engines. They exist so the
-      three sources play <b>different pitches</b> (SWARM 2 an octave up, the SUB an octave down), which is what makes
-      "keytrack from which note?" a real question.</div></div>
-  <div class="cluster"><h2>Filter envelope</h2>
-    <canvas id="envC"></canvas><div id="envRows"></div>
-    <div class="note">One envelope shape (B81: a DEDICATED filter env). Per voice, every note runs its own copy
-      (violet dots). The rack has ONE copy (violet ring), re-triggered by every note-on and released only when all
-      keys are up — the classic mono-filter behaviour, and the audible heart of the placement difference.</div></div>
-  <div class="cluster"><h2>Play</h2>
-    <canvas id="scopeC"></canvas>
-    <div class="cap" id="audioStat">AUDIO — OFF</div>
-    <div id="kbd"></div>
-    <div class="note">Keys <b>A</b>..<b>L</b> (W/E/T/Y/U/O black), <b>Z</b>/<b>X</b> octave, <b>space</b> demo,
-      <b>1/2/3</b> placement, <b>Esc</b> panic. DEMO is a seeded two-bar pattern — a held bass under short stabs —
-      counted in samples, so every run is identical and the placements can be compared by ear.</div></div>
-</div>
-
-<div class="cluster full" id="fidCard">
-  <h2>Fidelity programme — seven checks × every type, each with a must-fail control</h2>
-  <div class="note" style="margin-top:0">Stated as checks, not taste. Every cell is a measurement on the type's own
-    running DSP (48 kHz, fresh instance, seeded input) against a tolerance written in the column head, and every
-    column carries a <b>control</b> — a planted fault or a known-bad signal that the check MUST fail (its reading is the
-    small second line). A control that passes would mean the check is blind; it is drawn with a red outline and counts
-    as an error. A <b>FAIL</b> is a finding about the type, reported as it is — never met by loosening a tolerance. The
-    same code runs headless in <code>tools/labharness/filter_fidelity_check.mjs</code> (wired into
-    <code>./verify fast</code>), which also pins today's verdicts, so a type that starts or stops passing is a
-    deliberate, reviewed change. Hover a cell for its numbers.
-    <b>B290 re-cut four checks</b> (ruled 2026-09-26, "ratified for all tolerances"): C3's level is now relative to
-    the unfiltered source; C4 gates at the plugin's real mod tick (≈ 172 Hz) and <b>C4b</b> reports the fastest
-    modulation each type survives; C5 judges a stated nominal drive (0.3, the knob default) and <b>COST</b> is
-    reported beside it; C6 measures two geometries, fixed and keytracked. The last two columns are REPORTS, never
-    gated.</div>
-  <div class="fidwrap"><table class="fid" id="fidT"></table></div>
-  <div class="findings" id="fidFind"></div>
-</div>
-
-<div class="cluster full" id="manCard">
-  <h2>Manifest — anti-aliasing, cost and maximum modulation rate, per type (B290)</h2>
-  <div class="note" style="margin-top:0">One line per type: the anti-aliasing each nonlinear type carries (chosen from the
-    evaluation below), its C5 reading at the nominal drive, its <b>cost</b> — time per sample of a running instance
-    relative to SVF 12 LP, the median of seven runs, timed in this browser (the harness times the same code in node)
-    — and its <b>maximum viable modulation rate</b> (C4b): the fastest per-sample modulation at which every slower
-    rate still meets C4's bounds. That rate is the filter's manifest value (B275).</div>
-  <table class="diag" id="manT"></table>
-</div>
-
-<div class="cluster full" id="aaCard">
-  <h2>ADAA first — every anti-aliasing option for LADDER and MS-20, through the same checks</h2>
-  <div class="note" style="margin-top:0">The human asked whether antiderivative anti-aliasing could reduce the need for
-    oversampling, so each option runs through C5 (at the nominal drive; full drive is reported beside it) and through
-    the checks ADAA's half-sample delay threatens: C1 and C2 (the small-signal filter) and C3 (self-oscillation's
-    pitch), plus C7 for DC. <b>ADAA ON THE WHOLE tanh</b> breaks the zero-delay solve (C1). <b>ADAA ON THE RESIDUAL</b>
-    tanh − identity keeps the linear filter exact, but its delay detunes self-oscillation (C3), and the
-    <b>CENTRED</b> window that removes the delay gives back most of the suppression. The chosen option is the
-    cheapest that passes every check. Measured live, one option per frame, after the table above.</div>
-  <table class="diag" id="aaT"></table>
-  <div class="note" id="aaNote">Queued behind the fidelity table…</div>
-</div>
-
-<div class="cluster full" id="typesCard"><h2>The types — and why each is on the menu</h2>
-  <div class="note" style="margin-top:0">One interface for all of them (<code>TYPES</code> in the DSP section):
-    <code>make()</code> an instance with <code>set(sr, P)</code> at control rate and <code>tick(x)</code> per sample,
-    <code>H(f)</code> its analytic small-signal response (what the curve draws and C1 checks), and <code>claim(P)</code> —
-    where its cutoff and resonance knobs say the landmark is (what C2 checks). P is the same six knobs for every type:
-    cutoff, modulation (octaves), resonance, drive, morph, mode; a type ghosts the knobs it does not read.</div>
-  <div class="qa" id="typeList" style="margin-top:8px"></div>
-</div>
-
-<div class="cluster full" id="propCard">
-  <h2>Proposed changes to the swarm bank's law — beside <code>reference/swarmfilter.html</code></h2>
-  <div class="note" style="margin-top:0">The rack's <b>SWARM · REF</b> type is the reference's own code, unmodified.
-    <b>SWARM · PROPOSED</b> is the same code plus the switches in its editor (P4 added by B287), each marked <span class="prop">PROPOSED</span>:
-    a spec change for the human to rule on, auditioned here and made nowhere else. While PROPOSED plays, a shadow
-    copy of the reference runs beside it under the same notes and is drawn as the <b>dashed ghost</b> in the rack
-    box, so the two are compared live, not from memory. Numbers below are measured on fresh instances of the
-    reference class (48 kHz, current bands/spread/placement, K = 0, drift 0), analytically for the curves and by
-    running its own <code>controlTick()</code> for the timing. The fidelity table's two SWARM rows measure both laws
-    through the same seven checks.</div>
-  <table class="diag">
-    <tr><th>#</th><th>WHAT THE REFERENCE DOES</th><th>PROPOSED</th><th>REFERENCE</th><th>PROPOSED</th></tr>
-    <tr><td>P1</td><td><b>Resonance is a volume knob.</b> N unity-gain bandpasses summed capture less power as they
-      narrow, so the whole curve sinks as <code>qbase</code> rises (reference :369-374). Shown: peak level swing
-      across qbase 0.1 / 0.5 / 0.9.</td>
-      <td>Q compensation — scale the bank sum by √(Q<sub>eff</sub> / Q<sub>mid</sub>), Q<sub>mid</sub> = the reference's
-      default 2·√20, so the default is untouched and the knob stops moving the level.</td>
-      <td class="n" id="dP1r">—</td><td class="n" id="dP1p">—</td></tr>
-    <tr><td>P2</td><td><b>No low end.</b> A sum of bandpasses has no DC path: anything below the lowest band is
-      simply gone. Shown: how far 40 Hz sits below the curve's peak.</td>
-      <td>LF keep — add back the input through a one-pole low-pass cornered at the lowest band.</td>
-      <td class="n" id="dP2r">—</td><td class="n" id="dP2p">—</td></tr>
-    <tr><td>P3</td><td><b>Modulation arrives as a slow glide.</b> Moving <code>center</code> re-places the bands'
-      HOME; the bands then follow on the home spring F = 1.5·(home − v) (reference :276), ≈ 0.67 s time constant.
-      A filter-env pluck or a keytrack jump on the bank is therefore a glide. Second cost, measured in the B209
-      trace: every <code>center</code> write runs <code>rebuild()</code>, which re-seeds the RNG (:210), so under
-      tick-rate modulation the drift's random walk collapses into a constant push (per-tick noise sd 1.6e-3 held,
-      1e-16 modulated). Shown: time for the bank's mean to cover 90 % of a one-octave <code>center</code> step.
-      <br><b>Note for the ruling:</b> <code>src/filter_core.h:78-88</code> <code>rebuild()</code> snaps
-      <code>v = tHome</code> on EVERY structural write, <code>center</code> included — the port jumps where
-      this oracle glides. <code>filter_check</code>'s goldens set params only before rendering
-      (<code>gen_filter_goldens.mjs:41-42</code>), so the parity gate cannot see it. Read from source, not
-      measured here.</td>
-      <td>Rigid modulation — keytrack and env TRANSPOSE the whole bank at coefficient time (v + Δ); the physics keeps
-      running in unmodulated coordinates, so the swarm's own motion and the modulation stop fighting.</td>
-      <td class="n" id="dP3r">—</td><td class="n" id="dP3p">—</td></tr>
-    <tr><td>P4</td><td><b>The bank cannot reach the ends of the range</b> (B287, fidelity C2). Band homes are clipped to
-      [40 Hz, 11 kHz] (reference :240), the bands to 5.32…13.42 log2 Hz (:303-304), the coefficients to 0.24·fs
-      (:327), and the ERB placement floors at ERB 1 (:234): near either end the bands pile on the clamp and the
-      bank's centre stops following the knob. Shown: where the centre lands for a 55 Hz and a 12 kHz knob.</td>
-      <td>Range — the SVF core's own range, [10 Hz, 0.49·fs]; the placement FITTED, not clipped (the spread
-      contracts about the centre where it would cross an end, so the centre stays on the knob); the physics run in
-      a frame that keeps the reference's own band clamp out of reach.</td>
-      <td class="n" id="dP4r">—</td><td class="n" id="dP4p">—</td></tr>
-  </table>
-  <div class="note" id="propNote">Diagnostics need the reference; they fill in when it loads.</div>
-</div>
-
-<div class="cluster full"><h2>What the lab answers — and what is left for the human</h2>
-  <div class="qa">
-    <div><span class="q">Q1 · WHERE DOES THE FILTER SIT?</span>Hear DEMO in each placement. <b>Per source</b>: each
-      stab plucks on its own envelope while the held bass keeps its own, untouched; chords voice evenly because every
-      note's cutoff follows that note. <b>Rack</b>: one envelope, re-fired by every stab, so the held bass
-      <i>wah</i>s along with the melody — a pumping, glued, mono-synth character. <b>Both</b>: the per-voice pair does
-      the tone, the rack slot does the motion (the plan of record — B81 per voice, B50 folds the E1 bank into the
-      rack). The lab's lean is BOTH, but the choice of default placement for a new patch is yours.</div>
-    <div><span class="q">Q2 · DOES THE SUB GET ITS OWN FILTER?</span>The lab says <b>no third filter</b>. The sub's cable
-      defaults to <b>MIX</b> (past A and B, into the rack) and one click sends it <b>DRY</b> — around everything — so
-      "the sub stays clean" is one cable. If a sub needs shaping it can plug into A or B. A dedicated third per-voice
-      filter would be a new parameter block to earn with a named patch the pair cannot express.</div>
-    <div><span class="q">Q3 · SHARED FILTER vs PER-SOURCE MATRIX</span>B81's pair (sources <i>share</i> A) collides
-      with B23 increment 3 (the matrix wants each source <i>separately</i>). The lab still shares the <b>settings</b>
-      and instances the <b>state</b> per source — exact for a linear filter (Σ filtered = filtered Σ, measured
-      5.55e-16 in round 1). Round 2 makes the caveat concrete: LADDER and MS-20 have a tanh in the loop, and with
-      drive up per-source instancing is no longer the same as filtering the sum. Ruling owed.</div>
-    <div><span class="q">Q4 · KEYTRACK — FROM WHICH NOTE?</span>Per voice the answer is local: each voice tracks
-      its own note, and the only choice is <b>PLAYED KEY</b> or <b>SOURCE PITCH</b>. On the rack there is one cutoff,
-      so the note is a policy: <b>LAST</b>, <b>LOWEST</b> or <b>HIGHEST</b>, each held when keys lift. COMB + / COMB −
-      make this sharper than before: their cutoff IS a pitch, so a rack comb keytracked to LAST re-tunes the whole
-      mix to the melody.</div>
-    <div><span class="q">Q5 · SERIAL / PARALLEL — NOW A PICTURE, AND A CHOICE</span>Round 1 applied serial/parallel per
-      source. Drawing SERIAL as one line through two boxes makes it <b>global</b> (Serum's shape): a source into A runs
-      on through B, and "A only" exists in PARALLEL (or with B set to a flat type). A source may still enter the line
-      at B. Is the global serial line the instrument horde wants, or should serial stay per source?</div>
-    <div><span class="q">Q6 · WHICH FINDINGS SHOULD BE FIXED? — B287 PHASE A DONE</span>Round 2 found 17 FAILs; the human
-      ruled "fix all failures". <b>Fixed</b> (phase A): <b>level</b> (C6) — SVF 12 BP/HP, SVF 24 BP/HP/PEAK, the ladder
-      and the formant now carry a stated compensation law (each type's LEVEL LAW, in the types card); the ladder's
-      <b>self-oscillation</b> (C3) — its 6.7 ¢ was start-up, not tuning: k now climbs to 4·1.05⁴ over the top of the
-      knob, so it blooms at the MS-20's rate; <b>COMB</b> (C2) — Lagrange, not linear, delay read; <b>SWARM · PROPOSED</b>
-      (C2) — P4 range. <b>Held, with numbers</b>: COMB ± C6 — compensating trades the keytracked comb's level (its
-      LEVEL LAW says by how much); <b>SWARM · REF</b> C2 and C6 — properties of the protected reference, pinned
-      (PROPOSED carries P1 and P4). <b>Phase B</b>, under B290's ruled tolerances: <b>aliasing</b> (C5, now at the
-      nominal drive 0.3) — the LADDER runs 2× oversampled (−35.9 → −64.7 dBc), the MS-20 runs centred first-order
-      ADAA with no oversampling (−55.3 → −61.3 dBc, marginal: see the ADAA card); <b>PHASER</b> (C4, now at the real
-      mod tick) — its all-pass chain is a normalised lattice, same response, and it holds C4's bounds at every rate
-      to 22 kHz; ALL-PASS ×4 passes the tick gate either way. <b>New, from the keytracked C6 geometry</b>: SVF 12 and
-      SVF 24 LP/BP/HP/PEAK, LADDER, MS-20, PHASER and SWARM · PROPOSED now FAIL C6, each REFUSED with its law room —
-      where the two geometries disagree by more than 12 dB no resonance law can pass both (SVF LP and PEAK, the
-      ladder, the MS-20, COMB +, PROPOSED); elsewhere only a law fitted between them could. Every scalar level law
-      assumes where the source's energy sits, and the two geometries sit it in different places: whether C6 should
-      demand both is the open question these numbers put to the human.</div>
-  </div>
-</div>
-
+<script src="arp-face/bundle.js"></script>
 <script>
 "use strict";
 /* ================= DSP ================= */
-/* The lab's audio core: three sources, the per-voice filter pair A/B, one rack
-   slot, a seeded demo sequencer — plus the filter TYPE registry and the FIDELITY
-   programme. Self-contained by contract — no DOM, no wall clock, mulberry32
-   only — so tools/golden/extract_core.mjs's 'design' banners (`DSP` … `UI`)
-   slice it headless: tools/labharness/filter_fidelity_check.mjs runs the
-   fidelity programme exactly that way. The swarm bank is NOT in here: its class
-   is INJECTED (the FilterLab sliced out of reference/swarmfilter.html). */
+/* The lab's audio core: horde 2's four sources (stand-ins), the per-voice filter
+   pair A/B routed as X13 builds it, the mono sub's own slot (SN-7), one rack slot
+   (round 1's comparison), a seeded demo sequencer and the LISTENING BATCH — plus
+   the filter TYPE registry and the FIDELITY programme. Self-contained by contract
+   — no DOM, no wall clock, mulberry32 only — so tools/golden/extract_core.mjs's
+   'design' banners (`DSP` … `UI`) slice it headless: tools/labharness/
+   filter_fidelity_check.mjs runs the fidelity programme, the rig, the routing and
+   the batch exactly that way. The swarm bank is NOT in here: its class is INJECTED
+   (the FilterLab sliced out of reference/swarmfilter.html). */
 const TAU = 6.283185307179586;
 const TICK = 16;                 /* control tick, samples — the house tick (SPEC §5)    */
 const MAXV = 8;                  /* lab polyphony                                        */
@@ -1778,35 +1632,88 @@ function envTick(e, gate, E, dt) {
   else if (e.stage === 1) e.lvl += (E.s - e.lvl) * (1 - Math.exp(-dt * 4.6 / Math.max(0.001, E.d)));
   else if (e.stage === 3) { e.lvl += -e.lvl * (1 - Math.exp(-dt * 4.6 / Math.max(0.001, E.r))); if (e.lvl < 1e-4) { e.lvl = 0; e.stage = 4; } }
 }
+
+/* ---- ROUND 3 (B566): horde 2's sources, X13's routing, the mono sub's own slot ------
+   SOURCES. horde 2 has four (B327, ADR-190 A6; SPEC-ENGINE 4.2): two SCALPELS, the SUB and
+   the NOISE oscillator. The lab models that SET with the stand-ins it already had, not the
+   engines: each Scalpel is round 2's polyBLEP saw stack (seeded detune, random start phases),
+   the sub a sine, the noise a white stream from the voice's own mulberry32 (SN-4: one note
+   never changes another's noise). The Scalpel stand-in has no coupling, so its R (below)
+   only follows its detuned members' beating; a real Scalpel's R also moves with coupling. */
+const NSRC = 4, SUB = 2, NOISE = 3;
+const KS_ALL = [0, 1, 2, 3], KS_NOSUB = [0, 1, 3], KS_SUB = [2];
+const midiHz = m => 440 * Math.pow(2, (m - 69) / 12);
+const KT_HZ = midiHz(KT_REF);    /* 261.63 Hz: at keytrack 100 % a cutoff of KT_HZ IS the note */
+/* KEYTRACK FROM THE SOUNDING PITCH (RC-1, IF-2). The slot is handed the voice's published
+   sounding pitch (bend, glide and gravity included, before any oscillator's transposition),
+   so every filter in a voice tracks ONE pitch. Round 2's "SOURCE PITCH" option (a source's own
+   transposition) is gone: the slot never sees a transposition, and with one instance per filter
+   per voice there is no per-source cutoff to give it. The lab has no bend or glide, so its
+   sounding pitch is the note's 12-TET pitch (v.pitch, in semitones). */
+/* R TRACKING (spec §6 deferred "per-filter cutoff tracking of R"; PROPOSED, not ruled). R is
+   the order parameter of one Scalpel's members, |(1/U)·Σ e^{i2πθⱼ}| (SPEC-ENGINE §2), read per
+   voice at the control tick from the stand-in's own phases and followed by a one-pole of
+   R_TAU_S seconds (so a tick-to-tick jitter never reaches the cutoff). Per filter: `rtrack`
+   (−1 … +1) and `rsrc` (which Scalpel). The law: oct += rtrack × R_OCT × R̂ — at R̂ = 0 nothing
+   moves, a fully locked swarm (R̂ = 1) moves the cutoff rtrack × 4 octaves, so +1 "opens as the
+   swarm locks" and −1 "darkens as it locks". Unipolar from R = 0 on purpose: a pivot (R − ½)
+   would make a free swarm (R ≈ 1/√U) close the filter, which is a second knob's job. */
+const R_OCT = 4, R_TAU_S = 0.02;
+/* B288 (human 2026-09-26: "the comb that's currently an FX slot should probably just be a filter
+   option with keytracking turned on"). Picking a comb sets keytrack to 100 % and tunes it to the
+   note: COMB + at the note itself (cutoff KT_HZ: its peaks on every harmonic of the voice's
+   pitch); COMB − at twice that (its peaks at the odd half-multiples, so 2·f0 puts them on the
+   note's odd harmonics: the same pitch, hollow). B287 measured these two as the combs' flat
+   geometries (COMB + 0.1 dB over res, COMB − 1.2 dB). The filter envelope's amount goes to 0
+   as well: a comb's cutoff is a PITCH, so an envelope on it bends the note (a choice the lab
+   makes and the report asks about). Every other type keeps its knobs. */
+function applyTypeDefaults(F, type) {
+  F.type = type; F.mode = 1;
+  if (type === 'combP') { F.ktrack = 1; F.cutoff = KT_HZ; F.env = 0; }
+  else if (type === 'combN') { F.ktrack = 1; F.cutoff = 2 * KT_HZ; F.env = 0; }
+}
+/* A filter's modulation in octaves: keytrack from the sounding pitch, the filter envelope,
+   and R tracking. */
+const octFor = (F, pitch, envLvl, R) => F.ktrack * (pitch - KT_REF) / 12 + F.env * ENV_OCT * envLvl + (F.rtrack || 0) * R_OCT * R;
+/* R of a saw stack: the mean of its members' unit phasors. */
+function orderR(ph, n) { let c = 0, s = 0; for (let i = 0; i < n; i++) { c += Math.cos(TAU * ph[i]); s += Math.sin(TAU * ph[i]); } return n ? Math.hypot(c, s) / n : 0; }
+
 /* A patch the core reads live. The page owns one; a headless caller builds one.
-   port[k] is where source k's cable ENDS: 'A' / 'B' (that filter's input), 'AB'
-   (the parallel split), 'R' (the mix bus, past A and B, into the rack) or 'OUT'
-   (dry, around everything). topo: 'par' | 'ser'. */
+   port[k] is where source k enters the voice's filter slot (X13, RC-1: "two filters per voice,
+   each source routed to either, both or neither, serial or parallel"):
+     'A' / 'B' — that filter; in SERIAL a source into A runs on through B (B274 Q5, ruled), and
+                 'B' is the + inlet between them (ratified 2026-09-26);
+     'AB'      — both: PARALLEL only, the split into both branches (in SERIAL it is 'A');
+     'N'       — neither: the source joins the voice sum unfiltered.
+   topo: 'par' | 'ser'. place: 'pre' (the slot only: horde 2), 'post' / 'both' (round 1's
+   comparison with ONE rack filter on the sum, B209 — kept for the A/B, not horde 2's page). */
 function defaultPatch() {
-  const flt = (type, mode, cutoff, res, ktrack, env) => ({ type, mode, cutoff, res, drive: 0.3, morph: 0.3, ktrack, env, ktPitch: 'key', ktRef: 'last', wet: 1 });
+  const flt = (type, mode, cutoff, res, ktrack, env) => ({ type, mode, cutoff, res, drive: 0.3, morph: 0.3, ktrack, env, rtrack: 0, rsrc: 0, ktRef: 'last', wet: 1 });
   const R = flt('svf12', 1, 650, 0.4, 0.35, 0.6);
   R.bank = Object.assign({}, FID_BANK);
   R.prop = { qcomp: 1, lfkeep: 1, rigid: 1, range: 1 };
   return {
     place: 'pre', master: 0.7, topo: 'par',
-    port: ['A', 'B', 'R'],                 /* SWARM 1 → A, SWARM 2 → B, SUB → the mix bus */
+    port: ['A', 'B', 'N', 'AB'],           /* SCALPEL 1 → A, SCALPEL 2 → B, SUB → neither, NOISE → both */
     src: [
-      { name: 'SWARM 1', lvl: 0.8, semi: 0, n: 7, det: 14, seed: 11 },
-      { name: 'SWARM 2', lvl: 0.55, semi: 12, n: 5, det: 24, seed: 23 },
-      { name: 'SUB', lvl: 0.7, semi: -12 },
+      { name: 'SCALPEL 1', on: 1, lvl: 0.8, semi: 0, n: 7, det: 14, seed: 11 },
+      { name: 'SCALPEL 2', on: 1, lvl: 0.55, semi: 12, n: 5, det: 24, seed: 23 },
+      /* mono: SN-7's mono sub (one for the instrument, on the chosen note: prio 'low' | 'high' | 'new') */
+      { name: 'SUB', on: 1, lvl: 0.7, semi: -12, mono: 0, prio: 'low' },
+      { name: 'NOISE', on: 1, lvl: 0.1, semi: 0, seed: 37 },
     ],
-    /* Defaults chosen to make the placement difference obvious rather than
-       polite: low cutoffs, a strong short envelope, so each stab visibly and
-       audibly plucks — and so does the held bass, when the envelope is shared. */
+    /* Defaults chosen to make the filters obvious rather than polite: low cutoffs, a strong
+       short envelope, so each stab visibly and audibly plucks. */
     fenv: { a: 0.003, d: 0.28, s: 0.15, r: 0.35 },
     flt: { A: flt('svf12', 1, 700, 0.5, 0.5, 0.55), B: flt('svf12', 2, 1800, 0.3, 0.4, 0.3), R },
   };
 }
-/* Does source k's cable reach filter `key`? SERIAL: into A runs on through B;
-   into B enters between them. PARALLEL: A, B, or both via the split. */
+/* Does source k reach filter `key`? SERIAL: into A (or 'AB') runs on through B; into B enters
+   between them. PARALLEL: A, B, or both via the split. */
 function routesTo(S, k, key) {
   const p = S.port[k];
-  if (S.topo === 'ser') return key === 'A' ? (p === 'A' || p === 'AB') : (p === 'A' || p === 'AB' || p === 'B');
+  if (p === 'N') return false;
+  if (S.topo === 'ser') return key === 'A' ? (p === 'A' || p === 'AB') : true;
   return p === key || p === 'AB';
 }
 
@@ -1820,24 +1727,36 @@ class FilterRig {
     /* ONE scratch parameter object, refilled every tick — the audio path allocates
        nothing per tick (instances are made at note-on and on a type change). */
     this.Pv = { cutoff: 1000, oct: 0, res: 0, drive: 0, morph: 0.5, mode: 1 };
+    this.xs = new Float64Array(NSRC);
     this.tap = {};
     for (const k of ['A', 'B', 'R']) this.tap[k] = { i: new Float32Array(TAPN), o: new Float32Array(TAPN) };
     this.tw = 0;
-    this.meter = { src: [0, 0, 0], bus: 0, rack: 0, out: 0 };
+    this.meter = { src: [0, 0, 0, 0], bus: 0, rack: 0, out: 0 };
     this.scope = new Float32Array(1024); this.si = 0; this.peak = 0;
     this.demo = false; this.demoT = 0; this.demoLive = [];
     this.acc = { iA: 0, oA: 0, iB: 0, oB: 0 };
     this.detuneEpoch = 1; this.off = [null, null];
+    /* THE MONO SUB (SN-7): one sub for the instrument, outside the voices, on the chosen held
+       note, with ITS OWN slot instance per filter (RC-1; the human 2026-10-21: "Its own filter,
+       following its note"). Its filters are handed the chosen note's voice's sounding pitch,
+       filter-envelope level and R, so they behave as that note's filters; their STATE is the
+       mono sub's own and carries over a hand-off, with no jump between voices. */
+    this.ms = { ph: 0, amp: 0, inc: 0, note: null, pitch: KT_REF, fe: 0, R: [0, 0], live: false, f: { A: null, B: null }, oct: { A: NaN, B: NaN } };
+    /* raw: no monitor tanh (the listening batch renders offline and caps its own peak). */
+    this.raw = false;
+    this.Rshow = [0, 0];
     this.setSampleRate(sr);
   }
   setSampleRate(sr) {
     this.sr = sr;
     this.cAtk = 1 - Math.exp(-1 / (ATK_S * sr)); this.cRel = 1 - Math.exp(-1 / (REL_S * sr));
     this.cMeter = 1 - Math.exp(-1 / (METER_S * sr));
+    this.cR = 1 - Math.exp(-TICK / (R_TAU_S * sr));
     this.stepLen = Math.round(sr * 60 / DEMO_BPM / 4);
     this.reseedSources();
     this.rebuildRack();
-    for (const v of this.voices) v.f = { A: [null, null, null], B: [null, null, null] };
+    for (const v of this.voices) v.f = { A: null, B: null };
+    this.ms.f = { A: null, B: null };
   }
   /* Detune offsets, one seeded gaussian per saw — drawn once per seed, never per note. */
   reseedSources() {
@@ -1881,26 +1800,33 @@ class FilterRig {
     const ph = [new Float64Array(MAXSW), new Float64Array(MAXSW), new Float64Array(1)];
     for (let k = 0; k < 2; k++) for (let i = 0; i < MAXSW; i++) ph[k][i] = rng();
     const v = {
-      note, gate: true, seq: this.seq++, amp: 0, fe: { lvl: 0, stage: 0 }, ph,
+      note, pitch: note, gate: true, seq: this.seq++, amp: 0, fe: { lvl: 0, stage: 0 }, ph,
       inc: [new Float64Array(MAXSW), new Float64Array(MAXSW), new Float64Array(1)], epoch: 0,
-      f: { A: [null, null, null], B: [null, null, null] },
-      oct: { A: [NaN, NaN, NaN], B: [NaN, NaN, NaN] },
+      nrng: mulberry32((this.S.src[NOISE].seed | 0) * 0x9E3779B1 ^ this.seq),
+      R: [0, 0], f: { A: null, B: null }, oct: { A: NaN, B: NaN },
     };
+    /* the R follower starts at the members' true R, not at 0, so a fresh note's cutoff never sweeps in */
+    for (let k = 0; k < 2; k++) v.R[k] = orderR(ph[k], this.S.src[k].n | 0);
     this.voices.push(v);
     /* Set the new voice's filters NOW, not at the next tick, so its first samples
        are filtered rather than passed through. */
     this.voiceIncs(v); this.voiceFilters(v);
+    const wasHeld = this.held.length > 0;
     this.held = this.held.filter(n => n !== note); this.held.push(note);
     this.pickKt(note);
     this.renv.stage = 0;                   /* the rack's ONE env re-fires on every note */
-    for (const b of [this.rInst, this.shadow]) if (b && b.b) b.b.noteOn(note, 440 * Math.pow(2, (note - 69) / 12));
+    for (const b of [this.rInst, this.shadow]) if (b && b.b) b.b.noteOn(note, midiHz(note));
+    /* SN-7's fresh start: a note gated with none gated before, and the mono sub's envelope
+       ended — phase from 0, every state (its filters included) reset. */
+    if (!wasHeld && this.ms.amp < 1e-4) { this.ms.ph = 0; this.ms.f = { A: null, B: null }; this.ms.live = false; }
+    this.monoSub(true);
   }
   noteOff(note) {
     for (const v of this.voices) if (v.note === note) v.gate = false;
     this.held = this.held.filter(n => n !== note);
     if (this.held.length) this.pickKt(null);
   }
-  panic() { this.voices.length = 0; this.held.length = 0; this.demo = false; this.demoLive.length = 0; this.renv.stage = 4; this.renv.lvl = 0; }
+  panic() { this.voices.length = 0; this.held.length = 0; this.demo = false; this.demoLive.length = 0; this.renv.stage = 4; this.renv.lvl = 0; this.ms.amp = 0; this.ms.live = false; }
   /* The rack has one cutoff, so keytracking must CHOOSE a note. With no key held
      the last choice stands, so the cutoff never jumps on release. */
   pickKt(newNote) {
@@ -1926,29 +1852,47 @@ class FilterRig {
   }
   /* ---- control tick ------------------------------------------------------- */
   voiceIncs(v) {
-    const S = this.S, sr = this.sr, f = 440 * Math.pow(2, (v.note - 69) / 12);
+    const S = this.S, sr = this.sr, f = midiHz(v.pitch);
     for (let k = 0; k < 2; k++) {
       const s = S.src[k], base = f * Math.pow(2, s.semi / 12);
       for (let i = 0; i < MAXSW; i++) v.inc[k][i] = Math.min(0.45, base * Math.pow(2, this.off[k][i] * s.det / 1200) / sr);
     }
-    v.inc[2][0] = f * Math.pow(2, S.src[2].semi / 12) / sr;
+    v.inc[2][0] = f * Math.pow(2, S.src[SUB].semi / 12) / sr;
     v.epoch = this.detuneEpoch;
   }
-  /* Each voice runs its OWN instance per (filter, source) — shared settings, own
-     state (Q3) — made through the registry, re-made when the type changes. */
-  voiceFilters(v) {
+  /* ONE instance per filter per voice (X13's build, and B303's 16 voices × 2 filters): the
+     sources routed to a filter are summed into it. Round 2 ran one instance per (filter,
+     source), which is exact only for a linear filter (Q3); a filter with a tanh in its loop
+     now sees the sum it would see in the instrument. Not run when nothing enters it. */
+  setSlot(f, oc, pitch, envLvl, R, ks) {
     const S = this.S, sr = this.sr;
     for (const key of ['A', 'B']) {
-      const F = S.flt[key], inst = v.f[key], oc = v.oct[key];
-      for (let k = 0; k < 3; k++) {
-        if (!routesTo(S, k, key)) { oc[k] = NaN; continue; }
-        const pitch = F.ktPitch === 'src' ? v.note + S.src[k].semi : v.note;
-        const oct = F.ktrack * (pitch - KT_REF) / 12 + F.env * ENV_OCT * v.fe.lvl;
-        if (!inst[k] || inst[k].tid !== F.type) inst[k] = this.makeInst(key);
-        if (inst[k]) inst[k].set(sr, this.fillP(F, oct));
-        oc[k] = oct;
-      }
+      let any = false; for (let j = 0; j < ks.length; j++) if (routesTo(S, ks[j], key)) any = true;
+      if (!any) { oc[key] = NaN; continue; }
+      const F = S.flt[key], oct = octFor(F, pitch, envLvl, R[F.rsrc | 0]);
+      if (!f[key] || f[key].tid !== F.type) f[key] = this.makeInst(key);
+      if (f[key]) f[key].set(sr, this.fillP(F, oct));
+      oc[key] = oct;
     }
+  }
+  voiceFilters(v) { this.setSlot(v.f, v.oct, v.pitch, v.fe.lvl, v.R, this.S.src[SUB].mono ? KS_NOSUB : KS_ALL); }
+  /* SN-7: the chosen note (lowest, highest or newest held key; ties go to the newest), its
+     voice (the newest voice playing that key, gated first), and from it the pitch, envelope
+     level and R the mono sub's slot is handed. With no key held the last choice stands, and
+     its voice is followed through its release. */
+  monoSub(setNow) {
+    const S = this.S, ms = this.ms, sb = S.src[SUB];
+    if (!sb.mono) return;
+    const h = this.held;
+    if (h.length) ms.note = sb.prio === 'high' ? Math.max(...h) : sb.prio === 'new' ? h[h.length - 1] : Math.min(...h);
+    if (ms.note === null) return;
+    let vh = null;
+    for (const v of this.voices) if (v.note === ms.note && (!vh || (v.gate && !vh.gate) || (v.gate === vh.gate && v.seq > vh.seq))) vh = v;
+    if (vh) { ms.pitch = vh.pitch; ms.fe = vh.fe.lvl; ms.R[0] = vh.R[0]; ms.R[1] = vh.R[1]; }
+    else ms.pitch = ms.note;
+    ms.inc = midiHz(ms.pitch) * Math.pow(2, sb.semi / 12) / this.sr;
+    ms.live = true;
+    if (setNow !== false) this.setSlot(ms.f, ms.oct, ms.pitch, ms.fe, ms.R, KS_SUB);
   }
   control() {
     const S = this.S, dt = TICK / this.sr, pre = S.place !== 'post';
@@ -1957,8 +1901,11 @@ class FilterRig {
       if (!v.gate && v.amp < 1e-4) { this.voices.splice(i, 1); continue; }
       if (v.epoch !== this.detuneEpoch) this.voiceIncs(v);
       envTick(v.fe, v.gate, S.fenv, dt);
+      for (let k = 0; k < 2; k++) v.R[k] += (orderR(v.ph[k], S.src[k].n | 0) - v.R[k]) * this.cR;
       if (pre) this.voiceFilters(v);
     }
+    if (this.voices.length) { const v = this.voices[this.voices.length - 1]; this.Rshow[0] = v.R[0]; this.Rshow[1] = v.R[1]; }
+    if (S.src[SUB].mono) this.monoSub(pre);
     /* The rack instance follows its type in EVERY placement, PER SOURCE included:
        the path canvas draws the rack box (ghosted) from rInst even when it is out
        of the signal path, and a SWARM type there reads rInst.b. Rebuilding only
@@ -1974,40 +1921,46 @@ class FilterRig {
     if (this.shadow) this.shadow.set(this.sr, this.fillP(R, oct));
   }
   /* ---- per-sample --------------------------------------------------------- */
-  /* Source k's sample through the per-voice section, along its cable. */
-  route(v, k, x) {
-    const S = this.S, p = S.port[k], acc = this.acc;
-    if (p === 'R' || p === 'OUT') return x;
-    const fa = v.f.A[k], fb = v.f.B[k];
-    if (S.topo === 'ser') {                 /* one line: [A →] B */
-      let y = x;
-      if (p !== 'B' && fa) { acc.iA += y; y = fa.tick(y); acc.oA += y; }
-      if (fb) { acc.iB += y; y = fb.tick(y); acc.oB += y; }
-      return y;
+  /* THE SLOT (X13): sources `ks` of x (per-source samples) through one voice's pair `f`. */
+  slot(f, x, ks) {
+    const port = this.S.port, ser = this.S.topo === 'ser', acc = this.acc;
+    let inA = 0, inB = 0, dry = 0, a = false, b = false;
+    for (let j = 0; j < ks.length; j++) {
+      const k = ks[j], p = port[k], xk = x[k];
+      if (p === 'N') { dry += xk; continue; }
+      if (ser) { if (p === 'B') { inB += xk; b = true; } else { inA += xk; a = true; b = true; } }   /* one line: into A runs on through B (B274 Q5); B is the + inlet */
+      else if (p === 'A') { inA += xk; a = true; }
+      else if (p === 'B') { inB += xk; b = true; }
+      else { inA += 0.5 * xk; inB += 0.5 * xk; a = true; b = true; }   /* the split, −6 dB into each branch: A ≡ B sums to unity */
     }
-    if (p === 'A') { if (!fa) return x; const y = fa.tick(x); acc.iA += x; acc.oA += y; return y; }
-    if (p === 'B') { if (!fb) return x; const y = fb.tick(x); acc.iB += x; acc.oB += y; return y; }
-    const ya = fa ? fa.tick(x) : x, yb = fb ? fb.tick(x) : x;   /* the split: both branches, summed at ½Σ */
-    acc.iA += x; acc.oA += ya; acc.iB += x; acc.oB += yb;
-    return 0.5 * (ya + yb);
+    let yA = 0;
+    if (a) { yA = f.A ? f.A.tick(inA) : inA; acc.iA += inA; acc.oA += yA; }
+    if (ser) {
+      if (!b) return dry;
+      const iB = yA + inB, yB = f.B ? f.B.tick(iB) : iB; acc.iB += iB; acc.oB += yB;
+      return yB + dry;
+    }
+    let yB = 0;
+    if (b) { yB = f.B ? f.B.tick(inB) : inB; acc.iB += inB; acc.oB += yB; }
+    return yA + yB + dry;
   }
   render(L, Rt, N) {
-    const S = this.S, src = S.src, port = S.port, acc = this.acc;
+    const S = this.S, src = S.src, acc = this.acc, x = this.xs, ms = this.ms;
     const cA = this.cAtk, cR = this.cRel, cM = this.cMeter, m = this.meter, T = this.tap;
     for (let n = 0; n < N; n++) {
       if (this.demo) this.demoTick();
       if (this.tick === 0) this.control();
       this.tick = (this.tick + 1) % TICK;
-      const pre = S.place !== 'post', post = S.place !== 'pre';
-      const n0 = src[0].n | 0, n1 = src[1].n | 0;
-      const g0 = src[0].lvl * 0.5 / Math.pow(n0, 0.75), g1 = src[1].lvl * 0.5 / Math.pow(n1, 0.75), g2 = src[2].lvl * 0.6;
-      let s0 = 0, s1 = 0, s2 = 0;
+      const pre = S.place !== 'post', post = S.place !== 'pre', mono = !!src[SUB].mono;
+      const n0 = src[0].n | 0, n1 = src[1].n | 0, ks = mono ? KS_NOSUB : KS_ALL;
+      const g0 = src[0].on * src[0].lvl * 0.5 / Math.pow(n0, 0.75), g1 = src[1].on * src[1].lvl * 0.5 / Math.pow(n1, 0.75);
+      const g2 = src[SUB].on * src[SUB].lvl * 0.6, g3 = src[NOISE].on * src[NOISE].lvl;
+      let s0 = 0, s1 = 0, s2 = 0, s3 = 0, bus = 0;
       acc.iA = acc.oA = acc.iB = acc.oB = 0;
       for (let vi = 0; vi < this.voices.length; vi++) {
         const v = this.voices[vi];
         v.amp += ((v.gate ? 1 : 0) - v.amp) * (v.gate ? cA : cR);
         const a = v.amp;
-        let x0 = 0, x1 = 0;
         for (let k = 0; k < 2; k++) {
           const ph = v.ph[k], inc = v.inc[k], nk = k ? n1 : n0;
           let sum = 0;
@@ -2019,34 +1972,40 @@ class FilterRig {
             else if (p > 1 - d) { const t = (p - 1) / d; sw -= t * t + t + t + 1; }
             sum += sw;
           }
-          if (k) x1 = sum * g1 * a; else x0 = sum * g0 * a;
+          x[k] = sum * (k ? g1 : g0) * a;
         }
         let p2 = v.ph[2][0] + v.inc[2][0]; if (p2 >= 1) p2 -= 1; v.ph[2][0] = p2;
-        const x2 = Math.sin(TAU * p2) * g2 * a;
-        if (pre) { s0 += this.route(v, 0, x0); s1 += this.route(v, 1, x1); s2 += this.route(v, 2, x2); }
-        else { s0 += x0; s1 += x1; s2 += x2; }
+        x[SUB] = mono ? 0 : Math.sin(TAU * p2) * g2 * a;
+        x[NOISE] = (v.nrng() * 2 - 1) * g3 * a;
+        s0 += x[0]; s1 += x[1]; s2 += x[2]; s3 += x[3];
+        bus += pre ? this.slot(v.f, x, ks) : x[0] + x[1] + x[2] + x[3];
       }
-      /* DRY cables skip the bus (and the rack); everything else sums onto it. */
-      const d0 = port[0] === 'OUT', d1 = port[1] === 'OUT', d2 = port[2] === 'OUT';
-      const bus = (d0 ? 0 : s0) + (d1 ? 0 : s1) + (d2 ? 0 : s2), dry = (d0 ? s0 : 0) + (d1 ? s1 : 0) + (d2 ? s2 : 0);
+      if (mono && ms.live) {
+        ms.amp += ((this.held.length ? 1 : 0) - ms.amp) * (this.held.length ? cA : cR);
+        let p = ms.ph + ms.inc; if (p >= 1) p -= 1; ms.ph = p;
+        x[0] = x[1] = x[3] = 0; x[SUB] = Math.sin(TAU * p) * g2 * ms.amp;
+        s2 += x[SUB];
+        bus += pre ? this.slot(ms.f, x, KS_SUB) : x[SUB];
+      }
       let out, yR = 0;
       if (post) {
         const R = S.flt.R;
         yR = this.rInst ? this.rInst.tick(bus) : bus;     /* no reference loaded: the status line says so */
-        out = R.wet * yR + (1 - R.wet) * bus + dry;
-      } else out = bus + dry;
+        out = R.wet * yR + (1 - R.wet) * bus;
+      } else out = bus;
       const tw = this.tw;
       T.A.i[tw] = acc.iA; T.A.o[tw] = acc.oA; T.B.i[tw] = acc.iB; T.B.o[tw] = acc.oB;
       T.R.i[tw] = bus; T.R.o[tw] = yR;
       this.tw = (tw + 1) & (TAPN - 1);
-      m.src[0] += (s0 * s0 - m.src[0]) * cM; m.src[1] += (s1 * s1 - m.src[1]) * cM; m.src[2] += (s2 * s2 - m.src[2]) * cM;
+      m.src[0] += (s0 * s0 - m.src[0]) * cM; m.src[1] += (s1 * s1 - m.src[1]) * cM; m.src[2] += (s2 * s2 - m.src[2]) * cM; m.src[3] += (s3 * s3 - m.src[3]) * cM;
       m.bus += (bus * bus - m.bus) * cM; m.rack += (yR * yR - m.rack) * cM;
       /* The tanh is MONITORING convenience (as in every lab), not part of any
          filter: it keeps a resonant peak from clipping the DAC. The 0.6 is
          MEASURED headroom (B209) — at 1.6 the demo drove it to 2.2 peak, and a
          saturated monitor squashes exactly the level differences between
-         placements this page exists to let you hear. */
-      const y = Math.tanh(out * S.master * 0.6);
+         placements this page exists to let you hear. `raw` (the listening batch)
+         skips it: the batch sets its own level and caps its own peak. */
+      const y = this.raw ? out : Math.tanh(out * S.master * 0.6);
       m.out += (y * y - m.out) * cM;
       L[n] = y; if (Rt) Rt[n] = y;
       const ay = y < 0 ? -y : y; if (ay > this.peak) this.peak = ay;
@@ -2054,14 +2013,119 @@ class FilterRig {
     }
   }
 }
+
+/* ---- THE LISTENING BATCH (B566 criterion 6) ---------------------------------
+   At most 12 A/B items for the human's ears, each saying what to listen for. Every item is
+   RENDERED here, offline and deterministically (the same FilterRig, a seeded note script,
+   48 kHz, no monitor tanh), so the page and filter_fidelity_check hear the same samples.
+   LEVEL: an item marked `match` has its two sides RMS-matched (a louder side would win the
+   A/B for being louder); then ONE gain for both sides puts the louder side's PEAK at
+   BATCH_PEAK·0.999. BATCH_PEAK is −6.02 dBFS: no item may exceed it (B566 brief). Items whose
+   point IS a level (the resonance sweep) are not matched. A 5 ms raised-cosine fade (ADR-239's
+   shape) at both ends, so no side starts or ends with a click. The page starts audio only on a
+   click. */
+const BATCH_SR = 48000, BATCH_PEAK = 0.5, BATCH_MAX = 12, BATCH_FADE_S = 0.005;
+/* note scripts: [start s, MIDI note, length s] */
+const B_RUN = [[0, 45, 0.3], [0.34, 52, 0.3], [0.68, 57, 0.3], [1.02, 64, 0.3], [1.36, 69, 0.3], [1.7, 76, 0.5]];
+const B_HELD = [[0, 50, 2.2]];
+const B_CHORD = [[0, 48, 2.2], [0, 55, 2.2], [0, 64, 2.2], [1.1, 43, 1.1]];
+const B_STABS = [[0, 45, 2.3], [0.25, 64, 0.12], [0.5, 69, 0.12], [0.9, 72, 0.12], [1.2, 64, 0.2], [1.5, 69, 0.12], [1.75, 72, 0.12], [2.05, 76, 0.12]];
+const B_PLUCK = [[0, 48, 0.28], [0.36, 55, 0.28], [0.72, 60, 0.28], [1.08, 64, 0.28], [1.44, 67, 0.5]];
+/* The base every item starts from: one source (SCALPEL 1) into A, the others off, B flat. */
+function batchBase(S) {
+  S.port = ['A', 'N', 'N', 'N']; S.src[1].on = 0; S.src[SUB].on = 0; S.src[NOISE].on = 0;
+  S.fenv = { a: 0.003, d: 0.35, s: 0.4, r: 0.2 };
+  Object.assign(S.flt.A, { type: 'svf12', mode: 1, cutoff: 900, res: 0.5, drive: 0.3, ktrack: 0.5, env: 0.3, rtrack: 0 });
+}
+const setF = (S, key, o) => { const F = S.flt[key]; if (o.type) applyTypeDefaults(F, o.type); Object.assign(F, o); };
+const BATCH = [
+  { id: 'svf-ladder', title: 'SVF 12 LP · LADDER', notes: B_RUN, dur: 2.4, match: true,
+    listen: 'Same knobs (cutoff 900 Hz, res 0.6, keytrack 50 %). The ladder thins the bass as resonance rises and its peak is rounder; the SVF keeps the low end.',
+    a: S => setF(S, 'A', { type: 'svf12', res: 0.6 }), b: S => setF(S, 'A', { type: 'ladder', res: 0.6 }) },
+  { id: 'ladder-ms20', title: 'LADDER · MS-20, driven', notes: B_RUN, dur: 2.4, match: true,
+    listen: 'Drive 0.7, res 0.85. The MS-20 saturates in its feedback path and screams on the peak; the ladder thickens and loses bass instead.',
+    a: S => setF(S, 'A', { type: 'ladder', res: 0.85, drive: 0.7 }), b: S => setF(S, 'A', { type: 'ms20', res: 0.85, drive: 0.7 }) },
+  { id: 'comb-kt', title: 'COMB + keytracked · fixed', notes: B_RUN, dur: 2.4, match: true,
+    listen: 'B288. Keytracked (the default, 100 %): every note rings the same metallic tone at its own pitch. Fixed at C4: one pitch rings under every note and fights the melody.',
+    a: S => setF(S, 'A', { type: 'combP', res: 0.85 }), b: S => { setF(S, 'A', { type: 'combP', res: 0.85 }); S.flt.A.ktrack = 0; } },
+  { id: 'comb-pm', title: 'COMB + · COMB −, plucked noise', notes: B_PLUCK, dur: 2.2, match: true,
+    listen: 'The noise source alone, each comb at its keytracked default. COMB + rings at the note with every harmonic (string-like); COMB − at the same pitch, hollow (odd harmonics only).',
+    a: S => { S.port = ['N', 'N', 'N', 'A']; S.src[0].on = 0; S.src[NOISE].on = 1; S.src[NOISE].lvl = 0.35; setF(S, 'A', { type: 'combP', res: 0.95, env: 0 }); },
+    b: S => { S.port = ['N', 'N', 'N', 'A']; S.src[0].on = 0; S.src[NOISE].on = 1; S.src[NOISE].lvl = 0.35; setF(S, 'A', { type: 'combN', res: 0.95, env: 0 }); } },
+  { id: 'kt', title: 'Keytrack 100 % · 0 %', notes: B_RUN, dur: 2.4, match: true,
+    listen: 'SVF 24 LP over a run of two and a half octaves. At 100 % every note has the same brightness; at 0 % the low notes buzz and the high notes go dull.',
+    a: S => setF(S, 'A', { type: 'svf24', cutoff: 520, res: 0.3, ktrack: 1, env: 0 }), b: S => setF(S, 'A', { type: 'svf24', cutoff: 520, res: 0.3, ktrack: 0, env: 0 }) },
+  { id: 'ser-par', title: 'SERIAL · PARALLEL', notes: B_RUN, dur: 2.4, match: true,
+    listen: 'A = SVF 12 LP at 1.2 kHz, B = SVF 12 HP at 600 Hz, SCALPEL 1 into both. Serial (LP then HP) is a band: thin and nasal. Parallel sums the two: full, with a scoop between them.',
+    a: S => { S.topo = 'ser'; S.port[0] = 'A'; setF(S, 'A', { type: 'svf12', mode: 1, cutoff: 1200, res: 0.3, ktrack: 0, env: 0 }); setF(S, 'B', { type: 'svf12', mode: 3, cutoff: 600, res: 0.3, ktrack: 0, env: 0 }); },
+    b: S => { S.topo = 'par'; S.port[0] = 'AB'; setF(S, 'A', { type: 'svf12', mode: 1, cutoff: 1200, res: 0.3, ktrack: 0, env: 0 }); setF(S, 'B', { type: 'svf12', mode: 3, cutoff: 600, res: 0.3, ktrack: 0, env: 0 }); } },
+  { id: 'placement', title: 'PER VOICE · ONE RACK FILTER', notes: B_STABS, dur: 2.4, match: true,
+    listen: 'B209 and B303: a held bass under short stabs. Per voice (the slot), each stab plucks on its own envelope and the bass keeps its own. One filter on the sum re-fires its one envelope on every stab, so the held bass wahs along.',
+    a: S => { S.place = 'pre'; setF(S, 'A', { cutoff: 500, res: 0.5, env: 0.6, ktrack: 0.35 }); S.fenv = { a: 0.003, d: 0.28, s: 0.15, r: 0.35 }; },
+    b: S => { S.place = 'post'; S.port[0] = 'N'; Object.assign(S.flt.R, { type: 'svf12', mode: 1, cutoff: 500, res: 0.5, env: 0.6, ktrack: 0.35, ktRef: 'last' }); S.fenv = { a: 0.003, d: 0.28, s: 0.15, r: 0.35 }; } },
+  { id: 'rtrack', title: 'R TRACKING on · off', notes: B_HELD, dur: 2.4, match: true,
+    listen: 'PROPOSED (spec §6). One held note, a wide Scalpel (7 members, 30 ¢). On: the cutoff opens as the members line up, so the beating becomes a slow, uneven wah. Off: the beating alone.',
+    a: S => { S.src[0].det = 30; setF(S, 'A', { cutoff: 380, res: 0.55, ktrack: 0, env: 0, rtrack: 0.6 }); },
+    b: S => { S.src[0].det = 30; setF(S, 'A', { cutoff: 380, res: 0.55, ktrack: 0, env: 0, rtrack: 0 }); } },
+  { id: 'res-sweep', title: 'Resonance 0 → 1: SVF 12 BP · LADDER', notes: B_HELD, dur: 2.4, match: false,
+    auto: (S, u) => { S.flt.A.res = u; },
+    listen: 'Not level-matched: the level IS the point. The SVF band-pass holds its loudness as the band narrows (its √k law, B287); the ladder drains its bass until it starts to sing on its own at the top.',
+    a: S => setF(S, 'A', { type: 'svf12', mode: 2, cutoff: 700, ktrack: 0, env: 0 }), b: S => setF(S, 'A', { type: 'ladder', cutoff: 700, ktrack: 0, env: 0 }) },
+  { id: 'mono-sub', title: 'SUB per note · mono sub, own slot', notes: B_CHORD, dur: 2.4, match: true,
+    listen: 'SN-7. A held chord, then a lower note. Per note: a sub under every chord note, each through its voice\'s LP — thick and muddy. Mono: one sub on the lowest key through its own LP, which follows that key when the bass moves.',
+    a: S => { S.src[0].lvl = 0.35; S.src[SUB].on = 1; S.src[SUB].mono = 0; S.port[SUB] = 'A'; setF(S, 'A', { cutoff: 300, res: 0.4, ktrack: 1, env: 0.2 }); },
+    b: S => { S.src[0].lvl = 0.35; S.src[SUB].on = 1; S.src[SUB].mono = 1; S.src[SUB].prio = 'low'; S.port[SUB] = 'A'; setF(S, 'A', { cutoff: 300, res: 0.4, ktrack: 1, env: 0.2 }); } },
+  { id: 'formant', title: 'FORMANT vowels · SVF 12 BP sweep', notes: B_HELD, dur: 2.4, match: true,
+    auto: (S, u, side) => { if (side === 'a') S.flt.A.morph = u; else S.flt.A.cutoff = 300 * Math.pow(8, u); },
+    listen: 'One held note. The formant walks A-E-I-O-U and says a vowel; the band-pass, swept over the same range, only moves.',
+    a: S => setF(S, 'A', { type: 'formant', cutoff: 1000, res: 0.6, ktrack: 0, env: 0 }), b: S => setF(S, 'A', { type: 'svf12', mode: 2, cutoff: 300, res: 0.6, ktrack: 0, env: 0 }) },
+];
+/* One side of an item, raw (before the batch level). */
+function batchSide(item, side) {
+  const S = defaultPatch(); batchBase(S); item[side](S);
+  const rig = new FilterRig(BATCH_SR, S); rig.raw = true;
+  const n = Math.round(item.dur * BATCH_SR), y = new Float32Array(n);
+  const ev = [];
+  for (const [t, note, len] of item.notes) { ev.push([Math.round(t * BATCH_SR), 1, note]); ev.push([Math.round((t + len) * BATCH_SR), 0, note]); }
+  ev.sort((p, q) => p[0] - q[0] || p[1] - q[1]);
+  let e = 0;
+  for (let i = 0; i < n; i += TICK) {
+    while (e < ev.length && ev[e][0] < i + TICK) { if (ev[e][1]) rig.noteOn(ev[e][2]); else rig.noteOff(ev[e][2]); e++; }
+    if (item.auto) item.auto(S, i / n, side);
+    rig.render(y.subarray(i, Math.min(n, i + TICK)), null, Math.min(TICK, n - i));
+  }
+  return y;
+}
+const peakOf = y => { let p = 0; for (let i = 0; i < y.length; i++) { const a = Math.abs(y[i]); if (a > p) p = a; } return p; };
+const rmsOf = y => { let s = 0; for (let i = 0; i < y.length; i++) s += y[i] * y[i]; return Math.sqrt(s / Math.max(1, y.length)); };
+/* Both sides of an item at the batch level: { a, b, gain: [ga, gb], peak: [pa, pb] }. */
+function batchRender(item) {
+  const a = batchSide(item, 'a'), b = batchSide(item, 'b');
+  let ga = 1, gb = 1;
+  if (item.match) { const ra = rmsOf(a), rb = rmsOf(b), r = Math.min(ra, rb); if (ra > 0) ga = r / ra; if (rb > 0) gb = r / rb; }
+  const top = Math.max(peakOf(a) * ga, peakOf(b) * gb), g = top > 0 ? BATCH_PEAK * 0.999 / top : 1;
+  ga *= g; gb *= g;
+  const nf = Math.round(BATCH_FADE_S * BATCH_SR);
+  for (const [y, k] of [[a, ga], [b, gb]]) {
+    for (let i = 0; i < y.length; i++) y[i] *= k;
+    for (let i = 0; i < nf && i < y.length; i++) { const w = 0.5 * (1 - Math.cos(Math.PI * i / nf)); y[i] *= w; y[y.length - 1 - i] *= w; }
+  }
+  return { a, b, gain: [ga, gb], peak: [peakOf(a), peakOf(b)] };
+}
 /* ================= UI ================= */
 
 /* ============ BLOCK A — state and vocabulary, above all wiring (L0026) ====== */
 const S = defaultPatch();
-const PLACES = [['pre', 'PER SOURCE'], ['post', 'RACK SLOT'], ['both', 'BOTH']];
+/* THE DESIGN SYSTEM (arp-face/bundle.js, loaded by the tag above this script). Taken only if it
+   is the real one: the headless checks run this script against stubs, where `window.Horde`
+   answers every property with a callable proxy, and an array test tells the two apart. Without
+   it the page runs on plain sliders and the status line says so. */
+const H = (typeof window !== 'undefined' && window.Horde && Array.isArray(window.Horde.CORNERS) && typeof window.Horde.Knob === 'function' && typeof window.Horde.Session === 'function') ? window.Horde : null;
+const PLACES = [['pre', 'SLOT ONLY · HORDE 2'], ['post', 'RACK ONLY'], ['both', 'SLOT + RACK']];
 const TOPOS = [['par', 'PARALLEL'], ['ser', 'SERIAL']];
-const PORTS = ['A', 'B', 'AB', 'R', 'OUT'];
-const PORT_NAMES = { A: 'A', B: 'B', AB: 'A+B', R: 'MIX', OUT: 'DRY' };
+const PORT_TEXT = { A: 'into A', B: 'into B', AB: 'split: ½ into each', N: 'neither: unfiltered' };
+const PORT_TEXT_SER = { A: 'into A, on through B', AB: 'into A, on through B', B: 'the + inlet: B only', N: 'neither: unfiltered' };
+const SRC_SUB = ['saw-stack stand-in', 'saw-stack stand-in, +12 st', 'sine stand-in, −12 st', 'white, per-voice seed'];
 const PLACEMENTS_BANK = ['ERB', 'LOG', 'HARMONIC'];
 const LAW_ALIAS = { svf: 'svf12', bank: 'bank', bankP: 'bankP' };   /* round-1 ?law= deep links */
 const KEYMAP = { a: 0, w: 1, s: 2, e: 3, d: 4, f: 5, t: 6, g: 7, y: 8, h: 9, u: 10, j: 11, k: 12, o: 13, l: 14 };
@@ -2074,28 +2138,73 @@ const REF = { cls: null, state: 'loading' };
 const SPEC = {};                 /* key -> { i: Float32Array(NPTS), o: ... } in dB  */
 const REPAINT = [];
 const GHOSTROWS = [];            /* [row, predicate] — ghosted while the predicate is false */
-const INSP = { rep: [], ghost: [] };   /* the editor's own lists, emptied on every rebuild */
+const INSP = { rep: [], ghost: [] };   /* the rack editor's own lists, emptied on every rebuild */
 const HIT = [];                  /* signal-path hit regions, rebuilt by every draw */
 const KEYEL = {}, held = {};
 const _tok = {};
 const DIAG = { dirty: true };
-/* The fidelity programme's page state: one row measured per timer tick, so the
-   page paints first and fills the table in as rows finish. */
 const FIDS = { res: {}, queue: [], busy: false, cells: {}, type: {}, cost: {}, costRef: 0,
   aa: {}, aaQueue: [], aaStarted: false };
-let REP = REPAINT, GH = GHOSTROWS;     /* where builders register, swapped while the editor builds */
+/* THE RELEASE COST (B303), MEASURED, NOT TYPED BY EYE: tools/filter_cost_bench.cpp, built
+   `clang++ -std=c++20 -O3`, run `nice -n 10 … 4 7` (4 s of audio, median of 7, thread CPU time),
+   2026-10-28 on an Apple M3 (8 cores), MEASURED UNDER HEAVY EXTERNAL LOAD (load avg ~180;
+   another project's deliberate CPU-load test was running), INDICATIVE ONLY — far outside
+   SPEC-ENGINE PF-3's load guard (≤ 3.0): the ORDER and the ratios are the finding, the absolute
+   % an upper estimate. Re-run on an unloaded machine with ONE command (from the repo root):
+     clang++ -std=c++20 -O3 -o "$TMPDIR/fcb" tools/filter_cost_bench.cpp && nice -n 10 "$TMPDIR/fcb" 4 7
+   Its classes are transcriptions of this file's DSP, matched sample for sample (max |Δ| ≤
+   4.7e-13, `filter_fidelity_check --parity`). % of ONE core for 16 voices × 2 instances at
+   48 kHz, set() every 16 samples; the bypass loop is the harness's own 0.04 %. A second run
+   minutes later (load ≈ 237) read every row within −8 % … +26 % of these (LADDER 15.5, MS-20 8.0,
+   ALL-PASS 0.90): the spread a loaded machine gives, stated rather than averaged away. */
+const COST_CPP = {
+  'svf12': 0.75, 'svf24': 0.97, 'ladder': 13.66, 'ms20': 7.18, 'combP': 0.72, 'combN': 0.67,
+  'formant': 1.38, 'ap4': 0.72, 'phaser': 1.26, 'dj': 0.65,
+};
+const COST_ROWS = [
+  ['svf12.LP', 0.730], ['svf12.BP', 0.754], ['svf12.HP', 0.748], ['svf12.NOTCH', 0.739], ['svf12.PEAK', 0.737],
+  ['svf24.LP', 0.869], ['svf24.BP', 0.939], ['svf24.HP', 0.896], ['svf24.NOTCH', 0.997], ['svf24.PEAK', 0.972],
+  ['ladder', 13.656], ['ms20', 7.177], ['combP', 0.716], ['combN', 0.674], ['formant', 1.381],
+  ['ap4', 0.717], ['phaser', 1.259], ['dj', 0.653], ['ladder@1x', 4.403],
+];
+const COST_HEAVY = 2;            /* % for 16 × 2 above which a type is marked heavy on its pill */
+/* THE PROPOSED PER-NOTE LIST (B303): every linear type, the MS-20 with its cost stated, the ladder
+   held back until its anti-aliasing gets cheaper and loses its latency; the swarm bank stays rack
+   only. Text, for the human's ruling; nothing in the rig enforces it. */
+const PER_NOTE = {
+  yes: ['svf12', 'svf24', 'combP', 'combN', 'formant', 'ap4', 'phaser', 'dj', 'ms20'],
+  held: ['ladder'], rack: ['bank', 'bankP'],
+};
+const BATCHS = { cache: {}, ctx: null, node: null, playing: null };
+const BIND = [];                 /* knob ↔ patch bindings (design-system knobs only) */
+const REPAINT_METERS = [];       /* per-frame painters of the source meters */
+const QA = [
+  ['X13 · THE PAIR AND ITS ROUTING', 'Built as X13 says until ruled: two filters per voice, each source into A, B, both or neither, the pair serial or parallel, one instance per filter per voice. Both, in parallel, is a split at −6 dB into each branch, so two identical filters sum to unity. <b>Recommendation:</b> rule X13 as built. Open within it: whether a source may be "both" in SERIAL (today it is A, which runs on through B: B274 Q5).'],
+  ['SN-7 · THE MONO SUB\'S FILTER ENVELOPE', 'The mono sub\'s own slot instance is handed the chosen note\'s voice\'s pitch, filter-envelope level and R (RC-1: "so it behaves as that note\'s filter"); its filter STATE is its own. So the envelope it hears is the chosen voice\'s, re-fired by that voice. <b>Recommendation:</b> keep it (the spec\'s words), and say so in RC-1.'],
+  ['B303 · THE PER-NOTE LIST', 'Release cost, 16 voices × 2 filters: every linear type is at most about 1.5 % of a core (indicative: measured under heavy external load); the MS-20 is 7.2 % (its ADAA\'s exp, log1p and tanh per sample); the LADDER 13.7 % (2× oversampling, a tanh per oversampled sample). <b>Recommendation:</b> per note: every linear type plus the MS-20; the LADDER per note only after a cheaper anti-aliasing (a rational tanh, or ADAA + a minimum-phase 2×) is measured; the swarm bank stays rack-only.'],
+  ['PF-8 · THE LADDER\'S LATENCY', 'The ladder\'s 2× is a linear-phase half-band pair: 27 samples of latency. PF-8 holds the engine at zero latency, and in a PARALLEL pair a 27-sample branch combs against a 0-sample one (B287). <b>Recommendation:</b> a filter type may not add latency; the ladder\'s 2× goes minimum-phase or the ladder waits (above).'],
+  ['RC-1 · KEYTRACK', 'Every filter in a voice tracks the voice\'s sounding pitch, an amount per filter (0 to 100 %, C4 the pivot). Round 2\'s SOURCE PITCH option is gone: the slot is never handed a source\'s transposition. <b>Recommendation:</b> keep one pitch per voice; if a Scalpel an octave up should track its own octave, that is a cutoff offset, not a second pitch.'],
+  ['§6 · R TRACKING (PROPOSED)', 'Per filter, an amount (−1 to +1) and a source (Scalpel 1 or 2): oct += amount × 4 × R̂, R̂ that Scalpel\'s order parameter in this voice, followed over 20 ms. +1 opens as the swarm locks, −1 darkens. The stand-in has no coupling, so here R only beats. <b>Recommendation:</b> adopt the law for the engine port, and audition it on the real Scalpel before freezing the 4 octaves and the 20 ms.'],
+  ['B288 · THE COMB\'S DEFAULTS', 'Picking a comb sets keytrack 100 %, tunes COMB + to the note and COMB − an octave above (its peaks on the odd harmonics), and sets the filter-envelope amount to 0, because on a comb an envelope bends the pitch. <b>Recommendation:</b> keep all three; the envelope zero is the lab\'s own choice and yours to overrule.'],
+  ['GUI 3 · PROPOSED COMPONENTS', 'Three things the design system lacks, drawn here in its language: the ROUTING MATRIX (sources × filters, 28 px cells, the serial "via A" hatch), the per-type COST badge on the type pills, and the voice SLOT drawing. <b>Recommendation:</b> add the matrix and the badge to the system (B531); the slot drawing stays a lab picture. Where the filter page sits among GUI 3\'s tabs is B302\'s composition, not this lab\'s.'],
+  ['THE LISTENING BATCH', 'Eleven pairs. Each asks one thing; say which side you prefer and why, or "no difference". The answers rule the open lines above (ladder vs SVF and MS-20, the comb default, R tracking, serial vs parallel, the mono sub).'],
+];
+let REP = REPAINT, GH = GHOSTROWS;     /* where builders register, swapped while an editor builds */
 let rig = new FilterRig(48000, S);
 let ac = null, spn = null, blocks = 0, preview = false, dark = false, baseNote = 48, sel = 'A';
 let fftRe = null, fftIm = null, hann = null, rev = null;
-let pathC = null, envC = null, scopeC = null, drag = null;
+let pathC = null, envC = null, scopeC = null, drag = null, cardDrag = null;
+let HS = null;                   /* the design system's Session (its knobs read it) */
+let flashT = 0;                  /* frames left on a routing message before the note returns */
+const CARD = { A: null, B: null };     /* per filter card: its elements */
 
 /* ============ BLOCK B — token reader, DPR, painters, builders ============ */
-/* station-page-lab:691 — cache keyed by token NAME, read from BODY (the screen
-   schemes override at body level). */
+/* Tokens are on :root (arp-face/tokens.css), themed by html[data-theme]. The cache is keyed
+   by token NAME and cleared on every theme change. */
 function TOK(name, fallback) {
   if (_tok[name] === undefined) {
     let v = '';
-    try { v = getComputedStyle(document.body || document.documentElement).getPropertyValue(name).trim(); }
+    try { v = getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
     catch (_) { v = ''; }
     _tok[name] = (typeof v === 'string' && v) ? v : (fallback || '#000');
   }
@@ -2106,8 +2215,11 @@ function RGBA(hex, a) {
   if (!m) return hex;
   return `rgba(${parseInt(m[1], 16)},${parseInt(m[2], 16)},${parseInt(m[3], 16)},${a})`;
 }
+/* The screen's alpha boost and scanline depth: the house scheme follows the chassis (cream ORCHID,
+   dark TUBE; ScreenScheme's rule). */
+const scrScheme = () => (dark ? 'tube' : 'orchid');
 function TOKA(name, a, fallback) {
-  const m = parseFloat(TOK('--scr-alpha', '1')) || 1;
+  const m = parseFloat(TOK('--alpha-' + scrScheme(), '1')) || 1;
   return RGBA(TOK(name, fallback), Math.min(1, a * m));
 }
 const VS = () => Math.min(window.devicePixelRatio || 1, 2);
@@ -2122,22 +2234,30 @@ function ground(cv) {
   if (!cv || !cv.getContext) return null;
   fitViz(cv);
   const g = cv.getContext('2d'), w = cv.width, h = cv.height, v = VS();
-  g.fillStyle = TOK('--scr-tube'); g.fillRect(0, 0, w, h);
-  const sa = parseFloat(TOK('--scr-scan', '0.22')) || 0.22;
+  g.fillStyle = TOK('--scr-ground'); g.fillRect(0, 0, w, h);
+  const sa = parseFloat(TOK('--scan-' + scrScheme(), '0.05')) || 0.05;
   g.fillStyle = `rgba(0,0,0,${sa})`;
   for (let y = v; y < h; y += 3 * v) g.fillRect(0, y, w, v);
   return { g, w, h, v };
 }
-const font = (px, v) => (px * v) + 'px ui-monospace,Menlo,monospace';
+const font = (px, v, wt) => (wt || 500) + ' ' + (px * v) + 'px "Roboto Mono",ui-monospace,Menlo,monospace';
 const nn = m => NOTE_NAMES[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
 const fHz = x => x >= 1000 ? (x / 1000).toFixed(x >= 10000 ? 1 : 2) + 'k' : Math.round(x) + '';
 const f2 = x => (Math.round(x * 100) / 100).toFixed(2);
 const fPct = x => Math.round(x * 100) + '%';
+const sgn = x => (x > 0 ? '+' : x < 0 ? '−' : '');
 const typeOf = key => TYPES[S.flt[key].type];
+const isComb = t => t === 'combP' || t === 'combN';
 const modeName = key => { const T = typeOf(key); return T.modes.length > 1 ? T.modes[(S.flt[key].mode || 1) - 1] : ''; };
 const fidRowId = key => { const F = S.flt[key], T = TYPES[F.type]; return T.modes.length > 1 ? F.type + '.' + T.modes[(F.mode || 1) - 1] : F.type; };
 function inForce(key) { return key === 'R' ? S.place !== 'pre' : S.place !== 'post'; }
-function routedTo(key) { return [0, 1, 2].filter(k => routesTo(S, k, key)); }
+function routedTo(key) { return [0, 1, 2, 3].filter(k => routesTo(S, k, key)); }
+/* the comb's knob as a pitch: at keytrack 100 % its cutoff is an interval from the note */
+function cutText(key, hz) {
+  const F = S.flt[key];
+  if (isComb(F.type) && F.ktrack >= 0.995) { const st = 12 * Math.log2(hz / (F.type === 'combN' ? 2 * KT_HZ : KT_HZ)); return Math.abs(st) < 0.05 ? 'the note' : 'note ' + sgn(st) + Math.abs(st).toFixed(1) + ' st'; }
+  return fHz(hz) + ' Hz';
+}
 
 /* ---- spectrum: a small radix-2 FFT, so the taps need no AnalyserNode and the
    silent preview draws the same picture the audio path would ------------------ */
@@ -2175,25 +2295,26 @@ function spectrumInto(ring, tw, dst) {
   }
 }
 
-/* ---- the ONE picture: the signal path ------------------------------------ */
-/* Geometry in canvas pixels. Boxes are {x, y (centre), w, h}. SERIAL puts A and
-   B on one line; PARALLEL splits into two branches that meet at ½Σ. The two
-   are different DRAWINGS, not the same boxes moved. */
+/* ---- the voice's signal path (each filter drawn once) --------------------- */
+/* Geometry in canvas pixels. Boxes are {x, y (centre), w, h}. SERIAL puts A and B on one
+   line; PARALLEL splits into two branches that meet at Σ. The two are different DRAWINGS,
+   not the same boxes moved. The rack box exists only while a placement puts it in force. */
 function pathLayout(w, h) {
-  const L = { src: [0.2, 0.5, 0.8].map(fy => ({ x: 0.06 * w, y: fy * h, w: 0.095 * w, h: 0.12 * h })) };
-  L.jack = L.src.map(b => ({ x: b.x + b.w / 2 + 0.012 * w, y: b.y }));
-  L.mix = { x: 0.67 * w, y: 0.5 * h };
-  L.R = { x: 0.815 * w, y: 0.5 * h, w: 0.2 * w, h: 0.44 * h };
-  L.out = { x: 0.962 * w, y: 0.5 * h, w: 0.056 * w, h: 0.12 * h };
+  const rack = inForce('R');
+  const L = { src: [0.13, 0.37, 0.63, 0.87].map(fy => ({ x: 0.065 * w, y: fy * h, w: 0.11 * w, h: 0.15 * h })) };
+  L.jack = L.src.map(b => ({ x: b.x + b.w / 2 + 0.013 * w, y: b.y }));
+  L.mix = { x: (rack ? 0.66 : 0.8) * w, y: 0.5 * h };
+  L.R = rack ? { x: 0.8 * w, y: 0.5 * h, w: 0.18 * w, h: 0.4 * h } : null;
+  L.out = { x: 0.955 * w, y: 0.5 * h, w: 0.07 * w, h: 0.14 * h };
+  const span = rack ? 0.5 : 0.62;
   if (S.topo === 'ser') {
-    L.A = { x: 0.3 * w, y: 0.5 * h, w: 0.175 * w, h: 0.46 * h };
-    L.B = { x: 0.525 * w, y: 0.5 * h, w: 0.175 * w, h: 0.46 * h };
-    L.inB = { x: 0.4125 * w, y: 0.5 * h };
+    L.A = { x: (0.2 + 0.25 * span) * w, y: 0.5 * h, w: 0.36 * span * w, h: 0.5 * h };
+    L.B = { x: (0.2 + 0.73 * span) * w, y: 0.5 * h, w: 0.36 * span * w, h: 0.5 * h };
+    L.inB = { x: (L.A.x + L.A.w / 2 + L.B.x - L.B.w / 2) / 2, y: 0.5 * h };
   } else {
-    L.split = { x: 0.195 * w, y: 0.5 * h };
-    L.A = { x: 0.39 * w, y: 0.29 * h, w: 0.21 * w, h: 0.36 * h };
-    L.B = { x: 0.39 * w, y: 0.71 * h, w: 0.21 * w, h: 0.36 * h };
-    L.half = { x: 0.575 * w, y: 0.5 * h };
+    L.split = { x: 0.215 * w, y: 0.5 * h };
+    L.A = { x: (0.26 + 0.42 * span) * w, y: 0.27 * h, w: 0.6 * span * w, h: 0.4 * h };
+    L.B = { x: (0.26 + 0.42 * span) * w, y: 0.73 * h, w: 0.6 * span * w, h: 0.4 * h };
   }
   return L;
 }
@@ -2218,22 +2339,22 @@ function arrow(g, p, v, col) {
 /* A cable (magenta — the routing you set) from a source jack to where it plugs in.
    `lane` routes it over the top or under the bottom of the boxes instead of
    through them; `drop` ends it vertically into a point on a line. */
-function cable(g, a, b, v, lane, drop, off) {
-  g.strokeStyle = TOKA('--scr-value', 0.9); g.lineWidth = 2 * v; g.beginPath(); g.moveTo(a.x, a.y);
+function cable(g, a, b, v, lane, drop, off, dashed) {
+  g.strokeStyle = TOKA('--scr-value', 0.9); g.lineWidth = 2 * v; g.setLineDash(dashed ? [5 * v, 3 * v] : []); g.beginPath(); g.moveTo(a.x, a.y);
   if (lane === undefined) { const mx = (a.x + b.x) / 2; g.bezierCurveTo(mx, a.y, mx, b.y, b.x, b.y); }
   else {
     /* `off` staggers each source's riser so two cables never share one line */
-    const r = 14 * v, up = lane < a.y ? -1 : 1, rx = a.x + r + (off || 0);
+    const r = 12 * v, up = lane < a.y ? -1 : 1, rx = a.x + r + (off || 0);
     g.lineTo(rx - r * 0.6, a.y); g.quadraticCurveTo(rx, a.y, rx, a.y + up * r);
     g.lineTo(rx, lane - up * r); g.quadraticCurveTo(rx, lane, rx + r, lane);
     if (drop) { g.lineTo(b.x - r, lane); g.quadraticCurveTo(b.x, lane, b.x, lane - up * r); g.lineTo(b.x, b.y); }
     else { g.lineTo(b.x - 2 * r, lane); g.quadraticCurveTo(b.x - r, lane, b.x - r, lane - up * r * 0.5); g.quadraticCurveTo(b.x - r, b.y, b.x, b.y); }
   }
-  g.stroke();
+  g.stroke(); g.setLineDash([]);
   g.fillStyle = TOKA('--scr-value', 0.95); g.beginPath(); g.arc(b.x, b.y, 2.6 * v, 0, TAU); g.fill();
 }
 function junction(g, p, v, label, diamond) {
-  g.fillStyle = TOK('--scr-tube'); g.strokeStyle = TOKA('--scr-grid', 0.9); g.lineWidth = 1.5 * v;
+  g.fillStyle = TOK('--scr-ground'); g.strokeStyle = TOKA('--scr-grid', 0.9); g.lineWidth = 1.5 * v;
   const r = 10 * v;
   g.beginPath();
   if (diamond) { g.moveTo(p.x - r, p.y); g.lineTo(p.x, p.y - r); g.lineTo(p.x + r, p.y); g.lineTo(p.x, p.y + r); g.closePath(); }
@@ -2242,19 +2363,21 @@ function junction(g, p, v, label, diamond) {
   g.fillStyle = TOKA('--scr-grid', 0.95); g.font = font(8.5, v); g.textAlign = 'center';
   g.fillText(label, p.x, p.y + 3 * v); g.textAlign = 'left';
 }
-function plainBox(g, b, v, label, live) {
+function plainBox(g, b, v, label, live, sub) {
   g.lineWidth = 1.4 * v; g.strokeStyle = TOKA('--scr-grid', 0.9); rrect(g, b, 5 * v); g.stroke();
-  g.fillStyle = TOKA('--scr-grid', 0.95); g.font = font(9, v); g.textAlign = 'center';
-  g.fillText(label, b.x, b.y + 3 * v); g.textAlign = 'left';
+  g.fillStyle = TOKA('--scr-grid', 0.95); g.font = font(8.5, v, 700); g.textAlign = 'center';
+  g.fillText(label, b.x, b.y + (sub ? -1 : 3) * v);
+  if (sub) { g.font = font(7, v); g.fillStyle = TOKA('--scr-marker', 0.95); g.fillText(sub, b.x, b.y + 9 * v); }
+  g.textAlign = 'left';
   if (live !== undefined) {
     const lv = Math.min(1, Math.sqrt(live) * 4);
     g.fillStyle = TOKA('--scr-meter', 0.25 + 0.75 * lv);
     g.beginPath(); g.arc(b.x + b.w / 2 - 6 * v, b.y - b.h / 2 + 6 * v, (1.5 + 2 * lv) * v, 0, TAU); g.fill();
   }
 }
-/* The response axes inside a filter box. */
-function boxAxes(b, v) {
-  const pl = 5 * v, pr = 5 * v, pt = 17 * v, pb = 11 * v;
+/* The response axes inside a filter box (or a card's whole screen). */
+function boxAxes(b, v, pt0) {
+  const pl = 5 * v, pr = 5 * v, pt = (pt0 === undefined ? 17 : pt0) * v, pb = 11 * v;
   const x0 = b.x - b.w / 2 + pl, x1 = b.x + b.w / 2 - pr, y0 = b.y - b.h / 2 + pt, y1 = b.y + b.h / 2 - pb;
   const X = f => x0 + Math.log(f / FMIN) / Math.log(FMAX / FMIN) * (x1 - x0);
   const Y = db => y0 + (DBTOP - db) / (DBTOP - DBBOT) * (y1 - y0);
@@ -2274,13 +2397,20 @@ const resHandleDb = res => -12 + 30 * res;
 const scratchP = { cutoff: 1000, oct: 0, res: 0, drive: 0, morph: 0.5, mode: 1 };
 function pOf(F, oct) { const P = scratchP; P.cutoff = F.cutoff; P.oct = oct; P.res = F.res; P.drive = F.drive; P.morph = F.morph; P.mode = F.mode; return P; }
 function curveDb(T, f, P, inst) { return dbOf(T.H(f, rig.sr, P, inst)); }
-/* One filter's box: title, spectra, live state (violet), the set curve (magenta),
-   the handle. This box IS the filter's representation — there is no other. */
-function drawFilterBox(g, key, b, v) {
-  const F = S.flt[key], T = TYPES[F.type], on = inForce(key), A = boxAxes(b, v), sr = rig.sr;
+/* the live instances of a per-voice filter: one modulation (octaves) per voice running it */
+function liveOcts(key) {
+  const out = [];
+  for (const vo of rig.voices) { const o = vo.oct[key]; if (Number.isFinite(o)) out.push(o); }
+  if (S.src[SUB].mono && rig.ms.live && Number.isFinite(rig.ms.oct[key])) out.push(rig.ms.oct[key]);
+  return out;
+}
+/* One filter's picture: spectra, live state (violet), the set curve (magenta), the handle.
+   Drawn in the signal path (titled) and on its card's screen (untitled, `card`). */
+function drawFilterBox(g, key, b, v, card) {
+  const F = S.flt[key], T = TYPES[F.type], on = inForce(key), A = boxAxes(b, v, card ? 6 : 17);
   g.save();
   g.globalAlpha = on ? 1 : 0.45;
-  g.fillStyle = TOK('--scr-tube'); rrect(g, b, 6 * v); g.fill();
+  g.fillStyle = TOK('--scr-ground'); rrect(g, b, 6 * v); g.fill();
   g.save(); rrect(g, b, 6 * v); g.clip();
   g.lineWidth = v; g.strokeStyle = TOKA('--scr-grid', 0.14);
   for (const f of [100, 1000, 10000]) { g.beginPath(); g.moveTo(A.X(f), A.y0); g.lineTo(A.X(f), A.y1); g.stroke(); }
@@ -2317,14 +2447,10 @@ function drawFilterBox(g, key, b, v) {
       state = n + ' bands · Q ' + bk.qEff.toFixed(1);
     }
   } else {
-    /* live state: one violet curve per sounding (voice, source), or the rack's one */
+    /* live state: one violet curve per voice running this filter, or the rack's one */
     g.strokeStyle = TOKA('--scr-physics', 0.55); g.lineWidth = v;
     if (key !== 'R') {
-      let drawn = 0;
-      if (on) for (const vo of rig.voices) for (let k = 0; k < 3 && drawn < 9; k++) {
-        const oct = vo.oct[key][k]; if (!Number.isFinite(oct)) continue;
-        strokeCurve(g, A, f => curveDb(T, f, pOf(F, oct))); drawn++;
-      }
+      if (on) { const oc = liveOcts(key); for (let i = 0; i < oc.length && i < 9; i++) strokeCurve(g, A, f => curveDb(T, f, pOf(F, oc[i]))); }
     } else if (on) {
       g.lineWidth = 1.3 * v; g.strokeStyle = TOKA('--scr-physics', 0.9);
       strokeCurve(g, A, f => curveDb(T, f, pOf(F, rig.rOct)));
@@ -2336,29 +2462,29 @@ function drawFilterBox(g, key, b, v) {
   /* handle — the DJ's sweep is morph, drawn at the frequency it lands on */
   const hx = F.type === 'dj' ? A.X(Math.max(FMIN, Math.min(FMAX, djMap(pOf(F, 0)).fc))) : A.X(Math.max(FMIN, Math.min(FMAX, F.cutoff)));
   const hy = A.Y(resHandleDb(F.res));
-  g.fillStyle = TOK('--scr-value'); g.strokeStyle = TOK('--scr-tube'); g.lineWidth = 1.5 * v;
+  g.fillStyle = TOK('--scr-value'); g.strokeStyle = TOK('--scr-ground'); g.lineWidth = 1.5 * v;
   g.beginPath(); g.arc(hx, hy, 4.5 * v, 0, TAU); g.fill(); g.stroke();
   g.restore();
   /* frame + title */
   g.setLineDash(on ? [] : [5 * v, 4 * v]);
-  g.lineWidth = (sel === key ? 2.6 : 1.4) * v; g.strokeStyle = sel === key ? TOK('--scr-value') : TOKA('--scr-grid', 0.9);
-  rrect(g, b, 6 * v); g.stroke(); g.setLineDash([]);
-  g.font = font(9.5, v); g.fillStyle = TOKA('--scr-grid', 0.98);
-  const title = (key === 'R' ? 'RACK' : key) + ' · ' + T.name + (modeName(key) ? ' ' + modeName(key) : '');
-  g.fillText(title, b.x - b.w / 2 + 6 * v, b.y - b.h / 2 + 12 * v);
-  g.font = font(8, v); g.textAlign = 'right';
+  g.lineWidth = (!card && sel === key ? 2.6 : 1.4) * v; g.strokeStyle = !card && sel === key ? TOK('--scr-value') : TOKA('--scr-grid', 0.9);
+  if (!card) { rrect(g, b, 6 * v); g.stroke(); }
+  g.setLineDash([]);
+  g.font = font(8.5, v, 700); g.fillStyle = TOKA('--scr-grid', 0.98);
+  if (!card) g.fillText((key === 'R' ? 'RACK' : key) + ' · ' + T.name + (modeName(key) ? ' ' + modeName(key) : ''), b.x - b.w / 2 + 6 * v, b.y - b.h / 2 + 12 * v);
+  g.font = font(7.5, v); g.textAlign = 'right';
   let right;
   if (!on) right = 'BYPASSED';
   else if (key === 'R') right = 'ON THE SUM';
-  else { const r = routedTo(key); right = r.length ? 'PER VOICE ×' + rig.voices.length * r.length : 'NO INPUT'; }
+  else { const r = routedTo(key), n = liveOcts(key).length; right = r.length ? 'PER VOICE ×' + n : 'NO INPUT'; }
   g.fillStyle = on ? TOKA('--scr-physics', 0.95) : TOKA('--scr-marker', 0.95);
-  g.fillText(right, b.x + b.w / 2 - 6 * v, b.y - b.h / 2 + 12 * v);
+  g.fillText(right, b.x + b.w / 2 - 6 * v, b.y - b.h / 2 + (card ? 10 : 12) * v);
   g.textAlign = 'left';
   g.fillStyle = TOKA('--scr-grid', 0.8);
-  const readout = F.type === 'dj' ? 'morph ' + f2(F.morph) : fHz(F.cutoff) + ' Hz';
+  const readout = F.type === 'dj' ? 'morph ' + f2(F.morph) : key === 'R' ? fHz(F.cutoff) + ' Hz' : cutText(key, F.cutoff);
   g.fillText(readout + ' · res ' + f2(F.res) + (state ? ' · ' + state : ''), b.x - b.w / 2 + 6 * v, b.y + b.h / 2 - 3 * v);
   g.restore();
-  HIT.push({ kind: 'box', key, x0: b.x - b.w / 2, y0: b.y - b.h / 2, x1: b.x + b.w / 2, y1: b.y + b.h / 2, A });
+  return A;
 }
 function drawPath() {
   const G = ground(pathC); if (!G) return;
@@ -2370,43 +2496,45 @@ function drawPath() {
     wire(g, outPt(L.B), L.mix, v, !pre);
   } else {
     wire(g, L.split, inPt(L.A), v, !pre); wire(g, L.split, inPt(L.B), v, !pre);
-    wire(g, outPt(L.A), L.half, v, !pre); wire(g, outPt(L.B), L.half, v, !pre);
-    wire(g, L.half, L.mix, v, !pre);
+    wire(g, outPt(L.A), L.mix, v, !pre); wire(g, outPt(L.B), L.mix, v, !pre);
   }
-  wire(g, L.mix, inPt(L.R), v, !post);
-  wire(g, outPt(L.R), inPt(L.out), v, !post);
-  if (!post) wire(g, { x: L.mix.x, y: L.mix.y }, inPt(L.out), v, false);
+  if (post) { wire(g, L.mix, inPt(L.R), v, false); wire(g, outPt(L.R), inPt(L.out), v, false); }
+  else wire(g, L.mix, inPt(L.out), v, false);
   /* 2. the cables — each source plugged straight into where it enters */
-  for (let k = 0; k < 3; k++) {
-    const p = S.port[k], j = L.jack[k], top = (0.022 + 0.016 * k) * h, bot = (0.94 - 0.016 * k) * h;   /* lanes clear every box */
-    if (p === 'A' || (p === 'AB' && S.topo === 'ser')) cable(g, j, inPt(L.A), v);
-    else if (p === 'B') S.topo === 'ser' ? cable(g, j, L.inB, v, top, true, 6 * v * k) : cable(g, j, inPt(L.B), v);
-    else if (p === 'AB') cable(g, j, L.split, v);
-    else if (p === 'R') cable(g, j, { x: L.mix.x, y: L.mix.y - 10 * v }, v, top, true, 6 * v * k);
-    else cable(g, j, { x: L.out.x, y: L.out.y + L.out.h / 2 }, v, bot, true, 6 * v * k);
+  const mono = !!S.src[SUB].mono;
+  for (let k = 0; k < NSRC; k++) {
+    const p = S.port[k], j = L.jack[k], top = (0.03 + 0.016 * k) * h, bot = (0.97 - 0.016 * k) * h, off = 5 * v * k, ln = k < 2 ? top : bot;
+    const dsh = (k === SUB && mono) || !S.src[k].on;
+    if (p === 'A' || (p === 'AB' && S.topo === 'ser')) cable(g, j, inPt(L.A), v, undefined, false, 0, dsh);
+    else if (p === 'B') S.topo === 'ser' ? cable(g, j, L.inB, v, ln, true, off, dsh) : cable(g, j, inPt(L.B), v, undefined, false, 0, dsh);
+    else if (p === 'AB') cable(g, j, L.split, v, undefined, false, 0, dsh);
+    else cable(g, j, { x: L.mix.x, y: L.mix.y + (k < 2 ? -10 : 10) * v }, v, ln, true, off, dsh);
   }
   /* 3. the parts */
-  for (let k = 0; k < 3; k++) {
-    plainBox(g, L.src[k], v, S.src[k].name, rig.meter.src[k]);
+  for (let k = 0; k < NSRC; k++) {
+    plainBox(g, L.src[k], v, S.src[k].name, rig.meter.src[k], k === SUB && mono ? 'MONO · OWN SLOT' : !S.src[k].on ? 'OFF' : '');
     g.fillStyle = TOK('--scr-value'); g.beginPath(); g.arc(L.jack[k].x, L.jack[k].y, 5 * v, 0, TAU); g.fill();
-    g.fillStyle = TOKA('--scr-value', 0.95); g.font = font(8, v);
-    g.fillText('→ ' + PORT_NAMES[S.port[k]], L.jack[k].x - 12 * v, L.jack[k].y + 17 * v);
     HIT.push({ kind: 'jack', k, x: L.jack[k].x, y: L.jack[k].y, r: 14 * v });
     HIT.push({ kind: 'jack', k, x0: L.src[k].x - L.src[k].w / 2, y0: L.src[k].y - L.src[k].h / 2, x1: L.src[k].x + L.src[k].w / 2, y1: L.src[k].y + L.src[k].h / 2 });
   }
   if (S.topo === 'ser') junction(g, L.inB, v, '+', false);
-  else { junction(g, L.split, v, '', true); junction(g, L.half, v, '½Σ', false); }
+  else junction(g, L.split, v, '½', true);
   junction(g, L.mix, v, 'Σ', false);
-  drawFilterBox(g, 'A', L.A, v);
-  drawFilterBox(g, 'B', L.B, v);
-  drawFilterBox(g, 'R', L.R, v);
+  for (const key of ['A', 'B']) { const A = drawFilterBox(g, key, L[key], v); const b = L[key]; HIT.push({ kind: 'box', key, x0: b.x - b.w / 2, y0: b.y - b.h / 2, x1: b.x + b.w / 2, y1: b.y + b.h / 2, A }); }
+  if (L.R) { const A = drawFilterBox(g, 'R', L.R, v); const b = L.R; HIT.push({ kind: 'box', key: 'R', x0: b.x - b.w / 2, y0: b.y - b.h / 2, x1: b.x + b.w / 2, y1: b.y + b.h / 2, A }); }
   plainBox(g, L.out, v, 'OUT', rig.meter.out);
   /* 4. captions */
-  g.fillStyle = TOKA('--scr-grid', 0.7); g.font = font(8, v);
-  g.fillText('SOURCES', 6 * v, 11 * v);
-  g.fillText((S.topo === 'ser' ? 'SERIAL — ONE LINE: A → B' : 'PARALLEL — SPLIT, TWO BRANCHES, SUM') + ' · PER VOICE, BEFORE THE MIX',
-    (S.topo === 'ser' ? L.A.x - L.A.w / 2 : L.split.x - 10 * v), h - 5 * v);
-  g.fillText('RACK SLOT — ONCE, ON THE SUM', L.R.x - L.R.w / 2, L.R.y + L.R.h / 2 + 12 * v);
+  g.fillStyle = TOKA('--scr-grid', 0.7); g.font = font(7.5, v);
+  g.fillText((S.topo === 'ser' ? 'SERIAL — ONE LINE: A → B' : 'PARALLEL — TWO BRANCHES THAT SUM') + ' · ONE INSTANCE PER FILTER PER VOICE', L.src[0].x + L.src[0].w / 2 + 16 * v, h - 4 * v);
+  if (mono) g.fillText('THE MONO SUB RUNS ITS OWN A / B (SN-7), ON ITS CHOSEN NOTE', L.src[0].x + L.src[0].w / 2 + 16 * v, 10 * v);
+  if (L.R) g.fillText('RACK — ONCE, ON THE SUM (B209)', L.R.x - L.R.w / 2, L.R.y + L.R.h / 2 + 11 * v);
+}
+/* A card's screen: the same picture, without a title (the card's head carries it). */
+function drawCardScreen(key) {
+  const c = CARD[key]; if (!c || !c.cv) return;
+  const G = ground(c.cv); if (!G) return;
+  const { g, w, h, v } = G;
+  c.A = drawFilterBox(g, key, { x: w / 2, y: h / 2, w: w + 2 * v, h: h + 2 * v }, v, true);
 }
 
 /* ---- envelope + scope ---------------------------------------------------- */
@@ -2433,7 +2561,7 @@ function drawScope() {
   const { g, w, h, v } = G;
   g.strokeStyle = TOKA('--scr-grid', 0.3); g.lineWidth = v; g.beginPath(); g.moveTo(0, h / 2); g.lineTo(w, h / 2); g.stroke();
   if (!ac && !preview) {
-    g.fillStyle = TOKA('--scr-grid', 0.9); g.font = font(10, v);
+    g.fillStyle = TOKA('--scr-grid', 0.9); g.font = font(9, v);
     g.fillText('POWER, then play — or DEMO', 8 * v, h / 2 - 6 * v);
     return;
   }
@@ -2443,7 +2571,7 @@ function drawScope() {
   g.stroke();
 }
 
-/* ---- small builders (gui2's .row grid, one control per row) -------------- */
+/* ---- small builders ------------------------------------------------------- */
 function el(tag, cls, txt) {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
@@ -2454,43 +2582,39 @@ function setPct(inp, min, max) {
   const t = (parseFloat(inp.value) - min) / (max - min || 1);
   inp.style.setProperty('--pct', String(Math.min(1, Math.max(0, t))));
 }
-/* toUi/fromUi map a parameter onto the slider's travel (cutoff is log). */
+/* A plain slider row in the system's .hd-srow grid (label, track, value). toUi/fromUi map a
+   parameter onto the travel (cutoff is log). Used where the design system's morph slider is not
+   the question (envelope, sources, the rack) and as the knobs' fallback without the bundle. */
 function slider(host, label, min, max, step, get, set, fmt, toUi, fromUi) {
-  const row = el('div', 'row');
+  const row = el('div', 'hd-srow');
   const inp = el('input'); inp.type = 'range';
   inp.min = String(min); inp.max = String(max); inp.step = String(step);
-  const out = el('output');
+  const out = el('output', 'hd-value');
   const tu = toUi || (x => x), fu = fromUi || (x => x);
   const show = () => { inp.value = String(tu(get())); out.textContent = fmt(get()); setPct(inp, min, max); };
   inp.addEventListener('input', () => { set(fu(parseFloat(inp.value))); onEdit(); });
-  row.appendChild(el('label', null, label)); row.appendChild(inp); row.appendChild(out);
+  row.appendChild(el('label', 'hd-label', label)); row.appendChild(inp); row.appendChild(out);
   host.appendChild(row); REP.push(show); show();
   return row;
 }
-function pillRow(host, label, names, get, set, extraCls, boxCls) {
-  const row = el('div', label === null ? (boxCls || 'pills') : 'arow');
-  const box = label === null ? row : el('div', boxCls || 'pills');
-  if (label !== null) { row.appendChild(el('label', null, label)); row.appendChild(box); }
+/* A row of the system's pills, one selected (role radio, aria-checked). */
+function pillRow(host, names, get, set, cls) {
+  const box = el('span', 'hd-pills'); box.setAttribute('role', 'radiogroup');
   const btns = names.map((nm, i) => {
-    const b = el('button', 'pill' + (extraCls ? ' ' + extraCls : ''), nm);
+    const b = el('button', 'hd-pill hd-focus' + (cls ? ' ' + cls : ''), nm); b.type = 'button'; b.setAttribute('role', 'radio');
     b.addEventListener('click', () => { set(i); onEdit(); });
     box.appendChild(b); return b;
   });
-  const show = () => { const v = get(); btns.forEach((b, i) => { if (b.classList) b.classList.toggle('on', i === v); }); };
-  host.appendChild(row); REP.push(show); show();
-  return { row, btns };
+  const show = () => { const v = get(); btns.forEach((b, i) => b.setAttribute('aria-checked', String(i === v))); };
+  host.appendChild(box); REP.push(show); show();
+  return { box, btns };
 }
-function toggleRow(host, label, get, set, tag) {
-  const row = el('div', 'row');
-  const inp = el('input'); inp.type = 'checkbox';
-  const out = el('output');
-  const show = () => { inp.checked = !!get(); out.textContent = get() ? 'ON' : 'OFF'; };
-  inp.addEventListener('change', () => { set(inp.checked ? 1 : 0); onEdit(); });
-  const lb = el('label', null, label);
-  row.appendChild(lb); row.appendChild(inp); row.appendChild(out);
-  if (tag) { const t = el('span', 'prop', 'PROPOSED'); t.style.marginLeft = '6px'; lb.appendChild(t); }
-  host.appendChild(row); REP.push(show); show();
-  return row;
+function toggleBtn(host, label, get, set) {
+  const b = el('button', 'hd-toggle hd-focus'); b.type = 'button'; b.setAttribute('role', 'switch'); b.setAttribute('aria-label', label);
+  b.addEventListener('click', () => { set(get() ? 0 : 1); onEdit(); });
+  host.appendChild(b); REP.push(() => b.setAttribute('aria-checked', String(!!get())));
+  b.setAttribute('aria-checked', String(!!get()));
+  return b;
 }
 const cutToUi = hz => Math.log(hz / 20) / Math.log(1000);
 const cutFromUi = t => 20 * Math.pow(1000, t);
@@ -2500,111 +2624,210 @@ function morphFmt(type) {
   return f2;
 }
 
-/* ---- the editor: controls for the ONE selected filter (no second picture) - */
-function buildInspector() {
-  const host = document.getElementById('insp'); if (!host) return;
-  host.innerHTML = '';
-  INSP.rep.length = 0; INSP.ghost.length = 0; REP = INSP.rep; GH = INSP.ghost;
-  const key = sel, F = S.flt[key], T = TYPES[F.type];
-  const head = el('div', 'ihead');
-  head.appendChild(el('b', null, key === 'R' ? 'RACK FILTER' : 'FILTER ' + key));
-  head.appendChild(el('span', 'where', key === 'R' ? 'ONCE, ON THE SUM · FX RACK SLOT' : 'PER VOICE · BEFORE THE MIX'));
-  const keys = el('div', 'keys');
-  for (const k of ['A', 'B', 'R']) {
-    const b = el('button', 'pill sm' + (k === key ? ' on' : ''), k === 'R' ? 'RACK' : k);
-    b.addEventListener('click', () => { sel = k; buildInspector(); onEdit(); });
-    keys.appendChild(b);
+/* ---- the knobs: the design system's own (Horde.Knob), bound to the patch ---- */
+/* Each knob's value is normalised 0…1 as the system's are. The design system's knob is a MORPH
+   knob (four corners and a puck); this page parks the puck on corner A (weights 1, 0, 0, 0), so a
+   knob shows and edits one value — the filter page's morph is not this lab's question. A binding
+   syncs both ways once per frame: an edit from elsewhere (the canvas, a type's defaults) is
+   pushed into all four corners, a knob gesture is pulled into the patch. */
+const KNOBS = [
+  { f: 'cutoff', toN: cutToUi, fromN: cutFromUi, name: (key, t) => (isComb(t) ? 'Pitch' : t === 'formant' ? 'Shift' : 'Cutoff'), fmt: key => n => cutText(key, cutFromUi(n)), uses: 'cutoff' },
+  { f: 'res', toN: x => x, fromN: x => x, name: () => 'Resonance', fmt: () => f2, uses: 'res' },
+  { f: 'drive', toN: x => x, fromN: x => x, name: () => 'Drive', fmt: () => n => '×' + driveGain(n).toFixed(1), uses: 'drive' },
+  { f: 'morph', toN: x => x, fromN: x => x, name: (key, t) => (t === 'formant' ? 'Vowel' : t === 'dj' ? 'LP ↔ HP' : 'Morph'), fmt: (key, t) => morphFmt(t), uses: 'morph' },
+  { f: 'ktrack', toN: x => x, fromN: x => x, name: () => 'Keytrack', fmt: () => fPct },
+  { f: 'env', toN: x => (x + 1) / 2, fromN: n => 2 * n - 1, bipolar: true, name: () => 'Env amt', fmt: () => n => { const x = 2 * n - 1; return sgn(x) + Math.abs(x * ENV_OCT).toFixed(1) + ' oct'; } },
+  { f: 'rtrack', toN: x => (x + 1) / 2, fromN: n => 2 * n - 1, bipolar: true, name: () => 'R track', fmt: () => n => { const x = 2 * n - 1; return sgn(x) + Math.abs(x * R_OCT).toFixed(1) + ' oct'; } },
+];
+function bindKnobs(key, face) {
+  const F = S.flt[key];
+  for (const k of KNOBS) {
+    const host = el('div'); face.appendChild(host);
+    const n0 = k.toN(F[k.f]), dflt = k.toN(defaultPatch().flt[key][k.f]);
+    const p = { key: 'flt.' + key + '.' + k.f, name: k.name(key, F.type), path: 'Filter ' + key + ' · ' + k.name(key, F.type), vals: [n0, n0, n0, n0], def: dflt, bipolar: !!k.bipolar, fmt: k.fmt(key, F.type) };
+    H.Knob(host, p, HS);
+    BIND.push({ key, k, p, host, v: F[k.f], n: n0 });
   }
-  head.appendChild(keys); host.appendChild(head);
-  host.appendChild(el('div', 'cap', 'TYPE'));
-  const ids = TYPE_ORDER.filter(id => key === 'R' || !TYPES[id].rackOnly);
-  const tp = pillRow(host, null, ids.map(id => TYPES[id].name), () => ids.indexOf(F.type),
-    i => { F.type = ids[i]; F.mode = 1; DIAG.dirty = true; buildInspector(); }, 'sm', 'typegrid');
-  tp.btns.forEach((b, i) => { b.title = TYPES[ids[i]].fam; });
-  if (T.modes.length > 1) pillRow(host, 'Mode', T.modes, () => (F.mode || 1) - 1, i => { F.mode = i + 1; });
-  const U = T.uses;
-  const g1 = slider(host, key === 'R' && T.needsRef ? 'Centre' : (F.type === 'combP' || F.type === 'combN' ? 'Pitch' : F.type === 'formant' ? 'Shift' : 'Cutoff'),
-    0, 1, 0.001, () => F.cutoff, x => { F.cutoff = x; DIAG.dirty = true; }, x => fHz(x) + ' Hz', cutToUi, cutFromUi);
-  GH.push([g1, () => !!U.cutoff]);
-  const g2 = slider(host, 'Resonance', 0, 1, 0.005, () => F.res, x => { F.res = x; }, x => (T.needsRef ? 'q ' : '') + f2(x));
-  GH.push([g2, () => !!U.res]);
-  const g3 = slider(host, 'Drive', 0, 1, 0.01, () => F.drive, x => { F.drive = x; }, x => '×' + driveGain(x).toFixed(1));
-  GH.push([g3, () => !!U.drive]);
-  const g4 = slider(host, F.type === 'formant' ? 'Vowel' : F.type === 'dj' ? 'LP ↔ HP' : 'Morph', 0, 1, 0.005, () => F.morph, x => { F.morph = x; }, morphFmt(F.type));
-  GH.push([g4, () => !!U.morph]);
-  slider(host, 'Keytrack', 0, 1, 0.01, () => F.ktrack, x => { F.ktrack = x; }, fPct);
-  slider(host, 'Env amt', -1, 1, 0.01, () => F.env, x => { F.env = x; }, x => (x > 0 ? '+' : '') + (x * ENV_OCT).toFixed(1) + ' oct');
-  if (key === 'R') {
-    pillRow(host, 'Track', ['LAST', 'LOWEST', 'HIGHEST'], () => ['last', 'low', 'high'].indexOf(F.ktRef), i => { F.ktRef = ['last', 'low', 'high'][i]; rig.pickKt(null); });
-    slider(host, 'Wet', 0, 1, 0.01, () => F.wet, x => { F.wet = x; }, fPct);
-    if (T.needsRef) {
-      const B = F.bank;
-      host.appendChild(el('div', 'sep'));
-      host.appendChild(el('div', 'cap', 'SWARM BANK — the reference\'s own controls'));
-      slider(host, 'Bands', 4, 24, 1, () => B.nb, x => { B.nb = x | 0; rig.bankParam('nb', B.nb); DIAG.dirty = true; }, x => String(x | 0));
-      slider(host, 'Spread', 0, 1, 0.01, () => B.spread, x => { B.spread = x; rig.bankParam('spread', x); DIAG.dirty = true; }, f2);
-      slider(host, 'Pull K', -1, 1, 0.01, () => B.K, x => { B.K = x; rig.bankParam('K', x); }, x => Math.abs(x) < 0.005 ? 'free' : (x > 0 ? 'clps ' : 'comb ') + f2(Math.abs(x)));
-      slider(host, 'Drift', 0, 200, 1, () => B.drift, x => { B.drift = x; rig.bankParam('drift', x); }, x => Math.round(x) + ' ¢');
-      pillRow(host, 'Placing', PLACEMENTS_BANK, () => B.place, i => { B.place = i; rig.bankParam('place', i); DIAG.dirty = true; });
-      if (F.type === 'bankP') {
-        toggleRow(host, 'P1 Q comp', () => F.prop.qcomp, x => { F.prop.qcomp = x; }, true);
-        toggleRow(host, 'P2 LF keep', () => F.prop.lfkeep, x => { F.prop.lfkeep = x; }, true);
-        toggleRow(host, 'P3 rigid', () => F.prop.rigid, x => { F.prop.rigid = x; }, true);
-        toggleRow(host, 'P4 range', () => F.prop.range, x => { F.prop.range = x; }, true);
-      }
-    }
-  } else {
-    pillRow(host, 'Track', ['PLAYED KEY', 'SOURCE PITCH'], () => (F.ktPitch === 'src' ? 1 : 0), i => { F.ktPitch = i ? 'src' : 'key'; });
+}
+function syncKnobs() {
+  if (!HS) return;
+  for (const b of BIND) {
+    const F = S.flt[b.key], cur = F[b.k.f];
+    if (cur !== b.v) { const n = clamp01(b.k.toN(cur)); for (let i = 0; i < 4; i++) b.p.vals[i] = n; b.v = cur; b.n = n; continue; }
+    const n = HS.output(b.p);
+    if (Math.abs(n - b.n) > 1e-9) { const val = b.k.fromN(n); F[b.k.f] = val; b.v = val; b.n = n; DIAG.dirty = true; }
   }
-  host.appendChild(el('div', 'cap', 'FIDELITY · ' + fidRowId(key)));
-  const chips = el('div', 'chips'); host.appendChild(chips);
-  REP.push(() => {
-    chips.innerHTML = '';
-    const r = FIDS.res[fidRowId(key)];
-    for (const c of FID_CHECKS) {
-      const cell = r && r[c.id], ch = el('span', 'chip2' + (!cell ? ' pend' : cell.ok ? '' : ' fail'), c.id + ' ' + (!cell ? '…' : cell.ok ? 'PASS' : 'FAIL'));
-      ch.title = c.name + (cell ? ' — ' + cell.val : '');
-      chips.appendChild(ch);
-    }
-  });
-  host.appendChild(el('div', 'note', T.why));
-  if (T.law) host.appendChild(el('div', 'note', 'LEVEL LAW — ' + T.law));
-  if (T.aaWhy) host.appendChild(el('div', 'note', 'ANTI-ALIASING — ' + T.aaWhy));
-  REP = REPAINT; GH = GHOSTROWS;
+}
+/* a type change renames and re-formats the knobs it touches, and ghosts the ones it does not read */
+function relabelKnobs(key) {
+  const T = typeOf(key), t = S.flt[key].type;
+  for (const b of BIND) if (b.key === key) {
+    const nm = b.k.name(key, t); b.p.name = nm; b.p.path = 'Filter ' + key + ' · ' + nm; b.p.fmt = b.k.fmt(key, t);
+    const ne = b.host.querySelector && b.host.querySelector('.mk-name'); if (ne) ne.textContent = nm;
+    if (b.host.classList) b.host.classList.toggle('ghost', !!b.k.uses && !T.uses[b.k.uses]);
+  }
 }
 
-function buildRouting() {
-  const pp = document.getElementById('placePills');
-  if (pp) pillRow(pp, null, PLACES.map(p => p[1]), () => PLACES.findIndex(p => p[0] === S.place), i => { S.place = PLACES[i][0]; }, 'big');
-  const tp = document.getElementById('topoPills');
-  if (tp) pillRow(tp, null, TOPOS.map(t => t[1]), () => TOPOS.findIndex(t => t[0] === S.topo), i => {
-    S.topo = TOPOS[i][0];
-    if (S.topo === 'ser') for (let k = 0; k < 3; k++) if (S.port[k] === 'AB') S.port[k] = 'A';   /* no split on one line */
+/* ---- the filter module cards (the system's .hd-card anatomy: strip, head, screen, face, foot) */
+function buildCard(key) {
+  const host = document.getElementById('fcards'); if (!host) return;
+  const c = CARD[key] = {};
+  const card = el('section', 'hd-card fcard'); card.setAttribute('aria-label', 'Filter ' + key);
+  const strip = el('div', 'strip'); const seg = el('i'); seg.style.setProperty('--cc', 'var(--cA)'); seg.style.flex = '1 1 0'; strip.appendChild(seg);
+  strip.title = 'Corner shares: the puck is parked on corner A, so every knob is A\'s';
+  card.appendChild(strip);
+  const head = el('div', 'head'); c.dot = el('i', 'dot'); head.appendChild(c.dot);
+  head.appendChild(el('span', 'hd-cluster', 'Filter ' + key)); c.tag = el('span', 'tag', ''); head.appendChild(c.tag);
+  c.census = el('span', 'census', ''); head.appendChild(c.census);
+  card.appendChild(head);
+  const viz = el('div', 'viz'); c.cv = el('canvas'); viz.appendChild(c.cv); card.appendChild(viz);
+  /* the type pills, each with its Release cost per voice (PROPOSED badge) */
+  c.types = el('div', 'types');
+  const ids = TYPE_ORDER.filter(id => !TYPES[id].rackOnly);
+  c.typeBtns = ids.map(id => {
+    const T = TYPES[id], pc = COST_CPP[id], b = el('button', 'hd-pill hd-focus' + (pc >= COST_HEAVY ? ' heavy' : '')); b.type = 'button'; b.setAttribute('role', 'radio');
+    b.appendChild(el('span', null, T.name)); b.appendChild(el('span', 'cost', pc === undefined ? '' : pc.toFixed(pc < 10 ? 1 : 0) + '%'));
+    b.title = T.fam + ' — Release cost for 16 voices × 2 filters: ' + (pc === undefined ? 'not measured' : pc.toFixed(2) + ' % of one core') + (PER_NOTE.held.indexOf(id) >= 0 ? ' · PROPOSED: held from the per-note list' : '');
+    b.addEventListener('click', () => { applyTypeDefaults(S.flt[key], id); relabelKnobs(key); buildModes(key); DIAG.dirty = true; onEdit(); });
+    c.types.appendChild(b); return b;
   });
-  const pr = document.getElementById('plugRows');
-  if (pr) for (let k = 0; k < 3; k++) {
-    const r = pillRow(pr, S.src[k].name, PORTS.map(p => PORT_NAMES[p]), () => PORTS.indexOf(S.port[k]), i => { S.port[k] = PORTS[i]; }, 'sm');
-    const ab = r.btns[PORTS.indexOf('AB')];
-    REPAINT.push(() => { if (ab && ab.classList) ab.classList.toggle('dis', S.topo === 'ser'); });
+  c.typeIds = ids;
+  card.appendChild(c.types);
+  c.modes = el('div', 'modes'); card.appendChild(c.modes);
+  const face = el('div', 'face'); card.appendChild(face);
+  if (H && HS) { bindKnobs(key, face); relabelKnobs(key); }
+  else {
+    face.classList.add('fallback'); face.style.display = 'block'; face.style.padding = '4px 7px';
+    const F = S.flt[key], U = () => typeOf(key).uses;
+    const g1 = slider(face, 'Cutoff', 0, 1, 0.001, () => F.cutoff, x => { F.cutoff = x; DIAG.dirty = true; }, x => cutText(key, x), cutToUi, cutFromUi); GH.push([g1, () => !!U().cutoff]);
+    const g2 = slider(face, 'Resonance', 0, 1, 0.005, () => F.res, x => { F.res = x; }, f2); GH.push([g2, () => !!U().res]);
+    const g3 = slider(face, 'Drive', 0, 1, 0.01, () => F.drive, x => { F.drive = x; }, x => '×' + driveGain(x).toFixed(1)); GH.push([g3, () => !!U().drive]);
+    const g4 = slider(face, 'Morph', 0, 1, 0.005, () => F.morph, x => { F.morph = x; }, x => morphFmt(F.type)(x)); GH.push([g4, () => !!U().morph]);
+    slider(face, 'Keytrack', 0, 1, 0.01, () => F.ktrack, x => { F.ktrack = x; }, fPct);
+    slider(face, 'Env amt', -1, 1, 0.01, () => F.env, x => { F.env = x; }, x => sgn(x) + Math.abs(x * ENV_OCT).toFixed(1) + ' oct');
+    slider(face, 'R track', -1, 1, 0.01, () => F.rtrack, x => { F.rtrack = x; }, x => sgn(x) + Math.abs(x * R_OCT).toFixed(1) + ' oct');
+  }
+  const ex = el('div', 'extra');
+  ex.appendChild(el('span', 'hd-label', 'R from'));
+  pillRow(ex, ['SCALPEL 1', 'SCALPEL 2'], () => S.flt[key].rsrc | 0, i => { S.flt[key].rsrc = i; }, 'sm');
+  c.chips = el('span', 'chips'); ex.appendChild(c.chips);
+  card.appendChild(ex);
+  const foot = el('div', 'foot'); c.hint = el('span', 'hd-hint', ''); foot.appendChild(c.hint); card.appendChild(foot);
+  host.appendChild(card);
+  buildModes(key);
+  /* the screen is a control surface too: across = cutoff, up = resonance (no wheel here: the
+     signal path carries the one ⌥ + wheel site, B301) */
+  if (c.cv.addEventListener) {
+    c.cv.style.cursor = 'crosshair'; c.cv.style.touchAction = 'none';
+    const at = e => { const r = c.cv.getBoundingClientRect(), v = VS(); return [(e.clientX - r.left) * v, (e.clientY - r.top) * v]; };
+    c.cv.addEventListener('pointerdown', e => { if (!c.A) return; cardDrag = key; if (c.cv.setPointerCapture) c.cv.setPointerCapture(e.pointerId); const [x, y] = at(e); dragTo(key, c.A, x, y); });
+    c.cv.addEventListener('pointermove', e => { if (cardDrag !== key || !c.A) return; const [x, y] = at(e); dragTo(key, c.A, x, y); });
+    c.cv.addEventListener('pointerup', () => { cardDrag = null; });
+    c.cv.addEventListener('pointercancel', () => { cardDrag = null; });
   }
 }
-function cyclePort(k) {
-  const list = S.topo === 'ser' ? ['A', 'B', 'R', 'OUT'] : PORTS;
-  S.port[k] = list[(list.indexOf(S.port[k]) + 1) % list.length];
+function buildModes(key) {
+  const c = CARD[key]; if (!c || !c.modes) return;
+  c.modes.innerHTML = '';
+  const T = typeOf(key);
+  if (T.modes.length > 1) pillRow(c.modes, T.modes, () => (S.flt[key].mode || 1) - 1, i => { S.flt[key].mode = i + 1; DIAG.dirty = true; }, 'sm');
 }
+function paintCard(key) {
+  const c = CARD[key]; if (!c) return;
+  const F = S.flt[key], T = TYPES[F.type], r = routedTo(key), n = liveOcts(key).length;
+  c.typeBtns.forEach((b, i) => b.setAttribute('aria-checked', String(c.typeIds[i] === F.type)));
+  c.tag.textContent = T.name + (modeName(key) ? ' ' + modeName(key) : '');
+  c.dot.className = 'dot' + (r.length && inForce(key) ? '' : ' bypass');
+  c.census.textContent = !inForce(key) ? 'bypassed' : r.length ? r.map(k => ['SC1', 'SC2', 'SUB', 'NZ'][k]).join(' + ') + ' · ×' + n : 'no input';
+  const pc = COST_CPP[F.type];
+  c.hint.textContent = (pc === undefined ? '' : pc.toFixed(2) + ' % of a core for 16 voices × 2 (Release C++) · ') + T.fam + (isComb(F.type) ? ' · keytracked by default (B288)' : '');
+  c.chips.innerHTML = '';
+  const fr = FIDS.res[fidRowId(key)];
+  for (const ck of FID_CHECKS) {
+    const cell = fr && fr[ck.id], ch = el('span', 'chip2' + (!cell ? ' pend' : cell.ok ? '' : ' fail'), ck.id + (!cell ? ' …' : cell.ok ? ' ✓' : ' F'));
+    ch.title = ck.name + (cell ? ' — ' + cell.val : '');
+    c.chips.appendChild(ch);
+  }
+}
+
+/* ---- sources, routing, envelope ------------------------------------------- */
 function buildSources() {
   const host = document.getElementById('srcRows'); if (!host) return;
-  for (let k = 0; k < 3; k++) {
-    const s = S.src[k];
-    host.appendChild(el('div', 'cap', s.name));
-    slider(host, 'Level', 0, 1, 0.01, () => s.lvl, x => { s.lvl = x; }, f2);
-    slider(host, 'Transpose', -24, 24, 1, () => s.semi, x => { s.semi = x; rig.detuneEpoch++; }, x => (x > 0 ? '+' : '') + x + ' st');
-    if (k < 2) {
-      slider(host, 'Saws', 1, MAXSW, 1, () => s.n, x => { s.n = x | 0; }, x => String(x | 0));
-      slider(host, 'Detune', 0, 60, 0.5, () => s.det, x => { s.det = x; rig.detuneEpoch++; }, x => x.toFixed(1) + ' ¢');
+  for (let k = 0; k < NSRC; k++) {
+    const s = S.src[k], row = el('div', 'sstrip');
+    const nm = el('span', 'nm', s.name); nm.appendChild(el('small', null, SRC_SUB[k])); row.appendChild(nm);
+    toggleBtn(row, s.name + ' on', () => s.on, x => { s.on = x; });
+    const inp = el('input'); inp.type = 'range'; inp.min = '0'; inp.max = '1'; inp.step = '0.01'; inp.setAttribute('aria-label', s.name + ' level');
+    const show = () => { inp.value = String(s.lvl); setPct(inp, 0, 1); };
+    inp.addEventListener('input', () => { s.lvl = parseFloat(inp.value); onEdit(); });
+    row.appendChild(inp); REP.push(show); show();
+    const mt = el('span', 'smeter'), bar = el('i'); mt.appendChild(bar); row.appendChild(mt);
+    REPAINT_METERS.push(() => { const lv = Math.min(1, Math.sqrt(rig.meter.src[k]) * 4); bar.style.height = Math.round(lv * 100) + '%'; });
+    host.appendChild(row);
+    if (k === SUB) {
+      const sr = el('div', 'subrow');
+      pillRow(sr, ['PER NOTE', 'MONO'], () => (s.mono ? 1 : 0), i => { s.mono = i; }, 'sm');
+      const pr = pillRow(sr, ['LOWEST', 'HIGHEST', 'NEWEST'], () => ['low', 'high', 'new'].indexOf(s.prio), i => { s.prio = ['low', 'high', 'new'][i]; }, 'sm');
+      GH.push([pr.box, () => !!s.mono]);
+      host.appendChild(sr);
     }
   }
+  /* the Scalpel stand-ins' own knobs: members and detune (R follows them) */
+  const det = el('details'); det.appendChild(el('summary', 'hd-label', 'Stand-in settings (members, detune)'));
+  for (let k = 0; k < 2; k++) {
+    const s = S.src[k];
+    slider(det, (k ? 'SC 2' : 'SC 1') + ' saws', 1, MAXSW, 1, () => s.n, x => { s.n = x | 0; }, x => String(x | 0));
+    slider(det, (k ? 'SC 2' : 'SC 1') + ' detune', 0, 60, 0.5, () => s.det, x => { s.det = x; rig.detuneEpoch++; }, x => x.toFixed(1) + ' ¢');
+    slider(det, (k ? 'SC 2' : 'SC 1') + ' transp', -24, 24, 1, () => s.semi, x => { s.semi = x; rig.detuneEpoch++; }, x => sgn(x) + Math.abs(x) + ' st');
+  }
+  host.appendChild(det);
 }
+/* THE ROUTING MATRIX (PROPOSED component): a cell toggles that source's way into that filter.
+   PARALLEL: A, B, both (the split), neither. SERIAL: into A runs on through B (B274 Q5), so
+   B's cell on an A row is drawn hatched "via A" and a click on it says why. */
+function buildRouting() {
+  const host = document.getElementById('rmx'); if (!host) return;
+  host.innerHTML = '';
+  for (const t of ['', 'A', 'B', '']) host.appendChild(el('span', 'hdr', t));
+  for (let k = 0; k < NSRC; k++) {
+    host.appendChild(el('span', 'rl', S.src[k].name));
+    const cells = ['A', 'B'].map(key => {
+      const b = el('button', 'rcell hd-focus', key); b.type = 'button'; b.setAttribute('role', 'checkbox'); b.setAttribute('aria-label', S.src[k].name + ' into ' + key);
+      b.addEventListener('click', () => { toggleRoute(k, key); onEdit(); });
+      host.appendChild(b); return b;
+    });
+    const d = el('span', 'rd', ''); host.appendChild(d);
+    REP.push(() => {
+      const p = S.port[k], ser = S.topo === 'ser', a = p === 'A' || p === 'AB', bOn = p === 'B' || p === 'AB' || (ser && a);
+      cells[0].setAttribute('aria-checked', String(a)); cells[1].setAttribute('aria-checked', String(bOn && !(ser && a)));
+      if (cells[1].classList) cells[1].classList.toggle('via', ser && a);
+      cells[1].title = ser && a ? 'via A: in SERIAL a source into A runs on through B' : '';
+      d.textContent = (ser ? PORT_TEXT_SER : PORT_TEXT)[p] + (k === SUB && S.src[SUB].mono ? ' · own slot (mono)' : '');
+    });
+  }
+  const tp = document.getElementById('topoPills');
+  if (tp) pillRow(tp, TOPOS.map(t => t[1]), () => TOPOS.findIndex(t => t[0] === S.topo), i => {
+    S.topo = TOPOS[i][0];
+    if (S.topo === 'ser') for (let k = 0; k < NSRC; k++) if (S.port[k] === 'AB') S.port[k] = 'A';   /* no split on one line */
+  });
+  const nt = document.getElementById('rmxNote');
+  if (nt) REP.push(() => { nt.textContent = S.topo === 'ser'
+    ? 'SERIAL: into A runs on through B (B274 Q5, ruled); B alone is the + inlet between them (ratified). Neither: unfiltered into the voice sum.'
+    : 'PARALLEL: A, B, or both — the split, −6 dB into each branch, so two identical filters sum to unity. Neither: unfiltered into the voice sum.'; });
+}
+function toggleRoute(k, key) {
+  const p = S.port[k], ser = S.topo === 'ser';
+  let a = p === 'A' || p === 'AB', b = p === 'B' || p === 'AB';
+  if (ser && a && key === 'B') { flash('In SERIAL a source into A runs on through B (B274 Q5): to skip A, plug it into B alone'); return; }
+  if (key === 'A') a = !a; else b = !b;
+  S.port[k] = a && b ? (ser ? 'A' : 'AB') : a ? 'A' : b ? 'B' : 'N';
+}
+function cyclePort(k) {
+  const list = S.topo === 'ser' ? ['A', 'B', 'N'] : ['A', 'B', 'AB', 'N'];
+  const i = list.indexOf(S.port[k] === 'AB' && S.topo === 'ser' ? 'A' : S.port[k]);
+  S.port[k] = list[(i + 1) % list.length];
+}
+function flash(msg) { const s = document.getElementById('rmxNote'); if (s) s.textContent = msg; flashT = 90; }
 function buildEnv() {
   const host = document.getElementById('envRows'); if (!host) return;
   const E = S.fenv, ms = x => (x < 1 ? Math.round(x * 1000) + ' ms' : x.toFixed(2) + ' s');
@@ -2614,12 +2837,146 @@ function buildEnv() {
   slider(host, 'Decay', 0, 1, 0.001, () => E.d, x => { E.d = x; }, ms, dT, dF);
   slider(host, 'Sustain', 0, 1, 0.01, () => E.s, x => { E.s = x; }, f2);
   slider(host, 'Release', 0, 1, 0.001, () => E.r, x => { E.r = x; }, ms, rT, rF);
+  host.appendChild(el('p', 'hd-note', 'One shape for both filters (B81: a dedicated filter envelope), a copy per voice (violet dots); each filter has its own amount.'));
+}
+
+/* ---- the rack comparison (round 1's one filter on the sum) ---------------- */
+function buildRack() {
+  const host = document.getElementById('rackInsp'); if (!host) return;
+  host.innerHTML = '';
+  INSP.rep.length = 0; INSP.ghost.length = 0; REP = INSP.rep; GH = INSP.ghost;
+  const F = S.flt.R, T = TYPES[F.type];
+  const tb = el('div'); tb.style.display = 'flex'; tb.style.flexWrap = 'wrap'; tb.style.gap = '4px'; host.appendChild(tb);
+  pillRow(tb, TYPE_ORDER.map(id => TYPES[id].name), () => TYPE_ORDER.indexOf(F.type), i => { F.type = TYPE_ORDER[i]; F.mode = 1; DIAG.dirty = true; buildRack(); }, 'sm');
+  if (T.modes.length > 1) pillRow(host, T.modes, () => (F.mode || 1) - 1, i => { F.mode = i + 1; }, 'sm');
+  const U = T.uses;
+  const g1 = slider(host, T.needsRef ? 'Centre' : 'Cutoff', 0, 1, 0.001, () => F.cutoff, x => { F.cutoff = x; DIAG.dirty = true; }, x => fHz(x) + ' Hz', cutToUi, cutFromUi); GH.push([g1, () => !!U.cutoff]);
+  const g2 = slider(host, 'Resonance', 0, 1, 0.005, () => F.res, x => { F.res = x; }, x => (T.needsRef ? 'q ' : '') + f2(x)); GH.push([g2, () => !!U.res]);
+  const g3 = slider(host, 'Drive', 0, 1, 0.01, () => F.drive, x => { F.drive = x; }, x => '×' + driveGain(x).toFixed(1)); GH.push([g3, () => !!U.drive]);
+  const g4 = slider(host, 'Morph', 0, 1, 0.005, () => F.morph, x => { F.morph = x; }, morphFmt(F.type)); GH.push([g4, () => !!U.morph]);
+  slider(host, 'Keytrack', 0, 1, 0.01, () => F.ktrack, x => { F.ktrack = x; }, fPct);
+  slider(host, 'Env amt', -1, 1, 0.01, () => F.env, x => { F.env = x; }, x => sgn(x) + Math.abs(x * ENV_OCT).toFixed(1) + ' oct');
+  const tr = el('div', 'hd-srow'); tr.appendChild(el('label', 'hd-label', 'Track')); host.appendChild(tr);
+  pillRow(tr, ['LAST', 'LOWEST', 'HIGHEST'], () => ['last', 'low', 'high'].indexOf(F.ktRef), i => { F.ktRef = ['last', 'low', 'high'][i]; rig.pickKt(null); }, 'sm');
+  slider(host, 'Wet', 0, 1, 0.01, () => F.wet, x => { F.wet = x; }, fPct);
+  if (T.needsRef) {
+    const B = F.bank;
+    host.appendChild(el('p', 'hd-note', 'SWARM BANK — the reference\'s own controls'));
+    slider(host, 'Bands', 4, 24, 1, () => B.nb, x => { B.nb = x | 0; rig.bankParam('nb', B.nb); DIAG.dirty = true; }, x => String(x | 0));
+    slider(host, 'Spread', 0, 1, 0.01, () => B.spread, x => { B.spread = x; rig.bankParam('spread', x); DIAG.dirty = true; }, f2);
+    slider(host, 'Pull K', -1, 1, 0.01, () => B.K, x => { B.K = x; rig.bankParam('K', x); }, x => Math.abs(x) < 0.005 ? 'free' : (x > 0 ? 'clps ' : 'comb ') + f2(Math.abs(x)));
+    slider(host, 'Drift', 0, 200, 1, () => B.drift, x => { B.drift = x; rig.bankParam('drift', x); }, x => Math.round(x) + ' ¢');
+    const pl = el('div', 'hd-srow'); pl.appendChild(el('label', 'hd-label', 'Placing')); host.appendChild(pl);
+    pillRow(pl, PLACEMENTS_BANK, () => B.place, i => { B.place = i; rig.bankParam('place', i); DIAG.dirty = true; }, 'sm');
+    if (F.type === 'bankP') for (const [lab, k2] of [['P1 Q comp', 'qcomp'], ['P2 LF keep', 'lfkeep'], ['P3 rigid', 'rigid'], ['P4 range', 'range']]) {
+      const r = el('div', 'hd-srow'); r.appendChild(el('label', 'hd-label', lab)); toggleBtn(r, lab, () => F.prop[k2], x => { F.prop[k2] = x; }); r.appendChild(el('span', 'lab-tag prop', 'PROPOSED')); host.appendChild(r);
+    }
+  }
+  host.appendChild(el('p', 'note', T.why));
+  if (T.law) host.appendChild(el('p', 'note', 'LEVEL LAW — ' + T.law));
+  REP = REPAINT; GH = GHOSTROWS;
+}
+function buildPlacement() {
+  const pp = document.getElementById('placePills');
+  if (pp) pillRow(pp, PLACES.map(p => p[1]), () => PLACES.findIndex(p => p[0] === S.place), i => { S.place = PLACES[i][0]; });
+}
+
+/* ---- the listening batch ---------------------------------------------------- */
+function buildBatch() {
+  const host = document.getElementById('batch'); if (!host) return;
+  BATCH.slice(0, BATCH_MAX).forEach((it, i) => {
+    const d = el('div', 'bitem');
+    d.appendChild(el('span', 'n', String(i + 1)));
+    d.appendChild(el('span', 't', it.title));
+    const ab = el('span', 'ab');
+    for (const side of ['a', 'b']) {
+      const b = el('button', 'hd-pill hd-focus', side.toUpperCase()); b.type = 'button'; b.setAttribute('aria-pressed', 'false');
+      b.setAttribute('aria-label', 'Play item ' + (i + 1) + ' side ' + side.toUpperCase());
+      b.addEventListener('click', () => batchPlay(it, side, b));
+      ab.appendChild(b);
+    }
+    d.appendChild(ab);
+    d.appendChild(el('span', 'l', it.listen));
+    const m = el('span', 'm', (it.match ? 'level-matched' : 'NOT level-matched') + ' · rendered on first play'); d.appendChild(m);
+    BATCHS.cache[it.id] = { r: null, meta: m };
+    host.appendChild(d);
+  });
+}
+const dbS = x => (x > 0 ? (20 * Math.log10(x)).toFixed(1) : '−∞');
+function batchPlay(it, side, btn) {
+  const c = BATCHS.cache[it.id];
+  if (!c.r) {
+    c.r = batchRender(it);
+    c.meta.textContent = (it.match ? 'level-matched' : 'NOT level-matched') + ' · peaks A ' + dbS(c.r.peak[0]) + ' / B ' + dbS(c.r.peak[1]) + ' dBFS · gains ×' + c.r.gain[0].toFixed(2) + ' ×' + c.r.gain[1].toFixed(2) + ' · ' + it.dur + ' s';
+  }
+  batchStop();
+  /* the live rig falls silent while a batch item plays, so the two never sum */
+  if (rig) { rig.panic(); setDemo(false); }
+  try {
+    if (!BATCHS.ctx) BATCHS.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = BATCHS.ctx; if (ctx.state === 'suspended') ctx.resume();
+    const y = side === 'a' ? c.r.a : c.r.b, buf = ctx.createBuffer(1, y.length, BATCH_SR);
+    buf.getChannelData(0).set(y);
+    const n = ctx.createBufferSource(); n.buffer = buf; n.connect(ctx.destination);
+    n.onended = () => { if (BATCHS.node === n) batchStop(); };
+    n.start(); BATCHS.node = n; BATCHS.playing = btn; if (btn.setAttribute) btn.setAttribute('aria-pressed', 'true');
+  } catch (e) { c.meta.textContent = 'audio failed: ' + String((e && e.message) || e); }
+}
+function batchStop() {
+  if (BATCHS.node) { try { BATCHS.node.onended = null; BATCHS.node.stop(); } catch (_) { /* already ended */ } BATCHS.node = null; }
+  if (BATCHS.playing && BATCHS.playing.setAttribute) BATCHS.playing.setAttribute('aria-pressed', 'false');
+  BATCHS.playing = null;
+}
+
+/* ---- the cost card and the tracking card --------------------------------- */
+function buildCost() {
+  const t = document.getElementById('costT'); if (!t) return;
+  const hr = el('tr'); for (const h of ['TYPE', '% OF ONE CORE · 16 VOICES × 2 FILTERS', 'PER INSTANCE-SAMPLE', 'PER NOTE (PROPOSED)']) hr.appendChild(el('th', null, h)); t.appendChild(hr);
+  const top = Math.max(...COST_ROWS.map(r => r[1]));
+  for (const [id, pc] of COST_ROWS) {
+    const base = id.split(/[.@]/)[0], T = TYPES[base], tr = el('tr', pc >= COST_HEAVY ? 'heavy' : '');
+    tr.appendChild(el('td', null, (T ? T.name : id) + (id.indexOf('.') > 0 ? ' ' + id.split('.')[1] : id.indexOf('@') > 0 ? ' at 1×, no anti-aliasing (reported only)' : '')));
+    const c = el('td', 'n'); const bar = el('span', 'bar'); bar.style.width = Math.max(2, Math.round(pc / top * 220)) + 'px'; c.appendChild(bar);
+    const b = el('b', null, pc.toFixed(2) + ' %'); c.appendChild(b); tr.appendChild(c);
+    tr.appendChild(el('td', 'n', (pc / 100 * 1e9 / (48000 * 32)).toFixed(1) + ' ns'));
+    const pn = id.indexOf('@') > 0 ? '—' : PER_NOTE.yes.indexOf(base) >= 0 ? 'yes' + (pc >= COST_HEAVY ? ' (cost stated)' : '') : PER_NOTE.held.indexOf(base) >= 0 ? 'HELD — see below' : 'rack only';
+    tr.appendChild(el('td', null, pn));
+    t.appendChild(tr);
+  }
+  const n = document.getElementById('costNote');
+  if (n) n.innerHTML = 'Measured by <code>tools/filter_cost_bench.cpp</code> (Release, <code>clang++ -std=c++20 -O3</code>, double precision as this page runs): its classes are '
+    + '<b>transcriptions of this page\'s DSP</b>, checked sample for sample against it by <code>filter_fidelity_check --parity</code> (max |Δ| 4.7e-13 over 18 rows). '
+    + '16 voices × 2 instances of one type, set() every 16 samples with a moving cutoff, 4 s of audio, median of 7, <b>thread CPU time</b>. Measured 2026-10-28 on an '
+    + 'Apple M3, <b>measured under heavy external load (load avg ~180), indicative only</b> — far outside SPEC-ENGINE PF-3\'s load guard: <b>read the order and the ratios; the '
+    + 'absolute % is a loaded machine\'s upper estimate</b> (a second run read every row within −8 % … +26 % of these: LADDER 15.5 %, MS-20 8.0 %). For scale, PF-1 budgets one Scalpel oscillator at about 10.7 % of an M3 core at 8 voices. Re-run unloaded with one command from the repo root: '
+    + '<code>clang++ -std=c++20 -O3 -o "$TMPDIR/fcb" tools/filter_cost_bench.cpp &amp;&amp; nice -n 10 "$TMPDIR/fcb" 4 7</code>. The SWARM bank '
+    + 'types are rack-only and need the reference\'s physics, so they are not here.';
+  const p = document.getElementById('perNote');
+  if (p) p.innerHTML = '<b>PROPOSED PER-NOTE LIST (B303).</b> Every linear type — SVF 12 and SVF 24 (all five modes), COMB + and COMB −, FORMANT, ALL-PASS ×4, PHASER 4, DJ — '
+    + 'costs at most about 1.5 % of a core for the whole 16 × 2, so all of them. <b>MS-20</b>: yes, its 7.2 % stated (half of it at 8 voices); the cost is its ADAA\'s exp, log1p and '
+    + 'tanh every sample, which a port with a rational tanh would cut. <b>LADDER: held</b> — 13.7 %, more than PF-1\'s budget for a whole Scalpel, of which the 2× stage is '
+    + '9 points (4.4 % at 1×), and its linear-phase half-bands add 27 samples of latency, which PF-8 (zero latency) and a parallel pair (B287) both refuse. It joins the '
+    + 'list when a cheaper, latency-free anti-aliasing passes C5. The swarm bank stays rack-only.';
+}
+function buildTrack() {
+  const n = document.getElementById('trackNote'); if (!n) return;
+  n.innerHTML = '<b>Keytrack (RC-1).</b> Every filter in a voice reads the voice\'s published <b>sounding pitch</b> (IF-2: bend, glide and gravity in, no oscillator transposition), '
+    + 'with an amount per filter: oct = keytrack × (pitch − C4) / 12, so at 100 % the cutoff doubles per octave and a cutoff of C4 (261.6 Hz) IS the note. The mono sub\'s '
+    + 'own slot reads its chosen note\'s pitch (SN-7). <b>R tracking (spec §6, deferred: PROPOSED here).</b> Per filter an amount (−1…+1) and a source (Scalpel 1 or 2): '
+    + 'oct += amount × 4 × R̂, R̂ that Scalpel\'s order parameter |(1/U)Σe<sup>i2πθ</sup>| in this voice, read at the control tick and followed over 20 ms. +1 opens the '
+    + 'filter as the swarm locks; −1 darkens it. The stand-in has no coupling, so its R only follows the beating of its detuned members (a free 7-member stack wanders '
+    + 'between about 0.05 and 0.55 at 30 ¢). <b>Combs (B288).</b> Picking COMB + or COMB − turns keytrack to 100 % and tunes it to the note; the knob then reads as an '
+    + 'interval from the note. <span id="rNow"></span>';
+}
+function buildQA() {
+  const host = document.getElementById('qaList'); if (!host) return;
+  for (const [q, t] of QA) { const d = el('div'); d.appendChild(el('span', 'q', q)); const s = el('span'); s.innerHTML = t; d.appendChild(s); host.appendChild(d); }
 }
 function buildTypes() {
   const host = document.getElementById('typeList'); if (!host) return;
   for (const id of TYPE_ORDER) {
     const T = TYPES[id], d = el('div');
-    const q = el('span', 'q', T.name + ' · ' + T.fam.toUpperCase() + (T.rackOnly ? ' · RACK ONLY' : '')); d.appendChild(q);
+    d.appendChild(el('span', 'q', T.name + ' · ' + T.fam.toUpperCase() + (T.rackOnly ? ' · RACK ONLY' : '')));
     d.appendChild(document.createTextNode(T.why + (T.modes.length > 1 ? ' Modes: ' + T.modes.join(' / ') + '.' : '')));
     if (T.law) { const lw = el('span', 'law'); lw.appendChild(el('b', null, 'LEVEL LAW · ')); lw.appendChild(document.createTextNode(T.law)); d.appendChild(lw); }
     if (T.aaWhy) { const lw = el('span', 'law'); lw.appendChild(el('b', null, 'ANTI-ALIASING · ')); lw.appendChild(document.createTextNode(T.aaWhy)); d.appendChild(lw); }
@@ -2631,9 +2988,9 @@ function buildTypes() {
 function hitAt(e) {
   const r = pathC.getBoundingClientRect(), v = VS(), x = (e.clientX - r.left) * v, y = (e.clientY - r.top) * v;
   for (let i = HIT.length - 1; i >= 0; i--) {
-    const H = HIT[i];
-    if (H.r !== undefined) { if (Math.hypot(x - H.x, y - H.y) <= H.r) return { H, x, y }; }
-    else if (x >= H.x0 && x <= H.x1 && y >= H.y0 && y <= H.y1) return { H, x, y };
+    const H0 = HIT[i];
+    if (H0.r !== undefined) { if (Math.hypot(x - H0.x, y - H0.y) <= H0.r) return { H: H0, x, y }; }
+    else if (x >= H0.x0 && x <= H0.x1 && y >= H0.y0 && y <= H0.y1) return { H: H0, x, y };
   }
   return null;
 }
@@ -2664,7 +3021,7 @@ function wirePath() {
   pathC.addEventListener('pointerdown', e => {
     const h = hitAt(e); if (!h) return;
     if (h.H.kind === 'jack') { cyclePort(h.H.k); onEdit(); return; }
-    if (sel !== h.H.key) { sel = h.H.key; buildInspector(); }
+    sel = h.H.key;
     drag = h.H; if (pathC.setPointerCapture) pathC.setPointerCapture(e.pointerId);
     dragTo(drag.key, drag.A, h.x, h.y);
   });
@@ -2697,13 +3054,12 @@ function sliceReference(text) {
   if (src.indexOf('class FilterLab') < 0) throw new Error('FilterLab is not inside the DSP section');
   return new Function('"use strict";\n' + src + '\nreturn FilterLab;')();
 }
+function setStat(id, html, bad) { const box = document.getElementById(id); if (!box) return; if (box.classList) box.classList.toggle('bad', !!bad); box.innerHTML = html; }
 function paintRef() {
-  const box = document.getElementById('refStat'); if (!box) return;
   const ok = REF.state === 'ok';
-  if (box.classList) box.classList.toggle('bad', !ok);
-  box.innerHTML = ok
-    ? 'reference: <b>reference/swarmfilter.html</b> fetched and its <code>FilterLab</code> class sliced out — the SWARM types run the oracle\'s own placement, forces and coefficients (called, unmodified); only the per-sample bank loop is copied (:362-374).'
-    : 'reference: <b>' + REF.state + '</b>. Every other type works regardless; the two SWARM types (and their fidelity rows) need the reference, which needs HTTP — open this page through the labs server (<code>python3 tools/serve_labs.py</code>), not from the filesystem.';
+  setStat('refStat', ok
+    ? 'reference: <b>reference/swarmfilter.html</b> fetched and its <code>FilterLab</code> class sliced out — the SWARM types (rack only) run the oracle\'s own placement, forces and coefficients (called, unmodified); only the per-sample bank loop is copied (:362-374).'
+    : 'reference: <b>' + REF.state + '</b>. Every per-voice type works regardless; the two SWARM rack types (and their fidelity rows) need the reference, which needs HTTP — open this page through the labs server (<code>python3 tools/serve_labs.py</code>), not from the filesystem.', !ok);
 }
 function loadReference() {
   if (typeof fetch !== 'function') { REF.state = 'unavailable (no fetch in this environment)'; paintRef(); return; }
@@ -2717,7 +3073,6 @@ function loadReference() {
     })
     .catch(e => { REF.state = 'not reachable (' + String((e && e.message) || e) + ')'; paintRef(); paintFid(); onEdit(); });
 }
-
 /* ---- proposal diagnostics, measured on fresh reference instances ---------- */
 function runDiag() {
   DIAG.dirty = false;
@@ -2933,7 +3288,6 @@ function fidStart(rows) {
   if (!FIDS.busy) { FIDS.busy = true; setTimeout(fidStep, 60); }
   paintFid();
 }
-
 /* ---- keyboard ------------------------------------------------------------ */
 function press(n) { if (held[n]) return; held[n] = 1; power(); rig.noteOn(n); if (KEYEL[n] && KEYEL[n].classList) KEYEL[n].classList.add('on'); }
 function release(n) { if (!held[n]) return; delete held[n]; rig.noteOff(n); if (KEYEL[n] && KEYEL[n].classList) KEYEL[n].classList.remove('on'); }
@@ -2954,6 +3308,7 @@ function buildKbd() {
 
 /* ---- audio --------------------------------------------------------------- */
 function power() {
+  batchStop();
   if (ac) { if (ac.state === 'suspended') ac.resume(); return; }
   try {
     ac = new (window.AudioContext || window.webkitAudioContext)();
@@ -2962,14 +3317,14 @@ function power() {
     spn.onaudioprocess = ev => { rig.render(ev.outputBuffer.getChannelData(0), ev.outputBuffer.getChannelData(1), 1024); blocks++; };
     spn.connect(ac.destination);
     preview = false;
-    const b = document.getElementById('pwr'); if (b && b.classList) b.classList.add('on');
+    const b = document.getElementById('pwr'); if (b && b.setAttribute) b.setAttribute('aria-pressed', 'true');
   } catch (e) { ac = null; const s = document.getElementById('audioStat'); if (s) s.textContent = 'AUDIO — failed: ' + String((e && e.message) || e); }
 }
 function audioRunning() { return !!(ac && ac.state === 'running' && blocks > 0); }
 function setDemo(on) {
   rig.setDemo(on);
   const b = document.getElementById('demoBtn');
-  if (b) { b.textContent = on ? 'DEMO ■' : 'DEMO ▶'; if (b.classList) b.classList.toggle('on', on); }
+  if (b) { b.textContent = on ? 'DEMO ■' : 'DEMO ▶'; if (b.setAttribute) b.setAttribute('aria-pressed', String(!!on)); }
 }
 function audioStat() {
   const s = document.getElementById('audioStat'); if (!s) return;
@@ -2988,14 +3343,20 @@ function onEdit() {
   for (const [row, pred] of GHOSTROWS) if (row && row.classList) row.classList.toggle('ghost', !pred());
   for (const [row, pred] of INSP.ghost) if (row && row.classList) row.classList.toggle('ghost', !pred());
   const mo = document.getElementById('masterOut'); if (mo) mo.textContent = f2(S.master);
+  if (S.flt.R.type !== rig.rType) DIAG.dirty = true;
   drawEnv();
 }
 function applyTheme() {
-  document.body.classList.toggle('dark', dark);
+  if (document.documentElement && document.documentElement.setAttribute) document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
   const b = document.getElementById('themeBtn');
-  if (b) b.innerHTML = 'theme <b>' + (dark ? 'DARK · TUBE' : 'LIGHT · ORCHID') + '</b>';
+  if (b) { b.textContent = dark ? 'Light' : 'Dark'; if (b.setAttribute) b.setAttribute('aria-pressed', String(dark)); }
   for (const k in _tok) delete _tok[k];
   onEdit();
+}
+function paintDs() {
+  setStat('dsStat', H
+    ? 'design system: <b>arp-face/bundle.js</b> (the published GUI 3 system, vendored by B553) loaded — the filter knobs are its morph knobs (<code>Horde.Knob</code>), the puck parked on corner A; tokens from <code>arp-face/tokens.css</code>.'
+    : 'design system: <b>bundle not loaded</b> — the knobs fall back to plain sliders. Open this page from docs/design (it reads <code>arp-face/</code> by relative path), or through <code>tools/labs_preview.sh</code>.', !H);
 }
 let silentL = null;
 function frame() {
@@ -3007,8 +3368,13 @@ function frame() {
   if (ac || preview) for (const key of ['A', 'B', 'R']) if (inForce(key)) {
     spectrumInto(rig.tap[key].i, rig.tw, SPEC[key].i); spectrumInto(rig.tap[key].o, rig.tw, SPEC[key].o);
   }
+  syncKnobs();
   if (DIAG.dirty && REF.cls) runDiag();
-  drawPath(); drawEnv(); drawScope(); audioStat();
+  if (flashT > 0 && --flashT === 0) onEdit();
+  for (const f of REPAINT_METERS) f();
+  const rn = document.getElementById('rNow');
+  if (rn) rn.textContent = rig.voices.length ? 'R now (newest voice): Scalpel 1 ' + rig.Rshow[0].toFixed(2) + ' · Scalpel 2 ' + rig.Rshow[1].toFixed(2) + '.' : '';
+  drawPath(); drawCardScreen('A'); drawCardScreen('B'); paintCard('A'); paintCard('B'); drawEnv(); drawScope(); audioStat();
   if (window.requestAnimationFrame) window.requestAnimationFrame(frame);
 }
 
@@ -3021,29 +3387,39 @@ envC = document.getElementById('envC');
 scopeC = document.getElementById('scopeC');
 /* Deep links — so a headless screenshot of a state is a LOAD, not a synthetic
    click that can silently fail to land (station-page-lab:1294):
-   ?theme=dark ?place=pre|post|both ?topo=ser|par ?sel=A|B|R ?law=svf|bank|bankP
-   ?atype= ?btype= ?rtype= (a TYPES id) ?demo=1 */
+   ?theme=dark ?place=pre|post|both ?topo=ser|par ?law=svf|bank|bankP
+   ?atype= ?btype= ?rtype= (a TYPES id) ?mono=1 ?demo=1 */
 try {
   const q = window.location && window.location.search;
   if (typeof q === 'string') {
     if (/theme=dark/.test(q)) dark = true;
     const pl = /place=(pre|post|both)/.exec(q); if (pl) S.place = pl[1];
-    const tp = /topo=(ser|par)/.exec(q); if (tp) S.topo = tp[1];
-    const sl = /sel=(A|B|R)/.exec(q); if (sl) sel = sl[1];
+    const tp = /topo=(ser|par)/.exec(q); if (tp) { S.topo = tp[1]; if (S.topo === 'ser') for (let k = 0; k < NSRC; k++) if (S.port[k] === 'AB') S.port[k] = 'A'; }
     const lw = /law=(svf|bankP|bank)/.exec(q); if (lw) S.flt.R.type = LAW_ALIAS[lw[1]];
     for (const key of ['A', 'B', 'R']) {
       const m = new RegExp(key.toLowerCase() + 'type=([a-zA-Z0-9]+)').exec(q);
-      if (m && TYPES[m[1]] && (key === 'R' || !TYPES[m[1]].rackOnly)) { S.flt[key].type = m[1]; S.flt[key].mode = 1; }
+      if (m && TYPES[m[1]] && (key === 'R' || !TYPES[m[1]].rackOnly)) { if (key === 'R') { S.flt.R.type = m[1]; S.flt.R.mode = 1; } else applyTypeDefaults(S.flt[key], m[1]); }
     }
+    if (/mono=1/.test(q)) S.src[SUB].mono = 1;
     if (/demo=1/.test(q)) { preview = true; setDemo(true); }
   }
 } catch (_) { /* headless: no location */ }
-buildRouting();
-buildInspector();
+/* The Session needs at least one modulation source (it seeds map mode's selector from the
+   first); the lab maps nothing, so it lists the filter envelope, read as 0. */
+if (H) { HS = new H.Session({ x: 0, y: 0, corners: ['This patch', null, null, null], sources: [{ id: 'fenv', name: 'Filter env', kind: 'env', f: () => 0 }], mappings: [] }); HS.start(); }
 buildSources();
+buildRouting();
+buildCard('A');
+buildCard('B');
 buildEnv();
 buildKbd();
+buildPlacement();
+buildRack();
+buildBatch();
+buildCost();
+buildTrack();
 buildTypes();
+buildQA();
 buildFid();
 wirePath();
 const masterIn = document.getElementById('master');
@@ -3056,16 +3432,17 @@ if (pwrBtn && pwrBtn.addEventListener) pwrBtn.addEventListener('click', () => po
 const demoBtn = document.getElementById('demoBtn');
 if (demoBtn && demoBtn.addEventListener) demoBtn.addEventListener('click', () => { power(); setDemo(!rig.demo); });
 const panicBtn = document.getElementById('panic');
-if (panicBtn && panicBtn.addEventListener) panicBtn.addEventListener('click', () => { rig.panic(); setDemo(false); for (const n in held) release(+n); });
+if (panicBtn && panicBtn.addEventListener) panicBtn.addEventListener('click', () => { rig.panic(); setDemo(false); batchStop(); for (const n in held) release(+n); });
 const themeBtn = document.getElementById('themeBtn');
 if (themeBtn && themeBtn.addEventListener) themeBtn.addEventListener('click', () => { dark = !dark; applyTheme(); });
+const stopBtn = document.getElementById('batchStop');
+if (stopBtn && stopBtn.addEventListener) stopBtn.addEventListener('click', () => batchStop());
 if (window.addEventListener) {
   window.addEventListener('keydown', e => {
     if (e.repeat || (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT'))) return;
     const k = String(e.key || '').toLowerCase();
-    if (k === 'escape') { rig.panic(); setDemo(false); for (const n in held) release(+n); return; }
+    if (k === 'escape') { rig.panic(); setDemo(false); batchStop(); for (const n in held) release(+n); return; }
     if (k === ' ') { e.preventDefault(); power(); setDemo(!rig.demo); return; }
-    if (k === '1' || k === '2' || k === '3') { S.place = PLACES[+k - 1][0]; onEdit(); return; }
     if (k === 'z') { baseNote = Math.max(24, baseNote - 12); buildKbd(); return; }
     if (k === 'x') { baseNote = Math.min(84, baseNote + 12); buildKbd(); return; }
     if (KEYMAP[k] !== undefined) press(baseNote + KEYMAP[k]);
@@ -3077,6 +3454,7 @@ if (window.addEventListener) {
   document.addEventListener('pointerup', () => { const t = document.activeElement; if (t && t.tagName === 'INPUT' && t.type === 'range' && t.blur) t.blur(); });
 }
 applyTheme();
+paintDs();
 paintRef();
 fidStart(fidRows(false));
 loadReference();

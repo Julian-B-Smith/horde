@@ -57,6 +57,18 @@
  *   6. THE RIG ROW (B291): in every placement, choosing any rack type rebuilds the
  *      rack instance to that type (a SWARM type in PER SOURCE threw in drawPath
  *      when it did not). A plant restores the old order and must break it.
+ *   7. THE SLOT (B566: X13, SN-7, RC-1, B288), as invariants of the rig's own output, each
+ *      with a plant that must break it: PARALLEL "both" into two identical linear filters
+ *      equals "A" alone (the split is −6 dB into each branch); SERIAL "B" is the + inlet (A's
+ *      type cannot reach it); PARALLEL "A" never reaches B; "neither" passes unfiltered and
+ *      SERIAL "A" does reach B (must-fire: these two must differ from the identities); the MONO
+ *      sub (SN-7) on its LOWEST held key renders the same whether a higher key is also held
+ *      (and per note it does not); a comb picked fresh is keytracked to the note (B288).
+ *   8. THE LISTENING BATCH (B566 criterion 6): at most BATCH_MAX (12) items, each with a
+ *      title and a listen-for line; both sides finite, not silent, different from each other
+ *      (else the A/B asks nothing), and NO SAMPLE above BATCH_PEAK (−6.02 dBFS); a second
+ *      render is bit-identical (seeded, no clock). Plants: the cap set 6 dB high, and side B
+ *      rendered as side A, must each break it.
  * REPORTED, NEVER GATED: each row's C4b rate and cost (the manifest table the page
  * prints) and, with --report, the ADAA-first evaluation table (every option × C5 at
  * the nominal and full drive, C1, C2, C3, C7, cost), which also asserts that each
@@ -64,6 +76,20 @@
  *
  * Usage: node tools/labharness/filter_fidelity_check.mjs [--report] [lab.html]
  *        (exit 1 on any error; the argument lets a scratch copy be checked)
+ *
+ * --parity MODE (B566, B303; run by hand, NOT part of the ./verify run, because it needs a C++
+ * compile ./verify fast does not do):
+ *   <out>/filter_cost_bench --dump | node tools/labharness/filter_fidelity_check.mjs --parity
+ * tools/filter_cost_bench.cpp times C++ classes that claim to be line-for-line transcriptions of
+ * the lab's per-voice types. A cost is the lab filter's cost only if the code computes what the
+ * lab computes, so this mode renders the bench's stimulus (mulberry32(0xB566), 4096 samples,
+ * set() every 16: cutoff 1 kHz × 2^(2·sin(2π·3·n/sr)), res 0.7, drive 0.3, morph 0.3) through
+ * the lab's own sliced DSP and compares sample by sample with the bench's --dump on stdin.
+ * Tolerance 1e-9 absolute, both in double: libm and V8 may differ by an ulp in tan, pow, exp,
+ * log1p or tanh and a resonant loop carries that on, but a transcription slip (a tap, a sign, a
+ * coefficient, an order) moves samples by orders of magnitude more. CONTROL: the same comparison
+ * with the lab's cutoff moved by 2 millioctaves (2.4 cents; every per-voice type reads `oct`,
+ * the DJ included, while ALL-PASS ×4 ignores resonance) must exceed the tolerance on every row.
  */
 import './sandbox_guard.mjs';   // FIRST import: lab code runs under the permission model (B446 W3c)
 import { readFileSync } from 'node:fs';
@@ -73,9 +99,9 @@ import { performance } from 'node:perf_hooks';
 import { BANNERS, extractCore } from '../golden/extract_core.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '../..');
-const REPORT = process.argv.includes('--report');
-const file = process.argv.slice(2).filter(a => a !== '--report')[0] || join(root, 'docs/design/filter-lab.html');
-const EXPORTS = 'return { runFidelity, fidRows, fidEnv, FID_CHECKS, FID_REPORTS, TYPES, TYPE_ORDER, aaEval, aaType, AA_OPTS, fidCost, COST_REF, fidMake, fidP, DRIVE_NOM, FilterRig, defaultPatch, TAU };';
+const REPORT = process.argv.includes('--report'), PARITY = process.argv.includes('--parity');
+const file = process.argv.slice(2).filter(a => a !== '--report' && a !== '--parity')[0] || join(root, 'docs/design/filter-lab.html');
+const EXPORTS = 'return { mulberry32, SUB, KT_HZ, midiHz, octFor, applyTypeDefaults, BATCH, BATCH_MAX, BATCH_PEAK, batchRender, rmsOf, runFidelity, fidRows, fidEnv, FID_CHECKS, FID_REPORTS, TYPES, TYPE_ORDER, aaEval, aaType, AA_OPTS, fidCost, COST_REF, fidMake, fidP, DRIVE_NOM, FilterRig, defaultPatch, TAU };';
 
 function dspOf(html) {
   const b = BANNERS.design, a = html.search(b.start), e = html.search(b.end);
@@ -160,6 +186,31 @@ const errors = [];
 const html = readFileSync(file, 'utf8');
 const src = dspOf(html);
 const M = load(src);
+
+// --parity (by hand, see the header): the C++ cost bench against the lab's own DSP.
+if (PARITY) {
+  const TOL = 1e-9, SR = 48000, N = 4096, TICK = 16;
+  const want = Object.fromEntries(readFileSync(0, 'utf8').trim().split('\n').map(l => l.trim().split(/\s+/)).map(r => [r[0], r.slice(1).map(Number)]));
+  const render = (row, dOct) => {
+    const inst = M.TYPES[row.type].make({}, SR), rn = M.mulberry32(0xB566), y = new Float64Array(N);
+    const P = { cutoff: 1000, oct: 0, res: 0.7, drive: 0.3, morph: 0.3, mode: row.mode };
+    for (let n = 0; n < N; n++) { if (n % TICK === 0) { P.oct = 2 * Math.sin(M.TAU * 3 * n / SR) + dOct; inst.set(SR, P); } y[n] = inst.tick((rn() * 2 - 1) * 0.5); }
+    return y;
+  };
+  const maxDiff = (y, w) => { let d = 0; for (let n = 0; n < N; n++) d = Math.max(d, Math.abs(y[n] - w[n])); return d; };
+  let bad = 0, n = 0;
+  const lrows = M.fidRows(false);
+  for (const row of lrows) {
+    const w = want[row.id];
+    if (!w || w.length !== N || !w.every(Number.isFinite)) { console.log(`MISSING  ${row.id}: the bench has no ${N}-sample finite row for this lab type`); bad++; continue; }
+    const d = maxDiff(render(row, 0), w), c = maxDiff(render(row, 0.002), w), ctl = c > TOL; n++;
+    if (d > TOL || !ctl) bad++;
+    console.log(`${d <= TOL ? 'MATCH  ' : 'DIFFERS'}  ${row.id.padEnd(12)} max |Δ| ${d.toExponential(2)}   control (cutoff +2.4 ¢) ${c.toExponential(2)} ${ctl ? 'caught' : 'BLIND'}`);
+  }
+  for (const id of Object.keys(want)) if (!lrows.some(r => r.id === id)) { console.log(`EXTRA    ${id}: a bench row the lab does not have`); bad++; }
+  console.log(`\n${bad ? 'RED' : 'GREEN'} — filter_fidelity_check --parity: ${n} lab rows against the C++ transcription, tolerance ${TOL}, ${bad} problem(s)`);
+  process.exit(bad ? 1 : 0);
+}
 const FL = extractCore(join(root, 'reference/swarmfilter.html'), 'FilterLab');
 const env = M.fidEnv(FL);
 const now = () => performance.now();
@@ -224,7 +275,7 @@ for (const id of REPORT ? M.TYPE_ORDER.filter(t => M.TYPES[t].aa) : []) {
 
 // 4. planted faults
 let caught = 0;
-const nPlants = PLANTS.length + 2;
+const nPlants = PLANTS.length + 2 + 4 + 2;   /* + the slot's four and the batch's two (B566) */
 try { plant(src, 'this anchor is not in the lab', ''); errors.push('the planter accepted a bogus anchor — plants are unverified'); }
 catch (_) { /* as it must */ }
 const c4bBase = Object.fromEntries(res.map(({ row, cells }) => [row.id, cells.C4b.max]));
@@ -291,6 +342,98 @@ for (const b of rigCheck(M)) errors.push(`rig: ${b}`);
   try { bad = rigCheck(load(plant(src, PLANT_RIG[1], PLANT_RIG[2]))); } catch (e) { if (/plant anchor/.test(String(e.message))) errors.push(String(e.message)); else bad = [String(e.message)]; }
   if (bad.length) caught++; else errors.push(`planted fault NOT caught: ${PLANT_RIG[0]}`);
   console.log(`plant ${bad.length ? 'caught' : 'MISSED'}  ${PLANT_RIG[0]} → rig row (${bad.length} failure(s), first: ${bad[0] || '—'})`);
+}
+
+// 7. the slot (B566): X13 routing, SN-7's mono sub, B288's comb default
+function slotCheck(Mx) {
+  const bad = [], N = 9600;
+  const out = (edit, notes) => {
+    const S = Mx.defaultPatch(); for (const s of S.src) s.on = 0; S.src[0].on = 1; edit(S);
+    const rig = new Mx.FilterRig(48000, S); rig.raw = true; for (const n of notes) rig.noteOn(n);
+    const y = new Float64Array(N); rig.render(y, null, N); return y;
+  };
+  const diff = (a, b) => { let d = 0, p = 1e-12; for (let i = 0; i < N; i++) { d = Math.max(d, Math.abs(a[i] - b[i])); p = Math.max(p, Math.abs(a[i])); } return d / p; };
+  const same = (what, a, b) => { const d = diff(a, b); if (!(d <= 1e-9)) bad.push(`${what}: differ by ${d.toExponential(2)} of peak (must be the same)`); };
+  const differ = (what, a, b) => { const d = diff(a, b); if (!(d > 1e-3)) bad.push(`${what}: differ by only ${d.toExponential(2)} of peak (must differ)`); };
+  const lin = (S, key, o) => Object.assign(S.flt[key], { type: 'svf12', mode: 1, cutoff: 900, res: 0.6, ktrack: 0.5, env: 0.4, rtrack: 0 }, o || {});
+  const notes = [48, 60];
+  // PARALLEL: both into two identical linear filters = A alone (the split is ½ into each)
+  same('PARALLEL both (A ≡ B) vs A alone', out(S => { S.topo = 'par'; S.port[0] = 'AB'; lin(S, 'A'); lin(S, 'B'); }, notes),
+    out(S => { S.topo = 'par'; S.port[0] = 'A'; lin(S, 'A'); lin(S, 'B', { mode: 3, cutoff: 3000 }); }, notes));
+  // SERIAL: a source into B alone is the + inlet; A's type cannot reach it
+  same('SERIAL B-only, A = SVF vs A = LADDER', out(S => { S.topo = 'ser'; S.port[0] = 'B'; lin(S, 'A'); lin(S, 'B'); }, notes),
+    out(S => { S.topo = 'ser'; S.port[0] = 'B'; lin(S, 'A', { type: 'ladder' }); lin(S, 'B'); }, notes));
+  // PARALLEL: a source into A alone never reaches B
+  same('PARALLEL A-only, B = SVF vs B = COMB', out(S => { S.topo = 'par'; S.port[0] = 'A'; lin(S, 'A'); lin(S, 'B'); }, notes),
+    out(S => { S.topo = 'par'; S.port[0] = 'A'; lin(S, 'A'); lin(S, 'B', { type: 'combP' }); }, notes));
+  // neither: unfiltered, so A's settings cannot reach it — and it must differ from a filtered source
+  const none = out(S => { S.port[0] = 'N'; lin(S, 'A'); }, notes);
+  same('neither, A = SVF vs A = LADDER', none, out(S => { S.port[0] = 'N'; lin(S, 'A', { type: 'ladder' }); }, notes));
+  differ('neither vs into A (must-fire)', none, out(S => { S.port[0] = 'A'; lin(S, 'A'); }, notes));
+  // SERIAL into A runs on through B (must-fire: it differs from PARALLEL A-only)
+  differ('SERIAL A (through B) vs PARALLEL A-only (must-fire)', out(S => { S.topo = 'ser'; S.port[0] = 'A'; lin(S, 'A'); lin(S, 'B', { mode: 2, cutoff: 1800 }); }, notes),
+    out(S => { S.topo = 'par'; S.port[0] = 'A'; lin(S, 'A'); lin(S, 'B', { mode: 2, cutoff: 1800 }); }, notes));
+  // SN-7: the mono sub on its lowest key, its own slot instance; per note every key has a sub
+  const sub = (mono, ns) => out(S => { S.src[0].on = 0; S.src[Mx.SUB].on = 1; S.src[Mx.SUB].mono = mono; S.src[Mx.SUB].prio = 'low'; S.port[Mx.SUB] = 'A'; lin(S, 'A'); }, ns);
+  same('MONO sub (lowest): keys 48 + 55 vs 48 alone', sub(1, [48, 55]), sub(1, [48]));
+  differ('PER NOTE sub: keys 48 + 55 vs 48 alone (must-fire)', sub(0, [48, 55]), sub(0, [48]));
+  // B288: a comb picked fresh is keytracked to the note (COMB + at f0, COMB − at 2·f0, its peaks on the odd harmonics)
+  for (const [t, m] of [['combP', 1], ['combN', 2]]) {
+    const F = Mx.defaultPatch().flt.A; Mx.applyTypeDefaults(F, t);
+    for (let p = 36; p <= 96; p += 5) { const fc = F.cutoff * Math.pow(2, Mx.octFor(F, p, 1, 1)), want = m * Mx.midiHz(p);
+      if (!(Math.abs(fc / want - 1) < 1e-9)) { bad.push(`B288: ${t} picked fresh plays ${fc.toFixed(2)} Hz at key ${p}, not ${want.toFixed(2)} (keytrack ${F.ktrack}, env ${F.env})`); break; } }
+  }
+  return bad;
+}
+const PLANTS_SLOT = [
+  ['SERIAL + inlet broken (a B-only source enters at A)', "if (ser) { if (p === 'B') { inB += xk; b = true; } else", "if (ser) { if (false) { inB += xk; b = true; } else"],
+  ['PARALLEL split not halved', 'else { inA += 0.5 * xk; inB += 0.5 * xk; a = true; b = true; }', 'else { inA += xk; inB += xk; a = true; b = true; }'],
+  ['mono sub follows the newest key whatever its priority', ": sb.prio === 'new' ? h[h.length - 1] : Math.min(...h);", ': h[h.length - 1];'],
+  ['B288 default lost (COMB + keytrack 50 %)', "if (type === 'combP') { F.ktrack = 1; F.cutoff = KT_HZ; F.env = 0; }", "if (type === 'combP') { F.ktrack = 0.5; F.cutoff = KT_HZ; F.env = 0; }"],
+];
+for (const b of slotCheck(M)) errors.push(`slot: ${b}`);
+for (const [what, anchor, repl] of PLANTS_SLOT) {
+  let bad = [];
+  try { bad = slotCheck(load(plant(src, anchor, repl))); } catch (e) { if (/plant anchor/.test(String(e.message))) errors.push(String(e.message)); else bad = [String(e.message)]; }
+  if (bad.length) caught++; else errors.push(`planted fault NOT caught: ${what}`);
+  console.log(`plant ${bad.length ? 'caught' : 'MISSED'}  ${what} → slot invariants (${bad.length} failure(s), first: ${bad[0] || '—'})`);
+}
+
+// 8. the listening batch
+function batchCheck(Mx, quick) {
+  const bad = [], items = Mx.BATCH;
+  if (!(items.length >= 1 && items.length <= Mx.BATCH_MAX && Mx.BATCH_MAX <= 12)) bad.push(`${items.length} items (cap ${Mx.BATCH_MAX}, at most 12)`);
+  if (!(Mx.BATCH_PEAK <= Math.pow(10, -6 / 20))) bad.push(`BATCH_PEAK ${Mx.BATCH_PEAK} is above −6 dBFS`);
+  const ids = new Set();
+  for (const it of quick ? items.slice(0, 1) : items) {
+    if (ids.has(it.id)) bad.push(`${it.id}: duplicate id`); ids.add(it.id);
+    if (!it.title || !(String(it.listen || '').length >= 40)) bad.push(`${it.id}: no title or no listen-for line`);
+    const r = Mx.batchRender(it);
+    for (const [k, y] of [['A', r.a], ['B', r.b]]) {
+      let pk = 0, fin = true; for (let i = 0; i < y.length; i++) { if (!Number.isFinite(y[i])) fin = false; pk = Math.max(pk, Math.abs(y[i])); }
+      if (!fin) bad.push(`${it.id} ${k}: non-finite`);
+      if (!(pk <= Mx.BATCH_PEAK)) bad.push(`${it.id} ${k}: peak ${(20 * Math.log10(pk)).toFixed(2)} dBFS, above the −6.02 dBFS cap`);
+      if (!(Mx.rmsOf(y) > 1e-4)) bad.push(`${it.id} ${k}: silent (RMS ${Mx.rmsOf(y).toExponential(1)})`);
+    }
+    let d = 0; for (let i = 0; i < r.a.length; i++) d += (r.a[i] - r.b[i]) * (r.a[i] - r.b[i]);
+    if (!(Math.sqrt(d / r.a.length) > 0.01 * Math.max(Mx.rmsOf(r.a), Mx.rmsOf(r.b)))) bad.push(`${it.id}: A and B are the same sound (the pair asks nothing)`);
+    if (!quick && it === items[0]) { const r2 = Mx.batchRender(it); if (r2.a.some((x, i) => x !== r.a[i]) || r2.b.some((x, i) => x !== r.b[i])) bad.push(`${it.id}: a second render differs (not deterministic)`); }
+  }
+  return bad;
+}
+const batchBad = batchCheck(M, false);
+for (const b of batchBad) errors.push(`batch: ${b}`);
+console.log(`listening batch: ${M.BATCH.length} items (cap ${M.BATCH_MAX}), peak cap ${(20 * Math.log10(M.BATCH_PEAK)).toFixed(2)} dBFS, ${batchBad.length} problem(s)`);
+const PLANTS_BATCH = [
+  ['batch peak cap set 6 dB high (0 dBFS, not −6)', 'g = top > 0 ? BATCH_PEAK * 0.999 / top : 1;', 'g = top > 0 ? 2 * BATCH_PEAK * 0.999 / top : 1;'],
+  ['batch side B rendered as side A', "const a = batchSide(item, 'a'), b = batchSide(item, 'b');", "const a = batchSide(item, 'a'), b = batchSide(item, 'a');"],
+];
+for (const [what, anchor, repl] of PLANTS_BATCH) {
+  let bad = [];
+  // the first item is enough to see either plant
+  try { bad = batchCheck(load(plant(src, anchor, repl)), true); } catch (e) { if (/plant anchor/.test(String(e.message))) errors.push(String(e.message)); else bad = [String(e.message)]; }
+  if (bad.length) caught++; else errors.push(`planted fault NOT caught: ${what}`);
+  console.log(`plant ${bad.length ? 'caught' : 'MISSED'}  ${what} → batch (${bad.length} failure(s), first: ${bad[0] || '—'})`);
 }
 
 for (const e of errors) console.log(`ERROR ${e}`);
