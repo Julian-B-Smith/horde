@@ -9794,3 +9794,27 @@ The proposed combined law was reviewed twice by fresh-context critics (FIX-THEN-
   This supersedes seq 23's prototype.
 - Shriek is answered, seq 25.
 - **FX device (ADR-254):** the same budget and shape apply, since the FX device hosts Shriek through the same slot, and its own state text is under its own derived cap.
+
+## ADR-301 — RULED by the human: spec round 45, two cases the law itself fails become reported (B494; cleanroom B-61, B-62; 2026-10-28)
+
+**Context.** The test author checked engine-free two reds from the builder's suite on rounds 42 and 43 (test-author `3b652f7`, reports `b54_pitch_glide.cpp` and `b55_dt3_rates.cpp`).
+- **9.3, osc 1's pitch (B-61).**
+  - The case: a probe at C3, `pitch` 0.5 → 1 at 0.5 s, then → 0 at 1.0 s, through PA-1's smoother, with E on y⁰.
+  - The fall reads 10.10 to 10.18 on four conforming designs, against k = 10. It read 8.84 before round 42's E.
+  - The rise reads 2.14, and the base is clean.
+- **3.b, DT-3 across 44.1, 48 and 96 kHz (B-62).**
+  - **A sine-to-saw shape carrier cannot meet DT-3 by the law.** C.9.3's r_max = min(0.995, 0.01^(f_h/Nyq)) depends on the Nyquist frequency. On Sine-to-saw fan's blade, one member, it misses by 7.66 dB (shape 0.5) and 3.15 dB (shape 1), against 0.03 dB on a saw carrier. In closed form the miss is up to 27.8 dB.
+  - **Three mechanisms hold:** C.1's coupling (0.00 dB, on two locking swarms; a swarm that does not lock was not measured), serial interplay (0.02 to 0.19 dB) and FM free (0.00 to 0.02 dB).
+
+**Ruling (the human, by poll, 2026-10-28).**
+1. **"Report the pitch fall."** QS-4's reported list gains a full-range jump down of an oscillator's `pitch`. The jump up and every other 9.3 case stay judged.
+2. **"Report them."** DT-3 reports a preset with a blade on a sine-to-saw shape carrier, as it does looped and sub-sounding presets. The builder's DT-3 reds on the other mechanisms stay the engine's to find.
+
+**Rejected:**
+- for 9.3: judging a smaller pitch jump; keeping the case judged, which would mean changing PA-1 or E;
+- for DT-3: keeping the carriers judged, which would mean changing C.9.3's r_max.
+
+**Consequences.**
+- **Spec round 45:** QS-4 and DT-3, delivered to both clean-room repositories.
+- **Rulings rows 74 and 75.**
+- **FX device (ADR-254):** none.
