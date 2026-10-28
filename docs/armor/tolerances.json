@@ -1281,6 +1281,18 @@
       "reason": "length of the settled averaging window, a protocol duration"
     },
     {
+      "file": "tools/filter_cost_bench.cpp",
+      "id": "tools/filter_cost_bench.cpp::AA_EPS",
+      "locator": "(?<![\\w])AA_EPS(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
+      "reason": "the MS-20 anti-aliasing fallback threshold, a DSP constant transcribed from the filter lab, not a test tolerance (the human, 2026-10-28, B566: \"Exclude both\")"
+    },
+    {
+      "file": "tools/filter_cost_bench.cpp",
+      "id": "tools/filter_cost_bench.cpp::inline-float-compare",
+      "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
+      "reason": "two of the filter lab's own DSP branch points (>= 0.1, < 0.5), transcribed into the cost bench, not a test tolerance (the human, 2026-10-28, B566: \"Exclude both\")"
+    },
+    {
       "file": "tools/gen_gui_controls.py",
       "id": "tools/gen_gui_controls.py::inline-float-compare",
       "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
