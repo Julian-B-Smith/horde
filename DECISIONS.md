@@ -9717,3 +9717,36 @@ The proposed combined law was reviewed twice by fresh-context critics (FIX-THEN-
 - Spec round 43: two edits to `specs/SPEC-ENGINE.md` (ED-1, and test item 25), delivered to both clean-room repositories the same turn.
 - Rulings rows 70–72.
 - **FX device (ADR-254):** none. These are the instrument's oscillators and sub, not the rack.
+
+## ADR-299 — RULED by the human: item 25.4 judges the sub at two pitches, each with its own bounds; spec round 44 (B494; cleanroom B-58; 2026-10-28)
+
+**Context.**
+- **The pitch mismatch.** Every engine-free derivation behind 25.4's bounds (ADR-288, ADR-289, ADR-298) ran the sub at octave −1 (65.41 Hz). The item renders it at octave 0 (130.81 Hz).
+- **The test author's full re-derivation** (test-author `d1bbe3d`) covered all four conforming designs, with the fade both at the change's own sample and on PA-3's engine clock:
+  - **At octave −1, every ruled bound holds:**
+    - Tube: clean to 0.80 at the item's time and across the cycle;
+    - Diode: clean to 0.50 at the item's time and to 0.40 across the cycle;
+    - Fold-lite: clean at every drive.
+  - **At octave 0:**
+    - Tube: clean to 0.80 at the item's time, to 0.60 across the cycle;
+    - Diode: clean to 0.35 at the item's time, to 0.25 across the cycle;
+    - Fold-lite: clean at every drive.
+- **So the delivered Diode 0.50 row at octave 0 was a test defect:** the law itself fires there.
+- **The test author recommended octave −1 only,** and warned that its answer, reached after seeing the results, was the comfortable one.
+
+**Ruling (the human, by poll, 2026-10-28): "Both, each with its bounds."**
+- **The pitches:** 25.4 judges both octave −1 and octave 0.
+- **When:** at each pitch, the change is judged at the item's own time and across one cycle of the sub in 24 equal steps.
+- **The bounds:** each pitch takes its own, as above. Every drive above them is reported.
+- **This supersedes** ADR-298.1's bounds as written (round 43), which were derived at octave −1 only.
+
+**Rejected:**
+- octave −1 only (no 130.81 Hz case judged);
+- octave 0 only (it judges fewer drives).
+
+**Consequences.**
+- **Spec round 44** rewrites item 25's order-change clause and is delivered to both clean-room repositories.
+- **The test author** writes the item at both pitches, with its must-fail control.
+- **The builder** no longer chases 25.4's old Diode 0.50 row: that row was the law's.
+- **Rulings row 73.**
+- **FX device (ADR-254):** none.
