@@ -29,6 +29,16 @@ screen pixel (the screen is 160 × 144).
 The workshop checks a dropped file against all three rules and prints the result in its
 "Logo canvases" box.
 
+## What is here, and where it came from
+
+- `sluice.png` (2026-10-28, horde ADR-302, B565). This is the parked frame of Sluice's motion mark, the human's own design
+  (Sluice's `sluice-mark-A23183.html`). It is drawn at 4 px stems by coverage: the tube is rendered at 8 ×, and a
+  pixel is ink when half covered. The colour is amber on RGB555 (`#e7a54a`), on transparent. The human chose it ("the
+  96x24 with the 4px in the slot actually looks great"), and Sluice's human ruled it the still until the lab sync
+  ("Live at S4, still till then", Sluice D-192). It is copied from Sluice's `integrations/hypersaw/sluice-title-parked.png`
+  at Sluice `68de946` (git blob `ac03b677`). At S4 the live title (`sluice-mark.html?title`, the hue walk) replaces it,
+  and the still stays as the reduced-motion and screenshot fallback.
+
 ## The lettering rule (B343)
 
 A GBC title spells a word, so its letters share one set of metrics. The workshop measures
