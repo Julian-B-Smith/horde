@@ -9818,3 +9818,91 @@ The proposed combined law was reviewed twice by fresh-context critics (FIX-THEN-
 - **Spec round 45:** QS-4 and DT-3, delivered to both clean-room repositories.
 - **Rulings rows 74 and 75.**
 - **FX device (ADR-254):** none.
+
+## ADR-302 — RULED by the human: the title marks of Sluice and Shriek (B565; 2026-10-28)
+
+**Context.** horde's human dropped two live wordmarks in the modules' trees: Sluice's motion mark (`sluice-mark-dark.html`, six tubes that slide out along random routes and park as SLUICE) and Shriek's automaton wordmark (`Automaton Wordmark.html`, cells that condense into SHRIEK, hold, corrupt and flood). The lead built study pages showing each one on real frames of its screen:
+- **Sluice:** the lab's GBC skin, with its title slot of 96 × 24 at (8, 0).
+- **Shriek:** the screens workshop's 80s WORKSTATION skin, with its title slot of 96 × 24 at (13, 30).
+
+Both frames were captured from a local preview.
+
+**Ruling (the human, 2026-10-28).**
+1. **Sluice's title: 4 px stems by coverage in the 96 × 24 slot.** The human's words: "I think the 96x24 with the 4px in the slot actually looks great."
+   - The grid is 14.286 rows per cap height, rendered at 8 ×, and a cell is ink when at least half covered.
+   - The file's own knot gap stays: widening it to a cell drew the I's hidden hairpin as a stripe.
+2. **Sluice's colour: the hue walk.** The human's words: "let's go with the hue walk version."
+   - A parked word is one colour, and each slide moves the OKLCH hue 137.508° at fixed lightness and chroma, starting from amber.
+   - Each tube point turns from the old colour to the new by its route progress, so the in-between colours travel along the tube.
+   - Amber's overlap with Shriek's rack colour (ADR-273) was shown to the human before the choice.
+3. **Shriek's word: Press Start 2P, native 16 px, baked to a 96 × 24 bitmap.**
+   - The human's words: "I actually prefer the press start 2p". Then, by poll: "Native 16 px".
+   - The preview the human first saw had scaled the face to about 14 px by mistake, giving 3- and 4-cell stems. The lead disclosed this before filing, and the human chose native.
+   - The automaton's rules are unchanged; only its mask's source changes. On a glass it takes the screen's paper and ink.
+4. **Shriek's title box is 104 × 24.** The human's words: "The bounding box around the shriek logo needs to be a little wider so the text doesn't bump into it." The native 16 px word is exactly 96 cells wide, so the box grows to 104 cells, leaving 4 clear each side. This is an exception to the design system's TITLE size of 96 × 24, for Shriek alone.
+5. **"Go ahead and send the briefs."** Filed: Sluice seq 63, Shriek seq 26.
+
+**Rejected:**
+- for Sluice: 6 px stems in a widened 128 × 24 band (it displaces the readouts), the depth ramps, and the flat palette;
+- for Shriek: the Unbounded raster, Unbounded by coverage, the hand-cut caps, and Silkscreen.
+
+**Consequences.**
+- B565; the briefs carry the specs, the baked assets and the study pages.
+- **FX device (ADR-254):** the same titles, since both modules are hosted through the same slots.
+
+## ADR-303 — RULED by the human: spec round 46 (FM free's pitch-FM accumulator runs every sample) and Sine-to-saw fan's key-off reported (B494; cleanroom B-59, B-62; 2026-10-28)
+
+**Context.** The test author's engine-free evidence (test-author `5c091a5`; reports `b55_dt3_rates.cpp`, `b47_full.h`, `b56_full_release.cpp`):
+- **FM free with pitch FM (B-62, Two FM voices).** C.9.2 does not say whether FM free's pitch-FM accumulator advances outside the window.
+  - **Every-sample reading:** DT-3 holds, at 0.25 dB with an S&H modulator and 0.00 dB with a sine.
+  - **Window-only reading:** DT-3 misses with a sine modulator, by 7.77 dB on a harmonic 74 dB down.
+- **B-59 (Sine-to-saw fan's key-off).** A fuller engine-free law of the preset gives the following:
+  - **The model:** C.10's shape spread, the preset's placement and detune, C.16, C.8, and E with ED-7 on the reference design.
+  - **Validation:** QS-1 reads 110.0 dB by this law, against 54.0 dB naive.
+  - **The finding:** ENV 1's release fires QS-4 at the key-up, score 10.91, and at 5 of 7 key-up times between 1.9 and 2.1 s.
+  - **Why:** the band-limited tone is so clean that the release's change of slope stands out.
+  - Split envelopes is not yet modelled.
+
+**Ruling (the human, by poll, 2026-10-28).**
+1. **"Every sample."** FM free's pitch-FM accumulator advances every sample, inside the window and outside it (C.9.2, spec round 46).
+2. **"Report this preset's key-off."**
+   - In 9.b1, Sine-to-saw fan's key-off is reported, not judged, over the window the law's own events occupy, which the test author derives engine-free. The rest of its render stays judged.
+   - Split envelopes stays judged until its engine-free model exists.
+
+**Rejected:**
+- for FM free: the window-only reading;
+- for B-59: reporting every key-off (a real release defect would go unjudged), and smoothing EN-1's release start (a spec and engine change).
+
+**Consequences.**
+- Spec round 46, delivered to both clean-room repositories.
+- The frozen set's ledger notes the key-off window for Sine-to-saw fan.
+- Rulings rows 76 and 77.
+- **FX device (ADR-254):** none.
+
+## ADR-304 — RULED by the human: spec round 47 (pitch FM integrates a modulator step within its sample) and Split envelopes' key-off reported (B494; cleanroom B-59, B-62; 2026-10-28)
+
+**Context.** The test author's engine-free evidence (test-author `408bef1`, `ceeffbc`):
+- **Split envelopes (B-59), by the fuller law.** The model has Sync residuals inside a taper, FM reset, and both one-shot envelope routes; QS-1 reads 112.4 dB by it.
+  - The key-off fires at 45 of 56 key-up times, scores 10.19 to 21.72, between +1.3 and +4.3 ms of the key-up.
+  - The held renders have no events.
+- **Wobble jaw (B-62): pitch FM free on an S&H modulator at index 2, under round 46.**
+  - DT-3 misses by 2.73 dB, against 0.06 dB for a sine at the same index.
+  - Integrating the step exactly over its sample brings the S&H case to 0.06 dB.
+  - So the miss is the per-sample recurrence's: a step inside a sample enters `acc` whole at that sample.
+
+**Ruling (the human, by poll, 2026-10-28).**
+1. **"Report it too."** Split envelopes' key-off is reported in 9.b1 over its law's window (−0.2 to +5.8 ms), as Sine-to-saw fan's is (ADR-303.2).
+2. **"Integrate exactly."** C.9.2: where the modulator steps within a sample, that sample's pitch-FM increment takes each side's share (spec round 47).
+
+**The lead's readings in the same beat (no ruling needed).**
+- **Sine-to-saw fan's window, −1.2 to +3.7 ms.** It is the law's event span widened by QS-4's 1.5 ms catch tolerance (Q-TA-3), so the reported window covers the detector's own timing. Accepted.
+- **7.9's S&H question.** C.9 item 5 keys S&H noise "by the integer" of the modulator's phase. Under FM reset that phase restarts at each window, so the values repeat each cycle and QS-1 applies.
+
+**Rejected:**
+- for the release: smoothing EN-1's release start;
+- for S&H pitch FM: reporting it.
+
+**Consequences.**
+- Spec round 47, delivered to both clean-room repositories.
+- Rulings rows 79 to 82.
+- **FX device (ADR-254):** none.
