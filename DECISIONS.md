@@ -9750,3 +9750,71 @@ The proposed combined law was reviewed twice by fresh-context critics (FIX-THEN-
 - **The builder** no longer chases 25.4's old Diode 0.50 row: that row was the law's.
 - **Rulings row 73.**
 - **FX device (ADR-254):** none.
+
+## ADR-300 — RULED by the human: Shriek's state per corner is 4 KiB; its pad patch at a horde corner is a cascade `Preset` plus one blob (B563; Shriek maw-011, seq 24; 2026-10-28)
+
+**Context.**
+- **Shriek's human has ruled an XY pad of its own into Shriek's 1.0 device** (Shriek D-092, D-093). It is built after Sluice's.
+- **A Shriek patch** is 30 stepped structure keys, four corner snapshots of the 52 other continuous keys, X, Y and the fixed four: 244 numbers.
+- **Its largest factory patch** measures:
+
+  | Encoding | Bytes |
+  |---|---|
+  | Positional | 1,893 |
+  | float64 | 1,952 |
+  | Keyed by id | 2,770 |
+  | JSON by name | 4,256 |
+
+  None of these yet includes the per-snapshot macro ranges that ADR-188 A1 requires.
+- **RS-6.12's 2 KiB was provisional (Q9).** Sluice's random patches reach 2,474 B.
+- **B446's 64 KiB paste cap is derived:** 4× the largest factory preset, rounded up to a power of two (`paste_cap_check`).
+
+**Ruling (the human, by poll, 2026-10-28): "Shriek 4 KiB, others 2 KiB."**
+- RS-6.12 is amended accordingly. Four modules at four corners is then 40 KiB.
+- Q9 stays provisional, to be re-derived for every module once horde 2's factory bank exists.
+
+**The lead's reading (from Q7 and ADR-294; no new ruling): the shape at a horde corner.** A Shriek pad patch is a FOUNDATIONS cascade `Preset` at scope `shriek`, plus one blob:
+- `absolute` holds the 30 stepped structure keys, so horde reads ADR-188 item 2's parity without parsing the blob.
+- `values` (with `basis`) holds X, Y and the fixed four.
+- `blobs["shriek.pad"]` holds the four snapshots, the macro mappings and their per-snapshot ranges. It is in Shriek's own versioned format, stored verbatim, and validated by Shriek on load.
+- `oversample`, a Device key, is saved once per instance, outside every corner (RS-4.5).
+- **How it compares with Sluice's seq-48 file.** It has the same layout: structure, corners, XY, knobs and macros, with the patch structure carried as one blob. It is not Sluice's file format, and horde converts only the cascade part.
+
+**Shriek's readings of ADR-188 items 1, 2, 4 and 5 and ADR-236/202/237 are confirmed as read** (seq 24 §"How we read your rulings").
+
+**Rejected:**
+- keeping 2 KiB with a positional encoding: no room for per-snapshot macro ranges, so ADR-188 A1 would not hold for Shriek;
+- re-deriving Q9 now as one rack-wide per-corner budget, before every module's worst case is measured.
+
+**Consequences.**
+- **The lab.** `docs/design/maw-horde-lab.html` becomes Shriek's XY page, `lab/shriek-xy-lab.html`:
+  - git blob `c423d30`, SHA-256 `e657dab1…`, unchanged since `ff0d5ba` and identical on Shriek's main at `333ea2a`;
+  - horde's copy adds one line, the navigator's `lab-part` tag;
+  - the verbatim file is kept beside the brief.
+  This supersedes seq 23's prototype.
+- Shriek is answered, seq 25.
+- **FX device (ADR-254):** the same budget and shape apply, since the FX device hosts Shriek through the same slot, and its own state text is under its own derived cap.
+
+## ADR-301 — RULED by the human: spec round 45, two cases the law itself fails become reported (B494; cleanroom B-61, B-62; 2026-10-28)
+
+**Context.** The test author checked engine-free two reds from the builder's suite on rounds 42 and 43 (test-author `3b652f7`, reports `b54_pitch_glide.cpp` and `b55_dt3_rates.cpp`).
+- **9.3, osc 1's pitch (B-61).**
+  - The case: a probe at C3, `pitch` 0.5 → 1 at 0.5 s, then → 0 at 1.0 s, through PA-1's smoother, with E on y⁰.
+  - The fall reads 10.10 to 10.18 on four conforming designs, against k = 10. It read 8.84 before round 42's E.
+  - The rise reads 2.14, and the base is clean.
+- **3.b, DT-3 across 44.1, 48 and 96 kHz (B-62).**
+  - **A sine-to-saw shape carrier cannot meet DT-3 by the law.** C.9.3's r_max = min(0.995, 0.01^(f_h/Nyq)) depends on the Nyquist frequency. On Sine-to-saw fan's blade, one member, it misses by 7.66 dB (shape 0.5) and 3.15 dB (shape 1), against 0.03 dB on a saw carrier. In closed form the miss is up to 27.8 dB.
+  - **Three mechanisms hold:** C.1's coupling (0.00 dB, on two locking swarms; a swarm that does not lock was not measured), serial interplay (0.02 to 0.19 dB) and FM free (0.00 to 0.02 dB).
+
+**Ruling (the human, by poll, 2026-10-28).**
+1. **"Report the pitch fall."** QS-4's reported list gains a full-range jump down of an oscillator's `pitch`. The jump up and every other 9.3 case stay judged.
+2. **"Report them."** DT-3 reports a preset with a blade on a sine-to-saw shape carrier, as it does looped and sub-sounding presets. The builder's DT-3 reds on the other mechanisms stay the engine's to find.
+
+**Rejected:**
+- for 9.3: judging a smaller pitch jump; keeping the case judged, which would mean changing PA-1 or E;
+- for DT-3: keeping the carriers judged, which would mean changing C.9.3's r_max.
+
+**Consequences.**
+- **Spec round 45:** QS-4 and DT-3, delivered to both clean-room repositories.
+- **Rulings rows 74 and 75.**
+- **FX device (ADR-254):** none.
