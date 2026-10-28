@@ -9656,3 +9656,24 @@ The proposed combined law was reviewed twice by fresh-context critics (FIX-THEN-
 **Consequences.**
 - Scape receives its per-row results with this ask (B560's thread, seq 3).
 - **FX device (ADR-254):** the same, since the FX device hosts Scape through the same slot.
+
+## ADR-297 — RULED by the human: item 25.4 keeps judging Diode up to 0.50; the untested readings are run engine-free (B494; cleanroom B-58; 2026-10-27)
+
+**Context.**
+- **Item 25.4** judges a mid-note sub order change for clicks: Fold-lite at every drive, Tube up to 0.80, Diode up to 0.50 (ADR-289.10, rulings row 63), on the test author's engine-free check b.
+- **Check b's model did not follow PA-5's fresh start.** Its incoming chain had run warm from the note's start. Re-run with the incoming chain fresh at the change, the bounds hold on all four conforming table designs. Diode 0.50's worst score is 9.57 against k = 10, a margin of 0.43, and Diode 0.55 fires on every design.
+- **The builder's engine fires at Diode 0.50.** Under ADR-247 that cannot move a gate.
+
+**Ruling (the human, by poll, 2026-10-27): "Keep 0.50, test the M reading."**
+1. **Diode 0.50 stays judged.**
+2. **The test author runs the untested readings engine-free,** reporting only:
+   - (i) SN-6's M grid restarting with the incoming chain at the change;
+   - (ii) PA-3's grid counted from the engine's own clock since reset, with the item's own settle. PA-3's text says so, and the original model counted from the note. The lead added this reading.
+   - (iii) the fade starting at the change's own sample.
+   If a reading the spec supports fires, the bound returns to the human.
+
+**Rejected:** keeping 0.50 with no further check; lowering the bound now.
+
+**Consequences.**
+- **Rulings row 69.**
+- **FX device (ADR-254):** none. This is the instrument's sub, not the rack.
