@@ -9677,3 +9677,43 @@ The proposed combined law was reviewed twice by fresh-context critics (FIX-THEN-
 **Consequences.**
 - **Rulings row 69.**
 - **FX device (ADR-254):** none. This is the instrument's sub, not the rack.
+
+## ADR-298 — RULED by the human: spec round 43, item 25.4's phase sweep and High's step table at 32 host samples (B494; cleanroom B-58, B-59, B-60; 2026-10-27)
+
+**Context.**
+- **25.4 (B-58), after ADR-297.** The test author ran the three readings engine-free, and none fires at Diode 0.50.
+  - PA-5's "at once" puts the fade at the change's own sample. In the drive-first order, SN-6's M does not depend on the envelope, so where its grid restarts cannot matter.
+  - Swept across one cycle of the sub in 24 positions, Diode is clean at every position only up to 0.40. An event appears at 7 of 24 positions at 0.45, and at 10 of 24 at 0.50.
+  - Tube is clean at every position up to 0.80, and Fold-lite at every drive tried.
+  - So 0.50 passes at the item's own change time by where it falls on the sub's cycle, not with a margin over phase.
+- **The swept release corner (B-59).** The test author put each frozen preset's ENV 1 on the probe sine, engine-free.
+  - The release adds no event on Sine-to-saw fan.
+  - Swell · cut at the key-off (a 10 ms release) fires on the probe sine, but reads clean on its own tone, which is what 9.b1 renders.
+- **High's table (B-60).** The builder conformed High to rulings row 67 (32 internal taps). The test author then measured both readings engine-free.
+  - **32 internal samples:** QS-1's floors are reached only by cutting near 19 kHz, which leaves 16 to 20 kHz 10 to 14 dB down.
+  - **32 host samples:** QS-1 is met with room, at about 3.5 dB.
+  - C.15's decimator alone costs 3.06 dB at C6's 19th harmonic, so QS-2's 3 dB is out of reach at High with any windowed-sinc table.
+
+**Ruling (the human, by poll, 2026-10-27).**
+1. **"Add a sweep to 0.40; keep 0.50."**
+   - 25.4 judges the change at the item's own time, as before.
+   - It also judges with the change moved across one cycle of the sub in 24 equal steps: Fold-lite at every drive, Tube up to 0.80 and Diode up to 0.40.
+   - Diode 0.45 and 0.50 across the cycle are reported.
+   - Nothing is weakened. The engine's event at Diode 0.50, at the item's own time, stays red.
+   - The lead added Tube and Fold-lite to the sweep on the same engine-free evidence; adding a check is not gated.
+2. **"No change"** for Swell's probe reading. 9.b1 judges Swell on its own tone, where the law is clean.
+3. **"B: 32 host samples."**
+   - ED-1's table spans 32 host samples at either quality: 64 internal samples at High. Every count that is the table's length doubles with it.
+   - ED-6's and ED-7's taper bound (T under 32 internal samples) is not the table's length and does not change.
+   - QS-1 and QS-2 still judge Standard; High's readings are reported.
+   - This supersedes rulings row 67, the lead's reading of the text.
+
+**Rejected:**
+- for 25.4: keeping 0.50 with no sweep; lowering the bound to 0.40 (it would hide the engine's event at 0.50);
+- for Swell: reporting its key-off as a fast fade;
+- for High: 32 internal taps (High 10 to 14 dB darker up top); reading B together with a decimator change (larger, and needing a further engine-free check).
+
+**Consequences.**
+- Spec round 43: two edits to `specs/SPEC-ENGINE.md` (ED-1, and test item 25), delivered to both clean-room repositories the same turn.
+- Rulings rows 70–72.
+- **FX device (ADR-254):** none. These are the instrument's oscillators and sub, not the rack.
