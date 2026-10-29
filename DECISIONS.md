@@ -10065,3 +10065,19 @@ Both frames were captured from a local preview.
 
 **Consequences.** The `desc` column becomes a 1.0 dependency of the info box. The manual needs an anchor per control. **FX device (ADR-254):** the same, on the FX device's pages and its modules' controls.
 
+## ADR-316 — RULED by the human: GUI 3 starts now, as one wired interface shell with no audio engine (amends B302's gate; B584; 2026-10-29)
+
+**Context.** The human, 2026-10-29: "We also haven't made the visual lab for the sub and noise osc pages. Would it make sense though to create a global interface lab (that uses the modules from the design doc so there isn't redundancy) which connects all the wires without running the audio engine through it?" B302 had gated GUI 3 until the labs in flight were ratified, to be assembled from them afterwards. Several page labs remain open and unbuilt: the sub and noise pages, the main and oscillator pages with the mod map and Weir's filters, morph, mixer and Random.
+
+**Ruling (the human, 2026-10-29, by poll):** "GUI 3's prototype, starting now".
+- B302's gate is amended: GUI 3 starts now, as one wired shell, and the remaining page labs become its pages, in B581's order, with the sub and noise pages first.
+- **Components** come from the design system's bundle only. Anything missing is added to the design system first, never drawn locally.
+- **Pages and controls are generated** from the engine's parameter table (SPEC-ENGINE §5), so a control cannot exist without its parameter.
+- **Behind the engine's real interface** (parameters, the morph position, mod routes, patch state and history, the observation view), a no-audio stub keeps state and answers. The WebAssembly engine (IF-10, built at stage 8) plugs into the same seam later, and the shell then plays.
+- The standalone labs (filters, Random, Scalpel and the rest) stay as research benches. A ruled decision moves into the shell, and no new standalone page labs are started.
+- B302's gates apply to the shell: `gen_gui_controls`, `gui_reach` and the rest.
+
+**Rejected:** a separate integration lab with B302 kept gated; only a sub and noise page lab.
+
+**Consequences.** B584 opens with the first slice. gui2 stays the shipping GUI of the legacy plugin until GUI 3 passes B302's gates. **FX device (ADR-254):** the FX device's pages come from the same shell and components (its FX pages and the docked morph pad), so it inherits GUI 3 rather than a GUI of its own.
+
