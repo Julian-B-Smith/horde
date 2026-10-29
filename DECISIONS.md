@@ -9922,3 +9922,18 @@ Both frames were captured from a local preview.
 - At S4, horde's labs (`sluice-horde-lab.html`'s `GBC_SLOT.icon`, and the screens workshop) drop the proposal and leave the slot empty.
 - The fx-logos README records that no `sluice-icon.png` is owed.
 - **FX device (ADR-254):** the same, since Sluice is hosted there through the same slot.
+
+## ADR-306 — RULED by the human: horde shows Sluice's "randomize all four" and "revert" (B510; 2026-10-28)
+
+**Context.** Sluice notice seq 66 (`integrations/hypersaw/notice-rand-all-revert.md` in Sluice's tree, Sluice D-193, ball none). Sluice ported two buttons from Shriek's page into its library and Minimal view. "randomize all four" runs "randomize parameters" on A, B, C and D in turn, from one stream. "revert" puts the selected corner back to its snapshot. netcore's `sluice/library.h` gains `LibEntry::draftFrom` and `LibPending::base`. Sluice's library runs in horde's slot (Sluice D-137), so whether horde shows the buttons was left to horde.
+
+**Ruling (the human, 2026-10-28, by poll):** "Show both, store the fields".
+- Sluice's slot in horde shows both buttons where Sluice places them.
+- horde's slot state keeps `draftFrom` per user patch and `pending.base` with an unsaved patch, so revert survives a reload.
+
+**Rejected:** the same buttons on horde's own morph corners (not asked for now); hiding them.
+
+**Consequences.**
+- Built at S4 with Sluice in horde (B331), and in the rack's state schema (B263).
+- Nothing is owed to Sluice: its notice was `ball: none`.
+- **FX device (ADR-254):** the same, since Sluice is hosted there through the same slot and state.
