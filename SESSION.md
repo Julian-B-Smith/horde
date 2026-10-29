@@ -12,14 +12,15 @@ filter lab round 3 (B566, #1243) and moved the filter DSP to a new sibling, Weir
 B567, spun up and ratified by poll, browser lab ruled).
 
 **First move next session:** the clean room. The builder's soak on 5442272 started
-2026-10-29 02:11 and runs about 17 h (single-threaded, its result as its own notice). After
-it ends, rerun a554c31 and 5442272 from a clean `git archive` export (cmake -j4 under nice,
+2026-10-29 02:11 and was STOPPED soon after for a machine shutdown (not a failure). Restart it
+from the beginning on 5442272 at the lead's "go" (about 17 h, single-threaded, its result as
+its own notice). After it ends, rerun a554c31 and 5442272 from a clean `git archive` export (cmake -j4 under nice,
 the default suite plus item10_b6_long): expect only 3.b (Crushed burst) and 9.b1 (Undertone
 drift, Cross-mod pair, Formant growl, Cross-mod roar) red. Then the builder places Crushed
 burst. Update the progress page (log e47 is the latest) at each event.
 
 **Open threads (append, don't replace):**
-- Clean room: the soak (builder), the clean-export rerun (lead), Crushed burst (builder);
+- Clean room: the soak, to restart after the 2026-10-29 shutdown (builder), the clean-export rerun (lead), Crushed burst (builder);
   the S&H modulator under 7.9 reads 16–42 dB better than the law's reference (builder
   flagged, not asked; held on the lead's side, not sent to the test author).
 - Pushes owed by the human: cleanroom-engine (12 commits ahead) and cleanroom-tests (15).
