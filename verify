@@ -209,6 +209,16 @@ fast() {
   # declarations — invisible to every audio oracle, which is why it is gated.
   python3 tools/gen_gui_controls.py --check || ok=1
 
+  # GUI 3'S CONTROLS ARE THE ENGINE'S PARAMETERS (ROADMAP B584, ADR-316; added under ADR-180 §1).
+  # tools/gen_gui3_controls.py reads SPEC-ENGINE section 5's tables (the manifest has no machine-readable
+  # form yet) and docs/design/gui3/layout.json, and generates the shell's control list. --check: the
+  # expansion equals 5.8's counts, every layout key is a parameter (no control without one), every host
+  # parameter is on a page (B302's gui_reach idea), no reserved row is placed, widgets suit their rows,
+  # live-when conditions name real options, the shell mounts controls in one place and names no key,
+  # no gui3 script reads a clock, and the committed outputs are current. Ten must-fail controls every
+  # run. Python only, well under 1 s.
+  python3 tools/gen_gui3_controls.py --check || ok=1
+
   # THE TEST TABLE cannot claim coverage it lacks: every agentic row names a gate
   # this file actually runs (parsed from here, never a second list), and every
   # feature the GUI shows has at least one row. Both failure modes — an oracle
@@ -515,6 +525,18 @@ PY
       echo "verify: divergence ledger check FAILED" >&2; cat /tmp/divledger.$$ >&2; ok=1; }
     tail -1 /tmp/divledger.$$   # the harness prints its own name; do not prefix it twice
     rm -f /tmp/divledger.$$
+
+    # GUI 3'S ENGINE SEAM HOLDS ITS CONTRACT (ROADMAP B584, ADR-316; added under ADR-180 §1). The shell runs on a
+    # no-audio stub engine behind one adapter (docs/design/gui3/engine-stub.js, device.js), and the WebAssembly
+    # engine (IF-10) replaces the stub behind the same seam. Eleven tests hold the stub and the adapter to the
+    # spec's words (5.1's laws against the generator's inverses, IF-4 state round trips with unknown keys kept,
+    # RC-11.2 snapshot and restore, a read-only IF-10 view, RC-11.3 gestures, the morph's classes, RC-4 route
+    # refusals, one gesture one undo step, seeded determinism); eight planted faults must each turn their own
+    # test red (~1 s).
+    node tools/labharness/gui3_seam_check.mjs > /tmp/gui3seam.$$ 2>&1 || {
+      echo "verify: GUI 3 seam check FAILED" >&2; cat /tmp/gui3seam.$$ >&2; ok=1; }
+    tail -1 /tmp/gui3seam.$$   # the harness prints its own name; do not prefix it twice
+    rm -f /tmp/gui3seam.$$
   else
     echo "verify: node missing — lab load check SKIPPED" >&2
   fi
