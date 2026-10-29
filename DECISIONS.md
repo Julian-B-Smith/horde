@@ -10099,3 +10099,25 @@ Both frames were captured from a local preview.
 - The bank stage continues on the current spec until that round lands.
 - **FX device (ADR-254):** the same, for FX-module structure that differs between corners. A hosted module's whole-patch switch is its declared `switch` (ADR-309); how it blends across the pad is one of B585's questions.
 
+## ADR-318 — RULED by the human: chaos sets the next draw's bounds only; randomization presets are full profiles, with a small role set in 1.0 (B578; amends ADR-312; 2026-10-29)
+
+**Context.** The human played the Random lab (B578, horde #1258) and said: "I'm a little confused by the chaos slider. At the moment it seems to dynamically change the actual character of the sounds; I assumed it just set the bounds on patch or parameter randomization." They added: "I think randomization rulesets should also be a kind of preset. That way you can pick factory presets like 'mono bass' or 'pad' or 'arp', or even greater levels of precision like 'trance saw', which will have been set to establish parameters around the randomness." They also asked for solo controls in the voice section ("so you can hear what each is contributing when you randomize individually"). Those are the sources' own `mute` and `solo` (SPEC-ENGINE IF-6), which already exist.
+
+**Rulings (the human, 2026-10-29).**
+1. **Chaos and amount set bounds, nothing else** (the human's own reading, stated as the rule). CHAOS, AMOUNT, the per-group scales and per-key bounds shape the NEXT draw only. Moving them never changes the current sound. The lab is corrected to this.
+2. **A randomization preset is a full randomization profile** (by poll, "A full randomization profile"). It holds everything that shapes the next draw:
+   - the mod-mapping rules;
+   - the architecture choices allowed (for a mono bass: sub on, one or two oscillators, low-pass filters, no long releases);
+   - each parameter's home and bounds;
+   - the chaos and amount settings;
+   - the locks.
+   It is saved and loaded like any preset.
+3. **1.0 ships a small factory set by role** (by poll, "A small role set in 1.0"): for example Mono bass, Pad, Pluck, Lead and Arp, plus "Common" and "Anything". Finer ones such as Trance saw come after 1.0. This amends ADR-312's basic 1.0, which had one fixed ruleset.
+
+**Rejected:** presets holding only mod rules and bounds, or only mod rules; the finer presets in 1.0; no presets until after 1.0.
+
+**Consequences.**
+- The Random page's 1.0 needs a preset format for randomization profiles, a browser for them, and the role set authored and auditioned by the human.
+- The solo and mute shown on the Random page are the engine's own (IF-6). They are monitoring state: never randomized, never in a corner's snapshot.
+- **FX device (ADR-254):** the FX device's Random page takes the same preset kind, with FX roles (for example, Space or Grit) in place of voice roles. Which roles is open.
+
