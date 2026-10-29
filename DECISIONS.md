@@ -10050,3 +10050,18 @@ Both frames were captured from a local preview.
 
 **Consequences.** horde's response seq 69 goes to Sluice; Sluice keeps its classification. **FX device (ADR-254):** the same, through the same slot.
 
+## ADR-315 — RULED by the human: the morph pad shows while morph is on; a hover info box and right-click to the manual join the page chrome (B555, B582, B583; 2026-10-29)
+
+**Context.** The human, 2026-10-29: "There should be a small text box in the same position on all pages that gives an explanation of whatever the mouse is hovering over (Ableton does this). Maybe right clicking a feature should also offer to open up a manual page in the browser or something (local file). And I think I mentioned this before, but when morph is turned on, the morph XY should be omnipresent on all pages (or there should be a toggle for it)." ADR-291 item 1 had already docked a compact morph pad on every page (B555). The ROADMAP had long planned a `desc` column of real parameter descriptions, gated so none is blank, shown by a panel that is off by default.
+
+**Rulings (the human, 2026-10-29, by poll).**
+1. **"While morph is on, with a hide toggle"** amends ADR-291 item 1. The docked pad appears on every page whenever the patch's morph is on, a toggle hides it, and with morph off it takes no space.
+2. **"Both into the page-chrome lab".**
+   - **A fixed info box,** in the same place on every page, shows the description of the control under the mouse, from the `desc` column (B582). The column's gate counts blank descriptions.
+   - **Right-click on a control** offers "Open in manual": a local HTML page of the user manual (B451) at that control's anchor (B583).
+   - Both join B555's page-chrome lab with its six open questions.
+
+**Rejected:** the pad always shown, or shown only while morph is on with no toggle; the info box now with the manual later; recording only.
+
+**Consequences.** The `desc` column becomes a 1.0 dependency of the info box. The manual needs an anchor per control. **FX device (ADR-254):** the same, on the FX device's pages and its modules' controls.
+
