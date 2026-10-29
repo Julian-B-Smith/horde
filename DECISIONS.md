@@ -10081,3 +10081,21 @@ Both frames were captured from a local preview.
 
 **Consequences.** B584 opens with the first slice. gui2 stays the shipping GUI of the legacy plugin until GUI 3 passes B302's gates. **FX device (ADR-254):** the FX device's pages come from the same shell and components (its FX pages and the docked morph pad), so it inherits GUI 3 rather than a GUI of its own.
 
+## ADR-317 — RULED by the human: when corners differ in architecture, the architecture follows the morph law too (B585; 2026-10-29)
+
+**Context.** The human, 2026-10-29: "When different corners have different architecture, I would like the parameters to follow the morph law (quantum, blend, quantized blend or whatever we're calling it)." Until now SPEC-ENGINE IF-4 has said "Morphable values blend; Structural values flip at the morph's seeded point (hysteresis band 0.1) and change on sounding voices by PA-5", whatever the morph law. So when corners differ in architecture (a blade's mode, a wave, a filter type, an FX order), part of the pad acts as a switch. The Random lab (B578) measured that: per-corner structure makes the pad a switch.
+
+**Ruling (the human, 2026-10-29, by poll):** "Architecture follows the law too".
+- **Blend:** a structural difference between corners crossfades. Both architectures run, and the sound fades between them across the pad, with an equal-gain law as RS-3.6.
+- **Quantum:** it flips at the quantum boundaries.
+- **The stepped hybrid (B424):** it steps.
+- A parameter's own morph mode (ADR-291 item 3, B557: Follow / Quantum / Exempt) still overrides it.
+
+**Rejected:** parameters follow while architecture flips at its seeded point (a clarification only); architecture flips at the quantum draw's boundaries under every law.
+
+**Consequences.**
+- **A spec change** to IF-4, with PA-5 and PF-4 affected. A voice runs two architectures through a blend region, and the CPU budget must hold.
+- It is designed before it is specified (B585): a proposal with options and costs, the human's rulings on its questions, a critic's review, then a spec round delivered to both clean-room repos the same day.
+- The bank stage continues on the current spec until that round lands.
+- **FX device (ADR-254):** the same, for FX-module structure that differs between corners. A hosted module's whole-patch switch is its declared `switch` (ADR-309); how it blends across the pad is one of B585's questions.
+
