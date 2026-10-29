@@ -141,11 +141,11 @@ B513; `perf` B551; `armor` B505, B507, B535; `gui3` B531, B532, B536, B544–B54
 | Scape (reverb) | `reverb` | in progress | B421, B152, B210, B393, B513 | `rack` | in |
 | ECHO (delay, the sibling Echo) | `echo` | in progress | B425, B526, B386 | `rack` | in |
 | Bulwark compressor | `bulwark` | in progress | B421, B234, B423, B450, B463 | `rack` | in |
-| EQ | `eq` | planned | B234, B210, B336 | `rack` | in |
-| FX filter | `fxfilter` | planned | B210, B288, B336 | `rack` | in |
-| Drive | `drive` | planned | B210, B336 | `rack` | in |
+| EQ | `eq` | planned | B234, B210, B336, B579 (sibling, ADR-313) | `rack` | in |
+| FX filter | `fxfilter` | planned | B210, B288, B336, B580 (Weir, ADR-313) | `rack` | in |
+| Drive | `drive` | planned | B210, B336, B579 (sibling, ADR-313) | `rack` | in |
 | Bulwark multiband + ATM (was OTT) | `ott` | planned | B423, B400, B393 | `bulwark` | conditional |
-| Kuramoto chorus | `kchorus` | planned | B401, B393 | `rack` | conditional |
+| Kuramoto chorus | `kchorus` | post-1.0 | B401, B393, ADR-313 | `release`, `rack` | out |
 | horde 2 plugin shell | `shell` | ruled | B398, B428, B429, B449, B305, B308, B306, B458 | `seams`, `engine2` | in |
 | Legacy freeze tag | `freeze` | built | B255, B308, B305, B456 | — | in |
 | Testing apparatus | `testing` | in progress | B316, B324, B340, B344, B350, B381, B186, B457, B490 | `engine2` | in |
@@ -155,7 +155,8 @@ B513; `perf` B551; `armor` B505, B507, B535; `gui3` B531, B532, B536, B544–B54
 | GUI 3 + the screens | `gui3` | in progress | B302, B449, B432, B271, B322, B336, B261, B308, B531, B532, B536, B544, B545, B546, B547, B548, B549, B555, B556, B557 | `shell`, `fxmorph`, `intent`, `modmorph`, `mix`, `maw`, `sluice` | in |
 | Presets + factory library | `presets` | planned | B395, B257, B261, B312, B349, B453 | `history`, `testing`, `intent`, `maw`, `sluice`, `reverb`, `echo`, `bulwark`, `eq`, `fxfilter`, `drive`, `gui3` | in |
 | User manual | `manual` | in progress | B451, B413 | `gui3` | open |
-| 1.0 — the stability line | `release` | planned | B305, B327, B440 | `presets`, `gui3`, `perf`, `freeze`, `quant`, `sub`, `noise`, `stereo`, `master`, `mpe`, `mts`, `arps`, `distrib`, `armor` | in |
+| Random page (basic) | `random` | planned | B578, ADR-312 | `patch`, `morph`, `modmatrix`, `rack` | in |
+| 1.0 — the stability line | `release` | planned | B305, B327, B440 | `presets`, `gui3`, `perf`, `freeze`, `quant`, `sub`, `noise`, `stereo`, `master`, `mpe`, `mts`, `arps`, `distrib`, `armor`, `random` | in |
 | Tonality integration | `tonality` | post-1.0 | B390 | `release`, `quant` | out |
 | Microtuning | `microtuning` | post-1.0 | B390 | `tonality` | out |
 | Granular module | `granular` | post-1.0 | B393 | `release`, `rack` | out |
