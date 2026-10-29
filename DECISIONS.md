@@ -9964,6 +9964,24 @@ Both frames were captured from a local preview.
 
 **Consequences.** A change to either constant no longer reads as a tolerance change. The registry's other 138 entries are untouched. This records the ruling that B566's row noted as a GATE-CHANGE.
 
+## ADR-309 — RULED by the human: a module's manifest declares each flip key's switch, in Scape's words (B562; 2026-10-29)
+
+**Context.** Scape's response seq 4 (`integrations/scape/response-admission-results.md`) reports Era's fix on Scape's main at `11e1698` (Scape D-073, Q-032). Era now switches by an equal-gain crossfade of its input over 20 ms: both wets are summed, and the old engine's tail spills over (RS-2.7). Scape's manifest now declares each flip key's switch, `era` as `{"method": "crossfade", "length_s": 0.02, "law": "equal-gain", "of": "input", "tail": "spills over"}` and `delayMotion` as `{"method": "silent", "length_s": 0}`. Scape asked whether horde accepts those words. The contract (§12.1) required a declaration but named no format. horde's admission check still failed A11 on a clean export of `11e1698`, because its Scape adapter hard-coded Era as a dip, transcribed from Scape's old spec prose. The click reading itself had fallen from 58.4 dB to 2.55 dB, against an ideal crossfade's 3.07 dB.
+
+**Ruling (the human, 2026-10-29, by poll):** "Adopt as the contract format".
+- Every module declares each flip-class key's switch in its manifest as a `switch` object: `method` is `crossfade`, `gate`, `seeded-jump` or `silent`, with `length_s`, and `law` and `of` where they apply. Contract §12.7.
+- An input crossfade between linear paths, with the old tail spilling over, counts as §12.1's equal-gain crossfade.
+- The admission check reads the declaration (Scape's `ParamDecl::switchMethod`, which its manifest is written from), never a transcription of prose.
+
+**Rejected:** accepting Scape's words for Scape only, with no format; renaming the words.
+
+**Consequences.**
+- `tools/admission/scape_adapter.cpp`: the prose table is gone, and `switchOf()` maps the declared method. A key with no declaration reads Undeclared, which is stricter than before.
+- `tools/admission_check.py`: A11's pin (ADR-296) is removed. On a clean export of Scape `11e1698`, every module-only row passes (A1 to A6, A8 to A12, A15, A17 to A20) and every control fires, A11's included.
+- B562 is closed.
+- Notices: Scape (its words are the format, the pin is gone); Bulwark, Shriek and Sluice (declare each flip key's switch in this form).
+- **FX device (ADR-254):** the same, since every module is hosted there through the same slot and manifest.
+
 ## ADR-310 — RULED by the human: kuramoto-views is a design lab and moves; decoherence-lab is a protected reference (audit 2026-10-29 H2; 2026-10-29)
 
 **Context.** The repo audit of 2026-10-29 (H2, `docs/audits/2026-10-29-repo-audit.md`) found `reference/decoherence-lab.html` and `reference/kuramoto-views.html` in the protected folder (ADR-155) but missing from CLAUDE.md's protected list, and read by no tool. The lead first offered "Design labs: move them", and the human chose it. Before moving them, the lead found that `specs/SPEC-GLITCH-MODULES.md` names `reference/decoherence-lab.html` its "behavioral reference" (lines 4 and 89), so the question went back to the human.

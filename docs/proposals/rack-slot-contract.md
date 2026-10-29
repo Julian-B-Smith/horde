@@ -478,3 +478,15 @@ Ruled by the human, 2026-10-21 ("Declared actions"). The shape is the lead's, PR
 |---|---|
 | **RS-4.12 (new): declared actions** | A module **may** declare named **actions** (momentary commands such as Sluice's clear), each with a key and a label. horde fires an action as an event, at its sample offset, in the per-block context before `process`, beside the note context (RS-4.11). An action is **not** a host parameter and cannot be automated. Firing one is a **performance event**: it makes no history node and leaves the saved patch and the module's saved state unchanged; only its runtime state may change (ADR-267 A1). Firing is deterministic: the same events at the same offsets give the same output. |
 | **A23 (new)** | **Judge:** an action fired at a given offset gives the same output on every run, and the output is unchanged when no action fires. **Must fail:** a shim that applies the action at the block's start instead of its offset. |
+
+### 12.7 ADR-309 (2026-10-29), on Scape's response `admission-results` (seq 4)
+
+Ruled by the human, 2026-10-29, by poll: "Adopt as the contract format". Where a row above and this section disagree, this section holds.
+
+| Row | As amended |
+|---|---|
+| **A11**, the declaration | A module declares each flip-class key's switch in its manifest, as a `switch` object on that key: `method` is one of `crossfade`, `gate`, `seeded-jump` or `silent`; `length_s` is its length in seconds (0 for `silent`); `law` and `of` are stated where they apply (`"law": "equal-gain"`; `"of": "input"` when the crossfade moves the input between paths rather than the output). `crossfade` is the equal-gain crossfade of RS-3.6 and §12.1, the only law admitted. `silent` is a switch that changes no sound at the switch itself, only how later moves sound. `seeded-jump` is §12.2's. The admission check reads the declaration, never horde's transcription of a module's prose. A flip key with no `switch`, or a `method` outside the four, reads Undeclared and fails A11. |
+| **RS-3.6**, by input | A crossfade of a module's INPUT between two linear paths, both wets summed at full level and the old path's tail spilling over (RS-2.7), is an equal-gain crossfade for A11. Its click reading is reported beside the ideal's, as §12.1 says. Scape's Era is the first: its worst reading was 2.55 dB against the ideal's 3.07 dB (Scape 11e1698). |
+
+**What the modules are asked.** Scape: nothing; its words are the format. Bulwark, Shriek and Sluice: declare each flip-class key's switch in this form, by notice from horde. **FX device (ADR-254):** the same, since every module is hosted there through the same slot and manifest.
+

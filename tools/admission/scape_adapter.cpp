@@ -52,19 +52,21 @@ admission::Cls classOf(scape::ParamClass c) {
 }
 
 // THE SWITCH METHODS (contract §12.1: "Every module: declare each flip-class key's switch method
-// and length"). Scape's manifest carries each flip key's LENGTH (`transition_s`) but no method
-// field, so the method is read from Scape's prose and cited here. A flip key Scape adds later
-// with no row here reads Undeclared, and row A11 says so by name.
-struct SwitchRow { const char* name; Switch sw; const char* source; };
-constexpr SwitchRow kSwitchTable[] = {
-    // "the wet output fades out over 10 ms, the path swaps, and the new path starts empty ...
-    // then fades in over 10 ms": a duck / swap / un-duck inside the module, not an equal-gain
-    // crossfade (the two paths never sound together) and not a declared `gate` (the slot does
-    // not duck).
-    {"era", Switch::Dip, "Scape spec/era.md section 7 (prose)"},
-    // "no sound changes when it flips, only how a LATER move sounds"
-    {"delayMotion", Switch::Silent, "Scape core/src/fx_module.cpp kDecls (prose)"},
-};
+// and length"). ADR-309 makes the manifest's `switch` object the declaration: `method` is one of
+// crossfade | gate | seeded-jump | silent, with `length_s`, and `law` / `of` where they apply.
+// The adapter reads Scape's ParamDecl::switchMethod, which is what Scape's manifest is written
+// from, never a transcription of Scape's prose. That transcription is what kept A11 pinned after
+// Scape's fix (11e1698). "crossfade" maps to the contract's equal-gain crossfade: §12.1 admits no
+// other law, and A11's click reading judges it. A flip key with no method, or a word outside the
+// four, reads Undeclared, and row A11 says so by name.
+Switch switchOf(const char* method) {
+  if (!method || !*method) return Switch::Undeclared;
+  if (std::strcmp(method, "crossfade") == 0) return Switch::EqualGainCrossfade;
+  if (std::strcmp(method, "gate") == 0) return Switch::Gate;
+  if (std::strcmp(method, "seeded-jump") == 0) return Switch::SeededJump;
+  if (std::strcmp(method, "silent") == 0) return Switch::Silent;
+  return Switch::Undeclared;
+}
 
 int enumSteps(const scape::ParamDecl& d) {
   if (std::strcmp(d.unit, "enum") != 0) return 0;
@@ -152,8 +154,8 @@ class ScapeModule final : public Module {
       s.transitionS = d.transitionSeconds;
       s.steps = enumSteps(d);
       if (s.cls == Cls::Flip) {
-        for (const auto& r : kSwitchTable)
-          if (std::strcmp(r.name, i.name) == 0) { s.sw = r.sw; s.switchSource = r.source; }
+        s.sw = switchOf(d.switchMethod);
+        s.switchSource = std::string("Scape manifest switch.method \"") + (d.switchMethod ? d.switchMethod : "") + "\"";
       }
       out.push_back(std::move(s));
     }

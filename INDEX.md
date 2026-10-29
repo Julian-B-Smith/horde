@@ -89,3 +89,4 @@ swarm-dynamics · parity-oracle · plugin-platform · realtime-perf
 - [L0077] A control-rate suspect: read the value the engine holds, don't infer it from audio (debugging · probes · oracles)
 - [L0078] "My presets" means load the human's files; a derived order needs a frozen fixture, not a comment (debugging · state · presets)
 - [L0079] Write tracked prose through a script file, never a quoted heredoc with shell-quote tricks (tooling · ledgers · shell)
+- [L0080] On a rerun, read each newly green item's own output: a pass that exercised nothing is not a pass (oracles · clean-room · reruns)
