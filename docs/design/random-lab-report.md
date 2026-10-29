@@ -2,7 +2,7 @@
 
 *horde lab agent, 2026-10-29. Lab: [`random-lab.html`](random-lab.html). For the human to rule what a basic Random page in 1.0 contains.*
 
-**What this report can and cannot claim.** Every number below was **measured** by the lab's own functions, run headless in Node. The renderer is the one the page plays (one second of the "chord stabs" phrase at 44.1 kHz, monitor 0.7), over seeds 1–60. Nothing here is **guaranteed**: the self-checks C1–C17 are what the lab guarantees, and each of them has a must-fail control. Nobody has listened yet. "Loudness change" means RMS only, so a change of timbre at equal level reads as 0 dB. The synthesis is a stand-in, not horde's engine. Your ears on the lab are the gate this report cannot pass for you.
+**What this report can and cannot claim.** Every number below was **measured** by the lab's own functions, run headless in Node. The renderer is the one the page plays (one second of the "chord stabs" phrase at 44.1 kHz, monitor 0.7), over seeds 1–60. Nothing here is **guaranteed**: the self-checks C1–C18 are what the lab guarantees, and each of them has a must-fail control. Nobody has listened yet. "Loudness change" means RMS only, so a change of timbre at equal level reads as 0 dB. The synthesis is a stand-in, not horde's engine. Your ears on the lab are the gate this report cannot pass for you.
 
 ## 1. How to use the lab
 
@@ -226,6 +226,18 @@ The human played round 2 and ruled the five items below; ADR-320 quotes their wo
      - **The measure:** B316's root-presence and roughness metrics, run over seeded random patches, so "more musical" is measured (Layer-E), not asserted.
    - **Recommendation: a minimal version in 1.0, the rest after.** For 1.0: weighted intervals for the semitone offsets, the joint draw of the two oscillators' interval, and musical-unit pitch-envelope amounts. That is a few tables in the profile, and it removes the commonest unmusical random results. Scale-awareness waits for a 1.0 scale, and the per-role pitch profiles ride ADR-318's role set as it is authored.
 
+## 4c. Round 4 (ADR-322, 2026-10-29): copy a level between corners; one Morph page
+
+**Copy a level** (ADR-322 item 1; the human: "there should also be a way on the random page to copy a level's settings from one corner to another independently"). Built:
+- **Where:** every level row has a ⇄ button. It opens a strip with "copy <level> from [A–D] to [A–D]" and two choices, **ARCH** (the structure only) and **PARAMS** (the numbers only).
+- **What moves:** only that level's keys. For MOD MAPPINGS, ARCH copies the routes and PARAMS the amounts. Every other level on the target stays as it was.
+- **Locks:** a locked key on the target (by group, key or mod slot) is kept, and a locked target corner refuses.
+- **History:** a copy is one action, so one history step, and it replays from the seed.
+- **Drafts:** the target's binding is untouched, so a bound corner becomes a draft of its snapshot, the same rule as an edit.
+- **C18 PASS:** copying OSC 1's parameters from A to B moves only OSC 1's parameter keys on B. B's OSC 1 architecture, every other level and the other corners stay. A locked key stays, and B becomes a draft. An ARCH copy touches only OSC 1's structure. The control, a whole-corner copy, moves keys outside OSC 1's parameters and fails as it must.
+
+**One Morph page** (ADR-322 item 2). The Random page folds into the Morph page: one pad, one set of corners, snapshots and sets, the morph laws, and a **Randomize panel** (levels, chaos and amount, locks, randomization presets). The Random tab goes. This lab is **not** restructured for that: it stays a research bench (ADR-316). Its pad, corners, snapshots and laws are the Morph page's own, shown here beside the levels so the two can be tried together. Wherever this report says "the Random page", read "the Morph page's Randomize panel".
+
 ## 5. Proposed basic 1.0 set, and what comes after
 
 **Basic 1.0** (recommended):
@@ -312,7 +324,8 @@ The human played round 2 and ruled the five items below; ADR-320 quotes their wo
   - C14 bounds are for the next draw only (control: a stand-in that re-applies the last draw);
   - C15 QUANTUM flips each key at its own seeded boundary (control: one shared boundary);
   - C16 the ✕ deletes a saved snapshot (control: round 2's refusing rule);
-  - C17 save all four (control: saving one corner).
+  - C17 save all four (control: saving one corner);
+  - C18 copy a level between corners (control: a whole-corner copy).
 
   Each has a must-fail control.
 - **A headless Chrome run** clicked every level's ARCH and PARAMS and the grid, ruleset and lock buttons. It raised no error, and the replay matched (42 actions).
