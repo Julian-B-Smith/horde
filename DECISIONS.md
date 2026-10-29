@@ -10121,3 +10121,50 @@ Both frames were captured from a local preview.
 - The solo and mute shown on the Random page are the engine's own (IF-6). They are monitoring state: never randomized, never in a corner's snapshot.
 - **FX device (ADR-254):** the FX device's Random page takes the same preset kind, with FX roles (for example, Space or Grit) in place of voice roles. Which roles is open.
 
+## ADR-319 — RULED by the human: GUI 3's first questions — morph off, saving snapshots, history, engine sync, one parameter table, the widget rule, live-when as a table (B584, B586, B587, B588; 2026-10-29)
+
+**Context.** B584's first slice (horde #1263) asked the human six questions. The answers came in their own words and by poll.
+
+**Rulings (the human, 2026-10-29).**
+1. **Morph off** ("B-D should be silent and frozen when morph is off"):
+   - With morph off, corners B to D are silent and frozen.
+   - The morph page has a choice of which corner is audible while morph is off, defaulting to A.
+   - The morph page also has a "save current sound to snapshot" button that prompts for a preset name, and a "save preset to [corner]" control on each corner.
+2. **History:** "toggling morph gets a history node". The morph position stays out of history, as performance.
+3. **Engine sync** (by poll: "For now probably start with mirror + confirm, but I suspect in the long term, shared memory sounds more reliable and efficient. Worth at least discussing"):
+   - GUI 3 starts with mirror and confirm. The interface shows what it sent at once, and the engine's snapshot (RC-8) brings back only engine-originated changes.
+   - The transport behind the seam is kept swappable, so shared memory can replace it.
+   - Shared memory is to be weighed (B588).
+4. **The parameter table** (by poll, after the human's principle: "I want the build pattern to always bias toward creating a source of truth that all connected features draw from instead of recreating the same pool multiple times for different features"; then "Edit the spec; generate the table"):
+   - SPEC-ENGINE §5 stays the authored, ratified source.
+   - One table is generated from it, beside `engine2/structure`, outside the clean room.
+   - Every feature reads that table: GUI 3's controls, the mod matrix's targets, the Random page's homes and bounds, presets and state, the manual's anchors, the info box's descriptions (the `desc` column joins it), and the tests.
+   - A check fails if any feature keeps its own list (B586).
+5. **The widget rule** (by poll, "Adopt, with overrides"): on/off is a toggle, up to 5 choices are buttons, 6 to 64 a drop-down, more a stepper, and continuous values a knob or slider. A page may override a parameter with a reason. It becomes the design system's rule.
+6. **Live-when as a table in the spec** (by poll, "Yes, a table in the spec"): PA-8's dependencies (which setting makes which control live) become a machine-readable table the generator reads, so every page greys its inactive controls automatically, under a check. It is a spec change, delivered to both clean-room repos as a round (B587).
+
+**Consequences.**
+- GUI 3's next slice builds 1, 2, 3 and 5.
+- B586 moves the table and adds the single-source check. B587 drafts PA-8's table for a spec round. B588 weighs shared memory.
+- **FX device (ADR-254):** the same rules on the FX device's pages, and its modules' parameters join the one table by their manifests.
+
+## ADR-320 — RULED by the human: the Random page's next round — the selected corner by default, rule collections, the morph law on its pad, snapshot fixes, exemptions, arps and a pitch ruleset (B578; 2026-10-29)
+
+**Context.** The human played the Random lab after its second round (horde #1262).
+
+**Rulings (the human's words, 2026-10-29).**
+1. **"'arch writes' should default to 'selected corner'".** This reverses the lab's own recommendation of all four.
+2. **Rule collections:** "In the mod mapping ruleset, there should also be general collections of rules, like 'any envelope' or 'any modulator' as well as the intent bus for the mod side, and structured collections of targets as well as the specific targets."
+3. **The morph law on the pad:** "I'm still not hearing stochastic (quantum) parameter or architecture boundaries on the random morph xy." The lab's pad must play the morph's laws, Quantum (ADR-104) included, for parameters and for architecture (ADR-317).
+4. **Snapshot fixes:** "Clicking the x next to a saved snapshot doesn't delete it" is a bug. "There should be a button that saves all four snapshots together."
+5. **The final page** ("In the final version"):
+   - It randomizes arpeggiation too.
+   - Things can be made explicitly exempt from randomization: "like scale or an oscillator's pitch offset".
+   - "Pitch actually may be a special case that gets its own deeper ruleset system to make randomization more musical in more cases."
+   - Whether each of these is in 1.0 is not ruled.
+
+**Consequences.**
+- The Random lab's third round builds 1 to 4, and drafts 5 in its report.
+- How architecture blends on the pad follows B585 once ruled. Until then the lab plays Quantum and today's flip for architecture, and Blend for parameters.
+- **FX device (ADR-254):** 1 to 4 apply to its Random page; arps and pitch do not.
+
