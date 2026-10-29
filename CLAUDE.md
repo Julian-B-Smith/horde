@@ -168,7 +168,8 @@ private sibling's real name into a tracked file.
 now seven: the three oscillator labs, swarmfilter/swarmphaser/swarmtime (Track
 E, ingested 2026-07-18), and reference/swarmalator.html (experimental swarmalator engine,
 ingested 2026-07-19, ADR-048), and `reference/formant-pulsar-fof.html` (formant
-engine, ingested 2026-08-17, ADR-091), and `reference/station.html` + `specs/SPEC-STATION.md` (STATION engine, ingested
+engine, ingested 2026-08-17, ADR-091), and `reference/decoherence-lab.html` (the behavioral reference of
+`specs/SPEC-GLITCH-MODULES.md`, listed 2026-10-29, ADR-310), and `reference/station.html` + `specs/SPEC-STATION.md` (STATION engine, ingested
 2026-08-25, ADR-122), and
 `specs/SPEC-INTENT-BUS.md` + `reference/intent-bus.html` (intent bus,
 ingested 2026-09-01, ADR-152) — their three sanctioned RNG seeds landed 2026-09-10 and the

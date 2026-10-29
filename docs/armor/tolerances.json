@@ -1248,79 +1248,92 @@
       "file": "specs/ACCEPTANCE.md",
       "id": "specs/ACCEPTANCE.md::L0-11/local_order_parameter",
       "locator": "s:\\s+local\\s+order\\s+parameter\\s+\\(((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
-      "reason": "neighbor-window half-width of the local order parameter, a protocol size"
+      "reason": "neighbor-window half-width of the local order parameter, a protocol size",
+      "value": "±3"
     },
     {
       "file": "specs/ACCEPTANCE.md",
       "id": "specs/ACCEPTANCE.md::L0-15/0¢_of_any_harmonic_from",
       "locator": "40¢\\s+of\\s+any\\s+harmonic\\s+\\(from\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
-      "reason": "count of filters initially near a harmonic, a precondition not a tolerance"
+      "reason": "count of filters initially near a harmonic, a precondition not a tolerance",
+      "value": "≥3"
     },
     {
       "file": "specs/ACCEPTANCE.md",
       "id": "specs/ACCEPTANCE.md::L0-23/4_K²_σ_so_balance_0.5",
       "locator": "\\(4·K²·σ\\)\\s+so\\s+balance<0\\.5→((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
-      "reason": "describes the balance knob range (balance<0.5 -> >0.5), not a threshold"
+      "reason": "describes the balance knob range (balance<0.5 -> >0.5), not a threshold",
+      "value": ">0.5"
     },
     {
       "file": "specs/ACCEPTANCE.md",
       "id": "specs/ACCEPTANCE.md::L0-24/-_onset",
       "locator": "^\\-\\s+onset\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
-      "reason": "onset knob domain split (onset >= 0 vs < 0), not a threshold"
+      "reason": "onset knob domain split (onset >= 0 vs < 0), not a threshold",
+      "value": "≥ 0"
     },
     {
       "file": "specs/ACCEPTANCE.md",
       "id": "specs/ACCEPTANCE.md::L0-24/parity_untouched._onset",
       "locator": "—\\s+parity\\s+untouched\\.\\s+onset\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
-      "reason": "onset knob domain split (onset >= 0 vs < 0), not a threshold"
+      "reason": "onset knob domain split (onset >= 0 vs < 0), not a threshold",
+      "value": "< 0"
     },
     {
       "file": "specs/ACCEPTANCE.md",
       "id": "specs/ACCEPTANCE.md::L0-3/R₁_and_R_N_over_a",
       "locator": "⟨R₁⟩\\s+and\\s+⟨R_N⟩\\s+over\\s+a\\s+((?:±|≥|≤|>=|<=|ε\\s*=|(?<![-<!\\w])[<>](?![=>\\-])|\\b(?:below|above|within)\\s+~?)\\s*[−-]?\\d+(?:\\.\\d+)?(?:[eE][−-]?\\d+)?(?:\\s?(?:%|×|dB|¢|ms|Hz|s\\b))?|(?<=\\bin )\\(\\s*\\d+(?:\\.\\d+)?\\s*,\\s*\\d+(?:\\.\\d+)?\\s*\\)|\\d+–\\d+ s\\b)",
-      "reason": "length of the settled averaging window, a protocol duration"
+      "reason": "length of the settled averaging window, a protocol duration",
+      "value": "≥5 s"
     },
     {
       "file": "tools/filter_cost_bench.cpp",
       "id": "tools/filter_cost_bench.cpp::AA_EPS",
       "locator": "(?<![\\w])AA_EPS(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
-      "reason": "the MS-20 anti-aliasing fallback threshold, a DSP constant transcribed from the filter lab, not a test tolerance (the human, 2026-10-28, B566: \"Exclude both\")"
+      "reason": "the MS-20 anti-aliasing fallback threshold, a DSP constant transcribed from the filter lab, not a test tolerance (the human, 2026-10-28, B566: \"Exclude both\")",
+      "value": "1e-5"
     },
     {
       "file": "tools/filter_cost_bench.cpp",
       "id": "tools/filter_cost_bench.cpp::inline-float-compare",
       "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
-      "reason": "two of the filter lab's own DSP branch points (>= 0.1, < 0.5), transcribed into the cost bench, not a test tolerance (the human, 2026-10-28, B566: \"Exclude both\")"
+      "reason": "two of the filter lab's own DSP branch points (>= 0.1, < 0.5), transcribed into the cost bench, not a test tolerance (the human, 2026-10-28, B566: \"Exclude both\")",
+      "value": ">=0.1 | <0.5"
     },
     {
       "file": "tools/gen_gui_controls.py",
       "id": "tools/gen_gui_controls.py::inline-float-compare",
       "locator": "((?<![<>=!\\-])(?:<=|>=|<|>)(?![<>=])\\s*-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?(?![\\w.])|(?<![\\w.])-?(?!0*(?:\\.0*)?(?:[eE][-+]?\\d+)?[fF]?(?![\\w.]))(?:\\d+\\.\\d*|\\.\\d+|\\d+(?=[eE]))(?:[eE][-+]?\\d+)?[fF]?\\s*(?:<=|>=|<|>)(?![<>=]))",
-      "reason": "HTML generator logic (selected/checked attributes), not a check threshold"
+      "reason": "HTML generator logic (selected/checked attributes), not a check threshold",
+      "value": ">=0.5"
     },
     {
       "file": "tools/h2_engine_parity_check.cpp",
       "id": "tools/h2_engine_parity_check.cpp::floorEps",
       "locator": "(?<![\\w])floorEps(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
-      "reason": "search accumulator initialised to 0 (the measured floor), not a threshold"
+      "reason": "search accumulator initialised to 0 (the measured floor), not a threshold",
+      "value": "0 | 0"
     },
     {
       "file": "tools/h2_engine_stream.h",
       "id": "tools/h2_engine_stream.h::eps",
       "locator": "(?<![\\w])eps(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
-      "reason": "fault-injection magnitude parameter, default 0 (a planted fault size, not a comparison tolerance)"
+      "reason": "fault-injection magnitude parameter, default 0 (a planted fault size, not a comparison tolerance)",
+      "value": "0"
     },
     {
       "file": "tools/h2_scalpel_stream.h",
       "id": "tools/h2_scalpel_stream.h::eps",
       "locator": "(?<![\\w])eps(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
-      "reason": "fault-injection magnitude parameter, default 0 (a planted fault size, not a comparison tolerance)"
+      "reason": "fault-injection magnitude parameter, default 0 (a planted fault size, not a comparison tolerance)",
+      "value": "0"
     },
     {
       "file": "tools/measure_modsources.cpp",
       "id": "tools/measure_modsources.cpp::eps",
       "locator": "(?<![\\w])eps(?:\\s*:\\s*[\\w\\[\\], .]+?)?\\s*=(?!=)\\s*([-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)(?:\\s*[-+*/]\\s*\\(?\\s*[-+]?(?:\\d[\\d_.]*(?:[eE][-+]?\\d+)?[fFuUlL]*|0[xX][0-9a-fA-F]+)\\)?)*)(?=\\s*(?:[;,)\\]}]|$))",
-      "reason": "gravity softening length of the measured N-body, a physics parameter"
+      "reason": "gravity softening length of the measured N-body, a physics parameter",
+      "value": "0.06 | 0.06"
     }
   ],
   "schema": 1

@@ -9963,3 +9963,16 @@ Both frames were captured from a local preview.
 **Rejected:** registering them as tolerances; holding the PR.
 
 **Consequences.** A change to either constant no longer reads as a tolerance change. The registry's other 138 entries are untouched. This records the ruling that B566's row noted as a GATE-CHANGE.
+
+## ADR-310 — RULED by the human: kuramoto-views is a design lab and moves; decoherence-lab is a protected reference (audit 2026-10-29 H2; 2026-10-29)
+
+**Context.** The repo audit of 2026-10-29 (H2, `docs/audits/2026-10-29-repo-audit.md`) found `reference/decoherence-lab.html` and `reference/kuramoto-views.html` in the protected folder (ADR-155) but missing from CLAUDE.md's protected list, and read by no tool. The lead first offered "Design labs: move them", and the human chose it. Before moving them, the lead found that `specs/SPEC-GLITCH-MODULES.md` names `reference/decoherence-lab.html` its "behavioral reference" (lines 4 and 89), so the question went back to the human.
+
+**Ruling (the human, 2026-10-29, by poll):** "Move kuramoto; protect decoherence".
+- `kuramoto-views.html` is a bench (ROADMAP § "`reference/kuramoto-views.html` ingested as a BENCH"). It moves to `docs/design/kuramoto-views.html`, and its two links (the root `index.html` and `docs/manual/figures.json`) follow.
+- `reference/decoherence-lab.html` stays, as the glitch spec's reference, and joins CLAUDE.md's protected list.
+
+**Rejected:** moving both and editing the glitch spec's paths; deciding later.
+
+**Consequences.** Six entries under `reference/` are still read by no tool (distortion-engine, formant-pulsar-fof, horde-module-macros, network-lab-v0, maw/, decoherence-lab). The protected-paths gate (B569) covers them by hash. Historical ROADMAP text naming `reference/kuramoto-views.html` is left as it was written. **FX device (ADR-254):** none.
+

@@ -628,6 +628,25 @@ def controls():
         results.append(("--approve with a ref re-baselines (positive)", green))
         if not green:
             return f"--approve with a ref did not re-baseline: {err or judge(root, reg)[0][:2]}", results
+    # An exclusion pins its value (audit 2026-10-29 H3): excluded is "not a tolerance", never
+    # "free to change unseen". Excluding x_check.py's TOL with its value pinned and then widening
+    # it must read red; the same exclusion untouched must read green.
+    with tempfile.TemporaryDirectory() as tmp:
+        root = _scratch(tmp)
+        reg = build_registry(root, excluded=[{"id": "tools/x_check.py::TOL", "reason": "control"}])
+        x = next((e for e in reg["excluded"] if e["id"] == "tools/x_check.py::TOL"), None)
+        if x is None:
+            return "control 'pinned exclusion' found no TOL candidate to exclude: it is blind", results
+        x["value"] = " | ".join(extract((root / x["file"]).read_text(encoding="utf-8"), x["file"], x["locator"])[0])
+        quiet = not judge(root, reg)[0]
+        results.append(("a pinned exclusion untouched reads green (positive)", quiet))
+        if not quiet:
+            return f"a pinned exclusion untouched reads red: {judge(root, reg)[0][:2]}", results
+        _edit(root, "tools/x_check.py", "TOL = 1e-6", "TOL = 1e-5")
+        fired = any("excluded value pinned" in f for f in judge(root, reg)[0])
+        results.append(("a pinned exclusion's value changed reads red", fired))
+        if not fired:
+            return "control 'pinned exclusion changed' did not fire", results
     return None, results
 
 
