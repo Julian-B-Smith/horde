@@ -1,6 +1,6 @@
 {
   "format": "horde.gui3-layout/1",
-  "note": "GUI 3's page layout (B584, ADR-316). Design input, hand-edited: which parameter goes on which page and in which group. It names parameters by key and nothing else; labels, ranges, laws, defaults and options come from SPEC-ENGINE section 5 through tools/gen_gui3_controls.py, which refuses a key the spec does not have, a host parameter no page places, and a reserved row placed anywhere. A group's `block` places every host row of that block in the spec table's order (5.8: a table's row order is its display order), so a row added to the spec appears on its draft page without an edit here. A `designed` page lists its keys one by one, so a new row there is unplaced, and red, until the page's designer places it. `live` is PA-8's live-when table, transcribed for the designed pages only; a control whose condition fails is drawn idle (dashed), never hidden. `widget` overrides the generator's default for a row.",
+  "note": "GUI 3's page layout (B584, ADR-316). Design input, hand-edited: which parameter goes on which page and in which group. It names parameters by key and nothing else; labels, ranges, laws, defaults and options come from SPEC-ENGINE section 5 through tools/gen_gui3_controls.py, which refuses a key the spec does not have, a host parameter no page places, and a reserved row placed anywhere. A group's `block` places every host row of that block in the spec table's order (5.8: a table's row order is its display order), so a row added to the spec appears on its draft page without an edit here. A `designed` page lists its keys one by one, so a new row there is unplaced, and red, until the page's designer places it. `live` is PA-8's live-when table, transcribed for the designed pages only; a control whose condition fails is drawn idle (dashed), never hidden. `widget` overrides the widget rule (ADR-319 item 5, gui3/README.md) for a row, and must say why in `reason`; a knob or a slider for a continuous row is the rule, not an override. `panel` names a shell-built panel a page carries beside its generated controls.",
   "pages": [
     {
       "id": "main", "label": "Main", "status": "draft",
@@ -42,7 +42,7 @@
           {"key": "sub.solo", "live": {"key": "sub.on", "is": ["on"]}}
         ]},
         {"title": "Shape", "tag": "SN-2", "live": {"key": "sub.on", "is": ["on"]}, "keys": [
-          {"key": "sub.wave", "widget": "pills"},
+          {"key": "sub.wave", "widget": "pills", "reason": "The shape is the sub's first choice (SN-2) and its seven options fit one card: all of them in view beats a drop-down. The rule gives a drop-down from six options up."},
           {"key": "sub.pulseWidth", "live": {"key": "sub.wave", "is": ["pulse"]}},
           {"key": "sub.softness", "live": {"key": "sub.wave", "is": ["smooth square"]}},
           {"key": "sub.bumpHarmonic", "live": {"key": "sub.wave", "is": ["bump"]}},
@@ -125,8 +125,8 @@
       ]
     },
     {
-      "id": "morph", "label": "Morph", "status": "empty",
-      "note": "No engine parameters: the morph position and the corners are the morph system's own state (RC-11.1); they reach the engine only as parameter values. The docked pad drives it from every page; the Morph page's design is B581 step 3.",
+      "id": "morph", "label": "Morph", "status": "empty", "panel": "morph",
+      "note": "No engine parameters: the morph position and the corners are the morph system's own state (RC-11.1); they reach the engine only as parameter values. This page holds ADR-319 item 1's controls: the corner audible while morph is off, saving the current sound to a snapshot, and saving each corner's preset. The rest of the Morph page's design is B581 step 3.",
       "groups": []
     },
     {

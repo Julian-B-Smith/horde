@@ -9,7 +9,8 @@
  * shows. So the stub and the adapter are held to the spec's own words, here, every run.
  *
  * WHAT IS ASSERTED (each a named test; each plant below must turn its own test red):
- *   seam         the stub has every method of GUI3Engine.METHODS; the adapter refuses an engine missing one, by name
+ *   seam         the stub has every method of GUI3Engine.METHODS and the transport GUI3Engine.TRANSPORT's; the
+ *                transport refuses an engine missing a method and the adapter a transport missing one, by name
  *   laws         5.1's laws: for every continuous host row, x(v=0) and x(v=1) are the range's ends (dB: −∞ at 0),
  *                x(default v) is the spec's default (the generator inverted the laws in Python, so the two
  *                implementations check each other); `lin, wraps` wraps; every stepped default v names the
@@ -30,12 +31,22 @@
  *   history      RC-11: one write outside a transaction is one step, a write that changes nothing is
  *                none, a begin/end bracket of several writes is one; undo restores the engine's state
  *                document exactly, redo re-applies it, and the gesture events reached the engine
+ *   morphoff     ADR-319 item 1: with morph off a write lands on the audible corner only, a write to a frozen
+ *                corner is refused, the audible corner is what the engine hears, and B to D come back unchanged
+ *   morphhistory ADR-319 item 2: turning morph on is one history node and undo/redo toggle it; moving the pad is none
+ *   snapshots    ADR-319 item 1: "save current sound" makes the heard values a named, saved corner; "save preset"
+ *                keeps a corner's own values as its preset; revert returns to it; a blank name is refused
+ *   sync         ADR-319 item 3, mirror and confirm: an echo is not an engine change; the engine's own change is
+ *                shown until the user writes the key; a snapshot never overwrites the key being dragged; over an
+ *                asynchronous transport a stale snapshot never overwrites a newer send
  *   determinism  the same seed and calls give byte-identical device and engine state; another seed differs
  *
  * MUST-FAIL CONTROLS (plants), every run, on in-memory copies of the two scripts: an observe() that
  * counts, an undo that applies the wrong side, a scatter that draws from a counter, a route check
- * that admits stepped rows, a log law off by 0.1 %, an adapter that skips the seam check, a load that
- * drops unknown keys, and a gesture that is never reported. Each must turn its own test red (and its
+ * that admits stepped rows, a log law off by 0.1 %, a transport that skips the seam check, a load that
+ * drops unknown keys, a gesture that is never reported, a morph-off write that reaches a frozen corner,
+ * a morph toggle kept off the history, a snapshot save that keeps no preset, a snapshot that overwrites
+ * a drag, and a snapshot that overwrites a newer send. Each must turn its own test red (and its
  * anchor must exist, or the plant itself is reported as vacuous).
  *
  * Usage: node tools/labharness/gui3_seam_check.mjs [--verbose]   (exit 1 on any failure; --verbose prints
@@ -70,7 +81,17 @@ function suite(W) {
   const DATA = W.GUI3_DATA, ENG = W.GUI3Engine, DEV = W.GUI3Device;
   const rows = DATA.params, host = rows.filter(r => !r.reserved);
   const by = Object.fromEntries(rows.map(r => [r.key, r]));
-  const fresh = (seed = 1) => { const e = new ENG.Stub(rows); return { e, d: DEV.create(DATA, e, { seed }) }; };
+  const fresh = (seed = 1) => { const e = new ENG.Stub(rows), t = ENG.SyncTransport(e); return { e, t, d: DEV.create(DATA, t, { seed }) }; };
+  /* An ASYNCHRONOUS transport, as the AudioWorklet's will be: the engine applies a message at once, but its
+     snapshot waits in a queue until deliver() hands it over, so a snapshot can be older than the latest send. */
+  const delayed = (seed = 1) => {
+    const e = new ENG.Stub(rows), inner = ENG.SyncTransport(e), q = [], subs = [];
+    let live = false;
+    inner.onSnapshot(sn => { if (live) q.push(sn); });
+    live = true;
+    const t = { send: m => inner.send(m), onSnapshot: fn => subs.push(fn), deliver: n => { for (const sn of q.splice(0, n === undefined ? q.length : n)) subs.forEach(fn => fn(sn)); } };
+    return { e, t, d: DEV.create(DATA, t, { seed }) };
+  };
   const firstOf = pred => host.find(pred);
   const cont = firstOf(r => r.law === 'lin' && r.class === 'M');
   const stepS = firstOf(r => r.law === 'step' && r.class === 'S' && r.n >= 3 && r.options);
@@ -79,12 +100,16 @@ function suite(W) {
   const T = {};
 
   T.seam = () => {
-    const { e } = fresh();
+    const { e, t } = fresh();
     for (const m of ENG.METHODS) ok(typeof e[m] === 'function', 'stub lacks ' + m);
+    for (const m of ENG.TRANSPORT) ok(typeof t[m] === 'function', 'the transport lacks ' + m);
     const partial = Object.fromEntries(ENG.METHODS.filter(m => m !== 'observe').map(m => [m, e[m]]));
     let threw = '';
-    try { DEV.create(DATA, partial, {}); } catch (err) { threw = String(err.message); }
-    ok(/observe/.test(threw), 'the adapter took an engine without observe()');
+    try { ENG.SyncTransport(partial); } catch (err) { threw = String(err.message); }
+    ok(/observe/.test(threw), 'the transport took an engine without observe()');
+    threw = '';
+    try { DEV.create(DATA, { send: t.send }, {}); } catch (err) { threw = String(err.message); }
+    ok(/onSnapshot/.test(threw), 'the adapter took a transport without onSnapshot()');
   };
 
   T.laws = () => {
@@ -163,8 +188,8 @@ function suite(W) {
 
   T.morph = () => {
     const { e, d } = fresh();
-    d.set(cont.key, .1, { corner: 3 });              // with morph off a corner request is ignored: corner A is the patch
-    ok(near(d.heard(cont.key), .1) && near(e.getParam(cont.key), .1) && d.corner(cont.key, 3) === cont.default_v, 'morph off: corner A is not the patch');
+    d.set(cont.key, .1);
+    ok(near(d.heard(cont.key), .1) && near(e.getParam(cont.key), .1), 'morph off: corner A is not the patch');
     d.setMorph({ on: true, x: 0, y: 0 });
     for (let i = 1; i < 4; i++) d.set(cont.key, [.1, .3, .6, .9][i], { corner: i });
     ok(near(e.getParam(cont.key), .1), 'at (0, 0) the engine does not hear corner A');
@@ -196,7 +221,7 @@ function suite(W) {
 
   T.history = () => {
     const { e, d } = fresh();
-    e.events();
+    d.engineEvents();
     const s0 = e.saveState();
     d.set(cont.key, .7);
     ok(d.history().past.length === 1, 'one write is not one step');
@@ -204,17 +229,79 @@ function suite(W) {
     ok(d.history().past.length === 1, 'a write that changed nothing made a step');
     d.begin('drag', cont.key); d.set(cont.key, .2); d.set(cont.key, .25); d.set(cont.key, .3); d.end();
     ok(d.history().past.length === 2, 'a bracket of three writes is not one step');
-    const ev = e.events().map(x => x.phase).join(',');
+    const ev = d.engineEvents().map(x => x.phase).join(',');
     ok(ev === 'begin,end', 'the gesture did not reach the engine: ' + ev);
     const s2 = e.saveState();
     ok(d.undo() && d.undo() && e.saveState() === s0, 'undo did not restore the engine’s state document');
     ok(d.redo() && d.redo() && e.saveState() === s2, 'redo did not re-apply');
   };
 
+  /* ADR-319 item 1: with morph off only the audible corner sounds and takes writes; B to D are frozen. */
+  T.morphoff = () => {
+    const { e, d } = fresh();
+    d.setMorph({ on: true });
+    [.2, .5, .8].forEach((v, k) => d.set(cont.key, v, { corner: k + 1 }));
+    const bd = [1, 2, 3].map(i => d.corner(cont.key, i));
+    d.setMorph({ on: false });
+    ok(d.set(cont.key, .42) === .42 && d.corner(cont.key, 0) === .42 && e.getParam(cont.key) === .42, 'morph off: a write did not land on the audible corner A');
+    ok(d.set(cont.key, .9, { corner: 2 }) === null, 'morph off: a write to frozen corner C was taken');
+    ok([1, 2, 3].every((i, k) => d.corner(cont.key, i) === bd[k]), 'morph off: B to D moved');
+    ok(d.setAudible(2) && e.getParam(cont.key) === bd[1], 'the audible corner C is not what the engine hears');
+    ok(d.set(cont.key, .33) === .33 && d.corner(cont.key, 2) === .33 && d.corner(cont.key, 0) === .42, 'morph off with C audible: the write did not land on C alone');
+    d.setAudible(0); d.setMorph({ on: true });
+    ok(d.corner(cont.key, 1) === bd[0] && d.corner(cont.key, 3) === bd[2], 'B and D did not come back unchanged when morph turned on');
+  };
+  /* ADR-319 item 2: toggling morph is one history node; the position is not. */
+  T.morphhistory = () => {
+    const { d } = fresh();
+    const h0 = d.history().past.length;
+    d.setMorph({ on: true });
+    ok(d.history().past.length === h0 + 1, 'turning morph on made no history node');
+    d.setMorph({ x: .1, y: .9 }); d.setMorph({ x: .7 });
+    ok(d.history().past.length === h0 + 1, 'moving the pad made a history node');
+    ok(d.undo() && !d.morph().on && d.redo() && d.morph().on, 'undo and redo do not toggle morph');
+  };
+  /* ADR-319 item 1: snapshots and presets on corners. */
+  T.snapshots = () => {
+    const { e, d } = fresh();
+    d.setMorph({ on: true, x: .5, y: .5 }); d.set(cont.key, .8, { corner: 3 });
+    const heardNow = d.heard(cont.key);
+    ok(!d.saveSoundTo(1, '  ').ok && !d.saveSoundTo(5, 'x').ok, 'a blank name or a corner past D was taken');
+    ok(d.saveSoundTo(1, ' Glass horde ').ok && d.corner(cont.key, 1) === heardNow && d.names()[1] === 'Glass horde' && !d.edited(1), 'the current sound did not become corner B, named and saved');
+    d.set(cont.key, .1, { corner: 1 });
+    ok(d.edited(1) && d.revert(1) && d.corner(cont.key, 1) === heardNow, 'revert did not return corner B to its saved preset');
+    d.set(cont.key, .6, { corner: 2 });
+    ok(d.savePreset(2, 'Under') .ok && !d.edited(2) && d.names()[2] === 'Under' && d.corner(cont.key, 2) === .6, 'save preset to C did not keep C\u2019s own values as its preset');
+    const n = d.history().past.length; d.undo();
+    ok(d.names()[2] === null && d.history().past.length === n - 1, 'saving a preset is not one undo step');
+  };
+  /* ADR-319 item 3: mirror and confirm. Echoes change nothing; the engine's own change is shown; a stale
+     snapshot (older than the latest send) and a snapshot under a drag never overwrite the user's value. */
+  T.sync = () => {
+    const { e, t, d } = fresh();
+    d.setMorph({ on: true, x: .3, y: .6 }); d.set(cont.key, .4); d.set(stepS.key, 1);
+    ok(d.fromEngine().length === 0, 'an echo of our own sends was read as an engine change');
+    e.setParam(cont.key, .9); t.publish();
+    ok(d.shown(cont.key) === .9 && d.heard(cont.key) !== .9, 'an engine-originated change was not shown');
+    d.set(cont.key, .45);
+    ok(d.shown(cont.key) === d.heard(cont.key) && e.getParam(cont.key) === d.heard(cont.key) && d.fromEngine().length === 0, 'the user\u2019s write did not take the key back');
+    const other = firstOf(r => r.law === 'lin' && r.class === 'M' && r.key !== cont.key);
+    d.begin('drag', other.key); d.set(other.key, .3); e.setParam(other.key, .8); t.publish();
+    ok(d.shown(other.key) === d.heard(other.key) && d.shown(other.key) !== .8, 'a snapshot overwrote the value being dragged (' + d.shown(other.key) + ')');
+    d.end();
+    const A = delayed();
+    A.t.deliver();
+    A.d.set(cont.key, .2); A.d.set(cont.key, .4);
+    A.t.deliver(1);
+    ok(A.d.shown(cont.key) === .4 && A.d.fromEngine().length === 0, 'a stale snapshot overwrote a newer send (' + A.d.shown(cont.key) + ')');
+    A.t.deliver();
+    ok(A.d.shown(cont.key) === .4 && A.e.getParam(cont.key) === .4, 'the confirmed snapshot disagrees');
+  };
+
   T.determinism = () => {
     const run = seed => {
       const { e, d } = fresh(seed);
-      d.scatter(seed); d.setMorph({ on: true, x: .31, y: .64 }); d.set(stepS.key, 1, { corner: 2 });
+      d.setMorph({ on: true, x: .31, y: .64 }); d.scatter(seed); d.set(stepS.key, 1, { corner: 2 });
       d.addRoute({ src: 'velocity', param: cont.key, depth: .2 }); d.setMorph({ x: .7 });
       return JSON.stringify(d.patch()) + e.saveState() + JSON.stringify(e.observe());
     };
@@ -241,9 +328,14 @@ const PLANTS = [
   ['determinism', 'device', "mulberry32(hash32(r.key) ^ (s * 2654435761 >>> 0))", "mulberry32(hash32(r.key) ^ (s * 2654435761 >>> 0) ^ (root.__n = (root.__n | 0) + 1))"],
   ['routes', 'device', "if (!r || r.law === 'step' || !r.pv)", 'if (!r)'],
   ['laws', 'stub', "case 'log': return lo * Math.pow(hi / lo, v);", "case 'log': return lo * Math.pow(hi / lo, v * 1.001);"],
-  ['seam', 'device', 'if (missing.length) throw', 'if (false) throw'],
+  ['seam', 'stub', "if (missing.length) throw new Error('the engine lacks", "if (false) throw new Error('the engine lacks"],
   ['state', 'stub', 'extra = keep;', 'extra = [];'],
   ['gestures', 'stub', "out.push({ type: 'gesture', key: key, phase: phase });", ''],
+  ['morphoff', 'device', 'if (want !== null && want !== st.audible) return null; i = st.audible;', 'i = want !== null ? want : st.audible;'],
+  ['morphhistory', 'device', "if (on !== st.morphOn) step(on ? 'Morph on' : 'Morph off', function () { st.morphOn = on; });", 'if (on !== st.morphOn) st.morphOn = on;'],
+  ['snapshots', 'device', 'st.names[i] = name.trim(); st.saved[i] = copy(st.corners[i]);\n', 'st.names[i] = name.trim();\n'],
+  ['sync', 'device', 'if (k === g) continue;', ''],
+  ['sync', 'device', 'if (sentSeq[k] !== undefined && s.ack < sentSeq[k]) continue;', ''],
 ];
 for (const [test, file, from, to] of PLANTS) {
   if (!SRC[file].includes(from)) { bad.push(`plant for ${test}: its anchor is gone from ${file}, so the control is vacuous`); continue; }

@@ -6,11 +6,12 @@
    passes parameter gestures back out unchanged (RC-11.3), and answers the observation view (IF-10)
    with what a silent engine has: the heard stepped values, zero counters, no voices.
 
-   THE SEAM. GUI3Engine.METHODS is the whole interface the shell's device layer (device.js) calls.
-   GUI3Device.create refuses an engine that lacks one of them, by name. The WebAssembly engine
-   (SPEC-ENGINE IF-10, built at clean-room stage 8, ADR-280) plugs in as a second object with the same
-   methods, wrapping the AudioWorklet's port; nothing above device.js changes. What that wrapper owes
-   the seam is written in docs/design/gui3/README.md.
+   THE SEAM. GUI3Engine.METHODS is the engine's interface; the adapter (device.js) reaches it only
+   through a transport (GUI3Engine.TRANSPORT, below), so it is mirror and confirm (ADR-319 item 3): the
+   adapter shows what it sent at once, and a snapshot brings back only what the engine changed itself.
+   SyncTransport refuses an engine that lacks a method, by name. The WebAssembly engine (SPEC-ENGINE
+   IF-10, clean-room stage 8, ADR-280) plugs in behind an asynchronous transport with the same two
+   methods; nothing above the transport changes. docs/design/gui3/README.md says what each owes.
 
    WHAT IS NOT THE ENGINE'S, and so is not here: the morph (its corners and position are the morph
    system's own state and reach the engine only as values, RC-11.1), the mod matrix and its routes
@@ -139,5 +140,41 @@
     };
   }
 
-  root.GUI3Engine = { METHODS: METHODS, Stub: Stub, lawX: lawX, snap: snap, display: display };
+  /* THE TRANSPORT (ADR-319 item 3, B588). The adapter never calls an engine: it sends messages and hears
+     snapshots, through any object with TRANSPORT (`send(msg)` and `onSnapshot(fn)`), so the way the two
+     sides talk can be swapped without touching the shell or the adapter. Messages:
+       { type: 'set', seq, values: { key: v, ... } }     parameter values (one message for many keys)
+       { type: 'gesture', seq, key, phase }              RC-11.3's begin and end
+     A snapshot is { ack, params: { key: v }, events, observe, state }: `ack` is the seq of the last message
+     the engine applied, so the adapter can tell a snapshot that has not yet seen its latest send (stale)
+     from a change the engine made itself (engine-originated: host automation, a load, a clamp).
+     This one is SYNCHRONOUS: send applies the message and publishes a snapshot before it returns. The two
+     to come are written up in gui3/README.md: the AudioWorklet's postMessage (asynchronous, the engine
+     publishes RC-8's snapshot on its own clock) and shared memory (B588: a SharedArrayBuffer double
+     buffer, which needs cross-origin isolation). `publish()` is the stub's stand-in for the engine
+     publishing on its own; the seam check uses it to play host automation. */
+  var TRANSPORT = ['send', 'onSnapshot'];
+  function SyncTransport(engine) {
+    var missing = METHODS.filter(function (m) { return !engine || typeof engine[m] !== 'function'; });
+    if (missing.length) throw new Error('the engine lacks the seam’s methods: ' + missing.join(', '));
+    var subs = [], ack = 0, rows = engine.manifest();
+    function snapshot() {
+      var p = {};
+      rows.forEach(function (r) { if (!r.reserved) p[r.key] = engine.getParam(r.key); });
+      return { ack: ack, params: p, events: engine.events(), observe: engine.observe(), state: engine.saveState() };
+    }
+    function publish() { var s = snapshot(); subs.forEach(function (fn) { fn(s); }); }
+    return {
+      send: function (m) {
+        if (m.type === 'set') { for (var k in m.values) engine.setParam(k, m.values[k]); }
+        else if (m.type === 'gesture') engine.gesture(m.key, m.phase);
+        else throw new Error('unknown message ' + m.type);
+        ack = m.seq; publish();
+      },
+      onSnapshot: function (fn) { subs.push(fn); fn(snapshot()); },
+      publish: publish
+    };
+  }
+
+  root.GUI3Engine = { METHODS: METHODS, TRANSPORT: TRANSPORT, Stub: Stub, SyncTransport: SyncTransport, lawX: lawX, snap: snap, display: display };
 })(typeof window !== 'undefined' ? window : globalThis);

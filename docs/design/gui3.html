@@ -78,10 +78,10 @@
     <button class="hd-kbd hd-focus" id="kbd" type="button" aria-pressed="false" aria-label="Keyboard mode"><span class="lampdot"></span><span id="kbdTxt">KEYS</span></button>
     <button class="hd-btn hd-focus" id="themeBtn" type="button" aria-pressed="false">Dark</button>
   </header>
-  <div class="tagline"><span class="hd-note">GUI 3's first slice: <b>one wired shell</b> with all twelve pages, every engine parameter of SPEC-ENGINE section 5
+  <div class="tagline"><span class="hd-note">GUI 3 (B584, two slices so far): <b>one wired shell</b> with all twelve pages, every engine parameter of SPEC-ENGINE section 5
     reachable on a page, and <b>no audio</b>: a stub engine keeps the values behind the engine's interface. The <b>Sub</b> and <b>Noise</b> pages are
     designed; the others are drafts or hold no engine parameters, and say why. Try: turn <b>Morph</b> on (the pad docks on every page; <b>Pad</b>
-    hides it), press <b>Scatter corners</b> below and drag the puck, hover any control to read it in the info box, right-click one for the manual.</span></div>
+    hides it), press <b>Scatter corners</b> below and drag the puck, hover any control to read it in the info box, right-click one for the manual. The <b>Morph</b> page chooses the corner you hear with morph off and saves snapshots and presets to corners (ADR-319).</span></div>
   <p class="hd-msg" id="status" role="status">Loading the shell.</p>
 
   <div class="hd-window" id="win" aria-label="horde window (no audio engine)">
@@ -147,8 +147,8 @@ const SEED = 1;
 const ROW = Object.create(null); DATA.params.forEach(r => { ROW[r.key] = r; });
 const CLASS_NAME = { M: 'MORPHABLE', S: 'STRUCTURAL', D: 'DEVICE' };
 const views = [];                  // per-frame updates of this file's own controls: { page, update() }
-let page = 'sub', menu = null, padShown = true, lastRev = -1, seamRev = -1, hovered = null;
-let engine = null, dev = null, S = null;
+let dockOn = null, page = 'sub', menu = null, padShown = true, lastRev = -1, seamRev = -1, hovered = null;
+let engine = null, transport = null, dev = null, S = null;
 function h(tag, a, ...kids) {
   const e = document.createElement(tag);
   for (const k in (a || {})) {
@@ -164,15 +164,28 @@ const idxOf = (row, v) => Math.round(v * (row.n - 1));
 const optLabel = (row, v) => row.options ? row.options[idxOf(row, v)] : String(row.lo + idxOf(row, v));
 
 // ===== BLOCK B: the engine, the device adapter and the bundle's Session =====
+// The stub engine behind the synchronous transport (ADR-319 item 3). The adapter reaches the engine only through
+// the transport; `engine` is kept here for the self-checks' probes, never for drawing.
 engine = new ENG.Stub(DATA.params);
-dev = DEV.create(DATA, engine, { seed: SEED });
+transport = ENG.SyncTransport(engine);
+dev = DEV.create(DATA, transport, { seed: SEED });
 S = new H.Session({ x: .5, y: .5, corners: [null, null, null, null],
   sources: dev.sources().map(s => ({ id: s.id, name: s.name, kind: s.kind, f: () => 0 })),   // no voices, so every source reads 0
   mappings: [] });
 // The bundle draws what the DEVICE says: its weights, the heard value, the owner (the plugin reads the owner from the
 // engine and never computes it, morph knob spec, Ties). The owner bookkeeping below is the bundle's own (flip times).
 S.weights = () => dev.weights();
-S.base = p => dev.heard(p.key);
+S.base = p => dev.shown(p.key);   // mirror and confirm: what we sent, or what the engine changed itself
+// With morph off only the audible corner sounds and takes writes (ADR-319 item 1): a pinned corner selects
+// where a snapshot is saved, it does not redirect an edit into a frozen corner.
+const editing0 = S.editing;
+S.editing = function (p) { const m = dev.morph(); return p.locked ? null : m.on ? editing0.call(this, p) : m.audible; };
+// Corner names, the edited mark and revert are the device's (its saved presets), not the bundle's per-knob copy.
+S.edited = i => dev.edited(i);
+S.revert = function (i) {
+  if (this.locks[i]) { this.say('Corner ' + H.CORNERS[i].id + ' is locked: unlock it to revert'); return; }
+  if (dev.revert(i)) this.say('Corner ' + H.CORNERS[i].id + ' reverted to its saved preset (' + dev.names()[i] + ')');
+};
 S.ownerOf = function (p) {
   const own = dev.owner(p.key), o = this.owner[p.key];
   if (!o) this.owner[p.key] = { i: own, at: -1e9 }; else if (o.i !== own) this.owner[p.key] = { i: own, at: this.now || 0 };
@@ -184,7 +197,11 @@ S.add({ render() {
   if (m.on && (S.pad.x !== m.x || S.pad.y !== m.y)) dev.setMorph({ x: S.pad.x, y: S.pad.y });
   const g = dev.gestureKey();
   if (g && !(S.drag && S.drag.key === g)) dev.end();
-  if (dev.rev() !== lastRev) { lastRev = dev.rev(); S.mappings = dev.routes().map(r => ({ id: r.id, param: r.param, src: r.src, pol: r.pol, depth: r.depth })); }
+  if (dev.rev() !== lastRev) {
+    lastRev = dev.rev(); S.mappings = dev.routes().map(r => ({ id: r.id, param: r.param, src: r.src, pol: r.pol, depth: r.depth }));
+    const nm = dev.names(); if (nm.join('\u0000') !== S.corners.join('\u0000')) { S.corners = nm; S.emit(); }
+  }
+  if (dev.morph().on !== dockOn) paintDock();          // an undo or redo of the morph toggle moves the dock too
   for (const v of views) if (v.page === page || v.page === '*') { try { v.update(); } catch (e) { if (!v.failed) { v.failed = true; console.error('gui3 view failed', e); } } }
 } });
 
@@ -211,7 +228,7 @@ function live(c) {
   if (!c) return true;
   if (c.all) return c.all.every(live);
   if (c.any) return c.any.some(live);
-  const r = ROW[c.key], v = dev.heard(c.key);
+  const r = ROW[c.key], v = dev.shown(c.key);
   if (c.gt !== undefined) return ENG.lawX(r, v) > c.gt;
   const o = optLabel(r, v);
   return c.is ? c.is.includes(o) : !c.not.includes(o);
@@ -230,7 +247,7 @@ function propsFor(row, ctl, path) {
     get(t, k, rc) { return typeof k === 'string' && /^[0-3]$/.test(k) ? dev.corner(row.key, +k) : Reflect.get(t, k, rc); },
     set(t, k, v) { if (typeof k === 'string' && /^[0-3]$/.test(k)) write(row, v, +k); return true; }
   });
-  return { key: row.key, name: row.label, path, kind: 'c', fmt: v => engine.display(row.key, v), def: row.default_v, vals,
+  return { key: row.key, name: row.label, path, kind: 'c', fmt: v => ENG.display(row, v), def: row.default_v, vals,
     bipolar: row.law !== 'dB' && row.lo < 0 && row.hi > 0, big: false, vert: ctl.widget === 'vslider' };
 }
 function mountControl(ctl, pageId, path) {
@@ -270,18 +287,66 @@ function mountControl(ctl, pageId, path) {
   } else {                                      // stepper: a range too long to list (an oscillator's seed)
     const out = h('output', { class: 'hd-value' }), dn = h('button', { type: 'button', 'aria-label': path + ' down', text: '−' }), up = h('button', { type: 'button', 'aria-label': path + ' up', text: '+' });
     const box = h('div', { class: 'hd-stepper hd-focus', role: 'spinbutton', 'aria-label': path }, dn, out, up);
-    dn.addEventListener('click', () => writeStep(row, path, Math.max(0, idxOf(row, dev.heard(row.key)) - 1)));
-    up.addEventListener('click', () => writeStep(row, path, Math.min(row.n - 1, idxOf(row, dev.heard(row.key)) + 1)));
+    dn.addEventListener('click', () => writeStep(row, path, Math.max(0, idxOf(row, dev.shown(row.key)) - 1)));
+    up.addEventListener('click', () => writeStep(row, path, Math.min(row.n - 1, idxOf(row, dev.shown(row.key)) + 1)));
     host.append(h('div', { class: 'hd-col' }, lab, box));
     set = i => { const t = optLabel(row, vOf(row, i)); if (out.textContent !== t) out.textContent = t; box.setAttribute('aria-valuenow', t); };
   }
   let last = null;
   views.push({ page: pageId, update() {
-    const i = idxOf(row, dev.heard(row.key)), k = i + '|' + dev.rev();
+    const i = idxOf(row, dev.shown(row.key)), k = i + '|' + dev.rev();
     if (k !== last) { last = k; set(i); }
     host.classList.toggle('idle', !live(ctl.live));
   } });
   return host;
+}
+
+// ===== BLOCK D2: the Morph page's panel (ADR-319 item 1). Built by the shell: these are the morph system's controls,
+// not engine parameters, so no generated entry exists for them. Bundle parts only; a naming dialog is missing from
+// the design system (proposal 9), so the name is asked for with the browser's own prompt. =====
+const CID = i => H.CORNERS[i].id;
+function card(title, tag, kids) {
+  return h('section', { class: 'hd-card', 'aria-label': title },
+    h('div', { class: 'head' }, h('span', { class: 'hd-cluster', text: title }), tag ? h('span', { class: 'tag', text: tag }) : null),
+    h('div', { class: 'face' }, kids));
+}
+// Where "Save current sound to snapshot" saves: the selected (pinned) corner; with morph off and none pinned, the audible one.
+function selectedCorner() { const m = dev.morph(); return S.pinned !== null ? S.pinned : m.on ? null : m.audible; }
+function askName(question, def) { const n = window.prompt(question, def || ''); return n === null ? null : n; }
+function saveTo(i, kind) {
+  if (i === null) { S.say('Select a corner first: press its chip'); return; }
+  if (S.locks[i]) { S.say('Corner ' + CID(i) + ' is locked: unlock it to save into it'); return; }
+  const cur = dev.names()[i];
+  const name = askName(kind === 'sound' ? 'Save the current sound to corner ' + CID(i) + ' as (a preset name):' : 'Save corner ' + CID(i) + '’s preset as:', cur);
+  if (name === null) { S.say('Not saved'); return; }
+  const res = kind === 'sound' ? dev.saveSoundTo(i, name) : dev.savePreset(i, name);
+  S.say(res.ok ? (kind === 'sound' ? 'The current sound is now corner ' + CID(i) + ', saved as ' + name.trim() : 'Corner ' + CID(i) + ' saved as ' + name.trim()) : 'Not saved: ' + res.why);
+}
+function morphPanel() {
+  const aud = h('div', { class: 'hd-pills', role: 'radiogroup', 'aria-label': 'Audible corner while morph is off' });
+  const audBs = H.CORNERS.map((c, i) => {
+    const b = h('button', { class: 'hd-pill hd-focus', type: 'button', role: 'radio', 'aria-checked': 'false', 'aria-label': 'Corner ' + c.id });
+    b.innerHTML = H.glyph(i, 8, 'currentColor'); b.append(' ' + c.id);
+    b.addEventListener('click', () => { if (dev.setAudible(i)) S.say('With morph off you hear corner ' + c.id + '; the other three are silent and frozen'); });
+    aud.append(b); return b;
+  });
+  const chips = h('div'); H.CornerChips(chips, S);
+  const snapBtn = h('button', { class: 'hd-btn hd-focus', type: 'button', text: 'Save current sound to snapshot' }), snapTo = h('span', { class: 'hd-hint' });
+  snapBtn.addEventListener('click', () => saveTo(selectedCorner(), 'sound'));
+  const presetBs = H.CORNERS.map((c, i) => { const b = h('button', { class: 'hd-btn hd-focus', type: 'button', text: 'Save preset to ' + c.id }); b.addEventListener('click', () => saveTo(i, 'preset')); return b; });
+  let last = '';
+  views.push({ page: 'morph', update() {
+    const m = dev.morph(), sel = selectedCorner(), k = m.audible + '|' + sel + '|' + m.on;
+    if (k === last) return; last = k;
+    audBs.forEach((b, i) => b.setAttribute('aria-checked', String(i === m.audible)));
+    snapBtn.disabled = sel === null;
+    snapTo.textContent = sel === null ? 'Select a corner (its chip) to save into.' : 'Saves to corner ' + CID(sel) + (S.pinned === null ? ' (the audible corner; select another with its chip)' : '') + '.';
+  } });
+  return h('div', { class: 'cards' },
+    card('Morph off', 'ADR-319', [h('span', { class: 'hd-label', text: 'Audible corner while morph is off' }), aud,
+      h('span', { class: 'hd-hint', text: 'With morph off only this corner sounds and takes edits; the other three are silent and frozen, and come back unchanged when morph turns on. Turning morph on or off is one undo step; moving the pad is not.' })]),
+    card('Corners', 'SNAPSHOTS', [chips, h('div', { class: 'hd-row' }, snapBtn, snapTo), h('div', { class: 'hd-row' }, presetBs),
+      h('span', { class: 'hd-hint', text: 'Save current sound: what you hear now becomes the selected corner, under a preset name. Save preset to a corner: that corner’s own values become its saved preset (the edited mark and revert compare against it).' })]));
 }
 
 // ===== BLOCK E: the pages, from GUI3_DATA.pages =====
@@ -299,6 +364,7 @@ DATA.pages.forEach(pg => {
       h('div', { class: 'head' }, h('span', { class: 'hd-cluster', text: g.title }), g.tag ? h('span', { class: 'tag', text: g.tag }) : null, h('span', { class: 'hd-hint', text: g.controls.length + (g.controls.length === 1 ? ' control' : ' controls') })), face));
   });
   if (pg.groups.length) el.append(cards);
+  if (pg.panel === 'morph') el.append(morphPanel());
   $('pages').append(el); pageEls[pg.id] = el;
   const t = h('button', { class: 'hd-pill hd-focus', type: 'button', role: 'tab', id: 'tab-' + pg.id, 'aria-controls': 'page-' + pg.id, 'aria-selected': 'false', text: pg.label });
   t.addEventListener('click', () => selectPage(pg.id)); $('tabs').append(t); tabEls[pg.id] = t;
@@ -314,7 +380,7 @@ function selectPage(id) {
 H.XYPad($('padHost'), S);
 H.CornerChips($('cornersHost'), S);
 function paintDock() {
-  const on = dev.morph().on, show = on && padShown;
+  const on = dev.morph().on, show = on && padShown; dockOn = on;
   $('morphOn').setAttribute('aria-checked', String(on));
   $('padOn').setAttribute('aria-checked', String(padShown)); $('padOn').disabled = !on;
   $('padOn').title = on ? (padShown ? 'Hide the docked pad (morph stays on)' : 'Show the docked pad') : 'The pad shows only while morph is on';
@@ -335,7 +401,7 @@ function showInfo(key) {
   const r = ROW[key], see = r.see && ROW[r.see];
   $('infoName').textContent = r.label; $('infoTag').textContent = 'SPEC TEXT · NO DESC YET'; $('infoKey').textContent = r.key;
   $('infoText').textContent = (r.spec || '(the spec row says nothing here)') + (see && see.spec ? ' ' + see.label + ': ' + see.spec : '');
-  $('infoMeta').textContent = CLASS_NAME[r.class] + ' · ' + r.law + ' · ' + r.range_text + (r.unit ? ' ' + r.unit : '') + ' · default ' + r.default_text + ' · now ' + engine.display(r.key) + ' · SPEC-ENGINE ' + r.section;
+  $('infoMeta').textContent = CLASS_NAME[r.class] + ' · ' + r.law + ' · ' + r.range_text + (r.unit ? ' ' + r.unit : '') + ' · default ' + r.default_text + ' · now ' + ENG.display(r, dev.shown(r.key)) + ' · SPEC-ENGINE ' + r.section;
   const host = document.querySelector('#page-' + page + ' [data-key="' + CSS.escape(key) + '"]'), ctl = host && ctlOf(page, key);
   $('infoLive').textContent = ctl && ctl.live && !live(ctl.live) ? 'Inert now (PA-8): live when ' + says(ctl.live) + '.' : '';
 }
@@ -344,7 +410,7 @@ DATA.pages.forEach(pg => pg.groups.forEach(g => g.controls.forEach(c => { CTL[pg
 const ctlOf = (pid, key) => CTL[pid + '|' + key];
 $('win').addEventListener('pointerover', e => { const t = hostOf(e.target); const k = t ? t.dataset.key : null; if (k !== hovered) showInfo(k); });
 $('win').addEventListener('focusin', e => { const t = hostOf(e.target); if (t) showInfo(t.dataset.key); });
-views.push({ page: '*', update() { if (hovered) $('infoMeta').textContent = $('infoMeta').textContent.replace(/now .*? · SPEC/, 'now ' + engine.display(hovered) + ' · SPEC'); } });
+views.push({ page: '*', update() { if (hovered) $('infoMeta').textContent = $('infoMeta').textContent.replace(/now .*? · SPEC/, 'now ' + ENG.display(ROW[hovered], dev.shown(hovered)) + ' · SPEC'); } });
 
 function closeMenu() { if (menu) { menu.remove(); menu = null; } }
 function openMenu(key, x, y) {
@@ -400,7 +466,7 @@ views.push({ page: '*', update() {
     'Morph ' + (o.morph.on ? 'on at (' + o.morph.x.toFixed(2) + ', ' + o.morph.y.toFixed(2) + ')' : 'off') + ', ' + o.routes + ' route' + (o.routes === 1 ? '' : 's') + '. ' +
     DATA.counts.host + ' host parameters of ' + DATA.counts.manifest + '; descriptions missing ' + G.desc_missing + ' of ' + G.host + ' (no desc column yet, B582), spec text empty for ' + G.spec_text_missing + '.';
   $('obsTxt').textContent = JSON.stringify({ heard: Object.fromEntries(keys.map(k => [k, o.engine.heard[k]])), counters: o.engine.counters }, null, 1);
-  $('stateTxt').textContent = engine.saveState();
+  $('stateTxt').textContent = dev.patch().engine;
   $('histTxt').textContent = 'History (the shell’s, RC-11): ' + (hs.past.length ? hs.past.slice(-6).join(' · ') : 'empty') + (hs.future.length ? ' · redo ' + hs.future.length : '');
 } });
 
@@ -423,7 +489,7 @@ views.push({ page: '*', update() {
   dev.begin('self-check'); p.vals[0] = .123; dev.end();
   const wrote = Math.abs(engine.getParam(kc.key) - .123) < 1e-12 && Math.abs(dev.heard(kc.key) - .123) < 1e-12 && dev.history().past.length === h0 + 1;
   dev.undo();
-  line(wrote && before !== .123 && engine.getParam(kc.key) === before, 'The wire: ' + r.label + '’s knob props wrote 0.123 into the engine (' + engine.display(kc.key, .123) + ') as one step, and undo restored ' + engine.display(kc.key, before) + '; the value differed before (control).');
+  line(wrote && before !== .123 && engine.getParam(kc.key) === before, 'The wire: ' + r.label + '’s knob props wrote 0.123 into the engine (' + ENG.display(r, .123) + ') as one step, and undo restored ' + ENG.display(r, before) + '; the value differed before (control).');
   // 3b. A real click on a Sub pill writes through writeStep: the engine hears the option, one step, undone exactly.
   const pc = sub.groups.flatMap(g => g.controls).find(c => c.widget === 'pills' && ROW[c.key].n >= 3), pr = ROW[pc.key];
   const pb = [...document.querySelectorAll('#page-sub [data-key="' + CSS.escape(pc.key) + '"] .hd-pill')], i0 = idxOf(pr, engine.getParam(pc.key)), i1 = (i0 + 1) % pr.n;
@@ -431,6 +497,19 @@ views.push({ page: '*', update() {
   const clicked = engine.getParam(pc.key) === vOf(pr, i1) && dev.history().past.length === hp + 1;
   dev.undo();
   line(clicked && i1 !== i0 && engine.getParam(pc.key) === vOf(pr, i0), 'A click: ' + pr.label + ' → ' + pr.options[i1] + ' reached the engine as one step, and undo put back ' + pr.options[i0] + '; the option differed (control).');
+  // 3c. Morph off (ADR-319 items 1 and 2): a knob write lands on the audible corner only; B to D keep their values
+  // across off and on; turning morph on is one undo step and moving the pad is none. Control: with morph on the same
+  // write lands elsewhere than A only if B to D were frozen, so the check compares against values that differ.
+  const mr = ROW[kc.key], h1 = dev.history().past.length;
+  setMorphOn(true); const toggled = dev.history().past.length === h1 + 1;
+  dev.setMorph({ x: .9, y: .2 }); const padFree = dev.history().past.length === h1 + 1;
+  dev.scatter(SEED); const bd = [1, 2, 3].map(i => dev.corner(kc.key, i));
+  setMorphOn(false); dev.begin('self-check'); p.vals[0] = .41; p.vals[2] = .77; dev.end();
+  const onlyA = dev.corner(kc.key, 0) === .41 && [1, 2, 3].every((i, k) => dev.corner(kc.key, i) === bd[k]) && engine.getParam(kc.key) === .41;
+  setMorphOn(true); const kept = [1, 2, 3].every((i, k) => dev.corner(kc.key, i) === bd[k]);
+  dev.undo(); dev.undo(); dev.undo(); dev.undo(); dev.undo(); paintDock();
+  line(toggled && padFree && onlyA && kept && bd.some(v => v !== .41) && !dev.morph().on,
+    'Morph off: ' + mr.label + ' written with morph off landed on A only (B to D refused), B to D kept their values across off and on, the toggle was one undo step and the pad none; undo walked it back (control: B to D differ from the write).');
   // 4. The dock: no space with morph off, present with morph on, hidden by its toggle.
   const off = $('dock').hidden && !$('bodyGrid').classList.contains('with-dock');
   setMorphOn(true); const on = !$('dock').hidden && $('bodyGrid').classList.contains('with-dock');
@@ -447,15 +526,15 @@ views.push({ page: '*', update() {
   closeMenu(); $('pages').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 40 }));
   line(items.includes('Open in manual') && items.includes('Reset to default') && !menu, 'Right-click: ' + items.join(', ') + '; off a control, no menu (control).');
   // 7. Seeded and deterministic: two fresh stubs given the same calls agree; another seed differs (control).
-  const run = sd => { const e = new ENG.Stub(DATA.params), d = DEV.create(DATA, e, { seed: sd }); d.scatter(sd); d.setMorph({ on: true, x: .3, y: .7 }); return JSON.stringify(d.patch()); };
+  const run = sd => { const e = new ENG.Stub(DATA.params), d = DEV.create(DATA, ENG.SyncTransport(e), { seed: sd }); d.setMorph({ on: true, x: .3, y: .7 }); d.scatter(sd); return JSON.stringify(d.patch()); };
   line(run(SEED) === run(SEED) && run(SEED) !== run(SEED + 1), 'Deterministic: the same seed and calls give byte-identical patch state twice; seed ' + (SEED + 1) + ' differs (control).');
   showInfo(null); S.message = '';
-  dev.clearRedo();
+  dev.clearHistory();   // the checks' own steps (the probes, the morph toggles) are not the user's history
 })();
 
 // ===== BLOCK I: go. A link can open a page, and morph on with the corners scattered: gui3.html#noise or #noise,morph =====
 { const [pg, m] = location.hash.slice(1).split(','); selectPage(pageEls[pg] ? pg : 'sub');
-  if (m === 'morph') { dev.scatter(SEED); setMorphOn(true); dev.clearHistory(); S.message = ''; } }
+  if (m === 'morph') { setMorphOn(true); dev.scatter(SEED); dev.clearHistory(); S.message = ''; } }
 sweepTabs();
 S.start();
 })();
