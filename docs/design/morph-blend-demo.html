@@ -1,0 +1,833 @@
+<!doctype html>
+<!-- morph-blend-demo — B585 step 2 (ADR-317): Blend across a structural difference, heard and measured. horde, 2026-10-29.
+
+     THE HUMAN (2026-10-29, verbatim): "When different corners have different architecture, I would like the parameters to
+     follow the morph law (quantum, blend, quantized blend or whatever we're calling it)." Clarified by poll: "Architecture
+     follows the law too". ADR-317: under Blend a structural difference crossfades (both architectures run, an equal-gain
+     fade across the pad, RS-3.6); under Quantum it flips at the quantum boundaries; under the stepped hybrid (B424) it
+     steps; a parameter's own morph mode (B557) still overrides. Today SPEC-ENGINE IF-4 flips structure at the morph's
+     seeded point whatever the law. The design proposal this page demonstrates is docs/proposals/morph-architecture-blend.md.
+
+     WHAT IS HERE.
+       · A STAND-IN VOICE (after the Random lab's, B578): one member, a polyBLEP saw, one BLADE (a window of each cycle
+         replaced by Sync, FM, Fold or Ring, all reading the one shared member phase, as PA-5 requires of horde's blades),
+         then a TPT state-variable filter (LP, BP, HP or notch). Two STRUCTURAL GROUPS: the blade's mode and the filter's
+         type. Six MORPHABLE numbers per corner (blade position, width, cut ratio, depth, cutoff, resonance).
+       · FOUR CORNERS with different structure (editable), the PAD, and a switch between six laws:
+           flip, no crossfade   the must-fire control: structure jumps at its seeded point;
+           flip at seeded point today's IF-4: structure flips at the seeded point by PA-5's 5 ms crossfade, numbers blend;
+           Blend, up to four    ADR-317: every corner setting with weight > 0 renders, mixed with equal gain;
+           Blend, at most two   the capped variant the proposal weighs (the two heaviest settings, by excess over the third);
+           Quantum              every key flips at its own quantum boundary (structure by PA-5, numbers glided by PA-1);
+           Stepped              Blend at a position held in steps at a rate in Hz (B424), each step glided by PA-1.
+       · MEASURED ON SCREEN for every law, on a 4-second sweep along a chosen path: the CLICK reading at the transition,
+         the SWITCH reading (how much of the sound changes within one cycle), the level against the ends, and the CPU proxy:
+         the count of structure settings rendered per voice (blade + filter; today's law renders 2).
+       · PLAY SWEEP plays the exact render that was measured (what you hear is what was measured). LIVE plays the voice in
+         real time while you drag the puck.
+
+     THE LAWS AS BUILT (stated here so a reader needs no other file).
+       · Corner weights are bilinear: A = (0, 0), B = (1, 0), C = (0, 1), D = (1, 1); w = [(1−x)(1−y), x(1−y), (1−x)y, xy].
+       · A group's settings: corners holding the same setting pool their weights, so two settings render where the corners
+         hold two, wherever the puck is.
+       · The seeded point (today's flip, and Quantum): each key's corner is the Gumbel-max pick argmax(log w / T + g),
+         T = 0.35, with g four Gumbel draws from mulberry32 seeded by (seed, key) — position-free, so a key's draw never
+         depends on the others (B308 H3's shape). Hysteresis: the challenger must beat the holder's score by
+         log(0.55/0.45)/T, the lab's reading of IF-4's band 0.1. Blend reads no draw.
+       · Every resolved value, structure weights included, glides through PA-1's smoother (two 6 ms one-poles, exact
+         discretisation). It is linear, so the smoothed weights still sum to 1 (self-check C3).
+       · A flip crossfades by PA-5: 5 ms, equal gain, raised cosine, both settings from the one shared member state; a
+         second change during a crossfade waits for it to end.
+       · A setting whose heard weight is exactly 0 is not rendered and costs nothing; when it wakes, its filter starts from
+         its fresh (zero) state, at a weight PA-1 has only just raised from 0.
+
+     THE READINGS (reported, never judged; neither is QS-4's detector, whose probe rule makes a waveform change on a rich
+     tone a case for its own law test). The note is 220.5 Hz, an exact 200-sample period at 44.1 kHz, so a steady render
+     repeats exactly and both readings have a true floor.
+       · CLICK: per one-period window, the RMS of the second difference, against its local median (±45 ms), dB: B265's
+         shape, on the stand-in instead of a sine probe. It sees a jump the waveform itself does not make.
+       · SWITCH: per one-period window, the RMS of the change from the previous cycle, against the render's RMS, dB.
+       · LEVEL: each window's level against the straight line between the two held ends, dB; the worst dip and bump.
+
+     WHAT THIS IS NOT. Not horde's engine, not a port, not an oracle: one member, no swarm, no coupling, no edge
+     correction (ED), a stand-in filter. It cannot say what SCALPEL's blades or the real per-voice filter slot sound like blended. The
+     audio is a ScriptProcessor on the main thread (a lab monitor); heavy painting can glitch LIVE; PLAY SWEEP streams a
+     buffer rendered beforehand, so it cannot. Nothing in src/, engine2/, specs/ or reference/ is touched. The design
+     system is reused from its vendored copy (arp-face/, B553) by relative path.
+
+     DISCIPLINE. No Math.random and no wall-clock reads anywhere (mulberry32 only); the engine and the playback cursor count
+     samples. Every const and let is declared above all wiring (L0026); painters loop over integer constants only, so the
+     page survives lab_load_check's stub DOM. No wheel listener (B301). Peaks are capped at −6 dBFS by a latched, reported
+     guard (Blind-Spot Armor), never a silent clamp. Audio starts only on a click. -->
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="lab-part" content="Morph and state">
+<meta name="lab-review" content="B585 · 2026-10-29">
+<title>Morph blend demo — architecture follows the morph law: Blend, Quantum and stepped across a structural difference</title>
+<link rel="stylesheet" href="arp-face/tokens.css">
+<link rel="stylesheet" href="arp-face/bundle.css">
+<style>
+  /* Lab layout only. Colours, sizes and radii are design-system tokens (arp-face/tokens.css). */
+  body { margin: 0; padding: var(--space-page); background: var(--bg); color: var(--text); font: 400 10.5px/1.5 var(--font-sans); }
+  .lab-col { max-width: 1320px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--space-grid); }
+  .lab-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-gap); }
+  .lab-grow { flex: 1 1 auto; }
+  .lab-tag { font: 700 8.5px/1.4 var(--font-sans); letter-spacing: .1em; padding: 0 5px; border-radius: var(--radius-track); color: var(--t2); border: 1px solid var(--div); white-space: nowrap; }
+  .lab-tag.prop { background: var(--caution-bg); color: var(--caution-tx); border-color: var(--caution); }
+  .tagline { font: 400 10.5px/1.55 var(--font-sans); color: var(--t2); max-width: 150ch; }
+  .tagline b, .lab-panel b, .note b { color: var(--ink); font-weight: 600; }
+  .lab-status { margin: 0; border-left: 3px solid var(--meter); padding-left: 8px; min-height: 15px; }
+  .lab-status.bad { border-left-color: var(--alarm); color: var(--alarm); }
+  .lab-panel { box-sizing: border-box; background: var(--panel); border: var(--stroke-ink) solid var(--ink); border-radius: var(--radius); padding: var(--space-card-y) var(--space-card-x); display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .note { font: 400 10px/1.55 var(--font-sans); color: var(--t2); max-width: 150ch; }
+  code, .mono { font: 400 9.5px/1.4 var(--font-mono); }
+  .hd-btn[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+  .hd-btn.hot { background: var(--value); color: var(--on-corner); }
+  .hd-select.sm { min-height: 22px; font-size: 9px; padding: 0 6px; }
+  input[type=range] { accent-color: var(--ink); }
+  .ro { font: 400 9.5px/1 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--ink); min-width: 5ch; display: inline-block; }
+  .page { display: grid; grid-template-columns: minmax(300px, 340px) minmax(0, 1fr); gap: var(--space-grid); align-items: start; }
+  @media (max-width: 1000px) { .page { grid-template-columns: 1fr; } }
+  #pad { width: 300px; height: 300px; display: block; border: var(--stroke-ink) solid var(--ink); border-radius: var(--radius); touch-action: none; cursor: crosshair; background: var(--well); }
+  #plot { width: 100%; height: 230px; display: block; border: var(--stroke-ink) solid var(--ink); border-radius: var(--radius); background: var(--well); }
+  .laws { display: flex; flex-wrap: wrap; gap: 4px; }
+  .crow { display: grid; grid-template-columns: 22px 34px minmax(0, 1fr) minmax(0, 1fr); gap: 5px; align-items: center; min-height: 26px; }
+  .cg { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--ink); background: var(--cc); display: grid; place-items: center; font: 700 8.5px/1 var(--font-sans); color: var(--on-corner); }
+  .wt { font: 400 9px/1 var(--font-mono); color: var(--t2); text-align: right; }
+  table.res { border-collapse: collapse; width: 100%; font: 400 9.5px/1.35 var(--font-mono); font-variant-numeric: tabular-nums; }
+  table.res th { font: 700 8.5px/1.3 var(--font-sans); letter-spacing: .06em; color: var(--t2); text-align: right; padding: 3px 6px; border-bottom: 1px solid var(--div); vertical-align: bottom; }
+  table.res th:first-child, table.res td:first-child { text-align: left; }
+  table.res td { text-align: right; padding: 3px 6px; border-bottom: 1px solid var(--hair); color: var(--ink); }
+  table.res tr.sel td { background: var(--sel-neutral); font-weight: 700; }
+  table.res tr { cursor: pointer; }
+  table.res td small { color: var(--t2); font-weight: 400; }
+  .checks { display: grid; grid-template-columns: 30px 40px minmax(0, 1fr); gap: 3px 8px; align-items: baseline; }
+  .checks .p { color: var(--ink); font: 700 9px/1 var(--font-sans); }
+  .checks .f { color: var(--alarm); font: 700 9px/1 var(--font-sans); }
+  .checks .d { font: 400 9.5px/1.45 var(--font-sans); color: var(--t2); }
+  .checks .d small { display: block; font: 400 9px/1.35 var(--font-mono); color: var(--ink); }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; font: 400 9px/1.3 var(--font-mono); color: var(--t2); }
+  .legend i { display: inline-block; width: 14px; height: 3px; vertical-align: middle; margin-right: 4px; }
+</style></head>
+<body>
+<div class="lab-col">
+  <div class="lab-bar">
+    <span class="hd-cluster">MORPH BLEND DEMO</span>
+    <span class="lab-tag prop">B585 STEP 2 · ADR-317 · DEMONSTRATION</span>
+    <span class="lab-grow"></span>
+    <!-- not a link: the labs server serves only the lab trees (serve_labs_check), so ../proposals/ would 404 -->
+    <span class="hd-hint" title="in the repository">the design proposal: docs/proposals/morph-architecture-blend.md</span>
+    <a class="hd-hint" href="index.html">all labs</a>
+  </div>
+  <div class="tagline"><b>Architecture follows the morph law</b> (ADR-317, B585): two corners with different structure (a blade in
+    <b>Sync</b> at A and <b>FM</b> at B, and a different <b>filter type</b>), the pad, and a switch between today's <b>flip at the seeded
+    point</b>, <b>Blend</b> (both architectures run, an equal-gain fade), <b>Quantum</b> and <b>stepped</b>. Measured on screen for every law:
+    the <b>click reading</b> at the transition and the <b>CPU proxy</b> (structure settings rendered per voice). A stand-in voice, seeded;
+    no sound before a click; peaks capped at −6 dBFS, reported.</div>
+
+  <div class="lab-bar">
+    <button class="hd-btn hot" data-act="sweep" id="sweepbtn" aria-pressed="false" title="play the 4-second sweep that was measured, under the selected law">▶ PLAY SWEEP</button>
+    <button class="hd-btn" data-act="live" id="livebtn" aria-pressed="false" title="play the voice in real time; drag the puck on the pad">▶ LIVE</button>
+    <button class="hd-btn" data-act="stop" title="stop the sound">■ STOP</button>
+    <span class="hd-label">monitor</span><input type="range" id="vol" min="0" max="1" step="0.01" value="0.7" style="width:90px" aria-label="monitor level">
+    <span class="hd-value" id="guard">guard: idle</span>
+    <span class="lab-grow"></span>
+    <span class="hd-label">seed</span>
+    <input id="seed" class="hd-select sm" style="width:8ch" value="b585" aria-label="seed (hex)" title="seeds the quantum draws (today's flip and Quantum); Blend reads no draw">
+    <button class="hd-btn" data-act="nextseed" title="the next seed (no entropy is read)">next seed</button>
+    <span class="hd-value" id="st-checks"></span>
+  </div>
+  <div class="lab-bar">
+    <span class="hd-label">law</span><span class="laws" id="laws"></span>
+    <span class="hd-label" style="margin-left:8px">step rate</span><input type="range" id="steprate" min="1" max="16" step="1" value="4" style="width:80px" aria-label="stepped rate in Hz"><span class="ro" id="steprate-ro"></span>
+  </div>
+  <p class="lab-status" id="msg"></p>
+
+  <div class="page">
+    <section class="lab-panel" aria-label="the pad and the corners">
+      <div class="hd-cluster">THE PAD</div>
+      <canvas id="pad" width="300" height="300" aria-label="the morph pad: drag the puck"></canvas>
+      <div class="lab-bar"><span class="hd-label">map</span><span class="laws" id="maps"></span></div>
+      <div class="lab-bar"><span class="hd-label">sweep path</span><select class="hd-select sm" id="path"></select></div>
+      <div class="note" id="padnote"></div>
+      <div class="hd-cluster" style="margin-top:4px">THE CORNERS</div>
+      <div class="lab-bar">
+        <button class="hd-btn" data-act="preset" data-arg="two" title="A = C, B = D: two architectures (Sync + LP, FM + BP)">two architectures</button>
+        <button class="hd-btn" data-act="preset" data-arg="four" title="four different blades, three filter types">four architectures</button>
+      </div>
+      <div id="corners"></div>
+      <div class="note">Each corner holds a blade mode and a filter type (structure) and six numbers (blended in their taper). The weight
+        column is each corner's bilinear weight at the puck.</div>
+    </section>
+
+    <section class="lab-panel" aria-label="measurements">
+      <div class="lab-bar"><span class="hd-cluster">MEASURED · THE SWEEP</span><span class="hd-hint" id="sweepsub"></span></div>
+      <table class="res" id="res"></table>
+      <div class="note"><b>click</b>: the worst one-cycle window's second-difference RMS against its local median, dB (B265's shape; 0 dB =
+        no click). <b>switch</b>: the worst cycle-to-cycle change against the render's RMS, dB (near 0 dB: the sound changes in one cycle,
+        a switch; far below: it changes gradually). <b>@</b>: where on the path, 0 to 1. <b>level</b>: the worst dip and bump against the
+        straight line between the held ends, dB. <b>renders</b>: structure settings rendered per voice-sample while the puck moves, max and
+        mean (blade + filter; one of each = 2 is today's cost). Click a row to select its law.</div>
+      <canvas id="plot" width="900" height="230" aria-label="the selected law's sweep: level, switch reading and renders"></canvas>
+      <div class="legend" id="legend"></div>
+      <div class="hd-cluster" style="margin-top:4px">SELF-CHECKS</div>
+      <div class="checks" id="checks"></div>
+    </section>
+  </div>
+</div>
+<script>
+/* ===================== THE CORE (pure: no DOM, no audio API, no clock) ===================== */
+const SR = 44100;
+const P = 200;                      // the probe's period in samples: 220.5 Hz, an exact 200-sample cycle, so a steady render
+const F0 = SR / P;                  //   repeats sample for sample and both readings have a zero floor (no beating, no drift)
+const CI = 29;                      // PA-3's control interval at 44.1 kHz
+const TAU = 0.006;                  // PA-1: two identical one-poles of 6 ms, exact discretisation
+const XF = Math.round(0.005 * SR);  // PA-5: the 5 ms equal-gain raised-cosine crossfade
+const GUARD = 0.5;                  // −6.02 dBFS: the output guard (latched and reported, never silent)
+const OUT_GAIN = 0.32;
+const MODES = ['Sync', 'FM', 'Fold', 'Ring'];
+const FTYPES = ['LP', 'BP', 'HP', 'Notch'];
+const NUMK = [                      // the Morphable (continuous) rows of the stand-in, each blended in its own taper
+  { key: 'pos', name: 'blade position', lo: 0, hi: 1 },
+  { key: 'wid', name: 'blade width', lo: 0.05, hi: 0.95 },
+  { key: 'ratio', name: 'cut ratio', lo: 1, hi: 8 },
+  { key: 'index', name: 'depth', lo: 0, hi: 4 },
+  { key: 'cut', name: 'cutoff', lo: 200, hi: 8000, log: true },
+  { key: 'res', name: 'resonance', lo: 0, hi: 0.9 },
+];
+const SKEYS = ['blade.mode', 'filter.type'];   // the Structural rows; each is its own structural group here
+const LAWS = [
+  { id: 'jump', name: 'flip, no crossfade', role: 'must-fire control: a bare jump at the seeded point' },
+  { id: 'flip', name: 'flip at seeded point (today)', role: 'IF-4 today: structure flips at its seeded point by PA-5, numbers blend' },
+  { id: 'blend4', name: 'Blend, up to four', role: 'ADR-317: every corner architecture with weight > 0 renders; equal-gain bilinear mix' },
+  { id: 'blend2', name: 'Blend, at most two', role: 'the capped variant: the two heaviest, weighted by their excess over the third' },
+  { id: 'quantum', name: 'Quantum', role: 'every key flips at its own quantum boundary; structure by PA-5, numbers by PA-1' },
+  { id: 'stepped', name: 'Stepped (B424)', role: 'Blend at a position held in steps (rate in Hz); each step glided by PA-1' },
+];
+const LAW = {}; for (const L of LAWS) LAW[L.id] = L;
+
+const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
+function mulberry32(a) {
+  return function () {
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function fnv(str) { let h = 0x811c9dc5; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); } return h >>> 0; }
+function mix32(a, b) { let h = (a ^ Math.imul(b + 0x9E3779B9, 0x85EBCA6B)) >>> 0; h = Math.imul(h ^ (h >>> 16), 0x7FEB352D); h = Math.imul(h ^ (h >>> 15), 0x846CA68B); return (h ^ (h >>> 16)) >>> 0; }
+/* THE QUANTUM DRAW, position-free (B308 H3): each key's four Gumbel draws come from a stream seeded by (seed, key), so a
+   key's draw never depends on how many keys exist or in what order they are listed. Blend reads no draw at all. */
+function gumbel(u) { u = clamp(u, 1e-9, 1 - 1e-9); return -Math.log(-Math.log(u)); }
+function drawsFor(seed, key) { const r = mulberry32(mix32(seed >>> 0, fnv(key))); return [gumbel(r()), gumbel(r()), gumbel(r()), gumbel(r())]; }
+function weightsAt(x, y) { return [(1 - x) * (1 - y), x * (1 - y), (1 - x) * y, x * y]; }
+function scores(w, T, g) { const out = [0, 0, 0, 0]; for (let k = 0; k < 4; k++) out[k] = (w[k] > 1e-12 ? Math.log(w[k]) / T : -1e12) + g[k]; return out; }
+function argmax4(s) { let b = 0; for (let k = 1; k < 4; k++) if (s[k] > s[b]) b = k; return b; }
+/* The hysteresis band (0.1, IF-4): a key keeps its corner until the challenger's score beats it by the score a point 0.05
+   past an even split would give it, log(0.55/0.45)/T. The lab's reading of "band 0.1"; the morph system owns the real one. */
+const hystMargin = T => Math.log(0.55 / 0.45) / T;
+function pickHyst(cur, w, T, g) {
+  const s = scores(w, T, g), b = argmax4(s);
+  if (cur < 0) return b;
+  return (b !== cur && s[b] - s[cur] > hystMargin(T)) ? b : cur;
+}
+/* THE STRUCTURE WEIGHTS of one group: the corners holding the same setting pool their weight (so a pad whose corners hold
+   two settings renders two, wherever the puck is). "four": exact bilinear. "two": the two heaviest settings, each weighted by
+   its excess over the third: continuous across the line where the second and third trade places (both have weight 0 there),
+   but along a line where the second and third TIE the second never sounds, so with three or more distinct settings the pad
+   is a switch again on those lines (the diagonals, when all four corners differ). */
+function groupTargets(vals, w, nv, cap) {
+  const W = new Float64Array(nv);
+  for (let k = 0; k < 4; k++) W[vals[k]] += w[k];
+  if (cap >= 4) return W;
+  const idx = []; for (let v = 0; v < nv; v++) if (W[v] > 0) idx.push(v);
+  idx.sort((a, b) => (W[b] - W[a]) || (a - b));
+  if (idx.length <= 2) return W;
+  const w3 = W[idx[2]], a1 = W[idx[0]] - w3, a2 = W[idx[1]] - w3, out = new Float64Array(nv);
+  if (a1 + a2 <= 0) { out[idx[0]] = 1; return out; }      // all tied (the pad's centre): the lowest setting index, by rule
+  out[idx[0]] = a1 / (a1 + a2); out[idx[1]] = a2 / (a1 + a2);
+  return out;
+}
+const toN = (s, x) => (s.log ? Math.log(x / s.lo) / Math.log(s.hi / s.lo) : (x - s.lo) / (s.hi - s.lo));
+const fromN = (s, n) => (s.log ? s.lo * Math.pow(s.hi / s.lo, n) : s.lo + (s.hi - s.lo) * n);
+
+/* PA-1's smoother, one value: e1 and e2 are the two stages' errors to the target; heard = target + e2. Linear, so smoothing
+   each structure weight separately keeps their sum at exactly what the targets sum to (1): equal gain survives the glide. */
+class Smooth {
+  constructor(v) { this.t = v; this.e1 = 0; this.e2 = 0; }
+  set(v) { const d = this.t - v; this.e1 += d; this.e2 += d; this.t = v; }
+  snap(v) { this.t = v; this.e1 = 0; this.e2 = 0; }
+  step(p, h) {
+    if (this.e1 === 0 && this.e2 === 0) return this.t;
+    this.e2 = p * (this.e2 + h * this.e1); this.e1 = p * this.e1;
+    if (Math.abs(this.e1) < 1e-6 && Math.abs(this.e2) < 1e-6) { this.e1 = 0; this.e2 = 0; }
+    return this.t + this.e2;
+  }
+}
+
+function polyblep(t, dt) {
+  if (t < dt) { t /= dt; return t + t - t * t - 1; }
+  if (t > 1 - dt) { t = (t - 1) / dt; return t * t + t + t + 1; }
+  return 0;
+}
+const TWO_PI = 2 * Math.PI;
+/* THE STAND-IN BLADE (after the Random lab's): a window [pos, pos + wid) of each cycle whose span is replaced. Sync: a saw
+   carrier at ratio × the note, reset at the window's start; FM: a sine carrier at ratio × the note, phase-modulated by the
+   member's own phase; Fold: the base folded by a gain; Ring: the base times a sine carrier. Every mode reads only the shared
+   member phase p, so two modes render from ONE member state (PA-5's rule), as horde's blades do. The window's two edges
+   and the Sync carrier's resets are band-limited by polyBLEP (unlike the Random lab's naive edges): a moving hard edge
+   quantised to whole samples reads as a large change from one cycle to the next, and would swamp the switch reading with
+   the stand-in's own aliasing. Fold and Ring keep only the base's own correction. A stand-in, not SCALPEL, and not horde's
+   edge correction (ED). */
+function modeOut(mode, d, p, base, N) {
+  const c = d * N.ratio;
+  if (mode === 0) return 2 * (c - Math.floor(c)) - 1;
+  if (mode === 1) return Math.sin(TWO_PI * c + N.index * Math.sin(TWO_PI * p));
+  if (mode === 2) return Math.sin(base * (1 + N.index) * 1.5707963267948966);
+  return base * Math.sin(TWO_PI * c);
+}
+const wrap1 = u => u - Math.floor(u);
+/* a step of J (after − before) at member phase e, corrected: (J/2)·polyBLEP of the phase since the step */
+function blepAt(p, e, J, dt) { const t = wrap1(p - e); return (t < dt || t > 1 - dt) ? 0.5 * J * polyblep(t, dt) : 0; }
+function kernel(mode, p, base, N, dt) {
+  let d = p - N.pos; if (d < 0) d += 1;
+  let y = d < N.wid ? modeOut(mode, d, p, base, N) : base;
+  const ps = N.pos, pe = wrap1(N.pos + N.wid);
+  // the window's start (from the base to the mode) and its end (from the mode back to the base)
+  y += blepAt(p, ps, modeOut(mode, 0, ps, 2 * ps - 1, N) - (2 * ps - 1), dt);
+  y += blepAt(p, pe, (2 * pe - 1) - modeOut(mode, N.wid, pe, 2 * pe - 1, N), dt);
+  if (mode === 0) for (let j = 1; j < N.wid * N.ratio; j++) y += blepAt(p, wrap1(ps + j / N.ratio), -2, dt);
+  return y;
+}
+function svfCoef(c, fc, res) {
+  const g = Math.tan(Math.PI * clamp(fc, 20, 0.45 * SR) / SR), k = 2 - 1.95 * clamp(res, 0, 0.97);
+  c.a1 = 1 / (1 + g * (g + k)); c.a2 = g * c.a1; c.a3 = g * c.a2; c.k = k;
+}
+function svf(st, x, c, type) {
+  const v3 = x - st[1], v1 = c.a1 * st[0] + c.a2 * v3, v2 = st[1] + c.a2 * st[0] + c.a3 * v3;
+  st[0] = 2 * v1 - st[0]; st[1] = 2 * v2 - st[1];
+  if (type === 0) return v2;
+  if (type === 1) return c.k * v1;
+  if (type === 2) return x - c.k * v1 - v2;
+  return x - c.k * v1;
+}
+
+function defaultCorners(kind) {
+  const four = [
+    { mode: 0, ftype: 0, pos: 0.25, wid: 0.5, ratio: 3, index: 1, cut: 2400, res: 0.3 },
+    { mode: 1, ftype: 1, pos: 0.25, wid: 0.5, ratio: 2.5, index: 2, cut: 1600, res: 0.45 },
+    { mode: 2, ftype: 2, pos: 0.25, wid: 0.5, ratio: 3, index: 2, cut: 700, res: 0.3 },
+    { mode: 3, ftype: 0, pos: 0.25, wid: 0.5, ratio: 4, index: 1, cut: 3200, res: 0.3 },
+  ];
+  if (kind === 'four') return four;
+  const A = four[0], B = four[1];
+  return [Object.assign({}, A), Object.assign({}, B), Object.assign({}, A), Object.assign({}, B)];
+}
+
+/* ONE VOICE OF THE STAND-IN, under one law. The morph is resolved here at the control rate (the morph system's job in horde;
+   the lab does both halves so it can measure the hand-off). Structure renders are counted every sample: the CPU proxy. */
+class Voice {
+  constructor(corners, law, opt) {
+    opt = opt || {};
+    this.C = corners; this.law = law;
+    this.seed = opt.seed === undefined ? 0xB585 : opt.seed;
+    this.T = opt.temp === undefined ? 0.35 : opt.temp;
+    this.stepHz = opt.stepHz === undefined ? 4 : opt.stepHz;
+    this.leak = opt.leak || 0;                    // a planted fault for C2's control: weight leaked to every setting
+    this.G = {}; for (const k of SKEYS.concat(NUMK.map(s => s.key))) this.G[k] = drawsFor(this.seed, k);
+    this.h = 1 / (SR * TAU); this.pp = Math.exp(-this.h);
+    this.p = 0; this.t = 0; this.env = 0;
+    this.N = {}; this.sm = {};
+    for (const s of NUMK) this.sm[s.key] = new Smooth(0);
+    this.pick = {}; for (const k of SKEYS.concat(NUMK.map(s => s.key))) this.pick[k] = -1;
+    this.grp = {
+      'blade.mode': { nv: 4, field: 'mode', w: [0, 1, 2, 3].map(() => new Smooth(0)), cur: -1, prev: -1, xf: 0 },
+      'filter.type': { nv: 4, field: 'ftype', w: [0, 1, 2, 3].map(() => new Smooth(0)), cur: -1, prev: -1, xf: 0, st: [0, 1, 2, 3].map(() => new Float64Array(2)) },
+    };
+    this.coef = {};
+    this.held = null;
+    this.x = 0; this.y = 0;
+    this.first = true;
+    this.renders = 0; this.maxK = 0; this.maxF = 0; this.maxT = 0; this.over2 = 0; this.sumErr = 0;
+    this.guard = { pre: 0, hits: 0, nan: 0 };
+    this.useGuard = opt.guard !== false;
+    this.gain = opt.gain === undefined ? OUT_GAIN : opt.gain;
+  }
+  /* the morph position the law hears: the puck, or (stepped) the puck held for 1/rate seconds, sampled on the sample clock */
+  heardPos() {
+    if (this.law !== 'stepped') return [this.x, this.y];
+    const per = Math.max(CI, Math.round(SR / this.stepHz));
+    if (this.held === null || this.t % per < CI) this.held = [this.x, this.y];
+    return this.held;
+  }
+  control() {
+    const [x, y] = this.heardPos(), w = weightsAt(x, y), law = this.law, C = this.C;
+    const flipLaw = law === 'jump' || law === 'flip' || law === 'quantum';
+    // the numbers: blend in their taper (Blend, stepped, and today), or each flips at its own quantum boundary
+    for (const s of NUMK) {
+      let n;
+      if (law === 'quantum') { this.pick[s.key] = pickHyst(this.pick[s.key], w, this.T, this.G[s.key]); n = toN(s, C[this.pick[s.key]][s.key]); }
+      else { n = 0; for (let k = 0; k < 4; k++) n += w[k] * toN(s, C[k][s.key]); }
+      if (this.first) this.sm[s.key].snap(n); else this.sm[s.key].set(n);
+    }
+    for (const key of SKEYS) {
+      const g = this.grp[key], vals = [0, 1, 2, 3].map(k => C[k][g.field]);
+      if (flipLaw) {
+        this.pick[key] = pickHyst(this.pick[key], w, this.T, this.G[key]);
+        const v = vals[this.pick[key]];
+        if (g.cur < 0) { g.cur = v; continue; }
+        if (v !== g.cur && g.xf === 0) {          // PA-5: a change during a crossfade waits for it to end
+          if (law === 'jump') { if (g.st) g.st[v].fill(0); g.cur = v; }
+          else { g.prev = g.cur; g.cur = v; g.xf = XF; if (g.st) g.st[v].fill(0); }
+        }
+      } else {
+        const tg = groupTargets(vals, w, g.nv, law === 'blend2' ? 2 : 4);
+        let nt = 0; for (let v = 0; v < g.nv; v++) if (tg[v] > 0) nt++;
+        if (nt > this.maxT) this.maxT = nt;
+        for (let v = 0; v < g.nv; v++) {
+          let tv = tg[v];
+          if (this.leak) tv = (tv + this.leak) / (1 + g.nv * this.leak);
+          const wasAsleep = g.w[v].t === 0 && g.w[v].e2 === 0;
+          if (this.first) g.w[v].snap(tv); else g.w[v].set(tv);
+          if (wasAsleep && tv > 0 && g.st) g.st[v].fill(0);   // a setting that wakes starts from its fresh state, at weight ~0
+        }
+      }
+    }
+    this.first = false;
+  }
+  /* render n samples into out (mono), at the pad position (x, y) */
+  render(out, n, x, y) {
+    this.x = x; this.y = y;
+    const dt = F0 / SR, flipLaw = this.law === 'jump' || this.law === 'flip' || this.law === 'quantum';
+    const gm = this.grp['blade.mode'], gf = this.grp['filter.type'], N = this.N, G = this.guard;
+    const km = new Float64Array(4), kf = new Float64Array(4);
+    for (let i = 0; i < n; i++) {
+      if (this.t % CI === 0) this.control();
+      for (const s of NUMK) N[s.key] = fromN(s, this.sm[s.key].step(this.pp, this.h));
+      if (this.t % CI === 0) svfCoef(this.coef, N.cut, N.res);
+      // structure weights for this sample
+      let nr = 0;
+      if (flipLaw) {
+        for (const g of [gm, gf]) {
+          const a = g === gm ? km : kf; a.fill(0);
+          if (g.xf > 0) { const r = 0.5 - 0.5 * Math.cos(Math.PI * (XF - g.xf + 0.5) / XF); a[g.cur] = r; a[g.prev] = 1 - r; g.xf--; }
+          else a[g.cur] = 1;
+        }
+      } else {
+        for (let v = 0; v < 4; v++) { km[v] = gm.w[v].step(this.pp, this.h); kf[v] = gf.w[v].step(this.pp, this.h); }
+      }
+      this.p += dt; if (this.p >= 1) this.p -= 1;
+      const base = 2 * this.p - 1 - polyblep(this.p, dt);
+      let k = 0, nk = 0, nf = 0;
+      for (let v = 0; v < 4; v++) if (km[v] !== 0) { k += km[v] * kernel(v, this.p, base, N, dt); nk++; }
+      let y2 = 0;
+      for (let v = 0; v < 4; v++) {
+        const awake = flipLaw ? kf[v] !== 0 : (kf[v] !== 0 || gf.w[v].t !== 0);
+        if (awake) { const o = svf(gf.st[v], k, this.coef, v); y2 += kf[v] * o; nf++; }
+      }
+      nr = nk + nf;
+      if (nk > this.maxK) this.maxK = nk; if (nf > this.maxF) this.maxF = nf;
+      if (nk > 2 || nf > 2) this.over2++;
+      if (!flipLaw) { const sk = km[0] + km[1] + km[2] + km[3], sf = kf[0] + kf[1] + kf[2] + kf[3]; const e = Math.max(Math.abs(sk - 1), Math.abs(sf - 1)); if (e > this.sumErr) this.sumErr = e; }
+      if (this.env < 1) this.env = Math.min(1, this.env + 1 / (0.01 * SR));
+      let o = y2 * this.env * this.gain;
+      if (!(o === o) || !isFinite(o)) { G.nan++; o = 0; }
+      const a = Math.abs(o); if (a > G.pre) G.pre = a;
+      if (this.useGuard && a > GUARD) { G.hits++; o = o > 0 ? GUARD : -GUARD; }
+      out[i] = o; this.renders = nr;
+      if (this.cnt) this.cnt[this.t] = nr;
+      this.t++;
+    }
+  }
+}
+
+/* THE SWEEP: 0.5 s held at the path's start, 3 s moving at constant speed, 0.5 s held at its end. */
+const PATHS = {
+  AB: { name: 'A → B (the bottom edge)', a: [0, 0], b: [1, 0] },
+  AD: { name: 'A → D (the diagonal, through the centre)', a: [0, 0], b: [1, 1] },
+  mid: { name: 'across at y = 0.4 (near the centre)', a: [0, 0.4], b: [1, 0.4] },
+};
+const HOLD = Math.round(0.5 * SR), MOVE = 3 * SR, NSWEEP = HOLD * 2 + MOVE;
+function pathAt(path, i) { const f = clamp((i - HOLD) / MOVE, 0, 1); return [path.a[0] + (path.b[0] - path.a[0]) * f, path.a[1] + (path.b[1] - path.a[1]) * f]; }
+function renderSweep(corners, law, pathId, opt) {
+  const V = new Voice(corners, law, opt), x = new Float32Array(NSWEEP), cnt = new Uint8Array(NSWEEP), path = PATHS[pathId];
+  V.cnt = cnt;
+  const B = CI;   // move the puck once per control interval, as a GUI would
+  for (let i = 0; i < NSWEEP; i += B) { const n = Math.min(B, NSWEEP - i), q = pathAt(path, i); V.render(x.subarray(i, i + n), n, q[0], q[1]); }
+  return { x, cnt, guard: V.guard, maxK: V.maxK, maxF: V.maxF, maxT: V.maxT, over2: V.over2, sumErr: V.sumErr };
+}
+function renderStatic(corners, law, px, py, n, opt) {
+  const V = new Voice(corners, law, opt), x = new Float32Array(n);
+  V.render(x, n, px, py);
+  return x;
+}
+function sameArr(a, b) { if (a.length !== b.length) return false; for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false; return true; }
+
+/* THE SELF-CHECKS. Each states what it guarantees about THIS page and carries a must-fail control (a planted fault or a
+   law that must read differently), so a check that cannot fail is visible as one. */
+function runChecks(results) {
+  const out = [], row = (id, pass, what, got) => out.push({ id, pass: !!pass, what, got });
+  const two = defaultCorners('two'), four = defaultCorners('four');
+  {
+    const a = renderSweep(two, 'flip', 'AB', {}), b = renderSweep(two, 'flip', 'AB', {}), c = renderSweep(two, 'flip', 'AB', { seed: 0xB586 });
+    const ra = readings(a.x, a.cnt), rc = readings(c.x, c.cnt);
+    row('C1', hash32(a.x) === hash32(b.x) && hash32(a.x) !== hash32(c.x),
+      'Seeded and repeatable: the same seed renders bit-identically; control: the next seed moves the seeded point.',
+      'hash ' + hash32(a.x).toString(16) + ' twice; seed+1 flips at ' + (rc.swAt / SR).toFixed(2) + ' s, not ' + (ra.swAt / SR).toFixed(2) + ' s');
+  }
+  {
+    let okAll = true, ctl = true; const n = 4096;
+    for (let k = 0; k < 4; k++) {
+      const px = k & 1, py = k >> 1;
+      const solo = [0, 1, 2, 3].map(() => Object.assign({}, four[k]));
+      const ref = renderStatic(solo, 'flip', px, py, n), bl = renderStatic(four, 'blend4', px, py, n), lk = renderStatic(four, 'blend4', px, py, n, { leak: 1e-3 });
+      okAll = okAll && sameArr(ref, bl); ctl = ctl && !sameArr(ref, lk);
+    }
+    row('C2', okAll && ctl, 'Corner exactness: at each corner, Blend renders bit-identically to that corner alone; control: a 1e-3 weight leak differs.',
+      okAll ? 'four corners identical; leak control ' + (ctl ? 'differs' : 'DID NOT differ') : 'a corner differs');
+  }
+  {
+    const r = mulberry32(0xC3), vals = [0, 0, 0, 0];
+    let e4 = 0, e2 = 0, ep = 0;
+    for (let i = 0; i < 2000; i++) {
+      for (let k = 0; k < 4; k++) vals[k] = Math.floor(r() * 4);
+      const w = weightsAt(r(), r());
+      const s = a => a.reduce((p, q) => p + q, 0);
+      e4 = Math.max(e4, Math.abs(s(groupTargets(vals, w, 4, 4)) - 1)); e2 = Math.max(e2, Math.abs(s(groupTargets(vals, w, 4, 2)) - 1));
+      ep = Math.max(ep, Math.abs(s(Array.from(groupTargets(vals, w, 4, 4)).map(Math.sqrt)) - 1));
+    }
+    const sw = renderSweep(four, 'blend4', 'mid', {});
+    row('C3', e4 < 1e-12 && e2 < 1e-12 && sw.sumErr < 1e-5 && ep > 0.1,
+      'Equal gain (RS-3.6): the settings\' weights sum to 1 at 2000 seeded points, and still do after PA-1\'s smoother; control: equal-power weights do not.',
+      'targets ' + e4.toExponential(1) + ' / ' + e2.toExponential(1) + ' · smoothed ' + sw.sumErr.toExponential(1) + ' · equal-power ' + ep.toFixed(2));
+  }
+  {
+    const b2 = renderSweep(four, 'blend2', 'mid', {}), b4 = renderSweep(four, 'blend4', 'mid', {}), fl = renderSweep(four, 'flip', 'mid', {});
+    row('C4', b2.maxT <= 2 && b4.maxK <= 4 && b4.maxF <= 4 && fl.maxK <= 2 && fl.maxF <= 2 && (b4.maxK > 2 || b4.maxF > 2),
+      'The counts hold: Blend renders at most four settings per group (the corners), a flip at most two; "at most two" asks for at most two, but PA-1\'s glide lets a third overlap where the pair changes (measured, reported); control: Blend on four corners exceeds two.',
+      'blend4 ' + b4.maxK + '+' + b4.maxF + ' · flip ' + fl.maxK + '+' + fl.maxF + ' (blade + filter) · "two": targets ≤ ' + b2.maxT + ', heard ' + b2.maxK + '+' + b2.maxF + ', a third overlapping for ' + (1000 * b2.over2 / SR).toFixed(0) + ' ms of the sweep');
+  }
+  {
+    const n = 8192, hot = new Voice(two, 'blend4', { gain: 3 }), x = new Float32Array(n); hot.render(x, n, 0.5, 0);
+    let pk = 0; for (let i = 0; i < n; i++) pk = Math.max(pk, Math.abs(x[i]));
+    const raw = new Voice(two, 'blend4', { gain: 3, guard: false }), y = new Float32Array(n); raw.render(y, n, 0.5, 0);
+    let pr = 0; for (let i = 0; i < n; i++) pr = Math.max(pr, Math.abs(y[i]));
+    row('C5', pk <= GUARD && hot.guard.hits > 0 && pr > GUARD,
+      'The output never exceeds −6 dBFS, and says when it held: a hot render (×3 gain) is held and counted; control: with the guard off it goes over.',
+      'held peak ' + (20 * Math.log10(pk)).toFixed(2) + ' dBFS, ' + hot.guard.hits + ' samples held; unguarded ' + (20 * Math.log10(pr)).toFixed(1) + ' dBFS');
+  }
+  {
+    const R = results || {};
+    const j = R.jump, f = R.flip, b = R.blend4;
+    const ok = j && f && b && j.m.click - b.m.click >= 6 && f.m.sw - b.m.sw >= 20;
+    row('C6', ok, 'The readings can tell the laws apart on this page\'s corners and path: the bare jump (must-fire control) reads ≥ 6 dB more click than Blend, and today\'s flip ≥ 20 dB more switch.',
+      j && f && b ? 'click: jump ' + j.m.click.toFixed(1) + ' vs Blend ' + b.m.click.toFixed(1) + ' dB · switch: flip ' + f.m.sw.toFixed(1) + ' vs Blend ' + b.m.sw.toFixed(1) + ' dB' : 'not computed');
+  }
+  return out;
+}
+
+/* THE READINGS (reported, never judged; neither is QS-4's detector, whose probe rule puts a waveform change on a rich tone
+   beyond a per-sample detector). Windows are exactly one period, so a steady render reads its floor exactly.
+   · CLICK: per window, the RMS of the second difference, against its local median (±45 ms), in dB: B265's shape, on the
+     stand-in instead of a sine probe. It sees a jump the waveform itself does not make.
+   · SWITCH: per window, the RMS of the change from the previous cycle, against the render's RMS, in dB: how much of the
+     sound changes within one cycle. A flip changes it all in about one cycle (a crossfade only softens the edge); a blend
+     spreads it over the whole move. */
+function readings(x, cnt) {
+  const H = P / 4, s0 = Math.round(0.25 * SR), n = x.length;
+  let ss = 0, ns = 0; for (let i = s0; i < n; i++) { ss += x[i] * x[i]; ns++; }
+  const rms = Math.sqrt(ss / ns) || 1e-12;
+  const E = [], R = [], Lv = [], at = [];
+  for (let m = s0 + P; m + P <= n; m += H) {
+    let e = 0, r = 0, l = 0;
+    for (let i = m; i < m + P; i++) { const d2 = x[i] - 2 * x[i - 1] + x[i - 2], dr = x[i] - x[i - P]; e += d2 * d2; r += dr * dr; l += x[i] * x[i]; }
+    E.push(Math.sqrt(e / P)); R.push(Math.sqrt(r / P)); Lv.push(Math.sqrt(l / P)); at.push(m);
+  }
+  const K = Math.round(0.045 * SR / H);
+  let click = -Infinity, clickAt = 0, sw = -Infinity, swAt = 0;
+  for (let j = 0; j < E.length; j++) {
+    const lo = Math.max(0, j - K), hi = Math.min(E.length, j + K + 1), win = E.slice(lo, hi).sort((a, b) => a - b), med = win[win.length >> 1] || 1e-12;
+    const c = 20 * Math.log10(Math.max(E[j], 1e-12) / Math.max(med, 1e-12));
+    if (c > click) { click = c; clickAt = at[j]; }
+    const s = 20 * Math.log10(Math.max(R[j], 1e-12) / rms);
+    if (s > sw) { sw = s; swAt = at[j]; }
+  }
+  // the level across the move against the straight line between the two held ends (dB; negative is a dip)
+  const lvl = v => 20 * Math.log10(Math.max(v, 1e-9));
+  let a0 = 0, na = 0, b0 = 0, nb = 0;
+  for (let j = 0; j < at.length; j++) { if (at[j] < HOLD) { a0 += lvl(Lv[j]); na++; } else if (at[j] > HOLD + MOVE + P) { b0 += lvl(Lv[j]); nb++; } }
+  a0 /= Math.max(na, 1); b0 /= Math.max(nb, 1);
+  let dip = 0, bump = 0;
+  for (let j = 0; j < at.length; j++) {
+    if (at[j] < HOLD || at[j] > HOLD + MOVE) continue;
+    const f = (at[j] - HOLD) / MOVE, d = lvl(Lv[j]) - (a0 + (b0 - a0) * f);
+    if (d < dip) dip = d; if (d > bump) bump = d;
+  }
+  let mx = 0, sum = 0, nm = 0;
+  for (let i = HOLD; i < HOLD + MOVE; i++) { if (cnt[i] > mx) mx = cnt[i]; sum += cnt[i]; nm++; }
+  let mxAll = 0; for (let i = s0; i < n; i++) if (cnt[i] > mxAll) mxAll = cnt[i];
+  return { click, clickAt, sw, swAt, dip, bump, rmax: mxAll, rmean: sum / nm, rms, E, R, Lv, at };
+}
+function hash32(x) { let h = 0x811c9dc5; const u = new Uint32Array(x.buffer, x.byteOffset, x.length); for (let i = 0; i < u.length; i++) { h ^= u[i]; h = Math.imul(h, 0x01000193); } return h >>> 0; }
+
+/* ===================== END OF THE CORE ===================== */
+
+/* ===================== THE PAGE (all state declared here, above any wiring: L0026) ===================== */
+const CN = ['A', 'B', 'C', 'D'];
+const CCOL = ['#ffd702', '#ff2e88', '#00d5c8', '#a6f219'];      // --cA … --cD, copied for the canvas (tokens.css)
+const INK = '#191521', VALUE = '#f5169c', PHYS = '#6431f0', METER = '#00a89e', HINT = '#9a93a3';
+const PADN = 50;                                                 // the pad map's cells per side
+const PLOT_W = 900, PLOT_H = 230;
+const UI = { law: 'blend4', kind: 'two', path: 'AB', seed: 0xB585, stepHz: 4, map: 'blade.mode', puck: { x: 0.3, y: 0.0 }, vol: 0.7, drag: false };
+const AUDIO = { ctx: null, node: null, mode: 'off', cursor: 0, buf: null, live: null, guard: { pre: 0, hits: 0, nan: 0 }, rateOk: true };
+let CORNERS = defaultCorners('two');
+let RESULTS = {};
+let CHECKS = [];
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const fmtDb = v => (v === -Infinity || !(v === v) ? '−∞' : (v < 0 ? '−' : '+') + Math.abs(v).toFixed(1));
+const posOf = s => clamp((s / SR - HOLD / SR) / (MOVE / SR), 0, 1).toFixed(2);
+const lawOpt = () => ({ seed: UI.seed, stepHz: UI.stepHz });
+
+function setMsg(m, bad) { const el = $('msg'); el.textContent = m || ''; el.className = 'lab-status' + (bad ? ' bad' : ''); }
+
+/* ---- measuring: every law, the current corners and path, the page's own core (the numbers on screen are these) ---- */
+function computeAll() {
+  RESULTS = {};
+  for (const L of LAWS) {
+    const r = renderSweep(CORNERS, L.id, UI.path, lawOpt());
+    RESULTS[L.id] = { r, m: readings(r.x, r.cnt) };
+  }
+}
+function runAllChecks() {
+  const keep = CORNERS, keepPath = UI.path;
+  // C6 judges the readings on the page's default case, whatever the corners are set to now
+  const R = {}; for (const id of ['jump', 'flip', 'blend4']) { const r = renderSweep(defaultCorners('two'), id, 'AB', {}); R[id] = { m: readings(r.x, r.cnt) }; }
+  CHECKS = runChecks(R);
+  CORNERS = keep; UI.path = keepPath;
+}
+
+/* ---- painting ---- */
+function groupMapColour(key, x, y) {
+  const g = key === 'blade.mode' ? 'mode' : 'ftype', vals = CORNERS.map(c => c[g]), w = weightsAt(x, y);
+  const first = {}; for (let k = 3; k >= 0; k--) first[vals[k]] = k;      // a setting is drawn in the colour of its first corner
+  const flip = UI.law === 'jump' || UI.law === 'flip' || UI.law === 'quantum';
+  let mix = [0, 0, 0, 0];
+  if (flip) mix[first[vals[argmax4(scores(w, 0.35, drawsFor(UI.seed, key)))]]] = 1;
+  else { const t = groupTargets(vals, w, 4, UI.law === 'blend2' ? 2 : 4); for (let v = 0; v < 4; v++) if (t[v] > 0) mix[first[v]] += t[v]; }
+  let r = 0, gg = 0, b = 0;
+  for (let k = 0; k < 4; k++) { const h = CCOL[k]; r += mix[k] * parseInt(h.slice(1, 3), 16); gg += mix[k] * parseInt(h.slice(3, 5), 16); b += mix[k] * parseInt(h.slice(5, 7), 16); }
+  return 'rgb(' + Math.round(r) + ',' + Math.round(gg) + ',' + Math.round(b) + ')';
+}
+function paintPad() {
+  const cv = $('pad'), c = cv.getContext('2d'), W = 300, cell = W / PADN;
+  for (let i = 0; i < PADN; i++) for (let j = 0; j < PADN; j++) {
+    const x = (i + 0.5) / PADN, y = (j + 0.5) / PADN;
+    c.fillStyle = groupMapColour(UI.map, x, y);
+    c.fillRect(i * cell, W - (j + 1) * cell, cell + 0.5, cell + 0.5);
+  }
+  const P0 = PATHS[UI.path];
+  c.strokeStyle = INK; c.lineWidth = 2; c.setLineDash([5, 4]);
+  c.beginPath(); c.moveTo(P0.a[0] * W, W - P0.a[1] * W); c.lineTo(P0.b[0] * W, W - P0.b[1] * W); c.stroke(); c.setLineDash([]);
+  c.font = '700 11px sans-serif'; c.fillStyle = INK;
+  const lab = [[6, W - 8], [W - 16, W - 8], [6, 16], [W - 16, 16]];
+  for (let k = 0; k < 4; k++) c.fillText(CN[k], lab[k][0], lab[k][1]);
+  const q = AUDIO.mode === 'sweep' ? pathAt(P0, AUDIO.cursor) : [UI.puck.x, UI.puck.y];
+  c.beginPath(); c.arc(q[0] * W, W - q[1] * W, 8, 0, 2 * Math.PI); c.fillStyle = '#ffffff'; c.fill(); c.lineWidth = 2; c.strokeStyle = INK; c.stroke();
+}
+function paintPlot() {
+  const cv = $('plot'), c = cv.getContext('2d'), R = RESULTS[UI.law];
+  c.fillStyle = '#ffffff'; c.fillRect(0, 0, PLOT_W, PLOT_H);
+  if (!R) return;
+  const m = R.m, n = m.at.length, X = s => 40 + (PLOT_W - 50) * s / NSWEEP, top = 10, h = PLOT_H - 40;
+  const Y = (db, lo, hi) => top + h * (1 - clamp((db - lo) / (hi - lo), 0, 1));
+  c.strokeStyle = '#e5dfd0'; c.lineWidth = 1;
+  for (const s of [HOLD, HOLD + MOVE]) { c.beginPath(); c.moveTo(X(s), top); c.lineTo(X(s), top + h); c.stroke(); }
+  c.font = '9px monospace'; c.fillStyle = HINT;
+  c.fillText('move starts', X(HOLD) + 3, top + 9); c.fillText('move ends', X(HOLD + MOVE) + 3, top + 9);
+  c.fillText('0 dB', 4, Y(0, -80, 10) + 3); c.fillText('−40', 4, Y(-40, -80, 10) + 3); c.fillText('−80', 4, Y(-80, -80, 10) + 3);
+  const line = (col, f) => { c.strokeStyle = col; c.lineWidth = 1.3; c.beginPath(); for (let j = 0; j < n; j++) { const yv = f(j); if (j === 0) c.moveTo(X(m.at[j]), yv); else c.lineTo(X(m.at[j]), yv); } c.stroke(); };
+  line(PHYS, j => Y(20 * Math.log10(Math.max(m.Lv[j], 1e-9)), -80, 10));
+  line(VALUE, j => Y(20 * Math.log10(Math.max(m.R[j], 1e-12) / m.rms), -80, 10));
+  // the renders count, sampled at the readings' windows, on its own scale (0 to 8) at the bottom
+  c.strokeStyle = METER; c.lineWidth = 2; c.beginPath();
+  for (let j = 0; j < n; j++) { const yv = top + h - (h * 0.35) * (R.r.cnt[m.at[j]] / 8); if (j === 0) c.moveTo(X(m.at[j]), yv); else c.lineTo(X(m.at[j]), yv); }
+  c.stroke();
+  c.fillStyle = INK; c.fillText(LAW[UI.law].name + ' · ' + PATHS[UI.path].name, 44, PLOT_H - 12);
+  c.fillStyle = HINT; c.fillText('time, 0 to 4 s', PLOT_W - 90, PLOT_H - 12);
+}
+function renderLaws() {
+  let h = '';
+  for (const L of LAWS) h += '<button class="hd-btn" data-act="law" data-arg="' + L.id + '" aria-pressed="' + (UI.law === L.id) + '" title="' + esc(L.role) + '">' + esc(L.name) + '</button>';
+  $('laws').innerHTML = h;
+  let mp = '';
+  for (const k of SKEYS) mp += '<button class="hd-btn" data-act="map" data-arg="' + k + '" aria-pressed="' + (UI.map === k) + '">' + (k === 'blade.mode' ? 'blade mode' : 'filter type') + '</button>';
+  $('maps').innerHTML = mp;
+  $('steprate-ro').textContent = UI.stepHz + ' Hz';
+}
+function renderCorners() {
+  const w = weightsAt(UI.puck.x, UI.puck.y);
+  let h = '';
+  for (let k = 0; k < 4; k++) {
+    const C = CORNERS[k];
+    let mo = '', ft = '';
+    for (let i = 0; i < MODES.length; i++) mo += '<option value="' + i + '"' + (C.mode === i ? ' selected' : '') + '>' + MODES[i] + '</option>';
+    for (let i = 0; i < FTYPES.length; i++) ft += '<option value="' + i + '"' + (C.ftype === i ? ' selected' : '') + '>' + FTYPES[i] + '</option>';
+    h += '<div class="crow" style="--cc:' + CCOL[k] + '"><span class="cg">' + CN[k] + '</span><span class="wt">' + w[k].toFixed(2) + '</span>'
+      + '<select class="hd-select sm" data-corner="' + k + '" data-field="mode" aria-label="corner ' + CN[k] + ' blade mode">' + mo + '</select>'
+      + '<select class="hd-select sm" data-corner="' + k + '" data-field="ftype" aria-label="corner ' + CN[k] + ' filter type">' + ft + '</select></div>';
+  }
+  $('corners').innerHTML = h;
+}
+function renderPaths() {
+  let h = '';
+  for (const id in PATHS) h += '<option value="' + id + '"' + (UI.path === id ? ' selected' : '') + '>' + esc(PATHS[id].name) + '</option>';
+  $('path').innerHTML = h;
+}
+function renderResults() {
+  let h = '<tr><th>law</th><th>click dB<br><small>@ path</small></th><th>switch dB<br><small>@ path</small></th><th>level dB<br><small>dip / bump</small></th><th>renders<br><small>max / mean</small></th></tr>';
+  for (const L of LAWS) {
+    const R = RESULTS[L.id]; if (!R) continue;
+    const m = R.m;
+    h += '<tr data-act="law" data-arg="' + L.id + '"' + (UI.law === L.id ? ' class="sel"' : '') + ' title="' + esc(L.role) + '"><td>' + esc(L.name) + '</td>'
+      + '<td>' + fmtDb(m.click) + ' <small>@' + posOf(m.clickAt) + '</small></td>'
+      + '<td>' + fmtDb(m.sw) + ' <small>@' + posOf(m.swAt) + '</small></td>'
+      + '<td>' + fmtDb(m.dip) + ' / ' + fmtDb(m.bump) + '</td>'
+      + '<td>' + m.rmax + ' / ' + m.rmean.toFixed(2) + '</td></tr>';
+  }
+  $('res').innerHTML = h;
+  $('sweepsub').textContent = PATHS[UI.path].name + ' · seed ' + UI.seed.toString(16) + ' · 220.5 Hz, one member, 44.1 kHz';
+  $('legend').innerHTML = '<span><i style="background:' + PHYS + '"></i>level per cycle, dB</span><span><i style="background:' + VALUE
+    + '"></i>switch reading per cycle, dB</span><span><i style="background:' + METER + '"></i>structure settings rendered (0 to 8, lower band)</span>';
+}
+function renderChecks() {
+  let h = '';
+  for (const c of CHECKS) h += '<span class="mono">' + c.id + '</span><span class="' + (c.pass ? 'p' : 'f') + '">' + (c.pass ? 'PASS' : 'FAIL') + '</span><span class="d">' + esc(c.what) + '<small>' + esc(c.got) + '</small></span>';
+  $('checks').innerHTML = h;
+  const bad = CHECKS.filter(c => !c.pass).length;
+  $('st-checks').textContent = 'self-checks: ' + (CHECKS.length - bad) + '/' + CHECKS.length + (bad ? ' · ' + bad + ' FAILING' : '');
+}
+function padNote() {
+  const law = UI.law, flip = law === 'jump' || law === 'flip' || law === 'quantum';
+  $('padnote').textContent = flip
+    ? 'The map shows which corner\'s ' + (UI.map === 'blade.mode' ? 'blade mode' : 'filter type') + ' sounds at each point: the seeded point is the edge between colours (T = 0.35, this seed).'
+    : 'The map mixes the corners\' colours by the weight each ' + (UI.map === 'blade.mode' ? 'blade mode' : 'filter type') + ' setting gets at each point: there is no edge to cross.';
+}
+function renderAll() { renderLaws(); renderPaths(); renderCorners(); renderResults(); renderChecks(); padNote(); paintPad(); paintPlot(); }
+function recompute() { stopAudio(); computeAll(); renderAll(); }
+
+/* ---- audio: starts only on a click; the cursor and the live voice count samples, no clock is read ---- */
+function ensureAudio() {
+  if (AUDIO.ctx) return true;
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) { setMsg('This browser has no Web Audio.', true); return false; }
+  try { AUDIO.ctx = new Ctx({ sampleRate: SR }); } catch (e) { AUDIO.ctx = new Ctx(); }
+  AUDIO.rateOk = AUDIO.ctx.sampleRate === SR;
+  /* A ScriptProcessor on the main thread: the lab's monitor (as the Random lab's). PLAY SWEEP only copies a buffer
+     rendered beforehand, so it cannot glitch from the voice's cost; LIVE renders here and can. */
+  AUDIO.node = AUDIO.ctx.createScriptProcessor(2048, 0, 2);
+  AUDIO.node.onaudioprocess = ev => {
+    const L = ev.outputBuffer.getChannelData(0), Rr = ev.outputBuffer.getChannelData(1), n = L.length, G = AUDIO.guard, vol = UI.vol;
+    if (AUDIO.mode === 'sweep' && AUDIO.buf) {
+      for (let i = 0; i < n; i++) { const s = AUDIO.cursor < AUDIO.buf.length ? AUDIO.buf[AUDIO.cursor++] : 0; L[i] = s * vol; }
+      if (AUDIO.cursor >= AUDIO.buf.length) AUDIO.mode = 'done';
+    } else if (AUDIO.mode === 'live' && AUDIO.live) {
+      for (let i = 0; i < n; i += CI) { const k = Math.min(CI, n - i); AUDIO.live.render(L.subarray(i, i + k), k, UI.puck.x, UI.puck.y); }
+      for (let i = 0; i < n; i++) L[i] *= vol;
+      G.pre = Math.max(G.pre, AUDIO.live.guard.pre); G.hits = AUDIO.live.guard.hits; G.nan = AUDIO.live.guard.nan;
+    } else L.fill(0);
+    Rr.set(L);
+  };
+  AUDIO.node.connect(AUDIO.ctx.destination);
+  return true;
+}
+function startSweep() {
+  if (!ensureAudio()) return;
+  const R = RESULTS[UI.law]; if (!R) return;
+  AUDIO.buf = R.r.x; AUDIO.cursor = 0; AUDIO.mode = 'sweep';
+  AUDIO.guard = { pre: R.r.guard.pre, hits: R.r.guard.hits, nan: R.r.guard.nan };
+  if (AUDIO.ctx.resume) AUDIO.ctx.resume();
+  setMsg('Playing the measured sweep under ' + LAW[UI.law].name + (AUDIO.rateOk ? '.' : ' (the device runs at ' + AUDIO.ctx.sampleRate + ' Hz, so pitch and timing are scaled).'));
+  pressAudio(); tick();
+}
+function startLive() {
+  if (!ensureAudio()) return;
+  AUDIO.live = new Voice(CORNERS, UI.law, lawOpt()); AUDIO.mode = 'live'; AUDIO.guard = { pre: 0, hits: 0, nan: 0 };
+  if (AUDIO.ctx.resume) AUDIO.ctx.resume();
+  setMsg('Live under ' + LAW[UI.law].name + ': drag the puck.' + (AUDIO.rateOk ? '' : ' (The device runs at ' + AUDIO.ctx.sampleRate + ' Hz: pitch scaled.)'));
+  pressAudio(); tick();
+}
+function stopAudio() { AUDIO.mode = 'off'; AUDIO.live = null; pressAudio(); }
+function pressAudio() { $('sweepbtn').setAttribute('aria-pressed', String(AUDIO.mode === 'sweep')); $('livebtn').setAttribute('aria-pressed', String(AUDIO.mode === 'live')); }
+function tick() {
+  const G = AUDIO.guard, el = $('guard');
+  el.textContent = 'guard: peak ' + (G.pre > 0 ? (20 * Math.log10(G.pre)).toFixed(1) : '−∞') + ' dBFS pre-guard · ' + G.hits + ' samples held at −6 dBFS'
+    + (G.nan ? ' · ' + G.nan + ' non-finite zeroed' : '') + (AUDIO.live ? ' · rendering ' + AUDIO.live.renders + ' structure settings' : '');
+  el.style.color = G.hits || G.nan ? 'var(--alarm)' : '';
+  paintPad();
+  if (AUDIO.mode === 'sweep' || AUDIO.mode === 'live') requestAnimationFrame(tick);
+  else if (AUDIO.mode === 'done') { AUDIO.mode = 'off'; pressAudio(); paintPad(); }
+}
+
+/* ---- events (delegated; every handler is a no-op under the headless stub DOM) ---- */
+function onClick(e) {
+  const b = e.target.closest ? e.target.closest('[data-act]') : null;
+  if (!b) return;
+  const act = b.dataset.act, arg = b.dataset.arg || '';
+  if (act === 'law') {
+    UI.law = arg;
+    if (AUDIO.mode === 'live') AUDIO.live = new Voice(CORNERS, UI.law, lawOpt());
+    if (AUDIO.mode === 'sweep') startSweep();
+    renderAll();
+  } else if (act === 'map') { UI.map = arg; padNote(); renderLaws(); paintPad(); }
+  else if (act === 'preset') { CORNERS = defaultCorners(arg); UI.kind = arg; recompute(); }
+  else if (act === 'nextseed') { UI.seed = mix32(UI.seed, 1); $('seed').value = UI.seed.toString(16); recompute(); }
+  else if (act === 'sweep') startSweep();
+  else if (act === 'live') startLive();
+  else if (act === 'stop') { stopAudio(); setMsg(''); paintPad(); }
+}
+function onChange(e) {
+  const t = e.target;
+  if (t.dataset && t.dataset.corner !== undefined) { CORNERS[+t.dataset.corner][t.dataset.field] = +t.value; recompute(); return; }
+  if (t.id === 'path') { UI.path = t.value; recompute(); }
+  else if (t.id === 'seed') { const v = parseInt(String(t.value), 16); if (v === v) { UI.seed = v >>> 0; recompute(); } else setMsg('The seed is a hex number.', true); }
+  else if (t.id === 'steprate') { UI.stepHz = +t.value; recompute(); }
+}
+function onInput(e) { if (e.target.id === 'vol') UI.vol = +e.target.value; else if (e.target.id === 'steprate') $('steprate-ro').textContent = e.target.value + ' Hz'; }
+function padAt(e) {
+  const r = $('pad').getBoundingClientRect(), w = r.width || 300, h = r.height || 300;
+  UI.puck.x = clamp((e.clientX - r.left) / w, 0, 1); UI.puck.y = clamp(1 - (e.clientY - r.top) / h, 0, 1);
+  renderCorners(); paintPad();
+}
+
+/* a deep link, e.g. #law=flip&kind=four&path=mid, so the proposal can point at one case */
+function readHash() {
+  const h = String((window.location && window.location.hash) || '').replace(/^#/, '');
+  for (const part of h.split('&')) {
+    const [k, v] = part.split('=');
+    if (k === 'law' && LAW[v]) UI.law = v;
+    else if (k === 'kind' && (v === 'two' || v === 'four')) { UI.kind = v; CORNERS = defaultCorners(v); }
+    else if (k === 'path' && PATHS[v]) UI.path = v;
+    else if (k === 'map' && SKEYS.indexOf(v) >= 0) UI.map = v;
+  }
+}
+
+/* ---- wiring (everything above is declared; nothing here reaches forward) ---- */
+readHash();
+document.addEventListener('click', onClick);
+document.addEventListener('change', onChange);
+document.addEventListener('input', onInput);
+$('pad').addEventListener('pointerdown', e => { UI.drag = true; if (e.target.setPointerCapture) e.target.setPointerCapture(e.pointerId); padAt(e); });
+$('pad').addEventListener('pointermove', e => { if (UI.drag) padAt(e); });
+$('pad').addEventListener('pointerup', () => { UI.drag = false; });
+computeAll();
+runAllChecks();
+renderAll();
+{
+  const bad = CHECKS.filter(c => !c.pass);
+  setMsg(bad.length ? 'Self-check failing: ' + bad.map(c => c.id).join(', ') : 'Measured every law on this sweep (table). PLAY SWEEP plays the selected law\'s measured render; LIVE lets you drag the puck.', bad.length > 0);
+}
+</script>
+</body>
+</html>
