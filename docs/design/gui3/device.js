@@ -71,6 +71,7 @@
     var past = [], future = [], tx = null, rev = 0;
     var seq = 0, sentSeq = Object.create(null), sentV = Object.create(null), fromEngine = Object.create(null);
     var lastSnap = null, events = [];
+    var pending = [];                                // sources activated with the bank's + and not yet mapped (B556): never saved, never undone
     var D = {};
 
     function snap(r, v) { return root.GUI3Engine.snap(r, v); }
@@ -229,6 +230,31 @@
       step('Remove route', function () { st.routes.splice(k, 1); }); changed(); return true;
     };
     D.clearRoutes = function () { if (!st.routes.length) return false; step('Clear routes', function () { st.routes = []; }); changed(); return true; };
+    /* THE BANK'S + (ADR-322 item 3, B556). A modulator activated with + is PENDING: shown in the bank, routed
+       nowhere, and outside the patch (not in st, so no undo step and nothing saved). Mapping it (a route from it)
+       makes it an ordinary routed modulator; closing the interface or ending the session with it still unmapped
+       discards it (close()). A source that already has a route is active already and is not activated again. */
+    function routed(src) { return st.routes.some(function (r) { return r.src === src; }); }
+    D.pending = function () { return pending.filter(function (id) { return !routed(id); }); };
+    D.activate = function (src) {
+      if (!SOURCES.some(function (s) { return s.id === src; })) return { ok: false, why: src + ' is not a source the engine publishes (IF-3)' };
+      if (routed(src) || pending.indexOf(src) >= 0) return { ok: false, why: src + ' is active already' };
+      pending.push(src); changed(); return { ok: true };
+    };
+    /* A map handle dropped on a parameter: a route through addRoute, which refuses what RC-4 refuses. A refused
+       drop leaves a pending source pending; an accepted one maps it. */
+    D.drop = function (src, key) {
+      var res = D.addRoute({ src: src, param: key, pol: 'uni', depth: 0.25 });
+      if (res.ok) { var k = pending.indexOf(src); if (k >= 0) pending.splice(k, 1); changed(); }
+      return res;
+    };
+    /* The interface closes (or the session ends): unmapped activations are dropped. Returns what was dropped. */
+    D.close = function () {
+      var dropped = D.pending();
+      pending = [];
+      if (dropped.length) changed();
+      return dropped;
+    };
     /* Seeded spread of B to D around A for the morphable rows, so the pad has something to move. Refused
        while morph is off: B to D are frozen then. */
     D.scatter = function (s) {

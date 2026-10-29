@@ -4,7 +4,8 @@
      the design doc so there isn't redundancy) which connects all the wires without running the audio engine through it?"
      Ruled by poll: "GUI 3's prototype, starting now" (ADR-316, amending B302's gate).
 
-     WHAT THIS IS. One wired shell: twelve pages, every engine parameter reachable, no audio.
+     WHAT THIS IS. One wired shell: eleven pages (the Random page folded into Morph, ADR-322), every engine parameter
+     reachable, no audio, and a bottom modulator bank on every page (B556).
        - Components come from the design system's vendored bundle only (arp-face/, B553). This file's <style> places
          things (grid, flex, gaps, widths); it draws no component of its own. What the bundle lacks is listed as
          proposals in gui3/README.md, never drawn here.
@@ -52,7 +53,17 @@
   /* The window is 980 x 720 (ADR-259 ruling 2): a long page scrolls inside it, so the info box sits in the same place on
      every page (ADR-315) instead of following the page's length. */
   .pagecol { display: flex; flex-direction: column; gap: var(--space-stack); min-width: 0; }
-  #pages { height: 520px; overflow-y: auto; overscroll-behavior: contain; }
+  #pages { height: 400px; overflow-y: auto; overscroll-behavior: contain; }
+  .pagecol.bank-off #pages { height: 540px; }
+  /* The bank: one card per listed modulator, in a row that scrolls sideways (ADR-322 item 3). */
+  #bank { width: auto; }
+  #bank[hidden] { display: none; }
+  #bank .head .hd-btn { margin-left: auto; }
+  #bank > .face { flex-direction: column; align-items: stretch; gap: 4px; }
+  .bank-strip { display: flex; flex-wrap: nowrap; gap: 8px; overflow-x: auto; overscroll-behavior: contain; align-items: flex-start; }
+  .bank-strip > .hd-card { flex: 0 0 auto; width: 300px; }
+  .bank-strip > .hd-card[hidden] { display: none; }
+  .bank-strip .hd-card .face { flex-wrap: nowrap; }
   .page { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
   .page[hidden], .dock[hidden] { display: none; }
   .phead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
@@ -78,10 +89,10 @@
     <button class="hd-kbd hd-focus" id="kbd" type="button" aria-pressed="false" aria-label="Keyboard mode"><span class="lampdot"></span><span id="kbdTxt">KEYS</span></button>
     <button class="hd-btn hd-focus" id="themeBtn" type="button" aria-pressed="false">Dark</button>
   </header>
-  <div class="tagline"><span class="hd-note">GUI 3 (B584, two slices so far): <b>one wired shell</b> with all twelve pages, every engine parameter of SPEC-ENGINE section 5
+  <div class="tagline"><span class="hd-note">GUI 3 (B584, three slices so far): <b>one wired shell</b> with all eleven pages, every engine parameter of SPEC-ENGINE section 5
     reachable on a page, and <b>no audio</b>: a stub engine keeps the values behind the engine's interface. The <b>Sub</b> and <b>Noise</b> pages are
     designed; the others are drafts or hold no engine parameters, and say why. Try: turn <b>Morph</b> on (the pad docks on every page; <b>Pad</b>
-    hides it), press <b>Scatter corners</b> below and drag the puck, hover any control to read it in the info box, right-click one for the manual. The <b>Morph</b> page chooses the corner you hear with morph off and saves snapshots and presets to corners (ADR-319).</span></div>
+    hides it), press <b>Scatter corners</b> below and drag the puck, hover any control to read it in the info box, right-click one for the manual. The <b>bank</b> at the foot of every page lists the modulators routed to it: press + to activate one and drag its Map handle onto a control. The <b>Morph</b> page chooses the corner you hear with morph off and saves snapshots and presets to corners (ADR-319).</span></div>
   <p class="hd-msg" id="status" role="status">Loading the shell.</p>
 
   <div class="hd-window" id="win" aria-label="horde window (no audio engine)">
@@ -91,6 +102,8 @@
       <div class="switches">
         <label class="hd-row hd-label">Morph <button class="hd-toggle hd-focus" id="morphOn" type="button" role="switch" aria-checked="false" aria-label="Morph on"></button></label>
         <label class="hd-row hd-label">Pad <button class="hd-toggle hd-focus" id="padOn" type="button" role="switch" aria-checked="true" aria-label="Show the docked morph pad"></button></label>
+        <label class="hd-row hd-label" title="ADR-322 item 4, toggle (b): show or hide the bank">Bank <button class="hd-toggle hd-focus" id="bankOn" type="button" role="switch" aria-checked="true" aria-label="Show the modulator bank"></button></label>
+        <span class="hd-pills" id="bankModes" role="radiogroup" aria-label="The bank shows" title="ADR-322 item 4, toggle (a): flip the bank between modulators and macros"><button class="hd-pill hd-focus" type="button" role="radio" data-m="mods" aria-checked="true">Mods</button><button class="hd-pill hd-focus" type="button" role="radio" data-m="macros" aria-checked="false">Macros</button></span>
       </div>
     </div>
     <div class="body" id="bodyGrid">
@@ -98,8 +111,13 @@
         <div class="head"><span class="hd-cluster">Morph</span><span class="tag">DOCKED</span></div>
         <div class="face"><div id="padHost"></div><div id="cornersHost"></div></div>
       </aside>
-      <div class="pagecol">
+      <div class="pagecol" id="pagecol">
         <main id="pages"></main>
+        <section class="hd-card" id="bank" aria-label="Modulator bank">
+          <div class="head"><span class="hd-cluster" id="bankTitle">Modulators</span><span class="tag">B556</span><span class="hd-hint" id="bankCount"></span>
+            <button class="hd-btn hd-focus" id="bankAdd" type="button" aria-haspopup="menu" title="Activate a modulator: it stays pending until you map it">+ Modulator</button></div>
+          <div class="face"><div class="bank-strip" id="bankStrip"></div><span class="hd-note" id="bankEmpty"></span></div>
+        </section>
         <section class="hd-card info" id="info" aria-label="Info box" aria-live="polite">
           <div class="head"><span class="hd-cluster" id="infoName">Info</span><span class="tag" id="infoTag">HOVER</span><span class="hd-hint" id="infoKey"></span></div>
           <div class="face"><span class="hd-value" id="infoText">Hover a control to read what it does.</span><span class="hd-hint" id="infoMeta"></span><span class="hd-note" id="infoLive"></span></div>
@@ -117,6 +135,7 @@
           <button class="hd-btn hd-focus" id="routeBtn" type="button">Add a route here</button>
           <button class="hd-btn hd-focus" id="clearRoutesBtn" type="button">Clear routes</button>
           <button class="hd-btn hd-focus" id="initBtn" type="button">Init patch</button>
+          <button class="hd-btn hd-focus" id="closeBtn" type="button" title="What closing the plugin window does to the bank: unmapped modulators are dropped">Close the interface</button>
         </div>
         <p class="hd-note" id="seamNote"></p>
         <details><summary class="hd-label">Observation view (IF-10), the current page's stepped keys</summary><pre class="hd-note" id="obsTxt"></pre></details>
@@ -258,7 +277,7 @@ function mountControl(ctl, pageId, path) {
     const view = ctl.widget === 'knob' ? H.Knob(host, p, S) : H.Slider(host, p, S);
     PROPS[row.key + '@' + pageId] = p;
     const r0 = view.render;                 // a knob draws only while its page shows: 300-odd views would redraw every frame otherwise
-    view.render = function () { if (page === pageId) { r0(); host.classList.toggle('idle', !live(ctl.live)); } };
+    view.render = function () { if (page === pageId || pageId === '*') { r0(); host.classList.toggle('idle', !live(ctl.live)); } };
     return host;
   }
   const lab = h('span', { class: 'hd-label' }, row.label);
@@ -346,7 +365,17 @@ function morphPanel() {
     card('Morph off', 'ADR-319', [h('span', { class: 'hd-label', text: 'Audible corner while morph is off' }), aud,
       h('span', { class: 'hd-hint', text: 'With morph off only this corner sounds and takes edits; the other three are silent and frozen, and come back unchanged when morph turns on. Turning morph on or off is one undo step; moving the pad is not.' })]),
     card('Corners', 'SNAPSHOTS', [chips, h('div', { class: 'hd-row' }, snapBtn, snapTo), h('div', { class: 'hd-row' }, presetBs),
-      h('span', { class: 'hd-hint', text: 'Save current sound: what you hear now becomes the selected corner, under a preset name. Save preset to a corner: that corner’s own values become its saved preset (the edited mark and revert compare against it).' })]));
+      h('span', { class: 'hd-hint', text: 'Save current sound: what you hear now becomes the selected corner, under a preset name. Save preset to a corner: that corner’s own values become its saved preset (the edited mark and revert compare against it).' })]),
+    randomizePlaceholder());
+}
+// The Randomize panel's place on the one Morph page (ADR-322 item 2): a placeholder until its build. The Random lab
+// stays the research bench (ADR-316), and is linked from here.
+function randomizePlaceholder() {
+  const el = card('Randomize', 'PLACEHOLDER', [
+    h('span', { class: 'hd-note', text: 'The Random page folds in here (ADR-322 item 2). To come: the levels with their architecture and parameter draws, chaos (the next draw’s bounds) and amount (ADR-318), locks and the default exemptions (scale, root, octave and semitone offsets, master tune; ADR-321), randomization presets as full profiles and rule collections (ADR-318, ADR-320), copying a level between corners, architecture and parameters separately (ADR-322 item 1), a minimal pitch ruleset and arp randomization (ADR-321).' }),
+    h('a', { class: 'hd-btn hd-focus', href: 'random-lab.html', text: 'Open the Random lab (the bench)' })]);
+  el.classList.add('wide'); el.id = 'randomize';
+  return el;
 }
 
 // ===== BLOCK E: the pages, from GUI3_DATA.pages =====
@@ -394,7 +423,7 @@ $('morphOn').addEventListener('click', () => setMorphOn(!dev.morph().on));
 $('padOn').addEventListener('click', () => { padShown = !padShown; paintDock(); S.say(padShown ? 'Pad shown' : 'Pad hidden: morph stays on'); });
 paintDock();
 
-function hostOf(t) { return t && t.closest ? t.closest('#pages [data-key]') : null; }
+function hostOf(t) { return t && t.closest ? t.closest('#pages [data-key], #bank [data-key]') : null; }
 function showInfo(key) {
   hovered = key;
   if (!key) { $('infoName').textContent = 'Info'; $('infoTag').textContent = 'HOVER'; $('infoKey').textContent = ''; $('infoText').textContent = 'Hover a control to read what it does.'; $('infoMeta').textContent = ''; $('infoLive').textContent = ''; return; }
@@ -434,6 +463,85 @@ $('win').addEventListener('contextmenu', e => { const t = hostOf(e.target); if (
 document.addEventListener('pointerdown', e => { if (menu && !menu.contains(e.target)) closeMenu(); }, true);
 addEventListener('keydown', e => { if (e.key === 'Escape' && menu) closeMenu(); });
 
+// ===== BLOCK D3: the bottom modulator bank (ADR-322 items 3 and 4, B556; ADR-291 item 2) =====
+// Which modulators it lists is READ, never kept: the adapter's routes (RC-4) whose parameter is a control on the
+// current page, plus the modulators activated with + and not yet mapped (the adapter's pending state). Each card
+// is the bundle's ModCardHeader with a Map handle, and the kind's critical controls generated from the table
+// (GUI3_DATA.bank, chosen per kind in layout.json with the reason). Cards are built once, then shown or hidden.
+const BANK = DATA.bank, bankCards = {};
+let bankMode = 'mods', bankShown = true, bankSig = '', dragSrc = null;
+const pageKeysList = pid => { const pg = DATA.pages.find(p => p.id === pid); return pg ? pg.groups.flatMap(g => g.controls.map(c => c.key)) : []; };
+const pageKeys = pid => new Set(pageKeysList(pid));
+function dropMap(src, key) {
+  const res = dev.drop(src.id, key);
+  S.say(res.ok ? 'Mapped ' + src.name + ' → ' + ROW[key].label + ' at 25 % (its ring shows on the control; sources read 0 with no audio)' : 'Refused: ' + res.why);
+  return res;
+}
+// The map handle: press it, drag, release over any control (Serum's drag-to-map). The drop goes through the adapter's
+// addRoute, so it refuses what RC-4 refuses (a stepped or reserved row, a source the engine does not publish).
+function bindDrag(handle, src) {
+  handle.addEventListener('pointerdown', e => { if (e.button !== 0) return; e.preventDefault(); handle.setPointerCapture(e.pointerId); dragSrc = src; S.say('Drag onto any control and release to map ' + src.name); });
+  handle.addEventListener('pointerup', e => {
+    if (dragSrc !== src) return; dragSrc = null;
+    if (handle.hasPointerCapture(e.pointerId)) handle.releasePointerCapture(e.pointerId);
+    const t = hostOf(document.elementFromPoint(e.clientX, e.clientY));
+    if (t) dropMap(src, t.dataset.key); else S.say('Not mapped: release the handle over a control');
+  });
+  handle.addEventListener('pointercancel', () => { dragSrc = null; });
+}
+dev.sources().forEach(src => {
+  const head = h('div'), handle = h('button', { class: 'hd-btn hd-focus', type: 'button', text: 'Map', 'aria-label': 'Map ' + src.name + ': drag onto a control', title: 'Drag onto any control to map ' + src.name });
+  H.ModCardHeader(head, { kind: src.kind, name: src.name, retrig: null, extra: handle });
+  bindDrag(handle, src);
+  const ctls = BANK.controls[src.id] || [];
+  const face = h('div', { class: 'face' }, ctls.length ? ctls.map(c => mountControl(c, '*', 'Bank · ' + src.name + ' · ' + ROW[c.key].label))
+    : h('span', { class: 'hd-hint', text: 'No controls of its own: ' + (src.kind === 'engine' ? 'a value the engine publishes (IF-3), with no rows in SPEC-ENGINE 5.' : 'no rows in SPEC-ENGINE 5.') }));
+  const note = h('span', { class: 'hd-hint' });
+  const cardEl = h('section', { class: 'hd-card', 'data-src': src.id, 'aria-label': src.name + ' modulator', hidden: true }, head, face, h('div', { class: 'foot' }, note));
+  bankCards[src.id] = { el: cardEl, note };
+  $('bankStrip').append(cardEl);
+});
+function bankModel() {
+  const keys = pageKeys(page), routes = dev.routes(), pend = dev.pending();
+  return dev.sources().map(src => ({ src, n: routes.filter(r => r.src === src.id && keys.has(r.param)).length, pending: pend.includes(src.id) }))
+    .filter(m => m.n > 0 || m.pending);
+}
+function paintBank() {
+  const model = bankMode === 'mods' ? bankModel() : [];
+  const sig = page + '|' + bankMode + '|' + model.map(m => m.src.id + ':' + m.n + (m.pending ? 'p' : '')).join(',');
+  if (sig === bankSig) return; bankSig = sig;
+  const on = new Set(model.map(m => m.src.id));
+  for (const id in bankCards) bankCards[id].el.hidden = !on.has(id);
+  model.forEach(m => { bankCards[m.src.id].note.textContent = m.pending ? 'PENDING: drag Map onto a control, or it is dropped when the interface closes' : m.n + (m.n === 1 ? ' route' : ' routes') + ' on this page'; });
+  $('bankTitle').textContent = bankMode === 'mods' ? 'Modulators' : 'Macros';
+  $('bankAdd').disabled = bankMode !== 'mods';
+  $('bankCount').textContent = bankMode === 'mods' ? model.length + ' on this page' : '';
+  $('bankEmpty').textContent = bankMode === 'macros'
+    ? 'Macros: none exist yet. The macros and the intent bus are the device’s and are deferred (RC-4); when they exist, this switch lists them here instead of the modulators.'
+    : model.length ? '' : 'No modulators on this page. Press + to activate one, then drag its Map handle onto a control.';
+}
+views.push({ page: '*', update: paintBank });
+function setBankMode(m) { bankMode = m; $('bankModes').querySelectorAll('button').forEach(b => b.setAttribute('aria-checked', String(b.dataset.m === m))); bankSig = ''; S.say(m === 'mods' ? 'The bank shows the modulators on this page' : 'The bank shows the macros'); }
+function setBankShown(on) { bankShown = on; $('bank').hidden = !on; $('pagecol').classList.toggle('bank-off', !on); $('bankOn').setAttribute('aria-checked', String(on)); }
+$('bankModes').querySelectorAll('button').forEach(b => b.addEventListener('click', () => setBankMode(b.dataset.m)));
+$('bankOn').addEventListener('click', () => { setBankShown(!bankShown); S.say(bankShown ? 'Bank shown' : 'Bank hidden'); });
+// + : activate a modulator that is neither routed nor pending. It shows in the bank as PENDING until it is mapped.
+$('bankAdd').addEventListener('click', e => {
+  closeMenu();
+  const routed = new Set(dev.routes().map(r => r.src)), pend = new Set(dev.pending());
+  const free = dev.sources().filter(s => !routed.has(s.id) && !pend.has(s.id));
+  const b = $('bankAdd').getBoundingClientRect();
+  menu = h('div', { class: 'hd-card menu', role: 'menu', 'aria-label': 'Activate a modulator' },
+    h('div', { class: 'head' }, h('span', { class: 'hd-cluster', text: 'Activate' }), h('span', { class: 'hd-hint', text: 'pending until mapped' })),
+    h('div', { class: 'face' }, free.length ? free.map(s => { const it = h('button', { class: 'hd-btn hd-focus', type: 'button', role: 'menuitem', text: s.name }); it.addEventListener('click', () => { closeMenu(); const r = dev.activate(s.id); S.say(r.ok ? s.name + ' is active and pending: drag its Map handle onto a control' : r.why); }); return it; })
+      : h('span', { class: 'hd-hint', text: 'Every modulator is active already.' })));
+  document.body.append(menu);
+  const mb = menu.getBoundingClientRect();
+  menu.style.left = Math.max(8, Math.min(b.left, innerWidth - mb.width - 8)) + 'px'; menu.style.top = Math.max(8, b.top - mb.height - 4) + 'px';
+});
+// Closing the interface (or ending the session) drops what was activated and never mapped (ADR-322 item 3).
+addEventListener('pagehide', () => { dev.close(); });
+
 // ===== BLOCK G: the header, the seam panel, the status line =====
 $('undoBtn').addEventListener('click', () => { if (dev.undo()) S.say('Undone'); });
 $('redoBtn').addEventListener('click', () => { if (dev.redo()) S.say('Redone'); });
@@ -445,6 +553,10 @@ $('routeBtn').addEventListener('click', () => {
   S.say(res.ok ? 'Route ENV 2 → ' + ROW[c.key].label + ' at 30 % (the ring shows it; sources read 0 with no audio)' : 'Refused: ' + res.why);
 });
 $('clearRoutesBtn').addEventListener('click', () => { if (dev.clearRoutes()) S.say('Routes cleared'); });
+$('closeBtn').addEventListener('click', () => {
+  const gone = dev.close().map(id => dev.sources().find(s => s.id === id).name);
+  S.say(gone.length ? 'Closed and reopened: dropped ' + gone.join(', ') + ' (activated with +, never mapped)' : 'Closed and reopened: nothing was pending, so nothing was dropped');
+});
 $('initBtn').addEventListener('click', () => { dev.reset(); S.say('Init patch: every corner at the spec’s defaults, no routes'); });
 $('kbd').addEventListener('click', () => { S.keys = !S.keys; $('kbd').setAttribute('aria-pressed', String(S.keys)); $('kbdTxt').textContent = S.keys ? 'KEYS ON' : 'KEYS'; $('win').classList.toggle('kbd-on', S.keys); sweepTabs(); });
 const dark = () => document.documentElement.dataset.theme ? document.documentElement.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
@@ -481,7 +593,8 @@ views.push({ page: '*', update() {
   line(allSame && !same(subWant.slice(1), subWant), 'Mounted = generated: ' + n + ' controls on ' + DATA.pages.length + ' pages, in the layout’s order; a list one key short reads as different (control).');
   // 2. No control lacks a parameter, and every host parameter is on a page.
   const mounted = new Set([...document.querySelectorAll('#pages [data-key]')].map(e => e.dataset.key));
-  const orphans = [...mounted].filter(k => !ROW[k] || ROW[k].reserved), unreached = DATA.params.filter(r => !r.reserved && !mounted.has(r.key));
+  const bankKeys = [...document.querySelectorAll('#bank [data-key]')].map(e => e.dataset.key);
+  const orphans = [...mounted, ...bankKeys].filter(k => !ROW[k] || ROW[k].reserved), unreached = DATA.params.filter(r => !r.reserved && !mounted.has(r.key));
   line(!orphans.length && !unreached.length && ROW['x'] === undefined, 'No control without a parameter (' + orphans.length + '), no host parameter without a control (' + unreached.length + ' of ' + DATA.counts.host + '); an unknown key is not a row (control).');
   // 3. The wire: a write through a Sub control's bundle props reaches the device and the engine as one undo step.
   const kc = sub.groups.flatMap(g => g.controls).find(c => c.widget === 'knob'), p = PROPS[kc.key + '@sub'], r = ROW[kc.key];
@@ -528,13 +641,30 @@ views.push({ page: '*', update() {
   // 7. Seeded and deterministic: two fresh stubs given the same calls agree; another seed differs (control).
   const run = sd => { const e = new ENG.Stub(DATA.params), d = DEV.create(DATA, ENG.SyncTransport(e), { seed: sd }); d.setMorph({ on: true, x: .3, y: .7 }); d.scatter(sd); return JSON.stringify(d.patch()); };
   line(run(SEED) === run(SEED) && run(SEED) !== run(SEED + 1), 'Deterministic: the same seed and calls give byte-identical patch state twice; seed ' + (SEED + 1) + ' differs (control).');
+  // 9. The bank (ADR-322 item 3): listed from the routes, + makes a pending modulator, a drop on a stepped control is
+  // refused and leaves it pending, a drop on a continuous one maps it and lists it on that page only, and closing the
+  // interface drops what was never mapped. Control: before any of it ENV 3 is not listed.
+  const listed = () => [...document.querySelectorAll('#bankStrip > .hd-card:not([hidden])')].map(e => e.dataset.src);
+  const srcOf = id => dev.sources().find(x => x.id === id), pg0 = page;
+  page = 'sub'; paintBank(); const before3 = listed().includes('env3');
+  dev.activate('env3'); paintBank(); const pendShown = listed().includes('env3');
+  const refusedStep = !dropMap(srcOf('env3'), pc.key).ok && dev.pending().includes('env3');
+  const mapped = dropMap(srcOf('env3'), kc.key).ok && !dev.pending().includes('env3'); paintBank(); const onSub = listed().includes('env3');
+  page = 'noise'; paintBank(); const offNoise = !listed().includes('env3');
+  dev.undo(); dev.activate('env4'); const dropped = dev.close();
+  page = pg0; paintBank();
+  line(!before3 && pendShown && refusedStep && mapped && onSub && offNoise && dropped.join() === 'env4' && !dev.pending().length,
+    'Bank: + made ENV 3 pending and listed; dropping it on ' + pr.label + ' (stepped) was refused and it stayed pending; on ' + ROW[kc.key].label + ' it mapped and listed on Sub, not on Noise; closing the interface dropped the unmapped ENV 4 (control: ENV 3 was not listed before).');
   showInfo(null); S.message = '';
   dev.clearHistory();   // the checks' own steps (the probes, the morph toggles) are not the user's history
 })();
 
 // ===== BLOCK I: go. A link can open a page, and morph on with the corners scattered: gui3.html#noise or #noise,morph =====
-{ const [pg, m] = location.hash.slice(1).split(','); selectPage(pageEls[pg] ? pg : 'sub');
-  if (m === 'morph') { setMorphOn(true); dev.scatter(SEED); dev.clearHistory(); S.message = ''; } }
+// `,bank` maps ENV 2 to the page's first two continuous controls and leaves ENV 3 pending, so the bank has cards to show.
+{ const [pg, ...flags] = location.hash.slice(1).split(','); selectPage(pageEls[pg] ? pg : 'sub');
+  if (flags.includes('morph')) { setMorphOn(true); dev.scatter(SEED); }
+  if (flags.includes('bank')) { pageKeysList(page).filter(k => ROW[k].law !== 'step').slice(0, 2).forEach(k => dev.drop('env2', k)); dev.activate('env3'); }
+  if (flags.length) { dev.clearHistory(); S.message = ''; } }
 sweepTabs();
 S.start();
 })();
