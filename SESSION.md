@@ -1,20 +1,39 @@
-# SESSION — closed 2026-10-22
+# SESSION — closed 2026-10-29
 
-**Tree at close:** main at 9161dcd (#1187 merged). `./verify fast` exit 0 on main at
-2026-10-22T02:38Z (d130aed, before #1187's ROADMAP-only change; the close PR's tree is
-re-verified before push). This session (2026-10-20 to 10-22) ran the clean room through
-stage 6's acceptance (ADR-268) and spec rounds 26 to 30 (ADR-258, 260, 263, 265, 270),
-ruled the design system (ADR-259, 261, 262, 266), the trigger timer and declared actions
-(ADR-267), and spun up Arp as the note-generation sibling (ADR-264, 269, 270).
+**Tree at close:** main at 225672b (#1247 merged); this close's PR adds ADR-307, ADR-308,
+README's rebuild rows, B567's Weir note and two reflections. `./verify fast` exit 0 on main
+at 2026-10-29 (the close's own tree is re-verified before push). This session (2026-10-28 to
+10-29) ran spec rounds 42 to 47 through the clean room (ADR-289, 298, 299, 301, 303, 304)
+until the builder committed them (a554c31 rounds 42–46; 5442272 round 47 and ED-1 under
+phase FM: 293/295 suite items pass, the two reds are 3.b Crushed burst and 9.b1's four
+as-found presets). It ruled the Sluice and Shriek title marks (ADR-302, 305), Shriek's 4 KiB
+per corner (ADR-300), Sluice's randomize-all-four and revert in the slot (ADR-306); built the
+filter lab round 3 (B566, #1243) and moved the filter DSP to a new sibling, Weir (ADR-307,
+B567, spun up and ratified by poll, browser lab ruled).
 
-**First move next session:** FINISH ED-7. Read the clean-export rerun of the builder's
-a418265 (the session scratchpad's `builder-a418265-release.log`; if the scratchpad is
-gone, rerun from `git archive a418265` in the engine repo, cmake -j4 nice, `ctest -LE
-"long|soak"`). Expect the builder's 19 known reds with item 7.7 now green. Bring ED-7 to
-the human for acceptance, release the builder's hold, give the push commands for both
-clean-room repos, record hashes, update the progress page.
+**First move next session:** the clean room. The builder's soak on 5442272 started
+2026-10-29 02:11 and was STOPPED soon after for a machine shutdown (not a failure). Restart it
+from the beginning on 5442272 at the lead's "go" (about 17 h, single-threaded, its result as
+its own notice). After it ends, rerun a554c31 and 5442272 from a clean `git archive` export (cmake -j4 under nice,
+the default suite plus item10_b6_long): expect only 3.b (Crushed burst) and 9.b1 (Undertone
+drift, Cross-mod pair, Formant growl, Cross-mod roar) red. Then the builder places Crushed
+burst. Update the progress page (log e47 is the latest) at each event.
 
 **Open threads (append, don't replace):**
+- Clean room: the soak, to restart after the 2026-10-29 shutdown (builder), the clean-export rerun (lead), Crushed burst (builder);
+  the S&H modulator under 7.9 reads 16–42 dB better than the law's reference (builder
+  flagged, not asked; held on the lead's side, not sent to the test author).
+- Pushes owed by the human: cleanroom-engine (12 commits ahead) and cleanroom-tests (15).
+- Weir: its lab (Q-003); the human's Q-002 (which types sound most wrong, which first) and
+  the lab's native-versus-WASM tolerance; a notice when the lab plays its first filter.
+- Sibling PRs to land by their residents: autonomous #67 (Weir's registration), Scape #71
+  (admission results; then Era's crossfade, B562).
+- Owed by horde: Scape's CPU figure on a quiet bench (RS-8.2); at S4, Sluice's buttons
+  (ADR-306), Shriek's lab swap and 104 x 24 title box, the workshop's "MAW" rename, B564's
+  manifest gate and Sluice's live title; with the rack, B527, B529, B530.
+- The human: the page-chrome lab's six questions (B555); Arp seq 9 and its presets.
+
+*Carried from the 2026-10-22 close, not re-checked this session:*
 - Spec round 31 (owed, ROADMAP B543 note): the four `stream` rows' range reads Both in
   1.0 (Direct, Arp later, in `pitchMode`'s form); §5.3 states the oscillator's `stream`
   takes its block's last id, after the blades. Deliver to both clean-room repos.

@@ -9937,3 +9937,29 @@ Both frames were captured from a local preview.
 - Built at S4 with Sluice in horde (B331), and in the rack's state schema (B263).
 - Nothing is owed to Sluice: its notice was `ball: none`.
 - **FX device (ADR-254):** the same, since Sluice is hosted there through the same slot and state.
+
+## ADR-307 — RULED by the human: the filters move to Weir, a C++ repo of their own (B567; 2026-10-28)
+
+**Context.** B566's filter lab (round 3, horde #1243) holds the filter types in JavaScript with a fidelity programme and a C++ transcription bench. The human found the DSP needs much more work than a lab round gives.
+
+**Ruling (the human, 2026-10-28):** "The DSP of the filters in the filter module needs a lot of work. We should probably start building them out in C++ directly in a parallel repo." The spin-up survey and the manifest's ratification were then answered by poll (Weir D-001, D-002). Later, by poll, Weir gets a browser lab built from its own C++: "Browser lab from the C++" (Weir D-004).
+- Weir (`synthetic-worlds/Weir`, private remote, its name allowed in horde's tracked files) is a framework-free C++ filter library. Its oracle is the C1–C7 fidelity programme ported with must-fail controls, plus determinism. A type gets a golden only after the human rules its design by ear.
+- The C++ leads. horde's filter lab and `tools/filter_cost_bench.cpp` are its starting point, not a parity target, and Weir records each divergence.
+- Weir provides the new engine's per-voice filter slot (RC-1, X13) and the FX filter module (`fxfilter`).
+
+**Rejected:** carrying the DSP work forward as further rounds of horde's JS lab; a JS twin of the C++ for listening (what is heard must be the code that ships).
+
+**Consequences.**
+- B566's open rulings, B303 (the per-note list), B288 (the comb as a filter type) and B289 (the SVF port) now land in Weir, and reach horde by brief at Weir's Phase 1 (the interface) and Phase 3 (the hand-off).
+- Weir's spin-up notice: `integrations/weir/notice-spinup.md`. Weir's registration brief: autonomous PR #67.
+- **FX device (ADR-254):** `fxfilter` takes Weir's types, so the FX device after 1.0 gets the same filters; no parameter id changes now.
+
+## ADR-308 — GATE-CHANGE, RULED by the human: two DSP constants in the filter cost bench are not tolerances (B566; 2026-10-28)
+
+**Context.** `tolerance_registry_check` flagged two constants in B566's new `tools/filter_cost_bench.cpp`: `AA_EPS = 1e-5`, the MS-20's anti-aliasing fallback threshold, and the literals `>= 0.1` and `< 0.5`, two of the filter lab's own DSP branch points. Each is transcribed from the lab. The registry lets only a human judge a candidate "not a tolerance".
+
+**Ruling (the human, 2026-10-28, by poll):** "Exclude both". Both are in `docs/armor/tolerances.json`'s `excluded` list, each with its reason, citing B566 (horde #1243).
+
+**Rejected:** registering them as tolerances; holding the PR.
+
+**Consequences.** A change to either constant no longer reads as a tolerance change. The registry's other 138 entries are untouched. This records the ruling that B566's row noted as a GATE-CHANGE.
