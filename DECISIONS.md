@@ -10207,3 +10207,17 @@ Both frames were captured from a local preview.
 - The Random lab's next round builds item 1.
 - **FX device (ADR-254):** the same, on the FX device's Morph page and pages: copy a level between corners; one Morph page; the bank with its FX modulators and macros.
 
+## ADR-323 — RULED by the human: the modulator bank gets a compact card, keeps show/hide, maps from the keyboard by Map-then-pick, and lists page controls' modulators only (B556, B584, B589; 2026-10-29)
+
+**Context.** GUI 3's slice 3 (horde #1271) built the bottom modulator bank (ADR-322) and asked four questions. With the bank shown, the window grows to about 900 px, over ADR-259's 720 px, because each card is one row of full-size bundle knobs.
+
+**Rulings (the human, 2026-10-29, by poll).**
+1. **"Compact card in the design system".** The design system gains a compact modulator card with small knobs, so the bank fits inside 720 px. Until then the Bank switch hides the strip. This joins the design-system round (B589).
+2. **"Show/hide now; Mods|Macros later".** The show/hide switch stays. Mods | Macros folds into the strip's header once macros exist.
+3. **"Press Map, then pick a control".** Activating Map enters a mapping mode. The next control activated, by keyboard or click, gets the route. Escape cancels.
+4. **"No, page controls only".** The bank answers "what modulates this page". A modulator of a modulator shows on the page where its target lives.
+
+**Rejected:** a taller window; the bank overlaying the page; keeping both toggles; a mouse-only mapping; listing modulators of modulators.
+
+**Consequences.** GUI 3's next slice applies 2, 3 and 4. Item 1 waits on B589. **FX device (ADR-254):** the same, on its pages.
+
