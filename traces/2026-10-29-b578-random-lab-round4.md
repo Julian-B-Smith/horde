@@ -1,0 +1,30 @@
+# b578-random-lab-round4 — copy a level between corners (ADR-322 item 1)
+
+- **Queue item:** B578, round 4, from ADR-322 (horde PR #1269, read on `origin/lead-records-367`). Branch `lab-b578-random-4` from origin/main at de43787, after #1266 merged.
+- **Why:** the human: "there should also be a way on the random page to copy a level's settings from one corner to another independently." Architecture and parameters copy separately.
+- **What changed:**
+  - **`docs/design/random-lab.html`:**
+    - a new `copyLevel` action, with `copyKeys(level, kind)` naming the keys a copy moves;
+    - the copy moves only that level's structural keys (rule-drawn mod routes included) or its numbers;
+    - locked keys on the target are kept, and a locked target corner refuses;
+    - the copy is one logged action, so one history step;
+    - the target's binding is untouched, so a bound corner becomes a draft;
+    - each level row has a ⇄ button opening an inline "copy <level> from X to Y: ARCH / PARAMS" strip;
+    - check C18 added;
+    - the levels column is widened by 25 px for the new button.
+  - **`docs/design/random-lab-report.md`:**
+    - new §4c, the copy and the ADR-322 fold into one Morph page; the lab stays a research bench (ADR-316) and is not restructured;
+    - C18 added to the evidence.
+- **Checks:** all 18 self-checks pass headless.
+  - **C18:** OSC 1 parameters copied A → B moved 6 keys, all OSC 1 parameters. B kept its OSC 1 architecture; the other corners kept their values; the locked o1.fine was kept; B is a draft; an ARCH copy touches only OSC 1's structure.
+  - **C18's control:** a whole-corner copy moves 80 keys, not only OSC 1 parameters, and fails as it must.
+  - **Headless Chrome:**
+    - ⇄ on OSC 1 opened the strip;
+    - from A to C, PARAMS moved o1.fine, o1.detune, o1.spread and o1.level only;
+    - the log grew by 1 and C is a draft;
+    - replay ✓.
+- **Alternatives rejected:**
+  - **One combined arch+params copy:** the ruling asks for two separate choices.
+  - **Re-binding the target to the source's snapshot:** that would copy other levels by implication.
+- **Verify:** `./verify fast`, exit 0 (the record is in the report back to the lead; this trace is written before the run, so the run includes it).
+- **Open questions:** whether the final Morph page offers copy per level only, or also per group or per key. Not asked; not built.

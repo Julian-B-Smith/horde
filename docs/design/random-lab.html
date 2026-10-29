@@ -25,6 +25,9 @@
          intent bus; any filter cutoff, any oscillator's timbre, the FX sends, …) defined once and read by all.
        · ROUND 3 (ADR-320) also: ARCH writes the selected corner by default; the pad plays the morph's law (BLEND,
          QUANTUM, STEPPED; C15); the snapshot ✕ deletes (C16); "save all four" keeps the four corners as one set (C17).
+       · ROUND 4 (ADR-322): each level row's ⇄ copies that level's architecture OR parameters from one corner to
+         another, locks kept, one history step (C18). ADR-322 folds the Random page into one Morph page; this lab
+         stays a research bench and is not restructured for it.
        · BOUNDS: a bell curve around each value's HOME with one HOME ↔ CHAOS knob (the distribution is drawn), AMOUNT
          sliders, per-group scales, per-parameter bounds, and locks (per parameter, per group, per mod slot, per corner:
          a PROPOSAL, after Sluice's randomiser exclusions). "Dice" chips on structural choices: lit = can be drawn.
@@ -101,11 +104,11 @@
   .dim { opacity: var(--opacity-disabled); }
 
   /* THE PAGE: three columns, the way horde's Random page could sit in a 980-px window plus the lab's extras */
-  .page { display: grid; grid-template-columns: minmax(320px, 350px) minmax(300px, 340px) minmax(380px, 1fr); gap: var(--space-grid); align-items: start; }
+  .page { display: grid; grid-template-columns: minmax(345px, 370px) minmax(300px, 340px) minmax(380px, 1fr); gap: var(--space-grid); align-items: start; }
   @media (max-width: 1100px) { .page { grid-template-columns: 1fr; } }
 
   /* LEVELS */
-  .lvl { display: grid; grid-template-columns: minmax(0, 1fr) auto auto 46px 26px 30px; align-items: center; gap: 4px; min-height: 26px; border-radius: var(--radius-track); padding: 0 3px; }
+  .lvl { display: grid; grid-template-columns: minmax(0, 1fr) auto auto 22px 46px 26px 30px; align-items: center; gap: 4px; min-height: 26px; border-radius: var(--radius-track); padding: 0 3px; }
   .lvl.foc { background: var(--sel-neutral); }
   .lvl .nm { text-align: left; background: none; border: 0; padding: 0; cursor: pointer; font: 800 9.5px/1.2 var(--font-sans); letter-spacing: .03em; color: var(--ink); display: flex; gap: 5px; align-items: center; white-space: nowrap; overflow: hidden; min-width: 0; }
   .lvl.d1 .nm { padding-left: 14px; font-weight: 600; }
@@ -123,6 +126,7 @@
   .smb.mute[aria-pressed="true"] { background: var(--alarm); color: var(--on-alarm); border-color: var(--alarm); }
   .smb.mute.implied { opacity: .55; color: var(--t2); border-style: dashed; background: repeating-linear-gradient(45deg, var(--well-alt) 0 3px, var(--panel) 3px 6px); }
   .lvl.silenced .nm { opacity: .45; }
+  .copyrow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 3px 6px 5px 18px; margin: 0 0 3px; border-left: 2px solid var(--ink); background: var(--well-alt); border-radius: 0 var(--radius-track) var(--radius-track) 0; }
   #srcmeters { font: 400 9px/1.4 var(--font-mono); color: var(--t2); }
 
   /* THE PAD */
@@ -871,6 +875,12 @@ function scopeKeys(S, level, kind) {
   }
   return out;
 }
+/* the keys a level's copy moves: its groups' structural keys (rule-drawn mod routes included) or its numbers */
+function copyKeys(level, kind) {
+  const gs = LEVEL[level].groups, out = [];
+  for (const s of SPEC) if (gs.indexOf(s.group) >= 0 && (kind === 'arch' ? s.arch : !s.arch)) out.push(s.key);
+  return out;
+}
 /* A ROLL: one click's draws for one source corner, kept so CHAOS, AMOUNT, bounds, dice and locks can re-apply it */
 function makeRoll(S, level, kind, src, targets, bases) {
   const keys = scopeKeys(S, level, kind), us = {}, click = S.clicks;
@@ -1084,6 +1094,26 @@ function applyAction(S, a) {
       break;
     }
     case 'delSet': S.sets = S.sets.filter(x => x.id !== a.id); break;
+    /* COPY A LEVEL BETWEEN CORNERS (ADR-322 item 1; the human: "a way ... to copy a level's settings from one corner
+       to another independently"). Only that level's keys, and only its STRUCTURE (arch: enums and the mod slots'
+       routes) or its NUMBERS (params), never both at once; every other level on the target stays as it was. A locked
+       key (group, key or mod slot lock) on the target is kept; a locked target corner refuses. One action, so one
+       history step; the target's binding is untouched, so a bound corner becomes a draft of its snapshot, the same
+       rule as any edit (C18). */
+    case 'copyLevel': {
+      const L = LEVEL[a.level], f = a.from | 0, t = a.to | 0;
+      if (!L) return refuse('no such level');
+      if (f === t) return refuse('copy needs two different corners');
+      if (S.lockC[t]) return refuse('corner ' + CN[t] + ' is locked: copy refused');
+      if (a.kind === 'arch' && L.noArch) return refuse(L.name + ': ' + L.noArch);
+      const keys = copyKeys(a.level, a.kind), o = clone(S.work[t]);
+      let kept = 0;
+      for (const key of keys) { if (isLocked(S, BY[key])) { if (o[key] !== S.work[f][key]) kept++; continue; } o[key] = S.work[f][key]; }
+      repair(o);
+      S.work[t] = o;
+      S.msg = 'copied ' + L.name + ' ' + (a.kind === 'arch' ? 'architecture' : 'parameters') + ' ' + CN[f] + ' → ' + CN[t] + (kept ? ' · ' + kept + ' locked key(s) kept' : '');
+      break;
+    }
     /* every case below sets a BOUND for the next draw: none of them may change a corner (C14) */
     case 'home': if (snapOf(S, a.sid)) S.homeSid = a.sid; break;
     case 'lockC': S.lockC[a.corner] = !S.lockC[a.corner]; break;
@@ -1797,6 +1827,30 @@ function runChecks() {
     row('C16', okNow && !okOld, 'The ✕ deletes a saved snapshot even when a corner is bound to it; the corner keeps its sound (as a draft); the home can go (★ passes on); the last snapshot stays.',
       'deleted: ' + r.gone + ' · corner B\'s sound kept: ' + r.sound + ' · now a draft: ' + r.draft + ' · home deletable: ' + r.homeDel + ' · last stays: ' + r.lastStays + ' · control, round 2\'s rule: deleted ' + o.gone + (okOld ? ' (PASSED: the check is blind)' : ' (fails, as it must: the bug)'));
   }
+  // C18 copy a level between corners: only that level, only that kind; control: a whole-corner copy
+  {
+    const build = () => { const T = newState(seed); T.chaos = 1; T.amount = 1; T.archScope = 'one';
+      for (let k = 0; k < 2; k++) applyAction(T, { t: 'rand', level: 'global', kind: 'arch', corner: k, scope: 'one' });
+      applyAction(T, { t: 'randAll', level: 'global' }); applyAction(T, { t: 'save', corner: 1 }); return T; };
+    const verdict = (T, before) => {
+      const P = copyKeys('osc1', 'params'), A = T.work[0], B = T.work[1], moved = [];
+      for (const s of SPEC) if (B[s.key] !== before[1][s.key]) moved.push(s.key);
+      const onlyP = moved.every(k => P.indexOf(k) >= 0), all = P.every(k => T.lockK[k] || B[k] === A[k]);
+      const others = [0, 2, 3].every(k => JSON.stringify(T.work[k]) === JSON.stringify(before[k]));
+      const archKept = copyKeys('osc1', 'arch').every(k => B[k] === before[1][k]);
+      return { ok: moved.length > 0 && onlyP && all && others && archKept, moved: moved.length, onlyP, archKept, others };
+    };
+    const T = build(); T.lockK['o1.fine'] = true; const before = T.work.map(clone), log0 = 1;
+    applyAction(T, { t: 'copyLevel', level: 'osc1', kind: 'params', from: 0, to: 1 });
+    const v = verdict(T, before), lockKept = T.work[1]['o1.fine'] === before[1]['o1.fine'], draft = isDraft(T, 1);
+    const Ta = build(), ba = Ta.work.map(clone); applyAction(Ta, { t: 'copyLevel', level: 'osc1', kind: 'arch', from: 0, to: 1 });
+    const archOnly = SPEC.every(s => Ta.work[1][s.key] === ba[1][s.key] || (s.group === 'osc1' && s.arch));
+    const C = build(), bc = C.work.map(clone); C.work[1] = clone(C.work[0]);   // the control: copy the whole corner
+    const vc = verdict(C, bc);
+    row('C18', v.ok && lockKept && draft && archOnly && !vc.ok, 'COPY A LEVEL (ADR-322): OSC 1 parameters A → B change only OSC 1\'s parameter keys on B; B\'s OSC 1 architecture, every other level and the other corners stay; a locked key stays; B becomes a draft.',
+      v.moved + ' keys moved, all OSC 1 parameters: ' + v.onlyP + ' · OSC 1 architecture kept: ' + v.archKept + ' · other corners kept: ' + v.others + ' · locked o1.fine kept: ' + lockKept + ' · B a draft: ' + draft + ' · ARCH copy touches only OSC 1 structure: ' + archOnly
+      + ' · control, a whole-corner copy: ' + vc.moved + ' keys moved, only OSC 1 parameters: ' + vc.onlyP + (vc.ok ? ' (PASSED: the check is blind)' : ' (fails, as it must)'));
+  }
   // C17 save all four: one named set of four snapshots; it loads back; a locked corner refuses
   {
     const T = newState(seed); T.chaos = 1; T.amount = 1;
@@ -1822,7 +1876,7 @@ function runChecks() {
 const $ = id => document.getElementById(id);
 const UI = { seed: 0x5EED, focus: 'osc1', group: 'osc1', key: 'o1.detune', puck: { x: 0.25, y: 0.25 }, playing: false, pattern: 'arp', mw: 0, vol: 0.7, replay: '',
   mute: [false, false, false, false], solo: [false, false, false, false], lastSq: [0, 0, 0, 0], lastN: 0,
-  intent: [0, 0, 0, 0], morph: { law: 'blend', T: 1, c: 0.3, n: 4 } };
+  intent: [0, 0, 0, 0], morph: { law: 'blend', T: 1, c: 0.3, n: 4 }, copy: { level: null, from: 0, to: 1 } };
 /* the pad's morph law is what the puck HEARS, like the puck itself: not stored, not logged; its draws use the session seed */
 function morphOf() { return { law: UI.morph.law, T: UI.morph.T, c: UI.morph.c, n: UI.morph.n, seed: S.seed }; }
 let S = newState(UI.seed);
@@ -1924,9 +1978,17 @@ function renderLevels() {
       + '<button class="nm" data-act="focus" data-arg="' + L.id + '">' + esc(L.name) + (L.pass ? ' <span class="lab-tag stub" title="PASS-THROUGH STUB: in horde these buttons call the module\'s own randomize verbs">STUB</span>' : '') + '</button>'
       + '<button class="hd-pill sm" data-act="rand" data-arg="' + L.id + '|arch"' + (L.noArch ? ' disabled title="' + esc(L.noArch) + '"' : ' title="randomize architecture (structure)' + (L.rules ? ' — includes the mod routes, drawn by the ruleset' : '') + '"') + '>ARCH</button>'
       + '<button class="hd-pill sm" data-act="rand" data-arg="' + L.id + '|params" title="randomize parameters (the numbers)">PARAMS</button>'
+      + '<button class="lk" data-act="copyOpen" data-arg="' + L.id + '" aria-pressed="' + (UI.copy.level === L.id) + '" title="copy this level\'s settings from one corner to another (ADR-322 item 1)">⇄</button>'
       + smCell(L.id)
       + (one ? '<button class="lk" data-act="lockG" data-arg="' + one + '" aria-pressed="' + !!S.lockG[one] + '" title="lock the whole group (a PROPOSAL)">' + (S.lockG[one] ? '■' : '□') + '</button>' : '<span></span>')
       + '<span class="chg">' + (n ? '+' + n : '') + '</span></div>';
+    if (UI.copy.level === L.id) {
+      const sel = (id, v) => '<select class="hd-select sm" data-ui="' + id + '" aria-label="' + (id === 'copyFrom' ? 'from corner' : 'to corner') + '">' + CN.map((c, k) => '<option value="' + k + '"' + (k === v ? ' selected' : '') + '>' + c + '</option>').join('') + '</select>';
+      h += '<div class="copyrow"><span class="hd-label">copy ' + esc(L.name) + ' from</span>' + sel('copyFrom', UI.copy.from) + '<span class="hd-label">to</span>' + sel('copyTo', UI.copy.to)
+        + '<button class="hd-pill sm" data-act="copy" data-arg="' + L.id + '|arch"' + (L.noArch ? ' disabled title="' + esc(L.noArch) + '"' : ' title="copy the structure only (waves, modes, routing, …)"') + '>ARCH</button>'
+        + '<button class="hd-pill sm" data-act="copy" data-arg="' + L.id + '|params" title="copy the numbers only">PARAMS</button>'
+        + '<span class="hd-hint">only this level; locked keys and a locked corner are kept; one history step</span></div>';
+    }
   }
   $('levels').innerHTML = h;
   const sc = [['all', 'all four corners'], ['one', 'selected corner']];
@@ -2302,6 +2364,8 @@ function onClick(e) {
     case 'loadSet': dispatch({ t: 'loadSet', id: arg }); break;
     case 'delSet': dispatch({ t: 'delSet', id: arg }); break;
     case 'law': UI.morph.law = arg; render(); break;
+    case 'copyOpen': if (UI.copy.level === arg) UI.copy.level = null; else { UI.copy.level = arg; UI.copy.from = selCorner(); UI.copy.to = (selCorner() + 1) % 4; } renderLevels(); break;
+    case 'copy': { const [level, kind] = arg.split('|'); dispatch({ t: 'copyLevel', level, kind, from: UI.copy.from, to: UI.copy.to }); break; }
     case 'home': dispatch({ t: 'home', sid: arg }); break;
     case 'lockC': dispatch({ t: 'lockC', corner: +arg }); break;
     case 'solo': UI.solo[+arg] = !UI.solo[+arg]; setMonitor(); break;
@@ -2372,6 +2436,7 @@ function onChange(e) {
   if (!t) return;
   if (t.id === 'seed') { const s = parseInt(t.value, 16); if (s === s) newSession(s >>> 0); else setMsg('the seed is hex', true); return; }
   if (t.dataset && t.dataset.ui === 'mN') { UI.morph.n = +t.value; render(); return; }
+  if (t.dataset && (t.dataset.ui === 'copyFrom' || t.dataset.ui === 'copyTo')) { UI.copy[t.dataset.ui === 'copyFrom' ? 'from' : 'to'] = +t.value; return; }
   if (t.dataset && t.dataset.ui === 'pattern') { UI.pattern = t.value; if (ENG) { ENG.pattern = t.value; ENG.step = 0; } return; }
   if (t.dataset && t.dataset.rs) {
     const x = +t.value;
