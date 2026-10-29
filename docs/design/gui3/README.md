@@ -1,9 +1,10 @@
 # GUI 3: the wired shell
 
-*Last verified 2026-10-29, branch `gui3-b584-slice2` (ROADMAP B584, second slice; ADR-316, ADR-319).*
+*Last verified 2026-10-29, branch `gui3-b584-slice3` (ROADMAP B584, third slice; ADR-316, ADR-319, ADR-322).*
 
-`docs/design/gui3.html` is GUI 3's prototype: one window with twelve pages, every engine parameter
-reachable, and no audio. It is built from the design system's vendored bundle (`../arp-face/`), its
+`docs/design/gui3.html` is GUI 3's prototype: one window with eleven pages (the Random page folded into the
+Morph page, ADR-322 item 2), every engine parameter reachable, a bottom modulator bank on every page, and no
+audio. It is built from the design system's vendored bundle (`../arp-face/`), its
 controls are generated from SPEC-ENGINE section 5, and it talks to a stub engine through one adapter and
 a swappable transport. The WebAssembly engine (SPEC-ENGINE IF-10, clean-room stage 8) replaces the stub
 behind the same seam.
@@ -13,11 +14,11 @@ behind the same seam.
 | file | what it is | edited by |
 |---|---|---|
 | `../gui3.html` | The shell: pages, chrome (docked pad, info box, right-click menu), the Morph page's panel, the seam panel, self-checks. Builds every parameter control in one function from `shell-data.js`, and names no parameter itself. | hand |
-| `layout.json` | Which key goes on which page and in which group, widget overrides with their reasons, PA-8's live-when for the designed pages, a page's shell-built panel. | hand (the page designer) |
+| `layout.json` | Which key goes on which page and in which group, widget overrides with their reasons, PA-8's live-when for the designed pages, a page's shell-built panel, the bank's critical controls per modulator kind. | hand (the page designer) |
 | `params.json` | SPEC-ENGINE section 5 as data: 330 rows (317 host parameters, 13 reserved), with label, unit, law, range, class, options, default and its normalised v, and the row's spec text. | generated |
 | `shell-data.js` | The same rows plus the pages' control lists, as one script the shell loads from `file://`. | generated |
 | `engine-stub.js` | The no-audio engine (`GUI3Engine.METHODS`, `GUI3Engine.Stub`) and the synchronous transport (`GUI3Engine.TRANSPORT`, `GUI3Engine.SyncTransport`). | hand |
-| `device.js` | The adapter the shell talks to: morph, corners and their presets, routes, history, mirror and confirm. `GUI3Device.create(data, transport, {seed})`. | hand |
+| `device.js` | The adapter the shell talks to: morph, corners and their presets, routes, pending modulators and map drops, history, mirror and confirm. `GUI3Device.create(data, transport, {seed})`. | hand |
 
 Regenerate after editing the spec or the layout: `python3 tools/gen_gui3_controls.py`.
 Open the shell from `docs/design/` (or `tools/labs_preview.sh`); `gui3.html#noise,morph` opens a page
@@ -48,6 +49,37 @@ already gives. Today's one override: the sub's Wave as buttons (seven shapes, th
 - **Save preset to [corner]** (one per corner): that corner's own values become its saved preset, under
   a name. The bundle's edited mark and revert compare against it.
 - **History:** turning morph on or off is one undo step; the morph position is performance and is not.
+
+## The bottom modulator bank (ADR-322 items 3 and 4, B556, ADR-291 item 2)
+
+- **What it lists is read, never kept:** the modulators with a route (the adapter's routes, RC-4) to a
+  control on the current page, plus those activated with + and not yet mapped. On a page with no engine
+  parameters (Filters, Morph, FX) it lists only the pending ones.
+- **Each card** is the bundle's `ModCardHeader` (kind colour, name, kind tag) with a **Map** handle, its
+  kind's critical controls, and a foot saying how many of its routes land on this page, or that it is
+  pending.
+- **The critical controls are generated from the table:** `layout.json`'s `bank.kinds` names, per kind, a
+  block pattern and the row suffixes, with the reason; the generator makes one control per row by the
+  widget rule and refuses a suffix a block lacks. **Why these:** today the only modulators with rows in
+  SPEC-ENGINE 5 are ENV 1 to ENV 4 (5.2), so an envelope's card carries its **attack, decay, sustain and
+  release**: they are its shape at a glance, and each moves the sound. Hold, the three curves, velocity
+  and one-shot refine that shape and stay on the envelope's page (Main for ENV 1, Mod for ENV 2 to 4).
+  The engine's other published sources (velocity, aftertouch, R and psi, the onset burst, gravity, the
+  MPE expressions; IF-3) have no rows, so their cards say so. The LFOs and macros are deferred (RC-4):
+  when their rows exist (an LFO's rate, shape and depth), a `bank.kinds` entry adds them, with no shell
+  change.
+- **+ Modulator** activates a modulator that is neither routed nor pending. It is **pending**: shown,
+  routed nowhere, outside the patch and the history. Closing the interface or ending the session
+  (`pagehide`, or "Close the interface" in the seam panel) drops it unless it was mapped (`dev.close()`).
+- **The map handle:** press Map, drag, release over any control. The drop goes through `dev.drop`, which
+  is `addRoute`: a stepped or reserved row, or a source the engine does not publish, is refused (RC-4),
+  and a refused drop leaves the modulator pending.
+- **Both toggles, for the human to rule after playing (ADR-322 item 4):** (a) **Mods | Macros** flips
+  the strip between modulators and macros (no macros exist yet, so that view says why); (b) **Bank**
+  shows or hides it.
+- **Window height:** with the bank shown the window is taller than ADR-259's 720 px; a card is one row of
+  bundle knobs (about 200 px). A compact card (the bundle's `bare` knobs, or a smaller knob) is a
+  proposal below.
 
 ## The seam and the transport
 
@@ -94,13 +126,15 @@ on/off and audible corner (RC-11.1), the routes (RC-4 defers the matrix), and th
   a parameter; every host parameter is on a page; no reserved row is placed; widgets suit their rows;
   an override of the widget rule carries a reason; live-when conditions name real options; the shell
   mounts controls in one place and names no key; no gui3 script reads a clock; the outputs are current.
-  Twelve must-fail controls.
-- `node tools/labharness/gui3_seam_check.mjs`: fifteen tests of the stub, the transport and the adapter
-  against the spec and ADR-319 (morph off, the morph toggle in history, corner snapshots, mirror and
-  confirm over a synchronous and a delayed transport), thirteen planted faults. `--verbose` prints why
+  The bank's critical controls exist in each block their kind matches, and their choice carries a reason.
+  Fourteen must-fail controls.
+- `node tools/labharness/gui3_seam_check.mjs`: seventeen tests of the stub, the transport and the adapter
+  against the spec, ADR-319 and ADR-322 (morph off, the morph toggle in history, corner snapshots, mirror
+  and confirm over a synchronous and a delayed transport, pending modulators dropped on close, map drops
+  refused on stepped and reserved rows), sixteen planted faults. `--verbose` prints why
   each plant went red.
 - `lab_load_check` loads the page's inline script (it stops at the missing bundle, as the other bundle
-  labs do). The page's own nine self-checks run in a browser, each with a control.
+  labs do). The page's own ten self-checks run in a browser, each with a control.
 
 ## Proposals for the design system (nothing here is drawn locally)
 
@@ -124,6 +158,14 @@ The bundle (version `1793080392-2372`) lacks these; each goes into the design sy
     `CornerChips`; the chip row (which already has lock and revert) is where it belongs.
 11. **A corner picker** for the audible corner while morph is off: the shell uses `hd-pills` with the
     corner glyphs; the corner palette on the pill is missing.
+12. **A modulator card** for the bank (ADR-322 item 3): the shell assembles one from `hd-card` and
+    `ModCardHeader`, with full-size knobs; a compact card, so the window keeps its 720 px with the bank
+    shown, is missing.
+13. **A drag handle** (the Map handle, Serum-style): the shell uses an `hd-btn` labelled Map; a handle
+    with a drag affordance and a drop-target highlight on the controls is missing.
+14. **A horizontal strip** for the bank: the shell lays the cards out in an `hd-card` row that scrolls
+    sideways; a strip component (with the +, the empty state and the Mods | Macros switch) is missing.
+15. **A macro card** for the bank's Macros view, once macros exist (RC-4 deferred).
 
 ## Known gaps
 
@@ -131,6 +173,9 @@ The bundle (version `1793080392-2372`) lacks these; each goes into the design sy
   row's spec text, labelled SPEC TEXT. Missing: 317 of 317; two rows (`sub.semitones`, `sub.fine`) have
   no spec text at all.
 - **Manual anchors:** "Open in manual" is a stub until B451's pages exist (B583).
+- **The Randomize panel** on the Morph page is a placeholder that lists its contents to come (ADR-318,
+  ADR-320, ADR-321, ADR-322 item 1) and links to the Random lab, which stays the bench.
 - **Not in this slice:** the other pages' designs (B581's order), the rest of the Morph page (B581 step
-  3), moving the parameter table beside `engine2/structure` (B586), PA-8 as a table in the spec (B587),
-  the mod map, the page bank (B556), the per-parameter morph mode (B557), the WebAssembly engine, gui2.
+  3) and the Randomize panel's build, moving the parameter table beside `engine2/structure` (B586), PA-8
+  as a table in the spec (B587), the mod map, the per-parameter morph mode (B557), keyboard mapping from
+  the bank (the Map handle is pointer-only), the WebAssembly engine, gui2.

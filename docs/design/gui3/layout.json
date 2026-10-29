@@ -1,6 +1,13 @@
 {
   "format": "horde.gui3-layout/1",
-  "note": "GUI 3's page layout (B584, ADR-316). Design input, hand-edited: which parameter goes on which page and in which group. It names parameters by key and nothing else; labels, ranges, laws, defaults and options come from SPEC-ENGINE section 5 through tools/gen_gui3_controls.py, which refuses a key the spec does not have, a host parameter no page places, and a reserved row placed anywhere. A group's `block` places every host row of that block in the spec table's order (5.8: a table's row order is its display order), so a row added to the spec appears on its draft page without an edit here. A `designed` page lists its keys one by one, so a new row there is unplaced, and red, until the page's designer places it. `live` is PA-8's live-when table, transcribed for the designed pages only; a control whose condition fails is drawn idle (dashed), never hidden. `widget` overrides the widget rule (ADR-319 item 5, gui3/README.md) for a row, and must say why in `reason`; a knob or a slider for a continuous row is the rule, not an override. `panel` names a shell-built panel a page carries beside its generated controls.",
+  "note": "GUI 3's page layout (B584, ADR-316). Design input, hand-edited: which parameter goes on which page and in which group. It names parameters by key and nothing else; labels, ranges, laws, defaults and options come from SPEC-ENGINE section 5 through tools/gen_gui3_controls.py, which refuses a key the spec does not have, a host parameter no page places, and a reserved row placed anywhere. A group's `block` places every host row of that block in the spec table's order (5.8: a table's row order is its display order), so a row added to the spec appears on its draft page without an edit here. A `designed` page lists its keys one by one, so a new row there is unplaced, and red, until the page's designer places it. `live` is PA-8's live-when table, transcribed for the designed pages only; a control whose condition fails is drawn idle (dashed), never hidden. `widget` overrides the widget rule (ADR-319 item 5, gui3/README.md) for a row, and must say why in `reason`; a knob or a slider for a continuous row is the rule, not an override. `panel` names a shell-built panel a page carries beside its generated controls. `bank` chooses, per modulator kind, the critical controls the bottom modulator bank's cards carry (ADR-322 item 3).",
+  "bank": {
+    "note": "Which modulators the bank lists is never kept here: it is read from the adapter's routes (RC-4) against the current page's keys, plus the modulators activated with + and not yet mapped. Only the choice of each kind's critical controls is design input.",
+    "kinds": [
+      {"kind": "env", "blocks": "env[1-4]", "suffixes": ["attack", "decay", "sustain", "release"],
+       "reason": "An envelope's shape is its four stage controls: attack, decay, sustain and release say what it does to a route at a glance, and every one of them moves the sound. Hold, the three curves, velocity and one-shot refine that shape, and stay on the envelope's own page (Main for ENV 1, Mod for ENV 2 to ENV 4)."}
+    ]
+  },
   "pages": [
     {
       "id": "main", "label": "Main", "status": "draft",
@@ -147,11 +154,6 @@
     {
       "id": "fx", "label": "FX", "status": "empty",
       "note": "No engine parameters: the FX rack is a reserved contract (RC-5, IF-7), the device's. Its pages come from this shell too (ADR-316, ADR-254).",
-      "groups": []
-    },
-    {
-      "id": "random", "label": "Random", "status": "empty",
-      "note": "No engine parameters: the Random page is the device's (B578's workshop lab runs alongside, ADR-312).",
       "groups": []
     },
     {

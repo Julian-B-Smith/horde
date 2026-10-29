@@ -39,6 +39,10 @@
  *   sync         ADR-319 item 3, mirror and confirm: an echo is not an engine change; the engine's own change is
  *                shown until the user writes the key; a snapshot never overwrites the key being dragged; over an
  *                asynchronous transport a stale snapshot never overwrites a newer send
+ *   pending      ADR-322 item 3: + makes a modulator pending (outside the patch and the history); closing the
+ *                interface drops it unless it was mapped
+ *   mapdrop      ADR-322 item 3: a map handle dropped on a stepped or reserved row is refused and the modulator
+ *                stays pending; on a continuous row it maps
  *   determinism  the same seed and calls give byte-identical device and engine state; another seed differs
  *
  * MUST-FAIL CONTROLS (plants), every run, on in-memory copies of the two scripts: an observe() that
@@ -46,7 +50,8 @@
  * that admits stepped rows, a log law off by 0.1 %, a transport that skips the seam check, a load that
  * drops unknown keys, a gesture that is never reported, a morph-off write that reaches a frozen corner,
  * a morph toggle kept off the history, a snapshot save that keeps no preset, a snapshot that overwrites
- * a drag, and a snapshot that overwrites a newer send. Each must turn its own test red (and its
+ * a drag, a snapshot that overwrites a newer send, a close that keeps unmapped modulators, a drop that maps a
+ * stepped row, and a refused drop that clears the pending state. Each must turn its own test red (and its
  * anchor must exist, or the plant itself is reported as vacuous).
  *
  * Usage: node tools/labharness/gui3_seam_check.mjs [--verbose]   (exit 1 on any failure; --verbose prints
@@ -298,6 +303,29 @@ function suite(W) {
     ok(A.d.shown(cont.key) === .4 && A.e.getParam(cont.key) === .4, 'the confirmed snapshot disagrees');
   };
 
+  /* ADR-322 item 3: a modulator activated with + is pending until mapped; closing the interface drops it. */
+  T.pending = () => {
+    const { d } = fresh();
+    const h0 = d.history().past.length, shell0 = JSON.stringify(d.patch().shell);
+    ok(d.activate('env3').ok && d.pending().join() === 'env3', '+ did not make ENV 3 pending');
+    ok(!d.activate('env3').ok && !d.activate('lfo9').ok, 'a second activation, or an unpublished source, was taken');
+    ok(d.history().past.length === h0 && JSON.stringify(d.patch().shell) === shell0, 'a pending modulator reached the patch or the history');
+    ok(d.close().join() === 'env3' && d.pending().length === 0, 'closing the interface did not drop the unmapped ENV 3');
+    d.activate('env4'); d.drop('env4', cont.key);
+    ok(d.close().length === 0 && d.routes().some(r => r.src === 'env4'), 'closing dropped a mapped modulator');
+  };
+  /* ADR-322 item 3: a map handle dropped on a parameter goes through addRoute; a drop on a stepped or a
+     reserved row is refused and leaves the modulator pending; a drop on a continuous row maps it. */
+  T.mapdrop = () => {
+    const { d } = fresh();
+    d.activate('env2');
+    ok(!d.drop('env2', stepS.key).ok && d.pending().includes('env2'), 'a drop on a stepped row was taken, or unpended the modulator');
+    ok(!d.drop('env2', reserved.key).ok && d.pending().includes('env2'), 'a drop on a reserved row was taken');
+    ok(d.routes().length === 0, 'a refused drop left a route');
+    const r = d.drop('env2', cont.key);
+    ok(r.ok && d.pending().length === 0 && d.routes().length === 1 && d.routes()[0].param === cont.key, 'a drop on a continuous row did not map it');
+  };
+
   T.determinism = () => {
     const run = seed => {
       const { e, d } = fresh(seed);
@@ -335,6 +363,9 @@ const PLANTS = [
   ['morphhistory', 'device', "if (on !== st.morphOn) step(on ? 'Morph on' : 'Morph off', function () { st.morphOn = on; });", 'if (on !== st.morphOn) st.morphOn = on;'],
   ['snapshots', 'device', 'st.names[i] = name.trim(); st.saved[i] = copy(st.corners[i]);\n', 'st.names[i] = name.trim();\n'],
   ['sync', 'device', 'if (k === g) continue;', ''],
+  ['pending', 'device', '      pending = [];\n      if (dropped.length) changed();', '      if (dropped.length) changed();'],
+  ['mapdrop', 'device', "if (!r || r.law === 'step' || !r.pv)", "if (!r)"],
+  ['mapdrop', 'device', '      if (res.ok) { var k = pending.indexOf(src);', '      { var k = pending.indexOf(src);'],
   ['sync', 'device', 'if (sentSeq[k] !== undefined && s.ack < sentSeq[k]) continue;', ''],
 ];
 for (const [test, file, from, to] of PLANTS) {
