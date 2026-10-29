@@ -17,6 +17,8 @@
          one oscillator, the voice section (and its parts), the mod mappings, the FX routing, each FX module, the
          global patch. The SHRIEK slot is a PASS-THROUGH STUB: in horde its buttons would call Shriek's own randomize
          verbs; here they draw the stand-in's three controls and say so.
+       · SOLO and MUTE on OSC 1, OSC 2, SUB and NOISE (the human, 2026-10-29), by SPEC-ENGINE IF-6: monitoring state,
+         never randomized or stored, with per-source meters (C12, C13).
        · MOD-MAPPING RULESETS: rules that draw routes from patterns (pitch envelope, filter envelope, filter LFO,
          vibrato, PWM, velocity, key tracking, …), saved and loaded as presets in localStorage.
        · BOUNDS: a bell curve around each value's HOME with one HOME ↔ CHAOS knob (the distribution is drawn), AMOUNT
@@ -35,11 +37,15 @@
          (log for times and frequencies), cut to its bounds; width σ(c) = 4·c·50^(c−1) in normalized units
          (c = 0: home itself; c = 0.25: σ ≈ 0.05; c = 0.5: σ ≈ 0.28; c = 1: σ = 4, flat to within 3%). The first law tried,
          4·c·200^(c−1), left the knob's lower third inaudible (mean move 0.3% of the range at 0.1, 1.5% at 0.25: the report). It is drawn by inverse CDF from ONE
-         uniform, so turning CHAOS after a click moves the same roll smoothly toward or away from home.
-       · AMOUNT: every key also draws a threshold on every click; a key changes only where threshold < amount. Raising
-         AMOUNT after a click only ADDS keys, with the same values (nested sets; the behaviour of Sluice's randomiser
-         and Shriek's Randomness, mimicked). The last click stays live under CHAOS, AMOUNT, bounds, dice and locks
-         until the next structural action.
+         uniform per key.
+       · AMOUNT: every key also draws a threshold on every click; a key changes only where threshold < amount. At the
+         same seed and click, a higher AMOUNT changes a superset of keys, with the same values (nested sets, the
+         behaviour of Sluice's randomiser, mimicked).
+       · BOUNDS ARE FOR THE NEXT DRAW ONLY (the human, 2026-10-29: "I assumed it just set the bounds on patch or parameter
+         randomization"). CHAOS, AMOUNT, the per-group scales, the per-key bounds, the dice, the locks and the home choice
+         shape the NEXT click and never touch the current sound or any corner's values; the distribution view alone
+         updates live. Re-applying the last click when a bound moves (what Shriek's Randomness does) was tried in the
+         first round and removed; it is a post-1.0 idea, not a toggle (self-check C14).
        · STRUCTURE (enums): an unordered choice keeps its home with probability 1 − c, else draws from its taste
          weights over the lit values; an ordered one (unison count, octave, delay time) is a bell in index space.
        · MORPH: numbers blend bilinearly in their taper; structure flips at the DOMINANT corner (quantum), and a mod
@@ -91,13 +97,13 @@
   .dim { opacity: var(--opacity-disabled); }
 
   /* THE PAGE: three columns, the way horde's Random page could sit in a 980-px window plus the lab's extras */
-  .page { display: grid; grid-template-columns: minmax(290px, 330px) minmax(300px, 340px) minmax(380px, 1fr); gap: var(--space-grid); align-items: start; }
+  .page { display: grid; grid-template-columns: minmax(320px, 350px) minmax(300px, 340px) minmax(380px, 1fr); gap: var(--space-grid); align-items: start; }
   @media (max-width: 1100px) { .page { grid-template-columns: 1fr; } }
 
   /* LEVELS */
-  .lvl { display: grid; grid-template-columns: minmax(0, 1fr) auto auto 26px 30px; align-items: center; gap: 4px; min-height: 26px; border-radius: var(--radius-track); padding: 0 3px; }
+  .lvl { display: grid; grid-template-columns: minmax(0, 1fr) auto auto 46px 26px 30px; align-items: center; gap: 4px; min-height: 26px; border-radius: var(--radius-track); padding: 0 3px; }
   .lvl.foc { background: var(--sel-neutral); }
-  .lvl .nm { text-align: left; background: none; border: 0; padding: 0; cursor: pointer; font: 800 9.5px/1.2 var(--font-sans); letter-spacing: .07em; color: var(--ink); display: flex; gap: 5px; align-items: center; white-space: nowrap; overflow: hidden; min-width: 0; }
+  .lvl .nm { text-align: left; background: none; border: 0; padding: 0; cursor: pointer; font: 800 9.5px/1.2 var(--font-sans); letter-spacing: .03em; color: var(--ink); display: flex; gap: 5px; align-items: center; white-space: nowrap; overflow: hidden; min-width: 0; }
   .lvl.d1 .nm { padding-left: 14px; font-weight: 600; }
   .lvl.d1 .nm::before { content: '└'; color: var(--hint); margin-right: 2px; }
   .lvl .chg { font: 600 9px/1 var(--font-mono); color: var(--on-corner); background: var(--value); border-radius: var(--radius-track); padding: 2px 3px; text-align: center; }
@@ -105,6 +111,15 @@
   .lk { min-height: 22px; width: 26px; padding: 0; border: 1px solid var(--div); border-radius: var(--radius-track); background: var(--panel); color: var(--hint); cursor: pointer; font: 400 10px/1 var(--font-mono); }
   .lk[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
   .lk:disabled { opacity: .35; cursor: default; }
+  /* SOLO and MUTE (IF-6): lit = this source's own state; a source silenced by ANOTHER source's solo shows its M dimmed
+     and hatched, distinct from its own mute lit (the legacy mixer's convention) */
+  .sm2 { display: inline-flex; gap: 2px; }
+  .smb { width: 22px; min-height: 22px; padding: 0; border: 1px solid var(--ink); border-radius: var(--radius-track); background: var(--panel); color: var(--ink); cursor: pointer; font: 800 9px/1 var(--font-sans); }
+  .smb.solo[aria-pressed="true"] { background: var(--cA); color: var(--on-corner); }
+  .smb.mute[aria-pressed="true"] { background: var(--alarm); color: var(--on-alarm); border-color: var(--alarm); }
+  .smb.mute.implied { opacity: .55; color: var(--t2); border-style: dashed; background: repeating-linear-gradient(45deg, var(--well-alt) 0 3px, var(--panel) 3px 6px); }
+  .lvl.silenced .nm { opacity: .45; }
+  #srcmeters { font: 400 9px/1.4 var(--font-mono); color: var(--t2); }
 
   /* THE PAD */
   .padwrap { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
@@ -239,6 +254,10 @@
         counts, blade modes, filter types and routing, LFO shapes, the mod routes, FX order and topology, module modes); <b>PARAMS</b> = the
         numbers. The badge counts the keys the last click changed. Click a name to focus its bounds.</div>
       <div id="levels"></div>
+      <div id="srcmeters">source meters: press PLAY</div>
+      <div class="note"><b>S</b> and <b>M</b> on OSC 1, OSC 2, SUB and NOISE solo and mute a source while you randomize it (IF-6): while any source
+        is soloed only soloed sources sound; a muted source keeps running; an M drawn hatched is silenced by another source's solo. They are
+        monitoring state: never randomized, never stored in a corner, always locked (listed under OUTPUT).</div>
       <div class="lab-bar" style="margin-top:4px">
         <span class="hd-label">ARCH writes</span>
         <span class="hd-pills" id="scope"></span>
@@ -279,7 +298,7 @@
           <div class="srow"><span>AMOUNT</span><input type="range" id="amount" data-set="amount" min="0" max="1" step="0.01"><span class="ro" id="amount-ro"></span></div>
           <div class="srow"><span>HOME IS</span><span class="hd-pills" id="homemode"></span><span></span></div>
           <div class="note" style="font-size:9px">CHAOS (the knob: drag up/down, arrows) sets the bell's width; AMOUNT sets how many keys a click may
-            change. Both stay live on the last click, as Sluice's and Shriek's Randomness does.</div>
+            change. Both are bounds for the <b>next</b> draw: moving them never changes the current sound (C14).</div>
         </div>
       </div>
       <div class="gt" id="groups"></div>
@@ -556,7 +575,7 @@ const GROUPS = [
   { id: 'osc1', name: 'OSC 1' }, { id: 'osc2', name: 'OSC 2' }, { id: 'sub', name: 'SUB' }, { id: 'noise', name: 'NOISE' },
   { id: 'filter', name: 'FILTERS' }, { id: 'env', name: 'ENVELOPES' }, { id: 'lfo', name: 'LFOS' }, { id: 'mod', name: 'MOD MAPPINGS' },
   { id: 'fxroute', name: 'FX ROUTING' }, { id: 'shriek', name: 'SHRIEK' }, { id: 'chorus', name: 'CHORUS' }, { id: 'delay', name: 'DELAY' },
-  { id: 'reverb', name: 'REVERB' }, { id: 'master', name: 'OUTPUT' },
+  { id: 'reverb', name: 'REVERB' }, { id: 'master', name: 'OUTPUT · MUTE · SOLO' },
 ];
 const GNAME = {}; for (const g of GROUPS) GNAME[g.id] = g.name;
 const VOICE_GROUPS = ['osc1', 'osc2', 'sub', 'noise', 'filter', 'env', 'lfo'];
@@ -672,7 +691,7 @@ function newState(seed) {
     bind: ['s1', 's1', 's1', 's1'], work: [clone(v), clone(v), clone(v), clone(v)], lockC: [false, false, false, false],
     lockG: { master: true }, lockK: {}, chaos: 0.35, amount: 0.6, gChaos: {}, gAmt: {}, bounds: {}, dice: {},
     homeMode: 'snapshot', archScope: 'all', archMust: false, rs: clone(BUILTIN_RS[0]),
-    lastRolls: null, lastChange: null, lastModStats: null, msg: '',
+    lastChange: null, lastModStats: null, msg: '',
   };
 }
 function snapOf(S, sid) { for (const s of S.snaps) if (s.sid === sid) return s; return null; }
@@ -883,7 +902,6 @@ function drawMod(S, out, src, click, touched) {
   }
   return stats;
 }
-function reapply(S) { if (S.lastRolls) for (const R of S.lastRolls) applyRoll(S, R); }
 function changedKeys(before, after) {
   const out = new Set();
   for (let k = 0; k < 4; k++) for (const s of SPEC) if (before[k][s.key] !== after[k][s.key]) out.add(s.key);
@@ -905,7 +923,6 @@ function applyAction(S, a) {
       const R = makeRoll(S, a.level, a.kind, k, targets);
       S.clicks++;
       applyRoll(S, R);
-      S.lastRolls = [R];
       if (a.kind === 'params' && !R.keys.some(key => active(BY[key], R.bases[0]))) S.msg = L.name + ': nothing to draw, its parameters are inactive (its switch is off)';
       break;
     }
@@ -915,7 +932,6 @@ function applyAction(S, a) {
       if (!rolls.length) return refuse('every corner is locked');
       S.clicks++;
       for (const R of rolls) applyRoll(S, R);
-      S.lastRolls = rolls;
       break;
     }
     case 'randPatch': {
@@ -929,21 +945,20 @@ function applyAction(S, a) {
       R.withRules = true;
       S.clicks++;
       applyRoll(S, R);
-      S.lastRolls = [R];
       break;
     }
     case 'revert': {
       const k = a.corner, s = snapOf(S, S.bind[k]);
       if (S.lockC[k]) return refuse('corner ' + CN[k] + ' is locked');
       if (!isDraft(S, k)) return refuse('corner ' + CN[k] + ' holds no draft');
-      S.work[k] = clone(s.v); S.lastRolls = null;
+      S.work[k] = clone(s.v);
       break;
     }
     case 'save': {
       const k = a.corner;
       if (!isDraft(S, k)) return refuse('corner ' + CN[k] + ' holds no draft to save');
       const sid = 's' + (S.nextSid++), name = 'Snap ' + (S.nextSnapN++);
-      S.snaps.push({ sid, name, v: clone(S.work[k]) }); S.bind[k] = sid; S.lastRolls = null;
+      S.snaps.push({ sid, name, v: clone(S.work[k]) }); S.bind[k] = sid;
       S.msg = 'corner ' + CN[k] + ' saved as "' + name + '"';
       break;
     }
@@ -951,7 +966,7 @@ function applyAction(S, a) {
       const k = a.corner, s = snapOf(S, a.sid);
       if (!s) return refuse('no such snapshot');
       if (S.lockC[k]) return refuse('corner ' + CN[k] + ' is locked: affix refused');
-      S.bind[k] = a.sid; S.work[k] = clone(s.v); S.lastRolls = null;
+      S.bind[k] = a.sid; S.work[k] = clone(s.v);
       break;
     }
     case 'delSnap': {
@@ -961,15 +976,16 @@ function applyAction(S, a) {
       S.snaps = S.snaps.filter(s => s.sid !== a.sid);
       break;
     }
-    case 'home': if (snapOf(S, a.sid)) { S.homeSid = a.sid; reapply(S); } break;
+    /* every case below sets a BOUND for the next draw: none of them may change a corner (C14) */
+    case 'home': if (snapOf(S, a.sid)) S.homeSid = a.sid; break;
     case 'lockC': S.lockC[a.corner] = !S.lockC[a.corner]; break;
-    case 'lockG': if (a.group !== 'master') { S.lockG[a.group] = !S.lockG[a.group]; reapply(S); } break;
-    case 'lockK': S.lockK[a.key] = !S.lockK[a.key]; reapply(S); break;
+    case 'lockG': if (a.group !== 'master') { S.lockG[a.group] = !S.lockG[a.group]; } break;
+    case 'lockK': S.lockK[a.key] = !S.lockK[a.key]; break;
     case 'dice': {
       const s = BY[a.key], d = S.dice[a.key] || (S.dice[a.key] = {});
       const nLit = lit(S, s).filter(Boolean).length;
       if (!d[a.i] && nLit <= 1) return refuse('one value stays lit');
-      d[a.i] = !d[a.i]; reapply(S);
+      d[a.i] = !d[a.i];
       break;
     }
     case 'set': {
@@ -982,10 +998,9 @@ function applyAction(S, a) {
       else if (p.slice(0, 3) === 'gc.') S.gChaos[p.slice(3)] = clamp(+x, 0, 2);
       else if (p.slice(0, 3) === 'ga.') S.gAmt[p.slice(3)] = clamp(+x, 0, 2);
       else if (p.slice(0, 2) === 'b.') { const key = p.slice(2, -2), i = +p.slice(-1), b = S.bounds[key] || (S.bounds[key] = [0, 1]); b[i] = clamp(+x, 0, 1); }
-      reapply(S);
       break;
     }
-    case 'ruleset': S.rs = sanitizeRS(a.rs); reapply(S); break;
+    case 'ruleset': S.rs = sanitizeRS(a.rs); break;
     default: return refuse('unknown action ' + a.t);
   }
   const ch = changedKeys(before, S.work);
@@ -1019,6 +1034,14 @@ function heardOf(work, x, y) {
    F. THE ENGINE (stand-in synthesis). Counts samples; never reads a clock. One renderer for the page and the checks.
    ===================================================================================================================== */
 const NV = 6, TICK = 16, BPM = 120, GUARD = 0.5;   // GUARD: 0.5 = −6.02 dBFS
+/* MUTE AND SOLO (SPEC-ENGINE IF-6; the human, 2026-10-29: "solo controls ... so you can hear what each is contributing").
+   Each source's GATE: a muted source is silent; while any source is soloed, every source not soloed is silent; a
+   soloed source that is also muted is silent. The gate sits on the source, before the filters (a source's level, pan
+   and gate, IF-6's meter tap), opens and closes by a 5 ms raised-cosine ramp (IF-6; the fade shape of SPEC-ENGINE's
+   ramp list, ADR-239), and a gated source keeps rendering, so un-muting is phase-continuous. MONITORING state, not
+   patch content: never randomized, never in a corner or snapshot, never logged (the always-locked set, OUTPUT). */
+const SRC_NAMES = ['OSC 1', 'OSC 2', 'SUB', 'NOISE'], SRC_LEVEL = { osc1: 0, osc2: 1, sub: 2, noise: 3 }, GATE_S = 0.005;
+function gateTarget(mute, solo, s) { const any = solo[0] || solo[1] || solo[2] || solo[3]; return mute[s] ? 0 : (any && !solo[s]) ? 0 : 1; }
 const PAT = {
   arp: { steps: 8, len: 0.5, gate: 0.55, notes: [[48], [55], [60], [63], [67], [63], [60], [55]], vel: [1, 0.55, 0.8, 0.55, 0.95, 0.55, 0.8, 0.6] },
   stabs: { steps: 4, len: 2, gate: 0.4, notes: [[48, 55, 58, 63], [46, 53, 58, 62], [44, 51, 56, 60], [46, 53, 58, 62]], vel: [1, 0.8, 0.9, 0.8] },
@@ -1124,6 +1147,13 @@ class Engine {
     for (let ch = 0; ch < 2; ch++) for (let i = 0; i < 2; i++) { const n = Math.ceil((ALLP[i] + 23 * ch) * sr / 44100); this.ap.push({ b: new Float32Array(n), i: 0 }); }
     this.shLP = [0, 0]; this.oL = 0; this.oR = 0;
     this.guard = { hits: 0, pre: 0, nan: 0 };
+    this.mute = [false, false, false, false]; this.solo = [false, false, false, false];
+    this.gT = Math.max(1, Math.round(GATE_S * sr));
+    this.gs = [0, 1, 2, 3].map(() => ({ g: 1, from: 1, to: 1, t: this.gT }));
+    this.gate = [0, 1, 2, 3].map(() => new Float64Array(TICK)); this.ones = new Float64Array(TICK).fill(1);
+    /* soloPost: the self-check's must-fail control only (C12) — "solo" applied AFTER the mix, as a gain on the whole bus */
+    this.soloPost = false;
+    this.srcSq = new Float64Array(4); this.srcN = 0;   // IF-6's per-source meter tap, as summed squares
   }
   newVoice() {
     const f = () => new Float64Array(7);
@@ -1132,6 +1162,23 @@ class Engine {
       fa: new Float64Array(4), fb: new Float64Array(4), ca: {}, cb: {}, amp: 1, pL: 1, pR: 1, pw: [0.5, 0.5], bw: [0, 0], nz: 0, sl: 0, d: new Float64Array(MDST.length) };
   }
   setPatch(v) { this.P = compilePatch(v, this.sr); }
+  setMonitor(mute, solo, snap) {
+    for (let s = 0; s < 4; s++) { this.mute[s] = !!mute[s]; this.solo[s] = !!solo[s]; }
+    for (let s = 0; s < 4; s++) {
+      const to = gateTarget(this.mute, this.solo, s), G = this.gs[s];
+      if (snap) { G.g = G.from = G.to = to; G.t = this.gT; } else if (to !== G.to) { G.from = G.g; G.to = to; G.t = 0; }
+    }
+  }
+  fillGates(n) {
+    const T = this.gT;
+    for (let s = 0; s < 4; s++) {
+      const G = this.gs[s], a = this.gate[s];
+      for (let i = 0; i < n; i++) {
+        if (G.t < T) { G.g = G.from + (G.to - G.from) * 0.5 * (1 - Math.cos(Math.PI * G.t / T)); G.t++; } else G.g = G.to;
+        a[i] = G.g;
+      }
+    }
+  }
   snapSmooth() { if (this.P) this.sm.set(this.P.tg); }
   noteOn(note, vel, offAt) {
     let v = null;
@@ -1196,8 +1243,10 @@ class Engine {
   voice(v, n) {
     const P = this.P, bl = this.bl, br = this.br, o1 = P.osc[0], o2 = P.osc[1], r = P.route, ser = P.topo === 0;
     const drv = 1 + 7 * P.fA.drive, dn = 1 / (1 + 2 * P.fA.drive), fbOn = P.fB.on;
+    const GA = this.soloPost ? [this.ones, this.ones, this.ones, this.ones] : this.gate, M = this.srcSq;
     for (let i = 0; i < n; i++) {
       const e1 = envTick(v.e[0], P.envc[0]); envTick(v.e[1], P.envc[1]); envTick(v.e[2], P.envc[2]);
+      const mg = e1 * v.amp, mL = mg * v.pL, mR = mg * v.pR;   // the meter tap's envelope, velocity and pan
       let aL = 0, aR = 0, bL = 0, bR = 0;
       for (let o = 0; o < 2; o++) {
         const O = o === 0 ? o1 : o2;
@@ -1208,19 +1257,23 @@ class Engine {
           const x = oscWave(O.wave, p, inc[k], pw, O.blade, O.bpos, bw);
           l += x * gl[k]; rr += x * gr[k];
         }
+        const gg = GA[o][i]; l *= gg; rr *= gg;
+        M[o] += l * mL * l * mL + rr * mR * rr * mR;
         if (r[o] !== 1) { aL += l; aR += rr; }
         if (r[o] !== 0) { bL += l; bR += rr; }
       }
       if (P.sub.on) {
         let p = v.subPh + v.subInc; if (p >= 1) p -= 1; v.subPh = p;
-        const x = (P.sub.sq ? baseWave(1, p, v.subInc, 0.5) : Math.sin(TWO_PI * p)) * v.sl * 0.7;
+        const x = (P.sub.sq ? baseWave(1, p, v.subInc, 0.5) : Math.sin(TWO_PI * p)) * v.sl * 0.7 * GA[2][i];
+        M[2] += x * mL * x * mL + x * mR * x * mR;
         if (r[2] !== 1) { aL += x; aR += x; }
         if (r[2] !== 0) { bL += x; bR += x; }
       }
       if (P.noise.on) {
         const w = v.nr() * 2 - 1; let x = w;
         if (P.noise.pink) { const k = v.pk; k[0] = 0.99765 * k[0] + w * 0.0990460; k[1] = 0.96300 * k[1] + w * 0.2965164; k[2] = 0.57000 * k[2] + w * 1.0526913; x = (k[0] + k[1] + k[2] + w * 0.1848) * 0.25; }
-        x *= v.nz;
+        x *= v.nz * GA[3][i];
+        M[3] += x * mL * x * mL + x * mR * x * mR;
         if (r[3] !== 1) { aL += x; aR += x; }
         if (r[3] !== 0) { bL += x; bR += x; }
       }
@@ -1300,8 +1353,13 @@ class Engine {
     for (let i0 = 0; i0 < N; i0 += TICK) {
       const n = Math.min(TICK, N - i0), bl = this.bl, br = this.br;
       this.control(n);
+      this.fillGates(n);
       for (let i = 0; i < n; i++) { bl[i] = 0; br[i] = 0; }
       for (const v of this.V) if (v.on) this.voice(v, n);
+      this.srcN += n;
+      if (this.soloPost) for (let i = 0; i < n; i++) {   // the control: one gain on the mix, the loudest gate
+        const g = Math.max(this.gate[0][i], this.gate[1][i], this.gate[2][i], this.gate[3][i]); bl[i] *= g; br[i] *= g;
+      }
       const topo = this.P.fxTopo;
       for (let i = 0; i < n; i++) {
         if (topo === 1) this.fxSample(bl[i], br[i], 0, 4, true);
@@ -1329,11 +1387,14 @@ function renderOffline(values, N, opts) {
   const E = new Engine(44100, opts.seed === undefined ? 1 : opts.seed);
   E.pattern = opts.pattern || 'stabs'; E.vol = opts.vol === undefined ? 0.7 : opts.vol; E.useGuard = opts.guard !== false; E.mw = opts.mw || 0;
   E.setPatch(values); E.snapSmooth();
+  if (opts.mute || opts.solo) E.setMonitor(opts.mute || [], opts.solo || [], true);
+  E.soloPost = !!opts.soloPost;
   const L = new Float32Array(N), R = new Float32Array(N);
   E.process(L, R, N);
   let s2 = 0, pk = 0;
   for (let i = 0; i < N; i++) { const a = Math.abs(L[i]), b = Math.abs(R[i]); if (a > pk) pk = a; if (b > pk) pk = b; s2 += L[i] * L[i] + R[i] * R[i]; }
-  return { peakOut: pk, peakPre: E.guard.pre, hits: E.guard.hits, nan: E.guard.nan, rms: Math.sqrt(s2 / (2 * N)) };
+  return { peakOut: pk, peakPre: E.guard.pre, hits: E.guard.hits, nan: E.guard.nan, rms: Math.sqrt(s2 / (2 * N)),
+    srcRms: Array.from(E.srcSq, q => Math.sqrt(q / (2 * N))), L, R, E };
 }
 
 /* =====================================================================================================================
@@ -1398,18 +1459,13 @@ function runChecks() {
   }
   // C3 amount nests
   {
-    const T = newState(seed); T.amount = 0.3; T.chaos = 0.6;
-    applyAction(T, { t: 'rand', level: 'voice', kind: 'params', corner: 0 });
-    const h = homeValues(), A = {}; for (const s of SPEC) if (T.work[0][s.key] !== h[s.key]) A[s.key] = T.work[0][s.key];
-    applyAction(T, { t: 'set', path: 'amount', value: 0.7 });
-    const B = {}; for (const s of SPEC) if (T.work[0][s.key] !== h[s.key]) B[s.key] = T.work[0][s.key];
-    const nested = Object.keys(A).every(k => B[k] === A[k]);
-    const C = newState(seed); C.amount = 0.3; C.chaos = 0.6; C.clicks = 1;   // control: a fresh roll at 0.7, not the swept one
-    C.amount = 0.7; applyAction(C, { t: 'rand', level: 'voice', kind: 'params', corner: 0 });
-    const fresh = Object.keys(A).every(k => C.work[0][k] === A[k]);
+    const draw = (amt, click) => { const T = newState(seed); T.amount = amt; T.chaos = 0.6; T.clicks = click; applyAction(T, { t: 'rand', level: 'voice', kind: 'params', corner: 0 });
+      const h = homeValues(), o = {}; for (const s of SPEC) if (T.work[0][s.key] !== h[s.key]) o[s.key] = T.work[0][s.key]; return o; };
+    const A = draw(0.3, 0), B = draw(0.7, 0), C = draw(0.7, 1);   // control: the same amounts at the next click
+    const nested = Object.keys(A).every(k => B[k] === A[k]), fresh = Object.keys(A).every(k => C[k] === A[k]);
     row('C3', nested && Object.keys(A).length > 0 && Object.keys(B).length > Object.keys(A).length && !fresh,
-      'AMOUNT nests: sweeping 0.3 → 0.7 after a click only ADDS keys, with the same values.',
-      Object.keys(A).length + ' keys at 0.3 ⊂ ' + Object.keys(B).length + ' at 0.7, values kept: ' + nested + ' · control: a fresh roll keeps them: ' + fresh);
+      'AMOUNT nests: at one seed and click, a draw at 0.7 changes every key a draw at 0.3 changes, to the same values, and more.',
+      Object.keys(A).length + ' keys at 0.3 ⊂ ' + Object.keys(B).length + ' at 0.7, values kept: ' + nested + ' · control: a draw at the next click keeps them: ' + fresh);
   }
   // C4 chaos ends
   {
@@ -1504,6 +1560,53 @@ function runChecks() {
     row('C11', on === 0 && off > 0, 'PROPOSAL "ARCH must change": a module\'s ARCH click always moves a structural choice (REVERB, chaos 0.35, 40 seeds).',
       'clicks that changed nothing: ' + on + ' of 40 with it on · control, off: ' + off + ' of 40');
   }
+  // C12 solo isolates a source (IF-6), measured by the per-source meter taps; control: solo applied after the mix
+  {
+    const v = Object.assign(homeValues(), { 'noise.on': 1 }), solo = [true, false, false, false], N = 8192;
+    const A = renderOffline(v, N, { solo });
+    const B = renderOffline(Object.assign(clone(v), { 'o2.on': 0, 'sub.on': 0, 'noise.on': 0 }), N, {});   // OSC 1 alone, no solo
+    const C = renderOffline(v, N, { solo, soloPost: true });
+    const diff = (x, y) => { let d = 0; for (let i = 0; i < N; i++) d = Math.max(d, Math.abs(x.L[i] - y.L[i]), Math.abs(x.R[i] - y.R[i])); return d; };
+    const iso = r => r.srcRms[0] > 0 && r.srcRms[1] === 0 && r.srcRms[2] === 0 && r.srcRms[3] === 0;
+    const dA = diff(A, B), dC = diff(C, B), passA = iso(A) && dA === 0, passC = iso(C) && dC === 0;
+    const db = x => (x > 0 ? (20 * Math.log10(x)).toFixed(1) : '−∞');
+    row('C12', passA && !passC, 'SOLO on OSC 1 leaves only OSC 1\'s contribution (IF-6): the other sources\' meter taps read zero, and the output equals OSC 1 alone.',
+      'per-source RMS dBFS (OSC 1, OSC 2, SUB, NOISE): ' + A.srcRms.map(db).join(', ') + ' · output vs OSC 1 alone, max |Δ| ' + dA
+      + ' · control, solo after the mix: ' + C.srcRms.map(db).join(', ') + ', max |Δ| ' + dC.toExponential(2) + (passC ? ' (PASSED: the check is blind)' : ' (fails, as it must)'));
+  }
+  // C13 mute keeps the source running; the gate ramps (5 ms raised cosine); solo + mute is silent
+  {
+    const N = 4096, v = homeValues();
+    const M = renderOffline(v, N, { mute: [true, false, false, false] }), U0 = renderOffline(v, N, {});
+    let same = true;
+    for (let i = 0; i < NV; i++) for (let k = 0; k < 7; k++) if (M.E.V[i].ph[0][k] !== U0.E.V[i].ph[0][k]) same = false;
+    const silent = M.srcRms[0] === 0 && U0.srcRms[0] > 0;
+    const step = (E) => { E.setMonitor([false, false, false, false], [false, false, false, false], true); E.setMonitor([false, false, false, false], [false, true, false, false], false);
+      let mx = 0, prev = 1, last = 1; for (let t = 0; t < 30; t++) { E.fillGates(TICK); for (let i = 0; i < TICK; i++) { const g = E.gate[0][i]; mx = Math.max(mx, Math.abs(g - prev)); prev = g; last = g; } } return { mx, last }; };
+    const E = new Engine(44100, 1), r = step(E), bound = Math.PI / (2 * E.gT) * 1.0001;
+    const Ei = new Engine(44100, 1); Ei.gT = 1; const ri = step(Ei);   // control: an instant gate
+    const both = gateTarget([true, false, false, false], [true, false, false, false], 0) === 0;
+    row('C13', same && silent && r.mx <= bound && r.last === 0 && both && ri.mx > bound,
+      'MUTE silences a source that keeps running (its phases match an unmuted render); the gate falls by a 5 ms raised cosine; a soloed, muted source is silent.',
+      'phases identical: ' + same + ' · muted OSC 1 meter zero: ' + silent + ' · largest gate step ' + r.mx.toFixed(5) + ' ≤ π/(2·' + E.gT + ') = ' + (Math.PI / (2 * E.gT)).toFixed(5) + ', settles at ' + r.last
+      + ' · solo + mute silent: ' + both + ' · control, an instant gate: step ' + ri.mx.toFixed(2));
+  }
+  // C14 bounds are for the NEXT draw only; control: a stand-in that re-applies the last draw when a bound moves
+  {
+    const T = newState(seed); applyAction(T, { t: 'rand', level: 'global', kind: 'params', corner: 0 });
+    applyAction(T, { t: 'rand', level: 'voice', kind: 'arch', corner: 1, scope: 'all' });
+    const f0 = fingerprint(T), seen = [];
+    const moves = [['chaos', 0], ['chaos', 1], ['chaos', 0], ['amount', 0], ['amount', 1], ['gc.osc1', 2], ['ga.filter', 0], ['b.fA.cut.0', 0.8], ['homeMode', 'walk']];
+    for (const [path, value] of moves) { applyAction(T, { t: 'set', path, value }); seen.push(fingerprint(T)); }
+    applyAction(T, { t: 'lockK', key: 'o1.detune' }); applyAction(T, { t: 'dice', key: 'o1.wave', i: 0 }); seen.push(fingerprint(T));
+    const still = seen.every(f => f === f0);
+    // the control: the first round's behaviour, rebuilt here — keep the roll, re-apply it on a bound change
+    const C = newState(seed); const R = makeRoll(C, 'global', 'params', 0, [0]); C.clicks++; applyRoll(C, R);
+    const c0 = fingerprint(C); C.chaos = 1; applyRoll(C, R); const c1 = fingerprint(C); C.chaos = 0; applyRoll(C, R); const c2 = fingerprint(C);
+    const ctlMoves = c1 !== c0 || c2 !== c0;
+    row('C14', still && ctlMoves, 'Bounds are for the NEXT draw only: moving CHAOS 0 → 1 → 0, AMOUNT, a group scale, a key bound, the home choice, a lock or a die leaves every corner as it was.',
+      seen.length + ' bound moves, fingerprint ' + f0 + ' throughout: ' + still + ' · control, re-applying the last draw: ' + c0 + ' → ' + c1 + ' → ' + c2 + (ctlMoves ? ' (moves, as it must)' : ' (STILL: the check is blind)'));
+  }
   return out;
 }
 
@@ -1511,7 +1614,8 @@ function runChecks() {
    H. THE PAGE. UI state that is NOT the patch (focus, puck, audio) lives here and is never logged.
    ===================================================================================================================== */
 const $ = id => document.getElementById(id);
-const UI = { seed: 0x5EED, focus: 'osc1', group: 'osc1', key: 'o1.detune', puck: { x: 0.25, y: 0.25 }, playing: false, pattern: 'arp', mw: 0, vol: 0.7, replay: '' };
+const UI = { seed: 0x5EED, focus: 'osc1', group: 'osc1', key: 'o1.detune', puck: { x: 0.25, y: 0.25 }, playing: false, pattern: 'arp', mw: 0, vol: 0.7, replay: '',
+  mute: [false, false, false, false], solo: [false, false, false, false], lastSq: [0, 0, 0, 0], lastN: 0 };
 let S = newState(UI.seed);
 let LOG = [];
 let HEARD = heardOf(S.work, UI.puck.x, UI.puck.y);
@@ -1606,10 +1710,12 @@ function renderLevels() {
   let h = '';
   for (const L of LEVELS) {
     const one = L.groups.length === 1 ? L.groups[0] : null, n = changedIn(L.groups);
-    h += '<div class="lvl d' + L.depth + (UI.focus === L.id ? ' foc' : '') + '">'
+    const si = SRC_LEVEL[L.id], silenced = si !== undefined && gateTarget(UI.mute, UI.solo, si) === 0;
+    h += '<div class="lvl d' + L.depth + (UI.focus === L.id ? ' foc' : '') + (silenced ? ' silenced' : '') + '">'
       + '<button class="nm" data-act="focus" data-arg="' + L.id + '">' + esc(L.name) + (L.pass ? ' <span class="lab-tag stub" title="PASS-THROUGH STUB: in horde these buttons call the module\'s own randomize verbs">STUB</span>' : '') + '</button>'
       + '<button class="hd-pill sm" data-act="rand" data-arg="' + L.id + '|arch"' + (L.noArch ? ' disabled title="' + esc(L.noArch) + '"' : ' title="randomize architecture (structure)' + (L.rules ? ' — includes the mod routes, drawn by the ruleset' : '') + '"') + '>ARCH</button>'
       + '<button class="hd-pill sm" data-act="rand" data-arg="' + L.id + '|params" title="randomize parameters (the numbers)">PARAMS</button>'
+      + smCell(L.id)
       + (one ? '<button class="lk" data-act="lockG" data-arg="' + one + '" aria-pressed="' + !!S.lockG[one] + '" title="lock the whole group (a PROPOSAL)">' + (S.lockG[one] ? '■' : '□') + '</button>' : '<span></span>')
       + '<span class="chg">' + (n ? '+' + n : '') + '</span></div>';
   }
@@ -1620,6 +1726,20 @@ function renderLevels() {
   $('scopenote').innerHTML = S.archScope === 'all'
     ? '<b>All four</b> (Sluice\'s and Shriek\'s one-patch rule): an ARCH click gives every unlocked corner the same structure at that level; the corners keep their own numbers, so the pad still morphs smoothly.'
     : '<b>Selected corner</b> (horde\'s per-corner patches, ADR-188): structure may differ between corners and flips at the dominant corner as the puck crosses the centre lines (quantum).';
+}
+/* the S and M buttons of a voice-section source row (monitoring state: UI only, never in S, never logged) */
+function smCell(levelId) {
+  const s = SRC_LEVEL[levelId];
+  if (s === undefined) return '<span></span>';
+  const any = UI.solo.some(Boolean), implied = any && !UI.solo[s] && !UI.mute[s];
+  return '<span class="sm2"><button class="smb solo" data-act="solo" data-arg="' + s + '" aria-pressed="' + UI.solo[s] + '" title="solo ' + SRC_NAMES[s] + ': while any source is soloed, only soloed sources sound (IF-6). Monitoring only: never randomized or stored">S</button>'
+    + '<button class="smb mute' + (implied ? ' implied' : '') + '" data-act="mute" data-arg="' + s + '" aria-pressed="' + UI.mute[s] + '" title="' + (implied ? SRC_NAMES[s] + ' is silenced by another source\'s solo; click to mute it too' : 'mute ' + SRC_NAMES[s] + ': silent, still running (IF-6). Monitoring only') + '">M</button></span>';
+}
+function setMonitor() {
+  if (ENG) ENG.setMonitor(UI.mute, UI.solo, false);
+  const sol = UI.solo.map((x, i) => (x ? SRC_NAMES[i] : null)).filter(Boolean), mu = UI.mute.map((x, i) => (x ? SRC_NAMES[i] : null)).filter(Boolean);
+  setMsg('monitoring: ' + (sol.length ? 'solo ' + sol.join(' + ') : 'no solo') + (mu.length ? ' · muted ' + mu.join(', ') : '') + ' · not stored, not randomized, not logged');
+  renderLevels(); if (UI.group === 'master') renderKeys();
 }
 function renderPad() {
   const xy = $('xy');
@@ -1713,6 +1833,11 @@ function renderKeys() {
       h += '<span class="dice">' + s.labels.map((l, i) => '<button class="die' + (L[i] ? '' : ' off') + (i === home[s.key] ? ' home' : '') + '" data-act="dice" data-arg="' + s.key + '|' + i + '" title="' + (L[i] ? 'lit: can be drawn' : 'struck: never drawn') + '">' + esc(l) + '</button>').join('') + '</span>';
     }
     h += '</div>';
+  }
+  if (UI.group === 'master') for (let si = 0; si < 4; si++) for (const kind of ['solo', 'mute']) {
+    const on = (kind === 'solo' ? UI.solo : UI.mute)[si], implied = kind === 'mute' && !on && gateTarget(UI.mute, UI.solo, si) === 0;
+    h += '<div class="krow"><button class="lk" aria-pressed="true" disabled title="monitoring state: always locked, never randomized, never stored">■</button>'
+      + '<span class="kn">' + SRC_NAMES[si] + ' ' + kind + '<i>MONITOR</i></span><span class="kv1">' + (on ? 'on' : implied ? 'silenced by solo' : 'off') + '</span><span class="kv2">not in any corner</span></div>';
   }
   $('keys').innerHTML = h;
 }
@@ -1881,7 +2006,7 @@ function startAudio() {
     AC = new Ctx();
     ENG = new Engine(AC.sampleRate, UI.seed);
     ENG.pattern = UI.pattern; ENG.mw = UI.mw; ENG.vol = UI.vol;
-    ENG.setPatch(HEARD.v); ENG.snapSmooth();
+    ENG.setPatch(HEARD.v); ENG.snapSmooth(); ENG.setMonitor(UI.mute, UI.solo, true);
     /* A ScriptProcessor on the main thread: the lab's monitor. Deprecated but universal, and it lets the engine read the
        morphed patch directly; heavy painting can underrun it (the browser-probes lesson: listen, don't trust a meter). */
     NODE = AC.createScriptProcessor(4096, 0, 2);
@@ -1898,6 +2023,13 @@ function guardLoop() {
   const G = ENG.guard, el = $('guard');
   el.textContent = 'guard: pre-guard peak ' + (G.pre > 0 ? (20 * Math.log10(G.pre)).toFixed(1) : '−∞') + ' dBFS · ' + G.hits + ' samples held at −6 dBFS' + (G.nan ? ' · ' + G.nan + ' non-finite zeroed' : '');
   el.style.color = G.hits || G.nan ? 'var(--alarm)' : '';
+  const dn = ENG.srcN - UI.lastN;
+  if (dn > 0) {
+    const t = [];
+    for (let s = 0; s < 4; s++) { const q = ENG.srcSq[s] - UI.lastSq[s], r = Math.sqrt(Math.max(0, q) / (2 * dn)); t.push(SRC_NAMES[s] + ' ' + (r > 1e-6 ? (20 * Math.log10(r)).toFixed(1) : '−∞')); UI.lastSq[s] = ENG.srcSq[s]; }
+    UI.lastN = ENG.srcN;
+    $('srcmeters').textContent = 'source meters (RMS dBFS, after level, pan and gate × envelope; IF-6\'s tap): ' + t.join(' · ');
+  }
   requestAnimationFrame(guardLoop);
 }
 
@@ -1917,6 +2049,8 @@ function onClick(e) {
     case 'delSnap': dispatch({ t: 'delSnap', sid: arg }); break;
     case 'home': dispatch({ t: 'home', sid: arg }); break;
     case 'lockC': dispatch({ t: 'lockC', corner: +arg }); break;
+    case 'solo': UI.solo[+arg] = !UI.solo[+arg]; setMonitor(); break;
+    case 'mute': UI.mute[+arg] = !UI.mute[+arg]; setMonitor(); break;
     case 'lockG': e.stopPropagation(); dispatch({ t: 'lockG', group: arg }); break;
     case 'lockK': e.stopPropagation(); dispatch({ t: 'lockK', key: arg }); break;
     case 'dice': { e.stopPropagation(); const [key, i] = arg.split('|'); dispatch({ t: 'dice', key, i: +i }); break; }
