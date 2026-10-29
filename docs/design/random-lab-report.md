@@ -2,7 +2,7 @@
 
 *horde lab agent, 2026-10-29. Lab: [`random-lab.html`](random-lab.html). For the human to rule what a basic Random page in 1.0 contains.*
 
-**What this report can and cannot claim.** Every number below was **measured** by the lab's own functions, run headless in Node. The renderer is the one the page plays (one second of the "chord stabs" phrase at 44.1 kHz, monitor 0.7), over seeds 1–60. Nothing here is **guaranteed**: the self-checks C1–C14 are what the lab guarantees, and each of them has a must-fail control. Nobody has listened yet. "Loudness change" means RMS only, so a change of timbre at equal level reads as 0 dB. The synthesis is a stand-in, not horde's engine. Your ears on the lab are the gate this report cannot pass for you.
+**What this report can and cannot claim.** Every number below was **measured** by the lab's own functions, run headless in Node. The renderer is the one the page plays (one second of the "chord stabs" phrase at 44.1 kHz, monitor 0.7), over seeds 1–60. Nothing here is **guaranteed**: the self-checks C1–C17 are what the lab guarantees, and each of them has a must-fail control. Nobody has listened yet. "Loudness change" means RMS only, so a change of timbre at equal level reads as 0 dB. The synthesis is a stand-in, not horde's engine. Your ears on the lab are the gate this report cannot pass for you.
 
 ## 1. How to use the lab
 
@@ -158,6 +158,74 @@ The engine gives `mute` and `solo` class `D` (Device: outside the morph), and th
 
 **Recommendation: solo and mute on each voice source belong in the basic 1.0 Random page.** The engine already provides them (IF-6), so the page only shows them. They make per-module randomizing audible.
 
+## 4b. Round 3 (ADR-320, 2026-10-29)
+
+The human played round 2 and ruled the five items below; ADR-320 quotes their words.
+
+1. **"'arch writes' should default to 'selected corner'".** Built: the default is now the selected corner, and "all four corners" stays as an option. This reverses the lab's own round-1 recommendation (Q3, now answered).
+
+2. **Rule collections.** Built, defined once in the lab's data and read by every rule, the custom-rule builder, the draw and C6. This follows the single-source principle of ADR-319 item 4: no rule keeps its own list.
+   - A rule names **one** source token and **one** destination token. Each token is a specific id or a collection.
+   - **Source collections:** any envelope; any LFO; any modulator; any performance control (velocity, mod wheel, key); and **the intent bus** (SPEC-INTENT-BUS, ADR-192's four fixed intents Tone, Space, Time, Motion). The intents are bipolar performance sources, set by four sliders in the audio bar.
+   - **Target collections:** any oscillator pitch; any filter cutoff; any oscillator's timbre; any pulse or blade width; any unison detune; level or pan; the FX sends; any FX amount; any destination. A collection may weight its members (e.g. filter A over filter B).
+   - **The rules were rewritten onto collections.** Pitch envelope is any envelope → any oscillator pitch; filter LFO is any LFO → any filter cutoff. The old two-target velocity rule split into "Velocity → level" and "Velocity → brightness", so that each side names one token.
+   - **Four intent rules:** Tone → brightness, Space → FX sends, Motion → timbre, and the intent bus → anything.
+   - **A new built-in ruleset, "Intent-driven".**
+   - **The custom-rule builder** offers the collections first, then the specific ids.
+   - A round-1 saved custom rule, stored as arrays, is read as its first id.
+   - C6 still finds 0 broken routes (330 over 60 draws).
+
+3. **The morph law on the pad.** Built: MORPH LAW (BLEND, QUANTUM, STEPPED), with temperature, cohesion and a step count, and a map of the selected parameter's regions drawn on the pad.
+   - **QUANTUM** (ADR-104): every number and every structural key takes its value whole from one corner. The corner is the argmax of log(w_k)/T + (1 − c)·g_k + c·g_shared. The Gumbel draws are counter-based and keyed by the parameter id, so each key flips at its own seeded boundary and an appended key moves no boundary (ADR-185). Mod slots flip as units.
+   - **BLEND:** numbers blend. Architecture flips at each key's own seeded point, which is today's rule, labelled **pending B585**. ADR-317's crossfade is B585's to design, and its demo is not rebuilt here.
+   - **STEPPED** (B424): the puck snaps to an n × n grid, then the pad behaves as under BLEND at the snapped point.
+   - **C15:** a sweep from A to D under QUANTUM changes values at 84 distinct positions out of 400, structural keys at 35. The control is one shared boundary (cohesion 1): 74 changes at 1 position, so it fails as it must.
+   - **No hysteresis band.** horde's is 0.1. The lab is stateless in the puck, and a band would hide the boundaries the human asked to hear.
+   - **What to listen for:** under QUANTUM, drag across a pad whose corners differ (randomize ARCH on each corner, then randomize all four). Each parameter and each structural choice changes at its own place. The census under the pad counts which corner each disagreeing key comes from at the puck.
+
+4. **Snapshot fixes.** Built.
+   - **The ✕ bug.** Round 2 refused to delete a snapshot bound to a corner, or marked home. A just-saved snapshot is always bound, so the ✕ almost never worked, and the refusal only reached the status line. Now the ✕ deletes the snapshot:
+     - a corner bound to it keeps its sound, re-bound to the home as a draft;
+     - a deleted home passes ★ to the first remaining snapshot;
+     - only the last snapshot stays, and its ✕ is disabled with the reason.
+   - **C16** is the regression check. It passes now, and its control, round 2's rule, fails: "deleted false".
+   - **"save all four"** saves the four corners together as one named set of four snapshots ("Evening · A" … "· D"), each corner bound to its own. A set row loads all four back onto the unlocked corners. Deleting a set keeps its snapshots.
+   - **C17** checks that the set holds four snapshots, all bound, with no drafts; that it loads back exactly; and that a locked corner keeps its sound. Its control saves one corner only.
+
+5. **Drafted, not built (the human has not ruled 1.0 scope for these).**
+
+   **5a. Arpeggiation randomization.** Arp is a hosted sibling device (its parameters are in `arp-face/params.snapshot.json`, 47 settings, and its bank's patterns).
+   - **What it needs:**
+     - an ARP level on the Random page with ARCH and PARAMS:
+       - ARCH: pattern, mode, octave range, rate division, latch, the swing on/off;
+       - PARAMS: gate length, swing amount, velocity shaping, and any step probabilities;
+     - Arp's manifest classes, read through the one parameter table (ADR-319 item 4), so the page keeps no list of its own;
+     - pass-through: if Arp declares its own randomize verbs (the optional rack verbs of §6), the buttons call those;
+     - the Arp's bank patterns as a dice set ("lit = may be drawn");
+     - rhythm-safe bounds by default. Rate divisions stay within one step of home unless CHAOS is high, so a random arp stays in time with the song.
+   - **Recommendation: post-1.0.** Arp joins horde through B539. Its randomize should follow its own taste (a pattern library), which the Arp sibling owns, so the clean path is the pass-through once Arp declares the verbs.
+
+   **5b. Explicit exemptions** (the human: "like scale or an oscillator's pitch offset").
+   - **What it needs:**
+     - an EXEMPT flag per parameter, which is a lock that **defaults on** for a declared class of keys. It is the same mechanism as the lab's locks, with a default. This lab already holds OUTPUT that way.
+     - a column in the one parameter table, `random_default: exempt | free`, set in SPEC-ENGINE §5's generated table, so every page reads it;
+     - first members: the scale and root (once horde has a global scale; the glide system's scale quantize, ADR-232), each oscillator's octave and semitone offset, the master tune, the voice mode, the output level and the arp's tempo division;
+     - a visible distinction between "locked by you" and "exempt by default": the user can un-exempt a key, and the profile (ADR-318) can carry exemptions.
+   - **Recommendation: in 1.0.** It is one column and one default on a mechanism the 1.0 set already contains (locks). Without it, randomize patch knocks the patch off the song's key and tuning, which is the most common way a random patch is unusable.
+
+   **5c. A deeper pitch ruleset** (the human: "to make randomization more musical in more cases").
+   - **What it needs:**
+     - **Pitch as its own draw family.** Interval-aware choices replace the bell for pitch-valued keys:
+       - an oscillator's semitone offset is drawn from a weighted interval set, with weights by consonance (unison, octave, fifth, fourth, third, sixth; tritone and seconds rare);
+       - the two oscillators' offsets are drawn **jointly**, so their interval is musical, not just each one alone;
+       - detune is drawn relative to unison count;
+       - a pitch-envelope amount is drawn in musical units (an octave or a fifth more often than 7.3 st);
+       - vibrato depth is bounded by rate.
+     - **Scale-awareness** where a scale exists. Quantized destinations (an LFO to pitch through the glide system's scale quantize, ADR-232) prefer in-scale results.
+     - **A pitch profile per role** (ADR-318's role set). A bass keeps OSC 1 at 0 and OSC 2 at 0/−12/+7; a pad allows thirds and sixths; a lead allows wider intervals and pitch envelopes.
+     - **The measure:** B316's root-presence and roughness metrics, run over seeded random patches, so "more musical" is measured (Layer-E), not asserted.
+   - **Recommendation: a minimal version in 1.0, the rest after.** For 1.0: weighted intervals for the semitone offsets, the joint draw of the two oscillators' interval, and musical-unit pitch-envelope amounts. That is a few tables in the profile, and it removes the commonest unmusical random results. Scale-awareness waits for a 1.0 scale, and the per-role pitch profiles ride ADR-318's role set as it is authored.
+
 ## 5. Proposed basic 1.0 set, and what comes after
 
 **Basic 1.0** (recommended):
@@ -166,10 +234,14 @@ The engine gives `mute` and `solo` class `D` (Device: outside the morph), and th
 3. **FX routing ARCH and PARAMS**, and each hosted FX module's randomize **passed through** where the module has its own (Shriek, Sluice), else drawn from its manifest (see §6, rack).
 4. **One CHAOS knob** (the bell) and **one AMOUNT** slider, both **bounds for the next draw only** (§3a): moving them never changes the current sound. Home is the corner's snapshot, with no mode switch.
 5. **Locks**: per group and per parameter, plus the existing per-corner lock (ADR-262). OUTPUT is always locked.
-6. **Mod mappings** by **one fixed built-in ruleset** ("Common": filter envelope, pitch envelope, filter LFO, vibrato, velocity, key tracking) and per-slot locks. No ruleset editor yet.
+6. **Mod mappings** drawn from the randomization profile's rules (ADR-318: a small role set in 1.0), reading the one set of **collections** (§4b.2), with per-slot locks. No ruleset editor yet.
 7. **Seeded and visible**: the seed and click shown, and a randomize as one history step.
 8. **Level matching after a draw**, and the dependency tree, so nothing inaudible is drawn and no inaudible route is made.
 9. **Solo and mute** on OSC 1, OSC 2, SUB and NOISE (§4a): IF-6's own gates, as monitoring state that is never drawn or stored.
+10. **ARCH writes the selected corner by default** (ADR-320 item 1), with "all four" as an option.
+11. **The pad plays the morph's law** (BLEND, QUANTUM, STEPPED), so randomized corners are heard through horde's own morph (§4b.3). Architecture under BLEND follows B585.
+12. **Save all four** as a named set, and a working ✕ (§4b.4).
+13. **Exemptions** that default on for scale and tuning keys (§4b.5b), and the minimal pitch draw (§4b.5c). Both are recommended; neither is ruled.
 
 **After 1.0**:
 - the ruleset editor, custom rules, and saved ruleset presets;
@@ -205,7 +277,7 @@ The engine gives `mute` and `solo` class `D` (Device: outside the morph), and th
 
    ADR-306 rejected Sluice's buttons on horde's morph corners "not asked for now", and ADR-312 now asks for a grid like Sluice's and Shriek's. **Recommendation: (a).** A second four-corner field would be a second morph system to keep in sync. The lab's grid is built as (a).
 2. **Q2. Should a module's ARCH button always change something?** **Recommendation: yes, on by default** (finding 1: otherwise 42–95% of clicks do nothing at the default chaos).
-3. **Q3. When ARCH is pressed, does it write the structure to all four corners or only the selected one?** **Recommendation: all four by default** (finding 6: per-corner structure makes the pad mostly a switch). Keep "selected corner" as a setting for those who want corners that flip, which ADR-188 allows.
+3. **Q3. When ARCH is pressed, does it write the structure to all four corners or only the selected one?** **RULED (ADR-320 item 1): the selected corner by default**, with "all four" kept as an option. The lab's earlier recommendation was all four (finding 6). Under QUANTUM the per-corner structure now flips key by key at seeded boundaries (C15), not all at the centre lines.
 4. **Q4. What is "home" for the bell?** **Recommendation: the corner's saved snapshot, only, in 1.0** (finding 7). "Save snapshot" moves home.
 5. **Q5. Is one fixed ruleset enough for 1.0, with the editor and saved rulesets after?** **Recommendation: yes.** "Common" draws its routes cleanly (finding 5). The editor's real difficulty, source contention and shaping, deserves its own round.
 6. **Q6. Should the ruleset draw be part of GLOBAL ARCH and randomize patch?** **Recommendation: yes,** drawn after the structure, as the lab does (finding 5: dependency).
@@ -237,7 +309,10 @@ The engine gives `mute` and `solo` class `D` (Device: outside the morph), and th
   - C11 ARCH must change;
   - C12 solo isolates a source (control: solo after the mix);
   - C13 mute keeps the source running, and the 5 ms raised-cosine gate;
-  - C14 bounds are for the next draw only (control: a stand-in that re-applies the last draw).
+  - C14 bounds are for the next draw only (control: a stand-in that re-applies the last draw);
+  - C15 QUANTUM flips each key at its own seeded boundary (control: one shared boundary);
+  - C16 the ✕ deletes a saved snapshot (control: round 2's refusing rule);
+  - C17 save all four (control: saving one corner).
 
   Each has a must-fail control.
 - **A headless Chrome run** clicked every level's ARCH and PARAMS and the grid, ruleset and lock buttons. It raised no error, and the replay matched (42 actions).
