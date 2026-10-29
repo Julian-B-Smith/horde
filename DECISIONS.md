@@ -10011,3 +10011,42 @@ Both frames were captured from a local preview.
 
 **Consequences.** horde's response seq 3 is in Weir's tree (weir PR #3). Weir changes `filter.h`, then sends a notice. Once accepted, a change to the interface is a human gate on both sides. **FX device (ADR-254):** `fxfilter` uses the same interface with Weir's own ramp on, since no PA-1 sits in front of it there.
 
+## ADR-312 — RULED by the human: a basic Random page is in 1.0; its workshop lab starts in horde (B578; 2026-10-29)
+
+**Context.** The human, 2026-10-29: "I've also been trying to imagine novel ideas for a 'Random' page with robust randomization features that allow you to set the parameters for randomization and randomize entire modules or patches and affix snapshots to an XY performance grid, like for sluice and shriek." There could be many levels: "randomize architecture" and "randomize parameters" for each module and for the whole patch, from one oscillator to the whole voice section, FX routing and each FX module ("this could just pass through the existing interface from the modules if applicable"), and mod mappings by predetermined patterns ("probably the most robust space … establishing rulesets and saving them as presets, starting from the most common mod mappings like pitch envelopes and filter LFOs"). Bounds can follow a bell curve around the home value, with a knob from home toward chaos, and amount sliders. "This is obviously a project that will have to extend past 1.0, but I think a basic randomization page should probably make it into the 1.0 gate."
+
+**Ruling (the human, 2026-10-29, by poll):** "Basic in 1.0; lab in horde".
+- A new part, `random`, is in the 1.0 gate at a basic level. What "basic" contains is set from the lab, by the human.
+- The workshop is a lab in horde's `docs/design/` (B578). It tries the human's ideas there before anything is specified.
+- The richer rulesets and their presets come after 1.0.
+
+**Rejected:** a lab only, with 1.0 decided later; a sibling repo for the randomization engine (the page touches nearly every part of horde).
+
+**Consequences.**
+- H2-PLAN gains the part `random`, needing `patch`, `morph`, `modmatrix` and `rack`, and `release` needs it.
+- Modules randomize through their own interfaces where they have one (Sluice's randomize, revert and randomize-all-four; Shriek's page).
+- **FX device (ADR-254):** the FX device after 1.0 gets the FX half (FX routing and each module's randomize), with no voice section.
+
+## ADR-313 — RULED by the human: EQ and Drive move to a new sibling repo; the FX filter module moves to Weir; the Kuramoto chorus leaves 1.0 (2026-10-29)
+
+**Context.** The human asked whether other unfinished parts should be delegated to repos of their own. The lead named the parts with self-contained DSP behind the rack-slot contract: EQ and Drive (planned, ADR-190 A7), the Kuramoto chorus (B401, conditional under ADR-190 A3), and the FX filter module (`fxfilter`, which shares Weir's types).
+
+**Ruling (the human, 2026-10-29, by poll):** "EQ + Drive, one new repo"; "FX filter module to Weir"; "We can leave the kuramoto chorus out of 1.0".
+- EQ and Drive become one sibling project, built to the rack-slot contract like Bulwark. It is spun up by `/spinup` (B579).
+- Weir wraps its own filter types as the FX filter module, and horde hosts it like any sibling (B580; a brief to Weir).
+- The Kuramoto chorus (B401) leaves 1.0. ADR-190 A3's condition is moot, and its part becomes post-1.0.
+
+**Rejected:** moving the Kuramoto chorus into Sluice.
+
+**Consequences.** H2-PLAN: `eq` and `drive` go to the new sibling, `fxfilter` to Weir, and `kchorus` becomes post-1.0. Stage S4's FX list follows. **FX device (ADR-254):** the FX device takes EQ and Drive from the sibling and the FX filter from Weir through the same slot, and has no Kuramoto chorus until it returns.
+
+## ADR-314 — RULED by the human: Sluice's pad X/Y is morph-class inside horde (B510; 2026-10-29)
+
+**Context.** Sluice's response seq 68 (`integrations/hypersaw/response-switch-declaration.md` in Sluice's tree, Sluice D-194) classes every key and declares every flip key's switch in ADR-309's form. It asks one thing: is `morph.x` / `morph.y`, the position over one patch's snapshots, morph-class (blended between horde's corners) or Device (one position for the slot)?
+
+**Ruling (the human, 2026-10-29, by poll):** "Morph". X and Y travel with the patch held at each horde corner, and horde's morph blends them, as ADR-300's reading has Shriek's pad.
+
+**Rejected:** Device (one live X/Y for the slot).
+
+**Consequences.** horde's response seq 69 goes to Sluice; Sluice keeps its classification. **FX device (ADR-254):** the same, through the same slot.
+
