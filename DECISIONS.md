@@ -9994,3 +9994,20 @@ Both frames were captured from a local preview.
 
 **Consequences.** Six entries under `reference/` are still read by no tool (distortion-engine, formant-pulsar-fof, horde-module-macros, network-lab-v0, maw/, decoherence-lab). The protected-paths gate (B569) covers them by hash. Historical ROADMAP text naming `reference/kuramoto-views.html` is left as it was written. **FX device (ADR-254):** none.
 
+## ADR-311 — RULED by the human: Weir's filter interface accepted, with two changes (B567; 2026-10-29)
+
+**Context.** Weir's brief seq 2 (`integrations/weir/brief-interface.md`, horde PR #1252) offers `include/weir/filter.h` (Weir `e734294`) as the interface horde consumes for the engine's per-voice filter slot (RC-1, X13) and the FX filter module. It is one abstract class: `prepare`, `reset`, `setParams` (targets, ramped inside Weir over 5 ms), `process` (stereo in place, double), `latency`, `response`, `claim`, `tail`. The lead read it against SPEC-ENGINE and found it fits RC-1 apart from smoothing. PA-1 already glides every host, automation, macro, intent and morph change through two 6 ms one-poles. Filter cutoff is an audio-rate destination that reaches the slot every sample, so a second ramp in Weir would slow every knob and blur fast filter envelopes, and per-sample `setParams` would defeat its one call per block.
+
+**Ruling (the human, 2026-10-29, by poll):** "Accept with two changes".
+1. `process()` takes optional per-sample modulation inputs (cutoff in octaves at least; resonance if cheap), applied unsmoothed.
+2. `smoothingSeconds = 0` means targets land at once. horde calls `prepare(sr, 4096, 0.0)`, and Weir guarantees artifact-free output at per-sample parameter rates. Weir's ramp stays for its lab and `fxfilter`.
+
+**Answers to Weir's three questions:**
+- any block split, `maxBlock` 4,096 (DT-2);
+- `tail()` in linear absolute amplitude, compared against 1e-4 (the −80 dB free threshold, 6.4), with no `done()` needed;
+- aligning parallel branches' latency is horde's (RC-1).
+
+**Rejected:** accepting as is (slower knobs, blurred envelopes, a virtual call per sample); holding for a critic.
+
+**Consequences.** horde's response seq 3 is in Weir's tree (weir PR #3). Weir changes `filter.h`, then sends a notice. Once accepted, a change to the interface is a human gate on both sides. **FX device (ADR-254):** `fxfilter` uses the same interface with Weir's own ramp on, since no PA-1 sits in front of it there.
+
