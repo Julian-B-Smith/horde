@@ -389,6 +389,9 @@ you can click (serve the repo with `python3 tools/serve_labs.py` and open it). T
   limiter) — hosted in horde's rack through one slot contract, beside horde's own ECHO, EQ, FX
   filter and drive. **The module cutoff is 2026-12-11** (ADR-236): each module's 1.0 MUST rows
   are judged on that date, and a module that misses it ships after 1.0.
+- **The filters, in a sibling project of their own** — **Weir**, a C++ filter library
+  (ADR-307, B567). It provides the new engine's per-voice filter slot and the FX filter module.
+  horde's filter lab is its starting point, not its reference.
 
 **The rebuild, stage by stage** (ROADMAP B494; the build's stages are the spec's BD-8):
 
@@ -398,8 +401,8 @@ you can click (serve the repo with `python3 tools/serve_labs.py` and open it). T
 | The spec, `specs/SPEC-ENGINE.md` (B494 step 1) | **Ratified** by the human's merge of PR #1097, 2026-10-16; amended since by ADR-230 and ADR-231 |
 | The clean-room tree `engine2/` and the 380 reference renders (B497) | Done 2026-10-17: the tree builds an empty library and an empty suite; the renders are release asset `engine2-reference-renders-v1` |
 | Two history-free repositories, one for the test author and one for the builder (B502) | Made 2026-10-17; both sessions running, each repo with a private off-machine remote |
-| The acceptance tests, by a different agent from the spec alone (B498) | Running: the test author delivers each stage's items ahead of the build, and each spec round's changes to both repos the same day (spec round 30 as of 2026-10-22) |
-| The build, in eight stages: manifest and state; the voice, ENV 1, the pedal and the output; the swarm; the edge correction; the blades; the sub and noise; modulation, morph and state; WebAssembly — then the bank | Stages 1 to 6 accepted (stage 5 by ADR-253, 2026-10-20; stage 6 by ADR-268, 2026-10-21); ED-7, the stage-5 amendment of spec round 29, built and awaiting acceptance; stage 7 next. *Row checked 2026-10-22 against DECISIONS.md.* |
+| The acceptance tests, by a different agent from the spec alone (B498) | Running: the test author delivers each stage's items ahead of the build, and each spec round's changes to both repos the same day (spec round 47 as of 2026-10-28, ADR-304) |
+| The build, in eight stages: manifest and state; the voice, ENV 1, the pedal and the output; the swarm; the edge correction; the blades; the sub and noise; modulation, morph and state; WebAssembly — then the bank | The eight stages are built and the bank stage began 2026-10-26 (ADR-284). Spec rounds 42 to 47 are built in the builder's repo (2026-10-29): of 295 suite items, two still fail, DT-3's Crushed burst and four presets' key-off clicks found before these rounds. The soak is next. *Row checked 2026-10-29 against DECISIONS.md and the builder's report.* |
 | Judgement and cutover (B494 step 4) | The human's ears on the whole bank A/B, the CPU target (B488), the invariant suite; then it replaces the current engine |
 
 ---
