@@ -1,0 +1,165 @@
+{
+  "format": "horde.gui3-layout/1",
+  "note": "GUI 3's page layout (B584, ADR-316). Design input, hand-edited: which parameter goes on which page and in which group. It names parameters by key and nothing else; labels, ranges, laws, defaults and options come from SPEC-ENGINE section 5 through tools/gen_gui3_controls.py, which refuses a key the spec does not have, a host parameter no page places, and a reserved row placed anywhere. A group's `block` places every host row of that block in the spec table's order (5.8: a table's row order is its display order), so a row added to the spec appears on its draft page without an edit here. A `designed` page lists its keys one by one, so a new row there is unplaced, and red, until the page's designer places it. `live` is PA-8's live-when table, transcribed for the designed pages only; a control whose condition fails is drawn idle (dashed), never hidden. `widget` overrides the generator's default for a row.",
+  "pages": [
+    {
+      "id": "main", "label": "Main", "status": "draft",
+      "note": "Draft: every row is reachable, none is designed. The Main page's design is B581 step 2.",
+      "groups": [
+        {"title": "Voice", "keys": ["voice.mode", "voice.gravity"]},
+        {"title": "ENV 1", "block": "env1"}
+      ]
+    },
+    {
+      "id": "osc1", "label": "Osc 1", "status": "draft",
+      "note": "Draft: the oscillator page's design (with the mod map and the filters) is B581 step 2.",
+      "groups": [
+        {"title": "Oscillator", "block": "osc1"},
+        {"title": "Blade 1", "block": "osc1.blade1"},
+        {"title": "Blade 2", "block": "osc1.blade2"}
+      ]
+    },
+    {
+      "id": "osc2", "label": "Osc 2", "status": "draft",
+      "note": "Draft: as Osc 1.",
+      "groups": [
+        {"title": "Oscillator", "block": "osc2"},
+        {"title": "Blade 1", "block": "osc2.blade1"},
+        {"title": "Blade 2", "block": "osc2.blade2"}
+      ]
+    },
+    {
+      "id": "sub", "label": "Sub", "status": "designed",
+      "cite": "SPEC-ENGINE 5.5 and SN-1 to SN-7, SN-14; B514's rulings (ADR-255, ADR-258, ADR-268); PA-8 for live-when",
+      "note": "The sub, in its chain's reading order: the source's switch and its output, then shape, pitch, voice, and the colour stage (order, erode, drive, crunch, character, tone).",
+      "groups": [
+        {"title": "Sub", "tag": "SOURCE", "keys": [
+          "sub.on",
+          {"key": "mix.sub", "live": {"key": "sub.on", "is": ["on"]}},
+          {"key": "sub.env", "live": {"key": "sub.on", "is": ["on"]}},
+          {"key": "sub.pan", "live": {"key": "sub.on", "is": ["on"]}},
+          {"key": "sub.mute", "live": {"key": "sub.on", "is": ["on"]}},
+          {"key": "sub.solo", "live": {"key": "sub.on", "is": ["on"]}}
+        ]},
+        {"title": "Shape", "tag": "SN-2", "live": {"key": "sub.on", "is": ["on"]}, "keys": [
+          {"key": "sub.wave", "widget": "pills"},
+          {"key": "sub.pulseWidth", "live": {"key": "sub.wave", "is": ["pulse"]}},
+          {"key": "sub.softness", "live": {"key": "sub.wave", "is": ["smooth square"]}},
+          {"key": "sub.bumpHarmonic", "live": {"key": "sub.wave", "is": ["bump"]}},
+          {"key": "sub.bumpAmount", "live": {"key": "sub.wave", "is": ["bump"]}},
+          {"key": "sub.bumpPhase", "live": {"key": "sub.wave", "is": ["bump"]}},
+          {"key": "sub.bump2Harmonic", "live": {"key": "sub.wave", "is": ["bump"]}},
+          {"key": "sub.bump2Amount", "live": {"key": "sub.wave", "is": ["bump"]}},
+          {"key": "sub.bump2Phase", "live": {"key": "sub.wave", "is": ["bump"]}}
+        ]},
+        {"title": "Pitch", "tag": "SN-1", "live": {"key": "sub.on", "is": ["on"]}, "keys": [
+          "sub.octave", "sub.semitones", "sub.pitch", "sub.fine", "sub.keytrack", "sub.startPhase"
+        ]},
+        {"title": "Voice", "tag": "SN-7", "live": {"key": "sub.on", "is": ["on"]}, "keys": [
+          "sub.voiceMode",
+          {"key": "sub.priority", "live": {"key": "sub.voiceMode", "is": ["mono"]}}
+        ]},
+        {"title": "Colour", "tag": "SN-3 · SN-5 · SN-14", "live": {"key": "sub.on", "is": ["on"]}, "keys": [
+          "sub.order", "sub.erode", "sub.drive", "sub.crunch",
+          {"key": "sub.character", "live": {"key": "sub.drive", "gt": 0}},
+          "sub.tone"
+        ]}
+      ]
+    },
+    {
+      "id": "noise", "label": "Noise", "status": "designed",
+      "cite": "SPEC-ENGINE 5.6 and SN-4, SN-8 to SN-13; B514's rulings (ADR-255, ADR-258, ADR-268); PA-8 for live-when",
+      "note": "The noise, in its chain's reading order: source and colour, then the three optional stages in their fixed series order (Resonator, Whisper, Wind), the noise's own filter, and the stereo stage.",
+      "groups": [
+        {"title": "Noise", "tag": "SOURCE", "keys": [
+          "noise.on",
+          {"key": "mix.noise", "live": {"key": "noise.on", "is": ["on"]}},
+          {"key": "noise.env", "live": {"key": "noise.on", "is": ["on"]}},
+          {"key": "noise.mute", "live": {"key": "noise.on", "is": ["on"]}},
+          {"key": "noise.solo", "live": {"key": "noise.on", "is": ["on"]}}
+        ]},
+        {"title": "Source", "tag": "SN-8 · SN-4", "live": {"any": [{"key": "noise.on", "is": ["on"]}, {"all": [{"key": "sub.on", "is": ["on"]}, {"key": "sub.erode", "gt": 0}]}]}, "keys": [
+          "noise.type",
+          {"key": "noise.density", "live": {"key": "noise.type", "is": ["Crackle"]}},
+          {"key": "noise.rate", "live": {"key": "noise.type", "is": ["S&H"]}},
+          {"key": "noise.length", "live": {"key": "noise.type", "is": ["LFSR"]}},
+          {"key": "noise.lfsrKeytrack", "live": {"key": "noise.type", "is": ["LFSR"]}},
+          "noise.colour",
+          {"key": "noise.pitch", "live": {"any": [{"key": "noise.type", "is": ["LFSR"]}, {"key": "noise.resonator", "is": ["on"]}, {"all": [{"key": "noise.filter", "not": ["Off"]}, {"key": "noise.keytrack", "gt": 0}]}]}}
+        ]},
+        {"title": "Resonator", "tag": "SN-9", "live": {"any": [{"key": "noise.on", "is": ["on"]}, {"all": [{"key": "sub.on", "is": ["on"]}, {"key": "sub.erode", "gt": 0}]}]}, "keys": [
+          "noise.resonator",
+          {"key": "noise.feedback", "live": {"key": "noise.resonator", "is": ["on"]}}
+        ]},
+        {"title": "Whisper", "tag": "SN-9", "live": {"any": [{"key": "noise.on", "is": ["on"]}, {"all": [{"key": "sub.on", "is": ["on"]}, {"key": "sub.erode", "gt": 0}]}]}, "keys": [
+          "noise.whisper",
+          {"key": "noise.vowel", "live": {"key": "noise.whisper", "is": ["on"]}}
+        ]},
+        {"title": "Wind", "tag": "SN-9", "live": {"any": [{"key": "noise.on", "is": ["on"]}, {"all": [{"key": "sub.on", "is": ["on"]}, {"key": "sub.erode", "gt": 0}]}]}, "keys": [
+          "noise.wind",
+          {"key": "noise.gust", "live": {"key": "noise.wind", "is": ["on"]}}
+        ]},
+        {"title": "Filter", "tag": "SN-10", "live": {"any": [{"key": "noise.on", "is": ["on"]}, {"all": [{"key": "sub.on", "is": ["on"]}, {"key": "sub.erode", "gt": 0}]}]}, "keys": [
+          "noise.filter",
+          {"key": "noise.cutoff", "live": {"key": "noise.filter", "not": ["Off"]}},
+          {"key": "noise.resonance", "live": {"key": "noise.filter", "not": ["Off"]}},
+          {"key": "noise.keytrack", "live": {"key": "noise.filter", "not": ["Off"]}}
+        ]},
+        {"title": "Stereo", "tag": "SN-12", "live": {"key": "noise.on", "is": ["on"]}, "keys": [
+          "noise.spread", "noise.pan"
+        ]}
+      ]
+    },
+    {
+      "id": "filters", "label": "Filters", "status": "empty",
+      "note": "No engine parameters: the filters are a reserved contract (SPEC-ENGINE RC-1, IF-5), outside the engine's manifest. Weir's filters join this page at B581 step 2.",
+      "groups": []
+    },
+    {
+      "id": "mod", "label": "Mod", "status": "draft",
+      "note": "Draft: ENV 2 to ENV 4 are the engine's (5.2, RC-4). The LFOs, the matrix and the routes are the device's (RC-4 deferred); the mod map's design is B581 step 1.",
+      "groups": [
+        {"title": "ENV 2", "block": "env2"},
+        {"title": "ENV 3", "block": "env3"},
+        {"title": "ENV 4", "block": "env4"}
+      ]
+    },
+    {
+      "id": "morph", "label": "Morph", "status": "empty",
+      "note": "No engine parameters: the morph position and the corners are the morph system's own state (RC-11.1); they reach the engine only as parameter values. The docked pad drives it from every page; the Morph page's design is B581 step 3.",
+      "groups": []
+    },
+    {
+      "id": "mix", "label": "Mix", "status": "draft",
+      "note": "Draft: the mixer page's design is B581 step 4.",
+      "groups": [
+        {"title": "Levels", "keys": [
+          {"key": "mix.osc1", "widget": "vslider"}, {"key": "mix.osc2", "widget": "vslider"},
+          {"key": "mix.sub", "widget": "vslider"}, {"key": "mix.noise", "widget": "vslider"},
+          {"key": "out.level", "widget": "vslider"}
+        ]},
+        {"title": "Sources", "keys": ["osc1.on", "osc2.on", "sub.on", "noise.on"]},
+        {"title": "Mute and solo", "keys": [
+          "osc1.mute", "osc1.solo", "osc2.mute", "osc2.solo", "sub.mute", "sub.solo", "noise.mute", "noise.solo"
+        ]}
+      ]
+    },
+    {
+      "id": "fx", "label": "FX", "status": "empty",
+      "note": "No engine parameters: the FX rack is a reserved contract (RC-5, IF-7), the device's. Its pages come from this shell too (ADR-316, ADR-254).",
+      "groups": []
+    },
+    {
+      "id": "random", "label": "Random", "status": "empty",
+      "note": "No engine parameters: the Random page is the device's (B578's workshop lab runs alongside, ADR-312).",
+      "groups": []
+    },
+    {
+      "id": "settings", "label": "Settings", "status": "draft",
+      "note": "Draft: the two Device-class rows that are settings, not sound parameters (5.2).",
+      "groups": [
+        {"title": "Engine", "keys": ["voice.polyphony", "quality"]}
+      ]
+    }
+  ]
+}

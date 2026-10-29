@@ -1,0 +1,463 @@
+<!doctype html>
+<!-- gui3 — GUI 3's prototype, first slice (ROADMAP B584, ADR-316). horde, 2026-10-29.
+     Origin: the human, 2026-10-29: "Would it make sense though to create a global interface lab (that uses the modules from
+     the design doc so there isn't redundancy) which connects all the wires without running the audio engine through it?"
+     Ruled by poll: "GUI 3's prototype, starting now" (ADR-316, amending B302's gate).
+
+     WHAT THIS IS. One wired shell: twelve pages, every engine parameter reachable, no audio.
+       - Components come from the design system's vendored bundle only (arp-face/, B553). This file's <style> places
+         things (grid, flex, gaps, widths); it draws no component of its own. What the bundle lacks is listed as
+         proposals in gui3/README.md, never drawn here.
+       - Controls are generated: gui3/shell-data.js is written by tools/gen_gui3_controls.py from SPEC-ENGINE section 5
+         and gui3/layout.json. This file names no parameter key; mountControl is the one place a control is built,
+         and it builds one per entry of GUI3_DATA.pages (gated by ./verify fast: no control without a parameter,
+         every host parameter on a page).
+       - The engine is a no-audio stub (gui3/engine-stub.js) behind one adapter (gui3/device.js), which holds the
+         morph, the routes and the history; the WebAssembly engine (IF-10, clean-room stage 8) replaces the stub
+         behind the same seam (gui3/README.md says what it owes).
+       - The Sub and Noise pages are designed (B514's rulings, SPEC-ENGINE 5.5 and 5.6, PA-8 for live-when); the
+         others are DRAFT (every row reachable, nothing designed) or hold no engine parameters, each saying why.
+       - The page chrome per ADR-315: the docked morph pad while morph is on, with a hide toggle (no space with morph
+         off); a fixed info box fed from the parameter's description; right-click "Open in manual" (a stub).
+
+     WHAT IS MOCK. Everything the engine would make audible: there is none. Modulation sources read 0 (no voices).
+     The ownership of a corner is a seeded stand-in (device.js). Descriptions: no `desc` column exists for horde 2's
+     parameters yet (B582), so the info box shows the row's own spec text, marked SPEC TEXT, and the gap is counted.
+
+     No Math.random, no clock (the generator's determinism gate reads this file). No wheel listener of its own (B301):
+     the bundle registers its alt+wheel itself. -->
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="lab-part" content="Presentation">
+<meta name="lab-review" content="B584 · 2026-10-29">
+<title>GUI 3 — the wired shell, first slice (Sub and Noise pages; no audio engine)</title>
+<link rel="stylesheet" href="arp-face/tokens.css">
+<link rel="stylesheet" href="arp-face/bundle.css">
+<style>
+  /* Placement only. Colours, type, borders, radii and every component's look are the bundle's. */
+  body { padding: var(--space-page); }
+  .col { max-width: 1010px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--space-column); }
+  .grow { flex: 1 1 auto; }
+  .tagline { max-width: 96ch; }
+  #win { width: min(100%, 980px); min-height: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--space-stack); box-sizing: border-box; }
+  .chrome { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-gap) 14px; }
+  .logo { box-sizing: border-box; width: 91px; height: 60px; flex: 0 0 auto; display: grid; place-items: center; text-align: center; }
+  .tabs { display: grid; grid-template-columns: repeat(6, auto); gap: 4px; justify-content: start; }
+  .switches { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+  .body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; flex: 1 1 auto; align-items: start; }
+  .body.with-dock { grid-template-columns: 204px minmax(0, 1fr); }
+  .dock { width: auto; }
+  .dock .face { flex-direction: column; align-items: stretch; gap: 6px; padding: 6px 7px 8px; }
+  .dock .hd-xy { width: 188px; height: 188px; margin: 0 auto; }
+  /* The window is 980 x 720 (ADR-259 ruling 2): a long page scrolls inside it, so the info box sits in the same place on
+     every page (ADR-315) instead of following the page's length. */
+  .pagecol { display: flex; flex-direction: column; gap: var(--space-stack); min-width: 0; }
+  #pages { height: 520px; overflow-y: auto; overscroll-behavior: contain; }
+  .page { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .page[hidden], .dock[hidden] { display: none; }
+  .phead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+  .cards { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
+  .cards > .hd-card { width: auto; flex: 1 1 260px; min-width: 0; }
+  .cards > .hd-card.wide { flex-basis: 100%; }
+  .hd-card .face { gap: 4px 6px; align-items: flex-start; justify-content: flex-start; padding: 6px 7px 8px; }
+  .ctl { min-width: 0; }
+  .info { width: auto; min-height: 92px; }
+  .info .face { flex-direction: column; align-items: stretch; gap: 3px; }
+  .menu { position: fixed; z-index: 60; width: 260px; }
+  .menu .face { flex-direction: column; align-items: stretch; gap: 4px; }
+  .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--space-column); align-items: start; }
+  .two > .hd-card { width: auto; }
+  .two pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow: auto; }
+</style></head><body>
+<div class="col">
+  <header class="hd-row" id="bar">
+    <span class="hd-cluster">horde · GUI 3 shell</span><span class="tag hd-hint">NO AUDIO · B584</span>
+    <span class="grow"></span>
+    <button class="hd-btn hd-focus" id="undoBtn" type="button" disabled>Undo</button>
+    <button class="hd-btn hd-focus" id="redoBtn" type="button" disabled>Redo</button>
+    <button class="hd-kbd hd-focus" id="kbd" type="button" aria-pressed="false" aria-label="Keyboard mode"><span class="lampdot"></span><span id="kbdTxt">KEYS</span></button>
+    <button class="hd-btn hd-focus" id="themeBtn" type="button" aria-pressed="false">Dark</button>
+  </header>
+  <div class="tagline"><span class="hd-note">GUI 3's first slice: <b>one wired shell</b> with all twelve pages, every engine parameter of SPEC-ENGINE section 5
+    reachable on a page, and <b>no audio</b>: a stub engine keeps the values behind the engine's interface. The <b>Sub</b> and <b>Noise</b> pages are
+    designed; the others are drafts or hold no engine parameters, and say why. Try: turn <b>Morph</b> on (the pad docks on every page; <b>Pad</b>
+    hides it), press <b>Scatter corners</b> below and drag the puck, hover any control to read it in the info box, right-click one for the manual.</span></div>
+  <p class="hd-msg" id="status" role="status">Loading the shell.</p>
+
+  <div class="hd-window" id="win" aria-label="horde window (no audio engine)">
+    <div class="chrome">
+      <div class="logo hd-hint" title="The locked logo goes here at 91 x 60; the shell does not redraw it">logo<br>91 × 60</div>
+      <div class="tabs hd-pills" role="tablist" aria-label="Pages" id="tabs"></div>
+      <div class="switches">
+        <label class="hd-row hd-label">Morph <button class="hd-toggle hd-focus" id="morphOn" type="button" role="switch" aria-checked="false" aria-label="Morph on"></button></label>
+        <label class="hd-row hd-label">Pad <button class="hd-toggle hd-focus" id="padOn" type="button" role="switch" aria-checked="true" aria-label="Show the docked morph pad"></button></label>
+      </div>
+    </div>
+    <div class="body" id="bodyGrid">
+      <aside class="hd-card dock" id="dock" aria-label="Morph pad, docked" hidden>
+        <div class="head"><span class="hd-cluster">Morph</span><span class="tag">DOCKED</span></div>
+        <div class="face"><div id="padHost"></div><div id="cornersHost"></div></div>
+      </aside>
+      <div class="pagecol">
+        <main id="pages"></main>
+        <section class="hd-card info" id="info" aria-label="Info box" aria-live="polite">
+          <div class="head"><span class="hd-cluster" id="infoName">Info</span><span class="tag" id="infoTag">HOVER</span><span class="hd-hint" id="infoKey"></span></div>
+          <div class="face"><span class="hd-value" id="infoText">Hover a control to read what it does.</span><span class="hd-hint" id="infoMeta"></span><span class="hd-note" id="infoLive"></span></div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <div class="two">
+    <section class="hd-card" aria-label="The seam">
+      <div class="head"><span class="hd-cluster">The seam</span><span class="tag">STUB ENGINE</span></div>
+      <div class="face">
+        <div class="hd-row">
+          <button class="hd-btn hd-focus" id="scatterBtn" type="button">Scatter corners</button>
+          <button class="hd-btn hd-focus" id="routeBtn" type="button">Add a route here</button>
+          <button class="hd-btn hd-focus" id="clearRoutesBtn" type="button">Clear routes</button>
+          <button class="hd-btn hd-focus" id="initBtn" type="button">Init patch</button>
+        </div>
+        <p class="hd-note" id="seamNote"></p>
+        <details><summary class="hd-label">Observation view (IF-10), the current page's stepped keys</summary><pre class="hd-note" id="obsTxt"></pre></details>
+        <details><summary class="hd-label">Engine state document (IF-4 members, shape only)</summary><pre class="hd-note" id="stateTxt"></pre></details>
+        <p class="hd-note" id="histTxt"></p>
+      </div>
+    </section>
+    <section class="hd-card" aria-label="Self-checks">
+      <div class="head"><span class="hd-cluster">Self-checks</span><span class="tag">EACH WITH A CONTROL</span></div>
+      <div class="face" id="checks" style="flex-direction:column;align-items:stretch"></div>
+    </section>
+  </div>
+</div>
+<script src="arp-face/bundle.js"></script>
+<script src="gui3/shell-data.js"></script>
+<script src="gui3/engine-stub.js"></script>
+<script src="gui3/device.js"></script>
+<script>
+(function main() {
+'use strict';
+// ===== BLOCK A: the four scripts, and every piece of state, declared before any wiring (L0026) =====
+const H = window.Horde, DATA = window.GUI3_DATA, ENG = window.GUI3Engine, DEV = window.GUI3Device;
+const $ = id => document.getElementById(id);
+// A missing script must say so on the page, not leave a window that looks fine and does nothing; lab_load_check also
+// runs this block without any of them.
+if (!H || !H.Session || !DATA || !ENG || !DEV) { const n = document.createElement('p'); n.className = 'hd-note bad'; n.setAttribute('role', 'alert'); n.textContent = 'A GUI 3 script did not load (arp-face/bundle.js, gui3/shell-data.js, gui3/engine-stub.js, gui3/device.js). Open this page from docs/design, or through tools/labs_preview.sh.'; document.body.prepend(n); return; }
+const SEED = 1;
+const ROW = Object.create(null); DATA.params.forEach(r => { ROW[r.key] = r; });
+const CLASS_NAME = { M: 'MORPHABLE', S: 'STRUCTURAL', D: 'DEVICE' };
+const views = [];                  // per-frame updates of this file's own controls: { page, update() }
+let page = 'sub', menu = null, padShown = true, lastRev = -1, seamRev = -1, hovered = null;
+let engine = null, dev = null, S = null;
+function h(tag, a, ...kids) {
+  const e = document.createElement(tag);
+  for (const k in (a || {})) {
+    const v = a[k];
+    if (k === 'class') e.className = v; else if (k === 'text') e.textContent = v;
+    else if (v === true) e.setAttribute(k, ''); else if (v !== false && v != null) e.setAttribute(k, v);
+  }
+  for (const c of kids.flat()) if (c != null) e.append(c);
+  return e;
+}
+const vOf = (row, idx) => row.n === 1 ? 0 : idx / (row.n - 1);
+const idxOf = (row, v) => Math.round(v * (row.n - 1));
+const optLabel = (row, v) => row.options ? row.options[idxOf(row, v)] : String(row.lo + idxOf(row, v));
+
+// ===== BLOCK B: the engine, the device adapter and the bundle's Session =====
+engine = new ENG.Stub(DATA.params);
+dev = DEV.create(DATA, engine, { seed: SEED });
+S = new H.Session({ x: .5, y: .5, corners: [null, null, null, null],
+  sources: dev.sources().map(s => ({ id: s.id, name: s.name, kind: s.kind, f: () => 0 })),   // no voices, so every source reads 0
+  mappings: [] });
+// The bundle draws what the DEVICE says: its weights, the heard value, the owner (the plugin reads the owner from the
+// engine and never computes it, morph knob spec, Ties). The owner bookkeeping below is the bundle's own (flip times).
+S.weights = () => dev.weights();
+S.base = p => dev.heard(p.key);
+S.ownerOf = function (p) {
+  const own = dev.owner(p.key), o = this.owner[p.key];
+  if (!o) this.owner[p.key] = { i: own, at: -1e9 }; else if (o.i !== own) this.owner[p.key] = { i: own, at: this.now || 0 };
+  return own;
+};
+// FIRST view: the device follows the pad, a gesture ends when the bundle's drag does, and the routes are mirrored.
+S.add({ render() {
+  const m = dev.morph();
+  if (m.on && (S.pad.x !== m.x || S.pad.y !== m.y)) dev.setMorph({ x: S.pad.x, y: S.pad.y });
+  const g = dev.gestureKey();
+  if (g && !(S.drag && S.drag.key === g)) dev.end();
+  if (dev.rev() !== lastRev) { lastRev = dev.rev(); S.mappings = dev.routes().map(r => ({ id: r.id, param: r.param, src: r.src, pol: r.pol, depth: r.depth })); }
+  for (const v of views) if (v.page === page || v.page === '*') { try { v.update(); } catch (e) { if (!v.failed) { v.failed = true; console.error('gui3 view failed', e); } } }
+} });
+
+// Every write goes through here. A drag of the bundle's control is one gesture (RC-11.3: begin and end reach the engine);
+// any other write (double-click reset, alt+wheel, arrows, a corner revert) joins one step that closes when the event does.
+// `batch` marks the step this function opened, so its microtask never closes a gesture opened after it.
+let batch = false;
+function write(row, v, corner) {
+  if (S.drag && S.drag.key === row.key) {
+    if (dev.gestureKey() !== row.key) { if (batch) { batch = false; dev.end(); } else if (dev.inTx()) dev.end(); dev.begin(row.label + ' (drag)', row.key); }
+  } else if (!dev.inTx()) { dev.begin(row.label); batch = true; queueMicrotask(() => { if (batch) { batch = false; dev.end(); } }); }
+  return dev.set(row.key, v, { corner });
+}
+// A stepped write (pills, select, toggle, stepper) goes to the pinned corner, else the owner; a locked corner refuses it.
+function writeStep(row, path, idx) {
+  const m = dev.morph(), ai = row.class === 'D' ? null : (m.on && S.pinned !== null ? S.pinned : dev.owner(row.key));
+  if (ai !== null && m.on && !S.writable({ key: row.key, name: row.label, locked: false }, ai)) return;
+  const v = vOf(row, idx);
+  if (dev.set(row.key, v, { corner: ai, label: path + ' → ' + optLabel(row, v) }) !== null) S.say(path + ' → ' + optLabel(row, v));
+}
+
+// ===== BLOCK C: live-when (PA-8, from the layout) =====
+function live(c) {
+  if (!c) return true;
+  if (c.all) return c.all.every(live);
+  if (c.any) return c.any.some(live);
+  const r = ROW[c.key], v = dev.heard(c.key);
+  if (c.gt !== undefined) return ENG.lawX(r, v) > c.gt;
+  const o = optLabel(r, v);
+  return c.is ? c.is.includes(o) : !c.not.includes(o);
+}
+function says(c) {
+  if (c.all) return c.all.map(says).join(' and ');
+  if (c.any) return '(' + c.any.map(says).join(' or ') + ')';
+  const r = ROW[c.key], n = r.label + ' (' + r.key + ')';
+  return c.gt !== undefined ? n + ' is above ' + c.gt : n + (c.is ? ' is ' + c.is.join(' or ') : ' is not ' + c.not.join(' or '));
+}
+
+// ===== BLOCK D: the ONE place a parameter control is built: from a generated entry, bound to its row by key =====
+const PROPS = Object.create(null);    // host element -> the bundle props it was built with (the self-checks write through them)
+function propsFor(row, ctl, path) {
+  const vals = new Proxy([0, 0, 0, 0], {     // the bundle reads and writes p.vals[i]: here that IS the device's corner i
+    get(t, k, rc) { return typeof k === 'string' && /^[0-3]$/.test(k) ? dev.corner(row.key, +k) : Reflect.get(t, k, rc); },
+    set(t, k, v) { if (typeof k === 'string' && /^[0-3]$/.test(k)) write(row, v, +k); return true; }
+  });
+  return { key: row.key, name: row.label, path, kind: 'c', fmt: v => engine.display(row.key, v), def: row.default_v, vals,
+    bipolar: row.law !== 'dB' && row.lo < 0 && row.hi > 0, big: false, vert: ctl.widget === 'vslider' };
+}
+function mountControl(ctl, pageId, path) {
+  const row = ROW[ctl.key];
+  const host = h('div', { class: 'ctl', 'data-key': row.key, 'data-w': ctl.widget });
+  if (ctl.widget === 'knob' || ctl.widget === 'hslider' || ctl.widget === 'vslider') {
+    const p = propsFor(row, ctl, path);
+    const view = ctl.widget === 'knob' ? H.Knob(host, p, S) : H.Slider(host, p, S);
+    PROPS[row.key + '@' + pageId] = p;
+    const r0 = view.render;                 // a knob draws only while its page shows: 300-odd views would redraw every frame otherwise
+    view.render = function () { if (page === pageId) { r0(); host.classList.toggle('idle', !live(ctl.live)); } };
+    return host;
+  }
+  const lab = h('span', { class: 'hd-label' }, row.label);
+  let set;                                     // set(idx): repaint the control to the heard option
+  if (ctl.widget === 'toggle') {
+    const b = h('button', { class: 'hd-toggle hd-focus', type: 'button', role: 'switch', 'aria-label': path });
+    b.addEventListener('click', () => writeStep(row, path, row.options.indexOf(b.getAttribute('aria-checked') === 'true' ? 'off' : 'on')));
+    host.append(h('label', { class: 'hd-row' }, lab, b));
+    set = i => b.setAttribute('aria-checked', String(row.options[i] === 'on'));
+  } else if (ctl.widget === 'pills') {
+    const own = h('span', { class: 'hd-label' }, row.label), grp = h('div', { class: 'hd-pills', role: 'radiogroup', 'aria-label': path });
+    const bs = row.options.map((text, i) => { const b = h('button', { class: 'hd-pill hd-focus', type: 'button', role: 'radio', text, 'aria-checked': 'false' }); b.addEventListener('click', () => writeStep(row, path, i)); grp.append(b); return b; });
+    host.append(h('div', { class: 'hd-col' }, own, grp));
+    let lastOwn = -2;
+    set = i => {
+      bs.forEach((b, k) => { const on = String(k === i); if (b.getAttribute('aria-checked') !== on) b.setAttribute('aria-checked', on); });
+      const o = dev.morph().on && row.class === 'S' ? dev.owner(row.key) : -1;   // the owner's 3 px rule and glyph on the label (Switch guidelines)
+      if (o !== lastOwn) { lastOwn = o; own.className = o >= 0 ? 'hd-owned hd-label' : 'hd-label'; own.style.setProperty('--own', o >= 0 ? 'var(--c' + H.CORNERS[o].id + ')' : ''); own.innerHTML = (o >= 0 ? H.glyph(o, 8, 'var(--c' + H.CORNERS[o].id + '-tx)') : ''); own.append(row.label); }
+    };
+  } else if (ctl.widget === 'select') {
+    const sel = h('select', { class: 'hd-select hd-focus', 'aria-label': path });
+    row.options.forEach((t, i) => sel.append(h('option', { value: String(i), text: t })));
+    sel.addEventListener('change', () => writeStep(row, path, +sel.value));
+    host.append(h('div', { class: 'hd-col' }, lab, sel));
+    set = i => { if (sel.value !== String(i)) sel.value = String(i); };
+  } else {                                      // stepper: a range too long to list (an oscillator's seed)
+    const out = h('output', { class: 'hd-value' }), dn = h('button', { type: 'button', 'aria-label': path + ' down', text: '−' }), up = h('button', { type: 'button', 'aria-label': path + ' up', text: '+' });
+    const box = h('div', { class: 'hd-stepper hd-focus', role: 'spinbutton', 'aria-label': path }, dn, out, up);
+    dn.addEventListener('click', () => writeStep(row, path, Math.max(0, idxOf(row, dev.heard(row.key)) - 1)));
+    up.addEventListener('click', () => writeStep(row, path, Math.min(row.n - 1, idxOf(row, dev.heard(row.key)) + 1)));
+    host.append(h('div', { class: 'hd-col' }, lab, box));
+    set = i => { const t = optLabel(row, vOf(row, i)); if (out.textContent !== t) out.textContent = t; box.setAttribute('aria-valuenow', t); };
+  }
+  let last = null;
+  views.push({ page: pageId, update() {
+    const i = idxOf(row, dev.heard(row.key)), k = i + '|' + dev.rev();
+    if (k !== last) { last = k; set(i); }
+    host.classList.toggle('idle', !live(ctl.live));
+  } });
+  return host;
+}
+
+// ===== BLOCK E: the pages, from GUI3_DATA.pages =====
+const pageEls = {}, tabEls = {};
+const STATUS_TAG = { designed: 'DESIGNED', draft: 'DRAFT', empty: 'NO ENGINE PARAMETERS' };
+DATA.pages.forEach(pg => {
+  const el = h('section', { class: 'page', id: 'page-' + pg.id, role: 'tabpanel', 'aria-labelledby': 'tab-' + pg.id, hidden: true });
+  el.append(h('div', { class: 'phead' }, h('span', { class: 'hd-cluster', text: pg.label }), h('span', { class: 'hd-hint', text: STATUS_TAG[pg.status] }),
+    h('span', { class: 'hd-note', text: pg.note + (pg.cite ? ' (' + pg.cite + ')' : '') })));
+  const cards = h('div', { class: 'cards' });
+  pg.groups.forEach(g => {
+    const face = h('div', { class: 'face' });
+    g.controls.forEach(c => face.append(mountControl(c, pg.id, pg.label + ' · ' + g.title + ' · ' + ROW[c.key].label)));
+    cards.append(h('section', { class: 'hd-card' + (g.controls.length > 12 ? ' wide' : ''), 'aria-label': pg.label + ' · ' + g.title },
+      h('div', { class: 'head' }, h('span', { class: 'hd-cluster', text: g.title }), g.tag ? h('span', { class: 'tag', text: g.tag }) : null, h('span', { class: 'hd-hint', text: g.controls.length + (g.controls.length === 1 ? ' control' : ' controls') })), face));
+  });
+  if (pg.groups.length) el.append(cards);
+  $('pages').append(el); pageEls[pg.id] = el;
+  const t = h('button', { class: 'hd-pill hd-focus', type: 'button', role: 'tab', id: 'tab-' + pg.id, 'aria-controls': 'page-' + pg.id, 'aria-selected': 'false', text: pg.label });
+  t.addEventListener('click', () => selectPage(pg.id)); $('tabs').append(t); tabEls[pg.id] = t;
+});
+function selectPage(id) {
+  page = id; closeMenu();
+  for (const k in pageEls) pageEls[k].hidden = k !== id;
+  for (const k in tabEls) tabEls[k].setAttribute('aria-selected', String(k === id));
+  seamRev = -1;
+}
+
+// ===== BLOCK F: the chrome (ADR-315): the docked pad while morph is on, its hide toggle, the info box, the menu =====
+H.XYPad($('padHost'), S);
+H.CornerChips($('cornersHost'), S);
+function paintDock() {
+  const on = dev.morph().on, show = on && padShown;
+  $('morphOn').setAttribute('aria-checked', String(on));
+  $('padOn').setAttribute('aria-checked', String(padShown)); $('padOn').disabled = !on;
+  $('padOn').title = on ? (padShown ? 'Hide the docked pad (morph stays on)' : 'Show the docked pad') : 'The pad shows only while morph is on';
+  $('dock').hidden = !show; $('bodyGrid').classList.toggle('with-dock', show);
+}
+function setMorphOn(on) {
+  if (on) dev.setMorph({ on: true, x: S.pad.x, y: S.pad.y }); else { dev.setMorph({ on: false }); S.setPin(null); }
+  paintDock(); S.say(on ? 'Morph on: the pad docks on every page' : 'Morph off: corner A is the patch, and the pad takes no space');
+}
+$('morphOn').addEventListener('click', () => setMorphOn(!dev.morph().on));
+$('padOn').addEventListener('click', () => { padShown = !padShown; paintDock(); S.say(padShown ? 'Pad shown' : 'Pad hidden: morph stays on'); });
+paintDock();
+
+function hostOf(t) { return t && t.closest ? t.closest('#pages [data-key]') : null; }
+function showInfo(key) {
+  hovered = key;
+  if (!key) { $('infoName').textContent = 'Info'; $('infoTag').textContent = 'HOVER'; $('infoKey').textContent = ''; $('infoText').textContent = 'Hover a control to read what it does.'; $('infoMeta').textContent = ''; $('infoLive').textContent = ''; return; }
+  const r = ROW[key], see = r.see && ROW[r.see];
+  $('infoName').textContent = r.label; $('infoTag').textContent = 'SPEC TEXT · NO DESC YET'; $('infoKey').textContent = r.key;
+  $('infoText').textContent = (r.spec || '(the spec row says nothing here)') + (see && see.spec ? ' ' + see.label + ': ' + see.spec : '');
+  $('infoMeta').textContent = CLASS_NAME[r.class] + ' · ' + r.law + ' · ' + r.range_text + (r.unit ? ' ' + r.unit : '') + ' · default ' + r.default_text + ' · now ' + engine.display(r.key) + ' · SPEC-ENGINE ' + r.section;
+  const host = document.querySelector('#page-' + page + ' [data-key="' + CSS.escape(key) + '"]'), ctl = host && ctlOf(page, key);
+  $('infoLive').textContent = ctl && ctl.live && !live(ctl.live) ? 'Inert now (PA-8): live when ' + says(ctl.live) + '.' : '';
+}
+const CTL = Object.create(null);
+DATA.pages.forEach(pg => pg.groups.forEach(g => g.controls.forEach(c => { CTL[pg.id + '|' + c.key] = c; })));
+const ctlOf = (pid, key) => CTL[pid + '|' + key];
+$('win').addEventListener('pointerover', e => { const t = hostOf(e.target); const k = t ? t.dataset.key : null; if (k !== hovered) showInfo(k); });
+$('win').addEventListener('focusin', e => { const t = hostOf(e.target); if (t) showInfo(t.dataset.key); });
+views.push({ page: '*', update() { if (hovered) $('infoMeta').textContent = $('infoMeta').textContent.replace(/now .*? · SPEC/, 'now ' + engine.display(hovered) + ' · SPEC'); } });
+
+function closeMenu() { if (menu) { menu.remove(); menu = null; } }
+function openMenu(key, x, y) {
+  closeMenu();
+  const r = ROW[key], ctl = ctlOf(page, key);
+  const item = (title, fn) => { const b = h('button', { class: 'hd-btn hd-focus', type: 'button', role: 'menuitem', text: title }); b.addEventListener('click', () => { closeMenu(); fn(); }); return b; };
+  menu = h('div', { class: 'hd-card menu', role: 'menu', 'aria-label': r.label + ' menu' },
+    h('div', { class: 'head' }, h('span', { class: 'hd-cluster', text: r.label }), h('span', { class: 'hd-hint', text: r.key })),
+    h('div', { class: 'face' },
+      item('Reset to default', () => {
+        if (r.law === 'step') writeStep(r, r.label, r.default_index);
+        else { const m = dev.morph(), ai = m.on && S.pinned !== null ? S.pinned : dev.owner(r.key); if (!(m.on && S.locks[ai]) && dev.set(r.key, r.default_v, { corner: ai, label: 'Reset ' + r.label }) !== null) S.say('Reset ' + r.label + ' to ' + r.default_text); }
+      }),
+      item('Open in manual', () => S.say('Open in manual (stub): no page exists yet. B583 needs the manual’s HTML pages (B451); this would open the local manual at #param-' + r.key + '.')),
+      ctl && ctl.live ? h('span', { class: 'hd-hint', text: 'Live when ' + says(ctl.live) + ' (PA-8)' }) : null));
+  document.body.append(menu);
+  const b = menu.getBoundingClientRect();
+  menu.style.left = Math.max(8, Math.min(x, innerWidth - b.width - 8)) + 'px'; menu.style.top = Math.max(8, Math.min(y, innerHeight - b.height - 8)) + 'px';
+}
+$('win').addEventListener('contextmenu', e => { const t = hostOf(e.target); if (!t) return; e.preventDefault(); openMenu(t.dataset.key, e.clientX, e.clientY); });
+document.addEventListener('pointerdown', e => { if (menu && !menu.contains(e.target)) closeMenu(); }, true);
+addEventListener('keydown', e => { if (e.key === 'Escape' && menu) closeMenu(); });
+
+// ===== BLOCK G: the header, the seam panel, the status line =====
+$('undoBtn').addEventListener('click', () => { if (dev.undo()) S.say('Undone'); });
+$('redoBtn').addEventListener('click', () => { if (dev.redo()) S.say('Redone'); });
+$('scatterBtn').addEventListener('click', () => { dev.scatter(SEED); S.say('Corners B to D scattered around A (seed ' + SEED + '); turn Morph on and drag the puck'); });
+$('routeBtn').addEventListener('click', () => {
+  const c = DATA.pages.find(p => p.id === page).groups.flatMap(g => g.controls).find(k => ROW[k.key].law !== 'step');
+  if (!c) { S.say('This page has no continuous parameter to route to'); return; }
+  const res = dev.addRoute({ src: 'env2', param: c.key, pol: 'uni', depth: .3 });
+  S.say(res.ok ? 'Route ENV 2 → ' + ROW[c.key].label + ' at 30 % (the ring shows it; sources read 0 with no audio)' : 'Refused: ' + res.why);
+});
+$('clearRoutesBtn').addEventListener('click', () => { if (dev.clearRoutes()) S.say('Routes cleared'); });
+$('initBtn').addEventListener('click', () => { dev.reset(); S.say('Init patch: every corner at the spec’s defaults, no routes'); });
+$('kbd').addEventListener('click', () => { S.keys = !S.keys; $('kbd').setAttribute('aria-pressed', String(S.keys)); $('kbdTxt').textContent = S.keys ? 'KEYS ON' : 'KEYS'; $('win').classList.toggle('kbd-on', S.keys); sweepTabs(); });
+const dark = () => document.documentElement.dataset.theme ? document.documentElement.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+$('themeBtn').addEventListener('click', () => { document.documentElement.dataset.theme = dark() ? 'light' : 'dark'; $('themeBtn').setAttribute('aria-pressed', String(dark())); });
+// Keyboard mode (ADR-259 ruling 6): off, no control in the window takes focus. The bundle's own controls set their tab stops.
+function sweepTabs() {
+  $('win').querySelectorAll('button, select, .hd-stepper').forEach(e => { if (!e.closest('.hd-mk, .hd-ms, .hd-ms-v, .hd-xy, .hd-corners')) e.tabIndex = S.keys ? 0 : -1; });
+}
+const G = DATA.gaps;
+views.push({ page: '*', update() {
+  const hs = dev.history();
+  $('undoBtn').disabled = !hs.past.length; $('redoBtn').disabled = !hs.future.length;
+  const msg = S.message || 'Ready.';
+  if ($('status').textContent !== msg) $('status').textContent = msg;
+  if (dev.rev() === seamRev) return;
+  seamRev = dev.rev();
+  const o = dev.observe(), keys = DATA.pages.find(p => p.id === page).groups.flatMap(g => g.controls).map(c => c.key).filter(k => k in o.engine.heard);
+  $('seamNote').textContent = 'Engine: ' + o.engine.source + ', audio ' + o.engine.audio + ', ' + o.engine.voices.length + ' voices, ' + o.engine.refused + ' refused. ' +
+    'Morph ' + (o.morph.on ? 'on at (' + o.morph.x.toFixed(2) + ', ' + o.morph.y.toFixed(2) + ')' : 'off') + ', ' + o.routes + ' route' + (o.routes === 1 ? '' : 's') + '. ' +
+    DATA.counts.host + ' host parameters of ' + DATA.counts.manifest + '; descriptions missing ' + G.desc_missing + ' of ' + G.host + ' (no desc column yet, B582), spec text empty for ' + G.spec_text_missing + '.';
+  $('obsTxt').textContent = JSON.stringify({ heard: Object.fromEntries(keys.map(k => [k, o.engine.heard[k]])), counters: o.engine.counters }, null, 1);
+  $('stateTxt').textContent = engine.saveState();
+  $('histTxt').textContent = 'History (the shell’s, RC-11): ' + (hs.past.length ? hs.past.slice(-6).join(' · ') : 'empty') + (hs.future.length ? ' · redo ' + hs.future.length : '');
+} });
+
+// ===== BLOCK H: self-checks. Each has a must-fail control, so a check that never ran cannot pass for one that held =====
+(function checks() {
+  const box = $('checks'), line = (ok, t) => box.append(h('p', { class: ok ? 'hd-hint' : 'hd-note bad', text: (ok ? 'OK · ' : 'FAILED · ') + t }));
+  // 1. What is mounted is what was generated, page by page; the comparison sees a single missing key (control).
+  const same = (a, b) => a.length === b.length && a.every((k, i) => k === b[i]);
+  let allSame = true, n = 0;
+  DATA.pages.forEach(pg => { const want = pg.groups.flatMap(g => g.controls.map(c => c.key)), got = [...pageEls[pg.id].querySelectorAll('[data-key]')].map(e => e.dataset.key); n += got.length; if (!same(want, got)) allSame = false; });
+  const sub = DATA.pages.find(p => p.id === 'sub'), subWant = sub.groups.flatMap(g => g.controls.map(c => c.key));
+  line(allSame && !same(subWant.slice(1), subWant), 'Mounted = generated: ' + n + ' controls on ' + DATA.pages.length + ' pages, in the layout’s order; a list one key short reads as different (control).');
+  // 2. No control lacks a parameter, and every host parameter is on a page.
+  const mounted = new Set([...document.querySelectorAll('#pages [data-key]')].map(e => e.dataset.key));
+  const orphans = [...mounted].filter(k => !ROW[k] || ROW[k].reserved), unreached = DATA.params.filter(r => !r.reserved && !mounted.has(r.key));
+  line(!orphans.length && !unreached.length && ROW['x'] === undefined, 'No control without a parameter (' + orphans.length + '), no host parameter without a control (' + unreached.length + ' of ' + DATA.counts.host + '); an unknown key is not a row (control).');
+  // 3. The wire: a write through a Sub control's bundle props reaches the device and the engine as one undo step.
+  const kc = sub.groups.flatMap(g => g.controls).find(c => c.widget === 'knob'), p = PROPS[kc.key + '@sub'], r = ROW[kc.key];
+  const h0 = dev.history().past.length, before = engine.getParam(kc.key);
+  dev.begin('self-check'); p.vals[0] = .123; dev.end();
+  const wrote = Math.abs(engine.getParam(kc.key) - .123) < 1e-12 && Math.abs(dev.heard(kc.key) - .123) < 1e-12 && dev.history().past.length === h0 + 1;
+  dev.undo();
+  line(wrote && before !== .123 && engine.getParam(kc.key) === before, 'The wire: ' + r.label + '’s knob props wrote 0.123 into the engine (' + engine.display(kc.key, .123) + ') as one step, and undo restored ' + engine.display(kc.key, before) + '; the value differed before (control).');
+  // 3b. A real click on a Sub pill writes through writeStep: the engine hears the option, one step, undone exactly.
+  const pc = sub.groups.flatMap(g => g.controls).find(c => c.widget === 'pills' && ROW[c.key].n >= 3), pr = ROW[pc.key];
+  const pb = [...document.querySelectorAll('#page-sub [data-key="' + CSS.escape(pc.key) + '"] .hd-pill')], i0 = idxOf(pr, engine.getParam(pc.key)), i1 = (i0 + 1) % pr.n;
+  const hp = dev.history().past.length; pb[i1].click();
+  const clicked = engine.getParam(pc.key) === vOf(pr, i1) && dev.history().past.length === hp + 1;
+  dev.undo();
+  line(clicked && i1 !== i0 && engine.getParam(pc.key) === vOf(pr, i0), 'A click: ' + pr.label + ' → ' + pr.options[i1] + ' reached the engine as one step, and undo put back ' + pr.options[i0] + '; the option differed (control).');
+  // 4. The dock: no space with morph off, present with morph on, hidden by its toggle.
+  const off = $('dock').hidden && !$('bodyGrid').classList.contains('with-dock');
+  setMorphOn(true); const on = !$('dock').hidden && $('bodyGrid').classList.contains('with-dock');
+  padShown = false; paintDock(); const hid = $('dock').hidden; padShown = true; setMorphOn(false);
+  line(off && on && hid && $('dock').hidden, 'Dock: no space with morph off, docked with morph on, hidden by Pad while morph stays on; it does show when on (control).');
+  // 5. The info box shows the hovered control's text, and clears off a control (control).
+  const kh = document.querySelector('#page-sub [data-key="' + CSS.escape(kc.key) + '"]');
+  kh.dispatchEvent(new MouseEvent('pointerover', { bubbles: true })); const shown = $('infoText').textContent.startsWith(r.spec) && $('infoKey').textContent === r.key;
+  $('pages').dispatchEvent(new MouseEvent('pointerover', { bubbles: true })); const cleared = $('infoKey').textContent === '';
+  line(shown && cleared, 'Info box: hovering ' + r.label + ' shows its spec text; off a control it clears (control).');
+  // 6. Right-click offers "Open in manual"; a right-click off a control opens nothing (control).
+  kh.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 40 }));
+  const items = menu ? [...menu.querySelectorAll('[role=menuitem]')].map(b => b.textContent) : [];
+  closeMenu(); $('pages').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 40 }));
+  line(items.includes('Open in manual') && items.includes('Reset to default') && !menu, 'Right-click: ' + items.join(', ') + '; off a control, no menu (control).');
+  // 7. Seeded and deterministic: two fresh stubs given the same calls agree; another seed differs (control).
+  const run = sd => { const e = new ENG.Stub(DATA.params), d = DEV.create(DATA, e, { seed: sd }); d.scatter(sd); d.setMorph({ on: true, x: .3, y: .7 }); return JSON.stringify(d.patch()); };
+  line(run(SEED) === run(SEED) && run(SEED) !== run(SEED + 1), 'Deterministic: the same seed and calls give byte-identical patch state twice; seed ' + (SEED + 1) + ' differs (control).');
+  showInfo(null); S.message = '';
+  dev.clearRedo();
+})();
+
+// ===== BLOCK I: go. A link can open a page, and morph on with the corners scattered: gui3.html#noise or #noise,morph =====
+{ const [pg, m] = location.hash.slice(1).split(','); selectPage(pageEls[pg] ? pg : 'sub');
+  if (m === 'morph') { dev.scatter(SEED); setMorphOn(true); dev.clearHistory(); S.message = ''; } }
+sweepTabs();
+S.start();
+})();
+</script>
+</body></html>

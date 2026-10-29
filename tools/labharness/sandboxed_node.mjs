@@ -99,6 +99,8 @@ const PROFILES = {
   'tools/labharness/fxlab_check.mjs': {},
   // Reads the presentation table beside the shipped GUI.
   'tools/labharness/gui_history_check.mjs': { read: ['src/param_presentation.tsv'] },
+  // B584: GUI 3's stub engine and adapter (docs/design/gui3/*.js, under BASE_READ), evaluated with planted copies. Reads only.
+  'tools/labharness/gui3_seam_check.mjs': {},
   // Both judge planted labs in a worker thread (a runaway lab is terminated).
   'tools/labharness/morph_editor_check.mjs': { worker: true },
   'tools/labharness/lab_wheel_scroll_check.mjs': { worker: true },
