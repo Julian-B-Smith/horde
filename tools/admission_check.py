@@ -94,9 +94,8 @@ SLOT_ROWS = [("A6 tests 4-6", "I/O gain at the slot"), ("A7", "Off"), ("A13", "C
 # is the human's call. A pinned failure still prints as FAIL [PINNED] with its readings; when it
 # stops failing, the run is RED with a STALE PIN notice until the entry is deleted here.
 PINNED = {
-    # Era's switch is a duck / swap / un-duck inside the module, not an admitted method (§12.1).
-    ("scape", "A11", "method[verb.era]"):
-        "ADR-296 / B562 (the human, 2026-10-27: Scape crossfades Era; pinned until Scape's fix lands)",
+    # Empty since 2026-10-29: Scape's Era crossfade (its 11e1698, ADR-296 / B562) cleared the
+    # only pin, A11 method[verb.era], once the adapter read the declared method (ADR-309).
 }
 
 LINE = re.compile(r"^(FAIL|NOTE|DETAIL|ROW) (A\d+)(?: (\S+))? :: (.*)$")
