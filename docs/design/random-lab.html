@@ -1,0 +1,2029 @@
+<!doctype html>
+<!-- random-lab — B578 (ADR-312): the Random page's workshop lab. HYPERSAW / horde, 2026-10-29.
+
+     THE HUMAN (2026-10-29, verbatim): "I've also been trying to imagine novel ideas for a 'Random' page with robust
+     randomization features that allow you to set the parameters for randomization and randomize entire modules or
+     patches and affix snapshots to an XY performance grid, like for sluice and shriek." The ruling, by poll: "Basic in
+     1.0; lab in horde". This lab TRIES the ideas; what a basic 1.0 page contains is set from it, by the human. The
+     findings and the proposed basic-1.0 set are in docs/design/random-lab-report.md.
+
+     WHAT IS HERE.
+       · A STAND-IN PATCH with real structure: two oscillators (Scalpel-like: a unison stack with a BLADE window that cuts
+         each cycle and replaces its span: gap, mirror or fold), a sub, a noise source, two filters with per-source
+         routing (serial or parallel), three envelopes, two LFOs, an 8-slot mod matrix, and an FX chain of four modules
+         (a SHRIEK stand-in, chorus, delay, reverb) in a routable order and topology. It makes sound (PLAY), at most
+         −6 dBFS: a latched, reported output guard, never a silent clamp (Blind-Spot Armor).
+       · EVERY LEVEL the human named, each with RANDOMIZE ARCHITECTURE and RANDOMIZE PARAMETERS where it makes sense:
+         one oscillator, the voice section (and its parts), the mod mappings, the FX routing, each FX module, the
+         global patch. The SHRIEK slot is a PASS-THROUGH STUB: in horde its buttons would call Shriek's own randomize
+         verbs; here they draw the stand-in's three controls and say so.
+       · MOD-MAPPING RULESETS: rules that draw routes from patterns (pitch envelope, filter envelope, filter LFO,
+         vibrato, PWM, velocity, key tracking, …), saved and loaded as presets in localStorage.
+       · BOUNDS: a bell curve around each value's HOME with one HOME ↔ CHAOS knob (the distribution is drawn), AMOUNT
+         sliders, per-group scales, per-parameter bounds, and locks (per parameter, per group, per mod slot, per corner:
+         a PROPOSAL, after Sluice's randomiser exclusions). "Dice" chips on structural choices: lit = can be drawn.
+       · AN XY PERFORMANCE GRID of four corners A–D holding snapshots, with randomize patch, randomize all four, revert
+         and save snapshot, mimicking the behaviour of Sluice's and Shriek's XY pages (ADR-306). No Sluice or Shriek
+         code is copied (CLAUDE.md, the Sluice rule): this file's code is its own.
+
+     THE LAWS (stated here so a reader needs no other file).
+       · DRAWS ARE COUNTER-BASED: every random number is the first output of mulberry32 seeded by a hash of
+         (seed, click, corner, parameter key, draw index). No draw depends on position or on how many keys exist,
+         which is ADR-186 §5(g)'s position-free draw (B308 H3). Self-check C2 shows the difference with a positional
+         stream as its control.
+       · THE BELL: a parameter's new value is a truncated normal around its home, in the parameter's own taper
+         (log for times and frequencies), cut to its bounds; width σ(c) = 4·c·50^(c−1) in normalized units
+         (c = 0: home itself; c = 0.25: σ ≈ 0.05; c = 0.5: σ ≈ 0.28; c = 1: σ = 4, flat to within 3%). The first law tried,
+         4·c·200^(c−1), left the knob's lower third inaudible (mean move 0.3% of the range at 0.1, 1.5% at 0.25: the report). It is drawn by inverse CDF from ONE
+         uniform, so turning CHAOS after a click moves the same roll smoothly toward or away from home.
+       · AMOUNT: every key also draws a threshold on every click; a key changes only where threshold < amount. Raising
+         AMOUNT after a click only ADDS keys, with the same values (nested sets; the behaviour of Sluice's randomiser
+         and Shriek's Randomness, mimicked). The last click stays live under CHAOS, AMOUNT, bounds, dice and locks
+         until the next structural action.
+       · STRUCTURE (enums): an unordered choice keeps its home with probability 1 − c, else draws from its taste
+         weights over the lit values; an ordered one (unison count, octave, delay time) is a bell in index space.
+       · MORPH: numbers blend bilinearly in their taper; structure flips at the DOMINANT corner (quantum), and a mod
+         slot's amount blends only between corners whose slot holds the same route (else it flips with the route).
+       · DEPENDENCIES: a parameter that cannot be heard (a blade's controls with the blade off, filter B's with B off)
+         is not drawn, and the rulesets only route to destinations that are live (B316's dependency tree, in miniature).
+
+     WHAT THIS IS NOT. Not a port, not an oracle, not horde's engine. The synthesis is a stand-in (naive blade edges
+     alias; a TPT SVF; a Freeverb-shaped reverb). The audio runs on a ScriptProcessor on the main thread (a lab
+     monitor); heavy painting can glitch it. Nothing in src/, engine2/, specs/, reference/ or docs/design-system/ is
+     touched. The design system is reused from its vendored copy (arp-face/, B553) by relative path.
+
+     DISCIPLINE. No Math.random and no wall-clock reads anywhere (mulberry32 only, SPEC §5.7); the engine counts
+     samples. L0026: every const/let is declared above all wiring; nothing at setup reaches forward. Stub-safety
+     (lab_load_check runs this under a proxy DOM whose numbers coerce to 0): painters loop over integer indices only.
+     No wheel listener (B301): a plain wheel only scrolls. localStorage is wrapped in try/catch. -->
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="lab-part" content="Morph and state">
+<meta name="lab-review" content="B578 · 2026-10-29">
+<title>Random lab — randomize architecture and parameters at every level, mod rulesets, bell bounds, an XY grid of snapshots</title>
+<!-- the design system is vendored once, by the Arp face lab (B553); this lab reuses it by relative path, never a copy -->
+<link rel="stylesheet" href="arp-face/tokens.css">
+<link rel="stylesheet" href="arp-face/bundle.css">
+<style>
+  /* Lab layout only. Colours, sizes and radii are design-system tokens (arp-face/tokens.css). */
+  body { margin: 0; padding: var(--space-page); background: var(--bg); color: var(--text); font: 400 10.5px/1.5 var(--font-sans); }
+  .lab-col { max-width: 1320px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--space-grid); }
+  .lab-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-gap); }
+  .lab-grow { flex: 1 1 auto; }
+  .lab-tag { font: 700 8.5px/1.4 var(--font-sans); letter-spacing: .1em; padding: 0 5px; border-radius: var(--radius-track); color: var(--t2); border: 1px solid var(--div); white-space: nowrap; }
+  .lab-tag.prop { background: var(--caution-bg); color: var(--caution-tx); border-color: var(--caution); }
+  .lab-tag.stub { background: var(--well-alt); color: var(--t2); border-style: dashed; }
+  .tagline { font: 400 10.5px/1.55 var(--font-sans); color: var(--t2); max-width: 140ch; }
+  .tagline b, .lab-panel b, .note b { color: var(--ink); font-weight: 600; }
+  .lab-status { margin: 0; border-left: 3px solid var(--meter); padding-left: 8px; min-height: 15px; }
+  .lab-status.bad { border-left-color: var(--alarm); color: var(--alarm); }
+  .lab-panel { box-sizing: border-box; background: var(--panel); border: var(--stroke-ink) solid var(--ink); border-radius: var(--radius); padding: var(--space-card-y) var(--space-card-x); display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .lab-two { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: var(--space-grid); align-items: start; }
+  .note { font: 400 10px/1.55 var(--font-sans); color: var(--t2); max-width: 150ch; }
+  code, .mono { font: 400 9.5px/1.4 var(--font-mono); }
+  .hd-btn[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+  .hd-btn.hot { background: var(--value); color: var(--on-corner); }
+  .hd-pill.sm { min-height: 22px; padding: 0 7px; font-size: 9px; }
+  .hd-pill:disabled { opacity: var(--opacity-disabled); cursor: default; box-shadow: none; }
+  .hd-select.sm { min-height: 22px; font-size: 9px; padding: 0 6px; }
+  input[type=range] { accent-color: var(--ink); }
+  .ro { font: 400 9.5px/1 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--ink); min-width: 5ch; display: inline-block; }
+  .dim { opacity: var(--opacity-disabled); }
+
+  /* THE PAGE: three columns, the way horde's Random page could sit in a 980-px window plus the lab's extras */
+  .page { display: grid; grid-template-columns: minmax(290px, 330px) minmax(300px, 340px) minmax(380px, 1fr); gap: var(--space-grid); align-items: start; }
+  @media (max-width: 1100px) { .page { grid-template-columns: 1fr; } }
+
+  /* LEVELS */
+  .lvl { display: grid; grid-template-columns: minmax(0, 1fr) auto auto 26px 30px; align-items: center; gap: 4px; min-height: 26px; border-radius: var(--radius-track); padding: 0 3px; }
+  .lvl.foc { background: var(--sel-neutral); }
+  .lvl .nm { text-align: left; background: none; border: 0; padding: 0; cursor: pointer; font: 800 9.5px/1.2 var(--font-sans); letter-spacing: .07em; color: var(--ink); display: flex; gap: 5px; align-items: center; white-space: nowrap; overflow: hidden; min-width: 0; }
+  .lvl.d1 .nm { padding-left: 14px; font-weight: 600; }
+  .lvl.d1 .nm::before { content: '└'; color: var(--hint); margin-right: 2px; }
+  .lvl .chg { font: 600 9px/1 var(--font-mono); color: var(--on-corner); background: var(--value); border-radius: var(--radius-track); padding: 2px 3px; text-align: center; }
+  .lvl .chg:empty { background: none; }
+  .lk { min-height: 22px; width: 26px; padding: 0; border: 1px solid var(--div); border-radius: var(--radius-track); background: var(--panel); color: var(--hint); cursor: pointer; font: 400 10px/1 var(--font-mono); }
+  .lk[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .lk:disabled { opacity: .35; cursor: default; }
+
+  /* THE PAD */
+  .padwrap { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
+  #xy.hd-xy { width: 100%; height: 240px; }
+  #xy .qline { position: absolute; background: var(--div); pointer-events: none; }
+  .crow { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto 40px 26px 26px; gap: 4px; align-items: center; min-height: 26px; padding: 0 3px; border-radius: var(--radius-track); }
+  .crow.sel { background: var(--sel-neutral); }
+  .crow .cg { width: 18px; height: 18px; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--ink); background: var(--cc); }
+  .crow .cg svg { width: 9px; height: 9px; fill: var(--on-corner); }
+  .crow .cn { font: 600 10px/1.2 var(--font-sans); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .crow .dr { font: 700 8px/1.4 var(--font-sans); letter-spacing: .08em; color: var(--caution-tx); background: var(--caution-bg); border: 1px solid var(--caution); border-radius: var(--radius-track); padding: 0 4px; }
+  .crow .dr:empty { display: none; }
+  .crow .wt { font: 400 9px/1 var(--font-mono); color: var(--t2); text-align: right; }
+  .snap { display: grid; grid-template-columns: 18px minmax(0, 1fr) repeat(4, 22px) 22px; gap: 3px; align-items: center; min-height: 24px; }
+  .snap .sn { font: 400 9.5px/1.2 var(--font-mono); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .af { width: 22px; height: 22px; padding: 0; border: 1px solid var(--ink); border-radius: 50%; background: var(--panel); cursor: pointer; font: 700 8.5px/1 var(--font-sans); color: var(--ink); }
+  .af.on { background: var(--cc); color: var(--on-corner); }
+  .star { width: 18px; height: 22px; border: 0; background: none; cursor: pointer; color: var(--hint); padding: 0; font-size: 11px; }
+  .star.on { color: var(--ink); }
+
+  /* BOUNDS */
+  .knobrow { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 10px; align-items: center; }
+  #knob { width: 104px; height: 104px; touch-action: none; cursor: ns-resize; outline: none; border-radius: 50%; }
+  #knob:focus-visible { box-shadow: var(--focus-ring); }
+  .kv { display: flex; flex-direction: column; gap: 5px; }
+  .srow { display: grid; grid-template-columns: 74px minmax(0, 1fr) 6ch; gap: 6px; align-items: center; }
+  .srow > span:first-child { font: 600 9px/1.2 var(--font-sans); letter-spacing: .06em; color: var(--t2); }
+  .gt { display: grid; grid-template-columns: 26px minmax(0, 1fr) 70px 4.5ch 70px 4.5ch; gap: 3px 5px; align-items: center; }
+  .gt .gh { font: 700 8px/1 var(--font-sans); letter-spacing: .1em; color: var(--hint); }
+  .gt .gn { background: none; border: 0; padding: 0; text-align: left; cursor: pointer; font: 600 9.5px/1.2 var(--font-sans); color: var(--ink); }
+  .gt .gn.foc { text-decoration: underline; }
+  .gt .gn.inlvl { color: var(--ink); }
+  .gt .gn.outlvl { color: var(--hint); }
+  .gt input[type=range] { width: 100%; }
+  #dist { width: 100%; height: 130px; display: block; border: var(--stroke-ink) solid var(--ink); border-radius: var(--radius); background: var(--scr-ground); }
+  .keys { display: flex; flex-direction: column; gap: 1px; }
+  .krow { display: grid; grid-template-columns: 22px minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr); gap: 4px; align-items: center; min-height: 22px; padding: 0 2px; border-radius: var(--radius-track); cursor: pointer; }
+  .krow.sel { background: var(--sel-neutral); }
+  .krow.inact { opacity: .5; }
+  .krow .kn { font: 500 9.5px/1.2 var(--font-sans); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .krow .kn i { font-style: normal; font: 700 7.5px/1 var(--font-sans); letter-spacing: .08em; color: var(--hint); margin-left: 4px; }
+  .krow .kv1 { font: 400 9px/1.2 var(--font-mono); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .krow .kv2 { font: 400 9px/1.2 var(--font-mono); color: var(--hint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .krow.chg .kv1 { background: var(--value); color: var(--on-corner); border-radius: 2px; padding: 0 2px; }
+  .dice { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: 2px; padding-bottom: 3px; }
+  .die { font: 400 8.5px/1 var(--font-mono); padding: 2px 4px; border: 1px solid var(--ink); border-radius: var(--radius-track); background: var(--panel); color: var(--ink); cursor: pointer; }
+  .die.off { opacity: .35; text-decoration: line-through; }
+  .die.home { font-weight: 700; }
+
+  /* THE PATCH */
+  .mods { display: grid; grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); gap: 8px; }
+  .mod { border: 1px solid var(--ink); border-radius: var(--radius); padding: 5px 7px; background: var(--panel); min-width: 0; }
+  .mod.off { opacity: .45; }
+  .mod h4 { margin: 0 0 3px; font: 800 9.5px/1.2 var(--font-sans); letter-spacing: .08em; color: var(--ink); display: flex; gap: 5px; align-items: center; }
+  .mod .pv { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 8px; font: 400 9px/1.45 var(--font-mono); color: var(--t2); }
+  .mod .pv b { font-weight: 400; color: var(--ink); text-align: right; }
+  .mod .pv b.chg { background: var(--value); color: var(--on-corner); border-radius: 2px; padding: 0 2px; }
+  .mx { display: grid; grid-template-columns: 22px 26px minmax(0, 1fr) 12px minmax(0, 1.3fr) 64px minmax(0, 1fr); gap: 2px 6px; align-items: center; font: 400 9.5px/1.4 var(--font-mono); }
+  .mx .h { font: 700 8px/1 var(--font-sans); letter-spacing: .1em; color: var(--hint); }
+  .mx .chg { background: var(--value); color: var(--on-corner); border-radius: 2px; padding: 0 2px; }
+  .mx .offr { color: var(--hint); }
+  .chain { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; font: 600 9px/1 var(--font-sans); }
+  .chain .bx { border: 1px solid var(--ink); border-radius: var(--radius-track); padding: 4px 6px; background: var(--well-alt); }
+  .chain .bx.off { opacity: .35; text-decoration: line-through; }
+  .chain .par { display: inline-flex; flex-direction: column; gap: 2px; border-left: 2px solid var(--ink); border-right: 2px solid var(--ink); padding: 2px 4px; border-radius: 4px; }
+  .chain .ar { color: var(--t2); }
+
+  /* RULES */
+  .rt { display: grid; grid-template-columns: 34px minmax(130px, 1.2fr) minmax(0, 1.4fr) 92px 3.5ch 150px minmax(0, .8fr); gap: 3px 8px; align-items: center; font: 400 9.5px/1.35 var(--font-sans); }
+  .rt .h { font: 700 8px/1 var(--font-sans); letter-spacing: .1em; color: var(--hint); }
+  .rt .rn { font-weight: 600; color: var(--ink); }
+  .rt .rn small { display: block; font-weight: 400; color: var(--hint); font-size: 8.5px; line-height: 1.3; }
+  .rt .rs { font: 400 9px/1.3 var(--font-mono); color: var(--t2); }
+  .rt .amt { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 4px; }
+  .rt .amt input { width: 100%; }
+  .rt .amt span { grid-column: 1 / -1; font: 400 8.5px/1 var(--font-mono); color: var(--t2); }
+  .rt.off-row > * { opacity: .45; }
+
+  /* CHECKS and LOG */
+  .ck { display: grid; grid-template-columns: 34px 44px minmax(0, 1fr); gap: 2px 8px; font: 400 9.5px/1.45 var(--font-sans); align-items: baseline; }
+  .ck .p { font: 700 8.5px/1.4 var(--font-sans); letter-spacing: .08em; text-align: center; border-radius: var(--radius-track); background: var(--celebrate); color: var(--ink); }
+  .ck .f { font: 700 8.5px/1.4 var(--font-sans); letter-spacing: .08em; text-align: center; border-radius: var(--radius-track); background: var(--alarm); color: var(--on-alarm); }
+  .ck .d small { display: block; color: var(--t2); font: 400 9px/1.4 var(--font-mono); }
+  .log { font: 400 9px/1.5 var(--font-mono); color: var(--t2); max-height: 260px; overflow: auto; }
+  .log div:last-child { color: var(--ink); }
+</style></head>
+<body>
+<div class="lab-col">
+  <div class="lab-bar">
+    <span class="hd-cluster">RANDOM LAB</span>
+    <span class="lab-tag prop">B578 · ADR-312 · WORKSHOP</span>
+    <span class="lab-grow"></span>
+    <a class="hd-hint" href="random-lab-report.md">the report (basic 1.0 set, questions)</a>
+    <a class="hd-hint" href="index.html">all labs</a>
+  </div>
+  <div class="tagline">The <b>Random page</b>'s workshop (B578): <b>randomize architecture</b> and <b>randomize parameters</b> at every level the
+    human named (one oscillator, the voice section, the mod mappings, the FX routing, each FX module, the global patch) on a stand-in patch that
+    plays; <b>mod-mapping rulesets</b> drawn from common patterns (pitch and filter envelopes, filter LFO, vibrato, PWM, …) and saved as presets;
+    <b>bounds</b> as a bell curve around each value's home with a <b>home ↔ chaos</b> knob, <b>amount</b> sliders and locks; and an <b>XY grid</b>
+    of four snapshot corners with randomize patch, randomize all four, revert and save. Seeded and repeatable: the same seed and the same clicks give
+    the same patch (replay proves it). PLAY starts the sound (peaks capped at −6 dBFS, reported).</div>
+
+  <div class="lab-bar" id="statusbar">
+    <span class="hd-label">seed</span>
+    <input id="seed" class="hd-select sm" style="width:9ch" value="5eed" aria-label="seed (hex)" title="the session seed, hex; changing it starts a new session">
+    <button class="hd-btn" data-act="nextseed" title="the next seed, derived from this one (no entropy is read)">next seed</button>
+    <span class="hd-value" id="st-click"></span>
+    <span class="hd-value" id="st-fp" title="FNV-1a of the four corners, the snapshots and their bindings"></span>
+    <button class="hd-btn" data-act="replay" title="rebuild the session from the seed and the action log, and compare fingerprints">replay from seed</button>
+    <span class="hd-value" id="st-replay"></span>
+    <span class="lab-grow"></span>
+    <span class="hd-value" id="st-checks"></span>
+  </div>
+  <div class="lab-bar" id="audiobar">
+    <button class="hd-btn hot" data-act="play" id="playbtn" aria-pressed="false">▶ PLAY</button>
+    <span class="hd-label">phrase</span>
+    <select class="hd-select sm" id="pattern" data-ui="pattern">
+      <option value="arp">arpeggio</option><option value="stabs">chord stabs</option><option value="drone">held note</option>
+    </select>
+    <span class="hd-label">mod wheel</span><input type="range" id="mw" data-ui="mw" min="0" max="1" step="0.01" value="0" style="width:90px">
+    <span class="hd-label">monitor</span><input type="range" id="vol" data-ui="vol" min="0" max="1" step="0.01" value="0.7" style="width:90px">
+    <span class="hd-value" id="guard">guard: idle</span>
+    <button class="hd-btn" data-act="guardreset" title="clear the latched guard report">reset guard</button>
+  </div>
+  <p class="lab-status" id="msg"></p>
+
+  <div class="page">
+    <!-- LEVELS -->
+    <section class="lab-panel" aria-label="levels">
+      <div class="hd-cluster">LEVELS</div>
+      <div class="note">Each row randomizes the <b>selected corner</b> (the quadrant the puck is in). <b>ARCH</b> = structure (waves, unison
+        counts, blade modes, filter types and routing, LFO shapes, the mod routes, FX order and topology, module modes); <b>PARAMS</b> = the
+        numbers. The badge counts the keys the last click changed. Click a name to focus its bounds.</div>
+      <div id="levels"></div>
+      <div class="lab-bar" style="margin-top:4px">
+        <span class="hd-label">ARCH writes</span>
+        <span class="hd-pills" id="scope"></span>
+      </div>
+      <div class="note" id="scopenote"></div>
+      <div class="lab-bar"><span class="hd-label">ARCH on a module</span><span class="hd-pills" id="must"></span></div>
+      <div class="note">At chaos 0.35 a single module's ARCH changed nothing on 42–95% of clicks (the report, finding 1). "Must change"
+        makes one structural choice move when the draw would have changed none.</div>
+    </section>
+
+    <!-- THE GRID -->
+    <section class="lab-panel" aria-label="XY performance grid">
+      <div class="hd-cluster">XY PERFORMANCE GRID</div>
+      <div class="padwrap">
+        <div id="xy" class="hd-xy" role="group" aria-label="XY performance grid"></div>
+        <div class="lab-bar">
+          <button class="hd-btn hot" data-act="randpatch" title="a new structure and one sound, on all four corners (unlocked ones)">randomize patch</button>
+          <button class="hd-btn" data-act="randall" title="new parameters for every unlocked corner, each from its own home, at the focused level">randomize all four</button>
+        </div>
+        <div class="lab-bar">
+          <button class="hd-btn" data-act="save" title="keep the selected corner's draft as a new snapshot; the corner is bound to it">save snapshot</button>
+          <button class="hd-btn" data-act="revert" title="discard the selected corner's draft: back to its bound snapshot">revert</button>
+        </div>
+        <div id="corners"></div>
+        <div class="hd-cluster" style="margin-top:4px">SNAPSHOTS</div>
+        <div class="note">A snapshot is affixed to a corner with its A–D buttons (that discards the corner's draft). ★ marks the patch home
+          (the bell's centre when HOME = patch).</div>
+        <div id="snaps"></div>
+      </div>
+    </section>
+
+    <!-- BOUNDS -->
+    <section class="lab-panel" aria-label="bounds">
+      <div class="hd-cluster">BOUNDS</div>
+      <div class="knobrow">
+        <div id="knob" tabindex="0" role="slider" aria-label="home to chaos" aria-valuemin="0" aria-valuemax="1"></div>
+        <div class="kv">
+          <div class="srow"><span>AMOUNT</span><input type="range" id="amount" data-set="amount" min="0" max="1" step="0.01"><span class="ro" id="amount-ro"></span></div>
+          <div class="srow"><span>HOME IS</span><span class="hd-pills" id="homemode"></span><span></span></div>
+          <div class="note" style="font-size:9px">CHAOS (the knob: drag up/down, arrows) sets the bell's width; AMOUNT sets how many keys a click may
+            change. Both stay live on the last click, as Sluice's and Shriek's Randomness does.</div>
+        </div>
+      </div>
+      <div class="gt" id="groups"></div>
+      <div class="hd-cluster" style="margin-top:4px" id="dist-title">DISTRIBUTION</div>
+      <canvas id="dist" width="600" height="130" aria-label="the selected parameter's distribution"></canvas>
+      <div class="note" id="dist-info"></div>
+      <div id="dist-bounds"></div>
+      <div class="hd-cluster" style="margin-top:4px" id="keys-title">PARAMETERS</div>
+      <div class="note">Click a row to show its distribution. The box locks it (a PROPOSAL, after Sluice's randomiser exclusions). On a structural
+        row the chips are its dice: struck = never drawn. Columns: heard value · selected corner / its home.</div>
+      <div class="keys" id="keys"></div>
+    </section>
+  </div>
+
+  <section class="lab-panel" aria-label="the stand-in patch">
+    <div class="lab-bar"><span class="hd-cluster">THE STAND-IN PATCH · AS HEARD</span><span class="hd-hint" id="patch-sub"></span></div>
+    <div class="mods" id="patch"></div>
+    <div class="hd-cluster" style="margin-top:6px">MOD MATRIX</div>
+    <div class="mx" id="matrix"></div>
+    <div class="hd-cluster" style="margin-top:6px">FX ROUTING</div>
+    <div class="chain" id="chain"></div>
+  </section>
+
+  <section class="lab-panel" aria-label="mod-mapping rulesets">
+    <div class="lab-bar">
+      <span class="hd-cluster">MOD-MAPPING RULESETS</span>
+      <span class="lab-grow"></span>
+      <select class="hd-select sm" id="rs-pick" aria-label="ruleset presets"></select>
+      <button class="hd-btn" data-act="rs-load">load</button>
+      <input class="hd-select sm" id="rs-name" style="width:16ch" aria-label="ruleset name">
+      <button class="hd-btn" data-act="rs-save" title="save this ruleset in this browser (localStorage)">save</button>
+      <button class="hd-btn" data-act="rs-del" title="delete the picked saved ruleset">delete</button>
+    </div>
+    <div class="note">A <b>rule</b> is a pattern: which sources may drive which destinations, over what range, and how its source is shaped
+      (a pitch envelope is only a pitch envelope when the envelope is fast). <b>ARCH</b> on MOD MAPPINGS (or on GLOBAL) clears the unlocked slots
+      and draws routes: a count in the range below, each slot a rule by weight, then a source, a LIVE destination and an amount. A source that
+      one rule has shaped is not reshaped by another in the same draw. <b>PARAMS</b> on MOD MAPPINGS re-draws only the amounts, inside each
+      route's rule range.</div>
+    <div class="lab-bar"><span class="hd-label">routes per draw</span><select class="hd-select sm" id="rs-nmin" data-rs="nmin"></select>
+      <span class="hd-label">to</span><select class="hd-select sm" id="rs-nmax" data-rs="nmax"></select>
+      <span class="lab-grow"></span><span class="hd-hint" id="rs-stats"></span>
+      <button class="hd-btn" data-act="rand" data-arg="mod|arch">draw mod mappings → selected corner</button></div>
+    <div class="rt" id="rules"></div>
+    <div class="lab-bar" style="margin-top:4px">
+      <span class="hd-label">your rule</span>
+      <select class="hd-select sm" id="cr-src" aria-label="source"></select><span class="hd-hint">→</span>
+      <select class="hd-select sm" id="cr-dst" aria-label="destination"></select>
+      <span class="hd-label">amount</span><select class="hd-select sm" id="cr-amt" aria-label="amount range"></select>
+      <button class="hd-btn" data-act="cr-add">add rule</button>
+    </div>
+  </section>
+
+  <div class="lab-two">
+    <section class="lab-panel" aria-label="self-checks">
+      <div class="hd-cluster">SELF-CHECKS (run at load; each with a must-fail control)</div>
+      <div class="ck" id="checks"></div>
+    </section>
+    <section class="lab-panel" aria-label="action log">
+      <div class="lab-bar"><span class="hd-cluster">ACTION LOG</span><span class="lab-grow"></span>
+        <button class="hd-btn" data-act="newsession" title="clear the log and start again from the seed">new session</button></div>
+      <div class="note">Every action that can change a corner is logged; replaying the log from the seed rebuilds the same corners
+        (fingerprint above). Puck moves are not logged: they change what is heard, never what is stored.</div>
+      <div class="log" id="log"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* =====================================================================================================================
+   A. NUMBERS AND THE COUNTER-BASED DRAW
+   ===================================================================================================================== */
+const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
+const clone = o => JSON.parse(JSON.stringify(o));
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function fnv(str) { let h = 0x811c9dc5; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); } return h >>> 0; }
+function mix32(a, b) {
+  let h = ((a >>> 0) ^ Math.imul(b >>> 0, 0x9E3779B1)) >>> 0;
+  h = Math.imul(h ^ (h >>> 16), 0x85EBCA6B); h = Math.imul(h ^ (h >>> 13), 0xC2B2AE35);
+  return (h ^ (h >>> 16)) >>> 0;
+}
+/* THE ONE DRAW. Position-free (ADR-186 §5(g)): a key's draw depends on (seed, click, corner, key, j) and nothing else,
+   so locking, adding or removing another key never shifts it. */
+function U(seed, click, corner, key, j) { return mulberry32(mix32(mix32(mix32(mix32(seed, click), corner), fnv(key)), j))(); }
+function pickW(u, w) {
+  let t = 0; for (let i = 0; i < w.length; i++) t += w[i];
+  if (!(t > 0)) return -1;
+  let a = u * t;
+  for (let i = 0; i < w.length; i++) { if (a < w[i]) return i; a -= w[i]; }
+  for (let i = w.length - 1; i >= 0; i--) if (w[i] > 0) return i;
+  return -1;
+}
+function erf(x) {   // Abramowitz & Stegun 7.1.26 (|error| < 1.5e-7)
+  const s = x < 0 ? -1 : 1; x = Math.abs(x);
+  const t = 1 / (1 + 0.3275911 * x);
+  return s * (1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x));
+}
+const Phi = z => 0.5 * (1 + erf(z / Math.SQRT2));
+function PhiInv(p) {   // Acklam's rational approximation (relative error < 1.2e-9)
+  const a = [-3.969683028665376e+01, 2.209460984245205e+02, -2.759285104469687e+02, 1.383577518672690e+02, -3.066479806614716e+01, 2.506628277459239e+00];
+  const b = [-5.447609879822406e+01, 1.615858368580409e+02, -1.556989798598866e+02, 6.680131188771972e+01, -1.328068155288572e+01];
+  const c = [-7.784894002430293e-03, -3.223964580411365e-01, -2.400758277161838e+00, -2.549732539343734e+00, 4.374664141464968e+00, 2.938163982698783e+00];
+  const d = [7.784695709041462e-03, 3.224671290700398e-01, 2.445134137142996e+00, 3.754408661907416e+00];
+  const pl = 0.02425;
+  if (p < pl) { const q = Math.sqrt(-2 * Math.log(p)); return (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1); }
+  if (p > 1 - pl) { const q = Math.sqrt(-2 * Math.log(1 - p)); return -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1); }
+  const q = p - 0.5, r = q * q;
+  return (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q / (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1);
+}
+/* THE BELL'S WIDTH, normalized units: 0 at c = 0 (home itself), ≈0.05 at 0.25, ≈0.28 at 0.5, 4 at 1 (flat to within 3% on
+   [0, 1]). Base 50, not the 200 first tried: that left the lower third of the knob inaudible (see the report). */
+const sigma = c => (c <= 0 ? 0 : 4 * c * Math.pow(50, c - 1));
+
+/* =====================================================================================================================
+   B. THE STAND-IN PATCH: every key, its range, taper, home, structure flag and dependency (`when`)
+   ===================================================================================================================== */
+const WAVES = ['saw', 'square', 'tri', 'sine'];
+const BLADES = ['off', 'gap', 'mirror', 'fold'];
+const VOICES = [1, 3, 5, 7];
+const OCTS = [-2, -1, 0, 1];
+const SEMIS = [-12, -7, -5, 0, 3, 5, 7, 12];
+const ROUTES = ['A', 'B', 'A+B'];
+const FTYPES = ['LP', 'BP', 'HP', 'notch'];
+const LFOSH = ['sine', 'tri', 'saw', 'square', 'S&H'];
+const DIVS = ['1/16', '1/8', '3/16', '1/4', '3/8'];
+const DIVB = [0.25, 0.5, 0.75, 1, 1.5];
+const FXM = [{ id: 'sh', name: 'SHRIEK', ab: 'SHR' }, { id: 'ch', name: 'CHORUS', ab: 'CHO' }, { id: 'dl', name: 'DELAY', ab: 'DLY' }, { id: 'rv', name: 'REVERB', ab: 'REV' }];
+const PERMS = (() => {
+  const out = [];
+  const rec = (pre, rest) => { if (!rest.length) { out.push(pre); return; } for (let i = 0; i < rest.length; i++) rec(pre.concat([rest[i]]), rest.slice(0, i).concat(rest.slice(i + 1))); };
+  rec([], [0, 1, 2, 3]);
+  return out;
+})();
+const sgn = x => (x > 0 ? '+' + x : String(x));
+const MSRC = [
+  { id: 'off', name: '—' }, { id: 'env2', name: 'ENV 2', env: 1 }, { id: 'env3', name: 'ENV 3', env: 2 },
+  { id: 'lfo1', name: 'LFO 1', lfo: 0 }, { id: 'lfo2', name: 'LFO 2', lfo: 1 },
+  { id: 'vel', name: 'Velocity' }, { id: 'mw', name: 'Mod wheel' }, { id: 'key', name: 'Key track' },
+];
+const oscOn = (v, i) => v['o' + i + '.on'] === 1;
+/* scale: what an amount of 1 means at the destination, in `unit`. live: the destination can be heard (else a rule
+   never routes to it — the dependency tree consumed by the mod matrix). */
+const MDST = [
+  { id: 'none', name: '—', scale: 0, unit: '' },
+  { id: 'o12.pitch', name: 'OSC 1+2 pitch', scale: 24, unit: 'st', live: v => oscOn(v, 1) || oscOn(v, 2) },
+  { id: 'o1.pitch', name: 'OSC 1 pitch', scale: 24, unit: 'st', live: v => oscOn(v, 1) },
+  { id: 'o2.pitch', name: 'OSC 2 pitch', scale: 24, unit: 'st', live: v => oscOn(v, 2) },
+  { id: 'o1.det', name: 'OSC 1 detune', scale: 50, unit: 'c', live: v => oscOn(v, 1) && v['o1.voices'] > 0 },
+  { id: 'o2.det', name: 'OSC 2 detune', scale: 50, unit: 'c', live: v => oscOn(v, 2) && v['o2.voices'] > 0 },
+  { id: 'o1.pw', name: 'OSC 1 pulse width', scale: 0.45, unit: '', live: v => oscOn(v, 1) && v['o1.wave'] === 1 },
+  { id: 'o2.pw', name: 'OSC 2 pulse width', scale: 0.45, unit: '', live: v => oscOn(v, 2) && v['o2.wave'] === 1 },
+  { id: 'o1.bw', name: 'OSC 1 blade width', scale: 0.5, unit: '', live: v => oscOn(v, 1) && v['o1.blade'] > 0 },
+  { id: 'o2.bw', name: 'OSC 2 blade width', scale: 0.5, unit: '', live: v => oscOn(v, 2) && v['o2.blade'] > 0 },
+  { id: 'fA.cut', name: 'Filter A cutoff', scale: 6, unit: 'oct' },
+  { id: 'fB.cut', name: 'Filter B cutoff', scale: 6, unit: 'oct', live: v => v['fB.on'] === 1 },
+  { id: 'fA.res', name: 'Filter A resonance', scale: 1, unit: '' },
+  { id: 'amp', name: 'Amp', scale: 1, unit: '' },
+  { id: 'pan', name: 'Pan', scale: 1, unit: '' },
+  { id: 'noise', name: 'Noise level', scale: 0.5, unit: '', live: v => v['noise.on'] === 1 },
+  { id: 'sh.drive', name: 'Shriek drive', scale: 1, unit: '', live: v => v['fx.sh.on'] === 1, fx: 0 },
+  { id: 'dl.mix', name: 'Delay send', scale: 1, unit: '', live: v => v['fx.dl.on'] === 1, fx: 1 },
+  { id: 'rv.mix', name: 'Reverb send', scale: 1, unit: '', live: v => v['fx.rv.on'] === 1, fx: 2 },
+];
+const SI = {}, DI = {};
+for (let i = 0; i < MSRC.length; i++) SI[MSRC[i].id] = i;
+for (let i = 0; i < MDST.length; i++) DI[MDST[i].id] = i;
+const NSLOT = 8;
+
+const SPEC = [], BY = {};
+function addKey(s) { SPEC.push(s); BY[s.key] = s; return s; }
+function num(key, group, name, lo, hi, home, o) {
+  o = o || {};
+  return addKey({ key, group, name, kind: 'num', lo, hi, home, log: !!o.log, step: o.step || 0, unit: o.unit || '', when: o.when || null, arch: false, rs: false, slot: o.slot === undefined ? null : o.slot });
+}
+function en(key, group, name, labels, home, o) {
+  o = o || {};
+  return addKey({ key, group, name, kind: 'enum', labels, home, w: o.w || labels.map(() => 1), ordered: !!o.ordered, when: o.when || null, arch: true, rs: !!o.rs });
+}
+function bool(key, group, name, home, o) { return en(key, group, name, ['off', 'on'], home, o); }
+function tag(key, group, name, home) { return addKey({ key, group, name, kind: 'tag', home, arch: true, rs: true, when: null }); }
+
+const OSC_HOME = [
+  { wave: 0, voices: 2, oct: 2, semi: 3, blade: 0, det: 18, spread: 0.7, bpos: 0.5, bwid: 0.15, level: 0.7 },
+  { wave: 1, voices: 1, oct: 2, semi: 7, blade: 1, det: 10, spread: 0.5, bpos: 0.3, bwid: 0.2, level: 0.4 },
+];
+for (const i of [1, 2]) {
+  const g = 'osc' + i, p = 'o' + i + '.', H = OSC_HOME[i - 1], on = v => v[p + 'on'] === 1;
+  bool(p + 'on', g, 'on', 1, { w: [0.25, 1] });
+  en(p + 'wave', g, 'wave', WAVES, H.wave, { w: [3, 2, 1, 1] });
+  en(p + 'voices', g, 'unison voices', VOICES.map(String), H.voices, { ordered: true, w: [1, 1.2, 1.2, 0.8] });
+  en(p + 'oct', g, 'octave', OCTS.map(sgn), H.oct, { ordered: true, w: [0.4, 1, 3, 1] });
+  en(p + 'semi', g, 'semitones', SEMIS.map(sgn), H.semi, { ordered: true, w: [1, 1, 0.6, 4, 0.5, 0.7, 2, 1.5] });
+  en(p + 'blade', g, 'blade', BLADES, H.blade, { w: [2, 1, 1, 1] });
+  num(p + 'fine', g, 'fine', -25, 25, 0, { unit: 'c', when: on });
+  num(p + 'detune', g, 'detune', 0, 60, H.det, { unit: 'c', when: v => on(v) && v[p + 'voices'] > 0 });
+  num(p + 'spread', g, 'stereo spread', 0, 1, H.spread, { when: v => on(v) && v[p + 'voices'] > 0 });
+  num(p + 'pw', g, 'pulse width', 0.05, 0.95, 0.5, { when: v => on(v) && v[p + 'wave'] === 1 });
+  num(p + 'bpos', g, 'blade position', 0, 1, H.bpos, { when: v => on(v) && v[p + 'blade'] > 0 });
+  num(p + 'bwid', g, 'blade width', 0.02, 0.5, H.bwid, { when: v => on(v) && v[p + 'blade'] > 0 });
+  num(p + 'level', g, 'level', 0, 1, H.level, { when: on });
+}
+bool('sub.on', 'sub', 'on', 1, { w: [1, 1] });
+en('sub.wave', 'sub', 'wave', ['sine', 'square'], 0);
+en('sub.oct', 'sub', 'octave', ['-1', '-2'], 0);
+num('sub.level', 'sub', 'level', 0, 1, 0.35, { when: v => v['sub.on'] === 1 });
+bool('noise.on', 'noise', 'on', 0, { w: [2, 1] });
+en('noise.color', 'noise', 'colour', ['white', 'pink'], 1);
+num('noise.level', 'noise', 'level', 0, 1, 0.3, { when: v => v['noise.on'] === 1 });
+const fBon = v => v['fB.on'] === 1;
+en('f.topo', 'filter', 'A and B', ['serial A→B', 'parallel A+B'], 0);
+en('fA.type', 'filter', 'A type', FTYPES, 0, { w: [4, 1.5, 1, 0.4] });
+num('fA.cut', 'filter', 'A cutoff', 40, 16000, 1800, { log: true, unit: 'Hz' });
+num('fA.res', 'filter', 'A resonance', 0, 0.95, 0.25);
+num('fA.drive', 'filter', 'A drive', 0, 1, 0.1);
+num('fA.key', 'filter', 'A keytrack', 0, 1, 0.5);
+bool('fB.on', 'filter', 'B on', 0, { w: [1.5, 1] });
+en('fB.type', 'filter', 'B type', FTYPES, 2, { w: [2, 1.5, 2, 0.5] });
+num('fB.cut', 'filter', 'B cutoff', 40, 16000, 400, { log: true, unit: 'Hz', when: fBon });
+num('fB.res', 'filter', 'B resonance', 0, 0.95, 0.1, { when: fBon });
+num('fB.key', 'filter', 'B keytrack', 0, 1, 0, { when: fBon });
+en('r.o1', 'filter', 'OSC 1 into', ROUTES, 0, { w: [3, 1, 1] });
+en('r.o2', 'filter', 'OSC 2 into', ROUTES, 0, { w: [3, 1, 1] });
+en('r.sub', 'filter', 'SUB into', ROUTES, 0, { w: [3, 1, 1] });
+en('r.noise', 'filter', 'NOISE into', ROUTES, 0, { w: [2, 1, 1] });
+const ENV_HOME = [[0.004, 0.4, 0.75, 0.25], [0.002, 0.35, 0.1, 0.3], [0.6, 1.2, 0.6, 0.9]];
+for (let e = 1; e <= 3; e++) {
+  const H = ENV_HOME[e - 1], p = 'e' + e + '.', nm = e === 1 ? 'ENV 1 (amp) ' : 'ENV ' + e + ' ';
+  num(p + 'a', 'env', nm + 'attack', 0.0005, 2, H[0], { log: true, unit: 's' });
+  num(p + 'd', 'env', nm + 'decay', 0.01, 4, H[1], { log: true, unit: 's' });
+  num(p + 's', 'env', nm + 'sustain', 0, 1, H[2]);
+  num(p + 'r', 'env', nm + 'release', 0.01, 4, H[3], { log: true, unit: 's' });
+}
+en('l1.shape', 'lfo', 'LFO 1 shape', LFOSH, 0);
+num('l1.rate', 'lfo', 'LFO 1 rate', 0.05, 16, 5.5, { log: true, unit: 'Hz' });
+en('l2.shape', 'lfo', 'LFO 2 shape', LFOSH, 1);
+num('l2.rate', 'lfo', 'LFO 2 rate', 0.05, 16, 0.35, { log: true, unit: 'Hz' });
+const MOD_HOME = [['env2', 'fA.cut', 0.4, 'filter-env'], ['lfo1', 'o12.pitch', 0.006, 'vibrato'], ['vel', 'amp', 0.3, 'velocity']];
+for (let i = 0; i < NSLOT; i++) {
+  const H = MOD_HOME[i] || ['off', 'none', 0, '—'], p = 'm' + i + '.';
+  en(p + 'src', 'mod', 'slot ' + (i + 1) + ' source', MSRC.map(s => s.name), SI[H[0]], { rs: true });
+  en(p + 'dst', 'mod', 'slot ' + (i + 1) + ' destination', MDST.map(d => d.name), DI[H[1]], { rs: true });
+  tag(p + 'rule', 'mod', 'slot ' + (i + 1) + ' rule', H[3]);
+  num(p + 'amt', 'mod', 'slot ' + (i + 1) + ' amount', -1, 1, H[2], { slot: i, when: v => v[p + 'src'] > 0 });
+}
+en('fx.order', 'fxroute', 'order', PERMS.map(p => p.map(i => FXM[i].ab).join('→')), 0);
+en('fx.topo', 'fxroute', 'topology', ['serial', 'parallel', '2 + 2'], 0, { w: [2, 1, 1] });
+for (const m of FXM) bool('fx.' + m.id + '.on', 'fxroute', m.name + ' on', 1, { w: [1, 1.6] });
+const FX_MIX_HOME = [0.35, 0.3, 0.22, 0.22];
+for (let i = 0; i < 4; i++) { const id = FXM[i].id; num('fx.' + id + '.mix', 'fxroute', FXM[i].name + ' mix', 0, 1, FX_MIX_HOME[i], { when: v => v['fx.' + id + '.on'] === 1 }); }
+const fxOn = id => v => v['fx.' + id + '.on'] === 1;
+en('sh.curve', 'shriek', 'curve', ['tanh', 'fold', 'clip'], 0);
+num('sh.drive', 'shriek', 'drive', 0, 1, 0.25, { when: fxOn('sh') });
+num('sh.tone', 'shriek', 'tone', 0, 1, 0.7, { when: fxOn('sh') });
+en('ch.mode', 'chorus', 'mode', ['chorus', 'flanger'], 0);
+num('ch.rate', 'chorus', 'rate', 0.05, 5, 0.5, { log: true, unit: 'Hz', when: fxOn('ch') });
+num('ch.depth', 'chorus', 'depth', 0, 1, 0.5, { when: fxOn('ch') });
+en('dl.mode', 'delay', 'mode', ['stereo', 'ping-pong'], 1);
+en('dl.div', 'delay', 'time', DIVS, 2, { ordered: true });
+num('dl.fb', 'delay', 'feedback', 0, 0.85, 0.35, { when: fxOn('dl') });
+num('dl.damp', 'delay', 'damping', 0, 1, 0.4, { when: fxOn('dl') });
+en('rv.type', 'reverb', 'space', ['room', 'hall'], 1);
+num('rv.size', 'reverb', 'size', 0, 1, 0.6, { when: fxOn('rv') });
+num('rv.damp', 'reverb', 'damping', 0, 1, 0.45, { when: fxOn('rv') });
+num('m.gain', 'master', 'output', 0, 1, 0.5);
+
+const GROUPS = [
+  { id: 'osc1', name: 'OSC 1' }, { id: 'osc2', name: 'OSC 2' }, { id: 'sub', name: 'SUB' }, { id: 'noise', name: 'NOISE' },
+  { id: 'filter', name: 'FILTERS' }, { id: 'env', name: 'ENVELOPES' }, { id: 'lfo', name: 'LFOS' }, { id: 'mod', name: 'MOD MAPPINGS' },
+  { id: 'fxroute', name: 'FX ROUTING' }, { id: 'shriek', name: 'SHRIEK' }, { id: 'chorus', name: 'CHORUS' }, { id: 'delay', name: 'DELAY' },
+  { id: 'reverb', name: 'REVERB' }, { id: 'master', name: 'OUTPUT' },
+];
+const GNAME = {}; for (const g of GROUPS) GNAME[g.id] = g.name;
+const VOICE_GROUPS = ['osc1', 'osc2', 'sub', 'noise', 'filter', 'env', 'lfo'];
+const LEVELS = [
+  { id: 'global', name: 'GLOBAL PATCH', groups: VOICE_GROUPS.concat(['mod', 'fxroute', 'shriek', 'chorus', 'delay', 'reverb']), depth: 0, rules: true },
+  { id: 'voice', name: 'VOICE SECTION', groups: VOICE_GROUPS, depth: 0 },
+  { id: 'osc1', name: 'OSC 1', groups: ['osc1'], depth: 1 },
+  { id: 'osc2', name: 'OSC 2', groups: ['osc2'], depth: 1 },
+  { id: 'sub', name: 'SUB', groups: ['sub'], depth: 1 },
+  { id: 'noise', name: 'NOISE', groups: ['noise'], depth: 1 },
+  { id: 'filter', name: 'FILTERS', groups: ['filter'], depth: 1 },
+  { id: 'env', name: 'ENVELOPES', groups: ['env'], depth: 1, noArch: 'envelopes have no structure here (a curve shape would be one)' },
+  { id: 'lfo', name: 'LFOS', groups: ['lfo'], depth: 1 },
+  { id: 'mod', name: 'MOD MAPPINGS', groups: ['mod'], depth: 0, rules: true },
+  { id: 'fxroute', name: 'FX ROUTING', groups: ['fxroute'], depth: 0 },
+  { id: 'shriek', name: 'SHRIEK', groups: ['shriek'], depth: 1, pass: 'Shriek' },
+  { id: 'chorus', name: 'CHORUS', groups: ['chorus'], depth: 1 },
+  { id: 'delay', name: 'DELAY', groups: ['delay'], depth: 1 },
+  { id: 'reverb', name: 'REVERB', groups: ['reverb'], depth: 1 },
+];
+const LEVEL = {}; for (const L of LEVELS) LEVEL[L.id] = L;
+const CN = ['A', 'B', 'C', 'D'];
+const GLYPH = ['M5 .5 9.5 5 5 9.5 .5 5Z', 'M5 1 9.5 9H.5Z', 'M5 .7a4.3 4.3 0 1 0 .001 0Z', 'M1.2 1.2h7.6v7.6H1.2Z'];
+
+/* =====================================================================================================================
+   C. MOD-MAPPING RULES AND RULESETS (data). amt: the magnitude range of a route's amount (1 = the destination's scale);
+   neg: the probability the route is inverted. env/lfo: how the rule shapes its source.
+   ===================================================================================================================== */
+const RULES = [
+  { id: 'pitch-env', name: 'Pitch envelope', src: ['env2', 'env3'], dst: ['o12.pitch', 'o1.pitch', 'o2.pitch'], dw: [2, 1, 1], amt: [0.04, 1], neg: 0.2,
+    env: { a: [0.0005, 0.004], d: [0.02, 0.25], s: [0, 0], r: [0.02, 0.3] },
+    why: 'The zap, kick and pluck transient: a fast-decaying envelope on pitch, 1–24 st. horde\'s mod matrix gives it its own source (Pitch ENV, mod-matrix-lab SRC slot 1).' },
+  { id: 'filter-env', name: 'Filter envelope', src: ['env2', 'env3'], dst: ['fA.cut', 'fB.cut'], dw: [3, 1], amt: [0.08, 0.7], neg: 0.1,
+    env: { a: [0.001, 0.05], d: [0.08, 1.2], s: [0, 0.5], r: [0.05, 0.8] },
+    why: 'The subtractive staple. Hard-wired on the Minimoog (the filter contour and its amount) and the Juno-106 (the VCF ENV slider).' },
+  { id: 'filter-lfo', name: 'Filter LFO', src: ['lfo1', 'lfo2'], dst: ['fA.cut', 'fB.cut'], dw: [3, 1], amt: [0.04, 0.4], neg: 0.5,
+    lfo: { rate: [0.1, 8], shape: [0, 1, 2, 3] },
+    why: 'Wah and wobble. Hard-wired on the Juno-106 (the VCF LFO slider).' },
+  { id: 'vibrato', name: 'Vibrato', src: ['lfo1', 'lfo2'], dst: ['o12.pitch'], amt: [0.002, 0.015], neg: 0.5,
+    lfo: { rate: [4.5, 6.5], shape: [0, 1] },
+    why: 'An LFO on pitch, 0.05–0.36 st at 4.5–6.5 Hz. The Juno-106\'s DCO LFO slider; the Minimoog\'s wheel sends its modulation mix to the oscillators.' },
+  { id: 'pwm', name: 'PWM / blade sweep', src: ['lfo1', 'lfo2', 'env3'], dst: ['o1.pw', 'o2.pw', 'o1.bw', 'o2.bw'], amt: [0.1, 0.6], neg: 0.5,
+    lfo: { rate: [0.2, 3], shape: [0, 1] },
+    why: 'Pulse-width modulation (the Juno-106\'s PWM slider with its LFO switch). On SCALPEL the blade width is the analogue: a hypothesis, not yet heard.' },
+  { id: 'velocity', name: 'Velocity', src: ['vel'], dst: ['amp', 'fA.cut'], dw: [2, 1], amt: [0.1, 0.6],
+    why: 'Velocity opens the amp and the filter. The mod-matrix lab\'s default bank routes velocity to the filter.' },
+  { id: 'keytrack', name: 'Key tracking', src: ['key'], dst: ['fA.cut', 'fB.cut'], dw: [3, 1], amt: [0.2, 0.9],
+    why: 'Higher notes brighter. The Juno-106\'s VCF KYBD slider. Here it is a route; on most synths it is a filter control.' },
+  { id: 'detune-swell', name: 'Detune swell', src: ['env3', 'mw'], dst: ['o1.det', 'o2.det'], amt: [0.1, 0.7],
+    env: { a: [0.3, 2], d: [0.5, 2], s: [0.5, 1], r: [0.3, 1.5] },
+    why: 'The supersaw that widens as it sustains. Judged common for hyperpop and trance leads: no citation.' },
+  { id: 'tremolo-pan', name: 'Tremolo / auto-pan', src: ['lfo1', 'lfo2'], dst: ['amp', 'pan'], amt: [0.1, 0.6], neg: 0.5,
+    lfo: { rate: [1, 8], shape: [0, 1, 3] },
+    why: 'An LFO on level or pan. Common practice: no citation.' },
+  { id: 'sh-filter', name: 'S&H filter', src: ['lfo1', 'lfo2'], dst: ['fA.cut', 'fB.cut'], dw: [3, 1], amt: [0.08, 0.45], neg: 0.5,
+    lfo: { rate: [2, 12], shape: [4] },
+    why: 'Stepped random cutoff, the classic sample-and-hold patch (the ARP 2600 has a sample-and-hold on its panel).' },
+  { id: 'fx-swell', name: 'FX swell', src: ['env3', 'mw'], dst: ['dl.mix', 'rv.mix'], amt: [0.1, 0.5],
+    env: { a: [0.2, 1.5], d: [0.5, 2], s: [0.3, 1], r: [0.5, 2] },
+    why: 'Sends that bloom on held notes. Judged common: no citation.' },
+  { id: 'mw-bright', name: 'Mod wheel brightness', src: ['mw'], dst: ['fA.cut'], amt: [0.1, 0.6],
+    why: 'The wheel opens the filter. The Minimoog\'s wheel can send its modulation to the filter as well as the oscillators.' },
+];
+function makeRS(name, n, ws) {
+  const rules = {};
+  for (const r of RULES) rules[r.id] = { on: ws[r.id] ? 1 : 0, w: ws[r.id] || 1, amt: r.amt.slice() };
+  return { name, n, rules, custom: [] };
+}
+const ALL1 = {}; for (const r of RULES) ALL1[r.id] = 1;
+const BUILTIN_RS = [
+  makeRS('Common (start here)', [2, 4], { 'filter-env': 3, 'pitch-env': 1, 'filter-lfo': 1.5, 'vibrato': 1, 'velocity': 2, 'keytrack': 1 }),
+  makeRS('Plucks and zaps', [2, 3], { 'pitch-env': 3, 'filter-env': 3, 'velocity': 1 }),
+  makeRS('Wobble and motion', [2, 4], { 'filter-lfo': 3, 'sh-filter': 2, 'tremolo-pan': 1, 'pwm': 2 }),
+  makeRS('Hyperpop lead', [3, 5], { 'pitch-env': 2, 'detune-swell': 2, 'vibrato': 2, 'fx-swell': 1, 'filter-env': 1 }),
+  makeRS('Everything, equal', [3, 8], ALL1),
+];
+const STORE_KEY = 'horde-random-lab-rulesets';
+/* localStorage, wrapped: a private window, a full quota or the headless checks (no localStorage at all) all land in
+   the catch, and the lab carries on with the built-ins. */
+function storeGet() { try { const raw = window.localStorage.getItem(STORE_KEY); const v = raw ? JSON.parse(raw) : []; return Array.isArray(v) ? v.filter(validRS) : []; } catch (e) { return []; } }
+function storeSet(list) { try { window.localStorage.setItem(STORE_KEY, JSON.stringify(list)); return true; } catch (e) { return false; } }
+function validRS(rs) {
+  return !!(rs && typeof rs.name === 'string' && Array.isArray(rs.n) && rs.n.length === 2 && rs.rules && typeof rs.rules === 'object' && Array.isArray(rs.custom));
+}
+/* a stored ruleset is re-shaped against today's rules: unknown ids dropped, missing ones added off */
+function sanitizeRS(rs) {
+  const out = makeRS(String(rs.name).slice(0, 40), [clamp(rs.n[0] | 0, 0, NSLOT), clamp(rs.n[1] | 0, 0, NSLOT)], {});
+  out.custom = rs.custom.filter(c => c && typeof c.id === 'string' && Array.isArray(c.src) && Array.isArray(c.dst) && Array.isArray(c.amt))
+    .map(c => ({ id: c.id, name: String(c.name || c.id), src: c.src.filter(s => SI[s] > 0), dst: c.dst.filter(d => DI[d] > 0), amt: [clamp(+c.amt[0] || 0, 0, 1), clamp(+c.amt[1] || 0, 0, 1)], neg: clamp(+c.neg || 0, 0, 1), why: 'yours' }))
+    .filter(c => c.src.length && c.dst.length);
+  for (const id in out.rules) { const r = rs.rules[id]; if (r) out.rules[id] = { on: r.on ? 1 : 0, w: clamp(+r.w || 0, 0, 4), amt: Array.isArray(r.amt) ? [clamp(+r.amt[0] || 0, 0, 1), clamp(+r.amt[1] || 0, 0, 1)] : out.rules[id].amt }; }
+  for (const c of out.custom) { const r = rs.rules[c.id] || {}; out.rules[c.id] = { on: r.on === 0 ? 0 : 1, w: clamp(+r.w || 1, 0, 4), amt: c.amt.slice() }; }
+  if (out.n[0] > out.n[1]) out.n = [out.n[1], out.n[0]];
+  return out;
+}
+function allRules(rs) { return RULES.concat(rs.custom); }
+function ruleById(rs, id) { for (const r of allRules(rs)) if (r.id === id) return r; return null; }
+
+/* =====================================================================================================================
+   D. STATE AND ACTIONS. Everything a click can change lives in S; every change goes through applyAction(S, a), so a
+   session is (seed, log) and replay is exact.
+   ===================================================================================================================== */
+function homeValues() {
+  const v = {};
+  for (const s of SPEC) v[s.key] = s.home;
+  return v;
+}
+function newState(seed) {
+  const v = homeValues();
+  return {
+    seed: seed >>> 0, clicks: 0,
+    snaps: [{ sid: 's1', name: 'Stand-in home', v: clone(v) }], nextSid: 2, nextSnapN: 1, homeSid: 's1',
+    bind: ['s1', 's1', 's1', 's1'], work: [clone(v), clone(v), clone(v), clone(v)], lockC: [false, false, false, false],
+    lockG: { master: true }, lockK: {}, chaos: 0.35, amount: 0.6, gChaos: {}, gAmt: {}, bounds: {}, dice: {},
+    homeMode: 'snapshot', archScope: 'all', archMust: false, rs: clone(BUILTIN_RS[0]),
+    lastRolls: null, lastChange: null, lastModStats: null, msg: '',
+  };
+}
+function snapOf(S, sid) { for (const s of S.snaps) if (s.sid === sid) return s; return null; }
+const keyOfValues = v => JSON.stringify(v);
+function isDraft(S, k) { const s = snapOf(S, S.bind[k]); return !s || keyOfValues(s.v) !== keyOfValues(S.work[k]); }
+function fingerprint(S) {
+  return fnv(JSON.stringify({ w: S.work, b: S.bind, s: S.snaps.map(s => [s.sid, s.name, s.v]), h: S.homeSid })).toString(16).padStart(8, '0');
+}
+function toN(s, x) { return s.log ? Math.log(x / s.lo) / Math.log(s.hi / s.lo) : (x - s.lo) / (s.hi - s.lo); }
+function fromN(s, n, raw) {
+  n = clamp(n, 0, 1);
+  let x = s.log ? s.lo * Math.pow(s.hi / s.lo, n) : s.lo + n * (s.hi - s.lo);
+  if (raw) return x;
+  if (s.step) x = Math.round(x / s.step) * s.step;
+  return Number(x.toPrecision(5));
+}
+const effChaos = (S, g) => clamp(S.chaos * (S.gChaos[g] === undefined ? 1 : S.gChaos[g]), 0, 1);
+const effAmt = (S, g) => clamp(S.amount * (S.gAmt[g] === undefined ? 1 : S.gAmt[g]), 0, 1);
+const isLocked = (S, s) => !!(S.lockG[s.group] || S.lockK[s.key] || (s.key[0] === 'm' && s.key[2] === '.' && S.lockK[s.key.slice(0, 3) + 'src']));
+const active = (s, v) => !s.when || !!s.when(v);
+function lit(S, s) { const d = S.dice[s.key]; return s.labels.map((_, i) => !(d && d[i])); }
+function homeOf(S, k) {
+  if (S.homeMode === 'patch') { const h = snapOf(S, S.homeSid); if (h) return h.v; }
+  const b = snapOf(S, S.bind[k]);
+  return b ? b.v : S.work[k];
+}
+/* the bounds a numeric key is drawn inside: the user's, and for a mod amount its route's rule range (same sign as now) */
+function boundsFor(S, s, v) {
+  const b = S.bounds[s.key] || [0, 1];
+  let lo = Math.min(b[0], b[1]), hi = Math.max(b[0], b[1]);
+  if (s.slot !== null) {
+    const r = ruleById(S.rs, v['m' + s.slot + '.rule']);
+    if (r) {
+      const rr = (S.rs.rules[r.id] && S.rs.rules[r.id].amt) || r.amt, m0 = Math.min(rr[0], rr[1]), m1 = Math.max(rr[0], rr[1]);
+      const rb = v[s.key] < 0 ? [(1 - m1) / 2, (1 - m0) / 2] : [(1 + m0) / 2, (1 + m1) / 2];
+      const L = Math.max(lo, rb[0]), H = Math.min(hi, rb[1]);
+      if (L <= H) { lo = L; hi = H; } else { lo = rb[0]; hi = rb[1]; }
+    }
+  }
+  return [lo, hi];
+}
+function drawNum(s, home, u, c, b) {
+  const sg = sigma(c);
+  if (!(sg > 0)) return home;
+  const lo = b[0], hi = b[1], h = clamp(toN(s, home), lo, hi);
+  if (hi - lo < 1e-9) return fromN(s, lo);
+  const pa = Phi((lo - h) / sg), pb = Phi((hi - h) / sg);
+  const p = clamp(pa + u * (pb - pa), 1e-12, 1 - 1e-12);
+  return fromN(s, clamp(h + sg * PhiInv(p), lo, hi));
+}
+/* the weights an enum draws from: taste × lit, and for an ORDERED enum a bell in index space around home */
+function enumWeights(S, s, home, c) {
+  const L = lit(S, s), w = s.w.map((x, i) => (L[i] ? x : 0));
+  if (s.ordered) {
+    const sg = sigma(c) * s.labels.length;
+    if (!(sg > 0)) return null;
+    return w.map((x, i) => x * Math.exp(-((i - home) * (i - home)) / (2 * sg * sg)));
+  }
+  return w;
+}
+function nearestLit(S, s, home) {
+  const L = lit(S, s); let best = home, bd = 1e9;
+  for (let i = 0; i < L.length; i++) if (L[i] && Math.abs(i - home) < bd) { bd = Math.abs(i - home); best = i; }
+  return best;
+}
+function drawEnum(S, s, home, u1, u2, c) {
+  const L = lit(S, s);
+  if (!L.some(Boolean)) return home;
+  const w = enumWeights(S, s, home, c);
+  if (s.ordered) {
+    if (!w) return L[home] ? home : nearestLit(S, s, home);
+    const i = pickW(u2, w);
+    return i < 0 ? nearestLit(S, s, home) : i;
+  }
+  if (u1 >= c && L[home]) return home;
+  const i = pickW(u2, w);
+  return i < 0 ? home : i;
+}
+/* the probabilities drawEnum realises, for the distribution panel */
+function enumProbs(S, s, home, c) {
+  const L = lit(S, s), w = enumWeights(S, s, home, c), n = s.labels.length, out = new Array(n).fill(0);
+  if (s.ordered && !w) { out[L[home] ? home : nearestLit(S, s, home)] = 1; return out; }
+  let t = 0; for (let i = 0; i < n; i++) t += w[i];
+  if (s.ordered) { for (let i = 0; i < n; i++) out[i] = t > 0 ? w[i] / t : 0; return out; }
+  const keep = L[home] ? 1 - c : 0;
+  for (let i = 0; i < n; i++) out[i] = (1 - keep) * (t > 0 ? w[i] / t : 0) + (i === home ? keep : 0);
+  return out;
+}
+/* deterministic repair, labelled: a patch keeps at least one sounding source */
+function repair(v) {
+  if (v['o1.on'] !== 1 && v['o2.on'] !== 1 && v['sub.on'] !== 1 && v['noise.on'] !== 1) v['o1.on'] = 1;
+}
+/* the keys a level's ARCH or PARAMS may draw (rule-drawn mod keys excluded: the ruleset owns them) */
+function scopeKeys(S, level, kind) {
+  const gs = LEVEL[level].groups, out = [];
+  for (const s of SPEC) {
+    if (gs.indexOf(s.group) < 0 || s.rs || s.kind === 'tag') continue;
+    if (kind === 'arch' && !s.arch) continue;
+    if (kind === 'params' && s.arch) continue;
+    out.push(s.key);
+  }
+  return out;
+}
+/* A ROLL: one click's draws for one source corner, kept so CHAOS, AMOUNT, bounds, dice and locks can re-apply it */
+function makeRoll(S, level, kind, src, targets, bases) {
+  const keys = scopeKeys(S, level, kind), us = {}, click = S.clicks;
+  for (const key of keys) us[key] = [U(S.seed, click, src, key, 0), U(S.seed, click, src, key, 1), U(S.seed, click, src, key, 2)];
+  return { level, kind, src, targets, keys, us, click, withRules: !!LEVEL[level].rules && kind !== 'params',
+    bases: bases || targets.map(t => clone(S.work[t])), homeBase: clone(bases ? bases[targets.indexOf(src)] : S.work[src]) };
+}
+function applyRoll(S, R) {
+  const si = R.targets.indexOf(R.src), out = clone(R.bases[si]);
+  const home = S.homeMode === 'walk' ? R.homeBase : homeOf(S, R.src);
+  for (const key of R.keys) {
+    const s = BY[key];
+    if (isLocked(S, s)) continue;
+    if (!s.arch && !active(s, out)) continue;   // a parameter nobody can hear is not drawn (the dependency tree)
+    const u = R.us[key];
+    if (!(u[2] < effAmt(S, s.group))) continue;   // AMOUNT: nested thresholds
+    const c = effChaos(S, s.group);
+    out[key] = s.kind === 'num' ? drawNum(s, home[key], u[0], c, boundsFor(S, s, out)) : drawEnum(S, s, home[key], u[0], u[1], c);
+  }
+  /* PROPOSAL (the report's finding 1): ARCH MUST CHANGE. At moderate chaos a small module's ARCH click usually lands on
+     what it already holds; with this on, if nothing structural moved, the unlocked choice with the lowest threshold
+     takes a value other than its own, by taste over the lit values. Deterministic: it reuses that key's draws. */
+  if (S.archMust && R.kind === 'arch' && !R.keys.some(key => out[key] !== R.bases[si][key])) {
+    let best = null;
+    for (const key of R.keys) {
+      const s = BY[key];
+      if (isLocked(S, s) || s.kind !== 'enum') continue;
+      const L = lit(S, s); if (!L.some((x, i) => x && i !== out[key])) continue;
+      if (!best || R.us[key][2] < R.us[best][2]) best = key;
+    }
+    if (best) { const s = BY[best], L = lit(S, s), i = pickW(R.us[best][1], s.w.map((x, j) => (L[j] && j !== out[best] ? x : 0))); if (i >= 0) out[best] = i; }
+  }
+  const touched = new Set();
+  if (R.withRules && !S.lockG.mod) S.lastModStats = drawMod(S, out, R.src, R.click, touched);
+  repair(out);
+  for (let ti = 0; ti < R.targets.length; ti++) {
+    const t = R.targets[ti];
+    if (t === R.src || R.kind === 'both') { S.work[t] = clone(out); continue; }
+    /* ARCH written to several corners: the level's whole STRUCTURE is unified (one structure, the corners keep their
+       own numbers), plus whatever the ruleset drew (routes and the sources it shaped) */
+    const o = clone(R.bases[ti]);
+    for (const key of R.keys) if (!isLocked(S, BY[key])) o[key] = out[key];
+    for (const key of touched) o[key] = out[key];
+    repair(o);
+    S.work[t] = o;
+  }
+}
+/* THE RULESET DRAW. Draw keys are per slot and per attempt, so a locked slot shifts nothing. */
+function drawMod(S, out, src, click, touched) {
+  const rs = S.rs, stats = { filled: 0, wanted: 0, noLive: 0, dup: 0, claimed: 0, rules: {} };
+  const rules = allRules(rs).filter(r => rs.rules[r.id] && rs.rules[r.id].on && rs.rules[r.id].w > 0);
+  const free = [], pairs = new Set(), claimed = {};
+  for (let i = 0; i < NSLOT; i++) {
+    const p = 'm' + i + '.';
+    if (S.lockK[p + 'src']) { if (out[p + 'src'] > 0) pairs.add(out[p + 'src'] + '>' + out[p + 'dst']); const r = ruleById(rs, out[p + 'rule']); if (r && (r.env || r.lfo)) claimed[MSRC[out[p + 'src']].id] = r.id; }
+    else free.push(i);
+  }
+  const lo = Math.min(rs.n[0], rs.n[1]), hi = Math.max(rs.n[0], rs.n[1]);
+  const n = Math.min(free.length, lo + Math.floor(U(S.seed, click, src, 'mod.n', 0) * (hi - lo + 1)));
+  stats.wanted = n;
+  for (let fi = 0; fi < free.length; fi++) {
+    const slot = free[fi], p = 'm' + slot + '.';
+    let done = false;
+    for (let j = 0; j < 4 && !done && fi < n && rules.length; j++) {
+      const r = rules[pickW(U(S.seed, click, src, p + 'rule', j), rules.map(x => rs.rules[x.id].w))];
+      const shapes = !!(r.env || r.lfo);
+      const srcs = r.src.filter(id => {
+        const m = MSRC[SI[id]];
+        const shapeable = (m.env !== undefined && r.env) || (m.lfo !== undefined && r.lfo);
+        return !(shapes && shapeable && claimed[id] && claimed[id] !== r.id);
+      });
+      if (!srcs.length) { stats.claimed++; continue; }
+      const sid = srcs[Math.min(srcs.length - 1, Math.floor(U(S.seed, click, src, p + 'src', j) * srcs.length))];
+      const dl = [], dw = [];
+      for (let k = 0; k < r.dst.length; k++) { const d = MDST[DI[r.dst[k]]]; if (!d.live || d.live(out)) { dl.push(r.dst[k]); dw.push(r.dw ? r.dw[k] : 1); } }
+      if (!dl.length) { stats.noLive++; continue; }
+      const did = dl[pickW(U(S.seed, click, src, p + 'dst', j), dw)];
+      if (pairs.has(SI[sid] + '>' + DI[did])) { stats.dup++; continue; }
+      const rr = rs.rules[r.id].amt || r.amt, m0 = Math.min(rr[0], rr[1]), m1 = Math.max(rr[0], rr[1]);
+      const mag = m0 + U(S.seed, click, src, p + 'amt', j) * (m1 - m0);
+      const neg = U(S.seed, click, src, p + 'neg', j) < (r.neg || 0);
+      out[p + 'src'] = SI[sid]; out[p + 'dst'] = DI[did]; out[p + 'rule'] = r.id; out[p + 'amt'] = Number((neg ? -mag : mag).toPrecision(4));
+      const m = MSRC[SI[sid]];
+      if (m.env !== undefined && r.env && !claimed[sid]) {
+        for (const x of ['a', 'd', 's', 'r']) {
+          const key = 'e' + (m.env + 1) + '.' + x, ks = BY[key];
+          if (isLocked(S, ks)) continue;
+          const rg = r.env[x], uu = U(S.seed, click, src, p + 'shape.' + x, j);
+          out[key] = ks.log && rg[0] > 0 ? fromN(ks, toN(ks, rg[0]) + uu * (toN(ks, rg[1]) - toN(ks, rg[0]))) : Number((rg[0] + uu * (rg[1] - rg[0])).toPrecision(5));
+          touched.add(key);
+        }
+      }
+      if (m.lfo !== undefined && r.lfo && !claimed[sid]) {
+        const rk = 'l' + (m.lfo + 1) + '.rate', sk = 'l' + (m.lfo + 1) + '.shape', ks = BY[rk];
+        if (!isLocked(S, ks)) { out[rk] = fromN(ks, toN(ks, r.lfo.rate[0]) + U(S.seed, click, src, p + 'shape.rate', j) * (toN(ks, r.lfo.rate[1]) - toN(ks, r.lfo.rate[0]))); touched.add(rk); }
+        if (!isLocked(S, BY[sk])) { out[sk] = r.lfo.shape[Math.min(r.lfo.shape.length - 1, Math.floor(U(S.seed, click, src, p + 'shape.sh', j) * r.lfo.shape.length))]; touched.add(sk); }
+      }
+      if (shapes && (m.env !== undefined || m.lfo !== undefined)) claimed[sid] = r.id;
+      pairs.add(SI[sid] + '>' + DI[did]);
+      stats.filled++; stats.rules[r.id] = (stats.rules[r.id] || 0) + 1;
+      done = true;
+    }
+    if (!done) { out[p + 'src'] = 0; out[p + 'dst'] = 0; out[p + 'rule'] = '—'; out[p + 'amt'] = 0; }
+    for (const x of ['src', 'dst', 'rule', 'amt']) touched.add(p + x);
+  }
+  return stats;
+}
+function reapply(S) { if (S.lastRolls) for (const R of S.lastRolls) applyRoll(S, R); }
+function changedKeys(before, after) {
+  const out = new Set();
+  for (let k = 0; k < 4; k++) for (const s of SPEC) if (before[k][s.key] !== after[k][s.key]) out.add(s.key);
+  return out;
+}
+function unlockedCorners(S) { return [0, 1, 2, 3].filter(t => !S.lockC[t]); }
+/* THE ACTIONS. a.t names it; everything else it needs is IN the action (the corner, the scope), so replay never
+   depends on UI state. */
+function applyAction(S, a) {
+  const before = S.work.map(clone);
+  S.msg = '';
+  const refuse = m => { S.msg = m; };
+  switch (a.t) {
+    case 'rand': {
+      const L = LEVEL[a.level], k = a.corner;
+      if (S.lockC[k]) return refuse('corner ' + CN[k] + ' is locked: randomize refused');
+      if (a.kind === 'arch' && L.noArch) return refuse(L.name + ': ' + L.noArch);
+      const targets = a.kind === 'arch' && a.scope === 'all' ? unlockedCorners(S) : [k];
+      const R = makeRoll(S, a.level, a.kind, k, targets);
+      S.clicks++;
+      applyRoll(S, R);
+      S.lastRolls = [R];
+      if (a.kind === 'params' && !R.keys.some(key => active(BY[key], R.bases[0]))) S.msg = L.name + ': nothing to draw, its parameters are inactive (its switch is off)';
+      break;
+    }
+    case 'randAll': {
+      const rolls = [];
+      for (const k of unlockedCorners(S)) rolls.push(makeRoll(S, a.level, 'params', k, [k]));
+      if (!rolls.length) return refuse('every corner is locked');
+      S.clicks++;
+      for (const R of rolls) applyRoll(S, R);
+      S.lastRolls = rolls;
+      break;
+    }
+    case 'randPatch': {
+      const k = a.corner;
+      if (S.lockC[k]) return refuse('corner ' + CN[k] + ' is locked: randomize refused');
+      const targets = unlockedCorners(S), base = clone(S.work[k]);
+      const R = makeRoll(S, 'global', 'both', k, targets, targets.map(() => clone(base)));
+      R.keys = scopeKeys(S, 'global', 'arch').concat(scopeKeys(S, 'global', 'params'));
+      for (const key of R.keys) if (!R.us[key]) R.us[key] = [U(S.seed, R.click, k, key, 0), U(S.seed, R.click, k, key, 1), U(S.seed, R.click, k, key, 2)];
+      R.keys.sort((x, y) => SPEC.indexOf(BY[x]) - SPEC.indexOf(BY[y]));   // structure before the numbers that depend on it
+      R.withRules = true;
+      S.clicks++;
+      applyRoll(S, R);
+      S.lastRolls = [R];
+      break;
+    }
+    case 'revert': {
+      const k = a.corner, s = snapOf(S, S.bind[k]);
+      if (S.lockC[k]) return refuse('corner ' + CN[k] + ' is locked');
+      if (!isDraft(S, k)) return refuse('corner ' + CN[k] + ' holds no draft');
+      S.work[k] = clone(s.v); S.lastRolls = null;
+      break;
+    }
+    case 'save': {
+      const k = a.corner;
+      if (!isDraft(S, k)) return refuse('corner ' + CN[k] + ' holds no draft to save');
+      const sid = 's' + (S.nextSid++), name = 'Snap ' + (S.nextSnapN++);
+      S.snaps.push({ sid, name, v: clone(S.work[k]) }); S.bind[k] = sid; S.lastRolls = null;
+      S.msg = 'corner ' + CN[k] + ' saved as "' + name + '"';
+      break;
+    }
+    case 'affix': {
+      const k = a.corner, s = snapOf(S, a.sid);
+      if (!s) return refuse('no such snapshot');
+      if (S.lockC[k]) return refuse('corner ' + CN[k] + ' is locked: affix refused');
+      S.bind[k] = a.sid; S.work[k] = clone(s.v); S.lastRolls = null;
+      break;
+    }
+    case 'delSnap': {
+      if (S.snaps.length <= 1) return refuse('the last snapshot stays');
+      if (S.bind.indexOf(a.sid) >= 0) return refuse('a snapshot affixed to a corner cannot be deleted');
+      if (S.homeSid === a.sid) return refuse('the patch home cannot be deleted');
+      S.snaps = S.snaps.filter(s => s.sid !== a.sid);
+      break;
+    }
+    case 'home': if (snapOf(S, a.sid)) { S.homeSid = a.sid; reapply(S); } break;
+    case 'lockC': S.lockC[a.corner] = !S.lockC[a.corner]; break;
+    case 'lockG': if (a.group !== 'master') { S.lockG[a.group] = !S.lockG[a.group]; reapply(S); } break;
+    case 'lockK': S.lockK[a.key] = !S.lockK[a.key]; reapply(S); break;
+    case 'dice': {
+      const s = BY[a.key], d = S.dice[a.key] || (S.dice[a.key] = {});
+      const nLit = lit(S, s).filter(Boolean).length;
+      if (!d[a.i] && nLit <= 1) return refuse('one value stays lit');
+      d[a.i] = !d[a.i]; reapply(S);
+      break;
+    }
+    case 'set': {
+      const p = a.path, x = a.value;
+      if (p === 'chaos') S.chaos = clamp(+x, 0, 1);
+      else if (p === 'amount') S.amount = clamp(+x, 0, 1);
+      else if (p === 'homeMode') S.homeMode = x;
+      else if (p === 'archScope') S.archScope = x;
+      else if (p === 'archMust') S.archMust = x === true || x === 'on';
+      else if (p.slice(0, 3) === 'gc.') S.gChaos[p.slice(3)] = clamp(+x, 0, 2);
+      else if (p.slice(0, 3) === 'ga.') S.gAmt[p.slice(3)] = clamp(+x, 0, 2);
+      else if (p.slice(0, 2) === 'b.') { const key = p.slice(2, -2), i = +p.slice(-1), b = S.bounds[key] || (S.bounds[key] = [0, 1]); b[i] = clamp(+x, 0, 1); }
+      reapply(S);
+      break;
+    }
+    case 'ruleset': S.rs = sanitizeRS(a.rs); reapply(S); break;
+    default: return refuse('unknown action ' + a.t);
+  }
+  const ch = changedKeys(before, S.work);
+  if (a.t === 'rand' || a.t === 'randAll' || a.t === 'randPatch') S.lastChange = { keys: ch, label: a.t };
+  else if (ch.size && S.lastChange) { for (const k of ch) S.lastChange.keys.add(k); }
+  a.changed = ch.size;   // the log shows it; replay recomputes it
+}
+
+/* =====================================================================================================================
+   E. THE MORPH: what the puck hears. Numbers blend in their taper; structure flips at the dominant corner.
+   ===================================================================================================================== */
+function weightsAt(x, y) { return [(1 - x) * (1 - y), x * (1 - y), (1 - x) * y, x * y]; }
+function heardOf(work, x, y) {
+  const w = weightsAt(x, y);
+  let dom = 0; for (let i = 1; i < 4; i++) if (w[i] > w[dom] + 1e-12) dom = i;
+  const v = {};
+  for (const s of SPEC) {
+    if (s.kind !== 'num') { v[s.key] = work[dom][s.key]; continue; }
+    if (s.slot !== null) {   // a route's amount blends only between corners holding the same route
+      const p = 'm' + s.slot + '.', rk = r => work[r][p + 'src'] + '>' + work[r][p + 'dst'];
+      let same = true; for (let i = 1; i < 4; i++) if (rk(i) !== rk(0)) same = false;
+      if (!same) { v[s.key] = work[dom][s.key]; continue; }
+    }
+    let n = 0; for (let i = 0; i < 4; i++) n += w[i] * toN(s, work[i][s.key]);
+    v[s.key] = fromN(s, n, true);
+  }
+  return { v, w, dom };
+}
+
+/* =====================================================================================================================
+   F. THE ENGINE (stand-in synthesis). Counts samples; never reads a clock. One renderer for the page and the checks.
+   ===================================================================================================================== */
+const NV = 6, TICK = 16, BPM = 120, GUARD = 0.5;   // GUARD: 0.5 = −6.02 dBFS
+const PAT = {
+  arp: { steps: 8, len: 0.5, gate: 0.55, notes: [[48], [55], [60], [63], [67], [63], [60], [55]], vel: [1, 0.55, 0.8, 0.55, 0.95, 0.55, 0.8, 0.6] },
+  stabs: { steps: 4, len: 2, gate: 0.4, notes: [[48, 55, 58, 63], [46, 53, 58, 62], [44, 51, 56, 60], [46, 53, 58, 62]], vel: [1, 0.8, 0.9, 0.8] },
+  drone: { steps: 1, len: 8, gate: 0.9, notes: [[48]], vel: [0.9] },
+};
+const SM_L1 = 0, SM_L2 = 1, SM_SUB = 2, SM_NZ = 3, SM_CA = 4, SM_CB = 5, SM_MIX = 6, SM_DRV = 10, SM_GAIN = 11, NSM = 12;
+const TWO_PI = 6.283185307179586;
+function polyblep(t, dt) {
+  if (t < dt) { t /= dt; return t + t - t * t - 1; }
+  if (t > 1 - dt) { t = (t - 1) / dt; return t * t + t + t + 1; }
+  return 0;
+}
+function baseWave(w, p, dt, pw) {
+  if (w === 0) return 2 * p - 1 - polyblep(p, dt);
+  if (w === 1) { let q = p - pw; if (q < 0) q += 1; return (p < pw ? 1 : -1) + polyblep(p, dt) - polyblep(q, dt); }
+  if (w === 2) return 4 * Math.abs(p - 0.5) - 1;
+  return Math.sin(TWO_PI * p);
+}
+/* THE BLADE (stand-in): a window [bpos, bpos + bwid) in each cycle whose span is replaced — gap: silence; mirror: the
+   span played backwards; fold: the span inverted. Naive edges (they alias): a lab stand-in, not SCALPEL. */
+function oscWave(w, p, dt, pw, blade, bpos, bwid) {
+  if (blade > 0) {
+    let d = p - bpos; if (d < 0) d += 1;
+    if (d < bwid) {
+      if (blade === 1) return 0;
+      if (blade === 2) { let q = bpos + bwid - d; if (q >= 1) q -= 1; return baseWave(w, q, dt, pw); }
+      return -baseWave(w, p, dt, pw);
+    }
+  }
+  return baseWave(w, p, dt, pw);
+}
+function envTick(e, c) {
+  if (e.st === 1) { e.v += c.ai; if (e.v >= 1) { e.v = 1; e.st = 2; } }
+  else if (e.st === 2) e.v = c.s + (e.v - c.s) * c.cd;
+  else if (e.st === 4) { e.v *= c.cr; if (e.v < 1e-4) { e.v = 0; e.st = 0; } }
+  return e.v;
+}
+function svfCoef(c, fc, res, sr, type) {
+  const g = Math.tan(Math.PI * clamp(fc, 20, 0.45 * sr) / sr), k = 2 - 1.95 * clamp(res, 0, 0.97);
+  c.a1 = 1 / (1 + g * (g + k)); c.a2 = g * c.a1; c.a3 = g * c.a2; c.k = k; c.type = type;
+}
+function svf(st, o, x, c) {
+  const v3 = x - st[o + 1], v1 = c.a1 * st[o] + c.a2 * v3, v2 = st[o + 1] + c.a2 * st[o] + c.a3 * v3;
+  st[o] = 2 * v1 - st[o]; st[o + 1] = 2 * v2 - st[o + 1];
+  if (c.type === 0) return v2;
+  if (c.type === 1) return c.k * v1;
+  if (c.type === 2) return x - c.k * v1 - v2;
+  return x - c.k * v1;
+}
+function lfoVal(shape, p, sh) {
+  if (shape === 0) return Math.sin(TWO_PI * p);
+  if (shape === 1) return 1 - 4 * Math.abs(p - 0.5);
+  if (shape === 2) return 2 * p - 1;
+  if (shape === 3) return p < 0.5 ? 1 : -1;
+  return sh;
+}
+function compilePatch(v, sr) {
+  const P = { osc: [], route: [v['r.o1'], v['r.o2'], v['r.sub'], v['r.noise']], topo: v['f.topo'] };
+  for (const i of [1, 2]) {
+    const p = 'o' + i + '.';
+    P.osc.push({ on: v[p + 'on'] === 1, wave: v[p + 'wave'], n: VOICES[v[p + 'voices']], semi: OCTS[v[p + 'oct']] * 12 + SEMIS[v[p + 'semi']], fine: v[p + 'fine'],
+      det: v[p + 'detune'], spread: v[p + 'spread'], pw: v[p + 'pw'], blade: v[p + 'blade'], bpos: v[p + 'bpos'], bwid: v[p + 'bwid'], level: v[p + 'level'] });
+  }
+  P.sub = { on: v['sub.on'] === 1, sq: v['sub.wave'] === 1, oct: v['sub.oct'] === 1 ? -24 : -12, level: v['sub.level'] };
+  P.noise = { on: v['noise.on'] === 1, pink: v['noise.color'] === 1, level: v['noise.level'] };
+  P.fA = { type: v['fA.type'], cut: v['fA.cut'], res: v['fA.res'], drive: v['fA.drive'], key: v['fA.key'] };
+  P.fB = { on: v['fB.on'] === 1, type: v['fB.type'], cut: v['fB.cut'], res: v['fB.res'], key: v['fB.key'] };
+  P.envc = [];
+  for (let e = 1; e <= 3; e++) {
+    const a = v['e' + e + '.a'], d = v['e' + e + '.d'], s = v['e' + e + '.s'], r = v['e' + e + '.r'];
+    P.envc.push({ ai: 1 / Math.max(1, a * sr), cd: Math.exp(-3 / Math.max(1, d * sr)), s, cr: Math.exp(-3 / Math.max(1, r * sr)) });   // ~95% of a segment in its time
+  }
+  P.lfo = [{ shape: v['l1.shape'], rate: v['l1.rate'] }, { shape: v['l2.shape'], rate: v['l2.rate'] }];
+  P.mod = [];
+  for (let i = 0; i < NSLOT; i++) { const s = v['m' + i + '.src'], d = v['m' + i + '.dst']; if (s > 0 && d > 0) P.mod.push({ src: s, dst: d, amt: v['m' + i + '.amt'] }); }
+  P.order = PERMS[v['fx.order']]; P.fxTopo = v['fx.topo'];
+  P.fxOn = FXM.map(m => v['fx.' + m.id + '.on'] === 1);
+  P.sh = { curve: v['sh.curve'], tone: v['sh.tone'] };
+  P.ch = { flanger: v['ch.mode'] === 1, rate: v['ch.rate'], depth: v['ch.depth'] };
+  P.dl = { ping: v['dl.mode'] === 1, len: Math.round(DIVB[v['dl.div']] * 60 / BPM * sr), fb: v['dl.fb'], damp: v['dl.damp'] };
+  P.rv = { hall: v['rv.type'] === 1, fb: 0.7 + 0.28 * v['rv.size'], damp: v['rv.damp'] * 0.6 };
+  P.tg = new Float64Array(NSM);
+  P.tg[SM_L1] = P.osc[0].level; P.tg[SM_L2] = P.osc[1].level; P.tg[SM_SUB] = P.sub.level; P.tg[SM_NZ] = P.noise.level;
+  P.tg[SM_CA] = Math.log2(P.fA.cut); P.tg[SM_CB] = Math.log2(P.fB.cut);
+  for (let i = 0; i < 4; i++) P.tg[SM_MIX + i] = v['fx.' + FXM[i].id + '.mix'];
+  P.tg[SM_DRV] = v['sh.drive']; P.tg[SM_GAIN] = v['m.gain'];
+  return P;
+}
+const COMB = [1116, 1277, 1422, 1557], ALLP = [556, 441];
+class Engine {
+  constructor(sr, seed) {
+    this.sr = sr; this.rng = mulberry32(mix32(seed >>> 0, fnv('audio')));
+    this.V = []; for (let i = 0; i < NV; i++) this.V.push(this.newVoice());
+    this.P = null; this.t = 0; this.step = 0; this.nextAt = 0; this.pattern = 'arp'; this.mw = 0; this.vol = 0.7; this.useGuard = true;
+    this.lfo = [{ p: 0, v: 0, sh: 0 }, { p: 0, v: 0, sh: 0 }];
+    this.sm = new Float64Array(NSM); this.smA = 1 - Math.exp(-TICK / (0.02 * sr)); this.fxd = new Float64Array(3);
+    this.bl = new Float64Array(TICK); this.br = new Float64Array(TICK);
+    const dmax = Math.ceil(sr * 1.6) + 8;
+    this.dL = new Float32Array(dmax); this.dR = new Float32Array(dmax); this.dW = 0; this.dLP = [0, 0];
+    this.cN = Math.ceil(sr * 0.05) + 8; this.cL = new Float32Array(this.cN); this.cR = new Float32Array(this.cN); this.cW = 0; this.cP = 0; this.cFb = [0, 0];
+    this.comb = []; this.ap = [];
+    for (let ch = 0; ch < 2; ch++) for (let i = 0; i < 4; i++) { const n = Math.ceil((COMB[i] + 23 * ch) * 1.35 * sr / 44100) + 2; this.comb.push({ b: new Float32Array(n), i: 0, f: 0, n0: (COMB[i] + 23 * ch) * sr / 44100 }); }
+    for (let ch = 0; ch < 2; ch++) for (let i = 0; i < 2; i++) { const n = Math.ceil((ALLP[i] + 23 * ch) * sr / 44100); this.ap.push({ b: new Float32Array(n), i: 0 }); }
+    this.shLP = [0, 0]; this.oL = 0; this.oR = 0;
+    this.guard = { hits: 0, pre: 0, nan: 0 };
+  }
+  newVoice() {
+    const f = () => new Float64Array(7);
+    return { on: false, gate: false, note: 60, vel: 1, start: 0, offAt: 0, e: [{ st: 0, v: 0 }, { st: 0, v: 0 }, { st: 0, v: 0 }],
+      ph: [f(), f()], inc: [f(), f()], gl: [f(), f()], gr: [f(), f()], subPh: 0, subInc: 0, nr: null, pk: [0, 0, 0],
+      fa: new Float64Array(4), fb: new Float64Array(4), ca: {}, cb: {}, amp: 1, pL: 1, pR: 1, pw: [0.5, 0.5], bw: [0, 0], nz: 0, sl: 0, d: new Float64Array(MDST.length) };
+  }
+  setPatch(v) { this.P = compilePatch(v, this.sr); }
+  snapSmooth() { if (this.P) this.sm.set(this.P.tg); }
+  noteOn(note, vel, offAt) {
+    let v = null;
+    for (const x of this.V) if (!x.on) { v = x; break; }
+    if (!v) { v = this.V[0]; for (const x of this.V) if (x.start < v.start) v = x; }
+    v.on = true; v.gate = true; v.note = note; v.vel = vel; v.start = this.t; v.offAt = offAt;
+    for (const e of v.e) { e.st = 1; e.v = 0; }
+    for (let o = 0; o < 2; o++) for (let k = 0; k < 7; k++) v.ph[o][k] = this.rng();
+    v.subPh = 0; v.fa.fill(0); v.fb.fill(0); v.pk[0] = v.pk[1] = v.pk[2] = 0;
+    v.nr = mulberry32((this.rng() * 4294967296) >>> 0);
+  }
+  stepNote() {
+    const pat = PAT[this.pattern] || PAT.arp, spb = this.sr * 60 / BPM, st = this.step % pat.steps, len = pat.len * spb;
+    for (const n of pat.notes[st]) this.noteOn(n, pat.vel[st], this.nextAt + pat.gate * len);
+    this.step++; this.nextAt += len;
+  }
+  control(n) {
+    const P = this.P;
+    while (this.t >= this.nextAt) this.stepNote();
+    for (const v of this.V) {
+      if (v.on && v.gate && this.t >= v.offAt) { v.gate = false; for (const e of v.e) if (e.st !== 0) e.st = 4; }
+      if (v.on && !v.gate && v.e[0].st === 0) v.on = false;
+    }
+    for (let i = 0; i < NSM; i++) this.sm[i] += (P.tg[i] - this.sm[i]) * this.smA;
+    for (let j = 0; j < 2; j++) {
+      const L = this.lfo[j]; L.p += P.lfo[j].rate * n / this.sr;
+      if (L.p >= 1) { L.p -= Math.floor(L.p); L.sh = this.rng() * 2 - 1; }
+      L.v = lfoVal(P.lfo[j].shape, L.p, L.sh);
+    }
+    let newest = null;
+    for (const v of this.V) if (v.on) { this.voiceControl(v); if (!newest || v.start > newest.start) newest = v; }
+    /* FX destinations are global: they follow the NEWEST voice's modulation (a stated stand-in rule) */
+    for (let i = 0; i < 3; i++) this.fxd[i] = 0;
+    if (newest) { this.fxd[0] = newest.d[DI['sh.drive']]; this.fxd[1] = newest.d[DI['dl.mix']]; this.fxd[2] = newest.d[DI['rv.mix']]; }
+  }
+  voiceControl(v) {
+    const P = this.P, d = v.d, sr = this.sr;
+    d.fill(0);
+    const sv = [0, v.e[1].v, v.e[2].v, this.lfo[0].v, this.lfo[1].v, v.vel, this.mw, (v.note - 60) / 24];
+    for (let i = 0; i < P.mod.length; i++) { const m = P.mod[i]; d[m.dst] += sv[m.src] * m.amt; }
+    for (let o = 0; o < 2; o++) {
+      const O = P.osc[o], n = O.n, pitch = v.note + O.semi + O.fine / 100 + (d[1] + d[2 + o]) * MDST[1].scale;
+      const f = 440 * Math.pow(2, (pitch - 69) / 12), det = Math.max(0, O.det + d[4 + o] * 50);
+      const lv = this.sm[SM_L1 + o] / Math.sqrt(n);
+      for (let k = 0; k < n; k++) {
+        const pk = n > 1 ? (2 * k) / (n - 1) - 1 : 0;
+        v.inc[o][k] = Math.min(0.45, f * Math.pow(2, det * pk / 1200) / sr);
+        v.gl[o][k] = lv * Math.sqrt(0.5 * (1 - pk * O.spread)); v.gr[o][k] = lv * Math.sqrt(0.5 * (1 + pk * O.spread));
+      }
+      v.pw[o] = clamp(O.pw + d[6 + o] * 0.45, 0.03, 0.97);
+      v.bw[o] = clamp(O.bwid + d[8 + o] * 0.5, 0, 0.95);
+    }
+    v.subInc = Math.min(0.45, 440 * Math.pow(2, (v.note + P.sub.oct - 69) / 12) / sr);
+    const kt = (v.note - 60) / 12;
+    svfCoef(v.ca, Math.pow(2, this.sm[SM_CA] + P.fA.key * kt + d[DI['fA.cut']] * 6), P.fA.res + d[DI['fA.res']], sr, P.fA.type);
+    svfCoef(v.cb, Math.pow(2, this.sm[SM_CB] + P.fB.key * kt + d[DI['fB.cut']] * 6), P.fB.res, sr, P.fB.type);
+    v.amp = Math.max(0, 1 + d[DI.amp]) * 0.8;
+    const pan = clamp(d[DI.pan], -1, 1), a = (pan + 1) * Math.PI / 4;
+    v.pL = Math.cos(a) * Math.SQRT2; v.pR = Math.sin(a) * Math.SQRT2;
+    v.nz = clamp(this.sm[SM_NZ] + d[DI.noise] * 0.5, 0, 1) * 0.5; v.sl = this.sm[SM_SUB];
+  }
+  voice(v, n) {
+    const P = this.P, bl = this.bl, br = this.br, o1 = P.osc[0], o2 = P.osc[1], r = P.route, ser = P.topo === 0;
+    const drv = 1 + 7 * P.fA.drive, dn = 1 / (1 + 2 * P.fA.drive), fbOn = P.fB.on;
+    for (let i = 0; i < n; i++) {
+      const e1 = envTick(v.e[0], P.envc[0]); envTick(v.e[1], P.envc[1]); envTick(v.e[2], P.envc[2]);
+      let aL = 0, aR = 0, bL = 0, bR = 0;
+      for (let o = 0; o < 2; o++) {
+        const O = o === 0 ? o1 : o2;
+        if (!O.on) continue;
+        let l = 0, rr = 0; const ph = v.ph[o], inc = v.inc[o], gl = v.gl[o], gr = v.gr[o], pw = v.pw[o], bw = v.bw[o];
+        for (let k = 0; k < O.n; k++) {
+          let p = ph[k] + inc[k]; if (p >= 1) p -= 1; ph[k] = p;
+          const x = oscWave(O.wave, p, inc[k], pw, O.blade, O.bpos, bw);
+          l += x * gl[k]; rr += x * gr[k];
+        }
+        if (r[o] !== 1) { aL += l; aR += rr; }
+        if (r[o] !== 0) { bL += l; bR += rr; }
+      }
+      if (P.sub.on) {
+        let p = v.subPh + v.subInc; if (p >= 1) p -= 1; v.subPh = p;
+        const x = (P.sub.sq ? baseWave(1, p, v.subInc, 0.5) : Math.sin(TWO_PI * p)) * v.sl * 0.7;
+        if (r[2] !== 1) { aL += x; aR += x; }
+        if (r[2] !== 0) { bL += x; bR += x; }
+      }
+      if (P.noise.on) {
+        const w = v.nr() * 2 - 1; let x = w;
+        if (P.noise.pink) { const k = v.pk; k[0] = 0.99765 * k[0] + w * 0.0990460; k[1] = 0.96300 * k[1] + w * 0.2965164; k[2] = 0.57000 * k[2] + w * 1.0526913; x = (k[0] + k[1] + k[2] + w * 0.1848) * 0.25; }
+        x *= v.nz;
+        if (r[3] !== 1) { aL += x; aR += x; }
+        if (r[3] !== 0) { bL += x; bR += x; }
+      }
+      let yL = svf(v.fa, 0, Math.tanh(aL * drv) * dn, v.ca), yR = svf(v.fa, 2, Math.tanh(aR * drv) * dn, v.ca);
+      if (ser) {
+        const iL = yL + bL, iR = yR + bR;
+        if (fbOn) { yL = svf(v.fb, 0, iL, v.cb); yR = svf(v.fb, 2, iR, v.cb); } else { yL = iL; yR = iR; }
+      } else {
+        if (fbOn) { yL += svf(v.fb, 0, bL, v.cb); yR += svf(v.fb, 2, bR, v.cb); } else { yL += bL; yR += bR; }
+      }
+      const g = e1 * v.amp;
+      bl[i] += yL * g * v.pL; br[i] += yR * g * v.pR;
+    }
+  }
+  /* the four modules, each FULLY WET into oL/oR; the router mixes */
+  runFx(m, xL, xR) {
+    const P = this.P, sr = this.sr;
+    if (m === 0) {   // SHRIEK stand-in: one waveshaper and a tone pole
+      const g = 1 + 24 * clamp(this.sm[SM_DRV] + this.fxd[0], 0, 1), lv = 0.35 + 0.65 / g, c = P.sh.curve;
+      const sh = x => (c === 0 ? Math.tanh(x) : c === 1 ? Math.sin(x * Math.PI / 2) : clamp(x, -1, 1));
+      const a = 1 - Math.exp(-TWO_PI * 600 * Math.pow(2, P.sh.tone * 5) / sr);
+      this.shLP[0] += (sh(xL * g) * lv - this.shLP[0]) * a; this.shLP[1] += (sh(xR * g) * lv - this.shLP[1]) * a;
+      this.oL = this.shLP[0]; this.oR = this.shLP[1];
+    } else if (m === 1) {   // CHORUS / FLANGER: two modulated taps
+      const N = this.cN, fl = P.ch.flanger, base = (fl ? 0.0015 : 0.012) * sr, dep = (fl ? 0.0015 : 0.006) * sr * P.ch.depth;
+      this.cP += P.ch.rate / sr; if (this.cP >= 1) this.cP -= 1;
+      const fb = fl ? 0.55 : 0, w = this.cW;
+      this.cL[w] = xL + this.cFb[0] * fb; this.cR[w] = xR + this.cFb[1] * fb;
+      const rd = (buf, dl) => { let p = w - dl; while (p < 0) p += N; const i0 = Math.floor(p), f = p - i0, i1 = (i0 + 1) % N; return buf[i0] * (1 - f) + buf[i1] * f; };
+      this.oL = rd(this.cL, base + dep * (1 + Math.sin(TWO_PI * this.cP)) / 2);
+      this.oR = rd(this.cR, base + dep * (1 + Math.cos(TWO_PI * this.cP)) / 2);
+      this.cFb[0] = this.oL; this.cFb[1] = this.oR;
+      this.cW = (w + 1) % N;
+    } else if (m === 2) {   // DELAY: tempo divisions at 120 bpm, stereo or ping-pong, a damping pole in the loop
+      const N = this.dL.length, len = Math.min(N - 2, P.dl.len), w = this.dW;
+      let rp = w - len; if (rp < 0) rp += N;
+      const yL = this.dL[rp], yR = this.dR[rp], a = 1 - P.dl.damp * 0.9;
+      this.dLP[0] += (yL - this.dLP[0]) * a; this.dLP[1] += (yR - this.dLP[1]) * a;
+      const fb = P.dl.fb;
+      if (P.dl.ping) { this.dL[w] = (xL + xR) * 0.5 + this.dLP[1] * fb; this.dR[w] = this.dLP[0] * fb; }
+      else { this.dL[w] = xL + this.dLP[0] * fb; this.dR[w] = xR + this.dLP[1] * fb; }
+      this.oL = yL; this.oR = yR; this.dW = (w + 1) % N;
+    } else {   // REVERB: Freeverb-shaped, 4 combs + 2 allpasses a side
+      const inp = (xL + xR) * 0.015, fb = P.rv.fb, dm = P.rv.damp, sc = P.rv.hall ? 1.35 : 1;
+      let sL = 0, sR = 0;
+      for (let c = 0; c < 8; c++) {
+        const C = this.comb[c], n = Math.round(C.n0 * sc), y = C.b[C.i];
+        C.f = y * (1 - dm) + C.f * dm; C.b[C.i] = inp + C.f * fb; C.i = (C.i + 1) % n;
+        if (c < 4) sL += y; else sR += y;
+      }
+      for (let a = 0; a < 4; a++) {
+        const A = this.ap[a], b = A.b[A.i], x = a < 2 ? sL : sR, y = -x + b;
+        A.b[A.i] = x + b * 0.5; A.i = (A.i + 1) % A.b.length;
+        if (a < 2) sL = y; else sR = y;
+      }
+      this.oL = sL * 4; this.oR = sR * 4;
+    }
+  }
+  mixOf(m) { return clamp(this.sm[SM_MIX + m] + (m === 2 ? this.fxd[1] : m === 3 ? this.fxd[2] : 0), 0, 1); }
+  /* THE ROUTER. serial: x ← x + mix·(f(x) − x) in order. parallel: a convex blend of the dry signal and each module's
+     output, weights mix/Σmix (so Σ over 1 never inverts or boosts). 2 + 2: the first two serial, the last two parallel. */
+  fxSample(xL, xR, from, to, parallel) {
+    const P = this.P;
+    if (!parallel) {
+      for (let j = from; j < to; j++) { const m = P.order[j]; if (!P.fxOn[m]) continue; const mx = this.mixOf(m); this.runFx(m, xL, xR); xL += mx * (this.oL - xL); xR += mx * (this.oR - xR); }
+      this.oL = xL; this.oR = xR; return;
+    }
+    let tot = 0; for (let j = from; j < to; j++) { const m = P.order[j]; if (P.fxOn[m]) tot += this.mixOf(m); }
+    const M = Math.min(1, tot), sc = tot > 1 ? 1 / tot : 1;
+    let yL = xL * (1 - M), yR = xR * (1 - M);
+    for (let j = from; j < to; j++) { const m = P.order[j]; if (!P.fxOn[m]) continue; const mx = this.mixOf(m) * sc; this.runFx(m, xL, xR); yL += mx * this.oL; yR += mx * this.oR; }
+    this.oL = yL; this.oR = yR;
+  }
+  process(L, R, N) {
+    if (!this.P) { for (let i = 0; i < N; i++) { L[i] = 0; R[i] = 0; } return; }
+    const G = this.guard;
+    for (let i0 = 0; i0 < N; i0 += TICK) {
+      const n = Math.min(TICK, N - i0), bl = this.bl, br = this.br;
+      this.control(n);
+      for (let i = 0; i < n; i++) { bl[i] = 0; br[i] = 0; }
+      for (const v of this.V) if (v.on) this.voice(v, n);
+      const topo = this.P.fxTopo;
+      for (let i = 0; i < n; i++) {
+        if (topo === 1) this.fxSample(bl[i], br[i], 0, 4, true);
+        else if (topo === 2) { this.fxSample(bl[i], br[i], 0, 2, false); this.fxSample(this.oL, this.oR, 2, 4, true); }
+        else this.fxSample(bl[i], br[i], 0, 4, false);
+        const gn = this.sm[SM_GAIN] * this.vol;
+        let l = this.oL * gn, r = this.oR * gn;
+        /* THE OUTPUT GUARD: latched and reported, never silent (Blind-Spot Armor). A non-finite sample is zeroed and
+           counted; a peak over −6 dBFS is held at −6 dBFS and counted. */
+        if (!(l === l) || !isFinite(l) || !(r === r) || !isFinite(r)) { G.nan++; l = 0; r = 0; }
+        const al = Math.abs(l), ar = Math.abs(r);
+        if (al > G.pre) G.pre = al; if (ar > G.pre) G.pre = ar;
+        if (this.useGuard) {
+          if (al > GUARD) { G.hits++; l = l > 0 ? GUARD : -GUARD; }
+          if (ar > GUARD) { G.hits++; r = r > 0 ? GUARD : -GUARD; }
+        }
+        L[i0 + i] = l; R[i0 + i] = r;
+      }
+      this.t += n;
+    }
+  }
+}
+function renderOffline(values, N, opts) {
+  opts = opts || {};
+  const E = new Engine(44100, opts.seed === undefined ? 1 : opts.seed);
+  E.pattern = opts.pattern || 'stabs'; E.vol = opts.vol === undefined ? 0.7 : opts.vol; E.useGuard = opts.guard !== false; E.mw = opts.mw || 0;
+  E.setPatch(values); E.snapSmooth();
+  const L = new Float32Array(N), R = new Float32Array(N);
+  E.process(L, R, N);
+  let s2 = 0, pk = 0;
+  for (let i = 0; i < N; i++) { const a = Math.abs(L[i]), b = Math.abs(R[i]); if (a > pk) pk = a; if (b > pk) pk = b; s2 += L[i] * L[i] + R[i] * R[i]; }
+  return { peakOut: pk, peakPre: E.guard.pre, hits: E.guard.hits, nan: E.guard.nan, rms: Math.sqrt(s2 / (2 * N)) };
+}
+
+/* =====================================================================================================================
+   G. SELF-CHECKS — each with a must-fail control (the detector-shares-assumption trap): a check that cannot fail
+   proves nothing.
+   ===================================================================================================================== */
+const SCRIPT = [
+  { t: 'set', path: 'chaos', value: 1 }, { t: 'set', path: 'amount', value: 1 },
+  { t: 'rand', level: 'osc1', kind: 'arch', corner: 0, scope: 'all' },
+  { t: 'rand', level: 'osc2', kind: 'params', corner: 1, scope: 'all' },
+  { t: 'rand', level: 'voice', kind: 'params', corner: 2, scope: 'all' },
+  { t: 'rand', level: 'mod', kind: 'arch', corner: 0, scope: 'all' },
+  { t: 'rand', level: 'fxroute', kind: 'arch', corner: 3, scope: 'one' },
+  { t: 'rand', level: 'delay', kind: 'params', corner: 3, scope: 'all' },
+  { t: 'rand', level: 'shriek', kind: 'arch', corner: 1, scope: 'all' },
+  { t: 'set', path: 'chaos', value: 0.5 },
+  { t: 'randAll', level: 'global' },
+  { t: 'save', corner: 2 },
+  { t: 'randPatch', corner: 0 },
+  { t: 'revert', corner: 1 },
+  { t: 'set', path: 'amount', value: 0.3 },
+];
+function runScript(seed, script) { const T = newState(seed); for (const a of script) applyAction(T, clone(a)); return T; }
+function ksUniform(xs) {
+  const s = xs.slice().sort((a, b) => a - b); let d = 0;
+  for (let i = 0; i < s.length; i++) d = Math.max(d, Math.abs((i + 1) / s.length - s[i]), Math.abs(i / s.length - s[i]));
+  return d;
+}
+function hotPatch() {
+  const v = homeValues();
+  Object.assign(v, { 'm.gain': 1, 'o1.voices': 0, 'o2.voices': 0, 'o1.level': 1, 'o2.level': 1, 'sub.level': 1, 'fA.res': 0.95, 'fA.cut': 300, 'fA.drive': 0, 'fx.sh.on': 0, 'fx.topo': 0 });
+  return v;
+}
+/* every switch on, so every level has parameters to draw (with a module off, PARAMS correctly draws nothing) */
+function allOn(T) {
+  const on = { 'o1.on': 1, 'o2.on': 1, 'sub.on': 1, 'noise.on': 1, 'fB.on': 1, 'fx.sh.on': 1, 'fx.ch.on': 1, 'fx.dl.on': 1, 'fx.rv.on': 1 };
+  for (const v of T.work.concat(T.snaps.map(x => x.v))) Object.assign(v, on);
+  return T;
+}
+function runChecks() {
+  const out = [], seed = 0x5EED;
+  const row = (id, pass, what, got) => out.push({ id, pass: !!pass, what, got });
+  // C1 replay
+  {
+    const a = fingerprint(runScript(seed, SCRIPT)), b = fingerprint(runScript(seed, SCRIPT)), c = fingerprint(runScript(seed + 1, SCRIPT));
+    row('C1', a === b && a !== c, 'Same seed + same actions → the same corners (a 15-action session across six levels, replayed).',
+      'fingerprints ' + a + ' = ' + b + ' · control: seed + 1 → ' + c + (a !== c ? ' (differs, as it must)' : ' (SAME: the check is blind)'));
+  }
+  // C2 position-free draws
+  {
+    const T1 = newState(seed), T2 = newState(seed);
+    Object.assign(T1, { chaos: 1, amount: 1 }); Object.assign(T2, { chaos: 1, amount: 1 });
+    T2.lockK['o1.fine'] = true;
+    applyAction(T1, { t: 'rand', level: 'osc1', kind: 'params', corner: 0 }); applyAction(T2, { t: 'rand', level: 'osc1', kind: 'params', corner: 0 });
+    const others = scopeKeys(T1, 'osc1', 'params').filter(k => k !== 'o1.fine' && active(BY[k], T1.work[0]));
+    const same = others.every(k => T1.work[0][k] === T2.work[0][k]);
+    // control: a positional stream (one mulberry32 stream walked key by key, skipping the locked one)
+    const pos = (locked) => { const r = mulberry32(mix32(seed, 0)), o = {}; for (const k of others.concat(['o1.fine']).sort((x, y) => SPEC.indexOf(BY[x]) - SPEC.indexOf(BY[y]))) { if (k === locked) continue; o[k] = r(); } return o; };
+    const p1 = pos(null), p2 = pos('o1.fine'), shifted = others.some(k => p1[k] !== p2[k]);
+    row('C2', same && shifted, 'Draws are position-free (ADR-186 §5(g)): locking OSC 1 fine leaves every other OSC 1 draw unchanged.',
+      others.length + ' keys identical: ' + same + ' · control: a positional stream shifts ' + others.filter(k => p1[k] !== p2[k]).length + ' of them');
+  }
+  // C3 amount nests
+  {
+    const T = newState(seed); T.amount = 0.3; T.chaos = 0.6;
+    applyAction(T, { t: 'rand', level: 'voice', kind: 'params', corner: 0 });
+    const h = homeValues(), A = {}; for (const s of SPEC) if (T.work[0][s.key] !== h[s.key]) A[s.key] = T.work[0][s.key];
+    applyAction(T, { t: 'set', path: 'amount', value: 0.7 });
+    const B = {}; for (const s of SPEC) if (T.work[0][s.key] !== h[s.key]) B[s.key] = T.work[0][s.key];
+    const nested = Object.keys(A).every(k => B[k] === A[k]);
+    const C = newState(seed); C.amount = 0.3; C.chaos = 0.6; C.clicks = 1;   // control: a fresh roll at 0.7, not the swept one
+    C.amount = 0.7; applyAction(C, { t: 'rand', level: 'voice', kind: 'params', corner: 0 });
+    const fresh = Object.keys(A).every(k => C.work[0][k] === A[k]);
+    row('C3', nested && Object.keys(A).length > 0 && Object.keys(B).length > Object.keys(A).length && !fresh,
+      'AMOUNT nests: sweeping 0.3 → 0.7 after a click only ADDS keys, with the same values.',
+      Object.keys(A).length + ' keys at 0.3 ⊂ ' + Object.keys(B).length + ' at 0.7, values kept: ' + nested + ' · control: a fresh roll keeps them: ' + fresh);
+  }
+  // C4 chaos ends
+  {
+    const T = newState(seed); T.chaos = 0; T.amount = 1;
+    const f0 = fingerprint(T); applyAction(T, { t: 'rand', level: 'global', kind: 'params', corner: 0 });
+    const still = fingerprint(T) === f0;
+    const s = { lo: 0, hi: 1, log: false, step: 0 }, xs = [], ys = [];
+    for (let i = 0; i < 2000; i++) { const u = U(seed, 77, 0, 'ks', i); xs.push(drawNum(s, 0.1, u, 1, [0, 1])); ys.push(drawNum(s, 0.1, u, 0.25, [0, 1])); }
+    const d1 = ksUniform(xs), d2 = ksUniform(ys);
+    row('C4', still && d1 < 0.04 && d2 > 0.3, 'CHAOS 0 leaves the patch at home; CHAOS 1 is flat across the range (home at 10%).',
+      'chaos 0 unchanged: ' + still + ' · KS distance to uniform at chaos 1: ' + d1.toFixed(3) + ' · control at chaos 0.25: ' + d2.toFixed(3));
+  }
+  // C5 locks
+  {
+    const run = locks => { const T = newState(seed); T.chaos = 1; T.amount = 1; if (locks) { T.lockG.filter = true; T.lockK['o1.wave'] = true; T.lockK['m0.src'] = true; } applyAction(T, { t: 'randPatch', corner: 0 }); return T; };
+    const L = run(true), F = run(false), h = homeValues();
+    const guarded = SPEC.filter(s => s.group === 'filter' || s.key === 'o1.wave' || s.key.slice(0, 3) === 'm0.');
+    const kept = guarded.every(s => L.work[0][s.key] === h[s.key]), moved = guarded.filter(s => F.work[0][s.key] !== h[s.key]).length;
+    row('C5', kept && moved > 0, 'Locks hold through randomize patch: a locked group (FILTERS), key (OSC 1 wave) and mod slot (slot 1).',
+      guarded.length + ' locked keys unchanged: ' + kept + ' · control: unlocked, ' + moved + ' of them move');
+  }
+  // C6 rulesets
+  {
+    let bad = 0, slots = 0, outN = 0; const T = newState(seed); T.rs = clone(BUILTIN_RS[4]);
+    for (let i = 0; i < 60; i++) {
+      applyAction(T, { t: 'rand', level: 'mod', kind: 'arch', corner: 0, scope: 'one' });
+      const v = T.work[0], seen = new Set(); let n = 0;
+      for (let k = 0; k < NSLOT; k++) {
+        const p = 'm' + k + '.'; if (!(v[p + 'src'] > 0)) continue; n++; slots++;
+        const r = ruleById(T.rs, v[p + 'rule']), d = MDST[v[p + 'dst']], pair = v[p + 'src'] + '>' + v[p + 'dst'];
+        const ok = r && T.rs.rules[r.id].on && r.src.indexOf(MSRC[v[p + 'src']].id) >= 0 && r.dst.indexOf(d.id) >= 0 && (!d.live || d.live(v))
+          && Math.abs(v[p + 'amt']) >= r.amt[0] - 1e-3 && Math.abs(v[p + 'amt']) <= r.amt[1] + 1e-3 && !seen.has(pair);
+        if (!ok) bad++; seen.add(pair);
+      }
+      if (n > T.rs.n[1]) outN++;
+    }
+    const count = (on) => { const C = newState(seed); C.rs = clone(BUILTIN_RS[1]); C.rs.rules['pitch-env'].on = on; let c = 0;
+      for (let i = 0; i < 60; i++) { applyAction(C, { t: 'rand', level: 'mod', kind: 'arch', corner: 0, scope: 'one' }); for (let k = 0; k < NSLOT; k++) if (C.work[0]['m' + k + '.rule'] === 'pitch-env') c++; } return c; };
+    const off = count(0), on = count(1);
+    row('C6', bad === 0 && outN === 0 && slots > 0 && off === 0 && on > 0, 'Every drawn route obeys its rule: source and LIVE destination in the rule, amount in range, no duplicate, count in range.',
+      slots + ' routes over 60 draws, ' + bad + ' bad, ' + outN + ' over count · control: Plucks with pitch-env off draws it ' + off + '×, on ' + on + '×');
+  }
+  // C7 the output guard
+  {
+    const g = renderOffline(hotPatch(), 4096, { vol: 1 }), x = renderOffline(hotPatch(), 4096, { vol: 1, guard: false });
+    row('C7', g.peakOut <= GUARD + 1e-9 && g.hits > 0 && x.peakOut > GUARD, 'The output never exceeds −6 dBFS, and says when it held (a hot patch, 4096 samples).',
+      'peak out ' + (20 * Math.log10(g.peakOut)).toFixed(2) + ' dBFS, pre-guard ' + (20 * Math.log10(g.peakPre)).toFixed(1) + ' dBFS, ' + g.hits + ' samples held · control, guard off: ' + (20 * Math.log10(x.peakOut)).toFixed(1) + ' dBFS');
+  }
+  // C8 the morph
+  {
+    const T = runScript(seed, SCRIPT), A = heardOf(T.work, 0, 0), M = heardOf(T.work, 0.5, 0.5);
+    let atA = true; for (const s of SPEC) { const a = A.v[s.key], b = T.work[0][s.key]; if (s.kind === 'num' ? Math.abs(a - b) > 1e-9 * Math.max(1, Math.abs(b)) : a !== b) atA = false; }
+    const s = BY['fA.cut'], mean = fromN(s, (toN(s, T.work[0]['fA.cut']) + toN(s, T.work[1]['fA.cut']) + toN(s, T.work[2]['fA.cut']) + toN(s, T.work[3]['fA.cut'])) / 4, true);
+    const mid = Math.abs(M.v['fA.cut'] - mean) < 1e-6 * mean && M.v['o1.wave'] === T.work[0]['o1.wave'];
+    const ctl = heardOf(T.work, 1, 1).v['fA.cut'] !== A.v['fA.cut'] || T.work[3]['fA.cut'] === T.work[0]['fA.cut'];
+    row('C8', atA && mid && ctl, 'The morph: on a corner the puck hears that corner exactly; at the centre a number is the taper-space mean, structure the dominant corner\'s.',
+      'corner A exact: ' + atA + ' · centre cutoff ' + M.v['fA.cut'].toFixed(1) + ' Hz = mean ' + mean.toFixed(1) + ' · control: corner D hears a different cutoff: ' + ctl);
+  }
+  // C9 snapshots
+  {
+    const T = newState(seed); T.chaos = 1; T.amount = 1;
+    applyAction(T, { t: 'rand', level: 'voice', kind: 'params', corner: 1 }); const d1 = isDraft(T, 1);
+    applyAction(T, { t: 'save', corner: 1 }); const d2 = isDraft(T, 1), nm = snapOf(T, T.bind[1]).name;
+    applyAction(T, { t: 'rand', level: 'voice', kind: 'params', corner: 1 }); applyAction(T, { t: 'revert', corner: 1 });
+    const back = keyOfValues(T.work[1]) === keyOfValues(snapOf(T, T.bind[1]).v);
+    applyAction(T, { t: 'lockC', corner: 2 }); applyAction(T, { t: 'affix', sid: T.bind[1], corner: 2 }); const refused = T.bind[2] === 's1';
+    applyAction(T, { t: 'lockC', corner: 2 }); applyAction(T, { t: 'affix', sid: T.bind[1], corner: 2 }); const taken = T.bind[2] !== 's1';
+    row('C9', d1 && !d2 && back && refused && taken, 'Snapshots: randomize makes a draft, save binds it, revert restores it, a locked corner refuses an affix.',
+      'draft ' + d1 + ' → saved as "' + nm + '" ' + !d2 + ' · revert exact ' + back + ' · locked refuses ' + refused + ' · control: unlocked accepts ' + taken);
+  }
+  // C10 every level plays
+  {
+    const res = [];
+    for (const L of LEVELS) for (const kind of ['arch', 'params']) {
+      if (kind === 'arch' && L.noArch) continue;
+      /* a level with few structural choices can land on what it holds (at chaos 1 the draw may pick home by taste),
+         so a level "plays" if one of 8 successive clicks changes it; the clicks it took are reported */
+      const T = allOn(newState(seed)); T.chaos = 1; T.amount = 1; let n = 0, c = 0;
+      while (n === 0 && c < 8) { applyAction(T, { t: 'rand', level: L.id, kind, corner: 0, scope: 'one' }); c++; n = T.lastChange ? T.lastChange.keys.size : 0; }
+      res.push({ id: L.id + ' ' + kind, n, c });
+    }
+    const T = newState(seed); T.chaos = 1; T.amount = 0;   // control: amount 0 changes nothing
+    applyAction(T, { t: 'rand', level: 'voice', kind: 'params', corner: 0 });
+    const zero = T.lastChange ? T.lastChange.keys.size : 0;
+    row('C10', res.every(r => r.n > 0) && zero === 0, 'Every level × kind changes the stand-in patch within 8 clicks (chaos 1, amount 1); keys changed on the first click that changed any.',
+      res.map(r => r.id + ' ' + r.n + (r.c > 1 ? ' (click ' + r.c + ')' : '')).join(' · ') + ' · control: amount 0 changes ' + zero);
+  }
+  // C11 ARCH must change (the proposal)
+  {
+    const quiet = must => { let n = 0; for (let sd = 1; sd <= 40; sd++) { const T = newState(sd); T.archMust = must; applyAction(T, { t: 'rand', level: 'reverb', kind: 'arch', corner: 0, scope: 'one' }); if (!T.lastChange || !T.lastChange.keys.size) n++; } return n; };
+    const on = quiet(true), off = quiet(false);
+    row('C11', on === 0 && off > 0, 'PROPOSAL "ARCH must change": a module\'s ARCH click always moves a structural choice (REVERB, chaos 0.35, 40 seeds).',
+      'clicks that changed nothing: ' + on + ' of 40 with it on · control, off: ' + off + ' of 40');
+  }
+  return out;
+}
+
+/* =====================================================================================================================
+   H. THE PAGE. UI state that is NOT the patch (focus, puck, audio) lives here and is never logged.
+   ===================================================================================================================== */
+const $ = id => document.getElementById(id);
+const UI = { seed: 0x5EED, focus: 'osc1', group: 'osc1', key: 'o1.detune', puck: { x: 0.25, y: 0.25 }, playing: false, pattern: 'arp', mw: 0, vol: 0.7, replay: '' };
+let S = newState(UI.seed);
+let LOG = [];
+let HEARD = heardOf(S.work, UI.puck.x, UI.puck.y);
+let CHECKS = [];
+let AC = null, NODE = null, ENG = null, rafPending = false, padDown = false, knobDrag = null;
+
+const selCorner = () => (UI.puck.x < 0.5 ? 0 : 1) + (UI.puck.y < 0.5 ? 0 : 2);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function fmtVal(s, x) {
+  if (x === undefined || x === null) return '—';
+  if (s.kind === 'tag') { const r = ruleById(S.rs, x); return r ? r.name : (x === '—' ? '—' : 'hand-made'); }
+  if (s.kind === 'enum') return s.labels[x] === undefined ? '?' : s.labels[x];
+  if (s.slot !== null) return fmtAmt(S.work[selCorner()]['m' + s.slot + '.dst'], x);
+  if (s.unit === 'Hz') return x >= 1000 ? (x / 1000).toFixed(2) + ' kHz' : x.toFixed(x < 10 ? 2 : 0) + ' Hz';
+  if (s.unit === 's') return x < 1 ? (x * 1000).toFixed(x < 0.01 ? 1 : 0) + ' ms' : x.toFixed(2) + ' s';
+  if (s.unit === 'c') return x.toFixed(1) + ' c';
+  return x.toFixed(2);
+}
+function fmtAmt(di, a) {
+  const d = MDST[di] || MDST[0];
+  if (!d.scale) return a.toFixed(3);
+  const x = a * d.scale;
+  return (x >= 0 ? '+' : '') + (Math.abs(x) < 1 ? x.toFixed(2) : x.toFixed(1)) + (d.unit ? ' ' + d.unit : '');
+}
+function setMsg(m, bad) { const el = $('msg'); el.textContent = m || ''; el.className = 'lab-status' + (bad ? ' bad' : ''); }
+
+/* ---- dispatch: every patch-changing gesture becomes an action, logged and applied ---- */
+function dispatch(a, opts) {
+  const last = LOG[LOG.length - 1];
+  const coalesce = last && ((a.t === 'set' && last.t === 'set' && last.path === a.path) || (a.t === 'ruleset' && last.t === 'ruleset'));
+  if (coalesce) LOG[LOG.length - 1] = a; else LOG.push(a);
+  applyAction(S, a);
+  UI.replay = '';
+  if (S.msg) setMsg(S.msg, /refused|locked|cannot|no draft|stays|no such/.test(S.msg)); else setMsg(describe(a));
+  if (opts && opts.light) lightRender(); else render();
+}
+function describe(a) {
+  const k = a.corner === undefined ? '' : ' → corner ' + CN[a.corner];
+  if (a.t === 'rand') return 'randomize ' + LEVEL[a.level].name + ' ' + (a.kind === 'arch' ? 'architecture' : 'parameters') + k + (a.kind === 'arch' && a.scope === 'all' ? ' (structure to every unlocked corner)' : '') + ' · ' + a.changed + ' keys changed · seed ' + S.seed.toString(16) + ' click ' + S.clicks
+    + (LEVEL[a.level].pass ? ' · PASS-THROUGH STUB: in horde this would call ' + LEVEL[a.level].pass + '\'s own ' + (a.kind === 'arch' ? 'randomize patch' : 'randomize parameters') + ' (its taste, dice and Randomness)' : '');
+  if (a.t === 'randAll') return 'randomize all four (' + LEVEL[a.level].name + ' parameters, each corner from its own home) · ' + a.changed + ' keys changed · click ' + S.clicks;
+  if (a.t === 'randPatch') return 'randomize patch: a new structure and one sound on every unlocked corner · ' + a.changed + ' keys changed · click ' + S.clicks;
+  return logLine(a, LOG.length - 1).replace(/^\d+\. /, '');
+}
+function logLine(a, i) {
+  let s = (i + 1) + '. ' + a.t;
+  if (a.level) s += ' ' + a.level + (a.kind ? ' ' + a.kind : '');
+  if (a.corner !== undefined) s += ' @' + CN[a.corner];
+  if (a.scope && a.kind === 'arch') s += ' scope:' + a.scope;
+  if (a.path) s += ' ' + a.path + '=' + (typeof a.value === 'number' ? a.value.toFixed(2) : a.value);
+  if (a.key) s += ' ' + a.key + (a.i !== undefined ? '[' + a.i + ']' : '');
+  if (a.group) s += ' ' + a.group;
+  if (a.sid) s += ' ' + a.sid;
+  if (a.rs) s += ' "' + a.rs.name + '"';
+  if (a.changed) s += ' (' + a.changed + ' keys)';
+  return s;
+}
+function newSession(seed) {
+  UI.seed = seed >>> 0; S = newState(UI.seed); LOG = []; UI.replay = '';
+  $('seed').value = UI.seed.toString(16);
+  if (ENG) ENG.rng = mulberry32(mix32(UI.seed, fnv('audio')));
+  setMsg('new session · seed ' + UI.seed.toString(16));
+  render();
+}
+function replay() {
+  const T = newState(UI.seed);
+  for (const a of LOG) applyAction(T, clone(a));
+  const a = fingerprint(T), b = fingerprint(S);
+  UI.replay = a === b ? 'replay ✓ ' + a + ' (' + LOG.length + ' actions)' : 'replay ✗ ' + a + ' ≠ ' + b;
+  renderStatus();
+}
+
+/* ---- rendering ---- */
+function computeHeard() { HEARD = heardOf(S.work, UI.puck.x, UI.puck.y); if (ENG) ENG.setPatch(HEARD.v); }
+function render() { computeHeard(); renderStatus(); renderLevels(); renderPad(); renderBoundsStatic(); renderGroups(); renderKeys(); renderDist(); renderPatch(); renderRules(); renderLog(); }
+function lightRender() { computeHeard(); renderStatus(); renderLevels(); renderPadDyn(); renderGroupsRO(); renderKeys(); paintDist(); renderPatch(); renderLog(); paintKnob(); }
+function scheduleLight() { if (rafPending) return; rafPending = true; requestAnimationFrame(() => { rafPending = false; lightRender(); }); }
+
+function renderStatus() {
+  $('st-click').textContent = 'click ' + S.clicks;
+  $('st-fp').textContent = 'fp ' + fingerprint(S);
+  $('st-replay').textContent = UI.replay;
+  const bad = CHECKS.filter(c => !c.pass).length;
+  $('st-checks').textContent = CHECKS.length ? 'self-checks ' + (CHECKS.length - bad) + '/' + CHECKS.length + (bad ? ' · FAILING' : ' pass') : '';
+}
+function changedIn(groups) {
+  if (!S.lastChange) return 0;
+  let n = 0; for (const k of S.lastChange.keys) if (groups.indexOf(BY[k].group) >= 0) n++;
+  return n;
+}
+function renderLevels() {
+  let h = '';
+  for (const L of LEVELS) {
+    const one = L.groups.length === 1 ? L.groups[0] : null, n = changedIn(L.groups);
+    h += '<div class="lvl d' + L.depth + (UI.focus === L.id ? ' foc' : '') + '">'
+      + '<button class="nm" data-act="focus" data-arg="' + L.id + '">' + esc(L.name) + (L.pass ? ' <span class="lab-tag stub" title="PASS-THROUGH STUB: in horde these buttons call the module\'s own randomize verbs">STUB</span>' : '') + '</button>'
+      + '<button class="hd-pill sm" data-act="rand" data-arg="' + L.id + '|arch"' + (L.noArch ? ' disabled title="' + esc(L.noArch) + '"' : ' title="randomize architecture (structure)' + (L.rules ? ' — includes the mod routes, drawn by the ruleset' : '') + '"') + '>ARCH</button>'
+      + '<button class="hd-pill sm" data-act="rand" data-arg="' + L.id + '|params" title="randomize parameters (the numbers)">PARAMS</button>'
+      + (one ? '<button class="lk" data-act="lockG" data-arg="' + one + '" aria-pressed="' + !!S.lockG[one] + '" title="lock the whole group (a PROPOSAL)">' + (S.lockG[one] ? '■' : '□') + '</button>' : '<span></span>')
+      + '<span class="chg">' + (n ? '+' + n : '') + '</span></div>';
+  }
+  $('levels').innerHTML = h;
+  const sc = [['all', 'all four corners'], ['one', 'selected corner']];
+  $('scope').innerHTML = sc.map(([v, l]) => '<button class="hd-pill sm" role="radio" aria-checked="' + (S.archScope === v) + '" data-act="set" data-arg="archScope|' + v + '">' + l + '</button>').join('');
+  $('must').innerHTML = [['off', 'may land on home'], ['on', 'must change (PROPOSAL)']].map(([v, l]) => '<button class="hd-pill sm" role="radio" aria-checked="' + (S.archMust === (v === 'on')) + '" data-act="set" data-arg="archMust|' + v + '">' + l + '</button>').join('');
+  $('scopenote').innerHTML = S.archScope === 'all'
+    ? '<b>All four</b> (Sluice\'s and Shriek\'s one-patch rule): an ARCH click gives every unlocked corner the same structure at that level; the corners keep their own numbers, so the pad still morphs smoothly.'
+    : '<b>Selected corner</b> (horde\'s per-corner patches, ADR-188): structure may differ between corners and flips at the dominant corner as the puck crosses the centre lines (quantum).';
+}
+function renderPad() {
+  const xy = $('xy');
+  if (!xy.dataset.built) {
+    xy.dataset.built = '1';
+    let h = '<div class="wash"></div><div class="qline" style="left:50%;top:0;bottom:0;width:1px"></div><div class="qline" style="top:50%;left:0;right:0;height:1px"></div><div class="puck" id="puck"></div>';
+    const pos = ['left:5px;top:5px', 'right:5px;top:5px', 'left:5px;bottom:5px', 'right:5px;bottom:5px'];
+    for (let i = 0; i < 4; i++) h += '<button type="button" class="corner hd-chip on" data-act="corner" data-arg="' + i + '" style="' + pos[i] + ';--cc:var(--c' + CN[i] + ')" aria-label="move the puck to corner ' + CN[i] + '"><svg viewBox="0 0 10 10"><path d="' + GLYPH[i] + '"/></svg></button>';
+    xy.innerHTML = h;
+  }
+  renderPadDyn();
+}
+function renderPadDyn() {
+  const pk = $('puck');
+  if (pk) { pk.style.setProperty('--x', UI.puck.x); pk.style.setProperty('--y', 1 - UI.puck.y); }
+  const sel = selCorner(), w = HEARD.w;
+  let h = '';
+  for (let k = 0; k < 4; k++) {
+    const s = snapOf(S, S.bind[k]), dr = isDraft(S, k);
+    h += '<div class="crow' + (k === sel ? ' sel' : '') + '" style="--cc:var(--c' + CN[k] + ')">'
+      + '<span class="cg" title="corner ' + CN[k] + '"><svg viewBox="0 0 10 10"><path d="' + GLYPH[k] + '"/></svg></span>'
+      + '<span class="cn" title="' + esc(s ? s.name : '') + '">' + CN[k] + ' · ' + esc(s ? s.name : '—') + '</span>'
+      + '<span class="dr">' + (dr ? 'DRAFT' : '') + '</span>'
+      + '<span class="wt">' + Math.round(w[k] * 100) + '%</span>'
+      + '<button class="lk" data-act="lockC" data-arg="' + k + '" aria-pressed="' + S.lockC[k] + '" title="lock corner ' + CN[k] + ': randomize, revert and affix refuse it (ADR-262\'s corner lock)">' + (S.lockC[k] ? '■' : '□') + '</button>'
+      + '<button class="lk" data-act="revertC" data-arg="' + k + '"' + (dr && !S.lockC[k] ? '' : ' disabled') + ' title="revert corner ' + CN[k] + '">↺</button></div>';
+  }
+  $('corners').innerHTML = h;
+  let sh = '';
+  for (const s of S.snaps) {
+    sh += '<div class="snap"><button class="star' + (S.homeSid === s.sid ? ' on' : '') + '" data-act="home" data-arg="' + s.sid + '" title="make this the patch home">' + (S.homeSid === s.sid ? '★' : '☆') + '</button>'
+      + '<span class="sn" title="' + esc(s.name) + '">' + esc(s.name) + '</span>';
+    for (let k = 0; k < 4; k++) sh += '<button class="af' + (S.bind[k] === s.sid ? ' on' : '') + '" style="--cc:var(--c' + CN[k] + ')" data-act="affix" data-arg="' + s.sid + '|' + k + '" title="affix to corner ' + CN[k] + '">' + CN[k] + '</button>';
+    sh += '<button class="lk" data-act="delSnap" data-arg="' + s.sid + '" title="delete">✕</button></div>';
+  }
+  $('snaps').innerHTML = sh;
+}
+function paintKnob() {
+  const c = S.chaos, a0 = -135, a1 = a0 + 270 * c, R = 40, cx = 52, cy = 52;
+  const pt = a => [cx + R * Math.sin(a * Math.PI / 180), cy - R * Math.cos(a * Math.PI / 180)];
+  const arc = (from, to) => { const p = pt(from), q = pt(to); return 'M' + p[0].toFixed(2) + ' ' + p[1].toFixed(2) + 'A' + R + ' ' + R + ' 0 ' + (to - from > 180 ? 1 : 0) + ' 1 ' + q[0].toFixed(2) + ' ' + q[1].toFixed(2); };
+  const tip = pt(a1);
+  $('knob').innerHTML = '<svg viewBox="0 0 104 104" width="104" height="104">'
+    + '<path d="' + arc(a0, 135) + '" fill="none" stroke="var(--well-alt)" stroke-width="7" stroke-linecap="round"/>'
+    + (c > 0.001 ? '<path d="' + arc(a0, a1) + '" fill="none" stroke="var(--value)" stroke-width="7" stroke-linecap="round"/>' : '')
+    + '<circle cx="52" cy="52" r="27" fill="var(--panel)" stroke="var(--ink)" stroke-width="1.5"/>'
+    + '<line x1="52" y1="52" x2="' + tip[0].toFixed(2) + '" y2="' + tip[1].toFixed(2) + '" stroke="var(--ink)" stroke-width="2"/>'
+    + '<text x="52" y="49" text-anchor="middle" font-size="8" font-weight="800" fill="var(--ink)" font-family="var(--font-sans)">CHAOS</text>'
+    + '<text x="52" y="61" text-anchor="middle" font-size="10" fill="var(--ink)" font-family="var(--font-mono)">' + c.toFixed(2) + '</text>'
+    + '<text x="10" y="100" font-size="7" fill="var(--t2)" font-family="var(--font-sans)">HOME</text>'
+    + '<text x="94" y="100" text-anchor="end" font-size="7" fill="var(--t2)" font-family="var(--font-sans)">CHAOS</text></svg>';
+  $('knob').setAttribute('aria-valuenow', c.toFixed(2));
+}
+function renderBoundsStatic() {
+  paintKnob();
+  $('amount').value = S.amount; $('amount-ro').textContent = S.amount.toFixed(2);
+  const hm = [['snapshot', 'corner\'s snapshot'], ['patch', 'patch ★'], ['walk', 'current (walk)']];
+  $('homemode').innerHTML = hm.map(([v, l]) => '<button class="hd-pill sm" role="radio" aria-checked="' + (S.homeMode === v) + '" data-act="set" data-arg="homeMode|' + v + '" title="' + (v === 'walk' ? 'each click starts from where the corner is now: repeated clicks drift' : v === 'patch' ? 'every draw centres on the ★ snapshot' : 'every draw centres on the snapshot the corner is bound to; save to move home') + '">' + l + '</button>').join('');
+}
+function renderGroups() {
+  const inl = LEVEL[UI.focus].groups;
+  let h = '<span class="gh">LOCK</span><span class="gh">GROUP</span><span class="gh">CHAOS ×</span><span class="gh">EFF</span><span class="gh">AMOUNT ×</span><span class="gh">EFF</span>';
+  for (const g of GROUPS) {
+    const fixed = g.id === 'master', gc = S.gChaos[g.id] === undefined ? 1 : S.gChaos[g.id], ga = S.gAmt[g.id] === undefined ? 1 : S.gAmt[g.id];
+    h += '<button class="lk" data-act="lockG" data-arg="' + g.id + '" aria-pressed="' + !!S.lockG[g.id] + '"' + (fixed ? ' disabled title="the output level is never drawn"' : ' title="lock the group (a PROPOSAL)"') + '>' + (S.lockG[g.id] ? '■' : '□') + '</button>'
+      + '<button class="gn ' + (inl.indexOf(g.id) >= 0 ? 'inlvl' : 'outlvl') + (UI.group === g.id ? ' foc' : '') + '" data-act="group" data-arg="' + g.id + '">' + g.name + '</button>'
+      + '<input type="range" min="0" max="2" step="0.05" value="' + gc + '" data-set="gc.' + g.id + '"' + (fixed ? ' disabled' : '') + ' aria-label="' + g.name + ' chaos scale">'
+      + '<span class="ro" id="gce-' + g.id + '">' + effChaos(S, g.id).toFixed(2) + '</span>'
+      + '<input type="range" min="0" max="2" step="0.05" value="' + ga + '" data-set="ga.' + g.id + '"' + (fixed ? ' disabled' : '') + ' aria-label="' + g.name + ' amount scale">'
+      + '<span class="ro" id="gae-' + g.id + '">' + effAmt(S, g.id).toFixed(2) + '</span>';
+  }
+  $('groups').innerHTML = h;
+}
+function renderGroupsRO() {
+  for (const g of GROUPS) { const a = $('gce-' + g.id), b = $('gae-' + g.id); if (a) a.textContent = effChaos(S, g.id).toFixed(2); if (b) b.textContent = effAmt(S, g.id).toFixed(2); }
+}
+function renderKeys() {
+  const k = selCorner(), cur = S.work[k], home = homeOf(S, k), ch = S.lastChange ? S.lastChange.keys : new Set();
+  $('keys-title').textContent = 'PARAMETERS · ' + GNAME[UI.group] + ' · corner ' + CN[k];
+  let h = '';
+  for (const s of SPEC) {
+    if (s.group !== UI.group) continue;
+    const lk = isLocked(S, s), act = active(s, cur);
+    h += '<div class="krow' + (UI.key === s.key ? ' sel' : '') + (act ? '' : ' inact') + (ch.has(s.key) ? ' chg' : '') + '" data-act="key" data-arg="' + s.key + '">'
+      + '<button class="lk" data-act="lockK" data-arg="' + s.key + '" aria-pressed="' + lk + '"' + (S.lockG[s.group] ? ' disabled' : '') + ' title="don\'t randomize this (a PROPOSAL)">' + (lk ? '■' : '□') + '</button>'
+      + '<span class="kn" title="' + esc(s.key) + '">' + esc(s.name) + '<i>' + (s.rs ? 'RULESET' : s.arch ? 'ARCH' : 'PARAM') + '</i></span>'
+      + '<span class="kv1">' + esc(fmtVal(s, HEARD.v[s.key])) + '</span>'
+      + '<span class="kv2">' + esc(fmtVal(s, cur[s.key])) + ' / ' + esc(fmtVal(s, home[s.key])) + '</span>';
+    if (s.kind === 'enum' && s.arch && !s.rs) {
+      const L = lit(S, s);
+      h += '<span class="dice">' + s.labels.map((l, i) => '<button class="die' + (L[i] ? '' : ' off') + (i === home[s.key] ? ' home' : '') + '" data-act="dice" data-arg="' + s.key + '|' + i + '" title="' + (L[i] ? 'lit: can be drawn' : 'struck: never drawn') + '">' + esc(l) + '</button>').join('') + '</span>';
+    }
+    h += '</div>';
+  }
+  $('keys').innerHTML = h;
+}
+function renderDist() {
+  const s = BY[UI.key];
+  let h = '';
+  if (s && s.kind === 'num') {
+    const b = S.bounds[s.key] || [0, 1];
+    h = '<div class="srow"><span>BOUND LOW</span><input type="range" min="0" max="1" step="0.01" value="' + b[0] + '" data-set="b.' + s.key + '.0"><span class="ro" id="blo">' + esc(fmtVal(s, fromN(s, b[0]))) + '</span></div>'
+      + '<div class="srow"><span>BOUND HIGH</span><input type="range" min="0" max="1" step="0.01" value="' + b[1] + '" data-set="b.' + s.key + '.1"><span class="ro" id="bhi">' + esc(fmtVal(s, fromN(s, b[1]))) + '</span></div>';
+  }
+  $('dist-bounds').innerHTML = h;
+  paintDist();
+}
+function cssv(name) { try { return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || '#888'; } catch (e) { return '#888'; } }
+function paintDist() {
+  const s = BY[UI.key], cv = $('dist'), info = $('dist-info');
+  if (!s) return;
+  const k = selCorner(), home = homeOf(S, k)[s.key], c = effChaos(S, s.group);
+  $('dist-title').textContent = 'DISTRIBUTION · ' + s.name + ' (' + GNAME[s.group] + ')';
+  const dpr = window.devicePixelRatio || 1, W = Math.round((cv.clientWidth || 600) * dpr), H = Math.round((cv.clientHeight || 130) * dpr);
+  if (cv.width !== W) cv.width = W; if (cv.height !== H) cv.height = H;
+  const g = cv.getContext('2d');
+  g.clearRect(0, 0, W, H);
+  const ink = cssv('--scr-value'), grid = cssv('--scr-grid'), mark = cssv('--scr-marker'), pad = 6 * dpr, bw = W - 2 * pad, bh = H - 2 * pad - 10 * dpr;
+  g.strokeStyle = grid; g.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) { const x = pad + bw * i / 4; g.beginPath(); g.moveTo(x, pad); g.lineTo(x, pad + bh); g.stroke(); }
+  g.font = (9 * dpr) + 'px ui-monospace, monospace'; g.fillStyle = mark;
+  if (s.kind === 'num') {
+    const b = boundsFor(S, s, S.work[k]), sg = sigma(c), h0 = clamp(toN(s, home), b[0], b[1]);
+    g.fillStyle = grid; g.globalAlpha = 0.6;
+    g.fillRect(pad, pad, bw * b[0], bh); g.fillRect(pad + bw * b[1], pad, bw * (1 - b[1]), bh); g.globalAlpha = 1;
+    // a seeded preview: 400 draws through the same drawNum (its own stream, never the patch's)
+    const NB = 40, hist = new Array(NB).fill(0);
+    for (let i = 0; i < 400; i++) { const x = toN(s, drawNum(s, home, U(S.seed, 0x7fffffff, k, 'preview:' + s.key, i), c, b)); hist[Math.min(NB - 1, Math.max(0, Math.floor(x * NB)))]++; }
+    let hm = 1; for (let i = 0; i < NB; i++) hm = Math.max(hm, hist[i]);
+    g.fillStyle = mark; g.globalAlpha = 0.35;
+    for (let i = 0; i < NB; i++) { const hh = bh * hist[i] / hm; g.fillRect(pad + bw * i / NB + 1, pad + bh - hh, bw / NB - 2, hh); }
+    g.globalAlpha = 1;
+    // the truncated-normal density, scaled to its own peak
+    if (sg > 0) {
+      const NP = 160, ys = [];
+      let pm = 0;
+      for (let i = 0; i <= NP; i++) { const x = i / NP, y = x < b[0] || x > b[1] ? 0 : Math.exp(-((x - h0) * (x - h0)) / (2 * sg * sg)); ys.push(y); if (y > pm) pm = y; }
+      g.strokeStyle = ink; g.lineWidth = 2 * dpr; g.beginPath();
+      for (let i = 0; i <= NP; i++) { const X = pad + bw * i / NP, Y = pad + bh - bh * 0.92 * (pm > 0 ? ys[i] / pm : 0); if (i === 0) g.moveTo(X, Y); else g.lineTo(X, Y); }
+      g.stroke();
+    }
+    for (let q = 0; q < 4; q++) { const x = pad + bw * clamp(toN(s, S.work[q][s.key]), 0, 1); g.strokeStyle = cssv('--c' + CN[q]); g.lineWidth = 2 * dpr; g.beginPath(); g.moveTo(x, pad + bh * 0.55); g.lineTo(x, pad + bh); g.stroke(); }
+    const hx = pad + bw * h0; g.strokeStyle = ink; g.lineWidth = 1.5 * dpr; g.setLineDash([3 * dpr, 3 * dpr]); g.beginPath(); g.moveTo(hx, pad); g.lineTo(hx, pad + bh); g.stroke(); g.setLineDash([]);
+    g.fillStyle = mark; g.fillText(fmtVal(s, s.lo), pad, H - 3 * dpr); const hiT = fmtVal(s, s.hi); g.fillText(hiT, W - pad - g.measureText(hiT).width, H - 3 * dpr);
+    const lb = $('blo'), hb = $('bhi'); if (lb) lb.textContent = fmtVal(s, fromN(s, b[0])); if (hb) hb.textContent = fmtVal(s, fromN(s, b[1]));
+    info.innerHTML = 'Home (dashed) <b>' + esc(fmtVal(s, home)) + '</b> · chaos ' + c.toFixed(2) + ' → σ = <b>' + sg.toFixed(3) + '</b> of the range' + (s.log ? ' (log taper)' : '')
+      + ' · a click changes this key with probability <b>' + effAmt(S, s.group).toFixed(2) + '</b> · bars: 400 seeded preview draws · ticks: corners A–D'
+      + (s.slot !== null ? ' · a route\'s amount is drawn inside its <b>rule\'s range</b>' : '') + (active(s, S.work[k]) ? '' : ' · <b>inactive here</b> (its switch is off): not drawn');
+  } else if (s.kind === 'enum') {
+    const p = s.rs ? null : enumProbs(S, s, home, c), n = s.labels.length;
+    for (let i = 0; i < n; i++) {
+      const x = pad + bw * i / n, wd = bw / n - 4 * dpr, hh = p ? bh * p[i] : 0;
+      g.fillStyle = mark; g.globalAlpha = 0.5; g.fillRect(x + 2 * dpr, pad + bh - hh, wd, hh); g.globalAlpha = 1;
+      for (let q = 0; q < 4; q++) if (S.work[q][s.key] === i) { g.fillStyle = cssv('--c' + CN[q]); g.fillRect(x + 2 * dpr + q * 6 * dpr, pad + bh - 8 * dpr, 5 * dpr, 6 * dpr); }
+      g.fillStyle = i === home ? ink : mark; g.fillText(String(s.labels[i]).slice(0, 10), x + 3 * dpr, H - 3 * dpr);
+    }
+    info.innerHTML = s.rs ? 'Drawn by the <b>ruleset</b>, not by the bell (see MOD-MAPPING RULESETS).'
+      : 'Bars: the probability of each value on a click that touches this key (' + (s.ordered ? 'an ORDERED choice: a bell in index space around home' : 'keep home with 1 − chaos, else draw by taste over the lit values')
+        + ') · home <b>' + esc(fmtVal(s, home)) + '</b> · chaos ' + c.toFixed(2) + ' · amount ' + effAmt(S, s.group).toFixed(2);
+  } else info.textContent = 'A rule tag: which rule drew this route.';
+}
+function renderPatch() {
+  const v = HEARD.v, ch = S.lastChange ? S.lastChange.keys : new Set();
+  const pv = (key, label) => { const s = BY[key]; return '<span>' + esc(label || s.name) + '</span><b class="' + (ch.has(key) ? 'chg' : '') + '">' + esc(fmtVal(s, v[key])) + '</b>'; };
+  const card = (title, on, rows, extra) => '<div class="mod' + (on ? '' : ' off') + '"><h4>' + title + (extra || '') + '</h4><div class="pv">' + rows.join('') + '</div></div>';
+  let h = '';
+  for (const i of [1, 2]) {
+    const p = 'o' + i + '.';
+    h += card('OSC ' + i, v[p + 'on'] === 1, [pv(p + 'on'), pv(p + 'wave'), pv(p + 'voices'), pv(p + 'oct'), pv(p + 'semi'), pv(p + 'fine'), pv(p + 'detune'), pv(p + 'spread'),
+      v[p + 'wave'] === 1 ? pv(p + 'pw') : '', pv(p + 'blade'), v[p + 'blade'] > 0 ? pv(p + 'bpos') + pv(p + 'bwid') : '', pv(p + 'level')], ' <span class="lab-tag">SCALPEL-LIKE STAND-IN</span>');
+  }
+  h += card('SUB', v['sub.on'] === 1, [pv('sub.on'), pv('sub.wave'), pv('sub.oct'), pv('sub.level'), pv('r.sub')]);
+  h += card('NOISE', v['noise.on'] === 1, [pv('noise.on'), pv('noise.color'), pv('noise.level'), pv('r.noise')]);
+  h += card('FILTERS', true, [pv('f.topo'), pv('fA.type'), pv('fA.cut'), pv('fA.res'), pv('fA.drive'), pv('fA.key'), pv('fB.on'), pv('fB.type'), pv('fB.cut'), pv('fB.res'), pv('r.o1'), pv('r.o2')]);
+  for (let e = 1; e <= 3; e++) h += card(e === 1 ? 'ENV 1 · AMP' : 'ENV ' + e, true, ['a', 'd', 's', 'r'].map(x => pv('e' + e + '.' + x, { a: 'attack', d: 'decay', s: 'sustain', r: 'release' }[x])));
+  h += card('LFOS', true, [pv('l1.shape'), pv('l1.rate'), pv('l2.shape'), pv('l2.rate')]);
+  h += card('SHRIEK', v['fx.sh.on'] === 1, [pv('sh.curve'), pv('sh.drive'), pv('sh.tone'), pv('fx.sh.mix', 'mix')], ' <span class="lab-tag stub">PASS-THROUGH · STUB</span>');
+  h += card('CHORUS', v['fx.ch.on'] === 1, [pv('ch.mode'), pv('ch.rate'), pv('ch.depth'), pv('fx.ch.mix', 'mix')]);
+  h += card('DELAY', v['fx.dl.on'] === 1, [pv('dl.mode'), pv('dl.div'), pv('dl.fb'), pv('dl.damp'), pv('fx.dl.mix', 'mix')]);
+  h += card('REVERB', v['fx.rv.on'] === 1, [pv('rv.type'), pv('rv.size'), pv('rv.damp'), pv('fx.rv.mix', 'mix')]);
+  $('patch').innerHTML = h;
+  $('patch-sub').textContent = 'the puck hears ' + HEARD.w.map((w, i) => CN[i] + ' ' + Math.round(w * 100) + '%').join(' · ') + ' · structure from corner ' + CN[HEARD.dom] + ' · highlighted: changed by the last randomize';
+  let m = '<span class="h">SLOT</span><span class="h">LOCK</span><span class="h">SOURCE</span><span></span><span class="h">DESTINATION</span><span class="h">AMOUNT</span><span class="h">RULE</span>';
+  for (let i = 0; i < NSLOT; i++) {
+    const p = 'm' + i + '.', on = v[p + 'src'] > 0, c = (key) => (ch.has(key) ? 'chg' : on ? '' : 'offr'), lk = !!S.lockK[p + 'src'];
+    const r = ruleById(S.rs, v[p + 'rule']);
+    m += '<span class="' + (on ? '' : 'offr') + '">' + (i + 1) + '</span>'
+      + '<button class="lk" data-act="lockK" data-arg="' + p + 'src" aria-pressed="' + lk + '" title="lock this slot: a ruleset draw keeps it">' + (lk ? '■' : '□') + '</button>'
+      + '<span class="' + c(p + 'src') + '">' + esc(MSRC[v[p + 'src']].name) + '</span><span class="offr">→</span>'
+      + '<span class="' + c(p + 'dst') + '">' + esc(on ? MDST[v[p + 'dst']].name : '—') + '</span>'
+      + '<span class="' + c(p + 'amt') + '">' + (on ? esc(fmtAmt(v[p + 'dst'], v[p + 'amt'])) : '') + '</span>'
+      + '<span class="offr">' + esc(on ? (r ? r.name : 'hand-made') : '') + '</span>';
+  }
+  $('matrix').innerHTML = m;
+  const ord = PERMS[v['fx.order']], topo = v['fx.topo'];
+  const bx = j => { const i = ord[j], on = v['fx.' + FXM[i].id + '.on'] === 1; return '<span class="bx' + (on ? '' : ' off') + '">' + FXM[i].name + (on ? ' · ' + Math.round(v['fx.' + FXM[i].id + '.mix'] * 100) + '%' : '') + '</span>'; };
+  const par = (a, b) => { let s = '<span class="par">'; for (let j = a; j < b; j++) s += bx(j); return s + '</span>'; };
+  const ar = '<span class="ar">→</span>';
+  let cstr = '<span class="bx">VOICES</span>' + ar;
+  if (topo === 0) { for (let j = 0; j < 4; j++) cstr += bx(j) + ar; }
+  else if (topo === 1) cstr += par(0, 4) + ar;
+  else cstr += bx(0) + ar + bx(1) + ar + par(2, 4) + ar;
+  cstr += '<span class="bx">OUT</span><span class="hd-hint" style="margin-left:8px">' + esc(BY['fx.topo'].labels[topo]) + ' · ' + esc(BY['fx.order'].labels[v['fx.order']]) + '</span>';
+  $('chain').innerHTML = cstr;
+}
+function renderRules() {
+  const rs = S.rs, saved = storeGet();
+  let opts = '';
+  BUILTIN_RS.forEach((r, i) => { opts += '<option value="b' + i + '">' + esc(r.name) + '</option>'; });
+  saved.forEach((r, i) => { opts += '<option value="u' + i + '">mine: ' + esc(r.name) + '</option>'; });
+  const pick = $('rs-pick'), keep = pick.value;
+  pick.innerHTML = opts; if (keep) pick.value = keep;
+  if (document.activeElement !== $('rs-name')) $('rs-name').value = rs.name;
+  let nopt = ''; for (let i = 0; i <= NSLOT; i++) nopt += '<option value="' + i + '">' + i + '</option>';
+  $('rs-nmin').innerHTML = nopt; $('rs-nmax').innerHTML = nopt; $('rs-nmin').value = String(rs.n[0]); $('rs-nmax').value = String(rs.n[1]);
+  const st = S.lastModStats;
+  $('rs-stats').textContent = st ? 'last draw: ' + st.filled + ' of ' + st.wanted + ' routes · ' + st.noLive + ' tries found no live destination · ' + st.claimed + ' found their sources claimed · ' + st.dup + ' duplicates refused' : 'no draw yet';
+  let h = '<span class="h">ON</span><span class="h">RULE</span><span class="h">SOURCES → DESTINATIONS</span><span class="h">WEIGHT</span><span></span><span class="h">AMOUNT RANGE</span><span class="h">SHAPES ITS SOURCE</span>';
+  for (const r of allRules(rs)) {
+    const e = rs.rules[r.id] || { on: 0, w: 1, amt: r.amt.slice() }, d0 = MDST[DI[r.dst[0]]];
+    const sh = r.env ? 'env: a ' + r.env.a.join('–') + ' s, d ' + r.env.d.join('–') + ' s, s ' + r.env.s.join('–') : r.lfo ? 'lfo: ' + r.lfo.rate.join('–') + ' Hz, ' + r.lfo.shape.map(i => LFOSH[i]).join('/') : '—';
+    h += '<span class="rt-row-start"><button class="hd-toggle" role="switch" aria-checked="' + !!e.on + '" data-act="rule-on" data-arg="' + r.id + '" aria-label="' + esc(r.name) + ' on"></button></span>'
+      + '<span class="rn" title="' + esc(r.why) + '">' + esc(r.name) + '<small>' + esc(r.why) + '</small></span>'
+      + '<span class="rs">' + esc(r.src.map(x => MSRC[SI[x]].name).join(', ')) + ' → ' + esc(r.dst.map(x => MDST[DI[x]].name).join(', ')) + (r.neg ? ' · inverted ' + Math.round(r.neg * 100) + '%' : '') + '</span>'
+      + '<input type="range" min="0" max="4" step="0.25" value="' + e.w + '" data-rule="' + r.id + '|w" aria-label="' + esc(r.name) + ' weight">'
+      + '<span class="ro" id="rw-' + r.id + '">' + e.w.toFixed(2) + '</span>'
+      + '<span class="amt"><input type="range" min="0" max="1" step="0.001" value="' + e.amt[0] + '" data-rule="' + r.id + '|a0" aria-label="lowest amount"><input type="range" min="0" max="1" step="0.001" value="' + e.amt[1] + '" data-rule="' + r.id + '|a1" aria-label="highest amount">'
+      + '<span id="ra-' + r.id + '">' + esc(fmtAmt(DI[d0.id], e.amt[0]) + ' … ' + fmtAmt(DI[d0.id], e.amt[1])) + ' (' + esc(d0.name) + ')</span></span>'
+      + '<span class="rs">' + esc(sh) + '</span>';
+  }
+  $('rules').innerHTML = h;
+  if (!$('cr-src').dataset.built) {
+    $('cr-src').dataset.built = '1';
+    $('cr-src').innerHTML = MSRC.slice(1).map(s => '<option value="' + s.id + '">' + esc(s.name) + '</option>').join('');
+    $('cr-dst').innerHTML = MDST.slice(1).map(d => '<option value="' + d.id + '">' + esc(d.name) + '</option>').join('');
+    $('cr-amt').innerHTML = [['0.02|0.1', 'small (2–10%)'], ['0.1|0.3', 'medium (10–30%)'], ['0.3|0.7', 'large (30–70%)'], ['0.7|1', 'extreme (70–100%)']].map(([v, l]) => '<option value="' + v + '">' + l + '</option>').join('');
+  }
+}
+function renderLog() {
+  const el = $('log'), from = Math.max(0, LOG.length - 60);
+  let h = LOG.length ? '' : '<div>(nothing yet: the session is the seed alone)</div>';
+  for (let i = from; i < LOG.length; i++) h += '<div>' + esc(logLine(LOG[i], i)) + '</div>';
+  el.innerHTML = h;
+  el.scrollTop = el.scrollHeight;
+}
+function renderChecks() {
+  let h = '';
+  for (const c of CHECKS) h += '<span class="mono">' + c.id + '</span><span class="' + (c.pass ? 'p' : 'f') + '">' + (c.pass ? 'PASS' : 'FAIL') + '</span><span class="d">' + esc(c.what) + '<small>' + esc(c.got) + '</small></span>';
+  $('checks').innerHTML = h;
+}
+
+/* ---- the ruleset editor: every edit is ONE action carrying the whole ruleset (so replay needs no storage) ---- */
+function editRS(fn, light) { const rs = clone(S.rs); fn(rs); dispatch({ t: 'ruleset', rs }, { light }); }
+
+/* ---- audio: starts only on a click ---- */
+function startAudio() {
+  if (!AC) {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    AC = new Ctx();
+    ENG = new Engine(AC.sampleRate, UI.seed);
+    ENG.pattern = UI.pattern; ENG.mw = UI.mw; ENG.vol = UI.vol;
+    ENG.setPatch(HEARD.v); ENG.snapSmooth();
+    /* A ScriptProcessor on the main thread: the lab's monitor. Deprecated but universal, and it lets the engine read the
+       morphed patch directly; heavy painting can underrun it (the browser-probes lesson: listen, don't trust a meter). */
+    NODE = AC.createScriptProcessor(4096, 0, 2);
+    NODE.onaudioprocess = ev => { const L = ev.outputBuffer.getChannelData(0), R = ev.outputBuffer.getChannelData(1); ENG.process(L, R, L.length); };
+  }
+  NODE.connect(AC.destination);
+  if (AC.resume) AC.resume();
+  UI.playing = true;
+  guardLoop();
+}
+function stopAudio() { if (NODE) { try { NODE.disconnect(); } catch (e) { /* already disconnected */ } } UI.playing = false; }
+function guardLoop() {
+  if (!UI.playing || !ENG) return;
+  const G = ENG.guard, el = $('guard');
+  el.textContent = 'guard: pre-guard peak ' + (G.pre > 0 ? (20 * Math.log10(G.pre)).toFixed(1) : '−∞') + ' dBFS · ' + G.hits + ' samples held at −6 dBFS' + (G.nan ? ' · ' + G.nan + ' non-finite zeroed' : '');
+  el.style.color = G.hits || G.nan ? 'var(--alarm)' : '';
+  requestAnimationFrame(guardLoop);
+}
+
+/* ---- events (delegated; every handler is a no-op under the headless stub DOM) ---- */
+function onClick(e) {
+  const b = e.target.closest ? e.target.closest('[data-act]') : null;
+  if (!b || b.disabled) return;
+  const act = b.dataset.act, arg = b.dataset.arg || '';
+  switch (act) {
+    case 'rand': { const [level, kind] = arg.split('|'); dispatch({ t: 'rand', level, kind, corner: selCorner(), scope: S.archScope }); UI.focus = level; UI.group = LEVEL[level].groups[0]; render(); break; }
+    case 'randpatch': dispatch({ t: 'randPatch', corner: selCorner() }); break;
+    case 'randall': dispatch({ t: 'randAll', level: UI.focus }); break;
+    case 'save': dispatch({ t: 'save', corner: selCorner() }); break;
+    case 'revert': dispatch({ t: 'revert', corner: selCorner() }); break;
+    case 'revertC': dispatch({ t: 'revert', corner: +arg }); break;
+    case 'affix': { const [sid, k] = arg.split('|'); dispatch({ t: 'affix', sid, corner: +k }); break; }
+    case 'delSnap': dispatch({ t: 'delSnap', sid: arg }); break;
+    case 'home': dispatch({ t: 'home', sid: arg }); break;
+    case 'lockC': dispatch({ t: 'lockC', corner: +arg }); break;
+    case 'lockG': e.stopPropagation(); dispatch({ t: 'lockG', group: arg }); break;
+    case 'lockK': e.stopPropagation(); dispatch({ t: 'lockK', key: arg }); break;
+    case 'dice': { e.stopPropagation(); const [key, i] = arg.split('|'); dispatch({ t: 'dice', key, i: +i }); break; }
+    case 'set': { const [path, value] = arg.split('|'); dispatch({ t: 'set', path, value }); break; }
+    case 'focus': UI.focus = arg; UI.group = LEVEL[arg].groups[0]; { const f = SPEC.find(s => s.group === UI.group && !s.rs && s.kind !== 'tag'); if (f) UI.key = f.key; } render(); break;
+    case 'group': UI.group = arg; { const f = SPEC.find(s => s.group === arg && !s.rs && s.kind !== 'tag'); if (f) UI.key = f.key; } render(); break;
+    case 'key': UI.key = arg; renderKeys(); renderDist(); break;
+    case 'corner': { const k = +arg; UI.puck.x = k % 2 ? 1 : 0; UI.puck.y = k >= 2 ? 1 : 0; render(); break; }
+    case 'nextseed': newSession(mix32(UI.seed, 1)); break;
+    case 'newsession': newSession(UI.seed); break;
+    case 'replay': replay(); break;
+    case 'play': if (UI.playing) stopAudio(); else startAudio(); b.setAttribute('aria-pressed', String(UI.playing)); b.textContent = UI.playing ? '■ STOP' : '▶ PLAY'; break;
+    case 'guardreset': if (ENG) { ENG.guard.hits = 0; ENG.guard.pre = 0; ENG.guard.nan = 0; } $('guard').textContent = 'guard: reset'; $('guard').style.color = ''; break;
+    case 'rule-on': editRS(rs => { const e = rs.rules[arg]; if (e) e.on = e.on ? 0 : 1; }); break;
+    case 'rs-load': {
+      const v = $('rs-pick').value, src = v[0] === 'b' ? BUILTIN_RS[+v.slice(1)] : storeGet()[+v.slice(1)];
+      if (src) { dispatch({ t: 'ruleset', rs: clone(src) }); setMsg('ruleset "' + src.name + '" loaded'); }
+      break;
+    }
+    case 'rs-save': {
+      const name = ($('rs-name').value || 'My ruleset').slice(0, 40), list = storeGet().filter(r => r.name !== name), rs = clone(S.rs); rs.name = name;
+      list.push(rs);
+      if (storeSet(list)) { editRS(r => { r.name = name; }); setMsg('saved "' + name + '" in this browser'); } else setMsg('could not save: localStorage is unavailable here', true);
+      break;
+    }
+    case 'rs-del': {
+      const v = $('rs-pick').value;
+      if (v[0] !== 'u') { setMsg('built-in rulesets cannot be deleted', true); break; }
+      const list = storeGet(), gone = list.splice(+v.slice(1), 1);
+      if (storeSet(list)) { setMsg('deleted "' + (gone[0] ? gone[0].name : '') + '"'); renderRules(); } else setMsg('could not delete: localStorage is unavailable here', true);
+      break;
+    }
+    case 'cr-add': {
+      const src = $('cr-src').value, dst = $('cr-dst').value, amt = $('cr-amt').value.split('|').map(Number);
+      editRS(rs => { const id = 'c' + (rs.custom.length + 1); rs.custom.push({ id, name: 'Yours: ' + MSRC[SI[src]].name + ' → ' + MDST[DI[dst]].name, src: [src], dst: [dst], amt, neg: 0, why: 'yours' }); rs.rules[id] = { on: 1, w: 1, amt: amt.slice() }; });
+      break;
+    }
+    default: break;
+  }
+}
+function onInput(e) {
+  const t = e.target;
+  if (!t || !t.dataset) return;
+  if (t.dataset.set) {
+    dispatch({ t: 'set', path: t.dataset.set, value: +t.value }, { light: true });
+    if (t.dataset.set === 'amount') $('amount-ro').textContent = (+t.value).toFixed(2);
+  } else if (t.dataset.rule) {
+    const [id, f] = t.dataset.rule.split('|'), x = +t.value;
+    editRS(rs => { const r = rs.rules[id]; if (!r) return; if (f === 'w') r.w = x; else r.amt[f === 'a0' ? 0 : 1] = x; }, true);
+    const r = S.rs.rules[id], def = ruleById(S.rs, id), d0 = DI[def.dst[0]];
+    const w = $('rw-' + id), a = $('ra-' + id);
+    if (w) w.textContent = r.w.toFixed(2);
+    if (a) a.textContent = fmtAmt(d0, r.amt[0]) + ' … ' + fmtAmt(d0, r.amt[1]) + ' (' + MDST[d0].name + ')';
+  } else if (t.dataset.ui) {
+    const u = t.dataset.ui;
+    if (u === 'mw') { UI.mw = +t.value; if (ENG) ENG.mw = UI.mw; }
+    if (u === 'vol') { UI.vol = +t.value; if (ENG) ENG.vol = UI.vol; }
+  }
+}
+function onChange(e) {
+  const t = e.target;
+  if (!t) return;
+  if (t.id === 'seed') { const s = parseInt(t.value, 16); if (s === s) newSession(s >>> 0); else setMsg('the seed is hex', true); return; }
+  if (t.dataset && t.dataset.ui === 'pattern') { UI.pattern = t.value; if (ENG) { ENG.pattern = t.value; ENG.step = 0; } return; }
+  if (t.dataset && t.dataset.rs) {
+    const x = +t.value;
+    editRS(rs => { if (t.dataset.rs === 'nmin') rs.n[0] = x; else rs.n[1] = x; if (rs.n[0] > rs.n[1]) rs.n = [Math.min(rs.n[0], rs.n[1]), Math.max(rs.n[0], rs.n[1])]; });
+    return;
+  }
+  if (t.dataset && (t.dataset.set || t.dataset.rule)) render();
+}
+function padAt(e) {
+  const r = $('xy').getBoundingClientRect();
+  if (!(r.width > 0) || !(r.height > 0)) return;
+  UI.puck.x = clamp((e.clientX - r.left) / r.width, 0, 1); UI.puck.y = clamp((e.clientY - r.top) / r.height, 0, 1);
+  scheduleLight();
+}
+function knobSet(c) { dispatch({ t: 'set', path: 'chaos', value: Math.round(clamp(c, 0, 1) * 1000) / 1000 }, { light: true }); paintKnob(); }
+
+/* =====================================================================================================================
+   I. WIRING AND BOOT (everything above is declared; nothing here reaches forward)
+   ===================================================================================================================== */
+document.addEventListener('click', onClick);
+document.addEventListener('input', onInput);
+document.addEventListener('change', onChange);
+$('xy').addEventListener('pointerdown', e => {
+  if (e.target.closest && e.target.closest('.corner')) return;
+  padDown = true; try { $('xy').setPointerCapture(e.pointerId); } catch (err) { /* not capturable */ }
+  $('xy').classList.add('drag'); padAt(e);
+});
+$('xy').addEventListener('pointermove', e => { if (padDown) padAt(e); });
+const padEnd = () => { padDown = false; $('xy').classList.remove('drag'); render(); };
+$('xy').addEventListener('pointerup', padEnd);
+$('xy').addEventListener('pointercancel', padEnd);
+$('knob').addEventListener('pointerdown', e => { knobDrag = { y: e.clientY, c: S.chaos }; try { $('knob').setPointerCapture(e.pointerId); } catch (err) { /* not capturable */ } });
+$('knob').addEventListener('pointermove', e => { if (knobDrag) knobSet(knobDrag.c + (knobDrag.y - e.clientY) / 160); });
+$('knob').addEventListener('pointerup', () => { if (knobDrag) { knobDrag = null; render(); } });
+$('knob').addEventListener('dblclick', () => { knobSet(0.35); render(); });
+$('knob').addEventListener('keydown', e => {
+  const st = e.shiftKey ? 0.01 : 0.05;
+  if (e.key === 'ArrowUp' || e.key === 'ArrowRight') { knobSet(S.chaos + st); e.preventDefault(); }
+  else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { knobSet(S.chaos - st); e.preventDefault(); }
+});
+
+CHECKS = runChecks();
+renderChecks();
+render();
+setMsg(CHECKS.every(c => c.pass) ? 'ready · seed 5eed · self-checks ' + CHECKS.length + '/' + CHECKS.length + ' pass · press PLAY, then randomize something' : 'SELF-CHECKS FAILING: see the list below', !CHECKS.every(c => c.pass));
+</script>
+</body></html>
