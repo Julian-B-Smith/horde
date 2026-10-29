@@ -642,7 +642,7 @@
       "chapter": "04-engine",
       "purpose": "Show what coupling does to the members' phases.",
       "content": "Members as dots on a phase circle at K = 0 (scattered, drifting), K = +1 (locked cluster) and K = -1 (evenly splayed), with the order parameter R drawn as an arrow.",
-      "source": "specs/SPEC-SCALPEL.md §3 coupling; reference/kuramoto-views.html",
+      "source": "specs/SPEC-SCALPEL.md §3 coupling; docs/design/kuramoto-views.html",
       "depends_on": [
         "engine",
         "ADR-184"
