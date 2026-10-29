@@ -39,13 +39,15 @@ WHAT --check GATES (each failure carries its tag; the controls below assert the 
   duplicate       no page places one key twice
   widget          a layout widget suits its row (a knob or slider only for a continuous row, a toggle
                   only for an off/on row, pills for at most 8 options)
+  override-reason the widget rule (ADR-319 item 5, default_widget) is the default; an entry that departs
+                  from it carries a non-empty `reason`, and an entry with a `reason` departs from it
   live            a live-when condition names stepped keys and options that exist (or a number for gt)
   shell           the shell page mounts parameter controls in one place only, from the generated list,
                   and holds no parameter key of its own (a hand-placed control would be a second source)
   determinism     no gui3 script reads a clock or an unseeded random source
   stale           the committed outputs equal what this run generates
 MUST-FAIL CONTROLS, every run, on in-memory copies: an unknown key, an unplaced host row, a placed
-reserved row, a knob on a stepped row, a live condition on a missing option, a dropped spec row, a
+reserved row, a knob on a stepped row, an override with no reason, a reason with no override, a live condition on a missing option, a dropped spec row, a
 shell with a hand-placed key, a shell with a second mount call, a script reading Date.now, and a
 stale output. Each must come back red with its own tag, or this check is red.
 
@@ -348,6 +350,8 @@ def read_spec(text):
 # ---------------------------------------------------------------- the layout -> the control list
 
 def default_widget(r):
+    """THE WIDGET RULE, the design system's (ADR-319 item 5): on/off is a toggle, up to 5 choices are buttons
+    (pills), 6 to 64 a drop-down (select), more a stepper, and a continuous value a knob or a slider."""
     if r["law"] != "step":
         return "knob"
     opts = r["options"]
@@ -426,16 +430,26 @@ def build_pages(rows, layout):
                 w = e.get("widget") or default_widget(r)
                 if w not in WIDGETS or not widget_fits(r, w):
                     raise Red("widget", f"page {pg['id']}: {k} cannot be a {w!r} ({r['law']}, {r.get('n')} options)")
+                # The rule allows any knob or slider for a continuous row; anything else that differs from the
+                # rule's choice is an override, and an override carries its reason (ADR-319 item 5). A reason on
+                # an entry the rule already gives is refused too: it would claim an override that is not there.
+                rule = default_widget(r)
+                override = w != rule and not (r["law"] != "step" and w in ("knob", "hslider", "vslider"))
+                reason = (e.get("reason") or "").strip()
+                if override and not reason:
+                    raise Red("override-reason", f"page {pg['id']}: {k} is a {w!r} where the widget rule gives {rule!r}: an override needs a `reason`")
+                if reason and not override:
+                    raise Red("override-reason", f"page {pg['id']}: {k} has a `reason` but no override (the rule already gives {w!r})")
                 live = e.get("live")
                 if live is not None:
                     check_live(live, by, f"page {pg['id']} {k}")
                 if "live" in g:                           # a group's condition ANDs with the control's own
                     live = g["live"] if live is None else {"all": [g["live"], live]}
-                controls.append({"key": k, "widget": w, "live": live})
+                controls.append({"key": k, "widget": w, "live": live, "override": reason or None})
                 placed.add(k)
             groups.append({"title": g["title"], "tag": g.get("tag"), "controls": controls})
         pages.append({"id": pg["id"], "label": pg["label"], "status": pg["status"], "note": pg.get("note", ""),
-                      "cite": pg.get("cite"), "groups": groups})
+                      "cite": pg.get("cite"), "panel": pg.get("panel"), "groups": groups})
     unreached = [r["key"] for r in rows if not r["reserved"] and r["key"] not in placed]
     if unreached:
         raise Red("unreached", f"{len(unreached)} host parameter(s) on no page: {', '.join(unreached[:8])}"
@@ -541,6 +555,10 @@ def controls(spec_text, layout, shell_text, scripts, committed):
               lo=lay(lambda lo: page(lo, "settings")["groups"][0]["keys"].append("sub.pitchMode"))),
         plant("a knob on a stepped row", "widget",
               lo=lay(lambda lo: sub_keys(lo).__setitem__(0, {"key": "sub.wave", "widget": "knob"}))),
+        plant("an override without a reason", "override-reason",
+              lo=lay(lambda lo: sub_keys(lo).__setitem__(0, {"key": "sub.wave", "widget": "pills"}))),
+        plant("a reason on an entry the rule already gives", "override-reason",
+              lo=lay(lambda lo: sub_keys(lo).__setitem__(1, {"key": "sub.pulseWidth", "widget": "knob", "reason": "none needed"}))),
         plant("a live condition on a missing option", "live",
               lo=lay(lambda lo: sub_keys(lo).__setitem__(1, {"key": "sub.pulseWidth", "live": {"key": "sub.wave", "is": ["noise"]}}))),
         plant("a spec row dropped", "counts",
@@ -592,7 +610,7 @@ def main():
     print(f"gen_gui3_controls: GREEN, {counts['manifest']} manifest rows = 5.8's, {counts['host']} host parameters "
           f"all reachable, {counts['manifest'] - counts['host']} reserved placed nowhere; controls per page: {per}; "
           f"descriptions missing {g['desc_missing']} of {g['host']} (no desc column yet, B582), spec text empty "
-          f"{g['spec_text_missing']}; 10 must-fail controls red")
+          f"{g['spec_text_missing']}; 12 must-fail controls red")
     return 0
 
 

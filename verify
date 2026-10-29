@@ -214,9 +214,10 @@ fast() {
   # form yet) and docs/design/gui3/layout.json, and generates the shell's control list. --check: the
   # expansion equals 5.8's counts, every layout key is a parameter (no control without one), every host
   # parameter is on a page (B302's gui_reach idea), no reserved row is placed, widgets suit their rows,
-  # live-when conditions name real options, the shell mounts controls in one place and names no key,
-  # no gui3 script reads a clock, and the committed outputs are current. Ten must-fail controls every
-  # run. Python only, well under 1 s.
+  # live-when conditions name real options, a widget that departs from the widget rule (ADR-319 item 5)
+  # carries its reason, the shell mounts controls in one place and names no key, no gui3 script reads a
+  # clock, and the committed outputs are current. Twelve must-fail controls every run. Python only, well
+  # under 1 s.
   python3 tools/gen_gui3_controls.py --check || ok=1
 
   # THE TEST TABLE cannot claim coverage it lacks: every agentic row names a gate
@@ -527,12 +528,14 @@ PY
     rm -f /tmp/divledger.$$
 
     # GUI 3'S ENGINE SEAM HOLDS ITS CONTRACT (ROADMAP B584, ADR-316; added under ADR-180 §1). The shell runs on a
-    # no-audio stub engine behind one adapter (docs/design/gui3/engine-stub.js, device.js), and the WebAssembly
-    # engine (IF-10) replaces the stub behind the same seam. Eleven tests hold the stub and the adapter to the
-    # spec's words (5.1's laws against the generator's inverses, IF-4 state round trips with unknown keys kept,
-    # RC-11.2 snapshot and restore, a read-only IF-10 view, RC-11.3 gestures, the morph's classes, RC-4 route
-    # refusals, one gesture one undo step, seeded determinism); eight planted faults must each turn their own
-    # test red (~1 s).
+    # no-audio stub engine behind one adapter (docs/design/gui3/engine-stub.js, device.js) and a swappable
+    # transport, and the WebAssembly engine (IF-10) replaces the stub behind the same seam. Fifteen tests hold
+    # the stub, the transport and the adapter to the spec's words and ADR-319 (5.1's laws against the
+    # generator's inverses, IF-4 state round trips with unknown keys kept, RC-11.2 snapshot and restore, a
+    # read-only IF-10 view, RC-11.3 gestures, the morph's classes, RC-4 route refusals, one gesture one undo
+    # step, morph off's frozen corners, the morph toggle as a history node, corner snapshots and presets,
+    # mirror and confirm including a drag and a stale snapshot, seeded determinism); thirteen planted faults
+    # must each turn their own test red (~1 s).
     node tools/labharness/gui3_seam_check.mjs > /tmp/gui3seam.$$ 2>&1 || {
       echo "verify: GUI 3 seam check FAILED" >&2; cat /tmp/gui3seam.$$ >&2; ok=1; }
     tail -1 /tmp/gui3seam.$$   # the harness prints its own name; do not prefix it twice

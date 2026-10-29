@@ -30,11 +30,13 @@ window.GUI3_DATA = {
       {
        "key": "voice.mode",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "voice.gravity",
        "live": null,
+       "override": null,
        "widget": "knob"
       }
      ],
@@ -46,46 +48,55 @@ window.GUI3_DATA = {
       {
        "key": "env1.attack",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "env1.hold",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "env1.decay",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "env1.sustain",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "env1.release",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "env1.attackCurve",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "env1.decayCurve",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "env1.releaseCurve",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "env1.velocity",
        "live": null,
+       "override": null,
        "widget": "knob"
       }
      ],
@@ -96,6 +107,7 @@ window.GUI3_DATA = {
    "id": "main",
    "label": "Main",
    "note": "Draft: every row is reachable, none is designed. The Main page's design is B581 step 2.",
+   "panel": null,
    "status": "draft"
   },
   {
@@ -106,236 +118,283 @@ window.GUI3_DATA = {
       {
        "key": "osc1.on",
        "live": null,
+       "override": null,
        "widget": "toggle"
       },
       {
        "key": "osc1.octave",
        "live": null,
+       "override": null,
        "widget": "select"
       },
       {
        "key": "osc1.semitone",
        "live": null,
+       "override": null,
        "widget": "select"
       },
       {
        "key": "osc1.pitch",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.fine",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.pan",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.mute",
        "live": null,
+       "override": null,
        "widget": "toggle"
       },
       {
        "key": "osc1.solo",
        "live": null,
+       "override": null,
        "widget": "toggle"
       },
       {
        "key": "osc1.unison",
        "live": null,
+       "override": null,
        "widget": "select"
       },
       {
        "key": "osc1.distribution",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc1.seed",
        "live": null,
+       "override": null,
        "widget": "stepper"
       },
       {
        "key": "osc1.detuneLaw",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc1.detune",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.detuneRange",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc1.harmonicReach",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.anchor",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.coupling",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.phaseLag",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.pivot",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc1.onsetLock",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.dissolve",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.driftDepth",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.driftRate",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.inertia",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.phase",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.phaseRandom",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.retrigger",
        "live": null,
+       "override": null,
        "widget": "toggle"
       },
       {
        "key": "osc1.onsetScatter",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.timingCorrection",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.width",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.panImage",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc1.panInvert",
        "live": null,
+       "override": null,
        "widget": "toggle"
       },
       {
        "key": "osc1.panMotion",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.bandLimit",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.motionGrain",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.baseWave",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc1.crossMod",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.feedback",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.loopDrive",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.spreadLaw",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc1.spreadDrift",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.quantize",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc1.stacking",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc1.upperHears",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.collisionPitch",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.collisionBite",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.env",
        "live": null,
+       "override": null,
        "widget": "pills"
       }
      ],
@@ -347,151 +406,181 @@ window.GUI3_DATA = {
       {
        "key": "osc1.blade1.on",
        "live": null,
+       "override": null,
        "widget": "toggle"
       },
       {
        "key": "osc1.blade1.mode",
        "live": null,
+       "override": null,
        "widget": "select"
       },
       {
        "key": "osc1.blade1.wave",
        "live": null,
+       "override": null,
        "widget": "select"
       },
       {
        "key": "osc1.blade1.shape",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade1.cutIn",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc1.blade1.cut",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade1.cutHz",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade1.position",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade1.width",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade1.edges",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade1.depth",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade1.mirror",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc1.blade1.frame",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc1.blade1.rotate",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade1.rotation",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc1.blade1.fmType",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc1.blade1.modShape",
        "live": null,
+       "override": null,
        "widget": "select"
       },
       {
        "key": "osc1.blade1.fmDepth",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade1.modIn",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc1.blade1.modRate",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade1.modRateHz",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade1.positionSpread",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade1.cutSpread",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade1.cutRule",
        "live": null,
+       "override": null,
        "widget": "select"
       },
       {
        "key": "osc1.blade1.ruleDepth",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade1.widthSpread",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade1.depthSpread",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade1.shapeSpread",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade1.fmIndexSpread",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade1.rotateSpread",
        "live": null,
+       "override": null,
        "widget": "knob"
       }
      ],
@@ -503,161 +592,193 @@ window.GUI3_DATA = {
       {
        "key": "osc1.blade2.on",
        "live": null,
+       "override": null,
        "widget": "toggle"
       },
       {
        "key": "osc1.blade2.mode",
        "live": null,
+       "override": null,
        "widget": "select"
       },
       {
        "key": "osc1.blade2.wave",
        "live": null,
+       "override": null,
        "widget": "select"
       },
       {
        "key": "osc1.blade2.shape",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade2.cutIn",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc1.blade2.cut",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade2.cutHz",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade2.position",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade2.width",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade2.edges",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade2.depth",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade2.mirror",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc1.blade2.frame",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc1.blade2.rotate",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade2.rotation",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc1.blade2.fmType",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc1.blade2.modShape",
        "live": null,
+       "override": null,
        "widget": "select"
       },
       {
        "key": "osc1.blade2.fmDepth",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade2.modIn",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc1.blade2.modRate",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade2.modRateHz",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade2.positionSpread",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade2.cutSpread",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade2.cutRule",
        "live": null,
+       "override": null,
        "widget": "select"
       },
       {
        "key": "osc1.blade2.ruleDepth",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade2.widthSpread",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade2.depthSpread",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade2.shapeSpread",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade2.fmIndexSpread",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade2.rotateSpread",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc1.blade2.fmSource",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc1.blade2.spreadSource",
        "live": null,
+       "override": null,
        "widget": "pills"
       }
      ],
@@ -668,6 +789,7 @@ window.GUI3_DATA = {
    "id": "osc1",
    "label": "Osc 1",
    "note": "Draft: the oscillator page's design (with the mod map and the filters) is B581 step 2.",
+   "panel": null,
    "status": "draft"
   },
   {
@@ -678,236 +800,283 @@ window.GUI3_DATA = {
       {
        "key": "osc2.on",
        "live": null,
+       "override": null,
        "widget": "toggle"
       },
       {
        "key": "osc2.octave",
        "live": null,
+       "override": null,
        "widget": "select"
       },
       {
        "key": "osc2.semitone",
        "live": null,
+       "override": null,
        "widget": "select"
       },
       {
        "key": "osc2.pitch",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.fine",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.pan",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.mute",
        "live": null,
+       "override": null,
        "widget": "toggle"
       },
       {
        "key": "osc2.solo",
        "live": null,
+       "override": null,
        "widget": "toggle"
       },
       {
        "key": "osc2.unison",
        "live": null,
+       "override": null,
        "widget": "select"
       },
       {
        "key": "osc2.distribution",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc2.seed",
        "live": null,
+       "override": null,
        "widget": "stepper"
       },
       {
        "key": "osc2.detuneLaw",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc2.detune",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.detuneRange",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc2.harmonicReach",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.anchor",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.coupling",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.phaseLag",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.pivot",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc2.onsetLock",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.dissolve",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.driftDepth",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.driftRate",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.inertia",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.phase",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.phaseRandom",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.retrigger",
        "live": null,
+       "override": null,
        "widget": "toggle"
       },
       {
        "key": "osc2.onsetScatter",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.timingCorrection",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.width",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.panImage",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc2.panInvert",
        "live": null,
+       "override": null,
        "widget": "toggle"
       },
       {
        "key": "osc2.panMotion",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.bandLimit",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.motionGrain",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.baseWave",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc2.crossMod",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.feedback",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.loopDrive",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.spreadLaw",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc2.spreadDrift",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.quantize",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc2.stacking",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc2.upperHears",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.collisionPitch",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.collisionBite",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.env",
        "live": null,
+       "override": null,
        "widget": "pills"
       }
      ],
@@ -919,151 +1088,181 @@ window.GUI3_DATA = {
       {
        "key": "osc2.blade1.on",
        "live": null,
+       "override": null,
        "widget": "toggle"
       },
       {
        "key": "osc2.blade1.mode",
        "live": null,
+       "override": null,
        "widget": "select"
       },
       {
        "key": "osc2.blade1.wave",
        "live": null,
+       "override": null,
        "widget": "select"
       },
       {
        "key": "osc2.blade1.shape",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade1.cutIn",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc2.blade1.cut",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade1.cutHz",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade1.position",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade1.width",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade1.edges",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade1.depth",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade1.mirror",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc2.blade1.frame",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc2.blade1.rotate",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade1.rotation",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc2.blade1.fmType",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc2.blade1.modShape",
        "live": null,
+       "override": null,
        "widget": "select"
       },
       {
        "key": "osc2.blade1.fmDepth",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade1.modIn",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc2.blade1.modRate",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade1.modRateHz",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade1.positionSpread",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade1.cutSpread",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade1.cutRule",
        "live": null,
+       "override": null,
        "widget": "select"
       },
       {
        "key": "osc2.blade1.ruleDepth",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade1.widthSpread",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade1.depthSpread",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade1.shapeSpread",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade1.fmIndexSpread",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade1.rotateSpread",
        "live": null,
+       "override": null,
        "widget": "knob"
       }
      ],
@@ -1075,161 +1274,193 @@ window.GUI3_DATA = {
       {
        "key": "osc2.blade2.on",
        "live": null,
+       "override": null,
        "widget": "toggle"
       },
       {
        "key": "osc2.blade2.mode",
        "live": null,
+       "override": null,
        "widget": "select"
       },
       {
        "key": "osc2.blade2.wave",
        "live": null,
+       "override": null,
        "widget": "select"
       },
       {
        "key": "osc2.blade2.shape",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade2.cutIn",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc2.blade2.cut",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade2.cutHz",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade2.position",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade2.width",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade2.edges",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade2.depth",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade2.mirror",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc2.blade2.frame",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc2.blade2.rotate",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade2.rotation",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc2.blade2.fmType",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc2.blade2.modShape",
        "live": null,
+       "override": null,
        "widget": "select"
       },
       {
        "key": "osc2.blade2.fmDepth",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade2.modIn",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc2.blade2.modRate",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade2.modRateHz",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade2.positionSpread",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade2.cutSpread",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade2.cutRule",
        "live": null,
+       "override": null,
        "widget": "select"
       },
       {
        "key": "osc2.blade2.ruleDepth",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade2.widthSpread",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade2.depthSpread",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade2.shapeSpread",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade2.fmIndexSpread",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade2.rotateSpread",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "osc2.blade2.fmSource",
        "live": null,
+       "override": null,
        "widget": "pills"
       },
       {
        "key": "osc2.blade2.spreadSource",
        "live": null,
+       "override": null,
        "widget": "pills"
       }
      ],
@@ -1240,6 +1471,7 @@ window.GUI3_DATA = {
    "id": "osc2",
    "label": "Osc 2",
    "note": "Draft: as Osc 1.",
+   "panel": null,
    "status": "draft"
   },
   {
@@ -1250,6 +1482,7 @@ window.GUI3_DATA = {
       {
        "key": "sub.on",
        "live": null,
+       "override": null,
        "widget": "toggle"
       },
       {
@@ -1260,6 +1493,7 @@ window.GUI3_DATA = {
         ],
         "key": "sub.on"
        },
+       "override": null,
        "widget": "knob"
       },
       {
@@ -1270,6 +1504,7 @@ window.GUI3_DATA = {
         ],
         "key": "sub.on"
        },
+       "override": null,
        "widget": "pills"
       },
       {
@@ -1280,6 +1515,7 @@ window.GUI3_DATA = {
         ],
         "key": "sub.on"
        },
+       "override": null,
        "widget": "knob"
       },
       {
@@ -1290,6 +1526,7 @@ window.GUI3_DATA = {
         ],
         "key": "sub.on"
        },
+       "override": null,
        "widget": "toggle"
       },
       {
@@ -1300,6 +1537,7 @@ window.GUI3_DATA = {
         ],
         "key": "sub.on"
        },
+       "override": null,
        "widget": "toggle"
       }
      ],
@@ -1316,6 +1554,7 @@ window.GUI3_DATA = {
         ],
         "key": "sub.on"
        },
+       "override": "The shape is the sub's first choice (SN-2) and its seven options fit one card: all of them in view beats a drop-down. The rule gives a drop-down from six options up.",
        "widget": "pills"
       },
       {
@@ -1336,6 +1575,7 @@ window.GUI3_DATA = {
          }
         ]
        },
+       "override": null,
        "widget": "knob"
       },
       {
@@ -1356,6 +1596,7 @@ window.GUI3_DATA = {
          }
         ]
        },
+       "override": null,
        "widget": "knob"
       },
       {
@@ -1376,6 +1617,7 @@ window.GUI3_DATA = {
          }
         ]
        },
+       "override": null,
        "widget": "select"
       },
       {
@@ -1396,6 +1638,7 @@ window.GUI3_DATA = {
          }
         ]
        },
+       "override": null,
        "widget": "knob"
       },
       {
@@ -1416,6 +1659,7 @@ window.GUI3_DATA = {
          }
         ]
        },
+       "override": null,
        "widget": "knob"
       },
       {
@@ -1436,6 +1680,7 @@ window.GUI3_DATA = {
          }
         ]
        },
+       "override": null,
        "widget": "select"
       },
       {
@@ -1456,6 +1701,7 @@ window.GUI3_DATA = {
          }
         ]
        },
+       "override": null,
        "widget": "knob"
       },
       {
@@ -1476,6 +1722,7 @@ window.GUI3_DATA = {
          }
         ]
        },
+       "override": null,
        "widget": "knob"
       }
      ],
@@ -1492,6 +1739,7 @@ window.GUI3_DATA = {
         ],
         "key": "sub.on"
        },
+       "override": null,
        "widget": "pills"
       },
       {
@@ -1502,6 +1750,7 @@ window.GUI3_DATA = {
         ],
         "key": "sub.on"
        },
+       "override": null,
        "widget": "select"
       },
       {
@@ -1512,6 +1761,7 @@ window.GUI3_DATA = {
         ],
         "key": "sub.on"
        },
+       "override": null,
        "widget": "knob"
       },
       {
@@ -1522,6 +1772,7 @@ window.GUI3_DATA = {
         ],
         "key": "sub.on"
        },
+       "override": null,
        "widget": "knob"
       },
       {
@@ -1532,6 +1783,7 @@ window.GUI3_DATA = {
         ],
         "key": "sub.on"
        },
+       "override": null,
        "widget": "toggle"
       },
       {
@@ -1542,6 +1794,7 @@ window.GUI3_DATA = {
         ],
         "key": "sub.on"
        },
+       "override": null,
        "widget": "knob"
       }
      ],
@@ -1558,6 +1811,7 @@ window.GUI3_DATA = {
         ],
         "key": "sub.on"
        },
+       "override": null,
        "widget": "pills"
       },
       {
@@ -1578,6 +1832,7 @@ window.GUI3_DATA = {
          }
         ]
        },
+       "override": null,
        "widget": "pills"
       }
      ],
@@ -1594,6 +1849,7 @@ window.GUI3_DATA = {
         ],
         "key": "sub.on"
        },
+       "override": null,
        "widget": "pills"
       },
       {
@@ -1604,6 +1860,7 @@ window.GUI3_DATA = {
         ],
         "key": "sub.on"
        },
+       "override": null,
        "widget": "knob"
       },
       {
@@ -1614,6 +1871,7 @@ window.GUI3_DATA = {
         ],
         "key": "sub.on"
        },
+       "override": null,
        "widget": "knob"
       },
       {
@@ -1624,6 +1882,7 @@ window.GUI3_DATA = {
         ],
         "key": "sub.on"
        },
+       "override": null,
        "widget": "knob"
       },
       {
@@ -1642,6 +1901,7 @@ window.GUI3_DATA = {
          }
         ]
        },
+       "override": null,
        "widget": "pills"
       },
       {
@@ -1652,6 +1912,7 @@ window.GUI3_DATA = {
         ],
         "key": "sub.on"
        },
+       "override": null,
        "widget": "knob"
       }
      ],
@@ -1662,6 +1923,7 @@ window.GUI3_DATA = {
    "id": "sub",
    "label": "Sub",
    "note": "The sub, in its chain's reading order: the source's switch and its output, then shape, pitch, voice, and the colour stage (order, erode, drive, crunch, character, tone).",
+   "panel": null,
    "status": "designed"
   },
   {
@@ -1672,6 +1934,7 @@ window.GUI3_DATA = {
       {
        "key": "noise.on",
        "live": null,
+       "override": null,
        "widget": "toggle"
       },
       {
@@ -1682,6 +1945,7 @@ window.GUI3_DATA = {
         ],
         "key": "noise.on"
        },
+       "override": null,
        "widget": "knob"
       },
       {
@@ -1692,6 +1956,7 @@ window.GUI3_DATA = {
         ],
         "key": "noise.on"
        },
+       "override": null,
        "widget": "pills"
       },
       {
@@ -1702,6 +1967,7 @@ window.GUI3_DATA = {
         ],
         "key": "noise.on"
        },
+       "override": null,
        "widget": "toggle"
       },
       {
@@ -1712,6 +1978,7 @@ window.GUI3_DATA = {
         ],
         "key": "noise.on"
        },
+       "override": null,
        "widget": "toggle"
       }
      ],
@@ -1746,6 +2013,7 @@ window.GUI3_DATA = {
          }
         ]
        },
+       "override": null,
        "widget": "pills"
       },
       {
@@ -1784,6 +2052,7 @@ window.GUI3_DATA = {
          }
         ]
        },
+       "override": null,
        "widget": "knob"
       },
       {
@@ -1822,6 +2091,7 @@ window.GUI3_DATA = {
          }
         ]
        },
+       "override": null,
        "widget": "knob"
       },
       {
@@ -1860,6 +2130,7 @@ window.GUI3_DATA = {
          }
         ]
        },
+       "override": null,
        "widget": "select"
       },
       {
@@ -1898,6 +2169,7 @@ window.GUI3_DATA = {
          }
         ]
        },
+       "override": null,
        "widget": "toggle"
       },
       {
@@ -1926,6 +2198,7 @@ window.GUI3_DATA = {
          }
         ]
        },
+       "override": null,
        "widget": "knob"
       },
       {
@@ -1988,6 +2261,7 @@ window.GUI3_DATA = {
          }
         ]
        },
+       "override": null,
        "widget": "knob"
       }
      ],
@@ -2022,6 +2296,7 @@ window.GUI3_DATA = {
          }
         ]
        },
+       "override": null,
        "widget": "toggle"
       },
       {
@@ -2060,6 +2335,7 @@ window.GUI3_DATA = {
          }
         ]
        },
+       "override": null,
        "widget": "knob"
       }
      ],
@@ -2094,6 +2370,7 @@ window.GUI3_DATA = {
          }
         ]
        },
+       "override": null,
        "widget": "toggle"
       },
       {
@@ -2132,6 +2409,7 @@ window.GUI3_DATA = {
          }
         ]
        },
+       "override": null,
        "widget": "knob"
       }
      ],
@@ -2166,6 +2444,7 @@ window.GUI3_DATA = {
          }
         ]
        },
+       "override": null,
        "widget": "toggle"
       },
       {
@@ -2204,6 +2483,7 @@ window.GUI3_DATA = {
          }
         ]
        },
+       "override": null,
        "widget": "knob"
       }
      ],
@@ -2238,6 +2518,7 @@ window.GUI3_DATA = {
          }
         ]
        },
+       "override": null,
        "widget": "pills"
       },
       {
@@ -2276,6 +2557,7 @@ window.GUI3_DATA = {
          }
         ]
        },
+       "override": null,
        "widget": "knob"
       },
       {
@@ -2314,6 +2596,7 @@ window.GUI3_DATA = {
          }
         ]
        },
+       "override": null,
        "widget": "knob"
       },
       {
@@ -2352,6 +2635,7 @@ window.GUI3_DATA = {
          }
         ]
        },
+       "override": null,
        "widget": "knob"
       }
      ],
@@ -2368,6 +2652,7 @@ window.GUI3_DATA = {
         ],
         "key": "noise.on"
        },
+       "override": null,
        "widget": "knob"
       },
       {
@@ -2378,6 +2663,7 @@ window.GUI3_DATA = {
         ],
         "key": "noise.on"
        },
+       "override": null,
        "widget": "knob"
       }
      ],
@@ -2388,6 +2674,7 @@ window.GUI3_DATA = {
    "id": "noise",
    "label": "Noise",
    "note": "The noise, in its chain's reading order: source and colour, then the three optional stages in their fixed series order (Resonator, Whisper, Wind), the noise's own filter, and the stereo stage.",
+   "panel": null,
    "status": "designed"
   },
   {
@@ -2396,6 +2683,7 @@ window.GUI3_DATA = {
    "id": "filters",
    "label": "Filters",
    "note": "No engine parameters: the filters are a reserved contract (SPEC-ENGINE RC-1, IF-5), outside the engine's manifest. Weir's filters join this page at B581 step 2.",
+   "panel": null,
    "status": "empty"
   },
   {
@@ -2406,51 +2694,61 @@ window.GUI3_DATA = {
       {
        "key": "env2.attack",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "env2.hold",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "env2.decay",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "env2.sustain",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "env2.release",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "env2.attackCurve",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "env2.decayCurve",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "env2.releaseCurve",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "env2.velocity",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "env2.oneShot",
        "live": null,
+       "override": null,
        "widget": "toggle"
       }
      ],
@@ -2462,51 +2760,61 @@ window.GUI3_DATA = {
       {
        "key": "env3.attack",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "env3.hold",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "env3.decay",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "env3.sustain",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "env3.release",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "env3.attackCurve",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "env3.decayCurve",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "env3.releaseCurve",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "env3.velocity",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "env3.oneShot",
        "live": null,
+       "override": null,
        "widget": "toggle"
       }
      ],
@@ -2518,51 +2826,61 @@ window.GUI3_DATA = {
       {
        "key": "env4.attack",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "env4.hold",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "env4.decay",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "env4.sustain",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "env4.release",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "env4.attackCurve",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "env4.decayCurve",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "env4.releaseCurve",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "env4.velocity",
        "live": null,
+       "override": null,
        "widget": "knob"
       },
       {
        "key": "env4.oneShot",
        "live": null,
+       "override": null,
        "widget": "toggle"
       }
      ],
@@ -2573,6 +2891,7 @@ window.GUI3_DATA = {
    "id": "mod",
    "label": "Mod",
    "note": "Draft: ENV 2 to ENV 4 are the engine's (5.2, RC-4). The LFOs, the matrix and the routes are the device's (RC-4 deferred); the mod map's design is B581 step 1.",
+   "panel": null,
    "status": "draft"
   },
   {
@@ -2580,7 +2899,8 @@ window.GUI3_DATA = {
    "groups": [],
    "id": "morph",
    "label": "Morph",
-   "note": "No engine parameters: the morph position and the corners are the morph system's own state (RC-11.1); they reach the engine only as parameter values. The docked pad drives it from every page; the Morph page's design is B581 step 3.",
+   "note": "No engine parameters: the morph position and the corners are the morph system's own state (RC-11.1); they reach the engine only as parameter values. This page holds ADR-319 item 1's controls: the corner audible while morph is off, saving the current sound to a snapshot, and saving each corner's preset. The rest of the Morph page's design is B581 step 3.",
+   "panel": "morph",
    "status": "empty"
   },
   {
@@ -2591,26 +2911,31 @@ window.GUI3_DATA = {
       {
        "key": "mix.osc1",
        "live": null,
+       "override": null,
        "widget": "vslider"
       },
       {
        "key": "mix.osc2",
        "live": null,
+       "override": null,
        "widget": "vslider"
       },
       {
        "key": "mix.sub",
        "live": null,
+       "override": null,
        "widget": "vslider"
       },
       {
        "key": "mix.noise",
        "live": null,
+       "override": null,
        "widget": "vslider"
       },
       {
        "key": "out.level",
        "live": null,
+       "override": null,
        "widget": "vslider"
       }
      ],
@@ -2622,21 +2947,25 @@ window.GUI3_DATA = {
       {
        "key": "osc1.on",
        "live": null,
+       "override": null,
        "widget": "toggle"
       },
       {
        "key": "osc2.on",
        "live": null,
+       "override": null,
        "widget": "toggle"
       },
       {
        "key": "sub.on",
        "live": null,
+       "override": null,
        "widget": "toggle"
       },
       {
        "key": "noise.on",
        "live": null,
+       "override": null,
        "widget": "toggle"
       }
      ],
@@ -2648,41 +2977,49 @@ window.GUI3_DATA = {
       {
        "key": "osc1.mute",
        "live": null,
+       "override": null,
        "widget": "toggle"
       },
       {
        "key": "osc1.solo",
        "live": null,
+       "override": null,
        "widget": "toggle"
       },
       {
        "key": "osc2.mute",
        "live": null,
+       "override": null,
        "widget": "toggle"
       },
       {
        "key": "osc2.solo",
        "live": null,
+       "override": null,
        "widget": "toggle"
       },
       {
        "key": "sub.mute",
        "live": null,
+       "override": null,
        "widget": "toggle"
       },
       {
        "key": "sub.solo",
        "live": null,
+       "override": null,
        "widget": "toggle"
       },
       {
        "key": "noise.mute",
        "live": null,
+       "override": null,
        "widget": "toggle"
       },
       {
        "key": "noise.solo",
        "live": null,
+       "override": null,
        "widget": "toggle"
       }
      ],
@@ -2693,6 +3030,7 @@ window.GUI3_DATA = {
    "id": "mix",
    "label": "Mix",
    "note": "Draft: the mixer page's design is B581 step 4.",
+   "panel": null,
    "status": "draft"
   },
   {
@@ -2701,6 +3039,7 @@ window.GUI3_DATA = {
    "id": "fx",
    "label": "FX",
    "note": "No engine parameters: the FX rack is a reserved contract (RC-5, IF-7), the device's. Its pages come from this shell too (ADR-316, ADR-254).",
+   "panel": null,
    "status": "empty"
   },
   {
@@ -2709,6 +3048,7 @@ window.GUI3_DATA = {
    "id": "random",
    "label": "Random",
    "note": "No engine parameters: the Random page is the device's (B578's workshop lab runs alongside, ADR-312).",
+   "panel": null,
    "status": "empty"
   },
   {
@@ -2719,11 +3059,13 @@ window.GUI3_DATA = {
       {
        "key": "voice.polyphony",
        "live": null,
+       "override": null,
        "widget": "select"
       },
       {
        "key": "quality",
        "live": null,
+       "override": null,
        "widget": "pills"
       }
      ],
@@ -2734,6 +3076,7 @@ window.GUI3_DATA = {
    "id": "settings",
    "label": "Settings",
    "note": "Draft: the two Device-class rows that are settings, not sound parameters (5.2).",
+   "panel": null,
    "status": "draft"
   }
  ],
