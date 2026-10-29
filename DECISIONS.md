@@ -10184,3 +10184,26 @@ Both frames were captured from a local preview.
 
 **Consequences.** GUI 3's slice 2 stands as built. The Random page's 1.0 set (B578) adds the three items. Arp randomization needs Arp's parameters in the one table (B586) and a brief to Arp about whether it declares its own randomize. **FX device (ADR-254):** items 1 and 2 apply to its corners. Item 3 has none, since the FX device has no voices, pitch or arp.
 
+## ADR-322 — RULED by the human: the Random page folds into the Morph page; a level copies between corners; the bottom modulator bank is designed in the GUI 3 shell (B578, B584, B556; 2026-10-29)
+
+**Context.** The human, 2026-10-29: "I think there should also be a way on the random page to copy a level's settings from one corner to another independently. This also makes me think maybe the random page should be part of the morph page." On the modulator bank, they added: "I want there to be a toggleable minimal visual bank of active modulators (modulators currently targeting a parameter) that can be scrolled through horizontally at the bottom of each page, each with a critical selection of controls. A + button allows you to activate another mod, but it reverts if you close the GUI without mapping it to anything. From this menu, there should be a draggable map icon on each mod as in Serum which you can drag to any parameter. Maybe the toggle flips between macros and automated modulators." ADR-291 item 2 (B556) had already ruled a per-page modulator bank, read from the mod matrix's routes.
+
+**Rulings (the human, 2026-10-29).**
+1. **Copy a level between corners** (the human's words). On the Random panel, each level's settings can be copied from one corner to another, independently of the other levels. Architecture and parameters copy separately.
+2. **One Morph page** (by poll, "Yes, one Morph page"):
+   - The Morph page holds the pad, the corners, snapshots and sets, the morph laws, and a Randomize panel (levels, chaos and amount, locks, randomization presets).
+   - There is one corner-and-snapshot UI, not two. The Random tab goes; a shortcut may still jump to the panel.
+   - The Random lab stays a research bench (ADR-316).
+3. **The bottom modulator bank is built in the GUI 3 shell** (by poll, "In the GUI 3 shell"). This is B556's design:
+   - a strip at the bottom of every page, which can be toggled, scrolling horizontally, listing the modulators that target a parameter on that page (read from the routes);
+   - each modulator shows a few critical controls;
+   - a + button adds a modulator, which is discarded if the interface closes before it is mapped to anything;
+   - each modulator has a draggable map handle that maps it to any parameter it is dropped on.
+4. **The bank's toggle** (by poll, "Try both in the lab"): the shell offers both (a switch between modulators and macros, and a plain show/hide), and the human rules after playing it.
+
+**Consequences.**
+- ADR-312's "Random page" is now the Morph page's Randomize panel. ADR-318, ADR-320 and ADR-321 apply to it unchanged.
+- GUI 3's next slice builds item 3, item 4, and the fold of item 2 (the Random tab removed, a Randomize panel placeholder on the Morph page).
+- The Random lab's next round builds item 1.
+- **FX device (ADR-254):** the same, on the FX device's Morph page and pages: copy a level between corners; one Morph page; the bank with its FX modulators and macros.
+
