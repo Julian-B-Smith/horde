@@ -2,13 +2,14 @@
 
 *horde lab agent, 2026-10-29. Lab: [`random-lab.html`](random-lab.html). For the human to rule what a basic Random page in 1.0 contains.*
 
-**What this report can and cannot claim.** Every number below was **measured** by the lab's own functions, run headless in Node. The renderer is the one the page plays (one second of the "chord stabs" phrase at 44.1 kHz, monitor 0.7), over seeds 1–60. Nothing here is **guaranteed**: the self-checks C1–C11 are what the lab guarantees, and each of them has a must-fail control. Nobody has listened yet. "Loudness change" means RMS only, so a change of timbre at equal level reads as 0 dB. The synthesis is a stand-in, not horde's engine. Your ears on the lab are the gate this report cannot pass for you.
+**What this report can and cannot claim.** Every number below was **measured** by the lab's own functions, run headless in Node. The renderer is the one the page plays (one second of the "chord stabs" phrase at 44.1 kHz, monitor 0.7), over seeds 1–60. Nothing here is **guaranteed**: the self-checks C1–C14 are what the lab guarantees, and each of them has a must-fail control. Nobody has listened yet. "Loudness change" means RMS only, so a change of timbre at equal level reads as 0 dB. The synthesis is a stand-in, not horde's engine. Your ears on the lab are the gate this report cannot pass for you.
 
 ## 1. How to use the lab
 
 Press **PLAY** (no sound before that click). Peaks are held at −6 dBFS, and the guard readout says when it holds.
 
 - **LEVELS** (left): each row has **ARCH** (randomize architecture) and **PARAMS** (randomize parameters). Both act on the **selected corner**, which is the quadrant the puck is in.
+  - **S** (solo) and **M** (mute) sit on the four source rows: OSC 1, OSC 2, SUB and NOISE. They let you hear what one source contributes while you randomize it. Below the levels, the source meters show each source's RMS. See §4a.
 - **XY PERFORMANCE GRID** (middle): four corners A–D, each bound to a snapshot. Buttons: **randomize patch**, **randomize all four**, **save snapshot**, **revert**. There is a lock and a revert per corner. In the snapshot list, A–D buttons affix a snapshot to a corner, and ★ marks the patch home.
 - **BOUNDS** (right):
   - the **HOME ↔ CHAOS** knob;
@@ -41,12 +42,27 @@ The full text is in the lab's header comment.
 
 - **Counter-based draws.** Every random number comes from mulberry32, seeded by a hash of (seed, click, corner, key, draw index). A key's draw never depends on its position or on how many keys exist. This is ADR-186 §5(g) / B308 H3, and C2 shows it against a positional control.
 - **The bell.** A truncated normal around home, in the parameter's own taper, cut to its bounds, drawn from one uniform by inverse CDF. Its width is σ(c) = 4·c·50^(c−1) (see finding 3).
-- **Amount.** Every key draws a threshold on every click and changes only where the threshold is below AMOUNT. Turning AMOUNT up after a click only adds keys, with the same values (C3). This copies the behaviour of Sluice's and Shriek's Randomness, not their code. CHAOS, AMOUNT, bounds, dice and locks all stay live on the last click.
+- **Amount.** Every key draws a threshold on every click and changes only where the threshold is below AMOUNT. At the same seed and click, a higher AMOUNT changes a superset of the keys, with the same values (C3). This copies the behaviour of Sluice's randomiser, not its code.
+- **Bounds are for the next draw only** (ruled 2026-10-29; see §3a). CHAOS, AMOUNT, the per-group scales, the per-key bounds, the dice, the locks and the home choice shape the next click. They never change the current sound or any corner's values (C14).
 - **Structure.**
   - An unordered choice keeps home with probability 1 − c; otherwise it draws by taste weight over the lit values.
   - An ordered choice (unison, octave, delay time) is a bell in index space.
 - **Morph.** Numbers blend in their taper. Structure flips at the dominant corner. A slot's amount blends only between corners that hold the same route.
 - **Dependencies.** A parameter that can't be heard is not drawn, and a rule only routes to a live destination. This is B316's dependency tree in miniature.
+
+## 3a. The clarified rule: bounds set the next draw, never the current sound (2026-10-29)
+
+The human, playing the first round: "I'm a little confused by the chaos slider. At the moment it seems to dynamically change the actual character of the sounds; I assumed it just set the bounds on patch or parameter randomization."
+
+The first round re-applied the last click whenever a bound moved, as Shriek's Randomness knob does. That made CHAOS and AMOUNT behave like sound controls. **The rule now** (relayed by the lead, 2026-10-29):
+- CHAOS, AMOUNT, the per-group scales and the per-key bounds are **bounds for the next draw only**. Moving them never changes the current sound or the current corner's values.
+- The lab applies the same rule to the dice, the locks and the home choice. They are bounds of the same kind, and a lock that silently reverted a value would be the same surprise.
+- The bell-curve view still updates live, to show the bounds the next draw will use.
+- Live re-application of the last draw is **removed**, not offered as a toggle. It is listed as a post-1.0 idea (§5).
+- **C14** moves CHAOS 0 → 1 → 0, then AMOUNT, a group scale, a key bound, the home choice, a lock and a die. The fingerprint is unchanged after each of the 10 moves. Its control is a stand-in that re-applies the last draw on a bound change; that moves the fingerprint, so it fails as it must.
+- A headless Chrome run confirms it: dragging the knob and the sliders left both the fingerprint and the heard patch unchanged, the distribution view showed the new bounds, and the next click drew within them.
+
+**Consequence for the chaos curve (Q9).** CHAOS can no longer be judged by sweeping it over one sound. It is tuned by ear **at the next draw only**: set CHAOS, click, listen, and repeat.
 
 ## 4. Each level: what it does and what playing it showed
 
@@ -113,7 +129,34 @@ Randomize patch: a new structure and one sound on all four corners.
    - With **selected corner** only (horde's per-corner patches, ADR-188), a mean of 37.3 differed. The pad then flips most of the patch at its centre lines.
    - The lab offers both. My recommendation is in Q3.
 7. **"Walk" drifts.** After 10 voice PARAMS clicks, the mean distance from home was 0.107 of the range with home = current (walk), and 0.052 with home = the corner's snapshot. Anchoring is what makes the bell meaningful; walk is an explorer's mode.
-8. **Live re-application of the last click works for every knob.** CHAOS, AMOUNT, bounds, dice, locks and the home choice all re-apply the last click's draws, because each key's uniforms are stored with the click. So locking a parameter *after* a click puts it back. This is a property that only exists because the draws are counter-based and stored.
+8. **Live re-application of the last click worked, and was removed by ruling** (§3a). In the first round, CHAOS, AMOUNT, bounds, dice, locks and the home choice all re-applied the last click's draws, because each key's uniforms were stored with the click. The human found that confusing: CHAOS read as a sound control. Bounds now act on the next draw only (C14). The counter-based draw still makes a later version of the idea possible (post-1.0).
+
+## 4a. Solo and mute on the voice sources (added 2026-10-29, at the human's request)
+
+The human asked: "Can we also add 'solo' controls to the voice section so you can hear what each is contributing when you randomize individually?" OSC 1, OSC 2, SUB and NOISE each carry **S** and **M**. They follow SPEC-ENGINE IF-6, as the engine's own `mute` and `solo` rows do (§5.3, §5.5–5.6):
+- a muted source is silent;
+- while any source is soloed, every source that is not soloed is silent;
+- a soloed source that is also muted is silent;
+- the gate sits on the source, before the filters (IF-6's meter tap: after level, pan and gate);
+- a gated source keeps rendering, so un-muting is phase-continuous.
+
+**Display.** A source silenced by another source's solo shows its M dimmed and hatched, and its row dims. This is distinct from its own mute, which is lit. That is the legacy mixer's convention.
+
+**The ramp follows IF-6, not the legacy mixer.** The gate moves by **5 ms with a raised-cosine shape**, as SPEC-ENGINE's fade list (ADR-239) and its ramp table require of IF-6's gate. The brief allowed the legacy mixer's 8 ms or PA-1's smoother, but asked for IF-6 exactly, and IF-6 names 5 ms.
+
+**Monitoring state, not patch content.** Solo and mute:
+- are never randomized;
+- are never stored in a corner or snapshot;
+- are never logged;
+- are listed under OUTPUT as always locked.
+
+The engine gives `mute` and `solo` class `D` (Device: outside the morph), and the rack-slot contract never draws a Device-class key (RS-4.5), so all three agree. The headless Chrome run confirmed it: soloing and muting added nothing to the action log, a randomize left them as they were, and no corner holds a solo or mute key.
+
+**Checks.**
+- **C12.** With OSC 1 soloed on a patch whose four sources are all on, the per-source meter taps read OSC 1 at −5.1 dBFS and the other three at −∞. The output equals a render of OSC 1 alone, with a max |Δ| of 0. The must-fail control applies solo *after the mix*, as one gain on the whole bus. It reads −5.1, −5.5, −10.0 and −18.5 dBFS and differs by 0.33, so it fails as it must.
+- **C13.** A muted OSC 1 meters zero, and its phases match an unmuted render's exactly: it keeps running. The gate's largest step is 0.00711 ≤ π/(2·221), at 221 samples = 5 ms, and it settles at 0. Solo plus mute is silent. The control, an instant gate, steps by 1.00.
+
+**Recommendation: solo and mute on each voice source belong in the basic 1.0 Random page.** The engine already provides them (IF-6), so the page only shows them. They make per-module randomizing audible.
 
 ## 5. Proposed basic 1.0 set, and what comes after
 
@@ -121,18 +164,19 @@ Randomize patch: a new structure and one sound on all four corners.
 1. **Randomize patch** and **randomize parameters** for the global patch, with a corner target (the selected corner), plus **randomize all four**, **revert** and **save snapshot**, on horde's own morph corners (see Q1).
 2. **Per-module ARCH and PARAMS** buttons for the voice parts (OSC 1, OSC 2, SUB, NOISE, FILTERS, ENV, LFO), with **ARCH must change** on (finding 1).
 3. **FX routing ARCH and PARAMS**, and each hosted FX module's randomize **passed through** where the module has its own (Shriek, Sluice), else drawn from its manifest (see §6, rack).
-4. **One CHAOS knob** (the bell) and **one AMOUNT** slider, both live on the last click. Home is the corner's snapshot, with no mode switch.
+4. **One CHAOS knob** (the bell) and **one AMOUNT** slider, both **bounds for the next draw only** (§3a): moving them never changes the current sound. Home is the corner's snapshot, with no mode switch.
 5. **Locks**: per group and per parameter, plus the existing per-corner lock (ADR-262). OUTPUT is always locked.
 6. **Mod mappings** by **one fixed built-in ruleset** ("Common": filter envelope, pitch envelope, filter LFO, vibrato, velocity, key tracking) and per-slot locks. No ruleset editor yet.
 7. **Seeded and visible**: the seed and click shown, and a randomize as one history step.
 8. **Level matching after a draw**, and the dependency tree, so nothing inaudible is drawn and no inaudible route is made.
+9. **Solo and mute** on OSC 1, OSC 2, SUB and NOISE (§4a): IF-6's own gates, as monitoring state that is never drawn or stored.
 
 **After 1.0**:
 - the ruleset editor, custom rules, and saved ruleset presets;
 - per-group chaos and amount scales, per-parameter bounds, and the distribution view;
 - dice per structural choice;
 - the "home is patch / walk" modes;
-- live re-application of the last click on bounds, dice and locks (1.0 keeps it for CHAOS and AMOUNT only);
+- sweeping bounds live after a click: re-applying the last draw when a bound moves. This is an idea only. It was removed by the 2026-10-29 ruling (§3a), is not offered as a toggle, and would need its own ruling;
 - the Random page on the FX device (ADR-312's FX half).
 
 ## 6. What horde needs from each part
@@ -143,7 +187,7 @@ Randomize patch: a new structure and one sound on all four corners.
   - The draw needs (seed, click) saved with the patch, so a sound heard can be traced.
 - **Morph (`morph`).**
   - The dominant-corner flip for structure; a route's amount blending only when the route matches; the corner lock (ADR-262).
-  - The **counter-based draw ADR (B308 H3)** is a prerequisite: the lab's live re-application and its lock-after-the-fact property depend on it.
+  - The **counter-based draw ADR (B308 H3)** is a prerequisite: replay, position-free locks (C2) and nested amounts (C3) depend on it. So would any post-1.0 live sweep.
 - **Mod matrix (`modmatrix`).** Slot locks; a "rule" tag per route, so PARAMS can re-draw amounts inside the route's range; destination liveness from the dependency tree; a source-shaping write into ENV and LFO parameters, made by the same action.
 - **The rack and its slot contract (`rack`, docs/proposals/rack-slot-contract.md).** The contract has **no randomize verbs today**. Its parameter classes already split the work:
   - **flip**-class keys are ARCH;
@@ -167,7 +211,7 @@ Randomize patch: a new structure and one sound on all four corners.
 6. **Q6. Should the ruleset draw be part of GLOBAL ARCH and randomize patch?** **Recommendation: yes,** drawn after the structure, as the lab does (finding 5: dependency).
 7. **Q7. Should a random patch be level-matched?** **Recommendation: yes, before 1.0** (finding 4: 27% hit the guard and 7% were near-silent at chaos 1). A measured make-up gain, not a guess.
 8. **Q8. Locks: per group and per parameter in 1.0, labelled a proposal until you rule?** **Recommendation: yes.** Sluice's randomiser exclusions show that players want them, and the lab shows they cost nothing once draws are counter-based (C2, C5).
-9. **Q9. The CHAOS curve.** σ is now 4·c·50^(c−1). Please listen at 0.1, 0.25, 0.5 and 0.75 on the arpeggio, and say where the knob first does something and where it stops adding. **Recommendation:** tune the curve from that listening (finding 3).
+9. **Q9. The CHAOS curve.** σ is now 4·c·50^(c−1). It is tuned by ear **at the next draw only** (§3a): at CHAOS 0.1, 0.25, 0.5 and 0.75, press PARAMS a few times on the arpeggio, and say where a click first does something audible and where higher CHAOS stops adding. **Recommendation:** tune the curve from that listening (finding 3).
 10. **Q10. Should the rack-slot contract gain the optional randomize verbs (§6)?** **Recommendation: yes,** filed as a proposal with the rack work, with Sluice and Shriek as the first declarers.
 
 ## 8. What the lab could not do well (grounded refusals)
@@ -190,7 +234,10 @@ Randomize patch: a new structure and one sound on all four corners.
   - C8 morph;
   - C9 snapshots, draft, revert and corner lock;
   - C10 every level × kind plays;
-  - C11 ARCH must change.
+  - C11 ARCH must change;
+  - C12 solo isolates a source (control: solo after the mix);
+  - C13 mute keeps the source running, and the 5 ms raised-cosine gate;
+  - C14 bounds are for the next draw only (control: a stand-in that re-applies the last draw).
 
   Each has a must-fail control.
 - **A headless Chrome run** clicked every level's ARCH and PARAMS and the grid, ruleset and lock buttons. It raised no error, and the replay matched (42 actions).

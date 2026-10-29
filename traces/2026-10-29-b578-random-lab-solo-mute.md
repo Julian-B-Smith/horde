@@ -1,0 +1,36 @@
+# b578-random-lab-solo-mute — solo and mute on the Random lab's voice sources
+
+- **Queue item:** B578 follow-up (PR #1258). The human asked: "Can we also add 'solo' controls to the voice section so you can hear what each is contributing when you randomize individually?" Relayed by the lead, 2026-10-29.
+- **Why:** to hear one source's contribution while randomizing it. The behaviour is SPEC-ENGINE IF-6, matching the engine's own `mute` and `solo` rows (§5.3, §5.5–5.6). This builds on `traces/2026-10-29-b578-random-lab.md`, which is not edited.
+- **What changed:**
+  - `docs/design/random-lab.html`, the engine:
+    - each source has a gate on its output, before the filters;
+    - the gate ramps by 5 ms on a raised cosine;
+    - a gated source keeps rendering;
+    - the gate is followed by IF-6's per-source meter tap (after level, pan and gate, times the amp envelope and velocity);
+    - `renderOffline` returns per-source RMS;
+    - a `soloPost` flag exists only as C12's must-fail control.
+  - `docs/design/random-lab.html`, the page:
+    - **S** and **M** on the OSC 1, OSC 2, SUB and NOISE rows;
+    - a source silenced by another's solo has its M hatched and its row dimmed, distinct from its own mute lit;
+    - live source meters while playing;
+    - eight MONITOR rows under OUTPUT, always locked.
+  - Solo and mute are UI state only: not in `S`, not in a corner, not logged.
+  - `docs/design/random-lab-report.md`: a new §4a, item 9 of the basic-1.0 set, and C12 and C13 added to the evidence.
+- **Evidence consulted:**
+  - `specs/SPEC-ENGINE.md` IF-6 (the gate rules, the 5 ms ramp);
+  - its fade list (ADR-239: IF-6's gate has the raised-cosine shape);
+  - its ramp table ("mute and solo … 0.005 s");
+  - the `mute` and `solo` rows (class D, outside the morph);
+  - PA-5 ("`mute` and `solo` follow IF-6");
+  - `docs/proposals/rack-slot-contract.md` RS-4.5 (Device-class keys are never in a corner).
+- **Alternatives rejected:**
+  - **The legacy mixer's 8 ms, or PA-1's smoother:** IF-6 and the ramp table name 5 ms, and the brief asked for IF-6 exactly.
+  - **Storing solo and mute as SPEC keys in the OUTPUT group:** that would put them in corners and snapshots. They are listed under OUTPUT for display only.
+- **Checks:**
+  - **C12 PASS.** Per-source RMS with OSC 1 soloed: −5.1, −∞, −∞, −∞ dBFS. The output equals OSC 1 alone, max |Δ| 0. The control, solo after the mix, reads −5.1, −5.5, −10.0, −18.5 with max |Δ| 3.31e-1, and fails as it must.
+  - **C13 PASS.** Phases are identical under mute. The gate's largest step is 0.00711 ≤ π/(2·221). Solo plus mute is silent. The control, an instant gate, steps by 1.00.
+  - **All 13 self-checks pass headless.**
+  - **Headless Chrome:** solo OSC 1 left OSC 2's M hatched and its row dimmed. Mute SUB lit. A randomize left solo and mute untouched, the log grew only by the randomize, no corner holds a solo or mute key, and PLAY gave the engine gate targets [1,0,0,0].
+- **Verify:** `./verify fast`, exit 0 (the record is in the report back to the lead; this trace is written before the run, so the run includes it).
+- **Open questions:** none beyond the report's. Nobody has listened to the solo ramps; IF-6's 5 ms is the spec's number, not a choice made here.

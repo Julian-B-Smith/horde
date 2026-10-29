@@ -1,0 +1,35 @@
+# b578-random-lab-bounds-next-draw — bounds set the next draw, never the current sound
+
+- **Queue item:** B578 follow-up, round 2. PR #1258 was merged; this lands on `lab-b578-random-2`, branched from origin/main at 0fd29e4, together with `traces/2026-10-29-b578-random-lab-solo-mute.md`.
+- **Why:** the human, playing the lab: "I'm a little confused by the chaos slider. At the moment it seems to dynamically change the actual character of the sounds; I assumed it just set the bounds on patch or parameter randomization." The rule relayed by the lead:
+  - CHAOS, AMOUNT, the per-group scales and the per-key bounds are bounds for the NEXT draw only;
+  - live re-application of the last draw is removed, not made a toggle.
+- **What changed:**
+  - `docs/design/random-lab.html`:
+    - `reapply()` and `S.lastRolls` are deleted. No `set`, `lockG`, `lockK`, `dice`, `home` or `ruleset` action changes a corner any more. I extended the rule from the four named bounds to dice, locks and the home choice, because they are bounds of the same kind; this is a lab choice, recorded in the report §3a.
+    - The distribution view still updates live.
+    - C3 is rewritten to show nesting across two draws at one (seed, click), since it can no longer sweep.
+    - New check **C14**: bounds never move the patch, with a re-applying stand-in as its control.
+    - The header comment and the BOUNDS note are updated.
+  - `docs/design/random-lab-report.md`:
+    - new §3a, the clarified rule;
+    - finding 8 revised;
+    - basic-1.0 item 4: bounds are for the next draw;
+    - the post-1.0 list: a live sweep is an idea only, not a toggle;
+    - §6 morph bullet revised;
+    - Q9: the chaos curve is tuned by ear at the next draw only;
+    - C14 added to the evidence.
+- **Evidence:**
+  - **C14 PASS:** 10 bound moves, fingerprint 48a7d8b2 throughout. The control, re-applying the last draw, goes b2d34c5c → 14d54156 → dbf3675d, and fails as it must.
+  - **C3 PASS:** 7 keys at amount 0.3 ⊂ 21 at 0.7, values kept. The control, a draw at the next click, does not keep them.
+  - **All 14 self-checks pass headless.**
+  - **Headless Chrome:**
+    - knob 0 → 1 → 0.2, AMOUNT 0.05 → 1, every group's chaos scale to 2, home to walk, a lock and a die: fingerprint 1b15d03c → 1b15d03c, heard patch unchanged;
+    - the distribution showed the new bounds (effective chaos 0.40);
+    - the next OSC 1 PARAMS click drew within them;
+    - replay ✓ (22 actions).
+- **Alternatives rejected:**
+  - **Keeping the live sweep behind a toggle:** the lead said not to offer it now.
+  - **Keeping it for locks only:** a lock that reverts a value after the fact is the same surprise.
+- **Verify:** `./verify fast`, exit 0 (the run's record is in the report back to the lead; this trace is written before the run, so the run includes it).
+- **Open questions:** the chaos curve needs the human's ears, one click at a time (Q9).

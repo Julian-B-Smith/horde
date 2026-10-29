@@ -10065,3 +10065,59 @@ Both frames were captured from a local preview.
 
 **Consequences.** The `desc` column becomes a 1.0 dependency of the info box. The manual needs an anchor per control. **FX device (ADR-254):** the same, on the FX device's pages and its modules' controls.
 
+## ADR-316 — RULED by the human: GUI 3 starts now, as one wired interface shell with no audio engine (amends B302's gate; B584; 2026-10-29)
+
+**Context.** The human, 2026-10-29: "We also haven't made the visual lab for the sub and noise osc pages. Would it make sense though to create a global interface lab (that uses the modules from the design doc so there isn't redundancy) which connects all the wires without running the audio engine through it?" B302 had gated GUI 3 until the labs in flight were ratified, to be assembled from them afterwards. Several page labs remain open and unbuilt: the sub and noise pages, the main and oscillator pages with the mod map and Weir's filters, morph, mixer and Random.
+
+**Ruling (the human, 2026-10-29, by poll):** "GUI 3's prototype, starting now".
+- B302's gate is amended: GUI 3 starts now, as one wired shell, and the remaining page labs become its pages, in B581's order, with the sub and noise pages first.
+- **Components** come from the design system's bundle only. Anything missing is added to the design system first, never drawn locally.
+- **Pages and controls are generated** from the engine's parameter table (SPEC-ENGINE §5), so a control cannot exist without its parameter.
+- **Behind the engine's real interface** (parameters, the morph position, mod routes, patch state and history, the observation view), a no-audio stub keeps state and answers. The WebAssembly engine (IF-10, built at stage 8) plugs into the same seam later, and the shell then plays.
+- The standalone labs (filters, Random, Scalpel and the rest) stay as research benches. A ruled decision moves into the shell, and no new standalone page labs are started.
+- B302's gates apply to the shell: `gen_gui_controls`, `gui_reach` and the rest.
+
+**Rejected:** a separate integration lab with B302 kept gated; only a sub and noise page lab.
+
+**Consequences.** B584 opens with the first slice. gui2 stays the shipping GUI of the legacy plugin until GUI 3 passes B302's gates. **FX device (ADR-254):** the FX device's pages come from the same shell and components (its FX pages and the docked morph pad), so it inherits GUI 3 rather than a GUI of its own.
+
+## ADR-317 — RULED by the human: when corners differ in architecture, the architecture follows the morph law too (B585; 2026-10-29)
+
+**Context.** The human, 2026-10-29: "When different corners have different architecture, I would like the parameters to follow the morph law (quantum, blend, quantized blend or whatever we're calling it)." Until now SPEC-ENGINE IF-4 has said "Morphable values blend; Structural values flip at the morph's seeded point (hysteresis band 0.1) and change on sounding voices by PA-5", whatever the morph law. So when corners differ in architecture (a blade's mode, a wave, a filter type, an FX order), part of the pad acts as a switch. The Random lab (B578) measured that: per-corner structure makes the pad a switch.
+
+**Ruling (the human, 2026-10-29, by poll):** "Architecture follows the law too".
+- **Blend:** a structural difference between corners crossfades. Both architectures run, and the sound fades between them across the pad, with an equal-gain law as RS-3.6.
+- **Quantum:** it flips at the quantum boundaries.
+- **The stepped hybrid (B424):** it steps.
+- A parameter's own morph mode (ADR-291 item 3, B557: Follow / Quantum / Exempt) still overrides it.
+
+**Rejected:** parameters follow while architecture flips at its seeded point (a clarification only); architecture flips at the quantum draw's boundaries under every law.
+
+**Consequences.**
+- **A spec change** to IF-4, with PA-5 and PF-4 affected. A voice runs two architectures through a blend region, and the CPU budget must hold.
+- It is designed before it is specified (B585): a proposal with options and costs, the human's rulings on its questions, a critic's review, then a spec round delivered to both clean-room repos the same day.
+- The bank stage continues on the current spec until that round lands.
+- **FX device (ADR-254):** the same, for FX-module structure that differs between corners. A hosted module's whole-patch switch is its declared `switch` (ADR-309); how it blends across the pad is one of B585's questions.
+
+## ADR-318 — RULED by the human: chaos sets the next draw's bounds only; randomization presets are full profiles, with a small role set in 1.0 (B578; amends ADR-312; 2026-10-29)
+
+**Context.** The human played the Random lab (B578, horde #1258) and said: "I'm a little confused by the chaos slider. At the moment it seems to dynamically change the actual character of the sounds; I assumed it just set the bounds on patch or parameter randomization." They added: "I think randomization rulesets should also be a kind of preset. That way you can pick factory presets like 'mono bass' or 'pad' or 'arp', or even greater levels of precision like 'trance saw', which will have been set to establish parameters around the randomness." They also asked for solo controls in the voice section ("so you can hear what each is contributing when you randomize individually"). Those are the sources' own `mute` and `solo` (SPEC-ENGINE IF-6), which already exist.
+
+**Rulings (the human, 2026-10-29).**
+1. **Chaos and amount set bounds, nothing else** (the human's own reading, stated as the rule). CHAOS, AMOUNT, the per-group scales and per-key bounds shape the NEXT draw only. Moving them never changes the current sound. The lab is corrected to this.
+2. **A randomization preset is a full randomization profile** (by poll, "A full randomization profile"). It holds everything that shapes the next draw:
+   - the mod-mapping rules;
+   - the architecture choices allowed (for a mono bass: sub on, one or two oscillators, low-pass filters, no long releases);
+   - each parameter's home and bounds;
+   - the chaos and amount settings;
+   - the locks.
+   It is saved and loaded like any preset.
+3. **1.0 ships a small factory set by role** (by poll, "A small role set in 1.0"): for example Mono bass, Pad, Pluck, Lead and Arp, plus "Common" and "Anything". Finer ones such as Trance saw come after 1.0. This amends ADR-312's basic 1.0, which had one fixed ruleset.
+
+**Rejected:** presets holding only mod rules and bounds, or only mod rules; the finer presets in 1.0; no presets until after 1.0.
+
+**Consequences.**
+- The Random page's 1.0 needs a preset format for randomization profiles, a browser for them, and the role set authored and auditioned by the human.
+- The solo and mute shown on the Random page are the engine's own (IF-6). They are monitoring state: never randomized, never in a corner's snapshot.
+- **FX device (ADR-254):** the FX device's Random page takes the same preset kind, with FX roles (for example, Space or Grit) in place of voice roles. Which roles is open.
+
