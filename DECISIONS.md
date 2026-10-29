@@ -10168,3 +10168,19 @@ Both frames were captured from a local preview.
 - How architecture blends on the pad follows B585 once ruled. Until then the lab plays Quantum and today's flip for architecture, and Blend for parameters.
 - **FX device (ADR-254):** 1 to 4 apply to its Random page; arps and pitch do not.
 
+## ADR-321 — RULED by the human: what "save preset to [corner]" means; an explicit save may write a frozen corner; exemptions, a minimal pitch ruleset and arp randomization are in the Random page's 1.0 (B584, B578; 2026-10-29)
+
+**Context.** GUI 3's slice 2 (horde #1267) built ADR-319's morph page on two readings it asked the human to confirm. The Random lab's round 3 (horde #1266) drafted three final-version items: arp randomization, exemptions, and a pitch ruleset. Their 1.0 scope was open (ADR-320 item 5).
+
+**Rulings (the human, 2026-10-29, by poll).**
+1. **"Save preset to [corner]"** is "Keep that corner as a named preset": the corner's own current values are saved under a name, to recall later. "Save current sound to snapshot" separately makes the heard sound become the selected corner.
+2. **"Yes, an explicit save may".** With morph off, edits never touch a frozen corner, but a deliberate save may write the heard sound into one.
+3. **The Random page's 1.0 gains three items** (ADR-318 amended):
+   - **Exemptions:** scale, root, the oscillators' octave and semitone offsets, master tune and the like are exempt by default, a lock that defaults on, so a random patch stays in the song's key.
+   - **A minimal pitch ruleset:** consonance-weighted intervals, and the two oscillators' interval drawn together. Scale-aware rules and per-role pitch profiles come after 1.0.
+   - **Arp randomization:** an ARP level with architecture and parameter randomizing over Arp's parameters, read from the one parameter table, passing through to Arp's own randomize if it declares one. This is against the lab's recommendation to leave it until after 1.0.
+
+**Rejected:** loading a library preset into a corner, or both controls; requiring morph on to save into B to D; arp randomization after 1.0.
+
+**Consequences.** GUI 3's slice 2 stands as built. The Random page's 1.0 set (B578) adds the three items. Arp randomization needs Arp's parameters in the one table (B586) and a brief to Arp about whether it declares its own randomize. **FX device (ADR-254):** items 1 and 2 apply to its corners. Item 3 has none, since the FX device has no voices, pitch or arp.
+
