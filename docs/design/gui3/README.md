@@ -1,6 +1,6 @@
 # GUI 3: the wired shell
 
-*Last verified 2026-10-30, branch `gui3-b584-slice6` (ROADMAP B584 slice 6, B593; ADR-261, ADR-316, ADR-319, ADR-322, ADR-329, ADR-330, ADR-333; B589), on slice 5.*
+*Last verified 2026-10-30, branch `gui3-b584-slice7` (ROADMAP B584 slice 7, B582; ADR-335; slice 6, B593; ADR-261, ADR-316, ADR-319, ADR-322, ADR-329, ADR-330, ADR-333; B589), on slice 5.*
 
 `docs/design/gui3.html` is GUI 3's prototype: one window with twelve pages (the Random page folded into the
 Morph page, ADR-322 item 2; a draft Arp page, ADR-330), every parameter that has a machine-readable
@@ -22,7 +22,8 @@ behind the same seam.
 | `vendor/*.json` | Verbatim, dated copies of the hosted FX modules' manifests (provenance below). Never edited; re-vendor. | copied |
 | `engine-stub.js` | The no-audio engine (`GUI3Engine.METHODS`, `GUI3Engine.Stub`), the morph resolver's stub (`ResolverStub`, IF-12's calls), the device side's stub (`DeviceSideStub`: the rack's modules, RC-5 and IF-7, and the MIDI module, Arp), and the synchronous transport over the three (`GUI3Engine.TRANSPORT`, `GUI3Engine.SyncTransport`). | hand |
 | `device.js` | The adapter the shell talks to: morph, corners and their presets, routes (and `syncRoutes`, which writes the map-mode session's working list into them), pending modulators and map drops, history, mirror and confirm. `GUI3Device.create(data, transport, {seed})`. | hand |
-| `shell-logic.js` | The three decisions of the shell that are not drawing, held apart so the seam check runs them: the page bar's groups (`navGroups`), an envelope section's readout (`followedSummary`) and the map-mode bridge between the design system's session and the device (`attachMap`). `GUI3Shell`. | hand |
+| `shell-logic.js` | The decisions of the shell that are not drawing, held apart so the seam check runs them: the page bar's groups (`navGroups`), an envelope section's readout (`followedSummary`), the map-mode bridge between the design system's session and the device (`attachMap`), the map keys while keyboard mode is off (`attachMapKeys`, scope `MAP_KEYS_ALWAYS`) and what the info box says about a section (`sectionInfo`). `GUI3Shell`. | hand |
+| `sections.json` | What hovering a section's header shows in the info box (ADR-335 ruling 4): one sentence per section, drafted from the spec text that defines it, each with its source (a path and the heading it cites), the whole file marked a DRAFT the human has not read. Keyed by the shell's section ids. A section with no entry is not described: the box says so and the generator counts it. | hand (a draft) |
 
 Regenerate after editing the spec or the layout: `python3 tools/gen_gui3_controls.py`.
 Open the shell from `docs/design/` (or `tools/labs_preview.sh`); `gui3.html#noise,morph` opens a page
@@ -194,7 +195,7 @@ The design master was revised (artifact `1793336699-65f2`, B589; its per-element
   goes through the same RC-4 refusal as the bank's drop, so a destination no route can reach makes no mapping and says so) and
   reads the device's routes back whenever they change (undo, the bank's drop, init), so the ring on a knob, the bank, the
   strip's counts and the history read one set of routes. Never during a drag: a new mapping sits at depth 0 until it ends.
-- **Mouse routes of the keys** (hotkeys are accelerators, and the session accepts them in keyboard mode only, ADR-259 ruling 6):
+- **Mouse routes of the keys** (hotkeys are accelerators; slice 7 makes them work with keyboard mode off too, below):
   M and Esc = the MAP button; 1 to 9 = the dropdown and the strip's chips; P = the polarity pill and Backspace = the remove
   button of the **inspector** (the bundle's `ModInspector`, docked on the right while MAP is on and gone otherwise).
 - **The Set tab** opened nothing: its group is `set`, its page `settings`, and Page nav left to itself asks for a page named
@@ -211,6 +212,39 @@ The design master was revised (artifact `1793336699-65f2`, B589; its per-element
 - **The Ledger stays its own top-level tab** "until it isn't needed at all anymore" (the human, 2026-10-30); its `quick-map` row is
   now `partial` and lists what the spec has that the shell lacks, its `settings` row says the click works.
 - **Review links:** `#osc1,light,win,map` opens with MAP on, ENV 2 as the source and two knobs mapped.
+
+## Map keys always, the wider MAP control, the fixed info box and section descriptions (slice 7; ADR-335, B582)
+
+- **The map keys work always** (ADR-335 ruling 1; the human, 2026-10-30: "keys always (we'll have to rework them if they interfere with
+  keyboard midi controls; I may ultimately reverse the "keys always" decision after some use)"). M (tap latches, hold is momentary), Esc,
+  1 to 9 (the source, only while MAP is on), P and Backspace work with keyboard mode on or off. The bundle's session accepts them in
+  keyboard mode only and is vendored read only, so the shell takes them itself while keyboard mode is off, by calling the session's own
+  methods (`attachMapKeys`, capture phase); with keyboard mode on the session's listener runs and the shell stands aside, so nothing is
+  handled twice and keyboard mode's other behavior (digits pin corners with MAP off, Esc unpins) is the bundle's, unchanged. A key
+  typed into a text field, a drop-down or an editable region is never the map's; Cmd and Ctrl keys are the host's. **Reversing the ruling
+  is one line:** `MAP_KEYS_ALWAYS` in `shell-logic.js` (a test holds it, with the page not overriding it).
+- **The panel docks only while MAP is on** (ruling 2): slice 6's behavior, confirmed by the in-page MAP check and the seam check's `mapkeys`
+  rig; nothing changed.
+- **The MAP control is whole** (ruling 3). What was buried: the source drop-down and the name in it. The bundle's `.hd-map` is
+  `overflow: hidden`, so as a flex item it has no minimum width, and the source strip beside it (`flex: 1 1 auto`) shrank the control to
+  87 px of its 213 until only a sliver of the drop-down showed. The shell's scoped CSS now keeps the control at its own width (the strip
+  scrolls instead) and keeps the room of the HOLD tag the bundle shows while M is held, so the drop-down no longer moves under the pointer
+  during a hold. A self-check measures the control, the longest source name ("Gravity offset") and the strip, with a squeezed control as
+  its control. **Design-master proposal 24:** `MapControl` should not shrink below its content, and should reserve the HOLD tag's room.
+- **The info box is fixed** (ruling 4, B582): one size (220 x 200 px) at the bottom left of the page column, left of the modulator bank,
+  on every page, the foot row 200 px high whether or not the bank is shown. What it says scrolls inside it; hovering moves and resizes
+  nothing. A self-check hovers the longest parameter text and the longest section description of every page and compares the page area,
+  the bank, the box and the foot row, with a box that follows its text as its control. **Hiding the bank no longer gives its height back
+  to the page** (the box keeps its place and size): an open question for the human. **Design-master proposal 23:** the fixed info box as
+  a component.
+- **Section info:** hovering a section's header or its empty space shows what the section does (a control inside it still shows its
+  own parameter). The sentences are in `sections.json`, drafted from SPEC-ENGINE (5.2 to 5.6, 6.1, 6.2, 6.5, 6.10, 7.1, D.2) and each
+  citing its source; the file is marked a draft and the box says DRAFT. A section with no source text, the FX page's five cards (four hosted modules; Bulwark has two faces)
+  and Arp's (their manifests carry no description of the module), says "No section description yet." and is counted by the generator
+  (its GREEN line). `gen_gui3_controls.py --check` holds every entry to an existing section id, a sentence, a source that exists with
+  the heading it cites, and the DRAFT mark, with must-fail controls for each.
+- **Review links:** `src=<id>` picks the MAP source (`#osc1,light,win,map,src=gravity` is the longest name); `info=<section id or
+  key>` shows the info box as if hovering it (`#osc1,light,win,info=osc1%2Fblade-1`).
 
 ## The seam and the transport
 
@@ -262,7 +296,8 @@ on/off and audible corner (RC-11.1), the routes (RC-4 defers the matrix), and th
   vendored file has a provenance row whose sha256 matches its bytes. Every page is in exactly one page-bar
   group; a section's power and modes and a strip's fader, on, mute and solo suit their rows; each dashboard
   card carries its source's power switch and only keys its source page carries; an envelope section's followed
-  rows exist; every port-ledger row passes its rules (the shell-logic script is held to no clock like the rest). Twenty-seven must-fail controls, among them a module's keys
+  rows exist; every port-ledger row passes its rules (the shell-logic script is held to no clock like the rest), and every section description (sections.json) names
+  a section that exists, is a sentence, cites a source that exists with the heading it names, and sits in a file marked DRAFT. Thirty-five must-fail controls, among them a module's keys
   left unplaced, a vendored file with no provenance row, a page in no nav group, a dashboard key its source page
   lacks, and a ledger row with no reason, an unknown reason, no source, a missing source, or no B-number.
 - `node tools/labharness/gui3_seam_check.mjs`: tests of the stubs, the transport and the adapter
@@ -273,10 +308,11 @@ on/off and audible corner (RC-11.1), the routes (RC-4 defers the matrix), and th
   from the observation view, an oscillator view's envelope as the shared keys), and, since slice 6, of MAP mode on the
   design system's REAL session, knob, Map control and Page nav (run on a small fake DOM, the bundle read and never
   edited): a click, a drag, the keys and their mouse routes, a page change, a refused destination, the Set tab and the
-  envelope readout. Planted faults, each red for its own test (the check prints its counts). `--verbose` prints why each plant went red.
+  envelope readout; and, since slice 7, the map keys with keyboard mode off and in fields, the section descriptions, and the info box and
+  MAP control's fixed size (structural). Planted faults, each red for its own test (the check prints its counts). `--verbose` prints why each plant went red.
 - `lab_load_check` loads the page's inline script (it stops at the missing bundle, as the other bundle
-  labs do). The page's own self-checks run in a browser, each with a control (the MAP, Set tab, envelope-readout and bank-card
-  checks click or measure the real controls).
+  labs do). The page's own self-checks run in a browser, each with a control (the MAP, Set tab, envelope-readout, bank-card, MAP-control,
+  info-box, section-info and map-key checks click, hover, press or measure the real controls).
 
 ## Proposals for the design system (nothing here is drawn locally)
 
@@ -327,13 +363,19 @@ The bundle (version `1793336699-65f2`, B589) lacks these; each goes into the des
     system's workshop (B589).
 22. **A change event on the session's mapping list** (Map Mode spec): the bundle's gestures edit `S.mappings` in place and tell no
     one, so the shell reconciles on every `S.emit` (shell-logic.js `attachMap`); an `onMap(change)` hook, and the keys accepted
-    outside keyboard mode as the spec asks (accelerators, never the only route), belong in the design master.
+    outside keyboard mode as the spec asks (accelerators, never the only route), belong in the design master. (Slice 7: the shell
+    takes the keys itself while keyboard mode is off, ADR-335; the bundle's gate is still the proposal.)
+23. **A fixed info box** (ADR-335 ruling 4): one size, scrolling its text, left of the modulator bank, explaining sections as well as
+    parameters; the shell assembles it from `hd-card` and its own CSS.
+24. **A MapControl that does not shrink** (ADR-335 ruling 3): the bundle's `.hd-map` is `overflow: hidden` and so shrinks to nothing in a
+    flex row; it should keep its content's width, and reserve the HOLD tag's room so a hold does not move the drop-down.
 
 ## Known gaps
 
 - **Descriptions:** no `desc` column exists for horde 2's parameters (B582). The info box shows each
   row's spec text, labelled SPEC TEXT. Missing: 317 of 317; two rows (`sub.semitones`, `sub.fine`) have
-  no spec text at all.
+  no spec text at all. Section descriptions (`sections.json`) are drafts the human has not read; the generator's GREEN line counts
+  the sections that have none.
 - **Manual anchors:** "Open in manual" is a stub until B451's pages exist (B583).
 - **Owed by the modules (ADR-330):** Scape's labels and laws; descriptions from every FX module's
   manifest (none gives any); Arp's laws for its four continuous settings. Sluice and Weir have no manifest.

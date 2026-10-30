@@ -52,6 +52,9 @@ WHAT --check GATES (each failure carries its tag; the controls below assert the 
   dashboard       each dashboard card carries its source's power switch and only keys its source page carries
   ledger          the port ledger (ADR-333, B593): every row has a reason from its closed set and a sentence, a source
                   path that exists (or "nowhere yet"), a ROADMAP row that exists, and a status (partial: what is missing)
+  sections        the section descriptions (ADR-335 ruling 4, B582; docs/design/gui3/sections.json): every entry names a section
+                  the shell has, carries a non-empty sentence and at least one source that exists (a spec file, with the
+                  heading it cites), and the file is marked DRAFT; a section with no entry is counted, never filled in
   stale           the committed outputs equal what this run generates
 MUST-FAIL CONTROLS, every run, on in-memory copies: an unknown key, an unplaced host row, a placed
 reserved row, a knob on a stepped row, an override with no reason, a reason with no override, a bank control with no parameter, a bank choice
@@ -75,6 +78,7 @@ GUI3 = ROOT / "docs/design/gui3"
 LAYOUT = GUI3 / "layout.json"
 OUT_JSON = GUI3 / "params.json"
 OUT_JS = GUI3 / "shell-data.js"
+SECTIONS = GUI3 / "sections.json"
 SHELL = ROOT / "docs/design/gui3.html"
 SCRIPTS = ["engine-stub.js", "device.js", "shell-logic.js"]   # the gui3 scripts the determinism gate reads, with the shell
 
@@ -489,13 +493,20 @@ def check_live(cond, by, where):
             raise Red("live", f"{where}: {k} has no option {o!r} (it has {r['options']})")
 
 
+def section_slug(title, num):
+    """A section's id within its page: its title as a slug, plus its number (`blade-1`), so the id never changes when
+    the page's order does."""
+    slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
+    return f"{slug}-{num}" if num else slug
+
+
 def build_pages(rows, layout):
     by = {r["key"]: r for r in rows}
     if layout.get("format") != "horde.gui3-layout/1":
         raise Red("parse", "layout.json: format is not horde.gui3-layout/1")
     pages, placed = [], set()
     for pg in layout["pages"]:
-        seen, groups, follow_seen = set(), [], {}
+        seen, groups, follow_seen, sec_ids = set(), [], {}, set()
         for gi, g in enumerate(pg["groups"]):
             entries = []
             if "block" in g:
@@ -603,7 +614,11 @@ def build_pages(rows, layout):
                 placed.add(k)
             if g.get("rule") not in (None, "solid", "dash", "dot", "none"):
                 raise Red("role", f"page {pg['id']} group {g['title']}: rule {g.get('rule')!r} is not solid, dash, dot or none")
-            groups.append({"title": g["title"], "tag": g.get("tag"), "screen": g.get("screen"), "controls": controls,
+            sid = f"{pg['id']}/{section_slug(g['title'], g.get('num'))}"
+            if sid in sec_ids:
+                raise Red("sections", f"page {pg['id']}: two sections would both be {sid!r} (give the group a `num`)")
+            sec_ids.add(sid)
+            groups.append({"id": sid, "title": g["title"], "tag": g.get("tag"), "screen": g.get("screen"), "controls": controls,
                            "num": g.get("num"), "rule": g.get("rule"), "source": g.get("source"), "viz": g.get("viz"),
                            "strip": g.get("strip"), "master": bool(g.get("master")), "follow": follow_out})
         pages.append({"id": pg["id"], "label": pg["label"], "status": pg["status"], "note": pg.get("note", ""),
@@ -659,10 +674,60 @@ def check_ledger(led, exists):
     return led
 
 
+def check_sections(doc, pages, exists):
+    """THE SECTION DESCRIPTIONS (ADR-335 ruling 4; B582): what hovering a section's header shows in the info box.
+
+    The file (sections.json) is design input with a source per entry, never invented text: each entry is a sentence drafted
+    from the spec text that defines the section, citing it (`src`: a path that exists and, for a markdown file, the heading
+    it cites). A section with no entry is not filled in: the info box says "No section description yet" and it is counted.
+    The whole file is marked DRAFT until the human has read it. An entry may be `{"as": "<id>"}`, one text for several
+    sections of the same kind (the dashboard's cards are the source pages' sections). Returns what the shell loads:
+    `text` (id -> {text, src}) for every described section, and `missing` (ids, in page order)."""
+    if not doc or doc.get("format") != "horde.gui3-sections/1":
+        raise Red("sections", "docs/design/gui3/sections.json: format is not horde.gui3-sections/1")
+    status = str(doc.get("status") or "")
+    if not status.startswith("DRAFT"):
+        raise Red("sections", "sections.json: `status` must say DRAFT until the human has read the descriptions")
+    known = [g["id"] for pg in pages for g in pg["groups"]]
+    entries = doc.get("sections") or {}
+    for sid in entries:
+        if sid not in known:
+            raise Red("sections", f"sections.json: {sid!r} is not a section of any page")
+    text = {}
+    for sid in known:
+        e = entries.get(sid)
+        if e is None:
+            continue
+        if "as" in e:
+            t = entries.get(e["as"])
+            if not t or "as" in t:
+                raise Red("sections", f"section {sid}: `as` {e['as']!r} is not a section with its own text")
+            e = t
+        body = (e.get("text") or "").strip()
+        if len(body) < 20 or not body.endswith("."):
+            raise Red("sections", f"section {sid}: the description is not a sentence")
+        src = e.get("src") or []
+        if not src:
+            raise Red("sections", f"section {sid}: no source (the spec text the description is drafted from)")
+        for c in src:
+            path, at = c.get("path") or "", c.get("at") or ""
+            if not path or not exists(path):
+                raise Red("sections", f"section {sid}: source {path!r} does not exist in the repo")
+            if path.endswith(".md") and not exists.heading(path, at):
+                raise Red("sections", f"section {sid}: {path} has no heading containing {at!r}")
+        text[sid] = {"text": body, "src": [{"path": c["path"], "at": c.get("at") or ""} for c in src]}
+    return {"status": status, "text": text, "missing": [sid for sid in known if sid not in text]}
+
+
 def repo_exists():
     """The real repo: a path exists under the root; the ROADMAP's B-rows are read once."""
     def exists(path):
         return (ROOT / path).exists()
+
+    def heading(path, at):
+        f = ROOT / path
+        return bool(at) and f.is_file() and any(re.match(r"#{1,6} ", ln) and at in ln for ln in f.read_text(encoding="utf-8").splitlines())
+    exists.heading = heading
     road = (ROOT / "ROADMAP.md").read_text(encoding="utf-8") if (ROOT / "ROADMAP.md").exists() else ""
     exists.roadmap = set(re.findall(r"(?m)^\| (B\d+) \|", road))
     return exists
@@ -979,13 +1044,13 @@ def gaps(rows):
                     "missing description."}
 
 
-def render(rows, pages, counts, bank, ledger=None):
+def render(rows, pages, counts, bank, ledger=None, sections=None):
     # params.json stays SPEC-ENGINE 5 alone (the engine's manifest as data); shell-data.js carries every source.
     doc = {"format": FORMAT, "source": "specs/SPEC-ENGINE.md section 5, read by tools/gen_gui3_controls.py",
            "counts": counts, "params": [r for r in rows if r.get("target", "engine") == "engine"]}
     j = json.dumps(doc, indent=2, ensure_ascii=False, sort_keys=True) + "\n"
     data = {"format": FORMAT, "counts": counts, "gaps": gaps(rows), "params": rows, "pages": pages, "bank": bank, "nav": NAV_OUT[0],
-            "ledger": ledger}
+            "ledger": ledger, "sections": sections}
     js = ("/* GENERATED by tools/gen_gui3_controls.py from specs/SPEC-ENGINE.md section 5 and\n"
           "   docs/design/gui3/layout.json. Do not edit: edit the spec or the layout, then regenerate. */\n"
           "window.GUI3_DATA = " + json.dumps(data, indent=1, ensure_ascii=False, sort_keys=True) + ";\n")
@@ -1006,13 +1071,14 @@ def generate(spec_text, layout, ext):
 def gate(spec_text, layout, shell_text, scripts, committed, ext):
     rows, pages, counts, bank = generate(spec_text, layout, ext)
     led = check_ledger(ext.get("ledger"), ext["exists"])
+    sec = check_sections(ext.get("sections"), pages, ext["exists"])
     check_shell(shell_text)
     check_determinism(dict(scripts, **{"gui3.html": shell_text}))
-    j, js = render(rows, pages, counts, bank, led)
+    j, js = render(rows, pages, counts, bank, led, sec)
     if committed.get("params.json") != j or committed.get("shell-data.js") != js:
         raise Red("stale", "docs/design/gui3/params.json or shell-data.js is not what the spec and the layout "
                            "generate: run python3 tools/gen_gui3_controls.py")
-    return rows, pages, counts, bank
+    return rows, pages, counts, bank, sec
 
 
 def controls(spec_text, layout, shell_text, scripts, committed, ext):
@@ -1036,6 +1102,11 @@ def controls(spec_text, layout, shell_text, scripts, committed, ext):
         led = copy.deepcopy(ext["ledger"])
         fn(led["rows"][0])
         return dict(ext, ledger=led)
+    def sec_mut(fn):
+        doc = copy.deepcopy(ext["sections"])
+        fn(doc)
+        return dict(ext, sections=doc)
+    first_sec = lambda doc: doc["sections"]["main/voice"]
     sub_keys = lambda lo: next(g for g in page(lo, "sub")["groups"] if g["title"] == "Shape")["keys"]
     out = [
         plant("a control with no parameter", "unknown-key",
@@ -1077,6 +1148,19 @@ def controls(spec_text, layout, shell_text, scripts, committed, ext):
               lo=lay(lambda lo: page(lo, "dashboard")["groups"][2]["keys"].pop(0))),
         plant("a modes role on a continuous row", "role",
               lo=lay(lambda lo: page(lo, "main")["groups"][0]["keys"].__setitem__(1, {"key": "voice.gravity", "role": "modes"}))),
+        plant("a section description for a section that does not exist", "sections",
+              ex=sec_mut(lambda d: d["sections"].__setitem__("main/no-such-section", dict(first_sec(d))))),
+        plant("a section description that is empty", "sections", ex=sec_mut(lambda d: first_sec(d).__setitem__("text", " "))),
+        plant("a section description with no source", "sections", ex=sec_mut(lambda d: first_sec(d).__setitem__("src", []))),
+        plant("a section description whose source file does not exist", "sections",
+              ex=sec_mut(lambda d: first_sec(d).__setitem__("src", [{"path": "specs/NO-SUCH-SPEC.md", "at": "5.2"}]))),
+        plant("a section description citing a heading the spec does not have", "sections",
+              ex=sec_mut(lambda d: first_sec(d).__setitem__("src", [{"path": "specs/SPEC-ENGINE.md", "at": "9.9 Nothing"}]))),
+        plant("a section description aliased to a section with no text of its own", "sections",
+              ex=sec_mut(lambda d: d["sections"].__setitem__("main/voice", {"as": "main/env-1"}) or d["sections"].__setitem__("main/env-1", {"as": "main/voice"}))),
+        plant("a sections file no longer marked a draft", "sections", ex=sec_mut(lambda d: d.__setitem__("status", "reviewed"))),
+        plant("two sections with one id", "sections",
+              lo=lay(lambda lo: page(lo, "mod")["groups"][2].__setitem__("title", "ENV 3"))),
         plant("a spec row dropped", "counts",
               sp=re.sub(r"\n\| `gust` \|[^\n]*", "", spec_text, count=1)),
         plant("a hand-placed key in the shell", "shell",
@@ -1091,7 +1175,7 @@ def controls(spec_text, layout, shell_text, scripts, committed, ext):
     # A plant that changed nothing tests nothing: each mutated input must differ from the real one.
     if "\n| `gust` |" not in spec_text or "</script>\n</body>" not in shell_text or not re.search(r"(?m)^\| `vendor/scape", ext["readme"]):
         out.append("a plant's anchor is missing from its input: the controls would be vacuous")
-    return [o for o in out if o]
+    return [o for o in out if o], len(out)
 
 
 def src_counts(rows):
@@ -1118,7 +1202,8 @@ def load_ext(layout):
                 if f.exists():
                     files[src[k]] = f.read_bytes().decode("utf-8")
     return {"readme": README.read_bytes().decode("utf-8") if README.exists() else "", "files": files,
-            "ledger": json.loads(LEDGER.read_text(encoding="utf-8")) if LEDGER.exists() else None, "exists": repo_exists()}
+            "ledger": json.loads(LEDGER.read_text(encoding="utf-8")) if LEDGER.exists() else None,
+            "sections": json.loads(SECTIONS.read_text(encoding="utf-8")) if SECTIONS.exists() else None, "exists": repo_exists()}
 
 
 def main():
@@ -1133,10 +1218,11 @@ def main():
             return 1
         try:
             led = check_ledger(ext.get("ledger"), ext["exists"])
+            sec = check_sections(ext.get("sections"), pages, ext["exists"])
         except Red as e:
             print(f"gen_gui3_controls: RED {e}", file=sys.stderr)
             return 1
-        j, js = render(rows, pages, counts, bank, led)
+        j, js = render(rows, pages, counts, bank, led, sec)
         OUT_JSON.write_text(j, encoding="utf-8")
         OUT_JS.write_text(js, encoding="utf-8")
         print(f"gen_gui3_controls: wrote {OUT_JSON.relative_to(ROOT)} and {OUT_JS.relative_to(ROOT)} "
@@ -1146,11 +1232,11 @@ def main():
     scripts = {n: (GUI3 / n).read_text(encoding="utf-8") for n in SCRIPTS}
     committed = {p.name: p.read_text(encoding="utf-8") for p in (OUT_JSON, OUT_JS) if p.exists()}
     try:
-        rows, pages, counts, bank = gate(spec_text, layout, shell_text, scripts, committed, ext)
+        rows, pages, counts, bank, sec = gate(spec_text, layout, shell_text, scripts, committed, ext)
     except Red as e:
         print(f"gen_gui3_controls: RED {e}", file=sys.stderr)
         return 1
-    bad = controls(spec_text, layout, shell_text, scripts, committed, ext)
+    bad, n_controls = controls(spec_text, layout, shell_text, scripts, committed, ext)
     if bad:
         print("gen_gui3_controls: RED, a must-fail control did not fail:\n  " + "\n  ".join(bad), file=sys.stderr)
         return 1
@@ -1161,7 +1247,9 @@ def main():
           f"descriptions missing {g['desc_missing']} of {g['host']} (no desc column yet, B582), spec text empty "
           f"{g['spec_text_missing']}; bank: {sum(len(c) for c in bank['controls'].values())} critical controls on "
           f"{len(bank['controls'])} modulators ({', '.join(bank['controls'])}); beside SPEC-ENGINE 5: "
-          f"{src_counts(rows)}; port ledger {len(ledger_rows(ext))} rows; 27 must-fail controls red")
+          f"{src_counts(rows)}; port ledger {len(ledger_rows(ext))} rows; section descriptions "
+          f"{len(sec['text'])} of {len(sec['text']) + len(sec['missing'])} sections ({len(sec['missing'])} with none yet, DRAFT); "
+          f"{n_controls} must-fail controls red")
     return 0
 
 

@@ -1,0 +1,128 @@
+{
+  "format": "horde.gui3-sections/1",
+  "status": "DRAFT — the human has not read these",
+  "note": "What hovering a section's header (or its empty space) shows in the info box (ADR-335 ruling 4, B582). Design input, hand-edited, and a DRAFT: each description is a sentence drafted from the spec text that defines the section, with its source in `src` (a path, and the heading it cites), never from memory and never an invented behaviour. The keys are the shell's section ids (`<page id>/<the group's title as a slug>`, plus its number: `osc1/blade-1`; the generator makes them, tools/gen_gui3_controls.py section_slug). `as` reuses another entry's text for a section of the same kind. A section with no entry is not described: the info box says \"No section description yet\" and the generator counts it. Today that is the FX page's five cards (four hosted modules; Bulwark has two faces) and Arp's, whose vendored manifests carry keys, ranges and laws and no description of the module (gui3/README.md, provenance). The human reads these and rules; until then nothing here is final.",
+  "sections": {
+    "main/voice": {
+      "text": "The voice, once per instrument: Voicing is poly (each note its own voice), mono (one voice, its envelope restarting on every note) or legato (restarting only when no key is held); Gravity makes held notes drift into just intervals of one another; Level is the engine's output level into the rest of the device.",
+      "src": [{"path": "specs/SPEC-ENGINE.md", "at": "5.2 The voice"}]
+    },
+    "main/env-1": {
+      "text": "ENV 1 is an attack, hold, decay, sustain, release envelope: each timed stage takes exactly its time and lands exactly on its target (attack on full level, decay on the sustain level, release on silence), and its curves bend the stages. A source follows ENV 1 unless its Envelope selects another (RC-6.5).",
+      "src": [{"path": "specs/SPEC-ENGINE.md", "at": "5.2 The voice"}, {"path": "specs/SPEC-ENGINE.md", "at": "6.5 The envelopes"}]
+    },
+    "dashboard/osc-1": {"as": "osc1/osc-1"},
+    "dashboard/osc-2": {"as": "osc1/osc-1"},
+    "dashboard/sub": {"as": "sub/sub"},
+    "dashboard/noise": {"as": "noise/noise"},
+    "osc1/osc-1": {
+      "text": "An oscillator is a swarm of members (Unison), each a phase-continuous oscillator at its own frequency around the oscillator's pitch; Detune sets how far the members sit from the pitch, Coupling pulls them toward one locked pitch (positive) or pushes them into an even splay (negative), and Base wave is the wave the members play and the blades cut into.",
+      "src": [{"path": "specs/SPEC-ENGINE.md", "at": "6.1 The swarm"}, {"path": "specs/SPEC-ENGINE.md", "at": "5.3 Each oscillator"}]
+    },
+    "osc1/envelope": {
+      "text": "The envelope this oscillator's level follows: ENV 1, ENV 2, ENV 3 or ENV 4 (RC-6.5). Each is an attack, hold, decay, sustain, release envelope whose timed stages take exactly their time and land exactly on their targets (EN-1).",
+      "src": [{"path": "specs/SPEC-ENGINE.md", "at": "5.3 Each oscillator"}, {"path": "specs/SPEC-ENGINE.md", "at": "6.5 The envelopes"}]
+    },
+    "osc1/blade-1": {
+      "text": "A blade is a window on each member's cycle, set by Position and Width: inside it the wave is crossfaded toward the blade's sound by Depth, and outside it the base wave is unchanged (BL-1). Mode chooses what replaces the wave inside the window: Sync, FM reset, FM free, Noise, Fold, Ring or Crush (5.4).",
+      "src": [{"path": "specs/SPEC-ENGINE.md", "at": "5.4 Each blade"}, {"path": "specs/SPEC-ENGINE.md", "at": "6.2 The blades"}]
+    },
+    "osc1/blade-2": {
+      "text": "Blade 2 is a second blade with the same window, Mode and spreads as blade 1 (5.4); many of its choices can be \"as blade 1\", and it can use blade 1's FM settings or its spreads. The oscillator's Stacking says which blade is the upper one where they interact (5.3).",
+      "src": [{"path": "specs/SPEC-ENGINE.md", "at": "5.4 Each blade"}, {"path": "specs/SPEC-ENGINE.md", "at": "5.3 Each oscillator"}]
+    },
+    "osc2/osc-2": {"as": "osc1/osc-1"},
+    "osc2/envelope": {"as": "osc1/envelope"},
+    "osc2/blade-1": {"as": "osc1/blade-1"},
+    "osc2/blade-2": {"as": "osc1/blade-2"},
+    "sub/sub": {
+      "text": "The sub is one phase and one shape, with no members, no coupling, no drift and no random draws (SN-1). Per note there is one in each voice; in mono, one for the instrument (SN-7). It follows its governing envelope and has none of its own (5.5).",
+      "src": [{"path": "specs/SPEC-ENGINE.md", "at": "5.5 The sub"}, {"path": "specs/SPEC-ENGINE.md", "at": "6.10 The sub and the noise oscillator"}]
+    },
+    "sub/envelope": {
+      "text": "The sub follows its governing envelope, ENV 1 unless Envelope selects another (RC-6.5), and has no envelope of its own. Each envelope is an attack, hold, decay, sustain, release envelope whose stages land exactly on their targets (EN-1).",
+      "src": [{"path": "specs/SPEC-ENGINE.md", "at": "5.5 The sub"}, {"path": "specs/SPEC-ENGINE.md", "at": "6.5 The envelopes"}]
+    },
+    "sub/shape": {
+      "text": "The sub's shape (SN-2): sine, triangle, square, saw, pulse, bump or smooth square. Pulse is the classic two-level pulse, Width being the share of each cycle at +1, and the square is exactly the pulse at 0.5; Softness runs the smooth square from near a square (0) to near a sine (1); Bump adds one or two extra harmonics with their own amounts and phases.",
+      "src": [{"path": "specs/SPEC-ENGINE.md", "at": "5.5 The sub"}, {"path": "specs/SPEC-ENGINE.md", "at": "6.10 The sub and the noise oscillator"}]
+    },
+    "sub/pitch": {
+      "text": "The sub's frequency is its note's pitch with Keytrack on, or C2 with it off, transposed by Octave (down only), Semitones, Coarse and Fine (SN-1); Phase is its phase at a fresh start.",
+      "src": [{"path": "specs/SPEC-ENGINE.md", "at": "5.5 The sub"}, {"path": "specs/SPEC-ENGINE.md", "at": "6.10 The sub and the noise oscillator"}]
+    },
+    "sub/voice": {
+      "text": "Per note puts a sub in every voice; Mono is one sub for the instrument, playing the held note that Mono follows chooses: the lowest (the default), the highest or the newest (SN-7).",
+      "src": [{"path": "specs/SPEC-ENGINE.md", "at": "5.5 The sub"}, {"path": "specs/SPEC-ENGINE.md", "at": "6.10 The sub and the noise oscillator"}]
+    },
+    "sub/colour": {
+      "text": "The sub's colour stage: Order puts the drive after the tone and the envelope (the default) or ahead of them (SN-3); Erode lets the noise bend the sub's time (SN-14); Drive saturates the shape, Crunch adds a parallel, level-matched band of hard-clipped upper harmonics, and Character picks the curve: Tube, Diode or Fold-lite (SN-5); Tone is a gentle low-pass.",
+      "src": [{"path": "specs/SPEC-ENGINE.md", "at": "5.5 The sub"}, {"path": "specs/SPEC-ENGINE.md", "at": "6.10 The sub and the noise oscillator"}]
+    },
+    "noise/noise": {
+      "text": "The noise oscillator is per voice, from the voice's own noise streams. Its chain is its source and colour, then the Resonator, Whisper and Wind stages, the noise filter, the stereo spread and pan, and last the gate, level and governing envelope (SN-4).",
+      "src": [{"path": "specs/SPEC-ENGINE.md", "at": "5.6 The noise oscillator"}, {"path": "specs/SPEC-ENGINE.md", "at": "6.10 The sub and the noise oscillator"}]
+    },
+    "noise/envelope": {
+      "text": "The noise follows its governing envelope (RC-6.5) and has none of its own; Envelope picks which of ENV 1 to ENV 4 its level follows.",
+      "src": [{"path": "specs/SPEC-ENGINE.md", "at": "5.6 The noise oscillator"}]
+    },
+    "noise/source": {
+      "text": "What makes the noise: Clean (white noise), Crackle (pops per second), S&H (new values per second) or LFSR (a shift register of the chosen length) (SN-8). Colour runs from white (+1) through pink (0) to brown (-1) on every source (SN-4); Pitch transposes the pitched parts, the LFSR's clock, the Resonator's tuning and the filter's keytracking (SN-11).",
+      "src": [{"path": "specs/SPEC-ENGINE.md", "at": "5.6 The noise oscillator"}, {"path": "specs/SPEC-ENGINE.md", "at": "6.10 The sub and the noise oscillator"}]
+    },
+    "noise/resonator": {
+      "text": "A comb tuned to the note; Feedback is how long it rings (5.6). The Resonator, Whisper and Wind stages each have their own switch and run in that fixed order, in series, each level-matched (SN-9).",
+      "src": [{"path": "specs/SPEC-ENGINE.md", "at": "5.6 The noise oscillator"}, {"path": "specs/SPEC-ENGINE.md", "at": "6.10 The sub and the noise oscillator"}]
+    },
+    "noise/whisper": {
+      "text": "Three vowel formants, with Vowel sweeping a, e, i, o, u (5.6). It has its own switch and runs in series with the Resonator and Wind (SN-9).",
+      "src": [{"path": "specs/SPEC-ENGINE.md", "at": "5.6 The noise oscillator"}, {"path": "specs/SPEC-ENGINE.md", "at": "6.10 The sub and the noise oscillator"}]
+    },
+    "noise/wind": {
+      "text": "A band that wanders like wind; Gust is how far and how fast the band wanders (5.6). Wind comes last of the three stages because its band moves, so it moves the whole sound (SN-9).",
+      "src": [{"path": "specs/SPEC-ENGINE.md", "at": "5.6 The noise oscillator"}, {"path": "specs/SPEC-ENGINE.md", "at": "6.10 The sub and the noise oscillator"}]
+    },
+    "noise/filter": {
+      "text": "The noise's own filter, ahead of the voice's filters: Off, low-pass, band-pass or high-pass, with Cutoff and Resonance; Keytrack is how far the cutoff follows the note, 1 fully from C4 and 0 not at all (5.6, SN-10).",
+      "src": [{"path": "specs/SPEC-ENGINE.md", "at": "5.6 The noise oscillator"}, {"path": "specs/SPEC-ENGINE.md", "at": "6.10 The sub and the noise oscillator"}]
+    },
+    "noise/stereo": {
+      "text": "At Stereo spread 0 the noise is mono, one chain with both channels the same; above 0 the two channels part (SN-12). Pan places the noise in the stereo field (5.6).",
+      "src": [{"path": "specs/SPEC-ENGINE.md", "at": "5.6 The noise oscillator"}, {"path": "specs/SPEC-ENGINE.md", "at": "6.10 The sub and the noise oscillator"}]
+    },
+    "mod/env-2": {
+      "text": "ENV 2 to ENV 4 are envelopes like ENV 1, each with a One-shot mode added: on, a key-up does not end the attack or the decay (5.2). The engine computes them for every sounding voice, whether or not a source follows them (EN-5).",
+      "src": [{"path": "specs/SPEC-ENGINE.md", "at": "5.2 The voice"}, {"path": "specs/SPEC-ENGINE.md", "at": "6.5 The envelopes"}]
+    },
+    "mod/env-3": {"as": "mod/env-2"},
+    "mod/env-4": {"as": "mod/env-2"},
+    "morph/morph": {
+      "text": "The morph holds four corners, each a full set of the manifest's values, and a position on a square pad. Its settings belong to the patch and are never morphed: Morph on or off, the Audible corner that sounds while the morph is off, the Morph mode (Blend, Quantum or Stepped), Count (how many corner settings may sound or blend at once) and Morph glide (D.2).",
+      "src": [{"path": "specs/SPEC-ENGINE.md", "at": "Appendix D. The morph"}, {"path": "specs/SPEC-ENGINE.md", "at": "D.2 The morph settings"}]
+    },
+    "morph/quantum": {
+      "text": "Under Quantum, Temperature is how sharply each corner owns the pad, Cohesion is how far all keys pick the same corner together, and the Morph seed seeds the draw (D.2; MO-6, MO-7).",
+      "src": [{"path": "specs/SPEC-ENGINE.md", "at": "D.2 The morph settings"}]
+    },
+    "morph/stepped": {
+      "text": "Under Stepped, Step rate is how often it takes a new position while Sync is off; with Sync on, steps follow the host's musical position at the chosen Division (D.2, MO-10). Triplets and Dotted offer those rows in the Division menu and change no sound.",
+      "src": [{"path": "specs/SPEC-ENGINE.md", "at": "D.2 The morph settings"}]
+    },
+    "mix/osc-1": {
+      "text": "A source's channel: its level is its contribution to the mix, in dB; mute and solo are the source's gate, so a muted source is silent and, while any source is soloed, every source that is not soloed is silent (IF-6). Its meter reads it after its level, pan and gate.",
+      "src": [{"path": "specs/SPEC-ENGINE.md", "at": "7.1 Interfaces"}, {"path": "specs/SPEC-ENGINE.md", "at": "5.2 The voice"}]
+    },
+    "mix/osc-2": {"as": "mix/osc-1"},
+    "mix/sub": {"as": "mix/osc-1"},
+    "mix/noise": {"as": "mix/osc-1"},
+    "mix/out": {
+      "text": "The engine's output: Level is its output level into the rest of the device (5.2), and its meter, with a clip flag that latches on a single sample over 0 dBFS, reads the engine's output (IF-6).",
+      "src": [{"path": "specs/SPEC-ENGINE.md", "at": "5.2 The voice"}, {"path": "specs/SPEC-ENGINE.md", "at": "7.1 Interfaces"}]
+    },
+    "settings/engine": {
+      "text": "Two Device-class rows that are settings, not sound parameters: Polyphony is how many notes can sound at once, in one pool (VO-5), and Quality is oversampling, where High aliases less on FM, ring and fold with sine carriers at about 1.5 to 1.7 times the CPU (5.2).",
+      "src": [{"path": "specs/SPEC-ENGINE.md", "at": "5.2 The voice"}]
+    }
+  }
+}
