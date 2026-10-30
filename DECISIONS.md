@@ -10328,3 +10328,36 @@ The critic independently reproduced all 24 of R3's golden quantum picks.
 - The Random lab's round 5 builds the Envelopes level.
 - **FX device (ADR-254):** X41 applies to its synced controls. The Envelopes level does not apply, since it has no voice sources.
 
+## ADR-328 — RULED by the human: spec round 48, Appendix D (the morph) ratified; X44 and X45 (B585, B590; 2026-10-30)
+
+**Context.** B585's Appendix D went through four revisions (horde #1275):
+- an independent critic's review ("Not ready; ready after the listed fixes": 2 blockers, 12 majors);
+- a re-review (no blockers, 5 majors);
+- a diff check (4 new majors, all fixed in revision 4, 063aeca).
+
+The rulings it carries are ADR-317, ADR-324, ADR-325, ADR-326 and ADR-327.
+
+**Rulings (the human, 2026-10-30, by poll).**
+- **Ratification: "Ratify".** Appendix D, revision 4, becomes spec round 48.
+- **X44 ("Yes, per X39"):** the Division menu's triplet and dotted toggles are host parameters.
+- **X45 ("256 bytes"):** an oscillator's `ratios` text is at most 256 bytes of UTF-8, enforced by PA-7.
+
+**What round 48 changes in `specs/SPEC-ENGINE.md`** (blob `e86d45e` → `dfec522`):
+- **New rows:**
+  - Appendix D: MO-1 to MO-20 (the morph resolver) and SB-1 to SB-13 (the engine's architecture blending), with D.2's thirteen morph settings.
+  - IF-12, the resolver's calls and the `SettingSet` event.
+  - RC-7.4, the standard tempo divisions (22 rows, with triplet and dotted toggles; B590 points to it).
+  - The BD-8 stage 7 amendment, which reopens stages 2, 3, 5 and 6. The bank stage carries on (X38).
+  - §10.1 items 34 (34.1 to 34.17) and 35 (35.1 to 35.18).
+- **29 rows changed:** among them IF-4 (state unchanged; corner `ratios` texts are morph state), PA-1, PA-5, PA-7, RC-7.3, RC-11 and QS-4.
+- **The structure file:** `engine2/structure/engine-structure.json` gains `morph_resolver` (scope external, beside the engine, under the instrument) and its edges, and goes from 65 to 67 blocks and 111 to 117 edges. Its spec blob is `dfec522`.
+- **Judgment calls in the paste,** recorded in the round's trace: the resolver's scope is `external` rather than `engine`, as the structure check requires and as MO-1 says ("beside the engine"); and some formatting.
+
+**Rejected:** ratifying with changes; holding it; menu filters kept off the host list; a 1 KB text.
+
+**Consequences.**
+- The round is delivered to both clean-room repos the same day (cleanroom-tests and cleanroom-engine). The test author writes items 34 and 35, and the builder builds the stage 7 amendment after the soak.
+- Rulings log row 83.
+- The rack contract's RS-6.2, RS-6.3 and RS-8.4 need an amendment round (two module instances while a slot's set holds two settings), filed with the module owners.
+- **FX device (ADR-254):** the same morph, with its FX slots under the rack round.
+
