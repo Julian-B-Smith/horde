@@ -10527,3 +10527,25 @@ The lead's findings:
 
 **Consequences.** The charter, the master README (republished to the Design System artifact under the chain, ADR-336), the design-system README and gui2's comments change in this PR. **FX device (ADR-254):** the same positioning holds for it; its centre is the same morph logic over its modules' parameters.
 
+## ADR-338 — RULED by the human: a module's XY across horde's corners morphs like any parameter; two slot actions (copy to all corners, a random patch on all four corners mapped A to A); a 1.0 randomization preset that does it for Sluice and Shriek (B597, B578; 2026-10-30)
+
+**Context.** The human, 2026-10-30: "I will frequently want to give all four corners the same FX patch (like a particular sluice patch) and map FX XY positions to morph corners so there can be a continuous morph between them. It won't always be as simple as mapping the XY as is to the morph grid (corner A to corner A, etc.), though I will regularly want to design patches that way. I also want to make it trivial to spin up a random horde patch that does map Sluice and Shriek to the morph grids, each with the same global patch on each corner." Already settled: a module's X and Y are morph keys that travel with the patch at each horde corner (ADR-314; ADR-300 for Shriek's pad; ADR-188), and Sluice's XY glides between positions (Sluice D-162).
+
+**Rulings (the human, 2026-10-30, by poll).**
+1. **No mapping machinery.** In the human's words: "if two corners share a patch, the X and Y values of their morph simply act as any other morphable parameters would and blend toward each other (unless on quantum); if the patches are different, the X and Y values are not compared." Corners that share a module patch blend its X and Y under horde's morph law like any morph number, unless the row's morph mode is quantum. Corners holding different patches do not compare X and Y; the module's structure keys decide as for any structural difference (IF-4).
+2. **"Copy this module to all corners"**, a per-slot action: the current corner's module patch is written to all four corners as one undo step.
+3. **A random-and-follow slot action** (the human: "The slot action would just spin up a random patch of sluice and/or shriek and map the corners A->A, etc. (no need for fancier maps, I don't think)"). It draws a random patch for the module, writes it to all four corners, and sets each corner's module X and Y to the module's own matching corner (horde's A to the module's A, and so on). There are no other named mappings; any other mapping is made by editing the per-corner values.
+4. **A 1.0 randomization preset** builds a patch with Sluice and Shriek, each with one patch on all four corners and its X and Y mapped A to A. It joins the small 1.0 set (ADR-318), built when the modules are hosted (rack stage S4), and B578's simplicity lean applies to the rest of its FX draw.
+
+**Rejected:** named maps (mirror, rotate, pinch); a live link from horde's pad to the module's XY; folding the copy into the random action; this preset after 1.0.
+
+**To check when built (the lead's, not rulings):**
+- horde's pad and each module's corner layout agree on orientation, so A to A does not come out flipped.
+- Corners that share a patch run one module instance (no RS-6.2 second instance).
+- Identical corner copies are stored once in the saved state, since a large state chunk can make a host silently fail to save.
+- With morph off, the module sits at the audible corner's X and Y.
+
+**Consequences.**
+- B597 carries 2 to 4. The slot UI for both actions is the GUI session's (B591's slot page, under ADR-336); the device and randomizer side is the lead's.
+- **FX device (ADR-254):** the same actions and the same preset (with FX roles) on its slots.
+
