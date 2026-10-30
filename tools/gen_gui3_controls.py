@@ -617,7 +617,7 @@ def build_pages(rows, layout):
     return pages
 
 
-LEDGER = GUI3 / "port-ledger.json"
+LEDGER = GUI3 / "port-tab.json"
 LEDGER_STATUS = ("not-moved", "partial", "moved")
 
 
@@ -627,7 +627,7 @@ def check_ledger(led, exists):
     ROADMAP row (a B-number the ROADMAP has) and a status (`partial` says what is missing). `exists(path)` and the ROADMAP's
     rows are passed in, so the plants run on copies."""
     if not led or led.get("format") != "horde.gui3-port-ledger/1":
-        raise Red("ledger", "docs/design/gui3/port-ledger.json: format is not horde.gui3-port-ledger/1")
+        raise Red("ledger", "docs/design/gui3/port-tab.json: format is not horde.gui3-port-ledger/1")
     reasons, ids = led.get("reasons") or {}, set()
     for i, r in enumerate(led.get("rows") or []):
         where = f"ledger row {r.get('id') or i}"

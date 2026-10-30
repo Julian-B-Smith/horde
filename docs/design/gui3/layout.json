@@ -1729,7 +1729,7 @@
       "label": "Ledger",
       "status": "designed",
       "panel": "ledger",
-      "note": "Everything not yet moved over into GUI 3, where it lives today and why it has not moved (ADR-333, B593), read from docs/design/gui3/port-ledger.json; a row leaves only when its item ships in the shell.",
+      "note": "Everything not yet moved over into GUI 3, where it lives today and why it has not moved (ADR-333, B593), read from docs/design/gui3/port-tab.json; a row leaves only when its item ships in the shell.",
       "cite": "ADR-333, B593",
       "groups": []
     }

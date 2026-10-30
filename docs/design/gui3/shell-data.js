@@ -10792,7 +10792,7 @@ window.GUI3_DATA = {
    "groups": [],
    "id": "ledger",
    "label": "Ledger",
-   "note": "Everything not yet moved over into GUI 3, where it lives today and why it has not moved (ADR-333, B593), read from docs/design/gui3/port-ledger.json; a row leaves only when its item ships in the shell.",
+   "note": "Everything not yet moved over into GUI 3, where it lives today and why it has not moved (ADR-333, B593), read from docs/design/gui3/port-tab.json; a row leaves only when its item ships in the shell.",
    "panel": "ledger",
    "power": null,
    "status": "designed",

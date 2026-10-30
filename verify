@@ -222,7 +222,7 @@ fast() {
   # and names no key, no gui3 script reads a clock, and the committed outputs are current; the page bar
   # holds every page once, section and strip roles suit their rows, and a dashboard card carries only its
   # source page's keys (B589), an envelope section's followed rows exist, and every row of the port ledger
-  # (docs/design/gui3/port-ledger.json, ADR-333, B593) has a reason from its closed set, a sentence, a
+  # (docs/design/gui3/port-tab.json, ADR-333, B593) has a reason from its closed set, a sentence, a
   # source path that exists and a ROADMAP row. Twenty-seven must-fail controls every run. Python only,
   # well under 1 s.
   python3 tools/gen_gui3_controls.py --check || ok=1
