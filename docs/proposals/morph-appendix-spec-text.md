@@ -1,10 +1,13 @@
-# The morph appendix: spec text for SPEC-ENGINE (B585 step 4's input), revision 2
+# The morph appendix: spec text for SPEC-ENGINE (B585 step 4's input), revision 3
 
 *Origin: horde lead session, 2026-10-29.*
 - *ADR-324 (horde #1274) rules B585's twelve questions and places the morph in one normative appendix of SPEC-ENGINE.*
 - *Revision 1 (`c75fa9f`, horde #1275) was reviewed by an independent critic: "Not ready; ready after the listed fixes".*
 - *The human ruled its open points X28–X35 (ADR-325).*
-- *This revision applies the critic's findings and the rulings. §6 maps each finding to where it is fixed.*
+- *Revision 2 (`6e6bf1e`) applied those findings and rulings (§6). The critic's re-review found no blockers: "Ready once
+  the five MAJOR fixes are made". It independently reproduced all 24 of 34.3's quantum picks.*
+- *The human ruled X36–X40 (ADR-326), and ADR-319 item 1 settles the morph off.*
+- *This revision 3 applies the five majors, every minor finding and those rulings. §7 maps each to where it is fixed.*
 
 *Drafted by a scoped implementer. Status: **PROPOSED**. The lead applies it to `specs/SPEC-ENGINE.md` after the critic's
 re-read and the human's ratification. This file does not touch `specs/`, `engine2/` or the rack contract.*
@@ -12,8 +15,8 @@ re-read and the human's ratification. This file does not touch `specs/`, `engine
 **How to apply it.**
 - §1 is the new **Appendix D**. It goes after Appendix C.
 - §2 lists every amended row, as before → after, at `2af41d8`.
-- §3 holds the suite's new items.
-- §4 is the diff summary. §5 lists the open points that remain. §6 is the fix table.
+- §3 holds the suite's new items, paste-ready for §10.1.
+- §4 is the diff summary. §5 lists the open points that remain. §6 and §7 are the fix tables of revisions 2 and 3.
 
 Text to paste sits in quoted blocks or tables; the rest is commentary.
 
@@ -28,6 +31,14 @@ Text to paste sits in quoted blocks or tables; the rest is commentary.
   - X33: a 0.1 band.
   - X34: synced steps run while the transport is stopped, and RC-7.3 is amended.
   - X35: weights are values glided by PA-1; a flip inside a blend stays raised-cosine.
+- **ADR-326:**
+  - X36: the ranges and tapers as proposed.
+  - X37: the divisions run from 1/32 to 4 bars, with triplet and dotted toggles, standard across every part that syncs
+    (B590; RC-7.4).
+  - X38: the bank carries on.
+  - X39: the morph's settings and position are host parameters, but not the seed.
+  - X40: each corner keeps its own `ratios`, which is a key of the swarm group under the law.
+- **ADR-319 item 1:** with the morph off, the chosen audible corner sounds (A by default).
 
 **The two-setting law's continuity**, which the critic confirmed. It is discontinuous only where the top three pooled
 weights all tie: the centre with four distinct settings, (0.5, ⅓) when C = D, and nowhere when B = C. A path through that
@@ -44,14 +55,14 @@ says so.
 > This appendix states how a position becomes the values and the structure the engine renders: the morph's clock and
 > glide, its settings, the quantum draw, the laws (Blend, Quantum, Stepped), each parameter's own morph mode and count,
 > how many structural settings sound at once, and how a structural difference is rendered. Rows MO-1 to MO-20 are the
-> **resolver**, built by the clean room beside the engine (ADR-325). Rows SB-1 to SB-12 are the engine's rendering of
+> **resolver**, built by the clean room beside the engine (ADR-325). Rows SB-1 to SB-13 are the engine's rendering of
 > structure.
 >
 > ### D.0 Who computes what, and when
 >
 > | id | requirement |
 > |---|---|
-> | MO-1 | **Two halves.** The **resolver** maps the corners, the position, the morph settings (D.2) and each key's mode and count (D.4) to events for the engine (MO-20): one value for each Morphable key and each Structural key that resolves to one value, sent as `Param` events, and a **setting set** for each structural group that blends, sent as a `SettingSet` event (IF-12). The engine applies `Param` events as any (PA-1, PA-5, PA-6) and renders setting sets by SB-1 to SB-12. The corners, the position, the morph settings and the modes are the morph system's state (RC-11.1); the resolver receives them through IF-12 and saves none of them. |
+> | MO-1 | **Two halves.** The **resolver** maps the corners, the position, the morph settings (D.2) and each key's mode and count (D.4) to events for the engine (MO-20): one value for each Morphable key and each Structural key that resolves to one value, sent as `Param` events, and a **setting set** for each structural group that blends, sent as a `SettingSet` event (IF-12). The engine applies `Param` events as any (PA-1, PA-5, PA-6) and renders setting sets by SB-1 to SB-13. The corners, the position, the morph settings and the modes are the morph system's state (RC-11.1); the resolver receives them through IF-12 and saves none of them. |
 > | MO-2 | **Device keys** are outside the morph. The resolver never emits them; they are never blended and never flipped (5.1). |
 > | MO-3 | **Clock, cadence, prepare and reset.** The resolver keeps a sample clock of its own, advanced by the samples it is asked to process and counted from its reset exactly as PA-3 counts the engine's, so its control intervals coincide with the engine's. It resolves once at the first sample of every control interval. An input (a position, a transport event, a setting, a mode, a corner edit) takes effect at the first interval boundary at or after its sample time. Its events are timed at that boundary. Prepare (given the host rate) allocates everything it will use (RT-1). Reset sets its clock to 0, clears every latch (MO-8: no corner held), clears the stepped hold (MO-10), snaps the glide (MO-5) to its targets, and sets the step phase to 0. After reset it resolves exactly as a freshly prepared resolver with the same inputs (DT-6's rule). It reads no clock (DT-5), allocates nothing after prepare, and its output is independent of block size (DT-2). |
 >
@@ -60,7 +71,7 @@ says so.
 > | id | requirement |
 > |---|---|
 > | MO-4 | **Corners and weights.** The corners sit at A = (0, 0), B = (1, 0), C = (0, 1), D = (1, 1). At a position (x, y) in [0, 1]², the **corner weights** are bilinear: w = [(1 − x)(1 − y), x(1 − y), (1 − x)y, xy], in that order, each in [0, 1], summing to 1. Every law reads the position only through these weights, at the stepped position under Stepped (MO-10). |
-> | MO-5 | **Morph glide** (ADR-325: on the resolver's output, before PA-1). Two glides, each a one-pole of time constant `morph.glide` seconds, stepped once per sample on the resolver's clock with the coefficient 1 − e^(−1/(f_host·`morph.glide`)), and bypassed at 0. **(a) The weights:** the four corner weights w are glided together, before every law, and snap together to their targets once all four are within 10⁻⁶ of them. The glided weights stay in [0, 1] and sum to 1, and every setting set (MO-17) is computed from them. **(b) The Morphable values:** each Morphable value the resolver emits is glided in its normalised form v (circular keys the shortest way round), and snaps to its target once within 10⁻⁶. Under Blend, (b) applied to the blend of fixed corner values gives the same value as the blend at the glided weights. Under Quantum it softens a Morphable key's flip. **Never glided:** a setting set's own weights (the engine glides them, PA-1, SB-2), Quantum's picks (MO-7 reads the unglided weights), and Structural keys that resolve to one value (they flip by PA-5). |
+> | MO-5 | **Morph glide** (ADR-325: on the resolver's output, before PA-1). Two glides, each a one-pole of time constant `morph.glide` seconds, stepped once per sample on the resolver's clock with the coefficient 1 − e^(−1/(f_host·`morph.glide`)), and bypassed at 0. **(a) The weights:** the four corner weights w are glided together, before every law, and snap together to their targets once all four are within 10⁻⁶ of them. The glided weights stay in [0, 1] and sum to 1, and every setting set (MO-17) is computed from them. **(b) The Morphable values:** each Morphable value the resolver emits is glided in its normalised form v (circular keys the shortest way round), and snaps to its target once within 10⁻⁶. Under Blend, for a key whose law is not `lin, wraps` and whose count is 4, (b) applied to the blend of fixed corner values gives the same value as the blend at the glided weights; for circular keys and at count 2 it is a glide of the value, not of the weights. Under Quantum it softens a Morphable key's flip. **For structure (ADR-325, X31):** at count 4, gliding the corner weights is exactly a glide of the set's weights on the output, since the set's weights are sums of corner weights; at count 2 it is a glide in weight space, because a glide of the output weights is undefined when the pair changes. **Never glided:** a setting set's own weights (the engine glides them, PA-1, SB-2), Quantum's picks (MO-7 reads the unglided weights), and Structural keys that resolve to one value (they flip by PA-5). |
 >
 > ### D.2 The morph settings
 >
@@ -68,18 +79,21 @@ says so.
 >
 > | key | label | range | default | what it does |
 > |---|---|---|---|---|
-> | `morph.on` | Morph | off, on | off | While off, the resolver emits nothing after MO-20's collapse (ADR-104: morph ships off). |
+> | `morph.on` | Morph | off, on | off | While off, corner `morph.audible` sounds and the resolver emits nothing after MO-20's hand-over (ADR-104: morph ships off; ADR-319 item 1). |
+> | `morph.audible` | Audible corner | A, B, C, D | A | The corner that sounds while the morph is off, whatever the position (ADR-319 item 1). |
 > | `morph.law` | Morph mode | Blend, Quantum, Stepped | Quantum | The law every Follow key obeys (D.3). |
 > | `morph.count` | Count | Two, Four | Four | How many corner settings may sound, or blend, at once under Blend and Stepped (MO-9, MO-17). |
-> | `morph.temperature` | Temperature | 0.02 to 4, log | 1 | How sharply each corner owns the pad under Quantum (MO-7). [X36] |
+> | `morph.temperature` | Temperature | 0.02 to 4, log | 1 | How sharply each corner owns the pad under Quantum (MO-7). |
 > | `morph.cohesion` | Cohesion | 0 to 1, lin | 0.3 | How far all keys pick the same corner together under Quantum (MO-7). |
 > | `morph.seed` | Morph seed | 1 to 9,999, step | 1024 | Seeds the quantum draw (MO-6). |
-> | `morph.stepRate` | Step rate | 0.25 to 32 steps per second, log; with `morph.stepSync` on, one of the tempo divisions [X37] | 4 per second; 1/16 when synced | How often Stepped takes a new position (MO-10). [X36] |
+> | `morph.stepRate` | Step rate | 0.25 to 32 steps per second, log; with `morph.stepSync` on, a division of RC-7.4's standard set | 4 per second; 1/16 when synced | How often Stepped takes a new position (MO-10). |
 > | `morph.stepSync` | Sync | off, on | off | On: steps follow the host's musical position (MO-10, RC-7). |
-> | `morph.glide` | Morph glide | 0 to 5 s, pow | 0.008 s | MO-5. [X36] |
+> | `morph.glide` | Morph glide | 0 to 5 s, pow | 0.008 s | MO-5. |
 >
 > The ranges and defaults of on, law, temperature, cohesion, seed and glide are the legacy shell's (its ids 151, 154 to
-> 158; law 0 was quantum). The tapers, the step rate's range and the division list are PROPOSED.
+> 158; law 0 was quantum); the tapers and the step rate's range are ADR-326's (X36). **Every setting but `morph.seed` and
+> `morph.audible` is a host parameter**, and so are the position's x and y: they come from a morph manifest appended to
+> the lockfile (IF-11; ADR-326, X39). The engine never receives them; they are the resolver's inputs (IF-12). [X43]
 >
 > ### D.3 The draw and the laws
 >
@@ -88,8 +102,8 @@ says so.
 > | MO-6 | **The quantum draw** (ADR-104; ADR-325 for X32: keyed per key, permanently, which is ADR-186 §5(g)'s ADR; ADR-185's rule then holds by construction). A stream for a purpose p and the seed S = `morph.seed` is a mulberry32 generator whose 32-bit state starts at h, the FNV-1a hash (offset basis 0x811C9DC5, prime 0x01000193, arithmetic modulo 2³²: h ← (h XOR b)·0x01000193 for each byte b) of the UTF-8 bytes of p followed by the four bytes of S, least significant first. Each step does: a ← a + 0x6D2B79F5; t ← (a XOR (a >> 15))·(a OR 1); t ← (t + (t XOR (t >> 7))·(t OR 61)) XOR t; out ← t XOR (t >> 14). Every operation is modulo 2³² on unsigned values, and >> is a logical shift. The draw is u = out / 2³², clamped to [10⁻⁹, 1 − 10⁻⁹]. A key k's draws are gₖ[c] = −ln(−ln u), the first four outputs of the purpose `morph/key/` followed by k's manifest key, for c = A, B, C, D in order. The **shared** draws g*[c] come the same way from the purpose `morph/shared`, which no manifest key can produce, since keys hold no `/`. **No draw depends on a key's position in any list or on how many keys exist**, so appending a key never changes how an existing patch sounds. Blend and Stepped read no draw. |
 > | MO-7 | **Quantum's pick.** For a key k at the unglided weights w (the stepped position's under Stepped), each corner scores sₖ[c] = λ[c] + (1 − h)·gₖ[c] + h·g*[c], with λ[c] = ln(w[c])/T where w[c] > 10⁻⁹ and −10¹² otherwise; T = max(0.02, `morph.temperature`) and h = `morph.cohesion`. The key's **pick** is the corner with the highest score (the lowest corner on a tie). A Morphable key emits the pick's value (glided by MO-5 (b), then PA-1). A Structural key resolves to it as one value, held by MO-8. |
 > | MO-8 | **The latch: a band of 0.1** (ADR-325). A Structural key keeps the corner it holds until another corner's score exceeds the held corner's by more than m = ln(0.55/0.45)/T. On an edge where two corners' draw terms are equal, that is a band of exactly 0.1 of the pad, centred on the even split; elsewhere it is the same margin in score. A key holds no corner before its first resolution after reset, and takes its pick then. Morphable keys have no latch. |
-> | MO-9 | **Blend.** A Morphable key's value at count 4 is the blend of its four corner values at MO-4's weights, unglided (MO-5 (b) then glides the value): Σc w[c]·v[c] in the normalised form v. For a key whose law is `lin, wraps` (a circular key), it is the angle of the weighted mean of unit vectors, frac(atan2(Σc w[c]·sin 2πv[c], Σc w[c]·cos 2πv[c]) / 2π); where that mean's length is below 10⁻⁹, the value of the heaviest corner (the lowest on a tie). At count 2 (MO-11), the same sums run over the two corners MO-17's two-setting law selects, with that law's weights; its candidates are the distinct corner values, pooled as MO-17 pools settings. A Structural key blends by D.5. |
-> | MO-10 | **Stepped** (B424). The resolver keeps a **step phase** φ and a **stepped position**. At reset, φ = 0 and the stepped position is the position at the first resolution. When `morph.stepSync` is off, φ advances by `morph.stepRate`/f_host each sample, so a step falls whenever ⌊φ⌋ increases, without rounding drift at fractional samples per step; a rate change changes only the advance from that sample on, and φ never jumps. When it is on and the transport is playing, φ = (the host's musical position in quarter notes, RC-7.2)/(the division's length in quarter notes, a bar taking the time signature's length, RC-7), and a jump (RC-7) sets φ to the new position's. When the transport is stopped (ADR-325, X34), φ advances by tempo/(60·f_host·the division's length) per sample from where it stood. At the first resolution of an interval in which ⌊φ⌋ has changed, the stepped position takes the current position. Between steps it holds. Stepped is Blend (MO-9, D.5) at the stepped position. **Every key reads the stepped position under Stepped: Follow keys, Quantum-mode keys' picks, and flip-only keys.** Values and structure weights therefore move in steps, each step's edge glided by MO-5 and PA-1. |
+> | MO-9 | **Blend.** A Morphable key's value at count 4 is the blend of its four corner values at MO-4's weights, unglided (MO-5 (b) then glides the value): Σc w[c]·v[c] in the normalised form v. For a key whose law is `lin, wraps` (a circular key), it is the angle of the weighted mean of unit vectors, frac(atan2(Σc w[c]·sin 2πv[c], Σc w[c]·cos 2πv[c]) / 2π); where that mean's length is below 10⁻⁹, the value of the heaviest corner (the lowest on a tie). At count 2 (MO-11), the candidates are the key's distinct corner values, each with the pooled sum of the unglided weights of the corners holding it (as MO-17 pools settings); MO-17's two-setting law selects at most two of them and weighs them, and the same sums run over those, with those weights. A Structural key blends by D.5. |
+> | MO-10 | **Stepped** (B424). The resolver keeps a **step phase** φ and a **stepped position**. At reset, φ = 0 and the stepped position is the position at the first resolution. **φ in closed form.** When `morph.stepSync` is off, φ(n) = φ₀ + (n − n₀)·`morph.stepRate`/f_host, where n₀ is the sample of the last change of the rate, of sync, or of the transport's play state, and φ₀ is φ(n₀); so φ never jumps at a rate change, and there is no rounding drift at fractional samples per step. When it is on and the transport is playing, φ(n) = (the host's musical position at n in quarter notes, RC-7.2)/(the division's length in quarter notes, RC-7.4). When it is on and the transport is stopped (ADR-325, X34), φ(n) = φ₀ + (n − n₀)·tempo/(60·f_host·the division's length). A jump (RC-7) sets φ to the new position's. **A step falls at the first resolution at which ⌊φ⌋ differs from its value at the previous resolution**, so a backward jump (a loop's wrap) that changes ⌊φ⌋ is a step too, and the stepped position takes the current position. Between steps it holds. Stepped is Blend (MO-9, D.5) at the stepped position. **Every key reads the stepped position under Stepped: Follow keys, Quantum-mode keys' picks, and flip-only keys.** Values and structure weights therefore move in steps, each step's edge glided by MO-5 and PA-1. |
 >
 > ### D.4 Each key's own mode and count (B557)
 >
@@ -103,30 +117,31 @@ says so.
 >
 > | id | requirement |
 > |---|---|
-> | MO-14 | **Structural groups.** The Structural keys that are not flip-only (MO-15) form these groups, each named by its id. (1) **By gain:** `oscN.env` (that oscillator's `env`), `noise.env` (the noise's `env`), and `oscN.pan` (`panImage` and `panInvert`). (2) **`oscN.kernel`:** `baseWave`, `stacking`, `spreadLaw`, `quantize`, and every row of 5.4 for both blades. (3) **`oscN.swarm`:** `unison`, `distribution`, `seed`, `detuneLaw`, `detuneRange`, `pivot`, `octave`, `semitone`. If the four corners hold more than one setting of this group's blending keys, the kernel's keys join `oscN.swarm` and `oscN.kernel` does not exist. This is decided over the four corners, so it is fixed for the patch and changes only with a corner edit or a change of mode. It does not change with the position. (4) **`sub.chain`:** the sub's Structural rows but `voiceMode` and `priority`, with `env` included. The sub applies its envelope inside its chain ahead of the drive (SN-3), so `sub.env` cannot act by gain. (5) **`noise.chain`:** the noise's Structural rows but `env` and the reserved rows. (6) **`filter`:** the filter's own Structural keys, when a filter is assigned (RC-1). (7) **`fxN`:** each FX slot's structure, whose keys the rack defines (RC-5). A **setting** of a group is one value for each of its blending keys (MO-16). |
+> | MO-14 | **Structural groups.** The Structural keys that are not flip-only (MO-15) form these groups, each named by its id. Group ids use a `/`, so no id is a manifest key. (1) **By gain:** `oscN/env` (that oscillator's `env`), `noise/env` (the noise's `env`), and `oscN/pan` (`panImage` and `panInvert`). (2) **`oscN/kernel`:** `baseWave`, `stacking`, `spreadLaw`, `quantize`, and every row of 5.4 for both blades. (3) **`oscN/swarm`:** `unison`, `distribution`, `seed`, `detuneLaw`, `detuneRange`, `pivot`, `octave`, `semitone`, and the oscillator's **`ratios` text**, named `oscN.ratios` for the morph and compared as text (ADR-326, X40: each corner keeps its own). If the four corners hold more than one setting of this group's blending keys, the kernel's keys join `oscN/swarm` and `oscN/kernel` does not exist. This is decided over the four corners, so it is fixed for the patch and changes only with a corner edit or a change of mode. It does not change with the position. (4) **`sub/chain`:** the sub's Structural rows but `voiceMode` and `priority`, with `env` included. The sub applies its envelope inside its chain ahead of the drive (SN-3), so `sub.env` cannot act by gain. (5) **`noise/chain`:** the noise's Structural rows but `env` and the reserved rows. (6) **`voice/filter`:** the filter's own Structural keys, when a filter is assigned (RC-1). (7) **`fx/N`:** each FX slot's structure, whose keys the rack defines (RC-5). A **setting** of a group is one value for each of its blending keys (MO-16). |
 > | MO-15 | **Flip-only keys.** `voice.mode`, `oneShot`, `retrigger`, `sub.voiceMode`, `sub.priority` and every reserved row never blend: they act on the voice law or at a voice's start, where one note cannot hold two values. Each resolves to one value under every law and every mode **but Exempt** (MO-12). That value is its own pick and latch (MO-7, MO-8), at the stepped position under Stepped, so under Blend it is the seeded point of IF-4 before ADR-317. It changes on sounding voices by PA-5, or by VO-14 for `voice.mode`. |
 > | MO-16 | **Which keys blend.** A key of a group **blends** when its mode is Follow and the law is Blend or Stepped. Every other key of the group resolves to one value (its pick under Quantum, its held value under Exempt), which the resolver emits as a `Param` event. Settings are formed over the blending keys only. |
-> | MO-17 | **The setting set.** A blending group's candidates are the distinct settings its four corners hold. A candidate's **id** is the lowest corner index (A = 0 … D = 3) holding it. Its **pooled weight** Wₛ is the sum of the glided corner weights (MO-5 (a)) of the corners holding it. The group's **count** n is the smallest Count among its blending keys (As the morph reads `morph.count`; ADR-325), and is 2 for `fxN` whatever the choice. **At n = 4**, or with at most two candidates, the set is every candidate with Wₛ > 0, at weight Wₛ. **At n = 2** with three or more candidates, the candidates are ordered by Wₛ, highest first, ties broken by the lower id. With W₁ ≥ W₂ ≥ W₃, the set is the first two, at weights (W₁ − W₃)/(W₁ + W₂ − 2W₃) and (W₂ − W₃)/(W₁ + W₂ − 2W₃); where W₁ + W₂ − 2W₃ = 0 (the top three tie), the set is the first alone, at weight 1. A set's weights sum to 1. |
+> | MO-17 | **The setting set.** A blending group's candidates are the distinct settings its four corners hold. A candidate's **id** is the lowest corner index (A = 0 … D = 3) holding it. Its **pooled weight** Wₛ is the sum of the glided corner weights (MO-5 (a)) of the corners holding it. The group's **count** n is the smallest Count among its blending keys (As the morph reads `morph.count`; ADR-325), and is 2 for `fx/N` whatever the choice. **At n = 4**, or with at most two candidates, the set is every candidate with Wₛ > 0, at weight Wₛ. **At n = 2** with three or more candidates, the candidates are ordered by Wₛ, highest first, ties broken by the lower id. With W₁ ≥ W₂ ≥ W₃, the set is the first two, at weights (W₁ − W₃)/(W₁ + W₂ − 2W₃) and (W₂ − W₃)/(W₁ + W₂ − 2W₃); where W₁ + W₂ − 2W₃ = 0 (the top three tie), the set is the first alone, at weight 1. A set's weights sum to 1. |
 > | MO-18 | **Continuity at n = 2.** The two-setting law is continuous wherever the top three pooled weights do not all tie. Where the second and third trade places, both have weight 0. It is discontinuous only at a point where they all tie: the pad's centre when the corners hold four settings, or (0.5, ⅓) when they hold three with C = D. Near that point the weights turn steeply. **A path through that point is a switch there.** With four distinct corners the A–D and B–C diagonals pass through it: that is correct, and it is what the Two setting trades for its cost. The engine's slot rule (SB-11) carries the change. |
-> | MO-19 | **An FX slot's set** (ADR-324 H10). An `fxN` group is resolved like any other, with n = 2, so at most two settings of a slot sound at once. How a slot renders its set is RC-5's. |
-> | MO-20 | **What the resolver emits.** At each control interval it emits, as needed: a `Param` event for each Morphable key whose glided value changed, and for each Structural key that resolves to one value whose value changed; and a `SettingSet` event (IF-12) for each blending group whose set (ids, values or weights) changed. A group that stops blending (a mode change, or the corners coming to agree) gets one last set of one setting, which equals `Param` events setting its values. When `morph.on` turns off, it emits for each blending group a set of one setting, its heaviest (the lower id on a tie), and then nothing. |
+> | MO-19 | **An FX slot's set** (ADR-324 H10). An `fx/N` group is resolved like any other, with n = 2, so at most two settings of a slot sound at once. Its sets go to the rack, never to the engine (IF-12). How a slot renders its set is RC-5's. |
+> | MO-20 | **What the resolver emits, and in what order.** At each control interval boundary it emits, as needed, **first** a `SettingSet` event (IF-12) for each blending group whose set (key list, values or weights) changed, **then** a `Param` event for each Morphable key whose glided value changed and for each Structural key that resolves to one value whose value changed. So a key that stops blending is already absent from its group's latest set when its `Param` event arrives (PA-7). A group that stops blending (a mode change, or the corners coming to agree) gets one last set of one setting, which equals `Param` events setting its values. **When `morph.on` turns off** (ADR-319 item 1), it emits the values of corner `morph.audible`, whatever the position: for each blending group a set of one setting equal to that corner's setting, then a `Param` event for every other key the morph resolves. After that it emits nothing until the morph is turned on again. `fx/N` sets go to the rack (IF-12). |
 >
 > ### D.6 Rendering a setting set (the engine's half)
 >
 > | id | requirement |
 > |---|---|
-> | SB-1 | **One render per setting.** For each setting of a group's set, the engine renders the group once. (1) **By gain:** no render. The stage applies Σₛ wₛ·gainₛ, which is the same sound as mixing renders because the stage is linear in the signal. (2) **`oscN.kernel`:** the member kernel (the base wave, both blades and their edge corrections), once per setting, from the oscillator's one member state. (3) **`oscN.swarm`:** a whole oscillator instance per setting (SB-4). (4) and (5) **`sub.chain`, `noise.chain`:** the chain, once per setting, at the points PA-5 names for each. (6) **`filter`:** one filter instance per setting (RC-1). (7) **`fxN`:** by RC-5. A set is never rendered as a product of groups (MO-14 item 3). |
+> | SB-1 | **One render per setting.** For each setting of a group's set, the engine renders the group once. (1) **By gain:** no render. The stage applies Σₛ wₛ·gainₛ, which is the same sound as mixing renders because the stage is linear in the signal. (2) **`oscN/kernel`:** the member kernel (the base wave, both blades and their edge corrections), once per setting, from the oscillator's one member state. (3) **`oscN/swarm`:** a whole oscillator instance per setting (SB-4). (4) and (5) **`sub/chain`, `noise/chain`:** the chain, once per setting, at the points PA-5 names for each. (6) **`voice/filter`:** one filter instance per setting (RC-1). (7) **`fx/N`:** by RC-5. A set is never rendered as a product of groups (MO-14 item 3). |
 > | SB-2 | **The mix.** A group's output is Σₛ wₛ·yₛ, with equal gain (RS-3.6 of the rack's contract, ADR-324 H11). Each weight is a value glided by PA-1, per voice. The glided weights sum to 1 within 10⁻⁵. |
 > | SB-3 | **The kernel's one member state.** Every setting of a kernel group renders from the oscillator's one member state, as PA-5's crossfade does. Where the member state reads the output (feedback and cross-mod, C.14), it reads the mixed output Σₛ wₛ·yₛ. |
-> | SB-4 | **Several swarm instances.** While `oscN.swarm` holds several settings, each setting is a whole oscillator instance, with its own members (SW-1), its own coupling, drift and frame, and its own feedback and cross-mod loop, which reads that instance's output only. (a) Its per-note streams (DT-4) are seeded from that setting's `seed`. The noise oscillator's seed ("the voice's seed", osc 1's) is the `seed` of osc 1's heaviest setting at the voice's fresh start (the lower id on a tie), and is kept for the note. (b) The persistent placement and ensemble state (DT-4, C.2, C.7) is kept once per distinct `seed` among the four corners, and each instance uses the state of its own seed. (c) The sources the engine publishes for the oscillator (IF-3) are the mixture's: R·e^{iψ} = Σₛ wₛ·Rₛ·e^{iψₛ}, and the onset burst's level is Σₛ wₛ·levelₛ. (d) The observation view (IF-10) reports members per instance, with the instance's setting id. |
+> | SB-4 | **Several swarm instances.** While `oscN/swarm` holds several settings, each setting is a whole oscillator instance, with its own members (SW-1), its own coupling, drift and frame, and its own feedback and cross-mod loop, which reads that instance's output only. (a) Its per-note streams (DT-4) are seeded from that setting's `seed`. The noise oscillator's seed ("the voice's seed", osc 1's) is the `seed` of osc 1's heaviest setting at the voice's fresh start (the lower id on a tie), and is kept for the note. (b) The ensemble's persistent state (DT-4, C.7) is kept once per distinct swarm setting among the four corners (its full tuple of values; at most four per oscillator), each with its own stream seeded from that setting's `seed`; placement (C.2) is computed per instance from its own `unison`, `distribution` and `seed`. An instance uses its setting's state; a corner edit that makes a new setting starts its state fresh. (c) The sources the engine publishes for the oscillator (IF-3) are the mixture's: R·e^{iψ} = Σₛ wₛ·Rₛ·e^{iψₛ}, and the onset burst's level is Σₛ wₛ·levelₛ. (d) The observation view (IF-10) reports members per instance, with the instance's setting id. |
 > | SB-5 | **A setting at weight 0 costs nothing.** A setting whose heard weight is exactly 0 renders nothing and counts nothing (IF-9). Where a group's set holds one setting, and at every corner, exactly one setting renders. |
-> | SB-6 | **Waking.** A setting that enters a slot (SB-11) while a voice sounds starts from its fresh-start state, at the weight PA-1 raises from 0. For a swarm that is a fresh start of its members (ADR-324 H9). Its per-note streams are keyed by purpose, note counter, member and (for the swarm) its seed, never by the slot that renders it, so a setting renders the same in any slot. |
+> | SB-6 | **Waking.** A setting that enters a slot (SB-11) while a voice sounds starts from its fresh-start state, at the weight PA-1 raises from 0. For a swarm that is a fresh start of its members (ADR-324 H9). Its per-note streams are keyed by purpose, note counter, member and (for the swarm) its seed, never by the slot that renders it, so a setting renders the same in any slot. **Each kernel setting holds its own copy of the per-note blade-noise streams** (BL-18), started from the note's seed at the setting's start, so settings never consume each other's draws. |
 > | SB-7 | **A voice that starts in a blend.** A voice's fresh start loads every setting of each group's current set into its slots, each from its fresh-start state, with its weight set to the target, not glided. The note is the blend from its first sample. **A legato change** (VO-6) keeps every setting running, with its phases and states continuous, as it keeps one setting today. |
 > | SB-8 | **A flip inside a blend.** When a key of a blending group that resolves to one value (MO-16) changes, every live setting of the group changes with it at once: by PA-5's 5 ms raised-cosine crossfade, except that `octave` and `semitone` change the frequency at once with every phase continuous (PA-5), and `unison` fades members in and out by PA-6. During a PA-5 crossfade, at most twice the group's settings render. A second change waits until it ends, as PA-5 says. |
 > | SB-9 | **Limits.** At most four settings per group sound, at most two for a group whose count is 2, and twice those during SB-8's crossfade. The engine is sized for this (RT-1). |
 > | SB-10 | **Corner exactness.** At each corner, and wherever every group's set holds one setting, the output is bit-identical to the same patch with the morph off and those values stored. |
-> | SB-11 | **The slot rule.** Each voice keeps, per blending group, as many **slots** as the group's count n. At each control interval the engine applies the group's current set as follows. (a) **Matching settings.** An entry whose id and values match a slot's setting gives that setting its weight as the target. An entry whose id matches but whose values differ (a corner edit) is a new setting, and the old one's target becomes 0. (b) **Entering.** A setting not in a slot enters a **free** slot: an empty one, or one whose setting has target 0 and a heard weight below 10⁻⁴. It starts by SB-6. A freed setting's remaining heard weight r is added to the heard weight of the slot setting with the largest heard weight (the lower id on a tie), which then glides back to its target by PA-1. So the weights still sum to 1, and the output steps by under 10⁻⁴ of the two settings' difference (below −80 dB). (c) **Waiting.** While a setting of the set waits for a slot, its weight goes to the slot settings that are in the set, in proportion to their set weights. If no slot setting is in the set, the slot setting with the largest heard weight (the lower id on a tie) takes target 1 and the others 0, so the others empty and free their slots. (d) **A lower count.** When a group's count falls, slots above the new count admit no setting and are removed once freed. So any change of set, including the path through MO-18's point, a corner edit, a chimera that Quantum-mode keys make, and a change of count, law or mode, is a sequence of PA-1 glides, with never more settings sounding than SB-9 allows. |
-> | SB-12 | **Per voice, and the mono sub.** Sets are the instrument's (one pad). Slots, heard weights and settings' states are per voice. The mono sub (SN-7, RC-6.6) keeps its `sub.chain` slots once for the instrument. |
+> | SB-11 | **The slot rule.** Each voice keeps, per blending group, as many **slots** as the group's count n. At each control interval the engine applies the group's current set as follows. (a) **Matching settings, by value.** An entry matches a slot's setting when their values agree on every key that both the entry's key list and the setting's hold; the id is only a label. A matched setting takes the entry's id, and its weight as the target. Where several slot settings match one entry, the one with the largest heard weight takes it (the lower slot on a tie) and the others take target 0; where one slot setting matches several entries, the entry with the lower id takes it. An entry that matches no slot setting is a new setting, and a slot setting that matches no entry takes target 0. So a corner edit that only relabels a setting (A and B hold X with id 0, and A is edited, so X's id becomes 1) keeps it running, with no restart. **A key that leaves a group's key list** (a mode change from Follow) arrives as its `Param` event and applies to every live setting by SB-8; the settings keep their slots and match on the remaining keys, so none re-enters. (b) **Entering.** A setting not in a slot enters a **free** slot: an empty one, or one whose setting has target 0 and a heard weight below 10⁻⁴. It starts by SB-6. A freed setting's remaining heard weight r is added to the heard weight of the slot setting with the largest heard weight (the lower id on a tie): both of PA-1's error states of that setting rise by r, exactly as if its target had stepped down by r, so it glides back to its target along PA-1's curve. So the weights still sum to 1, and the output steps by under 10⁻⁴ of the two settings' difference (below −80 dB). (c) **Waiting.** While a setting of the set waits for a slot, its weight goes to the slot settings that are in the set, in proportion to their set weights. If no slot setting is in the set, the slot setting with the largest heard weight (the lower id on a tie) takes target 1 and the others 0, so the others empty and free their slots. (d) **A lower count.** When a group's count falls, slots above the new count admit no setting and are removed once freed. So any change of set, including the path through MO-18's point, a corner edit, a chimera that Quantum-mode keys make, and a change of count, law or mode, is a sequence of PA-1 glides, with never more settings sounding than SB-9 allows. |
+> | SB-12 | **Per voice, and the mono sub.** Sets are the instrument's (one pad). Slots, heard weights and settings' states are per voice. The mono sub (SN-7, RC-6.6) keeps its `sub/chain` slots once for the instrument. |
+> | SB-13 | **A voice's life while an envelope selector blends.** While a source's `env` group (`oscN/env`, `noise/env`) or the sub's chain holds several settings, the source follows each envelope its settings name, and each counts among the voice's governing envelopes (6.4) while its setting's heard weight is above 0. So the voice is freed only when every such envelope has finished (6.4's rule), and an envelope whose setting has faded to weight 0 no longer holds the voice. |
 
 ---
 
@@ -172,8 +187,9 @@ render half: reset to fresh, migration rendered; items 14, 20, 21, 23);":
 > - **stage 5:** the kernel per setting on one member state, SB-3;
 > - **stage 6:** the sub's and the noise's chains per setting, and the envelope selectors by gain.
 >
-> Every accepted item (0 to 33, and 15) stays green. Item 19 is judged as RC-7.3 now reads. The bank stage does not wait
-> on it [X38];
+> Every accepted item stays green. Item 19 is judged as RC-7.3 now reads. The bank stage carries on and does not wait on
+> it (ADR-326, X38); the amendment reopens the stages above when it lands, and a corner, or the morph off, stays
+> bit-identical (SB-10);
 
 **§4.2, the per-voice signal path, gains a bullet** under the diagram:
 > - Where a structural group blends (Appendix D), the stage it names runs once per setting and the renders are mixed at
@@ -249,9 +265,13 @@ The start table (after VO-14) gains a row:
   nothing is stored** (round 28, the counter `refused_param_id`); **a `SettingSet` event (IF-12) is refused whole, and
   nothing of it is stored, when it names no group, gives n other than 2 or 4 (or other than 2 for an FX slot), holds more
   entries than n, repeats an id, names an id outside 0 to 3, lists keys that are not that group's or a key twice, gives a
-  value outside a key's range or options, or gives a weight that is not finite, is negative, or makes the weights' sum
-  differ from 1 by more than 10⁻⁶ (the counter `refused_setting_set`); a `Param` event for a blending key of a group whose
-  set holds more than one setting is refused (the counter `refused_param_in_set`)**; each refusal…" *(rest unchanged)*
+  value outside a key's range or options (or a `ratios` text its parser refuses), or gives a weight that is not finite,
+  is negative, or makes the weights' sum differ from 1 by more than 10⁻⁶; or names an `fx/N` group, whose sets go to the
+  rack; or is an `oscN/kernel` set while that oscillator is **merged** (its latest `oscN/swarm` set lists kernel keys,
+  MO-14 item 3), or an `oscN/swarm` set that lists kernel keys while a set of that oscillator's `oscN/kernel` is live
+  (the counter `refused_setting_set`). A `Param` event for a key listed in its group's latest received set, when that
+  set holds more than one setting, is refused (the counter `refused_param_in_set`); "holds" means the latest set
+  received, not settings still fading in slots (SB-11)**; each refusal…" *(rest unchanged)*
 
 ### 2.10 IF-3 (line 670)
 
@@ -274,17 +294,27 @@ The start table (after VO-14) gains a row:
   the state and the snapshot (RC-11.2) hold those values. After a load or a restore, the morph system resends every
   group's set at the load's or restore's sample (IF-12), and until a group receives one it renders the one setting its
   stored values name. Saving, loading and saving again therefore gives bit-identical renders whenever the same sets are
-  resent at the same samples. The engine reports the heard value of every stepped key per oscillator, **and the heard
+  resent at the same samples. **Values the morph sends (its `Param` events, and a stored value that changes because the
+  heaviest setting changed) are not reported to the host as parameter changes**: they are the morph's output, not edits;
+  the host automates the morph's own parameters instead (IF-11). The engine reports the heard value of every stepped key per oscillator, **and the heard
   setting set of every structural group, with each setting's id and weight**, so the GUI shows what is heard where the
-  morph and the stored patch differ." *(the State part, from "**State** is a key-value document…", unchanged)*
+  morph and the stored patch differ." In the State part, the text's members change (ADR-326, X40):
+  - Before: "…exactly the members `version` (1), `params` (manifest key → v, in ascending manifest id order) and `ratios`
+    (`{"osc1": text, "osc2": text}`), with any keys and members this build does not know kept after them…"
+  - After: "…exactly the members `version` (1), `params` (manifest key → v, in ascending manifest id order), `ratios`
+    (`{"osc1": text, "osc2": text}`, the stored texts) **and, when the morph has corners, `cornerRatios`
+    (`{"A": {"osc1": text, "osc2": text}, "B": …, "C": …, "D": …}`, each corner's own texts, which the morph system writes
+    and reads back into the resolver's corners, IF-12; the engine renders from sets and stored values, never from
+    `cornerRatios`)**, with any keys and members this build does not know kept after them…" [X42]
 
 ### 2.12 RT-1 (line 621)
 
 - Before: "…room for PA-5's second setting on every oscillator, a second voice state for VO-6's mono re-run crossfade,…"
 - After: "…room for PA-5's second setting on every oscillator; **for every structural group, up to four settings and SB-8's
   second of each: the kernel's on the one member state, the swarm's as up to four whole oscillator instances per
-  oscillator per voice (eight during SB-8), with persistent state for up to four seeds (SB-4), and the sub's and the
-  noise's chains; the filter slot's settings are sized by the filter once one is assigned (RC-1), and none while the slot
+  oscillator per voice (eight during SB-8), with up to four ensemble states per oscillator, one per distinct swarm
+  setting (SB-4), a copy of the per-note blade-noise streams per kernel setting (SB-6), and the sub's and the noise's
+  chains; the filter slot's settings are sized by the filter once one is assigned (RC-1), and none while the slot
   is empty;** a second voice state for VO-6's mono re-run crossfade, **with its settings**,…" *(rest unchanged)*
 
 ### 2.13 IF-9 (line 676)
@@ -305,20 +335,31 @@ The start table (after VO-14) gains a row:
 
 ### 2.15 §7.1 gains IF-12, the morph (new row)
 
-> | IF-12 | **The morph** | **The resolver's calls** (MO-1, MO-3): prepare (the host rate); reset; the corners (four maps of manifest key → v); the morph settings (D.2); each key's mode and count (MO-11); the position (x, y), sample-timed; the transport, as RC-7's events; and process (a sample count), which advances the resolver's clock and returns its events for those samples, each timed at a control-interval boundary. The shell passes them to the engine in the same block. **The `SettingSet` event**, timed like a `Param` event (PA-3): a group id (MO-14: `osc1.kernel`, `osc1.swarm`, `osc1.pan`, `osc1.env`, the same for `osc2`, `noise.env`, `sub.chain`, `noise.chain`, `filter`, `fx1`, …); the count n (2 or 4); the group's blending keys, by manifest key, in ascending manifest id order; and up to n entries, each an id (0 to 3, MO-17), a weight, and one value v for each listed key. A key that resolves to one value is never in a set: it arrives as a `Param` event and applies to every setting of its group (SB-8). Events apply in arrival order (PA-3), whatever their source. While the morph is on, the morph system routes the host's and the GUI's edits of morphing keys to the corners (ADR-109), so the resolver is their only source; a `Param` event for a blending key whose group's set holds more than one setting is refused (PA-7). Checked on entry by PA-7. |
+> | IF-12 | **The morph** | **The resolver's calls** (MO-1, MO-3): prepare (the host rate); reset; the corners (four arrays of v indexed by manifest id, sized at prepare from the manifest, and each corner's two `ratios` texts within the text's own bound); the morph settings (D.2); each key's mode and count (MO-11); the position (x, y), sample-timed; the transport, as RC-7's events; and process (a sample count), which advances the resolver's clock and returns its events for those samples, each timed at a control-interval boundary. The shell passes them to the engine in the same block. **The `SettingSet` event**, timed like a `Param` event (PA-3): a group id (MO-14: `osc1/kernel`, `osc1/swarm`, `osc1/pan`, `osc1/env`, the same for `osc2`, `noise/env`, `sub/chain`, `noise/chain`, `voice/filter`, `fx/1`, …); the count n (2 or 4); the group's blending keys, by manifest key, in ascending manifest id order; and up to n entries, each an id (0 to 3, MO-17; a label and a tie-break, SB-11), a weight, and one value for each listed key: v, or for `oscN.ratios` its text. **`fx/N` sets go to the rack (RC-5), never to the engine.** A merged oscillator's `oscN/swarm` set lists its kernel keys too (MO-14 item 3). A key that resolves to one value is never in a set: it arrives as a `Param` event and applies to every setting of its group (SB-8). Events apply in arrival order (PA-3), whatever their source. While the morph is on, the morph system routes the host's and the GUI's edits of morphing keys to the corners (ADR-109), so the resolver is their only source; a `Param` event for a key in its group's latest multi-setting set is refused (PA-7). The morph's own settings and position are host parameters of the shell (IF-11), never events to the engine. Checked on entry by PA-7. |
+
+### 2.15a IF-11 (line 678)
+
+- Before: "Through the shell: the manifest generates the host parameter table from its non-reserved rows (5.1), committed as a
+  lockfile (id, key, min, max, default, taper, steps), ids explicit, append-only, below 0xB00000."
+- After: "Through the shell: the manifest generates the host parameter table from its non-reserved rows (5.1), **and the
+  morph's manifest (D.2) appends the morph's host parameters to it: the position's x and y, `morph.on`, `morph.law`,
+  `morph.count`, `morph.temperature`, `morph.cohesion`, `morph.stepRate`, `morph.stepSync` and `morph.glide`, never
+  `morph.seed` (ADR-326, X39)**, committed as a lockfile (id, key, min, max, default, taper, steps), ids explicit,
+  append-only, below 0xB00000. **The morph's parameters reach the resolver, never the engine (IF-12).**" *(rest
+  unchanged)*
 
 ### 2.16 RC-1, the filters
 
 - Before: "- **Deferred:** the filter types, their count and how sources route to them [X13] …"
 - After: before it, a new bullet:
-> - **Must provide, when built:** a filter instance per setting of the `filter` group's set (SB-1), each cleared at its
->   start (SB-6), their outputs mixed by SB-2; its structural keys declared to the morph as the `filter` group (MO-14).
+> - **Must provide, when built:** a filter instance per setting of the `voice/filter` group's set (SB-1), each cleared at its
+>   start (SB-6), their outputs mixed by SB-2; its structural keys declared to the morph as the `voice/filter` group (MO-14).
 
 ### 2.17 RC-5, the FX rack
 
 - Before: "- **Deferred:** the rack, its modules, and the device's master limiter (which holds the device's peaks, OU-1)."
 - After: that bullet unchanged, and a new one after it:
-> - **Must provide, when built:** for each slot, the keys of its `fxN` group (MO-14: the module patch's structure, as the
+> - **Must provide, when built:** for each slot, the keys of its `fx/N` group (MO-14: the module patch's structure, as the
 >   rack defines it) and its rendering of a two-setting set (MO-19): two module instances, each holding one setting, both
 >   receiving the blended Morphable values, their outputs mixed by SB-2's law at the set's weights, with SB-11's slot rule;
 >   a change that resolves to one value is made by the rack's own switching. **FX device (ADR-254):** the same.
@@ -339,6 +380,16 @@ The start table (after VO-14) gains a row:
 - RC-7.3, after: "In 1.0 no sound of the engine depends on the transport **except through the morph's synced steps
   (MO-10; ADR-325)**: **with `morph.stepSync` off, or the morph off,** a render is bit-identical with and without any
   transport events (10.1 item 19)."
+- **RC-7.4 is new: the standard tempo divisions** (ADR-326, X37; B590 points here). Paste after RC-7.3:
+> - **RC-7.4 The standard tempo divisions.** Every part of the instrument that syncs to tempo (the morph's stepped hybrid,
+>   and the LFOs, the arpeggiator and the delays when they are specified) offers one set of divisions, and no part keeps a
+>   list of its own. **The base set** is 1/32, 1/16, 1/8, 1/4, 1/2, 1 bar, 2 bars and 4 bars, where 1/k is a k-th of a
+>   whole note (4/k quarter notes) and a bar is the time signature's (RC-7). **The triplet toggle** adds the triplet of
+>   each base value from 1/16 to 4 bars (⅔ of its length); **the dotted toggle** adds the dotted value of each base
+>   value from 1/32 to 2 bars (3/2 of its length). So the set's ends stay 1/32 and 4 bars. The values are listed by
+>   length, shortest first. A synced control's stored option is an index into the **full** list (the base set with every
+>   triplet and dotted value). The two toggles only filter which options the control offers, so turning one off never
+>   changes a stored value or a sound. [X41]
 
 ### 2.20 RC-10 (line 775)
 
@@ -394,13 +445,18 @@ The start table (after VO-14) gains a row:
 - Item 19, after: "transport events at any sample times and block sizes leave the render bit-identical **with `morph.stepSync`
   off** (RC-7.1, RC-7.3), **and with it on, synced steps fall on the division boundaries at any block size (MO-10)**;"
 - New items, after item 33:
-> 34. **the morph resolver** (Appendix D, MO-1 to MO-20), on its own calls (IF-12): items R1 to R16 of the B585 spec text;
-> 35. **the structure blend** (D.6, SB-1 to SB-12; IF-12's event; PA-7's refusals): items E1 to E17.
+> 34. **the morph resolver** (Appendix D, MO-1 to MO-20, RC-7.4), on its own calls (IF-12), as items 34.1 to 34.16 (§3
+>     below, pasted in full);
+> 35. **the structure blend** (D.6, SB-1 to SB-13; IF-12's event; PA-7's refusals), as items 35.1 to 35.17 (§3 below,
+>     pasted in full).
 
 ### 2.27 §11
 
-No new X items for ADR-325's rulings: X28 to X35 are written into the rows above. The open items that remain are §5's:
-X36 to X40. They are added to §11.1, and its heading's count changes from (24) to (29).
+ADR-325's X28–X35 and ADR-326's X36–X40 are written into the rows above, and none of them is listed. The open items
+this revision raises are §5's: X41, X42 and X43. Paste them into §11.1, whose heading count changes from (24) to (27):
+> | X41 | the division set's extents and its toggles' scope (B590) | RC-7.4 as written; the two toggles are per synced control, saved with the patch | RC-7.4, `morph.stepRate` |
+> | X42 | where each corner's `ratios` texts are saved | IF-4's `cornerRatios`, written and read by the morph system | IF-4, IF-12 |
+> | X43 | whether `morph.audible` is a host parameter | no: it is a page choice, like the seed | D.2, IF-11 |
 
 ### 2.28 `engine2/structure/engine-structure.json` (proposed as text; the file is not edited)
 
@@ -408,14 +464,14 @@ X36 to X40. They are added to §11.1, and its heading's count changes from (24) 
   - `morph_resolver` (block, parent `instrument`, scope `engine`, cites MO-1 to MO-20 and IF-12, label "the morph
     resolver: weights, glide, the draw, the laws, modes and counts, setting sets");
   - `voice.structure_slots` (block, parent `voice`, scope `engine`, multiplicity "per structural group, up to its count
-    (2 or 4)", cites SB-2, SB-5, SB-6, SB-7, SB-11, SB-12, label "a voice's structural slots: settings, heard weights,
+    (2 or 4)", cites SB-2, SB-5, SB-6, SB-7, SB-11, SB-12, SB-13, label "a voice's structural slots: settings, heard weights,
     the slot rule").
 - **Changed items:**
   - `modulation`: its label drops "and morph systems", and it adds "and the morph's editor and storage";
-  - `osc`: its multiplicity reads "2: osc 1 and osc 2; × up to four swarm settings while `oscN.swarm` blends (SB-4)";
+  - `osc`: its multiplicity reads "2: osc 1 and osc 2; × up to four swarm settings while `oscN/swarm` blends (SB-4)";
   - `member.base_wave`, `member.blade1`, `member.blade2`: multiplicity "× up to four kernel settings on one member state
     (SB-3)";
-  - `sub` and `noise`: their chains are "× up to four `sub.chain` / `noise.chain` settings".
+  - `sub` and `noise`: their chains are "× up to four `sub/chain` / `noise/chain` settings".
 - **New edges:**
   - `modulation->morph_resolver` (control: corners, position, settings, modes);
   - `transport->morph_resolver` (event: RC-7, MO-10);
@@ -423,58 +479,206 @@ X36 to X40. They are added to §11.1, and its heading's count changes from (24) 
   - `morph_resolver->voice.structure_slots` (control: `SettingSet` events, IF-12);
   - `voice.structure_slots->observation_view` (observation: IF-10);
   - `voice.structure_slots->counters` (observation: IF-9).
+- **The `counts` block:** `items` from `{"block": 65, "slot": 12}` to `{"block": 67, "slot": 12}`; `scope` from
+  `{"engine": 66, "external": 11}` to `{"engine": 68, "external": 11}`; `edges` from `{"audio": 46, "control": 44,
+  "event": 7, "modulation": 5, "observation": 9}` to `{"audio": 46, "control": 47, "event": 8, "modulation": 5,
+  "observation": 11}` (111 edges → 117); `stages` stays 47 (§4.2's diagram keeps one setting's path).
 - **Spec blob:** updated to the ratified text's blob, when the round lands (B585 step 5).
 
 ---
 
-## 3. The test items (engine-free, each with a must-fail control)
+## 3. The suite's new items, paste-ready for §10.1 (engine-free, each with a must-fail control)
 
-Items R1–R16 test the resolver through its own calls (IF-12): corners, position, settings, modes and transport in; events
-out (§10.1 item 34). Items E1–E17 test the engine given `SettingSet` and `Param` events (item 35). **R6 to R11 and R15 run
-at `morph.glide` 0**; R12 tests the glide.
+The test author writes from SPEC-ENGINE alone (BD-10), so these items are spec text. Paste them into §10.1 after item 33,
+as items 34 and 35 (§2.26).
+- Items 34.x test the resolver through its own calls (IF-12): corners, position, settings, modes and transport in;
+  events out.
+- Items 35.x test the engine given `SettingSet` and `Param` events.
+- Every item names its must-fail control after **Must fail:**.
 
-### 3.1 The resolver (item 34)
+> **34.** **The morph resolver** (Appendix D, RC-7.4), on its own calls (IF-12). Items 34.6 to 34.11 and 34.15 run at
+> `morph.glide` 0; 34.12 tests the glide.
+>
+> - **34.1 Weights (MO-4).** At 10,000 seeded positions the weights equal the bilinear formula within 10⁻¹² and sum to 1.
+>   **Must fail:** a transposed corner order (B and C swapped).
+> - **34.2 The draw's independence (MO-6).** Picks for every key at 27 positions are identical with and without 200 ids
+>   appended to the manifest, and with the corners' entries written in reverse order. **Must fail:** a draw taken from one
+>   stream in list order.
+> - **34.3 The draw and the pick, exactly (MO-6, MO-7).** At the position (0.35, 0.6), with T = 1 and cohesion 0.3, the
+>   keys `osc1.blade1.mode`, `osc1.baseWave`, `osc1.unison`, `osc2.blade2.wave`, `sub.wave`, `noise.type`, `env1.attack`
+>   and `osc1.coupling` pick, in that order:
+>   - at seed 1: C C D B A C D D;
+>   - at seed 1024: C C C B A C C C;
+>   - at seed 9999: C B C A C D D C.
+>
+>   The first draw of `morph/shared` at seed 1024 is u = 0.5761699904687703 (its FNV-1a state 0x5EE6354F). **Must fail:**
+>   a stream that hashes the seed before the purpose's bytes, or that uses an arithmetic shift.
+> - **34.4 Temperature and cohesion (MO-7).** At T = 0.02, every key picks the heaviest corner wherever that corner's
+>   weight is at least 1.9 times the next. This holds for every seed: ln 1.9 / 0.02 ≈ 32 exceeds the largest gap of two
+>   clamped Gumbel draws, ≈ 23.8. At cohesion 1, every key picks the same corner at every position. **Must fail:** a pick
+>   without the temperature term.
+> - **34.5 The latch (MO-8).** A Structural key dithered across a position where two corners' scores tie, with their
+>   difference staying within ±m, flips at most once. Carried until the difference exceeds m, it flips. On an edge with
+>   equal draw terms the band is 0.45 to 0.55. A Morphable key under Quantum follows its pick at every crossing.
+>   **Must fail:** a Structural key with no latch.
+> - **34.6 Blend at count 4 (MO-9).** A Morphable value equals Σ w·v within 10⁻¹². A circular key equals the unit-vector
+>   mean within 10⁻¹²; at a zero resultant (corners 0 and 0.5 at equal weight) it equals the heaviest corner's value (the
+>   lower corner on a tie). **Must fail:** a linear sum on a circular key, which fails at the wrap; a sum in the law's
+>   unit instead of v.
+> - **34.7 Count 2 on a Morphable key (MO-9, MO-11).** A key set to Two emits the two-setting law's blend of its pooled
+>   distinct corner values, at the unglided weights. It is continuous away from MO-18's point and jumps through it.
+>   **Must fail:** a renormalised top-two law, which jumps on the diagonals.
+> - **34.8 Stepped (MO-10, RC-7.4).**
+>   - The output is constant between steps and equals Blend at the stepped position.
+>   - φ follows its closed form: steps fall where ⌊φ⌋ changes, at 3 steps per second at 44.1 kHz (every 14,700 samples)
+>     and at 7 per second (fractional), with no drift over 10⁶ samples.
+>   - The first held position is the one at reset. A rate change mid-run moves no step already passed.
+>   - Synced, steps fall on the division boundaries of a scripted transport. A loop's backward jump that changes ⌊φ⌋ is a
+>     step. While the transport is stopped, steps keep falling at the tempo's division length.
+>   - Quantum-mode keys and flip-only keys read the stepped position.
+>
+>   **Must fail:** steps counted by a rounded period, which drifts; a flip-only key that reads the live position.
+> - **34.9 Modes and counts (MO-11 to MO-13, MO-16).**
+>   - An Exempt key emits corner A's value at every position and under every law, flip-only keys included.
+>   - A Quantum key under Blend emits its pick. A Structural Quantum key arrives as a `Param` event and is never in a set.
+>   - A Follow key under Quantum flips.
+>   - One key set to Two makes its group's n 2, and a Morphable key's Two acts on that key alone.
+>
+>   **Must fail:** a mode applied per group; the largest count winning.
+> - **34.10 Groups and sets (MO-14, MO-17, MO-19).** At 2,000 seeded positions and corner layouts:
+>   - candidates pool identical settings, and an id is the lowest corner holding its setting;
+>   - at n = 4 the set is every candidate with weight above 0, at its pooled weight;
+>   - at n = 2 the set has at most two settings, with MO-17's weights and tie-break;
+>   - the weights sum to 1 within 10⁻¹², and flip-only keys are never in a set;
+>   - `oscN.ratios` is in `oscN/swarm`, compared as text, and `sub.env` is in `sub/chain`;
+>   - an `fx/N` set has n = 2 whatever the choice;
+>   - `oscN/swarm` carries the kernel's keys exactly when the four corners differ in the swarm's keys. On the A–B edge
+>     (y = 0) of a patch whose A and B agree on the swarm's keys and whose C and D differ from them, the swarm set lists
+>     the kernel's keys.
+>
+>   **Must fail:** a merge decided at the position, which lists none on that edge; an equal-power set, which fails the sum.
+> - **34.11 Continuity at n = 2 (MO-18).** With four distinct settings, on an 801 × 801 grid, a setting outside the set
+>   counts as weight 0. No two neighbouring points farther than 0.1 from the centre differ in any weight by more than
+>   0.02, and the only jump is at the triple tie. **Must fail:** the renormalised top-two law, which jumps on the
+>   diagonals.
+> - **34.12 The glide (MO-5).** After a step of the position from A to D at sample n₀, at every control boundary n before
+>   the snap, each Morphable value and each corner weight equals target − (target − start)·e^(−(n − n₀)/(f_host·`morph.glide`))
+>   within 10⁻⁹. This holds at 44.1, 48 and 96 kHz, at block sizes 1, 64 and 4,096 alike. The four weights sum to 1
+>   within 10⁻¹², snap together, and reach exactly [0, 0, 0, 1]. Quantum's picks read the unglided weights. **Must fail:**
+>   a coefficient computed per block, which fails at uneven blocks; snapping each weight alone, which breaks the sum.
+> - **34.13 Device keys (MO-2).** Over every Device row, at 1,000 positions, under every law and mode, the resolver emits
+>   no event for a Device key. **Must fail:** a resolver that blends `quality`.
+> - **34.14 Block size and transport (MO-3, RC-7.3).** A scripted session gives the same events at the same samples at
+>   block sizes 1 to 4,096. The session holds a moving position, changes of settings and modes, transport events with a
+>   loop's jump, and corner edits. With `morph.stepSync` off, it gives the same events with and without the transport
+>   events. **Must fail:** resolving once per block.
+> - **34.15 The events and their order (MO-20).**
+>   - One-value keys arrive as `Param` events, and blending groups as `SettingSet` events, with ids, key lists and weights
+>     by MO-17.
+>   - At each boundary the sets come before the `Param` events.
+>   - When a key stops blending (Follow to Quantum, with the group holding two settings), its group's new set (without
+>     that key) precedes its `Param` event, so the engine accepts it.
+>   - A group that stops blending gets one last one-setting set.
+>   - When `morph.on` turns off, with the position near D and `morph.audible` A, the resolver emits corner A's setting for
+>     each blending group, then corner A's values for every other key, and then nothing.
+>
+>   **Must fail:** a resolver that emits the `Param` first, which the engine refuses and which is never resent; a resolver
+>   that sends the heaviest setting at morph off.
+> - **34.16 Reset (MO-3).** After reset the events equal a freshly prepared resolver's for the same inputs. **Must fail:**
+>   a latch kept across reset.
+> - **34.17 The standard divisions (RC-7.4).** Every synced control's option list is the full list, ordered by length,
+>   from 1/32 to 4 bars. The triplet and dotted toggles change only which options are offered: a stored index keeps its
+>   length, and its render is bit-identical, whatever the toggles. **Must fail:** an option list rebuilt by the toggles,
+>   which moves a stored index.
+>
+> **35.** **The structure blend** (D.6, SB-1 to SB-13; IF-12's event; PA-7's refusals), given `SettingSet` and `Param`
+> events.
+>
+> - **35.1 Corner exactness (SB-10).** A one-setting set renders bit-identically to the patch with the morph off and those
+>   values stored. **Must fail:** a planted weight of 10⁻³ on another setting.
+> - **35.2 Weight 0 costs nothing (SB-5, IF-9).** With every set holding one setting, the counters equal the no-morph
+>   patch's. A setting at weight 0 adds zero setting-samples, and by-gain groups never add any. **Must fail:** a build
+>   that renders every listed entry.
+> - **35.3 The mix law (SB-1, SB-2).** At a static set with settled weights, on a patch with no feedback, no cross-mod and
+>   an empty filter slot, the output equals Σ wₛ·(the render of setting s alone, with the same values) within 10⁻⁶ of its
+>   RMS, for 2, 3 and 4 settings. **Must fail:** an equal-power mix.
+> - **35.4 By gain (SB-1 item 1).** A set on `oscN/env`, `noise/env` or `oscN/pan` renders one setting (by the counters)
+>   and meets 35.3's law. **Must fail:** a two-render build, which reads double.
+> - **35.5 Weights glide and sum to 1 (SB-2).** Heard weights sum to 1 within 10⁻⁵ at every sample of a moving set, and a
+>   weight jump follows PA-1's curve. **Must fail:** weights applied as steps.
+> - **35.6 No click across a blend (QS-4).** A 1 s sweep of a two-setting set from one setting to the other makes no
+>   detected click. It runs on the probe rule's patch: a sine probe plus the one blade whose mode differs. **Must fail:**
+>   a planted bare switch at the midpoint is detected.
+> - **35.7 Waking (SB-6).** A setting that enters mid-note equals, from its entry, the same setting started fresh at that
+>   sample. The same render at block sizes 1, 64 and 4,096 is bit-identical. **Must fail:** a wake that resumes stale state.
+> - **35.8 Slot independence and blade noise (SB-6).** A setting rendered in either slot, or alone, gives bit-identical
+>   samples from the same start. Two kernel settings in the Noise mode draw from separate copies of the blade-noise
+>   streams: each equals its render alone. **Must fail:** streams keyed by slot; one stream shared by the settings.
+> - **35.9 A voice that starts in a blend (SB-7).** With no feedback and no cross-mod, a note started at a static set
+>   equals Σ wₛ·(the note started in each setting alone), from its first sample. **Must fail:** a voice that starts its
+>   heaviest setting only.
+> - **35.10 Legato in a blend (SB-7).** A legato change during a two-setting set keeps both settings' phases and states
+>   continuous: the output equals a render in which only the pitch moved. **Must fail:** restarting settings on a legato
+>   change.
+> - **35.11 A flip inside a blend (SB-8).**
+>   - A one-value `mode` change in a two-setting kernel group crossfades both settings by PA-5's law (QS-4's law test),
+>     with at most four settings rendering.
+>   - An `octave` change steps every setting's frequency at once, with phases continuous.
+>   - A `unison` change follows PA-6 in every instance.
+>   - A second change waits.
+>
+>   **Must fail:** flipping one setting only.
+> - **35.12 Limits (SB-9).** Never more than four settings per group, two in a count-2 group, and twice those during SB-8,
+>   by the counters and the observation view. **Must fail:** a planted build that admits a third setting into a count-2
+>   group before a slot frees.
+> - **35.13 The slot rule (SB-11).** Scripted sequences:
+>   - {A, B} → {C, D};
+>   - {A: 1} → {D: 1}, MO-18's point;
+>   - a corner edit replacing one setting's values while four sound;
+>   - count 4 → 2 while four sound;
+>   - **the relabel case:** A and B hold X (id 0) and C and D hold Y. Edit A to Z, so X's id becomes 1. X keeps its slot
+>     with no restart, and Z enters new;
+>   - a key leaving the key list (Follow to Quantum) while two settings sound: its `Param` applies to both, and neither
+>     re-enters.
+>
+>   Throughout: at most the allowed settings sound at every sample; heard weights sum to 1 within 10⁻⁵; slots free only
+>   below 10⁻⁴; the output steps by no more than 10⁻⁴ of the settings' difference; and 35.6's detector reads no click on
+>   the probe patch. **Must fail:** a build that matches by id, which restarts X in the relabel case; a build that frees
+>   a slot without passing its residual, which breaks the sum.
+> - **35.14 The kernel's shared state (SB-3).** With feedback on, in a two-setting kernel group, the mixed y⁰ that the loop
+>   reads (IF-10) equals Σ wₛ·y⁰ₛ of the settings' y⁰ within 10⁻⁶ at every sample. **Must fail:** feeding back the
+>   heaviest setting's output alone.
+> - **35.15 Swarm instances (SB-4).**
+>   - Each instance's start phases and drift equal those of its setting rendered alone.
+>   - The noise's streams follow the seed of osc 1's heaviest setting at the fresh start, and keep it when the weights
+>     cross.
+>   - Two settings with the same seed and different `unison` keep separate ensemble states, each equal to its setting's
+>     alone.
+>   - Two settings that differ only in `osc1.ratios` render whole instances, each with its own text.
+>   - Published R, ψ and the onset level equal the mixture's within 10⁻⁶.
+>   - An instance's feedback reads its own output.
+>
+>   **Must fail:** streams shared across instances; ensemble state keyed by seed alone; a published value taken from one
+>   instance.
+> - **35.16 Sets as inputs (IF-4, IF-12, PA-7, RC-11).**
+>   - The state and the snapshot hold the heaviest setting's values, `ratios` included, and no set. `cornerRatios`
+>     round-trips byte-identically and changes no render.
+>   - A save and load mid-blend, with the sets resent at the same samples, renders bit-identically.
+>   - Each PA-7 case is refused whole and counted, among them an `fx/N` set, an `oscN/kernel` set while merged, and a bad
+>     `ratios` text.
+>   - A `Param` for a key in the latest multi-setting set is refused and counted; one that follows a set without that key
+>     is accepted.
+>   - No value the morph sends is reported to the host as a parameter change.
+>
+>   **Must fail:** accepting an oversize set; storing a set in the state; refusing on slots still fading.
+> - **35.17 Determinism (DT-1, DT-2).** A moving set at block sizes 1 to 4,096 is bit-identical.
+> - **35.18 A voice's life while an envelope selector blends (SB-13).** With `osc1/env` blending ENV 1 (release 0.1 s) and
+>   ENV 2 (release 2 s), the voice is freed only after ENV 2 has finished while ENV 2's setting has weight above 0, and
+>   after ENV 1 has finished once ENV 2's weight has reached 0. **Must fail:** a build that governs by ENV 1 alone, which
+>   cuts ENV 2's tail.
 
-| # | Item | Pass | Must-fail control |
-|---|---|---|---|
-| R1 | Weights (MO-4) | At 10,000 seeded positions the weights equal the bilinear formula within 10⁻¹² and sum to 1 | A transposed corner order (B and C swapped) fails |
-| R2 | The draw's independence (MO-6) | Picks for every key at 27 positions are identical with and without 200 keys appended to the corners' maps, and with the maps' insertion order reversed | A draw taken from one stream in list order changes picks |
-| R3 | The draw and the pick, exactly (MO-6, MO-7) | At the position (0.35, 0.6), T = 1, cohesion 0.3, these keys pick these corners: `osc1.blade1.mode`, `osc1.baseWave`, `osc1.unison`, `osc2.blade2.wave`, `sub.wave`, `noise.type`, `env1.attack`, `osc1.coupling` → seed 1: C C D B A C D D; seed 1024: C C C B A C C C; seed 9999: C B C A C D D C. The first draw of `morph/shared` at seed 1024 is u = 0.5761699904687703 (its FNV-1a state 0x5EE6354F). | A stream seeded with the seed before the purpose bytes, or a signed shift, misses the pins |
-| R4 | Temperature and cohesion (MO-7) | At T = 0.02, every key picks the heaviest corner wherever that corner's weight is at least 1.9 times the next (ln 1.9 / 0.02 ≈ 32 exceeds the largest gap of two clamped Gumbel draws, ≈ 23.8, so this holds for every seed). At cohesion 1, every key picks the same corner at every position. | A pick without the temperature term fails the first |
-| R5 | The latch (MO-8) | A Structural key dithered across a position where two corners' scores tie, so that their difference stays within ±m, flips at most once; carried until it exceeds m, it flips. On an edge with equal draw terms the band is 0.45 to 0.55. A Morphable key under Quantum follows its pick at every crossing. | A Structural key with no latch flips at every crossing |
-| R6 | Blend at count 4 (MO-9) | Morphable values equal Σ w·v within 10⁻¹². A circular key equals the unit-vector mean within 10⁻¹², and at a zero resultant (corners 0 and 0.5 at equal weight) equals the heaviest corner's (the lower on a tie). | A linear sum on a circular key fails at the wrap; a sum in the law's unit (not v) fails |
-| R7 | Count 2 on a Morphable key (MO-9, MO-11) | A key set to Two emits the two-setting law's blend of its pooled corner values. It is continuous away from MO-18's point and jumps through it. | A renormalised top-two law jumps on the diagonals |
-| R8 | Stepped (MO-10) | The output is constant between steps and equals Blend at the stepped position. Steps fall where ⌊φ⌋ increases, at 3 steps per second at 44.1 kHz (14,700 samples each) and at 7 per second (fractional), with no drift over 10⁶ samples. The first held position is the reset one. A rate change mid-run shifts no step already passed. Synced: steps fall on the division boundaries of a scripted transport, and keep falling at the tempo's division length while it is stopped. Quantum-mode keys and flip-only keys read the stepped position. | Steps counted by a rounded period drift; a flip-only key reading the live position fails |
-| R9 | Modes and counts (MO-11 to MO-13, MO-16) | An Exempt key emits corner A's value at every position, under every law, flip-only keys included. A Quantum key under Blend emits its pick. A Structural Quantum key arrives as a `Param` event and is never in a set. A Follow key under Quantum flips. One Two key makes its group's n 2. | A mode applied per group fails; the largest count winning fails |
-| R10 | Groups and sets (MO-14, MO-17, MO-19) | At 2,000 seeded positions and corner layouts: candidates pool identical settings; ids are the lowest corner holding them; at n = 4 the set is every candidate with weight above 0 at its pooled weight; at n = 2 at most two, with MO-17's weights and tie-break; weights sum to 1 within 10⁻¹²; flip-only keys are never in a set; `oscN.swarm` carries the kernel's keys exactly when the corners differ in the swarm's keys, whatever the position; `sub.env` is in `sub.chain`; an `fxN` set has n = 2 whatever the choice | A merge decided at the position fails at the centre; an equal-power set fails the sum |
-| R11 | Continuity at n = 2 (MO-18) | With four distinct settings, on an 801 × 801 grid, a setting not in the set counting as weight 0: no two neighbouring points farther than 0.1 from the centre differ in any weight by more than 0.02; the only jump is at the triple tie | The renormalised top-two law jumps on the diagonals |
-| R12 | The glide (MO-5) | A step of the position from A to D reaches 1 − 1/e of the way, in every Morphable value and corner weight, after `morph.glide` seconds within one sample, at 44.1, 48 and 96 kHz, at block sizes 1, 64 and 4,096 alike. The four weights sum to 1 within 10⁻¹², snap together, and reach exactly [0, 0, 0, 1]. Quantum's picks read the unglided weights. | A coefficient computed per block fails at uneven blocks; per-weight snapping breaks the sum |
-| R13 | Device keys (MO-2) | Over every Device row, at 1,000 positions under every law and mode, the resolver emits no event for a Device key | A resolver that blends `quality` emits one |
-| R14 | Block size and transport (MO-3, RC-7.3) | A scripted session (moving position, setting and mode changes, transport events, corner edits) gives the same events at the same samples at block sizes 1 to 4,096. With `morph.stepSync` off, it gives the same events with and without the transport events. | Resolving once per block fails |
-| R15 | The events (MO-20) | One-value keys arrive as `Param` events and blending groups as `SettingSet` events, with ids, key lists and weights by MO-17. A group that stops blending gets one last one-setting set. `morph.on` turning off sends each blending group its heaviest setting, then nothing. | A resolver that sends a one-value key inside a set fails |
-| R16 | Reset (MO-3) | After reset, the events equal a freshly prepared resolver's for the same inputs | A latch kept across reset fails |
-
-### 3.2 The engine (item 35)
-
-| # | Item | Pass | Must-fail control |
-|---|---|---|---|
-| E1 | Corner exactness (SB-10) | A one-setting set renders bit-identically to the patch with the morph off and those values stored | A planted weight of 10⁻³ on another setting differs |
-| E2 | Weight 0 costs nothing (SB-5, IF-9) | With every set holding one setting, the counters equal the no-morph patch's. A setting at weight 0 adds zero setting-samples. By-gain groups never add setting-samples. | A build that renders every listed entry reads more |
-| E3 | The mix law (SB-1, SB-2) | At a static set with settled weights, on a patch with no feedback, no cross-mod and an empty filter slot, the output equals Σ wₛ·(the render of setting s alone, same values) within 10⁻⁶ of its RMS, for 2, 3 and 4 settings | An equal-power mix fails |
-| E4 | By gain (SB-1 item 1) | A set on `oscN.env`, `noise.env` or `oscN.pan` renders one setting (counters) and meets E3's law | A two-render build reads double |
-| E5 | Weights glide and sum to 1 (SB-2) | Heard weights sum to 1 within 10⁻⁵ at every sample of a moving set, and a weight jump follows PA-1's curve | Weights applied as steps fail PA-1's curve |
-| E6 | No click across a blend (QS-4) | A 1 s sweep of a two-setting set from one setting to the other, on the probe rule's patch (a sine probe plus the one blade whose mode differs), makes no detected click | A planted bare switch at the midpoint is detected |
-| E7 | Waking (SB-6) | A setting that enters mid-note equals, from its entry, the same setting started fresh at that sample. The same render at block sizes 1, 64 and 4,096 is bit-identical. | A wake that resumes stale state differs |
-| E8 | Slot independence (SB-6) | A setting rendered in either slot, or alone, gives bit-identical samples from the same start | Streams keyed by slot differ |
-| E9 | A voice that starts in a blend (SB-7) | With no feedback and no cross-mod, a note started at a static set equals Σ wₛ·(the note started in each setting alone) from its first sample | A voice that starts its heaviest setting only fails |
-| E10 | Legato in a blend (SB-7) | A legato change during a two-setting set keeps both settings' phases and states continuous: the output equals a render in which only the pitch moved | A build that restarts settings on a legato change fails |
-| E11 | A flip inside a blend (SB-8) | A one-value `mode` change in a two-setting kernel group crossfades both settings by PA-5's law (QS-4's law test), with at most four settings rendering. An `octave` change steps every setting's frequency at once, phases continuous. A `unison` change follows PA-6 in every instance. A second change waits. | Flipping one setting only fails the law test |
-| E12 | Limits (SB-9) | Never more than four settings per group, two in a count-2 group, and twice those during SB-8 (counters, observation) | A planted build that admits a third setting into a count-2 group before a slot frees reads three |
-| E13 | The slot rule (SB-11) | Scripted sequences: {A, B} → {C, D}; {A: 1} → {D: 1} (MO-18's point); a corner edit replacing B's values while four settings sound; count 4 → 2 while four sound. At most the allowed settings sound at every sample, heard weights sum to 1 within 10⁻⁵, slots free only below 10⁻⁴, the output steps by no more than 10⁻⁴ of the settings' difference, and E6's detector reads no click on the probe patch. | A build that frees a slot without passing its residual breaks the sum |
-| E14 | The kernel's shared state (SB-3) | With feedback on, in a two-setting kernel group, the mixed y⁰ that the loop reads (IF-10) equals Σ wₛ·y⁰ₛ of the settings' y⁰ within 10⁻⁶ at every sample | A build that feeds back the heaviest setting's output alone fails |
-| E15 | Swarm instances (SB-4) | Each instance's start phases and drift equal those of its setting rendered alone. The noise's streams follow osc 1's heaviest setting's seed at the fresh start, and keep it when the weights cross. Persistent placement follows each instance's seed. Published R, ψ and the onset level equal the mixture's within 10⁻⁶. An instance's feedback reads its own output. | Streams shared across instances fail; a published value of one instance fails |
-| E16 | Sets as inputs (IF-4, IF-12, PA-7, RC-11) | The state and the snapshot hold the heaviest setting's values and no set. A save and load mid-blend, with the sets resent at the same samples, renders bit-identically. Each PA-7 case is refused whole and counted. A `Param` for a blending key in a multi-setting set is refused and counted. | Accepting an oversize set, or storing a set in the state, fails |
-| E17 | Determinism (DT-1, DT-2) | A moving set at block sizes 1 to 4,096 is bit-identical | — |
+35.17 has no must-fail control, as with DT-2's existing item 3; every other item has one. Revision 2's R1–R16 and E1–E17
+are these items, renumbered 34.1–34.16 and 35.1–35.17. 34.17 and 35.18 are new.
 
 ---
 
@@ -484,8 +688,9 @@ at `morph.glide` 0**; R12 tests the glide.
 
 | Where | Rows | Count |
 |---|---|---|
-| Appendix D (new) | D.0–D.6: MO-1 to MO-20, SB-1 to SB-12, the D.2 table of 9 morph settings | 32 rows + 1 table |
+| Appendix D (new) | D.0–D.6: MO-1 to MO-20, SB-1 to SB-13, the D.2 table of 10 morph settings | 33 rows + 1 table |
 | §7.1 | IF-12, the morph (the resolver's calls; the `SettingSet` event) | 1 |
+| RC-7 | RC-7.4, the standard tempo divisions (B590) | 1 |
 | Glossary | corner / pad / position; structural group; setting set | 3 |
 | §1 In scope | the morph resolver | 1 bullet |
 | §3 | the morph resolver (deliverable); `morph/` in the layout | 1 row, 1 line |
@@ -494,8 +699,8 @@ at `morph.glide` 0**; R12 tests the glide.
 | §4.3 | the morph's laws and their rendering | 1 row (split from one) |
 | VO's start table | structural settings | 1 row |
 | RC-1, RC-5 | "must provide, when built" | 2 bullets |
-| §10.1 | items 34 (resolver) and 35 (structure blend) | 2 items |
-| §11.1 | X36 to X40 | 5 open items |
+| §10.1 | items 34 (34.1–34.17) and 35 (35.1–35.18), pasted in full | 2 items, 35 sub-items |
+| §11.1 | X41, X42, X43 | 3 open items |
 | `engine-structure.json` (as text) | 2 items, 6 edges | — |
 
 **Rows changed.**
@@ -511,12 +716,13 @@ at `morph.glide` 0**; R12 tests the glide.
 | SW-1 | one swarm per setting while blending |
 | PA-1 | setting-set weights glide |
 | PA-5 | three edits |
-| PA-7 | `SettingSet` refusals; `Param` in a set refused |
+| PA-7 | `SettingSet` refusals (`fx/N`, the merged swarm, bad `ratios` text included); a `Param` for a key in the latest multi-setting set refused |
 | IF-3 | published R, ψ of the mixture |
-| IF-4 | Appendix D is the law; sets are inputs; stored values are the heaviest setting's; resend after load; heard sets reported |
+| IF-4 | Appendix D is the law; sets are inputs; stored values are the heaviest setting's; resend after load; no host echo; heard sets reported; `cornerRatios` in the state's text |
+| IF-11 | the morph's host parameters, from a morph manifest appended to the lockfile |
 | IF-9 | structure setting-samples, defined once |
 | IF-10 | heard sets; each kernel setting's y⁰ and the mixed y⁰; members per instance |
-| RT-1 | sizing for sets, instances, seeds, the second voice state; no filter instances while the slot is empty |
+| RT-1 | sizing for sets, instances, ensemble states per swarm setting, blade-noise copies, the second voice state; no filter instances while the slot is empty |
 | RC-6 | sets handed to a source |
 | RC-7 "Accepted now", RC-7.3 | the morph's synced steps, its first consumer |
 | RC-10 | a tier may lower the count |
@@ -526,17 +732,16 @@ at `morph.glide` 0**; R12 tests the glide.
 | PF-7 | memory at four settings, eight during SB-8 |
 | C.0 | SB-8 listed; weights are values |
 | §10.1 item 19 | transport, with synced steps |
-| §11.1 heading | (24) → (29) |
+| §11.1 heading | (24) → (27) |
 
-That is 28 rows changed (the RC-11 trio counted as three, the RC-7 pair as two).
+That is 29 rows changed (the RC-11 trio counted as three, the RC-7 pair as two).
 
-**Test items added.** R1–R16 and E1–E17: 33 items, 32 of them with a must-fail control. E17 has none, as with DT-2's
-existing item 3.
+**Test items added.** 34.1–34.17 and 35.1–35.18, written into §10.1 itself: 35 items, 34 of them with a must-fail
+control. 35.17 has none, as with DT-2's existing item 3.
 
 **Unchanged by design:**
 - the manifest and its ids;
-- the host lockfile;
-- IF-4's state text;
+- the engine manifest's rows in the host lockfile (the morph's rows are appended after them);
 - Appendix C's laws;
 - PF-1's target;
 - the rack contract, which gets a follow-up (§5).
@@ -545,15 +750,15 @@ At a corner, or with the morph off, the engine is bit-identical to today (SB-10)
 
 ---
 
-## 5. Open points (what ADR-324 and ADR-325 do not settle), each with a recommendation
+## 5. Open points (what ADR-324, ADR-325 and ADR-326 do not settle), each with a recommendation
+
+X36–X40 are ruled (ADR-326) and written into the rows. Three points remain:
 
 | # | Question for the human | Recommendation |
 |---|---|---|
-| X36 | **The morph settings' ranges and tapers:** step rate 0.25 to 32 per second on a log taper, temperature on a log taper, glide on a pow taper (legacy listed ranges, not tapers). | **As PROPOSED.** Log for rate and temperature, so a knob's middle is musical; pow for glide, finer near 0, as the manifest's time rows are. |
-| X37 | **The synced division list** | **1/32, 1/16T, 1/16, 1/8T, 1/8, 1/4T, 1/4, 1/2, 1 bar, 2 bars, 4 bars**, a bar being the time signature's (RC-7 carries it). |
-| X38 | **Does the bank stage wait on the stage 7 amendment?** | **No, as with stage 5's** (ADR-317: "The bank stage continues on the current spec until that round lands"). Items 0–33 stay green, so the bank's renders are unaffected at a corner or with the morph off (SB-10). |
-| X39 | **The morph settings as host parameters.** The legacy shell exposed position X and Y and ids 151 and 154–158 to the host. In this text they are the morph system's state, outside the engine's manifest and its lockfile. | **The shell exposes the position (x, y), `morph.on`, law, count, temperature, cohesion, step rate, sync and glide as host parameters,** from a morph manifest appended to the lockfile (ids below 0xB00000, IF-11). The engine never receives them. The seed stays patch state, not automatable. This is a shell row, not an engine one, so it is filed with the shell's acceptance (B308 H5). |
-| X40 | **The `ratios` text across corners.** It is a per-oscillator text (custom `cutRule`), not a v, so it cannot sit in a setting. | **Corner A's text, never morphed, in 1.0**, as MO-12 treats an Exempt key. Corners that differ in it are reported by the editor. |
+| X41 | **The standard divisions' edges, and the toggles' scope** (B590). ADR-326 fixes 1/32 to 4 bars and the two toggles. It leaves open which triplet and dotted values exist at the ends, and whether a toggle belongs to one control or to the whole instrument. | **Keep the range's ends.** Triplets from 1/16T to 4-bar triplets; dotted values from 1/32 dotted to 2 bars dotted. **The two toggles are per synced control, saved with the patch,** and only filter the menu: the stored option indexes the full list, so a toggle never changes a sound (RC-7.4). B590 may move the toggles to one instrument-wide pair without changing the list. |
+| X42 | **Where each corner's `ratios` texts are saved.** ADR-326 puts them in IF-4's state. The corners' numbers are the morph system's state (RC-11.1). | **As ruled: IF-4's `cornerRatios` member,** written and read by the morph system, never rendered by the engine. If the human wants all corner data in one place, the corners' numbers can move beside them in a later round, as one state change. |
+| X43 | **Is `morph.audible` a host parameter?** ADR-326's X39 list predates it. | **No.** It is a page choice, like the seed, and automating it would make morph off a moving target. |
 
 **For the lead to file (not for the human).**
 - **Rack contract.** RS-6.2 and RS-6.3 allow two module instances "only during a flip or a spill-over tail". MO-19 and
@@ -577,14 +782,16 @@ SB-12) do not apply.
 
 ---
 
-## 6. The critic's findings and where each is fixed
+## 6. The first review's findings (revision 2) and where each is fixed
+
+In this table, revision 2's test names map as Rn = 34.n and En = 35.n.
 
 | Finding | Fixed in |
 |---|---|
 | **B1** glide on set weights undefined | MO-5: the four corner weights glide together before every law, with a joint snap; sets are computed from them; Morphable values glide separately with a snap; set weights are never glided in the resolver (PA-1 does it); R6–R11 and R15 at glide 0; R12 added |
 | **B2** the setting-set interface | IF-12: the `SettingSet` event, with group id, n, key list, ids and values; one-value keys as `Param`; precedence by arrival order, with the shell routing edits to corners; PA-7 refusals; IF-4, RC-11.1, RC-11.2, RC-11.4: sets are inputs, the heaviest setting's values are stored, and sets are resent; identity by id plus values (SB-11 (a)), so SB-8's flips arrive as `Param` and are distinct from new settings |
 | **M1** the resolver's clock, cadence, reset, transport | MO-3; MO-10 ("every key reads the stepped position"); RC-7 consumers and RC-7.3; item 19; R14, R16 |
-| **M2** `sub.env` by gain is false | MO-14 item 4 (`sub.env` in `sub.chain`, with the reason); R10 |
+| **M2** `sub.env` by gain is false | MO-14 item 4 (`sub.env` in `sub/chain`, with the reason); R10 |
 | **M3** swarm/kernel merge per patch | MO-14 item 3; R10's control |
 | **M4** several swarm instances | SB-4 (streams, the noise's seed, persistent state per seed, published sources, own feedback, observation); SW-1; IF-3; IF-10; §4.2; RT-1; E15 |
 | **M5** FX and filter slots | Appendix D keeps the resolver half (MO-14 items 6–7, MO-19); rendering moved to RC-1 and RC-5 "must provide, when built"; contract terms avoided; rack contract left as a follow-up (§5); RT-1: no filter instances while the slot is empty |
@@ -609,6 +816,37 @@ SB-12) do not apply.
 | Minor: host automation of morph settings | X39 |
 | Minor: the FX-device consequence | §5 |
 | Minor: the A–D diagonal at n = 2 | MO-18 |
+
+## 7. The re-review's findings and ADR-326 (revision 3), and where each is fixed
+
+| Finding | Fixed in |
+|---|---|
+| **MAJOR 1** the tests in the spec | §3 is now paste-ready §10.1 text: items 34.1–34.17 and 35.1–35.18 (§2.26 points to them) |
+| **MAJOR 2** match by value, not id | SB-11 (a): an entry matches on the keys both lists share; the id is a label and a tie-break; a key leaving the list applies by SB-8 with no re-entry; 35.13 has the relabel case and the leaving-key case, with "match by id" as its must-fail control |
+| **MAJOR 3** event order | MO-20: sets before `Param` events at a boundary; PA-7: "holds" means the latest received set; 34.15 has the stop-blending case, with "`Param` first" as its control; 35.16 too |
+| **MAJOR 4** ensemble per swarm setting | SB-4 (b): one ensemble state per distinct swarm setting (≤ 4), seeded from its seed; placement per instance from (U, distribution, seed); RT-1 sizes four; 35.15 has the same seed with different `unison` |
+| **MAJOR 5** morph off (ADR-319 item 1) | D.2 gains `morph.audible`; MO-20 emits the audible corner's sets, then its values, then nothing; 34.15 |
+| X36 | D.2 (tapers ruled, tags removed) |
+| X37 | RC-7.4 (new, the standard set B590 points to); D.2 and MO-10 cite it; 34.17; X41 (its edges and the toggles' scope) |
+| X38 | BD-8's amendment: the bank carries on |
+| X39 | IF-11 (§2.15a); D.2's note; IF-12; X43 for `morph.audible` |
+| X40 | MO-14 item 3 (`oscN.ratios` in the swarm group, as text); IF-12 (text values; corners carry their texts); PA-7 (a bad text refused); IF-4's `cornerRatios`; 35.15, 35.16; X42 |
+| Minor: R12 in closed form | 34.12: the closed form at each control boundary, within 10⁻⁹ |
+| Minor: R10's control | 34.10: on the A–B edge |
+| Minor: MO-10 | φ in closed form from the last change; a backward jump that changes ⌊φ⌋ steps |
+| Minor: MO-5 (b), MO-9 at count 2 | MO-5: "the same value" for non-circular keys at count 4 only; MO-9: the pooled unglided weights, with the law selecting pooled candidates |
+| Minor: group ids colliding with keys | every group id uses `/` (MO-14, IF-12, SB-1, RC-1, RC-5, §2.28, the tests) |
+| Minor: PA-7 under a merged swarm | PA-7 and IF-12: a merged swarm set lists kernel keys; a kernel set is refused while merged |
+| Minor: `fx/N` sets | IF-12, MO-19, MO-20, PA-7: they go to the rack; the engine refuses them |
+| Minor: IF-12's corners | arrays indexed by manifest id, sized at prepare, with the texts |
+| Minor: IF-4's host reporting | IF-4: the morph's values are never reported to the host as changes |
+| Minor: SB-11 (b)'s smoother | both of PA-1's error states take r, as a target step of −r |
+| Minor: blade noise per kernel setting | SB-6; RT-1; 35.8 |
+| Minor: voice lifetime while `oscN/env` blends | SB-13 (new); 35.18 |
+| Minor: §2.27's paste-ready rows | §2.27 (X41–X43) |
+| Minor: BD-8's parenthesis | removed |
+| Minor: §2.28's `counts` | §2.28 |
+| Minor: X31's sentence | MO-5 |
 
 **Evidence consulted:**
 - **The rulings:** ADR-324 and the critic's findings with ADR-325's rulings (from the lead's brief); ADR-104, ADR-109,

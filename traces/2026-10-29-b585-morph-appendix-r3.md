@@ -1,0 +1,36 @@
+# b585-morph-appendix-r3 — Appendix D revision 3: the re-review's five majors, the minors, ADR-326 and ADR-319 item 1
+
+- **Queue item:** B585 step 4.
+  - The critic re-reviewed revision 2 (`6e6bf1e`): no blockers, "Ready once the five MAJOR fixes are made". It independently reproduced all 24 golden picks.
+  - The human ruled X36–X40 (ADR-326). ADR-319 item 1 settles the morph off.
+  - This entry follows `traces/2026-10-29-b585-morph-appendix-r2.md`.
+- **Why:** to make the text ready for the critic's diff check (SB-11(a), MO-20, SB-4(b), MO-20's order rule, §10.1 items 34–35) and then the human's ratification.
+- **What changed:**
+  - **`docs/proposals/morph-appendix-spec-text.md`, revision 3:**
+    - the tests are now paste-ready §10.1 items 34.1–34.17 and 35.1–35.18;
+    - SB-11 matches settings by value;
+    - MO-20 sends sets before `Param` events, and handles the morph off by ADR-319;
+    - SB-4(b) keeps ensemble state per swarm setting;
+    - D.2 adds `morph.audible`;
+    - RC-7.4 is new: the standard divisions B590 points to;
+    - IF-11 carries the morph's host parameters;
+    - X40 puts `oscN.ratios` in the swarm group, with IF-4's `cornerRatios`;
+    - group ids are namespaced with `/`;
+    - SB-13 is new (the voice's life while an envelope selector blends);
+    - every minor finding is fixed;
+    - §7 is the fix table, and §5 lists the new open points X41–X43.
+  - **This trace.**
+  - **Not edited:** `specs/`, `engine2/`, the rack contract.
+- **Merged** `origin/main` (`a03701a`) into `b585-appendix` first. `specs/SPEC-ENGINE.md` is unchanged by the merge (still 1,325 lines, last touched by `39bf5ea`), so revision 2's line numbers hold.
+- **Evidence consulted:**
+  - **The rulings:** ADR-326 and ADR-319 item 1 on `origin/lead-records-371`; B590 on the same branch.
+  - **The spec:** `specs/SPEC-ENGINE.md`, read only: IF-11 (line 678), RC-7 (lines 737–745), and IF-4's members text.
+  - **The structure file:** `engine2/structure/engine-structure.json`'s `counts` block, read only.
+  - **Not read:** the clean-room repositories.
+- **Alternatives rejected:**
+  - **Keeping a corner's ratios out of IF-4:** ADR-326 puts them there; X42 asks whether the corners' numbers should follow later.
+  - **Divisions whose toggles rebuild the option list:** a stored index would move. The full list is indexed, and the toggles only filter it (34.17).
+  - **Ensemble state keyed by seed:** this was the critic's MAJOR 4.
+  - **Matching settings by id:** this was the critic's MAJOR 2; matching by id is now 35.13's must-fail control.
+- **Verify:** `./verify fast` was run after this trace was written, with every change staged. Its exit code and receipt are in the commit message.
+- **Open questions:** X41–X43 in §5, for the human. The rack-contract follow-up (RS-6.2, RS-6.3, RS-8.4) is still for the lead to file. B590 owns the divisions' adoption by the modules.
