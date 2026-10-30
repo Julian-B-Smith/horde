@@ -103,6 +103,7 @@
               "unison": "osc1.unison",
               "coupling": "osc1.coupling",
               "detune": "osc1.detune",
+              "crossMod": "osc1.crossMod",
               "wave": "osc1.baseWave"
             }
           },
@@ -159,6 +160,7 @@
               "unison": "osc2.unison",
               "coupling": "osc2.coupling",
               "detune": "osc2.detune",
+              "crossMod": "osc2.crossMod",
               "wave": "osc2.baseWave"
             }
           },
@@ -497,6 +499,7 @@
           "unison": "osc1.unison",
           "coupling": "osc1.coupling",
           "detune": "osc1.detune",
+          "crossMod": "osc1.crossMod",
           "wave": "osc1.baseWave"
         }
       },
@@ -690,6 +693,7 @@
           "unison": "osc2.unison",
           "coupling": "osc2.coupling",
           "detune": "osc2.detune",
+          "crossMod": "osc2.crossMod",
           "wave": "osc2.baseWave"
         }
       },

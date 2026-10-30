@@ -989,6 +989,7 @@ window.GUI3_DATA = {
      "viz": {
       "keys": {
        "coupling": "osc1.coupling",
+       "crossMod": "osc1.crossMod",
        "detune": "osc1.detune",
        "unison": "osc1.unison",
        "wave": "osc1.baseWave"
@@ -1284,6 +1285,7 @@ window.GUI3_DATA = {
      "viz": {
       "keys": {
        "coupling": "osc2.coupling",
+       "crossMod": "osc2.crossMod",
        "detune": "osc2.detune",
        "unison": "osc2.unison",
        "wave": "osc2.baseWave"
@@ -3377,6 +3379,7 @@ window.GUI3_DATA = {
    "viz": {
     "keys": {
      "coupling": "osc1.coupling",
+     "crossMod": "osc1.crossMod",
      "detune": "osc1.detune",
      "unison": "osc1.unison",
      "wave": "osc1.baseWave"
@@ -4896,6 +4899,7 @@ window.GUI3_DATA = {
    "viz": {
     "keys": {
      "coupling": "osc2.coupling",
+     "crossMod": "osc2.crossMod",
      "detune": "osc2.detune",
      "unison": "osc2.unison",
      "wave": "osc2.baseWave"
