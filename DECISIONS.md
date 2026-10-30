@@ -10221,3 +10221,36 @@ Both frames were captured from a local preview.
 
 **Consequences.** GUI 3's next slice applies 2, 3 and 4. Item 1 waits on B589. **FX device (ADR-254):** the same, on its pages.
 
+## ADR-324 — RULED by the human: how architecture follows the morph law — the proposal's twelve questions, and a morph appendix in SPEC-ENGINE (B585; 2026-10-29)
+
+**Context.** B585's proposal (`docs/proposals/morph-architecture-blend.md`, horde #1265) and its demo (`docs/design/morph-blend-demo.html`) turned ADR-317 into twelve questions. The human listened to the demo, then answered by poll.
+
+**Rulings (the human, 2026-10-29).**
+- **H1, how many settings sound at once.** The human: "I think max 2 & 4 should be morph settings. And they should be additional options for the morph mode setting on individual parameters dropdown (this would layer with blend/quantum/stepped)."
+  - "At most two" and "up to four" are a morph setting, global for the patch.
+  - The same choice is an option on each parameter's morph mode menu (B557), layered with Blend, Quantum and stepped.
+  - The demo showed that "at most two" turns into a switch on the diagonal, where the second and third settings tie, and needs a slot rule. The spec text states that rule.
+- **H2, granularity:** per structural group, never the whole voice. Linear stages blend by gain at no cost.
+- **H3, pitch and count keys:** they blend, as ruled, by layering, and B557's Quantum is the escape.
+- **H4, the region:** the whole pad's bilinear weights, with no band.
+- **H5, CPU past budget:** report it (PF-4 plus a structure-render counter) and never limit by measured CPU. The author's lever is Quantum. A quality tier may cap it after 1.0.
+- **H6, Quantum:** each key flips at its own boundary, by its existing draw (ADR-185), so no existing patch moves.
+- **H7, stepped:** the mix steps.
+- **H8, per-key modes:** these compose into the group. Quantum on a structural key restores today's flip.
+- **H9, a second swarm waking mid-note:** it starts fresh, for 1.0.
+- **H10, hosted FX modules:** two instances, mixed with equal gain, capped at two (RS-6.3). The module's declared `switch` (ADR-309) handles any flip that remains.
+- **H11:** equal gain everywhere (RS-3.6), accepting the 3–7 dB dip where settings decorrelate.
+- **H12, flip-only keys:** `voice.mode`, `oneShot`, `retrigger`, `sub.voiceMode`, `sub.priority` and the reserved rows.
+- **Where it is written** (by poll, "A morph appendix in SPEC-ENGINE"): one normative appendix in the engine spec covering the laws, the quantum draw, per-parameter modes, the two-or-four setting and architecture blending. It is delivered as one spec round.
+
+**Rejected:** a single fixed count of settings; the whole voice rendering twice; pitch and count keys staying flip-only; a band region; an automatic cap; Quantum flipping per group; flips at step instants; per-group modes only; copying the sounding swarm; FX modules flipping only; equal-power or adaptive laws; a separate morph spec; amending IF-4 alone.
+
+**Consequences.**
+- B585 step 3 is done. Next:
+  1. the appendix text is drafted from the proposal with H1's layered setting;
+  2. a critic reviews it;
+  3. the human ratifies it;
+  4. the round reaches both clean-room repos the same day, with the spec blob updated.
+- B557's menu gains the two-or-four choice. The bank stage continues on the current spec until the round lands.
+- **FX device (ADR-254):** the same on its morph and per-parameter menus. FX-module structure follows H10.
+
