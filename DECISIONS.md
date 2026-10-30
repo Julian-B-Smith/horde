@@ -10361,3 +10361,22 @@ The rulings it carries are ADR-317, ADR-324, ADR-325, ADR-326 and ADR-327.
 - The rack contract's RS-6.2, RS-6.3 and RS-8.4 need an amendment round (two module instances while a slot's set holds two settings), filed with the module owners.
 - **FX device (ADR-254):** the same morph, with its FX slots under the rack round.
 
+## ADR-329 — DIRECTED by the human: GUI 3 takes the Scalpel bench's look; the design master is retooled for density and hierarchy first; a two-level page bar with an Osc group; the mixer as channel strips (B584, B589; 2026-10-30)
+
+**Context.** The human's early notes on the GUI 3 shell (B584 slices 1 to 3, `docs/design/gui3.html`), 2026-10-30:
+1. "I want main and osc to start by looking like they do in the Scalpel bench. That interface is great. And if we need to make any edits to the design master to accommodate that, we can start there. In general, everything needs to be more visual-forward, and currently everything is way too spacious and messy - I think we need to keep tooling the design standard so buttons, sliders, and knobs don't take up so much space and have a stronger visual hierarchy when composed together (I can barely navigate the oscillator page)."
+2. "I think there should be a hierarchy of top buttons; 'Osc' should be one, and once you've selected it you should see the options for individual oscs below it (maybe it could even start with an oscillator dashboard with a minimal view and bare necessity controls for each oscillator)."
+3. "The mixer layout is incoherent; levels sliders should be side-by-side, and they should be attached to their toggles instead of in separate boxes. They should be loosely modeled after a physical mixer device (and each should include a live readout with a clipping warning next to it)."
+
+The Scalpel bench is `docs/design/scalpel-interface-lab.html` (B271, B293). The shell's components come only from the design system (ADR-316), vendored from the Design System artifact into `docs/design/arp-face/`.
+
+**Direction, and the order of work.**
+- **First, the design master.** A revision of the Design System artifact for density and hierarchy, with the Scalpel bench as the reference: compact sizes for knob, slider, switch, stepper and readout; a stated hierarchy of control sizes and weights when composed (a primary control, secondary controls, utilities); tighter cluster spacing; visuals first in each cluster. B589's proposals land in the same revision where they serve these notes: page navigation with two levels, the mixer channel strip, the compact modulator card. The existing tokens and rules stay unless a change is named and reasoned in the revision's own notes.
+- **Then the shell, slice 4.** The bundle re-vendored into `docs/design/arp-face/`; Main and Osc laid out after the Scalpel bench; a two-level page bar (a top row of groups, one of them Osc; under it the group's own pages, Osc 1, Osc 2, Sub and Noise); an Osc dashboard as the Osc group's first page, with a minimal view and the bare necessities of each oscillator; the mixer as side-by-side channel strips, each fader attached to its own toggles, with a live meter and a clip warning beside it (from the stub engine, marked MOCK until audio exists).
+- What "bare necessity controls" are, per oscillator, is the lead's proposal in slice 4, for the human to change by eye.
+
+**Consequences.**
+- B589 carries the density revision; B584 carries slice 4.
+- The other labs that vendor the bundle (the Random lab, the arp face) pick up the compact sizes when they re-vendor; nothing is re-vendored silently.
+- **FX device (ADR-254):** the same design master. Its page bar has no Osc group; the mixer strips serve its rack slots and returns.
+
