@@ -2737,9 +2737,9 @@
    "via": null,
    "shell": "docs/design/gui3.html: S.keys = !S.keys",
    "state": "in-shell",
-   "superseded_by": null,
+   "superseded_by": "ADR-335",
    "port_tab": null,
-   "note": "The bundle's Session gates its key handler on S.keys (bundle.js 'if (!S.keys ...) return'); MapControl README states it; the shell toggles S.keys from its lamp."
+   "note": "The bundle's Session gates its key handler on S.keys (bundle.js 'if (!S.keys ...) return'); MapControl README states it; the shell toggles S.keys from its lamp. B596 (after slice 7): superseded for the map keys by ADR-335 ruling 1 (keys always, provisional); keyboard mode's other keys (digits pinning corners with MAP off, Esc unpinning, undo) still follow this ruling and ADR-259 ruling 6."
   },
   {
    "id": "adr261-knob-interaction",
@@ -3580,7 +3580,7 @@
    "state": "ruled",
    "superseded_by": null,
    "port_tab": "descriptions",
-   "note": "Shell has it, assembled from hd-card (gui3/README proposal 2); no master component holds an info box (grep 'info box' in master: none), a hop skipped. It shows each row's spec text, tagged SPEC TEXT, since no desc column exists (317 of 317 missing, B582). Placement and section descriptions are refined by ADR-335 ruling 4 (row adr335-fixed-info-box). FX device: same."
+   "note": "Shell has it, assembled from hd-card (gui3/README proposal 2); no master component holds an info box (grep 'info box' in master: none), a hop skipped. It shows each row's spec text, tagged SPEC TEXT, since no desc column exists (317 of 317 missing, B582). Placement and section descriptions are refined by ADR-335 ruling 4 (row adr335-fixed-info-box). FX device: same. Slice 7 (#1297, merged 2026-10-30), re-audited for B596: the box is now fixed in the foot row and also explains sections (rows adr335-fixed-info-box, adr335-section-descriptions)."
   },
   {
    "id": "adr315-open-in-manual",
@@ -4311,11 +4311,11 @@
    "master_version": null,
    "bundle": null,
    "via": null,
-   "shell": null,
+   "shell": "docs/design/gui3.html: <div class=\"footrow\" id=\"footrow\">",
    "state": "ruled",
    "superseded_by": null,
    "port_tab": "descriptions",
-   "note": "Not applied: gui3.html's info box is a full-width hd-card under the bank (.info { width: auto; min-height: 58px }), and it reads only [data-key] controls (hostOf), so a section header explains nothing; section descriptions need drafting from spec text. No master component (proposal 2; the ruling adds it to the proposal list). FX device: same."
+   "note": "Not applied: gui3.html's info box is a full-width hd-card under the bank (.info { width: auto; min-height: 58px }), and it reads only [data-key] controls (hostOf), so a section header explains nothing; section descriptions need drafting from spec text. No master component (proposal 2; the ruling adds it to the proposal list). FX device: same. Slice 7 (#1297, merged 2026-10-30), re-audited for B596: applied in the shell: a fixed 224 x 216 px box in a foot row left of the bank on every page (--foot-h, --info-w), its text scrolling inside; the seam test infofixed proves 24 hovers move and resize nothing. No master component holds an info box, so it is still drawn locally from house classes: state ruled, the shell place recording the local drawing (the master owes it, gui3/README proposal 2)."
   },
   {
    "id": "adr335-map-keys-always",
@@ -4326,11 +4326,11 @@
    "master_version": null,
    "bundle": null,
    "via": null,
-   "shell": null,
+   "shell": "docs/design/gui3/shell-logic.js: MAP_KEYS_ALWAYS = true",
    "state": "ruled",
    "superseded_by": null,
    "port_tab": "quick-map",
-   "note": "The master MapControl README still says 'Keys are accelerators only, and only in keyboard mode (ADR-259 ruling 6)', the bundle's session gates them, and the shell uses that session (gui3.html: 'which the session accepts in keyboard mode'). The master contradicts the ruling until it is updated. FX device: same."
+   "note": "The master MapControl README still says 'Keys are accelerators only, and only in keyboard mode (ADR-259 ruling 6)', the bundle's session gates them, and the shell uses that session (gui3.html: 'which the session accepts in keyboard mode'). The master contradicts the ruling until it is updated. FX device: same. Slice 7 (#1297, merged 2026-10-30), re-audited for B596: the shell now takes the map keys with keyboard mode off (shell-logic.js attachMapKeys, the one constant MAP_KEYS_ALWAYS = true citing ADR-335, so reversing is one line; seam tests mapkeys, mapkeysfield, mapkeysflag). It calls the bundle session's own methods, but the key handling is the shell's: the master MapControl README and the bundle's session still gate the keys on keyboard mode (gui3/README proposal 22). State stays ruled, with the shell place recording a local implementation until the master carries the rule."
   },
   {
    "id": "adr335-mappings-panel-while-map",
@@ -4345,22 +4345,37 @@
    "state": "in-shell",
    "superseded_by": null,
    "port_tab": "quick-map",
-   "note": "The shell docks the bundle's ModInspector only while S.map.on (it predates the ruling, slice 6). The master MapControl README describes the inspector rail without the MAP-on condition, so the master owes the rule. FX device: same."
+   "note": "The shell docks the bundle's ModInspector only while S.map.on (it predates the ruling, slice 6). The master MapControl README describes the inspector rail without the MAP-on condition, so the master owes the rule. FX device: same. Slice 7 (#1297, merged 2026-10-30), re-audited for B596: the seam test confirms the dock shows only while MAP is on; the master README still owes the condition."
+  },
+  {
+   "id": "adr335-section-descriptions",
+   "adr": "ADR-335",
+   "clause": "ruling 4 (the info box explains whole sections as well as single parameters)",
+   "lab": null,
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": "spec",
+   "shell": "docs/design/gui3/sections.json: \"status\": \"DRAFT — the human has not read these\"",
+   "state": "in-shell",
+   "superseded_by": null,
+   "port_tab": "descriptions",
+   "note": "Slice 7 (#1297): docs/design/gui3/sections.json holds 46 section ids, 40 described by a sentence drafted from SPEC-ENGINE text with its source, the file marked DRAFT; tools/gen_gui3_controls.py --check holds every entry to a section that exists and a source heading the spec has, and carries them into shell-data.js; the shell's sectionInfo shows them on a section's header or empty space. Six sections have no source text (the FX page's five cards and Arp's) and say so. Reaches the shell by the generated data path (via spec), not a master component. In-shell, not wired: descriptions are presentation, with no engine path. The human has not read the drafts (slice 7 open question 4). FX device: same."
   },
   {
    "id": "adr335-wider-map-button",
    "adr": "ADR-335",
    "clause": "ruling 3 (the MAP button is widened so nothing in it is buried)",
    "lab": null,
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "MapControl",
+   "master_version": "1793374583-b6a5",
+   "bundle": "MapControl",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: .mapbar #mapHost { flex: 0 0 auto; }",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "quick-map",
-   "note": "The master MapControl README draws the MAP button as 'a 28 px capsule half'; the shell mounts the bundle's MapControl with no width override (no MAP-width rule in gui3.html). On the design-system proposal list per the ruling."
+   "note": "The master MapControl README draws the MAP button as 'a 28 px capsule half'; the shell mounts the bundle's MapControl with no width override (no MAP-width rule in gui3.html). On the design-system proposal list per the ruling. Slice 7 (#1297, merged 2026-10-30), re-audited for B596: what was buried was the source drop-down and its name: the bundle's .hd-map is overflow: hidden, so as a flex item the source strip beside it shrank it to 87 of its 213 px. The shell's layout now keeps the bundle's MapControl whole (213 px with the longest source name), and the seam test mapbar holds it. The component itself is unchanged, so the master's 28 px capsule half stands; the fix was the shell's layout, not a local drawing."
   }
  ],
  "not_design": [

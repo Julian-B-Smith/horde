@@ -38,4 +38,11 @@
   - **A new state for shell-only elements:** ADR-336 fixed five states. `via` names the two routes ADR-316 itself rules, and a local drawing stays below in-shell, visible as one.
   - **Editing `port-tab.json` to add the 47 rows:** `docs/design/gui3*` was out of scope for this PR. Adding them is the GUI session's first step.
   - **Retiring the legacy-only rows in bulk:** that is a ruling. The rows say LEGACY-ONLY in their notes, and the report asks the human.
+- **After slice 7 (#1297) merged:** B595 was merged with origin/main (the index was regenerated, not hand-merged) and then merged here. Every existing shell needle still holds. Slice 7's elements were re-audited:
+  - `adr335-wider-map-button` moved to in-shell. The burying came from the shell's flex layout; the bundle's MapControl is now kept whole (`.mapbar #mapHost { flex: 0 0 auto; }`).
+  - `adr335-fixed-info-box` and `adr335-map-keys-always` are applied in the shell but stay `ruled`. Their shell places record local implementations: no master component holds an info box, and the master and bundle still gate map keys on keyboard mode.
+  - New row `adr335-section-descriptions` (via spec, in-shell): `gui3/sections.json` holds 40 of 46 sections described, all DRAFT.
+  - `adr261-hotkeys-keyboard-mode-only` is superseded by ADR-335 for the map keys.
+  - The report's spectrum line references now read 539 and 668.
+  - Counts: 273 rows (249 live, 25 superseded). Live rows: ruled 107, in-master 25, vendored 35, in-shell 33, wired 47, unknown 1. 20 are local drawings.
 - **Verify:** `nice -n 10 ./verify fast`, last, green; the tail is in the PR.
