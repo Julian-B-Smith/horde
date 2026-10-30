@@ -10361,3 +10361,38 @@ The rulings it carries are ADR-317, ADR-324, ADR-325, ADR-326 and ADR-327.
 - The rack contract's RS-6.2, RS-6.3 and RS-8.4 need an amendment round (two module instances while a slot's set holds two settings), filed with the module owners.
 - **FX device (ADR-254):** the same morph, with its FX slots under the rack round.
 
+## ADR-329 — DIRECTED by the human: GUI 3 takes the Scalpel bench's look; the design master is retooled for density and hierarchy first; a two-level page bar with an Osc group; the mixer as channel strips (B584, B589; 2026-10-30)
+
+**Context.** The human's early notes on the GUI 3 shell (B584 slices 1 to 3, `docs/design/gui3.html`), 2026-10-30:
+1. "I want main and osc to start by looking like they do in the Scalpel bench. That interface is great. And if we need to make any edits to the design master to accommodate that, we can start there. In general, everything needs to be more visual-forward, and currently everything is way too spacious and messy - I think we need to keep tooling the design standard so buttons, sliders, and knobs don't take up so much space and have a stronger visual hierarchy when composed together (I can barely navigate the oscillator page)."
+2. "I think there should be a hierarchy of top buttons; 'Osc' should be one, and once you've selected it you should see the options for individual oscs below it (maybe it could even start with an oscillator dashboard with a minimal view and bare necessity controls for each oscillator)."
+3. "The mixer layout is incoherent; levels sliders should be side-by-side, and they should be attached to their toggles instead of in separate boxes. They should be loosely modeled after a physical mixer device (and each should include a live readout with a clipping warning next to it)."
+
+The Scalpel bench is `docs/design/scalpel-interface-lab.html` (B271, B293). The shell's components come only from the design system (ADR-316), vendored from the Design System artifact into `docs/design/arp-face/`.
+
+**Direction, and the order of work.**
+- **First, the design master.** A revision of the Design System artifact for density and hierarchy, with the Scalpel bench as the reference: compact sizes for knob, slider, switch, stepper and readout; a stated hierarchy of control sizes and weights when composed (a primary control, secondary controls, utilities); tighter cluster spacing; visuals first in each cluster. B589's proposals land in the same revision where they serve these notes: page navigation with two levels, the mixer channel strip, the compact modulator card. The existing tokens and rules stay unless a change is named and reasoned in the revision's own notes.
+- **Then the shell, slice 4.** The bundle re-vendored into `docs/design/arp-face/`; Main and Osc laid out after the Scalpel bench; a two-level page bar (a top row of groups, one of them Osc; under it the group's own pages, Osc 1, Osc 2, Sub and Noise); an Osc dashboard as the Osc group's first page, with a minimal view and the bare necessities of each oscillator; the mixer as side-by-side channel strips, each fader attached to its own toggles, with a live meter and a clip warning beside it (from the stub engine, marked MOCK until audio exists).
+- What "bare necessity controls" are, per oscillator, is the lead's proposal in slice 4, for the human to change by eye.
+
+**Consequences.**
+- B589 carries the density revision; B584 carries slice 4.
+- The other labs that vendor the bundle (the Random lab, the arp face) pick up the compact sizes when they re-vendor; nothing is re-vendored silently.
+- **FX device (ADR-254):** the same design master. Its page bar has no Osc group; the mixer strips serve its rack slots and returns.
+
+## ADR-330 — RULED by the human: a crossfade of gain reduction is admitted for A11, and the declaration's `of` names it; non-engine parameters come into the GUI 3 shell; the FX modules' morph and modulation become a design item (B265, B584, B586, B591; 2026-10-30)
+
+**Context.**
+- Bulwark's seq 32 (`integrations/bulwark/response-switch-declaration.md`, horde #1282) declared its five flip-class keys in the ADR-309 form. Its `comp.detector` crossfade (Bulwark SPEC §8.6) blends the two detector laws' gain reduction in dB over 20 ms, `y = (1 − u)·y_old + u·y_new`, before the link. That is not an equal-gain crossfade of two outputs. Its click reading is 0.49 dB on the wide set, against 0.50 dB for an ideal offline crossfade (seq 22). Bulwark declared it with `"of": "gain reduction (dB)"` and asked: (a) admitted as declared, (b) not admitted, or (c) `of` should name a value the check knows.
+- The human asked why the GUI 3 shell shows none of the parameters outside the engine. The lead's answer: B584's first-slice acceptance (written by the lead) scoped the shell to SPEC-ENGINE §5, and the design system's first rule binds controls to generated manifest keys only (B308 L2). Nothing outside the engine had a manifest in horde's tree, so the Filters, FX and Morph pages were left "empty" and Mod shows only the engine's envelopes. That was the lead's scoping, not a ruling.
+
+**Rulings (the human, 2026-10-30).**
+- **Bulwark: "c".** A crossfade whose weights sum to one, applied to a named internal quantity rather than to the module's output, is admitted for A11 when its declaration names that quantity in `of`, and its click reading is reported beside the ideal's (§12.1). `"of": "gain reduction (dB)"` is the first such value. `comp.detector` is admitted as declared.
+- **The FX modules' morph and modulation** ("something for eventual design work: we need to figure out how to represent morph and modulation in all of the FX modules"): a design item, B591.
+
+**Consequences.**
+- The rack contract's A11 declaration row names the admitted `of` values: `input` (RS-3.6 by input) and a named internal quantity such as `gain reduction (dB)`. A value the check does not know reads Undeclared.
+- A response to Bulwark (horde seq 33) in Bulwark's mailbox. Nothing is asked of Bulwark.
+- The GUI 3 shell's next slice brings in what has a manifest now (the morph settings of Appendix D.2 and IF-11; Arp's `spec/params.json`; the module lockfiles of Shriek, Bulwark, Scape and Echo, vendored as snapshots) under the same reach check. LFOs, the matrix and device settings have no table yet; they are drafted for B586's one table, for the human's ruling.
+- **FX device (ADR-254):** A11 is the same for its slots. Its pages are the same shell; B591 is its own question first.
+
