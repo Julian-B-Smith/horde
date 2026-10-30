@@ -41,39 +41,61 @@
   .col { max-width: 1010px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--space-column); }
   .grow { flex: 1 1 auto; }
   .tagline { max-width: 96ch; }
-  #win { width: min(100%, 980px); min-height: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--space-stack); box-sizing: border-box; }
-  .chrome { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-gap) 14px; }
+  /* The window is 980 x 720 (ADR-259 ruling 2) and keeps that size: the page area scrolls inside it (B589). */
+  #win { width: min(100%, 980px); height: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--space-stack); box-sizing: border-box; overflow: hidden; }
+  .chrome { display: flex; align-items: flex-start; gap: var(--space-gap) 14px; flex: 0 0 auto; }
   .logo { box-sizing: border-box; width: 91px; height: 60px; flex: 0 0 auto; display: grid; place-items: center; text-align: center; }
   .tabs { display: grid; grid-template-columns: repeat(6, auto); gap: 4px; justify-content: start; }
-  .switches { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
-  .body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; flex: 1 1 auto; align-items: start; }
+  .switches { margin-left: auto; display: grid; grid-template-columns: auto auto; justify-items: end; gap: 0 10px; }
+  .switches .hd-label { gap: 4px; }
+  .body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; flex: 1 1 auto; align-items: stretch; min-height: 0; }
   .body.with-dock { grid-template-columns: 204px minmax(0, 1fr); }
   .dock { width: auto; }
   .dock .face { flex-direction: column; align-items: stretch; gap: 6px; padding: 6px 7px 8px; }
   .dock .hd-xy { width: 188px; height: 188px; margin: 0 auto; }
   /* The window is 980 x 720 (ADR-259 ruling 2): a long page scrolls inside it, so the info box sits in the same place on
      every page (ADR-315) instead of following the page's length. */
-  .pagecol { display: flex; flex-direction: column; gap: var(--space-stack); min-width: 0; }
-  #pages { height: 400px; overflow-y: auto; overscroll-behavior: contain; }
-  .pagecol.bank-off #pages { height: 540px; }
+  .pagecol { display: flex; flex-direction: column; gap: var(--space-stack); min-width: 0; min-height: 0; }
+  #pages { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+  /* dense pages (B589): the pictures' column at the left, the sections' cell at the right; one box level */
+  .dense-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-stack); align-items: start; }
+  .dense-row.with-viz { grid-template-columns: 250px minmax(0, 1fr); }
+  .vcell { position: sticky; top: 0; display: flex; flex-direction: column; gap: 6px; }
+  .vz { display: flex; flex-direction: column; gap: 6px; }
+  .vz-well { padding: 0; overflow: hidden; }
+  .hd-sgroups > .vz { flex: 1 1 100%; }
+  .vz-cv { display: block; width: 100%; }
+  .vz-cap { line-height: 1.3; }
+  .hd-sgrp.adv > summary { cursor: pointer; list-style-position: inside; }
+  .dash { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: var(--space-stack); }
+  .dash .vz-cap { display: none; }
+  .console { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
   /* The bank: one card per listed modulator, in a row that scrolls sideways (ADR-322 item 3). */
   #bank { width: auto; }
   #bank[hidden] { display: none; }
   #bank .head .hd-btn { margin-left: auto; }
   #bank > .face { flex-direction: column; align-items: stretch; gap: 4px; }
   .bank-strip { display: flex; flex-wrap: nowrap; gap: 8px; overflow-x: auto; overscroll-behavior: contain; align-items: flex-start; }
-  .bank-strip > .hd-card { flex: 0 0 auto; width: 300px; }
+  .bank-strip > .hd-card { flex: 0 0 auto; width: 220px; }
   .bank-strip > .hd-card[hidden] { display: none; }
   .bank-strip .hd-card .face { flex-wrap: nowrap; }
   .page { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
   .page[hidden], .dock[hidden] { display: none; }
   .phead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+  .phead.compact { flex-wrap: nowrap; min-width: 0; }
+  .phead .hd-cluster { white-space: nowrap; }
+  .phead.compact .hd-note { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cards { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
   .cards > .hd-card { width: auto; flex: 1 1 260px; min-width: 0; }
   .cards > .hd-card.wide { flex-basis: 100%; }
   .hd-card .face { gap: 4px 6px; align-items: flex-start; justify-content: flex-start; padding: 6px 7px 8px; }
   .ctl { min-width: 0; }
-  .info { width: auto; min-height: 92px; }
+  .info { width: auto; min-height: 58px; flex: 0 0 auto; }
+  #bank { flex: 0 0 auto; }
+  /* `win` (a review link's flag) shows the window alone, at its own size, for the screenshots */
+  body.win-only { padding: 0; }
+  body.win-only .col > :not(#win) { display: none; }
+  body.win-only #win { margin: 0; border-radius: 0; }
   .info .face { flex-direction: column; align-items: stretch; gap: 3px; }
   .menu { position: fixed; z-index: 60; width: 260px; }
   .menu .face { flex-direction: column; align-items: stretch; gap: 4px; }
@@ -90,7 +112,7 @@
     <button class="hd-kbd hd-focus" id="kbd" type="button" aria-pressed="false" aria-label="Keyboard mode"><span class="lampdot"></span><span id="kbdTxt">KEYS</span></button>
     <button class="hd-btn hd-focus" id="themeBtn" type="button" aria-pressed="false">Dark</button>
   </header>
-  <div class="tagline"><span class="hd-note">GUI 3 (B584, four slices so far): <b>one wired shell</b> with twelve pages, every parameter that has a machine-readable manifest (SPEC-ENGINE section 5, the morph's settings, the hosted FX modules', Arp's)
+  <div class="tagline"><span class="hd-note">GUI 3 (B584, five slices so far): <b>one wired shell</b> under a two-level page bar (B589), dense oscillator pages after the SCALPEL bench, an Osc dashboard and a mixing console, every parameter that has a machine-readable manifest (SPEC-ENGINE section 5, the morph's settings, the hosted FX modules', Arp's)
     reachable on a page, and <b>no audio</b>: a stub engine keeps the values behind the engine's interface. The <b>Sub</b> and <b>Noise</b> pages are
     designed; the others are drafts or hold no engine parameters, and say why. Try: turn <b>Morph</b> on (the pad docks on every page; <b>Pad</b>
     hides it), press <b>Scatter corners</b> below and drag the puck, hover any control to read it in the info box, right-click one for the manual. The <b>bank</b> at the foot of every page lists the modulators routed to it: press + to activate one and drag its Map handle onto a control. The <b>Morph</b> page chooses the corner you hear with morph off and saves snapshots and presets to corners (ADR-319).</span></div>
@@ -99,8 +121,8 @@
   <div class="hd-window" id="win" aria-label="horde window (no audio engine)">
     <div class="chrome">
       <div class="logo hd-hint" title="The locked logo goes here at 91 x 60; the shell does not redraw it">logo<br>91 × 60</div>
-      <div class="tabs hd-pills" role="tablist" aria-label="Pages" id="tabs"></div>
-      <div class="switches">
+      <div id="pnav" class="grow"></div>
+      <div class="switches hd-dense">
         <label class="hd-row hd-label">Morph <button class="hd-toggle hd-focus" id="morphOn" type="button" role="switch" aria-checked="false" aria-label="Morph on"></button></label>
         <label class="hd-row hd-label">Pad <button class="hd-toggle hd-focus" id="padOn" type="button" role="switch" aria-checked="true" aria-label="Show the docked morph pad"></button></label>
         <label class="hd-row hd-label" title="ADR-322 item 4, toggle (b): show or hide the bank">Bank <button class="hd-toggle hd-focus" id="bankOn" type="button" role="switch" aria-checked="true" aria-label="Show the modulator bank"></button></label>
@@ -266,13 +288,14 @@ function says(c) {
 
 // ===== BLOCK D: the ONE place a parameter control is built: from a generated entry, bound to its row by key =====
 const PROPS = Object.create(null);    // host element -> the bundle props it was built with (the self-checks write through them)
-function propsFor(row, ctl, path) {
+function propsFor(row, ctl, path, size) {
   const vals = new Proxy([0, 0, 0, 0], {     // the bundle reads and writes p.vals[i]: here that IS the device's corner i
     get(t, k, rc) { return typeof k === 'string' && /^[0-3]$/.test(k) ? dev.corner(row.key, +k) : Reflect.get(t, k, rc); },
     set(t, k, v) { if (typeof k === 'string' && /^[0-3]$/.test(k)) write(row, v, +k); return true; }
   });
   const p = { key: row.key, name: row.label, path, kind: 'c', fmt: v => ENG.display(row, v), def: row.default_v, vals,
     bipolar: row.law !== 'dB' && row.law !== 'io' && row.law !== 'io-cut' && row.lo < 0 && row.hi > 0, big: false, vert: ctl.widget === 'vslider' };
+  if (size) p.size = size;   // B589: a sized control (label above, value on hover, the section's slot reads it)
   // A Device-class value (the morph's settings, a module's device rows) is outside the morph: one value, no corners.
   // The bundle's knob draws that as `locked` with its value in `g`, read from and written through the device.
   if (row.class === 'D') {
@@ -281,11 +304,11 @@ function propsFor(row, ctl, path) {
   }
   return p;
 }
-function mountControl(ctl, pageId, path) {
-  const row = ROW[ctl.key];
+function mountControl(ctl, pageId, path, opts) {
+  const row = ROW[ctl.key], size = opts && opts.size || null;
   const host = h('div', { class: 'ctl', 'data-key': row.key, 'data-w': ctl.widget });
   if (ctl.widget === 'knob' || ctl.widget === 'hslider' || ctl.widget === 'vslider') {
-    const p = propsFor(row, ctl, path);
+    const p = propsFor(row, ctl, path, size);
     const view = ctl.widget === 'knob' ? H.Knob(host, p, S) : H.Slider(host, p, S);
     PROPS[row.key + '@' + pageId] = p;
     const r0 = view.render;                 // a knob draws only while its page shows: 300-odd views would redraw every frame otherwise
@@ -382,34 +405,193 @@ function randomizePlaceholder() {
   return el;
 }
 
-// ===== BLOCK E: the pages, from GUI3_DATA.pages =====
-const pageEls = {}, tabEls = {};
+// ===== BLOCK E: the pages, from GUI3_DATA.pages, under the two-level page bar (B589 Page nav) =====
+const pageEls = {};
 const STATUS_TAG = { designed: 'DESIGNED', draft: 'DRAFT', empty: 'NO ENGINE PARAMETERS' };
-DATA.pages.forEach(pg => {
-  const el = h('section', { class: 'page', id: 'page-' + pg.id, role: 'tabpanel', 'aria-labelledby': 'tab-' + pg.id, hidden: true });
-  el.append(h('div', { class: 'phead' }, h('span', { class: 'hd-cluster', text: pg.label }), h('span', { class: 'hd-hint', text: STATUS_TAG[pg.status] }),
-    h('span', { class: 'hd-note', text: pg.note + (pg.cite ? ' (' + pg.cite + ')' : '') })));
+const NAV = DATA.nav, groupOf = Object.create(null);
+NAV.forEach(g => g.pages.forEach(pid => { groupOf[pid] = g.id; }));
+const PG = Object.create(null); DATA.pages.forEach(pg => { PG[pg.id] = pg; });
+const isOnKey = key => optLabel(ROW[key], dev.shown(key)) === 'on';
+const onIdx = (row, on) => row.options.indexOf(on ? 'on' : 'off');
+
+/* The pictures (B589: "visuals take the area"). Each is a SAMPLE drawing of the settings the layout names (`viz.keys`),
+   drawn with the bundle's painters, never the engine's output: the swarm's ring from its member count and coupling (a
+   seeded spread, not phases the engine computed), one cycle of the chosen wave, the noise's colour as a tilt, and ENV 1's
+   stages with C.12's curves (the bundle's painter; ENV 1's Hold row is not drawn). */
+const xOf = key => ENG.lawX(ROW[key], dev.shown(key)), labOf = key => optLabel(ROW[key], dev.shown(key));
+function waveAt(name, t, o) {
+  const s = Math.sin(2 * Math.PI * t);
+  switch (name) {
+    case 'sine': return s;
+    case 'triangle': return 1 - 4 * Math.abs(((t + .25) % 1) - .5);
+    case 'saw': return 2 * ((t + .5) % 1) - 1;
+    case 'reverse saw': return 1 - 2 * ((t + .5) % 1);
+    case 'square': return t < .5 ? 1 : -1;
+    case 'pulse': return t < (o.width === undefined ? .5 : o.width) ? 1 : -1;
+    case 'smooth square': return Math.tanh(s * (1 + 12 * (1 - (o.softness === undefined ? .5 : o.softness)))) / Math.tanh(1 + 12 * (1 - (o.softness === undefined ? .5 : o.softness)));
+    case 'bump': return (s + (o.bump || 0) * Math.sin(6 * Math.PI * t - .25)) / (1 + (o.bump || 0));
+  }
+  return s;
+}
+function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function vizView(v, pid, big) {
+  const wrap = h('div', { class: 'vz' }), cvs = [], K = v.keys, st = {};
+  const add = (label, hgt) => { const cv = h('canvas', { class: 'vz-cv', style: 'height:' + hgt + 'px', 'aria-label': label + ' (SAMPLE)', role: 'img' }); wrap.append(h('div', { class: 'hd-viz vz-well' }, cv)); cvs.push(cv); return cv; };
+  const ring = v.kind === 'osc' && big ? add('Phase ring', 210) : null;
+  const main = add(v.kind === 'noise' ? 'Spectrum' : v.kind === 'env' ? 'ENV 1' : 'One cycle', big ? (v.kind === 'osc' ? 96 : 160) : 64);
+  wrap.append(h('span', { class: 'hd-hint vz-cap', text: 'SAMPLE: a drawing of the settings, not the engine’s output' }));
+  let last = null, frame = 0;
+  views.push({ page: pid, update() {
+    frame++;
+    const sig = Object.values(K).map(k => dev.shown(k)).join('|') + '|' + (document.documentElement.dataset.theme || '');
+    if (sig === last && v.kind !== 'noise') return; last = sig;
+    if (ring) {
+      const n = Math.max(1, Math.round(xOf(K.unison))), c = xOf(K.coupling), r = mulberry(7), ph = [];
+      for (let i = 0; i < n; i++) { const even = i / n, rnd = r(); ph.push(c >= 0 ? .25 + (rnd - .5) * (1 - c) : even * -c + rnd * (1 + c)); }
+      H.Viz.kuramoto(ring, { phase: ph, xy: { x: dev.shown(K.detune), y: (c + 1) / 2 } });
+    }
+    if (v.kind === 'noise') {
+      const c = xOf(K.colour), bands = [];   // +1 white (flat), 0 pink (−3 dB/oct), −1 brown (−6 dB/oct): a tilt, SN-4's words
+      for (let b = 0; b < 24; b++) { const oct = b / 3, db = -(1 - c) * 3 * oct; bands.push(Math.max(0, Math.min(1, .82 + db / 36))); }
+      H.Viz.spectrum(main, bands, st, frame / 60);
+    } else if (v.kind === 'env') {
+      // The painter's `hold` is a sustain plateau for the drawing (a third of the other stages, SAMPLE), not ENV 1's Hold
+      // row, which it does not draw; the curves are C.12's, drawn by the bundle's own law (Viz.envAt).
+      const a = xOf(K.a), dd = xOf(K.d), r = xOf(K.r);
+      H.Viz.envelope(main, { a, d: dd, s: xOf(K.s), r, hold: (a + dd + r) / 3, ac: xOf(K.ac), dc: xOf(K.dc), rc: xOf(K.rc) }, null);
+    } else {
+      const name = labOf(K.wave), o = { width: K.width && xOf(K.width), softness: K.softness && xOf(K.softness), bump: K.bump && xOf(K.bump) }, l = [];
+      for (let i = 0; i < 128; i++) l.push(waveAt(name, i / 127, o));
+      H.Viz.scope(main, { l, r: l, R: 0 });
+    }
+  } });
+  return wrap;
+}
+
+/* A dense section (B589): a Section header (identity rule, the power toggle, the number, the name, the mode pills, the
+   readout slot) over sub-groups of compact controls; rarely-used rows under a collapsed Advanced group, still mounted. */
+function sectionOf(pg, g, opts) {
+  opts = opts || {};
+  const path = pg.label + ' · ' + g.title + (g.num ? ' ' + g.num : '');
+  const sec = h('section', { class: 'hd-sec', 'aria-label': path }), head = h('div');
+  const power = g.controls.find(c => c.role === 'power'), modes = g.controls.find(c => c.role === 'modes');
+  const plain = g.controls.filter(c => !c.role && !c.advanced), adv = g.controls.filter(c => !c.role && c.advanced);
+  const body = h('div', { class: 'hd-sgroups' }), size = opts.size || null;
+  if (g.viz) body.append(vizView(g.viz, pg.id, false));
+  const subs = [];
+  plain.forEach(c => { const lab = c.sub || ''; if (!subs.length || subs[subs.length - 1].label !== lab) subs.push({ label: lab, ctls: [] }); subs[subs.length - 1].ctls.push(c); });
+  subs.forEach(sg => body.append(h('div', { class: 'hd-sgrp' }, sg.label ? h('span', { class: 'hd-sublabel', text: sg.label }) : null,
+    h('div', { class: 'hd-krow' }, sg.ctls.map(c => mountControl(c, pg.id, path + ' · ' + ROW[c.key].label, { size: c.size || size || 'compact' }))))));
+  if (adv.length) body.append(h('details', { class: 'hd-sgrp adv' }, h('summary', { class: 'hd-sublabel', text: 'Advanced · ' + adv.length }),
+    h('div', { class: 'hd-krow' }, adv.map(c => mountControl(c, pg.id, path + ' · ' + ROW[c.key].label, { size: c.size || 'compact' })))));
+  sec.append(head, body);
+  const summary = () => [modes ? labOf(modes.key) : null].concat(plain.slice(0, 2).map(c => ENG.display(ROW[c.key], dev.shown(c.key)))).filter(Boolean).join(' · ');
+  const sh = H.SectionHeader(head, { name: g.title, path, num: g.num || undefined, rule: g.rule || opts.rule || 'solid',
+    on: power ? isOnKey(power.key) : undefined,
+    onToggle: power ? on => writeStep(ROW[power.key], path + ' · On', onIdx(ROW[power.key], on)) : undefined,
+    modes: modes ? { options: ROW[modes.key].options, value: idxOf(ROW[modes.key], dev.shown(modes.key)), label: ROW[modes.key].label,
+      onPick: i => writeStep(ROW[modes.key], path + ' · ' + ROW[modes.key].label, i) } : undefined,
+    S, section: sec, summary, keys: () => S.keys, end: opts.end });
+  // The header's toggle and pills ARE the power and mode parameters' controls: they carry the key, so the info box, the
+  // right-click menu, the bank's drop and the self-checks find them like any other control.
+  if (power) { const t = head.querySelector('.hd-toggle'); t.dataset.key = power.key; t.classList.add('ctl'); }
+  if (modes) { const m = head.querySelector('.hd-pills'); m.dataset.key = modes.key; m.classList.add('ctl'); }
+  let last = '';
+  views.push({ page: pg.id, update() {
+    const k = (power ? isOnKey(power.key) : '') + '|' + (modes ? idxOf(ROW[modes.key], dev.shown(modes.key)) : '');
+    if (k === last) return; last = k;
+    if (power) sh.on(isOnKey(power.key));
+    if (modes) sh.mode(idxOf(ROW[modes.key], dev.shown(modes.key)));
+    if (pg.power === (power && power.key)) nav.mark(groupOf[pg.id], pg.id, isOnKey(power.key));
+  } });
+  return sec;
+}
+function densePage(pg, el) {
+  const row = h('div', { class: 'dense-row' + (pg.viz ? ' with-viz' : '') });
+  if (pg.viz) row.append(h('div', { class: 'hd-cell hd-dense vcell' }, h('div', { class: 'vhead' }, h('span', { class: 'hd-cluster', text: 'Visualizers' })), vizView(pg.viz, pg.id, true)));
+  const cell = h('div', { class: 'hd-cell hd-dense dcell' });
+  pg.groups.forEach(g => cell.append(sectionOf(pg, g)));
+  row.append(cell); el.append(row);
+}
+/* The Osc dashboard (B589's composition): one card per source, side by side; the card's name opens its page. */
+function dashboardPage(pg, el) {
+  const grid = h('div', { class: 'dash' });
+  pg.groups.forEach(g => {
+    const open = h('button', { class: 'hd-btn hd-focus dash-open', type: 'button', text: 'Open', 'aria-label': 'Open ' + g.title + '’s page' });
+    open.addEventListener('click', () => selectPage(g.source));
+    grid.append(h('div', { class: 'hd-cell hd-dense' }, sectionOf(pg, g, { rule: 'none', size: 'utility', end: open })));
+  });
+  el.append(grid);
+}
+/* The Mix page (B589 Channel strip): one strip per source and the master, side by side on one console card. The faders
+   are the level keys; on, mute and solo are their keys (engine rows, IF-6), so the strip is generated, not kept. */
+let consoleStrip = null;
+function consolePage(pg, el) {
+  const host = h('div'), roleKey = (g, r) => { const c = g.controls.find(x => x.role === r); return c ? c.key : null; };
+  const strips = pg.groups.map(g => {
+    const f = roleKey(g, 'fader'), on = roleKey(g, 'on'), mu = roleKey(g, 'mute'), so = roleKey(g, 'solo'), path = 'Mix · ' + g.title;
+    return { id: g.strip, name: g.title, path, master: g.master, fader: propsFor(ROW[f], { widget: 'vslider' }, path + ' · ' + ROW[f].label, 'compact'),
+      on: on ? isOnKey(on) : undefined, mute: mu ? isOnKey(mu) : undefined, solo: so ? isOnKey(so) : undefined, keys: { fader: f, on, mute: mu, solo: so } };
+  });
+  const byId = Object.fromEntries(strips.map(s => [s.id, s]));
+  consoleStrip = H.ChannelStrip(host, S, { strips, label: 'Mix', keys: () => S.keys,
+    read: id => { const m = dev.meters()[id]; return m ? { l: m.peak, r: m.peak } : undefined; },
+    latch: id => { const m = dev.meters()[id]; return m ? m.clip : undefined; },
+    clear: id => { dev.clearClip(id); S.say(byId[id].name + ': clip lamp cleared'); },
+    onToggle: (id, what, val) => { const k = byId[id].keys[what]; if (k) writeStep(ROW[k], byId[id].path + ' · ' + ROW[k].label, onIdx(ROW[k], val)); } });
+  // tag the strip's own controls with their keys, as every other control (the info box, the menu, the self-checks)
+  host.querySelectorAll('.cs-strip').forEach(root => {
+    const s = byId[root.dataset.id], K = s.keys;
+    const tg = root.querySelector('.cs-head .hd-toggle'); if (tg && K.on) { tg.dataset.key = K.on; tg.classList.add('ctl'); }
+    const fd = root.querySelector('.cs-body > div'); if (fd) { fd.dataset.key = K.fader; fd.classList.add('ctl'); }
+    const mb = root.querySelector('.cs-btn.mute'); if (mb && K.mute) { mb.dataset.key = K.mute; mb.classList.add('ctl'); }
+    const sb = root.querySelector('.cs-btn.solo'); if (sb && K.solo) { sb.dataset.key = K.solo; sb.classList.add('ctl'); }
+  });
+  el.append(h('div', { class: 'hd-cell hd-dense console' }, host,
+    h('p', { class: 'hd-note', text: 'MOCK meters: no audio, so each strip reads its own level as if fed a full-scale test tone, through IF-6’s gate (off, mute, solo); the output sums the sounding sources. Push a fader over 0 dB: its CLIP lamp latches; click the lamp to clear it.' })));
+  let last = '';
+  views.push({ page: pg.id, update() {
+    const k = dev.rev();
+    if (k !== last) { last = k; strips.forEach(s => ['on', 'mute', 'solo'].forEach(w => { if (s.keys[w]) consoleStrip.set(s.id, w, isOnKey(s.keys[w])); })); }
+    consoleStrip.step(1 / 60); consoleStrip.render();     // the ballistics advance one frame per frame: no clock (B589)
+  } });
+}
+function classicPage(pg, el) {
   const cards = h('div', { class: 'cards' });
   pg.groups.forEach(g => {
     const face = h('div', { class: 'face' });
     g.controls.forEach(c => face.append(mountControl(c, pg.id, pg.label + ' · ' + g.title + ' · ' + ROW[c.key].label)));
     // A module card (the FX page) carries an inset where the module's own screen will go: a labelled placeholder (ADR-235).
     const screen = g.screen ? h('div', { class: 'viz', role: 'img', 'aria-label': g.screen + ' screen placeholder' },
-      h('span', { class: 'hd-hint', text: g.screen + '\u2019s own screen goes here (placeholder)' })) : null;
+      h('span', { class: 'hd-hint', text: g.screen + '’s own screen goes here (placeholder)' })) : null;
     cards.append(h('section', { class: 'hd-card' + (g.controls.length > 12 ? ' wide' : ''), 'aria-label': pg.label + ' · ' + g.title },
       h('div', { class: 'head' }, h('span', { class: 'hd-cluster', text: g.title }), g.tag ? h('span', { class: 'tag', text: g.tag }) : null, h('span', { class: 'hd-hint', text: g.controls.length + (g.controls.length === 1 ? ' control' : ' controls') })), screen, face));
   });
   if (pg.groups.length) el.append(cards);
+}
+const nav = H.PageNav($('pnav'), { label: 'Page groups', panel: 'pages', keys: () => S.keys,
+  groups: NAV.map(g => ({ id: g.id, label: g.label, pages: g.pages.length > 1 ? g.pages.map(pid => ({ id: pid, label: PG[pid].label, on: PG[pid].power ? isOnKey(PG[pid].power) : undefined })) : undefined })),
+  onChange: (group, pid) => selectPage(pid) });
+DATA.pages.forEach(pg => {
+  const el = h('section', { class: 'page', id: 'page-' + pg.id, role: 'tabpanel', 'aria-label': pg.label, hidden: true });
+  // A dense page gives its area to the pictures and the controls (B589): its note shrinks to one line, whole in the title.
+  const compact = pg.dense || pg.panel === 'dashboard' || pg.panel === 'console', note = pg.note + (pg.cite ? ' (' + pg.cite + ')' : '');
+  el.append(h('div', { class: 'phead' + (compact ? ' compact' : '') }, h('span', { class: 'hd-cluster', text: pg.label }), h('span', { class: 'hd-hint', text: STATUS_TAG[pg.status] }),
+    h('span', { class: 'hd-note', text: note, title: compact ? note : null })));
+  if (pg.panel === 'dashboard') dashboardPage(pg, el);
+  else if (pg.panel === 'console') consolePage(pg, el);
+  else if (pg.dense) densePage(pg, el);
+  else classicPage(pg, el);
   if (pg.panel === 'morph') el.append(morphPanel());
   $('pages').append(el); pageEls[pg.id] = el;
-  const t = h('button', { class: 'hd-pill hd-focus', type: 'button', role: 'tab', id: 'tab-' + pg.id, 'aria-controls': 'page-' + pg.id, 'aria-selected': 'false', text: pg.label });
-  t.addEventListener('click', () => selectPage(pg.id)); $('tabs').append(t); tabEls[pg.id] = t;
 });
+/* A page opens by its id, whatever its group (an old link's #noise still opens the Noise page, under Osc). */
 function selectPage(id) {
+  if (!pageEls[id]) return;
   page = id; closeMenu();
   for (const k in pageEls) pageEls[k].hidden = k !== id;
-  for (const k in tabEls) tabEls[k].setAttribute('aria-selected', String(k === id));
-  seamRev = -1;
+  const now = nav.get(); if (now.group !== groupOf[id] || now.page !== id) nav.set(groupOf[id], id);
+  $('pages').scrollTop = 0; seamRev = -1;
 }
 
 // ===== BLOCK F: the chrome (ADR-315): the docked pad while morph is on, its hide toggle, the info box, the menu =====
@@ -508,7 +690,7 @@ dev.sources().forEach(src => {
   H.ModCardHeader(head, { kind: src.kind, name: src.name, retrig: null, extra: handle });
   bindDrag(handle, src);
   const ctls = BANK.controls[src.id] || [];
-  const face = h('div', { class: 'face' }, ctls.length ? ctls.map(c => mountControl(c, '*', 'Bank · ' + src.name + ' · ' + ROW[c.key].label))
+  const face = h('div', { class: 'face hd-dense' }, ctls.length ? ctls.map(c => mountControl(c, '*', 'Bank · ' + src.name + ' · ' + ROW[c.key].label, { size: 'utility' }))
     : h('span', { class: 'hd-hint', text: 'No controls of its own: ' + (src.kind === 'engine' ? 'a value the engine publishes (IF-3), with no rows in SPEC-ENGINE 5.' : 'no rows in SPEC-ENGINE 5.') }));
   const note = h('span', { class: 'hd-hint' });
   const cardEl = h('section', { class: 'hd-card', 'data-src': src.id, 'aria-label': src.name + ' modulator', hidden: true }, head, face, h('div', { class: 'foot' }, note));
@@ -601,11 +783,13 @@ views.push({ page: '*', update() {
 (function checks() {
   const box = $('checks'), line = (ok, t) => box.append(h('p', { class: ok ? 'hd-hint' : 'hd-note bad', text: (ok ? 'OK · ' : 'FAILED · ') + t }));
   // 1. What is mounted is what was generated, page by page; the comparison sees a single missing key (control).
-  const same = (a, b) => a.length === b.length && a.every((k, i) => k === b[i]);
+  // A dense section puts its header's power and mode controls first and groups the rest, so this compares each page's keys
+  // as a multiset (every generated control mounted once, nothing else).
+  const same = (a, b) => a.length === b.length && [...a].sort().every((k, i) => k === [...b].sort()[i]);
   let allSame = true, n = 0;
   DATA.pages.forEach(pg => { const want = pg.groups.flatMap(g => g.controls.map(c => c.key)), got = [...pageEls[pg.id].querySelectorAll('[data-key]')].map(e => e.dataset.key); n += got.length; if (!same(want, got)) allSame = false; });
   const sub = DATA.pages.find(p => p.id === 'sub'), subWant = sub.groups.flatMap(g => g.controls.map(c => c.key));
-  line(allSame && !same(subWant.slice(1), subWant), 'Mounted = generated: ' + n + ' controls on ' + DATA.pages.length + ' pages, in the layout’s order; a list one key short reads as different (control).');
+  line(allSame && !same(subWant.slice(1), subWant), 'Mounted = generated: ' + n + ' controls on ' + DATA.pages.length + ' pages, each page\u2019s keys exactly; a list one key short reads as different (control).');
   // 2. No control lacks a parameter, and every host parameter is on a page.
   const mounted = new Set([...document.querySelectorAll('#pages [data-key]')].map(e => e.dataset.key));
   const bankKeys = [...document.querySelectorAll('#bank [data-key]')].map(e => e.dataset.key);
@@ -693,16 +877,44 @@ views.push({ page: '*', update() {
   page = pg0; paintBank();
   line(toRack && noEngine && fxMapped && fxListed && noDesc && fxMenu.includes('Open in manual') && arpNote && ctl,
     'New sources: ' + fxr.source + ' · ' + fxr.label + ' reached the rack and ' + msr.label + ' the morph resolver, not the engine; ENV 2 mapped onto ' + fxr.label + ' and listed on FX; the info box says ' + fxr.source + ' gives no description and shows Arp’s own note for ' + arpr.label + '; right-click offers the manual (control: the engine refuses the module’s key sent to it directly).');
+  // 11. One model, two views (B589's dashboard): a write through the dashboard's control reaches the same key the full
+  // page's control shows, and the engine; undo restores both. Control: the value differed before.
+  const dashPg = DATA.pages.find(p => p.id === 'dashboard'), dc = dashPg.groups[0].controls.find(c => !c.role), dsrc = dashPg.groups[0].source;
+  const dBefore = dev.shown(dc.key);
+  dev.begin('self-check'); PROPS[dc.key + '@dashboard'].vals[0] = .37; dev.end();
+  const fullP = PROPS[dc.key + '@' + dsrc], both = Math.abs(S.base(fullP) - .37) < 1e-12 && Math.abs(engine.getParam(dc.key) - .37) < 1e-12;
+  dev.undo();
+  line(both && dBefore !== .37 && dev.shown(dc.key) === dBefore, 'One model, two views: ' + ROW[dc.key].label + ' written on the dashboard is what ' + PG[dsrc].label + '\u2019s page shows and the engine holds; undo restored both (control: the value differed).');
+  // 12. The console (B589 Channel strip): one strip per source and the master, their controls carrying the keys; a fader
+  // pushed over 0 dB latches its CLIP lamp (MOCK meters, IF-6), a click clears it. Control: the lamp is dark before.
+  const mixPg = DATA.pages.find(p => p.id === 'mix'), strips = [...pageEls.mix.querySelectorAll('.cs-strip')];
+  const g0 = mixPg.groups[0], fk = g0.controls.find(c => c.role === 'fader').key, onk = g0.controls.find(c => c.role === 'on').key;
+  const lamp = () => pageEls.mix.querySelector('.cs-strip[data-id="' + g0.strip + '"] .hd-lamp');
+  dev.clearClip(g0.strip); consoleStrip.render(); const dark0 = lamp().getAttribute('aria-pressed') === 'false';   // earlier checks may have latched it (a scatter): start dark
+  dev.begin('self-check'); dev.set(onk, 1); dev.set(fk, 1); dev.end(); consoleStrip.render();
+  const lit = lamp().getAttribute('aria-pressed') === 'true';
+  lamp().click(); consoleStrip.render(); const unlit = lamp().getAttribute('aria-pressed') === 'false';
+  dev.undo();
+  mixPg.groups.forEach(g => dev.clearClip(g.strip));   // the probe latched the output too: leave every lamp dark
+  line(strips.length === mixPg.groups.length && dark0 && lit && unlit, 'Console: ' + strips.length + ' strips; ' + g0.title + '\u2019s fader at +6 dB latched its CLIP lamp (MOCK meter) and a click cleared it (control: dark before).');
+  // 13. The page bar (B589): an old link's page id opens its page under its group, and the group remembers it.
+  selectPage('noise'); const nv = nav.get(); selectPage('main'); const nm2 = nav.get();
+  line(nv.group === 'osc' && nv.page === 'noise' && nm2.group === 'main', 'Page nav: #noise opens Noise under Osc (' + nv.group + ' / ' + nv.page + '); Main is its own group (control: ' + nm2.group + ').');
   showInfo(null); S.message = '';
   dev.clearHistory();   // the checks' own steps (the probes, the morph toggles) are not the user's history
 })();
 
 // ===== BLOCK I: go. A link can open a page, and morph on with the corners scattered: gui3.html#noise or #noise,morph =====
 // `,bank` maps ENV 2 to the page's first two continuous controls and leaves ENV 3 pending, so the bank has cards to show.
-{ const [pg, ...flags] = location.hash.slice(1).split(','); selectPage(pageEls[pg] ? pg : 'sub');
+{ const [pg, ...flags] = location.hash.slice(1).split(','); selectPage(pageEls[pg] ? pg : 'dashboard');
+  if (flags.includes('light') || flags.includes('dark')) { document.documentElement.dataset.theme = flags.includes('dark') ? 'dark' : 'light'; $('themeBtn').setAttribute('aria-pressed', String(flags.includes('dark'))); }
+  if (flags.includes('win')) document.body.classList.add('win-only');
+  if (flags.includes('nobank')) setBankShown(false);
   if (flags.includes('morph')) { setMorphOn(true); dev.scatter(SEED); }
   if (flags.includes('bank')) { pageKeysList(page).filter(k => ROW[k].law !== 'step').slice(0, 2).forEach(k => dev.drop('env2', k)); dev.activate('env3'); }
-  if (flags.length) { dev.clearHistory(); S.message = ''; } }
+  if (flags.length) { dev.clearHistory(); S.message = ''; }
+  // `fit`: say whether the page fits the window's page area (B589's 980 x 720), and by how much it overflows
+  if (flags.includes('fit')) { const a = $('pages'); S.message = 'fit: page ' + a.scrollHeight + ' px in an area of ' + a.clientHeight + ' px' + (a.scrollHeight > a.clientHeight ? ', overflows by ' + (a.scrollHeight - a.clientHeight) + ' px' : ', fits'); } }
 sweepTabs();
 S.start();
 })();

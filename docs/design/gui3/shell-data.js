@@ -148,1479 +148,2806 @@ window.GUI3_DATA = {
   "note": "No `desc` column exists for horde 2's parameters yet (B582): the info box shows each row's own SPEC-ENGINE text, marked as such, and every host parameter counts as a missing description.",
   "spec_text_missing": 2
  },
+ "nav": [
+  {
+   "id": "main",
+   "label": "Main",
+   "pages": [
+    "main"
+   ]
+  },
+  {
+   "id": "osc",
+   "label": "Osc",
+   "pages": [
+    "dashboard",
+    "osc1",
+    "osc2",
+    "sub",
+    "noise",
+    "filters"
+   ]
+  },
+  {
+   "id": "fx",
+   "label": "FX",
+   "pages": [
+    "fx"
+   ]
+  },
+  {
+   "id": "mod",
+   "label": "Mod",
+   "pages": [
+    "mod",
+    "arp"
+   ]
+  },
+  {
+   "id": "morph",
+   "label": "Morph",
+   "pages": [
+    "morph"
+   ]
+  },
+  {
+   "id": "mix",
+   "label": "Mix",
+   "pages": [
+    "mix"
+   ]
+  },
+  {
+   "id": "set",
+   "label": "Set",
+   "pages": [
+    "settings"
+   ]
+  }
+ ],
  "pages": [
   {
    "cite": null,
+   "dense": true,
    "groups": [
     {
      "controls": [
       {
+       "advanced": false,
        "key": "voice.mode",
        "live": null,
        "override": null,
+       "role": "modes",
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "voice.gravity",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "key": "out.level",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "primary",
+       "sub": null,
        "widget": "knob"
       }
      ],
+     "master": false,
+     "num": null,
+     "rule": null,
      "screen": null,
+     "source": null,
+     "strip": null,
      "tag": null,
-     "title": "Voice"
+     "title": "Voice",
+     "viz": null
     },
     {
      "controls": [
       {
+       "advanced": false,
        "key": "env1.attack",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "env1.hold",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "env1.decay",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "env1.sustain",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "env1.release",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "env1.attackCurve",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Curves",
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "env1.decayCurve",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Curves",
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "env1.releaseCurve",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Curves",
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "env1.velocity",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Velocity",
        "widget": "knob"
       }
      ],
+     "master": false,
+     "num": null,
+     "rule": null,
      "screen": null,
+     "source": null,
+     "strip": null,
      "tag": null,
-     "title": "ENV 1"
+     "title": "ENV 1",
+     "viz": null
     }
    ],
    "id": "main",
    "label": "Main",
-   "note": "Draft: every row is reachable, none is designed. The Main page's design is B581 step 2.",
+   "note": "Dense (B589): the voice and ENV 1 as sections beside ENV 1's picture (a SAMPLE drawing of the settings, not the engine's output). Main's full design (the performance page with the pad) is B581 step 2.",
    "panel": null,
-   "status": "draft"
+   "power": null,
+   "status": "draft",
+   "viz": {
+    "keys": {
+     "a": "env1.attack",
+     "ac": "env1.attackCurve",
+     "d": "env1.decay",
+     "dc": "env1.decayCurve",
+     "r": "env1.release",
+     "rc": "env1.releaseCurve",
+     "s": "env1.sustain"
+    },
+    "kind": "env"
+   }
   },
   {
-   "cite": null,
+   "cite": "B589 (Page nav's Osc dashboard), ADR-329 item 2",
+   "dense": false,
    "groups": [
     {
      "controls": [
       {
+       "advanced": false,
        "key": "osc1.on",
        "live": null,
        "override": null,
+       "role": "power",
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
-       "key": "osc1.octave",
+       "advanced": false,
+       "key": "mix.osc1",
        "live": null,
        "override": null,
-       "widget": "select"
-      },
-      {
-       "key": "osc1.semitone",
-       "live": null,
-       "override": null,
-       "widget": "select"
-      },
-      {
-       "key": "osc1.pitch",
-       "live": null,
-       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": null,
        "widget": "knob"
       },
       {
-       "key": "osc1.fine",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc1.pan",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc1.mute",
-       "live": null,
-       "override": null,
-       "widget": "toggle"
-      },
-      {
-       "key": "osc1.solo",
-       "live": null,
-       "override": null,
-       "widget": "toggle"
-      },
-      {
-       "key": "osc1.unison",
-       "live": null,
-       "override": null,
-       "widget": "select"
-      },
-      {
-       "key": "osc1.distribution",
-       "live": null,
-       "override": null,
-       "widget": "pills"
-      },
-      {
-       "key": "osc1.seed",
-       "live": null,
-       "override": null,
-       "widget": "stepper"
-      },
-      {
-       "key": "osc1.detuneLaw",
-       "live": null,
-       "override": null,
-       "widget": "pills"
-      },
-      {
+       "advanced": false,
        "key": "osc1.detune",
        "live": null,
        "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": null,
        "widget": "knob"
       },
       {
-       "key": "osc1.detuneRange",
-       "live": null,
-       "override": null,
-       "widget": "pills"
-      },
-      {
-       "key": "osc1.harmonicReach",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc1.anchor",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
+       "advanced": false,
        "key": "osc1.coupling",
        "live": null,
        "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": null,
        "widget": "knob"
+      }
+     ],
+     "master": false,
+     "num": null,
+     "rule": null,
+     "screen": null,
+     "source": "osc1",
+     "strip": null,
+     "tag": null,
+     "title": "Osc 1",
+     "viz": {
+      "keys": {
+       "coupling": "osc1.coupling",
+       "detune": "osc1.detune",
+       "unison": "osc1.unison",
+       "wave": "osc1.baseWave"
       },
+      "kind": "osc"
+     }
+    },
+    {
+     "controls": [
       {
-       "key": "osc1.phaseLag",
+       "advanced": false,
+       "key": "osc2.on",
        "live": null,
        "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc1.pivot",
-       "live": null,
-       "override": null,
-       "widget": "pills"
-      },
-      {
-       "key": "osc1.onsetLock",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc1.dissolve",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc1.driftDepth",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc1.driftRate",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc1.inertia",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc1.phase",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc1.phaseRandom",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc1.retrigger",
-       "live": null,
-       "override": null,
+       "role": "power",
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
-       "key": "osc1.onsetScatter",
+       "advanced": false,
+       "key": "mix.osc2",
        "live": null,
        "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": null,
        "widget": "knob"
       },
       {
-       "key": "osc1.timingCorrection",
+       "advanced": false,
+       "key": "osc2.detune",
        "live": null,
        "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": null,
        "widget": "knob"
       },
       {
-       "key": "osc1.width",
+       "advanced": false,
+       "key": "osc2.coupling",
        "live": null,
        "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": null,
        "widget": "knob"
+      }
+     ],
+     "master": false,
+     "num": null,
+     "rule": null,
+     "screen": null,
+     "source": "osc2",
+     "strip": null,
+     "tag": null,
+     "title": "Osc 2",
+     "viz": {
+      "keys": {
+       "coupling": "osc2.coupling",
+       "detune": "osc2.detune",
+       "unison": "osc2.unison",
+       "wave": "osc2.baseWave"
       },
+      "kind": "osc"
+     }
+    },
+    {
+     "controls": [
       {
-       "key": "osc1.panImage",
+       "advanced": false,
+       "key": "sub.on",
        "live": null,
        "override": null,
-       "widget": "pills"
-      },
-      {
-       "key": "osc1.panInvert",
-       "live": null,
-       "override": null,
+       "role": "power",
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
-       "key": "osc1.panMotion",
+       "advanced": false,
+       "key": "mix.sub",
        "live": null,
        "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": null,
        "widget": "knob"
       },
       {
-       "key": "osc1.bandLimit",
+       "advanced": false,
+       "key": "sub.pulseWidth",
        "live": null,
        "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": null,
+       "widget": "knob"
+      }
+     ],
+     "master": false,
+     "num": null,
+     "rule": null,
+     "screen": null,
+     "source": "sub",
+     "strip": null,
+     "tag": null,
+     "title": "Sub",
+     "viz": {
+      "keys": {
+       "bump": "sub.bumpAmount",
+       "softness": "sub.softness",
+       "wave": "sub.wave",
+       "width": "sub.pulseWidth"
+      },
+      "kind": "sub"
+     }
+    },
+    {
+     "controls": [
+      {
+       "advanced": false,
+       "key": "noise.on",
+       "live": null,
+       "override": null,
+       "role": "power",
+       "size": null,
+       "sub": null,
+       "widget": "toggle"
+      },
+      {
+       "advanced": false,
+       "key": "mix.noise",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": null,
        "widget": "knob"
       },
       {
-       "key": "osc1.motionGrain",
+       "advanced": false,
+       "key": "noise.colour",
        "live": null,
        "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": null,
+       "widget": "knob"
+      }
+     ],
+     "master": false,
+     "num": null,
+     "rule": null,
+     "screen": null,
+     "source": "noise",
+     "strip": null,
+     "tag": null,
+     "title": "Noise",
+     "viz": {
+      "keys": {
+       "colour": "noise.colour"
+      },
+      "kind": "noise"
+     }
+    }
+   ],
+   "id": "dashboard",
+   "label": "Dashboard",
+   "note": "One card per source: its on switch, a SAMPLE picture of its settings, and the bare necessities as utility controls. The lead's default per card, for the human to change. A card's controls are the same keys as the source's own page: one model, two views.",
+   "panel": "dashboard",
+   "power": null,
+   "status": "designed",
+   "viz": null
+  },
+  {
+   "cite": null,
+   "dense": true,
+   "groups": [
+    {
+     "controls": [
+      {
+       "advanced": false,
+       "key": "osc1.on",
+       "live": null,
+       "override": null,
+       "role": "power",
+       "size": null,
+       "sub": null,
+       "widget": "toggle"
+      },
+      {
+       "advanced": false,
+       "key": "osc1.unison",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Swarm",
+       "widget": "select"
+      },
+      {
+       "advanced": false,
+       "key": "osc1.detune",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Swarm",
        "widget": "knob"
       },
       {
+       "advanced": false,
+       "key": "osc1.coupling",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Swarm",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
        "key": "osc1.baseWave",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Base",
        "widget": "pills"
       },
       {
+       "advanced": false,
+       "key": "osc1.octave",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Pitch",
+       "widget": "select"
+      },
+      {
+       "advanced": false,
+       "key": "osc1.semitone",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Pitch",
+       "widget": "select"
+      },
+      {
+       "advanced": false,
+       "key": "osc1.pitch",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Pitch",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "key": "osc1.fine",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Pitch",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "key": "osc1.pan",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Out",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "key": "osc1.width",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Out",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "key": "mix.osc1",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "primary",
+       "sub": "Out",
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.mute",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "toggle"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.solo",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "toggle"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.distribution",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "pills"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.seed",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "stepper"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.detuneLaw",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "pills"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.detuneRange",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "pills"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.harmonicReach",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.anchor",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.phaseLag",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.pivot",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "pills"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.onsetLock",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.dissolve",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.driftDepth",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.driftRate",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.inertia",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.phase",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.phaseRandom",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.retrigger",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "toggle"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.onsetScatter",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.timingCorrection",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.panImage",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "pills"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.panInvert",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "toggle"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.panMotion",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.bandLimit",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.motionGrain",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
        "key": "osc1.crossMod",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": true,
        "key": "osc1.feedback",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": true,
        "key": "osc1.loopDrive",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": true,
        "key": "osc1.spreadLaw",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": true,
        "key": "osc1.spreadDrift",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": true,
        "key": "osc1.quantize",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": true,
        "key": "osc1.stacking",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": true,
        "key": "osc1.upperHears",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": true,
        "key": "osc1.collisionPitch",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": true,
        "key": "osc1.collisionBite",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": true,
        "key": "osc1.env",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       }
      ],
+     "master": false,
+     "num": null,
+     "rule": null,
      "screen": null,
+     "source": null,
+     "strip": null,
      "tag": null,
-     "title": "Oscillator"
+     "title": "Osc 1",
+     "viz": null
     },
     {
      "controls": [
       {
+       "advanced": false,
        "key": "osc1.blade1.on",
        "live": null,
        "override": null,
+       "role": "power",
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "osc1.blade1.mode",
        "live": null,
        "override": null,
-       "widget": "select"
+       "role": "modes",
+       "size": null,
+       "sub": null,
+       "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "osc1.blade1.wave",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Wave",
        "widget": "select"
       },
       {
-       "key": "osc1.blade1.shape",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc1.blade1.cutIn",
-       "live": null,
-       "override": null,
-       "widget": "pills"
-      },
-      {
-       "key": "osc1.blade1.cut",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc1.blade1.cutHz",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc1.blade1.position",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
+       "advanced": false,
        "key": "osc1.blade1.width",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Cut",
        "widget": "knob"
       },
       {
-       "key": "osc1.blade1.edges",
+       "advanced": false,
+       "key": "osc1.blade1.cut",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Cut",
        "widget": "knob"
       },
       {
+       "advanced": false,
+       "key": "osc1.blade1.position",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Cut",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
        "key": "osc1.blade1.depth",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Cut",
        "widget": "knob"
       },
       {
+       "advanced": false,
+       "key": "osc1.blade1.edges",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Cut",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
        "key": "osc1.blade1.mirror",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Mirror",
        "widget": "pills"
       },
       {
-       "key": "osc1.blade1.frame",
-       "live": null,
-       "override": null,
-       "widget": "pills"
-      },
-      {
-       "key": "osc1.blade1.rotate",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc1.blade1.rotation",
-       "live": null,
-       "override": null,
-       "widget": "pills"
-      },
-      {
-       "key": "osc1.blade1.fmType",
-       "live": null,
-       "override": null,
-       "widget": "pills"
-      },
-      {
-       "key": "osc1.blade1.modShape",
-       "live": null,
-       "override": null,
-       "widget": "select"
-      },
-      {
+       "advanced": false,
        "key": "osc1.blade1.fmDepth",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "FM",
        "widget": "knob"
       },
       {
-       "key": "osc1.blade1.modIn",
-       "live": null,
-       "override": null,
-       "widget": "pills"
-      },
-      {
+       "advanced": false,
        "key": "osc1.blade1.modRate",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "FM",
        "widget": "knob"
       },
       {
-       "key": "osc1.blade1.modRateHz",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
+       "advanced": false,
        "key": "osc1.blade1.positionSpread",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Spread",
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "osc1.blade1.cutSpread",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Spread",
        "widget": "knob"
       },
       {
-       "key": "osc1.blade1.cutRule",
+       "advanced": true,
+       "key": "osc1.blade1.shape",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.blade1.cutIn",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "pills"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.blade1.cutHz",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.blade1.frame",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "pills"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.blade1.rotate",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.blade1.rotation",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "pills"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.blade1.fmType",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "pills"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.blade1.modShape",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "select"
       },
       {
+       "advanced": true,
+       "key": "osc1.blade1.modIn",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "pills"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.blade1.modRateHz",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.blade1.cutRule",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "select"
+      },
+      {
+       "advanced": true,
        "key": "osc1.blade1.ruleDepth",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": true,
        "key": "osc1.blade1.widthSpread",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": true,
        "key": "osc1.blade1.depthSpread",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": true,
        "key": "osc1.blade1.shapeSpread",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": true,
        "key": "osc1.blade1.fmIndexSpread",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": true,
        "key": "osc1.blade1.rotateSpread",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       }
      ],
+     "master": false,
+     "num": 1,
+     "rule": "solid",
      "screen": null,
+     "source": null,
+     "strip": null,
      "tag": null,
-     "title": "Blade 1"
+     "title": "Blade",
+     "viz": null
     },
     {
      "controls": [
       {
+       "advanced": false,
        "key": "osc1.blade2.on",
        "live": null,
        "override": null,
+       "role": "power",
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "osc1.blade2.mode",
        "live": null,
        "override": null,
-       "widget": "select"
+       "role": "modes",
+       "size": null,
+       "sub": null,
+       "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "osc1.blade2.wave",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Wave",
        "widget": "select"
       },
       {
-       "key": "osc1.blade2.shape",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc1.blade2.cutIn",
-       "live": null,
-       "override": null,
-       "widget": "pills"
-      },
-      {
-       "key": "osc1.blade2.cut",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc1.blade2.cutHz",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc1.blade2.position",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
+       "advanced": false,
        "key": "osc1.blade2.width",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Cut",
        "widget": "knob"
       },
       {
-       "key": "osc1.blade2.edges",
+       "advanced": false,
+       "key": "osc1.blade2.cut",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Cut",
        "widget": "knob"
       },
       {
+       "advanced": false,
+       "key": "osc1.blade2.position",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Cut",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
        "key": "osc1.blade2.depth",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Cut",
        "widget": "knob"
       },
       {
+       "advanced": false,
+       "key": "osc1.blade2.edges",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Cut",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
        "key": "osc1.blade2.mirror",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Mirror",
        "widget": "pills"
       },
       {
-       "key": "osc1.blade2.frame",
-       "live": null,
-       "override": null,
-       "widget": "pills"
-      },
-      {
-       "key": "osc1.blade2.rotate",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc1.blade2.rotation",
-       "live": null,
-       "override": null,
-       "widget": "pills"
-      },
-      {
-       "key": "osc1.blade2.fmType",
-       "live": null,
-       "override": null,
-       "widget": "pills"
-      },
-      {
-       "key": "osc1.blade2.modShape",
-       "live": null,
-       "override": null,
-       "widget": "select"
-      },
-      {
+       "advanced": false,
        "key": "osc1.blade2.fmDepth",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "FM",
        "widget": "knob"
       },
       {
-       "key": "osc1.blade2.modIn",
-       "live": null,
-       "override": null,
-       "widget": "pills"
-      },
-      {
+       "advanced": false,
        "key": "osc1.blade2.modRate",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "FM",
        "widget": "knob"
       },
       {
-       "key": "osc1.blade2.modRateHz",
+       "advanced": true,
+       "key": "osc1.blade2.shape",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
-       "key": "osc1.blade2.positionSpread",
+       "advanced": true,
+       "key": "osc1.blade2.cutIn",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "pills"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.blade2.cutHz",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
-       "key": "osc1.blade2.cutSpread",
+       "advanced": true,
+       "key": "osc1.blade2.frame",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "pills"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.blade2.rotate",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
-       "key": "osc1.blade2.cutRule",
+       "advanced": true,
+       "key": "osc1.blade2.rotation",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "pills"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.blade2.fmType",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "pills"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.blade2.modShape",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "select"
       },
       {
+       "advanced": true,
+       "key": "osc1.blade2.modIn",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "pills"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.blade2.modRateHz",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.blade2.positionSpread",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.blade2.cutSpread",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc1.blade2.cutRule",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "select"
+      },
+      {
+       "advanced": true,
        "key": "osc1.blade2.ruleDepth",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": true,
        "key": "osc1.blade2.widthSpread",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": true,
        "key": "osc1.blade2.depthSpread",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": true,
        "key": "osc1.blade2.shapeSpread",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": true,
        "key": "osc1.blade2.fmIndexSpread",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": true,
        "key": "osc1.blade2.rotateSpread",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": true,
        "key": "osc1.blade2.fmSource",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": true,
        "key": "osc1.blade2.spreadSource",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       }
      ],
+     "master": false,
+     "num": 2,
+     "rule": "dash",
      "screen": null,
+     "source": null,
+     "strip": null,
      "tag": null,
-     "title": "Blade 2"
+     "title": "Blade",
+     "viz": null
     }
    ],
    "id": "osc1",
    "label": "Osc 1",
-   "note": "Draft: the oscillator page's design (with the mod map and the filters) is B581 step 2.",
+   "note": "Dense (B589), after the SCALPEL bench: the pictures on the left (SAMPLE drawings of the settings, never the engine's output), the oscillator and its two blades as sections on the right. Rarely-used rows sit under each section's collapsed Advanced group; every row is still on the page.",
    "panel": null,
-   "status": "draft"
+   "power": "osc1.on",
+   "status": "draft",
+   "viz": {
+    "keys": {
+     "coupling": "osc1.coupling",
+     "detune": "osc1.detune",
+     "unison": "osc1.unison",
+     "wave": "osc1.baseWave"
+    },
+    "kind": "osc"
+   }
   },
   {
    "cite": null,
+   "dense": true,
    "groups": [
     {
      "controls": [
       {
+       "advanced": false,
        "key": "osc2.on",
        "live": null,
        "override": null,
+       "role": "power",
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
-       "key": "osc2.octave",
-       "live": null,
-       "override": null,
-       "widget": "select"
-      },
-      {
-       "key": "osc2.semitone",
-       "live": null,
-       "override": null,
-       "widget": "select"
-      },
-      {
-       "key": "osc2.pitch",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc2.fine",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc2.pan",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc2.mute",
-       "live": null,
-       "override": null,
-       "widget": "toggle"
-      },
-      {
-       "key": "osc2.solo",
-       "live": null,
-       "override": null,
-       "widget": "toggle"
-      },
-      {
+       "advanced": false,
        "key": "osc2.unison",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Swarm",
        "widget": "select"
       },
       {
-       "key": "osc2.distribution",
-       "live": null,
-       "override": null,
-       "widget": "pills"
-      },
-      {
-       "key": "osc2.seed",
-       "live": null,
-       "override": null,
-       "widget": "stepper"
-      },
-      {
-       "key": "osc2.detuneLaw",
-       "live": null,
-       "override": null,
-       "widget": "pills"
-      },
-      {
+       "advanced": false,
        "key": "osc2.detune",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Swarm",
        "widget": "knob"
       },
       {
-       "key": "osc2.detuneRange",
-       "live": null,
-       "override": null,
-       "widget": "pills"
-      },
-      {
-       "key": "osc2.harmonicReach",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc2.anchor",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
+       "advanced": false,
        "key": "osc2.coupling",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Swarm",
        "widget": "knob"
       },
       {
-       "key": "osc2.phaseLag",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc2.pivot",
-       "live": null,
-       "override": null,
-       "widget": "pills"
-      },
-      {
-       "key": "osc2.onsetLock",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc2.dissolve",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc2.driftDepth",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc2.driftRate",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc2.inertia",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc2.phase",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc2.phaseRandom",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc2.retrigger",
-       "live": null,
-       "override": null,
-       "widget": "toggle"
-      },
-      {
-       "key": "osc2.onsetScatter",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc2.timingCorrection",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc2.width",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc2.panImage",
-       "live": null,
-       "override": null,
-       "widget": "pills"
-      },
-      {
-       "key": "osc2.panInvert",
-       "live": null,
-       "override": null,
-       "widget": "toggle"
-      },
-      {
-       "key": "osc2.panMotion",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc2.bandLimit",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc2.motionGrain",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
+       "advanced": false,
        "key": "osc2.baseWave",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Base",
        "widget": "pills"
       },
       {
+       "advanced": false,
+       "key": "osc2.octave",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Pitch",
+       "widget": "select"
+      },
+      {
+       "advanced": false,
+       "key": "osc2.semitone",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Pitch",
+       "widget": "select"
+      },
+      {
+       "advanced": false,
+       "key": "osc2.pitch",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Pitch",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "key": "osc2.fine",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Pitch",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "key": "osc2.pan",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Out",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "key": "osc2.width",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Out",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "key": "mix.osc2",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "primary",
+       "sub": "Out",
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.mute",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "toggle"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.solo",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "toggle"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.distribution",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "pills"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.seed",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "stepper"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.detuneLaw",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "pills"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.detuneRange",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "pills"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.harmonicReach",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.anchor",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.phaseLag",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.pivot",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "pills"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.onsetLock",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.dissolve",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.driftDepth",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.driftRate",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.inertia",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.phase",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.phaseRandom",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.retrigger",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "toggle"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.onsetScatter",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.timingCorrection",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.panImage",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "pills"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.panInvert",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "toggle"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.panMotion",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.bandLimit",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.motionGrain",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
        "key": "osc2.crossMod",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": true,
        "key": "osc2.feedback",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": true,
        "key": "osc2.loopDrive",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": true,
        "key": "osc2.spreadLaw",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": true,
        "key": "osc2.spreadDrift",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": true,
        "key": "osc2.quantize",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": true,
        "key": "osc2.stacking",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": true,
        "key": "osc2.upperHears",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": true,
        "key": "osc2.collisionPitch",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": true,
        "key": "osc2.collisionBite",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": true,
        "key": "osc2.env",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       }
      ],
+     "master": false,
+     "num": null,
+     "rule": null,
      "screen": null,
+     "source": null,
+     "strip": null,
      "tag": null,
-     "title": "Oscillator"
+     "title": "Osc 2",
+     "viz": null
     },
     {
      "controls": [
       {
+       "advanced": false,
        "key": "osc2.blade1.on",
        "live": null,
        "override": null,
+       "role": "power",
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "osc2.blade1.mode",
        "live": null,
        "override": null,
-       "widget": "select"
+       "role": "modes",
+       "size": null,
+       "sub": null,
+       "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "osc2.blade1.wave",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Wave",
        "widget": "select"
       },
       {
-       "key": "osc2.blade1.shape",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc2.blade1.cutIn",
-       "live": null,
-       "override": null,
-       "widget": "pills"
-      },
-      {
-       "key": "osc2.blade1.cut",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc2.blade1.cutHz",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc2.blade1.position",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
+       "advanced": false,
        "key": "osc2.blade1.width",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Cut",
        "widget": "knob"
       },
       {
-       "key": "osc2.blade1.edges",
+       "advanced": false,
+       "key": "osc2.blade1.cut",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Cut",
        "widget": "knob"
       },
       {
+       "advanced": false,
+       "key": "osc2.blade1.position",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Cut",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
        "key": "osc2.blade1.depth",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Cut",
        "widget": "knob"
       },
       {
+       "advanced": false,
+       "key": "osc2.blade1.edges",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Cut",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
        "key": "osc2.blade1.mirror",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Mirror",
        "widget": "pills"
       },
       {
-       "key": "osc2.blade1.frame",
-       "live": null,
-       "override": null,
-       "widget": "pills"
-      },
-      {
-       "key": "osc2.blade1.rotate",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc2.blade1.rotation",
-       "live": null,
-       "override": null,
-       "widget": "pills"
-      },
-      {
-       "key": "osc2.blade1.fmType",
-       "live": null,
-       "override": null,
-       "widget": "pills"
-      },
-      {
-       "key": "osc2.blade1.modShape",
-       "live": null,
-       "override": null,
-       "widget": "select"
-      },
-      {
+       "advanced": false,
        "key": "osc2.blade1.fmDepth",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "FM",
        "widget": "knob"
       },
       {
-       "key": "osc2.blade1.modIn",
-       "live": null,
-       "override": null,
-       "widget": "pills"
-      },
-      {
+       "advanced": false,
        "key": "osc2.blade1.modRate",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "FM",
        "widget": "knob"
       },
       {
-       "key": "osc2.blade1.modRateHz",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
+       "advanced": false,
        "key": "osc2.blade1.positionSpread",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Spread",
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "osc2.blade1.cutSpread",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Spread",
        "widget": "knob"
       },
       {
-       "key": "osc2.blade1.cutRule",
+       "advanced": true,
+       "key": "osc2.blade1.shape",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.blade1.cutIn",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "pills"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.blade1.cutHz",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.blade1.frame",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "pills"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.blade1.rotate",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.blade1.rotation",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "pills"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.blade1.fmType",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "pills"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.blade1.modShape",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "select"
       },
       {
+       "advanced": true,
+       "key": "osc2.blade1.modIn",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "pills"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.blade1.modRateHz",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.blade1.cutRule",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "select"
+      },
+      {
+       "advanced": true,
        "key": "osc2.blade1.ruleDepth",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": true,
        "key": "osc2.blade1.widthSpread",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": true,
        "key": "osc2.blade1.depthSpread",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": true,
        "key": "osc2.blade1.shapeSpread",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": true,
        "key": "osc2.blade1.fmIndexSpread",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": true,
        "key": "osc2.blade1.rotateSpread",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       }
      ],
+     "master": false,
+     "num": 1,
+     "rule": "solid",
      "screen": null,
+     "source": null,
+     "strip": null,
      "tag": null,
-     "title": "Blade 1"
+     "title": "Blade",
+     "viz": null
     },
     {
      "controls": [
       {
+       "advanced": false,
        "key": "osc2.blade2.on",
        "live": null,
        "override": null,
+       "role": "power",
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "osc2.blade2.mode",
        "live": null,
        "override": null,
-       "widget": "select"
+       "role": "modes",
+       "size": null,
+       "sub": null,
+       "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "osc2.blade2.wave",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Wave",
        "widget": "select"
       },
       {
-       "key": "osc2.blade2.shape",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc2.blade2.cutIn",
-       "live": null,
-       "override": null,
-       "widget": "pills"
-      },
-      {
-       "key": "osc2.blade2.cut",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc2.blade2.cutHz",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc2.blade2.position",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
+       "advanced": false,
        "key": "osc2.blade2.width",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Cut",
        "widget": "knob"
       },
       {
-       "key": "osc2.blade2.edges",
+       "advanced": false,
+       "key": "osc2.blade2.cut",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Cut",
        "widget": "knob"
       },
       {
+       "advanced": false,
+       "key": "osc2.blade2.position",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Cut",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
        "key": "osc2.blade2.depth",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Cut",
        "widget": "knob"
       },
       {
+       "advanced": false,
+       "key": "osc2.blade2.edges",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Cut",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
        "key": "osc2.blade2.mirror",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Mirror",
        "widget": "pills"
       },
       {
-       "key": "osc2.blade2.frame",
-       "live": null,
-       "override": null,
-       "widget": "pills"
-      },
-      {
-       "key": "osc2.blade2.rotate",
-       "live": null,
-       "override": null,
-       "widget": "knob"
-      },
-      {
-       "key": "osc2.blade2.rotation",
-       "live": null,
-       "override": null,
-       "widget": "pills"
-      },
-      {
-       "key": "osc2.blade2.fmType",
-       "live": null,
-       "override": null,
-       "widget": "pills"
-      },
-      {
-       "key": "osc2.blade2.modShape",
-       "live": null,
-       "override": null,
-       "widget": "select"
-      },
-      {
+       "advanced": false,
        "key": "osc2.blade2.fmDepth",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "FM",
        "widget": "knob"
       },
       {
-       "key": "osc2.blade2.modIn",
-       "live": null,
-       "override": null,
-       "widget": "pills"
-      },
-      {
+       "advanced": false,
        "key": "osc2.blade2.modRate",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": "FM",
        "widget": "knob"
       },
       {
-       "key": "osc2.blade2.modRateHz",
+       "advanced": true,
+       "key": "osc2.blade2.shape",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
-       "key": "osc2.blade2.positionSpread",
+       "advanced": true,
+       "key": "osc2.blade2.cutIn",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "pills"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.blade2.cutHz",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
-       "key": "osc2.blade2.cutSpread",
+       "advanced": true,
+       "key": "osc2.blade2.frame",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "pills"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.blade2.rotate",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
-       "key": "osc2.blade2.cutRule",
+       "advanced": true,
+       "key": "osc2.blade2.rotation",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "pills"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.blade2.fmType",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "pills"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.blade2.modShape",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "select"
       },
       {
+       "advanced": true,
+       "key": "osc2.blade2.modIn",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "pills"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.blade2.modRateHz",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.blade2.positionSpread",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.blade2.cutSpread",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "advanced": true,
+       "key": "osc2.blade2.cutRule",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
+       "widget": "select"
+      },
+      {
+       "advanced": true,
        "key": "osc2.blade2.ruleDepth",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": true,
        "key": "osc2.blade2.widthSpread",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": true,
        "key": "osc2.blade2.depthSpread",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": true,
        "key": "osc2.blade2.shapeSpread",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": true,
        "key": "osc2.blade2.fmIndexSpread",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": true,
        "key": "osc2.blade2.rotateSpread",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": true,
        "key": "osc2.blade2.fmSource",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": true,
        "key": "osc2.blade2.spreadSource",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       }
      ],
+     "master": false,
+     "num": 2,
+     "rule": "dash",
      "screen": null,
+     "source": null,
+     "strip": null,
      "tag": null,
-     "title": "Blade 2"
+     "title": "Blade",
+     "viz": null
     }
    ],
    "id": "osc2",
    "label": "Osc 2",
-   "note": "Draft: as Osc 1.",
+   "note": "Dense (B589), after the SCALPEL bench: the pictures on the left (SAMPLE drawings of the settings, never the engine's output), the oscillator and its two blades as sections on the right. Rarely-used rows sit under each section's collapsed Advanced group; every row is still on the page.",
    "panel": null,
-   "status": "draft"
+   "power": "osc2.on",
+   "status": "draft",
+   "viz": {
+    "keys": {
+     "coupling": "osc2.coupling",
+     "detune": "osc2.detune",
+     "unison": "osc2.unison",
+     "wave": "osc2.baseWave"
+    },
+    "kind": "osc"
+   }
   },
   {
    "cite": "SPEC-ENGINE 5.5 and SN-1 to SN-7, SN-14; B514's rulings (ADR-255, ADR-258, ADR-268); PA-8 for live-when",
+   "dense": true,
    "groups": [
     {
      "controls": [
       {
+       "advanced": false,
        "key": "sub.on",
        "live": null,
        "override": null,
+       "role": "power",
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "mix.sub",
        "live": {
         "is": [
@@ -1629,9 +2956,13 @@ window.GUI3_DATA = {
         "key": "sub.on"
        },
        "override": null,
+       "role": null,
+       "size": "primary",
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "sub.env",
        "live": {
         "is": [
@@ -1640,9 +2971,13 @@ window.GUI3_DATA = {
         "key": "sub.on"
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "sub.pan",
        "live": {
         "is": [
@@ -1651,9 +2986,13 @@ window.GUI3_DATA = {
         "key": "sub.on"
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "sub.mute",
        "live": {
         "is": [
@@ -1662,9 +3001,13 @@ window.GUI3_DATA = {
         "key": "sub.on"
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "sub.solo",
        "live": {
         "is": [
@@ -1673,16 +3016,26 @@ window.GUI3_DATA = {
         "key": "sub.on"
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       }
      ],
+     "master": false,
+     "num": null,
+     "rule": null,
      "screen": null,
+     "source": null,
+     "strip": null,
      "tag": "SOURCE",
-     "title": "Sub"
+     "title": "Sub",
+     "viz": null
     },
     {
      "controls": [
       {
+       "advanced": false,
        "key": "sub.wave",
        "live": {
         "is": [
@@ -1690,10 +3043,14 @@ window.GUI3_DATA = {
         ],
         "key": "sub.on"
        },
-       "override": "The shape is the sub's first choice (SN-2) and its seven options fit one card: all of them in view beats a drop-down. The rule gives a drop-down from six options up.",
+       "override": null,
+       "role": "modes",
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "sub.pulseWidth",
        "live": {
         "all": [
@@ -1712,9 +3069,13 @@ window.GUI3_DATA = {
         ]
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "sub.softness",
        "live": {
         "all": [
@@ -1733,9 +3094,13 @@ window.GUI3_DATA = {
         ]
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "sub.bumpHarmonic",
        "live": {
         "all": [
@@ -1754,9 +3119,13 @@ window.GUI3_DATA = {
         ]
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "select"
       },
       {
+       "advanced": false,
        "key": "sub.bumpAmount",
        "live": {
         "all": [
@@ -1775,9 +3144,13 @@ window.GUI3_DATA = {
         ]
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "sub.bumpPhase",
        "live": {
         "all": [
@@ -1796,9 +3169,13 @@ window.GUI3_DATA = {
         ]
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "sub.bump2Harmonic",
        "live": {
         "all": [
@@ -1817,9 +3194,13 @@ window.GUI3_DATA = {
         ]
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "select"
       },
       {
+       "advanced": false,
        "key": "sub.bump2Amount",
        "live": {
         "all": [
@@ -1838,9 +3219,13 @@ window.GUI3_DATA = {
         ]
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "sub.bump2Phase",
        "live": {
         "all": [
@@ -1859,16 +3244,26 @@ window.GUI3_DATA = {
         ]
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       }
      ],
+     "master": false,
+     "num": null,
+     "rule": null,
      "screen": null,
+     "source": null,
+     "strip": null,
      "tag": "SN-2",
-     "title": "Shape"
+     "title": "Shape",
+     "viz": null
     },
     {
      "controls": [
       {
+       "advanced": false,
        "key": "sub.octave",
        "live": {
         "is": [
@@ -1877,9 +3272,13 @@ window.GUI3_DATA = {
         "key": "sub.on"
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "sub.semitones",
        "live": {
         "is": [
@@ -1888,9 +3287,13 @@ window.GUI3_DATA = {
         "key": "sub.on"
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "select"
       },
       {
+       "advanced": false,
        "key": "sub.pitch",
        "live": {
         "is": [
@@ -1899,9 +3302,13 @@ window.GUI3_DATA = {
         "key": "sub.on"
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "sub.fine",
        "live": {
         "is": [
@@ -1910,9 +3317,13 @@ window.GUI3_DATA = {
         "key": "sub.on"
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "sub.keytrack",
        "live": {
         "is": [
@@ -1921,9 +3332,13 @@ window.GUI3_DATA = {
         "key": "sub.on"
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "sub.startPhase",
        "live": {
         "is": [
@@ -1932,16 +3347,26 @@ window.GUI3_DATA = {
         "key": "sub.on"
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       }
      ],
+     "master": false,
+     "num": null,
+     "rule": null,
      "screen": null,
+     "source": null,
+     "strip": null,
      "tag": "SN-1",
-     "title": "Pitch"
+     "title": "Pitch",
+     "viz": null
     },
     {
      "controls": [
       {
+       "advanced": false,
        "key": "sub.voiceMode",
        "live": {
         "is": [
@@ -1950,9 +3375,13 @@ window.GUI3_DATA = {
         "key": "sub.on"
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "sub.priority",
        "live": {
         "all": [
@@ -1971,16 +3400,26 @@ window.GUI3_DATA = {
         ]
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       }
      ],
+     "master": false,
+     "num": null,
+     "rule": null,
      "screen": null,
+     "source": null,
+     "strip": null,
      "tag": "SN-7",
-     "title": "Voice"
+     "title": "Voice",
+     "viz": null
     },
     {
      "controls": [
       {
+       "advanced": false,
        "key": "sub.order",
        "live": {
         "is": [
@@ -1989,9 +3428,13 @@ window.GUI3_DATA = {
         "key": "sub.on"
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "sub.erode",
        "live": {
         "is": [
@@ -2000,9 +3443,13 @@ window.GUI3_DATA = {
         "key": "sub.on"
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "sub.drive",
        "live": {
         "is": [
@@ -2011,9 +3458,13 @@ window.GUI3_DATA = {
         "key": "sub.on"
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "sub.crunch",
        "live": {
         "is": [
@@ -2022,9 +3473,13 @@ window.GUI3_DATA = {
         "key": "sub.on"
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "sub.character",
        "live": {
         "all": [
@@ -2041,9 +3496,13 @@ window.GUI3_DATA = {
         ]
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "sub.tone",
        "live": {
         "is": [
@@ -2052,32 +3511,57 @@ window.GUI3_DATA = {
         "key": "sub.on"
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       }
      ],
+     "master": false,
+     "num": null,
+     "rule": null,
      "screen": null,
+     "source": null,
+     "strip": null,
      "tag": "SN-3 · SN-5 · SN-14",
-     "title": "Colour"
+     "title": "Colour",
+     "viz": null
     }
    ],
    "id": "sub",
    "label": "Sub",
    "note": "The sub, in its chain's reading order: the source's switch and its output, then shape, pitch, voice, and the colour stage (order, erode, drive, crunch, character, tone).",
    "panel": null,
-   "status": "designed"
+   "power": "sub.on",
+   "status": "designed",
+   "viz": {
+    "keys": {
+     "bump": "sub.bumpAmount",
+     "softness": "sub.softness",
+     "wave": "sub.wave",
+     "width": "sub.pulseWidth"
+    },
+    "kind": "sub"
+   }
   },
   {
    "cite": "SPEC-ENGINE 5.6 and SN-4, SN-8 to SN-13; B514's rulings (ADR-255, ADR-258, ADR-268); PA-8 for live-when",
+   "dense": true,
    "groups": [
     {
      "controls": [
       {
+       "advanced": false,
        "key": "noise.on",
        "live": null,
        "override": null,
+       "role": "power",
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "mix.noise",
        "live": {
         "is": [
@@ -2086,9 +3570,13 @@ window.GUI3_DATA = {
         "key": "noise.on"
        },
        "override": null,
+       "role": null,
+       "size": "primary",
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "noise.env",
        "live": {
         "is": [
@@ -2097,9 +3585,13 @@ window.GUI3_DATA = {
         "key": "noise.on"
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "noise.mute",
        "live": {
         "is": [
@@ -2108,9 +3600,13 @@ window.GUI3_DATA = {
         "key": "noise.on"
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "noise.solo",
        "live": {
         "is": [
@@ -2119,16 +3615,26 @@ window.GUI3_DATA = {
         "key": "noise.on"
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       }
      ],
+     "master": false,
+     "num": null,
+     "rule": null,
      "screen": null,
+     "source": null,
+     "strip": null,
      "tag": "SOURCE",
-     "title": "Noise"
+     "title": "Noise",
+     "viz": null
     },
     {
      "controls": [
       {
+       "advanced": false,
        "key": "noise.type",
        "live": {
         "any": [
@@ -2155,9 +3661,13 @@ window.GUI3_DATA = {
         ]
        },
        "override": null,
+       "role": "modes",
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "noise.density",
        "live": {
         "all": [
@@ -2194,9 +3704,13 @@ window.GUI3_DATA = {
         ]
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "noise.rate",
        "live": {
         "all": [
@@ -2233,9 +3747,13 @@ window.GUI3_DATA = {
         ]
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "noise.length",
        "live": {
         "all": [
@@ -2272,9 +3790,13 @@ window.GUI3_DATA = {
         ]
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "select"
       },
       {
+       "advanced": false,
        "key": "noise.lfsrKeytrack",
        "live": {
         "all": [
@@ -2311,9 +3833,13 @@ window.GUI3_DATA = {
         ]
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "noise.colour",
        "live": {
         "any": [
@@ -2340,9 +3866,13 @@ window.GUI3_DATA = {
         ]
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "noise.pitch",
        "live": {
         "all": [
@@ -2403,16 +3933,26 @@ window.GUI3_DATA = {
         ]
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       }
      ],
+     "master": false,
+     "num": null,
+     "rule": null,
      "screen": null,
+     "source": null,
+     "strip": null,
      "tag": "SN-8 · SN-4",
-     "title": "Source"
+     "title": "Source",
+     "viz": null
     },
     {
      "controls": [
       {
+       "advanced": false,
        "key": "noise.resonator",
        "live": {
         "any": [
@@ -2439,9 +3979,13 @@ window.GUI3_DATA = {
         ]
        },
        "override": null,
+       "role": "power",
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "noise.feedback",
        "live": {
         "all": [
@@ -2478,16 +4022,26 @@ window.GUI3_DATA = {
         ]
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       }
      ],
+     "master": false,
+     "num": null,
+     "rule": null,
      "screen": null,
+     "source": null,
+     "strip": null,
      "tag": "SN-9",
-     "title": "Resonator"
+     "title": "Resonator",
+     "viz": null
     },
     {
      "controls": [
       {
+       "advanced": false,
        "key": "noise.whisper",
        "live": {
         "any": [
@@ -2514,9 +4068,13 @@ window.GUI3_DATA = {
         ]
        },
        "override": null,
+       "role": "power",
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "noise.vowel",
        "live": {
         "all": [
@@ -2553,16 +4111,26 @@ window.GUI3_DATA = {
         ]
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       }
      ],
+     "master": false,
+     "num": null,
+     "rule": null,
      "screen": null,
+     "source": null,
+     "strip": null,
      "tag": "SN-9",
-     "title": "Whisper"
+     "title": "Whisper",
+     "viz": null
     },
     {
      "controls": [
       {
+       "advanced": false,
        "key": "noise.wind",
        "live": {
         "any": [
@@ -2589,9 +4157,13 @@ window.GUI3_DATA = {
         ]
        },
        "override": null,
+       "role": "power",
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "noise.gust",
        "live": {
         "all": [
@@ -2628,16 +4200,26 @@ window.GUI3_DATA = {
         ]
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       }
      ],
+     "master": false,
+     "num": null,
+     "rule": null,
      "screen": null,
+     "source": null,
+     "strip": null,
      "tag": "SN-9",
-     "title": "Wind"
+     "title": "Wind",
+     "viz": null
     },
     {
      "controls": [
       {
+       "advanced": false,
        "key": "noise.filter",
        "live": {
         "any": [
@@ -2664,9 +4246,13 @@ window.GUI3_DATA = {
         ]
        },
        "override": null,
+       "role": "modes",
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "noise.cutoff",
        "live": {
         "all": [
@@ -2703,9 +4289,13 @@ window.GUI3_DATA = {
         ]
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "noise.resonance",
        "live": {
         "all": [
@@ -2742,9 +4332,13 @@ window.GUI3_DATA = {
         ]
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "noise.keytrack",
        "live": {
         "all": [
@@ -2781,16 +4375,26 @@ window.GUI3_DATA = {
         ]
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       }
      ],
+     "master": false,
+     "num": null,
+     "rule": null,
      "screen": null,
+     "source": null,
+     "strip": null,
      "tag": "SN-10",
-     "title": "Filter"
+     "title": "Filter",
+     "viz": null
     },
     {
      "controls": [
       {
+       "advanced": false,
        "key": "noise.spread",
        "live": {
         "is": [
@@ -2799,9 +4403,13 @@ window.GUI3_DATA = {
         "key": "noise.on"
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "noise.pan",
        "live": {
         "is": [
@@ -2810,283 +4418,471 @@ window.GUI3_DATA = {
         "key": "noise.on"
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       }
      ],
+     "master": false,
+     "num": null,
+     "rule": null,
      "screen": null,
+     "source": null,
+     "strip": null,
      "tag": "SN-12",
-     "title": "Stereo"
+     "title": "Stereo",
+     "viz": null
     }
    ],
    "id": "noise",
    "label": "Noise",
    "note": "The noise, in its chain's reading order: source and colour, then the three optional stages in their fixed series order (Resonator, Whisper, Wind), the noise's own filter, and the stereo stage.",
    "panel": null,
-   "status": "designed"
+   "power": "noise.on",
+   "status": "designed",
+   "viz": {
+    "keys": {
+     "colour": "noise.colour"
+    },
+    "kind": "noise"
+   }
   },
   {
    "cite": null,
+   "dense": false,
    "groups": [],
    "id": "filters",
    "label": "Filters",
    "note": "No engine parameters: the filters are a reserved contract (SPEC-ENGINE RC-1, IF-5), outside the engine's manifest. Weir's filters join this page at B581 step 2.",
    "panel": null,
-   "status": "empty"
+   "power": null,
+   "status": "empty",
+   "viz": null
   },
   {
    "cite": null,
+   "dense": false,
    "groups": [
     {
      "controls": [
       {
+       "advanced": false,
        "key": "env2.attack",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "env2.hold",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "env2.decay",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "env2.sustain",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "env2.release",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "env2.attackCurve",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "env2.decayCurve",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "env2.releaseCurve",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "env2.velocity",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "env2.oneShot",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       }
      ],
+     "master": false,
+     "num": null,
+     "rule": null,
      "screen": null,
+     "source": null,
+     "strip": null,
      "tag": null,
-     "title": "ENV 2"
+     "title": "ENV 2",
+     "viz": null
     },
     {
      "controls": [
       {
+       "advanced": false,
        "key": "env3.attack",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "env3.hold",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "env3.decay",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "env3.sustain",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "env3.release",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "env3.attackCurve",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "env3.decayCurve",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "env3.releaseCurve",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "env3.velocity",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "env3.oneShot",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       }
      ],
+     "master": false,
+     "num": null,
+     "rule": null,
      "screen": null,
+     "source": null,
+     "strip": null,
      "tag": null,
-     "title": "ENV 3"
+     "title": "ENV 3",
+     "viz": null
     },
     {
      "controls": [
       {
+       "advanced": false,
        "key": "env4.attack",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "env4.hold",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "env4.decay",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "env4.sustain",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "env4.release",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "env4.attackCurve",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "env4.decayCurve",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "env4.releaseCurve",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "env4.velocity",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "env4.oneShot",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       }
      ],
+     "master": false,
+     "num": null,
+     "rule": null,
      "screen": null,
+     "source": null,
+     "strip": null,
      "tag": null,
-     "title": "ENV 4"
+     "title": "ENV 4",
+     "viz": null
     }
    ],
    "id": "mod",
    "label": "Mod",
    "note": "Draft: ENV 2 to ENV 4 are the engine's (5.2, RC-4). The LFOs, the matrix and the routes are the device's (RC-4 deferred); the mod map's design is B581 step 1.",
    "panel": null,
-   "status": "draft"
+   "power": null,
+   "status": "draft",
+   "viz": null
   },
   {
    "cite": "SPEC-ENGINE Appendix D (D.2, MO-5 to MO-10, IF-11, IF-12)",
+   "dense": false,
    "groups": [
     {
      "controls": [
       {
+       "advanced": false,
        "key": "morph.on",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "morph.audible",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "morph.law",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "morph.count",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "morph.glide",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       }
      ],
+     "master": false,
+     "num": null,
+     "rule": null,
      "screen": null,
+     "source": null,
+     "strip": null,
      "tag": "D.2",
-     "title": "Morph"
+     "title": "Morph",
+     "viz": null
     },
     {
      "controls": [
       {
+       "advanced": false,
        "key": "morph.temperature",
        "live": {
         "is": [
@@ -3095,9 +4891,13 @@ window.GUI3_DATA = {
         "key": "morph.law"
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "morph.cohesion",
        "live": {
         "is": [
@@ -3106,9 +4906,13 @@ window.GUI3_DATA = {
         "key": "morph.law"
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "morph.seed",
        "live": {
         "is": [
@@ -3117,16 +4921,26 @@ window.GUI3_DATA = {
         "key": "morph.law"
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "stepper"
       }
      ],
+     "master": false,
+     "num": null,
+     "rule": null,
      "screen": null,
+     "source": null,
+     "strip": null,
      "tag": "MO-6 · MO-7",
-     "title": "Quantum"
+     "title": "Quantum",
+     "viz": null
     },
     {
      "controls": [
       {
+       "advanced": false,
        "key": "morph.stepSync",
        "live": {
         "is": [
@@ -3135,9 +4949,13 @@ window.GUI3_DATA = {
         "key": "morph.law"
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "morph.stepRate",
        "live": {
         "all": [
@@ -3156,9 +4974,13 @@ window.GUI3_DATA = {
         ]
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "morph.stepDivision",
        "live": {
         "all": [
@@ -3177,9 +4999,13 @@ window.GUI3_DATA = {
         ]
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "select"
       },
       {
+       "advanced": false,
        "key": "morph.stepTriplet",
        "live": {
         "all": [
@@ -3198,9 +5024,13 @@ window.GUI3_DATA = {
         ]
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "morph.stepDotted",
        "live": {
         "all": [
@@ -3219,1737 +5049,2918 @@ window.GUI3_DATA = {
         ]
        },
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       }
      ],
+     "master": false,
+     "num": null,
+     "rule": null,
      "screen": null,
+     "source": null,
+     "strip": null,
      "tag": "MO-10 · RC-7.4",
-     "title": "Stepped"
+     "title": "Stepped",
+     "viz": null
     }
    ],
    "id": "morph",
    "label": "Morph",
    "note": "The morph's settings (SPEC-ENGINE Appendix D.2), generated from the spec's table: they go to the morph resolver (IF-12), never to the engine; every one is a host parameter except Morph seed and Audible corner, which are page choices (IF-11). Beside them the morph system's own panel: the corners and their snapshots and presets (ADR-319, ADR-321), and the Randomize placeholder (ADR-322). The rest of the page's design is B581 step 3.",
    "panel": "morph",
-   "status": "draft"
+   "power": null,
+   "status": "draft",
+   "viz": null
   },
   {
-   "cite": null,
+   "cite": "B589 Channel strip; IF-6; ADR-329 item 3",
+   "dense": false,
    "groups": [
     {
      "controls": [
       {
+       "advanced": false,
        "key": "mix.osc1",
        "live": null,
        "override": null,
+       "role": "fader",
+       "size": null,
+       "sub": null,
        "widget": "vslider"
       },
       {
-       "key": "mix.osc2",
-       "live": null,
-       "override": null,
-       "widget": "vslider"
-      },
-      {
-       "key": "mix.sub",
-       "live": null,
-       "override": null,
-       "widget": "vslider"
-      },
-      {
-       "key": "mix.noise",
-       "live": null,
-       "override": null,
-       "widget": "vslider"
-      },
-      {
-       "key": "out.level",
-       "live": null,
-       "override": null,
-       "widget": "vslider"
-      }
-     ],
-     "screen": null,
-     "tag": null,
-     "title": "Levels"
-    },
-    {
-     "controls": [
-      {
+       "advanced": false,
        "key": "osc1.on",
        "live": null,
        "override": null,
+       "role": "on",
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
-       "key": "osc2.on",
+       "advanced": false,
+       "key": "osc1.mute",
        "live": null,
        "override": null,
+       "role": "mute",
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
-       "key": "sub.on",
+       "advanced": false,
+       "key": "osc1.solo",
        "live": null,
        "override": null,
-       "widget": "toggle"
-      },
-      {
-       "key": "noise.on",
-       "live": null,
-       "override": null,
+       "role": "solo",
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       }
      ],
+     "master": false,
+     "num": null,
+     "rule": null,
      "screen": null,
+     "source": null,
+     "strip": "osc1",
      "tag": null,
-     "title": "Sources"
+     "title": "Osc 1",
+     "viz": null
     },
     {
      "controls": [
       {
-       "key": "osc1.mute",
+       "advanced": false,
+       "key": "mix.osc2",
        "live": null,
        "override": null,
+       "role": "fader",
+       "size": null,
+       "sub": null,
+       "widget": "vslider"
+      },
+      {
+       "advanced": false,
+       "key": "osc2.on",
+       "live": null,
+       "override": null,
+       "role": "on",
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
-       "key": "osc1.solo",
-       "live": null,
-       "override": null,
-       "widget": "toggle"
-      },
-      {
+       "advanced": false,
        "key": "osc2.mute",
        "live": null,
        "override": null,
+       "role": "mute",
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "osc2.solo",
        "live": null,
        "override": null,
-       "widget": "toggle"
-      },
-      {
-       "key": "sub.mute",
-       "live": null,
-       "override": null,
-       "widget": "toggle"
-      },
-      {
-       "key": "sub.solo",
-       "live": null,
-       "override": null,
-       "widget": "toggle"
-      },
-      {
-       "key": "noise.mute",
-       "live": null,
-       "override": null,
-       "widget": "toggle"
-      },
-      {
-       "key": "noise.solo",
-       "live": null,
-       "override": null,
+       "role": "solo",
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       }
      ],
+     "master": false,
+     "num": null,
+     "rule": null,
      "screen": null,
+     "source": null,
+     "strip": "osc2",
      "tag": null,
-     "title": "Mute and solo"
+     "title": "Osc 2",
+     "viz": null
+    },
+    {
+     "controls": [
+      {
+       "advanced": false,
+       "key": "mix.sub",
+       "live": null,
+       "override": null,
+       "role": "fader",
+       "size": null,
+       "sub": null,
+       "widget": "vslider"
+      },
+      {
+       "advanced": false,
+       "key": "sub.on",
+       "live": null,
+       "override": null,
+       "role": "on",
+       "size": null,
+       "sub": null,
+       "widget": "toggle"
+      },
+      {
+       "advanced": false,
+       "key": "sub.mute",
+       "live": null,
+       "override": null,
+       "role": "mute",
+       "size": null,
+       "sub": null,
+       "widget": "toggle"
+      },
+      {
+       "advanced": false,
+       "key": "sub.solo",
+       "live": null,
+       "override": null,
+       "role": "solo",
+       "size": null,
+       "sub": null,
+       "widget": "toggle"
+      }
+     ],
+     "master": false,
+     "num": null,
+     "rule": null,
+     "screen": null,
+     "source": null,
+     "strip": "sub",
+     "tag": null,
+     "title": "Sub",
+     "viz": null
+    },
+    {
+     "controls": [
+      {
+       "advanced": false,
+       "key": "mix.noise",
+       "live": null,
+       "override": null,
+       "role": "fader",
+       "size": null,
+       "sub": null,
+       "widget": "vslider"
+      },
+      {
+       "advanced": false,
+       "key": "noise.on",
+       "live": null,
+       "override": null,
+       "role": "on",
+       "size": null,
+       "sub": null,
+       "widget": "toggle"
+      },
+      {
+       "advanced": false,
+       "key": "noise.mute",
+       "live": null,
+       "override": null,
+       "role": "mute",
+       "size": null,
+       "sub": null,
+       "widget": "toggle"
+      },
+      {
+       "advanced": false,
+       "key": "noise.solo",
+       "live": null,
+       "override": null,
+       "role": "solo",
+       "size": null,
+       "sub": null,
+       "widget": "toggle"
+      }
+     ],
+     "master": false,
+     "num": null,
+     "rule": null,
+     "screen": null,
+     "source": null,
+     "strip": "noise",
+     "tag": null,
+     "title": "Noise",
+     "viz": null
+    },
+    {
+     "controls": [
+      {
+       "advanced": false,
+       "key": "out.level",
+       "live": null,
+       "override": null,
+       "role": "fader",
+       "size": null,
+       "sub": null,
+       "widget": "vslider"
+      }
+     ],
+     "master": true,
+     "num": null,
+     "rule": null,
+     "screen": null,
+     "source": null,
+     "strip": "out",
+     "tag": null,
+     "title": "Out",
+     "viz": null
     }
    ],
    "id": "mix",
    "label": "Mix",
-   "note": "Draft: the mixer page's design is B581 step 4.",
-   "panel": null,
-   "status": "draft"
+   "note": "A console (B589, ADR-329 item 3): one strip per source and the master, side by side, each fader its level key, attached to its own on, mute and solo keys; the meters and peak readouts are the stub's MOCK meters from its observation view (IF-6, IF-10), and the CLIP lamp latches and clears on a click.",
+   "panel": "console",
+   "power": null,
+   "status": "designed",
+   "viz": null
   },
   {
    "cite": "ADR-330, ADR-235, RC-5, IF-7; rack order: the FX chain lab's (docs/design/fx-chain-morph-lab-r3.html), not a ruling",
+   "dense": false,
    "groups": [
     {
      "controls": [
       {
+       "advanced": false,
        "key": "fx.echo.io.inGain",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.echo.io.outGain",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.echo.mix",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.echo.time.sync",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "fx.echo.time.ms",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.echo.time.div",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "select"
       },
       {
+       "advanced": false,
        "key": "fx.echo.time.offL",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.echo.time.offR",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.echo.time.change",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "fx.echo.time.law",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "fx.echo.time.tempoMode",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "fx.echo.time.glide",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.echo.time.xfadeMs",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.echo.fb.amount",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.echo.route.mode",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "fx.echo.filt.in.on",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "fx.echo.filt.in.hpHz",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.echo.filt.in.lpHz",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.echo.filt.loop.on",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "fx.echo.filt.loop.hpHz",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.echo.filt.loop.lpHz",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.echo.filt.out.on",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "fx.echo.filt.out.hpHz",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.echo.filt.out.lpHz",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.echo.mod.depthMs",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.echo.mod.rateHz",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.echo.mod.shape",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "fx.echo.mod.spread",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.echo.mod.seed",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "stepper"
       },
       {
+       "advanced": false,
        "key": "fx.echo.time.scale",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       }
      ],
+     "master": false,
+     "num": null,
+     "rule": null,
      "screen": "Echo",
+     "source": null,
+     "strip": null,
      "tag": "SLOT 1",
-     "title": "Echo"
+     "title": "Echo",
+     "viz": null
     },
     {
      "controls": [
       {
+       "advanced": false,
        "key": "fx.scape.verb.mix",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.scape.verb.preDelay",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.scape.verb.erSend",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.scape.verb.erSize",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.scape.verb.erDecay",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.scape.verb.envelop",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.scape.verb.tailDecorr",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.scape.verb.mixTimeMs",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.scape.verb.diffuse",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.scape.verb.size",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.scape.verb.decay",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.scape.verb.damp",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.scape.verb.lowCut",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.scape.verb.modDepth",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.scape.verb.modRate",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.scape.verb.width",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.scape.verb.bassMono",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.scape.verb.inHP",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.scape.verb.inLP",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.scape.verb.spinDepth",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.scape.verb.spinRate",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.scape.verb.preGain",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.scape.verb.postGain",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.scape.io.outGain",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.scape.verb.era",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "fx.scape.verb.delayMotion",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "fx.scape.verb.glideTime",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.scape.io.inGain",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.scape.verb.image",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       }
      ],
+     "master": false,
+     "num": null,
+     "rule": null,
      "screen": "Scape",
+     "source": null,
+     "strip": null,
      "tag": "SLOT 2",
-     "title": "Scape"
+     "title": "Scape",
+     "viz": null
     },
     {
      "controls": [
       {
+       "advanced": false,
        "key": "fx.shriek.inGain",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.route",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.adaa",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.auto",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.driveRef",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.inertia",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.eco",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.flux",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.wet",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.out",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.xo1",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.xo2",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.fbAmt",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.fbMode",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.fbSemi",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "select"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.fbMs",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.fbDamp",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.fbHp",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.fbTap",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.cmpAmt",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.cmpHp",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.fbOn",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.fbInv",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.fbGate",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.tone",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.toneHz",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.toneComp",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.taper",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.oversample",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.driveTrim",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s1.on",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s1.drive",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s1.bias",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s1.a",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "select"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s1.b",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "select"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s1.morph",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s1.shape",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s1.floor",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s1.ft",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "select"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s1.fpos",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s1.cut",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s1.res",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s1.famt",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s1.level",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s1.mix",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s1.detail",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s1.damt",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s1.dfreq",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s1.inject",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s2.on",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s2.drive",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s2.bias",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s2.a",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "select"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s2.b",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "select"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s2.morph",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s2.shape",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s2.floor",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s2.ft",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "select"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s2.fpos",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s2.cut",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s2.res",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s2.famt",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s2.level",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s2.mix",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s2.detail",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s2.damt",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s2.dfreq",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s2.inject",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s3.on",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s3.drive",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s3.bias",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s3.a",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "select"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s3.b",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "select"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s3.morph",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s3.shape",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s3.floor",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s3.ft",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "select"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s3.fpos",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s3.cut",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s3.res",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s3.famt",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s3.level",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s3.mix",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s3.detail",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s3.damt",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s3.dfreq",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.shriek.s3.inject",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       }
      ],
+     "master": false,
+     "num": null,
+     "rule": null,
      "screen": "Shriek",
+     "source": null,
+     "strip": null,
      "tag": "SLOT 3",
-     "title": "Shriek"
+     "title": "Shriek",
+     "viz": null
     },
     {
      "controls": [
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.thr",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.ratio",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.knee",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.atk",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.rel",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.makeup",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.detector",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.rms",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.rmsTime",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.autoRel",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.relShort",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.relLong",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.regen",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.scOn",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.scHz",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.link",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.stereo",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.bypass",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.bands",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.io.inGain",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.io.outGain",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.mb.xLo",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.mb.xHi",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.mb.depth",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.mb.time",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.mb.upCap",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.mb.floor",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.mb.lo.dnThr",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.mb.lo.dnRatio",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.mb.lo.upThr",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.mb.lo.upRatio",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.mb.lo.atk",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.mb.lo.rel",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.mb.lo.gain",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.mb.mid.dnThr",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.mb.mid.dnRatio",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.mb.mid.upThr",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.mb.mid.upRatio",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.mb.mid.atk",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.mb.mid.rel",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.mb.mid.gain",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.mb.hi.dnThr",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.mb.hi.dnRatio",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.mb.hi.upThr",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.mb.hi.upRatio",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.mb.hi.atk",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.mb.hi.rel",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.compressor.comp.mb.hi.gain",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       }
      ],
+     "master": false,
+     "num": null,
+     "rule": null,
      "screen": "Bulwark",
+     "source": null,
+     "strip": null,
      "tag": "SLOT 4",
-     "title": "Bulwark · compressor"
+     "title": "Bulwark · compressor",
+     "viz": null
     },
     {
      "controls": [
       {
+       "advanced": false,
        "key": "fx.bulwark.limiter.lim.on",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.limiter.lim.ceiling",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.limiter.lim.autoRel",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.limiter.lim.rel",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.limiter.lim.relShort",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.limiter.lim.relLong",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.limiter.io.inGain",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "fx.bulwark.limiter.io.outGain",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       }
      ],
+     "master": false,
+     "num": null,
+     "rule": null,
      "screen": "Bulwark",
+     "source": null,
+     "strip": null,
      "tag": "MASTER · B438",
-     "title": "Bulwark · limiter"
+     "title": "Bulwark · limiter",
+     "viz": null
     }
    ],
    "id": "fx",
    "label": "FX",
    "note": "One card per hosted module in rack order, each holding that module's parameters as generated controls from its vendored manifest (ADR-330), the house-style DOM view every module has (ADR-235), with a labelled inset where the module's own screen will go. Values go to the rack (RC-5, IF-7), never to the engine. Bulwark's limiter face is the master limiter, fixed after the rack (B438). Owed, with no manifest yet: Sluice, Weir.",
    "panel": null,
-   "status": "draft"
+   "power": null,
+   "status": "draft",
+   "viz": null
   },
   {
    "cite": null,
+   "dense": false,
    "groups": [
     {
      "controls": [
       {
+       "advanced": false,
        "key": "voice.polyphony",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "select"
       },
       {
+       "advanced": false,
        "key": "quality",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       }
      ],
+     "master": false,
+     "num": null,
+     "rule": null,
      "screen": null,
+     "source": null,
+     "strip": null,
      "tag": null,
-     "title": "Engine"
+     "title": "Engine",
+     "viz": null
     }
    ],
    "id": "settings",
    "label": "Settings",
    "note": "Draft: the two Device-class rows that are settings, not sound parameters (5.2).",
    "panel": null,
-   "status": "draft"
+   "power": null,
+   "status": "draft",
+   "viz": null
   },
   {
    "cite": "Arp spec/params.json (arp-params/1), vendored by the Arp face lab (B553)",
+   "dense": false,
    "groups": [
     {
      "controls": [
       {
+       "advanced": false,
        "key": "arp.enabled",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "arp.arp_enabled",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "arp.order",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "select"
       },
       {
+       "advanced": false,
        "key": "arp.pattern",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "select"
       },
       {
+       "advanced": false,
        "key": "arp.rate",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "select"
       },
       {
+       "advanced": false,
        "key": "arp.rate_mode",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "arp.step_time_us",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "arp.steps",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "select"
       },
       {
+       "advanced": false,
        "key": "arp.step_size",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "stepper"
       },
       {
+       "advanced": false,
        "key": "arp.step_unit",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "arp.gate",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "arp.swing",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "arp.latch",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "arp.vel_mode",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "arp.vel_fixed",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "knob"
       },
       {
+       "advanced": false,
        "key": "arp.restart",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "arp.repeats",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "select"
       },
       {
+       "advanced": false,
        "key": "arp.quantize",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "arp.scale_source",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "arp.scale_root",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "select"
       },
       {
+       "advanced": false,
        "key": "arp.scale_deg0",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "arp.scale_deg1",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "arp.scale_deg2",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "arp.scale_deg3",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "arp.scale_deg4",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "arp.scale_deg5",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "arp.scale_deg6",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "arp.scale_deg7",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "arp.scale_deg8",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "arp.scale_deg9",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "arp.scale_deg10",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "arp.scale_deg11",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "arp.seed",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "stepper"
       },
       {
+       "advanced": false,
        "key": "arp.chord_enabled",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "arp.chord_unit",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "pills"
       },
       {
+       "advanced": false,
        "key": "arp.chord_on1",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "arp.chord_shift1",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "select"
       },
       {
+       "advanced": false,
        "key": "arp.chord_on2",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "arp.chord_shift2",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "select"
       },
       {
+       "advanced": false,
        "key": "arp.chord_on3",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "arp.chord_shift3",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "select"
       },
       {
+       "advanced": false,
        "key": "arp.chord_on4",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "arp.chord_shift4",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "select"
       },
       {
+       "advanced": false,
        "key": "arp.chord_on5",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "arp.chord_shift5",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "select"
       },
       {
+       "advanced": false,
        "key": "arp.chord_on6",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "toggle"
       },
       {
+       "advanced": false,
        "key": "arp.chord_shift6",
        "live": null,
        "override": null,
+       "role": null,
+       "size": null,
+       "sub": null,
        "widget": "select"
       }
      ],
+     "master": false,
+     "num": null,
+     "rule": null,
      "screen": null,
+     "source": null,
+     "strip": null,
      "tag": "MIDI MODULE",
-     "title": "Arp"
+     "title": "Arp",
+     "viz": null
     }
    ],
    "id": "arp",
    "label": "Arp",
    "note": "Draft, and a placement for the human to rule: the ruled page set has no Arp page. Arp is the device's MIDI module (its values go to the device side, never to the engine); its settings are generated from its vendored manifest.",
    "panel": null,
-   "status": "draft"
+   "power": null,
+   "status": "draft",
+   "viz": null
   }
  ],
  "params": [

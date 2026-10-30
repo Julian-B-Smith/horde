@@ -47,6 +47,9 @@ WHAT --check GATES (each failure carries its tag; the controls below assert the 
   determinism     no gui3 script reads a clock or an unseeded random source
   bank            the bottom modulator bank's critical controls (ADR-322 item 3) are chosen per kind in
                   layout.json with a reason, and every chosen row exists in each block the kind matches
+  nav             every page sits in exactly one group of the two-level page bar (B589 Page nav)
+  role            a section header's power/modes and a channel strip's fader/on/mute/solo suit their rows
+  dashboard       each dashboard card carries its source's power switch and only keys its source page carries
   stale           the committed outputs equal what this run generates
 MUST-FAIL CONTROLS, every run, on in-memory copies: an unknown key, an unplaced host row, a placed
 reserved row, a knob on a stepped row, an override with no reason, a reason with no override, a bank control with no parameter, a bank choice
@@ -378,6 +381,89 @@ def widget_fits(r, w):
     return step                                           # stepper
 
 
+NAV_OUT = [None]   # generate() leaves the checked nav here for render(); one run, one layout
+SIZES = ("primary", "standard", "compact", "utility")   # B589's size ladder (Knob and Slider `size`)
+ROLES = {"power": "toggle", "on": "toggle", "mute": "toggle", "solo": "toggle", "modes": "pills", "fader": "vslider"}
+
+
+def is_switch(r):
+    return r["law"] == "step" and r.get("options") is not None and sorted(o.lower() for o in r["options"]) == ["off", "on"]
+
+
+def check_role(r, role, where):
+    """A role puts a row in a composite (a Section header's on toggle or mode pills; a channel strip's fader and
+    switches); the role fixes its widget, so the widget rule's override check does not apply. The row must suit it."""
+    if role not in ROLES:
+        raise Red("role", f"{where}: role {role!r} is not one of {sorted(ROLES)}")
+    if ROLES[role] == "toggle" and not is_switch(r):
+        raise Red("role", f"{where}: a {role} role needs an off/on row")
+    if role == "modes" and not (r["law"] == "step" and r.get("options") and r["n"] <= PILLS_MAX):
+        raise Red("role", f"{where}: the modes role needs a stepped row of at most {PILLS_MAX} options")
+    if role == "fader" and r["law"] == "step":
+        raise Red("role", f"{where}: a fader needs a continuous row")
+    return ROLES[role]
+
+
+def check_composites(pages, by):
+    """The dashboard's cards (B589): each names its `source` page, carries that source's power switch and at least one
+    control, and every control on it is a key that source's own page carries (one model, two views). The console's
+    strips: one fader each; the master has no on, mute or solo. A section carries at most one power and one modes."""
+    ids = {p["id"]: p for p in pages}
+    for pg in pages:
+        check_viz(pg.get("viz"), by, f"page {pg['id']}")
+        if pg.get("power") and not (pg["power"] in by and is_switch(by[pg["power"]])):
+            raise Red("role", f"page {pg['id']}: its power {pg['power']!r} is not an off/on row")
+        for g in pg["groups"]:
+            check_viz(g.get("viz"), by, f"page {pg['id']} group {g['title']}")
+            roles = [c["role"] for c in g["controls"] if c["role"]]
+            for one in ("power", "modes", "fader", "on", "mute", "solo"):
+                if roles.count(one) > 1:
+                    raise Red("role", f"page {pg['id']} group {g['title']}: two {one} roles")
+            if pg.get("panel") == "dashboard":
+                src = ids.get(g.get("source"))
+                if not src:
+                    raise Red("dashboard", f"dashboard card {g['title']}: source {g.get('source')!r} is not a page")
+                own = {c["key"] for gg in src["groups"] for c in gg["controls"]}
+                if "power" not in roles or len(g["controls"]) < 2:
+                    raise Red("dashboard", f"dashboard card {g['title']}: a card carries its source's power switch and at least one control")
+                stray = [c["key"] for c in g["controls"] if c["key"] not in own]
+                if stray:
+                    raise Red("dashboard", f"dashboard card {g['title']}: {stray} are not on {src['label']}'s own page (one model, two views)")
+            if g.get("strip"):
+                if roles.count("fader") != 1:
+                    raise Red("role", f"strip {g['title']}: a strip has exactly one fader")
+                if g.get("master") and any(r in roles for r in ("on", "mute", "solo")):
+                    raise Red("role", f"strip {g['title']}: the master has no on, mute or solo")
+
+
+VIZ_KINDS = ("osc", "sub", "noise", "env")
+
+
+def check_viz(v, by, where):
+    """A page's or card's picture (B589: visuals take the area): its kind and the keys it reads, all real rows."""
+    if v is None:
+        return
+    if not isinstance(v, dict) or v.get("kind") not in VIZ_KINDS or not isinstance(v.get("keys"), dict):
+        raise Red("role", f"{where}: a viz is {{kind: one of {VIZ_KINDS}, keys: {{...}}}}")
+    for name, k in v["keys"].items():
+        if k not in by or by[k]["reserved"]:
+            raise Red("unknown-key", f"{where}: viz key {name} = {k!r} is not a parameter")
+
+
+def check_nav(layout, pages):
+    """The two-level page bar (B589 Page nav): every page sits in exactly one group, and every group's page exists."""
+    nav = layout.get("nav")
+    if not nav:
+        raise Red("nav", "layout.json has no `nav` (B589's page bar)")
+    ids = [p["id"] for p in pages]
+    listed = [pid for grp in nav for pid in grp["pages"]]
+    missing = [pid for pid in ids if listed.count(pid) != 1]
+    unknown = [pid for pid in listed if pid not in ids]
+    if missing or unknown:
+        raise Red("nav", f"nav: pages in no group or in two {missing}; pages that do not exist {unknown}")
+    return nav
+
+
 def check_live(cond, by, where):
     if not isinstance(cond, dict):
         raise Red("live", f"{where}: a condition is an object")
@@ -414,9 +500,27 @@ def build_pages(rows, layout):
                 blk = [r for r in rows if r["block"] == g["block"]]
                 if not blk:
                     raise Red("unknown-key", f"page {pg['id']}: no block {g['block']!r} in the spec")
-                entries = [{"key": r["key"]} for r in blk if not r["reserved"]]
+                meta = g.get("meta") or {}
+                if meta:
+                    # A dense section lists its block's chosen rows first, by suffix, in `meta`'s order; the block's other
+                    # rows follow, under the collapsed Advanced group when `rest` says so. Every row stays on the page.
+                    names = {r["key"] for r in blk}
+                    for suf, m in meta.items():
+                        k = f"{g['block']}.{suf}"
+                        if k not in names:
+                            raise Red("unknown-key", f"page {pg['id']}: {k!r} (meta) is not a row of block {g['block']}")
+                        entries.append(dict(m, key=k))
+                    picked = {e["key"] for e in entries}
+                    adv = g.get("rest") == "advanced"
+                    tail = [dict({"key": r["key"]}, **({"advanced": True} if adv else {})) for r in blk if not r["reserved"] and r["key"] not in picked]
+                else:
+                    entries = [{"key": r["key"]} for r in blk if not r["reserved"]]
+                    tail = []
+            else:
+                tail = []
             for e in g.get("keys", []):
                 entries.append(e if isinstance(e, dict) else {"key": e})
+            entries += tail
             if "live" in g:
                 check_live(g["live"], by, f"page {pg['id']} group {g['title']}")
             controls = []
@@ -430,14 +534,21 @@ def build_pages(rows, layout):
                 if k in seen:
                     raise Red("duplicate", f"page {pg['id']}: {k} placed twice")
                 seen.add(k)
-                w = e.get("widget") or default_widget(r)
+                role = e.get("role")
+                if role is not None:
+                    w = check_role(r, role, f"page {pg['id']} {k}")
+                    e = {kk: vv for kk, vv in e.items() if kk not in ("widget", "reason")}
+                else:
+                    w = e.get("widget") or default_widget(r)
+                if e.get("size") not in (None,) + SIZES:
+                    raise Red("widget", f"page {pg['id']}: {k} size {e.get('size')!r} is not one of {SIZES}")
                 if w not in WIDGETS or not widget_fits(r, w):
                     raise Red("widget", f"page {pg['id']}: {k} cannot be a {w!r} ({r['law']}, {r.get('n')} options)")
                 # The rule allows any knob or slider for a continuous row; anything else that differs from the
                 # rule's choice is an override, and an override carries its reason (ADR-319 item 5). A reason on
                 # an entry the rule already gives is refused too: it would claim an override that is not there.
                 rule = default_widget(r)
-                override = w != rule and not (r["law"] != "step" and w in ("knob", "hslider", "vslider"))
+                override = role is None and w != rule and not (r["law"] != "step" and w in ("knob", "hslider", "vslider"))
                 reason = (e.get("reason") or "").strip()
                 if override and not reason:
                     raise Red("override-reason", f"page {pg['id']}: {k} is a {w!r} where the widget rule gives {rule!r}: an override needs a `reason`")
@@ -448,11 +559,18 @@ def build_pages(rows, layout):
                     check_live(live, by, f"page {pg['id']} {k}")
                 if "live" in g:                           # a group's condition ANDs with the control's own
                     live = g["live"] if live is None else {"all": [g["live"], live]}
-                controls.append({"key": k, "widget": w, "live": live, "override": reason or None})
+                controls.append({"key": k, "widget": w, "live": live, "override": reason or None, "role": role,
+                                 "sub": e.get("sub"), "size": e.get("size"), "advanced": bool(e.get("advanced"))})
                 placed.add(k)
-            groups.append({"title": g["title"], "tag": g.get("tag"), "screen": g.get("screen"), "controls": controls})
+            if g.get("rule") not in (None, "solid", "dash", "dot", "none"):
+                raise Red("role", f"page {pg['id']} group {g['title']}: rule {g.get('rule')!r} is not solid, dash, dot or none")
+            groups.append({"title": g["title"], "tag": g.get("tag"), "screen": g.get("screen"), "controls": controls,
+                           "num": g.get("num"), "rule": g.get("rule"), "source": g.get("source"), "viz": g.get("viz"),
+                           "strip": g.get("strip"), "master": bool(g.get("master"))})
         pages.append({"id": pg["id"], "label": pg["label"], "status": pg["status"], "note": pg.get("note", ""),
-                      "cite": pg.get("cite"), "panel": pg.get("panel"), "groups": groups})
+                      "cite": pg.get("cite"), "panel": pg.get("panel"), "dense": bool(pg.get("dense")), "viz": pg.get("viz"),
+                      "power": pg.get("power"), "groups": groups})
+    check_composites(pages, by)
     unreached = [r["key"] for r in rows if not r["reserved"] and r["key"] not in placed]
     if unreached:
         raise Red("unreached", f"{len(unreached)} host parameter(s) on no page: {', '.join(unreached[:8])}"
@@ -776,7 +894,7 @@ def render(rows, pages, counts, bank):
     doc = {"format": FORMAT, "source": "specs/SPEC-ENGINE.md section 5, read by tools/gen_gui3_controls.py",
            "counts": counts, "params": [r for r in rows if r.get("target", "engine") == "engine"]}
     j = json.dumps(doc, indent=2, ensure_ascii=False, sort_keys=True) + "\n"
-    data = {"format": FORMAT, "counts": counts, "gaps": gaps(rows), "params": rows, "pages": pages, "bank": bank}
+    data = {"format": FORMAT, "counts": counts, "gaps": gaps(rows), "params": rows, "pages": pages, "bank": bank, "nav": NAV_OUT[0]}
     js = ("/* GENERATED by tools/gen_gui3_controls.py from specs/SPEC-ENGINE.md section 5 and\n"
           "   docs/design/gui3/layout.json. Do not edit: edit the spec or the layout, then regenerate. */\n"
           "window.GUI3_DATA = " + json.dumps(data, indent=1, ensure_ascii=False, sort_keys=True) + ";\n")
@@ -790,6 +908,7 @@ def generate(spec_text, layout, ext):
                  law_declared=True, label_declared=True)
     rows = rows + read_sources(spec_text, layout, ext)
     pages = build_pages(rows, layout)
+    NAV_OUT[0] = check_nav(layout, pages)
     return rows, pages, counts, build_bank(rows, layout)
 
 
@@ -846,6 +965,14 @@ def controls(spec_text, layout, shell_text, scripts, committed, ext):
               ex=dict(ext, readme=re.sub(r"(?m)^\| `vendor/scape[^\n]*\n", "", ext["readme"], count=1))),
         plant("a vendored snapshot whose bytes changed", "provenance",
               ex=dict(ext, files=dict(ext["files"], **{"vendor/echo.params.json": ext["files"]["vendor/echo.params.json"] + " "}))),
+        plant("a page in no nav group", "nav",
+              lo=lay(lambda lo: lo["nav"][-1]["pages"].remove("settings"))),
+        plant("a dashboard control whose key is not on its source page", "dashboard",
+              lo=lay(lambda lo: page(lo, "dashboard")["groups"][0]["keys"].append({"key": "noise.pitch", "size": "utility"}))),
+        plant("a dashboard card without its power switch", "dashboard",
+              lo=lay(lambda lo: page(lo, "dashboard")["groups"][2]["keys"].pop(0))),
+        plant("a modes role on a continuous row", "role",
+              lo=lay(lambda lo: page(lo, "main")["groups"][0]["keys"].__setitem__(1, {"key": "voice.gravity", "role": "modes"}))),
         plant("a spec row dropped", "counts",
               sp=re.sub(r"\n\| `gust` \|[^\n]*", "", spec_text, count=1)),
         plant("a hand-placed key in the shell", "shell",
@@ -920,7 +1047,7 @@ def main():
           f"descriptions missing {g['desc_missing']} of {g['host']} (no desc column yet, B582), spec text empty "
           f"{g['spec_text_missing']}; bank: {sum(len(c) for c in bank['controls'].values())} critical controls on "
           f"{len(bank['controls'])} modulators ({', '.join(bank['controls'])}); beside SPEC-ENGINE 5: "
-          f"{src_counts(rows)}; 17 must-fail controls red")
+          f"{src_counts(rows)}; 21 must-fail controls red")
     return 0
 
 

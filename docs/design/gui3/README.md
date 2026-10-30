@@ -1,6 +1,6 @@
 # GUI 3: the wired shell
 
-*Last verified 2026-10-30, branch `gui3-b584-slice4a` (ROADMAP B584, slice 4a; ADR-316, ADR-319, ADR-322, ADR-330), stacked on spec round 48 (Appendix D).*
+*Last verified 2026-10-30, branch `gui3-b584-slice4b` (ROADMAP B584, slice 4b; ADR-316, ADR-319, ADR-322, ADR-329, ADR-330; B589), stacked on slice 4a and spec round 48.*
 
 `docs/design/gui3.html` is GUI 3's prototype: one window with twelve pages (the Random page folded into the
 Morph page, ADR-322 item 2; a draft Arp page, ADR-330), every parameter that has a machine-readable
@@ -121,6 +121,42 @@ already gives. Today's one override: the sub's Wave as buttons (seven shapes, th
   bundle knobs (about 200 px). A compact card (the bundle's `bare` knobs, or a smaller knob) is a
   proposal below.
 
+## The density revision (B589, ADR-329): the page bar, dense pages, the dashboard, the console
+
+The design master was revised (artifact `1793336699-65f2`, B589; its per-element modifier is `.hd-sm`) and re-vendored into `../arp-face/`. The shell uses it so:
+
+- **The page bar** is `PageNav`: groups Main, Osc, FX, Mod, Morph, Mix, Set over the selected group's pages. **Hist is
+  omitted:** the shell has no History page yet. Osc holds Dashboard, Osc 1, Osc 2, Sub, Noise and Filters (the lead's
+  default: Filters under Osc). **Arp sits under Mod** (Mod: Envelopes, Arp), flagged for the human: the ruled set has
+  no Arp page. An oscillator page's tab carries its on-dot (`oscN.on`, `sub.on`, `noise.on`). Every page still opens by
+  its own id: an old `#noise` link opens Noise under Osc.
+- **Dense pages** (Main, Osc 1, Osc 2, Sub, Noise): `.hd-cell` is the one box level; each module is a `SectionHeader`
+  (identity rule by number: 1 solid, 2 dash, 3 dot), its power switch and its main enum in the header line, clusters
+  under `.hd-sublabel`s, controls at the compact rung (the page's headline level at primary), the value on hover and the
+  section's readout slot reading the hot control. Rarely-used rows sit under each section's collapsed **Advanced** group
+  and are still mounted (the reach check and the self-checks count them). The pictures (a SAMPLE drawing of the settings
+  the layout names, with the bundle's painters, never the engine's output) take the left column: the ring and one cycle
+  on the oscillator pages, one cycle on Sub, the colour as a tilt on Noise, ENV 1 on Main (its stages and C.12's curves;
+  the Hold row is not drawn).
+- **The Osc dashboard:** one card per source with its on switch, a SAMPLE picture and the bare necessities as utility
+  controls. The lead's default, mapped to real keys: Osc 1 `mix.osc1`, `osc1.detune`, `osc1.coupling`; Osc 2 `mix.osc2`,
+  `osc2.detune`, `osc2.coupling`; Sub `mix.sub`, `sub.pulseWidth` (the sub's only row labelled Width: its pulse width,
+  live only on the pulse wave, PA-8); Noise `mix.noise`, `noise.colour`. A card's controls are the same keys as the
+  source's own page (one model, two views): the generator refuses a card key its source page does not carry.
+- **The console** (Mix): `ChannelStrip`, one strip per source and the master. The faders are `mix.osc1`, `mix.osc2`,
+  `mix.sub`, `mix.noise` and `out.level`; on, mute and solo are the engine's own rows (`oscN.on`, `oscN.mute`,
+  `oscN.solo`, the sub's and the noise's; IF-6), not placeholders. The meters and peak readouts are the stub's **MOCK**
+  meters from its observation view: no audio, so a strip reads its own level as if fed a full-scale test tone, through
+  IF-6's gate; the output sums the sounding sources. The CLIP lamp latches over 0 dBFS (the latch lives on the engine
+  side, `clearClip`, IF-6) and clears on a click.
+- **What does not fit 980 x 720** (measured with the review link's `fit` flag): Main, the dashboard and Mix fit, with the
+  bank shown or hidden. Osc 1 and Osc 2 overflow by about 172 px with the bank shown (100 px with it hidden): the
+  oscillator section and two blade sections at the compact rung take two rows each plus their Advanced line; the
+  pictures stay in view while the controls scroll. Sub overflows by 90 px (17 px without the bank); Noise by 314 px
+  (241): seven sections. The page area scrolls inside the window; the window keeps its size.
+- **Review links:** `gui3.html#osc1,light,win` (or `dark`) shows the window alone at its size; `,nobank` hides the bank,
+  `,fit` prints the fit line, `,morph` and `,bank` prepare a morphing or mapped state.
+
 ## The seam and the transport
 
 The shell calls only `device.js`. `device.js` reaches the engine only through a transport: any object
@@ -168,21 +204,26 @@ on/off and audible corner (RC-11.1), the routes (RC-4 defers the matrix), and th
   mounts controls in one place and names no key; no gui3 script reads a clock; the outputs are current.
   The bank's critical controls exist in each block their kind matches, and their choice carries a reason.
   Every source beside SPEC-ENGINE 5 (D.2, the FX modules, Arp) passes the same rule and refusals, and every
-  vendored file has a provenance row whose sha256 matches its bytes. Seventeen must-fail controls, among
-  them a module's keys left unplaced, a vendored file with no provenance row, and one whose bytes changed.
-- `node tools/labharness/gui3_seam_check.mjs`: eighteen tests of the stubs, the transport and the adapter
+  vendored file has a provenance row whose sha256 matches its bytes. Every page is in exactly one page-bar
+  group; a section's power and modes and a strip's fader, on, mute and solo suit their rows; each dashboard
+  card carries its source's power switch and only keys its source page carries. Twenty-one must-fail
+  controls, among them a module's keys left unplaced, a vendored file with no provenance row, a page in no
+  nav group, a dashboard key its source page lacks, and a dashboard card without its power switch.
+- `node tools/labharness/gui3_seam_check.mjs`: nineteen tests of the stubs, the transport and the adapter
   against the spec, ADR-319, ADR-322 and ADR-330 (morph off, the morph toggle in history, corner snapshots,
   mirror and confirm over a synchronous and a delayed transport, pending modulators dropped on close, map
   drops refused on stepped and reserved rows, each source's values reaching its own side and never the
-  engine), nineteen planted faults (one each for a module's, Arp's and a morph setting's values sent to the
-  engine). `--verbose` prints why
+  engine, the MOCK meters through IF-6's gate with a clip latch that holds until cleared), twenty-one
+  planted faults (one each for a module's, Arp's and a morph setting's values sent to the engine; a meter
+  that ignores solo; a clear that does not unlatch). `--verbose` prints why
   each plant went red.
 - `lab_load_check` loads the page's inline script (it stops at the missing bundle, as the other bundle
-  labs do). The page's own eleven self-checks run in a browser, each with a control.
+  labs do). The page's own fourteen self-checks run in a browser, each with a control.
 
 ## Proposals for the design system (nothing here is drawn locally)
 
-The bundle (version `1793080392-2372`) lacks these; each goes into the design system first:
+The bundle (version `1793336699-65f2`, B589) lacks these; each goes into the design system first. Proposals 12 and 14
+(a modulator card, a horizontal strip) are still open after the revision; 18 to 20 are new:
 
 1. **Page navigation**: twelve tabs in two rows of six. The shell uses `hd-pill` with `role=tab`.
 2. **The info box** (ADR-315, B582): a fixed box at the page's foot. The shell assembles it from `hd-card`.
@@ -216,6 +257,12 @@ The bundle (version `1793080392-2372`) lacks these; each goes into the design sy
 17. **A module card with its screen inset** (the FX chain rule, ADR-235): the shell uses `hd-card` with
     its `.viz` well as the labelled placeholder for the module's own screen; a module card component
     (name in ink, the inset, the face) is missing.
+
+18. **A compact modulator card** for the bank (B589's size ladder applies to its controls; the card itself is
+    still the shell's `hd-card` with `ModCardHeader`). With the bank shown, the window gives the page area 472 px.
+19. **A dashboard card's picture** at the card's width with no caption: the shell reuses its page painters.
+20. **The class `sm`**: **fixed upstream** (`1793336699-65f2`). The revision's per-element dense modifier is now `.hd-sm`, so
+    the Random and filter labs, which use a bare `sm` of their own, render as before (`../arp-face/README.md`).
 
 ## Known gaps
 

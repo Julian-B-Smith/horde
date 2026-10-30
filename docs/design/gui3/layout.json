@@ -1,6 +1,6 @@
 {
   "format": "horde.gui3-layout/1",
-  "note": "GUI 3's page layout (B584, ADR-316). Design input, hand-edited: which parameter goes on which page and in which group. It names parameters by key and nothing else; labels, ranges, laws, defaults and options come from SPEC-ENGINE section 5 through tools/gen_gui3_controls.py, which refuses a key the spec does not have, a host parameter no page places, and a reserved row placed anywhere. A group's `block` places every host row of that block in the spec table's order (5.8: a table's row order is its display order), so a row added to the spec appears on its draft page without an edit here. A `designed` page lists its keys one by one, so a new row there is unplaced, and red, until the page's designer places it. `live` is PA-8's live-when table, transcribed for the designed pages only; a control whose condition fails is drawn idle (dashed), never hidden. `widget` overrides the widget rule (ADR-319 item 5, gui3/README.md) for a row, and must say why in `reason`; a knob or a slider for a continuous row is the rule, not an override. `panel` names a shell-built panel a page carries beside its generated controls. `bank` chooses, per modulator kind, the critical controls the bottom modulator bank's cards carry (ADR-322 item 3). `sources` names every parameter source beside SPEC-ENGINE 5 that has a machine-readable manifest today (ADR-330): each with its vendored file (relative to docs/design/gui3), its format, and where its values go (`rack` for the FX modules, RC-5 and IF-7; `midi` for Arp, the device's MIDI module). Appendix D.2's morph settings are read from the spec itself and go to the morph resolver (IF-12). `owed` lists the sources with no manifest yet; nothing is invented for them. A group's `screen` names the module whose own screen will sit in the card's inset (a labelled placeholder until then).",
+  "note": "GUI 3's page layout (B584, ADR-316). Design input, hand-edited: which parameter goes on which page and in which group. It names parameters by key and nothing else; labels, ranges, laws, defaults and options come from SPEC-ENGINE section 5 through tools/gen_gui3_controls.py, which refuses a key the spec does not have, a host parameter no page places, and a reserved row placed anywhere. A group's `block` places every host row of that block in the spec table's order (5.8: a table's row order is its display order), so a row added to the spec appears on its draft page without an edit here. A `designed` page lists its keys one by one, so a new row there is unplaced, and red, until the page's designer places it. `live` is PA-8's live-when table, transcribed for the designed pages only; a control whose condition fails is drawn idle (dashed), never hidden. `widget` overrides the widget rule (ADR-319 item 5, gui3/README.md) for a row, and must say why in `reason`; a knob or a slider for a continuous row is the rule, not an override. `panel` names a shell-built panel a page carries beside its generated controls. `bank` chooses, per modulator kind, the critical controls the bottom modulator bank's cards carry (ADR-322 item 3). `sources` names every parameter source beside SPEC-ENGINE 5 that has a machine-readable manifest today (ADR-330): each with its vendored file (relative to docs/design/gui3), its format, and where its values go (`rack` for the FX modules, RC-5 and IF-7; `midi` for Arp, the device's MIDI module). Appendix D.2's morph settings are read from the spec itself and go to the morph resolver (IF-12). `owed` lists the sources with no manifest yet; nothing is invented for them. A group's `screen` names the module whose own screen will sit in the card's inset (a labelled placeholder until then). B584 slice 4b (ADR-329, the design master's density revision B589): `nav` is the two-level page bar (groups over their pages); a `dense` page draws each group as a Section header inside an `.hd-cell` (the one box level), with `sub` labels for clusters, a control's `size` (primary, compact, utility; compact is the dense default) and `advanced` (inside a collapsed Advanced sub-group, still mounted); a group's `num` and `rule` (1 solid, 2 dash, 3 dot) tell repeated sections apart; a control's `role` puts it in the section header (`power`: the on toggle, `modes`: the mode pills) or a channel strip (`fader`, `on`, `mute`, `solo`). A group with a `block` may give `meta` per block suffix and `rest` (`advanced`) for the block's other rows. `viz` names the page's or card's SAMPLE picture. The dashboard's cards name their `source` page: a card's controls are the same keys as that page's (one model, two views). A `viz` is `{kind, keys}`: the picture's kind and the parameter keys it reads, so the shell names no key of its own; the picture is a SAMPLE drawing of those settings, never the engine's output.",
   "bank": {
     "note": "Which modulators the bank lists is never kept here: it is read from the adapter's routes (RC-4) against the current page's keys, plus the modulators activated with + and not yet mapped. Only the choice of each kind's critical controls is design input.",
     "kinds": [
@@ -22,18 +22,190 @@
       "id": "main",
       "label": "Main",
       "status": "draft",
-      "note": "Draft: every row is reachable, none is designed. The Main page's design is B581 step 2.",
+      "note": "Dense (B589): the voice and ENV 1 as sections beside ENV 1's picture (a SAMPLE drawing of the settings, not the engine's output). Main's full design (the performance page with the pad) is B581 step 2.",
       "groups": [
         {
           "title": "Voice",
           "keys": [
-            "voice.mode",
-            "voice.gravity"
+            {
+              "key": "voice.mode",
+              "role": "modes"
+            },
+            "voice.gravity",
+            {
+              "key": "out.level",
+              "size": "primary"
+            }
           ]
         },
         {
           "title": "ENV 1",
-          "block": "env1"
+          "block": "env1",
+          "meta": {
+            "attack": {
+              "sub": "Stages"
+            },
+            "hold": {
+              "sub": "Stages"
+            },
+            "decay": {
+              "sub": "Stages"
+            },
+            "sustain": {
+              "sub": "Stages"
+            },
+            "release": {
+              "sub": "Stages"
+            },
+            "attackCurve": {
+              "sub": "Curves"
+            },
+            "decayCurve": {
+              "sub": "Curves"
+            },
+            "releaseCurve": {
+              "sub": "Curves"
+            },
+            "velocity": {
+              "sub": "Velocity"
+            }
+          }
+        }
+      ],
+      "dense": true,
+      "viz": {
+        "kind": "env",
+        "keys": {
+          "a": "env1.attack",
+          "d": "env1.decay",
+          "s": "env1.sustain",
+          "r": "env1.release",
+          "ac": "env1.attackCurve",
+          "dc": "env1.decayCurve",
+          "rc": "env1.releaseCurve"
+        }
+      }
+    },
+    {
+      "id": "dashboard",
+      "label": "Dashboard",
+      "status": "designed",
+      "panel": "dashboard",
+      "note": "One card per source: its on switch, a SAMPLE picture of its settings, and the bare necessities as utility controls. The lead's default per card, for the human to change. A card's controls are the same keys as the source's own page: one model, two views.",
+      "cite": "B589 (Page nav's Osc dashboard), ADR-329 item 2",
+      "groups": [
+        {
+          "title": "Osc 1",
+          "source": "osc1",
+          "viz": {
+            "kind": "osc",
+            "keys": {
+              "unison": "osc1.unison",
+              "coupling": "osc1.coupling",
+              "detune": "osc1.detune",
+              "wave": "osc1.baseWave"
+            }
+          },
+          "keys": [
+            {
+              "key": "osc1.on",
+              "role": "power"
+            },
+            {
+              "key": "mix.osc1",
+              "size": "utility"
+            },
+            {
+              "key": "osc1.detune",
+              "size": "utility"
+            },
+            {
+              "key": "osc1.coupling",
+              "size": "utility"
+            }
+          ]
+        },
+        {
+          "title": "Osc 2",
+          "source": "osc2",
+          "viz": {
+            "kind": "osc",
+            "keys": {
+              "unison": "osc2.unison",
+              "coupling": "osc2.coupling",
+              "detune": "osc2.detune",
+              "wave": "osc2.baseWave"
+            }
+          },
+          "keys": [
+            {
+              "key": "osc2.on",
+              "role": "power"
+            },
+            {
+              "key": "mix.osc2",
+              "size": "utility"
+            },
+            {
+              "key": "osc2.detune",
+              "size": "utility"
+            },
+            {
+              "key": "osc2.coupling",
+              "size": "utility"
+            }
+          ]
+        },
+        {
+          "title": "Sub",
+          "source": "sub",
+          "viz": {
+            "kind": "sub",
+            "keys": {
+              "wave": "sub.wave",
+              "width": "sub.pulseWidth",
+              "softness": "sub.softness",
+              "bump": "sub.bumpAmount"
+            }
+          },
+          "keys": [
+            {
+              "key": "sub.on",
+              "role": "power"
+            },
+            {
+              "key": "mix.sub",
+              "size": "utility"
+            },
+            {
+              "key": "sub.pulseWidth",
+              "size": "utility"
+            }
+          ]
+        },
+        {
+          "title": "Noise",
+          "source": "noise",
+          "viz": {
+            "kind": "noise",
+            "keys": {
+              "colour": "noise.colour"
+            }
+          },
+          "keys": [
+            {
+              "key": "noise.on",
+              "role": "power"
+            },
+            {
+              "key": "mix.noise",
+              "size": "utility"
+            },
+            {
+              "key": "noise.colour",
+              "size": "utility"
+            }
+          ]
         }
       ]
     },
@@ -41,41 +213,313 @@
       "id": "osc1",
       "label": "Osc 1",
       "status": "draft",
-      "note": "Draft: the oscillator page's design (with the mod map and the filters) is B581 step 2.",
+      "note": "Dense (B589), after the SCALPEL bench: the pictures on the left (SAMPLE drawings of the settings, never the engine's output), the oscillator and its two blades as sections on the right. Rarely-used rows sit under each section's collapsed Advanced group; every row is still on the page.",
       "groups": [
         {
-          "title": "Oscillator",
-          "block": "osc1"
+          "title": "Osc 1",
+          "block": "osc1",
+          "rest": "advanced",
+          "meta": {
+            "on": {
+              "role": "power"
+            },
+            "unison": {
+              "sub": "Swarm"
+            },
+            "detune": {
+              "sub": "Swarm"
+            },
+            "coupling": {
+              "sub": "Swarm"
+            },
+            "baseWave": {
+              "sub": "Base"
+            },
+            "octave": {
+              "sub": "Pitch"
+            },
+            "semitone": {
+              "sub": "Pitch"
+            },
+            "pitch": {
+              "sub": "Pitch"
+            },
+            "fine": {
+              "sub": "Pitch"
+            },
+            "pan": {
+              "sub": "Out"
+            },
+            "width": {
+              "sub": "Out"
+            }
+          },
+          "keys": [
+            {
+              "key": "mix.osc1",
+              "sub": "Out",
+              "size": "primary"
+            }
+          ]
         },
         {
-          "title": "Blade 1",
-          "block": "osc1.blade1"
+          "title": "Blade",
+          "num": 1,
+          "rule": "solid",
+          "block": "osc1.blade1",
+          "rest": "advanced",
+          "meta": {
+            "on": {
+              "role": "power"
+            },
+            "mode": {
+              "role": "modes"
+            },
+            "wave": {
+              "sub": "Wave"
+            },
+            "width": {
+              "sub": "Cut"
+            },
+            "cut": {
+              "sub": "Cut"
+            },
+            "position": {
+              "sub": "Cut"
+            },
+            "depth": {
+              "sub": "Cut"
+            },
+            "edges": {
+              "sub": "Cut"
+            },
+            "mirror": {
+              "sub": "Mirror"
+            },
+            "fmDepth": {
+              "sub": "FM"
+            },
+            "modRate": {
+              "sub": "FM"
+            },
+            "positionSpread": {
+              "sub": "Spread"
+            },
+            "cutSpread": {
+              "sub": "Spread"
+            }
+          }
         },
         {
-          "title": "Blade 2",
-          "block": "osc1.blade2"
+          "title": "Blade",
+          "num": 2,
+          "rule": "dash",
+          "block": "osc1.blade2",
+          "rest": "advanced",
+          "meta": {
+            "on": {
+              "role": "power"
+            },
+            "mode": {
+              "role": "modes"
+            },
+            "wave": {
+              "sub": "Wave"
+            },
+            "width": {
+              "sub": "Cut"
+            },
+            "cut": {
+              "sub": "Cut"
+            },
+            "position": {
+              "sub": "Cut"
+            },
+            "depth": {
+              "sub": "Cut"
+            },
+            "edges": {
+              "sub": "Cut"
+            },
+            "mirror": {
+              "sub": "Mirror"
+            },
+            "fmDepth": {
+              "sub": "FM"
+            },
+            "modRate": {
+              "sub": "FM"
+            }
+          }
         }
-      ]
+      ],
+      "dense": true,
+      "viz": {
+        "kind": "osc",
+        "keys": {
+          "unison": "osc1.unison",
+          "coupling": "osc1.coupling",
+          "detune": "osc1.detune",
+          "wave": "osc1.baseWave"
+        }
+      },
+      "power": "osc1.on"
     },
     {
       "id": "osc2",
       "label": "Osc 2",
       "status": "draft",
-      "note": "Draft: as Osc 1.",
+      "note": "Dense (B589), after the SCALPEL bench: the pictures on the left (SAMPLE drawings of the settings, never the engine's output), the oscillator and its two blades as sections on the right. Rarely-used rows sit under each section's collapsed Advanced group; every row is still on the page.",
       "groups": [
         {
-          "title": "Oscillator",
-          "block": "osc2"
+          "title": "Osc 2",
+          "block": "osc2",
+          "rest": "advanced",
+          "meta": {
+            "on": {
+              "role": "power"
+            },
+            "unison": {
+              "sub": "Swarm"
+            },
+            "detune": {
+              "sub": "Swarm"
+            },
+            "coupling": {
+              "sub": "Swarm"
+            },
+            "baseWave": {
+              "sub": "Base"
+            },
+            "octave": {
+              "sub": "Pitch"
+            },
+            "semitone": {
+              "sub": "Pitch"
+            },
+            "pitch": {
+              "sub": "Pitch"
+            },
+            "fine": {
+              "sub": "Pitch"
+            },
+            "pan": {
+              "sub": "Out"
+            },
+            "width": {
+              "sub": "Out"
+            }
+          },
+          "keys": [
+            {
+              "key": "mix.osc2",
+              "sub": "Out",
+              "size": "primary"
+            }
+          ]
         },
         {
-          "title": "Blade 1",
-          "block": "osc2.blade1"
+          "title": "Blade",
+          "num": 1,
+          "rule": "solid",
+          "block": "osc2.blade1",
+          "rest": "advanced",
+          "meta": {
+            "on": {
+              "role": "power"
+            },
+            "mode": {
+              "role": "modes"
+            },
+            "wave": {
+              "sub": "Wave"
+            },
+            "width": {
+              "sub": "Cut"
+            },
+            "cut": {
+              "sub": "Cut"
+            },
+            "position": {
+              "sub": "Cut"
+            },
+            "depth": {
+              "sub": "Cut"
+            },
+            "edges": {
+              "sub": "Cut"
+            },
+            "mirror": {
+              "sub": "Mirror"
+            },
+            "fmDepth": {
+              "sub": "FM"
+            },
+            "modRate": {
+              "sub": "FM"
+            },
+            "positionSpread": {
+              "sub": "Spread"
+            },
+            "cutSpread": {
+              "sub": "Spread"
+            }
+          }
         },
         {
-          "title": "Blade 2",
-          "block": "osc2.blade2"
+          "title": "Blade",
+          "num": 2,
+          "rule": "dash",
+          "block": "osc2.blade2",
+          "rest": "advanced",
+          "meta": {
+            "on": {
+              "role": "power"
+            },
+            "mode": {
+              "role": "modes"
+            },
+            "wave": {
+              "sub": "Wave"
+            },
+            "width": {
+              "sub": "Cut"
+            },
+            "cut": {
+              "sub": "Cut"
+            },
+            "position": {
+              "sub": "Cut"
+            },
+            "depth": {
+              "sub": "Cut"
+            },
+            "edges": {
+              "sub": "Cut"
+            },
+            "mirror": {
+              "sub": "Mirror"
+            },
+            "fmDepth": {
+              "sub": "FM"
+            },
+            "modRate": {
+              "sub": "FM"
+            }
+          }
         }
-      ]
+      ],
+      "dense": true,
+      "viz": {
+        "kind": "osc",
+        "keys": {
+          "unison": "osc2.unison",
+          "coupling": "osc2.coupling",
+          "detune": "osc2.detune",
+          "wave": "osc2.baseWave"
+        }
+      },
+      "power": "osc2.on"
     },
     {
       "id": "sub",
@@ -88,7 +532,10 @@
           "title": "Sub",
           "tag": "SOURCE",
           "keys": [
-            "sub.on",
+            {
+              "key": "sub.on",
+              "role": "power"
+            },
             {
               "key": "mix.sub",
               "live": {
@@ -96,7 +543,8 @@
                 "is": [
                   "on"
                 ]
-              }
+              },
+              "size": "primary"
             },
             {
               "key": "sub.env",
@@ -148,8 +596,7 @@
           "keys": [
             {
               "key": "sub.wave",
-              "widget": "pills",
-              "reason": "The shape is the sub's first choice (SN-2) and its seven options fit one card: all of them in view beats a drop-down. The rule gives a drop-down from six options up."
+              "role": "modes"
             },
             {
               "key": "sub.pulseWidth",
@@ -235,12 +682,24 @@
             ]
           },
           "keys": [
-            "sub.octave",
-            "sub.semitones",
-            "sub.pitch",
-            "sub.fine",
-            "sub.keytrack",
-            "sub.startPhase"
+            {
+              "key": "sub.octave"
+            },
+            {
+              "key": "sub.semitones"
+            },
+            {
+              "key": "sub.pitch"
+            },
+            {
+              "key": "sub.fine"
+            },
+            {
+              "key": "sub.keytrack"
+            },
+            {
+              "key": "sub.startPhase"
+            }
           ]
         },
         {
@@ -253,7 +712,9 @@
             ]
           },
           "keys": [
-            "sub.voiceMode",
+            {
+              "key": "sub.voiceMode"
+            },
             {
               "key": "sub.priority",
               "live": {
@@ -275,10 +736,18 @@
             ]
           },
           "keys": [
-            "sub.order",
-            "sub.erode",
-            "sub.drive",
-            "sub.crunch",
+            {
+              "key": "sub.order"
+            },
+            {
+              "key": "sub.erode"
+            },
+            {
+              "key": "sub.drive"
+            },
+            {
+              "key": "sub.crunch"
+            },
             {
               "key": "sub.character",
               "live": {
@@ -286,10 +755,23 @@
                 "gt": 0
               }
             },
-            "sub.tone"
+            {
+              "key": "sub.tone"
+            }
           ]
         }
-      ]
+      ],
+      "dense": true,
+      "viz": {
+        "kind": "sub",
+        "keys": {
+          "wave": "sub.wave",
+          "width": "sub.pulseWidth",
+          "softness": "sub.softness",
+          "bump": "sub.bumpAmount"
+        }
+      },
+      "power": "sub.on"
     },
     {
       "id": "noise",
@@ -302,7 +784,10 @@
           "title": "Noise",
           "tag": "SOURCE",
           "keys": [
-            "noise.on",
+            {
+              "key": "noise.on",
+              "role": "power"
+            },
             {
               "key": "mix.noise",
               "live": {
@@ -310,7 +795,8 @@
                 "is": [
                   "on"
                 ]
-              }
+              },
+              "size": "primary"
             },
             {
               "key": "noise.env",
@@ -369,7 +855,10 @@
             ]
           },
           "keys": [
-            "noise.type",
+            {
+              "key": "noise.type",
+              "role": "modes"
+            },
             {
               "key": "noise.density",
               "live": {
@@ -406,7 +895,9 @@
                 ]
               }
             },
-            "noise.colour",
+            {
+              "key": "noise.colour"
+            },
             {
               "key": "noise.pitch",
               "live": {
@@ -470,7 +961,10 @@
             ]
           },
           "keys": [
-            "noise.resonator",
+            {
+              "key": "noise.resonator",
+              "role": "power"
+            },
             {
               "key": "noise.feedback",
               "live": {
@@ -510,7 +1004,10 @@
             ]
           },
           "keys": [
-            "noise.whisper",
+            {
+              "key": "noise.whisper",
+              "role": "power"
+            },
             {
               "key": "noise.vowel",
               "live": {
@@ -550,7 +1047,10 @@
             ]
           },
           "keys": [
-            "noise.wind",
+            {
+              "key": "noise.wind",
+              "role": "power"
+            },
             {
               "key": "noise.gust",
               "live": {
@@ -590,7 +1090,10 @@
             ]
           },
           "keys": [
-            "noise.filter",
+            {
+              "key": "noise.filter",
+              "role": "modes"
+            },
             {
               "key": "noise.cutoff",
               "live": {
@@ -630,11 +1133,23 @@
             ]
           },
           "keys": [
-            "noise.spread",
-            "noise.pan"
+            {
+              "key": "noise.spread"
+            },
+            {
+              "key": "noise.pan"
+            }
           ]
         }
-      ]
+      ],
+      "dense": true,
+      "viz": {
+        "kind": "noise",
+        "keys": {
+          "colour": "noise.colour"
+        }
+      },
+      "power": "noise.on"
     },
     {
       "id": "filters",
@@ -811,57 +1326,111 @@
     {
       "id": "mix",
       "label": "Mix",
-      "status": "draft",
-      "note": "Draft: the mixer page's design is B581 step 4.",
+      "status": "designed",
+      "note": "A console (B589, ADR-329 item 3): one strip per source and the master, side by side, each fader its level key, attached to its own on, mute and solo keys; the meters and peak readouts are the stub's MOCK meters from its observation view (IF-6, IF-10), and the CLIP lamp latches and clears on a click.",
       "groups": [
         {
-          "title": "Levels",
+          "title": "Osc 1",
+          "strip": "osc1",
           "keys": [
             {
               "key": "mix.osc1",
-              "widget": "vslider"
+              "role": "fader"
             },
             {
-              "key": "mix.osc2",
-              "widget": "vslider"
+              "key": "osc1.on",
+              "role": "on"
             },
             {
-              "key": "mix.sub",
-              "widget": "vslider"
+              "key": "osc1.mute",
+              "role": "mute"
             },
             {
-              "key": "mix.noise",
-              "widget": "vslider"
-            },
-            {
-              "key": "out.level",
-              "widget": "vslider"
+              "key": "osc1.solo",
+              "role": "solo"
             }
           ]
         },
         {
-          "title": "Sources",
+          "title": "Osc 2",
+          "strip": "osc2",
           "keys": [
-            "osc1.on",
-            "osc2.on",
-            "sub.on",
-            "noise.on"
+            {
+              "key": "mix.osc2",
+              "role": "fader"
+            },
+            {
+              "key": "osc2.on",
+              "role": "on"
+            },
+            {
+              "key": "osc2.mute",
+              "role": "mute"
+            },
+            {
+              "key": "osc2.solo",
+              "role": "solo"
+            }
           ]
         },
         {
-          "title": "Mute and solo",
+          "title": "Sub",
+          "strip": "sub",
           "keys": [
-            "osc1.mute",
-            "osc1.solo",
-            "osc2.mute",
-            "osc2.solo",
-            "sub.mute",
-            "sub.solo",
-            "noise.mute",
-            "noise.solo"
+            {
+              "key": "mix.sub",
+              "role": "fader"
+            },
+            {
+              "key": "sub.on",
+              "role": "on"
+            },
+            {
+              "key": "sub.mute",
+              "role": "mute"
+            },
+            {
+              "key": "sub.solo",
+              "role": "solo"
+            }
+          ]
+        },
+        {
+          "title": "Noise",
+          "strip": "noise",
+          "keys": [
+            {
+              "key": "mix.noise",
+              "role": "fader"
+            },
+            {
+              "key": "noise.on",
+              "role": "on"
+            },
+            {
+              "key": "noise.mute",
+              "role": "mute"
+            },
+            {
+              "key": "noise.solo",
+              "role": "solo"
+            }
+          ]
+        },
+        {
+          "title": "Out",
+          "strip": "out",
+          "master": true,
+          "keys": [
+            {
+              "key": "out.level",
+              "role": "fader"
+            }
           ]
         }
-      ]
+      ],
+      "panel": "console",
+      "cite": "B589 Channel strip; IF-6; ADR-329 item 3"
     },
     {
       "id": "fx",
@@ -984,6 +1553,63 @@
     {
       "name": "Weir",
       "why": "no machine-readable manifest found in its tree (2026-10-30); Weir's filters are B581 step 2"
+    }
+  ],
+  "nav": [
+    {
+      "id": "main",
+      "label": "Main",
+      "pages": [
+        "main"
+      ]
+    },
+    {
+      "id": "osc",
+      "label": "Osc",
+      "pages": [
+        "dashboard",
+        "osc1",
+        "osc2",
+        "sub",
+        "noise",
+        "filters"
+      ]
+    },
+    {
+      "id": "fx",
+      "label": "FX",
+      "pages": [
+        "fx"
+      ]
+    },
+    {
+      "id": "mod",
+      "label": "Mod",
+      "pages": [
+        "mod",
+        "arp"
+      ]
+    },
+    {
+      "id": "morph",
+      "label": "Morph",
+      "pages": [
+        "morph"
+      ]
+    },
+    {
+      "id": "mix",
+      "label": "Mix",
+      "pages": [
+        "mix"
+      ]
+    },
+    {
+      "id": "set",
+      "label": "Set",
+      "pages": [
+        "settings"
+      ]
     }
   ]
 }

@@ -25,7 +25,7 @@
 (function (root) {
   'use strict';
   var METHODS = ['manifest', 'setParam', 'getParam', 'value', 'display', 'snapshot', 'restore',
-    'saveState', 'loadState', 'gesture', 'events', 'observe'];
+    'saveState', 'loadState', 'gesture', 'events', 'observe', 'clearClip'];
   var MINUS = '−';
 
   function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
@@ -90,13 +90,39 @@
     var refused = 0, out = [], extra = [];                        // extra: a loaded state's unknown members, in the order read (RC-9.3)
     function host(key) { var r = by[key]; return r && !r.reserved ? r : null; }
 
+    /* MOCK METERS (IF-6), for the Mix page's console (B589 Channel strip). There is no audio, so a source's meter reads
+       its own level as if fed a full-scale test tone, through IF-6's gate (a source that is off or muted is silent;
+       while any source is soloed every source that is not soloed is silent); the output reads the sum of the sounding
+       sources' gains times `out.level`. The clip latch (IF-6: "a latching clip flag ... readable and clearable") is set
+       when a meter reads over 0 dBFS and cleared only by clearClip. Labelled MOCK wherever it is drawn. */
+    var SOURCES = ['osc1', 'osc2', 'sub', 'noise'], latch = Object.create(null);
+    function dbOf(key) { var r = by[key]; if (!r) return -Infinity; var x = lawX(r, v[key]); return x; }
+    function isOn(key) { var r = by[key]; return !!r && r.options && r.options[lawX(r, v[key])] === 'on'; }
+    function meters() {
+      var anySolo = SOURCES.some(function (s) { return isOn(s + '.solo'); }), m = {}, sum = 0;
+      SOURCES.forEach(function (s) {
+        var silent = !isOn(s + '.on') || isOn(s + '.mute') || (anySolo && !isOn(s + '.solo'));
+        var db = silent ? -Infinity : dbOf('mix.' + s);
+        m[s] = db; if (db > -Infinity) sum += Math.pow(10, db / 20);
+      });
+      var outDb = dbOf('out.level');
+      m.out = sum > 0 && outDb > -Infinity ? 20 * Math.log10(sum) + outDb : -Infinity;
+      return m;
+    }
+    function relatch() {
+      var m = meters();
+      for (var id in m) if (m[id] > 0) latch[id] = { on: true, max: Math.max(m[id], latch[id] && latch[id].on ? latch[id].max : -Infinity) };
+    }
+
     E.manifest = function () { return rows; };
     /* A Param for an unknown key, or for a reserved row's, is refused and counted (5.1, PA-7). */
     E.setParam = function (key, val) {
       var r = host(key);
       if (!r || typeof val !== 'number' || val !== val) { refused++; return null; }
-      v[key] = snap(r, val); return v[key];
+      v[key] = snap(r, val); relatch(); return v[key];
     };
+    /* IF-6: clear a clip latch (from another thread, in the plugin). Returns whether one was set. */
+    E.clearClip = function (id) { var was = !!(latch[id] && latch[id].on); latch[id] = { on: false, max: -Infinity }; return was; };
     E.getParam = function (key) { return by[key] ? (by[key].reserved ? 0 : v[key]) : null; };
     E.value = function (key) { var r = by[key]; return r ? lawX(r, E.getParam(key)) : null; };
     E.display = function (key, val) { var r = by[key]; return r ? display(r, val === undefined ? E.getParam(key) : snap(r, val)) : ''; };
@@ -104,7 +130,7 @@
     E.snapshot = function () { return { v: rows.map(function (r) { return v[r.key]; }), ratios: { osc1: ratios.osc1, osc2: ratios.osc2 } }; };
     E.restore = function (s) {
       if (!s || !s.v || s.v.length !== rows.length) return false;
-      rows.forEach(function (r, i) { v[r.key] = s.v[i]; }); ratios = { osc1: s.ratios.osc1, osc2: s.ratios.osc2 }; return true;
+      rows.forEach(function (r, i) { v[r.key] = s.v[i]; }); ratios = { osc1: s.ratios.osc1, osc2: s.ratios.osc2 }; relatch(); return true;
     };
     /* IF-4's members as JSON (SHAPE ONLY, see the header). Known keys in manifest order, then the unknown ones kept. */
     E.saveState = function () {
@@ -128,7 +154,7 @@
       }
       if (d.ratios) ratios = { osc1: String(d.ratios.osc1), osc2: String(d.ratios.osc2) };
       for (var t in d) if (t !== 'version' && t !== 'params' && t !== 'ratios') keep.push({ where: 'top', key: t, value: d[t] });
-      extra = keep;
+      extra = keep; relatch();
       return { ok: true };
     };
     /* RC-11.3: accepted and reported back unchanged; they change nothing in the sound. */
@@ -139,7 +165,9 @@
     E.observe = function () {
       var heard = {};
       rows.forEach(function (r) { if (r.law === 'step' && !r.reserved) heard[r.key] = display(r, v[r.key]); });
-      return { source: 'stub', audio: false, voices: [], heard: heard, refused: refused,
+      var m = meters(), mt = {};
+      for (var id in m) mt[id] = { peak: m[id], clip: { on: !!(latch[id] && latch[id].on), max: latch[id] && latch[id].on ? latch[id].max : null } };
+      return { source: 'stub', audio: false, voices: [], heard: heard, refused: refused, meters: mt, metersMock: true,
         counters: { memberSamples: 0, edgesCorrected: 0, edgesLeftOver: 0, envelopeSteps: 0, voicesSounding: 0 } };
     };
   }
@@ -176,6 +204,7 @@
        { type: 'position', seq, x, y }                   the morph position, to the resolver (IF-12)
        { type: 'rack', seq, values }                     a hosted module's values, to the rack (RC-5, IF-7)
        { type: 'midi', seq, values }                     Arp's values, to the device's MIDI module
+       { type: 'clear', seq, id }                        clear a meter's clip latch (IF-6)
      A snapshot is { ack, params: { key: v }, events, observe, state, resolver, device }: `params` holds the
      engine's and the device side's values (namespaced keys, so they cannot collide); `ack` is the seq of the
      last message applied, so the adapter can tell a snapshot that has not yet seen its latest send (stale)
@@ -206,6 +235,7 @@
         else if (m.type === 'morph' && resolver) resolver.settings(m.settings);
         else if (m.type === 'position' && resolver) resolver.position(m.x, m.y);
         else if ((m.type === 'rack' || m.type === 'midi') && device) device.set(m.type, m.values);
+        else if (m.type === 'clear') engine.clearClip(m.id);
         else throw new Error('unknown message ' + m.type + (m.type === 'morph' || m.type === 'position' ? ' (no resolver behind this transport)' : m.type === 'rack' || m.type === 'midi' ? ' (no device side behind this transport)' : ''));
         ack = m.seq; publish();
       },

@@ -306,6 +306,10 @@
     D.observe = function () { return { engine: lastSnap ? lastSnap.observe : null, resolver: lastSnap ? lastSnap.resolver : null,
       device: lastSnap ? lastSnap.device : null, morph: D.morph(), routes: st.routes.length }; };
     D.engineEvents = function () { var e = events; events = []; return e; };
+    /* The meters and clip latches the engine publishes (IF-6), read from the latest snapshot (MOCK in the stub), and the
+       latch's clear, which goes to the engine like any other message (the latch lives on the audio side). */
+    D.meters = function () { return lastSnap && lastSnap.observe && lastSnap.observe.meters || {}; };
+    D.clearClip = function (id) { transport.send({ type: 'clear', seq: ++seq, id: id }); rev++; };
 
     reown();
     transport.onSnapshot(onSnapshot);

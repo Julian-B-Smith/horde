@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1793080392-2372, 2026-10-27; do not edit, re-vendor (generated from its tokens.json) */
+/* vendored from the horde Design System artifact, version 1793336699-65f2, 2026-10-30; do not edit, re-vendor (generated from its tokens.json) */
 :root {
   --bg: #f2ede2;
   --panel: #fcfaf4;
@@ -145,6 +145,10 @@
   --space-stack: 6px;
   --space-column: 7px;
   --space-cell-y: 5px;
+  --space-dense: 4px;
+  --space-subgroup: 7px;
+  --space-head: 2px;
+  --space-section: 10px;
   --radius: 10px;
   --radius-window: 12px;
   --radius-meter: 4px;
@@ -187,10 +191,25 @@
   --size-icon-slot: 16px;
   --size-text-floor: 8px;
   --size-readout-floor: 9.5px;
+  --size-knob-primary: 56px;
+  --size-knob-standard: 48px;
+  --size-knob-compact: 40px;
+  --size-knob-utility: 28px;
+  --size-cell-primary: 64px;
+  --size-cell-standard: 56px;
+  --size-cell-compact: 48px;
+  --size-label-dense: 52px;
+  --size-face-dense: 20px;
+  --size-toggle-dense-w: 26px;
+  --size-toggle-dense-h: 14px;
+  --size-strip-w: 72px;
+  --size-fader-h: 140px;
+  --size-meter-w-dense: 7px;
   --stroke-ink: 1.5px;
   --stroke-sub: 1px;
   --stroke-page: 2px;
   --stroke-focus: 2.5px;
+  --stroke-id: 3px;
   --opacity-disabled: 0.55;
   --opacity-muted: 0.45;
   --opacity-halo: 0.3;
