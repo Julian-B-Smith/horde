@@ -4,10 +4,10 @@
 # (python3 tools/design_vendor.py record-master --version <id> --date <d>) and re-vendor.
 # tools/design_chain_check.py holds the tree to these hashes: every file listed, none extra.
 artifact: https://claude.ai/artifact/EGDwetDHwcvxhTbNffCzJc
-version: 1793374583-b6a5
+version: 1793393033-a002
 date: 2026-10-30
 files: 137
-f6cd345d46ffdbf2e5c9b59539848452c04cbd59204520116370cdbad06ca4a6  README.md
+b009914b73a6640874804d41a6eec6879b4d4a498bb560658d4c34178fc238a4  README.md
 ce354240f6e15082fbd556989b9224c787e4a13b497b6cb5e8ed4341fcef5e11  accessibility.md
 fd54c7def8b2e076ba14be3023c947b162126520372c9e9fb4b29101062ae845  assets/Logos/README.md
 f0ecfe9e81c5aa42bbab2375defa937a0783a8dc23740c9d36b0ae14c8bc1ac5  components/BendLaw/README.md
@@ -141,6 +141,6 @@ c891bde693697b6ffffda395e246e6480f5649432042a3eb5bfe8398fcb0a3d7  components/bun
 74307eafbdb03ede76b1545dd7debe1e3810e4626ee9a48fc358920cf1cdc36d  components/bundle.js
 cc669811cc293a349a79e1d59f7421aa835800235cb69b6fdc148a893fe9897c  components/index.d.ts
 6c3f598e97da2ab5ed7ce3e02d35e32afb208bd1c7ddcb32335f97ee701c2901  contrast-audit.md
-437931d587bd0138c41cf503453c7648338267318d8b899b60184435b0d6a829  design-system.json
+2a921da042bdea44c8add7631e787ed396d00691484d9c36a358d007af21beb8  design-system.json
 8d63158848e0838c4a1d439be6aff6e7c0c94312b52ae71359186a4154a72245  screens.md
 e5a7470b7f8c1381b4cb3c24e4407dcba7c4302adbb8bd977c52315eda2b44d6  tokens.json

@@ -99,8 +99,8 @@
  },
  "lastChange": {
   "by": "Claude",
-  "at": "2026-10-30T10:30:00Z",
+  "at": "2026-10-30T19:00:00Z",
   "via": "Claude Code",
-  "note": "B589 fix: the revision's per-element dense modifier is now .hd-sm (was a bare .sm, which caught two labs' own .sm classes); nothing else changed."
+  "note": "ADR-337: the README's opening sentence no longer positions horde by genre; its centre is morph logic over the full depth of every parameter. Nothing else changed."
  }
 }

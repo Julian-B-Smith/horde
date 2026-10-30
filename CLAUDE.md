@@ -73,8 +73,8 @@ lists as protected.
 ## §Domain — HYPERSAW
 
 **What this is.** A synthesizer built from a family of experimental, responsive
-engines with dynamical characteristics, oriented toward the sounds of hyperpop
-(ADR-091). The founding engine — **SWARM SAW** (formerly SAW, then HYPERSAW; ADR-115) — is a
+engines with dynamical characteristics, whose central innovation is its morph logic
+over the full depth of every parameter (ADR-337, superseding ADR-091's genre orientation). The founding engine — **SWARM SAW** (formerly SAW, then HYPERSAW; ADR-115) — is a
 coupled-oscillator system (Kuramoto swarm over a kernel — "the supersaw taken
 seriously as physics"); **SPECTRA** is its per-partial sibling (PARKED indefinitely by the human, not 1.0 — see the STATUS header in `src/spectra_core.h`); the first new
 member is the **formant engine** (working name CANTO — FOF/pulsar grains, formants

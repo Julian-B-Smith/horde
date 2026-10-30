@@ -1,4 +1,4 @@
-horde is a synthesizer of responsive, dynamical engines, aimed at the sounds of hyperpop: a swarm of coupled oscillators cut by blades, a sub, noise, and a rack of FX modules that each run as their own software on a screen. This is its house design system for GUI 3: cream chassis, flat ink outlines, one job per colour, and screens as a separate axis.
+horde is a synthesizer of responsive, dynamical engines whose centre is its morph logic over the full depth of every parameter: a swarm of coupled oscillators cut by blades, a sub, noise, and a rack of FX modules that each run as their own software on a screen. This is its house design system for GUI 3: cream chassis, flat ink outlines, one job per colour, and screens as a separate axis.
 
 ## Three rules for every screen
 

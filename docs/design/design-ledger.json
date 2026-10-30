@@ -10,6 +10,10 @@
  },
  "master_versions": [
   {
+   "version": "1793393033-a002",
+   "evidence": "docs/design-system/master/VERSION: published 2026-10-30 from the repo master (ADR-337; README.md and design-system.json's lastChange only; every other file as at 1793374583-b6a5)"
+  },
+  {
    "version": "1793374583-b6a5",
    "evidence": "docs/design-system/master/VERSION: imported byte-identical from the live artifact on 2026-10-30 (ADR-336, B595)"
   },
@@ -34,28 +38,28 @@
     "file": "bundle.js",
     "kind": "stamp",
     "stamped": "1793336699-65f2",
-    "master": "1793374583-b6a5",
+    "master": "1793393033-a002",
     "vendored_sha256": "5f6be55a318a92454017c0a6c2f4850babb4cd66950c057facfd94e62fc412d5",
     "adr": "ADR-336",
-    "note": "The body equals vendor(master) at 1793374583-b6a5 byte for byte; only the stamp line names the earlier 1793336699-65f2, the version actually vendored (bdc7027). Whether the bodies also equal 65f2's cannot be checked: the repo never held that tree. Re-stamping is a re-vendor, which ADR-336 leaves to the human."
+    "note": "The body equals vendor(master) at 1793393033-a002 (unchanged from 1793374583-b6a5: ADR-337 changed only the README) byte for byte; only the stamp line names the earlier 1793336699-65f2, the version actually vendored (bdc7027). Whether the bodies also equal 65f2's cannot be checked: the repo never held that tree. Re-stamping is a re-vendor, which ADR-336 leaves to the human."
    },
    {
     "file": "bundle.css",
     "kind": "stamp",
     "stamped": "1793336699-65f2",
-    "master": "1793374583-b6a5",
+    "master": "1793393033-a002",
     "vendored_sha256": "ced3829b90b9ae45bc57b2195636362024f9810e3ffb54565782f12db07a4104",
     "adr": "ADR-336",
-    "note": "The body equals vendor(master) at 1793374583-b6a5 byte for byte; only the stamp line names the earlier 1793336699-65f2, the version actually vendored (bdc7027). Whether the bodies also equal 65f2's cannot be checked: the repo never held that tree. Re-stamping is a re-vendor, which ADR-336 leaves to the human."
+    "note": "The body equals vendor(master) at 1793393033-a002 (unchanged from 1793374583-b6a5: ADR-337 changed only the README) byte for byte; only the stamp line names the earlier 1793336699-65f2, the version actually vendored (bdc7027). Whether the bodies also equal 65f2's cannot be checked: the repo never held that tree. Re-stamping is a re-vendor, which ADR-336 leaves to the human."
    },
    {
     "file": "tokens.css",
     "kind": "stamp",
     "stamped": "1793336699-65f2",
-    "master": "1793374583-b6a5",
+    "master": "1793393033-a002",
     "vendored_sha256": "a71dd4a8983f95da3f130cce0b1e68ee1878bf02ee13843fd5c5518ba4452aac",
     "adr": "ADR-336",
-    "note": "The body equals vendor(master) at 1793374583-b6a5 byte for byte; only the stamp line names the earlier 1793336699-65f2, the version actually vendored (bdc7027). Whether the bodies also equal 65f2's cannot be checked: the repo never held that tree. Re-stamping is a re-vendor, which ADR-336 leaves to the human."
+    "note": "The body equals vendor(master) at 1793393033-a002 (unchanged from 1793374583-b6a5: ADR-337 changed only the README) byte for byte; only the stamp line names the earlier 1793336699-65f2, the version actually vendored (bdc7027). Whether the bodies also equal 65f2's cannot be checked: the repo never held that tree. Re-stamping is a re-vendor, which ADR-336 leaves to the human."
    }
   ]
  },
@@ -5266,6 +5270,10 @@
   {
    "adr": "ADR-336",
    "reason": "The design chain of custody, the master's source in the repo, a GUI session's scope and the ledger audit: process and repo governance, though it governs every design row."
+  },
+  {
+   "adr": "ADR-337",
+   "reason": "Positioning (the instrument is not marketed by genre; its centre is morph logic over every parameter): it rewords the master README's opening sentence and adds no design element."
   }
  ],
  "audit_notes": [

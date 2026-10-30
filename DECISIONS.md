@@ -10513,3 +10513,17 @@ The lead's findings:
 
 **ADR-336 A1 — the lead's vendoring finding was wrong (2026-10-30).** ADR-336's context said the vendored bundle was not byte-identical to the live master and that its header named 1793080392-2372. The lead had read the local main checkout, which was many commits behind origin, not origin/main. The B595 audit (#1298) found that on origin/main, `bundle.js` and `bundle.css` minus their one-line stamp are byte-identical to the master's, and `tokens.css` is the README's generation from `tokens.json`. All three stamps name 1793336699-65f2, as commit bdc7027 says. The only drift is the stamp itself: 65f2 against the live master's 1793374583-b6a5. The B595 check records it as known stamp drift and goes red if it changes. The rulings of ADR-336 stand; only this finding is corrected.
 
+## ADR-337 — RULED by the human: horde is not positioned as a hyperpop instrument; its centre is morph logic over the full depth of every parameter (supersedes ADR-091 item 2's orientation; 2026-10-30)
+
+**Context.** The human, 2026-10-30: “Let's also remove the references to the genre of hyperpop from the design system and anywhere else. As much as it has been a general inspiration for color schemes and soundscape direction, I don't really want to market it that way or be constricted to it. At its center, the most meaningful innovation of this system is its morph logic over the full depth of” … “every parameter” (the last two words by poll, completing a sentence that arrived cut off). ADR-091 item 2 had widened the instrument to a family of experimental, responsive engines "oriented toward the sounds of hyperpop", and the charter's §Domain and the design master's README opened with that orientation.
+
+**Rulings (the human, 2026-10-30, by poll).**
+1. **The orientation clause of ADR-091 item 2 is superseded.** horde is a synthesizer of experimental, responsive engines with dynamical characteristics, and its central innovation is its morph logic over the full depth of every parameter. Hyperpop stays a general inspiration (colour schemes, sound direction), but horde is not marketed as a hyperpop instrument or confined to the genre.
+2. **History is superseded, not rewritten.** ADR-091, the old ROADMAP rows that cite it and the 2026-07-25 timbre research report stay as dated history. Every live statement of what horde is changes: the charter's §Domain, the design master's README and the shipping GUI's code comments.
+3. **The 2026-08-23 design document is kept as delivered.** Its colour set's label "HYPERPOP" is retired, which the design-system README notes; the live master never used it as a name.
+4. **Genre-specific presets and examples are fine** (the human: "It's fine to have some hyperpop-specific presets"). The Random lab's "Hyperpop lead" ruleset and the labs' genre examples of a sound's use stay.
+
+**Not changed:** `reference/subosc.html` carries the same "hyperpop world" comment as gui2's palette notes. It is a protected reference, so its comment waits for a sanctioned edit; it is a code comment, not a statement to users.
+
+**Consequences.** The charter, the master README (republished to the Design System artifact under the chain, ADR-336), the design-system README and gui2's comments change in this PR. **FX device (ADR-254):** the same positioning holds for it; its centre is the same morph logic over its modules' parameters.
+
