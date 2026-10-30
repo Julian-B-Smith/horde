@@ -50,6 +50,8 @@ WHAT --check GATES (each failure carries its tag; the controls below assert the 
   nav             every page sits in exactly one group of the two-level page bar (B589 Page nav)
   role            a section header's power/modes and a channel strip's fader/on/mute/solo suit their rows
   dashboard       each dashboard card carries its source's power switch and only keys its source page carries
+  ledger          the port ledger (ADR-333, B593): every row has a reason from its closed set and a sentence, a source
+                  path that exists (or "nowhere yet"), a ROADMAP row that exists, and a status (partial: what is missing)
   stale           the committed outputs equal what this run generates
 MUST-FAIL CONTROLS, every run, on in-memory copies: an unknown key, an unplaced host row, a placed
 reserved row, a knob on a stepped row, an override with no reason, a reason with no override, a bank control with no parameter, a bank choice
@@ -493,8 +495,8 @@ def build_pages(rows, layout):
         raise Red("parse", "layout.json: format is not horde.gui3-layout/1")
     pages, placed = [], set()
     for pg in layout["pages"]:
-        seen, groups = set(), []
-        for g in pg["groups"]:
+        seen, groups, follow_seen = set(), [], {}
+        for gi, g in enumerate(pg["groups"]):
             entries = []
             if "block" in g:
                 blk = [r for r in rows if r["block"] == g["block"]]
@@ -505,12 +507,16 @@ def build_pages(rows, layout):
                     # A dense section lists its block's chosen rows first, by suffix, in `meta`'s order; the block's other
                     # rows follow, under the collapsed Advanced group when `rest` says so. Every row stays on the page.
                     names = {r["key"] for r in blk}
+                    elsewhere = set()
                     for suf, m in meta.items():
                         k = f"{g['block']}.{suf}"
                         if k not in names:
                             raise Red("unknown-key", f"page {pg['id']}: {k!r} (meta) is not a row of block {g['block']}")
-                        entries.append(dict(m, key=k))
-                    picked = {e["key"] for e in entries}
+                        if m.get("elsewhere"):
+                            elsewhere.add(k)          # placed by another group of this page (an envelope section's selector)
+                        else:
+                            entries.append(dict(m, key=k))
+                    picked = {e["key"] for e in entries} | elsewhere
                     adv = g.get("rest") == "advanced"
                     tail = [dict({"key": r["key"]}, **({"advanced": True} if adv else {})) for r in blk if not r["reserved"] and r["key"] not in picked]
                 else:
@@ -521,6 +527,31 @@ def build_pages(rows, layout):
             for e in g.get("keys", []):
                 entries.append(e if isinstance(e, dict) else {"key": e})
             entries += tail
+            follow_out = None
+            if g.get("follow"):
+                # ADR-333: the envelope a source's level follows (RC-6.5). Every block's suffix rows are placed, as the
+                # shared keys they are; the shell shows the selected block's and draws its `viz` rows.
+                fo = g["follow"]
+                sel = by.get(fo.get("selector"))
+                if not sel or sel["law"] != "step" or not sel.get("options"):
+                    raise Red("unknown-key", f"page {pg['id']} group {g['title']}: follow selector {fo.get('selector')!r} is not a stepped row")
+                if sorted(fo["blocks"]) != sorted(sel["options"]):
+                    raise Red("role", f"page {pg['id']} group {g['title']}: follow blocks {sorted(fo['blocks'])} are not the selector's options {sel['options']}")
+                follow_out = {"selector": sel["key"], "options": {}}
+                for opt in sel["options"]:
+                    blk = fo["blocks"][opt]
+                    for suf in fo["suffixes"]:
+                        k = f"{blk}.{suf}"
+                        if k not in by:
+                            raise Red("unknown-key", f"page {pg['id']} group {g['title']}: follow row {k!r} is not a parameter")
+                        entries.append({"key": k, "follow": opt, "size": fo.get("size"), "sub": "Stages"})
+                    vz = {}
+                    for name, suf in (fo.get("viz") or {}).items():
+                        k = f"{blk}.{suf}"
+                        if k not in by:
+                            raise Red("unknown-key", f"page {pg['id']} group {g['title']}: follow viz row {k!r} is not a parameter")
+                        vz[name] = k
+                    follow_out["options"][opt] = {"block": blk, "viz": vz}
             if "live" in g:
                 check_live(g["live"], by, f"page {pg['id']} group {g['title']}")
             controls = []
@@ -531,9 +562,16 @@ def build_pages(rows, layout):
                 r = by[k]
                 if r["reserved"]:
                     raise Red("reserved-placed", f"page {pg['id']}: {k} is reserved (5.1): not a host parameter")
-                if k in seen:
+                # Two sources may follow the same envelope, so two dashboard cards may carry the same envelope row: a
+                # followed row may repeat across groups of a page, never within one, and never beside a plain placement.
+                if e.get("follow"):
+                    if k in seen or follow_seen.get(k) == gi:
+                        raise Red("duplicate", f"page {pg['id']}: {k} placed twice")
+                    follow_seen[k] = gi
+                elif k in seen or k in follow_seen:
                     raise Red("duplicate", f"page {pg['id']}: {k} placed twice")
-                seen.add(k)
+                else:
+                    seen.add(k)
                 role = e.get("role")
                 if role is not None:
                     w = check_role(r, role, f"page {pg['id']} {k}")
@@ -560,13 +598,14 @@ def build_pages(rows, layout):
                 if "live" in g:                           # a group's condition ANDs with the control's own
                     live = g["live"] if live is None else {"all": [g["live"], live]}
                 controls.append({"key": k, "widget": w, "live": live, "override": reason or None, "role": role,
-                                 "sub": e.get("sub"), "size": e.get("size"), "advanced": bool(e.get("advanced"))})
+                                 "sub": e.get("sub"), "size": e.get("size"), "advanced": bool(e.get("advanced")),
+                                 "follow": e.get("follow")})
                 placed.add(k)
             if g.get("rule") not in (None, "solid", "dash", "dot", "none"):
                 raise Red("role", f"page {pg['id']} group {g['title']}: rule {g.get('rule')!r} is not solid, dash, dot or none")
             groups.append({"title": g["title"], "tag": g.get("tag"), "screen": g.get("screen"), "controls": controls,
                            "num": g.get("num"), "rule": g.get("rule"), "source": g.get("source"), "viz": g.get("viz"),
-                           "strip": g.get("strip"), "master": bool(g.get("master"))})
+                           "strip": g.get("strip"), "master": bool(g.get("master")), "follow": follow_out})
         pages.append({"id": pg["id"], "label": pg["label"], "status": pg["status"], "note": pg.get("note", ""),
                       "cite": pg.get("cite"), "panel": pg.get("panel"), "dense": bool(pg.get("dense")), "viz": pg.get("viz"),
                       "power": pg.get("power"), "groups": groups})
@@ -576,6 +615,57 @@ def build_pages(rows, layout):
         raise Red("unreached", f"{len(unreached)} host parameter(s) on no page: {', '.join(unreached[:8])}"
                   + (" ..." if len(unreached) > 8 else ""))
     return pages
+
+
+LEDGER = GUI3 / "port-ledger.json"
+LEDGER_STATUS = ("not-moved", "partial", "moved")
+
+
+def check_ledger(led, exists):
+    """GUI 3's port ledger (ADR-333, B593): one row per item not yet moved over. Each row names the item, where it lives
+    today by repo path (a path that exists, or "nowhere yet"), a reason from the ledger's closed set with a sentence, its
+    ROADMAP row (a B-number the ROADMAP has) and a status (`partial` says what is missing). `exists(path)` and the ROADMAP's
+    rows are passed in, so the plants run on copies."""
+    if not led or led.get("format") != "horde.gui3-port-ledger/1":
+        raise Red("ledger", "docs/design/gui3/port-ledger.json: format is not horde.gui3-port-ledger/1")
+    reasons, ids = led.get("reasons") or {}, set()
+    for i, r in enumerate(led.get("rows") or []):
+        where = f"ledger row {r.get('id') or i}"
+        if not r.get("id") or r["id"] in ids:
+            raise Red("ledger", f"{where}: a row needs a unique id")
+        ids.add(r["id"])
+        if not (r.get("item") or "").strip():
+            raise Red("ledger", f"{where}: no item")
+        if not r.get("reason"):
+            raise Red("ledger", f"{where}: no reason")
+        if r["reason"] not in reasons:
+            raise Red("ledger", f"{where}: reason {r['reason']!r} is not one of {sorted(reasons)}")
+        if not (r.get("why") or "").strip():
+            raise Red("ledger", f"{where}: a reason needs its sentence (`why`)")
+        src = r.get("source") or []
+        if not src:
+            raise Red("ledger", f"{where}: no source path (where it lives today, or \"nowhere yet\")")
+        for path in src:
+            if path != "nowhere yet" and not exists(path.split("#")[0]):
+                raise Red("ledger", f"{where}: source {path!r} does not exist in the repo")
+        if not re.fullmatch(r"B\d+", r.get("roadmap") or ""):
+            raise Red("ledger", f"{where}: no ROADMAP row (a B-number)")
+        if r["roadmap"] not in exists.roadmap:
+            raise Red("ledger", f"{where}: {r['roadmap']} is not a row of ROADMAP.md")
+        if r.get("status") not in LEDGER_STATUS:
+            raise Red("ledger", f"{where}: status {r.get('status')!r} is not one of {LEDGER_STATUS}")
+        if r["status"] == "partial" and not (r.get("missing") or "").strip():
+            raise Red("ledger", f"{where}: a partial row says what is missing")
+    return led
+
+
+def repo_exists():
+    """The real repo: a path exists under the root; the ROADMAP's B-rows are read once."""
+    def exists(path):
+        return (ROOT / path).exists()
+    road = (ROOT / "ROADMAP.md").read_text(encoding="utf-8") if (ROOT / "ROADMAP.md").exists() else ""
+    exists.roadmap = set(re.findall(r"(?m)^\| (B\d+) \|", road))
+    return exists
 
 
 def build_bank(rows, layout):
@@ -889,12 +979,13 @@ def gaps(rows):
                     "missing description."}
 
 
-def render(rows, pages, counts, bank):
+def render(rows, pages, counts, bank, ledger=None):
     # params.json stays SPEC-ENGINE 5 alone (the engine's manifest as data); shell-data.js carries every source.
     doc = {"format": FORMAT, "source": "specs/SPEC-ENGINE.md section 5, read by tools/gen_gui3_controls.py",
            "counts": counts, "params": [r for r in rows if r.get("target", "engine") == "engine"]}
     j = json.dumps(doc, indent=2, ensure_ascii=False, sort_keys=True) + "\n"
-    data = {"format": FORMAT, "counts": counts, "gaps": gaps(rows), "params": rows, "pages": pages, "bank": bank, "nav": NAV_OUT[0]}
+    data = {"format": FORMAT, "counts": counts, "gaps": gaps(rows), "params": rows, "pages": pages, "bank": bank, "nav": NAV_OUT[0],
+            "ledger": ledger}
     js = ("/* GENERATED by tools/gen_gui3_controls.py from specs/SPEC-ENGINE.md section 5 and\n"
           "   docs/design/gui3/layout.json. Do not edit: edit the spec or the layout, then regenerate. */\n"
           "window.GUI3_DATA = " + json.dumps(data, indent=1, ensure_ascii=False, sort_keys=True) + ";\n")
@@ -914,9 +1005,10 @@ def generate(spec_text, layout, ext):
 
 def gate(spec_text, layout, shell_text, scripts, committed, ext):
     rows, pages, counts, bank = generate(spec_text, layout, ext)
+    led = check_ledger(ext.get("ledger"), ext["exists"])
     check_shell(shell_text)
     check_determinism(dict(scripts, **{"gui3.html": shell_text}))
-    j, js = render(rows, pages, counts, bank)
+    j, js = render(rows, pages, counts, bank, led)
     if committed.get("params.json") != j or committed.get("shell-data.js") != js:
         raise Red("stale", "docs/design/gui3/params.json or shell-data.js is not what the spec and the layout "
                            "generate: run python3 tools/gen_gui3_controls.py")
@@ -939,7 +1031,12 @@ def controls(spec_text, layout, shell_text, scripts, committed, ext):
         return lo
 
     page = lambda lo, pid: next(p for p in lo["pages"] if p["id"] == pid)
-    sub_keys = lambda lo: page(lo, "sub")["groups"][1]["keys"]
+
+    def led_mut(fn):
+        led = copy.deepcopy(ext["ledger"])
+        fn(led["rows"][0])
+        return dict(ext, ledger=led)
+    sub_keys = lambda lo: next(g for g in page(lo, "sub")["groups"] if g["title"] == "Shape")["keys"]
     out = [
         plant("a control with no parameter", "unknown-key",
               lo=lay(lambda lo: page(lo, "settings")["groups"][0]["keys"].append("voice.notAParameter"))),
@@ -965,8 +1062,15 @@ def controls(spec_text, layout, shell_text, scripts, committed, ext):
               ex=dict(ext, readme=re.sub(r"(?m)^\| `vendor/scape[^\n]*\n", "", ext["readme"], count=1))),
         plant("a vendored snapshot whose bytes changed", "provenance",
               ex=dict(ext, files=dict(ext["files"], **{"vendor/echo.params.json": ext["files"]["vendor/echo.params.json"] + " "}))),
+        plant("a ledger row with no reason", "ledger", ex=led_mut(lambda r: r.pop("reason"))),
+        plant("a ledger row with an unknown reason", "ledger", ex=led_mut(lambda r: r.__setitem__("reason", "someday"))),
+        plant("a ledger row with no source", "ledger", ex=led_mut(lambda r: r.__setitem__("source", []))),
+        plant("a ledger row whose source does not exist", "ledger", ex=led_mut(lambda r: r.__setitem__("source", ["docs/design/no-such-lab.html"]))),
+        plant("a ledger row with no B-number", "ledger", ex=led_mut(lambda r: r.__setitem__("roadmap", ""))),
+        plant("a follow row that is not a parameter", "unknown-key",
+              lo=lay(lambda lo: page(lo, "sub")["groups"][1]["follow"]["suffixes"].append("notARow"))),
         plant("a page in no nav group", "nav",
-              lo=lay(lambda lo: lo["nav"][-1]["pages"].remove("settings"))),
+              lo=lay(lambda lo: next(g for g in lo["nav"] if "settings" in g["pages"])["pages"].remove("settings"))),
         plant("a dashboard control whose key is not on its source page", "dashboard",
               lo=lay(lambda lo: page(lo, "dashboard")["groups"][0]["keys"].append({"key": "noise.pitch", "size": "utility"}))),
         plant("a dashboard card without its power switch", "dashboard",
@@ -999,6 +1103,10 @@ def src_counts(rows):
     return ", ".join(out)
 
 
+def ledger_rows(ext):
+    return (ext.get("ledger") or {}).get("rows") or []
+
+
 def load_ext(layout):
     """The README and every source file a layout source names, as exact text (bytes decoded, newlines untouched,
     so the provenance hash is the file's own)."""
@@ -1009,7 +1117,8 @@ def load_ext(layout):
                 f = GUI3 / src[k]
                 if f.exists():
                     files[src[k]] = f.read_bytes().decode("utf-8")
-    return {"readme": README.read_bytes().decode("utf-8") if README.exists() else "", "files": files}
+    return {"readme": README.read_bytes().decode("utf-8") if README.exists() else "", "files": files,
+            "ledger": json.loads(LEDGER.read_text(encoding="utf-8")) if LEDGER.exists() else None, "exists": repo_exists()}
 
 
 def main():
@@ -1022,7 +1131,12 @@ def main():
         except Red as e:
             print(f"gen_gui3_controls: RED {e}", file=sys.stderr)
             return 1
-        j, js = render(rows, pages, counts, bank)
+        try:
+            led = check_ledger(ext.get("ledger"), ext["exists"])
+        except Red as e:
+            print(f"gen_gui3_controls: RED {e}", file=sys.stderr)
+            return 1
+        j, js = render(rows, pages, counts, bank, led)
         OUT_JSON.write_text(j, encoding="utf-8")
         OUT_JS.write_text(js, encoding="utf-8")
         print(f"gen_gui3_controls: wrote {OUT_JSON.relative_to(ROOT)} and {OUT_JS.relative_to(ROOT)} "
@@ -1047,7 +1161,7 @@ def main():
           f"descriptions missing {g['desc_missing']} of {g['host']} (no desc column yet, B582), spec text empty "
           f"{g['spec_text_missing']}; bank: {sum(len(c) for c in bank['controls'].values())} critical controls on "
           f"{len(bank['controls'])} modulators ({', '.join(bank['controls'])}); beside SPEC-ENGINE 5: "
-          f"{src_counts(rows)}; 21 must-fail controls red")
+          f"{src_counts(rows)}; port ledger {len(ledger_rows(ext))} rows; 27 must-fail controls red")
     return 0
 
 

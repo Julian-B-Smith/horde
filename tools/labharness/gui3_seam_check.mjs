@@ -47,6 +47,10 @@
  *                a morph setting and the position the resolver (IF-11, IF-12); none reaches the engine's setParam
  *   meters       B589's console: the MOCK meters follow IF-6's gate (off, mute, solo) and the output's sum; over 0 dBFS
  *                latches the clip lamp, which holds until a clear
+ *   summed       ADR-333: the Mix page's summed scope and spectrum read the observation view (MOCK): silence reads
+ *                flat, a source moves them, +6 dB on its fader scales the scope by 10^(6/20)
+ *   envelope     ADR-333: an oscillator view shows the envelope its `env` row selects, and edits the shared keys the
+ *                Mod page carries (one model, two views)
  *   determinism  the same seed and calls give byte-identical device and engine state; another seed differs
  *
  * MUST-FAIL CONTROLS (plants), every run, on in-memory copies of the two scripts: an observe() that
@@ -56,7 +60,8 @@
  * a morph toggle kept off the history, a snapshot save that keeps no preset, a snapshot that overwrites
  * a drag, a snapshot that overwrites a newer send, a close that keeps unmapped modulators, a drop that maps a
  * stepped row, a refused drop that clears the pending state, and the module, Arp and morph-setting values each
- * sent to the engine instead of their own side, a meter that ignores solo, and a clear that does not unlatch. Each must turn its own test red (and its
+ * sent to the engine instead of their own side, a meter that ignores solo, a clear that does not unlatch, summed
+ * views fed a constant, and an oscillator view that edits a copy of its envelope instead of the shared keys. Each must turn its own test red (and its
  * anchor must exist, or the plant itself is reported as vacuous).
  *
  * Usage: node tools/labharness/gui3_seam_check.mjs [--verbose]   (exit 1 on any failure; --verbose prints
@@ -383,6 +388,40 @@ function suite(W) {
     ok(JSON.stringify(e.observe().meters) === JSON.stringify(e.observe().meters), 'reading the meters changed them');
   };
 
+  /* ADR-333: the Mix page's summed oscilloscope and spectrum read the engine's observation view (IF-10; MOCK in the
+     stub). Silence reads flat, a sounding source moves them, and a louder fader scales the scope. */
+  T.summed = () => {
+    const { d } = fresh();
+    const v0 = k => (0 - by[k].lo) / (by[k].hi - by[k].lo), peak = a => a.reduce((m, x) => Math.max(m, Math.abs(x)), 0);
+    d.set('osc1.on', 0);
+    let sm = d.summed();
+    ok(sm && sm.scope.length > 0 && peak(sm.scope) === 0 && sm.bands.every(b => b === 0), 'with every source off the summed views do not read silence');
+    d.set('osc1.on', 1); d.set('mix.osc1', v0('mix.osc1'));
+    const p1 = peak(d.summed().scope), b1 = d.summed().bands.slice();
+    d.set('mix.osc1', (6 - by['mix.osc1'].lo) / (by['mix.osc1'].hi - by['mix.osc1'].lo));
+    const p2 = peak(d.summed().scope);
+    ok(p1 > 0 && Math.abs(p2 / p1 - Math.pow(10, 6 / 20)) < 1e-9, 'the summed scope does not follow the source and its fader (' + p1 + ', ' + p2 + ')');
+    ok(JSON.stringify(d.summed().bands) !== JSON.stringify(b1), 'the summed spectrum did not move with the fader');
+  };
+  /* ADR-333: an oscillator view's envelope is the one its `env` row selects (RC-6.5), and its rows are the shared keys:
+     an edit through the oscillator view's key is what the Mod page's key reads, and the other way round. */
+  T.envelope = () => {
+    const { d } = fresh();
+    const osc = DATA.pages.find(p => p.id === 'osc1'), mod = DATA.pages.find(p => p.id === 'mod');
+    const f = osc.groups.find(g => g.follow).follow, modKeys = new Set(mod.groups.flatMap(g => g.controls.map(c => c.key)));
+    const opt = by[f.selector].options[2];
+    d.set(f.selector, 2 / (by[f.selector].n - 1));
+    const fb = d.followed(f);
+    ok(fb && fb === f.options[opt], 'the followed envelope is not the one the selector holds (' + (fb && fb.block) + ')');
+    const ka = fb.viz.a;
+    ok(modKeys.has(ka), 'the oscillator view edits ' + ka + ', which the Mod page does not carry');
+    d.set(ka, .61);
+    ok(d.heard(ka) === .61, 'an edit on the oscillator view did not reach the shared key');
+    d.set(ka, .27);
+    const again = d.followed(f);
+    ok(d.heard(again.viz.a) === .27, 'an edit on the Mod page did not read back on the oscillator view');
+  };
+
   T.determinism = () => {
     const run = seed => {
       const { e, d } = fresh(seed);
@@ -427,6 +466,10 @@ const PLANTS = [
   ['sync', 'device', 'if (k === g) continue;', ''],
   ['meters', 'stub', "var silent = !isOn(s + '.on') || isOn(s + '.mute') || (anySolo && !isOn(s + '.solo'));", "var silent = !isOn(s + '.on') || isOn(s + '.mute');"],
   ['meters', 'stub', "latch[id] = { on: false, max: -Infinity }; return was;", 'return was;'],
+  ['summed', 'device', "D.summed = function () { return lastSnap && lastSnap.observe && lastSnap.observe.sum || null; };",
+    "D.summed = function () { return { scope: [0.5, -0.5], bands: [0.5], mock: true }; };"],
+  ['envelope', 'device', "return f.options[r.options[Math.round(heard(f.selector) * (r.n - 1))]] || null;",
+    "var o = f.options[r.options[0]]; var c = {}; for (var k in o.viz) c[k] = f.selector + '.copy.' + k; return { block: f.selector + '.copy', viz: c };"],
   ['pending', 'device', '      pending = [];\n      if (dropped.length) changed();', '      if (dropped.length) changed();'],
   ['mapdrop', 'device', "if (!r || r.law === 'step' || (r.target === 'resolver') || ((r.target || 'engine') === 'engine' && !r.pv))", 'if (!r)'],
   ['mapdrop', 'device', '      if (res.ok) { var k = pending.indexOf(src);', '      { var k = pending.indexOf(src);'],

@@ -70,6 +70,20 @@
   .dash { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: var(--space-stack); }
   .dash .vz-cap { display: none; }
   .console { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+  /* ADR-333: more room per strip. A documented override of the design system's size-strip-w (72) inside the console only;
+     the token itself is a proposal (README 21), not an edit of the vendored bundle. */
+  .console .hd-cs { --size-strip-w: 92px; }
+  .sums { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: var(--space-stack); }
+  .sum-col { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .ledger-sum { display: flex; flex-direction: column; gap: 4px; margin-bottom: var(--space-stack); }
+  .ledger-sum .hd-krow { gap: 2px 16px; flex-wrap: wrap; }
+  /* a followed envelope block that is not the selected one stays mounted but hidden (the bundle sets display on .hd-mk) */
+  .ctl[hidden] { display: none !important; }
+  .ledger { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--space-stack); align-items: start; }
+  .ledger-area { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+  .ledger-row { display: flex; flex-direction: column; gap: 2px; padding: 5px 0; border-top: 1px dashed var(--div); }
+  .ledger-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+  .ledger-item { color: var(--ink); font-weight: 600; }
   /* The bank: one card per listed modulator, in a row that scrolls sideways (ADR-322 item 3). */
   #bank { width: auto; }
   #bank[hidden] { display: none; }
@@ -112,7 +126,7 @@
     <button class="hd-kbd hd-focus" id="kbd" type="button" aria-pressed="false" aria-label="Keyboard mode"><span class="lampdot"></span><span id="kbdTxt">KEYS</span></button>
     <button class="hd-btn hd-focus" id="themeBtn" type="button" aria-pressed="false">Dark</button>
   </header>
-  <div class="tagline"><span class="hd-note">GUI 3 (B584, five slices so far): <b>one wired shell</b> under a two-level page bar (B589), dense oscillator pages after the SCALPEL bench, an Osc dashboard and a mixing console, every parameter that has a machine-readable manifest (SPEC-ENGINE section 5, the morph's settings, the hosted FX modules', Arp's)
+  <div class="tagline"><span class="hd-note">GUI 3 (B584, six slices so far): <b>one wired shell</b> under a two-level page bar (B589), a port ledger of what has not moved over (B593), dense oscillator pages after the SCALPEL bench, an Osc dashboard and a mixing console, every parameter that has a machine-readable manifest (SPEC-ENGINE section 5, the morph's settings, the hosted FX modules', Arp's)
     reachable on a page, and <b>no audio</b>: a stub engine keeps the values behind the engine's interface. The <b>Sub</b> and <b>Noise</b> pages are
     designed; the others are drafts or hold no engine parameters, and say why. Try: turn <b>Morph</b> on (the pad docks on every page; <b>Pad</b>
     hides it), press <b>Scatter corners</b> below and drag the puck, hover any control to read it in the info box, right-click one for the manual. The <b>bank</b> at the foot of every page lists the modulators routed to it: press + to activate one and drag its Map handle onto a control. The <b>Morph</b> page chooses the corner you hear with morph off and saves snapshots and presets to corners (ADR-319).</span></div>
@@ -478,10 +492,27 @@ function sectionOf(pg, g, opts) {
   const plain = g.controls.filter(c => !c.role && !c.advanced), adv = g.controls.filter(c => !c.role && c.advanced);
   const body = h('div', { class: 'hd-sgroups' }), size = opts.size || null;
   if (g.viz) body.append(vizView(g.viz, pg.id, false));
+  // ADR-333: the envelope this source's level follows (RC-6.5), drawn from the block its `env` row selects; the block's
+  // controls are the shared keys (the Mod page's and Main's), so an edit here is an edit there.
+  const followHosts = [];
+  if (g.follow) {
+    const cv = h('canvas', { class: 'vz-cv', style: 'height:' + (size === 'utility' ? 44 : 64) + 'px', role: 'img', 'aria-label': g.title + ' envelope' });
+    body.append(h('div', { class: 'vz' }, h('div', { class: 'hd-viz vz-well' }, cv)));
+    let lastE = '';
+    views.push({ page: pg.id, update() {
+      const fb = dev.followed(g.follow); if (!fb) return;
+      const K = fb.viz, sig = fb.block + '|' + Object.values(K).map(k => dev.shown(k)).join('|') + '|' + (document.documentElement.dataset.theme || '');
+      followHosts.forEach(x => { const on = g.follow.options[x.opt] === fb; if (x.host.hidden === on) x.host.hidden = !on; });
+      if (sig === lastE) return; lastE = sig;
+      const a = xOf(K.a), dd = xOf(K.d), r = xOf(K.r);
+      H.Viz.envelope(cv, { a, d: dd, s: xOf(K.s), r, hold: (a + dd + r) / 3, ac: xOf(K.ac), dc: xOf(K.dc), rc: xOf(K.rc) }, null);
+    } });
+  }
+  const mountF = (c, sz) => { const host = mountControl(c, pg.id, path + ' · ' + ROW[c.key].label, { size: sz }); if (c.follow) { host.hidden = true; followHosts.push({ host, opt: c.follow }); } return host; };
   const subs = [];
   plain.forEach(c => { const lab = c.sub || ''; if (!subs.length || subs[subs.length - 1].label !== lab) subs.push({ label: lab, ctls: [] }); subs[subs.length - 1].ctls.push(c); });
   subs.forEach(sg => body.append(h('div', { class: 'hd-sgrp' }, sg.label ? h('span', { class: 'hd-sublabel', text: sg.label }) : null,
-    h('div', { class: 'hd-krow' }, sg.ctls.map(c => mountControl(c, pg.id, path + ' · ' + ROW[c.key].label, { size: c.size || size || 'compact' }))))));
+    h('div', { class: 'hd-krow' }, sg.ctls.map(c => mountF(c, c.size || size || 'compact'))))));
   if (adv.length) body.append(h('details', { class: 'hd-sgrp adv' }, h('summary', { class: 'hd-sublabel', text: 'Advanced · ' + adv.length }),
     h('div', { class: 'hd-krow' }, adv.map(c => mountControl(c, pg.id, path + ' · ' + ROW[c.key].label, { size: c.size || 'compact' })))));
   sec.append(head, body);
@@ -547,6 +578,20 @@ function consolePage(pg, el) {
     const mb = root.querySelector('.cs-btn.mute'); if (mb && K.mute) { mb.dataset.key = K.mute; mb.classList.add('ctl'); }
     const sb = root.querySelector('.cs-btn.solo'); if (sb && K.solo) { sb.dataset.key = K.solo; sb.classList.add('ctl'); }
   });
+  // ADR-333: the summed oscilloscope and spectrum, above the console, drawn with the bundle's painters from the engine's
+  // observation view (IF-10; dev.summed(), MOCK in the stub), never computed here.
+  const scopeCv = h('canvas', { class: 'vz-cv', style: 'height:84px', role: 'img', 'aria-label': 'Summed oscilloscope (MOCK)' });
+  const specCv = h('canvas', { class: 'vz-cv', style: 'height:84px', role: 'img', 'aria-label': 'Summed spectrum (MOCK)' }), specSt = {};
+  el.append(h('div', { class: 'hd-cell hd-dense sums' },
+    h('div', { class: 'sum-col' }, h('span', { class: 'hd-sublabel', text: 'Summed scope · MOCK' }), h('div', { class: 'hd-viz vz-well' }, scopeCv)),
+    h('div', { class: 'sum-col' }, h('span', { class: 'hd-sublabel', text: 'Summed spectrum · MOCK' }), h('div', { class: 'hd-viz vz-well' }, specCv))));
+  let sumFrame = 0;
+  views.push({ page: pg.id, update() {
+    const sm = dev.summed(); if (!sm) return;
+    sumFrame++;
+    H.Viz.scope(scopeCv, { l: sm.scope, r: sm.scope, R: 0 });
+    H.Viz.spectrum(specCv, sm.bands, specSt, sumFrame / 60);
+  } });
   el.append(h('div', { class: 'hd-cell hd-dense console' }, host,
     h('p', { class: 'hd-note', text: 'MOCK meters: no audio, so each strip reads its own level as if fed a full-scale test tone, through IF-6’s gate (off, mute, solo); the output sums the sounding sources. Push a fader over 0 dB: its CLIP lamp latches; click the lamp to clear it.' })));
   let last = '';
@@ -555,6 +600,30 @@ function consolePage(pg, el) {
     if (k !== last) { last = k; strips.forEach(s => ['on', 'mute', 'solo'].forEach(w => { if (s.keys[w]) consoleStrip.set(s.id, w, isOnKey(s.keys[w])); })); }
     consoleStrip.step(1 / 60); consoleStrip.render();     // the ballistics advance one frame per frame: no clock (B589)
   } });
+}
+/* The port ledger (ADR-333, B593): everything not yet moved over, where it lives and why, read from port-ledger.json
+   through the generated data. Grouped by area, with counts by reason and by status. */
+function ledgerPage(pg, el) {
+  const L = DATA.ledger, rows = L.rows, R = L.reasons;
+  const count = (f, v) => rows.filter(r => r[f] === v).length;
+  const head = h('div', { class: 'hd-cell hd-dense ledger-sum' },
+    h('span', { class: 'hd-cluster', text: rows.length + ' rows not yet moved over' }),
+    h('div', { class: 'hd-krow' }, Object.keys(R).map(k => h('span', { class: 'hd-hint', text: R[k] + ': ' + count('reason', k) }))),
+    h('div', { class: 'hd-krow' }, ['not-moved', 'partial', 'moved'].map(st => h('span', { class: 'hd-hint', text: st + ': ' + count('status', st) }))));
+  const areas = [...new Set(rows.map(r => r.area))];
+  const grid = h('div', { class: 'ledger' });
+  areas.forEach(a => {
+    const cell = h('div', { class: 'hd-cell hd-dense' }, h('div', { class: 'ledger-area' }, h('span', { class: 'hd-cluster', text: a }), h('span', { class: 'hd-hint', text: rows.filter(r => r.area === a).length + ' rows' })));
+    rows.filter(r => r.area === a).forEach(r => cell.append(h('div', { class: 'ledger-row', 'data-ledger': r.id },
+      h('div', { class: 'ledger-top' }, h('span', { class: 'hd-label ledger-item', text: r.item }), h('span', { class: 'tag hd-hint', text: r.status.toUpperCase() }),
+        r.precise ? h('span', { class: 'tag hd-hint', text: 'COPY PRECISELY' }) : null, h('span', { class: 'hd-hint', text: r.roadmap })),
+      h('span', { class: 'hd-note', text: R[r.reason] + ': ' + r.why }),
+      r.missing ? h('span', { class: 'hd-note', text: 'Missing: ' + r.missing }) : null,
+      h('span', { class: 'hd-hint', text: 'Lives in: ' + r.source.join(', ') }),
+      r.asked ? h('span', { class: 'hd-hint', text: 'The human: “' + r.asked + '”' }) : null)));
+    grid.append(cell);
+  });
+  el.append(head, grid);
 }
 function classicPage(pg, el) {
   const cards = h('div', { class: 'cards' });
@@ -580,6 +649,7 @@ DATA.pages.forEach(pg => {
     h('span', { class: 'hd-note', text: note, title: compact ? note : null })));
   if (pg.panel === 'dashboard') dashboardPage(pg, el);
   else if (pg.panel === 'console') consolePage(pg, el);
+  else if (pg.panel === 'ledger') ledgerPage(pg, el);
   else if (pg.dense) densePage(pg, el);
   else classicPage(pg, el);
   if (pg.panel === 'morph') el.append(morphPanel());
@@ -897,6 +967,25 @@ views.push({ page: '*', update() {
   dev.undo();
   mixPg.groups.forEach(g => dev.clearClip(g.strip));   // the probe latched the output too: leave every lamp dark
   line(strips.length === mixPg.groups.length && dark0 && lit && unlit, 'Console: ' + strips.length + ' strips; ' + g0.title + '\u2019s fader at +6 dB latched its CLIP lamp (MOCK meter) and a click cleared it (control: dark before).');
+  // 14. ADR-333: an oscillator page shows the envelope its env row selects; an edit there is the Mod page's key, and an edit
+  // on the Mod page reads back there. Control: the value differed before.
+  const oscPg = DATA.pages.find(p => p.id === 'osc1'), fg = oscPg.groups.find(g => g.follow), fsel = ROW[fg.follow.selector];
+  dev.begin('self-check'); dev.set(fsel.key, 1 / (fsel.n - 1)); dev.end();               // the second envelope (ENV 2), whose rows the Mod page carries
+  const fb = dev.followed(fg.follow), ek = fb.viz.a, e0 = dev.shown(ek);
+  dev.begin('self-check'); PROPS[ek + '@osc1'].vals[0] = .44; dev.end();
+  const there = Math.abs(S.base(PROPS[ek + '@mod']) - .44) < 1e-12;
+  dev.begin('self-check'); PROPS[ek + '@mod'].vals[0] = .29; dev.end();
+  const back = Math.abs(S.base(PROPS[ek + '@osc1']) - .29) < 1e-12;
+  const vis = [...pageEls.osc1.querySelectorAll('[data-key="' + CSS.escape(ek) + '"]')].some(e => !e.hidden);
+  dev.undo(); dev.undo(); dev.undo();
+  line(there && back && e0 !== .44 && dev.shown(ek) === e0, 'Envelope, one model two views: ' + ROW[ek].label + ' of ' + fb.block + ' (the envelope Osc 1 follows) edited on Osc 1 read back on the Mod page and the other way round; undo restored it (control: the value differed).' + (vis ? '' : ' (the followed control is hidden until the page draws)'));
+  // 15. ADR-333: the summed views read the observation view (MOCK). Control: the scope is flat with every source silent.
+  const sm0 = dev.summed(), pk = a => a.reduce((m, x) => Math.max(m, Math.abs(x)), 0);
+  line(sm0 && pk(sm0.scope) > 0 && sm0.bands.some(b => b > 0) && pageEls.mix.querySelectorAll('.sums canvas').length === 2,
+    'Summed views: the Mix page draws the observation view’s summed scope (peak ' + pk(sm0.scope).toFixed(2) + ') and spectrum, MOCK; two canvases above the console.');
+  // 16. The ledger (B593) renders every row, grouped by area.
+  const lrows = pageEls.ledger.querySelectorAll('[data-ledger]').length;
+  line(lrows === DATA.ledger.rows.length && lrows > 0, 'Port ledger: ' + lrows + ' rows rendered in ' + new Set(DATA.ledger.rows.map(r => r.area)).size + ' areas (control: the data has ' + DATA.ledger.rows.length + ').');
   // 13. The page bar (B589): an old link's page id opens its page under its group, and the group remembers it.
   selectPage('noise'); const nv = nav.get(); selectPage('main'); const nm2 = nav.get();
   line(nv.group === 'osc' && nv.page === 'noise' && nm2.group === 'main', 'Page nav: #noise opens Noise under Osc (' + nv.group + ' / ' + nv.page + '); Main is its own group (control: ' + nm2.group + ').');
