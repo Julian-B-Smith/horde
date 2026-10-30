@@ -148,6 +148,301 @@ window.GUI3_DATA = {
   "note": "No `desc` column exists for horde 2's parameters yet (B582): the info box shows each row's own SPEC-ENGINE text, marked as such, and every host parameter counts as a missing description.",
   "spec_text_missing": 2
  },
+ "ledger": {
+  "format": "horde.gui3-port-ledger/1",
+  "note": "GUI 3's port ledger (ADR-333, ROADMAP B593): everything not yet moved over into the shell, where it lives today and why it has not moved. Seeded 2026-10-30 from the human's list (their words in `asked`), plus the gaps found in the shell. A row leaves only when its item ships in the shell. tools/gen_gui3_controls.py --check holds every row to a reason from `reasons`, a sentence, a source path that exists (or \"nowhere yet\"), a ROADMAP row and a status; `partial` names what is missing. `precise` marks an item the human asked to be copied precisely, not re-derived.",
+  "reasons": {
+   "ds-component": "waiting on a design-system component",
+   "engine-audio": "waiting on the engine or audio",
+   "ruling": "waiting on a ruling",
+   "sibling-manifest": "waiting on a sibling's manifest",
+   "spec-table": "waiting on a spec table",
+   "unscheduled": "not yet scheduled"
+  },
+  "rows": [
+   {
+    "area": "Morph",
+    "asked": "Deeper morph interface with parameter boundaries",
+    "id": "morph-editor",
+    "item": "Deeper morph interface with parameter boundaries (the quantum boundaries, the waypoints, the blend maps)",
+    "missing": "The shell's Morph page has D.2's settings, the corners and snapshots; the large pad, the quantum boundaries, the cross-section and the blend maps are not there.",
+    "reason": "ruling",
+    "roadmap": "B269",
+    "source": [
+     "docs/design/morph-editor-lab.html",
+     "docs/design/morph-blend-demo.html"
+    ],
+    "status": "partial",
+    "why": "The morph editor's rounds (B268, B269) and the architecture-follows-the-morph proposal (B585) are not ratified; the Morph page's design is B581 step 3."
+   },
+   {
+    "area": "Morph",
+    "asked": "Random page interface (whether we fold it into morph or keep it)",
+    "id": "random-page",
+    "item": "The Randomize panel (levels, chaos and amount, locks, randomization presets, copying a level between corners)",
+    "reason": "ruling",
+    "roadmap": "B578",
+    "source": [
+     "docs/design/random-lab.html"
+    ],
+    "status": "not-moved",
+    "why": "ADR-322 folds it into the Morph page; the Random lab's next round (ADR-320, ADR-321, ADR-322 item 1) is still being ruled, so the shell shows a placeholder card."
+   },
+   {
+    "area": "Set",
+    "asked": "Settings page (currently not working)",
+    "id": "settings",
+    "item": "The Settings page",
+    "missing": "The Set tab's click (one line in the shell's page bar build, slice 5's out of scope), and every setting beyond polyphony and quality.",
+    "reason": "unscheduled",
+    "roadmap": "B261",
+    "source": [
+     "docs/design/gui3.html",
+     "src/gui/gui2.html"
+    ],
+    "status": "partial",
+    "why": "What is broken: the Set tab opens nothing. Its page bar group is `set` with one page whose id is `settings`; a one-page group in Page nav is its own page (id `set`), so a click asks the shell for page `set`, which does not exist, and the page stays as it was. The hash `#settings` opens it. Its content is two Device rows (polyphony, quality); the settings lab and file manager (B261) are not designed."
+   },
+   {
+    "area": "Mix",
+    "asked": "Gain staging on the mixer",
+    "id": "gain-staging",
+    "item": "Gain staging on the mixer (a meter and a clip warning at every stage, the gain bars)",
+    "reason": "engine-audio",
+    "roadmap": "B225",
+    "source": [
+     "docs/design/mixer-lab.html",
+     "docs/design/arp-face/bundle.js"
+    ],
+    "status": "not-moved",
+    "why": "The Gain staging component exists in the design system (B544, B549); it reads every tap's peak and latch, which the engine publishes per stage (IF-6, RC-8) and the stub cannot; the mixer's ranges wait on RC-2 (B402)."
+   },
+   {
+    "area": "Osc",
+    "asked": "All osc visualizers (scalpel, phase carpet, etc.) - and the ones recently added didn't port over the full capability of the kuro visualizer from the scalpel lab, with its circular representation of blade, etc.; I really liked the aesthetics and functionality from the scalpel lab and would like to copy it pretty precisely",
+    "id": "osc-visualizers",
+    "item": "All the oscillator visualizers: the Kuramoto ring with its circular representation of the blades, the phase carpet, the voice map, the members-at-phase view, the R-hued beam",
+    "missing": "The bench's ring as drawn (blade arcs on the rim, cross-mod arrows, the XY gesture), the phase carpet, the voice map, members at phase, the R-hued beam.",
+    "precise": true,
+    "reason": "engine-audio",
+    "roadmap": "B293",
+    "source": [
+     "docs/design/scalpel-interface-lab.html"
+    ],
+    "status": "partial",
+    "why": "They draw the engine's rendered state (RC-8: members' phases, each blade's window, the frame angle); the shell has no audio, so the ring today is a SAMPLE drawing without the blades' rim arcs, the click-to-set XY or the carpet. To be copied precisely from the bench, not re-derived (ADR-333)."
+   },
+   {
+    "area": "Main",
+    "asked": "Specimen XY from the scalpel lab on main",
+    "id": "specimen-xy",
+    "item": "The Specimen XY on Main (the XY pad over the Specimen, ADR-139)",
+    "precise": true,
+    "reason": "engine-audio",
+    "roadmap": "B74",
+    "source": [
+     "docs/design/scalpel-interface-lab.html",
+     "src/gui/gui2.html"
+    ],
+    "status": "not-moved",
+    "why": "The Specimen is voice-bound: it draws what the voices render (ADR-262 ruling 1), so it waits on audio; to be copied precisely from the bench (ADR-333)."
+   },
+   {
+    "area": "Main",
+    "asked": "Almost everything else from main",
+    "id": "main-rest",
+    "item": "Almost everything else from Main (the performance page: the pad, the macros, the Specimen, the voice's performance controls)",
+    "missing": "The pad as Main's centre, the macros, the Specimen, the output section; the voice and ENV 1 are there.",
+    "reason": "unscheduled",
+    "roadmap": "B581",
+    "source": [
+     "src/gui/gui2.html",
+     "docs/design/scalpel-interface-lab.html"
+    ],
+    "status": "partial",
+    "why": "Main's design is B581 step 2; the shell's Main has the voice and ENV 1 only."
+   },
+   {
+    "area": "Main",
+    "asked": "Bend law section with visuals, a la horde legacy (not sure where is best)",
+    "id": "bend-law",
+    "item": "The bend law section with its visuals, as in horde legacy (the bend graphs, glide, the scale quantizer)",
+    "reason": "spec-table",
+    "roadmap": "B504",
+    "source": [
+     "src/gui/gui2.html",
+     "docs/design/bend-lab.html"
+    ],
+    "status": "not-moved",
+    "why": "The pitch system is a reserved contract (RC-3), outside SPEC-ENGINE 5: its bend, glide and quantizer rows have no table yet (B586), and where the section belongs is the human's open question."
+   },
+   {
+    "area": "Osc",
+    "asked": "Filters",
+    "id": "filters",
+    "item": "The filters (two per voice, Weir's types)",
+    "reason": "sibling-manifest",
+    "roadmap": "B567",
+    "source": [
+     "docs/design/filter-lab.html"
+    ],
+    "status": "not-moved",
+    "why": "The filters move to Weir (B567, ADR-307); Weir has no machine-readable manifest yet, so the Filters page lists none (RC-1)."
+   },
+   {
+    "area": "FX",
+    "asked": "FX modules",
+    "id": "fx-modules",
+    "item": "The FX modules' screens and their morph and modulation states",
+    "missing": "Each module's own screen (a labelled placeholder today), the chain view, and Sluice and Weir, which have no manifest.",
+    "reason": "ruling",
+    "roadmap": "B591",
+    "source": [
+     "docs/design/fx-chain-morph-lab-r3.html",
+     "docs/design/fx-screens-workshop.html",
+     "docs/design/maw-horde-lab.html",
+     "docs/design/sluice-horde-lab.html"
+    ],
+    "status": "partial",
+    "why": "How morph and modulation show on a module's glass is B591's design; Echo, Scape, Shriek and Bulwark's parameters are in the shell as house-style DOM views since slice 4a."
+   },
+   {
+    "area": "FX",
+    "asked": "FX modules",
+    "id": "sluice",
+    "item": "Sluice's controls",
+    "reason": "sibling-manifest",
+    "roadmap": "B510",
+    "source": [
+     "docs/design/sluice-horde-lab.html"
+    ],
+    "status": "not-moved",
+    "why": "No machine-readable manifest found in Sluice's tree (2026-10-30), so nothing is generated for it."
+   },
+   {
+    "area": "Mod",
+    "asked": "All modulators",
+    "id": "modulators",
+    "item": "All the modulators: the LFOs, the modulator family's editors, the mod matrix and its routes page",
+    "missing": "The LFOs and the other modulators, the matrix, the routes page; ENV 1 to ENV 4 and the bank are there.",
+    "reason": "spec-table",
+    "roadmap": "B586",
+    "source": [
+     "docs/design/modulator-lab.html",
+     "docs/design/mod-matrix-lab.html"
+    ],
+    "status": "partial",
+    "why": "The LFOs, the matrix and every route are deferred from the engine (RC-4) and have no rows in a table (B586 drafts one); the shell has ENV 2 to ENV 4, the bank and its map handle."
+   },
+   {
+    "area": "Chrome",
+    "asked": "The quick map selector at the top, from one of the recent labs",
+    "id": "quick-map",
+    "item": "The quick map selector at the top (the persistent MAP control and its source selector)",
+    "reason": "unscheduled",
+    "roadmap": "B532",
+    "source": [
+     "docs/design-system/HORDE-Map-Mode.html",
+     "docs/design/arp-face/bundle.js"
+    ],
+    "status": "not-moved",
+    "why": "The Map Mode spec's persistent MAP control is the design system's MapControl; no recent lab in docs/design mounts it, so which lab the human means is a question. The shell maps by the bank's handle today; the mod map is B581 step 1."
+   },
+   {
+    "area": "Hist",
+    "asked": "",
+    "id": "history",
+    "item": "The History page (the undo tree, the rail graph, coalescing)",
+    "reason": "unscheduled",
+    "roadmap": "B119",
+    "source": [
+     "src/gui/gui2.html"
+    ],
+    "status": "not-moved",
+    "why": "The shell keeps a flat undo stack in the adapter; the page bar omits Hist because no page exists."
+   },
+   {
+    "area": "Morph",
+    "asked": "",
+    "id": "morph-mode",
+    "item": "The per-parameter morph mode (Follow, Quantum, Exempt) on every morphing control",
+    "reason": "ruling",
+    "roadmap": "B557",
+    "source": [
+     "docs/design/page-chrome-lab.html"
+    ],
+    "status": "not-moved",
+    "why": "B557's open questions (what Exempt holds, Quantum on a structural row) are not ruled; D.4 (MO-11) states each key's mode in the spec."
+   },
+   {
+    "area": "Mod",
+    "asked": "",
+    "id": "macros",
+    "item": "Macros and the intent bus (the bank's Macros view)",
+    "reason": "spec-table",
+    "roadmap": "B89",
+    "source": [
+     "reference/intent-bus.html",
+     "specs/SPEC-MODULE-MACROS.md"
+    ],
+    "status": "not-moved",
+    "why": "The macros and the intent bus are deferred from the engine (RC-4) and have no rows; the bank's Macros switch says so."
+   },
+   {
+    "area": "Chrome",
+    "asked": "",
+    "id": "descriptions",
+    "item": "Parameter descriptions in the info box (the `desc` column)",
+    "reason": "spec-table",
+    "roadmap": "B582",
+    "source": [
+     "nowhere yet"
+    ],
+    "status": "not-moved",
+    "why": "No `desc` column exists for horde 2's parameters; the info box shows each row's spec text and counts the gap (317 of 317)."
+   },
+   {
+    "area": "Chrome",
+    "asked": "",
+    "id": "manual",
+    "item": "Right-click \"Open in manual\" opening the manual at the control",
+    "reason": "unscheduled",
+    "roadmap": "B583",
+    "source": [
+     "docs/manual/01-welcome.md"
+    ],
+    "status": "not-moved",
+    "why": "The manual's HTML pages and their per-control anchors (B451) do not exist; the menu item is a stub."
+   },
+   {
+    "area": "Mod",
+    "asked": "",
+    "id": "arp-page",
+    "item": "Arp's page placement",
+    "missing": "A ruled place and a designed page; its 47 settings are generated and reachable.",
+    "reason": "ruling",
+    "roadmap": "B584",
+    "source": [
+     "docs/design/gui3.html"
+    ],
+    "status": "partial",
+    "why": "The ruled page set has no Arp page; it sits under Mod as a draft until the human rules."
+   },
+   {
+    "area": "Engine",
+    "asked": "",
+    "id": "audio",
+    "item": "Sound: the WebAssembly engine behind the seam (meters, scopes and the voice-bound views become real)",
+    "reason": "engine-audio",
+    "roadmap": "B494",
+    "source": [
+     "engine2/wasm/README.md"
+    ],
+    "status": "not-moved",
+    "why": "The WebAssembly build waits for the clean room's stage 8 (IF-10, ADR-280); until then every meter, scope and spectrum in the shell is MOCK or SAMPLE."
+   }
+  ]
+ },
  "nav": [
   {
    "id": "main",
@@ -203,6 +498,13 @@ window.GUI3_DATA = {
    "pages": [
     "settings"
    ]
+  },
+  {
+   "id": "ledger",
+   "label": "Ledger",
+   "pages": [
+    "ledger"
+   ]
   }
  ],
  "pages": [
@@ -214,6 +516,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "voice.mode",
        "live": null,
        "override": null,
@@ -224,6 +527,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "voice.gravity",
        "live": null,
        "override": null,
@@ -234,6 +538,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "out.level",
        "live": null,
        "override": null,
@@ -243,6 +548,7 @@ window.GUI3_DATA = {
        "widget": "knob"
       }
      ],
+     "follow": null,
      "master": false,
      "num": null,
      "rule": null,
@@ -257,6 +563,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "env1.attack",
        "live": null,
        "override": null,
@@ -267,6 +574,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "env1.hold",
        "live": null,
        "override": null,
@@ -277,6 +585,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "env1.decay",
        "live": null,
        "override": null,
@@ -287,6 +596,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "env1.sustain",
        "live": null,
        "override": null,
@@ -297,6 +607,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "env1.release",
        "live": null,
        "override": null,
@@ -307,6 +618,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "env1.attackCurve",
        "live": null,
        "override": null,
@@ -317,6 +629,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "env1.decayCurve",
        "live": null,
        "override": null,
@@ -327,6 +640,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "env1.releaseCurve",
        "live": null,
        "override": null,
@@ -337,6 +651,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "env1.velocity",
        "live": null,
        "override": null,
@@ -346,6 +661,7 @@ window.GUI3_DATA = {
        "widget": "knob"
       }
      ],
+     "follow": null,
      "master": false,
      "num": null,
      "rule": null,
@@ -384,6 +700,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.on",
        "live": null,
        "override": null,
@@ -394,6 +711,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "mix.osc1",
        "live": null,
        "override": null,
@@ -404,6 +722,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.detune",
        "live": null,
        "override": null,
@@ -414,6 +733,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.coupling",
        "live": null,
        "override": null,
@@ -421,8 +741,237 @@ window.GUI3_DATA = {
        "size": "utility",
        "sub": null,
        "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 1",
+       "key": "env1.attack",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 1",
+       "key": "env1.decay",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 1",
+       "key": "env1.sustain",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 1",
+       "key": "env1.release",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 2",
+       "key": "env2.attack",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 2",
+       "key": "env2.decay",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 2",
+       "key": "env2.sustain",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 2",
+       "key": "env2.release",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 3",
+       "key": "env3.attack",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 3",
+       "key": "env3.decay",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 3",
+       "key": "env3.sustain",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 3",
+       "key": "env3.release",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 4",
+       "key": "env4.attack",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 4",
+       "key": "env4.decay",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 4",
+       "key": "env4.sustain",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 4",
+       "key": "env4.release",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
       }
      ],
+     "follow": {
+      "options": {
+       "ENV 1": {
+        "block": "env1",
+        "viz": {
+         "a": "env1.attack",
+         "ac": "env1.attackCurve",
+         "d": "env1.decay",
+         "dc": "env1.decayCurve",
+         "r": "env1.release",
+         "rc": "env1.releaseCurve",
+         "s": "env1.sustain"
+        }
+       },
+       "ENV 2": {
+        "block": "env2",
+        "viz": {
+         "a": "env2.attack",
+         "ac": "env2.attackCurve",
+         "d": "env2.decay",
+         "dc": "env2.decayCurve",
+         "r": "env2.release",
+         "rc": "env2.releaseCurve",
+         "s": "env2.sustain"
+        }
+       },
+       "ENV 3": {
+        "block": "env3",
+        "viz": {
+         "a": "env3.attack",
+         "ac": "env3.attackCurve",
+         "d": "env3.decay",
+         "dc": "env3.decayCurve",
+         "r": "env3.release",
+         "rc": "env3.releaseCurve",
+         "s": "env3.sustain"
+        }
+       },
+       "ENV 4": {
+        "block": "env4",
+        "viz": {
+         "a": "env4.attack",
+         "ac": "env4.attackCurve",
+         "d": "env4.decay",
+         "dc": "env4.decayCurve",
+         "r": "env4.release",
+         "rc": "env4.releaseCurve",
+         "s": "env4.sustain"
+        }
+       }
+      },
+      "selector": "osc1.env"
+     },
      "master": false,
      "num": null,
      "rule": null,
@@ -445,6 +994,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.on",
        "live": null,
        "override": null,
@@ -455,6 +1005,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "mix.osc2",
        "live": null,
        "override": null,
@@ -465,6 +1016,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.detune",
        "live": null,
        "override": null,
@@ -475,6 +1027,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.coupling",
        "live": null,
        "override": null,
@@ -482,8 +1035,237 @@ window.GUI3_DATA = {
        "size": "utility",
        "sub": null,
        "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 1",
+       "key": "env1.attack",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 1",
+       "key": "env1.decay",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 1",
+       "key": "env1.sustain",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 1",
+       "key": "env1.release",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 2",
+       "key": "env2.attack",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 2",
+       "key": "env2.decay",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 2",
+       "key": "env2.sustain",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 2",
+       "key": "env2.release",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 3",
+       "key": "env3.attack",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 3",
+       "key": "env3.decay",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 3",
+       "key": "env3.sustain",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 3",
+       "key": "env3.release",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 4",
+       "key": "env4.attack",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 4",
+       "key": "env4.decay",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 4",
+       "key": "env4.sustain",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 4",
+       "key": "env4.release",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
       }
      ],
+     "follow": {
+      "options": {
+       "ENV 1": {
+        "block": "env1",
+        "viz": {
+         "a": "env1.attack",
+         "ac": "env1.attackCurve",
+         "d": "env1.decay",
+         "dc": "env1.decayCurve",
+         "r": "env1.release",
+         "rc": "env1.releaseCurve",
+         "s": "env1.sustain"
+        }
+       },
+       "ENV 2": {
+        "block": "env2",
+        "viz": {
+         "a": "env2.attack",
+         "ac": "env2.attackCurve",
+         "d": "env2.decay",
+         "dc": "env2.decayCurve",
+         "r": "env2.release",
+         "rc": "env2.releaseCurve",
+         "s": "env2.sustain"
+        }
+       },
+       "ENV 3": {
+        "block": "env3",
+        "viz": {
+         "a": "env3.attack",
+         "ac": "env3.attackCurve",
+         "d": "env3.decay",
+         "dc": "env3.decayCurve",
+         "r": "env3.release",
+         "rc": "env3.releaseCurve",
+         "s": "env3.sustain"
+        }
+       },
+       "ENV 4": {
+        "block": "env4",
+        "viz": {
+         "a": "env4.attack",
+         "ac": "env4.attackCurve",
+         "d": "env4.decay",
+         "dc": "env4.decayCurve",
+         "r": "env4.release",
+         "rc": "env4.releaseCurve",
+         "s": "env4.sustain"
+        }
+       }
+      },
+      "selector": "osc2.env"
+     },
      "master": false,
      "num": null,
      "rule": null,
@@ -506,6 +1288,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "sub.on",
        "live": null,
        "override": null,
@@ -516,6 +1299,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "mix.sub",
        "live": null,
        "override": null,
@@ -526,6 +1310,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "sub.pulseWidth",
        "live": null,
        "override": null,
@@ -533,8 +1318,237 @@ window.GUI3_DATA = {
        "size": "utility",
        "sub": null,
        "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 1",
+       "key": "env1.attack",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 1",
+       "key": "env1.decay",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 1",
+       "key": "env1.sustain",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 1",
+       "key": "env1.release",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 2",
+       "key": "env2.attack",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 2",
+       "key": "env2.decay",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 2",
+       "key": "env2.sustain",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 2",
+       "key": "env2.release",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 3",
+       "key": "env3.attack",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 3",
+       "key": "env3.decay",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 3",
+       "key": "env3.sustain",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 3",
+       "key": "env3.release",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 4",
+       "key": "env4.attack",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 4",
+       "key": "env4.decay",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 4",
+       "key": "env4.sustain",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 4",
+       "key": "env4.release",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
       }
      ],
+     "follow": {
+      "options": {
+       "ENV 1": {
+        "block": "env1",
+        "viz": {
+         "a": "env1.attack",
+         "ac": "env1.attackCurve",
+         "d": "env1.decay",
+         "dc": "env1.decayCurve",
+         "r": "env1.release",
+         "rc": "env1.releaseCurve",
+         "s": "env1.sustain"
+        }
+       },
+       "ENV 2": {
+        "block": "env2",
+        "viz": {
+         "a": "env2.attack",
+         "ac": "env2.attackCurve",
+         "d": "env2.decay",
+         "dc": "env2.decayCurve",
+         "r": "env2.release",
+         "rc": "env2.releaseCurve",
+         "s": "env2.sustain"
+        }
+       },
+       "ENV 3": {
+        "block": "env3",
+        "viz": {
+         "a": "env3.attack",
+         "ac": "env3.attackCurve",
+         "d": "env3.decay",
+         "dc": "env3.decayCurve",
+         "r": "env3.release",
+         "rc": "env3.releaseCurve",
+         "s": "env3.sustain"
+        }
+       },
+       "ENV 4": {
+        "block": "env4",
+        "viz": {
+         "a": "env4.attack",
+         "ac": "env4.attackCurve",
+         "d": "env4.decay",
+         "dc": "env4.decayCurve",
+         "r": "env4.release",
+         "rc": "env4.releaseCurve",
+         "s": "env4.sustain"
+        }
+       }
+      },
+      "selector": "sub.env"
+     },
      "master": false,
      "num": null,
      "rule": null,
@@ -557,6 +1571,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "noise.on",
        "live": null,
        "override": null,
@@ -567,6 +1582,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "mix.noise",
        "live": null,
        "override": null,
@@ -577,6 +1593,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "noise.colour",
        "live": null,
        "override": null,
@@ -584,8 +1601,237 @@ window.GUI3_DATA = {
        "size": "utility",
        "sub": null,
        "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 1",
+       "key": "env1.attack",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 1",
+       "key": "env1.decay",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 1",
+       "key": "env1.sustain",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 1",
+       "key": "env1.release",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 2",
+       "key": "env2.attack",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 2",
+       "key": "env2.decay",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 2",
+       "key": "env2.sustain",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 2",
+       "key": "env2.release",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 3",
+       "key": "env3.attack",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 3",
+       "key": "env3.decay",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 3",
+       "key": "env3.sustain",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 3",
+       "key": "env3.release",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 4",
+       "key": "env4.attack",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 4",
+       "key": "env4.decay",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 4",
+       "key": "env4.sustain",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 4",
+       "key": "env4.release",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": "utility",
+       "sub": "Stages",
+       "widget": "knob"
       }
      ],
+     "follow": {
+      "options": {
+       "ENV 1": {
+        "block": "env1",
+        "viz": {
+         "a": "env1.attack",
+         "ac": "env1.attackCurve",
+         "d": "env1.decay",
+         "dc": "env1.decayCurve",
+         "r": "env1.release",
+         "rc": "env1.releaseCurve",
+         "s": "env1.sustain"
+        }
+       },
+       "ENV 2": {
+        "block": "env2",
+        "viz": {
+         "a": "env2.attack",
+         "ac": "env2.attackCurve",
+         "d": "env2.decay",
+         "dc": "env2.decayCurve",
+         "r": "env2.release",
+         "rc": "env2.releaseCurve",
+         "s": "env2.sustain"
+        }
+       },
+       "ENV 3": {
+        "block": "env3",
+        "viz": {
+         "a": "env3.attack",
+         "ac": "env3.attackCurve",
+         "d": "env3.decay",
+         "dc": "env3.decayCurve",
+         "r": "env3.release",
+         "rc": "env3.releaseCurve",
+         "s": "env3.sustain"
+        }
+       },
+       "ENV 4": {
+        "block": "env4",
+        "viz": {
+         "a": "env4.attack",
+         "ac": "env4.attackCurve",
+         "d": "env4.decay",
+         "dc": "env4.decayCurve",
+         "r": "env4.release",
+         "rc": "env4.releaseCurve",
+         "s": "env4.sustain"
+        }
+       }
+      },
+      "selector": "noise.env"
+     },
      "master": false,
      "num": null,
      "rule": null,
@@ -618,6 +1864,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.on",
        "live": null,
        "override": null,
@@ -628,6 +1875,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.unison",
        "live": null,
        "override": null,
@@ -638,6 +1886,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.detune",
        "live": null,
        "override": null,
@@ -648,6 +1897,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.coupling",
        "live": null,
        "override": null,
@@ -658,6 +1908,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.baseWave",
        "live": null,
        "override": null,
@@ -668,6 +1919,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.octave",
        "live": null,
        "override": null,
@@ -678,6 +1930,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.semitone",
        "live": null,
        "override": null,
@@ -688,6 +1941,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.pitch",
        "live": null,
        "override": null,
@@ -698,6 +1952,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.fine",
        "live": null,
        "override": null,
@@ -708,6 +1963,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.pan",
        "live": null,
        "override": null,
@@ -718,6 +1974,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.width",
        "live": null,
        "override": null,
@@ -728,6 +1985,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "mix.osc1",
        "live": null,
        "override": null,
@@ -738,6 +1996,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.mute",
        "live": null,
        "override": null,
@@ -748,6 +2007,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.solo",
        "live": null,
        "override": null,
@@ -758,6 +2018,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.distribution",
        "live": null,
        "override": null,
@@ -768,6 +2029,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.seed",
        "live": null,
        "override": null,
@@ -778,6 +2040,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.detuneLaw",
        "live": null,
        "override": null,
@@ -788,6 +2051,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.detuneRange",
        "live": null,
        "override": null,
@@ -798,6 +2062,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.harmonicReach",
        "live": null,
        "override": null,
@@ -808,6 +2073,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.anchor",
        "live": null,
        "override": null,
@@ -818,6 +2084,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.phaseLag",
        "live": null,
        "override": null,
@@ -828,6 +2095,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.pivot",
        "live": null,
        "override": null,
@@ -838,6 +2106,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.onsetLock",
        "live": null,
        "override": null,
@@ -848,6 +2117,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.dissolve",
        "live": null,
        "override": null,
@@ -858,6 +2128,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.driftDepth",
        "live": null,
        "override": null,
@@ -868,6 +2139,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.driftRate",
        "live": null,
        "override": null,
@@ -878,6 +2150,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.inertia",
        "live": null,
        "override": null,
@@ -888,6 +2161,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.phase",
        "live": null,
        "override": null,
@@ -898,6 +2172,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.phaseRandom",
        "live": null,
        "override": null,
@@ -908,6 +2183,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.retrigger",
        "live": null,
        "override": null,
@@ -918,6 +2194,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.onsetScatter",
        "live": null,
        "override": null,
@@ -928,6 +2205,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.timingCorrection",
        "live": null,
        "override": null,
@@ -938,6 +2216,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.panImage",
        "live": null,
        "override": null,
@@ -948,6 +2227,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.panInvert",
        "live": null,
        "override": null,
@@ -958,6 +2238,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.panMotion",
        "live": null,
        "override": null,
@@ -968,6 +2249,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.bandLimit",
        "live": null,
        "override": null,
@@ -978,6 +2260,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.motionGrain",
        "live": null,
        "override": null,
@@ -988,6 +2271,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.crossMod",
        "live": null,
        "override": null,
@@ -998,6 +2282,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.feedback",
        "live": null,
        "override": null,
@@ -1008,6 +2293,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.loopDrive",
        "live": null,
        "override": null,
@@ -1018,6 +2304,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.spreadLaw",
        "live": null,
        "override": null,
@@ -1028,6 +2315,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.spreadDrift",
        "live": null,
        "override": null,
@@ -1038,6 +2326,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.quantize",
        "live": null,
        "override": null,
@@ -1048,6 +2337,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.stacking",
        "live": null,
        "override": null,
@@ -1058,6 +2348,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.upperHears",
        "live": null,
        "override": null,
@@ -1068,6 +2359,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.collisionPitch",
        "live": null,
        "override": null,
@@ -1078,6 +2370,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.collisionBite",
        "live": null,
        "override": null,
@@ -1085,18 +2378,9 @@ window.GUI3_DATA = {
        "size": null,
        "sub": null,
        "widget": "knob"
-      },
-      {
-       "advanced": true,
-       "key": "osc1.env",
-       "live": null,
-       "override": null,
-       "role": null,
-       "size": null,
-       "sub": null,
-       "widget": "pills"
       }
      ],
+     "follow": null,
      "master": false,
      "num": null,
      "rule": null,
@@ -1111,6 +2395,260 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
+       "key": "osc1.env",
+       "live": null,
+       "override": null,
+       "role": "modes",
+       "size": null,
+       "sub": null,
+       "widget": "pills"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 1",
+       "key": "env1.attack",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 1",
+       "key": "env1.decay",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 1",
+       "key": "env1.sustain",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 1",
+       "key": "env1.release",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 2",
+       "key": "env2.attack",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 2",
+       "key": "env2.decay",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 2",
+       "key": "env2.sustain",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 2",
+       "key": "env2.release",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 3",
+       "key": "env3.attack",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 3",
+       "key": "env3.decay",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 3",
+       "key": "env3.sustain",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 3",
+       "key": "env3.release",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 4",
+       "key": "env4.attack",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 4",
+       "key": "env4.decay",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 4",
+       "key": "env4.sustain",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 4",
+       "key": "env4.release",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      }
+     ],
+     "follow": {
+      "options": {
+       "ENV 1": {
+        "block": "env1",
+        "viz": {
+         "a": "env1.attack",
+         "ac": "env1.attackCurve",
+         "d": "env1.decay",
+         "dc": "env1.decayCurve",
+         "r": "env1.release",
+         "rc": "env1.releaseCurve",
+         "s": "env1.sustain"
+        }
+       },
+       "ENV 2": {
+        "block": "env2",
+        "viz": {
+         "a": "env2.attack",
+         "ac": "env2.attackCurve",
+         "d": "env2.decay",
+         "dc": "env2.decayCurve",
+         "r": "env2.release",
+         "rc": "env2.releaseCurve",
+         "s": "env2.sustain"
+        }
+       },
+       "ENV 3": {
+        "block": "env3",
+        "viz": {
+         "a": "env3.attack",
+         "ac": "env3.attackCurve",
+         "d": "env3.decay",
+         "dc": "env3.decayCurve",
+         "r": "env3.release",
+         "rc": "env3.releaseCurve",
+         "s": "env3.sustain"
+        }
+       },
+       "ENV 4": {
+        "block": "env4",
+        "viz": {
+         "a": "env4.attack",
+         "ac": "env4.attackCurve",
+         "d": "env4.decay",
+         "dc": "env4.decayCurve",
+         "r": "env4.release",
+         "rc": "env4.releaseCurve",
+         "s": "env4.sustain"
+        }
+       }
+      },
+      "selector": "osc1.env"
+     },
+     "master": false,
+     "num": null,
+     "rule": null,
+     "screen": null,
+     "source": null,
+     "strip": null,
+     "tag": "RC-6.5",
+     "title": "Envelope",
+     "viz": null
+    },
+    {
+     "controls": [
+      {
+       "advanced": false,
+       "follow": null,
        "key": "osc1.blade1.on",
        "live": null,
        "override": null,
@@ -1121,6 +2659,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.blade1.mode",
        "live": null,
        "override": null,
@@ -1131,6 +2670,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.blade1.wave",
        "live": null,
        "override": null,
@@ -1141,6 +2681,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.blade1.width",
        "live": null,
        "override": null,
@@ -1151,6 +2692,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.blade1.cut",
        "live": null,
        "override": null,
@@ -1161,6 +2703,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.blade1.position",
        "live": null,
        "override": null,
@@ -1171,6 +2714,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.blade1.depth",
        "live": null,
        "override": null,
@@ -1181,6 +2725,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.blade1.edges",
        "live": null,
        "override": null,
@@ -1191,6 +2736,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.blade1.mirror",
        "live": null,
        "override": null,
@@ -1201,6 +2747,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.blade1.fmDepth",
        "live": null,
        "override": null,
@@ -1211,6 +2758,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.blade1.modRate",
        "live": null,
        "override": null,
@@ -1221,6 +2769,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.blade1.positionSpread",
        "live": null,
        "override": null,
@@ -1231,6 +2780,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.blade1.cutSpread",
        "live": null,
        "override": null,
@@ -1241,6 +2791,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade1.shape",
        "live": null,
        "override": null,
@@ -1251,6 +2802,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade1.cutIn",
        "live": null,
        "override": null,
@@ -1261,6 +2813,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade1.cutHz",
        "live": null,
        "override": null,
@@ -1271,6 +2824,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade1.frame",
        "live": null,
        "override": null,
@@ -1281,6 +2835,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade1.rotate",
        "live": null,
        "override": null,
@@ -1291,6 +2846,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade1.rotation",
        "live": null,
        "override": null,
@@ -1301,6 +2857,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade1.fmType",
        "live": null,
        "override": null,
@@ -1311,6 +2868,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade1.modShape",
        "live": null,
        "override": null,
@@ -1321,6 +2879,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade1.modIn",
        "live": null,
        "override": null,
@@ -1331,6 +2890,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade1.modRateHz",
        "live": null,
        "override": null,
@@ -1341,6 +2901,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade1.cutRule",
        "live": null,
        "override": null,
@@ -1351,6 +2912,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade1.ruleDepth",
        "live": null,
        "override": null,
@@ -1361,6 +2923,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade1.widthSpread",
        "live": null,
        "override": null,
@@ -1371,6 +2934,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade1.depthSpread",
        "live": null,
        "override": null,
@@ -1381,6 +2945,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade1.shapeSpread",
        "live": null,
        "override": null,
@@ -1391,6 +2956,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade1.fmIndexSpread",
        "live": null,
        "override": null,
@@ -1401,6 +2967,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade1.rotateSpread",
        "live": null,
        "override": null,
@@ -1410,6 +2977,7 @@ window.GUI3_DATA = {
        "widget": "knob"
       }
      ],
+     "follow": null,
      "master": false,
      "num": 1,
      "rule": "solid",
@@ -1424,6 +2992,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.blade2.on",
        "live": null,
        "override": null,
@@ -1434,6 +3003,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.blade2.mode",
        "live": null,
        "override": null,
@@ -1444,6 +3014,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.blade2.wave",
        "live": null,
        "override": null,
@@ -1454,6 +3025,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.blade2.width",
        "live": null,
        "override": null,
@@ -1464,6 +3036,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.blade2.cut",
        "live": null,
        "override": null,
@@ -1474,6 +3047,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.blade2.position",
        "live": null,
        "override": null,
@@ -1484,6 +3058,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.blade2.depth",
        "live": null,
        "override": null,
@@ -1494,6 +3069,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.blade2.edges",
        "live": null,
        "override": null,
@@ -1504,6 +3080,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.blade2.mirror",
        "live": null,
        "override": null,
@@ -1514,6 +3091,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.blade2.fmDepth",
        "live": null,
        "override": null,
@@ -1524,6 +3102,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.blade2.modRate",
        "live": null,
        "override": null,
@@ -1534,6 +3113,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade2.shape",
        "live": null,
        "override": null,
@@ -1544,6 +3124,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade2.cutIn",
        "live": null,
        "override": null,
@@ -1554,6 +3135,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade2.cutHz",
        "live": null,
        "override": null,
@@ -1564,6 +3146,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade2.frame",
        "live": null,
        "override": null,
@@ -1574,6 +3157,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade2.rotate",
        "live": null,
        "override": null,
@@ -1584,6 +3168,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade2.rotation",
        "live": null,
        "override": null,
@@ -1594,6 +3179,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade2.fmType",
        "live": null,
        "override": null,
@@ -1604,6 +3190,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade2.modShape",
        "live": null,
        "override": null,
@@ -1614,6 +3201,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade2.modIn",
        "live": null,
        "override": null,
@@ -1624,6 +3212,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade2.modRateHz",
        "live": null,
        "override": null,
@@ -1634,6 +3223,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade2.positionSpread",
        "live": null,
        "override": null,
@@ -1644,6 +3234,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade2.cutSpread",
        "live": null,
        "override": null,
@@ -1654,6 +3245,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade2.cutRule",
        "live": null,
        "override": null,
@@ -1664,6 +3256,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade2.ruleDepth",
        "live": null,
        "override": null,
@@ -1674,6 +3267,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade2.widthSpread",
        "live": null,
        "override": null,
@@ -1684,6 +3278,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade2.depthSpread",
        "live": null,
        "override": null,
@@ -1694,6 +3289,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade2.shapeSpread",
        "live": null,
        "override": null,
@@ -1704,6 +3300,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade2.fmIndexSpread",
        "live": null,
        "override": null,
@@ -1714,6 +3311,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade2.rotateSpread",
        "live": null,
        "override": null,
@@ -1724,6 +3322,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade2.fmSource",
        "live": null,
        "override": null,
@@ -1734,6 +3333,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc1.blade2.spreadSource",
        "live": null,
        "override": null,
@@ -1743,6 +3343,7 @@ window.GUI3_DATA = {
        "widget": "pills"
       }
      ],
+     "follow": null,
      "master": false,
      "num": 2,
      "rule": "dash",
@@ -1778,6 +3379,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.on",
        "live": null,
        "override": null,
@@ -1788,6 +3390,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.unison",
        "live": null,
        "override": null,
@@ -1798,6 +3401,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.detune",
        "live": null,
        "override": null,
@@ -1808,6 +3412,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.coupling",
        "live": null,
        "override": null,
@@ -1818,6 +3423,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.baseWave",
        "live": null,
        "override": null,
@@ -1828,6 +3434,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.octave",
        "live": null,
        "override": null,
@@ -1838,6 +3445,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.semitone",
        "live": null,
        "override": null,
@@ -1848,6 +3456,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.pitch",
        "live": null,
        "override": null,
@@ -1858,6 +3467,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.fine",
        "live": null,
        "override": null,
@@ -1868,6 +3478,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.pan",
        "live": null,
        "override": null,
@@ -1878,6 +3489,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.width",
        "live": null,
        "override": null,
@@ -1888,6 +3500,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "mix.osc2",
        "live": null,
        "override": null,
@@ -1898,6 +3511,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.mute",
        "live": null,
        "override": null,
@@ -1908,6 +3522,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.solo",
        "live": null,
        "override": null,
@@ -1918,6 +3533,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.distribution",
        "live": null,
        "override": null,
@@ -1928,6 +3544,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.seed",
        "live": null,
        "override": null,
@@ -1938,6 +3555,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.detuneLaw",
        "live": null,
        "override": null,
@@ -1948,6 +3566,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.detuneRange",
        "live": null,
        "override": null,
@@ -1958,6 +3577,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.harmonicReach",
        "live": null,
        "override": null,
@@ -1968,6 +3588,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.anchor",
        "live": null,
        "override": null,
@@ -1978,6 +3599,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.phaseLag",
        "live": null,
        "override": null,
@@ -1988,6 +3610,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.pivot",
        "live": null,
        "override": null,
@@ -1998,6 +3621,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.onsetLock",
        "live": null,
        "override": null,
@@ -2008,6 +3632,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.dissolve",
        "live": null,
        "override": null,
@@ -2018,6 +3643,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.driftDepth",
        "live": null,
        "override": null,
@@ -2028,6 +3654,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.driftRate",
        "live": null,
        "override": null,
@@ -2038,6 +3665,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.inertia",
        "live": null,
        "override": null,
@@ -2048,6 +3676,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.phase",
        "live": null,
        "override": null,
@@ -2058,6 +3687,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.phaseRandom",
        "live": null,
        "override": null,
@@ -2068,6 +3698,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.retrigger",
        "live": null,
        "override": null,
@@ -2078,6 +3709,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.onsetScatter",
        "live": null,
        "override": null,
@@ -2088,6 +3720,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.timingCorrection",
        "live": null,
        "override": null,
@@ -2098,6 +3731,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.panImage",
        "live": null,
        "override": null,
@@ -2108,6 +3742,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.panInvert",
        "live": null,
        "override": null,
@@ -2118,6 +3753,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.panMotion",
        "live": null,
        "override": null,
@@ -2128,6 +3764,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.bandLimit",
        "live": null,
        "override": null,
@@ -2138,6 +3775,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.motionGrain",
        "live": null,
        "override": null,
@@ -2148,6 +3786,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.crossMod",
        "live": null,
        "override": null,
@@ -2158,6 +3797,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.feedback",
        "live": null,
        "override": null,
@@ -2168,6 +3808,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.loopDrive",
        "live": null,
        "override": null,
@@ -2178,6 +3819,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.spreadLaw",
        "live": null,
        "override": null,
@@ -2188,6 +3830,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.spreadDrift",
        "live": null,
        "override": null,
@@ -2198,6 +3841,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.quantize",
        "live": null,
        "override": null,
@@ -2208,6 +3852,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.stacking",
        "live": null,
        "override": null,
@@ -2218,6 +3863,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.upperHears",
        "live": null,
        "override": null,
@@ -2228,6 +3874,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.collisionPitch",
        "live": null,
        "override": null,
@@ -2238,6 +3885,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.collisionBite",
        "live": null,
        "override": null,
@@ -2245,18 +3893,9 @@ window.GUI3_DATA = {
        "size": null,
        "sub": null,
        "widget": "knob"
-      },
-      {
-       "advanced": true,
-       "key": "osc2.env",
-       "live": null,
-       "override": null,
-       "role": null,
-       "size": null,
-       "sub": null,
-       "widget": "pills"
       }
      ],
+     "follow": null,
      "master": false,
      "num": null,
      "rule": null,
@@ -2271,6 +3910,260 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
+       "key": "osc2.env",
+       "live": null,
+       "override": null,
+       "role": "modes",
+       "size": null,
+       "sub": null,
+       "widget": "pills"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 1",
+       "key": "env1.attack",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 1",
+       "key": "env1.decay",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 1",
+       "key": "env1.sustain",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 1",
+       "key": "env1.release",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 2",
+       "key": "env2.attack",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 2",
+       "key": "env2.decay",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 2",
+       "key": "env2.sustain",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 2",
+       "key": "env2.release",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 3",
+       "key": "env3.attack",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 3",
+       "key": "env3.decay",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 3",
+       "key": "env3.sustain",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 3",
+       "key": "env3.release",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 4",
+       "key": "env4.attack",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 4",
+       "key": "env4.decay",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 4",
+       "key": "env4.sustain",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 4",
+       "key": "env4.release",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      }
+     ],
+     "follow": {
+      "options": {
+       "ENV 1": {
+        "block": "env1",
+        "viz": {
+         "a": "env1.attack",
+         "ac": "env1.attackCurve",
+         "d": "env1.decay",
+         "dc": "env1.decayCurve",
+         "r": "env1.release",
+         "rc": "env1.releaseCurve",
+         "s": "env1.sustain"
+        }
+       },
+       "ENV 2": {
+        "block": "env2",
+        "viz": {
+         "a": "env2.attack",
+         "ac": "env2.attackCurve",
+         "d": "env2.decay",
+         "dc": "env2.decayCurve",
+         "r": "env2.release",
+         "rc": "env2.releaseCurve",
+         "s": "env2.sustain"
+        }
+       },
+       "ENV 3": {
+        "block": "env3",
+        "viz": {
+         "a": "env3.attack",
+         "ac": "env3.attackCurve",
+         "d": "env3.decay",
+         "dc": "env3.decayCurve",
+         "r": "env3.release",
+         "rc": "env3.releaseCurve",
+         "s": "env3.sustain"
+        }
+       },
+       "ENV 4": {
+        "block": "env4",
+        "viz": {
+         "a": "env4.attack",
+         "ac": "env4.attackCurve",
+         "d": "env4.decay",
+         "dc": "env4.decayCurve",
+         "r": "env4.release",
+         "rc": "env4.releaseCurve",
+         "s": "env4.sustain"
+        }
+       }
+      },
+      "selector": "osc2.env"
+     },
+     "master": false,
+     "num": null,
+     "rule": null,
+     "screen": null,
+     "source": null,
+     "strip": null,
+     "tag": "RC-6.5",
+     "title": "Envelope",
+     "viz": null
+    },
+    {
+     "controls": [
+      {
+       "advanced": false,
+       "follow": null,
        "key": "osc2.blade1.on",
        "live": null,
        "override": null,
@@ -2281,6 +4174,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.blade1.mode",
        "live": null,
        "override": null,
@@ -2291,6 +4185,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.blade1.wave",
        "live": null,
        "override": null,
@@ -2301,6 +4196,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.blade1.width",
        "live": null,
        "override": null,
@@ -2311,6 +4207,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.blade1.cut",
        "live": null,
        "override": null,
@@ -2321,6 +4218,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.blade1.position",
        "live": null,
        "override": null,
@@ -2331,6 +4229,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.blade1.depth",
        "live": null,
        "override": null,
@@ -2341,6 +4240,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.blade1.edges",
        "live": null,
        "override": null,
@@ -2351,6 +4251,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.blade1.mirror",
        "live": null,
        "override": null,
@@ -2361,6 +4262,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.blade1.fmDepth",
        "live": null,
        "override": null,
@@ -2371,6 +4273,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.blade1.modRate",
        "live": null,
        "override": null,
@@ -2381,6 +4284,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.blade1.positionSpread",
        "live": null,
        "override": null,
@@ -2391,6 +4295,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.blade1.cutSpread",
        "live": null,
        "override": null,
@@ -2401,6 +4306,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade1.shape",
        "live": null,
        "override": null,
@@ -2411,6 +4317,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade1.cutIn",
        "live": null,
        "override": null,
@@ -2421,6 +4328,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade1.cutHz",
        "live": null,
        "override": null,
@@ -2431,6 +4339,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade1.frame",
        "live": null,
        "override": null,
@@ -2441,6 +4350,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade1.rotate",
        "live": null,
        "override": null,
@@ -2451,6 +4361,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade1.rotation",
        "live": null,
        "override": null,
@@ -2461,6 +4372,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade1.fmType",
        "live": null,
        "override": null,
@@ -2471,6 +4383,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade1.modShape",
        "live": null,
        "override": null,
@@ -2481,6 +4394,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade1.modIn",
        "live": null,
        "override": null,
@@ -2491,6 +4405,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade1.modRateHz",
        "live": null,
        "override": null,
@@ -2501,6 +4416,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade1.cutRule",
        "live": null,
        "override": null,
@@ -2511,6 +4427,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade1.ruleDepth",
        "live": null,
        "override": null,
@@ -2521,6 +4438,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade1.widthSpread",
        "live": null,
        "override": null,
@@ -2531,6 +4449,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade1.depthSpread",
        "live": null,
        "override": null,
@@ -2541,6 +4460,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade1.shapeSpread",
        "live": null,
        "override": null,
@@ -2551,6 +4471,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade1.fmIndexSpread",
        "live": null,
        "override": null,
@@ -2561,6 +4482,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade1.rotateSpread",
        "live": null,
        "override": null,
@@ -2570,6 +4492,7 @@ window.GUI3_DATA = {
        "widget": "knob"
       }
      ],
+     "follow": null,
      "master": false,
      "num": 1,
      "rule": "solid",
@@ -2584,6 +4507,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.blade2.on",
        "live": null,
        "override": null,
@@ -2594,6 +4518,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.blade2.mode",
        "live": null,
        "override": null,
@@ -2604,6 +4529,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.blade2.wave",
        "live": null,
        "override": null,
@@ -2614,6 +4540,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.blade2.width",
        "live": null,
        "override": null,
@@ -2624,6 +4551,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.blade2.cut",
        "live": null,
        "override": null,
@@ -2634,6 +4562,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.blade2.position",
        "live": null,
        "override": null,
@@ -2644,6 +4573,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.blade2.depth",
        "live": null,
        "override": null,
@@ -2654,6 +4584,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.blade2.edges",
        "live": null,
        "override": null,
@@ -2664,6 +4595,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.blade2.mirror",
        "live": null,
        "override": null,
@@ -2674,6 +4606,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.blade2.fmDepth",
        "live": null,
        "override": null,
@@ -2684,6 +4617,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.blade2.modRate",
        "live": null,
        "override": null,
@@ -2694,6 +4628,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade2.shape",
        "live": null,
        "override": null,
@@ -2704,6 +4639,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade2.cutIn",
        "live": null,
        "override": null,
@@ -2714,6 +4650,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade2.cutHz",
        "live": null,
        "override": null,
@@ -2724,6 +4661,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade2.frame",
        "live": null,
        "override": null,
@@ -2734,6 +4672,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade2.rotate",
        "live": null,
        "override": null,
@@ -2744,6 +4683,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade2.rotation",
        "live": null,
        "override": null,
@@ -2754,6 +4694,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade2.fmType",
        "live": null,
        "override": null,
@@ -2764,6 +4705,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade2.modShape",
        "live": null,
        "override": null,
@@ -2774,6 +4716,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade2.modIn",
        "live": null,
        "override": null,
@@ -2784,6 +4727,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade2.modRateHz",
        "live": null,
        "override": null,
@@ -2794,6 +4738,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade2.positionSpread",
        "live": null,
        "override": null,
@@ -2804,6 +4749,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade2.cutSpread",
        "live": null,
        "override": null,
@@ -2814,6 +4760,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade2.cutRule",
        "live": null,
        "override": null,
@@ -2824,6 +4771,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade2.ruleDepth",
        "live": null,
        "override": null,
@@ -2834,6 +4782,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade2.widthSpread",
        "live": null,
        "override": null,
@@ -2844,6 +4793,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade2.depthSpread",
        "live": null,
        "override": null,
@@ -2854,6 +4804,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade2.shapeSpread",
        "live": null,
        "override": null,
@@ -2864,6 +4815,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade2.fmIndexSpread",
        "live": null,
        "override": null,
@@ -2874,6 +4826,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade2.rotateSpread",
        "live": null,
        "override": null,
@@ -2884,6 +4837,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade2.fmSource",
        "live": null,
        "override": null,
@@ -2894,6 +4848,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": true,
+       "follow": null,
        "key": "osc2.blade2.spreadSource",
        "live": null,
        "override": null,
@@ -2903,6 +4858,7 @@ window.GUI3_DATA = {
        "widget": "pills"
       }
      ],
+     "follow": null,
      "master": false,
      "num": 2,
      "rule": "dash",
@@ -2938,6 +4894,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "sub.on",
        "live": null,
        "override": null,
@@ -2948,6 +4905,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "mix.sub",
        "live": {
         "is": [
@@ -2963,21 +4921,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
-       "key": "sub.env",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
-       "override": null,
-       "role": null,
-       "size": null,
-       "sub": null,
-       "widget": "pills"
-      },
-      {
-       "advanced": false,
+       "follow": null,
        "key": "sub.pan",
        "live": {
         "is": [
@@ -2993,6 +4937,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "sub.mute",
        "live": {
         "is": [
@@ -3008,6 +4953,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "sub.solo",
        "live": {
         "is": [
@@ -3022,6 +4968,7 @@ window.GUI3_DATA = {
        "widget": "toggle"
       }
      ],
+     "follow": null,
      "master": false,
      "num": null,
      "rule": null,
@@ -3036,6 +4983,260 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
+       "key": "sub.env",
+       "live": null,
+       "override": null,
+       "role": "modes",
+       "size": null,
+       "sub": null,
+       "widget": "pills"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 1",
+       "key": "env1.attack",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 1",
+       "key": "env1.decay",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 1",
+       "key": "env1.sustain",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 1",
+       "key": "env1.release",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 2",
+       "key": "env2.attack",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 2",
+       "key": "env2.decay",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 2",
+       "key": "env2.sustain",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 2",
+       "key": "env2.release",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 3",
+       "key": "env3.attack",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 3",
+       "key": "env3.decay",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 3",
+       "key": "env3.sustain",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 3",
+       "key": "env3.release",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 4",
+       "key": "env4.attack",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 4",
+       "key": "env4.decay",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 4",
+       "key": "env4.sustain",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 4",
+       "key": "env4.release",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      }
+     ],
+     "follow": {
+      "options": {
+       "ENV 1": {
+        "block": "env1",
+        "viz": {
+         "a": "env1.attack",
+         "ac": "env1.attackCurve",
+         "d": "env1.decay",
+         "dc": "env1.decayCurve",
+         "r": "env1.release",
+         "rc": "env1.releaseCurve",
+         "s": "env1.sustain"
+        }
+       },
+       "ENV 2": {
+        "block": "env2",
+        "viz": {
+         "a": "env2.attack",
+         "ac": "env2.attackCurve",
+         "d": "env2.decay",
+         "dc": "env2.decayCurve",
+         "r": "env2.release",
+         "rc": "env2.releaseCurve",
+         "s": "env2.sustain"
+        }
+       },
+       "ENV 3": {
+        "block": "env3",
+        "viz": {
+         "a": "env3.attack",
+         "ac": "env3.attackCurve",
+         "d": "env3.decay",
+         "dc": "env3.decayCurve",
+         "r": "env3.release",
+         "rc": "env3.releaseCurve",
+         "s": "env3.sustain"
+        }
+       },
+       "ENV 4": {
+        "block": "env4",
+        "viz": {
+         "a": "env4.attack",
+         "ac": "env4.attackCurve",
+         "d": "env4.decay",
+         "dc": "env4.decayCurve",
+         "r": "env4.release",
+         "rc": "env4.releaseCurve",
+         "s": "env4.sustain"
+        }
+       }
+      },
+      "selector": "sub.env"
+     },
+     "master": false,
+     "num": null,
+     "rule": null,
+     "screen": null,
+     "source": null,
+     "strip": null,
+     "tag": "RC-6.5",
+     "title": "Envelope",
+     "viz": null
+    },
+    {
+     "controls": [
+      {
+       "advanced": false,
+       "follow": null,
        "key": "sub.wave",
        "live": {
         "is": [
@@ -3051,6 +5252,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "sub.pulseWidth",
        "live": {
         "all": [
@@ -3076,6 +5278,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "sub.softness",
        "live": {
         "all": [
@@ -3101,6 +5304,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "sub.bumpHarmonic",
        "live": {
         "all": [
@@ -3126,6 +5330,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "sub.bumpAmount",
        "live": {
         "all": [
@@ -3151,6 +5356,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "sub.bumpPhase",
        "live": {
         "all": [
@@ -3176,6 +5382,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "sub.bump2Harmonic",
        "live": {
         "all": [
@@ -3201,6 +5408,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "sub.bump2Amount",
        "live": {
         "all": [
@@ -3226,6 +5434,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "sub.bump2Phase",
        "live": {
         "all": [
@@ -3250,6 +5459,7 @@ window.GUI3_DATA = {
        "widget": "knob"
       }
      ],
+     "follow": null,
      "master": false,
      "num": null,
      "rule": null,
@@ -3264,6 +5474,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "sub.octave",
        "live": {
         "is": [
@@ -3279,6 +5490,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "sub.semitones",
        "live": {
         "is": [
@@ -3294,6 +5506,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "sub.pitch",
        "live": {
         "is": [
@@ -3309,6 +5522,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "sub.fine",
        "live": {
         "is": [
@@ -3324,6 +5538,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "sub.keytrack",
        "live": {
         "is": [
@@ -3339,6 +5554,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "sub.startPhase",
        "live": {
         "is": [
@@ -3353,6 +5569,7 @@ window.GUI3_DATA = {
        "widget": "knob"
       }
      ],
+     "follow": null,
      "master": false,
      "num": null,
      "rule": null,
@@ -3367,6 +5584,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "sub.voiceMode",
        "live": {
         "is": [
@@ -3382,6 +5600,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "sub.priority",
        "live": {
         "all": [
@@ -3406,6 +5625,7 @@ window.GUI3_DATA = {
        "widget": "pills"
       }
      ],
+     "follow": null,
      "master": false,
      "num": null,
      "rule": null,
@@ -3420,6 +5640,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "sub.order",
        "live": {
         "is": [
@@ -3435,6 +5656,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "sub.erode",
        "live": {
         "is": [
@@ -3450,6 +5672,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "sub.drive",
        "live": {
         "is": [
@@ -3465,6 +5688,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "sub.crunch",
        "live": {
         "is": [
@@ -3480,6 +5704,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "sub.character",
        "live": {
         "all": [
@@ -3503,6 +5728,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "sub.tone",
        "live": {
         "is": [
@@ -3517,6 +5743,7 @@ window.GUI3_DATA = {
        "widget": "knob"
       }
      ],
+     "follow": null,
      "master": false,
      "num": null,
      "rule": null,
@@ -3552,6 +5779,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "noise.on",
        "live": null,
        "override": null,
@@ -3562,6 +5790,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "mix.noise",
        "live": {
         "is": [
@@ -3577,21 +5806,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
-       "key": "noise.env",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
-       "override": null,
-       "role": null,
-       "size": null,
-       "sub": null,
-       "widget": "pills"
-      },
-      {
-       "advanced": false,
+       "follow": null,
        "key": "noise.mute",
        "live": {
         "is": [
@@ -3607,6 +5822,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "noise.solo",
        "live": {
         "is": [
@@ -3621,6 +5837,7 @@ window.GUI3_DATA = {
        "widget": "toggle"
       }
      ],
+     "follow": null,
      "master": false,
      "num": null,
      "rule": null,
@@ -3635,6 +5852,260 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
+       "key": "noise.env",
+       "live": null,
+       "override": null,
+       "role": "modes",
+       "size": null,
+       "sub": null,
+       "widget": "pills"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 1",
+       "key": "env1.attack",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 1",
+       "key": "env1.decay",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 1",
+       "key": "env1.sustain",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 1",
+       "key": "env1.release",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 2",
+       "key": "env2.attack",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 2",
+       "key": "env2.decay",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 2",
+       "key": "env2.sustain",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 2",
+       "key": "env2.release",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 3",
+       "key": "env3.attack",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 3",
+       "key": "env3.decay",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 3",
+       "key": "env3.sustain",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 3",
+       "key": "env3.release",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 4",
+       "key": "env4.attack",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 4",
+       "key": "env4.decay",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 4",
+       "key": "env4.sustain",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      },
+      {
+       "advanced": false,
+       "follow": "ENV 4",
+       "key": "env4.release",
+       "live": null,
+       "override": null,
+       "role": null,
+       "size": null,
+       "sub": "Stages",
+       "widget": "knob"
+      }
+     ],
+     "follow": {
+      "options": {
+       "ENV 1": {
+        "block": "env1",
+        "viz": {
+         "a": "env1.attack",
+         "ac": "env1.attackCurve",
+         "d": "env1.decay",
+         "dc": "env1.decayCurve",
+         "r": "env1.release",
+         "rc": "env1.releaseCurve",
+         "s": "env1.sustain"
+        }
+       },
+       "ENV 2": {
+        "block": "env2",
+        "viz": {
+         "a": "env2.attack",
+         "ac": "env2.attackCurve",
+         "d": "env2.decay",
+         "dc": "env2.decayCurve",
+         "r": "env2.release",
+         "rc": "env2.releaseCurve",
+         "s": "env2.sustain"
+        }
+       },
+       "ENV 3": {
+        "block": "env3",
+        "viz": {
+         "a": "env3.attack",
+         "ac": "env3.attackCurve",
+         "d": "env3.decay",
+         "dc": "env3.decayCurve",
+         "r": "env3.release",
+         "rc": "env3.releaseCurve",
+         "s": "env3.sustain"
+        }
+       },
+       "ENV 4": {
+        "block": "env4",
+        "viz": {
+         "a": "env4.attack",
+         "ac": "env4.attackCurve",
+         "d": "env4.decay",
+         "dc": "env4.decayCurve",
+         "r": "env4.release",
+         "rc": "env4.releaseCurve",
+         "s": "env4.sustain"
+        }
+       }
+      },
+      "selector": "noise.env"
+     },
+     "master": false,
+     "num": null,
+     "rule": null,
+     "screen": null,
+     "source": null,
+     "strip": null,
+     "tag": "RC-6.5",
+     "title": "Envelope",
+     "viz": null
+    },
+    {
+     "controls": [
+      {
+       "advanced": false,
+       "follow": null,
        "key": "noise.type",
        "live": {
         "any": [
@@ -3668,6 +6139,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "noise.density",
        "live": {
         "all": [
@@ -3711,6 +6183,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "noise.rate",
        "live": {
         "all": [
@@ -3754,6 +6227,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "noise.length",
        "live": {
         "all": [
@@ -3797,6 +6271,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "noise.lfsrKeytrack",
        "live": {
         "all": [
@@ -3840,6 +6315,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "noise.colour",
        "live": {
         "any": [
@@ -3873,6 +6349,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "noise.pitch",
        "live": {
         "all": [
@@ -3939,6 +6416,7 @@ window.GUI3_DATA = {
        "widget": "knob"
       }
      ],
+     "follow": null,
      "master": false,
      "num": null,
      "rule": null,
@@ -3953,6 +6431,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "noise.resonator",
        "live": {
         "any": [
@@ -3986,6 +6465,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "noise.feedback",
        "live": {
         "all": [
@@ -4028,6 +6508,7 @@ window.GUI3_DATA = {
        "widget": "knob"
       }
      ],
+     "follow": null,
      "master": false,
      "num": null,
      "rule": null,
@@ -4042,6 +6523,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "noise.whisper",
        "live": {
         "any": [
@@ -4075,6 +6557,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "noise.vowel",
        "live": {
         "all": [
@@ -4117,6 +6600,7 @@ window.GUI3_DATA = {
        "widget": "knob"
       }
      ],
+     "follow": null,
      "master": false,
      "num": null,
      "rule": null,
@@ -4131,6 +6615,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "noise.wind",
        "live": {
         "any": [
@@ -4164,6 +6649,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "noise.gust",
        "live": {
         "all": [
@@ -4206,6 +6692,7 @@ window.GUI3_DATA = {
        "widget": "knob"
       }
      ],
+     "follow": null,
      "master": false,
      "num": null,
      "rule": null,
@@ -4220,6 +6707,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "noise.filter",
        "live": {
         "any": [
@@ -4253,6 +6741,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "noise.cutoff",
        "live": {
         "all": [
@@ -4296,6 +6785,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "noise.resonance",
        "live": {
         "all": [
@@ -4339,6 +6829,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "noise.keytrack",
        "live": {
         "all": [
@@ -4381,6 +6872,7 @@ window.GUI3_DATA = {
        "widget": "knob"
       }
      ],
+     "follow": null,
      "master": false,
      "num": null,
      "rule": null,
@@ -4395,6 +6887,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "noise.spread",
        "live": {
         "is": [
@@ -4410,6 +6903,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "noise.pan",
        "live": {
         "is": [
@@ -4424,6 +6918,7 @@ window.GUI3_DATA = {
        "widget": "knob"
       }
      ],
+     "follow": null,
      "master": false,
      "num": null,
      "rule": null,
@@ -4468,6 +6963,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "env2.attack",
        "live": null,
        "override": null,
@@ -4478,6 +6974,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "env2.hold",
        "live": null,
        "override": null,
@@ -4488,6 +6985,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "env2.decay",
        "live": null,
        "override": null,
@@ -4498,6 +6996,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "env2.sustain",
        "live": null,
        "override": null,
@@ -4508,6 +7007,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "env2.release",
        "live": null,
        "override": null,
@@ -4518,6 +7018,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "env2.attackCurve",
        "live": null,
        "override": null,
@@ -4528,6 +7029,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "env2.decayCurve",
        "live": null,
        "override": null,
@@ -4538,6 +7040,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "env2.releaseCurve",
        "live": null,
        "override": null,
@@ -4548,6 +7051,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "env2.velocity",
        "live": null,
        "override": null,
@@ -4558,6 +7062,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "env2.oneShot",
        "live": null,
        "override": null,
@@ -4567,6 +7072,7 @@ window.GUI3_DATA = {
        "widget": "toggle"
       }
      ],
+     "follow": null,
      "master": false,
      "num": null,
      "rule": null,
@@ -4581,6 +7087,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "env3.attack",
        "live": null,
        "override": null,
@@ -4591,6 +7098,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "env3.hold",
        "live": null,
        "override": null,
@@ -4601,6 +7109,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "env3.decay",
        "live": null,
        "override": null,
@@ -4611,6 +7120,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "env3.sustain",
        "live": null,
        "override": null,
@@ -4621,6 +7131,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "env3.release",
        "live": null,
        "override": null,
@@ -4631,6 +7142,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "env3.attackCurve",
        "live": null,
        "override": null,
@@ -4641,6 +7153,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "env3.decayCurve",
        "live": null,
        "override": null,
@@ -4651,6 +7164,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "env3.releaseCurve",
        "live": null,
        "override": null,
@@ -4661,6 +7175,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "env3.velocity",
        "live": null,
        "override": null,
@@ -4671,6 +7186,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "env3.oneShot",
        "live": null,
        "override": null,
@@ -4680,6 +7196,7 @@ window.GUI3_DATA = {
        "widget": "toggle"
       }
      ],
+     "follow": null,
      "master": false,
      "num": null,
      "rule": null,
@@ -4694,6 +7211,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "env4.attack",
        "live": null,
        "override": null,
@@ -4704,6 +7222,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "env4.hold",
        "live": null,
        "override": null,
@@ -4714,6 +7233,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "env4.decay",
        "live": null,
        "override": null,
@@ -4724,6 +7244,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "env4.sustain",
        "live": null,
        "override": null,
@@ -4734,6 +7255,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "env4.release",
        "live": null,
        "override": null,
@@ -4744,6 +7266,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "env4.attackCurve",
        "live": null,
        "override": null,
@@ -4754,6 +7277,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "env4.decayCurve",
        "live": null,
        "override": null,
@@ -4764,6 +7288,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "env4.releaseCurve",
        "live": null,
        "override": null,
@@ -4774,6 +7299,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "env4.velocity",
        "live": null,
        "override": null,
@@ -4784,6 +7310,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "env4.oneShot",
        "live": null,
        "override": null,
@@ -4793,6 +7320,7 @@ window.GUI3_DATA = {
        "widget": "toggle"
       }
      ],
+     "follow": null,
      "master": false,
      "num": null,
      "rule": null,
@@ -4820,6 +7348,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "morph.on",
        "live": null,
        "override": null,
@@ -4830,6 +7359,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "morph.audible",
        "live": null,
        "override": null,
@@ -4840,6 +7370,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "morph.law",
        "live": null,
        "override": null,
@@ -4850,6 +7381,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "morph.count",
        "live": null,
        "override": null,
@@ -4860,6 +7392,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "morph.glide",
        "live": null,
        "override": null,
@@ -4869,6 +7402,7 @@ window.GUI3_DATA = {
        "widget": "knob"
       }
      ],
+     "follow": null,
      "master": false,
      "num": null,
      "rule": null,
@@ -4883,6 +7417,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "morph.temperature",
        "live": {
         "is": [
@@ -4898,6 +7433,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "morph.cohesion",
        "live": {
         "is": [
@@ -4913,6 +7449,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "morph.seed",
        "live": {
         "is": [
@@ -4927,6 +7464,7 @@ window.GUI3_DATA = {
        "widget": "stepper"
       }
      ],
+     "follow": null,
      "master": false,
      "num": null,
      "rule": null,
@@ -4941,6 +7479,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "morph.stepSync",
        "live": {
         "is": [
@@ -4956,6 +7495,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "morph.stepRate",
        "live": {
         "all": [
@@ -4981,6 +7521,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "morph.stepDivision",
        "live": {
         "all": [
@@ -5006,6 +7547,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "morph.stepTriplet",
        "live": {
         "all": [
@@ -5031,6 +7573,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "morph.stepDotted",
        "live": {
         "all": [
@@ -5055,6 +7598,7 @@ window.GUI3_DATA = {
        "widget": "toggle"
       }
      ],
+     "follow": null,
      "master": false,
      "num": null,
      "rule": null,
@@ -5082,6 +7626,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "mix.osc1",
        "live": null,
        "override": null,
@@ -5092,6 +7637,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.on",
        "live": null,
        "override": null,
@@ -5102,6 +7648,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.mute",
        "live": null,
        "override": null,
@@ -5112,6 +7659,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc1.solo",
        "live": null,
        "override": null,
@@ -5121,6 +7669,7 @@ window.GUI3_DATA = {
        "widget": "toggle"
       }
      ],
+     "follow": null,
      "master": false,
      "num": null,
      "rule": null,
@@ -5135,6 +7684,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "mix.osc2",
        "live": null,
        "override": null,
@@ -5145,6 +7695,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.on",
        "live": null,
        "override": null,
@@ -5155,6 +7706,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.mute",
        "live": null,
        "override": null,
@@ -5165,6 +7717,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "osc2.solo",
        "live": null,
        "override": null,
@@ -5174,6 +7727,7 @@ window.GUI3_DATA = {
        "widget": "toggle"
       }
      ],
+     "follow": null,
      "master": false,
      "num": null,
      "rule": null,
@@ -5188,6 +7742,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "mix.sub",
        "live": null,
        "override": null,
@@ -5198,6 +7753,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "sub.on",
        "live": null,
        "override": null,
@@ -5208,6 +7764,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "sub.mute",
        "live": null,
        "override": null,
@@ -5218,6 +7775,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "sub.solo",
        "live": null,
        "override": null,
@@ -5227,6 +7785,7 @@ window.GUI3_DATA = {
        "widget": "toggle"
       }
      ],
+     "follow": null,
      "master": false,
      "num": null,
      "rule": null,
@@ -5241,6 +7800,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "mix.noise",
        "live": null,
        "override": null,
@@ -5251,6 +7811,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "noise.on",
        "live": null,
        "override": null,
@@ -5261,6 +7822,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "noise.mute",
        "live": null,
        "override": null,
@@ -5271,6 +7833,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "noise.solo",
        "live": null,
        "override": null,
@@ -5280,6 +7843,7 @@ window.GUI3_DATA = {
        "widget": "toggle"
       }
      ],
+     "follow": null,
      "master": false,
      "num": null,
      "rule": null,
@@ -5294,6 +7858,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "out.level",
        "live": null,
        "override": null,
@@ -5303,6 +7868,7 @@ window.GUI3_DATA = {
        "widget": "vslider"
       }
      ],
+     "follow": null,
      "master": true,
      "num": null,
      "rule": null,
@@ -5316,7 +7882,7 @@ window.GUI3_DATA = {
    ],
    "id": "mix",
    "label": "Mix",
-   "note": "A console (B589, ADR-329 item 3): one strip per source and the master, side by side, each fader its level key, attached to its own on, mute and solo keys; the meters and peak readouts are the stub's MOCK meters from its observation view (IF-6, IF-10), and the CLIP lamp latches and clears on a click.",
+   "note": "A console (B589, ADR-329 item 3) with more room per strip (ADR-333), under a summed oscilloscope and a summed spectrum: one strip per source and the master, each fader its level key, attached to its own on, mute and solo keys; the meters, the peaks and the summed views are the stub's MOCK observation view (IF-6, IF-10); the CLIP lamp latches and clears on a click.",
    "panel": "console",
    "power": null,
    "status": "designed",
@@ -5330,6 +7896,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.echo.io.inGain",
        "live": null,
        "override": null,
@@ -5340,6 +7907,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.echo.io.outGain",
        "live": null,
        "override": null,
@@ -5350,6 +7918,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.echo.mix",
        "live": null,
        "override": null,
@@ -5360,6 +7929,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.echo.time.sync",
        "live": null,
        "override": null,
@@ -5370,6 +7940,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.echo.time.ms",
        "live": null,
        "override": null,
@@ -5380,6 +7951,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.echo.time.div",
        "live": null,
        "override": null,
@@ -5390,6 +7962,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.echo.time.offL",
        "live": null,
        "override": null,
@@ -5400,6 +7973,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.echo.time.offR",
        "live": null,
        "override": null,
@@ -5410,6 +7984,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.echo.time.change",
        "live": null,
        "override": null,
@@ -5420,6 +7995,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.echo.time.law",
        "live": null,
        "override": null,
@@ -5430,6 +8006,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.echo.time.tempoMode",
        "live": null,
        "override": null,
@@ -5440,6 +8017,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.echo.time.glide",
        "live": null,
        "override": null,
@@ -5450,6 +8028,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.echo.time.xfadeMs",
        "live": null,
        "override": null,
@@ -5460,6 +8039,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.echo.fb.amount",
        "live": null,
        "override": null,
@@ -5470,6 +8050,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.echo.route.mode",
        "live": null,
        "override": null,
@@ -5480,6 +8061,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.echo.filt.in.on",
        "live": null,
        "override": null,
@@ -5490,6 +8072,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.echo.filt.in.hpHz",
        "live": null,
        "override": null,
@@ -5500,6 +8083,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.echo.filt.in.lpHz",
        "live": null,
        "override": null,
@@ -5510,6 +8094,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.echo.filt.loop.on",
        "live": null,
        "override": null,
@@ -5520,6 +8105,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.echo.filt.loop.hpHz",
        "live": null,
        "override": null,
@@ -5530,6 +8116,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.echo.filt.loop.lpHz",
        "live": null,
        "override": null,
@@ -5540,6 +8127,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.echo.filt.out.on",
        "live": null,
        "override": null,
@@ -5550,6 +8138,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.echo.filt.out.hpHz",
        "live": null,
        "override": null,
@@ -5560,6 +8149,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.echo.filt.out.lpHz",
        "live": null,
        "override": null,
@@ -5570,6 +8160,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.echo.mod.depthMs",
        "live": null,
        "override": null,
@@ -5580,6 +8171,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.echo.mod.rateHz",
        "live": null,
        "override": null,
@@ -5590,6 +8182,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.echo.mod.shape",
        "live": null,
        "override": null,
@@ -5600,6 +8193,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.echo.mod.spread",
        "live": null,
        "override": null,
@@ -5610,6 +8204,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.echo.mod.seed",
        "live": null,
        "override": null,
@@ -5620,6 +8215,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.echo.time.scale",
        "live": null,
        "override": null,
@@ -5629,6 +8225,7 @@ window.GUI3_DATA = {
        "widget": "knob"
       }
      ],
+     "follow": null,
      "master": false,
      "num": null,
      "rule": null,
@@ -5643,6 +8240,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.scape.verb.mix",
        "live": null,
        "override": null,
@@ -5653,6 +8251,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.scape.verb.preDelay",
        "live": null,
        "override": null,
@@ -5663,6 +8262,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.scape.verb.erSend",
        "live": null,
        "override": null,
@@ -5673,6 +8273,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.scape.verb.erSize",
        "live": null,
        "override": null,
@@ -5683,6 +8284,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.scape.verb.erDecay",
        "live": null,
        "override": null,
@@ -5693,6 +8295,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.scape.verb.envelop",
        "live": null,
        "override": null,
@@ -5703,6 +8306,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.scape.verb.tailDecorr",
        "live": null,
        "override": null,
@@ -5713,6 +8317,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.scape.verb.mixTimeMs",
        "live": null,
        "override": null,
@@ -5723,6 +8328,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.scape.verb.diffuse",
        "live": null,
        "override": null,
@@ -5733,6 +8339,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.scape.verb.size",
        "live": null,
        "override": null,
@@ -5743,6 +8350,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.scape.verb.decay",
        "live": null,
        "override": null,
@@ -5753,6 +8361,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.scape.verb.damp",
        "live": null,
        "override": null,
@@ -5763,6 +8372,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.scape.verb.lowCut",
        "live": null,
        "override": null,
@@ -5773,6 +8383,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.scape.verb.modDepth",
        "live": null,
        "override": null,
@@ -5783,6 +8394,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.scape.verb.modRate",
        "live": null,
        "override": null,
@@ -5793,6 +8405,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.scape.verb.width",
        "live": null,
        "override": null,
@@ -5803,6 +8416,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.scape.verb.bassMono",
        "live": null,
        "override": null,
@@ -5813,6 +8427,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.scape.verb.inHP",
        "live": null,
        "override": null,
@@ -5823,6 +8438,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.scape.verb.inLP",
        "live": null,
        "override": null,
@@ -5833,6 +8449,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.scape.verb.spinDepth",
        "live": null,
        "override": null,
@@ -5843,6 +8460,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.scape.verb.spinRate",
        "live": null,
        "override": null,
@@ -5853,6 +8471,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.scape.verb.preGain",
        "live": null,
        "override": null,
@@ -5863,6 +8482,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.scape.verb.postGain",
        "live": null,
        "override": null,
@@ -5873,6 +8493,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.scape.io.outGain",
        "live": null,
        "override": null,
@@ -5883,6 +8504,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.scape.verb.era",
        "live": null,
        "override": null,
@@ -5893,6 +8515,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.scape.verb.delayMotion",
        "live": null,
        "override": null,
@@ -5903,6 +8526,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.scape.verb.glideTime",
        "live": null,
        "override": null,
@@ -5913,6 +8537,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.scape.io.inGain",
        "live": null,
        "override": null,
@@ -5923,6 +8548,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.scape.verb.image",
        "live": null,
        "override": null,
@@ -5932,6 +8558,7 @@ window.GUI3_DATA = {
        "widget": "knob"
       }
      ],
+     "follow": null,
      "master": false,
      "num": null,
      "rule": null,
@@ -5946,6 +8573,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.inGain",
        "live": null,
        "override": null,
@@ -5956,6 +8584,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.route",
        "live": null,
        "override": null,
@@ -5966,6 +8595,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.adaa",
        "live": null,
        "override": null,
@@ -5976,6 +8606,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.auto",
        "live": null,
        "override": null,
@@ -5986,6 +8617,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.driveRef",
        "live": null,
        "override": null,
@@ -5996,6 +8628,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.inertia",
        "live": null,
        "override": null,
@@ -6006,6 +8639,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.eco",
        "live": null,
        "override": null,
@@ -6016,6 +8650,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.flux",
        "live": null,
        "override": null,
@@ -6026,6 +8661,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.wet",
        "live": null,
        "override": null,
@@ -6036,6 +8672,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.out",
        "live": null,
        "override": null,
@@ -6046,6 +8683,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.xo1",
        "live": null,
        "override": null,
@@ -6056,6 +8694,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.xo2",
        "live": null,
        "override": null,
@@ -6066,6 +8705,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.fbAmt",
        "live": null,
        "override": null,
@@ -6076,6 +8716,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.fbMode",
        "live": null,
        "override": null,
@@ -6086,6 +8727,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.fbSemi",
        "live": null,
        "override": null,
@@ -6096,6 +8738,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.fbMs",
        "live": null,
        "override": null,
@@ -6106,6 +8749,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.fbDamp",
        "live": null,
        "override": null,
@@ -6116,6 +8760,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.fbHp",
        "live": null,
        "override": null,
@@ -6126,6 +8771,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.fbTap",
        "live": null,
        "override": null,
@@ -6136,6 +8782,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.cmpAmt",
        "live": null,
        "override": null,
@@ -6146,6 +8793,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.cmpHp",
        "live": null,
        "override": null,
@@ -6156,6 +8804,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.fbOn",
        "live": null,
        "override": null,
@@ -6166,6 +8815,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.fbInv",
        "live": null,
        "override": null,
@@ -6176,6 +8826,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.fbGate",
        "live": null,
        "override": null,
@@ -6186,6 +8837,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.tone",
        "live": null,
        "override": null,
@@ -6196,6 +8848,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.toneHz",
        "live": null,
        "override": null,
@@ -6206,6 +8859,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.toneComp",
        "live": null,
        "override": null,
@@ -6216,6 +8870,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.taper",
        "live": null,
        "override": null,
@@ -6226,6 +8881,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.oversample",
        "live": null,
        "override": null,
@@ -6236,6 +8892,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.driveTrim",
        "live": null,
        "override": null,
@@ -6246,6 +8903,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s1.on",
        "live": null,
        "override": null,
@@ -6256,6 +8914,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s1.drive",
        "live": null,
        "override": null,
@@ -6266,6 +8925,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s1.bias",
        "live": null,
        "override": null,
@@ -6276,6 +8936,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s1.a",
        "live": null,
        "override": null,
@@ -6286,6 +8947,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s1.b",
        "live": null,
        "override": null,
@@ -6296,6 +8958,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s1.morph",
        "live": null,
        "override": null,
@@ -6306,6 +8969,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s1.shape",
        "live": null,
        "override": null,
@@ -6316,6 +8980,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s1.floor",
        "live": null,
        "override": null,
@@ -6326,6 +8991,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s1.ft",
        "live": null,
        "override": null,
@@ -6336,6 +9002,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s1.fpos",
        "live": null,
        "override": null,
@@ -6346,6 +9013,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s1.cut",
        "live": null,
        "override": null,
@@ -6356,6 +9024,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s1.res",
        "live": null,
        "override": null,
@@ -6366,6 +9035,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s1.famt",
        "live": null,
        "override": null,
@@ -6376,6 +9046,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s1.level",
        "live": null,
        "override": null,
@@ -6386,6 +9057,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s1.mix",
        "live": null,
        "override": null,
@@ -6396,6 +9068,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s1.detail",
        "live": null,
        "override": null,
@@ -6406,6 +9079,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s1.damt",
        "live": null,
        "override": null,
@@ -6416,6 +9090,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s1.dfreq",
        "live": null,
        "override": null,
@@ -6426,6 +9101,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s1.inject",
        "live": null,
        "override": null,
@@ -6436,6 +9112,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s2.on",
        "live": null,
        "override": null,
@@ -6446,6 +9123,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s2.drive",
        "live": null,
        "override": null,
@@ -6456,6 +9134,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s2.bias",
        "live": null,
        "override": null,
@@ -6466,6 +9145,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s2.a",
        "live": null,
        "override": null,
@@ -6476,6 +9156,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s2.b",
        "live": null,
        "override": null,
@@ -6486,6 +9167,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s2.morph",
        "live": null,
        "override": null,
@@ -6496,6 +9178,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s2.shape",
        "live": null,
        "override": null,
@@ -6506,6 +9189,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s2.floor",
        "live": null,
        "override": null,
@@ -6516,6 +9200,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s2.ft",
        "live": null,
        "override": null,
@@ -6526,6 +9211,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s2.fpos",
        "live": null,
        "override": null,
@@ -6536,6 +9222,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s2.cut",
        "live": null,
        "override": null,
@@ -6546,6 +9233,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s2.res",
        "live": null,
        "override": null,
@@ -6556,6 +9244,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s2.famt",
        "live": null,
        "override": null,
@@ -6566,6 +9255,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s2.level",
        "live": null,
        "override": null,
@@ -6576,6 +9266,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s2.mix",
        "live": null,
        "override": null,
@@ -6586,6 +9277,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s2.detail",
        "live": null,
        "override": null,
@@ -6596,6 +9288,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s2.damt",
        "live": null,
        "override": null,
@@ -6606,6 +9299,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s2.dfreq",
        "live": null,
        "override": null,
@@ -6616,6 +9310,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s2.inject",
        "live": null,
        "override": null,
@@ -6626,6 +9321,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s3.on",
        "live": null,
        "override": null,
@@ -6636,6 +9332,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s3.drive",
        "live": null,
        "override": null,
@@ -6646,6 +9343,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s3.bias",
        "live": null,
        "override": null,
@@ -6656,6 +9354,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s3.a",
        "live": null,
        "override": null,
@@ -6666,6 +9365,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s3.b",
        "live": null,
        "override": null,
@@ -6676,6 +9376,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s3.morph",
        "live": null,
        "override": null,
@@ -6686,6 +9387,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s3.shape",
        "live": null,
        "override": null,
@@ -6696,6 +9398,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s3.floor",
        "live": null,
        "override": null,
@@ -6706,6 +9409,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s3.ft",
        "live": null,
        "override": null,
@@ -6716,6 +9420,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s3.fpos",
        "live": null,
        "override": null,
@@ -6726,6 +9431,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s3.cut",
        "live": null,
        "override": null,
@@ -6736,6 +9442,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s3.res",
        "live": null,
        "override": null,
@@ -6746,6 +9453,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s3.famt",
        "live": null,
        "override": null,
@@ -6756,6 +9464,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s3.level",
        "live": null,
        "override": null,
@@ -6766,6 +9475,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s3.mix",
        "live": null,
        "override": null,
@@ -6776,6 +9486,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s3.detail",
        "live": null,
        "override": null,
@@ -6786,6 +9497,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s3.damt",
        "live": null,
        "override": null,
@@ -6796,6 +9508,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s3.dfreq",
        "live": null,
        "override": null,
@@ -6806,6 +9519,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.shriek.s3.inject",
        "live": null,
        "override": null,
@@ -6815,6 +9529,7 @@ window.GUI3_DATA = {
        "widget": "knob"
       }
      ],
+     "follow": null,
      "master": false,
      "num": null,
      "rule": null,
@@ -6829,6 +9544,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.thr",
        "live": null,
        "override": null,
@@ -6839,6 +9555,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.ratio",
        "live": null,
        "override": null,
@@ -6849,6 +9566,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.knee",
        "live": null,
        "override": null,
@@ -6859,6 +9577,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.atk",
        "live": null,
        "override": null,
@@ -6869,6 +9588,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.rel",
        "live": null,
        "override": null,
@@ -6879,6 +9599,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.makeup",
        "live": null,
        "override": null,
@@ -6889,6 +9610,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.detector",
        "live": null,
        "override": null,
@@ -6899,6 +9621,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.rms",
        "live": null,
        "override": null,
@@ -6909,6 +9632,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.rmsTime",
        "live": null,
        "override": null,
@@ -6919,6 +9643,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.autoRel",
        "live": null,
        "override": null,
@@ -6929,6 +9654,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.relShort",
        "live": null,
        "override": null,
@@ -6939,6 +9665,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.relLong",
        "live": null,
        "override": null,
@@ -6949,6 +9676,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.regen",
        "live": null,
        "override": null,
@@ -6959,6 +9687,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.scOn",
        "live": null,
        "override": null,
@@ -6969,6 +9698,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.scHz",
        "live": null,
        "override": null,
@@ -6979,6 +9709,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.link",
        "live": null,
        "override": null,
@@ -6989,6 +9720,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.stereo",
        "live": null,
        "override": null,
@@ -6999,6 +9731,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.bypass",
        "live": null,
        "override": null,
@@ -7009,6 +9742,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.bands",
        "live": null,
        "override": null,
@@ -7019,6 +9753,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.io.inGain",
        "live": null,
        "override": null,
@@ -7029,6 +9764,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.io.outGain",
        "live": null,
        "override": null,
@@ -7039,6 +9775,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.mb.xLo",
        "live": null,
        "override": null,
@@ -7049,6 +9786,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.mb.xHi",
        "live": null,
        "override": null,
@@ -7059,6 +9797,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.mb.depth",
        "live": null,
        "override": null,
@@ -7069,6 +9808,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.mb.time",
        "live": null,
        "override": null,
@@ -7079,6 +9819,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.mb.upCap",
        "live": null,
        "override": null,
@@ -7089,6 +9830,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.mb.floor",
        "live": null,
        "override": null,
@@ -7099,6 +9841,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.mb.lo.dnThr",
        "live": null,
        "override": null,
@@ -7109,6 +9852,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.mb.lo.dnRatio",
        "live": null,
        "override": null,
@@ -7119,6 +9863,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.mb.lo.upThr",
        "live": null,
        "override": null,
@@ -7129,6 +9874,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.mb.lo.upRatio",
        "live": null,
        "override": null,
@@ -7139,6 +9885,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.mb.lo.atk",
        "live": null,
        "override": null,
@@ -7149,6 +9896,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.mb.lo.rel",
        "live": null,
        "override": null,
@@ -7159,6 +9907,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.mb.lo.gain",
        "live": null,
        "override": null,
@@ -7169,6 +9918,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.mb.mid.dnThr",
        "live": null,
        "override": null,
@@ -7179,6 +9929,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.mb.mid.dnRatio",
        "live": null,
        "override": null,
@@ -7189,6 +9940,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.mb.mid.upThr",
        "live": null,
        "override": null,
@@ -7199,6 +9951,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.mb.mid.upRatio",
        "live": null,
        "override": null,
@@ -7209,6 +9962,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.mb.mid.atk",
        "live": null,
        "override": null,
@@ -7219,6 +9973,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.mb.mid.rel",
        "live": null,
        "override": null,
@@ -7229,6 +9984,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.mb.mid.gain",
        "live": null,
        "override": null,
@@ -7239,6 +9995,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.mb.hi.dnThr",
        "live": null,
        "override": null,
@@ -7249,6 +10006,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.mb.hi.dnRatio",
        "live": null,
        "override": null,
@@ -7259,6 +10017,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.mb.hi.upThr",
        "live": null,
        "override": null,
@@ -7269,6 +10028,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.mb.hi.upRatio",
        "live": null,
        "override": null,
@@ -7279,6 +10039,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.mb.hi.atk",
        "live": null,
        "override": null,
@@ -7289,6 +10050,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.mb.hi.rel",
        "live": null,
        "override": null,
@@ -7299,6 +10061,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.compressor.comp.mb.hi.gain",
        "live": null,
        "override": null,
@@ -7308,6 +10071,7 @@ window.GUI3_DATA = {
        "widget": "knob"
       }
      ],
+     "follow": null,
      "master": false,
      "num": null,
      "rule": null,
@@ -7322,6 +10086,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.limiter.lim.on",
        "live": null,
        "override": null,
@@ -7332,6 +10097,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.limiter.lim.ceiling",
        "live": null,
        "override": null,
@@ -7342,6 +10108,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.limiter.lim.autoRel",
        "live": null,
        "override": null,
@@ -7352,6 +10119,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.limiter.lim.rel",
        "live": null,
        "override": null,
@@ -7362,6 +10130,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.limiter.lim.relShort",
        "live": null,
        "override": null,
@@ -7372,6 +10141,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.limiter.lim.relLong",
        "live": null,
        "override": null,
@@ -7382,6 +10152,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.limiter.io.inGain",
        "live": null,
        "override": null,
@@ -7392,6 +10163,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "fx.bulwark.limiter.io.outGain",
        "live": null,
        "override": null,
@@ -7401,6 +10173,7 @@ window.GUI3_DATA = {
        "widget": "knob"
       }
      ],
+     "follow": null,
      "master": false,
      "num": null,
      "rule": null,
@@ -7428,6 +10201,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "voice.polyphony",
        "live": null,
        "override": null,
@@ -7438,6 +10212,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "quality",
        "live": null,
        "override": null,
@@ -7447,6 +10222,7 @@ window.GUI3_DATA = {
        "widget": "pills"
       }
      ],
+     "follow": null,
      "master": false,
      "num": null,
      "rule": null,
@@ -7474,6 +10250,7 @@ window.GUI3_DATA = {
      "controls": [
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.enabled",
        "live": null,
        "override": null,
@@ -7484,6 +10261,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.arp_enabled",
        "live": null,
        "override": null,
@@ -7494,6 +10272,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.order",
        "live": null,
        "override": null,
@@ -7504,6 +10283,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.pattern",
        "live": null,
        "override": null,
@@ -7514,6 +10294,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.rate",
        "live": null,
        "override": null,
@@ -7524,6 +10305,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.rate_mode",
        "live": null,
        "override": null,
@@ -7534,6 +10316,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.step_time_us",
        "live": null,
        "override": null,
@@ -7544,6 +10327,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.steps",
        "live": null,
        "override": null,
@@ -7554,6 +10338,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.step_size",
        "live": null,
        "override": null,
@@ -7564,6 +10349,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.step_unit",
        "live": null,
        "override": null,
@@ -7574,6 +10360,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.gate",
        "live": null,
        "override": null,
@@ -7584,6 +10371,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.swing",
        "live": null,
        "override": null,
@@ -7594,6 +10382,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.latch",
        "live": null,
        "override": null,
@@ -7604,6 +10393,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.vel_mode",
        "live": null,
        "override": null,
@@ -7614,6 +10404,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.vel_fixed",
        "live": null,
        "override": null,
@@ -7624,6 +10415,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.restart",
        "live": null,
        "override": null,
@@ -7634,6 +10426,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.repeats",
        "live": null,
        "override": null,
@@ -7644,6 +10437,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.quantize",
        "live": null,
        "override": null,
@@ -7654,6 +10448,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.scale_source",
        "live": null,
        "override": null,
@@ -7664,6 +10459,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.scale_root",
        "live": null,
        "override": null,
@@ -7674,6 +10470,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.scale_deg0",
        "live": null,
        "override": null,
@@ -7684,6 +10481,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.scale_deg1",
        "live": null,
        "override": null,
@@ -7694,6 +10492,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.scale_deg2",
        "live": null,
        "override": null,
@@ -7704,6 +10503,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.scale_deg3",
        "live": null,
        "override": null,
@@ -7714,6 +10514,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.scale_deg4",
        "live": null,
        "override": null,
@@ -7724,6 +10525,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.scale_deg5",
        "live": null,
        "override": null,
@@ -7734,6 +10536,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.scale_deg6",
        "live": null,
        "override": null,
@@ -7744,6 +10547,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.scale_deg7",
        "live": null,
        "override": null,
@@ -7754,6 +10558,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.scale_deg8",
        "live": null,
        "override": null,
@@ -7764,6 +10569,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.scale_deg9",
        "live": null,
        "override": null,
@@ -7774,6 +10580,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.scale_deg10",
        "live": null,
        "override": null,
@@ -7784,6 +10591,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.scale_deg11",
        "live": null,
        "override": null,
@@ -7794,6 +10602,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.seed",
        "live": null,
        "override": null,
@@ -7804,6 +10613,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.chord_enabled",
        "live": null,
        "override": null,
@@ -7814,6 +10624,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.chord_unit",
        "live": null,
        "override": null,
@@ -7824,6 +10635,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.chord_on1",
        "live": null,
        "override": null,
@@ -7834,6 +10646,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.chord_shift1",
        "live": null,
        "override": null,
@@ -7844,6 +10657,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.chord_on2",
        "live": null,
        "override": null,
@@ -7854,6 +10668,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.chord_shift2",
        "live": null,
        "override": null,
@@ -7864,6 +10679,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.chord_on3",
        "live": null,
        "override": null,
@@ -7874,6 +10690,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.chord_shift3",
        "live": null,
        "override": null,
@@ -7884,6 +10701,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.chord_on4",
        "live": null,
        "override": null,
@@ -7894,6 +10712,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.chord_shift4",
        "live": null,
        "override": null,
@@ -7904,6 +10723,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.chord_on5",
        "live": null,
        "override": null,
@@ -7914,6 +10734,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.chord_shift5",
        "live": null,
        "override": null,
@@ -7924,6 +10745,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.chord_on6",
        "live": null,
        "override": null,
@@ -7934,6 +10756,7 @@ window.GUI3_DATA = {
       },
       {
        "advanced": false,
+       "follow": null,
        "key": "arp.chord_shift6",
        "live": null,
        "override": null,
@@ -7943,6 +10766,7 @@ window.GUI3_DATA = {
        "widget": "select"
       }
      ],
+     "follow": null,
      "master": false,
      "num": null,
      "rule": null,
@@ -7960,6 +10784,18 @@ window.GUI3_DATA = {
    "panel": null,
    "power": null,
    "status": "draft",
+   "viz": null
+  },
+  {
+   "cite": "ADR-333, B593",
+   "dense": false,
+   "groups": [],
+   "id": "ledger",
+   "label": "Ledger",
+   "note": "Everything not yet moved over into GUI 3, where it lives today and why it has not moved (ADR-333, B593), read from docs/design/gui3/port-tab.json; a row leaves only when its item ships in the shell.",
+   "panel": "ledger",
+   "power": null,
+   "status": "designed",
    "viz": null
   }
  ],

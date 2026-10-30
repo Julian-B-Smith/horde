@@ -109,6 +109,31 @@
       m.out = sum > 0 && outDb > -Infinity ? 20 * Math.log10(sum) + outDb : -Infinity;
       return m;
     }
+    /* MOCK SUMMED VIEWS (ADR-333), for the Mix page's summed oscilloscope and spectrum: the sounding sources' test
+       tones summed at their meters' gains and the output's level. One window of 128 samples: osc 1 a saw over two
+       cycles, osc 2 a saw over three, the sub a sine over one, the noise a seeded draw (mulberry32, fixed seed); and
+       24 bands: each oscillator's harmonics falling 1/k from its band, the sub in band 2, the noise flat. Deterministic,
+       read-only, labelled MOCK wherever drawn; with audio the engine publishes the real ones (IF-10, RC-8). */
+    var NOISE = (function () { var a = 0x5eed, out = []; for (var i = 0; i < 128; i++) { a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; out.push(2 * (((t ^ t >>> 14) >>> 0) / 4294967296) - 1); } return out; })();
+    function summed() {
+      var m = meters(), g = function (id) { return m[id] > -Infinity ? Math.pow(10, m[id] / 20) : 0; };
+      var og = m.out > -Infinity ? Math.pow(10, dbOf('out.level') / 20) : 0, scope = [], bands = [], i, b;
+      for (i = 0; i < 128; i++) {
+        var t = i / 128;
+        var x = g('osc1') * (2 * ((2 * t) % 1) - 1) + g('osc2') * (2 * ((3 * t) % 1) - 1) + g('sub') * Math.sin(2 * Math.PI * t) + g('noise') * NOISE[i];
+        scope.push(x * og);
+      }
+      for (b = 0; b < 24; b++) {
+        var lin = 0;
+        if (b >= 4) lin += g('osc1') / (b - 3);
+        if (b >= 6) lin += g('osc2') / (b - 5);
+        if (b === 2) lin += g('sub');
+        lin += g('noise') * .35;
+        var db = lin * og > 0 ? 20 * Math.log10(lin * og) : -Infinity;
+        bands.push(db === -Infinity ? 0 : Math.max(0, Math.min(1, (db + 60) / 66)));
+      }
+      return { scope: scope, bands: bands, mock: true };
+    }
     function relatch() {
       var m = meters();
       for (var id in m) if (m[id] > 0) latch[id] = { on: true, max: Math.max(m[id], latch[id] && latch[id].on ? latch[id].max : -Infinity) };
@@ -167,7 +192,7 @@
       rows.forEach(function (r) { if (r.law === 'step' && !r.reserved) heard[r.key] = display(r, v[r.key]); });
       var m = meters(), mt = {};
       for (var id in m) mt[id] = { peak: m[id], clip: { on: !!(latch[id] && latch[id].on), max: latch[id] && latch[id].on ? latch[id].max : null } };
-      return { source: 'stub', audio: false, voices: [], heard: heard, refused: refused, meters: mt, metersMock: true,
+      return { source: 'stub', audio: false, voices: [], heard: heard, refused: refused, meters: mt, metersMock: true, sum: summed(),
         counters: { memberSamples: 0, edgesCorrected: 0, edgesLeftOver: 0, envelopeSteps: 0, voicesSounding: 0 } };
     };
   }
