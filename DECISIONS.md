@@ -10410,3 +10410,21 @@ The Scalpel bench is `docs/design/scalpel-interface-lab.html` (B271, B293). The 
 - B592 tracks it for horde 1.0 (the module cutoff, 2026-12-11, ADR-236).
 - **FX device (ADR-254):** Mangle is an FX module, so it is hosted by the FX device after 1.0 as by horde; how its morph and modulation show on its own screen is B591's question.
 
+## ADR-332 — RULED by the human: any module that declares it may resolve its own macros; Shriek resolves every patch's from S4; macro values arrive as parameter events at the control tick (B265; Shriek seq 36; 2026-10-30)
+
+**Context.** Shriek's brief seq 36 (`integrations/maw/brief-pad-macros.md`, horde #1288). A Shriek pad patch keeps its macro mappings per patch and its [min, max] ranges per snapshot inside `blobs["shriek.pad"]` (ADR-300; ADR-188 A1). The effective range is the XY-weighted blend of the corners' ranges, and the modify law's base (ADR-251) is each key's blended corner value at the current XY. horde cannot resolve these macros itself: it stores the blob verbatim and never parses it, the ranges move whenever X or Y moves (keys horde may modulate, ADR-188 item 4), and only Shriek computes the blended base. RS-5.5 named Sluice alone as a module that resolves its own macros. The contract had no row for how a macro value reaches a module.
+
+**Rulings (the human, 2026-10-30, by poll).**
+- **"Yes, any module may".** RS-5.5 becomes a general rule: a module that declares in its manifest that it resolves its own macros receives each macro slot's value (0 to 1) and applies its own mapping; every other module has horde resolve its macros through SPEC-MODULE-MACROS §5. Sluice is the first such module and Shriek the second.
+- **"Every patch, from S4".** Shriek resolves the macros of every Shriek patch, its 13 factory presets included (each is a pad patch whose four snapshots hold the same ranges, so there is one path). horde keeps resolving the 13 presets through §5 until the rack's stage S4 opens. The legacy plugin is unchanged.
+- **"As parameter events, tick rate".** A macro slot's value reaches a module as a parameter event at the rack's control tick, already smoothed by horde; the module applies its mapping per tick. A new contract row, RS-5.8.
+
+**Also answered (the lead's reading, from the ruled text).** Shriek's fourth point, that across horde's morph corners (ADR-188 item 2) each corner's Shriek patch resolves its macros at its own XY and the resulting parameters then blend where the structure keys match, is correct. While a slot's corners hold two settings, the rack runs two module instances; that is the owed rack-contract round for RS-6.2, RS-6.3 and RS-8.4 (ADR-325, ADR-328).
+
+**Rejected:** Shriek named beside Sluice; horde keeps resolving; moving the 13 presets before S4; pad patches only; a per-sample macro stream; leaving delivery to the rack round.
+
+**Consequences.**
+- The contract's RS-5.5 is rewritten and RS-5.8 is added.
+- A response to Shriek (horde seq 37) and a notice to Sluice (Sluice declares its resolution in its manifest under the general rule).
+- **FX device (ADR-254):** the same rows apply to its slots; the FX device has macros, so this is its rule too.
+
