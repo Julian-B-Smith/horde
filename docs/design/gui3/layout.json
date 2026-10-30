@@ -1,6 +1,6 @@
 {
   "format": "horde.gui3-layout/1",
-  "note": "GUI 3's page layout (B584, ADR-316). Design input, hand-edited: which parameter goes on which page and in which group. It names parameters by key and nothing else; labels, ranges, laws, defaults and options come from SPEC-ENGINE section 5 through tools/gen_gui3_controls.py, which refuses a key the spec does not have, a host parameter no page places, and a reserved row placed anywhere. A group's `block` places every host row of that block in the spec table's order (5.8: a table's row order is its display order), so a row added to the spec appears on its draft page without an edit here. A `designed` page lists its keys one by one, so a new row there is unplaced, and red, until the page's designer places it. `live` is PA-8's live-when table, transcribed for the designed pages only; a control whose condition fails is drawn idle (dashed), never hidden. `widget` overrides the widget rule (ADR-319 item 5, gui3/README.md) for a row, and must say why in `reason`; a knob or a slider for a continuous row is the rule, not an override. `panel` names a shell-built panel a page carries beside its generated controls. `bank` chooses, per modulator kind, the critical controls the bottom modulator bank's cards carry (ADR-322 item 3). `sources` names every parameter source beside SPEC-ENGINE 5 that has a machine-readable manifest today (ADR-330): each with its vendored file (relative to docs/design/gui3), its format, and where its values go (`rack` for the FX modules, RC-5 and IF-7; `midi` for Arp, the device's MIDI module). Appendix D.2's morph settings are read from the spec itself and go to the morph resolver (IF-12). `owed` lists the sources with no manifest yet; nothing is invented for them. A group's `screen` names the module whose own screen will sit in the card's inset (a labelled placeholder until then). B584 slice 4b (ADR-329, the design master's density revision B589): `nav` is the two-level page bar (groups over their pages); a `dense` page draws each group as a Section header inside an `.hd-cell` (the one box level), with `sub` labels for clusters, a control's `size` (primary, compact, utility; compact is the dense default) and `advanced` (inside a collapsed Advanced sub-group, still mounted); a group's `num` and `rule` (1 solid, 2 dash, 3 dot) tell repeated sections apart; a control's `role` puts it in the section header (`power`: the on toggle, `modes`: the mode pills) or a channel strip (`fader`, `on`, `mute`, `solo`). A group with a `block` may give `meta` per block suffix and `rest` (`advanced`) for the block's other rows. `viz` names the page's or card's SAMPLE picture. The dashboard's cards name their `source` page: a card's controls are the same keys as that page's (one model, two views). A `viz` is `{kind, keys}`: the picture's kind and the parameter keys it reads, so the shell names no key of its own; the picture is a SAMPLE drawing of those settings, never the engine's output.",
+  "note": "GUI 3's page layout (B584, ADR-316). Design input, hand-edited: which parameter goes on which page and in which group. It names parameters by key and nothing else; labels, ranges, laws, defaults and options come from SPEC-ENGINE section 5 through tools/gen_gui3_controls.py, which refuses a key the spec does not have, a host parameter no page places, and a reserved row placed anywhere. A group's `block` places every host row of that block in the spec table's order (5.8: a table's row order is its display order), so a row added to the spec appears on its draft page without an edit here. A `designed` page lists its keys one by one, so a new row there is unplaced, and red, until the page's designer places it. `live` is PA-8's live-when table, transcribed for the designed pages only; a control whose condition fails is drawn idle (dashed), never hidden. `widget` overrides the widget rule (ADR-319 item 5, gui3/README.md) for a row, and must say why in `reason`; a knob or a slider for a continuous row is the rule, not an override. `panel` names a shell-built panel a page carries beside its generated controls. `bank` chooses, per modulator kind, the critical controls the bottom modulator bank's cards carry (ADR-322 item 3). `sources` names every parameter source beside SPEC-ENGINE 5 that has a machine-readable manifest today (ADR-330): each with its vendored file (relative to docs/design/gui3), its format, and where its values go (`rack` for the FX modules, RC-5 and IF-7; `midi` for Arp, the device's MIDI module). Appendix D.2's morph settings are read from the spec itself and go to the morph resolver (IF-12). `owed` lists the sources with no manifest yet; nothing is invented for them. A group's `screen` names the module whose own screen will sit in the card's inset (a labelled placeholder until then). B584 slice 4b (ADR-329, the design master's density revision B589): `nav` is the two-level page bar (groups over their pages); a `dense` page draws each group as a Section header inside an `.hd-cell` (the one box level), with `sub` labels for clusters, a control's `size` (primary, compact, utility; compact is the dense default) and `advanced` (inside a collapsed Advanced sub-group, still mounted); a group's `num` and `rule` (1 solid, 2 dash, 3 dot) tell repeated sections apart; a control's `role` puts it in the section header (`power`: the on toggle, `modes`: the mode pills) or a channel strip (`fader`, `on`, `mute`, `solo`). A group with a `block` may give `meta` per block suffix and `rest` (`advanced`) for the block's other rows. `viz` names the page's or card's SAMPLE picture. The dashboard's cards name their `source` page: a card's controls are the same keys as that page's (one model, two views). A `viz` is `{kind, keys}`: the picture's kind and the parameter keys it reads, so the shell names no key of its own; the picture is a SAMPLE drawing of those settings, never the engine's output. A group's `follow` (ADR-333) shows the envelope a source's level follows (RC-6.5): its `selector` (the source's `env` row) picks one of `blocks` by option, and the group carries that block's `suffixes` for every block, so each key is a real, shared row (the Mod page's and Main's own), the shell shows the selected block's and the picture reads its `viz` rows. A `meta` entry `elsewhere` leaves a block row to another group of the same page.",
   "bank": {
     "note": "Which modulators the bank lists is never kept here: it is read from the adapter's routes (RC-4) against the current page's keys, plus the modulators activated with + and not yet mapped. Only the choice of each kind's critical controls is design input.",
     "kinds": [
@@ -123,7 +123,32 @@
               "key": "osc1.coupling",
               "size": "utility"
             }
-          ]
+          ],
+          "follow": {
+            "selector": "osc1.env",
+            "blocks": {
+              "ENV 1": "env1",
+              "ENV 2": "env2",
+              "ENV 3": "env3",
+              "ENV 4": "env4"
+            },
+            "suffixes": [
+              "attack",
+              "decay",
+              "sustain",
+              "release"
+            ],
+            "viz": {
+              "a": "attack",
+              "d": "decay",
+              "s": "sustain",
+              "r": "release",
+              "ac": "attackCurve",
+              "dc": "decayCurve",
+              "rc": "releaseCurve"
+            },
+            "size": "utility"
+          }
         },
         {
           "title": "Osc 2",
@@ -154,7 +179,32 @@
               "key": "osc2.coupling",
               "size": "utility"
             }
-          ]
+          ],
+          "follow": {
+            "selector": "osc2.env",
+            "blocks": {
+              "ENV 1": "env1",
+              "ENV 2": "env2",
+              "ENV 3": "env3",
+              "ENV 4": "env4"
+            },
+            "suffixes": [
+              "attack",
+              "decay",
+              "sustain",
+              "release"
+            ],
+            "viz": {
+              "a": "attack",
+              "d": "decay",
+              "s": "sustain",
+              "r": "release",
+              "ac": "attackCurve",
+              "dc": "decayCurve",
+              "rc": "releaseCurve"
+            },
+            "size": "utility"
+          }
         },
         {
           "title": "Sub",
@@ -181,7 +231,32 @@
               "key": "sub.pulseWidth",
               "size": "utility"
             }
-          ]
+          ],
+          "follow": {
+            "selector": "sub.env",
+            "blocks": {
+              "ENV 1": "env1",
+              "ENV 2": "env2",
+              "ENV 3": "env3",
+              "ENV 4": "env4"
+            },
+            "suffixes": [
+              "attack",
+              "decay",
+              "sustain",
+              "release"
+            ],
+            "viz": {
+              "a": "attack",
+              "d": "decay",
+              "s": "sustain",
+              "r": "release",
+              "ac": "attackCurve",
+              "dc": "decayCurve",
+              "rc": "releaseCurve"
+            },
+            "size": "utility"
+          }
         },
         {
           "title": "Noise",
@@ -205,7 +280,32 @@
               "key": "noise.colour",
               "size": "utility"
             }
-          ]
+          ],
+          "follow": {
+            "selector": "noise.env",
+            "blocks": {
+              "ENV 1": "env1",
+              "ENV 2": "env2",
+              "ENV 3": "env3",
+              "ENV 4": "env4"
+            },
+            "suffixes": [
+              "attack",
+              "decay",
+              "sustain",
+              "release"
+            ],
+            "viz": {
+              "a": "attack",
+              "d": "decay",
+              "s": "sustain",
+              "r": "release",
+              "ac": "attackCurve",
+              "dc": "decayCurve",
+              "rc": "releaseCurve"
+            },
+            "size": "utility"
+          }
         }
       ]
     },
@@ -252,6 +352,9 @@
             },
             "width": {
               "sub": "Out"
+            },
+            "env": {
+              "elsewhere": true
             }
           },
           "keys": [
@@ -259,6 +362,40 @@
               "key": "mix.osc1",
               "sub": "Out",
               "size": "primary"
+            }
+          ]
+        },
+        {
+          "title": "Envelope",
+          "tag": "RC-6.5",
+          "follow": {
+            "selector": "osc1.env",
+            "blocks": {
+              "ENV 1": "env1",
+              "ENV 2": "env2",
+              "ENV 3": "env3",
+              "ENV 4": "env4"
+            },
+            "suffixes": [
+              "attack",
+              "decay",
+              "sustain",
+              "release"
+            ],
+            "viz": {
+              "a": "attack",
+              "d": "decay",
+              "s": "sustain",
+              "r": "release",
+              "ac": "attackCurve",
+              "dc": "decayCurve",
+              "rc": "releaseCurve"
+            }
+          },
+          "keys": [
+            {
+              "key": "osc1.env",
+              "role": "modes"
             }
           ]
         },
@@ -408,6 +545,9 @@
             },
             "width": {
               "sub": "Out"
+            },
+            "env": {
+              "elsewhere": true
             }
           },
           "keys": [
@@ -415,6 +555,40 @@
               "key": "mix.osc2",
               "sub": "Out",
               "size": "primary"
+            }
+          ]
+        },
+        {
+          "title": "Envelope",
+          "tag": "RC-6.5",
+          "follow": {
+            "selector": "osc2.env",
+            "blocks": {
+              "ENV 1": "env1",
+              "ENV 2": "env2",
+              "ENV 3": "env3",
+              "ENV 4": "env4"
+            },
+            "suffixes": [
+              "attack",
+              "decay",
+              "sustain",
+              "release"
+            ],
+            "viz": {
+              "a": "attack",
+              "d": "decay",
+              "s": "sustain",
+              "r": "release",
+              "ac": "attackCurve",
+              "dc": "decayCurve",
+              "rc": "releaseCurve"
+            }
+          },
+          "keys": [
+            {
+              "key": "osc2.env",
+              "role": "modes"
             }
           ]
         },
@@ -547,15 +721,6 @@
               "size": "primary"
             },
             {
-              "key": "sub.env",
-              "live": {
-                "key": "sub.on",
-                "is": [
-                  "on"
-                ]
-              }
-            },
-            {
               "key": "sub.pan",
               "live": {
                 "key": "sub.on",
@@ -581,6 +746,40 @@
                   "on"
                 ]
               }
+            }
+          ]
+        },
+        {
+          "title": "Envelope",
+          "tag": "RC-6.5",
+          "follow": {
+            "selector": "sub.env",
+            "blocks": {
+              "ENV 1": "env1",
+              "ENV 2": "env2",
+              "ENV 3": "env3",
+              "ENV 4": "env4"
+            },
+            "suffixes": [
+              "attack",
+              "decay",
+              "sustain",
+              "release"
+            ],
+            "viz": {
+              "a": "attack",
+              "d": "decay",
+              "s": "sustain",
+              "r": "release",
+              "ac": "attackCurve",
+              "dc": "decayCurve",
+              "rc": "releaseCurve"
+            }
+          },
+          "keys": [
+            {
+              "key": "sub.env",
+              "role": "modes"
             }
           ]
         },
@@ -799,15 +998,6 @@
               "size": "primary"
             },
             {
-              "key": "noise.env",
-              "live": {
-                "key": "noise.on",
-                "is": [
-                  "on"
-                ]
-              }
-            },
-            {
               "key": "noise.mute",
               "live": {
                 "key": "noise.on",
@@ -824,6 +1014,40 @@
                   "on"
                 ]
               }
+            }
+          ]
+        },
+        {
+          "title": "Envelope",
+          "tag": "RC-6.5",
+          "follow": {
+            "selector": "noise.env",
+            "blocks": {
+              "ENV 1": "env1",
+              "ENV 2": "env2",
+              "ENV 3": "env3",
+              "ENV 4": "env4"
+            },
+            "suffixes": [
+              "attack",
+              "decay",
+              "sustain",
+              "release"
+            ],
+            "viz": {
+              "a": "attack",
+              "d": "decay",
+              "s": "sustain",
+              "r": "release",
+              "ac": "attackCurve",
+              "dc": "decayCurve",
+              "rc": "releaseCurve"
+            }
+          },
+          "keys": [
+            {
+              "key": "noise.env",
+              "role": "modes"
             }
           ]
         },
@@ -1327,7 +1551,7 @@
       "id": "mix",
       "label": "Mix",
       "status": "designed",
-      "note": "A console (B589, ADR-329 item 3): one strip per source and the master, side by side, each fader its level key, attached to its own on, mute and solo keys; the meters and peak readouts are the stub's MOCK meters from its observation view (IF-6, IF-10), and the CLIP lamp latches and clears on a click.",
+      "note": "A console (B589, ADR-329 item 3) with more room per strip (ADR-333), under a summed oscilloscope and a summed spectrum: one strip per source and the master, each fader its level key, attached to its own on, mute and solo keys; the meters, the peaks and the summed views are the stub's MOCK observation view (IF-6, IF-10); the CLIP lamp latches and clears on a click.",
       "groups": [
         {
           "title": "Osc 1",
@@ -1499,6 +1723,15 @@
           "block": "arp"
         }
       ]
+    },
+    {
+      "id": "ledger",
+      "label": "Ledger",
+      "status": "designed",
+      "panel": "ledger",
+      "note": "Everything not yet moved over into GUI 3, where it lives today and why it has not moved (ADR-333, B593), read from docs/design/gui3/port-tab.json; a row leaves only when its item ships in the shell.",
+      "cite": "ADR-333, B593",
+      "groups": []
     }
   ],
   "sources": [
@@ -1609,6 +1842,13 @@
       "label": "Set",
       "pages": [
         "settings"
+      ]
+    },
+    {
+      "id": "ledger",
+      "label": "Ledger",
+      "pages": [
+        "ledger"
       ]
     }
   ]

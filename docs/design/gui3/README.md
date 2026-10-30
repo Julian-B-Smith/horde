@@ -1,6 +1,6 @@
 # GUI 3: the wired shell
 
-*Last verified 2026-10-30, branch `gui3-b584-slice4b` (ROADMAP B584, slice 4b; ADR-316, ADR-319, ADR-322, ADR-329, ADR-330; B589), stacked on slice 4a and spec round 48.*
+*Last verified 2026-10-30, branch `gui3-b584-slice5` (ROADMAP B584 slice 5, B593; ADR-316, ADR-319, ADR-322, ADR-329, ADR-330, ADR-333; B589), from main.*
 
 `docs/design/gui3.html` is GUI 3's prototype: one window with twelve pages (the Random page folded into the
 Morph page, ADR-322 item 2; a draft Arp page, ADR-330), every parameter that has a machine-readable
@@ -157,6 +157,30 @@ The design master was revised (artifact `1793336699-65f2`, B589; its per-element
 - **Review links:** `gui3.html#osc1,light,win` (or `dark`) shows the window alone at its size; `,nobank` hides the bank,
   `,fit` prints the fit line, `,morph` and `,bank` prepare a morphing or mapped state.
 
+## The port ledger, the mixer's room and summed views, envelopes on the oscillator views (ADR-333, B593)
+
+- **The port ledger** (`port-tab.json`, the shell's **Ledger** page; a top-level group of its own, flagged: under Set
+  is the alternative). One row per item not yet moved over: the item, where it lives today by repo path, why it has not
+  moved (one of six reasons: a ruling, a design-system component, a spec table, a sibling's manifest, the engine or
+  audio, not yet scheduled) with a sentence, its ROADMAP row, and a status (`partial` says what is missing; `precise`
+  marks what the human asked to be copied precisely: the Scalpel bench's Kuramoto ring with its blades, and the
+  Specimen XY). Seeded with the human's list (their words in `asked`) and the gaps found in the shell. A row leaves only
+  when its item ships. The generator's check refuses a row with no reason, an unknown reason, no sentence, no source
+  path, a path that does not exist, no B-number or one the ROADMAP lacks, or a `partial` with nothing missing.
+- **The Settings page's failure** (the ledger's `settings` row): the Set tab opens nothing. The page bar's `set` group has
+  one page, `settings`; Page nav makes a one-page group its own page (id `set`), so the click asks for a page `set` that
+  does not exist. `#settings` opens it. Out of slice 5's scope; listed, not fixed.
+- **The mixer:** more room per strip (a documented override of `size-strip-w`, 72 to 92 px, inside the console only;
+  the token change is proposal 21), and a summed oscilloscope and a summed spectrum above the console, drawn with the
+  bundle's `Viz.scope` and `Viz.spectrum` from the engine's observation view (`dev.summed()`, IF-10; MOCK in the stub:
+  the sounding sources' test tones at their meters' gains times `out.level`).
+- **Envelopes on the oscillator views:** each source's page (Osc 1, Osc 2, Sub, Noise) and its dashboard card shows the
+  envelope its level follows, the block its `env` row selects (`osc1.env`, `osc2.env`, `sub.env`, `noise.env`: ENV 1 to
+  ENV 4, RC-6.5), drawn with `Viz.envelope` (C.12's curves) and edited with that block's Attack, Decay, Sustain and
+  Release, compact on the page and utility on the card. The controls are the shared rows (`env1.*` on Main, `env2.*` to
+  `env4.*` on Mod), all four blocks mounted and the selected one shown, so an edit there is an edit on Mod and the other
+  way round (one model, two views; the seam check's `envelope` test and the page's self-check prove it).
+
 ## The seam and the transport
 
 The shell calls only `device.js`. `device.js` reaches the engine only through a transport: any object
@@ -206,19 +230,20 @@ on/off and audible corner (RC-11.1), the routes (RC-4 defers the matrix), and th
   Every source beside SPEC-ENGINE 5 (D.2, the FX modules, Arp) passes the same rule and refusals, and every
   vendored file has a provenance row whose sha256 matches its bytes. Every page is in exactly one page-bar
   group; a section's power and modes and a strip's fader, on, mute and solo suit their rows; each dashboard
-  card carries its source's power switch and only keys its source page carries. Twenty-one must-fail
-  controls, among them a module's keys left unplaced, a vendored file with no provenance row, a page in no
-  nav group, a dashboard key its source page lacks, and a dashboard card without its power switch.
-- `node tools/labharness/gui3_seam_check.mjs`: nineteen tests of the stubs, the transport and the adapter
+  card carries its source's power switch and only keys its source page carries; an envelope section's followed
+  rows exist; every port-ledger row passes its rules. Twenty-seven must-fail controls, among them a module's keys
+  left unplaced, a vendored file with no provenance row, a page in no nav group, a dashboard key its source page
+  lacks, and a ledger row with no reason, an unknown reason, no source, a missing source, or no B-number.
+- `node tools/labharness/gui3_seam_check.mjs`: twenty-one tests of the stubs, the transport and the adapter
   against the spec, ADR-319, ADR-322 and ADR-330 (morph off, the morph toggle in history, corner snapshots,
   mirror and confirm over a synchronous and a delayed transport, pending modulators dropped on close, map
   drops refused on stepped and reserved rows, each source's values reaching its own side and never the
-  engine, the MOCK meters through IF-6's gate with a clip latch that holds until cleared), twenty-one
-  planted faults (one each for a module's, Arp's and a morph setting's values sent to the engine; a meter
-  that ignores solo; a clear that does not unlatch). `--verbose` prints why
+  engine, the MOCK meters through IF-6's gate with a clip latch that holds until cleared, the summed views read
+  from the observation view, an oscillator view's envelope as the shared keys), twenty-three planted faults
+  (among them summed views fed a constant, and an envelope edited through a copy instead of the shared keys). `--verbose` prints why
   each plant went red.
 - `lab_load_check` loads the page's inline script (it stops at the missing bundle, as the other bundle
-  labs do). The page's own fourteen self-checks run in a browser, each with a control.
+  labs do). The page's own seventeen self-checks run in a browser, each with a control.
 
 ## Proposals for the design system (nothing here is drawn locally)
 
@@ -263,6 +288,9 @@ The bundle (version `1793336699-65f2`, B589) lacks these; each goes into the des
 19. **A dashboard card's picture** at the card's width with no caption: the shell reuses its page painters.
 20. **The class `sm`**: **fixed upstream** (`1793336699-65f2`). The revision's per-element dense modifier is now `.hd-sm`, so
     the Random and filter labs, which use a bare `sm` of their own, render as before (`../arp-face/README.md`).
+
+21. **A wider channel strip** (ADR-333: "a little more space on the mixer"): the shell overrides `size-strip-w` to 92 px
+    inside its console; the token (or a `size-strip-w-roomy` variant) belongs in the design system's workshop (B589).
 
 ## Known gaps
 

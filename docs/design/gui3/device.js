@@ -310,6 +310,16 @@
        latch's clear, which goes to the engine like any other message (the latch lives on the audio side). */
     D.meters = function () { return lastSnap && lastSnap.observe && lastSnap.observe.meters || {}; };
     D.clearClip = function (id) { transport.send({ type: 'clear', seq: ++seq, id: id }); rev++; };
+    /* The summed oscilloscope and spectrum the Mix page draws (ADR-333): read from the engine's observation view
+       (IF-10; MOCK in the stub), never computed here. */
+    D.summed = function () { return lastSnap && lastSnap.observe && lastSnap.observe.sum || null; };
+    /* The envelope a source follows (RC-6.5, ADR-333): the generated `follow` names the source's selector row and one
+       block per option; the block the selector holds now is the one shown and edited, and its rows are the shared keys
+       (the Mod page's and Main's own), never a copy. */
+    D.followed = function (f) {
+      var r = by[f && f.selector]; if (!r || !r.options) return null;
+      return f.options[r.options[Math.round(heard(f.selector) * (r.n - 1))]] || null;
+    };
 
     reown();
     transport.onSnapshot(onSnapshot);
