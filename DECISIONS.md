@@ -10428,3 +10428,22 @@ The Scalpel bench is `docs/design/scalpel-interface-lab.html` (B271, B293). The 
 - A response to Shriek (horde seq 37) and a notice to Sluice (Sluice declares its resolution in its manifest under the general rule).
 - **FX device (ADR-254):** the same rows apply to its slots; the FX device has macros, so this is its rule too.
 
+## ADR-333 — DIRECTED by the human: GUI 3 keeps a running tab of what has not moved over and why; the mixer gains room, a summed scope and spectrum; oscillator views carry their envelopes; a workshop on arrangement and compact variants (B584, B589, B593; 2026-10-30)
+
+**Context.** The human, 2026-10-30, after slices 4a and 4b reached main (#1286):
+- "We should probably include in the GUI3 shell a running tab of everything that hasn't been moved over yet (and for what reason). Off the top of my head:" Deeper morph interface with parameter boundaries; Random page interface (whether we fold it into morph or keep it); Settings page (currently not working); Gain staging on the mixer; "All osc visualizers (scalpel, phase carpet, etc.) - and the ones recently added didn't port over the full capability of the kuro visualizer from the scalpel lab, with its circular representation of blade, etc.; I really liked the aesthetics and functionality from the scalpel lab and would like to copy it pretty precisely"; Specimen XY from the scalpel lab on main; "Almost everything else from main"; "Bend law section with visuals, a la horde legacy (not sure where is best)"; Filters; FX modules; All modulators; "The quick map selector at the top, from one of the recent labs".
+- "it would be nice if there was just a little more space on the mixer. And maybe the mixer page should also have a summed oscilloscope and a summed spectrum".
+- "I'm thinking the oscillator pages and minimal views should include whatever envelope shapes them (editing it there edits it on the mod page and elsewhere as well)".
+- "I also will want to do some serious workshopping of how to better arrange the parameters in general, as well as how to make the knobs and buttons and sliders more compact (this will touch the design doc and possibly require a few extra variants of the knobs and sliders and buttons and dropdowns for clustered sections)".
+
+**Direction.**
+- **The port ledger.** A page in the GUI 3 shell, generated from one data file, lists everything not yet moved over: each row names the item, where it lives today (the lab or the legacy GUI, by path), why it has not moved (waiting on a ruling, a design-system component, a spec table, a sibling's manifest, or simply not yet scheduled), and the ROADMAP row that carries it. The human's list seeds it; the lead and agents add to it; a row leaves only when its item ships in the shell. A check holds every row to a reason and a source.
+- **The Kuramoto visualizer is copied precisely** from the Scalpel bench (its circular representation of the blades included), not re-derived, when the oscillator visualizers move over. The same holds for the Specimen XY on Main.
+- **The mixer** gets more room per strip, and a summed oscilloscope and a summed spectrum (from the stub's observation view, MOCK until audio).
+- **One model, two views, for envelopes.** Each oscillator page and its dashboard card shows the envelope that shapes it (the one its amplitude routes from), editable there; the edit writes the same keys the Mod page writes.
+- **The workshop** on arrangement and compact variants (knobs, sliders, buttons and drop-downs for clustered sections) is its own design round (B589), run as a variant sheet the human chooses from, then written into the design system.
+
+**Consequences.**
+- B593 carries the ledger. B584's next slice (5) builds the ledger page, the mixer room and summed views, and the envelopes on the oscillator views. B589 carries the workshop.
+- **FX device (ADR-254):** the ledger lists the FX device's own gaps too (its pages have no oscillator rows); the mixer's summed views serve it as they are.
+
