@@ -233,7 +233,7 @@ fast() {
   # shell → engine, recorded in docs/design/design-ledger.json: every ADR, lab, component, master
   # version, bundle export and shell place a row names exists; every lab in the design index has a
   # status; no ADR or B number is taken twice (two ROADMAP writers, ADR-336 ruling 2). Coverage of every
-  # ADR by a row or a not_design reason is report-only until B596 fills the ledger. One must-fail plant
+  # ADR by a row or a not_design reason is blocking since B596 filled the ledger. One must-fail plant
   # per finding kind, plus must-read-clean controls, every run. Python only, well under 1 s.
   python3 tools/design_chain_check.py || ok=1
 
