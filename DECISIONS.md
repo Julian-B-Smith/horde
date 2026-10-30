@@ -10447,3 +10447,38 @@ The Scalpel bench is `docs/design/scalpel-interface-lab.html` (B271, B293). The 
 - B593 carries the ledger. B584's next slice (5) builds the ledger page, the mixer room and summed views, and the envelopes on the oscillator views. B589 carries the workshop.
 - **FX device (ADR-254):** the ledger lists the FX device's own gaps too (its pages have no oscillator rows); the mixer's summed views serve it as they are.
 
+## ADR-334 — DIRECTED by the human: every modulator gets its visual and far more compact controls, a tiny knob tier, minimal views and removal from the list; a composition design lab with its own agent (B594, B589, B556; 2026-10-30)
+
+**Context.** The human, 2026-10-30, after GUI 3 slices 5 and 6:
+- "Noticing the mod page and modulators bar needs a lot of work. First the modulators each need visuals, and their controls should be quite a bit more compact. We'll definitely need to add a fresh set of tiny knobs to the design doc and workshop how they fit together to optimize space."
+- "Next we need to design the minimal views for modulators (some can be very thin; as much as a visual readout and a map button). And any modulators that aren't mapped to anything should be removable from the list (maybe any can be in general)."
+- "Maybe in general we can get a design lab running with another agent specifically for composition of elements. We haven't yet adequately solved the space issue at the small scale, let alone come up with a suitable design paradigm to handle large numbers of controls in a tight space".
+
+**Direction.**
+- **Every modulator shows its visual** (its shape, curve or field, with its live position) wherever it is listed: the Mod page, the per-page bank (B556) and its cards. Its controls become much more compact.
+- **A tiny knob tier** below the utility size (28 px), with the companions a cluster needs (a tiny slider, toggle, stepper and drop-down), proposed to the design system and workshopped as clusters, not one control at a time.
+- **Minimal views for modulators**, in tiers down to a thin row: at its thinnest, a visual readout and a map button.
+- **Removal.** A modulator mapped to nothing can be removed from the list. Whether ANY modulator can be removed, its routes going with it as one undo step, is open for the human; the lab draws both.
+- **A composition design lab with its own agent** (B589's vehicle): how elements compose at small scale, and a paradigm for many controls in a tight space. It reads the earlier labs first (`docs/design/compact-lab.html`, `modulator-lab.html`, `mod-lab.html`, `layout-lab.html`) and the design system's density revision (B589, 2026-10-30), and puts variant sheets to the human. What the human rules goes into the design master (the Design System artifact) first, then the vendored bundle, then the shell (ADR-316).
+
+**Consequences.**
+- B594 carries the modulator work; B589 carries the composition lab; B556's bank takes the minimal views when they are ruled.
+- **FX device (ADR-254):** the paradigm governs every dense page, so the FX device's pages and the hosted modules' screens (B591) draw on what the lab rules; the FX device's modulators get the same visuals, minimal views and removal.
+
+## ADR-335 — RULED by the human: map-mode keys work always; the mappings panel shows only while MAP is on; the MAP button is widened; the info box is a fixed square-ish box left of the modulator bank and explains whole sections too (B584, B582, ADR-261; 2026-10-30)
+
+**Context.** GUI 3 slice 6 (#1293) mounted the MAP control and asked two questions: whether the map keys (M, Esc, 1 to 9, P, Backspace) work only in keyboard mode (the design system's rule, ADR-259 ruling 6) or always (the Map Mode spec), and whether the mappings panel docks only while MAP is on or always. The human, 2026-10-30:
+- "keys always (we'll have to rework them if they interfere with keyboard midi controls; I may ultimately reverse the “keys always” decision after some use), panel only while MAP on. Also I think the map button needs to be widened; there's a part that appears to be buried".
+- "The info hover box keeps resizing everything whenever I hover over an element. Maybe it should be a static square-ish box that stays one size to the left of the modulators box at the bottom. Also I would like for it to offer information about entire sections in addition to specific parameters."
+
+**Rulings.**
+1. **Map keys work always** in the GUI 3 shell, as the Map Mode spec asks; every key keeps its mouse route. Provisional by the human's own words: if they collide with keyboard MIDI input they are reworked, and the human may reverse this after use. The design system's keyboard-mode rule (ADR-259 ruling 6) is overridden for the map keys only.
+2. **The mappings panel docks only while MAP is on.**
+3. **The MAP button is widened** so nothing in it is buried.
+4. **The info box (B582) is fixed in size and place:** a square-ish box at the bottom, left of the modulator bank, one size on every page, so hovering never moves the layout. It explains whole sections as well as single parameters: hovering a section's header (or its empty space) shows what the section does.
+
+**Consequences.**
+- B584's next slice builds 1 to 4. Section descriptions need a source: each is drafted from the spec text that defines the section, cites it, and is marked a draft until the human reads it; B582's `desc` column stays the parameters' source.
+- The design-system proposal list gains: the map keys' scope beside keyboard mode, a wider MapControl, and the fixed info box as a component.
+- **FX device (ADR-254):** the same rulings hold on its pages: map keys always, the panel while MAP is on, the fixed info box explaining its modules' sections.
+
