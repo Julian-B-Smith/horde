@@ -57,8 +57,18 @@
  *   mapdrag      a drag released at exactly 0 makes no route and no step (even if another part of the shell emits mid-drag);
  *                a drag up makes one route at the dragged depth; a drag on an existing mapping edits its depth, one step
  *   mapkeys      M tap latches, M hold is momentary, Esc and M turn MAP off, 1 to 9 choose the source, P cycles the device
- *                route's polarity and Backspace removes it, one step each, in keyboard mode only; the inspector's polarity
- *                pill and remove button (S.cyclePol, S.remove) do the same
+ *                route's polarity and Backspace removes it, one step each, WHETHER OR NOT keyboard mode is on (ADR-335 ruling 1),
+ *                each key handled exactly once and keyboard mode's other keys (digits pin corners with MAP off) unchanged; the
+ *                inspector's polarity pill and remove button (S.cyclePol, S.remove) do the same
+ *   mapkeysfield a map key typed into a text input, text area, drop-down or editable region does nothing, in either mode, and
+ *                the same key elsewhere does (a control); Cmd and Ctrl keys are the host's, never the map's
+ *   mapkeysflag  the scope is one named constant (MAP_KEYS_ALWAYS), the page uses it as it stands, and with it false the keys
+ *                are keyboard mode's alone again (ADR-335: the human may reverse the ruling)
+ *   sections     ADR-335 ruling 4: every section of every page is described (a DRAFT with its source) or says it has no
+ *                description yet and is counted; the box never shows another section's text or an invented one
+ *   infofixed    ADR-335 ruling 4 (B582), structural: the info box is one fixed size, in the foot row left of the bank, and its
+ *                text scrolls inside it; the browser's own self-check measures a hover moving nothing
+ *   mapbar       ADR-335 ruling 3, structural: the MAP control does not shrink (the browser's self-check measures the names)
  *   mapcontrol   the mouse routes: the MAP button, the source dropdown and the strip's chips, which list every device source
  *   mappage      a page change keeps MAP and the source: one session, and the page switch never touches it (structural; the
  *                shell's own self-check clicks it); the control is mounted in the top bar, outside the page area
@@ -78,7 +88,10 @@
  * views fed a constant, and an oscillator view that edits a copy of its envelope instead of the shared keys, a session list that never
  * reaches the device, a mapping written bipolar, a MAP gesture that is no history step, a push during the drag, a removal the device
  * never learns of, a MAP button that only switches on, a refusal that is not said or a refused ring that stays, a page switch that
- * turns MAP off, a one-page group left to the bundle (the Set tab's fault), and an envelope summary read from the first block. Each must
+ * turns MAP off, a one-page group left to the bundle (the Set tab's fault), an envelope summary read from the first block, the map keys
+ * left to keyboard mode, a key taken twice, a key taken in a text field, a Cmd-key taken, a flag that is ignored or overridden by the
+ * page, a section given a description it does not have or shown without its DRAFT mark, an info box that can grow or whose text does not
+ * scroll, and a MAP control that can shrink. Each must
  * turn its own test red (and its anchor must exist, or the plant itself is reported as vacuous).
  *
  * Usage: node tools/labharness/gui3_seam_check.mjs [--verbose]   (exit 1 on any failure; --verbose prints
@@ -128,8 +141,9 @@ class El {
 }
 function fakeDom() {
   const doc = { createElement: t => new El(t), createElementNS: (_, t) => new El(t), createTextNode: t => Object.assign(new El('#text'), { _text: t }), body: new El('body'), documentElement: new El('html'), activeElement: null };
-  const keys = { keydown: [], keyup: [], blur: [] };
-  return { document: doc, keys, addEventListener: (t, f) => { (keys[t] = keys[t] || []).push(f); } };
+  // `caps` are capture-phase listeners (a browser runs them before the bubble-phase ones in `keys`)
+  const keys = { keydown: [], keyup: [], blur: [] }, caps = { keydown: [], keyup: [] };
+  return { document: doc, keys, caps, addEventListener: (t, f, cap) => { const m = cap ? caps : keys; (m[t] = m[t] || []).push(f); } };
 }
 
 // The scripts are classic scripts that assign to `window`; give them a fresh one each load. The bundle runs on the fake DOM.
@@ -137,7 +151,7 @@ function load(src) {
   const win = {}, dom = fakeDom();
   for (const k of ['data', 'stub', 'device', 'logic']) new Function('window', src[k])(win);
   new Function('window', 'document', 'addEventListener', 'requestAnimationFrame', src.bundle)(win, dom.document, dom.addEventListener, () => 0);
-  win.__dom = dom; win.__shellText = src.shell;
+  win.__dom = dom; win.__shellText = src.shell; win.__logicText = src.logic;
   return win;
 }
 
@@ -481,11 +495,13 @@ function suite(W) {
      ruling 6); the inspector's polarity pill and remove button call S.cyclePol and S.remove, so those calls are the mouse
      route of P and Backspace. */
   const SPEC_DEPTH = .25;
-  const mapRig = () => {
+  const mapRig = (o = {}) => {
     const f = fresh(), H = W.Horde, dom = W.__dom, d = f.d;
     const S = new H.Session({ x: .5, y: .5, corners: [null, null, null, null], sources: d.sources().map(s => ({ id: s.id, name: s.name, kind: s.kind, f: () => 0 })), mappings: [] });
     const br = W.GUI3Shell.attachMap(S, d);
-    const n0 = { keydown: dom.keys.keydown.length, keyup: dom.keys.keyup.length };
+    const n0 = { keydown: dom.keys.keydown.length, keyup: dom.keys.keyup.length }, c0 = { keydown: dom.caps.keydown.length, keyup: dom.caps.keyup.length };
+    // as the page does: the shell's key listeners first (capture), then the session's own; `always` is the constant's unless a test sets it
+    W.GUI3Shell.attachMapKeys(S, { addEventListener: dom.addEventListener }, o.always === undefined ? undefined : { always: o.always });
     S.start();
     const knob = key => {
       const row = by[key], host = new El('div');
@@ -497,8 +513,18 @@ function suite(W) {
       click: face => { face.fire('pointerdown', at(100)); face.fire('pointerup', at(100)); },
       // a vertical drag by dy px (up is positive); `mid` runs while the pointer is still down (any other part of the shell may emit)
       drag: (face, dy, mid) => { face.fire('pointerdown', at(100)); face.fire('pointermove', at(100 - dy)); if (mid) mid(); face.fire('pointerup', at(100 - dy)); },
-      press: (o, t = 0) => dom.keys.keydown.slice(n0.keydown).forEach(fn => fn({ repeat: false, altKey: false, timeStamp: t, target: { tagName: 'DIV' }, preventDefault() {}, ...o })),
-      release: (o, t = 0) => dom.keys.keyup.slice(n0.keyup).forEach(fn => fn({ timeStamp: t, ...o })) };
+      // an event goes through the capture listeners, then the bubble ones, and stops where a listener says so
+      press: (o, t = 0) => {
+        const e = { repeat: false, altKey: false, metaKey: false, ctrlKey: false, timeStamp: t, target: { tagName: 'DIV' }, prevented: false, stopped: false,
+          preventDefault() { this.prevented = true; }, stopImmediatePropagation() { this.stopped = true; }, ...o };
+        for (const fn of [...dom.caps.keydown.slice(c0.keydown), ...dom.keys.keydown.slice(n0.keydown)]) { if (e.stopped) break; fn(e); }
+        return e;
+      },
+      release: (o, t = 0) => {
+        const e = { timeStamp: t, stopped: false, stopImmediatePropagation() { this.stopped = true; }, ...o };
+        for (const fn of [...dom.caps.keyup.slice(c0.keyup), ...dom.keys.keyup.slice(n0.keyup)]) { if (e.stopped) break; fn(e); }
+        return e;
+      } };
   };
   const cont2 = firstOf(r => r.law !== 'step' && r.pv && r.key !== cont.key);
   // the morph's settings are the resolver's inputs (IF-12), never a modulation destination: a continuous one no route can reach
@@ -536,38 +562,132 @@ function suite(W) {
     ok(d.undo() && near(d.routes()[0].depth, .5), 'undo did not put the depth back');
   };
 
-  T.mapkeys = () => {
-    const { S, d, knob, click, press, release, steps } = mapRig(), face = knob(cont.key);
-    press({ code: 'KeyM' }, 0); release({ code: 'KeyM' }, 100);
-    ok(!S.map.on, 'a key worked with keyboard mode off (ADR-259 ruling 6)');
-    S.keys = true;
-    press({ code: 'KeyM' }, 0); release({ code: 'KeyM' }, 100);
-    ok(S.map.on && !S.map.momentary, 'M tapped (within 280 ms) did not latch MAP on');
-    press({ code: 'KeyM' }, 500); release({ code: 'KeyM' }, 600);
-    ok(!S.map.on, 'M while MAP is latched did not turn it off');
-    press({ code: 'KeyM' }, 0);
-    ok(S.map.on && S.map.momentary, 'M held did not turn MAP on for the hold');
-    release({ code: 'KeyM' }, 400);
-    ok(!S.map.on, 'releasing a held M did not end MAP');
+  /* The whole key set, in one keyboard-mode setting. ADR-335 ruling 1: the same in both. Times are well past 280 ms from zero,
+     so a tap the session's own keyup would misread (it reads a press time only its own keydown sets) is caught. */
+  const keySet = keysOn => {
+    const { S, d, knob, click, press, release, steps } = mapRig(), face = knob(cont.key), who = (keysOn ? 'keyboard mode ON: ' : 'keyboard mode OFF: ');
+    S.keys = keysOn;
+    press({ code: 'KeyM' }, 1000); release({ code: 'KeyM' }, 1100);
+    ok(S.map.on && !S.map.momentary, who + 'M tapped (within 280 ms) did not latch MAP on');
+    press({ code: 'KeyM' }, 1500); release({ code: 'KeyM' }, 1600);
+    ok(!S.map.on, who + 'M while MAP is latched did not turn it off');
+    press({ code: 'KeyM' }, 2000);
+    ok(S.map.on && S.map.momentary, who + 'M held did not turn MAP on for the hold');
+    release({ code: 'KeyM' }, 2400);
+    ok(!S.map.on, who + 'releasing a held M did not end MAP');
     S.setMap(true); press({ key: 'Escape' });
-    ok(!S.map.on, 'Esc did not turn MAP off');
-    S.setMap(true); press({ code: 'Digit3' });
-    ok(S.map.src === 'env3', 'the number 3 did not choose the third source (' + S.map.src + ')');
+    ok(!S.map.on, who + 'Esc did not turn MAP off');
+    S.setMap(true);
+    let emits = 0; S.on(() => { emits++; });
+    const e3 = press({ code: 'Digit3' });
+    ok(S.map.src === 'env3', who + 'the number 3 did not choose the third source (' + S.map.src + ')');
+    ok(emits === 1 && e3.prevented, who + 'the number 3 was handled ' + emits + ' times (or its default was not stopped), not once');
     press({ code: 'Digit9' });
-    ok(S.map.src === d.sources()[8].id, 'the number 9 did not choose the ninth source');
+    ok(S.map.src === d.sources()[8].id, who + 'the number 9 did not choose the ninth source');
     press({ code: 'Digit3' }); click(face);
-    ok(d.routes().length === 1 && steps() === 1, 'no route to cycle');
+    ok(d.routes().length === 1 && steps() === 1, who + 'no route to cycle');
     press({ code: 'KeyP' });
-    ok(d.routes()[0].pol === 'bi' && steps() === 2, 'P did not make the device route bipolar as one step (' + d.routes()[0].pol + ', ' + steps() + ')');
-    S.cyclePol(S.lastMap);                                                              // the inspector’s polarity pill
-    ok(d.routes()[0].pol === 'inv' && steps() === 3, 'the polarity pill did not make the device route inverse as one step');
+    ok(d.routes()[0].pol === 'bi' && steps() === 2, who + 'P did not make the device route bipolar as one step (' + d.routes()[0].pol + ', ' + steps() + ')');
+    S.cyclePol(S.lastMap);                                                              // the inspector's polarity pill
+    ok(d.routes()[0].pol === 'inv' && steps() === 3, who + 'the polarity pill did not make the device route inverse as one step');
     press({ key: 'Backspace' });
-    ok(d.routes().length === 0 && steps() === 4, 'Backspace did not remove the device route as one step');
+    ok(d.routes().length === 0 && steps() === 4, who + 'Backspace did not remove the device route as one step');
     click(face); const id = d.routes()[0].id;
-    S.remove(S.lastMap);                                                                // the inspector’s remove button
-    ok(!d.routes().some(r => r.id === id) && steps() === 6, 'the remove button did not remove the device route as one step');
+    S.remove(S.lastMap);                                                                // the inspector's remove button
+    ok(!d.routes().some(r => r.id === id) && steps() === 6, who + 'the remove button did not remove the device route as one step');
     S.setMap(false); click(face); press({ key: 'Backspace' });
-    ok(d.routes().length === 0, 'MAP off: a click made a route');
+    ok(d.routes().length === 0, who + 'MAP off: a click made a route');
+    // with MAP off the digits are not the map's: they stay free, and in keyboard mode they pin morph corners as they always did
+    const e2 = press({ code: 'Digit2' });
+    ok(keysOn ? S.pinned === 1 : (S.pinned === null && !e2.prevented), who + 'a digit with MAP off ' + (keysOn ? 'no longer pins a corner (keyboard mode changed)' : 'was taken by the map (pinned ' + S.pinned + ')'));
+    S.setPin(null);
+  };
+  T.mapkeys = () => { keySet(false); keySet(true); };
+
+  /* A key typed into a field is the field's. In both modes, for each kind of field, and the same key elsewhere works (so the
+     test is not blind); Cmd and Ctrl keys belong to the host (Cmd-M minimises, Cmd-P prints). */
+  T.mapkeysfield = () => {
+    const fields = [{ tagName: 'INPUT' }, { tagName: 'TEXTAREA' }, { tagName: 'SELECT' }, { tagName: 'DIV', isContentEditable: true }];
+    for (const keysOn of [false, true]) {
+      for (const target of fields) {
+        const { S, d, knob, click, press, steps } = mapRig(), face = knob(cont.key), who = (keysOn ? 'keyboard mode ON, ' : 'keyboard mode OFF, ') + (target.isContentEditable ? 'an editable region' : target.tagName) + ': ';
+        S.keys = keysOn; S.setMap(true); S.setSrc('env2'); click(face);
+        const n = steps();
+        ok(d.routes().length === 1, who + 'no route to test the keys with');
+        press({ code: 'KeyP', target });
+        press({ key: 'Backspace', target });
+        ok(d.routes().length === 1 && d.routes()[0].pol === 'uni' && steps() === n, who + 'P or Backspace in a field changed the route (' + JSON.stringify(d.routes()) + ')');
+        press({ code: 'Digit4', target });
+        ok(S.map.src === 'env2', who + 'a digit in a field chose a source (' + S.map.src + ')');
+        press({ code: 'KeyM', target }, 1000);
+        press({ key: 'Escape', target });
+        ok(S.map.on && !S.map.momentary, who + 'M or Esc in a field changed MAP');
+        press({ code: 'KeyP' });
+        ok(d.routes()[0].pol === 'bi', who + 'control: the same P outside a field did not work');
+      }
+    }
+    for (const mod of [{ metaKey: true }, { ctrlKey: true }]) {
+      const { S, press } = mapRig();
+      press({ code: 'KeyM', ...mod }, 1000); press({ code: 'KeyP', ...mod });
+      ok(!S.map.on, 'a Cmd or Ctrl key was taken by the map (' + Object.keys(mod)[0] + ')');
+    }
+  };
+
+  /* The scope is one named constant the human can flip (ADR-335: "I may ultimately reverse the keys always decision"). */
+  T.mapkeysflag = () => {
+    const L = W.__logicText, P = W.__shellText;
+    ok(/ADR-335[\s\S]{0,1400}var MAP_KEYS_ALWAYS = (true|false);/.test(L), 'shell-logic.js has no single named MAP_KEYS_ALWAYS constant with its ADR-335 comment');
+    ok((L.match(/var MAP_KEYS_ALWAYS/g) || []).length === 1, 'the scope is not held in exactly one constant');
+    ok(/SH\.attachMapKeys\(S, window\);/.test(P), 'the page does not attach the keys with the constant as it stands (an override in the page would hide the one-line change)');
+    const off = mapRig({ always: false });
+    off.press({ code: 'KeyM' }, 1000); off.release({ code: 'KeyM' }, 1100);
+    ok(!off.S.map.on, 'with the scope reversed, a key still worked with keyboard mode off');
+    off.S.keys = true;
+    off.press({ code: 'KeyM' }, 3000); off.release({ code: 'KeyM' }, 3100);
+    ok(off.S.map.on && !off.S.map.momentary, 'with the scope reversed, keyboard mode lost the keys');
+    ok(W.GUI3Shell.MAP_KEYS_ALWAYS === true, 'the ruling in force is keys always (ADR-335)');
+  };
+
+  /* ADR-335 ruling 4: the section descriptions. Every section is described (with its DRAFT mark and source) or says so. */
+  T.sections = () => {
+    const SEC = DATA.sections, all = DATA.pages.flatMap(p => p.groups.map(g => ({ page: p, group: g }))), find = id => all.find(x => x.group.id === id);
+    const SH = W.GUI3Shell;
+    ok(SEC && /^DRAFT/.test(SEC.status), 'the sections file is not marked a draft');
+    ok(new Set(all.map(x => x.group.id)).size === all.length, 'two sections share an id');
+    ok(Object.keys(SEC.text).length + SEC.missing.length === all.length && SEC.missing.every(id => find(id) && !SEC.text[id]), 'a section is neither described nor counted as missing');
+    ok(Object.keys(SEC.text).length > 0 && SEC.missing.length > 0, 'the test has nothing to tell a described section from an undescribed one with');
+    for (const { group } of all) {
+      const i = SH.sectionInfo(SEC, group.id, find), d = SEC.text[group.id];
+      ok(i && i.described === !!d, group.id + ': described or not does not match the data');
+      if (d) {
+        ok(i.text === d.text && /DRAFT/.test(i.tag) && d.src.every(c => i.meta.includes(c.path)), group.id + ': the box does not show its own text, its DRAFT mark and its source (' + i.tag + ')');
+        ok(d.src.length > 0, group.id + ': a description with no source');
+      } else {
+        ok(i.text === 'No section description yet.' && !/DRAFT/.test(i.tag), group.id + ': an undescribed section shows “' + i.text + '”, not that it has none');
+      }
+    }
+    ok(SH.sectionInfo(SEC, 'no/such-section', find) === null, 'an unknown section id gave an info box');
+    const a = SH.sectionInfo(SEC, Object.keys(SEC.text)[0], find), b = SH.sectionInfo(SEC, SEC.missing[0], find);
+    ok(a.text !== b.text && b.text === 'No section description yet.', 'a section with no description shows another section’s text');
+  };
+
+  /* ADR-335 ruling 4 (B582), structural: one size, in the foot row, left of the bank, its text scrolling inside it. The
+     browser's self-check (the shell's own) measures that a hover moves and resizes nothing, with a growing box as its control. */
+  T.infofixed = () => {
+    const t = W.__shellText, css = n => (new RegExp('\\n  ' + n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ' \\{([^}]*)\\}').exec(t) || [, ''])[1];
+    ok(/--foot-h: \d+px; --info-w: \d+px/.test(css('.footrow')) && /height: var\(--foot-h\)/.test(css('.footrow')), 'the foot row has no fixed height');
+    ok(/width: var\(--info-w\); flex: 0 0 var\(--info-w\); height: 100%/.test(css('.info')), 'the info box is not one fixed size');
+    ok(/overflow-y: auto/.test(css('.info .face')) && /min-height: 0/.test(css('.info .face')), 'the info box’s text does not scroll inside it');
+    const row = /<div class="footrow" id="footrow">([\s\S]*?)\n        <\/div>/.exec(t);
+    ok(row && row[1].indexOf('id="info"') >= 0 && row[1].indexOf('id="info"') < row[1].indexOf('id="bank"'), 'the info box is not in the foot row, left of the bank');
+    ok(t.indexOf('id="footrow"') > t.indexOf('<main id="pages">'), 'the foot row is not below the page area');
+  };
+
+  /* ADR-335 ruling 3, structural: the control is as wide as its parts; the strip beside it scrolls instead. */
+  T.mapbar = () => {
+    const t = W.__shellText;
+    ok(/\.mapbar #mapHost \{ flex: 0 0 auto; \}/.test(t), 'the MAP control can shrink: its source drop-down is cut off (ADR-335 ruling 3)');
+    ok(/\.mapbar #srcStrip \{[^}]*min-width: 0;[^}]*overflow-x: auto;/.test(t), 'the source strip does not scroll in the room that is left');
   };
 
   /* The mouse routes of the keys: the MAP button (M, Esc), the dropdown and the source strip's chips (1 to 9). */
@@ -704,6 +824,24 @@ const PLANTS = [
   ['mappage', 'shell', 'page = id; closeMenu();', 'page = id; closeMenu(); S.setMap(false);'],
   ['settab', 'logic', ': [{ id: g.pages[0], label: g.label }] };', ': undefined };'],
   ['envsummary', 'logic', 'var fb = dev.followed(follow);', 'var fb = follow.options[Object.keys(follow.options)[0]];'],
+  // slice 7 (ADR-335). The keys left to keyboard mode (the scope constant false); a key taken twice (the shell does not stand aside in
+  // keyboard mode); a key taken in a field; a Cmd-key taken; a flag the code ignores; a flag the page overrides; a tap that the session's
+  // own keyup misreads as a hold; a section shown with a description it has not, or without its DRAFT mark; an info box that can grow or
+  // whose text does not scroll; a MAP control that can shrink.
+  ['mapkeys', 'logic', 'var MAP_KEYS_ALWAYS = true;', 'var MAP_KEYS_ALWAYS = false;'],
+  ['mapkeys', 'logic', 'if (S.keys || e.repeat) return;', 'if (e.repeat) return;'],
+  ['mapkeys', 'logic', "if (e.code !== 'KeyM' || !mHeld) return;", "if (e.code !== 'KeyM') return;"],
+  ['mapkeysfield', 'logic', 'if (inField(e.target)) { e.stopImmediatePropagation(); return; }', ''],
+  ['mapkeysfield', 'logic', 'if (e.metaKey || e.ctrlKey) return;', ''],
+  ['mapkeysfield', 'logic', "return n === 'INPUT' || n === 'TEXTAREA' || n === 'SELECT' || !!(t && t.isContentEditable);", "return n === 'INPUT';"],
+  ['mapkeysflag', 'logic', "if (!always) return { always: false };", ''],
+  ['mapkeysflag', 'shell', 'SH.attachMapKeys(S, window);', 'SH.attachMapKeys(S, window, { always: true });'],
+  ['sections', 'logic', "text: 'No section description yet.'", "text: 'Shapes the sound of this part of the instrument.'"],
+  ['sections', 'logic', "tag: 'SECTION · DRAFT'", "tag: 'SECTION'"],
+  ['infofixed', 'shell', 'height: var(--foot-h); min-width: 0; }', 'min-width: 0; }'],
+  ['infofixed', 'shell', '.info .face { flex: 1 1 auto; min-height: 0; overflow-y: auto;', '.info .face { flex: 1 1 auto; min-height: 0; overflow-y: visible;'],
+  ['infofixed', 'shell', '.info { width: var(--info-w); flex: 0 0 var(--info-w); height: 100%;', '.info { width: var(--info-w); flex: 0 0 var(--info-w); height: auto;'],
+  ['mapbar', 'shell', '.mapbar #mapHost { flex: 0 0 auto; }', '.mapbar #mapHost { flex: 0 1 auto; }'],
 ];
 for (const [test, file, from, to] of PLANTS) {
   if (!SRC[file].includes(from)) { bad.push(`plant for ${test}: its anchor is gone from ${file}, so the control is vacuous`); continue; }

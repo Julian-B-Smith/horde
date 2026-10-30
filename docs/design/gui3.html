@@ -20,11 +20,13 @@
        - The Sub and Noise pages are designed (B514's rulings, SPEC-ENGINE 5.5 and 5.6, PA-8 for live-when); the
          others are DRAFT (every row reachable, nothing designed) or hold no engine parameters, each saying why.
        - The page chrome per ADR-315: the docked morph pad while morph is on, with a hide toggle (no space with morph
-         off); a fixed info box fed from the parameter's description; right-click "Open in manual" (a stub).
+         off); a fixed-size info box fed from the parameter's description or the section's; right-click "Open in manual" (a stub).
 
      WHAT IS MOCK. Everything the engine would make audible: there is none. Modulation sources read 0 (no voices).
      The ownership of a corner is a seeded stand-in (device.js). Descriptions: no `desc` column exists for horde 2's
-     parameters yet (B582), so the info box shows the row's own spec text, marked SPEC TEXT, and the gap is counted.
+     parameters yet (B582), so the info box shows the row's own spec text, marked SPEC TEXT, and the gap is counted. Slice 7 (ADR-335): the
+     box is one fixed size left of the bank and also explains whole sections (gui3/sections.json, drafts with their sources); the map
+     keys work with keyboard mode off (gui3/shell-logic.js, MAP_KEYS_ALWAYS); the MAP control is no longer shrunk by the source strip.
 
      No Math.random, no clock (the generator's determinism gate reads this file). No wheel listener of its own (B301):
      the bundle registers its alt+wheel itself. -->
@@ -60,6 +62,15 @@
      sixteen sources cost one row of the window and not three */
   .mapbar { display: flex; align-items: center; gap: var(--space-gap); flex: 0 0 auto; min-width: 0; }
   .mapbar #srcStrip { flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; overflow-x: auto; overscroll-behavior: contain; }
+  /* ADR-335 ruling 3, "the map button needs to be widened; there's a part that appears to be buried". The bundle's .hd-map is
+     overflow:hidden, so as a flex item its minimum width is 0, and the source strip (flex 1 1 auto) shrank it until the source
+     drop-down, and the name in it, was cut off at the button's edge (measured: the control was 87 px of its 213 px). A
+     control is as wide as its parts: it does not shrink, and the strip scrolls instead. The HOLD tag the bundle shows while M is
+     held made the button wider by its width on every hold, moving the drop-down under the pointer; its room is kept, hidden. A
+     design-master proposal (README 24): MapControl should not shrink below its content. */
+  .mapbar #mapHost { flex: 0 0 auto; }
+  .mapbar .hd-map .hold { display: inline; visibility: hidden; }
+  .mapbar .hd-map.momentary .hold { visibility: visible; }
   .mapbar .src-chip { flex: 0 0 auto; }
   .dock { width: auto; }
   .dock .face { flex-direction: column; align-items: stretch; gap: 6px; padding: 6px 7px 8px; }
@@ -106,7 +117,9 @@
   /* The bank: one card per listed modulator, in a row that scrolls sideways (ADR-322 item 3). */
   #bank { width: auto; }
   #bank[hidden] { display: none; }
-  #bank .head .hd-btn { margin-left: auto; }
+  #bank .head .hd-btn { margin-left: auto; flex: 0 0 auto; white-space: nowrap; }
+  #bank .head .hd-cluster, #bank .head .tag { flex: 0 0 auto; white-space: nowrap; }
+  #bank .head .hd-hint { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #bank > .face { flex-direction: column; align-items: stretch; gap: 4px; }
   .bank-strip { display: flex; flex-wrap: nowrap; gap: 8px; overflow-x: auto; overscroll-behavior: contain; align-items: flex-start; }
   .bank-strip > .hd-card { flex: 0 0 auto; width: 220px; }
@@ -125,13 +138,25 @@
   .cards > .hd-card.wide { flex-basis: 100%; }
   .hd-card .face { gap: 4px 6px; align-items: flex-start; justify-content: flex-start; padding: 6px 7px 8px; }
   .ctl { min-width: 0; }
-  .info { width: auto; min-height: 58px; flex: 0 0 auto; }
-  #bank { flex: 0 0 auto; }
+  /* ADR-335 ruling 4 (B582), "a static square-ish box that stays one size to the left of the modulators box at the bottom": the
+     foot row is one height on every page, the info box one size in one place, and what it says scrolls inside it, so hovering
+     never moves or resizes anything. The bank takes the rest of the row, scrolling inside itself. Hiding the bank leaves the row
+     and the box where they are: the page area does not grow back (open question for the human, README). */
+  .footrow { --foot-h: 216px; --info-w: 224px; display: flex; gap: var(--space-stack); flex: 0 0 auto; height: var(--foot-h); min-width: 0; }
+  .info { width: var(--info-w); flex: 0 0 var(--info-w); height: 100%; display: flex; flex-direction: column; }
+  .info .head { flex: 0 0 auto; min-width: 0; }
+  .info .head .hd-cluster { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .info .face > .tag { align-self: flex-start; }
+  .info .face { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; overflow-wrap: anywhere; }
+  .footrow > #bank { flex: 1 1 auto; min-width: 0; height: 100%; display: flex; flex-direction: column; }
+  .info .face > :empty { display: none; }
+  .footrow > #bank[hidden] { display: none; }
+  #bank > .face { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
   /* `win` (a review link's flag) shows the window alone, at its own size, for the screenshots */
   body.win-only { padding: 0; }
   body.win-only .col > :not(#win) { display: none; }
   body.win-only #win { margin: 0; border-radius: 0; }
-  .info .face { flex-direction: column; align-items: stretch; gap: 3px; }
+  .info .face { flex-direction: column; flex-wrap: nowrap; justify-content: flex-start; align-items: stretch; gap: 3px; }
   .menu { position: fixed; z-index: 60; width: 260px; }
   .menu .face { flex-direction: column; align-items: stretch; gap: 4px; }
   .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--space-column); align-items: start; }
@@ -147,10 +172,10 @@
     <button class="hd-kbd hd-focus" id="kbd" type="button" aria-pressed="false" aria-label="Keyboard mode"><span class="lampdot"></span><span id="kbdTxt">KEYS</span></button>
     <button class="hd-btn hd-focus" id="themeBtn" type="button" aria-pressed="false">Dark</button>
   </header>
-  <div class="tagline"><span class="hd-note">GUI 3 (B584, seven slices so far): <b>one wired shell</b> under a two-level page bar (B589) and the <b>MAP control</b> with its live source strip (the Map Mode spec: turn MAP on, pick a source, click a knob to map it at 25 %, drag to set the depth), a port ledger of what has not moved over (B593), dense oscillator pages after the SCALPEL bench, an Osc dashboard and a mixing console, every parameter that has a machine-readable manifest (SPEC-ENGINE section 5, the morph's settings, the hosted FX modules', Arp's)
+  <div class="tagline"><span class="hd-note">GUI 3 (B584, eight slices so far): <b>one wired shell</b> under a two-level page bar (B589) and the <b>MAP control</b> with its live source strip (the Map Mode spec: turn MAP on, pick a source, click a knob to map it at 25 %, drag to set the depth), a port ledger of what has not moved over (B593), dense oscillator pages after the SCALPEL bench, an Osc dashboard and a mixing console, every parameter that has a machine-readable manifest (SPEC-ENGINE section 5, the morph's settings, the hosted FX modules', Arp's)
     reachable on a page, and <b>no audio</b>: a stub engine keeps the values behind the engine's interface. The <b>Sub</b> and <b>Noise</b> pages are
     designed; the others are drafts or hold no engine parameters, and say why. Try: turn <b>Morph</b> on (the pad docks on every page; <b>Pad</b>
-    hides it), press <b>Scatter corners</b> below and drag the puck, hover any control to read it in the info box, right-click one for the manual. The <b>bank</b> at the foot of every page lists the modulators routed to it: press + to activate one and drag its Map handle onto a control. The <b>Morph</b> page chooses the corner you hear with morph off and saves snapshots and presets to corners (ADR-319).</span></div>
+    hides it), press <b>Scatter corners</b> below and drag the puck, hover any control, or a section's header, to read it in the fixed info box left of the bank (a section's text is a draft), right-click one for the manual. The <b>bank</b> at the foot of every page lists the modulators routed to it: press + to activate one and drag its Map handle onto a control. The <b>Morph</b> page chooses the corner you hear with morph off and saves snapshots and presets to corners (ADR-319).</span></div>
   <p class="hd-msg" id="status" role="status">Loading the shell.</p>
 
   <div class="hd-window" id="win" aria-label="horde window (no audio engine)">
@@ -178,15 +203,17 @@
       </aside>
       <div class="pagecol" id="pagecol">
         <main id="pages"></main>
-        <section class="hd-card" id="bank" aria-label="Modulator bank">
-          <div class="head"><span class="hd-cluster" id="bankTitle">Modulators</span><span class="tag">B556</span><span class="hd-hint" id="bankCount"></span>
-            <button class="hd-btn hd-focus" id="bankAdd" type="button" aria-haspopup="menu" title="Activate a modulator: it stays pending until you map it">+ Modulator</button></div>
-          <div class="face"><div class="bank-strip" id="bankStrip"></div><span class="hd-note" id="bankEmpty"></span></div>
-        </section>
-        <section class="hd-card info" id="info" aria-label="Info box" aria-live="polite">
-          <div class="head"><span class="hd-cluster" id="infoName">Info</span><span class="tag" id="infoTag">HOVER</span><span class="hd-hint" id="infoKey"></span></div>
-          <div class="face"><span class="hd-value" id="infoText">Hover a control to read what it does.</span><span class="hd-hint" id="infoMeta"></span><span class="hd-note" id="infoLive"></span></div>
-        </section>
+        <div class="footrow" id="footrow">
+          <section class="hd-card info" id="info" aria-label="Info box" aria-live="polite">
+            <div class="head"><span class="hd-cluster" id="infoName">Info</span></div>
+            <div class="face"><span class="tag" id="infoTag">HOVER</span><span class="hd-hint" id="infoKey"></span><span class="hd-value" id="infoText">Hover a control, or a section's header, to read what it does.</span><span class="hd-hint" id="infoMeta"></span><span class="hd-note" id="infoLive"></span></div>
+          </section>
+          <section class="hd-card" id="bank" aria-label="Modulator bank">
+            <div class="head"><span class="hd-cluster" id="bankTitle">Modulators</span><span class="tag">B556</span><span class="hd-hint" id="bankCount"></span>
+              <button class="hd-btn hd-focus" id="bankAdd" type="button" aria-haspopup="menu" title="Activate a modulator: it stays pending until you map it">+ Modulator</button></div>
+            <div class="face"><div class="bank-strip" id="bankStrip"></div><span class="hd-note" id="bankEmpty"></span></div>
+          </section>
+        </div>
       </div>
       <!-- the spec's inspector rail, the mouse route for P (the polarity pill), Backspace (the remove button) and focus (a row);
            it shows while MAP is on and takes no space otherwise -->
@@ -238,7 +265,7 @@ const SEED = 1;
 const ROW = Object.create(null); DATA.params.forEach(r => { ROW[r.key] = r; });
 const CLASS_NAME = { M: 'MORPHABLE', S: 'STRUCTURAL', D: 'DEVICE' };
 const views = [];                  // per-frame updates of this file's own controls: { page, update() }
-let dockOn = null, page = 'sub', menu = null, padShown = true, lastRev = -1, seamRev = -1, hovered = null;
+let dockOn = null, page = 'sub', menu = null, padShown = true, lastRev = -1, seamRev = -1, hovered = null, hoveredSec = null;
 let engine = null, transport = null, dev = null, S = null;
 function h(tag, a, ...kids) {
   const e = document.createElement(tag);
@@ -271,6 +298,8 @@ S = new H.Session({ x: .5, y: .5, corners: [null, null, null, null],
 // writes into the device's matrix at each gesture's end (one undo step) and reads back from it, so the ring on a knob, the
 // bank, the source strip's counts and the matrix all read the same routes.
 const mapBridge = SH.attachMap(S, dev);
+// ADR-335 ruling 1: the map keys work whether or not keyboard mode is on (the scope is SH.MAP_KEYS_ALWAYS, one line in shell-logic.js).
+SH.attachMapKeys(S, window);
 // The bundle draws what the DEVICE says: its weights, the heard value, the owner (the plugin reads the owner from the
 // engine and never computes it, morph knob spec, Ties). The owner bookkeeping below is the bundle's own (flip times).
 S.weights = () => dev.weights();
@@ -527,7 +556,7 @@ function vizView(v, pid, big) {
 function sectionOf(pg, g, opts) {
   opts = opts || {};
   const path = pg.label + ' · ' + g.title + (g.num ? ' ' + g.num : '');
-  const sec = h('section', { class: 'hd-sec', 'aria-label': path }), head = h('div');
+  const sec = h('section', { class: 'hd-sec', 'aria-label': path, 'data-section': g.id }), head = h('div');
   const power = g.controls.find(c => c.role === 'power'), modes = g.controls.find(c => c.role === 'modes');
   const plain = g.controls.filter(c => !c.role && !c.advanced), adv = g.controls.filter(c => !c.role && c.advanced);
   const body = h('div', { class: 'hd-sgroups' }), size = opts.size || null;
@@ -607,7 +636,7 @@ function consolePage(pg, el) {
     return { id: g.strip, name: g.title, path, master: g.master, fader: propsFor(ROW[f], { widget: 'vslider' }, path + ' · ' + ROW[f].label, 'compact'),
       on: on ? isOnKey(on) : undefined, mute: mu ? isOnKey(mu) : undefined, solo: so ? isOnKey(so) : undefined, keys: { fader: f, on, mute: mu, solo: so } };
   });
-  const byId = Object.fromEntries(strips.map(s => [s.id, s]));
+  const byId = Object.fromEntries(strips.map(s => [s.id, s])), sectionOfStrip = Object.fromEntries(pg.groups.map(g => [g.strip, g.id]));
   consoleStrip = H.ChannelStrip(host, S, { strips, label: 'Mix', keys: () => S.keys,
     read: id => { const m = dev.meters()[id]; return m ? { l: m.peak, r: m.peak } : undefined; },
     latch: id => { const m = dev.meters()[id]; return m ? m.clip : undefined; },
@@ -616,6 +645,7 @@ function consolePage(pg, el) {
   // tag the strip's own controls with their keys, as every other control (the info box, the menu, the self-checks)
   host.querySelectorAll('.cs-strip').forEach(root => {
     const s = byId[root.dataset.id], K = s.keys;
+    root.dataset.section = sectionOfStrip[s.id];     // a strip is a section: hovering its empty space explains it (ADR-335)
     const tg = root.querySelector('.cs-head .hd-toggle'); if (tg && K.on) { tg.dataset.key = K.on; tg.classList.add('ctl'); }
     const fd = root.querySelector('.cs-body > div'); if (fd) { fd.dataset.key = K.fader; fd.classList.add('ctl'); }
     const mb = root.querySelector('.cs-btn.mute'); if (mb && K.mute) { mb.dataset.key = K.mute; mb.classList.add('ctl'); }
@@ -677,7 +707,7 @@ function classicPage(pg, el) {
     // A module card (the FX page) carries an inset where the module's own screen will go: a labelled placeholder (ADR-235).
     const screen = g.screen ? h('div', { class: 'viz', role: 'img', 'aria-label': g.screen + ' screen placeholder' },
       h('span', { class: 'hd-hint', text: g.screen + '’s own screen goes here (placeholder)' })) : null;
-    cards.append(h('section', { class: 'hd-card' + (g.controls.length > 12 ? ' wide' : ''), 'aria-label': pg.label + ' · ' + g.title },
+    cards.append(h('section', { class: 'hd-card' + (g.controls.length > 12 ? ' wide' : ''), 'aria-label': pg.label + ' · ' + g.title, 'data-section': g.id },
       h('div', { class: 'head' }, h('span', { class: 'hd-cluster', text: g.title }), g.tag ? h('span', { class: 'tag', text: g.tag }) : null, h('span', { class: 'hd-hint', text: g.controls.length + (g.controls.length === 1 ? ' control' : ' controls') })), screen, face));
   });
   if (pg.groups.length) el.append(cards);
@@ -741,9 +771,20 @@ function paintInspector() {
 S.on(paintInspector); paintInspector();
 
 function hostOf(t) { return t && t.closest ? t.closest('#pages [data-key], #bank [data-key]') : null; }
+// A section is anything under a [data-section] host that is not itself a control: its header, its labels, its empty space.
+function sectionHostOf(t) { return t && t.closest ? t.closest('#pages [data-section]') : null; }
+const SECTION_AT = Object.create(null);
+DATA.pages.forEach(pg => pg.groups.forEach(g => { SECTION_AT[g.id] = { page: pg, group: g }; }));
+const IDLE = 'Hover a control, or a section\u2019s header, to read what it does.';
+function showSection(id) {
+  hovered = null; hoveredSec = id;
+  const i = SH.sectionInfo(DATA.sections, id, x => SECTION_AT[x]);
+  if (!i) { showInfo(null); return; }
+  $('infoName').textContent = i.name; $('infoTag').textContent = i.tag; $('infoKey').textContent = ''; $('infoText').textContent = i.text; $('infoMeta').textContent = i.meta; $('infoLive').textContent = '';
+}
 function showInfo(key) {
-  hovered = key;
-  if (!key) { $('infoName').textContent = 'Info'; $('infoTag').textContent = 'HOVER'; $('infoKey').textContent = ''; $('infoText').textContent = 'Hover a control to read what it does.'; $('infoMeta').textContent = ''; $('infoLive').textContent = ''; return; }
+  hovered = key; hoveredSec = null;
+  if (!key) { $('infoName').textContent = 'Info'; $('infoTag').textContent = 'HOVER'; $('infoKey').textContent = ''; $('infoText').textContent = IDLE; $('infoMeta').textContent = ''; $('infoLive').textContent = ''; return; }
   const r = ROW[key], see = r.see && ROW[r.see];
   // The description comes from the row's own source: the spec's text for the engine's and the morph's rows, the
   // manifest's for a module that gives one (Arp's notes), and an honest "none" for a manifest that gives none.
@@ -761,7 +802,12 @@ function showInfo(key) {
 const CTL = Object.create(null);
 DATA.pages.forEach(pg => pg.groups.forEach(g => g.controls.forEach(c => { CTL[pg.id + '|' + c.key] = c; })));
 const ctlOf = (pid, key) => CTL[pid + '|' + key];
-$('win').addEventListener('pointerover', e => { const t = hostOf(e.target); const k = t ? t.dataset.key : null; if (k !== hovered) showInfo(k); });
+$('win').addEventListener('pointerover', e => {
+  const t = hostOf(e.target), k = t ? t.dataset.key : null;
+  if (k) { if (k !== hovered) showInfo(k); return; }
+  const sh = sectionHostOf(e.target), id = sh ? sh.dataset.section : null;
+  if (id) { if (id !== hoveredSec) showSection(id); } else if (hovered || hoveredSec) showInfo(null);
+});
 $('win').addEventListener('focusin', e => { const t = hostOf(e.target); if (t) showInfo(t.dataset.key); });
 views.push({ page: '*', update() { if (hovered) $('infoMeta').textContent = $('infoMeta').textContent.replace(/now .*? · SPEC/, 'now ' + ENG.display(ROW[hovered], dev.shown(hovered)) + ' · SPEC'); } });
 
@@ -1089,6 +1135,72 @@ views.push({ page: '*', update() {
     const w0 = card.style.width, fl = card.querySelector('.face'); card.style.width = '40px'; fl.style.flexWrap = 'nowrap'; const squeezed = !drawn(card);
     card.style.width = w0; fl.style.flexWrap = ''; dev.close(); page = pg0; paintBank();
     line(whole && squeezed, 'Bank card: ENV 2’s card draws its ' + card.querySelectorAll('.ctl').length + ' controls with a dial each, not a label alone (control: squeezed to 40 px with nowrap it does not).'); }
+  // 21. ADR-335 ruling 3: the MAP control is as wide as its parts. Slice 6 shipped it shrunk by the source strip beside it, the
+  // source drop-down cut to a sliver; measured here on the real layout: nothing of the control is clipped, the longest source
+  // name fits its drop-down, and the strip starts after it. Control: the same control held to 60 px reads as clipped.
+  { const host = $('mapHost'), sel = host.querySelector('select'), cx = document.createElement('canvas').getContext('2d');
+    const probe = () => {
+      const cs = getComputedStyle(sel); cx.font = cs.font;
+      const longest = dev.sources().map(x => ({ n: x.name, w: cx.measureText(x.name).width })).sort((a, b) => b.w - a.w)[0];
+      const room = sel.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);   // the drop-down's text area, its arrow included
+      return { clipped: host.scrollWidth > host.clientWidth + 1 || sel.getBoundingClientRect().right > host.getBoundingClientRect().right + 1, longest, room,
+        strip: $('srcStrip').getBoundingClientRect().left >= host.getBoundingClientRect().right - 1 };
+    };
+    const whole = probe(); host.style.maxWidth = '60px'; const squeezed = probe().clipped; host.style.maxWidth = '';
+    line(!whole.clipped && whole.longest.w <= whole.room && whole.strip && squeezed, 'MAP control: whole at ' + Math.round(host.getBoundingClientRect().width) + ' px, its longest source name (' + whole.longest.n + ', ' + Math.round(whole.longest.w) + ' px) fits the drop-down’s ' + Math.round(whole.room) + ' px text area, the strip starts after it (control: held to 60 px it is clipped).'); }
+  // 22. ADR-335 ruling 4 (B582): the info box is one size in one place. Hovering a parameter with the longest text and then a
+  // section with the longest description, on every page, moves and resizes nothing (the page area, the bank, the box and the foot
+  // row are measured), the box is the same on every page, and its text scrolls inside it. Control: with its size made to follow
+  // its text (what slice 6's box did) the same hover moves the layout.
+  { const pg0 = page, rect = e => { const r = e.getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map(v => Math.round(v * 100) / 100).join(','); };
+    const snap = () => ['pagecol', 'pages', 'bank', 'info', 'footrow'].map(i => rect($(i))).join('|');
+    const over = el => el.dispatchEvent(new MouseEvent('pointerover', { bubbles: true }));
+    const moved = []; let boxes = new Set(), scrolled = false, hovered2 = 0;
+    DATA.pages.forEach(pg => {
+      selectPage(pg.id); showInfo(null);
+      const idle = snap(); boxes.add(rect($('info')));
+      const secs = [...pageEls[pg.id].querySelectorAll('[data-section]')];
+      const longSec = secs.sort((a, b) => ((DATA.sections.text[b.dataset.section] || {}).text || '').length - ((DATA.sections.text[a.dataset.section] || {}).text || '').length)[0];
+      const ctls = [...pageEls[pg.id].querySelectorAll('[data-key]')].sort((a, b) => (ROW[b.dataset.key].spec || '').length - (ROW[a.dataset.key].spec || '').length);
+      [ctls[0], longSec].forEach(el => { if (!el) return; over(el); hovered2++; if (snap() !== idle) moved.push(pg.id); const f = $('info').querySelector('.face'); if (f.scrollHeight > f.clientHeight) scrolled = true; });
+      showInfo(null);
+    });
+    selectPage('osc1'); showInfo(null);
+    // the control: let the box follow its text, hover the longest section's text, and the layout must move
+    const idle2 = snap(), sec = pageEls.osc1.querySelector('[data-section="osc1/blade-1"]'), f2 = $('info').querySelector('.face');
+    const was = [$('footrow').style.height, $('info').style.height, $('info').style.flex, f2.style.overflow];
+    $('footrow').style.height = 'auto'; $('info').style.height = 'auto'; $('info').style.flex = '0 0 auto'; f2.style.overflow = 'visible'; $('info').style.maxHeight = 'none';
+    over(sec); const grew = snap() !== idle2;
+    [$('footrow').style.height, $('info').style.height, $('info').style.flex, f2.style.overflow] = was; $('info').style.maxHeight = '';
+    showInfo(null); selectPage(pg0);
+    line(!moved.length && boxes.size === 1 && scrolled && grew && snap() === idle2,
+      'Info box: ' + hovered2 + ' hovers (the longest parameter text and the longest section description of ' + DATA.pages.length + ' pages) moved and resized nothing; one size in one place on every page; long text scrolls inside it' + (moved.length ? ' (MOVED on ' + moved.join(', ') + ')' : '') + ' (control: a box that follows its text moves the layout).'); }
+  // 23. ADR-335 ruling 4: hovering a section's header or empty space explains the section: a described one shows its text with
+  // its DRAFT mark and source, one with no description says so (and is counted), and a control inside it still shows its own
+  // parameter. Control: off every section and control the box goes back to its idle text.
+  { const pg0 = page, over = el => el.dispatchEvent(new MouseEvent('pointerover', { bubbles: true }));
+    selectPage('osc1'); const sec = pageEls.osc1.querySelector('[data-section="osc1/blade-1"]'), d = DATA.sections.text['osc1/blade-1'];
+    over(sec); const described = $('infoText').textContent === d.text && $('infoTag').textContent.includes('DRAFT') && $('infoMeta').textContent.includes(d.src[0].path) && $('infoName').textContent === 'Osc 1 · Blade 1';
+    const inner = sec.querySelector('[data-key]'); over(inner); const param = $('infoKey').textContent === inner.dataset.key && $('infoTag').textContent !== 'SECTION · DRAFT';
+    over(sec.querySelector('.hd-sublabel') || sec); const back = $('infoText').textContent === d.text;
+    selectPage('fx'); over(pageEls.fx.querySelector('[data-section="fx/echo"]')); const none = $('infoText').textContent === 'No section description yet.';
+    over($('pages')); const idle = $('infoText').textContent === IDLE && $('infoTag').textContent === 'HOVER';
+    selectPage(pg0); showInfo(null);
+    line(described && param && back && none && idle, 'Section info: hovering Osc 1 · Blade 1 shows its description with DRAFT and its source, a control inside it still shows its parameter, the same header again shows the section; ' + DATA.sections.missing.length + ' of ' + (Object.keys(DATA.sections.text).length + DATA.sections.missing.length) + ' sections say “No section description yet.” (FX · Echo does); off both it is idle (control).'); }
+  // 24. ADR-335 ruling 1: the map keys work with keyboard mode OFF, on real key events at the window: M tap latches, a digit
+  // chooses the source with MAP on, M again turns it off, Esc turns it off; the same keys typed into the source drop-down do
+  // nothing (control: a field), and nothing is taken without MAP for the digits.
+  { const was = [S.keys, S.map.on, S.map.src], key = (t, code, el, o) => (el || document.body).dispatchEvent(new KeyboardEvent(t, { code, key: code, bubbles: true, cancelable: true, ...o }));
+    S.keys = false; S.setMap(false);
+    key('keydown', 'KeyM'); key('keyup', 'KeyM'); const latched = S.map.on && !S.map.momentary;
+    key('keydown', 'Digit3'); const src3 = S.map.src === dev.sources()[2].id;
+    const field = $('mapHost').querySelector('select'); key('keydown', 'Digit5', field); key('keydown', 'Escape', field); key('keydown', 'KeyM', field);
+    const fieldNone = S.map.on && S.map.src === dev.sources()[2].id;
+    key('keydown', 'KeyM'); key('keyup', 'KeyM'); const offAgain = !S.map.on;
+    S.setMap(true); key('keydown', 'Escape'); const esc = !S.map.on;
+    S.setMap(false); key('keydown', 'Digit4'); const free = S.map.src === dev.sources()[2].id && S.pinned === null;
+    S.keys = was[0]; S.setSrc(was[2]); S.setMap(was[1]);
+    line(latched && src3 && fieldNone && offAgain && esc && free, 'Map keys: with keyboard mode off, M latched MAP, 3 chose the third source, M turned it off, Esc turned it off; the same keys in the source drop-down did nothing, and a digit with MAP off was left alone (control).'); }
   // 13. The page bar (B589): an old link's page id opens its page under its group, and the group remembers it.
   selectPage('noise'); const nv = nav.get(); selectPage('main'); const nm2 = nav.get();
   line(nv.group === 'osc' && nv.page === 'noise' && nm2.group === 'main', 'Page nav: #noise opens Noise under Osc (' + nv.group + ' / ' + nv.page + '); Main is its own group (control: ' + nm2.group + ').');
@@ -1104,9 +1216,11 @@ views.push({ page: '*', update() {
   if (flags.includes('nobank')) setBankShown(false);
   if (flags.includes('morph')) { setMorphOn(true); dev.scatter(SEED); }
   if (flags.includes('bank')) { pageKeysList(page).filter(k => ROW[k].law !== 'step').slice(0, 2).forEach(k => dev.drop('env2', k)); dev.activate('env3'); }
-  // `map`: MAP on with ENV 2 as the source and ENV 2 mapped to the page's first two modulatable controls, so a knob shows its ring
-  if (flags.includes('map')) { let n = 0; for (const k of pageKeysList(page)) { if (n < 2 && ROW[k].law !== 'step' && dev.addRoute({ src: 'env2', param: k }).ok) { if (!n) S.selected = k; n++; } } S.setSrc('env2'); S.setMap(true); }
+  // `map`: MAP on with ENV 2 (or `src=<id>`, e.g. `src=gravity`, the longest name) as the source and ENV 2 mapped to the page's first two modulatable controls, so a knob shows its ring
+  if (flags.includes('map')) { let n = 0; for (const k of pageKeysList(page)) { if (n < 2 && ROW[k].law !== 'step' && dev.addRoute({ src: 'env2', param: k }).ok) { if (!n) S.selected = k; n++; } } const sf = flags.find(f => f.startsWith('src=')), want = sf && dev.sources().find(x => x.id === sf.slice(4)); S.setSrc(want ? want.id : 'env2'); S.setMap(true); }
   if (flags.length) { dev.clearHistory(); S.message = ''; }
+  // `info=<id>`: the info box as if hovering that section (`info=osc1/blade-1`) or that parameter, for a screenshot
+  { const f = flags.find(x => x.startsWith('info=')), id = f ? decodeURIComponent(f.slice(5)) : ''; if (SECTION_AT[id]) showSection(id); else if (ROW[id]) showInfo(id); }
   // `fit`: say whether the page fits the window's page area (B589's 980 x 720), and by how much it overflows
   if (flags.includes('fit')) { const a = $('pages'); S.message = 'fit: page ' + a.scrollHeight + ' px in an area of ' + a.clientHeight + ' px' + (a.scrollHeight > a.clientHeight ? ', overflows by ' + (a.scrollHeight - a.clientHeight) + ' px' : ', fits'); } }
 sweepTabs();
