@@ -1,0 +1,74 @@
+<!-- @dsCard group="Structure" height=420 subtitle="The one-line section header (on, number, name, mode pills, live readout slot) under an ink identity rule, with sub-groups under small-caps labels: the bench's blade rows, no nested cards" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Section header</title></head>
+<body>
+<div style="padding:14px 16px 10px">
+  <div class="hd-cell hd-dense" style="max-width:700px" id="cell">
+    <section class="hd-sec" id="s0">
+      <div id="h0"></div>
+      <div class="hd-sgroups">
+        <div class="hd-sgrp"><span class="hd-sublabel">Swarm</span><div class="hd-krow" id="k0a"></div></div>
+        <div class="hd-sgrp"><span class="hd-sublabel">Base</span><div id="w0" style="max-width:190px"></div></div>
+        <div class="hd-sgrp"><span class="hd-sublabel">Out</span><div class="hd-krow" id="k0b"></div></div>
+      </div>
+    </section>
+    <section class="hd-sec" id="s1">
+      <div id="h1"></div>
+      <div class="hd-sgroups">
+        <div class="hd-sgrp"><span class="hd-sublabel">Cut</span><div class="hd-krow" id="k1a"></div></div>
+        <div class="hd-sgrp"><span class="hd-sublabel">Mirror</span><div id="m1" style="max-width:110px"></div></div>
+        <div class="hd-sgrp"><span class="hd-sublabel">FM</span><div class="hd-krow" id="k1b"></div></div>
+        <div class="hd-sgrp"><span class="hd-sublabel">Spread</span><div class="hd-krow" id="k1c"></div></div>
+      </div>
+    </section>
+    <section class="hd-sec" id="s2">
+      <div id="h2"></div>
+      <div class="hd-sgroups">
+        <div class="hd-sgrp"><span class="hd-sublabel">Cut</span><div class="hd-krow" id="k2a"></div></div>
+        <div class="hd-sgrp"><span class="hd-sublabel">Mirror</span><div id="m2" style="max-width:110px"></div></div>
+        <div class="hd-sgrp"><span class="hd-sublabel">FM</span><div class="hd-krow" id="k2b"></div></div>
+      </div>
+    </section>
+  </div>
+  <p class="hd-hint" style="margin:6px 0 0">One cell, three sections: the first takes the cell's edge as its rule; blade 1 is a solid rule and a filled number, blade 2 a dashed rule and a hollow number (pattern, never a colour). Switch blade 2 on: its body undims. Hover a knob: the value takes its label line and the header's slot reads the corner line. Parameter names and values are SAMPLES (the SCALPEL bench's blade face).</p>
+</div>
+<script>
+(function () {
+  var H = window.Horde, T = Math.PI * 2;
+  var S = new H.Session({ x: .42, y: .36, corners: ['Glass horde pad', 'Undertone cathedral', 'Smear and strike', 'Crushed bells'], sources: [
+    { id: 'lfo1', name: 'LFO 1', kind: 'lfo', f: function (t) { return .5 + .5 * Math.sin(t * T * .45); } },
+    { id: 'env2', name: 'ENV 2', kind: 'env', f: function (t) { var p = t % 1.7; return p < .04 ? p / .04 : Math.exp(-(p - .04) * 3.2); } }
+  ], mappings: [
+    { param: 'b1.position', src: 'lfo1', pol: 'bi', depth: .18 },
+    { param: 'b1.depth', src: 'env2', pol: 'uni', depth: .3 },
+    { param: 'osc1.coupling', src: 'lfo1', pol: 'bi', depth: .12 }
+  ] });
+  var pctf = function (x) { return Math.round(x * 100) + '%'; };
+  function k(host, key, name, vals, extra) { var p = { key: key, name: name, path: key.replace('.', ' · '), vals: vals, size: 'compact', fmt: pctf }; for (var q in extra || {}) p[q] = extra[q];
+    var d = document.createElement('div'); document.getElementById(host).appendChild(d); H.Knob(d, p, S); }
+  var keys = function () { return S.keys; };
+  /* OSC 1: the strip at the top of the bench's controls */
+  H.SectionHeader(document.getElementById('h0'), { name: 'Osc 1', path: 'Osc 1', on: true, S: S, section: document.getElementById('s0'), keys: keys,
+    modes: { label: 'Engine', options: ['SWARM', 'SCALPEL'], value: 1 }, summary: 'swarm 1 · scalpel · 5 members' });
+  k('k0a', 'osc1.members', 'Members', [.3, .5, .4, .7]); k('k0a', 'osc1.detune', 'Detune', [.18, .72, .4, .9]); k('k0a', 'osc1.coupling', 'Coupling', [.5, .85, .3, .62], { bipolar: true });
+  H.pillGroup(document.getElementById('w0'), ['Sine', 'Tri', 'Saw', 'Rev saw', 'Square'], 2, 'Osc 1 · Base wave', null, { keys: keys });
+  k('k0b', 'osc1.volume', 'Volume', [.7, .66, .8, .55], { size: 'standard' });
+  /* BLADE 1 and BLADE 2 */
+  var modes = ['Sync', 'FM reset', 'FM free', 'Noise', 'Fold', 'Ring', 'Crush'];
+  H.SectionHeader(document.getElementById('h1'), { name: 'Blade 1', num: 1, rule: 'solid', path: 'Osc 1 · Blade 1', on: true, S: S, section: document.getElementById('s1'), keys: keys,
+    modes: { options: modes, value: 0 }, summary: 'Sync · Saw · 25% @ 315°' });
+  k('k1a', 'b1.width', 'Width', [.25, .35, .2, .5]); k('k1a', 'b1.rate', 'Cut rate', [.5, .62, .4, .55]); k('k1a', 'b1.position', 'Position', [.87, .8, .9, .6]); k('k1a', 'b1.depth', 'Depth', [.7, .9, .5, .8]); k('k1a', 'b1.edges', 'Edges', [.2, .3, .1, .4]);
+  H.pillGroup(document.getElementById('m1'), ['off', 'reflect', 'twin −', 'twin +'], 0, 'Blade 1 · Mirror', null, { keys: keys });
+  k('k1b', 'b1.fmDepth', 'FM depth', [.1, .4, .2, .3]); k('k1b', 'b1.fmRate', 'Mod rate', [.5, .5, .6, .4]);
+  k('k1c', 'b1.spPos', 'Position', [.5, .52, .48, .5], { bipolar: true }); k('k1c', 'b1.spCut', 'Cut rate', [.5, .4, .6, .5], { bipolar: true });
+  H.SectionHeader(document.getElementById('h2'), { name: 'Blade 2', num: 2, rule: 'dash', path: 'Osc 1 · Blade 2', on: false, S: S, section: document.getElementById('s2'), keys: keys,
+    modes: { options: modes, value: 4 }, summary: 'Fold · Saw · 20% @ 126°' });
+  k('k2a', 'b2.width', 'Width', [.2, .3, .25, .4]); k('k2a', 'b2.rate', 'Cut rate', [.4, .5, .3, .6]); k('k2a', 'b2.position', 'Position', [.35, .3, .4, .2]); k('k2a', 'b2.depth', 'Depth', [.6, .7, .5, .9]);
+  H.pillGroup(document.getElementById('m2'), ['off', 'reflect', 'twin −', 'twin +'], 1, 'Blade 2 · Mirror', null, { keys: keys });
+  k('k2b', 'b2.fmDepth', 'FM depth', [.2, .3, .1, .4]); k('k2b', 'b2.fmRate', 'Mod rate', [.45, .5, .55, .4]);
+  S.start();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+<!-- @dsCard group="Screens" height=330 subtitle="gui2's SCR chip: seven schemes, each redefining the six screen roles; the measured contrast of the one you are on" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Screen scheme</title></head>
+<body>
+<div class="hd-fit" style="padding:14px 16px 4px; gap:14px 24px" id="host">
+  <div class="hd-col" style="gap:6px; flex:0 1 240px">
+    <div class="hd-glass" style="width:100%; max-width:240px; height:auto; aspect-ratio:160 / 120">
+      <svg viewBox="0 0 160 120" style="width:100%; height:100%" role="img" aria-label="The house screen in the selected scheme" id="glass"></svg>
+    </div>
+  </div>
+  <div class="hd-col" style="gap:6px; flex:1 1 260px">
+    <span class="hd-cluster">Scheme</span>
+    <div id="list"></div>
+    <div id="table" class="hd-value" style="font-size:9.5px; line-height:1.6"></div>
+  </div>
+</div>
+<p class="hd-hint" style="margin:4px 16px 12px">THEME follows the chassis (cream ORCHID, dark TUBE). Ratios are measured live on this page; under 4.5:1 a role draws lines and marks, never glass text.</p>
+<script>
+(function () {
+  var H = window.Horde, host = document.getElementById('host');
+  // the house glass: a soft transfer curve with its glow underlay, labels in physics and grid
+  var pts = '', i, x, y;
+  for (i = 0; i <= 48; i++) { x = -1 + i / 24; y = Math.tanh(2.5 * x) / Math.tanh(2.5); pts += (i ? 'L' : 'M') + (40 + x * 30).toFixed(2) + ' ' + (60 - y * 28).toFixed(2); }
+  var T = 'style="font:500 7px var(--font-mono);fill:var(--scr-physics)"', Tg = 'style="font:500 6px var(--font-mono);fill:var(--scr-grid)"';
+  document.getElementById('glass').innerHTML =
+    '<g style="stroke:var(--scr-grid);stroke-width:.4;opacity:.45"><rect x="8" y="30" width="64" height="60" style="fill:none"/><line x1="40" y1="30" x2="40" y2="90"/><line x1="8" y1="60" x2="72" y2="60"/></g>' +
+    '<path d="' + pts + '" style="fill:none;stroke:var(--scr-value);stroke-width:4;opacity:.22;stroke-linecap:round"/><path d="' + pts + '" style="fill:none;stroke:var(--scr-value);stroke-width:1.25;stroke-linecap:round"/>' +
+    '<rect x="84" y="80" width="6" height="10" style="fill:var(--scr-meter)"/><rect x="92" y="72" width="6" height="18" style="fill:var(--scr-meter)"/><rect x="100" y="76" width="6" height="14" style="fill:var(--scr-meter)"/>' +
+    '<circle cx="128" cy="44" r="3" style="fill:var(--scr-marker)"/>' +
+    '<text x="8" y="18" ' + T + '>DRIVE</text><text x="84" y="40" ' + Tg + '>CURVE</text><text x="84" y="50" ' + T + '>SOFT</text><text x="84" y="64" ' + Tg + '>+8.0 dB</text>';
+  var ROLES = ['value', 'meter', 'physics', 'marker', 'grid'], tbl = document.getElementById('table');
+  function lum(c) { var m = c.match(/[\d.]+/g).map(Number).slice(0, 3).map(function (q) { q /= 255; return q <= .04045 ? q / 12.92 : Math.pow((q + .055) / 1.055, 2.4); }); return .2126 * m[0] + .7152 * m[1] + .0722 * m[2]; }
+  function probe(role) { var e = document.createElement('i'); e.style.color = 'var(--scr-' + role + ')'; host.appendChild(e); var c = getComputedStyle(e).color; e.remove(); return c; }
+  function measure() {
+    var g = lum(probe('ground'));
+    tbl.innerHTML = ROLES.map(function (r) { var l = lum(probe(r)), cr = (Math.max(l, g) + .05) / (Math.min(l, g) + .05);
+      return '<span style="display:inline-flex;gap:6px;align-items:center;margin-right:12px"><i style="width:10px;height:10px;border-radius:2px;background:var(--scr-' + r + ');box-shadow:0 0 0 1px var(--ink)"></i>' + r + ' ' + cr.toFixed(2) + (cr < 4.5 ? ' <span style="color:var(--t2)">lines only</span>' : '') + '</span>'; }).join('');
+  }
+  H.ScreenScheme(document.getElementById('list'), host, { list: true, onchange: function () { setTimeout(measure, 0); } });
+  measure();
+})();
+</script>
+</body>
+</html>

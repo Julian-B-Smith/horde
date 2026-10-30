@@ -1,18 +1,66 @@
 # Design system
 
-*Last verified 2026-10-24 against main `d517cd5`, through ADR-276 and ROADMAP B549.*
+*Last verified 2026-10-30 against main `ea5ea53`, through ADR-336 and ROADMAP B596. The sections
+from "What is here" down were last re-read against the rulings on 2026-10-24 (through ADR-276, B549)
+and are kept as they were; B596's ledger audit says where they have moved on.*
+
+## The chain of custody (ADR-336)
+
+Every design decision travels one chain, and every hop has a record and a check:
+
+| hop | where | its record | its check |
+|---|---|---|---|
+| ruling | an ADR in `DECISIONS.md` | the ADR | no ADR or B number taken twice |
+| **design master** | **`master/` in this folder** (the artifact's `project/` tree) | `master/VERSION`: artifact, version, date, a sha256 per file | the tree is exactly those files with those hashes |
+| vendored bundle | `docs/design/arp-face/` (`bundle.js`, `bundle.css`, `tokens.css`) | each file's first-line stamp names the master version | equals `vendor(master)` (`tools/design_vendor.py`), or a drift the ledger records |
+| GUI 3 shell | `docs/design/gui3.html`, `docs/design/gui3/` | `docs/design/design-ledger.json` rows; the port ledger (`gui3/port-tab.json`) is the view of what has not arrived | every component, version, export and shell place a row names exists |
+| engine | the no-audio stub today; the WebAssembly engine at stage 8 (IF-10) | the ledger's `wired` state | the seam check |
+
+The ledger (`docs/design/design-ledger.json`) has one row per ruled design element and a state
+for each: **ruled**, **in-master**, **vendored**, **in-shell**, **wired**. Every lab in the design
+index carries a status there too: exploring, ruled (ADR), harvested (master version) or retired.
+`tools/design_chain_check.py` holds all of it to the tree in `./verify fast`, with a must-fail plant
+for every kind of finding. The GUI session's charter is `docs/design/CLAUDE.md`.
+
+## The design master's home
+
+**`docs/design-system/master/` is the source; the artifact is its published view** (ADR-336
+ruling 1). It was imported on 2026-10-30, byte-identical to the live artifact's `project/` tree
+at version `1793374583-b6a5` (137 files: the README and guidelines, `tokens.json`, every
+component's README and preview, `components/bundle.js`, `bundle.css` and `index.d.ts`). The
+artifact type's own files (its app, demo and reference pages) are not ours and are not here. The
+ten logo PNGs live in the artifact's asset store, not in `project/`; `master/design-system.json`
+lists them by blob id, and the repo's own copy of the warp engine is `docs/design/logo/`.
+
+The published artifact is https://claude.ai/artifact/EGDwetDHwcvxhTbNffCzJc. It is **private
+to its owner unless shared**; the link will not open for anyone else. Nothing in the build
+depends on it: the repo holds the master.
+
+## The publish procedure (from `docs/design/CLAUDE.md`)
+
+1. **Edit the master here, never in the artifact.** Each master change names the ADR it carries
+   out, and its ledger rows move to `in-master` in the same PR. A ruling not yet in the master
+   cannot reach the shell (ADR-316): add it here first, never draw it locally.
+2. **Merge**, then **publish the artifact from the merged tree** (its `project/` files).
+3. **Record the published version**: `python3 tools/design_vendor.py record-master --version <id>
+   --date <YYYY-MM-DD>` rewrites `master/VERSION` (version, date, a sha256 per file).
+4. **Re-vendor**: `python3 tools/design_vendor.py vendor --date <YYYY-MM-DD> --out docs/design/arp-face`
+   stamps the three vendored files with that version. Update the arp-face README's provenance
+   row, remove any `vendoring.known_drift` entry the re-vendor resolves, and move the ledger rows
+   to `vendored`. Never hand-edit the vendored files or `VERSION`.
+
+**Known finding (2026-10-30):** the vendored files' bodies equal `vendor(master)` at
+`1793374583-b6a5` byte for byte, but their stamps name `1793336699-65f2`, the version vendored
+by commit `bdc7027`. The ledger records it as a stamp-only drift (ADR-336); re-stamping is a
+re-vendor, which is the human's call.
 
 ## The living reference
 
 The design system is **published** from the Design System Artifact type
-(B531, ADR-259): https://claude.ai/artifact/EGDwetDHwcvxhTbNffCzJc (version 27
-as of 2026-10-23, B549). It holds the tokens, the components with live
+(B531, ADR-259). It holds the tokens, the components with live
 previews, and the guidelines. It is the living reference for tokens and
 components, and it is revised as rulings arrive (ADR-261 A1, ADR-262, ADR-266,
-ADR-272, ADR-273).
-
-It is **private to its owner unless shared**; the link will not open for
-anyone else. Nothing in the build depends on it.
+ADR-272, ADR-273), now through the procedure above.
 
 The `.dc.html` files below are **earlier design documents**. They are kept as
 history where a ruling since has superseded them, and they stay normative only
@@ -23,6 +71,7 @@ rulings in "What the rulings changed" decide.
 
 | file | what it is |
 |---|---|
+| `master/` | **The design master's source** (ADR-336): the Design System artifact's `project/` tree, byte-identical, with `master/VERSION`. The current tokens, components and guidelines; see "The design master's home" above. |
 | `HORDE-UI-Spec.dc.html` | **The UI implementation spec, v1** (2026-08-23) — tokens, widget state tables, visualizer recipes, morph presentation. Still normative for **values** (ADR-261 ruling 4, A1), except where a ruling below changes one. An earlier document; the published system carries the current tokens. |
 | `HORDE-Design-System.dc.html` | **The consolidated system** (2026-08-23) — page compositions for MAIN, OSC, FX, MIX and the bend+scale panels, with the reasoning. An earlier layout reference; where ADR-259 names a composition (the 980×720 window, the XY pad over the Specimen, module cards, the face/Advanced split), the ruling wins. |
 | `HORDE-Vaporwave-Phosphor.dc.html` | **The display direction** (2026-08-24, adopted, ADR-119) — data wells become dark phosphor tubes; the cream chrome stays. Normative for **screen tokens and trace rendering**; where it touches chrome values, the UI Spec still wins. Screen schemes are user-selectable (ADR-262 ruling 2). |
@@ -131,8 +180,8 @@ normative in HORDE UI Spec."* House rules win over the prototypes: Archivo with
 Roboto Mono, the cream default theme, horde's corner palette, 28 px targets
 (ADR-261).
 
-The published system is private to its owner. A reader without access follows
-the rulings above and the `.dc.html` files, and asks for a share.
+The published system is private to its owner, but its source is `master/` in this
+folder (ADR-336), so a reader without access reads that instead of asking for a share.
 
 ## Measured findings kept as history
 

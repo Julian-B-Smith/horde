@@ -1,0 +1,61 @@
+<!-- @dsCard group="Modulation" height=230 subtitle="A hosted module's macros as horde's matrix shows them: live, read-only, never cross-mapped" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Hosted macro rows</title></head>
+<body>
+<div style="padding:14px 16px 10px; max-width:560px" class="mx-hostwrap">
+  <div id="maw"></div>
+  <p class="hd-msg" id="msg" style="margin:6px 0 0"></p>
+  <p class="hd-hint" style="margin:2px 0 0">Each module keeps its own macro mapping; horde shows it and cannot map it. SAMPLE data, generated in this preview; never the engine.</p>
+</div>
+<script>
+(function () {
+
+  var H = window.Horde, T = Math.PI * 2;
+  function wrap(t, P) { return ((t % P) + P) % P; }
+  /* SAMPLE sources: deterministic functions of time, generated in this preview; never the engine */
+  var SOURCES = [
+    { id: 'lfo1', name: 'LFO 1', kind: 'lfo', f: function (t) { return .5 + .5 * Math.sin(t * T * .45); } },
+    { id: 'lfo2', name: 'LFO 2', kind: 'lfo', f: function (t) { var p = wrap(t * .16, 1); return p < .5 ? p * 2 : 2 - p * 2; } },
+    { id: 'env1', name: 'ENV 1', kind: 'env', f: function (t) { var p = wrap(t, 1.7); return p < .04 ? p / .04 : Math.exp(-(p - .04) * 3.2); } },
+    { id: 'mac1', name: 'MACRO 1', kind: 'macro', f: function (t) { return .5 + .42 * Math.sin(t * T * .07); } },
+    { id: 'coh1', name: 'Coherence 1', kind: 'engine', f: function (t) { return .5 + .4 * Math.sin(t * T * .11 + 1); } }
+  ];
+  function pctf(x) { return Math.round(x * 100) + '%'; }
+  var DESTS = [
+    { key: 'flt.cutoff', name: 'Cutoff', short: 'Cut', v: .45, fmt: function (x) { var f = 80 * Math.pow(18000 / 80, x); return f >= 1000 ? (f / 1000).toFixed(1) + ' kHz' : Math.round(f) + ' Hz'; } },
+    { key: 'flt.res', name: 'Resonance', short: 'Res', v: .35 },
+    { key: 'fx.drive', name: 'Drive', short: 'Drive', v: .5 },
+    { key: 'amp.pan', name: 'Pan', short: 'Pan', v: .5, fmt: function (x) { var r = Math.round((x - .5) * 200); return r === 0 ? 'C' : (r < 0 ? 'L' + (-r) : 'R' + r); } },
+    { key: 'amp.level', name: 'Level', short: 'Level', v: .7 },
+    { key: 'osc.blade', name: 'Blade width', short: 'Blade', v: .3 }
+  ];
+  function session(opts) {
+    var S = new H.Session({ x: opts && opts.x !== undefined ? opts.x : .3, y: opts && opts.y !== undefined ? opts.y : .32, sources: SOURCES, mappings: [
+      { param: 'flt.cutoff', src: 'lfo1', pol: 'bi', depth: .3 },
+      { param: 'flt.cutoff', src: 'env1', pol: 'uni', depth: .25 },
+      { param: 'fx.drive', src: 'mac1', pol: 'ctl', depth: .25, lo: .2, hi: .8 },
+      { param: 'amp.pan', src: 'lfo2', pol: 'bi', depth: .4 },
+      { param: 'flt.res', src: 'coh1', pol: 'inv', depth: .2 }
+    ] });
+    DESTS.forEach(function (d) { S.params[d.key] = { key: d.key, name: d.name, vals: [d.v, d.v, d.v, d.v], def: d.v, fmt: d.fmt || pctf }; });
+    /* a depth route (placeholder, one level): ENV 1 moves the depth of LFO 1 -> Cutoff */
+    S.depthRoutes = [{ src: 'env1', pol: 'uni', depth: .3, of: S.mappings[0] }];
+    S.selected = 'flt.cutoff';
+    return S;
+  }
+  function message(S, id) { var m = document.getElementById(id); S.on(function () { m.textContent = S.message; }); }
+
+  var S = session();
+  H.HostedMacroRows(document.getElementById('maw'), S, { module: { name: 'MAW', macros: [
+    { id: 'maw.m1', name: 'Drive', f: function () { return .6; }, targets: ['Drive'] },
+    { id: 'maw.m2', name: 'Character', f: function (t) { return .45 + .2 * Math.sin(t * T * .09); }, targets: ['Stage 2 shape'] },
+    { id: 'maw.m3', name: 'Tone', f: function () { return .5; }, targets: ['Tilt'] },
+    { id: 'maw.m4', name: 'Grit', f: function (t) { return .35 + .1 * Math.sin(t * T * .2); }, targets: ['Inject', 'Res'] }
+  ] } });
+  message(S, 'msg');
+  S.start(); S.emit();
+})();
+</script>
+</body>
+</html>

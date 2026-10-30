@@ -1,0 +1,29 @@
+<!-- @dsCard group="Modulators" height=342 subtitle="The ownership tier, made concrete: baked, derived and modifiable modulators, and what a toggle refuses or removes from the preset" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Ownership tier</title></head>
+<body>
+<div class="hd-fit" style="padding:14px 16px 4px; gap:12px 24px">
+  <div class="hd-col" style="gap:6px; flex:1 1 360px; max-width:560px">
+    <span class="hd-cluster">Ownership tier</span>
+    <div id="tier" style="width:100%"></div>
+  </div>
+  <div class="hd-col" style="gap:6px; flex:1 1 200px; max-width:300px">
+    <span class="hd-label" style="line-height:1.5">Click a tier. A baked rotor voice or the derived R refuses: its identity is where it comes from, so there is no knob to unlock. A modifiable LFO or envelope toggled to baked leaves the preset.</span>
+    <span class="hd-label" style="line-height:1.5">PENDING: which reading of "tier" is meant is not ruled (B16). Precedence between writers is not built.</span>
+    <span class="hd-hint">SAMPLE data, generated in this preview; never the engine.</span>
+  </div>
+</div>
+<script>
+(function () {
+  var H = window.Horde, rotor = 'the rotor (rate = detune spread)';
+  H.OwnershipTier(document.getElementById('tier'), { rows: [
+    { id: 'K1', kind: 'lfo', tier: 'baked', from: rotor }, { id: 'K2', kind: 'lfo', tier: 'baked', from: rotor },
+    { id: 'K3', kind: 'lfo', tier: 'baked', from: rotor }, { id: 'K4', kind: 'lfo', tier: 'baked', from: rotor },
+    { id: 'R', kind: 'engine', tier: 'derived', from: 'a function of the rotor (its order parameter)' },
+    { id: 'LFO A', kind: 'lfo', tier: 'mod', from: 'its fixed defaults' }, { id: 'LFO B', kind: 'lfo', tier: 'mod', from: 'its fixed defaults' },
+    { id: 'ENV 1', kind: 'env', tier: 'mod', from: 'its fixed defaults' }] });
+})();
+</script>
+</body>
+</html>

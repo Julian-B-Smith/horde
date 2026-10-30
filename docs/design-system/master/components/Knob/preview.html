@@ -1,0 +1,89 @@
+<!-- @dsCard group="Controls" height=900 subtitle="The morph knob at the four density sizes (primary, standard, compact, utility: label above, value on hover, the section slot carries the corner line) and the classic box; blend arc, shape-coded pips, tether, stacked mod rings" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Knob</title></head>
+<body>
+<div style="padding:14px 16px 10px">
+  <div class="hd-cell hd-dense" style="margin-bottom:12px">
+    <section class="hd-sec" id="lsec">
+      <div id="lhead"></div>
+      <div class="hd-sgroups">
+        <div class="hd-sgrp"><span class="hd-sublabel">Primary · 56</span><div class="hd-krow" id="kp"></div></div>
+        <div class="hd-sgrp"><span class="hd-sublabel">Standard · 48</span><div class="hd-krow" id="ks"></div></div>
+        <div class="hd-sgrp"><span class="hd-sublabel">Compact · 40</span><div class="hd-krow" id="kc"></div></div>
+        <div class="hd-sgrp"><span class="hd-sublabel">Utility · 28</span><div class="hd-col" style="gap:0" id="ku"></div></div>
+      </div>
+    </section>
+    <section class="hd-sec" id="csec">
+      <div id="chead"></div>
+      <div class="hd-sgroups">
+        <div class="hd-sgrp"><span class="hd-sublabel">Swarm</span><div class="hd-krow" id="kc1"></div></div>
+        <div class="hd-sgrp"><span class="hd-sublabel">Env</span><div class="hd-krow" id="kc2"></div></div>
+        <div class="hd-sgrp"><span class="hd-sublabel">Out</span><div class="hd-krow" id="kc3"></div></div>
+      </div>
+    </section>
+  </div>
+  <span class="hd-cluster" style="display:block;margin:0 0 6px">Classic box (no size)</span>
+  <div class="hd-fit" style="gap:18px; background:var(--panel); border:var(--stroke-ink) solid var(--ink); border-radius:var(--radius); padding:12px">
+    <div class="hd-col" style="gap:8px; flex:0 1 176px">
+      <span class="hd-cluster">Morph</span>
+      <div id="pad"></div>
+      <span class="hd-label">Editing corner</span>
+      <div id="pin"></div>
+    </div>
+    <div style="display:flex; flex-wrap:wrap; gap:4px; align-content:flex-start; flex:1 1 300px; min-width:0" id="knobs"></div>
+    <div class="hd-col" style="flex:1 1 100%; gap:4px; border-top:1px dashed var(--div); padding-top:8px">
+      <span class="hd-cluster">Inspector</span>
+      <div class="hd-fit" style="gap:16px 24px; width:100%"><div id="cinsp" style="flex:1 1 300px; max-width:440px"></div><div id="minsp" style="flex:1 1 230px"></div></div>
+      <span class="hd-hint">Corner names are SAMPLES (presets from the SCALPEL bench). Lock C, then drag a knob that C owns: the edit is refused.</span>
+    </div>
+  </div>
+  <p class="hd-msg" id="msg" style="margin:6px 0 0"></p>
+  <p class="hd-hint" style="margin:2px 0 0">Move the puck · drag a knob edits the editing corner (160 px, shift fine) · ⌥-drag edits that corner's mod depth · ⌥-click or a click on an inspector row picks the focused mod · ⌥+wheel adjusts the value; hold ⌥ to see it under every mapped knob · double-click resets · click a pad corner to pin it. Sources are sample signals, not audio.</p>
+</div>
+<script>
+(function () {
+  var H = window.Horde, T = Math.PI * 2;
+  var S = new H.Session({ x: .56, y: .42, corners: ['Glass horde pad', 'Undertone cathedral', 'Smear and strike', 'Crushed bells'], sources: [
+    { id: 'lfo1', name: 'LFO 1', kind: 'lfo', f: function (t) { return .5 + .5 * Math.sin(t * T * .45); } },
+    { id: 'lfo2', name: 'LFO 2', kind: 'lfo', f: function (t) { var p = (t * .16) % 1; return p < .5 ? p * 2 : 2 - p * 2; } },
+    { id: 'env2', name: 'ENV 2', kind: 'env', f: function (t) { var p = t % 1.7; return p < .04 ? p / .04 : Math.exp(-(p - .04) * 3.2); } },
+    { id: 'mac1', name: 'MACRO 1', kind: 'macro', f: function (t) { return .5 + .32 * Math.sin(t * T * .05); } },
+    { id: 'r1', name: 'R', kind: 'engine', f: function (t) { return .5 + .4 * Math.sin(t * T * .11 + 1); } }
+  ], mappings: [
+    { param: 'width', src: 'lfo1', pol: 'bi', depth: 0, cd: [.10, .22, .05, .30] },
+    { param: 'driftDepth', src: 'env2', pol: 'uni', depth: .3 },
+    { param: 'driftDepth', src: 'mac1', pol: 'inv', depth: .18 },
+    { param: 'coupling', src: 'mac1', pol: 'ctl', depth: 0, lo: .3, hi: .8 },
+    { param: 'coupling', src: 'r1', pol: 'bi', depth: .2 }
+  ] });
+  var pctf = function (x) { return Math.round(x * 100) + '%'; };
+  var KN = [
+    { key: 'detune', name: 'Detune', path: 'Osc 1 · Detune', vals: [.18, .72, .40, .90], def: .28 },
+    { key: 'coupling', name: 'Coupling', path: 'Osc 1 · Coupling', bipolar: true, vals: [.5, .85, .30, .62], def: .5, fmt: function (x) { var p = Math.round(x * 200 - 100); return (p > 0 ? '+' : p < 0 ? '−' : '') + Math.abs(p) + '%'; } },
+    { key: 'width', name: 'Width', path: 'Osc 1 · Width', vals: [.35, .80, .55, .25], def: .8 },
+    { key: 'driftDepth', name: 'Drift', path: 'Osc 1 · Drift', vals: [.10, .55, .30, .78], def: 0, fmt: function (x) { return Math.round(x * 100) + ' ct'; } },
+    { key: 'env1.sustain', name: 'Sustain', path: 'Env 1 · Sustain', vals: [.85, .85, .6, .2], def: .85 },
+    { key: 'out.level', name: 'Level', path: 'Out · Level', locked: true, g: .7, def: .7, fmt: function (x) { var d = -60 + x * 86; return x <= 0 ? '−∞ dB' : (d >= 0 ? '+' : '−') + Math.abs(d).toFixed(1) + ' dB'; } }
+  ];
+  var host = document.getElementById('knobs');
+  KN.forEach(function (p) { p.fmt = p.fmt || pctf; var d = document.createElement('div'); host.appendChild(d); H.Knob(d, p, S); });
+  /* THE DENSITY LADDER: the same parameters (the same vals arrays, so a drag on any copy moves them all) at the four sizes */
+  function sized(p, size, id) { var q = {}; for (var k in p) q[k] = p[k]; q.size = size; var d = document.createElement('div'); document.getElementById(id).appendChild(d); H.Knob(d, q, S); }
+  sized(KN[2], 'primary', 'kp'); sized(KN[2], 'standard', 'ks'); sized(KN[2], 'compact', 'kc'); sized(KN[2], 'utility', 'ku'); sized(KN[3], 'utility', 'ku');
+  [0, 1, 2, 3].forEach(function (i) { sized(KN[i], 'compact', 'kc1'); }); sized(KN[4], 'compact', 'kc2'); sized(KN[5], 'compact', 'kc3');
+  H.SectionHeader(document.getElementById('lhead'), { name: 'Density ladder', path: 'Preview · Density ladder', S: S, section: document.getElementById('lsec'), summary: 'hover a knob: its value takes the label line; the slot here reads the corner line' });
+  H.SectionHeader(document.getElementById('chead'), { name: 'Osc 1', num: 1, rule: 'solid', on: true, path: 'Osc 1', S: S, section: document.getElementById('csec'), summary: 'compact: the default in a dense panel · hold ⌥ for the focus captions',
+    keys: function () { return S.keys; } });
+  S.params[KN[2].key] = KN[2];                   // the classic copies stay the ones the inspectors read
+  H.XYPad(document.getElementById('pad'), S, { size: 140 });
+  H.CornerPin(document.getElementById('pin'), S);
+  H.CornerInspector(document.getElementById('cinsp'), S);
+  H.ModInspector(document.getElementById('minsp'), S);
+  S.saved['detune'][1] = .60;                    // sample: corner B's Detune differs from its saved preset (the edited mark)
+  var msg = document.getElementById('msg'); S.on(function () { msg.textContent = S.message; });
+  S.selected = 'width'; S.start();
+})();
+</script>
+</body>
+</html>

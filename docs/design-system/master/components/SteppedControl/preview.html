@@ -1,0 +1,64 @@
+<!-- @dsCard group="Morph" height=640 subtitle="STEPPED morph as rate plus sync: steps per second or a tempo division, the glide that softens each step, and a scope of the puck against what is heard; size compact for a dense panel" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Stepped control</title></head>
+<body>
+<div class="hd-fit" style="padding:14px 16px 4px; gap:14px 22px">
+  <div class="hd-col" style="gap:6px; flex:0 1 180px; min-width:0">
+    <span class="hd-cluster">Morph</span>
+    <div id="pad"></div>
+    <div class="hd-row"><span class="hd-label">Auto-move</span><button type="button" class="hd-toggle hd-focus" role="switch" aria-checked="true" aria-label="Move the puck automatically" id="auto"></button></div>
+  </div>
+  <div class="hd-col" style="gap:8px; flex:1 1 340px; min-width:0; align-items:stretch">
+    <div id="mode"></div>
+    <div id="step"></div>
+    <div class="hd-msg" id="msg" aria-live="polite"></div>
+    <span class="hd-sublabel" style="margin-top:4px">Compact (size: 'compact')</span>
+    <div id="step2" style="max-width:300px; width:100%"></div>
+  </div>
+</div>
+<p class="hd-hint" style="margin:4px 16px 12px">STEPPED: the morph follows the puck once per step, at the rate (steps per second) or, with Sync on, at the tempo division · the glide softens each step's edge · on the pad the hollow square is where the morph is heard · drag the puck yourself to pause the auto-move. SAMPLE data, generated in this preview (tempo 120 BPM); never the engine.</p>
+<script>
+(function () {
+  var H = window.Horde;
+  /* SAMPLE morph field: the lab's demo rows (B211), hand-set corners; never the engine */
+  function field() {
+    var ms = function (x) { return Math.round(10 + x * 990) + ' ms'; }, ct = function (x) { return Math.round(x * 50) + ' ct'; };
+    return [
+      { key: 'osc1.volume', name: 'Volume', section: 'OSC 1', group: 'Mix', vals: [.4, .45, .4, .3] },
+      { key: 'osc1.pullK', name: 'Pull K', section: 'OSC 1', group: 'The coupling', vals: [.2, .7, .35, .9] },
+      { key: 'osc1.topology', name: 'Topology', kind: 's', section: 'OSC 1', group: 'The coupling', labels: ['ring', 'all-to-all', 'chain', 'star'], vals: [0, 1, 1, 3] },
+      { key: 'osc1.drift', name: 'Drift', section: 'OSC 1', group: 'Drift', vals: [.12, .12, .12, .12], fmt: ct, def: .12 },
+      { key: 'osc2.power', name: 'Power', kind: 'g', section: 'OSC 2', group: 'Mix', vals: [0, 1, 0, 1] },
+      { key: 'osc2.detune', name: 'Detune', section: 'OSC 2', group: 'Pitch', vals: [.1, .8, .1, .8], fmt: ct },
+      { key: 'osc2.law', name: 'Detune law', kind: 's', section: 'OSC 2', group: 'Pitch', labels: ['linear', 'exponential', 'golden', 'cluster', 'spread'], vals: [0, 4, 0, 4] },
+      { key: 'sub.on', name: 'Power', kind: 'g', section: 'SUB', group: 'Sub', vals: [0, 0, 1, 1] },
+      { key: 'sub.wave', name: 'Wave', kind: 's', section: 'SUB', group: 'Sub', labels: ['sine', 'triangle', 'square', 'saw', 'pulse', 'noise', 'bump'], vals: [3, 3, 0, 6] },
+      { key: 'sub.level', name: 'Level', section: 'SUB', group: 'Sub', vals: [.8, .8, .55, .9] },
+      { key: 'fx1.type', name: 'Type', kind: 's', unit: 'FX1', section: 'FX RACK', group: 'Slot 1', labels: ['Off', 'Drive', 'Chorus', 'Echo'], vals: [0, 0, 1, 1] },
+      { key: 'fx1.amount', name: 'Amount', unit: 'FX1', section: 'FX RACK', group: 'Slot 1', vals: [.5, .5, .3, .75] },
+      { key: 'play.bendLaw', name: 'Bend law', kind: 's', section: 'PLAY', group: 'Bend', labels: ['constant time', 'constant rate', 'lag', 'mass-spring'], vals: [0, 1, 0, 3] },
+      { key: 'play.bendTime', name: 'Bend time', section: 'PLAY', group: 'Bend', vals: [.11, .24, .11, .29], fmt: ms },
+      { key: 'play.glide', name: 'Glide', section: 'PLAY', group: 'Bend', vals: [.05, .05, .05, .05], fmt: ms, def: .05 }
+    ];
+  }
+  var CORNER_NAMES = ['MISC - Cloud', 'MISC - Lock', 'MISC - Splay', 'MISC - Two Cluster'];
+  var S = new H.Session({ x: .2, y: .3, corners: CORNER_NAMES }), M = H.Morph.state(S);
+  M.mode = 'stepped';
+  H.Morph.register(S, field()); S.selected = 'osc1.pullK';
+  var pad = document.getElementById('pad'), auto = document.getElementById('auto'), on = !S.reduce;
+  auto.setAttribute('aria-checked', String(on));
+  H.XYPad(pad, S, { size: 170 }); H.QuantumPad(pad, S);
+  H.MorphMode(document.getElementById('mode'), S);
+  H.SteppedControl(document.getElementById('step'), S);
+  H.SteppedControl(document.getElementById('step2'), S, { size: 'compact' });   // the same morph state, the dense faces
+  auto.addEventListener('click', function () { on = !on; auto.setAttribute('aria-checked', String(on)); });
+  pad.addEventListener('pointerdown', function () { on = false; auto.setAttribute('aria-checked', 'false'); });
+  /* the auto-move: a slow figure-eight driven by frame time only (animation, never data) */
+  S.add({ render: function () { if (!on) return; var t = S.t * .35; S.pad.x = .5 + .38 * Math.sin(t * 2 * Math.PI); S.pad.y = .5 + .3 * Math.sin(t * 4 * Math.PI); } });
+  S.on(function () { document.getElementById('msg').textContent = S.message; });
+  S.start(); window.__S = S;
+})();
+</script>
+</body>
+</html>

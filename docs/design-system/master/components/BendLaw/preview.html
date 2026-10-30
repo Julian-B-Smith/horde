@@ -1,0 +1,83 @@
+<!-- @dsCard group="Pitch" height=500 subtitle="Lanes, the law and its own parameters, quantise with hysteresis and step timing, glide-from and the voice modes; the travel drawn live" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Bend law</title></head>
+<body>
+<div class="hd-fit" style="padding:14px 16px 4px; gap:14px 24px" id="host">
+  <div class="hd-col" style="gap:6px; flex:1 1 300px; max-width:440px">
+    <div class="hd-row" style="gap:8px"><span class="hd-cluster">Bend</span><span class="vtag">VOICE-BOUND</span></div>
+    <div class="hd-pills" role="tablist" aria-label="Lane" id="lane"></div>
+    <div class="hd-pills" role="radiogroup" aria-label="Law" id="law"></div>
+    <div id="params" class="hd-col" style="gap:0; width:100%"></div>
+    <div class="hd-row"><span class="hd-label" style="width:64px">Quantise</span><div class="hd-pills" role="radiogroup" aria-label="Quantise" id="q"></div></div>
+    <div id="qparams" class="hd-col" style="gap:0; width:100%"></div>
+  </div>
+  <div class="hd-col" style="gap:6px; flex:1 1 280px; max-width:440px">
+    <div class="hd-viz" style="aspect-ratio:2 / 1"><canvas id="cv" role="img" aria-label="The travel under this law"></canvas></div>
+    <div class="hd-row" style="justify-content:space-between; width:100%"><div id="scr"></div><span class="hd-value" id="read"></span></div>
+    <div id="notebox" class="hd-col" style="gap:6px; width:100%"></div>
+    <span class="hd-hint" id="why"></span>
+  </div>
+</div>
+<script>
+(function () {
+  var H = window.Horde, G = H.Glide, cv = document.getElementById('cv'), read = document.getElementById('read');
+  // the legacy defaults (src/hypersaw_clap.cpp ids 106–149); the pitch system's own manifest keys are pending (RC-3)
+  var P = { law: 4, time: 120, rate: 24, lag: 60, springF: 4, damp: .28, distOver: 1, retMul: 1, quant: 0, root: 0, mask: G.mask(G.SCALES[1][1]), hyst: 8, qTime: 0, qMode: 0, qHz: 8, qGrid: 4 };
+  var lane = 'bend', follow = true, glideFrom = 0, polyGlide = true, voice = 0;
+  function pills(id, opts, cur, fn, role) { var g = document.getElementById(id); g.innerHTML = '';
+    opts.forEach(function (o, i) { var b = document.createElement('button'); b.className = 'hd-pill hd-focus'; b.setAttribute('role', role || 'radio'); b.textContent = o;
+      b.setAttribute(role === 'tab' ? 'aria-selected' : 'aria-checked', String(i === cur));
+      b.addEventListener('click', function () { g.querySelectorAll('button').forEach(function (x) { x.setAttribute(role === 'tab' ? 'aria-selected' : 'aria-checked', String(x === b)); }); fn(i); build(); draw(); }); g.appendChild(b); }); }
+  var fms = function (v) { return Math.round(v) + ' ms'; };
+  var LAWP = {   // each law shows only its own parameters
+    0: [], 1: [['time', 'Time', 5, 1500, 120, fms, true]], 2: [['rate', 'Rate', .5, 200, 24, function (v) { return v.toFixed(1) + ' st/s'; }, true]],
+    3: [['lag', 'Lag', 1, 2000, 60, fms, true]],
+    4: [['springF', 'Spring', .5, 20, 4, function (v) { return v.toFixed(1) + ' Hz'; }, true], ['damp', 'Damping', 0, 1, .6, function (v) { return v.toFixed(2); }],
+        ['distOver', 'Distance curve', 0, 2, 1, function (v) { return v.toFixed(2); }]]
+  };
+  function slider(host, o) { var d = document.createElement('div'); host.appendChild(d);
+    H.PlainSlider(d, { name: o[1], path: (lane === 'bend' ? 'Bend' : 'Note') + ' · ' + o[1], min: o[2], max: o[3], value: P[o[0]], def: o[4], fmt: o[5], log: !!o[6], onInput: function (v) { P[o[0]] = v; draw(); } }); }
+  function build() {
+    var ph = document.getElementById('params'); ph.innerHTML = '';
+    var noteFollows = lane === 'note' && follow;
+    if (noteFollows) ph.innerHTML = '<span class="hd-hint">The note lane follows the bend law (Note law: follow).</span>';
+    else (LAWP[P.law] || []).forEach(function (o) { slider(ph, o); });
+    if (lane === 'bend' && P.law > 0) slider(ph, ['retMul', 'Return ×', .2, 3, 1, function (v) { return '×' + v.toFixed(2); }]);
+    var qh = document.getElementById('qparams'); qh.innerHTML = '';
+    if (P.quant) { slider(qh, ['hyst', 'Hysteresis', 0, 50, 8, function (v) { return Math.round(v) + ' ¢'; }]);
+      var row = document.createElement('div'); row.className = 'hd-row'; row.innerHTML = '<span class="hd-label" style="width:64px">Step timing</span><div class="hd-pills" role="radiogroup" aria-label="Step timing" id="qt"></div>'; qh.appendChild(row);
+      pills('qt', ['continuous', 'free', 'sync'], P.qMode, function (i) { P.qMode = i; });
+      if (P.qMode === 1) slider(qh, ['qHz', 'Step rate', .2, 50, 8, function (v) { return v.toFixed(1) + ' Hz'; }, true]);
+      if (P.qMode === 2) slider(qh, ['qGrid', 'Step grid', .25, 8, 4, function (v) { return v.toFixed(2).replace(/\.00$/, '') + ' a beat'; }]); }
+    var nb = document.getElementById('notebox'); nb.innerHTML = '';
+    if (lane === 'note') {
+      nb.innerHTML = '<div class="hd-row"><span class="hd-label" style="width:64px">Note law</span><div class="hd-pills" role="radiogroup" aria-label="Note law" id="nl"></div></div>' +
+        '<div class="hd-row"><span class="hd-label" style="width:64px">Voicing</span><div class="hd-pills" role="radiogroup" aria-label="Voicing" id="vm"></div></div>' +
+        '<div class="hd-row"><span class="hd-label" style="width:64px">Glide from</span><div class="hd-pills" role="radiogroup" aria-label="Glide from" id="gf"></div></div>' +
+        '<div class="hd-row"><span class="hd-label" style="width:64px">Poly glide</span><button class="hd-toggle hd-focus" role="switch" id="pg" aria-label="Poly glide"></button></div>';
+      pills('nl', ['own settings', 'follow bend'], follow ? 1 : 0, function (i) { follow = i === 1; });
+      pills('vm', ['poly', 'mono', 'legato'], voice, function (i) { voice = i; });
+      pills('gf', ['held note', 'ringing', 'always'], glideFrom, function (i) { glideFrom = i; });
+      var pg = document.getElementById('pg'); pg.setAttribute('aria-checked', String(polyGlide)); pg.addEventListener('click', function () { polyGlide = !polyGlide; pg.setAttribute('aria-checked', String(polyGlide)); draw(); });
+    }
+  }
+  pills('lane', ['Bend wheel', 'Note glide', 'MPE bend', 'Sub'], 0, function (i) { lane = ['bend', 'note', 'mpe', 'sub'][i]; }, 'tab');
+  pills('law', G.LAWS, P.law, function (i) { P.law = i; });
+  pills('q', ['off', 'chromatic', 'scale'], 0, function (i) { P.quant = i; });
+  var WHY = ['', 'Mono: one voice; each new note glides from the last pitch played.', 'Legato: glides only between overlapping notes; a detached note starts on its pitch.'];
+  function draw() {
+    P.qTime = P.qMode === 1 ? 1000 / P.qHz : P.qMode === 2 ? 500 / P.qGrid : 0;   // sync: at a SAMPLE 120 BPM
+    var from = lane === 'bend' || lane === 'mpe' ? 60 : 60, to = lane === 'bend' || lane === 'mpe' ? 62 : 67;
+    var sim = G.simulate(P, from, to, P.law === 3 ? 1 : .9, lane === 'note' || lane === 'sub' ? 'note' : 'bend'), m = sim.metrics;
+    H.Viz.bend(cv, sim, P);
+    read.textContent = 'lag50 ' + (m.lag50 === null ? '—' : Math.round(m.lag50 * 1000) + ' ms') + ' · over ' + m.over.toFixed(1) + ' ¢ · rings ' + m.rings;
+    document.getElementById('why').textContent = lane === 'note' ? (voice === 0 ? 'Poly: ' + (polyGlide ? 'each new voice glides from its nearest predecessor (a chord: each voice from its own).' : 'poly glide off: new voices start on their pitch.') : WHY[voice]) + ' Glide from: ' + ['a key still held', 'a note still sounding, release tail included', 'the last note played, even across silence'][glideFrom] + '. SAMPLE move C4 → G4.'
+      : lane === 'sub' ? 'The sub has no glide of its own: it follows the bend law (B196). SAMPLE move.' : (lane === 'mpe' ? 'Per-note MPE bend, through the same law. ' : 'The bend wheel: +2 st and the spring home on release (Return ×). ') + 'SAMPLE move.';
+  }
+  H.ScreenScheme(document.getElementById('scr'), document.getElementById('host'), { onchange: function () { setTimeout(draw, 0); } });
+  build(); draw(); addEventListener('resize', draw);
+})();
+</script>
+</body>
+</html>

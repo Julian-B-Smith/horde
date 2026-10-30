@@ -1,0 +1,36 @@
+<!-- @dsCard group="Modulators" height=356 subtitle="The trackers as lanes: the gate a level, the trigger ticks only, the rest as logged" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Gate lanes</title></head>
+<body>
+<div class="hd-fit" style="padding:14px 16px 4px; gap:12px 24px" id="host">
+  <div class="hd-col" style="gap:6px; flex:1 1 340px; max-width:580px">
+    <div id="lanes" style="width:100%"></div>
+    <div class="hd-row" style="justify-content:space-between; width:100%"><div class="hd-row"><span class="hd-label">Trigger</span><div class="hd-pills" role="radiogroup" aria-label="Trigger mode" id="mode"></div></div><div id="scr"></div></div>
+  </div>
+  <div class="hd-col" style="gap:6px; flex:1 1 200px; max-width:300px">
+    <span class="hd-cluster">Gate lanes</span>
+    <span class="hd-label" style="line-height:1.5">One lane per tracker, newest on the right, each the value the render logged. The trigger has ticks, not a line: an event has no value between them. Switch EVERY and FIRST: FIRST fires only where the gate opens.</span>
+    <span class="hd-hint">SAMPLE data, generated in this preview; never the engine.</span>
+  </div>
+</div>
+<script>
+(function () {
+  var H = window.Horde, S = new H.Session({}), last = null, B = new H.Synth.ModBench({ seed: 4242 }), dirty = true;
+  var L = H.GateLanes(document.getElementById('lanes'), { label: 'MIDI tracker lanes' });
+  var g = document.getElementById('mode');
+  ['EVERY', 'FIRST'].forEach(function (n, i) { var b = document.createElement('button'); b.type = 'button'; b.className = 'hd-pill hd-focus'; b.setAttribute('role', 'radio'); b.textContent = n;
+    b.setAttribute('aria-checked', String(i === 0)); b.addEventListener('click', function () { B.cfg.mode = i; g.querySelectorAll('button').forEach(function (x, j) { x.setAttribute('aria-checked', String(j === i)); }); }); g.appendChild(b); });
+  function tick(dt) { var f = B.advance(dt); L.push(B.trk.values(), f); }
+  for (var k = 0; k < 200; k++) tick(1 / 60);
+  H.ScreenScheme(document.getElementById('scr'), document.getElementById('host'), { onchange: function () { dirty = true; } });
+  S.add({ render: function () {
+    var t = S.t, dt = last === null ? 0 : Math.max(0, Math.min(.05, t - last)); last = t;
+    if (S.reduce) { if (dirty) { L.draw(); dirty = false; } return; }
+    tick(dt); L.draw();
+  } });
+  S.start();
+})();
+</script>
+</body>
+</html>

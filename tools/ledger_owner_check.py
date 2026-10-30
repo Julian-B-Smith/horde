@@ -77,6 +77,7 @@ GUARDS = [
 KNOWN_UNLISTED = {
     "docs/port/divergences.json": "ratified-divergence record; whether it is an approval ledger is the human's ruling",
     "h2/cores/swarm/lift-ledger.json": "lift record; whether it is an approval ledger is the human's ruling",
+    "docs/design/design-ledger.json": "the design chain's record (ADR-336, B595), updated by the GUI session with each hop; its vendoring.known_drift entries pin a drift for the human to rule on, so whether it needs code-owner review is the human's ruling",
 }
 
 PINISH = re.compile(r"(^|[-_.])(pin|lock|baseline|allowlist|tolerances|ledger|divergences|acceptances)([-_.]|$)")

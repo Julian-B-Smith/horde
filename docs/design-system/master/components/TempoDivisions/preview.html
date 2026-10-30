@@ -1,0 +1,34 @@
+<!-- @dsCard group="Modulators" height=496 subtitle="Rate and sync as one control (RateSync), and the 22 tempo divisions: straight, dotted and triplet" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Tempo divisions</title></head>
+<body>
+<div class="hd-fit" style="padding:14px 16px 4px; gap:12px 24px">
+  <div class="hd-col" style="gap:8px; flex:1 1 300px; max-width:430px">
+    <span class="hd-cluster">Rate and sync</span>
+    <div id="rs" style="width:100%"></div>
+    <div id="bpm" style="width:100%"></div>
+    <span class="hd-cluster" style="margin-top:4px">Divisions</span>
+    <div id="td" style="width:100%"></div>
+  </div>
+  <div class="hd-col" style="gap:6px; flex:1 1 220px; max-width:320px">
+    <span class="hd-label" style="line-height:1.5">One control for a rate: FREE in Hz, or SYNC to a tempo division. The stepper walks the list slow to fast; the table is the whole list at once. Both write the same stored beats.</span>
+    <span class="hd-label" style="line-height:1.5">A value off the list (a loaded patch) keeps its value and reads as the nearest name, ± the difference. Nothing lights for it.</span>
+    <div class="hd-row"><span class="hd-label">Load an off-list value</span><button type="button" class="hd-btn hd-focus" id="off">0.95 beat</button></div>
+    <span class="hd-hint">SAMPLE data, generated in this preview; never the engine.</span>
+  </div>
+</div>
+<script>
+(function () {
+  var H = window.Horde, bpm = 120;
+  var td, rs = H.RateSync(document.getElementById('rs'), { name: 'Rate', path: 'LFO 1 · Rate', sync: 1, beats: 1, hz: 2, bpm: function () { return bpm; },
+    onChange: function (s) { td.set(s.beats); } });
+  td = H.TempoDivisions(document.getElementById('td'), { beats: 1, bpm: function () { return bpm; }, path: 'LFO 1 · Division',
+    onChange: function (b) { rs.set({ sync: 1, beats: b }); } });
+  H.ModSlider(document.getElementById('bpm'), { name: 'Tempo', path: 'Host tempo (SAMPLE)', min: 40, max: 220, value: 120, def: 120,
+    fmt: function (x) { return Math.round(x) + ' BPM'; }, onInput: function (v) { bpm = Math.round(v); rs.refresh(); td.refresh(); } });
+  document.getElementById('off').addEventListener('click', function () { rs.set({ sync: 1, beats: .95 }); td.set(.95); });
+})();
+</script>
+</body>
+</html>

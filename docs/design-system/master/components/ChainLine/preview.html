@@ -1,0 +1,108 @@
+<!-- @dsCard group="Display" height=1280 subtitle="Every tap on one line: x is the chain in signal order, y each tap's peak hold, read-only; under it, a gain lane with one vertical offset bar per stage from 0 dB (Gain staging below follows); solid where the engine feeds it, hollow where it is owed, red when latched over, ringed at the first over" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Chain line</title></head>
+<body>
+<div style="padding:14px 16px 4px; min-width:0">
+  <div class="hd-row" style="gap:8px 12px; margin-bottom:10px">
+    <span class="hd-cluster">Chain line</span><span class="vtag audio">AUDIO-CAPABLE</span>
+    <div class="hd-pills" role="radiogroup" aria-label="Chain" id="mode"><button class="hd-pill hd-focus" role="radio" aria-checked="true" data-v="instrument">Instrument</button><button class="hd-pill hd-focus" role="radio" aria-checked="false" data-v="fx">FX device</button></div>
+    <div class="hd-pills" role="radiogroup" aria-label="Taps the engine feeds" id="feed"><button class="hd-pill hd-focus" role="radio" aria-checked="true" data-v="all">All taps fed</button><button class="hd-pill hd-focus" role="radio" aria-checked="false" data-v="part">Sources + output fed</button></div>
+  </div>
+  <div id="cl"></div>
+  <p class="hd-hint" style="margin:8px 0 14px">x is the chain in signal order, y each tap&rsquo;s peak hold (−48 to +6 dBFS; below −48 a tap sits on the floor line); the dashed rail is 0 dBFS. <b>The dots are readings and never move a gain.</b> Point at one (or focus the line and use ← →) to name it. The four source lanes share the first column, side by side, and fold into the next stage, then run through the rack. <b>The bars under the line are the controls:</b> one per stage with a gain, in its dot&rsquo;s column, rising from the 0 dB line for a boost and falling for a cut, all on one dB scale (equal dB, equal height). Drag a bar up or down (shift for fine, double-click for the default, ↑ ↓ on a focused bar); it moves only when you drag it or move its Gain staging fader below, never with the levels. A stage with no gain shows an empty slot. On a narrow screen the line and its lane scroll together, so a dot and its bar stay in one column. <b>Sources + output fed</b> is a preview state: the taps nothing publishes yet have no reading, so they are hollow on the floor, never a guess (and silent in Gain staging). SAMPLE levels from a seeded hot chord, never the engine.</p>
+  <div class="hd-row" style="gap:8px 12px; margin-bottom:8px"><span class="hd-cluster">Gain staging</span><span class="hd-hint">the same stages, the same readings and latches; clear a lamp in either place</span></div>
+  <div id="gs"></div>
+</div>
+<script>
+(function () {
+  var H = window.Horde, SR = 48000, FPS = 60, STEP = 1 / FPS, reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var gsHost = document.getElementById('gs'), clHost = document.getElementById('cl'), still = reduce, gs, cl, feed = 'all';
+
+  /* ---- the previews' stand-in for the chain's published readings: the same hot chord as Gain staging's preview (seed 2301), struck every
+     2.4 s and run through the stages with the gains the controls hold. Overs are ONLY what the gains make of the chord: nothing is planted. ---- */
+  var rng = H.Synth.rng(2301), VEL = [0, -1.5, -.5, -3.5].map(function (d) { return d + (rng() - .5) * .4; });
+  var db = function (x) { return 10 * Math.log10(x); }, pw = function (v) { return Math.pow(10, v / 10); };
+  var psum = function (a) { var s = 0; a.forEach(function (v) { s += pw(v); }); return s > 0 ? db(s) : -200; };
+  var SRC = { osc1: [0, -.5], osc2: [-.4, 0], sub: [0, 0], noise: [-.8, -.3] };
+  var FED = { instrument: ['osc1', 'osc2', 'sub', 'noise', 'vol'], fx: ['in', 'vol'] };   // the "Sources + output fed" state
+  var TAUF = 2 * Math.PI;
+  function Engine() { this.G = {}; this.reset(); }
+  Engine.prototype.reset = function () { this.t = 0; this.peak = {}; this.lat = {}; };
+  Engine.prototype.chain = function (fx) { var G = this.G; this.fx = fx; H.GainStaging.chain(fx ? 'fx' : 'instrument').forEach(function (s) { if (s.gain) { G[s.id] = s.gain.def; } }); };
+  Engine.prototype.env = function () {
+    var t = this.t - .4, k = Math.floor(t / 2.4); if (t < 0) return -90;
+    var u = t - 2.4 * k, v = VEL[k % VEL.length];
+    return v + (u < .02 ? -30 * (1 - u / .02) : -14 * (u - .02));
+  };
+  Engine.prototype.step = function (dt) {
+    this.t += dt;
+    var G = this.G, t = this.t, e = this.env(), P = {};
+    var beat = function (k) { return -2.2 * (1 - Math.abs(Math.sin(TAUF * (5.3 + k) * t)) * Math.abs(Math.cos(TAUF * (3.7 + k) * t + .5))); };
+    var put = function (id, l, r) { P[id] = { l: l, r: r }; return [l, r]; };
+    var sat = function (v) { return v > -6 ? -6 + (v + 6) * .35 : v; }, lv;
+    if (this.fx) {
+      lv = put('in', -1.5 + e - VEL[0] + G['in'] + beat(0), -1.9 + e - VEL[0] + G['in'] + beat(.3));
+    } else {
+      var srcs = ['osc1', 'osc2', 'sub', 'noise'].map(function (id, i) { return put(id, e + G[id] + SRC[id][0] + beat(i * .2), e + G[id] + SRC[id][1] + beat(i * .2 + .1)); });
+      lv = [0, 1].map(function (c) { return psum(srcs.map(function (q) { return q[c]; })); });
+      [1, 2].forEach(function (k) {
+        lv = put('f' + k + 'i', lv[0] + G['f' + k + 'i'], lv[1] + G['f' + k + 'i']); lv = put('f' + k + 'o', lv[0] - 1 + G['f' + k + 'o'], lv[1] - 1 + G['f' + k + 'o']); });
+      lv = put('eng', lv[0] + G.eng, lv[1] + G.eng);
+      lv = put('mk', lv[0] + G.mk, lv[1] + G.mk);
+    }
+    var fxOf = [function (v) { return sat(v); }, function (v) { return v - .5; }, function (v) { return v + 3.2; }, function (v) { return v - 1.5; }];
+    [1, 2, 3, 4].forEach(function (k) {
+      lv = put('x' + k + 'i', lv[0] + G['x' + k + 'i'], lv[1] + G['x' + k + 'i']);
+      lv = put('x' + k + 'o', fxOf[k - 1](lv[0]) + G['x' + k + 'o'], fxOf[k - 1](lv[1]) + G['x' + k + 'o']);
+    });
+    lv = put('lim', lv[0] + G.lim, lv[1] + G.lim);
+    var CEIL = -1, over = Math.max(lv[0], lv[1]) - CEIL;
+    P.gr = { gr: Math.max(0, over) };
+    var lo = Math.min(lv[0], CEIL) + G.vol, ro = Math.min(lv[1], CEIL) + G.vol;
+    put('vol', G.vol <= -60 ? -200 : lo, G.vol <= -60 ? -200 : ro);
+    this.peak = P;
+    for (var id in P) { var m = Math.max(P[id].l === undefined ? -200 : P[id].l, P[id].r === undefined ? -200 : P[id].r);
+      if (m > 0) { var L = this.lat[id]; if (!L) this.lat[id] = { on: true, at: Math.round(t * SR), max: m }; else L.max = Math.max(L.max, m); } }
+  };
+  var eng = new Engine();
+  /* a tap nothing publishes has no reading and no latch: both views get the same answer from the same two callbacks */
+  var fedNow = function (id) { return feed === 'all' || id === 'gr' || FED[eng.fx ? 'fx' : 'instrument'].indexOf(id) >= 0; };
+  var read = function (id) { return fedNow(id) ? eng.peak[id] : undefined; };
+  var latch = function (id) { return fedNow(id) ? (eng.lat[id] || { on: false }) : { on: false }; };
+
+  function build(fx) {
+    eng.chain(fx); eng.reset();
+    var stages = H.GainStaging.chain(fx ? 'fx' : 'instrument'), clear = function (id) { delete eng.lat[id]; };
+    var onGain = function (id, v) { eng.G[id] = v; if (still) settle(); };
+    clHost.innerHTML = ''; /* ONE gain model: eng.G. The line reads it (gain) and writes it (onGain); Gain staging's faders write it (onGain) and the line's write is
+       echoed to the fader that shows it (setGain), which is all a fader needs to follow a drag */
+    cl = H.ChainLine(clHost, { stages: stages, sr: SR, read: read, latch: latch, keys: function () { return true; },
+      gain: function (id) { return eng.G[id]; }, onGain: function (id, v) { onGain(id, v); gs.setGain(id, v); } });
+    gs = H.GainStaging(gsHost, { stages: stages, sr: SR, keys: function () { return true; }, gains: eng.G, read: read, latch: latch, clear: clear, onGain: onGain });
+    if (still) settle();
+  }
+  /* reduced motion: one still frame, drawn when its data changes: the chain run to 0.8 s (the first strike's peak held, its bars falling) */
+  function settle() { eng.reset(); for (var k = 0; k < 48; k++) { eng.step(STEP); gs.step(STEP, true); cl.step(STEP, true); } gs.render(); cl.render(); }
+  function pick(id, f) {
+    document.getElementById(id).addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      this.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-checked', String(x === b)); });
+      f(b.dataset.v);
+    });
+  }
+  pick('mode', function (v) { build(v === 'fx'); });
+  pick('feed', function (v) { feed = v; if (still) settle(); });
+  build(false);
+  if (still) return;
+  /* fixed 1/60 s steps whatever the display's rate: the frame's timestamp only says how many are due */
+  var last = null, acc = 0;
+  requestAnimationFrame(function loop(now) {
+    acc += last === null ? STEP : Math.min(.1, Math.max(0, (now - last) / 1000)); last = now;
+    while (acc >= STEP) { eng.step(STEP); gs.step(STEP, true); cl.step(STEP, true); acc -= STEP; }
+    gs.render(); cl.render(); requestAnimationFrame(loop);
+  });
+})();
+</script>
+</body>
+</html>

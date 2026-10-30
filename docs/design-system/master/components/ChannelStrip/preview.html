@@ -1,0 +1,57 @@
+<!-- @dsCard group="Display" height=360 subtitle="The mixer as a console: strips side by side, each with on and name, a live peak readout with its latching CLIP lamp, the fader (a morph slider) beside its meter, and mute and solo under the fader; the master at the right" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Channel strip</title></head>
+<body>
+<div class="hd-fit" style="padding:14px 16px 4px; gap:12px 22px; align-items:flex-start">
+  <div id="cs"></div>
+  <div class="hd-col" style="flex:1 1 220px; gap:6px; max-width:360px">
+    <span class="hd-cluster">Mix</span>
+    <span class="hd-label" style="line-height:1.5">Each source is one strip: switch it on at the top, read its peak and its CLIP lamp beside each other, ride its fader with the meter right next to it, and mute or solo it just under the fader. Solo silences the other sources (dimmed, their M dashed); the master is never silenced.</span>
+    <span class="hd-label" style="line-height:1.5">The fader is the house morph slider on its side, so its corner pips, tether and mod lanes show (OSC 2's level is mapped to LFO 1 here).</span>
+    <p class="hd-msg" id="msg"></p>
+    <span class="hd-hint">SAMPLE levels, generated in this preview from a seeded signal and the faders' own gains; never the engine. The lamp latches on a sample over 0 dBFS and clears on a click.</span>
+  </div>
+</div>
+<script>
+(function () {
+  var H = window.Horde, T = Math.PI * 2;
+  var S = new H.Session({ x: .3, y: .3, corners: ['Glass horde pad', 'Undertone cathedral', 'Smear and strike', 'Crushed bells'], sources: [
+    { id: 'lfo1', name: 'LFO 1', kind: 'lfo', f: function (t) { return .5 + .5 * Math.sin(t * T * .3); } }
+  ], mappings: [{ param: 'osc2.level', src: 'lfo1', pol: 'bi', depth: .08 }] });
+  /* the faders' law here: 0..1 → −60..+6 dB, the bottom of travel −∞ (a SAMPLE law; the shell formats with the manifest's) */
+  var db = function (x) { return x <= 0 ? -Infinity : -60 + x * 66; };
+  var fmt = function (x) { var d = db(x); return d === -Infinity ? '−∞ dB' : (d >= 0 ? '+' : '−') + Math.abs(d).toFixed(1) + ' dB'; };
+  var STR = [
+    { id: 'osc1', name: 'Osc 1', on: true, fader: { key: 'osc1.level', name: 'Osc 1', vals: [.86, .8, .9, .84], def: .9, fmt: fmt }, base: -9, sw: 7 },
+    { id: 'osc2', name: 'Osc 2', on: true, fader: { key: 'osc2.level', name: 'Osc 2', vals: [.95, .97, .92, .99], def: .9, fmt: fmt }, base: -2.5, sw: 5 },
+    { id: 'sub', name: 'Sub', on: true, fader: { key: 'sub.level', name: 'Sub', vals: [.8, .8, .72, .85], def: .9, fmt: fmt }, base: -10, sw: 4 },
+    { id: 'noise', name: 'Noise', on: false, fader: { key: 'noise.level', name: 'Noise', vals: [.6, .55, .7, .5], def: .9, fmt: fmt }, base: -16, sw: 9 },
+    { id: 'out', name: 'Out', master: true, fader: { key: 'out.level', name: 'Out', locked: true, g: .9, def: .9, fmt: fmt }, base: -4, sw: 4 }
+  ];
+  var lat = {}, n = 0, rnd = H.Synth.rng(1729), jit = [];
+  for (var i = 0; i < 4096; i++) jit.push(rnd());                        // seeded: the same frames every load
+  var state = {};
+  function level(s) { return H.Synth && S.params[s.fader.key] ? db(S.output(S.params[s.fader.key])) - db(s.fader.def) : 0; }
+  function read(id) {
+    var s = STR.filter(function (q) { return q.id === id; })[0], st = state[id] || { on: s.on !== false, mute: false, solo: false };
+    var anySolo = STR.some(function (q) { var x = state[q.id]; return x && x.solo && !q.master; });
+    if (!s.master && (!st.on || st.mute || (anySolo && !st.solo))) return { l: -Infinity, r: -Infinity };
+    var f = function (c) { return s.base + level(s) - s.sw * (.5 + .5 * Math.sin(n * .045 + s.base + c * .6)) - 4 * jit[(n * 3 + c + s.base * 7 & 4095 + 4096) % 4096]; };
+    var l = f(0), r = f(1); if (l > 0 || r > 0) { var L = lat[id] || (lat[id] = { on: true, max: -99 }); L.on = true; L.max = Math.max(L.max, l, r); }
+    return { l: l, r: r };
+  }
+  var cs = H.ChannelStrip(document.getElementById('cs'), S, { label: 'Mix', strips: STR, keys: function () { return S.keys; }, read: read,
+    latch: function (id) { return lat[id]; }, clear: function (id) { if (lat[id]) lat[id].on = false; },
+    onToggle: function (id, what, val) { (state[id] = state[id] || { on: true, mute: false, solo: false })[what] = val; S.say((id.toUpperCase()) + ' · ' + what + ' ' + (val ? 'on' : 'off')); } });
+  STR.forEach(function (s) { state[s.id] = { on: s.on !== false, mute: false, solo: false }; });
+  var msg = document.getElementById('msg'); S.on(function () { msg.textContent = S.message; });
+  for (var k = 0; k < 150; k++) { n++; cs.step(1 / 60); }                // a still frame with the holds and one lamp set
+  cs.render();
+  S.start();
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  (function loop() { n++; cs.step(1 / 60); cs.render(); requestAnimationFrame(loop); })();
+})();
+</script>
+</body>
+</html>

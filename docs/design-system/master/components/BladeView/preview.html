@@ -1,0 +1,46 @@
+<!-- @dsCard group="Visualizers" height=280 subtitle="One cycle: each blade’s window as a band, the base wave dashed, members faint, the heard trace on top; voice-bound" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Blade view</title></head>
+<body>
+<div class="hd-fit" style="padding:14px 16px 4px; gap:12px 24px" id="host">
+  <div class="hd-col" style="gap:6px; flex:1 1 260px; max-width:460px">
+    <div class="hd-viz" style="aspect-ratio:2.4 / 1"><canvas id="cv" role="img" aria-label="Blade view: one cycle with the blade windows and the heard wave"></canvas></div>
+    <div class="hd-row" style="justify-content:space-between; width:100%"><div id="scr"></div><span class="hd-value" id="read" aria-live="off"></span></div>
+  </div>
+  <div class="hd-col" style="gap:6px; flex:1 1 220px">
+    <div class="hd-row"><span class="hd-cluster">Blade view</span><span class="vtag">VOICE-BOUND</span></div>
+    <span class="hd-label" style="line-height:1.5">One cycle of one voice across the width (the SUM view). Blade 1’s window is a band in value, blade 2’s hatched; the base wave dashed behind; each member faint in physics; what is heard on top in meter, with a ground halo on the pale schemes.</span>
+    
+    <span class="hd-hint">SAMPLE data, generated in this preview; never the engine.</span>
+  </div>
+</div>
+<script>
+(function () {
+  var H = window.Horde, cv = document.getElementById('cv'), read = document.getElementById('read'), T = 2 * Math.PI;
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var t = 0, M = 256, PLANT = false;   // PLANT (tests only): the old bug, bands drawn at the nominal window while the members' windows spread
+  function step(dt) { t += dt; }
+  function frame() {
+    var st1 = (.22 + .08 * Math.sin(t * .5)) % 1, w1 = .2, st2 = .62, w2 = .14, cut = 5 + 2 * Math.sin(t * .7), base = [], sum = [], mem = [], k, j;
+    var d = [-.03, -.01, .01, .03], w1m = [], w2m = [];
+    for (j = 0; j < M; j++) base.push(H.Synth.saw(j / M + .5));
+    function inW(x, s0, w) { return ((x - s0) % 1 + 1) % 1 < w; }
+    for (k = 0; k < 4; k++) { var s1 = (st1 + d[k] + 1) % 1, s2 = (st2 + d[k] * .6 + 1) % 1, row = []; w1m.push({ st: s1, w: w1 }); w2m.push({ st: s2, w: w2 });
+      for (j = 0; j < M; j++) { var x = j / M, y = H.Synth.saw(x + .5);
+        if (inW(x, s1, w1)) y = Math.sin(2 * Math.PI * cut * ((x - s1 + 1) % 1) / w1);
+        else if (inW(x, s2, w2)) y = Math.max(-1, Math.min(1, y * 2.4)); row.push(y); } mem.push(row); }
+    for (j = 0; j < M; j++) { var s = 0; for (k = 0; k < 4; k++) s += mem[k][j]; sum.push(s / 4); }
+    var cy = { base: base, sum: sum, members: mem, windows: [{ blade: 1, st: st1, w: w1, a: .22, members: PLANT ? [{ st: st1, w: w1 }] : w1m }, { blade: 2, st: st2, w: w2, a: .22, members: PLANT ? [{ st: st2, w: w2 }] : w2m }] };
+    window.__bladeLast = { M: M, base: base, sum: sum, windows: cy.windows };
+    H.Viz.blade(cv, cy);
+    read.textContent = 'cut ' + cut.toFixed(1) + '× · fold'; }
+  H.ScreenScheme(document.getElementById('scr'), document.getElementById('host'), { onchange: function () { if (reduce) setTimeout(function () { frame(0); }, 0); } });
+  for (var k = 0; k < 90; k++) step(1 / 30, k * 33);
+  if (reduce) { frame(0); return; }
+  var last = null;
+  (function loop(now) { var dt = last === null ? 1 / 30 : Math.max(0, Math.min(.05, (now - last) / 1000)); last = now; step(dt, now); frame(now); requestAnimationFrame(loop); })(performance.now());
+})();
+</script>
+</body>
+</html>

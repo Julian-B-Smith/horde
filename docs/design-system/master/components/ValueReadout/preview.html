@@ -1,0 +1,74 @@
+<!-- @dsCard group="Controls" height=300 subtitle="Double-click a value to type it: Enter commits, Esc cancels; the dense face (20 px, 28 px hit) and the inline value of a sized control" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Value readout</title></head>
+<body>
+<div style="display:flex; gap:28px; padding:14px 16px 4px; flex-wrap:wrap">
+  <div class="hd-col" id="rows" style="width:300px; gap:4px"></div>
+  <div class="hd-col" style="width:300px; gap:4px">
+    <span class="hd-cluster" style="margin-bottom:2px">States</span>
+    <div class="hd-srow"><span class="hd-label">Idle</span><span></span><span class="hd-readout">1.20 kHz</span></div>
+    <div class="hd-srow"><span class="hd-label">Hover</span><span></span><span class="hd-readout" style="border-color:var(--div)">1.20 kHz</span></div>
+    <div class="hd-srow"><span class="hd-label">Typing</span><span class="hd-note"></span><input class="hd-entry" value="800 hz" aria-label="Filter · Cutoff"></div>
+    <div class="hd-srow"><span class="hd-label">Bad input</span><span class="hd-note bad">not a frequency</span><input class="hd-entry bad" value="loud" aria-label="Filter · Cutoff" aria-invalid="true"></div>
+    <div class="hd-srow"><span class="hd-label">Clamped</span><span class="hd-note">40 k → 20.0 kHz</span><span class="hd-readout">20.0 kHz</span></div>
+  </div>
+</div>
+<div class="hd-dense hd-row" style="padding:2px 16px 0; gap:0 10px; border-top:1px dashed var(--div); margin:6px 16px 0; padding-left:0">
+  <span class="hd-cluster" style="margin-right:4px">Dense</span>
+  <span class="hd-label">Cutoff</span><span class="hd-readout hd-focus" tabindex="-1">1.20 kHz</span>
+  <span class="hd-label">Level</span><span class="hd-readout" style="border-color:var(--div)">−6.0 dB</span>
+  <span class="hd-label">Attack</span><input class="hd-entry" value="12 ms" aria-label="Env 1 · Attack (dense)">
+</div>
+<p class="hd-hint" style="margin:4px 16px 12px">Units are optional: 2k, 2 kHz, 2000 · −6 dB, -inf · 12 ms, 0.4 s · 70 %</p>
+<script>
+(function () {
+  var clamp = function (x, a, b) { return Math.max(a, Math.min(b, x)); };
+  var K = {
+    hz: { lo: 20, hi: 20000, fmt: function (f) { return f >= 1000 ? (f / 1000).toFixed(f >= 10000 ? 1 : 2) + ' kHz' : Math.round(f) + ' Hz'; },
+      parse: function (t) { var m = /^(-?[\d.]+)\s*(k|khz|hz)?$/.exec(t); if (!m) return null; var x = +m[1]; if (m[2] && m[2][0] === 'k') x *= 1000; return isFinite(x) ? x : null; }, err: 'not a frequency' },
+    db: { lo: -60, hi: 26, fmt: function (d) { return d <= -60 ? '−∞ dB' : (d > 0 ? '+' : d < 0 ? '−' : '') + Math.abs(d).toFixed(1) + ' dB'; },
+      parse: function (t) { if (/^-?inf/.test(t)) return -60; var m = /^([-+]?[\d.]+)\s*(db)?$/.exec(t.replace('−', '-')); return m && isFinite(+m[1]) ? +m[1] : null; }, err: 'not a level in dB' },
+    s: { lo: .0005, hi: 10, fmt: function (s) { return s < 1 ? (s * 1000).toFixed(s < .01 ? 1 : 0) + ' ms' : s.toFixed(2) + ' s'; },
+      parse: function (t) { var m = /^([\d.]+)\s*(ms|s)?$/.exec(t); if (!m) return null; var x = +m[1]; if (m[2] === 'ms') x /= 1000; return isFinite(x) ? x : null; }, err: 'not a time' },
+    pct: { lo: 0, hi: 1, fmt: function (v) { return Math.round(v * 100) + ' %'; },
+      parse: function (t) { var m = /^([-\d.]+)\s*%?$/.exec(t); return m && isFinite(+m[1]) ? +m[1] / 100 : null; }, err: 'not a percentage' }
+  };
+  var ROWS = [
+    { lab: 'Cutoff', path: 'Filter · Cutoff', k: 'hz', v: 1200, d: 1200 },
+    { lab: 'Level', path: 'Out · Level', k: 'db', v: 0, d: 0 },
+    { lab: 'Attack', path: 'Env 1 · Attack', k: 's', v: .004, d: .004 },
+    { lab: 'Sustain', path: 'Env 1 · Sustain', k: 'pct', v: .85, d: .85 }
+  ];
+  var host = document.getElementById('rows');
+  var head = document.createElement('span'); head.className = 'hd-cluster'; head.textContent = 'Try it'; head.style.marginBottom = '2px'; host.appendChild(head);
+  ROWS.forEach(function (r) {
+    var row = document.createElement('div'); row.className = 'hd-srow';
+    var lab = document.createElement('span'); lab.className = 'hd-label'; lab.textContent = r.lab;
+    var note = document.createElement('span'); note.className = 'hd-note';
+    var ro = document.createElement('button'); ro.className = 'hd-readout hd-focus'; ro.type = 'button';
+    var show = function () { ro.textContent = K[r.k].fmt(r.v); ro.setAttribute('aria-label', r.path + ', ' + K[r.k].fmt(r.v) + '. Double-click to type a value'); };
+    show();
+    row.appendChild(lab); row.appendChild(note); row.appendChild(ro); host.appendChild(row);
+    ro.addEventListener('dblclick', function () {
+      var inp = document.createElement('input'); inp.className = 'hd-entry'; inp.value = K[r.k].fmt(r.v); inp.setAttribute('aria-label', r.path);
+      row.replaceChild(inp, ro); inp.focus(); inp.select(); note.textContent = ''; note.className = 'hd-note';
+      var done = function (commit) {
+        if (commit) {
+          var x = K[r.k].parse(inp.value.trim().toLowerCase().replace(/\s+/g, ' '));
+          if (x === null) { inp.classList.add('bad'); inp.setAttribute('aria-invalid', 'true'); note.className = 'hd-note bad'; note.textContent = K[r.k].err; return; }   // stays red and open
+          var c = clamp(x, K[r.k].lo, K[r.k].hi);
+          note.textContent = c !== x ? inp.value.trim() + ' → ' + K[r.k].fmt(c) : '';
+          r.v = c;                                                     // one gesture, one undo node
+        }
+        row.replaceChild(ro, inp); show(); ro.focus();
+      };
+      inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); done(true); } else if (e.key === 'Escape') { e.preventDefault(); done(false); } });
+      inp.addEventListener('input', function () { inp.classList.remove('bad'); inp.removeAttribute('aria-invalid'); note.textContent = ''; note.className = 'hd-note'; });
+      inp.addEventListener('blur', function () { if (inp.isConnected && !inp.classList.contains('bad')) done(false); });
+    });
+  });
+})();
+</script>
+</body>
+</html>

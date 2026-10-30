@@ -1,0 +1,26 @@
+<!-- @dsCard group="Pitch" height=420 subtitle="Root and scale as a 12-bit mask, in four visuals to compare: key circles, piano, ring (chromatic or fifths), steps; OFFSET shows dominoes" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Scale selector</title></head>
+<body>
+<div class="hd-fit" style="padding:14px 16px 4px; gap:12px 24px">
+  <div class="hd-col" style="gap:6px; flex:1 1 300px; max-width:440px">
+    <span class="hd-cluster">Scale</span>
+    <div id="sc"></div>
+  </div>
+  <div class="hd-col" style="gap:6px; flex:1 1 200px">
+    <span class="hd-label" style="line-height:1.5">One global scale (B260) that every consumer reads: note and bend quantise, the sub, SCALPEL's cut rules, later devices. Click a key to add or remove it; the root always stays.</span>
+    <span class="hd-value" id="truth"></span>
+    <span class="hd-hint">What is stored: { root, mask }. The name is only a convenience.</span>
+  </div>
+</div>
+<script>
+(function () {
+  var H = window.Horde, t = document.getElementById('truth');
+  function show(s) { t.textContent = 'root ' + H.Glide.PC[s.root] + ' · mask ' + s.mask.join(''); }
+  var sp = H.ScalePicker(document.getElementById('sc'), { root: 0, variants: true, visual: 'circles', onChange: show });
+  show(sp.get());
+})();
+</script>
+</body>
+</html>

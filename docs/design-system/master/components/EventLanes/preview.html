@@ -1,0 +1,35 @@
+<!-- @dsCard group="Modulators" height=446 subtitle="Events are not levels: the trigger's actions, SAMPLE ON TRIGGER and MOD ENV, and the lanes that show an event turned into a level" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Event lanes</title></head>
+<body>
+<div class="hd-fit" style="padding:14px 16px 4px; gap:12px 24px" id="host">
+  <div class="hd-col" style="gap:6px; flex:1 1 360px; max-width:600px">
+    <div id="ev" style="width:100%"></div>
+  </div>
+  <div class="hd-col" style="gap:6px; flex:1 1 200px; max-width:290px">
+    <span class="hd-cluster">Event lanes</span>
+    <span class="hd-label" style="line-height:1.5">A continuous source has a value every sample and a route scales it. An event has none, so it fires an action. SAMPLE ON TRIGGER and MOD ENV hold state, and turn the event back into a level. S&amp;H is the LFO shape's name alone.</span>
+    <div id="scr"></div>
+    <span class="hd-hint">SAMPLE data, generated in this preview; never the engine.</span>
+  </div>
+</div>
+<script>
+(function () {
+  var H = window.Horde, S = new H.Session({}), last = null, B = new H.Synth.ModBench({ seed: 4242 }), dirty = true;
+  var E = H.EventLanes(document.getElementById('ev'), { act: B.act, seed: B.seed, inputs: [['rand', 'RANDOM (seeded)'], ['vel', 'MIDI · VELOCITY'], ['note', 'MIDI · NOTE'], ['since', 'MIDI · SINCE NOTE-ON']],
+    onInput: function (v) { B.shIn = v; }, onSeed: function (s) { B.reseed(s); } });
+  function info() { return 'triggers ' + B.trk.fired + ' · samples ' + B.shN + ' (seed ' + B.seed + ') · MOD ENV ' + B.envLvl.toFixed(3) + ' · LFO restarts ' + B.counts[2] + ' · ORBITAL kicks ' + B.counts[4] + ' · hosted ' + B.counts[6] + ' (not posted)'; }
+  function tick(dt) { var f = B.advance(dt), v = B.trk.values(); E.push({ gate: v.gate, sh: B.sh, env: B.envLvl }, f); }
+  for (var k = 0; k < 200; k++) tick(1 / 60);
+  H.ScreenScheme(document.getElementById('scr'), document.getElementById('host'), { onchange: function () { dirty = true; } });
+  S.add({ render: function () {
+    var t = S.t, dt = last === null ? 0 : Math.max(0, Math.min(.05, t - last)); last = t;
+    if (S.reduce) { if (dirty) { E.draw(info()); dirty = false; } return; }
+    tick(dt); E.draw(info());
+  } });
+  S.start();
+})();
+</script>
+</body>
+</html>
