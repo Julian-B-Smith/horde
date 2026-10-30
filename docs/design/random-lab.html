@@ -25,6 +25,12 @@
          intent bus; any filter cutoff, any oscillator's timbre, the FX sends, …) defined once and read by all.
        · ROUND 3 (ADR-320) also: ARCH writes the selected corner by default; the pad plays the morph's law (BLEND,
          QUANTUM, STEPPED; C15); the snapshot ✕ deletes (C16); "save all four" keeps the four corners as one set (C17).
+       · ROUND 5 (the human: "'osc envelopes' should be its own level"): the stand-in follows SPEC-ENGINE's envelope
+         model (ENV 1-4, AHDSR by C.12's curve law, one-shot on ENV 2-4, each source's `env` selector, the envelope
+         before the filter); an ENVELOPES level with a row per source ("Params edit shared; Arch can split"); a toggle
+         between two placements of envelope architecture; shape archetypes, relationship rules, tempo-relative times
+         (RC-7.4, PROPOSED), a release bound per role and a sustain floor in the profile; envelope copy and an overlay;
+         level matching at the output (C19-C28).
        · ROUND 4 (ADR-322): each level row's ⇄ copies that level's architecture OR parameters from one corner to
          another, locks kept, one history step (C18). ADR-322 folds the Random page into one Morph page; this lab
          stays a research bench and is not restructured for it.
@@ -113,6 +119,12 @@
   .lvl .nm { text-align: left; background: none; border: 0; padding: 0; cursor: pointer; font: 800 9.5px/1.2 var(--font-sans); letter-spacing: .03em; color: var(--ink); display: flex; gap: 5px; align-items: center; white-space: nowrap; overflow: hidden; min-width: 0; }
   .lvl.d1 .nm { padding-left: 14px; font-weight: 600; }
   .lvl.d1 .nm::before { content: '└'; color: var(--hint); margin-right: 2px; }
+  .lvl.d2 .nm { padding-left: 20px; font-weight: 500; letter-spacing: 0; }
+  .lvl.d2 .nm::before { content: '└'; color: var(--hint); margin-right: 2px; }
+  .envshare { font: 400 8.5px/1.3 var(--font-mono); color: var(--t2); padding: 0 0 3px 40px; }
+  .envshare b { color: var(--caution-tx); font-weight: 600; }
+  #envov { width: 100%; height: 160px; display: block; border: var(--stroke-ink) solid var(--ink); border-radius: var(--radius); background: var(--scr-ground); }
+  .er { display: grid; grid-template-columns: 120px 90px 4ch minmax(0, 1fr); gap: 2px 8px; align-items: center; font: 400 9.5px/1.4 var(--font-sans); }
   .lvl .chg { font: 600 9px/1 var(--font-mono); color: var(--on-corner); background: var(--value); border-radius: var(--radius-track); padding: 2px 3px; text-align: center; }
   .lvl .chg:empty { background: none; }
   .lk { min-height: 22px; width: 26px; padding: 0; border: 1px solid var(--div); border-radius: var(--radius-track); background: var(--panel); color: var(--hint); cursor: pointer; font: 400 10px/1 var(--font-mono); }
@@ -257,6 +269,8 @@
     <span class="hd-label">monitor</span><input type="range" id="vol" data-ui="vol" min="0" max="1" step="0.01" value="0.7" style="width:90px">
     <span class="hd-value" id="guard">guard: idle</span>
     <button class="hd-btn" data-act="guardreset" title="clear the latched guard report">reset guard</button>
+    <span class="hd-label">tempo</span><input class="hd-select sm" id="bpm" data-ui="bpm" type="number" min="40" max="240" step="1" value="120" style="width:7ch" aria-label="tempo, bpm">
+    <button class="hd-btn" data-act="lm" id="lmbtn" aria-pressed="true" title="match the heard patch's loudness at the output after every change (monitor-side; never stored)">level match</button>
   </div>
   <p class="lab-status" id="msg"></p>
 
@@ -277,6 +291,8 @@
         <span class="hd-pills" id="scope"></span>
       </div>
       <div class="note" id="scopenote"></div>
+      <div class="lab-bar"><span class="hd-label">ENVELOPE ARCH</span><span class="hd-pills" id="placement"></span><span class="lab-tag prop">TEST BOTH</span></div>
+      <div class="note" id="placenote"></div>
       <div class="lab-bar"><span class="hd-label">ARCH on a module</span><span class="hd-pills" id="must"></span></div>
       <div class="note">At chaos 0.35 a single module's ARCH changed nothing on 42–95% of clicks (the report, finding 1). "Must change"
         makes one structural choice move when the draw would have changed none.</div>
@@ -346,6 +362,18 @@
     <div class="chain" id="chain"></div>
   </section>
 
+  <section class="lab-panel" aria-label="envelopes overlay">
+    <div class="lab-bar"><span class="hd-cluster">ENVELOPES · OVERLAY</span><span class="hd-hint">each on source's governing envelope as the puck hears it, drawn by C.12's law: a one-beat note at the tempo, then its release</span></div>
+    <canvas id="envov" width="900" height="160" aria-label="every source's envelope, overlaid"></canvas>
+    <div class="note" id="envlegend"></div>
+    <div class="lab-bar"><span class="hd-label">copy the envelope of</span>
+      <select class="hd-select sm" data-ui="ceFS" aria-label="from source"><option value="0">OSC 1</option><option value="1">OSC 2</option><option value="2">SUB</option><option value="3">NOISE</option></select>
+      <span class="hd-label">in</span><select class="hd-select sm" data-ui="ceFC" aria-label="from corner"><option value="0">A</option><option value="1">B</option><option value="2">C</option><option value="3">D</option></select>
+      <span class="hd-label">to</span><select class="hd-select sm" data-ui="ceTS" aria-label="to source"><option value="0">OSC 1</option><option value="1" selected>OSC 2</option><option value="2">SUB</option><option value="3">NOISE</option></select>
+      <span class="hd-label">in</span><select class="hd-select sm" data-ui="ceTC" aria-label="to corner"><option value="0">A</option><option value="1">B</option><option value="2">C</option><option value="3">D</option></select>
+      <button class="hd-btn" data-act="copyEnv" title="copy stages, curve family and one-shot into the envelope the target source follows; only that envelope changes">copy envelope</button></div>
+  </section>
+
   <section class="lab-panel" aria-label="mod-mapping rulesets">
     <div class="lab-bar">
       <span class="hd-cluster">MOD-MAPPING RULESETS</span>
@@ -368,6 +396,9 @@
     <div class="rt" id="rules"></div>
     <div class="hd-cluster" style="margin-top:6px">COLLECTIONS (defined once; every rule reads them)</div>
     <div class="note" id="colls"></div>
+    <div class="hd-cluster" style="margin-top:6px">ENVELOPE RULES (part of this profile, ADR-318)</div>
+    <div class="note">Archetypes are shapes an envelope draw may take: with any weighted, an envelope's PARAMS draw picks one and draws its stages inside that archetype's ranges (the bell and AMOUNT step aside for that envelope); its ARCH draw takes the archetype's curve family and one-shot. Relationships hold between sources on GLOBAL, VOICE and ENVELOPES draws. The role presets (Role: …) set all of this.</div>
+    <div id="envrules"></div>
     <div class="lab-bar" style="margin-top:4px">
       <span class="hd-label">your rule</span>
       <select class="hd-select sm" id="cr-src" aria-label="source"></select><span class="hd-hint">→</span>
@@ -471,6 +502,7 @@ const MSRC = [
   { id: 'lfo1', name: 'LFO 1', lfo: 0 }, { id: 'lfo2', name: 'LFO 2', lfo: 1 },
   { id: 'vel', name: 'Velocity' }, { id: 'mw', name: 'Mod wheel' }, { id: 'key', name: 'Key track' },
   { id: 'int.tone', name: 'Intent: Tone' }, { id: 'int.space', name: 'Intent: Space' }, { id: 'int.time', name: 'Intent: Time' }, { id: 'int.motion', name: 'Intent: Motion' },
+  { id: 'env4', name: 'ENV 4', env: 3 },
 ];
 const oscOn = (v, i) => v['o' + i + '.on'] === 1;
 /* scale: what an amount of 1 means at the destination, in `unit`. live: the destination can be heard (else a rule
@@ -557,14 +589,29 @@ en('r.o1', 'filter', 'OSC 1 into', ROUTES, 0, { w: [3, 1, 1] });
 en('r.o2', 'filter', 'OSC 2 into', ROUTES, 0, { w: [3, 1, 1] });
 en('r.sub', 'filter', 'SUB into', ROUTES, 0, { w: [3, 1, 1] });
 en('r.noise', 'filter', 'NOISE into', ROUTES, 0, { w: [2, 1, 1] });
-const ENV_HOME = [[0.004, 0.4, 0.75, 0.25], [0.002, 0.35, 0.1, 0.3], [0.6, 1.2, 0.6, 0.9]];
-for (let e = 1; e <= 3; e++) {
-  const H = ENV_HOME[e - 1], p = 'e' + e + '.', nm = e === 1 ? 'ENV 1 (amp) ' : 'ENV ' + e + ' ';
+/* THE ENVELOPES follow SPEC-ENGINE's model (round 5; EN-1..4, C.12, RC-6.5): ENV 1 to ENV 4 are attack–hold–decay–
+   sustain–release envelopes whose timed stages follow C.12's curve law; ENV 2 to ENV 4 add one-shot. Each source
+   (OSC 1, OSC 2, SUB, NOISE) chooses the envelope that governs its level with its `env` selector (ENV 1 by default);
+   several sources may share one. The voice multiplies each source by its governing envelope BEFORE the filter (VO-9).
+   The lab groups C.12's three curve values (attack, decay, release u) into a CURVE FAMILY, one structural choice per
+   envelope (a lab simplification: the spec has three continuous curves). ENV 4's homes are ENV 1's (as the spec's
+   defaults); ENV 2 and ENV 3 keep the lab's filter-envelope and slow homes. */
+const ENV_HOME = [[0.004, 0, 0.4, 0.75, 0.25], [0.002, 0, 0.35, 0.1, 0.3], [0.6, 0, 1.2, 0.6, 0.9], [0.004, 0, 0.4, 0.75, 0.25]];
+const FAMILIES = [{ name: 'default', u: [0, 1, 1] }, { name: 'linear', u: [0, 0, 0] }, { name: 'exponential', u: [0, 2.303, 2.303] }, { name: 'punchy', u: [1.5, 1.5, 1] }, { name: 'swell', u: [-1.5, 0.5, 1] }];
+for (let e = 1; e <= 4; e++) {
+  const H = ENV_HOME[e - 1], p = 'e' + e + '.', nm = 'ENV ' + e + ' ';
+  en(p + 'fam', 'env', nm + 'curve family', FAMILIES.map(f => f.name), 0, { w: [3, 1, 2, 1, 1] });
+  if (e > 1) bool(p + 'os', 'env', nm + 'one-shot', 0, { w: [3, 1] });
   num(p + 'a', 'env', nm + 'attack', 0.0005, 2, H[0], { log: true, unit: 's' });
-  num(p + 'd', 'env', nm + 'decay', 0.01, 4, H[1], { log: true, unit: 's' });
-  num(p + 's', 'env', nm + 'sustain', 0, 1, H[2]);
-  num(p + 'r', 'env', nm + 'release', 0.01, 4, H[3], { log: true, unit: 's' });
+  num(p + 'h', 'env', nm + 'hold', 0, 1, H[1], { unit: 's' });
+  num(p + 'd', 'env', nm + 'decay', 0.01, 4, H[2], { log: true, unit: 's' });
+  num(p + 's', 'env', nm + 'sustain', 0, 1, H[3]);
+  num(p + 'r', 'env', nm + 'release', 0.01, 8, H[4], { log: true, unit: 's' });
 }
+const ENV_NAMES = ['ENV 1', 'ENV 2', 'ENV 3', 'ENV 4'];
+const SEL_KEYS = ['o1.env', 'o2.env', 'sub.env', 'noise.env'], SRC_LABEL = ['OSC 1', 'OSC 2', 'SUB', 'NOISE'], SRC_LEVEL_IDS = ['osc1', 'osc2', 'sub', 'noise'];
+/* a selector's group is 'env'; which LEVEL draws it depends on the placement (selInLevel, below) */
+for (let i = 0; i < 4; i++) en(SEL_KEYS[i], 'env', SRC_LABEL[i] + ' follows', ENV_NAMES, 0, { w: [3, 1, 1, 1] }).sel = i;
 en('l1.shape', 'lfo', 'LFO 1 shape', LFOSH, 0);
 num('l1.rate', 'lfo', 'LFO 1 rate', 0.05, 16, 5.5, { log: true, unit: 'Hz' });
 en('l2.shape', 'lfo', 'LFO 2 shape', LFOSH, 1);
@@ -614,7 +661,11 @@ const LEVELS = [
   { id: 'sub', name: 'SUB', groups: ['sub'], depth: 1 },
   { id: 'noise', name: 'NOISE', groups: ['noise'], depth: 1 },
   { id: 'filter', name: 'FILTERS', groups: ['filter'], depth: 1 },
-  { id: 'env', name: 'ENVELOPES', groups: ['env'], depth: 1, noArch: 'envelopes have no structure here (a curve shape would be one)' },
+  { id: 'env', name: 'ENVELOPES', groups: ['env'], depth: 1 },
+  { id: 'env.o1', name: 'ENV OSC 1', groups: ['env'], depth: 2, envSrc: 0 },
+  { id: 'env.o2', name: 'ENV OSC 2', groups: ['env'], depth: 2, envSrc: 1 },
+  { id: 'env.sub', name: 'ENV SUB', groups: ['env'], depth: 2, envSrc: 2 },
+  { id: 'env.noise', name: 'ENV NOISE', groups: ['env'], depth: 2, envSrc: 3 },
   { id: 'lfo', name: 'LFOS', groups: ['lfo'], depth: 1 },
   { id: 'mod', name: 'MOD MAPPINGS', groups: ['mod'], depth: 0, rules: true },
   { id: 'fxroute', name: 'FX ROUTING', groups: ['fxroute'], depth: 0 },
@@ -636,9 +687,9 @@ const GLYPH = ['M5 .5 9.5 5 5 9.5 .5 5Z', 'M5 1 9.5 9H.5Z', 'M5 .7a4.3 4.3 0 1 0
    here, once, and every rule, the custom-rule builder, the draw and the checks read them; no rule keeps its own list.
    A destination collection may weight its members (w). */
 const SRC_COLL = {
-  'any-env': { name: 'any envelope', ids: ['env2', 'env3'] },
+  'any-env': { name: 'any envelope', ids: ['env2', 'env3', 'env4'] },
   'any-lfo': { name: 'any LFO', ids: ['lfo1', 'lfo2'] },
-  'any-mod': { name: 'any modulator', ids: ['env2', 'env3', 'lfo1', 'lfo2'] },
+  'any-mod': { name: 'any modulator', ids: ['env2', 'env3', 'env4', 'lfo1', 'lfo2'] },
   'any-perf': { name: 'any performance control', ids: ['vel', 'mw', 'key'] },
   'intent': { name: 'the intent bus', ids: ['int.tone', 'int.space', 'int.time', 'int.motion'] },
 };
@@ -717,10 +768,35 @@ const RULES = [
   { id: 'intent-any', name: 'Intent bus → anything', src: '@intent', dst: '@any-dest', amt: [0.05, 0.4], neg: 0.3,
     why: 'Any of the four intents on any live destination: the general collection on both sides.' },
 ];
-function makeRS(name, n, ws) {
+/* ENVELOPE RULES (round 5), part of the randomization profile (ADR-318: a preset is a full profile).
+   ARCHETYPES: shapes an envelope draw may take, each a set of ranges (seconds) plus a curve family and one-shot. With
+   any archetype weighted, an envelope's PARAMS draw picks one archetype (by weight) and draws every stage uniformly
+   inside its ranges (the bell and AMOUNT do not apply to that envelope); its ARCH draw takes the archetype's family
+   and one-shot. RELATIONSHIPS: rules between sources (RELS, below). relMax: the role's release bound. floor: the
+   sustain floor. tempo: times bounded in note values (RC-7.4's table, PROPOSED). */
+const ARCHETYPES = {
+  pluck: { name: 'pluck', a: [0.0005, 0.005], h: [0, 0], d: [0.08, 0.6], s: [0, 0.05], r: [0.05, 0.4], fam: 2, os: 0 },
+  pad: { name: 'pad / swell', a: [0.3, 2], h: [0, 0.2], d: [0.5, 3], s: [0.6, 1], r: [0.8, 4], fam: 4, os: 0 },
+  stab: { name: 'stab', a: [0.001, 0.01], h: [0, 0.05], d: [0.1, 0.3], s: [0.2, 0.5], r: [0.05, 0.2], fam: 3, os: 0 },
+  gate: { name: 'gate', a: [0.001, 0.005], h: [0, 0], d: [0.01, 0.05], s: [0.9, 1], r: [0.01, 0.03], fam: 1, os: 0 },
+  reverse: { name: 'reverse swell', a: [0.4, 1.5], h: [0, 0], d: [0.01, 0.05], s: [0, 0.05], r: [0.01, 0.08], fam: 4, os: 1 },
+  transient: { name: 'transient-only', a: [0.0005, 0.002], h: [0, 0], d: [0.01, 0.04], s: [0, 0], r: [0.01, 0.03], fam: 2, os: 1 },
+};
+const REL_IDS = ['noiseTransient', 'subNotSlower', 'stagger', 'jitter'];
+const ENV_DEF = { arche: {}, rel: { noiseTransient: 0, subNotSlower: 0, stagger: 0, jitter: 0 }, relMax: 8, floor: 0.15, tempo: { on: 0, triplet: 0, dotted: 0 } };
+function envProfile(o) {
+  const e = clone(ENV_DEF); o = o || {};
+  if (o.arche) for (const k in o.arche) if (ARCHETYPES[k]) e.arche[k] = clamp(+o.arche[k] || 0, 0, 4);
+  if (o.rel) for (const k of REL_IDS) e.rel[k] = o.rel[k] ? 1 : 0;
+  if (o.relMax !== undefined) e.relMax = clamp(+o.relMax || 8, 0.01, 8);
+  if (o.floor !== undefined) e.floor = clamp(+o.floor || 0, 0, 1);
+  if (o.tempo) for (const k of ['on', 'triplet', 'dotted']) e.tempo[k] = o.tempo[k] ? 1 : 0;
+  return e;
+}
+function makeRS(name, n, ws, env) {
   const rules = {};
   for (const r of RULES) rules[r.id] = { on: ws[r.id] ? 1 : 0, w: ws[r.id] || 1, amt: r.amt.slice() };
-  return { name, n, rules, custom: [] };
+  return { name, n, rules, custom: [], env: envProfile(env) };
 }
 const ALL1 = {}; for (const r of RULES) ALL1[r.id] = 1;
 const BUILTIN_RS = [
@@ -730,6 +806,12 @@ const BUILTIN_RS = [
   makeRS('Hyperpop lead', [3, 5], { 'pitch-env': 2, 'detune-swell': 2, 'vibrato': 2, 'fx-swell': 1, 'filter-env': 1 }),
   makeRS('Intent-driven', [2, 4], { 'intent-tone': 2, 'intent-space': 2, 'intent-motion': 1, 'intent-any': 1, 'filter-env': 1 }),
   makeRS('Everything, equal', [3, 8], ALL1),
+  /* ADR-318's role set, with envelope rules (round 5). "Common" and "Everything, equal" (Anything) are above. */
+  makeRS('Role: Mono bass', [1, 3], { 'filter-env': 3, 'vel-bright': 1, 'keytrack': 1 }, { arche: { pluck: 2, stab: 2, gate: 1 }, rel: { subNotSlower: 1 }, relMax: 0.25 }),
+  makeRS('Role: Pad', [2, 4], { 'filter-lfo': 1, 'detune-swell': 2, 'fx-swell': 2, 'vibrato': 1 }, { arche: { pad: 3, reverse: 1 }, rel: { jitter: 1 }, relMax: 6 }),
+  makeRS('Role: Pluck', [2, 3], { 'pitch-env': 1, 'filter-env': 3, 'vel-bright': 1 }, { arche: { pluck: 3, transient: 1 }, rel: { noiseTransient: 1 }, relMax: 0.6 }),
+  makeRS('Role: Lead', [2, 4], { 'vibrato': 2, 'pitch-env': 1, 'filter-env': 2, 'detune-swell': 1 }, { arche: { stab: 1, gate: 1, pad: 1 }, rel: { stagger: 1 }, relMax: 1.2 }),
+  makeRS('Role: Arp', [1, 3], { 'filter-env': 2, 'filter-lfo': 1, 'vel-bright': 1 }, { arche: { pluck: 2, gate: 2, stab: 1 }, tempo: { on: 1 }, relMax: 0.4 }),
 ];
 const STORE_KEY = 'horde-random-lab-rulesets';
 /* localStorage, wrapped: a private window, a full quota or the headless checks (no localStorage at all) all land in
@@ -749,6 +831,7 @@ function sanitizeRS(rs) {
   for (const id in out.rules) { const r = rs.rules[id]; if (r) out.rules[id] = { on: r.on ? 1 : 0, w: clamp(+r.w || 0, 0, 4), amt: Array.isArray(r.amt) ? [clamp(+r.amt[0] || 0, 0, 1), clamp(+r.amt[1] || 0, 0, 1)] : out.rules[id].amt }; }
   for (const c of out.custom) { const r = rs.rules[c.id] || {}; out.rules[c.id] = { on: r.on === 0 ? 0 : 1, w: clamp(+r.w || 1, 0, 4), amt: c.amt.slice() }; }
   if (out.n[0] > out.n[1]) out.n = [out.n[1], out.n[0]];
+  out.env = envProfile(rs.env);
   return out;
 }
 function allRules(rs) { return RULES.concat(rs.custom); }
@@ -770,7 +853,7 @@ function newState(seed) {
     snaps: [{ sid: 's1', name: 'Stand-in home', v: clone(v) }], nextSid: 2, nextSnapN: 1, homeSid: 's1', sets: [], nextSetN: 1,
     bind: ['s1', 's1', 's1', 's1'], work: [clone(v), clone(v), clone(v), clone(v)], lockC: [false, false, false, false],
     lockG: { master: true }, lockK: {}, chaos: 0.35, amount: 0.6, gChaos: {}, gAmt: {}, bounds: {}, dice: {},
-    homeMode: 'snapshot', archScope: 'one', archMust: false, rs: clone(BUILTIN_RS[0]),
+    homeMode: 'snapshot', archScope: 'one', archMust: false, rs: clone(BUILTIN_RS[0]), envPlacement: 'a', bpm: 120,
     lastChange: null, lastModStats: null, msg: '',
   };
 }
@@ -790,7 +873,8 @@ function fromN(s, n, raw) {
 }
 const effChaos = (S, g) => clamp(S.chaos * (S.gChaos[g] === undefined ? 1 : S.gChaos[g]), 0, 1);
 const effAmt = (S, g) => clamp(S.amount * (S.gAmt[g] === undefined ? 1 : S.gAmt[g]), 0, 1);
-const isLocked = (S, s) => !!(S.lockG[s.group] || S.lockK[s.key] || (s.key[0] === 'm' && s.key[2] === '.' && S.lockK[s.key.slice(0, 3) + 'src']));
+const isLocked = (S, s) => !!(S.lockG[s.group] || S.lockK[s.key] || (s.key[0] === 'm' && s.key[2] === '.' && S.lockK[s.key.slice(0, 3) + 'src'])
+  || (s.sel !== undefined && S.envPlacement === 'b' && S.lockG[SRC_LEVEL_IDS[s.sel]]));   // placement (b): a source's lock holds its envelope choice
 const active = (s, v) => !s.when || !!s.when(v);
 function lit(S, s) { const d = S.dice[s.key]; return s.labels.map((_, i) => !(d && d[i])); }
 function homeOf(S, k) {
@@ -864,38 +948,108 @@ function enumProbs(S, s, home, c) {
 function repair(v) {
   if (v['o1.on'] !== 1 && v['o2.on'] !== 1 && v['sub.on'] !== 1 && v['noise.on'] !== 1) v['o1.on'] = 1;
 }
-/* the keys a level's ARCH or PARAMS may draw (rule-drawn mod keys excluded: the ruleset owns them) */
-function scopeKeys(S, level, kind) {
-  const gs = LEVEL[level].groups, out = [];
+/* ---- the envelope model's helpers (round 5) ---- */
+const srcOn = (v, i) => v[['o1.on', 'o2.on', 'sub.on', 'noise.on'][i]] === 1;
+const governingEnv = (v, src) => (v[SEL_KEYS[src]] | 0) + 1;            // 1..4
+function envKeys(n, kind) { const p = 'e' + n + '.'; return kind === 'arch' ? (n > 1 ? [p + 'fam', p + 'os'] : [p + 'fam']) : [p + 'a', p + 'h', p + 'd', p + 's', p + 'r']; }
+/* the other ON sources that follow the same envelope as source src */
+function sharers(v, src) { const n = v[SEL_KEYS[src]]; return [0, 1, 2, 3].filter(i => i !== src && srcOn(v, i) && v[SEL_KEYS[i]] === n); }
+function envShareText(v, src) {
+  const n = governingEnv(v, src), sh = sharers(v, src);
+  return SRC_LABEL[src] + ' follows ENV ' + n + (sh.length ? ' · shared with ' + sh.map(i => SRC_LABEL[i]).join(', ') : ' · its own');
+}
+/* an envelope nobody hears: no ON source follows it and no active mod route reads it (so taking it changes no sound) */
+function modUsesEnv(v, e) { for (let i = 0; i < NSLOT; i++) { const m = MSRC[v['m' + i + '.src']]; if (m && m.env === e) return true; } return false; }
+function freeEnvs(v, allowMod) { return [0, 1, 2, 3].filter(e => ![0, 1, 2, 3].some(i => srcOn(v, i) && v[SEL_KEYS[i]] === e) && (allowMod || !modUsesEnv(v, e))); }
+function copyEnvVals(v, from, to, set) {
+  const put = set || ((k, x) => { v[k] = x; });
+  for (const x of ['a', 'h', 'd', 's', 'r', 'fam']) put('e' + to + '.' + x, v['e' + from + '.' + x]);
+  if (to > 1) put('e' + to + '.os', from > 1 ? v['e' + from + '.os'] : 0);
+}
+/* which level draws a source's envelope SELECTOR: placement (a) the Envelopes level, (b) the source's own level */
+function selInLevel(S, level, s) {
+  if (level === 'global' || level === 'voice') return true;
+  return S.envPlacement === 'b' ? level === SRC_LEVEL_IDS[s.sel] : level === 'env';
+}
+/* the keys a level covers (rule-drawn mod keys included), for one kind. A per-source envelope row covers the
+   envelope that source follows NOW (in v): its numbers (params) or its family and one-shot (arch). */
+function levelKeys(S, level, kind, v) {
+  const L = LEVEL[level];
+  if (L.envSrc !== undefined) return envKeys(governingEnv(v || homeValues(), L.envSrc), kind);
+  const out = [];
   for (const s of SPEC) {
-    if (gs.indexOf(s.group) < 0 || s.rs || s.kind === 'tag') continue;
-    if (kind === 'arch' && !s.arch) continue;
-    if (kind === 'params' && s.arch) continue;
+    const inL = s.sel !== undefined ? selInLevel(S, level, s) : L.groups.indexOf(s.group) >= 0;
+    if (!inL || (kind === 'arch' ? !s.arch : s.arch)) continue;
     out.push(s.key);
   }
   return out;
 }
-/* the keys a level's copy moves: its groups' structural keys (rule-drawn mod routes included) or its numbers */
-function copyKeys(level, kind) {
-  const gs = LEVEL[level].groups, out = [];
-  for (const s of SPEC) if (gs.indexOf(s.group) >= 0 && (kind === 'arch' ? s.arch : !s.arch)) out.push(s.key);
+/* why a level's ARCH is off ('' = on) */
+function archOff(S, L) {
+  if (L.noArch) return L.noArch;
+  if (S.envPlacement === 'b' && (L.id === 'env' || L.envSrc !== undefined)) return 'placement (b): each source\'s own ARCH holds its envelope choice; the Envelopes level draws envelope parameters only';
+  return '';
+}
+/* the keys a level's ARCH or PARAMS may draw (rule-drawn mod keys excluded: the ruleset owns them) */
+function scopeKeys(S, level, kind, v) { return levelKeys(S, level, kind, v).filter(k => !BY[k].rs && BY[k].kind !== 'tag'); }
+/* the keys a level's copy moves: its structural keys (rule-drawn mod routes included) or its numbers */
+function copyKeys(level, kind, S, v) { return levelKeys(S || { envPlacement: 'a' }, level, kind, v); }
+/* ---- tempo-relative times: RC-7.4's standard divisions (PROPOSED in horde #1275, not ratified), 4/4, bar = 1 whole ---- */
+const DIV_TABLE = [['1/32', 'base', 1 / 32], ['1/16T', 'triplet', 1 / 24], ['1/32D', 'dotted', 3 / 64], ['1/16', 'base', 1 / 16], ['1/8T', 'triplet', 1 / 12],
+  ['1/16D', 'dotted', 3 / 32], ['1/8', 'base', 1 / 8], ['1/4T', 'triplet', 1 / 6], ['1/8D', 'dotted', 3 / 16], ['1/4', 'base', 1 / 4], ['1/2T', 'triplet', 1 / 3],
+  ['1/4D', 'dotted', 3 / 8], ['1/2', 'base', 1 / 2], ['1 bar T', 'triplet', 2 / 3], ['1/2D', 'dotted', 3 / 4], ['1 bar', 'base', 1], ['2 bars T', 'triplet', 4 / 3],
+  ['1 bar D', 'dotted', 3 / 2], ['2 bars', 'base', 2], ['4 bars T', 'triplet', 8 / 3], ['2 bars D', 'dotted', 3], ['4 bars', 'base', 4]];
+function divSeconds(S) {
+  const T = S.rs.env.tempo, out = [];
+  for (const [name, kind, wn] of DIV_TABLE) if (kind === 'base' || (kind === 'triplet' && T.triplet) || (kind === 'dotted' && T.dotted)) out.push({ name, kind, sec: Number((wn * 240 / S.bpm).toPrecision(6)) });
   return out;
 }
+/* snap a time to the nearest allowed division inside the key's range (log distance); times shorter than the shortest
+   allowed division stay in seconds (a lab choice: a 1 ms attack has no note value) */
+function tempoSnap(S, t, sp) {
+  const D = divSeconds(S).filter(d => d.sec >= sp.lo && d.sec <= sp.hi);
+  if (!D.length || t < D[0].sec * 0.75) return t;
+  let best = D[0].sec, bd = Infinity;
+  for (const d of D) { const x = Math.abs(Math.log(d.sec / t)); if (x < bd) { bd = x; best = d.sec; } }
+  return best;
+}
+function tempoSnapDown(S, max, sp) { let best = null; for (const d of divSeconds(S)) if (d.sec <= max && d.sec >= sp.lo) best = d.sec; return best === null ? max : best; }
+function onGrid(S, t) { return divSeconds(S).some(d => Math.abs(d.sec - t) <= 1e-9 * d.sec + 1e-12); }
 /* A ROLL: one click's draws for one source corner, kept so CHAOS, AMOUNT, bounds, dice and locks can re-apply it */
 function makeRoll(S, level, kind, src, targets, bases) {
-  const keys = scopeKeys(S, level, kind), us = {}, click = S.clicks;
+  const keys = scopeKeys(S, level, kind, bases ? bases[targets.indexOf(src)] : S.work[src]), us = {}, click = S.clicks;
   for (const key of keys) us[key] = [U(S.seed, click, src, key, 0), U(S.seed, click, src, key, 1), U(S.seed, click, src, key, 2)];
-  return { level, kind, src, targets, keys, us, click, withRules: !!LEVEL[level].rules && kind !== 'params',
+  return { level, kind, src, targets, keys, us, click, withRules: !!LEVEL[level].rules && kind !== 'params', envSrc: LEVEL[level].envSrc,
+    big: level === 'global' || level === 'voice' || level === 'env', archetypes: {}, notes: [],
     bases: bases || targets.map(t => clone(S.work[t])), homeBase: clone(bases ? bases[targets.indexOf(src)] : S.work[src]) };
 }
 function applyRoll(S, R) {
   const si = R.targets.indexOf(R.src), out = clone(R.bases[si]);
   const home = S.homeMode === 'walk' ? R.homeBase : homeOf(S, R.src);
-  for (const key of R.keys) {
+  const touched = new Set();
+  /* A PER-SOURCE ENVELOPE ROW'S ARCH may first SPLIT the source off a shared envelope (the human's choice: "Params
+     edit shared; Arch can split"): when another ON source follows the same envelope and a free one exists, the source
+     moves onto the free envelope, which first takes a copy of the shared one's values (so nothing jumps), and the
+     message says so. Nothing splits silently, and PARAMS never splits. */
+  if (R.envSrc !== undefined && R.kind === 'arch') {
+    const sk = SEL_KEYS[R.envSrc], sh = sharers(out, R.envSrc);
+    if (sh.length && !isLocked(S, BY[sk])) {
+      const free = freeEnvs(out), from = out[sk];
+      if (free.length) {
+        const to = free[Math.min(free.length - 1, Math.floor(U(S.seed, R.click, R.src, 'split:' + sk, 0) * free.length))];
+        copyEnvVals(out, from + 1, to + 1, (k, x) => { out[k] = x; touched.add(k); });
+        out[sk] = to; touched.add(sk);
+        R.split = { src: R.envSrc, from, to, shared: sh };
+      } else R.split = { src: R.envSrc, from, to: -1, shared: sh };
+    }
+  }
+  const keys = R.envSrc !== undefined ? scopeKeys(S, R.level, R.kind, out) : R.keys;
+  R.keysUsed = keys;
+  for (const key of keys) {
     const s = BY[key];
     if (isLocked(S, s)) continue;
     if (!s.arch && !active(s, out)) continue;   // a parameter nobody can hear is not drawn (the dependency tree)
-    const u = R.us[key];
+    const u = R.us[key] || (R.us[key] = [U(S.seed, R.click, R.src, key, 0), U(S.seed, R.click, R.src, key, 1), U(S.seed, R.click, R.src, key, 2)]);
     if (!(u[2] < effAmt(S, s.group))) continue;   // AMOUNT: nested thresholds
     const c = effChaos(S, s.group);
     out[key] = s.kind === 'num' ? drawNum(s, home[key], u[0], c, boundsFor(S, s, out)) : drawEnum(S, s, home[key], u[0], u[1], c);
@@ -903,9 +1057,9 @@ function applyRoll(S, R) {
   /* PROPOSAL (the report's finding 1): ARCH MUST CHANGE. At moderate chaos a small module's ARCH click usually lands on
      what it already holds; with this on, if nothing structural moved, the unlocked choice with the lowest threshold
      takes a value other than its own, by taste over the lit values. Deterministic: it reuses that key's draws. */
-  if (S.archMust && R.kind === 'arch' && !R.keys.some(key => out[key] !== R.bases[si][key])) {
+  if (S.archMust && R.kind === 'arch' && !keys.some(key => out[key] !== R.bases[si][key])) {
     let best = null;
-    for (const key of R.keys) {
+    for (const key of keys) {
       const s = BY[key];
       if (isLocked(S, s) || s.kind !== 'enum') continue;
       const L = lit(S, s); if (!L.some((x, i) => x && i !== out[key])) continue;
@@ -913,21 +1067,121 @@ function applyRoll(S, R) {
     }
     if (best) { const s = BY[best], L = lit(S, s), i = pickW(R.us[best][1], s.w.map((x, j) => (L[j] && j !== out[best] ? x : 0))); if (i >= 0) out[best] = i; }
   }
-  const touched = new Set();
   if (R.withRules && !S.lockG.mod) S.lastModStats = drawMod(S, out, R.src, R.click, touched);
   repair(out);
+  envPost(S, out, R, touched);
   for (let ti = 0; ti < R.targets.length; ti++) {
     const t = R.targets[ti];
     if (t === R.src || R.kind === 'both') { S.work[t] = clone(out); continue; }
     /* ARCH written to several corners: the level's whole STRUCTURE is unified (one structure, the corners keep their
        own numbers), plus whatever the ruleset drew (routes and the sources it shaped) */
     const o = clone(R.bases[ti]);
-    for (const key of R.keys) if (!isLocked(S, BY[key])) o[key] = out[key];
+    for (const key of keys) if (!isLocked(S, BY[key])) o[key] = out[key];
     for (const key of touched) o[key] = out[key];
     repair(o);
     S.work[t] = o;
   }
 }
+/* ENVELOPE POST-DRAW (round 5), in order: archetypes (when the profile weights any), tempo-relative times, the role's
+   release bound, the relationship rules (only on levels that cover every envelope: global, voice, envelopes), and the
+   sustain floor. Every write goes through set(), which skips locked keys and records what it touched, so a multi-
+   corner ARCH carries it to the other corners. Draws are counter-based under their own tags. */
+function envPost(S, v, R, touched) {
+  const E = S.rs.env, drawn = new Set();
+  for (const key of R.keysUsed || R.keys) if (key[0] === 'e' && key[2] === '.') drawn.add(+key[1]);
+  const set = (key, x) => { if (isLocked(S, BY[key]) || v[key] === x) return; v[key] = x; touched.add(key); };
+  const u = (tag, j) => U(S.seed, R.click, R.src, tag, j || 0);
+  const arch = Object.keys(E.arche).filter(k => E.arche[k] > 0);
+  for (const n of drawn) {
+    if (arch.length) {
+      const A = ARCHETYPES[arch[Math.max(0, pickW(u('archetype:e' + n), arch.map(k => E.arche[k])))]];
+      R.archetypes[n] = A.name;
+      if (R.kind !== 'arch') for (const x of ['a', 'h', 'd', 's', 'r']) {
+        const key = 'e' + n + '.' + x, sp = BY[key], rg = A[x], uu = u('arche:' + key);
+        set(key, rg[0] === rg[1] ? rg[0] : sp.log ? fromN(sp, toN(sp, rg[0]) + uu * (toN(sp, rg[1]) - toN(sp, rg[0]))) : Number((rg[0] + uu * (rg[1] - rg[0])).toPrecision(5)));
+      }
+      if (R.kind !== 'params') { set('e' + n + '.fam', A.fam); if (n > 1) set('e' + n + '.os', A.os); }
+    }
+    if (E.tempo.on && R.kind !== 'arch') for (const x of ['a', 'h', 'd', 'r']) { const key = 'e' + n + '.' + x; set(key, tempoSnap(S, v[key], BY[key])); }
+    const rk = 'e' + n + '.r';
+    if (v[rk] > E.relMax + 1e-12) set(rk, E.tempo.on ? tempoSnapDown(S, E.relMax, BY[rk]) : E.relMax);
+  }
+  if (R.big) for (const id of REL_IDS) if (E.rel[id]) RELS[id].apply(S, v, set, u, R);
+  if (E.floor > 0 && !arch.length) {
+    const gov = [0, 1, 2, 3].filter(i => srcOn(v, i)).map(i => governingEnv(v, i));
+    if (gov.length && !gov.some(n => v['e' + n + '.s'] >= E.floor - 1e-9)) for (const n of gov) { const k = 'e' + n + '.s'; if (!isLocked(S, BY[k])) { set(k, E.floor); R.notes.push('sustain floor: ENV ' + n + ' raised to ' + E.floor); break; } }
+  }
+}
+/* move source i onto a free envelope (a copy of its current one); a mod-read envelope only as the last resort, noted */
+function splitSource(S, v, set, i, R) {
+  if (R.kind === 'params') { R.notes.push(SRC_LABEL[i] + ' shares an envelope and this rule needs it on its own: PARAMS never splits, ARCH can'); return false; }
+  let free = freeEnvs(v);
+  if (!free.length) { free = freeEnvs(v, true); if (free.length) R.notes.push('ENV ' + (free[0] + 1) + ' also drives a mod route'); }
+  if (!free.length || isLocked(S, BY[SEL_KEYS[i]])) return false;
+  const from = v[SEL_KEYS[i]] + 1, to = free[0] + 1;
+  copyEnvVals(v, from, to, set); set(SEL_KEYS[i], to - 1);
+  R.notes.push(SRC_LABEL[i] + ' moved from ENV ' + from + ' to ENV ' + to);
+  return true;
+}
+const r5 = x => Number(x.toPrecision(5));
+/* THE RELATIONSHIP RULES between sources (round 5). apply() makes the rule hold; holds() is its predicate (C21). */
+const RELS = {
+  noiseTransient: { name: 'noise transient against a slow oscillator swell',
+    apply(S, v, set, u, R) {
+      const osc = [0, 1].filter(i => srcOn(v, i));
+      if (!srcOn(v, 3) || !osc.length) return;
+      if (osc.some(i => v[SEL_KEYS[i]] === v[SEL_KEYS[3]])) splitSource(S, v, set, 3, R);
+      if (osc.some(i => v[SEL_KEYS[i]] === v[SEL_KEYS[3]])) return;   // still shared (a PARAMS draw): the rule cannot hold without a split
+      const n = governingEnv(v, 3), p = 'e' + n + '.';
+      if (v[p + 'a'] > 0.003) set(p + 'a', r5(0.0005 + u('rel:nt:a') * 0.0025));
+      set(p + 'h', 0); if (v[p + 'd'] > 0.08) set(p + 'd', r5(0.01 + u('rel:nt:d') * 0.07)); set(p + 's', 0); if (n > 1) set(p + 'os', 1);
+      for (const i of osc) { const k = 'e' + governingEnv(v, i) + '.a'; if (governingEnv(v, i) !== n && v[k] < 0.15) set(k, r5(0.15 + u('rel:nt:o' + i) * 0.5)); }
+    },
+    holds(v) {
+      const osc = [0, 1].filter(i => srcOn(v, i)); if (!srcOn(v, 3) || !osc.length) return true;
+      const n = governingEnv(v, 3), p = 'e' + n + '.';
+      return osc.every(i => governingEnv(v, i) !== n && v['e' + governingEnv(v, i) + '.a'] >= 0.15 - 1e-9) && v[p + 'a'] <= 0.003 && v[p + 's'] === 0 && v[p + 'd'] <= 0.08;
+    } },
+  subNotSlower: { name: 'the sub never attacks slower than the oscillators',
+    apply(S, v, set, u, R) {
+      const osc = [0, 1].filter(i => srcOn(v, i)); if (!srcOn(v, 2) || !osc.length) return;
+      const minA = Math.min(...osc.map(i => v['e' + governingEnv(v, i) + '.a'])), k = () => 'e' + governingEnv(v, 2) + '.a';
+      if (v[k()] <= minA + 1e-12) return;
+      if (osc.some(i => governingEnv(v, i) === governingEnv(v, 2))) splitSource(S, v, set, 2, R);   // keep the oscillator's attack if it can
+      set(k(), minA);
+    },
+    holds(v) { const osc = [0, 1].filter(i => srcOn(v, i)); if (!srcOn(v, 2) || !osc.length) return true; return v['e' + governingEnv(v, 2) + '.a'] <= Math.min(...osc.map(i => v['e' + governingEnv(v, i) + '.a'])) + 1e-9; } },
+  stagger: { name: 'a deliberate stagger between OSC 1 and OSC 2',
+    apply(S, v, set, u, R) {
+      if (!srcOn(v, 0) || !srcOn(v, 1)) return;
+      if (governingEnv(v, 0) === governingEnv(v, 1)) splitSource(S, v, set, 1, R);
+      if (governingEnv(v, 0) === governingEnv(v, 1)) return;
+      const k1 = 'e' + governingEnv(v, 0) + '.a', k2 = 'e' + governingEnv(v, 1) + '.a', d = 0.03 + u('rel:st') * 0.12;
+      if (v[k1] + d > 2) set(k1, r5(2 - d - 0.001));
+      if (v[k2] < v[k1] + d) set(k2, r5(Math.min(2, v[k1] + d)));
+    },
+    holds(v) { if (!srcOn(v, 0) || !srcOn(v, 1)) return true; return governingEnv(v, 0) !== governingEnv(v, 1) && v['e' + governingEnv(v, 1) + '.a'] - v['e' + governingEnv(v, 0) + '.a'] >= 0.03 - 1e-6; } },
+  jitter: { name: 'one shared shape with small jitter per source',
+    apply(S, v, set, u, R) {
+      const on = [0, 1, 2, 3].filter(i => srcOn(v, i)); if (on.length < 2) return;
+      const used = new Set([v[SEL_KEYS[on[0]]]]);
+      for (const i of on.slice(1)) { if (used.has(v[SEL_KEYS[i]])) splitSource(S, v, set, i, R); used.add(v[SEL_KEYS[i]]); }
+      const b = governingEnv(v, on[0]), bp = 'e' + b + '.';
+      for (const i of on.slice(1)) {
+        const n = governingEnv(v, i), p = 'e' + n + '.';
+        if (n === b) continue;
+        for (const x of ['a', 'h', 'd', 'r']) { const sp = BY[p + x]; set(p + x, r5(clamp(v[bp + x] * (1 + (u('rel:j:' + i + x) * 2 - 1) * 0.08), sp.lo, sp.hi))); }
+        set(p + 's', r5(clamp(v[bp + 's'] + (u('rel:j:' + i + 's') * 2 - 1) * 0.04, 0, 1)));
+        set(p + 'fam', v[bp + 'fam']); if (n > 1) set(p + 'os', b > 1 ? v[bp + 'os'] : 0);
+      }
+    },
+    holds(v) {
+      const on = [0, 1, 2, 3].filter(i => srcOn(v, i)); if (on.length < 2) return true;
+      const envs = on.map(i => governingEnv(v, i)); if (new Set(envs).size !== envs.length) return false;
+      const bp = 'e' + envs[0] + '.';
+      return envs.slice(1).every(n => { const p = 'e' + n + '.'; return ['a', 'h', 'd', 'r'].every(x => (v[bp + x] === 0 ? v[p + x] <= 1e-9 : Math.abs(v[p + x] / v[bp + x] - 1) <= 0.1)) && Math.abs(v[p + 's'] - v[bp + 's']) <= 0.05 + 1e-9 && v[p + 'fam'] === v[bp + 'fam']; });
+    } },
+};
 /* THE RULESET DRAW. Draw keys are per slot and per attempt, so a locked slot shifts nothing. */
 function drawMod(S, out, src, click, touched) {
   const rs = S.rs, stats = { filled: 0, wanted: 0, noLive: 0, dup: 0, claimed: 0, rules: {} };
@@ -949,6 +1203,7 @@ function drawMod(S, out, src, click, touched) {
       const shapes = !!(r.env || r.lfo);
       const srcs = expandSrc(r.src).filter(id => {
         const m = MSRC[SI[id]];
+        if (m.env !== undefined && [0, 1, 2, 3].some(i => srcOn(out, i) && out[SEL_KEYS[i]] === m.env)) return false;   // it governs a source (round 5)
         const shapeable = (m.env !== undefined && r.env) || (m.lfo !== undefined && r.lfo);
         return !(shapes && shapeable && claimed[id] && claimed[id] !== r.id);
       });
@@ -994,6 +1249,21 @@ function changedKeys(before, after) {
   for (let k = 0; k < 4; k++) for (const s of SPEC) if (before[k][s.key] !== after[k][s.key]) out.add(s.key);
   return out;
 }
+function copyEnvInto(S, f, fs, t, ts, kinds) {
+  const vf = S.work[f], o = clone(S.work[t]), nf = governingEnv(vf, fs), nt = governingEnv(o, ts);
+  if (f === t && nf === nt) return { msg: SRC_LABEL[fs] + ' and ' + SRC_LABEL[ts] + ' already share ENV ' + nf + ': nothing to copy' };
+  let kept = 0;
+  const xs = (kinds.indexOf('params') >= 0 ? ['a', 'h', 'd', 's', 'r'] : []).concat(kinds.indexOf('arch') >= 0 ? ['fam', 'os'] : []);
+  for (const x of xs) {
+    if (x === 'os' && nt === 1) continue;
+    const kt = 'e' + nt + '.' + x;
+    if (isLocked(S, BY[kt])) { kept++; continue; }
+    o[kt] = x === 'os' ? (nf > 1 ? vf['e' + nf + '.os'] : 0) : vf['e' + nf + '.' + x];
+  }
+  S.work[t] = o;
+  const sh = sharers(o, ts);
+  return { msg: 'copied ' + SRC_LABEL[fs] + '\'s ENV ' + nf + ' (' + CN[f] + ') into ' + SRC_LABEL[ts] + '\'s ENV ' + nt + ' (' + CN[t] + ')' + (sh.length ? ' · SHARED with ' + sh.map(i => SRC_LABEL[i]).join(', ') + ': they hear it too' : '') + (kept ? ' · ' + kept + ' locked key(s) kept' : '') };
+}
 function unlockedCorners(S) { return [0, 1, 2, 3].filter(t => !S.lockC[t]); }
 /* THE ACTIONS. a.t names it; everything else it needs is IN the action (the corner, the scope), so replay never
    depends on UI state. */
@@ -1005,12 +1275,19 @@ function applyAction(S, a) {
     case 'rand': {
       const L = LEVEL[a.level], k = a.corner;
       if (S.lockC[k]) return refuse('corner ' + CN[k] + ' is locked: randomize refused');
-      if (a.kind === 'arch' && L.noArch) return refuse(L.name + ': ' + L.noArch);
+      if (a.kind === 'arch' && archOff(S, L)) return refuse(L.name + ': ' + archOff(S, L));
       const targets = a.kind === 'arch' && a.scope === 'all' ? unlockedCorners(S) : [k];
       const R = makeRoll(S, a.level, a.kind, k, targets);
       S.clicks++;
       applyRoll(S, R);
       if (a.kind === 'params' && !R.keys.some(key => active(BY[key], R.bases[0]))) S.msg = L.name + ': nothing to draw, its parameters are inactive (its switch is off)';
+      const m = [];
+      if (R.split) m.push(R.split.to >= 0 ? SRC_LABEL[R.split.src] + ' SPLIT off ENV ' + (R.split.from + 1) + ' (shared with ' + R.split.shared.map(i => SRC_LABEL[i]).join(', ') + ') onto free ENV ' + (R.split.to + 1) + ', a copy of it'
+        : SRC_LABEL[R.split.src] + ' shares ENV ' + (R.split.from + 1) + ' with ' + R.split.shared.map(i => SRC_LABEL[i]).join(', ') + '; no free envelope to split onto, so the shared one was drawn');
+      if (L.envSrc !== undefined && a.kind === 'params') { const sh = sharers(S.work[k], L.envSrc); if (sh.length) m.push('ENV ' + governingEnv(S.work[k], L.envSrc) + ' is SHARED with ' + sh.map(i => SRC_LABEL[i]).join(', ') + ': they hear this change too'); }
+      const ar = Object.keys(R.archetypes); if (ar.length) m.push('archetypes ' + ar.map(n => 'ENV ' + n + ' ' + R.archetypes[n]).join(', '));
+      if (R.notes.length) m.push(R.notes.join('; '));
+      if (m.length) S.msg = (S.msg ? S.msg + ' · ' : '') + m.join(' · ');
       break;
     }
     case 'randAll': {
@@ -1029,9 +1306,10 @@ function applyAction(S, a) {
       R.keys = scopeKeys(S, 'global', 'arch').concat(scopeKeys(S, 'global', 'params'));
       for (const key of R.keys) if (!R.us[key]) R.us[key] = [U(S.seed, R.click, k, key, 0), U(S.seed, R.click, k, key, 1), U(S.seed, R.click, k, key, 2)];
       R.keys.sort((x, y) => SPEC.indexOf(BY[x]) - SPEC.indexOf(BY[y]));   // structure before the numbers that depend on it
-      R.withRules = true;
+      R.withRules = true; R.big = true;
       S.clicks++;
       applyRoll(S, R);
+      if (R.notes.length) S.msg = R.notes.join('; ');
       break;
     }
     case 'revert': {
@@ -1094,6 +1372,13 @@ function applyAction(S, a) {
       break;
     }
     case 'delSet': S.sets = S.sets.filter(x => x.id !== a.id); break;
+    /* ENVELOPE COPY (round 5): one source's governing envelope (stages, family, one-shot) into the envelope another
+       source follows, in the same or another corner. Only that envelope's keys move; a shared target is flagged. */
+    case 'copyEnv': {
+      if (S.lockC[a.to]) return refuse('corner ' + CN[a.to] + ' is locked: copy refused');
+      const r = copyEnvInto(S, a.from | 0, a.fromSrc | 0, a.to | 0, a.toSrc | 0, ['params', 'arch']);
+      S.msg = r.msg; break;
+    }
     /* COPY A LEVEL BETWEEN CORNERS (ADR-322 item 1; the human: "a way ... to copy a level's settings from one corner
        to another independently"). Only that level's keys, and only its STRUCTURE (arch: enums and the mod slots'
        routes) or its NUMBERS (params), never both at once; every other level on the target stays as it was. A locked
@@ -1105,8 +1390,12 @@ function applyAction(S, a) {
       if (!L) return refuse('no such level');
       if (f === t) return refuse('copy needs two different corners');
       if (S.lockC[t]) return refuse('corner ' + CN[t] + ' is locked: copy refused');
-      if (a.kind === 'arch' && L.noArch) return refuse(L.name + ': ' + L.noArch);
-      const keys = copyKeys(a.level, a.kind), o = clone(S.work[t]);
+      if (a.kind === 'arch' && archOff(S, L)) return refuse(L.name + ': ' + archOff(S, L));
+      if (L.envSrc !== undefined) {   // an envelope row copies the envelope its source follows, into the one it follows on the target
+        const r = copyEnvInto(S, f, L.envSrc, t, L.envSrc, [a.kind]);
+        S.msg = r.msg; break;
+      }
+      const keys = copyKeys(a.level, a.kind, S, S.work[f]), o = clone(S.work[t]);
       let kept = 0;
       for (const key of keys) { if (isLocked(S, BY[key])) { if (o[key] !== S.work[f][key]) kept++; continue; } o[key] = S.work[f][key]; }
       repair(o);
@@ -1133,6 +1422,8 @@ function applyAction(S, a) {
       else if (p === 'homeMode') S.homeMode = x;
       else if (p === 'archScope') S.archScope = x;
       else if (p === 'archMust') S.archMust = x === true || x === 'on';
+      else if (p === 'envPlacement') S.envPlacement = x === 'b' ? 'b' : 'a';
+      else if (p === 'bpm') S.bpm = clamp(+x || 120, 40, 240);
       else if (p.slice(0, 3) === 'gc.') S.gChaos[p.slice(3)] = clamp(+x, 0, 2);
       else if (p.slice(0, 3) === 'ga.') S.gAmt[p.slice(3)] = clamp(+x, 0, 2);
       else if (p.slice(0, 2) === 'b.') { const key = p.slice(2, -2), i = +p.slice(-1), b = S.bounds[key] || (S.bounds[key] = [0, 1]); b[i] = clamp(+x, 0, 1); }
@@ -1256,11 +1547,33 @@ function oscWave(w, p, dt, pw, blade, bpos, bwid) {
   }
   return baseWave(w, p, dt, pw);
 }
+/* C.12: a timed stage of length T with curve u follows y = (1 − e^(−c·p)) / (1 − e^(−c)), c = 4u, p = t/T (y = p at c = 0).
+   Stages: 1 attack (L0 → 1), 2 hold, 3 decay (1 → S), 4 sustain, 5 release (Lr → 0), 0 idle. One-shot: a key-up during
+   attack, hold or decay is remembered (rel) and the release starts when the decay ends. */
+function envCoef(a, h, d, s, r, u, os, sr) {
+  const k = c => (Math.abs(c) < 1e-6 ? 0 : 1 / (1 - Math.exp(-c)));
+  const ca = 4 * u[0], cd = 4 * u[1], cr = 4 * u[2];
+  return { ai: 1 / Math.max(1, a * sr), hi: h > 0 ? 1 / Math.max(1, h * sr) : 2, di: 1 / Math.max(1, d * sr), ri: 1 / Math.max(1, r * sr), s, ca, cd, cr, ka: k(ca), kd: k(cd), kr: k(cr), os: !!os };
+}
+const curveY = (c, k, p) => (k === 0 ? p : (1 - Math.exp(-c * p)) * k);
 function envTick(e, c) {
-  if (e.st === 1) { e.v += c.ai; if (e.v >= 1) { e.v = 1; e.st = 2; } }
-  else if (e.st === 2) e.v = c.s + (e.v - c.s) * c.cd;
-  else if (e.st === 4) { e.v *= c.cr; if (e.v < 1e-4) { e.v = 0; e.st = 0; } }
+  switch (e.st) {
+    case 1: e.p += c.ai; if (e.p >= 1) { e.v = 1; e.st = 2; e.p = 0; } else e.v = e.L0 + (1 - e.L0) * curveY(c.ca, c.ka, e.p); break;
+    case 2: e.v = 1; e.p += c.hi; if (e.p >= 1) { e.st = 3; e.p = 0; } break;
+    case 3: e.p += c.di; if (e.p >= 1) { e.v = c.s; e.p = 0; if (e.rel) { e.st = 5; e.Lr = e.v; } else e.st = 4; } else e.v = c.s + (1 - c.s) * (1 - curveY(c.cd, c.kd, e.p)); break;
+    case 4: e.v = c.s; break;
+    case 5: e.p += c.ri; if (e.p >= 1) { e.v = 0; e.st = 0; } else e.v = e.Lr * (1 - curveY(c.cr, c.kr, e.p)); break;
+    default: break;
+  }
   return e.v;
+}
+function envKeyUp(e, c) { if (e.st === 0 || e.st === 5) return; if (c.os && e.st <= 3) { e.rel = true; return; } e.st = 5; e.p = 0; e.Lr = e.v; }
+/* an envelope's shape over a gate of G seconds, drawn by the SAME law at a low rate (the overlay; L0064) */
+function envShape(v, n, G, N) {
+  const p = 'e' + n + '.', tot = G + v[p + 'r'] * 1.05, sr = N / tot, c = envCoef(v[p + 'a'], v[p + 'h'], v[p + 'd'], v[p + 's'], v[p + 'r'], FAMILIES[v[p + 'fam'] | 0].u, n > 1 && v[p + 'os'] === 1, sr);
+  const e = { st: 1, v: 0, p: 0, L0: 0, Lr: 0, rel: false }, out = [];
+  for (let i = 0; i < N; i++) { if (i === Math.round(G * sr)) envKeyUp(e, c); out.push(envTick(e, c)); }
+  return { pts: out, tot };
 }
 function svfCoef(c, fc, res, sr, type) {
   const g = Math.tan(Math.PI * clamp(fc, 20, 0.45 * sr) / sr), k = 2 - 1.95 * clamp(res, 0, 0.97);
@@ -1281,7 +1594,8 @@ function lfoVal(shape, p, sh) {
   if (shape === 3) return p < 0.5 ? 1 : -1;
   return sh;
 }
-function compilePatch(v, sr) {
+function compilePatch(v, sr, bpm) {
+  bpm = bpm || BPM;
   const P = { osc: [], route: [v['r.o1'], v['r.o2'], v['r.sub'], v['r.noise']], topo: v['f.topo'] };
   for (const i of [1, 2]) {
     const p = 'o' + i + '.';
@@ -1293,10 +1607,10 @@ function compilePatch(v, sr) {
   P.fA = { type: v['fA.type'], cut: v['fA.cut'], res: v['fA.res'], drive: v['fA.drive'], key: v['fA.key'] };
   P.fB = { on: v['fB.on'] === 1, type: v['fB.type'], cut: v['fB.cut'], res: v['fB.res'], key: v['fB.key'] };
   P.envc = [];
-  for (let e = 1; e <= 3; e++) {
-    const a = v['e' + e + '.a'], d = v['e' + e + '.d'], s = v['e' + e + '.s'], r = v['e' + e + '.r'];
-    P.envc.push({ ai: 1 / Math.max(1, a * sr), cd: Math.exp(-3 / Math.max(1, d * sr)), s, cr: Math.exp(-3 / Math.max(1, r * sr)) });   // ~95% of a segment in its time
-  }
+  for (let e = 1; e <= 4; e++) { const p = 'e' + e + '.'; P.envc.push(envCoef(v[p + 'a'], v[p + 'h'], v[p + 'd'], v[p + 's'], v[p + 'r'], FAMILIES[v[p + 'fam'] | 0].u, e > 1 && v[p + 'os'] === 1, sr)); }
+  P.sel = SEL_KEYS.map(k => v[k] | 0);
+  const on = [v['o1.on'] === 1, v['o2.on'] === 1, v['sub.on'] === 1, v['noise.on'] === 1];
+  P.gov = [0, 1, 2, 3].filter(i => on[i]).map(i => P.sel[i]); if (!P.gov.length) P.gov = [0];   // the governing envelopes (6.4)
   P.lfo = [{ shape: v['l1.shape'], rate: v['l1.rate'] }, { shape: v['l2.shape'], rate: v['l2.rate'] }];
   P.mod = [];
   for (let i = 0; i < NSLOT; i++) { const s = v['m' + i + '.src'], d = v['m' + i + '.dst']; if (s > 0 && d > 0) P.mod.push({ src: s, dst: d, amt: v['m' + i + '.amt'] }); }
@@ -1304,7 +1618,7 @@ function compilePatch(v, sr) {
   P.fxOn = FXM.map(m => v['fx.' + m.id + '.on'] === 1);
   P.sh = { curve: v['sh.curve'], tone: v['sh.tone'] };
   P.ch = { flanger: v['ch.mode'] === 1, rate: v['ch.rate'], depth: v['ch.depth'] };
-  P.dl = { ping: v['dl.mode'] === 1, len: Math.round(DIVB[v['dl.div']] * 60 / BPM * sr), fb: v['dl.fb'], damp: v['dl.damp'] };
+  P.dl = { ping: v['dl.mode'] === 1, len: Math.round(DIVB[v['dl.div']] * 60 / bpm * sr), fb: v['dl.fb'], damp: v['dl.damp'] };
   P.rv = { hall: v['rv.type'] === 1, fb: 0.7 + 0.28 * v['rv.size'], damp: v['rv.damp'] * 0.6 };
   P.tg = new Float64Array(NSM);
   P.tg[SM_L1] = P.osc[0].level; P.tg[SM_L2] = P.osc[1].level; P.tg[SM_SUB] = P.sub.level; P.tg[SM_NZ] = P.noise.level;
@@ -1318,7 +1632,7 @@ class Engine {
   constructor(sr, seed) {
     this.sr = sr; this.rng = mulberry32(mix32(seed >>> 0, fnv('audio')));
     this.V = []; for (let i = 0; i < NV; i++) this.V.push(this.newVoice());
-    this.P = null; this.t = 0; this.step = 0; this.nextAt = 0; this.pattern = 'arp'; this.mw = 0; this.intent = [0, 0, 0, 0]; this.vol = 0.7; this.useGuard = true;
+    this.P = null; this.t = 0; this.step = 0; this.nextAt = 0; this.pattern = 'arp'; this.mw = 0; this.intent = [0, 0, 0, 0]; this.vol = 0.7; this.bpm = BPM; this.makeup = 1; this.useGuard = true;
     this.lfo = [{ p: 0, v: 0, sh: 0 }, { p: 0, v: 0, sh: 0 }];
     this.sm = new Float64Array(NSM); this.smA = 1 - Math.exp(-TICK / (0.02 * sr)); this.fxd = new Float64Array(3);
     this.bl = new Float64Array(TICK); this.br = new Float64Array(TICK);
@@ -1340,11 +1654,12 @@ class Engine {
   }
   newVoice() {
     const f = () => new Float64Array(7);
-    return { on: false, gate: false, note: 60, vel: 1, start: 0, offAt: 0, e: [{ st: 0, v: 0 }, { st: 0, v: 0 }, { st: 0, v: 0 }],
+    const env = () => ({ st: 0, v: 0, p: 0, L0: 0, Lr: 0, rel: false });
+    return { on: false, gate: false, note: 60, vel: 1, start: 0, offAt: 0, e: [env(), env(), env(), env()], ev: new Float64Array(4),
       ph: [f(), f()], inc: [f(), f()], gl: [f(), f()], gr: [f(), f()], subPh: 0, subInc: 0, nr: null, pk: [0, 0, 0],
       fa: new Float64Array(4), fb: new Float64Array(4), ca: {}, cb: {}, amp: 1, pL: 1, pR: 1, pw: [0.5, 0.5], bw: [0, 0], nz: 0, sl: 0, d: new Float64Array(MDST.length) };
   }
-  setPatch(v) { this.P = compilePatch(v, this.sr); }
+  setPatch(v) { this.P = compilePatch(v, this.sr, this.bpm); }
   setMonitor(mute, solo, snap) {
     for (let s = 0; s < 4; s++) { this.mute[s] = !!mute[s]; this.solo[s] = !!solo[s]; }
     for (let s = 0; s < 4; s++) {
@@ -1368,13 +1683,13 @@ class Engine {
     for (const x of this.V) if (!x.on) { v = x; break; }
     if (!v) { v = this.V[0]; for (const x of this.V) if (x.start < v.start) v = x; }
     v.on = true; v.gate = true; v.note = note; v.vel = vel; v.start = this.t; v.offAt = offAt;
-    for (const e of v.e) { e.st = 1; e.v = 0; }
+    for (const e of v.e) { e.st = 1; e.v = 0; e.L0 = 0; e.p = 0; e.rel = false; }
     for (let o = 0; o < 2; o++) for (let k = 0; k < 7; k++) v.ph[o][k] = this.rng();
     v.subPh = 0; v.fa.fill(0); v.fb.fill(0); v.pk[0] = v.pk[1] = v.pk[2] = 0;
     v.nr = mulberry32((this.rng() * 4294967296) >>> 0);
   }
   stepNote() {
-    const pat = PAT[this.pattern] || PAT.arp, spb = this.sr * 60 / BPM, st = this.step % pat.steps, len = pat.len * spb;
+    const pat = PAT[this.pattern] || PAT.arp, spb = this.sr * 60 / this.bpm, st = this.step % pat.steps, len = pat.len * spb;
     for (const n of pat.notes[st]) this.noteOn(n, pat.vel[st], this.nextAt + pat.gate * len);
     this.step++; this.nextAt += len;
   }
@@ -1382,8 +1697,8 @@ class Engine {
     const P = this.P;
     while (this.t >= this.nextAt) this.stepNote();
     for (const v of this.V) {
-      if (v.on && v.gate && this.t >= v.offAt) { v.gate = false; for (const e of v.e) if (e.st !== 0) e.st = 4; }
-      if (v.on && !v.gate && v.e[0].st === 0) v.on = false;
+      if (v.on && v.gate && this.t >= v.offAt) { v.gate = false; for (let k = 0; k < 4; k++) envKeyUp(v.e[k], P.envc[k]); }
+      if (v.on && !v.gate) { let done = true; for (let j = 0; j < P.gov.length; j++) if (v.e[P.gov[j]].st !== 0) done = false; if (done) v.on = false; }   // freed when every governing envelope ends
     }
     for (let i = 0; i < NSM; i++) this.sm[i] += (P.tg[i] - this.sm[i]) * this.smA;
     for (let j = 0; j < 2; j++) {
@@ -1400,7 +1715,7 @@ class Engine {
   voiceControl(v) {
     const P = this.P, d = v.d, sr = this.sr;
     d.fill(0);
-    const I = this.intent, sv = [0, v.e[1].v, v.e[2].v, this.lfo[0].v, this.lfo[1].v, v.vel, this.mw, (v.note - 60) / 24, I[0], I[1], I[2], I[3]];
+    const I = this.intent, sv = [0, v.e[1].v, v.e[2].v, this.lfo[0].v, this.lfo[1].v, v.vel, this.mw, (v.note - 60) / 24, I[0], I[1], I[2], I[3], v.e[3].v];
     for (let i = 0; i < P.mod.length; i++) { const m = P.mod[i]; d[m.dst] += sv[m.src] * m.amt; }
     for (let o = 0; o < 2; o++) {
       const O = P.osc[o], n = O.n, pitch = v.note + O.semi + O.fine / 100 + (d[1] + d[2 + o]) * MDST[1].scale;
@@ -1427,9 +1742,10 @@ class Engine {
     const P = this.P, bl = this.bl, br = this.br, o1 = P.osc[0], o2 = P.osc[1], r = P.route, ser = P.topo === 0;
     const drv = 1 + 7 * P.fA.drive, dn = 1 / (1 + 2 * P.fA.drive), fbOn = P.fB.on;
     const GA = this.soloPost ? [this.ones, this.ones, this.ones, this.ones] : this.gate, M = this.srcSq;
+    const ev = v.ev, sel = P.sel;
     for (let i = 0; i < n; i++) {
-      const e1 = envTick(v.e[0], P.envc[0]); envTick(v.e[1], P.envc[1]); envTick(v.e[2], P.envc[2]);
-      const mg = e1 * v.amp, mL = mg * v.pL, mR = mg * v.pR;   // the meter tap's envelope, velocity and pan
+      for (let k = 0; k < 4; k++) ev[k] = envTick(v.e[k], P.envc[k]);
+      const mL = v.amp * v.pL, mR = v.amp * v.pR;   // the meter tap's velocity and pan (the envelope is in the signal now)
       let aL = 0, aR = 0, bL = 0, bR = 0;
       for (let o = 0; o < 2; o++) {
         const O = o === 0 ? o1 : o2;
@@ -1440,14 +1756,14 @@ class Engine {
           const x = oscWave(O.wave, p, inc[k], pw, O.blade, O.bpos, bw);
           l += x * gl[k]; rr += x * gr[k];
         }
-        const gg = GA[o][i]; l *= gg; rr *= gg;
+        const gg = GA[o][i] * ev[sel[o]]; l *= gg; rr *= gg;   // gate × the governing envelope, before the filter (VO-9)
         M[o] += l * mL * l * mL + rr * mR * rr * mR;
         if (r[o] !== 1) { aL += l; aR += rr; }
         if (r[o] !== 0) { bL += l; bR += rr; }
       }
       if (P.sub.on) {
         let p = v.subPh + v.subInc; if (p >= 1) p -= 1; v.subPh = p;
-        const x = (P.sub.sq ? baseWave(1, p, v.subInc, 0.5) : Math.sin(TWO_PI * p)) * v.sl * 0.7 * GA[2][i];
+        const x = (P.sub.sq ? baseWave(1, p, v.subInc, 0.5) : Math.sin(TWO_PI * p)) * v.sl * 0.7 * GA[2][i] * ev[sel[2]];
         M[2] += x * mL * x * mL + x * mR * x * mR;
         if (r[2] !== 1) { aL += x; aR += x; }
         if (r[2] !== 0) { bL += x; bR += x; }
@@ -1455,7 +1771,7 @@ class Engine {
       if (P.noise.on) {
         const w = v.nr() * 2 - 1; let x = w;
         if (P.noise.pink) { const k = v.pk; k[0] = 0.99765 * k[0] + w * 0.0990460; k[1] = 0.96300 * k[1] + w * 0.2965164; k[2] = 0.57000 * k[2] + w * 1.0526913; x = (k[0] + k[1] + k[2] + w * 0.1848) * 0.25; }
-        x *= v.nz * GA[3][i];
+        x *= v.nz * GA[3][i] * ev[sel[3]];
         M[3] += x * mL * x * mL + x * mR * x * mR;
         if (r[3] !== 1) { aL += x; aR += x; }
         if (r[3] !== 0) { bL += x; bR += x; }
@@ -1467,7 +1783,7 @@ class Engine {
       } else {
         if (fbOn) { yL += svf(v.fb, 0, bL, v.cb); yR += svf(v.fb, 2, bR, v.cb); } else { yL += bL; yR += bR; }
       }
-      const g = e1 * v.amp;
+      const g = v.amp;
       bl[i] += yL * g * v.pL; br[i] += yR * g * v.pR;
     }
   }
@@ -1548,7 +1864,7 @@ class Engine {
         if (topo === 1) this.fxSample(bl[i], br[i], 0, 4, true);
         else if (topo === 2) { this.fxSample(bl[i], br[i], 0, 2, false); this.fxSample(this.oL, this.oR, 2, 4, true); }
         else this.fxSample(bl[i], br[i], 0, 4, false);
-        const gn = this.sm[SM_GAIN] * this.vol;
+        const gn = this.sm[SM_GAIN] * this.vol * this.makeup;   // makeup: the level match (monitor side, never stored)
         let l = this.oL * gn, r = this.oR * gn;
         /* THE OUTPUT GUARD: latched and reported, never silent (Blind-Spot Armor). A non-finite sample is zeroed and
            counted; a peak over −6 dBFS is held at −6 dBFS and counted. */
@@ -1565,10 +1881,15 @@ class Engine {
     }
   }
 }
+/* LEVEL MATCHING (round 5; the report's finding 4): a make-up gain at the OUTPUT so the heard patch sits near
+   −20 dBFS RMS, measured by rendering it (stabs, 0.37 s), clamped to ±12 dB. Monitor-side, like the mixer's make-up
+   (IF-6/RC-2): it never changes a stored value. */
+const LM_TARGET = 0.1;
+function levelMatchGain(v, bpm, N) { const r = renderOffline(v, N || 16384, { pattern: 'stabs', vol: 1, guard: false, bpm }); return clamp(LM_TARGET / Math.max(r.rms, 1e-6), 0.25, 4); }
 function renderOffline(values, N, opts) {
   opts = opts || {};
   const E = new Engine(44100, opts.seed === undefined ? 1 : opts.seed);
-  E.pattern = opts.pattern || 'stabs'; E.vol = opts.vol === undefined ? 0.7 : opts.vol; E.useGuard = opts.guard !== false; E.mw = opts.mw || 0;
+  E.pattern = opts.pattern || 'stabs'; E.vol = opts.vol === undefined ? 0.7 : opts.vol; E.useGuard = opts.guard !== false; E.mw = opts.mw || 0; if (opts.bpm) E.bpm = opts.bpm; if (opts.makeup) E.makeup = opts.makeup;
   E.setPatch(values); E.snapSmooth();
   if (opts.mute || opts.solo) E.setMonitor(opts.mute || [], opts.solo || [], true);
   E.soloPost = !!opts.soloPost;
@@ -1723,9 +2044,9 @@ function runChecks() {
   }
   // C10 every level plays
   {
-    const res = [];
+    const res = [], T0 = newState(seed);
     for (const L of LEVELS) for (const kind of ['arch', 'params']) {
-      if (kind === 'arch' && L.noArch) continue;
+      if (kind === 'arch' && archOff(T0, L)) continue;
       /* a level with few structural choices can land on what it holds (at chaos 1 the draw may pick home by taste),
          so a level "plays" if one of 8 successive clicks changes it; the clicks it took are reported */
       const T = allOn(newState(seed)); T.chaos = 1; T.amount = 1; let n = 0, c = 0;
@@ -1867,6 +2188,136 @@ function runChecks() {
     row('C17', four && back && lockHeld && !ctl, 'SAVE ALL FOUR keeps the four corners as one named set of four snapshots, all bound; the set loads back; a locked corner keeps its sound.',
       'set "' + (st ? st.name : '?') + '" of 4, all bound, no drafts: ' + four + ' · loads back exactly: ' + back + ' · locked corner kept: ' + lockHeld + ' · control, saving one corner: ' + ctl);
   }
+  /* ---- ROUND 5: the envelopes ---- */
+  const prof = o => { const rs = clone(BUILTIN_RS[0]); rs.env = envProfile(o); return rs; };
+  // C19 a shared envelope's PARAMS draw changes the shared envelope and says so; control: a silent split
+  {
+    const run = silentSplit => {
+      const T = newState(seed); T.chaos = 1; T.amount = 1;
+      const b = clone(T.work[0]);
+      applyAction(T, { t: 'rand', level: 'env.o1', kind: 'params', corner: 0 });
+      if (silentSplit) T.work[0]['o1.env'] = freeEnvs(T.work[0])[0];   // the control: the same draw, OSC 1 quietly moved off
+      const v = T.work[0], n = governingEnv(b, 0);
+      const changed = ['a', 'h', 'd', 's', 'r'].some(x => v['e' + n + '.' + x] !== b['e' + n + '.' + x]);
+      const stillShared = v['o1.env'] === v['o2.env'] && v['o2.env'] === b['o2.env'];
+      const flagged = envShareText(v, 0).indexOf('shared with OSC 2') >= 0 && /SHARED with OSC 2/.test(T.msg);
+      return { ok: changed && stillShared && flagged, changed, stillShared, flagged, row: envShareText(v, 0) };
+    };
+    const r = run(false), c = run(true);
+    row('C19', r.ok && !c.ok, 'PARAMS on OSC 1\'s envelope row, while OSC 1 shares ENV 1 with OSC 2 and SUB, changes the SHARED envelope (both hear it), and the row and the message say so; nothing splits.',
+      'shared envelope changed: ' + r.changed + ' · still shared: ' + r.stillShared + ' · flagged: ' + r.flagged + ' ("' + r.row + '") · control, a silent split: still shared ' + c.stillShared + (c.ok ? ' (PASSED: the check is blind)' : ' (fails, as it must)'));
+  }
+  // C20 ARCH on a source's envelope row splits it onto a free envelope, a copy of the shared one; control: no copy
+  {
+    const T = newState(seed);
+    for (const v of T.work.concat(T.snaps.map(x => x.v))) Object.assign(v, { 'e3.a': 0.9, 'e4.a': 0.9, 'e3.d': 2.5, 'e4.d': 2.5 });   // the free envelopes hold other shapes
+    const b = clone(T.work[0]);
+    applyAction(T, { t: 'rand', level: 'env.o1', kind: 'arch', corner: 0 });
+    const v = T.work[0], from = b['o1.env'], to = v['o1.env'];
+    const moved = to !== from && freeEnvs(b).indexOf(to) >= 0;
+    const copy = w => ['a', 'h', 'd', 's', 'r'].every(x => w['e' + (to + 1) + '.' + x] === b['e' + (from + 1) + '.' + x]);
+    const kept = v['o2.env'] === from && ['a', 'h', 'd', 's', 'r', 'fam'].every(x => v['e' + (from + 1) + '.' + x] === b['e' + (from + 1) + '.' + x]);
+    const said = /SPLIT off ENV/.test(T.msg);
+    const C = clone(b); C['o1.env'] = to;   // the control: moved without the copy
+    row('C20', moved && copy(v) && kept && said && !copy(C), 'ARCH on OSC 1\'s envelope row SPLITS it off the shared ENV 1 onto a free envelope that first takes a copy of ENV 1 (no jump); OSC 2 keeps ENV 1 untouched; the message says so.',
+      'OSC 1 moved ENV ' + (from + 1) + ' → ENV ' + (to + 1) + ' (free: ' + moved + ') · a copy: ' + copy(v) + ' · OSC 2 and ENV 1 kept: ' + kept + ' · announced: ' + said + ' · control, a split without the copy: ' + copy(C) + (copy(C) ? ' (PASSED: the check is blind)' : ' (fails, as it must)'));
+  }
+  // C21 each relationship rule holds over 60 seeds of randomize patch; control: the rule switched off
+  {
+    const relRun = (id, on) => {
+      let held = 0;
+      for (let sd = 1; sd <= 60; sd++) {
+        const T = allOn(newState(sd)); for (const k of ['o1.on', 'o2.on', 'sub.on', 'noise.on']) T.lockK[k] = true;
+        T.chaos = 1; T.amount = 1; T.rs = prof({ rel: { [id]: on ? 1 : 0 }, floor: 0 });
+        applyAction(T, { t: 'randPatch', corner: 0 });
+        if (RELS[id].holds(T.work[0])) held++;
+      }
+      return held;
+    };
+    const res = REL_IDS.map(id => ({ id, on: relRun(id, true), off: relRun(id, false) }));
+    row('C21', res.every(r => r.on === 60 && r.off < 60), 'Each RELATIONSHIP rule holds on every one of 60 random patches (all four sources on): noise transient vs slow oscillators; the sub never slower; OSC 1/OSC 2 stagger; one shape with jitter.',
+      res.map(r => r.id + ' ' + r.on + '/60 (control, off: ' + r.off + '/60)').join(' · '));
+  }
+  // C22 tempo-relative bounds at two tempos (RC-7.4's divisions, PROPOSED); control: tempo off
+  {
+    const run = (bpm, on, trip) => {
+      const vals = [];
+      for (let sd = 1; sd <= 20; sd++) {
+        const T = newState(sd); T.bpm = bpm; T.chaos = 1; T.amount = 1; T.rs = prof({ tempo: { on, triplet: trip }, floor: 0 });
+        applyAction(T, { t: 'rand', level: 'env', kind: 'params', corner: 0 });
+        for (let n = 1; n <= 4; n++) for (const x of ['a', 'h', 'd', 'r']) vals.push({ t: T.work[0]['e' + n + '.' + x], T });
+      }
+      const D = divSeconds(vals[0].T), min = D[0].sec * 0.75;
+      const big = vals.filter(o => o.t >= min), grid = big.filter(o => onGrid(o.T, o.t));
+      return { all: big.length === grid.length, n: grid.length, big: big.length, set: new Set(grid.map(o => o.t)), trip: grid.some(o => { const T2 = { bpm, rs: { env: { tempo: { triplet: 0, dotted: 0 } } } }; return !onGrid(T2, o.t); }) };
+    };
+    const a = run(120, 1, 0), b = run(90, 1, 0), t = run(120, 1, 1), off = run(120, 0, 0);
+    const moved = [...b.set].some(x => !a.set.has(x));
+    row('C22', a.all && b.all && a.n >= 30 && b.n >= 30 && moved && t.all && t.trip && !a.trip && !off.all,
+      'TEMPO-RELATIVE envelope times (RC-7.4\'s divisions, PROPOSED in horde #1275): every drawn time at or above the shortest division lands on a division, at 120 and at 90 bpm; triplets only when toggled.',
+      '120 bpm: ' + a.n + '/' + a.big + ' on the grid · 90 bpm: ' + b.n + '/' + b.big + ' (a 90-bpm length not on the 120 grid: ' + moved + ') · triplets on: ' + t.all + ', uses a triplet: ' + t.trip + ' (off: ' + a.trip + ') · control, tempo off: ' + off.n + '/' + off.big + ' on the grid' + (off.all ? ' (PASSED: the check is blind)' : ' (fails, as it must)'));
+  }
+  // C23 envelope copy moves only that envelope; control: copying every envelope
+  {
+    const T = newState(seed); T.chaos = 1; T.amount = 1;
+    applyAction(T, { t: 'randAll', level: 'global' });
+    T.work[1]['o2.env'] = 2;   // corner B's OSC 2 follows ENV 3, its own
+    const b = T.work.map(clone);
+    applyAction(T, { t: 'copyEnv', from: 0, fromSrc: 0, to: 1, toSrc: 1 });
+    const moved = SPEC.filter(sp => T.work[1][sp.key] !== b[1][sp.key]).map(sp => sp.key);
+    const only = moved.length > 0 && moved.every(k => k.slice(0, 3) === 'e3.');
+    const same = ['a', 'h', 'd', 's', 'r', 'fam', 'os'].every(x => x === 'os' || T.work[1]['e3.' + x] === b[0]['e1.' + x]);
+    const others = [0, 2, 3].every(k => JSON.stringify(T.work[k]) === JSON.stringify(b[k]));
+    const C = b.map(clone); for (const sp of SPEC) if (sp.group === 'env') C[1][sp.key] = C[0][sp.key];   // the control: every envelope and selector
+    const cm = SPEC.filter(sp => C[1][sp.key] !== b[1][sp.key]).map(sp => sp.key), conly = cm.length > 0 && cm.every(k => k.slice(0, 3) === 'e3.');
+    row('C23', only && same && others && !conly, 'ENVELOPE COPY: OSC 1\'s envelope in A copied to OSC 2 in B changes only the envelope OSC 2 follows in B (ENV 3), to A\'s values; nothing else moves.',
+      moved.length + ' keys moved, all ENV 3: ' + only + ' · equal to A\'s ENV 1: ' + same + ' · other corners kept: ' + others + ' · control, copying every envelope: ' + cm.length + ' keys, only ENV 3: ' + conly + (conly ? ' (PASSED: the check is blind)' : ' (fails, as it must)'));
+  }
+  // C24 / C25 the two placements, end to end
+  {
+    const run = pl => {
+      const T = newState(seed); T.envPlacement = pl; T.chaos = 1; T.amount = 1; const r0 = T.work[0]['o1.env']; let oscMoved = false;
+      for (let i = 0; i < 20; i++) { applyAction(T, { t: 'rand', level: 'osc1', kind: 'arch', corner: 0 }); if (T.work[0]['o1.env'] !== r0) oscMoved = true; }
+      const T2 = newState(seed); T2.envPlacement = pl; T2.chaos = 1; T2.amount = 1; const b2 = clone(T2.work[0]);
+      applyAction(T2, { t: 'rand', level: 'env', kind: 'arch', corner: 0 });
+      const envArchRefused = /placement \(b\)/.test(T2.msg), envArchMoved = SPEC.some(sp => sp.group === 'env' && sp.arch && T2.work[0][sp.key] !== b2[sp.key]);
+      const T4 = newState(seed); T4.envPlacement = pl; applyAction(T4, { t: 'rand', level: 'env.o1', kind: 'arch', corner: 0 }); const rowArchRefused = /placement \(b\)/.test(T4.msg);
+      const T3 = newState(seed); T3.envPlacement = pl; T3.chaos = 1; T3.amount = 1; const b3 = clone(T3.work[0]);
+      applyAction(T3, { t: 'rand', level: 'env', kind: 'params', corner: 0 });
+      const envParamsOnly = SPEC.every(sp => T3.work[0][sp.key] === b3[sp.key] || (sp.group === 'env' && !sp.arch));
+      return { oscMoved, envArchRefused, envArchMoved, rowArchRefused, envParamsOnly };
+    };
+    const A = run('a'), B = run('b');
+    const okA = r => !r.oscMoved && r.envArchMoved && !r.envArchRefused && !r.rowArchRefused && r.envParamsOnly;
+    const okB = r => r.oscMoved && r.envArchRefused && r.rowArchRefused && r.envParamsOnly;
+    const say = r => 'OSC 1 ARCH moved its envelope: ' + r.oscMoved + ' · ENVELOPES ARCH: ' + (r.envArchRefused ? 'refused' : 'moved structure ' + r.envArchMoved) + ' · row ARCH refused: ' + r.rowArchRefused + ' · ENVELOPES PARAMS touched only envelope numbers: ' + r.envParamsOnly;
+    row('C24', okA(A) && !okA(B), 'PLACEMENT (a): the Envelopes level owns envelope architecture; 20 OSC 1 ARCH clicks never move OSC 1\'s envelope choice.', say(A) + ' · control, placement (b) through the same test: ' + (okA(B) ? 'PASSED (the check is blind)' : 'fails, as it must'));
+    row('C25', okB(B) && !okB(A), 'PLACEMENT (b): each source\'s ARCH holds its envelope choice; the Envelopes level and its rows draw envelope parameters only.', say(B) + ' · control, placement (a) through the same test: ' + (okB(A) ? 'PASSED (the check is blind)' : 'fails, as it must'));
+  }
+  // C26 musical safety: the sustain floor and the role's release bound; controls: floor 0, the Anything role
+  {
+    const floorRun = fl => { let ok = 0; for (let sd = 1; sd <= 60; sd++) { const T = newState(sd); T.chaos = 1; T.amount = 1; T.rs = prof({ floor: fl }); applyAction(T, { t: 'randPatch', corner: 0 }); const v = T.work[0]; if ([0, 1, 2, 3].filter(i => srcOn(v, i)).some(i => v['e' + governingEnv(v, i) + '.s'] >= 0.15 - 1e-9)) ok++; } return ok; };
+    const relRun = name => { let ok = 0; for (let sd = 1; sd <= 60; sd++) { const T = newState(sd); T.chaos = 1; T.amount = 1; T.rs = clone(BUILTIN_RS.find(r => r.name === name)); applyAction(T, { t: 'randPatch', corner: 0 }); const v = T.work[0]; if ([0, 1, 2, 3].filter(i => srcOn(v, i)).every(i => v['e' + governingEnv(v, i) + '.r'] <= 0.25 + 1e-9)) ok++; } return ok; };
+    const f1 = floorRun(0.15), f0 = floorRun(0), r1 = relRun('Role: Mono bass'), r0 = relRun('Everything, equal');
+    row('C26', f1 === 60 && f0 < 60 && r1 === 60 && r0 < 60, 'MUSICAL SAFETY: with the sustain floor, every random patch keeps a sounding source\'s sustain ≥ 0.15; under the Mono bass role every governing release is ≤ 0.25 s.',
+      'floor 0.15: ' + f1 + '/60 · control, floor 0: ' + f0 + '/60 · Mono bass releases ≤ 0.25 s: ' + r1 + '/60 · control, Anything: ' + r0 + '/60');
+  }
+  // C27 level matching after the draw (monitor-side make-up); control: off
+  {
+    const loud = homeValues(), quiet = Object.assign(homeValues(), { 'o1.level': 0.3, 'o2.level': 0.2, 'sub.level': 0.15, 'm.gain': 0.3 });
+    const N = 8192, rms = (v, mk) => renderOffline(v, N, { pattern: 'stabs', vol: 1, guard: false, makeup: mk }).rms;
+    const gL = levelMatchGain(loud, 120, N), gQ = levelMatchGain(quiet, 120, N);
+    const dOff = Math.abs(20 * Math.log10(rms(loud, 1) / rms(quiet, 1))), dOn = Math.abs(20 * Math.log10(rms(loud, gL) / rms(quiet, gQ)));
+    row('C27', dOn < 1.5 && dOff > 6, 'LEVEL MATCHING: two patches 6+ dB apart come out within 1.5 dB after the measured make-up (monitor-side; never stored).',
+      'apart by ' + dOff.toFixed(1) + ' dB unmatched (the control) · ' + dOn.toFixed(2) + ' dB matched · make-up ' + (20 * Math.log10(gL)).toFixed(1) + ' / ' + (20 * Math.log10(gQ)).toFixed(1) + ' dB');
+  }
+  // C28 shape archetypes as envelope rules; control: no archetype
+  {
+    const run = on => { let ok = 0; for (let sd = 1; sd <= 40; sd++) { const T = newState(sd); T.chaos = 1; T.amount = 1; T.rs = prof(on ? { arche: { pluck: 1 } } : {}); applyAction(T, { t: 'rand', level: 'env', kind: 'params', corner: 0 }); const v = T.work[0];
+      if ([1, 2, 3, 4].every(n => { const p = 'e' + n + '.'; return v[p + 'a'] <= 0.005 + 1e-9 && v[p + 'h'] === 0 && v[p + 'd'] >= 0.08 - 1e-9 && v[p + 'd'] <= 0.6 + 1e-9 && v[p + 's'] <= 0.05 + 1e-9 && v[p + 'r'] <= 0.4 + 1e-9; })) ok++; } return ok; };
+    const a = run(true), c = run(false);
+    row('C28', a === 40 && c < 40, 'SHAPE ARCHETYPES: with only "pluck" weighted, every envelope a draw touches falls inside pluck\'s ranges.', 'pluck: ' + a + '/40 · control, no archetype: ' + c + '/40');
+  }
   return out;
 }
 
@@ -1876,7 +2327,7 @@ function runChecks() {
 const $ = id => document.getElementById(id);
 const UI = { seed: 0x5EED, focus: 'osc1', group: 'osc1', key: 'o1.detune', puck: { x: 0.25, y: 0.25 }, playing: false, pattern: 'arp', mw: 0, vol: 0.7, replay: '',
   mute: [false, false, false, false], solo: [false, false, false, false], lastSq: [0, 0, 0, 0], lastN: 0,
-  intent: [0, 0, 0, 0], morph: { law: 'blend', T: 1, c: 0.3, n: 4 }, copy: { level: null, from: 0, to: 1 } };
+  intent: [0, 0, 0, 0], morph: { law: 'blend', T: 1, c: 0.3, n: 4 }, copy: { level: null, from: 0, to: 1 }, ce: { fs: 0, fc: 0, ts: 1, tc: 0 }, levelMatch: true, lmKey: '' };
 /* the pad's morph law is what the puck HEARS, like the puck itself: not stored, not logged; its draws use the session seed */
 function morphOf() { return { law: UI.morph.law, T: UI.morph.T, c: UI.morph.c, n: UI.morph.n, seed: S.seed }; }
 let S = newState(UI.seed);
@@ -1952,7 +2403,15 @@ function replay() {
 }
 
 /* ---- rendering ---- */
-function computeHeard() { HEARD = heardOf(S.work, UI.puck.x, UI.puck.y, morphOf()); if (ENG) ENG.setPatch(HEARD.v); }
+function computeHeard() { HEARD = heardOf(S.work, UI.puck.x, UI.puck.y, morphOf()); if (ENG) { ENG.bpm = S.bpm; ENG.setPatch(HEARD.v); levelMatch(); } }
+function levelMatch() {
+  if (!ENG) return;
+  if (!UI.levelMatch) { ENG.makeup = 1; return; }
+  if (padDown) return;   // measured when the puck lands, not on every drag frame
+  const key = fnv(JSON.stringify(HEARD.v)) + ':' + S.bpm;
+  if (key === UI.lmKey) return;
+  UI.lmKey = key; ENG.makeup = levelMatchGain(HEARD.v, S.bpm);
+}
 function render() { computeHeard(); renderStatus(); renderLevels(); renderPad(); renderBoundsStatic(); renderGroups(); renderKeys(); renderDist(); renderPatch(); renderRules(); renderLog(); }
 function lightRender() { computeHeard(); renderStatus(); renderLevels(); renderPadDyn(); renderGroupsRO(); renderKeys(); paintDist(); renderPatch(); renderLog(); paintKnob(); }
 function scheduleLight() { if (rafPending) return; rafPending = true; requestAnimationFrame(() => { rafPending = false; lightRender(); }); }
@@ -1976,16 +2435,20 @@ function renderLevels() {
     const si = SRC_LEVEL[L.id], silenced = si !== undefined && gateTarget(UI.mute, UI.solo, si) === 0;
     h += '<div class="lvl d' + L.depth + (UI.focus === L.id ? ' foc' : '') + (silenced ? ' silenced' : '') + '">'
       + '<button class="nm" data-act="focus" data-arg="' + L.id + '">' + esc(L.name) + (L.pass ? ' <span class="lab-tag stub" title="PASS-THROUGH STUB: in horde these buttons call the module\'s own randomize verbs">STUB</span>' : '') + '</button>'
-      + '<button class="hd-pill sm" data-act="rand" data-arg="' + L.id + '|arch"' + (L.noArch ? ' disabled title="' + esc(L.noArch) + '"' : ' title="randomize architecture (structure)' + (L.rules ? ' — includes the mod routes, drawn by the ruleset' : '') + '"') + '>ARCH</button>'
+      + '<button class="hd-pill sm" data-act="rand" data-arg="' + L.id + '|arch"' + (archOff(S, L) ? ' disabled title="' + esc(archOff(S, L)) + '"' : ' title="randomize architecture (structure)' + (L.rules ? ' — includes the mod routes, drawn by the ruleset' : '') + (L.envSrc !== undefined ? ' — may first SPLIT this source off a shared envelope onto a free one' : '') + '"') + '>ARCH</button>'
       + '<button class="hd-pill sm" data-act="rand" data-arg="' + L.id + '|params" title="randomize parameters (the numbers)">PARAMS</button>'
       + '<button class="lk" data-act="copyOpen" data-arg="' + L.id + '" aria-pressed="' + (UI.copy.level === L.id) + '" title="copy this level\'s settings from one corner to another (ADR-322 item 1)">⇄</button>'
       + smCell(L.id)
       + (one ? '<button class="lk" data-act="lockG" data-arg="' + one + '" aria-pressed="' + !!S.lockG[one] + '" title="lock the whole group (a PROPOSAL)">' + (S.lockG[one] ? '■' : '□') + '</button>' : '<span></span>')
       + '<span class="chg">' + (n ? '+' + n : '') + '</span></div>';
+    if (L.envSrc !== undefined) {
+      const vv = S.work[selCorner()], txt = envShareText(vv, L.envSrc), sh = sharers(vv, L.envSrc).length;
+      h += '<div class="envshare">' + (sh ? esc(txt).replace('shared with', '<b>shared with') + '</b>' : esc(txt)) + (srcOn(vv, L.envSrc) ? '' : ' (source off)') + '</div>';
+    }
     if (UI.copy.level === L.id) {
       const sel = (id, v) => '<select class="hd-select sm" data-ui="' + id + '" aria-label="' + (id === 'copyFrom' ? 'from corner' : 'to corner') + '">' + CN.map((c, k) => '<option value="' + k + '"' + (k === v ? ' selected' : '') + '>' + c + '</option>').join('') + '</select>';
       h += '<div class="copyrow"><span class="hd-label">copy ' + esc(L.name) + ' from</span>' + sel('copyFrom', UI.copy.from) + '<span class="hd-label">to</span>' + sel('copyTo', UI.copy.to)
-        + '<button class="hd-pill sm" data-act="copy" data-arg="' + L.id + '|arch"' + (L.noArch ? ' disabled title="' + esc(L.noArch) + '"' : ' title="copy the structure only (waves, modes, routing, …)"') + '>ARCH</button>'
+        + '<button class="hd-pill sm" data-act="copy" data-arg="' + L.id + '|arch"' + (archOff(S, L) ? ' disabled title="' + esc(archOff(S, L)) + '"' : ' title="copy the structure only (waves, modes, routing, …)"') + '>ARCH</button>'
         + '<button class="hd-pill sm" data-act="copy" data-arg="' + L.id + '|params" title="copy the numbers only">PARAMS</button>'
         + '<span class="hd-hint">only this level; locked keys and a locked corner are kept; one history step</span></div>';
     }
@@ -1994,6 +2457,10 @@ function renderLevels() {
   const sc = [['all', 'all four corners'], ['one', 'selected corner']];
   $('scope').innerHTML = sc.map(([v, l]) => '<button class="hd-pill sm" role="radio" aria-checked="' + (S.archScope === v) + '" data-act="set" data-arg="archScope|' + v + '">' + l + '</button>').join('');
   $('must').innerHTML = [['off', 'may land on home'], ['on', 'must change (PROPOSAL)']].map(([v, l]) => '<button class="hd-pill sm" role="radio" aria-checked="' + (S.archMust === (v === 'on')) + '" data-act="set" data-arg="archMust|' + v + '">' + l + '</button>').join('');
+  $('placement').innerHTML = [['a', '(a) Envelopes level'], ['b', '(b) each source\'s ARCH']].map(([v, l]) => '<button class="hd-pill sm" role="radio" aria-checked="' + (S.envPlacement === v) + '" data-act="set" data-arg="envPlacement|' + v + '">' + l + '</button>').join('');
+  $('placenote').innerHTML = S.envPlacement === 'a'
+    ? '<b>(a)</b>: the ENVELOPES level owns envelope architecture: which envelope each source follows, one-shot and the curve family. OSC 1, OSC 2, SUB and NOISE ARCH never touch envelopes. A per-source row\'s ARCH may split the source off a shared envelope.'
+    : '<b>(b)</b>: each source\'s own ARCH keeps its envelope choice (OSC 1 ARCH may move OSC 1 to another envelope). The ENVELOPES level and its rows draw envelope PARAMETERS only; one-shot and curve family move with VOICE or GLOBAL ARCH.';
   $('scopenote').innerHTML = S.archScope === 'all'
     ? '<b>All four</b> (Sluice\'s and Shriek\'s one-patch rule): an ARCH click gives every unlocked corner the same structure at that level; the corners keep their own numbers, so the pad still morphs smoothly.'
     : '<b>Selected corner</b> (horde\'s per-corner patches, ADR-188): structure may differ between corners and flips at the dominant corner as the puck crosses the centre lines (quantum).';
@@ -2227,7 +2694,11 @@ function renderPatch() {
   h += card('SUB', v['sub.on'] === 1, [pv('sub.on'), pv('sub.wave'), pv('sub.oct'), pv('sub.level'), pv('r.sub')]);
   h += card('NOISE', v['noise.on'] === 1, [pv('noise.on'), pv('noise.color'), pv('noise.level'), pv('r.noise')]);
   h += card('FILTERS', true, [pv('f.topo'), pv('fA.type'), pv('fA.cut'), pv('fA.res'), pv('fA.drive'), pv('fA.key'), pv('fB.on'), pv('fB.type'), pv('fB.cut'), pv('fB.res'), pv('r.o1'), pv('r.o2')]);
-  for (let e = 1; e <= 3; e++) h += card(e === 1 ? 'ENV 1 · AMP' : 'ENV ' + e, true, ['a', 'd', 's', 'r'].map(x => pv('e' + e + '.' + x, { a: 'attack', d: 'decay', s: 'sustain', r: 'release' }[x])));
+  for (let e = 1; e <= 4; e++) {
+    const fol = [0, 1, 2, 3].filter(i => srcOn(v, i) && governingEnv(v, i) === e).map(i => SRC_LABEL[i]);
+    h += card('ENV ' + e, true, [pv('e' + e + '.fam', 'curve family')].concat(e > 1 ? [pv('e' + e + '.os', 'one-shot')] : []).concat(['a', 'h', 'd', 's', 'r'].map(x => pv('e' + e + '.' + x, { a: 'attack', h: 'hold', d: 'decay', s: 'sustain', r: 'release' }[x]))),
+      ' <span class="lab-tag' + (fol.length > 1 ? ' prop' : '') + '">' + (fol.length ? esc(fol.join(' + ')) : 'no source') + '</span>');
+  }
   h += card('LFOS', true, [pv('l1.shape'), pv('l1.rate'), pv('l2.shape'), pv('l2.rate')]);
   h += card('SHRIEK', v['fx.sh.on'] === 1, [pv('sh.curve'), pv('sh.drive'), pv('sh.tone'), pv('fx.sh.mix', 'mix')], ' <span class="lab-tag stub">PASS-THROUGH · STUB</span>');
   h += card('CHORUS', v['fx.ch.on'] === 1, [pv('ch.mode'), pv('ch.rate'), pv('ch.depth'), pv('fx.ch.mix', 'mix')]);
@@ -2257,6 +2728,7 @@ function renderPatch() {
   else cstr += bx(0) + ar + bx(1) + ar + par(2, 4) + ar;
   cstr += '<span class="bx">OUT</span><span class="hd-hint" style="margin-left:8px">' + esc(BY['fx.topo'].labels[topo]) + ' · ' + esc(BY['fx.order'].labels[v['fx.order']]) + '</span>';
   $('chain').innerHTML = cstr;
+  paintEnvOverlay();
 }
 function renderRules() {
   const rs = S.rs, saved = storeGet();
@@ -2284,6 +2756,7 @@ function renderRules() {
       + '<span class="rs">' + esc(sh) + '</span>';
   }
   $('rules').innerHTML = h;
+  renderEnvRules();
   $('colls').innerHTML = '<b>Sources</b>: ' + Object.keys(SRC_COLL).map(k => esc(tokenLabel('@' + k, 'src'))).join(' · ')
     + '<br><b>Targets</b>: ' + Object.keys(DST_COLL).filter(k => k !== 'any-dest').map(k => esc(tokenLabel('@' + k, 'dst'))).join(' · ') + ' · any destination (all ' + DST_COLL['any-dest'].ids.length + ')';
   if (!$('cr-src').dataset.built) {
@@ -2295,6 +2768,42 @@ function renderRules() {
       + og('specific targets', MDST.slice(1).map(d => '<option value="' + d.id + '">' + esc(d.name) + '</option>'));
     $('cr-amt').innerHTML = [['0.02|0.1', 'small (2–10%)'], ['0.1|0.3', 'medium (10–30%)'], ['0.3|0.7', 'large (30–70%)'], ['0.7|1', 'extreme (70–100%)']].map(([v, l]) => '<option value="' + v + '">' + l + '</option>').join('');
   }
+}
+const RELMAX = [0.1, 0.25, 0.4, 0.6, 1.2, 3, 6, 8];
+function renderEnvRules() {
+  const E = S.rs.env;
+  let h = '<div class="er"><span class="hd-label">ARCHETYPE</span><span class="hd-label">WEIGHT</span><span></span><span class="hd-label">RANGES (s)</span>';
+  for (const k in ARCHETYPES) {
+    const A = ARCHETYPES[k], w = E.arche[k] || 0;
+    h += '<span>' + esc(A.name) + '</span><input type="range" min="0" max="3" step="0.25" value="' + w + '" data-env="arche.' + k + '" aria-label="' + esc(A.name) + ' weight"><span class="ro" id="ew-' + k + '">' + w.toFixed(2) + '</span>'
+      + '<span class="hd-hint">a ' + A.a.join('–') + ' · h ' + A.h.join('–') + ' · d ' + A.d.join('–') + ' · s ' + A.s.join('–') + ' · r ' + A.r.join('–') + ' · ' + FAMILIES[A.fam].name + (A.os ? ' · one-shot' : '') + '</span>';
+  }
+  h += '</div><div class="lab-bar" style="margin-top:4px"><span class="hd-label">relationships</span>';
+  for (const id of REL_IDS) h += '<button class="hd-pill sm" role="switch" aria-checked="' + !!E.rel[id] + '" data-act="envRel" data-arg="' + id + '">' + esc(RELS[id].name) + '</button>';
+  h += '</div><div class="lab-bar"><span class="hd-label">release at most</span><select class="hd-select sm" data-env="relMax" aria-label="release bound">' + RELMAX.map(x => '<option value="' + x + '"' + (Math.abs(E.relMax - x) < 1e-9 ? ' selected' : '') + '>' + x + ' s</option>').join('') + '</select>'
+    + '<span class="hd-label">sustain floor</span><input type="range" min="0" max="0.5" step="0.01" value="' + E.floor + '" data-env="floor" aria-label="sustain floor" style="width:90px"><span class="ro" id="ef-ro">' + E.floor.toFixed(2) + '</span>'
+    + '<span class="hd-label">tempo-relative times</span>' + ['on', 'triplet', 'dotted'].map(k => '<button class="hd-pill sm" role="switch" aria-checked="' + !!E.tempo[k] + '" data-act="envTempo" data-arg="' + k + '">' + (k === 'on' ? 'note values' : k === 'triplet' ? 'triplets' : 'dotted') + '</button>').join('')
+    + '<span class="lab-tag prop" title="the divisions are RC-7.4 of docs/proposals/morph-appendix-spec-text.md on origin/b585-appendix, horde #1275">RC-7.4 · PROPOSED, NOT RATIFIED</span></div>';
+  $('envrules').innerHTML = h;
+}
+function paintEnvOverlay() {
+  const cv = $('envov'); if (!cv) return;
+  const v = HEARD.v, dpr = window.devicePixelRatio || 1, W = Math.round((cv.clientWidth || 900) * dpr), H = Math.round((cv.clientHeight || 160) * dpr);
+  if (cv.width !== W) cv.width = W; if (cv.height !== H) cv.height = H;
+  const g = cv.getContext('2d'); g.clearRect(0, 0, W, H);
+  const G = 60 / S.bpm, envs = [], who = {};
+  for (let i = 0; i < 4; i++) if (srcOn(v, i)) { const n = governingEnv(v, i); if (!who[n]) { who[n] = []; envs.push(n); } who[n].push(SRC_LABEL[i]); }
+  const COL = ['--value', '--cC', '--cA', '--cD'], shapes = envs.map(n => envShape(v, n, G, 240));
+  let tot = G; for (const sh of shapes) tot = Math.max(tot, sh.tot);
+  const pad = 8 * dpr, bw = W - 2 * pad, bh = H - 2 * pad;
+  g.strokeStyle = cssv('--scr-grid'); g.lineWidth = 1; const gx = pad + bw * G / tot; g.beginPath(); g.moveTo(gx, pad); g.lineTo(gx, pad + bh); g.stroke();
+  for (let j = 0; j < shapes.length; j++) {
+    const sh = shapes[j], N = sh.pts.length; g.strokeStyle = cssv(COL[envs[j] - 1]); g.lineWidth = 2 * dpr; g.beginPath();
+    for (let i = 0; i < N; i++) { const X = pad + bw * (i / N) * (sh.tot / tot), Y = pad + bh * (1 - sh.pts[i]); if (i === 0) g.moveTo(X, Y); else g.lineTo(X, Y); }
+    g.stroke();
+  }
+  $('envlegend').innerHTML = envs.map((n, j) => '<span style="color:var(' + COL[n - 1] + ')">■</span> <b>ENV ' + n + '</b> ' + esc(FAMILIES[v['e' + n + '.fam'] | 0].name) + (n > 1 && v['e' + n + '.os'] === 1 ? ', one-shot' : '') + ': ' + esc(who[n].join(' + ')) + (who[n].length > 1 ? ' <span class="lab-tag prop">SHARED</span>' : '')).join(' · ')
+    + ' · the vertical line is the key-up, after one beat at ' + S.bpm + ' bpm';
 }
 function renderLog() {
   const el = $('log'), from = Math.max(0, LOG.length - 60);
@@ -2319,7 +2828,7 @@ function startAudio() {
     AC = new Ctx();
     ENG = new Engine(AC.sampleRate, UI.seed);
     ENG.pattern = UI.pattern; ENG.mw = UI.mw; ENG.intent = UI.intent.slice(); ENG.vol = UI.vol;
-    ENG.setPatch(HEARD.v); ENG.snapSmooth(); ENG.setMonitor(UI.mute, UI.solo, true);
+    ENG.bpm = S.bpm; ENG.setPatch(HEARD.v); ENG.snapSmooth(); ENG.setMonitor(UI.mute, UI.solo, true); UI.lmKey = ''; levelMatch();
     /* A ScriptProcessor on the main thread: the lab's monitor. Deprecated but universal, and it lets the engine read the
        morphed patch directly; heavy painting can underrun it (the browser-probes lesson: listen, don't trust a meter). */
     NODE = AC.createScriptProcessor(4096, 0, 2);
@@ -2341,6 +2850,7 @@ function guardLoop() {
     const t = [];
     for (let s = 0; s < 4; s++) { const q = ENG.srcSq[s] - UI.lastSq[s], r = Math.sqrt(Math.max(0, q) / (2 * dn)); t.push(SRC_NAMES[s] + ' ' + (r > 1e-6 ? (20 * Math.log10(r)).toFixed(1) : '−∞')); UI.lastSq[s] = ENG.srcSq[s]; }
     UI.lastN = ENG.srcN;
+    $('lmbtn').textContent = 'level match' + (UI.levelMatch ? ' ' + (20 * Math.log10(ENG.makeup)).toFixed(1) + ' dB' : ' off');
     $('srcmeters').textContent = 'source meters (RMS dBFS, after level, pan and gate × envelope; IF-6\'s tap): ' + t.join(' · ');
   }
   requestAnimationFrame(guardLoop);
@@ -2364,6 +2874,10 @@ function onClick(e) {
     case 'loadSet': dispatch({ t: 'loadSet', id: arg }); break;
     case 'delSet': dispatch({ t: 'delSet', id: arg }); break;
     case 'law': UI.morph.law = arg; render(); break;
+    case 'copyEnv': dispatch({ t: 'copyEnv', from: UI.ce.fc, fromSrc: UI.ce.fs, to: UI.ce.tc, toSrc: UI.ce.ts }); break;
+    case 'envRel': editRS(rs => { rs.env.rel[arg] = rs.env.rel[arg] ? 0 : 1; }); break;
+    case 'envTempo': editRS(rs => { rs.env.tempo[arg] = rs.env.tempo[arg] ? 0 : 1; }); break;
+    case 'lm': UI.levelMatch = !UI.levelMatch; b.setAttribute('aria-pressed', String(UI.levelMatch)); UI.lmKey = ''; levelMatch(); if (!UI.levelMatch) b.textContent = 'level match off'; break;
     case 'copyOpen': if (UI.copy.level === arg) UI.copy.level = null; else { UI.copy.level = arg; UI.copy.from = selCorner(); UI.copy.to = (selCorner() + 1) % 4; } renderLevels(); break;
     case 'copy': { const [level, kind] = arg.split('|'); dispatch({ t: 'copyLevel', level, kind, from: UI.copy.from, to: UI.copy.to }); break; }
     case 'home': dispatch({ t: 'home', sid: arg }); break;
@@ -2416,6 +2930,10 @@ function onInput(e) {
   if (t.dataset.set) {
     dispatch({ t: 'set', path: t.dataset.set, value: +t.value }, { light: true });
     if (t.dataset.set === 'amount') $('amount-ro').textContent = (+t.value).toFixed(2);
+  } else if (t.dataset.env) {
+    const path = t.dataset.env, x = +t.value;
+    editRS(rs => { if (path.slice(0, 6) === 'arche.') rs.env.arche[path.slice(6)] = x; else if (path === 'floor') rs.env.floor = x; }, true);
+    const a = path.slice(0, 6) === 'arche.' ? $('ew-' + path.slice(6)) : $('ef-ro'); if (a) a.textContent = x.toFixed(2);
   } else if (t.dataset.rule) {
     const [id, f] = t.dataset.rule.split('|'), x = +t.value;
     editRS(rs => { const r = rs.rules[id]; if (!r) return; if (f === 'w') r.w = x; else r.amt[f === 'a0' ? 0 : 1] = x; }, true);
@@ -2436,6 +2954,10 @@ function onChange(e) {
   if (!t) return;
   if (t.id === 'seed') { const s = parseInt(t.value, 16); if (s === s) newSession(s >>> 0); else setMsg('the seed is hex', true); return; }
   if (t.dataset && t.dataset.ui === 'mN') { UI.morph.n = +t.value; render(); return; }
+  if (t.dataset && t.dataset.env === 'relMax') { editRS(rs => { rs.env.relMax = +t.value; }); return; }
+  if (t.dataset && t.dataset.env) { render(); return; }
+  if (t.dataset && t.dataset.ui && t.dataset.ui.slice(0, 2) === 'ce') { UI.ce[t.dataset.ui.slice(2).toLowerCase()] = +t.value; return; }
+  if (t.dataset && t.dataset.ui === 'bpm') { dispatch({ t: 'set', path: 'bpm', value: +t.value }); return; }
   if (t.dataset && (t.dataset.ui === 'copyFrom' || t.dataset.ui === 'copyTo')) { UI.copy[t.dataset.ui === 'copyFrom' ? 'from' : 'to'] = +t.value; return; }
   if (t.dataset && t.dataset.ui === 'pattern') { UI.pattern = t.value; if (ENG) { ENG.pattern = t.value; ENG.step = 0; } return; }
   if (t.dataset && t.dataset.rs) {

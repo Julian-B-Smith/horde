@@ -1,0 +1,41 @@
+# b585-morph-appendix-r4 — Appendix D revision 4: the diff check's four majors, six minors, and the rulings on X41–X43
+
+- **Queue item:** B585 step 4.
+  - The critic's diff check of revision 3 (`4b1aa93`) confirmed every earlier fix and that 34.3's 24 picks reproduce, and found four new majors in revision 3's new material.
+  - The human ruled X41 and X43, and re-ruled X42: "With the other corner values". That supersedes the first X42 wording, which was the lead's own consequence line in ADR-326, not the human's.
+  - This entry follows `traces/2026-10-29-b585-morph-appendix-r3.md`.
+- **Why:** to make revision 4 ready for the lead's diff check against the critic's list.
+- **What changed:** `docs/proposals/morph-appendix-spec-text.md`, revision 4.
+  - **Merges:** MO-20 orders a merge and an un-merge, and fixes the order of several sets at one boundary. PA-7 defines "live". SB-11 replaces both groups' settings at a change of merge.
+  - **D.2:** splits the step rate into `morph.stepRate` and `morph.stepDivision`, and adds `morph.stepTriplet` and `morph.stepDotted`. IF-11 is updated to match.
+  - **RC-7.4:** now a fixed 22-row table of (index, name, kind, length), whatever the meter.
+  - **`cornerRatios` removed from IF-4:** each corner's texts are morph state (RC-11.1), outside RC-11.2's snapshot.
+  - **The minors:**
+    - SB-11 (a) compares every listed key, using `Param`-given values;
+    - `morph.audible` changed while the morph is off;
+    - `ratios` is capped at 256 bytes [X45] and compared as parsed lists, and it carries the mode and count menu;
+    - PA-7 refuses the morph's host ids;
+    - 34.12's n₀;
+    - §2.26's counts.
+  - **Tests:** 34.15, 34.17, 35.13 and 35.16 are extended.
+  - **§5:** X44 and X45 are open.
+  - **§8:** the fix table.
+  - `specs/`, `engine2/` and the rack contract are not edited.
+- **Merged** `origin/main` first. It had not moved (`a03701a`); the merge was a no-op.
+- **Evidence consulted:**
+  - **The brief:** the lead's, quoting the critic's findings and the rulings.
+  - **The spec:** `specs/SPEC-ENGINE.md`, read only: BL-15 (ratios matched to 0.01; an unreadable list refused); line 296 (`ratios` is oscillator state, not a host parameter, default `1, 5/4, 3/2`); C.10 item 5 (custom lists, parsed ratios); RC-7 (time signature carried).
+  - **Not read:** the clean-room repositories.
+- **Checked by hand:**
+  - RC-7.4's order by length in 4/4: every row is strictly longer than the one before.
+  - In 3/4, index 14 (1/2D) and index 15 (1 bar) are both 3/4 of a whole note, a tie that 34.17 pins.
+  - In 2/8, index 13 (1 bar T, 1/6 of a whole note) is shorter than index 12 (1/2), which is why the order is fixed by the table.
+- **Alternatives rejected:**
+  - **One `morph.stepRate` with two ranges:** a lockfile row has one range and taper.
+  - **An option list sorted by length in the current meter:** the index would move.
+  - **Matching across a merge:** a merged setting is a different instance.
+  - **Corner texts in IF-4:** X42 is re-ruled.
+- **Verify:** `./verify fast` was run after this trace was written, with every change staged. Its exit code and receipt are in the commit message.
+- **Open questions:**
+  - **For the human:** X44 (should the two toggles be host parameters) and X45 (the `ratios` length cap), in §5.
+  - **For the lead:** the rack-contract follow-up (RS-6.2, RS-6.3, RS-8.4) is still to file, and B590 still owns the divisions' adoption.

@@ -2,7 +2,7 @@
 
 *horde lab agent, 2026-10-29. Lab: [`random-lab.html`](random-lab.html). For the human to rule what a basic Random page in 1.0 contains.*
 
-**What this report can and cannot claim.** Every number below was **measured** by the lab's own functions, run headless in Node. The renderer is the one the page plays (one second of the "chord stabs" phrase at 44.1 kHz, monitor 0.7), over seeds 1–60. Nothing here is **guaranteed**: the self-checks C1–C18 are what the lab guarantees, and each of them has a must-fail control. Nobody has listened yet. "Loudness change" means RMS only, so a change of timbre at equal level reads as 0 dB. The synthesis is a stand-in, not horde's engine. Your ears on the lab are the gate this report cannot pass for you.
+**What this report can and cannot claim.** Every number below was **measured** by the lab's own functions, run headless in Node. The renderer is the one the page plays (one second of the "chord stabs" phrase at 44.1 kHz, monitor 0.7), over seeds 1–60. Nothing here is **guaranteed**: the self-checks C1–C28 are what the lab guarantees, and each of them has a must-fail control. Nobody has listened yet. "Loudness change" means RMS only, so a change of timbre at equal level reads as 0 dB. The synthesis is a stand-in, not horde's engine. Your ears on the lab are the gate this report cannot pass for you.
 
 ## 1. How to use the lab
 
@@ -238,6 +238,95 @@ The human played round 2 and ruled the five items below; ADR-320 quotes their wo
 
 **One Morph page** (ADR-322 item 2). The Random page folds into the Morph page: one pad, one set of corners, snapshots and sets, the morph laws, and a **Randomize panel** (levels, chaos and amount, locks, randomization presets). The Random tab goes. This lab is **not** restructured for that: it stays a research bench (ADR-316). Its pad, corners, snapshots and laws are the Morph page's own, shown here beside the levels so the two can be tried together. Wherever this report says "the Random page", read "the Morph page's Randomize panel".
 
+## 4d. Round 5 (2026-10-30): the envelopes as their own level
+
+The human: "'osc envelopes' should be its own level separate from the rest of the oscillator details, and each individual oscillator's envelope could be randomized separately." The rest was ruled by poll: "Params edit shared; Arch can split", and for the architecture "I'd like to test both options".
+
+**Correcting the record first.** Round 5's brief asked for level matching "as before". It was never built before: rounds 1–4 recommended it (finding 4, Q7) and only measured the problem. It is built now (below, C27).
+
+**The §4 numbers predate this round.** Every number in §4 was measured on the round-1 stand-in: one amp envelope after the filters, no hold, no curves. Round 5's envelopes change the sound, so treat §4's figures as relative findings, not current measurements.
+
+### The model the stand-in now follows (SPEC-ENGINE EN-1..4, C.12, RC-6.5)
+
+- **ENV 1 to ENV 4** are attack–hold–decay–sustain–release envelopes. Each timed stage follows C.12's curve law, y = (1 − e^(−c·t/T)) / (1 − e^(−c)) with c = 4u, and lands exactly on its target.
+- **One-shot (ENV 2–4):** a key-up is ignored until the decay ends.
+- **The selector:** each source (OSC 1, OSC 2, SUB, NOISE) chooses the envelope that governs its level with its `env` selector, ENV 1 by default. Several sources may share one.
+- **Placement in the voice:** the voice multiplies each source by its governing envelope before the filter (VO-9).
+- **Freeing:** a voice is freed when every governing envelope of its on sources has ended.
+- **Modulation:** ENV 2–4 stay modulation sources, with ENV 4 appended. A mod rule never shapes an envelope that governs an on source, because shaping it would change that source's level, not a modulation.
+- **Lab simplification:** the lab groups C.12's three curve values into one structural **curve family** per envelope (default, linear, exponential, punchy, swell). The spec has three continuous curves; the family is a stand-in for them.
+
+### 1. The ENVELOPES level, a row per source
+
+ENVELOPES has four rows, ENV OSC 1, ENV OSC 2, ENV SUB and ENV NOISE. Each acts on the envelope that source follows now, and under the row the lab shows who shares it: "OSC 1 follows ENV 1 · shared with OSC 2, SUB".
+
+- **PARAMS on a row** draws the stages of that envelope. If the envelope is shared, every source on it hears the change, and the row and the message say "SHARED with …". PARAMS never splits.
+- **ARCH on a row** (placement a) may **split** the source off a shared envelope first. It moves onto a free envelope, one that no on source follows and no mod route reads. The free envelope first takes a copy of the shared one, so nothing jumps. Only then does ARCH draw the free envelope's curve family and one-shot. The message says "OSC 1 SPLIT off ENV 1 (shared with OSC 2, SUB) onto free ENV 3, a copy of it". With no free envelope it says so and draws the shared one. Nothing splits silently.
+- **C19:** a shared PARAMS draw changes the shared envelope, the sources stay shared, and both the row and the message flag it. The control, a silent split, fails.
+- **C20:** ARCH splits OSC 1 from ENV 1 to ENV 3 as a copy, and OSC 2 and ENV 1 are left untouched. The control, a split without the copy, fails.
+
+### 2. The two placements of envelope architecture (a lab toggle, both end to end)
+
+| | (a) the Envelopes level owns it | (b) each source's ARCH keeps its choice |
+|---|---|---|
+| Who draws a source's envelope selector | ENVELOPES ARCH (all four), or the source's envelope row (by splitting); VOICE and GLOBAL ARCH | that source's own ARCH (OSC 1 ARCH may move OSC 1 to ENV 3); VOICE and GLOBAL ARCH |
+| One-shot and curve family | ENVELOPES ARCH, and each envelope row | VOICE and GLOBAL ARCH only (the Envelopes level and its rows have PARAMS only) |
+| OSC 1 ARCH alone, 60 seeds, default knobs | moved OSC 1's envelope 0 times | moved it 10 times |
+| What a move sounds like | a split is a copy first: no jump; the new envelope then changes only by its own draws | the source lands on whatever that envelope holds: a median 2.0× jump in its stage times (VOICE ARCH, 16 moves over 60 seeds) |
+| Check | C24 | C25 |
+
+In both placements a VOICE ARCH click leaves at least one shared envelope in 55 of 60 patches, because the selector's taste favours ENV 1. So sharing is the common case, and its handling decides how the page feels.
+
+**Recommendation: (a), the Envelopes level owns envelope architecture.**
+- **Sharing belongs to no single source.** The rule "Params edit shared; Arch can split" needs one place that sees every selector, decides when a split happens and announces it. (a) is that place; under (b) a split is a side effect of some other source's ARCH.
+- **No silent jumps.** Under (b), randomizing OSC 1's architecture also re-times OSC 1, by a median 2×, with no message tying it to the envelope. Under (a), OSC 1's ARCH changes only its waveform structure, which matches the human's request that envelopes be "its own level separate from the rest of the oscillator details".
+
+(b) is not wrong: it makes "randomize this oscillator completely" one click. If the human wants that, the cleaner form is (a) plus a shortcut ("ARCH incl. envelope") on the oscillator row that calls the envelope row's ARCH. That keeps the split rule in one place. Please compare them by ear with the toggle.
+
+### 3. The four brainstorm ideas
+
+- **Shape archetypes as envelope rules.**
+  - The six are pluck, pad/swell, stab, gate, reverse swell and transient-only. Each is a set of stage ranges, a curve family and a one-shot setting.
+  - With any archetype weighted, an envelope's PARAMS draw picks one archetype by weight and draws its stages inside its ranges; the bell and AMOUNT step aside for that envelope. Its ARCH draw takes the archetype's family and one-shot.
+  - They are selectable (weights in ENVELOPE RULES) and they are part of the role presets.
+  - The **role presets** (ADR-318) are Mono bass, Pad, Pluck, Lead and Arp, added beside Common and Everything (Anything). Each carries archetypes, a relationship, a release bound and, for Arp, tempo-relative times.
+  - **C28:** with only pluck weighted, every drawn envelope falls inside pluck's ranges, 40/40; the control is 0/40.
+- **Relationships between sources** apply on GLOBAL, VOICE and ENVELOPES draws:
+  - a noise transient against a slow oscillator swell (noise on its own fast, one-shot, zero-sustain envelope; oscillator attacks of at least 150 ms);
+  - the sub never attacks slower than the oscillators;
+  - a stagger of at least 30 ms from OSC 1 to OSC 2;
+  - one shape with small jitter per source (each source on its own envelope, within ±10% of OSC 1's).
+
+  A rule that needs a source on its own envelope splits only on an ARCH or randomize-patch draw, and always announces it; on a PARAMS draw it says it needs ARCH. **C21:** each rule holds on 60/60 random patches with all four sources on. The controls, rules off, give 0, 27, 14 and 0 of 60.
+- **Tempo-relative bounds** (in ENVELOPE RULES). Envelope times snap to the standard divisions at the patch tempo. A time shorter than the shortest division stays in seconds, a lab choice: a 1 ms attack has no note value.
+  - Triplet and dotted toggles add those rows, exactly as the table specifies (they filter the menu only).
+  - The table is RC-7.4 of `docs/proposals/morph-appendix-spec-text.md` on origin/b585-appendix (horde #1275, 22 rows). It is labelled in the page as **PROPOSED, not ratified**.
+  - **C22:** every drawn time is on the grid at 120 bpm (237/237) and at 90 bpm (225/225), and the 90-bpm lengths differ. Triplets appear only when toggled. The control, tempo off, puts 0/237 on the grid.
+- **Envelope copy and overlay.**
+  - Copy takes one source's governing envelope (stages, family, one-shot) and puts it into the envelope another source follows, in the same corner or another. Only that envelope changes. A shared target is flagged.
+  - The ⇄ copy on an envelope row does the same for one kind (structure or numbers).
+  - **C23:** 5 keys move, all of ENV 3, equal to A's ENV 1; the control, copying every envelope, moves 21.
+  - The **overlay** draws every on source's governing envelope as the puck hears it, by C.12's law, through the same envelope code the engine runs: one beat at the tempo, then the release. The legend names who follows each envelope and marks the shared ones.
+
+### 4. Musical safety
+
+- **Sustain floor** (default 0.15, in the profile). When no archetype is active, at least one on source's envelope keeps sustain at or above the floor after every draw.
+- **Releases bounded per role:** Mono bass 0.25 s, Arp 0.4 s, Pluck 0.6 s, Lead 1.2 s, Pad 6 s, the others 8 s.
+- **C26:** with the floor, 60/60 random patches keep a sounding sustain; the control, floor 0, gives 52/60. Under Mono bass every governing release is at most 0.25 s, 60/60; the control, Anything, gives 18/60.
+- **Level matching:** the heard patch is rendered offline and a make-up gain is applied at the output, aiming at −20 dBFS RMS, within ±12 dB. It is measured when the puck lands, not while it is dragged. It is monitor-side, like the mixer's make-up (IF-6, RC-2), and never changes a stored value; the button shows the gain. **C27:** two patches 8.4 dB apart come out 0.00 dB apart. This check proves the arithmetic only; RMS is not loudness as heard, and the human's ears decide whether −20 dBFS RMS sounds level across very different patches.
+
+### What I would put in 1.0
+
+- **The Envelopes level with per-source rows, under placement (a)**, with the split rule and its announcements.
+- **The archetypes as part of the role presets** (ADR-318's role set needs them to mean anything).
+- **The sustain floor, the release bound per role, and level matching.**
+- **Envelope copy** (it is round 4's level copy applied to envelopes).
+- **The overlay**, which the Morph page's Randomize panel needs in order to show what a draw did to the envelopes.
+- **After 1.0:**
+  - the relationship rules beyond "the sub never slower" (that one is a safety rule and can ship);
+  - user-edited archetypes;
+  - tempo-relative times, until RC-7.4 is ratified and the instrument has a tempo-synced envelope at all.
+
 ## 5. Proposed basic 1.0 set, and what comes after
 
 **Basic 1.0** (recommended):
@@ -325,7 +414,11 @@ The human played round 2 and ruled the five items below; ADR-320 quotes their wo
   - C15 QUANTUM flips each key at its own seeded boundary (control: one shared boundary);
   - C16 the ✕ deletes a saved snapshot (control: round 2's refusing rule);
   - C17 save all four (control: saving one corner);
-  - C18 copy a level between corners (control: a whole-corner copy).
+  - C18 copy a level between corners (control: a whole-corner copy);
+  - C19 a shared envelope's PARAMS draw (control: a silent split); C20 ARCH splits onto a free envelope (control: no copy);
+  - C21 the four relationship rules over 60 seeds (control: each rule off); C22 tempo-relative times at 120 and 90 bpm (control: tempo off);
+  - C23 envelope copy moves only that envelope (control: copying every envelope); C24 and C25 the two placements, each with the other as its control;
+  - C26 the sustain floor and the role's release bound (controls: floor 0, the Anything role); C27 level matching (control: unmatched); C28 archetypes (control: none).
 
   Each has a must-fail control.
 - **A headless Chrome run** clicked every level's ARCH and PARAMS and the grid, ruleset and lock buttons. It raised no error, and the replay matched (42 actions).

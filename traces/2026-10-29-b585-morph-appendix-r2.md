@@ -1,0 +1,31 @@
+# b585-morph-appendix-r2 — Appendix D revision 2: the critic's fixes and ADR-325's rulings
+
+- **Queue item:** B585 step 4. The critic reviewed revision 1 (`c75fa9f`, horde #1275) and ruled "Not ready; ready after the listed fixes". The human ruled X28–X35 (ADR-325). The lead's brief: fix B1, B2, M1–M12 and every minor finding on a fresh commit on `b585-appendix`, and remove each ruled item from §11.1.
+- **Why:** to make the text ready for the critic's re-read and the human's ratification. This entry follows `traces/2026-10-29-b585-morph-appendix-spec-text.md` and does not replace it.
+- **What changed:** `docs/proposals/morph-appendix-spec-text.md`, rewritten as revision 2.
+  - **Appendix D** now has MO-1 to MO-20 and SB-1 to SB-12, up from MO-1–17 and SB-1–10.
+  - **IF-12 is new:** the resolver's calls and the `SettingSet` event.
+  - **28 amended rows,** as before → after.
+  - **The stage 7 amendment to BD-8,** and the changes to `engine-structure.json`, proposed as text.
+  - **33 test items:** R1–R16 and E1–E17.
+  - **A diff summary.**
+  - **X36–X40:** the open points that remain.
+  - **§6:** a table mapping each finding to where it is fixed.
+  - `specs/`, `engine2/` and the rack contract are not edited.
+- **Main design choices:**
+  - **B1 (the glide):** the four corner weights glide together, with a joint snap, before the structure law. Morphable values are blended at the unglided weights, then glided themselves, which gives the same value for a linear blend. Quantum's picks read unglided weights. The resolver never glides a set's own weights.
+  - **B2 (the interface):** a `SettingSet` event (group id, n, key list, then entries of id, weight and values; the id is the lowest corner holding the setting). One-value keys arrive as `Param` events. A set is an input, never state: the stored values are the heaviest setting's, and the shell resends sets after a load or restore.
+  - **M8 (the slot rule):** generalised to n slots.
+  - **M9 (the draw):** written out exactly, FNV-1a over the purpose and the seed, then mulberry32.
+- **Evidence consulted:**
+  - **The rulings and records:** the lead's brief, quoting the critic's findings and ADR-325; ADR-324; `specs/SPEC-ENGINE.md` at `2af41d8` (read only), including BD-8, SW-1, PA-7, SN-3, IF-3, RC-7 and RC-11.2, which were new to this revision.
+  - **Read only:** `engine2/structure/engine-structure.json`; `src/hypersaw_clap.cpp:134, 511–541`; `src/morph_core.h`.
+  - **Not read:** the clean-room repositories.
+- **Measured / computed:** R3's golden picks, computed by two independent scratch scripts that follow MO-6 and MO-7's text (Python with 32-bit masking, JavaScript with `Math.imul`). They agree on all 24 picks and on the first shared draw (u = 0.5761699904687703, FNV state 0x5EE6354F).
+- **Alternatives rejected:**
+  - **Gliding each set weight in the resolver.** It is undefined at n = 2 (B1).
+  - **Holding sets in the state.** That would change IF-4's text.
+  - **Weighting the published R and ψ by the heaviest instance.** The published value would step when the heaviest instance changes; the mixture's order parameter is continuous.
+  - **Keeping persistent streams per slot.** That depends on state; they are kept per corner seed instead.
+- **Verify:** `./verify fast` exit 0 on HEAD `c75fa9f` with this change staged (`.harness/last-verify.json`: tree `5a46f9bd…`, 2026-10-30T01:13:30Z).
+- **Open questions:** X36–X40 in §5, for the human. The rack-contract follow-up (RS-6.2, RS-6.3, RS-8.4) is for the lead to file. Not checked: whether the bank's translated presets carry morph corners at all (relevant to X38).
