@@ -85,6 +85,10 @@
    "status": "exploring",
    "note": "Engine bench (B298): the swarm under SCALPEL's blades. No ruling found; not a design question."
   },
+  "composition-lab-r2.html": {
+   "status": "exploring",
+   "note": "B589/B594 round 2: the human's amendments to ADR-338 (2026-10-30)."
+  },
   "composition-lab.html": {
    "status": "ruled",
    "adr": "ADR-338",
