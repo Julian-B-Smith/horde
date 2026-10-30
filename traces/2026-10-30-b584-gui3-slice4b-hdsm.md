@@ -1,0 +1,21 @@
+# b584-gui3-slice4b-hdsm: re-vendor the design master at `1793336699-65f2` (`.sm` renamed `.hd-sm`)
+
+- **Queue item:** B584 slice 4b follow-up (#1284, same branch). It amends `traces/2026-10-30-b584-gui3-slice4b.md`, whose open question 1 this closes.
+- **Why:** slice 4b found that the revision's bare `.sm` restyled the Random and filter labs' own `sm` modifier. The design master renamed it `.hd-sm` in artifact `1793336699-65f2`.
+- **What changed:**
+  - `docs/design/arp-face/bundle.css` and `bundle.js` re-vendored verbatim plus the header line. `tokens.css` was regenerated and only its header line changed: no token changed.
+  - The provenance row and the labs finding in `docs/design/arp-face/README.md` now record the upstream fix.
+  - `docs/design/gui3/README.md`: proposal 20 reads "fixed upstream", and the bundle version is updated.
+  - **No bare `sm` in the shell:** gui3.html and `docs/design/gui3/` never add one. The dense faces come from the bundle's own components and from `.hd-dense`, so no shell edit was needed.
+- **Measured:**
+  - Headless Chrome, before (the pre-revision tree, `1793080392-2372`) against after (this copy), and after against after as a control:
+    - Random lab: identical.
+    - morph-blend-demo, arp-face-lab, h2-plan-map: identical.
+    - Filter lab: 199 px differ, all inside its "rev … · fp" stamp, which prints `document.lastModified` (the pre-revision copy is a fresh export).
+    - Page chrome lab: 55 px against 262 to 272 px of its own run-to-run motion.
+  - **GUI 3 screenshots:**
+    - Osc 1 under `65f2` is pixel-identical to Osc 1 from the committed slice-4b tree (`f870`), so the rename moved nothing.
+    - Dashboard, Mix and Main light are identical to the earlier screenshots.
+    - The earlier Osc 1 screenshot predates slice 4b's page-title no-wrap fix, so it differs by that fix alone.
+- **Verify:** `nice -n 10 ./verify fast` on the committed tree before the push (its result is in the report to the lead).
+- **Open questions:** none from this follow-up.

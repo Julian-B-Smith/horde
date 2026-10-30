@@ -25,7 +25,7 @@
 (function (root) {
   'use strict';
   var METHODS = ['manifest', 'setParam', 'getParam', 'value', 'display', 'snapshot', 'restore',
-    'saveState', 'loadState', 'gesture', 'events', 'observe'];
+    'saveState', 'loadState', 'gesture', 'events', 'observe', 'clearClip'];
   var MINUS = '−';
 
   function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
@@ -41,6 +41,10 @@
       case 'pow': return lo + (hi - lo) * v * v;
       case 'log, off zone': return v <= 0.01 ? 0 : 0.004 * Math.pow(hi / 0.004, (v - 0.01) / 0.99);
       case 'dB': return v === 0 ? -Infinity : lo + (hi - lo) * v;
+      // A hosted module's I/O gain (RS-4.6, docs/proposals/module-io-gain.md): dB = 48·(v − ½); a limiter face's
+      // output is cut-only (A1): 0 dB from v = ½ up, and its −∞ detent at v = 0.
+      case 'io': return 48 * (v - 0.5);
+      case 'io-cut': return v === 0 ? -Infinity : Math.min(0, 48 * (v - 0.5));
       case 'step': return Math.round(v * (row.n - 1));
     }
     throw new Error('unknown law ' + row.law);
@@ -56,7 +60,7 @@
   function display(row, v) {
     var x = lawX(row, v), u = row.unit;
     if (row.law === 'step') return row.options ? row.options[x] : String(row.lo + x);
-    if (row.law === 'dB') return x === -Infinity ? MINUS + '∞ dB' : signed(x, 1) + ' dB';
+    if (row.law === 'dB' || row.law === 'io' || row.law === 'io-cut') return x === -Infinity ? MINUS + '∞ dB' : signed(x, 1) + ' dB';
     if (row.law === 'log, off zone' && x === 0) return 'off';
     var bip = row.lo < 0;
     switch (u) {
@@ -86,13 +90,39 @@
     var refused = 0, out = [], extra = [];                        // extra: a loaded state's unknown members, in the order read (RC-9.3)
     function host(key) { var r = by[key]; return r && !r.reserved ? r : null; }
 
+    /* MOCK METERS (IF-6), for the Mix page's console (B589 Channel strip). There is no audio, so a source's meter reads
+       its own level as if fed a full-scale test tone, through IF-6's gate (a source that is off or muted is silent;
+       while any source is soloed every source that is not soloed is silent); the output reads the sum of the sounding
+       sources' gains times `out.level`. The clip latch (IF-6: "a latching clip flag ... readable and clearable") is set
+       when a meter reads over 0 dBFS and cleared only by clearClip. Labelled MOCK wherever it is drawn. */
+    var SOURCES = ['osc1', 'osc2', 'sub', 'noise'], latch = Object.create(null);
+    function dbOf(key) { var r = by[key]; if (!r) return -Infinity; var x = lawX(r, v[key]); return x; }
+    function isOn(key) { var r = by[key]; return !!r && r.options && r.options[lawX(r, v[key])] === 'on'; }
+    function meters() {
+      var anySolo = SOURCES.some(function (s) { return isOn(s + '.solo'); }), m = {}, sum = 0;
+      SOURCES.forEach(function (s) {
+        var silent = !isOn(s + '.on') || isOn(s + '.mute') || (anySolo && !isOn(s + '.solo'));
+        var db = silent ? -Infinity : dbOf('mix.' + s);
+        m[s] = db; if (db > -Infinity) sum += Math.pow(10, db / 20);
+      });
+      var outDb = dbOf('out.level');
+      m.out = sum > 0 && outDb > -Infinity ? 20 * Math.log10(sum) + outDb : -Infinity;
+      return m;
+    }
+    function relatch() {
+      var m = meters();
+      for (var id in m) if (m[id] > 0) latch[id] = { on: true, max: Math.max(m[id], latch[id] && latch[id].on ? latch[id].max : -Infinity) };
+    }
+
     E.manifest = function () { return rows; };
     /* A Param for an unknown key, or for a reserved row's, is refused and counted (5.1, PA-7). */
     E.setParam = function (key, val) {
       var r = host(key);
       if (!r || typeof val !== 'number' || val !== val) { refused++; return null; }
-      v[key] = snap(r, val); return v[key];
+      v[key] = snap(r, val); relatch(); return v[key];
     };
+    /* IF-6: clear a clip latch (from another thread, in the plugin). Returns whether one was set. */
+    E.clearClip = function (id) { var was = !!(latch[id] && latch[id].on); latch[id] = { on: false, max: -Infinity }; return was; };
     E.getParam = function (key) { return by[key] ? (by[key].reserved ? 0 : v[key]) : null; };
     E.value = function (key) { var r = by[key]; return r ? lawX(r, E.getParam(key)) : null; };
     E.display = function (key, val) { var r = by[key]; return r ? display(r, val === undefined ? E.getParam(key) : snap(r, val)) : ''; };
@@ -100,7 +130,7 @@
     E.snapshot = function () { return { v: rows.map(function (r) { return v[r.key]; }), ratios: { osc1: ratios.osc1, osc2: ratios.osc2 } }; };
     E.restore = function (s) {
       if (!s || !s.v || s.v.length !== rows.length) return false;
-      rows.forEach(function (r, i) { v[r.key] = s.v[i]; }); ratios = { osc1: s.ratios.osc1, osc2: s.ratios.osc2 }; return true;
+      rows.forEach(function (r, i) { v[r.key] = s.v[i]; }); ratios = { osc1: s.ratios.osc1, osc2: s.ratios.osc2 }; relatch(); return true;
     };
     /* IF-4's members as JSON (SHAPE ONLY, see the header). Known keys in manifest order, then the unknown ones kept. */
     E.saveState = function () {
@@ -124,7 +154,7 @@
       }
       if (d.ratios) ratios = { osc1: String(d.ratios.osc1), osc2: String(d.ratios.osc2) };
       for (var t in d) if (t !== 'version' && t !== 'params' && t !== 'ratios') keep.push({ where: 'top', key: t, value: d[t] });
-      extra = keep;
+      extra = keep; relatch();
       return { ok: true };
     };
     /* RC-11.3: accepted and reported back unchanged; they change nothing in the sound. */
@@ -135,40 +165,78 @@
     E.observe = function () {
       var heard = {};
       rows.forEach(function (r) { if (r.law === 'step' && !r.reserved) heard[r.key] = display(r, v[r.key]); });
-      return { source: 'stub', audio: false, voices: [], heard: heard, refused: refused,
+      var m = meters(), mt = {};
+      for (var id in m) mt[id] = { peak: m[id], clip: { on: !!(latch[id] && latch[id].on), max: latch[id] && latch[id].on ? latch[id].max : null } };
+      return { source: 'stub', audio: false, voices: [], heard: heard, refused: refused, meters: mt, metersMock: true,
         counters: { memberSamples: 0, edgesCorrected: 0, edgesLeftOver: 0, envelopeSteps: 0, voicesSounding: 0 } };
     };
   }
 
+  /* THE TWO OTHER STUBS BEHIND THE SEAM (ADR-330). Not everything the shell edits is the engine's:
+     - the morph's settings (Appendix D.2) and position are the morph RESOLVER's inputs (IF-12's calls), and
+       "the morph's parameters reach the resolver, never the engine" (IF-11);
+     - a hosted FX module's parameters are the RACK's (RC-5, IF-7: `fx/N` sets go to the rack, never to the
+       engine), and Arp's are the device's MIDI module's.
+     Each stub holds what it is sent, refuses (and counts) a key it does not own, and answers a read-only view. */
+  function ResolverStub(rows) {
+    var R = this, own = Object.create(null), settings = Object.create(null), pos = { x: 0.5, y: 0.5 }, refused = 0;
+    rows.forEach(function (r) { own[r.key] = r; settings[r.key] = r.default_v; });
+    R.settings = function (vals) { for (var k in vals) { if (own[k] && typeof vals[k] === 'number' && vals[k] === vals[k]) settings[k] = snap(own[k], vals[k]); else refused++; } };
+    R.position = function (x, y) { pos = { x: x, y: y }; };
+    R.get = function (key) { return own[key] ? settings[key] : null; };
+    R.observe = function () { var s = {}; for (var k in settings) s[k] = settings[k]; return { settings: s, position: { x: pos.x, y: pos.y }, refused: refused }; };
+  }
+  function DeviceSideStub(rows) {
+    var X = this, own = Object.create(null), vals = Object.create(null), refused = 0;
+    rows.forEach(function (r) { own[r.key] = r; vals[r.key] = r.default_v; });
+    /* `side` is 'rack' (a hosted module's key) or 'midi' (Arp's); a key sent to the wrong side is refused. */
+    X.set = function (side, values) { for (var k in values) { var r = own[k]; if (r && r.target === side && !r.reserved && typeof values[k] === 'number' && values[k] === values[k]) vals[k] = snap(r, values[k]); else refused++; } };
+    X.get = function (key) { return own[key] && !own[key].reserved ? vals[key] : null; };
+    X.observe = function () { var o = {}; for (var k in vals) if (!own[k].reserved) o[k] = vals[k]; return { values: o, refused: refused }; };
+  }
+
   /* THE TRANSPORT (ADR-319 item 3, B588). The adapter never calls an engine: it sends messages and hears
-     snapshots, through any object with TRANSPORT (`send(msg)` and `onSnapshot(fn)`), so the way the two
-     sides talk can be swapped without touching the shell or the adapter. Messages:
-       { type: 'set', seq, values: { key: v, ... } }     parameter values (one message for many keys)
+     snapshots, through any object with TRANSPORT (`send(msg)` and `onSnapshot(fn)`), so the way the sides
+     talk can be swapped without touching the shell or the adapter. Messages:
+       { type: 'set', seq, values: { key: v, ... } }     engine parameter values (one message for many keys)
        { type: 'gesture', seq, key, phase }              RC-11.3's begin and end
-     A snapshot is { ack, params: { key: v }, events, observe, state }: `ack` is the seq of the last message
-     the engine applied, so the adapter can tell a snapshot that has not yet seen its latest send (stale)
-     from a change the engine made itself (engine-originated: host automation, a load, a clamp).
+       { type: 'morph', seq, settings: { key: v } }      the morph's settings, to the resolver (IF-12)
+       { type: 'position', seq, x, y }                   the morph position, to the resolver (IF-12)
+       { type: 'rack', seq, values }                     a hosted module's values, to the rack (RC-5, IF-7)
+       { type: 'midi', seq, values }                     Arp's values, to the device's MIDI module
+       { type: 'clear', seq, id }                        clear a meter's clip latch (IF-6)
+     A snapshot is { ack, params: { key: v }, events, observe, state, resolver, device }: `params` holds the
+     engine's and the device side's values (namespaced keys, so they cannot collide); `ack` is the seq of the
+     last message applied, so the adapter can tell a snapshot that has not yet seen its latest send (stale)
+     from a change made on that side itself (host automation, a load, a clamp).
      This one is SYNCHRONOUS: send applies the message and publishes a snapshot before it returns. The two
      to come are written up in gui3/README.md: the AudioWorklet's postMessage (asynchronous, the engine
      publishes RC-8's snapshot on its own clock) and shared memory (B588: a SharedArrayBuffer double
-     buffer, which needs cross-origin isolation). `publish()` is the stub's stand-in for the engine
-     publishing on its own; the seam check uses it to play host automation. */
+     buffer, which needs cross-origin isolation). `publish()` is the stub's stand-in for a side publishing
+     on its own; the seam check uses it to play host automation. */
   var TRANSPORT = ['send', 'onSnapshot'];
-  function SyncTransport(engine) {
+  function SyncTransport(engine, resolver, device) {
     var missing = METHODS.filter(function (m) { return !engine || typeof engine[m] !== 'function'; });
     if (missing.length) throw new Error('the engine lacks the seam’s methods: ' + missing.join(', '));
     var subs = [], ack = 0, rows = engine.manifest();
     function snapshot() {
       var p = {};
       rows.forEach(function (r) { if (!r.reserved) p[r.key] = engine.getParam(r.key); });
-      return { ack: ack, params: p, events: engine.events(), observe: engine.observe(), state: engine.saveState() };
+      var dv = device ? device.observe() : { values: {}, refused: 0 };
+      for (var k in dv.values) p[k] = dv.values[k];
+      return { ack: ack, params: p, events: engine.events(), observe: engine.observe(), state: engine.saveState(),
+        resolver: resolver ? resolver.observe() : null, device: dv };
     }
     function publish() { var s = snapshot(); subs.forEach(function (fn) { fn(s); }); }
     return {
       send: function (m) {
         if (m.type === 'set') { for (var k in m.values) engine.setParam(k, m.values[k]); }
         else if (m.type === 'gesture') engine.gesture(m.key, m.phase);
-        else throw new Error('unknown message ' + m.type);
+        else if (m.type === 'morph' && resolver) resolver.settings(m.settings);
+        else if (m.type === 'position' && resolver) resolver.position(m.x, m.y);
+        else if ((m.type === 'rack' || m.type === 'midi') && device) device.set(m.type, m.values);
+        else if (m.type === 'clear') engine.clearClip(m.id);
+        else throw new Error('unknown message ' + m.type + (m.type === 'morph' || m.type === 'position' ? ' (no resolver behind this transport)' : m.type === 'rack' || m.type === 'midi' ? ' (no device side behind this transport)' : ''));
         ack = m.seq; publish();
       },
       onSnapshot: function (fn) { subs.push(fn); fn(snapshot()); },
@@ -176,5 +244,6 @@
     };
   }
 
-  root.GUI3Engine = { METHODS: METHODS, TRANSPORT: TRANSPORT, Stub: Stub, SyncTransport: SyncTransport, lawX: lawX, snap: snap, display: display };
+  root.GUI3Engine = { METHODS: METHODS, TRANSPORT: TRANSPORT, Stub: Stub, ResolverStub: ResolverStub, DeviceSideStub: DeviceSideStub,
+    SyncTransport: SyncTransport, lawX: lawX, snap: snap, display: display };
 })(typeof window !== 'undefined' ? window : globalThis);

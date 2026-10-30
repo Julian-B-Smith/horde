@@ -89,8 +89,12 @@
         owners[r.key] = cur === undefined || bv - (w[cur] + j[cur]) > HYST ? best : cur;
       });
     }
+    /* morph.on and morph.audible are D.2 rows (ADR-330) and also the adapter's own morph state (ADR-319): one value,
+       read from the state, so the chrome's switch, the Morph page's control and the resolver never disagree. */
     function heard(key) {
       var r = by[key]; if (!r) return null;
+      if (key === 'morph.on') return st.morphOn ? 1 : 0;
+      if (key === 'morph.audible') return st.audible / 3;
       if (r.class === 'D') return st.dev[key];
       if (r.class === 'S') return st.corners[owners[key]][key];
       var w = weights(), b = 0; for (var i = 0; i < 4; i++) b += w[i] * st.corners[i][key]; return b;
@@ -98,17 +102,25 @@
     /* Send the heard values of `keys` (all by default) as one message. A value the adapter sends replaces an
        engine-originated one for that key, so a key the engine had changed is always re-sent, even when our
        own value did not move (else the engine would keep its value while the display showed ours). */
+    /* Each value goes to the side that owns it (ADR-330): the engine's to the engine (IF-11), the morph's settings to
+       the resolver (IF-12: "the morph's parameters reach the resolver, never the engine"), a hosted module's to the
+       rack (RC-5, IF-7) and Arp's to the device's MIDI module. One message per side. */
+    var MSG = { engine: 'set', resolver: 'morph', rack: 'rack', midi: 'midi' };
     function send(keys) {
-      var vals = {}, n = 0;
+      var by_t = {}, n = 0;
       (keys || rows.map(function (r) { return r.key; })).forEach(function (k) {
         var v = heard(k), had = k in fromEngine; delete fromEngine[k];
         if (!had && sentV[k] === v) return;
-        vals[k] = v; n++;
+        var t = MSG[by[k].target || 'engine'];
+        (by_t[t] = by_t[t] || {})[k] = v; n++;
       });
       if (!n) return;
-      var s = ++seq;
-      for (var k in vals) { sentV[k] = vals[k]; sentSeq[k] = s; }
-      transport.send({ type: 'set', seq: s, values: vals });
+      ['set', 'morph', 'rack', 'midi'].forEach(function (t) {
+        var vals = by_t[t]; if (!vals) return;
+        var s = ++seq;
+        for (var k in vals) { sentV[k] = vals[k]; sentSeq[k] = s; }
+        transport.send(t === 'morph' ? { type: t, seq: s, settings: vals } : { type: t, seq: s, values: vals });
+      });
     }
     function onSnapshot(s) {
       lastSnap = s;
@@ -162,6 +174,8 @@
     D.set = function (key, v, o) {
       var r = by[key]; if (!r || typeof v !== 'number' || v !== v) return null;
       v = snap(r, v);
+      if (key === 'morph.on') { D.setMorph({ on: v >= 0.5 }); return v; }
+      if (key === 'morph.audible') { D.setAudible(Math.round(v * 3)); return v; }
       var want = o && o.corner !== undefined && o.corner !== null ? o.corner : null, i;
       if (r.class === 'D') i = null;
       else if (!st.morphOn) { if (want !== null && want !== st.audible) return null; i = st.audible; }
@@ -177,14 +191,16 @@
       var x = m.x === undefined ? pos.x : clamp01(m.x), y = m.y === undefined ? pos.y : clamp01(m.y);
       var on = m.on === undefined ? st.morphOn : !!m.on;
       if (x === pos.x && y === pos.y && on === st.morphOn) return;
+      var moved = x !== pos.x || y !== pos.y;
       pos = { x: x, y: y };
+      if (moved) transport.send({ type: 'position', seq: ++seq, x: x, y: y });   // IF-12: the position, to the resolver
       if (on !== st.morphOn) step(on ? 'Morph on' : 'Morph off', function () { st.morphOn = on; });
-      reown(); send(morphing.map(function (r) { return r.key; })); changed();
+      reown(); send(morphing.map(function (r) { return r.key; }).concat(by['morph.on'] ? ['morph.on'] : [])); changed();
     };
     D.setAudible = function (i) {
       if (!(i >= 0 && i < 4) || i === st.audible) return false;
       step('Audible with morph off: corner ' + CORNER_IDS[i], function () { st.audible = i; });
-      reown(); send(morphing.map(function (r) { return r.key; })); changed(); return true;
+      reown(); send(morphing.map(function (r) { return r.key; }).concat(by['morph.audible'] ? ['morph.audible'] : [])); changed(); return true;
     };
     /* Corners: names (a preset's name, never product copy; null reads "Empty"), saved presets, revert. */
     function okName(n) { return typeof n === 'string' && n.trim().length > 0 && n.trim().length <= NAME_MAX; }
@@ -217,7 +233,10 @@
     D.routes = function () { return st.routes.map(function (r) { return { id: r.id, src: r.src, param: r.param, pol: r.pol, depth: r.depth }; }); };
     D.addRoute = function (rt) {
       var r = by[rt && rt.param];
-      if (!r || r.law === 'step' || !r.pv) return { ok: false, why: (rt && rt.param) + ' is not a continuous host parameter (RC-4: a destination is in the manifest)' };
+      // A destination is a continuous parameter of a manifest (RC-4): an engine row that takes per-voice modulation,
+      // or a hosted module's or Arp's continuous row. The morph's settings are the resolver's inputs (IF-12), not
+      // modulation destinations in any ruling, so they are refused.
+      if (!r || r.law === 'step' || (r.target === 'resolver') || ((r.target || 'engine') === 'engine' && !r.pv)) return { ok: false, why: (rt && rt.param) + ' is not a continuous parameter a route can reach (RC-4)' };
       if (!SOURCES.some(function (s) { return s.id === rt.src; })) return { ok: false, why: rt.src + ' is not a source the engine publishes (IF-3)' };
       var pol = rt.pol || 'uni', depth = rt.depth === undefined ? 0.25 : rt.depth;
       if (POLS.indexOf(pol) < 0 || typeof depth !== 'number' || !(depth >= 0 && depth <= 1)) return { ok: false, why: 'depth is in the destination’s normalised range, 0 to 1 (RC-4)' };
@@ -284,8 +303,13 @@
     D.redo = function () { if (tx || !future.length) return false; var e = future.pop(); past.push(e); apply(e.after); return true; };
     /* What the engine said last: its state document (IF-4) and its observation view (IF-10), from the latest snapshot. */
     D.patch = function () { return { shell: JSON.parse(snapshot()), morph: D.morph(), engine: lastSnap ? lastSnap.state : null }; };
-    D.observe = function () { return { engine: lastSnap ? lastSnap.observe : null, morph: D.morph(), routes: st.routes.length }; };
+    D.observe = function () { return { engine: lastSnap ? lastSnap.observe : null, resolver: lastSnap ? lastSnap.resolver : null,
+      device: lastSnap ? lastSnap.device : null, morph: D.morph(), routes: st.routes.length }; };
     D.engineEvents = function () { var e = events; events = []; return e; };
+    /* The meters and clip latches the engine publishes (IF-6), read from the latest snapshot (MOCK in the stub), and the
+       latch's clear, which goes to the engine like any other message (the latch lives on the audio side). */
+    D.meters = function () { return lastSnap && lastSnap.observe && lastSnap.observe.meters || {}; };
+    D.clearClip = function (id) { transport.send({ type: 'clear', seq: ++seq, id: id }); rev++; };
 
     reown();
     transport.onSnapshot(onSnapshot);

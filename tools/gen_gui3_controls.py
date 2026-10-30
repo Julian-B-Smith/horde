@@ -47,6 +47,9 @@ WHAT --check GATES (each failure carries its tag; the controls below assert the 
   determinism     no gui3 script reads a clock or an unseeded random source
   bank            the bottom modulator bank's critical controls (ADR-322 item 3) are chosen per kind in
                   layout.json with a reason, and every chosen row exists in each block the kind matches
+  nav             every page sits in exactly one group of the two-level page bar (B589 Page nav)
+  role            a section header's power/modes and a channel strip's fader/on/mute/solo suit their rows
+  dashboard       each dashboard card carries its source's power switch and only keys its source page carries
   stale           the committed outputs equal what this run generates
 MUST-FAIL CONTROLS, every run, on in-memory copies: an unknown key, an unplaced host row, a placed
 reserved row, a knob on a stepped row, an override with no reason, a reason with no override, a bank control with no parameter, a bank choice
@@ -378,6 +381,89 @@ def widget_fits(r, w):
     return step                                           # stepper
 
 
+NAV_OUT = [None]   # generate() leaves the checked nav here for render(); one run, one layout
+SIZES = ("primary", "standard", "compact", "utility")   # B589's size ladder (Knob and Slider `size`)
+ROLES = {"power": "toggle", "on": "toggle", "mute": "toggle", "solo": "toggle", "modes": "pills", "fader": "vslider"}
+
+
+def is_switch(r):
+    return r["law"] == "step" and r.get("options") is not None and sorted(o.lower() for o in r["options"]) == ["off", "on"]
+
+
+def check_role(r, role, where):
+    """A role puts a row in a composite (a Section header's on toggle or mode pills; a channel strip's fader and
+    switches); the role fixes its widget, so the widget rule's override check does not apply. The row must suit it."""
+    if role not in ROLES:
+        raise Red("role", f"{where}: role {role!r} is not one of {sorted(ROLES)}")
+    if ROLES[role] == "toggle" and not is_switch(r):
+        raise Red("role", f"{where}: a {role} role needs an off/on row")
+    if role == "modes" and not (r["law"] == "step" and r.get("options") and r["n"] <= PILLS_MAX):
+        raise Red("role", f"{where}: the modes role needs a stepped row of at most {PILLS_MAX} options")
+    if role == "fader" and r["law"] == "step":
+        raise Red("role", f"{where}: a fader needs a continuous row")
+    return ROLES[role]
+
+
+def check_composites(pages, by):
+    """The dashboard's cards (B589): each names its `source` page, carries that source's power switch and at least one
+    control, and every control on it is a key that source's own page carries (one model, two views). The console's
+    strips: one fader each; the master has no on, mute or solo. A section carries at most one power and one modes."""
+    ids = {p["id"]: p for p in pages}
+    for pg in pages:
+        check_viz(pg.get("viz"), by, f"page {pg['id']}")
+        if pg.get("power") and not (pg["power"] in by and is_switch(by[pg["power"]])):
+            raise Red("role", f"page {pg['id']}: its power {pg['power']!r} is not an off/on row")
+        for g in pg["groups"]:
+            check_viz(g.get("viz"), by, f"page {pg['id']} group {g['title']}")
+            roles = [c["role"] for c in g["controls"] if c["role"]]
+            for one in ("power", "modes", "fader", "on", "mute", "solo"):
+                if roles.count(one) > 1:
+                    raise Red("role", f"page {pg['id']} group {g['title']}: two {one} roles")
+            if pg.get("panel") == "dashboard":
+                src = ids.get(g.get("source"))
+                if not src:
+                    raise Red("dashboard", f"dashboard card {g['title']}: source {g.get('source')!r} is not a page")
+                own = {c["key"] for gg in src["groups"] for c in gg["controls"]}
+                if "power" not in roles or len(g["controls"]) < 2:
+                    raise Red("dashboard", f"dashboard card {g['title']}: a card carries its source's power switch and at least one control")
+                stray = [c["key"] for c in g["controls"] if c["key"] not in own]
+                if stray:
+                    raise Red("dashboard", f"dashboard card {g['title']}: {stray} are not on {src['label']}'s own page (one model, two views)")
+            if g.get("strip"):
+                if roles.count("fader") != 1:
+                    raise Red("role", f"strip {g['title']}: a strip has exactly one fader")
+                if g.get("master") and any(r in roles for r in ("on", "mute", "solo")):
+                    raise Red("role", f"strip {g['title']}: the master has no on, mute or solo")
+
+
+VIZ_KINDS = ("osc", "sub", "noise", "env")
+
+
+def check_viz(v, by, where):
+    """A page's or card's picture (B589: visuals take the area): its kind and the keys it reads, all real rows."""
+    if v is None:
+        return
+    if not isinstance(v, dict) or v.get("kind") not in VIZ_KINDS or not isinstance(v.get("keys"), dict):
+        raise Red("role", f"{where}: a viz is {{kind: one of {VIZ_KINDS}, keys: {{...}}}}")
+    for name, k in v["keys"].items():
+        if k not in by or by[k]["reserved"]:
+            raise Red("unknown-key", f"{where}: viz key {name} = {k!r} is not a parameter")
+
+
+def check_nav(layout, pages):
+    """The two-level page bar (B589 Page nav): every page sits in exactly one group, and every group's page exists."""
+    nav = layout.get("nav")
+    if not nav:
+        raise Red("nav", "layout.json has no `nav` (B589's page bar)")
+    ids = [p["id"] for p in pages]
+    listed = [pid for grp in nav for pid in grp["pages"]]
+    missing = [pid for pid in ids if listed.count(pid) != 1]
+    unknown = [pid for pid in listed if pid not in ids]
+    if missing or unknown:
+        raise Red("nav", f"nav: pages in no group or in two {missing}; pages that do not exist {unknown}")
+    return nav
+
+
 def check_live(cond, by, where):
     if not isinstance(cond, dict):
         raise Red("live", f"{where}: a condition is an object")
@@ -414,9 +500,27 @@ def build_pages(rows, layout):
                 blk = [r for r in rows if r["block"] == g["block"]]
                 if not blk:
                     raise Red("unknown-key", f"page {pg['id']}: no block {g['block']!r} in the spec")
-                entries = [{"key": r["key"]} for r in blk if not r["reserved"]]
+                meta = g.get("meta") or {}
+                if meta:
+                    # A dense section lists its block's chosen rows first, by suffix, in `meta`'s order; the block's other
+                    # rows follow, under the collapsed Advanced group when `rest` says so. Every row stays on the page.
+                    names = {r["key"] for r in blk}
+                    for suf, m in meta.items():
+                        k = f"{g['block']}.{suf}"
+                        if k not in names:
+                            raise Red("unknown-key", f"page {pg['id']}: {k!r} (meta) is not a row of block {g['block']}")
+                        entries.append(dict(m, key=k))
+                    picked = {e["key"] for e in entries}
+                    adv = g.get("rest") == "advanced"
+                    tail = [dict({"key": r["key"]}, **({"advanced": True} if adv else {})) for r in blk if not r["reserved"] and r["key"] not in picked]
+                else:
+                    entries = [{"key": r["key"]} for r in blk if not r["reserved"]]
+                    tail = []
+            else:
+                tail = []
             for e in g.get("keys", []):
                 entries.append(e if isinstance(e, dict) else {"key": e})
+            entries += tail
             if "live" in g:
                 check_live(g["live"], by, f"page {pg['id']} group {g['title']}")
             controls = []
@@ -430,14 +534,21 @@ def build_pages(rows, layout):
                 if k in seen:
                     raise Red("duplicate", f"page {pg['id']}: {k} placed twice")
                 seen.add(k)
-                w = e.get("widget") or default_widget(r)
+                role = e.get("role")
+                if role is not None:
+                    w = check_role(r, role, f"page {pg['id']} {k}")
+                    e = {kk: vv for kk, vv in e.items() if kk not in ("widget", "reason")}
+                else:
+                    w = e.get("widget") or default_widget(r)
+                if e.get("size") not in (None,) + SIZES:
+                    raise Red("widget", f"page {pg['id']}: {k} size {e.get('size')!r} is not one of {SIZES}")
                 if w not in WIDGETS or not widget_fits(r, w):
                     raise Red("widget", f"page {pg['id']}: {k} cannot be a {w!r} ({r['law']}, {r.get('n')} options)")
                 # The rule allows any knob or slider for a continuous row; anything else that differs from the
                 # rule's choice is an override, and an override carries its reason (ADR-319 item 5). A reason on
                 # an entry the rule already gives is refused too: it would claim an override that is not there.
                 rule = default_widget(r)
-                override = w != rule and not (r["law"] != "step" and w in ("knob", "hslider", "vslider"))
+                override = role is None and w != rule and not (r["law"] != "step" and w in ("knob", "hslider", "vslider"))
                 reason = (e.get("reason") or "").strip()
                 if override and not reason:
                     raise Red("override-reason", f"page {pg['id']}: {k} is a {w!r} where the widget rule gives {rule!r}: an override needs a `reason`")
@@ -448,11 +559,18 @@ def build_pages(rows, layout):
                     check_live(live, by, f"page {pg['id']} {k}")
                 if "live" in g:                           # a group's condition ANDs with the control's own
                     live = g["live"] if live is None else {"all": [g["live"], live]}
-                controls.append({"key": k, "widget": w, "live": live, "override": reason or None})
+                controls.append({"key": k, "widget": w, "live": live, "override": reason or None, "role": role,
+                                 "sub": e.get("sub"), "size": e.get("size"), "advanced": bool(e.get("advanced"))})
                 placed.add(k)
-            groups.append({"title": g["title"], "tag": g.get("tag"), "controls": controls})
+            if g.get("rule") not in (None, "solid", "dash", "dot", "none"):
+                raise Red("role", f"page {pg['id']} group {g['title']}: rule {g.get('rule')!r} is not solid, dash, dot or none")
+            groups.append({"title": g["title"], "tag": g.get("tag"), "screen": g.get("screen"), "controls": controls,
+                           "num": g.get("num"), "rule": g.get("rule"), "source": g.get("source"), "viz": g.get("viz"),
+                           "strip": g.get("strip"), "master": bool(g.get("master"))})
         pages.append({"id": pg["id"], "label": pg["label"], "status": pg["status"], "note": pg.get("note", ""),
-                      "cite": pg.get("cite"), "panel": pg.get("panel"), "groups": groups})
+                      "cite": pg.get("cite"), "panel": pg.get("panel"), "dense": bool(pg.get("dense")), "viz": pg.get("viz"),
+                      "power": pg.get("power"), "groups": groups})
+    check_composites(pages, by)
     unreached = [r["key"] for r in rows if not r["reserved"] and r["key"] not in placed]
     if unreached:
         raise Red("unreached", f"{len(unreached)} host parameter(s) on no page: {', '.join(unreached[:8])}"
@@ -495,9 +613,240 @@ def build_bank(rows, layout):
     return out
 
 
+# ---------------------------------------------------------------- the sources beside SPEC-ENGINE 5 (B584 slice 4a)
+#
+# ADR-330: the shell shows every parameter that has a machine-readable manifest today, not only the engine's.
+#   - the morph's settings: SPEC-ENGINE Appendix D's D.2 table (keys as the spec names them, `morph.*`), which go to
+#     the morph resolver (IF-12), never to the engine; every one is a host parameter except `morph.seed` and
+#     `morph.audible`, which are page choices (IF-11, X39, X43); the step division's options are RC-7.4's table;
+#   - Arp's settings (`arp.<key>`), the device's MIDI module, from its vendored params snapshot;
+#   - the hosted FX modules' manifests (`fx.<module>.<key>`, a Bulwark face's as `fx.bulwark.<face>.<key>`), which go
+#     to the rack (RC-5, IF-7). Each module's file is a verbatim, dated copy; its provenance row in
+#     docs/design/gui3/README.md names the source path, the source commit and the bytes' sha256, and a copy whose row
+#     is missing or whose hash differs is red.
+# Every module row passes the same widget rule and refusals as an engine row. What a manifest does not declare is
+# never filled in: a row with no law is shown linearly and marked `law_declared: false`; a row with no label shows
+# its key and is marked `label_declared: false`; a row with no description says so in the info box.
+
+README = GUI3 / "README.md"
+SOURCE_FORMATS = ("shriek-lock", "bulwark-lock", "scape-lock", "echo-params", "arp-params")
+CLASS_OF = {"continuous": "M", "morph": "M", "gate": "S", "jump": "S", "flip": "S", "discrete": "S", "device": "D"}
+
+
+def provenance(readme_text):
+    """The README's provenance table: | `file` | source | commit | sha256 | — the file relative to docs/design/gui3."""
+    out = {}
+    for m in re.finditer(r"(?m)^\| `([^`]+)` \| ([^|]+) \| `?([0-9a-f]{7,40})`? \| `?([0-9a-f]{64})`? \|", readme_text):
+        out[m.group(1)] = {"source": m.group(2).strip(), "commit": m.group(3), "sha256": m.group(4)}
+    return out
+
+
+def d2_rows(spec_text):
+    """Appendix D's D.2 table as rows (target: the resolver). RC-7.4's table gives the division's options."""
+    body = section(spec_text, "D.2 ")
+    lines = [l for l in body.split("\n") if l.startswith("| `morph.")]
+    if not lines:
+        raise Red("parse", "Appendix D.2 has no `morph.*` rows")
+    m = re.search(r"\| index \| name \| kind \| length \|\n\s*\|---\|---\|---\|---\|\n((?:\s*\|[^\n]*\n)+)", spec_text)
+    if not m:
+        raise Red("parse", "RC-7.4's division table is gone")
+    divisions = [cells(l)[1] for l in m.group(1).strip().split("\n")]
+    nonhost = set(re.findall(r"`(morph\.\w+)`", re.search(r"\*\*Every setting but (.*?) is a host parameter\*\*", spec_text, re.S).group(1)))
+    rows = []
+    for i, l in enumerate(lines):
+        key, label, rng, dflt, what = cells(l)
+        key = key.strip("`")
+        r = {"key": key, "label": label, "unit": "", "class": "D", "reserved": False, "advanced": False, "rate": "C",
+             "pv": False, "section": "D.2", "block": "morph", "order": i, "range_text": rng, "default_text": dflt,
+             "spec": re.sub(r"\*\*", "", what).strip(), "see": None, "target": "resolver", "host": key not in nonhost,
+             "source": "SPEC-ENGINE Appendix D.2", "desc_source": "spec", "law_declared": True, "label_declared": True}
+        mm = re.match(r"^(.*?) to (.*?)(?: (steps per second|s))?, (log|lin|pow|step)$", rng)
+        if "index into RC-7.4" in rng:
+            r.update(law="step", n=len(divisions), options=divisions)
+            idx = int(re.match(r"(\d+)", dflt).group(1))
+        elif mm and mm.group(4) == "step":
+            lo, hi = num(mm.group(1).replace(",", "")), num(mm.group(2).replace(",", ""))
+            n = int(hi - lo) + 1
+            r.update(law="step", n=n, lo=lo, hi=hi, options=int_options(lo, hi) if n <= SELECT_MAX else None)
+            idx = int(num(dflt) - lo)
+        elif mm:
+            lo, hi, law = num(mm.group(1)), num(mm.group(2)), mm.group(4)
+            unit = {"steps per second": "/s", "s": "s"}.get(mm.group(3) or "", "")
+            x = num(re.match(r"([\d.]+)", dflt).group(1))
+            r.update(law=law, lo=lo, hi=hi, neg_inf=False, unit=unit, default_x=x,
+                     default_v=min(1.0, max(0.0, inverse(law, lo, hi, x))))
+            rows.append(r)
+            continue
+        else:
+            opts = split_options(rng)
+            r.update(law="step", n=len(opts), options=opts)
+            idx = [o.lower() for o in opts].index(dflt.lower())
+        r["default_index"] = idx
+        r["default_v"] = 0.0 if r["n"] == 1 else idx / (r["n"] - 1)
+        rows.append(r)
+    want = {"morph.on", "morph.audible", "morph.seed"}
+    if not want <= {r["key"] for r in rows} or not nonhost:
+        raise Red("parse", "D.2 lost a row the shell relies on (morph.on, morph.audible, morph.seed) or its host sentence")
+    return rows
+
+
+def module_row(src, key, label, unit, law, cls, lo, hi, options, default, desc, order, block, values=None,
+               law_declared=True, label_declared=True, reserved=False):
+    """One row of a module's manifest in the shell's form. `options` (a list) makes it stepped; `values` are the
+    stored values the options stand for when they are not 0..n-1 (Arp's enums, a labelled range)."""
+    r = {"key": key, "label": label, "unit": unit or "", "class": cls, "reserved": reserved, "advanced": False,
+         "rate": "C", "pv": False, "section": src["name"] + " manifest", "block": block, "order": order,
+         "range_text": "", "default_text": str(default), "spec": desc or "", "see": None,
+         "target": src["target"], "host": True, "source": src["name"], "desc_source": "manifest" if desc else "none",
+         "law_declared": law_declared, "label_declared": label_declared}
+    if reserved:
+        r.update(law="step", n=1, options=["retired"], default_index=0, default_v=0.0, range_text="retired")
+        return r
+    if options is not None or law == "step":
+        if options is None:
+            n = int(hi - lo) + 1
+            r.update(law="step", n=n, lo=lo, hi=hi, options=int_options(lo, hi) if n <= SELECT_MAX else None)
+            idx = int(default - lo)
+        else:
+            r.update(law="step", n=len(options), options=list(options))
+            vals = values if values is not None else list(range(len(options)))
+            if default not in vals:
+                raise Red("parse", f"{key}: default {default!r} is not one of {vals}")
+            idx = vals.index(default)
+        r["range_text"] = ", ".join(r["options"]) if r.get("options") else f"{lo:g}..{hi:g}"
+        r["default_index"] = idx
+        r["default_v"] = 0.0 if r["n"] == 1 else idx / (r["n"] - 1)
+        return r
+    if law == "log" and not (lo > 0 and hi > 0):
+        raise Red("parse", f"{key}: a log law needs a positive range ({lo}..{hi})")
+    x = float(default)
+    if not (min(lo, hi) <= x <= max(lo, hi)):
+        raise Red("parse", f"{key}: default {x} falls outside {lo}..{hi}")
+    if law in ("io", "io-cut"):           # docs/proposals/module-io-gain.md: dB = 48·(v − ½); A1: the limiter's cut-only
+        v = x / 48 + 0.5
+    else:
+        v = inverse(law, lo, hi, x)
+    r.update(law=law, lo=lo, hi=hi, neg_inf=law == "io-cut", default_x=x, default_v=min(1.0, max(0.0, v)),
+             range_text=f"{lo:g}..{hi:g}")
+    return r
+
+
+def read_module(src, text, extra_texts):
+    """A source file's rows, by its declared format."""
+    d = json.loads(text)
+    fmt, mid, rows = src["format"], src["id"], []
+    pre = "arp" if fmt == "arp-params" else "fx." + mid
+    if fmt == "shriek-lock":
+        for i, k in enumerate(d["keys"]):
+            key = f"{pre}.{k['key']}"
+            if k.get("retired"):
+                rows.append(module_row(src, key, k["key"], "", "step", "S", 0, 0, None, 0, "", i, pre, reserved=True))
+                continue
+            stepped = k["type"] == "stepped"
+            labels = k.get("labels") or None
+            rows.append(module_row(src, key, k["name"], k["unit"], k["law"], CLASS_OF[k["morph"]], k["min"], k["max"],
+                                   labels if stepped else None, k["default"], "", i, pre,
+                                   values=list(range(int(k["min"]), int(k["max"]) + 1)) if stepped and labels else None))
+    elif fmt == "bulwark-lock":
+        for face in d["faces"]:
+            block = f"{pre}.{face['face']}"
+            for i, k in enumerate(face["keys"]):
+                stepped = k["type"] == "stepped"
+                labels = k.get("labels") or None
+                vals = None
+                if stepped and labels:
+                    span = list(range(int(k["min"]), int(k["max"]) + 1))
+                    vals = span if len(span) == len(labels) else [int(num(l)) for l in labels]
+                rows.append(module_row(src, f"{block}.{k['key']}", k["name"], k["unit"], k["law"], CLASS_OF[k["morph"]],
+                                       k["min"], k["max"], labels if stepped else None, k["default"], "", i, block, values=vals))
+    elif fmt == "scape-lock":
+        for i, k in enumerate(d["params"]):
+            addr = k["address"]
+            io = addr.startswith("io.")       # RS-4.6: every module's I/O gains follow the io law
+            if k.get("values"):
+                rows.append(module_row(src, f"{pre}.{addr}", addr.split(".")[-1], "", "step", CLASS_OF[k["class"]],
+                                       k["min"], k["max"], k["values"], k["default"], "", i, pre,
+                                       values=list(range(len(k["values"]))), label_declared=False))
+            else:
+                rows.append(module_row(src, f"{pre}.{addr}", addr.split(".")[-1], k["unit"], "io" if io else "lin",
+                                       CLASS_OF[k["class"]], k["min"], k["max"], None, k["default"], "", i, pre,
+                                       law_declared=io, label_declared=False))
+    elif fmt == "echo-params":
+        lock = json.loads(extra_texts[src["lock"]])
+        if [p["key"] for p in lock["params"]] != [p["key"] for p in d["params"]]:
+            raise Red("parse", "Echo's spec/params.json and its manifest lock list different keys")
+        for i, k in enumerate(d["params"]):
+            stepped = k["type"] == "stepped"
+            labels = k.get("labels") or None
+            rows.append(module_row(src, f"{pre}.{k['key']}", k["name"], k["unit"], k["law"], CLASS_OF[k["morph"]],
+                                   k["min"], k["max"], labels if stepped else None, k["def"], "", i, pre,
+                                   values=list(range(int(k["min"]), int(k["max"]) + 1)) if stepped and labels else None))
+    elif fmt == "arp-params":
+        bank = json.loads(extra_texts[src["bank"]])
+        for i, k in enumerate(d["params"]):
+            key, desc, cls = f"{pre}.{k['key']}", k.get("note", ""), CLASS_OF[k["kind"]]
+            t = k["type"]
+            if t == "bool":
+                rows.append(module_row(src, key, k["label"], "", "step", cls, 0, 1, ["off", "on"], k["default"], desc, i, pre,
+                                       values=[False, True]))
+            elif t == "enum":
+                if "values" in k:
+                    vals = k["values"]
+                elif k["key"] == "pattern":   # values_from: the bank's pattern ids, plus `user` (Arp SPEC §4.6)
+                    vals = [p["id"] for p in bank["patterns"]] + ["user"]
+                elif k["key"] == "rate":      # values_from: rate[].name
+                    vals = [r["name"] for r in d["rate"]]
+                else:
+                    raise Red("parse", f"{key}: an enum with no values and no known values_from")
+                labs = [k.get("value_labels", {}).get(v, v) for v in vals]
+                rows.append(module_row(src, key, k["label"], "", "step", cls, 0, len(vals) - 1, labs, k["default"], desc, i, pre,
+                                       values=vals))
+            elif t == "uint32":
+                rows.append(module_row(src, key, k["label"], "", "step", cls, 0, 4294967295, None, k["default"], desc, i, pre))
+            elif cls == "S":
+                rows.append(module_row(src, key, k["label"], k.get("unit", ""), "step", cls, k["min"], k["max"], None,
+                                       k["default"], desc, i, pre))
+            else:                             # a continuous integer: Arp declares no law, so it is shown linearly
+                rows.append(module_row(src, key, k["label"], k.get("unit", ""), "lin", cls, k["min"], k["max"], None,
+                                       k["default"], desc, i, pre, law_declared=False))
+    else:
+        raise Red("parse", f"source {mid}: unknown format {fmt!r}")
+    return rows
+
+
+def read_sources(spec_text, layout, ext):
+    """Every row beside SPEC-ENGINE 5: D.2's, Arp's and the FX modules', each source's provenance checked first.
+    `ext` holds the README's text and each vendored file's text by its path relative to docs/design/gui3."""
+    import hashlib
+    prov = provenance(ext["readme"])
+    srcs = layout.get("sources") or []
+    if not srcs:
+        raise Red("provenance", "layout.json lists no `sources` (ADR-330)")
+    rows = d2_rows(spec_text)
+    for src in srcs:
+        if src["format"] not in SOURCE_FORMATS:
+            raise Red("parse", f"source {src['id']}: unknown format {src['format']!r}")
+        files = [src["file"]] + [src[k] for k in ("lock", "bank") if k in src]
+        for f in files:
+            if f not in ext["files"]:
+                raise Red("provenance", f"source {src['id']}: {f} is not vendored")
+            row = prov.get(f)
+            if not row:
+                raise Red("provenance", f"{f} has no provenance row in docs/design/gui3/README.md (source path, commit, sha256)")
+            h = hashlib.sha256(ext["files"][f].encode("utf-8")).hexdigest()
+            if row["sha256"] != h:
+                raise Red("provenance", f"{f}: its bytes hash {h[:12]}…, its provenance row says {row['sha256'][:12]}…")
+        rows += read_module(src, ext["files"][src["file"]], ext["files"])
+    keys = [r["key"] for r in rows]
+    dup = sorted({k for k in keys if keys.count(k) > 1})
+    if dup:
+        raise Red("parse", f"two sources give the same key: {dup[:4]}")
+    return rows
+
+
 # ---------------------------------------------------------------- the shell and the scripts
 
-KEY_LITERAL = re.compile(r"""['"`]((?:voice|env[1-4]|mix|out|osc[12]|sub|noise)\.[A-Za-z0-9.]+|quality)['"`]""")
+KEY_LITERAL = re.compile(r"""['"`]((?:voice|env[1-4]|mix|out|osc[12]|sub|noise|morph|arp|fx)\.[A-Za-z0-9.]+|quality)['"`]""")
 MOUNT_CALLS = re.compile(r"\bH\.(Knob|Slider)\s*\(")
 CLOCK = re.compile(r"\b(Math\.random|Date\.now|new Date|performance\.now|crypto\.getRandomValues)\b")
 
@@ -531,7 +880,8 @@ def check_determinism(texts):
 # ---------------------------------------------------------------- outputs
 
 def gaps(rows):
-    host = [r for r in rows if not r["reserved"]]
+    # The `desc` column (B582) is the engine's; the other sources' descriptions are counted per source (src_counts).
+    host = [r for r in rows if not r["reserved"] and r.get("target", "engine") == "engine"]
     return {"host": len(host), "desc_missing": len(host),
             "spec_text_missing": sum(1 for r in host if not r["spec"]),
             "note": "No `desc` column exists for horde 2's parameters yet (B582): the info box shows each "
@@ -540,24 +890,30 @@ def gaps(rows):
 
 
 def render(rows, pages, counts, bank):
+    # params.json stays SPEC-ENGINE 5 alone (the engine's manifest as data); shell-data.js carries every source.
     doc = {"format": FORMAT, "source": "specs/SPEC-ENGINE.md section 5, read by tools/gen_gui3_controls.py",
-           "counts": counts, "params": rows}
+           "counts": counts, "params": [r for r in rows if r.get("target", "engine") == "engine"]}
     j = json.dumps(doc, indent=2, ensure_ascii=False, sort_keys=True) + "\n"
-    data = {"format": FORMAT, "counts": counts, "gaps": gaps(rows), "params": rows, "pages": pages, "bank": bank}
+    data = {"format": FORMAT, "counts": counts, "gaps": gaps(rows), "params": rows, "pages": pages, "bank": bank, "nav": NAV_OUT[0]}
     js = ("/* GENERATED by tools/gen_gui3_controls.py from specs/SPEC-ENGINE.md section 5 and\n"
           "   docs/design/gui3/layout.json. Do not edit: edit the spec or the layout, then regenerate. */\n"
           "window.GUI3_DATA = " + json.dumps(data, indent=1, ensure_ascii=False, sort_keys=True) + ";\n")
     return j, js
 
 
-def generate(spec_text, layout):
+def generate(spec_text, layout, ext):
     rows, counts = read_spec(spec_text)
+    for r in rows:
+        r.update(target="engine", host=not r["reserved"], source="SPEC-ENGINE 5", desc_source="spec",
+                 law_declared=True, label_declared=True)
+    rows = rows + read_sources(spec_text, layout, ext)
     pages = build_pages(rows, layout)
+    NAV_OUT[0] = check_nav(layout, pages)
     return rows, pages, counts, build_bank(rows, layout)
 
 
-def gate(spec_text, layout, shell_text, scripts, committed):
-    rows, pages, counts, bank = generate(spec_text, layout)
+def gate(spec_text, layout, shell_text, scripts, committed, ext):
+    rows, pages, counts, bank = generate(spec_text, layout, ext)
     check_shell(shell_text)
     check_determinism(dict(scripts, **{"gui3.html": shell_text}))
     j, js = render(rows, pages, counts, bank)
@@ -567,12 +923,12 @@ def gate(spec_text, layout, shell_text, scripts, committed):
     return rows, pages, counts, bank
 
 
-def controls(spec_text, layout, shell_text, scripts, committed):
+def controls(spec_text, layout, shell_text, scripts, committed, ext):
     """Each planted fault must come back red with its own tag. A control that passes is a blind gate."""
-    def plant(name, tag, sp=spec_text, lo=None, sh=shell_text, sc=scripts, co=committed):
+    def plant(name, tag, sp=spec_text, lo=None, sh=shell_text, sc=scripts, co=committed, ex=ext):
         lo = lo if lo is not None else layout
         try:
-            gate(sp, lo, sh, sc, co)
+            gate(sp, lo, sh, sc, co, ex)
         except Red as e:
             return None if e.tag == tag else f"{name}: red as [{e.tag}], expected [{tag}]"
         return f"{name}: stayed GREEN (blind gate)"
@@ -603,6 +959,20 @@ def controls(spec_text, layout, shell_text, scripts, committed):
               lo=lay(lambda lo: lo["bank"]["kinds"][0]["suffixes"].append("notARow"))),
         plant("a bank choice with no reason", "bank",
               lo=lay(lambda lo: lo["bank"]["kinds"][0].__setitem__("reason", " "))),
+        plant("a module's keys left unplaced", "unreached",
+              lo=lay(lambda lo: page(lo, "fx")["groups"].pop(1))),
+        plant("a vendored snapshot with no provenance row", "provenance",
+              ex=dict(ext, readme=re.sub(r"(?m)^\| `vendor/scape[^\n]*\n", "", ext["readme"], count=1))),
+        plant("a vendored snapshot whose bytes changed", "provenance",
+              ex=dict(ext, files=dict(ext["files"], **{"vendor/echo.params.json": ext["files"]["vendor/echo.params.json"] + " "}))),
+        plant("a page in no nav group", "nav",
+              lo=lay(lambda lo: lo["nav"][-1]["pages"].remove("settings"))),
+        plant("a dashboard control whose key is not on its source page", "dashboard",
+              lo=lay(lambda lo: page(lo, "dashboard")["groups"][0]["keys"].append({"key": "noise.pitch", "size": "utility"}))),
+        plant("a dashboard card without its power switch", "dashboard",
+              lo=lay(lambda lo: page(lo, "dashboard")["groups"][2]["keys"].pop(0))),
+        plant("a modes role on a continuous row", "role",
+              lo=lay(lambda lo: page(lo, "main")["groups"][0]["keys"].__setitem__(1, {"key": "voice.gravity", "role": "modes"}))),
         plant("a spec row dropped", "counts",
               sp=re.sub(r"\n\| `gust` \|[^\n]*", "", spec_text, count=1)),
         plant("a hand-placed key in the shell", "shell",
@@ -615,17 +985,40 @@ def controls(spec_text, layout, shell_text, scripts, committed):
               co=dict(committed, **{"shell-data.js": committed.get("shell-data.js", "") + " "})),
     ]
     # A plant that changed nothing tests nothing: each mutated input must differ from the real one.
-    if "\n| `gust` |" not in spec_text or "</script>\n</body>" not in shell_text:
+    if "\n| `gust` |" not in spec_text or "</script>\n</body>" not in shell_text or not re.search(r"(?m)^\| `vendor/scape", ext["readme"]):
         out.append("a plant's anchor is missing from its input: the controls would be vacuous")
     return [o for o in out if o]
+
+
+def src_counts(rows):
+    """Rows per source beside the engine's, and how many carry a description, for the GREEN line."""
+    out = []
+    for name in dict.fromkeys(r["source"] for r in rows if r["target"] != "engine"):
+        rs = [r for r in rows if r["source"] == name and not r["reserved"]]
+        out.append(f"{name} {len(rs)} ({sum(1 for r in rs if r['spec'])} described)")
+    return ", ".join(out)
+
+
+def load_ext(layout):
+    """The README and every source file a layout source names, as exact text (bytes decoded, newlines untouched,
+    so the provenance hash is the file's own)."""
+    files = {}
+    for src in layout.get("sources") or []:
+        for k in ("file", "lock", "bank"):
+            if k in src:
+                f = GUI3 / src[k]
+                if f.exists():
+                    files[src[k]] = f.read_bytes().decode("utf-8")
+    return {"readme": README.read_bytes().decode("utf-8") if README.exists() else "", "files": files}
 
 
 def main():
     spec_text = SPEC.read_text(encoding="utf-8")
     layout = json.loads(LAYOUT.read_text(encoding="utf-8"))
+    ext = load_ext(layout)
     if "--check" not in sys.argv[1:]:
         try:
-            rows, pages, counts, bank = generate(spec_text, layout)
+            rows, pages, counts, bank = generate(spec_text, layout, ext)
         except Red as e:
             print(f"gen_gui3_controls: RED {e}", file=sys.stderr)
             return 1
@@ -639,11 +1032,11 @@ def main():
     scripts = {n: (GUI3 / n).read_text(encoding="utf-8") for n in SCRIPTS}
     committed = {p.name: p.read_text(encoding="utf-8") for p in (OUT_JSON, OUT_JS) if p.exists()}
     try:
-        rows, pages, counts, bank = gate(spec_text, layout, shell_text, scripts, committed)
+        rows, pages, counts, bank = gate(spec_text, layout, shell_text, scripts, committed, ext)
     except Red as e:
         print(f"gen_gui3_controls: RED {e}", file=sys.stderr)
         return 1
-    bad = controls(spec_text, layout, shell_text, scripts, committed)
+    bad = controls(spec_text, layout, shell_text, scripts, committed, ext)
     if bad:
         print("gen_gui3_controls: RED, a must-fail control did not fail:\n  " + "\n  ".join(bad), file=sys.stderr)
         return 1
@@ -653,7 +1046,8 @@ def main():
           f"all reachable, {counts['manifest'] - counts['host']} reserved placed nowhere; controls per page: {per}; "
           f"descriptions missing {g['desc_missing']} of {g['host']} (no desc column yet, B582), spec text empty "
           f"{g['spec_text_missing']}; bank: {sum(len(c) for c in bank['controls'].values())} critical controls on "
-          f"{len(bank['controls'])} modulators ({', '.join(bank['controls'])}); 14 must-fail controls red")
+          f"{len(bank['controls'])} modulators ({', '.join(bank['controls'])}); beside SPEC-ENGINE 5: "
+          f"{src_counts(rows)}; 21 must-fail controls red")
     return 0
 
 

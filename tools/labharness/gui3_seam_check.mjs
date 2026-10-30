@@ -43,6 +43,10 @@
  *                interface drops it unless it was mapped
  *   mapdrop      ADR-322 item 3: a map handle dropped on a stepped or reserved row is refused and the modulator
  *                stays pending; on a continuous row it maps
+ *   paths        ADR-330: a hosted module's value reaches the rack (RC-5, IF-7), an Arp value the device's MIDI module,
+ *                a morph setting and the position the resolver (IF-11, IF-12); none reaches the engine's setParam
+ *   meters       B589's console: the MOCK meters follow IF-6's gate (off, mute, solo) and the output's sum; over 0 dBFS
+ *                latches the clip lamp, which holds until a clear
  *   determinism  the same seed and calls give byte-identical device and engine state; another seed differs
  *
  * MUST-FAIL CONTROLS (plants), every run, on in-memory copies of the two scripts: an observe() that
@@ -51,7 +55,8 @@
  * drops unknown keys, a gesture that is never reported, a morph-off write that reaches a frozen corner,
  * a morph toggle kept off the history, a snapshot save that keeps no preset, a snapshot that overwrites
  * a drag, a snapshot that overwrites a newer send, a close that keeps unmapped modulators, a drop that maps a
- * stepped row, and a refused drop that clears the pending state. Each must turn its own test red (and its
+ * stepped row, a refused drop that clears the pending state, and the module, Arp and morph-setting values each
+ * sent to the engine instead of their own side, a meter that ignores solo, and a clear that does not unlatch. Each must turn its own test red (and its
  * anchor must exist, or the plant itself is reported as vacuous).
  *
  * Usage: node tools/labharness/gui3_seam_check.mjs [--verbose]   (exit 1 on any failure; --verbose prints
@@ -84,13 +89,16 @@ const near = (a, b) => a === b || Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs
 
 function suite(W) {
   const DATA = W.GUI3_DATA, ENG = W.GUI3Engine, DEV = W.GUI3Device;
-  const rows = DATA.params, host = rows.filter(r => !r.reserved);
-  const by = Object.fromEntries(rows.map(r => [r.key, r]));
-  const fresh = (seed = 1) => { const e = new ENG.Stub(rows), t = ENG.SyncTransport(e); return { e, t, d: DEV.create(DATA, t, { seed }) }; };
+  // The engine holds SPEC-ENGINE 5's rows only; the morph's settings are the resolver's and the modules' and Arp's
+  // the device side's (ADR-330). `all` is every row the shell shows.
+  const all = DATA.params, rows = all.filter(r => r.target === 'engine'), host = rows.filter(r => !r.reserved);
+  const by = Object.fromEntries(all.map(r => [r.key, r]));
+  const sides = () => ({ R: new ENG.ResolverStub(all.filter(r => r.target === 'resolver')), X: new ENG.DeviceSideStub(all.filter(r => r.target === 'rack' || r.target === 'midi')) });
+  const fresh = (seed = 1) => { const e = new ENG.Stub(rows), { R, X } = sides(), t = ENG.SyncTransport(e, R, X); return { e, t, R, X, d: DEV.create(DATA, t, { seed }) }; };
   /* An ASYNCHRONOUS transport, as the AudioWorklet's will be: the engine applies a message at once, but its
      snapshot waits in a queue until deliver() hands it over, so a snapshot can be older than the latest send. */
   const delayed = (seed = 1) => {
-    const e = new ENG.Stub(rows), inner = ENG.SyncTransport(e), q = [], subs = [];
+    const e = new ENG.Stub(rows), { R, X } = sides(), inner = ENG.SyncTransport(e, R, X), q = [], subs = [];
     let live = false;
     inner.onSnapshot(sn => { if (live) q.push(sn); });
     live = true;
@@ -118,7 +126,9 @@ function suite(W) {
   };
 
   T.laws = () => {
-    for (const r of host) {
+    // Every continuous row the shell shows (the engine's, D.2's, the modules' and Arp's); the stepped-default check
+    // reads the spec's own default text, so it runs on the engine's rows (a module's default is its stored value).
+    for (const r of all.filter(q => !q.reserved && (q.target === 'engine' || q.law !== 'step'))) {
       if (r.law === 'step') {
         const i = Math.round(r.default_v * (r.n - 1));
         if (r.options) ok(r.options[i].replace(/\s*\(.*\)$/, '').toLowerCase() === r.default_text.toLowerCase()
@@ -128,7 +138,7 @@ function suite(W) {
         continue;
       }
       const x0 = ENG.lawX(r, 0), x1 = ENG.lawX(r, 1), xd = ENG.lawX(r, r.default_v);
-      if (r.law === 'dB') ok(x0 === -Infinity, r.key + ': a dB row is −∞ at v = 0');
+      if (r.law === 'dB' || r.law === 'io-cut') ok(x0 === -Infinity, r.key + ': a dB row (or a cut-only output’s detent) is −∞ at v = 0');
       else if (r.law === 'log, off zone') ok(x0 === 0, r.key + ': off below the zone');
       else ok(near(x0, r.lo), r.key + ': x(0) = ' + x0 + ', not ' + r.lo);
       if (r.law !== 'lin, wraps') ok(near(x1, r.hi), r.key + ': x(1) = ' + x1 + ', not ' + r.hi);
@@ -326,6 +336,53 @@ function suite(W) {
     ok(r.ok && d.pending().length === 0 && d.routes().length === 1 && d.routes()[0].param === cont.key, 'a drop on a continuous row did not map it');
   };
 
+  /* ADR-330: every value goes to the side that owns it. A hosted module's value reaches the rack and an Arp value
+     the device's MIDI module, a morph setting and the position reach the resolver (IF-11, IF-12), and none of them
+     reaches the engine's setParam (its refusal counter stays where it was, PA-7). */
+  T.paths = () => {
+    const { e, R, X, d } = fresh();
+    const fx = all.find(r => r.target === 'rack' && r.law !== 'step' && r.class === 'M');
+    const arp = all.find(r => r.target === 'midi' && r.law === 'step' && r.n >= 3 && r.options);
+    const ms = all.find(r => r.target === 'resolver' && r.law !== 'step');
+    ok(fx && arp && ms, 'a source is missing from the data: rack ' + !!fx + ', midi ' + !!arp + ', resolver ' + !!ms);
+    const r0 = e.observe().refused;
+    ok(d.set(fx.key, .7) === .7 && X.get(fx.key) === .7, 'a hosted module\u2019s value did not reach the rack (' + X.get(fx.key) + ')');
+    const av = 1 / (arp.n - 1);
+    ok(d.set(arp.key, av) === av && X.get(arp.key) === av, 'an Arp value did not reach the MIDI module (' + X.get(arp.key) + ')');
+    ok(d.set(ms.key, .3) === .3 && R.get(ms.key) === .3, 'a morph setting did not reach the resolver (' + R.get(ms.key) + ')');
+    d.setMorph({ on: true, x: .2, y: .7 });
+    const po = R.observe().position;
+    ok(po.x === .2 && po.y === .7 && R.get('morph.on') === 1, 'the position or morph.on did not reach the resolver');
+    ok(e.observe().refused === r0 && e.getParam(fx.key) === null && e.getParam(ms.key) === null, 'a non-engine value reached the engine (refused ' + (e.observe().refused - r0) + ')');
+    ok(X.observe().refused === 0 && R.observe().refused === 0, 'a side was sent a key it does not own');
+    e.setParam(fx.key, .1);
+    ok(e.observe().refused === r0 + 1, 'the engine took a hosted module\u2019s key (control: it must refuse it, PA-7)');
+  };
+
+  /* B589's console reads the engine's meters and clip latches (IF-6), MOCK in the stub: a source's meter follows its
+     level through IF-6's gate (off, mute, solo), the output sums the sounding sources, a reading over 0 dBFS latches
+     the clip lamp, and only a clear (a message, the latch lives on the audio side) unlatches it. */
+  T.meters = () => {
+    const { e, d } = fresh();
+    const lv = k => by[k], v0 = k => (0 - lv(k).lo) / (lv(k).hi - lv(k).lo);   // the v of 0 dB on a dB row
+    d.set('osc1.on', 1); d.set('osc2.on', 1);
+    d.set('mix.osc1', v0('mix.osc1')); d.set('mix.osc2', v0('mix.osc2'));
+    let m = d.meters();
+    ok(Math.abs(m.osc1.peak) < 1e-9 && m.sub.peak === -Infinity, 'osc 1 at 0 dB does not read 0 dBFS, or the sub (off) is not silent');
+    ok(Math.abs(m.out.peak - 20 * Math.log10(2)) < 1e-9, 'the output is not the sum of the sounding sources (' + m.out.peak + ')');
+    d.set('osc2.solo', 1); m = d.meters();
+    ok(m.osc1.peak === -Infinity && m.osc2.peak > -Infinity, 'a solo did not silence the other sources (IF-6)');
+    d.set('osc2.solo', 0); d.set('osc1.mute', 1); m = d.meters();
+    ok(m.osc1.peak === -Infinity, 'a muted source still reads');
+    d.set('osc1.mute', 0); d.set('mix.osc1', 1); m = d.meters();
+    ok(m.osc1.clip.on && m.osc1.peak > 0, 'a reading over 0 dBFS did not latch the clip lamp');
+    d.set('mix.osc1', v0('mix.osc1')); m = d.meters();
+    ok(m.osc1.clip.on, 'the clip latch let go by itself (it holds until cleared)');
+    d.clearClip('osc1'); m = d.meters();
+    ok(!m.osc1.clip.on, 'clear did not unlatch the clip lamp');
+    ok(JSON.stringify(e.observe().meters) === JSON.stringify(e.observe().meters), 'reading the meters changed them');
+  };
+
   T.determinism = () => {
     const run = seed => {
       const { e, d } = fresh(seed);
@@ -354,7 +411,12 @@ const PLANTS = [
   ['observe', 'stub', 'E.observe = function () {', 'E.observe = function () { refused++;'],
   ['history', 'device', 'apply(e.before); return true;', 'apply(e.after); return true;'],
   ['determinism', 'device', "mulberry32(hash32(r.key) ^ (s * 2654435761 >>> 0))", "mulberry32(hash32(r.key) ^ (s * 2654435761 >>> 0) ^ (root.__n = (root.__n | 0) + 1))"],
-  ['routes', 'device', "if (!r || r.law === 'step' || !r.pv)", 'if (!r)'],
+  // The whole destination test goes: the engine's pv test alone already refuses a stepped engine row, so removing only
+  // the step test would leave this plant blind.
+  ['routes', 'device', "if (!r || r.law === 'step' || (r.target === 'resolver') || ((r.target || 'engine') === 'engine' && !r.pv))", 'if (!r)'],
+  ['paths', 'device', "rack: 'rack'", "rack: 'set'"],
+  ['paths', 'device', "midi: 'midi'", "midi: 'set'"],
+  ['paths', 'device', "resolver: 'morph'", "resolver: 'set'"],
   ['laws', 'stub', "case 'log': return lo * Math.pow(hi / lo, v);", "case 'log': return lo * Math.pow(hi / lo, v * 1.001);"],
   ['seam', 'stub', "if (missing.length) throw new Error('the engine lacks", "if (false) throw new Error('the engine lacks"],
   ['state', 'stub', 'extra = keep;', 'extra = [];'],
@@ -363,8 +425,10 @@ const PLANTS = [
   ['morphhistory', 'device', "if (on !== st.morphOn) step(on ? 'Morph on' : 'Morph off', function () { st.morphOn = on; });", 'if (on !== st.morphOn) st.morphOn = on;'],
   ['snapshots', 'device', 'st.names[i] = name.trim(); st.saved[i] = copy(st.corners[i]);\n', 'st.names[i] = name.trim();\n'],
   ['sync', 'device', 'if (k === g) continue;', ''],
+  ['meters', 'stub', "var silent = !isOn(s + '.on') || isOn(s + '.mute') || (anySolo && !isOn(s + '.solo'));", "var silent = !isOn(s + '.on') || isOn(s + '.mute');"],
+  ['meters', 'stub', "latch[id] = { on: false, max: -Infinity }; return was;", 'return was;'],
   ['pending', 'device', '      pending = [];\n      if (dropped.length) changed();', '      if (dropped.length) changed();'],
-  ['mapdrop', 'device', "if (!r || r.law === 'step' || !r.pv)", "if (!r)"],
+  ['mapdrop', 'device', "if (!r || r.law === 'step' || (r.target === 'resolver') || ((r.target || 'engine') === 'engine' && !r.pv))", 'if (!r)'],
   ['mapdrop', 'device', '      if (res.ok) { var k = pending.indexOf(src);', '      { var k = pending.indexOf(src);'],
   ['sync', 'device', 'if (sentSeq[k] !== undefined && s.ack < sentSeq[k]) continue;', ''],
 ];
