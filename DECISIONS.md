@@ -10275,3 +10275,32 @@ Both frames were captured from a local preview.
 - The rack contract's RS-6.2 and RS-6.3 (two instances only during a flip or tail) need their own amendment round with the module owners, filed by the lead.
 - **FX device (ADR-254):** the same, on its morph. Its FX slots follow ADR-324's H10 once the rack contract is amended.
 
+## ADR-326 — RULED by the human: the morph appendix's last open points, X36 to X40; one standard set of tempo-sync divisions with triplet and dotted toggles (B585, B590; 2026-10-29)
+
+**Context.** Revision 2 of B585's appendix (horde #1275, 6e6bf1e) left five open points. The critic's re-review found no blockers and five text-sized majors:
+1. the test items must sit in the spec, not in a horde file;
+2. settings must match by value, not by id;
+3. at a boundary, setting sets go before `Param` events;
+4. ensemble state is kept per distinct swarm setting;
+5. morph off must follow ADR-319 (the chosen audible corner sounds, not the heaviest setting).
+The critic independently reproduced all 24 of R3's golden quantum picks.
+
+**Rulings (the human, 2026-10-29, by poll).**
+- **X36:** the morph settings' ranges and tapers as proposed: step rate 0.25 to 32 steps per second on a log taper, temperature on a log taper, glide on a power taper.
+- **X37:** "Maybe we can add toggles for including triplets and dotted respectively in the range, like many other devices do. This should probably become standardized across all relevant modules as well."
+  - The synced divisions are 1/32 to 4 bars (using the time signature's bar).
+  - Two toggles add the triplet values and the dotted values to the range.
+  - This becomes one standard set of sync divisions, with the two toggles, across every horde part and hosted module that syncs to tempo (B590).
+- **X38:** the bank stage carries on. The amendment reopens its stages when it lands, and output at a corner and with morph off stays bit-identical.
+- **X39:** the morph settings are host-automatable, except the seed: position x and y, on, law, count, temperature, cohesion, step rate, sync and glide, through a morph manifest appended to the lockfile.
+- **X40** ("Per corner, flip by the law", against the draft's recommendation): each corner keeps its own `ratios` text. It behaves as a structural key of its oscillator's swarm group under the morph law: it blends by rendering both settings under Blend, flips at its quantum boundary under Quantum, and steps under the stepped hybrid.
+- **The critic's question on morph off** is already ruled by ADR-319 item 1: the chosen audible corner (A by default) sounds, whatever the puck's position. MO-20 follows it.
+
+**Rejected:** other ranges; a fixed division list; pausing the bank; automating position only, or nothing; corner A's ratios for the whole patch.
+
+**Consequences.**
+- Revision 3 of the appendix applies the five majors and these rulings. A diff check by the critic follows, then the human's ratification, then the spec round to both clean-room repos (with the builder and test author sessions open).
+- IF-4's state carries `ratios` per corner.
+- B590 drafts the standard divisions and files notices to the modules that sync (Arp, Echo, Sluice, Shriek, Scape and others as they apply).
+- **FX device (ADR-254):** the same divisions and toggles on its synced controls. X39 applies to its morph.
+
