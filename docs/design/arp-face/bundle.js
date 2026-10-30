@@ -1,5 +1,5 @@
-/* vendored from the horde Design System artifact, version 1793080392-2372, 2026-10-27; do not edit, re-vendor */
-/* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"SteppedControl"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"}]} */
+/* vendored from the horde Design System artifact, version 1793334278-f870, 2026-10-30; do not edit, re-vendor */
+/* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"SteppedControl"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"}]} */
 /* horde house reference behaviours (vanilla JS, no React, no network).
    The morph knob and slider follow the human's HORDE Morph Knob Spec and HORDE Map Mode Spec
    (2026-10-21, 2026-10-16); colours, type and themes follow ADR-259. Everything a plugin would get
@@ -51,7 +51,7 @@
     var S = this;
     S.pad = { x: opts.x === undefined ? .3 : opts.x, y: opts.y === undefined ? .32 : opts.y };   // y measured downward
     S.pinned = null;                 // null = Auto (each parameter's owner)
-    S.map = { on: false, src: (opts.sources && opts.sources[0].id) || null, momentary: false };
+    S.map = { on: false, src: (opts.sources && opts.sources[0] && opts.sources[0].id) || null, momentary: false };   // an empty source list is a page with no modulators (a dashboard), not an error
     S.sources = opts.sources || [];
     S.mappings = opts.mappings || []; // { param, src, pol, depth, cd? [4] }
     S.focus = {}; S.lastMap = null; S.alt = false; S.keys = !!opts.keys;
@@ -279,20 +279,81 @@
     return 'M' + p1[0].toFixed(2) + ' ' + p1[1].toFixed(2) + 'A' + r + ' ' + r + ' 0 ' + ((b - a) * 280 > 180 ? 1 : 0) + ' 1 ' + p2[0].toFixed(2) + ' ' + p2[1].toFixed(2);
   }
   function radial(g, x, r1, r2, a) { var p1 = pt(r1, x), p2 = pt(r2, x); a.x1 = p1[0]; a.y1 = p1[1]; a.x2 = p2[0]; a.y2 = p2[1]; a['stroke-linecap'] = 'round'; return mk('line', a, g); }
+  /* KNOB GEOMETRY, one per size (the Density ladder, README). CLASSIC is the morph knob spec's drawing, unchanged: a 92-unit
+     box that reserves room for the editing flag, four rings 3.7 apart and their corner-depth hairlines, at 68 px (84 big).
+     Most of that box is ring room, so its track is only ~33 px across: the human's "way too spacious".
+     TIGHT (primary, standard, compact) hugs the track: a 72-unit box, rings 2.4 apart from r 27.5, strokes thickened in
+     units so they stay at least ~1 px on screen, pips 1.25× so their SHAPE still reads (ADR-261 r1). It drops, by design:
+     the editing flag (the editing pip is already the large ink-edged one), the corner-depth hairline (the inspector and the
+     section readout carry it) and the in-drawing "+n" (an HTML badge instead: 7 units would render under the 8 px floor).
+     UTILITY (28 px) keeps one ring, the focused mapping's, dashed when there are more. Every size keeps the blend arc, the
+     tether, the shape-coded pips sized by weight and the needle at the output. */
+  var KG = {
+    classic: { v: 92, C: 46, R: 22, tw: 4, cap: 12.5, sh: 2, capW: 1.6, teth: 16.5, tethW: 1.6, ndl: 10.5, ndlW: 2, pipK: 1, pipE: 1.1, ed: 3.9, edW: 1.4,
+      flag: true, bip: [25, 28.5], r0: 31, step: 3.7, stepCd: 6.9, rw: 2.2, rwH: 3.2, dot: 2.5, tick: 2.2, rings: 4, hair: true },
+    tight: { v: 72, C: 36, R: 21, tw: 5, cap: 12.5, capW: 2.4, teth: 16.6, tethW: 2, ndl: 10.5, ndlW: 2.6, pipK: 1.25, pipE: 1.3, ed: 4.6, edW: 1.8,
+      flag: false, bip: [23.6, 26.4], r0: 27.5, step: 2.4, stepCd: 2.4, rw: 1.8, rwH: 2.6, dot: 1.9, tick: 1.3, rings: 4, hair: false },
+    utility: { v: 56, C: 28, R: 20, tw: 4.5, cap: 10, capW: 2.4, teth: 14.6, tethW: 2, ndl: 8.5, ndlW: 2.6, pipK: 1, pipE: 1.2, ed: 3.4, edW: 1.6,
+      flag: false, bip: [22.4, 24.6], r0: 25.2, step: 0, stepCd: 0, rw: 2, rwH: 2.8, dot: 1.8, tick: 1.2, rings: 1, hair: false }
+  };
+  /* the ladder's face boxes in px: size-knob-primary / -standard / -compact / -utility (tokens.json) */
+  var KSIZE = { primary: 56, standard: 48, compact: 40, utility: 28 };
+  /* a sized control's ONE-LINE head: the name at rest; on hover, drag or focus the value in its place; while Option is held or
+     MAP is on, a short focus caption in the source colour ("LFO 2 2/3"); a refused write, the padlock and "C locked". The
+     long forms ("LFO 2 BI 30% (2/3)", "▲ B 72% · 41%") go to the section's readout slot (H.ReadoutSlot), the title and the
+     accessible value text. Returns the mode it drew, for the CSS class. */
+  function headCap(S, p, ai, el2) {
+    var l = S.mapsOf(p.key), f = S.focused(p.key);
+    if ((S.alt || S.map.on) && f) {
+      var src = S.src(f.src); el2.style.color = srcColor(src); el2.textContent = src.name + (l.length > 1 ? ' ' + (l.indexOf(f) + 1) + '/' + l.length : ''); return 'cap';
+    }
+    if (!p.locked && S.refused && !S.refused.ctl && S.refused.key === p.key && (S.now || 0) - S.refused.at < 1600) {
+      el2.style.color = lineOf(ai); el2.innerHTML = LOCK + '<span>' + CORNERS[ai].id + ' locked</span>'; return 'cap';
+    }
+    el2.textContent = ''; return '';
+  }
+  /* HOT: the control under the pointer or keyboard focus, for the section readout slot. Plain fields, no emit: the slot is
+     a view and reads them on its next frame. */
+  function hot(el, p, S) {
+    function on() { S.hot = p.key; S.hotEl = el; }
+    function off() { if (S.hot === p.key) { S.hot = null; S.hotEl = null; } }
+    el.addEventListener('pointerenter', on); el.addEventListener('pointerleave', off);
+    el.addEventListener('focusin', on); el.addEventListener('focusout', off);
+  }
   function Knob(el, p, S) {
     p.fmt = p.fmt || pct; p.def = p.def === undefined ? (p.locked ? p.g : .5) : p.def;
     S.params[p.key] = p; if (!p.locked) S.saved[p.key] = p.vals.slice();
-    el.classList.add('hd-mk');
+    var sz = KSIZE[p.size] ? p.size : null, G = sz ? KG[sz === 'utility' ? 'utility' : 'tight'] : KG.classic, Cc = G.C;
+    el.classList.add('hd-mk'); if (sz) { el.classList.add('sz', 'sz-' + sz); }
     el.innerHTML = '';
     var box = document.createElement('div'); box.className = 'mk-face hd-focus'; box.setAttribute('role', 'slider');
     box.setAttribute('aria-label', p.path || p.name); box.setAttribute('aria-valuemin', '0'); box.setAttribute('aria-valuemax', '1');
-    var size = p.big ? 84 : 68;
-    var svg = mk('svg', { viewBox: '0 0 92 92', width: size, height: size, 'aria-hidden': 'true' }); box.appendChild(svg);
+    var size = sz ? KSIZE[sz] : p.big ? 84 : 68;
+    var svg = mk('svg', { viewBox: '0 0 ' + G.v + ' ' + G.v, width: size, height: size, 'aria-hidden': 'true' }); box.appendChild(svg);
     var g = mk('g', {}, svg);
     var nm = document.createElement('div'); nm.className = 'mk-name'; nm.textContent = p.name;
     var r1 = document.createElement('div'); r1.className = 'mk-v1';
     var r2 = document.createElement('div'); r2.className = 'mk-v2';
-    el.appendChild(box); el.appendChild(nm); el.appendChild(r1); el.appendChild(r2);
+    var more = null;
+    if (!sz) { el.appendChild(box); el.appendChild(nm); el.appendChild(r1); el.appendChild(r2); }
+    else {
+      /* label ABOVE the face (the SCALPEL bench); the value and the caption overlay the label's own line, so nothing moves.
+         A primary control also keeps its value under the face, always (a macro's number matters at a glance). */
+      var head = document.createElement('div'); head.className = 'mk-head'; head.appendChild(nm); head.appendChild(r2);
+      if (sz !== 'primary') head.appendChild(r1);
+      el.appendChild(head); el.appendChild(box); if (sz === 'primary') el.appendChild(r1);
+      more = document.createElement('span'); more.className = 'mk-more'; box.appendChild(more);
+      el.title = p.path || p.name;
+    }
+    hot(el, p, S);
+    function P(r, x) { var a = (-140 + 280 * x) * Math.PI / 180; return [Cc + r * Math.sin(a), Cc - r * Math.cos(a)]; }
+    function A(r, a, b) {
+      a = clamp(a); b = clamp(b); if (b < a) { var t = a; a = b; b = t; } if (b - a < .003) return '';
+      var p1 = P(r, a), p2 = P(r, b);
+      return 'M' + p1[0].toFixed(2) + ' ' + p1[1].toFixed(2) + 'A' + r + ' ' + r + ' 0 ' + ((b - a) * 280 > 180 ? 1 : 0) + ' 1 ' + p2[0].toFixed(2) + ' ' + p2[1].toFixed(2);
+    }
+    function RAD(gg, x, a1, a2, at) { var p1 = P(a1, x), p2 = P(a2, x); at.x1 = p1[0]; at.y1 = p1[1]; at.x2 = p2[0]; at.y2 = p2[1]; at['stroke-linecap'] = 'round'; return mk('line', at, gg); }
+    var shU = G.sh || 1.5 * G.v / size;                                     // the house 1.5 px hard shadow, in this drawing's units
     gesture(box, p, S, function () { return DRAG; });
     var view = { render: function () {
       box.tabIndex = S.keys ? 0 : -1;
@@ -300,51 +361,56 @@
       var ai = S.editing(p), b = S.base(p), w = S.weights(), out = S.output(p), drag = S.drag && S.drag.key === p.key;
       el.classList.toggle('sel', S.selected === p.key); el.dataset.selc = ai === null ? '' : CORNERS[ai].id;
       g.innerHTML = '';
-      mk('path', { d: arc(R, 0, 1), fill: 'none', stroke: v('well-alt'), 'stroke-width': 4, 'stroke-linecap': 'round' }, g);
-      if (p.bipolar) radial(g, .5, 25, 28.5, { stroke: v('ink'), 'stroke-width': 1.4 });
+      mk('path', { d: A(G.R, 0, 1), fill: 'none', stroke: v('well-alt'), 'stroke-width': G.tw, 'stroke-linecap': 'round' }, g);
+      if (p.bipolar) RAD(g, .5, G.bip[0], G.bip[1], { stroke: v('ink'), 'stroke-width': 1.4 });
       /* UNDER CONTROL the knob's own value is ignored: its arc, pips, tether and flag fade to a ghost (kept, since
          removing the Control restores them), and the Control ring below shows the range the source sweeps */
       var ctl = S.ctlOf(p.key), gOwn = ctl ? mk('g', { opacity: .22 }, g) : g;
-      var from = p.bipolar ? .5 : 0, va = arc(R, from, b);
-      if (va) mk('path', { d: va, fill: 'none', stroke: v('ink'), 'stroke-width': 4, 'stroke-linecap': 'round' }, gOwn);
+      var from = p.bipolar ? .5 : 0, va = A(G.R, from, b);
+      if (va) mk('path', { d: va, fill: 'none', stroke: v('ink'), 'stroke-width': G.tw, 'stroke-linecap': 'round' }, gOwn);
       if (!p.locked) { var g0 = g; g = gOwn;
-        var av = p.vals[ai], td = arc(16.5, b, av);
-        if (td) mk('path', { d: td, fill: 'none', stroke: lineOf(ai), 'stroke-width': 1.6, 'stroke-dasharray': '2 2.4', 'stroke-linecap': 'round' }, g);
+        var av = p.vals[ai], td = A(G.teth, b, av);
+        if (td) mk('path', { d: td, fill: 'none', stroke: lineOf(ai), 'stroke-width': G.tethW, 'stroke-dasharray': '2 2.4', 'stroke-linecap': 'round' }, g);
         for (var i = 0; i < 4; i++) {
           if (i === ai || w[i] < .0005) continue;                        // zero weight: the pip disappears
-          var q = pt(R, p.vals[i]);
-          pip(g, i, q[0], q[1], 1.3 + 2.3 * w[i], { fill: fillOf(i), stroke: v('mark-edge'), 'stroke-width': 1.1, opacity: (.28 + .72 * w[i]).toFixed(2) });
+          var q = P(G.R, p.vals[i]);
+          pip(g, i, q[0], q[1], (1.3 + 2.3 * w[i]) * G.pipK, { fill: fillOf(i), stroke: v('mark-edge'), 'stroke-width': G.pipE, opacity: (.28 + .72 * w[i]).toFixed(2) });
         }
-        var e = pt(R, av);
-        pip(g, ai, e[0], e[1], 3.9, { fill: fillOf(ai), stroke: v('ink'), 'stroke-width': 1.4 });
-        radial(g, av, 25.2, 27.6, { stroke: lineOf(ai), 'stroke-width': 1.8 });
+        var e = P(G.R, av);
+        pip(g, ai, e[0], e[1], G.ed, { fill: fillOf(ai), stroke: v('ink'), 'stroke-width': G.edW });
+        if (G.flag) RAD(g, av, 25.2, 27.6, { stroke: lineOf(ai), 'stroke-width': 1.8 });
         g = g0;
       }
-      var l = S.mapsOf(p.key), f = S.focused(p.key), run = S.origin(p), rr = 31;
+      var l = S.mapsOf(p.key), f = S.focused(p.key), run = S.origin(p), rr = G.r0;
       if (ctl) l = [ctl].concat(l.filter(function (m) { return m !== ctl; }));   // the Control ring is innermost: the others stack on its output
-      l.slice(0, 4).forEach(function (m) {
+      var shown = G.rings === 1 ? (f ? [f] : l.slice(0, 1)) : l.slice(0, G.rings);   // utility: the focused mapping's ring only
+      if (G.rings === 1 && f && l[0] !== f) { var k0 = l.indexOf(f); for (var kk = 0; kk < k0; kk++) run += S.contrib(l[kk]); }   // its stacked origin is still the output of the rings inside it
+      shown.forEach(function (m) {
         var d = S.depthOf(m), orig = run, src = S.src(m.src), em = emphasis(S, m, f); run += S.contrib(m);
         if (m.pol === 'ctl') orig = m.lo;                                    // its origin dot sits at the low end; the tick is the live position
         var ends = m.pol === 'ctl' ? [m.lo, m.hi] : m.pol === 'uni' ? [orig, orig + d] : m.pol === 'bi' ? [orig - d, orig + d] : [orig - d, orig];
-        var ad = arc(rr, ends[0], ends[1]) || arc(rr, orig, orig + .004);
-        mk('path', { d: ad, fill: 'none', stroke: srcColor(src), 'stroke-width': em.heavy ? 3.2 : 2.2, 'stroke-linecap': 'round', opacity: em.op }, g);
-        if (m.cd && !p.locked && m.pol !== 'ctl') {
-          var dc = m.cd[ai], he = m.pol === 'uni' ? [orig, orig + dc] : m.pol === 'bi' ? [orig - dc, orig + dc] : [orig - dc, orig], hd = arc(rr + 3.2, he[0], he[1]);
+        var ad = A(rr, ends[0], ends[1]) || A(rr, orig, orig + .004), ra = { d: ad, fill: 'none', stroke: srcColor(src), 'stroke-width': em.heavy ? G.rwH : G.rw, 'stroke-linecap': 'round', opacity: em.op };
+        if (G.rings === 1 && l.length > 1) ra['stroke-dasharray'] = '3 1.6';    // utility: dashed = more mappings than the one drawn
+        mk('path', ra, g);
+        if (G.hair && m.cd && !p.locked && m.pol !== 'ctl') {
+          var dc = m.cd[ai], he = m.pol === 'uni' ? [orig, orig + dc] : m.pol === 'bi' ? [orig - dc, orig + dc] : [orig - dc, orig], hd = A(rr + 3.2, he[0], he[1]);
           if (hd) mk('path', { d: hd, fill: 'none', stroke: lineOf(ai), 'stroke-width': 1.1, 'stroke-linecap': 'round', opacity: em.op }, g);
         }
-        var o = pt(rr, orig);
-        mk('circle', { cx: o[0], cy: o[1], r: 2.5, fill: srcColor(src), stroke: v('mark-edge'), 'stroke-width': 1.1, opacity: em.op }, g);
-        radial(g, run, rr - 2.2, rr + 2.2, { stroke: v('ink'), 'stroke-width': 1.4, opacity: em.op === 1 ? .95 : .3 });
-        rr += m.cd ? 6.9 : 3.7;
+        var o = P(rr, orig);
+        mk('circle', { cx: o[0], cy: o[1], r: G.dot, fill: srcColor(src), stroke: v('mark-edge'), 'stroke-width': 1.1, opacity: em.op }, g);
+        RAD(g, run, rr - G.tick, rr + G.tick, { stroke: v('ink'), 'stroke-width': 1.4, opacity: em.op === 1 ? .95 : .3 });
+        rr += G.hair && m.cd ? G.stepCd : G.step;
       });
-      if (l.length > 4) { var tx = mk('text', { x: 78, y: 88, style: 'font:500 7px var(--font-mono);fill:var(--t2)' }, g); tx.textContent = '+' + (l.length - 4); }
+      if (!sz) { if (l.length > 4) { var tx = mk('text', { x: 78, y: 88, style: 'font:500 7px var(--font-mono);fill:var(--t2)' }, g); tx.textContent = '+' + (l.length - 4); } }
+      else { var nMore = l.length - shown.length; more.textContent = nMore > 0 ? '+' + nMore : ''; }
       var ow = S.owner[p.key];
-      if (!p.locked && S.pinned === null && ow && S.now) { var age = (S.now - ow.at) / 500; if (age >= 0 && age < 1 && !S.reduce) mk('circle', { cx: C, cy: C, r: (13 + age * 7).toFixed(2), fill: 'none', stroke: lineOf(ai), 'stroke-width': 2.2, opacity: (1 - age).toFixed(2) }, g); }
-      if (!drag) mk('circle', { cx: C + 2, cy: C + 2, r: 12.5, fill: v('ink') }, g);   // the house hard shadow (1.5 px), flat while dragging
-      mk('circle', { cx: C, cy: C, r: 12.5, fill: v('panel'), stroke: p.locked ? v('ink') : lineOf(ai), 'stroke-width': p.locked ? 1 : 1.6 }, g);
-      var n = pt(10.5, out); mk('line', { x1: C, y1: C, x2: n[0], y2: n[1], stroke: v('ink'), 'stroke-width': 2, 'stroke-linecap': 'round' }, g);
+      if (!p.locked && S.pinned === null && ow && S.now) { var age = (S.now - ow.at) / 500; if (age >= 0 && age < 1 && !S.reduce) mk('circle', { cx: Cc, cy: Cc, r: (G.cap + .5 + age * 7).toFixed(2), fill: 'none', stroke: lineOf(ai), 'stroke-width': 2.2, opacity: (1 - age).toFixed(2) }, g); }
+      if (!drag) mk('circle', { cx: Cc + shU, cy: Cc + shU, r: G.cap, fill: v('ink') }, g);   // the house hard shadow (1.5 px), flat while dragging
+      mk('circle', { cx: Cc, cy: Cc, r: G.cap, fill: v('panel'), stroke: p.locked ? v('ink') : lineOf(ai), 'stroke-width': p.locked ? 1 : G.capW }, g);
+      var n = P(G.ndl, out); mk('line', { x1: Cc, y1: Cc, x2: n[0], y2: n[1], stroke: v('ink'), 'stroke-width': G.ndlW, 'stroke-linecap': 'round' }, g);
       r1.textContent = p.fmt(out);
-      readout2(S, p, ai, r2);
+      if (sz) { el.classList.toggle('drag', !!drag); el.classList.toggle('cap', headCap(S, p, ai, r2) === 'cap'); }
+      else readout2(S, p, ai, r2);
       box.setAttribute('aria-valuenow', out.toFixed(3));
       box.setAttribute('aria-valuetext', p.fmt(out) + (ctl ? ', controlled by ' + S.src(ctl.src).name : p.locked ? ', locked' : ', editing corner ' + CORNERS[ai].id + ' ' + p.fmt(p.vals[ai])));
       box.style.cursor = S.map.on ? 'copy' : ctl ? 'not-allowed' : 'ns-resize';
@@ -353,22 +419,32 @@
   }
 
   /* ---------- SLIDER (both specs' slider sections; 200 × 50 viewBox, track 180 units) ---------- */
+  /* SLIDER GEOMETRY. CLASSIC is the specs' 200 × 62 drawing (vertical 76 × 200) with its 19ch two-line readout column.
+     TIGHT (any `size`) is 200 × 35 (vertical 40 × 200, a wider 22 × 8 fader cap): the track at 13 (14), the tether 10 (12.5)
+     units off it, four lanes 3.2 apart from 10 (12) units off on the other side, no corner-depth hairline; the readout column holds the value only (8ch), and the
+     corner line and full focus caption go to the section's readout slot, as on the sized knob. */
+  var SG = {
+    classic: { W: 200, H: 62, VW: 76, tr: 14, vtr: 16, teth: -9.5, l0: 11, step: 5.4, stepCd: 8.4, lw: 2.4, lwH: 3.2, tick: 2.4, hair: true, th: [7, 16] },
+    tight: { W: 200, H: 35, VW: 40, tr: 13, vtr: 14, teth: -10, vteth: -12.5, l0: 10, vl0: 12, step: 3.2, stepCd: 3.2, lw: 1.9, lwH: 2.6, tick: 1.6, hair: false, th: [7, 14], vth: [22, 8] }
+  };
   function Slider(el, p, S) {
     p.fmt = p.fmt || pct; p.def = p.def === undefined ? (p.locked ? p.g : .5) : p.def;
     S.params[p.key] = p; if (!p.locked) S.saved[p.key] = p.vals.slice();
-    var vert = !!p.vert, LEN = 180;
+    var vert = !!p.vert, LEN = 180, sz = KSIZE[p.size] ? p.size : null, G = sz ? SG.tight : SG.classic;
     if (!vert) p.horizontal = true;
-    el.classList.add(vert ? 'hd-ms-v' : 'hd-ms'); el.innerHTML = '';
+    el.classList.add(vert ? 'hd-ms-v' : 'hd-ms'); if (sz) el.classList.add('sz', 'sz-' + sz); el.innerHTML = '';
     var nm = document.createElement('div'); nm.className = 'mk-name'; nm.textContent = p.name;
     var face = document.createElement('div'); face.className = 'ms-face hd-focus'; face.setAttribute('role', 'slider'); face.setAttribute('aria-label', p.path || p.name);
-    var svg = mk('svg', vert ? { viewBox: '0 0 76 200', width: 76, height: 200, 'aria-hidden': 'true' } : { viewBox: '0 0 200 62', 'aria-hidden': 'true', style: 'width:100%;height:auto' });   // CONSTANT box: room for 4 lanes + hairlines (to 14+53.6+2.4) and the tether, so nothing live resizes it
+    var svg = mk('svg', vert ? { viewBox: '0 0 ' + G.VW + ' 200', width: G.VW, height: 200, 'aria-hidden': 'true' } : { viewBox: '0 0 200 ' + G.H, 'aria-hidden': 'true', style: 'width:100%;height:auto' });   // CONSTANT box: room for 4 lanes + hairlines (to 14+53.6+2.4) and the tether, so nothing live resizes it
     face.appendChild(svg);   // scales by viewBox: never wider than its row. (Keep this on its own line: it once fell into the comment above and every slider vanished.)
     var g = mk('g', {}, svg);
     var rd = document.createElement('div'); rd.className = 'ms-rd';
     var r1 = document.createElement('div'); r1.className = 'mk-v1'; var r2 = document.createElement('div'); r2.className = 'mk-v2';
     rd.appendChild(r1); rd.appendChild(r2);
-    if (vert) { el.appendChild(face); el.appendChild(nm); el.appendChild(rd); } else { el.appendChild(nm); el.appendChild(face); el.appendChild(rd); }
-    var P2 = vert ? function (x, o) { return [16 + o, 10 + (1 - clamp(x)) * LEN]; } : function (x, o) { return [10 + clamp(x) * LEN, 14 + o]; };
+    var more = null; if (sz) { more = document.createElement('span'); more.className = 'mk-more'; face.appendChild(more); el.title = p.path || p.name; }
+    if (vert && !sz) { el.appendChild(face); el.appendChild(nm); el.appendChild(rd); } else if (vert) { el.appendChild(nm); el.appendChild(face); el.appendChild(rd); } else { el.appendChild(nm); el.appendChild(face); el.appendChild(rd); }
+    hot(el, p, S);
+    var TV = G.vtr || G.tr, P2 = vert ? function (x, o) { return [TV + o, 10 + (1 - clamp(x)) * LEN]; } : function (x, o) { return [10 + clamp(x) * LEN, G.tr + o]; };
     function line(a, b, off, at) { var p1 = P2(a, off), p2 = P2(b, off); at.x1 = p1[0]; at.y1 = p1[1]; at.x2 = p2[0]; at.y2 = p2[1]; at['stroke-linecap'] = 'round'; return mk('line', at, g); }
     function perp(x, off, h, at) { var q = P2(x, off); if (vert) { at.x1 = q[0] - h; at.x2 = q[0] + h; at.y1 = at.y2 = q[1]; } else { at.y1 = q[1] - h; at.y2 = q[1] + h; at.x1 = at.x2 = q[0]; } at['stroke-linecap'] = 'round'; return mk('line', at, g); }
     gesture(face, p, S, function () { var r = svg.getBoundingClientRect(); return (vert ? r.height : r.width) * LEN / 200; });   // one slider length = full range
@@ -382,17 +458,17 @@
       var ctl = S.ctlOf(p.key), g0 = g; if (ctl) g = mk('g', { opacity: .22 }, g0);   // under Control the own value is a ghost (as on the knob)
       var from = p.bipolar ? .5 : 0; if (Math.abs(b - from) > .002) line(from, b, 0, { stroke: v('ink'), 'stroke-width': 4 });
       g = g0;
-      var l = S.mapsOf(p.key), f = S.focused(p.key), run = S.origin(p), off = 11;
+      var l = S.mapsOf(p.key), f = S.focused(p.key), run = S.origin(p), off = vert && G.vl0 ? G.vl0 : G.l0;
       if (ctl) l = [ctl].concat(l.filter(function (m) { return m !== ctl; }));
       l.slice(0, 4).forEach(function (m) {
         var d = S.depthOf(m), orig = run, src = S.src(m.src), em = emphasis(S, m, f); run += S.contrib(m);
         if (m.pol === 'ctl') orig = m.lo;
         var ends = m.pol === 'ctl' ? [m.lo, m.hi] : m.pol === 'uni' ? [orig, orig + d] : m.pol === 'bi' ? [orig - d, orig + d] : [orig - d, orig];
-        line(ends[0], ends[1], off, { stroke: srcColor(src), 'stroke-width': em.heavy ? 3.2 : 2.4, opacity: em.op });
-        if (m.cd && ai !== null && m.pol !== 'ctl') { var dc = m.cd[ai], he = m.pol === 'uni' ? [orig, orig + dc] : m.pol === 'bi' ? [orig - dc, orig + dc] : [orig - dc, orig]; line(he[0], he[1], off + 3.4, { stroke: lineOf(ai), 'stroke-width': 1.1, opacity: em.op }); }
-        var o = P2(orig, off); mk('circle', { cx: o[0], cy: o[1], r: 2.4, fill: srcColor(src), stroke: v('mark-edge'), 'stroke-width': 1.1, opacity: em.op }, g);
-        perp(run, off, 2.4, { stroke: v('ink'), 'stroke-width': 1.4, opacity: em.op === 1 ? .95 : .3 });
-        off += m.cd ? 8.4 : 5.4;
+        line(ends[0], ends[1], off, { stroke: srcColor(src), 'stroke-width': em.heavy ? G.lwH : G.lw, opacity: em.op });
+        if (G.hair && m.cd && ai !== null && m.pol !== 'ctl') { var dc = m.cd[ai], he = m.pol === 'uni' ? [orig, orig + dc] : m.pol === 'bi' ? [orig - dc, orig + dc] : [orig - dc, orig]; line(he[0], he[1], off + 3.4, { stroke: lineOf(ai), 'stroke-width': 1.1, opacity: em.op }); }
+        var o = P2(orig, off); mk('circle', { cx: o[0], cy: o[1], r: sz ? 1.9 : 2.4, fill: srcColor(src), stroke: v('mark-edge'), 'stroke-width': 1.1, opacity: em.op }, g);
+        perp(run, off, G.tick, { stroke: v('ink'), 'stroke-width': 1.4, opacity: em.op === 1 ? .95 : .3 });
+        off += G.hair && m.cd ? G.stepCd : G.step;
       });
       var tv = b;
       if (ctl) g = mk('g', { opacity: .22 }, g0);
@@ -400,23 +476,49 @@
         for (var i = 0; i < 4; i++) { if (i === ai || w[i] < .0005) continue; var q = P2(p.vals[i], 0);
           pip(g, i, q[0], q[1], 1.2 + 2.2 * w[i], { fill: fillOf(i), stroke: v('mark-edge'), 'stroke-width': 1.1, opacity: (.28 + .72 * w[i]).toFixed(2) }); }
         tv = p.vals[ai];
-        if (Math.abs(tv - b) > .003) line(b, tv, -9.5, { stroke: lineOf(ai), 'stroke-width': 1.6, 'stroke-dasharray': '2 2.6' });
+        if (Math.abs(tv - b) > .003) line(b, tv, vert && G.vteth ? G.vteth : G.teth, { stroke: lineOf(ai), 'stroke-width': 1.6, 'stroke-dasharray': '2 2.6' });
         perp(b, 0, 5, { stroke: v('ink'), 'stroke-width': 1.6 });                 // the blend notch
       }
       g = g0;
-      var t = P2(tv, 0), ow = S.owner[p.key];
+      var TH = vert ? (G.vth || [16, 7]) : G.th, t = P2(tv, 0), ow = S.owner[p.key], tw = TH[0], thh = TH[1];
       if (!p.locked && S.pinned === null && ow && S.now && !S.reduce) { var age = (S.now - ow.at) / 500;
-        if (age >= 0 && age < 1) { var s = 1 + age * 1.3; mk('rect', vert ? { x: t[0] - 8 * s - 1, y: t[1] - 3.5 * s - 1, width: 16 * s + 2, height: 7 * s + 2 } : { x: t[0] - 3.5 * s - 1, y: t[1] - 8 * s - 1, width: 7 * s + 2, height: 16 * s + 2 }, g)
+        if (age >= 0 && age < 1) { var s = 1 + age * 1.3; mk('rect', { x: t[0] - tw / 2 * s - 1, y: t[1] - thh / 2 * s - 1, width: tw * s + 2, height: thh * s + 2 }, g)
           .setAttribute('style', 'fill:none;stroke:' + lineOf(ai) + ';stroke-width:1.8;opacity:' + (1 - age).toFixed(2)); } }
-      var th = mk('rect', vert ? { x: t[0] - 8, y: t[1] - 3.5, width: 16, height: 7, rx: 2 } : { x: t[0] - 3.5, y: t[1] - 8, width: 7, height: 16, rx: 2 }, g);
+      var th = mk('rect', { x: t[0] - tw / 2, y: t[1] - thh / 2, width: tw, height: thh, rx: 2 }, g);
       th.setAttribute('fill', p.locked ? v('ink') : fillOf(ai)); th.setAttribute('stroke', v('mark-edge')); th.setAttribute('stroke-width', 1.2);
       if (ctl) { th.setAttribute('opacity', .22); var cp = P2(S.origin(p), 0); mk('circle', { cx: cp[0], cy: cp[1], r: 3.6, fill: srcColor(S.src(ctl.src)), stroke: v('ink'), 'stroke-width': 1.3 }, g); }   // the controlled position
-      if (l.length > 4) { var q2 = P2(1, off); var tx = mk('text', { x: vert ? q2[0] - 6 : q2[0] - 14, y: q2[1] + 3, style: 'font:500 7px var(--font-mono);fill:var(--t2)' }, g); tx.textContent = '+' + (l.length - 4); }
+      if (!sz) { if (l.length > 4) { var q2 = P2(1, off); var tx = mk('text', { x: vert ? q2[0] - 6 : q2[0] - 14, y: q2[1] + 3, style: 'font:500 7px var(--font-mono);fill:var(--t2)' }, g); tx.textContent = '+' + (l.length - 4); } }
+      else more.textContent = l.length > 4 ? '+' + (l.length - 4) : '';
       var out = S.output(p);
-      r1.textContent = p.fmt(out); readout2(S, p, ai, r2);
+      r1.textContent = p.fmt(out);
+      if (sz) el.classList.toggle('cap', headCap(S, p, ai, r2) === 'cap'); else readout2(S, p, ai, r2);
       face.setAttribute('aria-valuenow', out.toFixed(3));
       face.setAttribute('aria-valuetext', p.fmt(out) + (ctl ? ', controlled by ' + S.src(ctl.src).name : p.locked ? ', locked' : ', editing corner ' + CORNERS[ai].id + ' ' + p.fmt(p.vals[ai])));
       if (ctl && !S.map.on) face.style.cursor = 'not-allowed';
+    } };
+    S.add(view); return view;
+  }
+
+  /* ---------- READOUT SLOT: the section's one live readout (Density and hierarchy, README) ----------
+     A sized control has no readout cell of its own. The slot, at the right end of a section header, shows the HOT control
+     (under the pointer, dragged, or keyboard-focused) when it sits inside `scope`: its name, its value, and the second line
+     the classic readout carried (the editing corner's glyph, letter, stored value and weight; the full focus caption while
+     Option is held or MAP is on; "controlled by"; LOCKED). Otherwise it shows the section's summary. */
+  function ReadoutSlot(el, S, opts) {
+    opts = opts || {};
+    el.classList.add('hd-rslot'); el.setAttribute('aria-hidden', 'true');   // the controls' own aria-valuetext carries the same text
+    var n = document.createElement('span'); n.className = 'rs-n';
+    var v1 = document.createElement('b'); v1.className = 'rs-v';
+    var v2 = document.createElement('span'); v2.className = 'mk-v2 rs-2';
+    var sm = document.createElement('span'); sm.className = 'rs-sum';
+    el.appendChild(n); el.appendChild(v1); el.appendChild(v2); el.appendChild(sm);
+    var view = { render: function () {
+      var key = S.drag ? S.drag.key : S.hot, hEl = S.hotEl, p = key ? S.params[key] : null, scope = opts.scope || el.parentNode;
+      var inside = p && scope && hEl && scope.contains(hEl);
+      el.classList.toggle('live', !!inside);
+      if (!inside) { var s = typeof opts.summary === 'function' ? opts.summary() : opts.summary || ''; if (sm.textContent !== s) sm.textContent = s; return; }
+      n.textContent = p.name; v1.textContent = p.fmt(S.output(p));
+      readout2(S, p, S.editing(p), v2);
     } };
     S.add(view); return view;
   }
@@ -620,7 +722,8 @@
     S.on(sync); sync();
   }
 
-  window.Horde = { CORNERS: CORNERS, SCHEMES: SCHEMES, Session: Session, Knob: Knob, Slider: Slider, MapControl: MapControl, ModInspector: ModInspector, XYPad: XYPad, CornerPin: CornerPin, CornerChips: CornerChips, CornerChip: CornerChips, CornerInspector: CornerInspector, ScreenScheme: ScreenScheme, apportion: apportion, glyph: glyphSvg };
+  window.Horde = { CORNERS: CORNERS, SCHEMES: SCHEMES, Session: Session, Knob: Knob, Slider: Slider, MapControl: MapControl, ModInspector: ModInspector, XYPad: XYPad, CornerPin: CornerPin, CornerChips: CornerChips, CornerChip: CornerChips, CornerInspector: CornerInspector, ScreenScheme: ScreenScheme, apportion: apportion, glyph: glyphSvg,
+    ReadoutSlot: ReadoutSlot, readout: readout2, KNOB_SIZES: KSIZE };
 
   /* =====================================================================
      VISUALIZERS. Painters ported from gui2.html's canvases and the SCALPEL lab's (B295, B293),
@@ -3600,6 +3703,8 @@
   function SteppedControl(el, S, opts) {
     opts = opts || {}; var M = state(S), last = -1;
     el.classList.add('hm-step');
+    /* size 'compact' (the Density ladder): the dense switch faces and slider rows, and a lower scope glass */
+    if (opts.size === 'compact') el.classList.add('hd-dense', 'hm-step-sm');
     el.innerHTML = '<div class="hm-st-rs"></div>' + (opts.glide === false ? '' : '<div class="hm-st-gl"></div>') +
       '<div class="hd-viz hm-st-glass"><canvas role="img" aria-label="Stepped travel: the puck and the heard position over the last three seconds"></canvas></div><div class="hm-st-key hd-hint"><span class="hm-lk-sw o"></span>the puck · <span class="hm-lk-sw b"></span>heard, in steps · <span class="hm-st-note"></span></div>';
     /* the house's ONE rate-plus-sync control (H.RateSync, the modulator family's, ADR-266 r10); each committed change is
@@ -5280,4 +5385,216 @@
   /* the law math, exposed so a consumer's tests (and this component's own checks) run the same functions the pictures run */
   BlendMaps.math = { surface: makeSurface, at: surfAt, triangulate: triangulate, weights: weights, laws: LAWS.slice(), name: LAW_NAME };
   H.BlendMaps = BlendMaps;
+})(window.Horde);
+
+/* =====================================================================
+   DENSITY AND HIERARCHY (B589; the human's notes of 2026-10-30 on the GUI 3 shell). The page bar in two levels, the
+   section header that replaces nested cards, and the mixer as a console of channel strips. Layout and behaviour only:
+   every value they show is the consumer's (the engine's in GUI 3), and the previews label theirs SAMPLE.
+   ===================================================================== */
+(function (H) {
+  'use strict';
+  function tag(t, cls, txt) { var e = document.createElement(t); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; }
+  function keysOn(o) { return typeof o.keys === 'function' ? !!o.keys() : !!o.keys; }
+  function fire(fn, a, b, c) { if (typeof fn === 'function') fn(a, b, c); }
+  var uid = 0;
+  /* ROVING FOCUS for a tablist or radiogroup (accessibility.md): one tab stop per group, and only in keyboard mode;
+     Left/Right (and Up/Down inside a radiogroup) move AND select, Home/End jump. Returns the handler. */
+  function roving(list, sel, pick) {
+    return function (e) {
+      var i = list.indexOf(document.activeElement); if (i < 0) return;
+      var k = e.key, n = list.length, j = k === 'ArrowRight' ? (i + 1) % n : k === 'ArrowLeft' ? (i - 1 + n) % n : k === 'Home' ? 0 : k === 'End' ? n - 1 : -1;
+      if (j < 0) return; e.preventDefault(); pick(j); list[j].focus();
+    };
+  }
+  /* compact pills as a radiogroup: the house .hd-pill with .sm, so the face is 20 px and the hit 28 */
+  function pillGroup(host, labels, cur, label, onPick, o) {
+    host.classList.add('hd-pills', 'sm'); host.setAttribute('role', 'radiogroup'); host.setAttribute('aria-label', label);
+    var bs = labels.map(function (t, i) { var b = tag('button', 'hd-pill sm hd-focus', t); b.type = 'button'; b.setAttribute('role', 'radio');
+      b.addEventListener('click', function () { set(i); fire(onPick, i); }); host.appendChild(b); return b; });
+    function set(i) { cur = i; bs.forEach(function (b, k) { b.setAttribute('aria-checked', String(k === i)); b.tabIndex = keysOn(o) && k === i ? 0 : -1; }); }
+    host.addEventListener('keydown', function (e) { if (!keysOn(o)) return;
+      var i = bs.indexOf(document.activeElement), d = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
+      if (i < 0 || !d) return; e.preventDefault(); var j = (i + d + bs.length) % bs.length; set(j); fire(onPick, j); bs[j].focus(); });
+    set(cur); return { set: set, get: function () { return cur; }, buttons: bs };
+  }
+
+  /* ---------- PAGE NAV: two levels. The top row is the page GROUPS (Main, Osc, FX, Mod, Morph, Mix, Hist, Set); under it,
+     the selected group's PAGES (for Osc: Dashboard, Osc 1, Osc 2, Sub, Noise, Filters). A group remembers the page it was
+     last on, so Osc → Mix → Osc returns to Osc 2. A one-page group still shows its page row (its one tab), so the bar never
+     changes height. Both rows are role="tablist"; tabs take focus only in keyboard mode (ADR-259 r6), where Left/Right
+     move and select, Down goes from a group to its pages and Up comes back. ---------- */
+  function PageNav(el, o) {
+    o = o || {}; var groups = o.groups || [], id = 'hd-pn' + (++uid), last = {};
+    var cur = o.value || { group: groups[0] && groups[0].id, page: null };
+    el.classList.add('hd-pnav'); el.innerHTML = '';
+    var top = tag('div', 'pn-groups'), sub = tag('div', 'pn-pages');
+    top.setAttribute('role', 'tablist'); top.setAttribute('aria-label', o.label || 'Page groups'); sub.id = id + '-pages';
+    sub.setAttribute('role', 'tablist'); el.appendChild(top); el.appendChild(sub);
+    function grp(gid) { for (var i = 0; i < groups.length; i++) if (groups[i].id === gid) return groups[i]; return groups[0]; }
+    function pagesOf(gr) { return gr.pages && gr.pages.length ? gr.pages : [{ id: gr.id, label: gr.label }]; }
+    var gb = groups.map(function (gr) {
+      var b = tag('button', 'pn-g hd-focus', gr.label); b.type = 'button'; b.setAttribute('role', 'tab'); b.id = id + '-g-' + gr.id; b.setAttribute('aria-controls', sub.id);
+      b.addEventListener('click', function () { set(gr.id); }); top.appendChild(b); return b;
+    });
+    var pb = [];
+    top.addEventListener('keydown', function (e) {
+      if (!keysOn(o)) return;
+      if (e.key === 'ArrowDown') { var s = sub.querySelector('[aria-selected="true"]'); if (s) { e.preventDefault(); s.focus(); } return; }
+      roving(gb, null, function (j) { set(groups[j].id); })(e);
+    });
+    sub.addEventListener('keydown', function (e) {
+      if (!keysOn(o)) return;
+      if (e.key === 'ArrowUp') { var s = top.querySelector('[aria-selected="true"]'); if (s) { e.preventDefault(); s.focus(); } return; }
+      roving(pb, null, function (j) { var gr = grp(cur.group); set(gr.id, pagesOf(gr)[j].id); })(e);
+    });
+    function drawPages(gr) {
+      sub.innerHTML = ''; sub.setAttribute('aria-label', gr.label + ' pages');
+      pb = pagesOf(gr).map(function (pg) {
+        var b = tag('button', 'pn-p hd-focus'); b.type = 'button'; b.setAttribute('role', 'tab'); b.dataset.id = pg.id; b.id = id + '-p-' + pg.id;
+        if (o.panel) b.setAttribute('aria-controls', o.panel);
+        if (pg.on !== undefined) { var d = tag('span', 'pn-dot' + (pg.on ? ' on' : '')); d.setAttribute('aria-hidden', 'true'); b.appendChild(d); }
+        b.appendChild(document.createTextNode(pg.label));
+        if (pg.on !== undefined) b.setAttribute('aria-label', pg.label + (pg.on ? ', on' : ', off'));
+        b.addEventListener('click', function () { set(gr.id, pg.id); }); sub.appendChild(b); return b;
+      });
+    }
+    var drawn = null;
+    function sync() {
+      var gr = grp(cur.group), ks = keysOn(o);
+      gb.forEach(function (b, i) { var on = groups[i] === gr; b.setAttribute('aria-selected', String(on)); b.tabIndex = ks && on ? 0 : -1; });
+      if (drawn !== gr) { drawPages(gr); drawn = gr; }
+      pb.forEach(function (b) { var on = b.dataset.id === cur.page; b.setAttribute('aria-selected', String(on)); b.tabIndex = ks && on ? 0 : -1; });
+    }
+    function set(gid, pid, quiet) {
+      var gr = grp(gid), ps = pagesOf(gr);
+      if (pid === undefined || pid === null) pid = last[gr.id] || ps[0].id;
+      if (!ps.some(function (q) { return q.id === pid; })) pid = ps[0].id;
+      var changed = gr.id !== cur.group || pid !== cur.page;
+      cur = { group: gr.id, page: pid }; last[gr.id] = pid; sync();
+      if (changed && !quiet) fire(o.onChange, gr.id, pid);
+    }
+    set(cur.group, cur.page, true);
+    return { set: function (g, p) { set(g, p, true); }, get: function () { return { group: cur.group, page: cur.page }; }, refresh: function () { drawn = null; sync(); },
+      /* the page's on-dot, for an oscillator switched elsewhere */
+      mark: function (gid, pid, on) { var gr = grp(gid); pagesOf(gr).forEach(function (q) { if (q.id === pid) q.on = on; }); drawn = null; sync(); } };
+  }
+
+  /* ---------- SECTION HEADER: the bench's one-line header. An identity rule above (ink, by pattern: solid, dash, dot),
+     then on one line: the on toggle, the number badge, the NAME (cluster style), the mode pills, and at the right the
+     section's readout slot (H.ReadoutSlot) or a plain summary. Below it the consumer places .hd-sgroups of .hd-sgrp, each a
+     .hd-sublabel over a .hd-krow of controls. With `section` given, off dims the section's body (opacity-muted). ---------- */
+  function SectionHeader(el, o) {
+    o = o || {}; var path = o.path || o.name, on = o.on;
+    el.classList.add('hd-sechead'); el.dataset.rule = o.rule || 'solid'; el.innerHTML = '';
+    var tg = null;
+    if (on !== undefined) {
+      tg = tag('button', 'hd-toggle sm hd-focus'); tg.type = 'button'; tg.setAttribute('role', 'switch'); tg.setAttribute('aria-label', path + ' · On');
+      tg.addEventListener('click', function () { setOn(!on); fire(o.onToggle, on); }); el.appendChild(tg);
+    }
+    if (o.num !== undefined) { var nb = tag('span', 'sh-num', String(o.num)); nb.setAttribute('aria-hidden', 'true'); el.appendChild(nb); }
+    var nm = tag('span', 'hd-cluster sh-name', o.name); el.appendChild(nm);
+    var modes = null;
+    if (o.modes) { var mh = tag('div'); el.appendChild(mh); modes = pillGroup(mh, o.modes.options, o.modes.value || 0, path + ' · ' + (o.modes.label || 'Mode'), o.modes.onPick, o); }
+    var end = tag('div', 'sh-end'); el.appendChild(end);
+    if (o.end) end.appendChild(o.end);
+    var slot = tag('div'); end.appendChild(slot);
+    if (o.S) H.ReadoutSlot(slot, o.S, { scope: o.section || o.scope, summary: o.summary });
+    else { slot.className = 'hd-rslot'; slot.textContent = typeof o.summary === 'function' ? o.summary() : o.summary || ''; }
+    function setOn(b) { on = !!b; if (tg) { tg.setAttribute('aria-checked', String(on)); tg.tabIndex = keysOn(o) ? 0 : -1; } if (o.section) o.section.classList.toggle('off', !on); }
+    if (on !== undefined) setOn(on);
+    return { on: function (b) { if (b === undefined) return on; setOn(b); }, mode: function (i) { if (!modes) return null; if (i === undefined) return modes.get(); modes.set(i); }, el: el };
+  }
+
+  /* ---------- CHANNEL STRIP: the mixer, loosely a physical console (the human, 2026-10-30: "levels sliders side-by-side
+     ... attached to their toggles ... a live readout with a clipping warning next to it"). Strips stand side by side on ONE
+     console card with hairlines between them, a master strip at the right behind a page rule. Each strip, top to bottom:
+     its on toggle and name; the live peak readout with the latching CLIP lamp beside it; the fader (a vertical morph Slider,
+     so corner pips, tether and mod lanes all show) with the strip's meter pair beside it, the fader's track and the meter
+     sharing one height; the fader's value; mute and solo, directly under the fader.
+     The meter keeps the Meter's anatomy (−66..+6 dBFS, 0 dBFS at 91.7%, the over zone in alarm, peak hold in value-ink,
+     1.5 s then 20 dB/s) and Gain staging's rule that the latch lives on the audio side: read(id) gives the peaks since the
+     last frame, latch(id) the lamp, clear(id) clears it. step(dt) advances the ballistics by the dt it is given (no clock). ---------- */
+  var DB_MIN = -66, DB_MAX = 6;
+  function frac(db) { return Math.max(0, Math.min(1, (db - DB_MIN) / (DB_MAX - DB_MIN))); }
+  function fmtPk(db) { return db <= DB_MIN + .05 ? '−∞' : (db >= 0 ? '+' : '−') + Math.abs(db).toFixed(1); }
+  function ChannelStrip(el, S, o) {
+    o = o || {}; var strips = [];
+    el.classList.add('hd-cs'); el.innerHTML = ''; el.setAttribute('role', 'group'); el.setAttribute('aria-label', o.label || 'Mixer');
+    if (o.faderH) el.style.setProperty('--fader-h', o.faderH + 'px');
+    function btn(cls, txt, label, pressed, onClick) {
+      var b = tag('button', 'cs-btn ' + cls + ' hd-focus', txt); b.type = 'button'; b.setAttribute('aria-label', label); b.setAttribute('aria-pressed', String(!!pressed));
+      b.addEventListener('click', onClick); return b;
+    }
+    (o.strips || []).forEach(function (s) {
+      var t = { s: s, on: s.on !== false, mute: !!s.mute, solo: !!s.solo, bar: [DB_MIN, DB_MIN], pk: [DB_MIN, DB_MIN], held: [0, 0] };
+      var path = s.path || s.name;
+      var root = tag('div', 'cs-strip' + (s.master ? ' master' : '')); root.setAttribute('role', 'group'); root.setAttribute('aria-label', path + ' channel'); root.dataset.id = s.id;
+      var head = tag('div', 'cs-head');
+      if (!s.master && s.on !== undefined) {
+        t.tg = tag('button', 'hd-toggle sm hd-focus'); t.tg.type = 'button'; t.tg.setAttribute('role', 'switch'); t.tg.setAttribute('aria-label', path + ' · On');
+        t.tg.addEventListener('click', function () { t.on = !t.on; fire(o.onToggle, s.id, 'on', t.on); sync(); }); head.appendChild(t.tg);
+      }
+      head.appendChild(tag('span', 'cs-name', s.name)); root.appendChild(head);
+      var pkRow = tag('div', 'cs-pk'); t.pkEl = tag('output'); t.pkEl.setAttribute('aria-hidden', 'true');
+      t.lamp = tag('button', 'hd-lamp sm hd-focus', 'CLIP'); t.lamp.type = 'button';
+      t.lamp.addEventListener('click', function () { fire(o.clear, s.id); paint(); });
+      pkRow.appendChild(t.pkEl); pkRow.appendChild(t.lamp); root.appendChild(pkRow);
+      var body = tag('div', 'cs-body'), fd = tag('div'); body.appendChild(fd);
+      var fp = {}; for (var k in s.fader) fp[k] = s.fader[k]; fp.vert = true; fp.size = fp.size || 'compact'; fp.path = fp.path || path + ' · Level';
+      H.Slider(fd, fp, S);
+      var mt = tag('div', 'cs-meter'); mt.setAttribute('role', 'meter'); mt.setAttribute('aria-label', path + ' level');
+      mt.setAttribute('aria-valuemin', DB_MIN); mt.setAttribute('aria-valuemax', DB_MAX);
+      t.bars = [0, 1].map(function () { var b = tag('div', 'hd-mbar'); b.innerHTML = '<i class="fill"></i><i class="hold"></i>'; mt.appendChild(b); return { el: b, fill: b.firstChild, hold: b.lastChild }; });
+      body.appendChild(mt); root.appendChild(body); t.meter = mt;
+      if (!s.master) {
+        var ms = tag('div', 'cs-ms');
+        t.mb = btn('mute', 'M', path + ' · Mute', t.mute, function () { t.mute = !t.mute; fire(o.onToggle, s.id, 'mute', t.mute); sync(); });
+        t.sb = btn('solo', 'S', path + ' · Solo', t.solo, function () { t.solo = !t.solo; fire(o.onToggle, s.id, 'solo', t.solo); sync(); });
+        ms.appendChild(t.mb); ms.appendChild(t.sb); root.appendChild(ms);
+      }
+      el.appendChild(root); t.root = root; strips.push(t);
+    });
+    /* SOLO: any strip soloed silences every other source strip (never the master); such a strip dims and its M shows
+       dashed (implicit), so the reason is visible without colour. A muted or off strip dims too. */
+    function sync() {
+      var anySolo = strips.some(function (t) { return t.solo && !t.s.master; }), ks = keysOn(o);
+      strips.forEach(function (t) {
+        var implicit = anySolo && !t.solo && !t.s.master;
+        t.root.classList.toggle('quiet', !t.s.master && (t.mute || !t.on || implicit)); t.root.classList.toggle('implicit', implicit && !t.mute);
+        if (t.tg) { t.tg.setAttribute('aria-checked', String(t.on)); t.tg.tabIndex = ks ? 0 : -1; }
+        if (t.mb) { t.mb.setAttribute('aria-pressed', String(t.mute)); t.mb.tabIndex = ks ? 0 : -1; t.mb.title = implicit ? 'silenced by solo' : ''; }
+        if (t.sb) { t.sb.setAttribute('aria-pressed', String(t.solo)); t.sb.tabIndex = ks ? 0 : -1; }
+        t.lamp.tabIndex = ks ? 0 : -1;
+      });
+    }
+    function step(dt) {
+      var fall = Math.exp(-dt / .11);                                        // Gain staging's bar: a 0.11 s fall
+      strips.forEach(function (t) {
+        var r = o.read ? o.read(t.s.id) : null, now = r ? [r.l, r.r === undefined ? r.l : r.r] : [DB_MIN, DB_MIN];
+        for (var c = 0; c < 2; c++) {
+          var x = now[c] === undefined || now[c] === null ? DB_MIN : Math.max(DB_MIN, now[c]);
+          var a = Math.max(Math.pow(10, x / 20), Math.pow(10, t.bar[c] / 20) * fall); t.bar[c] = Math.max(DB_MIN, 20 * Math.log10(Math.max(a, 1e-9)));
+          if (x >= t.pk[c]) { t.pk[c] = x; t.held[c] = 0; } else { t.held[c] += dt; if (t.held[c] > 1.5) t.pk[c] = Math.max(x, t.pk[c] - 20 * dt); }   // duration-peak-hold, then 20 dB/s
+        }
+      });
+    }
+    function paint() {
+      strips.forEach(function (t) {
+        var L = o.latch ? o.latch(t.s.id) || {} : {}, top = Math.max(t.pk[0], t.pk[1]);
+        t.bars.forEach(function (b, c) { b.fill.style.setProperty('--lv', frac(t.bar[c])); b.hold.style.setProperty('--hp', frac(t.pk[c])); b.el.classList.toggle('over', !!L.on); });
+        t.pkEl.textContent = fmtPk(top);
+        t.meter.setAttribute('aria-valuenow', top.toFixed(1)); t.meter.setAttribute('aria-valuetext', 'peak ' + fmtPk(top) + ' dBFS' + (L.on ? ', clipped' : ''));
+        t.lamp.setAttribute('aria-pressed', String(!!L.on));
+        t.lamp.setAttribute('aria-label', (t.s.path || t.s.name) + ' clip lamp' + (L.on ? ', latched at ' + fmtPk(L.max === undefined ? 0 : L.max) + ' dBFS: click to clear' : ''));
+        t.lamp.title = L.on ? 'latched at ' + fmtPk(L.max === undefined ? 0 : L.max) + ' dBFS' : '';
+      });
+    }
+    sync(); paint();
+    return { step: step, render: paint, refresh: sync,
+      set: function (id, what, val) { strips.forEach(function (t) { if (t.s.id === id) t[what] = !!val; }); sync(); },
+      state: function () { return strips.map(function (t) { return { id: t.s.id, on: t.on, mute: t.mute, solo: t.solo, peak: Math.max(t.pk[0], t.pk[1]) }; }); } };
+  }
+
+  H.PageNav = PageNav; H.SectionHeader = SectionHeader; H.ChannelStrip = ChannelStrip; H.pillGroup = pillGroup;
 })(window.Horde);

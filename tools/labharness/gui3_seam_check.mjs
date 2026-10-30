@@ -45,6 +45,8 @@
  *                stays pending; on a continuous row it maps
  *   paths        ADR-330: a hosted module's value reaches the rack (RC-5, IF-7), an Arp value the device's MIDI module,
  *                a morph setting and the position the resolver (IF-11, IF-12); none reaches the engine's setParam
+ *   meters       B589's console: the MOCK meters follow IF-6's gate (off, mute, solo) and the output's sum; over 0 dBFS
+ *                latches the clip lamp, which holds until a clear
  *   determinism  the same seed and calls give byte-identical device and engine state; another seed differs
  *
  * MUST-FAIL CONTROLS (plants), every run, on in-memory copies of the two scripts: an observe() that
@@ -54,7 +56,7 @@
  * a morph toggle kept off the history, a snapshot save that keeps no preset, a snapshot that overwrites
  * a drag, a snapshot that overwrites a newer send, a close that keeps unmapped modulators, a drop that maps a
  * stepped row, a refused drop that clears the pending state, and the module, Arp and morph-setting values each
- * sent to the engine instead of their own side. Each must turn its own test red (and its
+ * sent to the engine instead of their own side, a meter that ignores solo, and a clear that does not unlatch. Each must turn its own test red (and its
  * anchor must exist, or the plant itself is reported as vacuous).
  *
  * Usage: node tools/labharness/gui3_seam_check.mjs [--verbose]   (exit 1 on any failure; --verbose prints
@@ -357,6 +359,30 @@ function suite(W) {
     ok(e.observe().refused === r0 + 1, 'the engine took a hosted module\u2019s key (control: it must refuse it, PA-7)');
   };
 
+  /* B589's console reads the engine's meters and clip latches (IF-6), MOCK in the stub: a source's meter follows its
+     level through IF-6's gate (off, mute, solo), the output sums the sounding sources, a reading over 0 dBFS latches
+     the clip lamp, and only a clear (a message, the latch lives on the audio side) unlatches it. */
+  T.meters = () => {
+    const { e, d } = fresh();
+    const lv = k => by[k], v0 = k => (0 - lv(k).lo) / (lv(k).hi - lv(k).lo);   // the v of 0 dB on a dB row
+    d.set('osc1.on', 1); d.set('osc2.on', 1);
+    d.set('mix.osc1', v0('mix.osc1')); d.set('mix.osc2', v0('mix.osc2'));
+    let m = d.meters();
+    ok(Math.abs(m.osc1.peak) < 1e-9 && m.sub.peak === -Infinity, 'osc 1 at 0 dB does not read 0 dBFS, or the sub (off) is not silent');
+    ok(Math.abs(m.out.peak - 20 * Math.log10(2)) < 1e-9, 'the output is not the sum of the sounding sources (' + m.out.peak + ')');
+    d.set('osc2.solo', 1); m = d.meters();
+    ok(m.osc1.peak === -Infinity && m.osc2.peak > -Infinity, 'a solo did not silence the other sources (IF-6)');
+    d.set('osc2.solo', 0); d.set('osc1.mute', 1); m = d.meters();
+    ok(m.osc1.peak === -Infinity, 'a muted source still reads');
+    d.set('osc1.mute', 0); d.set('mix.osc1', 1); m = d.meters();
+    ok(m.osc1.clip.on && m.osc1.peak > 0, 'a reading over 0 dBFS did not latch the clip lamp');
+    d.set('mix.osc1', v0('mix.osc1')); m = d.meters();
+    ok(m.osc1.clip.on, 'the clip latch let go by itself (it holds until cleared)');
+    d.clearClip('osc1'); m = d.meters();
+    ok(!m.osc1.clip.on, 'clear did not unlatch the clip lamp');
+    ok(JSON.stringify(e.observe().meters) === JSON.stringify(e.observe().meters), 'reading the meters changed them');
+  };
+
   T.determinism = () => {
     const run = seed => {
       const { e, d } = fresh(seed);
@@ -399,6 +425,8 @@ const PLANTS = [
   ['morphhistory', 'device', "if (on !== st.morphOn) step(on ? 'Morph on' : 'Morph off', function () { st.morphOn = on; });", 'if (on !== st.morphOn) st.morphOn = on;'],
   ['snapshots', 'device', 'st.names[i] = name.trim(); st.saved[i] = copy(st.corners[i]);\n', 'st.names[i] = name.trim();\n'],
   ['sync', 'device', 'if (k === g) continue;', ''],
+  ['meters', 'stub', "var silent = !isOn(s + '.on') || isOn(s + '.mute') || (anySolo && !isOn(s + '.solo'));", "var silent = !isOn(s + '.on') || isOn(s + '.mute');"],
+  ['meters', 'stub', "latch[id] = { on: false, max: -Infinity }; return was;", 'return was;'],
   ['pending', 'device', '      pending = [];\n      if (dropped.length) changed();', '      if (dropped.length) changed();'],
   ['mapdrop', 'device', "if (!r || r.law === 'step' || (r.target === 'resolver') || ((r.target || 'engine') === 'engine' && !r.pv))", 'if (!r)'],
   ['mapdrop', 'device', '      if (res.ok) { var k = pending.indexOf(src);', '      { var k = pending.indexOf(src);'],

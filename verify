@@ -219,8 +219,9 @@ fast() {
   # their choice carries a reason (ADR-322 item 3), every source beside SPEC-ENGINE 5 (Appendix D.2, the
   # hosted FX modules' manifests, Arp's; ADR-330) passes the same rule and refusals and every vendored
   # manifest has a provenance row whose sha256 matches its bytes, the shell mounts controls in one place
-  # and names no key, no gui3 script reads a clock, and the committed outputs are current. Seventeen
-  # must-fail controls every run. Python only, well under 1 s.
+  # and names no key, no gui3 script reads a clock, and the committed outputs are current; the page bar
+  # holds every page once, section and strip roles suit their rows, and a dashboard card carries only its
+  # source page's keys (B589). Twenty-one must-fail controls every run. Python only, well under 1 s.
   python3 tools/gen_gui3_controls.py --check || ok=1
 
   # THE TEST TABLE cannot claim coverage it lacks: every agentic row names a gate
@@ -532,14 +533,15 @@ PY
 
     # GUI 3'S ENGINE SEAM HOLDS ITS CONTRACT (ROADMAP B584, ADR-316; added under ADR-180 §1). The shell runs on a
     # no-audio stub engine behind one adapter (docs/design/gui3/engine-stub.js, device.js) and a swappable
-    # transport, and the WebAssembly engine (IF-10) replaces the stub behind the same seam. Eighteen tests hold
+    # transport, and the WebAssembly engine (IF-10) replaces the stub behind the same seam. Nineteen tests hold
     # the stubs, the transport and the adapter to the spec's words, ADR-319, ADR-322 and ADR-330 (5.1's laws against the
     # generator's inverses, IF-4 state round trips with unknown keys kept, RC-11.2 snapshot and restore, a
     # read-only IF-10 view, RC-11.3 gestures, the morph's classes, RC-4 route refusals, one gesture one undo
     # step, morph off's frozen corners, the morph toggle as a history node, corner snapshots and presets,
     # mirror and confirm including a drag and a stale snapshot, the bank's pending modulators dropped on close
     # and its map drops refused on stepped and reserved rows, each source's values reaching its own side (the
-    # rack, the MIDI module, the morph resolver) and never the engine, seeded determinism); nineteen planted faults
+    # rack, the MIDI module, the morph resolver) and never the engine, the console's MOCK meters through IF-6's
+    # gate and clip latch, seeded determinism); twenty-one planted faults
     # must each turn their own test red (~1 s).
     node tools/labharness/gui3_seam_check.mjs > /tmp/gui3seam.$$ 2>&1 || {
       echo "verify: GUI 3 seam check FAILED" >&2; cat /tmp/gui3seam.$$ >&2; ok=1; }

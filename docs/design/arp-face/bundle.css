@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1793080392-2372, 2026-10-27; do not edit, re-vendor */
+/* vendored from the horde Design System artifact, version 1793334278-f870, 2026-10-30; do not edit, re-vendor */
 @import url("https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;800&family=Roboto+Mono:wght@400;500;600&display=swap");
 /* horde house components. Every colour is a token (tokens.json); nothing here is a hex.
    Sources: UI Spec §3-4 (values), gui2.html §4 skins, the SCALPEL lab (980×720 chassis),
@@ -801,6 +801,7 @@ svg { max-width:100%; }
 .hm-fs .hd-slider[aria-disabled="true"] { opacity:var(--opacity-disabled); cursor:default; }
 .hm-step { display:flex; flex-direction:column; gap:6px; min-width:0; max-width:100%; }
 .hm-st-glass { aspect-ratio:4.2 / 1; }
+.hm-step-sm { gap:2px; } .hm-step-sm .hm-st-glass { aspect-ratio:7 / 1; }
 .hm-st-key { height:13.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .hm-coh { display:flex; flex-direction:column; gap:4px; min-width:0; max-width:100%; }
 .hm-coh-say { margin:0; max-width:60ch; }
@@ -968,3 +969,166 @@ canvas.hd-ring { outline:none; }
 .hd-bm .bm-sw.cn { background:linear-gradient(var(--scr-ground) 0 40%, var(--scr-grid) 40% 55%, var(--scr-ground) 55% 100%); }
 .hd-bm .bm-sw.tr { background:repeating-linear-gradient(90deg, var(--scr-grid) 0 3px, var(--scr-ground) 3px 6px); }
 .hd-bm .bm-key b, .hd-bm .bm-mh b { color:var(--ink); font-weight:600; }
+
+/* =====================================================================
+   DENSITY AND HIERARCHY (B589, the human's notes of 2026-10-30 on GUI 3; README "Density and hierarchy").
+   After the SCALPEL bench: label above, value on hover, sub-group labels instead of boxes, one-line section headers,
+   visuals take the area. The accessibility rulings stay: a smaller FACE keeps a 28 px HIT box (an invisible ::before),
+   and packed targets keep 28 px pitch, so density comes from faces and gaps, never from shrinking targets.
+   ===================================================================== */
+
+/* ---------- SIZED MORPH KNOB (size: primary | standard | compact | utility). The cell is the column the knob owns:
+   label line, face, nothing else (no reserved 96 px readout cell). The face box sizes are the JS's (size-knob-*). ---------- */
+.hd-mk.sz { position:relative; width:var(--size-cell-compact); padding:2px 0 3px; gap:1px; box-sizing:border-box; }
+.hd-mk.sz-standard { width:var(--size-cell-standard); }
+.hd-mk.sz-primary { width:var(--size-cell-primary); }
+.hd-mk.sz-utility { flex-direction:row; width:auto; gap:4px; padding:0 4px 0 2px; align-items:center; min-height:var(--size-hit); }
+.hd-mk.sz .mk-head { position:relative; width:100%; height:12px; }
+.hd-mk.sz-utility .mk-head { width:auto; min-width:7ch; max-width:12ch; order:0; }
+.hd-mk.sz .mk-name { font:500 9.5px/12px var(--font-sans); letter-spacing:-.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.hd-mk.sz-primary .mk-name { font-size:10px; }
+.hd-mk.sz-utility .mk-name { text-align:left; }
+/* the value and the caption take the label's own line: absolutely placed, so showing them moves nothing */
+.hd-mk.sz .mk-head .mk-v1, .hd-mk.sz .mk-head .mk-v2 { position:absolute; inset:0; height:12px; line-height:12px; opacity:0; pointer-events:none; justify-content:center; text-align:center; }
+.hd-mk.sz .mk-head .mk-v1 { font-weight:600; font-size:9.5px; }
+.hd-mk.sz .mk-head .mk-v2 { font:500 8.5px/12px var(--font-sans); letter-spacing:-.01em; }
+.hd-mk.sz-utility .mk-head .mk-v1, .hd-mk.sz-utility .mk-head .mk-v2 { justify-content:flex-start; text-align:left; }
+.hd-mk.sz:hover .mk-head .mk-v1, .hd-mk.sz.drag .mk-head .mk-v1, .hd-mk.sz:focus-within .mk-head .mk-v1 { opacity:1; }
+.hd-mk.sz:hover .mk-name, .hd-mk.sz.drag .mk-name, .hd-mk.sz:focus-within .mk-name, .hd-mk.sz.cap .mk-name { opacity:0; }
+.hd-mk.sz.cap .mk-head .mk-v1 { opacity:0; }
+.hd-mk.sz.cap .mk-head .mk-v2 { opacity:1; }
+.hd-mk.sz-primary > .mk-v1 { height:13px; font-size:10px; text-align:center; width:100%; }
+.hd-mk.sz .mk-face { position:relative; display:inline-block; }
+.hd-mk.sz-utility .mk-face { order:1; }
+/* "+n" mappings past the drawn rings: HTML at the text floor (8 px), not SVG text that would scale under it */
+.mk-more { position:absolute; right:-2px; bottom:-2px; font:600 8px/1 var(--font-mono); color:var(--t2); pointer-events:none; }
+.mk-more:empty { display:none; }
+
+/* ---------- SIZED MORPH SLIDER: label | face | value (the value only; the corner line goes to the section's slot). ---------- */
+.hd-ms.sz { flex-wrap:nowrap; gap:0 6px; padding:0 4px; min-height:var(--size-hit); }
+.hd-ms.sz > .mk-name { flex:0 0 var(--size-label-dense); font-size:9.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.hd-ms.sz-standard > .mk-name, .hd-ms.sz-primary > .mk-name { flex-basis:64px; font-size:10px; }
+.hd-ms.sz > .ms-face { position:relative; flex:1 1 96px; min-width:64px; max-width:200px; min-height:var(--size-hit); display:flex; align-items:center; }   /* 200 px = one unit a pixel: wider would scale the thumb and lanes up */
+.hd-ms.sz > .ms-rd { position:relative; width:8ch; height:13px; }
+.hd-ms.sz .ms-rd .mk-v1, .hd-ms.sz .ms-rd .mk-v2 { position:absolute; inset:0; text-align:right; justify-content:flex-end; }
+.hd-ms.sz .ms-rd .mk-v2 { opacity:0; font:500 8.5px/13px var(--font-sans); }
+.hd-ms.sz.cap .ms-rd .mk-v1 { opacity:0; } .hd-ms.sz.cap .ms-rd .mk-v2 { opacity:1; }
+.hd-ms-v.sz { width:auto; min-width:var(--size-hit); padding:2px 2px; gap:2px; }
+.hd-ms-v.sz > .mk-name { font-size:9.5px; white-space:nowrap; max-width:100%; overflow:hidden; text-overflow:ellipsis; }
+.hd-ms-v.sz > .ms-face { position:relative; }
+.hd-ms-v.sz > .ms-face svg { height:var(--fader-h, var(--size-fader-h)); width:auto; }
+.hd-ms-v.sz > .ms-rd { position:relative; width:9ch; height:13px; }
+.hd-ms-v.sz .ms-rd .mk-v1, .hd-ms-v.sz .ms-rd .mk-v2 { position:absolute; inset:0; justify-content:center; text-align:center; }
+.hd-ms-v.sz .ms-rd .mk-v2 { opacity:0; font:500 8.5px/13px var(--font-sans); }
+.hd-ms-v.sz.cap .ms-rd .mk-v1 { opacity:0; } .hd-ms-v.sz.cap .ms-rd .mk-v2 { opacity:1; }
+
+/* ---------- DENSE SWITCHES, READOUTS AND LAMPS: `.hd-dense` on a container, or `.sm` on the element. Faces 20 px
+   (size-face-dense); every one keeps a 28 px hit box, and a wrapped row keeps 28 px pitch (row gap 0, 4 px margins). ---------- */
+.hd-dense .hd-pills, .hd-pills.sm { gap:0 3px; }
+.hd-dense .hd-pill, .hd-pill.sm { position:relative; min-height:var(--size-face-dense); min-width:var(--size-hit); margin:4px 0; padding:0 7px; letter-spacing:.02em; }
+.hd-dense .hd-pill::before, .hd-pill.sm::before { content:''; position:absolute; left:0; right:0; top:50%; height:var(--size-hit); transform:translateY(-50%); }
+.hd-dense .hd-toggle, .hd-toggle.sm { width:var(--size-toggle-dense-w); height:var(--size-toggle-dense-h); margin:7px 0; }
+.hd-dense .hd-toggle::after, .hd-toggle.sm::after { width:8px; height:8px; top:1.5px; left:1.5px; border-width:1.2px; }
+.hd-dense .hd-toggle[aria-checked="true"]::after, .hd-toggle.sm[aria-checked="true"]::after { transform:translateX(12px); }
+.hd-dense .hd-stepper, .hd-stepper.sm { height:var(--size-face-dense); margin:4px 0; box-sizing:border-box; }
+.hd-dense .hd-stepper button, .hd-stepper.sm button { position:relative; height:calc(var(--size-face-dense) - 3px); }
+.hd-dense .hd-stepper button::before, .hd-stepper.sm button::before { content:''; position:absolute; left:0; right:0; top:50%; height:var(--size-hit); transform:translateY(-50%); }
+.hd-dense .hd-stepper output, .hd-stepper.sm output { min-width:40px; }
+.hd-dense .hd-readout, .hd-readout.sm { position:relative; min-height:var(--size-face-dense); min-width:var(--size-hit); margin:4px 0; padding:0 4px; }
+.hd-dense .hd-readout::before, .hd-readout.sm::before { content:''; position:absolute; left:0; right:0; top:50%; height:var(--size-hit); transform:translateY(-50%); }
+.hd-dense .hd-entry, .hd-entry.sm { min-height:var(--size-face-dense); width:68px; margin:4px 0; padding:0 6px; }
+.hd-dense .hd-srow, .hd-srow.sm { grid-template-columns:var(--size-label-dense) minmax(0,1fr) 52px; gap:4px; min-height:var(--size-hit); }
+.hd-dense .hd-srow > output, .hd-srow.sm > output { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.hd-dense .rs-slot > .hd-srow { min-height:var(--size-hit); }
+.hd-lamp.sm { position:relative; width:30px; min-height:var(--size-face-dense); margin:4px 0; font-size:8px; letter-spacing:.06em; }
+.hd-lamp.sm::before { content:''; position:absolute; left:-1px; right:-1px; top:50%; height:var(--size-hit); transform:translateY(-50%); }
+
+/* ---------- SECTION: an identity rule, a one-line header, sub-groups under small-caps labels. NO box: the section is
+   the hierarchy device that replaces nested cards inside a card (the bench's blade row, the human's "stronger hierarchy"). ---------- */
+.hd-sec { display:flex; flex-direction:column; gap:var(--space-head); min-width:0; max-width:100%; }
+.hd-sec + .hd-sec { margin-top:var(--space-section); }
+.hd-sechead { position:relative; display:flex; align-items:center; flex-wrap:wrap; gap:0 6px; min-height:var(--size-hit); padding-top:calc(var(--stroke-id) + 2px); min-width:0; }
+/* THE IDENTITY RULE: ink only, told apart by pattern (one job per colour: the bench's pink stripe borrowed `value`, ADR-259) */
+.hd-sechead::before { content:''; position:absolute; left:0; right:0; top:0; height:var(--stroke-id); background:var(--ink); border-radius:1px; }
+.hd-sechead[data-rule="dash"]::before { background:repeating-linear-gradient(90deg, var(--ink) 0 10px, transparent 10px 14px); }
+.hd-sechead[data-rule="dot"]::before { background:repeating-linear-gradient(90deg, var(--ink) 0 3px, transparent 3px 6px); }
+.hd-sechead[data-rule="none"]::before { display:none; }
+.hd-sechead .sh-num { flex:0 0 auto; display:grid; place-items:center; width:16px; height:16px; box-sizing:border-box; border-radius:50%; border:var(--stroke-ink) solid var(--ink);
+  background:var(--ink); color:var(--bg); font:800 9px/1 var(--font-sans); }
+.hd-sechead[data-rule="dash"] .sh-num { background:var(--panel); color:var(--ink); }
+.hd-sechead[data-rule="dot"] .sh-num { background:var(--panel); color:var(--ink); border-style:dotted; }
+.hd-sechead .sh-name { white-space:nowrap; }
+.hd-sechead .hd-pills { flex-wrap:wrap; min-width:0; }
+.hd-sechead .sh-end { margin-left:auto; min-width:0; flex:1 1 40px; display:flex; align-items:center; justify-content:flex-end; gap:6px; overflow:hidden; }   /* the slot truncates, it never wraps the header onto a second line */
+.hd-sec.off > :not(.hd-sechead), .hd-sec.off .hd-sechead .hd-pills { opacity:var(--opacity-muted); }
+.hd-sgroups { display:flex; flex-wrap:wrap; align-items:flex-start; gap:2px 0; min-width:0; }
+.hd-sgrp { display:flex; flex-direction:column; gap:0; min-width:0; padding:0 var(--space-subgroup); border-left:var(--stroke-sub) dashed var(--div); }
+.hd-sgrp:first-child { padding-left:0; border-left:0; }
+.hd-sgrp:last-child { padding-right:0; }
+/* a LINE sub-group: label and its pills on one row across the section (the bench's WAVE line), before the column groups */
+.hd-sgrp.line { flex:1 1 100%; flex-direction:row; align-items:center; gap:0 6px; padding:0; border-left:0; }
+.hd-sgrp.line + .hd-sgrp { padding-left:0; border-left:0; }
+.hd-sgrp.line > .hd-sublabel { min-width:var(--size-label-dense); }
+.hd-sublabel { display:flex; align-items:center; gap:4px; min-height:14px; font:700 8.5px/14px var(--font-sans); letter-spacing:.12em; text-transform:uppercase; color:var(--hint); white-space:nowrap; }
+.hd-krow { display:flex; flex-wrap:wrap; align-items:flex-start; gap:0 var(--space-dense); min-width:0; }
+.hd-krow > * { min-width:0; }
+/* a CELL is the one card level inside the window (the 980×720 column cells): panel, ink edge, tight padding */
+.hd-cell { box-sizing:border-box; min-width:0; max-width:100%; background:var(--panel); border:var(--stroke-ink) solid var(--ink); border-radius:var(--radius); padding:var(--space-cell-y) var(--space-column); }
+.hd-cell > .hd-sec:first-child > .hd-sechead::before { display:none; }   /* a cell's first section: the cell's own edge is the rule */
+.hd-cell > .hd-sec:first-child > .hd-sechead { padding-top:0; }
+
+/* ---------- READOUT SLOT: one live readout per section, at the header's right end ---------- */
+.hd-rslot { display:inline-flex; align-items:baseline; gap:5px; min-width:0; max-width:100%; overflow:hidden; white-space:nowrap; font:400 9.5px/14px var(--font-mono); color:var(--hint); }
+.hd-rslot .rs-n { font:500 9.5px/14px var(--font-sans); color:var(--t2); }
+.hd-rslot .rs-v { font-weight:600; color:var(--ink); font-variant-numeric:tabular-nums; }
+.hd-rslot .rs-2 { display:inline-flex; height:auto; justify-content:flex-start; }
+.hd-rslot .rs-n, .hd-rslot .rs-v, .hd-rslot .rs-2 { display:none; }
+.hd-rslot.live .rs-n, .hd-rslot.live .rs-v { display:inline; } .hd-rslot.live .rs-2 { display:inline-flex; }
+.hd-rslot.live .rs-sum { display:none; }
+.hd-rslot .rs-sum { overflow:hidden; text-overflow:ellipsis; }
+
+/* ---------- PAGE NAV: groups (level 1, ink-inverted pills), then the selected group's pages (level 2, underlined tabs) ---------- */
+.hd-pnav { display:flex; flex-direction:column; gap:0; min-width:0; }
+.hd-pnav .pn-groups { display:flex; flex-wrap:wrap; gap:0 4px; }
+.hd-pnav .pn-g { position:relative; box-sizing:border-box; min-height:22px; min-width:var(--size-hit); margin:3px 0; padding:0 11px; border-radius:var(--radius-capsule);
+  border:var(--stroke-ink) solid var(--ink); background:var(--panel); color:var(--t2); font:500 10px/1 var(--font-sans); cursor:pointer; }
+.hd-pnav .pn-g::before, .hd-pnav .pn-p::before { content:''; position:absolute; left:0; right:0; top:50%; height:var(--size-hit); transform:translateY(-50%); }
+.hd-pnav .pn-g:hover { box-shadow:var(--shadow-rest); }
+.hd-pnav .pn-g[aria-selected="true"] { background:var(--ink); color:var(--bg); font-weight:600; }
+.hd-pnav .pn-pages { display:flex; flex-wrap:wrap; align-items:stretch; gap:0 2px; min-height:var(--size-hit); border-bottom:var(--stroke-sub) solid var(--div); }
+.hd-pnav .pn-p { position:relative; display:inline-flex; align-items:center; gap:5px; min-height:var(--size-hit); min-width:var(--size-hit); padding:0 8px; border:0; background:transparent;
+  color:var(--t2); font:500 9.5px/1 var(--font-sans); cursor:pointer; box-shadow:inset 0 -2px 0 transparent; }
+.hd-pnav .pn-p:hover { color:var(--ink); box-shadow:inset 0 -2px 0 var(--div); }
+.hd-pnav .pn-p[aria-selected="true"] { color:var(--ink); font-weight:700; box-shadow:inset 0 -3px 0 var(--ink); }
+.hd-pnav .pn-dot { width:7px; height:7px; box-sizing:border-box; border-radius:50%; border:1px solid var(--t2); }
+.hd-pnav .pn-dot.on { background:var(--value); border-color:var(--ink); }
+.hd-pnav .pn-g:focus-visible, .hd-pnav .pn-p:focus-visible { outline:none; box-shadow:var(--focus-ring); }
+
+/* ---------- CHANNEL STRIP (the mixer): strips side by side on one console card, no boxes between them. Each strip:
+   on + name, live peak + CLIP lamp, the fader (a vertical morph slider) beside its meter, the fader's value, mute and solo. ---------- */
+.hd-cs { display:flex; align-items:stretch; gap:0; min-width:0; max-width:100%; overflow-x:auto; box-sizing:border-box;
+  background:var(--panel); border:var(--stroke-ink) solid var(--ink); border-radius:var(--radius); padding:4px 4px 2px; --fader-h:var(--size-fader-h); }
+.hd-cs .cs-strip { flex:0 0 var(--size-strip-w); display:flex; flex-direction:column; align-items:center; gap:0; min-width:0; padding:0 2px; box-sizing:border-box; }
+.hd-cs .cs-strip + .cs-strip { border-left:var(--stroke-sub) solid var(--div); }
+.hd-cs .cs-strip.master { border-left:var(--stroke-page) solid var(--ink); margin-left:6px; padding-left:6px; flex-basis:calc(var(--size-strip-w) + 8px); }
+.hd-cs .cs-head { display:flex; align-items:center; gap:4px; width:100%; min-height:var(--size-hit); }
+.hd-cs .cs-name { font:800 9.5px/1 var(--font-sans); letter-spacing:.06em; text-transform:uppercase; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+.hd-cs .cs-strip.master .cs-head { justify-content:center; }
+.hd-cs .cs-pk { display:flex; align-items:center; justify-content:space-between; gap:2px; width:100%; }
+.hd-cs .cs-pk output { font:600 9.5px/1 var(--font-mono); font-variant-numeric:tabular-nums; color:var(--ink); min-width:0; text-align:left; white-space:nowrap; }
+.hd-cs .cs-body { display:flex; align-items:flex-start; justify-content:center; gap:2px; }
+.hd-cs .cs-body .hd-ms-v { padding:0; }
+.hd-cs .cs-body .hd-ms-v > .mk-name { display:none; }   /* the strip's own name is the fader's label */
+.hd-cs .cs-meter { display:flex; gap:2px; margin-top:calc(var(--fader-h) * .05 + 2px); }
+.hd-cs .cs-meter .hd-mbar { width:var(--size-meter-w-dense); height:calc(var(--fader-h) * .9); }
+.hd-cs .cs-meter .hd-mbar .hold { transform:translateY(calc(var(--hp, 0) * -1 * (var(--fader-h) * .9 - 5px))); }
+.hd-cs .cs-ms { display:flex; gap:2px; justify-content:center; width:100%; }
+.hd-cs .cs-btn { position:relative; box-sizing:border-box; width:var(--size-hit); min-height:var(--size-face-dense); margin:4px 0; padding:0; border-radius:var(--radius-meter);
+  border:var(--stroke-ink) solid var(--ink); background:var(--panel); color:var(--t2); font:700 9.5px/1 var(--font-sans); cursor:pointer; }
+.hd-cs .cs-btn::before { content:''; position:absolute; left:0; right:0; top:50%; height:var(--size-hit); transform:translateY(-50%); }
+.hd-cs .cs-btn:hover { box-shadow:var(--shadow-rest); }
+.hd-cs .cs-btn.mute[aria-pressed="true"] { background:var(--alarm); color:var(--on-alarm); }
+.hd-cs .cs-btn.solo[aria-pressed="true"] { background:var(--ink); color:var(--bg); }
+.hd-cs .cs-strip.quiet .cs-body, .hd-cs .cs-strip.quiet .cs-pk { opacity:var(--opacity-muted); }   /* muted, or silenced by another strip's solo */
+.hd-cs .cs-strip.implicit .cs-btn.mute { border-style:dashed; }
+.hd-cs .hd-focus:focus-visible { box-shadow:var(--focus-ring); }
