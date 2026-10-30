@@ -1,0 +1,20 @@
+<!-- @dsCard group="FX chain" height=460 subtitle="The cable encoding the rack, matrix and panel share, as its legend; each module's screen with its ground L* and ink contrast measured in this theme" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>FX cables</title></head>
+<body>
+<div style="padding:14px 16px 10px">
+  <div class="hd-col" style="gap:8px; align-items:stretch; background:var(--panel); border:var(--stroke-ink) solid var(--ink); border-radius:var(--radius); padding:12px">
+    <div class="hd-row"><span class="hd-cluster">FX cables</span><span class="vtag">ONE ENCODING, THREE VIEWS</span></div>
+    <div id="leg"></div>
+    <span class="hd-hint">Measured live in this theme: ground L* = the screen ground's lightness (the grounds are at least 5 L* apart), ink = the screen ink on its ground (4.5:1 or more), core = the cable colour bare on the views' well, cased = the better of that and its ink casing. A screen is its own display, so these read the same in light and dark. Six of the eight styles are stand-ins until their skins are chosen; Shriek and Sluice are real.</span>
+  </div>
+</div>
+<script>
+(function () {
+  var H = window.Horde;
+  H.FxCables.legend(document.getElementById('leg'), { style: 'filter', modules: new H.FxSample().nodes });
+})();
+</script>
+</body>
+</html>

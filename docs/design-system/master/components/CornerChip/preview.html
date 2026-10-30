@@ -1,0 +1,50 @@
+<!-- @dsCard group="Morph" height=300 subtitle="Glyph and the corner preset's real name; edited mark, lock and revert per corner; an empty corner; the census; inside a glass" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Corner chip</title></head>
+<body>
+<div class="hd-fit" style="padding:14px 16px 4px; gap:12px 28px">
+  <div class="hd-col" style="gap:4px; flex:0 1 300px">
+    <span class="hd-cluster">Corners</span>
+    <div id="chips"></div>
+    <span class="hd-hint">Names are SAMPLES. Long names truncate at 14 characters; the full name is the tooltip and the accessible name.</span>
+    <p class="hd-msg" id="msg"></p>
+  </div>
+  <div class="hd-col" style="gap:12px; flex:1 1 260px">
+    <span class="hd-cluster">Census</span>
+    <div class="hd-census" id="census" role="img" style="width:100%; max-width:260px"></div>
+    <span class="hd-hint">each corner's share of the parameters it owns</span>
+    <span class="hd-cluster">Inside a glass</span>
+    <svg viewBox="0 0 240 34" role="img" aria-label="Inside a screen: corners A to D as glyphs and letters" style="width:100%; max-width:240px; height:auto; border:var(--stroke-ink) solid var(--ink); border-radius:var(--radius); background:var(--scr-ground)">
+      <g id="glass" style="font:600 10px var(--font-mono)"></g>
+    </svg>
+    <span class="hd-hint">glyphs or A–D in the glass's ink, never the corner colours</span>
+  </div>
+</div>
+<script>
+(function () {
+  var H = window.Horde, G = {}; H.CORNERS.forEach(function (c) { G[c.id] = c.glyph; });
+  // SAMPLE corner presets (SCALPEL bench presets); corner D is empty to show that state
+  var S = new H.Session({ corners: ['Glass horde pad', 'Mirror-image spreads', 'Undertone cathedral', null] });
+  // a sample parameter so corner B reads as edited since its saved preset
+  S.params.sample = { key: 'sample', name: 'Sample', locked: false, vals: [.2, .7, .4, .5] }; S.saved.sample = [.2, .55, .4, .5];
+  S.locks[2] = true;
+  H.CornerChips(document.getElementById('chips'), S);
+  var msg = document.getElementById('msg'); S.on(function () { msg.textContent = S.message; });
+  var share = { A: 46, B: 28, C: 18, D: 8 }, cen = document.getElementById('census'), lab = [];
+  Object.keys(share).forEach(function (k) {
+    var s = document.createElement('span'); s.style.setProperty('--cc', 'var(--c' + k + ')'); s.style.flex = share[k] + ' 1 0';
+    s.innerHTML = '<svg class="hd-glyph" viewBox="0 0 10 10" style="width:8px;height:8px" aria-hidden="true"><path d="' + G[k] + '"/></svg>' + (share[k] >= 10 ? share[k] : '');
+    cen.appendChild(s); lab.push(k + ' ' + share[k] + '%');
+  });
+  cen.setAttribute('aria-label', 'Census: ' + lab.join(', '));
+  var g = document.getElementById('glass'), x = 14;
+  ['A', 'B', 'C', 'D'].forEach(function (k) {
+    g.insertAdjacentHTML('beforeend', '<path transform="translate(' + x + ' 12)" d="' + G[k] + '" style="fill:var(--scr-grid)"/><text x="' + (x + 14) + '" y="21" style="fill:var(--scr-physics)">' + k + '</text>');
+    x += 56;
+  });
+  S.start();
+})();
+</script>
+</body>
+</html>

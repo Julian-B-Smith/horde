@@ -1,0 +1,56 @@
+<!-- @dsCard height=288 -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>horde Design System</title>
+<style>
+  html, body { margin:0; height:100%; }
+  body { background:var(--bg); color:var(--ink); font-family:var(--font-sans); overflow:hidden; }
+  .cover { position:relative; width:960px; height:288px; overflow:hidden; }
+  .band { position:absolute; left:0; top:0; width:960px; height:120px; }
+  .band svg { display:block; width:960px; height:120px; }
+  .slab { fill:var(--ink); }
+  .ca { fill:var(--cA); } .cb { fill:var(--cB); } .cc { fill:var(--cC); } .cd { fill:var(--cD); }
+  .blk { rx:var(--radius); stroke:var(--ink); stroke-width:1.5; }
+  .cut { fill:none; stroke:var(--bg); stroke-linecap:round; }
+  .pip { stroke:var(--ink); stroke-width:1.5; stroke-linejoin:round; }
+  .words { position:absolute; left:32px; right:32px; bottom:30px; }
+  .name { margin:0; font-size:64px; line-height:.95; font-weight:800; letter-spacing:-.02em; color:var(--ink); white-space:nowrap; }
+  .tag { margin:12px 0 0 3px; font-family:var(--font-mono); font-size:13px; line-height:20px; color:var(--t2); }
+</style>
+</head>
+<body>
+<div class="cover">
+  <div class="band" aria-hidden="true">
+    <svg viewBox="0 0 960 120" width="960" height="120">
+      <!--
+        blocks      cA 296×96 · cB 128×96 · cC 128×96 bleeding off the top, ink-edged at stroke-ink · an ink slab 368×136 bleeding top and right (the outline colour, the system's spine) · cD only as a pip: ≈ 40% of 960×288
+        arrangement the top-band skeleton (the name is too wide for the 440 px zone): a strip of unequal blocks, bottoms on one line at 104, gutters space-page (16)
+        pattern     a literal motif, the morph knob: "a knob shows every corner at once" — its 280° track cut from the slab in the ground colour, two mod rings, and the four corner pips on the track, each in its glyph's shape
+        scales      corners radius (10); gutters space-page (16); track stroke 6; ring pitch 12; pips at radii 4-9
+      -->
+      <rect class="ca blk" x="32" y="-12" width="296" height="116"/>
+      <rect class="cb blk" x="344" y="-12" width="128" height="116"/>
+      <rect class="cc blk" x="488" y="-12" width="128" height="116"/>
+      <rect class="slab" x="632" y="-16" width="344" height="120" rx="10"/>
+      <g transform="translate(792 52)">
+        <path class="cut" stroke-width="6" d="M-28.28 33.71A44 44 0 1 1 28.28 33.71"/>
+        <path class="cut" stroke-width="2.5" d="M-38.89 -38.89A55 55 0 0 1 47.63 -27.5"/>
+        <path class="cut" stroke-width="2.5" d="M-17.13 -64.73A67 67 0 0 1 54.89 -38.43"/>
+        <circle class="cut" stroke-width="2.5" r="15"/>
+        <path class="cut" stroke-width="3" d="M0 0L12.2 -5.2"/>
+        <path class="ca pip" d="M-43.5 -18.5L-32.2 -7.2L-43.5 4.1L-54.8 -7.2Z"/>
+        <path class="cb pip" d="M35.6 -36.5L43.1 -23.5L28.1 -23.5Z"/>
+        <circle class="cc pip" cx="41.9" cy="13.6" r="4.5"/>
+        <path class="cd pip" d="M-14.3 -46.3H-6.3V-38.3H-14.3Z"/>
+      </g>
+    </svg>
+  </div>
+  <div class="words">
+    <h1 class="name">horde Design System</h1>
+    <p class="tag">Cream chassis, flat ink, one job per colour.</p>
+  </div>
+</div>
+</body>
+</html>

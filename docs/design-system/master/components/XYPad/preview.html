@@ -1,0 +1,48 @@
+<!-- @dsCard group="Controls" height=344 subtitle="Two parameters on one surface; the morph pad adds the four-way wash, pinnable corners and an optional census ring round the puck" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>XY pad</title></head>
+<body>
+<div class="hd-fit" style="padding:14px 16px 4px; gap:16px 24px">
+  <div class="hd-col" style="gap:4px; flex:0 1 224px">
+    <span class="hd-cluster">XY</span>
+    <div class="hd-xy" id="xy"><svg class="grid" width="100%" height="100%" viewBox="0 0 224 168" preserveAspectRatio="none" aria-hidden="true" style="position:absolute;inset:0"><g style="stroke:var(--scr-grid);stroke-width:1;opacity:.3"><line x1="56" y1="0" x2="56" y2="168"/><line x1="112" y1="0" x2="112" y2="168"/><line x1="168" y1="0" x2="168" y2="168"/><line x1="0" y1="42" x2="224" y2="42"/><line x1="0" y1="84" x2="224" y2="84"/><line x1="0" y1="126" x2="224" y2="126"/></g></svg>
+      <div class="puck hd-focus" role="slider" tabindex="0" aria-label="XY pad"></div></div>
+    <div class="hd-row" style="justify-content:space-between; width:100%; max-width:224px"><span class="hd-label">Detune <span class="hd-value" id="xo"></span></span><span class="hd-label">Coupling <span class="hd-value" id="yo"></span></span></div>
+  </div>
+  <div class="hd-col" style="gap:4px; flex:0 1 200px">
+    <span class="hd-cluster">Morph</span>
+    <div id="pad"></div>
+    <div class="hd-row"><span class="hd-label">Census ring</span><button class="hd-toggle hd-focus" role="switch" aria-checked="false" aria-label="Census ring" id="ring"></button></div>
+    <span class="hd-hint">optional, off by default: 12 dots by largest remainder, over 16 sample parameters</span>
+  </div>
+</div>
+<p class="hd-hint" style="margin:4px 16px 12px">Drag anywhere · double-click the puck resets · arrows in keyboard mode (shift = fine) · click a morph corner to pin it · values sit beside the pad, never over it</p>
+<script>
+(function () {
+  // THE FREE XY: two manifest keys on one surface
+  var p = { x: .28, y: .5, dx: .28, dy: .5 }, pad = document.getElementById('xy'), puck = pad.querySelector('.puck');
+  var pct = function (v) { return Math.round(v * 100) + ' %'; }, bip = function (v) { var q = Math.round(v * 200 - 100); return (q > 0 ? '+' : q < 0 ? '−' : '') + Math.abs(q) + ' %'; };
+  function paint() { puck.style.setProperty('--x', p.x); puck.style.setProperty('--y', p.y);
+    document.getElementById('xo').textContent = pct(p.x); document.getElementById('yo').textContent = bip(p.y);
+    puck.setAttribute('aria-valuetext', 'Detune ' + pct(p.x) + ', Coupling ' + bip(p.y)); }
+  function at(e) { var b = pad.getBoundingClientRect(); p.x = Math.max(0, Math.min(1, (e.clientX - b.left) / b.width)); p.y = Math.max(0, Math.min(1, 1 - (e.clientY - b.top) / b.height)); paint(); }
+  pad.addEventListener('pointerdown', function (e) { pad.setPointerCapture(e.pointerId); pad.classList.add('drag'); at(e); });
+  pad.addEventListener('pointermove', function (e) { if (pad.classList.contains('drag')) at(e); });
+  var padEnd = function (e) { pad.classList.remove('drag'); if (e && pad.hasPointerCapture(e.pointerId)) pad.releasePointerCapture(e.pointerId); };
+  pad.addEventListener('pointerup', padEnd); pad.addEventListener('pointercancel', padEnd); pad.addEventListener('lostpointercapture', padEnd);
+  puck.addEventListener('dblclick', function () { p.x = p.dx; p.y = p.dy; paint(); });
+  puck.addEventListener('keydown', function (e) { var s = e.shiftKey ? .0025 : .01;
+    if (e.key === 'ArrowRight') p.x = Math.min(1, p.x + s); else if (e.key === 'ArrowLeft') p.x = Math.max(0, p.x - s);
+    else if (e.key === 'ArrowUp') p.y = Math.min(1, p.y + s); else if (e.key === 'ArrowDown') p.y = Math.max(0, p.y - s); else return; e.preventDefault(); paint(); });
+  paint();
+  // THE MORPH PAD: the census ring counts which corner owns each of 16 SAMPLE parameters right now
+  var H = window.Horde, S = new H.Session({ x: .62, y: .3 });
+  for (var i = 0; i < 16; i++) { var k = 'sample.' + i; S.params[k] = { key: k, name: k, locked: false, vals: [.5, .5, .5, .5] }; }
+  var mp = H.XYPad(document.getElementById('pad'), S, { size: 200 }), rb = document.getElementById('ring');
+  rb.addEventListener('click', function () { var on = rb.getAttribute('aria-checked') !== 'true'; rb.setAttribute('aria-checked', String(on)); mp.census(on); });
+  S.start();
+})();
+</script>
+</body>
+</html>

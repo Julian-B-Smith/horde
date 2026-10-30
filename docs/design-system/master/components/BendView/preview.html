@@ -1,0 +1,38 @@
+<!-- @dsCard group="Pitch" height=330 subtitle="The travel from the old pitch to the new under the chosen law: the spring's overshoot, the scale's snap points when quantise is on" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Bend view</title></head>
+<body>
+<div class="hd-fit" style="padding:14px 16px 4px; gap:12px 24px" id="host">
+  <div class="hd-col" style="gap:6px; flex:1 1 280px; max-width:460px">
+    <div class="hd-viz" style="aspect-ratio:2 / 1"><canvas id="cv" role="img" aria-label="Bend view: the pitch travelling from C4 to G4"></canvas></div>
+    <div class="hd-row" style="justify-content:space-between; width:100%"><div id="scr"></div><span class="hd-value" id="read"></span></div>
+  </div>
+  <div class="hd-col" style="gap:6px; flex:1 1 230px">
+    <div class="hd-row"><span class="hd-cluster">Bend view</span><span class="vtag">VOICE-BOUND</span></div>
+    <div class="hd-pills" role="radiogroup" aria-label="Law" id="law"></div>
+    <div class="hd-row"><span class="hd-label" style="width:58px">Quantise</span><div class="hd-pills" role="radiogroup" aria-label="Quantise" id="q"></div></div>
+    <span class="hd-hint">C4 → G4, scale C major. Dashed: the hand's target. Faint violet: the law underneath. Beam: what is heard. Marker dot: peak overshoot. SAMPLE move, computed here by the bend lab's law at 2756 ticks a second.</span>
+  </div>
+</div>
+<script>
+(function () {
+  var H = window.Horde, G = H.Glide, cv = document.getElementById('cv'), read = document.getElementById('read');
+  var p = { law: 4, time: 120, rate: 24, lag: 60, springF: 4, damp: .28, distOver: 1, retMul: 1, quant: 0, root: 0, mask: G.mask(G.SCALES[1][1]), hyst: 8, qTime: 0 };
+  function pills(id, opts, cur, fn) { var g = document.getElementById(id);
+    opts.forEach(function (o, i) { var b = document.createElement('button'); b.className = 'hd-pill hd-focus'; b.setAttribute('role', 'radio'); b.textContent = o; b.setAttribute('aria-checked', String(i === cur));
+      b.addEventListener('click', function () { g.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-checked', String(x === b)); }); fn(i); draw(); }); g.appendChild(b); }); }
+  pills('law', ['instant', 'time', 'rate', 'lag', 'spring'], 4, function (i) { p.law = i; });
+  pills('q', ['off', 'chromatic', 'scale'], 0, function (i) { p.quant = i; });
+  function draw() {
+    var sim = G.simulate(p, 60, 67, p.law === 3 ? 1 : .9, 'note'), m = sim.metrics;
+    H.Viz.bend(cv, sim, p);
+    read.textContent = 'lag50 ' + (m.lag50 === null ? '—' : Math.round(m.lag50 * 1000) + ' ms') + ' · over ' + m.over.toFixed(1) + ' ¢ · settle ' + Math.round(m.settle * 1000) + ' ms · rings ' + m.rings;
+    cv.setAttribute('aria-label', 'Bend view, ' + G.LAWS[p.law] + ': ' + read.textContent);
+  }
+  H.ScreenScheme(document.getElementById('scr'), document.getElementById('host'), { onchange: function () { setTimeout(draw, 0); } });
+  draw(); addEventListener('resize', draw);
+})();
+</script>
+</body>
+</html>

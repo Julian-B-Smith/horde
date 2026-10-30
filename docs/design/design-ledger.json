@@ -1,0 +1,316 @@
+{
+ "format": "horde.design-ledger/1",
+ "note": "The design chain of custody (ADR-336): ruling (an ADR) -> design master (docs/design-system/master/) -> vendored bundle (docs/design/arp-face/) -> GUI 3 shell (docs/design/gui3*) -> engine (the stub today). One row per ruled design element: its ADR and clause, the lab it came from, the master component and version that hold it, the bundle export when it is not the component's own name, its shell place as `path: needle` (the file must contain the needle), its state, and a note. `superseded_by` marks a ruling a later ADR replaced. `state: unknown` is allowed only with `settle`, the evidence that would decide it: never guess a state. Every ADR in DECISIONS.md has a row or a `not_design` entry with a one-line reason. `labs` gives every lab in the design index its status (tools/gen_lab_index.py shows it); `not_labs` names the index's pages that are not labs. `vendoring.known_drift` records, pinned to the vendored file's sha256, any difference between the vendored copy and vendor(master) that the human has not yet ruled on. Update this file in the same PR as the hop it records. tools/design_chain_check.py (./verify fast) holds all of it to the tree.",
+ "states": {
+  "ruled": "An ADR rules it; the design master does not hold it yet (ADR-316: it cannot reach the shell until it does).",
+  "in-master": "A component in docs/design-system/master/ holds it, at the named master version.",
+  "vendored": "The vendored bundle (docs/design/arp-face/) defines it: the export named by `bundle`, or the component.",
+  "in-shell": "The GUI 3 shell mounts it at the named place, from the bundle (ADR-316).",
+  "wired": "In the shell and wired through the device seam to the engine (the no-audio stub today; IF-10 at stage 8)."
+ },
+ "master_versions": [
+  {
+   "version": "1793374583-b6a5",
+   "evidence": "docs/design-system/master/VERSION: imported byte-identical from the live artifact on 2026-10-30 (ADR-336, B595)"
+  },
+  {
+   "version": "1793336699-65f2",
+   "evidence": "commit bdc7027 and docs/design/arp-face/README.md: re-vendored 2026-10-30 (B584 slice 4b, .hd-sm); its bundle.js, bundle.css and tokens.json bodies equal the master's at 1793374583-b6a5"
+  },
+  {
+   "version": "1793334278-f870",
+   "evidence": "docs/design/arp-face/README.md: the density revision with a bare .sm (B589), superseded by 1793336699-65f2"
+  },
+  {
+   "version": "1793080392-2372",
+   "evidence": "docs/design/arp-face/README.md: the first vendored copy, 2026-10-27 (B553)"
+  }
+ ],
+ "vendoring": {
+  "dir": "docs/design/arp-face",
+  "tool": "tools/design_vendor.py",
+  "known_drift": [
+   {
+    "file": "bundle.js",
+    "kind": "stamp",
+    "stamped": "1793336699-65f2",
+    "master": "1793374583-b6a5",
+    "vendored_sha256": "5f6be55a318a92454017c0a6c2f4850babb4cd66950c057facfd94e62fc412d5",
+    "adr": "ADR-336",
+    "note": "The body equals vendor(master) at 1793374583-b6a5 byte for byte; only the stamp line names the earlier 1793336699-65f2, the version actually vendored (bdc7027). Whether the bodies also equal 65f2's cannot be checked: the repo never held that tree. Re-stamping is a re-vendor, which ADR-336 leaves to the human."
+   },
+   {
+    "file": "bundle.css",
+    "kind": "stamp",
+    "stamped": "1793336699-65f2",
+    "master": "1793374583-b6a5",
+    "vendored_sha256": "ced3829b90b9ae45bc57b2195636362024f9810e3ffb54565782f12db07a4104",
+    "adr": "ADR-336",
+    "note": "The body equals vendor(master) at 1793374583-b6a5 byte for byte; only the stamp line names the earlier 1793336699-65f2, the version actually vendored (bdc7027). Whether the bodies also equal 65f2's cannot be checked: the repo never held that tree. Re-stamping is a re-vendor, which ADR-336 leaves to the human."
+   },
+   {
+    "file": "tokens.css",
+    "kind": "stamp",
+    "stamped": "1793336699-65f2",
+    "master": "1793374583-b6a5",
+    "vendored_sha256": "a71dd4a8983f95da3f130cce0b1e68ee1878bf02ee13843fd5c5518ba4452aac",
+    "adr": "ADR-336",
+    "note": "The body equals vendor(master) at 1793374583-b6a5 byte for byte; only the stamp line names the earlier 1793336699-65f2, the version actually vendored (bdc7027). Whether the bodies also equal 65f2's cannot be checked: the repo never held that tree. Re-stamping is a re-vendor, which ADR-336 leaves to the human."
+   }
+  ]
+ },
+ "labs": {
+  "aesthetics-lab.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "arp-face-lab.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "bend-lab.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "compact-lab.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "composed-engine-check.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "composition-lab.html": {
+   "status": "exploring",
+   "adr": "ADR-334",
+   "note": "B589: the composition design lab, awaiting the human's picks (the lead, 2026-10-30)."
+  },
+  "cooperator-lab.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "detune-lab.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "edge-correction-lab.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "engine-audit.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "ensemble-lab.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "envelope-hierarchy-lab.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "feedback-lab.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "filter-lab.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "formant-lab.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "freeze-proposal.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "fx-chain-morph-lab-r2.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "fx-chain-morph-lab-r3.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "fx-chain-morph-lab.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "fx-design-lab.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "fx-morph-law-lab.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "fx-page-lab.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "fx-screens-workshop.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "glitch-lab.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "h2-plan-map.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "kuramoto-views.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "layout-lab.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "legacy-roundup.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "listening-pass.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "maw-horde-lab.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "mixer-lab.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "mod-lab.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "mod-matrix-lab.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "modulator-lab.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "morph-blend-demo.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "morph-editor-lab.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "morph-law-bench.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "page-chrome-lab.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "patch-model-lab.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "random-lab.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "reverb-lab.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "routing-lab-modular.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "routing-lab.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "scalpel-interface-lab.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "shape-lab-mod.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "shape-lab.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "sluice-horde-lab.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "spectra-lab.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "station-page-lab.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  },
+  "width-lab.html": {
+   "status": "unaudited",
+   "note": "Not yet judged; the B596 audit gives it its status."
+  }
+ },
+ "not_labs": {
+  "gui3.html": "The GUI 3 shell itself, the chain's fourth hop (ADR-316, B584), not a research bench."
+ },
+ "rows": [
+  {
+   "id": "knob",
+   "adr": "ADR-261",
+   "clause": "ruling 4 (the knob spec normative for interaction) with A1 item 2 (the 280 degree sweep)",
+   "lab": "docs/design-system/HORDE-Morph-Knobs.html",
+   "component": "Knob",
+   "master_version": "1793374583-b6a5",
+   "bundle": "Knob",
+   "shell": "docs/design/gui3.html: H.Knob",
+   "state": "in-shell",
+   "note": "Example row (B595). The shell mounts the bundle's Knob; whether every clause of the knob spec is met, and the wiring, is B596's to judge."
+  },
+  {
+   "id": "map-control",
+   "adr": "ADR-261",
+   "clause": "ruling 3 (map mode adopted as written) and ruling 4",
+   "lab": "docs/design-system/HORDE-Map-Mode.html",
+   "component": "MapControl",
+   "master_version": "1793374583-b6a5",
+   "bundle": "MapControl",
+   "shell": "docs/design/gui3.html: H.MapControl",
+   "state": "in-shell",
+   "note": "Example row (B595). Slice 6 mounts it in the top bar; port-tab row quick-map lists what is missing. Wiring judged in B596."
+  },
+  {
+   "id": "corner-glyphs",
+   "adr": "ADR-259",
+   "clause": "ruling 3 (corner glyphs always)",
+   "lab": null,
+   "component": "CornerChip",
+   "master_version": "1793374583-b6a5",
+   "bundle": "CornerChip",
+   "shell": "docs/design/gui3.html: H.CornerChips",
+   "state": "in-shell",
+   "note": "Example row (B595). The shell draws corners with the bundle's chips; B596 confirms every corner carries its glyph."
+  }
+ ],
+ "not_design": [
+  {
+   "adr": "ADR-002",
+   "reason": "Plugin format and wrapper (CLAP-native, VST3 via clap-wrapper): build architecture, no design element."
+  },
+  {
+   "adr": "ADR-331",
+   "reason": "Spins up Mangle as a sibling repo: a project ruling; its interface comes through the FX rows."
+  }
+ ]
+}

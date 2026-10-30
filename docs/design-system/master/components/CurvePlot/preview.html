@@ -1,0 +1,47 @@
+<!-- @dsCard group="Modulators" height=478 subtitle="The engine's curve law in its unit u, and the arrival plot: a stage ends exactly at its time" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Curve plot</title></head>
+<body>
+<div class="hd-fit" style="padding:14px 16px 4px; gap:14px 24px" id="host">
+  <div class="hd-col" style="gap:6px; flex:1 1 260px; max-width:380px">
+    <span class="hd-cluster">Segment curve</span>
+    <div id="p1" style="width:100%"></div>
+    <div id="c" style="width:100%"></div>
+    <span class="hd-hint">u, the engine's curve (C.12): 0 straight, positive fast-start; +1 the decay and release default, +2.30 the bank's exponential. Dashed: u negated, the same curve turned end for end; MIRROR relies on that being exact. Faint: u −2.5, −1, 0, +1, +2.5.</span>
+  </div>
+  <div class="hd-col" style="gap:6px; flex:1 1 300px; max-width:460px">
+    <span class="hd-cluster">Arrival</span>
+    <div id="p2" style="width:100%"></div>
+    <div id="sl" style="width:100%"></div>
+    <span class="hd-hint">Solid: the engine's stages (C.12), each ending exactly at its time, with the default bends (attack 0, decay and release +1). Dashed: the shipped time-constant law with the same numbers; its rings mark where it really gets there (99%). Gate released 0.3 s after sustain.</span>
+    <div class="hd-row" style="justify-content:space-between; width:100%"><div id="scr"></div><span class="hd-hint">SAMPLE data, generated in this preview; never the engine.</span></div>
+  </div>
+</div>
+<script>
+(function () {
+  var H = window.Horde, L = H.ModLaw, u = 1, a = { a: .05, d: .3, s: .5, r: .4 };
+  var fx = function (x) { return x.toFixed(2).replace(/^0/, '').replace(/\.00$/, '') || '0'; };
+  /* the bend u, in the engine's unit (SPEC-ENGINE C.12): c = 4·u; the faint family is u −2.5, −1, 0, +1, +2.5 */
+  var p1 = H.CurvePlot(document.getElementById('p1'), { label: 'One stage under the engine curve law, and its mirror', T: 1, xFmt: fx, aspect: '1.6 / 1',
+    lines: function () { return [-2.5, -1, 0, 1, 2.5].map(function (q) { return { f: function (x) { return L.segCurve(x, q); }, role: 'grid', a: .35, lw: 1 }; })
+      .concat([{ f: function (x) { return L.segCurve(x, -u); }, role: 'physics', a: .9, lw: 1.2, dash: [4, 3] }, { f: function (x) { return L.segCurve(x, u); }, role: 'value', glow: true }]); },
+    caption: function () { return 'u ' + L.fmtU(u); } });
+  H.ModSlider(document.getElementById('c'), { name: 'Curve u', path: 'Stage curve', min: -2.5, max: 2.5, value: 1, def: 0, fmt: L.fmtU, onInput: function (v) { u = v; p1.draw(); } });
+  function gate() { return a.a + a.d + .3; }
+  function T() { return Math.max(gate() + L.K_ONEPOLE * a.r * 1.05, L.K_ONEPOLE * (a.a + a.d) * 1.05, .05); }
+  var p2 = H.CurvePlot(document.getElementById('p2'), { label: 'Envelope arrival: proposed arrival law against the shipped time constant', T: T, aspect: '2 / 1',
+    lines: function () { var P = L.adsrPts(a.a, a.d, a.s, a.r), g = gate();
+      return [{ f: function (t) { return L.envTauAt(a, t, g); }, role: 'grid', a: .95, lw: 1.4, dash: [4, 3] }, { f: function (t) { return L.envAt(P, 2, t, g); }, role: 'value', glow: true }]; },
+    marks: function () { var g = gate(); return [{ t: a.a, label: 'A' }, { t: a.a + a.d, label: 'D' }, { t: g, label: 'OFF' }, { t: g + a.r, label: 'R' }]; },
+    rings: function () { var g = gate(); return [L.K_ONEPOLE * a.a, L.K_ONEPOLE * (a.a + a.d), g + L.K_ONEPOLE * a.r].map(function (t) { return { t: t, v: L.envTauAt(a, t, g) }; }); } });
+  [['a', 'Attack', .001, 2, .05], ['d', 'Decay', .005, 4, .3], ['s', 'Sustain', 0, 1, .5], ['r', 'Release', .005, 8, .4]].forEach(function (d) {
+    var row = document.createElement('div'); document.getElementById('sl').appendChild(row);
+    H.ModSlider(row, { name: d[1], path: 'Arrival plot · ' + d[1], min: d[2], max: d[3], log: d[0] !== 's', value: a[d[0]], def: d[4],
+      fmt: d[0] === 's' ? function (x) { return x.toFixed(2); } : L.fSec, onInput: function (v) { a[d[0]] = v; p2.draw(); } });
+  });
+  H.ScreenScheme(document.getElementById('scr'), document.getElementById('host'), { onchange: function () { setTimeout(function () { p1.draw(); p2.draw(); }, 0); } });
+})();
+</script>
+</body>
+</html>

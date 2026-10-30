@@ -1,0 +1,48 @@
+<!-- @dsCard group="Modulators" height=562 subtitle="The LFO card: one cycle of breakpoints and bends, S&H and RANDOM as shapes, rate and sync, start phase, retrigger" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>LFO shape editor</title></head>
+<body>
+<div class="hd-fit" style="padding:14px 16px 4px; gap:12px 24px" id="host">
+  <section class="hd-modcard" style="flex:1 1 320px; max-width:500px" aria-label="LFO 1">
+    <div id="head"></div>
+    <div id="ed"></div>
+    <div id="rate"></div>
+    <div id="phase"></div>
+  </section>
+  <div class="hd-col" style="gap:6px; flex:1 1 220px; max-width:340px">
+    <div class="hd-row"><span class="hd-cluster">LFO shape editor</span><span class="vtag audio">RUNS WITHOUT NOTES</span></div>
+    <span class="hd-label" style="line-height:1.5">One cycle, bipolar. Squares are points, rings bend their segment, the dashed wrap is a real step and φ is the start phase. The dot is where the sound is reading. S&amp;H and RANDOM show eight cycles of the seeded stream, with the draws as dots.</span>
+    <span class="hd-label" style="line-height:1.5">Drag a point or a ring (relative; shift is fine). Double-click empty glass to add a point, a point to delete it, a ring to straighten it. Right-click deletes.</span>
+    <div id="scr"></div>
+    <span class="hd-hint">SAMPLE data, generated in this preview; never the engine.</span>
+  </div>
+</div>
+<script>
+(function () {
+  var H = window.Horde, S = new H.Session({}), acc = 0, last = null, retrig = false, nextNote = 2, dirty = true;
+  var head = H.ModCardHeader(document.getElementById('head'), { name: 'LFO 1', kind: 'lfo', scope: 'GLOBAL', retrig: false, retrigHint: 'a note-on starts a new cycle at φ',
+    onRetrig: function (v) { retrig = v; } });
+  var rs = H.RateSync(document.getElementById('rate'), { name: 'Rate', path: 'LFO 1 · Rate', hz: .8, beats: 1, sync: 0, bpm: 120, min: .02, max: 40, defHz: 1, keys: function () { return S.keys; },
+    onChange: function () { dirty = true; } });
+  var phi = .0;
+  H.ModSlider(document.getElementById('phase'), { name: 'Phase φ', path: 'LFO 1 · Start phase', min: 0, max: 1, value: 0, def: 0,
+    fmt: function (x) { return x.toFixed(2) + ' · ' + Math.round(x * 360) + '°'; }, onInput: function (v) { phi = v; ed.set({ phase: v }); dirty = true; } });
+  var ed = H.LfoShapeEditor(document.getElementById('ed'), { name: 'LFO 1', seed: 1234, keys: function () { return S.keys; },
+    position: function () { return acc + phi; }, cycleSec: function () { return 1 / rs.rate(); }, rateLabel: function () { return rs.get().name; },
+    onChange: function () { dirty = true; } });
+  H.ScreenScheme(document.getElementById('scr'), document.getElementById('host'), { onchange: function () { dirty = true; } });
+  S.add({ render: function () {
+    var t = S.t, dt = last === null ? 0 : Math.max(0, Math.min(.05, t - last)); last = t;
+    if (!S.reduce) {
+      acc += rs.rate() * dt;
+      /* a SAMPLE note every 2 s: with retrigger on, the strike starts a new cycle (the next unused draw for S&H / RANDOM) */
+      if (t >= nextNote) { nextNote += 2; if (retrig) acc = Math.floor(acc) + 1; }
+    } else if (!dirty && !ed.dirty()) return;
+    ed.draw(); dirty = false;
+  } });
+  S.start();
+})();
+</script>
+</body>
+</html>

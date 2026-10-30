@@ -1,0 +1,106 @@
+{
+ "v": 3,
+ "layout": "files",
+ "createdOnFiles": {
+  "v": 1,
+  "at": "2026-10-21T15:38:00Z"
+ },
+ "title": "horde Design System",
+ "namespace": "Horde",
+ "libraries": [],
+ "sections": {},
+ "groups": [
+  "Logos"
+ ],
+ "assetGroups": {
+  "Logos": {
+   "name": "Logos",
+   "tile": "l",
+   "order": [
+    "horde-a-light.png",
+    "horde-b-light.png",
+    "horde-c-light.png",
+    "horde-d-light.png",
+    "horde-static-light.png",
+    "horde-a-dark.png",
+    "horde-b-dark.png",
+    "horde-c-dark.png",
+    "horde-d-dark.png",
+    "horde-static-dark.png"
+   ],
+   "files": {
+    "horde-a-light.png": {
+     "name": "horde-a-light.png",
+     "blob": "ed1715b275a6ec4b88c14af3312f3aa6",
+     "size": 23714,
+     "type": "image/png"
+    },
+    "horde-b-light.png": {
+     "name": "horde-b-light.png",
+     "blob": "c26d33bb3acc6d0e998da4006d4c1b22",
+     "size": 23794,
+     "type": "image/png"
+    },
+    "horde-c-light.png": {
+     "name": "horde-c-light.png",
+     "blob": "71d4f1cad1e7ea296e9fe3ed48e03de7",
+     "size": 23893,
+     "type": "image/png"
+    },
+    "horde-d-light.png": {
+     "name": "horde-d-light.png",
+     "blob": "009b4bc731116d1e5bd76ea36f4dc427",
+     "size": 23695,
+     "type": "image/png"
+    },
+    "horde-static-light.png": {
+     "name": "horde-static-light.png",
+     "blob": "1016d1a2493dac0efa72a1b04db98dfd",
+     "size": 16838,
+     "type": "image/png"
+    },
+    "horde-a-dark.png": {
+     "name": "horde-a-dark.png",
+     "blob": "7f30bfe3ca2022fa2bdc14d5866cce72",
+     "size": 23313,
+     "type": "image/png"
+    },
+    "horde-b-dark.png": {
+     "name": "horde-b-dark.png",
+     "blob": "b65c8caef7cfa84ff028e0b57919637a",
+     "size": 23152,
+     "type": "image/png"
+    },
+    "horde-c-dark.png": {
+     "name": "horde-c-dark.png",
+     "blob": "0a3963ba9227c61c58b0afd3b1d57dcc",
+     "size": 23507,
+     "type": "image/png"
+    },
+    "horde-d-dark.png": {
+     "name": "horde-d-dark.png",
+     "blob": "c674c49b16c525eeb972a2634b1c1286",
+     "size": 23167,
+     "type": "image/png"
+    },
+    "horde-static-dark.png": {
+     "name": "horde-static-dark.png",
+     "blob": "f1889287e08f09283281c61079e7ec55",
+     "size": 16312,
+     "type": "image/png"
+    }
+   }
+  }
+ },
+ "blobs": {},
+ "docs": {
+  "readme": "project/README.md",
+  "sections": []
+ },
+ "lastChange": {
+  "by": "Claude",
+  "at": "2026-10-30T10:30:00Z",
+  "via": "Claude Code",
+  "note": "B589 fix: the revision's per-element dense modifier is now .hd-sm (was a bare .sm, which caught two labs' own .sm classes); nothing else changed."
+ }
+}

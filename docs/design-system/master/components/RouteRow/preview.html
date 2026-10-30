@@ -1,0 +1,70 @@
+<!-- @dsCard group="Modulation" height=390 subtitle="A mapping as a line: source, the four-state polarity pill, destination, depth or a Control range, authored to now, + depth, remove" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Route row</title></head>
+<body>
+<div style="padding:14px 16px 10px; max-width:760px">
+  <div class="hd-row" style="justify-content:space-between; margin-bottom:4px"><span class="hd-cluster">Mappings</span><button class="hd-kbd" id="lamp" type="button" aria-pressed="false"><span class="lampdot" aria-hidden="true"></span><span id="lampword">KEYS OFF</span></button></div>
+  <div id="rows"></div>
+  <p class="hd-msg" id="msg" style="margin:4px 0 0"></p>
+  <div style="margin-top:8px; border-top:1px dashed var(--div); padding-top:6px">
+    <span class="hd-label">PLACEHOLDER, not in 1.0: a corner-level mapping whose corner is silent (corner C at 0%) shows greyed</span>
+    <div id="silent" class="mx-routes" style="margin-top:2px"></div>
+  </div>
+  <p class="hd-hint" style="margin:2px 0 0">Pill: UNI, BI, INV, CTL (CTL is skipped when another source already controls it). Drag a track; double-click resets; +◇ adds a depth route from the selected source. SAMPLE data, generated in this preview; never the engine.</p>
+</div>
+<script>
+(function () {
+
+  var H = window.Horde, T = Math.PI * 2;
+  function wrap(t, P) { return ((t % P) + P) % P; }
+  /* SAMPLE sources: deterministic functions of time, generated in this preview; never the engine */
+  var SOURCES = [
+    { id: 'lfo1', name: 'LFO 1', kind: 'lfo', f: function (t) { return .5 + .5 * Math.sin(t * T * .45); } },
+    { id: 'lfo2', name: 'LFO 2', kind: 'lfo', f: function (t) { var p = wrap(t * .16, 1); return p < .5 ? p * 2 : 2 - p * 2; } },
+    { id: 'env1', name: 'ENV 1', kind: 'env', f: function (t) { var p = wrap(t, 1.7); return p < .04 ? p / .04 : Math.exp(-(p - .04) * 3.2); } },
+    { id: 'mac1', name: 'MACRO 1', kind: 'macro', f: function (t) { return .5 + .42 * Math.sin(t * T * .07); } },
+    { id: 'coh1', name: 'Coherence 1', kind: 'engine', f: function (t) { return .5 + .4 * Math.sin(t * T * .11 + 1); } }
+  ];
+  function pctf(x) { return Math.round(x * 100) + '%'; }
+  var DESTS = [
+    { key: 'flt.cutoff', name: 'Cutoff', short: 'Cut', v: .45, fmt: function (x) { var f = 80 * Math.pow(18000 / 80, x); return f >= 1000 ? (f / 1000).toFixed(1) + ' kHz' : Math.round(f) + ' Hz'; } },
+    { key: 'flt.res', name: 'Resonance', short: 'Res', v: .35 },
+    { key: 'fx.drive', name: 'Drive', short: 'Drive', v: .5 },
+    { key: 'amp.pan', name: 'Pan', short: 'Pan', v: .5, fmt: function (x) { var r = Math.round((x - .5) * 200); return r === 0 ? 'C' : (r < 0 ? 'L' + (-r) : 'R' + r); } },
+    { key: 'amp.level', name: 'Level', short: 'Level', v: .7 },
+    { key: 'osc.blade', name: 'Blade width', short: 'Blade', v: .3 }
+  ];
+  function session(opts) {
+    var S = new H.Session({ x: opts && opts.x !== undefined ? opts.x : .3, y: opts && opts.y !== undefined ? opts.y : .32, sources: SOURCES, mappings: [
+      { param: 'flt.cutoff', src: 'lfo1', pol: 'bi', depth: .3 },
+      { param: 'flt.cutoff', src: 'env1', pol: 'uni', depth: .25 },
+      { param: 'fx.drive', src: 'mac1', pol: 'ctl', depth: .25, lo: .2, hi: .8 },
+      { param: 'amp.pan', src: 'lfo2', pol: 'bi', depth: .4 },
+      { param: 'flt.res', src: 'coh1', pol: 'inv', depth: .2 }
+    ] });
+    DESTS.forEach(function (d) { S.params[d.key] = { key: d.key, name: d.name, vals: [d.v, d.v, d.v, d.v], def: d.v, fmt: d.fmt || pctf }; });
+    /* a depth route (placeholder, one level): ENV 1 moves the depth of LFO 1 -> Cutoff */
+    S.depthRoutes = [{ src: 'env1', pol: 'uni', depth: .3, of: S.mappings[0] }];
+    S.selected = 'flt.cutoff';
+    return S;
+  }
+  function message(S, id) { var m = document.getElementById(id); S.on(function () { m.textContent = S.message; }); }
+
+  var S = session();
+  S.mappings.push({ param: 'fx.drive', src: 'lfo2', pol: 'uni', depth: .15 });   // a second mapping on Drive: its pill skips CTL (MACRO 1 controls Drive)
+  H.RouteList(document.getElementById('rows'), S, {});
+  message(S, 'msg');
+  var lamp = document.getElementById('lamp'), word = document.getElementById('lampword');
+  lamp.addEventListener('click', function () { S.keys = !S.keys; lamp.setAttribute('aria-pressed', String(S.keys)); word.textContent = S.keys ? 'KEYS ON' : 'KEYS OFF'; });
+
+  /* the placeholder row runs in its own sample session with the morph cursor on corner A, so corner C is silent */
+  var S2 = session({ x: 0, y: 0 }); S2.mappings = [{ param: 'amp.level', src: 'lfo1', pol: 'uni', depth: .3, corner: 2 }]; S2.depthRoutes = [];
+  var r2 = document.createElement('div'); document.getElementById('silent').appendChild(r2);
+  var row2 = H.RouteRow(r2, S2, S2.mappings[0]); S2.add(row2); S2.on(function () { row2.sync(); });
+  S2.on(function () { document.getElementById('msg').textContent = S2.message; });
+  S.start(); S2.start(); S.emit();
+})();
+</script>
+</body>
+</html>

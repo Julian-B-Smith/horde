@@ -1,0 +1,30 @@
+<!-- @dsCard group="Modulators" height=378 subtitle="The MIDI trackers card: the note-on gate and trigger, six trackers, each a source with its range, rule and live value" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>MIDI trackers</title></head>
+<body>
+<div class="hd-fit" style="padding:14px 16px 4px; gap:12px 24px">
+  <section id="card" style="flex:1 1 360px; max-width:560px" aria-label="MIDI trackers"></section>
+  <div class="hd-col" style="gap:6px; flex:1 1 200px; max-width:300px">
+    <span class="hd-cluster">MIDI trackers</span>
+    <span class="hd-label" style="line-height:1.5">GATE is a level: 1 while any key is held, legato, so it never dips and never re-attacks. Re-attacking is the TRIGGER's job, and the trigger is an event: EVERY fires on each note-on, FIRST only on the one that opens the gate.</span>
+    <span class="hd-label" style="line-height:1.5">A three-second phrase loops: a legato run, a gap, two staccato notes and a rolled chord.</span>
+    <span class="hd-hint">SAMPLE data, generated in this preview; never the engine.</span>
+  </div>
+</div>
+<script>
+(function () {
+  var H = window.Horde, S = new H.Session({}), last = null, B = new H.Synth.ModBench({ seed: 4242 });
+  var card = H.MidiTrackers(document.getElementById('card'), { cfg: B.cfg, keys: function () { return S.keys; }, read: function () { return { values: B.trk.values(), fired: B.trk.fired }; } });
+  for (var k = 0; k < 75; k++) B.advance(1 / 60);
+  card.draw();
+  S.add({ render: function () {
+    var t = S.t, dt = last === null ? 0 : Math.max(0, Math.min(.05, t - last)); last = t;
+    if (S.reduce) return;
+    B.advance(dt); card.draw();
+  } });
+  S.start();
+})();
+</script>
+</body>
+</html>

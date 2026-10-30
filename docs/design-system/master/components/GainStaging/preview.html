@@ -1,0 +1,96 @@
+<!-- @dsCard group="Display" height=740 subtitle="The level through the chain, stage by stage: a gain control, a meter with peak hold and a latching clip lamp, and the first-over marker at each; the make-up's ×4 puts the rack's input over" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Gain staging</title></head>
+<body>
+<div style="padding:14px 16px 4px; min-width:0">
+  <div class="hd-row" style="gap:8px 12px; margin-bottom:10px">
+    <span class="hd-cluster">Gain staging</span><span class="vtag audio">AUDIO-CAPABLE</span>
+    <div class="hd-pills" role="radiogroup" aria-label="Chain" id="mode"><button class="hd-pill hd-focus" role="radio" aria-checked="true" data-v="instrument">Instrument</button><button class="hd-pill hd-focus" role="radio" aria-checked="false" data-v="fx">FX device</button></div>
+  </div>
+  <div id="gs"></div>
+  <p class="hd-hint" style="margin:10px 0 12px">−66 to +6 dBFS · the top 8 % is the over zone · peak holds 1.5 s, then falls 20 dB/s · a lamp latches one sample over 0 dBFS until clicked · drag a gain (shift fine, double-click resets) · SAMPLE levels from a seeded hot chord, never the engine. The make-up&rsquo;s default ×4 (+12.04 dB) puts the rack&rsquo;s input over 0 dBFS (ADR-230 item 2); lower it, or the engine&rsquo;s out.level, and the lamps stay dark.</p>
+</div>
+<script>
+(function () {
+  var H = window.Horde, SR = 48000, FPS = 60, STEP = 1 / FPS, reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var host = document.getElementById('gs'), still = reduce, gs;
+
+  /* ---- the previews' stand-in for the chain's published readings: a seeded hot chord struck every 2.4 s, run through the stages
+     with the gains the controls hold. Overs are ONLY what the gains make of the chord: nothing is planted. ---- */
+  var rng = H.Synth.rng(2301), VEL = [0, -1.5, -.5, -3.5].map(function (d) { return d + (rng() - .5) * .4; });   // dB under the full hit, per strike
+  var db = function (x) { return 10 * Math.log10(x); }, pw = function (v) { return Math.pow(10, v / 10); };
+  var psum = function (a) { var s = 0; a.forEach(function (v) { s += pw(v); }); return s > 0 ? db(s) : -200; };
+  var SRC = { osc1: [0, -.5], osc2: [-.4, 0], sub: [0, 0], noise: [-.8, -.3] };          // each source's L and R pan offset, dB
+  function Engine() { this.G = {}; this.reset(); }
+  Engine.prototype.reset = function () { this.t = 0; this.peak = {}; this.lat = {}; };
+  Engine.prototype.chain = function (fx) { var G = this.G; this.fx = fx; H.GainStaging.chain(fx ? 'fx' : 'instrument').forEach(function (s) { if (s.gain) { G[s.id] = s.gain.def; } }); };
+  /* the chord's envelope in dB at the hit's own peak: a 20 ms attack, then 14 dB a second; strike k at 0.4 + 2.4 k s */
+  Engine.prototype.env = function () {
+    var t = this.t - .4, k = Math.floor(t / 2.4); if (t < 0) return -90;
+    var u = t - 2.4 * k, v = VEL[k % VEL.length];
+    return v + (u < .02 ? -30 * (1 - u / .02) : -14 * (u - .02));
+  };
+  Engine.prototype.step = function (dt) {
+    this.t += dt;
+    var G = this.G, t = this.t, e = this.env(), P = {}, c;
+    var beat = function (k) { return -2.2 * (1 - Math.abs(Math.sin(TAUF * (5.3 + k) * t)) * Math.abs(Math.cos(TAUF * (3.7 + k) * t + .5))); };   // the chord's beating: a peak is rarely the full hit
+    var put = function (id, l, r) { P[id] = { l: l, r: r }; return [l, r]; };
+    var sat = function (v) { return v > -6 ? -6 + (v + 6) * .35 : v; };                   // FX 1: a soft knee, the one stage that tames a hot input
+    var lv;
+    if (this.fx) {
+      lv = put('in', -1.5 + e - VEL[0] + G['in'] + beat(0), -1.9 + e - VEL[0] + G['in'] + beat(.3));
+    } else {
+      var srcs = ['osc1', 'osc2', 'sub', 'noise'].map(function (id, i) { return put(id, e + G[id] + SRC[id][0] + beat(i * .2), e + G[id] + SRC[id][1] + beat(i * .2 + .1)); });
+      lv = [0, 1].map(function (c) { return psum(srcs.map(function (q) { return q[c]; })); });
+      [1, 2].forEach(function (k) {
+        lv = put('f' + k + 'i', lv[0] + G['f' + k + 'i'], lv[1] + G['f' + k + 'i']); lv = put('f' + k + 'o', lv[0] - 1 + G['f' + k + 'o'], lv[1] - 1 + G['f' + k + 'o']); });
+      lv = put('eng', lv[0] + G.eng, lv[1] + G.eng);
+      lv = put('mk', lv[0] + G.mk, lv[1] + G.mk);                                          // the make-up's output is the rack's input
+    }
+    var fxOf = [function (v) { return sat(v); }, function (v) { return v - .5; }, function (v) { return v + 3.2; }, function (v) { return v - 1.5; }];
+    [1, 2, 3, 4].forEach(function (k) {
+      lv = put('x' + k + 'i', lv[0] + G['x' + k + 'i'], lv[1] + G['x' + k + 'i']);
+      lv = put('x' + k + 'o', fxOf[k - 1](lv[0]) + G['x' + k + 'o'], fxOf[k - 1](lv[1]) + G['x' + k + 'o']);
+    });
+    lv = put('lim', lv[0] + G.lim, lv[1] + G.lim);
+    var CEIL = -1, over = Math.max(lv[0], lv[1]) - CEIL;
+    P.gr = { gr: Math.max(0, over) };                                                      // the limiter's reduction
+    var lo = Math.min(lv[0], CEIL) + G.vol, ro = Math.min(lv[1], CEIL) + G.vol;
+    put('vol', G.vol <= -60 ? -200 : lo, G.vol <= -60 ? -200 : ro);
+    this.peak = P;
+    for (var id in P) { var m = Math.max(P[id].l === undefined ? -200 : P[id].l, P[id].r === undefined ? -200 : P[id].r);
+      if (m > 0) { var L = this.lat[id]; if (!L) this.lat[id] = { on: true, at: Math.round(t * SR), max: m }; else L.max = Math.max(L.max, m); } }   // one sample over 0 dBFS latches, until cleared
+  };
+  var TAUF = 2 * Math.PI, eng = new Engine();
+
+  function build(fx) {
+    eng.chain(fx); eng.reset();
+    var o = { stages: H.GainStaging.chain(fx ? 'fx' : 'instrument'), sr: SR, keys: function () { return true; },
+      read: function (id) { return eng.peak[id]; }, latch: function (id) { return eng.lat[id] || { on: false }; },
+      clear: function (id) { delete eng.lat[id]; },
+      onGain: function (id, v) { eng.G[id] = v; if (still) settle(); } };
+    gs = H.GainStaging(host, o);
+    if (still) settle();
+  }
+  /* reduced motion: one still frame, drawn when its data changes: the chain run to 0.8 s (the first strike's peak held, its bars falling) */
+  function settle() { eng.reset(); for (var k = 0; k < 48; k++) { eng.step(STEP); gs.step(STEP, true); } gs.render(); }
+
+  document.getElementById('mode').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    this.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-checked', String(x === b)); });
+    build(b.dataset.v === 'fx');
+  });
+  build(false);
+  if (still) return;
+  /* fixed 1/60 s steps whatever the display's rate: the frame's timestamp only says how many are due */
+  var last = null, acc = 0;
+  requestAnimationFrame(function loop(now) {
+    acc += last === null ? STEP : Math.min(.1, Math.max(0, (now - last) / 1000)); last = now;
+    while (acc >= STEP) { eng.step(STEP); gs.step(STEP, true); acc -= STEP; }
+    gs.render(); requestAnimationFrame(loop);
+  });
+})();
+</script>
+</body>
+</html>

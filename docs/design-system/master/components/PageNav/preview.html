@@ -1,0 +1,79 @@
+<!-- @dsCard group="Structure" height=470 subtitle="The two-level page bar: groups on top, the selected group's pages under it (Osc opens on its Dashboard); the Osc dashboard composition below: one small card per oscillator, its picture first" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Page nav</title></head>
+<body>
+<div style="padding:14px 16px 10px">
+  <div class="hd-row" style="align-items:flex-start; gap:10px; flex-wrap:nowrap">
+    <div style="flex:0 0 auto; width:64px; height:42px; border:1px dashed var(--div); border-radius:var(--radius); display:grid; place-items:center" class="hd-hint">logo</div>
+    <div id="nav" style="flex:1 1 auto; min-width:0"></div>
+  </div>
+  <div id="page" role="tabpanel" style="margin-top:8px"></div>
+  <p class="hd-msg" id="msg" style="margin:6px 0 0"></p>
+  <p class="hd-hint" style="margin:2px 0 0">Click a group, then one of its pages; a group returns to the page it was last on. The dot on a page tab says whether that oscillator is on. The dashboard's cards, their pictures and the controls each one carries are a SAMPLE composition (the shell picks the bare necessities per oscillator); values are generated here, never the engine.</p>
+</div>
+<script>
+(function () {
+  var H = window.Horde, T = Math.PI * 2;
+  var S = new H.Session({ x: .35, y: .3, corners: ['Glass horde pad', 'Undertone cathedral', 'Smear and strike', 'Crushed bells'] });
+  var keys = function () { return S.keys; };
+  var GROUPS = [
+    { id: 'main', label: 'Main' },
+    { id: 'osc', label: 'Osc', pages: [{ id: 'dash', label: 'Dashboard' }, { id: 'osc1', label: 'Osc 1', on: true }, { id: 'osc2', label: 'Osc 2', on: true }, { id: 'sub', label: 'Sub', on: true }, { id: 'noise', label: 'Noise', on: false }, { id: 'filters', label: 'Filters' }] },
+    { id: 'fx', label: 'FX' }, { id: 'mod', label: 'Mod' }, { id: 'morph', label: 'Morph' }, { id: 'mix', label: 'Mix' }, { id: 'hist', label: 'Hist' }, { id: 'set', label: 'Set' }
+  ];
+  var msg = document.getElementById('msg'), page = document.getElementById('page');
+  var nav = H.PageNav(document.getElementById('nav'), { groups: GROUPS, value: { group: 'osc', page: 'dash' }, panel: 'page', keys: keys,
+    onChange: function (g, p) { show(g, p); msg.textContent = 'Page: ' + g + ' / ' + p; } });
+  /* THE OSC DASHBOARD: one cell per oscillator, side by side; each a section (on, name, a one-line summary), its picture
+     taking the width, then two to four compact controls. Clicking the name opens that oscillator's own page. */
+  var pctf = function (x) { return Math.round(x * 100) + '%'; };
+  var dbf = function (x) { var d = -60 + x * 66; return x <= 0 ? '−∞ dB' : (d >= 0 ? '+' : '−') + Math.abs(d).toFixed(1) + ' dB'; };
+  var CARDS = [
+    { id: 'osc1', name: 'Osc 1', on: true, sum: 'scalpel · 5 members', pic: 'blade', ctl: [['osc1.level', 'Level', [.85, .8, .9, .84], dbf], ['osc1.detune', 'Detune', [.18, .72, .4, .9]], ['osc1.coupling', 'Coupling', [.5, .85, .3, .62], null, true]] },
+    { id: 'osc2', name: 'Osc 2', on: true, sum: 'swarm · 7 members', pic: 'blade2', ctl: [['osc2.level', 'Level', [.9, .9, .82, .95], dbf], ['osc2.detune', 'Detune', [.3, .4, .5, .2]], ['osc2.coupling', 'Coupling', [.6, .55, .7, .5], null, true]] },
+    { id: 'sub', name: 'Sub', on: true, sum: 'sine · −1 oct', pic: 'scope', ctl: [['sub.level', 'Level', [.8, .8, .72, .85], dbf], ['sub.width', 'Width', [.5, .5, .4, .6]]] },
+    { id: 'noise', name: 'Noise', on: false, sum: 'pink · stereo', pic: 'spec', ctl: [['noise.level', 'Level', [.6, .55, .7, .5], dbf], ['noise.colour', 'Colour', [.4, .45, .3, .5], null, true]] }
+  ];
+  var built = null, cvs = [];
+  function dashboard() {
+    var grid = document.createElement('div'); grid.style.cssText = 'display:grid; grid-template-columns:repeat(auto-fill, minmax(190px, 1fr)); gap:var(--space-stack)';
+    CARDS.forEach(function (c) {
+      var cell = document.createElement('div'); cell.className = 'hd-cell hd-dense';
+      var sec = document.createElement('section'); sec.className = 'hd-sec'; cell.appendChild(sec);
+      var hd = document.createElement('div'); sec.appendChild(hd);
+      var viz = document.createElement('div'); viz.className = 'hd-viz'; viz.style.aspectRatio = '2.6 / 1';
+      var cv = document.createElement('canvas'); cv.setAttribute('role', 'img'); cv.setAttribute('aria-label', c.name + ': one cycle (sample)'); viz.appendChild(cv); sec.appendChild(viz);
+      var row = document.createElement('div'); row.className = 'hd-krow'; row.style.justifyContent = 'space-between'; sec.appendChild(row);
+      H.SectionHeader(hd, { name: c.name, path: c.name, on: c.on, rule: 'none', S: S, section: sec, summary: c.sum, keys: keys,
+        onToggle: function (on) { nav.mark('osc', c.id, on); } });
+      var nm = hd.querySelector('.sh-name'); nm.style.cursor = 'pointer'; nm.title = 'Open ' + c.name;
+      nm.addEventListener('click', function () { nav.set('osc', c.id); show('osc', c.id); });
+      c.ctl.forEach(function (k) { var d = document.createElement('div'); row.appendChild(d);
+        H.Knob(d, { key: k[0], name: k[1], path: c.name + ' · ' + k[1], vals: k[2], fmt: k[3] || pctf, bipolar: !!k[4], size: 'compact' }, S); });
+      cvs.push({ cv: cv, c: c }); grid.appendChild(cell);
+    });
+    return grid;
+  }
+  function paint(t) {
+    cvs.forEach(function (q, i) {
+      if (q.c.pic === 'scope') { var l = [], r = []; for (var j = 0; j < 128; j++) { var x = j / 128; l.push(Math.sin(T * x) * .9); r.push(Math.sin(T * x + .2) * .9); } H.Viz.scope(q.cv, { l: l, r: r, R: 0 }); return; }
+      if (q.c.pic === 'spec') { var b = []; for (var k = 0; k < 24; k++) b.push(Math.max(0, .62 - k * .012 + .06 * Math.sin(k * 1.7 + t * 3))); H.Viz.spectrum(q.cv, b, q.st || (q.st = {}), t * 1000); return; }
+      var M = 160, base = [], sum = [], st = q.c.pic === 'blade' ? .2 + .05 * Math.sin(t) : .55, w = q.c.pic === 'blade' ? .22 : .14;
+      for (var m = 0; m < M; m++) { var x2 = m / M, y = H.Synth.saw(x2 + .5); base.push(y); var into = ((x2 - st) % 1 + 1) % 1; sum.push(into < w ? Math.sin(T * 4 * into / w) * .8 : y); }
+      H.Viz.blade(q.cv, { base: base, sum: sum, members: [], windows: [{ blade: q.c.pic === 'blade' ? 1 : 2, st: st, w: w, a: .22 }] });
+    });
+  }
+  function show(g, p) {
+    page.innerHTML = ''; cvs = [];
+    if (g === 'osc' && p === 'dash') { if (!built) built = dashboard(); else built.querySelectorAll('canvas').forEach(function () {}); page.appendChild(built);
+      built.querySelectorAll('.hd-cell').forEach(function (cell, i) { cvs.push({ cv: cell.querySelector('canvas'), c: CARDS[i] }); }); paint(S.t); return; }
+    var e = document.createElement('div'); e.className = 'hd-cell'; e.innerHTML = '<span class="hd-hint">The ' + g + ' / ' + p + ' page (not drawn in this preview).</span>'; page.appendChild(e);
+  }
+  show('osc', 'dash');
+  S.add({ render: function () { if (cvs.length && !S.reduce) paint(S.t); } });
+  S.start();
+})();
+</script>
+</body>
+</html>

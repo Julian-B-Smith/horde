@@ -34,10 +34,20 @@ A lab awaiting review is pinned on top AND still listed in its own part (or the
 Archive), so the part headings are a complete map of the plan and the pin is only
 a to-do list. The pinned copy alone carries the pink review styling.
 
+CHAIN STATUS IS THE LEDGER'S CLAIM, NOT THE LAB'S (ADR-336, B595). Every lab also shows
+its status in the design chain: exploring, ruled (ADR), harvested (master version) or
+retired, read from `labs` in docs/design/design-ledger.json. Unlike review state, this is
+not a meta tag in the lab: whether a lab has been harvested into the design master or
+retired is a fact about the chain, decided by the audit that records the chain, and a lab
+cannot honestly claim it about itself. One file also lets tools/design_chain_check.py hold
+every lab to a status without editing fifty lab files. A lab with no ledger entry reads
+"no status", visibly, and that check is red on it.
+
 Deterministic and idempotent: no wall clock, no set iteration; labs are sorted by
 filename and parts follow PARTS, so two runs give a byte-identical file.
 """
 import html
+import json
 import pathlib
 import re
 import subprocess
@@ -60,6 +70,25 @@ def tracked_labs():
     out = subprocess.run(["git", "ls-files", "--", "docs/design/*.html"], cwd=ROOT,
                          capture_output=True, text=True, check=True).stdout.split()
     return sorted(ROOT / p for p in out)
+
+
+def chain_status():
+    """{lab file name: (status, detail)} from the design ledger; empty if it is absent
+    (an older tree under tools/labs_preview.sh), so the index still builds."""
+    f = D / "design-ledger.json"
+    if not f.exists():
+        return {}
+    led = json.loads(f.read_text(encoding="utf-8"))
+    out = {}
+    for name, s in led.get("labs", {}).items():
+        detail = s.get("adr") or s.get("master_version") or ""
+        out[name] = (s.get("status", ""), detail)
+    for name in led.get("not_labs", {}):
+        out[name] = ("not a lab", "")
+    return out
+
+
+STATUS = {}
 
 
 def meta(text, name):
@@ -121,6 +150,11 @@ HEAD = """<!doctype html><html><head><meta charset="utf-8">
           cursor:pointer; margin-bottom:12px; }
   .why { color:var(--dim); font-size:10px; margin-top:4px; }
   .succ { color:var(--dim); font-size:10px; margin-top:4px; }
+  .chain { display:inline-block; font-size:9px; letter-spacing:1px; padding:1px 6px; margin-top:6px;
+           border-radius:3px; border:1px solid var(--line); color:var(--dim); text-transform:uppercase; }
+  .chain-exploring { color:var(--pull); border-color:var(--pull); }
+  .chain-ruled, .chain-harvested { color:#a6f219; border-color:#a6f219; }
+  .chain-no-status { color:#f5169c; border-color:#f5169c; }
 </style></head><body>
 <h1>horde — design labs</h1>
 <div class="sub">The labs horde 2's plan uses, grouped by plan part; older labs are in
@@ -137,6 +171,9 @@ FOOT = "</body></html>\n"
 
 def card(e, pinned=False, archived=False):
     p = html.escape(e["desc"]) if e["desc"] else "<span class=none>no tagline</span>"
+    st, detail = STATUS.get(e["name"], ("no status", ""))
+    chain = (f'    <div class="chain chain-{html.escape(st.replace(" ", "-"))}">'
+             f'{html.escape(st)}{" · " + html.escape(detail) if detail else ""}</div>\n')
     cls = "lab review" if pinned else "lab superseded" if archived else "lab"
     pill = (f'    <span class="pill">NEW · AWAITING REVIEW · {html.escape(e["review"])}</span>\n'
             if pinned else "")
@@ -147,6 +184,7 @@ def card(e, pinned=False, archived=False):
             f'    <h2>{html.escape(e["title"])}</h2>\n'
             f'    <div class="file">{e["name"]}</div>\n'
             f"    <p>{p}</p>\n"
+            f"{chain}"
             f"{note}"
             f"  </a>\n")
 
@@ -156,6 +194,7 @@ def grid(entries, **kw):
 
 
 def main():
+    STATUS.update(chain_status())
     entries = list(labs())
     archived = [e for e in entries if e["sup"] or e["archive"]]
     current = [e for e in entries if e not in archived]

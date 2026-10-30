@@ -1,0 +1,52 @@
+<!-- @dsCard group="Display" height=250 subtitle="Stereo pairs with peak hold; the CLIP lamp latches until clicked" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Meter</title></head>
+<body>
+<div class="hd-row" style="padding:14px 16px 4px; align-items:flex-start; gap:6px" id="host">
+  <div class="hd-mscale" style="margin-top:36px" aria-hidden="true" id="scale"></div>
+</div>
+<p class="hd-hint" style="margin:4px 16px 12px">−66 to +6 dBFS · the top 8% is the over zone · peak holds 1.5 s, then falls 20 dB/s · a sample signal, not audio</p>
+<script>
+(function () {
+  var host = document.getElementById('host'), scale = document.getElementById('scale');
+  var frac = function (db) { return Math.max(0, Math.min(1, (db + 66) / 72)); };
+  [6, 0, -12, -24, -48, -66].forEach(function (db) {
+    var s = document.createElement('span'); s.textContent = db > 0 ? '+' + db : db === 0 ? '0' : '−' + -db;
+    s.style.bottom = (frac(db) * 129) + 'px'; scale.appendChild(s);
+  });
+  var TAPS = [{ name: 'DRIVE', lv: -14, sw: 6 }, { name: 'FILTER', lv: -9, sw: 7 }, { name: 'OUT', lv: -3, sw: 6, latched: true }];
+  TAPS.forEach(function (t, i) {
+    var tap = document.createElement('div'); tap.className = 'hd-tap';
+    var lamp = document.createElement('button'); lamp.type = 'button'; lamp.className = 'hd-lamp hd-focus'; lamp.innerHTML = 'CLIP';
+    lamp.setAttribute('aria-pressed', String(!!t.latched)); lamp.setAttribute('aria-label', t.name + ' clip lamp' + (t.latched ? ', latched: click to clear' : ''));
+    lamp.addEventListener('click', function () { lamp.setAttribute('aria-pressed', 'false'); lamp.setAttribute('aria-label', t.name + ' clip lamp'); t.bars.forEach(function (b) { b.el.classList.remove('over'); }); });
+    var pair = document.createElement('div'); pair.className = 'hd-mpair'; pair.setAttribute('role', 'meter'); pair.setAttribute('aria-label', t.name + ' level');
+    t.bars = [0, 1].map(function () { var b = document.createElement('div'); b.className = 'hd-mbar'; b.innerHTML = '<i class="fill"></i><i class="hold"></i>'; pair.appendChild(b); return { el: b, fill: b.firstChild, hold: b.lastChild, pk: -66, at: 0 }; });
+    if (t.latched) t.bars[0].el.classList.add('over');
+    var pk = document.createElement('div'); pk.className = 'hd-value'; pk.style.fontSize = '9.5px';
+    var nm = document.createElement('div'); nm.className = 'hd-label'; nm.style.fontSize = '9px'; nm.style.letterSpacing = '.06em'; nm.textContent = t.name;
+    tap.appendChild(lamp); tap.appendChild(pair); tap.appendChild(pk); tap.appendChild(nm); host.appendChild(tap);
+    t.pkEl = pk; t.i = i;
+  });
+  var still = matchMedia('(prefers-reduced-motion: reduce)').matches, n = 0;
+  function step() {
+    n++;
+    TAPS.forEach(function (t) {
+      var top = -66;
+      t.bars.forEach(function (b, ch) {
+        // a deterministic sample signal from the frame count (no clock, no randomness)
+        var db = t.lv - t.sw * (.5 + .5 * Math.sin(n * .045 + t.i * 1.7 + ch * .6)) - 3 * Math.abs(Math.sin(n * .31 + ch));
+        if (db >= b.pk) { b.pk = db; b.at = n; } else if (n - b.at > 90) b.pk = Math.max(db, b.pk - 20 / 60);
+        b.fill.style.setProperty('--lv', frac(db)); b.hold.style.setProperty('--hp', frac(b.pk));
+        top = Math.max(top, b.pk);
+      });
+      t.pkEl.textContent = (top >= 0 ? '+' : '−') + Math.abs(top).toFixed(1);
+    });
+  }
+  for (var k = 0; k < 40; k++) step();
+  if (!still) (function loop() { step(); requestAnimationFrame(loop); })();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+<!-- @dsCard group="Modulation" height=356 subtitle="MAP toggle joined to its source selector, the live source strip, and the inspector's mouse routes" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>MAP control</title></head>
+<body>
+<div style="padding:14px 16px 10px">
+  <div id="win" style="background:var(--panel); border:var(--stroke-ink) solid var(--ink); border-radius:var(--radius-window)">
+    <div class="hd-row" style="justify-content:space-between; gap:8px; padding:8px 10px; border-bottom:1px dashed var(--div)">
+      <span class="hd-cluster">FX · Drive</span>
+      <div class="hd-row" style="gap:10px">
+        <button class="hd-kbd" id="lamp" type="button" aria-pressed="false"><span class="lampdot" aria-hidden="true"></span><span id="lampword">KEYS OFF</span></button>
+        <div id="map"></div>
+      </div>
+    </div>
+    <div id="strip" style="padding:8px 10px; border-bottom:1px dashed var(--div)"></div>
+    <div class="hd-fit" style="gap:12px; padding:8px 10px 10px">
+      <div style="display:flex; flex-wrap:wrap; gap:4px; flex:1 1 280px; min-width:0" id="knobs"></div>
+      <div id="insp" style="border-left:1px dashed var(--div); padding-left:12px; flex:1 1 230px"></div>
+    </div>
+  </div>
+  <p class="hd-msg" id="msg" style="margin:6px 0 0"></p>
+  <p class="hd-hint" style="margin:2px 0 0">MAP on: click a knob to map the source at 25%, drag to set depth (release at 0 cancels). MAP off: ⌥-drag edits depth, ⌥-click cycles focus. Keys M, 1–9, P, Backspace, Esc only with KEYS ON; the inspector is their mouse route.</p>
+</div>
+<script>
+(function () {
+  var H = window.Horde, T = Math.PI * 2;
+  var S = new H.Session({ x: 0, y: 0, sources: [
+    { id: 'lfo1', name: 'LFO 1', kind: 'lfo', f: function (t) { return .5 + .5 * Math.sin(t * T * .45); } },
+    { id: 'lfo2', name: 'LFO 2', kind: 'lfo', f: function (t) { var p = (t * .16) % 1; return p < .5 ? p * 2 : 2 - p * 2; } },
+    { id: 'env2', name: 'ENV 2', kind: 'env', f: function (t) { var p = t % 1.7; return p < .04 ? p / .04 : Math.exp(-(p - .04) * 3.2); } },
+    { id: 'mac1', name: 'MACRO 1', kind: 'macro', f: function (t) { return .5 + .32 * Math.sin(t * T * .05); } },
+    { id: 'r1', name: 'R', kind: 'engine', f: function (t) { return .5 + .4 * Math.sin(t * T * .11 + 1); } }
+  ], mappings: [
+    { param: 'drive.drive', src: 'lfo1', pol: 'bi', depth: .2 },
+    { param: 'drive.drive', src: 'env2', pol: 'uni', depth: .25 },
+    { param: 'drive.tone', src: 'mac1', pol: 'inv', depth: .3 }
+  ] });
+  var pctf = function (x) { return Math.round(x * 100) + '%'; };
+  var host = document.getElementById('knobs');
+  [
+    { key: 'drive.drive', name: 'Drive', path: 'Drive · Drive', vals: [.5, .5, .5, .5], def: .5, fmt: function (x) { return '+' + (x * 12).toFixed(1) + ' dB'; } },
+    { key: 'drive.tone', name: 'Tone', path: 'Drive · Tone', vals: [.8, .8, .8, .8], def: 1, fmt: function (x) { var f = 1500 * Math.pow(20000 / 1500, x); return (f / 1000).toFixed(1) + ' kHz'; } },
+    { key: 'drive.bloom', name: 'Bloom', path: 'Drive · Bloom', vals: [.3, .3, .3, .3], def: 0 }
+  ].forEach(function (p) { p.fmt = p.fmt || pctf; var d = document.createElement('div'); host.appendChild(d); H.Knob(d, p, S); });
+  H.MapControl(document.getElementById('map'), S, { strip: document.getElementById('strip'), frame: document.getElementById('win') });
+  H.ModInspector(document.getElementById('insp'), S);
+  var lamp = document.getElementById('lamp'), word = document.getElementById('lampword');
+  lamp.addEventListener('click', function () { S.keys = !S.keys; lamp.setAttribute('aria-pressed', String(S.keys)); word.textContent = S.keys ? 'KEYS ON' : 'KEYS OFF'; });
+  var msg = document.getElementById('msg'); S.on(function () { msg.textContent = S.message; });
+  S.selected = 'drive.drive'; S.start(); S.emit();
+})();
+</script>
+</body>
+</html>

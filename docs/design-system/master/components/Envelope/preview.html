@@ -1,0 +1,36 @@
+<!-- @dsCard group="Visualizers" height=270 subtitle="The envelope’s shape on the phosphor floor, curved stages, node handles and the playhead" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Envelope</title></head>
+<body>
+<div class="hd-fit" style="padding:14px 16px 4px; gap:12px 24px" id="host">
+  <div class="hd-col" style="gap:6px; flex:1 1 260px; max-width:460px">
+    <div class="hd-viz" style="aspect-ratio:2.2 / 1"><canvas id="cv" role="img" aria-label="Envelope: attack, decay, sustain, release with their curves"></canvas></div>
+    <div class="hd-row" style="justify-content:space-between; width:100%"><div id="scr"></div><span class="hd-value" id="read" aria-live="off"></span></div>
+  </div>
+  <div class="hd-col" style="gap:6px; flex:1 1 220px">
+    <div class="hd-row"><span class="hd-cluster">Envelope</span><span class="vtag">SHAPE ANY TIME · PLAYHEAD VOICE-BOUND</span></div>
+    <span class="hd-label" style="line-height:1.5">Attack, decay, the sustain hold and release, each stage bent by its curve (−2.5 to +2.5), in value with an 18% fill over a receding floor grid. Node handles (16 px hit) in marker, meter, physics and grid; the playhead rides a sounding voice.</span>
+    <div class="hd-row"><span class="hd-label" style="width:64px">Curves</span><div class="hd-pills" role="radiogroup" aria-label="Curves" id="c"><button class="hd-pill hd-focus" role="radio" aria-checked="false" data-v="lin">linear</button><button class="hd-pill hd-focus" role="radio" aria-checked="true" data-v="exp">bank exp</button><button class="hd-pill hd-focus" role="radio" aria-checked="false" data-v="fast">fast start</button></div></div>
+    <span class="hd-hint">SAMPLE data, generated in this preview; never the engine.</span>
+  </div>
+</div>
+<script>
+(function () {
+  var H = window.Horde, cv = document.getElementById('cv'), read = document.getElementById('read'), T = 2 * Math.PI;
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function pick(id, fn) { var g = document.getElementById(id); g.addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return;
+    g.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-checked', String(x === b)); }); fn(b.dataset.v); }); }
+  var e = { a: .25, d: .5, s: .6, hold: .5, r: .7, ac: 0, dc: 2.3, rc: 2.3 }, t = 0;
+  pick('c', function (v) { if (v === 'lin') { e.ac = 0; e.dc = 0; e.rc = 0; } else if (v === 'exp') { e.ac = 0; e.dc = 2.3; e.rc = 2.3; } else { e.ac = 2.5; e.dc = 1; e.rc = 1; } });
+  function step(dt) { t = (t + dt * .6) % (e.a + e.d + e.hold + e.r + .5); }
+  function frame() { var T2 = e.a + e.d + e.hold + e.r, p = t < T2 ? t : null; H.Viz.envelope(cv, e, p); read.textContent = p === null ? 'idle' : 'level ' + Math.round(H.Viz.envAt(e, p) * 100) + '%'; }
+  H.ScreenScheme(document.getElementById('scr'), document.getElementById('host'), { onchange: function () { if (reduce) setTimeout(function () { frame(0); }, 0); } });
+  for (var k = 0; k < 90; k++) step(1 / 30, k * 33);
+  if (reduce) { frame(0); return; }
+  var last = null;
+  (function loop(now) { var dt = last === null ? 1 / 30 : Math.max(0, Math.min(.05, (now - last) / 1000)); last = now; step(dt, now); frame(now); requestAnimationFrame(loop); })(performance.now());
+})();
+</script>
+</body>
+</html>

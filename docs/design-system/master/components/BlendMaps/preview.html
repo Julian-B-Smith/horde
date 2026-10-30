@@ -1,0 +1,42 @@
+<!-- @dsCard group="Morph" height=1030 subtitle="One row's value across the pad under each law: heatmaps with contours, pins and corners, TIN's dashed triangulation, the clamp to the set values, and a cross-section; drag a pin, switch the law" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Blend maps</title></head>
+<body>
+<div style="padding:14px 16px 4px; min-width:0">
+  <div class="hd-row" style="gap:8px 12px; margin-bottom:10px">
+    <span class="hd-cluster">Blend maps</span><span class="vtag audio">AUDIO-CAPABLE</span>
+    <span class="hd-label">Sample deal</span>
+    <div class="hd-pills" role="radiogroup" aria-label="Sample deal" id="deal"></div>
+  </div>
+  <div id="bm"></div>
+  <p class="hd-hint" style="margin:10px 0 12px">Drag a pin to move it (it follows the pointer; a move onto a corner or another pin is refused and the pin stays) · drag a pin&rsquo;s tag up or down, or alt-drag the pin, for its value (shift = a tenth) · double-click the pad to add a pin at the value the law already gives there · right-click a pin to delete it · alt + wheel on a pin turns its value · drag the ‹ › ends of the dashed line to cut elsewhere. Keyboard: select a pin with its button, then the arrows move it (shift fine), alt + ↑ ↓ turn its value, Delete removes it. The setting offers the two 1.0 laws, TPS·Δ (default) and TIN·Δ; TIN and IDW·Δ are labelled comparisons from the lab and are not options. SAMPLE rows dealt from a seed (mulberry32) in this preview, never the engine.</p>
+</div>
+<script>
+(function () {
+  var H = window.Horde, SEEDS = [9, 20, 38, 40, 33], C = [[0, 0], [1, 0], [0, 1], [1, 1]];
+  /* SAMPLE row: four corner values and four pins, dealt from a seed. The pins are set near the ends of the range so the laws visibly disagree:
+     the pin spots keep clear of the corners and of each other, as the component's own refusals require. Nothing else is chosen by hand. */
+  function deal(seed) {
+    var r = H.Synth.rng(seed), c = [0, 1, 2, 3].map(function () { return .1 + .8 * r(); }), pins = [];
+    for (var t = 0; t < 80 && pins.length < 4; t++) {
+      var x = .15 + .7 * r(), y = .15 + .7 * r();
+      if (C.some(function (q) { return Math.hypot(x - q[0], y - q[1]) < .25; })) continue;
+      if (pins.some(function (p) { return Math.hypot(x - p[0], y - p[1]) < .22; })) continue;
+      pins.push([x, y, r() < .5 ? .02 + .18 * r() : .8 + .18 * r()]);
+    }
+    return { name: 'Pull K', min: 0, max: 1, fmt: function (v) { return Math.round(v * 100) + '%'; }, corners: c, pins: pins };
+  }
+  var bm = H.BlendMaps(document.getElementById('bm'), { row: deal(SEEDS[0]), laws: ['tps', 'tind'], compare: ['tin', 'idw'] });
+  var g = document.getElementById('deal');
+  SEEDS.forEach(function (s, i) {
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'hd-pill hd-focus'; b.setAttribute('role', 'radio'); b.dataset.seed = s; b.textContent = 'Seed ' + s;
+    b.setAttribute('aria-checked', String(i === 0));
+    b.addEventListener('click', function () { g.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-checked', String(x === b)); }); bm.setRow(deal(s)); });
+    g.appendChild(b);
+  });
+  window.__bm = bm;
+})();
+</script>
+</body>
+</html>

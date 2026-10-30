@@ -1,0 +1,59 @@
+<!-- @dsCard group="Visualizers" height=420 subtitle="The swarm on its phase ring, which is also the Coupling × Detune XY: a click lands the point; blade rim arcs, cross-mod arrows, one coherence ink; voice-bound" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Kuramoto circle</title></head>
+<body>
+<div class="hd-fit" style="padding:14px 16px 4px; gap:12px 24px" id="host">
+  <div class="hd-col" style="gap:6px; flex:1 1 280px; max-width:380px">
+    <div class="hd-viz" style="aspect-ratio:4 / 3"><canvas id="cv" role="slider" aria-label="Phase ring, Coupling by Detune" aria-valuemin="0" aria-valuemax="100"></canvas></div>
+    <div class="hd-row" style="justify-content:space-between; width:100%"><div id="scr"></div><span class="hd-value" id="coh" aria-live="off"></span></div>
+    <span class="hd-note" id="note" style="min-height:27px; line-height:1.5"></span>
+  </div>
+  <div class="hd-col" style="gap:6px; flex:1 1 220px">
+    <div class="hd-row"><span class="hd-cluster">Kuramoto circle</span><span class="vtag">VOICE-BOUND</span></div>
+    <span class="hd-label" style="line-height:1.5">One voice’s swarm on its phase ring. Click anywhere on it: the point lands there, Detune across and Coupling up, and the swarm locks or spreads. Each member’s blade windows are rim arcs outside the ring (member 1 innermost; blade 2 dashed), and a member is filled while it is inside one. The needle, the Coherence number and the bar at the right share one ink.</span>
+    <div class="hd-row"><span class="hd-label" style="width:64px">Cross-mod</span><div class="hd-pills" role="radiogroup" aria-label="Cross-mod" id="xm"><button class="hd-pill hd-focus" role="radio" aria-checked="false" data-v="0">off</button><button class="hd-pill hd-focus" role="radio" aria-checked="true" data-v=".5">50 %</button><button class="hd-pill hd-focus" role="radio" aria-checked="false" data-v=".9">90 %</button></div></div>
+    <span class="hd-hint">SAMPLE data, generated in this preview; never the engine.</span>
+  </div>
+</div>
+<p class="hd-hint" style="margin:4px 16px 12px">Click lands · drag follows · alt = fine (¼) · ⇧ + horizontal drags Cross-mod, relative · arrows move it (alt fine, ⇧ + ←→ Cross-mod) · arrow weight = what the push adds</p>
+<script>
+(function () {
+  var H = window.Horde, cv = document.getElementById('cv'), note = document.getElementById('note'), coh = document.getElementById('coh');
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var N = 7, SEED = 7, KMAX = 4, SPREAD = 1.4;                       // K is bipolar: above the middle locks, below splays (the lab's pad)
+  var st = { x: .28, y: .66, sx: .5 }, sw = H.Synth.ring(SEED, N), live = { drag: false, shift: false, hover: false };
+  var pct = function (v) { return Math.round(v * 100) + ' %'; }, bip = function (v) { var q = Math.round(v * 200 - 100); return (q > 0 ? '+' : q < 0 ? '−' : '') + Math.abs(q) + ' %'; };
+  var K = function () { return (st.y - .5) * 2 * KMAX; }, spread = function () { return st.x * SPREAD; };
+
+  function words() {
+    if (live.drag) return 'DRAG · ' + (live.shift ? '⇧↔ Cross-mod ' + pct(st.sx) : '↔ Detune ' + pct(st.x)) + ' · ↕ Coupling ' + bip(st.y);
+    if (live.hover) return 'click lands ↔ Detune ↕ Coupling here · alt = fine (¼) · ⇧↔ Cross-mod is relative';
+    return 'Detune ' + pct(st.x) + ' · Coupling ' + bip(st.y) + ' · ' + (st.sx > .005 ? 'Cross-mod ' + pct(st.sx) + ' · arrow weight = what the push adds' : 'Cross-mod off');
+  }
+  function frame() {
+    var r = H.Viz.kuramoto(cv, { phase: sw.phase, blades: sw.blades, cross: st.sx > .005 ? sw.cross(st.sx) : null, xy: st, drag: live.drag });
+    var t = words(); if (note.textContent !== t) note.textContent = t;
+    coh.textContent = 'Coherence ' + r.toFixed(2);                                   // the readable repeat of the canvas number (ORCHID's meter ink is a mark colour)
+    cv.setAttribute('aria-valuenow', Math.round(st.x * 100));
+    cv.setAttribute('aria-valuetext', 'Detune ' + pct(st.x) + ', Coupling ' + bip(st.y) + ', Cross-mod ' + pct(st.sx) + ', Coherence ' + r.toFixed(2));
+    var pills = document.querySelectorAll('#xm button'); for (var i = 0; i < pills.length; i++) pills[i].setAttribute('aria-checked', String(Math.abs(+pills[i].dataset.v - st.sx) < .005));
+  }
+  /* reduced motion: one still frame, a pure function of the point, so settle a fresh swarm for 3 s and draw once */
+  function still() { sw = H.Synth.ring(SEED, N); for (var k = 0; k < 90; k++) sw.step(1 / 30, K(), spread()); frame(); }
+
+  /* animated, the loop below redraws every frame; under reduced motion each change redraws once */
+  H.RingXY(cv, st, function (s, info) { live = info; if (reduce) still(); });
+  document.getElementById('xm').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; st.sx = +b.dataset.v; if (reduce) still(); });
+  H.ScreenScheme(document.getElementById('scr'), document.getElementById('host'), { onchange: function () { if (reduce) setTimeout(still, 0); } });
+  for (var k = 0; k < 90; k++) sw.step(1 / 30, K(), spread());
+  if (reduce) { still(); return; }
+  var last = null;
+  requestAnimationFrame(function loop(now) {
+    var dt = last === null ? 1 / 60 : Math.max(0, Math.min(.05, (now - last) / 1000)); last = now;     // dt from the frame's own timestamp: animation only
+    sw.step(dt, K(), spread()); frame(); requestAnimationFrame(loop);
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+<!-- @dsCard group="Access" height=258 subtitle="Opt-in keyboard mode: off by default; a visible lamp while on; Esc hands the keys back" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Keyboard-mode lamp</title></head>
+<body>
+<div class="hd-stage">
+  <div class="hd-window" id="win" style="width:440px">
+    <div class="hd-row" style="justify-content:space-between; margin-bottom:10px">
+      <span class="hd-cluster">Main</span>
+      <button class="hd-kbd" id="lamp" type="button" aria-pressed="false" aria-describedby="state"><span class="lampdot" aria-hidden="true"></span><span id="lampword">KEYS OFF</span></button>
+    </div>
+    <div class="hd-row" style="gap:14px">
+      <div id="lvl"></div>
+      <div class="hd-pills" role="radiogroup" aria-label="Voice · Voicing">
+        <button class="hd-pill hd-focus kb" role="radio" aria-checked="true">poly</button><button class="hd-pill hd-focus kb" role="radio" aria-checked="false">mono</button>
+      </div>
+      <button class="hd-readout hd-focus kb" aria-label="Env 1 · Attack, 4.0 ms">4.0 ms</button>
+    </div>
+    <p class="hd-hint" id="state" style="margin:10px 0 0">Off: the editor never holds the keyboard; your computer keyboard plays the host.</p>
+  </div>
+</div>
+<script>
+(function () {
+  var lamp = document.getElementById('lamp'), word = document.getElementById('lampword'), win = document.getElementById('win'), st = document.getElementById('state');
+  var H = window.Horde, S = new H.Session({ x: 0, y: 0 });
+  H.Knob(document.getElementById('lvl'), { key: 'out.level', name: 'Level', path: 'Out · Level', locked: true, g: .7, def: .7, fmt: function (x) { var d = -60 + x * 86; return (d >= 0 ? '+' : '−') + Math.abs(d).toFixed(1) + ' dB'; } }, S);
+  S.start();
+  var ctl = Array.prototype.slice.call(document.querySelectorAll('.kb'));
+  function set(on) {
+    lamp.setAttribute('aria-pressed', String(on)); word.textContent = on ? 'KEYS ON' : 'KEYS OFF';
+    win.classList.toggle('kbd-on', on);
+    S.keys = on; ctl.forEach(function (c) { c.tabIndex = on ? 0 : -1; });
+    st.textContent = on ? 'On: Tab moves between controls, arrows adjust (shift = fine), Enter opens a value. Esc hands the keys back to the host.'
+                        : 'Off: the editor never holds the keyboard; your computer keyboard plays the host.';
+    if (on) setTimeout(function () { document.querySelector('.mk-face').focus(); }, 30); else if (document.activeElement && win.contains(document.activeElement)) document.activeElement.blur();
+  }
+  lamp.addEventListener('click', function () { set(lamp.getAttribute('aria-pressed') !== 'true'); });
+  win.addEventListener('keydown', function (e) { if (e.key === 'Escape' && lamp.getAttribute('aria-pressed') === 'true') { e.preventDefault(); set(false); lamp.focus(); lamp.blur(); } });
+  set(false);
+})();
+</script>
+</body>
+</html>

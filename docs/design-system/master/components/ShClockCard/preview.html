@@ -1,0 +1,45 @@
+<!-- @dsCard group="Modulators" height=444 subtitle="What clocks an S&H: its own LFO cycle (ruled), or one shared clock, or a rotor voice; the held values and their sample instants" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>S&amp;H clock card</title></head>
+<body>
+<div class="hd-fit" style="padding:14px 16px 4px; gap:12px 24px" id="host">
+  <section id="card" style="flex:1 1 340px; max-width:520px" aria-label="S&H 1"></section>
+  <div class="hd-col" style="gap:6px; flex:1 1 200px; max-width:300px">
+    <span class="hd-cluster">S&amp;H clock</span>
+    <span class="hd-label" style="line-height:1.5">Two S&amp;H modulators, A and B, attached to one clock. CYCLE: each samples on its own LFO's cycle (B runs 1.37× faster). GLOBAL: one clock and one draw, so A and B hold the same value. KURO: each samples when its rotor voice wraps (A on the bound voice, B on the next); coupling locks when, never what.</span>
+    <span class="hd-label" style="line-height:1.5">Ticks under the lanes: A's sample instants, then B's.</span>
+    <div id="scr"></div>
+    <span class="hd-hint">SAMPLE data, generated in this preview; never the engine.</span>
+  </div>
+</div>
+<script>
+(function () {
+  var H = window.Horde, S = new H.Session({}), last = null, R = H.Synth.rng, retrig = false, next = 3, dirty = true;
+  var rA = R(0x1111), rB = R(0x2222), rG = R(0x3333), hA = 0, hB = 0, last1 = 0, phA = 0, phB = 0, phG = 0;
+  var sw = H.Synth.swarm(77, 4), prev = sw.phase.slice();
+  var card = H.ShClockCard(document.getElementById('card'), { name: 'S&H 1', hz: 2.2, beats: .5, sync: 0, bpm: 120, keys: function () { return S.keys; }, onRetrig: function (v) { retrig = v; }, onChange: function () { dirty = true; } });
+  function step(dt) {
+    var c = card.get(), fA = 0, fB = 0;
+    sw.step(dt * 2.4, 1.1);
+    if (c.clock === 'CYCLE') { phA += c.rate * dt; phB += c.rate * 1.37 * dt; if (phA >= 1) { phA -= 1; hA = 2 * rA() - 1; fA = 1; } if (phB >= 1) { phB -= 1; hB = 2 * rB() - 1; fB = 1; } }
+    else if (c.clock === 'GLOBAL') { phG += c.rate * dt; if (phG >= 1) { phG -= 1; hA = hB = 2 * rG() - 1; fA = fB = 1; } }
+    else { var a = c.bind, b = (c.bind + 1) % 4;   // a wrap: the voice's phase fell back past 0
+      if (sw.phase[a] < prev[a] - .5) { hA = 2 * rA() - 1; fA = 1; } if (sw.phase[b] < prev[b] - .5) { hB = 2 * rB() - 1; fB = 1; } }
+    prev = sw.phase.slice(); if (fA) last1 = hA; else if (fB) last1 = hB;
+    card.push([hA, hB, fA, fB]);
+  }
+  function info() { return { last: last1, attached: 2, rotor: { phase: sw.phase, out: .5 + .5 * Math.sin(2 * Math.PI * sw.phase[card.get().bind]) } }; }
+  for (var k = 0; k < 200; k++) step(1 / 60);
+  H.ScreenScheme(document.getElementById('scr'), document.getElementById('host'), { onchange: function () { dirty = true; } });
+  S.add({ render: function () {
+    var t = S.t, dt = last === null ? 0 : Math.max(0, Math.min(.05, t - last)); last = t;
+    if (S.reduce) { if (dirty || card.dirty()) { card.draw(info()); dirty = false; } return; }
+    if (t >= next) { next += 3; if (retrig) { phA = phB = phG = 1; } }   // a SAMPLE note-on every 3 s: restart the clock, take a new draw
+    step(dt); card.draw(info());
+  } });
+  S.start();
+})();
+</script>
+</body>
+</html>

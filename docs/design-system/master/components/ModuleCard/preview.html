@@ -1,0 +1,62 @@
+<!-- @dsCard group="Structure" height=480 subtitle="Corner strip, header, mini-view on the module's own screen, four-knob face; expanded and collapsed" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Module card</title></head>
+<body>
+<div class="hd-stage" id="stage"></div>
+<p class="hd-hint" style="margin:0; padding:0 16px 12px">The mini-view is the module's own screen (ADR-273): Filter's is the stand-in Segment LCD, the three <code>fxs-filter-*</code> tokens, until its skin is chosen. The wet trace is the screen's ink; the coming-flip ghost is its mid-tone.</p>
+<script>
+(function () {
+  var G = { A: 'M5 .5 9.5 5 5 9.5 .5 5Z', C: 'M5 .7a4.3 4.3 0 1 0 .001 0Z' };
+  var CHEV_UP = 'M5 2 9 7H1Z', CHEV_DN = 'M5 8 9 3H1Z';
+  // a low-pass response drawn by arithmetic for the picture only (not a rendered signal)
+  function curve(fc, q, w, h) {
+    var d = '';
+    for (var i = 0; i <= 64; i++) {
+      var f = 40 * Math.pow(400, i / 64), r = f / fc, mag = 1 / Math.sqrt(Math.pow(1 - r * r, 2) + Math.pow(r / (0.5 + q * 4), 2));
+      var db = Math.max(-24, Math.min(12, 20 * Math.log10(mag))), x = i / 64 * w, y = h * (0.35 - db / 48);
+      d += (i ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1);
+    }
+    return d;
+  }
+  function viz() {
+    var w = 300, h = 62;
+    return '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" aria-hidden="true">' +
+      '<g style="stroke:var(--scr-grid);opacity:.25;stroke-width:1">' + [75, 150, 225].map(function (x) { return '<line x1="' + x + '" y1="0" x2="' + x + '" y2="' + h + '"/>'; }).join('') + '<line x1="0" y1="' + h * .35 + '" x2="' + w + '" y2="' + h * .35 + '"/></g>' +
+      '<path d="' + curve(5200, .5, w, h) + '" style="fill:none;stroke:var(--card-ghost,var(--ghost));stroke-width:1.5"/>' +
+      '<path d="' + curve(2000, .2, w, h) + '" style="fill:none;stroke:var(--scr-value);stroke-width:8;opacity:.22;stroke-linecap:round"/>' +
+      '<path d="' + curve(2000, .2, w, h) + '" style="fill:none;stroke:var(--scr-value);stroke-width:2.5;stroke-linecap:round"/></svg>';
+  }
+  function knob(key) { return '<div class="mkslot" data-key="' + key + '"></div>'; }
+  /* an FX module's mini-view wears its module's screen: the screen roles are re-pointed at the module's fxs- tokens, the way the
+     Screen scheme selector re-points them at a scheme (here the Filter stand-in); the ghost takes the screen's mid-tone, because
+     `ghost` (c9c2ff) is 1.3:1 on the pale Segment LCD ground and would vanish */
+  var SCREEN = '--scr-ground:var(--fxs-filter-ground);--scr-value:var(--fxs-filter-ink);--scr-grid:var(--fxs-filter-mid);--card-ghost:var(--fxs-filter-mid)';
+  function card(open) {
+    return '<section class="hd-card" aria-label="Filter module" style="' + SCREEN + '">' +
+      '<div class="strip" role="img" aria-label="Owned 60% by corner A, 40% by corner C"><i style="--cc:var(--cA);flex:60"></i><i style="--cc:var(--cC);flex:40;border-left:var(--stroke-ink) solid var(--ink)"></i></div>' +
+      '<div class="head"><i class="dot' + (open ? '' : ' bypass') + '" role="img" aria-label="' + (open ? 'active' : 'bypassed') + '"></i><span class="hd-cluster">Filter</span><span class="tag">ROUTING</span>' +
+      '<span class="census"><b><svg class="hd-glyph" viewBox="0 0 10 10" style="width:8px;height:8px"><path d="' + G.A + '"/></svg>60</b><b><svg class="hd-glyph" viewBox="0 0 10 10" style="width:8px;height:8px"><path d="' + G.C + '"/></svg>40</b></span>' +
+      '<button class="hd-iconbtn hd-focus" aria-expanded="' + open + '" aria-label="' + (open ? 'Collapse' : 'Expand') + ' Filter"><svg viewBox="0 0 10 10"><path d="' + (open ? CHEV_UP : CHEV_DN) + '"/></svg></button></div>' +
+      '<div class="viz">' + viz() + '</div>' +
+      (open ? '<div class="face">' + knob('cutoff') + knob('mode') + knob('motion') + knob('res') + '</div>' +
+        '<div class="foot"><button class="hd-btn hd-focus">Advanced</button><span class="hd-hint">40 Hz – 16 k · ±24 dB</span></div>' : '<div style="height:7px"></div>') +
+      '</section>';
+  }
+  var stage = document.getElementById('stage');
+  stage.innerHTML = card(true) + card(false);
+  var H = window.Horde, S = new H.Session({ x: .2, y: .1, sources: [{ id: 'lfo1', name: 'LFO 1', kind: 'lfo', f: function (t) { return .5 + .5 * Math.sin(t * 2.83); } }],
+    mappings: [{ param: 'filter.cutoff', src: 'lfo1', pol: 'bi', depth: .12 }] });
+  var hz = function (x) { var f = 40 * Math.pow(400, x); return f >= 1000 ? (f / 1000).toFixed(2) + ' kHz' : Math.round(f) + ' Hz'; };
+  var P = {
+    cutoff: { key: 'filter.cutoff', name: 'Cutoff', path: 'Filter · Cutoff', fmt: hz, vals: [.67, .8, .5, .6], def: .67 },
+    mode: { key: 'filter.mode', name: 'Mode', path: 'Filter · Mode', fmt: function (x) { return ['LP', 'BP', 'HP', 'NOTCH'][Math.min(3, Math.floor(x * 4))]; }, vals: [0, .3, 0, .6], def: 0 },
+    motion: { key: 'filter.motion', name: 'Motion', path: 'Filter · Motion', fmt: function (x) { return '+' + Math.round(x * 36) + ' st'; }, vals: [.5, .5, .2, .7], def: .5 },
+    res: { key: 'filter.res', name: 'Resonance', path: 'Filter · Resonance', vals: [.2, .45, .2, .3], def: .2 }
+  };
+  stage.querySelectorAll('.mkslot').forEach(function (el) { H.Knob(el, P[el.dataset.key], S); });
+  S.start();
+})();
+</script>
+</body>
+</html>
