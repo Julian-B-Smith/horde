@@ -86,8 +86,9 @@
    "note": "Engine bench (B298): the swarm under SCALPEL's blades. No ruling found; not a design question."
   },
   "composition-lab.html": {
-   "status": "exploring",
-   "note": "B589: the composition design lab (ADR-334), awaiting the human's picks (the lead, 2026-10-30)."
+   "status": "ruled",
+   "adr": "ADR-338",
+   "note": "B589's composition lab: the human took all ten recommendations by poll (2026-10-30). Next: the master, then the bundle, then the shell."
   },
   "cooperator-lab.html": {
    "status": "retired",
@@ -505,9 +506,9 @@
    "via": null,
    "shell": null,
    "state": "ruled",
-   "superseded_by": null,
+   "superseded_by": "ADR-338",
    "port_tab": null,
-   "note": "Contradiction, unruled: the master gives Esc to MAP off (MapControl README) and to keyboard mode off (KeyboardLamp README), and gui3.html's Escape only closes the menu. No later ADR found that retires Esc = panic."
+   "note": "Contradiction, unruled: the master gives Esc to MAP off (MapControl README) and to keyboard mode off (KeyboardLamp README), and gui3.html's Escape only closes the menu. No later ADR found that retires Esc = panic. ADR-338 ruling 11 (2026-10-30) retires it for GUI 3: Escape is a layered cancel, panic gets its own control."
   },
   {
    "id": "adr032-keyboard-never-captured",
@@ -2728,7 +2729,7 @@
    "state": "in-master",
    "superseded_by": null,
    "port_tab": null,
-   "note": "gui3.html fixes #win at 980 x 720 (page area scrolls). Resizable is not implemented: the window 'keeps that size'. Master README Layout documents both. B596: the master documents it, the bundle has no window component, so the shell's fixed size is a local drawing; state in-master."
+   "note": "gui3.html fixes #win at 980 x 720 (page area scrolls). Resizable is not implemented: the window 'keeps that size'. Master README Layout documents both. B596: the master documents it, the bundle has no window component, so the shell's fixed size is a local drawing; state in-master. ADR-338 ruling 12: resizing is tried (fixed vs proportional scale) before it is ruled."
   },
   {
    "id": "adr261-hotkeys-keyboard-mode-only",
@@ -4274,7 +4275,7 @@
    "state": "ruled",
    "superseded_by": null,
    "port_tab": "modulators",
-   "note": "The shell's bank has no remove (a pending modulator is dropped only when the interface closes, dev.close); the master's RouteRow x removes one mapping, not a modulator. FX device: same."
+   "note": "The shell's bank has no remove (a pending modulator is dropped only when the interface closes, dev.close); the master's RouteRow x removes one mapping, not a modulator. FX device: same. The open half is ruled: ADR-338 ruling 9 (M-R2), row adr338-removal-m-r2."
   },
   {
    "id": "adr334-modulator-visuals",
@@ -4380,6 +4381,186 @@
    "superseded_by": null,
    "port_tab": "quick-map",
    "note": "The master MapControl README draws the MAP button as 'a 28 px capsule half'; the shell mounts the bundle's MapControl with no width override (no MAP-width rule in gui3.html). On the design-system proposal list per the ruling. Slice 7 (#1297, merged 2026-10-30), re-audited for B596: what was buried was the source drop-down and its name: the bundle's .hd-map is overflow: hidden, so as a flex item the source strip beside it shrank it to 87 of its 213 px. The shell's layout now keeps the bundle's MapControl whole (213 px with the longest source name), and the seam test mapbar holds it. The component itself is unchanged, so the master's 28 px capsule half stands; the fix was the shell's layout, not a local drawing."
+  },
+  {
+   "id": "adr338-tiny-knob",
+   "adr": "ADR-338",
+   "clause": "ruling 1 (tiny knob T2, size-knob-tiny: a 20 px face in a 28 px hit cell)",
+   "lab": "docs/design/composition-lab.html",
+   "component": "Knob",
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null,
+   "port_tab": null,
+   "note": "Not in the master yet; the master Knob README gains a fifth rung below utility 28. FX device: same tier."
+  },
+  {
+   "id": "adr338-companions",
+   "adr": "ADR-338",
+   "clause": "ruling 2 (companions: TC1 in sections and cards, TC2 only inside tables)",
+   "lab": "docs/design/composition-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null,
+   "port_tab": null,
+   "note": "Not in the master yet (Toggle, Select, Stepper READMEs). FX device: same."
+  },
+  {
+   "id": "adr338-tiny-sliders",
+   "adr": "ADR-338",
+   "clause": "ruling 3 (TS1 20 px rows and TS2 16 px cells, a named exception to size-hit 28 on the cross axis)",
+   "lab": "docs/design/composition-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null,
+   "port_tab": null,
+   "note": "Not in the master yet; the size-hit token gains the named exception. FX device: same."
+  },
+  {
+   "id": "adr338-clusters",
+   "adr": "ADR-338",
+   "clause": "ruling 4 (clusters: C1 general, C2 matrix for repeated sub-structures such as envelope stages and the blades)",
+   "lab": "docs/design/composition-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null,
+   "port_tab": null,
+   "note": "Not in the master yet (the README Density and hierarchy section). FX device: same."
+  },
+  {
+   "id": "adr338-paradigm-p1",
+   "adr": "ADR-338",
+   "clause": "ruling 5 (page paradigm P1, focus + lens; P2 fold only where a page still overflows)",
+   "lab": "docs/design/composition-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null,
+   "port_tab": "main-rest",
+   "note": "Not in the master yet; needs a Lens component. Osc 1, Osc 2, Sub and Noise overflow today (gui3/README). FX device: governs its dense pages."
+  },
+  {
+   "id": "adr338-mod-tiers",
+   "adr": "ADR-338",
+   "clause": "ruling 6 (four modulator tiers: full, compact, thin row, micro chip)",
+   "lab": "docs/design/composition-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null,
+   "port_tab": "modulators",
+   "note": "The compact card is in the master (ADR-323 item 1); the thin row, the full tier and the micro chip are not. FX device: same."
+  },
+  {
+   "id": "adr338-bank-m2",
+   "adr": "ADR-338",
+   "clause": "ruling 7 (the bank as M2: two lanes of 26 px thin rows; amends ADR-323 item 1 so the compact card is the row expanded)",
+   "lab": "docs/design/composition-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null,
+   "port_tab": "modulators",
+   "note": "Not in the master yet. FX device: same."
+  },
+  {
+   "id": "adr338-mod-page-m5",
+   "adr": "ADR-338",
+   "clause": "ruling 8 (the Mod page as M5, list + detail; the matrix grid stays its route view)",
+   "lab": "docs/design/composition-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null,
+   "port_tab": "modulators",
+   "note": "Not in the master yet. FX device: same."
+  },
+  {
+   "id": "adr338-removal-m-r2",
+   "adr": "ADR-338",
+   "clause": "ruling 9 (removal M-R2: any modulator removable, its routes with it as one undo step, with an Undo line)",
+   "lab": "docs/design/composition-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null,
+   "port_tab": "modulators",
+   "note": "Not in the master or the shell; the shell bank has no remove today. FX device: same."
+  },
+  {
+   "id": "adr338-abbr-column",
+   "adr": "ADR-338",
+   "clause": "ruling 10 (abbreviations in a layout.json abbr column, checked by the generator: at most 4 characters, unique per section)",
+   "lab": "docs/design/composition-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null,
+   "port_tab": null,
+   "note": "Shell data, not a master component: lands with tools/gen_gui3_controls.py. FX device: same."
+  },
+  {
+   "id": "adr338-escape-layered",
+   "adr": "ADR-338",
+   "clause": "ruling 11 (Escape cancels the innermost open thing: menu, map pick, MAP, keyboard mode; panic gets its own control)",
+   "lab": "docs/design/composition-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null,
+   "port_tab": null,
+   "note": "Master MapControl and KeyboardLamp READMEs to align; the shell Escape closes only the menu today. FX device: same."
+  },
+  {
+   "id": "adr338-window-resize-trial",
+   "adr": "ADR-338",
+   "clause": "ruling 12 (a shell switch between fixed 980 x 720 and proportional scale, for the human to try before ruling)",
+   "lab": "docs/design/composition-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null,
+   "port_tab": null,
+   "note": "B584 batch 1 builds the switch; ADR-259 ruling 2 stands until the human rules. FX device: same."
   }
  ],
  "not_design": [

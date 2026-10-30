@@ -10527,3 +10527,27 @@ The lead's findings:
 
 **Consequences.** The charter, the master README (republished to the Design System artifact under the chain, ADR-336), the design-system README and gui2's comments change in this PR. **FX device (ADR-254):** the same positioning holds for it; its centre is the same morph logic over its modules' parameters.
 
+
+## ADR-338 — RULED by the human: the composition lab's ten picks (tiny tier T2, companions TC1/TC2, tiny sliders as a named size-hit exception, clusters C1 + C2, page paradigm P1 with P2's fold, four modulator tiers, bank M2, Mod page M5, removal M-R2, abbreviations in layout.json); Escape is a layered cancel; the window's resize is tried before it is ruled (B589, B594, ADR-334, ADR-032, ADR-259; 2026-10-30)
+
+**Context.** The GUI session's first beat (ADR-336) put the composition lab's ten open questions (`docs/design/composition-lab.html`, ADR-334) and two contradictions the design ledger audit found (`docs/audits/2026-10-30-design-ledger.html`) to the human as polls. The contradictions: ADR-032 gives Escape to panic while the master gives it to MAP off and keyboard mode off; ADR-259 ruling 2 says the 980 × 720 window is resizable while the shell holds it fixed and cites the same ruling. The human chose the lab's recommendation on all ten, and on the window: "I want to test out options, but I suspect I'll pick proportional scale or fixed".
+
+**Rulings.**
+1. **Tiny knob: T2**, entering the master as `size-knob-tiny`: a 20 px face in a 28 px hit cell (arc, needle, owner ring, pip and tether, shrunk). Size-hit 28 holds. T1, T3 and T4 are not taken.
+2. **Companions: TC1** (the house look in 16 px boxes: inked switch, segments, select, stepper) in sections and cards; **TC2** (drag number, caret select) only inside tables.
+3. **Tiny sliders: TS1** (20 px rows, for route depths and amounts) and **TS2** (16 px value cells, for tables) are allowed below size-hit 28 on their cross axis, their drag axis being the full width. Recorded in the master as a named exception to size-hit.
+4. **Clusters: C1** (one row of 28 px cells in groups split by a hairline, one shared label line, switches in the header; long sections wrap by group, never mid-group) is the general rule; **C2** (a matrix, column labels once and row labels once, empty cells honest) for any block with a repeated sub-structure: envelope stages × (time, curve), the two blades. C3 and C4 are not taken.
+5. **Page paradigm: P1, focus + lens.** Every control of a page in view as T2 knobs and TC1 companions in a tiny grid, advanced rows inline after an ADV mark; the control under the pointer, or the last one clicked, enlarged in a lens with the full bundle knob, every corner's value and weight, and every mapping. **P2's fold** (Face / All / +Adv per section, remembered) only where a page still overflows.
+6. **Modulator tiers: four.** Full (the Mod page's detail), compact (ADR-323 item 1's card: the Mod page's grid and the bank's hover or expanded state), thin row (the bank), micro chip (later, in section headers: who modulates this section).
+7. **The bank: M2**, two lanes of 26 px thin rows (picture, value, Map, ×) in the 68 px the empty bank already takes, so pages keep 472 px. **Amends ADR-323 item 1's form:** the compact card becomes the thin row's expanded state, not the bank's resting form.
+8. **The Mod page: M5, list + detail.** Every modulator a thin row, grouped by kind with a + per kind; the selected one fills the rest of the page at the full tier. ADR-266's matrix grid stays the page's route view.
+9. **Removal: M-R2** (closes ADR-334's open question). Any modulator is removable; its routes go with it as one undo step, and a line names them with Undo. The engine's fixed sources leave the list but stay in the engine.
+10. **Abbreviations** live in a GUI-side `abbr` column of `docs/design/gui3/layout.json`, checked by the generator (at most 4 characters, unique per section). Not a SPEC-ENGINE column.
+11. **Escape is a layered cancel:** it cancels the innermost open thing in order (menu → map pick → MAP → keyboard mode). Panic moves to its own control with its own shortcut. **Supersedes ADR-032's Escape binding** for GUI 3; the legacy labs keep theirs.
+12. **The window's resize is tried before it is ruled.** The shell gains a switch between fixed 980 × 720 and a proportional scale of the whole 980 × 720 composition (no reflow); the human rules after trying both. ADR-259 ruling 2 stands until then, and the shell's comment stops citing it for "fixed".
+
+**Consequences.**
+- Rulings 1 to 10 go into the design master first (`docs/design-system/master/`), then the bundle is re-vendored, then the shell swaps its placeholders (ADR-316, ADR-336). The composition lab's status becomes ruled (this ADR).
+- Ruling 11 changes the master's MapControl and KeyboardLamp READMEs, and adds a panic control to the master's proposal list.
+- B584 batch 1 (the GUI session's first build) mounts what is already vendored and fixes the shell defects the audit found, including ruling 12's switch.
+- **FX device (ADR-254):** the tiny tier, the cluster rules, P1, the modulator tiers, M2, M5, M-R2 and the layered Escape hold on its pages; how a hosted module's own screen shows them stays B591's question.
