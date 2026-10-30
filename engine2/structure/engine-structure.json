@@ -2,18 +2,18 @@
   "counts": {
     "edges": {
       "audio": 46,
-      "control": 44,
-      "event": 7,
+      "control": 47,
+      "event": 8,
       "modulation": 5,
-      "observation": 9
+      "observation": 11
     },
     "items": {
-      "block": 65,
+      "block": 67,
       "slot": 12
     },
     "scope": {
-      "engine": 66,
-      "external": 11
+      "engine": 67,
+      "external": 12
     },
     "stages": 47
   },
@@ -418,6 +418,16 @@
     },
     {
       "cites": [
+        "IF-12"
+      ],
+      "from": "modulation",
+      "id": "modulation->morph_resolver",
+      "kind": "control",
+      "label": "corners, position, settings, modes",
+      "to": "morph_resolver"
+    },
+    {
+      "cites": [
         "IF-3",
         "IF-4",
         "RC-11.1"
@@ -472,6 +482,26 @@
       "kind": "audio",
       "label": "joins the voices after their filter slots",
       "to": "voice_sum"
+    },
+    {
+      "cites": [
+        "MO-20"
+      ],
+      "from": "morph_resolver",
+      "id": "morph_resolver->parameters",
+      "kind": "control",
+      "label": "`Param` events",
+      "to": "parameters"
+    },
+    {
+      "cites": [
+        "IF-12"
+      ],
+      "from": "morph_resolver",
+      "id": "morph_resolver->voice.structure_slots",
+      "kind": "control",
+      "label": "`SettingSet` events",
+      "to": "voice.structure_slots"
     },
     {
       "cites": [
@@ -883,6 +913,17 @@
     },
     {
       "cites": [
+        "MO-10",
+        "RC-7"
+      ],
+      "from": "transport",
+      "id": "transport->morph_resolver",
+      "kind": "event",
+      "label": "tempo, position and jumps, for the synced steps",
+      "to": "morph_resolver"
+    },
+    {
+      "cites": [
         "VO-2"
       ],
       "from": "voice",
@@ -1173,6 +1214,26 @@
     },
     {
       "cites": [
+        "IF-9"
+      ],
+      "from": "voice.structure_slots",
+      "id": "voice.structure_slots->counters",
+      "kind": "observation",
+      "label": "structure setting-samples",
+      "to": "counters"
+    },
+    {
+      "cites": [
+        "IF-10"
+      ],
+      "from": "voice.structure_slots",
+      "id": "voice.structure_slots->observation_view",
+      "kind": "observation",
+      "label": "heard setting sets",
+      "to": "observation_view"
+    },
+    {
+      "cites": [
         "§4.2"
       ],
       "from": "voice.sub_gate",
@@ -1388,7 +1449,7 @@
       "id": "member.base_wave",
       "kind": "block",
       "label": "base wave",
-      "multiplicity": null,
+      "multiplicity": "× up to four kernel settings on one member state (SB-3)",
       "parent": "member",
       "scope": "engine"
     },
@@ -1400,7 +1461,7 @@
       "id": "member.blade1",
       "kind": "block",
       "label": "blade 1",
-      "multiplicity": null,
+      "multiplicity": "× up to four kernel settings on one member state (SB-3)",
       "parent": "member",
       "scope": "engine"
     },
@@ -1412,7 +1473,7 @@
       "id": "member.blade2",
       "kind": "block",
       "label": "blade 2",
-      "multiplicity": null,
+      "multiplicity": "× up to four kernel settings on one member state (SB-3)",
       "parent": "member",
       "scope": "engine"
     },
@@ -1510,7 +1571,7 @@
       ],
       "id": "modulation",
       "kind": "slot",
-      "label": "the modulation and morph systems: LFOs, matrix and routes, macros, intents, morph",
+      "label": "the modulation system and the morph's editor and storage: LFOs, matrix and routes, macros, intents, morph",
       "multiplicity": null,
       "parent": "instrument",
       "scope": "external"
@@ -1553,6 +1614,37 @@
     },
     {
       "cites": [
+        "IF-12",
+        "MO-1",
+        "MO-2",
+        "MO-3",
+        "MO-4",
+        "MO-5",
+        "MO-6",
+        "MO-7",
+        "MO-8",
+        "MO-9",
+        "MO-10",
+        "MO-11",
+        "MO-12",
+        "MO-13",
+        "MO-14",
+        "MO-15",
+        "MO-16",
+        "MO-17",
+        "MO-18",
+        "MO-19",
+        "MO-20"
+      ],
+      "id": "morph_resolver",
+      "kind": "block",
+      "label": "the morph resolver: weights, glide, the draw, the laws, modes and counts, setting sets",
+      "multiplicity": null,
+      "parent": "instrument",
+      "scope": "external"
+    },
+    {
+      "cites": [
         "RC-6",
         "SN-4",
         "SN-13",
@@ -1561,7 +1653,7 @@
       "id": "noise",
       "kind": "block",
       "label": "the noise oscillator",
-      "multiplicity": null,
+      "multiplicity": "× up to four `noise/chain` settings",
       "parent": "voice",
       "scope": "engine"
     },
@@ -1666,7 +1758,7 @@
       "id": "osc",
       "kind": "block",
       "label": "an oscillator: a swarm of U members",
-      "multiplicity": "2: osc 1 and osc 2",
+      "multiplicity": "2: osc 1 and osc 2; × up to four swarm settings while `oscN/swarm` blends (SB-4)",
       "parent": "voice",
       "scope": "engine"
     },
@@ -1876,7 +1968,7 @@
       "id": "sub",
       "kind": "block",
       "label": "the sub",
-      "multiplicity": null,
+      "multiplicity": "× up to four `sub/chain` settings",
       "parent": "voice",
       "scope": "engine"
     },
@@ -2109,6 +2201,23 @@
       "kind": "block",
       "label": "sounding pitch and master phase, published",
       "multiplicity": null,
+      "parent": "voice",
+      "scope": "engine"
+    },
+    {
+      "cites": [
+        "SB-2",
+        "SB-5",
+        "SB-6",
+        "SB-7",
+        "SB-11",
+        "SB-12",
+        "SB-13"
+      ],
+      "id": "voice.structure_slots",
+      "kind": "block",
+      "label": "a voice's structural slots: settings, heard weights, the slot rule",
+      "multiplicity": "per structural group, up to its count (2 or 4)",
       "parent": "voice",
       "scope": "engine"
     },
@@ -2435,7 +2544,7 @@
     }
   ],
   "spec": {
-    "blob": "e86d45e78d6084d2ec177e7903d9b86c2377a28c",
+    "blob": "dfec522a586cd7be835776f75fc7c5566c1abcc5",
     "path": "specs/SPEC-ENGINE.md"
   }
 }
