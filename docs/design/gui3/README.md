@@ -170,7 +170,7 @@ The design master was revised (artifact `1793336699-65f2`, B589; its per-element
   path, a path that does not exist, no B-number or one the ROADMAP lacks, or a `partial` with nothing missing.
 - **The Settings page's failure** (found in slice 5, fixed in slice 6, above): the Set tab opened nothing.
 - **The mixer:** more room per strip (a documented override of `size-strip-w`, 72 to 92 px and, in slice 6, 104 px, inside the console only;
-  the token change is proposal 21), and a summed oscilloscope and a summed spectrum above the console, drawn with the
+  the token change is proposal 21), and a summed oscilloscope and a summed spectrum beside the console (slice 6: in the room to its right, so Mix fits the window with the bank shown), drawn with the
   bundle's `Viz.scope` and `Viz.spectrum` from the engine's observation view (`dev.summed()`, IF-10; MOCK in the stub:
   the sounding sources' test tones at their meters' gains times `out.level`).
 - **Envelopes on the oscillator views:** each source's page (Osc 1, Osc 2, Sub, Noise) and its dashboard card shows the
@@ -202,7 +202,12 @@ The design master was revised (artifact `1793336699-65f2`, B589; its per-element
 - **Envelope readouts:** an oscillator's Envelope section reads the envelope its source follows (its `env` row's pick) and that
   block's attack and decay, not the first block's (`followedSummary`).
 - **The mixer:** strips 104 px (from 92), the console's own padding, each strip's side padding and a gap between its rows, and
-  extra room left of the on toggle, all `--space-*` tokens through the console's scoped override.
+  extra room left of the on toggle, all `--space-*` tokens through the console's scoped override. The summed scope and spectrum
+  (84 px each) and the note sit in the room to the console's right, so Mix fits the window with the bank shown; beside a docked
+  pad or the inspector they wrap under the console and the page area scrolls.
+- **A bank card draws every control it names:** four utility knobs in one nowrap row of a 220 px card shrank each dial to 0 wide
+  (a label and no knob; a layout fault of the shell since the bank's first slice, not of the bundle); the card's row now wraps,
+  and a self-check measures it, with a squeezed card as its control.
 - **The Ledger stays its own top-level tab** "until it isn't needed at all anymore" (the human, 2026-10-30); its `quick-map` row is
   now `partial` and lists what the spec has that the shell lacks, its `settings` row says the click works.
 - **Review links:** `#osc1,light,win,map` opens with MAP on, ENV 2 as the source and two knobs mapped.
@@ -260,7 +265,7 @@ on/off and audible corner (RC-11.1), the routes (RC-4 defers the matrix), and th
   rows exist; every port-ledger row passes its rules (the shell-logic script is held to no clock like the rest). Twenty-seven must-fail controls, among them a module's keys
   left unplaced, a vendored file with no provenance row, a page in no nav group, a dashboard key its source page
   lacks, and a ledger row with no reason, an unknown reason, no source, a missing source, or no B-number.
-- `node tools/labharness/gui3_seam_check.mjs`: twenty-nine tests of the stubs, the transport and the adapter
+- `node tools/labharness/gui3_seam_check.mjs`: tests of the stubs, the transport and the adapter
   against the spec, ADR-319, ADR-322 and ADR-330 (morph off, the morph toggle in history, corner snapshots,
   mirror and confirm over a synchronous and a delayed transport, pending modulators dropped on close, map
   drops refused on stepped and reserved rows, each source's values reaching its own side and never the
@@ -268,10 +273,10 @@ on/off and audible corner (RC-11.1), the routes (RC-4 defers the matrix), and th
   from the observation view, an oscillator view's envelope as the shared keys), and, since slice 6, of MAP mode on the
   design system's REAL session, knob, Map control and Page nav (run on a small fake DOM, the bundle read and never
   edited): a click, a drag, the keys and their mouse routes, a page change, a refused destination, the Set tab and the
-  envelope readout. Thirty-four planted faults. `--verbose` prints why each plant went red.
+  envelope readout. Planted faults, each red for its own test (the check prints its counts). `--verbose` prints why each plant went red.
 - `lab_load_check` loads the page's inline script (it stops at the missing bundle, as the other bundle
-  labs do). The page's own twenty self-checks run in a browser, each with a control (the MAP, Set tab and envelope-readout
-  checks click the real controls).
+  labs do). The page's own self-checks run in a browser, each with a control (the MAP, Set tab, envelope-readout and bank-card
+  checks click or measure the real controls).
 
 ## Proposals for the design system (nothing here is drawn locally)
 

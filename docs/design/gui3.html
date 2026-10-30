@@ -80,7 +80,8 @@
   .hd-sgrp.adv > summary { cursor: pointer; list-style-position: inside; }
   .dash { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: var(--space-stack); }
   .dash .vz-cap { display: none; }
-  .console { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+  .mixrow { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--space-stack); }
+  .console { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; flex: 0 1 auto; max-width: 100%; }
   /* ADR-333: more room per strip. A documented override of the design system's size-strip-w (72) inside the console only;
      the token itself is a proposal (README 21), not an edit of the vendored bundle. Slice 6 (the human's second pass, "a little
      extra padding around the elements, and the osc toggles a little more space on the left"): 92 became 104 px, with the
@@ -91,7 +92,7 @@
   .console .hd-cs .cs-strip.master { padding-left: var(--space-gap); }
   .console .hd-cs .cs-head { padding-left: var(--space-gap); box-sizing: border-box; }
   .console .hd-cs .cs-strip.master .cs-head { padding-left: 0; }
-  .sums { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: var(--space-stack); }
+  .sums { display: flex; flex-direction: column; gap: 8px; flex: 1 1 260px; min-width: 0; }
   .sum-col { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
   .ledger-sum { display: flex; flex-direction: column; gap: 4px; margin-bottom: var(--space-stack); }
   .ledger-sum .hd-krow { gap: 2px 16px; flex-wrap: wrap; }
@@ -110,7 +111,9 @@
   .bank-strip { display: flex; flex-wrap: nowrap; gap: 8px; overflow-x: auto; overscroll-behavior: contain; align-items: flex-start; }
   .bank-strip > .hd-card { flex: 0 0 auto; width: 220px; }
   .bank-strip > .hd-card[hidden] { display: none; }
-  .bank-strip .hd-card .face { flex-wrap: nowrap; }
+  /* a card's utility knobs are rows (name, then the dial) of about 85 px each: four do not fit one 220 px row, and nowrap shrank
+     every dial to 0 wide (the label stayed, the knob vanished). Wrapping gives two rows of two. */
+  .bank-strip .hd-card .face { flex-wrap: wrap; }
   .page { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
   .page[hidden], .dock[hidden] { display: none; }
   .phead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
@@ -618,13 +621,15 @@ function consolePage(pg, el) {
     const mb = root.querySelector('.cs-btn.mute'); if (mb && K.mute) { mb.dataset.key = K.mute; mb.classList.add('ctl'); }
     const sb = root.querySelector('.cs-btn.solo'); if (sb && K.solo) { sb.dataset.key = K.solo; sb.classList.add('ctl'); }
   });
-  // ADR-333: the summed oscilloscope and spectrum, above the console, drawn with the bundle's painters from the engine's
+  // ADR-333: the summed oscilloscope and spectrum, beside the console (slice 6: the strips use about half the width, so the
+  // views and the note sit in the room to their right and the page fits the window), drawn with the bundle's painters from the engine's
   // observation view (IF-10; dev.summed(), MOCK in the stub), never computed here.
-  const scopeCv = h('canvas', { class: 'vz-cv', style: 'height:64px', role: 'img', 'aria-label': 'Summed oscilloscope (MOCK)' });
-  const specCv = h('canvas', { class: 'vz-cv', style: 'height:64px', role: 'img', 'aria-label': 'Summed spectrum (MOCK)' }), specSt = {};
-  el.append(h('div', { class: 'hd-cell hd-dense sums' },
+  const scopeCv = h('canvas', { class: 'vz-cv', style: 'height:84px', role: 'img', 'aria-label': 'Summed oscilloscope (MOCK)' });
+  const specCv = h('canvas', { class: 'vz-cv', style: 'height:84px', role: 'img', 'aria-label': 'Summed spectrum (MOCK)' }), specSt = {};
+  const sums = h('div', { class: 'hd-cell hd-dense sums' },
     h('div', { class: 'sum-col' }, h('span', { class: 'hd-sublabel', text: 'Summed scope · MOCK' }), h('div', { class: 'hd-viz vz-well' }, scopeCv)),
-    h('div', { class: 'sum-col' }, h('span', { class: 'hd-sublabel', text: 'Summed spectrum · MOCK' }), h('div', { class: 'hd-viz vz-well' }, specCv))));
+    h('div', { class: 'sum-col' }, h('span', { class: 'hd-sublabel', text: 'Summed spectrum · MOCK' }), h('div', { class: 'hd-viz vz-well' }, specCv)),
+    h('p', { class: 'hd-note', text: 'MOCK meters: a full-scale test tone per strip through IF-6’s gate (off, mute, solo). A fader over 0 dB latches CLIP; click the lamp to clear.' }));
   let sumFrame = 0;
   views.push({ page: pg.id, update() {
     const sm = dev.summed(); if (!sm) return;
@@ -632,8 +637,7 @@ function consolePage(pg, el) {
     H.Viz.scope(scopeCv, { l: sm.scope, r: sm.scope, R: 0 });
     H.Viz.spectrum(specCv, sm.bands, specSt, sumFrame / 60);
   } });
-  el.append(h('div', { class: 'hd-cell hd-dense console' }, host,
-    h('p', { class: 'hd-note', text: 'MOCK meters: a full-scale test tone per strip through IF-6’s gate (off, mute, solo). A fader over 0 dB latches CLIP; click the lamp to clear.' })));
+  el.append(h('div', { class: 'mixrow' }, h('div', { class: 'hd-cell hd-dense console' }, host), sums));
   let last = '';
   views.push({ page: pg.id, update() {
     const k = dev.rev();
@@ -1036,7 +1040,7 @@ views.push({ page: '*', update() {
   // 15. ADR-333: the summed views read the observation view (MOCK). Control: the scope is flat with every source silent.
   const sm0 = dev.summed(), pk = a => a.reduce((m, x) => Math.max(m, Math.abs(x)), 0);
   line(sm0 && pk(sm0.scope) > 0 && sm0.bands.some(b => b > 0) && pageEls.mix.querySelectorAll('.sums canvas').length === 2,
-    'Summed views: the Mix page draws the observation view’s summed scope (peak ' + pk(sm0.scope).toFixed(2) + ') and spectrum, MOCK; two canvases above the console.');
+    'Summed views: the Mix page draws the observation view’s summed scope (peak ' + pk(sm0.scope).toFixed(2) + ') and spectrum, MOCK; two canvases beside the console.');
   // 16. The ledger (B593) renders every row, grouped by area.
   const lrows = pageEls.ledger.querySelectorAll('[data-ledger]').length;
   line(lrows === DATA.ledger.rows.length && lrows > 0, 'Port ledger: ' + lrows + ' rows rendered in ' + new Set(DATA.ledger.rows.map(r => r.area)).size + ' areas (control: the data has ' + DATA.ledger.rows.length + ').');
@@ -1076,6 +1080,15 @@ views.push({ page: '*', update() {
     dev.begin('self-check'); at('ENV 3', .7); dev.end(); tick(); const moved = sec.querySelector('.rs-sum').textContent !== s1;
     dev.undo(); dev.undo(); dev.undo(); tick();
     line(s1.startsWith('ENV 3') && s1.includes(ENG.display(ROW[fg.follow.options['ENV 3'].viz.a], .3)) && same && moved, 'Envelope summary: Osc 1 on ENV 3 reads “' + s1 + '”, ENV 3’s attack; ENV 1’s attack moving left it as it was, ENV 3’s moved it (control: the first block’s attack differs).'); }
+  // 20. A bank card draws every control it names: a label with no dial is a control squeezed to nothing (slice 6 found four
+  // utility knobs in one nowrap row of a 220 px card, each dial shrunk to 0 wide). Measured on the real layout. Control: the
+  // same card squeezed to 40 px with nowrap reads as not drawn.
+  { const pg0 = page, drawn = c => { const cs = [...c.querySelectorAll('.ctl')]; return cs.length > 0 && cs.every(x => { const f = x.querySelector('.mk-face, select, .hd-stepper, button') || x, b = f.getBoundingClientRect(); return b.width > 4 && b.height > 4; }); };
+    page = 'sub'; dev.activate('env2'); paintBank();
+    const card = document.querySelector('#bankStrip > .hd-card[data-src="env2"]'), whole = !card.hidden && drawn(card);
+    const w0 = card.style.width, fl = card.querySelector('.face'); card.style.width = '40px'; fl.style.flexWrap = 'nowrap'; const squeezed = !drawn(card);
+    card.style.width = w0; fl.style.flexWrap = ''; dev.close(); page = pg0; paintBank();
+    line(whole && squeezed, 'Bank card: ENV 2’s card draws its ' + card.querySelectorAll('.ctl').length + ' controls with a dial each, not a label alone (control: squeezed to 40 px with nowrap it does not).'); }
   // 13. The page bar (B589): an old link's page id opens its page under its group, and the group remembers it.
   selectPage('noise'); const nv = nav.get(); selectPage('main'); const nm2 = nav.get();
   line(nv.group === 'osc' && nv.page === 'noise' && nm2.group === 'main', 'Page nav: #noise opens Noise under Osc (' + nv.group + ' / ' + nv.page + '); Main is its own group (control: ' + nm2.group + ').');

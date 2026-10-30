@@ -7884,7 +7884,7 @@ window.GUI3_DATA = {
    ],
    "id": "mix",
    "label": "Mix",
-   "note": "A console (B589, ADR-329 item 3) with more room per strip (ADR-333), under a summed oscilloscope and a summed spectrum: one strip per source and the master, each fader its level key, attached to its own on, mute and solo keys; the meters, the peaks and the summed views are the stub's MOCK observation view (IF-6, IF-10); the CLIP lamp latches and clears on a click.",
+   "note": "A console (B589, ADR-329 item 3) with more room per strip (ADR-333), beside a summed oscilloscope and a summed spectrum: one strip per source and the master, each fader its level key, attached to its own on, mute and solo keys; the meters, the peaks and the summed views are the stub's MOCK observation view (IF-6, IF-10); the CLIP lamp latches and clears on a click.",
    "panel": "console",
    "power": null,
    "status": "designed",
