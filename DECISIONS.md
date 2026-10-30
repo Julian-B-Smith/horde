@@ -10254,3 +10254,24 @@ Both frames were captured from a local preview.
 - B557's menu gains the two-or-four choice. The bank stage continues on the current spec until the round lands.
 - **FX device (ADR-254):** the same on its morph and per-parameter menus. FX-module structure follows H10.
 
+## ADR-325 — RULED by the human: the morph appendix's open points, X28 to X35; horde 2's quantum draw is keyed per parameter, permanently (B585, B308 H3, ADR-186 §5(g); 2026-10-29)
+
+**Context.** B585's appendix draft (`docs/proposals/morph-appendix-spec-text.md`, horde #1275) left eight open points. An independent critic reviewed the draft: "Not ready; ready after the listed fixes". It found two blockers (the glide on setting-set weights, and the setting-set event) and twelve major findings, all bounded text changes. It confirmed the before-texts, the numbering and the two-setting maths. The critic asked one question of the human, which is X32 as worded below.
+
+**Rulings (the human, 2026-10-29, by poll).**
+- **X28:** the clean room builds the resolver, as a pure unit beside the engine. Corners and settings stay morph state.
+- **X29:** `morph.count` defaults to four.
+- **X30** ("All parameters; smallest wins"): the Two/Four choice is on every parameter's morph mode menu, and a structural group takes the smallest count among its blending keys. This was against the draft's recommendation of structural keys only.
+- **X31:** morph glide acts on the resolver's output, before PA-1. Single-value structural flips keep PA-5.
+- **X32** ("Yes: keyed per parameter, permanently"): H6's "by its existing draw, so no existing patch moves" meant only "no new per-group draw". horde 2's quantum draw is keyed per parameter, permanently. This is ADR-186 §5(g)'s own ADR (B308 H3), required before the first horde 2 patch is saved. Legacy presets' quantum patchwork changes once, at the port. The legacy plugin keeps its own draw.
+- **X33:** the latch is a 0.1 band, a score margin of ln(0.55/0.45)/T.
+- **X34** ("Allow it; amend RC-7.3"): stepped morph may sync to the host tempo. While the transport is stopped it steps at the division's length on the sample clock. RC-7.3 gains the morph as its first transport consumer.
+- **X35** ("Weights are values, smoothed"): setting-set weights are values glided by PA-1, not fades. A flip inside a blend keeps ADR-239's raised cosine.
+
+**Rejected:** horde building the resolver; a default of two; structural keys only; glide on the puck only; the legacy positional draw; no latch; free-running steps only in 1.0; raised-cosine weights.
+
+**Consequences.**
+- The draft is revised for the critic's findings and these rulings, then re-reviewed briefly before the human's ratification.
+- The rack contract's RS-6.2 and RS-6.3 (two instances only during a flip or tail) need their own amendment round with the module owners, filed by the lead.
+- **FX device (ADR-254):** the same, on its morph. Its FX slots follow ADR-324's H10 once the rack contract is amended.
+
