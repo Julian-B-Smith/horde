@@ -123,7 +123,7 @@ already gives. Today's one override: the sub's Wave as buttons (seven shapes, th
 
 ## The density revision (B589, ADR-329): the page bar, dense pages, the dashboard, the console
 
-The design master was revised (artifact `1793334278-f870`, B589) and re-vendored into `../arp-face/`. The shell uses it so:
+The design master was revised (artifact `1793336699-65f2`, B589; its per-element modifier is `.hd-sm`) and re-vendored into `../arp-face/`. The shell uses it so:
 
 - **The page bar** is `PageNav`: groups Main, Osc, FX, Mod, Morph, Mix, Set over the selected group's pages. **Hist is
   omitted:** the shell has no History page yet. Osc holds Dashboard, Osc 1, Osc 2, Sub, Noise and Filters (the lead's
@@ -222,7 +222,7 @@ on/off and audible corner (RC-11.1), the routes (RC-4 defers the matrix), and th
 
 ## Proposals for the design system (nothing here is drawn locally)
 
-The bundle (version `1793334278-f870`, B589) lacks these; each goes into the design system first. Proposals 12 and 14
+The bundle (version `1793336699-65f2`, B589) lacks these; each goes into the design system first. Proposals 12 and 14
 (a modulator card, a horizontal strip) are still open after the revision; 18 to 20 are new:
 
 1. **Page navigation**: twelve tabs in two rows of six. The shell uses `hd-pill` with `role=tab`.
@@ -261,9 +261,8 @@ The bundle (version `1793334278-f870`, B589) lacks these; each goes into the des
 18. **A compact modulator card** for the bank (B589's size ladder applies to its controls; the card itself is
     still the shell's `hd-card` with `ModCardHeader`). With the bank shown, the window gives the page area 472 px.
 19. **A dashboard card's picture** at the card's width with no caption: the shell reuses its page painters.
-20. **The class `sm`** now means a dense face in the bundle, and two labs (Random, filter) already used it as their own
-    size modifier: their pill rows moved from a 26 px to a 28 px pitch (`../arp-face/README.md`). A prefixed name
-    (`hd-sm`) would have kept them as they were.
+20. **The class `sm`**: **fixed upstream** (`1793336699-65f2`). The revision's per-element dense modifier is now `.hd-sm`, so
+    the Random and filter labs, which use a bare `sm` of their own, render as before (`../arp-face/README.md`).
 
 ## Known gaps
 

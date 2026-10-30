@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1793334278-f870, 2026-10-30; do not edit, re-vendor */
+/* vendored from the horde Design System artifact, version 1793336699-65f2, 2026-10-30; do not edit, re-vendor */
 /* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"SteppedControl"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"}]} */
 /* horde house reference behaviours (vanilla JS, no React, no network).
    The morph knob and slider follow the human's HORDE Morph Knob Spec and HORDE Map Mode Spec
@@ -5407,10 +5407,10 @@
       if (j < 0) return; e.preventDefault(); pick(j); list[j].focus();
     };
   }
-  /* compact pills as a radiogroup: the house .hd-pill with .sm, so the face is 20 px and the hit 28 */
+  /* compact pills as a radiogroup: the house .hd-pill with .hd-sm, so the face is 20 px and the hit 28 */
   function pillGroup(host, labels, cur, label, onPick, o) {
-    host.classList.add('hd-pills', 'sm'); host.setAttribute('role', 'radiogroup'); host.setAttribute('aria-label', label);
-    var bs = labels.map(function (t, i) { var b = tag('button', 'hd-pill sm hd-focus', t); b.type = 'button'; b.setAttribute('role', 'radio');
+    host.classList.add('hd-pills', 'hd-sm'); host.setAttribute('role', 'radiogroup'); host.setAttribute('aria-label', label);
+    var bs = labels.map(function (t, i) { var b = tag('button', 'hd-pill hd-sm hd-focus', t); b.type = 'button'; b.setAttribute('role', 'radio');
       b.addEventListener('click', function () { set(i); fire(onPick, i); }); host.appendChild(b); return b; });
     function set(i) { cur = i; bs.forEach(function (b, k) { b.setAttribute('aria-checked', String(k === i)); b.tabIndex = keysOn(o) && k === i ? 0 : -1; }); }
     host.addEventListener('keydown', function (e) { if (!keysOn(o)) return;
@@ -5489,7 +5489,7 @@
     el.classList.add('hd-sechead'); el.dataset.rule = o.rule || 'solid'; el.innerHTML = '';
     var tg = null;
     if (on !== undefined) {
-      tg = tag('button', 'hd-toggle sm hd-focus'); tg.type = 'button'; tg.setAttribute('role', 'switch'); tg.setAttribute('aria-label', path + ' · On');
+      tg = tag('button', 'hd-toggle hd-sm hd-focus'); tg.type = 'button'; tg.setAttribute('role', 'switch'); tg.setAttribute('aria-label', path + ' · On');
       tg.addEventListener('click', function () { setOn(!on); fire(o.onToggle, on); }); el.appendChild(tg);
     }
     if (o.num !== undefined) { var nb = tag('span', 'sh-num', String(o.num)); nb.setAttribute('aria-hidden', 'true'); el.appendChild(nb); }
@@ -5532,12 +5532,12 @@
       var root = tag('div', 'cs-strip' + (s.master ? ' master' : '')); root.setAttribute('role', 'group'); root.setAttribute('aria-label', path + ' channel'); root.dataset.id = s.id;
       var head = tag('div', 'cs-head');
       if (!s.master && s.on !== undefined) {
-        t.tg = tag('button', 'hd-toggle sm hd-focus'); t.tg.type = 'button'; t.tg.setAttribute('role', 'switch'); t.tg.setAttribute('aria-label', path + ' · On');
+        t.tg = tag('button', 'hd-toggle hd-sm hd-focus'); t.tg.type = 'button'; t.tg.setAttribute('role', 'switch'); t.tg.setAttribute('aria-label', path + ' · On');
         t.tg.addEventListener('click', function () { t.on = !t.on; fire(o.onToggle, s.id, 'on', t.on); sync(); }); head.appendChild(t.tg);
       }
       head.appendChild(tag('span', 'cs-name', s.name)); root.appendChild(head);
       var pkRow = tag('div', 'cs-pk'); t.pkEl = tag('output'); t.pkEl.setAttribute('aria-hidden', 'true');
-      t.lamp = tag('button', 'hd-lamp sm hd-focus', 'CLIP'); t.lamp.type = 'button';
+      t.lamp = tag('button', 'hd-lamp hd-sm hd-focus', 'CLIP'); t.lamp.type = 'button';
       t.lamp.addEventListener('click', function () { fire(o.clear, s.id); paint(); });
       pkRow.appendChild(t.pkEl); pkRow.appendChild(t.lamp); root.appendChild(pkRow);
       var body = tag('div', 'cs-body'), fd = tag('div'); body.appendChild(fd);

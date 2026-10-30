@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1793334278-f870, 2026-10-30; do not edit, re-vendor */
+/* vendored from the horde Design System artifact, version 1793336699-65f2, 2026-10-30; do not edit, re-vendor */
 @import url("https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;800&family=Roboto+Mono:wght@400;500;600&display=swap");
 /* horde house components. Every colour is a token (tokens.json); nothing here is a hex.
    Sources: UI Spec §3-4 (values), gui2.html §4 skins, the SCALPEL lab (980×720 chassis),
@@ -1022,26 +1022,26 @@ canvas.hd-ring { outline:none; }
 .hd-ms-v.sz .ms-rd .mk-v2 { opacity:0; font:500 8.5px/13px var(--font-sans); }
 .hd-ms-v.sz.cap .ms-rd .mk-v1 { opacity:0; } .hd-ms-v.sz.cap .ms-rd .mk-v2 { opacity:1; }
 
-/* ---------- DENSE SWITCHES, READOUTS AND LAMPS: `.hd-dense` on a container, or `.sm` on the element. Faces 20 px
+/* ---------- DENSE SWITCHES, READOUTS AND LAMPS: `.hd-dense` on a container, or `.hd-sm` on the element (namespaced: two labs already use a bare `.sm` of their own). Faces 20 px
    (size-face-dense); every one keeps a 28 px hit box, and a wrapped row keeps 28 px pitch (row gap 0, 4 px margins). ---------- */
-.hd-dense .hd-pills, .hd-pills.sm { gap:0 3px; }
-.hd-dense .hd-pill, .hd-pill.sm { position:relative; min-height:var(--size-face-dense); min-width:var(--size-hit); margin:4px 0; padding:0 7px; letter-spacing:.02em; }
-.hd-dense .hd-pill::before, .hd-pill.sm::before { content:''; position:absolute; left:0; right:0; top:50%; height:var(--size-hit); transform:translateY(-50%); }
-.hd-dense .hd-toggle, .hd-toggle.sm { width:var(--size-toggle-dense-w); height:var(--size-toggle-dense-h); margin:7px 0; }
-.hd-dense .hd-toggle::after, .hd-toggle.sm::after { width:8px; height:8px; top:1.5px; left:1.5px; border-width:1.2px; }
-.hd-dense .hd-toggle[aria-checked="true"]::after, .hd-toggle.sm[aria-checked="true"]::after { transform:translateX(12px); }
-.hd-dense .hd-stepper, .hd-stepper.sm { height:var(--size-face-dense); margin:4px 0; box-sizing:border-box; }
-.hd-dense .hd-stepper button, .hd-stepper.sm button { position:relative; height:calc(var(--size-face-dense) - 3px); }
-.hd-dense .hd-stepper button::before, .hd-stepper.sm button::before { content:''; position:absolute; left:0; right:0; top:50%; height:var(--size-hit); transform:translateY(-50%); }
-.hd-dense .hd-stepper output, .hd-stepper.sm output { min-width:40px; }
-.hd-dense .hd-readout, .hd-readout.sm { position:relative; min-height:var(--size-face-dense); min-width:var(--size-hit); margin:4px 0; padding:0 4px; }
-.hd-dense .hd-readout::before, .hd-readout.sm::before { content:''; position:absolute; left:0; right:0; top:50%; height:var(--size-hit); transform:translateY(-50%); }
-.hd-dense .hd-entry, .hd-entry.sm { min-height:var(--size-face-dense); width:68px; margin:4px 0; padding:0 6px; }
-.hd-dense .hd-srow, .hd-srow.sm { grid-template-columns:var(--size-label-dense) minmax(0,1fr) 52px; gap:4px; min-height:var(--size-hit); }
-.hd-dense .hd-srow > output, .hd-srow.sm > output { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.hd-dense .hd-pills, .hd-pills.hd-sm { gap:0 3px; }
+.hd-dense .hd-pill, .hd-pill.hd-sm { position:relative; min-height:var(--size-face-dense); min-width:var(--size-hit); margin:4px 0; padding:0 7px; letter-spacing:.02em; }
+.hd-dense .hd-pill::before, .hd-pill.hd-sm::before { content:''; position:absolute; left:0; right:0; top:50%; height:var(--size-hit); transform:translateY(-50%); }
+.hd-dense .hd-toggle, .hd-toggle.hd-sm { width:var(--size-toggle-dense-w); height:var(--size-toggle-dense-h); margin:7px 0; }
+.hd-dense .hd-toggle::after, .hd-toggle.hd-sm::after { width:8px; height:8px; top:1.5px; left:1.5px; border-width:1.2px; }
+.hd-dense .hd-toggle[aria-checked="true"]::after, .hd-toggle.hd-sm[aria-checked="true"]::after { transform:translateX(12px); }
+.hd-dense .hd-stepper, .hd-stepper.hd-sm { height:var(--size-face-dense); margin:4px 0; box-sizing:border-box; }
+.hd-dense .hd-stepper button, .hd-stepper.hd-sm button { position:relative; height:calc(var(--size-face-dense) - 3px); }
+.hd-dense .hd-stepper button::before, .hd-stepper.hd-sm button::before { content:''; position:absolute; left:0; right:0; top:50%; height:var(--size-hit); transform:translateY(-50%); }
+.hd-dense .hd-stepper output, .hd-stepper.hd-sm output { min-width:40px; }
+.hd-dense .hd-readout, .hd-readout.hd-sm { position:relative; min-height:var(--size-face-dense); min-width:var(--size-hit); margin:4px 0; padding:0 4px; }
+.hd-dense .hd-readout::before, .hd-readout.hd-sm::before { content:''; position:absolute; left:0; right:0; top:50%; height:var(--size-hit); transform:translateY(-50%); }
+.hd-dense .hd-entry, .hd-entry.hd-sm { min-height:var(--size-face-dense); width:68px; margin:4px 0; padding:0 6px; }
+.hd-dense .hd-srow, .hd-srow.hd-sm { grid-template-columns:var(--size-label-dense) minmax(0,1fr) 52px; gap:4px; min-height:var(--size-hit); }
+.hd-dense .hd-srow > output, .hd-srow.hd-sm > output { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .hd-dense .rs-slot > .hd-srow { min-height:var(--size-hit); }
-.hd-lamp.sm { position:relative; width:30px; min-height:var(--size-face-dense); margin:4px 0; font-size:8px; letter-spacing:.06em; }
-.hd-lamp.sm::before { content:''; position:absolute; left:-1px; right:-1px; top:50%; height:var(--size-hit); transform:translateY(-50%); }
+.hd-lamp.hd-sm { position:relative; width:30px; min-height:var(--size-face-dense); margin:4px 0; font-size:8px; letter-spacing:.06em; }
+.hd-lamp.hd-sm::before { content:''; position:absolute; left:-1px; right:-1px; top:50%; height:var(--size-hit); transform:translateY(-50%); }
 
 /* ---------- SECTION: an identity rule, a one-line header, sub-groups under small-caps labels. NO box: the section is
    the hierarchy device that replaces nested cards inside a card (the bench's blade row, the human's "stronger hierarchy"). ---------- */
