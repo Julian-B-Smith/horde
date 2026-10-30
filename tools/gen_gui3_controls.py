@@ -76,7 +76,7 @@ LAYOUT = GUI3 / "layout.json"
 OUT_JSON = GUI3 / "params.json"
 OUT_JS = GUI3 / "shell-data.js"
 SHELL = ROOT / "docs/design/gui3.html"
-SCRIPTS = ["engine-stub.js", "device.js"]   # the gui3 scripts the determinism gate reads, with the shell
+SCRIPTS = ["engine-stub.js", "device.js", "shell-logic.js"]   # the gui3 scripts the determinism gate reads, with the shell
 
 FORMAT = "horde.gui3-params/1"
 LAWS = ("lin", "log", "pow", "lin, wraps", "log, off zone", "dB", "step")

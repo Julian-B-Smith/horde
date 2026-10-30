@@ -50,6 +50,17 @@
   .switches .hd-label { gap: 4px; }
   .body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; flex: 1 1 auto; align-items: stretch; min-height: 0; }
   .body.with-dock { grid-template-columns: 204px minmax(0, 1fr); }
+  .body.with-insp { grid-template-columns: minmax(0, 1fr) 214px; }
+  .body.with-dock.with-insp { grid-template-columns: 204px minmax(0, 1fr) 214px; }
+  .insp-dock { width: auto; min-height: 0; overflow-y: auto; }
+  .insp-dock[hidden] { display: none; }
+  .insp-dock .hd-insp { max-width: none; flex: 1 1 auto; }
+  .insp-dock .face { flex-direction: column; align-items: stretch; }
+  /* MAP control row (the Map Mode spec): the control, the MOCK tag, then the live source strip on one scrolling line, so
+     sixteen sources cost one row of the window and not three */
+  .mapbar { display: flex; align-items: center; gap: var(--space-gap); flex: 0 0 auto; min-width: 0; }
+  .mapbar #srcStrip { flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; overflow-x: auto; overscroll-behavior: contain; }
+  .mapbar .src-chip { flex: 0 0 auto; }
   .dock { width: auto; }
   .dock .face { flex-direction: column; align-items: stretch; gap: 6px; padding: 6px 7px 8px; }
   .dock .hd-xy { width: 188px; height: 188px; margin: 0 auto; }
@@ -69,11 +80,19 @@
   .hd-sgrp.adv > summary { cursor: pointer; list-style-position: inside; }
   .dash { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: var(--space-stack); }
   .dash .vz-cap { display: none; }
-  .console { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+  .mixrow { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--space-stack); }
+  .console { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; flex: 0 1 auto; max-width: 100%; }
   /* ADR-333: more room per strip. A documented override of the design system's size-strip-w (72) inside the console only;
-     the token itself is a proposal (README 21), not an edit of the vendored bundle. */
-  .console .hd-cs { --size-strip-w: 92px; }
-  .sums { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: var(--space-stack); }
+     the token itself is a proposal (README 21), not an edit of the vendored bundle. Slice 6 (the human's second pass, "a little
+     extra padding around the elements, and the osc toggles a little more space on the left"): 92 became 104 px, with the
+     console's own padding, each strip's side padding and a gap between its rows, and extra room left of the on toggle, all
+     from the --space-* tokens, so no label clips. */
+  .console .hd-cs { --size-strip-w: 104px; padding: var(--space-gap) var(--space-section); }
+  .console .hd-cs .cs-strip { padding: 0 var(--space-gap); gap: var(--space-dense); }
+  .console .hd-cs .cs-strip.master { padding-left: var(--space-gap); }
+  .console .hd-cs .cs-head { padding-left: var(--space-gap); box-sizing: border-box; }
+  .console .hd-cs .cs-strip.master .cs-head { padding-left: 0; }
+  .sums { display: flex; flex-direction: column; gap: 8px; flex: 1 1 260px; min-width: 0; }
   .sum-col { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
   .ledger-sum { display: flex; flex-direction: column; gap: 4px; margin-bottom: var(--space-stack); }
   .ledger-sum .hd-krow { gap: 2px 16px; flex-wrap: wrap; }
@@ -92,7 +111,9 @@
   .bank-strip { display: flex; flex-wrap: nowrap; gap: 8px; overflow-x: auto; overscroll-behavior: contain; align-items: flex-start; }
   .bank-strip > .hd-card { flex: 0 0 auto; width: 220px; }
   .bank-strip > .hd-card[hidden] { display: none; }
-  .bank-strip .hd-card .face { flex-wrap: nowrap; }
+  /* a card's utility knobs are rows (name, then the dial) of about 85 px each: four do not fit one 220 px row, and nowrap shrank
+     every dial to 0 wide (the label stayed, the knob vanished). Wrapping gives two rows of two. */
+  .bank-strip .hd-card .face { flex-wrap: wrap; }
   .page { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
   .page[hidden], .dock[hidden] { display: none; }
   .phead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
@@ -126,7 +147,7 @@
     <button class="hd-kbd hd-focus" id="kbd" type="button" aria-pressed="false" aria-label="Keyboard mode"><span class="lampdot"></span><span id="kbdTxt">KEYS</span></button>
     <button class="hd-btn hd-focus" id="themeBtn" type="button" aria-pressed="false">Dark</button>
   </header>
-  <div class="tagline"><span class="hd-note">GUI 3 (B584, six slices so far): <b>one wired shell</b> under a two-level page bar (B589), a port ledger of what has not moved over (B593), dense oscillator pages after the SCALPEL bench, an Osc dashboard and a mixing console, every parameter that has a machine-readable manifest (SPEC-ENGINE section 5, the morph's settings, the hosted FX modules', Arp's)
+  <div class="tagline"><span class="hd-note">GUI 3 (B584, seven slices so far): <b>one wired shell</b> under a two-level page bar (B589) and the <b>MAP control</b> with its live source strip (the Map Mode spec: turn MAP on, pick a source, click a knob to map it at 25 %, drag to set the depth), a port ledger of what has not moved over (B593), dense oscillator pages after the SCALPEL bench, an Osc dashboard and a mixing console, every parameter that has a machine-readable manifest (SPEC-ENGINE section 5, the morph's settings, the hosted FX modules', Arp's)
     reachable on a page, and <b>no audio</b>: a stub engine keeps the values behind the engine's interface. The <b>Sub</b> and <b>Noise</b> pages are
     designed; the others are drafts or hold no engine parameters, and say why. Try: turn <b>Morph</b> on (the pad docks on every page; <b>Pad</b>
     hides it), press <b>Scatter corners</b> below and drag the puck, hover any control to read it in the info box, right-click one for the manual. The <b>bank</b> at the foot of every page lists the modulators routed to it: press + to activate one and drag its Map handle onto a control. The <b>Morph</b> page chooses the corner you hear with morph off and saves snapshots and presets to corners (ADR-319).</span></div>
@@ -142,6 +163,13 @@
         <label class="hd-row hd-label" title="ADR-322 item 4, toggle (b): show or hide the bank">Bank <button class="hd-toggle hd-focus" id="bankOn" type="button" role="switch" aria-checked="true" aria-label="Show the modulator bank"></button></label>
         <span class="hd-pills" id="bankModes" role="radiogroup" aria-label="The bank shows" title="ADR-322 item 4, toggle (a): flip the bank between modulators and macros"><button class="hd-pill hd-focus" type="button" role="radio" data-m="mods" aria-checked="true">Mods</button><button class="hd-pill hd-focus" type="button" role="radio" data-m="macros" aria-checked="false">Macros</button></span>
       </div>
+    </div>
+    <!-- MAP MODE (the Map Mode spec, ADR-261): the control sits in the top bar, outside the page area, so it is the same on
+         every page; the live source strip is the spec's recommended row under it. Sources read 0 (no voices): MOCK. -->
+    <div class="mapbar" id="mapbar">
+      <div id="mapHost"></div>
+      <span class="tag hd-hint" title="No voices, so every source reads 0 and the rings sit at their origin">MOCK</span>
+      <div id="srcStrip" class="grow"></div>
     </div>
     <div class="body" id="bodyGrid">
       <aside class="hd-card dock" id="dock" aria-label="Morph pad, docked" hidden>
@@ -160,6 +188,12 @@
           <div class="face"><span class="hd-value" id="infoText">Hover a control to read what it does.</span><span class="hd-hint" id="infoMeta"></span><span class="hd-note" id="infoLive"></span></div>
         </section>
       </div>
+      <!-- the spec's inspector rail, the mouse route for P (the polarity pill), Backspace (the remove button) and focus (a row);
+           it shows while MAP is on and takes no space otherwise -->
+      <aside class="hd-card insp-dock" id="inspDock" aria-label="Mappings of the selected control" hidden>
+        <div class="head"><span class="hd-cluster">Mappings</span><span class="tag">MAP ON</span></div>
+        <div class="face"><div id="insp"></div></div>
+      </aside>
     </div>
   </div>
 
@@ -190,15 +224,16 @@
 <script src="gui3/shell-data.js"></script>
 <script src="gui3/engine-stub.js"></script>
 <script src="gui3/device.js"></script>
+<script src="gui3/shell-logic.js"></script>
 <script>
 (function main() {
 'use strict';
 // ===== BLOCK A: the four scripts, and every piece of state, declared before any wiring (L0026) =====
-const H = window.Horde, DATA = window.GUI3_DATA, ENG = window.GUI3Engine, DEV = window.GUI3Device;
+const H = window.Horde, DATA = window.GUI3_DATA, ENG = window.GUI3Engine, DEV = window.GUI3Device, SH = window.GUI3Shell;
 const $ = id => document.getElementById(id);
 // A missing script must say so on the page, not leave a window that looks fine and does nothing; lab_load_check also
 // runs this block without any of them.
-if (!H || !H.Session || !DATA || !ENG || !DEV) { const n = document.createElement('p'); n.className = 'hd-note bad'; n.setAttribute('role', 'alert'); n.textContent = 'A GUI 3 script did not load (arp-face/bundle.js, gui3/shell-data.js, gui3/engine-stub.js, gui3/device.js). Open this page from docs/design, or through tools/labs_preview.sh.'; document.body.prepend(n); return; }
+if (!H || !H.Session || !DATA || !ENG || !DEV || !SH) { const n = document.createElement('p'); n.className = 'hd-note bad'; n.setAttribute('role', 'alert'); n.textContent = 'A GUI 3 script did not load (arp-face/bundle.js, gui3/shell-data.js, gui3/engine-stub.js, gui3/device.js, gui3/shell-logic.js). Open this page from docs/design, or through tools/labs_preview.sh.'; document.body.prepend(n); return; }
 const SEED = 1;
 const ROW = Object.create(null); DATA.params.forEach(r => { ROW[r.key] = r; });
 const CLASS_NAME = { M: 'MORPHABLE', S: 'STRUCTURAL', D: 'DEVICE' };
@@ -232,6 +267,10 @@ dev = DEV.create(DATA, transport, { seed: SEED });
 S = new H.Session({ x: .5, y: .5, corners: [null, null, null, null],
   sources: dev.sources().map(s => ({ id: s.id, name: s.name, kind: s.kind, f: () => 0 })),   // no voices, so every source reads 0
   mappings: [] });
+// MAP MODE writes DEVICE routes (the Map Mode spec; ADR-261): the session's mappings are a working list that the bridge
+// writes into the device's matrix at each gesture's end (one undo step) and reads back from it, so the ring on a knob, the
+// bank, the source strip's counts and the matrix all read the same routes.
+const mapBridge = SH.attachMap(S, dev);
 // The bundle draws what the DEVICE says: its weights, the heard value, the owner (the plugin reads the owner from the
 // engine and never computes it, morph knob spec, Ties). The owner bookkeeping below is the bundle's own (flip times).
 S.weights = () => dev.weights();
@@ -257,8 +296,9 @@ S.add({ render() {
   if (m.on && (S.pad.x !== m.x || S.pad.y !== m.y)) dev.setMorph({ x: S.pad.x, y: S.pad.y });
   const g = dev.gestureKey();
   if (g && !(S.drag && S.drag.key === g)) dev.end();
+  mapBridge.frame();
   if (dev.rev() !== lastRev) {
-    lastRev = dev.rev(); S.mappings = dev.routes().map(r => ({ id: r.id, param: r.param, src: r.src, pol: r.pol, depth: r.depth }));
+    lastRev = dev.rev();
     const nm = dev.names(); if (nm.join('\u0000') !== S.corners.join('\u0000')) { S.corners = nm; S.emit(); }
   }
   if (dev.morph().on !== dockOn) paintDock();          // an undo or redo of the morph toggle moves the dock too
@@ -516,7 +556,10 @@ function sectionOf(pg, g, opts) {
   if (adv.length) body.append(h('details', { class: 'hd-sgrp adv' }, h('summary', { class: 'hd-sublabel', text: 'Advanced · ' + adv.length }),
     h('div', { class: 'hd-krow' }, adv.map(c => mountControl(c, pg.id, path + ' · ' + ROW[c.key].label, { size: c.size || 'compact' })))));
   sec.append(head, body);
-  const summary = () => [modes ? labOf(modes.key) : null].concat(plain.slice(0, 2).map(c => ENG.display(ROW[c.key], dev.shown(c.key)))).filter(Boolean).join(' · ');
+  // An Envelope section mounts every block's rows, so its first controls are ENV 1's: the readout names the envelope this
+  // source FOLLOWS (its env row's pick) and that block's attack and decay (ADR-333).
+  const summary = () => [modes ? labOf(modes.key) : null].concat(g.follow ? SH.followedSummary(dev, ENG, ROW, g.follow)
+    : plain.slice(0, 2).map(c => ENG.display(ROW[c.key], dev.shown(c.key)))).filter(Boolean).join(' · ');
   const sh = H.SectionHeader(head, { name: g.title, path, num: g.num || undefined, rule: g.rule || opts.rule || 'solid',
     on: power ? isOnKey(power.key) : undefined,
     onToggle: power ? on => writeStep(ROW[power.key], path + ' · On', onIdx(ROW[power.key], on)) : undefined,
@@ -578,13 +621,15 @@ function consolePage(pg, el) {
     const mb = root.querySelector('.cs-btn.mute'); if (mb && K.mute) { mb.dataset.key = K.mute; mb.classList.add('ctl'); }
     const sb = root.querySelector('.cs-btn.solo'); if (sb && K.solo) { sb.dataset.key = K.solo; sb.classList.add('ctl'); }
   });
-  // ADR-333: the summed oscilloscope and spectrum, above the console, drawn with the bundle's painters from the engine's
+  // ADR-333: the summed oscilloscope and spectrum, beside the console (slice 6: the strips use about half the width, so the
+  // views and the note sit in the room to their right and the page fits the window), drawn with the bundle's painters from the engine's
   // observation view (IF-10; dev.summed(), MOCK in the stub), never computed here.
   const scopeCv = h('canvas', { class: 'vz-cv', style: 'height:84px', role: 'img', 'aria-label': 'Summed oscilloscope (MOCK)' });
   const specCv = h('canvas', { class: 'vz-cv', style: 'height:84px', role: 'img', 'aria-label': 'Summed spectrum (MOCK)' }), specSt = {};
-  el.append(h('div', { class: 'hd-cell hd-dense sums' },
+  const sums = h('div', { class: 'hd-cell hd-dense sums' },
     h('div', { class: 'sum-col' }, h('span', { class: 'hd-sublabel', text: 'Summed scope · MOCK' }), h('div', { class: 'hd-viz vz-well' }, scopeCv)),
-    h('div', { class: 'sum-col' }, h('span', { class: 'hd-sublabel', text: 'Summed spectrum · MOCK' }), h('div', { class: 'hd-viz vz-well' }, specCv))));
+    h('div', { class: 'sum-col' }, h('span', { class: 'hd-sublabel', text: 'Summed spectrum · MOCK' }), h('div', { class: 'hd-viz vz-well' }, specCv)),
+    h('p', { class: 'hd-note', text: 'MOCK meters: a full-scale test tone per strip through IF-6’s gate (off, mute, solo). A fader over 0 dB latches CLIP; click the lamp to clear.' }));
   let sumFrame = 0;
   views.push({ page: pg.id, update() {
     const sm = dev.summed(); if (!sm) return;
@@ -592,8 +637,7 @@ function consolePage(pg, el) {
     H.Viz.scope(scopeCv, { l: sm.scope, r: sm.scope, R: 0 });
     H.Viz.spectrum(specCv, sm.bands, specSt, sumFrame / 60);
   } });
-  el.append(h('div', { class: 'hd-cell hd-dense console' }, host,
-    h('p', { class: 'hd-note', text: 'MOCK meters: no audio, so each strip reads its own level as if fed a full-scale test tone, through IF-6’s gate (off, mute, solo); the output sums the sounding sources. Push a fader over 0 dB: its CLIP lamp latches; click the lamp to clear it.' })));
+  el.append(h('div', { class: 'mixrow' }, h('div', { class: 'hd-cell hd-dense console' }, host), sums));
   let last = '';
   views.push({ page: pg.id, update() {
     const k = dev.rev();
@@ -639,7 +683,7 @@ function classicPage(pg, el) {
   if (pg.groups.length) el.append(cards);
 }
 const nav = H.PageNav($('pnav'), { label: 'Page groups', panel: 'pages', keys: () => S.keys,
-  groups: NAV.map(g => ({ id: g.id, label: g.label, pages: g.pages.length > 1 ? g.pages.map(pid => ({ id: pid, label: PG[pid].label, on: PG[pid].power ? isOnKey(PG[pid].power) : undefined })) : undefined })),
+  groups: SH.navGroups(NAV, PG, isOnKey),   // a one-page group names its page, so the Set tab opens Settings (shell-logic.js)
   onChange: (group, pid) => selectPage(pid) });
 DATA.pages.forEach(pg => {
   const el = h('section', { class: 'page', id: 'page-' + pg.id, role: 'tabpanel', 'aria-label': pg.label, hidden: true });
@@ -681,6 +725,20 @@ function setMorphOn(on) {
 $('morphOn').addEventListener('click', () => setMorphOn(!dev.morph().on));
 $('padOn').addEventListener('click', () => { padShown = !padShown; paintDock(); S.say(padShown ? 'Pad shown' : 'Pad hidden: morph stays on'); });
 paintDock();
+
+// ===== BLOCK F2: MAP MODE's chrome (the Map Mode spec, ADR-261): the control and its source dropdown in the top bar, the
+// live source strip under it, the inspector rail while MAP is on. All three are the design system's own components; the
+// session (S.map, the polarity cycle, focus, depth drag, the rings and the M / Esc / digit / P / Backspace keys, which
+// the session accepts in keyboard mode as every accelerator here, ADR-259 ruling 6) is the bundle's. What the shell adds
+// is where the mappings go: the device (mapBridge above). Every key has a mouse route: the MAP button (M, Esc), the
+// dropdown and the strip's chips (1 to 9), the inspector's polarity pill (P) and remove button (Backspace).
+H.MapControl($('mapHost'), S, { frame: $('win'), strip: $('srcStrip') });
+H.ModInspector($('insp'), S);
+function paintInspector() {
+  const on = S.map.on;
+  $('inspDock').hidden = !on; $('bodyGrid').classList.toggle('with-insp', on);
+}
+S.on(paintInspector); paintInspector();
 
 function hostOf(t) { return t && t.closest ? t.closest('#pages [data-key], #bank [data-key]') : null; }
 function showInfo(key) {
@@ -982,10 +1040,55 @@ views.push({ page: '*', update() {
   // 15. ADR-333: the summed views read the observation view (MOCK). Control: the scope is flat with every source silent.
   const sm0 = dev.summed(), pk = a => a.reduce((m, x) => Math.max(m, Math.abs(x)), 0);
   line(sm0 && pk(sm0.scope) > 0 && sm0.bands.some(b => b > 0) && pageEls.mix.querySelectorAll('.sums canvas').length === 2,
-    'Summed views: the Mix page draws the observation view’s summed scope (peak ' + pk(sm0.scope).toFixed(2) + ') and spectrum, MOCK; two canvases above the console.');
+    'Summed views: the Mix page draws the observation view’s summed scope (peak ' + pk(sm0.scope).toFixed(2) + ') and spectrum, MOCK; two canvases beside the console.');
   // 16. The ledger (B593) renders every row, grouped by area.
   const lrows = pageEls.ledger.querySelectorAll('[data-ledger]').length;
   line(lrows === DATA.ledger.rows.length && lrows > 0, 'Port ledger: ' + lrows + ' rows rendered in ' + new Set(DATA.ledger.rows.map(r => r.area)).size + ' areas (control: the data has ' + DATA.ledger.rows.length + ').');
+  // 17. MAP MODE (the Map Mode spec, ADR-261), on the real knob's real handlers (a synthetic pointer, its capture stubbed):
+  // a click on a knob with MAP on makes a DEVICE route from the current source, at 25 %, unipolar, as one undo step; a
+  // drag released at 0 makes none; a page change keeps MAP and the source; undo takes the route away and the session follows.
+  // Control: before the click there is no such route, and with MAP off the same click makes none.
+  {
+    const mp = pageKeysList('osc1').find(k => ROW[k].law !== 'step' && (ROW[k].pv || ROW[k].target !== 'engine') && !dev.routes().some(r => r.param === k)), mface = pageEls.osc1.querySelector('[data-key="' + CSS.escape(mp) + '"] .mk-face');
+    mface.setPointerCapture = () => {}; mface.hasPointerCapture = () => false; mface.releasePointerCapture = () => {};
+    const ptr = (t, y) => mface.dispatchEvent(new MouseEvent(t, { bubbles: true, button: 0, clientX: 10, clientY: y }));
+    const clickK = () => { ptr('pointerdown', 100); ptr('pointerup', 100); };
+    const routesOf = () => dev.routes().filter(r => r.param === mp), hm = dev.history().past.length, prevSrc = S.map.src;
+    S.setMap(false); clickK(); const offNone = routesOf().length === 0 && dev.history().past.length === hm;
+    S.setSrc('env3'); S.setMap(true); clickK();
+    const made = routesOf(), one = made.length === 1 && made[0].src === 'env3' && made[0].pol === 'uni' && Math.abs(made[0].depth - .25) < 1e-12 && dev.history().past.length === hm + 1;
+    mapBridge.pull(); const ringed = S.mappings.some(m => m.param === mp && m.src === 'env3');
+    S.setSrc('env4'); ptr('pointerdown', 100); ptr('pointermove', 140); ptr('pointerup', 140);   // a drag that ends at depth 0 on a NEW source: no mapping
+    const zero = routesOf().length === 1 && dev.history().past.length === hm + 1;
+    selectPage('mix'); selectPage('osc1'); const kept = S.map.on && S.map.src === 'env4';
+    dev.undo(); mapBridge.pull(); const undone = routesOf().length === 0 && !S.mappings.some(m => m.param === mp);
+    S.setMap(false); S.setSrc(prevSrc); dev.clearRedo();
+    line(offNone && one && ringed && zero && kept && undone, 'MAP: with MAP off a click on ' + ROW[mp].label + ' made no route; on, it made ENV 3 → ' + ROW[mp].label + ' at 25 % unipolar as one undo step and the ring shows; a drag released at 0 made none; a page change kept MAP on and the source; undo took the route away (control: none before the click).');
+  }
+  // 18. The Set tab opens the Settings page: its group is `set` and its page `settings` (slice 5 found the click opened nothing).
+  { const pg0 = page, setTab = [...$('pnav').querySelectorAll('.pn-g')].find(b => b.textContent === 'Set');
+    setTab.click(); const opened = page === 'settings' && !pageEls.settings.hidden && pageEls.main.hidden;
+    selectPage(pg0);
+    line(opened, 'Set tab: a click on Set opened the Settings page (page ' + (opened ? 'settings' : page) + '); Main is hidden then (control).'); }
+  // 19. ADR-333: an Envelope section's readout names the envelope its source FOLLOWS: with Osc 1 on ENV 3, ENV 3's attack, and
+  // when ENV 3's attack moves the readout moves; ENV 1's attack, the first block's, does not move it.
+  { const fg = DATA.pages.find(p => p.id === 'osc1').groups.find(g => g.follow), fsel = ROW[fg.follow.selector], sec = pageEls.osc1.querySelector('section[aria-label^="Osc 1 · Envelope"]');
+    const at = (blk, v) => dev.set(fg.follow.options[blk].viz.a, v), tick = () => { for (const v of S.views) v.render(); };
+    dev.begin('self-check'); dev.set(fsel.key, 2 / (fsel.n - 1)); at('ENV 3', .3); at('ENV 1', .2); dev.end(); tick();
+    const s1 = sec.querySelector('.rs-sum').textContent;
+    dev.begin('self-check'); at('ENV 1', .6); dev.end(); tick(); const same = sec.querySelector('.rs-sum').textContent === s1;
+    dev.begin('self-check'); at('ENV 3', .7); dev.end(); tick(); const moved = sec.querySelector('.rs-sum').textContent !== s1;
+    dev.undo(); dev.undo(); dev.undo(); tick();
+    line(s1.startsWith('ENV 3') && s1.includes(ENG.display(ROW[fg.follow.options['ENV 3'].viz.a], .3)) && same && moved, 'Envelope summary: Osc 1 on ENV 3 reads “' + s1 + '”, ENV 3’s attack; ENV 1’s attack moving left it as it was, ENV 3’s moved it (control: the first block’s attack differs).'); }
+  // 20. A bank card draws every control it names: a label with no dial is a control squeezed to nothing (slice 6 found four
+  // utility knobs in one nowrap row of a 220 px card, each dial shrunk to 0 wide). Measured on the real layout. Control: the
+  // same card squeezed to 40 px with nowrap reads as not drawn.
+  { const pg0 = page, drawn = c => { const cs = [...c.querySelectorAll('.ctl')]; return cs.length > 0 && cs.every(x => { const f = x.querySelector('.mk-face, select, .hd-stepper, button') || x, b = f.getBoundingClientRect(); return b.width > 4 && b.height > 4; }); };
+    page = 'sub'; dev.activate('env2'); paintBank();
+    const card = document.querySelector('#bankStrip > .hd-card[data-src="env2"]'), whole = !card.hidden && drawn(card);
+    const w0 = card.style.width, fl = card.querySelector('.face'); card.style.width = '40px'; fl.style.flexWrap = 'nowrap'; const squeezed = !drawn(card);
+    card.style.width = w0; fl.style.flexWrap = ''; dev.close(); page = pg0; paintBank();
+    line(whole && squeezed, 'Bank card: ENV 2’s card draws its ' + card.querySelectorAll('.ctl').length + ' controls with a dial each, not a label alone (control: squeezed to 40 px with nowrap it does not).'); }
   // 13. The page bar (B589): an old link's page id opens its page under its group, and the group remembers it.
   selectPage('noise'); const nv = nav.get(); selectPage('main'); const nm2 = nav.get();
   line(nv.group === 'osc' && nv.page === 'noise' && nm2.group === 'main', 'Page nav: #noise opens Noise under Osc (' + nv.group + ' / ' + nv.page + '); Main is its own group (control: ' + nm2.group + ').');
@@ -1001,6 +1104,8 @@ views.push({ page: '*', update() {
   if (flags.includes('nobank')) setBankShown(false);
   if (flags.includes('morph')) { setMorphOn(true); dev.scatter(SEED); }
   if (flags.includes('bank')) { pageKeysList(page).filter(k => ROW[k].law !== 'step').slice(0, 2).forEach(k => dev.drop('env2', k)); dev.activate('env3'); }
+  // `map`: MAP on with ENV 2 as the source and ENV 2 mapped to the page's first two modulatable controls, so a knob shows its ring
+  if (flags.includes('map')) { let n = 0; for (const k of pageKeysList(page)) { if (n < 2 && ROW[k].law !== 'step' && dev.addRoute({ src: 'env2', param: k }).ok) { if (!n) S.selected = k; n++; } } S.setSrc('env2'); S.setMap(true); }
   if (flags.length) { dev.clearHistory(); S.message = ''; }
   // `fit`: say whether the page fits the window's page area (B589's 980 x 720), and by how much it overflows
   if (flags.includes('fit')) { const a = $('pages'); S.message = 'fit: page ' + a.scrollHeight + ' px in an area of ' + a.clientHeight + ' px' + (a.scrollHeight > a.clientHeight ? ', overflows by ' + (a.scrollHeight - a.clientHeight) + ' px' : ', fits'); } }

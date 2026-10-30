@@ -1,6 +1,6 @@
 # GUI 3: the wired shell
 
-*Last verified 2026-10-30, branch `gui3-b584-slice5` (ROADMAP B584 slice 5, B593; ADR-316, ADR-319, ADR-322, ADR-329, ADR-330, ADR-333; B589), from main.*
+*Last verified 2026-10-30, branch `gui3-b584-slice6` (ROADMAP B584 slice 6, B593; ADR-261, ADR-316, ADR-319, ADR-322, ADR-329, ADR-330, ADR-333; B589), on slice 5.*
 
 `docs/design/gui3.html` is GUI 3's prototype: one window with twelve pages (the Random page folded into the
 Morph page, ADR-322 item 2; a draft Arp page, ADR-330), every parameter that has a machine-readable
@@ -21,7 +21,8 @@ behind the same seam.
 | `shell-data.js` | Every row the shell shows (the engine's, D.2's, the FX modules', Arp's), each with its `target` (engine, resolver, rack, midi) and `source`, plus the pages' control lists and the bank's, as one script the shell loads from `file://`. | generated |
 | `vendor/*.json` | Verbatim, dated copies of the hosted FX modules' manifests (provenance below). Never edited; re-vendor. | copied |
 | `engine-stub.js` | The no-audio engine (`GUI3Engine.METHODS`, `GUI3Engine.Stub`), the morph resolver's stub (`ResolverStub`, IF-12's calls), the device side's stub (`DeviceSideStub`: the rack's modules, RC-5 and IF-7, and the MIDI module, Arp), and the synchronous transport over the three (`GUI3Engine.TRANSPORT`, `GUI3Engine.SyncTransport`). | hand |
-| `device.js` | The adapter the shell talks to: morph, corners and their presets, routes, pending modulators and map drops, history, mirror and confirm. `GUI3Device.create(data, transport, {seed})`. | hand |
+| `device.js` | The adapter the shell talks to: morph, corners and their presets, routes (and `syncRoutes`, which writes the map-mode session's working list into them), pending modulators and map drops, history, mirror and confirm. `GUI3Device.create(data, transport, {seed})`. | hand |
+| `shell-logic.js` | The three decisions of the shell that are not drawing, held apart so the seam check runs them: the page bar's groups (`navGroups`), an envelope section's readout (`followedSummary`) and the map-mode bridge between the design system's session and the device (`attachMap`). `GUI3Shell`. | hand |
 
 Regenerate after editing the spec or the layout: `python3 tools/gen_gui3_controls.py`.
 Open the shell from `docs/design/` (or `tools/labs_preview.sh`); `gui3.html#noise,morph` opens a page
@@ -167,11 +168,9 @@ The design master was revised (artifact `1793336699-65f2`, B589; its per-element
   Specimen XY). Seeded with the human's list (their words in `asked`) and the gaps found in the shell. A row leaves only
   when its item ships. The generator's check refuses a row with no reason, an unknown reason, no sentence, no source
   path, a path that does not exist, no B-number or one the ROADMAP lacks, or a `partial` with nothing missing.
-- **The Settings page's failure** (the ledger's `settings` row): the Set tab opens nothing. The page bar's `set` group has
-  one page, `settings`; Page nav makes a one-page group its own page (id `set`), so the click asks for a page `set` that
-  does not exist. `#settings` opens it. Out of slice 5's scope; listed, not fixed.
-- **The mixer:** more room per strip (a documented override of `size-strip-w`, 72 to 92 px, inside the console only;
-  the token change is proposal 21), and a summed oscilloscope and a summed spectrum above the console, drawn with the
+- **The Settings page's failure** (found in slice 5, fixed in slice 6, above): the Set tab opened nothing.
+- **The mixer:** more room per strip (a documented override of `size-strip-w`, 72 to 92 px and, in slice 6, 104 px, inside the console only;
+  the token change is proposal 21), and a summed oscilloscope and a summed spectrum beside the console (slice 6: in the room to its right, so Mix fits the window with the bank shown), drawn with the
   bundle's `Viz.scope` and `Viz.spectrum` from the engine's observation view (`dev.summed()`, IF-10; MOCK in the stub:
   the sounding sources' test tones at their meters' gains times `out.level`).
 - **Envelopes on the oscillator views:** each source's page (Osc 1, Osc 2, Sub, Noise) and its dashboard card shows the
@@ -180,6 +179,38 @@ The design master was revised (artifact `1793336699-65f2`, B589; its per-element
   Release, compact on the page and utility on the card. The controls are the shared rows (`env1.*` on Main, `env2.*` to
   `env4.*` on Mod), all four blocks mounted and the selected one shown, so an edit there is an edit on Mod and the other
   way round (one model, two views; the seam check's `envelope` test and the page's self-check prove it).
+
+## MAP mode, the Set tab, envelope readouts, mixer room (slice 6; the Map Mode spec, ADR-261, ADR-333)
+
+- **The MAP control** (`docs/design-system/HORDE-Map-Mode-Spec.md`, the human's own pick, 2026-10-30) sits in the window's top
+  bar, outside the page area, so it is the same on every page: the bundle's `MapControl` (a toggle joined to a source
+  dropdown) with the live `SourceStrip` of every source under it (one scrolling row; labelled MOCK: no voices, every source
+  reads 0, so the rings sit at their origins). While MAP is on the window's border takes the source's colour. The session is
+  the bundle's (`S.map`, polarity cycle, focus, depth drag, rings, captions); **one** session serves every page, and the page
+  switch never touches it, so a page change keeps MAP on and the source.
+- **Where a mapping goes.** The bundle's gestures edit `S.mappings` in place (a click makes a mapping at 25 % unipolar, a
+  drag sets the depth, a release at exactly 0 cancels, P cycles the polarity, Backspace removes). `GUI3Shell.attachMap`
+  reconciles that working list into the DEVICE at the end of each gesture (`dev.syncRoutes`: one undo step; a new mapping
+  goes through the same RC-4 refusal as the bank's drop, so a destination no route can reach makes no mapping and says so) and
+  reads the device's routes back whenever they change (undo, the bank's drop, init), so the ring on a knob, the bank, the
+  strip's counts and the history read one set of routes. Never during a drag: a new mapping sits at depth 0 until it ends.
+- **Mouse routes of the keys** (hotkeys are accelerators, and the session accepts them in keyboard mode only, ADR-259 ruling 6):
+  M and Esc = the MAP button; 1 to 9 = the dropdown and the strip's chips; P = the polarity pill and Backspace = the remove
+  button of the **inspector** (the bundle's `ModInspector`, docked on the right while MAP is on and gone otherwise).
+- **The Set tab** opened nothing: its group is `set`, its page `settings`, and Page nav left to itself asks for a page named
+  after a one-page group. `navGroups` gives a one-page group its page explicitly.
+- **Envelope readouts:** an oscillator's Envelope section reads the envelope its source follows (its `env` row's pick) and that
+  block's attack and decay, not the first block's (`followedSummary`).
+- **The mixer:** strips 104 px (from 92), the console's own padding, each strip's side padding and a gap between its rows, and
+  extra room left of the on toggle, all `--space-*` tokens through the console's scoped override. The summed scope and spectrum
+  (84 px each) and the note sit in the room to the console's right, so Mix fits the window with the bank shown; beside a docked
+  pad or the inspector they wrap under the console and the page area scrolls.
+- **A bank card draws every control it names:** four utility knobs in one nowrap row of a 220 px card shrank each dial to 0 wide
+  (a label and no knob; a layout fault of the shell since the bank's first slice, not of the bundle); the card's row now wraps,
+  and a self-check measures it, with a squeezed card as its control.
+- **The Ledger stays its own top-level tab** "until it isn't needed at all anymore" (the human, 2026-10-30); its `quick-map` row is
+  now `partial` and lists what the spec has that the shell lacks, its `settings` row says the click works.
+- **Review links:** `#osc1,light,win,map` opens with MAP on, ENV 2 as the source and two knobs mapped.
 
 ## The seam and the transport
 
@@ -231,19 +262,21 @@ on/off and audible corner (RC-11.1), the routes (RC-4 defers the matrix), and th
   vendored file has a provenance row whose sha256 matches its bytes. Every page is in exactly one page-bar
   group; a section's power and modes and a strip's fader, on, mute and solo suit their rows; each dashboard
   card carries its source's power switch and only keys its source page carries; an envelope section's followed
-  rows exist; every port-ledger row passes its rules. Twenty-seven must-fail controls, among them a module's keys
+  rows exist; every port-ledger row passes its rules (the shell-logic script is held to no clock like the rest). Twenty-seven must-fail controls, among them a module's keys
   left unplaced, a vendored file with no provenance row, a page in no nav group, a dashboard key its source page
   lacks, and a ledger row with no reason, an unknown reason, no source, a missing source, or no B-number.
-- `node tools/labharness/gui3_seam_check.mjs`: twenty-one tests of the stubs, the transport and the adapter
+- `node tools/labharness/gui3_seam_check.mjs`: tests of the stubs, the transport and the adapter
   against the spec, ADR-319, ADR-322 and ADR-330 (morph off, the morph toggle in history, corner snapshots,
   mirror and confirm over a synchronous and a delayed transport, pending modulators dropped on close, map
   drops refused on stepped and reserved rows, each source's values reaching its own side and never the
   engine, the MOCK meters through IF-6's gate with a clip latch that holds until cleared, the summed views read
-  from the observation view, an oscillator view's envelope as the shared keys), twenty-three planted faults
-  (among them summed views fed a constant, and an envelope edited through a copy instead of the shared keys). `--verbose` prints why
-  each plant went red.
+  from the observation view, an oscillator view's envelope as the shared keys), and, since slice 6, of MAP mode on the
+  design system's REAL session, knob, Map control and Page nav (run on a small fake DOM, the bundle read and never
+  edited): a click, a drag, the keys and their mouse routes, a page change, a refused destination, the Set tab and the
+  envelope readout. Planted faults, each red for its own test (the check prints its counts). `--verbose` prints why each plant went red.
 - `lab_load_check` loads the page's inline script (it stops at the missing bundle, as the other bundle
-  labs do). The page's own seventeen self-checks run in a browser, each with a control.
+  labs do). The page's own self-checks run in a browser, each with a control (the MAP, Set tab, envelope-readout and bank-card
+  checks click or measure the real controls).
 
 ## Proposals for the design system (nothing here is drawn locally)
 
@@ -289,8 +322,12 @@ The bundle (version `1793336699-65f2`, B589) lacks these; each goes into the des
 20. **The class `sm`**: **fixed upstream** (`1793336699-65f2`). The revision's per-element dense modifier is now `.hd-sm`, so
     the Random and filter labs, which use a bare `sm` of their own, render as before (`../arp-face/README.md`).
 
-21. **A wider channel strip** (ADR-333: "a little more space on the mixer"): the shell overrides `size-strip-w` to 92 px
-    inside its console; the token (or a `size-strip-w-roomy` variant) belongs in the design system's workshop (B589).
+21. **A wider channel strip** (ADR-333: "a little more space on the mixer"): the shell overrides `size-strip-w` to 104 px, with its
+    own padding, inside its console; the token (or a `size-strip-w-roomy` variant) and the strip's padding belong in the design
+    system's workshop (B589).
+22. **A change event on the session's mapping list** (Map Mode spec): the bundle's gestures edit `S.mappings` in place and tell no
+    one, so the shell reconciles on every `S.emit` (shell-logic.js `attachMap`); an `onMap(change)` hook, and the keys accepted
+    outside keyboard mode as the spec asks (accelerators, never the only route), belong in the design master.
 
 ## Known gaps
 
@@ -310,4 +347,4 @@ The bundle (version `1793336699-65f2`, B589) lacks these; each goes into the des
 - **Not in this slice:** the other pages' designs (B581's order), the rest of the Morph page (B581 step
   3) and the Randomize panel's build, moving the parameter table beside `engine2/structure` (B586), PA-8
   as a table in the spec (B587), the mod map, the per-parameter morph mode (B557), keyboard mapping from
-  the bank (the Map handle is pointer-only), the WebAssembly engine, gui2.
+  the bank (the Map handle is pointer-only), the inspector as an always-on rail with reorderable rows, the corner-scope switch, the WebAssembly engine, gui2.

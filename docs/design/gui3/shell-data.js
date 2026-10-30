@@ -150,7 +150,7 @@ window.GUI3_DATA = {
  },
  "ledger": {
   "format": "horde.gui3-port-ledger/1",
-  "note": "GUI 3's port ledger (ADR-333, ROADMAP B593): everything not yet moved over into the shell, where it lives today and why it has not moved. Seeded 2026-10-30 from the human's list (their words in `asked`), plus the gaps found in the shell. A row leaves only when its item ships in the shell. tools/gen_gui3_controls.py --check holds every row to a reason from `reasons`, a sentence, a source path that exists (or \"nowhere yet\"), a ROADMAP row and a status; `partial` names what is missing. `precise` marks an item the human asked to be copied precisely, not re-derived.",
+  "note": "GUI 3's port ledger (ADR-333, ROADMAP B593): everything not yet moved over into the shell, where it lives today and why it has not moved. Seeded 2026-10-30 from the human's list (their words in `asked`), plus the gaps found in the shell. A row leaves only when its item ships in the shell. tools/gen_gui3_controls.py --check holds every row to a reason from `reasons`, a sentence, a source path that exists (or \"nowhere yet\"), a ROADMAP row and a status; `partial` names what is missing. `precise` marks an item the human asked to be copied precisely, not re-derived. The Ledger stays its own top-level tab: \"It can stay its own tab until it isn't needed at all anymore\" (the human, 2026-10-30, on slice 5's question whether it belongs under Set).",
   "reasons": {
    "ds-component": "waiting on a design-system component",
    "engine-audio": "waiting on the engine or audio",
@@ -193,7 +193,7 @@ window.GUI3_DATA = {
     "asked": "Settings page (currently not working)",
     "id": "settings",
     "item": "The Settings page",
-    "missing": "The Set tab's click (one line in the shell's page bar build, slice 5's out of scope), and every setting beyond polyphony and quality.",
+    "missing": "Every setting beyond polyphony and quality, and the settings lab and file manager (B261).",
     "reason": "unscheduled",
     "roadmap": "B261",
     "source": [
@@ -201,7 +201,7 @@ window.GUI3_DATA = {
      "src/gui/gui2.html"
     ],
     "status": "partial",
-    "why": "What is broken: the Set tab opens nothing. Its page bar group is `set` with one page whose id is `settings`; a one-page group in Page nav is its own page (id `set`), so a click asks the shell for page `set`, which does not exist, and the page stays as it was. The hash `#settings` opens it. Its content is two Device rows (polyphony, quality); the settings lab and file manager (B261) are not designed."
+    "why": "The Set tab opens the page (fixed in slice 6: its page bar group is `set` and its one page `settings`, and Page nav left to itself asks for a page named after a one-page group, so the click opened nothing; the shell now names the page, and the seam check's settab test holds every group's tab to a page that exists). Its content is two Device rows (polyphony, quality); the settings lab and file manager (B261) are not designed."
    },
    {
     "area": "Mix",
@@ -339,14 +339,16 @@ window.GUI3_DATA = {
     "asked": "The quick map selector at the top, from one of the recent labs",
     "id": "quick-map",
     "item": "The quick map selector at the top (the persistent MAP control and its source selector)",
-    "reason": "unscheduled",
+    "missing": "From the spec: the inspector is docked only while MAP is on (the spec's rail is always beside the page) and its rows cannot be dragged to reorder the rings (ring order is the order mapped); the scope switch for corner-level mappings (the spec: global for 1.0, the switch a follow-up), so the device's routes are global and carry no per-corner depth; the keys work only in keyboard mode (ADR-259 ruling 6; the spec wants accelerators always, to be tried inside Live, focused and not); Option-drag, Option-click focus and Option-P are the bundle's and are not under the seam check; the console's faders and sliders were not tried in map mode; the sources read 0 (no voices), so the rings sit at their origins and the live ticks and stacked origins do not move (MOCK). Gaps in the bundle for the design master: the session gives no event when its mapping list changes (the shell reconciles on every emit), and its keys are gated by keyboard mode.",
+    "reason": "ds-component",
     "roadmap": "B532",
     "source": [
+     "docs/design-system/HORDE-Map-Mode-Spec.md",
      "docs/design-system/HORDE-Map-Mode.html",
      "docs/design/arp-face/bundle.js"
     ],
-    "status": "not-moved",
-    "why": "The Map Mode spec's persistent MAP control is the design system's MapControl; no recent lab in docs/design mounts it, so which lab the human means is a question. The shell maps by the bank's handle today; the mod map is B581 step 1."
+    "status": "partial",
+    "why": "The human named it (2026-10-30): \"HORDE Map Mode.html\" and \"HORDE Map Mode Spec.md\", the spec in docs/design-system. Slice 6 mounts the design system's MapControl and source strip in the top bar and the bundle's own session behind them (MAP on: click makes a device route at 25 % unipolar, drag sets the depth, release at 0 cancels; M, Esc, 1 to 9, P and Backspace each with its mouse route; rings from the bundle), and writes every mapping into the device's matrix, one undo step per gesture. What remains waits on the design master or a ruling."
    },
    {
     "area": "Hist",
@@ -7882,7 +7884,7 @@ window.GUI3_DATA = {
    ],
    "id": "mix",
    "label": "Mix",
-   "note": "A console (B589, ADR-329 item 3) with more room per strip (ADR-333), under a summed oscilloscope and a summed spectrum: one strip per source and the master, each fader its level key, attached to its own on, mute and solo keys; the meters, the peaks and the summed views are the stub's MOCK observation view (IF-6, IF-10); the CLIP lamp latches and clears on a click.",
+   "note": "A console (B589, ADR-329 item 3) with more room per strip (ADR-333), beside a summed oscilloscope and a summed spectrum: one strip per source and the master, each fader its level key, attached to its own on, mute and solo keys; the meters, the peaks and the summed views are the stub's MOCK observation view (IF-6, IF-10); the CLIP lamp latches and clears on a click.",
    "panel": "console",
    "power": null,
    "status": "designed",
