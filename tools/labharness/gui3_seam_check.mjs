@@ -51,6 +51,20 @@
  *                flat, a source moves them, +6 dB on its fader scales the scope by 10^(6/20)
  *   envelope     ADR-333: an oscillator view shows the envelope its `env` row selects, and edits the shared keys the
  *                Mod page carries (one model, two views)
+ *   mapclick     the Map Mode spec (ADR-261), on the design system's REAL session and knob over the adapter: with MAP on a
+ *                click on a knob makes a DEVICE route from the current source, 25 % unipolar, as one undo step; with MAP
+ *                off none; a click on an already-mapped parameter only selects; undo takes it away and the session follows
+ *   mapdrag      a drag released at exactly 0 makes no route and no step (even if another part of the shell emits mid-drag);
+ *                a drag up makes one route at the dragged depth; a drag on an existing mapping edits its depth, one step
+ *   mapkeys      M tap latches, M hold is momentary, Esc and M turn MAP off, 1 to 9 choose the source, P cycles the device
+ *                route's polarity and Backspace removes it, one step each, in keyboard mode only; the inspector's polarity
+ *                pill and remove button (S.cyclePol, S.remove) do the same
+ *   mapcontrol   the mouse routes: the MAP button, the source dropdown and the strip's chips, which list every device source
+ *   mappage      a page change keeps MAP and the source: one session, and the page switch never touches it (structural; the
+ *                shell's own self-check clicks it); the control is mounted in the top bar, outside the page area
+ *   maprefused   a knob no route can reach (a morph setting) makes no route, no ring, and the refusal is said (RC-4)
+ *   settab       a click on every page-bar group's tab opens a page that exists (the Set tab's group is `set`, its page `settings`)
+ *   envsummary   an oscillator section's readout names the envelope its source follows (its own `env` row), not the first block
  *   determinism  the same seed and calls give byte-identical device and engine state; another seed differs
  *
  * MUST-FAIL CONTROLS (plants), every run, on in-memory copies of the two scripts: an observe() that
@@ -61,8 +75,11 @@
  * a drag, a snapshot that overwrites a newer send, a close that keeps unmapped modulators, a drop that maps a
  * stepped row, a refused drop that clears the pending state, and the module, Arp and morph-setting values each
  * sent to the engine instead of their own side, a meter that ignores solo, a clear that does not unlatch, summed
- * views fed a constant, and an oscillator view that edits a copy of its envelope instead of the shared keys. Each must turn its own test red (and its
- * anchor must exist, or the plant itself is reported as vacuous).
+ * views fed a constant, and an oscillator view that edits a copy of its envelope instead of the shared keys, a session list that never
+ * reaches the device, a mapping written bipolar, a MAP gesture that is no history step, a push during the drag, a removal the device
+ * never learns of, a MAP button that only switches on, a refusal that is not said or a refused ring that stays, a page switch that
+ * turns MAP off, a one-page group left to the bundle (the Set tab's fault), and an envelope summary read from the first block. Each must
+ * turn its own test red (and its anchor must exist, or the plant itself is reported as vacuous).
  *
  * Usage: node tools/labharness/gui3_seam_check.mjs [--verbose]   (exit 1 on any failure; --verbose prints
  *        what each plant turned red, to read that a control failed for the right reason)
@@ -79,12 +96,48 @@ const SRC = {
   data: readFileSync(join(G, 'shell-data.js'), 'utf8'),
   stub: readFileSync(join(G, 'engine-stub.js'), 'utf8'),
   device: readFileSync(join(G, 'device.js'), 'utf8'),
+  logic: readFileSync(join(G, 'shell-logic.js'), 'utf8'),
+  // the design system's vendored bundle (read only: plants mutate in-memory copies) and the shell page, for the map-mode tests
+  bundle: readFileSync(join(root, 'docs/design/arp-face/bundle.js'), 'utf8'),
+  shell: readFileSync(join(root, 'docs/design/gui3.html'), 'utf8'),
 };
 
-// The three scripts are classic scripts that assign to `window`; give them a fresh one each load.
+/* A DOM just big enough to run the design system's own Knob, Page nav and Map control: elements that keep their children,
+   text, classes and listeners, and an event helper. It parses no HTML (the inspector's rows are drawn with innerHTML, so
+   the inspector is exercised through the calls its buttons make). The bundle's keys are listeners on the window, so the
+   test presses them by calling those listeners. */
+class El {
+  constructor(tag) { this.tagName = String(tag).toUpperCase(); this.children = []; this.attrs = {}; this.on = {}; this.style = { setProperty() {}, cssText: '' }; this.dataset = {}; this._cls = new Set(); this._text = ''; this._html = ''; this.hidden = false; this.title = ''; }
+  get className() { return [...this._cls].join(' '); }
+  set className(v) { this._cls = new Set(String(v).split(/\s+/).filter(Boolean)); }
+  get classList() { const c = this._cls; return { add: (...a) => a.forEach(x => c.add(x)), remove: (...a) => a.forEach(x => c.delete(x)), toggle: (x, f) => { const on = f === undefined ? !c.has(x) : !!f; if (on) c.add(x); else c.delete(x); return on; }, contains: x => c.has(x) }; }
+  get textContent() { return this._text + this.children.map(c => c.textContent).join(''); }
+  set textContent(v) { this.children = []; this._text = String(v); }
+  get innerHTML() { return this._html; }
+  set innerHTML(v) { this.children = []; this._text = ''; this._html = String(v); }
+  appendChild(c) { this.children.push(c); return c; }
+  setAttribute(k, v) { this.attrs[k] = String(v); }
+  getAttribute(k) { return k in this.attrs ? this.attrs[k] : null; }
+  addEventListener(t, f) { (this.on[t] = this.on[t] || []).push(f); }
+  getBoundingClientRect() { return { left: 0, top: 0, right: 200, bottom: 200, width: 200, height: 200 }; }
+  setPointerCapture() {} releasePointerCapture() {} hasPointerCapture() { return false; } focus() {} removeEventListener() {}
+  *walk() { for (const c of this.children) { yield c; yield* c.walk(); } }
+  all(pred) { return [...this.walk()].filter(pred); }
+  querySelector(sel) { const cls = sel.match(/\.([\w-]+)/g) || []; return this.all(x => cls.length && cls.every(c => x._cls.has(c.slice(1))))[0] || new El('i'); }
+  fire(t, props) { const e = { type: t, target: this, button: 0, pointerId: 1, preventDefault() {}, stopPropagation() {}, ...props }; (this.on[t] || []).forEach(f => f(e)); }
+}
+function fakeDom() {
+  const doc = { createElement: t => new El(t), createElementNS: (_, t) => new El(t), createTextNode: t => Object.assign(new El('#text'), { _text: t }), body: new El('body'), documentElement: new El('html'), activeElement: null };
+  const keys = { keydown: [], keyup: [], blur: [] };
+  return { document: doc, keys, addEventListener: (t, f) => { (keys[t] = keys[t] || []).push(f); } };
+}
+
+// The scripts are classic scripts that assign to `window`; give them a fresh one each load. The bundle runs on the fake DOM.
 function load(src) {
-  const win = {};
-  for (const k of ['data', 'stub', 'device']) new Function('window', src[k])(win);
+  const win = {}, dom = fakeDom();
+  for (const k of ['data', 'stub', 'device', 'logic']) new Function('window', src[k])(win);
+  new Function('window', 'document', 'addEventListener', 'requestAnimationFrame', src.bundle)(win, dom.document, dom.addEventListener, () => 0);
+  win.__dom = dom; win.__shellText = src.shell;
   return win;
 }
 
@@ -422,6 +475,168 @@ function suite(W) {
     ok(d.heard(again.viz.a) === .27, 'an edit on the Mod page did not read back on the oscillator view');
   };
 
+  /* MAP MODE (the Map Mode spec, ADR-261; B584 slice 6). The rig is the design system's REAL session and knob (on the fake
+     DOM) over the real adapter, joined by shell-logic.js as the shell joins them: every claim below is about what reaches the
+     DEVICE's routes and its history, never about the session's own list. Keys are the session's own (keyboard mode, ADR-259
+     ruling 6); the inspector's polarity pill and remove button call S.cyclePol and S.remove, so those calls are the mouse
+     route of P and Backspace. */
+  const SPEC_DEPTH = .25;
+  const mapRig = () => {
+    const f = fresh(), H = W.Horde, dom = W.__dom, d = f.d;
+    const S = new H.Session({ x: .5, y: .5, corners: [null, null, null, null], sources: d.sources().map(s => ({ id: s.id, name: s.name, kind: s.kind, f: () => 0 })), mappings: [] });
+    const br = W.GUI3Shell.attachMap(S, d);
+    const n0 = { keydown: dom.keys.keydown.length, keyup: dom.keys.keyup.length };
+    S.start();
+    const knob = key => {
+      const row = by[key], host = new El('div');
+      H.Knob(host, { key, name: row.label, path: row.label, kind: 'c', fmt: v => v.toFixed(2), def: row.default_v, vals: [0, 1, 2, 3].map(i => d.corner(key, i)), size: 'compact' }, S);
+      return host.all(x => x.on.pointerdown)[0];
+    };
+    const at = y => ({ clientX: 10, clientY: y });
+    return { S, d, br, H, knob, steps: () => d.history().past.length,
+      click: face => { face.fire('pointerdown', at(100)); face.fire('pointerup', at(100)); },
+      // a vertical drag by dy px (up is positive); `mid` runs while the pointer is still down (any other part of the shell may emit)
+      drag: (face, dy, mid) => { face.fire('pointerdown', at(100)); face.fire('pointermove', at(100 - dy)); if (mid) mid(); face.fire('pointerup', at(100 - dy)); },
+      press: (o, t = 0) => dom.keys.keydown.slice(n0.keydown).forEach(fn => fn({ repeat: false, altKey: false, timeStamp: t, target: { tagName: 'DIV' }, preventDefault() {}, ...o })),
+      release: (o, t = 0) => dom.keys.keyup.slice(n0.keyup).forEach(fn => fn({ timeStamp: t, ...o })) };
+  };
+  const cont2 = firstOf(r => r.law !== 'step' && r.pv && r.key !== cont.key);
+  // the morph's settings are the resolver's inputs (IF-12), never a modulation destination: a continuous one no route can reach
+  const noPv = all.find(r => r.target === 'resolver' && r.law !== 'step');
+
+  T.mapclick = () => {
+    const { S, d, br, knob, click, steps } = mapRig(), face = knob(cont.key);
+    S.setSrc('env3');
+    click(face);
+    ok(d.routes().length === 0 && steps() === 0, 'MAP off: a click on a knob made a route (it is a base-value gesture)');
+    S.setMap(true); click(face);
+    const r = d.routes();
+    ok(r.length === 1 && r[0].src === 'env3' && r[0].param === cont.key && r[0].pol === 'uni' && near(r[0].depth, SPEC_DEPTH), 'MAP on: a click did not make a DEVICE route from the current source at 25 % unipolar: ' + JSON.stringify(r));
+    ok(steps() === 1, 'a route made by MAP is not one undo step (' + steps() + ')');
+    ok(S.mappings.length === 1 && S.mappings[0].id === r[0].id, 'the session does not hold the device’s route (its ring would not draw)');
+    click(face);
+    ok(d.routes().length === 1 && near(d.routes()[0].depth, SPEC_DEPTH) && steps() === 1, 'a click on a parameter already mapped from the current source changed it (the spec: it only selects)');
+    S.setSrc('env4'); click(knob(cont2.key));
+    ok(d.routes().length === 2 && d.routes()[1].src === 'env4' && d.routes()[1].param === cont2.key && steps() === 2, 'a second source on a second knob is not a second route and a second step');
+    ok(d.undo() && d.routes().length === 1, 'undo did not take the last MAP route away');
+    br.frame();
+    ok(S.mappings.length === 1 && S.mappings[0].src === 'env3', 'the session did not follow the device after the undo');
+    ok(S.map.on && S.map.src === 'env4', 'MAP or its source changed with a device change (a page change must keep both)');
+  };
+
+  T.mapdrag = () => {
+    const { S, d, knob, drag, steps } = mapRig(), face = knob(cont.key);
+    S.setMap(true); S.setSrc('env3');
+    drag(face, -40, () => S.say('another part of the shell speaks mid-drag'));   // down, so the depth stays 0: released at exactly 0
+    ok(d.routes().length === 0 && steps() === 0 && S.mappings.length === 0, 'a drag released at 0 left a route or a step (' + d.routes().length + ' routes, ' + steps() + ' steps)');
+    drag(face, 80, () => S.say('mid-drag'));                                          // one drag length is 160 px: depth .5
+    ok(d.routes().length === 1 && near(d.routes()[0].depth, .5) && steps() === 1, 'a drag up did not make one route at the dragged depth: ' + JSON.stringify(d.routes()));
+    drag(face, -40);                                                                   // the same mapping, dragged down: .25
+    ok(d.routes().length === 1 && near(d.routes()[0].depth, .25) && steps() === 2, 'a drag on an existing mapping did not edit its depth as one step: ' + JSON.stringify(d.routes()) + ', ' + steps() + ' steps');
+    ok(d.undo() && near(d.routes()[0].depth, .5), 'undo did not put the depth back');
+  };
+
+  T.mapkeys = () => {
+    const { S, d, knob, click, press, release, steps } = mapRig(), face = knob(cont.key);
+    press({ code: 'KeyM' }, 0); release({ code: 'KeyM' }, 100);
+    ok(!S.map.on, 'a key worked with keyboard mode off (ADR-259 ruling 6)');
+    S.keys = true;
+    press({ code: 'KeyM' }, 0); release({ code: 'KeyM' }, 100);
+    ok(S.map.on && !S.map.momentary, 'M tapped (within 280 ms) did not latch MAP on');
+    press({ code: 'KeyM' }, 500); release({ code: 'KeyM' }, 600);
+    ok(!S.map.on, 'M while MAP is latched did not turn it off');
+    press({ code: 'KeyM' }, 0);
+    ok(S.map.on && S.map.momentary, 'M held did not turn MAP on for the hold');
+    release({ code: 'KeyM' }, 400);
+    ok(!S.map.on, 'releasing a held M did not end MAP');
+    S.setMap(true); press({ key: 'Escape' });
+    ok(!S.map.on, 'Esc did not turn MAP off');
+    S.setMap(true); press({ code: 'Digit3' });
+    ok(S.map.src === 'env3', 'the number 3 did not choose the third source (' + S.map.src + ')');
+    press({ code: 'Digit9' });
+    ok(S.map.src === d.sources()[8].id, 'the number 9 did not choose the ninth source');
+    press({ code: 'Digit3' }); click(face);
+    ok(d.routes().length === 1 && steps() === 1, 'no route to cycle');
+    press({ code: 'KeyP' });
+    ok(d.routes()[0].pol === 'bi' && steps() === 2, 'P did not make the device route bipolar as one step (' + d.routes()[0].pol + ', ' + steps() + ')');
+    S.cyclePol(S.lastMap);                                                              // the inspector’s polarity pill
+    ok(d.routes()[0].pol === 'inv' && steps() === 3, 'the polarity pill did not make the device route inverse as one step');
+    press({ key: 'Backspace' });
+    ok(d.routes().length === 0 && steps() === 4, 'Backspace did not remove the device route as one step');
+    click(face); const id = d.routes()[0].id;
+    S.remove(S.lastMap);                                                                // the inspector’s remove button
+    ok(!d.routes().some(r => r.id === id) && steps() === 6, 'the remove button did not remove the device route as one step');
+    S.setMap(false); click(face); press({ key: 'Backspace' });
+    ok(d.routes().length === 0, 'MAP off: a click made a route');
+  };
+
+  /* The mouse routes of the keys: the MAP button (M, Esc), the dropdown and the source strip's chips (1 to 9). */
+  T.mapcontrol = () => {
+    const { S, d, H } = mapRig(), mc = new El('div'), strip = new El('div');
+    H.MapControl(mc, S, { strip, frame: new El('div') });
+    const btn = mc.all(x => x.tagName === 'BUTTON')[0], sel = mc.all(x => x.tagName === 'SELECT')[0];
+    ok(btn && sel, 'the control has no button or no source dropdown');
+    btn.fire('click'); ok(S.map.on, 'the MAP button did not turn MAP on');
+    sel.value = 'env4'; sel.fire('change'); ok(S.map.src === 'env4', 'the dropdown did not choose the source');
+    const chips = strip.all(x => x.dataset && x.dataset.src);
+    ok(chips.length === d.sources().length, 'the source strip does not list every source the device publishes (' + chips.length + ')');
+    chips.find(c => c.dataset.src === 'env2').fire('click'); ok(S.map.src === 'env2', 'a chip did not choose its source');
+    btn.fire('click'); ok(!S.map.on && S.map.src === 'env2', 'the MAP button did not turn MAP off, or the source changed with it');
+  };
+
+  /* A page change keeps MAP and the source: there is ONE session, and the page switch never touches it. A structural
+     test, because the page switch is the shell's own code (gui3.html); the in-page self-check clicks it for real. */
+  T.mappage = () => {
+    const t = W.__shellText, sp = /function selectPage\(id\) \{[\s\S]*?\n\}/.exec(t);
+    ok(sp, 'selectPage is not in the shell');
+    ok(!/S\.map\b|setMap|setSrc/.test(sp[0]), 'the page switch touches MAP state: ' + (/S\.map\b|setMap|setSrc/.exec(sp[0]) || [''])[0]);
+    ok((t.match(/new H\.Session\(/g) || []).length === 1, 'the shell has more than one session: a page could have its own MAP state');
+    ok(/<main id="pages"><\/main>/.test(t) && t.indexOf('id="mapHost"') > 0 && t.indexOf('id="mapHost"') < t.indexOf('<main id="pages">') && /H\.MapControl\(\$\('mapHost'\)/.test(t), 'the MAP control is not mounted in the top bar, outside the page area');
+  };
+
+  /* A knob whose destination no route can reach (RC-4: here a morph setting, the resolver's input) makes no mapping:
+     the matrix refuses, the session does not keep a ring the device does not hold, and it says why. */
+  T.maprefused = () => {
+    ok(noPv, 'no continuous morph setting to test a refused destination with');
+    const { S, d, knob, click, steps } = mapRig(), face = knob(noPv.key);
+    S.setMap(true); S.setSrc('env2'); click(face);
+    ok(d.routes().length === 0 && steps() === 0, 'a refused destination made a route or a step');
+    ok(S.mappings.length === 0, 'the session kept a mapping the device refused (a ring with no route behind it)');
+    ok(/RC-4/.test(S.message), 'the refusal was not said (' + S.message + ')');
+  };
+
+  /* The Set tab: its group is `set` and its page `settings`; a click on any group's tab must open a page that exists. */
+  T.settab = () => {
+    const PG = Object.fromEntries(DATA.pages.map(p => [p.id, p])), opened = [];
+    const host = new El('div'), groups = W.GUI3Shell.navGroups(DATA.nav, PG, () => false);
+    W.Horde.PageNav(host, { label: 'Page groups', panel: 'pages', keys: () => false, groups, onChange: (g, pid) => opened.push([g, pid]) });
+    const tabs = host.all(x => x.className.split(' ').includes('pn-g'));
+    ok(tabs.length === DATA.nav.length, 'the page bar does not draw every group (' + tabs.length + ')');
+    for (const g of DATA.nav.slice(1).concat(DATA.nav.slice(0, 1))) {
+      opened.length = 0;
+      tabs.find(t => t.textContent === g.label).fire('click');
+      ok(opened.length === 1 && g.pages.includes(opened[0][1]) && PG[opened[0][1]], 'the ' + g.label + ' tab opens ' + JSON.stringify(opened) + ', not one of its pages ' + g.pages.join(', '));
+    }
+  };
+
+  /* An oscillator section's readout names the envelope its source FOLLOWS (RC-6.5): for each source its own `env` row's pick. */
+  T.envsummary = () => {
+    const { d } = fresh(), S = W.GUI3Shell, shown = (f, blk) => ['a', 'd'].map(k => W.GUI3Engine.display(by[f.options[blk].viz[k]], d.shown(f.options[blk].viz[k]))).join(' · ');
+    const follows = DATA.pages.filter(p => ['osc1', 'osc2', 'sub', 'noise'].includes(p.id)).map(p => ({ page: p.id, f: p.groups.find(g => g.follow).follow }));
+    ok(follows.length === 4, 'the four oscillator pages do not each follow an envelope');
+    follows.forEach(({ page, f }, i) => {
+      const blk = ['ENV 1', 'ENV 2', 'ENV 3', 'ENV 4'][(i + 1) % 4], other = blk === 'ENV 1' ? 'ENV 2' : 'ENV 1';
+      d.set(f.selector, (['ENV 1', 'ENV 2', 'ENV 3', 'ENV 4'].indexOf(blk)) / (by[f.selector].n - 1));
+      d.set(f.options[blk].viz.a, .3 + i / 10); d.set(f.options[other].viz.a, .9);
+      const t0 = S.followedSummary(d, W.GUI3Engine, by, f).join(' · ');
+      ok(t0 === shown(f, blk), page + ': the summary reads “' + t0 + '”, not ' + blk + '’s “' + shown(f, blk) + '”');
+      d.set(f.options[other].viz.a, .1);
+      ok(S.followedSummary(d, W.GUI3Engine, by, f).join(' · ') === t0, page + ': an envelope the source does not follow moved its summary');
+      d.set(f.options[blk].viz.a, .75);
+      ok(S.followedSummary(d, W.GUI3Engine, by, f).join(' · ') !== t0, page + ': the followed envelope moved and its summary did not');
+    });
+  };
+
   T.determinism = () => {
     const run = seed => {
       const { e, d } = fresh(seed);
@@ -474,6 +689,21 @@ const PLANTS = [
   ['mapdrop', 'device', "if (!r || r.law === 'step' || (r.target === 'resolver') || ((r.target || 'engine') === 'engine' && !r.pv))", 'if (!r)'],
   ['mapdrop', 'device', '      if (res.ok) { var k = pending.indexOf(src);', '      { var k = pending.indexOf(src);'],
   ['sync', 'device', 'if (sentSeq[k] !== undefined && s.ack < sentSeq[k]) continue;', ''],
+  // slice 6 (map mode, the Set tab, the envelope summary). The session's list never reaches the device; a mapping written
+  // with the wrong polarity; a gesture that is no history step; a push during the drag; a removal the device never learns
+  // of; a MAP button that only switches on; a refused mapping the session keeps; a page switch that turns MAP off; a
+  // one-page group left to the bundle (the Set tab's fault); a summary read from the first block.
+  ['mapclick', 'logic', 'if (sig(dev.routes()) !== last) pull(); else push();', 'pull();'],
+  ['mapclick', 'logic', 'var o = { id: m.id, src: m.src, param: m.param, pol: m.pol, depth: m.depth };', "var o = { id: m.id, src: m.src, param: m.param, pol: 'bi', depth: m.depth };"],
+  ['mapclick', 'device', 'if (dirty) { step(label, function () { st.routes = next; st.nextRoute += fresh; }); changed(); }', 'if (dirty) { st.routes = next; st.nextRoute += fresh; changed(); }'],
+  ['mapdrag', 'logic', '    function push() {\n      if (S.drag) return;', '    function push() {'],
+  ['mapkeys', 'device', 'if (st.routes.some(function (x) { return kept.indexOf(x.id) < 0; })) {', 'if (false) {'],
+  ['mapcontrol', 'bundle', "btn.addEventListener('click', function () { S.setMap(!S.map.on); });", "btn.addEventListener('click', function () { S.setMap(true); });"],
+  ['maprefused', 'logic', "      pull();\n      if (r.refused.length) S.say(", "      if (r.refused.length) S.say("],
+  ['maprefused', 'logic', "if (r.refused.length) S.say('Refused: ' + r.refused[0].why);", 'void 0;'],
+  ['mappage', 'shell', 'page = id; closeMenu();', 'page = id; closeMenu(); S.setMap(false);'],
+  ['settab', 'logic', ': [{ id: g.pages[0], label: g.label }] };', ': undefined };'],
+  ['envsummary', 'logic', 'var fb = dev.followed(follow);', 'var fb = follow.options[Object.keys(follow.options)[0]];'],
 ];
 for (const [test, file, from, to] of PLANTS) {
   if (!SRC[file].includes(from)) { bad.push(`plant for ${test}: its anchor is gone from ${file}, so the control is vacuous`); continue; }
