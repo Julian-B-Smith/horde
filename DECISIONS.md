@@ -10304,3 +10304,27 @@ The critic independently reproduced all 24 of R3's golden quantum picks.
 - B590 drafts the standard divisions and files notices to the modules that sync (Arp, Echo, Sluice, Shriek, Scape and others as they apply).
 - **FX device (ADR-254):** the same divisions and toggles on its synced controls. X39 applies to its morph.
 
+## ADR-327 — RULED by the human: X41 to X43; corner `ratios` texts are stored with the corner values; the Random lab gains an Envelopes level (B585, B578; 2026-10-30)
+
+**Context.**
+- The critic's diff check of the morph appendix's revision 3 (horde #1275) found four new text-sized majors, all fixed in revision 4 (063aeca), and asked the human one question.
+- The lead had asked X42 as "Each corner's `ratios` text now sits in the saved state (as you ruled)". That wording was the lead's own consequence line in ADR-326, not the human's ruling, so X42 was asked again as the critic framed it.
+- Separately, the human proposed that "'osc envelopes' should be its own level separate from the rest of the oscillator details, and each individual oscillator's envelope could be randomized separately", and asked to brainstorm before testing.
+
+**Rulings (the human, 2026-10-30, by poll).**
+- **X41:** the triplet and dotted toggles are per synced control, saved with the patch, and only filter the menu. Triplets run 1/16T to 4 bars, dotted values 1/32 to 2 bars.
+- **X42, re-asked** ("With the other corner values"): each corner's `ratios` texts are stored in the morph system's own state, beside the corners' numbers (RC-11.1). The engine's saved state (IF-4) does not change. This supersedes ADR-326's consequence line "IF-4's state carries `ratios` per corner".
+- **X43:** `morph.audible` is a page choice, not a host parameter.
+- **The Random lab's Envelopes level:**
+  - It is its own level, with a row per source, randomized independently.
+  - When sources share an envelope ("Params edit shared; Arch can split"), PARAMS changes the shared envelope and says so, while ARCH may move the source onto a free envelope first. Nothing splits silently.
+  - Where envelope architecture lives ("I'd like to test both options"): the lab offers both the Envelopes level owning it and each oscillator's ARCH keeping its envelope choice. The human rules after playing.
+  - The lab tries all four brainstormed ideas: shape archetypes, relationships between sources, tempo-relative bounds from the standard divisions, and envelope copy with an overlay view.
+
+**Rejected:** instrument-wide toggles; the texts in the engine's state; `morph.audible` automatable; always splitting, or always editing the shared envelope.
+
+**Consequences.**
+- Revision 4 of the appendix carries X41 to X43 and the re-ruled X42. Two small open points remain (X44, X45) before ratification.
+- The Random lab's round 5 builds the Envelopes level.
+- **FX device (ADR-254):** X41 applies to its synced controls. The Envelopes level does not apply, since it has no voice sources.
+
