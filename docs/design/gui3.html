@@ -506,6 +506,33 @@ function randomizePlaceholder() {
   return el;
 }
 
+/* THE MOD MATRIX (ADR-266 rulings 1, 3, 4, 6; ADR-136: the Mod page carries the routes; ADR-338 ruling 8 keeps the grid as
+   the Mod page's route view). The bundle's ModMatrixGrid and RouteList on the session's mappings, which the map bridge keeps
+   equal to the DEVICE's routes, so a cell, a route row, MAP on a knob and the bank all edit the same matrix. The grid's columns
+   are the routed parameters plus the selected one: every source against what is routed, not 317 columns. The grid takes its
+   columns when built, so a change in that set rebuilds it, and the old view is silenced (the session has no way to drop a
+   view). Both draw only while the Mod page shows. The Mod page's own form (M5, list + detail) waits on the composition lab's
+   round 2. */
+function modMatrix() {
+  const gridHost = h('div'), listHost = h('div'), note = h('span', { class: 'hd-hint' });
+  const onMod = v => { const r0 = v.render; v.render = function () { if (page === 'mod') r0.apply(v, arguments); }; return v; };
+  let grid = null, lastCols = null;
+  views.push({ page: 'mod', update() {
+    const ks = [...new Set(S.mappings.map(m => m.param).concat(S.selected ? [S.selected] : []))].filter(k => ROW[k] && S.params[k]);
+    const sig = ks.join('|'); if (sig === lastCols) return; lastCols = sig;
+    if (grid) grid.render = () => {};
+    gridHost.innerHTML = ''; grid = null;
+    note.textContent = ks.length ? ks.length + (ks.length === 1 ? ' destination' : ' destinations') + ': the routed parameters and the selected one. Click an empty cell to map at 25 %; drag a cell for its depth.'
+      : 'No routes yet. Turn MAP on and click a control, or select a control to give it a column here.';
+    if (!ks.length) return;
+    grid = onMod(H.ModMatrixGrid(gridHost, S, { label: 'the routed parameters', dests: ks.map(k => ({ key: k, name: S.params[k].path || ROW[k].label, short: ROW[k].label })) }));
+  } });
+  onMod(H.RouteList(listHost, S, { label: 'Every route' }));
+  const cm = card('Mod matrix', 'ADR-266', [gridHost, note]), cr = card('Routes', 'ADR-136', [listHost]);
+  cm.classList.add('wide'); cr.classList.add('wide');   // the grid scrolls inside its own region; a half-width card squeezed it
+  return h('div', { class: 'cards' }, cm, cr);
+}
+
 // ===== BLOCK E: the pages, from GUI3_DATA.pages, under the two-level page bar (B589 Page nav) =====
 const pageEls = {};
 const STATUS_TAG = { designed: 'DESIGNED', draft: 'DRAFT', empty: 'NO ENGINE PARAMETERS' };
@@ -782,6 +809,7 @@ DATA.pages.forEach(pg => {
   else if (pg.dense) densePage(pg, el);
   else classicPage(pg, el);
   if (pg.panel === 'morph') el.append(morphPanel());
+  if (pg.id === 'mod') el.append(modMatrix());
   $('pages').append(el); pageEls[pg.id] = el;
 });
 /* A page opens by its id, whatever its group (an old link's #noise still opens the Noise page, under Osc). */
@@ -1302,6 +1330,19 @@ views.push({ page: '*', update() {
     const back = [K.detune, K.coupling, K.crossMod].every((k, i) => Math.abs(dev.shown(k) - v0[i]) < 1e-12);
     selectPage(pg0);
     line(one && landed && shifted && back && Math.abs(v0[0] - .6) > .02, 'Ring: a drag on Osc 1’s ring landed Detune ' + x1.toFixed(2) + ' and Coupling ' + y1.toFixed(2) + ' as one undo step and the Detune knob reads it; a shift-drag moved Cross-mod and held Detune; undo restored all three (control: Detune differed before).'); }
+  // 27. ADR-266: the Mod page's grid and route list read the DEVICE's routes. A route added through the device shows as a grid
+  // column with a filled cell and as a route row; removing it takes both away. Control: before the route the column is absent.
+  { const pg0 = page; selectPage('mod');
+    const tick = () => { for (const v of views) if (v.page === 'mod' || v.page === '*') v.update(); for (const v of S.views) v.render(); };
+    const k = pageKeysList('osc1').find(x => ROW[x].law !== 'step' && (ROW[x].pv || ROW[x].target !== 'engine') && !dev.routes().some(r => r.param === x)), sel0 = S.selected;
+    S.selected = null; tick();
+    const col0 = [...pageEls.mod.querySelectorAll('.mx-gh')].some(b => b.title === S.params[k].path);
+    dev.begin('self-check'); const ok = dev.addRoute({ src: 'env2', param: k }).ok; dev.end(); mapBridge.pull(); tick();
+    const col1 = [...pageEls.mod.querySelectorAll('.mx-gh')].some(b => b.title === S.params[k].path), rows1 = pageEls.mod.querySelectorAll('.mx-routes .mx-row').length;
+    dev.undo(); mapBridge.pull(); tick();
+    const col2 = [...pageEls.mod.querySelectorAll('.mx-gh')].some(b => b.title === S.params[k].path);
+    S.selected = sel0; selectPage(pg0);
+    line(ok && !col0 && col1 && rows1 >= 1 && !col2, 'Mod matrix: ENV 2 → ' + S.params[k].path + ' added through the device appeared as a grid column and a route row (' + rows1 + '); undo removed the column (control: absent before).'); }
   // 13. The page bar (B589): an old link's page id opens its page under its group, and the group remembers it.
   selectPage('noise'); const nv = nav.get(); selectPage('main'); const nm2 = nav.get();
   line(nv.group === 'osc' && nv.page === 'noise' && nm2.group === 'main', 'Page nav: #noise opens Noise under Osc (' + nv.group + ' / ' + nv.page + '); Main is its own group (control: ' + nm2.group + ').');
