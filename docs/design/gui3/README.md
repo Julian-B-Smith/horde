@@ -1,12 +1,14 @@
 # GUI 3: the wired shell
 
-*Last verified 2026-10-29, branch `gui3-b584-slice3` (ROADMAP B584, third slice; ADR-316, ADR-319, ADR-322).*
+*Last verified 2026-10-30, branch `gui3-b584-slice4a` (ROADMAP B584, slice 4a; ADR-316, ADR-319, ADR-322, ADR-330), stacked on spec round 48 (Appendix D).*
 
-`docs/design/gui3.html` is GUI 3's prototype: one window with eleven pages (the Random page folded into the
-Morph page, ADR-322 item 2), every engine parameter reachable, a bottom modulator bank on every page, and no
-audio. It is built from the design system's vendored bundle (`../arp-face/`), its
-controls are generated from SPEC-ENGINE section 5, and it talks to a stub engine through one adapter and
-a swappable transport. The WebAssembly engine (SPEC-ENGINE IF-10, clean-room stage 8) replaces the stub
+`docs/design/gui3.html` is GUI 3's prototype: one window with twelve pages (the Random page folded into the
+Morph page, ADR-322 item 2; a draft Arp page, ADR-330), every parameter that has a machine-readable
+manifest reachable, a bottom modulator bank on every page, and no audio. It is built from the design
+system's vendored bundle (`../arp-face/`). Its controls are generated from SPEC-ENGINE section 5, the
+morph's settings (Appendix D.2), the hosted FX modules' manifests and Arp's (ADR-330). It talks to a stub
+engine, a stub morph resolver and a stub device side (rack and MIDI module) through one adapter and a
+swappable transport. The WebAssembly engine (SPEC-ENGINE IF-10, clean-room stage 8) replaces the stub
 behind the same seam.
 
 ## Map
@@ -16,13 +18,51 @@ behind the same seam.
 | `../gui3.html` | The shell: pages, chrome (docked pad, info box, right-click menu), the Morph page's panel, the seam panel, self-checks. Builds every parameter control in one function from `shell-data.js`, and names no parameter itself. | hand |
 | `layout.json` | Which key goes on which page and in which group, widget overrides with their reasons, PA-8's live-when for the designed pages, a page's shell-built panel, the bank's critical controls per modulator kind. | hand (the page designer) |
 | `params.json` | SPEC-ENGINE section 5 as data: 330 rows (317 host parameters, 13 reserved), with label, unit, law, range, class, options, default and its normalised v, and the row's spec text. | generated |
-| `shell-data.js` | The same rows plus the pages' control lists, as one script the shell loads from `file://`. | generated |
-| `engine-stub.js` | The no-audio engine (`GUI3Engine.METHODS`, `GUI3Engine.Stub`) and the synchronous transport (`GUI3Engine.TRANSPORT`, `GUI3Engine.SyncTransport`). | hand |
+| `shell-data.js` | Every row the shell shows (the engine's, D.2's, the FX modules', Arp's), each with its `target` (engine, resolver, rack, midi) and `source`, plus the pages' control lists and the bank's, as one script the shell loads from `file://`. | generated |
+| `vendor/*.json` | Verbatim, dated copies of the hosted FX modules' manifests (provenance below). Never edited; re-vendor. | copied |
+| `engine-stub.js` | The no-audio engine (`GUI3Engine.METHODS`, `GUI3Engine.Stub`), the morph resolver's stub (`ResolverStub`, IF-12's calls), the device side's stub (`DeviceSideStub`: the rack's modules, RC-5 and IF-7, and the MIDI module, Arp), and the synchronous transport over the three (`GUI3Engine.TRANSPORT`, `GUI3Engine.SyncTransport`). | hand |
 | `device.js` | The adapter the shell talks to: morph, corners and their presets, routes, pending modulators and map drops, history, mirror and confirm. `GUI3Device.create(data, transport, {seed})`. | hand |
 
 Regenerate after editing the spec or the layout: `python3 tools/gen_gui3_controls.py`.
 Open the shell from `docs/design/` (or `tools/labs_preview.sh`); `gui3.html#noise,morph` opens a page
 with morph on and the corners scattered.
+
+## Provenance of the vendored manifests (ADR-330)
+
+Each source beside SPEC-ENGINE 5 is a copy of another repo's file, never edited here. The generator reads
+this table: a vendored file with no row, or whose bytes do not hash to its row's sha256, is red. The path is
+relative to `docs/design/gui3/`; the commit is the source repo's HEAD when copied (2026-10-30).
+
+| file | source | commit | sha256 |
+|---|---|---|---|
+| `vendor/echo.params.json` | Echo `spec/params.json` | `440a04494b980e6fdf318358e862fa2ddbf5f8a2` | `9fe29e7beae5edc8f9f2a0b34372669580883733451a0f364a16ea309764e7e0` |
+| `vendor/echo.manifest.lock.json` | Echo `core/manifest.lock.json` | `440a04494b980e6fdf318358e862fa2ddbf5f8a2` | `a590363559ddfee7021e8e0e7528078186eae891c72a04fb62eb91d4434b56f4` |
+| `vendor/scape.manifest.lock.json` | Scape `core/manifest.lock.json` | `70aa924716256d5ea1e719cda10eaed96babca04` | `6cacf78e6885e6fb7dd2002dee3ad4c9eec97ce8b9e9e7dabe594636d4de1406` |
+| `vendor/shriek.manifest.lock.json` | Shriek `mawcore/manifest.lock.json` (the Maw repo) | `9cd79bb58fef062dd8f565ee5446093b8d0ae9a4` | `cd8f31a5152bebe1186b5e64e16e7b71dd9e502084ffba647d9a792d28289f1c` |
+| `vendor/bulwark.manifest.lock.json` | Bulwark `core/manifest.lock.json` | `88ac52703ae56678807ad21377f3febf56055345` | `8294a43e60a165c6d1f81451bbf215d18f1d19bdad06b7946f7eff71402dbeeb` |
+| `../arp-face/params.snapshot.json` | Arp `spec/params.json` (vendored by B553 at `de4e2af`; byte-identical at the HEAD named here) | `922f1e22e20c0e876cd92c38c7a99ddb135395e2` | `de3704d1a06214da1cf395e16c202b01b9dbf47e3cd82beb64a8534f14d6c63e` |
+| `../arp-face/bank.snapshot.json` | Arp `spec/bank/starter.json` (the same; it supplies the pattern options) | `922f1e22e20c0e876cd92c38c7a99ddb135395e2` | `6925aa22be0c9100c09b4ad280e2bda911ccc39c95f911c0acbde304336f8490` |
+
+**Which file is each module's manifest, and why.** Echo: `spec/params.json`, its declared manifest (its
+schema line names it the B439 / RS-2.1 manifest, with ranges, defaults, laws and labels); its
+`core/manifest.lock.json` freezes the same keys' identity without ranges, so both are vendored and the
+generator checks they list the same keys. Scape, Shriek, Bulwark: their `manifest.lock.json`, the only
+manifest each has. **What they do not declare is not filled in:** Scape gives no labels and no laws (only
+its `io.*` follow RS-4.6's io law), so its controls show their keys and a linear display, marked as such
+in the info box; no module manifest carries descriptions, so the info box says "no description in the
+module's manifest"; Arp gives descriptions (`note`) for 26 of its 47 settings and no laws (its four
+continuous settings are shown linearly).
+
+**Owed, with no manifest found (2026-10-30):** Sluice, Weir. Nothing is shown or invented for them.
+
+**The sources and where their values go.**
+
+| source | keys | rows | where the values go |
+|---|---|---|---|
+| SPEC-ENGINE 5 | as the spec names them | 330 (317 host) | the engine (IF-11) |
+| SPEC-ENGINE Appendix D.2 | `morph.*`, as the spec names them | 13 (11 host; `morph.seed` and `morph.audible` are page choices) | the morph resolver (IF-12), never the engine |
+| Echo, Scape, Shriek, Bulwark | `fx.<module>.<key>`; a Bulwark face's `fx.bulwark.<face>.<key>` | see the generator's GREEN line | the rack (RC-5, IF-7), never the engine |
+| Arp | `arp.<key>` | 47 | the device's MIDI module, never the engine |
 
 ## The widget rule (the design system's rule, ADR-319 item 5)
 
@@ -127,14 +167,18 @@ on/off and audible corner (RC-11.1), the routes (RC-4 defers the matrix), and th
   an override of the widget rule carries a reason; live-when conditions name real options; the shell
   mounts controls in one place and names no key; no gui3 script reads a clock; the outputs are current.
   The bank's critical controls exist in each block their kind matches, and their choice carries a reason.
-  Fourteen must-fail controls.
-- `node tools/labharness/gui3_seam_check.mjs`: seventeen tests of the stub, the transport and the adapter
-  against the spec, ADR-319 and ADR-322 (morph off, the morph toggle in history, corner snapshots, mirror
-  and confirm over a synchronous and a delayed transport, pending modulators dropped on close, map drops
-  refused on stepped and reserved rows), sixteen planted faults. `--verbose` prints why
+  Every source beside SPEC-ENGINE 5 (D.2, the FX modules, Arp) passes the same rule and refusals, and every
+  vendored file has a provenance row whose sha256 matches its bytes. Seventeen must-fail controls, among
+  them a module's keys left unplaced, a vendored file with no provenance row, and one whose bytes changed.
+- `node tools/labharness/gui3_seam_check.mjs`: eighteen tests of the stubs, the transport and the adapter
+  against the spec, ADR-319, ADR-322 and ADR-330 (morph off, the morph toggle in history, corner snapshots,
+  mirror and confirm over a synchronous and a delayed transport, pending modulators dropped on close, map
+  drops refused on stepped and reserved rows, each source's values reaching its own side and never the
+  engine), nineteen planted faults (one each for a module's, Arp's and a morph setting's values sent to the
+  engine). `--verbose` prints why
   each plant went red.
 - `lab_load_check` loads the page's inline script (it stops at the missing bundle, as the other bundle
-  labs do). The page's own ten self-checks run in a browser, each with a control.
+  labs do). The page's own eleven self-checks run in a browser, each with a control.
 
 ## Proposals for the design system (nothing here is drawn locally)
 
@@ -166,6 +210,12 @@ The bundle (version `1793080392-2372`) lacks these; each goes into the design sy
 14. **A horizontal strip** for the bank: the shell lays the cards out in an `hd-card` row that scrolls
     sideways; a strip component (with the +, the empty state and the Mods | Macros switch) is missing.
 15. **A macro card** for the bank's Macros view, once macros exist (RC-4 deferred).
+16. **A knob for a value outside the morph** (ADR-330): a Device-class value (the morph's settings, a
+    module's I/O gains) has one value, no corners. The bundle draws that only as `locked`, whose readout
+    says LOCKED, which reads as a refusal; a "global" state with no pips and no LOCKED is missing.
+17. **A module card with its screen inset** (the FX chain rule, ADR-235): the shell uses `hd-card` with
+    its `.viz` well as the labelled placeholder for the module's own screen; a module card component
+    (name in ink, the inset, the face) is missing.
 
 ## Known gaps
 
@@ -173,6 +223,13 @@ The bundle (version `1793080392-2372`) lacks these; each goes into the design sy
   row's spec text, labelled SPEC TEXT. Missing: 317 of 317; two rows (`sub.semitones`, `sub.fine`) have
   no spec text at all.
 - **Manual anchors:** "Open in manual" is a stub until B451's pages exist (B583).
+- **Owed by the modules (ADR-330):** Scape's labels and laws; descriptions from every FX module's
+  manifest (none gives any); Arp's laws for its four continuous settings. Sluice and Weir have no manifest.
+- **The morph's settings are held, not obeyed:** the resolver stub keeps D.2's values and the position,
+  but the device's blend is still the bilinear stand-in (Blend); Quantum, Stepped, the count, the glide and
+  the seed's draw are the resolver's (MO-6 to MO-10) and come with it.
+- **The rack order** on the FX page (Echo, Scape, Shriek, Bulwark's compressor, then Bulwark's limiter as
+  the master) is the FX chain lab's, not a ruling.
 - **The Randomize panel** on the Morph page is a placeholder that lists its contents to come (ADR-318,
   ADR-320, ADR-321, ADR-322 item 1) and links to the Random lab, which stays the bench.
 - **Not in this slice:** the other pages' designs (B581's order), the rest of the Morph page (B581 step

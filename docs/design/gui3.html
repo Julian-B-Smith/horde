@@ -4,7 +4,8 @@
      the design doc so there isn't redundancy) which connects all the wires without running the audio engine through it?"
      Ruled by poll: "GUI 3's prototype, starting now" (ADR-316, amending B302's gate).
 
-     WHAT THIS IS. One wired shell: eleven pages (the Random page folded into Morph, ADR-322), every engine parameter
+     WHAT THIS IS. One wired shell: twelve pages (the Random page folded into Morph, ADR-322; a draft Arp page, ADR-330),
+     every parameter that has a machine-readable manifest (the engine's, the morph's settings, the FX modules', Arp's)
      reachable, no audio, and a bottom modulator bank on every page (B556).
        - Components come from the design system's vendored bundle only (arp-face/, B553). This file's <style> places
          things (grid, flex, gaps, widths); it draws no component of its own. What the bundle lacks is listed as
@@ -89,7 +90,7 @@
     <button class="hd-kbd hd-focus" id="kbd" type="button" aria-pressed="false" aria-label="Keyboard mode"><span class="lampdot"></span><span id="kbdTxt">KEYS</span></button>
     <button class="hd-btn hd-focus" id="themeBtn" type="button" aria-pressed="false">Dark</button>
   </header>
-  <div class="tagline"><span class="hd-note">GUI 3 (B584, three slices so far): <b>one wired shell</b> with all eleven pages, every engine parameter of SPEC-ENGINE section 5
+  <div class="tagline"><span class="hd-note">GUI 3 (B584, four slices so far): <b>one wired shell</b> with twelve pages, every parameter that has a machine-readable manifest (SPEC-ENGINE section 5, the morph's settings, the hosted FX modules', Arp's)
     reachable on a page, and <b>no audio</b>: a stub engine keeps the values behind the engine's interface. The <b>Sub</b> and <b>Noise</b> pages are
     designed; the others are drafts or hold no engine parameters, and say why. Try: turn <b>Morph</b> on (the pad docks on every page; <b>Pad</b>
     hides it), press <b>Scatter corners</b> below and drag the puck, hover any control to read it in the info box, right-click one for the manual. The <b>bank</b> at the foot of every page lists the modulators routed to it: press + to activate one and drag its Map handle onto a control. The <b>Morph</b> page chooses the corner you hear with morph off and saves snapshots and presets to corners (ADR-319).</span></div>
@@ -185,8 +186,12 @@ const optLabel = (row, v) => row.options ? row.options[idxOf(row, v)] : String(r
 // ===== BLOCK B: the engine, the device adapter and the bundle's Session =====
 // The stub engine behind the synchronous transport (ADR-319 item 3). The adapter reaches the engine only through
 // the transport; `engine` is kept here for the self-checks' probes, never for drawing.
-engine = new ENG.Stub(DATA.params);
-transport = ENG.SyncTransport(engine);
+// Three stubs behind one transport (ADR-330): the engine holds SPEC-ENGINE 5's rows, the morph resolver the morph's
+// settings and position (IF-12), the device side the hosted modules' values (the rack, RC-5) and Arp's (the MIDI module).
+const rowsOf = (...ts) => DATA.params.filter(r => ts.includes(r.target));
+engine = new ENG.Stub(rowsOf('engine'));
+const resolver = new ENG.ResolverStub(rowsOf('resolver')), deviceSide = new ENG.DeviceSideStub(rowsOf('rack', 'midi'));
+transport = ENG.SyncTransport(engine, resolver, deviceSide);
 dev = DEV.create(DATA, transport, { seed: SEED });
 S = new H.Session({ x: .5, y: .5, corners: [null, null, null, null],
   sources: dev.sources().map(s => ({ id: s.id, name: s.name, kind: s.kind, f: () => 0 })),   // no voices, so every source reads 0
@@ -266,8 +271,15 @@ function propsFor(row, ctl, path) {
     get(t, k, rc) { return typeof k === 'string' && /^[0-3]$/.test(k) ? dev.corner(row.key, +k) : Reflect.get(t, k, rc); },
     set(t, k, v) { if (typeof k === 'string' && /^[0-3]$/.test(k)) write(row, v, +k); return true; }
   });
-  return { key: row.key, name: row.label, path, kind: 'c', fmt: v => ENG.display(row, v), def: row.default_v, vals,
-    bipolar: row.law !== 'dB' && row.lo < 0 && row.hi > 0, big: false, vert: ctl.widget === 'vslider' };
+  const p = { key: row.key, name: row.label, path, kind: 'c', fmt: v => ENG.display(row, v), def: row.default_v, vals,
+    bipolar: row.law !== 'dB' && row.law !== 'io' && row.law !== 'io-cut' && row.lo < 0 && row.hi > 0, big: false, vert: ctl.widget === 'vslider' };
+  // A Device-class value (the morph's settings, a module's device rows) is outside the morph: one value, no corners.
+  // The bundle's knob draws that as `locked` with its value in `g`, read from and written through the device.
+  if (row.class === 'D') {
+    p.locked = true;
+    Object.defineProperty(p, 'g', { get: () => dev.shown(row.key), set: v => { write(row, v, null); }, enumerable: true });
+  }
+  return p;
 }
 function mountControl(ctl, pageId, path) {
   const row = ROW[ctl.key];
@@ -341,14 +353,9 @@ function saveTo(i, kind) {
   const res = kind === 'sound' ? dev.saveSoundTo(i, name) : dev.savePreset(i, name);
   S.say(res.ok ? (kind === 'sound' ? 'The current sound is now corner ' + CID(i) + ', saved as ' + name.trim() : 'Corner ' + CID(i) + ' saved as ' + name.trim()) : 'Not saved: ' + res.why);
 }
+// The audible corner while morph is off is D.2's `morph.audible` now, a generated control on this page (ADR-330), so
+// the hand-built picker of slice 2 is gone; the corners, snapshots and presets stay here.
 function morphPanel() {
-  const aud = h('div', { class: 'hd-pills', role: 'radiogroup', 'aria-label': 'Audible corner while morph is off' });
-  const audBs = H.CORNERS.map((c, i) => {
-    const b = h('button', { class: 'hd-pill hd-focus', type: 'button', role: 'radio', 'aria-checked': 'false', 'aria-label': 'Corner ' + c.id });
-    b.innerHTML = H.glyph(i, 8, 'currentColor'); b.append(' ' + c.id);
-    b.addEventListener('click', () => { if (dev.setAudible(i)) S.say('With morph off you hear corner ' + c.id + '; the other three are silent and frozen'); });
-    aud.append(b); return b;
-  });
   const chips = h('div'); H.CornerChips(chips, S);
   const snapBtn = h('button', { class: 'hd-btn hd-focus', type: 'button', text: 'Save current sound to snapshot' }), snapTo = h('span', { class: 'hd-hint' });
   snapBtn.addEventListener('click', () => saveTo(selectedCorner(), 'sound'));
@@ -357,15 +364,12 @@ function morphPanel() {
   views.push({ page: 'morph', update() {
     const m = dev.morph(), sel = selectedCorner(), k = m.audible + '|' + sel + '|' + m.on;
     if (k === last) return; last = k;
-    audBs.forEach((b, i) => b.setAttribute('aria-checked', String(i === m.audible)));
     snapBtn.disabled = sel === null;
     snapTo.textContent = sel === null ? 'Select a corner (its chip) to save into.' : 'Saves to corner ' + CID(sel) + (S.pinned === null ? ' (the audible corner; select another with its chip)' : '') + '.';
   } });
   return h('div', { class: 'cards' },
-    card('Morph off', 'ADR-319', [h('span', { class: 'hd-label', text: 'Audible corner while morph is off' }), aud,
-      h('span', { class: 'hd-hint', text: 'With morph off only this corner sounds and takes edits; the other three are silent and frozen, and come back unchanged when morph turns on. Turning morph on or off is one undo step; moving the pad is not.' })]),
     card('Corners', 'SNAPSHOTS', [chips, h('div', { class: 'hd-row' }, snapBtn, snapTo), h('div', { class: 'hd-row' }, presetBs),
-      h('span', { class: 'hd-hint', text: 'Save current sound: what you hear now becomes the selected corner, under a preset name. Save preset to a corner: that corner’s own values become its saved preset (the edited mark and revert compare against it).' })]),
+      h('span', { class: 'hd-hint', text: 'Save current sound: what you hear now becomes the selected corner, under a preset name. Save preset to a corner: that corner’s own values become its saved preset (the edited mark and revert compare against it). With morph off only the audible corner (Audible corner, above) sounds and takes edits; the other three are frozen.' })]),
     randomizePlaceholder());
 }
 // The Randomize panel's place on the one Morph page (ADR-322 item 2): a placeholder until its build. The Random lab
@@ -389,8 +393,11 @@ DATA.pages.forEach(pg => {
   pg.groups.forEach(g => {
     const face = h('div', { class: 'face' });
     g.controls.forEach(c => face.append(mountControl(c, pg.id, pg.label + ' · ' + g.title + ' · ' + ROW[c.key].label)));
+    // A module card (the FX page) carries an inset where the module's own screen will go: a labelled placeholder (ADR-235).
+    const screen = g.screen ? h('div', { class: 'viz', role: 'img', 'aria-label': g.screen + ' screen placeholder' },
+      h('span', { class: 'hd-hint', text: g.screen + '\u2019s own screen goes here (placeholder)' })) : null;
     cards.append(h('section', { class: 'hd-card' + (g.controls.length > 12 ? ' wide' : ''), 'aria-label': pg.label + ' · ' + g.title },
-      h('div', { class: 'head' }, h('span', { class: 'hd-cluster', text: g.title }), g.tag ? h('span', { class: 'tag', text: g.tag }) : null, h('span', { class: 'hd-hint', text: g.controls.length + (g.controls.length === 1 ? ' control' : ' controls') })), face));
+      h('div', { class: 'head' }, h('span', { class: 'hd-cluster', text: g.title }), g.tag ? h('span', { class: 'tag', text: g.tag }) : null, h('span', { class: 'hd-hint', text: g.controls.length + (g.controls.length === 1 ? ' control' : ' controls') })), screen, face));
   });
   if (pg.groups.length) el.append(cards);
   if (pg.panel === 'morph') el.append(morphPanel());
@@ -417,7 +424,7 @@ function paintDock() {
 }
 function setMorphOn(on) {
   if (on) dev.setMorph({ on: true, x: S.pad.x, y: S.pad.y }); else { dev.setMorph({ on: false }); S.setPin(null); }
-  paintDock(); S.say(on ? 'Morph on: the pad docks on every page' : 'Morph off: corner A is the patch, and the pad takes no space');
+  paintDock(); S.say(on ? 'Morph on: the pad docks on every page' : 'Morph off: the audible corner is the patch, and the pad takes no space');
 }
 $('morphOn').addEventListener('click', () => setMorphOn(!dev.morph().on));
 $('padOn').addEventListener('click', () => { padShown = !padShown; paintDock(); S.say(padShown ? 'Pad shown' : 'Pad hidden: morph stays on'); });
@@ -428,9 +435,16 @@ function showInfo(key) {
   hovered = key;
   if (!key) { $('infoName').textContent = 'Info'; $('infoTag').textContent = 'HOVER'; $('infoKey').textContent = ''; $('infoText').textContent = 'Hover a control to read what it does.'; $('infoMeta').textContent = ''; $('infoLive').textContent = ''; return; }
   const r = ROW[key], see = r.see && ROW[r.see];
-  $('infoName').textContent = r.label; $('infoTag').textContent = 'SPEC TEXT · NO DESC YET'; $('infoKey').textContent = r.key;
-  $('infoText').textContent = (r.spec || '(the spec row says nothing here)') + (see && see.spec ? ' ' + see.label + ': ' + see.spec : '');
-  $('infoMeta').textContent = CLASS_NAME[r.class] + ' · ' + r.law + ' · ' + r.range_text + (r.unit ? ' ' + r.unit : '') + ' · default ' + r.default_text + ' · now ' + ENG.display(r, dev.shown(r.key)) + ' · SPEC-ENGINE ' + r.section;
+  // The description comes from the row's own source: the spec's text for the engine's and the morph's rows, the
+  // manifest's for a module that gives one (Arp's notes), and an honest "none" for a manifest that gives none.
+  $('infoName').textContent = r.label; $('infoKey').textContent = r.key;
+  $('infoTag').textContent = r.desc_source === 'spec' ? 'SPEC TEXT · NO DESC YET' : r.desc_source === 'manifest' ? 'FROM ' + r.source.toUpperCase() + '\u2019S MANIFEST' : 'NO DESCRIPTION';
+  $('infoText').textContent = r.desc_source === 'none' ? 'No description in the module\u2019s manifest (' + r.source + ').'
+    : (r.spec || '(the spec row says nothing here)') + (see && see.spec ? ' ' + see.label + ': ' + see.spec : '');
+  const TO = { engine: 'to the engine', resolver: 'to the morph resolver (IF-12)', rack: 'to the rack (RC-5)', midi: 'to the MIDI module' };
+  $('infoMeta').textContent = CLASS_NAME[r.class] + ' · ' + r.law + (r.law_declared === false ? ' (no law in the manifest: shown linearly)' : '') + ' · ' + r.range_text + (r.unit ? ' ' + r.unit : '') +
+    ' · default ' + r.default_text + ' · now ' + ENG.display(r, dev.shown(r.key)) + ' · ' + r.source + (r.target === 'engine' ? ' ' + r.section : '') + ' · ' + TO[r.target] +
+    (r.host === false ? ' · a page choice, not a host parameter' : '') + (r.label_declared === false ? ' · no label in the manifest: the key is shown' : '');
   const host = document.querySelector('#page-' + page + ' [data-key="' + CSS.escape(key) + '"]'), ctl = host && ctlOf(page, key);
   $('infoLive').textContent = ctl && ctl.live && !live(ctl.live) ? 'Inert now (PA-8): live when ' + says(ctl.live) + '.' : '';
 }
@@ -575,6 +589,7 @@ views.push({ page: '*', update() {
   seamRev = dev.rev();
   const o = dev.observe(), keys = DATA.pages.find(p => p.id === page).groups.flatMap(g => g.controls).map(c => c.key).filter(k => k in o.engine.heard);
   $('seamNote').textContent = 'Engine: ' + o.engine.source + ', audio ' + o.engine.audio + ', ' + o.engine.voices.length + ' voices, ' + o.engine.refused + ' refused. ' +
+    'Resolver: ' + Object.keys(o.resolver.settings).length + ' settings, ' + o.resolver.refused + ' refused. Device side: ' + Object.keys(o.device.values).length + ' module and Arp values, ' + o.device.refused + ' refused. ' +
     'Morph ' + (o.morph.on ? 'on at (' + o.morph.x.toFixed(2) + ', ' + o.morph.y.toFixed(2) + ')' : 'off') + ', ' + o.routes + ' route' + (o.routes === 1 ? '' : 's') + '. ' +
     DATA.counts.host + ' host parameters of ' + DATA.counts.manifest + '; descriptions missing ' + G.desc_missing + ' of ' + G.host + ' (no desc column yet, B582), spec text empty for ' + G.spec_text_missing + '.';
   $('obsTxt').textContent = JSON.stringify({ heard: Object.fromEntries(keys.map(k => [k, o.engine.heard[k]])), counters: o.engine.counters }, null, 1);
@@ -639,7 +654,7 @@ views.push({ page: '*', update() {
   closeMenu(); $('pages').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 40 }));
   line(items.includes('Open in manual') && items.includes('Reset to default') && !menu, 'Right-click: ' + items.join(', ') + '; off a control, no menu (control).');
   // 7. Seeded and deterministic: two fresh stubs given the same calls agree; another seed differs (control).
-  const run = sd => { const e = new ENG.Stub(DATA.params), d = DEV.create(DATA, ENG.SyncTransport(e), { seed: sd }); d.setMorph({ on: true, x: .3, y: .7 }); d.scatter(sd); return JSON.stringify(d.patch()); };
+  const run = sd => { const e = new ENG.Stub(rowsOf('engine')), d = DEV.create(DATA, ENG.SyncTransport(e, new ENG.ResolverStub(rowsOf('resolver')), new ENG.DeviceSideStub(rowsOf('rack', 'midi'))), { seed: sd }); d.setMorph({ on: true, x: .3, y: .7 }); d.scatter(sd); return JSON.stringify(d.patch()); };
   line(run(SEED) === run(SEED) && run(SEED) !== run(SEED + 1), 'Deterministic: the same seed and calls give byte-identical patch state twice; seed ' + (SEED + 1) + ' differs (control).');
   // 9. The bank (ADR-322 item 3): listed from the routes, + makes a pending modulator, a drop on a stepped control is
   // refused and leaves it pending, a drop on a continuous one maps it and lists it on that page only, and closing the
@@ -655,6 +670,29 @@ views.push({ page: '*', update() {
   page = pg0; paintBank();
   line(!before3 && pendShown && refusedStep && mapped && onSub && offNoise && dropped.join() === 'env4' && !dev.pending().length,
     'Bank: + made ENV 3 pending and listed; dropping it on ' + pr.label + ' (stepped) was refused and it stayed pending; on ' + ROW[kc.key].label + ' it mapped and listed on Sub, not on Noise; closing the interface dropped the unmapped ENV 4 (control: ENV 3 was not listed before).');
+  // 10. The new sources (ADR-330) go to their own side and work with the chrome: a module knob's write reaches the rack
+  // and not the engine; a morph setting reaches the resolver; the bank maps onto a module knob and lists it on FX; the
+  // info box says a module gives no description, and shows Arp's own note; right-click offers the manual.
+  // Control: the engine refuses the module's key when sent to it directly.
+  const fxPage = DATA.pages.find(p => p.id === 'fx'), fxc = fxPage.groups[1].controls.find(c => ROW[c.key].law !== 'step'), fxr = ROW[fxc.key];
+  const msc = DATA.pages.find(p => p.id === 'morph').groups[1].controls[0], msr = ROW[msc.key];
+  const arpc = DATA.pages.find(p => p.id === 'arp').groups[0].controls.find(c => ROW[c.key].desc_source === 'manifest'), arpr = ROW[arpc.key];
+  const ref0 = engine.observe().refused;
+  dev.begin('self-check'); PROPS[fxc.key + '@fx'].vals[0] = .61; dev.set(msc.key, .4); dev.end();
+  const toRack = deviceSide.get(fxc.key) === .61 && Math.abs(resolver.get(msc.key) - dev.heard(msc.key)) < 1e-12 && dev.heard(msc.key) !== msr.default_v;
+  const noEngine = engine.observe().refused === ref0 && engine.getParam(fxc.key) === null;
+  page = 'fx'; const fxMapped = dropMap(srcOf('env2'), fxc.key).ok; paintBank(); const fxListed = listed().includes('env2');
+  const fxHost = document.querySelector('#page-fx [data-key="' + CSS.escape(fxc.key) + '"]');
+  fxHost.dispatchEvent(new MouseEvent('pointerover', { bubbles: true })); const noDesc = /^No description in the module/.test($('infoText').textContent);
+  fxHost.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 40 }));
+  const fxMenu = menu ? [...menu.querySelectorAll('[role=menuitem]')].map(b => b.textContent) : []; closeMenu();
+  page = 'arp';
+  document.querySelector('#page-arp [data-key="' + CSS.escape(arpc.key) + '"]').dispatchEvent(new MouseEvent('pointerover', { bubbles: true }));
+  const arpNote = $('infoText').textContent === arpr.spec;
+  dev.undo(); dev.undo(); engine.setParam(fxc.key, .5); const ctl = engine.observe().refused === ref0 + 1;
+  page = pg0; paintBank();
+  line(toRack && noEngine && fxMapped && fxListed && noDesc && fxMenu.includes('Open in manual') && arpNote && ctl,
+    'New sources: ' + fxr.source + ' · ' + fxr.label + ' reached the rack and ' + msr.label + ' the morph resolver, not the engine; ENV 2 mapped onto ' + fxr.label + ' and listed on FX; the info box says ' + fxr.source + ' gives no description and shows Arp’s own note for ' + arpr.label + '; right-click offers the manual (control: the engine refuses the module’s key sent to it directly).');
   showInfo(null); S.message = '';
   dev.clearHistory();   // the checks' own steps (the probes, the morph toggles) are not the user's history
 })();
