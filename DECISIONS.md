@@ -10396,3 +10396,17 @@ The Scalpel bench is `docs/design/scalpel-interface-lab.html` (B271, B293). The 
 - The GUI 3 shell's next slice brings in what has a manifest now (the morph settings of Appendix D.2 and IF-11; Arp's `spec/params.json`; the module lockfiles of Shriek, Bulwark, Scape and Echo, vendored as snapshots) under the same reach check. LFOs, the matrix and device settings have no table yet; they are drafted for B586's one table, for the human's ruling.
 - **FX device (ADR-254):** A11 is the same for its slots. Its pages are the same shell; B591 is its own question first.
 
+## ADR-331 — RULED by the human: Mangle, a seven-mode crush module, is spun up as a sibling repo and aims for horde 1.0 (B592; 2026-10-30)
+
+**Context.** The human, 2026-10-30: "I have just added “Mangle Lab.html” and “Mangle FX Module Spec.md” to the downloads folder; I would like to create a mangle directory and start building it as an FX module". The spec describes one rack module with seven crush modes (period lock, delta mod, fixed-point filter, phase crush, top-N partials, LPC, classic crush) behind one control contract (Poverty, Character, Residue, Mix), a discrete Mode crossfaded over 10 ms, and a Live/Studio latency setting reported as one constant per setting.
+
+**Rulings (the human, 2026-10-30, by poll).** The spin-up survey: "One FX module, library"; "1 · Single thread"; "All of the audio path"; "Invariants + admission"; "C++ leads; JS is behaviour"; "Provider to horde"; "No audit"; tags crush-dsp, spectral-lpc, level-latency, contract-cost; "Long-lived, supervised"; "Aim for 1.0"; "Private, name OK". The manifest: "Ratify" (Mangle D-003). The remote is github.com/Julian-B-Smith/Mangle, private, created by the human.
+
+**Consequences.**
+- Mangle lives at `synthetic-worlds/Mangle`, built to the rack-slot contract like Bulwark and Kiln. Its spin-up notice is `integrations/mangle/notice-spinup.md`.
+- Its Mode is a flip-class key whose 10 ms crossfade is declared under A11 (ADR-309, ADR-330); its Latency setting is a Device key; its latency is one constant per setting (RS-7.1).
+- It will ask horde by brief which FFT a hosted module uses, whether the rack hosts a base-rate module under 2× oversampling, and its macro names.
+- The spec's open decisions Q-1 to Q-7 are staged in Mangle's DECISIONS (D-002) with the spec's own defaults; they are the human's to rule there.
+- B592 tracks it for horde 1.0 (the module cutoff, 2026-12-11, ADR-236).
+- **FX device (ADR-254):** Mangle is an FX module, so it is hosted by the FX device after 1.0 as by horde; how its morph and modulation show on its own screen is B591's question.
+
