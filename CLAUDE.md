@@ -36,6 +36,10 @@ per-project. Project-specific facts live in §Domain and in ROADMAP.md.
 
 - The lead plans, delegates, integrates, and is the **only** writer of
   ROADMAP.md. Subagents never touch it.
+  **Exception (ADR-336):** the GUI session, chartered by `docs/design/CLAUDE.md`,
+  is the only writer of the ROADMAP rows that file lists; the lead does not
+  edit them. Both sessions append ADRs to the one DECISIONS.md, and `./verify`
+  refuses a duplicate ADR or B number (the later PR renumbers).
 - Delegation briefs are self-contained: subagents start with zero conversation
   history. Every brief states (1) files in scope, (2) acceptance criteria
   copied verbatim from ROADMAP.md, (3) the verify target, (4) what is
