@@ -10482,3 +10482,30 @@ The Scalpel bench is `docs/design/scalpel-interface-lab.html` (B271, B293). The 
 - The design-system proposal list gains: the map keys' scope beside keyboard mode, a wider MapControl, and the fixed info box as a component.
 - **FX device (ADR-254):** the same rulings hold on its pages: map keys always, the panel while MAP is on, the fixed info box explaining its modules' sections.
 
+## ADR-336 — RULED by the human: one chain of custody for design (ruling, design master, vendored bundle, shell, engine), the design master's source in the repo, a GUI session with its own scope, and a ledger audit before more GUI building (B595, B596; 2026-10-30)
+
+**Context.** The human, 2026-10-30: "I'm frankly a little confused why so many established design decisions and components haven't made it into the GUI3 shell yet. Maybe I should start a parallel session that works with it exclusively, but I suppose it would first help to make sure I understand where the sources of truth are so I don't create anything that isn't properly wired up. I want to make sure the design system, the composition lab, the GUI shell, and the present state of the build are all integrated responsibly. Please help me decide how to set up that scaffolding so that we don't get buried under redundant work and redundant artifacts and hallucinations and lost decisions".
+
+The lead's findings:
+- About 55 ADRs bear on design and about 40 labs sit in `docs/design/`, but no record says which rulings have reached the design system or the shell. The shell's port ledger (B593) is hand-seeded (20 rows), so ruled-but-unbuilt items do not show.
+- ADR-316 lets the shell take components from the design system only. That is right, but it makes the design master the bottleneck: a lab ruling reaches the shell only after someone harvests it into the master, and harvests have been ad hoc.
+- The design master's source lived only in the Design System artifact plus the lead's temporary working copy, which held only the files the lead had changed. The live artifact moved to version 1793374583-b6a5 after the lead's last revision (1793336699-65f2). The vendored bundle in `docs/design/arp-face/` is not byte-identical to the live master's bundle, and its header still names 1793080392-2372.
+- `docs/design-system/README.md` was last verified 2026-10-24 and names version 27.
+- No lab carries a status, so an agent cannot tell a live lab from a superseded one.
+
+**Rulings (the human, 2026-10-30, by poll).**
+1. **"Yes, track it in repo".** The design master's source (the artifact's `project/` tree) lives in the repo at `docs/design-system/master/`. The artifact is published from the merged tree and is the published view, not the only copy.
+2. **"Yes, own scope".** A GUI session runs beside the lead, under `docs/design/CLAUDE.md`. It owns `docs/design/**`, `docs/design-system/**`, the Design System artifact and the GUI 3 shell, and the ROADMAP rows that file lists. It writes its design ADRs into the one DECISIONS.md. The lead keeps the engine, the clean room, the mailboxes, Mangle and every other row. The charter is amended: two ROADMAP writers with disjoint rows, one decision log, and `./verify` refuses a duplicate ADR or B number.
+3. **"Yes, audit first".** Before more GUI building, one agent reads every design ADR and every lab and fills the design ledger. The human gets a visual report: what is ruled but not built, what is in the design system but not the shell, and which labs are stale.
+
+**The chain of custody.** ruling (ADR) → design master (`docs/design-system/master/`, published to the artifact) → vendored bundle (`docs/design/arp-face/`, stamped with the master's version) → GUI 3 shell (generated controls, bundle components only, ADR-316) → engine (the stub today; the WebAssembly engine at stage 8, IF-10). Each hop has a record and a check:
+- **`docs/design/design-ledger.json`.** One row per ruled design decision: its ADR and clause, the lab it came from, the master component and the version that holds it, its place in the shell, and its state (ruled, in master, vendored, in shell, wired to the engine). A check fails on a design ADR with no row, a row naming a component, version or shell place that does not exist, or a vendored bundle that is not the stamped master's. The port ledger (B593) becomes the view of the rows not yet in the shell.
+- **Lab statuses.** Every lab in the design index carries one: exploring, ruled (ADR), harvested (master version) or retired. A retired lab is history, never a source.
+
+**Rejected:** the artifact as the only master; a GUI session that only proposes; GUI work as the lead's main thread; scaffolding without the audit.
+
+**Consequences.**
+- B595 carries the scaffolding and B596 the audit.
+- In-flight GUI work (slice 7, the composition lab #1295) finishes as dispatched and is entered in the ledger when the audit runs.
+- **FX device (ADR-254):** the FX device's pages come from the same shell and components (ADR-316), so the chain and the ledger cover it. Its rows carry the FX-device consequence as every ruling does.
+
