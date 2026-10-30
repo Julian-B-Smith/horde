@@ -42,8 +42,9 @@ WHAT IT CHECKS (each with its own tag; every tag has a must-fail plant below):
              they read clean. Duplicates that predate this check are KNOWN_DUPLICATES below,
              pinned to their count: fixing one or adding another is red until this list moves.
   coverage   every ADR in DECISIONS.md has a ledger row or a `not_design` entry with a reason.
-             REPORT-ONLY until the B596 audit fills the ledger (AUDITED below); then blocking,
-             and `unaudited` stops being an accepted lab status.
+             BLOCKING since the B596 audit filled the ledger (AUDITED below, 2026-10-30): a new
+             ADR needs its row or its reason in the PR that adds it, and `unaudited` is no
+             longer an accepted lab status. (Report-only in B595, before the audit.)
 
 MUST-FAIL PLANTS, every run, on in-memory copies (the real tree is never touched): one per
 tag, each must come back red with ITS tag and only its tag; plus must-read-clean controls
@@ -67,11 +68,12 @@ VENDORED = ROOT / "docs/design/arp-face"
 LEDGER = ROOT / "docs/design/design-ledger.json"
 DESIGN = ROOT / "docs/design"
 
-# Turned True by B596 once every ADR is judged and every lab audited (ADR-336 ruling 3).
-AUDITED = False
+# True since B596 judged every ADR and audited every lab (ADR-336 ruling 3); False was B595's report-only mode.
+AUDITED = True
 
 STATES = ("ruled", "in-master", "vendored", "in-shell", "wired")
 LAB_STATUSES = ("exploring", "ruled", "harvested", "retired")
+VIAS = (None, "spec", "seam")
 FORMAT = "horde.design-ledger/1"
 VERSION_ID = re.compile(r"\d+-[0-9a-f]+")
 
@@ -245,6 +247,37 @@ def check_ledger(led, ctx):
         lab = r.get("lab")
         if lab is not None and ctx["read"](lab) is None:
             e(f"{rid}: lab {lab!r} does not exist")
+        pt = r.get("port_tab")
+        if pt is not None and pt not in ctx["port_tab"]:
+            e(f"{rid}: port_tab {pt!r} is not a row id of docs/design/gui3/port-tab.json")
+        via = r.get("via")
+        if via not in VIAS:
+            e(f"{rid}: via {via!r} is not one of {', '.join(str(v) for v in VIAS)}")
+        # References are held to existence whatever the state, `unknown` included.
+        comp, mv, exp = r.get("component"), r.get("master_version"), r.get("bundle")
+        if comp is not None and comp not in ctx["components"] and comp not in ctx["master_files"]:
+            e(f"{rid}: component {comp!r} is neither a master component (master/components/<Name>/) "
+              "nor a file of the master tree")
+        if mv is not None and mv not in versions:
+            e(f"{rid}: master_version {mv!r} is not in master_versions")
+        exp_ok = exp is None or exp in ctx["exports"]
+        if exp is not None and not exp_ok:
+            m = re.fullmatch(r"(bundle\.css|tokens\.css): (.+)", exp)
+            exp_ok = bool(m) and m.group(2) in ctx["vendored_text"].get(m.group(1), "")
+            if not exp_ok:
+                e(f"{rid}: bundle {exp!r} is neither a vendored bundle export nor a needle found in "
+                  "the vendored bundle.css or tokens.css")
+        place = r.get("shell")
+        if place is not None:
+            m = re.fullmatch(r"(\S+): (.+)", place)
+            if not m:
+                e(f"{rid}: shell place must be `path: needle`, got {place!r}")
+            else:
+                text = ctx["read"](m.group(1))
+                if text is None:
+                    e(f"{rid}: shell place {m.group(1)!r} does not exist")
+                elif m.group(2) not in text:
+                    e(f"{rid}: shell place {m.group(1)!r} does not contain {m.group(2)!r}")
         st = r.get("state")
         if st == "unknown":
             if not r.get("settle"):
@@ -253,28 +286,19 @@ def check_ledger(led, ctx):
         if st not in rank:
             e(f"{rid}: state {st!r} is not one of {', '.join(STATES)} (or unknown with settle)")
             continue
-        comp, mv = r.get("component"), r.get("master_version")
-        if comp is not None and comp not in ctx["components"]:
-            e(f"{rid}: component {comp!r} is not a master component (docs/design-system/master/components/)")
-        if mv is not None and mv not in versions:
-            e(f"{rid}: master_version {mv!r} is not in master_versions")
-        if rank[st] >= rank["in-master"] and (comp is None or mv is None):
-            e(f"{rid}: state {st} needs a component and a master_version")
-        if rank[st] >= rank["vendored"]:
-            exp = r.get("bundle") or comp
-            if exp not in ctx["exports"]:
-                e(f"{rid}: state {st} but the vendored bundle defines no {exp!r}")
-        place = r.get("shell")
-        if place is not None or rank[st] >= rank["in-shell"]:
-            m = re.fullmatch(r"(\S+): (.+)", place or "")
-            if not m:
-                e(f"{rid}: state {st} needs a shell place `path: needle`")
-            else:
-                text = ctx["read"](m.group(1))
-                if text is None:
-                    e(f"{rid}: shell place {m.group(1)!r} does not exist")
-                elif m.group(2) not in text:
-                    e(f"{rid}: shell place {m.group(1)!r} does not contain {m.group(2)!r}")
+        # What each state claims. `via` names ADR-316's two other routes into the shell: the
+        # generated parameter table ("spec") and the device seam itself ("seam"); a row on either
+        # reaches in-shell or wired without a master component, and no other row does.
+        if via is not None:
+            if rank[st] < rank["in-shell"]:
+                e(f"{rid}: via {via} is a route into the shell; state {st} does not claim the shell")
+        else:
+            if rank[st] >= rank["in-master"] and (comp is None or mv is None):
+                e(f"{rid}: state {st} needs a component and a master_version")
+            if rank[st] >= rank["vendored"] and (exp or comp) not in ctx["exports"] and not (exp and exp_ok):
+                e(f"{rid}: state {st} but the vendored bundle defines no {exp or comp!r}")
+        if rank[st] >= rank["in-shell"] and place is None:
+            e(f"{rid}: state {st} needs a shell place `path: needle`")
     for n in led.get("not_design", []):
         if norm(n.get("adr")) not in ctx["adrs"] or not n.get("reason"):
             e(f"not_design entry {n!r} needs an existing ADR and a one-line reason")
@@ -375,6 +399,9 @@ def run_all(master_files, version_text, master_bodies, vendored, led, ctx, labs,
     errs += check_ledger(led, dict(ctx, master_version=mv))
     errs += check_labs(led, labs, AUDITED)
     errs += check_numbers(decisions, roadmap, KNOWN_DUPLICATES)
+    if AUDITED:
+        errs += [("coverage", f"{a}: no ledger row and no not_design entry")
+                 for a in coverage_gaps(led, decisions)[0]]
     return errs, notes
 
 
@@ -469,6 +496,16 @@ def selftest(base):
                   shell="docs/design/gui3.html: planted-needle-absent"))
     plant("a vendored row whose export the bundle lacks", "ledger",
           led=row(state="vendored", component="Specimen", master_version=mv, bundle="Viz.planted"))
+    plant("a CSS needle the vendored stylesheet lacks", "ledger",
+          led=row(state="in-shell", component="tokens.json", master_version=mv, bundle="bundle.css: .hd-planted-absent",
+                  shell="docs/design/gui3.html: H.Knob"))
+    clean("a CSS needle the vendored stylesheet has", led=row(state="in-shell", component="tokens.json", master_version=mv,
+                                                             bundle="bundle.css: .hd-pill", shell="docs/design/gui3.html: H.Knob"))
+    plant("a row naming a port-tab row that does not exist", "ledger", led=row(port_tab="planted-port-row"))
+    plant("a row with an unknown route into the shell", "ledger", led=row(via="planted"))
+    plant("a via row that does not claim the shell", "ledger", led=row(via="spec"))
+    plant("an in-shell row with no master component and no via", "ledger",
+          led=row(state="in-shell", shell="docs/design/gui3.html: H.Knob"))
 
     def nolab(labs):
         return labs + ["planted-lab.html"]
@@ -483,6 +520,13 @@ def selftest(base):
     plant("a status for a lab that does not exist", "labs",
           led=lambda l: (l.setdefault("labs", {}).update({"gone-lab.html": {"status": "exploring"}}), l)[1])
 
+    if AUDITED:
+        plant("a design ADR left unjudged (its not_design entry dropped)", "coverage",
+              led=lambda l: (l.update(not_design=l.get("not_design", [])[1:]), l)[1])
+        plant("a new ADR with no row and no reason", "coverage",
+              decisions=lambda d: d + "\n## ADR-9998 — planted\n")
+        plant("a lab left unaudited after the audit", "labs",
+              led=lambda l: (l["labs"].update({sorted(l["labs"])[0]: {"status": "unaudited"}}), l)[1])
     plant("an ADR number taken twice", "numbers", decisions=lambda d: d + "\n## ADR-001 — planted\n")
     clean("an amendment heading is not a duplicate", decisions=lambda d: d + "\n## ADR-261 A9 — planted amendment\n")
     plant("a B number taken twice", "numbers", roadmap=lambda r: r + "\n| B1 | planted |\n")
@@ -509,8 +553,14 @@ def main():
         p = ROOT / rel
         return p.read_text(encoding="utf-8", errors="replace") if p.is_file() else None
     comps = {p.name for p in (MASTER / "components").iterdir() if p.is_dir()}
-    ctx = {"adrs": adr_numbers(decisions),
-           "components": comps, "exports": bundle_exports(vendored.get("bundle.js", b"")), "read": read}
+    try:
+        port_tab = {r["id"] for r in json.loads(read("docs/design/gui3/port-tab.json") or "{}").get("rows", [])}
+    except ValueError:
+        port_tab = set()  # gen_gui3_controls --check owns that file's well-formedness
+    ctx = {"adrs": adr_numbers(decisions), "components": comps, "master_files": set(master_files),
+           "exports": bundle_exports(vendored.get("bundle.js", b"")), "read": read, "port_tab": port_tab,
+           "vendored_text": {n: vendored[n].decode("utf-8", "replace") for n in ("bundle.css", "tokens.css")
+                             if n in vendored}}
     labs = index_labs()
     base = (master_files, version_text, master_bodies, vendored, led, ctx, labs, decisions, roadmap)
 
@@ -524,8 +574,6 @@ def main():
 
     errs, notes = run_all(*base)
     gaps, total = coverage_gaps(led, decisions)
-    if AUDITED and gaps:
-        errs += [("coverage", f"{a}: no ledger row and no not_design entry") for a in gaps]
     # A recorded drift is printed every run (a named finding, never a silent pass); each
     # distinct explanation once, after the files it covers.
     said = []

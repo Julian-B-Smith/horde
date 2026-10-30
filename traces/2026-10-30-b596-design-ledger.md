@@ -1,0 +1,48 @@
+# b596-design-ledger — every ADR judged, every design ruling placed on the chain, every lab given a status
+
+- **Queue item:** B596 (ADR-336 ruling 3, "audit first"), on B595's format (stacked on `design-chain-b595`, horde #1298).
+- **Why:** the human, 2026-10-30, was "confused why so many established design decisions and components haven't made it into the GUI3 shell yet". The ledger now answers that question row by row, and `./verify fast` holds every answer to the tree.
+- **How the audit ran:** five read-only Opus passes over DECISIONS.md by range (ADR-001–112, 113–163, 164–216, 217–270, 271–336), each from one written brief. Each pass judged every primary heading exactly once, grepped every shell needle, and validated its component, bundle and port-tab names against the master and the bundle. The passes wrote JSON to the scratchpad. The lead integrated the results:
+  - D and E both judged ADR-271 to 274 (the brief's line range overlapped); E's copy was kept.
+  - PR A's three example rows were replaced by the audit's rows for the same elements (`adr261-knob-interaction`, `adr261-map-mode`, `adr259-corner-glyphs`).
+  - Rows at token or stylesheet level now name `tokens.json` or `contrast-audit.md` as their master holder, and a `bundle.css: needle` or `tokens.css: needle` as their vendored form.
+  - Shell-architecture rows that pass E had recorded as `ruled` were promoted along ADR-316's own routes, which the new `via` field names: `spec` (the generated parameter table) or `seam` (the device adapter). There are fifteen such rows, each with its evidence in the note.
+  - Four rows were corrected down to `ruled` or `in-master` where the shell has only a stand-in or a local drawing:
+    - ADR-101's engine-drawn cycle: the shell draws its own `waveAt` twin.
+    - ADR-261's owner read from the morph layer: `device.js` computes a STAND-IN.
+    - ADR-110's parameter menu: drawn locally.
+    - ADR-169's module face: the master's ModuleCard has no bundle export.
+- **What changed:**
+  - `docs/design/design-ledger.json`: 272 rows (live 248, superseded 24), 222 `not_design`, 48 lab statuses, 3 `not_labs`. It also holds the 40 audit notes (contradictions and open calls), the `via` and `port_tab` fields, and an extended top-level note.
+  - `tools/design_chain_check.py`:
+    - `AUDITED = True`: coverage is blocking (333 of 333 ADRs judged), and `unaudited` is no longer a lab status.
+    - New row rules: `component` may be a file of the master tree; `bundle` may be a needle in the vendored `bundle.css` or `tokens.css`; `via` (null, `spec` or `seam`) is the only way into in-shell without a master component; `port_tab` must name a port-tab row; references are checked in `unknown` rows too.
+    - Eight new plants (28 in all) and one new clean control (3).
+  - `verify`: the comment says coverage is blocking.
+  - `docs/design/index.html`: regenerated with the statuses.
+  - `docs/audits/2026-10-30-design-ledger.html`: the visual report (light and dark).
+- **Counts (live rows):** ruled 108, in-master 25, vendored 35, in-shell 32, wired 47, unknown 1. 18 rows have a shell place but stop below in-shell: elements drawn locally, the hop ADR-316 forbids.
+- **Labs:** exploring 9, ruled 13, harvested 8 (at 1793374583-b6a5), retired 18 (the index's 15 archived and 3 superseded), and 3 not labs (`gui3.html`, `h2-plan-map.html`, `legacy-roundup.html`).
+- **Port ledger reconciled (not edited):**
+  - 19 of 20 port-tab rows are consistent: each has ledger rows below the shell.
+  - `filters` has no ledger row, because ADR-307 (the move to Weir) was judged a repo ruling, not design.
+  - 47 live rows below the shell have no port-tab row. The report lists them.
+- **Defects confirmed by hand, beyond the passes' reports:**
+  - `gui3.html` lines 510 and 638 pass `frame / 60` (seconds) to `Viz.spectrum`, whose hold compares `now` against 1500 (ms).
+  - `#bankModes` (Mods | Macros) is still in `gui3.html` (ADR-323 ruling 2).
+  - The master's KeyboardLamp README says "KEYS OFF".
+  - `bundle.css` line 2 `@import`s Google Fonts.
+  - No `RingXY`, `GainStaging`, `ModMatrixGrid` or `FxRack` in the shell.
+  - `retrig: null` on the shell's ModCardHeader.
+- **Alternatives rejected:**
+  - **A new state for shell-only elements:** ADR-336 fixed five states. `via` names the two routes ADR-316 itself rules, and a local drawing stays below in-shell, visible as one.
+  - **Editing `port-tab.json` to add the 47 rows:** `docs/design/gui3*` was out of scope for this PR. Adding them is the GUI session's first step.
+  - **Retiring the legacy-only rows in bulk:** that is a ruling. The rows say LEGACY-ONLY in their notes, and the report asks the human.
+- **After slice 7 (#1297) merged:** B595 was merged with origin/main (the index was regenerated, not hand-merged) and then merged here. Every existing shell needle still holds. Slice 7's elements were re-audited:
+  - `adr335-wider-map-button` moved to in-shell. The burying came from the shell's flex layout; the bundle's MapControl is now kept whole (`.mapbar #mapHost { flex: 0 0 auto; }`).
+  - `adr335-fixed-info-box` and `adr335-map-keys-always` are applied in the shell but stay `ruled`. Their shell places record local implementations: no master component holds an info box, and the master and bundle still gate map keys on keyboard mode.
+  - New row `adr335-section-descriptions` (via spec, in-shell): `gui3/sections.json` holds 40 of 46 sections described, all DRAFT.
+  - `adr261-hotkeys-keyboard-mode-only` is superseded by ADR-335 for the map keys.
+  - The report's spectrum line references now read 539 and 668.
+  - Counts: 273 rows (249 live, 25 superseded). Live rows: ruled 107, in-master 25, vendored 35, in-shell 33, wired 47, unknown 1. 20 are local drawings.
+- **Verify:** `nice -n 10 ./verify fast`, last, green; the tail is in the PR.
