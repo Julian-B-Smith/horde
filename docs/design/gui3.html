@@ -750,6 +750,7 @@ function consolePage(pg, el) {
     H.Viz.spectrum(specCv, sm.bands, specSt, sumFrame * 1000 / 60);   // ms, as above
   } });
   el.append(h('div', { class: 'mixrow' }, h('div', { class: 'hd-cell hd-dense console' }, host), sums));
+  el.append(gainStaging(pg.id));
   let last = '';
   views.push({ page: pg.id, update() {
     const k = dev.rev();
@@ -757,6 +758,59 @@ function consolePage(pg, el) {
     consoleStrip.step(1 / 60); consoleStrip.render();     // the ballistics advance one frame per frame: no clock (B589)
   } });
 }
+/* GAIN STAGING (ADR-230 item 3 and A1, ADR-235 ruling 3, ADR-272 A1): the bundle's chain line over its stage view, one gain
+   model between them (the master's ChainLine preview wiring, verbatim in shape). READINGS come from the device's meters (IF-6)
+   only where the engine publishes a tap: the four sources and the output (the stub's MOCK meters); every other stage has no
+   reading and is drawn hollow, never guessed. GAINS are the master chain's own placeholder ranges (B402, RC-2 "deferred") held
+   here, NOT engine rows: no stage gain or make-up has a SPEC-ENGINE key yet, which is the lead's to add (noted on B584). So
+   the view is in the shell and not wired. The ballistics advance one 1/60 s step per frame: no clock. */
+function gainStaging(pid) {
+  const stages = H.GainStaging.chain('instrument'), G = {}, tap = { vol: 'out' };
+  stages.forEach(st => { if (st.gain) G[st.id] = st.gain.def; });
+  const idOf = id => tap[id] || id;
+  const read = id => { const m = dev.meters()[idOf(id)]; return m && m.peak > -Infinity ? { l: m.peak, r: m.peak } : undefined; };
+  const latch = id => { const m = dev.meters()[idOf(id)]; return m && m.clip && m.clip.on ? { on: true, at: 0, max: m.clip.max } : { on: false }; };
+  const clear = id => { dev.clearClip(idOf(id)); S.say('Gain staging: ' + id + ' clip lamp cleared'); };
+  const lineHost = h('div'), gsHost = h('div');
+  // built on the page's first frame: the chain line paints as it is built and reads its colours from the canvas's computed
+  // style, which a page not yet in the document does not have (it threw on a null colour)
+  let gs = null, cl = null;
+  views.push({ page: pid, update() {
+    if (!gs) {
+      gs = H.GainStaging(gsHost, { stages, sr: 48000, keys: () => S.keys, gains: G, read, latch, clear, onGain: (id, v) => { G[id] = v; } });
+      cl = H.ChainLine(lineHost, { stages, sr: 48000, read, latch, keys: () => S.keys, gain: id => G[id], onGain: (id, v) => { G[id] = v; gs.setGain(id, v); } });
+    }
+    gs.step(1 / 60, true); cl.step(1 / 60, true); gs.render(); cl.render();
+  } });
+  const c = card('Gain staging', 'IN SHELL · NOT WIRED', [lineHost, gsHost,
+    h('span', { class: 'hd-hint', text: 'Readings: the device’s MOCK meters where the engine publishes a tap (the four sources and the output); every other stage is hollow. Gains: the design system’s placeholder ranges, held here: no stage gain or make-up is an engine parameter yet.' })]);
+  c.classList.add('wide');
+  return h('div', { class: 'cards' }, c);
+}
+
+/* THE FX RACK (ADR-259 ruling 5, ADR-273 and A1): the bundle's FxRack, each module a cream card with its own screen inset and
+   its cable colour (FxCables). The stub publishes no cable state (IF-10 brings the engine's), so the state drawn is a SERIAL
+   STAND-IN: the body lane through every hosted module once, in the FX page's card order (the page's own note: the FX chain
+   lab's rack order, not a ruling), to OUT, every cable at full weight, no loop and no wait. A module with two faces is one box
+   at its first face (Bulwark's compressor; its limiter face is the master limiter after the rack, B438). */
+function fxRack(pg) {
+  const order = Object.keys(H.FxCables.SCREENS), seen = new Set(), nodes = [];   // `order`: only to know which screens the bundle draws
+  pg.groups.forEach(g => { const k = (g.screen || '').toLowerCase(); if (k && !seen.has(k) && order.includes(k)) { seen.add(k); nodes.push({ id: k, name: g.screen, short: g.screen.slice(0, 4), style: k, asleep: false }); } });
+  const lanes = [{ id: 'body', name: 'Body', short: 'Body', style: 'lane' }], out = { id: 'out', name: 'Out', short: 'Out' };
+  const ids = ['body'].concat(nodes.map(n => n.id), ['out']), cables = ids.slice(1).map((v, i) => ({ u: ids[i], v, wf: 1, wb: 0, loop: false, held: false }));
+  const state = { lanes, nodes, out, cables, rules: [] }, host = h('div');
+  // built on the page's first frame, for the same reason as the chain line: it draws at its container's width and colours
+  let built = false;
+  views.push({ page: pg.id, update() {
+    if (built) return; built = true;
+    const view = H.FxRack(host, () => state, S), r0 = view && view.render;
+    if (r0) view.render = function () { if (page === pg.id) r0.apply(view, arguments); };
+  } });
+  const c = card('FX rack', 'SERIAL STAND-IN', [host, h('span', { class: 'hd-hint', text: 'The stub publishes no cable state, so this is the hosted modules in series at full weight; with the engine (IF-10) the morph moves the cables.' })]);
+  c.classList.add('wide');
+  return h('div', { class: 'cards' }, c);
+}
+
 /* The port ledger (ADR-333, B593): everything not yet moved over, where it lives and why, read from port-tab.json
    through the generated data. Grouped by area, with counts by reason and by status. */
 function ledgerPage(pg, el) {
@@ -810,6 +864,7 @@ DATA.pages.forEach(pg => {
   else classicPage(pg, el);
   if (pg.panel === 'morph') el.append(morphPanel());
   if (pg.id === 'mod') el.append(modMatrix());
+  if (pg.id === 'fx') el.insertBefore(fxRack(pg), el.children[1] || null);
   $('pages').append(el); pageEls[pg.id] = el;
 });
 /* A page opens by its id, whatever its group (an old link's #noise still opens the Noise page, under Osc). */
@@ -822,7 +877,7 @@ function selectPage(id) {
 }
 
 // ===== BLOCK F: the chrome (ADR-315): the docked pad while morph is on, its hide toggle, the info box, the menu =====
-H.XYPad($('padHost'), S);
+H.XYPad($('padHost'), S, { census: true });   // ADR-262 ruling 5: the census ring (the bundle's plain dots; glyph shapes are the master's to add)
 H.CornerChips($('cornersHost'), S);
 function paintDock() {
   const on = dev.morph().on, show = on && padShown; dockOn = on;
