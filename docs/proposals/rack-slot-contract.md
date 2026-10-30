@@ -442,7 +442,7 @@ Ruled by the human, 2026-10-17, from the lead's recommendations.
 |---|---|
 | **The rack's rate (new)** | **horde's FX rack runs at the host rate.** The engine hands the rack one stereo pair at the host rate (spec RC-5), and a module that needs oversampling does it internally, as Sluice does. There is no rack-level oversampling. |
 | **B439, the oversampling exception** | A module's factory presets may default to its oversampled mode within 4 % (the worst-case figure), provided it offers a cheaper mode within the standard 2 % / 4 % (module 1.0 bar, amended). |
-| **RS-7.1** | A module's oversampling latency, set by a Device-class setting fixed at activate, is declared in whole host samples and held until the next activate, as for Sluice. It is admitted in 1.0 although the module is morphable: the latency is a plugin constant per activation, never a morph variable. Shriek's 2× halfband (about 4 host samples) is the first case. |
+| **RS-7.1** | A module's oversampling latency, set by a Device-class setting fixed at activate, is declared in whole host samples and held until the next activate, as for Sluice. It is admitted in 1.0 although the module is morphable: the latency is a plugin constant per activation, never a morph variable. Shriek's 2× halfband is the first case: declared 3 host samples (measured 3.26, residual about +0.26; Maw D-073, `mawcore/abi.h`), corrected 2026-10-30 from "about 4" on Kiln's notice (`integrations/kiln/notice-prior-art-findings.md`). |
 
 ### 12.4 ADR-242 (2026-10-18), on Scape's brief `morph-corner-designs` (seq 1)
 
