@@ -230,19 +230,53 @@
       send(morphing.map(function (r) { return r.key; })); changed(); return true;
     };
     D.sources = function () { return SOURCES; };
-    D.routes = function () { return st.routes.map(function (r) { return { id: r.id, src: r.src, param: r.param, pol: r.pol, depth: r.depth }; }); };
-    D.addRoute = function (rt) {
+    D.routes = function () { return st.routes.map(function (r) { return routeOf(r.id, r); }); };
+    /* Why a route cannot exist, or null. A destination is a continuous parameter of a manifest (RC-4): an engine row that
+       takes per-voice modulation, or a hosted module's or Arp's continuous row. The morph's settings are the resolver's
+       inputs (IF-12), not modulation destinations in any ruling, so they are refused. */
+    function routeFault(rt) {
       var r = by[rt && rt.param];
-      // A destination is a continuous parameter of a manifest (RC-4): an engine row that takes per-voice modulation,
-      // or a hosted module's or Arp's continuous row. The morph's settings are the resolver's inputs (IF-12), not
-      // modulation destinations in any ruling, so they are refused.
-      if (!r || r.law === 'step' || (r.target === 'resolver') || ((r.target || 'engine') === 'engine' && !r.pv)) return { ok: false, why: (rt && rt.param) + ' is not a continuous parameter a route can reach (RC-4)' };
-      if (!SOURCES.some(function (s) { return s.id === rt.src; })) return { ok: false, why: rt.src + ' is not a source the engine publishes (IF-3)' };
+      if (!r || r.law === 'step' || (r.target === 'resolver') || ((r.target || 'engine') === 'engine' && !r.pv)) return (rt && rt.param) + ' is not a continuous parameter a route can reach (RC-4)';
+      if (!SOURCES.some(function (s) { return s.id === rt.src; })) return rt.src + ' is not a source the engine publishes (IF-3)';
       var pol = rt.pol || 'uni', depth = rt.depth === undefined ? 0.25 : rt.depth;
-      if (POLS.indexOf(pol) < 0 || typeof depth !== 'number' || !(depth >= 0 && depth <= 1)) return { ok: false, why: 'depth is in the destination’s normalised range, 0 to 1 (RC-4)' };
+      if (POLS.indexOf(pol) < 0 || typeof depth !== 'number' || !(depth >= 0 && depth <= 1)) return 'depth is in the destination’s normalised range, 0 to 1 (RC-4)';
+      return null;
+    }
+    /* A route as stored. A Control (the bundle's `ctl` polarity) also carries the band it sweeps; no other polarity does. */
+    function routeOf(id, rt) {
+      var o = { id: id, src: rt.src, param: rt.param, pol: rt.pol || 'uni', depth: rt.depth === undefined ? 0.25 : rt.depth };
+      if (o.pol === 'ctl' && typeof rt.lo === 'number' && typeof rt.hi === 'number') { o.lo = rt.lo; o.hi = rt.hi; }
+      return o;
+    }
+    D.addRoute = function (rt) {
+      var why = routeFault(rt); if (why) return { ok: false, why: why };
       var id = 'r' + st.nextRoute;
-      step('Route ' + rt.src + ' → ' + r.label, function () { st.routes.push({ id: id, src: rt.src, param: rt.param, pol: pol, depth: depth }); st.nextRoute++; });
+      step('Route ' + rt.src + ' → ' + by[rt.param].label, function () { st.routes.push(routeOf(id, rt)); st.nextRoute++; });
       changed(); return { ok: true, id: id };
+    };
+    /* MAP MODE (ADR-261, the Map Mode spec). The design system's session edits a working list of mappings in place
+       (create on click or drag, depth by drag, polarity by P, remove by Backspace); this writes that list into the
+       device's matrix. An item with an `id` is an existing route (edited when it differs), one without is a new route,
+       and a route absent from the list is removed. The whole difference is ONE history step (the gesture), and a new
+       item the matrix refuses (RC-4) is reported by its index and not made. Returns { ids, refused }: ids[i] is item
+       i's route id, or null for a refused new item. */
+    D.syncRoutes = function (list) {
+      var ids = [], refused = [], next = [], dirty = false, label = null, fresh = 0;
+      list.forEach(function (rt, i) {
+        var old = rt.id ? st.routes.filter(function (x) { return x.id === rt.id; })[0] : null, why = routeFault(rt);
+        if (why) { refused.push({ index: i, why: why }); ids.push(old ? old.id : null); if (old) next.push(old); return; }
+        if (!old) {
+          var id = 'r' + (st.nextRoute + fresh++);
+          next.push(routeOf(id, rt)); ids.push(id); dirty = true; label = label || 'Map ' + rt.src + ' → ' + by[rt.param].label; return;
+        }
+        var n = routeOf(old.id, rt);
+        if (JSON.stringify(n) !== JSON.stringify(old)) { dirty = true; label = label || 'Edit route ' + rt.src + ' → ' + by[rt.param].label; }
+        next.push(n); ids.push(old.id);
+      });
+      var kept = next.map(function (x) { return x.id; });
+      if (st.routes.some(function (x) { return kept.indexOf(x.id) < 0; })) { dirty = true; label = label || 'Remove route'; }
+      if (dirty) { step(label, function () { st.routes = next; st.nextRoute += fresh; }); changed(); }
+      return { ids: ids, refused: refused };
     };
     D.removeRoute = function (id) {
       var k = st.routes.findIndex(function (x) { return x.id === id; }); if (k < 0) return false;
