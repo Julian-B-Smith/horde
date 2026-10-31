@@ -1,0 +1,10 @@
+{"module": "drive", "manifest": 1, "params": [
+  {"address": "io.inGain", "class": "device", "rate": "continuous", "min": -24, "max": 24, "default": 0, "unit": "dB", "steps": 0, "transition_s": 0.02},
+  {"address": "io.outGain", "class": "device", "rate": "continuous", "min": -24, "max": 24, "default": 0, "unit": "dB", "steps": 0, "transition_s": 0.02},
+  {"address": "drive.curve", "class": "flip", "rate": "latched", "min": 0, "max": 3, "default": 0, "unit": "", "steps": 4, "transition_s": 0.02, "switch": {"method": "crossfade", "length_s": 0.02, "law": "equal-gain"}, "values": ["soft", "hard", "tube", "diode"]},
+  {"address": "drive.amount", "class": "morph", "rate": "continuous", "min": 0, "max": 24, "default": 8, "unit": "dB", "steps": 0, "transition_s": 0.02},
+  {"address": "drive.shape", "class": "morph", "rate": "continuous", "min": 0, "max": 1, "default": 0.5, "unit": "", "steps": 0, "transition_s": 0.02},
+  {"address": "drive.mix", "class": "morph", "rate": "continuous", "min": 0, "max": 1, "default": 0.5, "unit": "", "steps": 0, "transition_s": 0.02},
+  {"address": "drive.autogain", "class": "flip", "rate": "latched", "min": 0, "max": 1, "default": 0, "unit": "", "steps": 2, "transition_s": 0.02, "switch": {"method": "crossfade", "length_s": 0.02, "law": "equal-gain"}, "values": ["off", "on"]},
+  {"address": "drive.output", "class": "morph", "rate": "continuous", "min": -18, "max": 6, "default": 0, "unit": "dB", "steps": 0, "transition_s": 0.02}
+], "changes_image": true, "changes_level": true}

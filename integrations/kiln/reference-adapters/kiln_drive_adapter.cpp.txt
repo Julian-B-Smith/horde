@@ -1,0 +1,64 @@
+// Critic's throwaway adapter: Kiln's DriveModule behind horde's admission::Module.
+#include "module.h"
+#include <cmath>
+#include <cstdlib>
+#include <fstream>
+#include <sstream>
+#include <limits>
+#include "kiln/drive.h"
+#include "kiln/patch.h"
+#include "kiln/manifest.h"
+namespace kiln { struct DriveTestAccess { static void plant(DriveModule& m) { m.dcY1_[0] = std::numeric_limits<double>::quiet_NaN(); } }; }
+namespace admission {
+namespace {
+Cls clsOf(kiln::ParamClass c){ switch(c){case kiln::ParamClass::Morph:return Cls::Morph;case kiln::ParamClass::Flip:return Cls::Flip;case kiln::ParamClass::Device:return Cls::Device;default:return Cls::None;} }
+Switch swOf(const kiln::SwitchDecl& s){ switch(s.method){case kiln::SwitchMethod::Crossfade: return s.law=="equal-gain"?Switch::EqualGainCrossfade:Switch::Undeclared; case kiln::SwitchMethod::Gate:return Switch::Gate; case kiln::SwitchMethod::SeededJump:return Switch::SeededJump; case kiln::SwitchMethod::Silent:return Switch::Silent; default:return Switch::Undeclared;} }
+kiln::Curve cv(const std::string& s){ return s=="exp"?kiln::Curve::Exp:s=="log"?kiln::Curve::Log:kiln::Curve::Lin; }
+std::string cn(kiln::Curve c){ return c==kiln::Curve::Exp?"exp":c==kiln::Curve::Log?"log":"lin"; }
+kiln::Patch toK(const Patch& p){ kiln::Patch k; k.name=p.name; k.values=p.values; for(auto& m:p.macros){ kiln::Macro km; km.label=m.label; km.home=m.home; for(auto&b:m.bind) km.bind.push_back({b.address,b.lo,b.hi,cv(b.curve)}); k.macros.push_back(km);} return k; }
+Patch fromK(const kiln::Patch& k){ Patch p; p.name=k.name; p.values=k.values; for(auto& m:k.macros){ Macro am; am.label=m.label; am.home=m.home; for(auto&b:m.bind) am.bind.push_back({b.address,b.lo,b.hi,cn(b.curve)}); p.macros.push_back(am);} return p; }
+foundations::OperatorProperties conv(const kiln::OperatorProperties& o){ foundations::OperatorProperties f;
+  if(o.latency) f.latency=foundations::LatencyDecl{o.latency->samples,o.latency->residual,static_cast<foundations::ResidualSign>(static_cast<int>(o.latency->sign))};
+  if(o.tail) f.tail=foundations::TailDecl{o.tail->samples,o.tail->may_change};
+  f.min_block=o.min_block; if(o.load) f.load=foundations::LoadDecl{o.load->transition_samples}; return f; }
+class KDrive final : public Module {
+ public:
+  explicit KDrive(double dryMix):dry_(dryMix){}
+  std::vector<ParamSpec> manifest() const override { std::vector<ParamSpec> v; for(auto& s: m_.manifest()){ ParamSpec p; p.address=std::string(s.key); p.unit=s.unit?std::string(*s.unit):""; p.unitDeclared=s.unit.has_value(); p.cls=clsOf(s.cls); p.rateDeclared=s.rate!=kiln::RateClass::Undeclared; p.min=s.min;p.max=s.max;p.def=s.def;p.transitionS=s.transition_s;p.steps=s.steps; if(p.cls==Cls::Flip){p.sw=swOf(s.sw);p.switchSource="manifest";} v.push_back(p);} return v; }
+  std::string manifestJson() const override { return kiln::manifestJson("drive", m_.declared(), m_.manifest()); }
+  Declared declared() const override { auto d=m_.declared(); return {d.changes_image,d.changes_level,false}; }
+  bool prepare(double sr, std::uint32_t mb) override { return m_.prepare(sr,mb); }
+  void reset() override { m_.reset(); }
+  foundations::OperatorProperties properties() const override { return conv(m_.properties()); }
+  int resolve(std::string_view a) const override { auto h=m_.resolve(a); return h?h->row:-1; }
+  bool setParam(int h,double v) override { return m_.setParam(kiln::ParamHandle{h},v); }
+  double getParam(int h) const override { return m_.getParam(kiln::ParamHandle{h}); }
+  void process(const Sample* a,const Sample* b,Sample* c,Sample* d,std::uint32_t n) override { m_.process(a,b,c,d,n); }
+  std::size_t stateBudget() const override { return m_.stateBudget(); }
+  std::size_t saveState(char* o,std::size_t c) const override { return m_.saveState(o,c); }
+  bool stageState(std::string_view t) override { return m_.stageState(t); }
+  bool adoptStaged() override { return m_.adoptStaged(); }
+  bool parsePatch(std::string_view t, Patch& o, std::string* e) const override { kiln::Patch k; if(!m_.parsePatch(t,k,e)) return false; o=fromK(k); return true; }
+  std::string writePatch(const Patch& p) const override { return m_.writePatch(toK(p)); }
+  bool stagePatch(const Patch& p) override { return m_.stagePatch(toK(p)); }
+  double macroValue(const Bind& b,double v) const override { return kiln::macroValue(kiln::Bind{b.address,b.lo,b.hi,cv(b.curve)},v); }
+  Meters meters() const override { auto x=m_.meters(); return {x.inPeak,x.outPeak,x.inClip,x.outClip}; }
+  void clearMeters() override { m_.clearMeters(); }
+  std::uint64_t nonFiniteCount() const override { return m_.nonFiniteCount(); }
+  bool nonFiniteLatched() const override { return m_.nonFiniteLatched(); }
+  void clearNonFiniteLatch() override { m_.clearNonFiniteLatch(); }
+  bool plantNonFiniteState() override { kiln::DriveTestAccess::plant(m_); return true; }
+  Settings dryProbe() const override { return {{"drive.mix", dry_}}; }
+  Settings stressProbe() const override { return {{"drive.amount",18},{"drive.shape",0.5},{"drive.mix",1},{"drive.autogain",1},{"drive.curve",1}}; }
+ private:
+  kiln::DriveModule m_; double dry_;
+};
+}
+ModuleInfo kilnDriveModule(const std::string& tree) {
+  ModuleInfo i; i.name = "Kiln drive";
+  i.make=[]{ return std::make_unique<KDrive>(0.0); };
+  std::ifstream f(tree + "/presets/drive/factory/Default", std::ios::binary); std::stringstream ss; ss << f.rdbuf();
+  if (!ss.str().empty()) i.presets.emplace_back("Default", ss.str());
+  return i;
+}
+}
