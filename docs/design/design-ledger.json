@@ -5455,6 +5455,10 @@
   {
    "adr": "ADR-337",
    "reason": "Positioning (the instrument is not marketed by genre; its centre is morph logic over every parameter): it rewords the master README's opening sentence and adds no design element."
+  },
+  {
+   "adr": "ADR-339",
+   "reason": "Morph and randomizer behaviour (module XY blends as any morph key; two slot actions; a randomization preset): device and randomizer rulings. The slot UI for the actions arrives as GUI rows under B597 when the GUI session designs it."
   }
  ],
  "audit_notes": [
