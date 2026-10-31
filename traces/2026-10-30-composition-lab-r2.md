@@ -1,0 +1,23 @@
+# composition-lab-r2 — round 2 of the composition lab: the human's amendments to ADR-338, as a variant sheet
+
+- **Queue items:** B589, B594 (GUI session, ADR-336). Built by a design agent (Opus, pinned) from the GUI lead's brief, which quoted the human's notes of 2026-10-30 verbatim. The lead reviewed it.
+- **Why:** reviewing round 1 after ADR-338, the human found five problems:
+  - T2 and T4 seem to drag arbitrarily, and many controls' drag ranges look restricted;
+  - hovering moves the layout;
+  - steppers can't be dragged or typed into;
+  - P3 should be a view;
+  - under MAP a plain drag should be the value, with option+drag for depth; and switching the source and the polarity, the Mod page's route views, and the bank's Macros | Mods toggle are all open.
+- **What it found (evidence: `docs/design/composition-lab.html`):**
+  - **T2/T4 is not a glitch.** A drag writes the editing corner's value (`p.vals[st.ai]`, line 638), while T2's arc and T4's level draw the blend (`S.base`, lines 701 and 709). The blend moves by that corner's weight times the drag. T2 also dropped every pip (line 577), including the one mark that travels.
+  - **The drag ranges:** tiny sliders took 160 px for the full range (lines 581 and 637), instead of 1:1 with their track. The clamp does not re-anchor, so an overshoot past a stop is a dead range.
+  - **Round 1's console error:** M4/M5's ENV 1 detail asked for `env1.oneShot`, a row SPEC-ENGINE 5 does not have (line 1567, and line 814 reads its path).
+- **What changed:**
+  - `docs/design/composition-lab-r2.html`: 45 variants in sections B, H, K, V, MM, ML and BK, a How-to-answer table, ten open questions with recommendations, and an in-page hover self-check. The check hovered 1459 controls and compared 1,005,447 boxes; 0 moved, and the control moved 27.
+  - `docs/design/design-ledger.json`: the lab's status (exploring).
+  - `docs/design/index.html`: regenerated. Round 1 is unchanged.
+- **Bundle findings, for the master (not edited here):**
+  - the Knob drag clamps without re-anchoring (bundle.js 217);
+  - `setPointerCapture` is unguarded (199);
+  - the Escape and map-key handling predates ADR-335 r1 and ADR-338 r11 (177).
+- **Lead's review:** the page loads with zero console errors in Chrome and its self-check reads PASS; a hand drag on T2d's Detune runs the hollow pip; the cited round-1 lines match.
+- **Alternatives rejected:** MS3 as a plain mouse-wheel on the chip. B301's gate, `lab_wheel_scroll_check`, refuses an unmodified wheel listener, so MS3 drags instead. Option+wheel would need this lab added to that check's inventory, a tools/ change for the human to allow.
