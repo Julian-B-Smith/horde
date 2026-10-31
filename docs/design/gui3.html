@@ -43,7 +43,12 @@
   .col { max-width: 1010px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--space-column); }
   .grow { flex: 1 1 auto; }
   .tagline { max-width: 96ch; }
-  /* The window is 980 x 720 (ADR-259 ruling 2) and keeps that size: the page area scrolls inside it (B589). */
+  /* The window's composition is 980 x 720 (ADR-259 ruling 2); a long page scrolls inside it (B589). Whether the window then
+     stays FIXED or SCALES proportionally is ADR-338 ruling 12's trial, the Window switch above it: Scale zooms the whole
+     980 x 720 composition, nothing reflows. CSS zoom, so the bundle's pointer maths (client coordinates against
+     getBoundingClientRect) stay true; a canvas is stretched, not redrawn at the new size (a plugin would redraw it). */
+  body.scaled .col { max-width: none; align-items: flex-start; }
+  body.scaled #win { width: 980px; margin: 0; zoom: var(--win-zoom, 1); }
   #win { width: min(100%, 980px); height: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--space-stack); box-sizing: border-box; overflow: hidden; }
   .chrome { display: flex; align-items: flex-start; gap: var(--space-gap) 14px; flex: 0 0 auto; }
   .logo { box-sizing: border-box; width: 91px; height: 60px; flex: 0 0 auto; display: grid; place-items: center; text-align: center; }
@@ -169,9 +174,14 @@
     <span class="grow"></span>
     <button class="hd-btn hd-focus" id="undoBtn" type="button" disabled>Undo</button>
     <button class="hd-btn hd-focus" id="redoBtn" type="button" disabled>Redo</button>
-    <button class="hd-kbd hd-focus" id="kbd" type="button" aria-pressed="false" aria-label="Keyboard mode"><span class="lampdot"></span><span id="kbdTxt">KEYS</span></button>
+    <button class="hd-kbd hd-focus" id="kbd" type="button" aria-pressed="false" aria-label="Keyboard mode"><span class="lampdot"></span><span id="kbdTxt">KEYS OFF</span></button>
     <button class="hd-btn hd-focus" id="themeBtn" type="button" aria-pressed="false">Dark</button>
   </header>
+  <!-- ADR-338 ruling 12: the window's size, tried before it is ruled. Outside the window: the host's resize, not the plugin's face. -->
+  <div class="hd-row" id="sizeBar"><span class="hd-label">Window</span>
+    <span class="hd-pills" id="sizeMode" role="radiogroup" aria-label="Window size"><button class="hd-pill hd-focus" type="button" role="radio" data-m="fixed" aria-checked="true">Fixed 980 × 720</button><button class="hd-pill hd-focus" type="button" role="radio" data-m="scale" aria-checked="false">Scale</button></span>
+    <span class="hd-pills" id="sizeSteps" role="radiogroup" aria-label="Scale" hidden></span>
+    <span class="hd-hint" id="sizeRead"></span></div>
   <div class="tagline"><span class="hd-note">GUI 3 (B584, eight slices so far): <b>one wired shell</b> under a two-level page bar (B589) and the <b>MAP control</b> with its live source strip (the Map Mode spec: turn MAP on, pick a source, click a knob to map it at 25 %, drag to set the depth), a port ledger of what has not moved over (B593), dense oscillator pages after the SCALPEL bench, an Osc dashboard and a mixing console, every parameter that has a machine-readable manifest (SPEC-ENGINE section 5, the morph's settings, the hosted FX modules', Arp's)
     reachable on a page, and <b>no audio</b>: a stub engine keeps the values behind the engine's interface. The <b>Sub</b> and <b>Noise</b> pages are
     designed; the others are drafts or hold no engine parameters, and say why. Try: turn <b>Morph</b> on (the pad docks on every page; <b>Pad</b>
@@ -298,6 +308,14 @@ S = new H.Session({ x: .5, y: .5, corners: [null, null, null, null],
 // writes into the device's matrix at each gesture's end (one undo step) and reads back from it, so the ring on a knob, the
 // bank, the source strip's counts and the matrix all read the same routes.
 const mapBridge = SH.attachMap(S, dev);
+// ADR-338 ruling 11: Escape cancels the innermost open thing, one layer per press. Registered FIRST, in the capture phase, so
+// the map keys' and the bundle's own Escape handlers never see the key: the order lives here and nowhere else. The pinned
+// corner sits between MAP and keyboard mode because the bundle's keyboard mode used Escape to unpin.
+const escLayers = SH.attachEscape(window, [
+  { name: 'menu', active: () => !!menu, cancel: () => closeMenu() },
+  { name: 'map', active: () => S.map.on, cancel: () => S.setMap(false) },
+  { name: 'pin', active: () => S.pinned !== null, cancel: () => S.setPin(null) },
+  { name: 'keys', active: () => S.keys, cancel: () => setKeys(false) }]);
 // ADR-335 ruling 1: the map keys work whether or not keyboard mode is on (the scope is SH.MAP_KEYS_ALWAYS, one line in shell-logic.js).
 SH.attachMapKeys(S, window);
 // The bundle draws what the DEVICE says: its weights, the heard value, the owner (the plugin reads the owner from the
@@ -488,6 +506,33 @@ function randomizePlaceholder() {
   return el;
 }
 
+/* THE MOD MATRIX (ADR-266 rulings 1, 3, 4, 6; ADR-136: the Mod page carries the routes; ADR-338 ruling 8 keeps the grid as
+   the Mod page's route view). The bundle's ModMatrixGrid and RouteList on the session's mappings, which the map bridge keeps
+   equal to the DEVICE's routes, so a cell, a route row, MAP on a knob and the bank all edit the same matrix. The grid's columns
+   are the routed parameters plus the selected one: every source against what is routed, not 317 columns. The grid takes its
+   columns when built, so a change in that set rebuilds it, and the old view is silenced (the session has no way to drop a
+   view). Both draw only while the Mod page shows. The Mod page's own form (M5, list + detail) waits on the composition lab's
+   round 2. */
+function modMatrix() {
+  const gridHost = h('div'), listHost = h('div'), note = h('span', { class: 'hd-hint' });
+  const onMod = v => { const r0 = v.render; v.render = function () { if (page === 'mod') r0.apply(v, arguments); }; return v; };
+  let grid = null, lastCols = null;
+  views.push({ page: 'mod', update() {
+    const ks = [...new Set(S.mappings.map(m => m.param).concat(S.selected ? [S.selected] : []))].filter(k => ROW[k] && S.params[k]);
+    const sig = ks.join('|'); if (sig === lastCols) return; lastCols = sig;
+    if (grid) grid.render = () => {};
+    gridHost.innerHTML = ''; grid = null;
+    note.textContent = ks.length ? ks.length + (ks.length === 1 ? ' destination' : ' destinations') + ': the routed parameters and the selected one. Click an empty cell to map at 25 %; drag a cell for its depth.'
+      : 'No routes yet. Turn MAP on and click a control, or select a control to give it a column here.';
+    if (!ks.length) return;
+    grid = onMod(H.ModMatrixGrid(gridHost, S, { label: 'the routed parameters', dests: ks.map(k => ({ key: k, name: S.params[k].path || ROW[k].label, short: ROW[k].label })) }));
+  } });
+  onMod(H.RouteList(listHost, S, { label: 'Every route' }));
+  const cm = card('Mod matrix', 'ADR-266', [gridHost, note]), cr = card('Routes', 'ADR-136', [listHost]);
+  cm.classList.add('wide'); cr.classList.add('wide');   // the grid scrolls inside its own region; a half-width card squeezed it
+  return h('div', { class: 'cards' }, cm, cr);
+}
+
 // ===== BLOCK E: the pages, from GUI3_DATA.pages, under the two-level page bar (B589 Page nav) =====
 const pageEls = {};
 const STATUS_TAG = { designed: 'DESIGNED', draft: 'DRAFT', empty: 'NO ENGINE PARAMETERS' };
@@ -520,23 +565,20 @@ function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let 
 function vizView(v, pid, big) {
   const wrap = h('div', { class: 'vz' }), cvs = [], K = v.keys, st = {};
   const add = (label, hgt) => { const cv = h('canvas', { class: 'vz-cv', style: 'height:' + hgt + 'px', 'aria-label': label + ' (SAMPLE)', role: 'img' }); wrap.append(h('div', { class: 'hd-viz vz-well' }, cv)); cvs.push(cv); return cv; };
-  const ring = v.kind === 'osc' && big ? add('Phase ring', 210) : null;
+  const ring = v.kind === 'osc' && big ? add('Phase ring: Coupling × Detune, shift for Cross-mod', 210) : null;
+  const ringIO = ring ? oscRing(ring, K, pid, wrap) : null;
   const main = add(v.kind === 'noise' ? 'Spectrum' : v.kind === 'env' ? 'ENV 1' : 'One cycle', big ? (v.kind === 'osc' ? 96 : 160) : 64);
   wrap.append(h('span', { class: 'hd-hint vz-cap', text: 'SAMPLE: a drawing of the settings, not the engine’s output' }));
   let last = null, frame = 0;
   views.push({ page: pid, update() {
     frame++;
+    if (ringIO) ringIO.frame();                 // the swarm moves every frame, so the ring is drawn before the change test below
     const sig = Object.values(K).map(k => dev.shown(k)).join('|') + '|' + (document.documentElement.dataset.theme || '');
     if (sig === last && v.kind !== 'noise') return; last = sig;
-    if (ring) {
-      const n = Math.max(1, Math.round(xOf(K.unison))), c = xOf(K.coupling), r = mulberry(7), ph = [];
-      for (let i = 0; i < n; i++) { const even = i / n, rnd = r(); ph.push(c >= 0 ? .25 + (rnd - .5) * (1 - c) : even * -c + rnd * (1 + c)); }
-      H.Viz.kuramoto(ring, { phase: ph, xy: { x: dev.shown(K.detune), y: (c + 1) / 2 } });
-    }
     if (v.kind === 'noise') {
       const c = xOf(K.colour), bands = [];   // +1 white (flat), 0 pink (−3 dB/oct), −1 brown (−6 dB/oct): a tilt, SN-4's words
       for (let b = 0; b < 24; b++) { const oct = b / 3, db = -(1 - c) * 3 * oct; bands.push(Math.max(0, Math.min(1, .82 + db / 36))); }
-      H.Viz.spectrum(main, bands, st, frame / 60);
+      H.Viz.spectrum(main, bands, st, frame * 1000 / 60);   // `now` in ms: the painter holds a cap 1500 ms (B596 found seconds here, a 25-minute hold)
     } else if (v.kind === 'env') {
       // The painter's `hold` is a sustain plateau for the drawing (a third of the other stages, SAMPLE), not ENV 1's Hold
       // row, which it does not draw; the curves are C.12's, drawn by the bundle's own law (Viz.envAt).
@@ -549,6 +591,46 @@ function vizView(v, pid, big) {
     }
   } });
   return wrap;
+}
+
+/* THE PHASE RING (ADR-156: the oscillator's main direct control; ADR-333: copied precisely from the SCALPEL bench, which is
+   what the bundle's RingXY and Viz.kuramoto are, harvested at B544). The ring is the Coupling × Detune XY: a click lands both,
+   a drag follows, alt is fine, shift hands the horizontal to Cross-mod (the third axis) and holds Detune. Positions are the
+   knobs' own travel (0..1), so the ring and the knobs are one model. A gesture is ONE undo step: begun on the press, ended on
+   the release, never one step per pointer move. The swarm drawn is the bundle's seeded SAMPLE (Synth.ring), stepped by the
+   frame (1/60 s, no clock), never the engine's phases (IF-10 at stage 8 brings those). */
+function oscRing(cv, K, pid, wrap) {
+  const KMAX = 4, SPREAD = 1.4, rows = { x: ROW[K.detune], y: ROW[K.coupling], sx: ROW[K.crossMod] };
+  const st = { x: 0, y: 0, sx: 0 }, cap = h('span', { class: 'hd-hint vz-cap' });
+  let sw = null, n = 0, live = { drag: false, shift: false, hover: false }, held = false, coh = 0;
+  const pull = () => { st.x = dev.shown(K.detune); st.y = dev.shown(K.coupling); st.sx = dev.shown(K.crossMod); };
+  const put = (ax, v) => {
+    const row = rows[ax], p = PROPS[row.key + '@' + pid], ai = p ? S.editing(p) : null;
+    if (Math.abs(dev.shown(row.key) - v) < 1e-9) return;
+    if (p && p.locked) { p.g = v; return; }
+    if (ai === null || ai === undefined) return;
+    dev.set(row.key, v, { corner: ai });
+  };
+  H.RingXY(cv, st, (s, info) => {
+    live = info;
+    if (info.drag && !held) { held = true; dev.begin(PG[pid].label + ' · ring (drag)'); }
+    if (info.drag || info.shift || !info.hover) { put('x', s.x); put('y', s.y); put('sx', s.sx); }
+    if (!info.drag && held) { held = false; dev.end(); }
+  });
+  wrap.append(cap);
+  return { frame() {
+    const m = Math.max(1, Math.round(xOf(K.unison)));
+    if (m !== n || !sw) { n = m; sw = H.Synth.ring(7, n); }
+    if (!live.drag) pull();
+    sw.step(1 / 60, (st.y - .5) * 2 * KMAX, st.x * SPREAD);
+    coh = H.Viz.kuramoto(cv, { phase: sw.phase, blades: sw.blades, cross: st.sx > .005 ? sw.cross(st.sx) : null, xy: st, drag: live.drag });
+    const d = r => ENG.display(r, dev.shown(r.key));
+    const t = live.drag ? 'DRAG · ' + (live.shift ? '⇧↔ Cross-mod ' + d(rows.sx) : '↔ Detune ' + d(rows.x)) + ' · ↕ Coupling ' + d(rows.y)
+      : live.hover ? 'Click lands ↔ Detune ↕ Coupling · alt fine · ⇧↔ Cross-mod (relative)'
+      : 'Detune ' + d(rows.x) + ' · Coupling ' + d(rows.y) + ' · Cross-mod ' + d(rows.sx) + ' · SAMPLE swarm';
+    if (cap.textContent !== t) cap.textContent = t;
+    cv.setAttribute('aria-valuetext', 'Detune ' + d(rows.x) + ', Coupling ' + d(rows.y) + ', Cross-mod ' + d(rows.sx) + ', Coherence ' + (+coh || 0).toFixed(2));
+  }, st };
 }
 
 /* A dense section (B589): a Section header (identity rule, the power toggle, the number, the name, the mode pills, the
@@ -665,9 +747,10 @@ function consolePage(pg, el) {
     const sm = dev.summed(); if (!sm) return;
     sumFrame++;
     H.Viz.scope(scopeCv, { l: sm.scope, r: sm.scope, R: 0 });
-    H.Viz.spectrum(specCv, sm.bands, specSt, sumFrame / 60);
+    H.Viz.spectrum(specCv, sm.bands, specSt, sumFrame * 1000 / 60);   // ms, as above
   } });
   el.append(h('div', { class: 'mixrow' }, h('div', { class: 'hd-cell hd-dense console' }, host), sums));
+  el.append(gainStaging(pg.id));
   let last = '';
   views.push({ page: pg.id, update() {
     const k = dev.rev();
@@ -675,6 +758,59 @@ function consolePage(pg, el) {
     consoleStrip.step(1 / 60); consoleStrip.render();     // the ballistics advance one frame per frame: no clock (B589)
   } });
 }
+/* GAIN STAGING (ADR-230 item 3 and A1, ADR-235 ruling 3, ADR-272 A1): the bundle's chain line over its stage view, one gain
+   model between them (the master's ChainLine preview wiring, verbatim in shape). READINGS come from the device's meters (IF-6)
+   only where the engine publishes a tap: the four sources and the output (the stub's MOCK meters); every other stage has no
+   reading and is drawn hollow, never guessed. GAINS are the master chain's own placeholder ranges (B402, RC-2 "deferred") held
+   here, NOT engine rows: no stage gain or make-up has a SPEC-ENGINE key yet, which is the lead's to add (noted on B584). So
+   the view is in the shell and not wired. The ballistics advance one 1/60 s step per frame: no clock. */
+function gainStaging(pid) {
+  const stages = H.GainStaging.chain('instrument'), G = {}, tap = { vol: 'out' };
+  stages.forEach(st => { if (st.gain) G[st.id] = st.gain.def; });
+  const idOf = id => tap[id] || id;
+  const read = id => { const m = dev.meters()[idOf(id)]; return m && m.peak > -Infinity ? { l: m.peak, r: m.peak } : undefined; };
+  const latch = id => { const m = dev.meters()[idOf(id)]; return m && m.clip && m.clip.on ? { on: true, at: 0, max: m.clip.max } : { on: false }; };
+  const clear = id => { dev.clearClip(idOf(id)); S.say('Gain staging: ' + id + ' clip lamp cleared'); };
+  const lineHost = h('div'), gsHost = h('div');
+  // built on the page's first frame: the chain line paints as it is built and reads its colours from the canvas's computed
+  // style, which a page not yet in the document does not have (it threw on a null colour)
+  let gs = null, cl = null;
+  views.push({ page: pid, update() {
+    if (!gs) {
+      gs = H.GainStaging(gsHost, { stages, sr: 48000, keys: () => S.keys, gains: G, read, latch, clear, onGain: (id, v) => { G[id] = v; } });
+      cl = H.ChainLine(lineHost, { stages, sr: 48000, read, latch, keys: () => S.keys, gain: id => G[id], onGain: (id, v) => { G[id] = v; gs.setGain(id, v); } });
+    }
+    gs.step(1 / 60, true); cl.step(1 / 60, true); gs.render(); cl.render();
+  } });
+  const c = card('Gain staging', 'IN SHELL · NOT WIRED', [lineHost, gsHost,
+    h('span', { class: 'hd-hint', text: 'Readings: the device’s MOCK meters where the engine publishes a tap (the four sources and the output); every other stage is hollow. Gains: the design system’s placeholder ranges, held here: no stage gain or make-up is an engine parameter yet.' })]);
+  c.classList.add('wide');
+  return h('div', { class: 'cards' }, c);
+}
+
+/* THE FX RACK (ADR-259 ruling 5, ADR-273 and A1): the bundle's FxRack, each module a cream card with its own screen inset and
+   its cable colour (FxCables). The stub publishes no cable state (IF-10 brings the engine's), so the state drawn is a SERIAL
+   STAND-IN: the body lane through every hosted module once, in the FX page's card order (the page's own note: the FX chain
+   lab's rack order, not a ruling), to OUT, every cable at full weight, no loop and no wait. A module with two faces is one box
+   at its first face (Bulwark's compressor; its limiter face is the master limiter after the rack, B438). */
+function fxRack(pg) {
+  const order = Object.keys(H.FxCables.SCREENS), seen = new Set(), nodes = [];   // `order`: only to know which screens the bundle draws
+  pg.groups.forEach(g => { const k = (g.screen || '').toLowerCase(); if (k && !seen.has(k) && order.includes(k)) { seen.add(k); nodes.push({ id: k, name: g.screen, short: g.screen.slice(0, 4), style: k, asleep: false }); } });
+  const lanes = [{ id: 'body', name: 'Body', short: 'Body', style: 'lane' }], out = { id: 'out', name: 'Out', short: 'Out' };
+  const ids = ['body'].concat(nodes.map(n => n.id), ['out']), cables = ids.slice(1).map((v, i) => ({ u: ids[i], v, wf: 1, wb: 0, loop: false, held: false }));
+  const state = { lanes, nodes, out, cables, rules: [] }, host = h('div');
+  // built on the page's first frame, for the same reason as the chain line: it draws at its container's width and colours
+  let built = false;
+  views.push({ page: pg.id, update() {
+    if (built) return; built = true;
+    const view = H.FxRack(host, () => state, S), r0 = view && view.render;
+    if (r0) view.render = function () { if (page === pg.id) r0.apply(view, arguments); };
+  } });
+  const c = card('FX rack', 'SERIAL STAND-IN', [host, h('span', { class: 'hd-hint', text: 'The stub publishes no cable state, so this is the hosted modules in series at full weight; with the engine (IF-10) the morph moves the cables.' })]);
+  c.classList.add('wide');
+  return h('div', { class: 'cards' }, c);
+}
+
 /* The port ledger (ADR-333, B593): everything not yet moved over, where it lives and why, read from port-tab.json
    through the generated data. Grouped by area, with counts by reason and by status. */
 function ledgerPage(pg, el) {
@@ -727,6 +863,8 @@ DATA.pages.forEach(pg => {
   else if (pg.dense) densePage(pg, el);
   else classicPage(pg, el);
   if (pg.panel === 'morph') el.append(morphPanel());
+  if (pg.id === 'mod') el.append(modMatrix());
+  if (pg.id === 'fx') el.insertBefore(fxRack(pg), el.children[1] || null);
   $('pages').append(el); pageEls[pg.id] = el;
 });
 /* A page opens by its id, whatever its group (an old link's #noise still opens the Noise page, under Osc). */
@@ -739,7 +877,7 @@ function selectPage(id) {
 }
 
 // ===== BLOCK F: the chrome (ADR-315): the docked pad while morph is on, its hide toggle, the info box, the menu =====
-H.XYPad($('padHost'), S);
+H.XYPad($('padHost'), S, { census: true });   // ADR-262 ruling 5: the census ring (the bundle's plain dots; glyph shapes are the master's to add)
 H.CornerChips($('cornersHost'), S);
 function paintDock() {
   const on = dev.morph().on, show = on && padShown; dockOn = on;
@@ -831,7 +969,6 @@ function openMenu(key, x, y) {
 }
 $('win').addEventListener('contextmenu', e => { const t = hostOf(e.target); if (!t) return; e.preventDefault(); openMenu(t.dataset.key, e.clientX, e.clientY); });
 document.addEventListener('pointerdown', e => { if (menu && !menu.contains(e.target)) closeMenu(); }, true);
-addEventListener('keydown', e => { if (e.key === 'Escape' && menu) closeMenu(); });
 
 // ===== BLOCK D3: the bottom modulator bank (ADR-322 items 3 and 4, B556; ADR-291 item 2) =====
 // Which modulators it lists is READ, never kept: the adapter's routes (RC-4) whose parameter is a control on the
@@ -928,7 +1065,23 @@ $('closeBtn').addEventListener('click', () => {
   S.say(gone.length ? 'Closed and reopened: dropped ' + gone.join(', ') + ' (activated with +, never mapped)' : 'Closed and reopened: nothing was pending, so nothing was dropped');
 });
 $('initBtn').addEventListener('click', () => { dev.reset(); S.say('Init patch: every corner at the spec’s defaults, no routes'); });
-$('kbd').addEventListener('click', () => { S.keys = !S.keys; $('kbd').setAttribute('aria-pressed', String(S.keys)); $('kbdTxt').textContent = S.keys ? 'KEYS ON' : 'KEYS'; $('win').classList.toggle('kbd-on', S.keys); sweepTabs(); });
+function setKeys(on) { S.keys = on; $('kbd').setAttribute('aria-pressed', String(on)); $('kbdTxt').textContent = on ? 'KEYS ON' : 'KEYS OFF'; $('win').classList.toggle('kbd-on', on); sweepTabs(); }
+$('kbd').addEventListener('click', () => setKeys(!S.keys));
+// ADR-338 ruling 12: Fixed or Scale (75 to 200 %, or Fit to the browser's viewport). No reflow: the composition is the same at every size.
+const SCALES = [.75, .9, 1, 1.25, 1.5, 1.75, 2];
+let winScale = 1, sizeMode = 'fixed';
+function fitScale() { const top = $('win').getBoundingClientRect().top / (sizeMode === 'scale' ? winScale : 1); return Math.max(.5, Math.min((innerWidth - 32) / 980, (innerHeight - top - 16) / 720)); }
+function setSize(mode, k) {
+  sizeMode = mode; winScale = mode === 'scale' ? (k === 'fit' ? fitScale() : k || winScale) : 1;
+  document.body.classList.toggle('scaled', mode === 'scale'); $('win').style.setProperty('--win-zoom', String(winScale));
+  $('sizeMode').querySelectorAll('button').forEach(b => b.setAttribute('aria-checked', String(b.dataset.m === mode)));
+  $('sizeSteps').style.display = mode === 'scale' ? '' : 'none';   // the bundle's .hd-pills sets display, so `hidden` alone loses
+  $('sizeSteps').querySelectorAll('button').forEach(b => b.setAttribute('aria-checked', String(b.dataset.k === 'fit' ? k === 'fit' : k !== 'fit' && Math.abs(+b.dataset.k - winScale) < 1e-9)));
+  $('sizeRead').textContent = mode === 'scale' ? Math.round(980 * winScale) + ' × ' + Math.round(720 * winScale) + ' (' + Math.round(winScale * 100) + ' %)' : '980 × 720, fixed';
+}
+SCALES.concat(['fit']).forEach(k => { const b = h('button', { class: 'hd-pill hd-focus', type: 'button', role: 'radio', 'data-k': String(k), 'aria-checked': 'false', text: k === 'fit' ? 'Fit' : Math.round(k * 100) + ' %' }); b.addEventListener('click', () => setSize('scale', k)); $('sizeSteps').append(b); });
+$('sizeMode').querySelectorAll('button').forEach(b => b.addEventListener('click', () => setSize(b.dataset.m, b.dataset.m === 'scale' ? winScale : 1)));
+setSize('fixed');
 const dark = () => document.documentElement.dataset.theme ? document.documentElement.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
 $('themeBtn').addEventListener('click', () => { document.documentElement.dataset.theme = dark() ? 'light' : 'dark'; $('themeBtn').setAttribute('aria-pressed', String(dark())); });
 // Keyboard mode (ADR-259 ruling 6): off, no control in the window takes focus. The bundle's own controls set their tab stops.
@@ -1201,6 +1354,50 @@ views.push({ page: '*', update() {
     S.setMap(false); key('keydown', 'Digit4'); const free = S.map.src === dev.sources()[2].id && S.pinned === null;
     S.keys = was[0]; S.setSrc(was[2]); S.setMap(was[1]);
     line(latched && src3 && fieldNone && offAgain && esc && free, 'Map keys: with keyboard mode off, M latched MAP, 3 chose the third source, M turned it off, Esc turned it off; the same keys in the source drop-down did nothing, and a digit with MAP off was left alone (control).'); }
+  // 25. ADR-338 ruling 11: Escape cancels one layer per press, innermost first: the open menu, then MAP, then keyboard mode; with
+  // nothing open it cancels nothing (and is never panic). Real key events at the window. Control: the first press with the
+  // menu open leaves MAP on, so a handler that cancelled everything at once would fail here.
+  { const was = [S.keys, S.map.on, S.pinned], esc = () => document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }));
+    const kh2 = document.querySelector('#page-' + page + ' [data-key]') || document.querySelector('#pages [data-key]');
+    S.setPin(null); setKeys(true); S.setMap(true);
+    kh2.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 40 }));
+    const opened = !!menu;
+    esc(); const l1 = escLayers.last(), m1 = !menu && S.map.on && S.keys;
+    esc(); const l2 = escLayers.last(), m2 = !S.map.on && S.keys;
+    esc(); const l3 = escLayers.last(), m3 = !S.keys && $('kbdTxt').textContent === 'KEYS OFF';
+    esc(); const l4 = escLayers.last();
+    setKeys(was[0]); S.setMap(was[1]); S.setPin(was[2]);
+    line(opened && m1 && m2 && m3 && [l1, l2, l3, l4].join() === 'menu,map,keys,', 'Escape: one layer a press: the menu closed (MAP stayed on), then MAP turned off, then keyboard mode (the lamp reads KEYS OFF); a fourth press cancelled nothing (' + [l1, l2, l3, l4 || 'none'].join(' → ') + '; control: MAP survived the first press).'); }
+  // 26. ADR-156 / ADR-333: the ring is the oscillator's direct control. A press-drag-release on Osc 1's ring writes Detune and
+  // Coupling as ONE undo step, and the knobs read it back (one model); a shift-drag moves Cross-mod and holds Detune; undo walks
+  // both back. Real pointer events on the bundle's RingXY (its capture stubbed). Control: the values differed before the drag.
+  { const pg0 = page; selectPage('osc1');
+    const K = PG.osc1.viz.keys, cv = pageEls.osc1.querySelector('canvas.hd-ring'), r = cv.getBoundingClientRect();
+    cv.setPointerCapture = () => {}; cv.releasePointerCapture = () => {}; cv.hasPointerCapture = () => false;
+    const ev = (t, x, y, sh) => cv.dispatchEvent(new PointerEvent(t, { bubbles: true, button: 0, pointerId: 7, shiftKey: !!sh, clientX: r.left + x * r.width, clientY: r.top + (1 - y) * r.height }));
+    const v0 = [K.detune, K.coupling, K.crossMod].map(k => dev.shown(k)), h0 = dev.history().past.length;
+    ev('pointerdown', .8, .7); ev('pointermove', .6, .9); ev('pointerup', .6, .9);
+    const one = dev.history().past.length === h0 + 1, x1 = dev.shown(K.detune), y1 = dev.shown(K.coupling);
+    const landed = Math.abs(x1 - .6) < .02 && Math.abs(y1 - .9) < .02 && Math.abs(S.base(PROPS[K.detune + '@osc1']) - x1) < 1e-12;
+    ev('pointerdown', .6, .9, true); ev('pointermove', .9, .9, true); ev('pointerup', .9, .9, true);
+    const shifted = dev.history().past.length === h0 + 2 && Math.abs(dev.shown(K.detune) - x1) < 1e-9 && dev.shown(K.crossMod) > v0[2] + .1;
+    dev.undo(); dev.undo();
+    const back = [K.detune, K.coupling, K.crossMod].every((k, i) => Math.abs(dev.shown(k) - v0[i]) < 1e-12);
+    selectPage(pg0);
+    line(one && landed && shifted && back && Math.abs(v0[0] - .6) > .02, 'Ring: a drag on Osc 1’s ring landed Detune ' + x1.toFixed(2) + ' and Coupling ' + y1.toFixed(2) + ' as one undo step and the Detune knob reads it; a shift-drag moved Cross-mod and held Detune; undo restored all three (control: Detune differed before).'); }
+  // 27. ADR-266: the Mod page's grid and route list read the DEVICE's routes. A route added through the device shows as a grid
+  // column with a filled cell and as a route row; removing it takes both away. Control: before the route the column is absent.
+  { const pg0 = page; selectPage('mod');
+    const tick = () => { for (const v of views) if (v.page === 'mod' || v.page === '*') v.update(); for (const v of S.views) v.render(); };
+    const k = pageKeysList('osc1').find(x => ROW[x].law !== 'step' && (ROW[x].pv || ROW[x].target !== 'engine') && !dev.routes().some(r => r.param === x)), sel0 = S.selected;
+    S.selected = null; tick();
+    const col0 = [...pageEls.mod.querySelectorAll('.mx-gh')].some(b => b.title === S.params[k].path);
+    dev.begin('self-check'); const ok = dev.addRoute({ src: 'env2', param: k }).ok; dev.end(); mapBridge.pull(); tick();
+    const col1 = [...pageEls.mod.querySelectorAll('.mx-gh')].some(b => b.title === S.params[k].path), rows1 = pageEls.mod.querySelectorAll('.mx-routes .mx-row').length;
+    dev.undo(); mapBridge.pull(); tick();
+    const col2 = [...pageEls.mod.querySelectorAll('.mx-gh')].some(b => b.title === S.params[k].path);
+    S.selected = sel0; selectPage(pg0);
+    line(ok && !col0 && col1 && rows1 >= 1 && !col2, 'Mod matrix: ENV 2 → ' + S.params[k].path + ' added through the device appeared as a grid column and a route row (' + rows1 + '); undo removed the column (control: absent before).'); }
   // 13. The page bar (B589): an old link's page id opens its page under its group, and the group remembers it.
   selectPage('noise'); const nv = nav.get(); selectPage('main'); const nm2 = nav.get();
   line(nv.group === 'osc' && nv.page === 'noise' && nm2.group === 'main', 'Page nav: #noise opens Noise under Osc (' + nv.group + ' / ' + nv.page + '); Main is its own group (control: ' + nm2.group + ').');
@@ -1213,6 +1410,7 @@ views.push({ page: '*', update() {
 { const [pg, ...flags] = location.hash.slice(1).split(','); selectPage(pageEls[pg] ? pg : 'dashboard');
   if (flags.includes('light') || flags.includes('dark')) { document.documentElement.dataset.theme = flags.includes('dark') ? 'dark' : 'light'; $('themeBtn').setAttribute('aria-pressed', String(flags.includes('dark'))); }
   if (flags.includes('win')) document.body.classList.add('win-only');
+  { const f = flags.find(x => x.startsWith('scale=')); if (f) { const v = f.slice(6); setSize('scale', v === 'fit' ? 'fit' : +v / 100); } }
   if (flags.includes('nobank')) setBankShown(false);
   if (flags.includes('morph')) { setMorphOn(true); dev.scatter(SEED); }
   if (flags.includes('bank')) { pageKeysList(page).filter(k => ROW[k].law !== 'step').slice(0, 2).forEach(k => dev.drop('env2', k)); dev.activate('env3'); }

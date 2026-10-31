@@ -1,6 +1,6 @@
 # GUI 3: the wired shell
 
-*Last verified 2026-10-30, branch `gui3-b584-slice7` (ROADMAP B584 slice 7, B582; ADR-335; slice 6, B593; ADR-261, ADR-316, ADR-319, ADR-322, ADR-329, ADR-330, ADR-333; B589), on slice 5.*
+*Last verified 2026-10-30, branch `gui-batch-1-mount` (the GUI session's batch 1: ADR-336, ADR-338; B584, B596's first steps), on slice 7.*
 
 `docs/design/gui3.html` is GUI 3's prototype: one window with twelve pages (the Random page folded into the
 Morph page, ADR-322 item 2; a draft Arp page, ADR-330), every parameter that has a machine-readable
@@ -245,6 +245,45 @@ The design master was revised (artifact `1793336699-65f2`, B589; its per-element
   the heading it cites, and the DRAFT mark, with must-fail controls for each.
 - **Review links:** `src=<id>` picks the MAP source (`#osc1,light,win,map,src=gravity` is the longest name); `info=<section id or
   key>` shows the info box as if hovering it (`#osc1,light,win,info=osc1%2Fblade-1`).
+
+## Batch 1 of the GUI session: what was vendored is mounted, and the audit's defects (ADR-336, ADR-338; B596)
+
+The design ledger audit (`docs/audits/2026-10-30-design-ledger.html`) found 35 ruled elements in the bundle and not in the shell. The
+first GUI-session batch mounts the ones the stub can feed honestly, and fixes the shell defects the audit confirmed.
+
+- **The ring is the oscillator's direct control** (ADR-156, ADR-333): Osc 1 and Osc 2 mount the bundle's `RingXY` over `Viz.kuramoto`
+  (the SCALPEL bench's ring, harvested at B544): the blades' rim arcs, the cross-mod arrows, a click that lands Detune (↔) and Coupling
+  (↕), a drag that follows, alt for fine, and **shift for Cross-mod**, the third axis (it holds Detune). Positions are the knobs' own
+  travel, written through the device as **one undo step per gesture** (self-check 26). The swarm is the bundle's seeded SAMPLE
+  (`Synth.ring`), stepped by the frame; the engine's phases arrive with IF-10. The bench's waveform XY with its view modes (at phase,
+  members) is not in the bundle: batch 2 harvests it into the master first (the human, 2026-10-30).
+- **The Mod page's matrix** (ADR-266, ADR-136): `ModMatrixGrid` and `RouteList` on the session's mappings, which the map bridge keeps
+  equal to the device's routes. Columns are the routed parameters plus the selected one (self-check 27). The page's form (M5,
+  list + detail, ADR-338 ruling 8) waits on the composition lab's round 2.
+- **Gain staging on Mix** (ADR-230, ADR-235, ADR-272 A1): `ChainLine` over `GainStaging`, one gain model between them. Readings
+  come from the device's MOCK meters where a tap is published (the four sources, the output); every other stage is hollow, never
+  guessed. **Not wired:** the gains are the master chain's placeholder ranges held in the shell, because no stage gain or make-up
+  is an engine row (B402, RC-2).
+- **The FX rack on FX** (ADR-259 ruling 5, ADR-273): `FxRack`, each hosted module a cream card with its screen inset and cable
+  colour, as a **serial stand-in** (the stub publishes no cable state): the body lane through the modules in the page's order to OUT.
+- **The census ring** (ADR-262 ruling 5) is on the docked morph pad, as the bundle draws it (plain dots; the ruling's glyph
+  shapes are the master's to add).
+- **Defects fixed:** the spectrum's peak hold was passed seconds where the painter holds 1500 ms (caps held about 25 minutes); the
+  keyboard lamp reads KEYS OFF, as the master says.
+- **Escape is a layered cancel** (ADR-338 ruling 11): one capture-phase handler (`shell-logic.js` `attachEscape`) cancels the
+  innermost open thing per press (the menu, MAP, the pinned corner, keyboard mode) and stops the key, so neither the map keys' nor
+  the bundle's own Escape runs a second cancel (self-check 25). The master's MapControl and KeyboardLamp READMEs still describe
+  Escape their own way; aligning them is batch 2. **Open:** ruling 11 gives panic its own control, against ADR-226 item 6 (no
+  panel Panic control); none is built until the human says which holds.
+- **The window's size is a trial** (ADR-338 ruling 12): a switch above the window, Fixed 980 x 720 or Scale (75 to 200 %, or Fit).
+  Scale zooms the whole composition (CSS zoom, so the bundle's pointer maths hold); a canvas is stretched, not redrawn at the new
+  size, which a plugin would do. `#<page>,scale=150` opens scaled.
+- **Kept, not removed:** the bank's Mods | Macros pills. The audit read ADR-323 ruling 2 as rejecting them; the ruling says "Mods|Macros
+  later", folded into the strip's header once macros exist, and the human asked for exactly that toggle on 2026-10-30 (intent-bus
+  macros with the pitch bend and mod wheel, against the rest of the bank). It waits on macros in the master.
+- **Not mounted, and why:** Main's performance pad (ADR-176 decision 5) drives intent-bus atoms the stub does not have, so it comes
+  with the macros; each modulator card's retrigger switch (ADR-266 ruling 7) has no parameter (SPEC-ENGINE has no retrigger row for a
+  modulator, only `osc1/osc2.retrigger`), which is the lead's to add.
 
 ## The seam and the transport
 

@@ -294,11 +294,11 @@
    "master_version": "1793374583-b6a5",
    "bundle": "ModMatrixGrid",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: H.ModMatrixGrid(gridHost, S,",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "modulators",
-   "note": "bundle.js defines ModMatrixGrid (line 1275); the shell mounts no H.ModMatrixGrid (its routes show only through the bank and MAP mode)."
+   "note": "bundle.js defines ModMatrixGrid (line 1275); the shell mounts no H.ModMatrixGrid (its routes show only through the bank and MAP mode). B584 batch 1 (2026-10-30): the Mod page's grid on the device's routes (columns: the routed parameters and the selected one); self-check 27."
   },
   {
    "id": "adr013-partial-strips-mpe-surface",
@@ -402,7 +402,7 @@
    "shell": null,
    "state": "ruled",
    "superseded_by": null,
-   "port_tab": null,
+   "port_tab": "readouts",
    "note": "A general display law ('order parameters measure state, not cause'); grep of the master README and every component README finds no cause-and-state rule and no lock-warning text. GUI 3 has no coupling claim yet; it applies the moment one is drawn (e.g. a lock warning or the lock spark)."
   },
   {
@@ -459,7 +459,7 @@
    "master_version": "1793374583-b6a5",
    "bundle": "Viz.kuramoto",
    "via": null,
-   "shell": "docs/design/gui3.html: xy: { x: dev.shown(K.detune)",
+   "shell": "docs/design/gui3.html: xy: st, drag: live.drag",
    "state": "in-shell",
    "superseded_by": null,
    "port_tab": "osc-visualizers",
@@ -492,7 +492,7 @@
    "shell": null,
    "state": "ruled",
    "superseded_by": null,
-   "port_tab": null,
+   "port_tab": "readouts",
    "note": "NOT legacy-only: voice.gravity is a GUI 3 control on Main (layout.json, the Voice group), but nothing shows what gravity captured. The master README and component READMEs have no ratio or cents readout (grep 'gravity' finds only ORBITAL). No port-tab row."
   },
   {
@@ -612,7 +612,7 @@
    "shell": null,
    "state": "ruled",
    "superseded_by": null,
-   "port_tab": null,
+   "port_tab": "readouts",
    "note": "The same no-reflow rule as ADR-017's warning line, applied to the legacy viz column. The master's readout rule ('the two share one box, so nothing moves') covers labels and values only; no general no-reflow rule for visual captions."
   },
   {
@@ -702,7 +702,7 @@
    "shell": null,
    "state": "ruled",
    "superseded_by": null,
-   "port_tab": null,
+   "port_tab": "composition-tier",
    "note": "The shell does the opposite: gui3.html tiles with CSS grid plus align-items: start (.two, .ledger, .dash), the exact half-fix ADR-098 A1 calls out; no break-inside anywhere. The master README has no flow or tiling rule. No port-tab row."
   },
   {
@@ -732,7 +732,7 @@
    "shell": null,
    "state": "ruled",
    "superseded_by": null,
-   "port_tab": null,
+   "port_tab": "presets",
    "note": "No copy or paste in gui3.html or the master. ADR-105 kept COPY PATCH / PASTE as the export/import path."
   },
   {
@@ -897,7 +897,7 @@
    "shell": null,
    "state": "ruled",
    "superseded_by": null,
-   "port_tab": null,
+   "port_tab": "readouts",
    "note": "The same element as adr028-gravity-readout, carried into gui2. GUI 3 has voice.gravity but no readout; nothing in the master."
   },
   {
@@ -942,7 +942,7 @@
    "shell": null,
    "state": "ruled",
    "superseded_by": null,
-   "port_tab": null,
+   "port_tab": "morph-editor",
    "note": "The master marks a pinned chip with an ink outline and tints a selected control with the editing corner; it has no dashed-border state, and the shell has none (its one 'dashed' is the ledger's row border)."
   },
   {
@@ -1108,7 +1108,7 @@
    "shell": null,
    "state": "ruled",
    "superseded_by": null,
-   "port_tab": null,
+   "port_tab": "presets",
    "note": "GUI 3 has no patch preset selector (only corner presets on the Morph page); the master has no preset selector. The file manager is B261's (port-tab row settings), not listed there."
   },
   {
@@ -1318,7 +1318,7 @@
    "shell": null,
    "state": "vendored",
    "superseded_by": null,
-   "port_tab": null,
+   "port_tab": "modulators",
    "note": "bundle.css .hd-slider .handle 13px with var(--shadow-rest) and bundle.js PlainSlider ('the house slider without the morph marks'); RouteRow README names 'the house slider track (6 px, well-alt, ink edge, 13 px handle)'. The shell uses neither PlainSlider nor hd-slider: its sliders are H.Slider, the morph slider of ADR-261, which governs morphing controls."
   },
   {
@@ -1453,7 +1453,7 @@
    "shell": null,
    "state": "vendored",
    "superseded_by": null,
-   "port_tab": null,
+   "port_tab": "settings",
    "note": "Became the seven-scheme selector (ADR-262 r2 re-ruled it: 'Screen schemes return, as in gui2's SCR chip'); ScreenScheme README says persistence is 'a GUI preference, not patch state', which revises 'session-only'. bundle.js function ScreenScheme exists; the shell's only 'scheme' hit is prefers-color-scheme."
   },
   {
@@ -1510,11 +1510,11 @@
    "master_version": "1793374583-b6a5",
    "bundle": "RouteRow",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: H.RouteList(listHost, S,",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": null,
-   "note": "RouteRow README: depth track, readout and a x that removes the mapping; bundle.js function RouteRow / RouteList. The shell mounts ModInspector, not H.RouteRow or H.RouteList. ADR-266 r1 recomposes the mod matrix page as a grid, trace lanes and compact wires."
+   "note": "RouteRow README: depth track, readout and a x that removes the mapping; bundle.js function RouteRow / RouteList. The shell mounts ModInspector, not H.RouteRow or H.RouteList. ADR-266 r1 recomposes the mod matrix page as a grid, trace lanes and compact wires. B584 batch 1 (2026-10-30): the Mod page's route list (the bundle's RouteList of RouteRows) on the device's routes."
   },
   {
    "id": "adr136-right-click-send",
@@ -1543,7 +1543,7 @@
    "shell": null,
    "state": "ruled",
    "superseded_by": null,
-   "port_tab": null,
+   "port_tab": "morph-editor",
    "note": "No 'rail' or automation badge in XYPad README or any master component; the shell's pad has none."
   },
   {
@@ -1675,11 +1675,11 @@
    "master_version": "1793374583-b6a5",
    "bundle": "RouteRow",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: H.RouteList(listHost, S,",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": null,
-   "note": "RouteRow README keeps the idea at narrow widths ('below 480 px of container ... line one ... line two ... line three'); bundle RouteRow implements it; the shell does not mount RouteRow."
+   "note": "RouteRow README keeps the idea at narrow widths ('below 480 px of container ... line one ... line two ... line three'); bundle RouteRow implements it; the shell does not mount RouteRow. B584 batch 1 (2026-10-30): the Mod page's route list (the bundle's RouteList of RouteRows) on the device's routes."
   },
   {
    "id": "adr144-adaptive-plate",
@@ -1873,7 +1873,7 @@
    "shell": null,
    "state": "ruled",
    "superseded_by": null,
-   "port_tab": null,
+   "port_tab": "readouts",
    "note": "No master component shows a suspended state. ADR-152 calls itself the interim to be retired by B89 (the intent bus); no ADR in range retires it, and ADR-156 removed the pads it protected."
   },
   {
@@ -1885,11 +1885,11 @@
    "master_version": "1793374583-b6a5",
    "bundle": "RingXY",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: H.RingXY(cv, st,",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "osc-visualizers",
-   "note": "Kuramoto README: the ring 'is the Coupling x Detune XY' and a click lands absolutely (B294, B295); bundle.js H.RingXY implements it. The shell calls only the painter H.Viz.kuramoto with a SAMPLE point, no gesture (port-tab osc-visualizers: 'the XY gesture')."
+   "note": "Kuramoto README: the ring 'is the Coupling x Detune XY' and a click lands absolutely (B294, B295); bundle.js H.RingXY implements it. The shell calls only the painter H.Viz.kuramoto with a SAMPLE point, no gesture (port-tab osc-visualizers: 'the XY gesture'). B584 batch 1 (2026-10-30): oscRing mounts the bundle's RingXY on Osc 1 and Osc 2: click lands Detune and Coupling, drag follows, alt fine, shift hands the horizontal to Cross-mod; one undo step per gesture (self-check 26). The swarm drawn is the bundle's seeded SAMPLE (Synth.ring)."
   },
   {
    "id": "adr160-a2-rail-graph",
@@ -2323,7 +2323,7 @@
    "shell": null,
    "state": "ruled",
    "superseded_by": null,
-   "port_tab": null,
+   "port_tab": "readouts",
    "note": "No master component or shell code shows a guard count (grep for 'non-finite', 'guard', 'NaN' finds none); ADR-210 corrects the cited rule to ADR-197. It needs the engine's published count, so it waits on the audio row in practice."
   },
   {
@@ -2410,11 +2410,11 @@
    "master_version": "1793374583-b6a5",
    "bundle": "GainStaging",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: H.GainStaging(gsHost,",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "gain-staging",
-   "note": "GainStaging README: make-up 'shown as both (\"+12.04 dB\", \"x4.00\"); it is a user control (ADR-230 A1)' and gain controls at every stage. Not in the shell: no make-up key in layout.json (the only 'makeup' in shell-data.js is Bulwark's compressor key)."
+   "note": "GainStaging README: make-up 'shown as both (\"+12.04 dB\", \"x4.00\"); it is a user control (ADR-230 A1)' and gain controls at every stage. Not in the shell: no make-up key in layout.json (the only 'makeup' in shell-data.js is Bulwark's compressor key). B584 batch 1 (2026-10-30): GainStaging on the Mix page. Readings from the device's MOCK meters where a tap is published (sources, output), hollow elsewhere; gains are the master's placeholder ranges held in the shell, since no stage gain or make-up is an engine row (in shell, not wired)."
   },
   {
    "id": "adr230-gain-staging-view",
@@ -2425,11 +2425,11 @@
    "master_version": "1793374583-b6a5",
    "bundle": "GainStaging",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: H.GainStaging(gsHost,",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "gain-staging",
-   "note": "Master GainStaging README documents every stage in signal order with peak hold, latching lamp and first-over; bundle exports GainStaging. The shell does not mount H.GainStaging; its Mix page has only H.ChannelStrip with MOCK meters and a latching CLIP lamp per strip. FX device: GainStaging.chain('fx') starts at the audio input (README)."
+   "note": "Master GainStaging README documents every stage in signal order with peak hold, latching lamp and first-over; bundle exports GainStaging. The shell does not mount H.GainStaging; its Mix page has only H.ChannelStrip with MOCK meters and a latching CLIP lamp per strip. FX device: GainStaging.chain('fx') starts at the audio input (README). B584 batch 1 (2026-10-30): GainStaging on the Mix page. Readings from the device's MOCK meters where a tap is published (sources, output), hollow elsewhere; gains are the master's placeholder ranges held in the shell, since no stage gain or make-up is an engine row (in shell, not wired)."
   },
   {
    "id": "adr235-backup-ui",
@@ -2485,11 +2485,11 @@
    "master_version": "1793374583-b6a5",
    "bundle": "GainStaging",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: H.GainStaging(gsHost,",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "gain-staging",
-   "note": "GainStaging README: the clip lamp latches on one sample over 0 dBFS at every stage, the make-up stage being the rack's input. Shell has no gain-staging view."
+   "note": "GainStaging README: the clip lamp latches on one sample over 0 dBFS at every stage, the make-up stage being the rack's input. Shell has no gain-staging view. B584 batch 1 (2026-10-30): GainStaging on the Mix page. Readings from the device's MOCK meters where a tap is published (sources, output), hollow elsewhere; gains are the master's placeholder ranges held in the shell, since no stage gain or make-up is an engine row (in shell, not wired)."
   },
   {
    "id": "adr236-slot-library-browser",
@@ -2699,7 +2699,7 @@
    "state": "in-shell",
    "superseded_by": null,
    "port_tab": null,
-   "note": "gui3.html mounts the lamp (class hd-kbd) and toggles S.keys. Master KeyboardLamp says the off state reads 'KEYS OFF'; the shell reads 'KEYS'. Not a bundle export (CSS only). The notes-bit-identical gate is not design."
+   "note": "gui3.html mounts the lamp (class hd-kbd) and toggles S.keys. Master KeyboardLamp says the off state reads 'KEYS OFF'; the shell reads 'KEYS'. Not a bundle export (CSS only). The notes-bit-identical gate is not design. B584 batch 1: the off text reads KEYS OFF, as the master says."
   },
   {
    "id": "adr259-screens-follow-skins",
@@ -2710,11 +2710,11 @@
    "master_version": "1793374583-b6a5",
    "bundle": "FxRack",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: H.FxRack(host, () => state, S)",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "fx-modules",
-   "note": "screens.md documents each skin; the bundle's SCREENS/STYLES give shriek and sluice their real display style and the rest stand-ins, drawn by FxRack and the chain views. The shell mounts none of them (layout.json `screen` names a placeholder inset)."
+   "note": "screens.md documents each skin; the bundle's SCREENS/STYLES give shriek and sluice their real display style and the rest stand-ins, drawn by FxRack and the chain views. The shell mounts none of them (layout.json `screen` names a placeholder inset). B584 batch 1 (2026-10-30): the FX page's FxRack: each hosted module a cream card with its screen inset and cable colour, in a SERIAL STAND-IN (the stub publishes no cable state)."
   },
   {
    "id": "adr259-window",
@@ -2728,7 +2728,7 @@
    "shell": "docs/design/gui3.html: #win { width: min(100%, 980px); height: 720px;",
    "state": "in-master",
    "superseded_by": null,
-   "port_tab": null,
+   "port_tab": "window-size",
    "note": "gui3.html fixes #win at 980 x 720 (page area scrolls). Resizable is not implemented: the window 'keeps that size'. Master README Layout documents both. B596: the master documents it, the bundle has no window component, so the shell's fixed size is a local drawing; state in-master. ADR-338 ruling 12: resizing is tried (fixed vs proportional scale) before it is ruled."
   },
   {
@@ -2740,7 +2740,7 @@
    "master_version": "1793374583-b6a5",
    "bundle": "Session",
    "via": null,
-   "shell": "docs/design/gui3.html: S.keys = !S.keys",
+   "shell": "docs/design/gui3.html: setKeys(!S.keys)",
    "state": "in-shell",
    "superseded_by": "ADR-335",
    "port_tab": null,
@@ -2845,11 +2845,11 @@
    "master_version": "1793374583-b6a5",
    "bundle": "XYPad",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: { census: true }",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "morph-editor",
-   "note": "Bundle XYPad draws an optional census ring (opts.census, off by default) from Session.census; the shell mounts H.XYPad($('padHost'), S) without it. Contradiction: ruling 5 asks for glyph-shaped dots where size allows; the bundle's comment and XYPad README say '12 plain dots' in the corner colours."
+   "note": "Bundle XYPad draws an optional census ring (opts.census, off by default) from Session.census; the shell mounts H.XYPad($('padHost'), S) without it. Contradiction: ruling 5 asks for glyph-shaped dots where size allows; the bundle's comment and XYPad README say '12 plain dots' in the corner colours. B584 batch 1 (2026-10-30): the docked morph pad's census ring is on. It draws the bundle's plain dots; ruling 5's glyph shapes are still the master's contradiction to fix (batch 2)."
   },
   {
    "id": "adr262-corner-lock",
@@ -3026,11 +3026,11 @@
    "master_version": "1793374583-b6a5",
    "bundle": "ModMatrixGrid",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: H.ModMatrixGrid(gridHost, S,",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "modulators",
-   "note": "Master ModMatrixGrid README; bundle exports ModMatrixGrid; not mounted by the shell (port-tab modulators: the matrix and routes page missing)."
+   "note": "Master ModMatrixGrid README; bundle exports ModMatrixGrid; not mounted by the shell (port-tab modulators: the matrix and routes page missing). B584 batch 1 (2026-10-30): the Mod page's grid on the device's routes (columns: the routed parameters and the selected one); self-check 27."
   },
   {
    "id": "adr266-morph-grid-live",
@@ -3075,7 +3075,7 @@
    "state": "vendored",
    "superseded_by": null,
    "port_tab": "modulators",
-   "note": "Master ModCardHeader README carries the retrigger switch; the shell mounts the header with it switched off: gui3.html 'H.ModCardHeader(head, { kind: src.kind, name: src.name, retrig: null'."
+   "note": "Master ModCardHeader README carries the retrigger switch; the shell mounts the header with it switched off: gui3.html 'H.ModCardHeader(head, { kind: src.kind, name: src.name, retrig: null'. B584 batch 1: not mounted. The stub's modulators are ENV 1 to 4 and SPEC-ENGINE has no retrigger row for a modulator (only osc1/osc2.retrigger), so the switch would have nothing behind it; a spec row is needed from the lead (noted on B584)."
   },
   {
    "id": "adr266-sh-lfo-shape",
@@ -3101,11 +3101,11 @@
    "master_version": "1793374583-b6a5",
    "bundle": "RouteRow",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: H.RouteList(listHost, S,",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "modulators",
-   "note": "RouteRow and ModMatrixGrid READMEs draw a silent corner's mapping greyed via an optional `corner` that nothing sets for 1.0; bundle implements the placeholder. Not in the shell."
+   "note": "RouteRow and ModMatrixGrid READMEs draw a silent corner's mapping greyed via an optional `corner` that nothing sets for 1.0; bundle implements the placeholder. Not in the shell. B584 batch 1 (2026-10-30): the Mod page's route list (the bundle's RouteList of RouteRows) on the device's routes."
   },
   {
    "id": "adr266-stepped-rate-sync",
@@ -3221,11 +3221,11 @@
    "master_version": "1793374583-b6a5",
    "bundle": "ChainLine",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: H.ChainLine(lineHost,",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "gain-staging",
-   "note": "Master ChainLine README section 'The gain lane (B549)'; docs/design/arp-face/bundle.js ChainLine draws the offset bars (onGain, 'a vertical offset bar in its own dot's column'). The shell mounts no ChainLine or GainStaging (no H.ChainLine in gui3.html). FX device: the master's ChainLine starts at the audio input with GainStaging.chain('fx')."
+   "note": "Master ChainLine README section 'The gain lane (B549)'; docs/design/arp-face/bundle.js ChainLine draws the offset bars (onGain, 'a vertical offset bar in its own dot's column'). The shell mounts no ChainLine or GainStaging (no H.ChainLine in gui3.html). FX device: the master's ChainLine starts at the audio input with GainStaging.chain('fx'). B584 batch 1 (2026-10-30): ChainLine over GainStaging on the Mix page, one gain model between them."
   },
   {
    "id": "adr272-chain-line-drag-dot",
@@ -3266,11 +3266,11 @@
    "master_version": "1793374583-b6a5",
    "bundle": "FxCables",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: H.FxRack(host, () => state, S)",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "fx-modules",
-   "note": "Master FxCables README and tokens.json fxs-*-cable rows (cased in ink, ADR-273 A1); bundle.js sets line: v('fxs-' + id + '-cable'). Master README: module chips and names stay ink on cream. The shell draws no cables or matrix."
+   "note": "Master FxCables README and tokens.json fxs-*-cable rows (cased in ink, ADR-273 A1); bundle.js sets line: v('fxs-' + id + '-cable'). Master README: module chips and names stay ink on cream. The shell draws no cables or matrix. B584 batch 1 (2026-10-30): the FX page's FxRack: each hosted module a cream card with its screen inset and cable colour, in a SERIAL STAND-IN (the stub publishes no cable state)."
   },
   {
    "id": "adr273-cream-card-screen-inset",
@@ -3285,7 +3285,7 @@
    "state": "vendored",
    "superseded_by": null,
    "port_tab": "fx-modules",
-   "note": "Master README Colour 'FX chain modules', ModuleCard and FxRack READMEs; bundle.js builds each module's palette as panel body plus screen { ground, ink, mid } from the fxs- tokens. The shell's FX page draws house hd-cards with a labelled placeholder inset ('screen placeholder' in gui3.html, layout.json \"screen\": \"Echo\"), not the bundle's FxRack, FxMatrix, FxPanel or a module card (gui3/README proposal 17). The comparison page (fx-module-colours.html) is not in the repo. FX device: inherits unchanged."
+   "note": "Master README Colour 'FX chain modules', ModuleCard and FxRack READMEs; bundle.js builds each module's palette as panel body plus screen { ground, ink, mid } from the fxs- tokens. The shell's FX page draws house hd-cards with a labelled placeholder inset ('screen placeholder' in gui3.html, layout.json \"screen\": \"Echo\"), not the bundle's FxRack, FxMatrix, FxPanel or a module card (gui3/README proposal 17). The comparison page (fx-module-colours.html) is not in the repo. FX device: inherits unchanged. B584 batch 1: the FxRack boxes show it; the FX page's parameter cards still draw a placeholder inset, because ModuleCard has no bundle export, so the row stays vendored."
   },
   {
    "id": "adr273-fx-fill-tokens-retired",
@@ -3299,7 +3299,7 @@
    "shell": null,
    "state": "vendored",
    "superseded_by": null,
-   "port_tab": null,
+   "port_tab": "fx-modules",
    "note": "Master README Colour: 'This retired the flat fx-<module> fills of ADR-266 ruling 5'; the vendored tokens.css and bundle.css hold no --fx- token (grep count 0). Nothing in the shell to retire."
   },
   {
@@ -3311,11 +3311,11 @@
    "master_version": "1793374583-b6a5",
    "bundle": "FxCables",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: H.FxRack(host, () => state, S)",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "fx-modules",
-   "note": "Master README: 'the other six are labelled stand-ins until their skins are chosen', grounds at least 5 L* apart; docs/design/arp-face/tokens.css defines the 32 fxs- tokens (eight modules, four each). The shell uses none (no fxs- in gui3.html). Each stand-in is replaced when its module's skin is chosen (Bulwark, Echo, Scape by their mailboxes)."
+   "note": "Master README: 'the other six are labelled stand-ins until their skins are chosen', grounds at least 5 L* apart; docs/design/arp-face/tokens.css defines the 32 fxs- tokens (eight modules, four each). The shell uses none (no fxs- in gui3.html). Each stand-in is replaced when its module's skin is chosen (Bulwark, Echo, Scape by their mailboxes). B584 batch 1 (2026-10-30): the FX page's FxRack: each hosted module a cream card with its screen inset and cable colour, in a SERIAL STAND-IN (the stub publishes no cable state)."
   },
   {
    "id": "adr277-corner-pin-session",
@@ -3329,7 +3329,7 @@
    "shell": "docs/design/gui3.html: H.CornerChips($('cornersHost'), S)",
    "state": "ruled",
    "superseded_by": null,
-   "port_tab": null,
+   "port_tab": "morph-editor",
    "note": "The master's XYPad and CornerChip READMEs hold the pin itself ('Pinning is global') but not its save and undo rule. The shell keeps the pin in the bundle's session (S.setPin) and device.js holds no pin state, so the pin never steps history (consistent); nothing saves it with a project. Shell has it; master does not state the rule. FX device: same."
   },
   {
@@ -3434,7 +3434,7 @@
    "shell": "docs/design/gui3.html: keys.has(r.param)",
    "state": "ruled",
    "superseded_by": null,
-   "port_tab": null,
+   "port_tab": "modulators",
    "note": "The shell's bankModel lists sources whose dev.routes() land on a key of the current page, read and never kept; no master component holds a bank (gui3/README proposals 12, 14). Built out by ADR-322 item 3 and ADR-323. FX device: same, with its FX modulators."
   },
   {
@@ -3566,7 +3566,7 @@
    "master_version": "1793374583-b6a5",
    "bundle": "XYPad",
    "via": null,
-   "shell": "docs/design/gui3.html: H.XYPad($('padHost'), S)",
+   "shell": "docs/design/gui3.html: H.XYPad($('padHost'), S, { census: true })",
    "state": "wired",
    "superseded_by": null,
    "port_tab": null,
@@ -3944,7 +3944,7 @@
    "shell": "docs/design/gui3.html: keys.has(r.param)",
    "state": "ruled",
    "superseded_by": null,
-   "port_tab": null,
+   "port_tab": "modulators",
    "note": "The shell's bankModel filters routes to the page's own keys, so a route onto ENV 2's attack lists on the Mod page; no master component holds the bank (proposal 14). FX device: same."
   },
   {
@@ -4139,7 +4139,7 @@
    "shell": null,
    "state": "ruled",
    "superseded_by": null,
-   "port_tab": null,
+   "port_tab": "composition-tier",
    "note": "B589's vehicle is the composition lab (status exploring in the design ledger, awaiting the human's picks). Nothing ruled from it yet."
   },
   {
@@ -4166,11 +4166,11 @@
    "master_version": "1793374583-b6a5",
    "bundle": "RingXY",
    "via": null,
-   "shell": "docs/design/gui3.html: H.Viz.kuramoto(ring",
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: H.RingXY(cv, st,",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "osc-visualizers",
-   "note": "The master Kuramoto README holds the bench's ring: blade windows as rim arcs, members filled inside their windows, cross-mod arrows, the R bar and the click-lands XY (RingXY). The bundle exports RingXY and Viz.kuramoto. The shell calls Viz.kuramoto with phase and xy only (no blade windows) and never mounts RingXY: a SAMPLE ring without the blades, so the precise copy has not reached the shell. Fed by RC-8 (needs audio). FX device: voice-bound, not shown."
+   "note": "The master Kuramoto README holds the bench's ring: blade windows as rim arcs, members filled inside their windows, cross-mod arrows, the R bar and the click-lands XY (RingXY). The bundle exports RingXY and Viz.kuramoto. The shell calls Viz.kuramoto with phase and xy only (no blade windows) and never mounts RingXY: a SAMPLE ring without the blades, so the precise copy has not reached the shell. Fed by RC-8 (needs audio). FX device: voice-bound, not shown. B584 batch 1 (2026-10-30): the shell now mounts the bundle's harvest of the SCALPEL ring (RingXY + Viz.kuramoto with blades and cross-mod arrows) instead of a SAMPLE point; the bench's waveform XY and its view modes (AT PHASE, members) are not in the bundle yet (batch 2, the human 2026-10-30)."
   },
   {
    "id": "adr333-mixer-room",
@@ -4244,7 +4244,7 @@
    "shell": null,
    "state": "ruled",
    "superseded_by": null,
-   "port_tab": null,
+   "port_tab": "composition-tier",
    "note": "The lab exists (design ledger: exploring, ADR-334); its rulings go master first, then bundle, then shell. FX device: the paradigm governs its dense pages and the hosted modules' screens (B591)."
   },
   {
@@ -4304,7 +4304,7 @@
    "shell": null,
    "state": "ruled",
    "superseded_by": null,
-   "port_tab": null,
+   "port_tab": "composition-tier",
    "note": "The master's smallest rung is utility, 28 px (Knob README, README size ladder); no tiny tier exists."
   },
   {
@@ -4394,7 +4394,7 @@
    "shell": null,
    "state": "ruled",
    "superseded_by": null,
-   "port_tab": null,
+   "port_tab": "composition-tier",
    "note": "Not in the master yet; the master Knob README gains a fifth rung below utility 28. FX device: same tier."
   },
   {
@@ -4409,7 +4409,7 @@
    "shell": null,
    "state": "ruled",
    "superseded_by": null,
-   "port_tab": null,
+   "port_tab": "composition-tier",
    "note": "Not in the master yet (Toggle, Select, Stepper READMEs). FX device: same."
   },
   {
@@ -4424,7 +4424,7 @@
    "shell": null,
    "state": "ruled",
    "superseded_by": null,
-   "port_tab": null,
+   "port_tab": "composition-tier",
    "note": "Not in the master yet; the size-hit token gains the named exception. FX device: same."
   },
   {
@@ -4439,7 +4439,7 @@
    "shell": null,
    "state": "ruled",
    "superseded_by": null,
-   "port_tab": null,
+   "port_tab": "composition-tier",
    "note": "Not in the master yet (the README Density and hierarchy section). FX device: same."
   },
   {
@@ -4529,7 +4529,7 @@
    "shell": null,
    "state": "ruled",
    "superseded_by": null,
-   "port_tab": null,
+   "port_tab": "composition-tier",
    "note": "Shell data, not a master component: lands with tools/gen_gui3_controls.py. FX device: same."
   },
   {
@@ -4541,11 +4541,11 @@
    "master_version": null,
    "bundle": null,
    "via": null,
-   "shell": null,
+   "shell": "docs/design/gui3/shell-logic.js: function attachEscape(win, layers)",
    "state": "ruled",
    "superseded_by": null,
    "port_tab": null,
-   "note": "Master MapControl and KeyboardLamp READMEs to align; the shell Escape closes only the menu today. FX device: same."
+   "note": "B584 batch 1 builds it in the shell (shell-logic.js attachEscape, one capture-phase handler: menu, MAP, pinned corner, keyboard mode; self-check 25). The master's MapControl and KeyboardLamp READMEs still give Escape to MAP off and keys off and must be aligned (batch 2), so this row stays ruled with its shell place recorded. Panic: ruling 11 says panic gets its own control, which contradicts ADR-226 item 6 (no panel Panic control); no panic control is built and the human is asked. FX device: same."
   },
   {
    "id": "adr338-window-resize-trial",
@@ -4556,11 +4556,11 @@
    "master_version": null,
    "bundle": null,
    "via": null,
-   "shell": null,
+   "shell": "docs/design/gui3.html: function setSize(mode, k)",
    "state": "ruled",
    "superseded_by": null,
-   "port_tab": null,
-   "note": "B584 batch 1 builds the switch; ADR-259 ruling 2 stands until the human rules. FX device: same."
+   "port_tab": "window-size",
+   "note": "B584 batch 1 builds the trial outside the window: Fixed 980 x 720, or Scale (CSS zoom of the whole composition, 75 to 200 % and Fit; a canvas is stretched, not redrawn). A shell trial, not a component: it goes to the master only if the human rules Scale."
   }
  ],
  "not_design": [

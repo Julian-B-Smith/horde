@@ -140,6 +140,22 @@
     return { always: true };
   }
 
+  /* ADR-338 ruling 11: Escape is a layered cancel. `layers` is innermost first, each { name, active(), cancel() }; a press cancels
+     the first active one and nothing else. Panic is not on Escape (it gets its own control). Capture phase, and it stops the key
+     whether or not anything was open, so a later Escape handler (the map keys', the bundle's keyboard mode) can never run a
+     second cancel on the same press. In a field the key is the field's (a drop-down closes itself), as for the map keys.
+     Returns { last() }: the name of the layer the latest press cancelled, or null (for the self-check). */
+  function attachEscape(win, layers) {
+    var last = null;
+    win.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape' || e.metaKey || e.ctrlKey || inField(e.target)) return;
+      last = null;
+      for (var i = 0; i < layers.length; i++) if (layers[i].active()) { last = layers[i].name; layers[i].cancel(); e.preventDefault(); break; }
+      e.stopImmediatePropagation();
+    }, true);
+    return { last: function () { return last; } };
+  }
+
   /* The info box for a hovered section. `sections` is GUI3_DATA.sections (the generated copy of sections.json: `text` for
      the described ones, `missing` for the rest) and `find(id)` returns {page, group} for a section id. A section with no
      description says so; it is never given one. Every description is a DRAFT until the human has read it. */
@@ -153,6 +169,6 @@
     return { name: name, tag: 'SECTION · DRAFT', text: d.text, meta: 'Source: ' + src + ' · ' + sections.status, described: true };
   }
 
-  root.GUI3Shell = { navGroups: navGroups, followedSummary: followedSummary, attachMap: attachMap, attachMapKeys: attachMapKeys,
+  root.GUI3Shell = { navGroups: navGroups, followedSummary: followedSummary, attachMap: attachMap, attachMapKeys: attachMapKeys, attachEscape: attachEscape,
     sectionInfo: sectionInfo, MAP_KEYS_ALWAYS: MAP_KEYS_ALWAYS };
 })(typeof window !== 'undefined' ? window : globalThis);

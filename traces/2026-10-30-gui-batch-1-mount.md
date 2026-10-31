@@ -1,0 +1,30 @@
+# gui-batch-1-mount — the vendored ring, matrix, gain staging and FX rack mounted in GUI 3; the audit's shell defects fixed
+
+- **Queue items:** B584 (the shell), B593 (the port tab), B596's first steps. GUI session batch 1 (ADR-336), scoped by the human's poll: "Mount + fix".
+- **Why:** the design ledger audit found 35 ruled elements in the vendored bundle and not in the shell, plus four shell defects. Mounting needs no master change and no ruling (ADR-316).
+- **Evidence consulted:** the audit page (`docs/audits/2026-10-30-design-ledger.html`, "What the GUI session should do first"); each component's master README and `preview.html` (Kuramoto, ModMatrixGrid, GainStaging, ChainLine, FxRack); `bundle.js` contracts (`RingXY` at the phase-ring block, `Viz.spectrum`'s 1500 ms hold, `GainStaging.chain`); `gui3/engine-stub.js` `meters()` (what the stub publishes); ADR-176 decision 5; ADR-226 item 6; ADR-266 ruling 7; ADR-323 ruling 2; `gui3/params.json` (no modulator retrigger row).
+- **What changed:**
+  - `docs/design/gui3.html`:
+    - `oscRing`: the bundle's RingXY on Osc 1 and Osc 2, writing Detune, Coupling and Cross-mod as one undo step per gesture.
+    - `modMatrix`: ModMatrixGrid and RouteList on the Mod page.
+    - `gainStaging`: ChainLine and GainStaging on Mix, built on the page's first frame.
+    - `fxRack`: FxRack as a serial stand-in on FX.
+    - Also: the census ring on the docked pad, the spectrum's `now` in ms, KEYS OFF, `setKeys`, the Fixed/Scale window trial, and self-checks 25 (Escape), 26 (ring) and 27 (matrix).
+  - `docs/design/gui3/shell-logic.js`: `attachEscape`, the layered cancel (ADR-338 ruling 11).
+  - `docs/design/gui3/layout.json`: `crossMod` in the oscillators' viz keys, so the ring's third axis is generated, not named in the shell. `shell-data.js` and `params.json` are regenerated.
+  - `docs/design/gui3/port-tab.json`: four rows (composition-tier, window-size, readouts, presets). gain-staging, osc-visualizers, fx-modules and modulators are updated to what moved.
+  - `docs/design/design-ledger.json`:
+    - 17 rows to in-shell, with their needles.
+    - Notes on the rows not mounted, and why.
+    - 25 untracked gaps given a port-tab row.
+    - The two needles the edits moved (`adr024-xy-two-way`, `adr261-hotkeys-keyboard-mode-only`) and the docked pad's needle, updated.
+  - `docs/design/gui3/README.md`: a batch 1 section. `ROADMAP.md`: a note on B584, with what is needed from the lead.
+- **Not done, and why:**
+  - **Main's performance pad:** it drives intent-bus atoms the stub lacks (ADR-176 d5). It comes with the macros.
+  - **The retrigger switch:** no parameter exists for it (lead).
+  - **The Mods | Macros pills:** kept. ADR-323 ruling 2 says "later", and the human asked for the toggle.
+  - **The stroke smoothing:** `Viz.scope` and the other painters stroke with the canvas default join (miter, limit 10), so a sharp corner switches between a point and a bevel as the angle crosses the limit. That is a master fix (batch 2).
+  - **The Scalpel waveform XY and its view modes:** not in the bundle (batch 2, master first).
+- **Found in passing:** ADR-338 ruling 11 (panic gets its own control) contradicts ADR-226 item 6 (no panel Panic control). Nothing is built; the question goes to the human.
+- **Verify:** see the PR. The in-page self-checks are 28 of 28 OK in the browser (Chrome, served from `docs/`). `gen_gui3_controls --check` and `design_chain_check` are GREEN.
+- **Legacy-only rows left off the port tab:** ADR-013 partial strips, ADR-016, ADR-028 dynamics readouts, ADR-033, ADR-051, ADR-055, ADR-094, ADR-101 squareness, and the in-master brand rows. They describe elements GUI 3 does not have; retiring them is the human's ruling.

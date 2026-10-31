@@ -208,13 +208,14 @@ window.GUI3_DATA = {
     "asked": "Gain staging on the mixer",
     "id": "gain-staging",
     "item": "Gain staging on the mixer (a meter and a clip warning at every stage, the gain bars)",
+    "missing": "B584 batch 1 mounts Gain staging and the chain line on Mix: readings only where the stub publishes a tap (the sources, the output), every other stage hollow, and the gains held in the shell because no stage gain or make-up is an engine row. Missing: the per-stage taps (IF-6, RC-8) and the gain rows (RC-2, B402).",
     "reason": "engine-audio",
     "roadmap": "B225",
     "source": [
      "docs/design/mixer-lab.html",
      "docs/design/arp-face/bundle.js"
     ],
-    "status": "not-moved",
+    "status": "partial",
     "why": "The Gain staging component exists in the design system (B544, B549); it reads every tap's peak and latch, which the engine publishes per stage (IF-6, RC-8) and the stub cannot; the mixer's ranges wait on RC-2 (B402)."
    },
    {
@@ -222,7 +223,7 @@ window.GUI3_DATA = {
     "asked": "All osc visualizers (scalpel, phase carpet, etc.) - and the ones recently added didn't port over the full capability of the kuro visualizer from the scalpel lab, with its circular representation of blade, etc.; I really liked the aesthetics and functionality from the scalpel lab and would like to copy it pretty precisely",
     "id": "osc-visualizers",
     "item": "All the oscillator visualizers: the Kuramoto ring with its circular representation of the blades, the phase carpet, the voice map, the members-at-phase view, the R-hued beam",
-    "missing": "The bench's ring as drawn (blade arcs on the rim, cross-mod arrows, the XY gesture), the phase carpet, the voice map, members at phase, the R-hued beam.",
+    "missing": "B584 batch 1 mounts the bundle's ring (RingXY: blade arcs on the rim, cross-mod arrows, the Coupling x Detune gesture, shift for Cross-mod) on a SAMPLE swarm. Missing: the bench's waveform XY with its view modes (at phase, members) and its shift slot, the phase carpet, the voice map, the R-hued beam, and the engine's own phases (RC-8).",
     "precise": true,
     "reason": "engine-audio",
     "roadmap": "B293",
@@ -294,7 +295,7 @@ window.GUI3_DATA = {
     "asked": "FX modules",
     "id": "fx-modules",
     "item": "The FX modules' screens and their morph and modulation states",
-    "missing": "Each module's own screen (a labelled placeholder today), the chain view, and Sluice and Weir, which have no manifest.",
+    "missing": "Each module's own screen on its parameter card (a labelled placeholder today: ModuleCard has no bundle export), the engine's cable state (B584 batch 1's FX rack is a serial stand-in), and Sluice and Weir, which have no manifest.",
     "reason": "ruling",
     "roadmap": "B591",
     "source": [
@@ -324,7 +325,7 @@ window.GUI3_DATA = {
     "asked": "All modulators",
     "id": "modulators",
     "item": "All the modulators: the LFOs, the modulator family's editors, the mod matrix and its routes page",
-    "missing": "The LFOs and the other modulators, the matrix, the routes page; ENV 1 to ENV 4 and the bank are there.",
+    "missing": "The LFOs and the other modulators, each card's retrigger switch (no modulator has a retrigger row), the Mod page's form (M5, after the composition lab's round 2); ENV 1 to ENV 4, the bank, and since B584 batch 1 the matrix grid and route list are there.",
     "reason": "spec-table",
     "roadmap": "B586",
     "source": [
@@ -443,6 +444,61 @@ window.GUI3_DATA = {
     ],
     "status": "not-moved",
     "why": "The WebAssembly build waits for the clean room's stage 8 (IF-10, ADR-280); until then every meter, scope and spectrum in the shell is MOCK or SAMPLE."
+   },
+   {
+    "area": "Controls",
+    "asked": "the modulators each need visuals, and their controls should be quite a bit more compact",
+    "id": "composition-tier",
+    "item": "The tiny tier and the composition rules (T2, TC1/TC2, TS1/TS2, C1 + C2, P1, the abbr column)",
+    "missing": "No tiny rung, companions, cluster forms or lens in the master or the shell; the dense pages use compact knobs and overflow 720 px.",
+    "reason": "ds-component",
+    "roadmap": "B589",
+    "source": [
+     "docs/design/composition-lab.html"
+    ],
+    "status": "not-moved",
+    "why": "Ruled by ADR-338; the human's review the same day (drag boundaries under morph and mod, hover without reflow, draggable steppers, P3 as a view) opened round 2 of the lab before the master takes it (ADR-316)."
+   },
+   {
+    "area": "Chrome",
+    "asked": "I want to test out options, but I suspect I'll pick proportional scale or fixed",
+    "id": "window-size",
+    "item": "The window's size: fixed 980 x 720, or a proportional scale",
+    "missing": "The human's ruling after trying both; Scale then goes to the master as the window rule.",
+    "reason": "ruling",
+    "roadmap": "B584",
+    "source": [
+     "docs/design/gui3.html"
+    ],
+    "status": "partial",
+    "why": "ADR-259 ruling 2 says resizable; ADR-338 ruling 12 tries Fixed against Scale first. The shell has the switch, outside the window."
+   },
+   {
+    "area": "Osc",
+    "asked": null,
+    "id": "readouts",
+    "item": "State readouts: what gravity captured, cause-and-state gating, fixed-height captions, the guard count, suspended rows",
+    "missing": "A readout component in the master, and the engine observations behind it (IF-10).",
+    "reason": "ds-component",
+    "roadmap": "B589",
+    "source": [
+     "reference/swarmdynamics.html"
+    ],
+    "status": "not-moved",
+    "why": "Ruled for the legacy GUI (ADR-017, ADR-028, ADR-057, ADR-106, ADR-152, ADR-209); no master component holds any of them, and GUI 3 shows voice.gravity with nothing that says what it captured."
+   },
+   {
+    "area": "Set",
+    "asked": "We need to make a more robust file manager system in settings",
+    "id": "presets",
+    "item": "Patch presets: a preset selector, copy and paste of a patch",
+    "reason": "ruling",
+    "roadmap": "B261",
+    "source": [
+     "nowhere yet"
+    ],
+    "status": "not-moved",
+    "why": "ADR-100 and ADR-112 ruled patch copy/paste and a preset placeholder for the legacy GUI; GUI 3 has only corner presets on the Morph page. The file manager is B261's settings lab, not yet started."
    }
   ]
  },
@@ -989,6 +1045,7 @@ window.GUI3_DATA = {
      "viz": {
       "keys": {
        "coupling": "osc1.coupling",
+       "crossMod": "osc1.crossMod",
        "detune": "osc1.detune",
        "unison": "osc1.unison",
        "wave": "osc1.baseWave"
@@ -1284,6 +1341,7 @@ window.GUI3_DATA = {
      "viz": {
       "keys": {
        "coupling": "osc2.coupling",
+       "crossMod": "osc2.crossMod",
        "detune": "osc2.detune",
        "unison": "osc2.unison",
        "wave": "osc2.baseWave"
@@ -3377,6 +3435,7 @@ window.GUI3_DATA = {
    "viz": {
     "keys": {
      "coupling": "osc1.coupling",
+     "crossMod": "osc1.crossMod",
      "detune": "osc1.detune",
      "unison": "osc1.unison",
      "wave": "osc1.baseWave"
@@ -4896,6 +4955,7 @@ window.GUI3_DATA = {
    "viz": {
     "keys": {
      "coupling": "osc2.coupling",
+     "crossMod": "osc2.crossMod",
      "detune": "osc2.detune",
      "unison": "osc2.unison",
      "wave": "osc2.baseWave"
