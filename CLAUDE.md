@@ -156,6 +156,8 @@ the global CLAUDE.md audio-plugin section before any build/install/validate.
 - Acceptance numbers in specs/ACCEPTANCE.md are measured, not aspirational; they
   change only with a re-measurement on the reference implementation.
 
+**Numbers** (ADR-346, ratified 2026-11-01). Each writing session numbers on its own counter, so two sessions cannot take one number: the lead's rulings are `ADR-n` and its rows `Bn`; the GUI session's are `GUI-n` and `GBn`. A new parallel session gets a prefix pair, registered in `DOMAINS` in `tools/design_chain_check.py`, in the PR that charters it; an unregistered prefix is red. All rulings stay in one `DECISIONS.md`, and existing numbers never change.
+
 **Gate wiring** (ADR-180 §1, ratified 2026-09-19). The charter's gate on `./verify` is a gate on WEAKENING a check (removing, skipping, relaxing, excluding). ADDING a check is not gated: a new `tools/*_check` is wired into `./verify` in the PR that creates it, or carries `UNWIRED: <reason>` in its header; `test_table_check` enforces wired-or-explained.
 
 **Blind-Spot Armor** (ADR-197, B448, ratified 2026-10-08). `docs/strategy/blind-spot-armor.md` is law: every risk-register row is a named gate in `./verify` or a visible hole on the dashboard; the agent-signature failure modes are the reviewer's checklist; output guards latch and report, never clamp silently; every default change carries an ADR AND a migration; the human's ears get a capped listening batch, not interruptions. Correctness and security share one armor catalogue and dashboard.

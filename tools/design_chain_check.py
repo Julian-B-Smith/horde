@@ -34,14 +34,16 @@ WHAT IT CHECKS (each with its own tag; every tag has a must-fail plant below):
              `not_labs` reason; every status is exploring, ruled (with its ADR), harvested
              (with its master version) or retired (with its reason); no entry names a lab
              that is not there.
-  numbers    no ADR number has two primary headings in DECISIONS.md and no B number two rows
-             in ROADMAP.md, so two ROADMAP writers (ADR-336 ruling 2) collide visibly. A
+  numbers    no ruling number has two primary headings in DECISIONS.md and no row number two
+             rows in ROADMAP.md, within its domain's own counter (ADR-346: DOMAINS below; the
+             lead's ADR-n and Bn, the GUI session's GUI-n and GBn), and no heading or row uses
+             a prefix DOMAINS does not register. A
              primary heading is `## ADR-n — ` or `## ADR-n · ` (the two separators the log
              uses); `## ADR-261 A1 — `, `## ADR-086 Amendment 1 — `, `## ADR-105 A2 + ADR-100 A3`
              and `## ADR-091 / ADR-122 …` are amendments, not duplicates, and a plant proves
              they read clean. Duplicates that predate this check are KNOWN_DUPLICATES below,
              pinned to their count: fixing one or adding another is red until this list moves.
-  coverage   every ADR in DECISIONS.md has a ledger row or a `not_design` entry with a reason.
+  coverage   every ruling in DECISIONS.md, in every domain, has a ledger row or a `not_design` entry with a reason.
              BLOCKING since the B596 audit filled the ledger (AUDITED below, 2026-10-30): a new
              ADR needs its row or its reason in the PR that adds it, and `unaudited` is no
              longer an accepted lab status. (Report-only in B595, before the audit.)
@@ -326,7 +328,7 @@ def check_labs(led, labs, audited):
         k = s.get("status")
         if k not in allowed:
             e(f"{lab}: status {k!r} is not one of {', '.join(allowed)}")
-        if k == "ruled" and not re.fullmatch(r"ADR-\d+", s.get("adr", "")):
+        if k == "ruled" and not re.fullmatch(rf"(?:{RULING_PREFIXES})-\d+", s.get("adr", "")):
             e(f"{lab}: ruled needs its ADR")
         if k == "harvested" and not VERSION_ID.fullmatch(s.get("master_version", "")):
             e(f"{lab}: harvested needs the master version that holds it")
@@ -347,16 +349,27 @@ def index_labs():
 
 
 # --------------------------------------------------------------- numbers ----
-PRIMARY = re.compile(r"^## ADR-(\d+) (?:—|·) ", re.M)
-BROW = re.compile(r"^\| B(\d+) \|", re.M)
+# ADR-346: each writing session numbers on its own counter, so two sessions cannot take one number.
+# Ruling prefix -> row prefix. A row prefix is never `<PREFIX>-Bn`: golden_registry_check and
+# tolerance_registry_check read `\bB\d+` as a row citation, and they would take GUI-B12 for B12.
+DOMAINS = {"ADR": "B", "GUI": "GB"}
+RULING_PREFIXES = "|".join(DOMAINS)
+PRIMARY = re.compile(rf"^## ({RULING_PREFIXES})-(\d+) (?:—|·) ", re.M)
+UNREGISTERED_RULING = re.compile(rf"^#{{2,3}} (?!(?:{RULING_PREFIXES})-)([A-Z]{{2,6}})-(\d+) (?:—|·) ", re.M)
+ROW_PREFIXES = "|".join(sorted(DOMAINS.values(), key=len, reverse=True))
+BROW = re.compile(rf"^\| ({ROW_PREFIXES})(\d+) \|", re.M)
+# Two to four capitals then digits, the shape a new domain's row would take. Other tables in
+# ROADMAP.md use labels like `| B top-right |`, which this does not match.
+UNREGISTERED_ROW = re.compile(rf"^\| (?!(?:{ROW_PREFIXES})\d)([A-Z]{{1,4}}B)(\d+) \|", re.M)
 
 
 def adr_numbers(decisions):
     """Every ADR id with a heading at any level (primaries and amendments alike), for
     `exists` checks; ADR-113's heading is `###`, and amendments are real targets too."""
     ids = set()
-    for m in re.finditer(r"^#{2,3} (ADR-.*)$", decisions, re.M):
-        ids |= {f"ADR-{int(n):03d}" for n in re.findall(r"ADR-(\d+)", m.group(1).split(" — ")[0])}
+    for m in re.finditer(rf"^#{{2,3}} ((?:{RULING_PREFIXES})-.*)$", decisions, re.M):
+        for pre, n in re.findall(rf"({RULING_PREFIXES})-(\d+)", m.group(1).split(" — ")[0]):
+            ids.add(norm(f"{pre}-{n}"))
     return ids
 
 
@@ -368,11 +381,15 @@ def norm(adr):
 def check_numbers(decisions, roadmap, known):
     errs = []
     from collections import Counter
-    for n, c in sorted(Counter(PRIMARY.findall(decisions)).items(), key=lambda x: int(x[0])):
+    for (pre, n), c in sorted(Counter(PRIMARY.findall(decisions)).items(), key=lambda x: (x[0][0], int(x[0][1]))):
         if c > 1:
-            errs.append(("numbers", f"ADR-{n} has {c} primary headings in DECISIONS.md (take the next free number)"))
-    bc = Counter("B" + n for n in BROW.findall(roadmap))
-    for b, c in sorted(bc.items(), key=lambda x: int(x[0][1:])):
+            errs.append(("numbers", f"{pre}-{n} has {c} primary headings in DECISIONS.md (take the next free number)"))
+    for pre, n in UNREGISTERED_RULING.findall(decisions):
+        errs.append(("numbers", f"{pre}-{n}: prefix {pre} is not in DOMAINS (ADR-346; register the domain in this file)"))
+    for pre, n in UNREGISTERED_ROW.findall(roadmap):
+        errs.append(("numbers", f"{pre}{n}: row prefix {pre} is not in DOMAINS (ADR-346; register the domain in this file)"))
+    bc = Counter(pre + n for pre, n in BROW.findall(roadmap))
+    for b, c in sorted(bc.items()):
         if c > 1 and known.get(b) != c:
             errs.append(("numbers", f"{b} has {c} rows in ROADMAP.md (take the next free number)"))
     for b, c in sorted(known.items()):
@@ -385,9 +402,9 @@ def check_numbers(decisions, roadmap, known):
 # -------------------------------------------------------------- coverage ----
 def coverage_gaps(led, decisions):
     judged = {norm(r.get("adr")) for r in led.get("rows", [])} | {norm(n.get("adr")) for n in led.get("not_design", [])}
-    allp = sorted({int(n) for n in PRIMARY.findall(decisions)} |
-                  {int(n) for n in re.findall(r"^### ADR-(\d+) (?:—|·) ", decisions, re.M)})
-    return [f"ADR-{n:03d}" for n in allp if f"ADR-{n:03d}" not in judged], len(allp)
+    allp = {norm(f"{pre}-{n}") for pre, n in PRIMARY.findall(decisions)} | \
+           {f"ADR-{int(n):03d}" for n in re.findall(r"^### ADR-(\d+) (?:—|·) ", decisions, re.M)}
+    return sorted(a for a in allp if a not in judged), len(allp)
 
 
 # ---------------------------------------------------------------- plants ----
@@ -532,6 +549,19 @@ def selftest(base):
     plant("a B number taken twice", "numbers", roadmap=lambda r: r + "\n| B1 | planted |\n")
     plant("a known duplicate fixed without moving its pin", "numbers",
           roadmap=lambda r: r.replace("| B147 |", "| B147x |", 1))
+    # ADR-346: the counters are per domain, and an unregistered prefix cannot slip past them.
+    gui = "\n## GUI-9001 — planted\n"
+    judged = lambda l: (l["not_design"].append({"adr": "GUI-9001", "reason": "planted"}), l)[1]
+    known = lambda a: (lambda c: (c["adrs"].add(a), c)[1])   # the ledger checks against ctx's headings, not the planted text
+    plant("a GUI number taken twice", "numbers", decisions=lambda d: d + gui + gui, led=judged, ctx=known("GUI-9001"))
+    plant("a GB number taken twice", "numbers", roadmap=lambda r: r + "\n| GB9001 | planted |\n| GB9001 | planted |\n")
+    plant("a ruling under an unregistered prefix", "numbers", decisions=lambda d: d + "\n## RND-1 — planted\n")
+    plant("a row under an unregistered prefix", "numbers", roadmap=lambda r: r + "\n| RB1 | planted |\n")
+    if AUDITED:
+        plant("a GUI ruling with no row and no reason", "coverage", decisions=lambda d: d + gui)
+    clean("a GUI ruling, judged, sharing an ADR's digits", decisions=lambda d: d + "\n## GUI-1 — planted\n",
+          led=lambda l: (l["not_design"].append({"adr": "GUI-1", "reason": "planted"}), l)[1], ctx=known("GUI-1"))
+    clean("a GB row sharing a B row's digits", roadmap=lambda r: r + "\n| GB1 | planted |\n")
     return failures, ran
 
 

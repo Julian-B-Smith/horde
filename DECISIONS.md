@@ -10739,3 +10739,18 @@ Three points stayed open, because the shell already marks a knob selected the mo
 - The info box had no master component (a hop the ledger recorded as skipped). It becomes `InfoBox` in the master, and the shell mounts it (ADR-316).
 - The human may find ruling 2 costly in use, because hovering stops after every knob turn. That is theirs to revisit after trying it; the still-click reading was offered and not chosen.
 - **FX device (ADR-254):** the same rulings hold on its pages: the lock, the auto-scroll and the sidebar toggle in its settings. Its foot row's height follows its own bank.
+
+## ADR-346 — RULED by the human: each writing session numbers its rulings and rows on its own counter (ADR-336 ruling 2 amended; 2026-11-01)
+
+**Context.** The lead and the GUI session share one `DECISIONS.md` and took colliding numbers three times in two days: ADR-338, ADR-341 and ADR-344 (#1305 and #1307; #1314 and #1316; #1322 and #1323). The last cost a republish of the design master, because the number had reached it. The human asked, on 2026-11-01: “Is there some kind of paradigm we can add to the ADR naming convention that prevents future conflicts? Like a suffix for each domain an independent agent may contribute to?” The lead proposed a prefix with its own counter, since a suffix on a shared counter leaves two rulings called ADR-345. The human: “yes to … the prefix scheme”.
+
+**Ruling.**
+1. **Each writing session has its own counter.** The lead keeps `ADR-n` and `Bn`. The GUI session uses `GUI-n` and `GBn`, starting at 1. All rulings stay in one `DECISIONS.md` (ADR-336 ruling 2 otherwise stands).
+2. **A new parallel session gets a prefix pair**, registered in `DOMAINS` in `tools/design_chain_check.py` in the PR that charters it. An unregistered prefix is red.
+3. **Existing numbers never change.** The ADR-345 that the GUI session's #1323 takes is its last on the shared counter.
+
+**The lead's choice, not a ruling:** rows are `GBn`, not `GUI-Bn`, because `golden_registry_check` and `tolerance_registry_check` read `\bB\d+` as a row citation and would take `GUI-B12` for B12.
+
+**Not changed:** a conflict between two appends to `DECISIONS.md`, or between neighbouring rows of `ROADMAP.md`, can still happen. This stops number clashes only. Marking `DECISIONS.md` as a union merge is a separate question, not ruled here.
+
+**Consequences.** `design_chain_check` reads the domains, with plants for a duplicate in a domain, an unregistered prefix and an unjudged GUI ruling, and clean controls for digits shared across domains. The root charter and `docs/design/CLAUDE.md` state the rule. **FX device (ADR-254):** none; this is how the records are numbered.
