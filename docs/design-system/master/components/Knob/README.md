@@ -28,6 +28,24 @@ The morph knob: one control that shows the blended value you hear and each morph
 - **Utility** keeps one ring: the focused mapping's (stacked on the output of the rings inside it), dashed when there are more; the badge counts the rest. Use it for trims in a row or on a dashboard card, never for a parameter that is usually modulated.
 - Every size keeps the 28 px hit floor: the 28 px utility face IS the target, and the larger faces exceed it.
 
+**The tiny tier: `size: 'tiny'`, T2d** (ADR-338 r1, drawn as ADR-340 r1; source `docs/design/composition-lab-r2.html`). For P1's page-in-view grid: a `size-knob-tiny` 20 px face in a `size-hit` 28 px cell, under one 11 px line holding `abbr` (layout.json's abbreviation, ADR-338 r10), which **never changes** (ADR-340 r4, H1: the value goes to the section's fixed readout slot and the info box). `label: false` draws the cell alone.
+- **What travels end to end.** A drag writes one corner, so the blend moves only by that corner's weight times the drag. Round 1's tiny knob drew only the blend, so nothing on its face crossed the sweep under the hand, and it "dragged arbitrarily" (the human). T2d draws the editing corner's value as a **see-through pip**: a hole of radius 2.1 cut through the track and the arc (an SVG mask, so the hole shows whatever is behind the knob, never a painted copy of a background colour), rimmed at 0.9 in the corner's line ink, travelling the whole 280° under the hand between two **ink end stops**.
+- The arc (ink, 2.2 on a `well-alt` track, radius 6.2) is still the blend you hear; the needle (4.3, ink 1.4) the output; the cap (2.3) rimmed in the editing corner's ink.
+- One ring at radius 9, as on `utility`: the focused mapping's, stacked on the rings inside it, dashed when there are more, with its live tick. No other corner pips (at this size a pip is colour only, so the shape rule could not hold).
+- Gestures, MAP and Control behave as at every size.
+- **The corner mark is one drawing for the tiny knob and the level cell** (ADR-341 r1): a hollow, see-through circle, hole radius 2.1, rim radius 1.65, stroke 0.9, in the corner's legible `-tx` ink (`cA-tx`…`cD-tx`). The code is one helper (`cornerMark`), so the two cannot drift apart.
+
+**The level cell: `size: 'level'`, T4c-f** (ADR-340 r3 taking T4c as the level cell, amended by ADR-341 r1; sources `docs/design/composition-lab-r2.html` T4c and `composition-lab-r3.html` T4c-f). A **new size, not TS2a**: TS2a (Slider `size: 'cell'`) is the 16 px-tall horizontal value cell of a table row with its number in it; T4c is a 16 × 16 px vertical LEVEL in a `size-hit` 28 px cell under the same one-line abbreviation as the tiny knob (`abbr`, `label: false` for the cell alone), dragged up and down like a knob (160 px for the full range, Shift fine, re-anchored at the stops). Its look:
+- the level is the **blend**: an ink fill rising in a `well-alt` frame (ink edge 1), **ink end caps** top and bottom (a bipolar parameter's fill grows from the middle);
+- the focused mapping's **lane** runs down the left edge in its source colour, with a tick across the level at the output;
+- the editing corner is the **corner mark** on the level's right edge, at the corner's own value, cutting the frame and the level (an SVG mask). It travels the whole height under the hand. The human found T4c's first drawing, a 2.6 × 4.4 px triangle filled with the corner's colour, "barely visible": on the light panel the corner fills for A, C and D reach only 1.3 to 1.8 : 1, while every `-tx` ink reaches about 4.9 : 1 (the lab measured it), and then asked for a hollow circle the size of the smallest knob's pip.
+- A locked parameter shows no mark. Under a Control the fill ghosts to 22%, as on the other faces.
+
+**The polarity chord and MP3** (ADR-341 r4, ADR-340 r9), on every knob and slider through the shared gesture:
+- **⌘⌥-click** (Ctrl+Alt-click on Windows) a mapped control CYCLES the focused mapping's polarity exactly as a click on its chip does (UNI → BI → INV → CTL; CTL is skipped where another mapping already controls the parameter, ADR-266 r2). Under MAP it acts on the current source's mapping. It never makes a mapping. With movement it is the Option-drag it also is. Ctrl+Alt on macOS (a secondary click) and ⌘⌥ on Windows do not count. **Not verified:** whether a host (Live, Bitwig) keeps ⌘⌥-click in a plugin window; if it does not, the chip and the menu stay the routes.
+- **⌥-drag through zero** (MP3): an Option-drag of a UNI or INV mapping's depth runs through zero and comes out the other polarity (stored as magnitude + polarity, so a depth stays a magnitude, ADR-266 r2). BI and CTL have no sign to turn over, and a per-corner depth keeps the 0 to 1 drag.
+- The right-click menu entry for polarity is **not in the master**: the master has no context menu on controls (the lab's route menu is not ported). Until it is, the chip and the chord are the routes.
+
 
 **Sweep** 280° from 7 o'clock, the UI Spec's (ruled 2026-10-21). The map mode spec drew 270°; its ring rules (stacked origins, origin dot, live tick, emphasis, the four-ring limit) carry over unchanged on the 280° sweep.
 
@@ -59,11 +77,11 @@ At a pure corner the other pips vanish and the tether shrinks to nothing: an ord
 **Inspector corner rows** for the selected knob: the corner chip, its preset name, a weight bar, its stored value, its corner-level depth, the edited mark, lock and revert, and a final MIX row (blend and blended depth). The editing corner's row takes that corner's selection tint (`sel-cA`…), and a selected knob does the same (`sel-neutral` when locked).
 
 **Gestures**
-- Drag vertically: edits the **editing corner's** stored value one to one, never the blend (no back-solving). `size-drag` (160 px) is the full range; shift is ×0.25. The editing corner latches at pointer-down until pointer-up.
+- Drag vertically: edits the **editing corner's** stored value one to one, never the blend (no back-solving). `size-drag` (160 px) is the full range; shift is ×0.25. The editing corner latches at pointer-down until pointer-up. **The drag re-anchors** (ADR-340 r2): past a stop, or when Shift changes mid-drag, it restarts from where it is, so reversing moves at once (before, an overshoot was a dead range to unwind, and pressing Shift jumped the value).
 - Option-drag (Alt on Windows): that corner's depth on the focused corner-level mapping, or the focused global mapping's depth.
 - Double-click: reset the editing corner (or the global value) to the default. Double-click the readout: typed entry.
 - Alt+wheel only (B374): always the value, mapped or not. Arrows only in keyboard mode.
-- With MAP on: see MAP control. The base value cannot change while MAP is on.
+- With MAP on (MD1, ADR-340 r7): a plain drag still moves the value; a click maps the current source (or focuses its mapping); Option-drag sets that source's depth. See MAP control.
 - Every gesture is one undo node.
 
 **Choosing which modulator Option-drag controls** (the focused mapping; two ways, both mouse routes):

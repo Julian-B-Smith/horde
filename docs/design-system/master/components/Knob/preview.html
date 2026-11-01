@@ -1,4 +1,4 @@
-<!-- @dsCard group="Controls" height=900 subtitle="The morph knob at the four density sizes (primary, standard, compact, utility: label above, value on hover, the section slot carries the corner line) and the classic box; blend arc, shape-coded pips, tether, stacked mod rings" -->
+<!-- @dsCard group="Controls" height=960 subtitle="The morph knob at the tiny tier (T2d: a see-through editing-corner pip between ink stops; T4c-f: the level cell with the same corner mark in the corner's ink) and the four density sizes (primary, standard, compact, utility: label above, value on hover, the section slot carries the corner line) and the classic box; blend arc, shape-coded pips, tether, stacked mod rings" -->
 <!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><title>Knob</title></head>
@@ -12,6 +12,8 @@
         <div class="hd-sgrp"><span class="hd-sublabel">Standard · 48</span><div class="hd-krow" id="ks"></div></div>
         <div class="hd-sgrp"><span class="hd-sublabel">Compact · 40</span><div class="hd-krow" id="kc"></div></div>
         <div class="hd-sgrp"><span class="hd-sublabel">Utility · 28</span><div class="hd-col" style="gap:0" id="ku"></div></div>
+        <div class="hd-sgrp"><span class="hd-sublabel">Tiny · 20 in 28</span><div class="hd-krow" style="gap:0" id="kt"></div></div>
+        <div class="hd-sgrp"><span class="hd-sublabel">Level · 16 in 28 · T4c-f</span><div class="hd-krow" style="gap:0" id="kl"></div></div>
       </div>
     </section>
     <section class="hd-sec" id="csec">
@@ -39,7 +41,7 @@
     </div>
   </div>
   <p class="hd-msg" id="msg" style="margin:6px 0 0"></p>
-  <p class="hd-hint" style="margin:2px 0 0">Move the puck · drag a knob edits the editing corner (160 px, shift fine) · ⌥-drag edits that corner's mod depth · ⌥-click or a click on an inspector row picks the focused mod · ⌥+wheel adjusts the value; hold ⌥ to see it under every mapped knob · double-click resets · click a pad corner to pin it. Sources are sample signals, not audio.</p>
+  <p class="hd-hint" style="margin:2px 0 0">Move the puck · drag a knob edits the editing corner (160 px, shift fine) · ⌥-drag edits that corner's mod depth · ⌥-click or a click on an inspector row picks the focused mod · ⌥+wheel adjusts the value; hold ⌥ to see it under every mapped knob · ⌘⌥-click (Ctrl+Alt on Windows) a mapped control: cycles its polarity · ⌥-drag a UNI or INV mod's depth through zero: it comes out the other polarity · double-click resets · click a pad corner to pin it. Sources are sample signals, not audio.</p>
 </div>
 <script>
 (function () {
@@ -71,8 +73,12 @@
   /* THE DENSITY LADDER: the same parameters (the same vals arrays, so a drag on any copy moves them all) at the four sizes */
   function sized(p, size, id) { var q = {}; for (var k in p) q[k] = p[k]; q.size = size; var d = document.createElement('div'); document.getElementById(id).appendChild(d); H.Knob(d, q, S); }
   sized(KN[2], 'primary', 'kp'); sized(KN[2], 'standard', 'ks'); sized(KN[2], 'compact', 'kc'); sized(KN[2], 'utility', 'ku'); sized(KN[3], 'utility', 'ku');
+  /* THE TINY TIER (T2d, ADR-340 r1): the label is the abbreviation and never changes; the hollow pip is the editing corner's value and runs the whole sweep under the hand */
+  [['DET', 0], ['CPL', 1], ['WID', 2], ['DRF', 3], ['SUS', 4], ['LVL', 5]].forEach(function (a) { var q = {}; for (var k in KN[a[1]]) q[k] = KN[a[1]][k]; q.abbr = a[0]; sized(q, 'tiny', 'kt'); });
+  /* THE LEVEL CELL (T4c-f, ADR-340 r3 + ADR-341 r1): a 16 px vertical level; the corner mark is T2d's pip, rimmed in the corner's -tx ink, on the level's right edge */
+  [['DET', 0], ['CPL', 1], ['WID', 2], ['DRF', 3], ['SUS', 4], ['LVL', 5]].forEach(function (a) { var q = {}; for (var k in KN[a[1]]) q[k] = KN[a[1]][k]; q.abbr = a[0]; sized(q, 'level', 'kl'); });
   [0, 1, 2, 3].forEach(function (i) { sized(KN[i], 'compact', 'kc1'); }); sized(KN[4], 'compact', 'kc2'); sized(KN[5], 'compact', 'kc3');
-  H.SectionHeader(document.getElementById('lhead'), { name: 'Density ladder', path: 'Preview · Density ladder', S: S, section: document.getElementById('lsec'), summary: 'hover a knob: its value takes the label line; the slot here reads the corner line' });
+  H.SectionHeader(document.getElementById('lhead'), { name: 'Density ladder', path: 'Preview · Density ladder', S: S, section: document.getElementById('lsec'), summary: 'hover a sized knob: its value takes the label line (the tiny tier never changes its label); the slot reads the corner line' });
   H.SectionHeader(document.getElementById('chead'), { name: 'Osc 1', num: 1, rule: 'solid', on: true, path: 'Osc 1', S: S, section: document.getElementById('csec'), summary: 'compact: the default in a dense panel · hold ⌥ for the focus captions',
     keys: function () { return S.keys; } });
   S.params[KN[2].key] = KN[2];                   // the classic copies stay the ones the inspectors read

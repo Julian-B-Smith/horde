@@ -182,7 +182,7 @@
     <span class="hd-pills" id="sizeMode" role="radiogroup" aria-label="Window size"><button class="hd-pill hd-focus" type="button" role="radio" data-m="fixed" aria-checked="true">Fixed 980 × 720</button><button class="hd-pill hd-focus" type="button" role="radio" data-m="scale" aria-checked="false">Scale</button></span>
     <span class="hd-pills" id="sizeSteps" role="radiogroup" aria-label="Scale" hidden></span>
     <span class="hd-hint" id="sizeRead"></span></div>
-  <div class="tagline"><span class="hd-note">GUI 3 (B584, eight slices so far): <b>one wired shell</b> under a two-level page bar (B589) and the <b>MAP control</b> with its live source strip (the Map Mode spec: turn MAP on, pick a source, click a knob to map it at 25 %, drag to set the depth), a port ledger of what has not moved over (B593), dense oscillator pages after the SCALPEL bench, an Osc dashboard and a mixing console, every parameter that has a machine-readable manifest (SPEC-ENGINE section 5, the morph's settings, the hosted FX modules', Arp's)
+  <div class="tagline"><span class="hd-note">GUI 3 (B584, eight slices so far): <b>one wired shell</b> under a two-level page bar (B589) and the <b>MAP control</b> with its live source strip (the Map Mode spec with MD1, ADR-340 r7: turn MAP on, pick a source, click a knob to map it at 25 %, ⌥-drag to set the depth; a plain drag still moves the value), a port ledger of what has not moved over (B593), dense oscillator pages after the SCALPEL bench, an Osc dashboard and a mixing console, every parameter that has a machine-readable manifest (SPEC-ENGINE section 5, the morph's settings, the hosted FX modules', Arp's)
     reachable on a page, and <b>no audio</b>: a stub engine keeps the values behind the engine's interface. The <b>Sub</b> and <b>Noise</b> pages are
     designed; the others are drafts or hold no engine parameters, and say why. Try: turn <b>Morph</b> on (the pad docks on every page; <b>Pad</b>
     hides it), press <b>Scatter corners</b> below and drag the puck, hover any control, or a section's header, to read it in the fixed info box left of the bank (a section's text is a draft), right-click one for the manual. The <b>bank</b> at the foot of every page lists the modulators routed to it: press + to activate one and drag its Map handle onto a control. The <b>Morph</b> page chooses the corner you hear with morph off and saves snapshots and presets to corners (ADR-319).</span></div>
@@ -1243,26 +1243,31 @@ views.push({ page: '*', update() {
   // 16. The ledger (B593) renders every row, grouped by area.
   const lrows = pageEls.ledger.querySelectorAll('[data-ledger]').length;
   line(lrows === DATA.ledger.rows.length && lrows > 0, 'Port ledger: ' + lrows + ' rows rendered in ' + new Set(DATA.ledger.rows.map(r => r.area)).size + ' areas (control: the data has ' + DATA.ledger.rows.length + ').');
-  // 17. MAP MODE (the Map Mode spec, ADR-261), on the real knob's real handlers (a synthetic pointer, its capture stubbed):
-  // a click on a knob with MAP on makes a DEVICE route from the current source, at 25 %, unipolar, as one undo step; a
-  // drag released at 0 makes none; a page change keeps MAP and the source; undo takes the route away and the session follows.
+  // 17. MAP MODE (the Map Mode spec, ADR-261, with MD1, ADR-340 r7), on the real knob's real handlers (a synthetic pointer, its
+  // capture stubbed): a click on a knob with MAP on makes a DEVICE route from the current source, at 25 %, unipolar, as one undo
+  // step; an Option-drag released at 0 makes none; a page change keeps MAP and the source; undo takes the route away and the
+  // session follows; and (MD1) a plain drag with MAP on moves the value and makes no route.
   // Control: before the click there is no such route, and with MAP off the same click makes none.
   {
     const mp = pageKeysList('osc1').find(k => ROW[k].law !== 'step' && (ROW[k].pv || ROW[k].target !== 'engine') && !dev.routes().some(r => r.param === k)), mface = pageEls.osc1.querySelector('[data-key="' + CSS.escape(mp) + '"] .mk-face');
     mface.setPointerCapture = () => {}; mface.hasPointerCapture = () => false; mface.releasePointerCapture = () => {};
-    const ptr = (t, y) => mface.dispatchEvent(new MouseEvent(t, { bubbles: true, button: 0, clientX: 10, clientY: y }));
+    const ptr = (t, y, alt) => mface.dispatchEvent(new MouseEvent(t, { bubbles: true, button: 0, clientX: 10, clientY: y, altKey: !!alt }));
     const clickK = () => { ptr('pointerdown', 100); ptr('pointerup', 100); };
     const routesOf = () => dev.routes().filter(r => r.param === mp), hm = dev.history().past.length, prevSrc = S.map.src;
     S.setMap(false); clickK(); const offNone = routesOf().length === 0 && dev.history().past.length === hm;
     S.setSrc('env3'); S.setMap(true); clickK();
     const made = routesOf(), one = made.length === 1 && made[0].src === 'env3' && made[0].pol === 'uni' && Math.abs(made[0].depth - .25) < 1e-12 && dev.history().past.length === hm + 1;
     mapBridge.pull(); const ringed = S.mappings.some(m => m.param === mp && m.src === 'env3');
-    S.setSrc('env4'); ptr('pointerdown', 100); ptr('pointermove', 140); ptr('pointerup', 140);   // a drag that ends at depth 0 on a NEW source: no mapping
+    S.setSrc('env4'); ptr('pointerdown', 100, true); ptr('pointermove', 140, true); ptr('pointerup', 140, true);   // an Option-drag that ends at depth 0 on a NEW source: no mapping
     const zero = routesOf().length === 1 && dev.history().past.length === hm + 1;
     selectPage('mix'); selectPage('osc1'); const kept = S.map.on && S.map.src === 'env4';
     dev.undo(); mapBridge.pull(); const undone = routesOf().length === 0 && !S.mappings.some(m => m.param === mp);
+    const pm = S.params[mp], ai = S.editing(pm), v0 = pm.vals[ai], hv = dev.history().past.length;
+    ptr('pointerdown', 140); ptr('pointermove', 100); ptr('pointerup', 100);   // MD1: a plain drag up with MAP on
+    const md1 = routesOf().length === 0 && Math.abs(pm.vals[ai] - v0) > .1 && dev.history().past.length <= hv + 1;
+    if (dev.history().past.length > hv) dev.undo();
     S.setMap(false); S.setSrc(prevSrc); dev.clearRedo();
-    line(offNone && one && ringed && zero && kept && undone, 'MAP: with MAP off a click on ' + ROW[mp].label + ' made no route; on, it made ENV 3 → ' + ROW[mp].label + ' at 25 % unipolar as one undo step and the ring shows; a drag released at 0 made none; a page change kept MAP on and the source; undo took the route away (control: none before the click).');
+    line(offNone && one && ringed && zero && kept && undone && md1, 'MAP: with MAP off a click on ' + ROW[mp].label + ' made no route; on, it made ENV 3 → ' + ROW[mp].label + ' at 25 % unipolar as one undo step and the ring shows; an Option-drag released at 0 made none; a page change kept MAP on and the source; undo took the route away; a plain drag with MAP on moved the value and made no route (MD1) (control: none before the click).');
   }
   // 18. The Set tab opens the Settings page: its group is `set` and its page `settings` (slice 5 found the click opened nothing).
   { const pg0 = page, setTab = [...$('pnav').querySelectorAll('.pn-g')].find(b => b.textContent === 'Set');

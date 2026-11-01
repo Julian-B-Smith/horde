@@ -22,7 +22,7 @@ An event is not a level: the TRIGGER reaches a level only through an action (Eve
 **Anatomy**
 - A `.hd-modcard`. Its Mod card header uses kind `engine` and "TRACKERS", and has NO retrigger switch: this card is the trigger's source.
 - Trigger: EVERY NOTE-ON · FIRST · LEGATO.
-- Order N stepper; Since T, 0.1–8 s (log, the house slider).
+- Order N: a `Horde.Stepper` (2 to 8, home 4); Since T, 0.1–8 s (log, the house slider).
 - The source table:
   - mono 9.5 px, columns 72 px / 44 px / the rule / 9 ch;
   - the rule column ends in an ellipsis, with the full text in its title;

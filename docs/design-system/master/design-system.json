@@ -99,8 +99,8 @@
  },
  "lastChange": {
   "by": "Claude",
-  "at": "2026-10-30T19:00:00Z",
+  "at": "2026-11-01T12:00:00Z",
   "via": "Claude Code",
-  "note": "ADR-337: the README's opening sentence no longer positions horde by genre; its centre is morph logic over the full depth of every parameter. Nothing else changed."
+  "note": "Master batch 2, ADR-338, ADR-340 and ADR-341. Controls and routes: Stepper SG-b with a dropdown for named steppers; the level cell (Knob size 'level', T4c-f's corner mark shared with the tiny knob); DR-c's two-line readout (line 1 a placeholder); Companion (TC1/TC2); polarity (PolChip, MP3, the ⌘⌥-click cycle); SourceChip, SourceRows, RoutesBySource; CompactWires with values and W-a's valves; re-anchoring in the matrix drag; four inner steppers on Stepper. Page forms and the bank: Cluster (C1, C2), Lens (P1), Fold (P2), PageView (PV1), ModTiers, ModBank (M2, BT1), MacroRow (BR-b, the bend springs back), ModPage (M5), UndoLine (M-R2)."
  }
 }

@@ -10615,6 +10615,43 @@ Round 2 drew 45 variants. The human answered by poll on 2026-10-30 and 2026-10-3
   - the intent bus's macros in the stub, for BR1.
 - **FX device (ADR-254):** the same tier, gestures, hover, steppers, PV1, map gesture, polarity and route views apply on its pages. The bank toggle applies wherever it has a bank. How a hosted module's own screen shows them is still B591's question.
 
+## ADR-341 — RULED by the human: the composition lab's round 3 (T4c-f, DR-c, SG-b with a dropdown for named steppers, MP-c, W-a, BR-b, the bend row springs back) (B589, B594, B70; 2026-11-01)
+
+**Context.** ADR-340 took round 2 with amendments, and round 3 (`docs/design/composition-lab-r3.html`, #1313) drew them as variants. The human answered by poll on 2026-10-31 and 2026-11-01. For T4c the human asked for two new drawings, a hollow triangle and a hollow circle, and they were added as T4c-e and T4c-f. Round 3 measured why the round-1 triangle failed: on the light panel the corner fills for A, C and D reach only 1.3 to 1.8 : 1, while every corner's `-tx` ink reaches about 4.9 : 1.
+
+**Rulings.**
+1. **The level cell's corner mark is T4c-f**, amending ADR-340 ruling 3:
+   - a hollow, see-through circle on the level's edge at the editing corner's value, rimmed in the corner's legible `-tx` ink;
+   - **at the tiny knob's pip size** (hole radius 2.1, rim radius 1.65, stroke 0.9; ADR-340 ruling 1). The human: "T4c-f circle, -tx ink, but I think I would like to see the circle smaller, like the one on the smallest knob".
+   - The level cell and the tiny knob share one corner mark.
+2. **The dual readout is DR-c** (ADR-340 ruling 4's amendment): two stacked 13 px lines in the fixed readout slot.
+   - One line is where the hand is taking the control; the other is the value after modulation. The slot never changes size.
+3. **Steppers show their gestures as SG-b** (ADR-340 ruling 5): a ⇕ glyph and a small step scale with a ringed home tick. Option-click opens the field in place. **Amendment:**
+   - a stepper of named options (a wave, a mode, a division) opens a dropdown of those options on Option-click, never a text field. The human: "it doesn't make sense to be able to type in your own text".
+   - Numeric steppers keep the number field.
+   - **This amends ADR-340 ruling 5** and replaces the typed-name entry in the master's `Stepper` (version 1793502898-ea3e).
+4. **The polarity modifier is MP-c, ⌘⌥-click** (Ctrl+Alt-click on Windows), on a control. It **cycles** the focused mapping's polarity exactly as a click on its chip does (UNI → BI → INV → CTL; CTL is skipped where another mapping already controls the parameter, ADR-266 ruling 2). The rest of ADR-340 ruling 9 stands:
+   - MP1's chip on every route, with a vertical drag for the band;
+   - MP3's Option-drag through zero;
+   - polarity in the right-click menu.
+5. **The expanded wires are W-a** (ADR-340 ruling 10's ML1):
+   - each wire carries a ◇ valve at its midpoint, which shows its depth and is the drop target for a depth route (B70);
+   - several sources on one destination stay separate wires.
+6. **The bank's macro rows are BR-b** (ADR-340 ruling 11's BR1): the rows follow the wheels, with a short motion trace and a centre notch on the bend row.
+7. **A mouse drag on the pitch-bend row springs back** to centre on release, as the wheel does. While the hardware holds the bend, the hardware wins. The mod wheel's row holds where it is left.
+
+**Open (not ruled here).** In DR-c, "where the hand is taking the control" is assumed to be the editing corner's own value (the value T2d's hollow pip shows), not the blend. The human has not said which. The master takes the assumption, marked as a placeholder, unless the human answers.
+
+**Consequences.**
+- Round 3's status becomes ruled (this ADR).
+- Rulings 1 to 7 go into the design master next (ADR-316), with ADR-338 rulings 4 to 9 and ADR-340's settled rulings still waiting there, then the bundle, then the shell.
+- The master `Stepper`'s named-option entry is replaced by the dropdown in that batch.
+- **Not verified:** whether a host (Live, Bitwig) keeps ⌘⌥-click in a plugin window. Check it in a host before the chord ships; if it is taken, the chip and the menu remain the routes.
+- **Needed from the lead, unchanged (ADR-340):**
+  - B70's depth routes in the engine's route table, for W-a's valve;
+  - the intent bus's macros in the stub, for BR-b.
+- **FX device (ADR-254):** the corner mark, readout, stepper gestures, polarity chord and wires apply on its pages. The bank rows apply wherever it has a bank. How a hosted module's own screen shows them is still B591's question.
+
 ## ADR-342 — RULED by the human: full-patch random leans toward simpler, drier patches, scaled by chaos across the whole patch; below a chaos threshold random never switches on a bypassed slot; the chaos hint to Sluice and Shriek's own randomizers is filed when tuning (B578, ADR-318, ADR-339; 2026-11-01)
 
 **Context.** The human, 2026-10-30 (B578's note): “since the FX modules can get pretty extreme, I think full-patch random on the FX routing should have a bias toward bypassing, drier mixes, and simpler FX patches. Maybe chaos could scale this. I could work it out with Sluice to add a chaos knob to the randomizer that prioritizes simpler chains or something, but that’s secondary.” The lead put three questions; the human answered them 2026-11-01: “a) whole patch, b) yes, c) file it when tuning”. ADR-318 already holds that chaos and amount set the next draw’s bounds only, never a running process.

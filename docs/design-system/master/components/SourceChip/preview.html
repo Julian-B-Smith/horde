@@ -1,0 +1,41 @@
+<!-- @dsCard group="Modulation" height=300 subtitle="MS3: the MAP control's source as a chip in its colour. Drag up or down on its name to scroll through the sources (one per 12 px), step with ‹ ›, open the full list with ▾; no wheel" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Source chip</title></head>
+<body>
+<div style="padding:14px 16px 10px">
+  <div id="win" style="background:var(--panel); border:var(--stroke-ink) solid var(--ink); border-radius:var(--radius-window)">
+    <div class="hd-row" style="justify-content:space-between; gap:8px; padding:8px 10px; border-bottom:1px dashed var(--div)">
+      <span class="hd-cluster">MS3 · the source chip</span>
+      <div class="hd-row" style="gap:10px"><div id="map"></div></div>
+    </div>
+    <div class="hd-fit" style="gap:12px; padding:10px">
+      <div style="display:flex; flex-wrap:wrap; gap:4px; flex:1 1 220px; min-width:0" id="knobs"></div>
+      <div id="insp" style="border-left:1px dashed var(--div); padding-left:12px; flex:1 1 230px"></div>
+    </div>
+  </div>
+  <p class="hd-msg" id="msg" style="margin:6px 0 0"></p>
+  <p class="hd-hint" style="margin:2px 0 0">Drag the name up or down: down is the next source, up the previous (it wraps). ‹ › step, ▾ opens the full list. Then, with MAP on, click a knob: it takes the chip's source; several sources on one knob stay separate mappings (switching the source never implies one modulator per parameter). SAMPLE data.</p>
+</div>
+<script>
+(function () {
+  var H = window.Horde, T = Math.PI * 2;
+  var S = new H.Session({ x: 0, y: 0, sources: [
+    { id: 'lfo1', name: 'LFO 1', kind: 'lfo', f: function (t) { return .5 + .5 * Math.sin(t * T * .45); } },
+    { id: 'lfo2', name: 'LFO 2', kind: 'lfo', f: function (t) { var p = (t * .16) % 1; return p < .5 ? p * 2 : 2 - p * 2; } },
+    { id: 'env2', name: 'ENV 2', kind: 'env', f: function (t) { var p = t % 1.7; return p < .04 ? p / .04 : Math.exp(-(p - .04) * 3.2); } },
+    { id: 'mac1', name: 'MACRO 1', kind: 'macro', f: function (t) { return .5 + .32 * Math.sin(t * T * .05); } },
+    { id: 'r1', name: 'R', kind: 'engine', f: function (t) { return .5 + .4 * Math.sin(t * T * .11 + 1); } }
+  ], mappings: [{ param: 'drive.drive', src: 'lfo1', pol: 'bi', depth: .2 }] });
+  var pctf = function (x) { return Math.round(x * 100) + '%'; };
+  [['drive.drive', 'Drive'], ['drive.tone', 'Tone'], ['drive.bloom', 'Bloom']].forEach(function (a, i) {
+    var d = document.createElement('div'); document.getElementById('knobs').appendChild(d);
+    H.Knob(d, { key: a[0], name: a[1], path: 'Drive · ' + a[1], vals: [.5, .5, .5, .5], def: .5, fmt: pctf }, S); });
+  H.MapControl(document.getElementById('map'), S, { frame: document.getElementById('win'), chip: true });
+  H.ModInspector(document.getElementById('insp'), S);
+  var msg = document.getElementById('msg'); S.on(function () { msg.textContent = S.message; });
+  S.selected = 'drive.drive'; S.start(); S.emit();
+})();
+</script>
+</body>
+</html>

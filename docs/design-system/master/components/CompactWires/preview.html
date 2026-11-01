@@ -1,4 +1,4 @@
-<!-- @dsCard group="Modulation" height=270 subtitle="The patch-bay view, dense: width is depth, brightness the source now, dashed inverse, a CTL bar, a depth route on a valve" -->
+<!-- @dsCard group="Modulation" height=400 subtitle="W-a: node values, a ◇ valve at every wire's middle (it fills to the depth), and wires you drag: from a source to a destination, or onto a valve for a depth route. Width is depth, brightness the source now, dashed inverse, a CTL bar" -->
 <!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><title>Compact wires</title></head>
@@ -7,7 +7,7 @@
   <div class="hd-row" style="justify-content:space-between; margin-bottom:6px"><span class="hd-cluster">Wires</span><div id="scr"></div></div>
   <div id="wires"></div>
   <p class="hd-msg" id="msg" style="margin:4px 0 0"></p>
-  <p class="hd-hint" style="margin:2px 0 0">Only the sources and destinations in use. Click a destination to select it. SAMPLE data, generated in this preview; never the engine.</p>
+  <p class="hd-hint" style="margin:2px 0 0">Drag from a source's port (right edge of its node) to a destination to make a new wire beside any already there, or onto the ◇ at a wire's middle to modulate that wire's depth (B70): while you drag every ◇ grows and the nearest within 16 px lights. Click a destination to select it. Velocity is listed with no route so a first wire can start there. The depth route is a stand-in: the engine has none yet, so the preview's callback only records it. SAMPLE data, generated in this preview; never the engine.</p>
 </div>
 <script>
 (function () {
@@ -20,7 +20,8 @@
     { id: 'lfo2', name: 'LFO 2', kind: 'lfo', f: function (t) { var p = wrap(t * .16, 1); return p < .5 ? p * 2 : 2 - p * 2; } },
     { id: 'env1', name: 'ENV 1', kind: 'env', f: function (t) { var p = wrap(t, 1.7); return p < .04 ? p / .04 : Math.exp(-(p - .04) * 3.2); } },
     { id: 'mac1', name: 'MACRO 1', kind: 'macro', f: function (t) { return .5 + .42 * Math.sin(t * T * .07); } },
-    { id: 'coh1', name: 'Coherence 1', kind: 'engine', f: function (t) { return .5 + .4 * Math.sin(t * T * .11 + 1); } }
+    { id: 'coh1', name: 'Coherence 1', kind: 'engine', f: function (t) { return .5 + .4 * Math.sin(t * T * .11 + 1); } },
+    { id: 'vel', name: 'Velocity', kind: 'engine', f: function (t) { return wrap(t * .21, 1) < .5 ? .8 : .35; } }
   ];
   function pctf(x) { return Math.round(x * 100) + '%'; }
   var DESTS = [
@@ -49,7 +50,9 @@
 
   var S = session();
   H.ScreenScheme(document.getElementById('scr'), document.getElementById('host'), { onchange: function () { S.emit(); } });
-  H.CompactWires(document.getElementById('wires'), S, {});
+  /* onDepthRoute is the engine's seam (B70): the master only EMITS the drop. This preview records it into the matrix's placeholder list, as the engine would. */
+  H.CompactWires(document.getElementById('wires'), S, { keys: DESTS.map(function (d) { return d.key; }), sources: ['vel'],
+    onDepthRoute: function (src, m) { S.depthRoutes.push({ src: src, pol: 'uni', depth: .25, of: m }); S.say('onDepthRoute(' + src + ', mapping ' + m.src + ' → ' + m.param + ') emitted; the preview recorded a route'); } });
   S.on(function () { document.getElementById('msg').textContent = S.message || ('Selected: ' + S.params[S.selected].name); });
   S.start(); S.emit();
 })();

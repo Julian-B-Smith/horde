@@ -23,7 +23,7 @@ The tempo-division list: the 22 straight, dotted and triplet note values inside 
 - State is `{ sync, hz, beats, rate, name }`; `rate()` is the effective Hz.
 - Anatomy:
   - row 1 (`hd-srow`, 72 px label, 64 px readout): FREE <unit> · SYNC pills and the period ("500 ms");
-  - row 2, one fixed 31 px slot, so FREE/SYNC never resizes the control: the free-rate slider, or the division stepper ◀ name ▶ (a 12 ch name, ellipsis) with its Hz equivalent.
+  - row 2, one fixed 31 px slot, so FREE/SYNC never resizes the control: the free-rate slider, or the division stepper ◀ name ▶ (RateSync's own, not yet `Horde.Stepper`: see the Stepper README) (a 12 ch name, ellipsis) with its Hz equivalent.
 - Gestures:
   - The free slider takes the house drag: 160 px is the full log range at any width, shift ×0.25, relative, double-click resets, Option + wheel sets, arrows only in keyboard mode.
   - The stepper walks the list slow to fast by click or Option + wheel; double-clicking the name resets.
