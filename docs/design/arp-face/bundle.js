@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1793556326-fe52, 2026-11-01; do not edit, re-vendor */
+/* vendored from the horde Design System artifact, version 1793558157-f6a9, 2026-11-01; do not edit, re-vendor */
 /* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"SteppedControl"},{"name":"Stepper"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"},{"name":"Companion"},{"name":"SourceChip"},{"name":"SourceRows"},{"name":"RoutesBySource"},{"name":"Cluster"},{"name":"Lens"},{"name":"Fold"},{"name":"PageView"},{"name":"ModTiers"},{"name":"MacroRow"},{"name":"ModBank"},{"name":"ModPage"},{"name":"UndoLine"}]} */
 /* horde house reference behaviours (vanilla JS, no React, no network).
    The morph knob and slider follow the human's HORDE Morph Knob Spec and HORDE Map Mode Spec
@@ -6951,7 +6951,7 @@
 
   /* ---------- THE MOD PAGE, M5 (ADR-338 r8): a list and a detail. Every modulator a thin row, grouped by kind with a + per kind; the selected one
      fills the rest of the page at the full tier. A Detail | Routes switch makes ADR-266's matrix grid (H.ModMatrixGrid, or the
-     host's o.routes(host)) the page's route view. kinds: [{ id, label }] (default from the mods' `group`). ---------- */
+     host's o.routeView(host, S)) the page's route view. NOT o.routes: the same options reach the tiers, whose routes(m) lists one modulator's routes. kinds: [{ id, label }] (default from the mods' `group`). ---------- */
   function ModPage(el, S, o) {
     o = o || {};
     el.classList.add('hd-mpage'); el.innerHTML = '';
@@ -6978,7 +6978,7 @@
     function drawPane() {
       var ms = mods(), m = ms.filter(function (q) { return q.id === sel; })[0];
       if (mode === 'routes') {
-        if (!routesHost) { routesHost = tag('div', 'mp-routes'); if (o.routes) o.routes(routesHost, S); else H.ModMatrixGrid(routesHost, S, o.matrix || {}); }
+        if (!routesHost) { routesHost = tag('div', 'mp-routes'); if (o.routeView) o.routeView(routesHost, S); else H.ModMatrixGrid(routesHost, S, o.matrix || {}); }
         pane.replaceChildren(routesHost); title.textContent = 'Routes'; return;
       }
       title.textContent = m ? m.name : 'Modulator';

@@ -18,3 +18,7 @@
 - **Not verified:**
   - whether a host keeps Shift+Option-click in a plugin window;
   - whether Windows' Shift+Alt layout hotkey fires around the click.
+- **Then, 1793558157-f6a9 (the same branch):** the GUI 3 shell hop (half A) found two master defects, fixed here rather than worked around in the shell (ADR-316):
+  - `SourceChip` is 206 px wide; at 150 px it cut six of the 16 source names, and the shell had overridden the width locally.
+  - `ModPage`'s route-view builder is `routeView(host, S)`. It was `routes`, but the same options reach the tiers, which read `routes(m)` as a modulator's route list, so a host passing the documented builder broke every row.
+  - Published, recorded, re-vendored, and the ledger's master version added.

@@ -10,6 +10,10 @@
  },
  "master_versions": [
   {
+   "version": "1793558157-f6a9",
+   "evidence": "docs/design-system/master/VERSION: published 2026-11-01 from the gui-mpc-r1 branch before merge. Two master defects the GUI 3 shell hop found: SourceChip widened to 206 px (150 px cut six of the 16 source names; the shell had overridden it locally), and ModPage's route-view builder renamed routeView(host, S) (it was routes, which the tiers also read as routes(m)). Re-vendored the same day."
+  },
+  {
    "version": "1793556326-fe52",
    "evidence": "docs/design-system/master/VERSION: published 2026-11-01 from the gui-mpc-r1 branch before merge (cdf8772's precedent). ADR-341 A1: the polarity chord is Shift+Option-click (Shift+Alt on Windows); chordHit and the Knob, MapControl, RouteRow and master READMEs only; every other file as at 1793517046-cbf4. Re-vendored the same day."
   },

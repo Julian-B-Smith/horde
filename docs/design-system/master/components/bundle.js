@@ -6950,7 +6950,7 @@
 
   /* ---------- THE MOD PAGE, M5 (ADR-338 r8): a list and a detail. Every modulator a thin row, grouped by kind with a + per kind; the selected one
      fills the rest of the page at the full tier. A Detail | Routes switch makes ADR-266's matrix grid (H.ModMatrixGrid, or the
-     host's o.routes(host)) the page's route view. kinds: [{ id, label }] (default from the mods' `group`). ---------- */
+     host's o.routeView(host, S)) the page's route view. NOT o.routes: the same options reach the tiers, whose routes(m) lists one modulator's routes. kinds: [{ id, label }] (default from the mods' `group`). ---------- */
   function ModPage(el, S, o) {
     o = o || {};
     el.classList.add('hd-mpage'); el.innerHTML = '';
@@ -6977,7 +6977,7 @@
     function drawPane() {
       var ms = mods(), m = ms.filter(function (q) { return q.id === sel; })[0];
       if (mode === 'routes') {
-        if (!routesHost) { routesHost = tag('div', 'mp-routes'); if (o.routes) o.routes(routesHost, S); else H.ModMatrixGrid(routesHost, S, o.matrix || {}); }
+        if (!routesHost) { routesHost = tag('div', 'mp-routes'); if (o.routeView) o.routeView(routesHost, S); else H.ModMatrixGrid(routesHost, S, o.matrix || {}); }
         pane.replaceChildren(routesHost); title.textContent = 'Routes'; return;
       }
       title.textContent = m ? m.name : 'Modulator';

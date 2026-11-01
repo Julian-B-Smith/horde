@@ -101,6 +101,6 @@
   "by": "Claude",
   "at": "2026-11-01T18:00:00Z",
   "via": "Claude Code",
-  "note": "ADR-341 A1: the polarity chord is Shift+Option-click (Shift+Alt on Windows), not Command+Option; chordHit and the Knob, MapControl, RouteRow and master READMEs."
+  "note": "ADR-341 A1: the polarity chord is Shift+Option-click (Shift+Alt on Windows), not Command+Option; chordHit and the Knob, MapControl, RouteRow and master READMEs. Two defects GUI 3 found: SourceChip is 206 px (150 cut six of the 16 source names), and ModPage's route-view builder is routeView(host, S), no longer routes, which the tiers use as routes(m)."
  }
 }
