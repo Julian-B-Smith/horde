@@ -10652,6 +10652,12 @@ Round 2 drew 45 variants. The human answered by poll on 2026-10-30 and 2026-10-3
   - the intent bus's macros in the stub, for BR-b.
 - **FX device (ADR-254):** the corner mark, readout, stepper gestures, polarity chord and wires apply on its pages. The bank rows apply wherever it has a bank. How a hosted module's own screen shows them is still B591's question.
 
+**A1 (the human, 2026-11-01): the polarity chord is Shift+Option-click, not ⌘⌥-click** (amends ruling 4; B589).
+- **Why:** the human wrote, "I'm not sure about command being part of MP-c actually, since windows keyboards don't have the button". Asked to choose, the human picked Shift+Option-click from three options: Shift+Option-click; keep ⌘⌥ / Ctrl+Alt; no chord. The human first suggested it in ADR-340 ruling 9's amendment.
+- **The chord:** Shift+Option-click on macOS, Shift+Alt-click on Windows. The same keys exist on every keyboard. Command and Ctrl must be up. The rest of ruling 4 stands: the chord cycles the focused mapping's polarity exactly as its chip does, and it never makes a mapping. With movement it is a fine Option-drag, because Shift is fine everywhere.
+- **Not verified:** whether a host keeps Shift+Option-click in a plugin window, and whether Windows' Shift+Alt keyboard-layout hotkey fires around the click. Check both in a host before the chord ships. If either takes it, the chip, the P key and the menu remain the routes.
+- **Consequence:** the design master changes `chordHit` and its READMEs, published and re-vendored in the same PR (ledger row adr341-mp-c).
+
 ## ADR-342 — RULED by the human: full-patch random leans toward simpler, drier patches, scaled by chaos across the whole patch; below a chaos threshold random never switches on a bypassed slot; the chaos hint to Sluice and Shriek's own randomizers is filed when tuning (B578, ADR-318, ADR-339; 2026-11-01)
 
 **Context.** The human, 2026-10-30 (B578's note): “since the FX modules can get pretty extreme, I think full-patch random on the FX routing should have a bias toward bypassing, drier mixes, and simpler FX patches. Maybe chaos could scale this. I could work it out with Sluice to add a chaos knob to the randomizer that prioritizes simpler chains or something, but that’s secondary.” The lead put three questions; the human answered them 2026-11-01: “a) whole patch, b) yes, c) file it when tuning”. ADR-318 already holds that chaos and amount set the next draw’s bounds only, never a running process.

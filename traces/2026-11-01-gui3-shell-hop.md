@@ -1,0 +1,46 @@
+# gui3-shell-hop — GUI 3 mounts design-master batch 2 (B584, B589, B593)
+
+- **Queue items:** B584 (the shell), B589, B593 (the port ledger), B595 (the chain). GUI session. The human said "Start the shell hop", then ruled the polarity chord mid-hop (ADR-341 A1).
+- **How it was built:** two Sonnet builders, each owning separate blocks of `gui3.html`, worked in parallel:
+  - **half A:** the bank, the macros, removal, the Mod page, source switching, Escape and the map keys. Trace `traces/2026-11-01-gui3-shell-hop-a.md`.
+  - **half B:** the page forms. Trace `traces/2026-11-01-gui3-shell-hop-b.md`.
+
+  Meanwhile the lead made ADR-341 A1 and two master fixes on their own branch (`traces/2026-11-01-adr341-a1-polarity-chord.md`), then merged everything here.
+- **Evidence consulted:**
+  - both builders' reports;
+  - DECISIONS.md ADR-335, ADR-338, ADR-340 and ADR-341 (with A1);
+  - the master READMEs of the mounted components;
+  - `tools/design_chain_check.py` (the ledger's needles and states);
+  - `tools/gen_gui3_controls.py` (the port ledger's rules).
+- **The lead's integration:**
+  - **Master fixes** (instead of the shell's workarounds, ADR-316). The source chip's width is now the master's 206 px, and ModPage's `routeView` replaces the shell's two-job `routes` function.
+  - **The merge.**
+    - The Mod page dispatches before the grid pages. The removed `densePage` is gone, since every dense page is a grid now.
+    - Self-check 1 counts the Mod page's held hosts and skips table rows.
+    - Both halves' self-checks and seam tests are kept.
+  - **The fit check says what it measures.** Half B's check measured the pages against the ruled 472 px "until the bank lands". The bank has landed, but the info box keeps the foot row at 216 px (ADR-335 r4). The shell therefore gives the pages 372 px, and they scroll up to 95 px. The line now prints both numbers and marks the conflict as open (B589), so it never reads as a fit in the real window. The check passes against the ruled number, exactly as it did before; nothing was relaxed.
+  - **The design ledger.**
+    - Four rows are re-pointed at the code that replaced theirs (ModBank, the Session's Escape layers, the kind labels).
+    - 19 rows go from vendored to in-shell, each with a needle that exists in `gui3.html`.
+    - The abbreviation column stays `ruled`, with a note: it is shell data, and the ledger's states name master components.
+    - Notes on why the level cell, TS1a and the chord have no shell place.
+  - **The port ledger.**
+    - composition-tier, modulators and quick-map have new texts.
+    - macros goes to partial.
+    - The rows were edited in place to keep the file's hand formatting.
+  - The ROADMAP B584 and B589 notes.
+- **Verify:**
+  - In the browser, on the merged shell, the in-page self-checks pass 40 of 40, with no console errors.
+  - Screenshots: Osc 1 Grid and Table; Sub with the bank's compact card; the MAC lane; the Mod page's Detail and Routes → Wires.
+  - Escape closes the bank's card (the first screenshot was stale and is not evidence).
+  - `gui3_seam_check`: GREEN, 39 tests, 65 plants.
+  - `gen_gui3_controls --check`: GREEN, 42 must-fail controls.
+  - `design_chain_check`: GREEN.
+  - `./verify fast`: see the PR.
+- **Open for the human:**
+  - The foot row's height: the info box (ADR-335 r4) against the bank's 472 px page area (ADR-338 r7).
+  - The abbreviations in `layout.json`.
+  - The level cell's placement.
+  - Whether the blades become one C2.
+  - The macro slots' names: "Macro 5" to "Macro 8" truncate to "MACR…" in the bank's lane.
+  - Half B's ring and cycle heights, which shrank so the lens fits.

@@ -76,7 +76,7 @@
   .mapbar #mapHost { flex: 0 0 auto; }
   .mapbar .hd-map .hold { display: inline; visibility: hidden; }
   .mapbar .hd-map.momentary .hold { visibility: visible; }
-  .mapbar .src-chip { flex: 0 0 auto; }
+  .mapbar .hd-schip { flex: 0 0 auto; }   /* the chip's 206 px is the master's (1793558157-f6a9); here it only refuses to shrink */
   .dock { width: auto; }
   .dock .face { flex-direction: column; align-items: stretch; gap: 6px; padding: 6px 7px 8px; }
   .dock .hd-xy { width: 188px; height: 188px; margin: 0 auto; }
@@ -84,16 +84,35 @@
      every page (ADR-315) instead of following the page's length. */
   .pagecol { display: flex; flex-direction: column; gap: var(--space-stack); min-width: 0; min-height: 0; }
   #pages { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
-  /* dense pages (B589): the pictures' column at the left, the sections' cell at the right; one box level */
-  .dense-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-stack); align-items: start; }
-  .dense-row.with-viz { grid-template-columns: 250px minmax(0, 1fr); }
-  .vcell { position: sticky; top: 0; display: flex; flex-direction: column; gap: 6px; }
+  /* dense pages (B589): the pictures' column at the left (the page view's `.pv-left`, below), the sections' cell at the right; one box level */
   .vz { display: flex; flex-direction: column; gap: 6px; }
   .vz-well { padding: 0; overflow: hidden; }
   .hd-sgroups > .vz { flex: 1 1 100%; }
   .vz-cv { display: block; width: 100%; }
-  .vz-cap { line-height: 1.3; }
+  .vz-cap { line-height: 13px; }
+  .vz-cap2 { height: 26px; overflow: hidden; }   /* two lines whatever it says, so the lens below never moves (H1) */
   .hd-sgrp.adv > summary { cursor: pointer; list-style-position: inside; }
+  /* GUI 3 hop, half B (ADR-338 r4/r5, ADR-340 r6): a parameter page is the bundle's Page view (Grid | Table, the find box) inside one
+     cell. Its left column holds the pictures and the lens (P1) and stays put in both views; the right holds one cluster per section.
+     Placement only: the clusters, the lens, the table and the faces are the bundle's. */
+  .pv-left { flex: 0 0 206px; width: 206px; min-width: 0; display: flex; flex-direction: column; gap: 6px; position: sticky; top: 0; }
+  .pv-left .vz-well { padding: 0; overflow: hidden; }
+  /* sections flow two to a row (most are one or two rows of cells: a stack of them is what overflowed Sub and Noise); one with many cells
+     takes the whole row. The bundle's own `.hd-sec + .hd-sec` margin is for a stack, so it is reset here. */
+  .pv-secs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-section) var(--space-column); align-items: start; grid-auto-flow: row dense; min-width: 0; }
+  .pv-secs > .wide { grid-column: 1 / -1; }
+  .pv-secs > .hd-sec + .hd-sec, .pv-secs > * + * { margin-top: 0; }
+  .pv-secs > :first-child > .hd-sechead::before, .pv-secs > :first-child:not(.wide) + :not(.wide) > .hd-sechead::before { display: none; }   /* the cell's own edge is the first row's rule */
+  .pv-secs > .hd-clu .vz { margin: 2px 0; }
+  /* an envelope's picture sits beside its four cells, not above them: the same section in the height of one row of cells */
+  .pv-secs > .hd-clu.pic { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; align-items: end; }
+  .pv-secs > .hd-clu.pic > .hd-sechead { grid-column: 1 / -1; }
+  .pv-secs > .hd-clu.pic > .vz { grid-row: 2; grid-column: 1; min-width: 0; }
+  .pv-secs > .hd-clu.pic > .cl-cols { grid-row: 2; grid-column: 2; }
+  .pv-secs .viz { min-height: 0; }
+  /* a group stays whole while the row has room (it does not shrink) and wraps inside itself only when it is wider than the row: a
+     module's 30 to 87 controls are one block with no sub-groups of their own, or a few long ones */
+  .pv-secs .hd-clu .cl-grp { flex: 0 0 auto; max-width: 100%; flex-wrap: wrap; }
   .dash { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: var(--space-stack); }
   .dash .vz-cap { display: none; }
   .mixrow { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--space-stack); }
@@ -119,19 +138,11 @@
   .ledger-row { display: flex; flex-direction: column; gap: 2px; padding: 5px 0; border-top: 1px dashed var(--div); }
   .ledger-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
   .ledger-item { color: var(--ink); font-weight: 600; }
-  /* The bank: one card per listed modulator, in a row that scrolls sideways (ADR-322 item 3). */
-  #bank { width: auto; }
+  /* The bank (ADR-338 r7): the bundle's ModBank, 68 px, at the foot of the column; the removal line (M-R2) sits above it, and the
+     room between them is where a row's compact card opens (it opens ABOVE the bank, over this room and, if it is taller, the page
+     area). The info box ruling (ADR-335 r4) keeps the foot row one fixed height, so the bank does not hand its height back. */
+  #bank { width: auto; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; min-width: 0; }
   #bank[hidden] { display: none; }
-  #bank .head .hd-btn { margin-left: auto; flex: 0 0 auto; white-space: nowrap; }
-  #bank .head .hd-cluster, #bank .head .tag { flex: 0 0 auto; white-space: nowrap; }
-  #bank .head .hd-hint { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  #bank > .face { flex-direction: column; align-items: stretch; gap: 4px; }
-  .bank-strip { display: flex; flex-wrap: nowrap; gap: 8px; overflow-x: auto; overscroll-behavior: contain; align-items: flex-start; }
-  .bank-strip > .hd-card { flex: 0 0 auto; width: 220px; }
-  .bank-strip > .hd-card[hidden] { display: none; }
-  /* a card's utility knobs are rows (name, then the dial) of about 85 px each: four do not fit one 220 px row, and nowrap shrank
-     every dial to 0 wide (the label stayed, the knob vanished). Wrapping gives two rows of two. */
-  .bank-strip .hd-card .face { flex-wrap: wrap; }
   .page { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
   .page[hidden], .dock[hidden] { display: none; }
   .phead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
@@ -153,10 +164,9 @@
   .info .head .hd-cluster { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .info .face > .tag { align-self: flex-start; }
   .info .face { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; overflow-wrap: anywhere; }
-  .footrow > #bank { flex: 1 1 auto; min-width: 0; height: 100%; display: flex; flex-direction: column; }
+  .footrow > #bank { flex: 1 1 auto; min-width: 0; height: 100%; }
   .info .face > :empty { display: none; }
   .footrow > #bank[hidden] { display: none; }
-  #bank > .face { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
   /* `win` (a review link's flag) shows the window alone, at its own size, for the screenshots */
   body.win-only { padding: 0; }
   body.win-only .col > :not(#win) { display: none; }
@@ -196,7 +206,6 @@
         <label class="hd-row hd-label">Morph <button class="hd-toggle hd-focus" id="morphOn" type="button" role="switch" aria-checked="false" aria-label="Morph on"></button></label>
         <label class="hd-row hd-label">Pad <button class="hd-toggle hd-focus" id="padOn" type="button" role="switch" aria-checked="true" aria-label="Show the docked morph pad"></button></label>
         <label class="hd-row hd-label" title="ADR-322 item 4, toggle (b): show or hide the bank">Bank <button class="hd-toggle hd-focus" id="bankOn" type="button" role="switch" aria-checked="true" aria-label="Show the modulator bank"></button></label>
-        <span class="hd-pills" id="bankModes" role="radiogroup" aria-label="The bank shows" title="ADR-322 item 4, toggle (a): flip the bank between modulators and macros"><button class="hd-pill hd-focus" type="button" role="radio" data-m="mods" aria-checked="true">Mods</button><button class="hd-pill hd-focus" type="button" role="radio" data-m="macros" aria-checked="false">Macros</button></span>
       </div>
     </div>
     <!-- MAP MODE (the Map Mode spec, ADR-261): the control sits in the top bar, outside the page area, so it is the same on
@@ -218,10 +227,9 @@
             <div class="head"><span class="hd-cluster" id="infoName">Info</span></div>
             <div class="face"><span class="tag" id="infoTag">HOVER</span><span class="hd-hint" id="infoKey"></span><span class="hd-value" id="infoText">Hover a control, or a section's header, to read what it does.</span><span class="hd-hint" id="infoMeta"></span><span class="hd-note" id="infoLive"></span></div>
           </section>
-          <section class="hd-card" id="bank" aria-label="Modulator bank">
-            <div class="head"><span class="hd-cluster" id="bankTitle">Modulators</span><span class="tag">B556</span><span class="hd-hint" id="bankCount"></span>
-              <button class="hd-btn hd-focus" id="bankAdd" type="button" aria-haspopup="menu" title="Activate a modulator: it stays pending until you map it">+ Modulator</button></div>
-            <div class="face"><div class="bank-strip" id="bankStrip"></div><span class="hd-note" id="bankEmpty"></span></div>
+          <section id="bank" aria-label="Modulator bank">
+            <div id="undoLine"></div>
+            <div id="bankHost"></div>
           </section>
         </div>
       </div>
@@ -301,27 +309,27 @@ engine = new ENG.Stub(rowsOf('engine'));
 const resolver = new ENG.ResolverStub(rowsOf('resolver')), deviceSide = new ENG.DeviceSideStub(rowsOf('rack', 'midi'));
 transport = ENG.SyncTransport(engine, resolver, deviceSide);
 dev = DEV.create(DATA, transport, { seed: SEED });
-S = new H.Session({ x: .5, y: .5, corners: [null, null, null, null],
+// `mapKeysAlways` is ADR-335 r1's ONE switch (SH.MAP_KEYS_ALWAYS, shell-logic.js), handed over as it stands: the session's own
+// listener then takes the map keys and Escape in every mode, and keeps them out of a field and off a Cmd/Ctrl chord (ADR-338 r11).
+S = new H.Session({ x: .5, y: .5, corners: [null, null, null, null], mapKeysAlways: SH.MAP_KEYS_ALWAYS,
   sources: dev.sources().map(s => ({ id: s.id, name: s.name, kind: s.kind, f: () => 0 })),   // no voices, so every source reads 0
   mappings: [] });
 // MAP MODE writes DEVICE routes (the Map Mode spec; ADR-261): the session's mappings are a working list that the bridge
 // writes into the device's matrix at each gesture's end (one undo step) and reads back from it, so the ring on a knob, the
 // bank, the source strip's counts and the matrix all read the same routes.
 const mapBridge = SH.attachMap(S, dev);
-// ADR-338 ruling 11: Escape cancels the innermost open thing, one layer per press. Registered FIRST, in the capture phase, so
-// the map keys' and the bundle's own Escape handlers never see the key: the order lives here and nowhere else. The pinned
-// corner sits between MAP and keyboard mode because the bundle's keyboard mode used Escape to unpin.
-const escLayers = SH.attachEscape(window, [
-  { name: 'menu', active: () => !!menu, cancel: () => closeMenu() },
-  { name: 'map', active: () => S.map.on, cancel: () => S.setMap(false) },
-  { name: 'pin', active: () => S.pinned !== null, cancel: () => S.setPin(null) },
-  { name: 'keys', active: () => S.keys, cancel: () => setKeys(false) }]);
-// ADR-335 ruling 1: the map keys work whether or not keyboard mode is on (the scope is SH.MAP_KEYS_ALWAYS, one line in shell-logic.js).
-SH.attachMapKeys(S, window);
+// ADR-338 ruling 11: Escape is the session's layered cancel (S.escape(), one layer per press, innermost first). The shell's own
+// layers go IN FRONT of the session's (map, pin, keyboard mode) and of the bank's open card (the bank unshifts its own); they are
+// added where they are built (the menu below). The key listener is the session's, so no handler of ours can take Escape twice.
+// ADR-335 ruling 1: the map keys follow the same option (see the Session above).
+
 // The bundle draws what the DEVICE says: its weights, the heard value, the owner (the plugin reads the owner from the
 // engine and never computes it, morph knob spec, Ties). The owner bookkeeping below is the bundle's own (flip times).
 S.weights = () => dev.weights();
-S.base = p => dev.shown(p.key);   // mirror and confirm: what we sent, or what the engine changed itself
+// mirror and confirm: what we sent, or what the engine changed itself. A value that is not a device row (the bank's macro and wheel rows,
+// which the stub has no engine side for) is the bundle's own: its global value, as the session reads it.
+const base0 = S.base;
+S.base = function (p) { return ROW[p.key] ? dev.shown(p.key) : base0.call(this, p); };
 // With morph off only the audible corner sounds and takes writes (ADR-319 item 1): a pinned corner selects
 // where a snapshot is saved, it does not redirect an edit into a frozen corner.
 const editing0 = S.editing;
@@ -405,47 +413,97 @@ function propsFor(row, ctl, path, size) {
   }
   return p;
 }
+const isKnobW = w => w === 'knob' || w === 'hslider' || w === 'vslider';
+const ctlPath = (pg, g, c) => pg.label + ' · ' + g.title + (g.num ? ' ' + g.num : '') + ' · ' + ROW[c.key].label;
+/* ONE PARAMETER, MANY FACES (ADR-338 r5, batch 2b's ctlFace). A key is drawn on its own page's grid, in that page's table, in the lens, on
+   the dashboard card and in the bank. Knob and Slider register the props they are given and reset the saved baseline (the revert
+   mark), so a second face built from its own props would take the registry over and reset the baseline. Every face is therefore a
+   SHADOW of one canonical props object (the corner values and the global value shared, the rest the face's own), and the canonical
+   one is registered here, once, from the page that owns the key (the first page that is neither a dashboard card nor a followed row),
+   before any page is built, so the registry's path is the owner's whatever order the faces are built in. */
+DATA.pages.forEach(pg => {
+  if (pg.panel === 'dashboard' || pg.panel === 'console') return;
+  pg.groups.forEach(g => g.controls.forEach(c => {
+    if (c.follow || S.params[c.key] || !isKnobW(c.widget) || ROW[c.key].law === 'step') return;
+    H.ctlFace(S, propsFor(ROW[c.key], c, ctlPath(pg, g, c), null), {}, () => null);
+  }));
+});
+/* The stepped faces of P1 (ADR-338 r2, ADR-341 r3): the companions at TC1's 16 px (a toggle, segments, a select) and the stepper at
+   `tc`. Each keeps a value of its own, so the view loop below sets it from the device (silently) whenever the device moves it. */
+function tcFace(ctl, row, path, host) {
+  const idx = () => idxOf(row, dev.shown(row.key)), keys = () => S.keys, put = i => writeStep(row, path, i);
+  if (ctl.widget === 'toggle') { const f = H.Companion(host, { kind: 'toggle', name: row.label, path, value: row.options[idx()] === 'on', keys, onInput: on => put(onIdx(row, on)) }); return i => f.set(row.options[i] === 'on'); }
+  if (ctl.widget === 'pills') { const f = H.Companion(host, { kind: 'segments', name: row.label, path, options: row.options, short: ctl.short || undefined, value: idx(), keys, onInput: put }); return i => f.set(i); }
+  if (ctl.widget === 'select') { const f = H.Companion(host, { kind: 'select', name: row.label, path, options: row.options, value: idx(), keys, onInput: put }); return i => f.set(i); }
+  // a stepper: a named range opens its dropdown on Option-click, a number its field (ADR-341 r3); the value is the option's index, or lo + index
+  const named = !!row.options, lo = named ? 0 : row.lo;
+  const f = H.Stepper(host, { name: row.label, path, ...(named ? { options: row.options } : { min: lo, max: lo + row.n - 1 }), step: 1, value: lo + idx(), def: lo + row.default_index,
+    tc: true, keys, say: m => S.say(m), onInput: v => put(v - lo) });
+  return i => f.set(lo + i);
+}
+/* opts: { size } a sized knob (the dashboard, the bank); { tiny } P1's face (ADR-338 r1): a tiny knob under its abbreviation, a companion
+   or a TC1 stepper under it; { noLabel } the face alone (a header's mode segments, a matrix cell, whose labels are the header's). */
 function mountControl(ctl, pageId, path, opts) {
-  const row = ROW[ctl.key], size = opts && opts.size || null;
+  opts = opts || {};
+  const row = ROW[ctl.key], tiny = !!opts.tiny, size = tiny ? 'tiny' : opts.size || null;
   const host = h('div', { class: 'ctl', 'data-key': row.key, 'data-w': ctl.widget });
-  if (ctl.widget === 'knob' || ctl.widget === 'hslider' || ctl.widget === 'vslider') {
+  if (isKnobW(ctl.widget)) {
     const p = propsFor(row, ctl, path, size);
-    const view = ctl.widget === 'knob' ? H.Knob(host, p, S) : H.Slider(host, p, S);
-    PROPS[row.key + '@' + pageId] = p;
+    if (tiny) { p.abbr = ctl.abbr; if (opts.noLabel) p.label = false; }
+    let face = null;
+    // the face's props are named p inside, as the design ledger's shell place cites this very call (`H.Knob(host, p, S)`)
+    const view = H.ctlFace(S, p, { path: p.path, size: p.size, abbr: p.abbr, label: p.label, vert: p.vert },
+      p => { face = p; return ctl.widget === 'knob' ? H.Knob(host, p, S) : H.Slider(host, p, S); });
+    PROPS[row.key + '@' + pageId] = face;
     const r0 = view.render;                 // a knob draws only while its page shows: 300-odd views would redraw every frame otherwise
     view.render = function () { if (page === pageId || pageId === '*') { r0(); host.classList.toggle('idle', !live(ctl.live)); } };
     return host;
   }
-  const lab = h('span', { class: 'hd-label' }, row.label);
   let set;                                     // set(idx): repaint the control to the heard option
-  if (ctl.widget === 'toggle') {
-    const b = h('button', { class: 'hd-toggle hd-focus', type: 'button', role: 'switch', 'aria-label': path });
-    b.addEventListener('click', () => writeStep(row, path, row.options.indexOf(b.getAttribute('aria-checked') === 'true' ? 'off' : 'on')));
-    host.append(h('label', { class: 'hd-row' }, lab, b));
-    set = i => b.setAttribute('aria-checked', String(row.options[i] === 'on'));
-  } else if (ctl.widget === 'pills') {
-    const own = h('span', { class: 'hd-label' }, row.label), grp = h('div', { class: 'hd-pills', role: 'radiogroup', 'aria-label': path });
-    const bs = row.options.map((text, i) => { const b = h('button', { class: 'hd-pill hd-focus', type: 'button', role: 'radio', text, 'aria-checked': 'false' }); b.addEventListener('click', () => writeStep(row, path, i)); grp.append(b); return b; });
-    host.append(h('div', { class: 'hd-col' }, own, grp));
+  if (tiny) {
+    // P1: one shared 11 px label line over the face (Cluster's C1), the face itself the companion; the label carries the owner's rule on a pill group
+    host.classList.add('hd-cl-cell');
+    const lab = h('span', { class: 'cl-lab', title: row.label, text: ctl.abbr || row.label.slice(0, 4) }), fh = h('div');
+    host.append(...(opts.noLabel ? [] : [lab]), fh);
+    const paint = tcFace(ctl, row, path, fh);
     let lastOwn = -2;
     set = i => {
-      bs.forEach((b, k) => { const on = String(k === i); if (b.getAttribute('aria-checked') !== on) b.setAttribute('aria-checked', on); });
+      paint(i);
+      if (ctl.widget !== 'pills' || opts.noLabel) return;
       const o = dev.morph().on && row.class === 'S' ? dev.owner(row.key) : -1;   // the owner's 3 px rule and glyph on the label (Switch guidelines)
-      if (o !== lastOwn) { lastOwn = o; own.className = o >= 0 ? 'hd-owned hd-label' : 'hd-label'; own.style.setProperty('--own', o >= 0 ? 'var(--c' + H.CORNERS[o].id + ')' : ''); own.innerHTML = (o >= 0 ? H.glyph(o, 8, 'var(--c' + H.CORNERS[o].id + '-tx)') : ''); own.append(row.label); }
+      if (o !== lastOwn) { lastOwn = o; lab.className = o >= 0 ? 'hd-owned cl-lab' : 'cl-lab'; lab.style.setProperty('--own', o >= 0 ? 'var(--c' + H.CORNERS[o].id + ')' : ''); lab.innerHTML = (o >= 0 ? H.glyph(o, 8, 'var(--c' + H.CORNERS[o].id + '-tx)') : ''); lab.append(ctl.abbr || row.label); }
     };
-  } else if (ctl.widget === 'select') {
-    const sel = h('select', { class: 'hd-select hd-focus', 'aria-label': path });
-    row.options.forEach((t, i) => sel.append(h('option', { value: String(i), text: t })));
-    sel.addEventListener('change', () => writeStep(row, path, +sel.value));
-    host.append(h('div', { class: 'hd-col' }, lab, sel));
-    set = i => { if (sel.value !== String(i)) sel.value = String(i); };
-  } else {                                      // stepper: a range too long to list (an oscillator's seed)
-    const out = h('output', { class: 'hd-value' }), dn = h('button', { type: 'button', 'aria-label': path + ' down', text: '−' }), up = h('button', { type: 'button', 'aria-label': path + ' up', text: '+' });
-    const box = h('div', { class: 'hd-stepper hd-focus', role: 'spinbutton', 'aria-label': path }, dn, out, up);
-    dn.addEventListener('click', () => writeStep(row, path, Math.max(0, idxOf(row, dev.shown(row.key)) - 1)));
-    up.addEventListener('click', () => writeStep(row, path, Math.min(row.n - 1, idxOf(row, dev.shown(row.key)) + 1)));
-    host.append(h('div', { class: 'hd-col' }, lab, box));
-    set = i => { const t = optLabel(row, vOf(row, i)); if (out.textContent !== t) out.textContent = t; box.setAttribute('aria-valuenow', t); };
+  } else {
+    const lab = h('span', { class: 'hd-label' }, row.label);
+    if (ctl.widget === 'toggle') {
+      const b = h('button', { class: 'hd-toggle hd-focus', type: 'button', role: 'switch', 'aria-label': path });
+      b.addEventListener('click', () => writeStep(row, path, row.options.indexOf(b.getAttribute('aria-checked') === 'true' ? 'off' : 'on')));
+      host.append(h('label', { class: 'hd-row' }, lab, b));
+      set = i => b.setAttribute('aria-checked', String(row.options[i] === 'on'));
+    } else if (ctl.widget === 'pills') {
+      const own = h('span', { class: 'hd-label' }, row.label), grp = h('div', { class: 'hd-pills', role: 'radiogroup', 'aria-label': path });
+      const bs = row.options.map((text, i) => { const b = h('button', { class: 'hd-pill hd-focus', type: 'button', role: 'radio', text, 'aria-checked': 'false' }); b.addEventListener('click', () => writeStep(row, path, i)); grp.append(b); return b; });
+      host.append(h('div', { class: 'hd-col' }, own, grp));
+      let lastOwn = -2;
+      set = i => {
+        bs.forEach((b, k) => { const on = String(k === i); if (b.getAttribute('aria-checked') !== on) b.setAttribute('aria-checked', on); });
+        const o = dev.morph().on && row.class === 'S' ? dev.owner(row.key) : -1;   // the owner's 3 px rule and glyph on the label (Switch guidelines)
+        if (o !== lastOwn) { lastOwn = o; own.className = o >= 0 ? 'hd-owned hd-label' : 'hd-label'; own.style.setProperty('--own', o >= 0 ? 'var(--c' + H.CORNERS[o].id + ')' : ''); own.innerHTML = (o >= 0 ? H.glyph(o, 8, 'var(--c' + H.CORNERS[o].id + '-tx)') : ''); own.append(row.label); }
+      };
+    } else if (ctl.widget === 'select') {
+      const sel = h('select', { class: 'hd-select hd-focus', 'aria-label': path });
+      row.options.forEach((t, i) => sel.append(h('option', { value: String(i), text: t })));
+      sel.addEventListener('change', () => writeStep(row, path, +sel.value));
+      host.append(h('div', { class: 'hd-col' }, lab, sel));
+      set = i => { if (sel.value !== String(i)) sel.value = String(i); };
+    } else {                                      // stepper: a range too long to list (an oscillator's seed)
+      const out = h('output', { class: 'hd-value' }), dn = h('button', { type: 'button', 'aria-label': path + ' down', text: '−' }), up = h('button', { type: 'button', 'aria-label': path + ' up', text: '+' });
+      const box = h('div', { class: 'hd-stepper hd-focus', role: 'spinbutton', 'aria-label': path }, dn, out, up);
+      dn.addEventListener('click', () => writeStep(row, path, Math.max(0, idxOf(row, dev.shown(row.key)) - 1)));
+      up.addEventListener('click', () => writeStep(row, path, Math.min(row.n - 1, idxOf(row, dev.shown(row.key)) + 1)));
+      host.append(h('div', { class: 'hd-col' }, lab, box));
+      set = i => { const t = optLabel(row, vOf(row, i)); if (out.textContent !== t) out.textContent = t; box.setAttribute('aria-valuenow', t); };
+    }
   }
   let last = null;
   views.push({ page: pageId, update() {
@@ -506,16 +564,32 @@ function randomizePlaceholder() {
   return el;
 }
 
-/* THE MOD MATRIX (ADR-266 rulings 1, 3, 4, 6; ADR-136: the Mod page carries the routes; ADR-338 ruling 8 keeps the grid as
-   the Mod page's route view). The bundle's ModMatrixGrid and RouteList on the session's mappings, which the map bridge keeps
-   equal to the DEVICE's routes, so a cell, a route row, MAP on a knob and the bank all edit the same matrix. The grid's columns
-   are the routed parameters plus the selected one: every source against what is routed, not 317 columns. The grid takes its
-   columns when built, so a change in that set rebuilds it, and the old view is silenced (the session has no way to drop a
-   view). Both draw only while the Mod page shows. The Mod page's own form (M5, list + detail) waits on the composition lab's
-   round 2. */
-function modMatrix() {
-  const gridHost = h('div'), listHost = h('div'), note = h('span', { class: 'hd-hint' });
-  const onMod = v => { const r0 = v.render; v.render = function () { if (page === 'mod') r0.apply(v, arguments); }; return v; };
+// ---- the modulators, as the design master's tiers take them. Built before the pages (the Mod page and the bank both read them).
+const BANK = DATA.bank, KIND_LABEL = { env: 'ENV', engine: 'ENGINE' };
+// Each source as the bundle's tiers take it (ModTiers' `m`). `pending` is read live from the adapter, never copied, because a row
+// is built once and kept. The compact card's controls are built the first time its row opens, from the table (GUI3_DATA.bank).
+const bankCtls = Object.create(null);
+function bankCtlsOf(src) {
+  return bankCtls[src.id] || (bankCtls[src.id] = (BANK.controls[src.id] || []).map(c => mountControl(c, '*', 'Bank · ' + src.name + ' · ' + ROW[c.key].label, { size: 'utility' })));
+}
+const MODS = Object.create(null);
+dev.sources().forEach(src => {
+  MODS[src.id] = { id: src.id, name: src.name, kind: src.kind, kindLabel: KIND_LABEL[src.kind] || src.kind.toUpperCase(), group: src.kind, fixed: true,
+    get pending() { return dev.pending().includes(src.id); },
+    get ctls() { return bankCtlsOf(src); },
+    note: 'No controls of its own: ' + (src.kind === 'engine' ? 'a value the engine publishes (IF-3), with no rows in SPEC-ENGINE 5.' : 'no rows in SPEC-ENGINE 5.') };
+});
+
+/* THE MOD PAGE (ADR-338 r8, M5: list + detail) and its ROUTE VIEWS (ADR-340 r10: ML4 the grid, ML3 by source, ML1 the wires; the grid
+   is ADR-266 rulings 1, 3, 4 and 6, ADR-136: the Mod page carries the routes). Every route view is one more view of the session's
+   mappings, which the map bridge keeps equal to the DEVICE's routes, so a grid cell, a route row, a wire, MAP on a knob and the bank
+   all edit the same matrix. The grid's columns are the routed parameters plus the selected one: every source against what is
+   routed, not 317 columns. The grid takes its columns when built, so a change in that set rebuilds it, and the old view is
+   silenced (the session has no way to drop a view). Every view draws only while the Mod page shows it. */
+const depthRefused = (src, m) => S.say('Refused: ' + S.src(src).name + ' on ' + S.src(m.src).name + ' → ' + (S.params[m.param] ? S.params[m.param].name : m.param) + ': depth routes are not in the engine yet (B70), so none is made');
+function modRouteViews(host) {
+  const gridHost = h('div'), listHost = h('div'), note = h('span', { class: 'hd-hint' }), bysHost = h('div'), wiresHost = h('div'), swHost = h('div');
+  const onMod = v => { const r0 = v.render; v.render = function () { if (page === 'mod' && host.isConnected && host.getClientRects().length) r0.apply(v, arguments); }; return v; };
   let grid = null, lastCols = null;
   views.push({ page: 'mod', update() {
     const ks = [...new Set(S.mappings.map(m => m.param).concat(S.selected ? [S.selected] : []))].filter(k => ROW[k] && S.params[k]);
@@ -528,9 +602,52 @@ function modMatrix() {
     grid = onMod(H.ModMatrixGrid(gridHost, S, { label: 'the routed parameters', dests: ks.map(k => ({ key: k, name: S.params[k].path || ROW[k].label, short: ROW[k].label })) }));
   } });
   onMod(H.RouteList(listHost, S, { label: 'Every route' }));
-  const cm = card('Mod matrix', 'ADR-266', [gridHost, note]), cr = card('Routes', 'ADR-136', [listHost]);
-  cm.classList.add('wide'); cr.classList.add('wide');   // the grid scrolls inside its own region; a half-width card squeezed it
-  return h('div', { class: 'cards' }, cm, cr);
+  const panes = [h('div', { class: 'cards' }, card('Mod matrix', 'ADR-266', [gridHost, note]), card('Routes', 'ADR-136', [listHost])), bysHost, wiresHost];
+  panes[0].querySelectorAll('.hd-card').forEach(c => c.classList.add('wide'));   // the grid scrolls inside its own region; a half-width card squeezed it
+  // ML3 and ML1 are built when first shown: the wires draw to a canvas and need a size (a view of a hidden pane would throw on none).
+  const built = [true, false, false];
+  const build = i => {
+    if (built[i]) return; built[i] = true;
+    if (i === 1) onMod(H.RoutesBySource(bysHost, S, { label: 'Routes by source' }));
+    // W-a's valves: a drop on one only EMITS onDepthRoute, and the engine has no depth routes (B70, the lead's), so it is refused here
+    // and no route is made, never a stand-in. A new wire between a source and a destination is a mapping (the bridge writes it).
+    else onMod(H.CompactWires(wiresHost, S, { sources: dev.sources().filter(x => x.kind === 'env').map(x => x.id), onDepthRoute: depthRefused }));
+  };
+  const pick = i => { panes.forEach((pn, k) => { pn.hidden = k !== i; }); build(i); sw.set(i); };
+  const sw = H.pillGroup(swHost, ['Grid', 'By source', 'Wires'], 0, 'Mod page · route view', pick, { keys: () => S.keys });
+  host.append(swHost, ...panes); pick(0);
+  return { pick };
+}
+
+/* The Mod page in the bundle's form: every source the engine publishes is a thin row, grouped by kind, and the selected one's full
+   tier fills the detail. The page lists EVERY source (not only the routed ones) because the envelopes' own rows live here and must
+   stay reachable; × on this page unmaps the source and drops it if pending, and the row stays (the engine keeps the source). The
+   controls in a detail are the page's own, built once here and swapped in by the page's pane, so `heldHosts` keeps them counted as
+   this page's mounted controls while a detail is not showing (the self-check reads it). */
+const heldHosts = new Set();
+let modPageCtl = null, modRoutes = null;
+function modPageForm(pg, el) {
+  const own = Object.create(null);
+  pg.groups.forEach(g => {
+    const ks = g.controls, id = ks.length ? ks[0].key.split('.')[0] : null, src = id && MODS[id];
+    if (!src) return;
+    const hosts = g.controls.map(c => { const hst = mountControl(c, pg.id, pg.label + ' · ' + g.title + ' · ' + ROW[c.key].label); heldHosts.add(hst); return hst; });
+    own[id] = [h('div', { class: 'hd-krow', 'data-section': g.id }, hosts)];
+  });
+  const mods = dev.sources().map(sr => Object.create(MODS[sr.id], { ctls: { get: () => own[sr.id] || [] },
+    note: { value: own[sr.id] ? '' : sr.id === 'env1' ? 'ENV 1 is the amplitude envelope: its rows are on the Main page.' : MODS[sr.id].note } }));
+  const host = h('div');
+  modPageCtl = H.ModPage(host, S, { mods, select: 'env2', keys: () => S.keys,
+    kinds: [{ id: 'env', label: 'ENVELOPES' }, { id: 'engine', label: 'ENGINE SOURCES' }],
+    onMap: m => { const on = S.map.on && S.map.src === m.id; S.setSrc(m.id); S.setMap(!on); },
+    onDrop: (m, key) => dropMap(m, key), onRemove: removeMod,
+    // + per kind: activates the first source of that kind that is neither routed nor pending; it then shows PENDING until it is mapped
+    onAdd: kind => {
+      const routed = new Set(dev.routes().map(r => r.src)), pend = new Set(dev.pending()), free = dev.sources().find(x => x.kind === kind && !routed.has(x.id) && !pend.has(x.id));
+      if (!free) { S.say('Every ' + (kind === 'env' ? 'envelope' : 'engine source') + ' is active already'); return; }
+      const r = dev.activate(free.id); S.say(r.ok ? free.name + ' is active and pending: press its Map, then click a control' : r.why); },
+    routeView: host => void (modRoutes = modRouteViews(host)) });
+  el.append(host);
 }
 
 // ===== BLOCK E: the pages, from GUI3_DATA.pages, under the two-level page bar (B589 Page nav) =====
@@ -565,10 +682,10 @@ function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let 
 function vizView(v, pid, big) {
   const wrap = h('div', { class: 'vz' }), cvs = [], K = v.keys, st = {};
   const add = (label, hgt) => { const cv = h('canvas', { class: 'vz-cv', style: 'height:' + hgt + 'px', 'aria-label': label + ' (SAMPLE)', role: 'img' }); wrap.append(h('div', { class: 'hd-viz vz-well' }, cv)); cvs.push(cv); return cv; };
-  const ring = v.kind === 'osc' && big ? add('Phase ring: Coupling × Detune, shift for Cross-mod', 210) : null;
+  const ring = v.kind === 'osc' && big ? add('Phase ring: Coupling × Detune, shift for Cross-mod', 112) : null;
   const ringIO = ring ? oscRing(ring, K, pid, wrap) : null;
-  const main = add(v.kind === 'noise' ? 'Spectrum' : v.kind === 'env' ? 'ENV 1' : 'One cycle', big ? (v.kind === 'osc' ? 96 : 160) : 64);
-  wrap.append(h('span', { class: 'hd-hint vz-cap', text: 'SAMPLE: a drawing of the settings, not the engine’s output' }));
+  const main = add(v.kind === 'noise' ? 'Spectrum' : v.kind === 'env' ? 'ENV 1' : 'One cycle', big ? (v.kind === 'osc' ? 40 : 160) : 64);
+  wrap.append(h('span', { class: 'hd-hint vz-cap', text: big ? 'SAMPLE, not the engine’s output' : 'SAMPLE: a drawing of the settings, not the engine’s output', title: 'A drawing of the settings the layout names, never the engine’s output' }));
   let last = null, frame = 0;
   views.push({ page: pid, update() {
     frame++;
@@ -601,7 +718,7 @@ function vizView(v, pid, big) {
    frame (1/60 s, no clock), never the engine's phases (IF-10 at stage 8 brings those). */
 function oscRing(cv, K, pid, wrap) {
   const KMAX = 4, SPREAD = 1.4, rows = { x: ROW[K.detune], y: ROW[K.coupling], sx: ROW[K.crossMod] };
-  const st = { x: 0, y: 0, sx: 0 }, cap = h('span', { class: 'hd-hint vz-cap' });
+  const st = { x: 0, y: 0, sx: 0 }, cap = h('span', { class: 'hd-hint vz-cap vz-cap2' });
   let sw = null, n = 0, live = { drag: false, shift: false, hover: false }, held = false, coh = 0;
   const pull = () => { st.x = dev.shown(K.detune); st.y = dev.shown(K.coupling); st.sx = dev.shown(K.crossMod); };
   const put = (ax, v) => {
@@ -628,7 +745,7 @@ function oscRing(cv, K, pid, wrap) {
     const t = live.drag ? 'DRAG · ' + (live.shift ? '⇧↔ Cross-mod ' + d(rows.sx) : '↔ Detune ' + d(rows.x)) + ' · ↕ Coupling ' + d(rows.y)
       : live.hover ? 'Click lands ↔ Detune ↕ Coupling · alt fine · ⇧↔ Cross-mod (relative)'
       : 'Detune ' + d(rows.x) + ' · Coupling ' + d(rows.y) + ' · Cross-mod ' + d(rows.sx) + ' · SAMPLE swarm';
-    if (cap.textContent !== t) cap.textContent = t;
+    if (cap.textContent !== t) { cap.textContent = t; cap.title = t; }
     cv.setAttribute('aria-valuetext', 'Detune ' + d(rows.x) + ', Coupling ' + d(rows.y) + ', Cross-mod ' + d(rows.sx) + ', Coherence ' + (+coh || 0).toFixed(2));
   }, st };
 }
@@ -691,12 +808,133 @@ function sectionOf(pg, g, opts) {
   } });
   return sec;
 }
-function densePage(pg, el) {
-  const row = h('div', { class: 'dense-row' + (pg.viz ? ' with-viz' : '') });
-  if (pg.viz) row.append(h('div', { class: 'hd-cell hd-dense vcell' }, h('div', { class: 'vhead' }, h('span', { class: 'hd-cluster', text: 'Visualizers' })), vizView(pg.viz, pg.id, true)));
-  const cell = h('div', { class: 'hd-cell hd-dense dcell' });
-  pg.groups.forEach(g => cell.append(sectionOf(pg, g)));
-  row.append(cell); el.append(row);
+/* A PARAMETER PAGE, P1 (ADR-338 r5): every control of the page in view as tiny knobs and companions in clusters, the control under
+   the pointer (or the last one touched) enlarged in the lens, a Grid | Table switch with a find box (ADR-340 r6, PV1) and the page's own
+   pictures beside them. A section is a cluster (C1: groups of 28 px cells under one shared label line of abbreviations, the power switch
+   in the header, the section's one readout slot) or, where the layout names a matrix, a C2 (an envelope's stages x time and curve). The
+   advanced rows follow inline after the ADV mark. Nothing here draws a face: the bundle's Cluster, ClusterMatrix, Lens and PageView do. */
+function gridSection(pg, g) {
+  const path = pg.label + ' · ' + g.title + (g.num ? ' ' + g.num : '');
+  const sec = h('section', { 'aria-label': path, 'data-section': g.id });
+  const power = g.controls.find(c => c.role === 'power'), modes = g.controls.find(c => c.role === 'modes');
+  const plain = g.controls.filter(c => !c.role && !c.advanced), adv = g.controls.filter(c => !c.role && c.advanced);
+  const mk = (c, o) => mountControl(c, pg.id, path + ' · ' + ROW[c.key].label, Object.assign({ tiny: true }, o));
+  // ADR-333: the envelope this source's level follows (RC-6.5), drawn from the block its `env` row selects; the block's controls are the
+  // shared keys (Main's and the Mod page's), so an edit here is an edit there. The picture sits between the header and the cells.
+  const followHosts = []; let picture = null;
+  if (g.follow) {
+    const cv = h('canvas', { class: 'vz-cv', style: 'height:44px', role: 'img', 'aria-label': g.title + ' envelope' });
+    picture = h('div', { class: 'vz' }, h('div', { class: 'hd-viz vz-well' }, cv));
+    let lastE = '';
+    views.push({ page: pg.id, update() {
+      const fb = dev.followed(g.follow); if (!fb) return;
+      const K = fb.viz, sig = fb.block + '|' + Object.values(K).map(k => dev.shown(k)).join('|') + '|' + (document.documentElement.dataset.theme || '');
+      followHosts.forEach(x => { const on = g.follow.options[x.opt] === fb; if (x.host.hidden === on) x.host.hidden = !on; });
+      if (sig === lastE) return; lastE = sig;
+      const a = xOf(K.a), dd = xOf(K.d), r = xOf(K.r);
+      H.Viz.envelope(cv, { a, d: dd, s: xOf(K.s), r, hold: (a + dd + r) / 3, ac: xOf(K.ac), dc: xOf(K.dc), rc: xOf(K.rc) }, null);
+    } });
+  } else if (g.screen) {
+    // A module card (the FX page) carries an inset where the module's own screen will go: a labelled placeholder (ADR-235).
+    picture = h('div', { class: 'viz', role: 'img', 'aria-label': g.screen + ' screen placeholder' }, h('span', { class: 'hd-hint', text: g.screen + '’s own screen goes here (placeholder)' }));
+  }
+  const item = c => { const host = mk(c); if (c.follow) { host.hidden = true; followHosts.push({ host, opt: c.follow }); } return host; };
+  const head = modes ? [mk(modes, { noLabel: true })] : [];
+  // An Envelope section mounts every block's rows, so its first controls are ENV 1's: the readout names the envelope this source
+  // FOLLOWS (its env row's pick) and that block's attack and decay (ADR-333).
+  const summary = pg.dense ? () => [modes ? labOf(modes.key) : null].concat(g.follow ? SH.followedSummary(dev, ENG, ROW, g.follow)
+    : plain.slice(0, 2).map(c => ENG.display(ROW[c.key], dev.shown(c.key)))).filter(Boolean).join(' · ') : g.tag || '';
+  const o = { name: g.title, path, num: g.num || undefined, rule: g.rule || 'solid', on: power ? isOnKey(power.key) : undefined,
+    onToggle: power ? on => writeStep(ROW[power.key], path + ' · On', onIdx(ROW[power.key], on)) : undefined, summary, keys: () => S.keys, head, picture: picture || undefined };
+  let cl, fold = null;
+  if (g.fold) {
+    // P2 (ADR-338 r5), only where the page still overflowed after P1's tiers: Face | +Adv per section, remembered. A fold's header has no
+    // power switch or number, so the switch and the mode go first in the Face tier and the number is part of the name.
+    // Face is the first two sub-groups the layout lists (the designer's order puts the headline ones first), All the rest, +Adv the advanced rows.
+    const subs = []; plain.forEach(c => { if (!subs.includes(c.sub || '')) subs.push(c.sub || ''); });
+    const faceSubs = subs.slice(0, 2), isFace = c => faceSubs.includes(c.sub || '');
+    const faceItems = [].concat(power ? [mk(power)] : [], modes ? [mk(modes, { noLabel: true })] : [], plain.filter(isFace).map(item)), restItems = plain.filter(c => !isFace(c)).map(item);
+    fold = H.Fold(sec, S, { id: pg.id + '/' + g.id, name: g.title + (g.num ? ' ' + g.num : ''), path, tiers: Object.assign({ face: faceItems, adv: adv.map(item) }, restItems.length ? { all: restItems } : {}), summary, keys: () => S.keys });
+    // every control is mounted whichever tier the user left the fold at: a tier is built the first time it is shown, so show them all once
+    const t0 = fold.tier(), o0 = fold.open(); fold.open(true); fold.tier(2); fold.tier(t0); fold.open(o0);   // (the tier ids are Face 0, All 1, +Adv 2)
+    cl = { header: { on() {} } };
+  } else if (g.matrix) {
+    // C2 (ADR-338 r4): column labels once, row labels once, no label on a cell (the header's slot reads the hot one), an empty cell a dot
+    const cellOf = k => k && mk(g.controls.find(c => c.key === k), { noLabel: true });
+    cl = H.ClusterMatrix(sec, S, Object.assign(o, { head: g.matrix.head.map(k => mk(g.controls.find(c => c.key === k), { noLabel: true })), emptyTitle: g.matrix.emptyTitle,
+      cols: g.matrix.cols, rows: g.matrix.rows.map(r => ({ label: r.label, cells: r.cells.map(cellOf) })) }));
+    g.matrix.rows.forEach((r, i) => { const l = cl.grid.querySelectorAll('.cl-row')[i]; if (l) l.title = r.title; });
+  } else {
+    const groups = [];
+    plain.forEach(c => { const lab = c.sub || ''; if (!groups.length || groups[groups.length - 1].label !== lab) groups.push({ label: lab, items: [] }); groups[groups.length - 1].items.push(item(c)); });
+    cl = H.Cluster(sec, S, Object.assign(o, { groups, adv: adv.map(item) }));
+  }
+  // The header's toggle IS the power parameter's control: it carries the key, so the info box, the right-click menu, the bank's drop
+  // and the self-checks find it like any other control.
+  if (power && !fold) { const t = cl.header.el.querySelector('.hd-toggle'); t.dataset.key = power.key; t.classList.add('ctl'); }
+  let last = '';
+  views.push({ page: pg.id, update() {
+    const k = power ? isOnKey(power.key) : '';
+    if (k === last) return; last = k;
+    if (power) { cl.header.on(isOnKey(power.key)); if (pg.power === power.key) nav.mark(groupOf[pg.id], pg.id, isOnKey(power.key)); }
+  } });
+  // a section with many cells takes the whole row of the grid; a folded one is as wide as its Face tier
+  // A header holds the name, its switch and mode segments and the readout slot, which is a fixed 250 px (H1). Half a row leaves the slot
+  // about 240 px beside a bare name, and the bundle's own header truncates it beside segments (it never wraps the header), which is
+  // the price of two sections to a row. A fold (its tiers in the header), a main enum of more than four segments, or many cells
+  // takes the whole row.
+  if (g.follow) sec.classList.add('pic');
+  if (fold || (modes && ROW[modes.key].n > 4) || (!g.matrix && plain.length + adv.length > 20)) sec.classList.add('wide');
+  return sec;
+}
+/* The page's table (PV1, ParamTable): one 17 px row per control, the FULL name, the control as the table's own face (TS2a for a knob, a
+   caret select, the dense switch, K4's drag number). Its faces are shadows of the same props (the bundle's ctlFace), so a knob's value is
+   the grid's; a stepped face holds its own state, so the page's view loop sets it from the device (syncTable). A followed envelope
+   row is the Main and Mod pages' own row: it is in the grid under its source, and not listed again in the table. */
+function tableOf(pg) {
+  return { groups: pg.groups.map(g => ({ title: g.title + (g.num ? ' ' + g.num : ''), controls: g.controls.filter(c => !c.follow).map(c => {
+    const row = ROW[c.key], path = pg.label + ' · ' + g.title + (g.num ? ' ' + g.num : '') + ' · ' + row.label, base = { key: c.key, name: row.label, abbr: c.abbr, path, advanced: c.advanced };
+    if (isKnobW(c.widget)) return Object.assign(base, { kind: 'knob', props: { key: c.key } });
+    if (c.widget === 'toggle') return Object.assign(base, { kind: 'toggle', props: { value: isOnKey(c.key), onChange: on => writeStep(row, path, onIdx(row, on)) } });
+    if (c.widget === 'stepper') { const lo = row.options ? 0 : row.lo;
+      return Object.assign(base, { kind: 'stepper', props: Object.assign({ name: row.label, path, step: 1, value: lo + idxOf(row, dev.shown(c.key)), def: lo + row.default_index, say: m => S.say(m), onInput: v => writeStep(row, path, v - lo) },
+        row.options ? { options: row.options } : { min: lo, max: lo + row.n - 1 }) }); }
+    return Object.assign(base, { kind: 'select', props: { options: row.options, value: idxOf(row, dev.shown(c.key)), onChange: i => writeStep(row, path, i) } });
+  }) })) };
+}
+const PAGEVIEW = Object.create(null);   // page id -> { pv, el, remembered }: the checks read every page in its grid and put each back as the user left it
+function syncTable(pg, el) {
+  const by = Object.fromEntries(pg.groups.flatMap(g => g.controls.map(c => [c.key, c])));
+  el.querySelectorAll('.hd-pt .pt-row').forEach(rw => {
+    const c = by[rw.dataset.key], row = ROW[rw.dataset.key], i = idxOf(row, dev.shown(row.key));
+    rw.classList.toggle('idle', !live(c.live));
+    const tg = rw.querySelector('.hd-toggle'), se = rw.querySelector('select'), sp = rw.querySelector('.hd-stepper');
+    if (tg) tg.setAttribute('aria-checked', String(row.options[i] === 'on'));
+    else if (se) { if (se.value !== String(i)) se.value = String(i); }
+    else if (sp) {            // the stepper keeps its value inside: a different one is remounted (never silently left showing a stale number)
+      const lo = row.options ? 0 : row.lo;
+      if (sp.getAttribute('aria-valuenow') !== String(lo + i)) { const cell = sp.parentNode, t = tableOf(pg).groups.flatMap(g => g.controls).find(x => x.key === row.key);
+        const q = h('div'); cell.replaceChildren(q); H.Stepper(q, Object.assign({}, t.props, { flat: true, sm: true })); }
+    }
+  });
+}
+function paramPage(pg, el) {
+  const keys = pg.groups.flatMap(g => g.controls.map(c => c.key)), cont = keys.filter(k => ROW[k].law !== 'step');
+  const secs = h('div', { class: 'pv-secs' }, pg.groups.map(g => gridSection(pg, g)));
+  const lens = h('div'); if (cont.length) H.Lens(lens, S, { scope: cont, fallback: cont[0], size: 'standard' });
+  const lensView = S.views[S.views.length - 1];       // the lens draws only while its page shows, as every other view of this file
+  if (cont.length) { const r0 = lensView.render; lensView.render = function () { if (page === pg.id) r0.apply(this, arguments); }; }
+  const left = h('div', { class: 'pv-left' }, pg.viz ? vizView(pg.viz, pg.id, true) : null, cont.length ? lens : null);
+  const box = h('div', { class: 'hd-cell hd-dense' }), tbl = tableOf(pg);
+  const pv = H.PageView(box, S, { id: pg.id, label: pg.label, left: left.childNodes.length ? left : undefined, grid: secs, table: tbl, keys: () => S.keys, onView: v => { if (v === 'table') syncTable(pg, box); } });
+  // Both views are built now, grid first in the document: a control must be mounted whichever view the page remembers (PV1 builds the
+  // other lazily), and the page keeps the view the user left it in.
+  const remembered = pv.view(); pv.view('table'); pv.view('grid');
+  const right = box.querySelector('.pv-views'); right.prepend(right.querySelector('.pv-grid'));
+  pv.view(remembered);
+  PAGEVIEW[pg.id] = { pv, el: box, remembered };
+  views.push({ page: pg.id, update() { if (pv.view() === 'table') syncTable(pg, box); } });
+  el.append(box);
 }
 /* The Osc dashboard (B589's composition): one card per source, side by side; the card's name opens its page. */
 function dashboardPage(pg, el) {
@@ -860,10 +1098,10 @@ DATA.pages.forEach(pg => {
   if (pg.panel === 'dashboard') dashboardPage(pg, el);
   else if (pg.panel === 'console') consolePage(pg, el);
   else if (pg.panel === 'ledger') ledgerPage(pg, el);
-  else if (pg.dense) densePage(pg, el);
+  else if (pg.id === 'mod') modPageForm(pg, el);       // ADR-338 r8 (half A); every other parameter page is a grid (half B)
+  else if (pg.grid) paramPage(pg, el);
   else classicPage(pg, el);
   if (pg.panel === 'morph') el.append(morphPanel());
-  if (pg.id === 'mod') el.append(modMatrix());
   if (pg.id === 'fx') el.insertBefore(fxRack(pg), el.children[1] || null);
   $('pages').append(el); pageEls[pg.id] = el;
 });
@@ -900,7 +1138,8 @@ paintDock();
 // the session accepts in keyboard mode as every accelerator here, ADR-259 ruling 6) is the bundle's. What the shell adds
 // is where the mappings go: the device (mapBridge above). Every key has a mouse route: the MAP button (M, Esc), the
 // dropdown and the strip's chips (1 to 9), the inspector's polarity pill (P) and remove button (Backspace).
-H.MapControl($('mapHost'), S, { frame: $('win'), strip: $('srcStrip') });
+// MS3 (ADR-340 r8): the source is a chip you drag through or step (`chip: true`), MS1 the strip beside it, MS4 the bank's rows (BLOCK D3).
+H.MapControl($('mapHost'), S, { frame: $('win'), strip: $('srcStrip'), chip: true });
 H.ModInspector($('insp'), S);
 function paintInspector() {
   const on = S.map.on;
@@ -970,82 +1209,82 @@ function openMenu(key, x, y) {
 $('win').addEventListener('contextmenu', e => { const t = hostOf(e.target); if (!t) return; e.preventDefault(); openMenu(t.dataset.key, e.clientX, e.clientY); });
 document.addEventListener('pointerdown', e => { if (menu && !menu.contains(e.target)) closeMenu(); }, true);
 
-// ===== BLOCK D3: the bottom modulator bank (ADR-322 items 3 and 4, B556; ADR-291 item 2) =====
-// Which modulators it lists is READ, never kept: the adapter's routes (RC-4) whose parameter is a control on the
-// current page, plus the modulators activated with + and not yet mapped (the adapter's pending state). Each card
-// is the bundle's ModCardHeader with a Map handle, and the kind's critical controls generated from the table
-// (GUI3_DATA.bank, chosen per kind in layout.json with the reason). Cards are built once, then shown or hidden.
-const BANK = DATA.bank, bankCards = {};
-let bankMode = 'mods', bankShown = true, bankSig = '', dragSrc = null;
+// ===== BLOCK D3: the bottom modulator bank (ADR-322 items 3 and 4, B556; ADR-338 r7 and r9, ADR-340 r8 and r11, ADR-341 r6 and r7) =====
+// The design master's ModBank: 68 px, two lanes of 26 px thin rows, the MAC | MODS segments (BT1), a click on a row's name opens its
+// compact card above the bank. The MODS lane's rows are READ, never kept: the adapter's routes (RC-4) whose parameter is a control
+// on the current page, plus the modulators activated with + and not yet mapped (the adapter's pending state). The MAC lane is the
+// intent bus's macros, the pitch bend and the mod wheel (MacroRow, BR-b): the stub has no intent bus, so they show unbound.
+let bankShown = true;
 const pageKeysList = pid => { const pg = DATA.pages.find(p => p.id === pid); return pg ? pg.groups.flatMap(g => g.controls.map(c => c.key)) : []; };
-const pageKeys = pid => new Set(pageKeysList(pid));
+const keysMemo = Object.create(null), pageKeys = pid => keysMemo[pid] || (keysMemo[pid] = new Set(pageKeysList(pid)));
 function dropMap(src, key) {
   const res = dev.drop(src.id, key);
   S.say(res.ok ? 'Mapped ' + src.name + ' → ' + ROW[key].label + ' at 25 % (its ring shows on the control; sources read 0 with no audio)' : 'Refused: ' + res.why);
   return res;
 }
-// The map handle: press it, drag, release over any control (Serum's drag-to-map). The drop goes through the adapter's
-// addRoute, so it refuses what RC-4 refuses (a stepped or reserved row, a source the engine does not publish).
-function bindDrag(handle, src) {
-  handle.addEventListener('pointerdown', e => { if (e.button !== 0) return; e.preventDefault(); handle.setPointerCapture(e.pointerId); dragSrc = src; S.say('Drag onto any control and release to map ' + src.name); });
-  handle.addEventListener('pointerup', e => {
-    if (dragSrc !== src) return; dragSrc = null;
-    if (handle.hasPointerCapture(e.pointerId)) handle.releasePointerCapture(e.pointerId);
-    const t = hostOf(document.elementFromPoint(e.clientX, e.clientY));
-    if (t) dropMap(src, t.dataset.key); else S.say('Not mapped: release the handle over a control');
-  });
-  handle.addEventListener('pointercancel', () => { dragSrc = null; });
-}
-dev.sources().forEach(src => {
-  const head = h('div'), handle = h('button', { class: 'hd-btn hd-focus', type: 'button', text: 'Map', 'aria-label': 'Map ' + src.name + ': drag onto a control', title: 'Drag onto any control to map ' + src.name });
-  H.ModCardHeader(head, { kind: src.kind, name: src.name, retrig: null, extra: handle });
-  bindDrag(handle, src);
-  const ctls = BANK.controls[src.id] || [];
-  const face = h('div', { class: 'face hd-dense' }, ctls.length ? ctls.map(c => mountControl(c, '*', 'Bank · ' + src.name + ' · ' + ROW[c.key].label, { size: 'utility' }))
-    : h('span', { class: 'hd-hint', text: 'No controls of its own: ' + (src.kind === 'engine' ? 'a value the engine publishes (IF-3), with no rows in SPEC-ENGINE 5.' : 'no rows in SPEC-ENGINE 5.') }));
-  const note = h('span', { class: 'hd-hint' });
-  const cardEl = h('section', { class: 'hd-card', 'data-src': src.id, 'aria-label': src.name + ' modulator', hidden: true }, head, face, h('div', { class: 'foot' }, note));
-  bankCards[src.id] = { el: cardEl, note };
-  $('bankStrip').append(cardEl);
-});
-function bankModel() {
+function bankMods() {
   const keys = pageKeys(page), routes = dev.routes(), pend = dev.pending();
-  return dev.sources().map(src => ({ src, n: routes.filter(r => r.src === src.id && keys.has(r.param)).length, pending: pend.includes(src.id) }))
-    .filter(m => m.n > 0 || m.pending);
+  return dev.sources().filter(s => pend.includes(s.id) || routes.some(r => r.src === s.id && keys.has(r.param))).map(s => MODS[s.id]);
 }
-function paintBank() {
-  const model = bankMode === 'mods' ? bankModel() : [];
-  const sig = page + '|' + bankMode + '|' + model.map(m => m.src.id + ':' + m.n + (m.pending ? 'p' : '')).join(',');
-  if (sig === bankSig) return; bankSig = sig;
-  const on = new Set(model.map(m => m.src.id));
-  for (const id in bankCards) bankCards[id].el.hidden = !on.has(id);
-  model.forEach(m => { bankCards[m.src.id].note.textContent = m.pending ? 'PENDING: drag Map onto a control, or it is dropped when the interface closes' : m.n + (m.n === 1 ? ' route' : ' routes') + ' on this page'; });
-  $('bankTitle').textContent = bankMode === 'mods' ? 'Modulators' : 'Macros';
-  $('bankAdd').disabled = bankMode !== 'mods';
-  $('bankCount').textContent = bankMode === 'mods' ? model.length + ' on this page' : '';
-  $('bankEmpty').textContent = bankMode === 'macros'
-    ? 'Macros: none exist yet. The macros and the intent bus are the device’s and are deferred (RC-4); when they exist, this switch lists them here instead of the modulators.'
-    : model.length ? '' : 'No modulators on this page. Press + to activate one, then drag its Map handle onto a control.';
+// The page's keys, live: the rows' "n here" counts routes to them (ModBank keeps this one array, so it is updated in place).
+const bankPageKeys = []; let bankPage = null;
+views.push({ page: '*', update() { if (bankPage !== page) { bankPage = page; bankPageKeys.length = 0; pageKeysList(page).forEach(k => bankPageKeys.push(k)); } } });
+// ADR-341 r6, r7 and ADR-340 r11: Tone, Space, Time, Motion, slots 5 to 8, the bend and the mod wheel, in the ruled order. Slots 5 to 8
+// are named by number, not invented (ADR-192 leaves their phrase list open). No engine side exists (port-tab `macros`, spec-table).
+const MACROS = ['Tone', 'Space', 'Time', 'Motion', 'Macro 5', 'Macro 6', 'Macro 7', 'Macro 8'].map((name, i) => ({ id: 'macro' + (i + 1), name, touches: 0 }))
+  .concat([{ id: 'bend', name: 'Pitch bend', wheel: 'bend', touches: 0 }, { id: 'modwheel', name: 'Mod wheel', wheel: 'mod', touches: 0 }]);
+const MACRO_SAYS = 'Macros and the wheels are not in the engine yet (the intent bus is the device’s, RC-4 deferred): a row moves its own value and sends nothing';
+function macroNote() { if (S.message !== MACRO_SAYS) S.say(MACRO_SAYS); }
+// M-R2 (ADR-338 r9): × removes the modulator and every route it drives as ONE undo step through the adapter; the line names them and
+// offers Undo, the inverse of that one step, so it goes the moment the history moves on (any other step, or the Undo itself).
+const undoLine = H.UndoLine($('undoLine'), { keys: () => S.keys });
+let undoMark = null;
+views.push({ page: '*', update() { if (undoMark !== null && dev.history().past.length !== undoMark) { undoLine.hide(); undoMark = null; } } });
+function removeMod(m, routes) {
+  const gone = routes.slice(), res = dev.removeModulator(m.id);
+  if (!res.ok) { S.say('Not removed: ' + res.why); return; }
+  if (!res.step) {           // pending: outside the patch and the history, so there is nothing to undo
+    const t = 'Removed ' + m.name + ': it was pending and never mapped, so it is simply dropped (no undo step). + brings it back.';
+    undoMark = null; undoLine.show(t); S.say(t); return;
+  }
+  const t = H.ModRemoval.describe(S, m, gone);
+  undoMark = dev.history().past.length;
+  undoLine.show(t, () => { if (dev.undo()) S.say('Undone: ' + m.name + ' and its routes are back'); });
+  S.say(t);
 }
-views.push({ page: '*', update: paintBank });
-function setBankMode(m) { bankMode = m; $('bankModes').querySelectorAll('button').forEach(b => b.setAttribute('aria-checked', String(b.dataset.m === m))); bankSig = ''; S.say(m === 'mods' ? 'The bank shows the modulators on this page' : 'The bank shows the macros'); }
+// The map handle (ADR-322 r3, ADR-323 r3): press it, then click a control (MD1 maps); or drag it onto a control, which goes through
+// the adapter's addRoute and so refuses what RC-4 refuses (a stepped or reserved row, a source the engine does not publish). A
+// macro is not a session source (no intent bus), so its handle says so.
+const bank = H.ModBank($('bankHost'), S, { mods: bankMods, macros: MACROS, pageKeys: bankPageKeys, keys: () => S.keys,
+  onMap: m => { if (!S.src(m.id)) { macroNote(); return; } const on = S.map.on && S.map.src === m.id; S.setSrc(m.id); S.setMap(!on); },
+  onDrop: (m, key) => { if (S.src(m.id)) dropMap(m, key); else macroNote(); },
+  onAdd: () => openAddMenu(), onRemove: removeMod,
+  onSet: set => S.say(set === 'mods' ? 'The bank shows the modulators on this page' : 'The bank shows the macros, the pitch bend and the mod wheel'),
+  onMacro: (id, v, by) => { if (by === 'mouse') macroNote(); } });
+// MS4 (ADR-340 r8, H.SourceRows' rule): with MAP on, a click on a row's body (anywhere but a button) makes it the source of the next
+// mapping. The name and the Map handle are buttons, so a click on them keeps its own meaning; with MAP off a click does nothing.
+$('bankHost').addEventListener('click', e => {
+  const row = S.map.on && !e.target.closest('button') ? e.target.closest('.hd-trow') : null, s = row && S.src(row.dataset.mod);
+  if (s) { S.setSrc(s.id); S.say('Source: ' + s.name + ' (the bank row)'); }
+});
 function setBankShown(on) { bankShown = on; $('bank').hidden = !on; $('pagecol').classList.toggle('bank-off', !on); $('bankOn').setAttribute('aria-checked', String(on)); }
-$('bankModes').querySelectorAll('button').forEach(b => b.addEventListener('click', () => setBankMode(b.dataset.m)));
 $('bankOn').addEventListener('click', () => { setBankShown(!bankShown); S.say(bankShown ? 'Bank shown' : 'Bank hidden'); });
-// + : activate a modulator that is neither routed nor pending. It shows in the bank as PENDING until it is mapped.
-$('bankAdd').addEventListener('click', e => {
+// + : activate a modulator that is neither routed nor pending. It shows in the bank as pending until it is mapped.
+function openAddMenu() {
   closeMenu();
   const routed = new Set(dev.routes().map(r => r.src)), pend = new Set(dev.pending());
   const free = dev.sources().filter(s => !routed.has(s.id) && !pend.has(s.id));
-  const b = $('bankAdd').getBoundingClientRect();
+  const b = $('bankHost').querySelector('.bk-side .hd-btn').getBoundingClientRect();
   menu = h('div', { class: 'hd-card menu', role: 'menu', 'aria-label': 'Activate a modulator' },
     h('div', { class: 'head' }, h('span', { class: 'hd-cluster', text: 'Activate' }), h('span', { class: 'hd-hint', text: 'pending until mapped' })),
-    h('div', { class: 'face' }, free.length ? free.map(s => { const it = h('button', { class: 'hd-btn hd-focus', type: 'button', role: 'menuitem', text: s.name }); it.addEventListener('click', () => { closeMenu(); const r = dev.activate(s.id); S.say(r.ok ? s.name + ' is active and pending: drag its Map handle onto a control' : r.why); }); return it; })
+    h('div', { class: 'face' }, free.length ? free.map(s => { const it = h('button', { class: 'hd-btn hd-focus', type: 'button', role: 'menuitem', text: s.name }); it.addEventListener('click', () => { closeMenu(); const r = dev.activate(s.id); S.say(r.ok ? s.name + ' is active and pending: press its Map, then click a control (or drag Map onto one)' : r.why); }); return it; })
       : h('span', { class: 'hd-hint', text: 'Every modulator is active already.' })));
   document.body.append(menu);
   const mb = menu.getBoundingClientRect();
   menu.style.left = Math.max(8, Math.min(b.left, innerWidth - mb.width - 8)) + 'px'; menu.style.top = Math.max(8, b.top - mb.height - 4) + 'px';
-});
+}
+// The shell's own Escape layer goes in front of everything the session and the bank hold (ADR-338 r11); it is added last so it is first.
+S.escapeLayers.unshift({ name: 'menu', active: () => !!menu, cancel: closeMenu });
 // Closing the interface (or ending the session) drops what was activated and never mapped (ADR-322 item 3).
 addEventListener('pagehide', () => { dev.close(); });
 
@@ -1065,7 +1304,12 @@ $('closeBtn').addEventListener('click', () => {
   S.say(gone.length ? 'Closed and reopened: dropped ' + gone.join(', ') + ' (activated with +, never mapped)' : 'Closed and reopened: nothing was pending, so nothing was dropped');
 });
 $('initBtn').addEventListener('click', () => { dev.reset(); S.say('Init patch: every corner at the spec’s defaults, no routes'); });
-function setKeys(on) { S.keys = on; $('kbd').setAttribute('aria-pressed', String(on)); $('kbdTxt').textContent = on ? 'KEYS ON' : 'KEYS OFF'; $('win').classList.toggle('kbd-on', on); sweepTabs(); }
+// The lamp follows S.keys, whoever changes it: the button, or the session's own Escape layer (which cancels keyboard mode
+// and says so), so the lamp is repainted from the session's emit and never only from our setter.
+let keysLamp = null;
+function paintKeys() { const on = S.keys; keysLamp = on; $('kbd').setAttribute('aria-pressed', String(on)); $('kbdTxt').textContent = on ? 'KEYS ON' : 'KEYS OFF'; $('win').classList.toggle('kbd-on', on); sweepTabs(); }
+function setKeys(on) { S.keys = on; paintKeys(); }
+S.on(() => { if (keysLamp !== S.keys) paintKeys(); });
 $('kbd').addEventListener('click', () => setKeys(!S.keys));
 // ADR-338 ruling 12: Fixed or Scale (75 to 200 %, or Fit to the browser's viewport). No reflow: the composition is the same at every size.
 const SCALES = [.75, .9, 1, 1.25, 1.5, 1.75, 2];
@@ -1106,19 +1350,28 @@ views.push({ page: '*', update() {
   $('histTxt').textContent = 'History (the shell’s, RC-11): ' + (hs.past.length ? hs.past.slice(-6).join(' · ') : 'empty') + (hs.future.length ? ' · redo ' + hs.future.length : '');
 } });
 
+// The session's listeners (the map keys and the layered Escape, ADR-338 r11) exist once it is started, and the self-checks below press
+// those keys for real, so it starts here; its frames cannot run before this synchronous script ends.
+S.start();
+
 // ===== BLOCK H: self-checks. Each has a must-fail control, so a check that never ran cannot pass for one that held =====
 (function checks() {
   const box = $('checks'), line = (ok, t) => box.append(h('p', { class: ok ? 'hd-hint' : 'hd-note bad', text: (ok ? 'OK · ' : 'FAILED · ') + t }));
-  // 1. What is mounted is what was generated, page by page; the comparison sees a single missing key (control).
+  // 1. What is mounted is what was generated, page by page; the comparison sees a single missing key (control). The table (half B's PV1)
+  // is a second view of the same keys, so its rows are not mounts: the grid's are counted.
   // A dense section puts its header's power and mode controls first and groups the rest, so this compares each page's keys
   // as a multiset (every generated control mounted once, nothing else).
   const same = (a, b) => a.length === b.length && [...a].sort().every((k, i) => k === [...b].sort()[i]);
   let allSame = true, n = 0;
-  DATA.pages.forEach(pg => { const want = pg.groups.flatMap(g => g.controls.map(c => c.key)), got = [...pageEls[pg.id].querySelectorAll('[data-key]')].map(e => e.dataset.key); n += got.length; if (!same(want, got)) allSame = false; });
+  // The Mod page (ADR-338 r8) builds each modulator's controls once and the page's pane swaps the selected detail in, so the hosts it
+  // holds count as the page's mounted controls while a detail is not showing (heldHosts). A grid page's table (.hd-pt) is a second
+  // view of the same keys, so its rows are not mounts: the grid's are counted. Every other page is read from the document.
+  DATA.pages.forEach(pg => { const have = new Set([...pageEls[pg.id].querySelectorAll('[data-key]')].filter(e => !e.closest('.hd-pt'))); if (pg.id === 'mod') heldHosts.forEach(x => have.add(x));
+    const want = pg.groups.flatMap(g => g.controls.map(c => c.key)), got = [...have].map(e => e.dataset.key); n += got.length; if (!same(want, got)) allSame = false; });
   const sub = DATA.pages.find(p => p.id === 'sub'), subWant = sub.groups.flatMap(g => g.controls.map(c => c.key));
   line(allSame && !same(subWant.slice(1), subWant), 'Mounted = generated: ' + n + ' controls on ' + DATA.pages.length + ' pages, each page\u2019s keys exactly; a list one key short reads as different (control).');
   // 2. No control lacks a parameter, and every host parameter is on a page.
-  const mounted = new Set([...document.querySelectorAll('#pages [data-key]')].map(e => e.dataset.key));
+  const mounted = new Set([...document.querySelectorAll('#pages [data-key]'), ...heldHosts].map(e => e.dataset.key));
   const bankKeys = [...document.querySelectorAll('#bank [data-key]')].map(e => e.dataset.key);
   const orphans = [...mounted, ...bankKeys].filter(k => !ROW[k] || ROW[k].reserved), unreached = DATA.params.filter(r => !r.reserved && !mounted.has(r.key));
   line(!orphans.length && !unreached.length && ROW['x'] === undefined, 'No control without a parameter (' + orphans.length + '), no host parameter without a control (' + unreached.length + ' of ' + DATA.counts.host + '); an unknown key is not a row (control).');
@@ -1131,7 +1384,7 @@ views.push({ page: '*', update() {
   line(wrote && before !== .123 && engine.getParam(kc.key) === before, 'The wire: ' + r.label + '’s knob props wrote 0.123 into the engine (' + ENG.display(r, .123) + ') as one step, and undo restored ' + ENG.display(r, before) + '; the value differed before (control).');
   // 3b. A real click on a Sub pill writes through writeStep: the engine hears the option, one step, undone exactly.
   const pc = sub.groups.flatMap(g => g.controls).find(c => c.widget === 'pills' && ROW[c.key].n >= 3), pr = ROW[pc.key];
-  const pb = [...document.querySelectorAll('#page-sub [data-key="' + CSS.escape(pc.key) + '"] .hd-pill')], i0 = idxOf(pr, engine.getParam(pc.key)), i1 = (i0 + 1) % pr.n;
+  const pb = [...document.querySelectorAll('#page-sub [data-key="' + CSS.escape(pc.key) + '"] [role=radio]')], i0 = idxOf(pr, engine.getParam(pc.key)), i1 = (i0 + 1) % pr.n;
   const hp = dev.history().past.length; pb[i1].click();
   const clicked = engine.getParam(pc.key) === vOf(pr, i1) && dev.history().past.length === hp + 1;
   dev.undo();
@@ -1170,15 +1423,15 @@ views.push({ page: '*', update() {
   // 9. The bank (ADR-322 item 3): listed from the routes, + makes a pending modulator, a drop on a stepped control is
   // refused and leaves it pending, a drop on a continuous one maps it and lists it on that page only, and closing the
   // interface drops what was never mapped. Control: before any of it ENV 3 is not listed.
-  const listed = () => [...document.querySelectorAll('#bankStrip > .hd-card:not([hidden])')].map(e => e.dataset.src);
+  const listed = () => [...document.querySelectorAll('#bank .bk-lanes .hd-trow')].map(e => e.dataset.mod);
   const srcOf = id => dev.sources().find(x => x.id === id), pg0 = page;
-  page = 'sub'; paintBank(); const before3 = listed().includes('env3');
-  dev.activate('env3'); paintBank(); const pendShown = listed().includes('env3');
+  page = 'sub'; bank.refresh(); const before3 = listed().includes('env3');
+  dev.activate('env3'); bank.refresh(); const pendShown = listed().includes('env3');
   const refusedStep = !dropMap(srcOf('env3'), pc.key).ok && dev.pending().includes('env3');
-  const mapped = dropMap(srcOf('env3'), kc.key).ok && !dev.pending().includes('env3'); paintBank(); const onSub = listed().includes('env3');
-  page = 'noise'; paintBank(); const offNoise = !listed().includes('env3');
+  const mapped = dropMap(srcOf('env3'), kc.key).ok && !dev.pending().includes('env3'); bank.refresh(); const onSub = listed().includes('env3');
+  page = 'noise'; bank.refresh(); const offNoise = !listed().includes('env3');
   dev.undo(); dev.activate('env4'); const dropped = dev.close();
-  page = pg0; paintBank();
+  page = pg0; bank.refresh();
   line(!before3 && pendShown && refusedStep && mapped && onSub && offNoise && dropped.join() === 'env4' && !dev.pending().length,
     'Bank: + made ENV 3 pending and listed; dropping it on ' + pr.label + ' (stepped) was refused and it stayed pending; on ' + ROW[kc.key].label + ' it mapped and listed on Sub, not on Noise; closing the interface dropped the unmapped ENV 4 (control: ENV 3 was not listed before).');
   // 10. The new sources (ADR-330) go to their own side and work with the chrome: a module knob's write reaches the rack
@@ -1192,7 +1445,7 @@ views.push({ page: '*', update() {
   dev.begin('self-check'); PROPS[fxc.key + '@fx'].vals[0] = .61; dev.set(msc.key, .4); dev.end();
   const toRack = deviceSide.get(fxc.key) === .61 && Math.abs(resolver.get(msc.key) - dev.heard(msc.key)) < 1e-12 && dev.heard(msc.key) !== msr.default_v;
   const noEngine = engine.observe().refused === ref0 && engine.getParam(fxc.key) === null;
-  page = 'fx'; const fxMapped = dropMap(srcOf('env2'), fxc.key).ok; paintBank(); const fxListed = listed().includes('env2');
+  page = 'fx'; const fxMapped = dropMap(srcOf('env2'), fxc.key).ok; bank.refresh(); const fxListed = listed().includes('env2');
   const fxHost = document.querySelector('#page-fx [data-key="' + CSS.escape(fxc.key) + '"]');
   fxHost.dispatchEvent(new MouseEvent('pointerover', { bubbles: true })); const noDesc = /^No description in the module/.test($('infoText').textContent);
   fxHost.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 40 }));
@@ -1201,7 +1454,7 @@ views.push({ page: '*', update() {
   document.querySelector('#page-arp [data-key="' + CSS.escape(arpc.key) + '"]').dispatchEvent(new MouseEvent('pointerover', { bubbles: true }));
   const arpNote = $('infoText').textContent === arpr.spec;
   dev.undo(); dev.undo(); engine.setParam(fxc.key, .5); const ctl = engine.observe().refused === ref0 + 1;
-  page = pg0; paintBank();
+  page = pg0; bank.refresh();
   line(toRack && noEngine && fxMapped && fxListed && noDesc && fxMenu.includes('Open in manual') && arpNote && ctl,
     'New sources: ' + fxr.source + ' · ' + fxr.label + ' reached the rack and ' + msr.label + ' the morph resolver, not the engine; ENV 2 mapped onto ' + fxr.label + ' and listed on FX; the info box says ' + fxr.source + ' gives no description and shows Arp’s own note for ' + arpr.label + '; right-click offers the manual (control: the engine refuses the module’s key sent to it directly).');
   // 11. One model, two views (B589's dashboard): a write through the dashboard's control reaches the same key the full
@@ -1285,27 +1538,25 @@ views.push({ page: '*', update() {
     dev.undo(); dev.undo(); dev.undo(); tick();
     line(s1.startsWith('ENV 3') && s1.includes(ENG.display(ROW[fg.follow.options['ENV 3'].viz.a], .3)) && same && moved, 'Envelope summary: Osc 1 on ENV 3 reads “' + s1 + '”, ENV 3’s attack; ENV 1’s attack moving left it as it was, ENV 3’s moved it (control: the first block’s attack differs).'); }
   // 20. A bank card draws every control it names: a label with no dial is a control squeezed to nothing (slice 6 found four
-  // utility knobs in one nowrap row of a 220 px card, each dial shrunk to 0 wide). Measured on the real layout. Control: the
-  // same card squeezed to 40 px with nowrap reads as not drawn.
+  // utility knobs in one nowrap row of a 220 px card, each dial shrunk to 0 wide). Now the bundle's compact card, opened by a click
+  // on its row's name (ADR-338 r7); measured on the real layout. Control: the same card squeezed to 40 px with nowrap reads as not drawn.
   { const pg0 = page, drawn = c => { const cs = [...c.querySelectorAll('.ctl')]; return cs.length > 0 && cs.every(x => { const f = x.querySelector('.mk-face, select, .hd-stepper, button') || x, b = f.getBoundingClientRect(); return b.width > 4 && b.height > 4; }); };
-    page = 'sub'; dev.activate('env2'); paintBank();
-    const card = document.querySelector('#bankStrip > .hd-card[data-src="env2"]'), whole = !card.hidden && drawn(card);
-    const w0 = card.style.width, fl = card.querySelector('.face'); card.style.width = '40px'; fl.style.flexWrap = 'nowrap'; const squeezed = !drawn(card);
-    card.style.width = w0; fl.style.flexWrap = ''; dev.close(); page = pg0; paintBank();
-    line(whole && squeezed, 'Bank card: ENV 2’s card draws its ' + card.querySelectorAll('.ctl').length + ' controls with a dial each, not a label alone (control: squeezed to 40 px with nowrap it does not).'); }
+    page = 'sub'; dev.activate('env2'); bank.refresh();
+    $('bankHost').querySelector('.hd-trow[data-mod="env2"] .tnm').click();
+    const card = $('bankHost').querySelector('.bk-pop .hd-mcard'), whole = !!card && card.getClientRects().length > 0 && drawn(card);
+    const w0 = card.style.width, fl = card.querySelector('.mc-ctl'), f0 = fl.style.flexWrap; card.style.width = '40px'; fl.style.flexWrap = 'nowrap'; const squeezed = !drawn(card);
+    card.style.width = w0; fl.style.flexWrap = f0; bank.close(); dev.close(); page = pg0; bank.refresh();
+    line(whole && squeezed, 'Bank card: ENV 2’s compact card draws its ' + card.querySelectorAll('.ctl').length + ' controls with a dial each, not a label alone (control: squeezed to 40 px with nowrap it does not).'); }
   // 21. ADR-335 ruling 3: the MAP control is as wide as its parts. Slice 6 shipped it shrunk by the source strip beside it, the
-  // source drop-down cut to a sliver; measured here on the real layout: nothing of the control is clipped, the longest source
-  // name fits its drop-down, and the strip starts after it. Control: the same control held to 60 px reads as clipped.
-  { const host = $('mapHost'), sel = host.querySelector('select'), cx = document.createElement('canvas').getContext('2d');
-    const probe = () => {
-      const cs = getComputedStyle(sel); cx.font = cs.font;
-      const longest = dev.sources().map(x => ({ n: x.name, w: cx.measureText(x.name).width })).sort((a, b) => b.w - a.w)[0];
-      const room = sel.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);   // the drop-down's text area, its arrow included
-      return { clipped: host.scrollWidth > host.clientWidth + 1 || sel.getBoundingClientRect().right > host.getBoundingClientRect().right + 1, longest, room,
-        strip: $('srcStrip').getBoundingClientRect().left >= host.getBoundingClientRect().right - 1 };
-    };
+  // source drop-down cut to a sliver. With the source chip (MS3, ADR-340 r8) the part that could be buried is the chip's name: measured
+  // here on the real layout, nothing of the control is clipped, EVERY source's name fits the chip (its text is not cut), and the
+  // strip starts after the control. Control: the same control held to 60 px reads as clipped.
+  { const host = $('mapHost'), nm = host.querySelector('.sc-nm'), lab = host.querySelector('.sc-t'), was = S.map.src;
+    const probe = () => ({ clipped: host.scrollWidth > host.clientWidth + 1 || nm.getBoundingClientRect().right > host.getBoundingClientRect().right + 1,
+      strip: $('srcStrip').getBoundingClientRect().left >= host.getBoundingClientRect().right - 1 });
+    const cut = []; dev.sources().forEach(x => { S.setSrc(x.id); if (lab.scrollWidth > lab.clientWidth + 1 || nm.scrollWidth > nm.clientWidth + 1) cut.push(x.name); }); S.setSrc(was);
     const whole = probe(); host.style.maxWidth = '60px'; const squeezed = probe().clipped; host.style.maxWidth = '';
-    line(!whole.clipped && whole.longest.w <= whole.room && whole.strip && squeezed, 'MAP control: whole at ' + Math.round(host.getBoundingClientRect().width) + ' px, its longest source name (' + whole.longest.n + ', ' + Math.round(whole.longest.w) + ' px) fits the drop-down’s ' + Math.round(whole.room) + ' px text area, the strip starts after it (control: held to 60 px it is clipped).'); }
+    line(!whole.clipped && !cut.length && whole.strip && squeezed, 'MAP control: whole at ' + Math.round(host.getBoundingClientRect().width) + ' px with the source chip, all ' + dev.sources().length + ' source names fit it' + (cut.length ? ' (CUT: ' + cut.join(', ') + ')' : '') + ', the strip starts after it (control: held to 60 px it is clipped).'); }
   // 22. ADR-335 ruling 4 (B582): the info box is one size in one place. Hovering a parameter with the longest text and then a
   // section with the longest description, on every page, moves and resizes nothing (the page area, the bank, the box and the foot
   // row are measured), the box is the same on every page, and its text scrolls inside it. Control: with its size made to follow
@@ -1359,20 +1610,21 @@ views.push({ page: '*', update() {
     S.setMap(false); key('keydown', 'Digit4'); const free = S.map.src === dev.sources()[2].id && S.pinned === null;
     S.keys = was[0]; S.setSrc(was[2]); S.setMap(was[1]);
     line(latched && src3 && fieldNone && offAgain && esc && free, 'Map keys: with keyboard mode off, M latched MAP, 3 chose the third source, M turned it off, Esc turned it off; the same keys in the source drop-down did nothing, and a digit with MAP off was left alone (control).'); }
-  // 25. ADR-338 ruling 11: Escape cancels one layer per press, innermost first: the open menu, then MAP, then keyboard mode; with
-  // nothing open it cancels nothing (and is never panic). Real key events at the window. Control: the first press with the
-  // menu open leaves MAP on, so a handler that cancelled everything at once would fail here.
-  { const was = [S.keys, S.map.on, S.pinned], esc = () => document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }));
+  // 25. ADR-338 ruling 11: Escape cancels one layer per press, innermost first, through the SESSION's layered Escape (S.escape(), the
+  // shell's menu in front): the open menu, then MAP, then keyboard mode (the session's own layer; the lamp follows S.keys); with nothing
+  // open it cancels nothing (and is never panic). Real key events at the window. A press that cancelled something is default-prevented.
+  // Control: the first press with the menu open leaves MAP on, so a handler that cancelled everything at once would fail here.
+  { const was = [S.keys, S.map.on, S.pinned], esc = () => { const e = new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }); document.body.dispatchEvent(e); return e.defaultPrevented; };
     const kh2 = document.querySelector('#page-' + page + ' [data-key]') || document.querySelector('#pages [data-key]');
     S.setPin(null); setKeys(true); S.setMap(true);
     kh2.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 40 }));
     const opened = !!menu;
-    esc(); const l1 = escLayers.last(), m1 = !menu && S.map.on && S.keys;
-    esc(); const l2 = escLayers.last(), m2 = !S.map.on && S.keys;
-    esc(); const l3 = escLayers.last(), m3 = !S.keys && $('kbdTxt').textContent === 'KEYS OFF';
-    esc(); const l4 = escLayers.last();
+    const p1 = esc(), m1 = !menu && S.map.on && S.keys;
+    const p2 = esc(), m2 = !S.map.on && S.keys;
+    const p3 = esc(), m3 = !S.keys && $('kbdTxt').textContent === 'KEYS OFF';
+    const p4 = esc();
     setKeys(was[0]); S.setMap(was[1]); S.setPin(was[2]);
-    line(opened && m1 && m2 && m3 && [l1, l2, l3, l4].join() === 'menu,map,keys,', 'Escape: one layer a press: the menu closed (MAP stayed on), then MAP turned off, then keyboard mode (the lamp reads KEYS OFF); a fourth press cancelled nothing (' + [l1, l2, l3, l4 || 'none'].join(' → ') + '; control: MAP survived the first press).'); }
+    line(opened && m1 && m2 && m3 && p1 && p2 && p3 && !p4, 'Escape: one layer a press, through the session: the menu closed (MAP stayed on), then MAP turned off, then keyboard mode (the lamp reads KEYS OFF); a fourth press cancelled nothing and was left alone (control: MAP survived the first press).'); }
   // 26. ADR-156 / ADR-333: the ring is the oscillator's direct control. A press-drag-release on Osc 1's ring writes Detune and
   // Coupling as ONE undo step, and the knobs read it back (one model); a shift-drag moves Cross-mod and holds Detune; undo walks
   // both back. Real pointer events on the bundle's RingXY (its capture stubbed). Control: the values differed before the drag.
@@ -1392,7 +1644,7 @@ views.push({ page: '*', update() {
     line(one && landed && shifted && back && Math.abs(v0[0] - .6) > .02, 'Ring: a drag on Osc 1’s ring landed Detune ' + x1.toFixed(2) + ' and Coupling ' + y1.toFixed(2) + ' as one undo step and the Detune knob reads it; a shift-drag moved Cross-mod and held Detune; undo restored all three (control: Detune differed before).'); }
   // 27. ADR-266: the Mod page's grid and route list read the DEVICE's routes. A route added through the device shows as a grid
   // column with a filled cell and as a route row; removing it takes both away. Control: before the route the column is absent.
-  { const pg0 = page; selectPage('mod');
+  { const pg0 = page; selectPage('mod'); modPageCtl.mode('routes'); modRoutes.pick(0);   // the Mod page's Routes view (ADR-338 r8), the grid
     const tick = () => { for (const v of views) if (v.page === 'mod' || v.page === '*') v.update(); for (const v of S.views) v.render(); };
     const k = pageKeysList('osc1').find(x => ROW[x].law !== 'step' && (ROW[x].pv || ROW[x].target !== 'engine') && !dev.routes().some(r => r.param === x)), sel0 = S.selected;
     S.selected = null; tick();
@@ -1401,11 +1653,192 @@ views.push({ page: '*', update() {
     const col1 = [...pageEls.mod.querySelectorAll('.mx-gh')].some(b => b.title === S.params[k].path), rows1 = pageEls.mod.querySelectorAll('.mx-routes .mx-row').length;
     dev.undo(); mapBridge.pull(); tick();
     const col2 = [...pageEls.mod.querySelectorAll('.mx-gh')].some(b => b.title === S.params[k].path);
-    S.selected = sel0; selectPage(pg0);
+    S.selected = sel0; modPageCtl.mode('detail'); selectPage(pg0);
     line(ok && !col0 && col1 && rows1 >= 1 && !col2, 'Mod matrix: ENV 2 → ' + S.params[k].path + ' added through the device appeared as a grid column and a route row (' + rows1 + '); undo removed the column (control: absent before).'); }
   // 13. The page bar (B589): an old link's page id opens its page under its group, and the group remembers it.
   selectPage('noise'); const nv = nav.get(); selectPage('main'); const nm2 = nav.get();
   line(nv.group === 'osc' && nv.page === 'noise' && nm2.group === 'main', 'Page nav: #noise opens Noise under Osc (' + nv.group + ' / ' + nv.page + '); Main is its own group (control: ' + nm2.group + ').');
+  // 28. M-R2 (ADR-338 r9): the × on a bank row removes the modulator and every route it drives as ONE undo step through the adapter, the
+  // line names what went and offers Undo, and that Undo puts back the modulator AND its routes; another modulator's routes stay. A
+  // pending modulator is simply dropped (no step, no Undo). Control: before the × both of ENV 3's routes and ENV 4's one exist and
+  // the line is silent, and a modulator with no routes that is not pending is refused.
+  { const pg0 = page; selectPage('osc1');
+    const ks = pageKeysList('osc1').filter(k => ROW[k].law !== 'step' && (ROW[k].pv || ROW[k].target !== 'engine') && !dev.routes().some(r => r.param === k)).slice(0, 3);
+    dev.begin('self-check'); dev.addRoute({ src: 'env3', param: ks[0] }); dev.addRoute({ src: 'env3', param: ks[1] }); dev.addRoute({ src: 'env4', param: ks[2] }); dev.end();
+    mapBridge.pull(); bank.refresh();
+    const mine = id => dev.routes().filter(r => r.src === id).length, undoBtn = () => [...$('undoLine').querySelectorAll('button')].find(b => b.textContent === 'Undo' && !b.hidden);
+    const before = mine('env3') === 2 && mine('env4') === 1 && !undoBtn(), hs = dev.history().past.length;
+    $('bankHost').querySelector('.hd-trow[data-mod="env3"] .hd-xb').click();
+    const oneStep = dev.history().past.length === hs + 1 && mine('env3') === 0 && mine('env4') === 1, says = $('undoLine').textContent;
+    const named = /ENV 3/.test(says) && /2 routes/.test(says) && !!undoBtn();
+    undoBtn().click(); mapBridge.pull();
+    const back = mine('env3') === 2 && mine('env4') === 1 && !undoBtn() && dev.history().past.length === hs;
+    dev.undo(); dev.clearRedo(); mapBridge.pull();
+    dev.activate('env2'); bank.refresh(); const hp = dev.history().past.length;
+    $('bankHost').querySelector('.hd-trow[data-mod="env2"] .hd-xb').click();
+    const dropped = !dev.pending().includes('env2') && dev.history().past.length === hp && !undoBtn() && /pending/.test($('undoLine').textContent);
+    const refused = !dev.removeModulator('env1').ok;
+    undoLine.hide(); bank.refresh(); selectPage(pg0);
+    line(before && oneStep && named && back && dropped && refused && mine('env3') === 0, 'Removal (M-R2): the × on ENV 3’s bank row removed it and its 2 routes as one undo step (ENV 4’s route stayed), the line named them and offered Undo, and Undo put both routes back; a pending ENV 2 was dropped with no step and no Undo; a source with nothing to remove is refused (control: before the ×, ENV 3 had 2 routes, ENV 4 one, and the line was silent).'); }
+  // 29. Source switching (ADR-340 r8): MS4, with MAP on a click on a bank row's body makes it the source and a click on its name (a button)
+  // does not; with MAP off the same click does nothing; MS3, the chip on the MAP control steps the source (the wire to the session's own
+  // map source). Control: with MAP off the same click on the body left the source where it was.
+  { const was = [S.map.on, S.map.src, page]; selectPage('osc1'); dev.activate('env3'); dev.activate('env4'); bank.refresh();
+    const body = id => $('bankHost').querySelector('.hd-trow[data-mod="' + id + '"] .tpic'), nameOf = id => $('bankHost').querySelector('.hd-trow[data-mod="' + id + '"] .tnm');
+    const click = el => el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    S.setSrc('env2'); S.setMap(false); click(body('env3')); const offNone = S.map.src === 'env2';
+    S.setMap(true); click(body('env3')); const viaBody = S.map.src === 'env3';
+    click(nameOf('env4')); const nameKeeps = S.map.src === 'env3'; bank.close();
+    const next = $('mapHost').querySelector('.sc-b[aria-label="next source"]'); next.click(); const stepped = S.map.src === 'env4';
+    S.setMap(was[0]); S.setSrc(was[1]); dev.close(); bank.refresh(); selectPage(was[2]);
+    line(offNone && viaBody && nameKeeps && stepped, 'Source switching: with MAP on a click on ENV 3’s bank row made it the source (MS4), a click on its name did not (it opens the card), and the chip’s › stepped it on to ENV 4 (MS3); with MAP off the same click on the row did nothing (control).'); }
+  // 30. The MAC lane (ADR-340 r11, ADR-341 r6 and r7): ten rows in the ruled order, every macro unbound (the stub has no intent bus: its
+  // drag says so and sends nothing), the bend row springs back to the centre and the mod wheel row holds where it is left. The spring
+  // runs on the session's frame clock, stepped here one 100 ms frame at a time (no clock). Control: both sat at 0.9 before the frames.
+  { const tick = () => { for (const v of S.views) v.render(); };
+    $('bankHost').querySelector('.hd-bseg [data-set="macros"]').click(); tick();
+    const names = [...$('bankHost').querySelectorAll('.hd-macrow .tnm')].map(e => e.firstChild.textContent), foots = [...$('bankHost').querySelectorAll('.hd-macrow .tnm small')].map(e => e.textContent);
+    const ruled = names.join() === 'Tone,Space,Time,Motion,Macro 5,Macro 6,Macro 7,Macro 8,Pitch bend,Mod wheel' && foots.slice(0, 8).every(t => t === 'unbound') && foots[8] === 'springs' && foots[9] === 'holds';
+    const bend = bank.macro('bend'), wheel = bank.macro('modwheel'); bend.set(.9); wheel.set(.9);
+    const away = bend.get() === .9 && wheel.get() === .9, n0 = S.now; S.now = n0 || 0;
+    for (let i = 0; i < 8; i++) { S.now += 100; tick(); }
+    const sprang = Math.abs(bend.get() - .5) < 1e-3, held = wheel.get() === .9; S.now = n0;
+    S.message = ''; macroNote(); const says = /not in the engine yet/.test(S.message);
+    bend.set(.5); wheel.set(0); $('bankHost').querySelector('.hd-bseg [data-set="mods"]').click(); tick(); S.message = '';
+    line(ruled && away && sprang && held && says, 'MAC lane: ten rows in the ruled order, the eight macros unbound, the bend springing and the mod wheel holding; the bend at 0.9 sprang back to the centre in 8 frames and the mod wheel stayed at 0.9; a macro’s drag says it is not in the engine yet (control: both sat at 0.9 before the frames).'); }
+  // 31. The Mod page (ADR-338 r8, ADR-340 r10): list + detail, every source a row and the selected one's full tier beside it (ENV 3’s own
+  // rows are in it); the Routes view's three forms (grid, by source, wires) are views of the same device routes, a route made through
+  // the device shows in the by-source group, and the wires' depth-route drop is REFUSED (the engine has none, B70) and makes no
+  // route. Control: before the route there is no ENV 2 group.
+  { const pg0 = page; selectPage('mod'); const tick = () => { for (const v of views) if (v.page === 'mod' || v.page === '*') v.update(); for (const v of S.views) v.render(); };
+    tick(); const listN = pageEls.mod.querySelectorAll('.mp-list .hd-trow').length;
+    modPageCtl.select('env3'); tick(); const det = pageEls.mod.querySelector('.mp-pane .hd-mfull'), ownRows = det && det.querySelector('[data-key^="env3."]');
+    const detail = listN === dev.sources().length && !!det && det.dataset.mod === 'env3' && !!ownRows;
+    modPageCtl.mode('routes'); modRoutes.pick(1); tick();
+    const group = () => [...pageEls.mod.querySelectorAll('.mx-bysrc .mx-grp')].some(g => /^ENV 2/.test(g.getAttribute('aria-label')));
+    const g0 = group(); dev.begin('self-check'); dev.addRoute({ src: 'env2', param: pageKeysList('osc1').find(k => ROW[k].law !== 'step' && (ROW[k].pv || ROW[k].target !== 'engine') && !dev.routes().some(r => r.param === k)) }); dev.end(); mapBridge.pull(); tick();
+    const g1 = group(); const nr = dev.routes().length; modRoutes.pick(2); tick();
+    const wires = !!pageEls.mod.querySelector('.mx-wires canvas'); S.message = ''; depthRefused('env2', S.mappings[0]);
+    const refused = /^Refused/.test(S.message) && /B70/.test(S.message) && dev.routes().length === nr;
+    dev.undo(); dev.clearRedo(); mapBridge.pull(); modRoutes.pick(0); modPageCtl.mode('detail'); modPageCtl.select('env2'); tick(); S.message = ''; selectPage(pg0);
+    line(detail && !g0 && g1 && wires && refused, 'Mod page: ' + listN + ' sources as rows and ENV 3’s full tier in the detail with its own rows; in the Routes view a route made through the device appeared in the by-source list (ML3) and the wires (ML1) drew; a depth-route drop on a valve was refused and made no route, B70 (control: ENV 2 had no group before the route).'); }
+  // ---- half B self-checks ----
+  // The GUI 3 shell hop, half B (ADR-338, ADR-340, ADR-341): the tiny tier and its abbreviations, the companions, the clusters and the C2
+  // matrix, the page view with its table and find, the lens, one value in many faces, the page fitting its window, and the readout slot.
+  // Every page is read in its grid, and each page's view is put back as the user left it.
+  { const was = Object.fromEntries(Object.entries(PAGEVIEW).map(([id, x]) => [id, x.pv.view()])), pg0 = page;
+    const setViews = v => Object.values(PAGEVIEW).forEach(x => x.pv.view(v));
+    const tick = () => { for (const v of S.views) v.render(); for (const v of views) if (v.page === page || v.page === '*') v.update(); };
+    const gridPages = DATA.pages.filter(p => p.grid), ctlHost = (root, key) => [...root.querySelectorAll('[data-key="' + CSS.escape(key) + '"]')].find(e => !e.closest('.hd-pt'));
+    setViews('grid');
+    // 32. ADR-338 r1 and r10: a continuous control of a grid page is a tiny knob (T2d, 20 px in a 28 px cell) under an abbreviation of at
+    // most four characters that is unique in its section (a followed envelope's blocks each on their own). A cell whose label is the
+    // header's or the matrix's (a mode, a matrix cell) carries none. Control: the dashboard's knob is not tiny, and a doubled label is read as doubled.
+    { let n = 0; const bad = [], dup = ls => ls.length !== new Set(ls.map(l => l.toLowerCase())).size;
+      gridPages.forEach(pg => pg.groups.forEach(g => {
+        const sec = pageEls[pg.id].querySelector('[data-section="' + g.id + '"]'), shown = {};
+        g.controls.filter(c => ROW[c.key].law !== 'step').forEach(c => {
+          const host = ctlHost(sec, c.key), nm = host && host.querySelector('.mk-name');
+          if (!host || !host.classList.contains('sz-tiny')) { bad.push(c.key + ' is not tiny'); return; }
+          n++;
+          if (nm) { (shown[c.follow || ''] = shown[c.follow || ''] || []).push(nm.textContent); if (nm.textContent !== c.abbr || nm.textContent.length > 4) bad.push(c.key + ' shows ' + nm.textContent); }
+          else if (!host.closest('.cl-mx, .hd-sechead')) bad.push(c.key + ' has no label');
+        });
+        Object.values(shown).forEach(ls => { if (dup(ls)) bad.push(g.id + ' repeats a label'); });
+      }));
+      const dashKnob = pageEls.dashboard.querySelector('.hd-mk[data-key]');
+      const want = gridPages.reduce((t, pg) => t + pg.groups.reduce((u, g) => u + g.controls.filter(c => ROW[c.key].law !== 'step').length, 0), 0);
+      line(n === want && n > 300 && !bad.length && !dashKnob.classList.contains('sz-tiny') && dup(['DET', 'det']) && !dup(['DET', 'CPL']),
+        'Tiny tier: ' + n + ' continuous controls on ' + gridPages.length + ' pages are tiny knobs under a label of at most four characters, unique in their section' + (bad.length ? ' (FAILED: ' + bad.slice(0, 4).join('; ') + ')' : '') + ' (control: the dashboard’s knob is not tiny; a doubled label reads as doubled).'); }
+    // 33. ADR-338 r2, ADR-341 r3: a toggle, segments, select or stepper in a section is TC1's companion or the stepper at its 16 px face, never the
+    // classic face; a click on a stepper’s arrow writes through the device as one step and undo puts it back. Control: the dashboard's toggle is a classic face.
+    { let n = 0; const bad = [], faces = { toggle: '.hd-tc1-tog', pills: '.hd-tc1-seg', select: '.hd-tc1-sel', stepper: '.hd-stepper.hd-tc' };
+      gridPages.forEach(pg => pg.groups.forEach(g => {
+        const sec = pageEls[pg.id].querySelector('[data-section="' + g.id + '"]');
+        g.controls.filter(c => ROW[c.key].law === 'step').forEach(c => {
+          const host = [...sec.querySelectorAll('[data-key="' + CSS.escape(c.key) + '"]')].find(e => !e.matches('.hd-toggle'));
+          if (!host && c.role === 'power') return;                       // the header's own switch is the bundle's SectionHeader
+          if (!host || !host.querySelector(faces[c.widget])) bad.push(c.key); else n++;
+        });
+      }));
+      const sk = ctlHost(pageEls.osc1, PG.osc1.groups[0].controls.find(c => c.widget === 'stepper').key), sr = ROW[sk.dataset.key], sp = sk.querySelector('.hd-stepper'), i0 = idxOf(sr, dev.shown(sr.key)), h0 = dev.history().past.length;
+      sp.querySelector('.st-up').click();
+      const stepped = idxOf(sr, dev.shown(sr.key)) === i0 + 1 && dev.history().past.length === h0 + 1; dev.undo(); tick();
+      const classic = pageEls.dashboard.querySelector('.hd-toggle');
+      line(n > 150 && !bad.length && stepped && idxOf(sr, dev.shown(sr.key)) === i0 && !classic.closest('.hd-tc'),
+        'Companions: ' + n + ' toggles, segments, selects and steppers on grid pages are TC1 faces' + (bad.length ? ' (FAILED: ' + bad.slice(0, 4).join(', ') + ')' : '') + '; ' + sr.label + '’s stepper arrow wrote ' + ENG.display(sr, vOf(sr, i0 + 1)) + ' as one step and undo restored it (control: the dashboard’s toggle is a classic face).'); }
+    // 34. ADR-338 r4: C1 puts a section’s cells in groups under one shared label line with the readout slot in its header; C2 (Main’s ENV 1) is a matrix:
+    // stage rows and Time | Curve columns labelled once, a dot where no curve exists (hold, sustain), no control disabled in its place.
+    { const mx = pageEls.main.querySelector('[data-section="main/env-1"] .cl-mx'), empty = mx ? [...mx.querySelectorAll('.cl-empty')] : [];
+      const rowsL = mx ? [...mx.querySelectorAll('.cl-row')].map(e => e.textContent).join('') : '', colsL = mx ? [...mx.querySelectorAll('.cl-col')].map(e => e.textContent).join('/') : '';
+      const clu = pageEls.osc1.querySelector('[data-section="osc1/envelope"]');
+      const c1 = clu.classList.contains('hd-clu') && clu.querySelectorAll('.cl-grp').length > 0 && !!clu.querySelector('.hd-rslot') && !pageEls.osc1.querySelector('.hd-sgroups');
+      line(!!mx && rowsL === 'AHDSR' && colsL === 'Time/Curve' && empty.length === 2 && empty.every(e => !e.querySelector('[data-key]')) && mx.querySelectorAll('.mk-face').length === 8 && c1,
+        'Clusters: Main’s ENV 1 is a C2 matrix (rows ' + rowsL + ', columns ' + colsL + '; ' + empty.length + ' dots where no curve exists, 8 knob cells); Osc 1’s Envelope is a C1 cluster with its readout slot, and no page uses the old sub-group rows (control: a stage with no curve is a dot, not a control).'); }
+    // 35. ADR-340 r6, ADR-338 r5: each parameter page has a Grid | Table view, and a value is ONE in both: a drag on the table’s value cell moves the grid’s knob
+    // and the lens’s, and the device; undo restores all three. Real pointer events on the bundle’s TS2a cell. Control: the value differed before.
+    { selectPage('osc1'); const pv = PAGEVIEW.osc1.pv, k = PG.osc1.groups[0].controls.find(c => ROW[c.key].law !== 'step' && dev.shown(c.key) < .6).key, r = ROW[k];
+      pv.view('table'); const cell = pageEls.osc1.querySelector('.pt-row[data-key="' + CSS.escape(k) + '"] .hd-ts2'), v0 = dev.shown(k), h0 = dev.history().past.length;
+      cell.setPointerCapture = () => {}; cell.releasePointerCapture = () => {}; cell.hasPointerCapture = () => false;
+      const ptr = (t, x) => cell.dispatchEvent(new MouseEvent(t, { bubbles: true, button: 0, clientX: x, clientY: 5 }));
+      ptr('pointerdown', 100); ptr('pointermove', 119); ptr('pointerup', 119); tick();
+      const v1 = dev.shown(k), face = ctlHost(pageEls.osc1, k).querySelector('.mk-face'); pv.view('grid'); tick();
+      ctlHost(pageEls.osc1, k).dispatchEvent(new MouseEvent('pointerenter')); tick();
+      const lensV = pageEls.osc1.querySelector('.hd-lens .mk-v1');
+      const grid = Math.abs(+face.getAttribute('aria-valuenow') - v1) < 1e-3, lens = lensV && lensV.textContent === ENG.display(r, v1), moved = v1 > v0 + .1 && dev.history().past.length === h0 + 1;
+      dev.undo(); tick();
+      line(moved && grid && lens && dev.shown(k) === v0 && !!pageEls.osc1.querySelector('.hd-pv .pv-head .hd-pills'), 'One value, many faces: a drag on ' + r.label + '’s table cell moved it ' + ENG.display(r, v0) + ' → ' + ENG.display(r, v1) + ' as one step; the grid’s knob and the lens read it; undo restored all (control: the value differed before).'); }
+    // 36. ADR-340 r6: the find box dims what does not match in the grid (it never hides) and outlines the match, a table filters, and a page remembers its
+    // view and find text. Control: with no text nothing is dimmed, and a page with another id remembers nothing.
+    { selectPage('osc1'); const pv = PAGEVIEW.osc1.pv, grid = pageEls.osc1.querySelector('.pv-grid'), dim = () => grid.querySelectorAll('.pv-dim').length;
+      pv.find(''); const none = dim() === 0;
+      pv.find('coupling'); const hits = grid.querySelectorAll('.pv-hit').length, dimmed = dim() > 20 && hits >= 1 && !!ctlHost(grid, PG.osc1.viz.keys.coupling).classList.contains('pv-hit');
+      pv.view('table'); const rows = [...pageEls.osc1.querySelectorAll('.hd-pt .pt-row')], shown = rows.filter(e => !e.hidden).length; pv.view('grid');
+      const tmp = h('div'), again = H.PageView(tmp, S, { id: 'osc1', label: 'Osc 1', grid: h('div'), table: { groups: [] } }), other = H.PageView(h('div'), S, { id: 'no-such-page', label: 'x', grid: h('div'), table: { groups: [] } });
+      const remembered = again.find() === 'coupling' && other.find() === '';
+      pv.find(''); try { localStorage.removeItem('hd.pageview.no-such-page'); } catch (_) { /* no storage: the probe left nothing */ }
+      line(none && dimmed && shown >= 1 && shown < rows.length && remembered, 'Find: “coupling” dimmed ' + 'the rest of Osc 1’s grid (' + hits + (hits === 1 ? ' match' : ' matches') + ') and filtered its table to ' + shown + ' of ' + rows.length + ' rows; a second view of the page remembers the text, another page does not (control: no text dims nothing).'); }
+    // 37. ADR-338 r5: the lens shows the control under the pointer (the full knob, every corner, every mapping), and the last one clicked after the pointer
+    // leaves. Control: before any hover it shows the page’s fallback, not this control.
+    { selectPage('osc1'); const lensEl = pageEls.osc1.querySelector('.hd-lens'), who = () => lensEl.querySelector('.lz-name').textContent;
+      tick(); const before = who(), k = PG.osc1.groups[0].controls.find(c => ROW[c.key].law !== 'step' && ROW[c.key].label !== before).key, r = ROW[k];
+      ctlHost(pageEls.osc1, k).dispatchEvent(new MouseEvent('pointerenter')); tick(); const hot = who();
+      const corners = lensEl.querySelectorAll('.lz-corners .lz-ln').length;
+      ctlHost(pageEls.osc1, k).dispatchEvent(new MouseEvent('pointerleave')); tick();
+      line(hot === r.label && before !== r.label && corners === 4 && !!lensEl.querySelector('.mk-face'), 'Lens: hovering ' + r.label + ' put it in Osc 1’s lens (its full knob and four corner values); before the hover the lens showed ' + before + ' (control: not this control).'); }
+    // 38. ADR-338 r5, ADR-338 r7: the dense pages fit the RULED page area, the folds holding the rest. The ruled area is the 472 px the bank's 68 px row
+    // leaves (r7), but the foot row is 216 px because the fixed info box sits in it (ADR-335 r4), so the shell's real area is smaller and these
+    // pages scroll there: an open conflict between the two rulings, put to the human (B589). The line prints both numbers so it never reads as a
+    // fit in the real window. Each fold at +Adv must overflow Osc 1 (the control), so the fold is what holds it.
+    { const area = $('pages').clientHeight, limit = Math.max(area, 472), over = [], size = {};
+      const bodyH = pid => { selectPage(pid); const a = $('pages'), was2 = [a.style.overflow, a.style.flex, a.style.height]; a.style.overflow = 'visible'; a.style.flex = 'none'; a.style.height = 'auto';
+        const hgt = a.scrollHeight; [a.style.overflow, a.style.flex, a.style.height] = was2; return hgt; };
+      ['main', 'osc1', 'osc2', 'sub', 'noise'].forEach(id => { size[id] = bodyH(id); if (size[id] > limit) over.push(id + ' ' + size[id]); });
+      const folds = [...pageEls.osc1.querySelectorAll('.hd-fold')], tiers = folds.map(f => f.querySelector('.fd-head [role=radio][aria-checked=true]')), pillsOf = f => [...f.querySelectorAll('.fd-head [role=radio]')];
+      pillsOf(folds[0]).slice(-1)[0].click(); folds.slice(1).forEach(f => pillsOf(f).slice(-1)[0].click()); const opened = bodyH('osc1');
+      folds.forEach((f, i) => pillsOf(f).find(b => b.textContent === tiers[i].textContent).click()); selectPage('osc1');
+      line(!over.length && opened > limit && folds.length === 3, 'Fit: main ' + size.main + ', Osc 1 ' + size.osc1 + ', Osc 2 ' + size.osc2 + ', Sub ' + size.sub + ' and Noise ' + size.noise + ' px fit ' + limit + ' px' + (area < 472 ? ' (the RULED area, r7; the shell gives them ' + area + ' px, because the info box keeps the foot row at 216 px (ADR-335 r4), so they scroll ' + Math.max(0, ...Object.values(size).map(s => s - area)) + ' px at most: open, B589)' : '') + (over.length ? ' (OVER: ' + over.join(', ') + ')' : '') + '; Osc 1 with its three folds at +Adv is ' + opened + ' px, so the folds hold the rest (control).'); }
+    // 39. ADR-341 r2 (DR-c): the section header’s readout slot is two stacked lines in a fixed box and nothing here resizes it: hovering a tiny knob fills both
+    // lines (the editing corner’s own value, then “now”) and the box is the same size at rest and hot. Control: at rest it shows the summary and not the lines.
+    { selectPage('sub'); const sec = pageEls.sub.querySelector('[data-section="sub/colour"]'), slot = sec.querySelector('.hd-rslot'), box = () => { const b = slot.getBoundingClientRect(); return [Math.round(b.width), Math.round(b.height)].join('x'); };
+      const kk = PG.sub.groups.find(g => g.id === 'sub/colour').controls.find(c => ROW[c.key].law !== 'step'), rest = box(), l1 = () => getComputedStyle(slot.querySelector('.rs-l1')).display, atRest = !slot.classList.contains('live') && l1() === 'none';
+      ctlHost(sec, kk.key).dispatchEvent(new MouseEvent('pointerenter')); tick();
+      const hotBox = box(), lines = [...slot.querySelectorAll('.rs-l1, .rs-l2')].filter(e => getComputedStyle(e).display !== 'none').length, t1 = slot.querySelector('.rs-l1').textContent, t2 = slot.querySelector('.rs-l2').textContent;
+      ctlHost(sec, kk.key).dispatchEvent(new MouseEvent('pointerleave')); tick();
+      line(atRest && lines === 2 && rest === hotBox && rest === '250x26' && t1.includes(ROW[kk.key].label) && /^now /.test(t2) && !/rslot|rs-/.test(document.querySelector('style').textContent),
+        'Readout slot: Sub · Colour’s slot is ' + rest + ' px at rest and hot; hot it shows two lines (“' + t1.slice(0, 28) + '”, “' + t2.slice(0, 22) + '”) and the shell’s style sheet names neither the slot nor its parts (control: at rest the summary shows and neither line does).'); }
+    // 40. ADR-338 r5, the bundle’s ctlFace: the faces of one parameter (the grid’s, the table’s, the lens’s, the dashboard’s) leave the registry and the revert baseline
+    // alone. A new face of a registered parameter, built the way the shell builds one, keeps the registered props (the owner page’s) and the saved baseline while the live
+    // value has moved off it; a parameter nothing had registered is registered by its first face, which is why the shell registers every owner before any page is built.
+    { const c0 = PG.osc1.groups[0].controls.find(c => ROW[c.key].law !== 'step'), k = c0.key, reg0 = S.params[k], base0 = S.saved[k];
+      dev.begin('self-check'); dev.set(k, .77, { corner: 0 }); dev.end();
+      mountControl(c0, '*', 'probe', { tiny: true }); S.views.pop(); delete PROPS[k + '@*'];       // a face on a scratch page id; its view leaves with it
+      const kept = S.params[k] === reg0 && S.saved[k] === base0 && base0[0] !== .77; dev.undo();
+      const fresh = propsFor(ROW[k], c0, 'probe', 'tiny'), key0 = 'probe.unregistered'; fresh.key = key0;
+      H.ctlFace(S, fresh, {}, () => null); const first = S.params[key0] === fresh && !!S.saved[key0]; delete S.params[key0]; delete S.saved[key0];
+      line(kept && first && /^Osc 1 · Osc 1 · /.test(reg0.path), 'One parameter, many faces: a new face of ' + ROW[k].label + ' left its registered props (the owner page’s: “' + reg0.path + '”) and its revert baseline as they were with the live value moved off it (control: a parameter nothing had registered is registered by its first face).'); }
+    Object.entries(was).forEach(([id, v]) => PAGEVIEW[id].pv.view(v)); selectPage(pg0);
+  }
   showInfo(null); S.message = '';
   dev.clearHistory();   // the checks' own steps (the probes, the morph toggles) are not the user's history
 })();
@@ -1427,7 +1860,6 @@ views.push({ page: '*', update() {
   // `fit`: say whether the page fits the window's page area (B589's 980 x 720), and by how much it overflows
   if (flags.includes('fit')) { const a = $('pages'); S.message = 'fit: page ' + a.scrollHeight + ' px in an area of ' + a.clientHeight + ' px' + (a.scrollHeight > a.clientHeight ? ', overflows by ' + (a.scrollHeight - a.clientHeight) + ' px' : ', fits'); } }
 sweepTabs();
-S.start();
 })();
 </script>
 </body></html>
