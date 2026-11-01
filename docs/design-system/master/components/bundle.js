@@ -244,9 +244,11 @@
       } else st.start = p.locked ? p.g : p.vals[ai];
       /* MP3 (ADR-340 r9): an Option-drag on a UNI or INV mapping runs through zero and comes out the other polarity, stored as
          magnitude + polarity (ADR-266 r2: a depth is a magnitude), so the drag's signed value is -1..1. BI and CTL have no
-         sign to turn over, and a per-corner depth is edited one corner at a time, so those keep the 0..1 depth drag. */
+         sign to turn over, and a per-corner depth is edited one corner at a time, so those keep the 0..1 depth drag. Only a
+         mapping that existed before this drag turns over (the lab: "⌥drag a UNI mapping"): a NEW one dragged down stays at 0,
+         so a drag released at exactly 0 still makes no route (the Map Mode spec; gui3_seam_check's mapdrag). */
       var tg = st.target;
-      if (st.mode !== 'value' && tg && !tg.cd && (tg.pol === 'uni' || tg.pol === 'inv')) { st.signed = true; st.start = (tg.pol === 'inv' ? -1 : 1) * tg.depth; }
+      if (st.mode !== 'value' && !st.isNew && tg && !tg.cd && (tg.pol === 'uni' || tg.pol === 'inv')) { st.signed = true; st.start = (tg.pol === 'inv' ? -1 : 1) * tg.depth; }
       if (st.mode === 'value' && !S.ownWritable(p, ai)) st.mode = 'refused';
       else if (st.mode === 'alt' && st.target && st.target.cd && !S.writable(p, ai)) st.noDrag = true;   // a refused corner depth blocks the DRAG only: an Option-click must still move focus
       S.drag = st;
