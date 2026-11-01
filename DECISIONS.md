@@ -10614,3 +10614,17 @@ Round 2 drew 45 variants. The human answered by poll on 2026-10-30 and 2026-10-3
   - B70's depth routes in the engine's route table, so ML1's wire-to-midpoint gesture has an engine path;
   - the intent bus's macros in the stub, for BR1.
 - **FX device (ADR-254):** the same tier, gestures, hover, steppers, PV1, map gesture, polarity and route views apply on its pages. The bank toggle applies wherever it has a bank. How a hosted module's own screen shows them is still B591's question.
+
+## ADR-341 — RULED by the human: full-patch random leans toward simpler, drier patches, scaled by chaos across the whole patch; below a chaos threshold random never switches on a bypassed slot; the chaos hint to Sluice and Shriek's own randomizers is filed when tuning (B578, ADR-318, ADR-339; 2026-11-01)
+
+**Context.** The human, 2026-10-30 (B578's note): “since the FX modules can get pretty extreme, I think full-patch random on the FX routing should have a bias toward bypassing, drier mixes, and simpler FX patches. Maybe chaos could scale this. I could work it out with Sluice to add a chaos knob to the randomizer that prioritizes simpler chains or something, but that’s secondary.” The lead put three questions; the human answered them 2026-11-01: “a) whole patch, b) yes, c) file it when tuning”. ADR-318 already holds that chaos and amount set the next draw’s bounds only, never a running process.
+
+**Rulings (the human, 2026-11-01).**
+1. **Chaos scales the lean across the whole patch, not only the FX.** Full-patch random leans toward simpler results: on the FX side, bypassed slots, drier mixes and shorter chains. Low chaos leans hard toward the simple end and high chaos lets the draw range wide. The same chaos setting sets how far the rest of the patch’s draw may range, so the patch has one chaos and the FX lean is part of it, not a separate control.
+2. **Below a chaos threshold, random never switches on a bypassed slot.** A slot the patch has bypassed stays bypassed under random until chaos passes the threshold. Random may still bypass a slot that is on. The threshold’s value is set in the tuning session.
+3. **The chaos hint to a module that randomizes itself (Sluice, Shriek) is filed when tuning.** horde passing its chaos to the module’s own randomizer is a rack-contract row and a brief to each provider. Neither is drafted now; both are filed when the parallel randomizer-tuning session opens.
+
+**Still open, for the tuning session (not rulings):** the shape of the simplicity prior and its curve against chaos; the threshold’s value; which FX settings random never touches (latency and oversampling are fixed at activate, RS-7.1); output safety on extreme draws; how the lean combines with ADR-339’s Sluice and Shriek preset.
+
+**Consequences.** B578 carries the rulings. The tuning session is the lead’s to open with a brief when the hosted modules exist (rack stage S4). Ruling 1 is device and randomizer behaviour; the Randomize panel shows no new control for it. **FX device (ADR-254):** the same lean and the same bypass threshold apply to its slots, under its own chaos.
+
