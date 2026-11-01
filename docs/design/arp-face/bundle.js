@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1793517046-cbf4, 2026-11-01; do not edit, re-vendor */
+/* vendored from the horde Design System artifact, version 1793556326-fe52, 2026-11-01; do not edit, re-vendor */
 /* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"SteppedControl"},{"name":"Stepper"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"},{"name":"Companion"},{"name":"SourceChip"},{"name":"SourceRows"},{"name":"RoutesBySource"},{"name":"Cluster"},{"name":"Lens"},{"name":"Fold"},{"name":"PageView"},{"name":"ModTiers"},{"name":"MacroRow"},{"name":"ModBank"},{"name":"ModPage"},{"name":"UndoLine"}]} */
 /* horde house reference behaviours (vanilla JS, no React, no network).
    The morph knob and slider follow the human's HORDE Morph Knob Spec and HORDE Map Mode Spec
@@ -22,11 +22,12 @@
   /* pointer capture, guarded: a pointer the browser no longer tracks (a synthetic event, a pen lifted mid-press) throws
      NotFoundError, and an unguarded throw there cost the whole gesture */
   function capture(el, e) { try { el.setPointerCapture(e.pointerId); } catch (_) { /* keep the gesture */ } }
-  /* MP-c (ADR-341 r4): the polarity chord is Command+Option-click on macOS and Ctrl+Alt-click elsewhere. The other modifier
-     must NOT be down: on macOS Ctrl-click is the secondary click, and on Windows the Windows key is not a chord key.
-     Not verified in a host (Live, Bitwig): a host may keep the chord, and the chip and the menu stay the routes then. */
-  var MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '');
-  function chordHit(e) { return e.altKey && !e.shiftKey && (MAC ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey); }
+  /* MP-c (ADR-341 r4 as amended by A1): the polarity chord is Shift+Option-click (Shift+Alt on Windows), the same keys on
+     every keyboard. Command is not in it: Windows keyboards have no Command key, and Ctrl+Alt is AltGr on many European
+     layouts. Command and Ctrl must be up (macOS Ctrl-click is the secondary click). With movement the chord is a fine
+     Option-drag, as Shift is fine everywhere. Not verified in a host (Live, Bitwig), nor whether Windows' Shift+Alt
+     layout hotkey fires around the click; the chip and the menu stay the routes if either takes it. */
+  function chordHit(e) { return e.altKey && e.shiftKey && !e.metaKey && !e.ctrlKey; }
   function clamp(v, a, b) { a = a === undefined ? 0 : a; b = b === undefined ? 1 : b; return Math.min(b, Math.max(a, v)); }
   function v(name) { return 'var(--' + name + ')'; }
   function fillOf(i) { return v('c' + CORNERS[i].id); }

@@ -21,11 +21,12 @@
   /* pointer capture, guarded: a pointer the browser no longer tracks (a synthetic event, a pen lifted mid-press) throws
      NotFoundError, and an unguarded throw there cost the whole gesture */
   function capture(el, e) { try { el.setPointerCapture(e.pointerId); } catch (_) { /* keep the gesture */ } }
-  /* MP-c (ADR-341 r4): the polarity chord is Command+Option-click on macOS and Ctrl+Alt-click elsewhere. The other modifier
-     must NOT be down: on macOS Ctrl-click is the secondary click, and on Windows the Windows key is not a chord key.
-     Not verified in a host (Live, Bitwig): a host may keep the chord, and the chip and the menu stay the routes then. */
-  var MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '');
-  function chordHit(e) { return e.altKey && !e.shiftKey && (MAC ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey); }
+  /* MP-c (ADR-341 r4 as amended by A1): the polarity chord is Shift+Option-click (Shift+Alt on Windows), the same keys on
+     every keyboard. Command is not in it: Windows keyboards have no Command key, and Ctrl+Alt is AltGr on many European
+     layouts. Command and Ctrl must be up (macOS Ctrl-click is the secondary click). With movement the chord is a fine
+     Option-drag, as Shift is fine everywhere. Not verified in a host (Live, Bitwig), nor whether Windows' Shift+Alt
+     layout hotkey fires around the click; the chip and the menu stay the routes if either takes it. */
+  function chordHit(e) { return e.altKey && e.shiftKey && !e.metaKey && !e.ctrlKey; }
   function clamp(v, a, b) { a = a === undefined ? 0 : a; b = b === undefined ? 1 : b; return Math.min(b, Math.max(a, v)); }
   function v(name) { return 'var(--' + name + ')'; }
   function fillOf(i) { return v('c' + CORNERS[i].id); }
