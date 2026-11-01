@@ -2785,11 +2785,11 @@
    "master_version": "1793374583-b6a5",
    "bundle": "ModCardHeader",
    "via": null,
-   "shell": "docs/design/gui3.html: H.ModCardHeader(head, { kind: src.kind",
+   "shell": "docs/design/gui3.html: kindLabel: KIND_LABEL[src.kind]",
    "state": "in-shell",
    "superseded_by": null,
    "port_tab": "modulators",
-   "note": "Master README Colour (src-env, src-lfo, src-macro, src-engine); the shell's modulator bank cards take the kind swatch (H.ModCardHeader with kind). Only env and engine kinds exist in the shell (device.js SOURCES: no LFOs or macros yet)."
+   "note": "Master README Colour (src-env, src-lfo, src-macro, src-engine); the shell's modulator bank cards take the kind swatch (H.ModCardHeader with kind). Only env and engine kinds exist in the shell (device.js SOURCES: no LFOs or macros yet). Shell hop 2026-11-01: the bank and Mod page rows are the master's ModTiers (thin row, compact card, full tier), which take the kind's colour from `kind`; the shell hands each source its kind (MODS table)."
   },
   {
    "id": "adr261-owner-read-not-computed",
@@ -3851,11 +3851,11 @@
    "master_version": null,
    "bundle": null,
    "via": null,
-   "shell": "docs/design/gui3.html: setBankMode(b.dataset.m)",
+   "shell": "docs/design/gui3.html: H.ModBank(",
    "state": "ruled",
    "superseded_by": "ADR-323",
    "port_tab": null,
-   "note": "The human ruled in ADR-323 ruling 2 (show/hide now; Mods | Macros folds into the strip's header once macros exist); the shell still offers both (row adr323-show-hide-only). The toggle and pills are the bundle's CSS (hd-toggle, hd-pills), which the ledger cannot name as an export."
+   "note": "The human ruled in ADR-323 ruling 2 (show/hide now; Mods | Macros folds into the strip's header once macros exist); the shell still offers both (row adr323-show-hide-only). The toggle and pills are the bundle's CSS (hd-toggle, hd-pills), which the ledger cannot name as an export. Shell hop 2026-11-01: the top-bar Mods | Macros pills are gone; BT1's MAC | MODS segments inside ModBank are the toggle (ADR-340 r11), with Bank show/hide."
   },
   {
    "id": "adr322-bottom-bank",
@@ -3866,11 +3866,11 @@
    "master_version": null,
    "bundle": null,
    "via": null,
-   "shell": "docs/design/gui3.html: function bindDrag(handle, src)",
+   "shell": "docs/design/gui3.html: H.ModBank(",
    "state": "ruled",
    "superseded_by": null,
    "port_tab": "modulators",
-   "note": "Shell has it and it is wired (+ is dev.activate, a drop is dev.drop through addRoute's RC-4 refusals, pagehide calls dev.close), but the strip and card are assembled from hd-card with H.ModCardHeader: the master has no bank, strip, compact card or drag handle (proposals 12, 13, 14, 18), a hop skipped. FX device: same, with FX modulators and macros."
+   "note": "Shell has it and it is wired (+ is dev.activate, a drop is dev.drop through addRoute's RC-4 refusals, pagehide calls dev.close), but the strip and card are assembled from hd-card with H.ModCardHeader: the master has no bank, strip, compact card or drag handle (proposals 12, 13, 14, 18), a hop skipped. FX device: same, with FX modulators and macros. Shell hop 2026-11-01: the bank is the master's ModBank (M2, BT1) with MacroRow's MAC lane, the Map handle's press-then-click and drop kept, and M-R2 removal through dev.removeModulator with UndoLine."
   },
   {
    "id": "adr322-copy-level-between-corners",
@@ -4541,11 +4541,11 @@
    "master_version": "1793502898-ea3e",
    "bundle": "Session",
    "via": null,
-   "shell": "docs/design/gui3.html: SH.attachEscape(window, [",
+   "shell": "docs/design/gui3.html: S.escapeLayers.unshift({ name: 'menu'",
    "state": "in-shell",
    "superseded_by": null,
    "port_tab": null,
-   "note": "In the master at 1793502898-ea3e (S.escapeLayers and S.escape(); MapControl and KeyboardLamp READMEs; panic on no key, ADR-340 r12); vendored 2026-10-31. The shell built it first (B584 batch 1: shell-logic.js attachEscape, self-check 25) and still uses its own handler; moving it onto S.escapeLayers is the next shell hop. FX device: same."
+   "note": "In the master at 1793502898-ea3e (S.escapeLayers and S.escape(); MapControl and KeyboardLamp READMEs; panic on no key, ADR-340 r12); vendored 2026-10-31. The shell built it first (B584 batch 1: shell-logic.js attachEscape, self-check 25) and still uses its own handler; moving it onto S.escapeLayers is the next shell hop. FX device: same. Shell hop 2026-11-01: the shell's own attachEscape and attachMapKeys are gone; the Session (mapKeysAlways: SH.MAP_KEYS_ALWAYS) owns Escape and the map keys, and the shell unshifts its menu layer in front."
   },
   {
    "id": "adr338-window-resize-trial",
