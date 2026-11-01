@@ -59,7 +59,7 @@
   .body.with-dock { grid-template-columns: 204px minmax(0, 1fr); }
   .body.with-insp { grid-template-columns: minmax(0, 1fr) 214px; }
   .body.with-dock.with-insp { grid-template-columns: 204px minmax(0, 1fr) 214px; }
-  /* ADR-344 r4, the info sidebar: the box takes the rail, under the pad while the pad shows, and the bank the whole foot. `contents` keeps the
+  /* ADR-345 r4, the info sidebar: the box takes the rail, under the pad while the pad shows, and the bank the whole foot. `contents` keeps the
      rail out of the grid until then, so the pad's own column (204 px) is unchanged with the sidebar off. */
   .rail { display: contents; }
   .body.with-side { grid-template-columns: 224px minmax(0, 1fr); }
@@ -150,7 +150,7 @@
   .ledger-item { color: var(--ink); font-weight: 600; }
   /* The bank (ADR-338 r7): the bundle's ModBank, 68 px, at the foot of the column; the removal line (M-R2) sits above it, and the
      room between them is where a row's compact card opens (it opens ABOVE the bank, over this room and, if it is taller, the page
-     area). The info box (ADR-335 r4) keeps the foot row one fixed height, so the bank does not hand its height back (ADR-344 r1: 120 px). */
+     area). The info box (ADR-335 r4) keeps the foot row one fixed height, so the bank does not hand its height back (ADR-345 r1: 120 px). */
   #bank { width: auto; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; min-width: 0; }
   #bank[hidden] { display: none; }
   .page { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
@@ -164,7 +164,7 @@
   .cards > .hd-card.wide { flex-basis: 100%; }
   .hd-card .face { gap: 4px 6px; align-items: flex-start; justify-content: flex-start; padding: 6px 7px 8px; }
   .ctl { min-width: 0; }
-  /* ADR-335 ruling 4 (B582) with ADR-344 r1 (F1, 300 x 120, so the six fixable pages fit: docs/design/foot-row-lab.html): the
+  /* ADR-335 ruling 4 (B582) with ADR-345 r1 (F1, 300 x 120, so the six fixable pages fit: docs/design/foot-row-lab.html): the
      foot row is one height on every page, the info box one size in one place, and what it says scrolls inside it, so hovering
      never moves or resizes anything. The bank takes the rest of the row, scrolling inside itself. Hiding the bank leaves the row
      and the box where they are: the page area does not grow back (open question for the human, README). */
@@ -1162,7 +1162,7 @@ function sectionHostOf(t) { return t && t.closest ? t.closest('#pages [data-sect
 const SECTION_AT = Object.create(null);
 DATA.pages.forEach(pg => pg.groups.forEach(g => { SECTION_AT[g.id] = { page: pg, group: g }; }));
 const IDLE = 'Hover a control, or a section’s header, to read what it does. Press one to lock the box here, so you can scroll.';
-// ADR-344: the bundle's InfoBox holds the lock and the auto-scroll; the shell says what it shows and what counts as a selection. The parts keep the ids
+// ADR-345: the bundle's InfoBox holds the lock and the auto-scroll; the shell says what it shows and what counts as a selection. The parts keep the ids
 // the self-checks read. Locks stay off (infoLocks) until the self-checks are done, because they press and select controls for their own reasons.
 let lockedKey = null, infoLocks = false, selSeen = null;
 const infoBox = H.InfoBox($('info'), S, { idle: { name: 'Info', tag: 'HOVER', text: IDLE }, keys: () => S.keys,
@@ -1202,7 +1202,7 @@ $('win').addEventListener('pointerover', e => {
   if (id) { if (id !== hoveredSec) showSection(id); } else if (hovered || hoveredSec) showInfo(null);
 });
 $('win').addEventListener('focusin', e => { const t = hostOf(e.target); if (t) showInfo(t.dataset.key); });
-// ADR-344 r2: any selection locks, a drag's press included, and a press on anything else releases. Capture, so a control that stops the event can't hide it.
+// ADR-345 r2: any selection locks, a drag's press included, and a press on anything else releases. Capture, so a control that stops the event can't hide it.
 $('win').addEventListener('pointerdown', e => {
   if (!infoLocks || e.button !== 0 || (e.target.closest && e.target.closest('#info'))) return;
   const t = hostOf(e.target); if (t) { lockInfoKey(t.dataset.key); return; }
@@ -1216,7 +1216,7 @@ views.push({ page: '*', update() {
   const k = infoBox.locked() ? lockedKey : hovered;
   if (k) $('infoMeta').textContent = $('infoMeta').textContent.replace(/now .*? · SPEC/, 'now ' + ENG.display(ROW[k], dev.shown(k)) + ' · SPEC');
 } });
-// ADR-344 r4: the info sidebar, a per-viewer preference and not a host parameter. Storage can throw (a private window), and the shell works without it.
+// ADR-345 r4: the info sidebar, a per-viewer preference and not a host parameter. Storage can throw (a private window), and the shell works without it.
 const SIDEBAR_KEY = 'hd.info.sidebar';
 const sidebarBtn = h('button', { class: 'hd-toggle hd-focus', id: 'sidebarOn', type: 'button', role: 'switch', 'aria-checked': 'false', 'aria-label': 'Info sidebar' });
 function setSidebar(on) {
@@ -1847,7 +1847,7 @@ S.start();
       const corners = lensEl.querySelectorAll('.lz-corners .lz-ln').length;
       ctlHost(pageEls.osc1, k).dispatchEvent(new MouseEvent('pointerleave')); tick();
       line(hot === r.label && before !== r.label && corners === 4 && !!lensEl.querySelector('.mk-face'), 'Lens: hovering ' + r.label + ' put it in Osc 1’s lens (its full knob and four corner values); before the hover the lens showed ' + before + ' (control: not this control).'); }
-    // 38. ADR-338 r5, ADR-344 r1: the dense pages fit the page area the window really gives (the foot row is 120 px), the folds holding the rest.
+    // 38. ADR-338 r5, ADR-345 r1: the dense pages fit the page area the window really gives (the foot row is 120 px), the folds holding the rest.
     // Each fold at +Adv must overflow Osc 1 (the control), so the fold is what holds it.
     { const limit = $('pages').clientHeight, over = [], size = {};
       const bodyH = pid => { selectPage(pid); const a = $('pages'), was2 = [a.style.overflow, a.style.flex, a.style.height]; a.style.overflow = 'visible'; a.style.flex = 'none'; a.style.height = 'auto';
@@ -1856,7 +1856,7 @@ S.start();
       const folds = [...pageEls.osc1.querySelectorAll('.hd-fold')], tiers = folds.map(f => f.querySelector('.fd-head [role=radio][aria-checked=true]')), pillsOf = f => [...f.querySelectorAll('.fd-head [role=radio]')];
       pillsOf(folds[0]).slice(-1)[0].click(); folds.slice(1).forEach(f => pillsOf(f).slice(-1)[0].click()); const opened = bodyH('osc1');
       folds.forEach((f, i) => pillsOf(f).find(b => b.textContent === tiers[i].textContent).click()); selectPage('osc1');
-      line(!over.length && opened > limit && folds.length === 3, 'Fit: main ' + size.main + ', Osc 1 ' + size.osc1 + ', Osc 2 ' + size.osc2 + ', Sub ' + size.sub + ' and Noise ' + size.noise + ' px fit the page area of ' + limit + ' px (ADR-344 r1)' + (over.length ? ' (OVER: ' + over.join(', ') + ')' : '') + '; Osc 1 with its three folds at +Adv is ' + opened + ' px, so the folds hold the rest (control).'); }
+      line(!over.length && opened > limit && folds.length === 3, 'Fit: main ' + size.main + ', Osc 1 ' + size.osc1 + ', Osc 2 ' + size.osc2 + ', Sub ' + size.sub + ' and Noise ' + size.noise + ' px fit the page area of ' + limit + ' px (ADR-345 r1)' + (over.length ? ' (OVER: ' + over.join(', ') + ')' : '') + '; Osc 1 with its three folds at +Adv is ' + opened + ' px, so the folds hold the rest (control).'); }
     // 39. ADR-341 r2 (DR-c): the section header’s readout slot is two stacked lines in a fixed box and nothing here resizes it: hovering a tiny knob fills both
     // lines (the editing corner’s own value, then “now”) and the box is the same size at rest and hot. Control: at rest it shows the summary and not the lines.
     { selectPage('sub'); const sec = pageEls.sub.querySelector('[data-section="sub/colour"]'), slot = sec.querySelector('.hd-rslot'), box = () => { const b = slot.getBoundingClientRect(); return [Math.round(b.width), Math.round(b.height)].join('x'); };
@@ -1878,7 +1878,7 @@ S.start();
       line(kept && first && /^Osc 1 · Osc 1 · /.test(reg0.path), 'One parameter, many faces: a new face of ' + ROW[k].label + ' left its registered props (the owner page’s: “' + reg0.path + '”) and its revert baseline as they were with the live value moved off it (control: a parameter nothing had registered is registered by its first face).'); }
     Object.entries(was).forEach(([id, v]) => PAGEVIEW[id].pv.view(v)); selectPage(pg0);
   }
-  // 41 to 44. ADR-344. Last among the checks because they turn the locks on. A press here is stopped at the control, so it locks the box without starting a gesture.
+  // 41 to 44. ADR-345. Last among the checks because they turn the locks on. A press here is stopped at the control, so it locks the box without starting a gesture.
   { const pg0 = page, sel0 = S.selected, over = el => el.dispatchEvent(new MouseEvent('pointerover', { bubbles: true }));
     const press = el => { el.addEventListener('pointerdown', e => e.stopImmediatePropagation(), { capture: true, once: true }); el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 })); };
     const name = () => $('infoName').textContent, star = () => { for (const v of views) if (v.page === '*') v.update(); };
@@ -1894,7 +1894,7 @@ S.start();
     S.selected = b.dataset.key; star(); const viaSel = infoBox.locked() && name() === lb; infoBox.release(); S.selected = sel0; selSeen = sel0;
     const lockFails = Object.entries({ hoverShows, locked, held, heldSec, escMap: first === 'map', escLock: second === 'info-lock', afterEsc, released, secLocked, reLock, viaSel }).filter(x => !x[1]).map(x => x[0]);
     line(!lockFails.length,
-      (lockFails.length ? '(' + lockFails.join(', ') + ' ' + first + ' ' + second + ') ' : '') + 'Info lock (ADR-344 r2): a press locks the box to ' + la + ', hovering ' + lb + ' and a section then change nothing, and a section or a selection made elsewhere locks too; Escape leaves MAP first and releases second, and a press outside any control releases (control: unlocked, a hover shows ' + lb + ').');
+      (lockFails.length ? '(' + lockFails.join(', ') + ' ' + first + ' ' + second + ') ' : '') + 'Info lock (ADR-345 r2): a press locks the box to ' + la + ', hovering ' + lb + ' and a section then change nothing, and a section or a selection made elsewhere locks too; Escape leaves MAP first and releases second, and a press outside any control releases (control: unlocked, a hover shows ' + lb + ').');
     showInfo(null);
     // the lab's finding: with no lock the box keeps its text while the pointer is on it, and leaves it off the box
     over(b); over($('info')); const kept = name() === lb; over($('mapbar')); const cleared = name() === 'Info';
@@ -1910,7 +1910,7 @@ S.start();
     hoverOn(longEl); $('info').dispatchEvent(new MouseEvent('pointerenter')); infoBox.step(10); const enterStops = face.scrollTop === 0; $('info').dispatchEvent(new MouseEvent('pointerleave'));
     hoverOn(longEl); infoBox.step(2.5); face.scrollTop += 20; const handAt = face.scrollTop; infoBox.step(5); const handStops = face.scrollTop === handAt;
     const r0 = S.reduce; S.reduce = true; hoverOn(longEl); infoBox.step(10); const reduceStill = face.scrollTop === 0; S.reduce = r0; over($('mapbar'));
-    line(waits && moves && allIn && stops && metaStill && enterStops && handStops && reduceStill, 'Info auto-scroll (ADR-344 r3): a description past the edge waits 2 s, scrolls until it is all in view and stops; a box whose only overflow is its source line stays still (control); the pointer entering, a hand on the scroll and reduced motion each stop it.');
+    line(waits && moves && allIn && stops && metaStill && enterStops && handStops && reduceStill, 'Info auto-scroll (ADR-345 r3): a description past the edge waits 2 s, scrolls until it is all in view and stops; a box whose only overflow is its source line stays still (control); the pointer entering, a hand on the scroll and reduced motion each stop it.');
     // the sidebar: the box takes the rail, the bank the whole foot, and off puts every rectangle back
     selectPage('main'); showInfo(null);
     const rect = e => { const r = e.getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map(v => Math.round(v * 100) / 100).join(','); }, snap = () => ['pagecol', 'pages', 'bank', 'info', 'footrow'].map(i => rect($(i))).join('|');
@@ -1918,7 +1918,7 @@ S.start();
     setSidebar(true); const ib = $('info').getBoundingClientRect(), gr = $('bodyGrid').getBoundingClientRect(), full = Math.abs(ib.height - gr.height) < 1 && $('info').parentElement === $('rail') && $('footrow').offsetHeight === 92 && $('pages').clientHeight > h0 && $('pages').clientWidth < w0 && ib.right <= $('pagecol').getBoundingClientRect().left;
     setMorphOn(true); const db = $('dock').getBoundingClientRect(), ib2 = $('info').getBoundingClientRect(), shared = !$('dock').hidden && db.bottom <= ib2.top && Math.abs(ib2.bottom - gr.bottom) < 1 && ib2.height > 120; setMorphOn(false);
     setSidebar(false); const back = snap() === idle && inFoot && boxW === 300;
-    line(full && shared && back, 'Info sidebar (ADR-344 r4): on, the box runs the rail\u2019s full height, left of the pages, and the foot row is the bank\u2019s 92 px; the morph pad sits above the box and the box takes the rest; off puts every rectangle back (control).');
+    line(full && shared && back, 'Info sidebar (ADR-345 r4): on, the box runs the rail\u2019s full height, left of the pages, and the foot row is the bank\u2019s 92 px; the morph pad sits above the box and the box takes the rest; off puts every rectangle back (control).');
     infoBox.release(); selectPage(pg0); S.selected = sel0; selSeen = sel0; }
   showInfo(null); S.message = '';
   dev.clearHistory();   // the checks' own steps (the probes, the morph toggles) are not the user's history

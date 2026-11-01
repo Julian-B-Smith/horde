@@ -6887,13 +6887,13 @@
   }
   H.UndoLine = UndoLine;
 
-  /* ---------- THE INFO BOX (ADR-335 r4, ADR-344): one size in one place, its text scrolling inside it, so reading never moves the layout.
+  /* ---------- THE INFO BOX (ADR-335 r4, ADR-345): one size in one place, its text scrolling inside it, so reading never moves the layout.
      The HOST owns the size and what it says (o.idle, and the content it passes to show and lock: { name, tag, key, text, meta, live }).
      This owns the three things every host would otherwise get wrong:
-     - THE LOCK (ADR-344 r2). A selection locks the box, and a hover then changes nothing until another selection or a release, because the
+     - THE LOCK (ADR-345 r2). A selection locks the box, and a hover then changes nothing until another selection or a release, because the
        pointer has to cross other controls to reach the box. Release is the head's button, the host's onRelease, and Escape, whose layer sits
        BEHIND map and pin and in front of keyboard mode, so Escape still leaves MAP first (ADR-338 r11).
-     - THE AUTO-SCROLL (ADR-344 r3). Only when the DESCRIPTION runs past the edge: the range and source line under it are reference, so a box
+     - THE AUTO-SCROLL (ADR-345 r3). Only when the DESCRIPTION runs past the edge: the range and source line under it are reference, so a box
        whose only overflow is that line stays still. It stops for good, for this content, the moment the pointer enters the box or anything
        else moves the scroll, and it never runs under reduced motion. It reads S.now, the session's frame time, never a clock of its own.
      - The scroll starts at the top on new content, and a repaint of the same content keeps its place (a live "now" value must not jump it). ---------- */

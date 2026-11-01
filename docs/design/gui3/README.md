@@ -506,7 +506,7 @@ batch 2 components replace what the shell drew for itself. Where a component is 
   **If the human reverses ADR-335 r1** (the one line above): Escape follows the same option, so with keyboard mode off Escape would no longer
   close the shell's menu or the bank's open card (batch 1's shell handler did, in every mode). That is the bundle's rule, not the shell's;
   say so when the ruling is reversed.
-- **Readings taken.** The Mod page lists every source (above). The macro slots 5 to 8 are numbered. The foot row and the page area are ADR-344's now (below).
+- **Readings taken.** The Mod page lists every source (above). The macro slots 5 to 8 are numbered. The foot row and the page area are ADR-345's now (below).
 - **Found in the vendored bundle (not patched).** `ModPage` documents `routes(host, S)` as the route-view builder but hands its options to
   the tiers, which call `o.routes(m)` for a modulator's routes: one name, two jobs, and a host that passes the documented builder breaks every
   row. The shell passes a function that answers both. (A master fix: rename the builder, e.g. `routeView`.) `MapControl`'s chip is 150 px and
@@ -515,7 +515,7 @@ batch 2 components replace what the shell drew for itself. Where a component is 
   components (the compact card, the chip, the session's Escape, the Routes view) with the same laws and controls; 1 and 2 count the Mod page's
   held detail hosts. In the seam check: `escape`, `removal`, `shellparts`, and the key plants re-pointed at the session (see the trace).
 
-## The foot row and the info box's lock (ADR-344; B589, B582)
+## The foot row and the info box's lock (ADR-345; B589, B582)
 
 The human picked F1 from `docs/design/foot-row-lab.html` and added the lock and the sidebar.
 

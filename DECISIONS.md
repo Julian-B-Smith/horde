@@ -10691,7 +10691,7 @@ Round 2 drew 45 variants. The human answered by poll on 2026-10-30 and 2026-10-3
 - B598 builds it at rack stage S4, with a Layer-0 check.
 - **FX device (ADR-254):** the same rule on its slots, since the rack owns the latency sums (ADR-254).
 
-## ADR-344 — RULED by the human: the foot row is F1 (a 300 × 120 info box, amending "square-ish"); a selection locks the info box so its text can be scrolled; long descriptions scroll on their own; an info sidebar in Settings replaces the box (B589, B582, B584, ADR-335, ADR-338; 2026-11-01)
+## ADR-345 — RULED by the human: the foot row is F1 (a 300 × 120 info box, amending "square-ish"); a selection locks the info box so its text can be scrolled; long descriptions scroll on their own; an info sidebar in Settings replaces the box (B589, B582, B584, ADR-335, ADR-338; 2026-11-01)
 
 **Context.** ADR-335 ruling 4 held GUI 3's foot row at 216 px while ADR-338 ruling 7 ruled the bank at 68 px, so pages got 372 px, 10 of 14 pages scrolled, and a band above the bank sat empty. `docs/design/foot-row-lab.html` (#1321) applied six options to the running shell and measured them. It also found that moving the pointer onto the box cleared it, so text past its edge could never be read.
 
