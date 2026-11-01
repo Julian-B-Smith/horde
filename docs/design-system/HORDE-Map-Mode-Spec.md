@@ -4,7 +4,7 @@ Oct 16, 2026 · @Julian Beall Smith
 
 ## Summary
 
-Recommendation: give HORDE a persistent MAP control (a toggle button plus a source selector) that is visible on every page. While MAP is on, clicking any parameter assigns the selected source to it, and dragging sets the depth. While MAP is off, Option-drag edits an existing mapping's depth and Option-click switches which mapping is being edited.
+Recommendation: give HORDE a persistent MAP control (a toggle button plus a source selector) that is visible on every page. While MAP is on, clicking any parameter assigns the selected source to it, and Option-dragging sets the depth; a plain drag still sets the value (amended by ADR-340 ruling 7, MD1, 2026-10-31: the human found a plain drag that changed the scale confusing). While MAP is off, Option-drag edits an existing mapping's depth and Option-click switches which mapping is being edited.
 
 The goal is to make the common case (assigning one source to several parameters across pages) a run of single clicks, with no mod-matrix row to fill in for each assignment. The mod matrix stays as the full view; map mode is a faster way to write into it.
 
@@ -28,7 +28,7 @@ Mappings on one parameter are an ordered list. The order does not affect the sou
 
 Integration with the existing tiers: a mapping created in map mode is global by default. A mapping whose target is a morph or intent-bus parameter must be global, as already decided. If corner-level mods are offered here, they need an explicit scope switch in the MAP control rather than an inferred one (see Open decisions).
 
-New mapping defaults: polarity unipolar; depth 25% on a plain click, or whatever the drag sets.
+New mapping defaults: polarity unipolar; depth 25% on a plain click, or whatever the Option-drag sets (ADR-340 r7).
 
 ## MAP control
 
@@ -49,12 +49,13 @@ Pointer down on a knob always selects it in the inspector. What happens next dep
 | Gesture | Result |
 | --- | --- |
 | Click a parameter with no mapping from the current source | Creates the mapping at 25% depth, unipolar |
-| Click-drag the same | Creates the mapping at 0 and sets depth by the drag. Releasing at exactly 0 cancels the mapping. |
-| Click or drag a parameter already mapped to the current source | Click selects it only; drag edits that mapping's depth |
+| Drag (no modifier) | Sets the base value, exactly as with MAP off (ADR-340 r7) |
+| Option-drag a parameter with no mapping from the current source | Creates the mapping at 0 and sets depth by the drag. Releasing at exactly 0 cancels the mapping. |
+| Click or Option-drag a parameter already mapped to the current source | Click selects it only; Option-drag edits that mapping's depth |
 | P | Cycles polarity of the last-touched mapping: unipolar, bipolar, inverse |
 | Backspace / Delete | Removes the last-touched mapping |
 
-The base value cannot be changed while MAP is on. A drag in map mode never moves the knob itself.
+~~The base value cannot be changed while MAP is on. A drag in map mode never moves the knob itself.~~ Struck by ADR-340 ruling 7 (MD1): with MAP on a plain drag sets the base value; only an Option-drag sets depth.
 
 **MAP off**
 

@@ -1,5 +1,5 @@
-/* vendored from the horde Design System artifact, version 1793336699-65f2, 2026-10-30; do not edit, re-vendor */
-/* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"SteppedControl"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"}]} */
+/* vendored from the horde Design System artifact, version 1793502898-ea3e, 2026-10-31; do not edit, re-vendor */
+/* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"SteppedControl"},{"name":"Stepper"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"}]} */
 /* horde house reference behaviours (vanilla JS, no React, no network).
    The morph knob and slider follow the human's HORDE Morph Knob Spec and HORDE Map Mode Spec
    (2026-10-21, 2026-10-16); colours, type and themes follow ADR-259. Everything a plugin would get
@@ -18,6 +18,10 @@
      per parameter; uni/bi/inv still add on top of it, clamped once; removing it restores the own value. */
   var POL = ['uni', 'bi', 'inv', 'ctl'], POLN = { uni: 'UNI', bi: 'BI', inv: 'INV', ctl: 'CTL' };
   var DRAG = 160;                                       // size-drag: px for the full range
+  var DEF_DEPTH = .25;                                  // a click-made mapping's depth (the Map Mode spec, ADR-261 r3)
+  /* pointer capture, guarded: a pointer the browser no longer tracks (a synthetic event, a pen lifted mid-press) throws
+     NotFoundError, and an unguarded throw there cost the whole gesture */
+  function capture(el, e) { try { el.setPointerCapture(e.pointerId); } catch (_) { /* keep the gesture */ } }
   function clamp(v, a, b) { a = a === undefined ? 0 : a; b = b === undefined ? 1 : b; return Math.min(b, Math.max(a, v)); }
   function v(name) { return 'var(--' + name + ')'; }
   function fillOf(i) { return v('c' + CORNERS[i].id); }
@@ -54,7 +58,7 @@
     S.map = { on: false, src: (opts.sources && opts.sources[0] && opts.sources[0].id) || null, momentary: false };   // an empty source list is a page with no modulators (a dashboard), not an error
     S.sources = opts.sources || [];
     S.mappings = opts.mappings || []; // { param, src, pol, depth, cd? [4] }
-    S.focus = {}; S.lastMap = null; S.alt = false; S.keys = !!opts.keys;
+    S.focus = {}; S.lastMap = null; S.alt = false; S.keys = !!opts.keys; S.mapKeysAlways = !!opts.mapKeysAlways;
     S.params = {}; S.selected = null; S.t = 0; S.views = []; S.listeners = [];
     S.reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
     S.owner = {}; S.drag = null; S.message = '';
@@ -63,7 +67,20 @@
        refuses edits. S.saved holds each corner's values as last saved, for revert and the edited mark. */
     S.corners = opts.corners || [null, null, null, null];
     S.locks = [false, false, false, false]; S.saved = {}; S.refused = null;
+    /* THE LAYERED ESCAPE (ADR-338 r11): Escape cancels the innermost open thing and nothing else. A host puts its own
+       layers (a menu, a map-then-pick, a number entry it owns) IN FRONT with S.escapeLayers.unshift({name, active, cancel}).
+       Panic is on no key (ADR-340 r12: ADR-226 item 6 holds, the engine answers the host's all-notes-off). */
+    S.escapeLayers = [
+      { name: 'map', active: function () { return S.map.on; }, cancel: function () { S.setMap(false); } },
+      { name: 'pin', active: function () { return S.pinned !== null; }, cancel: function () { S.setPin(null); } },
+      { name: 'keys', active: function () { return S.keys; }, cancel: function () { S.keys = false; S.say('Keyboard mode off'); } }
+    ];
   }
+  /* one Escape: the first active layer is cancelled; returns its name, or null when nothing was open */
+  Session.prototype.escape = function () {
+    for (var i = 0; i < this.escapeLayers.length; i++) { var L = this.escapeLayers[i]; if (L.active()) { L.cancel(); this.emit(); return L.name; } }
+    return null;
+  };
   Session.prototype.weights = function () { var x = this.pad.x, y = this.pad.y; return [(1 - x) * (1 - y), x * (1 - y), (1 - x) * y, x * y]; };
   Session.prototype.src = function (id) { for (var i = 0; i < this.sources.length; i++) if (this.sources[i].id === id) return this.sources[i]; return null; };
   Session.prototype.sourceValue = function (id) { var s = this.src(id); return s ? clamp(s.f(this.t)) : 0; };
@@ -172,16 +189,20 @@
     var mDown = 0;
     addEventListener('keydown', function (e) {
       if (e.key === 'Alt') { S.alt = true; return; }
-      if (!S.keys || e.repeat || (e.target && e.target.tagName === 'INPUT')) return;
+      if (e.repeat || (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable))) return;   // a field owns its own keys, Escape included
+      if (e.metaKey || e.ctrlKey) return;
+      /* THE MAP KEYS (M, 1-9 under MAP, P, Backspace under MAP) and Escape act in keyboard mode (ADR-259 r6), or always when
+         the host sets S.mapKeysAlways (GUI 3 does, from ADR-335 r1's one constant, which the human may flip: "I may
+         ultimately reverse the keys always decision"). Every other accelerator stays keyboard-mode only. Each has a mouse route. */
+      if (!S.keys && !S.mapKeysAlways) return;
+      if (e.key === 'Escape') { if (S.escape()) e.preventDefault(); return; }
       if (e.code === 'KeyM') { if (S.map.on && !S.map.momentary) S.setMap(false); else { mDown = e.timeStamp; S.setMap(true, true); } e.preventDefault(); return; }
-      if (e.key === 'Escape') { if (S.map.on) S.setMap(false); else S.setPin(null); return; }
       var dg = /^Digit([0-9])$/.exec(e.code);
-      if (dg) { var n = +dg[1];
-        if (S.map.on) { if (n >= 1 && n <= S.sources.length) S.setSrc(S.sources[n - 1].id); }
-        else if (n === 0) S.setPin(null); else if (n <= 4) S.setPin(n - 1);
-        e.preventDefault(); return; }
+      if (dg && S.map.on) { var n = +dg[1]; if (n >= 1 && n <= S.sources.length) S.setSrc(S.sources[n - 1].id); e.preventDefault(); return; }
       if (e.code === 'KeyP') { S.cyclePol(e.altKey ? S.focused(S.selected) : S.lastMap); e.preventDefault(); return; }
-      if ((e.key === 'Backspace' || e.key === 'Delete') && S.map.on) { S.remove(S.lastMap); e.preventDefault(); }
+      if ((e.key === 'Backspace' || e.key === 'Delete') && S.map.on) { S.remove(S.lastMap); e.preventDefault(); return; }
+      if (!S.keys) return;
+      if (dg) { var n2 = +dg[1]; if (n2 === 0) S.setPin(null); else if (n2 <= 4) S.setPin(n2 - 1); e.preventDefault(); return; }
     });
     addEventListener('keyup', function (e) {
       if (e.key === 'Alt') S.alt = false;
@@ -196,9 +217,13 @@
   function gesture(target, p, S, axisPx) {
     target.addEventListener('pointerdown', function (e) {
       if (e.button !== 0) return;
-      target.setPointerCapture(e.pointerId); S.selected = p.key; S.emit();
-      var ai = S.editing(p), st = { key: p.key, ai: ai, x: e.clientX, y: e.clientY, moved: false, mode: 'value', isNew: false, target: null, start: 0, px: axisPx() };
-      if (S.map.on) {
+      capture(target, e); S.selected = p.key; S.emit();
+      var ai = S.editing(p), st = { key: p.key, ai: ai, x: e.clientX, y: e.clientY, moved: false, mode: 'value', isNew: false, target: null, start: 0, px: axisPx(), mapClick: false };
+      /* MD1 (ADR-340 r7, amending the Map Mode spec and ADR-261 r3): with MAP on a plain drag moves the VALUE, as with MAP
+         off; a click with no movement maps the current source (or focuses its mapping); Option-drag sets the current
+         source's depth. The spec's "under MAP a drag sets depth" confused the human: it changed the scale with no modifier. */
+      if (S.map.on && !e.altKey) { st.mapClick = true; st.start = p.locked ? p.g : p.vals[ai]; }
+      else if (S.map.on) {
         var m = S.mapsOf(p.key).filter(function (q) { return q.src === S.map.src; })[0];
         if (!m) { m = { param: p.key, src: S.map.src, pol: 'uni', depth: 0 }; S.mappings.push(m); st.isNew = true; S.focus[p.key] = S.mapsOf(p.key).length - 1; }
         st.mode = 'depth'; st.target = m; st.start = m.pol === 'ctl' ? m.lo : m.cd && ai !== null ? m.cd[ai] : m.depth; S.lastMap = m;
@@ -212,9 +237,16 @@
     });
     target.addEventListener('pointermove', function (e) {
       var st = S.drag; if (!st || st.key !== p.key) return;
-      var d = p.horizontal ? e.clientX - st.x : st.y - e.clientY;
+      var d = p.horizontal ? e.clientX - st.x : st.y - e.clientY, k = e.shiftKey ? .25 : 1;
       if (Math.abs(d) > 3) st.moved = true; if (!st.moved || st.mode === 'refused' || st.noDrag) return;
-      var nv = clamp(st.start + d / st.px * (e.shiftKey ? .25 : 1));
+      /* RE-ANCHOR (ADR-340 r2): a relative drag that clamps at a stop, or changes its fine/coarse rate, restarts from where
+         it is. Without it an overshoot past a stop was a dead range to unwind before the value moved back, and pressing
+         Shift mid-drag jumped the value by the rate change. */
+      if (st.k !== undefined && st.k !== k) { st.start = st.cur; st.x = e.clientX; st.y = e.clientY; d = 0; }
+      st.k = k;
+      var raw = st.start + d / st.px * k, nv = clamp(raw);
+      if (raw !== nv) { st.start = nv; st.x = e.clientX; st.y = e.clientY; }
+      st.cur = nv;
       if (st.mode === 'value') { if (p.locked) p.g = nv; else p.vals[st.ai] = nv; }
       else if (st.target && st.target.pol === 'ctl') { var wd = st.target.hi - st.target.lo; st.target.lo = Math.min(nv, 1 - Math.max(0, wd)); st.target.hi = st.target.lo + wd; }   // a Control's depth gesture slides its whole range (PLACEHOLDER)
       else if (st.target) { if (st.target.cd && st.ai !== null) st.target.cd[st.ai] = nv; else st.target.depth = nv; }
@@ -222,8 +254,13 @@
     function end(e) {
       if (e && e.pointerId !== undefined && target.hasPointerCapture && target.hasPointerCapture(e.pointerId)) target.releasePointerCapture(e.pointerId);
       var st = S.drag; if (!st || st.key !== p.key) return; S.drag = null;
-      if (!st.moved) {
-        if (st.mode === 'depth' && st.isNew) { st.target.depth = .25; S.say('Mapped ' + S.src(st.target.src).name + ' → ' + p.name + ' · UNI · 25%'); }
+      if (!st.moved && st.mapClick) {
+        var mm = S.mapsOf(p.key).filter(function (q) { return q.src === S.map.src; })[0];
+        if (!mm) { mm = { param: p.key, src: S.map.src, pol: 'uni', depth: DEF_DEPTH }; S.mappings.push(mm); S.say('Mapped ' + S.src(mm.src).name + ' → ' + p.name + ' · UNI · 25%'); }
+        else S.say('Focus: ' + S.src(mm.src).name + ' → ' + p.name);
+        S.focus[p.key] = S.mapsOf(p.key).indexOf(mm); S.lastMap = mm;
+      } else if (!st.moved) {
+        if (st.mode === 'depth' && st.isNew) { st.target.depth = DEF_DEPTH; S.say('Mapped ' + S.src(st.target.src).name + ' → ' + p.name + ' · UNI · 25%'); }
         else if (st.mode === 'alt') { var l = S.mapsOf(p.key); if (l.length) { S.focus[p.key] = ((S.focus[p.key] || 0) + 1) % l.length; S.lastMap = S.focused(p.key); S.say('Focus: ' + S.src(S.lastMap.src).name); } else S.say(p.name + ' has no modulators'); }
       } else if (st.mode === 'depth' && st.isNew && st.target.depth === 0) { S.mappings.splice(S.mappings.indexOf(st.target), 1); S.lastMap = null; S.say('Released at 0: no mapping made'); }
       S.emit();
@@ -320,9 +357,146 @@
     el.addEventListener('pointerenter', on); el.addEventListener('pointerleave', off);
     el.addEventListener('focusin', on); el.addEventListener('focusout', off);
   }
+  /* ---------- THE TINY TIER (ADR-338 r1 and r3, drawn as ADR-340 r1 and r2; source: docs/design/composition-lab-r2.html) ----------
+     WHAT TRAVELS END TO END. A drag writes ONE corner (the morph knob spec), so the blend moves only by that corner's
+     weight times the drag: round 1's tiny knob drew only the blend, so nothing on its face crossed the sweep under the hand
+     and it "dragged arbitrarily" (the human). T2d and TS1a/TS2a put the editing corner's value back as a SEE-THROUGH mark:
+     a hole cut through the track and the arc (an SVG mask, so the hole shows whatever is behind the control, never a
+     painted copy of a background colour), rimmed in the corner's ink, between two ink end stops. The arc or fill stays the
+     blend you hear, the needle (or the lane's dot) the output. The label line never changes (ADR-340 r4, H1): the value
+     goes to the section's fixed readout slot (H.ReadoutSlot) and the info box, never into the cell. */
+  var TMID = 0;
+  function seeThrough(svg, W, Hh, hole) {
+    var id = 'hdt' + (TMID++), defs = mk('defs', {}, svg), m = mk('mask', { id: id, maskUnits: 'userSpaceOnUse', x: -4, y: -4, width: W + 8, height: Hh + 8 }, defs);
+    mk('rect', { x: -4, y: -4, width: W + 8, height: Hh + 8, fill: '#fff' }, m);
+    var hl = hole === 'rect' ? mk('rect', { x: 0, y: 0, width: 0, height: 0, rx: .8, fill: '#000' }, m) : mk('circle', { cx: 0, cy: 0, r: 0, fill: '#000' }, m);
+    return { g: mk('g', { mask: 'url(#' + id + ')' }, svg), hl: hl };
+  }
+  /* the one ring a tiny control draws: the focused mapping, stacked on the rings inside it (the utility knob's rule);
+     dashed when more mappings exist than the one drawn */
+  function ringOf(S, p) {
+    var l = S.mapsOf(p.key); if (!l.length) return null;
+    var c = S.ctlOf(p.key); if (c) l = [c].concat(l.filter(function (m) { return m !== c; }));
+    var f = S.focused(p.key) || l[0], run = S.origin(p), k;
+    for (k = 0; k < l.indexOf(f); k++) run += S.contrib(l[k]);
+    var d = S.depthOf(f), orig = f.pol === 'ctl' ? f.lo : run, src = S.src(f.src);
+    var ends = f.pol === 'ctl' ? [f.lo, f.hi] : f.pol === 'uni' ? [orig, orig + d] : f.pol === 'bi' ? [orig - d, orig + d] : [orig - d, orig];
+    return { f: f, n: l.length, ends: ends, orig: orig, live: run + S.contrib(f), color: srcColor(src), op: emphasis(S, f, f).op };
+  }
+  function tinyHead(el, p) {
+    var nm = document.createElement('div'); nm.className = 'mk-name'; nm.textContent = p.abbr || p.name; el.appendChild(nm);
+    el.title = p.path || p.name; return nm;
+  }
+  /* T2d: a 20 px face (size-knob-tiny) in a 28 px hit cell (size-hit), 160 px for the full range (size-drag) */
+  var T2D = { face: 20, r: 6.2, tw: 2.2, ndl: 4.3, ndlW: 1.4, cap: 2.3, capW: 1.3, ring: 9, rw: 1.5, tick: 1.1, hr: 2.1 };
+  function TinyKnob(el, p, S) {
+    var G = T2D, f = G.face, c = f / 2, from = p.bipolar ? .5 : 0;
+    el.classList.add('hd-mk', 'sz', 'sz-tiny'); el.innerHTML = '';
+    if (p.label !== false) tinyHead(el, p); else el.title = p.path || p.name;
+    var box = document.createElement('div'); box.className = 'mk-face hd-focus'; box.setAttribute('role', 'slider');
+    box.setAttribute('aria-label', p.path || p.name); box.setAttribute('aria-valuemin', '0'); box.setAttribute('aria-valuemax', '1'); el.appendChild(box);
+    var svg = mk('svg', { viewBox: '0 0 ' + f + ' ' + f, width: f, height: f, 'aria-hidden': 'true' }); box.appendChild(svg);
+    function P(r, x) { var a = (-140 + 280 * x) * Math.PI / 180; return [c + r * Math.sin(a), c - r * Math.cos(a)]; }
+    function A(r, a, b) { a = clamp(a); b = clamp(b); if (b < a) { var t = a; a = b; b = t; } if (b - a < .004) return '';
+      var p1 = P(r, a), p2 = P(r, b); return 'M' + p1[0].toFixed(2) + ' ' + p1[1].toFixed(2) + 'A' + r + ' ' + r + ' 0 ' + ((b - a) * 280 > 180 ? 1 : 0) + ' 1 ' + p2[0].toFixed(2) + ' ' + p2[1].toFixed(2); }
+    function R(x, r1, r2, at) { var a = P(r1, x), b = P(r2, x); at.x1 = a[0]; at.y1 = a[1]; at.x2 = b[0]; at.y2 = b[1]; at['stroke-linecap'] = 'round'; return mk('line', at, svg); }
+    function setR(e, x, r1, r2) { var a = P(r1, x), b = P(r2, x); e.setAttribute('x1', a[0]); e.setAttribute('y1', a[1]); e.setAttribute('x2', b[0]); e.setAttribute('y2', b[1]); }
+    var ms = seeThrough(svg, f, f, 'circle'), tg = ms.g;
+    mk('path', { d: A(G.r, 0, 1), fill: 'none', stroke: v('well-alt'), 'stroke-width': G.tw, 'stroke-linecap': 'round' }, tg);
+    if (p.bipolar) { var q1 = P(G.r - 1.6, .5), q2 = P(G.r + 1.6, .5); mk('line', { x1: q1[0], y1: q1[1], x2: q2[0], y2: q2[1], stroke: v('ink'), 'stroke-width': .9 }, tg); }
+    var arcE = mk('path', { d: '', fill: 'none', stroke: v('ink'), 'stroke-width': G.tw, 'stroke-linecap': 'round' }, tg);
+    var rim = mk('circle', { cx: c, cy: c, r: 0, fill: 'none', 'stroke-width': .9 }, svg);
+    R(0, G.r - 1.7, G.r + 1.9, { stroke: v('ink'), 'stroke-width': .9 }); R(1, G.r - 1.7, G.r + 1.9, { stroke: v('ink'), 'stroke-width': .9 });   // the end stops
+    var ring = mk('path', { d: '', fill: 'none', 'stroke-width': G.rw, 'stroke-linecap': 'round' }, svg);
+    var tick = mk('line', { x1: c, y1: c, x2: c, y2: c, stroke: v('ink'), 'stroke-width': .9, 'stroke-linecap': 'round' }, svg);
+    var cap = mk('circle', { cx: c, cy: c, r: G.cap, fill: v('panel'), 'stroke-width': G.capW }, svg);
+    var ndl = mk('line', { x1: c, y1: c, x2: c, y2: c, stroke: v('ink'), 'stroke-width': G.ndlW, 'stroke-linecap': 'round' }, svg);
+    hot(el, p, S); gesture(box, p, S, function () { return DRAG; });
+    var last = '';
+    var view = { render: function () {
+      var ai = S.editing(p), b = S.base(p), out = S.output(p), rg = ringOf(S, p), av = p.locked ? b : p.vals[ai], ctl = S.ctlOf(p.key);
+      var sig = [b.toFixed(4), out.toFixed(4), av.toFixed(4), ai, rg ? rg.ends[0].toFixed(3) + rg.ends[1].toFixed(3) + rg.live.toFixed(3) + rg.op + rg.n + rg.f.src : '', S.selected === p.key, S.map.on, S.keys, !!ctl].join('|');
+      if (sig === last) return; last = sig;
+      box.tabIndex = S.keys ? 0 : -1; el.classList.toggle('sel', S.selected === p.key); el.dataset.selc = ai === null ? '' : CORNERS[ai].id;
+      box.style.cursor = S.map.on ? 'copy' : ctl ? 'not-allowed' : 'ns-resize';
+      arcE.setAttribute('d', A(G.r, from, b)); arcE.setAttribute('opacity', ctl ? .22 : 1);
+      var ink = p.locked ? v('ink') : lineOf(ai), q = P(G.r, av);
+      ms.hl.setAttribute('cx', q[0]); ms.hl.setAttribute('cy', q[1]); ms.hl.setAttribute('r', p.locked ? 0 : G.hr);
+      rim.setAttribute('cx', q[0]); rim.setAttribute('cy', q[1]); rim.setAttribute('r', p.locked ? 0 : G.hr - .45); rim.setAttribute('stroke', ink);
+      if (rg) { ring.setAttribute('d', A(G.ring, rg.ends[0], rg.ends[1]) || A(G.ring, rg.orig, rg.orig + .006)); ring.setAttribute('stroke', rg.color); ring.setAttribute('opacity', rg.op);
+        ring.setAttribute('stroke-dasharray', rg.n > 1 ? '2.2 1.2' : 'none'); setR(tick, rg.live, G.ring - G.tick, G.ring + G.tick); tick.setAttribute('opacity', rg.op); }
+      else { ring.setAttribute('d', ''); tick.setAttribute('x1', c); tick.setAttribute('x2', c); tick.setAttribute('y1', c); tick.setAttribute('y2', c); }
+      cap.setAttribute('stroke', ink);
+      var n = P(G.ndl, out); ndl.setAttribute('x2', n[0]); ndl.setAttribute('y2', n[1]);
+      box.setAttribute('aria-valuenow', out.toFixed(3));
+      box.setAttribute('aria-valuetext', p.fmt(out) + (ctl ? ', controlled by ' + S.src(ctl.src).name : p.locked ? ', locked' : ', editing corner ' + CORNERS[ai].id + ' ' + p.fmt(av)) + (rg ? ', ' + rg.n + ' mapping' + (rg.n > 1 ? 's' : '') : ''));
+    } };
+    S.add(view); return view;
+  }
+  /* TS1a (size 'tiny': a 20 px row for route depths and amounts) and TS2a (size 'cell': a 16 px table value cell). Both are
+     a named exception to size-hit on their cross axis (ADR-338 r3) and drag 1:1 with their own drawn track, measured at
+     the pointer-down, re-anchoring at the stops (ADR-340 r2). TS1a: a hollow see-through handle at the editing corner,
+     the fill the blend, ink stops at both ends. TS2a: the fill the blend, the editing corner a see-through cut with a tick
+     on the top edge in its ink, and the output's value in the cell. */
+  function TinySlider(el, p, S) {
+    var cell = p.size === 'cell', W = p.width || (cell ? 76 : 64), Hh = cell ? 16 : 20, from = p.bipolar ? .5 : 0;
+    p.horizontal = true;
+    el.classList.add(cell ? 'hd-ts2' : 'hd-ts1', 'hd-focus'); el.innerHTML = ''; el.style.width = W + 'px';
+    el.setAttribute('role', 'slider'); el.setAttribute('aria-label', p.path || p.name); el.setAttribute('aria-valuemin', '0'); el.setAttribute('aria-valuemax', '1'); el.title = p.path || p.name;
+    var svg = mk('svg', { viewBox: '0 0 ' + W + ' ' + Hh, width: W, height: Hh, 'aria-hidden': 'true' }); el.appendChild(svg);
+    var X = cell ? function (x) { return W * clamp(x); } : function (x) { return 2 + (W - 4) * clamp(x); };
+    var ms = seeThrough(svg, W, Hh, 'rect'), tg = ms.g, fill, edge, tri, ho, lane, outM, vEl = null;
+    if (cell) {
+      fill = mk('rect', { x: 0, y: 0, width: 0, height: Hh, fill: v('well-alt') }, tg);
+      edge = mk('line', { x1: 0, x2: 0, y1: 0, y2: Hh, stroke: v('ink'), 'stroke-width': 1 }, tg);
+      tri = mk('path', { d: '', stroke: 'none' }, svg);
+      lane = mk('line', { x1: 0, x2: 0, y1: Hh - 1, y2: Hh - 1, stroke: 'transparent', 'stroke-width': 2 }, svg);
+      outM = mk('line', { x1: 0, x2: 0, y1: 4, y2: Hh, stroke: 'transparent', 'stroke-width': 1.4 }, svg);
+      vEl = document.createElement('span'); vEl.className = 'v'; el.appendChild(vEl);
+    } else {
+      mk('rect', { x: 2, y: 8.5, width: W - 4, height: 3, rx: 1.5, fill: v('well-alt'), stroke: v('ink'), 'stroke-width': .8 }, tg);
+      if (p.bipolar) mk('line', { x1: W / 2, x2: W / 2, y1: 6, y2: 14, stroke: v('ink'), 'stroke-width': .8 }, tg);
+      fill = mk('rect', { x: 2, y: 8.5, width: 0, height: 3, rx: 1.5, fill: v('ink') }, tg);
+      mk('line', { x1: 1, x2: 1, y1: 5, y2: 15, stroke: v('ink'), 'stroke-width': 1 }, svg); mk('line', { x1: W - 1, x2: W - 1, y1: 5, y2: 15, stroke: v('ink'), 'stroke-width': 1 }, svg);
+      lane = mk('line', { x1: 0, x2: 0, y1: 16.5, y2: 16.5, stroke: 'transparent', 'stroke-width': 1.6, 'stroke-linecap': 'round' }, svg);
+      ho = mk('rect', { x: 0, y: 3.6, width: 3.6, height: 12.8, rx: 1, fill: 'none', 'stroke-width': 1.1 }, svg);
+      outM = mk('circle', { cx: 0, cy: 16.5, r: 0, fill: 'transparent' }, svg);
+    }
+    hot(el, p, S); gesture(el, p, S, function () { return Math.max(8, el.getBoundingClientRect().width - (cell ? 0 : 4)); });
+    var last = '';
+    var view = { render: function () {
+      var ai = S.editing(p), b = S.base(p), out = S.output(p), rg = ringOf(S, p), av = p.locked ? b : p.vals[ai], ctl = S.ctlOf(p.key);
+      var sig = [b.toFixed(4), out.toFixed(4), av.toFixed(4), ai, rg ? rg.ends.join() + rg.op : '', S.keys, S.map.on, S.selected === p.key, !!ctl].join('|');
+      if (sig === last) return; last = sig;
+      el.tabIndex = S.keys ? 0 : -1; el.classList.toggle('sel', S.selected === p.key);
+      el.style.cursor = S.map.on ? 'copy' : ctl ? 'not-allowed' : 'ew-resize';
+      fill.setAttribute('x', Math.min(X(from), X(b))); fill.setAttribute('width', Math.abs(X(b) - X(from))); fill.setAttribute('opacity', ctl ? .22 : 1);
+      var ink = p.locked ? v('ink') : lineOf(ai), x = X(av), on = p.locked ? 0 : 1;
+      var lo = rg ? X(Math.min(rg.ends[0], rg.ends[1])) : 0, hi = rg ? X(Math.max(rg.ends[0], rg.ends[1])) : 0;
+      if (cell) {
+        edge.setAttribute('x1', X(b)); edge.setAttribute('x2', X(b));
+        ms.hl.setAttribute('x', x - 1.1); ms.hl.setAttribute('width', 2.2 * on); ms.hl.setAttribute('y', -1); ms.hl.setAttribute('height', Hh + 2);
+        tri.setAttribute('d', on ? 'M' + (x - 2.6).toFixed(2) + ' 0L' + (x + 2.6).toFixed(2) + ' 0L' + x.toFixed(2) + ' 3.6Z' : ''); tri.setAttribute('fill', ink);
+        vEl.textContent = p.fmt(out);
+        if (rg) { lane.setAttribute('x1', lo); lane.setAttribute('x2', hi); lane.setAttribute('stroke', rg.color); lane.setAttribute('opacity', rg.op);
+          outM.setAttribute('x1', X(out)); outM.setAttribute('x2', X(out)); outM.setAttribute('stroke', rg.color); }
+        else { lane.setAttribute('stroke', 'transparent'); outM.setAttribute('stroke', 'transparent'); }
+      } else {
+        ms.hl.setAttribute('x', x - 2.2); ms.hl.setAttribute('width', 4.4 * on); ms.hl.setAttribute('y', 3); ms.hl.setAttribute('height', 14);
+        ho.setAttribute('x', x - 1.8); ho.setAttribute('stroke', ink); ho.setAttribute('opacity', on);
+        if (rg) { lane.setAttribute('x1', lo); lane.setAttribute('x2', hi); lane.setAttribute('stroke', rg.color); lane.setAttribute('opacity', rg.op);
+          outM.setAttribute('cx', X(out)); outM.setAttribute('r', 1.6); outM.setAttribute('fill', rg.color); }
+        else { lane.setAttribute('stroke', 'transparent'); outM.setAttribute('r', 0); }
+      }
+      el.setAttribute('aria-valuenow', out.toFixed(3));
+      el.setAttribute('aria-valuetext', p.fmt(out) + (ctl ? ', controlled by ' + S.src(ctl.src).name : p.locked ? ', locked' : ', editing corner ' + CORNERS[ai].id + ' ' + p.fmt(av)));
+    } };
+    S.add(view); return view;
+  }
   function Knob(el, p, S) {
     p.fmt = p.fmt || pct; p.def = p.def === undefined ? (p.locked ? p.g : .5) : p.def;
     S.params[p.key] = p; if (!p.locked) S.saved[p.key] = p.vals.slice();
+    if (p.size === 'tiny') return TinyKnob(el, p, S);   // T2d (ADR-340 r1)
     var sz = KSIZE[p.size] ? p.size : null, G = sz ? KG[sz === 'utility' ? 'utility' : 'tight'] : KG.classic, Cc = G.C;
     el.classList.add('hd-mk'); if (sz) { el.classList.add('sz', 'sz-' + sz); }
     el.innerHTML = '';
@@ -430,6 +604,7 @@
   function Slider(el, p, S) {
     p.fmt = p.fmt || pct; p.def = p.def === undefined ? (p.locked ? p.g : .5) : p.def;
     S.params[p.key] = p; if (!p.locked) S.saved[p.key] = p.vals.slice();
+    if (p.size === 'tiny' || p.size === 'cell') return TinySlider(el, p, S);   // TS1a / TS2a (ADR-340 r2)
     var vert = !!p.vert, LEN = 180, sz = KSIZE[p.size] ? p.size : null, G = sz ? SG.tight : SG.classic;
     if (!vert) p.horizontal = true;
     el.classList.add(vert ? 'hd-ms-v' : 'hd-ms'); if (sz) el.classList.add('sz', 'sz-' + sz); el.innerHTML = '';
@@ -592,7 +767,7 @@
     var down = false;
     el.addEventListener('pointerdown', function (e) {
       if (opts.relative) { if (!puck.contains(e.target)) return; var r = el.getBoundingClientRect(); grab = { dx: S.pad.x - (e.clientX - r.left) / r.width, dy: S.pad.y - (e.clientY - r.top) / r.height }; }
-      down = true; el.setPointerCapture(e.pointerId); el.classList.add('drag'); at(e); });
+      down = true; try { el.setPointerCapture(e.pointerId); } catch (_) { /* keep the drag */ } el.classList.add('drag'); at(e); });
     el.addEventListener('pointermove', function (e) { if (down) at(e); });
     var padEnd = function (e) { down = false; grab = null; el.classList.remove('drag'); if (e && el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId); };
     el.addEventListener('pointerup', padEnd); el.addEventListener('pointercancel', padEnd); el.addEventListener('lostpointercapture', padEnd);
@@ -751,6 +926,11 @@
     var sc = schemeOf(cv), P = {};
     ['scr-ground', 'scr-value', 'scr-meter', 'scr-physics', 'scr-marker', 'scr-grid', 'alarm'].forEach(function (n) { P[n.replace('scr-', '')] = rgbOf(cv.parentElement, n); });
     var g = cv.getContext('2d');
+    /* ROUND JOINS, ALWAYS (ADR-340 Consequences; the human, 2026-10-30: the strokes were "jumpy"). The canvas default is
+       a miter join with miterLimit 10: a corner sharper than ~11.5° flips from a long spike to a flat bevel, so a trace
+       whose angle crosses that steepness visibly jumps. A round join has no such threshold. Set on every frame's kit, and
+       never set back to miter (a component that wants a sharp corner draws it, it does not change the join). */
+    g.lineJoin = 'round';
     return { g: g, W: w, H: h, V: V, P: P, sc: sc,
       c: function (k, a) { var q = P[k]; return 'rgba(' + q[0] + ',' + q[1] + ',' + q[2] + ',' + (a === undefined ? 1 : Math.min(1, a * sc.alpha)) + ')'; },
       mix: function (k1, k2, t, a) { var A = P[k1], B = P[k2]; return 'rgba(' + [0, 1, 2].map(function (i) { return Math.round(A[i] + (B[i] - A[i]) * t); }).join(',') + ',' + (a === undefined ? 1 : a) + ')'; },
@@ -924,7 +1104,7 @@
     g.lineJoin = 'round'; g.lineCap = 'round'; g.miterLimit = 2;
     function poly() { g.beginPath(); pts.forEach(function (p, j) { j ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); }); }
     /*TRACE*/ poly(); g.strokeStyle = K.c('value', .22); g.lineWidth = 6 * V; g.stroke(); poly(); g.strokeStyle = K.c('value'); g.lineWidth = 1.5 * V; g.stroke();
-    g.lineJoin = 'miter'; g.lineCap = 'butt';
+    g.lineJoin = 'round'; g.lineCap = 'butt';
     cv.__trace = { pts: pts.map(function (p) { return [p[0] / V, p[1] / V]; }), halfWidth: 3 };   // CSS px, for the painted-pixel check
     var corr = sxy / Math.sqrt(sxx * syy || 1), by = H - 8 * V;
     if (!opts.traceOnly) {
@@ -1115,9 +1295,13 @@
     var sl = el.querySelector('.hd-slider'), out = el.querySelector('output');
     function paint(fire) { var n = toN(v), W = sl.getBoundingClientRect().width || 120; sl.style.setProperty('--v', n); sl.style.setProperty('--f0', '0px'); sl.style.setProperty('--fw', Math.max(0, 6.5 + n * (W - 13) - 1.5) + 'px');
       out.textContent = o.fmt(v); sl.setAttribute('aria-valuetext', o.fmt(v)); if (fire && o.onInput) o.onInput(v); }
-    var x0 = 0, n0 = 0, drag = false;
-    sl.addEventListener('pointerdown', function (e) { sl.setPointerCapture(e.pointerId); drag = true; sl.classList.add('drag'); x0 = e.clientX; n0 = toN(v); });
-    sl.addEventListener('pointermove', function (e) { if (!drag) return; var W = sl.getBoundingClientRect().width - 13; v = fromN(clamp(n0 + (e.clientX - x0) / W * (e.shiftKey ? .25 : 1))); paint(true); });
+    var x0 = 0, n0 = 0, k0 = 1, drag = false;
+    sl.addEventListener('pointerdown', function (e) { try { sl.setPointerCapture(e.pointerId); } catch (_) { /* keep the drag */ } drag = true; sl.classList.add('drag'); x0 = e.clientX; n0 = toN(v); k0 = e.shiftKey ? .25 : 1; });
+    /* re-anchored at the stops and on a Shift change, as the house gesture (ADR-340 r2) */
+    sl.addEventListener('pointermove', function (e) { if (!drag) return; var W = sl.getBoundingClientRect().width - 13, k = e.shiftKey ? .25 : 1;
+      if (k !== k0) { n0 = toN(v); x0 = e.clientX; k0 = k; }
+      var raw = n0 + (e.clientX - x0) / W * k, n = clamp(raw); if (raw !== n) { n0 = n; x0 = e.clientX; }
+      v = fromN(n); paint(true); });
     var slEnd = function (e) { drag = false; sl.classList.remove('drag'); if (e && sl.hasPointerCapture(e.pointerId)) sl.releasePointerCapture(e.pointerId); };
     sl.addEventListener('pointerup', slEnd); sl.addEventListener('pointercancel', slEnd); sl.addEventListener('lostpointercapture', slEnd);
     sl.addEventListener('dblclick', function () { v = o.def === undefined ? o.value : o.def; paint(true); });
@@ -1125,7 +1309,88 @@
     paint(false); addEventListener('resize', function () { paint(false); });
     return { get: function () { return v; } };
   }
-  window.Horde.Glide = Glide; window.Horde.ScalePicker = ScalePicker; window.Horde.PlainSlider = PlainSlider;
+  /* ---------- STEPPER: the house stepper (ADR-338 r2's TC1 / TC2 steppers, gestures ADR-340 r5) ----------
+     The human, 2026-10-30: "Steppers need to be draggable, possibly even able to accept number input", then 2026-10-31:
+     "double clicking returns to home while option clicking allows you to type". So, on any stepper:
+       drag the value up / down   one step per 6 px (Shift: per 24 px), re-anchoring at the ends (no dead range)
+       click ‹ ›                   one step (the mouse route; the flat form has no arrows)
+       double-click anywhere       the default (home), as on a knob
+       Option-click                a number field in the same box: Enter or Tab commits, Escape cancels (it is the
+                                   innermost layer of the layered Escape, ADR-338 r11, so it never reaches the page), a click
+                                   away commits. Out of range clamps and says so; text that names no value is refused and
+                                   said. A named option takes its name or its first letters ("tri").
+       ↑ ↓ in keyboard mode        one step (Shift: ten); PgUp / PgDn ten; Home / End the ends; Enter or F2 the field
+     The value box is as wide as the widest value, so nothing reflows as it changes (H1, ADR-340 r4).
+     o: { name, path, options: [names] | { min, max, step }, value, def, fmt(v), onInput(v), say(msg), flat (TC2's table
+     form, K4), sm (the dense 20 px face), keys() (keyboard mode, default off) } */
+  function Stepper(el, o) {
+    var named = !!(o.options && o.options.length), min = named ? 0 : (o.min || 0), max = named ? o.options.length - 1 : (o.max === undefined ? 1 : o.max);
+    var step = named ? 1 : (o.step || 1), v = o.value === undefined ? min : o.value, def = o.def === undefined ? v : o.def;
+    var fmt = o.fmt || function (x) { return named ? o.options[x] : String(+x.toFixed(6)); }, say = o.say || function () {};
+    var keys = o.keys || function () { return false; };
+    function q(x) { return Math.min(max, Math.max(min, min + Math.round((x - min) / step) * step)); }
+    var CHL = '<svg viewBox="0 0 8 8" aria-hidden="true"><path d="M6 0v8L1 4z"/></svg>', CHR = '<svg viewBox="0 0 8 8" aria-hidden="true"><path d="M2 0v8l5-4z"/></svg>';
+    el.classList.add('hd-stepper', 'hd-step', 'hd-focus'); if (o.flat) el.classList.add('hd-step-flat'); if (o.sm) el.classList.add('hd-sm');
+    el.innerHTML = (o.flat ? '' : '<button type="button" class="st-dn" tabindex="-1" aria-label="previous">' + CHL + '</button>') + '<output></output>' +
+      (o.flat ? '' : '<button type="button" class="st-up" tabindex="-1" aria-label="next">' + CHR + '</button>');
+    el.setAttribute('role', 'spinbutton'); el.setAttribute('aria-label', o.path || o.name || 'stepper'); el.title = (o.path || o.name || '') + ' · drag, double-click: default, ⌥-click: type';
+    var out = el.querySelector('output'), wide = 0, n;
+    if (named) o.options.forEach(function (s) { wide = Math.max(wide, String(s).length); });
+    else for (n = min; n <= max + 1e-9 && wide < 12; n += Math.max(step, (max - min) / 64)) wide = Math.max(wide, fmt(q(n)).length);
+    out.style.minWidth = (wide + 1) + 'ch';
+    function set(x, quiet) { var nv = q(x); if (nv === v && quiet) return; v = nv; paint(); if (o.onInput) o.onInput(v); }
+    function paint() { out.textContent = fmt(v); el.setAttribute('aria-valuenow', v); el.setAttribute('aria-valuetext', fmt(v)); el.setAttribute('aria-valuemin', min); el.setAttribute('aria-valuemax', max); el.tabIndex = keys() ? 0 : -1; }
+    var b = el.querySelectorAll('button');
+    if (b.length) { b[0].addEventListener('click', function (e) { if (!e.altKey) set(v - step, true); }); b[1].addEventListener('click', function (e) { if (!e.altKey) set(v + step, true); }); }
+    var st = null, field = null;
+    el.addEventListener('pointerdown', function (e) {
+      if (e.button !== 0 || field || (e.target.closest && e.target.closest('button'))) return;
+      if (e.altKey) { e.preventDefault(); open(); return; }
+      try { el.setPointerCapture(e.pointerId); } catch (_) { /* keep the drag */ }
+      st = { y: e.clientY, v0: v, px: e.shiftKey ? 24 : 6 }; el.classList.add('drag');
+    });
+    el.addEventListener('pointermove', function (e) {
+      if (!st) return; var px = e.shiftKey ? 24 : 6;
+      if (px !== st.px) { st.y = e.clientY; st.v0 = v; st.px = px; }
+      var raw = st.v0 + Math.trunc((st.y - e.clientY) / px) * step;
+      if (raw > max || raw < min) { st.v0 = raw > max ? max : min; st.y = e.clientY; }   // re-anchor at the ends
+      set(raw, true);
+    });
+    function end(e) { if (e && e.pointerId !== undefined && el.hasPointerCapture && el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId); st = null; el.classList.remove('drag'); }
+    el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end); el.addEventListener('lostpointercapture', end);
+    el.addEventListener('dblclick', function (e) { if (field || e.altKey) return; e.preventDefault(); set(def, true); say((o.name || 'Value') + ': default, ' + fmt(v)); });
+    function open() {
+      if (field) return; field = document.createElement('input'); field.className = 'st-field'; field.type = 'text'; field.value = fmt(v);
+      field.setAttribute('aria-label', (o.path || o.name || 'value') + ', type a value'); field.style.width = out.style.minWidth;
+      out.replaceWith(field); field.focus(); field.select();
+      var done = false;
+      function close(commit) {
+        if (done) return; done = true;
+        if (commit) { var t = field.value.trim(), nv = null;
+          if (named) { var lt = t.toLowerCase(); for (var i = 0; i < o.options.length && nv === null; i++) if (String(o.options[i]).toLowerCase().indexOf(lt) === 0 && lt) nv = i; }
+          if (nv === null && t !== '' && isFinite(+t)) nv = named ? Math.round(+t) - 1 : +t;
+          if (nv === null) say('"' + t + '" names no value of ' + (o.name || 'this control') + ': unchanged');
+          else { if (nv > max || nv < min) say((o.name || 'Value') + ': ' + t + ' is out of range, set to ' + fmt(q(nv))); set(nv, false); } }
+        field.replaceWith(out); field = null; paint();
+      }
+      field.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === 'Tab') { close(true); if (e.key === 'Enter') e.preventDefault(); }
+        else if (e.key === 'Escape') { close(false); e.preventDefault(); e.stopPropagation(); }
+        e.stopPropagation();   // a typed digit is text here, never a map key
+      });
+      field.addEventListener('blur', function () { close(true); });
+    }
+    el.addEventListener('keydown', function (e) {
+      if (field || !keys()) return; var k = e.key, big = 10 * step;
+      if (k === 'ArrowUp' || k === 'ArrowRight') set(v + (e.shiftKey ? big : step), true); else if (k === 'ArrowDown' || k === 'ArrowLeft') set(v - (e.shiftKey ? big : step), true);
+      else if (k === 'PageUp') set(v + big, true); else if (k === 'PageDown') set(v - big, true); else if (k === 'Home') set(min, true); else if (k === 'End') set(max, true);
+      else if (k === 'Enter' || k === 'F2') open(); else return;
+      e.preventDefault();
+    });
+    paint();
+    return { get: function () { return v; }, set: function (x) { v = q(x); paint(); }, open: open, paint: paint };
+  }
+  window.Horde.Glide = Glide; window.Horde.ScalePicker = ScalePicker; window.Horde.PlainSlider = PlainSlider; window.Horde.Stepper = Stepper;
 })();
 /* ---------- THE MOD MATRIX FAMILY (B531, ADR-266 rulings 1-4) ----------
    The mod matrix lab's components on the house Session: the grid, the trace lanes, the compact wires,
@@ -1217,7 +1482,7 @@
       if (e.button !== 0) return;
       st = o.start(e); if (!st) return;
       st.x = e.clientX; st.y = e.clientY; st.moved = false; st.pid = e.pointerId;
-      if (target.setPointerCapture) target.setPointerCapture(e.pointerId);
+      try { target.setPointerCapture(e.pointerId); } catch (_) { /* keep the drag */ }
     });
     target.addEventListener('pointermove', function (e) {
       if (!st) return;
@@ -1677,7 +1942,7 @@
         g.beginPath(); for (i = 0; i < N; i++) { if (i) g.lineTo(X(i), Y(hs[i].o)); else g.moveTo(X(i), Y(hs[i].o)); } g.stroke(); g.setLineDash([]);
         function nowLine() { g.beginPath(); for (i = 0; i < N; i++) { if (i) g.lineTo(X(i), Y(hs[i].n)); else g.moveTo(X(i), Y(hs[i].n)); } }
         g.lineJoin = 'round'; nowLine(); g.strokeStyle = K.c('meter', .22); g.lineWidth = 5 * V; g.stroke();                 // the glow: a wider underlay
-        nowLine(); g.strokeStyle = K.c('meter'); g.lineWidth = 1.6 * V; g.stroke(); g.lineJoin = 'miter';
+        nowLine(); g.strokeStyle = K.c('meter'); g.lineWidth = 1.6 * V; g.stroke(); g.lineJoin = 'round';
         g.restore();
         g.fillStyle = K.c('marker'); for (i = 0; i < N; i++) if (hs[i].clip) g.fillRect(X(i) - V, top + pad + head - 3 * V, 2 * V, 2 * V);
         var c0 = S.ctlOf(k), lab = p.name + '  ' + p.fmt(hs[N - 1].n) + (c0 ? '  · CTL ' + S.src(c0.src).name : ''), sc = pct(clamp(p0)) + '–' + pct(clamp(p1));
@@ -1992,7 +2257,7 @@
       g.fillStyle = K.mix('ground', 'ground', 0, 1); g.fillRect((x - 3) * K.V, (y - sz) * K.V, (w + 6) * K.V, sz * 1.5 * K.V); K.text(s, x, y, role, align, px); };
     K.line = function (pts, role, a, lw, dash) { var g = K.g, V = K.V; g.strokeStyle = K.c(role, a); g.lineWidth = lw * V; g.setLineDash(dash ? dash.map(function (d) { return d * V; }) : []);
       g.beginPath(); for (var i = 0; i < pts.length; i++) i ? g.lineTo(pts[i][0] * V, pts[i][1] * V) : g.moveTo(pts[i][0] * V, pts[i][1] * V); g.stroke(); g.setLineDash([]); };
-    K.beam = function (pts, role, lw) { K.g.lineJoin = 'round'; K.g.lineCap = 'round'; K.line(pts, role, .22, (lw || 2) * 3.4); K.line(pts, role, 1, lw || 2); K.g.lineCap = 'butt'; K.g.lineJoin = 'miter'; };
+    K.beam = function (pts, role, lw) { K.g.lineJoin = 'round'; K.g.lineCap = 'round'; K.line(pts, role, .22, (lw || 2) * 3.4); K.line(pts, role, 1, lw || 2); K.g.lineCap = 'butt'; K.g.lineJoin = 'round'; };
     K.dot = function (x, y, r, role, a) { var g = K.g; g.fillStyle = K.c(role, a); g.beginPath(); g.arc(x * K.V, y * K.V, r * K.V, 0, TAU); g.fill(); };
     K.ring = function (x, y, r, role, lw, a) { var g = K.g; g.strokeStyle = K.c(role, a); g.lineWidth = (lw || 1.2) * K.V; g.beginPath(); g.arc(x * K.V, y * K.V, r * K.V, 0, TAU); g.stroke(); };
     K.cw = cv.clientWidth; K.ch = cv.clientHeight;
@@ -3054,7 +3319,7 @@
     function span() { return kind === 's' ? nOpts(p) - 1 : 1; }
     target.addEventListener('pointerdown', function (e) {
       if (e.button !== 0 || e.altKey) return;
-      target.setPointerCapture(e.pointerId); select(S, p.key, k);
+      try { target.setPointerCapture(e.pointerId); } catch (_) { /* keep the drag */ } select(S, p.key, k);
       st = { x: e.clientX, y: e.clientY, start: p.vals[k], moved: false, ok: S.writable(p, k) };
     });
     target.addEventListener('pointermove', function (e) {
@@ -3133,7 +3398,7 @@
       e.stopPropagation(); if (e.button !== 0) return;
       var p = row(), q = at(e), bd = boundaryUnder(p, q);
       if (!bd) { if (p && !picks(S, p)) S.say(noRegions(S, p) + ' Drag the puck to move where you listen.'); return; }
-      layer.setPointerCapture(e.pointerId);
+      try { layer.setPointerCapture(e.pointerId); } catch (_) { /* keep the drag */ }
       drag = { k: bd.k, m: bd.m, before: lockCopy(S, p), p: p, moved: false }; hot = bd;
     });
     layer.addEventListener('pointermove', function (e) {
@@ -3155,7 +3420,7 @@
     function paint() {
       var p = row(), r = padEl.getBoundingClientRect(), W = Math.max(2, Math.round(r.width * Math.min(devicePixelRatio || 1, 2))), Hh = Math.max(2, Math.round(r.height * Math.min(devicePixelRatio || 1, 2)));
       if (cv.width !== W || cv.height !== Hh) { cv.width = W; cv.height = Hh; }
-      var g = cv.getContext('2d'); g.clearRect(0, 0, W, Hh);
+      var g = cv.getContext('2d'); g.lineJoin = 'round'; g.clearRect(0, 0, W, Hh);
       padEl.classList.toggle('hm-painted', !!p);
       if (!p) { layer.setAttribute('aria-label', 'Morph pad: no row selected'); return; }
       var K = H.Viz.kit(cv), cw = W / M_GRID, ch = Hh / M_GRID, xx, yy, q, h = heardPad(S);
@@ -3323,7 +3588,7 @@
         h.setAttribute('aria-label', 'Cross-section line, ' + (end ? 'second' : 'first') + ' handle. Drag on the pad to aim the line; double-click resets to A to D');
         opts.pad.appendChild(h); hs.push(h);
         var st = null;
-        h.addEventListener('pointerdown', function (e) { e.stopPropagation(); if (e.button !== 0) return; h.setPointerCapture(e.pointerId); var q = line[end ? 'b' : 'a']; st = { x: e.clientX, y: e.clientY, q: q.slice() }; });
+        h.addEventListener('pointerdown', function (e) { e.stopPropagation(); if (e.button !== 0) return; try { h.setPointerCapture(e.pointerId); } catch (_) { /* keep the drag */ } var q = line[end ? 'b' : 'a']; st = { x: e.clientX, y: e.clientY, q: q.slice() }; });
         h.addEventListener('pointermove', function (e) { if (!st) return; var r = opts.pad.getBoundingClientRect(), k = e.shiftKey ? .25 : 1;
           line[end ? 'b' : 'a'] = [clamp(st.q[0] + (e.clientX - st.x) / r.width * k, HMIN, HMAX), clamp(st.q[1] + (e.clientY - st.y) / r.height * k, HMIN, HMAX)]; });
         function up(e) { if (e && e.pointerId !== undefined && h.hasPointerCapture(e.pointerId)) h.releasePointerCapture(e.pointerId); st = null; }
@@ -3380,7 +3645,7 @@
       g.lineJoin = 'round'; g.lineCap = 'round';
       var path = new Path2D(); pts.forEach(function (q, s) { var y = Y(q.v); if (s && stepwise && q.v !== pts[s - 1].v) path.lineTo(X(q.t), Y(pts[s - 1].v)); s ? path.lineTo(X(q.t), y) : path.moveTo(X(q.t), y); });
       g.strokeStyle = K.c('value', .22); g.lineWidth = 8 * V; g.stroke(path); g.strokeStyle = K.c('value'); g.lineWidth = 2.2 * V; g.stroke(path);
-      g.lineJoin = 'miter'; g.lineCap = 'butt';
+      g.lineJoin = 'round'; g.lineCap = 'butt';
       /* the puck, where it projects onto the line within 0.03 of it */
       var pp = proj(hp.x, hp.y), onLine = pp.d < .03 && pp.t >= 0 && pp.t <= 1;
       if (onLine) { g.strokeStyle = K.c('marker'); g.lineWidth = 1.2 * V; g.setLineDash([3 * V, 3 * V]); g.beginPath(); g.moveTo(X(pp.t), MT); g.lineTo(X(pp.t), Hh - MB); g.stroke(); g.setLineDash([]); }
@@ -3654,7 +3919,7 @@
         for (i = 0; i <= N; i++) { var t = i / N, r = hearAt(S, p, t, t); pts.push(r.how === 'ramp' ? r.ramp : norm(p, r.v)); }
         g.strokeStyle = K.c('physics', .22); g.lineWidth = 6 * V; g.lineJoin = 'round';
         function path() { g.beginPath(); pts.forEach(function (q, s) { var x = 4 * V + s / N * (W - 8 * V), y = Hh - 5 * V - q * (Hh - 10 * V); s ? g.lineTo(x, y) : g.moveTo(x, y); }); }
-        path(); g.stroke(); path(); g.strokeStyle = K.c('physics'); g.lineWidth = 1.8 * V; g.stroke(); g.lineJoin = 'miter';
+        path(); g.stroke(); path(); g.strokeStyle = K.c('physics'); g.lineWidth = 1.8 * V; g.stroke(); g.lineJoin = 'round';
         g.fillStyle = K.c('grid'); g.font = (8 * V) + 'px ' + (getComputedStyle(el).getPropertyValue('--font-mono') || 'monospace'); g.textBaseline = 'top';
         g.textAlign = 'left'; g.fillText('A', 4 * V, 3 * V); g.textAlign = 'right'; g.fillText('D', W - 4 * V, 3 * V);
         cv.setAttribute('aria-label', KIND_WORD[k] + ': ' + p.name + ' swept from corner A to corner D, from ' + heardText(p, hearAt(S, p, 0, 0)) + ' to ' + heardText(p, hearAt(S, p, 1, 1)));
@@ -3676,7 +3941,7 @@
       out.textContent = o.fmt(val); sl.setAttribute('aria-valuetext', o.fmt(val)); sl.setAttribute('aria-valuenow', String(val)); sl.setAttribute('aria-valuemin', String(lo)); sl.setAttribute('aria-valuemax', String(hi)); sl.tabIndex = S && !S.keys ? -1 : 0; }
     function set(x, fire) { val = clamp(x, lo, hi); paint(); if (fire && o.onInput) o.onInput(val); }
     function rec(before, label) { if (!S || before === val) return null; var a = val, e = { label: label || o.name + ' ' + o.fmt(before) + ' → ' + o.fmt(a), undo: function () { set(before, true); }, redo: function () { set(a, true); } }; record(S, e); return e; }
-    sl.addEventListener('pointerdown', function (e) { if (off || e.button !== 0) return; sl.setPointerCapture(e.pointerId); sl.classList.add('drag'); st = { x: e.clientX, y: e.clientY, n: toN(val), v0: val }; });
+    sl.addEventListener('pointerdown', function (e) { if (off || e.button !== 0) return; try { sl.setPointerCapture(e.pointerId); } catch (_) { /* keep the drag */ } sl.classList.add('drag'); st = { x: e.clientX, y: e.clientY, n: toN(val), v0: val }; });
     sl.addEventListener('pointermove', function (e) { if (!st) return; set(fromN(clamp(st.n + ((e.clientX - st.x) - (e.clientY - st.y)) / DRAG * (e.shiftKey ? .25 : 1))), true); });
     function end(e) { if (e && e.pointerId !== undefined && sl.hasPointerCapture(e.pointerId)) sl.releasePointerCapture(e.pointerId); sl.classList.remove('drag'); if (st) { var s0 = st; st = null; rec(s0.v0); } }
     sl.addEventListener('pointerup', end); sl.addEventListener('pointercancel', end); sl.addEventListener('lostpointercapture', end);
