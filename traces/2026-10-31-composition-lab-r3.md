@@ -48,3 +48,4 @@
   - hover: 316 controls hovered, 46,278 boxes compared, 0 moved; the control moved 12;
   - drag: 65,400 boxes compared, 0 moved;
   - joins: 1,255 stroked SVG marks, all round.
+- **The human's pick (2026-11-01):** "T4c-f circle, -tx ink, but I think I would like to see the circle smaller, like the one on the smallest knob". The -tx card is redrawn at T2d's pip size (hole r 2.1, rim r 1.65, 0.9 px) and tagged RULED · ADR-341 (pending); the fill card is unchanged. The -tx contrast is the same (light 4.9 / 4.9 / 5.0 / 4.9; dark 13.3 / 6.5 / 11.6 / 13.6). The self-check stays PASS 4 of 4 (25 of 25 mounted, 0 moved on hover or drag, 1,255 marks all round).

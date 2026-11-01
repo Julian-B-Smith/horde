@@ -668,8 +668,12 @@ function t4Face(svg, V, stroke) {
       const d = 'M10.4 ' + yy.toFixed(2) + 'L17.4 ' + (yy - 3.4).toFixed(2) + 'L17.4 ' + (yy + 3.4).toFixed(2) + 'Z';
       ms.hl.setAttribute('d', d); setA(ptr, { d, fill: 'none', stroke: sc, 'stroke-width': T4_HOLLOW_W });
     }
-    if (V === 'T4c-f') {   // centred on the frame's right edge, as T2d's pip sits on its arc: hole r 3, rim r 3 - w/2 (T2d's rule)
-      setA(ms.hl, { cx: 12.5, cy: yy, r: 3 }); setA(hring, { cy: yy, r: 3 - T4_HOLLOW_W / 2, stroke: sc });
+    if (V === 'T4c-f') {   // centred on the frame's right edge, as T2d's pip sits on its arc
+      /* the -tx stroke is the human's pick (2026-11-01, "like the one on the smallest knob"): T2d's pip exactly, hole r 2.1
+         (G2.hr), rim r 1.65 (hole - 0.45), 0.9 px. The fill-colour stroke keeps the first drawing (hole r 3, rim r 2.4,
+         1.2 px) for reference. */
+      const small = stroke === 'tx', hr = small ? G2.hr : 3, rw = small ? .9 : T4_HOLLOW_W;
+      setA(ms.hl, { cx: 12.5, cy: yy, r: hr }); setA(hring, { cy: yy, r: small ? hr - .45 : hr - rw / 2, stroke: sc, 'stroke-width': rw });
     }
   };
 }
@@ -708,7 +712,7 @@ function buildT4() {
     'T4c-c': ['Ink tick + the corner\'s glyph', 'The travelling mark is an <b>ink tick</b> (haloed, readable on any fill); the corner rides on it as its <b>shape-coded glyph</b> (A diamond, B triangle, C circle, D square: the house\'s pips, ADR-261 r1) in its colour with an ink edge. The corner reads by shape even where its colour does not (A, C and D on cream).', {}, 'fill'],
     'T4c-d': ['The frame in the corner\'s ink', 'The level\'s <b>frame</b> is drawn in the corner\'s legible ink (<code>--cX-tx</code>, the tokens made for lines and text) at 1.6 px, the way T2d\'s cap ring names the owner; the pointer becomes a plain <b>ink</b> triangle (shape only). The whole cell says who; the pointer says where.', {}, 'tx'],
     'T4c-e': ['Hollow triangle, stroked in the corner\'s colour', '<b>The human\'s request.</b> The triangle is <b>hollow</b>: its tip reaches 2 px into the level and the level is <b>cut away</b> inside it (a see-through mask, T2d\'s pip idea), so the background shows through; only a <b>1.2 px stroke</b> in the corner\'s colour draws it (7 × 6.8 px). Drawn with two strokes: the corner\'s <b>fill colour</b>, as asked, and its legible <b>-tx ink</b>.', { prop: true }, 'pair'],
-    'T4c-f': ['Hollow circle, as the tiny knob\'s pip', '<b>The human\'s request, to match T2d.</b> A <b>hollow circle</b> centred on the level\'s right edge, cutting the frame and the level (see-through, r 3 px), rimmed by a <b>1.2 px stroke</b> at r 2.4: T2d\'s hollow pip at the 16 px cell\'s size. Drawn with two strokes: the <b>fill colour</b>, as asked, and the <b>-tx ink</b>, which is what T2d\'s pip is rimmed in.', { prop: true }, 'pair']
+    'T4c-f': ['Hollow circle, as the tiny knob\'s pip', '<b>The human\'s request, to match T2d.</b> A <b>hollow circle</b> centred on the level\'s right edge, cutting the frame and the level (see-through, r 3 px), rimmed by a <b>1.2 px stroke</b> at r 2.4 in the <b>fill colour</b>, as first asked. <b>The human\'s pick</b> (2026-11-01) is the <b>-tx ink</b> card below it, redrawn at <b>T2d\'s pip size exactly</b> (hole r 2.1, rim r 1.65, 0.9 px), the ink T2d\'s pip is rimmed in.', { prop: true }, 'pair']
   };
   const schemes = [['sch-light', 'Light · ORCHID'], ['sch-dark', 'Dark · TUBE']];
   const CT = [];   // contrast readouts to fill once the scopes are in the document
@@ -727,7 +731,8 @@ function buildT4() {
         box.append(cg); sch.append(box);
       });
       const live = h('div', { class: 'row' }, ['osc1.detune', 'osc1.width', 'osc1.blade1.cut', 'osc1.fine', 'osc1.coupling', 'osc1.pan'].map(k => tinyT4(k, V, st[0])));
-      if (st[1]) card.append(h('h3', { text: st[1] }));
+      const picked = V === 'T4c-f' && st[0] === 'tx';   // the human's pick: tagged as the ruled reference is
+      if (st[1]) card.append(h('div', { class: 'vhead' }, h('h3', { text: picked ? 'stroke: the corner\'s legible ink (--cX-tx), at T2d\'s pip size: hole r 2.1, rim r 1.65, 0.9 px' : st[1] }), picked ? tag('ruled', 'RULED · ADR-341 (pending)') : null));
       card.append(sch, h('div', { class: 'lbl', text: 'live, on this page\'s scheme (drag; ⌥drag scales the focused mapping)' }), live);
     });
     g.append(card); mounted(V);
@@ -1480,6 +1485,7 @@ const POLL = [
     'W-a: the ◇ valve is ML0\'s existing glyph, so the depth route reads the same in both views; targets appear only while dragging, so the resting view stays quiet.'],
   ['BR', 'The macro rows against a wheel', 'How should the bank\'s Macros rows show the pitch bend and the mod wheel?', ['BR-a', 'BR-b', 'BR-c'], 'BR-b',
     'BR-b: the trace makes the spring visible and the centre notch says where home is, without reordering the ruled list; BR-c\'s lamp is worth keeping if two inputs on one row turn out to confuse.']];
+const POLL_ANSWERED = { T4c: 'T4c: T4c-f, -tx ink, at T2d\'s pip size (the human, 2026-11-01)' };
 function buildPoll() {
   const sec = $('POLL');
   sec.append(h('h2', { text: 'Poll · one answer per group' }), h('p', { class: 'prose', html: 'Pick one per group (the lab\'s recommendation is marked); the line under the poll is the answer to send back. Your picks become an ADR; the master takes them first, then the bundle, then the shell (ADR-316, ADR-336). <b>FX device (ADR-254):</b> every one of these holds on its pages; whether its bank has a Macros segment is B591\'s question.' }));
@@ -1492,6 +1498,7 @@ function buildPoll() {
       inp.addEventListener('change', () => { pick[q[0]] = id; upd(); });
       fs.append(h('label', {}, inp, h('b', {}, h('a', { href: '#v-' + base, text: id })), h('span', {}, (v ? v.name : id) + (sk ? (sk === 'tx' ? ', stroke in the -tx ink' : ', stroke in the fill colour') : ''), id === q[4] ? h('span', { class: 'rec', text: ' · recommended' }) : null))); });
     fs.append(h('p', { class: 'note', style: 'margin-top:4px', text: 'Why: ' + q[5] }));
+    if (POLL_ANSWERED[q[0]]) { fs.append(h('p', { class: 'answer', style: 'margin-top:4px', text: POLL_ANSWERED[q[0]] })); const r = fs.querySelector('input[value="T4c-f tx"]'); if (r) { r.checked = true; pick[q[0]] = 'T4c-f tx'; } }
     box.append(fs);
   });
   sec.append(box, h('div', { class: 'lbl', text: 'your answer' }), ans); upd();
