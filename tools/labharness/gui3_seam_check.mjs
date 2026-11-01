@@ -74,6 +74,9 @@
  *                (H.ModBank, H.UndoLine, H.ModPage, MapControl chip), and removes through the adapter
  *   sections     ADR-335 ruling 4: every section of every page is described (a DRAFT with its source) or says it has no
  *                description yet and is counted; the box never shows another section's text or an invented one
+ *   infolock     ADR-345, structural: the foot row is F1's, the box is the bundle's InfoBox, a press is heard in capture and locks on a control and
+ *                a section and releases otherwise, a hover can't reach a locked box and stays put on the box, the sidebar is one switch outside
+ *                the patch and defaults off. The shell's self-checks drive all of it in the browser, each with a control
  *   infofixed    ADR-335 ruling 4 (B582), structural: the info box is one fixed size, in the foot row left of the bank, and its
  *                text scrolls inside it; the browser's own self-check measures a hover moving nothing
  *   mapbar       ADR-335 ruling 3, structural: the MAP control does not shrink (the browser's self-check measures the names)
@@ -706,6 +709,20 @@ function suite(W) {
     ok(t.indexOf('id="footrow"') > t.indexOf('<main id="pages">'), 'the foot row is not below the page area');
   };
 
+  /* ADR-345, structural: the browser's self-checks (41 to 44 in the shell) drive these; this holds their wiring where no browser runs. */
+  T.infolock = () => {
+    const t = W.__shellText;
+    ok(/\.footrow \{ --foot-h: 120px; --info-w: 300px;/.test(t), 'the foot row is not F1 (ADR-345 r1)');
+    ok(t.includes("H.InfoBox($('info'), S,"), 'the info box is not the bundle\u2019s InfoBox (ADR-316)');
+    const press = /\$\('win'\)\.addEventListener\('pointerdown', e => \{([\s\S]*?)\n\}, true\);/.exec(t);
+    ok(press, 'no capture-phase press handler on the window: a control that stops the event would hide its selection');
+    if (press) { ok(press[1].includes('lockInfoKey(t.dataset.key)'), 'a press on a control does not lock (ADR-345 r2)'); ok(press[1].includes('infoBox.lock(c)'), 'a press on a section does not lock'); ok(/infoBox\.release\(\);\s*$/.test(press[1]), 'a press elsewhere does not release'); }
+    ok(t.includes("e.target.closest('#info')) return;   // the foot-row lab"), 'moving onto the box clears it, so it can never be scrolled (the foot-row lab\u2019s finding)');
+    ok(/localStorage\.setItem\(SIDEBAR_KEY/.test(t) && /saved === '1'\) setSidebar\(true\)/.test(t), 'the sidebar toggle is not a remembered per-viewer choice (ADR-345 r4)');
+    ok(!/setParam\([^)]*SIDEBAR/.test(t), 'the sidebar reached the engine');
+    const bundle = W.Horde && W.Horde.InfoBox; ok(typeof bundle === 'function', 'the vendored bundle has no InfoBox');
+  };
+
   /* ADR-335 ruling 3, structural: the control is as wide as its parts; the strip beside it scrolls instead. */
   T.mapbar = () => {
     const t = W.__shellText;
@@ -966,6 +983,13 @@ const PLANTS = [
   ['shellparts', 'shell', 'dev.removeModulator(m.id)', 'dev.clearRoutes(m.id)'],
   ['sections', 'logic', "text: 'No section description yet.'", "text: 'Shapes the sound of this part of the instrument.'"],
   ['sections', 'logic', "tag: 'SECTION · DRAFT'", "tag: 'SECTION'"],
+  ['infolock', 'shell', '.footrow { --foot-h: 120px;', '.footrow { --foot-h: 216px;'],
+  ['infolock', 'shell', "const infoBox = H.InfoBox($('info'), S,", "const infoBox = H.InfoBoxX($('info'), S,"],
+  ['infolock', 'shell', "const t = hostOf(e.target); if (t) { lockInfoKey(t.dataset.key); return; }", "const t = hostOf(e.target); if (t) { return; }"],
+  ['infolock', 'shell', "if (c) { lockedKey = null; infoBox.lock(c); return; }\n  infoBox.release();", "if (c) { lockedKey = null; return; }\n  infoBox.release();"],
+  ['infolock', 'shell', "  infoBox.release();\n}, true);", "}, true);"],
+  ['infolock', 'shell', "e.target.closest('#info')) return;   // the foot-row lab", "e.target.closest('#nothing')) return;   // the foot-row lab"],
+  ['infolock', 'shell', "saved === '1') setSidebar(true)", "saved === '2') setSidebar(true)"],
   ['infofixed', 'shell', 'height: var(--foot-h); min-width: 0; }', 'min-width: 0; }'],
   ['infofixed', 'shell', '.info .face { flex: 1 1 auto; min-height: 0; overflow-y: auto;', '.info .face { flex: 1 1 auto; min-height: 0; overflow-y: visible;'],
   ['infofixed', 'shell', '.info { width: var(--info-w); flex: 0 0 var(--info-w); height: 100%;', '.info { width: var(--info-w); flex: 0 0 var(--info-w); height: auto;'],

@@ -451,7 +451,7 @@ window.GUI3_DATA = {
     "asked": "the modulators each need visuals, and their controls should be quite a bit more compact",
     "id": "composition-tier",
     "item": "The tiny tier and the composition rules (T2, TC1/TC2, TS1/TS2, C1 + C2, P1, the abbr column)",
-    "missing": "The level cell (T4c-f; the master gives it no placement), TS1a (no place yet), the blades as one C2 (needs a ruling), and the window: the pages fit the ruled 472 px but the info box keeps the foot row at 216 px (ADR-335 r4), so the shell gives them 372 px and they scroll up to 95 px (open, B589). The abbreviations are for the human to review.",
+    "missing": "The level cell (T4c-f; the master gives it no placement), TS1a (no place yet), the blades as one C2 (needs a ruling), The abbreviations are for the human to review.",
     "reason": "ds-component",
     "roadmap": "B589",
     "source": [

@@ -59,6 +59,16 @@
   .body.with-dock { grid-template-columns: 204px minmax(0, 1fr); }
   .body.with-insp { grid-template-columns: minmax(0, 1fr) 214px; }
   .body.with-dock.with-insp { grid-template-columns: 204px minmax(0, 1fr) 214px; }
+  /* ADR-345 r4, the info sidebar: the box takes the rail, under the pad while the pad shows, and the bank the whole foot. `contents` keeps the
+     rail out of the grid until then, so the pad's own column (204 px) is unchanged with the sidebar off. */
+  .rail { display: contents; }
+  .body.with-side { grid-template-columns: 224px minmax(0, 1fr); }
+  .body.with-side.with-insp { grid-template-columns: 224px minmax(0, 1fr) 214px; }
+  .body.with-side .rail { display: flex; flex-direction: column; gap: var(--space-stack); min-width: 0; min-height: 0; }
+  .rail .dock { flex: 0 0 auto; }
+  .rail .info { flex: 1 1 auto; width: auto; height: auto; min-height: 0; }
+  .pagecol.side-on .footrow { --foot-h: 92px; }
+  .pagecol.side-on.bank-off .footrow { display: none; }
   .insp-dock { width: auto; min-height: 0; overflow-y: auto; }
   .insp-dock[hidden] { display: none; }
   .insp-dock .hd-insp { max-width: none; flex: 1 1 auto; }
@@ -140,7 +150,7 @@
   .ledger-item { color: var(--ink); font-weight: 600; }
   /* The bank (ADR-338 r7): the bundle's ModBank, 68 px, at the foot of the column; the removal line (M-R2) sits above it, and the
      room between them is where a row's compact card opens (it opens ABOVE the bank, over this room and, if it is taller, the page
-     area). The info box ruling (ADR-335 r4) keeps the foot row one fixed height, so the bank does not hand its height back. */
+     area). The info box (ADR-335 r4) keeps the foot row one fixed height, so the bank does not hand its height back (ADR-345 r1: 120 px). */
   #bank { width: auto; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; min-width: 0; }
   #bank[hidden] { display: none; }
   .page { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
@@ -154,11 +164,11 @@
   .cards > .hd-card.wide { flex-basis: 100%; }
   .hd-card .face { gap: 4px 6px; align-items: flex-start; justify-content: flex-start; padding: 6px 7px 8px; }
   .ctl { min-width: 0; }
-  /* ADR-335 ruling 4 (B582), "a static square-ish box that stays one size to the left of the modulators box at the bottom": the
+  /* ADR-335 ruling 4 (B582) with ADR-345 r1 (F1, 300 x 120, so the six fixable pages fit: docs/design/foot-row-lab.html): the
      foot row is one height on every page, the info box one size in one place, and what it says scrolls inside it, so hovering
      never moves or resizes anything. The bank takes the rest of the row, scrolling inside itself. Hiding the bank leaves the row
      and the box where they are: the page area does not grow back (open question for the human, README). */
-  .footrow { --foot-h: 216px; --info-w: 224px; display: flex; gap: var(--space-stack); flex: 0 0 auto; height: var(--foot-h); min-width: 0; }
+  .footrow { --foot-h: 120px; --info-w: 300px; display: flex; gap: var(--space-stack); flex: 0 0 auto; height: var(--foot-h); min-width: 0; }
   .info { width: var(--info-w); flex: 0 0 var(--info-w); height: 100%; display: flex; flex-direction: column; }
   .info .head { flex: 0 0 auto; min-width: 0; }
   .info .head .hd-cluster { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -195,7 +205,7 @@
   <div class="tagline"><span class="hd-note">GUI 3 (B584, eight slices so far): <b>one wired shell</b> under a two-level page bar (B589) and the <b>MAP control</b> with its live source strip (the Map Mode spec with MD1, ADR-340 r7: turn MAP on, pick a source, click a knob to map it at 25 %, ⌥-drag to set the depth; a plain drag still moves the value), a port ledger of what has not moved over (B593), dense oscillator pages after the SCALPEL bench, an Osc dashboard and a mixing console, every parameter that has a machine-readable manifest (SPEC-ENGINE section 5, the morph's settings, the hosted FX modules', Arp's)
     reachable on a page, and <b>no audio</b>: a stub engine keeps the values behind the engine's interface. The <b>Sub</b> and <b>Noise</b> pages are
     designed; the others are drafts or hold no engine parameters, and say why. Try: turn <b>Morph</b> on (the pad docks on every page; <b>Pad</b>
-    hides it), press <b>Scatter corners</b> below and drag the puck, hover any control, or a section's header, to read it in the fixed info box left of the bank (a section's text is a draft), right-click one for the manual. The <b>bank</b> at the foot of every page lists the modulators routed to it: press + to activate one and drag its Map handle onto a control. The <b>Morph</b> page chooses the corner you hear with morph off and saves snapshots and presets to corners (ADR-319).</span></div>
+    hides it), press <b>Scatter corners</b> below and drag the puck, hover any control, or a section's header, to read it in the fixed info box left of the bank (a section's text is a draft); press one to lock the box and scroll it (Escape or a press elsewhere releases), right-click one for the manual. The <b>bank</b> at the foot of every page lists the modulators routed to it: press + to activate one and drag its Map handle onto a control. The <b>Morph</b> page chooses the corner you hear with morph off and saves snapshots and presets to corners (ADR-319).</span></div>
   <p class="hd-msg" id="status" role="status">Loading the shell.</p>
 
   <div class="hd-window" id="win" aria-label="horde window (no audio engine)">
@@ -216,17 +226,16 @@
       <div id="srcStrip" class="grow"></div>
     </div>
     <div class="body" id="bodyGrid">
+      <div class="rail" id="rail">
       <aside class="hd-card dock" id="dock" aria-label="Morph pad, docked" hidden>
         <div class="head"><span class="hd-cluster">Morph</span><span class="tag">DOCKED</span></div>
         <div class="face"><div id="padHost"></div><div id="cornersHost"></div></div>
       </aside>
+      </div>
       <div class="pagecol" id="pagecol">
         <main id="pages"></main>
         <div class="footrow" id="footrow">
-          <section class="hd-card info" id="info" aria-label="Info box" aria-live="polite">
-            <div class="head"><span class="hd-cluster" id="infoName">Info</span></div>
-            <div class="face"><span class="tag" id="infoTag">HOVER</span><span class="hd-hint" id="infoKey"></span><span class="hd-value" id="infoText">Hover a control, or a section's header, to read what it does.</span><span class="hd-hint" id="infoMeta"></span><span class="hd-note" id="infoLive"></span></div>
-          </section>
+          <section class="hd-card info" id="info" aria-label="Info box" aria-live="polite"></section>
           <section id="bank" aria-label="Modulator bank">
             <div id="undoLine"></div>
             <div id="bankHost"></div>
@@ -1152,41 +1161,73 @@ function hostOf(t) { return t && t.closest ? t.closest('#pages [data-key], #bank
 function sectionHostOf(t) { return t && t.closest ? t.closest('#pages [data-section]') : null; }
 const SECTION_AT = Object.create(null);
 DATA.pages.forEach(pg => pg.groups.forEach(g => { SECTION_AT[g.id] = { page: pg, group: g }; }));
-const IDLE = 'Hover a control, or a section\u2019s header, to read what it does.';
-function showSection(id) {
-  hovered = null; hoveredSec = id;
-  const i = SH.sectionInfo(DATA.sections, id, x => SECTION_AT[x]);
-  if (!i) { showInfo(null); return; }
-  $('infoName').textContent = i.name; $('infoTag').textContent = i.tag; $('infoKey').textContent = ''; $('infoText').textContent = i.text; $('infoMeta').textContent = i.meta; $('infoLive').textContent = '';
-}
-function showInfo(key) {
-  hovered = key; hoveredSec = null;
-  if (!key) { $('infoName').textContent = 'Info'; $('infoTag').textContent = 'HOVER'; $('infoKey').textContent = ''; $('infoText').textContent = IDLE; $('infoMeta').textContent = ''; $('infoLive').textContent = ''; return; }
+const IDLE = 'Hover a control, or a section’s header, to read what it does. Press one to lock the box here, so you can scroll.';
+// ADR-345: the bundle's InfoBox holds the lock and the auto-scroll; the shell says what it shows and what counts as a selection. The parts keep the ids
+// the self-checks read. Locks stay off (infoLocks) until the self-checks are done, because they press and select controls for their own reasons.
+let lockedKey = null, infoLocks = false, selSeen = null;
+const infoBox = H.InfoBox($('info'), S, { idle: { name: 'Info', tag: 'HOVER', text: IDLE }, keys: () => S.keys,
+  onRelease() { lockedKey = null; if (hoveredSec) showSection(hoveredSec); else showInfo(hovered); } });
+[['name', 'infoName'], ['tag', 'infoTag'], ['key', 'infoKey'], ['text', 'infoText'], ['meta', 'infoMeta'], ['live', 'infoLive']].forEach(([part, id]) => { infoBox.parts[part].id = id; });
+function sectionContent(id) { const i = SH.sectionInfo(DATA.sections, id, x => SECTION_AT[x]); return i && { name: i.name, tag: i.tag, text: i.text, meta: i.meta }; }
+function keyContent(key) {
   const r = ROW[key], see = r.see && ROW[r.see];
   // The description comes from the row's own source: the spec's text for the engine's and the morph's rows, the
   // manifest's for a module that gives one (Arp's notes), and an honest "none" for a manifest that gives none.
-  $('infoName').textContent = r.label; $('infoKey').textContent = r.key;
-  $('infoTag').textContent = r.desc_source === 'spec' ? 'SPEC TEXT · NO DESC YET' : r.desc_source === 'manifest' ? 'FROM ' + r.source.toUpperCase() + '\u2019S MANIFEST' : 'NO DESCRIPTION';
-  $('infoText').textContent = r.desc_source === 'none' ? 'No description in the module\u2019s manifest (' + r.source + ').'
-    : (r.spec || '(the spec row says nothing here)') + (see && see.spec ? ' ' + see.label + ': ' + see.spec : '');
   const TO = { engine: 'to the engine', resolver: 'to the morph resolver (IF-12)', rack: 'to the rack (RC-5)', midi: 'to the MIDI module' };
-  $('infoMeta').textContent = CLASS_NAME[r.class] + ' · ' + r.law + (r.law_declared === false ? ' (no law in the manifest: shown linearly)' : '') + ' · ' + r.range_text + (r.unit ? ' ' + r.unit : '') +
-    ' · default ' + r.default_text + ' · now ' + ENG.display(r, dev.shown(r.key)) + ' · ' + r.source + (r.target === 'engine' ? ' ' + r.section : '') + ' · ' + TO[r.target] +
-    (r.host === false ? ' · a page choice, not a host parameter' : '') + (r.label_declared === false ? ' · no label in the manifest: the key is shown' : '');
   const host = document.querySelector('#page-' + page + ' [data-key="' + CSS.escape(key) + '"]'), ctl = host && ctlOf(page, key);
-  $('infoLive').textContent = ctl && ctl.live && !live(ctl.live) ? 'Inert now (PA-8): live when ' + says(ctl.live) + '.' : '';
+  return { name: r.label, key: r.key,
+    tag: r.desc_source === 'spec' ? 'SPEC TEXT · NO DESC YET' : r.desc_source === 'manifest' ? 'FROM ' + r.source.toUpperCase() + '’S MANIFEST' : 'NO DESCRIPTION',
+    text: r.desc_source === 'none' ? 'No description in the module’s manifest (' + r.source + ').' : (r.spec || '(the spec row says nothing here)') + (see && see.spec ? ' ' + see.label + ': ' + see.spec : ''),
+    meta: CLASS_NAME[r.class] + ' · ' + r.law + (r.law_declared === false ? ' (no law in the manifest: shown linearly)' : '') + ' · ' + r.range_text + (r.unit ? ' ' + r.unit : '') +
+      ' · default ' + r.default_text + ' · now ' + ENG.display(r, dev.shown(r.key)) + ' · ' + r.source + (r.target === 'engine' ? ' ' + r.section : '') + ' · ' + TO[r.target] +
+      (r.host === false ? ' · a page choice, not a host parameter' : '') + (r.label_declared === false ? ' · no label in the manifest: the key is shown' : ''),
+    live: ctl && ctl.live && !live(ctl.live) ? 'Inert now (PA-8): live when ' + says(ctl.live) + '.' : '' };
 }
+function showSection(id) {
+  hovered = null; hoveredSec = id;
+  const c = sectionContent(id);
+  if (!c) { showInfo(null); return; }
+  infoBox.show(c);
+}
+function showInfo(key) { hovered = key; hoveredSec = null; infoBox.show(key ? keyContent(key) : null); }
+function lockInfoKey(key) { lockedKey = key; infoBox.lock(keyContent(key)); }
 const CTL = Object.create(null);
 DATA.pages.forEach(pg => pg.groups.forEach(g => g.controls.forEach(c => { CTL[pg.id + '|' + c.key] = c; })));
 const ctlOf = (pid, key) => CTL[pid + '|' + key];
 $('win').addEventListener('pointerover', e => {
+  if (e.target.closest && e.target.closest('#info')) return;   // the foot-row lab's finding: leaving the text here is what lets the pointer scroll it
   const t = hostOf(e.target), k = t ? t.dataset.key : null;
   if (k) { if (k !== hovered) showInfo(k); return; }
   const sh = sectionHostOf(e.target), id = sh ? sh.dataset.section : null;
   if (id) { if (id !== hoveredSec) showSection(id); } else if (hovered || hoveredSec) showInfo(null);
 });
 $('win').addEventListener('focusin', e => { const t = hostOf(e.target); if (t) showInfo(t.dataset.key); });
-views.push({ page: '*', update() { if (hovered) $('infoMeta').textContent = $('infoMeta').textContent.replace(/now .*? · SPEC/, 'now ' + ENG.display(ROW[hovered], dev.shown(hovered)) + ' · SPEC'); } });
+// ADR-345 r2: any selection locks, a drag's press included, and a press on anything else releases. Capture, so a control that stops the event can't hide it.
+$('win').addEventListener('pointerdown', e => {
+  if (!infoLocks || e.button !== 0 || (e.target.closest && e.target.closest('#info'))) return;
+  const t = hostOf(e.target); if (t) { lockInfoKey(t.dataset.key); return; }
+  const sh = sectionHostOf(e.target), c = sh && sectionContent(sh.dataset.section);
+  if (c) { lockedKey = null; infoBox.lock(c); return; }
+  infoBox.release();
+}, true);
+views.push({ page: '*', update() {
+  // a selection made some other way (a row in the mappings panel, a map drop) locks too
+  if (infoLocks && S.selected !== selSeen) { selSeen = S.selected; if (selSeen && ROW[selSeen] && selSeen !== lockedKey) lockInfoKey(selSeen); }
+  const k = infoBox.locked() ? lockedKey : hovered;
+  if (k) $('infoMeta').textContent = $('infoMeta').textContent.replace(/now .*? · SPEC/, 'now ' + ENG.display(ROW[k], dev.shown(k)) + ' · SPEC');
+} });
+// ADR-345 r4: the info sidebar, a per-viewer preference and not a host parameter. Storage can throw (a private window), and the shell works without it.
+const SIDEBAR_KEY = 'hd.info.sidebar';
+const sidebarBtn = h('button', { class: 'hd-toggle hd-focus', id: 'sidebarOn', type: 'button', role: 'switch', 'aria-checked': 'false', 'aria-label': 'Info sidebar' });
+function setSidebar(on) {
+  if (on) $('rail').append($('info')); else $('footrow').prepend($('info'));
+  $('bodyGrid').classList.toggle('with-side', on); $('pagecol').classList.toggle('side-on', on); sidebarBtn.setAttribute('aria-checked', String(on));
+}
+sidebarBtn.addEventListener('click', () => { const on = sidebarBtn.getAttribute('aria-checked') !== 'true'; setSidebar(on); try { localStorage.setItem(SIDEBAR_KEY, on ? '1' : '0'); } catch (_) { /* not remembered */ } });
+pageEls.settings.append(h('section', { class: 'hd-card', 'aria-label': 'Interface' },
+  h('div', { class: 'head' }, h('span', { class: 'hd-cluster', text: 'Interface' })),
+  h('div', { class: 'face' }, h('label', { class: 'hd-row hd-label' }, h('span', { text: 'Info sidebar' }), sidebarBtn),
+    h('span', { class: 'hd-hint', text: 'A full-height column on the left instead of the box at the foot. Pages get narrower, and the morph pad shares the column.' }))));
 
 function closeMenu() { if (menu) { menu.remove(); menu = null; } }
 function openMenu(key, x, y) {
@@ -1806,18 +1847,16 @@ S.start();
       const corners = lensEl.querySelectorAll('.lz-corners .lz-ln').length;
       ctlHost(pageEls.osc1, k).dispatchEvent(new MouseEvent('pointerleave')); tick();
       line(hot === r.label && before !== r.label && corners === 4 && !!lensEl.querySelector('.mk-face'), 'Lens: hovering ' + r.label + ' put it in Osc 1’s lens (its full knob and four corner values); before the hover the lens showed ' + before + ' (control: not this control).'); }
-    // 38. ADR-338 r5, ADR-338 r7: the dense pages fit the RULED page area, the folds holding the rest. The ruled area is the 472 px the bank's 68 px row
-    // leaves (r7), but the foot row is 216 px because the fixed info box sits in it (ADR-335 r4), so the shell's real area is smaller and these
-    // pages scroll there: an open conflict between the two rulings, put to the human (B589). The line prints both numbers so it never reads as a
-    // fit in the real window. Each fold at +Adv must overflow Osc 1 (the control), so the fold is what holds it.
-    { const area = $('pages').clientHeight, limit = Math.max(area, 472), over = [], size = {};
+    // 38. ADR-338 r5, ADR-345 r1: the dense pages fit the page area the window really gives (the foot row is 120 px), the folds holding the rest.
+    // Each fold at +Adv must overflow Osc 1 (the control), so the fold is what holds it.
+    { const limit = $('pages').clientHeight, over = [], size = {};
       const bodyH = pid => { selectPage(pid); const a = $('pages'), was2 = [a.style.overflow, a.style.flex, a.style.height]; a.style.overflow = 'visible'; a.style.flex = 'none'; a.style.height = 'auto';
         const hgt = a.scrollHeight; [a.style.overflow, a.style.flex, a.style.height] = was2; return hgt; };
       ['main', 'osc1', 'osc2', 'sub', 'noise'].forEach(id => { size[id] = bodyH(id); if (size[id] > limit) over.push(id + ' ' + size[id]); });
       const folds = [...pageEls.osc1.querySelectorAll('.hd-fold')], tiers = folds.map(f => f.querySelector('.fd-head [role=radio][aria-checked=true]')), pillsOf = f => [...f.querySelectorAll('.fd-head [role=radio]')];
       pillsOf(folds[0]).slice(-1)[0].click(); folds.slice(1).forEach(f => pillsOf(f).slice(-1)[0].click()); const opened = bodyH('osc1');
       folds.forEach((f, i) => pillsOf(f).find(b => b.textContent === tiers[i].textContent).click()); selectPage('osc1');
-      line(!over.length && opened > limit && folds.length === 3, 'Fit: main ' + size.main + ', Osc 1 ' + size.osc1 + ', Osc 2 ' + size.osc2 + ', Sub ' + size.sub + ' and Noise ' + size.noise + ' px fit ' + limit + ' px' + (area < 472 ? ' (the RULED area, r7; the shell gives them ' + area + ' px, because the info box keeps the foot row at 216 px (ADR-335 r4), so they scroll ' + Math.max(0, ...Object.values(size).map(s => s - area)) + ' px at most: open, B589)' : '') + (over.length ? ' (OVER: ' + over.join(', ') + ')' : '') + '; Osc 1 with its three folds at +Adv is ' + opened + ' px, so the folds hold the rest (control).'); }
+      line(!over.length && opened > limit && folds.length === 3, 'Fit: main ' + size.main + ', Osc 1 ' + size.osc1 + ', Osc 2 ' + size.osc2 + ', Sub ' + size.sub + ' and Noise ' + size.noise + ' px fit the page area of ' + limit + ' px (ADR-345 r1)' + (over.length ? ' (OVER: ' + over.join(', ') + ')' : '') + '; Osc 1 with its three folds at +Adv is ' + opened + ' px, so the folds hold the rest (control).'); }
     // 39. ADR-341 r2 (DR-c): the section header’s readout slot is two stacked lines in a fixed box and nothing here resizes it: hovering a tiny knob fills both
     // lines (the editing corner’s own value, then “now”) and the box is the same size at rest and hot. Control: at rest it shows the summary and not the lines.
     { selectPage('sub'); const sec = pageEls.sub.querySelector('[data-section="sub/colour"]'), slot = sec.querySelector('.hd-rslot'), box = () => { const b = slot.getBoundingClientRect(); return [Math.round(b.width), Math.round(b.height)].join('x'); };
@@ -1839,6 +1878,48 @@ S.start();
       line(kept && first && /^Osc 1 · Osc 1 · /.test(reg0.path), 'One parameter, many faces: a new face of ' + ROW[k].label + ' left its registered props (the owner page’s: “' + reg0.path + '”) and its revert baseline as they were with the live value moved off it (control: a parameter nothing had registered is registered by its first face).'); }
     Object.entries(was).forEach(([id, v]) => PAGEVIEW[id].pv.view(v)); selectPage(pg0);
   }
+  // 41 to 44. ADR-345. Last among the checks because they turn the locks on. A press here is stopped at the control, so it locks the box without starting a gesture.
+  { const pg0 = page, sel0 = S.selected, over = el => el.dispatchEvent(new MouseEvent('pointerover', { bubbles: true }));
+    const press = el => { el.addEventListener('pointerdown', e => e.stopImmediatePropagation(), { capture: true, once: true }); el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 })); };
+    const name = () => $('infoName').textContent, star = () => { for (const v of views) if (v.page === '*') v.update(); };
+    selectPage('osc1'); infoLocks = true; selSeen = S.selected;
+    const ctls = [...pageEls.osc1.querySelectorAll('[data-key]')].filter(e => !e.closest('.hd-pt')), a = ctls[0], b = ctls.find(e => ROW[e.dataset.key].label !== ROW[a.dataset.key].label);
+    const la = ROW[a.dataset.key].label, lb = ROW[b.dataset.key].label, sec = pageEls.osc1.querySelector('[data-section]');
+    over(b); const hoverShows = name() === lb;
+    press(a); const locked = infoBox.locked() && name() === la && !$('info').querySelector('.ib-lock').hidden;
+    over(b); const held = name() === la; over(sec); const heldSec = name() === la;
+    over(b); S.setMap(true); const first = S.escape(), second = S.escape(); const afterEsc = !infoBox.locked() && name() === lb;   // Escape shows what is under the pointer
+    press(a); over($('mapbar')); press($('mapbar')); const released = !infoBox.locked() && name() === 'Info';
+    press(sec); const secLocked = infoBox.locked() && name() === sectionContent(sec.dataset.section).name; press(a); const reLock = name() === la; infoBox.release();
+    S.selected = b.dataset.key; star(); const viaSel = infoBox.locked() && name() === lb; infoBox.release(); S.selected = sel0; selSeen = sel0;
+    const lockFails = Object.entries({ hoverShows, locked, held, heldSec, escMap: first === 'map', escLock: second === 'info-lock', afterEsc, released, secLocked, reLock, viaSel }).filter(x => !x[1]).map(x => x[0]);
+    line(!lockFails.length,
+      (lockFails.length ? '(' + lockFails.join(', ') + ' ' + first + ' ' + second + ') ' : '') + 'Info lock (ADR-345 r2): a press locks the box to ' + la + ', hovering ' + lb + ' and a section then change nothing, and a section or a selection made elsewhere locks too; Escape leaves MAP first and releases second, and a press outside any control releases (control: unlocked, a hover shows ' + lb + ').');
+    showInfo(null);
+    // the lab's finding: with no lock the box keeps its text while the pointer is on it, and leaves it off the box
+    over(b); over($('info')); const kept = name() === lb; over($('mapbar')); const cleared = name() === 'Info';
+    line(kept && cleared, 'Info box: the pointer can reach it: moving onto the box keeps ' + lb + ', and moving off to nothing clears it (control).');
+    // the auto-scroll, stepped by hand so nothing here reads a clock
+    const face = $('info').querySelector('.face'), pastEdge = () => $('infoText').getBoundingClientRect().bottom > face.getBoundingClientRect().bottom + 1;
+    let longEl = null, shortEl = null;
+    for (const pg of DATA.pages) { selectPage(pg.id); for (const e of pageEls[pg.id].querySelectorAll('[data-key]')) { if (e.closest('.hd-pt')) continue; over(e); const scrolls = face.scrollHeight > face.clientHeight + 1;
+      if (!longEl && pastEdge()) longEl = [pg.id, e]; if (!shortEl && scrolls && !pastEdge()) shortEl = [pg.id, e]; if (longEl && shortEl) break; } if (longEl && shortEl) break; over($('mapbar')); }
+    const hoverOn = x => { selectPage(x[0]); over($('mapbar')); over(x[1]); };
+    hoverOn(longEl); infoBox.step(1.9); const waits = face.scrollTop === 0; infoBox.step(.2); infoBox.step(1); const moves = face.scrollTop > 0; for (let i = 0; i < 4000 && pastEdge(); i++) infoBox.step(.1); const allIn = !pastEdge(), endAt = face.scrollTop; infoBox.step(5); const stops = face.scrollTop === endAt;
+    hoverOn(shortEl); infoBox.step(10); const metaStill = face.scrollTop === 0;
+    hoverOn(longEl); $('info').dispatchEvent(new MouseEvent('pointerenter')); infoBox.step(10); const enterStops = face.scrollTop === 0; $('info').dispatchEvent(new MouseEvent('pointerleave'));
+    hoverOn(longEl); infoBox.step(2.5); face.scrollTop += 20; const handAt = face.scrollTop; infoBox.step(5); const handStops = face.scrollTop === handAt;
+    const r0 = S.reduce; S.reduce = true; hoverOn(longEl); infoBox.step(10); const reduceStill = face.scrollTop === 0; S.reduce = r0; over($('mapbar'));
+    line(waits && moves && allIn && stops && metaStill && enterStops && handStops && reduceStill, 'Info auto-scroll (ADR-345 r3): a description past the edge waits 2 s, scrolls until it is all in view and stops; a box whose only overflow is its source line stays still (control); the pointer entering, a hand on the scroll and reduced motion each stop it.');
+    // the sidebar: the box takes the rail, the bank the whole foot, and off puts every rectangle back
+    selectPage('main'); showInfo(null);
+    const rect = e => { const r = e.getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map(v => Math.round(v * 100) / 100).join(','); }, snap = () => ['pagecol', 'pages', 'bank', 'info', 'footrow'].map(i => rect($(i))).join('|');
+    const idle = snap(), w0 = $('pages').clientWidth, h0 = $('pages').clientHeight, boxW = $('info').getBoundingClientRect().width, inFoot = $('info').parentElement === $('footrow');
+    setSidebar(true); const ib = $('info').getBoundingClientRect(), gr = $('bodyGrid').getBoundingClientRect(), full = Math.abs(ib.height - gr.height) < 1 && $('info').parentElement === $('rail') && $('footrow').offsetHeight === 92 && $('pages').clientHeight > h0 && $('pages').clientWidth < w0 && ib.right <= $('pagecol').getBoundingClientRect().left;
+    setMorphOn(true); const db = $('dock').getBoundingClientRect(), ib2 = $('info').getBoundingClientRect(), shared = !$('dock').hidden && db.bottom <= ib2.top && Math.abs(ib2.bottom - gr.bottom) < 1 && ib2.height > 120; setMorphOn(false);
+    setSidebar(false); const back = snap() === idle && inFoot && boxW === 300;
+    line(full && shared && back, 'Info sidebar (ADR-345 r4): on, the box runs the rail\u2019s full height, left of the pages, and the foot row is the bank\u2019s 92 px; the morph pad sits above the box and the box takes the rest; off puts every rectangle back (control).');
+    infoBox.release(); selectPage(pg0); S.selected = sel0; selSeen = sel0; }
   showInfo(null); S.message = '';
   dev.clearHistory();   // the checks' own steps (the probes, the morph toggles) are not the user's history
 })();
@@ -1850,6 +1931,7 @@ S.start();
   if (flags.includes('win')) document.body.classList.add('win-only');
   { const f = flags.find(x => x.startsWith('scale=')); if (f) { const v = f.slice(6); setSize('scale', v === 'fit' ? 'fit' : +v / 100); } }
   if (flags.includes('nobank')) setBankShown(false);
+  { let saved = null; try { saved = localStorage.getItem(SIDEBAR_KEY); } catch (_) { /* no storage: the default */ } if (flags.includes('sidebar') || saved === '1') setSidebar(true); }
   if (flags.includes('morph')) { setMorphOn(true); dev.scatter(SEED); }
   if (flags.includes('bank')) { pageKeysList(page).filter(k => ROW[k].law !== 'step').slice(0, 2).forEach(k => dev.drop('env2', k)); dev.activate('env3'); }
   // `map`: MAP on with ENV 2 (or `src=<id>`, e.g. `src=gravity`, the longest name) as the source and ENV 2 mapped to the page's first two modulatable controls, so a knob shows its ring
