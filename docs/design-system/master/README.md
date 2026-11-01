@@ -133,7 +133,7 @@ Rulings 2 and 7 of ADR-338, 8 to 10 of ADR-340 and 3 to 5 of ADR-341 enter the m
 - **The map gesture is MD1** (ADR-340 r7, amending the Map Mode spec and ADR-261 r3): with MAP on a plain drag moves the value, a click maps, Option-drag sets depth.
 - **Escape is the layered cancel** (ADR-338 r11): `S.escapeLayers`, `S.escape()`. The session option `mapKeysAlways` lets the map keys and Escape act outside keyboard mode (ADR-335 r1, GUI 3's one constant); off by default, so a page that does not ask keeps keyboard mode's rule. Panic is on no key and no panel control (ADR-340 r12, ADR-226 item 6).
 - **Stepper** is new (ADR-340 r5): drag, double-click for the default, Option-click to type; `flat` for tables.
-- **The readout slot is a fixed 250 px** (H1, ADR-340 r4).
+- **The readout slot is fixed at the width its header leaves, up to 250 px** (H1, ADR-340 r4 and A1). Its text never changes its width.
 - **Round joins on every canvas stroke** (the kit sets `lineJoin = 'round'` each frame, and nothing sets it back to miter): a miter join flips to a bevel past its limit, which the human saw as "jumpy" traces.
 - **Pointer capture is guarded** everywhere: a pointer the browser no longer tracks no longer costs the gesture.
 - **Not in this revision** (batch 2b, above, took the clusters, the lens and fold, PV1, the tiers, the bank, the Mod page and M-R2; the rest is batch 2a) (next, B589): the clusters C1/C2, P1's lens and P2's fold, PV1's table view, the four modulator tiers, the M2 bank with BT1 + BR1, the M5 Mod page, M-R2, the source switching MS1/MS3/MS4; and what round 3 of the composition lab draws first (T4c's corner, the dual readout, the stepper's affordances, polarity, the wires, the macro rows).

@@ -527,6 +527,10 @@ The human picked F1 from `docs/design/foot-row-lab.html` and added the lock and 
 - **The Info sidebar toggle** is on the Settings page, in a new Interface card, and is remembered per viewer (`hd.info.sidebar`, or `#page,sidebar` in a review link). The box moves to `#rail`, under the morph pad while the pad shows, and the foot row is the bank's 92 px. With the bank off too, the foot row goes away.
 - **Locks stay off while the self-checks run**, because they press and select controls for their own reasons (`infoLocks`).
 
+## Readout slots (ADR-340 A1; B589)
+
+A section's readout slot is fixed at the width its header leaves, up to 250 px, and its text never changes that width. 13 of the 38 are narrower at the 980 px window, the narrowest 138 px, so line 2 can be cut off in a crowded header. The human chose this over wrapping crowded headers to a second line. The self-check tests every slot on every page, at rest and hot, with a slot allowed to follow its text as its control. Two have no control that drives them (Sub · Voice, Settings · Engine) and are checked at rest only.
+
 ## Known gaps
 
 - **Descriptions:** no `desc` column exists for horde 2's parameters (B582). The info box shows each
