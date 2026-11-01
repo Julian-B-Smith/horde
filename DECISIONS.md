@@ -10665,3 +10665,23 @@ Round 2 drew 45 variants. The human answered by poll on 2026-10-30 and 2026-10-3
 
 **Consequences.** B578 carries the rulings. The tuning session is the lead’s to open with a brief when the hosted modules exist (rack stage S4). Ruling 1 is device and randomizer behaviour; the Randomize panel shows no new control for it. **FX device (ADR-254):** the same lean and the same bypass threshold apply to its slots, under its own chaos.
 
+## ADR-343 — RULED by the human: a module whose latency follows its patch is padded to its maximum, so the declared figure never changes after activate (RS-7.1 amended; maw-013, B598; 2026-11-01)
+
+**Context.** Shriek's brief seq 38 (`integrations/maw/brief-latency-on-load.md`, Shriek D-096, D-096 A1, PR #127): ADAA adds delay per engaged stage, so Shriek's declared figure now follows its route, stage switches, curves, `adaa` and `detail`: 3 to 5 host samples at 2×, 0 to 3 at 1×. A load can change it, which RS-7.1 and Q6 (a latency setting is fixed at activate) did not allow for. Shriek offered two answers: report the change to the host, or a fresh activate on such a load. The CLAP header in `libs/clap` allows neither to happen without a restart: `clap_host_latency.changed` says “The latency is only allowed to change during plugin->activate. If the plugin is activated, call host->request_restart()”. So both options mean a restart on a load. A random press could load a new patch (ADR-339's random-and-follow action), and so could a morph across corners with different patches, since RS-6.6 adopts a patch at a non-parity flip.
+
+**Ruling (the human, 2026-11-01: “pad to the maximum makes sense”, choosing the lead's third option).** A module whose latency follows its stepped structure keys declares its **maximum** for the activated oversampling setting. horde adds whole-sample delay after the module, equal to that maximum minus the current patch's figure, and declares only the maximum. The declared figure never changes after activate, no load or flip asks the host to restart, and RS-7.1 and Q6 stand.
+
+**The cost.** At most 2 extra host samples at 2× and 3 at 1×. A factory preset at 2× goes from 4 to 5.
+
+**Asked of Shriek (the response, `Maw/integrations/hypersaw/response-latency-on-load.md`):** expose the maxima as a public constant, which `mawcore/abi.h` states only in comments (at most 5 at 2×, 0 to 3.0 at 1×); and how its reading that a corner flip cannot change the figure fits RS-6.2 and RS-6.6. `adoptPatch()` needs no question: `abi.h` states it is allocation-free and callable from the thread that wrote the keys.
+
+**To check when built (the lead's, not rulings):**
+- The pad's length jumps when a patch is adopted; RS-6.2's dry/wet glide should cover a flip, and a load needs the same check for clicks.
+- A bypassed slot keeps its full declared delay, so bypassing does not move the rest of the rack in time.
+- The pad's memory is allocated at activate, per instance, by the module's maximum.
+
+**Consequences.**
+- RS-7.1 is amended and its Shriek example now points at Shriek D-096 instead of copying figures (Shriek's brief item 3). horde calls `adoptPatch()` after writing a module preset's keys (item 2).
+- B598 builds it at rack stage S4, with a Layer-0 check.
+- **FX device (ADR-254):** the same rule on its slots, since the rack owns the latency sums (ADR-254).
+

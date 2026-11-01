@@ -5725,6 +5725,10 @@
   {
    "adr": "ADR-342",
    "reason": "Randomizer behaviour (chaos scales a simplicity lean across the whole patch; a bypass threshold; a hint to self-randomizing modules filed later): no new control or design element."
+  },
+  {
+   "adr": "ADR-343",
+   "reason": "Rack and latency behaviour (a module whose latency follows its patch is padded to its maximum): no control or design element."
   }
  ],
  "audit_notes": [
