@@ -32,7 +32,7 @@ The ORBITAL modulator's card: an N-body gravity field whose bodies are sources, 
   - Drag 0–1;
   - Smooth 0–50 ms;
   - Kick 0–1 u/s.
-- Edges BOUNCE · WRAP · OPEN; a COM lock switch; a Kick body stepper.
+- Edges BOUNCE · WRAP · OPEN; a COM lock switch; a Kick body `Horde.Stepper` (one option per body, "body 3"; remounted when bodies are added).
 - Mappings: each row is "A · body 1 x → Cutoff", then CONT · S&H, then its own RateSync. The RateSync keeps its place under CONT, with dashed faces.
 
 **Gestures** the house rules throughout. The sliders take 160 px for the full range; every action and mode change is one undo step.

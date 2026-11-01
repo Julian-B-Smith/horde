@@ -1,0 +1,48 @@
+<!-- @dsCard group="Controls" height=330 subtitle="TC1: the toggle, segments, select, stepper and button at a 16 px face with a 28 px hit box, in sections and cards; TC2 (flat) only inside tables" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Companions</title></head>
+<body>
+<div style="padding:14px 16px 10px">
+  <div class="hd-cell hd-dense" style="margin-bottom:10px">
+    <section class="hd-sec">
+      <div class="hd-sechead"><span class="sh-name hd-cluster">Osc 1 · TC1 (sections and cards)</span></div>
+      <div class="hd-sgroups">
+        <div class="hd-sgrp"><span class="hd-sublabel">1SHT</span><div id="c-tog"></div></div>
+        <div class="hd-sgrp"><span class="hd-sublabel">Mode</span><div id="c-seg"></div></div>
+        <div class="hd-sgrp"><span class="hd-sublabel">Wave</span><div id="c-sel"></div></div>
+        <div class="hd-sgrp"><span class="hd-sublabel">Unison</span><div id="c-step" style="padding-bottom:6px"></div></div>
+        <div class="hd-sgrp"><span class="hd-sublabel">Reset</span><div id="c-btn"></div></div>
+      </div>
+    </section>
+  </div>
+  <div class="hd-cell hd-dense">
+    <section class="hd-sec">
+      <div class="hd-sechead"><span class="sh-name hd-cluster">Table · TC2 (flat, tables only)</span></div>
+      <div style="display:grid; grid-template-columns:92px 90px; gap:0 8px; align-items:center; width:fit-content" id="tbl"></div>
+    </section>
+  </div>
+  <p class="hd-msg" id="msg" style="margin:8px 0 0"></p>
+  <p class="hd-hint" style="margin:2px 0 0">Click, or Tab in keyboard mode (the lamp is off here: the tab stops are skipped). Each face is 16 px and each hit box 28 px (the invisible ::before). Option names and values are SAMPLES.</p>
+</div>
+<script>
+(function () {
+  var H = window.Horde, msg = document.getElementById('msg');
+  function say(t) { msg.textContent = t; }
+  function on(label) { return function (v) { say(label + ' → ' + (typeof v === 'boolean' ? (v ? 'on' : 'off') : v === undefined ? 'pressed' : v)); }; }
+  H.Companion(document.getElementById('c-tog'), { kind: 'toggle', name: 'One-shot', path: 'Env 1 · One-shot', value: true, onInput: on('One-shot') });
+  H.Companion(document.getElementById('c-seg'), { kind: 'segments', name: 'Mode', path: 'Blade 1 · Mode', options: ['Sync', 'FM reset', 'FM free', 'Noise'], short: ['SYNC', 'FMR', 'FMF', 'NSE'], value: 1, onInput: on('Mode') });
+  H.Companion(document.getElementById('c-sel'), { kind: 'select', name: 'Wave', path: 'LFO 1 · Wave', options: ['Sine', 'Triangle', 'Saw', 'Square', 'S&H'], value: 2, onInput: on('Wave') });
+  H.Stepper(document.getElementById('c-step'), { name: 'Unison', path: 'Osc 1 · Unison', min: 1, max: 9, value: 5, def: 1, tc: true, say: say });
+  H.Companion(document.getElementById('c-btn'), { kind: 'button', name: 'Reset', path: 'Env 1 · Reset', label: 'Reset', onInput: on('Reset') });
+  var t = document.getElementById('tbl');
+  function row(name, make) { var n = document.createElement('span'); n.className = 'hd-hint'; n.textContent = name; var c = document.createElement('span'); c.style.cssText = 'height:17px;display:flex;align-items:center;border-bottom:1px dashed var(--hair)'; t.appendChild(n); t.appendChild(c); make(c); }
+  row('Retrigger', function (c) { H.Companion(c, { kind: 'toggle', flat: true, name: 'Retrigger', path: 'LFO 1 · Retrigger', label: 'retrig', value: false, onInput: on('Retrigger') }); });
+  row('Clock', function (c) { H.Companion(c, { kind: 'segments', flat: true, name: 'Clock', path: 'S&H · Clock', options: ['Cycle', 'Global', 'Kuro'], short: ['CYC', 'GLB', 'KUR'], value: 0, onInput: on('Clock') }); });
+  row('Detune law', function (c) { H.Companion(c, { kind: 'select', flat: true, name: 'Detune law', path: 'Osc 1 · Detune law', options: ['Linear', 'Exp', 'Swarm'], short: ['LIN', 'EXP', 'SWM'], value: 0, onInput: on('Detune law') }); });
+  row('Steps', function (c) { var d = document.createElement('span'); c.appendChild(d); H.Stepper(d, { name: 'Steps', path: 'Seq · Steps', min: 1, max: 64, value: 16, def: 16, flat: true, say: say }); });
+  row('Panic', function (c) { H.Companion(c, { kind: 'button', flat: true, name: 'Reset', path: 'Seq · Reset', label: 'Reset', onInput: on('Reset') }); });
+})();
+</script>
+</body>
+</html>

@@ -85,8 +85,10 @@ export interface KnobProps {
 }
 /** 'tiny' is the tiny tier (ADR-338 r1/r3, drawn as ADR-340 r1/r2): a knob draws T2d, a 20 px face in a 28 px hit cell with a
     see-through editing-corner pip between ink end stops; a slider draws TS1a, a 20 px row. 'cell' (slider only) is TS2a, a 16 px
-    table value cell. The tiny tier shows no value in the cell: the label line never changes (ADR-340 r4, H1). */
-export type ControlSize = 'primary' | 'standard' | 'compact' | 'utility' | 'tiny' | 'cell';
+    table value cell. The tiny tier shows no value in the cell: the label line never changes (ADR-340 r4, H1).
+    'level' (knob only) is T4c-f (ADR-340 r3, ADR-341 r1): a 16 px vertical LEVEL in a 28 px hit cell, the blend its fill, the editing
+    corner the same hollow corner mark as T2d's pip, in the corner's -tx ink. A new size, not TS2a. */
+export type ControlSize = 'primary' | 'standard' | 'compact' | 'utility' | 'tiny' | 'cell' | 'level';
 /** A sized slider (any `size`) draws 200 × 35 (vertical 40 × 200, a 22 × 8 cap, `--fader-h` / size-fader-h tall) with a value-only
     readout column; `utility` draws as compact. */
 export interface SliderProps extends KnobProps { vert?: boolean }
@@ -94,12 +96,14 @@ export interface SliderProps extends KnobProps { vert?: boolean }
 export declare function Knob(el: HTMLElement, props: KnobProps, session: Session): { render(): void };
 export interface ReadoutSlotProps { /** controls inside this element feed the slot (default: the slot's parent) */ scope?: HTMLElement;
   /** what the slot reads at rest */ summary?: string | (() => string) }
-/** The section's one live readout (B589): the HOT control's (pointer, drag or keyboard focus, inside `scope`) name, value and the
-    classic second line (corner glyph, letter, stored value and weight; the full focus caption under Option or MAP; "controlled by";
-    LOCKED); otherwise the summary. aria-hidden: each control's own aria-valuetext carries the same text. */
+/** The section's one live readout (B589), DR-c (ADR-341 r2): the HOT control's (pointer, drag or keyboard focus, inside `scope`) in TWO
+    STACKED 13 px LINES in a fixed 26 px box: line 1 the name, the editing corner's own value (PLACEHOLDER: not the blend; the human has
+    not ruled which) and its mark (LOCKED, or the padlock after a refused write); line 2 "now": the value after morph and every
+    mapping, with the focused mapping (source, polarity, amount, +n) or "controlled by" or "no modulation". Otherwise the summary.
+    aria-hidden: each control's own aria-valuetext carries the same text. */
 export declare function ReadoutSlot(el: HTMLElement, session: Session, props?: ReadoutSlotProps): { render(): void };
 export declare function Slider(el: HTMLElement, props: SliderProps, session: Session): { render(): void };
-export interface MapControlProps { strip?: HTMLElement; frame?: HTMLElement }
+export interface MapControlProps { strip?: HTMLElement; frame?: HTMLElement; /** MS3 (ADR-340 r8): the source as a chip you drag through (true, or SourceChipProps) instead of the select */ chip?: boolean | SourceChipProps }
 export declare function MapControl(el: HTMLElement, session: Session, props?: MapControlProps): { render(): void };
 export declare function ModInspector(el: HTMLElement, session: Session): void;
 export interface XYPadProps { size?: number; /** only a grab on the puck moves it, relatively; an empty-pad click moves nothing (the morph editor's pad) */ relative?: boolean; /** show the optional census ring (off by default) */ census?: boolean; /** census ring dot count (12) */ dots?: number; /** dot diameter in px */ dot?: number }
@@ -118,9 +122,13 @@ export declare function ScalePicker(el: HTMLElement, props?: { root?: number; ma
 export interface StepperProps { name?: string; path?: string; /** named options (their index is the value) */ options?: string[];
   min?: number; max?: number; step?: number; value?: number; /** home: double-click returns here */ def?: number; fmt?(v: number): string;
   onInput?(v: number): void; say?(msg: string): void; /** TC2's table form (K4): no arrows, a dotted underline */ flat?: boolean;
-  /** the dense 20 px face */ sm?: boolean; /** keyboard mode (arrows, PgUp/PgDn, Home/End, Enter/F2) */ keys?(): boolean }
-/** The house stepper (ADR-340 r5): drag the value (6 px a step, Shift 24, re-anchored at the ends), click the arrows, double-click
-    for the default, Option-click to type (Enter/Tab commit, Escape cancels, a click away commits; out of range clamps and says so). */
+  /** the dense 20 px face */ sm?: boolean; /** TC1's 16 px face */ tc?: boolean; /** aria-valuetext where the display is too short to say it */ spoken?(v: number): string;
+  /** keyboard mode (arrows, PgUp/PgDn, Home/End, Enter/F2) */ keys?(): boolean }
+/** The house stepper (ADR-340 r5, SG-b ADR-341 r3): drag the value (6 px a step, Shift 24, re-anchored at the ends), click the arrows,
+    double-click for the default, Alt + wheel one step. A ⇕ glyph says it drags; a step scale under the face shows the position, home the
+    ringed tick. Option-click: a NUMERIC stepper opens a number field (Enter/Tab commit, Escape cancels, a click away commits; out of range
+    clamps and says so); a stepper of NAMED options opens a DROPDOWN (↑ ↓ Home End move, Enter commits, Escape cancels, a click away
+    cancels), never a text field. The range is fixed at mount. */
 export declare function Stepper(el: HTMLElement, props: StepperProps): { get(): number; set(v: number): void; open(): void; paint(): void };
 export declare function PlainSlider(el: HTMLElement, props: { name: string; path?: string; min: number; max: number; value: number; def?: number; log?: boolean; fmt(v: number): string; onInput?(v: number): void }): { get(): number };
 /** the visualizer painters: each draws one frame into a canvas with the screen roles only */
@@ -133,15 +141,35 @@ export declare function apportion(share: number[], n: number): number[];
 export declare function SourceStrip(el: HTMLElement, session: Session, props?: { counts?: boolean; label?: string; onPick?(id: string): void }): { el: HTMLElement; sync(): void; render(): void };
 /** Sources × destinations: depth fill, the live "now" lane, a dashed ring on a modulated depth; CTL cells show the swept band. */
 export declare function ModMatrixGrid(el: HTMLElement, session: Session, props?: object): void;
-/** One route: source, the four-state polarity pill, destination, depth (or a CTL low/high range), authored → now, remove; depth routes indented. */
+/** One route: source, the four-state polarity chip (MP1: click next, shift-click previous, drag up/down for the depth), destination, depth (or a
+    CTL low/high range), authored → now, remove; depth routes indented. */
 export declare function RouteRow(el: HTMLElement, session: Session, m: Mapping, props?: object): void;
 export declare function RouteList(el: HTMLElement, session: Session, props?: object): void;
 /** "What is moving it": per destination, each source's share now, and the sum. */
 export declare function ModLedger(el: HTMLElement, session: Session, props?: object): void;
 /** A screen: per destination, the reach band, start line and now trace. */
 export declare function TraceLanes(el: HTMLElement, session: Session, props?: object): void;
-/** A screen: the routes in use as compact wires (width = depth, brightness = source now). */
-export declare function CompactWires(el: HTMLElement, session: Session, props?: object): void;
+/** W-a (ADR-341 r5): a screen: the routes in use as compact wires (width = depth, brightness = source now), values on the nodes, a ◇ valve at
+    every wire's middle (filled to its depth), and wires you drag from a source to a destination (a new wire beside any there) or onto a valve
+    (a depth route, B70). */
+export interface CompactWiresProps { /** destination order, and destinations with no wire yet */ keys?: ManifestKey[]; /** sources shown with no route */ sources?: string[];
+  /** false turns the dragging off */ drag?: boolean; /** a source dropped on a destination; default adds a mapping at 25 % */ onWire?(src: string, key: ManifestKey): void;
+  /** a source dropped on a wire's valve: the seam to B70's depth routes. The master only EMITS it; with no callback the matrix's placeholder list takes it */
+  onDepthRoute?(src: string, mapping: Mapping): void }
+export declare function CompactWires(el: HTMLElement, session: Session, props?: CompactWiresProps): void;
+/** MP1 (ADR-340 r9): the polarity chip's gestures on a route's button: click next, shift-click previous, a vertical drag the depth. `cycle(back)` is the owner's own cycle. */
+export declare function PolChip(btn: HTMLElement, session: Session, m: Mapping, props: { cycle(back: boolean): void; depthRoute?: boolean }): HTMLElement;
+/** MS3 (ADR-340 r8): the MAP control's source as a chip: drag up/down on its name (12 px a source), ‹ ›, ▾ the full list; no plain wheel (B301). */
+export interface SourceChipProps { order?(): Source[]; onPick?(id: string): void; keys?: boolean | (() => boolean) }
+export declare function SourceChip(el: HTMLElement, session: Session, props?: SourceChipProps): { sync(): void };
+/** MS4 (ADR-340 r8): the bank's row form: a thin 26 px row per source (swatch, name, route count, live meter, value, Map); while MAP is on a click on the body makes it the source. */
+export declare function SourceRows(el: HTMLElement, session: Session, props?: { sources?: string[]; label?: string; fmt?(s: Source, v: number): string }): { el: HTMLElement; render(): void };
+/** ML3 (ADR-340 r10): routes grouped by source, one RouteRow per route (and per depth route the source drives); the Mod page's detail pane. */
+export declare function RoutesBySource(el: HTMLElement, session: Session, props?: { sources?: string[]; param?: ManifestKey; empty?: boolean; label?: string }): { el: HTMLElement; render(): void };
+/** TC1 (ADR-338 r2): the toggle, segments, select and button at a 16 px face with a 28 px hit; `flat` is TC2, inside tables only. The stepper is Stepper with tc / flat. */
+export interface CompanionProps { kind: 'toggle' | 'segments' | 'select' | 'button'; name?: string; path?: string; options?: string[]; short?: string[];
+  /** a toggle: boolean; segments, select: the index */ value?: boolean | number; label?: string; flat?: boolean; onInput?(v?: boolean | number): void; keys?: boolean | (() => boolean) }
+export declare function Companion(el: HTMLElement, props: CompanionProps): { get(): boolean | number | undefined; set(v: boolean | number): void };
 /** A hosted module's macros: visible, read-only, never cross-mapped (ADR-266 r3). */
 export declare function HostedMacroRows(el: HTMLElement, session: Session, props?: { module?: string; macros?: { name: string; f(t: number): number; targets: string[] }[] }): void;
 /** The matrix arithmetic shared by the views: push, now, raw, reach, ctlPos, depthNow … */

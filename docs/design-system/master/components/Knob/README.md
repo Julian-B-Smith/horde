@@ -33,6 +33,18 @@ The morph knob: one control that shows the blended value you hear and each morph
 - The arc (ink, 2.2 on a `well-alt` track, radius 6.2) is still the blend you hear; the needle (4.3, ink 1.4) the output; the cap (2.3) rimmed in the editing corner's ink.
 - One ring at radius 9, as on `utility`: the focused mapping's, stacked on the rings inside it, dashed when there are more, with its live tick. No other corner pips (at this size a pip is colour only, so the shape rule could not hold).
 - Gestures, MAP and Control behave as at every size.
+- **The corner mark is one drawing for the tiny knob and the level cell** (ADR-341 r1): a hollow, see-through circle, hole radius 2.1, rim radius 1.65, stroke 0.9, in the corner's legible `-tx` ink (`cA-tx`…`cD-tx`). The code is one helper (`cornerMark`), so the two cannot drift apart.
+
+**The level cell: `size: 'level'`, T4c-f** (ADR-340 r3 taking T4c as the level cell, amended by ADR-341 r1; sources `docs/design/composition-lab-r2.html` T4c and `composition-lab-r3.html` T4c-f). A **new size, not TS2a**: TS2a (Slider `size: 'cell'`) is the 16 px-tall horizontal value cell of a table row with its number in it; T4c is a 16 × 16 px vertical LEVEL in a `size-hit` 28 px cell under the same one-line abbreviation as the tiny knob (`abbr`, `label: false` for the cell alone), dragged up and down like a knob (160 px for the full range, Shift fine, re-anchored at the stops). Its look:
+- the level is the **blend**: an ink fill rising in a `well-alt` frame (ink edge 1), **ink end caps** top and bottom (a bipolar parameter's fill grows from the middle);
+- the focused mapping's **lane** runs down the left edge in its source colour, with a tick across the level at the output;
+- the editing corner is the **corner mark** on the level's right edge, at the corner's own value, cutting the frame and the level (an SVG mask). It travels the whole height under the hand. The human found T4c's first drawing, a 2.6 × 4.4 px triangle filled with the corner's colour, "barely visible": on the light panel the corner fills for A, C and D reach only 1.3 to 1.8 : 1, while every `-tx` ink reaches about 4.9 : 1 (the lab measured it), and then asked for a hollow circle the size of the smallest knob's pip.
+- A locked parameter shows no mark. Under a Control the fill ghosts to 22%, as on the other faces.
+
+**The polarity chord and MP3** (ADR-341 r4, ADR-340 r9), on every knob and slider through the shared gesture:
+- **⌘⌥-click** (Ctrl+Alt-click on Windows) a mapped control CYCLES the focused mapping's polarity exactly as a click on its chip does (UNI → BI → INV → CTL; CTL is skipped where another mapping already controls the parameter, ADR-266 r2). Under MAP it acts on the current source's mapping. It never makes a mapping. With movement it is the Option-drag it also is. Ctrl+Alt on macOS (a secondary click) and ⌘⌥ on Windows do not count. **Not verified:** whether a host (Live, Bitwig) keeps ⌘⌥-click in a plugin window; if it does not, the chip and the menu stay the routes.
+- **⌥-drag through zero** (MP3): an Option-drag of a UNI or INV mapping's depth runs through zero and comes out the other polarity (stored as magnitude + polarity, so a depth stays a magnitude, ADR-266 r2). BI and CTL have no sign to turn over, and a per-corner depth keeps the 0 to 1 drag.
+- The right-click menu entry for polarity is **not in the master**: the master has no context menu on controls (the lab's route menu is not ported). Until it is, the chip and the chord are the routes.
 
 
 **Sweep** 280° from 7 o'clock, the UI Spec's (ruled 2026-10-21). The map mode spec drew 270°; its ring rules (stacked origins, origin dot, live tick, emphasis, the four-ring limit) carry over unchanged on the 280° sweep.

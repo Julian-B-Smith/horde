@@ -1,4 +1,4 @@
-/* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"SteppedControl"},{"name":"Stepper"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"}]} */
+/* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"SteppedControl"},{"name":"Stepper"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"},{"name":"Companion"},{"name":"SourceChip"},{"name":"SourceRows"},{"name":"RoutesBySource"}]} */
 /* horde house reference behaviours (vanilla JS, no React, no network).
    The morph knob and slider follow the human's HORDE Morph Knob Spec and HORDE Map Mode Spec
    (2026-10-21, 2026-10-16); colours, type and themes follow ADR-259. Everything a plugin would get
@@ -21,6 +21,11 @@
   /* pointer capture, guarded: a pointer the browser no longer tracks (a synthetic event, a pen lifted mid-press) throws
      NotFoundError, and an unguarded throw there cost the whole gesture */
   function capture(el, e) { try { el.setPointerCapture(e.pointerId); } catch (_) { /* keep the gesture */ } }
+  /* MP-c (ADR-341 r4): the polarity chord is Command+Option-click on macOS and Ctrl+Alt-click elsewhere. The other modifier
+     must NOT be down: on macOS Ctrl-click is the secondary click, and on Windows the Windows key is not a chord key.
+     Not verified in a host (Live, Bitwig): a host may keep the chord, and the chip and the menu stay the routes then. */
+  var MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '');
+  function chordHit(e) { return e.altKey && !e.shiftKey && (MAC ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey); }
   function clamp(v, a, b) { a = a === undefined ? 0 : a; b = b === undefined ? 1 : b; return Math.min(b, Math.max(a, v)); }
   function v(name) { return 'var(--' + name + ')'; }
   function fillOf(i) { return v('c' + CORNERS[i].id); }
@@ -123,13 +128,13 @@
   Session.prototype.setPin = function (i) { this.pinned = i; this.say(i === null ? 'Editing corner: Auto (each knob\'s owner)' : 'Editing corner pinned: ' + CORNERS[i].id); };
   Session.prototype.setMap = function (on, momentary) { this.map.on = on; this.map.momentary = !!(on && momentary); this.emit(); };
   Session.prototype.setSrc = function (id) { this.map.src = id; this.emit(); };
-  /* UNI → BI → INV → CTL → UNI. CTL is skipped while another mapping already controls the parameter (one Control
-     per parameter). Entering CTL the first time, the range starts around the current value (PLACEHOLDER: value ± depth,
-     at least ±25%; the Map Mode spec does not say where a new Control's range starts). */
-  Session.prototype.cyclePol = function (m) {
+  /* UNI → BI → INV → CTL → UNI (`back`: the other way, MP1's shift-click). CTL is skipped while another mapping already
+     controls the parameter (one Control per parameter). Entering CTL the first time, the range starts around the current
+     value (PLACEHOLDER: value ± depth, at least ±25%; the Map Mode spec does not say where a new Control's range starts). */
+  Session.prototype.cyclePol = function (m, back) {
     if (!m) { this.say('No mapping to change'); return; }
-    var nx = POL[(POL.indexOf(m.pol) + 1) % 4], other = this.ctlOf(m.param), note = '';
-    if (nx === 'ctl' && other && other !== m) { nx = 'uni'; note = ' (CTL skipped: ' + this.src(other.src).name + ' already controls it)'; }
+    var nx = POL[(POL.indexOf(m.pol) + (back ? 3 : 1)) % 4], other = this.ctlOf(m.param), note = '';
+    if (nx === 'ctl' && other && other !== m) { nx = back ? 'inv' : 'uni'; note = ' (CTL skipped: ' + this.src(other.src).name + ' already controls it)'; }
     if (nx === 'ctl' && m.lo === undefined) { var p = this.params[m.param], b = p ? this.base(p) : .5, d = Math.max(.25, this.depthOf(m)); m.lo = clamp(b - d); m.hi = clamp(b + d); }
     m.pol = nx; this.say(this.src(m.src).name + ' → ' + m.param + ' · ' + POLN[m.pol] + note);
   };
@@ -217,11 +222,18 @@
     target.addEventListener('pointerdown', function (e) {
       if (e.button !== 0) return;
       capture(target, e); S.selected = p.key; S.emit();
-      var ai = S.editing(p), st = { key: p.key, ai: ai, x: e.clientX, y: e.clientY, moved: false, mode: 'value', isNew: false, target: null, start: 0, px: axisPx(), mapClick: false };
+      var ai = S.editing(p), chord = chordHit(e), st = { key: p.key, ai: ai, x: e.clientX, y: e.clientY, moved: false, mode: 'value', isNew: false, target: null, start: 0, px: axisPx(), mapClick: false, chord: chord, signed: false };
       /* MD1 (ADR-340 r7, amending the Map Mode spec and ADR-261 r3): with MAP on a plain drag moves the VALUE, as with MAP
          off; a click with no movement maps the current source (or focuses its mapping); Option-drag sets the current
          source's depth. The spec's "under MAP a drag sets depth" confused the human: it changed the scale with no modifier. */
-      if (S.map.on && !e.altKey) { st.mapClick = true; st.start = p.locked ? p.g : p.vals[ai]; }
+      /* MP-c (ADR-341 r4): the chord is Option plus the platform key. A click with no movement CYCLES the polarity of the focused
+         mapping (under MAP, the current source's), exactly as a click on its chip; with movement it is the Option-drag it also is.
+         It never makes a mapping, so it takes neither MAP branch below. */
+      if (chord) {
+        var cm = (S.map.on && S.mapsOf(p.key).filter(function (q) { return q.src === S.map.src; })[0]) || S.focused(p.key);
+        st.mode = 'alt'; st.target = cm; if (cm) { S.lastMap = cm; st.start = cm.pol === 'ctl' ? cm.lo : cm.cd && ai !== null ? cm.cd[ai] : cm.depth; }
+      }
+      else if (S.map.on && !e.altKey) { st.mapClick = true; st.start = p.locked ? p.g : p.vals[ai]; }
       else if (S.map.on) {
         var m = S.mapsOf(p.key).filter(function (q) { return q.src === S.map.src; })[0];
         if (!m) { m = { param: p.key, src: S.map.src, pol: 'uni', depth: 0 }; S.mappings.push(m); st.isNew = true; S.focus[p.key] = S.mapsOf(p.key).length - 1; }
@@ -230,6 +242,11 @@
         st.mode = 'alt'; st.target = S.focused(p.key);
         if (st.target) { S.lastMap = st.target; st.start = st.target.pol === 'ctl' ? st.target.lo : st.target.cd && ai !== null ? st.target.cd[ai] : st.target.depth; }
       } else st.start = p.locked ? p.g : p.vals[ai];
+      /* MP3 (ADR-340 r9): an Option-drag on a UNI or INV mapping runs through zero and comes out the other polarity, stored as
+         magnitude + polarity (ADR-266 r2: a depth is a magnitude), so the drag's signed value is -1..1. BI and CTL have no
+         sign to turn over, and a per-corner depth is edited one corner at a time, so those keep the 0..1 depth drag. */
+      var tg = st.target;
+      if (st.mode !== 'value' && tg && !tg.cd && (tg.pol === 'uni' || tg.pol === 'inv')) { st.signed = true; st.start = (tg.pol === 'inv' ? -1 : 1) * tg.depth; }
       if (st.mode === 'value' && !S.ownWritable(p, ai)) st.mode = 'refused';
       else if (st.mode === 'alt' && st.target && st.target.cd && !S.writable(p, ai)) st.noDrag = true;   // a refused corner depth blocks the DRAG only: an Option-click must still move focus
       S.drag = st;
@@ -243,10 +260,11 @@
          Shift mid-drag jumped the value by the rate change. */
       if (st.k !== undefined && st.k !== k) { st.start = st.cur; st.x = e.clientX; st.y = e.clientY; d = 0; }
       st.k = k;
-      var raw = st.start + d / st.px * k, nv = clamp(raw);
+      var raw = st.start + d / st.px * k, nv = st.signed ? clamp(raw, -1, 1) : clamp(raw);
       if (raw !== nv) { st.start = nv; st.x = e.clientX; st.y = e.clientY; }
       st.cur = nv;
       if (st.mode === 'value') { if (p.locked) p.g = nv; else p.vals[st.ai] = nv; }
+      else if (st.signed) { st.target.pol = nv < 0 ? 'inv' : 'uni'; st.target.depth = Math.abs(nv); }
       else if (st.target && st.target.pol === 'ctl') { var wd = st.target.hi - st.target.lo; st.target.lo = Math.min(nv, 1 - Math.max(0, wd)); st.target.hi = st.target.lo + wd; }   // a Control's depth gesture slides its whole range (PLACEHOLDER)
       else if (st.target) { if (st.target.cd && st.ai !== null) st.target.cd[st.ai] = nv; else st.target.depth = nv; }
     });
@@ -259,7 +277,8 @@
         else S.say('Focus: ' + S.src(mm.src).name + ' → ' + p.name);
         S.focus[p.key] = S.mapsOf(p.key).indexOf(mm); S.lastMap = mm;
       } else if (!st.moved) {
-        if (st.mode === 'depth' && st.isNew) { st.target.depth = DEF_DEPTH; S.say('Mapped ' + S.src(st.target.src).name + ' → ' + p.name + ' · UNI · 25%'); }
+        if (st.chord) { if (st.target) { S.cyclePol(st.target); S.lastMap = st.target; } else S.say(p.name + ' has no mapping to change'); }
+        else if (st.mode === 'depth' && st.isNew) { st.target.depth = DEF_DEPTH; S.say('Mapped ' + S.src(st.target.src).name + ' → ' + p.name + ' · UNI · 25%'); }
         else if (st.mode === 'alt') { var l = S.mapsOf(p.key); if (l.length) { S.focus[p.key] = ((S.focus[p.key] || 0) + 1) % l.length; S.lastMap = S.focused(p.key); S.say('Focus: ' + S.src(S.lastMap.src).name); } else S.say(p.name + ' has no modulators'); }
       } else if (st.mode === 'depth' && st.isNew && st.target.depth === 0) { S.mappings.splice(S.mappings.indexOf(st.target), 1); S.lastMap = null; S.say('Released at 0: no mapping made'); }
       S.emit();
@@ -386,8 +405,21 @@
     var nm = document.createElement('div'); nm.className = 'mk-name'; nm.textContent = p.abbr || p.name; el.appendChild(nm);
     el.title = p.path || p.name; return nm;
   }
+  /* THE CORNER MARK, one for the tiny knob (T2d) and the level cell (T4c-f), ADR-341 r1: a hollow, see-through circle at the
+     editing corner's value, a hole of radius 2.1 with a 0.9 px rim at 1.65, in the corner's legible -tx ink. The ink, not the
+     fill: on the light panel corner fills A, C and D reach only 1.3 to 1.8 : 1 and the human found T4c's fill-coloured
+     triangle "barely visible", while every corner's -tx ink reaches about 4.9 : 1 (composition lab round 3). The hole is cut
+     in the face's mask (seeThrough) and the rim drawn on top. set(x, y, ink, on): on = false hides it (a global parameter). */
+  var MARK = { hr: 2.1, rim: 1.65, w: .9 };
+  function cornerMark(svg, ms) {
+    var rim = mk('circle', { cx: 0, cy: 0, r: 0, fill: 'none', 'stroke-width': MARK.w }, svg);
+    return { set: function (x, y, ink, on) {
+      ms.hl.setAttribute('cx', x); ms.hl.setAttribute('cy', y); ms.hl.setAttribute('r', on ? MARK.hr : 0);
+      rim.setAttribute('cx', x); rim.setAttribute('cy', y); rim.setAttribute('r', on ? MARK.rim : 0); rim.setAttribute('stroke', ink);
+    } };
+  }
   /* T2d: a 20 px face (size-knob-tiny) in a 28 px hit cell (size-hit), 160 px for the full range (size-drag) */
-  var T2D = { face: 20, r: 6.2, tw: 2.2, ndl: 4.3, ndlW: 1.4, cap: 2.3, capW: 1.3, ring: 9, rw: 1.5, tick: 1.1, hr: 2.1 };
+  var T2D = { face: 20, r: 6.2, tw: 2.2, ndl: 4.3, ndlW: 1.4, cap: 2.3, capW: 1.3, ring: 9, rw: 1.5, tick: 1.1 };
   function TinyKnob(el, p, S) {
     var G = T2D, f = G.face, c = f / 2, from = p.bipolar ? .5 : 0;
     el.classList.add('hd-mk', 'sz', 'sz-tiny'); el.innerHTML = '';
@@ -404,7 +436,7 @@
     mk('path', { d: A(G.r, 0, 1), fill: 'none', stroke: v('well-alt'), 'stroke-width': G.tw, 'stroke-linecap': 'round' }, tg);
     if (p.bipolar) { var q1 = P(G.r - 1.6, .5), q2 = P(G.r + 1.6, .5); mk('line', { x1: q1[0], y1: q1[1], x2: q2[0], y2: q2[1], stroke: v('ink'), 'stroke-width': .9 }, tg); }
     var arcE = mk('path', { d: '', fill: 'none', stroke: v('ink'), 'stroke-width': G.tw, 'stroke-linecap': 'round' }, tg);
-    var rim = mk('circle', { cx: c, cy: c, r: 0, fill: 'none', 'stroke-width': .9 }, svg);
+    var mark = cornerMark(svg, ms);
     R(0, G.r - 1.7, G.r + 1.9, { stroke: v('ink'), 'stroke-width': .9 }); R(1, G.r - 1.7, G.r + 1.9, { stroke: v('ink'), 'stroke-width': .9 });   // the end stops
     var ring = mk('path', { d: '', fill: 'none', 'stroke-width': G.rw, 'stroke-linecap': 'round' }, svg);
     var tick = mk('line', { x1: c, y1: c, x2: c, y2: c, stroke: v('ink'), 'stroke-width': .9, 'stroke-linecap': 'round' }, svg);
@@ -420,13 +452,53 @@
       box.style.cursor = S.map.on ? 'copy' : ctl ? 'not-allowed' : 'ns-resize';
       arcE.setAttribute('d', A(G.r, from, b)); arcE.setAttribute('opacity', ctl ? .22 : 1);
       var ink = p.locked ? v('ink') : lineOf(ai), q = P(G.r, av);
-      ms.hl.setAttribute('cx', q[0]); ms.hl.setAttribute('cy', q[1]); ms.hl.setAttribute('r', p.locked ? 0 : G.hr);
-      rim.setAttribute('cx', q[0]); rim.setAttribute('cy', q[1]); rim.setAttribute('r', p.locked ? 0 : G.hr - .45); rim.setAttribute('stroke', ink);
+      mark.set(q[0], q[1], ink, !p.locked);
       if (rg) { ring.setAttribute('d', A(G.ring, rg.ends[0], rg.ends[1]) || A(G.ring, rg.orig, rg.orig + .006)); ring.setAttribute('stroke', rg.color); ring.setAttribute('opacity', rg.op);
         ring.setAttribute('stroke-dasharray', rg.n > 1 ? '2.2 1.2' : 'none'); setR(tick, rg.live, G.ring - G.tick, G.ring + G.tick); tick.setAttribute('opacity', rg.op); }
       else { ring.setAttribute('d', ''); tick.setAttribute('x1', c); tick.setAttribute('x2', c); tick.setAttribute('y1', c); tick.setAttribute('y2', c); }
       cap.setAttribute('stroke', ink);
       var n = P(G.ndl, out); ndl.setAttribute('x2', n[0]); ndl.setAttribute('y2', n[1]);
+      box.setAttribute('aria-valuenow', out.toFixed(3));
+      box.setAttribute('aria-valuetext', p.fmt(out) + (ctl ? ', controlled by ' + S.src(ctl.src).name : p.locked ? ', locked' : ', editing corner ' + CORNERS[ai].id + ' ' + p.fmt(av)) + (rg ? ', ' + rg.n + ' mapping' + (rg.n > 1 ? 's' : '') : ''));
+    } };
+    S.add(view); return view;
+  }
+  /* T4c-f, THE LEVEL CELL (ADR-340 r3 taking T4c, amended by ADR-341 r1; Knob `size: 'level'`; source: composition-lab-r2 T4c,
+     composition-lab-r3 T4c-f). NEW SIZE, not TS2a: TS2a (Slider size 'cell') is the 16 px-tall horizontal VALUE cell of a table
+     row, with its number in it; T4c is a 16 × 16 vertical LEVEL in a 28 px hit cell under a 4-character label, the tiny
+     knob's sibling for a cluster (ADR-338 r4), dragged up and down like a knob. The fill is the blend, ink caps stop both ends,
+     the focused mapping's lane runs down the left edge (the output a tick across it), and the editing corner is the corner
+     mark, centred on the level's right edge: the same mark as T2d's pip, so the cell reads as the knob does. */
+  function TinyLevel(el, p, S) {
+    var from = p.bipolar ? .5 : 0, W = 16;
+    el.classList.add('hd-mk', 'sz', 'sz-tiny', 'sz-level'); el.innerHTML = '';
+    if (p.label !== false) tinyHead(el, p); else el.title = p.path || p.name;
+    var box = document.createElement('div'); box.className = 'mk-face hd-focus'; box.setAttribute('role', 'slider');
+    box.setAttribute('aria-label', p.path || p.name); box.setAttribute('aria-valuemin', '0'); box.setAttribute('aria-valuemax', '1'); el.appendChild(box);
+    var svg = mk('svg', { viewBox: '0 0 ' + W + ' ' + W, width: W, height: W, 'aria-hidden': 'true' }); box.appendChild(svg);
+    var Y = function (x) { return 15.4 - 14.8 * clamp(x); };
+    var ms = seeThrough(svg, W, W, 'circle'), tg = ms.g;
+    mk('rect', { x: 2, y: 0, width: 12, height: 1.3, rx: .5, fill: v('ink') }, tg); mk('rect', { x: 2, y: 14.7, width: 12, height: 1.3, rx: .5, fill: v('ink') }, tg);   // the end stops
+    mk('rect', { x: 3.5, y: .6, width: 9, height: 14.8, rx: 2, fill: v('well-alt'), stroke: v('ink'), 'stroke-width': 1 }, tg);
+    var fill = mk('rect', { x: 4, y: 8, width: 8, height: 7, rx: 1.4, fill: v('ink') }, tg);
+    var mark = cornerMark(svg, ms);
+    var lane = mk('rect', { x: .2, y: 2, width: 1.8, height: 4, rx: .9, fill: 'transparent' }, svg);
+    var outl = mk('line', { x1: 0, x2: 3.4, y1: 8, y2: 8, stroke: 'transparent', 'stroke-width': 1.4 }, svg);
+    hot(el, p, S); gesture(box, p, S, function () { return DRAG; });
+    var last = '';
+    var view = { render: function () {
+      var ai = S.editing(p), b = S.base(p), out = S.output(p), rg = ringOf(S, p), av = p.locked ? b : p.vals[ai], ctl = S.ctlOf(p.key);
+      var sig = [b.toFixed(4), out.toFixed(4), av.toFixed(4), ai, rg ? rg.ends[0].toFixed(3) + rg.ends[1].toFixed(3) + rg.op + rg.n + rg.f.src : '', S.selected === p.key, S.map.on, S.keys, !!ctl].join('|');
+      if (sig === last) return; last = sig;
+      box.tabIndex = S.keys ? 0 : -1; el.classList.toggle('sel', S.selected === p.key); el.dataset.selc = ai === null ? '' : CORNERS[ai].id;
+      box.style.cursor = S.map.on ? 'copy' : ctl ? 'not-allowed' : 'ns-resize';
+      var top = Math.min(Y(b), Y(from)), bot = from === 0 ? 14.9 : Math.max(Y(b), Y(from));
+      fill.setAttribute('y', top); fill.setAttribute('height', Math.max(.5, bot - top)); fill.setAttribute('opacity', ctl ? .22 : 1);
+      if (rg) { var y1 = Y(Math.max(rg.ends[0], rg.ends[1])), y2 = Y(Math.min(rg.ends[0], rg.ends[1]));
+        lane.setAttribute('y', y1); lane.setAttribute('height', Math.max(1, y2 - y1)); lane.setAttribute('fill', rg.color); lane.setAttribute('opacity', rg.op);
+        outl.setAttribute('y1', Y(out)); outl.setAttribute('y2', Y(out)); outl.setAttribute('stroke', rg.color); }
+      else { lane.setAttribute('fill', 'transparent'); outl.setAttribute('stroke', 'transparent'); }
+      mark.set(12.5, Y(av), p.locked ? v('ink') : lineOf(ai), !p.locked);
       box.setAttribute('aria-valuenow', out.toFixed(3));
       box.setAttribute('aria-valuetext', p.fmt(out) + (ctl ? ', controlled by ' + S.src(ctl.src).name : p.locked ? ', locked' : ', editing corner ' + CORNERS[ai].id + ' ' + p.fmt(av)) + (rg ? ', ' + rg.n + ' mapping' + (rg.n > 1 ? 's' : '') : ''));
     } };
@@ -496,6 +568,7 @@
     p.fmt = p.fmt || pct; p.def = p.def === undefined ? (p.locked ? p.g : .5) : p.def;
     S.params[p.key] = p; if (!p.locked) S.saved[p.key] = p.vals.slice();
     if (p.size === 'tiny') return TinyKnob(el, p, S);   // T2d (ADR-340 r1)
+    if (p.size === 'level') return TinyLevel(el, p, S);   // T4c-f (ADR-340 r3, ADR-341 r1)
     var sz = KSIZE[p.size] ? p.size : null, G = sz ? KG[sz === 'utility' ? 'utility' : 'tight'] : KG.classic, Cc = G.C;
     el.classList.add('hd-mk'); if (sz) { el.classList.add('sz', 'sz-' + sz); }
     el.innerHTML = '';
@@ -673,26 +746,49 @@
     S.add(view); return view;
   }
 
-  /* ---------- READOUT SLOT: the section's one live readout (Density and hierarchy, README) ----------
+  /* ---------- READOUT SLOT: the section's one live readout (Density and hierarchy, README), DR-c ----------
      A sized control has no readout cell of its own. The slot, at the right end of a section header, shows the HOT control
-     (under the pointer, dragged, or keyboard-focused) when it sits inside `scope`: its name, its value, and the second line
-     the classic readout carried (the editing corner's glyph, letter, stored value and weight; the full focus caption while
-     Option is held or MAP is on; "controlled by"; LOCKED). Otherwise it shows the section's summary. */
+     (under the pointer, dragged, or keyboard-focused) when it sits inside `scope`, as TWO STACKED 13 px LINES (ADR-341 r2, DR-c;
+     composition-lab-r3): line 1 is where the hand is taking the control, line 2 is what you hear. The slot is a fixed box
+     (width size-rslot, height 26 px) in every state, so changing text never moves a pixel (H1, ADR-340 r4). Otherwise it shows
+     the section's summary.
+       line 1   name · the editing corner's OWN value (bold) · its glyph, letter, weight and lock ("▲ B set · 41%"); LOCKED
+                for a global parameter; the padlock and "C locked" for 1.6 s after a refused write
+       line 2   "now" the output after morph and every mapping · the focused mapping (source, polarity, amount, "+n" more),
+                in its source colour; "controlled by SRC" under a Control; "no modulation" otherwise
+     PLACEHOLDER (ADR-341 "Open"): line 1 is ASSUMED to be the editing corner's own value (the value T2d's hollow pip shows),
+     not the blend. The human has not said which; to switch, change `setValue` below to S.base(p). */
+  function dualLines(S, p, ai, n, v1, set, l2) {
+    var l = S.mapsOf(p.key), f = S.focused(p.key), c = S.ctlOf(p.key), out = p.fmt(S.output(p)), t;
+    n.textContent = p.name;
+    var setValue = p.locked ? p.g : p.vals[ai];                          // PLACEHOLDER: the editing corner's value, not the blend
+    v1.textContent = p.fmt(setValue); set.style.color = ''; set.innerHTML = '';
+    if (p.locked) { set.style.color = v('hint'); set.textContent = 'LOCKED'; }
+    else if (S.refused && !S.refused.ctl && S.refused.key === p.key && (S.now || 0) - S.refused.at < 1600) { set.style.color = lineOf(ai); set.innerHTML = LOCK + '<span>' + CORNERS[ai].id + ' locked</span>'; }
+    else { var w = S.weights()[ai]; set.style.color = lineOf(ai); set.innerHTML = glyphSvg(ai, 7, lineOf(ai)) + '<span>' + CORNERS[ai].id + ' set' + (w > .999 ? '' : ' · ' + pct(w)) + '</span>' + (S.locks[ai] ? LOCK : ''); }
+    if (c) { l2.style.color = srcColor(S.src(c.src)); t = 'now ' + out + ' · controlled by ' + S.src(c.src).name + ' (' + S.amount(c) + ')'; }
+    else if (f) { var src = S.src(f.src); l2.style.color = srcColor(src); t = 'now ' + out + ' · ' + src.name + ' ' + POLN[f.pol] + ' ' + S.amount(f) + (l.length > 1 ? ' (+' + (l.length - 1) + ')' : ''); }
+    else { l2.style.color = v('hint'); t = 'now ' + out + ' · no modulation'; }
+    if (l2.textContent !== t) l2.textContent = t;
+    l2.title = t;
+  }
   function ReadoutSlot(el, S, opts) {
     opts = opts || {};
     el.classList.add('hd-rslot'); el.setAttribute('aria-hidden', 'true');   // the controls' own aria-valuetext carries the same text
+    var sm = document.createElement('span'); sm.className = 'rs-sum';
+    var a1 = document.createElement('span'); a1.className = 'rs-l1';
     var n = document.createElement('span'); n.className = 'rs-n';
     var v1 = document.createElement('b'); v1.className = 'rs-v';
-    var v2 = document.createElement('span'); v2.className = 'mk-v2 rs-2';
-    var sm = document.createElement('span'); sm.className = 'rs-sum';
-    el.appendChild(n); el.appendChild(v1); el.appendChild(v2); el.appendChild(sm);
+    var set = document.createElement('span'); set.className = 'mk-v2 rs-2';
+    var a2 = document.createElement('span'); a2.className = 'rs-l2';
+    a1.appendChild(n); a1.appendChild(v1); a1.appendChild(set);
+    el.appendChild(sm); el.appendChild(a1); el.appendChild(a2);
     var view = { render: function () {
       var key = S.drag ? S.drag.key : S.hot, hEl = S.hotEl, p = key ? S.params[key] : null, scope = opts.scope || el.parentNode;
       var inside = p && scope && hEl && scope.contains(hEl);
       el.classList.toggle('live', !!inside);
       if (!inside) { var s = typeof opts.summary === 'function' ? opts.summary() : opts.summary || ''; if (sm.textContent !== s) sm.textContent = s; return; }
-      n.textContent = p.name; v1.textContent = p.fmt(S.output(p));
-      readout2(S, p, S.editing(p), v2);
+      dualLines(S, p, S.editing(p), n, v1, set, a2);
     } };
     S.add(view); return view;
   }
@@ -703,11 +799,16 @@
     el.classList.add('hd-map'); el.innerHTML = '';
     var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'map-btn hd-focus';
     btn.innerHTML = '<span class="led" aria-hidden="true"></span>MAP <span class="hold">HOLD</span>';
-    var sel = document.createElement('select'); sel.className = 'map-sel hd-focus'; sel.setAttribute('aria-label', 'Modulation source');
-    S.sources.forEach(function (s) { var o = document.createElement('option'); o.value = s.id; o.textContent = s.name; sel.appendChild(o); });
-    el.appendChild(btn); el.appendChild(sel);
+    /* MS3 (ADR-340 r8): `chip: true` makes the source a chip you drag through or step (H.SourceChip) instead of the select */
+    var sel = null;
+    el.appendChild(btn);
+    if (opts.chip) { var ch = document.createElement('span'); el.appendChild(ch); window.Horde.SourceChip(ch, S, opts.chip === true ? {} : opts.chip); }
+    else {
+      sel = document.createElement('select'); sel.className = 'map-sel hd-focus'; sel.setAttribute('aria-label', 'Modulation source');
+      S.sources.forEach(function (s) { var o = document.createElement('option'); o.value = s.id; o.textContent = s.name; sel.appendChild(o); });
+      el.appendChild(sel); sel.addEventListener('change', function () { S.setSrc(sel.value); });
+    }
     btn.addEventListener('click', function () { S.setMap(!S.map.on); });
-    sel.addEventListener('change', function () { S.setSrc(sel.value); });
     /* the live source strip is ONE component, shared with the mod matrix: H.SourceStrip (10-matrix part), looked up at
        run time because that part loads after this core */
     if (opts.strip && window.Horde.SourceStrip) window.Horde.SourceStrip(opts.strip, S);
@@ -716,7 +817,7 @@
       var s = S.src(S.map.src); el.style.setProperty('--sc', srcColor(s));
       btn.setAttribute('aria-pressed', String(S.map.on)); btn.setAttribute('aria-label', 'Map mode ' + (S.map.on ? 'on' : 'off') + ', source ' + s.name);
       el.classList.toggle('on', S.map.on); el.classList.toggle('momentary', S.map.momentary);
-      sel.value = S.map.src;
+      if (sel) sel.value = S.map.src;
       if (frame) { frame.classList.toggle('map-on', S.map.on); frame.style.setProperty('--sc', srcColor(s)); }
     }
     S.on(sync); sync();
@@ -734,10 +835,12 @@
           '<button class="hd-pill insp-pol hd-focus" data-i="' + i + '" aria-label="Polarity ' + POLN[m.pol] + ', click to cycle">' + POLN[m.pol] + '</button><span class="hd-value">' + S.amount(m) + (m.cd && m.pol !== 'ctl' ? ' ◇' : '') + '</span>' +
           '<button class="hd-iconbtn insp-del hd-focus" data-i="' + i + '" aria-label="Remove ' + s.name + '"><svg viewBox="0 0 10 10"><path d="M2 1 5 4 8 1 9 2 6 5 9 8 8 9 5 6 2 9 1 8 4 5 1 2Z"/></svg></button></div>'; });
       el.innerHTML = h;
+      /* MP1 (ADR-340 r9): every route's chip is the same chip: click next, shift-click previous, a vertical drag for the depth */
+      [].forEach.call(el.querySelectorAll('.insp-pol'), function (b) { var m = l[+b.dataset.i]; window.Horde.PolChip(b, S, m, { cycle: function (back) { S.cyclePol(m, back); } }); });
     }
     el.addEventListener('click', function (e) {
       var b = e.target.closest('button') || e.target.closest('.insp-row'); if (!b) return; var p = S.params[S.selected], m = S.mapsOf(p.key)[+b.dataset.i]; if (!m) return;   // the whole row focuses, not only its name button
-      if (b.classList.contains('insp-pol')) S.cyclePol(m); else if (b.classList.contains('insp-del')) S.remove(m); else { S.focus[p.key] = +b.dataset.i; S.lastMap = m; S.emit(); }
+      if (b.classList.contains('insp-pol')) return; else if (b.classList.contains('insp-del')) S.remove(m); else { S.focus[p.key] = +b.dataset.i; S.lastMap = m; S.emit(); }
     });
     var last = '';
     S.on(draw);
@@ -1308,20 +1411,28 @@
     paint(false); addEventListener('resize', function () { paint(false); });
     return { get: function () { return v; } };
   }
-  /* ---------- STEPPER: the house stepper (ADR-338 r2's TC1 / TC2 steppers, gestures ADR-340 r5) ----------
+  /* ---------- STEPPER: the house stepper (ADR-338 r2's TC1 / TC2 steppers, gestures ADR-340 r5, drawing SG-b ADR-341 r3) ----------
      The human, 2026-10-30: "Steppers need to be draggable, possibly even able to accept number input", then 2026-10-31:
      "double clicking returns to home while option clicking allows you to type". So, on any stepper:
        drag the value up / down   one step per 6 px (Shift: per 24 px), re-anchoring at the ends (no dead range)
        click ‹ ›                   one step (the mouse route; the flat form has no arrows)
        double-click anywhere       the default (home), as on a knob
-       Option-click                a number field in the same box: Enter or Tab commits, Escape cancels (it is the
-                                   innermost layer of the layered Escape, ADR-338 r11, so it never reaches the page), a click
-                                   away commits. Out of range clamps and says so; text that names no value is refused and
-                                   said. A named option takes its name or its first letters ("tri").
-       ↑ ↓ in keyboard mode        one step (Shift: ten); PgUp / PgDn ten; Home / End the ends; Enter or F2 the field
-     The value box is as wide as the widest value, so nothing reflows as it changes (H1, ADR-340 r4).
-     o: { name, path, options: [names] | { min, max, step }, value, def, fmt(v), onInput(v), say(msg), flat (TC2's table
-     form, K4), sm (the dense 20 px face), keys() (keyboard mode, default off) } */
+       Option-click                a NUMERIC stepper opens a number field in the same box: Enter or Tab commits, Escape cancels
+                                   (the innermost layer of the layered Escape, ADR-338 r11, so it never reaches the page), a
+                                   click away commits. Out of range clamps and says so; text that is no number is refused and said.
+                                   A stepper of NAMED options opens a DROPDOWN of those options instead (ADR-341 r3: "it doesn't
+                                   make sense to be able to type in your own text"): ↑ ↓ Home End move, Enter commits, Escape
+                                   cancels, a click on an option commits, a click away cancels. There is no typed-name entry.
+       Alt + wheel                 one step (B374: the wheel only with Option)
+       ↑ ↓ in keyboard mode        one step; Shift ten; PgUp / PgDn ten; Home / End the ends; Enter or F2 the field or dropdown
+     SG-b (the drawing): a small ⇕ glyph beside the value says it drags, and a STEP SCALE under the face shows where the value sits
+     in its range, with HOME the ringed tick (one tick per step up to 25, a bar beyond). The scale lies on the face's 2 px foot in
+     the flat table form (a 17 px row has no room below). The value box is as wide as the widest value, so nothing reflows as it
+     changes (H1, ADR-340 r4).
+     o: { name, path, options: [names] | { min, max, step }, value, def, fmt(v), spoken(v) (aria-valuetext where the display
+     is too short to say it), onInput(v), say(msg), flat (TC2's table form, K4), sm (the dense 20 px face), tc (TC1's 16 px
+     face), keys() (keyboard mode, default off) }. The range is fixed at mount: a stepper whose range changes is remounted. */
+  var CUE = '<svg class="st-cue" viewBox="0 0 6 10" width="6" height="10" aria-hidden="true"><path d="M3 .8 5.4 3.6H.6ZM3 9.2 5.4 6.4H.6Z"/></svg>';
   function Stepper(el, o) {
     var named = !!(o.options && o.options.length), min = named ? 0 : (o.min || 0), max = named ? o.options.length - 1 : (o.max === undefined ? 1 : o.max);
     var step = named ? 1 : (o.step || 1), v = o.value === undefined ? min : o.value, def = o.def === undefined ? v : o.def;
@@ -1329,21 +1440,36 @@
     var keys = o.keys || function () { return false; };
     function q(x) { return Math.min(max, Math.max(min, min + Math.round((x - min) / step) * step)); }
     var CHL = '<svg viewBox="0 0 8 8" aria-hidden="true"><path d="M6 0v8L1 4z"/></svg>', CHR = '<svg viewBox="0 0 8 8" aria-hidden="true"><path d="M2 0v8l5-4z"/></svg>';
-    el.classList.add('hd-stepper', 'hd-step', 'hd-focus'); if (o.flat) el.classList.add('hd-step-flat'); if (o.sm) el.classList.add('hd-sm');
-    el.innerHTML = (o.flat ? '' : '<button type="button" class="st-dn" tabindex="-1" aria-label="previous">' + CHL + '</button>') + '<output></output>' +
-      (o.flat ? '' : '<button type="button" class="st-up" tabindex="-1" aria-label="next">' + CHR + '</button>');
-    el.setAttribute('role', 'spinbutton'); el.setAttribute('aria-label', o.path || o.name || 'stepper'); el.title = (o.path || o.name || '') + ' · drag, double-click: default, ⌥-click: type';
-    var out = el.querySelector('output'), wide = 0, n;
+    el.classList.add('hd-stepper', 'hd-step', 'hd-focus'); if (o.flat) el.classList.add('hd-step-flat'); if (o.sm) el.classList.add('hd-sm'); if (o.tc) el.classList.add('hd-tc');
+    el.innerHTML = (o.flat ? '' : '<button type="button" class="st-dn" tabindex="-1" aria-label="previous">' + CHL + '</button>') + '<output></output>' + CUE +
+      (o.flat ? '' : '<button type="button" class="st-up" tabindex="-1" aria-label="next">' + CHR + '</button>') + '<span class="st-scale" aria-hidden="true"></span>';
+    el.setAttribute('role', 'spinbutton'); el.setAttribute('aria-label', o.path || o.name || 'stepper');
+    el.title = (o.path || o.name || '') + ' · drag, double-click: default' + (named ? ', ⌥-click: choose' : ', ⌥-click: type');
+    var out = el.querySelector('output'), scale = el.querySelector('.st-scale'), wide = 0, n;
     if (named) o.options.forEach(function (s) { wide = Math.max(wide, String(s).length); });
     else for (n = min; n <= max + 1e-9 && wide < 12; n += Math.max(step, (max - min) / 64)) wide = Math.max(wide, fmt(q(n)).length);
     out.style.minWidth = (wide + 1) + 'ch';
+    var count = Math.round((max - min) / step) + 1;
+    /* the step scale, redrawn on a paint: the current tick wide and ink, home ringed (when it is not the current), the rest hint */
+    function drawScale() {
+      var cur = Math.round((v - min) / step), home = Math.round((q(def) - min) / step), h = '', i, x;
+      if (count <= 25) for (i = 0; i < count; i++) {
+        x = count === 1 ? 50 : 2 + 96 * i / (count - 1);
+        h += '<rect x="' + (x - (i === cur ? 2.2 : .5)) + '" y="' + (i === cur ? 0 : 1.5) + '" width="' + (i === cur ? 4.4 : 1) + '" height="' + (i === cur ? 4 : 2.5) + '" fill="var(--' + (i === cur ? 'ink' : 'hint') + ')"/>';
+        if (i === home && i !== cur) h += '<rect x="' + (x - 1.6) + '" y=".2" width="3.2" height="3.6" rx=".6" fill="none" stroke="var(--ink)" stroke-width=".8" vector-effect="non-scaling-stroke"/>';
+      } else {
+        h = '<rect x="0" y="1.5" width="100" height="1" fill="var(--hint)"/><rect x="' + (100 * cur / (count - 1) - 1.5) + '" y="0" width="3" height="4" fill="var(--ink)"/>';
+        x = 100 * home / (count - 1); if (home !== cur) h += '<rect x="' + (x - 1.6) + '" y=".2" width="3.2" height="3.6" rx=".6" fill="none" stroke="var(--ink)" stroke-width=".8" vector-effect="non-scaling-stroke"/>';
+      }
+      scale.innerHTML = '<svg viewBox="0 0 100 4" preserveAspectRatio="none">' + h + '</svg>';
+    }
     function set(x, quiet) { var nv = q(x); if (nv === v && quiet) return; v = nv; paint(); if (o.onInput) o.onInput(v); }
-    function paint() { out.textContent = fmt(v); el.setAttribute('aria-valuenow', v); el.setAttribute('aria-valuetext', fmt(v)); el.setAttribute('aria-valuemin', min); el.setAttribute('aria-valuemax', max); el.tabIndex = keys() ? 0 : -1; }
+    function paint() { out.textContent = fmt(v); el.setAttribute('aria-valuenow', v); el.setAttribute('aria-valuetext', o.spoken ? o.spoken(v) : fmt(v)); el.setAttribute('aria-valuemin', min); el.setAttribute('aria-valuemax', max); el.tabIndex = keys() ? 0 : -1; el.classList.toggle('home', v === q(def)); drawScale(); }
     var b = el.querySelectorAll('button');
     if (b.length) { b[0].addEventListener('click', function (e) { if (!e.altKey) set(v - step, true); }); b[1].addEventListener('click', function (e) { if (!e.altKey) set(v + step, true); }); }
-    var st = null, field = null;
+    var st = null, field = null, menu = null;
     el.addEventListener('pointerdown', function (e) {
-      if (e.button !== 0 || field || (e.target.closest && e.target.closest('button'))) return;
+      if (e.button !== 0 || field || menu || (e.target.closest && e.target.closest('button'))) return;
       if (e.altKey) { e.preventDefault(); open(); return; }
       try { el.setPointerCapture(e.pointerId); } catch (_) { /* keep the drag */ }
       st = { y: e.clientY, v0: v, px: e.shiftKey ? 24 : 6 }; el.classList.add('drag');
@@ -1357,18 +1483,20 @@
     });
     function end(e) { if (e && e.pointerId !== undefined && el.hasPointerCapture && el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId); st = null; el.classList.remove('drag'); }
     el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end); el.addEventListener('lostpointercapture', end);
-    el.addEventListener('dblclick', function (e) { if (field || e.altKey) return; e.preventDefault(); set(def, true); say((o.name || 'Value') + ': default, ' + fmt(v)); });
-    function open() {
-      if (field) return; field = document.createElement('input'); field.className = 'st-field'; field.type = 'text'; field.value = fmt(v);
+    el.addEventListener('dblclick', function (e) { if (field || menu || e.altKey) return; e.preventDefault(); set(def, true); say((o.name || 'Value') + ': default, ' + fmt(v)); });
+    el.addEventListener('wheel', function (e) { if (!e.altKey) return; e.preventDefault(); set(v + (e.deltaY < 0 ? step : -step), true); }, { passive: false });   // B374
+    function open() { if (field || menu) return; if (named) openMenu(); else openField(); }
+    /* the number field (numeric steppers only) */
+    function openField() {
+      field = document.createElement('input'); field.className = 'st-field'; field.type = 'text'; field.value = fmt(v);
       field.setAttribute('aria-label', (o.path || o.name || 'value') + ', type a value'); field.style.width = out.style.minWidth;
       out.replaceWith(field); field.focus(); field.select();
       var done = false;
       function close(commit) {
         if (done) return; done = true;
-        if (commit) { var t = field.value.trim(), nv = null;
-          if (named) { var lt = t.toLowerCase(); for (var i = 0; i < o.options.length && nv === null; i++) if (String(o.options[i]).toLowerCase().indexOf(lt) === 0 && lt) nv = i; }
-          if (nv === null && t !== '' && isFinite(+t)) nv = named ? Math.round(+t) - 1 : +t;
-          if (nv === null) say('"' + t + '" names no value of ' + (o.name || 'this control') + ': unchanged');
+        if (commit) { var t = field.value.trim().replace(/−/g, '-'), nv = null;
+          if (t !== '' && isFinite(+t)) nv = +t;
+          if (nv === null) say('"' + t + '" is not a number: ' + (o.name || 'this control') + ' unchanged');
           else { if (nv > max || nv < min) say((o.name || 'Value') + ': ' + t + ' is out of range, set to ' + fmt(q(nv))); set(nv, false); } }
         field.replaceWith(out); field = null; paint();
       }
@@ -1379,8 +1507,46 @@
       });
       field.addEventListener('blur', function () { close(true); });
     }
+    /* the dropdown (named steppers): a listbox of the options under the face, fixed so it never moves layout; the highlight
+       starts on the current value and moves with the arrows; only Enter or a click on an option commits */
+    function openMenu() {
+      var hi = v, done = false, r = el.getBoundingClientRect();
+      menu = document.createElement('div'); menu.className = 'st-menu'; menu.setAttribute('role', 'listbox'); menu.tabIndex = -1;
+      menu.setAttribute('aria-label', (o.path || o.name || 'value') + ', choose an option');
+      var items = o.options.map(function (s, i) {
+        var it = document.createElement('div'); it.className = 'st-opt'; it.setAttribute('role', 'option'); it.id = 'st-o' + Math.random().toString(36).slice(2, 8) + i; it.textContent = String(s);
+        it.addEventListener('pointermove', function () { light(i); });
+        it.addEventListener('pointerdown', function (e) { e.preventDefault(); close(true, i); });   // preventDefault keeps focus on the menu, so the blur below does not cancel first
+        menu.appendChild(it); return it;
+      });
+      function light(i) { hi = Math.min(max, Math.max(min, i)); items.forEach(function (it, k) { it.classList.toggle('on', k === hi); it.setAttribute('aria-selected', String(k === v)); }); menu.setAttribute('aria-activedescendant', items[hi].id); items[hi].scrollIntoView({ block: 'nearest' }); }
+      function close(commit, pick) {
+        if (done) return; done = true; removeEventListener('pointerdown', away, true);
+        var m = menu; menu = null; m.remove();
+        if (commit) { set(pick === undefined ? hi : pick, false); say((o.name || 'Value') + ': ' + fmt(v)); }
+        el.focus({ preventScroll: true });
+      }
+      function away(e) { if (!menu.contains(e.target)) close(false); }   // a click away cancels: nothing was typed to commit
+      menu.addEventListener('keydown', function (e) {
+        var k = e.key;
+        if (k === 'ArrowDown') light(hi + 1); else if (k === 'ArrowUp') light(hi - 1); else if (k === 'Home') light(min); else if (k === 'End') light(max);
+        else if (k === 'PageDown') light(hi + 5); else if (k === 'PageUp') light(hi - 5);
+        else if (k === 'Enter') close(true); else if (k === 'Tab') close(true);
+        else if (k === 'Escape') close(false);
+        else { e.stopPropagation(); return; }   // any other key is swallowed: a digit is never a map key, and there is no typing here
+        e.preventDefault(); e.stopPropagation();   // Escape included: the dropdown is the innermost layer of the layered Escape
+      });
+      menu.addEventListener('blur', function () { close(false); });
+      document.body.appendChild(menu);
+      var mh = menu.getBoundingClientRect().height, top = r.bottom + 4;
+      if (top + mh > innerHeight - 8 && r.top - mh - 4 > 8) top = r.top - mh - 4;   // flip above when there is no room below
+      menu.style.left = Math.round(Math.min(r.left, innerWidth - 8 - Math.max(menu.getBoundingClientRect().width, 0))) + 'px'; menu.style.top = Math.round(top) + 'px';
+      menu.style.minWidth = Math.round(r.width) + 'px';
+      light(v); menu.focus({ preventScroll: true });
+      addEventListener('pointerdown', away, true);
+    }
     el.addEventListener('keydown', function (e) {
-      if (field || !keys()) return; var k = e.key, big = 10 * step;
+      if (field || menu || !keys()) return; var k = e.key, big = 10 * step;
       if (k === 'ArrowUp' || k === 'ArrowRight') set(v + (e.shiftKey ? big : step), true); else if (k === 'ArrowDown' || k === 'ArrowLeft') set(v - (e.shiftKey ? big : step), true);
       else if (k === 'PageUp') set(v + big, true); else if (k === 'PageDown') set(v - big, true); else if (k === 'Home') set(min, true); else if (k === 'End') set(max, true);
       else if (k === 'Enter' || k === 'F2') open(); else return;
@@ -1460,9 +1626,9 @@
     var l = dRoutes(S); for (var i = l.length - 1; i >= 0; i--) if (l[i].of === m) l.splice(i, 1);
     S.remove(m);
   }
-  function cyclePolOf(S, m, isDepthRoute) {
-    if (!isDepthRoute) { S.cyclePol(m); return; }
-    m.pol = POLS[(POLS.indexOf(m.pol) + 1) % 3];   // a depth route: UNI, BI, INV (CTL has no meaning on a depth)
+  function cyclePolOf(S, m, isDepthRoute, back) {
+    if (!isDepthRoute) { S.cyclePol(m, back); return; }
+    m.pol = POLS[(POLS.indexOf(m.pol) + (back ? 2 : 1)) % 3];   // a depth route: UNI, BI, INV (CTL has no meaning on a depth)
     S.say(S.src(m.src).name + ' → depth of ' + S.src(m.of.src).name + ' → ' + pname(S, m.of.param) + ' · ' + POLN[m.pol]);
   }
   function addDepthRoute(S, m) {
@@ -1474,20 +1640,26 @@
   }
 
   /* one relative drag: start(e) returns a state or null; move(st, delta in px along the axis, e); end(st, moved).
-     Pointer capture is released on every exit path (the tests fail on a leaked capture). */
+     Pointer capture is released on every exit path (the tests fail on a leaked capture).
+     RE-ANCHORED (ADR-340 r2), like the Session gesture and PlainSlider: the delta handed to move() is the ACCUMULATED effective
+     delta, so a Shift change mid-drag changes the rate from here on without jumping the value, and move() may RETURN the
+     delta it actually reached when it clamped at a stop: the drag restarts from that stop, so reversing moves at once and
+     an overshoot is no dead range to unwind. */
   function drag(target, o) {
     var st = null;
     target.addEventListener('pointerdown', function (e) {
       if (e.button !== 0) return;
       st = o.start(e); if (!st) return;
-      st.x = e.clientX; st.y = e.clientY; st.moved = false; st.pid = e.pointerId;
+      st.x = e.clientX; st.y = e.clientY; st.moved = false; st.pid = e.pointerId; st.acc = 0; st.d0 = 0; st.k = e.shiftKey ? .25 : 1;
       try { target.setPointerCapture(e.pointerId); } catch (_) { /* keep the drag */ }
     });
     target.addEventListener('pointermove', function (e) {
       if (!st) return;
-      var d = o.axis === 'x' ? e.clientX - st.x : st.y - e.clientY;
+      var d = o.axis === 'x' ? e.clientX - st.x : st.y - e.clientY, k = e.shiftKey ? .25 : 1;
       if (Math.abs(d) > 3) st.moved = true; if (!st.moved) return;
-      o.move(st, d * (e.shiftKey ? .25 : 1), e);
+      if (k !== st.k) { st.acc += (d - st.d0) * st.k; st.d0 = d; st.k = k; }
+      var eff = st.acc + (d - st.d0) * k, got = o.move(st, eff, e);
+      if (typeof got === 'number' && got !== eff) { st.acc = got; st.d0 = d; }
     });
     function end(e) {
       if (e && e.pointerId !== undefined && target.hasPointerCapture && target.hasPointerCapture(e.pointerId)) target.releasePointerCapture(e.pointerId);
@@ -1608,9 +1780,10 @@
           return { m: m, isNew: isNew, ai: ai, start: m.pol === 'ctl' ? [m.lo, m.hi] : (m.cd && ai !== null ? m.cd[ai] : m.depth) };
         },
         move: function (st, d) {
-          var m = st.m, dv = d / DRAG;
-          if (m.pol === 'ctl') { var w = st.start[1] - st.start[0], lo = clamp(st.start[0] + dv, 0, 1 - w); m.lo = lo; m.hi = lo + w; }   // the band slides, its width kept
-          else if (m.cd && st.ai !== null) m.cd[st.ai] = clamp(st.start + dv); else m.depth = clamp(st.start + dv);
+          var m = st.m, dv = d / DRAG, nv, from;
+          if (m.pol === 'ctl') { var w = st.start[1] - st.start[0]; nv = clamp(st.start[0] + dv, 0, 1 - w); m.lo = nv; m.hi = nv + w; from = st.start[0]; }   // the band slides, its width kept
+          else { from = st.start; nv = clamp(from + dv); if (m.cd && st.ai !== null) m.cd[st.ai] = nv; else m.depth = nv; }
+          return (nv - from) * DRAG;   // the delta reached, for the re-anchor
         },
         end: function (st, moved) {
           var m = st.m;
@@ -1728,9 +1901,10 @@
           return { W: W, which: which, ai: ai, start: which === 'lo' ? m.lo : which === 'hi' ? m.hi : (m.cd && ai !== null ? m.cd[ai] : m.depth) };
         },
         move: function (st, d) {
-          var nv = st.start + d / st.W;
-          if (st.which === 'lo') m.lo = clamp(nv, 0, m.hi); else if (st.which === 'hi') m.hi = clamp(nv, m.lo, 1);
-          else if (m.cd && st.ai !== null) m.cd[st.ai] = clamp(nv); else m.depth = clamp(nv);
+          var nv = st.start + d / st.W, got;
+          if (st.which === 'lo') { got = clamp(nv, 0, m.hi); m.lo = got; } else if (st.which === 'hi') { got = clamp(nv, m.lo, 1); m.hi = got; }
+          else { got = clamp(nv); if (m.cd && st.ai !== null) m.cd[st.ai] = got; else m.depth = got; }
+          return (got - st.start) * st.W;   // the delta reached, for the re-anchor
         },
         end: function (st, moved) { trk.classList.remove('drag'); if (moved) S.say((isD ? 'Depth route ' : '') + s.name + ' → ' + pname(S, tgt.param) + ' · ' + POLN[m.pol] + ' ' + (isD ? pct(m.depth) : amount(S, m))); S.emit(); } });
       trk.addEventListener('dblclick', function () {                   // double-click resets: 25%, or the full sweep
@@ -1739,7 +1913,8 @@
       });
       trk.dataset.pol = m.pol;
     }
-    pill.addEventListener('click', function () { cyclePolOf(S, m, isD); S.emit(); });
+    /* MP1 (ADR-340 r9): click next, shift-click previous, a vertical drag widens and thins the band (the depth) */
+    H.PolChip(pill, S, m, { depthRoute: isD, cycle: function (back) { cyclePolOf(S, m, isD, back); S.emit(); } });
     addD.addEventListener('click', function () {
       if (isD) { S.say('One level only: a depth route\'s own depth cannot be modulated (no route reads a route that reads a route)'); return; }
       addDepthRoute(S, m); S.emit();
@@ -1966,19 +2141,32 @@
   }
 
   /* =====================================================================
-     COMPACT WIRES — the patch-bay view, dense: only the sources and destinations in use. Width is the depth now,
-     brightness the source's value now, dashed is inverse, a CTL wire ends in a bar; a depth route lands on a ◇
-     valve at its target wire's middle. A screen (the lab's tube): scr- roles only, so no source hues inside it.
+     COMPACT WIRES — the patch-bay view, dense: the sources and destinations in use. Width is the depth now,
+     brightness the source's value now, dashed is inverse, a CTL wire ends in a bar. A screen (the lab's tube): scr- roles
+     only, so no source hues inside it.
+     W-a (ADR-341 r5, ADR-340 r10's ML1; source composition-lab-r3 W-a), the wires made a control:
+       values     every node shows its value (a source its level, a destination its value now)
+       ◇ valve    every wire carries a valve at its middle that fills to its depth, and is the DROP TARGET for a depth route
+                  (B70: a source dropped on a wire's middle modulates that wire's depth); while a drag is in flight every valve
+                  grows and the nearest within 16 px lights
+       new wires  drag from a source node to a destination node (a new wire beside any already there: several sources on one
+                  destination stay separate wires) or onto a valve
+     opts: { keys? destination order, sources? ids shown even with no route (so a first wire can be dragged from them),
+             drag: false turns the dragging off, onWire(srcId, key), onDepthRoute(srcId, mapping) }. The engine has no depth
+             routes yet (B70): a drop on a valve only EMITS onDepthRoute; with no callback the master's own placeholder
+             (S.depthRoutes, the matrix's) takes it so the preview shows something. A drop on a destination without onWire
+             adds a mapping to the Session at 25 %, as a click on an empty grid cell does.
      ===================================================================== */
   function CompactWires(el0, S, opts) {
     opts = opts || {};
-    var rowH = 30;
+    var rowH = 30, geo = { src: [], dst: [], valve: [] }, wd = null;   // geo in CSS px, read by the pointer; wd the wire being dragged
     el0.classList.add('mx-wires'); el0.__S = S; el0.innerHTML = '';
     var viz = el('div', 'hd-viz'); el0.appendChild(viz);
     var cv = el('canvas'); cv.setAttribute('role', 'img'); viz.appendChild(cv);
     var hits = hitLayer(viz), srcs = [], dsts = [], lastSig = null;
     function layout() {
       var used = {}; S.mappings.forEach(function (m) { used[m.src] = 1; }); dRoutes(S).forEach(function (d) { used[d.src] = 1; });
+      (opts.sources || []).forEach(function (id) { used[id] = 1; });
       srcs = S.sources.filter(function (s) { return used[s.id]; });
       dsts = routedKeys(S, opts);
       var n = Math.max(srcs.length, dsts.length, 1); viz.style.height = (n * rowH + 12) + 'px';
@@ -1990,63 +2178,124 @@
     function draw() {
       var K = H.Viz.kit(cv), g = K.g, W = K.W, Hh = K.H, V = K.V;
       cv.__draws = (cv.__draws || 0) + 1;
+      geo = { src: [], dst: [], valve: [] };
       K.tube(); K.scan(); g.font = monoFont(9, V); g.textBaseline = 'middle';
-      if (!S.mappings.length) { g.fillStyle = K.c('grid'); g.fillText('no mappings', 10 * V, Hh / 2); cv.setAttribute('aria-label', 'Wires: no mappings'); return; }
+      if (!srcs.length && !dsts.length) { g.fillStyle = K.c('grid'); g.fillText('no mappings', 10 * V, Hh / 2); cv.setAttribute('aria-label', 'Wires: no mappings'); return; }
       var nw = Math.max(58 * V, Math.min(118 * V, W * .26)), nh = 22 * V, top = 6 * V, inner = Hh - 12 * V;
       var sx = 4 * V, dx = W - nw - 4 * V;
       var sY = function (j) { return top + inner * (j + .5) / srcs.length; }, dY = function (j) { return top + inner * (j + .5) / dsts.length; };
       var fanN = {}, fanK = {}, mids = new Map(), desc = [];
       S.mappings.forEach(function (m) { fanN[m.param] = (fanN[m.param] || 0) + 1; });
       function bez(x0, y0, x1, y1, t) { var u = 1 - t, c0 = x0 + (x1 - x0) * .45, c1 = x1 - (x1 - x0) * .45; return [u * u * u * x0 + 3 * u * u * t * c0 + 3 * u * t * t * c1 + t * t * t * x1, u * u * u * y0 + 3 * u * u * t * y0 + 3 * u * t * t * y1 + t * t * t * y1]; }
+      function diamond(x, y, r) { g.beginPath(); g.moveTo(x, y - r); g.lineTo(x + r, y); g.lineTo(x, y + r); g.lineTo(x - r, y); g.closePath(); }
       g.lineCap = 'round';
       S.mappings.forEach(function (m) {
         var j = srcs.findIndex(function (s) { return s.id === m.src; }), dj = dsts.indexOf(m.param); if (j < 0 || dj < 0) return;
         var n = fanN[m.param], kk = fanK[m.param] = (fanK[m.param] || 0) + 1;
         var x0 = sx + nw, y0 = sY(j), x1 = dx, y1 = dY(dj) + (kk - (n + 1) / 2) * 5 * V, sv = S.sourceValue(m.src);
-        var wd = V * (1 + 6 * (m.pol === 'ctl' ? m.hi - m.lo : depthNow(S, m)));
-        g.strokeStyle = K.c('physics', .25 + .7 * sv); g.lineWidth = wd; g.setLineDash(m.pol === 'inv' ? [6 * V, 4 * V] : []);
+        var wd2 = V * (1 + 6 * (m.pol === 'ctl' ? m.hi - m.lo : depthNow(S, m)));
+        g.strokeStyle = K.c('physics', .25 + .7 * sv); g.lineWidth = wd2; g.setLineDash(m.pol === 'inv' ? [6 * V, 4 * V] : []);
         g.beginPath(); g.moveTo(x0, y0); g.bezierCurveTo(x0 + (x1 - x0) * .45, y0, x1 - (x1 - x0) * .45, y1, x1, y1); g.stroke(); g.setLineDash([]);
         if (m.pol === 'ctl') { g.fillStyle = K.c('physics'); g.fillRect(x1 - 3 * V, y1 - 6 * V, 3 * V, 12 * V); }   // a Control ends in a bar: it SETS, it does not add
         mids.set(m, bez(x0, y0, x1, y1, .5));
         if (m.pol !== 'uni') { var q = bez(x0, y0, x1, y1, .86); g.fillStyle = K.c('grid'); g.fillText(POLN[m.pol], q[0] - 16 * V, q[1] - 7 * V); }
         desc.push(S.src(m.src).name + ' to ' + pname(S, m.param) + ' ' + POLN[m.pol] + ' ' + amount(S, m));
       });
-      dRoutes(S).forEach(function (d) {                                 // depth wires land on the target wire's valve
+      dRoutes(S).forEach(function (d) {                                 // a depth wire runs, dotted, to its target wire's valve
         var mm = mids.get(d.of), j = srcs.findIndex(function (s) { return s.id === d.src; }); if (!mm || j < 0) return;
         var x0 = sx + nw, y0 = sY(j), up = mm[1] > y0 ? -1 : 1;
         g.strokeStyle = K.c('physics', .3 + .65 * S.sourceValue(d.src)); g.lineWidth = V * (1 + 3 * d.depth); g.setLineDash(d.pol === 'inv' ? [2 * V, 3 * V] : [1 * V, 2.5 * V]);
         g.beginPath(); g.moveTo(x0, y0); g.bezierCurveTo(x0 + (mm[0] - x0) * .5, y0, mm[0], mm[1] + up * 30 * V, mm[0], mm[1] + up * 7 * V); g.stroke(); g.setLineDash([]);
-        var s6 = 6 * V, rc = depthReach(S, d.of), f = rc[1] - rc[0] > 1e-9 ? clamp((depthNow(S, d.of) - rc[0]) / (rc[1] - rc[0])) : 1;
-        g.beginPath(); g.moveTo(mm[0], mm[1] - s6); g.lineTo(mm[0] + s6, mm[1]); g.lineTo(mm[0], mm[1] + s6); g.lineTo(mm[0] - s6, mm[1]); g.closePath();
-        g.fillStyle = K.c('ground'); g.fill(); g.strokeStyle = K.c('physics'); g.lineWidth = 1.5 * V; g.stroke();
-        g.save(); g.clip(); g.fillStyle = K.c('physics', .85); g.fillRect(mm[0] - s6, mm[1] + s6 - 2 * s6 * f, 2 * s6, 2 * s6 * f); g.restore();
         desc.push(S.src(d.src).name + ' to the depth of ' + S.src(d.of.src).name + ' to ' + pname(S, d.of.param));
+      });
+      /* the valves, one per wire, over the wires. At rest 5.5 px and filled to the wire's depth (a Control's range, for CTL); a wire
+         whose depth is moved by depth routes fills to where the moved depth sits in its reach (the lab's W-a). While a wire is
+         being dragged every valve grows and the one under the drop (the nearest within 16 px) takes the value colour. */
+      mids.forEach(function (q, m) {
+        var hotV = wd && wd.target && wd.target.kind === 'valve' && wd.target.m === m, r = (wd ? (hotV ? 8.5 : 7) : 5.5) * V;
+        var routed = routesOn(S, m).length, rc = depthReach(S, m);
+        var f = routed ? (rc[1] - rc[0] > 1e-9 ? clamp((depthNow(S, m) - rc[0]) / (rc[1] - rc[0])) : 1) : clamp(m.pol === 'ctl' ? m.hi - m.lo : depthNow(S, m));
+        diamond(q[0], q[1], r); g.fillStyle = hotV ? K.c('value') : K.c('ground'); g.fill();
+        if (!hotV) { g.save(); g.clip(); g.fillStyle = K.c('physics', .85); g.fillRect(q[0] - r, q[1] + r - 2 * r * f, 2 * r, 2 * r * f); g.restore(); }
+        diamond(q[0], q[1], r); g.strokeStyle = hotV ? K.c('value') : K.c('physics'); g.lineWidth = 1.5 * V; g.stroke();
+        geo.valve.push({ m: m, x: q[0] / V, y: q[1] / V });
       });
       g.lineCap = 'butt';
       srcs.forEach(function (s, j) {
-        var y = sY(j) - nh / 2;
+        var y = sY(j) - nh / 2, sv = S.sourceValue(s.id), vt = pct(sv);
         g.fillStyle = K.c('ground'); g.fillRect(sx, y, nw, nh); g.strokeStyle = K.c('grid', .8); g.lineWidth = V; g.strokeRect(sx + .5 * V, y + .5 * V, nw - V, nh - V);
-        g.fillStyle = K.c('grid'); g.fillText(fitText(g, num(S, s.id) + ' ' + s.name, nw - 8 * V), sx + 4 * V, y + nh / 2 - 2 * V);
-        g.fillStyle = K.c('physics', .9); g.fillRect(sx + 2 * V, y + nh - 4 * V, (nw - 4 * V) * S.sourceValue(s.id), 2 * V);
+        g.fillStyle = K.c('value'); g.textAlign = 'right'; g.fillText(vt, sx + nw - 12 * V, y + nh / 2 - 2 * V); g.textAlign = 'left';
+        g.fillStyle = K.c('grid'); g.fillText(fitText(g, num(S, s.id) + ' ' + s.name, nw - 20 * V - g.measureText(vt).width), sx + 4 * V, y + nh / 2 - 2 * V);
+        g.fillStyle = K.c('physics', .9); g.fillRect(sx + 2 * V, y + nh - 4 * V, (nw - 4 * V) * sv, 2 * V);
+        if (opts.drag !== false) { g.beginPath(); g.arc(sx + nw, sY(j), 3.2 * V, 0, 6.2832); g.fillStyle = K.c('ground'); g.fill(); g.strokeStyle = K.c('physics'); g.lineWidth = 1.4 * V; g.stroke(); }   // the port: where a wire starts
+        geo.src.push({ id: s.id, x: sx / V, y: y / V, w: nw / V, h: nh / V });
       });
       dsts.forEach(function (k, j) {
         var p = S.params[k], y = dY(j) - nh / 2, sel = k === S.selected, c0 = S.ctlOf(k), rc = reach(S, p), rw = raw(S, p), bx = dx + 4 * V, bw = nw - 8 * V, by = y + nh - 4 * V;
+        var hotD = wd && wd.target && wd.target.kind === 'dst' && wd.target.key === k, vt = p.fmt(clamp(rw));
         g.fillStyle = K.c('ground'); g.fillRect(dx, y, nw, nh);
-        g.strokeStyle = K.c('grid', sel ? 1 : .7); g.lineWidth = (sel ? 2.2 : 1) * V; if (c0) g.setLineDash([3 * V, 2 * V]); g.strokeRect(dx + .5 * V, y + .5 * V, nw - V, nh - V); g.setLineDash([]);
-        g.fillStyle = K.c('grid'); g.fillText(fitText(g, (c0 ? 'CTL ' : '') + p.name, bw), bx, y + nh / 2 - 3 * V);
+        g.strokeStyle = hotD ? K.c('value') : K.c('grid', sel ? 1 : .7); g.lineWidth = (hotD ? 2.4 : sel ? 2.2 : 1) * V; if (c0) g.setLineDash([3 * V, 2 * V]); g.strokeRect(dx + .5 * V, y + .5 * V, nw - V, nh - V); g.setLineDash([]);
+        g.fillStyle = K.c('value'); g.textAlign = 'right'; g.fillText(vt, bx + bw, y + nh / 2 - 3 * V); g.textAlign = 'left';
+        g.fillStyle = K.c('grid'); g.fillText(fitText(g, (c0 ? 'CTL ' : '') + p.name, bw - g.measureText(vt).width - 4 * V), bx, y + nh / 2 - 3 * V);
         g.fillStyle = K.c('grid', .25); g.fillRect(bx, by, bw, 2 * V);
         g.fillStyle = K.c('physics', .55); g.fillRect(bx + rc[0] * bw, by - V, Math.max(V, (rc[1] - rc[0]) * bw), 3 * V);
         g.fillStyle = K.c(c0 ? 'physics' : 'value'); g.fillRect(bx + clamp(S.origin(p)) * bw - V, by - 3 * V, 2 * V, 6 * V);
         g.fillStyle = K.c(rw > 1.0005 || rw < -.0005 ? 'marker' : 'meter'); g.fillRect(bx + clamp(rw) * bw - V, by - 4 * V, 2 * V, 7 * V);
+        geo.dst.push({ key: k, x: dx / V, y: y / V, w: nw / V, h: nh / V });
         var hb = hits.querySelector('[data-key="' + k + '"]'); if (hb) hb.setAttribute('aria-label', p.name + ': ' + S.mapsOf(k).length + ' wire' + (S.mapsOf(k).length > 1 ? 's' : '') + (c0 ? ', controlled by ' + S.src(c0.src).name : '') + ', now ' + p.fmt(clamp(rw)) + (sel ? ', selected' : ', select it'));
       });
+      if (wd) {                                                         // the wire in flight, from the source's port to the pointer
+        var jd = srcs.findIndex(function (s) { return s.id === wd.src; });
+        if (jd >= 0) { var px = sx + nw, py = sY(jd), qx = wd.x * V, qy = wd.y * V;
+          g.strokeStyle = K.c('value'); g.lineWidth = 1.6 * V; g.setLineDash([4 * V, 3 * V]); g.lineCap = 'round';
+          g.beginPath(); g.moveTo(px, py); g.bezierCurveTo(px + 60 * V, py, qx - 60 * V, qy, qx, qy); g.stroke(); g.setLineDash([]); g.lineCap = 'butt'; }
+      }
       cv.setAttribute('aria-label', 'Wires: ' + desc.join('; '));
     }
+    /* THE DRAG (ML1, ADR-340 r10): pointer capture on the viz, guarded; geo is where the last frame put things */
+    function at(e) { var r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+    function inBox(n, x, y) { return x >= n.x && x <= n.x + n.w && y >= n.y && y <= n.y + n.h; }
+    function srcAt(x, y) { for (var i = 0; i < geo.src.length; i++) if (inBox(geo.src[i], x, y)) return geo.src[i]; return null; }
+    function targetAt(x, y) {
+      var best = null, bd = 16;
+      geo.valve.forEach(function (q) { var d = Math.hypot(q.x - x, q.y - y); if (d < bd) { bd = d; best = { kind: 'valve', m: q.m }; } });
+      if (best) return best;
+      for (var i = 0; i < geo.dst.length; i++) if (inBox(geo.dst[i], x, y)) return { kind: 'dst', key: geo.dst[i].key };
+      return null;
+    }
+    function drop(d) {
+      var t = d.target, s = S.src(d.src);
+      if (!t) { S.say('Dropped on nothing: no wire made'); return; }
+      if (t.kind === 'dst') {
+        if (opts.onWire) { opts.onWire(d.src, t.key); return; }
+        var m = { param: t.key, src: d.src, pol: 'uni', depth: DEF_DEPTH }; S.mappings.push(m); S.focus[t.key] = S.mapsOf(t.key).length - 1; S.lastMap = m;
+        S.say('New wire: ' + s.name + ' → ' + pname(S, t.key) + ' · UNI · 25% (' + S.mapsOf(t.key).length + ' on it now)');
+      } else if (t.m.pol === 'ctl') S.say('A Control has a range, not a depth: a depth route needs a UNI, BI or INV wire');
+      else if (opts.onDepthRoute) opts.onDepthRoute(d.src, t.m);
+      else { dRoutes(S).push({ src: d.src, pol: 'uni', depth: DEF_DEPTH, of: t.m }); S.say('Depth route: ' + s.name + ' now moves the depth of ' + S.src(t.m.src).name + ' → ' + pname(S, t.m.param) + ' · UNI · 25%'); }
+    }
+    viz.addEventListener('pointerdown', function (e) {
+      if (opts.drag === false || e.button !== 0) return;
+      var q = at(e), n = srcAt(q[0], q[1]); if (!n) return;
+      e.preventDefault(); try { viz.setPointerCapture(e.pointerId); } catch (_) { /* keep the drag */ }
+      wd = { src: n.id, x: q[0], y: q[1], target: null }; view.render();
+    });
+    viz.addEventListener('pointermove', function (e) {
+      var q = at(e);
+      if (!wd) { if (opts.drag !== false) cv.style.cursor = srcAt(q[0], q[1]) ? 'grab' : ''; return; }
+      wd.x = q[0]; wd.y = q[1]; wd.target = targetAt(q[0], q[1]); cv.style.cursor = 'grabbing'; view.render();
+    });
+    function wend(e) {
+      if (e && e.pointerId !== undefined && viz.hasPointerCapture && viz.hasPointerCapture(e.pointerId)) viz.releasePointerCapture(e.pointerId);
+      if (!wd) return; var d = wd; wd = null; cv.style.cursor = ''; drop(d); S.emit(); view.render();
+    }
+    viz.addEventListener('pointerup', wend); viz.addEventListener('pointercancel', wend); viz.addEventListener('lostpointercapture', wend);
     var redraw = keyed(draw);
     var view = { el: el0, render: function () {
       var g2 = sig(S); if (g2 !== lastSig) { lastSig = g2; layout(); }
       var sch = (cv.closest('[data-scr]') || {}).dataset; sch = sch ? sch.scr : '';
-      redraw(S.t + '|' + JSON.stringify(S.mappings.map(function (m) { return [m.depth, m.lo, m.hi]; })) + JSON.stringify(dRoutes(S).map(function (d) { return d.depth; })) + '|' + S.selected + '|' + cv.clientWidth + '|' + sch + '|' + document.documentElement.getAttribute('data-theme') + S.pad.x + S.pad.y);
+      redraw(S.t + '|' + JSON.stringify(S.mappings.map(function (m) { return [m.depth, m.lo, m.hi]; })) + JSON.stringify(dRoutes(S).map(function (d) { return d.depth; })) + '|' + S.selected + '|' + cv.clientWidth + '|' + sch + '|' + document.documentElement.getAttribute('data-theme') + S.pad.x + S.pad.y +
+        '|' + (wd ? wd.src + ',' + wd.x.toFixed(1) + ',' + wd.y.toFixed(1) : ''));
     } };
     S.on(function () { view.render(); });
     S.add(view); return view;
@@ -2080,7 +2329,9 @@
   H.ModLedger = ModLedger; H.TraceLanes = TraceLanes; H.CompactWires = CompactWires; H.HostedMacroRows = HostedMacroRows;
   /* the shared arithmetic, for tests and for the integrator (the core's numbers when no depth route exists) */
   H.Matrix = { POLS: POLS, POLN: POLN, push: push, now: now, raw: raw, reach: reach, ctlPos: ctlPos, depthNow: depthNow, depthReach: depthReach,
-    silent: silent, addDepthRoute: addDepthRoute, remove: removeMapping, routesOn: routesOn };
+    silent: silent, addDepthRoute: addDepthRoute, remove: removeMapping, routesOn: routesOn,
+    /* for batch 2a's views (the by-source list, the polarity chip): the structure signature, the depth routes and the cycle */
+    sig: sig, dRoutes: dRoutes, cyclePolOf: cyclePolOf };
 })(window.Horde);
 
 /* =====================================================================
@@ -2102,6 +2353,12 @@
   function frac(x) { return x - Math.floor(x); }
   function tag(t, cls, txt) { var e = document.createElement(t); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; }
   function keysOn(o) { return typeof o.keys === 'function' ? !!o.keys() : !!o.keys; }
+  /* a stepper whose RANGE changes (points added to an envelope, bodies spawned in a field): H.Stepper fixes its range at mount, so
+     the stepper is remounted in its slot when `key` changes; set() then follows the value silently */
+  function dynStepper(slot, make) {
+    var key = null, cur = null;
+    return function (k, value) { if (k !== key) { key = k; slot.innerHTML = ''; var d = document.createElement('div'); slot.appendChild(d); cur = make(d); } cur.set(value); return cur; };
+  }
   function fSec(s) { return s < 1 ? (s * 1000).toFixed(s < .01 ? 1 : 0) + ' ms' : s.toFixed(2) + ' s'; }
   function f2(x) { return (+x).toFixed(2); }
   function sgn2(x) { return (x > 0 ? '+' : x < 0 ? '−' : '') + Math.abs(x).toFixed(2); }
@@ -2650,16 +2907,13 @@
       } });
     var status = tag('div', 'hd-hint ms-status'); status.setAttribute('aria-live', 'polite'); el.appendChild(status);
     var r1 = mrow(el, 'Sustain');
-    var stp = tag('div', 'hd-stepper hd-focus es-sus'); stp.setAttribute('role', 'spinbutton'); stp.setAttribute('aria-label', name + ' · sustain point');
-    stp.innerHTML = '<button type="button" tabindex="-1" aria-label="earlier sustain point">' + CHL + '</button><output class="hd-value es-name"></output><button type="button" tabindex="-1" aria-label="later sustain point">' + CHR + '</button>';
-    r1.appendChild(stp); var susHint = tag('span', 'hd-hint es-sh'); r1.appendChild(susHint);
-    var sb = stp.querySelectorAll('button');
-    function stepSus(d) { var s = susOf(st.pts, st.sus), n = clamp(s + d, -1, st.pts.length - 2); if (n !== s) { st.sus = n; st.custom = true; syncSus(); dirty = true; fire(o.onChange, get()); fire(o.onCommit, get()); } }
-    sb[0].addEventListener('click', function () { stepSus(-1); }); sb[1].addEventListener('click', function () { stepSus(1); });
-    stp.addEventListener('wheel', function (e) { if (!e.altKey) return; e.preventDefault(); stepSus(e.deltaY < 0 ? 1 : -1); }, { passive: false });
-    stp.addEventListener('keydown', function (e) { if (!keysOn(o)) return; if (e.key === 'ArrowUp' || e.key === 'ArrowRight') stepSus(1); else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') stepSus(-1); else return; e.preventDefault(); });
-    function syncSus() { var s = susOf(st.pts, st.sus), nm = s < 0 ? 'NONE' : 'P' + (s + 1);
-      stp.querySelector('.es-name').textContent = nm; stp.setAttribute('aria-valuetext', s < 0 ? 'none: one-shot' : 'point ' + (s + 1)); stp.tabIndex = keysOn(o) ? 0 : -1;
+    var slot = tag('span', 'es-sus'); r1.appendChild(slot); var susHint = tag('span', 'hd-hint es-sh'); r1.appendChild(susHint);
+    function setSus(n) { if (n !== susOf(st.pts, st.sus)) { st.sus = n; st.custom = true; syncSus(); dirty = true; fire(o.onChange, get()); fire(o.onCommit, get()); } }
+    /* option 0 is NONE (a one-shot), option i is point i: the range follows the number of points */
+    var susStep = dynStepper(slot, function (d) { var n = st.pts.length;
+      return H.Stepper(d, { name: 'Sustain point', path: name + ' · sustain point', options: ['NONE'].concat(st.pts.slice(0, n - 1).map(function (q, i) { return 'P' + (i + 1); })), value: 0, def: 0,
+        spoken: function (i) { return i === 0 ? 'none: one-shot' : 'point ' + i; }, keys: function () { return keysOn(o); }, onInput: function (i) { setSus(i - 1); } }); });
+    function syncSus() { var s = susOf(st.pts, st.sus); susStep(st.pts.length, s + 1);
       susHint.textContent = s < 0 ? 'one-shot: the gate only starts it' : 'holds here while the key is down'; }
     var sliders = tag('div', 'es-adsr'); el.appendChild(sliders);
     var A = st.adsr, adsrDefs = [['a', 'Attack', .001, 2, true, fSec, .01], ['d', 'Decay', .005, 4, true, fSec, .3], ['s', 'Sustain', 0, 1, false, f2, .5], ['r', 'Release', .005, 8, true, fSec, .4]];
@@ -2860,10 +3114,11 @@
     var er = mrow(opts, 'Edges'), ep = pills(er, ['BOUNCE', 'WRAP', 'OPEN'], 'radio', name + ' · edges', function (i) { F.P.bounds = ORB_EDGES[i]; after(); });
     var cr = mrow(opts, 'COM lock'), cb = tag('button', 'hd-toggle hd-focus'); cb.type = 'button'; cb.setAttribute('role', 'switch'); cb.setAttribute('aria-label', name + ' · centre-of-mass lock'); cr.appendChild(cb);
     cb.addEventListener('click', function () { F.P.com = !F.P.com; after(); });
-    var kr = mrow(opts, 'Kick body'), ks = tag('div', 'hd-stepper hd-focus'); ks.setAttribute('role', 'spinbutton'); ks.setAttribute('aria-label', name + ' · kick body');
-    ks.innerHTML = '<button type="button" tabindex="-1" aria-label="previous body">' + CHL + '</button><output class="hd-value or-kb"></output><button type="button" tabindex="-1" aria-label="next body">' + CHR + '</button>';
-    kr.appendChild(ks); var kbs = ks.querySelectorAll('button');
-    kbs[0].addEventListener('click', function () { F.P.kickBody = Math.max(0, (F.P.kickBody | 0) - 1); after(); }); kbs[1].addEventListener('click', function () { F.P.kickBody = Math.min(F.nodes.length - 1, (F.P.kickBody | 0) + 1); after(); });
+    var kr = mrow(opts, 'Kick body'), kslot = tag('span', 'or-kick'); kr.appendChild(kslot);
+    /* one option per body: the field spawns bodies, so the range follows F.nodes.length (remounted when it changes) */
+    var kickStep = dynStepper(kslot, function (d) {
+      return H.Stepper(d, { name: 'Kick body', path: name + ' · kick body', options: F.nodes.map(function (q, i) { return 'body ' + (i + 1); }), value: 0, def: 0, keys: function () { return keysOn(o); },
+        onInput: function (i) { F.P.kickBody = i; after(); } }); });
     /* the mappings: each a source (body n observable or a field measure) with its mode; S&H holds the source on the
        mapping's OWN clock, its own rate and sync (ADR-266 r6) */
     var mh = tag('div', 'or-maps'); el.appendChild(mh);
@@ -2882,7 +3137,7 @@
     });
     function sync() {
       pp.set(Orbital.PRESETS.map(function (p) { return p[1]; }).indexOf(F.preset)); ep.set(ORB_EDGES.indexOf(F.P.bounds)); cb.setAttribute('aria-checked', String(!!F.P.com));
-      ks.querySelector('.or-kb').textContent = 'body ' + ((F.P.kickBody | 0) + 1); ks.setAttribute('aria-valuetext', 'body ' + ((F.P.kickBody | 0) + 1)); ks.tabIndex = keysOn(o) ? 0 : -1;
+      kickStep(F.nodes.length, F.P.kickBody | 0);
       rows.forEach(function (r) { r.mp.set(r.m.mode === 'sh' ? 1 : 0); r.rsd.classList.toggle('idle', r.m.mode !== 'sh'); });
       dirty = true;
     }
@@ -2939,13 +3194,9 @@
     var hd = tag('div'); el.appendChild(hd);
     ModCardHeader(hd, { name: name, kind: 'engine', kindLabel: 'TRACKERS', scope: 'GLOBAL', retrig: null });
     var r1 = mrow(el, 'Trigger'), tp = pills(r1, ['EVERY NOTE-ON', 'FIRST · LEGATO'], 'radio', name + ' · trigger mode', function (i) { cfg.mode = i; sync(); fire(o.onChange, cfg); fire(o.onCommit, cfg); });
-    var r2 = mrow(el, 'Order N'), ns = tag('div', 'hd-stepper hd-focus'); ns.setAttribute('role', 'spinbutton'); ns.setAttribute('aria-label', name + ' · order wraps at N'); ns.setAttribute('aria-valuemin', '2'); ns.setAttribute('aria-valuemax', '8');
-    ns.innerHTML = '<button type="button" tabindex="-1" aria-label="fewer">' + CHL + '</button><output class="hd-value"></output><button type="button" tabindex="-1" aria-label="more">' + CHR + '</button>';
-    r2.appendChild(ns); var nb = ns.querySelectorAll('button');
-    function stepN(d) { var n = clamp((cfg.orderN | 0) + d, 2, 8); if (n !== cfg.orderN) { cfg.orderN = n; sync(); fire(o.onChange, cfg); fire(o.onCommit, cfg); } }
-    nb[0].addEventListener('click', function () { stepN(-1); }); nb[1].addEventListener('click', function () { stepN(1); });
-    ns.addEventListener('wheel', function (e) { if (!e.altKey) return; e.preventDefault(); stepN(e.deltaY < 0 ? 1 : -1); }, { passive: false });
-    ns.addEventListener('keydown', function (e) { if (!keysOn(o)) return; if (e.key === 'ArrowUp' || e.key === 'ArrowRight') stepN(1); else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') stepN(-1); else return; e.preventDefault(); });
+    var r2 = mrow(el, 'Order N'), nd = tag('div'); r2.appendChild(nd);
+    var ns = H.Stepper(nd, { name: 'Order N', path: name + ' · order wraps at N', min: 2, max: 8, value: cfg.orderN, def: 4, keys: function () { return keysOn(o); },
+      onInput: function (n) { cfg.orderN = n; fire(o.onChange, cfg); fire(o.onCommit, cfg); } });
     var sd = tag('div'); el.appendChild(sd);
     slider(sd, { keys: o.keys, onCommit: function () { fire(o.onCommit, cfg); }, name: 'Since T', path: name + ' · since full scale', min: .1, max: 8, log: true, value: cfg.sinceT, def: 2, fmt: fSec, onInput: function (v) { cfg.sinceT = v; fire(o.onChange, cfg); } });
     var tb = tag('div', 'trk-table'); tb.setAttribute('role', 'table'); tb.setAttribute('aria-label', name + ' trackers'); el.appendChild(tb);
@@ -2953,7 +3204,7 @@
     var nows = TRK.map(function (t) { var r = tag('div', 'trk-row'); r.setAttribute('role', 'row');
       [t[0], t[1], t[2]].forEach(function (s, j) { var c = tag('span', j === 0 ? 'trk-n' : j === 2 ? 'trk-rule' : 'trk-rg', s); c.setAttribute('role', j === 0 ? 'rowheader' : 'cell'); if (j === 2) c.title = s; r.appendChild(c); });
       var now = tag('span', 'hd-value trk-now', '—'); now.setAttribute('role', 'cell'); r.appendChild(now); tb.appendChild(r); return [now, t[3]]; });
-    function sync() { tp.set(cfg.mode); ns.querySelector('output').textContent = String(cfg.orderN); ns.setAttribute('aria-valuenow', String(cfg.orderN)); ns.tabIndex = keysOn(o) ? 0 : -1; }
+    function sync() { tp.set(cfg.mode); ns.set(cfg.orderN); }
     sync();
     /* read() is the consumer's: { values {gate, note, ...}, fired (triggers so far) } */
     function draw() { var r = o.read ? o.read() : null; if (!r) return;
@@ -3049,11 +3300,9 @@
     var rsd = tag('div'); el.appendChild(rsd);
     var rs = RateSync(rsd, { name: 'Clock rate', path: name + ' · clock rate', sync: o.sync, hz: o.hz || 2, beats: o.beats || .5, bpm: o.bpm, min: .1, max: 40, defHz: 2, defBeats: .5, keys: o.keys,
       onChange: function () { dirty = true; fire(o.onChange, get()); }, onCommit: function () { fire(o.onCommit, get()); } });
-    var r2 = mrow(el, 'Bind to'), bsw = tag('div', 'hd-stepper hd-focus'); bsw.setAttribute('role', 'spinbutton'); bsw.setAttribute('aria-label', name + ' · bound rotor voice (KURO)');
-    bsw.innerHTML = '<button type="button" tabindex="-1" aria-label="previous voice">' + CHL + '</button><output class="hd-value"></output><button type="button" tabindex="-1" aria-label="next voice">' + CHR + '</button>';
-    r2.appendChild(bsw); var bb = bsw.querySelectorAll('button');
-    bb[0].addEventListener('click', function () { st.bind = Math.max(0, st.bind - 1); sync(); fire(o.onChange, get()); fire(o.onCommit, get()); });
-    bb[1].addEventListener('click', function () { st.bind = Math.min(3, st.bind + 1); sync(); fire(o.onChange, get()); fire(o.onCommit, get()); });
+    var r2 = mrow(el, 'Bind to'), bd = tag('div'); r2.appendChild(bd);
+    var bsw = H.Stepper(bd, { name: 'Bind to', path: name + ' · bound rotor voice (KURO)', options: ['K1', 'K2', 'K3', 'K4'], value: st.bind, def: 0, keys: function () { return keysOn(o); },
+      spoken: function (i) { return 'rotor voice ' + (i + 1); }, onInput: function (i) { st.bind = i; sync(); fire(o.onChange, get()); fire(o.onCommit, get()); } });
     var rd = tag('div', 'shc-read'); el.appendChild(rd);
     var last = tag('span', 'hd-value'), att = tag('span', 'hd-value'), why = tag('div', 'hd-hint shc-why');
     var l1 = tag('span', 'hd-label', 'Last sampled'), l2 = tag('span', 'hd-label', 'Attached');
@@ -3061,7 +3310,7 @@
     var WHY = ['CYCLE: the S&H shape samples at its own LFO\'s cycle start (ADR-266 r6): each attached S&H has its own clock and its own draw.',
       'GLOBAL: one clock and one draw, broadcast: every attached S&H holds the identical value.', 'KURO: each S&H samples when its bound rotor voice wraps, from its own stream: coupling locks when, never what.'];
     function sync() { cp.set(st.clock); rsd.classList.toggle('idle', st.clock === 2); r2.classList.toggle('idle', st.clock !== 2); rot.classList.toggle('idle', st.clock !== 2);
-      bsw.querySelector('output').textContent = 'K' + (st.bind + 1); bsw.setAttribute('aria-valuetext', 'rotor voice ' + (st.bind + 1)); bsw.tabIndex = keysOn(o) ? 0 : -1; why.textContent = WHY[st.clock]; dirty = true; }
+      bsw.set(st.bind); why.textContent = WHY[st.clock]; dirty = true; }
     function get() { var r = rs.get(); return { clock: CLOCKS[st.clock], bind: st.bind, sync: r.sync, hz: r.hz, beats: r.beats, rate: r.rate }; }
     /* push(): one frame of what was rendered: [heldA, heldB, firedA, firedB]; info { last, attached, rotor {phase, out} } */
     function push(v) { hist.push(v); dirty = true; }
@@ -5861,4 +6110,226 @@
   }
 
   H.PageNav = PageNav; H.SectionHeader = SectionHeader; H.ChannelStrip = ChannelStrip; H.pillGroup = pillGroup;
+})(window.Horde);
+
+/* =====================================================================
+   MASTER BATCH 2a (ADR-338 rulings 2 and 7, ADR-340 rulings 8 to 10, ADR-341 rulings 3 to 5): the controls and routes.
+   Sources: docs/design/composition-lab.html (TC1 / TC2), composition-lab-r2.html (MS3, MS4, MP1, ML3),
+   composition-lab-r3.html (MP-c, W-a). What is NOT new code lives where its component does: the corner mark and the level cell
+   (T4c-f, Knob size 'level'), the dual readout (DR-c, H.ReadoutSlot), the stepper's SG-b drawing and dropdown (H.Stepper), the
+   polarity chord and MP3 (the Session gesture), the wires' valves and dragging (H.CompactWires), the re-anchored matrix drag.
+   New here: H.PolChip (MP1), H.SourceChip (MS3), H.SourceRows (MS4), H.RoutesBySource (ML3), H.Companion (TC1 / TC2).
+   ===================================================================== */
+(function (H) {
+  'use strict';
+  var DRAG = 160;                                       // size-drag: px for the full range
+  function clamp(x, a, b) { a = a === undefined ? 0 : a; b = b === undefined ? 1 : b; return Math.min(b, Math.max(a, x)); }
+  function tag(t, cls, txt) { var e = document.createElement(t); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; }
+  function srcColor(s) { return s ? 'var(--src-' + s.kind + ')' : 'var(--hint)'; }
+  function keysOn(o) { return typeof o.keys === 'function' ? !!o.keys() : !!o.keys; }
+  function pct(x) { return Math.round(x * 100) + '%'; }
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+  /* ---------- POLARITY CHIP (MP1, ADR-340 r9): one chip on every route ----------
+     Click: the next polarity (UNI → BI → INV → CTL, CTL skipped where another mapping already controls the parameter, ADR-266 r2);
+     shift-click: the previous; a VERTICAL DRAG widens and thins the band, which is the depth (a Control's width, which keeps its
+     centre). Up is wider. The drag is 160 px for the full range (size-drag), Shift ×0.25, re-anchored at the stops and on a Shift
+     change (ADR-340 r2); while it runs the chip shows the amount, and a click is a pointer that moved under 3 px.
+     o: { cycle(back) (the owner's own cycle: it knows depth routes have no CTL), depthRoute }. The chip's text and title are the
+     owner's to set; this only adds the gestures. */
+  function PolChip(btn, S, m, o) {
+    o = o || {};
+    var st = null, dragged = false;
+    btn.classList.add('hd-polchip');
+    function width() { return m.pol === 'ctl' ? m.hi - m.lo : (!o.depthRoute && m.cd && st && st.ai !== null ? m.cd[st.ai] : m.depth); }
+    function write(nv) {
+      if (m.pol === 'ctl') { var c = (m.lo + m.hi) / 2; m.lo = clamp(c - nv / 2); m.hi = clamp(c + nv / 2); }
+      else if (!o.depthRoute && m.cd && st.ai !== null) m.cd[st.ai] = nv; else m.depth = nv;
+    }
+    btn.addEventListener('pointerdown', function (e) {
+      if (e.button !== 0 || (e.ctrlKey && !e.metaKey)) return;   // macOS Ctrl-click is the secondary click
+      try { btn.setPointerCapture(e.pointerId); } catch (_) { /* keep the gesture */ }
+      var p = S.params[m.param];
+      st = { y: e.clientY, ai: !o.depthRoute && m.cd && p ? S.editing(p) : null, moved: false, k: e.shiftKey ? .25 : 1 };
+      st.start = st.cur = width(); dragged = false;
+      if (!o.depthRoute) S.lastMap = m;
+    });
+    btn.addEventListener('pointermove', function (e) {
+      if (!st) return;
+      var d = st.y - e.clientY, k = e.shiftKey ? .25 : 1;
+      if (Math.abs(d) > 3) st.moved = true; if (!st.moved) return;
+      if (k !== st.k) { st.start = st.cur; st.y = e.clientY; d = 0; st.k = k; }
+      var raw = st.start + d / DRAG * k, nv = clamp(raw);
+      if (raw !== nv) { st.start = nv; st.y = e.clientY; }
+      st.cur = nv; write(nv); btn.classList.add('drag');
+      btn.textContent = o.depthRoute ? pct(m.depth) : S.amount(m);   // the amount while it moves; the owner's sync puts the polarity back
+    });
+    function end(e) {
+      if (e && e.pointerId !== undefined && btn.hasPointerCapture && btn.hasPointerCapture(e.pointerId)) btn.releasePointerCapture(e.pointerId);
+      if (!st) return; var s = st; st = null; btn.classList.remove('drag');
+      if (s.moved) { dragged = true; S.say((o.depthRoute ? 'Depth route · ' : S.src(m.src).name + ' → ' + m.param + ' · ') + 'depth ' + (o.depthRoute ? pct(m.depth) : S.amount(m)) + ' (chip drag)'); }
+    }
+    btn.addEventListener('pointerup', end); btn.addEventListener('pointercancel', end); btn.addEventListener('lostpointercapture', end);
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();   // the chip owns its click: a row or inspector listening above never sees it
+      if (dragged) { dragged = false; return; }   // the click that ends a drag is not a cycle
+      o.cycle(e.shiftKey);
+    });
+    return btn;
+  }
+
+  /* ---------- SOURCE CHIP (MS3, ADR-340 r8): the MAP control's source as a chip you drag through or step ----------
+     ‹ chip › with the name in the source's colour: drag up or down on the name to scroll through the sources (one per 12 px, down
+     is next, and it wraps), ‹ › step, the ▾ opens the full list (a native select). A plain wheel is NOT used (B301's gate: a
+     plain-wheel chip would take the page's scroll whenever the pointer crossed it); Option + wheel would be possible. Switching
+     the source chooses the source of the NEXT mapping and never implies one modulator per parameter (ADR-340 r8).
+     o: { order() (default S.sources), onPick(id), keys (keyboard mode: ↑ ↓ step) } */
+  function SourceChip(el, S, o) {
+    o = o || {};
+    var list = function () { return o.order ? o.order() : S.sources; };
+    el.classList.add('hd-schip'); el.innerHTML = '';
+    var dn = tag('button', 'sc-b hd-focus', '‹'), up = tag('button', 'sc-b hd-focus', '›'); dn.type = up.type = 'button'; dn.setAttribute('aria-label', 'previous source'); up.setAttribute('aria-label', 'next source');
+    var nm = tag('span', 'sc-nm hd-focus'), sw = tag('i', 'sc-sw'), lab = tag('span', 'sc-t'), kb = tag('kbd');
+    nm.setAttribute('role', 'spinbutton'); nm.setAttribute('aria-label', 'Map source: drag up or down to change'); nm.title = 'drag up / down: previous / next source';
+    nm.appendChild(sw); nm.appendChild(lab); nm.appendChild(kb);
+    var car = tag('span', 'sc-car', '▾'), sel = tag('select', 'hd-focus'); sel.setAttribute('aria-label', 'Map source (full list)'); car.title = 'the full list';
+    S.sources.forEach(function (s) { var op = tag('option', null, s.name); op.value = s.id; sel.appendChild(op); });
+    car.appendChild(sel);
+    el.appendChild(dn); el.appendChild(nm); el.appendChild(car); el.appendChild(up);
+    function step(d) {
+      var l = list(), i = -1, j; for (var k = 0; k < l.length; k++) if (l[k].id === S.map.src) i = k;
+      j = ((i < 0 ? 0 : i + d) % l.length + l.length) % l.length; S.setSrc(l[j].id); if (o.onPick) o.onPick(l[j].id); S.say('Source: ' + l[j].name);
+    }
+    dn.addEventListener('click', function () { step(-1); }); up.addEventListener('click', function () { step(1); });
+    sel.addEventListener('change', function () { S.setSrc(sel.value); if (o.onPick) o.onPick(sel.value); });
+    var st = null;
+    nm.addEventListener('pointerdown', function (e) { if (e.button !== 0) return; try { nm.setPointerCapture(e.pointerId); } catch (_) { /* keep the drag */ } st = { y: e.clientY, done: 0 }; });
+    nm.addEventListener('pointermove', function (e) { if (!st) return; var n = Math.trunc((e.clientY - st.y) / 12); if (n !== st.done) { step(n - st.done); st.done = n; } });
+    function end(e) { if (e && e.pointerId !== undefined && nm.hasPointerCapture && nm.hasPointerCapture(e.pointerId)) nm.releasePointerCapture(e.pointerId); st = null; }
+    nm.addEventListener('pointerup', end); nm.addEventListener('pointercancel', end); nm.addEventListener('lostpointercapture', end);
+    nm.addEventListener('keydown', function (e) { if (!keysOn(o.keys === undefined ? S : o)) return; if (e.key === 'ArrowDown' || e.key === 'ArrowRight') step(1); else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') step(-1); else return; e.preventDefault(); });
+    function sync() {
+      var s = S.src(S.map.src); if (!s) return;
+      var l = list(), n = 0; for (var k = 0; k < l.length; k++) if (l[k].id === s.id) n = k + 1;
+      el.style.setProperty('--sc', srcColor(s)); lab.textContent = s.name; kb.textContent = n || ''; sel.value = s.id;
+      nm.setAttribute('aria-valuetext', s.name + (n ? ', source ' + n + ' of ' + l.length : '')); nm.tabIndex = keysOn(o.keys === undefined ? S : o) ? 0 : -1;
+    }
+    S.on(sync); sync();
+    return { sync: sync };
+  }
+
+  /* ---------- SOURCE ROWS (MS4, ADR-340 r8): the bank's row form, where a click on a row makes it the source ----------
+     A thin row per source (26 px): its kind swatch, name and route count, a live meter, its value, a Map button. While MAP is on, a
+     click on a row's BODY makes that source the one the next mapping uses (the row lights); the Map button turns MAP on with that
+     source (map-then-pick, and again to turn it off). The bank is already the list of the page's sources, so this costs no new
+     control. The row's picture is the live meter here: the bank's own pictures and its Macros | Mods toggle are the page forms'
+     (batch 2b); this is only the row and its source-switching.
+     o: { sources? (ids; default every source), fmt(source, value) } */
+  function SourceRows(el, S, o) {
+    o = o || {};
+    el.classList.add('hd-srows'); el.innerHTML = ''; el.setAttribute('role', 'list'); el.setAttribute('aria-label', o.label || 'Modulation sources');
+    var list = S.sources.filter(function (s) { return !o.sources || o.sources.indexOf(s.id) >= 0; }), rows = {};
+    function routes(id) { var n = 0; S.mappings.forEach(function (m) { if (m.src === id) n++; }); H.Matrix.dRoutes(S).forEach(function (d) { if (d.src === id) n++; }); return n; }
+    list.forEach(function (s, i) {
+      var r = tag('div', 'sr-row'); r.setAttribute('role', 'listitem'); r.style.setProperty('--sc', srcColor(s)); r.dataset.src = s.id;
+      var sw = tag('i', 'sr-sw'), nm = tag('span', 'sr-nm', s.name), sm = tag('small'), mt = tag('span', 'sr-meter'), mi = tag('i'), vl = tag('span', 'sr-v'), mb = tag('button', 'sr-map hd-focus', 'MAP');
+      nm.appendChild(sm); mt.appendChild(mi); mb.type = 'button';
+      r.appendChild(sw); r.appendChild(nm); r.appendChild(mt); r.appendChild(vl); r.appendChild(mb);
+      r.title = s.name + ' (' + s.kind + ', source ' + (i + 1) + ')';
+      r.addEventListener('click', function (e) { if (e.target.closest('button') || !S.map.on) return; S.setSrc(s.id); S.say('Source: ' + s.name + ' (the bank row)'); });
+      mb.addEventListener('click', function () { if (S.map.on && S.map.src === s.id) S.setMap(false); else { S.setSrc(s.id); S.setMap(true); S.say('MAP on, source ' + s.name + ': click a control to map it'); } });
+      el.appendChild(r); rows[s.id] = { r: r, mi: mi, vl: vl, sm: sm, mb: mb, s: s };
+    });
+    var last = '';
+    var view = { el: el, render: function () {
+      list.forEach(function (s) {
+        var x = rows[s.id], v = S.sourceValue(s.id), on = S.map.on && S.map.src === s.id, n = routes(s.id);
+        x.mi.style.width = (v * 100).toFixed(1) + '%';
+        var t = o.fmt ? o.fmt(s, v) : String(Math.round(v * 100)); if (x.vl.textContent !== t) x.vl.textContent = t;
+        var k = n + '|' + on + '|' + (S.map.src === s.id); if (x.k !== k) { x.k = k;
+          x.sm.textContent = n ? n + ' route' + (n > 1 ? 's' : '') : 'no routes'; x.r.classList.toggle('sel', on);
+          x.mb.setAttribute('aria-pressed', String(on)); x.mb.setAttribute('aria-label', 'Map ' + s.name + (on ? ', on: click to turn MAP off' : ': turn MAP on with this source')); }
+      });
+    } };
+    S.add(view); view.render(); return view;
+  }
+
+  /* ---------- ROUTES BY SOURCE (ML3, ADR-340 r10): one group per source, a row per route ----------
+     "What does this modulator do?": each group is headed by the source (swatch, name, live meter, route count, Map button) and holds
+     one route row per mapping it drives, then a row per depth route it drives (H.RouteRow, the same row the grid's list uses, minus
+     the source column: it is the group's header). The Mod page's detail pane (M5) shows the selected modulator's
+     group; every group is the one route list's view, so an edit in any view shows in all.
+     o: { sources? (ids), param?, empty (also show sources with no route, with a hint) } */
+  function RoutesBySource(el, S, o) {
+    o = o || {};
+    var M = H.Matrix;
+    el.classList.add('mx-bysrc', 'mx-routes'); el.__S = S; el.setAttribute('aria-label', o.label || 'Routes by source');
+    var rows = [], heads = [];
+    function build() {
+      el.innerHTML = ''; rows = []; heads = [];
+      var shown = 0;
+      S.sources.forEach(function (s) {
+        if (o.sources && o.sources.indexOf(s.id) < 0) return;
+        var ms = S.mappings.filter(function (m) { return m.src === s.id && (!o.param || m.param === o.param); });
+        var ds = M.dRoutes(S).filter(function (d) { return d.src === s.id && (!o.param || d.of.param === o.param); });
+        if (!ms.length && !ds.length && !o.empty) return;
+        shown++;
+        var g = tag('div', 'mx-grp'); g.setAttribute('role', 'group'); g.setAttribute('aria-label', s.name + ', ' + (ms.length + ds.length) + ' route' + (ms.length + ds.length === 1 ? '' : 's')); g.style.setProperty('--sc', srcColor(s));
+        var hd = tag('div', 'mx-sgh'), dot = tag('i', 'dot'), nm = tag('span', 'nm', s.name), mt = tag('span', 'meter'), mi = tag('i'), ct = tag('small', null, ms.length + ds.length ? (ms.length + ds.length) + ' route' + (ms.length + ds.length === 1 ? '' : 's') : 'no routes');
+        var mb = tag('button', 'hd-pill hd-sm hd-focus', 'MAP'); mb.type = 'button'; mb.setAttribute('aria-label', 'Map ' + s.name + ': turn MAP on with this source');
+        mb.addEventListener('click', function () { S.setSrc(s.id); S.setMap(true); S.say('MAP on, source ' + s.name + ': click a control to map it'); });
+        mt.appendChild(mi); hd.appendChild(dot); hd.appendChild(nm); hd.appendChild(mt); hd.appendChild(ct); hd.appendChild(mb); g.appendChild(hd);
+        heads.push({ id: s.id, mi: mi });
+        if (!ms.length && !ds.length) g.appendChild(tag('div', 'hd-hint mx-empty', 'No routes. Turn MAP on and click a control.'));
+        ms.forEach(function (m) { var r = tag('div'); r.setAttribute('role', 'listitem'); g.appendChild(r); rows.push(H.RouteRow(r, S, m)); });
+        ds.forEach(function (d) { var r = tag('div'); r.setAttribute('role', 'listitem'); g.appendChild(r); rows.push(H.RouteRow(r, S, d, { depthRoute: true })); });
+        el.appendChild(g);
+      });
+      if (!shown) el.appendChild(tag('div', 'hd-hint mx-empty', 'No routes. Click an empty grid cell, or turn MAP on and click a control.'));
+    }
+    var last = null;
+    function check() { var g = M.sig(S); if (g !== last) { last = g; build(); } rows.forEach(function (r) { r.sync(); }); }
+    S.on(check); check();
+    var view = { el: el, render: function () { var g = M.sig(S); if (g !== last) check(); rows.forEach(function (r) { r.render(); }); heads.forEach(function (h) { h.mi.style.width = (S.sourceValue(h.id) * 100).toFixed(1) + '%'; }); } };
+    S.add(view); return view;
+  }
+
+  /* ---------- COMPANIONS (ADR-338 r2): the toggle, segments, select and button at TC1's 16 px faces ----------
+     TC1, in sections and cards: the house look in 16 px boxes (an 18 × 10 switch, segments, a select, a button; the stepper is
+     H.Stepper with `tc: true`), each with a 28 px hit box through an ink-less ::before. TC2, `flat: true`, ONLY inside tables:
+     a lamp, underline segments, a caret over a native select, a text button (the table's drag number is H.Stepper `flat`).
+     o: { kind: 'toggle' | 'segments' | 'select' | 'button', name, path, options (segments, select: the manifest's labels), short
+          (segments: the shown abbreviations), value (toggle: bool; segments, select: the index), label (a TC2 lamp's or a button's
+          text), flat, onInput(v), keys() (keyboard mode: ← → move a segment group) } */
+  function Companion(el, o) {
+    var flat = !!o.flat, kind = o.kind, v = o.value, paint = function () {}, name = o.path || o.name || kind;
+    el.classList.add('hd-tc'); el.innerHTML = '';
+    function set(x, quiet) { v = x; paint(); if (!quiet && o.onInput) o.onInput(v); }
+    if (kind === 'toggle') {
+      var b = tag('button', flat ? 'hd-tc2-lamp hd-focus' : 'hd-tc1-tog hd-focus'); b.type = 'button'; b.setAttribute('role', 'switch'); b.setAttribute('aria-label', name);
+      if (flat) { b.appendChild(tag('i')); b.appendChild(document.createTextNode(o.label === undefined ? (o.name || '') : o.label)); }
+      b.addEventListener('click', function () { set(!v); });
+      el.appendChild(b); paint = function () { b.setAttribute('aria-checked', String(!!v)); b.tabIndex = keysOn(o) ? 0 : -1; };
+    } else if (kind === 'segments') {
+      var g = tag('span', flat ? 'hd-tc2-seg' : 'hd-tc1-seg'); g.setAttribute('role', 'radiogroup'); g.setAttribute('aria-label', name);
+      var bs = o.options.map(function (t, i) { var bb = tag('button', 'hd-focus', (o.short && o.short[i]) || t); bb.type = 'button'; bb.setAttribute('role', 'radio'); bb.title = t; bb.addEventListener('click', function () { set(i); }); g.appendChild(bb); return bb; });
+      g.addEventListener('keydown', function (e) { if (!keysOn(o)) return; var n = bs.length; if (e.key === 'ArrowRight' || e.key === 'ArrowDown') set((v + 1) % n); else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') set((v + n - 1) % n); else return; e.preventDefault(); bs[v].focus(); });
+      el.appendChild(g); paint = function () { bs.forEach(function (bb, i) { bb.setAttribute('aria-checked', String(i === v)); bb.tabIndex = keysOn(o) && i === v ? 0 : -1; }); };
+    } else if (kind === 'select') {
+      var s = tag('select', (flat ? '' : 'hd-tc1-sel ') + 'hd-focus'); s.setAttribute('aria-label', name);
+      o.options.forEach(function (t, i) { var op = tag('option', null, t); op.value = String(i); s.appendChild(op); });
+      s.addEventListener('change', function () { set(+s.value); });
+      if (flat) { var face = tag('span', 'txt'), w = tag('span', 'hd-tc2-sel'); w.appendChild(face); w.appendChild(tag('span', 'car', '▾')); w.appendChild(s); el.appendChild(w);
+        paint = function () { s.value = String(v); face.textContent = (o.short && o.short[v]) || o.options[v]; }; }
+      else { el.appendChild(s); paint = function () { s.value = String(v); }; }
+    } else if (kind === 'button') {
+      var bt = tag('button', (flat ? 'hd-tc2-btn' : 'hd-tc1-btn') + ' hd-focus', o.label || o.name || 'Reset'); bt.type = 'button'; bt.setAttribute('aria-label', name);
+      bt.addEventListener('click', function () { if (o.onInput) o.onInput(); });
+      el.appendChild(bt);
+    } else throw new Error('Companion: unknown kind ' + kind);
+    paint();
+    return { get: function () { return v; }, set: function (x) { set(x, true); } };
+  }
+
+  H.PolChip = PolChip; H.SourceChip = SourceChip; H.SourceRows = SourceRows; H.RoutesBySource = RoutesBySource; H.Companion = Companion;
 })(window.Horde);

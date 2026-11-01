@@ -16,7 +16,7 @@ The envelope's breakpoint editor in real seconds: points and bends, a sustain po
   - SUS: a dashed `scr-marker` line with its label ("ONE-SHOT" when none);
   - voices as `scr-meter` dots.
 - Status line, as in the LFO editor.
-- Sustain: a stepper (NONE, P1…Pn−1) with a fixed-width name, and a hint saying what the choice does.
+- Sustain: a `Horde.Stepper` (NONE, P1…Pn−1; remounted when points are added or deleted, since the range is fixed at mount) with the SG-b scale, and a hint saying what the choice does. Option-click opens the dropdown of the points.
 - Attack 0.001–2 s, Decay 0.005–4 s, Sustain 0–1, Release 0.005–8 s (log), in an auto-fit grid. These are the shipped ranges.
   - They write `adsrPts`: each stage ends exactly at its time (C.12), with the engine's default bends: attack u 0, decay and release u +1. The ADSR pill restores those bends; moving a slider keeps the bends you set.
   - Edit a point by hand and they stop describing the shape: their faces go dashed and the status line says so.

@@ -16,7 +16,7 @@ Every source against every destination at once: a cell's fill is the depth you s
 - Hosted macro rows: a lock, the module and macro name in `t2`, hatched read-only boxes (`div` edge), a not-allowed cursor.
 - A caption line under the table (mono 9 px `t2`, one line, ellipsis): the hovered or focused cell ("LFO 1 → Cutoff · BI 30% · now +7%"), else the selected destination's summary.
 
-**Gestures**
+**Gestures** (every drag here, the grid's and the route rows', is re-anchored at the stops and on a Shift change, ADR-340 r2: no dead range after an overshoot, no jump when Shift goes down mid-drag)
 - Click an empty cell: maps that source at 25%, UNI (the Map Mode spec's default). Drag from an empty cell: the mapping is made at 0 and the drag sets its depth; released at 0, nothing is made.
 - Drag a mapped cell up or down: its depth, relative, 160 px (`size-drag`) the full range, Shift ×0.25. A cell with per-corner depths (`cd`) edits the editing corner's, as the knob does. A CTL cell's drag slides its band, its width kept.
 - Click a mapped cell or a column head: selects that destination (`S.selected`) and makes the mapping the last touched (`S.lastMap`), so the ledger, the lanes and the P key follow it.
