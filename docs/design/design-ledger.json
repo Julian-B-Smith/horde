@@ -5745,6 +5745,10 @@
   {
    "adr": "ADR-344",
    "reason": "Module admission and note behaviour (Mangle's latency, prepare-only keys, tail per mode, an arp's touching notes): no control or design element."
+  },
+  {
+   "adr": "ADR-346",
+   "reason": "How rulings and rows are numbered across sessions: records procedure, no design element."
   }
  ],
  "audit_notes": [

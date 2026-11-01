@@ -19,8 +19,8 @@ ruling (an ADR in `DECISIONS.md`) → **design master** (`docs/design-system/mas
 
 ## Shared files
 
-- **`DECISIONS.md`**: one log. Take the next ADR number when you commit. If the lead's PR lands the same number first, `./verify` goes red on the duplicate and the later PR renumbers.
-- **`ROADMAP.md`**: edit only your rows. New rows take the next free B number, under the same duplicate rule.
+- **`DECISIONS.md`**: one log, with one counter per domain (ADR-346). Your new rulings are `GUI-1`, `GUI-2` and onward, as `## GUI-n — `, and the lead's stay `ADR-n`. Numbers you already took stay as they are. Each ruling still needs its ledger row or `not_design` entry.
+- **`ROADMAP.md`**: edit only your rows. New rows are `GB1`, `GB2` and onward. Rows you already own keep their B numbers.
 - **`./verify`** is shared. Adding a check is allowed (ADR-180 §1); weakening one needs the human.
 
 ## Standing rules
