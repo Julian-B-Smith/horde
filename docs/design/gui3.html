@@ -84,16 +84,35 @@
      every page (ADR-315) instead of following the page's length. */
   .pagecol { display: flex; flex-direction: column; gap: var(--space-stack); min-width: 0; min-height: 0; }
   #pages { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
-  /* dense pages (B589): the pictures' column at the left, the sections' cell at the right; one box level */
-  .dense-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-stack); align-items: start; }
-  .dense-row.with-viz { grid-template-columns: 250px minmax(0, 1fr); }
-  .vcell { position: sticky; top: 0; display: flex; flex-direction: column; gap: 6px; }
+  /* dense pages (B589): the pictures' column at the left (the page view's `.pv-left`, below), the sections' cell at the right; one box level */
   .vz { display: flex; flex-direction: column; gap: 6px; }
   .vz-well { padding: 0; overflow: hidden; }
   .hd-sgroups > .vz { flex: 1 1 100%; }
   .vz-cv { display: block; width: 100%; }
-  .vz-cap { line-height: 1.3; }
+  .vz-cap { line-height: 13px; }
+  .vz-cap2 { height: 26px; overflow: hidden; }   /* two lines whatever it says, so the lens below never moves (H1) */
   .hd-sgrp.adv > summary { cursor: pointer; list-style-position: inside; }
+  /* GUI 3 hop, half B (ADR-338 r4/r5, ADR-340 r6): a parameter page is the bundle's Page view (Grid | Table, the find box) inside one
+     cell. Its left column holds the pictures and the lens (P1) and stays put in both views; the right holds one cluster per section.
+     Placement only: the clusters, the lens, the table and the faces are the bundle's. */
+  .pv-left { flex: 0 0 206px; width: 206px; min-width: 0; display: flex; flex-direction: column; gap: 6px; position: sticky; top: 0; }
+  .pv-left .vz-well { padding: 0; overflow: hidden; }
+  /* sections flow two to a row (most are one or two rows of cells: a stack of them is what overflowed Sub and Noise); one with many cells
+     takes the whole row. The bundle's own `.hd-sec + .hd-sec` margin is for a stack, so it is reset here. */
+  .pv-secs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-section) var(--space-column); align-items: start; grid-auto-flow: row dense; min-width: 0; }
+  .pv-secs > .wide { grid-column: 1 / -1; }
+  .pv-secs > .hd-sec + .hd-sec, .pv-secs > * + * { margin-top: 0; }
+  .pv-secs > :first-child > .hd-sechead::before, .pv-secs > :first-child:not(.wide) + :not(.wide) > .hd-sechead::before { display: none; }   /* the cell's own edge is the first row's rule */
+  .pv-secs > .hd-clu .vz { margin: 2px 0; }
+  /* an envelope's picture sits beside its four cells, not above them: the same section in the height of one row of cells */
+  .pv-secs > .hd-clu.pic { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; align-items: end; }
+  .pv-secs > .hd-clu.pic > .hd-sechead { grid-column: 1 / -1; }
+  .pv-secs > .hd-clu.pic > .vz { grid-row: 2; grid-column: 1; min-width: 0; }
+  .pv-secs > .hd-clu.pic > .cl-cols { grid-row: 2; grid-column: 2; }
+  .pv-secs .viz { min-height: 0; }
+  /* a group stays whole while the row has room (it does not shrink) and wraps inside itself only when it is wider than the row: a
+     module's 30 to 87 controls are one block with no sub-groups of their own, or a few long ones */
+  .pv-secs .hd-clu .cl-grp { flex: 0 0 auto; max-width: 100%; flex-wrap: wrap; }
   .dash { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: var(--space-stack); }
   .dash .vz-cap { display: none; }
   .mixrow { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--space-stack); }
@@ -394,47 +413,97 @@ function propsFor(row, ctl, path, size) {
   }
   return p;
 }
+const isKnobW = w => w === 'knob' || w === 'hslider' || w === 'vslider';
+const ctlPath = (pg, g, c) => pg.label + ' · ' + g.title + (g.num ? ' ' + g.num : '') + ' · ' + ROW[c.key].label;
+/* ONE PARAMETER, MANY FACES (ADR-338 r5, batch 2b's ctlFace). A key is drawn on its own page's grid, in that page's table, in the lens, on
+   the dashboard card and in the bank. Knob and Slider register the props they are given and reset the saved baseline (the revert
+   mark), so a second face built from its own props would take the registry over and reset the baseline. Every face is therefore a
+   SHADOW of one canonical props object (the corner values and the global value shared, the rest the face's own), and the canonical
+   one is registered here, once, from the page that owns the key (the first page that is neither a dashboard card nor a followed row),
+   before any page is built, so the registry's path is the owner's whatever order the faces are built in. */
+DATA.pages.forEach(pg => {
+  if (pg.panel === 'dashboard' || pg.panel === 'console') return;
+  pg.groups.forEach(g => g.controls.forEach(c => {
+    if (c.follow || S.params[c.key] || !isKnobW(c.widget) || ROW[c.key].law === 'step') return;
+    H.ctlFace(S, propsFor(ROW[c.key], c, ctlPath(pg, g, c), null), {}, () => null);
+  }));
+});
+/* The stepped faces of P1 (ADR-338 r2, ADR-341 r3): the companions at TC1's 16 px (a toggle, segments, a select) and the stepper at
+   `tc`. Each keeps a value of its own, so the view loop below sets it from the device (silently) whenever the device moves it. */
+function tcFace(ctl, row, path, host) {
+  const idx = () => idxOf(row, dev.shown(row.key)), keys = () => S.keys, put = i => writeStep(row, path, i);
+  if (ctl.widget === 'toggle') { const f = H.Companion(host, { kind: 'toggle', name: row.label, path, value: row.options[idx()] === 'on', keys, onInput: on => put(onIdx(row, on)) }); return i => f.set(row.options[i] === 'on'); }
+  if (ctl.widget === 'pills') { const f = H.Companion(host, { kind: 'segments', name: row.label, path, options: row.options, short: ctl.short || undefined, value: idx(), keys, onInput: put }); return i => f.set(i); }
+  if (ctl.widget === 'select') { const f = H.Companion(host, { kind: 'select', name: row.label, path, options: row.options, value: idx(), keys, onInput: put }); return i => f.set(i); }
+  // a stepper: a named range opens its dropdown on Option-click, a number its field (ADR-341 r3); the value is the option's index, or lo + index
+  const named = !!row.options, lo = named ? 0 : row.lo;
+  const f = H.Stepper(host, { name: row.label, path, ...(named ? { options: row.options } : { min: lo, max: lo + row.n - 1 }), step: 1, value: lo + idx(), def: lo + row.default_index,
+    tc: true, keys, say: m => S.say(m), onInput: v => put(v - lo) });
+  return i => f.set(lo + i);
+}
+/* opts: { size } a sized knob (the dashboard, the bank); { tiny } P1's face (ADR-338 r1): a tiny knob under its abbreviation, a companion
+   or a TC1 stepper under it; { noLabel } the face alone (a header's mode segments, a matrix cell, whose labels are the header's). */
 function mountControl(ctl, pageId, path, opts) {
-  const row = ROW[ctl.key], size = opts && opts.size || null;
+  opts = opts || {};
+  const row = ROW[ctl.key], tiny = !!opts.tiny, size = tiny ? 'tiny' : opts.size || null;
   const host = h('div', { class: 'ctl', 'data-key': row.key, 'data-w': ctl.widget });
-  if (ctl.widget === 'knob' || ctl.widget === 'hslider' || ctl.widget === 'vslider') {
+  if (isKnobW(ctl.widget)) {
     const p = propsFor(row, ctl, path, size);
-    const view = ctl.widget === 'knob' ? H.Knob(host, p, S) : H.Slider(host, p, S);
-    PROPS[row.key + '@' + pageId] = p;
+    if (tiny) { p.abbr = ctl.abbr; if (opts.noLabel) p.label = false; }
+    let face = null;
+    // the face's props are named p inside, as the design ledger's shell place cites this very call (`H.Knob(host, p, S)`)
+    const view = H.ctlFace(S, p, { path: p.path, size: p.size, abbr: p.abbr, label: p.label, vert: p.vert },
+      p => { face = p; return ctl.widget === 'knob' ? H.Knob(host, p, S) : H.Slider(host, p, S); });
+    PROPS[row.key + '@' + pageId] = face;
     const r0 = view.render;                 // a knob draws only while its page shows: 300-odd views would redraw every frame otherwise
     view.render = function () { if (page === pageId || pageId === '*') { r0(); host.classList.toggle('idle', !live(ctl.live)); } };
     return host;
   }
-  const lab = h('span', { class: 'hd-label' }, row.label);
   let set;                                     // set(idx): repaint the control to the heard option
-  if (ctl.widget === 'toggle') {
-    const b = h('button', { class: 'hd-toggle hd-focus', type: 'button', role: 'switch', 'aria-label': path });
-    b.addEventListener('click', () => writeStep(row, path, row.options.indexOf(b.getAttribute('aria-checked') === 'true' ? 'off' : 'on')));
-    host.append(h('label', { class: 'hd-row' }, lab, b));
-    set = i => b.setAttribute('aria-checked', String(row.options[i] === 'on'));
-  } else if (ctl.widget === 'pills') {
-    const own = h('span', { class: 'hd-label' }, row.label), grp = h('div', { class: 'hd-pills', role: 'radiogroup', 'aria-label': path });
-    const bs = row.options.map((text, i) => { const b = h('button', { class: 'hd-pill hd-focus', type: 'button', role: 'radio', text, 'aria-checked': 'false' }); b.addEventListener('click', () => writeStep(row, path, i)); grp.append(b); return b; });
-    host.append(h('div', { class: 'hd-col' }, own, grp));
+  if (tiny) {
+    // P1: one shared 11 px label line over the face (Cluster's C1), the face itself the companion; the label carries the owner's rule on a pill group
+    host.classList.add('hd-cl-cell');
+    const lab = h('span', { class: 'cl-lab', title: row.label, text: ctl.abbr || row.label.slice(0, 4) }), fh = h('div');
+    host.append(...(opts.noLabel ? [] : [lab]), fh);
+    const paint = tcFace(ctl, row, path, fh);
     let lastOwn = -2;
     set = i => {
-      bs.forEach((b, k) => { const on = String(k === i); if (b.getAttribute('aria-checked') !== on) b.setAttribute('aria-checked', on); });
+      paint(i);
+      if (ctl.widget !== 'pills' || opts.noLabel) return;
       const o = dev.morph().on && row.class === 'S' ? dev.owner(row.key) : -1;   // the owner's 3 px rule and glyph on the label (Switch guidelines)
-      if (o !== lastOwn) { lastOwn = o; own.className = o >= 0 ? 'hd-owned hd-label' : 'hd-label'; own.style.setProperty('--own', o >= 0 ? 'var(--c' + H.CORNERS[o].id + ')' : ''); own.innerHTML = (o >= 0 ? H.glyph(o, 8, 'var(--c' + H.CORNERS[o].id + '-tx)') : ''); own.append(row.label); }
+      if (o !== lastOwn) { lastOwn = o; lab.className = o >= 0 ? 'hd-owned cl-lab' : 'cl-lab'; lab.style.setProperty('--own', o >= 0 ? 'var(--c' + H.CORNERS[o].id + ')' : ''); lab.innerHTML = (o >= 0 ? H.glyph(o, 8, 'var(--c' + H.CORNERS[o].id + '-tx)') : ''); lab.append(ctl.abbr || row.label); }
     };
-  } else if (ctl.widget === 'select') {
-    const sel = h('select', { class: 'hd-select hd-focus', 'aria-label': path });
-    row.options.forEach((t, i) => sel.append(h('option', { value: String(i), text: t })));
-    sel.addEventListener('change', () => writeStep(row, path, +sel.value));
-    host.append(h('div', { class: 'hd-col' }, lab, sel));
-    set = i => { if (sel.value !== String(i)) sel.value = String(i); };
-  } else {                                      // stepper: a range too long to list (an oscillator's seed)
-    const out = h('output', { class: 'hd-value' }), dn = h('button', { type: 'button', 'aria-label': path + ' down', text: '−' }), up = h('button', { type: 'button', 'aria-label': path + ' up', text: '+' });
-    const box = h('div', { class: 'hd-stepper hd-focus', role: 'spinbutton', 'aria-label': path }, dn, out, up);
-    dn.addEventListener('click', () => writeStep(row, path, Math.max(0, idxOf(row, dev.shown(row.key)) - 1)));
-    up.addEventListener('click', () => writeStep(row, path, Math.min(row.n - 1, idxOf(row, dev.shown(row.key)) + 1)));
-    host.append(h('div', { class: 'hd-col' }, lab, box));
-    set = i => { const t = optLabel(row, vOf(row, i)); if (out.textContent !== t) out.textContent = t; box.setAttribute('aria-valuenow', t); };
+  } else {
+    const lab = h('span', { class: 'hd-label' }, row.label);
+    if (ctl.widget === 'toggle') {
+      const b = h('button', { class: 'hd-toggle hd-focus', type: 'button', role: 'switch', 'aria-label': path });
+      b.addEventListener('click', () => writeStep(row, path, row.options.indexOf(b.getAttribute('aria-checked') === 'true' ? 'off' : 'on')));
+      host.append(h('label', { class: 'hd-row' }, lab, b));
+      set = i => b.setAttribute('aria-checked', String(row.options[i] === 'on'));
+    } else if (ctl.widget === 'pills') {
+      const own = h('span', { class: 'hd-label' }, row.label), grp = h('div', { class: 'hd-pills', role: 'radiogroup', 'aria-label': path });
+      const bs = row.options.map((text, i) => { const b = h('button', { class: 'hd-pill hd-focus', type: 'button', role: 'radio', text, 'aria-checked': 'false' }); b.addEventListener('click', () => writeStep(row, path, i)); grp.append(b); return b; });
+      host.append(h('div', { class: 'hd-col' }, own, grp));
+      let lastOwn = -2;
+      set = i => {
+        bs.forEach((b, k) => { const on = String(k === i); if (b.getAttribute('aria-checked') !== on) b.setAttribute('aria-checked', on); });
+        const o = dev.morph().on && row.class === 'S' ? dev.owner(row.key) : -1;   // the owner's 3 px rule and glyph on the label (Switch guidelines)
+        if (o !== lastOwn) { lastOwn = o; own.className = o >= 0 ? 'hd-owned hd-label' : 'hd-label'; own.style.setProperty('--own', o >= 0 ? 'var(--c' + H.CORNERS[o].id + ')' : ''); own.innerHTML = (o >= 0 ? H.glyph(o, 8, 'var(--c' + H.CORNERS[o].id + '-tx)') : ''); own.append(row.label); }
+      };
+    } else if (ctl.widget === 'select') {
+      const sel = h('select', { class: 'hd-select hd-focus', 'aria-label': path });
+      row.options.forEach((t, i) => sel.append(h('option', { value: String(i), text: t })));
+      sel.addEventListener('change', () => writeStep(row, path, +sel.value));
+      host.append(h('div', { class: 'hd-col' }, lab, sel));
+      set = i => { if (sel.value !== String(i)) sel.value = String(i); };
+    } else {                                      // stepper: a range too long to list (an oscillator's seed)
+      const out = h('output', { class: 'hd-value' }), dn = h('button', { type: 'button', 'aria-label': path + ' down', text: '−' }), up = h('button', { type: 'button', 'aria-label': path + ' up', text: '+' });
+      const box = h('div', { class: 'hd-stepper hd-focus', role: 'spinbutton', 'aria-label': path }, dn, out, up);
+      dn.addEventListener('click', () => writeStep(row, path, Math.max(0, idxOf(row, dev.shown(row.key)) - 1)));
+      up.addEventListener('click', () => writeStep(row, path, Math.min(row.n - 1, idxOf(row, dev.shown(row.key)) + 1)));
+      host.append(h('div', { class: 'hd-col' }, lab, box));
+      set = i => { const t = optLabel(row, vOf(row, i)); if (out.textContent !== t) out.textContent = t; box.setAttribute('aria-valuenow', t); };
+    }
   }
   let last = null;
   views.push({ page: pageId, update() {
@@ -613,10 +682,10 @@ function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let 
 function vizView(v, pid, big) {
   const wrap = h('div', { class: 'vz' }), cvs = [], K = v.keys, st = {};
   const add = (label, hgt) => { const cv = h('canvas', { class: 'vz-cv', style: 'height:' + hgt + 'px', 'aria-label': label + ' (SAMPLE)', role: 'img' }); wrap.append(h('div', { class: 'hd-viz vz-well' }, cv)); cvs.push(cv); return cv; };
-  const ring = v.kind === 'osc' && big ? add('Phase ring: Coupling × Detune, shift for Cross-mod', 210) : null;
+  const ring = v.kind === 'osc' && big ? add('Phase ring: Coupling × Detune, shift for Cross-mod', 112) : null;
   const ringIO = ring ? oscRing(ring, K, pid, wrap) : null;
-  const main = add(v.kind === 'noise' ? 'Spectrum' : v.kind === 'env' ? 'ENV 1' : 'One cycle', big ? (v.kind === 'osc' ? 96 : 160) : 64);
-  wrap.append(h('span', { class: 'hd-hint vz-cap', text: 'SAMPLE: a drawing of the settings, not the engine’s output' }));
+  const main = add(v.kind === 'noise' ? 'Spectrum' : v.kind === 'env' ? 'ENV 1' : 'One cycle', big ? (v.kind === 'osc' ? 40 : 160) : 64);
+  wrap.append(h('span', { class: 'hd-hint vz-cap', text: big ? 'SAMPLE, not the engine’s output' : 'SAMPLE: a drawing of the settings, not the engine’s output', title: 'A drawing of the settings the layout names, never the engine’s output' }));
   let last = null, frame = 0;
   views.push({ page: pid, update() {
     frame++;
@@ -649,7 +718,7 @@ function vizView(v, pid, big) {
    frame (1/60 s, no clock), never the engine's phases (IF-10 at stage 8 brings those). */
 function oscRing(cv, K, pid, wrap) {
   const KMAX = 4, SPREAD = 1.4, rows = { x: ROW[K.detune], y: ROW[K.coupling], sx: ROW[K.crossMod] };
-  const st = { x: 0, y: 0, sx: 0 }, cap = h('span', { class: 'hd-hint vz-cap' });
+  const st = { x: 0, y: 0, sx: 0 }, cap = h('span', { class: 'hd-hint vz-cap vz-cap2' });
   let sw = null, n = 0, live = { drag: false, shift: false, hover: false }, held = false, coh = 0;
   const pull = () => { st.x = dev.shown(K.detune); st.y = dev.shown(K.coupling); st.sx = dev.shown(K.crossMod); };
   const put = (ax, v) => {
@@ -676,7 +745,7 @@ function oscRing(cv, K, pid, wrap) {
     const t = live.drag ? 'DRAG · ' + (live.shift ? '⇧↔ Cross-mod ' + d(rows.sx) : '↔ Detune ' + d(rows.x)) + ' · ↕ Coupling ' + d(rows.y)
       : live.hover ? 'Click lands ↔ Detune ↕ Coupling · alt fine · ⇧↔ Cross-mod (relative)'
       : 'Detune ' + d(rows.x) + ' · Coupling ' + d(rows.y) + ' · Cross-mod ' + d(rows.sx) + ' · SAMPLE swarm';
-    if (cap.textContent !== t) cap.textContent = t;
+    if (cap.textContent !== t) { cap.textContent = t; cap.title = t; }
     cv.setAttribute('aria-valuetext', 'Detune ' + d(rows.x) + ', Coupling ' + d(rows.y) + ', Cross-mod ' + d(rows.sx) + ', Coherence ' + (+coh || 0).toFixed(2));
   }, st };
 }
@@ -739,12 +808,133 @@ function sectionOf(pg, g, opts) {
   } });
   return sec;
 }
-function densePage(pg, el) {
-  const row = h('div', { class: 'dense-row' + (pg.viz ? ' with-viz' : '') });
-  if (pg.viz) row.append(h('div', { class: 'hd-cell hd-dense vcell' }, h('div', { class: 'vhead' }, h('span', { class: 'hd-cluster', text: 'Visualizers' })), vizView(pg.viz, pg.id, true)));
-  const cell = h('div', { class: 'hd-cell hd-dense dcell' });
-  pg.groups.forEach(g => cell.append(sectionOf(pg, g)));
-  row.append(cell); el.append(row);
+/* A PARAMETER PAGE, P1 (ADR-338 r5): every control of the page in view as tiny knobs and companions in clusters, the control under
+   the pointer (or the last one touched) enlarged in the lens, a Grid | Table switch with a find box (ADR-340 r6, PV1) and the page's own
+   pictures beside them. A section is a cluster (C1: groups of 28 px cells under one shared label line of abbreviations, the power switch
+   in the header, the section's one readout slot) or, where the layout names a matrix, a C2 (an envelope's stages x time and curve). The
+   advanced rows follow inline after the ADV mark. Nothing here draws a face: the bundle's Cluster, ClusterMatrix, Lens and PageView do. */
+function gridSection(pg, g) {
+  const path = pg.label + ' · ' + g.title + (g.num ? ' ' + g.num : '');
+  const sec = h('section', { 'aria-label': path, 'data-section': g.id });
+  const power = g.controls.find(c => c.role === 'power'), modes = g.controls.find(c => c.role === 'modes');
+  const plain = g.controls.filter(c => !c.role && !c.advanced), adv = g.controls.filter(c => !c.role && c.advanced);
+  const mk = (c, o) => mountControl(c, pg.id, path + ' · ' + ROW[c.key].label, Object.assign({ tiny: true }, o));
+  // ADR-333: the envelope this source's level follows (RC-6.5), drawn from the block its `env` row selects; the block's controls are the
+  // shared keys (Main's and the Mod page's), so an edit here is an edit there. The picture sits between the header and the cells.
+  const followHosts = []; let picture = null;
+  if (g.follow) {
+    const cv = h('canvas', { class: 'vz-cv', style: 'height:44px', role: 'img', 'aria-label': g.title + ' envelope' });
+    picture = h('div', { class: 'vz' }, h('div', { class: 'hd-viz vz-well' }, cv));
+    let lastE = '';
+    views.push({ page: pg.id, update() {
+      const fb = dev.followed(g.follow); if (!fb) return;
+      const K = fb.viz, sig = fb.block + '|' + Object.values(K).map(k => dev.shown(k)).join('|') + '|' + (document.documentElement.dataset.theme || '');
+      followHosts.forEach(x => { const on = g.follow.options[x.opt] === fb; if (x.host.hidden === on) x.host.hidden = !on; });
+      if (sig === lastE) return; lastE = sig;
+      const a = xOf(K.a), dd = xOf(K.d), r = xOf(K.r);
+      H.Viz.envelope(cv, { a, d: dd, s: xOf(K.s), r, hold: (a + dd + r) / 3, ac: xOf(K.ac), dc: xOf(K.dc), rc: xOf(K.rc) }, null);
+    } });
+  } else if (g.screen) {
+    // A module card (the FX page) carries an inset where the module's own screen will go: a labelled placeholder (ADR-235).
+    picture = h('div', { class: 'viz', role: 'img', 'aria-label': g.screen + ' screen placeholder' }, h('span', { class: 'hd-hint', text: g.screen + '’s own screen goes here (placeholder)' }));
+  }
+  const item = c => { const host = mk(c); if (c.follow) { host.hidden = true; followHosts.push({ host, opt: c.follow }); } return host; };
+  const head = modes ? [mk(modes, { noLabel: true })] : [];
+  // An Envelope section mounts every block's rows, so its first controls are ENV 1's: the readout names the envelope this source
+  // FOLLOWS (its env row's pick) and that block's attack and decay (ADR-333).
+  const summary = pg.dense ? () => [modes ? labOf(modes.key) : null].concat(g.follow ? SH.followedSummary(dev, ENG, ROW, g.follow)
+    : plain.slice(0, 2).map(c => ENG.display(ROW[c.key], dev.shown(c.key)))).filter(Boolean).join(' · ') : g.tag || '';
+  const o = { name: g.title, path, num: g.num || undefined, rule: g.rule || 'solid', on: power ? isOnKey(power.key) : undefined,
+    onToggle: power ? on => writeStep(ROW[power.key], path + ' · On', onIdx(ROW[power.key], on)) : undefined, summary, keys: () => S.keys, head, picture: picture || undefined };
+  let cl, fold = null;
+  if (g.fold) {
+    // P2 (ADR-338 r5), only where the page still overflowed after P1's tiers: Face | +Adv per section, remembered. A fold's header has no
+    // power switch or number, so the switch and the mode go first in the Face tier and the number is part of the name.
+    // Face is the first two sub-groups the layout lists (the designer's order puts the headline ones first), All the rest, +Adv the advanced rows.
+    const subs = []; plain.forEach(c => { if (!subs.includes(c.sub || '')) subs.push(c.sub || ''); });
+    const faceSubs = subs.slice(0, 2), isFace = c => faceSubs.includes(c.sub || '');
+    const faceItems = [].concat(power ? [mk(power)] : [], modes ? [mk(modes, { noLabel: true })] : [], plain.filter(isFace).map(item)), restItems = plain.filter(c => !isFace(c)).map(item);
+    fold = H.Fold(sec, S, { id: pg.id + '/' + g.id, name: g.title + (g.num ? ' ' + g.num : ''), path, tiers: Object.assign({ face: faceItems, adv: adv.map(item) }, restItems.length ? { all: restItems } : {}), summary, keys: () => S.keys });
+    // every control is mounted whichever tier the user left the fold at: a tier is built the first time it is shown, so show them all once
+    const t0 = fold.tier(), o0 = fold.open(); fold.open(true); fold.tier(2); fold.tier(t0); fold.open(o0);   // (the tier ids are Face 0, All 1, +Adv 2)
+    cl = { header: { on() {} } };
+  } else if (g.matrix) {
+    // C2 (ADR-338 r4): column labels once, row labels once, no label on a cell (the header's slot reads the hot one), an empty cell a dot
+    const cellOf = k => k && mk(g.controls.find(c => c.key === k), { noLabel: true });
+    cl = H.ClusterMatrix(sec, S, Object.assign(o, { head: g.matrix.head.map(k => mk(g.controls.find(c => c.key === k), { noLabel: true })), emptyTitle: g.matrix.emptyTitle,
+      cols: g.matrix.cols, rows: g.matrix.rows.map(r => ({ label: r.label, cells: r.cells.map(cellOf) })) }));
+    g.matrix.rows.forEach((r, i) => { const l = cl.grid.querySelectorAll('.cl-row')[i]; if (l) l.title = r.title; });
+  } else {
+    const groups = [];
+    plain.forEach(c => { const lab = c.sub || ''; if (!groups.length || groups[groups.length - 1].label !== lab) groups.push({ label: lab, items: [] }); groups[groups.length - 1].items.push(item(c)); });
+    cl = H.Cluster(sec, S, Object.assign(o, { groups, adv: adv.map(item) }));
+  }
+  // The header's toggle IS the power parameter's control: it carries the key, so the info box, the right-click menu, the bank's drop
+  // and the self-checks find it like any other control.
+  if (power && !fold) { const t = cl.header.el.querySelector('.hd-toggle'); t.dataset.key = power.key; t.classList.add('ctl'); }
+  let last = '';
+  views.push({ page: pg.id, update() {
+    const k = power ? isOnKey(power.key) : '';
+    if (k === last) return; last = k;
+    if (power) { cl.header.on(isOnKey(power.key)); if (pg.power === power.key) nav.mark(groupOf[pg.id], pg.id, isOnKey(power.key)); }
+  } });
+  // a section with many cells takes the whole row of the grid; a folded one is as wide as its Face tier
+  // A header holds the name, its switch and mode segments and the readout slot, which is a fixed 250 px (H1). Half a row leaves the slot
+  // about 240 px beside a bare name, and the bundle's own header truncates it beside segments (it never wraps the header), which is
+  // the price of two sections to a row. A fold (its tiers in the header), a main enum of more than four segments, or many cells
+  // takes the whole row.
+  if (g.follow) sec.classList.add('pic');
+  if (fold || (modes && ROW[modes.key].n > 4) || (!g.matrix && plain.length + adv.length > 20)) sec.classList.add('wide');
+  return sec;
+}
+/* The page's table (PV1, ParamTable): one 17 px row per control, the FULL name, the control as the table's own face (TS2a for a knob, a
+   caret select, the dense switch, K4's drag number). Its faces are shadows of the same props (the bundle's ctlFace), so a knob's value is
+   the grid's; a stepped face holds its own state, so the page's view loop sets it from the device (syncTable). A followed envelope
+   row is the Main and Mod pages' own row: it is in the grid under its source, and not listed again in the table. */
+function tableOf(pg) {
+  return { groups: pg.groups.map(g => ({ title: g.title + (g.num ? ' ' + g.num : ''), controls: g.controls.filter(c => !c.follow).map(c => {
+    const row = ROW[c.key], path = pg.label + ' · ' + g.title + (g.num ? ' ' + g.num : '') + ' · ' + row.label, base = { key: c.key, name: row.label, abbr: c.abbr, path, advanced: c.advanced };
+    if (isKnobW(c.widget)) return Object.assign(base, { kind: 'knob', props: { key: c.key } });
+    if (c.widget === 'toggle') return Object.assign(base, { kind: 'toggle', props: { value: isOnKey(c.key), onChange: on => writeStep(row, path, onIdx(row, on)) } });
+    if (c.widget === 'stepper') { const lo = row.options ? 0 : row.lo;
+      return Object.assign(base, { kind: 'stepper', props: Object.assign({ name: row.label, path, step: 1, value: lo + idxOf(row, dev.shown(c.key)), def: lo + row.default_index, say: m => S.say(m), onInput: v => writeStep(row, path, v - lo) },
+        row.options ? { options: row.options } : { min: lo, max: lo + row.n - 1 }) }); }
+    return Object.assign(base, { kind: 'select', props: { options: row.options, value: idxOf(row, dev.shown(c.key)), onChange: i => writeStep(row, path, i) } });
+  }) })) };
+}
+const PAGEVIEW = Object.create(null);   // page id -> { pv, el, remembered }: the checks read every page in its grid and put each back as the user left it
+function syncTable(pg, el) {
+  const by = Object.fromEntries(pg.groups.flatMap(g => g.controls.map(c => [c.key, c])));
+  el.querySelectorAll('.hd-pt .pt-row').forEach(rw => {
+    const c = by[rw.dataset.key], row = ROW[rw.dataset.key], i = idxOf(row, dev.shown(row.key));
+    rw.classList.toggle('idle', !live(c.live));
+    const tg = rw.querySelector('.hd-toggle'), se = rw.querySelector('select'), sp = rw.querySelector('.hd-stepper');
+    if (tg) tg.setAttribute('aria-checked', String(row.options[i] === 'on'));
+    else if (se) { if (se.value !== String(i)) se.value = String(i); }
+    else if (sp) {            // the stepper keeps its value inside: a different one is remounted (never silently left showing a stale number)
+      const lo = row.options ? 0 : row.lo;
+      if (sp.getAttribute('aria-valuenow') !== String(lo + i)) { const cell = sp.parentNode, t = tableOf(pg).groups.flatMap(g => g.controls).find(x => x.key === row.key);
+        const q = h('div'); cell.replaceChildren(q); H.Stepper(q, Object.assign({}, t.props, { flat: true, sm: true })); }
+    }
+  });
+}
+function paramPage(pg, el) {
+  const keys = pg.groups.flatMap(g => g.controls.map(c => c.key)), cont = keys.filter(k => ROW[k].law !== 'step');
+  const secs = h('div', { class: 'pv-secs' }, pg.groups.map(g => gridSection(pg, g)));
+  const lens = h('div'); if (cont.length) H.Lens(lens, S, { scope: cont, fallback: cont[0], size: 'standard' });
+  const lensView = S.views[S.views.length - 1];       // the lens draws only while its page shows, as every other view of this file
+  if (cont.length) { const r0 = lensView.render; lensView.render = function () { if (page === pg.id) r0.apply(this, arguments); }; }
+  const left = h('div', { class: 'pv-left' }, pg.viz ? vizView(pg.viz, pg.id, true) : null, cont.length ? lens : null);
+  const box = h('div', { class: 'hd-cell hd-dense' }), tbl = tableOf(pg);
+  const pv = H.PageView(box, S, { id: pg.id, label: pg.label, left: left.childNodes.length ? left : undefined, grid: secs, table: tbl, keys: () => S.keys, onView: v => { if (v === 'table') syncTable(pg, box); } });
+  // Both views are built now, grid first in the document: a control must be mounted whichever view the page remembers (PV1 builds the
+  // other lazily), and the page keeps the view the user left it in.
+  const remembered = pv.view(); pv.view('table'); pv.view('grid');
+  const right = box.querySelector('.pv-views'); right.prepend(right.querySelector('.pv-grid'));
+  pv.view(remembered);
+  PAGEVIEW[pg.id] = { pv, el: box, remembered };
+  views.push({ page: pg.id, update() { if (pv.view() === 'table') syncTable(pg, box); } });
+  el.append(box);
 }
 /* The Osc dashboard (B589's composition): one card per source, side by side; the card's name opens its page. */
 function dashboardPage(pg, el) {
@@ -908,8 +1098,8 @@ DATA.pages.forEach(pg => {
   if (pg.panel === 'dashboard') dashboardPage(pg, el);
   else if (pg.panel === 'console') consolePage(pg, el);
   else if (pg.panel === 'ledger') ledgerPage(pg, el);
-  else if (pg.dense) densePage(pg, el);
-  else if (pg.id === 'mod') modPageForm(pg, el);       // ADR-338 r8 (half A); the other classic pages are half B's
+  else if (pg.id === 'mod') modPageForm(pg, el);       // ADR-338 r8 (half A); every other parameter page is a grid (half B)
+  else if (pg.grid) paramPage(pg, el);
   else classicPage(pg, el);
   if (pg.panel === 'morph') el.append(morphPanel());
   if (pg.id === 'fx') el.insertBefore(fxRack(pg), el.children[1] || null);
@@ -1167,14 +1357,16 @@ S.start();
 // ===== BLOCK H: self-checks. Each has a must-fail control, so a check that never ran cannot pass for one that held =====
 (function checks() {
   const box = $('checks'), line = (ok, t) => box.append(h('p', { class: ok ? 'hd-hint' : 'hd-note bad', text: (ok ? 'OK · ' : 'FAILED · ') + t }));
-  // 1. What is mounted is what was generated, page by page; the comparison sees a single missing key (control).
+  // 1. What is mounted is what was generated, page by page; the comparison sees a single missing key (control). The table (half B's PV1)
+  // is a second view of the same keys, so its rows are not mounts: the grid's are counted.
   // A dense section puts its header's power and mode controls first and groups the rest, so this compares each page's keys
   // as a multiset (every generated control mounted once, nothing else).
   const same = (a, b) => a.length === b.length && [...a].sort().every((k, i) => k === [...b].sort()[i]);
   let allSame = true, n = 0;
   // The Mod page (ADR-338 r8) builds each modulator's controls once and the page's pane swaps the selected detail in, so the hosts it
-  // holds count as the page's mounted controls while a detail is not showing (heldHosts); every other page is read from the document.
-  DATA.pages.forEach(pg => { const have = new Set(pageEls[pg.id].querySelectorAll('[data-key]')); if (pg.id === 'mod') heldHosts.forEach(x => have.add(x));
+  // holds count as the page's mounted controls while a detail is not showing (heldHosts). A grid page's table (.hd-pt) is a second
+  // view of the same keys, so its rows are not mounts: the grid's are counted. Every other page is read from the document.
+  DATA.pages.forEach(pg => { const have = new Set([...pageEls[pg.id].querySelectorAll('[data-key]')].filter(e => !e.closest('.hd-pt'))); if (pg.id === 'mod') heldHosts.forEach(x => have.add(x));
     const want = pg.groups.flatMap(g => g.controls.map(c => c.key)), got = [...have].map(e => e.dataset.key); n += got.length; if (!same(want, got)) allSame = false; });
   const sub = DATA.pages.find(p => p.id === 'sub'), subWant = sub.groups.flatMap(g => g.controls.map(c => c.key));
   line(allSame && !same(subWant.slice(1), subWant), 'Mounted = generated: ' + n + ' controls on ' + DATA.pages.length + ' pages, each page\u2019s keys exactly; a list one key short reads as different (control).');
@@ -1192,7 +1384,7 @@ S.start();
   line(wrote && before !== .123 && engine.getParam(kc.key) === before, 'The wire: ' + r.label + '’s knob props wrote 0.123 into the engine (' + ENG.display(r, .123) + ') as one step, and undo restored ' + ENG.display(r, before) + '; the value differed before (control).');
   // 3b. A real click on a Sub pill writes through writeStep: the engine hears the option, one step, undone exactly.
   const pc = sub.groups.flatMap(g => g.controls).find(c => c.widget === 'pills' && ROW[c.key].n >= 3), pr = ROW[pc.key];
-  const pb = [...document.querySelectorAll('#page-sub [data-key="' + CSS.escape(pc.key) + '"] .hd-pill')], i0 = idxOf(pr, engine.getParam(pc.key)), i1 = (i0 + 1) % pr.n;
+  const pb = [...document.querySelectorAll('#page-sub [data-key="' + CSS.escape(pc.key) + '"] [role=radio]')], i0 = idxOf(pr, engine.getParam(pc.key)), i1 = (i0 + 1) % pr.n;
   const hp = dev.history().past.length; pb[i1].click();
   const clicked = engine.getParam(pc.key) === vOf(pr, i1) && dev.history().past.length === hp + 1;
   dev.undo();
@@ -1530,6 +1722,121 @@ S.start();
     const refused = /^Refused/.test(S.message) && /B70/.test(S.message) && dev.routes().length === nr;
     dev.undo(); dev.clearRedo(); mapBridge.pull(); modRoutes.pick(0); modPageCtl.mode('detail'); modPageCtl.select('env2'); tick(); S.message = ''; selectPage(pg0);
     line(detail && !g0 && g1 && wires && refused, 'Mod page: ' + listN + ' sources as rows and ENV 3’s full tier in the detail with its own rows; in the Routes view a route made through the device appeared in the by-source list (ML3) and the wires (ML1) drew; a depth-route drop on a valve was refused and made no route, B70 (control: ENV 2 had no group before the route).'); }
+  // ---- half B self-checks ----
+  // The GUI 3 shell hop, half B (ADR-338, ADR-340, ADR-341): the tiny tier and its abbreviations, the companions, the clusters and the C2
+  // matrix, the page view with its table and find, the lens, one value in many faces, the page fitting its window, and the readout slot.
+  // Every page is read in its grid, and each page's view is put back as the user left it.
+  { const was = Object.fromEntries(Object.entries(PAGEVIEW).map(([id, x]) => [id, x.pv.view()])), pg0 = page;
+    const setViews = v => Object.values(PAGEVIEW).forEach(x => x.pv.view(v));
+    const tick = () => { for (const v of S.views) v.render(); for (const v of views) if (v.page === page || v.page === '*') v.update(); };
+    const gridPages = DATA.pages.filter(p => p.grid), ctlHost = (root, key) => [...root.querySelectorAll('[data-key="' + CSS.escape(key) + '"]')].find(e => !e.closest('.hd-pt'));
+    setViews('grid');
+    // 32. ADR-338 r1 and r10: a continuous control of a grid page is a tiny knob (T2d, 20 px in a 28 px cell) under an abbreviation of at
+    // most four characters that is unique in its section (a followed envelope's blocks each on their own). A cell whose label is the
+    // header's or the matrix's (a mode, a matrix cell) carries none. Control: the dashboard's knob is not tiny, and a doubled label is read as doubled.
+    { let n = 0; const bad = [], dup = ls => ls.length !== new Set(ls.map(l => l.toLowerCase())).size;
+      gridPages.forEach(pg => pg.groups.forEach(g => {
+        const sec = pageEls[pg.id].querySelector('[data-section="' + g.id + '"]'), shown = {};
+        g.controls.filter(c => ROW[c.key].law !== 'step').forEach(c => {
+          const host = ctlHost(sec, c.key), nm = host && host.querySelector('.mk-name');
+          if (!host || !host.classList.contains('sz-tiny')) { bad.push(c.key + ' is not tiny'); return; }
+          n++;
+          if (nm) { (shown[c.follow || ''] = shown[c.follow || ''] || []).push(nm.textContent); if (nm.textContent !== c.abbr || nm.textContent.length > 4) bad.push(c.key + ' shows ' + nm.textContent); }
+          else if (!host.closest('.cl-mx, .hd-sechead')) bad.push(c.key + ' has no label');
+        });
+        Object.values(shown).forEach(ls => { if (dup(ls)) bad.push(g.id + ' repeats a label'); });
+      }));
+      const dashKnob = pageEls.dashboard.querySelector('.hd-mk[data-key]');
+      const want = gridPages.reduce((t, pg) => t + pg.groups.reduce((u, g) => u + g.controls.filter(c => ROW[c.key].law !== 'step').length, 0), 0);
+      line(n === want && n > 300 && !bad.length && !dashKnob.classList.contains('sz-tiny') && dup(['DET', 'det']) && !dup(['DET', 'CPL']),
+        'Tiny tier: ' + n + ' continuous controls on ' + gridPages.length + ' pages are tiny knobs under a label of at most four characters, unique in their section' + (bad.length ? ' (FAILED: ' + bad.slice(0, 4).join('; ') + ')' : '') + ' (control: the dashboard’s knob is not tiny; a doubled label reads as doubled).'); }
+    // 33. ADR-338 r2, ADR-341 r3: a toggle, segments, select or stepper in a section is TC1's companion or the stepper at its 16 px face, never the
+    // classic face; a click on a stepper’s arrow writes through the device as one step and undo puts it back. Control: the dashboard's toggle is a classic face.
+    { let n = 0; const bad = [], faces = { toggle: '.hd-tc1-tog', pills: '.hd-tc1-seg', select: '.hd-tc1-sel', stepper: '.hd-stepper.hd-tc' };
+      gridPages.forEach(pg => pg.groups.forEach(g => {
+        const sec = pageEls[pg.id].querySelector('[data-section="' + g.id + '"]');
+        g.controls.filter(c => ROW[c.key].law === 'step').forEach(c => {
+          const host = [...sec.querySelectorAll('[data-key="' + CSS.escape(c.key) + '"]')].find(e => !e.matches('.hd-toggle'));
+          if (!host && c.role === 'power') return;                       // the header's own switch is the bundle's SectionHeader
+          if (!host || !host.querySelector(faces[c.widget])) bad.push(c.key); else n++;
+        });
+      }));
+      const sk = ctlHost(pageEls.osc1, PG.osc1.groups[0].controls.find(c => c.widget === 'stepper').key), sr = ROW[sk.dataset.key], sp = sk.querySelector('.hd-stepper'), i0 = idxOf(sr, dev.shown(sr.key)), h0 = dev.history().past.length;
+      sp.querySelector('.st-up').click();
+      const stepped = idxOf(sr, dev.shown(sr.key)) === i0 + 1 && dev.history().past.length === h0 + 1; dev.undo(); tick();
+      const classic = pageEls.dashboard.querySelector('.hd-toggle');
+      line(n > 150 && !bad.length && stepped && idxOf(sr, dev.shown(sr.key)) === i0 && !classic.closest('.hd-tc'),
+        'Companions: ' + n + ' toggles, segments, selects and steppers on grid pages are TC1 faces' + (bad.length ? ' (FAILED: ' + bad.slice(0, 4).join(', ') + ')' : '') + '; ' + sr.label + '’s stepper arrow wrote ' + ENG.display(sr, vOf(sr, i0 + 1)) + ' as one step and undo restored it (control: the dashboard’s toggle is a classic face).'); }
+    // 34. ADR-338 r4: C1 puts a section’s cells in groups under one shared label line with the readout slot in its header; C2 (Main’s ENV 1) is a matrix:
+    // stage rows and Time | Curve columns labelled once, a dot where no curve exists (hold, sustain), no control disabled in its place.
+    { const mx = pageEls.main.querySelector('[data-section="main/env-1"] .cl-mx'), empty = mx ? [...mx.querySelectorAll('.cl-empty')] : [];
+      const rowsL = mx ? [...mx.querySelectorAll('.cl-row')].map(e => e.textContent).join('') : '', colsL = mx ? [...mx.querySelectorAll('.cl-col')].map(e => e.textContent).join('/') : '';
+      const clu = pageEls.osc1.querySelector('[data-section="osc1/envelope"]');
+      const c1 = clu.classList.contains('hd-clu') && clu.querySelectorAll('.cl-grp').length > 0 && !!clu.querySelector('.hd-rslot') && !pageEls.osc1.querySelector('.hd-sgroups');
+      line(!!mx && rowsL === 'AHDSR' && colsL === 'Time/Curve' && empty.length === 2 && empty.every(e => !e.querySelector('[data-key]')) && mx.querySelectorAll('.mk-face').length === 8 && c1,
+        'Clusters: Main’s ENV 1 is a C2 matrix (rows ' + rowsL + ', columns ' + colsL + '; ' + empty.length + ' dots where no curve exists, 8 knob cells); Osc 1’s Envelope is a C1 cluster with its readout slot, and no page uses the old sub-group rows (control: a stage with no curve is a dot, not a control).'); }
+    // 35. ADR-340 r6, ADR-338 r5: each parameter page has a Grid | Table view, and a value is ONE in both: a drag on the table’s value cell moves the grid’s knob
+    // and the lens’s, and the device; undo restores all three. Real pointer events on the bundle’s TS2a cell. Control: the value differed before.
+    { selectPage('osc1'); const pv = PAGEVIEW.osc1.pv, k = PG.osc1.groups[0].controls.find(c => ROW[c.key].law !== 'step' && dev.shown(c.key) < .6).key, r = ROW[k];
+      pv.view('table'); const cell = pageEls.osc1.querySelector('.pt-row[data-key="' + CSS.escape(k) + '"] .hd-ts2'), v0 = dev.shown(k), h0 = dev.history().past.length;
+      cell.setPointerCapture = () => {}; cell.releasePointerCapture = () => {}; cell.hasPointerCapture = () => false;
+      const ptr = (t, x) => cell.dispatchEvent(new MouseEvent(t, { bubbles: true, button: 0, clientX: x, clientY: 5 }));
+      ptr('pointerdown', 100); ptr('pointermove', 119); ptr('pointerup', 119); tick();
+      const v1 = dev.shown(k), face = ctlHost(pageEls.osc1, k).querySelector('.mk-face'); pv.view('grid'); tick();
+      ctlHost(pageEls.osc1, k).dispatchEvent(new MouseEvent('pointerenter')); tick();
+      const lensV = pageEls.osc1.querySelector('.hd-lens .mk-v1');
+      const grid = Math.abs(+face.getAttribute('aria-valuenow') - v1) < 1e-3, lens = lensV && lensV.textContent === ENG.display(r, v1), moved = v1 > v0 + .1 && dev.history().past.length === h0 + 1;
+      dev.undo(); tick();
+      line(moved && grid && lens && dev.shown(k) === v0 && !!pageEls.osc1.querySelector('.hd-pv .pv-head .hd-pills'), 'One value, many faces: a drag on ' + r.label + '’s table cell moved it ' + ENG.display(r, v0) + ' → ' + ENG.display(r, v1) + ' as one step; the grid’s knob and the lens read it; undo restored all (control: the value differed before).'); }
+    // 36. ADR-340 r6: the find box dims what does not match in the grid (it never hides) and outlines the match, a table filters, and a page remembers its
+    // view and find text. Control: with no text nothing is dimmed, and a page with another id remembers nothing.
+    { selectPage('osc1'); const pv = PAGEVIEW.osc1.pv, grid = pageEls.osc1.querySelector('.pv-grid'), dim = () => grid.querySelectorAll('.pv-dim').length;
+      pv.find(''); const none = dim() === 0;
+      pv.find('coupling'); const hits = grid.querySelectorAll('.pv-hit').length, dimmed = dim() > 20 && hits >= 1 && !!ctlHost(grid, PG.osc1.viz.keys.coupling).classList.contains('pv-hit');
+      pv.view('table'); const rows = [...pageEls.osc1.querySelectorAll('.hd-pt .pt-row')], shown = rows.filter(e => !e.hidden).length; pv.view('grid');
+      const tmp = h('div'), again = H.PageView(tmp, S, { id: 'osc1', label: 'Osc 1', grid: h('div'), table: { groups: [] } }), other = H.PageView(h('div'), S, { id: 'no-such-page', label: 'x', grid: h('div'), table: { groups: [] } });
+      const remembered = again.find() === 'coupling' && other.find() === '';
+      pv.find(''); try { localStorage.removeItem('hd.pageview.no-such-page'); } catch (_) { /* no storage: the probe left nothing */ }
+      line(none && dimmed && shown >= 1 && shown < rows.length && remembered, 'Find: “coupling” dimmed ' + 'the rest of Osc 1’s grid (' + hits + (hits === 1 ? ' match' : ' matches') + ') and filtered its table to ' + shown + ' of ' + rows.length + ' rows; a second view of the page remembers the text, another page does not (control: no text dims nothing).'); }
+    // 37. ADR-338 r5: the lens shows the control under the pointer (the full knob, every corner, every mapping), and the last one clicked after the pointer
+    // leaves. Control: before any hover it shows the page’s fallback, not this control.
+    { selectPage('osc1'); const lensEl = pageEls.osc1.querySelector('.hd-lens'), who = () => lensEl.querySelector('.lz-name').textContent;
+      tick(); const before = who(), k = PG.osc1.groups[0].controls.find(c => ROW[c.key].law !== 'step' && ROW[c.key].label !== before).key, r = ROW[k];
+      ctlHost(pageEls.osc1, k).dispatchEvent(new MouseEvent('pointerenter')); tick(); const hot = who();
+      const corners = lensEl.querySelectorAll('.lz-corners .lz-ln').length;
+      ctlHost(pageEls.osc1, k).dispatchEvent(new MouseEvent('pointerleave')); tick();
+      line(hot === r.label && before !== r.label && corners === 4 && !!lensEl.querySelector('.mk-face'), 'Lens: hovering ' + r.label + ' put it in Osc 1’s lens (its full knob and four corner values); before the hover the lens showed ' + before + ' (control: not this control).'); }
+    // 38. ADR-338 r5, ADR-338 r7: the dense pages fit the window’s page area, the folds holding the rest. A page is measured as the area it has now, or the
+    // 472 px the bank’s 68 px row leaves (r7) while the foot row is still the taller one; each fold at +Adv must overflow Osc 1 (the control), so the fold is what holds it.
+    { const area = $('pages').clientHeight, limit = Math.max(area, 472), over = [], size = {};
+      const bodyH = pid => { selectPage(pid); const a = $('pages'), was2 = [a.style.overflow, a.style.flex, a.style.height]; a.style.overflow = 'visible'; a.style.flex = 'none'; a.style.height = 'auto';
+        const hgt = a.scrollHeight; [a.style.overflow, a.style.flex, a.style.height] = was2; return hgt; };
+      ['main', 'osc1', 'osc2', 'sub', 'noise'].forEach(id => { size[id] = bodyH(id); if (size[id] > limit) over.push(id + ' ' + size[id]); });
+      const folds = [...pageEls.osc1.querySelectorAll('.hd-fold')], tiers = folds.map(f => f.querySelector('.fd-head [role=radio][aria-checked=true]')), pillsOf = f => [...f.querySelectorAll('.fd-head [role=radio]')];
+      pillsOf(folds[0]).slice(-1)[0].click(); folds.slice(1).forEach(f => pillsOf(f).slice(-1)[0].click()); const opened = bodyH('osc1');
+      folds.forEach((f, i) => pillsOf(f).find(b => b.textContent === tiers[i].textContent).click()); selectPage('osc1');
+      line(!over.length && opened > limit && folds.length === 3, 'Fit: main ' + size.main + ', Osc 1 ' + size.osc1 + ', Osc 2 ' + size.osc2 + ', Sub ' + size.sub + ' and Noise ' + size.noise + ' px fit ' + limit + ' px' + (area < 472 ? ' (the page area is ' + area + ' px until the 68 px bank lands, r7; 472 is the ruled one)' : '') + (over.length ? ' (OVER: ' + over.join(', ') + ')' : '') + '; Osc 1 with its three folds at +Adv is ' + opened + ' px, so the folds hold the rest (control).'); }
+    // 39. ADR-341 r2 (DR-c): the section header’s readout slot is two stacked lines in a fixed box and nothing here resizes it: hovering a tiny knob fills both
+    // lines (the editing corner’s own value, then “now”) and the box is the same size at rest and hot. Control: at rest it shows the summary and not the lines.
+    { selectPage('sub'); const sec = pageEls.sub.querySelector('[data-section="sub/colour"]'), slot = sec.querySelector('.hd-rslot'), box = () => { const b = slot.getBoundingClientRect(); return [Math.round(b.width), Math.round(b.height)].join('x'); };
+      const kk = PG.sub.groups.find(g => g.id === 'sub/colour').controls.find(c => ROW[c.key].law !== 'step'), rest = box(), l1 = () => getComputedStyle(slot.querySelector('.rs-l1')).display, atRest = !slot.classList.contains('live') && l1() === 'none';
+      ctlHost(sec, kk.key).dispatchEvent(new MouseEvent('pointerenter')); tick();
+      const hotBox = box(), lines = [...slot.querySelectorAll('.rs-l1, .rs-l2')].filter(e => getComputedStyle(e).display !== 'none').length, t1 = slot.querySelector('.rs-l1').textContent, t2 = slot.querySelector('.rs-l2').textContent;
+      ctlHost(sec, kk.key).dispatchEvent(new MouseEvent('pointerleave')); tick();
+      line(atRest && lines === 2 && rest === hotBox && rest === '250x26' && t1.includes(ROW[kk.key].label) && /^now /.test(t2) && !/rslot|rs-/.test(document.querySelector('style').textContent),
+        'Readout slot: Sub · Colour’s slot is ' + rest + ' px at rest and hot; hot it shows two lines (“' + t1.slice(0, 28) + '”, “' + t2.slice(0, 22) + '”) and the shell’s style sheet names neither the slot nor its parts (control: at rest the summary shows and neither line does).'); }
+    // 40. ADR-338 r5, the bundle’s ctlFace: the faces of one parameter (the grid’s, the table’s, the lens’s, the dashboard’s) leave the registry and the revert baseline
+    // alone. A new face of a registered parameter, built the way the shell builds one, keeps the registered props (the owner page’s) and the saved baseline while the live
+    // value has moved off it; a parameter nothing had registered is registered by its first face, which is why the shell registers every owner before any page is built.
+    { const c0 = PG.osc1.groups[0].controls.find(c => ROW[c.key].law !== 'step'), k = c0.key, reg0 = S.params[k], base0 = S.saved[k];
+      dev.begin('self-check'); dev.set(k, .77, { corner: 0 }); dev.end();
+      mountControl(c0, '*', 'probe', { tiny: true }); S.views.pop(); delete PROPS[k + '@*'];       // a face on a scratch page id; its view leaves with it
+      const kept = S.params[k] === reg0 && S.saved[k] === base0 && base0[0] !== .77; dev.undo();
+      const fresh = propsFor(ROW[k], c0, 'probe', 'tiny'), key0 = 'probe.unregistered'; fresh.key = key0;
+      H.ctlFace(S, fresh, {}, () => null); const first = S.params[key0] === fresh && !!S.saved[key0]; delete S.params[key0]; delete S.saved[key0];
+      line(kept && first && /^Osc 1 · Osc 1 · /.test(reg0.path), 'One parameter, many faces: a new face of ' + ROW[k].label + ' left its registered props (the owner page’s: “' + reg0.path + '”) and its revert baseline as they were with the live value moved off it (control: a parameter nothing had registered is registered by its first face).'); }
+    Object.entries(was).forEach(([id, v]) => PAGEVIEW[id].pv.view(v)); selectPage(pg0);
+  }
   showInfo(null); S.message = '';
   dev.clearHistory();   // the checks' own steps (the probes, the morph toggles) are not the user's history
 })();

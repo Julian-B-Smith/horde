@@ -49,6 +49,13 @@ WHAT --check GATES (each failure carries its tag; the controls below assert the 
                   layout.json with a reason, and every chosen row exists in each block the kind matches
   nav             every page sits in exactly one group of the two-level page bar (B589 Page nav)
   role            a section header's power/modes and a channel strip's fader/on/mute/solo suit their rows
+  matrix          a group's C2 matrix (ADR-338 ruling 4: a block with a repeated sub-structure, an envelope's stages x time and
+                  curve) names every control of the group exactly once, in a cell or the header, and only controls it has
+  fold            a group marked `fold` (P2, ADR-338 ruling 5: only where a page still overflows) has advanced controls to fold
+  abbr            the abbreviation column (ADR-338 ruling 10; batch 2 hop): a tiny control's label is at most 4 characters,
+                  unique within its section (a followed envelope's four blocks each count on their own), a page marked
+                  `grid` gives every control that is not a header's power or modes one, and a group's `abbr` map names
+                  only controls the group has
   dashboard       each dashboard card carries its source's power switch and only keys its source page carries
   ledger          the port ledger (ADR-333, B593): every row has a reason from its closed set and a sentence, a source
                   path that exists (or "nowhere yet"), a ROADMAP row that exists, and a status (partial: what is missing)
@@ -387,6 +394,42 @@ def widget_fits(r, w):
     return step                                           # stepper
 
 
+ABBR_MAX = 4                                   # ADR-338 ruling 10: "at most 4 characters, unique per section"
+ABBR_RE = re.compile(r"[A-Za-z0-9&/+.\-]+")    # what a 4-character mono label can carry without a glyph the face may lack
+SHORT_MAX = 4                                  # a TC1 segment's shown label (Companion README: "keep the labels short")
+
+
+def short_options(opts):
+    """The shown abbreviations of a segment group's options (Horde.Companion `short`; the full label stays the title).
+    Mechanical, so a manifest's option list needs no second column: an option of at most 4 characters is shown as it is;
+    a longer one of several words is its words' initials ('blade 2 over 1' -> B2O1); a longer single word is cut to its
+    first 4 characters. Options that still collide are shown vowel-dropped, then numbered, so two segments never read alike."""
+    def words(o):
+        return [w for w in re.split(r"[\s,]+", o) if re.search(r"[A-Za-z0-9]", w)]
+
+    def first(o):
+        comp = re.sub(r"\s+", "", o)
+        if len(comp) <= SHORT_MAX:
+            return comp
+        ws = words(o)
+        if len(ws) > 1:
+            return "".join(re.search(r"[A-Za-z0-9]", w).group(0).upper() for w in ws)[:SHORT_MAX]
+        return comp[:SHORT_MAX]
+
+    def squeezed(o):
+        comp = re.sub(r"\s+", "", o)
+        return (comp[0] + re.sub(r"(?i)[aeiou]", "", comp[1:]))[:SHORT_MAX] if comp else comp
+
+    out = [first(o) for o in opts]
+    for i, o in enumerate(opts):
+        if out.count(out[i]) > 1:
+            out[i] = squeezed(o)
+    for i in range(len(opts)):
+        if out.count(out[i]) > 1:
+            out[i] = out[i][:SHORT_MAX - len(str(i))] + str(i)
+    return out
+
+
 NAV_OUT = [None]   # generate() leaves the checked nav here for render(); one run, one layout
 SIZES = ("primary", "standard", "compact", "utility")   # B589's size ladder (Knob and Slider `size`)
 ROLES = {"power": "toggle", "on": "toggle", "mute": "toggle", "solo": "toggle", "modes": "pills", "fader": "vslider"}
@@ -454,6 +497,59 @@ def check_viz(v, by, where):
     for name, k in v["keys"].items():
         if k not in by or by[k]["reserved"]:
             raise Red("unknown-key", f"{where}: viz key {name} = {k!r} is not a parameter")
+
+
+def build_matrix(g, controls, where):
+    """A group's C2 matrix (ADR-338 ruling 4; Horde.ClusterMatrix): `cols` labelled once across the top, `rows` labelled once down
+    the side, a `null` cell an honest dot (an envelope's hold has no curve), and `head` the controls that sit beside the name.
+    Keys are written inside the group's block, as `meta` does. Every control of the group that is not a header's power or modes
+    and not a followed row appears exactly once, so a matrix can never lose a control."""
+    m = g.get("matrix")
+    if m is None:
+        return None
+    blk = g.get("block")
+    full = lambda k: f"{blk}.{k}" if blk else k
+    placed = {c["key"] for c in controls if not c["role"] and not c["follow"]}
+    out, seen = {"cols": m.get("cols") or [], "emptyTitle": m.get("emptyTitle") or "", "rows": [], "head": []}, []
+    if not out["cols"] or not m.get("rows"):
+        raise Red("matrix", f"{where}: a matrix has `cols` and `rows`")
+    for r in m["rows"]:
+        cells = r.get("cells") or []
+        if len(cells) != len(out["cols"]):
+            raise Red("matrix", f"{where}: row {r.get('label')!r} has {len(cells)} cells for {len(out['cols'])} columns")
+        keys = [None if c is None else full(c) for c in cells]
+        seen += [k for k in keys if k]
+        out["rows"].append({"label": r["label"], "title": r.get("title") or "", "cells": keys})
+    out["head"] = [full(k) for k in m.get("head") or []]
+    seen += out["head"]
+    dup = sorted({k for k in seen if seen.count(k) > 1})
+    stray = sorted(set(seen) - placed)
+    lost = sorted(placed - set(seen))
+    if dup or stray or lost:
+        raise Red("matrix", f"{where}: a matrix names every control of its group once; twice {dup}, not in the group {stray}, left out {lost}")
+    return out
+
+
+def check_abbr(pages):
+    """THE ABBREVIATION COLUMN (ADR-338 ruling 10). A tiny control's label is at most ABBR_MAX characters and unique within
+    its section (a followed envelope's blocks are four views of one slot, so each block counts on its own); a page marked
+    `grid` (P1, the page in view) gives every control but a header's power and modes one."""
+    for pg in pages:
+        for g in pg["groups"]:
+            seen = set()
+            for c in g["controls"]:
+                a = c.get("abbr")
+                where = f"page {pg['id']} group {g['title']}: {c['key']}"
+                if a is None:
+                    if pg.get("grid") and not c["role"]:
+                        raise Red("abbr", f"{where} has no abbreviation (a page marked `grid` labels every control)")
+                    continue
+                if not isinstance(a, str) or not 1 <= len(a) <= ABBR_MAX or not ABBR_RE.fullmatch(a):
+                    raise Red("abbr", f"{where}: abbreviation {a!r} is not 1 to {ABBR_MAX} characters of letters, digits and & / + . -")
+                tag = (c.get("follow") or "", a.casefold())     # shown in capitals: Hz and HZ are one label
+                if tag in seen:
+                    raise Red("abbr", f"{where}: abbreviation {a!r} is already used in the section")
+                seen.add(tag)
 
 
 def check_nav(layout, pages):
@@ -531,7 +627,12 @@ def build_pages(rows, layout):
                     adv = g.get("rest") == "advanced"
                     tail = [dict({"key": r["key"]}, **({"advanced": True} if adv else {})) for r in blk if not r["reserved"] and r["key"] not in picked]
                 else:
-                    entries = [{"key": r["key"]} for r in blk if not r["reserved"]]
+                    # a block with no `meta` lists its rows in manifest order; a row nested inside the block (a module's `time.sync`,
+                    # a Shriek stage's `s1.drive`) is grouped under its first segment, so a module's own sections stay together
+                    def inner(k):
+                        parts = k[len(g["block"]) + 1:].split(".")
+                        return parts[0] if len(parts) > 1 else None
+                    entries = [{"key": r["key"], "sub": inner(r["key"])} for r in blk if not r["reserved"]]
                     tail = []
             else:
                 tail = []
@@ -555,7 +656,7 @@ def build_pages(rows, layout):
                         k = f"{blk}.{suf}"
                         if k not in by:
                             raise Red("unknown-key", f"page {pg['id']} group {g['title']}: follow row {k!r} is not a parameter")
-                        entries.append({"key": k, "follow": opt, "size": fo.get("size"), "sub": "Stages"})
+                        entries.append({"key": k, "follow": opt, "size": fo.get("size"), "sub": "Stages", "suffix": suf})
                     vz = {}
                     for name, suf in (fo.get("viz") or {}).items():
                         k = f"{blk}.{suf}"
@@ -566,6 +667,9 @@ def build_pages(rows, layout):
             if "live" in g:
                 check_live(g["live"], by, f"page {pg['id']} group {g['title']}")
             controls = []
+            amap, used = g.get("abbr") or {}, set()
+            if not isinstance(amap, dict):
+                raise Red("abbr", f"page {pg['id']} group {g['title']}: `abbr` is an object of key -> abbreviation")
             for e in entries:
                 k = e["key"]
                 if k not in by:
@@ -608,22 +712,37 @@ def build_pages(rows, layout):
                     check_live(live, by, f"page {pg['id']} {k}")
                 if "live" in g:                           # a group's condition ANDs with the control's own
                     live = g["live"] if live is None else {"all": [g["live"], live]}
+                # The abbreviation column (ADR-338 r10): looked up by the full key, then by the key inside the group's
+                # block, then by a followed row's suffix, so one map line serves an envelope's four blocks.
+                blk_name = g.get("block")
+                cands = [k, k[len(blk_name) + 1:] if blk_name and k.startswith(blk_name + ".") else None, e.get("suffix")]
+                abbr = next((amap[c] for c in cands if c is not None and c in amap), None)
+                used.update(c for c in cands if c is not None and c in amap)
                 controls.append({"key": k, "widget": w, "live": live, "override": reason or None, "role": role,
                                  "sub": e.get("sub"), "size": e.get("size"), "advanced": bool(e.get("advanced")),
-                                 "follow": e.get("follow")})
+                                 "follow": e.get("follow"), "abbr": abbr,
+                                 "short": short_options(r["options"]) if w == "pills" and r.get("options") else None})
                 placed.add(k)
+            unused = sorted(set(amap) - used)
+            if unused:
+                raise Red("abbr", f"page {pg['id']} group {g['title']}: `abbr` names {unused}, which are not controls of the group")
             if g.get("rule") not in (None, "solid", "dash", "dot", "none"):
                 raise Red("role", f"page {pg['id']} group {g['title']}: rule {g.get('rule')!r} is not solid, dash, dot or none")
+            matrix = build_matrix(g, controls, f"page {pg['id']} group {g['title']}")
+            if g.get("fold") and not any(c["advanced"] for c in controls):
+                raise Red("fold", f"page {pg['id']} group {g['title']}: a fold (P2) folds the advanced rows, and this group has none")
+            if g.get("fold") and matrix:
+                raise Red("fold", f"page {pg['id']} group {g['title']}: a section is a fold or a matrix, not both")
             sid = f"{pg['id']}/{section_slug(g['title'], g.get('num'))}"
             if sid in sec_ids:
                 raise Red("sections", f"page {pg['id']}: two sections would both be {sid!r} (give the group a `num`)")
             sec_ids.add(sid)
             groups.append({"id": sid, "title": g["title"], "tag": g.get("tag"), "screen": g.get("screen"), "controls": controls,
                            "num": g.get("num"), "rule": g.get("rule"), "source": g.get("source"), "viz": g.get("viz"),
-                           "strip": g.get("strip"), "master": bool(g.get("master")), "follow": follow_out})
+                           "strip": g.get("strip"), "master": bool(g.get("master")), "follow": follow_out, "matrix": matrix, "fold": bool(g.get("fold"))})
         pages.append({"id": pg["id"], "label": pg["label"], "status": pg["status"], "note": pg.get("note", ""),
                       "cite": pg.get("cite"), "panel": pg.get("panel"), "dense": bool(pg.get("dense")), "viz": pg.get("viz"),
-                      "power": pg.get("power"), "groups": groups})
+                      "grid": bool(pg.get("grid")), "power": pg.get("power"), "groups": groups})
     check_composites(pages, by)
     unreached = [r["key"] for r in rows if not r["reserved"] and r["key"] not in placed]
     if unreached:
@@ -1064,6 +1183,7 @@ def generate(spec_text, layout, ext):
                  law_declared=True, label_declared=True)
     rows = rows + read_sources(spec_text, layout, ext)
     pages = build_pages(rows, layout)
+    check_abbr(pages)
     NAV_OUT[0] = check_nav(layout, pages)
     return rows, pages, counts, build_bank(rows, layout)
 
@@ -1112,7 +1232,7 @@ def controls(spec_text, layout, shell_text, scripts, committed, ext):
         plant("a control with no parameter", "unknown-key",
               lo=lay(lambda lo: page(lo, "settings")["groups"][0]["keys"].append("voice.notAParameter"))),
         plant("a host row on no page", "unreached",
-              lo=lay(lambda lo: page(lo, "settings")["groups"][0]["keys"].remove("quality"))),
+              lo=lay(lambda lo: (page(lo, "settings")["groups"][0]["keys"].remove("quality"), page(lo, "settings")["groups"][0]["abbr"].pop("quality")))),
         plant("a reserved row placed", "reserved-placed",
               lo=lay(lambda lo: page(lo, "settings")["groups"][0]["keys"].append("sub.pitchMode"))),
         plant("a knob on a stepped row", "widget",
@@ -1161,6 +1281,20 @@ def controls(spec_text, layout, shell_text, scripts, committed, ext):
         plant("a sections file no longer marked a draft", "sections", ex=sec_mut(lambda d: d.__setitem__("status", "reviewed"))),
         plant("two sections with one id", "sections",
               lo=lay(lambda lo: page(lo, "mod")["groups"][2].__setitem__("title", "ENV 3"))),
+        plant("an abbreviation of five characters", "abbr",
+              lo=lay(lambda lo: page(lo, "osc1")["groups"][0]["abbr"].__setitem__("detune", "DETUN"))),
+        plant("two controls of a section with one abbreviation", "abbr",
+              lo=lay(lambda lo: page(lo, "osc1")["groups"][0]["abbr"].__setitem__("coupling", page(lo, "osc1")["groups"][0]["abbr"]["detune"]))),
+        plant("a control on a grid page with no abbreviation", "abbr",
+              lo=lay(lambda lo: page(lo, "osc1")["groups"][0]["abbr"].pop("fine"))),
+        plant("an abbreviation for a control the group does not have", "abbr",
+              lo=lay(lambda lo: page(lo, "osc1")["groups"][0]["abbr"].__setitem__("notARow", "NAR"))),
+        plant("a fold on a group with no advanced rows", "fold",
+              lo=lay(lambda lo: page(lo, "sub")["groups"][0].__setitem__("fold", True))),
+        plant("a matrix cell naming a control the group does not have", "matrix",
+              lo=lay(lambda lo: page(lo, "main")["groups"][1]["matrix"]["rows"][1]["cells"].__setitem__(1, "notARow"))),
+        plant("a matrix that leaves a control out", "matrix",
+              lo=lay(lambda lo: page(lo, "main")["groups"][1]["matrix"]["head"].clear())),
         plant("a spec row dropped", "counts",
               sp=re.sub(r"\n\| `gust` \|[^\n]*", "", spec_text, count=1)),
         plant("a hand-placed key in the shell", "shell",
