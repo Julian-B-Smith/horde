@@ -379,6 +379,8 @@ export declare function ModBank(el: HTMLElement, s: Session, o: ModTierProps & {
 export declare function ModPage(el: HTMLElement, s: Session, o: ModTierProps & { mods: ModDescriptor[] | (() => ModDescriptor[]); kinds?: { id: string; label: string }[]; select?: string; onAdd?(kind: string): void; routeView?(host: HTMLElement, s: Session): void; matrix?: object }): { select(id: string): void; get(): string | null; mode(v: 'detail' | 'routes'): void; refresh(): void; el: HTMLElement };
 /** M-R2 (ADR-338 r9): the line that names a removal's routes and offers Undo. The host owns the undo stack. */
 export declare function UndoLine(el: HTMLElement, o?: { keys?: boolean | (() => boolean) }): { show(text: string, onUndo?: () => void): void; hide(): void; el: HTMLElement };
+export interface InfoContent { name?: string; tag?: string; key?: string; text?: string; meta?: string; live?: string }
+export declare function InfoBox(el: HTMLElement, s: Session, o?: { idle?: InfoContent; delay?: number; speed?: number; onRelease?: () => void; keys?: boolean | (() => boolean) }): { show(c: InfoContent | null): void; lock(c: InfoContent): void; release(): void; locked(): boolean; step(dt: number): void; parts: Record<'name' | 'tag' | 'key' | 'text' | 'meta' | 'live', HTMLElement>; el: HTMLElement };
 export declare const ModRemoval: { UndoLine: typeof UndoLine; describe(s: Session, m: ModDescriptor, routes: Mapping[]): string };
 /** One parameter, many faces: builds a face from a SHADOW of the canonical props (the registry and the revert baseline are put back). */
 export declare function ctlFace<T>(s: Session, p: KnobProps, extra: object, build: (q: KnobProps) => T): T;

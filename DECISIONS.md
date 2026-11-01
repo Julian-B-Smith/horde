@@ -10715,6 +10715,31 @@ Round 2 drew 45 variants. The human answered by poll on 2026-10-30 and 2026-10-3
 - **Still open on B599:** how mono treats ADR-270's teed `direct` notes.
 - **FX device (ADR-254):** rulings 1 to 3 hold on its slots. Ruling 4 does not arise until an arp reaches it; its sidechain's notes are the direct stream.
 
+## ADR-345 — RULED by the human: the foot row is F1 (a 300 × 120 info box, amending "square-ish"); a selection locks the info box so its text can be scrolled; long descriptions scroll on their own; an info sidebar in Settings replaces the box (B589, B582, B584, ADR-335, ADR-338; 2026-11-01)
+
+**Context.** ADR-335 ruling 4 held GUI 3's foot row at 216 px while ADR-338 ruling 7 ruled the bank at 68 px, so pages got 372 px, 10 of 14 pages scrolled, and a band above the bank sat empty. `docs/design/foot-row-lab.html` (#1321) applied six options to the running shell and measured them. It also found that moving the pointer onto the box cleared it, so text past its edge could never be read.
+
+The human, 2026-11-01: "F1 shorter box, but I would like the info box to lock to whatever is selected so a user can scroll and see the full text (it could also possible start scrolling down on its own after a bit on longer text). Maybe we could also add an "info sidebar" toggle in settings that adds a full length info window to the lefthand side."
+
+Three points stayed open, because the shell already marks a knob selected the moment it is pressed. The human answered by poll: "Any selection"; "Long text, hover or lock"; "Replaces box, shares pad column".
+
+**Rulings.**
+1. **The foot row is F1:** the info box is 300 × 120 and the foot row 120 px, so pages get 468 px. Main, Osc 1, Osc 2, Sub, Noise and Mix fit; Mod, Morph, FX and Ledger still scroll. **Amends ADR-335 ruling 4's "square-ish"**; one size, one place and left of the bank stand. **Amends ADR-338 ruling 7's 472 px** to the 468 px the shell measures. A bank row's card opens over the foot of the page.
+2. **Any selection locks the box.** Pressing any control or section locks the box to it, including a press that goes on to drag a knob. Hovering others then changes nothing until another selection or a release, so the pointer can reach the box and scroll. As the poll said, hover information stops after the first touch until the lock is released.
+3. **Auto-scroll.** When a description itself runs past the box's edge, it starts slowly after about 2 seconds, on a hover or a lock. It stops if the pointer enters the box or the box is scrolled, and it stays off under reduced motion. Text that fits never moves.
+4. **An "Info sidebar" toggle in Settings.** On, it replaces the foot box: the bank takes the whole foot, and the box runs the full height of a left column. While the morph pad shows, the pad sits on top in that column and the text takes what is left. Pages lose about 234 px of width, as F3 measured.
+
+**Readings taken (the GUI session's, open to the human).**
+- A lock releases on a press outside any control or section, on Escape, and on a Release button in the box's head (every key keeps a mouse route). Escape's layer sits behind map and pin and in front of keyboard mode, so Escape still leaves MAP first (ADR-338 ruling 11).
+- With no lock, the box keeps what it shows while the pointer is on it, which is the lab's finding fixed for hovers too.
+- Auto-scroll runs at 8 px per second, about a line every two seconds, and stops when the description is all in view. The range and source line under it may stay cut off.
+- The sidebar toggle is a per-viewer preference in browser storage, not a host parameter or part of a patch. With the sidebar on and the bank off, the foot row goes away.
+
+**Consequences.**
+- The info box had no master component (a hop the ledger recorded as skipped). It becomes `InfoBox` in the master, and the shell mounts it (ADR-316).
+- The human may find ruling 2 costly in use, because hovering stops after every knob turn. That is theirs to revisit after trying it; the still-click reading was offered and not chosen.
+- **FX device (ADR-254):** the same rulings hold on its pages: the lock, the auto-scroll and the sidebar toggle in its settings. Its foot row's height follows its own bank.
+
 ## ADR-346 — RULED by the human: each writing session numbers its rulings and rows on its own counter (ADR-336 ruling 2 amended; 2026-11-01)
 
 **Context.** The lead and the GUI session share one `DECISIONS.md` and took colliding numbers three times in two days: ADR-338, ADR-341 and ADR-344 (#1305 and #1307; #1314 and #1316; #1322 and #1323). The last cost a republish of the design master, because the number had reached it. The human asked, on 2026-11-01: “Is there some kind of paradigm we can add to the ADR naming convention that prevents future conflicts? Like a suffix for each domain an independent agent may contribute to?” The lead proposed a prefix with its own counter, since a suffix on a shared counter leaves two rulings called ADR-345. The human: “yes to … the prefix scheme”.
@@ -10729,4 +10754,3 @@ Round 2 drew 45 variants. The human answered by poll on 2026-10-30 and 2026-10-3
 **Not changed:** a conflict between two appends to `DECISIONS.md`, or between neighbouring rows of `ROADMAP.md`, can still happen. This stops number clashes only. Marking `DECISIONS.md` as a union merge is a separate question, not ruled here.
 
 **Consequences.** `design_chain_check` reads the domains, with plants for a duplicate in a domain, an unregistered prefix and an unjudged GUI ruling, and clean controls for digits shared across domains. The root charter and `docs/design/CLAUDE.md` state the rule. **FX device (ADR-254):** none; this is how the records are numbered.
-
