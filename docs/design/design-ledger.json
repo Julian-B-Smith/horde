@@ -10,6 +10,10 @@
  },
  "master_versions": [
   {
+   "version": "1793502898-ea3e",
+   "evidence": "docs/design-system/master/VERSION: published 2026-10-31 from the gui-master-r1 branch's master before merge, as the lead did for 1793393033-a002 (cdf8772); the live project/ files were first checked equal to origin/main's master. ADR-338 r1/r3/r11 and ADR-340 r1, r2, r4 (H1), r5, r7: the tiny tier, re-anchoring drags, MD1, the layered Escape, the Stepper, the fixed readout slot, round stroke joins, guarded pointer capture. Re-vendored the same day."
+  },
+  {
    "version": "1793393033-a002",
    "evidence": "docs/design-system/master/VERSION: published 2026-10-30 from the repo master (ADR-337; README.md and design-system.json's lastChange only; every other file as at 1793374583-b6a5)"
   },
@@ -33,35 +37,7 @@
  "vendoring": {
   "dir": "docs/design/arp-face",
   "tool": "tools/design_vendor.py",
-  "known_drift": [
-   {
-    "file": "bundle.js",
-    "kind": "stamp",
-    "stamped": "1793336699-65f2",
-    "master": "1793393033-a002",
-    "vendored_sha256": "5f6be55a318a92454017c0a6c2f4850babb4cd66950c057facfd94e62fc412d5",
-    "adr": "ADR-336",
-    "note": "The body equals vendor(master) at 1793393033-a002 (unchanged from 1793374583-b6a5: ADR-337 changed only the README) byte for byte; only the stamp line names the earlier 1793336699-65f2, the version actually vendored (bdc7027). Whether the bodies also equal 65f2's cannot be checked: the repo never held that tree. Re-stamping is a re-vendor, which ADR-336 leaves to the human."
-   },
-   {
-    "file": "bundle.css",
-    "kind": "stamp",
-    "stamped": "1793336699-65f2",
-    "master": "1793393033-a002",
-    "vendored_sha256": "ced3829b90b9ae45bc57b2195636362024f9810e3ffb54565782f12db07a4104",
-    "adr": "ADR-336",
-    "note": "The body equals vendor(master) at 1793393033-a002 (unchanged from 1793374583-b6a5: ADR-337 changed only the README) byte for byte; only the stamp line names the earlier 1793336699-65f2, the version actually vendored (bdc7027). Whether the bodies also equal 65f2's cannot be checked: the repo never held that tree. Re-stamping is a re-vendor, which ADR-336 leaves to the human."
-   },
-   {
-    "file": "tokens.css",
-    "kind": "stamp",
-    "stamped": "1793336699-65f2",
-    "master": "1793393033-a002",
-    "vendored_sha256": "a71dd4a8983f95da3f130cce0b1e68ee1878bf02ee13843fd5c5518ba4452aac",
-    "adr": "ADR-336",
-    "note": "The body equals vendor(master) at 1793393033-a002 (unchanged from 1793374583-b6a5: ADR-337 changed only the README) byte for byte; only the stamp line names the earlier 1793336699-65f2, the version actually vendored (bdc7027). Whether the bodies also equal 65f2's cannot be checked: the repo never held that tree. Re-stamping is a re-vendor, which ADR-336 leaves to the human."
-   }
-  ]
+  "known_drift": []
  },
  "labs": {
   "aesthetics-lab.html": {
@@ -4393,14 +4369,14 @@
    "clause": "ruling 1 (tiny knob T2, size-knob-tiny: a 20 px face in a 28 px hit cell)",
    "lab": "docs/design/composition-lab.html",
    "component": "Knob",
-   "master_version": null,
-   "bundle": null,
+   "master_version": "1793502898-ea3e",
+   "bundle": "Knob",
    "via": null,
    "shell": null,
-   "state": "ruled",
+   "state": "vendored",
    "superseded_by": null,
    "port_tab": "composition-tier",
-   "note": "Not in the master yet; the master Knob README gains a fifth rung below utility 28. FX device: same tier. Drawing amended by ADR-340 (T2d; TS1a/TS2a)."
+   "note": "In the master at 1793502898-ea3e as Knob size 'tiny' (size-knob-tiny 20 in a size-hit 28 cell), drawn as T2d (ADR-340 r1); vendored 2026-10-31. Not mounted: the shell's pages still use compact knobs until P1's grid (ADR-338 r5) is in the master. FX device: same tier."
   },
   {
    "id": "adr338-companions",
@@ -4415,22 +4391,22 @@
    "state": "ruled",
    "superseded_by": null,
    "port_tab": "composition-tier",
-   "note": "Not in the master yet (Toggle, Select, Stepper READMEs). FX device: same."
+   "note": "Partly in the master at 1793502898-ea3e: the stepper (Stepper, TC1 and TC2's flat form). The toggle, segments and select at the TC1 16 px faces are not yet. FX device: same."
   },
   {
    "id": "adr338-tiny-sliders",
    "adr": "ADR-338",
    "clause": "ruling 3 (TS1 20 px rows and TS2 16 px cells, a named exception to size-hit 28 on the cross axis)",
    "lab": "docs/design/composition-lab.html",
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "Slider",
+   "master_version": "1793502898-ea3e",
+   "bundle": "Slider",
    "via": null,
    "shell": null,
-   "state": "ruled",
+   "state": "vendored",
    "superseded_by": null,
    "port_tab": "composition-tier",
-   "note": "Not in the master yet; the size-hit token gains the named exception. FX device: same. Drawing amended by ADR-340 (T2d; TS1a/TS2a)."
+   "note": "In the master at 1793502898-ea3e as Slider size 'tiny' (TS1a, size-slider-tiny 20) and 'cell' (TS2a, size-slider-cell 16), the named exception to size-hit in both tokens' usage; vendored 2026-10-31. Not mounted yet (route rows, PV1's tables). FX device: same."
   },
   {
    "id": "adr338-clusters",
@@ -4542,15 +4518,15 @@
    "adr": "ADR-338",
    "clause": "ruling 11 (Escape cancels the innermost open thing: menu, map pick, MAP, keyboard mode; panic gets its own control)",
    "lab": "docs/design/composition-lab.html",
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "MapControl",
+   "master_version": "1793502898-ea3e",
+   "bundle": "Session",
    "via": null,
-   "shell": "docs/design/gui3/shell-logic.js: function attachEscape(win, layers)",
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: SH.attachEscape(window, [",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": null,
-   "note": "B584 batch 1 builds it in the shell (shell-logic.js attachEscape, one capture-phase handler: menu, MAP, pinned corner, keyboard mode; self-check 25). The master's MapControl and KeyboardLamp READMEs still give Escape to MAP off and keys off and must be aligned (batch 2), so this row stays ruled with its shell place recorded. Panic: ruling 11 says panic gets its own control, which contradicts ADR-226 item 6 (no panel Panic control); no panic control is built and the human is asked. FX device: same. ADR-340 ruling 12 (2026-10-31): the panic clause is struck; ADR-226 item 6 holds (no panel Panic control)."
+   "note": "In the master at 1793502898-ea3e (S.escapeLayers and S.escape(); MapControl and KeyboardLamp READMEs; panic on no key, ADR-340 r12); vendored 2026-10-31. The shell built it first (B584 batch 1: shell-logic.js attachEscape, self-check 25) and still uses its own handler; moving it onto S.escapeLayers is the next shell hop. FX device: same."
   },
   {
    "id": "adr338-window-resize-trial",
@@ -4573,29 +4549,29 @@
    "clause": "ruling 1 (the tiny knob is T2d: a hollow see-through corner pip cutting the arc, plus ink end stops)",
    "lab": "docs/design/composition-lab-r2.html",
    "component": "Knob",
-   "master_version": null,
-   "bundle": null,
+   "master_version": "1793502898-ea3e",
+   "bundle": "Knob",
    "via": null,
    "shell": null,
-   "state": "ruled",
+   "state": "vendored",
    "superseded_by": null,
    "port_tab": "composition-tier",
-   "note": "Amends ADR-338 r1's drawing (row adr338-tiny-knob keeps the tier). To the master next. FX device: same."
+   "note": "Knob size 'tiny' at 1793502898-ea3e: the see-through editing-corner pip (an SVG mask) between ink end stops; the arc the blend, the needle the output, one ring. Vendored 2026-10-31; not mounted yet (P1). FX device: same."
   },
   {
    "id": "adr340-ts1a-ts2a",
    "adr": "ADR-340",
    "clause": "ruling 2 (tiny sliders TS1a and TS2a: a hollow handle at the edited corner with stops; a see-through cut in the cell; both 1:1 with their track, re-anchoring)",
    "lab": "docs/design/composition-lab-r2.html",
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "Slider",
+   "master_version": "1793502898-ea3e",
+   "bundle": "Slider",
    "via": null,
    "shell": null,
-   "state": "ruled",
+   "state": "vendored",
    "superseded_by": null,
    "port_tab": "composition-tier",
-   "note": "Amends ADR-338 r3's drawing. To the master next. FX device: same."
+   "note": "Slider sizes 'tiny' (TS1a hollow see-through handle, ink stops) and 'cell' (TS2a see-through cut and corner tick) at 1793502898-ea3e, both 1:1 with their track and re-anchoring at the stops; vendored 2026-10-31. Not mounted yet. FX device: same."
   },
   {
    "id": "adr340-t4c",
@@ -4617,30 +4593,30 @@
    "adr": "ADR-340",
    "clause": "ruling 4 (H1 + H4: a fixed readout slot and the fixed info box; the readout shows the hand's target and the post-modulation value)",
    "lab": "docs/design/composition-lab-r2.html",
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "SectionHeader",
+   "master_version": "1793502898-ea3e",
+   "bundle": "ReadoutSlot",
    "via": null,
    "shell": null,
-   "state": "ruled",
+   "state": "vendored",
    "superseded_by": null,
    "port_tab": "composition-tier",
-   "note": "The dual readout is round 3's; the lens may be revisited. FX device: same."
+   "note": "H1 at 1793502898-ea3e: the readout slot is a fixed size-rslot 250 px, truncating; vendored 2026-10-31, so every SectionHeader slot in the shell takes it. H4 is the shell's info box (ADR-335 r4). Still to come: the dual readout (round 3). The lens may be revisited. FX device: same."
   },
   {
    "id": "adr340-steppers",
    "adr": "ADR-340",
    "clause": "ruling 5 (steppers drag; double-click returns home; option-click types a number)",
    "lab": "docs/design/composition-lab-r2.html",
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "Stepper",
+   "master_version": "1793502898-ea3e",
+   "bundle": "Stepper",
    "via": null,
    "shell": null,
-   "state": "ruled",
+   "state": "vendored",
    "superseded_by": null,
    "port_tab": "composition-tier",
-   "note": "Round 3 draws the gestures. The shell's stepper today has only - and + buttons. FX device: same."
+   "note": "H.Stepper at 1793502898-ea3e: drag (6 px a step, Shift 24, re-anchored), double-click home, Option-click opens a number field; flat form for tables. Vendored 2026-10-31. The steppers inside RateSync, EnvelopeEditor, OrbitalCard, MidiTrackers and ShClockCard still carry their own handlers (B589). Round 3 draws the affordances (how the drag and the home are shown). FX device: same."
   },
   {
    "id": "adr340-pv1-table-view",
@@ -4662,15 +4638,15 @@
    "adr": "ADR-340",
    "clause": "ruling 7 (MAP on: a plain drag moves the value, alt-drag sets depth, a click still maps)",
    "lab": "docs/design/composition-lab-r2.html",
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "MapControl",
+   "master_version": "1793502898-ea3e",
+   "bundle": "Session",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: a plain drag with MAP on moved the value and made no route (MD1)",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "quick-map",
-   "note": "Amends the Map Mode spec (protected; sanctioned by this ruling) and ADR-261 r3. The bundle today sets depth on a plain drag under MAP (bundle.js 201-204). FX device: same."
+   "note": "In the master at 1793502898-ea3e (the Session gesture; MapControl, Knob and Slider READMEs) and the Map Mode spec amended (ADR-340 r7's one sanctioned edit); vendored 2026-10-31, so the shell's knobs take it; shell self-check 17 and the seam check's mapdrag (with a plant) prove it. FX device: same."
   },
   {
    "id": "adr340-source-switch",

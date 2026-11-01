@@ -54,7 +54,9 @@
   ] }] });
   message(S, 'msg');
   var lamp = document.getElementById('lamp'), word = document.getElementById('lampword');
-  lamp.addEventListener('click', function () { S.keys = !S.keys; lamp.setAttribute('aria-pressed', String(S.keys)); word.textContent = S.keys ? 'KEYS ON' : 'KEYS OFF'; });
+  function lampSync() { lamp.setAttribute('aria-pressed', String(S.keys)); word.textContent = S.keys ? 'KEYS ON' : 'KEYS OFF'; }
+  lamp.addEventListener('click', function () { S.keys = !S.keys; lampSync(); });
+  S.on(lampSync);   // Escape's outermost layer turns keyboard mode off too (ADR-338 r11)
   S.start(); S.emit();
 })();
 </script>

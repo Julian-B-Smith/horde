@@ -19,7 +19,7 @@
     </div>
   </div>
   <p class="hd-msg" id="msg" style="margin:6px 0 0"></p>
-  <p class="hd-hint" style="margin:2px 0 0">MAP on: click a knob to map the source at 25%, drag to set depth (release at 0 cancels). MAP off: ⌥-drag edits depth, ⌥-click cycles focus. Keys M, 1–9, P, Backspace, Esc only with KEYS ON; the inspector is their mouse route.</p>
+  <p class="hd-hint" style="margin:2px 0 0">MAP on: a drag still moves the value; click a knob to map the source at 25% (or focus its mapping); ⌥-drag sets the source's depth (release at 0 cancels). MAP off: ⌥-drag edits depth, ⌥-click cycles focus. The keys M, 1–9, P, Backspace and Esc act with KEYS ON (GUI 3 sets mapKeysAlways: always); Esc cancels one layer at a time (MAP, the pinned corner, keyboard mode). The inspector is their mouse route.</p>
 </div>
 <script>
 (function () {
@@ -45,7 +45,9 @@
   H.MapControl(document.getElementById('map'), S, { strip: document.getElementById('strip'), frame: document.getElementById('win') });
   H.ModInspector(document.getElementById('insp'), S);
   var lamp = document.getElementById('lamp'), word = document.getElementById('lampword');
-  lamp.addEventListener('click', function () { S.keys = !S.keys; lamp.setAttribute('aria-pressed', String(S.keys)); word.textContent = S.keys ? 'KEYS ON' : 'KEYS OFF'; });
+  function lampSync() { lamp.setAttribute('aria-pressed', String(S.keys)); word.textContent = S.keys ? 'KEYS ON' : 'KEYS OFF'; }
+  lamp.addEventListener('click', function () { S.keys = !S.keys; lampSync(); });
+  S.on(lampSync);   // Escape's outermost layer turns keyboard mode off too (ADR-338 r11)
   var msg = document.getElementById('msg'); S.on(function () { msg.textContent = S.message; });
   S.selected = 'drive.drive'; S.start(); S.emit();
 })();
