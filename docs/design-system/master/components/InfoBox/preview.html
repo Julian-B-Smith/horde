@@ -1,0 +1,26 @@
+<!-- @dsCard group="Controls" height=330 subtitle="ADR-335 r4, ADR-344: one size in one place. A selection locks it so the pointer can reach it and scroll; long descriptions start scrolling on their own after 2 s" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>InfoBox</title></head>
+<body>
+<div style="padding:14px 16px 10px">
+  <div class="hd-row" id="sample" style="gap:6px; flex-wrap:wrap; margin-bottom:10px"></div>
+  <section class="hd-card" id="box" aria-label="Info box" style="width:300px; height:120px"></section>
+  <p class="hd-hint" style="margin:10px 0 0">Hover a sample to read it. Press one to lock the box, then cross the others on your way to it and scroll. Release, Escape, or a press on empty space lets go. Hover "Long" and wait: after 2 s the description scrolls until it is all in view, and it stops if the pointer enters the box. "Short" has only its source line past the edge, so it stays still.</p>
+</div>
+<script>
+(function () {
+  var H = window.Horde, S = new H.Session({ x: .5, y: .5, corners: ['A', 'B', 'C', 'D'] }), LONG = 'The engine\u2019s output level into the rest of the device. 0 dB is defined in 6.9, and the ceiling lets a version-0 state keep its level. It is a SAMPLE text here, long enough to run past the edge of this box, so the box starts to scroll it after a pause and stops once the last line is in view.';
+  var META = 'Morphable \u00b7 dB \u00b7 -inf to +24 dB \u00b7 default 0 \u00b7 now 0.0 dB \u00b7 a SAMPLE source line that is reference, not description, and that may stay cut off.';
+  var ROWS = [{ name: 'Short', tag: 'SAMPLE', key: 'sample.short', text: 'A short description that fits.', meta: META }, { name: 'Long', tag: 'SAMPLE', key: 'sample.long', text: LONG, meta: META }, { name: 'Section', tag: 'SECTION \u00b7 DRAFT', text: 'What a whole section does.' }];
+  var box = H.InfoBox(document.getElementById('box'), S, { idle: { name: 'Info', tag: 'HOVER', text: 'Hover a sample.' } }), host = document.getElementById('sample');
+  ROWS.forEach(function (c) { var b = document.createElement('button'); b.type = 'button'; b.className = 'hd-btn hd-focus'; b.textContent = c.name;
+    b.addEventListener('pointerenter', function () { box.show(c); }); b.addEventListener('pointerleave', function () { box.show(null); });
+    b.addEventListener('pointerdown', function (e) { e.stopPropagation(); box.lock(c); }); host.appendChild(b); });
+  document.addEventListener('pointerdown', function (e) { if (!e.target.closest('#box')) box.release(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') S.escape(); });
+  S.start();
+})();
+</script>
+</body>
+</html>

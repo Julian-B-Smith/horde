@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1793558157-f6a9, 2026-11-01; do not edit, re-vendor */
+/* vendored from the horde Design System artifact, version 1793569105-ed02, 2026-11-01; do not edit, re-vendor */
 @import url("https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;800&family=Roboto+Mono:wght@400;500;600&display=swap");
 /* horde house components. Every colour is a token (tokens.json); nothing here is a hex.
    Sources: UI Spec §3-4 (values), gui2.html §4 skins, the SCALPEL lab (980×720 chassis),
@@ -1384,6 +1384,15 @@ canvas.hd-ring { outline:none; }
 .hd-undo { display:flex; align-items:center; gap:8px; min-height:20px; font:400 9.5px/1.4 var(--font-mono); color:var(--t2); }
 .hd-undo:not(.on) { visibility:hidden; }
 .hd-undo .hd-btn { min-height:20px; padding:0 8px; border-radius:var(--radius-meter); font-size:9.5px; }
+.hd-info { display:flex; flex-direction:column; min-height:0; }
+.hd-info .head { flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; gap:6px; min-width:0; }
+.hd-info .head .hd-cluster { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.hd-info .ib-lock { flex:0 0 auto; display:flex; align-items:center; gap:4px; }
+.hd-info .ib-lock[hidden] { display:none; }
+.hd-info .ib-lock .hd-btn { min-height:18px; padding:0 6px; border-radius:var(--radius-meter); font-size:9.5px; }
+.hd-info .face { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; flex-wrap:nowrap; justify-content:flex-start; align-items:stretch; gap:3px; overflow-y:auto; overscroll-behavior:contain; overflow-wrap:anywhere; }
+.hd-info .face > .tag { align-self:flex-start; }
+.hd-info .face > :empty { display:none; }
 
 /* the bank (M2, BT1): 68 px, two lanes of 26 px rows; the side column holds the Macros | Mods segments, the count and + */
 .hd-bank { position:relative; box-sizing:border-box; display:flex; gap:6px; height:var(--size-bank-h); padding:4px 6px; background:var(--panel); border:var(--stroke-ink) solid var(--ink); min-width:0; }

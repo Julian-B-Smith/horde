@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1793558157-f6a9, 2026-11-01; do not edit, re-vendor */
+/* vendored from the horde Design System artifact, version 1793569105-ed02, 2026-11-01; do not edit, re-vendor */
 /* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"SteppedControl"},{"name":"Stepper"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"},{"name":"Companion"},{"name":"SourceChip"},{"name":"SourceRows"},{"name":"RoutesBySource"},{"name":"Cluster"},{"name":"Lens"},{"name":"Fold"},{"name":"PageView"},{"name":"ModTiers"},{"name":"MacroRow"},{"name":"ModBank"},{"name":"ModPage"},{"name":"UndoLine"}]} */
 /* horde house reference behaviours (vanilla JS, no React, no network).
    The morph knob and slider follow the human's HORDE Morph Knob Spec and HORDE Map Mode Spec
@@ -6886,6 +6886,57 @@
     return { show: show, hide: hide, el: el };
   }
   H.UndoLine = UndoLine;
+
+  /* ---------- THE INFO BOX (ADR-335 r4, ADR-344): one size in one place, its text scrolling inside it, so reading never moves the layout.
+     The HOST owns the size and what it says (o.idle, and the content it passes to show and lock: { name, tag, key, text, meta, live }).
+     This owns the three things every host would otherwise get wrong:
+     - THE LOCK (ADR-344 r2). A selection locks the box, and a hover then changes nothing until another selection or a release, because the
+       pointer has to cross other controls to reach the box. Release is the head's button, the host's onRelease, and Escape, whose layer sits
+       BEHIND map and pin and in front of keyboard mode, so Escape still leaves MAP first (ADR-338 r11).
+     - THE AUTO-SCROLL (ADR-344 r3). Only when the DESCRIPTION runs past the edge: the range and source line under it are reference, so a box
+       whose only overflow is that line stays still. It stops for good, for this content, the moment the pointer enters the box or anything
+       else moves the scroll, and it never runs under reduced motion. It reads S.now, the session's frame time, never a clock of its own.
+     - The scroll starts at the top on new content, and a repaint of the same content keeps its place (a live "now" value must not jump it). ---------- */
+  function InfoBox(el, S, o) {
+    o = o || {};
+    var DELAY = o.delay === undefined ? 2 : o.delay, SPEED = o.speed === undefined ? 8 : o.speed;   // seconds; px per second, about a line every two seconds
+    var idle = o.idle || { name: 'Info', tag: 'HOVER', text: '' }, locked = false, armed = false, over = false, since = 0, pos = 0, seen = 0, content = null;
+    el.classList.add('hd-info'); el.innerHTML = '';
+    var head = tag('div', 'head'), name = tag('span', 'hd-cluster'), mark = tag('span', 'ib-lock'), rel = tag('button', 'hd-btn hd-sm hd-focus', 'Release'), face = tag('div', 'face');
+    var parts = { name: name, tag: tag('span', 'tag'), key: tag('span', 'hd-hint'), text: tag('span', 'hd-value'), meta: tag('span', 'hd-hint'), live: tag('span', 'hd-hint') };
+    rel.type = 'button'; rel.setAttribute('aria-label', 'Release the info box'); mark.hidden = true;
+    mark.appendChild(tag('span', 'tag', 'LOCKED')); mark.appendChild(rel); head.appendChild(name); head.appendChild(mark);
+    ['tag', 'key', 'text', 'meta', 'live'].forEach(function (k) { face.appendChild(parts[k]); });
+    el.appendChild(head); el.appendChild(face);
+    function paint(c) {
+      c = c || idle; var same = c === content;
+      name.textContent = c.name || ''; ['tag', 'key', 'text', 'meta', 'live'].forEach(function (k) { parts[k].textContent = c[k] || ''; });
+      content = c; if (same) return;
+      face.scrollTop = 0; pos = 0; seen = 0; since = 0; armed = !over;
+    }
+    function setMark() { mark.hidden = !locked; rel.tabIndex = keysOn(o) ? 0 : -1; el.classList.toggle('locked', locked); }
+    function show(c) { if (!locked) paint(c); }
+    function lock(c) { locked = true; setMark(); paint(c); }
+    function release() { if (!locked) return; locked = false; setMark(); paint(null); fire(o.onRelease); }
+    function runsPast() { return parts.text.getBoundingClientRect().bottom > face.getBoundingClientRect().bottom + 1; }
+    function step(dt) {
+      if (!armed || over || S.reduce) return;
+      if (Math.abs(face.scrollTop - seen) > .5) { armed = false; return; }   // something else moved it: a hand on the scrollbar. Not a wheel listener (B301). `seen`, not pos: a browser rounds what it stores
+      if (!runsPast()) { armed = false; return; }                            // it fits, or it has now all come into view
+      since += dt; if (since < DELAY) return;
+      pos += SPEED * dt; face.scrollTop = pos; seen = face.scrollTop;
+    }
+    el.addEventListener('pointerenter', function () { over = true; armed = false; });
+    el.addEventListener('pointerleave', function () { over = false; });
+    rel.addEventListener('click', release);
+    var keysAt = S.escapeLayers.findIndex(function (L) { return L.name === 'keys'; }), layer = { name: 'info-lock', active: function () { return locked; }, cancel: release };
+    S.escapeLayers.splice(keysAt < 0 ? S.escapeLayers.length : keysAt, 0, layer);
+    var was = null;
+    S.add({ render: function () { var now = S.now; if (was !== null && now > was) step(Math.min(.5, (now - was) / 1000)); was = now; } });   // a long stall is not a jump, and a slow frame rate keeps its speed
+    paint(null); setMark();
+    return { show: show, lock: lock, release: release, locked: function () { return locked; }, step: step, parts: parts, el: el };
+  }
+  H.InfoBox = InfoBox;
   H.ModRemoval = { UndoLine: UndoLine, describe: function (S, m, routes, o) {
     var names = arr(routes).map(function (r) { var q = S.params[r.param]; return q ? q.name : r.param; });
     return 'Removed ' + m.name + (names.length ? ' and its ' + names.length + ' route' + (names.length > 1 ? 's' : '') + ' (' + names.join(', ') + ')' : '') +

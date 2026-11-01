@@ -506,11 +506,7 @@ batch 2 components replace what the shell drew for itself. Where a component is 
   **If the human reverses ADR-335 r1** (the one line above): Escape follows the same option, so with keyboard mode off Escape would no longer
   close the shell's menu or the bank's open card (batch 1's shell handler did, in every mode). That is the bundle's rule, not the shell's;
   say so when the ruling is reversed.
-- **Readings taken.** The Mod page lists every source (above). The macro slots 5 to 8 are numbered. The foot row keeps its 216 px (the info
-  box, ADR-335 r4) while the bank is 68: the compact card opens in the room above the bank (143 px, it fits), but the page area does not gain
-  the 148 px the 216 px foot row holds above the 68 px bank, so it keeps 374 px (measured), not the master's 472. **Open for the human:** `docs/design/foot-row-lab.html` draws six options on this
-  shell and measures them. **Found there, under every option:** moving the pointer onto the info box clears it to its idle line, so text past the box's edge
-  can't be scrolled to or read (2 of 714 descriptions today). The fix is here in the shell, not yet made.
+- **Readings taken.** The Mod page lists every source (above). The macro slots 5 to 8 are numbered. The foot row and the page area are ADR-344's now (below).
 - **Found in the vendored bundle (not patched).** `ModPage` documents `routes(host, S)` as the route-view builder but hands its options to
   the tiers, which call `o.routes(m)` for a modulator's routes: one name, two jobs, and a host that passes the documented builder breaks every
   row. The shell passes a function that answers both. (A master fix: rename the builder, e.g. `routeView`.) `MapControl`'s chip is 150 px and
@@ -518,6 +514,18 @@ batch 2 components replace what the shell drew for itself. Where a component is 
 - **Checks.** In the page: 28 to 31 (removal, source switching, the MAC lane, the Mod page); 20, 21, 25 and 27 now measure the bundle's
   components (the compact card, the chip, the session's Escape, the Routes view) with the same laws and controls; 1 and 2 count the Mod page's
   held detail hosts. In the seam check: `escape`, `removal`, `shellparts`, and the key plants re-pointed at the session (see the trace).
+
+## The foot row and the info box's lock (ADR-344; B589, B582)
+
+The human picked F1 from `docs/design/foot-row-lab.html` and added the lock and the sidebar.
+
+- **The foot row is 120 px and the box 300 × 120**, so pages get 468 px. Main, Osc 1, Osc 2, Sub, Noise and Mix fit; Mod, Morph, FX and Ledger still scroll. A bank row's card now opens over the foot of the page.
+- **The box is the bundle's `InfoBox`.** It had been the shell's own `hd-card` since ADR-315. The shell says what it shows (`keyContent`, `sectionContent`) and what counts as a selection.
+- **Any selection locks it.** A press on a control or section is heard in the capture phase, so a control that stops the event can't hide it, and a selection made elsewhere (`S.selected`) locks too. A press on anything else, Escape, or the head's Release button releases. Escape leaves MAP first. **Hovering shows nothing new after a first touch until that release**: the human chose this over a still-click lock, and may revisit it after use.
+- **With no lock, the box keeps its text while the pointer is on it**, which is the lab's finding fixed.
+- **Auto-scroll:** a description past the edge waits 2 s and moves at 8 px per second until it is all in view. The source line under it may stay cut off.
+- **The Info sidebar toggle** is on the Settings page, in a new Interface card, and is remembered per viewer (`hd.info.sidebar`, or `#page,sidebar` in a review link). The box moves to `#rail`, under the morph pad while the pad shows, and the foot row is the bank's 92 px. With the bank off too, the foot row goes away.
+- **Locks stay off while the self-checks run**, because they press and select controls for their own reasons (`infoLocks`).
 
 ## Known gaps
 

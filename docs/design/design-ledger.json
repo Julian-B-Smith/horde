@@ -10,6 +10,10 @@
  },
  "master_versions": [
   {
+   "version": "1793569105-ed02",
+   "evidence": "docs/design-system/master/VERSION: published 2026-11-01 from the gui-info-box branch before merge. ADR-344: the new InfoBox component (the lock and the auto-scroll), which the info box lacked since ADR-315 (a hop the audit recorded as skipped). 1793568967-6a34 was published and superseded within the batch: its auto-scroll stopped itself on the browser's rounding of scrollTop, found by driving the preview."
+  },
+  {
    "version": "1793558157-f6a9",
    "evidence": "docs/design-system/master/VERSION: published 2026-11-01 from the gui-mpc-r1 branch before merge. Two master defects the GUI 3 shell hop found: SourceChip widened to 206 px (150 px cut six of the 16 source names; the shell had overridden it locally), and ModPage's route-view builder renamed routeView(host, S) (it was routes, which the tiers also read as routes(m)). Re-vendored the same day."
   },
@@ -126,8 +130,10 @@
    "note": "The filters move to Weir; no manifest yet, so the shell's Filters page is empty (port-tab filters)."
   },
   "foot-row-lab.html": {
-   "status": "exploring",
-   "note": "The foot row's six options for the human's ruling (B589, the shell hop's first open question in #1318). It applies each option to the running shell in a frame and measures it; nothing is harvested until a ruling."
+   "status": "harvested",
+   "adr": "ADR-344",
+   "note": "Ruled F1 (ADR-344). The lock and auto-scroll the ruling added are the master's InfoBox at 1793569105-ed02; F1's size is the shell's. The lab still runs on the live shell, each option stating its own foot row.",
+   "master_version": "1793569105-ed02"
   },
   "formant-lab.html": {
    "status": "retired",
@@ -3581,15 +3587,15 @@
    "adr": "ADR-315",
    "clause": "ruling 2 (a fixed info box in the same place on every page shows the hovered control's description from the desc column)",
    "lab": "docs/design/page-chrome-lab.html",
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "InfoBox",
+   "master_version": "1793569105-ed02",
+   "bundle": "InfoBox",
    "via": null,
-   "shell": "docs/design/gui3.html: function showInfo(key)",
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: const infoBox = H.InfoBox($('info'), S,",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "descriptions",
-   "note": "Shell has it, assembled from hd-card (gui3/README proposal 2); no master component holds an info box (grep 'info box' in master: none), a hop skipped. It shows each row's spec text, tagged SPEC TEXT, since no desc column exists (317 of 317 missing, B582). Placement and section descriptions are refined by ADR-335 ruling 4 (row adr335-fixed-info-box). FX device: same. Slice 7 (#1297, merged 2026-10-30), re-audited for B596: the box is now fixed in the foot row and also explains sections (rows adr335-fixed-info-box, adr335-section-descriptions)."
+   "note": "The master's InfoBox since ADR-344 (1793569105-ed02), the hop the audit recorded as skipped. The shell gives it its text: each row's spec text, tagged SPEC TEXT, as before."
   },
   {
    "id": "adr315-open-in-manual",
@@ -4316,15 +4322,15 @@
    "adr": "ADR-335",
    "clause": "ruling 4 (the info box is a fixed square-ish box at the bottom, left of the modulator bank, one size on every page, and explains whole sections as well as single parameters)",
    "lab": "docs/design/page-chrome-lab.html",
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "InfoBox",
+   "master_version": "1793569105-ed02",
+   "bundle": "InfoBox",
    "via": null,
    "shell": "docs/design/gui3.html: <div class=\"footrow\" id=\"footrow\">",
-   "state": "ruled",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "descriptions",
-   "note": "Not applied: gui3.html's info box is a full-width hd-card under the bank (.info { width: auto; min-height: 58px }), and it reads only [data-key] controls (hostOf), so a section header explains nothing; section descriptions need drafting from spec text. No master component (proposal 2; the ruling adds it to the proposal list). FX device: same. Slice 7 (#1297, merged 2026-10-30), re-audited for B596: applied in the shell: a fixed 224 x 216 px box in a foot row left of the bank on every page (--foot-h, --info-w), its text scrolling inside; the seam test infofixed proves 24 hovers move and resize nothing. No master component holds an info box, so it is still drawn locally from house classes: state ruled, the shell place recording the local drawing (the master owes it, gui3/README proposal 2)."
+   "note": "One size, one place, left of the bank, explaining sections too. 'Square-ish' is amended to 300 x 120 by ADR-344 r1 (F1); the box is the master's InfoBox and the size the shell's."
   },
   {
    "id": "adr335-map-keys-always",
@@ -4835,6 +4841,66 @@
    "superseded_by": null,
    "port_tab": "macros",
    "note": "A mouse drag on the bend row springs back (a 50 ms time constant, in seconds; a snap under reduced motion, reported as spring); setHardware(v | null) makes the hardware win; the mod wheel's row holds. Vendored 2026-11-01 (master batch 2, B589). FX device: same. Shell hop 2026-11-01 (B584): mounted in GUI 3. The bend row springs back; the mod wheel holds (half A, self-check 30)."
+  },
+  {
+   "id": "adr344-foot-row-f1",
+   "adr": "ADR-344",
+   "clause": "ruling 1 (the foot row is F1: the info box 300 x 120, the foot row 120 px, pages 468 px; amends ADR-335 r4's 'square-ish' and ADR-338 r7's 472 px)",
+   "lab": "docs/design/foot-row-lab.html",
+   "component": "InfoBox",
+   "master_version": "1793569105-ed02",
+   "bundle": "InfoBox",
+   "via": null,
+   "shell": "docs/design/gui3.html: .footrow { --foot-h: 120px; --info-w: 300px;",
+   "state": "in-shell",
+   "superseded_by": null,
+   "port_tab": null,
+   "note": "The size is the shell's and the box the master's. Main, Osc 1, Osc 2, Sub, Noise and Mix fit; Mod, Morph, FX and Ledger still scroll. A bank card opens over the foot of the page."
+  },
+  {
+   "id": "adr344-info-lock",
+   "adr": "ADR-344",
+   "clause": "ruling 2 (any selection locks the box, a drag's press included; a hover changes nothing until another selection or a release)",
+   "lab": "docs/design/foot-row-lab.html",
+   "component": "InfoBox",
+   "master_version": "1793569105-ed02",
+   "bundle": "InfoBox",
+   "via": null,
+   "shell": "docs/design/gui3.html: infoBox.lock(c)",
+   "state": "in-shell",
+   "superseded_by": null,
+   "port_tab": null,
+   "note": "The master's InfoBox holds the lock, its Release button and its Escape layer (behind map and pin). The shell decides what counts as a selection: a press on a control or section, or S.selected changed elsewhere. A press elsewhere releases."
+  },
+  {
+   "id": "adr344-auto-scroll",
+   "adr": "ADR-344",
+   "clause": "ruling 3 (a description past the box's edge starts scrolling after about 2 s, on a hover or a lock; the pointer entering, a hand on the scroll and reduced motion stop it; text that fits never moves)",
+   "lab": "docs/design/foot-row-lab.html",
+   "component": "InfoBox",
+   "master_version": "1793569105-ed02",
+   "bundle": "InfoBox",
+   "via": null,
+   "shell": "docs/design/gui3.html: infoBox.show(c)",
+   "state": "in-shell",
+   "superseded_by": null,
+   "port_tab": null,
+   "note": "The master's InfoBox, on the session's frame time: 2 s, 8 px per second (readings). It stops once the description is all in view, so the source line under it may stay cut off."
+  },
+  {
+   "id": "adr344-info-sidebar",
+   "adr": "ADR-344",
+   "clause": "ruling 4 (an Info sidebar toggle in Settings replaces the foot box with a full-height left column, shared with the morph pad)",
+   "lab": "docs/design/foot-row-lab.html",
+   "component": "InfoBox",
+   "master_version": "1793569105-ed02",
+   "bundle": "InfoBox",
+   "via": null,
+   "shell": "docs/design/gui3.html: function setSidebar(on)",
+   "state": "in-shell",
+   "superseded_by": null,
+   "port_tab": null,
+   "note": "A per-viewer preference in browser storage, not a host parameter. The bank takes the whole foot, at 92 px, and pages lose about 234 px of width. The column and the toggle's place are the shell's; the box is the master's InfoBox."
   }
  ],
  "not_design": [

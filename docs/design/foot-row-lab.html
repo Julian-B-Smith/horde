@@ -6,6 +6,9 @@
      ADR-338 r7 ruled the bank at 68 px so pages would keep their room. The two rulings pull apart: the pages get 372 px and
      scroll, and a band above the bank sits empty until a card opens.
 
+     RULED: F1, by ADR-344 (2026-11-01), so the shell now ships it. Every option here, F0 included, states its own foot row, so the sheet still
+     compares them. F3 borrows the rail the ruling's sidebar added.
+
      WHAT IS REAL. Everything in the frame: gui3.html itself, unedited, at #main,win,bank. An option is a stylesheet this page
      puts into the frame (and, for F3, one moved node), so every number below is read off the running shell.
      WHAT IS MOCK. What the shell already mocks: the stub engine's sources and the bank's two seeded routes.
@@ -14,8 +17,8 @@
      be judged by reflowing the real one. Nothing here edits gui3*, arp-face/ or the master: a ruling goes to the shell through
      ADR-316's chain, and if the option needs a new form, through the master first.
 
-     THE SELF-CHECK runs after the measurements and prints in #selfcheck. Its controls: F0's reading must equal the number the
-     shell's OWN fit check prints (different code reading the same page); a box made to follow its text must move the layout, so
+     THE SELF-CHECK runs after the measurements and prints in #selfcheck. Its controls: Osc 1's height must equal the number the
+     shell's OWN fit check prints (different code reading the same page), and F1 must equal the shell as it ships; a box made to follow its text must move the layout, so
      "hovering moved nothing" can read false; leaving an option must restore F0's rectangles exactly.
 
      HOUSE RULES. No Math.random and no clock reads. No wheel listener (B301). setTimeout only yields between measurements. -->
@@ -24,7 +27,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="lab-part" content="Presentation">
-<meta name="lab-review" content="B589 · 2026-11-01">
 <title>Foot-row lab — six options for the info box and the bank (B589)</title>
 <link rel="stylesheet" href="arp-face/tokens.css">
 <link rel="stylesheet" href="arp-face/bundle.css">
@@ -68,7 +70,7 @@
   th { font-weight: 700; }
   td.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
   tr.on td { font-weight: 700; }
-  tr.pick td:first-child::after { content: ' (recommended)'; font-weight: 400; color: var(--hint); }
+  tr.pick td:first-child::after { content: ' (ruled, ADR-344)'; font-weight: 400; color: var(--hint); }
   #perPage td.over { font-weight: 700; }
   #selfcheck { font: 12px/1.5 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
   .note { color: var(--hint); font-size: 12px; }
@@ -77,8 +79,8 @@
 <body>
 <div class="col">
   <header>
-    <h1>The foot row: six options</h1>
-    <div class="tagline"><span class="hd-note">The fixed info box (ADR-335 r4) keeps GUI 3's foot row at 216 px, though the bank is only 68 px (ADR-338 r7), so ten of the fourteen pages scroll and a band above the bank sits empty. Six options, each applied to the real shell in a frame and measured there. Your pick becomes the ruling (B589).</span></div>
+    <h1>The foot row: six options, F1 ruled</h1>
+    <div class="tagline"><span class="hd-note">The fixed info box (ADR-335 r4) keeps GUI 3's foot row at 216 px, though the bank is only 68 px (ADR-338 r7), so ten of the fourteen pages scrolled and a band above the bank sat empty. Six options, each applied to the real shell in a frame and measured there. Ruled: F1 (ADR-344).</span></div>
   </header>
   <section class="why" id="facts" aria-label="What the shell measures today"></section>
   <section aria-label="The options">
@@ -101,8 +103,8 @@
     <p class="note" style="margin-top:6px">Descriptions cut off: of every control's and every section's text, how many run past the box's edge until you scroll it. Box scrolls: the same, counting the box's whole contents, with its range and source line. Bank rows: of the MAC lane's ten, the rest scroll sideways. Card covers: how much of the page area a bank row's card sits on. Controls under the box: the most on any page, while the box shows.</p>
   </section>
   <section class="now" aria-label="A finding under every option">
-    <h2>Under every option: text past the box's edge can't be read</h2>
-    <p>The box's text scrolls, but the pointer can't reach it: moving onto the box clears the box back to its idle line, so there is nothing left to scroll. Today that hides 2 descriptions; F1 would hide about 76. The fix is small and in the shell (keep what is showing while the pointer is on the box), and it isn't drawn here. F1 and F2 need it. It's worth doing whichever you pick.</p>
+    <h2>Found here, fixed by the ruling: text past the box's edge couldn't be read</h2>
+    <p>The box's text scrolled, but the pointer couldn't reach it: moving onto the box cleared it. Before the ruling that hid 2 descriptions, and F1 would have hidden about 76. ADR-344 fixed it: a selection locks the box, the box keeps its text while the pointer is on it, and a long description scrolls on its own. The self-check's note below reads which way the shell behaves now.</p>
   </section>
   <section aria-label="Measured per page">
     <h2>How far each page scrolls</h2>
@@ -115,12 +117,11 @@
 </div>
 <script>
 'use strict';
-// RECOMMENDED only marks a table row; the choice is the human's. F1 removes the empty band instead of paying screen to keep it (F5),
-// and it is F2's better form. F1's 300 px width was tuned after a first reading at 224 px (142 descriptions past the edge, now 76).
-const RECOMMENDED = 'F1';
+// RULED marks a table row: ADR-344. F1's 300 px width was tuned after a first reading at 224 px (142 descriptions past the edge, then 76).
+const RULED = 'F1';
 const OPTIONS = [
-  { id: 'F0', name: 'As built', winH: 720, css: '',
-    does: 'Nothing changes. The box stays square-ish at 224 × 216 and pages scroll.',
+  { id: 'F0', name: 'As it was', winH: 720, css: '.footrow{--foot-h:216px;--info-w:224px}',
+    does: 'The shell before the ruling. The box is square-ish at 224 × 216 and pages scroll.',
     costs: 'Pages lose the most room, and the band above the bank is empty until a card opens. The card does have its own place there.',
     rules: 'Holds ADR-335 r4. ADR-338 r7\'s room for the pages stays unmet.' },
   { id: 'F1', name: 'Shorter box', winH: 720, css: '.footrow{--foot-h:120px;--info-w:300px}',
@@ -132,7 +133,7 @@ const OPTIONS = [
     costs: 'The least square, and nearly half the descriptions run past its edge. It takes width from the bank, so fewer rows show at once. A bank card opens over the page. Its extra 28 px of height over F1 only helps Mod and Morph, which still scroll.',
     rules: 'Amends ADR-335 r4\'s "square-ish"; keeps the rest.' },
   { id: 'F3', name: 'Left rail', winH: 720, rail: true,
-    css: '.body,.body.with-dock{grid-template-columns:224px minmax(0,1fr)}.body.with-insp,.body.with-dock.with-insp{grid-template-columns:224px minmax(0,1fr) 214px}#labRail{display:flex;flex-direction:column;gap:var(--space-stack);min-height:0;min-width:0}#labRail .info{flex:0 0 216px;height:216px;width:auto;margin-top:auto}#labRail .dock{flex:0 1 auto;min-height:0;overflow:hidden}.footrow{--foot-h:92px}',
+    css: '.body,.body.with-dock{grid-template-columns:224px minmax(0,1fr)}.body.with-insp,.body.with-dock.with-insp{grid-template-columns:224px minmax(0,1fr) 214px}.body .rail{display:flex;flex-direction:column;gap:var(--space-stack);min-height:0;min-width:0}.rail .info{flex:0 0 216px;height:216px;width:auto;margin-top:auto}.rail .dock{flex:0 1 auto;min-height:0;overflow:hidden}.footrow{--foot-h:92px}',
     does: 'The square box moves into a left column, at the bottom, under the morph pad when the pad shows. The bank spans the rest of the foot.',
     costs: 'Pages lose 234 px of width all the time and reflow, so Mix scrolls here though it fits under the other options, and FX and Ledger get longer. The column is empty above the box while morph is off.',
     rules: 'Holds "square-ish" and "one size, one place". The box stays left of the bank. Moves the pad\'s column (ADR-315) to 224 px.' },
@@ -141,14 +142,14 @@ const OPTIONS = [
     does: 'The square box appears only while something is hovered, over the bottom left of the page. Otherwise it is gone. The bank spans the whole foot.',
     costs: 'It hides up to four controls while it shows, and it blinks in and out as the pointer moves. A bank card opens over the page.',
     rules: 'Keeps size and place; overrides "static" in the human\'s words ("a static square-ish box that stays one size").' },
-  { id: 'F5', name: 'Taller window', winH: 815, css: '#win{height:815px}',
-    does: 'Everything stays as built, and the window grows by the 95 px the six pages need (Osc 1 is the tallest).',
+  { id: 'F5', name: 'Taller window', winH: 815, css: '#win{height:815px}.footrow{--foot-h:216px;--info-w:224px}',
+    does: 'Everything stays as it was, and the window grows by the 95 px the six pages need (Osc 1 is the tallest).',
     costs: 'The window is 980 × 815, and it spends 95 px of screen while keeping a band that stays empty until a card opens. On a shorter screen it needs the scale switch.',
     rules: 'Holds ADR-335 r4. Amends ADR-259 r2\'s 980 × 720, which ADR-338 r12 has on trial.' },
 ];
 const $ = id => document.getElementById(id), frame = $('frame'), wrap = $('wrap');
 const yieldNow = () => new Promise(r => setTimeout(r, 0));
-let w, d, active = 'F0', tagObserver = null, baseBody = null;
+let w, d, active = 'F1', tagObserver = null, shipped = '';
 const measured = Object.create(null), checks = [];
 
 // ===== applying an option: one stylesheet in the frame, plus the one moved node for F3 =====
@@ -156,10 +157,8 @@ function apply(id) {
   const o = OPTIONS.find(x => x.id === id);
   let st = d.getElementById('labFoot'); if (!st) { st = d.createElement('style'); st.id = 'labFoot'; d.head.append(st); }
   st.textContent = o.css;
-  const info = d.getElementById('info'), foot = d.getElementById('footrow'), dock = d.getElementById('dock'), body = d.getElementById('bodyGrid');
-  let rail = d.getElementById('labRail');
-  if (o.rail) { if (!rail) { rail = d.createElement('div'); rail.id = 'labRail'; body.prepend(rail); } rail.append(dock, info); }
-  else if (rail) { foot.prepend(info); body.prepend(dock); rail.remove(); }
+  const info = d.getElementById('info'), foot = d.getElementById('footrow');
+  if (o.rail) d.getElementById('rail').append(info); else if (info.parentElement !== foot) foot.prepend(info);
   if (tagObserver) { tagObserver.disconnect(); tagObserver = null; }
   info.classList.remove('lab-idle');
   if (o.float) {
@@ -257,14 +256,14 @@ OPTIONS.forEach(o => {
   const b = document.createElement('button'); b.className = 'opt'; b.type = 'button'; b.dataset.id = o.id; b.setAttribute('aria-pressed', 'false');
   b.innerHTML = '<span class="id">' + o.id + '</span><span class="nm">' + o.name + '</span><svg aria-hidden="true" viewBox="0 0 980 720"></svg>';
   b.addEventListener('click', () => choose(o.id)); $('picker').append(b);
-  const tr = document.createElement('tr'); tr.dataset.id = o.id; if (o.id === RECOMMENDED) tr.classList.add('pick');
+  const tr = document.createElement('tr'); tr.dataset.id = o.id; if (o.id === RULED) tr.classList.add('pick');
   tr.innerHTML = '<td>' + o.id + ' ' + o.name + '</td>' + '<td class="num">…</td>'.repeat(10); $('tbody').append(tr);
 });
 function factCards(z) {
   // "Fixable" is read, not listed: a page that scrolls as built and fits at the most room any full-width option gives.
   const roomy = measured.F4, ids = pageIds(), scrolls = ids.filter(p => z.sizes[p] > z.area), fixable = scrolls.filter(p => roomy.sizes[p] <= roomy.area), need = Math.max(...fixable.map(p => z.sizes[p]));
   const name = p => d.getElementById('page-' + p).getAttribute('aria-label'), stuck = scrolls.filter(p => !fixable.includes(p)).map(name).join(', ');
-  $('facts').innerHTML = [[z.area + ' px', 'what pages get today'], [scrolls.length + ' of ' + ids.length, 'pages scroll today'], [fixable.length + ' of those', 'fit at ' + need + ' px: ' + fixable.map(name).join(', ')], [(216 + z.area - need) + ' px', 'the tallest foot row that lets those fit'], [scrolls.length - fixable.length + ' never fit', stuck + ' scroll under every option']]
+  $('facts').innerHTML = [[z.area + ' px', 'what pages got before the ruling'], [scrolls.length + ' of ' + ids.length, 'pages scrolled then'], [fixable.length + ' of those', 'fit at ' + need + ' px: ' + fixable.map(name).join(', ')], [(216 + z.area - need) + ' px', 'the tallest foot row that lets those fit'], [scrolls.length - fixable.length + ' never fit', stuck + ' scroll under every option']]
     .map(f => '<div class="fact"><b>' + f[0] + '</b><span>' + f[1] + '</span></div>').join('');
 }
 $('btnText').addEventListener('click', () => {
@@ -281,9 +280,10 @@ function check(ok, text) { checks.push((ok ? 'PASS ' : 'FAIL ') + text); }
 function selfCheck(shellChecks, fitLine) {
   const z = measured.F0;
   check(shellChecks.total > 0 && !shellChecks.bad, 'The shell\'s own self-checks in this frame: ' + (shellChecks.total - shellChecks.bad) + ' of ' + shellChecks.total + '.');
-  const said = /scroll (\d+) px at most/.exec(fitLine), five = ['main', 'osc1', 'osc2', 'sub', 'noise'].map(p => z.sizes[p] - z.area);
-  check(!!said && Math.max(0, ...five) === +said[1], 'Control: F0 on the shell\'s five fit pages scrolls ' + Math.max(0, ...five) + ' px; the shell\'s own fit check prints ' + (said ? said[1] : 'nothing') + ' px.');
-  check(z.area === 372 && z.worst > 0, 'Control: as built reads 372 px and a scroll of ' + z.worst + ' px, so this measure can see a page overflow.');
+  const said = /Osc 1 (\d+)/.exec(fitLine);
+  check(!!said && z.sizes.osc1 === +said[1], 'Control: Osc 1 measures ' + z.sizes.osc1 + ' px here; the shell\'s own fit check prints ' + (said ? said[1] : 'nothing') + ' px.');
+  check(shipped === measured.F1.snapAtEnd, 'Control: F1 here equals the shell as it ships, so the sheet is measuring the ruling.');
+  check(z.area === 372 && z.worst > 0, 'Control: F0 reads 372 px and a scroll of ' + z.worst + ' px, so this measure can see a page overflow.');
   OPTIONS.forEach(o => { const m = measured[o.id]; check(!m.moved.length, o.id + ': ' + m.texts + ' hovers moved and resized nothing' + (m.moved.length ? ' (MOVED on ' + m.moved.join(', ') + ')' : '') + '.'); });
   // the control for those lines: a box that follows its text must move the layout
   apply('F0'); gotoPage('osc1'); hoverOff();
@@ -310,11 +310,11 @@ frame.addEventListener('load', async () => {
   const shellChecks = { total: lines.length, bad }, fitLine = (lines.find(p => /· Fit: /.test(p.textContent)) || { textContent: '' }).textContent;
   document.querySelector('#perPage thead').innerHTML = '<tr><th>Page</th>' + OPTIONS.map(o => '<th>' + o.id + '</th>').join('') + '</tr>';
   document.querySelector('#perPage tbody').innerHTML = pageIds().map(pg => '<tr><td>' + d.getElementById('page-' + pg).getAttribute('aria-label') + '</td>' + OPTIONS.map(o => '<td class="num" data-c="' + o.id + '|' + pg + '">…</td>').join('') + '</tr>').join('');
+  shipped = snap();
   for (const o of OPTIONS) await measure(o);
   factCards(measured.F0);
   selfCheck(shellChecks, fitLine);
-  // opens on what is built today, not the recommendation, so the frame doesn't argue for it
-  apply('F0'); paintNow();
+  apply(RULED); paintNow();
 });
 paintNow(); fit();
 </script>
