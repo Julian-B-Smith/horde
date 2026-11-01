@@ -16,7 +16,7 @@ What clocks an S&H: its own LFO's cycle (the ruled default), or one shared clock
 - Beside it, the rotor: the LfoRotor painter (`Viz.rotor`) reused, never rebuilt, captioned "KURO's rotor". It is dashed while KURO is not in force.
 - Clock: CYCLE · GLOBAL · KURO.
 - The clock's RateSync, dashed under KURO, where the rotor clocks it.
-- Bind to: a stepper K1–K4, dashed unless KURO.
+- Bind to: a `Horde.Stepper` K1–K4 (a dropdown on Option-click), dashed unless KURO.
 - Last sampled (7 ch) and Attached (3 ch), fixed widths.
 - One reserved line says what the clock means.
 

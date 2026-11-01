@@ -1,0 +1,44 @@
+<!-- @dsCard group="Modulation" height=500 subtitle="ML3: a list grouped by source. Each group is headed by the source (live meter, route count, Map); a row per route: the polarity chip, the target, the depth, the value now, +◇, remove" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Routes by source</title></head>
+<body>
+<div style="padding:14px 16px 10px; max-width:760px">
+  <div class="hd-row" style="justify-content:space-between; margin-bottom:4px"><span class="hd-cluster">What does each modulator do?</span><div id="map"></div></div>
+  <div id="rows"></div>
+  <p class="hd-msg" id="msg" style="margin:4px 0 0"></p>
+  <p class="hd-hint" style="margin:2px 0 0">The same route rows as the grid's list, regrouped by source; an edit here shows in every route view. The chip: click next, shift-click previous, drag up or down for the depth. A depth route (+◇) is listed under the source that drives it. SAMPLE data.</p>
+</div>
+<script>
+(function () {
+  var H = window.Horde, T = Math.PI * 2;
+  function wrap(t, P) { return ((t % P) + P) % P; }
+  var SOURCES = [
+    { id: 'lfo1', name: 'LFO 1', kind: 'lfo', f: function (t) { return .5 + .5 * Math.sin(t * T * .45); } },
+    { id: 'lfo2', name: 'LFO 2', kind: 'lfo', f: function (t) { var p = wrap(t * .16, 1); return p < .5 ? p * 2 : 2 - p * 2; } },
+    { id: 'env1', name: 'ENV 1', kind: 'env', f: function (t) { var p = wrap(t, 1.7); return p < .04 ? p / .04 : Math.exp(-(p - .04) * 3.2); } },
+    { id: 'mac1', name: 'MACRO 1', kind: 'macro', f: function (t) { return .5 + .42 * Math.sin(t * T * .07); } },
+    { id: 'coh1', name: 'Coherence 1', kind: 'engine', f: function (t) { return .5 + .4 * Math.sin(t * T * .11 + 1); } }
+  ];
+  function pctf(x) { return Math.round(x * 100) + '%'; }
+  var DESTS = [
+    { key: 'flt.cutoff', name: 'Cutoff', v: .45 }, { key: 'flt.res', name: 'Resonance', v: .35 }, { key: 'fx.drive', name: 'Drive', v: .5 }, { key: 'amp.pan', name: 'Pan', v: .5 }
+  ];
+  var S = new H.Session({ x: .3, y: .32, sources: SOURCES, mappings: [
+    { param: 'flt.cutoff', src: 'lfo1', pol: 'bi', depth: .3 },
+    { param: 'flt.cutoff', src: 'env1', pol: 'uni', depth: .25 },
+    { param: 'fx.drive', src: 'mac1', pol: 'ctl', depth: .25, lo: .2, hi: .8 },
+    { param: 'fx.drive', src: 'lfo1', pol: 'uni', depth: .15 },
+    { param: 'amp.pan', src: 'lfo2', pol: 'bi', depth: .4 },
+    { param: 'flt.res', src: 'coh1', pol: 'inv', depth: .2 }
+  ] });
+  DESTS.forEach(function (d) { S.params[d.key] = { key: d.key, name: d.name, vals: [d.v, d.v, d.v, d.v], def: d.v, fmt: pctf }; });
+  S.depthRoutes = [{ src: 'env1', pol: 'uni', depth: .3, of: S.mappings[0] }];
+  H.MapControl(document.getElementById('map'), S, { chip: true });
+  H.RoutesBySource(document.getElementById('rows'), S, { empty: true });
+  var msg = document.getElementById('msg'); S.on(function () { msg.textContent = S.message; });
+  S.selected = 'flt.cutoff'; S.start(); S.emit();
+})();
+</script>
+</body>
+</html>

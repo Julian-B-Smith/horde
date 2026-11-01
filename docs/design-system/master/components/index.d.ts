@@ -85,8 +85,10 @@ export interface KnobProps {
 }
 /** 'tiny' is the tiny tier (ADR-338 r1/r3, drawn as ADR-340 r1/r2): a knob draws T2d, a 20 px face in a 28 px hit cell with a
     see-through editing-corner pip between ink end stops; a slider draws TS1a, a 20 px row. 'cell' (slider only) is TS2a, a 16 px
-    table value cell. The tiny tier shows no value in the cell: the label line never changes (ADR-340 r4, H1). */
-export type ControlSize = 'primary' | 'standard' | 'compact' | 'utility' | 'tiny' | 'cell';
+    table value cell. The tiny tier shows no value in the cell: the label line never changes (ADR-340 r4, H1).
+    'level' (knob only) is T4c-f (ADR-340 r3, ADR-341 r1): a 16 px vertical LEVEL in a 28 px hit cell, the blend its fill, the editing
+    corner the same hollow corner mark as T2d's pip, in the corner's -tx ink. A new size, not TS2a. */
+export type ControlSize = 'primary' | 'standard' | 'compact' | 'utility' | 'tiny' | 'cell' | 'level';
 /** A sized slider (any `size`) draws 200 × 35 (vertical 40 × 200, a 22 × 8 cap, `--fader-h` / size-fader-h tall) with a value-only
     readout column; `utility` draws as compact. */
 export interface SliderProps extends KnobProps { vert?: boolean }
@@ -94,12 +96,14 @@ export interface SliderProps extends KnobProps { vert?: boolean }
 export declare function Knob(el: HTMLElement, props: KnobProps, session: Session): { render(): void };
 export interface ReadoutSlotProps { /** controls inside this element feed the slot (default: the slot's parent) */ scope?: HTMLElement;
   /** what the slot reads at rest */ summary?: string | (() => string) }
-/** The section's one live readout (B589): the HOT control's (pointer, drag or keyboard focus, inside `scope`) name, value and the
-    classic second line (corner glyph, letter, stored value and weight; the full focus caption under Option or MAP; "controlled by";
-    LOCKED); otherwise the summary. aria-hidden: each control's own aria-valuetext carries the same text. */
+/** The section's one live readout (B589), DR-c (ADR-341 r2): the HOT control's (pointer, drag or keyboard focus, inside `scope`) in TWO
+    STACKED 13 px LINES in a fixed 26 px box: line 1 the name, the editing corner's own value (PLACEHOLDER: not the blend; the human has
+    not ruled which) and its mark (LOCKED, or the padlock after a refused write); line 2 "now": the value after morph and every
+    mapping, with the focused mapping (source, polarity, amount, +n) or "controlled by" or "no modulation". Otherwise the summary.
+    aria-hidden: each control's own aria-valuetext carries the same text. */
 export declare function ReadoutSlot(el: HTMLElement, session: Session, props?: ReadoutSlotProps): { render(): void };
 export declare function Slider(el: HTMLElement, props: SliderProps, session: Session): { render(): void };
-export interface MapControlProps { strip?: HTMLElement; frame?: HTMLElement }
+export interface MapControlProps { strip?: HTMLElement; frame?: HTMLElement; /** MS3 (ADR-340 r8): the source as a chip you drag through (true, or SourceChipProps) instead of the select */ chip?: boolean | SourceChipProps }
 export declare function MapControl(el: HTMLElement, session: Session, props?: MapControlProps): { render(): void };
 export declare function ModInspector(el: HTMLElement, session: Session): void;
 export interface XYPadProps { size?: number; /** only a grab on the puck moves it, relatively; an empty-pad click moves nothing (the morph editor's pad) */ relative?: boolean; /** show the optional census ring (off by default) */ census?: boolean; /** census ring dot count (12) */ dots?: number; /** dot diameter in px */ dot?: number }
@@ -118,9 +122,13 @@ export declare function ScalePicker(el: HTMLElement, props?: { root?: number; ma
 export interface StepperProps { name?: string; path?: string; /** named options (their index is the value) */ options?: string[];
   min?: number; max?: number; step?: number; value?: number; /** home: double-click returns here */ def?: number; fmt?(v: number): string;
   onInput?(v: number): void; say?(msg: string): void; /** TC2's table form (K4): no arrows, a dotted underline */ flat?: boolean;
-  /** the dense 20 px face */ sm?: boolean; /** keyboard mode (arrows, PgUp/PgDn, Home/End, Enter/F2) */ keys?(): boolean }
-/** The house stepper (ADR-340 r5): drag the value (6 px a step, Shift 24, re-anchored at the ends), click the arrows, double-click
-    for the default, Option-click to type (Enter/Tab commit, Escape cancels, a click away commits; out of range clamps and says so). */
+  /** the dense 20 px face */ sm?: boolean; /** TC1's 16 px face */ tc?: boolean; /** aria-valuetext where the display is too short to say it */ spoken?(v: number): string;
+  /** keyboard mode (arrows, PgUp/PgDn, Home/End, Enter/F2) */ keys?(): boolean }
+/** The house stepper (ADR-340 r5, SG-b ADR-341 r3): drag the value (6 px a step, Shift 24, re-anchored at the ends), click the arrows,
+    double-click for the default, Alt + wheel one step. A ⇕ glyph says it drags; a step scale under the face shows the position, home the
+    ringed tick. Option-click: a NUMERIC stepper opens a number field (Enter/Tab commit, Escape cancels, a click away commits; out of range
+    clamps and says so); a stepper of NAMED options opens a DROPDOWN (↑ ↓ Home End move, Enter commits, Escape cancels, a click away
+    cancels), never a text field. The range is fixed at mount. */
 export declare function Stepper(el: HTMLElement, props: StepperProps): { get(): number; set(v: number): void; open(): void; paint(): void };
 export declare function PlainSlider(el: HTMLElement, props: { name: string; path?: string; min: number; max: number; value: number; def?: number; log?: boolean; fmt(v: number): string; onInput?(v: number): void }): { get(): number };
 /** the visualizer painters: each draws one frame into a canvas with the screen roles only */
@@ -133,15 +141,35 @@ export declare function apportion(share: number[], n: number): number[];
 export declare function SourceStrip(el: HTMLElement, session: Session, props?: { counts?: boolean; label?: string; onPick?(id: string): void }): { el: HTMLElement; sync(): void; render(): void };
 /** Sources × destinations: depth fill, the live "now" lane, a dashed ring on a modulated depth; CTL cells show the swept band. */
 export declare function ModMatrixGrid(el: HTMLElement, session: Session, props?: object): void;
-/** One route: source, the four-state polarity pill, destination, depth (or a CTL low/high range), authored → now, remove; depth routes indented. */
+/** One route: source, the four-state polarity chip (MP1: click next, shift-click previous, drag up/down for the depth), destination, depth (or a
+    CTL low/high range), authored → now, remove; depth routes indented. */
 export declare function RouteRow(el: HTMLElement, session: Session, m: Mapping, props?: object): void;
 export declare function RouteList(el: HTMLElement, session: Session, props?: object): void;
 /** "What is moving it": per destination, each source's share now, and the sum. */
 export declare function ModLedger(el: HTMLElement, session: Session, props?: object): void;
 /** A screen: per destination, the reach band, start line and now trace. */
 export declare function TraceLanes(el: HTMLElement, session: Session, props?: object): void;
-/** A screen: the routes in use as compact wires (width = depth, brightness = source now). */
-export declare function CompactWires(el: HTMLElement, session: Session, props?: object): void;
+/** W-a (ADR-341 r5): a screen: the routes in use as compact wires (width = depth, brightness = source now), values on the nodes, a ◇ valve at
+    every wire's middle (filled to its depth), and wires you drag from a source to a destination (a new wire beside any there) or onto a valve
+    (a depth route, B70). */
+export interface CompactWiresProps { /** destination order, and destinations with no wire yet */ keys?: ManifestKey[]; /** sources shown with no route */ sources?: string[];
+  /** false turns the dragging off */ drag?: boolean; /** a source dropped on a destination; default adds a mapping at 25 % */ onWire?(src: string, key: ManifestKey): void;
+  /** a source dropped on a wire's valve: the seam to B70's depth routes. The master only EMITS it; with no callback the matrix's placeholder list takes it */
+  onDepthRoute?(src: string, mapping: Mapping): void }
+export declare function CompactWires(el: HTMLElement, session: Session, props?: CompactWiresProps): void;
+/** MP1 (ADR-340 r9): the polarity chip's gestures on a route's button: click next, shift-click previous, a vertical drag the depth. `cycle(back)` is the owner's own cycle. */
+export declare function PolChip(btn: HTMLElement, session: Session, m: Mapping, props: { cycle(back: boolean): void; depthRoute?: boolean }): HTMLElement;
+/** MS3 (ADR-340 r8): the MAP control's source as a chip: drag up/down on its name (12 px a source), ‹ ›, ▾ the full list; no plain wheel (B301). */
+export interface SourceChipProps { order?(): Source[]; onPick?(id: string): void; keys?: boolean | (() => boolean) }
+export declare function SourceChip(el: HTMLElement, session: Session, props?: SourceChipProps): { sync(): void };
+/** MS4 (ADR-340 r8): the bank's row form: a thin 26 px row per source (swatch, name, route count, live meter, value, Map); while MAP is on a click on the body makes it the source. */
+export declare function SourceRows(el: HTMLElement, session: Session, props?: { sources?: string[]; label?: string; fmt?(s: Source, v: number): string }): { el: HTMLElement; render(): void };
+/** ML3 (ADR-340 r10): routes grouped by source, one RouteRow per route (and per depth route the source drives); the Mod page's detail pane. */
+export declare function RoutesBySource(el: HTMLElement, session: Session, props?: { sources?: string[]; param?: ManifestKey; empty?: boolean; label?: string }): { el: HTMLElement; render(): void };
+/** TC1 (ADR-338 r2): the toggle, segments, select and button at a 16 px face with a 28 px hit; `flat` is TC2, inside tables only. The stepper is Stepper with tc / flat. */
+export interface CompanionProps { kind: 'toggle' | 'segments' | 'select' | 'button'; name?: string; path?: string; options?: string[]; short?: string[];
+  /** a toggle: boolean; segments, select: the index */ value?: boolean | number; label?: string; flat?: boolean; onInput?(v?: boolean | number): void; keys?: boolean | (() => boolean) }
+export declare function Companion(el: HTMLElement, props: CompanionProps): { get(): boolean | number | undefined; set(v: boolean | number): void };
 /** A hosted module's macros: visible, read-only, never cross-mapped (ADR-266 r3). */
 export declare function HostedMacroRows(el: HTMLElement, session: Session, props?: { module?: string; macros?: { name: string; f(t: number): number; targets: string[] }[] }): void;
 /** The matrix arithmetic shared by the views: push, now, raw, reach, ctlPos, depthNow … */
@@ -312,3 +340,45 @@ export declare function ChannelStrip(el: HTMLElement, session: Session, props: C
   set(id: string, what: 'on' | 'mute' | 'solo', value: boolean): void; state(): { id: string; on: boolean; mute: boolean; solo: boolean; peak: number }[] };
 /** compact pills as a radiogroup (Section header's modes, a blade's mirror) */
 export declare function pillGroup(host: HTMLElement, labels: string[], value: number, label: string, onPick?: (i: number) => void, props?: { keys?: boolean | (() => boolean) }): { set(i: number): void; get(): number; buttons: HTMLButtonElement[] };
+
+// ===== Master batch 2b (ADR-338, ADR-340, ADR-341): page forms and the bank =====
+/** An item of a cluster, a fold tier or a page grid: an element, a builder, or a control. Knobs and sliders default to the tiny tier; the host carries data-key. */
+export type ClusterItem = HTMLElement | ((host: HTMLElement, session: Session) => void) | { knob: KnobProps } | { slider: SliderProps } | { stepper: StepperProps & { key?: ManifestKey; abbr?: string } } | { el: HTMLElement };
+export interface ClusterProps { name: string; path?: string; num?: number | string; on?: boolean; onToggle?(on: boolean): void; summary?: string | (() => string); keys?: boolean | (() => boolean);
+  /** items placed beside the name (switches, a velocity knob) */ head?: ClusterItem[]; /** an element between the header and the controls */ picture?: HTMLElement }
+/** C1 (ADR-338 r4): a row of 28 px cells in groups split by a dashed hairline, one shared label line, switches in the header, wrapping by group (never mid-group); advanced items inline after an ADV mark. */
+export declare function Cluster(el: HTMLElement, session: Session, props: ClusterProps & { groups: { label?: string; items: ClusterItem[] }[]; adv?: ClusterItem[] }): { el: HTMLElement; header: unknown; body: HTMLElement };
+/** C2 (ADR-338 r4): a matrix for a repeated sub-structure: column labels once, row labels once; a null cell is an honest dot. */
+export declare function ClusterMatrix(el: HTMLElement, session: Session, props: ClusterProps & { cols: ({ label: string; title?: string } | string)[]; rows: { label: string; cells: (ClusterItem | null)[] }[]; emptyTitle?: string }): { el: HTMLElement; header: unknown; grid: HTMLElement };
+/** P1 (ADR-338 r5): the control under the pointer (S.hot), else the last clicked, enlarged: the full knob (a shadow of the page's props), every corner's value and weight, every mapping. */
+export declare function Lens(el: HTMLElement, session: Session, props: { scope: ManifestKey[] | ((key: ManifestKey) => boolean); fallback?: ManifestKey; size?: ControlSize }): { el: HTMLElement; key(): ManifestKey | null };
+/** P2 (ADR-338 r5): Face | All | +Adv per section, remembered per id (localStorage in try/catch, else session memory). Tiers are cumulative; a missing tier has no segment. */
+export declare function Fold(el: HTMLElement, session: Session | null, props: { id?: string; name: string; path?: string; tiers: { face: ClusterItem[] | ((host: HTMLElement, s: Session) => void); all?: ClusterItem[] | ((host: HTMLElement, s: Session) => void); adv?: ClusterItem[] | ((host: HTMLElement, s: Session) => void) }; tier?: 0 | 1 | 2; open?: boolean; summary?: string; keys?: boolean | (() => boolean) }): { tier(t?: 0 | 1 | 2): number | void; open(b?: boolean): boolean | void; el: HTMLElement };
+export interface ParamTableControl { key: ManifestKey; name: string; abbr?: string; path?: string; kind?: 'knob' | 'stepper' | 'toggle' | 'select'; advanced?: boolean;
+  /** knob: KnobProps (drawn as a TS2a cell); stepper: StepperProps; toggle: { value, onChange }; select: { options, value, onChange } */ props?: unknown }
+/** The table form of PV1: 17 px rows in columns by section, the full name, the control, the owner glyph and the mappings as dots. filter(q) returns the match count. */
+export declare function ParamTable(el: HTMLElement, session: Session, props: { groups: { title: string; controls: ParamTableControl[] }[] }): { el: HTMLElement; filter(q: string): number; count(): number };
+/** PV1 (ADR-340 r6): a Grid | Table switch with the find box in the page's header, remembered per page id ({ view, find }). The left column stays put in both views. */
+export declare function PageView(el: HTMLElement, session: Session, props: { id?: string; label?: string; title?: string; left?: HTMLElement; grid: HTMLElement | ((host: HTMLElement, s: Session) => void);
+  table?: HTMLElement | ((host: HTMLElement, s: Session) => void) | { groups: { title: string; controls: ParamTableControl[] }[] }; view?: 'grid' | 'table'; onView?(view: 'grid' | 'table'): void; keys?: boolean | (() => boolean) }): { view(v?: 'grid' | 'table'): string | void; find(q?: string): string | void; refresh(): void; el: HTMLElement };
+/** A modulator as the tiers draw it. id matches a Source in the Session (its f(t) draws the picture unless f or paint is given). */
+export interface ModDescriptor { id: string; name: string; kind: SourceKind; kindLabel?: string; group?: string; fixed?: boolean; pending?: boolean; short?: string; f?(t: number): number; value?(t: number): number; fmt?(v: number): string;
+  picture?: 'trace' | 'arc'; bipolar?: boolean; span?: number; /** its own drawing: K is Horde.ModPicture.kit's { g, W, H, k, P, col } */ paint?(K: object, t: number, opt: { big?: boolean }): void; ctls?: ClusterItem[]; note?: string; sample?: string;
+  retrig?: boolean; onRetrig?(on: boolean): void }
+export interface ModTierProps { onMap?(m: ModDescriptor): void; onDrop?(m: ModDescriptor, key: ManifestKey): void; /** the host removes the modulator and its routes as ONE undo step (M-R2) */ onRemove?(m: ModDescriptor, routes: Mapping[]): void; onSelect?(m: ModDescriptor): void;
+  routes?(m: ModDescriptor): Mapping[]; /** the page's keys, for "n here" */ pageKeys?: ManifestKey[]; selected?(): string | null; keys?: boolean | (() => boolean); /** full only: mounts the bundle's own editor */ editor?(m: ModDescriptor, host: HTMLElement): void }
+/** ADR-338 r6: thin (26 px row), compact (188 px, the thin row expanded, r7), chip (20 px) and full (the Mod page's detail). */
+export declare const ModTiers: { thin(el: HTMLElement, s: Session, m: ModDescriptor, o?: ModTierProps): unknown; compact(el: HTMLElement, s: Session, m: ModDescriptor, o?: ModTierProps): unknown; chip(el: HTMLElement, s: Session, m: ModDescriptor, o?: ModTierProps): unknown; full(el: HTMLElement, s: Session, m: ModDescriptor, o?: ModTierProps): unknown };
+export declare const ModPicture: { kit(cv: HTMLCanvasElement): object | null; paint(cv: HTMLCanvasElement, s: Session, m: ModDescriptor, t: number, opt?: { big?: boolean }): void; col(rgb: number[], alpha?: number): string };
+export interface MacroDescriptor { id: string; name: string; /** the wheels: 'bend' springs to the centre when the mouse lets go; 'mod' holds */ wheel?: 'bend' | 'mod' | null; value?: number; def?: number; fmt?(v: number): string; /** bend range in semitones, default 2 */ range?: number; touches?: number | (() => number) }
+/** BR-b (ADR-341 r6, r7): a macro or wheel as a thin row with a TS1a slider; the wheels' rows carry a half-second trace, the bend a centre notch and a spring (50 ms, in seconds). setHardware(v) pins the row to the hardware wheel (the hardware wins); null lets go. onChange(id, v, by) is every change the row made itself; the engine's echo comes back through set() or setHardware(). */
+export declare function MacroRow(el: HTMLElement, s: Session, m: MacroDescriptor, o?: { onChange?(id: string, v: number, by: 'mouse' | 'spring'): void; onMap?(m: object): void; onDrop?(m: object, key: ManifestKey): void; path?: string; sliderWidth?: number; keys?: boolean | (() => boolean) }): { el: HTMLElement; get(): number; set(v: number): void; setHardware(v: number | null): void; held(): boolean };
+/** M2 + BT1 (ADR-338 r7, ADR-340 r11): 68 px, two lanes of 26 px rows, MAC | MODS segments, a click on a row opens its compact card; callbacks only. */
+export declare function ModBank(el: HTMLElement, s: Session, o: ModTierProps & { mods: ModDescriptor[] | (() => ModDescriptor[]); macros?: MacroDescriptor[]; set?: 'mods' | 'macros'; onSet?(set: 'mods' | 'macros'): void; onAdd?(): void; onMacro?(id: string, v: number, by: string): void; macroPath?: string }): { set(s: 'mods' | 'macros'): void; get(): string; refresh(): void; close(): void; macro(id: string): ReturnType<typeof MacroRow>; setHardware(id: string, v: number | null): void };
+/** M5 (ADR-338 r8): a list of thin rows by kind and the selected modulator at the full tier; Detail | Routes (the matrix grid is the route view). */
+export declare function ModPage(el: HTMLElement, s: Session, o: ModTierProps & { mods: ModDescriptor[] | (() => ModDescriptor[]); kinds?: { id: string; label: string }[]; select?: string; onAdd?(kind: string): void; routes?(host: HTMLElement, s: Session): void; matrix?: object }): { select(id: string): void; get(): string | null; mode(v: 'detail' | 'routes'): void; refresh(): void; el: HTMLElement };
+/** M-R2 (ADR-338 r9): the line that names a removal's routes and offers Undo. The host owns the undo stack. */
+export declare function UndoLine(el: HTMLElement, o?: { keys?: boolean | (() => boolean) }): { show(text: string, onUndo?: () => void): void; hide(): void; el: HTMLElement };
+export declare const ModRemoval: { UndoLine: typeof UndoLine; describe(s: Session, m: ModDescriptor, routes: Mapping[]): string };
+/** One parameter, many faces: builds a face from a SHADOW of the canonical props (the registry and the revert baseline are put back). */
+export declare function ctlFace<T>(s: Session, p: KnobProps, extra: object, build: (q: KnobProps) => T): T;

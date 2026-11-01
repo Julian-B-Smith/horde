@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1793502898-ea3e, 2026-10-31; do not edit, re-vendor (generated from its tokens.json) */
+/* vendored from the horde Design System artifact, version 1793517046-cbf4, 2026-11-01; do not edit, re-vendor (generated from its tokens.json) */
 :root {
   --bg: #f2ede2;
   --panel: #fcfaf4;
@@ -209,6 +209,13 @@
   --size-strip-w: 72px;
   --size-fader-h: 140px;
   --size-meter-w-dense: 7px;
+  --size-row-thin: 26px;
+  --size-row-thin-w: 226px;
+  --size-row-macro-w: 188px;
+  --size-card-compact-w: 188px;
+  --size-bank-h: 68px;
+  --size-bank-side: 52px;
+  --size-micro-chip: 20px;
   --stroke-ink: 1.5px;
   --stroke-sub: 1px;
   --stroke-page: 2px;

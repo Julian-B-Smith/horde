@@ -1,4 +1,4 @@
-<!-- @dsCard group="Modulation" height=356 subtitle="MAP toggle joined to its source selector, the live source strip, and the inspector's mouse routes" -->
+<!-- @dsCard group="Modulation" height=380 subtitle="MAP toggle joined to its source selector (or, MS3, a source chip you drag through), the live source strip, and the inspector's mouse routes (a polarity chip on each row: click, shift-click, drag)" -->
 <!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><title>MAP control</title></head>
@@ -10,6 +10,7 @@
       <div class="hd-row" style="gap:10px">
         <button class="hd-kbd" id="lamp" type="button" aria-pressed="false"><span class="lampdot" aria-hidden="true"></span><span id="lampword">KEYS OFF</span></button>
         <div id="map"></div>
+        <div id="map2" title="MS3: the same control with the source as a chip: drag up or down on its name"></div>
       </div>
     </div>
     <div id="strip" style="padding:8px 10px; border-bottom:1px dashed var(--div)"></div>
@@ -43,6 +44,7 @@
     { key: 'drive.bloom', name: 'Bloom', path: 'Drive · Bloom', vals: [.3, .3, .3, .3], def: 0 }
   ].forEach(function (p) { p.fmt = p.fmt || pctf; var d = document.createElement('div'); host.appendChild(d); H.Knob(d, p, S); });
   H.MapControl(document.getElementById('map'), S, { strip: document.getElementById('strip'), frame: document.getElementById('win') });
+  H.MapControl(document.getElementById('map2'), S, { chip: true });   // MS3 (ADR-340 r8): drag through the sources, or step them; shares the one MAP state
   H.ModInspector(document.getElementById('insp'), S);
   var lamp = document.getElementById('lamp'), word = document.getElementById('lampword');
   function lampSync() { lamp.setAttribute('aria-pressed', String(S.keys)); word.textContent = S.keys ? 'KEYS ON' : 'KEYS OFF'; }
