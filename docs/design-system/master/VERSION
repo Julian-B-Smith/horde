@@ -4,7 +4,7 @@
 # (python3 tools/design_vendor.py record-master --version <id> --date <d>) and re-vendor.
 # tools/design_chain_check.py holds the tree to these hashes: every file listed, none extra.
 artifact: https://claude.ai/artifact/EGDwetDHwcvxhTbNffCzJc
-version: 1793516938-100b
+version: 1793517046-cbf4
 date: 2026-11-01
 files: 165
 b09cb0e52c9c9fa6f8e7f4144e83be6d4d01897b853c62cc403343c4f068af9e  README.md
@@ -29,7 +29,7 @@ b5b4ec730a882076f4613d5a1e01f30527c9e91b0bd05f7bdd73f75ed54e8789  components/Coh
 b6806c21e80a8d417d55eb8c4d039ea4f77f7da5a9d41f69cddc63e7e3536f5a  components/CompactWires/README.md
 31ae4fd1753944d134013e4d410aca3e321e58793c68da5fa28676466da5ca05  components/CompactWires/preview.html
 be5ee022db8832d4a362869dd6f989bebfbf5aff7481dcb8f3df450588cca5ea  components/Companion/README.md
-6e7b569929656ea77aae7d34114ea68f1b0d2bf776e456054cc1da07d4bbbc86  components/Companion/preview.html
+152767bcebc963cc801df33e3b10f030b9d20c044291c57762f6cf9a0ba72091  components/Companion/preview.html
 b1a2dcb18b5f4aa62071974bf9966d7b46a5c58aa593880a3c96b1b88da02654  components/CornerChip/README.md
 27180679e2d0a866e50e246a075289dc63617a15edb3d8ce8f91809a3b77d030  components/CornerChip/preview.html
 cde172aa7401b727bb77573f1cda56c5880cde5bca2050b0c402cbfcbe2a74ea  components/Cover/preview.html

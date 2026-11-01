@@ -41,7 +41,7 @@
   row('Clock', function (c) { H.Companion(c, { kind: 'segments', flat: true, name: 'Clock', path: 'S&H · Clock', options: ['Cycle', 'Global', 'Kuro'], short: ['CYC', 'GLB', 'KUR'], value: 0, onInput: on('Clock') }); });
   row('Detune law', function (c) { H.Companion(c, { kind: 'select', flat: true, name: 'Detune law', path: 'Osc 1 · Detune law', options: ['Linear', 'Exp', 'Swarm'], short: ['LIN', 'EXP', 'SWM'], value: 0, onInput: on('Detune law') }); });
   row('Steps', function (c) { var d = document.createElement('span'); c.appendChild(d); H.Stepper(d, { name: 'Steps', path: 'Seq · Steps', min: 1, max: 64, value: 16, def: 16, flat: true, say: say }); });
-  row('Panic', function (c) { H.Companion(c, { kind: 'button', flat: true, name: 'Reset', path: 'Seq · Reset', label: 'Reset', onInput: on('Reset') }); });
+  row('Seq reset', function (c) { H.Companion(c, { kind: 'button', flat: true, name: 'Reset', path: 'Seq · Reset', label: 'Reset', onInput: on('Reset') }); });
 })();
 </script>
 </body>

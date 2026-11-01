@@ -11,8 +11,9 @@
 - **What changed (lead, beyond the two halves):**
   - **MacroRow:** the bend's final snap (and the reduced-motion snap) now reports `spring`, not `mouse`. Found by dragging the bend row in the browser; the host must never read a release as the hand.
   - **MP3 is limited to mappings that existed before the drag.** The first publish (1793516789-9f79) let a NEW mapping's Option-drag go below zero and come out INV, so a drag released at 0 made an INV route. That broke the Map Mode spec's rule, and `gui3_seam_check` mapdrag went red. The lab's own words are "⌥drag a UNI mapping", so the master now matches them. No gate was edited. The reading is in the master README and the ledger.
-  - **Published** 1793516789-9f79, then 1793516938-100b with the fix (both from this branch before merge, cdf8772's precedent; the live version was first checked to be 1793502898-ea3e). VERSION is recorded at 100b, and `docs/design/arp-face/` is re-vendored with its provenance row.
+  - **Published** 1793516789-9f79, then 1793516938-100b with the MP3 fix, then 1793517046-cbf4 with the sample label (all from this branch before merge, cdf8772's precedent; the live version was first checked to be 1793502898-ea3e). VERSION is recorded at 100b, and `docs/design/arp-face/` is re-vendored with its provenance row.
   - **The ledger:** 19 rows moved to vendored at 100b. adr340-steppers and adr340-hover-h1-h4 were re-stamped. adr340-polarity stays ruled: the right-click menu entry is not built. The round 1 and round 3 labs are harvested; round 2 stays ruled (polarity menu).
+  - **The Companion preview's TC2 sample** labelled a row "Panic" (it was the sequencer's Reset button). ADR-340 r12 rules there is no Panic control, so the row is "Seq reset". Republished as 1793517046-cbf4.
   - The ROADMAP B589 note.
   - A stray hook marker (`components/.harness/dirty`, gitignored, written by the stop-gate hook from that cwd) had entered VERSION's file list; it was removed and VERSION re-recorded at the same version id.
 - **Not done, and why:**
@@ -33,5 +34,5 @@
   - Light and dark screenshots of the level cell and the bank.
   - The GUI 3 shell's self-checks: 28 of 28 on the re-vendored bundle, no console errors.
   - `gui3_seam_check`: GREEN, 34 tests, 49 plants.
-  - `design_chain_check`: GREEN, 165 files at 1793516938-100b.
+  - `design_chain_check`: GREEN, 165 files at 1793517046-cbf4.
   - `./verify fast`: see the PR.
