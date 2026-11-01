@@ -10,8 +10,8 @@
  },
  "master_versions": [
   {
-   "version": "1793569105-ed02",
-   "evidence": "docs/design-system/master/VERSION: published 2026-11-01 from the gui-info-box branch before merge. ADR-345: the new InfoBox component (the lock and the auto-scroll), which the info box lacked since ADR-315 (a hop the audit recorded as skipped). 1793568967-6a34 was published and superseded within the batch: its auto-scroll stopped itself on the browser's rounding of scrollTop, found by driving the preview."
+   "version": "1793571581-8cd3",
+   "evidence": "docs/design-system/master/VERSION: published 2026-11-01 from the gui-info-box branch before merge. ADR-345: the new InfoBox component (the lock and the auto-scroll), which the info box lacked since ADR-315 (a hop the audit recorded as skipped). 1793568967-6a34 was published and superseded within the batch: its auto-scroll stopped itself on the browser's rounding of scrollTop, found by driving the preview. 1793569105-ed02 was its fixed version, superseded in turn only to renumber the ruling from ADR-344 to ADR-345 (the lead's #1322 landed ADR-344 first)."
   },
   {
    "version": "1793558157-f6a9",
@@ -132,8 +132,8 @@
   "foot-row-lab.html": {
    "status": "harvested",
    "adr": "ADR-345",
-   "note": "Ruled F1 (ADR-345). The lock and auto-scroll the ruling added are the master's InfoBox at 1793569105-ed02; F1's size is the shell's. The lab still runs on the live shell, each option stating its own foot row.",
-   "master_version": "1793569105-ed02"
+   "note": "Ruled F1 (ADR-345). The lock and auto-scroll the ruling added are the master's InfoBox at 1793571581-8cd3; F1's size is the shell's. The lab still runs on the live shell, each option stating its own foot row.",
+   "master_version": "1793571581-8cd3"
   },
   "formant-lab.html": {
    "status": "retired",
@@ -3588,14 +3588,14 @@
    "clause": "ruling 2 (a fixed info box in the same place on every page shows the hovered control's description from the desc column)",
    "lab": "docs/design/page-chrome-lab.html",
    "component": "InfoBox",
-   "master_version": "1793569105-ed02",
+   "master_version": "1793571581-8cd3",
    "bundle": "InfoBox",
    "via": null,
    "shell": "docs/design/gui3.html: const infoBox = H.InfoBox($('info'), S,",
    "state": "in-shell",
    "superseded_by": null,
    "port_tab": "descriptions",
-   "note": "The master's InfoBox since ADR-345 (1793569105-ed02), the hop the audit recorded as skipped. The shell gives it its text: each row's spec text, tagged SPEC TEXT, as before."
+   "note": "The master's InfoBox since ADR-345 (1793571581-8cd3), the hop the audit recorded as skipped. The shell gives it its text: each row's spec text, tagged SPEC TEXT, as before."
   },
   {
    "id": "adr315-open-in-manual",
@@ -4323,7 +4323,7 @@
    "clause": "ruling 4 (the info box is a fixed square-ish box at the bottom, left of the modulator bank, one size on every page, and explains whole sections as well as single parameters)",
    "lab": "docs/design/page-chrome-lab.html",
    "component": "InfoBox",
-   "master_version": "1793569105-ed02",
+   "master_version": "1793571581-8cd3",
    "bundle": "InfoBox",
    "via": null,
    "shell": "docs/design/gui3.html: <div class=\"footrow\" id=\"footrow\">",
@@ -4848,7 +4848,7 @@
    "clause": "ruling 1 (the foot row is F1: the info box 300 x 120, the foot row 120 px, pages 468 px; amends ADR-335 r4's 'square-ish' and ADR-338 r7's 472 px)",
    "lab": "docs/design/foot-row-lab.html",
    "component": "InfoBox",
-   "master_version": "1793569105-ed02",
+   "master_version": "1793571581-8cd3",
    "bundle": "InfoBox",
    "via": null,
    "shell": "docs/design/gui3.html: .footrow { --foot-h: 120px; --info-w: 300px;",
@@ -4863,7 +4863,7 @@
    "clause": "ruling 2 (any selection locks the box, a drag's press included; a hover changes nothing until another selection or a release)",
    "lab": "docs/design/foot-row-lab.html",
    "component": "InfoBox",
-   "master_version": "1793569105-ed02",
+   "master_version": "1793571581-8cd3",
    "bundle": "InfoBox",
    "via": null,
    "shell": "docs/design/gui3.html: infoBox.lock(c)",
@@ -4878,7 +4878,7 @@
    "clause": "ruling 3 (a description past the box's edge starts scrolling after about 2 s, on a hover or a lock; the pointer entering, a hand on the scroll and reduced motion stop it; text that fits never moves)",
    "lab": "docs/design/foot-row-lab.html",
    "component": "InfoBox",
-   "master_version": "1793569105-ed02",
+   "master_version": "1793571581-8cd3",
    "bundle": "InfoBox",
    "via": null,
    "shell": "docs/design/gui3.html: infoBox.show(c)",
@@ -4893,7 +4893,7 @@
    "clause": "ruling 4 (an Info sidebar toggle in Settings replaces the foot box with a full-height left column, shared with the morph pad)",
    "lab": "docs/design/foot-row-lab.html",
    "component": "InfoBox",
-   "master_version": "1793569105-ed02",
+   "master_version": "1793571581-8cd3",
    "bundle": "InfoBox",
    "via": null,
    "shell": "docs/design/gui3.html: function setSidebar(on)",
