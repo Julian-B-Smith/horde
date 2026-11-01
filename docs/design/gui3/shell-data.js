@@ -325,7 +325,7 @@ window.GUI3_DATA = {
     "asked": "All modulators",
     "id": "modulators",
     "item": "All the modulators: the LFOs, the modulator family's editors, the mod matrix and its routes page",
-    "missing": "The LFOs and the other modulators, each card's retrigger switch (no modulator has a retrigger row), the Mod page's form (M5, after the composition lab's round 2); ENV 1 to ENV 4, the bank, and since B584 batch 1 the matrix grid and route list are there.",
+    "missing": "The LFOs and the other modulators, each card's retrigger switch (no modulator has a retrigger row). Since the shell hop of 2026-11-01: the bank is ModBank (M2, BT1) with M-R2 removal and its undo line, and the Mod page is ModPage (M5) with Grid, By source and Wires route views; ENV 1 to ENV 4 and the engine sources are there.",
     "reason": "spec-table",
     "roadmap": "B586",
     "source": [
@@ -340,7 +340,7 @@ window.GUI3_DATA = {
     "asked": "The quick map selector at the top, from one of the recent labs",
     "id": "quick-map",
     "item": "The quick map selector at the top (the persistent MAP control and its source selector)",
-    "missing": "From the spec: its rows cannot be dragged to reorder the rings (ring order is the order mapped); the scope switch for corner-level mappings (the spec: global for 1.0, the switch a follow-up), so the device's routes are global and carry no per-corner depth; the keys now work always, keyboard mode on or off (ADR-335 ruling 1, provisional: the human may reverse it after use; whether they collide with keyboard MIDI input, and how Live treats them focused and not, is untried); Option-drag, Option-click focus and Option-P are the bundle's and are not under the seam check; the console's faders and sliders were not tried in map mode; the sources read 0 (no voices), so the rings sit at their origins and the live ticks and stacked origins do not move (MOCK). Gaps in the bundle for the design master: the session gives no event when its mapping list changes (the shell reconciles on every emit), and its keys are gated by keyboard mode (the shell takes them itself while keyboard mode is off, ADR-335).",
+    "missing": "From the spec: its rows cannot be dragged to reorder the rings (ring order is the order mapped); the scope switch for corner-level mappings (the spec: global for 1.0, the switch a follow-up), so the device's routes are global and carry no per-corner depth; the keys now work always, keyboard mode on or off (ADR-335 ruling 1, provisional: the human may reverse it after use; whether they collide with keyboard MIDI input, and how Live treats them focused and not, is untried); Option-drag, Option-click focus and Option-P are the bundle's and are not under the seam check; the console's faders and sliders were not tried in map mode; the sources read 0 (no voices), so the rings sit at their origins and the live ticks and stacked origins do not move (MOCK). Since the shell hop of 2026-11-01 the source is also MS3's chip on the MAP control and MS4's bank-row click, and the keys and Escape are the session's own (mapKeysAlways, ADR-335's one switch). Gap in the bundle for the design master: the session gives no event when its mapping list changes (the shell reconciles on every emit).",
     "reason": "ds-component",
     "roadmap": "B532",
     "source": [
@@ -382,14 +382,15 @@ window.GUI3_DATA = {
     "asked": "",
     "id": "macros",
     "item": "Macros and the intent bus (the bank's Macros view)",
+    "missing": "The intent bus and the macros in the stub (the lead's, B89), so the rows can bind; the macro slots' names (ADR-192 leaves the phrases open; slots 5 to 8 read Macro 5 to 8 and truncate in the bank's narrower lane).",
     "reason": "spec-table",
     "roadmap": "B89",
     "source": [
      "reference/intent-bus.html",
      "specs/SPEC-MODULE-MACROS.md"
     ],
-    "status": "not-moved",
-    "why": "The macros and the intent bus are deferred from the engine (RC-4) and have no rows; the bank's Macros switch says so."
+    "status": "partial",
+    "why": "The macros and the intent bus are deferred from the engine (RC-4) and have no rows. Since the shell hop of 2026-11-01 the bank's MAC lane shows the ten rows (eight macros, the bend, the mod wheel) unbound, the bend springing back; touching one says it is not in the engine yet and sends nothing."
    },
    {
     "area": "Chrome",
@@ -450,14 +451,14 @@ window.GUI3_DATA = {
     "asked": "the modulators each need visuals, and their controls should be quite a bit more compact",
     "id": "composition-tier",
     "item": "The tiny tier and the composition rules (T2, TC1/TC2, TS1/TS2, C1 + C2, P1, the abbr column)",
-    "missing": "The tiny knob (T2d), the tiny sliders (TS1a/TS2a), the Stepper and the fixed readout slot are in the master and the vendored bundle (1793502898-ea3e, ADR-340); the toggle, segments and select companions, the cluster forms, P1's lens and grid, PV1's table view and the abbr column are not, so the shell's pages still use compact knobs and overflow 720 px.",
+    "missing": "The level cell (T4c-f; the master gives it no placement), TS1a (no place yet), the blades as one C2 (needs a ruling), and the window: the pages fit the ruled 472 px but the info box keeps the foot row at 216 px (ADR-335 r4), so the shell gives them 372 px and they scroll up to 95 px (open, B589). The abbreviations are for the human to review.",
     "reason": "ds-component",
     "roadmap": "B589",
     "source": [
      "docs/design/composition-lab.html"
     ],
     "status": "partial",
-    "why": "Ruled by ADR-338, its drawings amended by ADR-340 (round 2); round 3 draws ADR-340's amendments. The master takes the control layer first, then the page forms (ADR-316)."
+    "why": "Ruled by ADR-338, drawn by ADR-340 and ADR-341, in the master since batch 2 (1793517046-cbf4). The shell hop of 2026-11-01 mounts them: every parameter page but Mod is a PageView (Grid | Table, find, the lens) of C1 clusters with tiny knobs under a 4-character abbreviation (layout.json's abbr, checked by the generator), TC1 companions and SG-b steppers, Main's ENV 1 as a C2 matrix, and folds on the six oscillator sections that overflowed."
    },
    {
     "area": "Chrome",

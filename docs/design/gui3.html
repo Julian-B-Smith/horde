@@ -1806,8 +1806,10 @@ S.start();
       const corners = lensEl.querySelectorAll('.lz-corners .lz-ln').length;
       ctlHost(pageEls.osc1, k).dispatchEvent(new MouseEvent('pointerleave')); tick();
       line(hot === r.label && before !== r.label && corners === 4 && !!lensEl.querySelector('.mk-face'), 'Lens: hovering ' + r.label + ' put it in Osc 1’s lens (its full knob and four corner values); before the hover the lens showed ' + before + ' (control: not this control).'); }
-    // 38. ADR-338 r5, ADR-338 r7: the dense pages fit the window’s page area, the folds holding the rest. A page is measured as the area it has now, or the
-    // 472 px the bank’s 68 px row leaves (r7) while the foot row is still the taller one; each fold at +Adv must overflow Osc 1 (the control), so the fold is what holds it.
+    // 38. ADR-338 r5, ADR-338 r7: the dense pages fit the RULED page area, the folds holding the rest. The ruled area is the 472 px the bank's 68 px row
+    // leaves (r7), but the foot row is 216 px because the fixed info box sits in it (ADR-335 r4), so the shell's real area is smaller and these
+    // pages scroll there: an open conflict between the two rulings, put to the human (B589). The line prints both numbers so it never reads as a
+    // fit in the real window. Each fold at +Adv must overflow Osc 1 (the control), so the fold is what holds it.
     { const area = $('pages').clientHeight, limit = Math.max(area, 472), over = [], size = {};
       const bodyH = pid => { selectPage(pid); const a = $('pages'), was2 = [a.style.overflow, a.style.flex, a.style.height]; a.style.overflow = 'visible'; a.style.flex = 'none'; a.style.height = 'auto';
         const hgt = a.scrollHeight; [a.style.overflow, a.style.flex, a.style.height] = was2; return hgt; };
@@ -1815,7 +1817,7 @@ S.start();
       const folds = [...pageEls.osc1.querySelectorAll('.hd-fold')], tiers = folds.map(f => f.querySelector('.fd-head [role=radio][aria-checked=true]')), pillsOf = f => [...f.querySelectorAll('.fd-head [role=radio]')];
       pillsOf(folds[0]).slice(-1)[0].click(); folds.slice(1).forEach(f => pillsOf(f).slice(-1)[0].click()); const opened = bodyH('osc1');
       folds.forEach((f, i) => pillsOf(f).find(b => b.textContent === tiers[i].textContent).click()); selectPage('osc1');
-      line(!over.length && opened > limit && folds.length === 3, 'Fit: main ' + size.main + ', Osc 1 ' + size.osc1 + ', Osc 2 ' + size.osc2 + ', Sub ' + size.sub + ' and Noise ' + size.noise + ' px fit ' + limit + ' px' + (area < 472 ? ' (the page area is ' + area + ' px until the 68 px bank lands, r7; 472 is the ruled one)' : '') + (over.length ? ' (OVER: ' + over.join(', ') + ')' : '') + '; Osc 1 with its three folds at +Adv is ' + opened + ' px, so the folds hold the rest (control).'); }
+      line(!over.length && opened > limit && folds.length === 3, 'Fit: main ' + size.main + ', Osc 1 ' + size.osc1 + ', Osc 2 ' + size.osc2 + ', Sub ' + size.sub + ' and Noise ' + size.noise + ' px fit ' + limit + ' px' + (area < 472 ? ' (the RULED area, r7; the shell gives them ' + area + ' px, because the info box keeps the foot row at 216 px (ADR-335 r4), so they scroll ' + Math.max(0, ...Object.values(size).map(s => s - area)) + ' px at most: open, B589)' : '') + (over.length ? ' (OVER: ' + over.join(', ') + ')' : '') + '; Osc 1 with its three folds at +Adv is ' + opened + ' px, so the folds hold the rest (control).'); }
     // 39. ADR-341 r2 (DR-c): the section header’s readout slot is two stacked lines in a fixed box and nothing here resizes it: hovering a tiny knob fills both
     // lines (the editing corner’s own value, then “now”) and the box is the same size at rest and hot. Control: at rest it shows the summary and not the lines.
     { selectPage('sub'); const sec = pageEls.sub.querySelector('[data-section="sub/colour"]'), slot = sec.querySelector('.hd-rslot'), box = () => { const b = slot.getBoundingClientRect(); return [Math.round(b.width), Math.round(b.height)].join('x'); };
