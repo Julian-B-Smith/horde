@@ -91,8 +91,9 @@
    "note": "Round 2: the human's picks by poll (2026-10-30/31), with amendments that round 3 draws."
   },
   "composition-lab-r3.html": {
-   "status": "exploring",
-   "note": "Round 3 (B589, B594): ADR-340's amendments drawn as variants (T4c's corner mark, the dual readout, stepper gestures, MP1's band drag, menu and chord, ML1's depth-route wires, the bank's macro rows against a wheel); the human answers by poll."
+   "status": "ruled",
+   "adr": "ADR-341",
+   "note": "Round 3: the human's picks by poll (2026-10-31/11-01): T4c-f at T2d's pip size, DR-c, SG-b with a dropdown for named steppers, MP-c, W-a, BR-b; the bend row springs back."
   },
   "composition-lab.html": {
    "status": "ruled",
@@ -4614,7 +4615,7 @@
    "state": "ruled",
    "superseded_by": null,
    "port_tab": "composition-tier",
-   "note": "Round 3 draws the visible corner mark before the master takes it. FX device: same."
+   "note": "Round 3 draws the visible corner mark before the master takes it. FX device: same. Drawn as T4c-f by ADR-341 r1."
   },
   {
    "id": "adr340-hover-h1-h4",
@@ -4735,6 +4736,111 @@
    "superseded_by": null,
    "port_tab": "macros",
    "note": "The shell keeps the Mods | Macros pills; macros need the intent bus in the stub (lead) and BR1 in the master. FX device: same."
+  },
+  {
+   "id": "adr341-t4c-f",
+   "adr": "ADR-341",
+   "clause": "ruling 1 (the level cell's corner mark is T4c-f: a hollow see-through circle in the corner's -tx ink, at T2d's pip size)",
+   "lab": "docs/design/composition-lab-r3.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null,
+   "port_tab": "composition-tier",
+   "note": "Amends ADR-340 r3. The level cell and the tiny knob share one corner mark. To the master next. FX device: same."
+  },
+  {
+   "id": "adr341-dr-c",
+   "adr": "ADR-341",
+   "clause": "ruling 2 (the dual readout is DR-c: two stacked 13 px lines in the fixed slot)",
+   "lab": "docs/design/composition-lab-r3.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null,
+   "port_tab": "composition-tier",
+   "note": "ADR-340 r4's amendment. Open: \"where the hand is\" assumed to be the editing corner's value (a placeholder until the human says). To the master next. FX device: same."
+  },
+  {
+   "id": "adr341-sg-b",
+   "adr": "ADR-341",
+   "clause": "ruling 3 (steppers show SG-b: a ⇕ glyph and a step scale with a ringed home tick; named steppers open a dropdown on Option-click)",
+   "lab": "docs/design/composition-lab-r3.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null,
+   "port_tab": "composition-tier",
+   "note": "Amends ADR-340 r5 and the master Stepper at 1793502898-ea3e (its typed-name entry is replaced by the dropdown). FX device: same."
+  },
+  {
+   "id": "adr341-mp-c",
+   "adr": "ADR-341",
+   "clause": "ruling 4 (the polarity modifier is MP-c, Cmd-Option-click, cycling like the chip)",
+   "lab": "docs/design/composition-lab-r3.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null,
+   "port_tab": "modulators",
+   "note": "Not verified: whether hosts keep Cmd-Option-click in a plugin window. FX device: same."
+  },
+  {
+   "id": "adr341-w-a",
+   "adr": "ADR-341",
+   "clause": "ruling 5 (the expanded wires are W-a: a ◇ valve at each wire's midpoint, the depth-route drop target)",
+   "lab": "docs/design/composition-lab-r3.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null,
+   "port_tab": "modulators",
+   "note": "The valve needs B70's depth routes in the engine (lead). FX device: same."
+  },
+  {
+   "id": "adr341-br-b",
+   "adr": "ADR-341",
+   "clause": "ruling 6 (the bank's macro rows are BR-b: rows that follow the wheels, a motion trace and a centre notch on the bend)",
+   "lab": "docs/design/composition-lab-r3.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null,
+   "port_tab": "macros",
+   "note": "Needs the intent bus's macros in the stub (lead). FX device: wherever it has a bank."
+  },
+  {
+   "id": "adr341-bend-mouse",
+   "adr": "ADR-341",
+   "clause": "ruling 7 (a mouse drag on the pitch-bend row springs back; the hardware wins while it holds the bend)",
+   "lab": "docs/design/composition-lab-r3.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null,
+   "port_tab": "macros",
+   "note": "FX device: wherever it has a bank."
   }
  ],
  "not_design": [
