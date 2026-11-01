@@ -75,6 +75,13 @@
  *   maprefused   a knob no route can reach (a morph setting) makes no route, no ring, and the refusal is said (RC-4)
  *   settab       a click on every page-bar group's tab opens a page that exists (the Set tab's group is `set`, its page `settings`)
  *   envsummary   an oscillator section's readout names the envelope its source follows (its own `env` row), not the first block
+ *   abbr         ADR-338 ruling 10, the hop's data (half B): every control of a page marked `grid` that is not a header's power or
+ *                modes has an abbreviation of 1 to 4 characters, unique in its section (a followed envelope's blocks each on their
+ *                own); a pills control's shown options are distinct and at most 4 characters; a matrix names every control of its
+ *                group once and a fold has advanced rows to fold (the generator checks the same, in Python: two oracles)
+ *   pageforms    ADR-338 rulings 2, 4 and 5, structural: the shell builds a grid page from the master's own parts (Cluster,
+ *                ClusterMatrix, Fold, Lens, PageView, Companion, Stepper `tc`) and every face of a parameter through ctlFace; the
+ *                browser's self-checks measure what they draw
  *   determinism  the same seed and calls give byte-identical device and engine state; another seed differs
  *
  * MUST-FAIL CONTROLS (plants), every run, on in-memory copies of the two scripts: an observe() that
@@ -762,6 +769,40 @@ function suite(W) {
     });
   };
 
+  T.abbr = () => {
+    const grid = DATA.pages.filter(p => p.grid), shorts = [];
+    ok(grid.length >= 9, 'fewer than nine pages are marked grid (' + grid.map(p => p.id).join(',') + ')');
+    for (const pg of grid) for (const g of pg.groups) {
+      const seen = new Set(), ids = g.controls.filter(c => !c.role && !c.follow).map(c => c.key);
+      for (const c of g.controls) {
+        if (c.widget === 'pills' && c.short) shorts.push([g.id + ' ' + c.key, c.short]);
+        if (c.role) continue;                                          // a header's power and modes carry their own labels
+        ok(typeof c.abbr === 'string' && c.abbr.length >= 1 && c.abbr.length <= 4, g.id + ' ' + c.key + ': abbreviation ' + JSON.stringify(c.abbr) + ' is not 1 to 4 characters');
+        const k = (c.follow || '') + '|' + c.abbr.toLowerCase();
+        ok(!seen.has(k), g.id + ': abbreviation ' + c.abbr + ' is used twice in the section');
+        seen.add(k);
+      }
+      if (g.matrix) {
+        const named = [].concat(...g.matrix.rows.map(r => r.cells.filter(Boolean)), g.matrix.head);
+        ok(new Set(named).size === named.length && ids.every(k => named.includes(k)) && named.every(k => ids.includes(k)), g.id + ': the matrix does not name each of its controls once');
+      }
+      if (g.fold) ok(g.controls.some(c => c.advanced), g.id + ': a fold with no advanced rows');
+    }
+    ok(shorts.length >= 20, 'too few segment groups carry shown options (' + shorts.length + ')');
+    for (const [where, sh] of shorts) ok(sh.every(x => typeof x === 'string' && x.length >= 1 && x.length <= 4) && new Set(sh).size === sh.length, where + ': the shown options ' + JSON.stringify(sh) + ' are not distinct and at most 4 characters');
+    ok(DATA.pages.find(p => p.id === 'main').groups.some(g => g.matrix) && DATA.pages.some(p => p.groups.some(g => g.fold)), 'no matrix or no fold is left in the data (nothing to hold)');
+  };
+
+  T.pageforms = () => {
+    const src = W.__shellText;
+    for (const part of ['H.Cluster(', 'H.ClusterMatrix(', 'H.Fold(', 'H.Lens(', 'H.PageView(', 'H.Companion(', 'H.Stepper(']) ok(src.includes(part), 'the shell no longer builds with ' + part.slice(0, -1));
+    ok(/H\.ctlFace\(S, p, \{ path: p\.path/.test(src) && /H\.ctlFace\(S, propsFor\(/.test(src), 'a face of a parameter is built outside ctlFace (the registry and the revert baseline would be taken over): the shell registers the owner once and builds every face through it');
+    ok(/tc: true/.test(src), 'the shell no longer mounts a stepper at TC1 (tc: true)');
+    ok(/size = tiny \? 'tiny'/.test(src), 'a grid page no longer mounts its knobs at the tiny size');
+    ok(/else if \(pg\.grid\) paramPage\(pg, el\)/.test(src), 'a page marked grid is no longer built by paramPage');
+    ok(!/\.hd-rslot|\.rs-l1|\.rs-l2|--size-rslot/.test(src.slice(src.indexOf('<style>'), src.indexOf('</style>'))), 'the shell restyles the readout slot (DR-c: nothing in the shell overrides its size)');
+  };
+
   T.determinism = () => {
     const run = seed => {
       const { e, d } = fresh(seed);
@@ -849,6 +890,17 @@ const PLANTS = [
   ['infofixed', 'shell', '.info .face { flex: 1 1 auto; min-height: 0; overflow-y: auto;', '.info .face { flex: 1 1 auto; min-height: 0; overflow-y: visible;'],
   ['infofixed', 'shell', '.info { width: var(--info-w); flex: 0 0 var(--info-w); height: 100%;', '.info { width: var(--info-w); flex: 0 0 var(--info-w); height: auto;'],
   ['mapbar', 'shell', '.mapbar #mapHost { flex: 0 0 auto; }', '.mapbar #mapHost { flex: 0 1 auto; }'],
+  // the hop, half B (ADR-338, ADR-341). An abbreviation of five characters; two in one section; a shown option of six; a page that stops
+  // using the master's Lens, its ctlFace or its Fold; a stepper back at the dense face; a grid page the shell no longer builds; the
+  // readout slot restyled by the shell.
+  ['abbr', 'data', '"abbr": "DET"', '"abbr": "DETUN"'],
+  ['abbr', 'data', '"abbr": "CPL"', '"abbr": "DET"'],
+  ['abbr', 'data', '"lega"', '"legato"'],
+  ['pageforms', 'shell', 'H.Lens(lens, S,', 'H.Lenz(lens, S,'],
+  ['pageforms', 'shell', 'H.ctlFace(S, p, { path: p.path', 'H.ctlFaceX(S, p, { path: p.path'],
+  ['pageforms', 'shell', 'tc: true, keys, say', 'tc: false, keys, say'],
+  ['pageforms', 'shell', 'else if (pg.grid) paramPage(pg, el);', 'else if (pg.dense) paramPage(pg, el);'],
+  ['pageforms', 'shell', '  .pv-left { flex: 0 0 206px;', '  .hd-rslot { width: 120px; }\n  .pv-left { flex: 0 0 206px;'],
 ];
 for (const [test, file, from, to] of PLANTS) {
   if (!SRC[file].includes(from)) { bad.push(`plant for ${test}: its anchor is gone from ${file}, so the control is vacuous`); continue; }
