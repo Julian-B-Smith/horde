@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1793336699-65f2, 2026-10-30; do not edit, re-vendor (generated from its tokens.json) */
+/* vendored from the horde Design System artifact, version 1793502898-ea3e, 2026-10-31; do not edit, re-vendor (generated from its tokens.json) */
 :root {
   --bg: #f2ede2;
   --panel: #fcfaf4;
@@ -195,6 +195,10 @@
   --size-knob-standard: 48px;
   --size-knob-compact: 40px;
   --size-knob-utility: 28px;
+  --size-knob-tiny: 20px;
+  --size-slider-tiny: 20px;
+  --size-slider-cell: 16px;
+  --size-rslot: 250px;
   --size-cell-primary: 64px;
   --size-cell-standard: 56px;
   --size-cell-compact: 48px;

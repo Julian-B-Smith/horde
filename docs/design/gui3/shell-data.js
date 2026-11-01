@@ -450,14 +450,14 @@ window.GUI3_DATA = {
     "asked": "the modulators each need visuals, and their controls should be quite a bit more compact",
     "id": "composition-tier",
     "item": "The tiny tier and the composition rules (T2, TC1/TC2, TS1/TS2, C1 + C2, P1, the abbr column)",
-    "missing": "No tiny rung, companions, cluster forms or lens in the master or the shell; the dense pages use compact knobs and overflow 720 px.",
+    "missing": "The tiny knob (T2d), the tiny sliders (TS1a/TS2a), the Stepper and the fixed readout slot are in the master and the vendored bundle (1793502898-ea3e, ADR-340); the toggle, segments and select companions, the cluster forms, P1's lens and grid, PV1's table view and the abbr column are not, so the shell's pages still use compact knobs and overflow 720 px.",
     "reason": "ds-component",
     "roadmap": "B589",
     "source": [
      "docs/design/composition-lab.html"
     ],
-    "status": "not-moved",
-    "why": "Ruled by ADR-338; the human's review the same day (drag boundaries under morph and mod, hover without reflow, draggable steppers, P3 as a view) opened round 2 of the lab before the master takes it (ADR-316)."
+    "status": "partial",
+    "why": "Ruled by ADR-338, its drawings amended by ADR-340 (round 2); round 3 draws ADR-340's amendments. The master takes the control layer first, then the page forms (ADR-316)."
    },
    {
     "area": "Chrome",
