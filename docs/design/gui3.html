@@ -76,9 +76,7 @@
   .mapbar #mapHost { flex: 0 0 auto; }
   .mapbar .hd-map .hold { display: inline; visibility: hidden; }
   .mapbar .hd-map.momentary .hold { visibility: visible; }
-  /* MS3's chip (ADR-340 r8) is 150 px in the master and ellipsizes a long name; ADR-335 r3's rule (a control is as wide as its parts, no
-     name cut) holds for it too, so the shell gives it the room the longest source name needs (a master proposal: the chip's width). */
-  .mapbar .hd-schip { width: 206px; flex: 0 0 auto; }
+  .mapbar .hd-schip { flex: 0 0 auto; }   /* the chip's 206 px is the master's (1793558157-f6a9); here it only refuses to shrink */
   .dock { width: auto; }
   .dock .face { flex-direction: column; align-items: stretch; gap: 6px; padding: 6px 7px 8px; }
   .dock .hd-xy { width: 188px; height: 188px; margin: 0 auto; }
@@ -579,10 +577,7 @@ function modPageForm(pg, el) {
       const routed = new Set(dev.routes().map(r => r.src)), pend = new Set(dev.pending()), free = dev.sources().find(x => x.kind === kind && !routed.has(x.id) && !pend.has(x.id));
       if (!free) { S.say('Every ' + (kind === 'env' ? 'envelope' : 'engine source') + ' is active already'); return; }
       const r = dev.activate(free.id); S.say(r.ok ? free.name + ' is active and pending: press its Map, then click a control' : r.why); },
-    // ModPage documents `routes(host, S)` as the route-view builder, but hands the same options to the tiers, which call `routes(m)` for a
-    // modulator's own routes: one name, two jobs (a master defect, reported). So this answers both: an element is the view's host, a
-    // modulator gets the session's routes it drives (the tiers' own default).
-    routes: a => a && a.nodeType ? void (modRoutes = modRouteViews(a)) : S.mappings.filter(r => r.src === a.id) });
+    routeView: host => void (modRoutes = modRouteViews(host)) });
   el.append(host);
 }
 
