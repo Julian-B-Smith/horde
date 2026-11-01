@@ -294,6 +294,23 @@
       if (routed(src) || pending.indexOf(src) >= 0) return { ok: false, why: src + ' is active already' };
       pending.push(src); changed(); return { ok: true };
     };
+    /* REMOVAL, M-R2 (ADR-338 r9). A modulator and EVERY route it drives leave as ONE undo step (the host owns the stack, the
+       design master's UndoLine offers the inverse). A pending modulator is outside the history, so dropping it is no step;
+       the pending entry is spliced whether or not the source also has routes, else removing the routes would let a stale
+       `pending` entry show it again as pending. The engine's sources stay in the engine: only the routes and the
+       activation go, and + brings it back. Returns the routes that went (for the removal line's text). */
+    D.removeModulator = function (src) {
+      var s = SOURCES.filter(function (x) { return x.id === src; })[0];
+      if (!s) return { ok: false, why: src + ' is not a source the engine publishes (IF-3)' };
+      var gone = st.routes.filter(function (r) { return r.src === src; }).map(function (r) { return routeOf(r.id, r); });
+      var k = pending.indexOf(src);
+      if (!gone.length && k < 0) return { ok: false, why: s.name + ' is not active: no routes and not pending' };
+      if (k >= 0) pending.splice(k, 1);
+      if (gone.length) step('Remove ' + s.name + ' and its ' + gone.length + (gone.length === 1 ? ' route' : ' routes'), function () {
+        st.routes = st.routes.filter(function (r) { return r.src !== src; });
+      });
+      changed(); return { ok: true, routes: gone, step: gone.length > 0 };
+    };
     /* A map handle dropped on a parameter: a route through addRoute, which refuses what RC-4 refuses. A refused
        drop leaves a pending source pending; an accepted one maps it. */
     D.drop = function (src, key) {

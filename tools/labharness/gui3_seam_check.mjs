@@ -56,14 +56,22 @@
  *                off none; a click on an already-mapped parameter only selects; undo takes it away and the session follows
  *   mapdrag      a drag released at exactly 0 makes no route and no step (even if another part of the shell emits mid-drag);
  *                a drag up makes one route at the dragged depth; a drag on an existing mapping edits its depth, one step
- *   mapkeys      M tap latches, M hold is momentary, Esc and M turn MAP off, 1 to 9 choose the source, P cycles the device
+ *   mapkeys      (the SESSION's own keys since master batch 2, ADR-338 ruling 11; the shell hands it the scope as `mapKeysAlways`)
+ *                M tap latches, M hold is momentary, Esc and M turn MAP off, 1 to 9 choose the source, P cycles the device
  *                route's polarity and Backspace removes it, one step each, WHETHER OR NOT keyboard mode is on (ADR-335 ruling 1),
  *                each key handled exactly once and keyboard mode's other keys (digits pin corners with MAP off) unchanged; the
  *                inspector's polarity pill and remove button (S.cyclePol, S.remove) do the same
  *   mapkeysfield a map key typed into a text input, text area, drop-down or editable region does nothing, in either mode, and
  *                the same key elsewhere does (a control); Cmd and Ctrl keys are the host's, never the map's
- *   mapkeysflag  the scope is one named constant (MAP_KEYS_ALWAYS), the page uses it as it stands, and with it false the keys
- *                are keyboard mode's alone again (ADR-335: the human may reverse the ruling)
+ *   mapkeysflag  the scope is one named constant (MAP_KEYS_ALWAYS), the page hands it to the session as it stands, and with it
+ *                false the keys are keyboard mode's alone again (ADR-335: the human may reverse the ruling)
+ *   escape       ADR-338 ruling 11, on the session's REAL layered Escape with the shell's layer in front: one layer a press, innermost
+ *                first (the shell's menu, MAP, the pinned corner, keyboard mode), a press that cancelled nothing is left alone, a field's
+ *                Escape is the field's; and the page puts its layer in front with S.escapeLayers.unshift, running no handler of its own
+ *   removal      M-R2 (ADR-338 ruling 9): the adapter removes a modulator and ALL its routes as ONE undo step and undo puts every route
+ *                back; a pending modulator is dropped outside the history, and a stale pending entry cannot bring a routed one back
+ *   shellparts   the page builds its bank, removal line, Mod page and MAP source chip from the design master's components
+ *                (H.ModBank, H.UndoLine, H.ModPage, MapControl chip), and removes through the adapter
  *   sections     ADR-335 ruling 4: every section of every page is described (a DRAFT with its source) or says it has no
  *                description yet and is counted; the box never shows another section's text or an invented one
  *   infofixed    ADR-335 ruling 4 (B582), structural: the info box is one fixed size, in the foot row left of the bank, and its
@@ -91,7 +99,9 @@
  * turns MAP off, a one-page group left to the bundle (the Set tab's fault), an envelope summary read from the first block, the map keys
  * left to keyboard mode, a key taken twice, a key taken in a text field, a Cmd-key taken, a flag that is ignored or overridden by the
  * page, a section given a description it does not have or shown without its DRAFT mark, an info box that can grow or whose text does not
- * scroll, and a MAP control that can shrink. Each must
+ * scroll, and a MAP control that can shrink, then (master batch 2) a session that cancels every Escape layer at once or behind the shell's,
+ * a removal that leaves a route, is no history step or leaves a stale pending entry, and a page that lost its bank, removal line or
+ * source chip. Each must
  * turn its own test red (and its anchor must exist, or the plant itself is reported as vacuous).
  *
  * Usage: node tools/labharness/gui3_seam_check.mjs [--verbose]   (exit 1 on any failure; --verbose prints
@@ -497,11 +507,12 @@ function suite(W) {
   const SPEC_DEPTH = .25;
   const mapRig = (o = {}) => {
     const f = fresh(), H = W.Horde, dom = W.__dom, d = f.d;
-    const S = new H.Session({ x: .5, y: .5, corners: [null, null, null, null], sources: d.sources().map(s => ({ id: s.id, name: s.name, kind: s.kind, f: () => 0 })), mappings: [] });
+    // as the page builds it: the scope is the shell's constant, handed to the session as `mapKeysAlways` (unless a test sets it); the keys
+    // and Escape are the session's own listeners, started below
+    const S = new H.Session({ x: .5, y: .5, corners: [null, null, null, null], mapKeysAlways: o.always === undefined ? W.GUI3Shell.MAP_KEYS_ALWAYS : o.always,
+      sources: d.sources().map(s => ({ id: s.id, name: s.name, kind: s.kind, f: () => 0 })), mappings: [] });
     const br = W.GUI3Shell.attachMap(S, d);
     const n0 = { keydown: dom.keys.keydown.length, keyup: dom.keys.keyup.length }, c0 = { keydown: dom.caps.keydown.length, keyup: dom.caps.keyup.length };
-    // as the page does: the shell's key listeners first (capture), then the session's own; `always` is the constant's unless a test sets it
-    W.GUI3Shell.attachMapKeys(S, { addEventListener: dom.addEventListener }, o.always === undefined ? undefined : { always: o.always });
     S.start();
     const knob = key => {
       const row = by[key], host = new El('div');
@@ -643,7 +654,7 @@ function suite(W) {
     const L = W.__logicText, P = W.__shellText;
     ok(/ADR-335[\s\S]{0,1400}var MAP_KEYS_ALWAYS = (true|false);/.test(L), 'shell-logic.js has no single named MAP_KEYS_ALWAYS constant with its ADR-335 comment');
     ok((L.match(/var MAP_KEYS_ALWAYS/g) || []).length === 1, 'the scope is not held in exactly one constant');
-    ok(/SH\.attachMapKeys\(S, window\);/.test(P), 'the page does not attach the keys with the constant as it stands (an override in the page would hide the one-line change)');
+    ok(/mapKeysAlways: SH\.MAP_KEYS_ALWAYS\b/.test(P), 'the page does not hand the constant to the session as it stands (an override in the page would hide the one-line change)');
     const off = mapRig({ always: false });
     off.press({ code: 'KeyM' }, 1000); off.release({ code: 'KeyM' }, 1100);
     ok(!off.S.map.on, 'with the scope reversed, a key still worked with keyboard mode off');
@@ -762,6 +773,62 @@ function suite(W) {
     });
   };
 
+  /* ADR-338 ruling 11: Escape is the session's layered cancel, the shell's own layers in front of the session's (map, pin, keyboard mode).
+     The rig puts a stand-in menu layer in front exactly as the page does, and presses real Escape events through the session's listener. */
+  T.escape = () => {
+    const P = W.__shellText;
+    ok(/S\.escapeLayers\.unshift\(\{ name: 'menu'/.test(P), 'the page does not put its menu layer IN FRONT of the session’s with S.escapeLayers.unshift');
+    ok(!/attachEscape|attachMapKeys/.test(P), 'the page still runs a handler of its own for Escape or the map keys');
+    for (const keysOn of [false, true]) {
+      const { S, press } = mapRig(), who = keysOn ? 'keyboard mode ON: ' : 'keyboard mode OFF: ';
+      let menu = true; S.escapeLayers.unshift({ name: 'menu', active: () => menu, cancel: () => { menu = false; } });
+      S.keys = keysOn; S.setMap(true); S.setPin(2);
+      const e1 = press({ key: 'Escape' });
+      ok(!menu && S.map.on && S.pinned === 2 && e1.prevented, who + 'the first Escape did not close the menu ALONE (menu ' + menu + ', MAP ' + S.map.on + ', pin ' + S.pinned + ')');
+      const field = press({ key: 'Escape', target: { tagName: 'SELECT' } });
+      ok(S.map.on && !field.prevented, who + 'an Escape typed in a drop-down cancelled a layer (it is the field’s)');
+      const e2 = press({ key: 'Escape' });
+      ok(!S.map.on && S.pinned === 2 && e2.prevented, who + 'the second Escape did not turn MAP off alone');
+      const e3 = press({ key: 'Escape' });
+      ok(S.pinned === null && S.keys === keysOn && e3.prevented, who + 'the third Escape did not unpin the corner alone');
+      if (keysOn) { const e4 = press({ key: 'Escape' }); ok(S.keys === false && e4.prevented, who + 'the fourth Escape did not turn keyboard mode off'); }
+      const last = press({ key: 'Escape' });
+      ok(!last.prevented && !S.map.on && S.pinned === null && !S.keys, who + 'an Escape with nothing open was taken (it must cancel nothing)');
+    }
+  };
+
+  /* M-R2 (ADR-338 ruling 9): the adapter's removal. ONE undo step for the modulator and every route it drives; undo puts them all back. */
+  T.removal = () => {
+    const { d } = fresh(), k1 = cont.key, k2 = cont2.key, k3 = firstOf(r => r.law !== 'step' && r.pv && r.key !== k1 && r.key !== k2).key;
+    d.begin('setup'); d.addRoute({ src: 'env3', param: k1 }); d.addRoute({ src: 'env3', param: k2 }); d.addRoute({ src: 'env4', param: k3 }); d.end();
+    const before = JSON.stringify(d.routes()), h0 = d.history().past.length, mine = id => d.routes().filter(r => r.src === id).length;
+    ok(mine('env3') === 2 && mine('env4') === 1, 'the setup did not make the routes it removes (a control: nothing to remove proves nothing)');
+    const r = d.removeModulator('env3');
+    ok(r.ok && r.step && r.routes.length === 2, 'the removal did not report the 2 routes it took: ' + JSON.stringify(r));
+    ok(d.history().past.length === h0 + 1, 'the removal was not ONE history step (' + (d.history().past.length - h0) + ')');
+    ok(mine('env3') === 0 && mine('env4') === 1, 'the removal left a route of the modulator, or took another modulator’s');
+    ok(d.undo() && JSON.stringify(d.routes()) === before, 'undo did not put every route back, as it was');
+    ok(!d.removeModulator('env2').ok && d.history().past.length === h0, 'a modulator with no routes that is not pending was “removed” (or made a step)');
+    d.activate('env2'); const hp = d.history().past.length, p = d.removeModulator('env2');
+    ok(p.ok && !p.step && d.history().past.length === hp && !d.pending().includes('env2'), 'a pending modulator was not dropped outside the history');
+    // the trap: a pending modulator mapped by MAP (syncRoutes, not the bank's drop) stays in the pending list; once its routes go it must not reappear
+    d.activate('env1'); d.syncRoutes(d.routes().concat([{ src: 'env1', param: k1 }]));
+    ok(mine('env1') === 1, 'the setup did not map the pending modulator');
+    d.removeModulator('env1');
+    ok(mine('env1') === 0 && !d.pending().includes('env1'), 'a modulator removed after being mapped came back as pending');
+  };
+
+  /* The page builds the bank, the removal line, the Mod page and the MAP source chip from the design master's components and removes through
+     the adapter: structural (the browser's self-checks drive them for real). */
+  T.shellparts = () => {
+    const P = W.__shellText;
+    ok(/H\.ModBank\(\$\('bankHost'\), S, \{/.test(P), 'the page does not mount the design master’s ModBank');
+    ok(/H\.UndoLine\(\$\('undoLine'\)/.test(P), 'the page has no removal line (UndoLine)');
+    ok(/H\.ModPage\(host, S, \{/.test(P), 'the page does not mount the design master’s ModPage');
+    ok(/H\.MapControl\(\$\('mapHost'\), S, \{[^}]*chip: true/.test(P), 'the MAP control does not take its source as the chip (MS3)');
+    ok(/dev\.removeModulator\(m\.id\)/.test(P) && /H\.ModRemoval\.describe\(/.test(P), 'the removal does not go through the adapter and the master’s removal text');
+  };
+
   T.determinism = () => {
     const run = seed => {
       const { e, d } = fresh(seed);
@@ -836,13 +903,26 @@ const PLANTS = [
   // own keyup misreads as a hold; a section shown with a description it has not, or without its DRAFT mark; an info box that can grow or
   // whose text does not scroll; a MAP control that can shrink.
   ['mapkeys', 'logic', 'var MAP_KEYS_ALWAYS = true;', 'var MAP_KEYS_ALWAYS = false;'],
-  ['mapkeys', 'logic', 'if (S.keys || e.repeat) return;', 'if (e.repeat) return;'],
-  ['mapkeys', 'logic', "if (e.code !== 'KeyM' || !mHeld) return;", "if (e.code !== 'KeyM') return;"],
-  ['mapkeysfield', 'logic', 'if (inField(e.target)) { e.stopImmediatePropagation(); return; }', ''],
-  ['mapkeysfield', 'logic', 'if (e.metaKey || e.ctrlKey) return;', ''],
-  ['mapkeysfield', 'logic', "return n === 'INPUT' || n === 'TEXTAREA' || n === 'SELECT' || !!(t && t.isContentEditable);", "return n === 'INPUT';"],
-  ['mapkeysflag', 'logic', "if (!always) return { always: false };", ''],
-  ['mapkeysflag', 'shell', 'SH.attachMapKeys(S, window);', 'SH.attachMapKeys(S, window, { always: true });'],
+  // Master batch 2 (ADR-338 r11) moved the keys and Escape into the SESSION (the vendored bundle), so the plants that mutated the shell's
+  // own key listener now mutate the same fault in the session's: a key taken twice, a tap misread as a hold, a key taken in a field, a
+  // Cmd/Ctrl key taken, the field kinds cut to INPUT, a flag the session ignores, and the page overriding the flag.
+  ['mapkeys', 'bundle', "if (dg && S.map.on) { var n = +dg[1]; if (n >= 1 && n <= S.sources.length) S.setSrc(S.sources[n - 1].id); e.preventDefault(); return; }",
+    "if (dg && S.map.on) { var n = +dg[1]; if (n >= 1 && n <= S.sources.length) { S.setSrc(S.sources[n - 1].id); S.setSrc(S.sources[n - 1].id); } e.preventDefault(); return; }"],
+  ['mapkeys', 'bundle', "if (e.code === 'KeyM' && S.map.momentary) { if (e.timeStamp - mDown < 280)", "if (e.code === 'KeyM' && S.map.momentary) { if (e.timeStamp - mDown < 0)"],
+  ['mapkeysfield', 'bundle', "if (e.repeat || (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable))) return;", 'if (e.repeat) return;'],
+  ['mapkeysfield', 'bundle', 'if (e.metaKey || e.ctrlKey) return;\n      /* THE MAP KEYS', '/* THE MAP KEYS'],
+  ['mapkeysfield', 'bundle', "e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable))) return;   // a field owns", 'false))) return;   // a field owns'],
+  ['mapkeysflag', 'bundle', 'if (!S.keys && !S.mapKeysAlways) return;', ''],
+  ['mapkeysflag', 'shell', 'mapKeysAlways: SH.MAP_KEYS_ALWAYS,', 'mapKeysAlways: true,'],
+  // master batch 2, half A: Escape is layered through the session, and the removal is one step through the adapter
+  ['escape', 'bundle', 'if (L.active()) { L.cancel(); this.emit(); return L.name; }', 'if (L.active()) { L.cancel(); }'],
+  ['escape', 'shell', "S.escapeLayers.unshift({ name: 'menu'", "S.escapeLayers.push({ name: 'menu'"],
+  ['removal', 'device', 'return r.src !== src; });\n      });', 'return r.src !== src || r.id === gone[0].id; });\n      });'],
+  ['removal', 'device', "if (gone.length) step('Remove '", "if (gone.length) (function (l, f) { f(); })('Remove '"],
+  ['removal', 'device', '      if (k >= 0) pending.splice(k, 1);\n      if (gone.length) step(', '      if (gone.length) step('],
+  ['shellparts', 'shell', "H.ModBank($('bankHost'), S, {", "H.ModBankX($('bankHost'), S, {"],
+  ['shellparts', 'shell', "strip: $('srcStrip'), chip: true });", "strip: $('srcStrip') });"],
+  ['shellparts', 'shell', 'dev.removeModulator(m.id)', 'dev.clearRoutes(m.id)'],
   ['sections', 'logic', "text: 'No section description yet.'", "text: 'Shapes the sound of this part of the instrument.'"],
   ['sections', 'logic', "tag: 'SECTION · DRAFT'", "tag: 'SECTION'"],
   ['infofixed', 'shell', 'height: var(--foot-h); min-width: 0; }', 'min-width: 0; }'],

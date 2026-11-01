@@ -76,7 +76,9 @@
   .mapbar #mapHost { flex: 0 0 auto; }
   .mapbar .hd-map .hold { display: inline; visibility: hidden; }
   .mapbar .hd-map.momentary .hold { visibility: visible; }
-  .mapbar .src-chip { flex: 0 0 auto; }
+  /* MS3's chip (ADR-340 r8) is 150 px in the master and ellipsizes a long name; ADR-335 r3's rule (a control is as wide as its parts, no
+     name cut) holds for it too, so the shell gives it the room the longest source name needs (a master proposal: the chip's width). */
+  .mapbar .hd-schip { width: 206px; flex: 0 0 auto; }
   .dock { width: auto; }
   .dock .face { flex-direction: column; align-items: stretch; gap: 6px; padding: 6px 7px 8px; }
   .dock .hd-xy { width: 188px; height: 188px; margin: 0 auto; }
@@ -119,19 +121,11 @@
   .ledger-row { display: flex; flex-direction: column; gap: 2px; padding: 5px 0; border-top: 1px dashed var(--div); }
   .ledger-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
   .ledger-item { color: var(--ink); font-weight: 600; }
-  /* The bank: one card per listed modulator, in a row that scrolls sideways (ADR-322 item 3). */
-  #bank { width: auto; }
+  /* The bank (ADR-338 r7): the bundle's ModBank, 68 px, at the foot of the column; the removal line (M-R2) sits above it, and the
+     room between them is where a row's compact card opens (it opens ABOVE the bank, over this room and, if it is taller, the page
+     area). The info box ruling (ADR-335 r4) keeps the foot row one fixed height, so the bank does not hand its height back. */
+  #bank { width: auto; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; min-width: 0; }
   #bank[hidden] { display: none; }
-  #bank .head .hd-btn { margin-left: auto; flex: 0 0 auto; white-space: nowrap; }
-  #bank .head .hd-cluster, #bank .head .tag { flex: 0 0 auto; white-space: nowrap; }
-  #bank .head .hd-hint { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  #bank > .face { flex-direction: column; align-items: stretch; gap: 4px; }
-  .bank-strip { display: flex; flex-wrap: nowrap; gap: 8px; overflow-x: auto; overscroll-behavior: contain; align-items: flex-start; }
-  .bank-strip > .hd-card { flex: 0 0 auto; width: 220px; }
-  .bank-strip > .hd-card[hidden] { display: none; }
-  /* a card's utility knobs are rows (name, then the dial) of about 85 px each: four do not fit one 220 px row, and nowrap shrank
-     every dial to 0 wide (the label stayed, the knob vanished). Wrapping gives two rows of two. */
-  .bank-strip .hd-card .face { flex-wrap: wrap; }
   .page { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
   .page[hidden], .dock[hidden] { display: none; }
   .phead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
@@ -153,10 +147,9 @@
   .info .head .hd-cluster { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .info .face > .tag { align-self: flex-start; }
   .info .face { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; overflow-wrap: anywhere; }
-  .footrow > #bank { flex: 1 1 auto; min-width: 0; height: 100%; display: flex; flex-direction: column; }
+  .footrow > #bank { flex: 1 1 auto; min-width: 0; height: 100%; }
   .info .face > :empty { display: none; }
   .footrow > #bank[hidden] { display: none; }
-  #bank > .face { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
   /* `win` (a review link's flag) shows the window alone, at its own size, for the screenshots */
   body.win-only { padding: 0; }
   body.win-only .col > :not(#win) { display: none; }
@@ -196,7 +189,6 @@
         <label class="hd-row hd-label">Morph <button class="hd-toggle hd-focus" id="morphOn" type="button" role="switch" aria-checked="false" aria-label="Morph on"></button></label>
         <label class="hd-row hd-label">Pad <button class="hd-toggle hd-focus" id="padOn" type="button" role="switch" aria-checked="true" aria-label="Show the docked morph pad"></button></label>
         <label class="hd-row hd-label" title="ADR-322 item 4, toggle (b): show or hide the bank">Bank <button class="hd-toggle hd-focus" id="bankOn" type="button" role="switch" aria-checked="true" aria-label="Show the modulator bank"></button></label>
-        <span class="hd-pills" id="bankModes" role="radiogroup" aria-label="The bank shows" title="ADR-322 item 4, toggle (a): flip the bank between modulators and macros"><button class="hd-pill hd-focus" type="button" role="radio" data-m="mods" aria-checked="true">Mods</button><button class="hd-pill hd-focus" type="button" role="radio" data-m="macros" aria-checked="false">Macros</button></span>
       </div>
     </div>
     <!-- MAP MODE (the Map Mode spec, ADR-261): the control sits in the top bar, outside the page area, so it is the same on
@@ -218,10 +210,9 @@
             <div class="head"><span class="hd-cluster" id="infoName">Info</span></div>
             <div class="face"><span class="tag" id="infoTag">HOVER</span><span class="hd-hint" id="infoKey"></span><span class="hd-value" id="infoText">Hover a control, or a section's header, to read what it does.</span><span class="hd-hint" id="infoMeta"></span><span class="hd-note" id="infoLive"></span></div>
           </section>
-          <section class="hd-card" id="bank" aria-label="Modulator bank">
-            <div class="head"><span class="hd-cluster" id="bankTitle">Modulators</span><span class="tag">B556</span><span class="hd-hint" id="bankCount"></span>
-              <button class="hd-btn hd-focus" id="bankAdd" type="button" aria-haspopup="menu" title="Activate a modulator: it stays pending until you map it">+ Modulator</button></div>
-            <div class="face"><div class="bank-strip" id="bankStrip"></div><span class="hd-note" id="bankEmpty"></span></div>
+          <section id="bank" aria-label="Modulator bank">
+            <div id="undoLine"></div>
+            <div id="bankHost"></div>
           </section>
         </div>
       </div>
@@ -301,27 +292,27 @@ engine = new ENG.Stub(rowsOf('engine'));
 const resolver = new ENG.ResolverStub(rowsOf('resolver')), deviceSide = new ENG.DeviceSideStub(rowsOf('rack', 'midi'));
 transport = ENG.SyncTransport(engine, resolver, deviceSide);
 dev = DEV.create(DATA, transport, { seed: SEED });
-S = new H.Session({ x: .5, y: .5, corners: [null, null, null, null],
+// `mapKeysAlways` is ADR-335 r1's ONE switch (SH.MAP_KEYS_ALWAYS, shell-logic.js), handed over as it stands: the session's own
+// listener then takes the map keys and Escape in every mode, and keeps them out of a field and off a Cmd/Ctrl chord (ADR-338 r11).
+S = new H.Session({ x: .5, y: .5, corners: [null, null, null, null], mapKeysAlways: SH.MAP_KEYS_ALWAYS,
   sources: dev.sources().map(s => ({ id: s.id, name: s.name, kind: s.kind, f: () => 0 })),   // no voices, so every source reads 0
   mappings: [] });
 // MAP MODE writes DEVICE routes (the Map Mode spec; ADR-261): the session's mappings are a working list that the bridge
 // writes into the device's matrix at each gesture's end (one undo step) and reads back from it, so the ring on a knob, the
 // bank, the source strip's counts and the matrix all read the same routes.
 const mapBridge = SH.attachMap(S, dev);
-// ADR-338 ruling 11: Escape cancels the innermost open thing, one layer per press. Registered FIRST, in the capture phase, so
-// the map keys' and the bundle's own Escape handlers never see the key: the order lives here and nowhere else. The pinned
-// corner sits between MAP and keyboard mode because the bundle's keyboard mode used Escape to unpin.
-const escLayers = SH.attachEscape(window, [
-  { name: 'menu', active: () => !!menu, cancel: () => closeMenu() },
-  { name: 'map', active: () => S.map.on, cancel: () => S.setMap(false) },
-  { name: 'pin', active: () => S.pinned !== null, cancel: () => S.setPin(null) },
-  { name: 'keys', active: () => S.keys, cancel: () => setKeys(false) }]);
-// ADR-335 ruling 1: the map keys work whether or not keyboard mode is on (the scope is SH.MAP_KEYS_ALWAYS, one line in shell-logic.js).
-SH.attachMapKeys(S, window);
+// ADR-338 ruling 11: Escape is the session's layered cancel (S.escape(), one layer per press, innermost first). The shell's own
+// layers go IN FRONT of the session's (map, pin, keyboard mode) and of the bank's open card (the bank unshifts its own); they are
+// added where they are built (the menu below). The key listener is the session's, so no handler of ours can take Escape twice.
+// ADR-335 ruling 1: the map keys follow the same option (see the Session above).
+
 // The bundle draws what the DEVICE says: its weights, the heard value, the owner (the plugin reads the owner from the
 // engine and never computes it, morph knob spec, Ties). The owner bookkeeping below is the bundle's own (flip times).
 S.weights = () => dev.weights();
-S.base = p => dev.shown(p.key);   // mirror and confirm: what we sent, or what the engine changed itself
+// mirror and confirm: what we sent, or what the engine changed itself. A value that is not a device row (the bank's macro and wheel rows,
+// which the stub has no engine side for) is the bundle's own: its global value, as the session reads it.
+const base0 = S.base;
+S.base = function (p) { return ROW[p.key] ? dev.shown(p.key) : base0.call(this, p); };
 // With morph off only the audible corner sounds and takes writes (ADR-319 item 1): a pinned corner selects
 // where a snapshot is saved, it does not redirect an edit into a frozen corner.
 const editing0 = S.editing;
@@ -506,16 +497,32 @@ function randomizePlaceholder() {
   return el;
 }
 
-/* THE MOD MATRIX (ADR-266 rulings 1, 3, 4, 6; ADR-136: the Mod page carries the routes; ADR-338 ruling 8 keeps the grid as
-   the Mod page's route view). The bundle's ModMatrixGrid and RouteList on the session's mappings, which the map bridge keeps
-   equal to the DEVICE's routes, so a cell, a route row, MAP on a knob and the bank all edit the same matrix. The grid's columns
-   are the routed parameters plus the selected one: every source against what is routed, not 317 columns. The grid takes its
-   columns when built, so a change in that set rebuilds it, and the old view is silenced (the session has no way to drop a
-   view). Both draw only while the Mod page shows. The Mod page's own form (M5, list + detail) waits on the composition lab's
-   round 2. */
-function modMatrix() {
-  const gridHost = h('div'), listHost = h('div'), note = h('span', { class: 'hd-hint' });
-  const onMod = v => { const r0 = v.render; v.render = function () { if (page === 'mod') r0.apply(v, arguments); }; return v; };
+// ---- the modulators, as the design master's tiers take them. Built before the pages (the Mod page and the bank both read them).
+const BANK = DATA.bank, KIND_LABEL = { env: 'ENV', engine: 'ENGINE' };
+// Each source as the bundle's tiers take it (ModTiers' `m`). `pending` is read live from the adapter, never copied, because a row
+// is built once and kept. The compact card's controls are built the first time its row opens, from the table (GUI3_DATA.bank).
+const bankCtls = Object.create(null);
+function bankCtlsOf(src) {
+  return bankCtls[src.id] || (bankCtls[src.id] = (BANK.controls[src.id] || []).map(c => mountControl(c, '*', 'Bank · ' + src.name + ' · ' + ROW[c.key].label, { size: 'utility' })));
+}
+const MODS = Object.create(null);
+dev.sources().forEach(src => {
+  MODS[src.id] = { id: src.id, name: src.name, kind: src.kind, kindLabel: KIND_LABEL[src.kind] || src.kind.toUpperCase(), group: src.kind, fixed: true,
+    get pending() { return dev.pending().includes(src.id); },
+    get ctls() { return bankCtlsOf(src); },
+    note: 'No controls of its own: ' + (src.kind === 'engine' ? 'a value the engine publishes (IF-3), with no rows in SPEC-ENGINE 5.' : 'no rows in SPEC-ENGINE 5.') };
+});
+
+/* THE MOD PAGE (ADR-338 r8, M5: list + detail) and its ROUTE VIEWS (ADR-340 r10: ML4 the grid, ML3 by source, ML1 the wires; the grid
+   is ADR-266 rulings 1, 3, 4 and 6, ADR-136: the Mod page carries the routes). Every route view is one more view of the session's
+   mappings, which the map bridge keeps equal to the DEVICE's routes, so a grid cell, a route row, a wire, MAP on a knob and the bank
+   all edit the same matrix. The grid's columns are the routed parameters plus the selected one: every source against what is
+   routed, not 317 columns. The grid takes its columns when built, so a change in that set rebuilds it, and the old view is
+   silenced (the session has no way to drop a view). Every view draws only while the Mod page shows it. */
+const depthRefused = (src, m) => S.say('Refused: ' + S.src(src).name + ' on ' + S.src(m.src).name + ' → ' + (S.params[m.param] ? S.params[m.param].name : m.param) + ': depth routes are not in the engine yet (B70), so none is made');
+function modRouteViews(host) {
+  const gridHost = h('div'), listHost = h('div'), note = h('span', { class: 'hd-hint' }), bysHost = h('div'), wiresHost = h('div'), swHost = h('div');
+  const onMod = v => { const r0 = v.render; v.render = function () { if (page === 'mod' && host.isConnected && host.getClientRects().length) r0.apply(v, arguments); }; return v; };
   let grid = null, lastCols = null;
   views.push({ page: 'mod', update() {
     const ks = [...new Set(S.mappings.map(m => m.param).concat(S.selected ? [S.selected] : []))].filter(k => ROW[k] && S.params[k]);
@@ -528,9 +535,55 @@ function modMatrix() {
     grid = onMod(H.ModMatrixGrid(gridHost, S, { label: 'the routed parameters', dests: ks.map(k => ({ key: k, name: S.params[k].path || ROW[k].label, short: ROW[k].label })) }));
   } });
   onMod(H.RouteList(listHost, S, { label: 'Every route' }));
-  const cm = card('Mod matrix', 'ADR-266', [gridHost, note]), cr = card('Routes', 'ADR-136', [listHost]);
-  cm.classList.add('wide'); cr.classList.add('wide');   // the grid scrolls inside its own region; a half-width card squeezed it
-  return h('div', { class: 'cards' }, cm, cr);
+  const panes = [h('div', { class: 'cards' }, card('Mod matrix', 'ADR-266', [gridHost, note]), card('Routes', 'ADR-136', [listHost])), bysHost, wiresHost];
+  panes[0].querySelectorAll('.hd-card').forEach(c => c.classList.add('wide'));   // the grid scrolls inside its own region; a half-width card squeezed it
+  // ML3 and ML1 are built when first shown: the wires draw to a canvas and need a size (a view of a hidden pane would throw on none).
+  const built = [true, false, false];
+  const build = i => {
+    if (built[i]) return; built[i] = true;
+    if (i === 1) onMod(H.RoutesBySource(bysHost, S, { label: 'Routes by source' }));
+    // W-a's valves: a drop on one only EMITS onDepthRoute, and the engine has no depth routes (B70, the lead's), so it is refused here
+    // and no route is made, never a stand-in. A new wire between a source and a destination is a mapping (the bridge writes it).
+    else onMod(H.CompactWires(wiresHost, S, { sources: dev.sources().filter(x => x.kind === 'env').map(x => x.id), onDepthRoute: depthRefused }));
+  };
+  const pick = i => { panes.forEach((pn, k) => { pn.hidden = k !== i; }); build(i); sw.set(i); };
+  const sw = H.pillGroup(swHost, ['Grid', 'By source', 'Wires'], 0, 'Mod page · route view', pick, { keys: () => S.keys });
+  host.append(swHost, ...panes); pick(0);
+  return { pick };
+}
+
+/* The Mod page in the bundle's form: every source the engine publishes is a thin row, grouped by kind, and the selected one's full
+   tier fills the detail. The page lists EVERY source (not only the routed ones) because the envelopes' own rows live here and must
+   stay reachable; × on this page unmaps the source and drops it if pending, and the row stays (the engine keeps the source). The
+   controls in a detail are the page's own, built once here and swapped in by the page's pane, so `heldHosts` keeps them counted as
+   this page's mounted controls while a detail is not showing (the self-check reads it). */
+const heldHosts = new Set();
+let modPageCtl = null, modRoutes = null;
+function modPageForm(pg, el) {
+  const own = Object.create(null);
+  pg.groups.forEach(g => {
+    const ks = g.controls, id = ks.length ? ks[0].key.split('.')[0] : null, src = id && MODS[id];
+    if (!src) return;
+    const hosts = g.controls.map(c => { const hst = mountControl(c, pg.id, pg.label + ' · ' + g.title + ' · ' + ROW[c.key].label); heldHosts.add(hst); return hst; });
+    own[id] = [h('div', { class: 'hd-krow', 'data-section': g.id }, hosts)];
+  });
+  const mods = dev.sources().map(sr => Object.create(MODS[sr.id], { ctls: { get: () => own[sr.id] || [] },
+    note: { value: own[sr.id] ? '' : sr.id === 'env1' ? 'ENV 1 is the amplitude envelope: its rows are on the Main page.' : MODS[sr.id].note } }));
+  const host = h('div');
+  modPageCtl = H.ModPage(host, S, { mods, select: 'env2', keys: () => S.keys,
+    kinds: [{ id: 'env', label: 'ENVELOPES' }, { id: 'engine', label: 'ENGINE SOURCES' }],
+    onMap: m => { const on = S.map.on && S.map.src === m.id; S.setSrc(m.id); S.setMap(!on); },
+    onDrop: (m, key) => dropMap(m, key), onRemove: removeMod,
+    // + per kind: activates the first source of that kind that is neither routed nor pending; it then shows PENDING until it is mapped
+    onAdd: kind => {
+      const routed = new Set(dev.routes().map(r => r.src)), pend = new Set(dev.pending()), free = dev.sources().find(x => x.kind === kind && !routed.has(x.id) && !pend.has(x.id));
+      if (!free) { S.say('Every ' + (kind === 'env' ? 'envelope' : 'engine source') + ' is active already'); return; }
+      const r = dev.activate(free.id); S.say(r.ok ? free.name + ' is active and pending: press its Map, then click a control' : r.why); },
+    // ModPage documents `routes(host, S)` as the route-view builder, but hands the same options to the tiers, which call `routes(m)` for a
+    // modulator's own routes: one name, two jobs (a master defect, reported). So this answers both: an element is the view's host, a
+    // modulator gets the session's routes it drives (the tiers' own default).
+    routes: a => a && a.nodeType ? void (modRoutes = modRouteViews(a)) : S.mappings.filter(r => r.src === a.id) });
+  el.append(host);
 }
 
 // ===== BLOCK E: the pages, from GUI3_DATA.pages, under the two-level page bar (B589 Page nav) =====
@@ -861,9 +914,9 @@ DATA.pages.forEach(pg => {
   else if (pg.panel === 'console') consolePage(pg, el);
   else if (pg.panel === 'ledger') ledgerPage(pg, el);
   else if (pg.dense) densePage(pg, el);
+  else if (pg.id === 'mod') modPageForm(pg, el);       // ADR-338 r8 (half A); the other classic pages are half B's
   else classicPage(pg, el);
   if (pg.panel === 'morph') el.append(morphPanel());
-  if (pg.id === 'mod') el.append(modMatrix());
   if (pg.id === 'fx') el.insertBefore(fxRack(pg), el.children[1] || null);
   $('pages').append(el); pageEls[pg.id] = el;
 });
@@ -900,7 +953,8 @@ paintDock();
 // the session accepts in keyboard mode as every accelerator here, ADR-259 ruling 6) is the bundle's. What the shell adds
 // is where the mappings go: the device (mapBridge above). Every key has a mouse route: the MAP button (M, Esc), the
 // dropdown and the strip's chips (1 to 9), the inspector's polarity pill (P) and remove button (Backspace).
-H.MapControl($('mapHost'), S, { frame: $('win'), strip: $('srcStrip') });
+// MS3 (ADR-340 r8): the source is a chip you drag through or step (`chip: true`), MS1 the strip beside it, MS4 the bank's rows (BLOCK D3).
+H.MapControl($('mapHost'), S, { frame: $('win'), strip: $('srcStrip'), chip: true });
 H.ModInspector($('insp'), S);
 function paintInspector() {
   const on = S.map.on;
@@ -970,82 +1024,82 @@ function openMenu(key, x, y) {
 $('win').addEventListener('contextmenu', e => { const t = hostOf(e.target); if (!t) return; e.preventDefault(); openMenu(t.dataset.key, e.clientX, e.clientY); });
 document.addEventListener('pointerdown', e => { if (menu && !menu.contains(e.target)) closeMenu(); }, true);
 
-// ===== BLOCK D3: the bottom modulator bank (ADR-322 items 3 and 4, B556; ADR-291 item 2) =====
-// Which modulators it lists is READ, never kept: the adapter's routes (RC-4) whose parameter is a control on the
-// current page, plus the modulators activated with + and not yet mapped (the adapter's pending state). Each card
-// is the bundle's ModCardHeader with a Map handle, and the kind's critical controls generated from the table
-// (GUI3_DATA.bank, chosen per kind in layout.json with the reason). Cards are built once, then shown or hidden.
-const BANK = DATA.bank, bankCards = {};
-let bankMode = 'mods', bankShown = true, bankSig = '', dragSrc = null;
+// ===== BLOCK D3: the bottom modulator bank (ADR-322 items 3 and 4, B556; ADR-338 r7 and r9, ADR-340 r8 and r11, ADR-341 r6 and r7) =====
+// The design master's ModBank: 68 px, two lanes of 26 px thin rows, the MAC | MODS segments (BT1), a click on a row's name opens its
+// compact card above the bank. The MODS lane's rows are READ, never kept: the adapter's routes (RC-4) whose parameter is a control
+// on the current page, plus the modulators activated with + and not yet mapped (the adapter's pending state). The MAC lane is the
+// intent bus's macros, the pitch bend and the mod wheel (MacroRow, BR-b): the stub has no intent bus, so they show unbound.
+let bankShown = true;
 const pageKeysList = pid => { const pg = DATA.pages.find(p => p.id === pid); return pg ? pg.groups.flatMap(g => g.controls.map(c => c.key)) : []; };
-const pageKeys = pid => new Set(pageKeysList(pid));
+const keysMemo = Object.create(null), pageKeys = pid => keysMemo[pid] || (keysMemo[pid] = new Set(pageKeysList(pid)));
 function dropMap(src, key) {
   const res = dev.drop(src.id, key);
   S.say(res.ok ? 'Mapped ' + src.name + ' → ' + ROW[key].label + ' at 25 % (its ring shows on the control; sources read 0 with no audio)' : 'Refused: ' + res.why);
   return res;
 }
-// The map handle: press it, drag, release over any control (Serum's drag-to-map). The drop goes through the adapter's
-// addRoute, so it refuses what RC-4 refuses (a stepped or reserved row, a source the engine does not publish).
-function bindDrag(handle, src) {
-  handle.addEventListener('pointerdown', e => { if (e.button !== 0) return; e.preventDefault(); handle.setPointerCapture(e.pointerId); dragSrc = src; S.say('Drag onto any control and release to map ' + src.name); });
-  handle.addEventListener('pointerup', e => {
-    if (dragSrc !== src) return; dragSrc = null;
-    if (handle.hasPointerCapture(e.pointerId)) handle.releasePointerCapture(e.pointerId);
-    const t = hostOf(document.elementFromPoint(e.clientX, e.clientY));
-    if (t) dropMap(src, t.dataset.key); else S.say('Not mapped: release the handle over a control');
-  });
-  handle.addEventListener('pointercancel', () => { dragSrc = null; });
-}
-dev.sources().forEach(src => {
-  const head = h('div'), handle = h('button', { class: 'hd-btn hd-focus', type: 'button', text: 'Map', 'aria-label': 'Map ' + src.name + ': drag onto a control', title: 'Drag onto any control to map ' + src.name });
-  H.ModCardHeader(head, { kind: src.kind, name: src.name, retrig: null, extra: handle });
-  bindDrag(handle, src);
-  const ctls = BANK.controls[src.id] || [];
-  const face = h('div', { class: 'face hd-dense' }, ctls.length ? ctls.map(c => mountControl(c, '*', 'Bank · ' + src.name + ' · ' + ROW[c.key].label, { size: 'utility' }))
-    : h('span', { class: 'hd-hint', text: 'No controls of its own: ' + (src.kind === 'engine' ? 'a value the engine publishes (IF-3), with no rows in SPEC-ENGINE 5.' : 'no rows in SPEC-ENGINE 5.') }));
-  const note = h('span', { class: 'hd-hint' });
-  const cardEl = h('section', { class: 'hd-card', 'data-src': src.id, 'aria-label': src.name + ' modulator', hidden: true }, head, face, h('div', { class: 'foot' }, note));
-  bankCards[src.id] = { el: cardEl, note };
-  $('bankStrip').append(cardEl);
-});
-function bankModel() {
+function bankMods() {
   const keys = pageKeys(page), routes = dev.routes(), pend = dev.pending();
-  return dev.sources().map(src => ({ src, n: routes.filter(r => r.src === src.id && keys.has(r.param)).length, pending: pend.includes(src.id) }))
-    .filter(m => m.n > 0 || m.pending);
+  return dev.sources().filter(s => pend.includes(s.id) || routes.some(r => r.src === s.id && keys.has(r.param))).map(s => MODS[s.id]);
 }
-function paintBank() {
-  const model = bankMode === 'mods' ? bankModel() : [];
-  const sig = page + '|' + bankMode + '|' + model.map(m => m.src.id + ':' + m.n + (m.pending ? 'p' : '')).join(',');
-  if (sig === bankSig) return; bankSig = sig;
-  const on = new Set(model.map(m => m.src.id));
-  for (const id in bankCards) bankCards[id].el.hidden = !on.has(id);
-  model.forEach(m => { bankCards[m.src.id].note.textContent = m.pending ? 'PENDING: drag Map onto a control, or it is dropped when the interface closes' : m.n + (m.n === 1 ? ' route' : ' routes') + ' on this page'; });
-  $('bankTitle').textContent = bankMode === 'mods' ? 'Modulators' : 'Macros';
-  $('bankAdd').disabled = bankMode !== 'mods';
-  $('bankCount').textContent = bankMode === 'mods' ? model.length + ' on this page' : '';
-  $('bankEmpty').textContent = bankMode === 'macros'
-    ? 'Macros: none exist yet. The macros and the intent bus are the device’s and are deferred (RC-4); when they exist, this switch lists them here instead of the modulators.'
-    : model.length ? '' : 'No modulators on this page. Press + to activate one, then drag its Map handle onto a control.';
+// The page's keys, live: the rows' "n here" counts routes to them (ModBank keeps this one array, so it is updated in place).
+const bankPageKeys = []; let bankPage = null;
+views.push({ page: '*', update() { if (bankPage !== page) { bankPage = page; bankPageKeys.length = 0; pageKeysList(page).forEach(k => bankPageKeys.push(k)); } } });
+// ADR-341 r6, r7 and ADR-340 r11: Tone, Space, Time, Motion, slots 5 to 8, the bend and the mod wheel, in the ruled order. Slots 5 to 8
+// are named by number, not invented (ADR-192 leaves their phrase list open). No engine side exists (port-tab `macros`, spec-table).
+const MACROS = ['Tone', 'Space', 'Time', 'Motion', 'Macro 5', 'Macro 6', 'Macro 7', 'Macro 8'].map((name, i) => ({ id: 'macro' + (i + 1), name, touches: 0 }))
+  .concat([{ id: 'bend', name: 'Pitch bend', wheel: 'bend', touches: 0 }, { id: 'modwheel', name: 'Mod wheel', wheel: 'mod', touches: 0 }]);
+const MACRO_SAYS = 'Macros and the wheels are not in the engine yet (the intent bus is the device’s, RC-4 deferred): a row moves its own value and sends nothing';
+function macroNote() { if (S.message !== MACRO_SAYS) S.say(MACRO_SAYS); }
+// M-R2 (ADR-338 r9): × removes the modulator and every route it drives as ONE undo step through the adapter; the line names them and
+// offers Undo, the inverse of that one step, so it goes the moment the history moves on (any other step, or the Undo itself).
+const undoLine = H.UndoLine($('undoLine'), { keys: () => S.keys });
+let undoMark = null;
+views.push({ page: '*', update() { if (undoMark !== null && dev.history().past.length !== undoMark) { undoLine.hide(); undoMark = null; } } });
+function removeMod(m, routes) {
+  const gone = routes.slice(), res = dev.removeModulator(m.id);
+  if (!res.ok) { S.say('Not removed: ' + res.why); return; }
+  if (!res.step) {           // pending: outside the patch and the history, so there is nothing to undo
+    const t = 'Removed ' + m.name + ': it was pending and never mapped, so it is simply dropped (no undo step). + brings it back.';
+    undoMark = null; undoLine.show(t); S.say(t); return;
+  }
+  const t = H.ModRemoval.describe(S, m, gone);
+  undoMark = dev.history().past.length;
+  undoLine.show(t, () => { if (dev.undo()) S.say('Undone: ' + m.name + ' and its routes are back'); });
+  S.say(t);
 }
-views.push({ page: '*', update: paintBank });
-function setBankMode(m) { bankMode = m; $('bankModes').querySelectorAll('button').forEach(b => b.setAttribute('aria-checked', String(b.dataset.m === m))); bankSig = ''; S.say(m === 'mods' ? 'The bank shows the modulators on this page' : 'The bank shows the macros'); }
+// The map handle (ADR-322 r3, ADR-323 r3): press it, then click a control (MD1 maps); or drag it onto a control, which goes through
+// the adapter's addRoute and so refuses what RC-4 refuses (a stepped or reserved row, a source the engine does not publish). A
+// macro is not a session source (no intent bus), so its handle says so.
+const bank = H.ModBank($('bankHost'), S, { mods: bankMods, macros: MACROS, pageKeys: bankPageKeys, keys: () => S.keys,
+  onMap: m => { if (!S.src(m.id)) { macroNote(); return; } const on = S.map.on && S.map.src === m.id; S.setSrc(m.id); S.setMap(!on); },
+  onDrop: (m, key) => { if (S.src(m.id)) dropMap(m, key); else macroNote(); },
+  onAdd: () => openAddMenu(), onRemove: removeMod,
+  onSet: set => S.say(set === 'mods' ? 'The bank shows the modulators on this page' : 'The bank shows the macros, the pitch bend and the mod wheel'),
+  onMacro: (id, v, by) => { if (by === 'mouse') macroNote(); } });
+// MS4 (ADR-340 r8, H.SourceRows' rule): with MAP on, a click on a row's body (anywhere but a button) makes it the source of the next
+// mapping. The name and the Map handle are buttons, so a click on them keeps its own meaning; with MAP off a click does nothing.
+$('bankHost').addEventListener('click', e => {
+  const row = S.map.on && !e.target.closest('button') ? e.target.closest('.hd-trow') : null, s = row && S.src(row.dataset.mod);
+  if (s) { S.setSrc(s.id); S.say('Source: ' + s.name + ' (the bank row)'); }
+});
 function setBankShown(on) { bankShown = on; $('bank').hidden = !on; $('pagecol').classList.toggle('bank-off', !on); $('bankOn').setAttribute('aria-checked', String(on)); }
-$('bankModes').querySelectorAll('button').forEach(b => b.addEventListener('click', () => setBankMode(b.dataset.m)));
 $('bankOn').addEventListener('click', () => { setBankShown(!bankShown); S.say(bankShown ? 'Bank shown' : 'Bank hidden'); });
-// + : activate a modulator that is neither routed nor pending. It shows in the bank as PENDING until it is mapped.
-$('bankAdd').addEventListener('click', e => {
+// + : activate a modulator that is neither routed nor pending. It shows in the bank as pending until it is mapped.
+function openAddMenu() {
   closeMenu();
   const routed = new Set(dev.routes().map(r => r.src)), pend = new Set(dev.pending());
   const free = dev.sources().filter(s => !routed.has(s.id) && !pend.has(s.id));
-  const b = $('bankAdd').getBoundingClientRect();
+  const b = $('bankHost').querySelector('.bk-side .hd-btn').getBoundingClientRect();
   menu = h('div', { class: 'hd-card menu', role: 'menu', 'aria-label': 'Activate a modulator' },
     h('div', { class: 'head' }, h('span', { class: 'hd-cluster', text: 'Activate' }), h('span', { class: 'hd-hint', text: 'pending until mapped' })),
-    h('div', { class: 'face' }, free.length ? free.map(s => { const it = h('button', { class: 'hd-btn hd-focus', type: 'button', role: 'menuitem', text: s.name }); it.addEventListener('click', () => { closeMenu(); const r = dev.activate(s.id); S.say(r.ok ? s.name + ' is active and pending: drag its Map handle onto a control' : r.why); }); return it; })
+    h('div', { class: 'face' }, free.length ? free.map(s => { const it = h('button', { class: 'hd-btn hd-focus', type: 'button', role: 'menuitem', text: s.name }); it.addEventListener('click', () => { closeMenu(); const r = dev.activate(s.id); S.say(r.ok ? s.name + ' is active and pending: press its Map, then click a control (or drag Map onto one)' : r.why); }); return it; })
       : h('span', { class: 'hd-hint', text: 'Every modulator is active already.' })));
   document.body.append(menu);
   const mb = menu.getBoundingClientRect();
   menu.style.left = Math.max(8, Math.min(b.left, innerWidth - mb.width - 8)) + 'px'; menu.style.top = Math.max(8, b.top - mb.height - 4) + 'px';
-});
+}
+// The shell's own Escape layer goes in front of everything the session and the bank hold (ADR-338 r11); it is added last so it is first.
+S.escapeLayers.unshift({ name: 'menu', active: () => !!menu, cancel: closeMenu });
 // Closing the interface (or ending the session) drops what was activated and never mapped (ADR-322 item 3).
 addEventListener('pagehide', () => { dev.close(); });
 
@@ -1065,7 +1119,12 @@ $('closeBtn').addEventListener('click', () => {
   S.say(gone.length ? 'Closed and reopened: dropped ' + gone.join(', ') + ' (activated with +, never mapped)' : 'Closed and reopened: nothing was pending, so nothing was dropped');
 });
 $('initBtn').addEventListener('click', () => { dev.reset(); S.say('Init patch: every corner at the spec’s defaults, no routes'); });
-function setKeys(on) { S.keys = on; $('kbd').setAttribute('aria-pressed', String(on)); $('kbdTxt').textContent = on ? 'KEYS ON' : 'KEYS OFF'; $('win').classList.toggle('kbd-on', on); sweepTabs(); }
+// The lamp follows S.keys, whoever changes it: the button, or the session's own Escape layer (which cancels keyboard mode
+// and says so), so the lamp is repainted from the session's emit and never only from our setter.
+let keysLamp = null;
+function paintKeys() { const on = S.keys; keysLamp = on; $('kbd').setAttribute('aria-pressed', String(on)); $('kbdTxt').textContent = on ? 'KEYS ON' : 'KEYS OFF'; $('win').classList.toggle('kbd-on', on); sweepTabs(); }
+function setKeys(on) { S.keys = on; paintKeys(); }
+S.on(() => { if (keysLamp !== S.keys) paintKeys(); });
 $('kbd').addEventListener('click', () => setKeys(!S.keys));
 // ADR-338 ruling 12: Fixed or Scale (75 to 200 %, or Fit to the browser's viewport). No reflow: the composition is the same at every size.
 const SCALES = [.75, .9, 1, 1.25, 1.5, 1.75, 2];
@@ -1106,6 +1165,10 @@ views.push({ page: '*', update() {
   $('histTxt').textContent = 'History (the shell’s, RC-11): ' + (hs.past.length ? hs.past.slice(-6).join(' · ') : 'empty') + (hs.future.length ? ' · redo ' + hs.future.length : '');
 } });
 
+// The session's listeners (the map keys and the layered Escape, ADR-338 r11) exist once it is started, and the self-checks below press
+// those keys for real, so it starts here; its frames cannot run before this synchronous script ends.
+S.start();
+
 // ===== BLOCK H: self-checks. Each has a must-fail control, so a check that never ran cannot pass for one that held =====
 (function checks() {
   const box = $('checks'), line = (ok, t) => box.append(h('p', { class: ok ? 'hd-hint' : 'hd-note bad', text: (ok ? 'OK · ' : 'FAILED · ') + t }));
@@ -1114,11 +1177,14 @@ views.push({ page: '*', update() {
   // as a multiset (every generated control mounted once, nothing else).
   const same = (a, b) => a.length === b.length && [...a].sort().every((k, i) => k === [...b].sort()[i]);
   let allSame = true, n = 0;
-  DATA.pages.forEach(pg => { const want = pg.groups.flatMap(g => g.controls.map(c => c.key)), got = [...pageEls[pg.id].querySelectorAll('[data-key]')].map(e => e.dataset.key); n += got.length; if (!same(want, got)) allSame = false; });
+  // The Mod page (ADR-338 r8) builds each modulator's controls once and the page's pane swaps the selected detail in, so the hosts it
+  // holds count as the page's mounted controls while a detail is not showing (heldHosts); every other page is read from the document.
+  DATA.pages.forEach(pg => { const have = new Set(pageEls[pg.id].querySelectorAll('[data-key]')); if (pg.id === 'mod') heldHosts.forEach(x => have.add(x));
+    const want = pg.groups.flatMap(g => g.controls.map(c => c.key)), got = [...have].map(e => e.dataset.key); n += got.length; if (!same(want, got)) allSame = false; });
   const sub = DATA.pages.find(p => p.id === 'sub'), subWant = sub.groups.flatMap(g => g.controls.map(c => c.key));
   line(allSame && !same(subWant.slice(1), subWant), 'Mounted = generated: ' + n + ' controls on ' + DATA.pages.length + ' pages, each page\u2019s keys exactly; a list one key short reads as different (control).');
   // 2. No control lacks a parameter, and every host parameter is on a page.
-  const mounted = new Set([...document.querySelectorAll('#pages [data-key]')].map(e => e.dataset.key));
+  const mounted = new Set([...document.querySelectorAll('#pages [data-key]'), ...heldHosts].map(e => e.dataset.key));
   const bankKeys = [...document.querySelectorAll('#bank [data-key]')].map(e => e.dataset.key);
   const orphans = [...mounted, ...bankKeys].filter(k => !ROW[k] || ROW[k].reserved), unreached = DATA.params.filter(r => !r.reserved && !mounted.has(r.key));
   line(!orphans.length && !unreached.length && ROW['x'] === undefined, 'No control without a parameter (' + orphans.length + '), no host parameter without a control (' + unreached.length + ' of ' + DATA.counts.host + '); an unknown key is not a row (control).');
@@ -1170,15 +1236,15 @@ views.push({ page: '*', update() {
   // 9. The bank (ADR-322 item 3): listed from the routes, + makes a pending modulator, a drop on a stepped control is
   // refused and leaves it pending, a drop on a continuous one maps it and lists it on that page only, and closing the
   // interface drops what was never mapped. Control: before any of it ENV 3 is not listed.
-  const listed = () => [...document.querySelectorAll('#bankStrip > .hd-card:not([hidden])')].map(e => e.dataset.src);
+  const listed = () => [...document.querySelectorAll('#bank .bk-lanes .hd-trow')].map(e => e.dataset.mod);
   const srcOf = id => dev.sources().find(x => x.id === id), pg0 = page;
-  page = 'sub'; paintBank(); const before3 = listed().includes('env3');
-  dev.activate('env3'); paintBank(); const pendShown = listed().includes('env3');
+  page = 'sub'; bank.refresh(); const before3 = listed().includes('env3');
+  dev.activate('env3'); bank.refresh(); const pendShown = listed().includes('env3');
   const refusedStep = !dropMap(srcOf('env3'), pc.key).ok && dev.pending().includes('env3');
-  const mapped = dropMap(srcOf('env3'), kc.key).ok && !dev.pending().includes('env3'); paintBank(); const onSub = listed().includes('env3');
-  page = 'noise'; paintBank(); const offNoise = !listed().includes('env3');
+  const mapped = dropMap(srcOf('env3'), kc.key).ok && !dev.pending().includes('env3'); bank.refresh(); const onSub = listed().includes('env3');
+  page = 'noise'; bank.refresh(); const offNoise = !listed().includes('env3');
   dev.undo(); dev.activate('env4'); const dropped = dev.close();
-  page = pg0; paintBank();
+  page = pg0; bank.refresh();
   line(!before3 && pendShown && refusedStep && mapped && onSub && offNoise && dropped.join() === 'env4' && !dev.pending().length,
     'Bank: + made ENV 3 pending and listed; dropping it on ' + pr.label + ' (stepped) was refused and it stayed pending; on ' + ROW[kc.key].label + ' it mapped and listed on Sub, not on Noise; closing the interface dropped the unmapped ENV 4 (control: ENV 3 was not listed before).');
   // 10. The new sources (ADR-330) go to their own side and work with the chrome: a module knob's write reaches the rack
@@ -1192,7 +1258,7 @@ views.push({ page: '*', update() {
   dev.begin('self-check'); PROPS[fxc.key + '@fx'].vals[0] = .61; dev.set(msc.key, .4); dev.end();
   const toRack = deviceSide.get(fxc.key) === .61 && Math.abs(resolver.get(msc.key) - dev.heard(msc.key)) < 1e-12 && dev.heard(msc.key) !== msr.default_v;
   const noEngine = engine.observe().refused === ref0 && engine.getParam(fxc.key) === null;
-  page = 'fx'; const fxMapped = dropMap(srcOf('env2'), fxc.key).ok; paintBank(); const fxListed = listed().includes('env2');
+  page = 'fx'; const fxMapped = dropMap(srcOf('env2'), fxc.key).ok; bank.refresh(); const fxListed = listed().includes('env2');
   const fxHost = document.querySelector('#page-fx [data-key="' + CSS.escape(fxc.key) + '"]');
   fxHost.dispatchEvent(new MouseEvent('pointerover', { bubbles: true })); const noDesc = /^No description in the module/.test($('infoText').textContent);
   fxHost.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 40 }));
@@ -1201,7 +1267,7 @@ views.push({ page: '*', update() {
   document.querySelector('#page-arp [data-key="' + CSS.escape(arpc.key) + '"]').dispatchEvent(new MouseEvent('pointerover', { bubbles: true }));
   const arpNote = $('infoText').textContent === arpr.spec;
   dev.undo(); dev.undo(); engine.setParam(fxc.key, .5); const ctl = engine.observe().refused === ref0 + 1;
-  page = pg0; paintBank();
+  page = pg0; bank.refresh();
   line(toRack && noEngine && fxMapped && fxListed && noDesc && fxMenu.includes('Open in manual') && arpNote && ctl,
     'New sources: ' + fxr.source + ' · ' + fxr.label + ' reached the rack and ' + msr.label + ' the morph resolver, not the engine; ENV 2 mapped onto ' + fxr.label + ' and listed on FX; the info box says ' + fxr.source + ' gives no description and shows Arp’s own note for ' + arpr.label + '; right-click offers the manual (control: the engine refuses the module’s key sent to it directly).');
   // 11. One model, two views (B589's dashboard): a write through the dashboard's control reaches the same key the full
@@ -1285,27 +1351,25 @@ views.push({ page: '*', update() {
     dev.undo(); dev.undo(); dev.undo(); tick();
     line(s1.startsWith('ENV 3') && s1.includes(ENG.display(ROW[fg.follow.options['ENV 3'].viz.a], .3)) && same && moved, 'Envelope summary: Osc 1 on ENV 3 reads “' + s1 + '”, ENV 3’s attack; ENV 1’s attack moving left it as it was, ENV 3’s moved it (control: the first block’s attack differs).'); }
   // 20. A bank card draws every control it names: a label with no dial is a control squeezed to nothing (slice 6 found four
-  // utility knobs in one nowrap row of a 220 px card, each dial shrunk to 0 wide). Measured on the real layout. Control: the
-  // same card squeezed to 40 px with nowrap reads as not drawn.
+  // utility knobs in one nowrap row of a 220 px card, each dial shrunk to 0 wide). Now the bundle's compact card, opened by a click
+  // on its row's name (ADR-338 r7); measured on the real layout. Control: the same card squeezed to 40 px with nowrap reads as not drawn.
   { const pg0 = page, drawn = c => { const cs = [...c.querySelectorAll('.ctl')]; return cs.length > 0 && cs.every(x => { const f = x.querySelector('.mk-face, select, .hd-stepper, button') || x, b = f.getBoundingClientRect(); return b.width > 4 && b.height > 4; }); };
-    page = 'sub'; dev.activate('env2'); paintBank();
-    const card = document.querySelector('#bankStrip > .hd-card[data-src="env2"]'), whole = !card.hidden && drawn(card);
-    const w0 = card.style.width, fl = card.querySelector('.face'); card.style.width = '40px'; fl.style.flexWrap = 'nowrap'; const squeezed = !drawn(card);
-    card.style.width = w0; fl.style.flexWrap = ''; dev.close(); page = pg0; paintBank();
-    line(whole && squeezed, 'Bank card: ENV 2’s card draws its ' + card.querySelectorAll('.ctl').length + ' controls with a dial each, not a label alone (control: squeezed to 40 px with nowrap it does not).'); }
+    page = 'sub'; dev.activate('env2'); bank.refresh();
+    $('bankHost').querySelector('.hd-trow[data-mod="env2"] .tnm').click();
+    const card = $('bankHost').querySelector('.bk-pop .hd-mcard'), whole = !!card && card.getClientRects().length > 0 && drawn(card);
+    const w0 = card.style.width, fl = card.querySelector('.mc-ctl'), f0 = fl.style.flexWrap; card.style.width = '40px'; fl.style.flexWrap = 'nowrap'; const squeezed = !drawn(card);
+    card.style.width = w0; fl.style.flexWrap = f0; bank.close(); dev.close(); page = pg0; bank.refresh();
+    line(whole && squeezed, 'Bank card: ENV 2’s compact card draws its ' + card.querySelectorAll('.ctl').length + ' controls with a dial each, not a label alone (control: squeezed to 40 px with nowrap it does not).'); }
   // 21. ADR-335 ruling 3: the MAP control is as wide as its parts. Slice 6 shipped it shrunk by the source strip beside it, the
-  // source drop-down cut to a sliver; measured here on the real layout: nothing of the control is clipped, the longest source
-  // name fits its drop-down, and the strip starts after it. Control: the same control held to 60 px reads as clipped.
-  { const host = $('mapHost'), sel = host.querySelector('select'), cx = document.createElement('canvas').getContext('2d');
-    const probe = () => {
-      const cs = getComputedStyle(sel); cx.font = cs.font;
-      const longest = dev.sources().map(x => ({ n: x.name, w: cx.measureText(x.name).width })).sort((a, b) => b.w - a.w)[0];
-      const room = sel.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);   // the drop-down's text area, its arrow included
-      return { clipped: host.scrollWidth > host.clientWidth + 1 || sel.getBoundingClientRect().right > host.getBoundingClientRect().right + 1, longest, room,
-        strip: $('srcStrip').getBoundingClientRect().left >= host.getBoundingClientRect().right - 1 };
-    };
+  // source drop-down cut to a sliver. With the source chip (MS3, ADR-340 r8) the part that could be buried is the chip's name: measured
+  // here on the real layout, nothing of the control is clipped, EVERY source's name fits the chip (its text is not cut), and the
+  // strip starts after the control. Control: the same control held to 60 px reads as clipped.
+  { const host = $('mapHost'), nm = host.querySelector('.sc-nm'), lab = host.querySelector('.sc-t'), was = S.map.src;
+    const probe = () => ({ clipped: host.scrollWidth > host.clientWidth + 1 || nm.getBoundingClientRect().right > host.getBoundingClientRect().right + 1,
+      strip: $('srcStrip').getBoundingClientRect().left >= host.getBoundingClientRect().right - 1 });
+    const cut = []; dev.sources().forEach(x => { S.setSrc(x.id); if (lab.scrollWidth > lab.clientWidth + 1 || nm.scrollWidth > nm.clientWidth + 1) cut.push(x.name); }); S.setSrc(was);
     const whole = probe(); host.style.maxWidth = '60px'; const squeezed = probe().clipped; host.style.maxWidth = '';
-    line(!whole.clipped && whole.longest.w <= whole.room && whole.strip && squeezed, 'MAP control: whole at ' + Math.round(host.getBoundingClientRect().width) + ' px, its longest source name (' + whole.longest.n + ', ' + Math.round(whole.longest.w) + ' px) fits the drop-down’s ' + Math.round(whole.room) + ' px text area, the strip starts after it (control: held to 60 px it is clipped).'); }
+    line(!whole.clipped && !cut.length && whole.strip && squeezed, 'MAP control: whole at ' + Math.round(host.getBoundingClientRect().width) + ' px with the source chip, all ' + dev.sources().length + ' source names fit it' + (cut.length ? ' (CUT: ' + cut.join(', ') + ')' : '') + ', the strip starts after it (control: held to 60 px it is clipped).'); }
   // 22. ADR-335 ruling 4 (B582): the info box is one size in one place. Hovering a parameter with the longest text and then a
   // section with the longest description, on every page, moves and resizes nothing (the page area, the bank, the box and the foot
   // row are measured), the box is the same on every page, and its text scrolls inside it. Control: with its size made to follow
@@ -1359,20 +1423,21 @@ views.push({ page: '*', update() {
     S.setMap(false); key('keydown', 'Digit4'); const free = S.map.src === dev.sources()[2].id && S.pinned === null;
     S.keys = was[0]; S.setSrc(was[2]); S.setMap(was[1]);
     line(latched && src3 && fieldNone && offAgain && esc && free, 'Map keys: with keyboard mode off, M latched MAP, 3 chose the third source, M turned it off, Esc turned it off; the same keys in the source drop-down did nothing, and a digit with MAP off was left alone (control).'); }
-  // 25. ADR-338 ruling 11: Escape cancels one layer per press, innermost first: the open menu, then MAP, then keyboard mode; with
-  // nothing open it cancels nothing (and is never panic). Real key events at the window. Control: the first press with the
-  // menu open leaves MAP on, so a handler that cancelled everything at once would fail here.
-  { const was = [S.keys, S.map.on, S.pinned], esc = () => document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }));
+  // 25. ADR-338 ruling 11: Escape cancels one layer per press, innermost first, through the SESSION's layered Escape (S.escape(), the
+  // shell's menu in front): the open menu, then MAP, then keyboard mode (the session's own layer; the lamp follows S.keys); with nothing
+  // open it cancels nothing (and is never panic). Real key events at the window. A press that cancelled something is default-prevented.
+  // Control: the first press with the menu open leaves MAP on, so a handler that cancelled everything at once would fail here.
+  { const was = [S.keys, S.map.on, S.pinned], esc = () => { const e = new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }); document.body.dispatchEvent(e); return e.defaultPrevented; };
     const kh2 = document.querySelector('#page-' + page + ' [data-key]') || document.querySelector('#pages [data-key]');
     S.setPin(null); setKeys(true); S.setMap(true);
     kh2.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 40 }));
     const opened = !!menu;
-    esc(); const l1 = escLayers.last(), m1 = !menu && S.map.on && S.keys;
-    esc(); const l2 = escLayers.last(), m2 = !S.map.on && S.keys;
-    esc(); const l3 = escLayers.last(), m3 = !S.keys && $('kbdTxt').textContent === 'KEYS OFF';
-    esc(); const l4 = escLayers.last();
+    const p1 = esc(), m1 = !menu && S.map.on && S.keys;
+    const p2 = esc(), m2 = !S.map.on && S.keys;
+    const p3 = esc(), m3 = !S.keys && $('kbdTxt').textContent === 'KEYS OFF';
+    const p4 = esc();
     setKeys(was[0]); S.setMap(was[1]); S.setPin(was[2]);
-    line(opened && m1 && m2 && m3 && [l1, l2, l3, l4].join() === 'menu,map,keys,', 'Escape: one layer a press: the menu closed (MAP stayed on), then MAP turned off, then keyboard mode (the lamp reads KEYS OFF); a fourth press cancelled nothing (' + [l1, l2, l3, l4 || 'none'].join(' → ') + '; control: MAP survived the first press).'); }
+    line(opened && m1 && m2 && m3 && p1 && p2 && p3 && !p4, 'Escape: one layer a press, through the session: the menu closed (MAP stayed on), then MAP turned off, then keyboard mode (the lamp reads KEYS OFF); a fourth press cancelled nothing and was left alone (control: MAP survived the first press).'); }
   // 26. ADR-156 / ADR-333: the ring is the oscillator's direct control. A press-drag-release on Osc 1's ring writes Detune and
   // Coupling as ONE undo step, and the knobs read it back (one model); a shift-drag moves Cross-mod and holds Detune; undo walks
   // both back. Real pointer events on the bundle's RingXY (its capture stubbed). Control: the values differed before the drag.
@@ -1392,7 +1457,7 @@ views.push({ page: '*', update() {
     line(one && landed && shifted && back && Math.abs(v0[0] - .6) > .02, 'Ring: a drag on Osc 1’s ring landed Detune ' + x1.toFixed(2) + ' and Coupling ' + y1.toFixed(2) + ' as one undo step and the Detune knob reads it; a shift-drag moved Cross-mod and held Detune; undo restored all three (control: Detune differed before).'); }
   // 27. ADR-266: the Mod page's grid and route list read the DEVICE's routes. A route added through the device shows as a grid
   // column with a filled cell and as a route row; removing it takes both away. Control: before the route the column is absent.
-  { const pg0 = page; selectPage('mod');
+  { const pg0 = page; selectPage('mod'); modPageCtl.mode('routes'); modRoutes.pick(0);   // the Mod page's Routes view (ADR-338 r8), the grid
     const tick = () => { for (const v of views) if (v.page === 'mod' || v.page === '*') v.update(); for (const v of S.views) v.render(); };
     const k = pageKeysList('osc1').find(x => ROW[x].law !== 'step' && (ROW[x].pv || ROW[x].target !== 'engine') && !dev.routes().some(r => r.param === x)), sel0 = S.selected;
     S.selected = null; tick();
@@ -1401,11 +1466,75 @@ views.push({ page: '*', update() {
     const col1 = [...pageEls.mod.querySelectorAll('.mx-gh')].some(b => b.title === S.params[k].path), rows1 = pageEls.mod.querySelectorAll('.mx-routes .mx-row').length;
     dev.undo(); mapBridge.pull(); tick();
     const col2 = [...pageEls.mod.querySelectorAll('.mx-gh')].some(b => b.title === S.params[k].path);
-    S.selected = sel0; selectPage(pg0);
+    S.selected = sel0; modPageCtl.mode('detail'); selectPage(pg0);
     line(ok && !col0 && col1 && rows1 >= 1 && !col2, 'Mod matrix: ENV 2 → ' + S.params[k].path + ' added through the device appeared as a grid column and a route row (' + rows1 + '); undo removed the column (control: absent before).'); }
   // 13. The page bar (B589): an old link's page id opens its page under its group, and the group remembers it.
   selectPage('noise'); const nv = nav.get(); selectPage('main'); const nm2 = nav.get();
   line(nv.group === 'osc' && nv.page === 'noise' && nm2.group === 'main', 'Page nav: #noise opens Noise under Osc (' + nv.group + ' / ' + nv.page + '); Main is its own group (control: ' + nm2.group + ').');
+  // 28. M-R2 (ADR-338 r9): the × on a bank row removes the modulator and every route it drives as ONE undo step through the adapter, the
+  // line names what went and offers Undo, and that Undo puts back the modulator AND its routes; another modulator's routes stay. A
+  // pending modulator is simply dropped (no step, no Undo). Control: before the × both of ENV 3's routes and ENV 4's one exist and
+  // the line is silent, and a modulator with no routes that is not pending is refused.
+  { const pg0 = page; selectPage('osc1');
+    const ks = pageKeysList('osc1').filter(k => ROW[k].law !== 'step' && (ROW[k].pv || ROW[k].target !== 'engine') && !dev.routes().some(r => r.param === k)).slice(0, 3);
+    dev.begin('self-check'); dev.addRoute({ src: 'env3', param: ks[0] }); dev.addRoute({ src: 'env3', param: ks[1] }); dev.addRoute({ src: 'env4', param: ks[2] }); dev.end();
+    mapBridge.pull(); bank.refresh();
+    const mine = id => dev.routes().filter(r => r.src === id).length, undoBtn = () => [...$('undoLine').querySelectorAll('button')].find(b => b.textContent === 'Undo' && !b.hidden);
+    const before = mine('env3') === 2 && mine('env4') === 1 && !undoBtn(), hs = dev.history().past.length;
+    $('bankHost').querySelector('.hd-trow[data-mod="env3"] .hd-xb').click();
+    const oneStep = dev.history().past.length === hs + 1 && mine('env3') === 0 && mine('env4') === 1, says = $('undoLine').textContent;
+    const named = /ENV 3/.test(says) && /2 routes/.test(says) && !!undoBtn();
+    undoBtn().click(); mapBridge.pull();
+    const back = mine('env3') === 2 && mine('env4') === 1 && !undoBtn() && dev.history().past.length === hs;
+    dev.undo(); dev.clearRedo(); mapBridge.pull();
+    dev.activate('env2'); bank.refresh(); const hp = dev.history().past.length;
+    $('bankHost').querySelector('.hd-trow[data-mod="env2"] .hd-xb').click();
+    const dropped = !dev.pending().includes('env2') && dev.history().past.length === hp && !undoBtn() && /pending/.test($('undoLine').textContent);
+    const refused = !dev.removeModulator('env1').ok;
+    undoLine.hide(); bank.refresh(); selectPage(pg0);
+    line(before && oneStep && named && back && dropped && refused && mine('env3') === 0, 'Removal (M-R2): the × on ENV 3’s bank row removed it and its 2 routes as one undo step (ENV 4’s route stayed), the line named them and offered Undo, and Undo put both routes back; a pending ENV 2 was dropped with no step and no Undo; a source with nothing to remove is refused (control: before the ×, ENV 3 had 2 routes, ENV 4 one, and the line was silent).'); }
+  // 29. Source switching (ADR-340 r8): MS4, with MAP on a click on a bank row's body makes it the source and a click on its name (a button)
+  // does not; with MAP off the same click does nothing; MS3, the chip on the MAP control steps the source (the wire to the session's own
+  // map source). Control: with MAP off the same click on the body left the source where it was.
+  { const was = [S.map.on, S.map.src, page]; selectPage('osc1'); dev.activate('env3'); dev.activate('env4'); bank.refresh();
+    const body = id => $('bankHost').querySelector('.hd-trow[data-mod="' + id + '"] .tpic'), nameOf = id => $('bankHost').querySelector('.hd-trow[data-mod="' + id + '"] .tnm');
+    const click = el => el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    S.setSrc('env2'); S.setMap(false); click(body('env3')); const offNone = S.map.src === 'env2';
+    S.setMap(true); click(body('env3')); const viaBody = S.map.src === 'env3';
+    click(nameOf('env4')); const nameKeeps = S.map.src === 'env3'; bank.close();
+    const next = $('mapHost').querySelector('.sc-b[aria-label="next source"]'); next.click(); const stepped = S.map.src === 'env4';
+    S.setMap(was[0]); S.setSrc(was[1]); dev.close(); bank.refresh(); selectPage(was[2]);
+    line(offNone && viaBody && nameKeeps && stepped, 'Source switching: with MAP on a click on ENV 3’s bank row made it the source (MS4), a click on its name did not (it opens the card), and the chip’s › stepped it on to ENV 4 (MS3); with MAP off the same click on the row did nothing (control).'); }
+  // 30. The MAC lane (ADR-340 r11, ADR-341 r6 and r7): ten rows in the ruled order, every macro unbound (the stub has no intent bus: its
+  // drag says so and sends nothing), the bend row springs back to the centre and the mod wheel row holds where it is left. The spring
+  // runs on the session's frame clock, stepped here one 100 ms frame at a time (no clock). Control: both sat at 0.9 before the frames.
+  { const tick = () => { for (const v of S.views) v.render(); };
+    $('bankHost').querySelector('.hd-bseg [data-set="macros"]').click(); tick();
+    const names = [...$('bankHost').querySelectorAll('.hd-macrow .tnm')].map(e => e.firstChild.textContent), foots = [...$('bankHost').querySelectorAll('.hd-macrow .tnm small')].map(e => e.textContent);
+    const ruled = names.join() === 'Tone,Space,Time,Motion,Macro 5,Macro 6,Macro 7,Macro 8,Pitch bend,Mod wheel' && foots.slice(0, 8).every(t => t === 'unbound') && foots[8] === 'springs' && foots[9] === 'holds';
+    const bend = bank.macro('bend'), wheel = bank.macro('modwheel'); bend.set(.9); wheel.set(.9);
+    const away = bend.get() === .9 && wheel.get() === .9, n0 = S.now; S.now = n0 || 0;
+    for (let i = 0; i < 8; i++) { S.now += 100; tick(); }
+    const sprang = Math.abs(bend.get() - .5) < 1e-3, held = wheel.get() === .9; S.now = n0;
+    S.message = ''; macroNote(); const says = /not in the engine yet/.test(S.message);
+    bend.set(.5); wheel.set(0); $('bankHost').querySelector('.hd-bseg [data-set="mods"]').click(); tick(); S.message = '';
+    line(ruled && away && sprang && held && says, 'MAC lane: ten rows in the ruled order, the eight macros unbound, the bend springing and the mod wheel holding; the bend at 0.9 sprang back to the centre in 8 frames and the mod wheel stayed at 0.9; a macro’s drag says it is not in the engine yet (control: both sat at 0.9 before the frames).'); }
+  // 31. The Mod page (ADR-338 r8, ADR-340 r10): list + detail, every source a row and the selected one's full tier beside it (ENV 3’s own
+  // rows are in it); the Routes view's three forms (grid, by source, wires) are views of the same device routes, a route made through
+  // the device shows in the by-source group, and the wires' depth-route drop is REFUSED (the engine has none, B70) and makes no
+  // route. Control: before the route there is no ENV 2 group.
+  { const pg0 = page; selectPage('mod'); const tick = () => { for (const v of views) if (v.page === 'mod' || v.page === '*') v.update(); for (const v of S.views) v.render(); };
+    tick(); const listN = pageEls.mod.querySelectorAll('.mp-list .hd-trow').length;
+    modPageCtl.select('env3'); tick(); const det = pageEls.mod.querySelector('.mp-pane .hd-mfull'), ownRows = det && det.querySelector('[data-key^="env3."]');
+    const detail = listN === dev.sources().length && !!det && det.dataset.mod === 'env3' && !!ownRows;
+    modPageCtl.mode('routes'); modRoutes.pick(1); tick();
+    const group = () => [...pageEls.mod.querySelectorAll('.mx-bysrc .mx-grp')].some(g => /^ENV 2/.test(g.getAttribute('aria-label')));
+    const g0 = group(); dev.begin('self-check'); dev.addRoute({ src: 'env2', param: pageKeysList('osc1').find(k => ROW[k].law !== 'step' && (ROW[k].pv || ROW[k].target !== 'engine') && !dev.routes().some(r => r.param === k)) }); dev.end(); mapBridge.pull(); tick();
+    const g1 = group(); const nr = dev.routes().length; modRoutes.pick(2); tick();
+    const wires = !!pageEls.mod.querySelector('.mx-wires canvas'); S.message = ''; depthRefused('env2', S.mappings[0]);
+    const refused = /^Refused/.test(S.message) && /B70/.test(S.message) && dev.routes().length === nr;
+    dev.undo(); dev.clearRedo(); mapBridge.pull(); modRoutes.pick(0); modPageCtl.mode('detail'); modPageCtl.select('env2'); tick(); S.message = ''; selectPage(pg0);
+    line(detail && !g0 && g1 && wires && refused, 'Mod page: ' + listN + ' sources as rows and ENV 3’s full tier in the detail with its own rows; in the Routes view a route made through the device appeared in the by-source list (ML3) and the wires (ML1) drew; a depth-route drop on a valve was refused and made no route, B70 (control: ENV 2 had no group before the route).'); }
   showInfo(null); S.message = '';
   dev.clearHistory();   // the checks' own steps (the probes, the morph toggles) are not the user's history
 })();
@@ -1427,7 +1556,6 @@ views.push({ page: '*', update() {
   // `fit`: say whether the page fits the window's page area (B589's 980 x 720), and by how much it overflows
   if (flags.includes('fit')) { const a = $('pages'); S.message = 'fit: page ' + a.scrollHeight + ' px in an area of ' + a.clientHeight + ' px' + (a.scrollHeight > a.clientHeight ? ', overflows by ' + (a.scrollHeight - a.clientHeight) + ' px' : ', fits'); } }
 sweepTabs();
-S.start();
 })();
 </script>
 </body></html>
