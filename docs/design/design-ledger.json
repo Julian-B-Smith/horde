@@ -5741,6 +5741,10 @@
   {
    "adr": "ADR-343",
    "reason": "Rack and latency behaviour (a module whose latency follows its patch is padded to its maximum): no control or design element."
+  },
+  {
+   "adr": "ADR-344",
+   "reason": "Module admission and note behaviour (Mangle's latency, prepare-only keys, tail per mode, an arp's touching notes): no control or design element."
   }
  ],
  "audit_notes": [
