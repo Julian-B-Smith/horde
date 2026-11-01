@@ -10691,6 +10691,30 @@ Round 2 drew 45 variants. The human answered by poll on 2026-10-30 and 2026-10-3
 - B598 builds it at rack stage S4, with a Layer-0 check.
 - **FX device (ADR-254):** the same rule on its slots, since the rack owns the latency sums (ADR-254).
 
+## ADR-344 — RULED by the human: Mangle's frame and lookahead latency is not admitted in 1.0; a key that applies only at prepare is marked in the manifest; Mangle's tail follows its mode; an arp's touching notes count as overlapping (Mangle seq 2 and 3, B599, B600; 2026-11-01)
+
+**Context.** Mangle's briefs seq 2 (`integrations/mangle/brief-latency-silence-fft.md`) and seq 3 (`integrations/mangle/brief-activate-only-keys.md`), and the human's statement on B599: “I wasn't responding to something I heard, I was just clarifying how I wanted the arp to interact with the glide law.” The lead read the harness lines Mangle cites on main; Mangle's descriptions of them are accurate. Mangle's own red and NOT PROVEN results were not re-run.
+
+**Rulings (the human, 2026-11-01, by poll).**
+1. **Mangle's frame and lookahead latency is not admitted in 1.0.** D6 (ADR-193) holds: morphable modules are zero-latency in 1.0, and oversampling stays the only exception (RS-7.1's amendment). The figures put to the human: 11.6 ms on Live and 46 ms on Studio at 44.1 kHz, on the whole rack whenever Mangle is hosted, in every mode.
+2. **A key that applies only at prepare is marked in the manifest** (Mangle's option (a)). The harness skips it when moving all keys and re-prepares when a loaded state changes it. A new contract test with a plant covers what the skip gives up. This narrows a gate, and the human ruled it knowing that. Rejected: an adapter that models the host (option (b)).
+3. **Mangle's tail follows its mode:** six modes finite, fixed-point infinite, `may_change` set. RS-7.3 already admits this and RS-7.4 keeps `may_change` inside horde. Rejected: an infinite tail for the whole module, under which a slot never sleeps in any mode (RS-7.6) and horde never returns SLEEP (RS-7.4). A5's N/A proposal falls with it, so A5 is not relaxed. A fixed-point limit cycle is admissible under a declared infinite tail.
+4. **An arp's notes that touch exactly count as overlapping; a host's do not.** In mono and legato, an `arp`-stream note-off and note-on at one sample glide as an overlap, so 100 % gate glides under Glide From “held”. Butted notes from the host stay separate. Under 100 % gate still follows Glide From.
+
+**The lead's answers, needing no ruling.**
+- **FFT:** Mangle carries its own, as its swap-in point. horde's audio path and FOUNDATIONS have none.
+- **Mode switch:** no new field, if a latent mode ever ships. A11's click reading is reported only (ADR-218) and watches up to a second after the flip.
+- **A11's stepped Device check:** read the value back and move to a real other step. This is stricter, and adding it is not gated (ADR-180 §1).
+- **Mangle's option (c), applying the key at `reset`:** not taken. The contract's `reset()` row calls it at a host reset and at a transport jump, on a running slot.
+- **A Device key changed in a running slot:** horde requests the restart, and the module never restarts itself. The lead's reading of Q6 and CLAP's `ext/latency.h`; written into RS-7.1's amendment here.
+
+**Consequences.**
+- **What ruling 1 leaves is Mangle's to bring back.** Mangle named two routes: ship only its zero-latency modes as morphable, or mark it non-morphable in 1.0. They differ for the player: only the first keeps the rack at zero added latency, since RS-7.1's zero-latency rule binds morphable modules and a non-morphable Mangle would still add its figure.
+- Rulings 2 to 4 hold on either route. Ruling 2 covers Shriek's `oversample` and any other activate-time key, whatever Mangle does.
+- B600 builds the harness changes. Ruling 4's spec text is written with Arp's reserved rows (ADR-270, RC-6.7), when Arp's core lands, so nothing goes to the clean room now. IF-1's silence on same-sample order is closed by that text.
+- **Still open on B599:** how mono treats ADR-270's teed `direct` notes.
+- **FX device (ADR-254):** rulings 1 to 3 hold on its slots. Ruling 4 does not arise until an arp reaches it; its sidechain's notes are the direct stream.
+
 ## ADR-345 — RULED by the human: the foot row is F1 (a 300 × 120 info box, amending "square-ish"); a selection locks the info box so its text can be scrolled; long descriptions scroll on their own; an info sidebar in Settings replaces the box (B589, B582, B584, ADR-335, ADR-338; 2026-11-01)
 
 **Context.** ADR-335 ruling 4 held GUI 3's foot row at 216 px while ADR-338 ruling 7 ruled the bank at 68 px, so pages got 372 px, 10 of 14 pages scrolled, and a band above the bank sat empty. `docs/design/foot-row-lab.html` (#1321) applied six options to the running shell and measured them. It also found that moving the pointer onto the box cleared it, so text past its edge could never be read.
