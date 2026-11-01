@@ -1864,8 +1864,27 @@ S.start();
       ctlHost(sec, kk.key).dispatchEvent(new MouseEvent('pointerenter')); tick();
       const hotBox = box(), lines = [...slot.querySelectorAll('.rs-l1, .rs-l2')].filter(e => getComputedStyle(e).display !== 'none').length, t1 = slot.querySelector('.rs-l1').textContent, t2 = slot.querySelector('.rs-l2').textContent;
       ctlHost(sec, kk.key).dispatchEvent(new MouseEvent('pointerleave')); tick();
-      line(atRest && lines === 2 && rest === hotBox && rest === '250x26' && t1.includes(ROW[kk.key].label) && /^now /.test(t2) && !/rslot|rs-/.test(document.querySelector('style').textContent),
+      line(atRest && lines === 2 && rest === hotBox && /x26$/.test(rest) && t1.includes(ROW[kk.key].label) && /^now /.test(t2) && !/rslot|rs-/.test(document.querySelector('style').textContent),
         'Readout slot: Sub · Colour’s slot is ' + rest + ' px at rest and hot; hot it shows two lines (“' + t1.slice(0, 28) + '”, “' + t2.slice(0, 22) + '”) and the shell’s style sheet names neither the slot nor its parts (control: at rest the summary shows and neither line does).'); }
+    // 39b. ADR-340 A1: EVERY slot on every page holds one width at rest and hot, at most 250 px and 26 px tall, wherever its header leaves it (39 looks at one
+    // slot, and one that had room is how 13 narrow ones went unseen). Control: a slot allowed to follow its text moves, so this can read false.
+    { const rect = e => { const b = e.getBoundingClientRect(); return [b.left, b.top, b.width, b.height].map(v => Math.round(v * 100) / 100).join(','); }, moved = [], oversize = [], quiet = [];
+      let slots = 0, hot = 0, narrow = 0;
+      // the tick after selectPage matters: a page's first update lays out what sits above its sections, and that is not a hover moving the slot
+      DATA.pages.forEach(pg => { selectPage(pg.id); tick(); pageEls[pg.id].querySelectorAll('.hd-rslot').forEach(slot => {
+        const b = slot.getBoundingClientRect(), sec = slot.closest('[data-section]'), name = sec ? sec.dataset.section : pg.id; if (!b.width) return;
+        slots++; if (b.width < 249.5) narrow++; if (b.width > 250.01 || Math.round(b.height) !== 26) oversize.push(name);
+        // only a sized control drives its slot, so try the section's controls until one does (a section of switches has none, and is counted as quiet)
+        const hosts = sec ? [...sec.querySelectorAll('[data-key]')].filter(e => !e.closest('.hd-pt')).slice(0, 12) : [], rest = rect(slot);
+        let went = false; for (const host of hosts) { host.dispatchEvent(new MouseEvent('pointerenter')); tick(); went = slot.classList.contains('live'); if (rect(slot) !== rest && !moved.includes(name)) moved.push(name); host.dispatchEvent(new MouseEvent('pointerleave')); tick(); if (went) break; }
+        if (went) hot++; else quiet.push(name); }); });
+      // the control tries every slot on the page: Sub · Colour's summary and its hot line happen to be equally wide, and one coincidence must not blind it
+      selectPage('sub'); tick(); let follows = false;
+      pageEls.sub.querySelectorAll('[data-section]').forEach(cs => { const cslot = cs.querySelector('.hd-rslot'); if (!cslot) return;
+        const was3 = [cslot.style.width, cslot.style.maxWidth]; cslot.style.width = 'auto'; cslot.style.maxWidth = 'none'; const r0 = rect(cslot);
+        for (const host of [...cs.querySelectorAll('[data-key]')].filter(e => !e.closest('.hd-pt')).slice(0, 12)) { host.dispatchEvent(new MouseEvent('pointerenter')); tick(); const on = cslot.classList.contains('live'); if (on && rect(cslot) !== r0) follows = true; host.dispatchEvent(new MouseEvent('pointerleave')); tick(); if (on) break; }
+        [cslot.style.width, cslot.style.maxWidth] = was3; });
+      line(!moved.length && !oversize.length && hot > slots / 2 && follows, 'Readout slots (ADR-340 A1): all ' + slots + ' on ' + DATA.pages.length + ' pages keep one width at rest and hot (' + hot + ' went live; ' + quiet.length + ' have no control that drives them' + (quiet.length ? ': ' + quiet.join(', ') : '') + '), none over 250 px or off 26 px tall; ' + narrow + ' are narrower because their header leaves less' + (moved.length ? ' (MOVED: ' + moved.join(', ') + ')' : '') + (oversize.length ? ' (OVERSIZE: ' + oversize.join(', ') + ')' : '') + ' (control: a slot allowed to follow its text moves).'); }
     // 40. ADR-338 r5, the bundle’s ctlFace: the faces of one parameter (the grid’s, the table’s, the lens’s, the dashboard’s) leave the registry and the revert baseline
     // alone. A new face of a registered parameter, built the way the shell builds one, keeps the registered props (the owner page’s) and the saved baseline while the live
     // value has moved off it; a parameter nothing had registered is registered by its first face, which is why the shell registers every owner before any page is built.

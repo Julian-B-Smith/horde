@@ -1,6 +1,6 @@
 # Modulator bank (M2, BT1)
 
-The bank at the bottom of a page (ADR-338 ruling 7, ADR-340 ruling 11, ADR-341): **68 px tall** (`size-bank-h`, the strip the empty bank already took), **two lanes of 26 px thin rows** that scroll sideways, so a page keeps 472 px.
+The bank at the bottom of a page (ADR-338 ruling 7, ADR-340 ruling 11, ADR-341): **68 px tall** (`size-bank-h`, the strip the empty bank already took), **two lanes of 26 px thin rows** that scroll sideways, so a page keeps its room (468 px in the shell, ADR-345 r1).
 
 `Horde.ModBank(el, S, { mods, macros, set, pageKeys, onSet, onAdd, onRemove, onMap, onDrop, onSelect, onMacro, macroPath, keys })`
 - `mods`: an array or a function returning the modulators to list (the host decides what modulates this page, ADR-323 ruling 4: modulators routed to the page's controls, plus the pending ones). `macros`: the Macros lane's rows (see Macro row).

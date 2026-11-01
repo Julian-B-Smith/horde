@@ -10,6 +10,10 @@
  },
  "master_versions": [
   {
+   "version": "1793572935-0ce9",
+   "evidence": "docs/design-system/master/VERSION: published 2026-11-01 from the gui-rslot-narrow branch before merge. ADR-340 A1: the readout slot's wording says one width up to 250 px, not always 250 px. The stale 472 px in the bank's token, README and comment follows ADR-345 r1. No behaviour changed."
+  },
+  {
    "version": "1793571581-8cd3",
    "evidence": "docs/design-system/master/VERSION: published 2026-11-01 from the gui-info-box branch before merge. ADR-345: the new InfoBox component (the lock and the auto-scroll), which the info box lacked since ADR-315 (a hop the audit recorded as skipped). 1793568967-6a34 was published and superseded within the batch: its auto-scroll stopped itself on the browser's rounding of scrollTop, found by driving the preview. 1793569105-ed02 was its fixed version, superseded in turn only to renumber the ruling from ADR-344 to ADR-345 (the lead's #1322 landed ADR-344 first)."
   },
@@ -4623,14 +4627,14 @@
    "clause": "ruling 4 (H1 + H4: a fixed readout slot and the fixed info box; the readout shows the hand's target and the post-modulation value)",
    "lab": "docs/design/composition-lab-r2.html",
    "component": "SectionHeader",
-   "master_version": "1793517046-cbf4",
+   "master_version": "1793572935-0ce9",
    "bundle": "ReadoutSlot",
    "via": null,
    "shell": null,
    "state": "vendored",
    "superseded_by": null,
    "port_tab": "composition-tier",
-   "note": "H1: the readout slot is a fixed size-rslot 250 px, truncating; the dual readout is DR-c (ADR-341 r2) at 1793517046-cbf4. H4 is the shell's info box (ADR-335 r4). The lens may be revisited. Vendored 2026-11-01 (master batch 2, B589). FX device: same."
+   "note": "H1: the readout slot is one fixed width, up to size-rslot 250 px (ADR-340 A1), truncating; the dual readout is DR-c (ADR-341 r2) at 1793517046-cbf4. H4 is the shell's info box (ADR-335 r4). The lens may be revisited. Vendored 2026-11-01 (master batch 2, B589). FX device: same."
   },
   {
    "id": "adr340-steppers",
@@ -4901,6 +4905,21 @@
    "superseded_by": null,
    "port_tab": null,
    "note": "A per-viewer preference in browser storage, not a host parameter. The bank takes the whole foot, at 92 px, and pages lose about 234 px of width. The column and the toggle's place are the shell's; the box is the master's InfoBox."
+  },
+  {
+   "id": "adr340-a1-rslot-width",
+   "adr": "ADR-340",
+   "clause": "A1 (a section's readout slot is fixed at the width its header leaves, up to 250 px; its text never changes its width)",
+   "lab": "docs/design/composition-lab-r2.html",
+   "component": "SectionHeader",
+   "master_version": "1793572935-0ce9",
+   "bundle": "ReadoutSlot",
+   "via": null,
+   "shell": "docs/design/gui3.html: querySelectorAll('.hd-rslot')",
+   "state": "in-shell",
+   "superseded_by": null,
+   "port_tab": null,
+   "note": "The bundle's CSS already behaved this way; the ruling makes it the rule, and the shell's self-check holds all 38 slots to it. 13 are narrower at the 980 px window. FX device: same."
   }
  ],
  "not_design": [

@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1793571581-8cd3, 2026-11-01; do not edit, re-vendor */
+/* vendored from the horde Design System artifact, version 1793572935-0ce9, 2026-11-01; do not edit, re-vendor */
 /* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"SteppedControl"},{"name":"Stepper"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"},{"name":"Companion"},{"name":"SourceChip"},{"name":"SourceRows"},{"name":"RoutesBySource"},{"name":"Cluster"},{"name":"Lens"},{"name":"Fold"},{"name":"PageView"},{"name":"ModTiers"},{"name":"MacroRow"},{"name":"ModBank"},{"name":"ModPage"},{"name":"UndoLine"}]} */
 /* horde house reference behaviours (vanilla JS, no React, no network).
    The morph knob and slider follow the human's HORDE Morph Knob Spec and HORDE Map Mode Spec
@@ -754,7 +754,7 @@
      A sized control has no readout cell of its own. The slot, at the right end of a section header, shows the HOT control
      (under the pointer, dragged, or keyboard-focused) when it sits inside `scope`, as TWO STACKED 13 px LINES (ADR-341 r2, DR-c;
      composition-lab-r3): line 1 is where the hand is taking the control, line 2 is what you hear. The slot is a fixed box
-     (width size-rslot, height 26 px) in every state, so changing text never moves a pixel (H1, ADR-340 r4). Otherwise it shows
+     (height 26 px, width size-rslot or what the header leaves if that is less, ADR-340 A1) in every state, so changing text never moves a pixel (H1, ADR-340 r4). Otherwise it shows
      the section's summary.
        line 1   name · the editing corner's OWN value (bold) · its glyph, letter, weight and lock ("▲ B set · 41%"); LOCKED
                 for a global parameter; the padlock and "C locked" for 1.6 s after a refused write
@@ -6944,7 +6944,7 @@
   } };
 
   /* ---------- THE BANK, M2 (ADR-338 r7) with BT1 (ADR-340 r11): 68 px tall, TWO lanes of 26 px thin rows that scroll sideways, so pages keep
-     472 px. The side column holds the BT1 segments (MAC | MODS), the count and + (on Mods). Mods lists o.mods (a function or an
+     468 px in the shell (ADR-345 r1). The side column holds the BT1 segments (MAC | MODS), the count and + (on Mods). Mods lists o.mods (a function or an
      array: the host decides what modulates this page, ADR-323 r4); Macros lists o.macros as MacroRows. A click on a row's name opens its
      compact card above the bank (the row expanded; Escape closes it through the layered Escape). Callbacks only: onAdd, onRemove, onMap,
      onDrop, onSelect, onSet(set), onMacro(id, v, by). ---------- */
