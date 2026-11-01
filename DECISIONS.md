@@ -10615,7 +10615,7 @@ Round 2 drew 45 variants. The human answered by poll on 2026-10-30 and 2026-10-3
   - the intent bus's macros in the stub, for BR1.
 - **FX device (ADR-254):** the same tier, gestures, hover, steppers, PV1, map gesture, polarity and route views apply on its pages. The bank toggle applies wherever it has a bank. How a hosted module's own screen shows them is still B591's question.
 
-## ADR-341 — RULED by the human: full-patch random leans toward simpler, drier patches, scaled by chaos across the whole patch; below a chaos threshold random never switches on a bypassed slot; the chaos hint to Sluice and Shriek's own randomizers is filed when tuning (B578, ADR-318, ADR-339; 2026-11-01)
+## ADR-342 — RULED by the human: full-patch random leans toward simpler, drier patches, scaled by chaos across the whole patch; below a chaos threshold random never switches on a bypassed slot; the chaos hint to Sluice and Shriek's own randomizers is filed when tuning (B578, ADR-318, ADR-339; 2026-11-01)
 
 **Context.** The human, 2026-10-30 (B578's note): “since the FX modules can get pretty extreme, I think full-patch random on the FX routing should have a bias toward bypassing, drier mixes, and simpler FX patches. Maybe chaos could scale this. I could work it out with Sluice to add a chaos knob to the randomizer that prioritizes simpler chains or something, but that’s secondary.” The lead put three questions; the human answered them 2026-11-01: “a) whole patch, b) yes, c) file it when tuning”. ADR-318 already holds that chaos and amount set the next draw’s bounds only, never a running process.
 
