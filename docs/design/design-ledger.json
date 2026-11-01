@@ -125,6 +125,10 @@
    "adr": "ADR-307",
    "note": "The filters move to Weir; no manifest yet, so the shell's Filters page is empty (port-tab filters)."
   },
+  "foot-row-lab.html": {
+   "status": "exploring",
+   "note": "The foot row's six options for the human's ruling (B589, the shell hop's first open question in #1318). It applies each option to the running shell in a frame and measures it; nothing is harvested until a ruling."
+  },
   "formant-lab.html": {
    "status": "retired",
    "note": "Archived in the design index (its lab-archive tag): retired engine (H2-PLAN Archived engines). History, never a source."

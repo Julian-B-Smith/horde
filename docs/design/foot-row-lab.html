@@ -1,0 +1,322 @@
+<!doctype html>
+<!-- foot-row-lab: the foot row's six options, drawn on the real shell. horde, 2026-11-01. Origin: horde GUI session
+     (ADR-336 charter, docs/design/CLAUDE.md), the human's "Draw the options" on the shell hop's first open ruling (#1318, B589).
+
+     THE QUESTION. ADR-335 r4 fixed the info box as a square-ish box left of the bank, so the shell's foot row is 216 px tall.
+     ADR-338 r7 ruled the bank at 68 px so pages would keep their room. The two rulings pull apart: the pages get 372 px and
+     scroll, and a band above the bank sits empty until a card opens.
+
+     WHAT IS REAL. Everything in the frame: gui3.html itself, unedited, at #main,win,bank. An option is a stylesheet this page
+     puts into the frame (and, for F3, one moved node), so every number below is read off the running shell.
+     WHAT IS MOCK. What the shell already mocks: the stub engine's sources and the bank's two seeded routes.
+
+     WHY NOT DRAW IT AGAIN. A redrawn shell answers for the drawing, not the shell; pages reflow, and F3's narrower page can only
+     be judged by reflowing the real one. Nothing here edits gui3*, arp-face/ or the master: a ruling goes to the shell through
+     ADR-316's chain, and if the option needs a new form, through the master first.
+
+     THE SELF-CHECK runs after the measurements and prints in #selfcheck. Its controls: F0's reading must equal the number the
+     shell's OWN fit check prints (different code reading the same page); a box made to follow its text must move the layout, so
+     "hovering moved nothing" can read false; leaving an option must restore F0's rectangles exactly.
+
+     HOUSE RULES. No Math.random and no clock reads. No wheel listener (B301). setTimeout only yields between measurements. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="lab-part" content="Presentation">
+<meta name="lab-review" content="B589 · 2026-11-01">
+<title>Foot-row lab — six options for the info box and the bank (B589)</title>
+<link rel="stylesheet" href="arp-face/tokens.css">
+<link rel="stylesheet" href="arp-face/bundle.css">
+<style>
+  html, body { background: var(--bg, var(--page)); }
+  body { margin: 0; padding: 20px 16px 60px; color: var(--ink); font: 13px/1.5 var(--font-sans); }
+  .col { max-width: 1012px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+  h1 { font: 800 19px/1.2 var(--font-sans); margin: 0 0 6px; }
+  h2 { font: 800 13px/1.2 var(--font-sans); margin: 0 0 8px; }
+  p { margin: 0 0 6px; max-width: 84ch; }
+  .tagline { max-width: 84ch; }
+  .why { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+  .fact { border: 1px solid var(--div); border-radius: 6px; padding: 8px 10px; }
+  .fact b { display: block; font: 800 18px/1.2 var(--font-mono); }
+  .fact span { font-size: 12px; color: var(--hint); }
+  .picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+  .opt { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 1px solid var(--div); border-radius: 6px; min-height: 44px; }
+  .opt:hover { border-color: var(--ink); }
+  .opt:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .opt[aria-pressed="true"] { border: 2px solid var(--ink); padding: 7px; }
+  .opt .id { font: 800 12px/1.2 var(--font-mono); }
+  .opt .nm { font: 700 12px/1.25 var(--font-sans); }
+  .opt svg { display: block; width: 100%; height: auto; }
+  .opt svg rect { stroke: var(--ink); stroke-width: 3; stroke-linejoin: round; }
+  .opt .r-page { fill: none; }
+  .opt .r-info { fill: var(--ink); fill-opacity: .55; }
+  .opt .r-bank { fill: var(--ink); fill-opacity: .18; }
+  .opt .r-win { fill: none; stroke-opacity: .35; }
+  .now { border: 1px solid var(--div); border-radius: 6px; padding: 10px 12px; }
+  .now h2 { font-size: 14px; }
+  .now dl { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 2px 8px; margin: 0; }
+  .now dt { font-weight: 700; }
+  .now dd { margin: 0; }
+  .bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .bar .hd-btn { min-height: 28px; }
+  #wrap { position: relative; overflow: hidden; border: 1px solid var(--div); }
+  #frame { display: block; border: 0; width: 980px; height: 720px; transform-origin: 0 0; }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; }
+  th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--div); white-space: nowrap; vertical-align: top; }
+  th { font-weight: 700; }
+  td.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  tr.on td { font-weight: 700; }
+  tr.pick td:first-child::after { content: ' (recommended)'; font-weight: 400; color: var(--hint); }
+  #perPage td.over { font-weight: 700; }
+  #selfcheck { font: 12px/1.5 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .note { color: var(--hint); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="col">
+  <header>
+    <h1>The foot row: six options</h1>
+    <div class="tagline"><span class="hd-note">The fixed info box (ADR-335 r4) keeps GUI 3's foot row at 216 px, though the bank is only 68 px (ADR-338 r7), so ten of the fourteen pages scroll and a band above the bank sits empty. Six options, each applied to the real shell in a frame and measured there. Your pick becomes the ruling (B589).</span></div>
+  </header>
+  <section class="why" id="facts" aria-label="What the shell measures today"></section>
+  <section aria-label="The options">
+    <h2>Pick an option. The frame below changes in place, so you can see what moves.</h2>
+    <div class="picker" id="picker"></div>
+  </section>
+  <section class="now" id="now" aria-live="polite"></section>
+  <section aria-label="The shell with this option">
+    <div class="bar" style="margin-bottom:6px">
+      <button class="hd-btn hd-focus" id="btnText" type="button">Show the longest text</button>
+      <button class="hd-btn hd-focus" id="btnCard" type="button">Open a bank card</button>
+      <button class="hd-btn hd-focus" id="btnMorph" type="button">Morph on or off</button>
+      <span class="note">This is the running shell: its tabs, hovers and bank all work.</span>
+    </div>
+    <div id="wrap"><iframe id="frame" title="GUI 3 with the chosen foot row" src="gui3.html#main,win,bank"></iframe></div>
+  </section>
+  <section aria-label="Measured">
+    <h2>Measured on the shell, all 14 pages</h2>
+    <div class="scroll"><table id="table"><thead><tr><th>Option</th><th>Info box</th><th>Page area</th><th>Pages that scroll</th><th>Page width</th><th>Descriptions cut off</th><th>Box scrolls</th><th>Bank rows in view</th><th>Card covers</th><th>Controls under the box</th><th>Window</th></tr></thead><tbody id="tbody"></tbody></table></div>
+    <p class="note" style="margin-top:6px">Descriptions cut off: of every control's and every section's text, how many run past the box's edge until you scroll it. Box scrolls: the same, counting the box's whole contents, with its range and source line. Bank rows: of the MAC lane's ten, the rest scroll sideways. Card covers: how much of the page area a bank row's card sits on. Controls under the box: the most on any page, while the box shows.</p>
+  </section>
+  <section class="now" aria-label="A finding under every option">
+    <h2>Under every option: text past the box's edge can't be read</h2>
+    <p>The box's text scrolls, but the pointer can't reach it: moving onto the box clears the box back to its idle line, so there is nothing left to scroll. Today that hides 2 descriptions; F1 would hide about 76. The fix is small and in the shell (keep what is showing while the pointer is on the box), and it isn't drawn here. F1 and F2 need it. It's worth doing whichever you pick.</p>
+  </section>
+  <section aria-label="Measured per page">
+    <h2>How far each page scrolls</h2>
+    <div class="scroll"><table id="perPage"><thead></thead><tbody></tbody></table></div>
+  </section>
+  <section aria-label="Self-check">
+    <h2>Self-check</h2>
+    <div id="selfcheck">Measuring…</div>
+  </section>
+</div>
+<script>
+'use strict';
+// RECOMMENDED only marks a table row; the choice is the human's. F1 removes the empty band instead of paying screen to keep it (F5),
+// and it is F2's better form. F1's 300 px width was tuned after a first reading at 224 px (142 descriptions past the edge, now 76).
+const RECOMMENDED = 'F1';
+const OPTIONS = [
+  { id: 'F0', name: 'As built', winH: 720, css: '',
+    does: 'Nothing changes. The box stays square-ish at 224 × 216 and pages scroll.',
+    costs: 'Pages lose the most room, and the band above the bank is empty until a card opens. The card does have its own place there.',
+    rules: 'Holds ADR-335 r4. ADR-338 r7\'s room for the pages stays unmet.' },
+  { id: 'F1', name: 'Shorter box', winH: 720, css: '.footrow{--foot-h:120px;--info-w:300px}',
+    does: 'The box is 300 × 120. 120 is about the tallest foot row that lets the six pages fit, and the extra width wins back some of the text the height loses. Most of the empty band goes.',
+    costs: 'The box is 2.5:1, not square-ish. About one description in ten runs past its edge, and those can\'t be read until the hover problem below is fixed. A bank card opens over the foot of the page.',
+    rules: 'Amends ADR-335 r4\'s "square-ish"; keeps "one size, one place, left of the bank".' },
+  { id: 'F2', name: 'Low and wide', winH: 720, css: '.footrow{--foot-h:92px;--info-w:340px}',
+    does: 'The box is exactly as tall as the bank and its undo line, and wider to make up for it.',
+    costs: 'The least square, and nearly half the descriptions run past its edge. It takes width from the bank, so fewer rows show at once. A bank card opens over the page. Its extra 28 px of height over F1 only helps Mod and Morph, which still scroll.',
+    rules: 'Amends ADR-335 r4\'s "square-ish"; keeps the rest.' },
+  { id: 'F3', name: 'Left rail', winH: 720, rail: true,
+    css: '.body,.body.with-dock{grid-template-columns:224px minmax(0,1fr)}.body.with-insp,.body.with-dock.with-insp{grid-template-columns:224px minmax(0,1fr) 214px}#labRail{display:flex;flex-direction:column;gap:var(--space-stack);min-height:0;min-width:0}#labRail .info{flex:0 0 216px;height:216px;width:auto;margin-top:auto}#labRail .dock{flex:0 1 auto;min-height:0;overflow:hidden}.footrow{--foot-h:92px}',
+    does: 'The square box moves into a left column, at the bottom, under the morph pad when the pad shows. The bank spans the rest of the foot.',
+    costs: 'Pages lose 234 px of width all the time and reflow, so Mix scrolls here though it fits under the other options, and FX and Ledger get longer. The column is empty above the box while morph is off.',
+    rules: 'Holds "square-ish" and "one size, one place". The box stays left of the bank. Moves the pad\'s column (ADR-315) to 224 px.' },
+  { id: 'F4', name: 'Floating box', winH: 720, float: true,
+    css: '.footrow{--foot-h:92px;position:relative}.info{position:absolute;left:0;bottom:calc(100% + var(--space-stack));width:224px;height:216px;z-index:30;pointer-events:none}.info.lab-idle{visibility:hidden}',
+    does: 'The square box appears only while something is hovered, over the bottom left of the page. Otherwise it is gone. The bank spans the whole foot.',
+    costs: 'It hides up to four controls while it shows, and it blinks in and out as the pointer moves. A bank card opens over the page.',
+    rules: 'Keeps size and place; overrides "static" in the human\'s words ("a static square-ish box that stays one size").' },
+  { id: 'F5', name: 'Taller window', winH: 815, css: '#win{height:815px}',
+    does: 'Everything stays as built, and the window grows by the 95 px the six pages need (Osc 1 is the tallest).',
+    costs: 'The window is 980 × 815, and it spends 95 px of screen while keeping a band that stays empty until a card opens. On a shorter screen it needs the scale switch.',
+    rules: 'Holds ADR-335 r4. Amends ADR-259 r2\'s 980 × 720, which ADR-338 r12 has on trial.' },
+];
+const $ = id => document.getElementById(id), frame = $('frame'), wrap = $('wrap');
+const yieldNow = () => new Promise(r => setTimeout(r, 0));
+let w, d, active = 'F0', tagObserver = null, baseBody = null;
+const measured = Object.create(null), checks = [];
+
+// ===== applying an option: one stylesheet in the frame, plus the one moved node for F3 =====
+function apply(id) {
+  const o = OPTIONS.find(x => x.id === id);
+  let st = d.getElementById('labFoot'); if (!st) { st = d.createElement('style'); st.id = 'labFoot'; d.head.append(st); }
+  st.textContent = o.css;
+  const info = d.getElementById('info'), foot = d.getElementById('footrow'), dock = d.getElementById('dock'), body = d.getElementById('bodyGrid');
+  let rail = d.getElementById('labRail');
+  if (o.rail) { if (!rail) { rail = d.createElement('div'); rail.id = 'labRail'; body.prepend(rail); } rail.append(dock, info); }
+  else if (rail) { foot.prepend(info); body.prepend(dock); rail.remove(); }
+  if (tagObserver) { tagObserver.disconnect(); tagObserver = null; }
+  info.classList.remove('lab-idle');
+  if (o.float) {
+    const tag = d.getElementById('infoTag'), paint = () => info.classList.toggle('lab-idle', tag.textContent === 'HOVER');
+    tagObserver = new w.MutationObserver(paint); tagObserver.observe(tag, { childList: true, characterData: true, subtree: true }); paint();
+  }
+  frame.style.height = o.winH + 'px'; active = id; fit();
+}
+function fit() {
+  const o = OPTIONS.find(x => x.id === active), s = Math.min(1, wrap.clientWidth / 980);
+  frame.style.transform = 'scale(' + s + ')'; wrap.style.height = Math.ceil(o.winH * s) + 'px';
+}
+addEventListener('resize', fit);
+
+// ===== measuring: every number below is read off the running shell =====
+const box = id => { const r = d.getElementById(id).getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; };
+const hit = (a, b) => a.left < b.left + b.width && b.left < a.left + a.width && a.top < b.top + b.height && b.top < a.top + a.height;
+const SNAP = ['pagecol', 'pages', 'bank', 'info', 'footrow'], snap = () => SNAP.map(i => { const b = box(i); return [b.x, b.y, b.w, b.h].map(v => Math.round(v * 100) / 100).join(','); }).join('|');
+const pageIds = () => [...d.querySelectorAll('#pages .page')].map(p => p.id.slice(5));
+// The shell is one closed function, so this page drives it the way a hand does: its tabs and its hover events (the same
+// pointerover its own self-check dispatches). Nothing in the shell is reached into, so what is measured is what a player gets.
+function gotoPage(id) {
+  const sub = () => d.querySelector('#pnav [data-id="' + id + '"]');
+  if (!sub()) for (const g of d.querySelectorAll('#pnav button:not([data-id])')) { g.click(); if (sub()) break; }
+  sub().click(); d.getElementById('pages').scrollTop = 0;
+}
+const hoverOn = el => el.dispatchEvent(new w.MouseEvent('pointerover', { bubbles: true }));
+const hoverOff = () => hoverOn(d.getElementById('mapbar'));
+const hostsOf = el => { const seen = new Set(); return [...el.querySelectorAll('[data-key]')].filter(e => !e.closest('.hd-pt') && !seen.has(e.dataset.key) && seen.add(e.dataset.key)); };
+const sectionsOf = el => { const seen = new Set(); return [...el.querySelectorAll('[data-section]')].filter(e => !seen.has(e.dataset.section) && seen.add(e.dataset.section)); };
+function openCard() {
+  d.querySelector('.hd-bseg [data-set="mods"]').click();
+  const nm = d.querySelector('#bankHost .hd-trow .tnm'); if (nm) nm.click();
+  return d.querySelector('#bankHost .bk-pop');
+}
+function closeCard() { d.dispatchEvent(new w.PointerEvent('pointerdown', { bubbles: true })); d.querySelector('.hd-bseg [data-set="macros"]').click(); }
+async function measure(o) {
+  apply(o.id); await yieldNow();
+  const m = { id: o.id, moved: [], over: 0, cut: 0, texts: 0, maxNeed: 0, scrolling: [], worst: 0, under: 0, sizes: {} };
+  const ids = pageIds();
+  for (const pg of ids) {
+    gotoPage(pg); hoverOff();
+    const a = d.getElementById('pages');
+    m.area = a.clientHeight; m.width = a.clientWidth; m.sizes[pg] = a.scrollHeight;
+    const need = a.scrollHeight - a.clientHeight;
+    if (need > 0) m.scrolling.push(pg + ' ' + need);
+    m.worst = Math.max(m.worst, need);
+    const idle = snap(), el = d.getElementById('page-' + pg), face = d.querySelector('#info .face');
+    const textEl = d.getElementById('infoText');
+    const look = () => { m.texts++; if (face.scrollHeight > face.clientHeight + 1) m.over++; if (textEl.getBoundingClientRect().bottom > face.getBoundingClientRect().bottom + 1) m.cut++; m.maxNeed = Math.max(m.maxNeed, face.scrollHeight); m.face = face.clientHeight; if (snap() !== idle && !m.moved.includes(pg)) m.moved.push(pg); };
+    hostsOf(el).concat(sectionsOf(el)).forEach(e => { hoverOn(e); look(); });
+    // while the box shows, count the page's controls it sits on (F4 is the only option where this can be above zero)
+    // a control scrolled below the page area is not under the box, it is just not showing: clip to the area first
+    const ib = d.getElementById('info').getBoundingClientRect(), ab = a.getBoundingClientRect();
+    m.under = Math.max(m.under, hostsOf(el).filter(e => { const r = e.getBoundingClientRect(); return r.width && r.top < ab.bottom && r.bottom > ab.top && hit(r, ib); }).length);
+    hoverOff();
+    if (ids.indexOf(pg) % 3 === 2) await yieldNow();
+  }
+  gotoPage('main'); await yieldNow();
+  m.info = box('info');
+  d.querySelector('.hd-bseg [data-set="macros"]').click();
+  const lanes = d.querySelector('#bankHost .bk-lanes').getBoundingClientRect(), rows = [...d.querySelectorAll('#bankHost .hd-macrow')];
+  m.rowsTotal = rows.length; m.rowsSeen = rows.filter(r => { const b = r.getBoundingClientRect(); return b.left >= lanes.left - 1 && b.right <= lanes.right + 1; }).length;
+  const pop = openCard(), pb = pop.getBoundingClientRect(), ab = d.getElementById('pages').getBoundingClientRect();
+  m.cardH = Math.round(pb.height); m.cardCovers = pop.hidden ? null : Math.max(0, Math.round(Math.min(pb.bottom, ab.bottom) - Math.max(pb.top, ab.top)));
+  closeCard();
+  m.rects = { win: box('win'), pages: box('pages'), info: m.info, bank: box('bank'), bankHost: box('bankHost') };
+  m.snapAtEnd = snap();
+  measured[o.id] = m;
+  paintRow(o.id); paintThumb(o.id);
+}
+
+// ===== painting =====
+function paintThumb(id) {
+  const r = measured[id].rects, W = r.win.w, H = r.win.h, btn = document.querySelector('.opt[data-id="' + id + '"] svg');
+  const rect = (c, b) => '<rect class="' + c + '" x="' + b.x.toFixed(1) + '" y="' + b.y.toFixed(1) + '" width="' + b.w.toFixed(1) + '" height="' + b.h.toFixed(1) + '" rx="6"/>';
+  btn.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+  btn.innerHTML = '<rect class="r-win" x="0" y="0" width="' + W + '" height="' + H + '"/>' + rect('r-page', r.pages) + rect('r-bank', r.bankHost) + rect('r-info', r.info);
+}
+function paintRow(id) {
+  const m = measured[id], o = OPTIONS.find(x => x.id === id), tr = document.querySelector('#tbody tr[data-id="' + id + '"]');
+  const cells = [Math.round(m.info.w) + ' × ' + Math.round(m.info.h), m.area + ' px', m.scrolling.length + ' of ' + pageIds().length, m.width + ' px',
+    m.cut + ' of ' + m.texts, m.over + ' of ' + m.texts, m.rowsSeen + ' of ' + m.rowsTotal, m.cardCovers === null ? 'n/a' : m.cardCovers + ' px', String(m.under), '980 × ' + o.winH];
+  tr.querySelectorAll('td.num').forEach((td, i) => { td.textContent = cells[i]; });
+  pageIds().forEach(pg => { const need = m.sizes[pg] - m.area, td = document.querySelector('#perPage td[data-c="' + id + '|' + pg + '"]'); td.textContent = need > 0 ? need + ' px' : 'fits'; td.classList.toggle('over', need > 0); });
+}
+function paintNow() {
+  const o = OPTIONS.find(x => x.id === active);
+  $('now').innerHTML = '<h2>' + o.id + ': ' + o.name + '</h2><dl><dt>Does</dt><dd>' + o.does + '</dd><dt>Costs</dt><dd>' + o.costs + '</dd><dt>Rulings</dt><dd>' + o.rules + '</dd></dl>';
+  document.querySelectorAll('.opt').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.id === active)));
+  document.querySelectorAll('#tbody tr').forEach(t => t.classList.toggle('on', t.dataset.id === active));
+}
+function choose(id) { if (!d) return; apply(id); paintNow(); }
+OPTIONS.forEach(o => {
+  const b = document.createElement('button'); b.className = 'opt'; b.type = 'button'; b.dataset.id = o.id; b.setAttribute('aria-pressed', 'false');
+  b.innerHTML = '<span class="id">' + o.id + '</span><span class="nm">' + o.name + '</span><svg aria-hidden="true" viewBox="0 0 980 720"></svg>';
+  b.addEventListener('click', () => choose(o.id)); $('picker').append(b);
+  const tr = document.createElement('tr'); tr.dataset.id = o.id; if (o.id === RECOMMENDED) tr.classList.add('pick');
+  tr.innerHTML = '<td>' + o.id + ' ' + o.name + '</td>' + '<td class="num">…</td>'.repeat(10); $('tbody').append(tr);
+});
+function factCards(z) {
+  // "Fixable" is read, not listed: a page that scrolls as built and fits at the most room any full-width option gives.
+  const roomy = measured.F4, ids = pageIds(), scrolls = ids.filter(p => z.sizes[p] > z.area), fixable = scrolls.filter(p => roomy.sizes[p] <= roomy.area), need = Math.max(...fixable.map(p => z.sizes[p]));
+  const name = p => d.getElementById('page-' + p).getAttribute('aria-label'), stuck = scrolls.filter(p => !fixable.includes(p)).map(name).join(', ');
+  $('facts').innerHTML = [[z.area + ' px', 'what pages get today'], [scrolls.length + ' of ' + ids.length, 'pages scroll today'], [fixable.length + ' of those', 'fit at ' + need + ' px: ' + fixable.map(name).join(', ')], [(216 + z.area - need) + ' px', 'the tallest foot row that lets those fit'], [scrolls.length - fixable.length + ' never fit', stuck + ' scroll under every option']]
+    .map(f => '<div class="fact"><b>' + f[0] + '</b><span>' + f[1] + '</span></div>').join('');
+}
+$('btnText').addEventListener('click', () => {
+  if (!d) return; let best = null, len = -1;
+  const pg = d.querySelector('#pages .page:not([hidden])');
+  hostsOf(pg).concat(sectionsOf(pg)).forEach(e => { hoverOn(e); const n = d.getElementById('infoText').textContent.length; if (n > len) { len = n; best = e; } });
+  if (best) hoverOn(best);
+});
+$('btnCard').addEventListener('click', () => { if (d) openCard(); });
+$('btnMorph').addEventListener('click', () => { if (d) d.getElementById('morphOn').click(); });
+
+// ===== the self-check =====
+function check(ok, text) { checks.push((ok ? 'PASS ' : 'FAIL ') + text); }
+function selfCheck(shellChecks, fitLine) {
+  const z = measured.F0;
+  check(shellChecks.total > 0 && !shellChecks.bad, 'The shell\'s own self-checks in this frame: ' + (shellChecks.total - shellChecks.bad) + ' of ' + shellChecks.total + '.');
+  const said = /scroll (\d+) px at most/.exec(fitLine), five = ['main', 'osc1', 'osc2', 'sub', 'noise'].map(p => z.sizes[p] - z.area);
+  check(!!said && Math.max(0, ...five) === +said[1], 'Control: F0 on the shell\'s five fit pages scrolls ' + Math.max(0, ...five) + ' px; the shell\'s own fit check prints ' + (said ? said[1] : 'nothing') + ' px.');
+  check(z.area === 372 && z.worst > 0, 'Control: as built reads 372 px and a scroll of ' + z.worst + ' px, so this measure can see a page overflow.');
+  OPTIONS.forEach(o => { const m = measured[o.id]; check(!m.moved.length, o.id + ': ' + m.texts + ' hovers moved and resized nothing' + (m.moved.length ? ' (MOVED on ' + m.moved.join(', ') + ')' : '') + '.'); });
+  // the control for those lines: a box that follows its text must move the layout
+  apply('F0'); gotoPage('osc1'); hoverOff();
+  const idle = snap(), foot = d.getElementById('footrow'), info = d.getElementById('info'), face = info.querySelector('.face'), was = [foot.style.height, info.style.height, info.style.flex, face.style.overflow];
+  foot.style.height = 'auto'; info.style.height = 'auto'; info.style.flex = '0 0 auto'; face.style.overflow = 'visible'; info.style.maxHeight = 'none';
+  hoverOn(d.querySelector('[data-section="osc1/blade-1"]')); const grew = snap() !== idle;
+  [foot.style.height, info.style.height, info.style.flex, face.style.overflow] = was; info.style.maxHeight = ''; hoverOff();
+  check(grew, 'Control: a box made to follow its text does move the layout, so the lines above can read false.');
+  gotoPage('main');
+  check(snap() === z.snapAtEnd, 'Leaving every option restores F0\'s rectangles exactly.');
+  const fails = checks.filter(c => c.startsWith('FAIL')).length;
+  // a reading, not a pass: the finding above, read off the shell. It changes when the shell is fixed, and that is not a failure.
+  hoverOn(d.querySelector('#page-main [data-key]')); const showing = d.getElementById('infoTag').textContent; hoverOn(d.getElementById('info')); const after = d.getElementById('infoTag').textContent;
+  const note = 'NOTE The finding: hovering a control shows "' + showing + '", then hovering the box itself shows "' + after + '"' + (after === 'HOVER' ? ', its idle line.' : ', so the shell now keeps it.');
+  hoverOff();
+  $('selfcheck').textContent = (fails ? fails + ' FAILED' : checks.length + ' of ' + checks.length + ' passed') + '\n' + checks.join('\n') + '\n' + note;
+}
+
+// ===== start: wait for the shell and its own checks, then measure each option once =====
+frame.addEventListener('load', async () => {
+  w = frame.contentWindow; d = frame.contentDocument;
+  // the shell's checks run synchronously while it loads, so they are done by now
+  const lines = [...d.querySelectorAll('#checks p')], bad = lines.filter(p => p.classList.contains('bad')).length;
+  const shellChecks = { total: lines.length, bad }, fitLine = (lines.find(p => /· Fit: /.test(p.textContent)) || { textContent: '' }).textContent;
+  document.querySelector('#perPage thead').innerHTML = '<tr><th>Page</th>' + OPTIONS.map(o => '<th>' + o.id + '</th>').join('') + '</tr>';
+  document.querySelector('#perPage tbody').innerHTML = pageIds().map(pg => '<tr><td>' + d.getElementById('page-' + pg).getAttribute('aria-label') + '</td>' + OPTIONS.map(o => '<td class="num" data-c="' + o.id + '|' + pg + '">…</td>').join('') + '</tr>').join('');
+  for (const o of OPTIONS) await measure(o);
+  factCards(measured.F0);
+  selfCheck(shellChecks, fitLine);
+  // opens on what is built today, not the recommendation, so the frame doesn't argue for it
+  apply('F0'); paintNow();
+});
+paintNow(); fit();
+</script>
+</body>
+</html>

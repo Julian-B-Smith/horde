@@ -508,8 +508,9 @@ batch 2 components replace what the shell drew for itself. Where a component is 
   say so when the ruling is reversed.
 - **Readings taken.** The Mod page lists every source (above). The macro slots 5 to 8 are numbered. The foot row keeps its 216 px (the info
   box, ADR-335 r4) while the bank is 68: the compact card opens in the room above the bank (143 px, it fits), but the page area does not gain
-  the 148 px the 216 px foot row holds above the 68 px bank, so it keeps 374 px (measured), not the master's 472. **Open for the human and the lead:** shrink the info box,
-  or let it overlap, to give the pages their 472.
+  the 148 px the 216 px foot row holds above the 68 px bank, so it keeps 374 px (measured), not the master's 472. **Open for the human:** `docs/design/foot-row-lab.html` draws six options on this
+  shell and measures them. **Found there, under every option:** moving the pointer onto the info box clears it to its idle line, so text past the box's edge
+  can't be scrolled to or read (2 of 714 descriptions today). The fix is here in the shell, not yet made.
 - **Found in the vendored bundle (not patched).** `ModPage` documents `routes(host, S)` as the route-view builder but hands its options to
   the tiers, which call `o.routes(m)` for a modulator's routes: one name, two jobs, and a host that passes the documented builder breaks every
   row. The shell passes a function that answers both. (A master fix: rename the builder, e.g. `routeView`.) `MapControl`'s chip is 150 px and
