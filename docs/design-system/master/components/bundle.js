@@ -1,4 +1,4 @@
-/* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"SteppedControl"},{"name":"Stepper"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"}]} */
+/* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"SteppedControl"},{"name":"Stepper"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"},{"name":"Cluster"},{"name":"Lens"},{"name":"Fold"},{"name":"PageView"},{"name":"ModTiers"},{"name":"MacroRow"},{"name":"ModBank"},{"name":"ModPage"},{"name":"UndoLine"}]} */
 /* horde house reference behaviours (vanilla JS, no React, no network).
    The morph knob and slider follow the human's HORDE Morph Knob Spec and HORDE Map Mode Spec
    (2026-10-21, 2026-10-16); colours, type and themes follow ADR-259. Everything a plugin would get
@@ -5861,4 +5861,661 @@
   }
 
   H.PageNav = PageNav; H.SectionHeader = SectionHeader; H.ChannelStrip = ChannelStrip; H.pillGroup = pillGroup;
+})(window.Horde);
+
+/* =====================================================================
+   MASTER BATCH 2b (ADR-338 / ADR-340 / ADR-341): the page forms and the bank. Clusters C1 and C2, the page paradigm P1 (a
+   lens) with P2's fold, PV1's table view, the four modulator tiers, the M2 bank with BT1 + BR-b, the M5 Mod page and M-R2's
+   undo line. Layout and behaviour only: every value is the consumer's (the engine's in GUI 3) and the previews label theirs
+   SAMPLE. Sources: docs/design/composition-lab.html (C1/C2, P1, P2, the tiers, M2, M5, M-R2), composition-lab-r2.html (PV1,
+   BT1/BR1), composition-lab-r3.html (BR-b). Where a ruling leaves a reading open it is named in the component's README.
+   ===================================================================== */
+(function (H) {
+  'use strict';
+  var NS = 'http://www.w3.org/2000/svg';
+  function tag(t, cls, txt) { var e = document.createElement(t); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; }
+  function sv(t, a, parent) { var e = document.createElementNS(NS, t); for (var k in a) e.setAttribute(k, a[k]); if (parent) parent.appendChild(e); return e; }
+  function clamp(v, a, b) { a = a === undefined ? 0 : a; b = b === undefined ? 1 : b; return Math.min(b, Math.max(a, v)); }
+  function fire(fn, a, b, c) { if (typeof fn === 'function') return fn(a, b, c); }
+  function keysOn(o) { return o && (typeof o.keys === 'function' ? !!o.keys() : !!o.keys); }
+  /* pointer capture, guarded: a pointer the browser no longer tracks (a synthetic event, a pen lifted mid-press) throws
+     NotFoundError, and an unguarded throw there cost the whole gesture */
+  function capture(el, e) { try { el.setPointerCapture(e.pointerId); } catch (_) { /* keep the gesture */ } }
+  function pctf(x) { return Math.round(x * 100) + '%'; }
+  function arr(x) { return x === undefined || x === null ? [] : Array.isArray(x) ? x : [x]; }
+  var CORN = H.CORNERS;
+
+  /* A page's remembered choice (PV1's view, P2's fold): localStorage when the host has it, else the session's memory. Storage is
+     wrapped because a sandboxed frame or a private window throws on access, and the control must work without it. */
+  var MEM = {};
+  function recall(key) { try { var s = window.localStorage.getItem(key); if (s !== null) return JSON.parse(s); } catch (_) { /* no storage: memory below */ } return MEM[key]; }
+  function keep(key, v) { MEM[key] = v; try { window.localStorage.setItem(key, JSON.stringify(v)); } catch (_) { /* no storage: the memory holds it */ } }
+
+  /* ONE parameter, MANY faces (a page's grid and its table, the lens's big knob). Knob and Slider register the props object they
+     are given and reset the saved baseline, and the tiny slider sets p.horizontal on it, so a second face built from the same
+     object would flip the first one's drag axis and the revert baseline. Each face therefore gets a SHADOW of the canonical
+     props: the corner values (vals, shared by reference) and the global value (g, an accessor to the canonical one) are common,
+     everything else is its own; the registry and the baseline are put back afterwards. */
+  function canon(S, p) {
+    var c = S.params[p.key];
+    if (!c) { p.fmt = p.fmt || pctf; p.def = p.def === undefined ? (p.locked ? p.g : .5) : p.def; S.params[p.key] = p; if (!p.locked) S.saved[p.key] = p.vals.slice(); c = p; }
+    return c;
+  }
+  function face(S, p, extra, build) {
+    var c = canon(S, p), q = Object.create(c), had = S.saved[p.key], k;
+    for (k in extra) q[k] = extra[k];
+    Object.defineProperty(q, 'g', { get: function () { return c.g; }, set: function (x) { c.g = x; }, enumerable: true });
+    var r = build(q);
+    S.params[p.key] = c; if (had) S.saved[p.key] = had;
+    return r;
+  }
+  /* an item of a cluster, a fold tier or a page grid: an element, a builder function(host, S), or one of
+     { knob }, { slider }, { stepper }. Knobs and sliders default to the tiny tier; the host carries data-key, which is what a
+     Map button's drag lands on and what PV1's find dims. */
+  function cell(S, it, o) {
+    o = o || {};
+    if (it && it.nodeType) return it;
+    var host = tag('div'), p;
+    if (typeof it === 'function') { it(host, S); return host; }
+    if (it.el) return it.el;
+    if (it.knob) { p = it.knob; host.dataset.key = p.key; face(S, p, { size: p.size || 'tiny', label: o.noLabel ? false : p.label }, function (q) { H.Knob(host, q, S); }); return host; }
+    if (it.slider) { p = it.slider; host.dataset.key = p.key; face(S, p, { size: p.size || 'tiny' }, function (q) { H.Slider(host, q, S); }); return host; }
+    if (it.stepper) {
+      var s = it.stepper, c = tag('div', 'hd-cl-cell'), lab = tag('span', 'cl-lab', s.abbr || s.name || ''), sh = tag('div');
+      if (s.key) c.dataset.key = s.key; lab.title = s.path || s.name || '';
+      var q2 = {}; for (var k in s) q2[k] = s[k]; if (q2.sm === undefined) q2.sm = true; if (q2.keys === undefined && o.keys !== undefined) q2.keys = function () { return keysOn(o); };
+      c.appendChild(lab); c.appendChild(sh); H.Stepper(sh, q2); return c;
+    }
+    return host;
+  }
+  function fill(host, S, items, o) { arr(items).forEach(function (it) { host.appendChild(cell(S, it, o)); }); return host; }
+  /* a cluster's header is the section header (rule none: a cluster sits inside a card's own section), its switches in the slot's place */
+  function clusterHead(el, S, o) {
+    var hd = tag('div'), end = tag('div', 'cl-switches');
+    arr(o.head).forEach(function (n) { end.appendChild(cell(S, n, o)); });
+    el.appendChild(hd);
+    var hdr = H.SectionHeader(hd, { name: o.name, path: o.path || o.name, num: o.num, rule: o.rule || 'none', on: o.on, onToggle: o.onToggle, S: S, section: el, scope: el, summary: o.summary, keys: o.keys });
+    /* the switches go beside the name, not into the slot's end: the slot is a fixed 250 px (H1) and clips whatever shares its end in a narrow cell */
+    if (end.childNodes.length) hd.insertBefore(end, hd.querySelector('.sh-end'));
+    return hdr;
+  }
+
+  /* ---------- CLUSTER, C1 (ADR-338 r4): the general rule. A row of 28 px cells in groups split by a dashed hairline, ONE shared
+     label line above all of them (each tiny knob's own 4-character label sits on it), the section's switches in the header, and
+     the section's one readout slot. A long section wraps BY GROUP, never mid-group. Advanced controls follow inline after an ADV
+     mark (P1, ADR-338 r5). groups: [{ label, items }]: the label names the group for a screen reader and the hover; it is not drawn. ---------- */
+  function Cluster(el, S, o) {
+    o = o || {};
+    el.classList.add('hd-sec', 'hd-clu'); el.innerHTML = '';
+    var hdr = clusterHead(el, S, o), body = tag('div', 'cl-cols'); if (o.picture) el.appendChild(o.picture); el.appendChild(body);
+    arr(o.groups).forEach(function (g) {
+      var gr = tag('div', 'cl-grp'); gr.setAttribute('role', 'group'); if (g.label) { gr.setAttribute('aria-label', g.label); gr.title = g.label; }
+      fill(gr, S, g.items, o); body.appendChild(gr);
+    });
+    if (arr(o.adv).length) {
+      var ad = tag('div', 'cl-grp cl-adv'); ad.setAttribute('role', 'group'); ad.setAttribute('aria-label', 'Advanced');
+      var mk = tag('span', 'cl-advmark', 'ADV'); mk.setAttribute('aria-hidden', 'true'); ad.appendChild(mk); fill(ad, S, o.adv, o); body.appendChild(ad);
+    }
+    return { el: el, header: hdr, body: body };
+  }
+
+  /* ---------- CLUSTER MATRIX, C2 (ADR-338 r4): for any block with a repeated sub-structure (envelope stages x (time, curve), the two
+     blades). Column labels ONCE across the top, row labels ONCE down the left, 28 px cells, and an empty cell drawn as an honest
+     "·" (no hold curve exists), never a disabled control. rows: [{ label, cells: [item | null] }]. ---------- */
+  function ClusterMatrix(el, S, o) {
+    o = o || {};
+    el.classList.add('hd-sec', 'hd-clu'); el.innerHTML = '';
+    var hdr = clusterHead(el, S, o), cols = arr(o.cols), g = tag('div', 'cl-mx'); if (o.picture) el.appendChild(o.picture); el.appendChild(g);
+    g.setAttribute('role', 'group'); g.setAttribute('aria-label', (o.path || o.name || 'Matrix') + ' · matrix');
+    g.style.gridTemplateColumns = 'auto repeat(' + cols.length + ', var(--size-hit))';
+    g.appendChild(tag('span'));
+    cols.forEach(function (c) { var l = tag('span', 'cl-col', c.label || c); if (c.title) l.title = c.title; g.appendChild(l); });
+    var mo = {}; for (var k in o) mo[k] = o[k]; mo.noLabel = true;
+    arr(o.rows).forEach(function (r) {
+      g.appendChild(tag('span', 'cl-row', r.label));
+      cols.forEach(function (c, i) {
+        var it = r.cells && r.cells[i];
+        if (it) g.appendChild(cell(S, it, mo));
+        else { var e = tag('span', 'cl-empty', '·'); e.title = o.emptyTitle || 'no control here'; e.setAttribute('aria-hidden', 'true'); g.appendChild(e); }
+      });
+    });
+    return { el: el, header: hdr, grid: g };
+  }
+
+  /* ---------- LENS, P1 (ADR-338 r5): the control under the pointer, or the last one clicked, enlarged: the full bundle knob (a
+     SHADOW of the page's own props, so it edits the same corner values), every corner's value and weight, and every mapping.
+     scope: the page's keys (an array, or a function key -> bool); fallback: what shows before anything is touched.
+     Which value "where the hand is taking the control" shows in the dual readout is 2a's open reading (ADR-341); the lens
+     lists the stored corner values and does not choose. ---------- */
+  function Lens(el, S, o) {
+    o = o || {};
+    var inScope = typeof o.scope === 'function' ? o.scope : (function (a) { return function (k) { return a.indexOf(k) >= 0; }; })(arr(o.scope));
+    el.classList.add('hd-lens'); el.innerHTML = ''; el.setAttribute('role', 'group'); el.setAttribute('aria-label', 'Lens: the control in focus');
+    var top = tag('div', 'lz-top'), slot = tag('div', 'lz-knob'), who = tag('div', 'lz-who'), nm = tag('div', 'lz-name'), pth = tag('div', 'lz-path'),
+      cor = tag('div', 'lz-corners'), maps = tag('div', 'lz-maps');
+    who.appendChild(nm); who.appendChild(pth); top.appendChild(slot); top.appendChild(who);
+    el.appendChild(tag('span', 'cl-lab', 'Lens')); el.appendChild(top); el.appendChild(cor); el.appendChild(maps);
+    var pool = {}, cur = null, last = '';
+    function ln(parent, text, color, bold) { var s = tag('span', 'lz-ln', text); if (color) s.style.color = color; if (bold) s.style.fontWeight = '700'; parent.appendChild(s); }
+    S.add({ render: function () {
+      if (!el.isConnected) return;
+      var k = S.drag ? S.drag.key : S.hot;
+      if (!k || !inScope(k) || !S.params[k]) k = S.selected && inScope(S.selected) && S.params[S.selected] ? S.selected : (o.fallback && S.params[o.fallback] ? o.fallback : null);
+      if (!k) { if (cur !== null) { cur = null; nm.textContent = 'Nothing yet'; pth.textContent = 'hover a control'; slot.replaceChildren(); cor.replaceChildren(); maps.replaceChildren(); } return; }
+      var p = S.params[k];
+      if (k !== cur) {
+        cur = k; last = ''; nm.textContent = p.name; pth.textContent = p.path || k;
+        if (!pool[k]) {
+          var host = tag('div');
+          face(S, p, { size: o.size || 'standard' }, function (q) { var v = H.Knob(host, q, S), r0 = v.render; v.render = function () { if (host.isConnected) r0.call(v); }; });
+          pool[k] = host;
+        }
+        slot.replaceChildren(pool[k]);
+      }
+      var w = S.weights(), ai = S.editing(p), ls = S.mapsOf(k);
+      var sig = k + (p.locked ? 'g' + p.g : p.vals.join()) + w.map(function (x) { return x.toFixed(2); }).join() + ai + ls.map(function (m) { return m.src + m.pol + S.amount(m); }).join();
+      if (sig === last) return; last = sig;
+      cor.replaceChildren();
+      if (p.locked) ln(cor, 'one global value · ' + p.fmt(p.g));
+      else for (var i = 0; i < 4; i++) {
+        var row = tag('div'); cor.appendChild(row);
+        ln(row, CORN[i].id + ' ' + p.fmt(p.vals[i]) + (w[i] > .999 || w[i] < .001 ? '' : ' · ' + Math.round(w[i] * 100) + '%') + (i === ai ? ' · editing' : ''), 'var(--c' + CORN[i].id + '-tx)', i === ai);
+      }
+      maps.replaceChildren();
+      if (!ls.length) ln(maps, 'no mappings');
+      ls.forEach(function (m) { var row = tag('div'); maps.appendChild(row); ln(row, S.src(m.src).name + ' ' + m.pol.toUpperCase() + ' ' + S.amount(m), 'var(--src-' + S.src(m.src).kind + ')'); });
+    } });
+    return { el: el, key: function () { return cur; } };
+  }
+
+  /* ---------- FOLD, P2 (ADR-338 r5): per section, Face | All | +Adv, remembered per fold id. ONLY where a page still overflows with P1.
+     tiers: { face, all, adv }, each an item list or a builder function(host, S); built the first time they are shown. A tier
+     with no content has no segment. ---------- */
+  function Fold(el, S, o) {
+    o = o || {};
+    var id = 'hd.fold.' + (o.id || o.name), mem = recall(id) || {}, names = ['Face'], idx = [0], T = o.tiers || {};
+    if (T.all) { names.push('All'); idx.push(1); } if (T.adv) { names.push('+Adv'); idx.push(2); }
+    var tier = mem.tier !== undefined && idx.indexOf(mem.tier) >= 0 ? mem.tier : (idx.indexOf(o.tier) >= 0 ? o.tier : 0), open = mem.open !== undefined ? !!mem.open : o.open !== false;
+    el.classList.add('hd-fold'); el.innerHTML = '';
+    var head = tag('div', 'fd-head'), chev = tag('button', 'fd-chev hd-focus'), nm = tag('span', 'hd-cluster', o.name), seg = tag('div'), sp = tag('span', 'fd-sp'), slot = tag('div');
+    chev.type = 'button'; chev.setAttribute('aria-label', 'Fold ' + (o.path || o.name));
+    head.appendChild(chev); head.appendChild(nm); head.appendChild(seg); head.appendChild(sp); head.appendChild(slot);
+    var body = tag('div', 'fd-body'), blocks = { 0: tag('div', 'fd-tier'), 1: tag('div', 'fd-tier'), 2: tag('div', 'fd-tier') }, built = {};
+    body.appendChild(blocks[0]); body.appendChild(blocks[1]); body.appendChild(blocks[2]);
+    blocks[2].classList.add('fd-adv');
+    el.appendChild(head); el.appendChild(body);
+    if (S) H.ReadoutSlot(slot, S, { scope: el, summary: o.summary || '' });
+    var pills = names.length > 1 ? H.pillGroup(seg, names, idx.indexOf(tier), (o.path || o.name) + ' · tier', function (i) { set(idx[i]); }, o) : null;
+    function paint() {
+      chev.textContent = open ? '▾' : '▸'; chev.setAttribute('aria-expanded', String(open)); chev.tabIndex = keysOn(o) ? 0 : -1;
+      body.hidden = !open;
+      [0, 1, 2].forEach(function (t) {
+        var on = open && t <= tier && T[['face', 'all', 'adv'][t]];
+        blocks[t].hidden = !on;
+        if (on && !built[t]) { built[t] = true; var src = T[['face', 'all', 'adv'][t]]; if (typeof src === 'function') src(blocks[t], S); else fill(blocks[t], S, src, o); }
+      });
+      if (pills) pills.set(idx.indexOf(tier));
+    }
+    function set(t) { tier = t; keep(id, { open: open, tier: tier }); paint(); }
+    chev.addEventListener('click', function () { open = !open; keep(id, { open: open, tier: tier }); paint(); });
+    paint();
+    return { tier: function (t) { if (t === undefined) return tier; if (idx.indexOf(t) >= 0) set(t); }, open: function (b) { if (b === undefined) return open; open = !!b; keep(id, { open: open, tier: tier }); paint(); }, el: el };
+  }
+
+  /* ---------- PARAM TABLE (the table form of PV1, P3 of the composition lab): every control of a page a 17 px row, in columns,
+     grouped by section: the owner glyph, the FULL name (never an abbreviation), the control, the mappings as dots. Cells are TS2a
+     value cells (a knob), flat steppers (K4), lamps and caret selects. groups: [{ title, controls: [{ key, name, kind, props,
+     advanced }] }], kind knob | stepper | toggle | select. ---------- */
+  function ParamTable(el, S, o) {
+    o = o || {};
+    el.classList.add('hd-pt'); el.innerHTML = '';
+    var rows = [];
+    arr(o.groups).forEach(function (g) {
+      var th = tag('div', 'pt-head', g.title + ' · ' + g.controls.length); el.appendChild(th);
+      var mine = [];
+      g.controls.forEach(function (c) {
+        var row = tag('div', 'pt-row' + (c.advanced ? ' adv' : '')), og = tag('span', 'pt-own'), nm = tag('span', 'pt-name', c.name), cl = tag('span', 'pt-ctl'), md = tag('span', 'pt-dots');
+        var gl = sv('svg', { viewBox: '0 0 10 10', width: 8, height: 8, 'aria-hidden': 'true' }), gp = sv('path', { d: '' }, gl); og.appendChild(gl);
+        row.dataset.key = c.key; row.title = c.path || c.name; row.dataset.find = (c.name + ' ' + c.key + ' ' + (c.abbr || '') + ' ' + g.title).toLowerCase();
+        var p = c.props || {}, kind = c.kind || 'knob';
+        if (kind === 'knob') { var kh = tag('div'); kh.dataset.key = c.key; cl.appendChild(kh); face(S, p, { size: 'cell', width: p.width || 76 }, function (q) { H.Slider(kh, q, S); }); }
+        else if (kind === 'stepper') { var sh = tag('div'); var s2 = {}; for (var k in p) s2[k] = p[k]; s2.flat = true; s2.sm = true; s2.name = s2.name || c.name; cl.appendChild(sh); H.Stepper(sh, s2); }
+        else if (kind === 'toggle') {
+          var b = tag('button', 'hd-toggle hd-sm hd-focus'); b.type = 'button'; b.setAttribute('role', 'switch'); b.setAttribute('aria-label', c.path || c.name); b.setAttribute('aria-checked', String(!!p.value));
+          b.addEventListener('click', function () { var on = b.getAttribute('aria-checked') !== 'true'; b.setAttribute('aria-checked', String(on)); fire(p.onChange, on); }); cl.appendChild(b);
+        } else if (kind === 'select') {
+          var se = tag('select', 'pt-sel hd-focus'); se.setAttribute('aria-label', c.path || c.name);
+          arr(p.options).forEach(function (t, i) { var op = tag('option', '', t); op.value = String(i); se.appendChild(op); }); se.value = String(p.value || 0);
+          se.addEventListener('change', function () { fire(p.onChange, +se.value); }); cl.appendChild(se);
+        }
+        row.appendChild(og); row.appendChild(nm); row.appendChild(cl); row.appendChild(md); el.appendChild(row); mine.push(row);
+        rows.push({ row: row, th: th, key: c.key, gp: gp, md: md, last: '' });
+      });
+    });
+    S.add({ render: function () {
+      if (!el.isConnected || !el.getClientRects().length) return;
+      rows.forEach(function (r) {
+        var p = S.params[r.key], ai = p ? S.editing(p) : null, ls = S.mapsOf(r.key), sig = ai + ls.map(function (m) { return m.src; }).join();
+        if (sig === r.last) return; r.last = sig;
+        r.gp.setAttribute('d', ai === null || ai === undefined ? '' : CORN[ai].glyph); r.gp.setAttribute('fill', ai === null || ai === undefined ? 'none' : 'var(--c' + CORN[ai].id + '-tx)');
+        r.md.replaceChildren();
+        ls.slice(0, 3).forEach(function (m) { var s = S.src(m.src), d = tag('i'); d.style.setProperty('--src', 'var(--src-' + s.kind + ')'); d.title = s.name; r.md.appendChild(d); });
+      });
+    } });
+    /* the find: hides the rows that do not match, and a section head with no row left; returns the match count */
+    function filter(q) {
+      q = (q || '').trim().toLowerCase(); var n = 0, shown = new Map();
+      rows.forEach(function (r) { var hit = !q || r.row.dataset.find.indexOf(q) >= 0; r.row.hidden = !hit; r.row.classList.toggle('hit', !!q && hit); if (hit) { n++; shown.set(r.th, true); } });
+      rows.forEach(function (r) { r.th.hidden = !shown.get(r.th); });
+      return n;
+    }
+    return { el: el, filter: filter, count: function () { return rows.length; } };
+  }
+
+  /* ---------- PAGE VIEW, PV1 (ADR-340 r6): a Grid | Table switch in the page's header, with the find box, remembered PER PAGE (view
+     and find text). The left column (pictures, the lens) stays put in both views. grid and table are an element, a builder
+     function(host, S), or, for the table, { groups } for ParamTable. The find dims what does not match in the grid (never
+     hides it: the page keeps its shape) and filters the table. FindPane (the morph grid's) is bound to MorphGrid and does not fit. ---------- */
+  function matchText(S, key) { var p = S.params[key]; return (key + ' ' + (p ? p.name + ' ' + (p.abbr || '') + ' ' + (p.path || '') : '')).toLowerCase(); }
+  function PageView(el, S, o) {
+    o = o || {};
+    var id = 'hd.pageview.' + (o.id || 'page'), mem = recall(id) || {}, view = mem.view === 'table' && o.table ? 'table' : (o.view || 'grid'), q = mem.find || '';
+    el.classList.add('hd-pv'); el.innerHTML = '';
+    var head = tag('div', 'pv-head'), title = tag('span', 'hd-cluster pv-title', o.title || ''), sp = tag('span', 'fd-sp'), seg = tag('div'),
+      find = tag('input', 'hd-entry hd-focus pv-find'), cnt = tag('span', 'pv-count'), main = tag('div', 'pv-main'), right = tag('div', 'pv-views');
+    find.type = 'search'; find.placeholder = 'find on this page'; find.setAttribute('aria-label', 'Find a control on ' + (o.label || 'this page'));
+    if (o.title) head.appendChild(title); head.appendChild(sp); head.appendChild(seg); head.appendChild(find); head.appendChild(cnt);
+    if (o.left) main.appendChild(o.left);
+    main.appendChild(right); el.appendChild(head); el.appendChild(main);
+    var nodes = {}, tbl = null;
+    function make(v) {
+      if (nodes[v]) return nodes[v];
+      var host = tag('div', 'pv-' + v), src = o[v];
+      if (v === 'table' && src && !src.nodeType && typeof src !== 'function' && src.groups) { tbl = ParamTable(host, S, src); }
+      else if (typeof src === 'function') src(host, S); else if (src && src.nodeType) host.appendChild(src);
+      right.appendChild(host); return (nodes[v] = host);
+    }
+    var pills = H.pillGroup(seg, o.table ? ['Grid', 'Table'] : ['Grid'], view === 'table' ? 1 : 0, (o.label || 'Page') + ' · view', function (i) { show(i ? 'table' : 'grid'); }, o);
+    function apply() {
+      var n = 0, total = 0;
+      if (view === 'table') { if (tbl) { n = tbl.filter(q); total = tbl.count(); } }
+      else {
+        nodes.grid.querySelectorAll('[data-key]').forEach(function (c) {
+          if (c.parentNode.closest && c.parentNode.closest('[data-key]')) return;   // one count per control, not per nested host
+          var hit = !q || matchText(S, c.dataset.key).indexOf(q.trim().toLowerCase()) >= 0; c.classList.toggle('pv-dim', !hit); c.classList.toggle('pv-hit', !!q && hit); total++; if (hit) n++;
+        });
+      }
+      cnt.textContent = q ? n + (n === 1 ? ' match' : ' matches') : total ? total + ' controls' : '';
+    }
+    function show(v) {
+      view = v === 'table' && o.table ? 'table' : 'grid'; make(view);
+      ['grid', 'table'].forEach(function (k) { if (nodes[k]) nodes[k].hidden = k !== view; });
+      pills.set(view === 'table' ? 1 : 0); find.value = q; apply(); keep(id, { view: view, find: q }); fire(o.onView, view);
+    }
+    find.addEventListener('input', function () { q = find.value; keep(id, { view: view, find: q }); apply(); });
+    show(view);
+    return { view: function (v) { if (v === undefined) return view; show(v); }, find: function (t) { if (t === undefined) return q; q = String(t); find.value = q; keep(id, { view: view, find: q }); apply(); }, refresh: apply, el: el };
+  }
+
+  /* ---------- MODULATOR PICTURES. A source is a pure function of time (Source.f), so a picture needs no history: a trace is f sampled
+     over the last `span` seconds. Drawn with the screen roles only, round joins, and a palette cached per theme and scheme (a
+     thin row repaints every frame, so the 7 DOM probes Viz.kit makes per call would cost too much at 20 rows). A mod can bring
+     its own drawing: m.paint(K, t, opt) gets the kit { g, W, H, k, P } and `col`. ---------- */
+  var PALS = {};
+  function palette(cv) {
+    var host = cv.parentElement || cv, sc = host.closest ? host.closest('[data-scr]') : null,
+      sig = (document.documentElement.getAttribute('data-theme') || '') + '|' + (sc ? sc.dataset.scr : '') + '|' + (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+    if (PALS[sig]) return PALS[sig];
+    var P = {}, probe = tag('i');
+    probe.style.display = 'none'; host.appendChild(probe);
+    ['ground', 'value', 'meter', 'physics', 'marker', 'grid'].forEach(function (n) {
+      probe.style.color = 'var(--scr-' + n + ')'; var m = getComputedStyle(probe).color.match(/[\d.]+/g); P[n] = [+m[0], +m[1], +m[2]];
+    });
+    probe.remove(); return (PALS[sig] = P);
+  }
+  function col(c, a) { return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + (a === undefined ? 1 : a) + ')'; }
+  function kit(cv) {
+    var V = Math.min(window.devicePixelRatio || 1, 2), w = Math.round(cv.clientWidth * V), h = Math.round(cv.clientHeight * V);
+    if (w < 2 || h < 2) return null;
+    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+    var g = cv.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.lineJoin = 'round'; g.lineCap = 'round';   // round joins, always (ADR-340: a miter flips to a bevel and the trace jumps)
+    return { g: g, W: w, H: h, k: V, P: palette(cv), col: col };
+  }
+  function srcOf(S, m) { return S.src(m.id); }
+  function valueOf(S, m, t) { if (m.value) return clamp(m.value(t)); var s = srcOf(S, m); return s ? clamp(s.f(t)) : 0; }
+  function paintPicture(cv, S, m, t, opt) {
+    var K = kit(cv); if (!K) return; opt = opt || {};
+    var g = K.g, W = K.W, Hh = K.H, k = K.k, P = K.P, pad = 2 * k;
+    g.fillStyle = col(P.ground); g.fillRect(0, 0, W, Hh);
+    if (m.paint) { m.paint(K, t, opt); return; }
+    var f = m.f || (srcOf(S, m) ? srcOf(S, m).f : function () { return 0; }), v = clamp(f(t)), bip = !!m.bipolar;
+    var Y = function (x) { return Hh - pad - (Hh - 2 * pad) * clamp(x); }, X = function (x) { return pad + (W - 2 * pad) * x; };
+    if ((m.picture || (m.kind === 'macro' ? 'arc' : 'trace')) === 'arc') {
+      var cx = W / 2, cy = Hh / 2 + 1.5 * k, r = Math.min(W, Hh) / 2 - 3 * k, a0 = Math.PI * (90 + 140) / 180, sw = 280 * Math.PI / 180;
+      g.lineWidth = 3 * k; g.strokeStyle = col(P.grid, .35); g.beginPath(); g.arc(cx, cy, r, a0, a0 + sw); g.stroke();
+      g.strokeStyle = col(P.value); g.beginPath(); g.arc(cx, cy, r, a0, a0 + sw * v); g.stroke(); return;
+    }
+    var N = opt.big ? 96 : 40, span = m.span || 2.4, i, x;
+    g.strokeStyle = col(P.grid, .35); g.lineWidth = .8 * k; g.beginPath(); g.moveTo(0, bip ? Hh / 2 : Y(0)); g.lineTo(W, bip ? Hh / 2 : Y(0)); g.stroke();
+    g.beginPath(); for (i = 0; i <= N; i++) { x = i / N; var y = Y(f(t - span * (1 - x))); if (i) g.lineTo(X(x), y); else g.moveTo(X(x), y); }
+    if (!bip) { g.save(); g.lineTo(X(1), Y(0)); g.lineTo(X(0), Y(0)); g.closePath(); g.fillStyle = col(P.value, .2); g.fill(); g.restore(); }
+    g.beginPath(); for (i = 0; i <= N; i++) { x = i / N; var y2 = Y(f(t - span * (1 - x))); if (i) g.lineTo(X(x), y2); else g.moveTo(X(x), y2); }
+    g.strokeStyle = col(P.value); g.lineWidth = 1.5 * k; g.stroke();
+    g.fillStyle = col(P.meter); g.beginPath(); g.arc(X(1) - 1.5 * k, Y(v), (opt.big ? 3.2 : 2.2) * k, 0, 2 * Math.PI); g.fill();
+  }
+  H.ModPicture = { kit: kit, paint: paintPicture, col: col };
+
+  /* a view of one element: it draws only while the element is in the document and has a size (cached rows keep their views while detached) */
+  function view(S, el, fn) { S.add({ render: function () { if (el.isConnected && el.getClientRects().length) fn(); } }); }
+
+  var MAP_ICON = '<svg viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="3.2" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="5" cy="5" r="1.1" fill="currentColor"/><path d="M5 0v1.6M5 8.4V10M0 5h1.6M8.4 5H10" stroke="currentColor" stroke-width="1.2"/></svg>';
+  function routesOf(S, o, m) { return o && o.routes ? o.routes(m) : S.mappings.filter(function (x) { return x.src === m.id; }); }
+  function routeFoot(S, o, m, short) {
+    var rs = routesOf(S, o, m), pk = o && o.pageKeys, here = pk ? rs.filter(function (r) { return pk.indexOf(r.param) >= 0; }).length : rs.length;
+    if (m.pending && !rs.length) return short ? 'pending' : 'PENDING · map it or it is dropped';
+    if (!rs.length) return 'no routes';
+    return pk ? here + (short ? ' here' : ' on this page') + (!short && rs.length > here ? ' · ' + rs.length + ' in all' : '') : rs.length + ' route' + (rs.length > 1 ? 's' : '');
+  }
+  function fmtOf(m, v) { return m.fmt ? m.fmt(v) : String(Math.round(v * 100)); }
+  /* the Map handle (ADR-323 r3, ADR-322 r3): press it, then pick a control (the MAP gesture, MD1, does the picking); or drag it onto a
+     control, which needs that control's host to carry data-key. A key press (click with no pointer: detail 0) presses it too. */
+  function mapButton(S, m, o) {
+    var b = tag('button', 'hd-mapb hd-focus'); b.type = 'button'; b.innerHTML = MAP_ICON; b.style.setProperty('--sc', 'var(--src-' + m.kind + ')');
+    b.setAttribute('aria-label', 'Map ' + m.name + ': press, then click a control, or drag onto one'); b.title = 'Map ' + m.name + ' (press, then pick; or drag onto a control)';
+    var st = null;
+    function press() {
+      if (o && o.onMap) { o.onMap(m); return; }
+      if (!S.src(m.id)) return;
+      var on = S.map.on && S.map.src === m.id; S.setSrc(m.id); S.setMap(!on);
+    }
+    b.addEventListener('pointerdown', function (e) { if (e.button !== 0) return; capture(b, e); st = { x: e.clientX, y: e.clientY, moved: false }; });
+    b.addEventListener('pointermove', function (e) { if (st && Math.hypot(e.clientX - st.x, e.clientY - st.y) > 4) { st.moved = true; b.style.cursor = 'grabbing'; } });
+    function up(e) {
+      var s = st; st = null; b.style.cursor = ''; if (!s) return;
+      if (!s.moved) { press(); return; }
+      var el = document.elementFromPoint(e.clientX, e.clientY), host = el && el.closest && el.closest('[data-key]');
+      if (host && o && o.onDrop) o.onDrop(m, host.dataset.key); else if (host && S.src(m.id)) { S.setSrc(m.id); S.say('Dropped ' + m.name + ' on ' + host.dataset.key + ': click it to map (the host decides the route)'); } else S.say('Dropped on nothing: no route made');
+    }
+    b.addEventListener('pointerup', up); b.addEventListener('pointercancel', function () { st = null; b.style.cursor = ''; });
+    b.addEventListener('click', function (e) { if (e.detail === 0) press(); });
+    return { el: b, sync: function () { b.classList.toggle('on', S.map.on && S.map.src === m.id); b.tabIndex = keysOn(o) ? 0 : -1; } };
+  }
+  /* M-R2 (ADR-338 r9): any modulator is removable; the host owns the undo stack and removes the routes with it as ONE step */
+  function xButton(S, m, o) {
+    var b = tag('button', 'hd-xb hd-focus', '×'); b.type = 'button'; b.setAttribute('aria-label', 'Remove ' + m.name);
+    b.addEventListener('click', function () { fire(o.onRemove, m, routesOf(S, o, m)); });
+    return { el: b, sync: function () {
+      var n = routesOf(S, o, m).length; b.tabIndex = keysOn(o) ? 0 : -1;
+      b.title = 'Remove ' + m.name + (n ? ' and its ' + n + ' route' + (n > 1 ? 's' : '') + ' (one undo step)' : m.fixed ? ' from the list' : '');
+    } };
+  }
+  function swatch(m) { var s = tag('i', 'hd-mkswatch'); s.style.setProperty('--sc', 'var(--src-' + m.kind + ')'); return s; }
+
+  /* ---------- THE FOUR MODULATOR TIERS (ADR-338 r6). m: { id, name, kind (env|lfo|macro|engine: the colour), kindLabel, group, fixed,
+     pending, f(t) or a Source of the same id in the Session, fmt, picture 'trace'|'arc', bipolar, paint(K, t, opt), ctls }.
+     o: { onMap, onDrop, onRemove(m, routes), onSelect(m), routes(m), pageKeys, selected(), keys }. ---------- */
+  /* THIN ROW (26 px): swatch, name over its route count, the picture, the value, Map, x */
+  function thin(el, S, m, o) {
+    o = o || {};
+    el.classList.add('hd-trow'); el.innerHTML = ''; el.dataset.mod = m.id; el.setAttribute('role', 'group'); el.setAttribute('aria-label', m.name);
+    var nmB = tag('button', 'tnm hd-focus'), sm = tag('small'), cv = tag('canvas', 'tpic'), val = tag('span', 'tval'), mb = mapButton(S, m, o), xb = o.onRemove ? xButton(S, m, o) : null;
+    nmB.type = 'button'; nmB.appendChild(document.createTextNode(m.name)); nmB.appendChild(sm); nmB.title = m.name + (o.onSelect ? ' · open' : '');
+    cv.setAttribute('role', 'img'); cv.setAttribute('aria-label', m.name + ': live picture');
+    el.appendChild(swatch(m)); el.appendChild(nmB); if (!o.noPicture) el.appendChild(cv); el.appendChild(val); el.appendChild(mb.el); if (xb) el.appendChild(xb.el);
+    el.style.setProperty('--tcols', '8px 62px ' + (o.noPicture ? '' : '56px ') + '34px 18px' + (xb ? ' 16px' : ''));
+    nmB.addEventListener('click', function () { fire(o.onSelect, m); });
+    var last = '';
+    view(S, el, function () {
+      var t = S.t; if (!o.noPicture) paintPicture(cv, S, m, t, { big: false });
+      val.textContent = fmtOf(m, valueOf(S, m, t));
+      var s = routeFoot(S, o, m, true) + (o.selected ? o.selected() === m.id : '') + keysOn(o) + S.map.on + S.map.src + !!m.pending;
+      if (s !== last) {
+        last = s; sm.textContent = routeFoot(S, o, m, true); el.classList.toggle('pend', !!m.pending && !routesOf(S, o, m).length); el.classList.toggle('sel', !!(o.selected && o.selected() === m.id));
+        nmB.tabIndex = keysOn(o) ? 0 : -1; mb.sync(); if (xb) xb.sync();
+      }
+    });
+    return { el: el, map: mb, x: xb };
+  }
+  /* COMPACT CARD (188 px, ADR-323 r1, amended by ADR-338 r7: it is the thin row's EXPANDED state, so its head carries the same four
+     parts (swatch and name, value, Map, x) and the picture grows under it, with the controls and the route count) */
+  function compact(el, S, m, o) {
+    o = o || {};
+    el.classList.add('hd-mcard'); el.innerHTML = ''; el.dataset.mod = m.id;
+    var hd = tag('div'), val = tag('span', 'tval'), ex = tag('span', 'mc-ex'), mb = mapButton(S, m, o), xb = o.onRemove ? xButton(S, m, o) : null;
+    ex.appendChild(val); ex.appendChild(mb.el); if (xb) ex.appendChild(xb.el);
+    H.ModCardHeader(hd, { kind: m.kind, name: m.name, kindLabel: m.kindLabel, retrig: null, extra: ex });
+    var fr = tag('div', 'mc-pic'), cv = tag('canvas'), ctl = tag('div', 'mc-ctl'), foot = tag('div', 'mc-foot'), ft = tag('span');
+    cv.setAttribute('role', 'img'); cv.setAttribute('aria-label', m.name + ': live picture'); fr.appendChild(cv);
+    fill(ctl, S, m.ctls, o); if (!arr(m.ctls).length) ctl.appendChild(tag('span', 'hd-hint', m.note || 'nothing to set'));
+    foot.appendChild(ft); if (m.sample) foot.appendChild(tag('span', 'mc-tag', m.sample));
+    el.appendChild(hd); el.appendChild(fr); el.appendChild(ctl); el.appendChild(foot);
+    var last = '';
+    view(S, el, function () {
+      paintPicture(cv, S, m, S.t, { big: false }); val.textContent = fmtOf(m, valueOf(S, m, S.t));
+      var s = routeFoot(S, o, m) + keysOn(o) + S.map.on + S.map.src + !!m.pending;
+      if (s !== last) { last = s; ft.textContent = routeFoot(S, o, m); el.classList.toggle('pend', !!m.pending && !routesOf(S, o, m).length); mb.sync(); if (xb) xb.sync(); }
+    });
+    return { el: el, map: mb, x: xb };
+  }
+  /* MICRO CHIP (20 px): a name, a level bar, and the chip is the Map handle. For section headers: who modulates this section. */
+  function chip(el, S, m, o) {
+    o = o || {};
+    el.classList.add('hd-mchip', 'hd-focus'); el.innerHTML = ''; el.dataset.mod = m.id; el.style.setProperty('--sc', 'var(--src-' + m.kind + ')');
+    var lv = tag('i', 'lv'); el.appendChild(swatch(m)); el.appendChild(document.createTextNode(m.short || m.name)); el.appendChild(lv);
+    if (el.tagName === 'BUTTON') el.type = 'button';
+    el.setAttribute('aria-label', 'Map ' + m.name + ': press, then click a control'); el.title = m.name + ': press to map (then pick a control)';
+    el.addEventListener('click', function () { if (o.onMap) { o.onMap(m); return; } if (!S.src(m.id)) return; var on = S.map.on && S.map.src === m.id; S.setSrc(m.id); S.setMap(!on); });
+    var last = '';
+    view(S, el, function () {
+      lv.style.width = Math.round(valueOf(S, m, S.t) * 100) + '%';
+      var s = (S.map.on && S.map.src === m.id) + '' + !!m.pending + keysOn(o);
+      if (s !== last) { last = s; el.classList.toggle('on', S.map.on && S.map.src === m.id); el.classList.toggle('pend', !!m.pending); el.tabIndex = keysOn(o) ? 0 : -1; }
+    });
+    return { el: el };
+  }
+  /* FULL TIER (the Mod page's detail): header with Map and x, a big picture, the bundle's own editor in o.editor(m, host), the
+     controls, and the routes it drives */
+  function full(el, S, m, o) {
+    o = o || {};
+    el.classList.add('hd-mfull'); el.innerHTML = ''; el.dataset.mod = m.id;
+    var hd = tag('div'), mb = mapButton(S, m, o), xb = o.onRemove ? xButton(S, m, o) : null, ex = tag('span', 'mc-ex');
+    ex.appendChild(mb.el); if (xb) ex.appendChild(xb.el);
+    H.ModCardHeader(hd, { kind: m.kind, name: m.name, kindLabel: m.kindLabel, scope: m.fixed ? 'ENGINE' : 'PATCH', retrig: m.retrig === undefined ? null : m.retrig, onRetrig: m.onRetrig, extra: ex });
+    var fr = tag('div', 'mf-pic'), cv = tag('canvas'), ed = tag('div', 'mf-edit'), ctl = tag('div', 'mc-ctl'), rt = tag('div', 'mf-routes');
+    cv.setAttribute('role', 'img'); cv.setAttribute('aria-label', m.name + ': live picture'); fr.appendChild(cv);
+    el.appendChild(hd); el.appendChild(fr);
+    if (o.editor) { el.appendChild(ed); o.editor(m, ed); }
+    if (arr(m.ctls).length) { fill(ctl, S, m.ctls, o); el.appendChild(ctl); }
+    el.appendChild(tag('span', 'cl-lab', 'routes')); el.appendChild(rt);
+    var last = '';
+    view(S, el, function () {
+      paintPicture(cv, S, m, S.t, { big: true });
+      var rs = routesOf(S, o, m), s = rs.map(function (r) { return r.param + r.pol + S.amount(r); }).join() + keysOn(o) + S.map.on + S.map.src;
+      if (s === last) return; last = s; mb.sync(); if (xb) xb.sync();
+      rt.replaceChildren();
+      if (!rs.length) rt.appendChild(tag('span', 'hd-hint', m.pending ? 'pending: press Map, then pick a control' : 'no routes'));
+      rs.forEach(function (r) {
+        var row = tag('div', 'mf-route'), pth = S.params[r.param] ? (S.params[r.param].path || S.params[r.param].name) : r.param, x = tag('button', 'hd-xb hd-focus', '×');
+        x.type = 'button'; x.setAttribute('aria-label', 'Remove the route ' + m.name + ' to ' + pth); x.tabIndex = keysOn(o) ? 0 : -1;
+        x.addEventListener('click', function () { S.remove(r); });
+        row.appendChild(tag('span', 'mf-to', '→ ' + pth)); row.appendChild(tag('span', 'mf-pol', r.pol.toUpperCase())); row.appendChild(tag('span', 'mf-amt', S.amount(r))); row.appendChild(x); rt.appendChild(row);
+      });
+    });
+    return { el: el, map: mb, x: xb };
+  }
+  H.ModTiers = { thin: thin, compact: compact, chip: chip, full: full };
+
+  /* ---------- MACRO ROW, BR-b (ADR-341 r6 and r7; ADR-340 r11's BR1): a macro or a wheel as a thin row with its slider (a TS1a, 1:1, dragged in
+     place): swatch, name over "touches n" (or springs / holds), slider, value, Map. The wheels' rows FOLLOW the wheels: a half-
+     second trace behind the handle (the spring's return is visible, not only its end) and, on the bend row, a notch at the centre
+     where it springs to. A mouse drag on the bend row springs back to centre on release (50 ms, a time constant in seconds,
+     ADR-009); while the hardware holds a wheel the hardware wins (setHardware(v), null lets go); the mod wheel's row holds where it is
+     left. The engine side (the intent bus) is not here: every change calls onChange(id, v, by) with by = mouse | spring, and the
+     engine's own echo is fed back through set() or setHardware(), never emitted. m: { id, name, wheel: 'bend'|'mod'|null, value, def, fmt, touches }. ---------- */
+  var SPRING_TAU = .05, TRACE_S = .5;
+  function bendFmt(range) { return function (x) { var s = (x - .5) * 2 * range; return (s > 0 ? '+' : s < 0 ? '−' : '') + Math.abs(s).toFixed(1) + 'st'; }; }
+  function MacroRow(el, S, m, o) {
+    o = o || {};
+    var wheel = m.wheel || null, kind = wheel ? 'engine' : 'macro', home = wheel === 'bend' ? .5 : 0, v0 = m.value === undefined ? home : m.value, SW = o.sliderWidth || 58;
+    var p = { key: 'macro.' + m.id, name: m.name, path: (o.path || 'Macros') + ' · ' + m.name, locked: true, g: v0, def: m.def === undefined ? home : m.def,
+      fmt: m.fmt || (wheel === 'bend' ? bendFmt(m.range || 2) : pctf), size: 'tiny', width: SW };
+    el.classList.add('hd-macrow'); el.innerHTML = ''; el.dataset.mod = m.id; el.style.setProperty('--sc', 'var(--src-' + kind + ')');
+    el.title = m.name + (wheel === 'bend' ? ' · springs to the centre when let go' : wheel === 'mod' ? ' · holds where it is left' : '');
+    var sm = tag('small'), nm = tag('span', 'tnm'), slot = tag('div', 'mr-sl'), val = tag('span', 'tval'), mb = mapButton(S, { id: m.id, name: m.name, kind: kind }, o);
+    nm.appendChild(document.createTextNode(m.name)); nm.appendChild(sm);
+    el.appendChild(swatch({ kind: kind })); el.appendChild(nm); el.appendChild(slot); el.appendChild(val); el.appendChild(mb.el);
+    H.Slider(slot, p, S);
+    var ov = null, trace = null, X = function (x) { return 2 + (SW - 4) * clamp(x); };
+    if (wheel) {
+      ov = sv('svg', { viewBox: '0 0 ' + SW + ' 20', width: SW, height: 20, 'aria-hidden': 'true', class: 'mr-ov' }); slot.appendChild(ov);
+      trace = sv('polyline', { points: '', fill: 'none', stroke: 'var(--value)', 'stroke-width': 2.2, opacity: .35, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, ov);
+      if (wheel === 'bend') sv('path', { d: 'M' + X(.5) + ' 2 L' + (X(.5) - 2.4) + ' -1 L' + (X(.5) + 2.4) + ' -1 Z', fill: 'var(--ink)', 'stroke-linejoin': 'round' }, ov);   // the centre notch: home is drawn where it springs to
+    }
+    var hw = null, lastNow = null, lastV = v0, pts = [];
+    /* the physics runs every frame, painted or not: a wheel the hand moves while the Mods lane is showing must still follow and spring */
+    S.add({ render: function () {
+      var now = (S.now || 0) / 1000, dt = lastNow === null ? 0 : clamp(now - lastNow, 0, .1), drag = !!(S.drag && S.drag.key === p.key), spring = false;
+      lastNow = now;
+      if (hw !== null) { if (p.g !== hw) p.g = hw; }
+      else if (wheel === 'bend' && !drag && p.g !== home) {
+        if (S.reduce || Math.abs(p.g - home) < 1e-4) p.g = home; else { p.g += (home - p.g) * (1 - Math.exp(-dt / SPRING_TAU)); spring = true; }
+      }
+      if (p.g !== lastV) { lastV = p.g; if (hw === null) fire(o.onChange, m.id, p.g, spring ? 'spring' : 'mouse'); }
+      if (wheel && !S.reduce) { pts.push([now, p.g]); while (pts.length && now - pts[0][0] > TRACE_S) pts.shift(); }
+    } });
+    var lastS = '';
+    view(S, el, function () {
+      var t = typeof m.touches === 'function' ? m.touches() : m.touches, g = p.g;
+      val.textContent = p.fmt(g);
+      var lo = 1, hi = 0; pts.forEach(function (q) { lo = Math.min(lo, q[1]); hi = Math.max(hi, q[1]); });
+      if (trace) trace.setAttribute('points', hi - lo > .004 ? pts.map(function (q) { return X(q[1]).toFixed(1) + ',16.5'; }).join(' ') : '');
+      var s = String(t) + keysOn(o) + S.map.on + S.map.src;
+      if (s !== lastS) { lastS = s; sm.textContent = wheel === 'bend' ? 'springs' : wheel === 'mod' ? 'holds' : (t ? 'touches ' + t : 'unbound'); mb.sync(); }
+    });
+    return { el: el, get: function () { return p.g; }, set: function (v) { p.g = clamp(v); },
+      setHardware: function (v) { hw = v === null || v === undefined ? null : clamp(v); if (hw !== null) p.g = hw; }, held: function () { return hw !== null; } };
+  }
+  H.MacroRow = MacroRow;
+
+  /* ---------- UNDO LINE and the removal text (M-R2, ADR-338 r9): the host removes the modulator and its routes as ONE undo step on its own
+     stack; this line says what went and offers Undo. The engine's fixed sources leave the list but stay in the engine; + brings them back. ---------- */
+  function UndoLine(el, o) {
+    o = o || {};
+    el.classList.add('hd-undo'); el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); el.innerHTML = '';
+    var msg = tag('span', 'ul-msg'), btn = tag('button', 'hd-btn hd-sm hd-focus', 'Undo'); btn.type = 'button'; btn.hidden = true;
+    el.appendChild(msg); el.appendChild(btn); var undo = null;
+    btn.addEventListener('click', function () { var f = undo; hide(); fire(f); });
+    function show(text, onUndo) { msg.textContent = text; undo = onUndo || null; btn.hidden = !undo; btn.tabIndex = keysOn(o) ? 0 : -1; el.classList.add('on'); }
+    function hide() { msg.textContent = ''; undo = null; btn.hidden = true; el.classList.remove('on'); }
+    return { show: show, hide: hide, el: el };
+  }
+  H.UndoLine = UndoLine;
+  H.ModRemoval = { UndoLine: UndoLine, describe: function (S, m, routes, o) {
+    var names = arr(routes).map(function (r) { var q = S.params[r.param]; return q ? q.name : r.param; });
+    return 'Removed ' + m.name + (names.length ? ' and its ' + names.length + ' route' + (names.length > 1 ? 's' : '') + ' (' + names.join(', ') + ')' : '') +
+      (m.fixed ? ': off the list; the engine keeps the source, + brings it back.' : ': deleted.') + ' One undo step.';
+  } };
+
+  /* ---------- THE BANK, M2 (ADR-338 r7) with BT1 (ADR-340 r11): 68 px tall, TWO lanes of 26 px thin rows that scroll sideways, so pages keep
+     472 px. The side column holds the BT1 segments (MAC | MODS), the count and + (on Mods). Mods lists o.mods (a function or an
+     array: the host decides what modulates this page, ADR-323 r4); Macros lists o.macros as MacroRows. A click on a row's name opens its
+     compact card above the bank (the row expanded; Escape closes it through the layered Escape). Callbacks only: onAdd, onRemove, onMap,
+     onDrop, onSelect, onSet(set), onMacro(id, v, by). ---------- */
+  function ModBank(el, S, o) {
+    o = o || {};
+    var set = o.set || 'mods', rows = {}, cards = {}, mrows = {}, open = null, last = '';
+    el.classList.add('hd-bank'); el.innerHTML = '';
+    var side = tag('div', 'bk-side'), seg = tag('div', 'hd-bseg'), count = tag('span', 'cl-lab'), plus = tag('button', 'hd-btn hd-sm hd-focus', '+'), lanes = tag('div', 'bk-lanes'), pop = tag('div', 'bk-pop');
+    seg.setAttribute('role', 'radiogroup'); seg.setAttribute('aria-label', 'Bank: macros or mods');
+    plus.type = 'button'; plus.setAttribute('aria-label', 'Add a modulator'); pop.hidden = true;
+    var segB = [['macros', 'MAC', 'The eight macros, the pitch bend and the mod wheel'], ['mods', 'MODS', 'The modulators on this page']].map(function (d) {
+      var b = tag('button', 'hd-focus', d[1]); b.type = 'button'; b.setAttribute('role', 'radio'); b.title = d[2]; b.dataset.set = d[0];
+      b.addEventListener('click', function () { setSet(d[0]); fire(o.onSet, d[0]); }); seg.appendChild(b); return b;
+    });
+    plus.addEventListener('click', function () { fire(o.onAdd); });
+    side.appendChild(seg); side.appendChild(count); side.appendChild(plus); el.appendChild(side); el.appendChild(lanes); el.appendChild(pop);
+    var mo = {}; for (var k in o) mo[k] = o[k]; mo.onSelect = function (m) { toggle(m); fire(o.onSelect, m); }; mo.selected = function () { return open; };
+    arr(o.macros).forEach(function (m) {
+      var host = tag('div'); mrows[m.id] = MacroRow(host, S, m, { keys: o.keys, onChange: o.onMacro, onMap: o.onMap, onDrop: o.onDrop, path: o.macroPath }); mrows[m.id].host = host;
+    });
+    function list() { return typeof o.mods === 'function' ? o.mods() : arr(o.mods); }
+    function row(m) {
+      if (!rows[m.id]) { var h = tag('div'); thin(h, S, m, mo); rows[m.id] = h; }
+      return rows[m.id];
+    }
+    function toggle(m) {
+      if (open === m.id) { close(); return; }
+      open = m.id;
+      if (!cards[m.id]) { var c = tag('div'); compact(c, S, m, mo); cards[m.id] = c; }
+      pop.replaceChildren(cards[m.id]); pop.hidden = false;
+      var er = el.getBoundingClientRect(), rr = rows[m.id].getBoundingClientRect();
+      pop.style.left = clamp(rr.left - er.left, 0, Math.max(0, er.width - 192)) + 'px';
+    }
+    function close() { open = null; pop.hidden = true; pop.replaceChildren(); }
+    S.escapeLayers.unshift({ name: 'bank-card', active: function () { return !pop.hidden; }, cancel: close });
+    document.addEventListener('pointerdown', function (e) { if (!pop.hidden && !pop.contains(e.target) && !(e.target.closest && e.target.closest('.hd-trow .tnm'))) close(); });
+    function setSet(s) { set = s; last = ''; draw(); }
+    function draw() {
+      var ms = list(), sig = set + ms.map(function (m) { return m.id + routesOf(S, o, m).length + !!m.pending; }).join();
+      if (sig === last) return; last = sig;
+      segB.forEach(function (b) { var on = b.dataset.set === set; b.setAttribute('aria-checked', String(on)); b.tabIndex = keysOn(o) && on ? 0 : -1; });
+      plus.hidden = set !== 'mods'; plus.tabIndex = keysOn(o) ? 0 : -1;
+      lanes.classList.toggle('macros', set === 'macros');
+      if (set === 'mods') { count.textContent = ms.length + ' here'; lanes.replaceChildren.apply(lanes, ms.map(row)); }
+      else { var all = arr(o.macros); count.textContent = all.length + ' rows'; lanes.replaceChildren.apply(lanes, all.map(function (m) { return mrows[m.id].host; })); }
+    }
+    S.add({ render: function () { if (el.isConnected) draw(); } });
+    draw();
+    return { set: setSet, get: function () { return set; }, refresh: function () { last = ''; draw(); }, close: close,
+      macro: function (id) { return mrows[id]; },
+      /* the hardware wheel's value, from the engine: the hardware wins while it holds; null lets go (the bend then springs, the mod wheel holds) */
+      setHardware: function (id, v) { if (mrows[id]) mrows[id].setHardware(v); } };
+  }
+  H.ModBank = ModBank;
+
+  /* ---------- THE MOD PAGE, M5 (ADR-338 r8): a list and a detail. Every modulator a thin row, grouped by kind with a + per kind; the selected one
+     fills the rest of the page at the full tier. A Detail | Routes switch makes ADR-266's matrix grid (H.ModMatrixGrid, or the
+     host's o.routes(host)) the page's route view. kinds: [{ id, label }] (default from the mods' `group`). ---------- */
+  function ModPage(el, S, o) {
+    o = o || {};
+    el.classList.add('hd-mpage'); el.innerHTML = '';
+    var left = tag('div', 'mp-list'), right = tag('div', 'mp-right'), bar = tag('div', 'mp-bar'), seg = tag('div'), pane = tag('div', 'mp-pane');
+    var sel = o.select || null, rows = {}, full0 = {}, routesHost = null, mode = 'detail', last = '';
+    right.appendChild(bar); right.appendChild(pane); el.appendChild(left); el.appendChild(right);
+    var title = tag('span', 'hd-cluster', 'Modulator'); bar.appendChild(title); bar.appendChild(tag('span', 'fd-sp')); bar.appendChild(seg);
+    var pills = H.pillGroup(seg, ['Detail', 'Routes'], 0, 'Mod page · view', function (i) { setMode(i ? 'routes' : 'detail'); }, o);
+    var ro = {}; for (var k in o) ro[k] = o[k]; ro.onSelect = function (m) { select(m.id); fire(o.onSelect, m); }; ro.selected = function () { return sel; };
+    function mods() { return typeof o.mods === 'function' ? o.mods() : arr(o.mods); }
+    function kinds(ms) { if (o.kinds) return o.kinds; var seen = {}, out = []; ms.forEach(function (m) { var g = m.group || m.kind; if (!seen[g]) { seen[g] = 1; out.push({ id: g, label: (m.kindLabel || g).toUpperCase() }); } }); return out; }
+    function drawList() {
+      var ms = mods(), sig = ms.map(function (m) { return m.id; }).join() + sel; if (sig === last) return; last = sig;
+      var kids = [];
+      kinds(ms).forEach(function (kd) {
+        var mine = ms.filter(function (m) { return (m.group || m.kind) === kd.id; }), head = tag('div', 'mp-kh'), add = tag('button', 'hd-btn hd-sm hd-focus', '+');
+        head.appendChild(tag('span', '', kd.label + ' · ' + mine.length)); add.type = 'button'; add.setAttribute('aria-label', 'Add ' + kd.label); add.tabIndex = keysOn(o) ? 0 : -1; add.addEventListener('click', function () { fire(o.onAdd, kd.id); });
+        head.appendChild(add); kids.push(head);
+        mine.forEach(function (m) { if (!rows[m.id]) { var h = tag('div'); thin(h, S, m, ro); rows[m.id] = h; } kids.push(rows[m.id]); });
+      });
+      left.replaceChildren.apply(left, kids);
+      if (!sel || !ms.some(function (m) { return m.id === sel; })) sel = ms.length ? ms[0].id : null;
+    }
+    function drawPane() {
+      var ms = mods(), m = ms.filter(function (q) { return q.id === sel; })[0];
+      if (mode === 'routes') {
+        if (!routesHost) { routesHost = tag('div', 'mp-routes'); if (o.routes) o.routes(routesHost, S); else H.ModMatrixGrid(routesHost, S, o.matrix || {}); }
+        pane.replaceChildren(routesHost); title.textContent = 'Routes'; return;
+      }
+      title.textContent = m ? m.name : 'Modulator';
+      if (!m) { pane.replaceChildren(tag('span', 'hd-hint', 'No modulators: + adds one')); return; }
+      if (!full0[m.id]) { var f = tag('div'); full(f, S, m, ro); full0[m.id] = f; }
+      pane.replaceChildren(full0[m.id]);
+    }
+    function select(id) { sel = id; last = ''; drawList(); drawPane(); }
+    function setMode(v) { mode = v; pills.set(v === 'routes' ? 1 : 0); drawPane(); }
+    S.add({ render: function () { if (el.isConnected) { var b = last; drawList(); if (b !== last) drawPane(); } } });
+    drawList(); drawPane();
+    return { select: select, get: function () { return sel; }, mode: setMode, refresh: function () { last = ''; drawList(); drawPane(); }, el: el };
+  }
+  H.Cluster = Cluster; H.ClusterMatrix = ClusterMatrix; H.Lens = Lens; H.Fold = Fold; H.PageView = PageView; H.ParamTable = ParamTable; H.ModPage = ModPage;
+  H.ctlFace = face;
 })(window.Horde);

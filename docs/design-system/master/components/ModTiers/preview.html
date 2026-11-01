@@ -1,0 +1,96 @@
+<!-- @dsCard group="Modulators" height=900 subtitle="The four modulator tiers (ADR-338 r6): the thin row (26 px), the compact card (the row expanded, ADR-338 r7), the micro chip (20 px) and the full tier, for every kind" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>ModTiers</title></head>
+<body>
+<div style="padding:14px 16px 10px">
+  <div id="ladder" style="display:grid; grid-template-columns:128px 188px 226px 110px; gap:8px 12px; align-items:center"></div>
+  <div class="hd-fit" style="gap:12px; margin-top:14px; align-items:flex-start">
+    <div style="flex:1 1 320px; max-width:420px"><div class="hd-cell" id="f1"></div></div>
+    <div style="flex:1 1 320px; max-width:420px"><div class="hd-cell" id="f2"></div></div>
+  </div>
+  <p class="hd-msg" id="msg" style="margin:8px 0 0"></p>
+  <p class="hd-hint" style="margin:2px 0 0">Each row of the ladder is one modulator at its four tiers (pictures are SAMPLE signals, a seeded function of time). The name opens nothing here; Map presses MAP with that source (then click a control), or drag it onto a control; the x asks the host to remove it and its routes as one undo step (see Undo line). The full tier is the Mod page's detail pane: the bundle's own editors, the controls and the routes it drives.</p>
+</div>
+<script>
+(function () {
+  var H = window.Horde, T2 = Math.PI * 2;
+  function m32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  var pctf = function (x) { return Math.round(x * 100) + '%'; };
+  var msf = function (x) { var v = 4 * Math.pow(500, x); return v < 1000 ? Math.round(v) + ' ms' : (v / 1000).toFixed(2) + ' s'; };
+  /* a parameter's props: SAMPLE values (the engine reports the real ones in GUI 3) */
+  function P(key, name, abbr, vals, extra) { var p = { key: key, name: name, abbr: abbr, path: key.split('.')[0].toUpperCase() + ' · ' + name, vals: vals, fmt: pctf, def: vals[0] }; for (var k in extra || {}) p[k] = extra[k]; return p; }
+  /* SAMPLE sources: deterministic functions of time, labelled stand-ins for what the engine publishes */
+  var SOURCES = [
+    { id: 'env2', name: 'ENV 2', kind: 'env', f: function (t) { var p = t % 1.7; return p < .04 ? p / .04 : Math.exp(-(p - .04) * 3.2); } },
+    { id: 'lfo1', name: 'LFO 1', kind: 'lfo', f: function (t) { return .5 + .5 * Math.sin(t * T2 * .45); } },
+    { id: 'lfo2', name: 'LFO 2', kind: 'lfo', f: function (t) { return .5 + .5 * Math.sin(t * T2 * .8 + 1); } },
+    { id: 'sh1', name: 'S&H 1', kind: 'lfo', f: function (t) { return m32(Math.floor(t * 2.2) * 7919 + 13)(); } },
+    { id: 'macro1', name: 'MACRO 1', kind: 'macro', f: function (t) { return .5 + .32 * Math.sin(t * T2 * .05); } },
+    { id: 'velocity', name: 'Velocity', kind: 'engine', f: function (t) { var p = t % 1.7; return .62 * (p < .04 ? p / .04 : Math.exp(-(p - .04) * 1.2)); } },
+    { id: 'osc1R', name: 'Osc 1 R', kind: 'engine', f: function (t) { return .55 + .3 * Math.sin(t * 1.3) * Math.sin(t * .37 + 1); } }
+  ];
+  /* a stand-in envelope drawing (a modulator brings its own picture with m.paint) */
+  function envPaint(K, t, opt) {
+    var g = K.g, W = K.W, Hh = K.H, k = K.k, C = K.col, pad = 2 * k, a = .12, d = .35, s = .5, r = .4, sus = .3, Tt = a + d + sus + r;
+    function y(x) { var q = x * Tt; if (q < a) return q / a; q -= a; if (q < d) return 1 - (1 - s) * q / d; q -= d; if (q < sus) return s; q -= sus; return s * (1 - q / r); }
+    var Y = function (v) { return Hh - pad - (Hh - 2 * pad) * v; }, X = function (x) { return pad + (W - 2 * pad) * x; }, i;
+    g.beginPath(); for (i = 0; i <= 64; i++) { if (i) g.lineTo(X(i / 64), Y(y(i / 64))); else g.moveTo(X(0), Y(y(0))); }
+    g.save(); g.lineTo(X(1), Y(0)); g.lineTo(X(0), Y(0)); g.closePath(); g.fillStyle = C(K.P.value, .2); g.fill(); g.restore();
+    g.beginPath(); for (i = 0; i <= 64; i++) { if (i) g.lineTo(X(i / 64), Y(y(i / 64))); else g.moveTo(X(0), Y(y(0))); }
+    g.strokeStyle = C(K.P.value); g.lineWidth = 1.5 * k; g.stroke();
+    var ph = (t % 2.4) / 2.4; g.fillStyle = C(K.P.meter); g.beginPath(); g.arc(X(ph), Y(y(ph)), (opt.big ? 3.2 : 2.2) * k, 0, 2 * Math.PI); g.fill();
+  }
+  var SUBS = [{ k: 'env2.attack', n: 'Attack', a: 'ATK', v: [.18, .22, .12, .3], f: msf }, { k: 'env2.hold', n: 'Hold', a: 'HLD', v: [.1, .1, .15, .1], f: msf }, { k: 'env2.decay', n: 'Decay', a: 'DEC', v: [.42, .5, .3, .6], f: msf },
+    { k: 'env2.sustain', n: 'Sustain', a: 'SUS', v: [.55, .7, .4, .62] }, { k: 'env2.release', n: 'Release', a: 'REL', v: [.5, .4, .6, .45], f: msf },
+    { k: 'env2.attackCurve', n: 'Attack curve', a: 'AC', v: [.5, .6, .4, .5], bip: 1 }, { k: 'env2.decayCurve', n: 'Decay curve', a: 'DC', v: [.62, .7, .5, .6], bip: 1 }, { k: 'env2.releaseCurve', n: 'Release curve', a: 'RC', v: [.6, .5, .66, .6], bip: 1 },
+    { k: 'env2.velocity', n: 'Velocity', a: 'VEL', v: [.4, .5, .3, .7] }];
+  var ENVP = {}; SUBS.forEach(function (s) { ENVP[s.k.slice(5)] = P(s.k, s.n, s.a, s.v, { fmt: s.f || pctf, bipolar: !!s.bip }); });
+  function session(extra) {
+    var o = { x: .42, y: .36, corners: ['Glass horde pad', 'Undertone cathedral', 'Smear and strike', 'Crushed bells'], sources: SOURCES, mappings: [
+      { param: 'env2.decay', src: 'lfo1', pol: 'bi', depth: .16 }, { param: 'env2.sustain', src: 'velocity', pol: 'uni', depth: .22 }, { param: 'env2.release', src: 'lfo2', pol: 'uni', depth: .3 },
+      { param: 'env2.attack', src: 'sh1', pol: 'bi', depth: .12 }, { param: 'env2.velocity', src: 'macro1', pol: 'uni', depth: .3 }] };
+    for (var k in extra || {}) o[k] = extra[k];
+    return new H.Session(o);
+  }
+  function toggle(host, label, on, onChange) {
+    var w = document.createElement('label'); w.className = 'hd-row hd-label'; w.style.cssText = 'display:inline-flex;align-items:center;gap:4px';
+    var b = document.createElement('button'); b.className = 'hd-toggle hd-sm hd-focus'; b.type = 'button'; b.setAttribute('role', 'switch'); b.setAttribute('aria-label', label); b.setAttribute('aria-checked', String(!!on));
+    b.addEventListener('click', function () { var v = b.getAttribute('aria-checked') !== 'true'; b.setAttribute('aria-checked', String(v)); if (onChange) onChange(v); });
+    w.appendChild(document.createTextNode(label)); w.appendChild(b); host.appendChild(w); return b;
+  }
+
+  /* SAMPLE modulators: one descriptor per Source in the Session (same id). `ctls` are the compact card's few controls (tiny knobs). */
+  var kn = function (key, name, abbr, vals, extra) { return { knob: P(key, name, abbr, vals, extra) }; };
+  var MODS = [
+    { id: 'env2', name: 'ENV 2', kind: 'env', kindLabel: 'ENV', group: 'env', fixed: true, paint: envPaint, ctls: ['attack', 'decay', 'sustain', 'release'].map(function (n) { return { knob: ENVP[n] }; }) },
+    { id: 'lfo1', name: 'LFO 1', kind: 'lfo', kindLabel: 'LFO', group: 'lfo', ctls: [kn('lfo1.rate', 'Rate', 'RATE', [.62, .62, .62, .62]), kn('lfo1.shape', 'Shape', 'SHP', [0, 0, 0, 0]), kn('lfo1.phase', 'Phase', 'PHS', [0, 0, 0, 0]), kn('lfo1.depth', 'Depth', 'DPTH', [1, 1, 1, 1])] },
+    { id: 'lfo2', name: 'LFO 2', kind: 'lfo', kindLabel: 'LFO', group: 'lfo', ctls: [kn('lfo2.rate', 'Rate', 'RATE', [.78, .78, .78, .78]), kn('lfo2.shape', 'Shape', 'SHP', [.34, .34, .34, .34]), kn('lfo2.phase', 'Phase', 'PHS', [.25, .25, .25, .25]), kn('lfo2.depth', 'Depth', 'DPTH', [1, 1, 1, 1])] },
+    { id: 'sh1', name: 'S&H 1', kind: 'lfo', kindLabel: 'S&H', group: 'sh', ctls: [kn('sh1.rate', 'Rate', 'RATE', [.55, .55, .55, .55]), kn('sh1.smooth', 'Smooth', 'SMTH', [.15, .15, .15, .15])] },
+    { id: 'macro1', name: 'MACRO 1', kind: 'macro', kindLabel: 'MACRO', group: 'macro', picture: 'arc', ctls: [kn('macro1.value', 'Macro 1', 'VAL', [.62, .62, .62, .62])] },
+    { id: 'velocity', name: 'Velocity', kind: 'engine', kindLabel: 'MIDI', group: 'midi', fixed: true, note: 'a MIDI source: nothing to set' },
+    { id: 'osc1R', name: 'Osc 1 R', kind: 'engine', kindLabel: 'ENGINE', group: 'eng', fixed: true, note: 'published by the engine: nothing to set' }
+  ];
+
+  var S = session();
+  var ladder = document.getElementById('ladder');
+  ['Kind', 'Compact card · 188', 'Thin row · 226 × 26', 'Micro · 20'].forEach(function (t) { var s = document.createElement('span'); s.className = 'hd-sublabel'; s.textContent = t; ladder.appendChild(s); });
+  var msg = document.getElementById('msg');
+  var o = { onRemove: function (m, rs) { S.say('Remove ' + m.name + (rs.length ? ' and its ' + rs.length + ' route' + (rs.length > 1 ? 's' : '') : '') + '? The host does it as one undo step.'); }, onSelect: function (m) { S.say(m.name + ' selected'); } };
+  MODS.forEach(function (m) {
+    var k = document.createElement('div'); k.className = 'hd-cluster'; k.style.fontSize = '10px'; k.textContent = m.kindLabel; var sw = document.createElement('i'); sw.className = 'hd-mkswatch'; sw.style.cssText = 'margin-right:5px;--sc:var(--src-' + m.kind + ')'; k.prepend(sw); ladder.appendChild(k);
+    var a = document.createElement('div'), b = document.createElement('div'), c = document.createElement('div'); ladder.appendChild(a); ladder.appendChild(b); ladder.appendChild(c);
+    H.ModTiers.compact(a, S, m, o); H.ModTiers.thin(b, S, m, o); var ch = document.createElement('button'); c.appendChild(ch); H.ModTiers.chip(ch, S, m, {});
+  });
+  var env = MODS[0], lfo = MODS[1];
+  var f1 = document.getElementById('f1'), f2 = document.getElementById('f2');
+  var e1 = document.createElement('div'); f1.appendChild(e1);
+  H.ModTiers.full(e1, S, env, { onRemove: o.onRemove, editor: function (m, host) { var ed = H.EnvelopeEditor(host, { name: m.name, adsr: { a: .12, d: .35, s: .5, r: .4 }, aspect: '3.4 / 1' }); S.add({ render: function () { if (host.getClientRects().length) ed.draw(); } }); } });
+  var e2 = document.createElement('div'); f2.appendChild(e2);
+  H.ModTiers.full(e2, S, lfo, { onRemove: o.onRemove, editor: function (m, host) { var ed = H.LfoShapeEditor(host, { name: m.name, aspect: '3.4 / 1', position: function () { return (S.t * .6) % 1; } }); S.add({ render: function () { if (host.getClientRects().length) ed.draw(); } }); } });
+  S.on(function () { msg.textContent = S.message; });
+  S.start();
+})();
+</script>
+</body>
+</html>

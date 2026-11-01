@@ -1,0 +1,87 @@
+<!-- @dsCard group="Structure" height=600 subtitle="P1 (ADR-338 r5): every control of a page in view as tiny knobs and companions, and a lens that enlarges the one under the pointer (or the last one clicked) with its full knob, every corner and every mapping" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Lens</title></head>
+<body>
+<div style="padding:14px 16px 10px">
+  <div style="max-width:760px; background:var(--bg); border:var(--stroke-ink) solid var(--ink); padding:6px">
+    <div style="display:grid; grid-template-columns:186px minmax(0,1fr); gap:8px; align-items:start">
+      <div style="display:flex; flex-direction:column; gap:5px">
+        <div class="hd-viz" style="height:56px"><canvas id="pic"></canvas></div>
+        <div id="lens"></div>
+      </div>
+      <div id="page"></div>
+    </div>
+  </div>
+  <p class="hd-msg" id="msg" style="margin:8px 0 0"></p>
+  <p class="hd-hint" style="margin:2px 0 0">Hover or drag any tiny knob: the lens shows it at the standard size with the four corners (the editing one bold, a weight where the pad sits between corners) and every mapping; click one and the lens keeps it when the pointer leaves. The lens's knob edits the same corner values as the tiny one. Page controls are SAMPLES.</p>
+</div>
+<script>
+(function () {
+  var H = window.Horde, T2 = Math.PI * 2;
+  function m32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  var pctf = function (x) { return Math.round(x * 100) + '%'; };
+  var msf = function (x) { var v = 4 * Math.pow(500, x); return v < 1000 ? Math.round(v) + ' ms' : (v / 1000).toFixed(2) + ' s'; };
+  /* a parameter's props: SAMPLE values (the engine reports the real ones in GUI 3) */
+  function P(key, name, abbr, vals, extra) { var p = { key: key, name: name, abbr: abbr, path: key.split('.')[0].toUpperCase() + ' · ' + name, vals: vals, fmt: pctf, def: vals[0] }; for (var k in extra || {}) p[k] = extra[k]; return p; }
+  /* SAMPLE sources: deterministic functions of time, labelled stand-ins for what the engine publishes */
+  var SOURCES = [
+    { id: 'env2', name: 'ENV 2', kind: 'env', f: function (t) { var p = t % 1.7; return p < .04 ? p / .04 : Math.exp(-(p - .04) * 3.2); } },
+    { id: 'lfo1', name: 'LFO 1', kind: 'lfo', f: function (t) { return .5 + .5 * Math.sin(t * T2 * .45); } },
+    { id: 'lfo2', name: 'LFO 2', kind: 'lfo', f: function (t) { return .5 + .5 * Math.sin(t * T2 * .8 + 1); } },
+    { id: 'sh1', name: 'S&H 1', kind: 'lfo', f: function (t) { return m32(Math.floor(t * 2.2) * 7919 + 13)(); } },
+    { id: 'macro1', name: 'MACRO 1', kind: 'macro', f: function (t) { return .5 + .32 * Math.sin(t * T2 * .05); } },
+    { id: 'velocity', name: 'Velocity', kind: 'engine', f: function (t) { var p = t % 1.7; return .62 * (p < .04 ? p / .04 : Math.exp(-(p - .04) * 1.2)); } },
+    { id: 'osc1R', name: 'Osc 1 R', kind: 'engine', f: function (t) { return .55 + .3 * Math.sin(t * 1.3) * Math.sin(t * .37 + 1); } }
+  ];
+  /* a stand-in envelope drawing (a modulator brings its own picture with m.paint) */
+  function envPaint(K, t, opt) {
+    var g = K.g, W = K.W, Hh = K.H, k = K.k, C = K.col, pad = 2 * k, a = .12, d = .35, s = .5, r = .4, sus = .3, Tt = a + d + sus + r;
+    function y(x) { var q = x * Tt; if (q < a) return q / a; q -= a; if (q < d) return 1 - (1 - s) * q / d; q -= d; if (q < sus) return s; q -= sus; return s * (1 - q / r); }
+    var Y = function (v) { return Hh - pad - (Hh - 2 * pad) * v; }, X = function (x) { return pad + (W - 2 * pad) * x; }, i;
+    g.beginPath(); for (i = 0; i <= 64; i++) { if (i) g.lineTo(X(i / 64), Y(y(i / 64))); else g.moveTo(X(0), Y(y(0))); }
+    g.save(); g.lineTo(X(1), Y(0)); g.lineTo(X(0), Y(0)); g.closePath(); g.fillStyle = C(K.P.value, .2); g.fill(); g.restore();
+    g.beginPath(); for (i = 0; i <= 64; i++) { if (i) g.lineTo(X(i / 64), Y(y(i / 64))); else g.moveTo(X(0), Y(y(0))); }
+    g.strokeStyle = C(K.P.value); g.lineWidth = 1.5 * k; g.stroke();
+    var ph = (t % 2.4) / 2.4; g.fillStyle = C(K.P.meter); g.beginPath(); g.arc(X(ph), Y(y(ph)), (opt.big ? 3.2 : 2.2) * k, 0, 2 * Math.PI); g.fill();
+  }
+  var SUBS = [{ k: 'env2.attack', n: 'Attack', a: 'ATK', v: [.18, .22, .12, .3], f: msf }, { k: 'env2.hold', n: 'Hold', a: 'HLD', v: [.1, .1, .15, .1], f: msf }, { k: 'env2.decay', n: 'Decay', a: 'DEC', v: [.42, .5, .3, .6], f: msf },
+    { k: 'env2.sustain', n: 'Sustain', a: 'SUS', v: [.55, .7, .4, .62] }, { k: 'env2.release', n: 'Release', a: 'REL', v: [.5, .4, .6, .45], f: msf },
+    { k: 'env2.attackCurve', n: 'Attack curve', a: 'AC', v: [.5, .6, .4, .5], bip: 1 }, { k: 'env2.decayCurve', n: 'Decay curve', a: 'DC', v: [.62, .7, .5, .6], bip: 1 }, { k: 'env2.releaseCurve', n: 'Release curve', a: 'RC', v: [.6, .5, .66, .6], bip: 1 },
+    { k: 'env2.velocity', n: 'Velocity', a: 'VEL', v: [.4, .5, .3, .7] }];
+  var ENVP = {}; SUBS.forEach(function (s) { ENVP[s.k.slice(5)] = P(s.k, s.n, s.a, s.v, { fmt: s.f || pctf, bipolar: !!s.bip }); });
+  function session(extra) {
+    var o = { x: .42, y: .36, corners: ['Glass horde pad', 'Undertone cathedral', 'Smear and strike', 'Crushed bells'], sources: SOURCES, mappings: [
+      { param: 'env2.decay', src: 'lfo1', pol: 'bi', depth: .16 }, { param: 'env2.sustain', src: 'velocity', pol: 'uni', depth: .22 }, { param: 'env2.release', src: 'lfo2', pol: 'uni', depth: .3 },
+      { param: 'env2.attack', src: 'sh1', pol: 'bi', depth: .12 }, { param: 'env2.velocity', src: 'macro1', pol: 'uni', depth: .3 }] };
+    for (var k in extra || {}) o[k] = extra[k];
+    return new H.Session(o);
+  }
+  function toggle(host, label, on, onChange) {
+    var w = document.createElement('label'); w.className = 'hd-row hd-label'; w.style.cssText = 'display:inline-flex;align-items:center;gap:4px';
+    var b = document.createElement('button'); b.className = 'hd-toggle hd-sm hd-focus'; b.type = 'button'; b.setAttribute('role', 'switch'); b.setAttribute('aria-label', label); b.setAttribute('aria-checked', String(!!on));
+    b.addEventListener('click', function () { var v = b.getAttribute('aria-checked') !== 'true'; b.setAttribute('aria-checked', String(v)); if (onChange) onChange(v); });
+    w.appendChild(document.createTextNode(label)); w.appendChild(b); host.appendChild(w); return b;
+  }
+
+  var S = session();
+  var Q = {
+    detune: P('osc1.detune', 'Detune', 'DET', [.18, .72, .4, .9]), coupling: P('osc1.coupling', 'Coupling', 'CPL', [.5, .85, .3, .62], { bipolar: true }), spread: P('osc1.spread', 'Spread', 'SPRD', [.3, .5, .4, .6]),
+    coarse: P('osc1.pitch', 'Coarse', 'CRS', [.5, .55, .45, .6], { bipolar: true }), fine: P('osc1.fine', 'Fine', 'FINE', [.5, .52, .48, .5], { bipolar: true }),
+    level: P('osc1.level', 'Level', 'LVL', [.7, .66, .8, .55]), pan: P('osc1.pan', 'Pan', 'PAN', [.5, .7, .3, .62], { bipolar: true }), width: P('osc1.width', 'Width', 'WID', [.35, .8, .55, .25]),
+    drift: P('osc1.drift', 'Drift', 'DRFT', [.2, .3, .1, .4]), inertia: P('osc1.inertia', 'Inertia', 'INRT', [.4, .2, .5, .3]) };
+  S.mappings.push({ param: 'osc1.detune', src: 'lfo1', pol: 'bi', depth: .16 }, { param: 'osc1.detune', src: 'velocity', pol: 'uni', depth: .12 }, { param: 'osc1.pan', src: 'sh1', pol: 'bi', depth: .3 }, { param: 'osc1.width', src: 'lfo2', pol: 'uni', depth: .28 });
+  var keys = Object.keys(Q).map(function (n) { return Q[n].key; }).concat(Object.keys(ENVP).map(function (n) { return ENVP[n].key; }));
+  var k = function (n) { return { knob: ENVP[n] }; }, q = function (n) { return { knob: Q[n] }; };
+  var pg = document.getElementById('page');
+  [['osc', { name: 'Osc 1', summary: 'hover a control', groups: [{ label: 'Swarm', items: [q('detune'), q('coupling'), q('spread')] }, { label: 'Pitch', items: [{ stepper: { key: 'osc1.octave', name: 'Octave', abbr: 'OCT', path: 'Osc 1 · Octave', min: -3, max: 3, value: 0, def: 0 } }, q('coarse'), q('fine')] }, { label: 'Out', items: [q('level'), q('pan'), q('width')] }], adv: [q('drift'), q('inertia')] }],
+   ['env', { name: 'ENV 2', summary: 'hover a control', head: [function (h) { toggle(h, '1SHT', false); }], groups: [{ label: 'Stages', items: ['attack', 'hold', 'decay', 'sustain', 'release'].map(k) }, { label: 'Curves', items: ['attackCurve', 'decayCurve', 'releaseCurve'].map(k) }, { label: 'Velocity', items: [k('velocity')] }] }]].forEach(function (d) {
+    var host = document.createElement('section'); host.style.cssText = 'padding:2px 0 4px;border-top:var(--stroke-id) solid var(--ink)'; pg.appendChild(host); H.Cluster(host, S, d[1]); });
+  H.Lens(document.getElementById('lens'), S, { scope: keys, fallback: 'osc1.detune' });
+  var cv = document.getElementById('pic'); S.add({ render: function () { H.ModPicture.paint(cv, S, { id: 'lfo1', picture: 'trace', span: 3 }, S.t, { big: true }); } });
+  var msg = document.getElementById('msg'); S.on(function () { msg.textContent = S.message; });
+  S.start();
+})();
+</script>
+</body>
+</html>
