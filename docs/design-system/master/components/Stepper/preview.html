@@ -1,0 +1,29 @@
+<!-- @dsCard group="Controls" height=300 subtitle="The house stepper: drag the value (6 px a step, Shift 24, re-anchored at the ends), double-click for the default, Option-click to type; the flat table form" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Stepper</title></head>
+<body>
+<div style="padding:14px 16px 10px">
+  <div class="hd-cell hd-dense">
+    <div class="hd-fit" style="gap:10px 22px; align-items:center">
+      <div class="hd-col" style="gap:4px"><span class="hd-sublabel">Voices · count</span><div id="s1"></div></div>
+      <div class="hd-col" style="gap:4px"><span class="hd-sublabel">Wave · named</span><div id="s2"></div></div>
+      <div class="hd-col" style="gap:4px"><span class="hd-sublabel">Octave · dense</span><div id="s3"></div></div>
+      <div class="hd-col" style="gap:4px"><span class="hd-sublabel">Table cell · flat</span><div id="s4"></div></div>
+    </div>
+  </div>
+  <p class="hd-msg" id="msg" style="margin:8px 0 0"></p>
+  <p class="hd-hint" style="margin:2px 0 0">Drag a value up or down · double-click returns it to its default · ⌥-click opens a field: Enter or Tab commits, Escape cancels, a click away commits. Values are SAMPLES.</p>
+</div>
+<script>
+(function () {
+  var H = window.Horde, msg = document.getElementById('msg');
+  function say(t) { msg.textContent = t; }
+  H.Stepper(document.getElementById('s1'), { name: 'Voices', path: 'Osc 1 · Voices', min: 1, max: 16, value: 7, def: 7, say: say });
+  H.Stepper(document.getElementById('s2'), { name: 'Wave', path: 'LFO 1 · Wave', options: ['SINE', 'TRI', 'SAW', 'SQUARE', 'S&H'], value: 1, def: 0, say: say });
+  H.Stepper(document.getElementById('s3'), { name: 'Octave', path: 'Osc 2 · Octave', min: -3, max: 3, value: 0, def: 0, sm: true, say: say, fmt: function (v) { return (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v); } });
+  H.Stepper(document.getElementById('s4'), { name: 'Steps', path: 'Seq · Steps', min: 1, max: 64, value: 16, def: 16, flat: true, say: say });
+})();
+</script>
+</body>
+</html>

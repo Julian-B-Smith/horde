@@ -508,11 +508,11 @@ function suite(W) {
       H.Knob(host, { key, name: row.label, path: row.label, kind: 'c', fmt: v => v.toFixed(2), def: row.default_v, vals: [0, 1, 2, 3].map(i => d.corner(key, i)), size: 'compact' }, S);
       return host.all(x => x.on.pointerdown)[0];
     };
-    const at = y => ({ clientX: 10, clientY: y });
+    const at = (y, alt) => ({ clientX: 10, clientY: y, altKey: !!alt });
     return { S, d, br, H, knob, steps: () => d.history().past.length,
       click: face => { face.fire('pointerdown', at(100)); face.fire('pointerup', at(100)); },
       // a vertical drag by dy px (up is positive); `mid` runs while the pointer is still down (any other part of the shell may emit)
-      drag: (face, dy, mid) => { face.fire('pointerdown', at(100)); face.fire('pointermove', at(100 - dy)); if (mid) mid(); face.fire('pointerup', at(100 - dy)); },
+      drag: (face, dy, mid, alt) => { face.fire('pointerdown', at(100, alt)); face.fire('pointermove', at(100 - dy, alt)); if (mid) mid(); face.fire('pointerup', at(100 - dy, alt)); },
       // an event goes through the capture listeners, then the bubble ones, and stops where a listener says so
       press: (o, t = 0) => {
         const e = { repeat: false, altKey: false, metaKey: false, ctrlKey: false, timeStamp: t, target: { tagName: 'DIV' }, prevented: false, stopped: false,
@@ -550,14 +550,19 @@ function suite(W) {
     ok(S.map.on && S.map.src === 'env4', 'MAP or its source changed with a device change (a page change must keep both)');
   };
 
+  /* MD1 (ADR-340 r7, the human's ruling amending the Map Mode spec and ADR-261 r3): with MAP on a PLAIN drag moves the value
+     and makes no route; Option-drag sets the current source's depth (the spec's old plain-drag rule, now on Option). */
   T.mapdrag = () => {
     const { S, d, knob, drag, steps } = mapRig(), face = knob(cont.key);
     S.setMap(true); S.setSrc('env3');
-    drag(face, -40, () => S.say('another part of the shell speaks mid-drag'));   // down, so the depth stays 0: released at exactly 0
-    ok(d.routes().length === 0 && steps() === 0 && S.mappings.length === 0, 'a drag released at 0 left a route or a step (' + d.routes().length + ' routes, ' + steps() + ' steps)');
-    drag(face, 80, () => S.say('mid-drag'));                                          // one drag length is 160 px: depth .5
-    ok(d.routes().length === 1 && near(d.routes()[0].depth, .5) && steps() === 1, 'a drag up did not make one route at the dragged depth: ' + JSON.stringify(d.routes()));
-    drag(face, -40);                                                                   // the same mapping, dragged down: .25
+    const p = S.params[cont.key], ai = S.editing(p), v0 = p.vals[ai];
+    drag(face, 40);
+    ok(d.routes().length === 0 && S.mappings.length === 0 && Math.abs(p.vals[ai] - v0) > .1, 'MD1: a plain drag under MAP made a route or did not move the value (' + d.routes().length + ' routes, ' + v0 + ' → ' + p.vals[ai] + ')');
+    drag(face, -40, () => S.say('another part of the shell speaks mid-drag'), true);   // down, so the depth stays 0: released at exactly 0
+    ok(d.routes().length === 0 && steps() === 0 && S.mappings.length === 0, 'an Option-drag released at 0 left a route or a step (' + d.routes().length + ' routes, ' + steps() + ' steps)');
+    drag(face, 80, () => S.say('mid-drag'), true);                                    // one drag length is 160 px: depth .5
+    ok(d.routes().length === 1 && near(d.routes()[0].depth, .5) && steps() === 1, 'an Option-drag up did not make one route at the dragged depth: ' + JSON.stringify(d.routes()));
+    drag(face, -40, null, true);                                                       // the same mapping, Option-dragged down: .25
     ok(d.routes().length === 1 && near(d.routes()[0].depth, .25) && steps() === 2, 'a drag on an existing mapping did not edit its depth as one step: ' + JSON.stringify(d.routes()) + ', ' + steps() + ' steps');
     ok(d.undo() && near(d.routes()[0].depth, .5), 'undo did not put the depth back');
   };
@@ -817,6 +822,8 @@ const PLANTS = [
   ['mapclick', 'logic', 'var o = { id: m.id, src: m.src, param: m.param, pol: m.pol, depth: m.depth };', "var o = { id: m.id, src: m.src, param: m.param, pol: 'bi', depth: m.depth };"],
   ['mapclick', 'device', 'if (dirty) { step(label, function () { st.routes = next; st.nextRoute += fresh; }); changed(); }', 'if (dirty) { st.routes = next; st.nextRoute += fresh; changed(); }'],
   ['mapdrag', 'logic', '    function push() {\n      if (S.drag) return;', '    function push() {'],
+  // MD1 (ADR-340 r7): the bundle back on the Map Mode spec's old rule (a plain drag under MAP sets depth) must turn mapdrag red
+  ['mapdrag', 'bundle', 'if (S.map.on && !e.altKey) { st.mapClick = true;', 'if (false) { st.mapClick = true;'],
   ['mapkeys', 'device', 'if (st.routes.some(function (x) { return kept.indexOf(x.id) < 0; })) {', 'if (false) {'],
   ['mapcontrol', 'bundle', "btn.addEventListener('click', function () { S.setMap(!S.map.on); });", "btn.addEventListener('click', function () { S.setMap(true); });"],
   ['maprefused', 'logic', "      pull();\n      if (r.refused.length) S.say(", "      if (r.refused.length) S.say("],

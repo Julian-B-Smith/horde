@@ -1,4 +1,4 @@
-<!-- @dsCard group="Controls" height=930 subtitle="The morph slider: the thumb is the editing corner; pips on the track, tether above, mod lanes below; the compact rows (35-unit drawing, value-only column) and the compact vertical fader" -->
+<!-- @dsCard group="Controls" height=930 subtitle="The morph slider, with the tiny tier (TS1a 20 px rows, TS2a 16 px table cells, 1:1 with their track): the thumb is the editing corner; pips on the track, tether above, mod lanes below; the compact rows (35-unit drawing, value-only column) and the compact vertical fader" -->
 <!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><title>Slider</title></head>
@@ -11,6 +11,7 @@
         <div class="hd-sgrp" style="flex:1 1 300px; padding-left:0; border-left:0"><span class="hd-sublabel">Compact rows</span><div class="hd-col" style="gap:0; align-items:stretch" id="crows"></div></div>
         <div class="hd-sgrp"><span class="hd-sublabel">Standard</span><div class="hd-col" style="gap:0; align-items:stretch; width:280px" id="srows"></div></div>
         <div class="hd-sgrp"><span class="hd-sublabel">Faders</span><div class="hd-krow" id="cvert"></div></div>
+        <div class="hd-sgrp"><span class="hd-sublabel">Tiny · TS1a rows / TS2a cells</span><div class="hd-col" style="gap:2px; align-items:flex-start" id="tiny"></div></div>
       </div>
     </section>
   </div>
@@ -64,6 +65,9 @@
   H.CornerPin(document.getElementById('pin'), S);
   H.ModInspector(document.getElementById('minsp'), S);
   var msg = document.getElementById('msg'); S.on(function () { msg.textContent = S.message; });
+  /* THE TINY TIER (ADR-340 r2): the hollow handle (TS1a) or the cut (TS2a) is the editing corner and follows the hand 1:1; the fill is the blend */
+  ROWS.slice(0, 3).forEach(function (p) { var q = {}; for (var k in p) q[k] = p[k]; q.size = 'tiny'; var d = document.createElement('div'); document.getElementById('tiny').appendChild(d); H.Slider(d, q, S); });
+  ROWS.slice(0, 3).forEach(function (p) { var q = {}; for (var k in p) q[k] = p[k]; q.size = 'cell'; var d = document.createElement('div'); document.getElementById('tiny').appendChild(d); H.Slider(d, q, S); });
   S.selected = 'width'; S.start();
 })();
 </script>

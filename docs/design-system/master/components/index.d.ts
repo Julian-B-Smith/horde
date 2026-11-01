@@ -46,6 +46,12 @@ export declare class Session {
   setPin(i: CornerIndex | null): void;
   setMap(on: boolean, momentary?: boolean): void;
   setSrc(id: string): void;
+  /** the map keys (M, 1–9 under MAP, P, Backspace under MAP) and Escape act always, not only in keyboard mode (ADR-335 r1; GUI 3 sets it from its one constant) */
+  mapKeysAlways: boolean;
+  /** the layered Escape (ADR-338 r11): menu-like layers a host unshifts, then map, pin, keys; Panic is on no key (ADR-340 r12) */
+  escapeLayers: { name: string; active(): boolean; cancel(): void }[];
+  /** cancel the first active layer; its name, or null when nothing was open */
+  escape(): string | null;
   start(): void;
 }
 
@@ -70,8 +76,17 @@ export interface KnobProps {
       go to the section's ReadoutSlot. Faces: primary 56, standard 48, compact 40 (the default inside a dense panel), utility 28
       (label inline, one ring). Omitted: the classic 68 px box with its 96 px two-line readout cell, unchanged. */
   size?: ControlSize;
+  /** the tiny tier's label (ADR-338 r10: layout.json's abbr column, at most 4 characters); the full path stays in the title */
+  abbr?: string;
+  /** tiny knob: false draws no label line (the cell is the 28 px hit box only) */
+  label?: boolean;
+  /** tiny slider: the drawn track's width in px (TS1a 64, TS2a 76 by default) */
+  width?: number;
 }
-export type ControlSize = 'primary' | 'standard' | 'compact' | 'utility';
+/** 'tiny' is the tiny tier (ADR-338 r1/r3, drawn as ADR-340 r1/r2): a knob draws T2d, a 20 px face in a 28 px hit cell with a
+    see-through editing-corner pip between ink end stops; a slider draws TS1a, a 20 px row. 'cell' (slider only) is TS2a, a 16 px
+    table value cell. The tiny tier shows no value in the cell: the label line never changes (ADR-340 r4, H1). */
+export type ControlSize = 'primary' | 'standard' | 'compact' | 'utility' | 'tiny' | 'cell';
 /** A sized slider (any `size`) draws 200 × 35 (vertical 40 × 200, a 22 × 8 cap, `--fader-h` / size-fader-h tall) with a value-only
     readout column; `utility` draws as compact. */
 export interface SliderProps extends KnobProps { vert?: boolean }
@@ -100,6 +115,13 @@ export interface GlideParams { law: 0 | 1 | 2 | 3 | 4; time: number; rate: numbe
 /** the bend lab's travel law at 2756 ticks a second: the law's path x and the emitted pitch y, plus lag50 / over / settle / rings */
 export declare const Glide: { LAWS: string[]; SCALES: [string, number[]][]; simulate(p: GlideParams, from: number, to: number, seconds: number, lane: 'bend' | 'note'): any };
 export declare function ScalePicker(el: HTMLElement, props?: { root?: number; mask?: number[]; skin?: 'global' | 'offset'; /** the GLOBAL visual */ visual?: 'circles' | 'piano' | 'ring' | 'steps'; /** show the visual switcher */ variants?: boolean; onChange?: (s: { root: number; mask: number[] }) => void }): { get(): { root: number; mask: number[] }; set(root: number, mask: number[]): void };
+export interface StepperProps { name?: string; path?: string; /** named options (their index is the value) */ options?: string[];
+  min?: number; max?: number; step?: number; value?: number; /** home: double-click returns here */ def?: number; fmt?(v: number): string;
+  onInput?(v: number): void; say?(msg: string): void; /** TC2's table form (K4): no arrows, a dotted underline */ flat?: boolean;
+  /** the dense 20 px face */ sm?: boolean; /** keyboard mode (arrows, PgUp/PgDn, Home/End, Enter/F2) */ keys?(): boolean }
+/** The house stepper (ADR-340 r5): drag the value (6 px a step, Shift 24, re-anchored at the ends), click the arrows, double-click
+    for the default, Option-click to type (Enter/Tab commit, Escape cancels, a click away commits; out of range clamps and says so). */
+export declare function Stepper(el: HTMLElement, props: StepperProps): { get(): number; set(v: number): void; open(): void; paint(): void };
 export declare function PlainSlider(el: HTMLElement, props: { name: string; path?: string; min: number; max: number; value: number; def?: number; log?: boolean; fmt(v: number): string; onInput?(v: number): void }): { get(): number };
 /** the visualizer painters: each draws one frame into a canvas with the screen roles only */
 export declare const Viz: { kuramoto: KuramotoRingPainter; scope: Function; spectrum: Function; carpet: Function; carpetV: Function; blade: Function; envelope: Function; rotor: Function; voiceMap: Function; gonio: Function; bend: Function };

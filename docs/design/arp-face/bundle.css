@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1793336699-65f2, 2026-10-30; do not edit, re-vendor */
+/* vendored from the horde Design System artifact, version 1793502898-ea3e, 2026-10-31; do not edit, re-vendor */
 @import url("https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;800&family=Roboto+Mono:wght@400;500;600&display=swap");
 /* horde house components. Every colour is a token (tokens.json); nothing here is a hex.
    Sources: UI Spec §3-4 (values), gui2.html §4 skins, the SCALPEL lab (980×720 chassis),
@@ -1132,3 +1132,26 @@ canvas.hd-ring { outline:none; }
 .hd-cs .cs-strip.quiet .cs-body, .hd-cs .cs-strip.quiet .cs-pk { opacity:var(--opacity-muted); }   /* muted, or silenced by another strip's solo */
 .hd-cs .cs-strip.implicit .cs-btn.mute { border-style:dashed; }
 .hd-cs .hd-focus:focus-visible { box-shadow:var(--focus-ring); }
+
+/* ---------- THE TINY TIER (ADR-338 r1/r3, drawn as ADR-340 r1/r2) ----------
+   T2d: a 20 px face centred in a 28 px hit cell under a one-line abbreviation that never changes (H1). TS1a / TS2a: rows of
+   20 and 16 px, a named exception to size-hit on the cross axis only. */
+.hd-mk.sz-tiny { width:var(--size-hit); padding:0; gap:0; }
+.hd-mk.sz-tiny .mk-name { width:100%; height:11px; font:500 8.5px/11px var(--font-mono); letter-spacing:0; text-align:center; text-transform:uppercase; color:var(--t2); }
+.hd-mk.sz-tiny .mk-face { width:var(--size-hit); height:var(--size-hit); display:flex; align-items:center; justify-content:center; touch-action:none; }
+.hd-mk.sz-tiny.sel .mk-name { color:var(--ink); }
+.hd-ts1, .hd-ts2 { position:relative; display:inline-block; vertical-align:middle; cursor:ew-resize; touch-action:none; user-select:none; }
+.hd-ts1 { height:var(--size-slider-tiny); }
+.hd-ts2 { height:var(--size-slider-cell); background:var(--panel); box-shadow:inset 0 0 0 1px var(--well-alt); }
+.hd-ts1 svg, .hd-ts2 svg { display:block; overflow:visible; }
+.hd-ts2 .v { position:absolute; inset:0 4px 0 auto; font:500 9px/16px var(--font-mono); font-variant-numeric:tabular-nums; color:var(--ink); pointer-events:none; }
+
+/* ---------- STEPPER (ADR-340 r5): drag, double-click home, Option-click to type ---------- */
+.hd-step output { cursor:ns-resize; font-variant-numeric:tabular-nums; user-select:none; touch-action:none; }
+.hd-step.drag output { color:var(--ink); }
+.hd-step .st-field { box-sizing:content-box; border:0; outline:0; padding:0 2px; margin:0; background:var(--well-alt); color:var(--ink); font:inherit; text-align:center; font-variant-numeric:tabular-nums; }
+.hd-step-flat { border:0; background:transparent; border-radius:0; }
+.hd-step-flat output { min-width:0; border-bottom:1px dotted var(--t2); text-align:right; }
+
+/* ---------- H1 (ADR-340 r4): the readout slot is a fixed width, truncating, so the header never resizes ---------- */
+.hd-rslot { flex:0 0 auto; width:var(--size-rslot); }
