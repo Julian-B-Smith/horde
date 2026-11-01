@@ -1,0 +1,29 @@
+# composition-lab-r3 — round 3 of the composition lab: ADR-340's amendments, as a variant sheet
+
+- **Queue items:** B589, B594 (GUI session, ADR-336). Built by a design agent (Opus, pinned) from the GUI lead's brief, which cites ADR-340's Consequences ("Round 3 of the composition lab draws the amendments"). Stacked on the PR that holds ADR-340.
+- **Why:** ADR-340 ruled round 2 but left six amendments to be drawn before the master takes them:
+  - T4c's corner mark ("the corner color is barely visible on the little triangle", r3);
+  - a readout that shows both the hand's position and the value after modulation (r4);
+  - the stepper's gestures: drag, double-click home, option-click to type (r5);
+  - MP1's band drag on the chip, polarity in the right-click menu, and a modifier chord (r9);
+  - ML1's wires with values, and a wire dropped on another wire's midpoint as a depth route (r10, B70);
+  - the bank's Macros rows against a real wheel (r11).
+- **What it found (evidence: the page's own measurements, from `arp-face/tokens.css`):**
+  - **T4c's complaint is a light-scheme problem.** Against the light panel, the corner fills measure A 1.3, B 3.4, C 1.8 and D 1.3 : 1. Against the dark panel all four are above 4.5 : 1 (11.9, 4.8, 9.0, 12.2). The `-tx` inks measure about 4.9 : 1 on light. The fills are made for areas, and the 4.4 px triangle is a line-sized mark.
+  - **Under morph, "where the hand is" is ambiguous.** It could be the editing corner's value (what T2d's hollow pip shows) or the blend. The lab draws the corner's value and puts the choice in the poll.
+- **What changed:**
+  - `docs/design/composition-lab-r3.html`: 22 proposed variants plus the ruled T4c and the bundle's ML0 as references (23 cards). The groups are T4c (a to d), DR (a to d), SG (a to c), MP (a to d), W (a to c) and BR (a to c). Each group has a poll at the bottom. The scripted gestures are frame-stepped (1/60 s per frame, no clock), and every SVG mark has round joins.
+  - The in-page self-check reads PASS 4 of 4, the same in the dark and the light theme:
+    - mount: 23 of 23 variants;
+    - hover: 292 controls hovered in 32 card passes, 40,134 boxes compared (40,114 in the light theme), 0 moved; the control moved 12;
+    - drag: 150 frames measured over 600 stepped, 65,400 boxes compared, 0 moved; the control moved on 150 frames;
+    - joins: 991 stroked SVG marks, 0 not round; a miter control path reads miter.
+  - `docs/design/design-ledger.json`: the lab's status (exploring), next to round 2's.
+  - `docs/design/index.html`: regenerated. Rounds 1 and 2 are unchanged.
+- **Not done here:**
+  - The bundle's CompactWires (ML0) still draws on canvas with miter joins; the master is taking the round-join fix separately.
+  - Whether a DAW keeps ⌘-click for itself in a plugin window (MP-b) was not checked in a host.
+  - B70's depth routes in the engine and the stub's intent-bus macros are still needed from the lead (ADR-340).
+- **Alternatives rejected:**
+  - Running the page on the bundle's `Session.start`: it reads the rAF timestamp, a clock. The page steps `S.t` from its own frame counter instead.
+  - Hard-coding the dark scheme's token values to draw both schemes side by side: they would drift. The two scopes are generated at load from `tokens.css`'s own `:root` rules.

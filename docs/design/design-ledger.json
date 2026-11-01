@@ -90,6 +90,10 @@
    "adr": "ADR-340",
    "note": "Round 2: the human's picks by poll (2026-10-30/31), with amendments that round 3 draws."
   },
+  "composition-lab-r3.html": {
+   "status": "exploring",
+   "note": "Round 3 (B589, B594): ADR-340's amendments drawn as variants (T4c's corner mark, the dual readout, stepper gestures, MP1's band drag, menu and chord, ML1's depth-route wires, the bank's macro rows against a wheel); the human answers by poll."
+  },
   "composition-lab.html": {
    "status": "ruled",
    "adr": "ADR-338",
