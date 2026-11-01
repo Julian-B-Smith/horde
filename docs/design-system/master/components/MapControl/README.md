@@ -32,7 +32,7 @@ Holding Option shows the focus caption under every mapped control ("LFO 2 BI 30%
 | P / Option-P | cycle polarity (last touched / focused) | the inspector's polarity pill | keyboard mode, or always with `mapKeysAlways` |
 | Backspace, Delete (MAP on) | remove the last-touched mapping | the inspector's remove button | keyboard mode, or always with `mapKeysAlways` |
 | 1–4, 0 (MAP off) | pin corner A–D, back to Auto | the editing-corner selector, a pad corner | keyboard mode |
-| ⌘⌥-click (Ctrl+Alt on Windows) a control | cycle the focused mapping's polarity, as a click on its chip (ADR-341 r4) | the inspector's polarity chip | always |
+| ⇧⌥-click (Shift+Alt on Windows) a control | cycle the focused mapping's polarity, as a click on its chip (ADR-341 r4, A1) | the inspector's polarity chip | always |
 | Esc | the layered cancel (below) | each layer's own close | keyboard mode, or always with `mapKeysAlways` |
 
 **Escape is a layered cancel** (ADR-338 r11): it cancels the innermost open thing and nothing else, in the order a host's own layers (a menu, a map-then-pick, a number field), then MAP, then a pinned editing corner, then keyboard mode. `S.escapeLayers` holds the order; a host puts its layers in front with `S.escapeLayers.unshift({ name, active, cancel })`, and `S.escape()` runs one Escape. **Panic is on no key and has no panel control** (ADR-340 r12: ADR-226 item 6 holds; the engine answers the host's all-notes-off).

@@ -4,7 +4,7 @@ MS3 (ADR-340 r8): the MAP control's source as a chip you **drag through or step*
 
 **The consumer provides** a `Horde.Session` with sources; `Horde.SourceChip(el, S, { order?, onPick?, keys? })`, or `Horde.MapControl(el, S, { chip: true })`, which uses it in place of the select. `order()` returns the sources in the order the chip steps (the page's list, so the numbers follow MS1's; default `S.sources`); `onPick(id)` is told after a pick.
 
-**Anatomy** (150 px × 28 px, a 1.5 px border in the source's colour, `panel`)
+**Anatomy** (206 px × 28 px: the longest of the 16 source names fits without an ellipsis, measured in GUI 3 (150 px cut six of them); a 1.5 px border in the source's colour, `panel`)
 - ‹ and › (28 px each): the previous and the next source.
 - The name: a swatch (`src-` family by kind), the source's name in Archivo 800 8.5 px, and its number in `hint`. **Drag up or down on it** to scroll through the sources: one step per 12 px, down is the next, up the previous, and it wraps. `role="spinbutton"`.
 - ▾: opens the full list (a native select over the caret).

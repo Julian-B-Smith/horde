@@ -10,6 +10,14 @@
  },
  "master_versions": [
   {
+   "version": "1793558157-f6a9",
+   "evidence": "docs/design-system/master/VERSION: published 2026-11-01 from the gui-mpc-r1 branch before merge. Two master defects the GUI 3 shell hop found: SourceChip widened to 206 px (150 px cut six of the 16 source names; the shell had overridden it locally), and ModPage's route-view builder renamed routeView(host, S) (it was routes, which the tiers also read as routes(m)). Re-vendored the same day."
+  },
+  {
+   "version": "1793556326-fe52",
+   "evidence": "docs/design-system/master/VERSION: published 2026-11-01 from the gui-mpc-r1 branch before merge (cdf8772's precedent). ADR-341 A1: the polarity chord is Shift+Option-click (Shift+Alt on Windows); chordHit and the Knob, MapControl, RouteRow and master READMEs only; every other file as at 1793517046-cbf4. Re-vendored the same day."
+  },
+  {
    "version": "1793517046-cbf4",
    "evidence": "docs/design-system/master/VERSION: published 2026-11-01 from the gui-master-r2 branch's master before merge (cdf8772's precedent); the live version was first checked to be 1793502898-ea3e. Master batch 2: ADR-338 r2, r4 to r9; ADR-340 r3, r5, r6, r8 to r11; ADR-341 r1 to r7 (the polarity menu entry not built). Re-vendored the same day. Two earlier publishes the same day were superseded within the batch before they were recorded. 1793516789-9f79: the browser and seam checks found that MP3 turned a NEW mapping over (a drag released at 0 made an INV route, gui3_seam_check mapdrag); 1793516938-100b kept MP3 to existing mappings, also superseded the same day; cbf4 relabels the Companion preview's TC2 sample row \"Panic\" to \"Seq reset\" (ADR-340 r12: there is no Panic control)."
   },
@@ -4767,17 +4775,17 @@
   {
    "id": "adr341-mp-c",
    "adr": "ADR-341",
-   "clause": "ruling 4 (the polarity modifier is MP-c, Cmd-Option-click, cycling like the chip)",
+   "clause": "ruling 4 (the polarity modifier is MP-c, Cmd-Option-click, cycling like the chip); amended by A1 (Shift+Option-click)",
    "lab": "docs/design/composition-lab-r3.html",
    "component": "RouteRow",
-   "master_version": "1793517046-cbf4",
+   "master_version": "1793556326-fe52",
    "bundle": "PolChip",
    "via": null,
    "shell": null,
    "state": "vendored",
    "superseded_by": null,
    "port_tab": "modulators",
-   "note": "The chord in the Session gesture: Cmd+Option-click (Ctrl+Alt on Windows) cycles the focused mapping as the chip does, skipping CTL where another mapping controls the parameter. Not verified in a host (Live, Bitwig) or on Windows. Vendored 2026-11-01 (master batch 2, B589). FX device: same."
+   "note": "The chord in the Session gesture: Shift+Option-click (Shift+Alt on Windows; ADR-341 A1, 2026-11-01, replacing Cmd+Option / Ctrl+Alt: Windows keyboards have no Command key, and Ctrl+Alt is AltGr on many layouts) cycles the focused mapping as the chip does, skipping CTL where another mapping controls the parameter. Command and Ctrl must be up. Not verified in a host (Live, Bitwig), nor whether Windows' Shift+Alt layout hotkey fires around the click. Vendored 2026-11-01 at 1793556326-fe52. FX device: same."
   },
   {
    "id": "adr341-w-a",
