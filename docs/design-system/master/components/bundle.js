@@ -6849,7 +6849,8 @@
       lastNow = now;
       if (hw !== null) { if (p.g !== hw) p.g = hw; }
       else if (wheel === 'bend' && !drag && p.g !== home) {
-        if (S.reduce || Math.abs(p.g - home) < 1e-4) p.g = home; else { p.g += (home - p.g) * (1 - Math.exp(-dt / SPRING_TAU)); spring = true; }
+        if (S.reduce || Math.abs(p.g - home) < 1e-4) p.g = home; else p.g += (home - p.g) * (1 - Math.exp(-dt / SPRING_TAU));
+        spring = true;   // the snap is the spring too: the host must never read a release as the hand
       }
       if (p.g !== lastV) { lastV = p.g; if (hw === null) fire(o.onChange, m.id, p.g, spring ? 'spring' : 'mouse'); }
       if (wheel && !S.reduce) { pts.push([now, p.g]); while (pts.length && now - pts[0][0] > TRACE_S) pts.shift(); }
