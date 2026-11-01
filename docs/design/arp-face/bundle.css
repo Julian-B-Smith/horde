@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1793517046-cbf4, 2026-11-01; do not edit, re-vendor */
+/* vendored from the horde Design System artifact, version 1793558157-f6a9, 2026-11-01; do not edit, re-vendor */
 @import url("https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;800&family=Roboto+Mono:wght@400;500;600&display=swap");
 /* horde house components. Every colour is a token (tokens.json); nothing here is a hex.
    Sources: UI Spec §3-4 (values), gui2.html §4 skins, the SCALPEL lab (980×720 chassis),
@@ -1197,7 +1197,7 @@ canvas.hd-ring { outline:none; }
 .hd-polchip.drag:hover { background:var(--sc, var(--ink)); }
 
 /* ---------- SOURCE CHIP (MS3, ADR-340 r8): ‹ [swatch name n] ▾ ›, the source's colour on its border ---------- */
-.hd-schip { --sc:var(--ink); box-sizing:border-box; display:inline-grid; grid-template-columns:var(--size-hit) minmax(0,1fr) var(--size-hit) var(--size-hit); align-items:center; width:150px; height:var(--size-hit);
+.hd-schip { --sc:var(--ink); box-sizing:border-box; display:inline-grid; grid-template-columns:var(--size-hit) minmax(0,1fr) var(--size-hit) var(--size-hit); align-items:center; width:206px; height:var(--size-hit);
   border:var(--stroke-ink) solid var(--sc); border-radius:6px; background:var(--panel); }
 .hd-schip .sc-b { position:relative; border:0; background:none; padding:0; height:100%; cursor:pointer; color:var(--ink); font:700 11px/1 var(--font-sans); border-radius:5px; }
 .hd-schip .sc-b:hover { background:var(--well-alt); }

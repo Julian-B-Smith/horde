@@ -36,7 +36,11 @@
               "key": "out.level",
               "size": "primary"
             }
-          ]
+          ],
+          "abbr": {
+            "voice.gravity": "GRV",
+            "out.level": "LVL"
+          }
         },
         {
           "title": "ENV 1",
@@ -69,6 +73,75 @@
             "velocity": {
               "sub": "Velocity"
             }
+          },
+          "abbr": {
+            "attack": "ATK",
+            "hold": "HLD",
+            "decay": "DEC",
+            "sustain": "SUS",
+            "release": "REL",
+            "attackCurve": "ACRV",
+            "decayCurve": "DCRV",
+            "releaseCurve": "RCRV",
+            "velocity": "VEL"
+          },
+          "matrix": {
+            "cols": [
+              {
+                "label": "Time",
+                "title": "the stage's time (the sustain's level)"
+              },
+              {
+                "label": "Curve",
+                "title": "the stage's curve"
+              }
+            ],
+            "rows": [
+              {
+                "label": "A",
+                "title": "Attack",
+                "cells": [
+                  "attack",
+                  "attackCurve"
+                ]
+              },
+              {
+                "label": "H",
+                "title": "Hold",
+                "cells": [
+                  "hold",
+                  null
+                ]
+              },
+              {
+                "label": "D",
+                "title": "Decay",
+                "cells": [
+                  "decay",
+                  "decayCurve"
+                ]
+              },
+              {
+                "label": "S",
+                "title": "Sustain",
+                "cells": [
+                  "sustain",
+                  null
+                ]
+              },
+              {
+                "label": "R",
+                "title": "Release",
+                "cells": [
+                  "release",
+                  "releaseCurve"
+                ]
+              }
+            ],
+            "head": [
+              "velocity"
+            ],
+            "emptyTitle": "no curve exists for this stage"
           }
         }
       ],
@@ -84,7 +157,8 @@
           "dc": "env1.decayCurve",
           "rc": "env1.releaseCurve"
         }
-      }
+      },
+      "grid": true
     },
     {
       "id": "dashboard",
@@ -365,7 +439,56 @@
               "sub": "Out",
               "size": "primary"
             }
-          ]
+          ],
+          "abbr": {
+            "unison": "UNI",
+            "detune": "DET",
+            "coupling": "CPL",
+            "baseWave": "BWAV",
+            "octave": "OCT",
+            "semitone": "SEM",
+            "pitch": "CRS",
+            "fine": "FIN",
+            "pan": "PAN",
+            "width": "WID",
+            "mix.osc1": "LVL",
+            "mute": "MUT",
+            "solo": "SOL",
+            "distribution": "DIS",
+            "seed": "SEED",
+            "detuneLaw": "DLAW",
+            "detuneRange": "RNG",
+            "harmonicReach": "HRCH",
+            "anchor": "RANC",
+            "phaseLag": "PLAG",
+            "pivot": "PVT",
+            "onsetLock": "OLCK",
+            "dissolve": "DSV",
+            "driftDepth": "DRF",
+            "driftRate": "DRAT",
+            "inertia": "INR",
+            "phase": "PHS",
+            "phaseRandom": "RND",
+            "retrigger": "RTG",
+            "onsetScatter": "OSCT",
+            "timingCorrection": "TCOR",
+            "panImage": "PIMG",
+            "panInvert": "IIMG",
+            "panMotion": "PMOT",
+            "bandLimit": "BLIM",
+            "motionGrain": "MGRN",
+            "crossMod": "CMOD",
+            "feedback": "FB",
+            "loopDrive": "LDRV",
+            "spreadLaw": "SLAW",
+            "spreadDrift": "SDRF",
+            "quantize": "QNT",
+            "stacking": "STK",
+            "upperHears": "UHRS",
+            "collisionPitch": "CPCH",
+            "collisionBite": "CBIT"
+          },
+          "fold": true
         },
         {
           "title": "Envelope",
@@ -399,7 +522,13 @@
               "key": "osc1.env",
               "role": "modes"
             }
-          ]
+          ],
+          "abbr": {
+            "attack": "ATK",
+            "decay": "DEC",
+            "sustain": "SUS",
+            "release": "REL"
+          }
         },
         {
           "title": "Blade",
@@ -447,7 +576,38 @@
             "cutSpread": {
               "sub": "Spread"
             }
-          }
+          },
+          "abbr": {
+            "wave": "BWAV",
+            "width": "WID",
+            "cut": "CUT",
+            "position": "POS",
+            "depth": "DPT",
+            "edges": "EDG",
+            "mirror": "MIR",
+            "fmDepth": "FDPT",
+            "modRate": "MRT",
+            "positionSpread": "PSPR",
+            "cutSpread": "CSPR",
+            "shape": "SHP",
+            "cutIn": "CIN",
+            "cutHz": "CHZ",
+            "frame": "FRM",
+            "rotate": "ROT",
+            "rotation": "RTN",
+            "fmType": "FTYP",
+            "modShape": "MSHP",
+            "modIn": "MIN",
+            "modRateHz": "MHZ",
+            "cutRule": "CRUL",
+            "ruleDepth": "RDPT",
+            "widthSpread": "WSPR",
+            "depthSpread": "DSPR",
+            "shapeSpread": "SSPR",
+            "fmIndexSpread": "FISP",
+            "rotateSpread": "RSPR"
+          },
+          "fold": true
         },
         {
           "title": "Blade",
@@ -489,7 +649,40 @@
             "modRate": {
               "sub": "FM"
             }
-          }
+          },
+          "abbr": {
+            "wave": "BWAV",
+            "width": "WID",
+            "cut": "CUT",
+            "position": "POS",
+            "depth": "DPT",
+            "edges": "EDG",
+            "mirror": "MIR",
+            "fmDepth": "FDPT",
+            "modRate": "MRT",
+            "shape": "SHP",
+            "cutIn": "CIN",
+            "cutHz": "CHZ",
+            "frame": "FRM",
+            "rotate": "ROT",
+            "rotation": "RTN",
+            "fmType": "FTYP",
+            "modShape": "MSHP",
+            "modIn": "MIN",
+            "modRateHz": "MHZ",
+            "positionSpread": "PSPR",
+            "cutSpread": "CSPR",
+            "cutRule": "CRUL",
+            "ruleDepth": "RDPT",
+            "widthSpread": "WSPR",
+            "depthSpread": "DSPR",
+            "shapeSpread": "SSPR",
+            "fmIndexSpread": "FISP",
+            "rotateSpread": "RSPR",
+            "fmSource": "FM",
+            "spreadSource": "SPR"
+          },
+          "fold": true
         }
       ],
       "dense": true,
@@ -503,7 +696,8 @@
           "wave": "osc1.baseWave"
         }
       },
-      "power": "osc1.on"
+      "power": "osc1.on",
+      "grid": true
     },
     {
       "id": "osc2",
@@ -559,7 +753,56 @@
               "sub": "Out",
               "size": "primary"
             }
-          ]
+          ],
+          "abbr": {
+            "unison": "UNI",
+            "detune": "DET",
+            "coupling": "CPL",
+            "baseWave": "BWAV",
+            "octave": "OCT",
+            "semitone": "SEM",
+            "pitch": "CRS",
+            "fine": "FIN",
+            "pan": "PAN",
+            "width": "WID",
+            "mix.osc2": "LVL",
+            "mute": "MUT",
+            "solo": "SOL",
+            "distribution": "DIS",
+            "seed": "SEED",
+            "detuneLaw": "DLAW",
+            "detuneRange": "RNG",
+            "harmonicReach": "HRCH",
+            "anchor": "RANC",
+            "phaseLag": "PLAG",
+            "pivot": "PVT",
+            "onsetLock": "OLCK",
+            "dissolve": "DSV",
+            "driftDepth": "DRF",
+            "driftRate": "DRAT",
+            "inertia": "INR",
+            "phase": "PHS",
+            "phaseRandom": "RND",
+            "retrigger": "RTG",
+            "onsetScatter": "OSCT",
+            "timingCorrection": "TCOR",
+            "panImage": "PIMG",
+            "panInvert": "IIMG",
+            "panMotion": "PMOT",
+            "bandLimit": "BLIM",
+            "motionGrain": "MGRN",
+            "crossMod": "CMOD",
+            "feedback": "FB",
+            "loopDrive": "LDRV",
+            "spreadLaw": "SLAW",
+            "spreadDrift": "SDRF",
+            "quantize": "QNT",
+            "stacking": "STK",
+            "upperHears": "UHRS",
+            "collisionPitch": "CPCH",
+            "collisionBite": "CBIT"
+          },
+          "fold": true
         },
         {
           "title": "Envelope",
@@ -593,7 +836,13 @@
               "key": "osc2.env",
               "role": "modes"
             }
-          ]
+          ],
+          "abbr": {
+            "attack": "ATK",
+            "decay": "DEC",
+            "sustain": "SUS",
+            "release": "REL"
+          }
         },
         {
           "title": "Blade",
@@ -641,7 +890,38 @@
             "cutSpread": {
               "sub": "Spread"
             }
-          }
+          },
+          "abbr": {
+            "wave": "BWAV",
+            "width": "WID",
+            "cut": "CUT",
+            "position": "POS",
+            "depth": "DPT",
+            "edges": "EDG",
+            "mirror": "MIR",
+            "fmDepth": "FDPT",
+            "modRate": "MRT",
+            "positionSpread": "PSPR",
+            "cutSpread": "CSPR",
+            "shape": "SHP",
+            "cutIn": "CIN",
+            "cutHz": "CHZ",
+            "frame": "FRM",
+            "rotate": "ROT",
+            "rotation": "RTN",
+            "fmType": "FTYP",
+            "modShape": "MSHP",
+            "modIn": "MIN",
+            "modRateHz": "MHZ",
+            "cutRule": "CRUL",
+            "ruleDepth": "RDPT",
+            "widthSpread": "WSPR",
+            "depthSpread": "DSPR",
+            "shapeSpread": "SSPR",
+            "fmIndexSpread": "FISP",
+            "rotateSpread": "RSPR"
+          },
+          "fold": true
         },
         {
           "title": "Blade",
@@ -683,7 +963,40 @@
             "modRate": {
               "sub": "FM"
             }
-          }
+          },
+          "abbr": {
+            "wave": "BWAV",
+            "width": "WID",
+            "cut": "CUT",
+            "position": "POS",
+            "depth": "DPT",
+            "edges": "EDG",
+            "mirror": "MIR",
+            "fmDepth": "FDPT",
+            "modRate": "MRT",
+            "shape": "SHP",
+            "cutIn": "CIN",
+            "cutHz": "CHZ",
+            "frame": "FRM",
+            "rotate": "ROT",
+            "rotation": "RTN",
+            "fmType": "FTYP",
+            "modShape": "MSHP",
+            "modIn": "MIN",
+            "modRateHz": "MHZ",
+            "positionSpread": "PSPR",
+            "cutSpread": "CSPR",
+            "cutRule": "CRUL",
+            "ruleDepth": "RDPT",
+            "widthSpread": "WSPR",
+            "depthSpread": "DSPR",
+            "shapeSpread": "SSPR",
+            "fmIndexSpread": "FISP",
+            "rotateSpread": "RSPR",
+            "fmSource": "FM",
+            "spreadSource": "SPR"
+          },
+          "fold": true
         }
       ],
       "dense": true,
@@ -697,7 +1010,8 @@
           "wave": "osc2.baseWave"
         }
       },
-      "power": "osc2.on"
+      "power": "osc2.on",
+      "grid": true
     },
     {
       "id": "sub",
@@ -751,7 +1065,13 @@
                 ]
               }
             }
-          ]
+          ],
+          "abbr": {
+            "mix.sub": "LVL",
+            "sub.pan": "PAN",
+            "sub.mute": "MUT",
+            "sub.solo": "SOL"
+          }
         },
         {
           "title": "Envelope",
@@ -785,7 +1105,13 @@
               "key": "sub.env",
               "role": "modes"
             }
-          ]
+          ],
+          "abbr": {
+            "attack": "ATK",
+            "decay": "DEC",
+            "sustain": "SUS",
+            "release": "REL"
+          }
         },
         {
           "title": "Shape",
@@ -873,7 +1199,17 @@
                 ]
               }
             }
-          ]
+          ],
+          "abbr": {
+            "sub.pulseWidth": "WID",
+            "sub.softness": "SFT",
+            "sub.bumpHarmonic": "HRMA",
+            "sub.bumpAmount": "AMTA",
+            "sub.bumpPhase": "PHSA",
+            "sub.bump2Harmonic": "HRMB",
+            "sub.bump2Amount": "AMTB",
+            "sub.bump2Phase": "PHSB"
+          }
         },
         {
           "title": "Pitch",
@@ -903,7 +1239,15 @@
             {
               "key": "sub.startPhase"
             }
-          ]
+          ],
+          "abbr": {
+            "sub.octave": "OCT",
+            "sub.semitones": "SEM",
+            "sub.pitch": "CRS",
+            "sub.fine": "FIN",
+            "sub.keytrack": "KEY",
+            "sub.startPhase": "PHS"
+          }
         },
         {
           "title": "Voice",
@@ -927,7 +1271,11 @@
                 ]
               }
             }
-          ]
+          ],
+          "abbr": {
+            "sub.voiceMode": "VMOD",
+            "sub.priority": "MFLL"
+          }
         },
         {
           "title": "Colour",
@@ -961,7 +1309,15 @@
             {
               "key": "sub.tone"
             }
-          ]
+          ],
+          "abbr": {
+            "sub.order": "ORD",
+            "sub.erode": "ERD",
+            "sub.drive": "DRV",
+            "sub.crunch": "CRN",
+            "sub.character": "CHR",
+            "sub.tone": "TONE"
+          }
         }
       ],
       "dense": true,
@@ -974,7 +1330,8 @@
           "bump": "sub.bumpAmount"
         }
       },
-      "power": "sub.on"
+      "power": "sub.on",
+      "grid": true
     },
     {
       "id": "noise",
@@ -1019,7 +1376,12 @@
                 ]
               }
             }
-          ]
+          ],
+          "abbr": {
+            "mix.noise": "LVL",
+            "noise.mute": "MUT",
+            "noise.solo": "SOL"
+          }
         },
         {
           "title": "Envelope",
@@ -1053,7 +1415,13 @@
               "key": "noise.env",
               "role": "modes"
             }
-          ]
+          ],
+          "abbr": {
+            "attack": "ATK",
+            "decay": "DEC",
+            "sustain": "SUS",
+            "release": "REL"
+          }
         },
         {
           "title": "Source",
@@ -1159,7 +1527,15 @@
                 ]
               }
             }
-          ]
+          ],
+          "abbr": {
+            "noise.density": "DEN",
+            "noise.rate": "RATE",
+            "noise.length": "LEN",
+            "noise.lfsrKeytrack": "LKEY",
+            "noise.colour": "COL",
+            "noise.pitch": "PCH"
+          }
         },
         {
           "title": "Resonator",
@@ -1202,7 +1578,10 @@
                 ]
               }
             }
-          ]
+          ],
+          "abbr": {
+            "noise.feedback": "FB"
+          }
         },
         {
           "title": "Whisper",
@@ -1245,7 +1624,10 @@
                 ]
               }
             }
-          ]
+          ],
+          "abbr": {
+            "noise.vowel": "VWL"
+          }
         },
         {
           "title": "Wind",
@@ -1288,7 +1670,10 @@
                 ]
               }
             }
-          ]
+          ],
+          "abbr": {
+            "noise.gust": "GST"
+          }
         },
         {
           "title": "Filter",
@@ -1349,7 +1734,12 @@
                 ]
               }
             }
-          ]
+          ],
+          "abbr": {
+            "noise.cutoff": "CUT",
+            "noise.resonance": "RES",
+            "noise.keytrack": "KEY"
+          }
         },
         {
           "title": "Stereo",
@@ -1367,7 +1757,11 @@
             {
               "key": "noise.pan"
             }
-          ]
+          ],
+          "abbr": {
+            "noise.spread": "SSPR",
+            "noise.pan": "PAN"
+          }
         }
       ],
       "dense": true,
@@ -1377,7 +1771,8 @@
           "colour": "noise.colour"
         }
       },
-      "power": "noise.on"
+      "power": "noise.on",
+      "grid": true
     },
     {
       "id": "filters",
@@ -1422,7 +1817,14 @@
             "morph.law",
             "morph.count",
             "morph.glide"
-          ]
+          ],
+          "abbr": {
+            "morph.on": "MRP",
+            "morph.audible": "ACNR",
+            "morph.law": "MMOD",
+            "morph.count": "CNT",
+            "morph.glide": "MGLD"
+          }
         },
         {
           "title": "Quantum",
@@ -1455,7 +1857,12 @@
                 ]
               }
             }
-          ]
+          ],
+          "abbr": {
+            "morph.temperature": "TMP",
+            "morph.cohesion": "COH",
+            "morph.seed": "MSEE"
+          }
         },
         {
           "title": "Stepped",
@@ -1546,10 +1953,18 @@
                 ]
               }
             }
-          ]
+          ],
+          "abbr": {
+            "morph.stepSync": "SYN",
+            "morph.stepRate": "SRAT",
+            "morph.stepDivision": "DIV",
+            "morph.stepTriplet": "TRP",
+            "morph.stepDotted": "DOT"
+          }
         }
       ],
-      "cite": "SPEC-ENGINE Appendix D (D.2, MO-5 to MO-10, IF-11, IF-12)"
+      "cite": "SPEC-ENGINE Appendix D (D.2, MO-5 to MO-10, IF-11, IF-12)",
+      "grid": true
     },
     {
       "id": "mix",
@@ -1670,34 +2085,247 @@
           "title": "Echo",
           "tag": "SLOT 1",
           "screen": "Echo",
-          "block": "fx.echo"
+          "block": "fx.echo",
+          "abbr": {
+            "io.inGain": "IGN",
+            "io.outGain": "OGN",
+            "mix": "MIX",
+            "time.sync": "SYN",
+            "time.ms": "TIME",
+            "time.div": "DIV",
+            "time.offL": "LOFS",
+            "time.offR": "ROFS",
+            "time.change": "TCHG",
+            "time.law": "RLAW",
+            "time.tempoMode": "TFLW",
+            "time.glide": "GLD",
+            "time.xfadeMs": "XFD",
+            "fb.amount": "FB",
+            "route.mode": "RTE",
+            "filt.in.on": "IFLT",
+            "filt.in.hpHz": "ILCU",
+            "filt.in.lpHz": "IHCU",
+            "filt.loop.on": "LFLT",
+            "filt.loop.hpHz": "LLCU",
+            "filt.loop.lpHz": "LHCU",
+            "filt.out.on": "OFLT",
+            "filt.out.hpHz": "OLCU",
+            "filt.out.lpHz": "OHCU",
+            "mod.depthMs": "MDPT",
+            "mod.rateHz": "MRAT",
+            "mod.shape": "MSHP",
+            "mod.spread": "MSPR",
+            "mod.seed": "MSEE",
+            "time.scale": "TSCL"
+          }
         },
         {
           "title": "Scape",
           "tag": "SLOT 2",
           "screen": "Scape",
-          "block": "fx.scape"
+          "block": "fx.scape",
+          "abbr": {
+            "verb.mix": "MIX",
+            "verb.preDelay": "PDLY",
+            "verb.erSend": "ESND",
+            "verb.erSize": "ESIZ",
+            "verb.erDecay": "EDEC",
+            "verb.envelop": "ENV",
+            "verb.tailDecorr": "TDCR",
+            "verb.mixTimeMs": "MTMS",
+            "verb.diffuse": "DIF",
+            "verb.size": "SIZE",
+            "verb.decay": "DEC",
+            "verb.damp": "DMP",
+            "verb.lowCut": "LCUT",
+            "verb.modDepth": "MDPT",
+            "verb.modRate": "MRT",
+            "verb.width": "WID",
+            "verb.bassMono": "BMON",
+            "verb.inHP": "IHP",
+            "verb.inLP": "ILP",
+            "verb.spinDepth": "SDPT",
+            "verb.spinRate": "SRAT",
+            "verb.preGain": "PRG",
+            "verb.postGain": "POG",
+            "io.outGain": "OGN",
+            "verb.era": "ERA",
+            "verb.delayMotion": "DMOT",
+            "verb.glideTime": "GTIM",
+            "io.inGain": "IGN",
+            "verb.image": "IMG"
+          }
         },
         {
           "title": "Shriek",
           "tag": "SLOT 3",
           "screen": "Shriek",
-          "block": "fx.shriek"
+          "block": "fx.shriek",
+          "abbr": {
+            "inGain": "ITRI",
+            "route": "RTE",
+            "adaa": "AALS",
+            "auto": "AGN",
+            "driveRef": "DREF",
+            "inertia": "INR",
+            "eco": "ECO",
+            "flux": "FLX",
+            "wet": "MIX",
+            "out": "OUT",
+            "xo1": "LXOV",
+            "xo2": "HXOV",
+            "fbAmt": "FB",
+            "fbMode": "FMOD",
+            "fbSemi": "FINT",
+            "fbMs": "FTIM",
+            "fbDamp": "FDMP",
+            "fbHp": "FLCU",
+            "fbTap": "FTAP",
+            "cmpAmt": "COMP",
+            "cmpHp": "CLCU",
+            "fbOn": "FON",
+            "fbInv": "FINV",
+            "fbGate": "FGAT",
+            "tone": "TONE",
+            "toneHz": "TPVT",
+            "toneComp": "TCMP",
+            "taper": "RTPR",
+            "oversample": "OS",
+            "driveTrim": "DRV",
+            "s1.on": "ON1",
+            "s1.drive": "DRV1",
+            "s1.bias": "BIA1",
+            "s1.a": "CRA1",
+            "s1.b": "CRB1",
+            "s1.morph": "MRP1",
+            "s1.shape": "SHP1",
+            "s1.floor": "FLR1",
+            "s1.ft": "FTY1",
+            "s1.fpos": "FPO1",
+            "s1.cut": "CUT1",
+            "s1.res": "RES1",
+            "s1.famt": "FAM1",
+            "s1.level": "LVL1",
+            "s1.mix": "MIX1",
+            "s1.detail": "DTL1",
+            "s1.damt": "DAM1",
+            "s1.dfreq": "DFR1",
+            "s1.inject": "INJ1",
+            "s2.on": "ON2",
+            "s2.drive": "DRV2",
+            "s2.bias": "BIA2",
+            "s2.a": "CRA2",
+            "s2.b": "CRB2",
+            "s2.morph": "MRP2",
+            "s2.shape": "SHP2",
+            "s2.floor": "FLR2",
+            "s2.ft": "FTY2",
+            "s2.fpos": "FPO2",
+            "s2.cut": "CUT2",
+            "s2.res": "RES2",
+            "s2.famt": "FAM2",
+            "s2.level": "LVL2",
+            "s2.mix": "MIX2",
+            "s2.detail": "DTL2",
+            "s2.damt": "DAM2",
+            "s2.dfreq": "DFR2",
+            "s2.inject": "INJ2",
+            "s3.on": "ON3",
+            "s3.drive": "DRV3",
+            "s3.bias": "BIA3",
+            "s3.a": "CRA3",
+            "s3.b": "CRB3",
+            "s3.morph": "MRP3",
+            "s3.shape": "SHP3",
+            "s3.floor": "FLR3",
+            "s3.ft": "FTY3",
+            "s3.fpos": "FPO3",
+            "s3.cut": "CUT3",
+            "s3.res": "RES3",
+            "s3.famt": "FAM3",
+            "s3.level": "LVL3",
+            "s3.mix": "MIX3",
+            "s3.detail": "DTL3",
+            "s3.damt": "DAM3",
+            "s3.dfreq": "DFR3",
+            "s3.inject": "INJ3"
+          }
         },
         {
           "title": "Bulwark · compressor",
           "tag": "SLOT 4",
           "screen": "Bulwark",
-          "block": "fx.bulwark.compressor"
+          "block": "fx.bulwark.compressor",
+          "abbr": {
+            "comp.thr": "THR",
+            "comp.ratio": "RAT",
+            "comp.knee": "KNE",
+            "comp.atk": "ATK",
+            "comp.rel": "REL",
+            "comp.makeup": "MKP",
+            "comp.detector": "DET",
+            "comp.rms": "RBLN",
+            "comp.rmsTime": "RWIN",
+            "comp.autoRel": "AREL",
+            "comp.relShort": "ARFS",
+            "comp.relLong": "ARSL",
+            "comp.regen": "FB",
+            "comp.scOn": "SFLT",
+            "comp.scHz": "SFRQ",
+            "comp.link": "SLNK",
+            "comp.stereo": "SMOD",
+            "comp.bypass": "BYP",
+            "comp.bands": "BND",
+            "io.inGain": "IN",
+            "io.outGain": "OUT",
+            "comp.mb.xLo": "LXOV",
+            "comp.mb.xHi": "HXOV",
+            "comp.mb.depth": "DPT",
+            "comp.mb.time": "TIME",
+            "comp.mb.upCap": "UMAX",
+            "comp.mb.floor": "FLR",
+            "comp.mb.lo.dnThr": "LDTH",
+            "comp.mb.lo.dnRatio": "LDRA",
+            "comp.mb.lo.upThr": "LUTH",
+            "comp.mb.lo.upRatio": "LURA",
+            "comp.mb.lo.atk": "LATK",
+            "comp.mb.lo.rel": "LREL",
+            "comp.mb.lo.gain": "LGN",
+            "comp.mb.mid.dnThr": "MDTH",
+            "comp.mb.mid.dnRatio": "MDRA",
+            "comp.mb.mid.upThr": "MUTH",
+            "comp.mb.mid.upRatio": "MURA",
+            "comp.mb.mid.atk": "MATK",
+            "comp.mb.mid.rel": "MREL",
+            "comp.mb.mid.gain": "MGN",
+            "comp.mb.hi.dnThr": "HDTH",
+            "comp.mb.hi.dnRatio": "HDRA",
+            "comp.mb.hi.upThr": "HUTH",
+            "comp.mb.hi.upRatio": "HURA",
+            "comp.mb.hi.atk": "HATK",
+            "comp.mb.hi.rel": "HREL",
+            "comp.mb.hi.gain": "HGN"
+          }
         },
         {
           "title": "Bulwark · limiter",
           "tag": "MASTER · B438",
           "screen": "Bulwark",
-          "block": "fx.bulwark.limiter"
+          "block": "fx.bulwark.limiter",
+          "abbr": {
+            "lim.on": "LIM",
+            "lim.ceiling": "CEIL",
+            "lim.autoRel": "AREL",
+            "lim.rel": "REL",
+            "lim.relShort": "ARFS",
+            "lim.relLong": "ARSL",
+            "io.inGain": "IN",
+            "io.outGain": "VOL"
+          }
         }
       ],
-      "cite": "ADR-330, ADR-235, RC-5, IF-7; rack order: the FX chain lab's (docs/design/fx-chain-morph-lab-r3.html), not a ruling"
+      "cite": "ADR-330, ADR-235, RC-5, IF-7; rack order: the FX chain lab's (docs/design/fx-chain-morph-lab-r3.html), not a ruling",
+      "grid": true
     },
     {
       "id": "settings",
@@ -1710,9 +2338,14 @@
           "keys": [
             "voice.polyphony",
             "quality"
-          ]
+          ],
+          "abbr": {
+            "voice.polyphony": "POLY",
+            "quality": "QUAL"
+          }
         }
-      ]
+      ],
+      "grid": true
     },
     {
       "id": "arp",
@@ -1724,9 +2357,59 @@
         {
           "title": "Arp",
           "tag": "MIDI MODULE",
-          "block": "arp"
+          "block": "arp",
+          "abbr": {
+            "enabled": "AMOD",
+            "arp_enabled": "AON",
+            "order": "ORD",
+            "pattern": "PAT",
+            "rate": "RATE",
+            "rate_mode": "RMOD",
+            "step_time_us": "STIM",
+            "steps": "STPS",
+            "step_size": "SSIZ",
+            "step_unit": "SUNI",
+            "gate": "GATE",
+            "swing": "SWNG",
+            "latch": "LTCH",
+            "vel_mode": "VEL",
+            "vel_fixed": "FVEL",
+            "restart": "RST",
+            "repeats": "REP",
+            "quantize": "QNT",
+            "scale_source": "SCL",
+            "scale_root": "OSRO",
+            "scale_deg0": "+0",
+            "scale_deg1": "+1",
+            "scale_deg2": "+2",
+            "scale_deg3": "+3",
+            "scale_deg4": "+4",
+            "scale_deg5": "+5",
+            "scale_deg6": "+6",
+            "scale_deg7": "+7",
+            "scale_deg8": "+8",
+            "scale_deg9": "+9",
+            "scale_deg10": "+10",
+            "scale_deg11": "+11",
+            "seed": "SEED",
+            "chord_enabled": "CHRD",
+            "chord_unit": "CUNI",
+            "chord_on1": "ON1",
+            "chord_shift1": "IV1",
+            "chord_on2": "ON2",
+            "chord_shift2": "IV2",
+            "chord_on3": "ON3",
+            "chord_shift3": "IV3",
+            "chord_on4": "ON4",
+            "chord_shift4": "IV4",
+            "chord_on5": "ON5",
+            "chord_shift5": "IV5",
+            "chord_on6": "ON6",
+            "chord_shift6": "IV6"
+          }
         }
-      ]
+      ],
+      "grid": true
     },
     {
       "id": "ledger",

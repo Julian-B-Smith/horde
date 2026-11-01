@@ -1,6 +1,6 @@
 # GUI 3: the wired shell
 
-*Last verified 2026-10-30, branch `gui-batch-1-mount` (the GUI session's batch 1: ADR-336, ADR-338; B584, B596's first steps), on slice 7.*
+*Last verified 2026-11-01, branch `gui-shell-r1b` (the GUI session's shell hop, half B: batch 2 of the master, ADR-338, ADR-340, ADR-341; B584, B589, B593), on slice 7 plus batch 1 and the hop; the page structure below the "density revision" heading is superseded by the hop's section.*
 
 `docs/design/gui3.html` is GUI 3's prototype: one window with twelve pages (the Random page folded into the
 Morph page, ADR-322 item 2; a draft Arp page, ADR-330), every parameter that has a machine-readable
@@ -16,13 +16,13 @@ behind the same seam.
 | file | what it is | edited by |
 |---|---|---|
 | `../gui3.html` | The shell: pages, chrome (docked pad, info box, right-click menu), the Morph page's panel, the seam panel, self-checks. Builds every parameter control in one function from `shell-data.js`, and names no parameter itself. | hand |
-| `layout.json` | Which key goes on which page and in which group, widget overrides with their reasons, PA-8's live-when for the designed pages, a page's shell-built panel, the bank's critical controls per modulator kind. | hand (the page designer) |
+| `layout.json` | Which key goes on which page and in which group, widget overrides with their reasons, PA-8's live-when for the designed pages, a page's shell-built panel, the bank's critical controls per modulator kind; since the hop, each grid page's `abbr` column (a group's map of control to its label of at most 4 characters), a group's `matrix` (C2) and `fold` (P2). | hand (the page designer) |
 | `params.json` | SPEC-ENGINE section 5 as data: 330 rows (317 host parameters, 13 reserved), with label, unit, law, range, class, options, default and its normalised v, and the row's spec text. | generated |
 | `shell-data.js` | Every row the shell shows (the engine's, D.2's, the FX modules', Arp's), each with its `target` (engine, resolver, rack, midi) and `source`, plus the pages' control lists and the bank's, as one script the shell loads from `file://`. | generated |
 | `vendor/*.json` | Verbatim, dated copies of the hosted FX modules' manifests (provenance below). Never edited; re-vendor. | copied |
 | `engine-stub.js` | The no-audio engine (`GUI3Engine.METHODS`, `GUI3Engine.Stub`), the morph resolver's stub (`ResolverStub`, IF-12's calls), the device side's stub (`DeviceSideStub`: the rack's modules, RC-5 and IF-7, and the MIDI module, Arp), and the synchronous transport over the three (`GUI3Engine.TRANSPORT`, `GUI3Engine.SyncTransport`). | hand |
 | `device.js` | The adapter the shell talks to: morph, corners and their presets, routes (and `syncRoutes`, which writes the map-mode session's working list into them), pending modulators and map drops, history, mirror and confirm. `GUI3Device.create(data, transport, {seed})`. | hand |
-| `shell-logic.js` | The decisions of the shell that are not drawing, held apart so the seam check runs them: the page bar's groups (`navGroups`), an envelope section's readout (`followedSummary`), the map-mode bridge between the design system's session and the device (`attachMap`), the map keys while keyboard mode is off (`attachMapKeys`, scope `MAP_KEYS_ALWAYS`) and what the info box says about a section (`sectionInfo`). `GUI3Shell`. | hand |
+| `shell-logic.js` | The decisions of the shell that are not drawing, held apart so the seam check runs them: the page bar's groups (`navGroups`), an envelope section's readout (`followedSummary`), the map-mode bridge between the design system's session and the device (`attachMap`), the scope of the map keys and Escape (`MAP_KEYS_ALWAYS`, handed to the session as `mapKeysAlways`) and what the info box says about a section (`sectionInfo`). `GUI3Shell`. | hand |
 | `sections.json` | What hovering a section's header shows in the info box (ADR-335 ruling 4): one sentence per section, drafted from the spec text that defines it, each with its source (a path and the heading it cites), the whole file marked a DRAFT the human has not read. Keyed by the shell's section ids. A section with no entry is not described: the box says so and the generator counts it. | hand (a draft) |
 
 Regenerate after editing the spec or the layout: `python3 tools/gen_gui3_controls.py`.
@@ -159,6 +159,67 @@ The design master was revised (artifact `1793336699-65f2`, B589; its per-element
 - **Review links:** `gui3.html#osc1,light,win` (or `dark`) shows the window alone at its size; `,nobank` hides the bank,
   `,fit` prints the fit line, `,morph` and `,bank` prepare a morphing or mapped state.
 
+## The shell hop, half B: the tiny tier, companions, clusters and the page view (ADR-338, ADR-340, ADR-341; B584, B589)
+
+Batch 2 of the design master (2a: the controls and routes; 2b: the page forms) reached the vendored bundle, and the shell now
+mounts it. **Half A** (the bank, the Mod page, removal, source switching, Escape and the map keys) is a separate hop and its
+own section. Every parameter page except Mod (half A's) is a **page view** of the master's parts; nothing is drawn locally.
+
+- **The page** (`paramPage`, `gui3.html` block E; pages marked `"grid": true` in `layout.json`: Main, Osc 1, Osc 2, Sub, Noise, Morph,
+  FX, Settings, Arp): the bundle's `PageView` in one cell, a **Grid | Table** switch with the find box, remembered per page
+  (ADR-340 r6); the pictures and the **lens** (P1, `Lens`) in its left column, which stays in both views; one cluster per section in
+  the grid. Sections flow two to a row (they are mostly one or two rows of cells), and a section with a fold, a main enum of more than four
+  segments or more than 20 cells takes the row. The **table** lists every control but a followed envelope row (that row is its source
+  page's own): the full name, TS2a's value cell for a knob, a caret select, the dense switch, K4's drag number. Both views are built at
+  load (PV1 builds the other lazily), so a control is mounted whichever view a page remembers; the grid comes first in the document.
+- **The tiny tier** (ADR-338 r1/r3, ADR-340 r1/r2): a continuous control of a grid page is `Knob` `size: 'tiny'` (T2d, a 20 px face in a
+  28 px cell) under its abbreviation; the value is the section's slot's and the info box's (H1). The layout's `size` (the headline level at
+  `primary`, a dashboard card's `utility`) is honoured where the master puts it (the dashboard, the bank) and not in P1's grid, where the
+  lens enlarges whatever is under the pointer. The tiny **slider** (TS2a, the table's value cell) is the table's face; TS1a (the route depth
+  row) belongs to the Mod page's routes (half A).
+- **The abbreviation column** (ADR-338 r10): `"abbr"` in a group of `layout.json`, `{ "<key inside the block, or the whole key>": "ABBR" }`;
+  a followed envelope's rows go by suffix (`attack`), one line for the four blocks. The generator checks at most 4 characters of letters,
+  digits and `& / + . -`, unique in the section (each followed block on its own), that a grid page labels every control but a header's power
+  and modes, and that the map names only controls the group has. The abbreviations were derived mechanically from the labels (a word list for
+  the engine's own terms, the first letter and the consonants for the rest, `Stage 2 Drive` is `DRV2`) and are **the human's to review**; the
+  ones that are not simply a prefix are listed in the trace.
+- **The shown options** of a segment group (`Companion` `short`): the manifest's labels exactly as listed are the title; the face shows an option
+  of at most 4 characters as it is, the initials of a longer one of several words (`blade 2 over 1` is B2O1), or the first 4 characters of a
+  longer word; two that still read alike are vowel-dropped, then numbered (`generator: short_options`).
+- **Companions** (ADR-338 r2, ADR-341 r3): a toggle, segments (2 to 5 options), a select (6 to 64) are TC1's 16 px faces; a stepper is
+  `Stepper` `tc: true` (a number field on Option-click; a named stepper opens its dropdown, in the bundle). The table's are TC2's flat forms.
+  A pill group's label carries the owner's rule and glyph with morph on, as the pills did.
+- **Clusters** (ADR-338 r4): C1 for a section (groups of 28 px cells, one shared label line, the power switch in the header, a main enum as
+  segments beside the name). **C2** (`ClusterMatrix`) is Main's ENV 1: stage rows A, H, D, S, R by Time and Curve, a dot where no curve exists
+  (`"matrix"` in the group; the generator checks it names every control of the group once). **Not done: the two blades as a C2** (reading below).
+- **The fold** (P2, ADR-338 r5, only where a page still overflowed): `"fold": true` on the six oscillator sections that have advanced rows
+  (Osc 1 and Osc 2, each its oscillator and two blades). Face is the first two sub-groups the layout lists, All the rest, +Adv the advanced rows
+  (what `Advanced · N` held); remembered per section. The fold's header has no power switch, number or rule pattern, so the switch and the mode
+  go first in Face and the number is part of the name. Every tier is built at load, so the Mounted check and the reach check see every control.
+- **One parameter, many faces** (the bundle's `ctlFace`): the grid, the table and the lens each build a shadow of one registered props object, so the
+  corner values and the global value are shared and the registry and the revert baseline are never reset by a second face. The shell registers
+  each key's owner first (the first page that is neither a dashboard card nor a followed row), before any page is built, so the registered path is
+  the owner's whatever order faces are built in; every `mountControl` goes through `ctlFace`.
+- **DR-c** (ADR-341 r2): every section's header slot is the bundle's, 250 x 26 px at rest and hot, two lines when a control is hot (line 1 the
+  editing corner's own value, a PLACEHOLDER the master marks; line 2 `now`); the shell's style sheet names neither the slot nor its parts (a
+  self-check and a seam test hold that). In a half-width section the bundle's own header truncates the slot (`.sh-end`), which is why a fold, a
+  long enum and a wide section take the row.
+- **Fit.** With the tiny tier, the lens, two sections to a row and the folds, Main, Osc 1, Osc 2, Sub and Noise measure 432, 464, 422, 401 and 401 px
+  against the 472 px ADR-338 r7's 68 px bank row leaves the page. **The page area is 374 px in this tree** (the foot row is still 216 px tall until
+  half A's bank lands), so on this tree alone they scroll by up to 90 px; the self-check measures against the larger of the two and says so. The ring
+  is 112 px tall and the cycle 40 (from 210 and 96) to leave the lens its room in the 206 px column: a consequence to see, not a ruling.
+  Osc 1 with its three folds at +Adv is 861 px, so the folds are what hold it. The draft pages (FX 1225, Morph 655, Arp 275, Settings 146 px) are
+  not held to the window.
+- **Not done.** (6) **The level cell** (`Knob` `size: 'level'`, T4c-f): the master's README gives it no placement (it says what the cell is, not where a
+  level goes), so nothing was mounted; a level in a row (the Out sub-group's level, a macro) is where it would go, for the human or the lead to say.
+  (4, partial) **The blades as a C2**: a blade's mode, wave, edges and mirror are 54 to 76 px faces that cannot sit in a 28 px column, and the two
+  blades are separately described sections (`sections.json`), so one matrix across them is a ruling; each blade is a C1 and a fold.
+- **Proposals for the design master (new, nothing drawn locally):** 25. A fold header with the section's power switch, number and rule pattern (the
+  fold drops all three). 26. The level cell's placement (above). 27. A cluster's group that wraps when it is wider than the row (an ADV group, a
+  module's 30 to 87 controls: the shell sets `flex-wrap` on `.cl-grp`). 28. A `PageView` whose grid is built whichever view is remembered (the shell
+  builds the second view itself at load and puts the remembered one back). 29. The table's stepped faces report their value to the owner (a
+  handle, or an `onInput` echo): `ParamTable` keeps none, so the shell remounts a stepper whose value moved elsewhere.
+
 ## The port ledger, the mixer's room and summed views, envelopes on the oscillator views (ADR-333, B593)
 
 - **The port ledger** (`port-tab.json`, the shell's **Ledger** page; a top-level group of its own, flagged: under Set
@@ -217,12 +278,11 @@ The design master was revised (artifact `1793336699-65f2`, B589; its per-element
 
 - **The map keys work always** (ADR-335 ruling 1; the human, 2026-10-30: "keys always (we'll have to rework them if they interfere with
   keyboard midi controls; I may ultimately reverse the "keys always" decision after some use)"). M (tap latches, hold is momentary), Esc,
-  1 to 9 (the source, only while MAP is on), P and Backspace work with keyboard mode on or off. The bundle's session accepts them in
-  keyboard mode only and is vendored read only, so the shell takes them itself while keyboard mode is off, by calling the session's own
-  methods (`attachMapKeys`, capture phase); with keyboard mode on the session's listener runs and the shell stands aside, so nothing is
-  handled twice and keyboard mode's other behavior (digits pin corners with MAP off, Esc unpins) is the bundle's, unchanged. A key
-  typed into a text field, a drop-down or an editable region is never the map's; Cmd and Ctrl keys are the host's. **Reversing the ruling
-  is one line:** `MAP_KEYS_ALWAYS` in `shell-logic.js` (a test holds it, with the page not overriding it).
+  1 to 9 (the source, only while MAP is on), P and Backspace work with keyboard mode on or off. *Slice 7 took them in a listener of the
+  shell's own (`attachMapKeys`); since the hop below (master batch 2) they are the SESSION's own, and the shell hands it the scope as
+  the session option `mapKeysAlways`.* A key typed into a text field, a drop-down or an editable region is never the map's; Cmd and Ctrl keys
+  are the host's. **Reversing the ruling is one line:** `MAP_KEYS_ALWAYS` in `shell-logic.js` (a test holds it, with the page passing it as
+  it stands).
 - **The panel docks only while MAP is on** (ruling 2): slice 6's behavior, confirmed by the in-page MAP check and the seam check's `mapkeys`
   rig; nothing changed.
 - **The MAP control is whole** (ruling 3). What was buried: the source drop-down and the name in it. The bundle's `.hd-map` is
@@ -270,17 +330,16 @@ first GUI-session batch mounts the ones the stub can feed honestly, and fixes th
   shapes are the master's to add).
 - **Defects fixed:** the spectrum's peak hold was passed seconds where the painter holds 1500 ms (caps held about 25 minutes); the
   keyboard lamp reads KEYS OFF, as the master says.
-- **Escape is a layered cancel** (ADR-338 ruling 11): one capture-phase handler (`shell-logic.js` `attachEscape`) cancels the
-  innermost open thing per press (the menu, MAP, the pinned corner, keyboard mode) and stops the key, so neither the map keys' nor
-  the bundle's own Escape runs a second cancel (self-check 25). The master's MapControl and KeyboardLamp READMEs still describe
-  Escape their own way; aligning them is batch 2. **Open:** ruling 11 gives panic its own control, against ADR-226 item 6 (no
+- **Escape is a layered cancel** (ADR-338 ruling 11): one press cancels the innermost open thing (the menu, MAP, the pinned corner,
+  keyboard mode). *Batch 1 ran its own capture-phase handler (`attachEscape`); since the hop below it is the session's `S.escape()`
+  with the shell's layers in front (self-check 25, seam test `escape`).* **Open:** ruling 11 gives panic its own control, against ADR-226 item 6 (no
   panel Panic control); none is built until the human says which holds.
 - **The window's size is a trial** (ADR-338 ruling 12): a switch above the window, Fixed 980 x 720 or Scale (75 to 200 %, or Fit).
   Scale zooms the whole composition (CSS zoom, so the bundle's pointer maths hold); a canvas is stretched, not redrawn at the new
   size, which a plugin would do. `#<page>,scale=150` opens scaled.
 - **Kept, not removed:** the bank's Mods | Macros pills. The audit read ADR-323 ruling 2 as rejecting them; the ruling says "Mods|Macros
   later", folded into the strip's header once macros exist, and the human asked for exactly that toggle on 2026-10-30 (intent-bus
-  macros with the pitch bend and mod wheel, against the rest of the bank). It waits on macros in the master.
+  macros with the pitch bend and mod wheel, against the rest of the bank). It waits on macros in the master. *(Superseded: the bank's MAC | MODS segments, BT1, are that toggle since the hop below.)*
 - **Not mounted, and why:** Main's performance pad (ADR-176 decision 5) drives intent-bus atoms the stub does not have, so it comes
   with the macros; each modulator card's retrigger switch (ADR-266 ruling 7) has no parameter (SPEC-ENGINE has no retrigger row for a
   modulator, only `osc1/osc2.retrigger`), which is the lead's to add.
@@ -336,7 +395,7 @@ on/off and audible corner (RC-11.1), the routes (RC-4 defers the matrix), and th
   group; a section's power and modes and a strip's fader, on, mute and solo suit their rows; each dashboard
   card carries its source's power switch and only keys its source page carries; an envelope section's followed
   rows exist; every port-ledger row passes its rules (the shell-logic script is held to no clock like the rest), and every section description (sections.json) names
-  a section that exists, is a sentence, cites a source that exists with the heading it names, and sits in a file marked DRAFT. Thirty-five must-fail controls, among them a module's keys
+  a section that exists, is a sentence, cites a source that exists with the heading it names, and sits in a file marked DRAFT. Forty-two must-fail controls (the hop added the abbreviation column's four, a matrix's two and a fold with nothing to fold), among them a module's keys
   left unplaced, a vendored file with no provenance row, a page in no nav group, a dashboard key its source page
   lacks, and a ledger row with no reason, an unknown reason, no source, a missing source, or no B-number.
 - `node tools/labharness/gui3_seam_check.mjs`: tests of the stubs, the transport and the adapter
@@ -348,7 +407,8 @@ on/off and audible corner (RC-11.1), the routes (RC-4 defers the matrix), and th
   design system's REAL session, knob, Map control and Page nav (run on a small fake DOM, the bundle read and never
   edited): a click, a drag, the keys and their mouse routes, a page change, a refused destination, the Set tab and the
   envelope readout; and, since slice 7, the map keys with keyboard mode off and in fields, the section descriptions, and the info box and
-  MAP control's fixed size (structural). Planted faults, each red for its own test (the check prints its counts). `--verbose` prints why each plant went red.
+  MAP control's fixed size (structural); and, since the hop, `abbr` (the abbreviation column, the shown options, a matrix and a fold in the data)
+  and `pageforms` (the shell builds from the master's parts and every face through `ctlFace`, and does not restyle the readout slot). Planted faults, each red for its own test (the check prints its counts). `--verbose` prints why each plant went red.
 - `lab_load_check` loads the page's inline script (it stops at the missing bundle, as the other bundle
   labs do). The page's own self-checks run in a browser, each with a control (the MAP, Set tab, envelope-readout, bank-card, MAP-control,
   info-box, section-info and map-key checks click, hover, press or measure the real controls).
@@ -408,6 +468,55 @@ The bundle (version `1793336699-65f2`, B589) lacks these; each goes into the des
     parameters; the shell assembles it from `hd-card` and its own CSS.
 24. **A MapControl that does not shrink** (ADR-335 ruling 3): the bundle's `.hd-map` is `overflow: hidden` and so shrinks to nothing in a
     flex row; it should keep its content's width, and reserve the HOLD tag's room so a hold does not move the drop-down.
+
+## Shell hop A: the bank, the Mod page, source switching and the keys (master batch 2; ADR-338 r7 to r9 and r11, ADR-340 r8 to r11, ADR-341 r5 to r7)
+
+*Last verified 2026-11-01, branch `gui-shell-r1` (half A of the hop; half B, the page forms, is built beside it).* The design master's
+batch 2 components replace what the shell drew for itself. Where a component is mounted, and what the shell still adds:
+
+- **The bank is `H.ModBank`** (BLOCK D3): 68 px, two lanes of 26 px thin rows, the BT1 segments **MAC | MODS** in the bank's side column
+  (the top bar's Mods | Macros pills are gone: BT1 is that toggle, ruled in its place), a click on a row's name opens its compact card above the
+  bank. The shell keeps what it had: **+** (the activation menu, `openAddMenu`), the Map handle (press it, then click a control, which MD1 maps;
+  or drag it onto a control: the drop goes through `dev.drop`, so RC-4's refusals stand and a refused drop leaves the modulator pending), the
+  page's listing (the adapter's routes to a control on the page, plus the pending ones, read, never kept), and Bank show or hide. The card's
+  controls are the table's (`GUI3_DATA.bank`), built the first time its row opens.
+- **The MAC lane is `H.MacroRow`** (BR-b): Tone, Space, Time, Motion, Macro 5 to 8 (slots 5 to 8 are numbered, not named: ADR-192 leaves
+  their phrases open), Pitch bend and Mod wheel, in the ruled order. The stub has no intent bus (port-tab `macros`, spec-table), so every row
+  shows UNBOUND and a drag, a Map press or a drop on one says "not in the engine yet" and sends nothing. The bend row springs back on release
+  and the mod wheel's row holds (the bundle's physics; no hardware wheel is fed, `setHardware` is unused).
+- **Removal, M-R2** (`dev.removeModulator`, the one addition to `device.js`): × on a row, or on the Mod page, removes the modulator and
+  every route it drives as ONE undo step; `H.UndoLine` names them (`H.ModRemoval.describe`) and offers Undo, which is `dev.undo()`, so it goes
+  the moment the history moves on. A pending modulator is outside the history: dropped, no step, no Undo. The engine's sources stay in the
+  engine, and + brings one back. Every source is a "fixed" modulator (the engine publishes it), so the master's text says "off the list; the
+  engine keeps the source" even where the row stays listed (the Mod page lists all sixteen).
+- **The Mod page is `H.ModPage`** (ADR-338 r8): a thin row per source grouped ENVELOPES and ENGINE SOURCES, the selected one's full tier
+  beside it, a **Detail | Routes** switch. It lists every source, not only the routed ones, because the envelopes' own rows (ENV 2 to 4) are
+  the detail's controls and must stay reachable; ENV 1's rows are on Main (its detail says so). The detail has no `editor` (no envelope editor is
+  wired to the rows). **Routes** holds the three route views of ADR-340 r10: **Grid** (ML4: the grid and the route list, as before),
+  **By source** (ML3, `H.RoutesBySource`) and **Wires** (ML1, `H.CompactWires` with W-a's valves). A drop on a valve is a depth route, which the
+  engine does not have (B70, the lead's): `onDepthRoute` says so and makes none. A new wire is a mapping; the map bridge writes it to the device.
+  `+` on a kind activates the first source of that kind that is neither routed nor pending.
+- **Source switching** (ADR-340 r8): **MS3**, the MAP control's source is the chip (`chip: true`; the shell widens it to 206 px, a placement
+  override: the master's 150 px cut six of the sixteen names, and ADR-335 r3 holds); **MS4**, with MAP on a click on a bank row's body (not its
+  name, Map or ×, which are buttons) makes it the source; **MS1**, the strip, is unchanged.
+- **Escape and the map keys are the session's** (ADR-338 r11, ADR-335 r1): `S.escape()` with the shell's menu layer unshifted in front (the
+  bank unshifts its open card itself), and the session option `mapKeysAlways: SH.MAP_KEYS_ALWAYS`. The shell's own `attachEscape` and
+  `attachMapKeys` are gone, and the session now starts before the self-checks run (its listeners are what they press). The keyboard lamp follows
+  `S.keys` through the session's emit, because the session's own layer turns keyboard mode off.
+  **If the human reverses ADR-335 r1** (the one line above): Escape follows the same option, so with keyboard mode off Escape would no longer
+  close the shell's menu or the bank's open card (batch 1's shell handler did, in every mode). That is the bundle's rule, not the shell's;
+  say so when the ruling is reversed.
+- **Readings taken.** The Mod page lists every source (above). The macro slots 5 to 8 are numbered. The foot row keeps its 216 px (the info
+  box, ADR-335 r4) while the bank is 68: the compact card opens in the room above the bank (143 px, it fits), but the page area does not gain
+  the 148 px the 216 px foot row holds above the 68 px bank, so it keeps 374 px (measured), not the master's 472. **Open for the human and the lead:** shrink the info box,
+  or let it overlap, to give the pages their 472.
+- **Found in the vendored bundle (not patched).** `ModPage` documents `routes(host, S)` as the route-view builder but hands its options to
+  the tiers, which call `o.routes(m)` for a modulator's routes: one name, two jobs, and a host that passes the documented builder breaks every
+  row. The shell passes a function that answers both. (A master fix: rename the builder, e.g. `routeView`.) `MapControl`'s chip is 150 px and
+  cuts long names (proposal: size to the longest source name).
+- **Checks.** In the page: 28 to 31 (removal, source switching, the MAC lane, the Mod page); 20, 21, 25 and 27 now measure the bundle's
+  components (the compact card, the chip, the session's Escape, the Routes view) with the same laws and controls; 1 and 2 count the Mod page's
+  held detail hosts. In the seam check: `escape`, `removal`, `shellparts`, and the key plants re-pointed at the session (see the trace).
 
 ## Known gaps
 

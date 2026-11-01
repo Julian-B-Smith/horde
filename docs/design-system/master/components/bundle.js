@@ -21,11 +21,12 @@
   /* pointer capture, guarded: a pointer the browser no longer tracks (a synthetic event, a pen lifted mid-press) throws
      NotFoundError, and an unguarded throw there cost the whole gesture */
   function capture(el, e) { try { el.setPointerCapture(e.pointerId); } catch (_) { /* keep the gesture */ } }
-  /* MP-c (ADR-341 r4): the polarity chord is Command+Option-click on macOS and Ctrl+Alt-click elsewhere. The other modifier
-     must NOT be down: on macOS Ctrl-click is the secondary click, and on Windows the Windows key is not a chord key.
-     Not verified in a host (Live, Bitwig): a host may keep the chord, and the chip and the menu stay the routes then. */
-  var MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '');
-  function chordHit(e) { return e.altKey && !e.shiftKey && (MAC ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey); }
+  /* MP-c (ADR-341 r4 as amended by A1): the polarity chord is Shift+Option-click (Shift+Alt on Windows), the same keys on
+     every keyboard. Command is not in it: Windows keyboards have no Command key, and Ctrl+Alt is AltGr on many European
+     layouts. Command and Ctrl must be up (macOS Ctrl-click is the secondary click). With movement the chord is a fine
+     Option-drag, as Shift is fine everywhere. Not verified in a host (Live, Bitwig), nor whether Windows' Shift+Alt
+     layout hotkey fires around the click; the chip and the menu stay the routes if either takes it. */
+  function chordHit(e) { return e.altKey && e.shiftKey && !e.metaKey && !e.ctrlKey; }
   function clamp(v, a, b) { a = a === undefined ? 0 : a; b = b === undefined ? 1 : b; return Math.min(b, Math.max(a, v)); }
   function v(name) { return 'var(--' + name + ')'; }
   function fillOf(i) { return v('c' + CORNERS[i].id); }
@@ -6949,7 +6950,7 @@
 
   /* ---------- THE MOD PAGE, M5 (ADR-338 r8): a list and a detail. Every modulator a thin row, grouped by kind with a + per kind; the selected one
      fills the rest of the page at the full tier. A Detail | Routes switch makes ADR-266's matrix grid (H.ModMatrixGrid, or the
-     host's o.routes(host)) the page's route view. kinds: [{ id, label }] (default from the mods' `group`). ---------- */
+     host's o.routeView(host, S)) the page's route view. NOT o.routes: the same options reach the tiers, whose routes(m) lists one modulator's routes. kinds: [{ id, label }] (default from the mods' `group`). ---------- */
   function ModPage(el, S, o) {
     o = o || {};
     el.classList.add('hd-mpage'); el.innerHTML = '';
@@ -6976,7 +6977,7 @@
     function drawPane() {
       var ms = mods(), m = ms.filter(function (q) { return q.id === sel; })[0];
       if (mode === 'routes') {
-        if (!routesHost) { routesHost = tag('div', 'mp-routes'); if (o.routes) o.routes(routesHost, S); else H.ModMatrixGrid(routesHost, S, o.matrix || {}); }
+        if (!routesHost) { routesHost = tag('div', 'mp-routes'); if (o.routeView) o.routeView(routesHost, S); else H.ModMatrixGrid(routesHost, S, o.matrix || {}); }
         pane.replaceChildren(routesHost); title.textContent = 'Routes'; return;
       }
       title.textContent = m ? m.name : 'Modulator';

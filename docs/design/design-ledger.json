@@ -10,6 +10,14 @@
  },
  "master_versions": [
   {
+   "version": "1793558157-f6a9",
+   "evidence": "docs/design-system/master/VERSION: published 2026-11-01 from the gui-mpc-r1 branch before merge. Two master defects the GUI 3 shell hop found: SourceChip widened to 206 px (150 px cut six of the 16 source names; the shell had overridden it locally), and ModPage's route-view builder renamed routeView(host, S) (it was routes, which the tiers also read as routes(m)). Re-vendored the same day."
+  },
+  {
+   "version": "1793556326-fe52",
+   "evidence": "docs/design-system/master/VERSION: published 2026-11-01 from the gui-mpc-r1 branch before merge (cdf8772's precedent). ADR-341 A1: the polarity chord is Shift+Option-click (Shift+Alt on Windows); chordHit and the Knob, MapControl, RouteRow and master READMEs only; every other file as at 1793517046-cbf4. Re-vendored the same day."
+  },
+  {
    "version": "1793517046-cbf4",
    "evidence": "docs/design-system/master/VERSION: published 2026-11-01 from the gui-master-r2 branch's master before merge (cdf8772's precedent); the live version was first checked to be 1793502898-ea3e. Master batch 2: ADR-338 r2, r4 to r9; ADR-340 r3, r5, r6, r8 to r11; ADR-341 r1 to r7 (the polarity menu entry not built). Re-vendored the same day. Two earlier publishes the same day were superseded within the batch before they were recorded. 1793516789-9f79: the browser and seam checks found that MP3 turned a NEW mapping over (a drag released at 0 made an INV route, gui3_seam_check mapdrag); 1793516938-100b kept MP3 to existing mappings, also superseded the same day; cbf4 relabels the Companion preview's TC2 sample row \"Panic\" to \"Seq reset\" (ADR-340 r12: there is no Panic control)."
   },
@@ -2777,11 +2785,11 @@
    "master_version": "1793374583-b6a5",
    "bundle": "ModCardHeader",
    "via": null,
-   "shell": "docs/design/gui3.html: H.ModCardHeader(head, { kind: src.kind",
+   "shell": "docs/design/gui3.html: kindLabel: KIND_LABEL[src.kind]",
    "state": "in-shell",
    "superseded_by": null,
    "port_tab": "modulators",
-   "note": "Master README Colour (src-env, src-lfo, src-macro, src-engine); the shell's modulator bank cards take the kind swatch (H.ModCardHeader with kind). Only env and engine kinds exist in the shell (device.js SOURCES: no LFOs or macros yet)."
+   "note": "Master README Colour (src-env, src-lfo, src-macro, src-engine); the shell's modulator bank cards take the kind swatch (H.ModCardHeader with kind). Only env and engine kinds exist in the shell (device.js SOURCES: no LFOs or macros yet). Shell hop 2026-11-01: the bank and Mod page rows are the master's ModTiers (thin row, compact card, full tier), which take the kind's colour from `kind`; the shell hands each source its kind (MODS table)."
   },
   {
    "id": "adr261-owner-read-not-computed",
@@ -3843,11 +3851,11 @@
    "master_version": null,
    "bundle": null,
    "via": null,
-   "shell": "docs/design/gui3.html: setBankMode(b.dataset.m)",
+   "shell": "docs/design/gui3.html: H.ModBank(",
    "state": "ruled",
    "superseded_by": "ADR-323",
    "port_tab": null,
-   "note": "The human ruled in ADR-323 ruling 2 (show/hide now; Mods | Macros folds into the strip's header once macros exist); the shell still offers both (row adr323-show-hide-only). The toggle and pills are the bundle's CSS (hd-toggle, hd-pills), which the ledger cannot name as an export."
+   "note": "The human ruled in ADR-323 ruling 2 (show/hide now; Mods | Macros folds into the strip's header once macros exist); the shell still offers both (row adr323-show-hide-only). The toggle and pills are the bundle's CSS (hd-toggle, hd-pills), which the ledger cannot name as an export. Shell hop 2026-11-01: the top-bar Mods | Macros pills are gone; BT1's MAC | MODS segments inside ModBank are the toggle (ADR-340 r11), with Bank show/hide."
   },
   {
    "id": "adr322-bottom-bank",
@@ -3858,11 +3866,11 @@
    "master_version": null,
    "bundle": null,
    "via": null,
-   "shell": "docs/design/gui3.html: function bindDrag(handle, src)",
+   "shell": "docs/design/gui3.html: H.ModBank(",
    "state": "ruled",
    "superseded_by": null,
    "port_tab": "modulators",
-   "note": "Shell has it and it is wired (+ is dev.activate, a drop is dev.drop through addRoute's RC-4 refusals, pagehide calls dev.close), but the strip and card are assembled from hd-card with H.ModCardHeader: the master has no bank, strip, compact card or drag handle (proposals 12, 13, 14, 18), a hop skipped. FX device: same, with FX modulators and macros."
+   "note": "Shell has it and it is wired (+ is dev.activate, a drop is dev.drop through addRoute's RC-4 refusals, pagehide calls dev.close), but the strip and card are assembled from hd-card with H.ModCardHeader: the master has no bank, strip, compact card or drag handle (proposals 12, 13, 14, 18), a hop skipped. FX device: same, with FX modulators and macros. Shell hop 2026-11-01: the bank is the master's ModBank (M2, BT1) with MacroRow's MAC lane, the Map handle's press-then-click and drop kept, and M-R2 removal through dev.removeModulator with UndoLine."
   },
   {
    "id": "adr322-copy-level-between-corners",
@@ -4383,11 +4391,11 @@
    "master_version": "1793502898-ea3e",
    "bundle": "Knob",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: size = tiny ? 'tiny'",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "composition-tier",
-   "note": "In the master at 1793502898-ea3e as Knob size 'tiny' (size-knob-tiny 20 in a size-hit 28 cell), drawn as T2d (ADR-340 r1); vendored 2026-10-31. Not mounted: the shell's pages still use compact knobs until P1's grid (ADR-338 r5) is in the master. FX device: same tier."
+   "note": "In the master at 1793502898-ea3e as Knob size 'tiny' (size-knob-tiny 20 in a size-hit 28 cell), drawn as T2d (ADR-340 r1); vendored 2026-10-31. Not mounted: the shell's pages still use compact knobs until P1's grid (ADR-338 r5) is in the master. FX device: same tier. Shell hop 2026-11-01 (B584): mounted in GUI 3. Every grid page's continuous controls are Knob size tiny under their abbreviation (half B)."
   },
   {
    "id": "adr338-companions",
@@ -4398,11 +4406,11 @@
    "master_version": "1793517046-cbf4",
    "bundle": "Companion",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: H.Companion(",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "composition-tier",
-   "note": "H.Companion: the TC1 toggle, segments, select and button at 16 px faces with 28 px hits; flat (TC2) only inside tables; the stepper is H.Stepper (tc: true for the 16 px face). Vendored 2026-11-01 (master batch 2, B589). FX device: same."
+   "note": "H.Companion: the TC1 toggle, segments, select and button at 16 px faces with 28 px hits; flat (TC2) only inside tables; the stepper is H.Stepper (tc: true for the 16 px face). Vendored 2026-11-01 (master batch 2, B589). FX device: same. Shell hop 2026-11-01 (B584): mounted in GUI 3. Toggles, segments and selects on the grid pages are TC1 Companions; the table's are TC2 (half B)."
   },
   {
    "id": "adr338-tiny-sliders",
@@ -4417,7 +4425,7 @@
    "state": "vendored",
    "superseded_by": null,
    "port_tab": "composition-tier",
-   "note": "In the master at 1793502898-ea3e as Slider size 'tiny' (TS1a, size-slider-tiny 20) and 'cell' (TS2a, size-slider-cell 16), the named exception to size-hit in both tokens' usage; vendored 2026-10-31. Not mounted yet (route rows, PV1's tables). FX device: same."
+   "note": "In the master at 1793502898-ea3e as Slider size 'tiny' (TS1a, size-slider-tiny 20) and 'cell' (TS2a, size-slider-cell 16), the named exception to size-hit in both tokens' usage; vendored 2026-10-31. Not mounted yet (route rows, PV1's tables). FX device: same. Shell hop 2026-11-01: TS2a is in every grid page's table (PageView); TS1a has no place in the shell yet, so the row stays vendored."
   },
   {
    "id": "adr338-clusters",
@@ -4428,11 +4436,11 @@
    "master_version": "1793517046-cbf4",
    "bundle": "Cluster",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: H.ClusterMatrix(",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "composition-tier",
-   "note": "H.Cluster (C1) and H.ClusterMatrix (C2, repeated sub-structures: envelope stages, the blades). Vendored 2026-11-01 (master batch 2, B589). FX device: same."
+   "note": "H.Cluster (C1) and H.ClusterMatrix (C2, repeated sub-structures: envelope stages, the blades). Vendored 2026-11-01 (master batch 2, B589). FX device: same. Shell hop 2026-11-01 (B584): mounted in GUI 3. C1: one Cluster per section on the grid pages; C2: Main's ENV 1 (A/H/D/S/R by Time/Curve). The blades are not a C2 yet: their faces do not fit 28 px columns, and merging two described sections needs a ruling."
   },
   {
    "id": "adr338-paradigm-p1",
@@ -4443,11 +4451,11 @@
    "master_version": "1793517046-cbf4",
    "bundle": "Lens",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: H.Lens(",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "main-rest",
-   "note": "H.Lens (P1, focus + lens) and H.Fold (P2: Face | All | +Adv, remembered per page). Osc 1, Osc 2, Sub and Noise still overflow in the shell until it mounts them. Vendored 2026-11-01 (master batch 2, B589). FX device: same."
+   "note": "H.Lens (P1, focus + lens) and H.Fold (P2: Face | All | +Adv, remembered per page). Osc 1, Osc 2, Sub and Noise still overflow in the shell until it mounts them. Vendored 2026-11-01 (master batch 2, B589). FX device: same. Shell hop 2026-11-01 (B584): mounted in GUI 3. P1: the lens in each grid page's left column; P2: Fold on the six oscillator sections that still overflowed (Face | All | +Adv)."
   },
   {
    "id": "adr338-mod-tiers",
@@ -4458,11 +4466,11 @@
    "master_version": "1793517046-cbf4",
    "bundle": "ModTiers",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: H.ModPage(host, S, {",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "modulators",
-   "note": "H.ModTiers.thin (26 px), .compact (the thin row expanded, r7), .chip (20 px), .full, with H.ModPicture. Vendored 2026-11-01 (master batch 2, B589). FX device: same."
+   "note": "H.ModTiers.thin (26 px), .compact (the thin row expanded, r7), .chip (20 px), .full, with H.ModPicture. Vendored 2026-11-01 (master batch 2, B589). FX device: same. Shell hop 2026-11-01 (B584): mounted in GUI 3. The thin row and compact card in the bank, the full tier in the Mod page's detail (half A); the micro chip has no place in the shell yet."
   },
   {
    "id": "adr338-bank-m2",
@@ -4473,11 +4481,11 @@
    "master_version": "1793517046-cbf4",
    "bundle": "ModBank",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: H.ModBank($('bankHost'), S, {",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "modulators",
-   "note": "H.ModBank: 68 px, two lanes of 26 px thin rows, MAC | MODS header segments (BT1); a click on a row opens its compact card above the bank. Vendored 2026-11-01 (master batch 2, B589). FX device: same."
+   "note": "H.ModBank: 68 px, two lanes of 26 px thin rows, MAC | MODS header segments (BT1); a click on a row opens its compact card above the bank. Vendored 2026-11-01 (master batch 2, B589). FX device: same. Shell hop 2026-11-01 (B584): mounted in GUI 3. The bottom bank is ModBank (half A)."
   },
   {
    "id": "adr338-mod-page-m5",
@@ -4488,11 +4496,11 @@
    "master_version": "1793517046-cbf4",
    "bundle": "ModPage",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: H.ModPage(host, S, {",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "modulators",
-   "note": "H.ModPage: list + full-tier detail, with a Detail | Routes switch whose Routes view is ModMatrixGrid. Vendored 2026-11-01 (master batch 2, B589). FX device: same."
+   "note": "H.ModPage: list + full-tier detail, with a Detail | Routes switch whose Routes view is ModMatrixGrid. Vendored 2026-11-01 (master batch 2, B589). FX device: same. Shell hop 2026-11-01 (B584): mounted in GUI 3. The Mod page is ModPage: list + full-tier detail; Routes holds Grid, By source and Wires."
   },
   {
    "id": "adr338-removal-m-r2",
@@ -4503,11 +4511,11 @@
    "master_version": "1793517046-cbf4",
    "bundle": "UndoLine",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: dev.removeModulator(m.id)",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "modulators",
-   "note": "H.UndoLine and H.ModRemoval.describe: the host owns the undo stack and removes a modulator and its routes as one step; the line names them and offers Undo. The shell bank has no remove yet. Vendored 2026-11-01 (master batch 2, B589). FX device: same."
+   "note": "H.UndoLine and H.ModRemoval.describe: the host owns the undo stack and removes a modulator and its routes as one step; the line names them and offers Undo. The shell bank has no remove yet. Vendored 2026-11-01 (master batch 2, B589). FX device: same. Shell hop 2026-11-01 (B584): mounted in GUI 3. The bank's × removes the modulator and its routes as one undo step (dev.removeModulator), UndoLine offers Undo (half A, self-check 28)."
   },
   {
    "id": "adr338-abbr-column",
@@ -4522,7 +4530,7 @@
    "state": "ruled",
    "superseded_by": null,
    "port_tab": "composition-tier",
-   "note": "Shell data, not a master component: lands with tools/gen_gui3_controls.py. FX device: same."
+   "note": "Shell data, not a master component: lands with tools/gen_gui3_controls.py. FX device: same. Shell hop 2026-11-01 (B584): DONE as shell data, not a component (the ledger's states name master components, so the row stays ruled): layout.json carries an abbr map per group, checked by tools/gen_gui3_controls.py (at most 4 characters, unique per section, every grid control labelled, none naming nothing; must-fail plants for each). The abbreviations are for the human to review."
   },
   {
    "id": "adr338-escape-layered",
@@ -4533,11 +4541,11 @@
    "master_version": "1793502898-ea3e",
    "bundle": "Session",
    "via": null,
-   "shell": "docs/design/gui3.html: SH.attachEscape(window, [",
+   "shell": "docs/design/gui3.html: S.escapeLayers.unshift({ name: 'menu'",
    "state": "in-shell",
    "superseded_by": null,
    "port_tab": null,
-   "note": "In the master at 1793502898-ea3e (S.escapeLayers and S.escape(); MapControl and KeyboardLamp READMEs; panic on no key, ADR-340 r12); vendored 2026-10-31. The shell built it first (B584 batch 1: shell-logic.js attachEscape, self-check 25) and still uses its own handler; moving it onto S.escapeLayers is the next shell hop. FX device: same."
+   "note": "In the master at 1793502898-ea3e (S.escapeLayers and S.escape(); MapControl and KeyboardLamp READMEs; panic on no key, ADR-340 r12); vendored 2026-10-31. The shell built it first (B584 batch 1: shell-logic.js attachEscape, self-check 25) and still uses its own handler; moving it onto S.escapeLayers is the next shell hop. FX device: same. Shell hop 2026-11-01: the shell's own attachEscape and attachMapKeys are gone; the Session (mapKeysAlways: SH.MAP_KEYS_ALWAYS) owns Escape and the map keys, and the shell unshifts its menu layer in front."
   },
   {
    "id": "adr338-window-resize-trial",
@@ -4563,11 +4571,11 @@
    "master_version": "1793502898-ea3e",
    "bundle": "Knob",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: size = tiny ? 'tiny'",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "composition-tier",
-   "note": "Knob size 'tiny' at 1793502898-ea3e: the see-through editing-corner pip (an SVG mask) between ink end stops; the arc the blend, the needle the output, one ring. Vendored 2026-10-31; not mounted yet (P1). FX device: same."
+   "note": "Knob size 'tiny' at 1793502898-ea3e: the see-through editing-corner pip (an SVG mask) between ink end stops; the arc the blend, the needle the output, one ring. Vendored 2026-10-31; not mounted yet (P1). FX device: same. Shell hop 2026-11-01 (B584): mounted in GUI 3. The grid pages' knobs (half B)."
   },
   {
    "id": "adr340-ts1a-ts2a",
@@ -4582,7 +4590,7 @@
    "state": "vendored",
    "superseded_by": null,
    "port_tab": "composition-tier",
-   "note": "Slider sizes 'tiny' (TS1a hollow see-through handle, ink stops) and 'cell' (TS2a see-through cut and corner tick) at 1793502898-ea3e, both 1:1 with their track and re-anchoring at the stops; vendored 2026-10-31. Not mounted yet. FX device: same."
+   "note": "Slider sizes 'tiny' (TS1a hollow see-through handle, ink stops) and 'cell' (TS2a see-through cut and corner tick) at 1793502898-ea3e, both 1:1 with their track and re-anchoring at the stops; vendored 2026-10-31. Not mounted yet. FX device: same. Shell hop 2026-11-01: TS2a in the tables; TS1a not yet placed."
   },
   {
    "id": "adr340-t4c",
@@ -4597,7 +4605,7 @@
    "state": "vendored",
    "superseded_by": null,
    "port_tab": "composition-tier",
-   "note": "Knob size 'level': a 16 px vertical level in a 28 px cell (a new size, not TS2a), its corner mark T4c-f (ADR-341 r1), one helper with the tiny knob. Vendored 2026-11-01 (master batch 2, B589). FX device: same."
+   "note": "Knob size 'level': a 16 px vertical level in a 28 px cell (a new size, not TS2a), its corner mark T4c-f (ADR-341 r1), one helper with the tiny knob. Vendored 2026-11-01 (master batch 2, B589). FX device: same. Shell hop 2026-11-01: not mounted: the master says what the level cell is but not where it goes."
   },
   {
    "id": "adr340-hover-h1-h4",
@@ -4623,11 +4631,11 @@
    "master_version": "1793517046-cbf4",
    "bundle": "Stepper",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: H.Stepper(host, { name: row.label, path",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "composition-tier",
-   "note": "H.Stepper at 1793517046-cbf4: drag (6 px a step, Shift 24, re-anchored), double-click home, Option-click opens a number field (a dropdown for named steppers, ADR-341 r3); flat form for tables; SG-b's affordances. The steppers in MidiTrackers, ShClockCard, EnvelopeEditor and OrbitalCard are H.Stepper now; RateSync's division stepper keeps its own (its off-list value, see the Stepper README). Vendored 2026-11-01 (master batch 2, B589). FX device: same."
+   "note": "H.Stepper at 1793517046-cbf4: drag (6 px a step, Shift 24, re-anchored), double-click home, Option-click opens a number field (a dropdown for named steppers, ADR-341 r3); flat form for tables; SG-b's affordances. The steppers in MidiTrackers, ShClockCard, EnvelopeEditor and OrbitalCard are H.Stepper now; RateSync's division stepper keeps its own (its off-list value, see the Stepper README). Vendored 2026-11-01 (master batch 2, B589). FX device: same. Shell hop 2026-11-01 (B584): mounted in GUI 3. Every stepper on a grid page is H.Stepper (tc: true in sections, flat in the table)."
   },
   {
    "id": "adr340-pv1-table-view",
@@ -4638,11 +4646,11 @@
    "master_version": "1793517046-cbf4",
    "bundle": "PageView",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: H.PageView(",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "composition-tier",
-   "note": "H.PageView (Grid | Table, its own find box, remembered per page in guarded storage) and H.ParamTable; FindPane was not reused (it is bound to MorphGrid). Vendored 2026-11-01 (master batch 2, B589). FX device: same."
+   "note": "H.PageView (Grid | Table, its own find box, remembered per page in guarded storage) and H.ParamTable; FindPane was not reused (it is bound to MorphGrid). Vendored 2026-11-01 (master batch 2, B589). FX device: same. Shell hop 2026-11-01 (B584): mounted in GUI 3. Every grid page is a PageView (Grid | Table, the find box, remembered per page); one value across grid, table and lens through ctlFace."
   },
   {
    "id": "adr340-md1-map-drag",
@@ -4668,11 +4676,11 @@
    "master_version": "1793517046-cbf4",
    "bundle": "SourceChip",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: H.MapControl($('mapHost'), S, { frame: $('win'), strip: $('srcStrip'), chip: true });",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "quick-map",
-   "note": "MS3 is H.SourceChip (also MapControl chip: true, 12 px a source); MS4 is H.SourceRows (a body click with MAP on makes the source); MS1 is SourceStrip, in the shell. Vendored 2026-11-01 (master batch 2, B589). FX device: same."
+   "note": "MS3 is H.SourceChip (also MapControl chip: true, 12 px a source); MS4 is H.SourceRows (a body click with MAP on makes the source); MS1 is SourceStrip, in the shell. Vendored 2026-11-01 (master batch 2, B589). FX device: same. Shell hop 2026-11-01 (B584): mounted in GUI 3. MS3: the MAP control's chip (206 px, the master's); MS4: with MAP on a click on a bank row's body makes it the source; MS1 the strip."
   },
   {
    "id": "adr340-polarity",
@@ -4698,11 +4706,11 @@
    "master_version": "1793517046-cbf4",
    "bundle": "CompactWires",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: H.RoutesBySource(",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "modulators",
-   "note": "ML1: CompactWires with values, valves and draggable wires (ADR-341 r5); ML3: H.RoutesBySource; ML4 is in the shell (batch 1). The depth route itself still needs B70 in the engine (lead): the valve emits onDepthRoute. Vendored 2026-11-01 (master batch 2, B589). FX device: same."
+   "note": "ML1: CompactWires with values, valves and draggable wires (ADR-341 r5); ML3: H.RoutesBySource; ML4 is in the shell (batch 1). The depth route itself still needs B70 in the engine (lead): the valve emits onDepthRoute. Vendored 2026-11-01 (master batch 2, B589). FX device: same. Shell hop 2026-11-01 (B584): mounted in GUI 3. The Mod page's Routes: Grid (ML4), By source (ML3), Wires (ML1); a valve drop is refused until B70 is in the engine."
   },
   {
    "id": "adr340-bank-bt1-br1",
@@ -4713,11 +4721,11 @@
    "master_version": "1793517046-cbf4",
    "bundle": "ModBank",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: H.ModBank($('bankHost'), S, {",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "macros",
-   "note": "BT1 is ModBank's MAC | MODS segments; BR1 is H.MacroRow (drawn as BR-b, ADR-341 r6). The macros' engine side (the intent bus in the stub) is the lead's: the rows emit onChange. Vendored 2026-11-01 (master batch 2, B589). FX device: same."
+   "note": "BT1 is ModBank's MAC | MODS segments; BR1 is H.MacroRow (drawn as BR-b, ADR-341 r6). The macros' engine side (the intent bus in the stub) is the lead's: the rows emit onChange. Vendored 2026-11-01 (master batch 2, B589). FX device: same. Shell hop 2026-11-01 (B584): mounted in GUI 3. MAC | MODS are the bank's own segments; the top-bar pills are gone (half A)."
   },
   {
    "id": "adr341-t4c-f",
@@ -4732,7 +4740,7 @@
    "state": "vendored",
    "superseded_by": null,
    "port_tab": "composition-tier",
-   "note": "The level cell's mark: hole 2.1, rim 1.65, stroke 0.9, the corner's -tx ink; the same helper draws the tiny knob's mark. Vendored 2026-11-01 (master batch 2, B589). FX device: same."
+   "note": "The level cell's mark: hole 2.1, rim 1.65, stroke 0.9, the corner's -tx ink; the same helper draws the tiny knob's mark. Vendored 2026-11-01 (master batch 2, B589). FX device: same. Shell hop 2026-11-01: not mounted (no placement in the master)."
   },
   {
    "id": "adr341-dr-c",
@@ -4743,11 +4751,11 @@
    "master_version": "1793517046-cbf4",
    "bundle": "ReadoutSlot",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: H.SectionHeader(head, { name: g.title, path",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "composition-tier",
-   "note": "ReadoutSlot: two stacked 13 px lines in a fixed 26 px box. PLACEHOLDER: line 1 is the editing corner's own value, not the blend (ADR-341 Open); line 2 is the value after modulation. Vendored 2026-11-01 (master batch 2, B589). FX device: same."
+   "note": "ReadoutSlot: two stacked 13 px lines in a fixed 26 px box. PLACEHOLDER: line 1 is the editing corner's own value, not the blend (ADR-341 Open); line 2 is the value after modulation. Vendored 2026-11-01 (master batch 2, B589). FX device: same. Shell hop 2026-11-01 (B584): mounted in GUI 3. Every section header's readout slot is DR-c's two lines (line 1 a placeholder); the shell restyles none of it (seam test pageforms)."
   },
   {
    "id": "adr341-sg-b",
@@ -4758,26 +4766,26 @@
    "master_version": "1793517046-cbf4",
    "bundle": "Stepper",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: H.Stepper(host, { name: row.label, path",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "composition-tier",
-   "note": "The glyph, the step scale with a ringed home tick; Option-click on a named stepper opens a dropdown (the typed-name entry is gone); numeric steppers keep the field. Vendored 2026-11-01 (master batch 2, B589). FX device: same."
+   "note": "The glyph, the step scale with a ringed home tick; Option-click on a named stepper opens a dropdown (the typed-name entry is gone); numeric steppers keep the field. Vendored 2026-11-01 (master batch 2, B589). FX device: same. Shell hop 2026-11-01 (B584): mounted in GUI 3. SG-b's glyph and scale on every stepper; named steppers open the dropdown."
   },
   {
    "id": "adr341-mp-c",
    "adr": "ADR-341",
-   "clause": "ruling 4 (the polarity modifier is MP-c, Cmd-Option-click, cycling like the chip)",
+   "clause": "ruling 4 (the polarity modifier is MP-c, Cmd-Option-click, cycling like the chip); amended by A1 (Shift+Option-click)",
    "lab": "docs/design/composition-lab-r3.html",
    "component": "RouteRow",
-   "master_version": "1793517046-cbf4",
+   "master_version": "1793556326-fe52",
    "bundle": "PolChip",
    "via": null,
    "shell": null,
    "state": "vendored",
    "superseded_by": null,
    "port_tab": "modulators",
-   "note": "The chord in the Session gesture: Cmd+Option-click (Ctrl+Alt on Windows) cycles the focused mapping as the chip does, skipping CTL where another mapping controls the parameter. Not verified in a host (Live, Bitwig) or on Windows. Vendored 2026-11-01 (master batch 2, B589). FX device: same."
+   "note": "The chord in the Session gesture: Shift+Option-click (Shift+Alt on Windows; ADR-341 A1, 2026-11-01, replacing Cmd+Option / Ctrl+Alt: Windows keyboards have no Command key, and Ctrl+Alt is AltGr on many layouts) cycles the focused mapping as the chip does, skipping CTL where another mapping controls the parameter. Command and Ctrl must be up. Not verified in a host (Live, Bitwig), nor whether Windows' Shift+Alt layout hotkey fires around the click. Vendored 2026-11-01 at 1793556326-fe52. FX device: same. The chord rides on every bundle control the shell mounts (the Session gesture), so it works in GUI 3 without shell code; the row stays vendored because there is no shell place to name."
   },
   {
    "id": "adr341-w-a",
@@ -4788,11 +4796,11 @@
    "master_version": "1793517046-cbf4",
    "bundle": "CompactWires",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: H.CompactWires(",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "modulators",
-   "note": "A valve on every wire, filled to its depth (the lab drew it only where a depth route landed; this reading is in the README); a source dropped on a valve emits onDepthRoute (B70 needs the engine, lead). Vendored 2026-11-01 (master batch 2, B589). FX device: same."
+   "note": "A valve on every wire, filled to its depth (the lab drew it only where a depth route landed; this reading is in the README); a source dropped on a valve emits onDepthRoute (B70 needs the engine, lead). Vendored 2026-11-01 (master batch 2, B589). FX device: same. Shell hop 2026-11-01 (B584): mounted in GUI 3. Wires on the Mod page with a valve on every wire; a drop on a valve is refused with B70's message and makes no route."
   },
   {
    "id": "adr341-br-b",
@@ -4803,11 +4811,11 @@
    "master_version": "1793517046-cbf4",
    "bundle": "MacroRow",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: macros: MACROS",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "macros",
-   "note": "H.MacroRow: the rows follow the wheels with a half-second trace and a centre notch on the bend row. Vendored 2026-11-01 (master batch 2, B589). FX device: same."
+   "note": "H.MacroRow: the rows follow the wheels with a half-second trace and a centre notch on the bend row. Vendored 2026-11-01 (master batch 2, B589). FX device: same. Shell hop 2026-11-01 (B584): mounted in GUI 3. The MAC lane: ten unbound rows (no intent bus in the stub), traces and the bend notch."
   },
   {
    "id": "adr341-bend-mouse",
@@ -4818,11 +4826,11 @@
    "master_version": "1793517046-cbf4",
    "bundle": "MacroRow",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: macros: MACROS",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "macros",
-   "note": "A mouse drag on the bend row springs back (a 50 ms time constant, in seconds; a snap under reduced motion, reported as spring); setHardware(v | null) makes the hardware win; the mod wheel's row holds. Vendored 2026-11-01 (master batch 2, B589). FX device: same."
+   "note": "A mouse drag on the bend row springs back (a 50 ms time constant, in seconds; a snap under reduced motion, reported as spring); setHardware(v | null) makes the hardware win; the mod wheel's row holds. Vendored 2026-11-01 (master batch 2, B589). FX device: same. Shell hop 2026-11-01 (B584): mounted in GUI 3. The bend row springs back; the mod wheel holds (half A, self-check 30)."
   }
  ],
  "not_design": [
