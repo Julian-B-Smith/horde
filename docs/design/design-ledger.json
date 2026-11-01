@@ -86,8 +86,9 @@
    "note": "Engine bench (B298): the swarm under SCALPEL's blades. No ruling found; not a design question."
   },
   "composition-lab-r2.html": {
-   "status": "exploring",
-   "note": "B589/B594 round 2: the human's amendments to ADR-338 (2026-10-30)."
+   "status": "ruled",
+   "adr": "ADR-340",
+   "note": "Round 2: the human's picks by poll (2026-10-30/31), with amendments that round 3 draws."
   },
   "composition-lab.html": {
    "status": "ruled",
@@ -2373,7 +2374,7 @@
    "state": "ruled",
    "superseded_by": null,
    "port_tab": null,
-   "note": "An absence ruling: no shell file names a panic control (grep 'anic' in gui3.html, gui3/*.js, layout.json: 0). Contradiction: the master README still lists PANIC as a status word and as an `alarm` use (Voice and content; Colour), carried from legacy."
+   "note": "An absence ruling: no shell file names a panic control (grep 'anic' in gui3.html, gui3/*.js, layout.json: 0). Contradiction: the master README still lists PANIC as a status word and as an `alarm` use (Voice and content; Colour), carried from legacy. Confirmed by ADR-340 ruling 12 over ADR-338 r11's panic clause."
   },
   {
    "id": "adr226-osc-mute-solo",
@@ -4399,7 +4400,7 @@
    "state": "ruled",
    "superseded_by": null,
    "port_tab": "composition-tier",
-   "note": "Not in the master yet; the master Knob README gains a fifth rung below utility 28. FX device: same tier."
+   "note": "Not in the master yet; the master Knob README gains a fifth rung below utility 28. FX device: same tier. Drawing amended by ADR-340 (T2d; TS1a/TS2a)."
   },
   {
    "id": "adr338-companions",
@@ -4429,7 +4430,7 @@
    "state": "ruled",
    "superseded_by": null,
    "port_tab": "composition-tier",
-   "note": "Not in the master yet; the size-hit token gains the named exception. FX device: same."
+   "note": "Not in the master yet; the size-hit token gains the named exception. FX device: same. Drawing amended by ADR-340 (T2d; TS1a/TS2a)."
   },
   {
    "id": "adr338-clusters",
@@ -4549,7 +4550,7 @@
    "state": "ruled",
    "superseded_by": null,
    "port_tab": null,
-   "note": "B584 batch 1 builds it in the shell (shell-logic.js attachEscape, one capture-phase handler: menu, MAP, pinned corner, keyboard mode; self-check 25). The master's MapControl and KeyboardLamp READMEs still give Escape to MAP off and keys off and must be aligned (batch 2), so this row stays ruled with its shell place recorded. Panic: ruling 11 says panic gets its own control, which contradicts ADR-226 item 6 (no panel Panic control); no panic control is built and the human is asked. FX device: same."
+   "note": "B584 batch 1 builds it in the shell (shell-logic.js attachEscape, one capture-phase handler: menu, MAP, pinned corner, keyboard mode; self-check 25). The master's MapControl and KeyboardLamp READMEs still give Escape to MAP off and keys off and must be aligned (batch 2), so this row stays ruled with its shell place recorded. Panic: ruling 11 says panic gets its own control, which contradicts ADR-226 item 6 (no panel Panic control); no panic control is built and the human is asked. FX device: same. ADR-340 ruling 12 (2026-10-31): the panic clause is struck; ADR-226 item 6 holds (no panel Panic control)."
   },
   {
    "id": "adr338-window-resize-trial",
@@ -4565,6 +4566,171 @@
    "superseded_by": null,
    "port_tab": "window-size",
    "note": "B584 batch 1 builds the trial outside the window: Fixed 980 x 720, or Scale (CSS zoom of the whole composition, 75 to 200 % and Fit; a canvas is stretched, not redrawn). A shell trial, not a component: it goes to the master only if the human rules Scale."
+  },
+  {
+   "id": "adr340-t2d",
+   "adr": "ADR-340",
+   "clause": "ruling 1 (the tiny knob is T2d: a hollow see-through corner pip cutting the arc, plus ink end stops)",
+   "lab": "docs/design/composition-lab-r2.html",
+   "component": "Knob",
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null,
+   "port_tab": "composition-tier",
+   "note": "Amends ADR-338 r1's drawing (row adr338-tiny-knob keeps the tier). To the master next. FX device: same."
+  },
+  {
+   "id": "adr340-ts1a-ts2a",
+   "adr": "ADR-340",
+   "clause": "ruling 2 (tiny sliders TS1a and TS2a: a hollow handle at the edited corner with stops; a see-through cut in the cell; both 1:1 with their track, re-anchoring)",
+   "lab": "docs/design/composition-lab-r2.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null,
+   "port_tab": "composition-tier",
+   "note": "Amends ADR-338 r3's drawing. To the master next. FX device: same."
+  },
+  {
+   "id": "adr340-t4c",
+   "adr": "ADR-340",
+   "clause": "ruling 3 (T4c taken as the level cell, its corner mark made clearly visible)",
+   "lab": "docs/design/composition-lab-r2.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null,
+   "port_tab": "composition-tier",
+   "note": "Round 3 draws the visible corner mark before the master takes it. FX device: same."
+  },
+  {
+   "id": "adr340-hover-h1-h4",
+   "adr": "ADR-340",
+   "clause": "ruling 4 (H1 + H4: a fixed readout slot and the fixed info box; the readout shows the hand's target and the post-modulation value)",
+   "lab": "docs/design/composition-lab-r2.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null,
+   "port_tab": "composition-tier",
+   "note": "The dual readout is round 3's; the lens may be revisited. FX device: same."
+  },
+  {
+   "id": "adr340-steppers",
+   "adr": "ADR-340",
+   "clause": "ruling 5 (steppers drag; double-click returns home; option-click types a number)",
+   "lab": "docs/design/composition-lab-r2.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null,
+   "port_tab": "composition-tier",
+   "note": "Round 3 draws the gestures. The shell's stepper today has only - and + buttons. FX device: same."
+  },
+  {
+   "id": "adr340-pv1-table-view",
+   "adr": "ADR-340",
+   "clause": "ruling 6 (P3 as a per-page Grid | Table toggle with the find box, remembered per page)",
+   "lab": "docs/design/composition-lab-r2.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null,
+   "port_tab": "composition-tier",
+   "note": "To the master next (a Table view component). FX device: same."
+  },
+  {
+   "id": "adr340-md1-map-drag",
+   "adr": "ADR-340",
+   "clause": "ruling 7 (MAP on: a plain drag moves the value, alt-drag sets depth, a click still maps)",
+   "lab": "docs/design/composition-lab-r2.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null,
+   "port_tab": "quick-map",
+   "note": "Amends the Map Mode spec (protected; sanctioned by this ruling) and ADR-261 r3. The bundle today sets depth on a plain drag under MAP (bundle.js 201-204). FX device: same."
+  },
+  {
+   "id": "adr340-source-switch",
+   "adr": "ADR-340",
+   "clause": "ruling 8 (switching the source: MS1 strip and digits, MS4 a bank row, MS3 drag on the source chip; many modulators per parameter kept in mind)",
+   "lab": "docs/design/composition-lab-r2.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null,
+   "port_tab": "quick-map",
+   "note": "MS1 is in the shell (the source strip); MS3 and MS4 to the master. FX device: same."
+  },
+  {
+   "id": "adr340-polarity",
+   "adr": "ADR-340",
+   "clause": "ruling 9 (polarity: MP1 chip on every route with a vertical drag for the band, MP3 alt-drag through zero; a right-click menu entry and a modifier-click toggle)",
+   "lab": "docs/design/composition-lab-r2.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null,
+   "port_tab": "modulators",
+   "note": "The band drag, menu entry and modifier chord are round 3's. FX device: same."
+  },
+  {
+   "id": "adr340-route-views",
+   "adr": "ADR-340",
+   "clause": "ruling 10 (the Mod page's route views: ML4 grid, ML1 interactive compact wires with values and depth-route wires to another wire's midpoint, ML3 by source)",
+   "lab": "docs/design/composition-lab-r2.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null,
+   "port_tab": "modulators",
+   "note": "ML4 is in the shell (batch 1). ML1's depth-route wires are B70's gesture and need the engine's depth routes (lead). FX device: same."
+  },
+  {
+   "id": "adr340-bank-bt1-br1",
+   "adr": "ADR-340",
+   "clause": "ruling 11 (the bank's Macros | Mods as header segments; macros and the wheels as thin rows with sliders)",
+   "lab": "docs/design/composition-lab-r2.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null,
+   "port_tab": "macros",
+   "note": "The shell keeps the Mods | Macros pills; macros need the intent bus in the stub (lead) and BR1 in the master. FX device: same."
   }
  ],
  "not_design": [

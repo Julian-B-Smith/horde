@@ -10574,3 +10574,43 @@ The lead's findings:
 - B597 carries 2 to 4. The slot UI for both actions is the GUI session's (B591's slot page, under ADR-336); the device and randomizer side is the lead's.
 - **FX device (ADR-254):** the same actions and the same preset (with FX roles) on its slots.
 
+
+## ADR-340 — RULED by the human: the composition lab's round 2 (T2d, TS1a/TS2a, T4c, H1 + H4, steppers, PV1, MD1, source and polarity switching, the Mod page's route views, the bank's Macros | Mods), with amendments; ADR-226 item 6 holds over ADR-338 ruling 11's panic clause (B589, B594, B70; 2026-10-31)
+
+**Context.** Reviewing round 1 after ADR-338, the human found five problems: the tiny knobs seemed to drag arbitrarily; drag ranges were restricted; a hover moved the layout; the steppers could not be dragged or typed into; and under MAP a plain drag should change the value. Round 2 (`docs/design/composition-lab-r2.html`, #1309) diagnosed the drag problems:
+- The drag edits a corner's value, but T2 and T4 drew the blend, which moves by that corner's weight. Round 1 also hid the travelling pip.
+- The tiny sliders took 160 px for their full range, and an overshoot past a stop was a dead range.
+
+Round 2 drew 45 variants. The human answered by poll on 2026-10-30 and 2026-10-31. The batch-1 report also raised whether ADR-338 ruling 11's panic control stands against ADR-226 item 6.
+
+**Rulings.**
+1. **The tiny knob is T2d**, amending ADR-338 ruling 1's drawing: a hollow, see-through corner pip that cuts the arc so the background shows through, plus ink end stops. The arc stays the blend you hear, and the needle stays the output.
+2. **Tiny sliders: TS1a and TS2a**, amending ADR-338 ruling 3's drawing. TS1a has a hollow handle at the edited corner with stops; TS2a is a see-through cut in the 16 px cell. Both drag 1:1 with their track and re-anchor at their stops.
+3. **T4c is taken as the level cell**, with an amendment. The human: "I like T4c but the corner color is barely visible on the little triangle". The corner mark must read clearly at its size (round 3).
+4. **Hover is H1 + H4**: a fixed-width readout slot in every section, and the fixed info box (ADR-335 ruling 4) for the description and mappings. The label line never changes. **Amendment:** the readout shows both the position the hand is moving the control to and the current value after modulation. The human may revisit the lens (P1's): "I can see it being quite useful".
+5. **Steppers drag** (K2), and a double-click anywhere on a stepper returns it to its default, as on a knob. **Option-click opens a number field.** This amends K2's double-click-to-type. Tables use the same gestures in K4's form.
+6. **P3 is a view: PV1.** Each page gets a Grid | Table toggle in its header, with the find box, and remembers its view.
+7. **The map gesture is MD1.** With MAP on, a plain drag moves the value, ⌥drag sets the selected mod's depth, and a click still maps. **This amends the Map Mode spec** (`docs/design-system/HORDE-Map-Mode-Spec.md`, protected; the human's ruling is the sanction for that one edit) **and ADR-261 ruling 3.**
+8. **Switching the source while mapping: MS1 + MS4 + MS3.** MS1 is the live source strip with 1 to 9. With MS4, a click on a bank row makes it the source. With MS3, you drag through or step the MAP control's source chip; a plain wheel is not used, per B301's gate. The human: "important to keep in mind that multiple modulators can map to a single parameter". Switching the source chooses the source of the next mapping and never implies one modulator per parameter.
+9. **Polarity: MP1 + MP3, with amendments.** MP1 puts a polarity chip on every route: click for the next polarity, shift-click for the previous. MP3: ⌥drag through zero flips UNI to INV and back. **Amendments:**
+   - a vertical drag on MP1's chip widens and thins the band (the depth);
+   - polarity is a selection in the right-click menu;
+   - a modifier click on a control toggles it. The human suggested shift+opt+click; the exact chord is round 3's.
+10. **The Mod page's route views: ML4 + ML1 + ML3.** ML4 is the grid, mounted in batch 1. ML1 is interactive compact wires. ML3 is a list grouped by source, in M5's detail pane. **ML1 is expanded:**
+    - the wires show parameter values, as ML0 (the bundle's CompactWires) does;
+    - a new wire can be dragged from a source to a destination, **or to the midpoint of another wire, to modulate that modulation.**
+
+    That is B70's depth modulation (the human, 2026-08-28: "I want each mod to have a secondary mod input to modulate its mod amount"), given its gesture here. The engine side (a route's depth as a destination) is B70's and the lead's.
+11. **The bank's toggle is BT1 + BR1.** Segments in the bank's header switch between Macros and Mods. Macros shows the intent-bus macros (Tone, Space, Time, Motion, slots 5 to 8), the pitch bend and the mod wheel, each a thin row with its slider. Mods shows the rest of the bank. This is ADR-323 ruling 2's "Mods|Macros later", now designed.
+12. **Panic: ADR-226 item 6 holds.** There is no panel Panic control; the engine answers the host's all-notes-off. ADR-338 ruling 11's clause "panic moves to its own control" is struck. Escape stays the layered cancel, and panic is on no key.
+
+**Consequences.**
+- **Round 3 of the composition lab** draws the amendments before the master takes them: T4c's corner mark, the dual readout, the stepper's gestures, MP1's band drag, the polarity menu and modifier, ML1's values and depth-route wires, and the bank's macro rows against a real wheel.
+- The rest go into the design master directly (ADR-316), then the bundle, then the shell:
+  - T2d, TS1a/TS2a, H1 + H4, PV1, MD1, MS1/MS3/MS4, BT1 + BR1;
+  - ADR-338 rulings 4 to 9, which this ADR leaves unchanged.
+- Bundle defects that round 2 found go into the master with them: the Knob drag doesn't re-anchor at its stops, `setPointerCapture` is unguarded, and the Escape and map-key handling predates ADR-335 r1 and ADR-338 r11.
+- **Needed from the lead:**
+  - B70's depth routes in the engine's route table, so ML1's wire-to-midpoint gesture has an engine path;
+  - the intent bus's macros in the stub, for BR1.
+- **FX device (ADR-254):** the same tier, gestures, hover, steppers, PV1, map gesture, polarity and route views apply on its pages. The bank toggle applies wherever it has a bank. How a hosted module's own screen shows them is still B591's question.
