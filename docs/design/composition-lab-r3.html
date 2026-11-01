@@ -514,7 +514,7 @@ let MID = 0;
 function seeThrough(svg, W, Hh, hole) {
   const id = 'r3m' + (MID++), defs = sv('defs', {}, svg), mask = sv('mask', { id, maskUnits: 'userSpaceOnUse', x: -4, y: -4, width: W + 8, height: Hh + 8 }, defs);
   sv('rect', { x: -4, y: -4, width: W + 8, height: Hh + 8, fill: '#fff' }, mask);
-  const hl = hole === 'rect' ? sv('rect', { x: 0, y: 0, width: 0, height: 0, rx: .8, fill: '#000' }, mask) : sv('circle', { cx: 0, cy: 0, r: 0, fill: '#000' }, mask);
+  const hl = hole === 'rect' ? sv('rect', { x: 0, y: 0, width: 0, height: 0, rx: .8, fill: '#000' }, mask) : hole === 'path' ? sv('path', { d: '', fill: '#000' }, mask) : sv('circle', { cx: 0, cy: 0, r: 0, fill: '#000' }, mask);
   return { g: sv('g', { mask: 'url(#' + id + ')' }, svg), hl };
 }
 function tinyKnob(key, opts) {
@@ -617,7 +617,14 @@ function contrast(a, b) { const x = lum(a), y = lum(b); return (Math.max(x, y) +
    level, the mod lane on the left edge, the editing corner as a 2.6 x 4.4 triangle on the right edge filled with the corner's
    colour, edged in a 0.6 px ink hairline. THE COMPLAINT, measured below: corner A's fill (--cA) on the cream panel is about
    1.3 : 1, so on a 4.4 px triangle it is close to invisible; the fills are made to be read as areas, the -tx inks as lines. */
-const T4V = ['T4c', 'T4c-a', 'T4c-b', 'T4c-c', 'T4c-d'];
+const T4V = ['T4c', 'T4c-a', 'T4c-b', 'T4c-c', 'T4c-d', 'T4c-e', 'T4c-f'];
+/* T4c-e / T4c-f (the human, 2026-11-01: "Could we try a hollow triangle with the stroke in the corner color? And the same
+   but with a circle to match the smaller knob."): the mark is HOLLOW, cut through the level with a see-through mask (T2d's
+   pip idea), and stroked at T4_HOLLOW_W px. The stroke is drawn two ways, so the human can judge both: the corner's fill
+   colour (--cX, literally what was asked) and its legible ink (--cX-tx, the colour T2d's own hollow pip is rimmed in).
+   1.2 px: a third heavier than T2d's 0.9 px rim, because here the stroke is the cell's only colour cue, and still thin enough
+   to leave a 3.6 px opening in the 6 px circle, so it reads as hollow. */
+const T4_HOLLOW_W = 1.2;
 function glyphPath(i, cx, cy, r) {   // the house's shape-coded pips (ADR-261 r1): A diamond, B triangle, C circle, D square
   if (i === 2) return null;
   let k;
@@ -625,11 +632,13 @@ function glyphPath(i, cx, cy, r) {   // the house's shape-coded pips (ADR-261 r1
   if (i === 3) { k = r * .8862; return 'M' + (cx - k) + ' ' + (cy - k) + 'H' + (cx + k) + 'V' + (cy + k) + 'H' + (cx - k) + 'Z'; }
   k = r * 1.3467; return 'M' + cx + ' ' + (cy - k * 1.1547) + 'L' + (cx + k) + ' ' + (cy + k * .5774) + 'L' + (cx - k) + ' ' + (cy + k * .5774) + 'Z';
 }
-function t4Face(svg, V) {
-  const y = v => 15.4 - 14.8 * clamp(v);
-  sv('rect', { x: 2, y: 0, width: 12, height: 1.3, rx: .5, fill: 'var(--ink)' }, svg); sv('rect', { x: 2, y: 14.7, width: 12, height: 1.3, rx: .5, fill: 'var(--ink)' }, svg);
-  const frame = sv('rect', { x: 3.5, y: .6, width: 9, height: 14.8, rx: 2, fill: 'var(--well-alt)', stroke: 'var(--ink)', 'stroke-width': 1 }, svg);
-  const fill = sv('rect', { x: 4, y: 8, width: 8, height: 7, rx: 1.4, fill: 'var(--ink)' }, svg);
+function t4Face(svg, V, stroke) {
+  const y = v => 15.4 - 14.8 * clamp(v), hollow = V === 'T4c-e' || V === 'T4c-f';
+  const ms = hollow ? seeThrough(svg, 16, 16, V === 'T4c-e' ? 'path' : 'circle') : null, tg = ms ? ms.g : svg;   // the level, cut where the hollow mark sits
+  sv('rect', { x: 2, y: 0, width: 12, height: 1.3, rx: .5, fill: 'var(--ink)' }, tg); sv('rect', { x: 2, y: 14.7, width: 12, height: 1.3, rx: .5, fill: 'var(--ink)' }, tg);
+  const frame = sv('rect', { x: 3.5, y: .6, width: 9, height: 14.8, rx: 2, fill: 'var(--well-alt)', stroke: 'var(--ink)', 'stroke-width': 1 }, tg);
+  const fill = sv('rect', { x: 4, y: 8, width: 8, height: 7, rx: 1.4, fill: 'var(--ink)' }, tg);
+  const hring = V === 'T4c-f' ? sv('circle', { cx: 12.5, cy: 0, r: 0, fill: 'none', 'stroke-width': T4_HOLLOW_W }, svg) : null;
   const lane = sv('rect', { x: .2, y: 2, width: 1.8, height: 4, rx: .9, fill: 'transparent' }, svg);
   const outl = sv('line', { x1: 0, x2: 3.4, y1: 8, y2: 8, stroke: 'transparent', 'stroke-width': 1.4 }, svg);
   const bar = V === 'T4c-b' ? sv('rect', { x: 13.2, y: .6, width: 2.8, height: 14.8, rx: 1, 'stroke-width': .6, stroke: 'var(--ink)' }, svg) : null;
@@ -654,15 +663,23 @@ function t4Face(svg, V) {
       if (d) { setA(ptr, { d, fill: cf, stroke: 'var(--ink)', 'stroke-width': .8 }); setA(glyphC, { r: 0 }); }
       else { setA(ptr, { d: '' }); setA(glyphC, { cx: 15.4, cy: yy, r: 2.5, fill: cf, stroke: 'var(--ink)', 'stroke-width': .8 }); }
     }
+    const sc = global ? 'var(--ink)' : stroke === 'tx' ? cornerInk(ai) : cornerFill(ai);
+    if (V === 'T4c-e') {   // tip 2 px into the level, base outside the frame; the hole is the triangle, the stroke rides its edge
+      const d = 'M10.4 ' + yy.toFixed(2) + 'L17.4 ' + (yy - 3.4).toFixed(2) + 'L17.4 ' + (yy + 3.4).toFixed(2) + 'Z';
+      ms.hl.setAttribute('d', d); setA(ptr, { d, fill: 'none', stroke: sc, 'stroke-width': T4_HOLLOW_W });
+    }
+    if (V === 'T4c-f') {   // centred on the frame's right edge, as T2d's pip sits on its arc: hole r 3, rim r 3 - w/2 (T2d's rule)
+      setA(ms.hl, { cx: 12.5, cy: yy, r: 3 }); setA(hring, { cy: yy, r: 3 - T4_HOLLOW_W / 2, stroke: sc });
+    }
   };
 }
-function tinyT4(key, V) {
+function tinyT4(key, V, stroke) {
   const p = model(key);
   const el = h('div', { class: 'tk ctlx', 'data-key': key, title: p.path }); el.style.width = '28px';
   const box = h('div', { class: 'tk-hit', role: 'slider', 'aria-label': p.path, 'aria-valuemin': '0', 'aria-valuemax': '1' });
   el.append(h('div', { class: 'tk-l', text: abbr(key) }), box);
   const svg = sv('svg', { viewBox: '0 0 16 16', width: 16, height: 16, 'aria-hidden': 'true' }); box.append(svg);
-  const upd = t4Face(svg, V);
+  const upd = t4Face(svg, V, stroke);
   hotOn(el, p); gesture(box, p, 'y');
   let last = '';
   view(() => {
@@ -673,9 +690,9 @@ function tinyT4(key, V) {
   });
   return el;
 }
-function t4Specimen(V, ai, scale) {
+function t4Specimen(V, ai, scale, stroke) {
   const svg = sv('svg', { viewBox: '-6 -1 28 18', width: 28 * scale, height: 18 * scale, 'aria-hidden': 'true' });
-  t4Face(svg, V)({ b: .42, av: .74, ai, out: .55, rg: { ends: [.42, .72], color: 'var(--src-lfo)', op: 1 }, global: false });
+  t4Face(svg, V, stroke)({ b: .42, av: .74, ai, out: .55, rg: { ends: [.42, .72], color: 'var(--src-lfo)', op: 1 }, global: false });
   return svg;
 }
 function buildT4() {
@@ -689,32 +706,41 @@ function buildT4() {
     'T4c-a': ['Larger, ink-outlined triangle', 'The same mark at <b>6.1 × 7.2 px</b> (it uses the hit cell\'s free 6 px), with a <b>1.1 px ink outline</b>, so the edge reads even where the fill does not and the fill has room to be seen. Still colour alone says which corner; still one shape for all four (B\'s glyph is also a triangle).', {}, 'fill'],
     'T4c-b': ['A corner-colour edge bar', 'The corner\'s colour moves to a <b>2.8 × 14.8 px bar</b> down the right edge: an area, which is what the fills are made for. The travelling mark becomes an <b>ink tick</b> across the level and the bar, with a panel-coloured halo so it reads over the ink fill. Colour says who; ink says where.', {}, 'fill'],
     'T4c-c': ['Ink tick + the corner\'s glyph', 'The travelling mark is an <b>ink tick</b> (haloed, readable on any fill); the corner rides on it as its <b>shape-coded glyph</b> (A diamond, B triangle, C circle, D square: the house\'s pips, ADR-261 r1) in its colour with an ink edge. The corner reads by shape even where its colour does not (A, C and D on cream).', {}, 'fill'],
-    'T4c-d': ['The frame in the corner\'s ink', 'The level\'s <b>frame</b> is drawn in the corner\'s legible ink (<code>--cX-tx</code>, the tokens made for lines and text) at 1.6 px, the way T2d\'s cap ring names the owner; the pointer becomes a plain <b>ink</b> triangle (shape only). The whole cell says who; the pointer says where.', {}, 'tx']
+    'T4c-d': ['The frame in the corner\'s ink', 'The level\'s <b>frame</b> is drawn in the corner\'s legible ink (<code>--cX-tx</code>, the tokens made for lines and text) at 1.6 px, the way T2d\'s cap ring names the owner; the pointer becomes a plain <b>ink</b> triangle (shape only). The whole cell says who; the pointer says where.', {}, 'tx'],
+    'T4c-e': ['Hollow triangle, stroked in the corner\'s colour', '<b>The human\'s request.</b> The triangle is <b>hollow</b>: its tip reaches 2 px into the level and the level is <b>cut away</b> inside it (a see-through mask, T2d\'s pip idea), so the background shows through; only a <b>1.2 px stroke</b> in the corner\'s colour draws it (7 × 6.8 px). Drawn with two strokes: the corner\'s <b>fill colour</b>, as asked, and its legible <b>-tx ink</b>.', { prop: true }, 'pair'],
+    'T4c-f': ['Hollow circle, as the tiny knob\'s pip', '<b>The human\'s request, to match T2d.</b> A <b>hollow circle</b> centred on the level\'s right edge, cutting the frame and the level (see-through, r 3 px), rimmed by a <b>1.2 px stroke</b> at r 2.4: T2d\'s hollow pip at the 16 px cell\'s size. Drawn with two strokes: the <b>fill colour</b>, as asked, and the <b>-tx ink</b>, which is what T2d\'s pip is rimmed in.', { prop: true }, 'pair']
   };
   const schemes = [['sch-light', 'Light · ORCHID'], ['sch-dark', 'Dark · TUBE']];
   const CT = [];   // contrast readouts to fill once the scopes are in the document
   T4V.forEach(V => {
     const d = DESC[V], card = vcard('T4', V, d[0], d[1], d[2]);
-    const sch = h('div', { class: 'schemes' });
-    schemes.forEach(s => {
-      const box = h('div', { class: 'sch ' + s[0] }, h('div', { class: 'sh', text: s[1] }));
-      const cg = h('div', { class: 'cgrid' });
-      [0, 1, 2, 3].forEach(i => cg.append(h('div', { class: 'spec3' }, t4Specimen(V, i, 2.4))));
-      [0, 1, 2, 3].forEach(i => cg.append(h('div', { class: 'spec3' }, t4Specimen(V, i, 1))));
-      [0, 1, 2, 3].forEach(i => { const cn = h('div', { class: 'cn', text: 'ABCD'[i] }), cr = h('div', { class: 'cr', text: '…' }); cg.append(h('div', {}, cn, cr)); CT.push({ cr, scope: box, i, kind: d[3] }); });
-      box.append(cg); sch.append(box);
+    /* a hollow variant draws its stroke both ways, side by side: the fill colour and the -tx ink */
+    const strokes = d[3] === 'pair' ? [['fill', 'stroke: the corner\'s fill colour (--cX), as asked'], ['tx', 'stroke: the corner\'s legible ink (--cX-tx)']] : [[d[3], null]];
+    strokes.forEach(st => {
+      const sch = h('div', { class: 'schemes' });
+      schemes.forEach(s => {
+        const box = h('div', { class: 'sch ' + s[0] }, h('div', { class: 'sh', text: s[1] }));
+        const cg = h('div', { class: 'cgrid' });
+        [0, 1, 2, 3].forEach(i => cg.append(h('div', { class: 'spec3' }, t4Specimen(V, i, 2.4, st[0]))));
+        [0, 1, 2, 3].forEach(i => cg.append(h('div', { class: 'spec3' }, t4Specimen(V, i, 1, st[0]))));
+        [0, 1, 2, 3].forEach(i => { const cn = h('div', { class: 'cn', text: 'ABCD'[i] }), cr = h('div', { class: 'cr', text: '…' }); cg.append(h('div', {}, cn, cr)); CT.push({ cr, scope: box, i, kind: st[0], v: V }); });
+        box.append(cg); sch.append(box);
+      });
+      const live = h('div', { class: 'row' }, ['osc1.detune', 'osc1.width', 'osc1.blade1.cut', 'osc1.fine', 'osc1.coupling', 'osc1.pan'].map(k => tinyT4(k, V, st[0])));
+      if (st[1]) card.append(h('h3', { text: st[1] }));
+      card.append(sch, h('div', { class: 'lbl', text: 'live, on this page\'s scheme (drag; ⌥drag scales the focused mapping)' }), live);
     });
-    const live = h('div', { class: 'row' }, ['osc1.detune', 'osc1.width', 'osc1.blade1.cut', 'osc1.fine', 'osc1.coupling', 'osc1.pan'].map(k => tinyT4(k, V)));
-    card.append(sch, h('div', { class: 'lbl', text: 'live, on this page\'s scheme (drag; ⌥drag scales the focused mapping)' }), live);
     g.append(card); mounted(V);
   });
   /* contrast, measured from the resolved tokens in each scope: the fill (--cX) for marks drawn in the fill colour, the ink
      (--cX-tx) for T4c-d's frame */
   CONTRAST_FILL = () => CT.forEach(c => { const pan = rgbOfVar(c.scope, 'panel'), col = rgbOfVar(c.scope, c.kind === 'tx' ? 'c' + 'ABCD'[c.i] + '-tx' : 'c' + 'ABCD'[c.i]), r = contrast(col, pan);
-    c.cr.textContent = r.toFixed(1) + ':1'; c.cr.style.color = r < 3 ? 'var(--alarm)' : 'var(--celebrate)'; });
+    c.cr.textContent = r.toFixed(1) + ':1'; c.cr.style.color = r < 3 ? 'var(--alarm)' : 'var(--celebrate)';
+    c.ratio = r; c.scheme = c.scope.classList.contains('sch-dark') ? 'dark' : 'light'; });
+  T4_CT = CT;
   sec.append(h('p', { class: 'note', html: 'T4c-b and T4c-c\'s contrast is the colour\'s; their position mark is ink (contrast of the ink on the panel ≥ 14 : 1 in both schemes). T4c-a\'s fill is as weak as T4c\'s, but its ink outline carries the edge. T4c-c\'s glyph carries the corner by shape when the colour fails (A, C and D on the light panel). The dark panel is not the problem: all four fills measure above 4.5 : 1 there.' }));
 }
-let CONTRAST_FILL = null;
+let CONTRAST_FILL = null, T4_CT = [];
 
 // ======================= DR: the dual readout =======================
 /* THE AMENDMENT (ADR-340 r4): "the readout shows both the position the hand is moving the control to and the current value
@@ -1442,8 +1468,8 @@ function syncBar() {
 
 // ======================= the poll =======================
 const POLL = [
-  ['T4c', 'The level cell\'s corner mark', 'Which mark makes T4c\'s editing corner read at 16 px, on every corner colour, in both schemes?', ['T4c', 'T4c-a', 'T4c-b', 'T4c-c', 'T4c-d'], 'T4c-c',
-    'T4c-c: the position is an ink tick (always legible) and the corner rides it as its shape-coded glyph, so it reads by shape where its colour cannot (A, C and D on the light panel), the house\'s own pip rule.'],
+  ['T4c', 'The level cell\'s corner mark', 'Which mark makes T4c\'s editing corner read at 16 px, on every corner colour, in both schemes?', ['T4c', 'T4c-a', 'T4c-b', 'T4c-c', 'T4c-d', 'T4c-e fill', 'T4c-e tx', 'T4c-f fill', 'T4c-f tx'], 'T4c-f tx',
+    'T4c-f with the -tx stroke: the hollow circle is T2d\'s pip at the cell\'s size, rimmed in the same ink T2d uses, and the -tx inks measure about 4.9 : 1 on the light panel where the A, C and D fills fall to 1.3-1.8 : 1 (a 1.2 px line in those fills is still nearly invisible). Of the earlier five, T4c-c remains the strongest.'],
   ['DR', 'The dual readout', 'How should the fixed slot show where the hand is and what you hear?', ['DR-a', 'DR-b', 'DR-c', 'DR-d'], 'DR-a',
     'DR-a: two labelled columns are unambiguous at a glance and the bold swaps to the one that matters (SET while dragging, NOW at rest). Also say: SET = the corner\'s value (drawn) or the blend.'],
   ['SG', 'Stepper affordances', 'What says a stepper drags, what does its number field look like, and how is home shown?', ['SG-a', 'SG-b', 'SG-c'], 'SG-b',
@@ -1462,9 +1488,9 @@ function buildPoll() {
   function upd() { ans.textContent = POLL.map(q => pick[q[0]] || q[0] + ' ?').join(', ') + (CHORD_TOGGLE ? ' · chord click = ' + CHORD_TOGGLE : ''); }
   POLL.forEach(q => {
     const fs = h('fieldset', {}, h('legend', { text: q[0] + ' · ' + q[1] }), h('p', { class: 'q', text: q[2] }));
-    q[3].forEach(id => { const v = VARIANTS.find(x => x.id === id), inp = h('input', { type: 'radio', name: 'poll-' + q[0], value: id });
+    q[3].forEach(id => { const base = id.split(' ')[0], sk = id.split(' ')[1], v = VARIANTS.find(x => x.id === base), inp = h('input', { type: 'radio', name: 'poll-' + q[0], value: id });
       inp.addEventListener('change', () => { pick[q[0]] = id; upd(); });
-      fs.append(h('label', {}, inp, h('b', {}, h('a', { href: '#v-' + id, text: id })), h('span', {}, v ? v.name : id, id === q[4] ? h('span', { class: 'rec', text: ' · recommended' }) : null))); });
+      fs.append(h('label', {}, inp, h('b', {}, h('a', { href: '#v-' + base, text: id })), h('span', {}, (v ? v.name : id) + (sk ? (sk === 'tx' ? ', stroke in the -tx ink' : ', stroke in the fill colour') : ''), id === q[4] ? h('span', { class: 'rec', text: ' · recommended' }) : null))); });
     fs.append(h('p', { class: 'note', style: 'margin-top:4px', text: 'Why: ' + q[5] }));
     box.append(fs);
   });
@@ -1616,7 +1642,7 @@ if (CONTRAST_FILL) CONTRAST_FILL();
 S.on(() => { /* the bundle's views listen to S.emit; the frame loop draws everything else */ });
 renderAll();
 syncBar();
-window.CompositionLabR3 = { S, VARIANTS, selfCheck: null, run: () => selfCheck(), frame: () => FRAME };
+window.CompositionLabR3 = { S, VARIANTS, selfCheck: null, run: () => selfCheck(), frame: () => FRAME, t4Contrast: () => T4_CT.map(c => ({ v: c.v, kind: c.kind, scheme: c.scheme, corner: 'ABCD'[c.i], ratio: +c.ratio.toFixed(2) })) };
 if (S.reduce) { PAUSED = true; $('playBtn').textContent = 'Play'; say('Reduced motion: the scripts are paused; press Play or +1 frame. ' + VARIANTS.length + ' variants.'); }
 else say('Ready: ' + VARIANTS.length + ' variants (' + VARIANTS.filter(v => !v.ref && !v.ruled).length + ' proposed); ' + S.mappings.length + ' seeded routes; ' + S.depthRoutes.length + ' depth route.');
 requestAnimationFrame(loop);

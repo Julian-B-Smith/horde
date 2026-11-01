@@ -27,3 +27,24 @@
 - **Alternatives rejected:**
   - Running the page on the bundle's `Session.start`: it reads the rAF timestamp, a clock. The page steps `S.t` from its own frame counter instead.
   - Hard-coding the dark scheme's token values to draw both schemes side by side: they would drift. The two scopes are generated at load from `tokens.css`'s own `:root` rules.
+
+## Addendum, 2026-11-01: T4c-e and T4c-f (the human's answer to the T4c poll)
+
+- **Why:** the human answered the T4c poll with a new request: "Could we try a hollow triangle with the stroke in the corner color? And the same but with a circle to match the smaller knob."
+- **What changed:** two variants in the T4c group, in the same card format (all four corners, both schemes, contrast measured from the tokens). Both are added to the poll.
+  - **T4c-e** is a hollow triangle, 7 × 6.8 px, with its tip 2 px into the level. The level is cut away inside it by a see-through mask.
+  - **T4c-f** is a hollow circle on the level's right edge, matching T2d's pip: a hole of radius 3 and a rim at radius 2.4.
+  - Both use a 1.2 px stroke, drawn two ways side by side: the corner's fill colour (`--cX`, as asked) and its legible ink (`--cX-tx`, which T2d's hollow pip is rimmed in).
+- **Measured contrast** against the panel, corners A / B / C / D:
+
+  | stroke | light panel | dark panel |
+  |---|---|---|
+  | fill colour | 1.3 / 3.4 / 1.8 / 1.3 | 11.9 / 4.8 / 9.1 / 12.2 |
+  | -tx ink | 4.9 / 4.9 / 5.0 / 4.9 | 13.3 / 6.5 / 11.6 / 13.6 |
+
+  The poll recommends T4c-f with the -tx stroke.
+- **Self-check:** PASS 4 of 4.
+  - mount: 25 of 25;
+  - hover: 316 controls hovered, 46,278 boxes compared, 0 moved; the control moved 12;
+  - drag: 65,400 boxes compared, 0 moved;
+  - joins: 1,255 stroked SVG marks, all round.
