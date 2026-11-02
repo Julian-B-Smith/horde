@@ -10854,3 +10854,32 @@ Three points stayed open, because the shell already marks a knob selected the mo
 - **Needed from the lead, unchanged (ADR-340, ADR-341):** B70's depth routes in the engine's route table. Until then a depth wire can't be real in the shell: the shell refuses the drop today, and the rulings for depth wires wait there.
 - **Not verified:** whether a host keeps right-click and Delete in a plugin window. The strip's row remains the route to both.
 - **FX device (ADR-254):** the same gestures apply on its pages wherever it shows wires.
+
+## ADR-349 — RULED by the human: drawn modulator shapes of any point count morph by travelling points; per-point Quantum on trial; modulators before ENV 1 to 4; a cap of 32 points (B601, B208, B128; 2026-11-02)
+
+**Context.** The human, 2026-11-02: “something we need to workshop: how to create variable envelopes/LFOs that are still morphable”. The lead read “variable” as any number of points per shape. A 3-point shape cannot blend with a 9-point one until something decides which point becomes which. The design system's LFO and envelope editors already draw any number of points, and both mark that model as an unruled placeholder. The lead compared three answers on a playable page ([Variable Shape Morph](https://claude.ai/artifact/WPZgMkUMVfFbe6MMXyZjsd), private to the human): matched points, an output mix, and a shape table scanned by one Position knob.
+
+**Rulings (the human, 2026-11-02):** “travel, try per-point Quantum, modulators first, keep 32”.
+1. **Travel.** Under Blend and Stepped, a drawn shape's points move. All four corners share one point list, and each corner holds its own time, level and bend for every point.
+2. **Per-point Quantum, on trial.** Each point picks its corner on its own, so a position can sound a shape nobody drew. It is built that way and heard before it is final; the whole-shape flip is what a later ruling would return to.
+3. **Modulators first.** The LFOs and any envelopes added beyond ENV 1 to 4 get this. ENV 1 to 4 stay as SPEC-ENGINE has them, so there is no spec round and the clean room is untouched.
+4. **A cap of 32 points** per shape, counted on the shared list. It is the modulator lab's existing `MAXPTS`.
+
+**The lead's recommendation, accepted with ruling 1 and recorded so the next session need not re-derive it.**
+- **Adding a point changes no sound in the other corners.** It lands in them parked, on their curves. Under C.12's law a segment of bend u split at fraction f is exactly two segments of bend u·f and u·(1 − f). Checked across the whole bend range: worst error 1.8e-15, against 0.41 for the naive split that keeps each half's bend. A parked point becomes a real point when it is dragged in that corner. A point parked in all four corners leaves the list.
+- **A corner that differs in kind** (drawn against S&H or random) cannot be matched, so those corners mix by output, as SB-1 mixes a structural group by gain.
+- **Times.** Blending keeps a list in order, since each point's time is a weighted mean of ordered values. An envelope's stage lengths blend through the log taper its time rows already use (5.2), so a 10 ms and a 1 s attack meet near 100 ms. An LFO's times are in cycles and blend linearly. Per-point picks can disorder times, so the lab re-sorts them; a list never runs backward.
+- **Storage.** A list's length varies and a plugin's parameter list is fixed at load, so points are not host parameters. They are corner state in the morph system, as the `ratios` texts are (RC-11.1, ADR-327). The host reaches a shape through the pad.
+- **Point pairing** runs only as a one-time edit action the user can correct, never while the sound runs: one added point could re-pair a whole shape and change the morph's path. The lab's first pairing weight parked a peak that had moved far instead of pairing it (7 rows where 4 were right), so this action needs care when it is built.
+
+**The lead's reading, not a ruling:** MO-7's `morph.cohesion` already spans the two Quantum behaviours if each point draws as a key does. At cohesion 1 all points pick one corner, which is the whole-shape flip, and at 0 each is independent. So ruling 2 may need no new control. The lab showed cohesion 0 only.
+
+**Open, for when the modulators are specified.** The sustain point of an added envelope (per corner or shared); what smooths an LFO's output at a point's flip; the count (MO-11) for a mix across kinds; how a point pick is keyed, which must obey ADR-185's rule that appending never moves an existing patch.
+
+**Rejected.** The output mix as the law for drawn shapes (nothing moves; the attack pair above gives a jump to half level, then a slow rise). The shape table for now (the pad's two dimensions collapse into one line); nothing here rules it out later. Pairing points while the sound runs. A pool of fixed points as host parameters.
+
+**Consequences.**
+- B601 holds the work: it reaches the modulator lab (B208) and the editors' placeholders with the GUI session, and the modulators' spec when RC-4's deferral ends.
+- B128's question 3 (multi-stage envelopes) is answered for the added envelopes only.
+- The design ledger gains one row, state `ruled`.
+- **FX device (ADR-254):** the same law applies to its LFOs, which are shell-independent. It has no ENV 1 to 4 to defer.
