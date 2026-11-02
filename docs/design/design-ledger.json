@@ -196,6 +196,10 @@
    "status": "retired",
    "note": "Archived in the design index (its lab-archive tag): legacy-era design bench; superseded by the screens and compact labs. History, never a source."
   },
+  "lens-preset-lab.html": {
+   "status": "exploring",
+   "note": "One place for the Lens on every page and a place for global presets (GUI-4 ruling 7), on the running shell. The Lens is the bundle's; the preset control is MOCK with the factory bank's real names. Nothing is harvested until a ruling."
+  },
   "listening-pass.html": {
    "status": "exploring",
    "note": "B324: the blind calibration pass; 'nobody has listened' (its golden note). Calibration, not design."
@@ -206,8 +210,9 @@
    "note": "Ruled M1 (GUI-2). Not yet harvested: the Specimen and the live logo go to the master next. main-layout-lab-parts.js holds the bench's code for this lab only."
   },
   "main-workshop-lab.html": {
-   "status": "exploring",
-   "note": "Five ways to use Main's space, with small oscillator, filter, bend, scale and arp panels (B581), on the running shell. The human reopened GUI-2's layout for space; GUI-2 stands until a ruling. Nothing is harvested until then."
+   "status": "ruled",
+   "adr": "GUI-4",
+   "note": "Ruled B, One deck, with stacked pads (GUI-4). Not yet harvested: the Lens and preset lab comes first. Filter, bend, scale and macros are MOCK here."
   },
   "maw-horde-lab.html": {
    "status": "ruled",
@@ -4967,7 +4972,7 @@
    "via": null,
    "shell": null,
    "state": "ruled",
-   "superseded_by": null
+   "superseded_by": "GUI-4"
   },
   {
    "id": "gui2-xy-assignable",
@@ -5148,6 +5153,111 @@
    "superseded_by": null,
    "port_tab": "modulators",
    "note": "The lab is the private page the ADR cites, not a repo lab. LfoShapeEditor and EnvelopeEditor draw any number of points in one corner; showing parked points and editing per corner are not in the master yet. RC-4 still defers the LFOs."
+  },
+  {
+   "id": "gui4-main-one-deck",
+   "adr": "GUI-4",
+   "clause": "ruling 1 (Main is B, One deck: macros, ENV 1's picture, then a deck, beside the pads; the foot row stays; amends GUI-2 r1)",
+   "port_tab": "main-rest",
+   "note": "Waits on the Lens and preset ruling (GUI-4 r7). The master has no deck component yet. FX device: no Main.",
+   "lab": "docs/design/main-workshop-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null
+  },
+  {
+   "id": "gui4-pads-stacked",
+   "adr": "GUI-4",
+   "clause": "ruling 2 (the left column stays stacked: morph pad over Specimen XY)",
+   "port_tab": "main-rest",
+   "note": "GUI-2's reading stands.",
+   "lab": "docs/design/main-workshop-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null
+  },
+  {
+   "id": "gui4-deck-tabs",
+   "adr": "GUI-4",
+   "clause": "ruling 3 (the deck's tabs: Osc 1, Osc 2, Sub, Noise, Filter, Bend, Scale, Arp, ENV 1, Voice)",
+   "port_tab": "main-rest",
+   "note": "Filter needs Weir's rows, Bend RC-3's, Scale B260's: MOCK until then, and marked.",
+   "lab": "docs/design/main-workshop-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null
+  },
+  {
+   "id": "gui4-env1-tab",
+   "adr": "GUI-4",
+   "clause": "ruling 4 (ENV 1's hold, curves and velocity stay on Main, in the ENV 1 tab, all nine rows)",
+   "port_tab": "main-rest",
+   "note": "Real rows.",
+   "lab": "docs/design/main-workshop-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null
+  },
+  {
+   "id": "gui4-voice-tab",
+   "adr": "GUI-4",
+   "clause": "ruling 5 (Voice and Mix are a deck tab)",
+   "port_tab": "main-rest",
+   "note": "Real rows.",
+   "lab": "docs/design/main-workshop-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null
+  },
+  {
+   "id": "gui4-preset-fx-wanted",
+   "adr": "GUI-4",
+   "clause": "ruling 6 (a preset row and an FX line are wanted, unplaced; the FX line is open for a workshop because routing isn't always a straight line)",
+   "port_tab": "main-rest",
+   "note": "Presets: lens-preset-lab.html. FX line: no lab yet.",
+   "lab": "docs/design/main-workshop-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null
+  },
+  {
+   "id": "gui4-lens-first",
+   "adr": "GUI-4",
+   "clause": "ruling 7 (options for a Lens on every page in the same place and for presets come before Main is built)",
+   "port_tab": "main-rest",
+   "note": "docs/design/lens-preset-lab.html, exploring.",
+   "lab": "docs/design/main-workshop-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null
   },
   {
    "id": "adr351-arp-named-scale",
