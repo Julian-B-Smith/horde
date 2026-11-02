@@ -10,6 +10,8 @@
      pitch system. Scale: no rows yet, it is a local value. Macros: the bank's, not yet in the stub. The arp's lane and the XY's value. The ring's swarm and the cycle are SAMPLE
      drawings of the settings, never the engine's output: the shell has no audio engine.
 
+     RULED: B, One deck, by GUI-4 (2026-11-02), with stacked pads, and ENV 1 and Voice as tabs. The lab stays as the record of what was compared, opening on B.
+
      WHY A LAB. GUI-2 ruled the layout and the human reopened it for space. Nothing here edits gui3*, arp-face/ or the master: a ruling goes through the chain (ADR-316).
 
      THE SELF-CHECK prints in #selfcheck. It measures every option, and every tab of a deck, for parts that overlap or spill. Its controls: a planted overlap and a planted spill
@@ -63,7 +65,7 @@
 <body>
 <div class="col">
   <header>
-    <h1>Main: five ways to use the space</h1>
+    <h1>Main: five ways to use the space, B ruled</h1>
     <p>Each option is the running shell with small panels for the oscillators, filter, bend law, scale and arp. Pick one and try it in place. Knobs with a parameter row are real. Filter, bend, scale and macros are MOCK, because the engine has no rows for them yet, and they say so on their panels.</p>
   </header>
   <section aria-label="The options">
@@ -152,6 +154,7 @@ const FRAME_CSS = `
 `;
 /* An option is a tree of regions. `room` drops the foot row where it says so. The left column holds the pads, the right the panels; deck tabs are in DECK order. */
 const DECK = [['osc1', 'Osc 1'], ['osc2', 'Osc 2'], ['sub', 'Sub'], ['noise', 'Noise'], ['filter', 'Filter'], ['bend', 'Bend'], ['scale', 'Scale'], ['arp', 'Arp']];
+const DECK_B = DECK.concat([['env1', 'ENV 1'], ['voice', 'Voice']]);   // GUI-4 rulings 3 to 5
 const OPTIONS = [
   { id: 'N0', name: 'As built', built: true,
     does: 'The shell today, with the logo. GUI-2\'s M1 is in the earlier lab, main-layout-lab.html.',
@@ -160,7 +163,7 @@ const OPTIONS = [
     does: 'All of it visible at once: macros, envelope, a tabbed oscillator panel like the bench\'s, and four small panels along the bottom.',
     costs: 'Nothing has much room. The four small panels are about 170 × 110, so each shows only its essentials, and the Specimen stays a modest size.' },
   { id: 'B', name: 'One deck', foot: true, left: 'stack', rows: [['macros', 60], ['env', 84], ['deck', 'rest']], decks: [['osc1']],
-    does: 'One big panel with eight tabs. Each gets real room: the oscillator shows its ring, both blades\' knobs and a wide cycle.',
+    does: 'Ruled (GUI-4). One big panel with ten tabs, with ENV 1 and Voice as tabs. Each gets real room: the oscillator shows its ring, both blades\' knobs and a wide cycle.',
     costs: 'You only see one at a time, so you can\'t watch the filter while you cut with a blade. Everything else is one click away.' },
   { id: 'C', name: 'Two decks', foot: true, left: 'stack', rows: [['macros', 60], ['env', 84], ['twoDecks', 'rest']], decks: [['osc1'], ['filter']],
     does: 'Two panels side by side, each with the same eight tabs, so you choose what sits next to what: Osc 1 and the filter, say, or two oscillators.',
@@ -175,7 +178,7 @@ const OPTIONS = [
 const $ = id => document.getElementById(id), frame = $('frame'), wrap = $('wrap'), Parts = window.MainLabParts;
 const MACRO_NAMES = ['Tone', 'Space', 'Time', 'Motion', 'Macro 5', 'Macro 6', 'Macro 7', 'Macro 8'];
 const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
-let w, d, H, S, S2, ready = false, active = 'C', frameNo = 0, playing = false, xyPos = [.62, .42], painters = [], pad, home = new Map(), measured = {};
+let w, d, H, S, S2, ready = false, active = 'B', frameNo = 0, playing = false, xyPos = [.62, .42], painters = [], pad, home = new Map(), measured = {};
 const mock = { filterType: 0, law: 4, scale: { root: 0, mask: null } };
 
 // ===== small builders, all against the frame's document =====
@@ -296,6 +299,8 @@ function face(kind, host, roomy, head, narrow) {
   host.classList.remove('lab-narrow-osc');
   if (kind === 'osc1' || kind === 'osc2') { if (narrow) oscNarrow(host, kind); else oscFace(host, kind, roomy); }
   else if (kind === 'sub') subFace(host, roomy); else if (kind === 'noise') noiseFace(host, roomy);
+  else if (kind === 'env1') { const r = el('div', 'lab-kr'); host.append(r); ['attack', 'hold', 'decay', 'sustain', 'release', 'attackCurve', 'decayCurve', 'releaseCurve', 'velocity'].forEach(k => knob(r, 'env1.' + k, null, 'compact')); }
+  else if (kind === 'voice') { const r = el('div', 'lab-kr'); host.append(r); moved(r, 'voice.mode', 'Voicing'); knob(r, 'voice.gravity', 'Gravity', 'compact'); [['mix.osc1', 'Osc 1'], ['mix.osc2', 'Osc 2'], ['mix.sub', 'Sub'], ['mix.noise', 'Noise'], ['out.level', 'Out']].forEach(([x, l]) => knob(r, x, l, 'compact')); }
   else if (kind === 'filter') filterFace(host, roomy, head); else if (kind === 'bend') bendFace(host, roomy, head); else if (kind === 'scale') scaleFace(host, roomy); else if (kind === 'arp') arpFace(host, roomy);
 }
 function clean() { S.views = S.views.filter(v => !v.el || v.el.isConnected); S2.views = S2.views.filter(v => !v.el || v.el.isConnected); }
@@ -309,8 +314,8 @@ function tabbed(title, tabs, start, roomy, cls, narrow) {
 }
 function mini(kind) { const t = { filter: 'Filter', bend: 'Bend law', scale: 'Scale', arp: 'Arp' }[kind], p = panel(t, TAGS[kind].split(' · ')[0] === 'MOCK' ? 'MOCK' : '', 'lab-small lab-m-' + kind); face(kind, p.body, false, p.head); return p; }
 function macrosPanel() { const p = panel('Macros', 'MOCK · not in the stub yet'), m = el('div', 'lab-macros'); m.style.flex = '1 1 auto'; p.body.append(m); MACRO_NAMES.forEach((n, i) => mockKnob(m, 'macro' + i, n, .35, 'utility')); return p; }
-function envPanel() {
-  const p = panel('ENV 1', 'hold, curves and velocity go to the Mod page', 'lab-env'), vz = d.querySelector('.vz[data-lab-env]') || d.querySelector('#page-main .vz');
+function envPanel(whereRest) {
+  const p = panel('ENV 1', whereRest, 'lab-env'), vz = d.querySelector('.vz[data-lab-env]') || d.querySelector('#page-main .vz');
   vz.setAttribute('data-lab-env', ''); if (!home.has(vz)) home.set(vz, [vz.parentNode, vz.nextSibling]); p.body.append(vz);
   const k = el('div', 'lab-kr'); k.style.cssText = 'flex:0 0 auto;flex-wrap:nowrap;'; p.body.append(k); [['attack', 'A'], ['decay', 'D'], ['sustain', 'S'], ['release', 'R']].forEach(([x, l]) => knob(k, 'env1.' + x, l)); return p;
 }
@@ -356,9 +361,9 @@ function build(o) {
   let deckN = 0;
   o.rows.forEach(([kind, h0]) => {
     let e;
-    if (kind === 'macros') e = macrosPanel(); else if (kind === 'env') e = envPanel(); else if (kind === 'preset') e = presetPanel(); else if (kind === 'fx') e = fxPanel();
+    if (kind === 'macros') e = macrosPanel(); else if (kind === 'env') e = envPanel(o.id === 'B' ? 'all nine rows in the ENV 1 tab' : 'hold, curves and velocity would need a home'); else if (kind === 'preset') e = presetPanel(); else if (kind === 'fx') e = fxPanel();
     else if (kind === 'oscTabs') { e = tabbed('Oscillator', DECK.slice(0, 4), 0, false, 'lab-oscp'); }
-    else if (kind === 'deck') { e = tabbed('', DECK, DECK.findIndex(t => t[0] === o.decks[0][0]), true, 'lab-oscp lab-deck'); }
+    else if (kind === 'deck') { e = tabbed('', DECK_B, DECK_B.findIndex(t => t[0] === o.decks[0][0]), true, 'lab-oscp lab-deck'); }
     else if (kind === 'twoDecks') { e = el('div', 'lab-row'); o.decks.forEach(dk => { const p = tabbed('', DECK, DECK.findIndex(t => t[0] === dk[0]), false, 'lab-deck' + (deckN++ ? '' : ' lab-oscp'), true); e.append(p); }); }
     else if (kind === 'minis') { e = el('div', 'lab-row'); o.minis.forEach(m => e.append(mini(m))); }
     e.style.flex = h0 === 'rest' ? '1 1 0' : '0 0 ' + h0 + 'px'; R.append(e);

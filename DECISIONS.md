@@ -10883,3 +10883,28 @@ Three points stayed open, because the shell already marks a knob selected the mo
 - B128's question 3 (multi-stage envelopes) is answered for the added envelopes only.
 - The design ledger gains one row, state `ruled`.
 - **FX device (ADR-254):** the same law applies to its LFOs, which are shell-independent. It has no ENV 1 to 4 to defer.
+
+## GUI-4 — RULED by the human: Main is one deck under the macros and envelope, beside the stacked pads; a Lens in one place on every page and a top-bar preset control are to be drawn next (B581; amends GUI-2 ruling 1; 2026-11-02)
+
+**Context.** The human reopened GUI-2's layout: "I want a better use of space", with a minimal oscillator section like the bench's, and possibly filter, bend law, scale and arp panels. `docs/design/main-workshop-lab.html` (#1332) put five layouts on the running shell, and the human answered by poll on 2026-11-02. The lab recommended D, which drops the foot row on Main; the human chose B, One deck, and kept the foot row.
+
+**Rulings.**
+1. **Main's layout is B, One deck.** To the right of the pads: the eight macros, then ENV 1's wide picture with A, D, S and R, then one deck. **Amends GUI-2 ruling 1.** The foot row stays (ADR-345). GUI-2's rulings 2, 3 and 4 stand.
+2. **The left column stays stacked:** the morph pad over the Specimen XY, as GUI-2 ruled.
+3. **The deck's tabs:** Osc 1, Osc 2, Sub, Noise, Filter, Bend, Scale, Arp, ENV 1, Voice. The human asked for all four of filter, bend, scale and arp.
+4. **ENV 1's hold, curves and velocity stay on Main, in the ENV 1 tab,** with all nine rows.
+5. **Voice and Mix are a deck tab:** voicing, gravity, the four levels and Out.
+6. **The human wants a preset row and an FX line on Main,** neither placed yet:
+   - **Presets:** "there isn't any intuitive spot for loading global presets. Maybe somewhere in the top bar."
+   - **FX line, open:** "We'll have to workshop this since FX routing isn't always a straight line". The straight chain the lab drew is not ruled.
+7. **Next, before Main is built:** options for "a lens on every page in the same place, but this may require some reconsiderations", with the preset control, in `docs/design/lens-preset-lab.html`.
+
+**Readings taken (the GUI session's, open to the human).**
+- The Lens is gone from Main's layout until the Lens lab is ruled. Where it lands could change Main's room and every other page's, which is why the human chose to see it first.
+- Filter, Bend and Scale have no parameter rows, so they stay MOCK when built, and they say so, until their rows land: Weir's filter slot, the pitch system (RC-3), and the global scale (B260).
+
+**Consequences.**
+- These go into the master first (ADR-316), after the Lens and preset ruling.
+- The master has no deck component yet, and no small faces for the filter, bend, scale or arp.
+- **Needed from the lead:** the rows above when they land, and the intent bus's macros in the stub (unchanged).
+- **FX device (ADR-254):** it has no Main. What it takes from this is decided with the Lens and preset ruling.
