@@ -10908,3 +10908,21 @@ Three points stayed open, because the shell already marks a knob selected the mo
 - The master has no deck component yet, and no small faces for the filter, bend, scale or arp.
 - **Needed from the lead:** the rows above when they land, and the intent bus's macros in the stub (unchanged).
 - **FX device (ADR-254):** it has no Main. What it takes from this is decided with the Lens and preset ruling.
+
+## GUI-5 — RULED by the human: the morph pad stays on every page while morph is on, and hides on Main; the bank gets rounded corners (B589; ADR-315 r1, GUI-4; 2026-11-02)
+
+**Context.** The human, reviewing #1333: "I want to make sure the "morph XY on every page when morph is active" doesn't get reversed. It should also probably be hidden on the main page". Also: "The macro/mod bar at the bottom ... it's the only square box; please give it rounded corners." The shell had not reversed it: the two Main labs hide the dock while an option is on, on every page, which reads as a reversal to anyone who changes page there. That was the labs' fault. `main-workshop-lab.html` is fixed; `main-layout-lab.html` keeps the fault as a record of GUI-2 and is superseded by GUI-4.
+
+**Rulings.**
+1. **The morph pad docks on every page while morph is on. ADR-315 ruling 1 stands**, and it now has checks: the shell's self-check walks every page with morph on, with a control, and `gui3_seam_check`'s `dock` test holds the wiring in `./verify`, which runs no browser.
+2. **It hides on Main,** because under GUI-2 and GUI-4 Main's pad is on the page. This confirms the reading GUI-2 took. The human said "probably", so it stands open to change when Main is built and tried. The check expects the dock on Main until that build changes it.
+3. **The bank has rounded corners,** as every other box does.
+
+**Not ruled.** The bank's form and the macros' face: `docs/design/bank-lab.html` draws the human's three ideas (the bank at full height; the summed scope and spectrum; a routing diagram) and macro knobs. Those await a poll.
+
+**Readings taken (the GUI session's, open to the human).**
+- "The kuro and scalpel visualizers don't have bounding boxes" read as the Main lab's panels, which left them off. The shell's and the master's pictures have the house frame. The lab now frames every picture in its panels, and GUI-4's build carries that.
+
+**Consequences.**
+- The rounded corners go into the master's `.hd-bank` in the same batch as the bank's form, so there is one publish.
+- **FX device (ADR-254):** ruling 1 applies on its pages, and ruling 3 wherever it has a bank. It has no Main, so ruling 2 doesn't apply.

@@ -76,6 +76,8 @@
  *                description yet and is counted; the box never shows another section's text or an invented one
  *   canvases     the human's bugs of 2026-11-01, structural: an envelope picture's change test includes its size, and the source strip's chips
  *                don't shrink. The shell's self-check drives both in the browser, each with a control
+ *   dock         ADR-315 r1, GUI-5, structural: the human, "I want to make sure the morph XY on every page when morph is active doesn't get reversed". The dock is decided by
+ *                morph and the Pad switch alone, never by the page, and the shell's browser check that walks every page is still there. GUI-4's Main will hide it on Main, in this one test.
  *   infolock     ADR-345, structural: the foot row is F1's, the box is the bundle's InfoBox, a press is heard in capture and locks on a control and
  *                a section and releases otherwise, a hover can't reach a locked box and stays put on the box, the sidebar is one switch outside
  *                the patch and defaults off. The shell's self-checks drive all of it in the browser, each with a control
@@ -721,6 +723,14 @@ function suite(W) {
     ok(Math.max(...pts.map(q => q[1])) === 1, 'a short attack and decay never reach the peak in the vendored bundle');
   };
 
+  /* ADR-315 r1, GUI-5: verify runs no browser, so a reversal of the pad on every page would otherwise pass here */
+  T.dock = () => {
+    const t = W.__shellText;
+    ok(t.includes('const on = dev.morph().on, show = on && padShown;'), 'the dock is not decided by morph and the Pad switch alone, so a page could lose the pad (ADR-315 r1, GUI-5)');
+    ok(t.includes("$('dock').hidden = !show;"), 'the dock is not shown from that decision');
+    ok(t.includes("'Dock: with morph on, the morph pad docks on all '"), 'the shell\u2019s browser check that walks every page with morph on is gone');
+  };
+
   /* ADR-345, structural: the browser's self-checks (41 to 44 in the shell) drive these; this holds their wiring where no browser runs. */
   T.infolock = () => {
     const t = W.__shellText;
@@ -997,6 +1007,9 @@ const PLANTS = [
   ['sections', 'logic', "tag: 'SECTION · DRAFT'", "tag: 'SECTION'"],
   ['canvases', 'shell', "|| '') + '|' + sizeOf(main);", "|| '');"],
   ['canvases', 'shell', '.mapbar #srcStrip .src-chip { flex: 0 0 auto; }', '.mapbar #srcStrip .src-chip { flex: 0 1 auto; }'],
+  ['dock', 'shell', 'const on = dev.morph().on, show = on && padShown;', "const on = dev.morph().on, show = on && padShown && page === 'main';"],
+  ['dock', 'shell', "$('dock').hidden = !show;", "$('dock').hidden = true;"],
+  ['dock', 'shell', "'Dock: with morph on, the morph pad docks on all '", "'Dock: with morph on, the pad shows on some '"],
   ['infolock', 'shell', '.footrow { --foot-h: 120px;', '.footrow { --foot-h: 216px;'],
   ['infolock', 'shell', "const infoBox = H.InfoBox($('info'), S,", "const infoBox = H.InfoBoxX($('info'), S,"],
   ['infolock', 'shell', "const t = hostOf(e.target); if (t) { lockInfoKey(t.dataset.key); return; }", "const t = hostOf(e.target); if (t) { return; }"],

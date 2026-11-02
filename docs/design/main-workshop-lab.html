@@ -109,7 +109,7 @@ const FRAME_CSS = `
   .lab-kr { display: flex; flex-wrap: wrap; gap: 2px 6px; align-items: flex-start; align-content: flex-start; min-width: 0; }
   .lab-st { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
   .lab-st > .lab-l { font: 700 9px/1.2 var(--font-sans); color: var(--t2, var(--hint)); white-space: nowrap; }
-  .lab-well { position: relative; min-width: 0; min-height: 0; flex: 1 1 0; }
+  .lab-well { position: relative; min-width: 0; min-height: 0; flex: 1 1 0; width: auto; }   /* with .hd-viz, the house frame: the shell's and master's pictures have it */
   .lab-well canvas { position: absolute; left: 0; top: 0; width: 100% !important; height: 100% !important; display: block; }
   .lab-xy { position: relative; overflow: hidden; border: var(--stroke-ink) solid var(--ink); border-radius: var(--radius); background: var(--scr-ground); touch-action: none; }
   .lab-xy canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; }
@@ -178,7 +178,7 @@ const OPTIONS = [
 const $ = id => document.getElementById(id), frame = $('frame'), wrap = $('wrap'), Parts = window.MainLabParts;
 const MACRO_NAMES = ['Tone', 'Space', 'Time', 'Motion', 'Macro 5', 'Macro 6', 'Macro 7', 'Macro 8'];
 const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
-let w, d, H, S, S2, ready = false, active = 'B', frameNo = 0, playing = false, xyPos = [.62, .42], painters = [], pad, home = new Map(), measured = {};
+let wasMain = true, w, d, H, S, S2, ready = false, active = 'B', frameNo = 0, playing = false, xyPos = [.62, .42], painters = [], pad, home = new Map(), measured = {};
 const mock = { filterType: 0, law: 4, scale: { root: 0, mask: null } };
 
 // ===== small builders, all against the frame's document =====
@@ -204,7 +204,7 @@ function moved(host, key, label) {
   if (!home.has(e)) home.set(e, [e.parentNode, e.nextSibling]);
   const s = el('div', 'lab-st'); if (label) s.append(el('span', 'lab-l', label)); s.append(e); host.append(s); return e;
 }
-function well(host, label, grow) { const w0 = el('div', 'lab-well'); if (grow) w0.style.flex = grow; const cv = el('canvas'); cv.setAttribute('role', 'img'); cv.setAttribute('aria-label', label); w0.append(cv); host.append(w0); return cv; }
+function well(host, label, grow) { const w0 = el('div', 'lab-well hd-viz'); if (grow) w0.style.flex = grow; const cv = el('canvas'); cv.setAttribute('role', 'img'); cv.setAttribute('aria-label', label); w0.append(cv); host.append(w0); return cv; }
 function pills(host, names, cur, onPick, label) {
   const g = el('div', 'lab-tabs'); g.setAttribute('role', 'tablist'); if (label) g.setAttribute('aria-label', label);
   const paint = i => [...g.children].forEach((b, j) => b.setAttribute('aria-selected', String(j === i)));
@@ -234,7 +234,7 @@ function cycle(cv, id) {
 function oscNarrow(host, id) {
   host.classList.add('lab-narrow-osc');
   const top = el('div', 'lab-top'); host.append(top);
-  const rw = el('div', 'lab-well'); rw.style.cssText = 'flex:0 0 96px;height:96px;'; const rc = el('canvas'); rc.setAttribute('role', 'slider'); rc.setAttribute('aria-label', 'Ring: Coupling × Detune (SAMPLE swarm)'); rc.tabIndex = 0; rw.append(rc); top.append(rw); ring(rc, id);
+  const rw = el('div', 'lab-well hd-viz'); rw.style.cssText = 'flex:0 0 96px;height:96px;'; const rc = el('canvas'); rc.setAttribute('role', 'slider'); rc.setAttribute('aria-label', 'Ring: Coupling × Detune (SAMPLE swarm)'); rc.tabIndex = 0; rw.append(rc); top.append(rw); ring(rc, id);
   const m = el('div', 'lab-st'); m.style.cssText = 'flex:1 1 auto;gap:3px;min-width:0;'; top.append(m);
   const r1 = el('div', 'lab-kr'); m.append(r1); moved(r1, id + '.unison', 'Members'); moved(r1, id + '.blade1.on', 'Blade'); moved(r1, id + '.blade1.mode', 'Mode');
   const r2 = el('div', 'lab-kr'); m.append(r2); ['width', 'cut', 'position', 'depth', 'edges'].forEach(k => knob(r2, id + '.blade1.' + k));
@@ -242,7 +242,7 @@ function oscNarrow(host, id) {
 }
 function oscFace(host, id, roomy) {
   const a = el('div', 'lab-st'); a.style.cssText = 'flex:0 0 ' + (roomy ? 170 : 128) + 'px;gap:3px;'; host.append(a);
-  const rw = el('div', 'lab-well'); rw.style.flex = '1 1 0'; const rc = el('canvas'); rc.setAttribute('role', 'slider'); rc.setAttribute('aria-label', 'Ring: Coupling × Detune (SAMPLE swarm)'); rc.tabIndex = 0; rw.append(rc); a.append(rw); ring(rc, id);
+  const rw = el('div', 'lab-well hd-viz'); rw.style.flex = '1 1 0'; const rc = el('canvas'); rc.setAttribute('role', 'slider'); rc.setAttribute('aria-label', 'Ring: Coupling × Detune (SAMPLE swarm)'); rc.tabIndex = 0; rw.append(rc); a.append(rw); ring(rc, id);
   const m = el('div', 'lab-st'); m.style.cssText = 'flex:1 1 auto;gap:3px;min-width:0;'; host.append(m);
   const r1 = el('div', 'lab-kr'); m.append(r1); moved(r1, id + '.unison', 'Members'); moved(r1, id + '.baseWave', 'Base'); moved(r1, id + '.blade1.on', 'Blade'); moved(r1, id + '.blade1.mode', 'Mode');
   const r2 = el('div', 'lab-kr'); m.append(r2); ['width', 'cut', 'position', 'depth', 'edges'].forEach(k => knob(r2, id + '.blade1.' + k));
@@ -432,6 +432,8 @@ function loop() {
   const on = d.getElementById('morphOn').getAttribute('aria-checked') === 'true', puck = d.querySelector('#padHost .puck');
   Parts.MORPH.on = on; if (puck) { const cs = getComputedStyle(puck); Parts.MORPH.x = parseFloat(cs.getPropertyValue('--x')) || 0; Parts.MORPH.y = parseFloat(cs.getPropertyValue('--y')) || 0; }
   if (playing) { const step = 45, at = frameNo % step, env = Math.exp(-at / 30); Parts.AUD.feed = { t: 'vz', peak: .5 * env, act: 1, env, gates: at < 28 ? [PATTERN[Math.floor(frameNo / step) % PATTERN.length]] : [], lst: 2, lenv: env }; }
+  // An option is Main's alone. Leaving Main puts the pad back in the dock and the moved controls back on their pages, so morph's pad shows on every other page as ruled (ADR-315, GUI-5).
+  if (ready) { const onMain = !d.getElementById('page-main').hidden; if (onMain !== wasMain) { wasMain = onMain; if (onMain) build(OPTIONS.find(o => o.id === active)); else unbuild(); } }
   Parts.tick(); drawPad(); painters.forEach(f => f());
 }
 
@@ -458,6 +460,10 @@ frame.addEventListener('load', async () => {
   check(overlaps([{ x: 0, y: 0, w: 50, h: 50 }, { x: 40, y: 40, w: 50, h: 50 }]).length === 1 && !overlaps([{ x: 0, y: 0, w: 50, h: 50 }, { x: 60, y: 0, w: 50, h: 50 }]).length, 'Control: the overlap test reads a planted overlap, and not two parts side by side.');
   { build(OPTIONS.find(o => o.id === 'A')); await settle(); const p = d.querySelector('#labStage .lab-p'), s0 = spillOf(p), plant = el('button'); plant.style.cssText = 'display:block;flex:0 0 400px;height:400px;'; plant.textContent = 'x'; p.append(plant); const s1 = spillOf(p); plant.remove(); check(s0 === 0 && s1 > 0, 'Control: the cut-off test reads a planted control past a panel\'s edge (' + s1 + ' px), and nothing before it.'); }
   { const k0 = 'mix.sub', v0 = (() => { build(OPTIONS.find(o => o.id === 'E')); return val(k0); })(); await settle(); const ai = S.editing(S.params[k0]); S.params[k0].vals[ai] = .123; await settle(); const got = val(k0); S.params[k0].vals[ai] = v0; check(Math.abs(got - .123) < 1e-6 && Math.abs(val(k0) - v0) < 1e-6, 'A panel\'s knob is a face on the real row: a write to Sub level reached the device and came back, and was put back.'); }
+  { build(OPTIONS.find(o => o.id === 'B')); ready = true; wasMain = true; await settle(); d.getElementById('morphOn').click(); await settle();
+    const group = t => [...d.querySelectorAll('#pnav .pn-groups button')].find(x => x.textContent.trim() === t), dockShown = () => { const e = d.getElementById('dock'); return !e.hidden && e.getBoundingClientRect().width > 0 && e.contains(pad); };
+    const onMainHid = !dockShown(); group('Osc').click(); for (let i = 0; i < 6; i++) await settle(); const elsewhere = dockShown(); group('Main').click(); for (let i = 0; i < 6; i++) await settle(); const backHid = !dockShown() && !!d.querySelector('#labStage'); d.getElementById('morphOn').click(); await settle(); ready = false;
+    check(onMainHid && elsewhere && backHid, 'With morph on, the pad docks on another page and is hidden on Main, where it is on the page (GUI-5); an option never hides it elsewhere.'); }
   build(OPTIONS[0]); await settle();
   check(JSON.stringify(rectOf(d.querySelector('#page-main .hd-pv'))) === homeRect && d.querySelectorAll('#page-main [data-key]').length === homeKeys && !d.getElementById('labStage'), 'Leaving every option puts Main back where it was.');
   ready = true; apply(active); for (let i = 0; i < 40 && !(Parts.SPECIMEN.draws && Parts.LOGO.paints); i++) await settle();

@@ -72,6 +72,10 @@
    "status": "exploring",
    "note": "Arp's face as a module card; round 2 (B558, pickers with pictures) is open and its review tag stands. ADR-291 bears on it."
   },
+  "bank-lab.html": {
+   "status": "exploring",
+   "note": "The foot row's unused space and macros that all fit (B589): the bank at full height, the summed scope and spectrum above or beside it, or a routing diagram, with the macros as knobs. Measured with and without a Lens in the foot row. Scope, spectrum and routing are MOCK."
+  },
   "bend-lab.html": {
    "status": "harvested",
    "master_version": "1793374583-b6a5",
@@ -5252,6 +5256,51 @@
    "note": "docs/design/lens-preset-lab.html, exploring.",
    "lab": "docs/design/main-workshop-lab.html",
    "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null
+  },
+  {
+   "id": "gui5-dock-every-page",
+   "adr": "GUI-5",
+   "clause": "ruling 1 (the morph pad docks on every page while morph is on; ADR-315 r1 stands, now with a self-check)",
+   "port_tab": "main-rest",
+   "note": "The shell already does this, and gui3.html's self-check now walks every page with a control. The Main labs' dock-hiding was the labs' fault.",
+   "lab": "docs/design/main-workshop-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null
+  },
+  {
+   "id": "gui5-dock-hidden-main",
+   "adr": "GUI-5",
+   "clause": "ruling 2 (the dock hides on Main, where the pad is on the page; 'probably', open until Main is tried)",
+   "port_tab": "main-rest",
+   "note": "Goes in with GUI-4's Main, which changes the self-check's expectation for Main. FX device: no Main.",
+   "lab": "docs/design/main-workshop-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null
+  },
+  {
+   "id": "gui5-bank-corners",
+   "adr": "GUI-5",
+   "clause": "ruling 3 (the bank has rounded corners)",
+   "port_tab": "modulators",
+   "note": "One publish with the bank's form.",
+   "lab": "docs/design/bank-lab.html",
+   "component": "ModBank",
    "master_version": null,
    "bundle": null,
    "via": null,
