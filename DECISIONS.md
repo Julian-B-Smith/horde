@@ -10756,3 +10756,26 @@ Three points stayed open, because the shell already marks a knob selected the mo
 **Not changed:** a conflict between two appends to `DECISIONS.md`, or between neighbouring rows of `ROADMAP.md`, can still happen. This stops number clashes only. Marking `DECISIONS.md` as a union merge is a separate question, not ruled here.
 
 **Consequences.** `design_chain_check` reads the domains, with plants for a duplicate in a domain, an unregistered prefix and an unjudged GUI ruling, and clean controls for digits shared across domains. The root charter and `docs/design/CLAUDE.md` state the rule. **FX device (ADR-254):** none; this is how the records are numbered.
+
+## ADR-347 — RULED by the human: the new engine gets a CPU pass before the morph is built (B494, B488; 2026-11-01)
+
+**Context.** Spec §10.6 fails a cutover over 29 % of an M3 core on the heaviest bank patch at 8 voices, with 15 % as the target, and `horde_engine2_cpu` has existed since 2026-10-17. On 2026-11-01 the human asked: “Does it seem like we actually cut down any CPU with the new engine?” The lead found no record of the tool ever having been run; it runs only on the lead's instruction, and the lead never gave it. That is the lead's miss.
+
+**The reading (2026-11-01; unofficial, not PF-3).** Glass horde pad, Standard, 44.1 kHz, on build `5442272`, a Release `-O3` clean export:
+- **New engine:** about 28 % of a core at 1 voice and about 225 to 300 % at 8, timed through the offline renderer on a machine at load 20 or more, corrected by the old engine's calibration ratio. Raw CPU time reads 37 to 39 % and 288 to 379 %.
+- **Current engine, same session and same correction:** about 3.8 % and about 29 %, which agrees with B485's figure.
+- **So about 7 to 10 times slower.** A profile puts the time in the engine's blade code (`blade_sample`, `effective`, `window_point`) and libm calls, not in the render path.
+- **The official tool refused twice,** ten minutes each, with its guard on (load 7 to 8), so PF-3's figure is still owed. The earlier scratch run had its guard off and never finished; its output counts for nothing.
+
+**Ruling (the human, 2026-11-01): “CPU pass first, then the morph”.** The bar stays §10.6's: 15 % to pass, up to 29 % accepted with a follow-up, over 29 % fails the cutover.
+
+**The lead's calls, within the ruling, stated to the human and open to overrule.**
+- **The soak moves after the CPU pass,** since the pass changes the engine and the soak would tie up the machine that quiet measurements need. It still runs before the listening batch.
+- **A stopping rule.** The builder reports after its first round of changes. Under about 2× it stops and the question returns to the human. At 2× or better it continues until 29 % or until gains stop, then the morph starts. Stalled above 29 %, it returns to the human, because §10.6 would fail it.
+- **No gate moves.** The pass is judged by the same suite, with keep-the-gate (ADR-247) as it stands. BD-7 already allows single precision, approximations and fused multiply-add.
+
+**Consequences.**
+- The builder's order is in its `ANSWERS.md`. The test author's items 34 and 35 proceed in parallel and receive no figures from this reading (ADR-247).
+- The cutover estimate given to the human on 2026-11-01 no longer holds. Whether about 10× is reachable is unknown.
+- **FX device (ADR-254):** none directly. It hosts no engine, so this budget is not its own.
+
