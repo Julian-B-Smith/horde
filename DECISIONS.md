@@ -10793,3 +10793,17 @@ Three points stayed open, because the shell already marks a knob selected the mo
 - The preview's stand-in glide follows the new rule.
 - **FX device (ADR-254):** none; its sidechain's notes reach no glide.
 
+## GUI-1 — RULED by the human: there is one unified engine; nothing offers swarm and SCALPEL as engines to choose between (B589; 2026-11-01)
+
+**Context.** The human, 2026-11-01: "Also I'm noticing a failed assumption in the design system that I don't want creeping back in. The SectionHeader (at least) gives oscs a "swarm/scalpel" selection, but this is very much an outdated and inaccurate notion. There is a unified engine now." A sweep found it in the design master only: `SectionHeader`'s sample (`Engine: SWARM | SCALPEL`), `PageNav`'s summaries, an invented Detune law sample offering Swarm in `Stepper` and `Companion`, and the wording of the master's README and `ScaleSelector`. The shell and the real parameter rows never had it.
+
+**Rulings.**
+1. **One unified engine.** Every oscillator is a swarm cut by blades; there is no engine to choose. Samples, previews and labs never present swarm and SCALPEL as alternatives.
+2. **It is gated, as the human asked that it not come back.** `tools/engine_words_check.py` refuses an Engine label, options naming both, a summary naming an oscillator's kind, and a detune law offering swarm, across the master, the shell and the labs, and the old wording in the master and the shell. "Swarm" alone stays correct: it is the oscillator's part, and Spread law and a blade's Frame really offer it.
+
+**Consequences.**
+- Master samples take their names and options from the real rows (`docs/design/gui3/params.json`).
+- Old labs stay as history (ADR-316). Three lines that trip a rule are pinned by name; the Scalpel bench's footer is one, so a port from the bench must not copy it.
+- **Needed from the lead:** the root `CLAUDE.md` still opens with "a family of experimental, responsive engines" and "the founding engine". That file is the lead's, and agents read it every session.
+- **FX device (ADR-254):** none; it has no oscillators.
+

@@ -50,7 +50,7 @@
   var keys = function () { return S.keys; };
   /* OSC 1: the strip at the top of the bench's controls */
   H.SectionHeader(document.getElementById('h0'), { name: 'Osc 1', path: 'Osc 1', on: true, S: S, section: document.getElementById('s0'), keys: keys,
-    modes: { label: 'Engine', options: ['SWARM', 'SCALPEL'], value: 1 }, summary: 'swarm 1 · scalpel · 5 members' });
+    modes: { label: 'Detune law', options: ['cents', 'Hz', 'ERB', 'harmonic'], value: 0 }, summary: '5 members · cents' });
   k('k0a', 'osc1.members', 'Members', [.3, .5, .4, .7]); k('k0a', 'osc1.detune', 'Detune', [.18, .72, .4, .9]); k('k0a', 'osc1.coupling', 'Coupling', [.5, .85, .3, .62], { bipolar: true });
   H.pillGroup(document.getElementById('w0'), ['Sine', 'Tri', 'Saw', 'Rev saw', 'Square'], 2, 'Osc 1 · Base wave', null, { keys: keys });
   k('k0b', 'osc1.volume', 'Volume', [.7, .66, .8, .55], { size: 'standard' });
