@@ -10983,3 +10983,18 @@ Three points stayed open, because the shell already marks a knob selected the mo
 **Consequences.**
 - The rounded corners go into the master's `.hd-bank` in the same batch as the bank's form, so there is one publish.
 - **FX device (ADR-254):** ruling 1 applies on its pages, and ruling 3 wherever it has a bank. It has no Main, so ruling 2 doesn't apply.
+
+## GUI-6 — RULED by the human: global presets go in the top bar's top row, compact (P1) (B581, B261; GUI-4 ruling 6; 2026-11-02)
+
+**Context.** GUI-4 asked for a place to load global presets: "Maybe somewhere in the top bar." `docs/design/lens-preset-lab.html` (#1333) drew three. The human answered by poll on 2026-11-02: "P1 Top row, compact". The lab recommended P3, a large name across both rows.
+
+**Rulings.**
+1. **The global preset control is P1:** one line in the top row, between the page groups and the switches: previous, the name with its list, next, Save. It clears the logo, page tabs and switches on all 14 pages, and it costs a page no room.
+
+**Not ruled, and why.**
+- **The Lens.** The human: "The L visuals seem to be broken in the lab so I can't see the options". They were right: the lab finished measuring on the empty Filters page, so nothing could be hovered, and it ignored clicks while it measured with no sign why. That is fixed, each option has a diagram, and a check holds it. The Lens goes back to the human.
+- **The bank.** The human asked for a new version, drawn in `docs/design/bank-lab.html` as F5: "a version that puts the macro knobs in two rows of 4 next to the wheels, and then put the scope and spectrum next to the mod/macros bar but one on top of the other". On the macros: "So far I prefer the nobs and two wheels. But we will need to re-design the mod rows for this version as well to accommodate the new height". R1 to R3 draw those.
+
+**Consequences.**
+- P1 needs a preset seam in the device, which the shell doesn't have, and the file manager (B261), which hasn't started. Until then the master can hold the control, and it stays MOCK. The factory bank's files are in the legacy state format.
+- **FX device (ADR-254):** the same control, listing its own presets, where it has them.

@@ -74,7 +74,7 @@
   },
   "bank-lab.html": {
    "status": "exploring",
-   "note": "The foot row's unused space and macros that all fit (B589): the bank at full height, the summed scope and spectrum above or beside it, or a routing diagram, with the macros as knobs. Measured with and without a Lens in the foot row. Scope, spectrum and routing are MOCK."
+   "note": "The foot row's unused space and macros that all fit (B589), round 2: the human's F5, knobs in two rows of four beside the wheels with the scope over the spectrum, and three forms of mod row for it. Measured with and without a Lens in the foot row. Scope, spectrum and routing are MOCK."
   },
   "bend-lab.html": {
    "status": "harvested",
@@ -202,7 +202,7 @@
   },
   "lens-preset-lab.html": {
    "status": "exploring",
-   "note": "One place for the Lens on every page and a place for global presets (GUI-4 ruling 7), on the running shell. The Lens is the bundle's; the preset control is MOCK with the factory bank's real names. Nothing is harvested until a ruling."
+   "note": "Presets ruled P1 (GUI-6). The Lens is still open: the human couldn't see the options, because the lab stopped on an empty page, now fixed."
   },
   "listening-pass.html": {
    "status": "exploring",
@@ -5316,6 +5316,21 @@
    "note": "One publish with the bank's form.",
    "lab": "docs/design/bank-lab.html",
    "component": "ModBank",
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null
+  },
+  {
+   "id": "gui6-presets-p1",
+   "adr": "GUI-6",
+   "clause": "ruling 1 (the global preset control is P1: one line in the top row, between the page groups and the switches)",
+   "port_tab": "main-rest",
+   "note": "Needs a preset seam in the device and B261's file manager. MOCK until then, with the factory bank's real names. FX device: the same control, its own list.",
+   "lab": "docs/design/lens-preset-lab.html",
+   "component": null,
    "master_version": null,
    "bundle": null,
    "via": null,
