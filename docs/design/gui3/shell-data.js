@@ -15704,7 +15704,7 @@ window.GUI3_DATA = {
    "section": "5.3",
    "see": null,
    "source": "SPEC-ENGINE 5",
-   "spec": "How hard cross-mod and feedback drive their loop: stable below about 0.5 with a saw carrier, 0.66 with a triangle and 0.75 with a sine, throughout with a reverse saw or square, and lower with sine→saw at low notes (0.24 at C1), chaotic above wherever the window is long enough, each setting its own noise (C.14, BL-12; round 20, ADR-244, corrected in round 22, ADR-248; the label is a placeholder until the naming workshop).",
+   "spec": "How hard cross-mod and feedback drive their loop: stable below about 0.5 with a saw carrier, 0.38 with a triangle and 0.42 with a sine, nearly throughout with a reverse saw or square, about 0.34 with sine→saw from C3 up and at no setting below C3, chaotic above wherever the window is long enough, each setting its own noise (C.14, BL-12; round 20, ADR-244, corrected in round 22, ADR-248, and in round 50, ADR-350; the bank's presets with a live loop carry 1, B.1; the label is a placeholder until the naming workshop).",
    "target": "engine",
    "unit": ""
   },
@@ -19091,7 +19091,7 @@ window.GUI3_DATA = {
    "section": "5.3",
    "see": null,
    "source": "SPEC-ENGINE 5",
-   "spec": "How hard cross-mod and feedback drive their loop: stable below about 0.5 with a saw carrier, 0.66 with a triangle and 0.75 with a sine, throughout with a reverse saw or square, and lower with sine→saw at low notes (0.24 at C1), chaotic above wherever the window is long enough, each setting its own noise (C.14, BL-12; round 20, ADR-244, corrected in round 22, ADR-248; the label is a placeholder until the naming workshop).",
+   "spec": "How hard cross-mod and feedback drive their loop: stable below about 0.5 with a saw carrier, 0.38 with a triangle and 0.42 with a sine, nearly throughout with a reverse saw or square, about 0.34 with sine→saw from C3 up and at no setting below C3, chaotic above wherever the window is long enough, each setting its own noise (C.14, BL-12; round 20, ADR-244, corrected in round 22, ADR-248, and in round 50, ADR-350; the bank's presets with a live loop carry 1, B.1; the label is a placeholder until the naming workshop).",
    "target": "engine",
    "unit": ""
   },

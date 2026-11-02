@@ -10908,3 +10908,60 @@ Three points stayed open, because the shell already marks a knob selected the mo
 - The master has no deck component yet, and no small faces for the filter, bend, scale or arp.
 - **Needed from the lead:** the rows above when they land, and the intent bus's macros in the stub (unchanged).
 - **FX device (ADR-254):** it has no Main. What it takes from this is decided with the Lens and preset ruling.
+
+## ADR-350 — RULED by the human: the cross-mod and feedback loop goes back to the sound the bank was voiced with: strength 1 on the bank's looped presets, no filter, the tap before the offset removal; no loop-tone control; BL-12's limits move; spec round 50 (B602, B494; 2026-11-02)
+
+**Context.** The human heard the new engine's cross-mod and feedback presets as muddy and band-limited (“most pronounced in ring of sines. It feels like there's some sort of band limit or something?”), and asked: “Could it be a layering issue or a misinterpretation of the spec or a mis-written spec?” The lead compared the two loops line by line.
+- **The builder's code matches C.14.** There was no misreading.
+- **It is layering.** Three separate decisions stacked, each sound on its own, none compared to the sound:
+  - **Strength 0.3 against 1.** ADR-244's default, applied to every translated patch with “No migration is needed”.
+  - **The 5 kHz filter.** The human ratified it in ADR-189 A1, but it stayed an off-by-default flag (`aaLoop`), and the reference renders never set it. `docs/port/spec-engine-provenance.md` row 13 then made every such flag a requirement.
+  - **The tap after C.16's estimate.** ADR-250's wording, the lead's, with no ruling on that difference: one spec slip.
+- **The lead's miss:** the reference renders' flag state and the 0.3 translation were never compared with the spec's law, so the ear reference and the spec differed from round 20 on.
+
+**Evidence.**
+- With all three reverted, on the 14 presets with a live loop (56 pairs), the median spectral difference from the current engine falls from 4.12 dB to 1.48 dB; 42 pairs get closer, 1 further. The human: “All the "New, old loop" sounds are much closer to the original.”
+- **The band does not vanish, it moves** (ADR-189's own finding, reproduced). The current engine has a rate-locked band at R/5, 13 to 14 dB over its flanks on Feedback screech and Feedback choir at 44.1 and 48 kHz; the new law has none there, and a smaller one at R/3 (Feedback screech +8 to +10 dB, Feedback choir +4 to +5, Feedback snarl +5 to +6). An 11 kHz filter cleared most of it; the human heard that version and declined it: “it feels a little unnecessary to build a filter into the oscillator when there will be two filters available for every patch.” A patch filter cannot stop the loop forming the band, only take it out of the output.
+- **BL-12's map, engine-free** (ADR-247): the test author's own oracle (`harness/loop.h`, `reports/bl12_wave_map.cpp`, cleanroom-tests) with two changed lines, run by the lead, to be reproduced by the test author. Control: on the unchanged law it reproduces the published limits (saw 0.51, triangle 0.66, sine 0.75, Ring 0.71, sine→saw 0.24 at C1). On the new law the first failures are saw 0.50, triangle 0.38, sine 0.42, reverse saw 1.00, square 1.00 in the FM modes and none in Sync, Ring 0.55 (reverse saw 0.66), and sine→saw 0.34 from C3 and at every drive below C3. The new judged limits pass the whole grid of every n/100 at both qualities (11,264 points, 0 failing); the same limits raised by 0.1 fail 153 of 13,684. The first run's nudge read zero everywhere because the lead's patch had dropped it; the numbers above are from the corrected run.
+
+**Rulings (the human, 2026-11-02: “go on the loop items while I listen”, after “Or we can just rebuild the presets once the filters are designed.”; DT-3 by poll).**
+1. **C.14's tap** is d·(y⁰ + C.16's estimate), with no filter. ADR-189 A1's filter is reversed for the new engine.
+2. **The bank:** a preset with `xm` or `fb` above 0 translates to `loopDrive` 1. New patches keep the default 0.3 (ADR-244).
+3. **No loop-tone control.** Presets are re-voiced in the human's factory patch session once the synth is built.
+4. **BL-12's judged limits move** on the evidence above: saw 0.45, triangle 0.33, sine 0.37, reverse saw 0.95, square 0.86 in Sync and 0.95 in the FM modes, Ring 0.50, sine→saw 0.29 from C3. Sine→saw below C3 is reported, one octave more than before: there it does not contract even at the knob's lowest setting.
+5. **DT-3 reports, and no longer judges, a preset with a live loop** (“Report them”): such a preset is chaotic and its band follows the rate.
+
+**Not ruled here.** X23 stays as written, PROPOSED. The human prefers raw `K` by ear, but the knob's curve is being judged (the coupling sweep), and a new curve changes what every `K` means, so they go together in a later round.
+
+**Rejected.** A per-oscillator Loop tone knob; a fixed 11 kHz filter; keeping 5 kHz with strength alone (Ring of sines' top end stayed about 9 dB under the current engine's).
+
+**Consequences.**
+- Spec round 50 reaches both clean-room repositories the same turn. The test author changes `loop.h` and its limits, `appendix_b.h`, 10.b6, and DT-3's scope, and reproduces the map. Any other bank gate that reads red under strength 1 comes back as a question, by ADR-247, never as a silent change. The builder changes the tap.
+- The rulings log gains row 85. Its order of work is unchanged: the CPU pass, then the morph.
+- **FX device (ADR-254):** none; it hosts no engine.
+
+## ADR-351 — RULED by the human: state budgets are re-derived for every module and enforced where a patch is created; Arp's presets carry enums by name; admission's causality clause reads a -60 dB threshold; a module with no exact dry setting is judged against its own renders; Arp's own scale uses the named-scale control (B603, B604, B605; 2026-11-02)
+
+**Context.** The human asked the lead to triage the awaiting briefs. Most were answered or waiting on S4. Six questions were the human's, by poll, from Sluice seq 73 (`brief-state-rows`), Arp seq 12 and 13, and Kiln seq 6 (`brief-admission-adapters`, respond by 2026-11-13).
+
+**Rulings (the human, by poll, 2026-11-02).**
+1. **Budgets: “Re-derive all budgets”,** declining Sluice's 8 KiB as a one-off. This reverses ADR-300's rejection of re-deriving now. RS-6.12's 2 KiB and 4 KiB stand only until the new figures are ruled.
+2. **Where the limit bites:** “I think whatever limit there is on saves should be enforced at the creation level so people can't make patches they can't save.” The poll's options (keep, drop or mark a refused corner) are superseded: a module's editor and randomizer must not be able to create a state over its budget. A refusal at load stays, as a guard against damaged or foreign files.
+3. **Arp's presets carry all 11 enums by name.** This amends ADR-294's “as their manifest index (append-only lists)” for scope `arp`.
+4. **Causality in A4 reads a threshold:** nothing above −60 dB of the response's peak before latency − 1, with a planted fault that must fire.
+5. **A module with no exact dry setting is judged in A6 against its own reference renders,** by Kiln's three checks (`outGain` against g × out at 0 dB; `inGain` against a 0 dB twin fed in × g; each ramp against the ideal linear ramp), **and the two partly blind controls are fixed** on such a module.
+6. **Arp's own scale uses the same named-scale control as the song scale.**
+
+**The lead's answers, from existing rulings, with no new ruling.**
+- **Sluice ask 2,** identical pads stored once: ADR-339. **Ask 5,** the three Device keys: RS-4.5. **Ask 4,** the restore order is accepted, subject to RS-6.6's one adoption at one boundary; Sluice is asked whether its steps can land at one boundary.
+- **Arp's shape:** the 11 enum keys travel by name only, in a `names` map beside the `Preset` in horde's corner record, mapped to indices on load, so there are never two truths. **Basis 0** in a factory preset is confirmed: a factory preset is saved under no modulation.
+- **Arp Q2,** narrower bands in profiles: yes, add the optional per-key bounds (ADR-318 ruling 2: a profile holds “each parameter's home and bounds”).
+- **Kiln's adapters** land under B579 and B561's pattern. **Kiln §5** is ADR-344 and B600.
+
+**Open.** Arp raised that a stepped host parameter's automation value shifts when its list grows, since it moves in steps of 1/(n − 1) (IF-11); no ruling exists, so it becomes a row. The budget's ceiling is also open: 64 KiB is a derived paste cap, not a measured host limit (the global note on silent chunk failures is why it matters).
+
+**Rejected.** 8 KiB for Sluice alone; refusing at save as the user-facing rule; positions with frozen lists; skipping the causality clause on a declaration; keeping the dry check for Kiln's drive.
+
+**Consequences.**
+- Sluice, Arp and Kiln are answered in their mailboxes. Every hosted module's resident is asked for its real maximum under creation-level caps.
+- **FX device (ADR-254):** rulings 1, 2, 4 and 5 apply as they stand, since it hosts the same modules through the same slot. Rulings 3 and 6 do not: it hosts no Arp.

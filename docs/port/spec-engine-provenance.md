@@ -195,7 +195,7 @@ Each is stated in the spec as plain law or requirement, without this history. Re
 | 9 | The frame starts each note at ψ if R ≥ 0.25, else at member 0's phase | ADR-216's constants (decided under its delegation) start it at ψ always | below R 0.25, ψ is the ill-conditioned angle the frame exists to avoid | C.13, BL-10 |
 | 10 | Each voice and member draws noise from its own stream | the prototype's noise blade draws from the one shared stream, so any note-on changes every sounding voice's noise (B469) | DT-4: a note-on never changes a voice already sounding | C.9 item 4, BL-18, DT-4 |
 | 11 | Modulator noise from the member's own stream keyed by the integer | the prototype's `sin` hash | SPEC-SCALPEL §10 ("do not replicate") | C.9 item 5 |
-| 12 | The cross-mod and feedback loop filter at 5 kHz | ADR-189 A1's prose says about 4 kHz; the ruled build (`LOOP_FC`) and today's engine use 5 kHz | copied from the build | C.14 |
+| 12 | The cross-mod and feedback loop filter at 5 kHz (removed in round 50, ADR-350) | ADR-189 A1's prose says about 4 kHz; the ruled build (`LOOP_FC`) and today's engine use 5 kHz | copied from the build | C.14 |
 | 13 | The frame never jumps (D6), a taken voice fades (D7), spread values ramp at `motionGrain` 0 (D8), a quantized cut waits for its cycle start (D9), the edge table (D10), the carrier and scan aims of D1 and D2, the loop filter of D3 | each was an off-by-default switch beside the old behaviour | ADR-223 item 5; the switches retire, the behaviours are requirements; D8's "off" (the human's blind preference, B460) is `motionGrain` 1, the default | SW-16, BL-10, BL-16, BL-17, VO-3, ED-1, C.14 |
 | 14 | A linear output stage: 0.14 × 10^(level/20) × the voice sum, no saturation | `tanh(1.6 · gain · y)` at the default gain 0.0875 (ADR-221) | the clipper made chords clip on 71 of 83 presets (B489); 0.14 = 1.6 × 0.0875 is today's small-signal gain, so 0 dB matches today's default level for small signals | 6.9, OU-1 |
 | 15 | Members sum with density compensation U^−0.75; the bank translates with +5·log₁₀(N) dB | the bank was voiced with 1/√N | the human's lock (`normExp` 0.75, 2026-10-02); the offset restores each bank preset's level exactly, so its balance (ADR-221 item 2) and its headroom (worst four-note chord 0.815, B489) are today's | C.8, SW-19, B.1 |
@@ -337,7 +337,7 @@ Every row of the B493 audit's section 2 lands here. KEEP and RULING rows become 
 | B6 smoothing, detune and coupling included | KEEP | PA-1, SW-17 |
 | B7 stepped keys while sounding | RULING | PA-5, PA-6; Q14 |
 | B8 blade envelopes | CULLED | 5.7; Appendix B (ENV 2, ENV 3 routes) |
-| B9 cross-mod, feedback, the loop filter (D3) | KEEP | BL-12 |
+| B9 cross-mod, feedback, the loop filter (D3; the filter removed in round 50, ADR-350) | KEEP | BL-12 |
 | B10 D1, D2 as switches | CULLED | their aim is ED-1 |
 | B11 edge correction, the minimum-phase table | KEEP | ED-1 to ED-5; QS-1, QS-2 |
 | B12 corners | RULING | ED-6; X3 |
