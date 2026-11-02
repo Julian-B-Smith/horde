@@ -11015,3 +11015,30 @@ Three points stayed open, because the shell already marks a knob selected the mo
 - This is the shell's own filter, so it is live in the shell now, with a self-check and a seam test.
 - The bank's count still says "n here", which is now wrong. The master changes that wording, and the ModBank README's "what modulates this page", in the batch that carries the bank's form.
 - **FX device (ADR-254):** ruling 2 applies wherever it has a bank. It has no ENV 1 of this kind, so ruling 1 doesn't apply; its own modulators follow the same rule.
+
+## GUI-8 — RULED by the human: the foot row is F5 with the Lens in its own box; the mod rows are R2; the colours go in the top bar and on Settings (B589, B581; amends ADR-338 r5 and r7, ADR-341 r6, ADR-345 r1; 2026-11-02)
+
+**Context.** `docs/design/bank-lab.html` and `docs/design/lens-preset-lab.html` drew the options, including the human's own F5. The human answered by poll on 2026-11-02: "I like L1 but I think info can be a touch thinner to accommodate it"; "Yes, F5"; "R2 Two columns of short rows"; and "Both" for the colours. Earlier: "So far I prefer the nobs and two wheels". The lab recommended L2; the human chose L1 and made room for it.
+
+**Rulings.**
+1. **The Lens is in the foot row, in its own box, on every page:** one Lens, 214 × 120, between the info box and the bank. It leaves the pages' left columns. **Amends ADR-338 ruling 5.**
+2. **The info box is narrower, to make room for it.** Width in the readings below. **Amends ADR-345 ruling 1's 300 px.** It stays 120 px high.
+3. **The bank is F5:** full height, 302 px, beside the summed scope over the summed spectrum. **Amends ADR-338 ruling 7's 68 px.** The scope and spectrum are wide and short, because the human found them no good tall.
+4. **The foot row spans the window,** so the morph dock and the MAP inspector end above it and can't squeeze it. The poll's option said so, and said what it costs: the dock and inspector are 126 px shorter.
+5. **The bank's macros are knobs:** two rows of four beside the bend and mod wheels, as small vertical sliders. **Amends ADR-341 ruling 6's rows;** the wheels' motion trace goes. ADR-341 ruling 7 stands: the bend springs back and the mod wheel holds.
+6. **The mod rows are R2:** two columns of short rows, name, small picture, Map, with eight in view. The value and × stay on the row's card.
+7. **Light or dark and the screen colour go in both places:** a toggle and chip in the top bar's second row, and the full list in the Settings page's Interface card. The shell had no screen colour control, so this adds one.
+
+**Readings taken (the GUI session's, open to the human).**
+- **Info is 240 px.** "A touch thinner" needed a number. That gives the scope and spectrum 183 px instead of 123, and it's a figure to move if it doesn't feel right.
+- The scope and spectrum stay MOCK until the engine's observation view (IF-10).
+
+**Open, to be drawn.**
+- **How a macro knob maps.** The rows had a Map button and the knobs don't. The human hasn't been asked yet.
+- The FX line (GUI-4 ruling 6), which is still to be workshopped.
+
+**Consequences.**
+- **Now nothing blocks Main's build:** the Lens lab was the reason GUI-4 waited, and the Lens takes none of Main's room.
+- These go into the master first (ADR-316), with GUI-5's rounded corners and the bank's count wording from GUI-7, then one publish, then the bundle and shell. The ledger's rows for ADR-338 r7, ADR-341 r6 and ADR-345 r1 stay in-shell until that hop, which marks them superseded.
+- The Lens's single place frees the left column on the 8 pages that had one, and those pages' layouts need a look.
+- **FX device (ADR-254):** rulings 1 to 4 and 7 apply on its pages. It has no macros of this kind, and its modulators take R2. The scope and spectrum read its own output.

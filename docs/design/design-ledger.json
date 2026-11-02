@@ -73,8 +73,9 @@
    "note": "Arp's face as a module card; round 2 (B558, pickers with pictures) is open and its review tag stands. ADR-291 bears on it."
   },
   "bank-lab.html": {
-   "status": "exploring",
-   "note": "The foot row's unused space and macros that all fit (B589), round 2: the human's F5, knobs in two rows of four beside the wheels with the scope over the spectrum, and three forms of mod row for it. Measured with and without a Lens in the foot row. Scope, spectrum and routing are MOCK."
+   "status": "ruled",
+   "adr": "GUI-8",
+   "note": "Ruled F5, knobs, R2, the Lens in its own box and Info at 240 px (GUI-8). Not yet harvested. Scope, spectrum and routing are MOCK."
   },
   "bend-lab.html": {
    "status": "harvested",
@@ -201,8 +202,9 @@
    "note": "Archived in the design index (its lab-archive tag): legacy-era design bench; superseded by the screens and compact labs. History, never a source."
   },
   "lens-preset-lab.html": {
-   "status": "exploring",
-   "note": "Presets ruled P1 (GUI-6). The Lens is still open: the human couldn't see the options, because the lab stopped on an empty page, now fixed."
+   "status": "ruled",
+   "adr": "GUI-8",
+   "note": "Ruled the Lens in its own foot row box and the colours in both places (GUI-8), and presets P1 (GUI-6). Not yet harvested. The preset control is MOCK."
   },
   "listening-pass.html": {
    "status": "exploring",
@@ -5366,6 +5368,111 @@
    "via": null,
    "shell": "docs/design/gui3.html: function bankMods()",
    "state": "in-shell",
+   "superseded_by": null
+  },
+  {
+   "id": "gui8-lens-foot",
+   "adr": "GUI-8",
+   "clause": "ruling 1 (the Lens is in the foot row, in its own box, on every page; amends ADR-338 r5)",
+   "port_tab": "composition-tier",
+   "note": "The bundle's Lens with every key in scope. Frees the left column on 8 pages.",
+   "lab": "docs/design/bank-lab.html",
+   "component": "Lens",
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null
+  },
+  {
+   "id": "gui8-info-width",
+   "adr": "GUI-8",
+   "clause": "ruling 2 (the info box is narrower, read as 240 px; amends ADR-345 r1's 300 px)",
+   "port_tab": "composition-tier",
+   "note": "240 is the GUI session's reading of 'a touch thinner'.",
+   "lab": "docs/design/bank-lab.html",
+   "component": "InfoBox",
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null
+  },
+  {
+   "id": "gui8-bank-f5",
+   "adr": "GUI-8",
+   "clause": "ruling 3 (the bank is F5: full height, 302 px, beside the scope over the spectrum; amends ADR-338 r7)",
+   "port_tab": "modulators",
+   "note": "The scope and spectrum are MOCK until IF-10.",
+   "lab": "docs/design/bank-lab.html",
+   "component": "ModBank",
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null
+  },
+  {
+   "id": "gui8-foot-spans",
+   "adr": "GUI-8",
+   "clause": "ruling 4 (the foot row spans the window; the dock and inspector end above it)",
+   "port_tab": "composition-tier",
+   "note": "126 px shorter dock and inspector. Not checked with the info sidebar on.",
+   "lab": "docs/design/bank-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null
+  },
+  {
+   "id": "gui8-macro-knobs",
+   "adr": "GUI-8",
+   "clause": "ruling 5 (the bank's macros are knobs, two rows of four beside two small wheels; amends ADR-341 r6)",
+   "port_tab": "macros",
+   "note": "How a knob maps is open.",
+   "lab": "docs/design/bank-lab.html",
+   "component": "MacroRow",
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null
+  },
+  {
+   "id": "gui8-mod-rows-r2",
+   "adr": "GUI-8",
+   "clause": "ruling 6 (the mod rows are R2: two columns of short rows; value and x on the card)",
+   "port_tab": "modulators",
+   "note": "Eight in view.",
+   "lab": "docs/design/bank-lab.html",
+   "component": "ModBank",
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null
+  },
+  {
+   "id": "gui8-colours-both",
+   "adr": "GUI-8",
+   "clause": "ruling 7 (light or dark and the screen colour in the top bar and on Settings)",
+   "port_tab": "main-rest",
+   "note": "The bundle's ScreenScheme, new to the shell.",
+   "lab": "docs/design/bank-lab.html",
+   "component": "ScreenScheme",
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
    "superseded_by": null
   }
  ],

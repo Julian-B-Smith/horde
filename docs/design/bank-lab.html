@@ -16,6 +16,8 @@
 
      ROUND 3: the foot row spans the window, so morph and MAP can't squeeze it. The human's three pictures of F5 with morph or MAP on. MODS now lists ENV 1 and every routed modulator (GUI-7, the shell's).
 
+     RULED: F5, the knobs, R2 and the Lens in its own box with Info at 240 px, by GUI-8 (2026-11-02). The lab stays as the record of what was compared, opening on the ruling.
+
      THE SELF-CHECK prints in #selfcheck. It measures every form with both macro faces, with and without a Lens in the foot row. Its controls: the rows as built must read as not fitting (that is the
      complaint), a planted row must read as overflow, and leaving every option must put the bank back.
 
@@ -60,7 +62,7 @@
 <body>
 <div class="col">
   <header>
-    <h1>The bank: no unused space, and macros that fit</h1>
+    <h1>The foot row: F5 ruled</h1>
     <p>The shell below is live, and its bank has rounded corners here. The three pickers are independent. Switch the bank between MAC and MODS with its own buttons. The scope, spectrum and routing diagram are MOCK.</p>
   </header>
   <section aria-label="What fills the space"><h2>What fills the foot row?</h2><div class="picker" id="pickForm"></div></section>
@@ -77,7 +79,7 @@
 <script>
 'use strict';
 const FORMS = [
-  { id: 'F5', name: 'Your version: knobs in two rows, pictures stacked', tx: 'The bank is about 302 px, full height, with the macros in two rows of four beside the wheels. The scope sits over the spectrum, wide and short.' },
+  { id: 'F5', name: 'Your version: knobs in two rows, pictures stacked. Ruled (GUI-8)', tx: 'The bank is about 302 px, full height, with the macros in two rows of four beside the wheels. The scope sits over the spectrum, wide and short.' },
   { id: 'F0', name: 'As built', tx: 'A 68 px bank under a 52 px gap, as you flagged. Square corners, here as the reference.' },
   { id: 'F1', name: 'Bank at full height', tx: 'The bank is as high as the info box. MODS gets a third lane of rows. Nothing new to look at.' },
   { id: 'F2', name: 'Scope and spectrum above', tx: 'The bank stays 68 px. The summed scope and spectrum fill the gap above it, wide and thin.' },
@@ -91,13 +93,13 @@ const FACES = [
 // The human: "we will need to re-design the mod rows for this version as well to accommodate the new height". These apply in F5; each is the bank's real row, restyled, so its Map, name and picture stay wired.
 const MODROWS = [
   { id: 'R3', name: 'Tiles, same grid as the knobs', tx: 'Two rows of four: name, live picture, Map. MAC and MODS keep one shape, and eight show at once. No value until you hover, and × moves to the row\'s card.' },
-  { id: 'R2', name: 'Two columns of short rows', tx: 'Four rows in each of two columns: name, a short picture, Map. Eight show at once. Compact, and more like the rows you know.' },
+  { id: 'R2', name: 'Two columns of short rows. Ruled (GUI-8)', tx: 'Four rows in each of two columns: name, a short picture, Map. Eight show at once. Compact, and more like the rows you know.' },
   { id: 'R1', name: 'One column, every part kept', tx: 'Today\'s full row, stacked, with four in view and the rest scrolling. Nothing is lost, but it has the fewest in view.' },
 ];
 const LENSES = [
   { id: 'no', name: 'Lens elsewhere', tx: 'The foot row as it is now, or the Lens in the rail or strip.' },
   { id: 'L2', name: 'Lens inside Info (L2)', tx: 'Takes 119 px from the bank.' },
-  { id: 'L1', name: 'Lens in its own box (L1)', tx: 'Takes 220 px from the bank.' },
+  { id: 'L1', name: 'Lens in its own box, Info 240 px. Ruled (GUI-8)', tx: 'The real Lens: hover any control. Info goes from 300 px to 240, so the pictures get 183 px instead of 123.' },
 ];
 const FRAME_CSS = `
   .hd-bank { border-radius: var(--radius); }
@@ -119,11 +121,14 @@ const FRAME_CSS = `
   #labMac.two .wh { height: 100%; width: 100%; }
   #labMac.two .wh .cp { font-size: 7.5px; }
   #labMeters.stack { flex-direction: column; flex: 1 1 0; }
-  #labLensBox { flex: 0 0 214px; height: 100%; box-sizing: border-box; border: var(--stroke-ink) solid var(--ink); border-radius: var(--radius); display: flex; align-items: center; justify-content: center; font: 400 10px/1.3 var(--font-mono); color: var(--hint); text-align: center; padding: 6px; }
+  #labLensBox { flex: 0 0 214px; height: 100%; overflow: hidden; }
+  #labLensBox .cl-lab { display: none; }
+  #labLensBox .lz-knob { min-height: 0; }
+  #labLensBox .lz-corners { display: grid; grid-template-columns: 1fr 1fr; gap: 0 6px; }
 `;
 const SEEDS = ['osc1.detune', 'osc1.width', 'osc1.blade1.width', 'osc1.blade1.depth', 'osc1.coupling', 'osc1.blade1.position', 'osc1.blade2.width', 'osc1.blade2.depth', 'osc1.blade2.position', 'osc1.phaseLag'];   // one route per source, ten sources and ENV 1 (GUI-7): more than fit, so each form's limit shows
 const $ = id => document.getElementById(id), frame = $('frame'), wrap = $('wrap');
-let w, d, H, S, ready = false, form = 'F5', faceNow = 'K1', lens = 'no', modRow = 'R3', frameNo = 0, painters = [], macHost = null;
+let w, d, H, S, ready = false, form = 'F5', faceNow = 'K1', lens = 'L1', modRow = 'R2', frameNo = 0, painters = [], macHost = null;
 const el = (t, c, txt) => { const e = d.createElement(t); if (c) e.className = c; if (txt !== undefined) e.textContent = txt; return e; };
 const settle = () => new Promise(r => setTimeout(r, 40));
 const NAMES = { macro1: 'Tone', macro2: 'Spc', macro3: 'Time', macro4: 'Mot', macro5: 'M5', macro6: 'M6', macro7: 'M7', macro8: 'M8' };   // captions for the tiny form only: the compact knob shows the macro's own name
@@ -162,7 +167,7 @@ function buildMac() {
   const room = bank.clientWidth - bank.querySelector('.bk-side').offsetWidth - 20, bankH = bank.clientHeight, mac = el('div'); mac.id = 'labMac'; lanes.after(mac);
   // the size follows the room: a compact knob and its label need about 46 px, a tiny one about 28
   const two = form === 'F5', size = two || (room >= 8 * 46 + 2 * 22 && bankH >= 60) ? 'compact' : 'tiny'; if (two) mac.className = 'two';
-  Object.keys(NAMES).forEach((id, ix) => { const p = S.params['macro.' + id]; if (!p) return; const c = el('div', 'mk'); c.dataset.key = p.key; if (two) c.style.gridArea = (Math.floor(ix / 4) + 1) + ' / ' + (ix % 4 + 1); if (size === 'tiny') c.append(el('span', 'cp', NAMES[id])); const h0 = el('div'); c.append(h0); mac.append(c);
+  Object.keys(NAMES).forEach((id, ix) => { const p = S.params['macro.' + id]; if (!p) return; const c = el('div', 'mk'); c.dataset.mac = p.key; if (two) c.style.gridArea = (Math.floor(ix / 4) + 1) + ' / ' + (ix % 4 + 1); if (size === 'tiny') c.append(el('span', 'cp', NAMES[id])); const h0 = el('div'); c.append(h0); mac.append(c);
     H.ctlFace(S, p, { size }, q => H.Knob(h0, q, S)); });
   [['pb', 'Bend', true], ['mw', 'Mod', false]].forEach(([id, n, sprung], wi) => { const key = Object.keys(S.params).find(k => k.startsWith('macro.') && !NAMES[k.slice(6)] && (sprung ? S.params[k].name.toLowerCase().includes('bend') : !S.params[k].name.toLowerCase().includes('bend'))); const p = S.params[key]; if (!p) return;
     const c = el('div', 'wh'); c.style.alignSelf = 'stretch'; if (two) c.style.gridArea = '1 / ' + (5 + wi) + ' / 3 / ' + (6 + wi); const wh = el('div', 'wheel' + (sprung ? ' notch' : '')), cap = el('i'); wh.append(cap); wh.tabIndex = 0; wh.setAttribute('role', 'slider'); wh.setAttribute('aria-label', n); c.append(el('span', 'cp', n), wh); mac.append(c);
@@ -184,7 +189,7 @@ function apply() {
   let t = form === 'F0' ? '.hd-bank { border-radius: 0; }' : '#bank { position: relative; } #undoLine { position: absolute; left: 0; right: 0; bottom: 100%; margin-bottom: 3px; z-index: 6; }';
   const lensW = lens === 'L2' ? 119 : 0;
   if (lens === 'L2') t += ' #info { flex-basis: ' + (300 + lensW) + 'px !important; width: ' + (300 + lensW) + 'px !important; }';
-  if (lens === 'L1') { const b = el('div'); b.id = 'labLensBox'; b.textContent = 'The Lens would be here (L1)'; bk.before(b); }
+  if (lens === 'L1') { const b = el('div'); b.id = 'labLensBox'; bk.before(b); H.Lens(b, S, { scope: () => true, fallback: 'out.level', size: 'compact' }); t += ' #footrow { --info-w: 240px; } #info { flex: 0 0 240px !important; width: 240px !important; } #pages .hd-lens { display: none !important; }'; }
   if (form === 'F1') t += ' #bankHost { height: 100%; } #bank { justify-content: stretch; } #bankHost .bk-lanes { grid-template-rows: repeat(3, var(--size-row-thin)); }';
   if (form === 'F2') { const m = el('div'); m.id = 'labMeters'; m.style.flex = '1 1 0'; bk.insertBefore(m, hostB); meters(m); t += ' #bank { justify-content: flex-start; }'; }
   if (form === 'F3' || form === 'F4') { const m = el('div'); m.id = 'labMeters'; m.style.flex = form === 'F3' ? '0 0 52%' : '0 0 48%'; bk.append(m); if (form === 'F3') meters(m); else routing(m); t += ' #bank { flex-direction: row; gap: 6px; align-items: stretch; justify-content: stretch; } #bankHost { flex: 1 1 0; min-width: 0; height: 100%; } #bankHost .bk-lanes { grid-template-rows: repeat(3, var(--size-row-thin)); }'; }
@@ -255,7 +260,8 @@ frame.addEventListener('load', async () => {
       await setState(false, false); }
     check(!bad.length, 'Morph, MAP and both, each really on: in every form the foot row stays the window\'s full width, below the dock and inspector, with nothing past the window. F5\'s pictures: ' + notes.join('; ') + (bad.length ? ' (FAILS: ' + bad.join(' | ') + ')' : '') + '.');
     form = 'F5'; for (const l of LENSES) { lens = l.id; apply(); await setState(true, true); const r = stateRead(); notes.push(l.id + ': ' + r.m.join(', ')); if (r.minW < 100 && l.id !== 'L1') bad.push(l.id); await setState(false, false); }
-    check(!bad.length, 'F5 with both on and each Lens: ' + notes.slice(-3).join('; ') + '. L1 leaves the pictures narrowest.'); }
+    check(!bad.length, 'F5 with both on and each Lens: ' + notes.slice(-3).join('; ') + '.'); }
+  { form = 'F5'; faceNow = 'K1'; lens = 'L1'; modRow = 'R2'; apply(); setBank('MAC'); await settle(); const pic = [...d.querySelectorAll('#labMeters .m')].map(e => e.getBoundingClientRect().width), info = d.getElementById('info').getBoundingClientRect().width, S0 = S.selected; S.selected = 'osc1.detune'; S.views.forEach(v => { if (v.render && !v.el) v.render(); }); await settle(); const box = d.getElementById('labLensBox'), over = box.scrollHeight - box.clientHeight, name = box.querySelector('.lz-name').textContent; S.selected = S0; check(Math.round(info) === 240 && pic.every(x => x >= 170) && over <= 1 && name === 'Detune', 'As ruled (F5, L1, Info 240 px): the pictures are ' + pic.map(Math.round).join(' and ') + ' px wide, the Lens shows ' + name + ' with its mapping and nothing cut off (' + over + ' px over).'); }
   { form = 'F0'; faceNow = 'K0'; lens = 'no'; apply(); await setState(true, true); const r = stateRead(); await setState(false, false); check(r.dock && r.insp && r.foot < 700, 'Control: as built, with both on, the foot row shrinks to ' + r.foot + ' px: that is what broke F5, and the states above would read it.'); }
   const knobs = MEASURED.filter(m => m.face === 'K1');
   check(knobs.filter(m => m.lens === 'no').every(m => m.inView === m.all && m.over === 0), 'With no Lens in the foot row, all ten macro controls fit in every form.');
@@ -265,10 +271,12 @@ frame.addEventListener('load', async () => {
   { const tight = m => (m.form === 'F3' || m.form === 'F4') && m.lens !== 'no', bad = knobs.filter(m => m.clash && !tight(m)), pairs = knobs.filter(m => m.clash && tight(m)).map(m => m.form + ' + ' + m.lens); check(!bad.length, 'No macro labels overlap in F1 or F2 with any Lens, or in F3 or F4 with the Lens elsewhere' + (bad.length ? ' (CLASH in ' + bad.map(m => m.form + '/' + m.lens).join(', ') + ')' : '') + '. Too tight, and shown as such: ' + (pairs.join(', ') || 'none') + '.'); }
   { form = 'F3'; faceNow = 'K1'; lens = 'no'; apply(); await settle(); const st2 = el('style'); st2.textContent = '#labMac .sz-tiny .mk-name { display: block !important; }'; d.head.append(st2); await settle(); const planted = (await read()).clash; st2.remove(); check(planted > 0, 'Control: the label test reads tiny knobs\' own labels when they are let back in (' + planted + ' overlaps).'); }
   { form = 'F1'; faceNow = 'K0'; lens = 'no'; apply(); setBank('MAC'); await settle(); const l = d.querySelector('#bankHost .bk-lanes'), b0 = l.scrollWidth - l.clientWidth, plant = el('div'); plant.style.cssText = 'width:2000px;height:10px;'; l.append(plant); const b1 = l.scrollWidth - l.clientWidth; plant.remove(); check(b1 > b0, 'Control: the fit test reads a planted row (' + b1 + ' px past the edge).'); }
-  { form = 'F1'; faceNow = 'K1'; apply(); await settle(); const p = S.params['macro.macro1'], v0 = p.g, k = d.querySelector('#labMac [data-key="macro.macro1"]'); p.g = .77; S.emit(); await settle(); const row = S.params['macro.macro1'] === p; p.g = v0; S.emit(); check(!!k && row, 'A macro knob is a face on the bank\'s own macro value, not a copy.'); }
+  { form = 'F1'; faceNow = 'K1'; apply(); await settle(); const p = S.params['macro.macro1'], v0 = p.g, k = d.querySelector('#labMac [data-mac="macro.macro1"]'); p.g = .77; S.emit(); await settle(); const row = S.params['macro.macro1'] === p; p.g = v0; S.emit(); check(!!k && row, 'A macro knob is a face on the bank\'s own macro value, not a copy.'); }
   { form = 'F0'; faceNow = 'K0'; lens = 'no'; apply(); await settle(); const h1 = d.querySelector('#bankHost').getBoundingClientRect().height; check(Math.round(h1) === Math.round(homeW) && !d.getElementById('labMeters') && !d.getElementById('labMac') && getComputedStyle(d.querySelector('#bankHost')).borderTopLeftRadius === '0px', 'Leaving every option puts the bank back: ' + Math.round(h1) + ' px, square corners, its rows.'); }
-  form = 'F5'; faceNow = 'K1'; lens = 'no'; modRow = 'R3'; ready = true; $('busy').hidden = true; setBank('MAC'); apply();
+  form = 'F5'; faceNow = 'K1'; lens = 'L1'; modRow = 'R2'; ready = true; $('busy').hidden = true; setBank('MAC'); apply();
   document.querySelectorAll('.picker').forEach(p => p.querySelectorAll('.opt').forEach(b => b.setAttribute('aria-pressed', String([form, faceNow, lens, modRow].includes(b.dataset.id))))); paintTable();
+  // A knob here is hovered like any control, and the shell's hover handler looks every data-key up in its parameter rows, which the macros aren't in. The first version threw on each hover.
+  { let thrown = 0; const on = () => { thrown++; }; w.addEventListener('error', on); const k = d.querySelector('#labMac .mk .hd-mk') || d.querySelector('#labMac .mk'); ['pointerover', 'pointerenter', 'pointermove'].forEach(t => k.dispatchEvent(new w.PointerEvent(t, { bubbles: true }))); await settle(); w.removeEventListener('error', on); check(!thrown && !d.querySelector('#bank #labMac [data-key]'), 'Hovering a macro knob throws nothing in the shell.'); }
   const fails = checks.filter(c => c.startsWith('FAIL')).length;
   $('selfcheck').textContent = (fails ? fails + ' FAILED of ' + checks.length : checks.length + ' of ' + checks.length + ' passed') + '\n' + checks.join('\n');
 });
