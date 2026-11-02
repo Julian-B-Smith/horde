@@ -237,6 +237,10 @@ fast() {
   # per finding kind, plus must-read-clean controls, every run. Python only, well under 1 s.
   python3 tools/design_chain_check.py || ok=1
 
+  # ONE UNIFIED ENGINE (GUI-1; added under ADR-180 §1): nothing in the design master, the shell or a lab offers swarm and SCALPEL as
+  # engines to choose between, because samples get copied and that is how the notion comes back. Python only, well under 1 s.
+  python3 tools/engine_words_check.py || ok=1
+
   # THE TEST TABLE cannot claim coverage it lacks: every agentic row names a gate
   # this file actually runs (parsed from here, never a second list), and every
   # feature the GUI shows has at least one row. Both failure modes — an oracle

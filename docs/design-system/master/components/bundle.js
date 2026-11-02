@@ -1152,7 +1152,14 @@
     if (t < e.hold) return e.s; t -= e.hold;
     return t < e.r ? e.s * (1 - bend(t / e.r, e.rc)) : 0;
   };
-  Viz.envPoints = function (e) { var T = e.a + e.d + e.hold + e.r, out = []; for (var i = 0; i <= 160; i++) { var t = T * i / 160; out.push([t, Viz.envAt(e, t)]); } return out; };
+  /* 160 even samples alone step over any stage shorter than one sample: with a short attack and decay the line never reached the peak, so
+     it stopped at the sustain and left the attack node floating, which a low sustain made plain. So every stage's corner is a point too.
+     A zero attack keeps its start at 0, so the attack is still a line up to the node. */
+  Viz.envPoints = function (e) {
+    var T = e.a + e.d + e.hold + e.r, ad = e.a + e.d, out = [[0, 0], [e.a, 1], [ad, e.s], [ad + e.hold, e.s]];
+    for (var i = 0; i <= 160; i++) { var t = T * i / 160; out.push([t, Viz.envAt(e, t)]); }
+    return out.sort(function (p, q) { return p[0] - q[0]; });   // stable, so at one moment the corners keep their order
+  };
   /* LFO ROTOR (UI Spec §6; phosphor: the lead gets the beam): coupled members on a ring, the output puck */
   Viz.rotor = function (cv, r) {
     var K = Viz.kit(cv), g = K.g, W = K.W, H = K.H, V = K.V, cx = W / 2, cy = H / 2, rad = Math.min(W, H) * .36;

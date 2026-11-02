@@ -1,4 +1,4 @@
-horde is a synthesizer of responsive, dynamical engines whose centre is its morph logic over the full depth of every parameter: a swarm of coupled oscillators cut by blades, a sub, noise, and a rack of FX modules that each run as their own software on a screen. This is its house design system for GUI 3: cream chassis, flat ink outlines, one job per colour, and screens as a separate axis.
+horde is a responsive, dynamical synthesizer whose centre is its morph logic over the full depth of every parameter. It has one engine: oscillators that are swarms of coupled members cut by blades, a sub and noise. Beside it is a rack of FX modules that each run as their own software on a screen. This is its house design system for GUI 3: cream chassis, flat ink outlines, one job per colour, and screens as a separate axis.
 
 ## Three rules for every screen
 
@@ -8,7 +8,7 @@ horde is a synthesizer of responsive, dynamical engines whose centre is its morp
 
 ## Voice and content
 
-- The brand name is always lowercase: **horde**. The founding engine is SWARM SAW; FX modules have one-word names (Shriek, Sluice, Scape, Bulwark, Echo).
+- The brand name is always lowercase: **horde**. There is one engine and no engine to choose: never draw swarm and blades as alternatives (GUI-1). FX modules have one-word names (Shriek, Sluice, Scape, Bulwark, Echo).
 - Cluster headings are UPPERCASE Archivo 800 with 0.1em tracking: "FILTER", "MACROS". Control labels are sentence case and short: "Cutoff", "Onset lock", "Coherence → Tone".
 - Values carry their unit, in the shell's one format: "1.20 kHz", "−6.0 dB", "4.0 ms", "+18 st", "85 %". The minus is a true minus; −∞ dB is the bottom of a level.
 - Status words are short capitals on a tag: MOCK, PROVISIONAL, ROUTING, PANIC, CLIP, KEYS ON.

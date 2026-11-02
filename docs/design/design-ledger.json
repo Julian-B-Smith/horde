@@ -10,6 +10,10 @@
  },
  "master_versions": [
   {
+   "version": "1793591775-02e4",
+   "evidence": "docs/design-system/master/VERSION: published 2026-11-02 from the gui-unified-batch branch before merge. GUI-1: the swarm-or-scalpel samples and the old engine wording are gone. Viz.envPoints: every stage's corner is a point, so a short attack and decay still reach the peak."
+  },
+  {
    "version": "1793572935-0ce9",
    "evidence": "docs/design-system/master/VERSION: published 2026-11-01 from the gui-rslot-narrow branch before merge. ADR-340 A1: the readout slot's wording says one width up to 250 px, not always 250 px. The stale 472 px in the bank's token, README and comment follows ADR-345 r1. No behaviour changed."
   },
@@ -4920,6 +4924,21 @@
    "superseded_by": null,
    "port_tab": null,
    "note": "The bundle's CSS already behaved this way; the ruling makes it the rule, and the shell's self-check holds all 38 slots to it. 13 are narrower at the 980 px window. FX device: same."
+  },
+  {
+   "id": "gui1-unified-engine",
+   "adr": "GUI-1",
+   "clause": "ruling 1 (one unified engine; samples, previews and labs never present swarm and SCALPEL as alternatives)",
+   "lab": null,
+   "component": "SectionHeader",
+   "master_version": "1793591775-02e4",
+   "bundle": "SectionHeader",
+   "via": null,
+   "shell": null,
+   "state": "vendored",
+   "superseded_by": null,
+   "port_tab": null,
+   "note": "The master's samples and wording are corrected and tools/engine_words_check.py holds them there. The shell and the real rows never had it. Three old lab lines are pinned by name. FX device: none."
   }
  ],
  "not_design": [
