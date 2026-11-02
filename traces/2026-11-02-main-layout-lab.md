@@ -9,4 +9,5 @@
 - **Found while building:** the page's scroll read every layout as fitting, while a too-small grid cell spills its controls without scrolling, so the table measures the spill instead.
 - **Depends on:** #1327, for the size-aware envelope picture. This branch was cut from it and targets main.
 - **Not checked:** the Specimen's cost in a plugin webview, which is what ADR-140 measured as untenable; other window scales; the light scheme.
+- **Ruled in the same PR:** GUI-2, the human's poll: M1, assignable XY, Specimen on by default, macro knobs. The lab had recommended M4 for its big single surface; the human chose the bench. Not built: this PR only records the ruling.
 - **Checks:** the lab's self-check, 11 of 11, with its controls; the shell's own self-checks, 49 of 49, in the frame; `lab_load_check` green. `./verify fast` exit 0 on this commit's tree.

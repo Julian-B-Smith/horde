@@ -201,8 +201,9 @@
    "note": "B324: the blind calibration pass; 'nobody has listened' (its golden note). Calibration, not design."
   },
   "main-layout-lab.html": {
-   "status": "exploring",
-   "note": "Four layouts for Main (B581 step 2), applied to the running shell, with the bench's Specimen and logo code verbatim (main-layout-lab-parts.js, ADR-333). Nothing is harvested until a ruling."
+   "status": "ruled",
+   "adr": "GUI-2",
+   "note": "Ruled M1 (GUI-2). Not yet harvested: the Specimen and the live logo go to the master next. main-layout-lab-parts.js holds the bench's code for this lab only."
   },
   "maw-horde-lab.html": {
    "status": "ruled",
@@ -4943,6 +4944,66 @@
    "superseded_by": null,
    "port_tab": null,
    "note": "The master's samples and wording are corrected and tools/engine_words_check.py holds them there. The shell and the real rows never had it. Three old lab lines are pinned by name. FX device: none."
+  },
+  {
+   "id": "gui2-main-layout-m1",
+   "adr": "GUI-2",
+   "clause": "ruling 1 (Main is M1: the morph pad over the Specimen XY, macros and a wide ENV 1 picture across the top, Voice, ENV 1 and the Lens under them)",
+   "port_tab": "main-rest",
+   "note": "Replaces the shell's square picture. The morph pad is on the page, an exception to ADR-315's dock on Main. FX device: no Main.",
+   "lab": "docs/design/main-layout-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null
+  },
+  {
+   "id": "gui2-xy-assignable",
+   "adr": "GUI-2",
+   "clause": "ruling 2 (Main's XY is assignable: any two parameters, saved with the patch; closes B299's question 38)",
+   "port_tab": "specimen-xy",
+   "note": "How the player picks them is not designed yet: the next batch's first question.",
+   "lab": "docs/design/main-layout-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null
+  },
+  {
+   "id": "gui2-specimen-default",
+   "adr": "GUI-2",
+   "clause": "ruling 3 (the Specimen is on by default with a Settings switch; amends ADR-140's default; its cost is measured in the plugin webview before 1.0)",
+   "port_tab": "specimen-xy",
+   "note": "The master documents the Specimen, but the bundle has no code for it. To be ported from the bench verbatim (ADR-333). FX device: an audio-driven stand-in (ADR-262 r1).",
+   "lab": "docs/design/main-layout-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null
+  },
+  {
+   "id": "gui2-macros-on-main",
+   "adr": "GUI-2",
+   "clause": "ruling 4 (Main shows the eight macros as knobs, as well as the bank's MAC lane)",
+   "port_tab": "main-rest",
+   "note": "The same macros, shown twice; needs the intent bus's macros in the stub, as the bank does.",
+   "lab": "docs/design/main-layout-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null
   }
  ],
  "not_design": [
