@@ -3472,11 +3472,11 @@
    "master_version": null,
    "bundle": null,
    "via": null,
-   "shell": "docs/design/gui3.html: keys.has(r.param)",
+   "shell": "docs/design/gui3.html: function bankMods()",
    "state": "ruled",
    "superseded_by": null,
    "port_tab": "modulators",
-   "note": "The shell's bankModel lists sources whose dev.routes() land on a key of the current page, read and never kept; no master component holds a bank (gui3/README proposals 12, 14). Built out by ADR-322 item 3 and ADR-323. FX device: same, with its FX modulators."
+   "note": "The shell's bankModel lists sources whose dev.routes() land on a key of the current page, read and never kept; no master component holds a bank (gui3/README proposals 12, 14). Built out by ADR-322 item 3 and ADR-323. FX device: same, with its FX modulators. GUI-7: the bank now lists every active modulator on every page, not per page."
   },
   {
    "id": "adr292-limiter-off-on-master-strip",
@@ -3982,9 +3982,9 @@
    "master_version": null,
    "bundle": null,
    "via": null,
-   "shell": "docs/design/gui3.html: keys.has(r.param)",
+   "shell": "docs/design/gui3.html: function bankMods()",
    "state": "ruled",
-   "superseded_by": null,
+   "superseded_by": "GUI-7",
    "port_tab": "modulators",
    "note": "The shell's bankModel filters routes to the page's own keys, so a route onto ENV 2's attack lists on the Mod page; no master component holds the bank (proposal 14). FX device: same."
   },
@@ -5336,6 +5336,36 @@
    "via": null,
    "shell": null,
    "state": "ruled",
+   "superseded_by": null
+  },
+  {
+   "id": "gui7-env1-row",
+   "adr": "GUI-7",
+   "clause": "ruling 1 (ENV 1 is always in the mod rows)",
+   "port_tab": "modulators",
+   "note": "The shell's filter, held by gui3_seam_check's banklist test.",
+   "lab": "docs/design/bank-lab.html",
+   "component": "ModBank",
+   "master_version": "1793591775-02e4",
+   "bundle": "ModBank",
+   "via": null,
+   "shell": "docs/design/gui3.html: function bankMods()",
+   "state": "in-shell",
+   "superseded_by": null
+  },
+  {
+   "id": "gui7-all-active",
+   "adr": "GUI-7",
+   "clause": "ruling 2 (the mod rows show every routed modulator on any page; amends ADR-323 r4)",
+   "port_tab": "modulators",
+   "note": "The bank's count still says 'n here' until the master batch.",
+   "lab": "docs/design/bank-lab.html",
+   "component": "ModBank",
+   "master_version": "1793591775-02e4",
+   "bundle": "ModBank",
+   "via": null,
+   "shell": "docs/design/gui3.html: function bankMods()",
+   "state": "in-shell",
    "superseded_by": null
   }
  ],

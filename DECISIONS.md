@@ -10998,3 +10998,20 @@ Three points stayed open, because the shell already marks a knob selected the mo
 **Consequences.**
 - P1 needs a preset seam in the device, which the shell doesn't have, and the file manager (B261), which hasn't started. Until then the master can hold the control, and it stays MOCK. The factory bank's files are in the legacy state format.
 - **FX device (ADR-254):** the same control, listing its own presets, where it has them.
+
+## GUI-7 — RULED by the human: the bank's mod rows list ENV 1 and every active modulator, on every page (B589; amends ADR-323 ruling 4; 2026-11-02)
+
+**Context.** The human, 2026-11-02: "There also needs to be some way to map Env 1 to other things; let's include it in the mod rows. And I think the mod rows should show all modulators active on any pages instead of just on the selected page." ADR-323 ruling 4 had ruled "No, page controls only".
+
+**Rulings.**
+1. **ENV 1 is always in the mod rows.** It has no + and is always active, so it needs a row to map from.
+2. **The mod rows show every modulator with a route on any page**, plus the pending ones. **Amends ADR-323 ruling 4.** The bank no longer answers "what modulates this page".
+
+**Readings taken (the GUI session's, open to the human).**
+- A row keeps its "n here" foot where it has one, so "0 here" tells you that modulator is busy elsewhere. In R2 and R3 that foot is gone.
+- × on ENV 1 removes its routes, as on any modulator, and its row stays.
+
+**Consequences.**
+- This is the shell's own filter, so it is live in the shell now, with a self-check and a seam test.
+- The bank's count still says "n here", which is now wrong. The master changes that wording, and the ModBank README's "what modulates this page", in the batch that carries the bank's form.
+- **FX device (ADR-254):** ruling 2 applies wherever it has a bank. It has no ENV 1 of this kind, so ruling 1 doesn't apply; its own modulators follow the same rule.

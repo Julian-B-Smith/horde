@@ -7,6 +7,9 @@
      WHAT IS MOCK. The preset control: its names are the real factory bank's (docs/presets/factory), but nothing loads. Those files are in the legacy state format, and the shell has no preset
      seam yet. Main is still as built here, not GUI-4's deck.
 
+     COLOURS, added for the human: "let's make sure there's room for the color selection up at the top, or at least in the settings menu (light/dark mode and screen color)". The theme button is the
+     shell's own and lives outside the window; the shell has no screen colour control, so this mounts the bundle's ScreenScheme on the window.
+
      RULED SO FAR: P1 for presets, by GUI-6 (2026-11-02). The Lens is still open.
 
      WHY A LAB. ADR-338 r5 put a Lens inside each page, so it sits in a different spot on each and eight of the pages have one. Nothing here edits gui3*, arp-face/ or the master: a ruling goes
@@ -64,6 +67,7 @@
   </header>
   <section aria-label="Where the Lens goes"><h2>Where does the Lens go?</h2><div class="picker" id="pickLens"></div></section>
   <section aria-label="Where presets go"><h2>Where do global presets go?</h2><div class="picker" id="pickPreset"></div></section>
+  <section aria-label="Where colours go"><h2>Where do light or dark and the screen colour go?</h2><div class="picker" id="pickColour"></div></section>
   <section aria-label="The shell"><div id="wrap"><iframe id="frame" title="GUI 3 with these options" src="gui3.html#osc1,win"></iframe><div id="busy">Measuring all 14 pages under each option. This takes a few seconds, and the pickers work once it's done.</div></div></section>
   <section aria-label="Measured">
     <h2>Measured on the shell, on all its pages</h2>
@@ -74,6 +78,11 @@
 </div>
 <script>
 'use strict';
+const COLOURS = [
+  { id: 'C1', name: 'Top bar, second row', tx: 'Light or dark, and a screen colour chip, always in reach beside the page tabs. Uses the room P1 leaves.' },
+  { id: 'C2', name: 'Settings page', tx: 'Both in the Set tab\'s Interface card, with every screen colour shown. Tidier, one click further away.' },
+  { id: 'C0', name: 'As built', tx: 'Light or dark outside the plugin\'s window, and no screen colour control at all.' },
+];
 const LENS = [
   { id: 'L0', name: 'As built', tx: 'Inside the page, on 8 of them, in that page\'s left column. Not in one place.' },
   { id: 'L1', name: 'Foot row, own box', tx: 'Info | Lens | bank, always in the same spot. No page loses room. The bank gets narrower.' },
@@ -99,6 +108,7 @@ const DIAGRAM = {
   L2: { info: [12, 589, 419, 120], bank: [437, 589, 531, 120], hot: [[12, 589, 176, 120]] },
   L3: { page: [12, 115, 744, 468], info: BOX.info, bank: [318, 589, 438, 120], hot: [[762, 115, 206, 594]] },
   L4: { page: [12, 155, 956, 428], hot: [[12, 115, 956, 34]] },
+  C0: { hot: [] }, C1: { hot: [[690, 44, 152, 22]] }, C2: { page: [12, 115, 956, 468], hot: [[24, 130, 300, 90]] },
   P0: { hot: [] }, P1: { hot: [[520, 15, 322, 22]] }, P2: { hot: [[448, 42, 394, 24]] }, P3: { hot: [[520, 14, 322, 52]] },
 };
 function diagram(id) { const d0 = DIAGRAM[id], parts = Object.assign({}, BOX, d0); return '<svg aria-hidden="true" viewBox="0 0 980 720">' + ['chrome', 'map', 'page', 'info', 'bank'].map(k => rectSvg(parts[k])).join('') + (d0.hot || []).map(r => rectSvg(r, true)).join('') + '</svg>'; }
@@ -117,6 +127,10 @@ const FRAME_CSS = `
   #labB button { all: unset; box-sizing: border-box; cursor: pointer; padding: 3px 6px; border-radius: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #labB button:hover, #labB button:focus-visible { background: var(--sel-neutral); }
   #labB button[aria-current] { font-weight: 800; }
+  #labC { position: absolute; left: 690px; top: 44px; width: 152px; height: 22px; display: flex; align-items: center; gap: 4px; z-index: 6; }
+  #labC button { font: 400 10px/1 var(--font-sans); }
+  #labC .hd-scr { flex: 1 1 auto; min-width: 0; }
+  #labCS { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
   #labLens { overflow: hidden; }
   #labLens.foot { flex: 0 0 214px; height: 100%; }
   #labLens .lz-corners { display: grid; grid-template-columns: 1fr 1fr; gap: 0 6px; }
@@ -134,7 +148,7 @@ const FRAME_CSS = `
   #labLens.strip .lz-who { display: flex; gap: 8px; align-items: baseline; }
 `;
 const $ = id => document.getElementById(id), frame = $('frame'), wrap = $('wrap');
-let w, d, H, S, ready = false, lensNow = 'L2', presetNow = 'P1', presetAt = ALL[0], openCat = 'Init', measured = {}, infoHome = null;
+let colourNow = 'C1', w, d, H, S, ready = false, lensNow = 'L2', presetNow = 'P1', presetAt = ALL[0], openCat = 'Init', measured = {}, infoHome = null;
 const el = (t, c, txt) => { const e = d.createElement(t); if (c) e.className = c; if (txt !== undefined) e.textContent = txt; return e; };
 const rect = e => { const b = e.getBoundingClientRect(); return { x: b.left, y: b.top, w: b.width, h: b.height }; };
 const settle = () => new Promise(r => setTimeout(r, 30));
@@ -185,6 +199,15 @@ function placePreset(id) {
 }
 function paintPreset() { const nm = d.querySelector('#labP .pname'); if (!nm) return; nm.textContent = ''; const big = d.getElementById('labP').classList.contains('big'); nm.append(d.createTextNode((big ? presetAt.n.replace(/^[A-Z]+ - /, '') : presetAt.n) + ' ▾')); nm.setAttribute('aria-label', 'Preset ' + presetAt.n + ', open the list (MOCK)'); if (big) { const c = el('small', '', presetAt.cat + ' · ' + (ALL.indexOf(presetAt) + 1) + ' of ' + ALL.length + ' · MOCK'); nm.append(c); } }
 
+// ===== colours: the shell's own theme button, and the bundle's ScreenScheme on the window =====
+function clearColour() { ['labC', 'labCS'].forEach(i => { const e = d.getElementById(i); if (e) e.remove(); }); }
+function themeBtn(host) { const b = el('button', 'hd-btn hd-focus'); b.type = 'button'; const paint = () => { const dk = d.documentElement.dataset.theme === 'dark'; b.textContent = dk ? 'Dark' : 'Light'; b.setAttribute('aria-label', 'Theme: ' + b.textContent + ', click to change'); }; b.addEventListener('click', () => { d.getElementById('themeBtn').click(); paint(); }); paint(); host.append(b); return b; }
+function placeColour(id) {
+  clearColour(); if (id === 'C0') return;
+  if (id === 'C1') { const c = el('div'); c.id = 'labC'; c.setAttribute('role', 'group'); c.setAttribute('aria-label', 'Colours'); themeBtn(c); const s = el('div'); c.append(s); H.ScreenScheme(s, d.getElementById('win'), {}); d.getElementById('win').append(c); }
+  if (id === 'C2') { const card = d.querySelector('#page-settings section[aria-label="Interface"] .face'), c = el('div'); c.id = 'labCS'; c.append(el('span', 'hd-label', 'Colours')); themeBtn(c); const s = el('div'); c.append(s); H.ScreenScheme(s, d.getElementById('win'), { list: true }); card.prepend(c); }
+}
+
 // ===== pickers =====
 function picker(host, list, get, set) {
   list.forEach(o => { const b = document.createElement('button'); b.className = 'opt'; b.type = 'button'; b.dataset.id = o.id; b.insertAdjacentHTML('afterbegin', diagram(o.id)); const i = document.createElement('span'); i.className = 'id'; i.textContent = o.id; const n = document.createElement('span'); n.className = 'nm'; n.textContent = o.name; const t = document.createElement('span'); t.className = 'tx'; t.textContent = o.tx; b.append(i, n, t); b.addEventListener('click', () => { if (ready) { set(o.id); paint(); } }); host.append(b); });
@@ -192,6 +215,7 @@ function picker(host, list, get, set) {
 }
 picker($('pickLens'), LENS, () => lensNow, id => { lensNow = id; placeLens(id); document.querySelectorAll('#tbody tr').forEach(t => t.classList.toggle('on', t.dataset.id === id)); });
 picker($('pickPreset'), PRESET, () => presetNow, id => { presetNow = id; placePreset(id); });
+picker($('pickColour'), COLOURS, () => colourNow, id => { colourNow = id; placeColour(id); if (id === 'C2') showPage('Set', 'Settings'); });
 LENS.forEach(o => { const tr = document.createElement('tr'); tr.dataset.id = o.id; const td = document.createElement('td'); td.textContent = o.id + ' ' + o.name; tr.append(td); for (let k = 0; k < 4; k++) { const c = document.createElement('td'); c.className = 'num'; c.textContent = '…'; tr.append(c); } $('tbody').append(tr); });
 function fitFrame() { const s = Math.min(1, wrap.clientWidth / 980); frame.style.transform = 'scale(' + s + ')'; wrap.style.height = Math.ceil(720 * s) + 'px'; }
 addEventListener('resize', fitFrame); fitFrame();
@@ -232,12 +256,19 @@ frame.addEventListener('load', async () => {
   { placeLens('L1'); await settle(); const k = Object.keys(S.params).find(x => x.startsWith('noise.')), k2 = Object.keys(S.params).find(x => x.startsWith('osc1.')); const name = () => d.querySelector('#labLens .lz-name').textContent; S.hot = k; S.tick && S.tick(); S.views.forEach(v => { if (v.render && !v.el) v.render(); }); await settle(); const a = name(); S.hot = k2; S.views.forEach(v => { if (v.render && !v.el) v.render(); }); await settle(); const b = name(); S.hot = null; check(a === S.params[k].name && b === S.params[k2].name, 'One Lens follows controls from different pages: ' + a + ', then ' + b + '.'); }
   // Presets against the page tabs, on every page
   for (const p of PRESET.slice(1)) { placePreset(p.id); await settle(); const clash = []; await walk(n => { const r = rect(d.getElementById('labP')); [...d.querySelectorAll('#pnav button, .switches, .logo')].forEach(e => { if (e.getBoundingClientRect().width && hits(r, rect(e))) clash.push(n + ': ' + e.textContent.trim().slice(0, 12)); }); }); check(!clash.length, p.id + ': the preset control clears the logo, page tabs and switches on every page' + (clash.length ? ' (HITS ' + [...new Set(clash)].slice(0, 6).join('; ') + ')' : '') + '.'); }
+  // Colours: C1 clears the page tabs and P1 on every page, and both controls really change the window. Control: the check reads a scheme's change at all.
+  { placePreset('P1'); placeColour('C1'); await settle(); const clash = []; await walk(n => { const r = rect(d.getElementById('labC')); [...d.querySelectorAll('#pnav button, .switches, #labP')].forEach(e => { if (e.getBoundingClientRect().width && hits(r, rect(e))) clash.push(n + ': ' + (e.textContent.trim().slice(0, 10) || e.id)); }); });
+    check(!clash.length, 'C1: the colour controls clear the page tabs, switches and P1 on all pages' + (clash.length ? ' (HITS ' + [...new Set(clash)].slice(0, 5).join('; ') + ')' : '') + '.');
+    const win = d.getElementById('win'), g0 = win.style.getPropertyValue('--scr-ground'), chip = d.querySelector('#labC .hd-scrchip'); chip.click(); await settle(); const g1 = win.style.getPropertyValue('--scr-ground'); for (let i = 0; i < 7 && win.style.getPropertyValue('--scr-ground') !== g0; i++) { chip.click(); }
+    const th0 = d.documentElement.dataset.theme, tb = d.querySelector('#labC .hd-btn'); tb.click(); const th1 = d.documentElement.dataset.theme; tb.click(); const th2 = d.documentElement.dataset.theme; if (th0 === undefined) delete d.documentElement.dataset.theme; else d.documentElement.dataset.theme = th0;   // it starts unset, following the system, so two clicks read as a change of value and not of look
+    check(g1 !== g0 && !!th1 && !!th2 && th2 !== th1 && win.style.getPropertyValue('--scr-ground') === g0, 'C1: the chip changes the window\'s screen colour (' + (g1 || 'following the theme') + ') and the button changes light or dark, and both go back.');
+    placeColour('C2'); await settle(); const inS = !!d.querySelector('#page-settings #labCS .hd-pills'); check(inS, 'C2: the Interface card on the Settings page holds both, with the list of screen colours.'); placeColour('C0'); await settle(); check(!d.getElementById('labC') && !d.getElementById('labCS'), 'Control: as built has neither in the window.'); }
   { placePreset('P1'); await settle(); const r = rect(d.getElementById('labP')), plant = { x: r.x, y: r.y, w: 20, h: 20 }; check(hits(r, plant), 'Control: the overlap test reads a part placed on the preset control.'); d.querySelector('#labP .pname').click(); await settle(); const opened = !!d.getElementById('labB'); const item = [...d.querySelectorAll('#labB .cats button')].find(b => b.textContent === 'Pad'); item.click(); [...d.querySelectorAll('#labB .names button')].find(b => b.textContent === 'PD - Glacier').click(); await settle(); check(opened && !d.getElementById('labB') && d.querySelector('#labP .pname').textContent.includes('PD - Glacier'), 'The list opens, and picking a name shows it and closes (MOCK: nothing loads).'); presetAt = ALL[0]; openCat = 'Init'; }
   placeLens('L0'); placePreset('P0'); await settle();
   { let same = true; const back = {}; await walk(n => { back[n] = over(); if (back[n] !== base[n]) same = false; }); check(same && !d.getElementById('labLens') && !d.getElementById('labP'), 'Leaving every option puts the shell back: every page overflows as it did.'); }
   // The walk ends on the last tab of the last group it visited. Left there, the lab sat on Filters, an empty page with nothing to hover, and every Lens option looked dead (the human, 2026-11-02).
   showPage('Osc', 'Osc 1'); await settle();
-  ready = true; $('busy').hidden = true; placeLens(lensNow); placePreset(presetNow); document.querySelectorAll('#tbody tr').forEach(t => t.classList.toggle('on', t.dataset.id === lensNow));
+  ready = true; $('busy').hidden = true; placeLens(lensNow); placePreset(presetNow); placeColour(colourNow); document.querySelectorAll('#tbody tr').forEach(t => t.classList.toggle('on', t.dataset.id === lensNow));
   { const shown = [...d.querySelectorAll('#pages .page')].find(x => !x.hidden), n = shown ? [...shown.querySelectorAll('[data-key]')].filter(e => e.getBoundingClientRect().width).length : 0; check(n > 20, 'The lab ends on a page with controls to hover: ' + n + ' of them, not the empty Filters page it used to stop on.'); }
   const fails = checks.filter(c => c.startsWith('FAIL')).length;
   $('selfcheck').textContent = (fails ? fails + ' FAILED of ' + checks.length : checks.length + ' of ' + checks.length + ' passed') + '\n' + checks.join('\n');

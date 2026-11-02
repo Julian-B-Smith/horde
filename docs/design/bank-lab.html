@@ -14,6 +14,8 @@
      ROUND 2, the human's own version (F5) and the mod rows it needs (R1 to R3): "How about we try a version that puts the macro knobs in two rows of 4 next to the wheels, and then put the scope and
      spectrum next to the mod/macros bar but one on top of the other instead of side by side (they don't look good tall)".
 
+     ROUND 3: the foot row spans the window, so morph and MAP can't squeeze it. The human's three pictures of F5 with morph or MAP on. MODS now lists ENV 1 and every routed modulator (GUI-7, the shell's).
+
      THE SELF-CHECK prints in #selfcheck. It measures every form with both macro faces, with and without a Lens in the foot row. Its controls: the rows as built must read as not fitting (that is the
      complaint), a planted row must read as overflow, and leaving every option must put the bank back.
 
@@ -100,10 +102,10 @@ const LENSES = [
 const FRAME_CSS = `
   .hd-bank { border-radius: var(--radius); }
   #labMeters { display: flex; gap: 6px; min-width: 0; min-height: 0; }
-  #labMeters .m { position: relative; flex: 1 1 0; min-width: 0; min-height: 0; }
+  #labMeters .m { position: relative; flex: 1 1 0; min-width: 0; min-height: 0; overflow: hidden; }
   #labMeters .hd-viz { position: absolute; inset: 0; width: auto; }
   #labMeters canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-  #labMeters .cap { position: absolute; left: 5px; top: 3px; font: 400 8.5px/1 var(--font-mono); color: var(--scr-grid); z-index: 1; pointer-events: none; }
+  #labMeters .cap { position: absolute; left: 5px; top: 3px; font: 400 8.5px/1 var(--font-mono); color: var(--scr-grid); z-index: 1; pointer-events: none; white-space: nowrap; }
   #labMac { display: flex; align-items: flex-start; gap: 2px; min-width: 0; flex: 1 1 auto; justify-content: space-between; }
   #labMac .mk { display: flex; flex-direction: column; align-items: center; min-width: 0; position: relative; }
   #labMac .sz-tiny .mk-name { display: none; }
@@ -119,7 +121,7 @@ const FRAME_CSS = `
   #labMeters.stack { flex-direction: column; flex: 1 1 0; }
   #labLensBox { flex: 0 0 214px; height: 100%; box-sizing: border-box; border: var(--stroke-ink) solid var(--ink); border-radius: var(--radius); display: flex; align-items: center; justify-content: center; font: 400 10px/1.3 var(--font-mono); color: var(--hint); text-align: center; padding: 6px; }
 `;
-const SEEDS = ['osc1.detune', 'osc1.width', 'osc1.blade1.width', 'osc1.blade1.depth', 'osc1.coupling', 'osc1.blade1.position', 'osc1.blade2.width', 'osc1.blade2.depth', 'osc1.blade2.position', 'osc1.phaseLag'];   // one route per source, ten sources: more than fit, so each form's limit shows
+const SEEDS = ['osc1.detune', 'osc1.width', 'osc1.blade1.width', 'osc1.blade1.depth', 'osc1.coupling', 'osc1.blade1.position', 'osc1.blade2.width', 'osc1.blade2.depth', 'osc1.blade2.position', 'osc1.phaseLag'];   // one route per source, ten sources and ENV 1 (GUI-7): more than fit, so each form's limit shows
 const $ = id => document.getElementById(id), frame = $('frame'), wrap = $('wrap');
 let w, d, H, S, ready = false, form = 'F5', faceNow = 'K1', lens = 'no', modRow = 'R3', frameNo = 0, painters = [], macHost = null;
 const el = (t, c, txt) => { const e = d.createElement(t); if (c) e.className = c; if (txt !== undefined) e.textContent = txt; return e; };
@@ -173,6 +175,9 @@ function buildMac() {
 // ===== an option =====
 function apply() {
   painters = []; clearMac();
+  // The foot row spans the window in every form but as built, so the morph dock and the MAP inspector end above it and never take its width. In the page column, a 302 px bank and a 300 px box
+  // left the pictures 0 to 10 px with morph or MAP on, and their captions spilled over the inspector (the human's three pictures, 2026-11-02).
+  { const fr = d.getElementById('footrow'), target = form === 'F0' ? d.getElementById('pagecol') : d.getElementById('win'); if (fr.parentNode !== target) target.append(fr); }
   const old = d.getElementById('labMeters'); if (old) old.remove(); const oldL = d.getElementById('labLensBox'); if (oldL) oldL.remove();
   const css = d.getElementById('labBankCss'), info = d.getElementById('info'), bk = d.getElementById('bank'), hostB = d.getElementById('bankHost');
   // Every form but as built: the undo line floats over the page's foot instead of holding 24 px above the bank, empty, all the time.
@@ -239,9 +244,19 @@ frame.addEventListener('load', async () => {
   MEASURED.forEach(m => { const tr = document.createElement('tr'); tr.dataset.k = m.form + m.face + m.lens; [m.form + ' ' + FORMS.find(x => x.id === m.form).name, m.face === 'K1' ? 'Knobs' : 'Rows', m.lens === 'no' ? 'elsewhere' : m.lens, m.bank, m.unused ? m.unused + ' px' : 'none', m.inView + ' of ' + m.all, m.over ? m.over + ' px' : 'none', m.clash ? m.clash + ' pairs' : 'none'].forEach((t, i) => { const td = document.createElement('td'); if (i > 2) td.className = 'num'; td.textContent = t; tr.append(td); }); $('tbody').append(tr); });
   // The mod rows in F5: how many of the ten are wholly in view without scrolling, and that nothing in view is cut off sideways
   const rowsSeen = {}; for (const r of MODROWS) { form = 'F5'; modRow = r.id; lens = 'no'; apply(); setBank('MODS'); await settle(); await settle(); const L = d.querySelector('#bankHost .bk-lanes'), box = L.getBoundingClientRect(), rows = [...L.children], inV = rows.filter(c => { const q = c.getBoundingClientRect(); return q.width && q.top >= box.top - .5 && q.bottom <= box.bottom + .5 && q.right <= box.right + .5; }); let clip = 0; inV.forEach(c => { const q = c.getBoundingClientRect(); [...c.children].forEach(k => { const z = k.getBoundingClientRect(); if (z.width) clip = Math.max(clip, z.right - q.right, z.bottom - q.bottom); }); }); rowsSeen[r.id] = { n: inV.length, all: rows.length, clip: Math.round(clip), side: Math.round(L.scrollWidth - L.clientWidth) }; }
-  check(Object.values(rowsSeen).every(v => v.all === SEEDS.length && v.clip <= 1 && v.side <= 1), 'The mod rows, all ten of them routed: ' + MODROWS.map(r => r.id + ' shows ' + rowsSeen[r.id].n).join(', ') + ', with nothing cut off inside a row or sideways' + (Object.values(rowsSeen).some(v => v.clip > 1 || v.side > 1) ? ' (' + JSON.stringify(rowsSeen) + ')' : '') + '.');
+  check(Object.values(rowsSeen).every(v => v.all === SEEDS.length + 1 && v.clip <= 1 && v.side <= 1), 'The mod rows, ten routed and ENV 1 always (GUI-7): ' + MODROWS.map(r => r.id + ' shows ' + rowsSeen[r.id].n).join(', ') + ', with nothing cut off inside a row or sideways' + (Object.values(rowsSeen).some(v => v.clip > 1 || v.side > 1) ? ' (' + JSON.stringify(rowsSeen) + ')' : '') + '.');
   check(rowsSeen.R3.n >= 8 && rowsSeen.R2.n >= 8 && rowsSeen.R1.n >= 4, 'R2 and R3 show at least eight in view, R1 at least four.');
   setBank('MAC'); await settle();
+  /* MORPH AND MAP. Each form in every state, because these are the states that broke. A state is only tested if it is really on, so each reading also reads the dock and the inspector. */
+  const setState = async (morph, map) => { const mb = d.getElementById('morphOn'); if ((mb.getAttribute('aria-checked') === 'true') !== morph) mb.click(); if (!!S.map.on !== map) { S.setMap(map); S.emit(); } for (let i = 0; i < 4; i++) await settle(); };
+  const stateRead = () => { const R = e => e.getBoundingClientRect(), win = R(d.getElementById('win')), fr = R(d.getElementById('footrow')), bh = R(d.getElementById('bankHost')), ms = [...d.querySelectorAll('#labMeters .m')].map(R), dock = d.getElementById('dock'), insp = d.getElementById('inspDock'), bg = R(d.getElementById('bodyGrid')), lanes = d.querySelector('#bankHost .bk-lanes'); return { foot: Math.round(fr.width), bank: Math.round(bh.width), m: ms.map(q => Math.round(q.width) + ' × ' + Math.round(q.height)), minW: ms.length ? Math.min(...ms.map(q => q.width)) : null, inWin: fr.right <= win.right + 1 && fr.bottom <= win.bottom + 1 && ms.every(q => q.right <= win.right + 1), clear: fr.top >= bg.bottom - 1, dock: !dock.hidden && R(dock).width > 0, insp: !insp.hidden && R(insp).width > 0, dockOver: Math.max(0, dock.scrollHeight - dock.clientHeight), mac: !!d.getElementById('labMac') }; };
+  { const bad = [], notes = []; for (const f of FORMS.filter(x => x.id !== 'F0')) { form = f.id; faceNow = 'K1'; lens = 'no'; apply(); setBank('MAC'); await settle();
+      for (const [nm, mo, ma] of [['morph', true, false], ['MAP', false, true], ['both', true, true]]) { await setState(mo, ma); buildMac(); await settle(); const r = stateRead(), on = (!mo || r.dock) && (!ma || r.insp); if (!on || r.foot < 950 || !r.inWin || !r.clear || (r.minW !== null && r.minW < 120)) bad.push(f.id + ' ' + nm + ': ' + JSON.stringify(r)); if (f.id === 'F5') notes.push(nm + ' ' + r.m.join(', ')); }
+      await setState(false, false); }
+    check(!bad.length, 'Morph, MAP and both, each really on: in every form the foot row stays the window\'s full width, below the dock and inspector, with nothing past the window. F5\'s pictures: ' + notes.join('; ') + (bad.length ? ' (FAILS: ' + bad.join(' | ') + ')' : '') + '.');
+    form = 'F5'; for (const l of LENSES) { lens = l.id; apply(); await setState(true, true); const r = stateRead(); notes.push(l.id + ': ' + r.m.join(', ')); if (r.minW < 100 && l.id !== 'L1') bad.push(l.id); await setState(false, false); }
+    check(!bad.length, 'F5 with both on and each Lens: ' + notes.slice(-3).join('; ') + '. L1 leaves the pictures narrowest.'); }
+  { form = 'F0'; faceNow = 'K0'; lens = 'no'; apply(); await setState(true, true); const r = stateRead(); await setState(false, false); check(r.dock && r.insp && r.foot < 700, 'Control: as built, with both on, the foot row shrinks to ' + r.foot + ' px: that is what broke F5, and the states above would read it.'); }
   const knobs = MEASURED.filter(m => m.face === 'K1');
   check(knobs.filter(m => m.lens === 'no').every(m => m.inView === m.all && m.over === 0), 'With no Lens in the foot row, all ten macro controls fit in every form.');
   check(MEASURED.filter(m => m.form !== 'F0').every(m => m.unused === 0), 'No form but as built leaves unused height.');
