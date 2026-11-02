@@ -288,7 +288,7 @@
       "from": "member.dc",
       "id": "member.dc->member.loop",
       "kind": "audio",
-      "label": "the member's output",
+      "label": "the member's output, before edge correction and C.16's estimate",
       "to": "member.loop"
     },
     {
@@ -2544,7 +2544,7 @@
     }
   ],
   "spec": {
-    "blob": "84a67795a95829f6ae44c183836e052b9ef5406c",
+    "blob": "ca4cc618e0be3e66df185aa800fa0d79f410973e",
     "path": "specs/SPEC-ENGINE.md"
   }
 }

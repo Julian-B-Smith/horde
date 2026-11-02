@@ -5148,6 +5148,21 @@
    "superseded_by": null,
    "port_tab": "modulators",
    "note": "The lab is the private page the ADR cites, not a repo lab. LfoShapeEditor and EnvelopeEditor draw any number of points in one corner; showing parked points and editing per corner are not in the master yet. RC-4 still defers the LFOs."
+  },
+  {
+   "id": "adr351-arp-named-scale",
+   "adr": "ADR-351",
+   "clause": "ruling 6 (Arp's own scale uses the same named-scale control as the song scale)",
+   "lab": null,
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null,
+   "port_tab": null,
+   "note": "Arp already carries the 18 names (its params.json `ui_scale_names`); a mask that matches no name reads custom. Rulings 1 to 5 of the ADR are formats and gates, with no control."
   }
  ],
  "not_design": [
@@ -6070,6 +6085,10 @@
   {
    "adr": "ADR-348",
    "reason": "Glide behaviour on notes struck together, in the spec's phrase set: no control or design element."
+  },
+  {
+   "adr": "ADR-350",
+   "reason": "The loop's law, the bank's translation and two gates: no control or design element."
   }
  ],
  "audit_notes": [
