@@ -1,0 +1,12 @@
+# main-workshop-lab — five ways to use Main's space, on the running shell (B581)
+
+- **Queue item:** B581. GUI session. After GUI-2 ruled M1, the human reopened Main: "I want a better use of space", asking for a minimal oscillator section like the bench's, and possibly a minimal filter view, a bend law panel, scale quantization and a minimal arp view, and "I want to see some options".
+- **Why a lab:** the ruled layout left most of the page empty and had none of these panels. Nothing in the shell, master or bundle changed, and GUI-2 stands until a ruling replaces it.
+- **What it is:** `docs/design/main-workshop-lab.html` loads `gui3.html#main,win` in a frame and builds each option in place. Five options: A everything out, B one deck, C two decks, D no foot row, E one surface.
+- **Evidence consulted:** the bench's `buildMain` and `oscControlsMain` (`docs/design/scalpel-interface-lab.html`), GUI-2, ADR-307, ADR-311, ADR-345, the master's BendLaw and ScaleSelector READMEs, `gui3/params.json` for the real rows.
+- **Real:** every knob with a parameter row is a second face on that row and writes the device; the stepped controls are the shell's own, moved for the option; the morph pad and ENV 1's picture are the shell's. The ring, cycle, bend picture and scale picker are the bundle's. The Specimen and logo are the bench's, via `main-layout-lab-parts.js`.
+- **MOCK, marked on the panel:** filter (no rows: Weir, ADR-307), bend (no rows: RC-3 defers the pitch system), scale (no rows), macros (not in the stub), the arp's lane, the XY's value. The ring's swarm and the cycle are SAMPLE drawings of the settings.
+- **Found while building:** a panel clips what doesn't fit, so neither the eye nor the page's scroll shows a bad fit. The self-check measures controls past each panel's edge on every tab, and that found the first small panels cut off by up to 200 px.
+- **Costs the options carry, for the ruling:** every option moves ENV 1's hold, curves and velocity off Main, so they need a home on the Mod page. D amends ADR-345 on Main. In C the ring is small enough for its labels to overlap.
+- **Not checked:** the Specimen's cost in a plugin webview (still owed by GUI-2); other window scales; the light scheme; the moved controls' menus on every option. The bank's macros and these MOCK knobs aren't connected.
+- **Checks:** the lab's self-check, 22 of 22, with its controls; the shell's own self-checks, 49 of 49, in the frame.

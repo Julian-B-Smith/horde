@@ -1,0 +1,465 @@
+<!doctype html>
+<!-- main-workshop-lab: Main with its space put to work: small oscillator, filter, bend, scale and arp panels. horde, 2026-11-02. Origin: horde GUI session (ADR-336 charter), the
+     human, after GUI-2 ruled M1: "I want to workshop main first. I want a better use of space. It should have a minimal osc control section like in the scalpel lab, and also
+     possibly a minimal filter view; maybe even a bend law panel. There could be other useful things as well. Scale quantization, minimal arp view. I want to see some options". B581.
+
+     WHAT IS REAL. The frame is gui3.html, unedited. Every knob with a parameter row is a second face on that row, writing the device; the stepped controls are the shell's own,
+     moved here; the morph pad and ENV 1's picture are the shell's. The ring and the cycle are the bundle's painters. The bend picture is the bundle's Viz.bend on Glide.simulate,
+     and the scale is the bundle's ScalePicker. The Specimen and the logo are the bench's code (main-layout-lab-parts.js, verbatim, ADR-333).
+     WHAT IS MOCK, and says so on its panel. Filter: no rows, because the filters moved to Weir (ADR-307) and its slot isn't in the stub. Bend: no rows, because RC-3 defers the
+     pitch system. Scale: no rows yet, it is a local value. Macros: the bank's, not yet in the stub. The arp's lane and the XY's value. The ring's swarm and the cycle are SAMPLE
+     drawings of the settings, never the engine's output: the shell has no audio engine.
+
+     WHY A LAB. GUI-2 ruled the layout and the human reopened it for space. Nothing here edits gui3*, arp-face/ or the master: a ruling goes through the chain (ADR-316).
+
+     THE SELF-CHECK prints in #selfcheck. It measures every option, and every tab of a deck, for parts that overlap or spill. Its controls: a planted overlap and a planted spill
+     must read as such, "as built" must read the shell's own Main, and leaving every option must put Main back.
+
+     HOUSE RULES. No Math.random. The lab's clock is a frame counter. No wheel listener (B301). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="lab-part" content="Presentation">
+<title>Main workshop lab — small panels for the oscillators, filter, bend, scale and arp (B581)</title>
+<link rel="stylesheet" href="arp-face/tokens.css">
+<link rel="stylesheet" href="arp-face/bundle.css">
+<style>
+  html, body { background: var(--bg); }
+  body { margin: 0; padding: 20px 16px 60px; color: var(--ink); font: 13px/1.5 var(--font-sans); }
+  .col { max-width: 1012px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+  h1 { font: 800 19px/1.2 var(--font-sans); margin: 0 0 6px; }
+  h2 { font: 800 13px/1.2 var(--font-sans); margin: 0 0 8px; }
+  p { margin: 0 0 6px; max-width: 84ch; }
+  .picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+  .opt { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 1px solid var(--div); border-radius: 6px; min-height: 44px; }
+  .opt:hover { border-color: var(--ink); }
+  .opt:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .opt[aria-pressed="true"] { border: 2px solid var(--ink); padding: 7px; }
+  .opt .id { font: 800 12px/1.2 var(--font-mono); }
+  .opt .nm { font: 700 12px/1.25 var(--font-sans); }
+  .opt svg { display: block; width: 100%; height: auto; }
+  .opt svg rect { stroke: var(--ink); stroke-width: 4; stroke-linejoin: round; fill: var(--ink); fill-opacity: .12; }
+  .opt svg rect.pic { fill-opacity: .5; }
+  .now { border: 1px solid var(--div); border-radius: 6px; padding: 10px 12px; }
+  .now h2 { font-size: 14px; }
+  .now dl { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 2px 8px; margin: 0; }
+  .now dt { font-weight: 700; }
+  .now dd { margin: 0; }
+  .bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px; }
+  .bar .hd-btn { min-height: 28px; }
+  #wrap { position: relative; overflow: hidden; border: 1px solid var(--div); height: 720px; }
+  #frame { display: block; border: 0; width: 980px; height: 720px; transform-origin: 0 0; }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; }
+  th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--div); white-space: nowrap; }
+  th { font-weight: 700; }
+  td.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  tr.on td { font-weight: 700; }
+  #selfcheck { font: 12px/1.5 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .note { color: var(--hint); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="col">
+  <header>
+    <h1>Main: five ways to use the space</h1>
+    <p>Each option is the running shell with small panels for the oscillators, filter, bend law, scale and arp. Pick one and try it in place. Knobs with a parameter row are real. Filter, bend, scale and macros are MOCK, because the engine has no rows for them yet, and they say so on their panels.</p>
+  </header>
+  <section aria-label="The options">
+    <div class="picker" id="picker"></div>
+  </section>
+  <section class="now" id="now" aria-live="polite"></section>
+  <section aria-label="The shell with this Main">
+    <div class="bar">
+      <button class="hd-btn hd-focus" id="btnNotes" type="button" aria-pressed="false">Play notes</button>
+      <span class="note">Notes feed the Specimen a seeded pattern. There's no audio engine yet.</span>
+    </div>
+    <div id="wrap"><iframe id="frame" title="GUI 3 with this Main" src="gui3.html#main,win"></iframe></div>
+  </section>
+  <section aria-label="Measured">
+    <h2>Measured on the shell</h2>
+    <div class="scroll"><table><thead><tr><th>Option</th><th>Room</th><th>Panels in view</th><th>Oscillator panel</th><th>Specimen</th><th>Morph pad</th><th>ENV 1 picture</th><th>Foot row</th><th>Fits</th></tr></thead><tbody id="tbody"></tbody></table></div>
+  </section>
+  <section aria-label="Self-check">
+    <h2>Self-check</h2>
+    <div id="selfcheck">Measuring…</div>
+  </section>
+</div>
+<script src="main-layout-lab-parts.js"></script>
+<script>
+'use strict';
+const FRAME_CSS = `
+  #labStage { display: grid; gap: 6px; min-height: 0; min-width: 0; font: 11px/1.3 var(--font-sans); }
+  #labStage > * { min-width: 0; min-height: 0; }
+  .lab-col { display: flex; flex-direction: column; gap: 6px; min-height: 0; min-width: 0; }
+  .lab-col > * { min-width: 0; min-height: 0; }
+  .lab-row { display: flex; gap: 6px; min-height: 0; min-width: 0; }
+  .lab-row > * { flex: 1 1 0; min-width: 0; min-height: 0; }
+  .lab-p { box-sizing: border-box; display: flex; flex-direction: column; gap: 3px; padding: 4px 6px; border: var(--stroke-ink) solid var(--ink); border-radius: var(--radius); overflow: hidden; background: var(--panel, transparent); }
+  .lab-h { display: flex; align-items: center; gap: 6px; font: 800 10px/1.3 var(--font-sans); letter-spacing: .04em; text-transform: uppercase; flex: 0 0 auto; white-space: nowrap; }
+  .lab-h .tag { font: 400 8.5px/1 var(--font-mono); color: var(--hint); text-transform: none; letter-spacing: 0; margin-left: auto; }
+  .lab-b { flex: 1 1 auto; min-height: 0; min-width: 0; display: flex; gap: 6px; }
+  .lab-tabs { display: flex; gap: 2px; flex: 0 0 auto; flex-wrap: nowrap; }
+  .lab-tab { all: unset; box-sizing: border-box; cursor: pointer; padding: 1px 6px; border: 1px solid var(--div); border-radius: 9px; font: 700 10px/1.4 var(--font-sans); white-space: nowrap; text-transform: none; letter-spacing: 0; }
+  .lab-tab[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .lab-tab:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+  .lab-kr { display: flex; flex-wrap: wrap; gap: 2px 6px; align-items: flex-start; align-content: flex-start; min-width: 0; }
+  .lab-st { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .lab-st > .lab-l { font: 700 9px/1.2 var(--font-sans); color: var(--t2, var(--hint)); white-space: nowrap; }
+  .lab-well { position: relative; min-width: 0; min-height: 0; flex: 1 1 0; }
+  .lab-well canvas { position: absolute; left: 0; top: 0; width: 100% !important; height: 100% !important; display: block; }
+  .lab-xy { position: relative; overflow: hidden; border: var(--stroke-ink) solid var(--ink); border-radius: var(--radius); background: var(--scr-ground); touch-action: none; }
+  .lab-xy canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; }
+  .lab-xy canvas.specimen { pointer-events: none; }
+  .lab-xy .lab-tag { position: absolute; left: 6px; bottom: 4px; font: 400 8.5px/1 var(--font-mono); color: var(--hint); pointer-events: none; }
+  .lab-morph .hd-xy { width: 100% !important; height: 100% !important; margin: 0 !important; }
+  .lab-morph { min-height: 0; position: relative; }
+  .lab-surf { display: flex; flex-direction: column; gap: 3px; min-height: 0; }
+  .lab-surf > .lab-morph, .lab-surf > .lab-xy { flex: 1 1 0; min-height: 0; }
+  .lab-macros { display: flex; justify-content: space-between; gap: 2px; align-items: flex-start; }
+  .lab-env .vz { display: flex; flex-direction: column; flex: 1 1 0; min-width: 0; min-height: 0; width: auto !important; }
+  .lab-env .vz-well { flex: 1 1 0; min-height: 0; position: relative; }
+  .lab-env .vz-cv { position: absolute; left: 0; top: 0; width: 100%; height: 100% !important; display: block; }
+  .lab-env .vz-cap { display: none; }
+  .lab-mini .sc-skin, .lab-mini .sc-note, .lab-mini .sc-pattern, .lab-mini .sc-fifths { display: none !important; }
+  .lab-scale .hd-scale { width: 100%; min-width: 0; }
+  .lab-mini .hd-select { max-width: 100%; font-size: 10px; height: 20px; min-height: 20px; padding: 0 16px 0 4px; flex: 1 1 40%; min-width: 0; }
+  .lab-mini .hd-label { font-size: 0; display: contents; }
+  .lab-mini .hd-row { flex-wrap: nowrap; gap: 3px !important; }
+  .lab-mini .sc-keys.steps { display: grid !important; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1px; height: auto !important; }
+  .lab-mini .sc-keys.steps .st { min-height: 20px; height: 20px; min-width: 0; width: auto; }
+  .lab-sel { font: 400 10px/1.3 var(--font-sans); max-width: 100%; }
+  .lab-note { font: 400 9px/1.25 var(--font-mono); color: var(--hint); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .lab-p.lab-fxrow { flex-direction: row; }
+  .lab-m-filter .lab-kr, .lab-m-bend .lab-kr { flex-wrap: nowrap; justify-content: space-around; width: 100%; }
+  .lab-m-arp select { max-width: 58px; font-size: 10px; }
+  .lab-m-arp .lab-kr { gap: 1px 5px; }
+  .lab-small > .lab-b { flex-direction: column; gap: 3px; }
+  .lab-small .lab-well { flex: 1 1 0; min-height: 20px; }
+  .lab-small .lab-ctl { flex: 0 0 auto; display: flex; flex-wrap: wrap; gap: 2px 5px; align-items: center; min-width: 0; }
+  .lab-small .lab-h .lab-tab { padding: 0 4px; }
+  .lab-h .lab-sel { text-transform: none; letter-spacing: 0; font-weight: 400; min-width: 0; flex: 0 1 auto; }
+  .lab-st .cl-lab { display: none; }
+  .lab-kr .hd-mk, .lab-ctl .hd-mk { width: auto !important; min-width: 0 !important; }
+  .lab-scale .sc-keys { max-width: 100%; }
+  .lab-narrow-osc { flex-direction: column !important; }
+  .lab-narrow-osc > .lab-top { display: flex; gap: 6px; flex: 0 0 auto; min-width: 0; }
+  .lab-narrow-osc > .lab-well { flex: 1 1 0; min-height: 40px; } align-items: center; gap: 5px; white-space: nowrap; overflow: hidden; }
+  .lab-fxrow b { font: 800 10px/1 var(--font-sans); }
+  .lab-fxrow .lab-tab { font-weight: 400; }
+  .logo canvas.logo { width: 91px; height: 60px; display: block; pointer-events: none; }
+`;
+/* An option is a tree of regions. `room` drops the foot row where it says so. The left column holds the pads, the right the panels; deck tabs are in DECK order. */
+const DECK = [['osc1', 'Osc 1'], ['osc2', 'Osc 2'], ['sub', 'Sub'], ['noise', 'Noise'], ['filter', 'Filter'], ['bend', 'Bend'], ['scale', 'Scale'], ['arp', 'Arp']];
+const OPTIONS = [
+  { id: 'N0', name: 'As built', built: true,
+    does: 'The shell today, with the logo. GUI-2\'s M1 is in the earlier lab, main-layout-lab.html.',
+    costs: 'Most of the page is empty.' },
+  { id: 'A', name: 'Everything out', foot: true, left: 'stack', rows: [['macros', 60], ['env', 84], ['oscTabs', 178], ['minis', 'rest']], minis: ['filter', 'bend', 'scale', 'arp'],
+    does: 'All of it visible at once: macros, envelope, a tabbed oscillator panel like the bench\'s, and four small panels along the bottom.',
+    costs: 'Nothing has much room. The four small panels are about 170 × 110, so each shows only its essentials, and the Specimen stays a modest size.' },
+  { id: 'B', name: 'One deck', foot: true, left: 'stack', rows: [['macros', 60], ['env', 84], ['deck', 'rest']], decks: [['osc1']],
+    does: 'One big panel with eight tabs. Each gets real room: the oscillator shows its ring, both blades\' knobs and a wide cycle.',
+    costs: 'You only see one at a time, so you can\'t watch the filter while you cut with a blade. Everything else is one click away.' },
+  { id: 'C', name: 'Two decks', foot: true, left: 'stack', rows: [['macros', 60], ['env', 84], ['twoDecks', 'rest']], decks: [['osc1'], ['filter']],
+    does: 'Two panels side by side, each with the same eight tabs, so you choose what sits next to what: Osc 1 and the filter, say, or two oscillators.',
+    costs: 'Each panel is half as wide as B\'s, and the eight tabs are a tight fit. It also adds a setting to save: which tabs are showing.' },
+  { id: 'D', name: 'No foot row', foot: false, left: 'stack', leftW: 272, rows: [['preset', 26], ['macros', 60], ['env', 88], ['oscTabs', 190], ['minis', 'rest'], ['fx', 26]], minis: ['filter', 'bend', 'scale', 'arp'],
+    does: 'Main alone gives up the foot row for 126 px more height. That makes room for everything in A at a better size, with a bigger Specimen, plus a preset row and an FX line.',
+    costs: 'No info box or bank on Main, which amends the foot row ruling (ADR-345) for this page. Macros are on the page anyway, and the info sidebar setting still brings the box back. Pages would jump in height as you switch to and from Main.' },
+  { id: 'E', name: 'One surface', foot: true, left: 'switch', rows: [['macros', 60], ['env', 84], ['oscTabs', 178], ['minis', 'rest']], minis: ['filter', 'bend', 'scale', 'arp'],
+    does: 'The morph pad and the Specimen XY share one surface with a switch, so the left column has room for Voice and Mix under it. The right side is A\'s.',
+    costs: 'You can\'t see the morph pad and the XY together, and GUI-2 has them stacked. You switch to reach the one that\'s hidden.' },
+];
+const $ = id => document.getElementById(id), frame = $('frame'), wrap = $('wrap'), Parts = window.MainLabParts;
+const MACRO_NAMES = ['Tone', 'Space', 'Time', 'Motion', 'Macro 5', 'Macro 6', 'Macro 7', 'Macro 8'];
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+let w, d, H, S, S2, ready = false, active = 'C', frameNo = 0, playing = false, xyPos = [.62, .42], painters = [], pad, home = new Map(), measured = {};
+const mock = { filterType: 0, law: 4, scale: { root: 0, mask: null } };
+
+// ===== small builders, all against the frame's document =====
+const el = (t, c, txt) => { const e = d.createElement(t); if (c) e.className = c; if (txt !== undefined) e.textContent = txt; return e; };
+function panel(title, tag, cls) { const p = el('section', 'lab-p ' + (cls || '')); p.setAttribute('aria-label', title); const h = el('div', 'lab-h'); if (title) h.append(el('span', '', title)); h.append(el('span', 'tag', tag || '')); const b = el('div', 'lab-b'); p.append(h, b); p.head = h; p.body = b; return p; }
+/* A second face on a real row: the same corner values (`vals` is the shell's proxy on the device), at this panel's size. */
+function knob(host, key, label, size) {
+  const c = S.params[key]; if (!c) return null;
+  const k = el('div'); host.append(k); k.dataset.key = key;
+  H.Knob(k, Object.assign({}, c, { name: label || c.name, size: size || 'utility' }), S); return k;
+}
+function mockKnob(host, key, label, v, size, fmt, onInput) {
+  const k = el('div'); host.append(k);
+  const p = { key: 'lab.' + key, name: label, path: label + ' (MOCK)', vals: [v, v, v, v], fmt: fmt || (x => Math.round(x * 100) + '%'), size: size || 'utility', onInput };
+  H.Knob(k, p, S2); return p;
+}
+const val = key => { const p = S.params[key]; if (!p) return 0; const ai = S.editing(p); return p.vals[ai === null || ai === undefined ? 0 : ai]; };
+const mval = p => p.vals[S2.editing(p) || 0];
+/* The shell's own stepped control, moved here for the lab: its value and its menu stay wired. `home` puts each back when an option is left. */
+function moved(host, key, label) {
+  let e = [...d.querySelectorAll('#pages [data-key="' + key + '"]')].find(x => !x.closest('.hd-pt') && !x.classList.contains('lab-new'));
+  if (!e) return null;
+  if (!home.has(e)) home.set(e, [e.parentNode, e.nextSibling]);
+  const s = el('div', 'lab-st'); if (label) s.append(el('span', 'lab-l', label)); s.append(e); host.append(s); return e;
+}
+function well(host, label, grow) { const w0 = el('div', 'lab-well'); if (grow) w0.style.flex = grow; const cv = el('canvas'); cv.setAttribute('role', 'img'); cv.setAttribute('aria-label', label); w0.append(cv); host.append(w0); return cv; }
+function pills(host, names, cur, onPick, label) {
+  const g = el('div', 'lab-tabs'); g.setAttribute('role', 'tablist'); if (label) g.setAttribute('aria-label', label);
+  const paint = i => [...g.children].forEach((b, j) => b.setAttribute('aria-selected', String(j === i)));
+  names.forEach((n, i) => { const b = el('button', 'lab-tab', n); b.type = 'button'; b.setAttribute('role', 'tab'); b.addEventListener('click', () => { paint(i); onPick(i); }); g.append(b); }); paint(cur); host.append(g); return g;
+}
+
+// ===== the faces =====
+function ring(cv, id) {
+  const K = { x: id + '.detune', y: id + '.coupling', sx: id + '.crossMod' }, st = { x: val(K.x), y: val(K.y), sx: val(K.sx) };
+  let sw = H.Synth.ring(7, 7), live = { drag: false };
+  const put = (key, v) => { const p = S.params[key]; if (!p) return; const ai = S.editing(p); if (ai === null || ai === undefined) return; if (Math.abs(p.vals[ai] - v) > 1e-9) p.vals[ai] = v; };
+  H.RingXY(cv, st, (s, info) => { live = info; if (info.drag || info.shift || !info.hover) { put(K.x, s.x); put(K.y, s.y); put(K.sx, s.sx); } });
+  painters.push(() => { if (!cv.isConnected || !cv.clientWidth) return; if (!live.drag) { st.x = val(K.x); st.y = val(K.y); st.sx = val(K.sx); } sw.step(1 / 60, (st.y - .5) * 8, st.x * 1.4); H.Viz.kuramoto(cv, { phase: sw.phase, blades: sw.blades, cross: null, xy: st, drag: live.drag }); });
+}
+/* The cycle: SAMPLE, a saw with each on blade's window at the row's own position and width, drawn by the bundle's painter. */
+function cycle(cv, id) {
+  let last = '';
+  painters.push(() => {
+    if (!cv.isConnected || !cv.clientWidth) return;
+    const b1 = { st: val(id + '.blade1.position'), w: Math.max(.01, val(id + '.blade1.width')), dp: val(id + '.blade1.depth') }, b2 = { st: val(id + '.blade2.position'), w: Math.max(.01, val(id + '.blade2.width')), dp: val(id + '.blade2.depth') };
+    const key = JSON.stringify([b1, b2, cv.clientWidth, cv.clientHeight]); if (key === last) return; last = key;
+    const M = 256, base = [], sum = [], inW = (x, b) => { const r = (x - b.st + 1) % 1; return r < b.w; };
+    for (let j = 0; j < M; j++) { const x = j / M, y = H.Synth.saw(x + .5); base.push(y); sum.push(inW(x, b1) ? y * (1 - b1.dp) + Math.sin(x * 25) * b1.dp : y); }
+    H.Viz.blade(cv, { windows: [{ blade: 1, st: b1.st, w: b1.w, a: .34 }], base, members: [], sum });
+  });
+}
+function oscNarrow(host, id) {
+  host.classList.add('lab-narrow-osc');
+  const top = el('div', 'lab-top'); host.append(top);
+  const rw = el('div', 'lab-well'); rw.style.cssText = 'flex:0 0 96px;height:96px;'; const rc = el('canvas'); rc.setAttribute('role', 'slider'); rc.setAttribute('aria-label', 'Ring: Coupling × Detune (SAMPLE swarm)'); rc.tabIndex = 0; rw.append(rc); top.append(rw); ring(rc, id);
+  const m = el('div', 'lab-st'); m.style.cssText = 'flex:1 1 auto;gap:3px;min-width:0;'; top.append(m);
+  const r1 = el('div', 'lab-kr'); m.append(r1); moved(r1, id + '.unison', 'Members'); moved(r1, id + '.blade1.on', 'Blade'); moved(r1, id + '.blade1.mode', 'Mode');
+  const r2 = el('div', 'lab-kr'); m.append(r2); ['width', 'cut', 'position', 'depth', 'edges'].forEach(k => knob(r2, id + '.blade1.' + k));
+  cycle(well(host, 'One cycle (SAMPLE)'), id);
+}
+function oscFace(host, id, roomy) {
+  const a = el('div', 'lab-st'); a.style.cssText = 'flex:0 0 ' + (roomy ? 170 : 128) + 'px;gap:3px;'; host.append(a);
+  const rw = el('div', 'lab-well'); rw.style.flex = '1 1 0'; const rc = el('canvas'); rc.setAttribute('role', 'slider'); rc.setAttribute('aria-label', 'Ring: Coupling × Detune (SAMPLE swarm)'); rc.tabIndex = 0; rw.append(rc); a.append(rw); ring(rc, id);
+  const m = el('div', 'lab-st'); m.style.cssText = 'flex:1 1 auto;gap:3px;min-width:0;'; host.append(m);
+  const r1 = el('div', 'lab-kr'); m.append(r1); moved(r1, id + '.unison', 'Members'); moved(r1, id + '.baseWave', 'Base'); moved(r1, id + '.blade1.on', 'Blade'); moved(r1, id + '.blade1.mode', 'Mode');
+  const r2 = el('div', 'lab-kr'); m.append(r2); ['width', 'cut', 'position', 'depth', 'edges'].forEach(k => knob(r2, id + '.blade1.' + k));
+  if (roomy) { const r3 = el('div', 'lab-kr'); m.append(r3); moved(r3, id + '.blade2.on', 'Blade 2'); ['width', 'cut', 'position', 'depth', 'edges'].forEach(k => knob(r3, id + '.blade2.' + k)); }
+  const c = el('div', 'lab-st'); c.style.cssText = 'flex:1 1 0;min-width:' + (roomy ? 180 : 110) + 'px;'; host.append(c); const cv = well(c, 'One cycle (SAMPLE)'); cycle(cv, id);
+}
+function subFace(host, roomy) { const r = el('div', 'lab-kr'); host.append(r); moved(r, 'sub.wave', 'Wave'); moved(r, 'sub.octave', 'Octave'); ['tone', 'drive', 'erode', 'crunch', 'character', 'pan'].forEach(k => knob(r, 'sub.' + k, null, roomy ? 'compact' : 'utility')); }
+function noiseFace(host, roomy) { const r = el('div', 'lab-kr'); host.append(r); moved(r, 'noise.type', 'Type'); moved(r, 'noise.filter', 'Filter'); ['colour', 'density', 'cutoff', 'resonance', 'spread', 'pan'].forEach(k => knob(r, 'noise.' + k, null, roomy ? 'compact' : 'utility')); }
+/* MOCK: the filter slot has no rows (ADR-307). The curve is a plain two-pole response, a drawing of these two knobs and nothing of Weir's. */
+function filterFace(host, roomy, head) {
+  const col = el('div', head ? 'lab-ctl' : 'lab-st'); if (!head) col.style.cssText = 'flex:0 0 auto;gap:3px;';
+  const types = el('div'); pills(types, ['LP', 'BP', 'HP'], mock.filterType, i => { mock.filterType = i; }, 'Filter type (MOCK)'); if (head) head.insertBefore(types, head.querySelector('.tag')); else col.append(types);
+  const kr = el('div', 'lab-kr'); col.append(kr);
+  const cut = mockKnob(kr, 'cut', 'Cutoff', .62, roomy ? 'compact' : 'utility', x => Math.round(40 * Math.pow(400, x)) + ' Hz'), res = mockKnob(kr, 'res', 'Res', .3, roomy ? 'compact' : 'utility');
+  const cv = well(host, 'Filter response (MOCK)'); host.append(col);
+  painters.push(() => {
+    if (!cv.isConnected || !cv.clientWidth) return;
+    const K = H.Viz.kit(cv), g = K.g, W = K.W, Ht = K.H; K.tube(); K.scan();
+    const fc = mval(cut), Q = .5 + mval(res) * 7, y = db => Ht * (1 - (db + 36) / 54);
+    g.strokeStyle = K.c('grid', .3); g.lineWidth = K.V; g.beginPath(); g.moveTo(0, y(0)); g.lineTo(W, y(0)); g.stroke();
+    g.strokeStyle = K.c('meter'); g.lineWidth = 1.8 * K.V; g.beginPath();
+    for (let i = 0; i <= 120; i++) { const u = i / 120, r = Math.pow(400, u - fc), den = Math.sqrt((1 - r * r) ** 2 + (r / Q) ** 2), m = mock.filterType === 0 ? 1 / den : mock.filterType === 1 ? (r / Q) / den : r * r / den, Y = y(20 * Math.log10(Math.max(1e-4, m))); i ? g.lineTo(u * W, Y) : g.moveTo(u * W, Y); } g.stroke();
+  });
+}
+/* MOCK rows (RC-3 defers the pitch system), the bundle's own law and painter. */
+function bendFace(host, roomy, head) {
+  const G = H.Viz.Glide, col = el('div', head ? 'lab-ctl' : 'lab-st'); if (!head) col.style.cssText = 'flex:0 0 auto;gap:3px;';
+  const sel = el('select', 'lab-sel hd-focus'); sel.setAttribute('aria-label', 'Bend law (MOCK)'); ['instant', 'time', 'rate', 'lag', 'spring'].forEach((n, i) => { const o = el('option', '', n); o.value = i; sel.append(o); }); sel.value = mock.law; sel.addEventListener('change', () => { mock.law = +sel.value; last = ''; }); if (head) head.insertBefore(sel, head.querySelector('.tag')); else col.append(sel);
+  const kr = el('div', 'lab-kr'); col.append(kr);
+  const fr = mockKnob(kr, 'spring', 'Spring', .35, 'utility', x => (.5 + x * 19.5).toFixed(1) + ' Hz'), dm = mockKnob(kr, 'damp', 'Damp', .28, 'utility');
+  if (roomy) { col.append(el('div', 'lab-note', 'Quantise: off · chromatic · scale')); }
+  const cv = well(host, 'Bend view (MOCK rows)'); host.append(col); let last = '';
+  painters.push(() => {
+    if (!cv.isConnected || !cv.clientWidth) return;
+    const key = [mock.law, mval(fr), mval(dm), cv.clientWidth, cv.clientHeight].join('|'); if (key === last) return; last = key;
+    const p = { law: mock.law, time: 120, rate: 24, lag: 60, springF: .5 + mval(fr) * 19.5, damp: mval(dm), distOver: 1, retMul: 1, quant: 0, root: 0, mask: G.mask(G.SCALES[1][1]), hyst: 8, qTime: 0 };
+    H.Viz.bend(cv, G.simulate(p, 60, 67, .9, 'note'), p);
+  });
+}
+function scaleFace(host, roomy) {
+  const h0 = el('div', 'lab-scale ' + (roomy ? '' : 'lab-mini')); h0.style.cssText = 'flex:1 1 auto;min-width:0;'; host.append(h0);
+  H.ScalePicker(h0, { root: mock.scale.root, mask: mock.scale.mask || undefined, visual: roomy ? 'circles' : 'steps', skin: 'global', onChange: v => { mock.scale = v; } });
+}
+function arpFace(host, roomy) {
+  const col = el('div', 'lab-kr'); col.style.cssText = 'flex:0 1 auto;'; host.append(col);
+  moved(col, 'arp.enabled', 'On'); moved(col, 'arp.pattern', 'Pattern'); moved(col, 'arp.rate', 'Rate'); if (roomy) { moved(col, 'arp.steps', 'Steps'); moved(col, 'arp.latch', 'Latch'); }
+  knob(col, 'arp.gate', 'Gate'); knob(col, 'arp.swing', 'Swing');
+  if (!roomy) return;
+  const cv = well(host, 'Arp lane (MOCK pattern)');
+  painters.push(() => { if (!cv.isConnected || !cv.clientWidth) return; const K = H.Viz.kit(cv), g = K.g, W = K.W, Ht = K.H; K.tube(); K.scan(); const pat = [0, 2, 4, 7, 9, 7, 4, 2]; g.fillStyle = K.c('value', .85); pat.forEach((n, i) => { const bw = W / pat.length; g.fillRect(i * bw + 2 * K.V, Ht - (n + 2) / 12 * Ht, bw * .7, 5 * K.V); }); g.strokeStyle = K.c('meter'); const ph = (frameNo % 240) / 240 * W; g.lineWidth = K.V; g.beginPath(); g.moveTo(ph, 0); g.lineTo(ph, Ht); g.stroke(); });
+}
+const TAGS = { filter: 'MOCK · no rows yet (Weir)', bend: 'MOCK · rows wait on RC-3', scale: 'MOCK · no rows yet', arp: 'real rows · lane MOCK' };
+function face(kind, host, roomy, head, narrow) {
+  host.classList.remove('lab-narrow-osc');
+  if (kind === 'osc1' || kind === 'osc2') { if (narrow) oscNarrow(host, kind); else oscFace(host, kind, roomy); }
+  else if (kind === 'sub') subFace(host, roomy); else if (kind === 'noise') noiseFace(host, roomy);
+  else if (kind === 'filter') filterFace(host, roomy, head); else if (kind === 'bend') bendFace(host, roomy, head); else if (kind === 'scale') scaleFace(host, roomy); else if (kind === 'arp') arpFace(host, roomy);
+}
+function clean() { S.views = S.views.filter(v => !v.el || v.el.isConnected); S2.views = S2.views.filter(v => !v.el || v.el.isConnected); }
+/* Faces rebuilt on a tab change give their moved controls back first, so one control is never in two places. */
+function giveBack(root) { root.querySelectorAll('[data-key]').forEach(e => { const h0 = home.get(e); if (h0 && h0[0]) { h0[0].insertBefore(e, h0[1] && h0[1].parentNode === h0[0] ? h0[1] : null); } }); }
+function tabbed(title, tabs, start, roomy, cls, narrow) {
+  const p = panel(title, '', cls), bar = el('div'); p.head.insertBefore(bar, p.head.querySelector('.tag')); let cur = start;
+  const show = () => { giveBack(p.body); p.body.innerHTML = ''; painters = painters.filter(f => f.keep !== p); const before = painters.length; face(tabs[cur][0], p.body, roomy, null, narrow); painters.slice(before).forEach(f => { f.keep = p; }); p.head.querySelector('.tag').textContent = TAGS[tabs[cur][0]] || ''; clean(); };
+  pills(bar, tabs.map(t => t[1]), cur, i => { cur = i; show(); }, title + ' tabs'); show();
+  p.pick = i => { cur = i; [...bar.firstChild.children].forEach((b, j) => b.setAttribute('aria-selected', String(j === i))); show(); }; p.count = tabs.length; return p;
+}
+function mini(kind) { const t = { filter: 'Filter', bend: 'Bend law', scale: 'Scale', arp: 'Arp' }[kind], p = panel(t, TAGS[kind].split(' · ')[0] === 'MOCK' ? 'MOCK' : '', 'lab-small lab-m-' + kind); face(kind, p.body, false, p.head); return p; }
+function macrosPanel() { const p = panel('Macros', 'MOCK · not in the stub yet'), m = el('div', 'lab-macros'); m.style.flex = '1 1 auto'; p.body.append(m); MACRO_NAMES.forEach((n, i) => mockKnob(m, 'macro' + i, n, .35, 'utility')); return p; }
+function envPanel() {
+  const p = panel('ENV 1', 'hold, curves and velocity go to the Mod page', 'lab-env'), vz = d.querySelector('.vz[data-lab-env]') || d.querySelector('#page-main .vz');
+  vz.setAttribute('data-lab-env', ''); if (!home.has(vz)) home.set(vz, [vz.parentNode, vz.nextSibling]); p.body.append(vz);
+  const k = el('div', 'lab-kr'); k.style.cssText = 'flex:0 0 auto;flex-wrap:nowrap;'; p.body.append(k); [['attack', 'A'], ['decay', 'D'], ['sustain', 'S'], ['release', 'R']].forEach(([x, l]) => knob(k, 'env1.' + x, l)); return p;
+}
+function voicePanel() { const p = panel('Voice and mix'), k = el('div', 'lab-kr'); p.body.append(k); moved(k, 'voice.mode', 'Voicing'); knob(k, 'voice.gravity', 'Gravity'); [['mix.osc1', 'Osc 1'], ['mix.osc2', 'Osc 2'], ['mix.sub', 'Sub'], ['mix.noise', 'Noise'], ['out.level', 'Out']].forEach(([x, l]) => knob(k, x, l)); return p; }
+function presetPanel() { const p = el('div', 'lab-p lab-fxrow'); p.setAttribute('aria-label', 'Preset (MOCK)'); const pv = el('button', 'lab-tab', '◀'), nx = el('button', 'lab-tab', '▶'); pv.type = nx.type = 'button'; pv.setAttribute('aria-label', 'Previous preset (MOCK)'); nx.setAttribute('aria-label', 'Next preset (MOCK)'); p.append(pv, el('b', '', 'Init patch'), nx, el('span', 'lab-note', 'preset row · MOCK')); return p; }
+function fxPanel() { const p = el('div', 'lab-p lab-fxrow'); p.setAttribute('aria-label', 'FX chain'); p.append(el('b', '', 'FX')); d.querySelectorAll('#page-fx section[aria-label]').forEach(() => {}); ['Echo', 'Scape', 'Shriek', 'Bulwark'].forEach((n, i) => { if (i) p.append(el('span', '', '→')); const b = el('button', 'lab-tab', n); b.type = 'button'; b.title = 'The FX page has this module'; p.append(b); }); p.append(el('span', 'lab-note', 'the chain, at a glance · drawn only')); return p; }
+function xySurface() {
+  const xy = el('div', 'lab-xy'); xy.append(Parts.specimenCanvas());
+  const c = el('canvas'); c.id = 'labPad'; c.setAttribute('role', 'img'); c.setAttribute('aria-label', 'XY, MOCK: it moves the Specimen, not a parameter'); xy.append(c, Object.assign(el('span', 'lab-tag'), { textContent: 'XY · assignable · MOCK' }));
+  const at = e => { const r = xy.getBoundingClientRect(); xyPos = [clamp((e.clientX - r.left) / r.width), clamp((e.clientY - r.top) / r.height)]; };
+  let held = false; xy.addEventListener('pointerdown', e => { held = true; at(e); try { xy.setPointerCapture(e.pointerId); } catch (_) { /* keep the drag */ } }); xy.addEventListener('pointermove', e => { if (held) at(e); }); xy.addEventListener('pointerup', () => { held = false; }); return xy;
+}
+function drawPad() {   // as main-layout-lab: a veil, quarter lines and a puck on the shell's tokens
+  const c = d.getElementById('labPad'); if (!c || !c.clientWidth) return;
+  const V = Math.min(w.devicePixelRatio || 1, 2), W = Math.round(c.clientWidth * V), Ht = Math.round(c.clientHeight * V); if (c.width !== W || c.height !== Ht) { c.width = W; c.height = Ht; }
+  const g = c.getContext('2d'), cs = getComputedStyle(d.documentElement), tok = n => cs.getPropertyValue(n).trim();
+  g.clearRect(0, 0, W, Ht); g.strokeStyle = tok('--scr-grid'); g.globalAlpha = .18; g.lineWidth = V; g.beginPath();
+  for (let q = 1; q < 4; q++) { const x = Math.round(q * W / 4) + .5, y = Math.round(q * Ht / 4) + .5; g.moveTo(x, 0); g.lineTo(x, Ht); g.moveTo(0, y); g.lineTo(W, y); } g.stroke(); g.globalAlpha = 1;
+  g.beginPath(); g.arc(xyPos[0] * W, xyPos[1] * Ht, 6 * V, 0, 6.2832); g.fillStyle = tok('--scr-value'); g.fill(); g.lineWidth = 1.5 * V; g.strokeStyle = tok('--scr-ground'); g.stroke();
+}
+
+// ===== an option =====
+function unbuild() {
+  const st = d.getElementById('labStage');
+  if (st) { const b = d.querySelector('#dock .face'); if (st.contains(pad) && b) b.prepend(pad); if (st.contains(Parts.specimenCanvas())) document.createElement('div').append(Parts.specimenCanvas()); st.remove(); }
+  home.forEach((h0, e) => { if (h0[0]) h0[0].insertBefore(e, h0[1] && h0[1].parentNode === h0[0] ? h0[1] : null); }); home.clear();
+  painters = []; d.getElementById('labMain').textContent = '';
+  S.views = S.views.filter(v => !v.el || v.el.isConnected);
+}
+function build(o) {
+  unbuild(); if (o.built) return;
+  d.getElementById('labMain').textContent = '#dock { display: none !important; } .bodyGrid.with-dock, .body.with-dock { grid-template-columns: minmax(0, 1fr) !important; } #pages { overflow: hidden !important; } #page-main .phead, #page-main .hd-pv { display: none !important; }' + (o.foot ? '' : ' #footrow { display: none !important; }');
+    const stage = el('div'); stage.id = 'labStage'; d.getElementById('page-main').append(stage);
+  stage.style.height = d.getElementById('pages').clientHeight + 'px';
+  const lw = o.leftW || 236; stage.style.gridTemplateColumns = lw + 'px minmax(0, 1fr)';
+  const L = el('div', 'lab-col'), R = el('div', 'lab-col'); stage.append(L, R);
+  const padBox = el('div', 'lab-morph'); padBox.append(pad);
+  if (o.left === 'switch') {
+    const surf = el('div', 'lab-surf'), xy = xySurface(); surf.style.flex = '0 0 ' + (lw + 18) + 'px'; L.append(surf);
+    pills(surf, ['Morph', 'XY'], 0, i => { padBox.style.display = i ? 'none' : ''; xy.style.display = i ? '' : 'none'; }, 'Pad surface'); surf.append(padBox, xy); xy.style.display = 'none';
+    const vp = voicePanel(); vp.style.flex = '1 1 0'; L.append(vp);
+  } else { padBox.style.flex = '0 0 ' + (o.foot ? 196 : 232) + 'px'; L.append(padBox); const xy = xySurface(); xy.style.flex = '1 1 0'; L.append(xy); }
+  let deckN = 0;
+  o.rows.forEach(([kind, h0]) => {
+    let e;
+    if (kind === 'macros') e = macrosPanel(); else if (kind === 'env') e = envPanel(); else if (kind === 'preset') e = presetPanel(); else if (kind === 'fx') e = fxPanel();
+    else if (kind === 'oscTabs') { e = tabbed('Oscillator', DECK.slice(0, 4), 0, false, 'lab-oscp'); }
+    else if (kind === 'deck') { e = tabbed('', DECK, DECK.findIndex(t => t[0] === o.decks[0][0]), true, 'lab-oscp lab-deck'); }
+    else if (kind === 'twoDecks') { e = el('div', 'lab-row'); o.decks.forEach(dk => { const p = tabbed('', DECK, DECK.findIndex(t => t[0] === dk[0]), false, 'lab-deck' + (deckN++ ? '' : ' lab-oscp'), true); e.append(p); }); }
+    else if (kind === 'minis') { e = el('div', 'lab-row'); o.minis.forEach(m => e.append(mini(m))); }
+    e.style.flex = h0 === 'rest' ? '1 1 0' : '0 0 ' + h0 + 'px'; R.append(e);
+  });
+  clean();
+}
+function apply(id) { active = id; build(OPTIONS.find(o => o.id === id)); paintNow(); }
+
+// ===== measuring =====
+const rectOf = e => { if (!e) return null; const b = e.getBoundingClientRect(); return b.width ? { x: b.left, y: b.top, w: b.width, h: b.height } : null; };
+const sz = r => r ? Math.round(r.w) + ' × ' + Math.round(r.h) : 'none';
+const overlaps = rs => { const out = []; for (let i = 0; i < rs.length; i++) for (let j = i + 1; j < rs.length; j++) { const a = rs[i], b = rs[j]; if (a && b && a.x + a.w > b.x + 1 && b.x + b.w > a.x + 1 && a.y + a.h > b.y + 1 && b.y + b.h > a.y + 1) out.push(i + '|' + j); } return out; };
+// A panel clips what doesn't fit, so overflow:hidden would hide a bad fit from the eye and from the page's scroll. This reads what is past each panel's edge.
+function spillOf(p) { const b = p.getBoundingClientRect(); let over = 0; p.querySelectorAll('[data-key], button, select, canvas, .hd-mk, label').forEach(e => { const r = e.getBoundingClientRect(); if (r.width && r.height) over = Math.max(over, r.bottom - b.bottom, r.right - b.right); }); return Math.max(0, Math.round(over)); }
+const settle = () => new Promise(r => setTimeout(r, 40));
+async function measure(o) {
+  build(o); await settle();
+  const m = { id: o.id, pages: rectOf(d.getElementById('pages')) };
+  if (o.built) { m.envPic = rectOf(d.querySelector('#page-main .vz-cv')); m.keys = d.querySelectorAll('#page-main [data-key]').length; measured[o.id] = m; paintRow(o); return; }
+  const ps = [...d.querySelectorAll('#labStage .lab-p')], rects = ps.map(rectOf).concat([rectOf(d.querySelector('#labStage .lab-morph')), rectOf(d.querySelector('#labStage .lab-xy'))]);
+  m.overlap = overlaps(rects); m.spills = [];
+  ps.forEach(p => { const s = spillOf(p); if (s) m.spills.push((p.getAttribute('aria-label') || '?') + ' ' + s + ' px'); });
+  // every tab of every deck, since a tab that's not showing can spill too
+  for (const dk of d.querySelectorAll('#labStage .lab-p')) { if (!dk.querySelector('.lab-h .lab-tabs')) continue; const tabs = [...dk.querySelector('.lab-h .lab-tabs').children], cur = tabs.findIndex(t => t.getAttribute('aria-selected') === 'true');
+    for (let i = 0; i < tabs.length; i++) { tabs[i].click(); await settle(); const s = spillOf(dk); if (s) m.spills.push(tabs[i].textContent + ' tab ' + s + ' px'); } tabs[cur].click(); await settle(); }
+  m.panels = ps.length; m.keys = [...d.querySelectorAll('#labStage [data-key]')].filter(e => e.getBoundingClientRect().width).length;
+  m.morph = rectOf(d.querySelector('#labStage .lab-morph')); m.xy = rectOf(d.querySelector('#labStage .lab-xy')) || m.morph; m.env = rectOf(d.querySelector('#labStage .lab-env .vz-cv')); m.osc = rectOf(d.querySelector('#labStage .lab-oscp'));
+  m.fits = d.getElementById('labStage').getBoundingClientRect().bottom <= d.getElementById('pages').getBoundingClientRect().bottom + 1;
+  m.saved = ps.map(p => ({ r: rectOf(p), pic: false })); m.padR = m.morph; m.xyR = m.xy;
+  measured[o.id] = m; paintRow(o);
+}
+function paintRow(o) {
+  const m = measured[o.id], tr = document.querySelector('#tbody tr[data-id="' + o.id + '"]');
+  const cells = o.built ? [sz(m.pages), 'Voice, ENV 1, Lens', 'none', 'none', 'docks when on', sz(m.envPic), 'yes', 'yes'] : [sz(m.pages), m.panels, sz(m.osc), sz(m.xy), sz(m.morph), sz(m.env), o.foot ? 'yes' : 'no', m.spills.length ? m.spills.join(', ') : 'yes'];
+  tr.querySelectorAll('td.num').forEach((td, i) => { td.textContent = cells[i]; });
+  if (o.built) return;
+  const svg = document.querySelector('.opt[data-id="' + o.id + '"] svg'), B = d.getElementById('labStage').getBoundingClientRect();
+  const rect = (r, c) => r ? '<rect class="' + c + '" x="' + (r.x - B.left).toFixed(0) + '" y="' + (r.y - B.top).toFixed(0) + '" width="' + r.w.toFixed(0) + '" height="' + r.h.toFixed(0) + '" rx="6"/>' : '';
+  svg.setAttribute('viewBox', '0 0 ' + B.width.toFixed(0) + ' ' + B.height.toFixed(0));
+  svg.innerHTML = m.saved.map(s => rect(s.r, '')).join('') + rect(m.padR, 'pic') + (m.xyR !== m.padR ? rect(m.xyR, 'pic') : '');
+}
+function paintNow() {
+  const o = OPTIONS.find(x => x.id === active);
+  $('now').innerHTML = ''; const hh = document.createElement('h2'); hh.textContent = o.id + ': ' + o.name; const dl = document.createElement('dl');
+  [['Does', o.does], ['Costs', o.costs]].forEach(([a, b]) => { const t = document.createElement('dt'); t.textContent = a; const v = document.createElement('dd'); v.textContent = b; dl.append(t, v); }); $('now').append(hh, dl);
+  document.querySelectorAll('.opt').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.id === active)));
+  document.querySelectorAll('#tbody tr').forEach(t => t.classList.toggle('on', t.dataset.id === active));
+}
+OPTIONS.forEach(o => {
+  const b = document.createElement('button'); b.className = 'opt'; b.type = 'button'; b.dataset.id = o.id; b.setAttribute('aria-pressed', 'false');
+  const i = document.createElement('span'); i.className = 'id'; i.textContent = o.id; const n = document.createElement('span'); n.className = 'nm'; n.textContent = o.name; b.append(i, n);
+  b.insertAdjacentHTML('beforeend', '<svg aria-hidden="true" viewBox="0 0 957 468"></svg>');
+  b.addEventListener('click', () => { if (ready) apply(o.id); }); $('picker').append(b);
+  const tr = document.createElement('tr'); tr.dataset.id = o.id; const td = document.createElement('td'); td.textContent = o.id + ' ' + o.name; tr.append(td); for (let k = 0; k < 8; k++) { const c = document.createElement('td'); c.className = 'num'; c.textContent = '…'; tr.append(c); } $('tbody').append(tr);
+});
+paintNow();
+function fitFrame() { const s = Math.min(1, wrap.clientWidth / 980); frame.style.transform = 'scale(' + s + ')'; wrap.style.height = Math.ceil(720 * s) + 'px'; }
+addEventListener('resize', fitFrame); fitFrame();
+$('btnNotes').addEventListener('click', () => { playing = !playing; $('btnNotes').setAttribute('aria-pressed', String(playing)); Parts.AUD.on = playing; if (!playing) Parts.AUD.feed = null; });
+
+// ===== the one clock: a frame counter =====
+const PATTERN = [45, 52, 57, 60, 64, 57, 52, 48];
+function loop() {
+  requestAnimationFrame(loop);
+  if (!d) return; frameNo++;
+  const on = d.getElementById('morphOn').getAttribute('aria-checked') === 'true', puck = d.querySelector('#padHost .puck');
+  Parts.MORPH.on = on; if (puck) { const cs = getComputedStyle(puck); Parts.MORPH.x = parseFloat(cs.getPropertyValue('--x')) || 0; Parts.MORPH.y = parseFloat(cs.getPropertyValue('--y')) || 0; }
+  if (playing) { const step = 45, at = frameNo % step, env = Math.exp(-at / 30); Parts.AUD.feed = { t: 'vz', peak: .5 * env, act: 1, env, gates: at < 28 ? [PATTERN[Math.floor(frameNo / step) % PATTERN.length]] : [], lst: 2, lenv: env }; }
+  Parts.tick(); drawPad(); painters.forEach(f => f());
+}
+
+// ===== the self-check =====
+const checks = []; const check = (ok, t) => checks.push((ok ? 'PASS ' : 'FAIL ') + t);
+frame.addEventListener('load', async () => {
+  w = frame.contentWindow; d = frame.contentDocument; H = w.Horde; Parts.attach(d, () => xyPos);
+  const lines = [...d.querySelectorAll('#checks p')], bad = lines.filter(p => p.classList.contains('bad')).length;
+  const st = d.createElement('style'); st.textContent = FRAME_CSS; d.head.append(st); const mn = d.createElement('style'); mn.id = 'labMain'; d.head.append(mn);
+  // The session is inside the shell's closure; the Mod page's route views hold it, and they are built when Routes is first opened.
+  const modBtn = t => [...d.querySelectorAll('.mp-bar button')].find(x => x.textContent.trim() === t);
+  if (modBtn('Routes')) modBtn('Routes').click();
+  const anyS = d.querySelector('.mx-wires, .mx-routes'); S = anyS && anyS.__S; pad = d.getElementById('padHost');
+  if (modBtn('Detail')) modBtn('Detail').click();   // the pane detaches Routes when Detail shows, so the session is read first
+  if (!S) { $('selfcheck').textContent = 'FAIL could not reach the shell\'s session'; return; }
+  S2 = new H.Session({ x: .5, y: .5, corners: ['A', 'B', 'C', 'D'] }); S2.start && S2.start();
+  const slot = d.querySelector('.logo'); slot.textContent = ''; slot.removeAttribute('title'); slot.classList.remove('hd-hint'); slot.append(Parts.logoCanvas());
+  await settle(); loop();
+  const homeRect = JSON.stringify(rectOf(d.querySelector('#page-main .hd-pv'))), homeKeys = d.querySelectorAll('#page-main [data-key]').length;
+  for (const o of OPTIONS) await measure(o);
+  check(lines.length > 0 && !bad, 'The shell\'s own self-checks in this frame: ' + (lines.length - bad) + ' of ' + lines.length + '.');
+  check(measured.N0.keys === homeKeys, 'Control: as built reads the shell\'s own Main (' + measured.N0.keys + ' controls).');
+  OPTIONS.filter(o => !o.built).forEach(o => { const m = measured[o.id]; check(m.fits && !m.overlap.length, o.id + ': fits its ' + sz(m.pages) + ' and no two parts overlap' + (m.overlap.length ? ' (OVERLAP ' + m.overlap.join(', ') + ')' : '') + '.'); check(!m.spills.length, o.id + ': nothing is cut off, on any tab' + (m.spills.length ? ' (CUT: ' + m.spills.join('; ') + ')' : '') + '.'); check(m.keys > 0, o.id + ': ' + m.keys + ' real controls in view.'); });
+  check(overlaps([{ x: 0, y: 0, w: 50, h: 50 }, { x: 40, y: 40, w: 50, h: 50 }]).length === 1 && !overlaps([{ x: 0, y: 0, w: 50, h: 50 }, { x: 60, y: 0, w: 50, h: 50 }]).length, 'Control: the overlap test reads a planted overlap, and not two parts side by side.');
+  { build(OPTIONS.find(o => o.id === 'A')); await settle(); const p = d.querySelector('#labStage .lab-p'), s0 = spillOf(p), plant = el('button'); plant.style.cssText = 'display:block;flex:0 0 400px;height:400px;'; plant.textContent = 'x'; p.append(plant); const s1 = spillOf(p); plant.remove(); check(s0 === 0 && s1 > 0, 'Control: the cut-off test reads a planted control past a panel\'s edge (' + s1 + ' px), and nothing before it.'); }
+  { const k0 = 'mix.sub', v0 = (() => { build(OPTIONS.find(o => o.id === 'E')); return val(k0); })(); await settle(); const ai = S.editing(S.params[k0]); S.params[k0].vals[ai] = .123; await settle(); const got = val(k0); S.params[k0].vals[ai] = v0; check(Math.abs(got - .123) < 1e-6 && Math.abs(val(k0) - v0) < 1e-6, 'A panel\'s knob is a face on the real row: a write to Sub level reached the device and came back, and was put back.'); }
+  build(OPTIONS[0]); await settle();
+  check(JSON.stringify(rectOf(d.querySelector('#page-main .hd-pv'))) === homeRect && d.querySelectorAll('#page-main [data-key]').length === homeKeys && !d.getElementById('labStage'), 'Leaving every option puts Main back where it was.');
+  ready = true; apply(active); for (let i = 0; i < 40 && !(Parts.SPECIMEN.draws && Parts.LOGO.paints); i++) await settle();
+  check(Parts.SPECIMEN.draws > 0 || !!Parts.SPECIMEN.fail, 'The Specimen ' + (Parts.SPECIMEN.fail ? 'names why it cannot draw here: ' + Parts.SPECIMEN.fail : 'drew ' + Parts.SPECIMEN.draws + ' frames with the bench\'s own shader') + '.');
+  const fails = checks.filter(c => c.startsWith('FAIL')).length;
+  $('selfcheck').textContent = (fails ? fails + ' FAILED of ' + checks.length : checks.length + ' of ' + checks.length + ' passed') + '\n' + checks.join('\n');
+});
+</script>
+</body>
+</html>
