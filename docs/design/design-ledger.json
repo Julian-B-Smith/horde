@@ -5264,6 +5264,21 @@
    "superseded_by": null
   },
   {
+   "id": "adr351-arp-named-scale",
+   "adr": "ADR-351",
+   "clause": "ruling 6 (Arp's own scale uses the same named-scale control as the song scale)",
+   "lab": null,
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null,
+   "port_tab": null,
+   "note": "Arp already carries the 18 names (its params.json `ui_scale_names`); a mask that matches no name reads custom. Rulings 1 to 5 of the ADR are formats and gates, with no control."
+  },
+  {
    "id": "gui5-dock-every-page",
    "adr": "GUI-5",
    "clause": "ruling 1 (the morph pad docks on every page while morph is on; ADR-315 r1 stands, now with a self-check)",
@@ -6229,6 +6244,10 @@
   {
    "adr": "ADR-348",
    "reason": "Glide behaviour on notes struck together, in the spec's phrase set: no control or design element."
+  },
+  {
+   "adr": "ADR-350",
+   "reason": "The loop's law, the bank's translation and two gates: no control or design element."
   }
  ],
  "audit_notes": [
