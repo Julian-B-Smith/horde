@@ -1259,8 +1259,8 @@ document.addEventListener('pointerdown', e => { if (menu && !menu.contains(e.tar
 
 // ===== BLOCK D3: the bottom modulator bank (ADR-322 items 3 and 4, B556; ADR-338 r7 and r9, ADR-340 r8 and r11, ADR-341 r6 and r7) =====
 // The design master's ModBank: 68 px, two lanes of 26 px thin rows, the MAC | MODS segments (BT1), a click on a row's name opens its
-// compact card above the bank. The MODS lane's rows are READ, never kept: the adapter's routes (RC-4) whose parameter is a control
-// on the current page, plus the modulators activated with + and not yet mapped (the adapter's pending state). The MAC lane is the
+// compact card above the bank. The MODS lane's rows are READ, never kept: every modulator with a route on any page, ENV 1 always (it has no + and no other way
+// to be mapped from here), and the modulators activated with + and not yet mapped (the adapter's pending state). GUI-7, amending ADR-323 r4's "page controls only". The MAC lane is the
 // intent bus's macros, the pitch bend and the mod wheel (MacroRow, BR-b): the stub has no intent bus, so they show unbound.
 let bankShown = true;
 const pageKeysList = pid => { const pg = DATA.pages.find(p => p.id === pid); return pg ? pg.groups.flatMap(g => g.controls.map(c => c.key)) : []; };
@@ -1271,8 +1271,8 @@ function dropMap(src, key) {
   return res;
 }
 function bankMods() {
-  const keys = pageKeys(page), routes = dev.routes(), pend = dev.pending();
-  return dev.sources().filter(s => pend.includes(s.id) || routes.some(r => r.src === s.id && keys.has(r.param))).map(s => MODS[s.id]);
+  const routes = dev.routes(), pend = dev.pending();
+  return dev.sources().filter(s => s.id === 'env1' || pend.includes(s.id) || routes.some(r => r.src === s.id)).map(s => MODS[s.id]);
 }
 // The page's keys, live: the rows' "n here" counts routes to them (ModBank keeps this one array, so it is updated in place).
 const bankPageKeys = []; let bankPage = null;
@@ -1455,6 +1455,11 @@ S.start();
   setMorphOn(true); const on = !$('dock').hidden && $('bodyGrid').classList.contains('with-dock');
   padShown = false; paintDock(); const hid = $('dock').hidden; padShown = true; setMorphOn(false);
   line(off && on && hid && $('dock').hidden, 'Dock: no space with morph off, docked with morph on, hidden by Pad while morph stays on; it does show when on (control).');
+  // 4b. ADR-315 r1, GUI-5: the human, 2026-11-02: "I want to make sure the morph XY on every page when morph is active doesn't get reversed." Every page shows it, Main
+  // included for now. When GUI-4's Main is built its pad is on the page and the dock hides there (GUI-5): that build changes this line to expect exactly that, and nothing else.
+  { const pg0 = page; setMorphOn(true); const missing = DATA.pages.filter(pp => { selectPage(pp.id); return $('dock').hidden || !$('bodyGrid').classList.contains('with-dock') || !$('dock').contains($('padHost')); }).map(pp => pp.id);
+    selectPage(pg0); $('dock').hidden = true; const seesHidden = $('dock').hidden; paintDock(); setMorphOn(false); dev.undo(); dev.undo(); dev.clearRedo();
+    line(!missing.length && seesHidden, 'Dock: with morph on, the morph pad docks on all ' + DATA.pages.length + ' pages' + (missing.length ? ' (MISSING on ' + missing.join(', ') + ')' : '') + '; a hidden dock reads as hidden (control).'); }
   // 5. The info box shows the hovered control's text, and clears off a control (control).
   const kh = document.querySelector('#page-sub [data-key="' + CSS.escape(kc.key) + '"]');
   kh.dispatchEvent(new MouseEvent('pointerover', { bubbles: true })); const shown = $('infoText').textContent.startsWith(r.spec) && $('infoKey').textContent === r.key;
@@ -1469,19 +1474,19 @@ S.start();
   const run = sd => { const e = new ENG.Stub(rowsOf('engine')), d = DEV.create(DATA, ENG.SyncTransport(e, new ENG.ResolverStub(rowsOf('resolver')), new ENG.DeviceSideStub(rowsOf('rack', 'midi'))), { seed: sd }); d.setMorph({ on: true, x: .3, y: .7 }); d.scatter(sd); return JSON.stringify(d.patch()); };
   line(run(SEED) === run(SEED) && run(SEED) !== run(SEED + 1), 'Deterministic: the same seed and calls give byte-identical patch state twice; seed ' + (SEED + 1) + ' differs (control).');
   // 9. The bank (ADR-322 item 3): listed from the routes, + makes a pending modulator, a drop on a stepped control is
-  // refused and leaves it pending, a drop on a continuous one maps it and lists it on that page only, and closing the
-  // interface drops what was never mapped. Control: before any of it ENV 3 is not listed.
+  // refused and leaves it pending, a drop on a continuous one maps it and lists it on every page (GUI-7), ENV 1 is always
+  // listed, and closing the interface drops what was never mapped. Control: before any of it ENV 3 is not listed.
   const listed = () => [...document.querySelectorAll('#bank .bk-lanes .hd-trow')].map(e => e.dataset.mod);
   const srcOf = id => dev.sources().find(x => x.id === id), pg0 = page;
-  page = 'sub'; bank.refresh(); const before3 = listed().includes('env3');
+  page = 'sub'; bank.refresh(); const before3 = listed().includes('env3'), env1Always = listed().includes('env1');
   dev.activate('env3'); bank.refresh(); const pendShown = listed().includes('env3');
   const refusedStep = !dropMap(srcOf('env3'), pc.key).ok && dev.pending().includes('env3');
   const mapped = dropMap(srcOf('env3'), kc.key).ok && !dev.pending().includes('env3'); bank.refresh(); const onSub = listed().includes('env3');
-  page = 'noise'; bank.refresh(); const offNoise = !listed().includes('env3');
+  page = 'noise'; bank.refresh(); const onNoise = listed().includes('env3') && listed().includes('env1');
   dev.undo(); dev.activate('env4'); const dropped = dev.close();
   page = pg0; bank.refresh();
-  line(!before3 && pendShown && refusedStep && mapped && onSub && offNoise && dropped.join() === 'env4' && !dev.pending().length,
-    'Bank: + made ENV 3 pending and listed; dropping it on ' + pr.label + ' (stepped) was refused and it stayed pending; on ' + ROW[kc.key].label + ' it mapped and listed on Sub, not on Noise; closing the interface dropped the unmapped ENV 4 (control: ENV 3 was not listed before).');
+  line(!before3 && env1Always && pendShown && refusedStep && mapped && onSub && onNoise && dropped.join() === 'env4' && !dev.pending().length,
+    'Bank: + made ENV 3 pending and listed; dropping it on ' + pr.label + ' (stepped) was refused and it stayed pending; on ' + ROW[kc.key].label + ' it mapped and listed on Sub and on Noise too (GUI-7), with ENV 1 always listed; closing the interface dropped the unmapped ENV 4 (control: ENV 3 was not listed before).');
   // 10. The new sources (ADR-330) go to their own side and work with the chrome: a module knob's write reaches the rack
   // and not the engine; a morph setting reaches the resolver; the bank maps onto a module knob and lists it on FX; the
   // info box says a module gives no description, and shows Arp's own note; right-click offers the manual.

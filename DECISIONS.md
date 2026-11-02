@@ -10966,6 +10966,83 @@ Three points stayed open, because the shell already marks a knob selected the mo
 - Sluice, Arp and Kiln are answered in their mailboxes. Every hosted module's resident is asked for its real maximum under creation-level caps.
 - **FX device (ADR-254):** rulings 1, 2, 4 and 5 apply as they stand, since it hosts the same modules through the same slot. Rulings 3 and 6 do not: it hosts no Arp.
 
+## GUI-5 — RULED by the human: the morph pad stays on every page while morph is on, and hides on Main; the bank gets rounded corners (B589; ADR-315 r1, GUI-4; 2026-11-02)
+
+**Context.** The human, reviewing #1333: "I want to make sure the "morph XY on every page when morph is active" doesn't get reversed. It should also probably be hidden on the main page". Also: "The macro/mod bar at the bottom ... it's the only square box; please give it rounded corners." The shell had not reversed it: the two Main labs hide the dock while an option is on, on every page, which reads as a reversal to anyone who changes page there. That was the labs' fault. `main-workshop-lab.html` is fixed; `main-layout-lab.html` keeps the fault as a record of GUI-2 and is superseded by GUI-4.
+
+**Rulings.**
+1. **The morph pad docks on every page while morph is on. ADR-315 ruling 1 stands**, and it now has checks: the shell's self-check walks every page with morph on, with a control, and `gui3_seam_check`'s `dock` test holds the wiring in `./verify`, which runs no browser.
+2. **It hides on Main,** because under GUI-2 and GUI-4 Main's pad is on the page. This confirms the reading GUI-2 took. The human said "probably", so it stands open to change when Main is built and tried. The check expects the dock on Main until that build changes it.
+3. **The bank has rounded corners,** as every other box does.
+
+**Not ruled.** The bank's form and the macros' face: `docs/design/bank-lab.html` draws the human's three ideas (the bank at full height; the summed scope and spectrum; a routing diagram) and macro knobs. Those await a poll.
+
+**Readings taken (the GUI session's, open to the human).**
+- "The kuro and scalpel visualizers don't have bounding boxes" read as the Main lab's panels, which left them off. The shell's and the master's pictures have the house frame. The lab now frames every picture in its panels, and GUI-4's build carries that.
+
+**Consequences.**
+- The rounded corners go into the master's `.hd-bank` in the same batch as the bank's form, so there is one publish.
+- **FX device (ADR-254):** ruling 1 applies on its pages, and ruling 3 wherever it has a bank. It has no Main, so ruling 2 doesn't apply.
+
+## GUI-6 — RULED by the human: global presets go in the top bar's top row, compact (P1) (B581, B261; GUI-4 ruling 6; 2026-11-02)
+
+**Context.** GUI-4 asked for a place to load global presets: "Maybe somewhere in the top bar." `docs/design/lens-preset-lab.html` (#1333) drew three. The human answered by poll on 2026-11-02: "P1 Top row, compact". The lab recommended P3, a large name across both rows.
+
+**Rulings.**
+1. **The global preset control is P1:** one line in the top row, between the page groups and the switches: previous, the name with its list, next, Save. It clears the logo, page tabs and switches on all 14 pages, and it costs a page no room.
+
+**Not ruled, and why.**
+- **The Lens.** The human: "The L visuals seem to be broken in the lab so I can't see the options". They were right: the lab finished measuring on the empty Filters page, so nothing could be hovered, and it ignored clicks while it measured with no sign why. That is fixed, each option has a diagram, and a check holds it. The Lens goes back to the human.
+- **The bank.** The human asked for a new version, drawn in `docs/design/bank-lab.html` as F5: "a version that puts the macro knobs in two rows of 4 next to the wheels, and then put the scope and spectrum next to the mod/macros bar but one on top of the other". On the macros: "So far I prefer the nobs and two wheels. But we will need to re-design the mod rows for this version as well to accommodate the new height". R1 to R3 draw those.
+
+**Consequences.**
+- P1 needs a preset seam in the device, which the shell doesn't have, and the file manager (B261), which hasn't started. Until then the master can hold the control, and it stays MOCK. The factory bank's files are in the legacy state format.
+- **FX device (ADR-254):** the same control, listing its own presets, where it has them.
+
+## GUI-7 — RULED by the human: the bank's mod rows list ENV 1 and every active modulator, on every page (B589; amends ADR-323 ruling 4; 2026-11-02)
+
+**Context.** The human, 2026-11-02: "There also needs to be some way to map Env 1 to other things; let's include it in the mod rows. And I think the mod rows should show all modulators active on any pages instead of just on the selected page." ADR-323 ruling 4 had ruled "No, page controls only".
+
+**Rulings.**
+1. **ENV 1 is always in the mod rows.** It has no + and is always active, so it needs a row to map from.
+2. **The mod rows show every modulator with a route on any page**, plus the pending ones. **Amends ADR-323 ruling 4.** The bank no longer answers "what modulates this page".
+
+**Readings taken (the GUI session's, open to the human).**
+- A row keeps its "n here" foot where it has one, so "0 here" tells you that modulator is busy elsewhere. In R2 and R3 that foot is gone.
+- × on ENV 1 removes its routes, as on any modulator, and its row stays.
+
+**Consequences.**
+- This is the shell's own filter, so it is live in the shell now, with a self-check and a seam test.
+- The bank's count still says "n here", which is now wrong. The master changes that wording, and the ModBank README's "what modulates this page", in the batch that carries the bank's form.
+- **FX device (ADR-254):** ruling 2 applies wherever it has a bank. It has no ENV 1 of this kind, so ruling 1 doesn't apply; its own modulators follow the same rule.
+
+## GUI-8 — RULED by the human: the foot row is F5 with the Lens in its own box; the mod rows are R2; the colours go in the top bar and on Settings (B589, B581; amends ADR-338 r5 and r7, ADR-341 r6, ADR-345 r1; 2026-11-02)
+
+**Context.** `docs/design/bank-lab.html` and `docs/design/lens-preset-lab.html` drew the options, including the human's own F5. The human answered by poll on 2026-11-02: "I like L1 but I think info can be a touch thinner to accommodate it"; "Yes, F5"; "R2 Two columns of short rows"; and "Both" for the colours. Earlier: "So far I prefer the nobs and two wheels". The lab recommended L2; the human chose L1 and made room for it.
+
+**Rulings.**
+1. **The Lens is in the foot row, in its own box, on every page:** one Lens, 214 × 120, between the info box and the bank. It leaves the pages' left columns. **Amends ADR-338 ruling 5.**
+2. **The info box is narrower, to make room for it.** Width in the readings below. **Amends ADR-345 ruling 1's 300 px.** It stays 120 px high.
+3. **The bank is F5:** full height, 302 px, beside the summed scope over the summed spectrum. **Amends ADR-338 ruling 7's 68 px.** The scope and spectrum are wide and short, because the human found them no good tall.
+4. **The foot row spans the window,** so the morph dock and the MAP inspector end above it and can't squeeze it. The poll's option said so, and said what it costs: the dock and inspector are 126 px shorter.
+5. **The bank's macros are knobs:** two rows of four beside the bend and mod wheels, as small vertical sliders. **Amends ADR-341 ruling 6's rows;** the wheels' motion trace goes. ADR-341 ruling 7 stands: the bend springs back and the mod wheel holds.
+6. **The mod rows are R2:** two columns of short rows, name, small picture, Map, with eight in view. The value and × stay on the row's card.
+7. **Light or dark and the screen colour go in both places:** a toggle and chip in the top bar's second row, and the full list in the Settings page's Interface card. The shell had no screen colour control, so this adds one.
+
+**Readings taken (the GUI session's, open to the human).**
+- **Info is 240 px.** "A touch thinner" needed a number. That gives the scope and spectrum 183 px instead of 123, and it's a figure to move if it doesn't feel right.
+- The scope and spectrum stay MOCK until the engine's observation view (IF-10).
+
+**Open, to be drawn.**
+- **How a macro knob maps.** The rows had a Map button and the knobs don't. The human hasn't been asked yet.
+- The FX line (GUI-4 ruling 6), which is still to be workshopped.
+
+**Consequences.**
+- **Now nothing blocks Main's build:** the Lens lab was the reason GUI-4 waited, and the Lens takes none of Main's room.
+- These go into the master first (ADR-316), with GUI-5's rounded corners and the bank's count wording from GUI-7, then one publish, then the bundle and shell. The ledger's rows for ADR-338 r7, ADR-341 r6 and ADR-345 r1 stay in-shell until that hop, which marks them superseded.
+- The Lens's single place frees the left column on the 8 pages that had one, and those pages' layouts need a look.
+- **FX device (ADR-254):** rulings 1 to 4 and 7 apply on its pages. It has no macros of this kind, and its modulators take R2. The scope and spectrum read its own output.
+
 ## ADR-352 — RULED by the human: the coupling knob's new curve (“curve 3”) and raw `K` in the bank; spec round 51 (B606, B494; 2026-11-02)
 
 **Context.** On the preview the human heard presets that use coupling as narrow and static: X23, the rule translating the bank's K, over-locked them. Raw K was “substantially better”. Asked about the knob itself, the human wanted: “at least a subtly audible difference between .9 and 1”; “I don't want it to feel like there's a hard wall halfway up K, but I do want its effect to be noticeable at every point along the spectrum”; and “-1 to be as close as possible to equidistant splay”, with the harmonic law staying chaotic. The lead rendered a sweep of K over three curves on five patches (the coupling sweep page; a scratch change on the builder's commit, never a build anyone accepted).
