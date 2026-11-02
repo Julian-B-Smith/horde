@@ -10779,3 +10779,17 @@ Three points stayed open, because the shell already marks a knob selected the mo
 - The cutover estimate given to the human on 2026-11-01 no longer holds. Whether about 10× is reachable is unknown.
 - **FX device (ADR-254):** none directly. It hosts no engine, so this budget is not its own.
 
+## ADR-348 — RULED by the human: notes struck together glide from one another, as the bank was voiced; ADR-285 ruling 2 is reversed (spec round 49, B494; 2026-11-01)
+
+**Context.** ADR-285 ruling 2 (“Chord notes don't glide”, by poll, 2026-10-26) was decided before any render of the new engine existed, on the note that no verdict depends on it. On 2026-11-01 the human listened to the preview and marked several gliding presets' chords “no pitch envelope”. The lead measured the top note of the chord against where it settles. Under the current engine it rises by −117 to −346 cents at 10 ms, and it settles in step with each preset's glide time. The same presets' held notes stay flat on the current engine (one stray reading on Vocal lead), a preset with no glide stays flat on the chord, and none of them has a pitch envelope key. So what the human heard is each chord note gliding from the note before it. The human then asked for it by name: “keep the scoop”.
+
+**Ruling.** Notes that start on the same sample glide from one another, in event order, under the same rule as any overlap. A chord's first note has no overlap and starts on pitch, unless the preset's `glideAlways` makes it glide from the last note played. **ADR-285 ruling 2 is superseded.** Rulings 1 and 3 stand.
+
+**The lead's reading, not a ruling:** the order within a chord decides which note scoops from which. The phrase set's chord runs upward from its root, so each note rises. The pitch system's expectation in RC-3 (“in a chord, each voice from its own nearest predecessor”) agrees on that chord, and it is left as written; the order rule for a real keyboard is the pitch system's to settle when it is built.
+
+**Consequences.**
+- Spec round 49 changes the phrase-set sentence in 10.3. Both clean-room repositories receive it. The test author changes the phrase set's glide source (`item15b.mjs`, its README). The builder has no work: the pitch system is upstream of the engine, and the engine only plays a note's pitch (IF-2).
+- The rulings log gains row 84.
+- The preview's stand-in glide follows the new rule.
+- **FX device (ADR-254):** none; its sidechain's notes reach no glide.
+
