@@ -13,4 +13,5 @@
 - **Readings for the human to overrule:** one level only stays (B70's restriction, the master's refusal); a far end dropped on a box or a ◇ makes that kind of wire; rerouting keeps the route's id, while B72's proposed identity is (source, destination), so a reroute would need a rule if B72 lands.
 - **Not checked:** a host's handling of right-click and Delete in a plugin window; the light scheme; other window scales; a keyboard route on the canvas (the grid stays that route, ADR-266).
 - **Checks:** the lab's self-check drives the frame with pointer events, with controls in its header; a real mouse selected a wire and dragged its ◇ (40% to 61%, 34 px at 160 px per full range). The self-check reads 30 of 30, with the shell's own 46 of 46 in the frame (main today; #1327 adds its own). `./verify fast` exit 0 on this tree and on a scratch merge with #1327 and #1328.
-- **Left out on purpose:** the note on B589, because #1327 edits the same row and two edits there conflict. It goes in with the ruling.
+- **Ruled in the same PR:** GUI-3, the human's poll: S1, D1, R1, N3, W1, the ◇ slides, one level only, a far end changes kind. The lab recommended N1; the human chose N3. Not built: this PR only records the ruling.
+- **Now on #1328's tip:** the ruling touches DECISIONS.md and B589, which #1327 and #1328 also edit, so this PR merges after them.
