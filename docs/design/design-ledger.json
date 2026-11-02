@@ -205,6 +205,10 @@
    "adr": "GUI-2",
    "note": "Ruled M1 (GUI-2). Not yet harvested: the Specimen and the live logo go to the master next. main-layout-lab-parts.js holds the bench's code for this lab only."
   },
+  "main-workshop-lab.html": {
+   "status": "exploring",
+   "note": "Five ways to use Main's space, with small oscillator, filter, bend, scale and arp panels (B581), on the running shell. The human reopened GUI-2's layout for space; GUI-2 stands until a ruling. Nothing is harvested until then."
+  },
   "maw-horde-lab.html": {
    "status": "ruled",
    "adr": "ADR-300",
