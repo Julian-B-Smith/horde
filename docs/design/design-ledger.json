@@ -6404,6 +6404,10 @@
   {
    "adr": "ADR-352",
    "reason": "The coupling law and the bank's translation: no control or design element."
+  },
+  {
+   "adr": "ADR-353",
+   "reason": "How the decision log merges in git: no control or design element."
   }
  ],
  "audit_notes": [

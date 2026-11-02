@@ -11073,3 +11073,19 @@ Three points stayed open, because the shell already marks a knob selected the mo
 - Spec round 51 reaches both clean-room repositories the same turn. The test author changes `harness/c1_sim.h`, `swarm.h`, 10.s1 to 10.s3 and `appendix_b.h`, reproduces the anchors, and reports any other gate this reads red on as a question. The builder changes `coupling.h` and `naturals`.
 - The rulings log gains row 86.
 - **FX device (ADR-254):** none; it hosts no engine.
+
+## ADR-353 — RULED by the human: `DECISIONS.md` merges by union (B607; 2026-11-02)
+
+**Context.** The lead and the GUI session both append to `DECISIONS.md`, so their PRs keep conflicting, and each conflict cost a hand rebuild. ADR-346 stopped number clashes and left this as a separate question. The lead proposed the attribute; the human: “yes to the union merge”.
+
+**Ruling.** `.gitattributes` marks `DECISIONS.md` as `merge=union`, so git keeps both sides' lines rather than reporting a conflict.
+
+**Evidence.** Forty real pairs of neighbouring sections from this file, each appended by two branches at once, in a scratch repository with local git 2.39.5. With union: 40 merged with no conflict and no section split apart. Control, no attribute: 40 of 40 conflicted.
+
+**What it does not do, and costs.**
+- **Two PRs editing one line keep both versions, silently.** Tested: a one-line edit on each side merged clean with both lines kept. Appends are safe; amend one ruling at a time. No gate catches this.
+- **The order is not fixed,** and a heading lost the blank line above it in 38 of the 40 merges. It still renders.
+- **Other files can still conflict.** The design ledger is JSON, so union could leave it invalid, and it stays out. `ROADMAP.md` is not covered. Two PRs adding rulings can still clash in the ledger.
+- **Not tested on GitHub.** The evidence is local git. The first clash after this lands shows whether GitHub's own check honours the attribute; if it does not, the conflict banner stays and the hand rebuild is unchanged.
+
+**Consequences.** The records rebuild still applies to the other files, and to this one if GitHub does not honour the attribute. **FX device (ADR-254):** none; this is how the records merge.
