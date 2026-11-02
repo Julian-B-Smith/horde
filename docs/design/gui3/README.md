@@ -531,6 +531,14 @@ The human picked F1 from `docs/design/foot-row-lab.html` and added the lock and 
 
 A section's readout slot is fixed at the width its header leaves, up to 250 px, and its text never changes that width. 13 of the 38 are narrower at the 980 px window, the narrowest 138 px, so line 2 can be cut off in a crowded header. The human chose this over wrapping crowded headers to a second line. The self-check tests every slot on every page, at rest and hot, with a slot allowed to follow its text as its control. Two have no control that drives them (Sub · Voice, Settings · Engine) and are checked at rest only.
 
+## The human's bugs of 2026-11-01 (B584)
+
+- **The envelope's missing line:** the master's `Viz.envPoints` only sampled evenly, so a short attack and decay never reached the peak. Every stage's corner is a point now.
+- **The envelope's stripes:** a picture redraws when its size changes, not only when its values do (`sizeOf`). **Still open:** with MAP and morph both on, a section's picture can have almost no width, so it's unreadable while mapping. That's a layout question (a narrow page's two section columns), and the repaint doesn't change it.
+- **The top bar's source strip:** chips keep their natural width, about 102 px, and the strip scrolls, as ADR-335 r3 meant. About five show at once, and a picked source scrolls into view.
+
+**Main's square envelope picture is not fixed here.** Its form depends on Main's layout (B581), with the logo and the Specimen.
+
 ## Known gaps
 
 - **Descriptions:** no `desc` column exists for horde 2's parameters (B582). The info box shows each

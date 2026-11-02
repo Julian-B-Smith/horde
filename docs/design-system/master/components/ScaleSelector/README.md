@@ -2,7 +2,7 @@
 
 The one global scale: a root and a 12-bit mask of the pitch classes in it, chosen by name or drawn by hand, shown as a piano (GLOBAL) or as dominoes from the played note (OFFSET).
 
-**The scale is global** (B260): note quantise, bend quantise, the sub, SCALPEL's cut rules and later devices all read the same `{ root, mask }`. A MIDI sidechain that sets the scale is after 1.0 (ADR-237 item 8).
+**The scale is global** (B260): note quantise, bend quantise, the sub, the blades' cut rules and later devices all read the same `{ root, mask }`. A MIDI sidechain that sets the scale is after 1.0 (ADR-237 item 8).
 
 **The mask is the truth, the name a convenience.** Consumers store and send `{ root, mask }` only, never a scale id, so a new named scale needs no core change. The name list reverse-matches the mask, or shows "custom". Names (the bend lab's list): chromatic, major (ionian), natural minor, harmonic minor, melodic minor, dorian, phrygian, lydian, mixolydian, locrian, major and minor pentatonic, blues, whole tone, diminished (h-w), phrygian dominant, hirajoshi, in-sen.
 

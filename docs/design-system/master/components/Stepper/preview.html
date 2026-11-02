@@ -35,7 +35,7 @@
   H.Stepper(document.getElementById('t2'), { name: 'Distribution', path: 'Osc 1 · Distribution', options: ['EVEN', 'HEAVY', 'LIGHT', 'RANDOM'], value: 1, def: 0, tc: true, say: say });
   var DIVS = ['2/1', '1/1', '1/2', '1/2T', '1/4', '1/4T', '1/8', '1/8D', '1/8T', '1/16', '1/16T', '1/32', '1/32T', '1/64', '3/4', '3/8', '3/16', '3/32', '5/4', '1/3', '2/3', '3/2'];
   H.Stepper(document.getElementById('t3'), { name: 'Division', path: 'LFO 1 · Division', options: DIVS, value: 4, def: 4, tc: true, say: say });
-  H.Stepper(document.getElementById('t4'), { name: 'Detune law', path: 'Osc 1 · Detune law', options: ['LINEAR', 'EXP', 'SWARM'], value: 0, def: 0, flat: true, say: say });
+  H.Stepper(document.getElementById('t4'), { name: 'Detune law', path: 'Osc 1 · Detune law', options: ['cents', 'Hz', 'ERB', 'harmonic'], value: 0, def: 0, flat: true, say: say });
 })();
 </script>
 </body>

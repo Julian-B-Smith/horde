@@ -30,8 +30,8 @@
   var pctf = function (x) { return Math.round(x * 100) + '%'; };
   var dbf = function (x) { var d = -60 + x * 66; return x <= 0 ? '−∞ dB' : (d >= 0 ? '+' : '−') + Math.abs(d).toFixed(1) + ' dB'; };
   var CARDS = [
-    { id: 'osc1', name: 'Osc 1', on: true, sum: 'scalpel · 5 members', pic: 'blade', ctl: [['osc1.level', 'Level', [.85, .8, .9, .84], dbf], ['osc1.detune', 'Detune', [.18, .72, .4, .9]], ['osc1.coupling', 'Coupling', [.5, .85, .3, .62], null, true]] },
-    { id: 'osc2', name: 'Osc 2', on: true, sum: 'swarm · 7 members', pic: 'blade2', ctl: [['osc2.level', 'Level', [.9, .9, .82, .95], dbf], ['osc2.detune', 'Detune', [.3, .4, .5, .2]], ['osc2.coupling', 'Coupling', [.6, .55, .7, .5], null, true]] },
+    { id: 'osc1', name: 'Osc 1', on: true, sum: '5 members', pic: 'blade', ctl: [['osc1.level', 'Level', [.85, .8, .9, .84], dbf], ['osc1.detune', 'Detune', [.18, .72, .4, .9]], ['osc1.coupling', 'Coupling', [.5, .85, .3, .62], null, true]] },
+    { id: 'osc2', name: 'Osc 2', on: true, sum: '7 members', pic: 'blade2', ctl: [['osc2.level', 'Level', [.9, .9, .82, .95], dbf], ['osc2.detune', 'Detune', [.3, .4, .5, .2]], ['osc2.coupling', 'Coupling', [.6, .55, .7, .5], null, true]] },
     { id: 'sub', name: 'Sub', on: true, sum: 'sine · −1 oct', pic: 'scope', ctl: [['sub.level', 'Level', [.8, .8, .72, .85], dbf], ['sub.width', 'Width', [.5, .5, .4, .6]]] },
     { id: 'noise', name: 'Noise', on: false, sum: 'pink · stereo', pic: 'spec', ctl: [['noise.level', 'Level', [.6, .55, .7, .5], dbf], ['noise.colour', 'Colour', [.4, .45, .3, .5], null, true]] }
   ];
