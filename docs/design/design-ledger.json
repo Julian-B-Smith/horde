@@ -5834,6 +5834,14 @@
   {
    "adr": "ADR-346",
    "reason": "How rulings and rows are numbered across sessions: records procedure, no design element."
+  },
+  {
+   "adr": "ADR-347",
+   "reason": "Engine build order and CPU work: no control or design element."
+  },
+  {
+   "adr": "ADR-348",
+   "reason": "Glide behaviour on notes struck together, in the spec's phrase set: no control or design element."
   }
  ],
  "audit_notes": [
