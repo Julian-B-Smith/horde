@@ -2,7 +2,8 @@
 
 The page paradigm of ADR-338 ruling 5: every control of a page in view as tiny knobs and companions in clusters (advanced rows inline after the ADV mark), and the control under the pointer, or the last one clicked, enlarged in a **lens**.
 
-`Horde.Lens(el, S, { scope, fallback, size })`
+`Horde.Lens(el, S, { scope, fallback, size, form })`
+- **`form: 'foot'`** (GUI-8 r1): the Lens in the foot row, one on every page, 214 × 120: the label goes, the corners go two by two, and the box clips rather than grows. In the shell this is the only form, with every key in scope; it amends ADR-338 r5's Lens inside each page's left column.
 - `scope`: the page's manifest keys (an array, or `key => bool`); only those controls drive the lens.
 - `fallback`: the key shown before anything is touched. `size`: the bundle knob size of the enlarged control, default `standard` (48).
 

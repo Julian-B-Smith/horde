@@ -742,7 +742,7 @@ function suite(W) {
   /* ADR-345, structural: the browser's self-checks (41 to 44 in the shell) drive these; this holds their wiring where no browser runs. */
   T.infolock = () => {
     const t = W.__shellText;
-    ok(/\.footrow \{ --foot-h: 120px; --info-w: 300px;/.test(t), 'the foot row is not F1 (ADR-345 r1)');
+    ok(/\.footrow \{ --foot-h: 120px; --info-w: 240px;/.test(t), 'the foot row is not F1 (ADR-345 r1)');
     ok(t.includes("H.InfoBox($('info'), S,"), 'the info box is not the bundle\u2019s InfoBox (ADR-316)');
     const press = /\$\('win'\)\.addEventListener\('pointerdown', e => \{([\s\S]*?)\n\}, true\);/.exec(t);
     ok(press, 'no capture-phase press handler on the window: a control that stops the event would hide its selection');
@@ -1037,7 +1037,7 @@ const PLANTS = [
   ['abbr', 'data', '"abbr": "DET"', '"abbr": "DETUN"'],
   ['abbr', 'data', '"abbr": "CPL"', '"abbr": "DET"'],
   ['abbr', 'data', '"lega"', '"legato"'],
-  ['pageforms', 'shell', 'H.Lens(lens, S,', 'H.Lenz(lens, S,'],
+  ['pageforms', 'shell', "H.Lens($('lensHost'), S,", "H.Lenz($('lensHost'), S,"],
   ['pageforms', 'shell', 'H.ctlFace(S, p, { path: p.path', 'H.ctlFaceX(S, p, { path: p.path'],
   ['pageforms', 'shell', 'tc: true, keys, say', 'tc: false, keys, say'],
   ['pageforms', 'shell', 'else if (pg.grid) paramPage(pg, el);', 'else if (pg.dense) paramPage(pg, el);'],

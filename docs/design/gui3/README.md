@@ -559,3 +559,16 @@ A section's readout slot is fixed at the width its header leaves, up to 250 px, 
   3) and the Randomize panel's build, moving the parameter table beside `engine2/structure` (B586), PA-8
   as a table in the spec (B587), the mod map, the per-parameter morph mode (B557), keyboard mapping from
   the bank (the Map handle is pointer-only), the inspector as an always-on rail with reorderable rows, the corner-scope switch, the WebAssembly engine, gui2.
+
+## The foot row and top bar (GUI-5 to GUI-8, 2026-11-02)
+
+Master `1793657919-9064`. `docs/design/bank-lab.html` and `docs/design/lens-preset-lab.html` drew these and are harvested.
+
+- **The foot row spans the window** (GUI-8 r4): Info 240 px, the one Lens 214 px, the bank 302 px, the scope over the spectrum in what's left, 183 px. The morph dock and the MAP inspector end above it, so they can't squeeze it, and they are 126 px shorter. With the info sidebar on, the rail runs past the body's foot and the row sits beside it, so the sidebar's box keeps its height.
+- **The Lens is one, in the foot row** (GUI-8 r1). It left every page's left column. Those 8 pages have room their layouts don't use yet.
+- **The bank** (GUI-8 r3, r5, r6; GUI-5 r3): rounded corners. MODS is two columns of short rows, listing ENV 1 and every active modulator (GUI-7). MAC is eight knobs and two wheels. How a macro knob maps is open.
+- **The scope and spectrum** read `dev.summed()`, MOCK until IF-10, as on the Mix page.
+- **The preset bar** (GUI-6) is MOCK: the factory bank's real names, and nothing loads, because the files are in the legacy format and the device has no preset seam (B261).
+- **The colours** (GUI-8 r7): a theme button and screen chip in the top bar's second row, and the theme button and the full list in Settings' Interface card. They stay in step.
+- **The dock is on every page while morph is on** (GUI-5 r1), held by `gui3_seam_check`'s `dock` test. It hides on Main when GUI-4's Main is built.
+

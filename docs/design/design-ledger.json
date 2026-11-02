@@ -10,6 +10,10 @@
  },
  "master_versions": [
   {
+   "version": "1793657919-9064",
+   "evidence": "docs/design-system/master/VERSION: published 2026-11-02 from the gui-foot-build branch before merge. GUI-5 r3 rounded bank corners; GUI-7's count wording; GUI-8: the bank F5, MacroFace, R2 rows, the Lens's foot form; GUI-6: PresetBar. size-bank-h 120 px, size-bank-side 44 px."
+  },
+  {
    "version": "1793591775-02e4",
    "evidence": "docs/design-system/master/VERSION: published 2026-11-02 from the gui-unified-batch branch before merge. GUI-1: the swarm-or-scalpel samples and the old engine wording are gone. Viz.envPoints: every stage's corner is a point, so a short attack and decay still reach the peak."
   },
@@ -73,9 +77,10 @@
    "note": "Arp's face as a module card; round 2 (B558, pickers with pictures) is open and its review tag stands. ADR-291 bears on it."
   },
   "bank-lab.html": {
-   "status": "ruled",
+   "status": "harvested",
+   "master_version": "1793657919-9064",
    "adr": "GUI-8",
-   "note": "Ruled F5, knobs, R2, the Lens in its own box and Info at 240 px (GUI-8). Not yet harvested. Scope, spectrum and routing are MOCK."
+   "note": "Harvested at 1793657919-9064. It ran on the shell as it was before GUI-8, so run against today's shell it applies its forms twice: read it at the commit before this one if you need to see what was compared."
   },
   "bend-lab.html": {
    "status": "harvested",
@@ -202,9 +207,10 @@
    "note": "Archived in the design index (its lab-archive tag): legacy-era design bench; superseded by the screens and compact labs. History, never a source."
   },
   "lens-preset-lab.html": {
-   "status": "ruled",
+   "status": "harvested",
+   "master_version": "1793657919-9064",
    "adr": "GUI-8",
-   "note": "Ruled the Lens in its own foot row box and the colours in both places (GUI-8), and presets P1 (GUI-6). Not yet harvested. The preset control is MOCK."
+   "note": "Harvested at 1793657919-9064. The same caution as bank-lab.html: it ran on the shell before GUI-8."
   },
   "listening-pass.html": {
    "status": "exploring",
@@ -4526,7 +4532,7 @@
    "via": null,
    "shell": "docs/design/gui3.html: H.ModBank($('bankHost'), S, {",
    "state": "in-shell",
-   "superseded_by": null,
+   "superseded_by": "GUI-8",
    "port_tab": "modulators",
    "note": "H.ModBank: 68 px, two lanes of 26 px thin rows, MAC | MODS header segments (BT1); a click on a row opens its compact card above the bank. Vendored 2026-11-01 (master batch 2, B589). FX device: same. Shell hop 2026-11-01 (B584): mounted in GUI 3. The bottom bank is ModBank (half A)."
   },
@@ -4856,7 +4862,7 @@
    "via": null,
    "shell": "docs/design/gui3.html: macros: MACROS",
    "state": "in-shell",
-   "superseded_by": null,
+   "superseded_by": "GUI-8",
    "port_tab": "macros",
    "note": "H.MacroRow: the rows follow the wheels with a half-second trace and a centre notch on the bend row. Vendored 2026-11-01 (master batch 2, B589). FX device: same. Shell hop 2026-11-01 (B584): mounted in GUI 3. The MAC lane: ten unbound rows (no intent bus in the stub), traces and the bend notch."
   },
@@ -4884,11 +4890,11 @@
    "master_version": "1793571581-8cd3",
    "bundle": "InfoBox",
    "via": null,
-   "shell": "docs/design/gui3.html: .footrow { --foot-h: 120px; --info-w: 300px;",
+   "shell": "docs/design/gui3.html: .footrow { --foot-h: 120px;",
    "state": "in-shell",
    "superseded_by": null,
    "port_tab": null,
-   "note": "The size is the shell's and the box the master's. Main, Osc 1, Osc 2, Sub, Noise and Mix fit; Mod, Morph, FX and Ledger still scroll. A bank card opens over the foot of the page."
+   "note": "The size is the shell's and the box the master's. Main, Osc 1, Osc 2, Sub, Noise and Mix fit; Mod, Morph, FX and Ledger still scroll. A bank card opens over the foot of the page. GUI-8 r2: the box is now 240 px wide."
   },
   {
    "id": "adr345-info-lock",
@@ -5318,11 +5324,11 @@
    "note": "One publish with the bank's form.",
    "lab": "docs/design/bank-lab.html",
    "component": "ModBank",
-   "master_version": null,
-   "bundle": null,
+   "master_version": "1793657919-9064",
+   "bundle": "ModBank",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: H.ModBank($('bankHost'), S,",
+   "state": "in-shell",
    "superseded_by": null
   },
   {
@@ -5330,14 +5336,14 @@
    "adr": "GUI-6",
    "clause": "ruling 1 (the global preset control is P1: one line in the top row, between the page groups and the switches)",
    "port_tab": "main-rest",
-   "note": "Needs a preset seam in the device and B261's file manager. MOCK until then, with the factory bank's real names. FX device: the same control, its own list.",
+   "note": "In the shell and MOCK: the factory bank's real names, and nothing loads until the device has a preset seam and B261's file manager exists.",
    "lab": "docs/design/lens-preset-lab.html",
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "PresetBar",
+   "master_version": "1793657919-9064",
+   "bundle": "PresetBar",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: H.PresetBar($('presetHost'), S,",
+   "state": "in-shell",
    "superseded_by": null
   },
   {
@@ -5348,7 +5354,7 @@
    "note": "The shell's filter, held by gui3_seam_check's banklist test.",
    "lab": "docs/design/bank-lab.html",
    "component": "ModBank",
-   "master_version": "1793591775-02e4",
+   "master_version": "1793657919-9064",
    "bundle": "ModBank",
    "via": null,
    "shell": "docs/design/gui3.html: function bankMods()",
@@ -5363,7 +5369,7 @@
    "note": "The bank's count still says 'n here' until the master batch.",
    "lab": "docs/design/bank-lab.html",
    "component": "ModBank",
-   "master_version": "1793591775-02e4",
+   "master_version": "1793657919-9064",
    "bundle": "ModBank",
    "via": null,
    "shell": "docs/design/gui3.html: function bankMods()",
@@ -5375,14 +5381,14 @@
    "adr": "GUI-8",
    "clause": "ruling 1 (the Lens is in the foot row, in its own box, on every page; amends ADR-338 r5)",
    "port_tab": "composition-tier",
-   "note": "The bundle's Lens with every key in scope. Frees the left column on 8 pages.",
+   "note": "One Lens with every key in scope. The 8 pages that had one have a freer left column; their layouts are not yet revisited.",
    "lab": "docs/design/bank-lab.html",
    "component": "Lens",
-   "master_version": null,
-   "bundle": null,
+   "master_version": "1793657919-9064",
+   "bundle": "Lens",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: H.Lens($('lensHost'), S,",
+   "state": "in-shell",
    "superseded_by": null
   },
   {
@@ -5393,11 +5399,11 @@
    "note": "240 is the GUI session's reading of 'a touch thinner'.",
    "lab": "docs/design/bank-lab.html",
    "component": "InfoBox",
-   "master_version": null,
-   "bundle": null,
+   "master_version": "1793657919-9064",
+   "bundle": "InfoBox",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: --info-w: 240px;",
+   "state": "in-shell",
    "superseded_by": null
   },
   {
@@ -5405,14 +5411,14 @@
    "adr": "GUI-8",
    "clause": "ruling 3 (the bank is F5: full height, 302 px, beside the scope over the spectrum; amends ADR-338 r7)",
    "port_tab": "modulators",
-   "note": "The scope and spectrum are MOCK until IF-10.",
+   "note": "The scope and spectrum read dev.summed(), MOCK until IF-10.",
    "lab": "docs/design/bank-lab.html",
    "component": "ModBank",
-   "master_version": null,
-   "bundle": null,
+   "master_version": "1793657919-9064",
+   "bundle": "ModBank",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: flex: 0 0 302px",
+   "state": "in-shell",
    "superseded_by": null
   },
   {
@@ -5420,14 +5426,14 @@
    "adr": "GUI-8",
    "clause": "ruling 4 (the foot row spans the window; the dock and inspector end above it)",
    "port_tab": "composition-tier",
-   "note": "126 px shorter dock and inspector. Not checked with the info sidebar on.",
+   "note": "Shell layout. With the sidebar on, the rail runs past the body's foot and the row sits beside it, so its box keeps its height. 126 px shorter dock and inspector otherwise.",
    "lab": "docs/design/bank-lab.html",
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "InfoBox",
+   "master_version": "1793657919-9064",
+   "bundle": "InfoBox",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: <!-- GUI-8 r4: the foot row spans the window",
+   "state": "in-shell",
    "superseded_by": null
   },
   {
@@ -5437,12 +5443,12 @@
    "port_tab": "macros",
    "note": "How a knob maps is open.",
    "lab": "docs/design/bank-lab.html",
-   "component": "MacroRow",
-   "master_version": null,
-   "bundle": null,
+   "component": "ModBank",
+   "master_version": "1793657919-9064",
+   "bundle": "MacroFace",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: macros: MACROS,",
+   "state": "in-shell",
    "superseded_by": null
   },
   {
@@ -5453,11 +5459,11 @@
    "note": "Eight in view.",
    "lab": "docs/design/bank-lab.html",
    "component": "ModBank",
-   "master_version": null,
-   "bundle": null,
+   "master_version": "1793657919-9064",
+   "bundle": "ModBank",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: H.ModBank($('bankHost'), S,",
+   "state": "in-shell",
    "superseded_by": null
   },
   {
@@ -5468,11 +5474,11 @@
    "note": "The bundle's ScreenScheme, new to the shell.",
    "lab": "docs/design/bank-lab.html",
    "component": "ScreenScheme",
-   "master_version": null,
-   "bundle": null,
+   "master_version": "1793657919-9064",
+   "bundle": "ScreenScheme",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: H.ScreenScheme($('scrTop'), $('win'),",
+   "state": "in-shell",
    "superseded_by": null
   }
  ],

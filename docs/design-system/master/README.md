@@ -114,6 +114,13 @@ Rulings 2 and 7 of ADR-338, 8 to 10 of ADR-340 and 3 to 5 of ADR-341 enter the m
 - **Behaviour changed in existing components:** a named `Stepper` no longer takes typed text; a `ReadoutSlot` reads two lines (its `.rs-2` is now line 1's corner span); the route row's polarity pill and the inspector's are chips (a vertical drag edits the depth); the Session's `cyclePol(m, back)` takes an optional direction; an Option-drag of a UNI or INV mapping can cross zero; the gesture knows the polarity chord; `CompactWires` draws a valve on every wire and its nodes show values.
 - **Not in 2a:** the bank, the macro rows and the bend's spring-back, and the page forms, which are 2b (below); the polarity menu, which is not done.
 
+## What changed for the foot row and top bar (GUI-5, GUI-6, GUI-7, GUI-8; B589, B581)
+
+- **The bank is F5:** `size-bank-h` 120 px and `size-bank-side` 44 px, with rounded corners. Its mod rows are R2, and its macros are `MacroFace`, new, two rows of four knobs beside two small wheels. Its count says "n active", because the shell's list is now every active modulator (GUI-7).
+- **The Lens has a foot form,** `form: 'foot'`, one on every page.
+- **`PresetBar`,** new: the global preset in one line. The host owns loading.
+- **Tokens:** those two values changed. No exported name changed, and `MacroRow` stays.
+
 ## What changed in master batch 2b (ADR-338, ADR-340, ADR-341: page forms and the bank; B589, B595)
 
 - **No existing token value or exported name changed; no existing component's behaviour changed.** New tokens (sizes only): `size-row-thin` 26, `size-row-thin-w` 226, `size-row-macro-w` 188, `size-card-compact-w` 188, `size-bank-h` 68, `size-bank-side` 52, `size-micro-chip` 20. The thin rows are a named exception to `size-hit` on the cross axis (their buttons are 18 and 16 px faces with 28 px hit boxes that reach past the row), like the tiny sliders.
