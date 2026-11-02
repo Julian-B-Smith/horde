@@ -9,6 +9,8 @@
      WHAT IS MOCK. Depth routes: the engine has none yet (B70, the lead's), so they live in the page, in the master's own S.depthRoutes placeholder. Undo does not
      cover a depth route on its own, only one that left with the wire it lands on. Sources read 0 because the shell has no voices, so the wires sit at their dimmest.
 
+     RULED: S1, D1, R1, N3, W1, by GUI-3 (2026-11-02). The lab stays as the record of what was compared, opening on the ruled options.
+
      WHY A LAB. These gestures were never designed. Nothing here edits gui3*, arp-face/ or the master: a ruling goes through the chain (ADR-316).
 
      THE SELF-CHECK prints in #selfcheck. It drives the frame with real pointer events. Its controls: a click on nothing must select nothing and move nothing; a drag on
@@ -52,8 +54,8 @@
 <body>
 <div class="col">
   <header>
-    <h1>Wires you can grab</h1>
-    <p>This is the shell's real Mod page with wires you can select, drag and delete. Each question has options, and changing one applies straight away. The first option in each is what I'd pick. Ordinary wires are real routes; depth wires are MOCK until the engine has them (B70).</p>
+    <h1>Wires you can grab: S1, D1, R1, N3 and W1 ruled</h1>
+    <p>This is the shell's real Mod page with wires you can select, drag and delete. Each question has options, and changing one applies straight away. It opens on the ruled options (GUI-3). Ordinary wires are real routes; depth wires are MOCK until the engine has them (B70).</p>
   </header>
   <section aria-label="The questions">
     <div class="qs" id="qs"></div>
@@ -61,7 +63,7 @@
   <section aria-label="The shell with these wires">
     <div class="bar">
       <button class="hd-btn hd-focus" id="btnReset" type="button">Put the sample wires back</button>
-      <span class="note">Try: click a wire. Drag its ◇ up and down. Drag a ring at its end to another box. Grab the dotted wire. Right-click a wire. Press Delete.</span>
+      <span class="note">Try: click a wire. Drag its ◇ up and down. Drag a ring at its end to another box, or let go on nothing to search. Grab the dotted wire. Right-click a wire. Press Delete.</span>
     </div>
     <div id="wrap"><iframe id="frame" title="GUI 3's Mod page with these wires" src="gui3.html#mod,win"></iframe></div>
   </section>
@@ -101,7 +103,7 @@ const QUESTIONS = [
     ['W1', 'Like any wire: click it, drag its own ○ for its amount, drag its rings to another source or ◇.'],
     ['W2', 'Through the wire it lands on: select that wire and edit its depth wires as rows in the strip. Dotted wires can\'t be grabbed.'] ] },
 ];
-const OPT = { panel: 'S1', depth: 'D1', ends: 'R1', loose: 'N1', dep: 'W1' };
+const OPT = { panel: 'S1', depth: 'D1', ends: 'R1', loose: 'N3', dep: 'W1' };   // GUI-3
 const SAMPLE = [
   { src: 'env2', param: 'osc1.blade1.width', pol: 'uni', depth: .4 },
   { src: 'env2', param: 'noise.cutoff', pol: 'bi', depth: .3 },
