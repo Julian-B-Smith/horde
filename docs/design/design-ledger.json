@@ -200,6 +200,10 @@
    "status": "exploring",
    "note": "B324: the blind calibration pass; 'nobody has listened' (its golden note). Calibration, not design."
   },
+  "main-layout-lab.html": {
+   "status": "exploring",
+   "note": "Four layouts for Main (B581 step 2), applied to the running shell, with the bench's Specimen and logo code verbatim (main-layout-lab-parts.js, ADR-333). Nothing is harvested until a ruling."
+  },
   "maw-horde-lab.html": {
    "status": "ruled",
    "adr": "ADR-300",
