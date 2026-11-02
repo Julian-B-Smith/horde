@@ -4920,6 +4920,21 @@
    "superseded_by": null,
    "port_tab": null,
    "note": "The bundle's CSS already behaved this way; the ruling makes it the rule, and the shell's self-check holds all 38 slots to it. 13 are narrower at the 980 px window. FX device: same."
+  },
+  {
+   "id": "adr349-shape-travel",
+   "adr": "ADR-349",
+   "clause": "rulings 1 and 4 (one point list across the corners, up to 32 points; a point added in one corner parks in the others; points travel under the pad)",
+   "lab": null,
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null,
+   "port_tab": "modulators",
+   "note": "The lab is the private page the ADR cites, not a repo lab. LfoShapeEditor and EnvelopeEditor draw any number of points in one corner; showing parked points and editing per corner are not in the master yet. RC-4 still defers the LFOs."
   }
  ],
  "not_design": [
