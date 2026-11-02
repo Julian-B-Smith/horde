@@ -10807,3 +10807,24 @@ Three points stayed open, because the shell already marks a knob selected the mo
 - **Needed from the lead:** the root `CLAUDE.md` still opens with "a family of experimental, responsive engines" and "the founding engine". That file is the lead's, and agents read it every session.
 - **FX device (ADR-254):** none; it has no oscillators.
 
+## GUI-2 — RULED by the human: Main is M1, the bench's layout, with the Specimen under an assignable XY, on by default, and macro knobs (B581; ADR-139, ADR-140, ADR-315, ADR-333; 2026-11-02)
+
+**Context.** The human, 2026-11-01: "I would like to see the generative logo, and also the Specimen XY from the scalpel lab on main." and "main shouldn't have a square envelope viewer." `docs/design/main-layout-lab.html` (#1328) put four layouts on the running shell with the bench's own Specimen and logo code. The human answered by poll on 2026-11-02: "M1 The bench"; "Assignable"; "On, with a Settings switch"; "Yes, eight knobs". The lab's recommendation was M4, a single surface; the human chose the bench.
+
+**Rulings.**
+1. **Main's layout is M1:** a left column with the morph pad over the Specimen XY; to the right, eight macro knobs and a wide ENV 1 picture across the top, with Voice, ENV 1's controls and the Lens under them. The bench's cycle view, carpet, voice map, Mix and FX strip stay on their own pages.
+2. **Main's XY is assignable.** The player picks any two parameters for X and Y, and the choice saves with the patch. This closes the bench's open question 38 (B299).
+3. **The Specimen is on by default, with a switch in Settings.** **Amends ADR-140's default.** Its reason still stands: it ran "jumpy, jaggy" in the VST, so its cost is measured in the plugin webview before 1.0, and a plain surface remains the fallback.
+4. **Main shows the eight macros as knobs**, as well as the bank's MAC lane. They are the same macros, shown twice.
+
+**Readings taken (the GUI session's, open to the human).**
+- The logo goes in the frame's header on every page, at 91 × 60, as the master's Logos rule says, and not only on Main. Live, as the bench has it. Its style is the locked one, so a click no longer cycles styles.
+- On Main the morph pad is on the page, so the dock doesn't also show it: **an exception to ADR-315's dock on every page**. Other pages keep the dock. The dock's corner chips stay off Main; they remain on the Morph page.
+- Nothing has been designed yet for choosing the XY's two parameters. That is the next batch's first question.
+- M1 gives pictures 40% of the page's body, under the master's "at least half". The human chose it knowing the numbers, so this is an accepted exception for Main.
+
+**Consequences.**
+- The Specimen and the live logo go into the design master first, ported from the bench verbatim (ADR-316, ADR-333). `docs/design/main-layout-lab-parts.js` retires with the lab.
+- ADR-139 and the Specimen README disagree on which way R moves its tension. The port has to settle that against the bench.
+- **FX device (ADR-254):** it has no Main. The logo rule holds in its header. The Specimen is voice-bound and needs its audio-driven stand-in (ADR-262 r1).
+
