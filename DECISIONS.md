@@ -10828,6 +10828,32 @@ Three points stayed open, because the shell already marks a knob selected the mo
 - ADR-139 and the Specimen README disagree on which way R moves its tension. The port has to settle that against the bench.
 - **FX device (ADR-254):** it has no Main. The logo rule holds in its header. The Specimen is voice-bound and needs its audio-driven stand-in (ADR-262 r1).
 
+## GUI-3 — RULED by the human: wires can be selected, moved and deleted, depth wires included, by S1, D1, R1, N3 and W1 (B589; amends ADR-341 ruling 5; ADR-266, ADR-340 r10, B70; 2026-11-02)
+
+**Context.** The human, 2026-11-01: "we still need to be able to select existing wires to reroute them or delete them, or change the modulation depth. In particular, there's no way to currently change the wires that control the modulation depth of other wires." W-a (ADR-341 r5) covered making a wire and never editing one. `docs/design/wire-edit-lab.html` (#1329) put the options on the shell's real Mod page, and the human answered by poll on 2026-11-02. They took every recommendation but one: the lab recommended N1, and the human chose N3.
+
+**Rulings.**
+1. **A selected wire's controls are S1:** a strip under the wires holding the Routes list's own row, with the wire's depth wires as rows beneath it.
+2. **A wire's depth is D1:** drag its ◇ up or down. A wire's body only selects it.
+3. **A wire reroutes by R1:** a selected wire shows a ring on each end, and a ring drags to another box.
+4. **A wire's end let go on nothing is N3:** the search opens where it was let go, and picking a parameter lands the wire there. Esc leaves the wire as it was. There is no "+ parameter" box. This is also how a wire reaches a parameter that has no box yet.
+5. **A depth wire is W1, like any wire:** a click selects it, its own ○ drags its amount, and its rings drag to another source or ◇. Its row is in the strip too.
+6. **A ◇ slides to a clear spot.** It sits at its wire's middle when there is room, otherwise at the nearest clear spot along its own wire. **Amends ADR-341 ruling 5's "at its midpoint".** The cost, accepted: a ◇ can jump when another wire changes.
+7. **One level only:** a depth wire can be edited, but nothing can land on it. B70's restriction, confirmed by the human.
+8. **A far end dropped on the other kind of target changes the wire's kind,** keeping its source and amount: a wire dropped on a ◇ becomes a depth wire, and a depth wire dropped on a box becomes an ordinary wire. What one level or a Control forbids is refused and leaves the wire as it was.
+
+**Readings taken (the GUI session's, open to the human).**
+- The poll asked about a wire's end. A NEW wire dropped on nothing also opens the search, so one gesture does one thing. This changes the master's "A drop on nothing makes nothing and says so".
+- A source end let go on nothing stays where it was: every source is already in its column, so there is nothing to search for.
+- In every case: a click on nothing or Esc lets go of the selection; Shift drags finely; a double-click on a ◇ or ○ resets it to 25%; a Control's ◇ widens and thins its band, as its chip does; Delete, Backspace and the right-click menu remove a wire and the depth wires on it; a second wire for one source and destination is refused, as in the grid.
+- A rerouted wire keeps its route id. B72 proposes (source, destination) as a route's identity, so if B72 lands, a reroute needs a rule for the morph (the lead's).
+
+**Consequences.**
+- These go into the master's `CompactWires` next (ADR-316), then the bundle, then the shell. The lab's view is written to port back.
+- The same batch fixes two master defects, both read from the code and not yet run on the shell: the destination buttons cover the wires' right-hand ends, and a drop can make a second wire for a pair that already has one.
+- **Needed from the lead, unchanged (ADR-340, ADR-341):** B70's depth routes in the engine's route table. Until then a depth wire can't be real in the shell: the shell refuses the drop today, and the rulings for depth wires wait there.
+- **Not verified:** whether a host keeps right-click and Delete in a plugin window. The strip's row remains the route to both.
+- **FX device (ADR-254):** the same gestures apply on its pages wherever it shows wires.
 
 ## ADR-349 — RULED by the human: drawn modulator shapes of any point count morph by travelling points; per-point Quantum on trial; modulators before ENV 1 to 4; a cap of 32 points (B601, B208, B128; 2026-11-02)
 
