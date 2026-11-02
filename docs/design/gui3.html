@@ -1455,6 +1455,11 @@ S.start();
   setMorphOn(true); const on = !$('dock').hidden && $('bodyGrid').classList.contains('with-dock');
   padShown = false; paintDock(); const hid = $('dock').hidden; padShown = true; setMorphOn(false);
   line(off && on && hid && $('dock').hidden, 'Dock: no space with morph off, docked with morph on, hidden by Pad while morph stays on; it does show when on (control).');
+  // 4b. ADR-315 r1, GUI-5: the human, 2026-11-02: "I want to make sure the morph XY on every page when morph is active doesn't get reversed." Every page shows it, Main
+  // included for now. When GUI-4's Main is built its pad is on the page and the dock hides there (GUI-5): that build changes this line to expect exactly that, and nothing else.
+  { const pg0 = page; setMorphOn(true); const missing = DATA.pages.filter(pp => { selectPage(pp.id); return $('dock').hidden || !$('bodyGrid').classList.contains('with-dock') || !$('dock').contains($('padHost')); }).map(pp => pp.id);
+    selectPage(pg0); $('dock').hidden = true; const seesHidden = $('dock').hidden; paintDock(); setMorphOn(false); dev.undo(); dev.undo(); dev.clearRedo();
+    line(!missing.length && seesHidden, 'Dock: with morph on, the morph pad docks on all ' + DATA.pages.length + ' pages' + (missing.length ? ' (MISSING on ' + missing.join(', ') + ')' : '') + '; a hidden dock reads as hidden (control).'); }
   // 5. The info box shows the hovered control's text, and clears off a control (control).
   const kh = document.querySelector('#page-sub [data-key="' + CSS.escape(kc.key) + '"]');
   kh.dispatchEvent(new MouseEvent('pointerover', { bubbles: true })); const shown = $('infoText').textContent.startsWith(r.spec) && $('infoKey').textContent === r.key;
