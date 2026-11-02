@@ -300,6 +300,10 @@
    "status": "ruled",
    "adr": "ADR-074",
    "note": "Super-width as three modes (a legacy ruling; ADR-025 revision bench)."
+  },
+  "wire-edit-lab.html": {
+   "status": "exploring",
+   "note": "Selecting, editing, rerouting and deleting wires, depth wires included (B589, the human's notes of 2026-11-01), on the shell's real Mod page. Ordinary wires are real device routes; depth wires are MOCK until B70. Nothing is harvested until a ruling."
   }
  },
  "not_labs": {
