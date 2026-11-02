@@ -559,8 +559,9 @@ def selftest(base):
     plant("a row under an unregistered prefix", "numbers", roadmap=lambda r: r + "\n| RB1 | planted |\n")
     if AUDITED:
         plant("a GUI ruling with no row and no reason", "coverage", decisions=lambda d: d + gui)
-    clean("a GUI ruling, judged, sharing an ADR's digits", decisions=lambda d: d + "\n## GUI-1 — planted\n",
-          led=lambda l: (l["not_design"].append({"adr": "GUI-1", "reason": "planted"}), l)[1], ctx=known("GUI-1"))
+    # 300, not 1: ADR-300 exists and the GUI counter is far from it, so this stays a clean case once real GUI rulings exist (GUI-1 did, and this read as a duplicate)
+    clean("a GUI ruling, judged, sharing an ADR's digits", decisions=lambda d: d + "\n## GUI-300 — planted\n",
+          led=lambda l: (l["not_design"].append({"adr": "GUI-300", "reason": "planted"}), l)[1], ctx=known("GUI-300"))
     clean("a GB row sharing a B row's digits", roadmap=lambda r: r + "\n| GB1 | planted |\n")
     return failures, ran
 

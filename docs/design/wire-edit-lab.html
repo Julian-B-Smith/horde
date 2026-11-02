@@ -1,0 +1,664 @@
+<!doctype html>
+<!-- wire-edit-lab: selecting, editing, rerouting and deleting wires, depth wires included. horde, 2026-11-02. Origin: horde GUI session (ADR-336 charter), the human's
+     notes of 2026-11-01: "we still need to be able to select existing wires to reroute them or delete them, or change the modulation depth. In particular, there's
+     no way to currently change the wires that control the modulation depth of other wires." and "Wires first" (2026-11-02). B589.
+
+     WHAT IS REAL. The frame is gui3.html, unedited, on its real Mod page. The wires view is replaced in the frame by the one below, which is the master's CompactWires
+     (W-a, ADR-341 r5) plus the gestures under test. Ordinary wires are real routes: every edit goes through the shell's map bridge into the device's route list, so
+     its refusals (RC-4), its one-step-per-gesture history and its Undo button are the real ones. The Routes page's grid and list are the real ones and follow.
+     WHAT IS MOCK. Depth routes: the engine has none yet (B70, the lead's), so they live in the page, in the master's own S.depthRoutes placeholder. Undo does not
+     cover a depth route on its own, only one that left with the wire it lands on. Sources read 0 because the shell has no voices, so the wires sit at their dimmest.
+
+     WHY A LAB. These gestures were never designed. Nothing here edits gui3*, arp-face/ or the master: a ruling goes through the chain (ADR-316).
+
+     THE SELF-CHECK prints in #selfcheck. It drives the frame with real pointer events. Its controls: a click on nothing must select nothing and move nothing; a drag on
+     a wire's body under D1 must not move the depth, and the same drag under D2 must; a dotted wire must not be selectable under W2; a duplicate and an RC-4 row must be
+     refused and leave the route as it was.
+
+     HOUSE RULES. No Math.random. No clock: the shell's own frame loop drives the view. No wheel listener (B301). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="lab-part" content="Modulation">
+<title>Wire edit lab — select, change depth, reroute and delete wires (B589)</title>
+<link rel="stylesheet" href="arp-face/tokens.css">
+<link rel="stylesheet" href="arp-face/bundle.css">
+<style>
+  html, body { background: var(--bg); }
+  body { margin: 0; padding: 20px 16px 60px; color: var(--ink); font: 13px/1.5 var(--font-sans); }
+  .col { max-width: 1012px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+  h1 { font: 800 19px/1.2 var(--font-sans); margin: 0 0 6px; }
+  h2 { font: 800 13px/1.2 var(--font-sans); margin: 0 0 8px; }
+  p { margin: 0 0 6px; max-width: 84ch; }
+  .qs { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 8px; }
+  .q { border: 1px solid var(--div); border-radius: 6px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .q h3 { font: 800 12px/1.25 var(--font-sans); margin: 0; }
+  .q .opts { display: flex; flex-direction: column; gap: 4px; }
+  .opt { all: unset; box-sizing: border-box; cursor: pointer; display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 0 4px; padding: 4px 6px; border: 1px solid var(--div); border-radius: 4px; min-height: 28px; font: 12px/1.35 var(--font-sans); }
+  .opt:hover { border-color: var(--ink); }
+  .opt:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .opt[aria-pressed="true"] { border: 2px solid var(--ink); padding: 3px 5px; }
+  .opt b { font: 800 11px/1.5 var(--font-mono); }
+  .bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px; }
+  .bar .hd-btn { min-height: 28px; }
+  #wrap { position: relative; overflow: hidden; border: 1px solid var(--div); height: 720px; }
+  #frame { display: block; border: 0; width: 980px; height: 720px; transform-origin: 0 0; }
+  ul { margin: 0; padding-left: 18px; max-width: 84ch; }
+  #selfcheck { font: 12px/1.5 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .note { color: var(--hint); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="col">
+  <header>
+    <h1>Wires you can grab</h1>
+    <p>This is the shell's real Mod page with wires you can select, drag and delete. Each question has options, and changing one applies straight away. The first option in each is what I'd pick. Ordinary wires are real routes; depth wires are MOCK until the engine has them (B70).</p>
+  </header>
+  <section aria-label="The questions">
+    <div class="qs" id="qs"></div>
+  </section>
+  <section aria-label="The shell with these wires">
+    <div class="bar">
+      <button class="hd-btn hd-focus" id="btnReset" type="button">Put the sample wires back</button>
+      <span class="note">Try: click a wire. Drag its ◇ up and down. Drag a ring at its end to another box. Grab the dotted wire. Right-click a wire. Press Delete.</span>
+    </div>
+    <div id="wrap"><iframe id="frame" title="GUI 3's Mod page with these wires" src="gui3.html#mod,win"></iframe></div>
+  </section>
+  <section aria-label="What holds in every option">
+    <h2>In every option</h2>
+    <ul>
+      <li>A click on a wire selects it, and its parameter becomes the selected one. A click on nothing, or Esc, lets go.</li>
+      <li>Shift drags finely. A double-click on a ◇ puts it back to 25%. A Control's ◇ widens and thins its band, as its chip does.</li>
+      <li>Delete or Backspace removes the selected wire, and its depth wires go with it. Right-click has polarity, reset and remove.</li>
+      <li>One level only: a depth wire can be moved, but nothing can land on it, and a wire with depth wires on it can't become one (B70's restriction).</li>
+      <li>The same source can't have two wires to one destination, as in the grid. A second Control on one parameter is refused (ADR-266).</li>
+    </ul>
+  </section>
+  <section aria-label="Self-check">
+    <h2>Self-check</h2>
+    <div id="selfcheck">Measuring…</div>
+  </section>
+</div>
+<script>
+'use strict';
+const QUESTIONS = [
+  { id: 'panel', title: 'Where do a selected wire\'s controls go?', opts: [
+    ['S1', 'A strip under the wires: the Routes list\'s own row, with its depth wires as rows under it.'],
+    ['S2', 'Chips beside the ◇ on the wire: polarity, amount, ×. Nothing moves, but they cover other wires.'],
+    ['S3', 'None: only the gestures, the keys and the right-click menu.'] ] },
+  { id: 'depth', title: 'How do you change a wire\'s depth?', opts: [
+    ['D1', 'Drag its ◇ up or down. A wire\'s body only selects, so a slip can\'t change anything.'],
+    ['D2', 'Drag anywhere on the wire, up or down, with no need to select it first. Faster, easier to slip.'] ] },
+  { id: 'ends', title: 'How do you reroute a wire?', opts: [
+    ['R1', 'Rings appear on a selected wire\'s two ends. Drag one to another box.'],
+    ['R2', 'The rings appear as you hover a wire, so no click first. More flicker as the mouse crosses wires.'] ] },
+  { id: 'loose', title: 'What if you let go of an end on nothing, and how do you reach a parameter that has no box?', opts: [
+    ['N1', 'It snaps back. A "+ parameter" box at the foot of the column opens a search.'],
+    ['N2', 'It deletes, like pulling out a cable, with Undo offered. The "+ parameter" box as in N1.'],
+    ['N3', 'It opens the search where you let go. No extra box. Esc leaves the wire as it was.'] ] },
+  { id: 'dep', title: 'How do you change a depth wire?', opts: [
+    ['W1', 'Like any wire: click it, drag its own ○ for its amount, drag its rings to another source or ◇.'],
+    ['W2', 'Through the wire it lands on: select that wire and edit its depth wires as rows in the strip. Dotted wires can\'t be grabbed.'] ] },
+];
+const OPT = { panel: 'S1', depth: 'D1', ends: 'R1', loose: 'N1', dep: 'W1' };
+const SAMPLE = [
+  { src: 'env2', param: 'osc1.blade1.width', pol: 'uni', depth: .4 },
+  { src: 'env2', param: 'noise.cutoff', pol: 'bi', depth: .3 },
+  { src: 'env3', param: 'osc1.detune', pol: 'uni', depth: .25 },
+  { src: 'env3', param: 'mix.sub', pol: 'inv', depth: .35 },
+  { src: 'velocity', param: 'mix.osc1', pol: 'uni', depth: .5 },
+  { src: 'env4', param: 'osc1.blade1.depth', pol: 'ctl', depth: .25, lo: .2, hi: .8 },
+];
+const SAMPLE_DEPTH = [{ src: 'aftertouch', pol: 'uni', depth: .35, of: 0 }, { src: 'env4', pol: 'inv', depth: .2, of: 4 }];
+const $ = id => document.getElementById(id);
+let view = null, S = null, win = null;
+
+function paintQuestions() {
+  $('qs').innerHTML = '';
+  QUESTIONS.forEach(q => {
+    const box = document.createElement('div'); box.className = 'q';
+    const t = document.createElement('h3'); t.textContent = q.title; box.append(t);
+    const opts = document.createElement('div'); opts.className = 'opts'; box.append(opts);
+    q.opts.forEach(([id, text]) => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'opt';
+      b.setAttribute('aria-pressed', OPT[q.id] === id ? 'true' : 'false');
+      const k = document.createElement('b'); k.textContent = id; const sp = document.createElement('span'); sp.textContent = text; b.append(k, sp);
+      b.addEventListener('click', () => { OPT[q.id] = id; paintQuestions(); if (view) view.optionsChanged(); });
+      opts.append(b);
+    });
+    $('qs').append(box);
+  });
+}
+paintQuestions();
+
+/* THE VIEW. The drawing is the master's CompactWires (bundle.js, W-a), kept close so a ruling ports back cleanly; the rest is what this lab tests. It runs against the
+   frame's Horde and the frame's document. The shell's onDepthRoute (a refusal, B70) is not called: depth routes here are the placeholder, marked MOCK above. */
+function labWires(w, el0, Sess) {
+  const H = w.Horde, M = H.Matrix, doc = el0.ownerDocument, S = Sess;
+  const POLN = M.POLN, DRAG = 160, DEF = .25, ROW_H = 30, VALVE_TRIES = [.5, .42, .58, .34, .66, .26, .74, .2, .8];
+  const tag = (t, c) => { const e = doc.createElement(t); if (c) e.className = c; return e; };
+  const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+  const pct = x => Math.round(x * 100) + '%';
+  const pname = k => (S.params[k] ? S.params[k].name : k);
+  const num = id => S.sources.findIndex(s => s.id === id) + 1;
+  const monoFont = (px, V) => '500 ' + (px * V) + 'px ' + (w.getComputedStyle(doc.body).getPropertyValue('--font-mono') || 'monospace');
+  const fitText = (g, t, wd) => { if (g.measureText(t).width <= wd) return t; while (t.length > 1 && g.measureText(t + '…').width > wd) t = t.slice(0, -1); return t + '…'; };
+  el0.classList.add('mx-wires'); el0.__S = S; el0.innerHTML = '';
+  const viz = tag('div', 'hd-viz'); viz.tabIndex = 0; viz.style.position = 'relative'; el0.append(viz);
+  const cv = tag('canvas'); cv.setAttribute('role', 'img'); viz.append(cv);
+  const hits = tag('div', 'mx-hits'); viz.append(hits);
+  const chips = tag('div', 'wl-chips'); chips.hidden = true; viz.append(chips);
+  const undoLine = tag('div', 'wl-undo'); undoLine.hidden = true; el0.append(undoLine);
+  const strip = tag('div', 'mx-routes wl-strip'); el0.append(strip);
+  let srcs = [], dsts = [], lastSig = null, sel = null, hov = null, g = null, menu = null, finder = null, known = [], grave = [], rows = [], stripSig = null, chipSig = null;
+  let geo = { src: [], dst: [], ghost: null, valve: [], dot: [], wires: [], grips: [] };
+  const wireOf = o => ({ kind: o.of ? 'dep' : 'wire', o });
+  const same = (a, b) => !!a && !!b && a.o === b.o;
+  const ghostOn = () => OPT.loose !== 'N3';
+
+  /* Depth routes hold their target by object, and the bridge rebuilds the objects after an undo, so they are relinked by route id every frame. One whose target has gone waits
+     in `grave` and comes back if Undo brings the wire back. */
+  function relink() {
+    const list = M.dRoutes(S), byId = id => S.mappings.find(m => m.id === id);
+    known.forEach(d => { if (!list.includes(d) && d.ofId && !byId(d.ofId) && !grave.includes(d)) grave.push(d); });
+    for (let i = list.length - 1; i >= 0; i--) { const d = list[i];
+      if (S.mappings.includes(d.of)) { d.ofId = d.of.id; continue; }
+      const m = byId(d.ofId); if (m) { d.of = m; continue; }
+      list.splice(i, 1); if (!grave.includes(d)) grave.push(d); }
+    for (let i = grave.length - 1; i >= 0; i--) { const m = byId(grave[i].ofId); if (m) { grave[i].of = m; list.push(grave[i]); grave.splice(i, 1); } }
+    known = list.slice();
+    const fix = q => { if (!q) return q; if (q.kind === 'dep') return list.includes(q.o) ? q : null; if (S.mappings.includes(q.o)) return q; const m = q.o.id && byId(q.o.id); return m ? wireOf(m) : null; };
+    sel = fix(sel); hov = fix(hov);
+    if (sel && OPT.dep === 'W2' && sel.kind === 'dep') sel = wireOf(sel.o.of);
+  }
+  function layout() {
+    const used = {}; S.mappings.forEach(m => { used[m.src] = 1; }); M.dRoutes(S).forEach(d => { used[d.src] = 1; });
+    S.sources.filter(s => s.kind === 'env').forEach(s => { used[s.id] = 1; });
+    srcs = S.sources.filter(s => used[s.id]);
+    dsts = Object.keys(S.params).filter(k => S.mapsOf(k).length);
+    const n = Math.max(srcs.length, dsts.length + (ghostOn() ? 1 : 0), 1); viz.style.height = (n * ROW_H + 12) + 'px';
+    hits.innerHTML = '';
+    dsts.forEach(k => { const b = tag('button', 'mx-hit hd-focus'); b.type = 'button'; b.dataset.key = k; b.style.left = 'auto'; b.style.right = '0';
+      b.addEventListener('click', () => { S.selected = k; sel = null; S.emit(); }); hits.append(b); });
+  }
+  const cubic = (p, t) => { const u = 1 - t; return [u * u * u * p[0] + 3 * u * u * t * p[2] + 3 * u * t * t * p[4] + t * t * t * p[6], u * u * u * p[1] + 3 * u * u * t * p[3] + 3 * u * t * t * p[5] + t * t * t * p[7]]; };
+  const diamond = (c, x, y, r) => { c.beginPath(); c.moveTo(x, y - r); c.lineTo(x + r, y); c.lineTo(x, y + r); c.lineTo(x - r, y); c.closePath(); };
+  function draw() {
+    const K = H.Viz.kit(cv), c = K.g, W = K.W, Hh = K.H, V = K.V;
+    geo = { src: [], dst: [], ghost: null, valve: [], dot: [], wires: [], grips: [] };
+    K.tube(); K.scan(); c.font = monoFont(9, V); c.textBaseline = 'middle';
+    const nw = Math.max(58 * V, Math.min(118 * V, W * .26)), nh = 22 * V, top = 6 * V, inner = Hh - 12 * V, sx = 4 * V, dx = W - nw - 4 * V;
+    const dn = dsts.length + (ghostOn() ? 1 : 0) || 1;
+    const sY = j => top + inner * (j + .5) / (srcs.length || 1), dY = j => top + inner * (j + .5) / dn;
+    const fanN = {}, fanK = {}, mids = new Map(), desc = [];
+    const lift = sel ? .55 : 1;                                        // the rest step back while one is selected
+    const isSel = o => sel && sel.o === o, isHov = o => hov && hov.o === o;
+    const pulled = g && g.type === 'end' ? g.w.o : null;
+    S.mappings.forEach(m => { fanN[m.param] = (fanN[m.param] || 0) + 1; });
+    c.lineCap = 'round';
+    S.mappings.forEach(m => {
+      const j = srcs.findIndex(s => s.id === m.src), dj = dsts.indexOf(m.param); if (j < 0 || dj < 0) return;
+      const n = fanN[m.param], kk = fanK[m.param] = (fanK[m.param] || 0) + 1;
+      const x0 = sx + nw, y0 = sY(j), x1 = dx, y1 = dY(dj) + (kk - (n + 1) / 2) * 5 * V, sv = S.sourceValue(m.src);
+      const wd = V * (1 + 6 * (m.pol === 'ctl' ? m.hi - m.lo : M.depthNow(S, m)));
+      const p = [x0, y0, x0 + (x1 - x0) * .45, y0, x1 - (x1 - x0) * .45, y1, x1, y1];
+      if (pulled !== m && (isSel(m) || isHov(m))) { c.strokeStyle = K.c('value', isSel(m) ? .95 : .6); c.lineWidth = wd + (isSel(m) ? 2.5 : 1.5) * V; c.setLineDash(m.pol === 'inv' ? [6 * V, 4 * V] : []); c.beginPath(); c.moveTo(x0, y0); c.bezierCurveTo(p[2], p[3], p[4], p[5], x1, y1); c.stroke(); c.setLineDash([]); }
+      c.strokeStyle = K.c('physics', (.25 + .7 * sv) * (pulled === m ? .35 : isSel(m) ? 1 : lift)); c.lineWidth = wd; c.setLineDash(m.pol === 'inv' ? [6 * V, 4 * V] : []);
+      c.beginPath(); c.moveTo(x0, y0); c.bezierCurveTo(p[2], p[3], p[4], p[5], x1, y1); c.stroke(); c.setLineDash([]);
+      if (m.pol === 'ctl') { c.fillStyle = K.c('physics'); c.fillRect(x1 - 3 * V, y1 - 6 * V, 3 * V, 12 * V); }
+      // W-a puts the ◇ at the wire's middle, but wires between the two columns all cross near the same middle and the ◇ pile up where no one can grab them, so a ◇ slides
+      // along its own wire to the nearest spot clear of the ones already placed. Deterministic: list order, fixed tries.
+      let q = cubic(p, .5);
+      for (const t of VALVE_TRIES) { const a = cubic(p, t); if (![...mids.values()].some(o => Math.hypot(o[0] - a[0], o[1] - a[1]) < 18 * V)) { q = a; break; } }
+      mids.set(m, q);
+      if (m.pol !== 'uni') { const t = cubic(p, .86); c.fillStyle = K.c('grid'); c.fillText(POLN[m.pol], t[0] - 16 * V, t[1] - 7 * V); }
+      const pts = []; for (let i = 0; i <= 28; i++) { const a = cubic(p, i / 28); pts.push([a[0] / V, a[1] / V]); }
+      geo.wires.push({ w: wireOf(m), pts, half: wd / V / 2 });
+      desc.push(S.src(m.src).name + ' to ' + pname(m.param) + ' ' + POLN[m.pol] + ' ' + S.amount(m));
+    });
+    M.dRoutes(S).forEach(d => {
+      const mm = mids.get(d.of), j = srcs.findIndex(s => s.id === d.src); if (!mm || j < 0) return;
+      const x0 = sx + nw, y0 = sY(j), up = mm[1] > y0 ? -1 : 1;
+      const p = [x0, y0, x0 + (mm[0] - x0) * .5, y0, mm[0], mm[1] + up * 30 * V, mm[0], mm[1] + up * 7 * V];
+      const wd = V * (1 + 3 * d.depth), grabbable = OPT.dep === 'W1';
+      if (pulled !== d && grabbable && (isSel(d) || isHov(d))) { c.strokeStyle = K.c('value', isSel(d) ? .95 : .6); c.lineWidth = wd + (isSel(d) ? 2 : 1.2) * V; c.beginPath(); c.moveTo(x0, y0); c.bezierCurveTo(p[2], p[3], p[4], p[5], p[6], p[7]); c.stroke(); }
+      c.strokeStyle = K.c('physics', (.3 + .65 * S.sourceValue(d.src)) * (pulled === d ? .35 : isSel(d) || isSel(d.of) ? 1 : lift)); c.lineWidth = wd; c.setLineDash(d.pol === 'inv' ? [2 * V, 3 * V] : [1 * V, 2.5 * V]);
+      c.beginPath(); c.moveTo(x0, y0); c.bezierCurveTo(p[2], p[3], p[4], p[5], p[6], p[7]); c.stroke(); c.setLineDash([]);
+      const pts = []; for (let i = 0; i <= 28; i++) { const a = cubic(p, i / 28); pts.push([a[0] / V, a[1] / V]); }
+      if (grabbable) { const q = cubic(p, .45); geo.wires.push({ w: wireOf(d), pts, half: wd / V / 2 }); geo.dot.push({ w: wireOf(d), x: q[0] / V, y: q[1] / V });
+        const r = (isSel(d) || isHov(d) ? 4.5 : 3.6) * V; c.beginPath(); c.arc(q[0], q[1], r, 0, 6.2832); c.fillStyle = K.c('ground'); c.fill();
+        c.save(); c.clip(); c.fillStyle = K.c('physics', .85); c.fillRect(q[0] - r, q[1] + r - 2 * r * d.depth, 2 * r, 2 * r * d.depth); c.restore();
+        c.beginPath(); c.arc(q[0], q[1], r, 0, 6.2832); c.strokeStyle = K.c(isSel(d) ? 'value' : 'physics'); c.lineWidth = 1.3 * V; c.stroke(); }
+      desc.push(S.src(d.src).name + ' to the depth of ' + S.src(d.of.src).name + ' to ' + pname(d.of.param));
+    });
+    const tookDst = g && (g.type === 'new' || (g.type === 'end' && g.end === 'dst'));
+    mids.forEach((q, m) => {
+      const hot = g && g.target && g.target.kind === 'valve' && g.target.m === m, r = (tookDst ? (hot ? 8.5 : 7) : isSel(m) || isHov(m) ? 7 : 5.5) * V;
+      const routed = M.routesOn(S, m).length, rc = M.depthReach(S, m);
+      const f = routed ? (rc[1] - rc[0] > 1e-9 ? clamp((M.depthNow(S, m) - rc[0]) / (rc[1] - rc[0])) : 1) : clamp(m.pol === 'ctl' ? m.hi - m.lo : M.depthNow(S, m));
+      diamond(c, q[0], q[1], r); c.fillStyle = hot ? K.c('value') : K.c('ground'); c.fill();
+      if (!hot) { c.save(); c.clip(); c.fillStyle = K.c('physics', .85); c.fillRect(q[0] - r, q[1] + r - 2 * r * f, 2 * r, 2 * r * f); c.restore(); }
+      diamond(c, q[0], q[1], r); c.strokeStyle = hot || isSel(m) ? K.c('value') : K.c('physics'); c.lineWidth = 1.5 * V; c.stroke();
+      geo.valve.push({ m, w: wireOf(m), x: q[0] / V, y: q[1] / V });
+    });
+    c.lineCap = 'butt';
+    // the rings on a wire's two ends. Off the port itself, because a press on a source's box starts a NEW wire.
+    const ringed = g && g.type === 'end' ? null : (OPT.ends === 'R2' && hov) ? hov : sel;
+    if (ringed) { const gw = geo.wires.find(x => x.w.o === ringed.o);
+      if (gw) [['src', gw.pts[Math.round(gw.pts.length * .14)]], ['dst', gw.pts[Math.round(gw.pts.length * .86)]]].forEach(([end, pt]) => {
+        c.beginPath(); c.arc(pt[0] * V, pt[1] * V, 4.5 * V, 0, 6.2832); c.fillStyle = K.c('ground'); c.fill(); c.strokeStyle = K.c('value'); c.lineWidth = 1.8 * V; c.stroke();
+        geo.grips.push({ w: ringed, end, x: pt[0], y: pt[1] }); }); }
+    srcs.forEach((s, j) => {
+      const y = sY(j) - nh / 2, sv = S.sourceValue(s.id), vt = pct(sv), hot = g && g.target && g.target.kind === 'src' && g.target.id === s.id;
+      c.fillStyle = K.c('ground'); c.fillRect(sx, y, nw, nh); c.strokeStyle = hot ? K.c('value') : K.c('grid', .8); c.lineWidth = (hot ? 2.4 : 1) * V; c.strokeRect(sx + .5 * V, y + .5 * V, nw - V, nh - V);
+      c.fillStyle = K.c('value'); c.textAlign = 'right'; c.fillText(vt, sx + nw - 12 * V, y + nh / 2 - 2 * V); c.textAlign = 'left';
+      c.fillStyle = K.c('grid'); c.fillText(fitText(c, num(s.id) + ' ' + s.name, nw - 20 * V - c.measureText(vt).width), sx + 4 * V, y + nh / 2 - 2 * V);
+      c.fillStyle = K.c('physics', .9); c.fillRect(sx + 2 * V, y + nh - 4 * V, (nw - 4 * V) * sv, 2 * V);
+      c.beginPath(); c.arc(sx + nw, sY(j), 3.2 * V, 0, 6.2832); c.fillStyle = K.c('ground'); c.fill(); c.strokeStyle = K.c('physics'); c.lineWidth = 1.4 * V; c.stroke();
+      geo.src.push({ id: s.id, x: sx / V, y: y / V, w: nw / V, h: nh / V });
+    });
+    dsts.forEach((k, j) => {
+      const p = S.params[k], y = dY(j) - nh / 2, s0 = k === S.selected, c0 = S.ctlOf(k), rc = M.reach(S, p), rw = M.raw(S, p), bx = dx + 4 * V, bw = nw - 8 * V, by = y + nh - 4 * V;
+      const hot = g && g.target && g.target.kind === 'dst' && g.target.key === k, vt = p.fmt(clamp(rw));
+      c.fillStyle = K.c('ground'); c.fillRect(dx, y, nw, nh);
+      c.strokeStyle = hot ? K.c('value') : K.c('grid', s0 ? 1 : .7); c.lineWidth = (hot ? 2.4 : s0 ? 2.2 : 1) * V; if (c0) c.setLineDash([3 * V, 2 * V]); c.strokeRect(dx + .5 * V, y + .5 * V, nw - V, nh - V); c.setLineDash([]);
+      c.fillStyle = K.c('value'); c.textAlign = 'right'; c.fillText(vt, bx + bw, y + nh / 2 - 3 * V); c.textAlign = 'left';
+      c.fillStyle = K.c('grid'); c.fillText(fitText(c, (c0 ? 'CTL ' : '') + p.name, bw - c.measureText(vt).width - 4 * V), bx, y + nh / 2 - 3 * V);
+      c.fillStyle = K.c('grid', .25); c.fillRect(bx, by, bw, 2 * V);
+      c.fillStyle = K.c('physics', .55); c.fillRect(bx + rc[0] * bw, by - V, Math.max(V, (rc[1] - rc[0]) * bw), 3 * V);
+      c.fillStyle = K.c(c0 ? 'physics' : 'value'); c.fillRect(bx + clamp(S.origin(p)) * bw - V, by - 3 * V, 2 * V, 6 * V);
+      c.fillStyle = K.c(rw > 1.0005 || rw < -.0005 ? 'marker' : 'meter'); c.fillRect(bx + clamp(rw) * bw - V, by - 4 * V, 2 * V, 7 * V);
+      geo.dst.push({ key: k, x: dx / V, y: y / V, w: nw / V, h: nh / V });
+      const hb = hits.querySelector('[data-key="' + k + '"]');   // the node only: the master's 34%-wide button sits on top of the wires' right-hand ends
+      if (hb) { hb.style.top = y / V + 'px'; hb.style.height = Math.max(nh / V, 22) + 'px'; hb.style.width = (nw / V + 4) + 'px'; hb.setAttribute('aria-label', p.name + ': ' + S.mapsOf(k).length + ' wire' + (S.mapsOf(k).length > 1 ? 's' : '') + ', select it'); }
+    });
+    if (ghostOn()) {
+      const y = dY(dsts.length) - nh / 2, hot = g && g.target && g.target.kind === 'ghost';
+      c.strokeStyle = hot ? K.c('value') : K.c('grid', .55); c.lineWidth = (hot ? 2.4 : 1) * V; c.setLineDash([3 * V, 3 * V]); c.strokeRect(dx + .5 * V, y + .5 * V, nw - V, nh - V); c.setLineDash([]);
+      c.fillStyle = K.c(hot ? 'value' : 'grid'); c.fillText(fitText(c, '+ parameter', nw - 8 * V), dx + 4 * V, y + nh / 2);
+      geo.ghost = { x: dx / V, y: y / V, w: nw / V, h: nh / V };
+    }
+    if (g && (g.type === 'new' || g.type === 'end')) {                    // the wire in flight
+      c.strokeStyle = K.c('value'); c.lineWidth = 1.6 * V; c.setLineDash([4 * V, 3 * V]); c.lineCap = 'round'; c.beginPath();
+      const qx = g.x * V, qy = g.y * V;
+      if (g.type === 'end' && g.end === 'src') { const gw = geo.wires.find(x => x.w.o === g.w.o), e = gw.pts[gw.pts.length - 1]; c.moveTo(qx, qy); c.bezierCurveTo(qx + 60 * V, qy, e[0] * V - 60 * V, e[1] * V, e[0] * V, e[1] * V); }
+      else { const id = g.type === 'new' ? g.src : g.w.o.src, j = srcs.findIndex(s => s.id === id), px = sx + nw, py = sY(j); c.moveTo(px, py); c.bezierCurveTo(px + 60 * V, py, qx - 60 * V, qy, qx, qy); }
+      c.stroke(); c.setLineDash([]); c.lineCap = 'butt';
+    }
+    const lab = (g && g.type === 'depth' && g.w) || sel || hov;                     // the amount, by the ◇ or ○
+    if (lab) { const at0 = lab.kind === 'wire' ? geo.valve.find(v0 => v0.m === lab.o) : geo.dot.find(v0 => v0.w.o === lab.o);
+      if (at0) { const t = lab.kind === 'wire' ? S.amount(lab.o) : pct(lab.o.depth), tw = c.measureText(t).width, bx = clamp(at0.x * V - tw / 2 - 3 * V, 0, W - tw - 6 * V), by = at0.y * V - 21 * V;
+        c.fillStyle = K.c('ground'); c.fillRect(bx, by, tw + 6 * V, 12 * V); c.fillStyle = K.c('value'); c.fillText(t, bx + 3 * V, by + 6 * V); } }
+    cv.setAttribute('aria-label', 'Wires: ' + (desc.join('; ') || 'no mappings'));
+  }
+
+  /* HIT TESTS, in CSS px against where the last frame put things */
+  const inBox = (n, x, y) => !!n && x >= n.x && x <= n.x + n.w && y >= n.y && y <= n.y + n.h;
+  function wireAt(x, y) {
+    let best = null, bd = Infinity;
+    geo.wires.forEach(e => { const lim = Math.max(6, e.half + 3); for (let i = 1; i < e.pts.length; i++) { const a = e.pts[i - 1], b = e.pts[i], dx = b[0] - a[0], dy = b[1] - a[1], t = clamp(((x - a[0]) * dx + (y - a[1]) * dy) / (dx * dx + dy * dy || 1)), d = Math.hypot(a[0] + t * dx - x, a[1] + t * dy - y); if (d <= lim && d < bd) { bd = d; best = e.w; } } });
+    return best;
+  }
+  const nearest = (l, x, y, r) => { let best = null, bd = r; l.forEach(q => { const d = Math.hypot(q.x - x, q.y - y); if (d <= bd) { bd = d; best = q; } }); return best; };   // the nearest, not the first: two ◇ can sit within reach of one press
+  const handleAt = (x, y) => { const v0 = nearest(geo.valve.concat(geo.dot), x, y, 9); return v0 ? v0.w : null; };
+  function targetAt(x, y) {
+    if (g.type === 'end' && g.end === 'src') { const n = geo.src.find(q => inBox(q, x, y)); return n ? { kind: 'src', id: n.id } : null; }
+    let best = null, bd = 16; geo.valve.forEach(q => { const d = Math.hypot(q.x - x, q.y - y); if (d < bd) { bd = d; best = { kind: 'valve', m: q.m }; } });
+    if (best) return best;
+    const n = geo.dst.find(q => inBox(q, x, y)); if (n) return { kind: 'dst', key: n.key };
+    if (inBox(geo.ghost, x, y)) return { kind: 'ghost' };
+    return null;
+  }
+  const hasPair = (src, key, not) => S.mappings.some(m => m !== not && m.src === src && m.param === key);
+  const hasDep = (src, tm, not) => M.dRoutes(S).some(d => d !== not && d.src === src && d.of === tm);
+  const nameOf = q => q.kind === 'wire' ? S.src(q.o.src).name + ' → ' + pname(q.o.param) : S.src(q.o.src).name + ' → depth of ' + S.src(q.o.of.src).name + ' → ' + pname(q.o.of.param);
+  function choose(q) { sel = q; if (q) { const m = q.kind === 'wire' ? q.o : q.o.of; S.selected = m.param; S.lastMap = m; S.focus[m.param] = Math.max(0, S.mapsOf(m.param).indexOf(m)); } S.emit(); }
+  function offerUndo(text) {
+    undoLine.hidden = false; undoLine.innerHTML = ''; const t = tag('span'); t.textContent = text; const b = tag('button', 'hd-btn hd-focus'); b.type = 'button'; b.textContent = 'Undo';
+    b.addEventListener('click', () => { const u = doc.getElementById('undoBtn'); u.disabled = false; u.click(); undoLine.hidden = true; }); undoLine.append(t, b);   // the shell enables its button a frame later
+  }
+  function removeWire(q) {
+    const name = nameOf(q);
+    if (q.kind === 'dep') { const l = M.dRoutes(S); l.splice(l.indexOf(q.o), 1); sel = null; S.say('Removed ' + name); undoLine.hidden = true; return; }
+    const n = M.routesOn(S, q.o).length; M.remove(S, q.o); sel = null; S.emit();
+    const t = 'Removed ' + name + (n ? ' and ' + n + ' depth wire' + (n > 1 ? 's' : '') : ''); S.say(t); offerUndo(t);
+  }
+  function addNew(src, key) {
+    if (hasPair(src, key)) { S.say('Refused: ' + S.src(src).name + ' → ' + pname(key) + ' is already a wire'); return; }
+    const m = { param: key, src, pol: 'uni', depth: DEF }; S.mappings.push(m); sel = wireOf(m); S.selected = key; S.lastMap = m;
+    S.say('New wire: ' + S.src(src).name + ' → ' + pname(key) + ' · UNI · 25%');
+  }
+  function addDepth(src, tm) {
+    if (tm.pol === 'ctl') { S.say('A Control has a range, not a depth: a depth wire needs a UNI, BI or INV wire'); return; }
+    if (hasDep(src, tm)) { S.say('Refused: ' + S.src(src).name + ' already moves that wire\'s depth'); return; }
+    const d = { src, pol: 'uni', depth: DEF, of: tm, ofId: tm.id }; M.dRoutes(S).push(d); sel = OPT.dep === 'W1' ? wireOf(d) : wireOf(tm);
+    S.say('Depth wire (MOCK): ' + S.src(src).name + ' now moves the depth of ' + S.src(tm.src).name + ' → ' + pname(tm.param));
+  }
+  // A wire's far end lands where it lands: a box makes it a wire to that parameter, a ◇ makes it a depth wire. Every refusal leaves it as it was.
+  function retarget(q, t) {
+    const o = q.o;
+    if (t.kind === 'dst') {
+      if (q.kind === 'wire') {
+        if (o.param === t.key) return;
+        if (hasPair(o.src, t.key, o)) { S.say('Refused: ' + S.src(o.src).name + ' → ' + pname(t.key) + ' is already a wire'); return; }
+        if (o.pol === 'ctl' && S.ctlOf(t.key)) { S.say('Refused: ' + S.src(S.ctlOf(t.key).src).name + ' already controls ' + pname(t.key)); return; }
+        const from = pname(o.param); o.param = t.key; S.focus[t.key] = Math.max(0, S.mapsOf(t.key).indexOf(o)); S.selected = t.key; S.say('Rerouted ' + S.src(o.src).name + ' from ' + from + ' to ' + pname(t.key));
+      } else {
+        if (hasPair(o.src, t.key)) { S.say('Refused: ' + S.src(o.src).name + ' → ' + pname(t.key) + ' is already a wire'); return; }
+        const l = M.dRoutes(S); l.splice(l.indexOf(o), 1); const m = { param: t.key, src: o.src, pol: o.pol, depth: o.depth }; S.mappings.push(m); sel = wireOf(m); S.selected = t.key;
+        S.say('Now a wire: ' + S.src(o.src).name + ' → ' + pname(t.key));
+      }
+    } else if (t.kind === 'valve') {
+      const tm = t.m;
+      if (tm.pol === 'ctl') { S.say('A Control has a range, not a depth: a depth wire needs a UNI, BI or INV wire'); return; }
+      if (q.kind === 'dep') {
+        if (o.of === tm) return;
+        if (hasDep(o.src, tm, o)) { S.say('Refused: ' + S.src(o.src).name + ' already moves that wire\'s depth'); return; }
+        o.of = tm; o.ofId = tm.id; S.say('Depth wire (MOCK) now moves ' + S.src(tm.src).name + ' → ' + pname(tm.param));
+      } else {
+        if (o === tm) { S.say('Refused: a wire can\'t move its own depth'); return; }
+        if (o.pol === 'ctl') { S.say('Refused: a Control can\'t move a depth'); return; }
+        if (M.routesOn(S, o).length) { S.say('Refused: one level only, and this wire has depth wires on it'); return; }
+        if (hasDep(o.src, tm)) { S.say('Refused: ' + S.src(o.src).name + ' already moves that wire\'s depth'); return; }
+        S.remove(o); const d = { src: o.src, pol: o.pol, depth: o.depth, of: tm, ofId: tm.id }; M.dRoutes(S).push(d); sel = OPT.dep === 'W1' ? wireOf(d) : wireOf(tm);
+        S.say('Now a depth wire (MOCK): ' + S.src(o.src).name + ' moves ' + S.src(tm.src).name + ' → ' + pname(tm.param));
+      }
+    }
+  }
+  function resource(q, id) {
+    const o = q.o; if (o.src === id) return;
+    if (q.kind === 'wire' ? hasPair(id, o.param, o) : hasDep(id, o.of, o)) { S.say('Refused: ' + S.src(id).name + ' already has that wire'); return; }
+    const from = S.src(o.src).name; o.src = id; S.say('Rerouted from ' + from + ' to ' + S.src(id).name + ': ' + nameOf(q));
+  }
+  function dropEnd(d) {
+    const t = d.target;
+    if (d.type === 'new') {
+      if (t && t.kind === 'dst') addNew(d.src, t.key); else if (t && t.kind === 'valve') addDepth(d.src, t.m);
+      else if ((t && t.kind === 'ghost') || OPT.loose === 'N3') openFinder(d.x, d.y, key => addNew(d.src, key));
+      else S.say('Dropped on nothing: no wire made');
+      return;
+    }
+    if (d.end === 'src') { if (t) resource(d.w, t.id); else S.say('Let go on nothing: the wire stays on ' + S.src(d.w.o.src).name); return; }
+    if (t && t.kind === 'ghost') { openFinder(d.x, d.y, key => retarget(d.w, { kind: 'dst', key })); return; }
+    if (t) { retarget(d.w, t); return; }
+    if (OPT.loose === 'N2') removeWire(d.w);
+    else if (OPT.loose === 'N3') openFinder(d.x, d.y, key => retarget(d.w, { kind: 'dst', key }));
+    else S.say('Let go on nothing: the wire stays where it was');
+  }
+
+  /* THE FINDER: every parameter a box could be made for. The device still refuses an RC-4 row. */
+  function closeFinder() { if (finder) { finder.remove(); finder = null; S.emit(); } }
+  function openFinder(x, y, pick) {
+    closeMenu(); closeFinder();
+    finder = tag('div', 'wl-pop'); finder.style.left = clamp(x - 90, 2, Math.max(2, cv.clientWidth - 230)) + 'px'; finder.style.top = clamp(y - 20, 2, Math.max(2, cv.clientHeight - 180)) + 'px';
+    const inp = tag('input', 'wl-find'); inp.type = 'text'; inp.placeholder = 'Find a parameter'; inp.setAttribute('aria-label', 'Find a parameter');
+    const list = tag('div', 'wl-list'); finder.append(inp, list); viz.append(finder);
+    const paint = () => { list.innerHTML = ''; const q = inp.value.trim().toLowerCase();
+      Object.keys(S.params).filter(k => !q || (S.params[k].path || k).toLowerCase().includes(q) || k.toLowerCase().includes(q)).slice(0, 7).forEach(k => {
+        const b = tag('button', 'wl-item hd-focus'); b.type = 'button'; b.dataset.key = k; b.textContent = S.params[k].path || S.params[k].name; b.addEventListener('click', () => { const f = pick; closeFinder(); f(k); S.emit(); }); list.append(b); }); };
+    inp.addEventListener('input', paint); inp.addEventListener('keydown', e => e.stopPropagation()); paint(); inp.focus(); S.emit();
+  }
+  function closeMenu() { if (menu) { menu.remove(); menu = null; } }
+  function openMenu(q, x, y) {
+    closeMenu(); closeFinder(); hov = null; choose(q);
+    menu = tag('div', 'wl-pop wl-menu'); menu.style.left = clamp(x, 2, Math.max(2, cv.clientWidth - 150)) + 'px'; menu.style.top = clamp(y, 2, Math.max(2, cv.clientHeight - 150)) + 'px';
+    const item = (t, fn, on) => { const b = tag('button', 'wl-item hd-focus'); b.type = 'button'; b.textContent = t; if (on) b.setAttribute('aria-current', 'true'); b.addEventListener('click', () => { closeMenu(); fn(); S.emit(); }); menu.append(b); };
+    (q.kind === 'dep' ? ['uni', 'bi', 'inv'] : ['uni', 'bi', 'inv', 'ctl']).forEach(pol => {
+      const blocked = pol === 'ctl' && S.ctlOf(q.o.param) && S.ctlOf(q.o.param) !== q.o;
+      if (!blocked) item(POLN[pol], () => { for (let i = 0; i < 4 && q.o.pol !== pol; i++) M.cyclePolOf(S, q.o, q.kind === 'dep', false); }, q.o.pol === pol); });
+    item('Reset', () => resetDepth(q)); item('Remove', () => removeWire(q));
+    viz.append(menu);
+  }
+  function resetDepth(q) { if (q.kind === 'wire' && q.o.pol === 'ctl') { q.o.lo = 0; q.o.hi = 1; } else q.o.depth = DEF; S.say(nameOf(q) + ' reset to ' + (q.kind === 'wire' ? S.amount(q.o) : pct(q.o.depth))); }
+  /* THE DEPTH DRAG, as the master's PolChip: up is more, Shift is fine, it re-anchors at its stops. S.drag holds the bridge off so one drag is one undo step. */
+  function depthStart(q, e) {
+    const o = q.o, isD = q.kind === 'dep', p = isD ? null : S.params[o.param], ai = !isD && o.cd && p ? S.editing(p) : null;
+    g.type = 'depth'; g.w = q; g.ai = ai; g.k = e.shiftKey ? .25 : 1; g.y = g.y0;   // from the press: the 3 px that started the drag count, as on PolChip
+    g.start = g.cur = !isD && o.pol === 'ctl' ? o.hi - o.lo : !isD && o.cd && ai !== null ? o.cd[ai] : o.depth; S.drag = { key: null, lab: true };
+  }
+  function depthMove(e) {
+    const q = g.w, o = q.o, isD = q.kind === 'dep', k = e.shiftKey ? .25 : 1; if (k !== g.k) { g.start = g.cur; g.y = e.clientY; g.k = k; }
+    const rawV = g.start + (g.y - e.clientY) / DRAG * k, nv = clamp(rawV); if (rawV !== nv) { g.start = nv; g.y = e.clientY; } g.cur = nv;
+    if (!isD && o.pol === 'ctl') { const c0 = (o.lo + o.hi) / 2; o.lo = clamp(c0 - nv / 2); o.hi = clamp(c0 + nv / 2); } else if (!isD && o.cd && g.ai !== null) o.cd[g.ai] = nv; else o.depth = nv;
+  }
+  const at = e => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  viz.addEventListener('pointerdown', e => {
+    if (e.target.closest('.wl-pop,.wl-chips')) return;
+    closeMenu(); closeFinder();
+    if (e.button !== 0 || (e.ctrlKey && !e.metaKey)) return;
+    const [x, y] = at(e); relink(); viz.focus({ preventScroll: true });
+    const hold = () => { e.preventDefault(); try { viz.setPointerCapture(e.pointerId); } catch (_) { /* keep the drag */ } };
+    const grip = nearest(geo.grips, x, y, 8);
+    if (grip) { hold(); g = { type: 'end', w: grip.w, end: grip.end, x, y, target: null }; return; }
+    const hd = handleAt(x, y);
+    if (hd) { hold(); g = { type: 'press', w: hd, canDepth: true, x, y, y0: e.clientY, target: null }; return; }
+    const n = geo.src.find(q => inBox(q, x, y));
+    if (n) { hold(); g = { type: 'new', src: n.id, x, y, target: null }; return; }
+    if (geo.dst.some(q => inBox(q, x, y)) || inBox(geo.ghost, x, y)) return;
+    const wr = wireAt(x, y);
+    if (wr) { hold(); g = { type: 'press', w: wr, canDepth: OPT.depth === 'D2', x, y, y0: e.clientY, target: null }; return; }
+    if (sel) { sel = null; S.emit(); }
+  });
+  viz.addEventListener('pointermove', e => {
+    if (e.target.closest && e.target.closest('.wl-pop,.wl-chips')) return;
+    const [x, y] = at(e);
+    if (!g) { const gp = nearest(geo.grips, x, y, 8), hd = handleAt(x, y), wr = gp ? gp.w : hd || wireAt(x, y), onS = geo.src.some(q => inBox(q, x, y)), onD = geo.dst.some(q => inBox(q, x, y));
+      hov = onS || onD ? null : wr; cv.style.cursor = gp || onS ? 'grab' : hd ? 'ns-resize' : onD ? 'pointer' : wr ? (OPT.depth === 'D2' ? 'ns-resize' : 'pointer') : ''; return; }
+    g.x = x; g.y2 = y;
+    if (g.type === 'press') { if (g.canDepth && Math.abs(e.clientY - g.y0) > 3) depthStart(g.w, e); else return; }
+    if (g.type === 'depth') { g.yy = y; depthMove(e); cv.style.cursor = 'ns-resize'; return; }
+    g.y = y; g.target = targetAt(x, y); cv.style.cursor = 'grabbing';
+  });
+  function end(e) {
+    if (e && e.pointerId !== undefined && viz.hasPointerCapture && viz.hasPointerCapture(e.pointerId)) viz.releasePointerCapture(e.pointerId);
+    if (!g) return; const d = g; g = null; cv.style.cursor = '';
+    if (d.type === 'press') { choose(same(sel, d.w) && !d.canDepth ? d.w : d.w); return; }
+    if (d.type === 'depth') { S.drag = null; choose(d.w); S.say(nameOf(d.w) + ' · ' + (d.w.kind === 'wire' ? S.amount(d.w.o) : pct(d.w.o.depth))); return; }
+    dropEnd(d); S.emit();
+  }
+  viz.addEventListener('pointerup', end); viz.addEventListener('pointercancel', end); viz.addEventListener('lostpointercapture', end);
+  viz.addEventListener('pointerleave', () => { if (!g) hov = null; });
+  viz.addEventListener('dblclick', e => { const [x, y] = at(e), q = handleAt(x, y); if (q) { resetDepth(q); S.emit(); } });
+  viz.addEventListener('contextmenu', e => { const [x, y] = at(e), q = handleAt(x, y) || wireAt(x, y); if (q) { e.preventDefault(); openMenu(q, x, y); } });
+  viz.addEventListener('keydown', e => { if ((e.key === 'Backspace' || e.key === 'Delete') && sel && !e.target.closest('input')) { e.preventDefault(); e.stopPropagation(); removeWire(sel); } });
+  S.escapeLayers.unshift({ name: 'wire', active: () => !!(sel || menu || finder || g), cancel() {
+    if (finder) closeFinder(); else if (menu) closeMenu(); else if (g) { S.drag = null; g = null; } else sel = null; } });
+
+  /* THE STRIP (S1, and W2's route to a depth wire): the master's own RouteRow, for the selected wire and the depth wires on it */
+  function paintStrip() {
+    const want = OPT.panel === 'S1' || (OPT.dep === 'W2' && OPT.panel !== 'S1' && sel);
+    const owner = sel ? (sel.kind === 'wire' ? sel.o : sel.o.of) : null, s0 = (want ? 'on' : 'off') + '|' + M.sig(S) + '|' + (owner ? S.mappings.indexOf(owner) : -1) + '|' + (sel ? sel.kind : '');
+    if (s0 !== stripSig) { stripSig = s0; strip.innerHTML = ''; rows = []; strip.hidden = !want;
+      if (want && !owner) { const n = tag('div', 'hd-hint mx-empty'); n.textContent = 'Click a wire to select it.'; strip.append(n); }
+      if (want && owner) { const r = tag('div'); strip.append(r); rows.push(H.RouteRow(r, S, owner));
+        M.routesOn(S, owner).forEach(d => { const r2 = tag('div'); strip.append(r2); rows.push(H.RouteRow(r2, S, d, { depthRoute: true })); if (sel.o === d) r2.classList.add('focus'); }); } }
+    rows.forEach(r => { r.sync(); r.render(); });
+  }
+  /* THE CHIPS (S2): the same PolChip the row uses, by the ◇ or ○ */
+  function paintChips() {
+    const on = OPT.panel === 'S2' && !!sel && !g, s0 = on ? M.sig(S) + '|' + (sel.kind === 'wire' ? S.mappings.indexOf(sel.o) : 'd' + M.dRoutes(S).indexOf(sel.o)) : 'off';
+    if (s0 !== chipSig) { chipSig = s0; chips.innerHTML = ''; chips.hidden = !on;
+      if (on) { const q = sel, pol = tag('button', 'mx-pol hd-focus'); pol.type = 'button'; const a = tag('span', 'wl-amt hd-value'), x = tag('button', 'hd-iconbtn hd-focus'); x.type = 'button'; x.textContent = '×'; x.setAttribute('aria-label', 'Remove ' + nameOf(q));
+        H.PolChip(pol, S, q.o, { depthRoute: q.kind === 'dep', cycle(back) { M.cyclePolOf(S, q.o, q.kind === 'dep', back); S.emit(); } }); x.addEventListener('click', () => removeWire(q)); chips.append(pol, a, x); } }
+    if (on) { const q = sel, at0 = q.kind === 'wire' ? geo.valve.find(v0 => v0.m === q.o) : geo.dot.find(v0 => v0.w.o === q.o); if (!at0) return;
+      chips.style.left = clamp(at0.x + 10, 0, Math.max(0, cv.clientWidth - 112)) + 'px'; chips.style.top = clamp(at0.y + 8, 0, Math.max(0, cv.clientHeight - 24)) + 'px';
+      const pol = chips.querySelector('.mx-pol'), a = chips.querySelector('.wl-amt'); if (pol && !pol.classList.contains('drag')) pol.textContent = POLN[q.o.pol]; if (a) a.textContent = q.kind === 'wire' ? S.amount(q.o) : pct(q.o.depth); }
+  }
+  const view = { el: el0, render() {
+    relink();
+    const s0 = M.sig(S) + '|' + ghostOn() + '|' + Object.keys(S.params).filter(k => S.mapsOf(k).length).join();
+    if (s0 !== lastSig) { lastSig = s0; layout(); }
+    if (!cv.clientWidth) return;
+    draw(); paintStrip(); paintChips();
+  },
+  optionsChanged() { lastSig = null; stripSig = null; chipSig = null; hov = null; if (OPT.dep === 'W2' && sel && sel.kind === 'dep') sel = wireOf(sel.o.of); view.render(); },
+  lab: { get geo() { return geo; }, get sel() { return sel; }, get hov() { return hov; }, get finder() { return finder; }, get menu() { return menu; }, cv, viz, strip, chips, undoLine, reset() { sel = null; hov = null; closeMenu(); closeFinder(); undoLine.hidden = true; grave.length = 0; known = []; lastSig = null; stripSig = null; chipSig = null; g = null; S.drag = null; }, retarget } };
+  S.on(() => view.render());
+  S.add(view); view.render();
+  return view;
+}
+
+const FRAME_CSS = `
+  .wl-undo { display: flex; gap: 8px; align-items: center; font: 12px/1.4 var(--font-sans); padding: 4px 2px; }
+  .wl-strip { margin-top: 6px; min-height: 34px; }
+  .wl-chips { position: absolute; display: flex; align-items: center; gap: 3px; padding: 2px 3px; background: var(--panel, var(--bg)); border: 1px solid var(--div); border-radius: 4px; z-index: 3; }
+  .wl-chips .mx-pol { min-width: 34px; height: 18px; font: 700 10px/1 var(--font-mono); }
+  .wl-chips .hd-iconbtn { width: 18px; height: 18px; line-height: 1; }
+  .wl-amt { font: 500 11px/1 var(--font-mono); min-width: 32px; text-align: right; }
+  .wl-pop { position: absolute; z-index: 5; width: 220px; display: flex; flex-direction: column; gap: 2px; padding: 4px; background: var(--bg); border: 1px solid var(--ink); border-radius: 4px; }
+  .wl-menu { width: 140px; }
+  .wl-find { font: 12px/1.4 var(--font-sans); padding: 3px 5px; border: 1px solid var(--div); border-radius: 3px; min-width: 0; background: var(--bg); color: var(--ink); }
+  .wl-list { display: flex; flex-direction: column; gap: 1px; }
+  .wl-item { all: unset; box-sizing: border-box; cursor: pointer; padding: 3px 5px; font: 12px/1.3 var(--font-sans); border-radius: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .wl-item:hover, .wl-item:focus-visible { background: var(--sel-neutral); }
+  .wl-item[aria-current] { font-weight: 800; }
+`;
+function seed() {
+  view.lab.reset(); S.depthRoutes = []; S.mappings.length = 0; S.selected = null; S.lastMap = null; S.emit();
+  SAMPLE.forEach(r => S.mappings.push(Object.assign({}, r)));
+  S.emit();
+  SAMPLE_DEPTH.forEach(d => { const m = S.mappings.find(x => x.src === SAMPLE[d.of].src && x.param === SAMPLE[d.of].param); if (m) S.depthRoutes.push({ src: d.src, pol: d.pol, depth: d.depth, of: m, ofId: m.id }); });
+  S.message = ''; S.emit();
+}
+function clickByText(doc, sel, text) { const b = [...doc.querySelectorAll(sel)].find(x => x.textContent.trim() === text); if (b) b.click(); return !!b; }
+$('btnReset').addEventListener('click', () => { if (view) seed(); });
+
+/* The shell's self-check builds its own wires view at load, so it is there to be replaced; it is silenced first, since the session has no way to drop a view. */
+function install() {
+  win = $('frame').contentWindow; const doc = win.document;
+  const st = doc.createElement('style'); st.textContent = FRAME_CSS; doc.head.append(st);
+  clickByText(doc, '.mp-bar button', 'Routes'); clickByText(doc, 'button', 'Wires');
+  const old = doc.querySelector('.mx-wires'); if (!old) throw new Error('no wires view in the shell');
+  S = old.__S; const v0 = S.views.find(v => v.el === old); if (v0) v0.render = () => {};
+  const fresh = doc.createElement('div'); old.replaceWith(fresh);
+  view = labWires(win, fresh, S); seed();
+  win.__wireLab = view;   // for the browser's own inspection only
+}
+
+/* THE SELF-CHECK. Real pointer events through the view's own listeners, at the positions the last frame drew. */
+function selfCheck() {
+  const L = view.lab, out = []; let ok = 0, n = 0;
+  selfCheck.progress = out;   // what a throw has got to, for the report
+  const line = (pass, text) => { n++; if (pass) ok++; out.push((pass ? 'ok   ' : 'FAIL ') + text); };
+  const P = win.PointerEvent || win.MouseEvent;
+  const fire = (type, x, y, o = {}) => { const r = L.cv.getBoundingClientRect(); L.cv.dispatchEvent(new P(type, Object.assign({ bubbles: true, cancelable: true, clientX: r.left + x, clientY: r.top + y, button: 0, pointerId: 1 }, o))); };
+  const press = (x, y, o) => fire('pointerdown', x, y, o), move = (x, y, o) => fire('pointermove', x, y, o), up = (x, y, o) => fire('pointerup', x, y, o);
+  const click = (x, y) => { move(x, y); press(x, y); up(x, y); view.render(); };
+  const drag = (x0, y0, x1, y1, o) => { move(x0, y0, o); press(x0, y0, o); move((x0 + x1) / 2, (y0 + y1) / 2, o); view.render(); move(x1, y1, o); view.render(); up(x1, y1, o); view.render(); };
+  const wireBy = (src, key) => S.mappings.find(m => m.src === src && m.param === key);
+  const G = () => L.geo, ptOn = (o, t) => { const w = G().wires.find(x => x.w.o === o); return w.pts[Math.round((w.pts.length - 1) * t)]; };
+  const valveOf = m => G().valve.find(v => v.m === m), snap = () => JSON.stringify(S.mappings.map(m => [m.id, m.src, m.param, m.pol, m.depth, m.lo, m.hi]));
+  const dsnap = () => JSON.stringify(S.depthRoutes.map(d => [d.src, d.pol, d.depth, d.ofId]));
+  const undo = () => { const u = win.document.getElementById('undoBtn'); u.disabled = false; u.click(); view.render(); };   // the shell enables its button in its frame loop, and a hidden pane may run no frame between steps
+  const setOpt = (k, v) => { OPT[k] = v; view.optionsChanged(); };
+  const defaults = Object.assign({}, OPT);
+  Object.assign(OPT, { panel: 'S1', depth: 'D1', ends: 'R1', loose: 'N1', dep: 'W1' });
+  seed(); view.optionsChanged();
+
+  line(S.mappings.length === SAMPLE.length && S.mappings.every(m => m.id) && S.depthRoutes.length === 2, 'The sample: ' + S.mappings.length + ' wires reached the device with route ids; ' + S.depthRoutes.length + ' depth wires are the page\'s (MOCK)');
+  const shellLines = [...win.document.getElementById('checks').children].map(c => c.textContent), shellOk = shellLines.filter(t => t.startsWith('OK · ')).length;
+  line(shellOk > 0 && shellOk === shellLines.length, 'The shell in the frame: its own self-checks all pass (' + shellOk + ' of ' + shellLines.length + ')');
+  const w1 = wireBy('env2', 'osc1.blade1.width'), w2 = wireBy('env3', 'osc1.detune'), wc = wireBy('env4', 'osc1.blade1.depth'), wv = wireBy('velocity', 'mix.osc1');
+  // hit buttons must not lie over the wires
+  const hb = win.document.querySelector('.mx-wires .mx-hit'), hw = hb ? hb.getBoundingClientRect().width : 999;
+  line(hw <= L.cv.clientWidth * .26 + 6, 'A destination\'s button covers its box only (' + Math.round(hw) + ' px of ' + L.cv.clientWidth + '), not the wires\' ends as in the master');
+
+  // selection, and its control: a click on nothing selects nothing and moves nothing
+  const s0 = snap(), dead = [L.cv.clientWidth / 2, L.cv.clientHeight - 1];
+  let t0 = !G().wires.some(w => w.pts.some(p => Math.hypot(p[0] - dead[0], p[1] - dead[1]) < 8));
+  click(dead[0], dead[1]);
+  line(t0 && L.sel === null && snap() === s0, 'Control: a click on nothing selects nothing and moves nothing');
+  let p = ptOn(w1, .3); click(p[0], p[1]);
+  line(L.sel && L.sel.o === w1 && S.selected === w1.param && G().grips.length === 2, 'A click on a wire selects it, its parameter follows, and it gets two rings');
+  line(!!L.strip.querySelector('.mx-row') && L.strip.querySelectorAll('.mx-row.dr').length === 1, 'S1: the strip shows the wire\'s row and its one depth wire\'s row');
+
+  // the depth drag: the one wire, one undo step
+  let before = w1.depth, others = JSON.stringify(S.mappings.filter(m => m !== w1).map(m => m.depth)), v = valveOf(w1);
+  drag(v.x, v.y, v.x, v.y - 40);
+  let w = S.mappings.find(m => m.id === w1.id);
+  line(Math.abs(w.depth - (before + .25)) < 1e-6 && JSON.stringify(S.mappings.filter(m => m !== w).map(m => m.depth)) === others, 'D1: 40 px up on its ◇ adds 25% (' + Math.round(before * 100) + ' to ' + Math.round(w.depth * 100) + '), and no other wire moved');
+  undo(); w = S.mappings.find(m => m.id === w1.id);
+  line(Math.abs(w.depth - before) < 1e-6, 'That whole drag was one undo step, in the device\'s own history');
+  // D1 vs D2 on a wire's body, a control each way
+  const m2 = wireBy('env3', 'osc1.detune'), b2 = m2.depth; p = ptOn(m2, .25); drag(p[0], p[1], p[0], p[1] - 30);
+  const d1Still = wireBy('env3', 'osc1.detune').depth === b2; setOpt('depth', 'D2'); view.render(); p = ptOn(wireBy('env3', 'osc1.detune'), .25); drag(p[0], p[1], p[0], p[1] - 32);
+  const m3 = wireBy('env3', 'osc1.detune'), d2Moved = Math.abs(m3.depth - (b2 + .2)) < 1e-6;
+  line(d1Still && d2Moved, 'Control: a drag on the wire\'s body moves nothing under D1, and moves the depth under D2');
+  undo(); setOpt('depth', 'D1');
+  // Control's band
+  { const mc = wireBy('env4', 'osc1.blade1.depth'), w0 = mc.hi - mc.lo, v2 = valveOf(mc); drag(v2.x, v2.y, v2.x, v2.y + 32); const mc2 = wireBy('env4', 'osc1.blade1.depth'); line(Math.abs((mc2.hi - mc2.lo) - (w0 - .2)) < 1e-6 && mc2.depth === mc.depth, 'A Control\'s ◇ thins its band by 20%, keeping its centre'); undo(); }
+
+  // reroute: the far end, then the source end
+  const startS = snap();
+  let a = wireBy('env2', 'noise.cutoff'); p = ptOn(a, .3); click(p[0], p[1]);
+  const gripD = G().grips.find(g => g.end === 'dst'), gripS = G().grips.find(g => g.end === 'src'), dstBox = G().dst.find(d => d.key === 'mix.sub');
+  const idA = a.id; drag(gripD.x, gripD.y, dstBox.x + 20, dstBox.y + 10);
+  a = S.mappings.find(m => m.id === idA);
+  line(a.param === 'mix.sub' && a.src === 'env2', 'Rerouting the far end moves the same route (' + idA + ') to another parameter');
+  undo(); a = S.mappings.find(m => m.id === idA);
+  line(a.param === 'noise.cutoff' && snap() === startS, 'One undo puts it back');
+  p = ptOn(a, .3); click(p[0], p[1]);
+  const g3 = G().grips.find(g => g.end === 'src'), srcBox = G().src.find(s => s.id === 'env4'); drag(g3.x, g3.y, srcBox.x + 20, srcBox.y + 10);
+  a = S.mappings.find(m => m.id === idA);
+  line(a.src === 'env4' && a.param === 'noise.cutoff', 'Rerouting the source end moves it to another source');
+  undo();
+
+  // refusals
+  a = S.mappings.find(m => m.id === idA); p = ptOn(a, .3); click(p[0], p[1]);
+  const before2 = snap(); const g4 = G().grips.find(g => g.end === 'dst'), box2 = G().dst.find(d => d.key === 'osc1.blade1.width'); drag(g4.x, g4.y, box2.x + 20, box2.y + 10);
+  line(snap() === before2 && /already a wire/.test(S.message), 'Refused: a second wire from one source to one destination, and nothing changed');
+  L.retarget({ kind: 'wire', o: S.mappings.find(m => m.id === idA) }, { kind: 'dst', key: 'voice.mode' }); S.emit(); view.render();
+  line(snap() === before2 && /^Refused/.test(S.message) && /RC-4/.test(S.message), 'Refused by the device: a stepped row (RC-4), and the route stayed where it was');
+  a = S.mappings.find(m => m.id === idA);
+  // one level only, and own valve
+  const owner = wireBy('env2', 'osc1.blade1.width'); p = ptOn(owner, .3); click(p[0], p[1]);
+  const g5 = G().grips.find(g => g.end === 'dst'), vv = valveOf(wireBy('env3', 'osc1.detune')), b5 = snap(); drag(g5.x, g5.y, vv.x, vv.y);
+  line(snap() === b5 && /one level only/.test(S.message), 'Refused: a wire with a depth wire on it can\'t become a depth wire (one level)');
+  // the depth wire itself
+  const dw = S.depthRoutes[0], ds = snap(); p = ptOn(dw, .2); click(p[0], p[1]);
+  line(L.sel && L.sel.o === dw, 'W1: a click on the dotted wire selects it');
+  const dot = G().dot.find(q => q.w.o === dw), db = dw.depth; drag(dot.x, dot.y, dot.x, dot.y - 16);
+  line(Math.abs(dw.depth - (db + .1)) < 1e-6 && snap() === ds, 'W1: its ○ changes its own amount (' + Math.round(db * 100) + ' to ' + Math.round(dw.depth * 100) + '), and no route changed');
+  const of0 = dw.of, g6 = G().grips.find(g => g.end === 'dst'), vd = valveOf(wireBy('env3', 'osc1.detune')); drag(g6.x, g6.y, vd.x, vd.y);
+  line(dw.of !== of0 && dw.of.param === 'osc1.detune', 'W1: its far ring moves it to another wire\'s ◇');
+  const g7 = G().grips.find(g => g.end === 'src'), sb = G().src.find(s => s.id === 'env3'); drag(g7.x, g7.y, sb.x + 20, sb.y + 10);
+  line(dw.src === 'env3', 'W1: its near ring moves it to another source');
+  const pol0 = dw.pol, row = L.strip.querySelector('.mx-row.dr'); line(!!row, 'W1: its row is in the strip too');
+  setOpt('dep', 'W2'); view.render();
+  const sN = L.sel; const pD = (() => { /* the dotted wire is out of the hit list under W2 */ return G().wires.some(w0 => w0.w.kind === 'dep'); })();
+  line(!pD && (!sN || sN.kind === 'wire'), 'Control: under W2 a dotted wire can\'t be grabbed, and its row stays the route to it');
+  setOpt('dep', 'W1');
+
+  // delete
+  seed(); view.render();
+  const vel = wireBy('velocity', 'mix.osc1'), velId = vel.id; p = ptOn(vel, .3); click(p[0], p[1]); const dn = S.depthRoutes.length;
+  L.viz.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Delete', bubbles: true, cancelable: true })); view.render();
+  line(!S.mappings.some(m => m.id === velId) && S.depthRoutes.length === dn - 1 && !L.undoLine.hidden, 'Delete removes the selected wire and the depth wire on it, and offers Undo');
+  L.undoLine.querySelector('button').click(); view.render();
+  line(S.mappings.some(m => m.id === velId) && S.depthRoutes.length === dn, 'Undo brings back the wire and its depth wire');
+
+  // letting go on nothing
+  const empty = [L.cv.clientWidth / 2, L.cv.clientHeight - 1];
+  const tryLoose = (mode) => { setOpt('loose', mode); view.render(); const mm = wireBy('env3', 'mix.sub'); const pp = ptOn(mm, .3); click(pp[0], pp[1]); const gg = G().grips.find(q => q.end === 'dst'); const b0 = snap(); drag(gg.x, gg.y, empty[0], empty[1]); return { same: snap() === b0, gone: !wireBy('env3', 'mix.sub'), finder: !!L.finder }; };
+  const n1 = tryLoose('N1'); line(n1.same && !n1.finder, 'N1: letting go on nothing leaves the wire as it was');
+  const n2 = tryLoose('N2'); line(n2.gone && !L.undoLine.hidden, 'N2: letting go on nothing deletes it and offers Undo'); undo();
+  const n3 = tryLoose('N3'); line(n3.same && n3.finder, 'N3: letting go on nothing opens the search, and the wire stays until you pick');
+  if (L.finder) { const item = L.finder.querySelector('.wl-item[data-key="osc1.width"]') || [...L.finder.querySelectorAll('.wl-item')].find(b => b.dataset.key !== 'mix.sub'); const k = item.dataset.key; item.click(); view.render(); line(!!wireBy('env3', k) && !wireBy('env3', 'mix.sub'), 'N3: picking a parameter there reroutes to one that had no box (' + k + ')'); undo(); }
+  // the chips
+  setOpt('loose', 'N1'); setOpt('panel', 'S2'); view.render(); { const mm = wireBy('env3', 'mix.sub'); const pp = ptOn(mm, .3); click(pp[0], pp[1]); line(!L.chips.hidden && !!L.chips.querySelector('.mx-pol') && L.strip.hidden, 'S2: the chips show beside the ◇, and there is no strip'); }
+  setOpt('panel', 'S3'); view.render(); line(L.chips.hidden && L.strip.hidden, 'S3: neither');
+
+  Object.assign(OPT, defaults); paintQuestions(); seed(); view.optionsChanged();
+  $('selfcheck').textContent = ok + ' of ' + n + ' pass\n' + out.join('\n');
+}
+
+$('frame').addEventListener('load', () => {
+  try { install(); }
+  catch (e) { $('selfcheck').textContent = 'FAIL could not mount on the shell: ' + e.message; return; }
+  try { selfCheck(); }
+  catch (e) { $('selfcheck').textContent = 'FAIL the self-check threw: ' + e.message + '\n' + (e.stack || '') + '\n' + (selfCheck.progress || []).join('\n'); }
+});
+</script>
+</body>
+</html>

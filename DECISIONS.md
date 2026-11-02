@@ -10793,6 +10793,41 @@ Three points stayed open, because the shell already marks a knob selected the mo
 - The preview's stand-in glide follows the new rule.
 - **FX device (ADR-254):** none; its sidechain's notes reach no glide.
 
+## GUI-1 — RULED by the human: there is one unified engine; nothing offers swarm and SCALPEL as engines to choose between (B589; 2026-11-01)
+
+**Context.** The human, 2026-11-01: "Also I'm noticing a failed assumption in the design system that I don't want creeping back in. The SectionHeader (at least) gives oscs a "swarm/scalpel" selection, but this is very much an outdated and inaccurate notion. There is a unified engine now." A sweep found it in the design master only: `SectionHeader`'s sample (`Engine: SWARM | SCALPEL`), `PageNav`'s summaries, an invented Detune law sample offering Swarm in `Stepper` and `Companion`, and the wording of the master's README and `ScaleSelector`. The shell and the real parameter rows never had it.
+
+**Rulings.**
+1. **One unified engine.** Every oscillator is a swarm cut by blades; there is no engine to choose. Samples, previews and labs never present swarm and SCALPEL as alternatives.
+2. **It is gated, as the human asked that it not come back.** `tools/engine_words_check.py` refuses an Engine label, options naming both, a summary naming an oscillator's kind, and a detune law offering swarm, across the master, the shell and the labs, and the old wording in the master and the shell. "Swarm" alone stays correct: it is the oscillator's part, and Spread law and a blade's Frame really offer it.
+
+**Consequences.**
+- Master samples take their names and options from the real rows (`docs/design/gui3/params.json`).
+- Old labs stay as history (ADR-316). Three lines that trip a rule are pinned by name; the Scalpel bench's footer is one, so a port from the bench must not copy it.
+- **Needed from the lead:** the root `CLAUDE.md` still opens with "a family of experimental, responsive engines" and "the founding engine". That file is the lead's, and agents read it every session.
+- **FX device (ADR-254):** none; it has no oscillators.
+
+## GUI-2 — RULED by the human: Main is M1, the bench's layout, with the Specimen under an assignable XY, on by default, and macro knobs (B581; ADR-139, ADR-140, ADR-315, ADR-333; 2026-11-02)
+
+**Context.** The human, 2026-11-01: "I would like to see the generative logo, and also the Specimen XY from the scalpel lab on main." and "main shouldn't have a square envelope viewer." `docs/design/main-layout-lab.html` (#1328) put four layouts on the running shell with the bench's own Specimen and logo code. The human answered by poll on 2026-11-02: "M1 The bench"; "Assignable"; "On, with a Settings switch"; "Yes, eight knobs". The lab's recommendation was M4, a single surface; the human chose the bench.
+
+**Rulings.**
+1. **Main's layout is M1:** a left column with the morph pad over the Specimen XY; to the right, eight macro knobs and a wide ENV 1 picture across the top, with Voice, ENV 1's controls and the Lens under them. The bench's cycle view, carpet, voice map, Mix and FX strip stay on their own pages.
+2. **Main's XY is assignable.** The player picks any two parameters for X and Y, and the choice saves with the patch. This closes the bench's open question 38 (B299).
+3. **The Specimen is on by default, with a switch in Settings.** **Amends ADR-140's default.** Its reason still stands: it ran "jumpy, jaggy" in the VST, so its cost is measured in the plugin webview before 1.0, and a plain surface remains the fallback.
+4. **Main shows the eight macros as knobs**, as well as the bank's MAC lane. They are the same macros, shown twice.
+
+**Readings taken (the GUI session's, open to the human).**
+- The logo goes in the frame's header on every page, at 91 × 60, as the master's Logos rule says, and not only on Main. Live, as the bench has it. Its style is the locked one, so a click no longer cycles styles.
+- On Main the morph pad is on the page, so the dock doesn't also show it: **an exception to ADR-315's dock on every page**. Other pages keep the dock. The dock's corner chips stay off Main; they remain on the Morph page.
+- Nothing has been designed yet for choosing the XY's two parameters. That is the next batch's first question.
+- M1 gives pictures 40% of the page's body, under the master's "at least half". The human chose it knowing the numbers, so this is an accepted exception for Main.
+
+**Consequences.**
+- The Specimen and the live logo go into the design master first, ported from the bench verbatim (ADR-316, ADR-333). `docs/design/main-layout-lab-parts.js` retires with the lab.
+- ADR-139 and the Specimen README disagree on which way R moves its tension. The port has to settle that against the bench.
+- **FX device (ADR-254):** it has no Main. The logo rule holds in its header. The Specimen is voice-bound and needs its audio-driven stand-in (ADR-262 r1).
+
 
 ## ADR-349 — RULED by the human: drawn modulator shapes of any point count morph by travelling points; per-point Quantum on trial; modulators before ENV 1 to 4; a cap of 32 points (B601, B208, B128; 2026-11-02)
 

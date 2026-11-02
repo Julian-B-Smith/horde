@@ -74,6 +74,8 @@
  *                (H.ModBank, H.UndoLine, H.ModPage, MapControl chip), and removes through the adapter
  *   sections     ADR-335 ruling 4: every section of every page is described (a DRAFT with its source) or says it has no
  *                description yet and is counted; the box never shows another section's text or an invented one
+ *   canvases     the human's bugs of 2026-11-01, structural: an envelope picture's change test includes its size, and the source strip's chips
+ *                don't shrink. The shell's self-check drives both in the browser, each with a control
  *   infolock     ADR-345, structural: the foot row is F1's, the box is the bundle's InfoBox, a press is heard in capture and locks on a control and
  *                a section and releases otherwise, a hover can't reach a locked box and stays put on the box, the sidebar is one switch outside
  *                the patch and defaults off. The shell's self-checks drive all of it in the browser, each with a control
@@ -709,6 +711,16 @@ function suite(W) {
     ok(t.indexOf('id="footrow"') > t.indexOf('<main id="pages">'), 'the foot row is not below the page area');
   };
 
+  /* The human's bugs of 2026-11-01, structural: this holds the wiring where no browser runs. */
+  T.canvases = () => {
+    const t = W.__shellText;
+    ok(/sizeOf\(main\);\n    if \(sig === last && v\.kind !== 'noise'\)/.test(t), 'the main picture does not redraw when its size changes: it shows stretched pixels');
+    ok((t.match(/\(document\.documentElement\.dataset\.theme \|\| ''\) \+ '\|' \+ sizeOf\(cv\);/g) || []).length === 2, 'a section\u2019s envelope does not redraw when its size changes: it shows stretched pixels');
+    ok(t.includes('.mapbar #srcStrip .src-chip { flex: 0 0 auto; }'), 'the source strip\u2019s chips can shrink until their names are gone');
+    const pts = W.Horde.Viz.envPoints({ a: .002, d: .004, s: .06, r: .9, hold: .302, ac: 0, dc: 0, rc: 0 });
+    ok(Math.max(...pts.map(q => q[1])) === 1, 'a short attack and decay never reach the peak in the vendored bundle');
+  };
+
   /* ADR-345, structural: the browser's self-checks (41 to 44 in the shell) drive these; this holds their wiring where no browser runs. */
   T.infolock = () => {
     const t = W.__shellText;
@@ -983,6 +995,8 @@ const PLANTS = [
   ['shellparts', 'shell', 'dev.removeModulator(m.id)', 'dev.clearRoutes(m.id)'],
   ['sections', 'logic', "text: 'No section description yet.'", "text: 'Shapes the sound of this part of the instrument.'"],
   ['sections', 'logic', "tag: 'SECTION · DRAFT'", "tag: 'SECTION'"],
+  ['canvases', 'shell', "|| '') + '|' + sizeOf(main);", "|| '');"],
+  ['canvases', 'shell', '.mapbar #srcStrip .src-chip { flex: 0 0 auto; }', '.mapbar #srcStrip .src-chip { flex: 0 1 auto; }'],
   ['infolock', 'shell', '.footrow { --foot-h: 120px;', '.footrow { --foot-h: 216px;'],
   ['infolock', 'shell', "const infoBox = H.InfoBox($('info'), S,", "const infoBox = H.InfoBoxX($('info'), S,"],
   ['infolock', 'shell', "const t = hostOf(e.target); if (t) { lockInfoKey(t.dataset.key); return; }", "const t = hostOf(e.target); if (t) { return; }"],

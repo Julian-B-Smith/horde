@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1793572935-0ce9, 2026-11-01; do not edit, re-vendor */
+/* vendored from the horde Design System artifact, version 1793591775-02e4, 2026-11-02; do not edit, re-vendor */
 /* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"SteppedControl"},{"name":"Stepper"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"},{"name":"Companion"},{"name":"SourceChip"},{"name":"SourceRows"},{"name":"RoutesBySource"},{"name":"Cluster"},{"name":"Lens"},{"name":"Fold"},{"name":"PageView"},{"name":"ModTiers"},{"name":"MacroRow"},{"name":"ModBank"},{"name":"ModPage"},{"name":"UndoLine"}]} */
 /* horde house reference behaviours (vanilla JS, no React, no network).
    The morph knob and slider follow the human's HORDE Morph Knob Spec and HORDE Map Mode Spec
@@ -1153,7 +1153,14 @@
     if (t < e.hold) return e.s; t -= e.hold;
     return t < e.r ? e.s * (1 - bend(t / e.r, e.rc)) : 0;
   };
-  Viz.envPoints = function (e) { var T = e.a + e.d + e.hold + e.r, out = []; for (var i = 0; i <= 160; i++) { var t = T * i / 160; out.push([t, Viz.envAt(e, t)]); } return out; };
+  /* 160 even samples alone step over any stage shorter than one sample: with a short attack and decay the line never reached the peak, so
+     it stopped at the sustain and left the attack node floating, which a low sustain made plain. So every stage's corner is a point too.
+     A zero attack keeps its start at 0, so the attack is still a line up to the node. */
+  Viz.envPoints = function (e) {
+    var T = e.a + e.d + e.hold + e.r, ad = e.a + e.d, out = [[0, 0], [e.a, 1], [ad, e.s], [ad + e.hold, e.s]];
+    for (var i = 0; i <= 160; i++) { var t = T * i / 160; out.push([t, Viz.envAt(e, t)]); }
+    return out.sort(function (p, q) { return p[0] - q[0]; });   // stable, so at one moment the corners keep their order
+  };
   /* LFO ROTOR (UI Spec §6; phosphor: the lead gets the beam): coupled members on a ring, the output puck */
   Viz.rotor = function (cv, r) {
     var K = Viz.kit(cv), g = K.g, W = K.W, H = K.H, V = K.V, cx = W / 2, cy = H / 2, rad = Math.min(W, H) * .36;

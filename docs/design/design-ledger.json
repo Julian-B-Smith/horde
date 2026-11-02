@@ -10,6 +10,10 @@
  },
  "master_versions": [
   {
+   "version": "1793591775-02e4",
+   "evidence": "docs/design-system/master/VERSION: published 2026-11-02 from the gui-unified-batch branch before merge. GUI-1: the swarm-or-scalpel samples and the old engine wording are gone. Viz.envPoints: every stage's corner is a point, so a short attack and decay still reach the peak."
+  },
+  {
    "version": "1793572935-0ce9",
    "evidence": "docs/design-system/master/VERSION: published 2026-11-01 from the gui-rslot-narrow branch before merge. ADR-340 A1: the readout slot's wording says one width up to 250 px, not always 250 px. The stale 472 px in the bank's token, README and comment follows ADR-345 r1. No behaviour changed."
   },
@@ -196,6 +200,11 @@
    "status": "exploring",
    "note": "B324: the blind calibration pass; 'nobody has listened' (its golden note). Calibration, not design."
   },
+  "main-layout-lab.html": {
+   "status": "ruled",
+   "adr": "GUI-2",
+   "note": "Ruled M1 (GUI-2). Not yet harvested: the Specimen and the live logo go to the master next. main-layout-lab-parts.js holds the bench's code for this lab only."
+  },
   "maw-horde-lab.html": {
    "status": "ruled",
    "adr": "ADR-300",
@@ -291,6 +300,10 @@
    "status": "ruled",
    "adr": "ADR-074",
    "note": "Super-width as three modes (a legacy ruling; ADR-025 revision bench)."
+  },
+  "wire-edit-lab.html": {
+   "status": "exploring",
+   "note": "Selecting, editing, rerouting and deleting wires, depth wires included (B589, the human's notes of 2026-11-01), on the shell's real Mod page. Ordinary wires are real device routes; depth wires are MOCK until B70. Nothing is harvested until a ruling."
   }
  },
  "not_labs": {
@@ -4920,6 +4933,81 @@
    "superseded_by": null,
    "port_tab": null,
    "note": "The bundle's CSS already behaved this way; the ruling makes it the rule, and the shell's self-check holds all 38 slots to it. 13 are narrower at the 980 px window. FX device: same."
+  },
+  {
+   "id": "gui1-unified-engine",
+   "adr": "GUI-1",
+   "clause": "ruling 1 (one unified engine; samples, previews and labs never present swarm and SCALPEL as alternatives)",
+   "lab": null,
+   "component": "SectionHeader",
+   "master_version": "1793591775-02e4",
+   "bundle": "SectionHeader",
+   "via": null,
+   "shell": null,
+   "state": "vendored",
+   "superseded_by": null,
+   "port_tab": null,
+   "note": "The master's samples and wording are corrected and tools/engine_words_check.py holds them there. The shell and the real rows never had it. Three old lab lines are pinned by name. FX device: none."
+  },
+  {
+   "id": "gui2-main-layout-m1",
+   "adr": "GUI-2",
+   "clause": "ruling 1 (Main is M1: the morph pad over the Specimen XY, macros and a wide ENV 1 picture across the top, Voice, ENV 1 and the Lens under them)",
+   "port_tab": "main-rest",
+   "note": "Replaces the shell's square picture. The morph pad is on the page, an exception to ADR-315's dock on Main. FX device: no Main.",
+   "lab": "docs/design/main-layout-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null
+  },
+  {
+   "id": "gui2-xy-assignable",
+   "adr": "GUI-2",
+   "clause": "ruling 2 (Main's XY is assignable: any two parameters, saved with the patch; closes B299's question 38)",
+   "port_tab": "specimen-xy",
+   "note": "How the player picks them is not designed yet: the next batch's first question.",
+   "lab": "docs/design/main-layout-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null
+  },
+  {
+   "id": "gui2-specimen-default",
+   "adr": "GUI-2",
+   "clause": "ruling 3 (the Specimen is on by default with a Settings switch; amends ADR-140's default; its cost is measured in the plugin webview before 1.0)",
+   "port_tab": "specimen-xy",
+   "note": "The master documents the Specimen, but the bundle has no code for it. To be ported from the bench verbatim (ADR-333). FX device: an audio-driven stand-in (ADR-262 r1).",
+   "lab": "docs/design/main-layout-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null
+  },
+  {
+   "id": "gui2-macros-on-main",
+   "adr": "GUI-2",
+   "clause": "ruling 4 (Main shows the eight macros as knobs, as well as the bank's MAC lane)",
+   "port_tab": "main-rest",
+   "note": "The same macros, shown twice; needs the intent bus's macros in the stub, as the bank does.",
+   "lab": "docs/design/main-layout-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null
   },
   {
    "id": "adr349-shape-travel",

@@ -1,0 +1,266 @@
+<!doctype html>
+<!-- main-layout-lab: four layouts for Main, with the Specimen XY and the morphing logo. horde, 2026-11-02. Origin: horde GUI session (ADR-336 charter), the
+     human's "Main's layout", after their notes of 2026-11-01: "I would like to see the generative logo, and also the Specimen XY from the scalpel lab on main."
+     and "main shouldn't have a square envelope viewer." B581 step 2.
+
+     WHAT IS REAL. The shell in the frame is gui3.html, unedited, with its real Voice and ENV 1 controls, Lens, bank, MAP and morph pad; a layout moves them, it
+     doesn't redraw them. The Specimen and the logo are the bench's own code (main-layout-lab-parts.js, verbatim, ADR-333).
+     WHAT IS MOCK. The XY's value (it moves the Specimen, not a parameter: what the pad should hold is a question below) and the macro knobs (a local session:
+     the shell's macros are in the bank). "Play notes" feeds the Specimen a seeded pattern: there is no audio engine yet, so with sound off it only idles.
+
+     RULED: M1, by GUI-2 (2026-11-02). The lab stays as the record of what was compared.
+
+     WHY A LAB. Main's layout had never been ruled. Nothing here edits gui3*, arp-face/ or the master: a ruling goes through the chain (ADR-316).
+
+     THE SELF-CHECK prints in #selfcheck. Its controls: as built must read the shell's own Main before any layout, so the sheet can tell a change; a planted
+     overlap must read as an overlap; leaving every layout must put Main's rectangles back.
+
+     HOUSE RULES. No Math.random. The lab's clock is a frame counter. No wheel listener (B301). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="lab-part" content="Presentation">
+<title>Main layout lab — the Specimen XY, the logo and the envelope on Main (B581)</title>
+<link rel="stylesheet" href="arp-face/tokens.css">
+<link rel="stylesheet" href="arp-face/bundle.css">
+<style>
+  html, body { background: var(--bg); }
+  body { margin: 0; padding: 20px 16px 60px; color: var(--ink); font: 13px/1.5 var(--font-sans); }
+  .col { max-width: 1012px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+  h1 { font: 800 19px/1.2 var(--font-sans); margin: 0 0 6px; }
+  h2 { font: 800 13px/1.2 var(--font-sans); margin: 0 0 8px; }
+  p { margin: 0 0 6px; max-width: 84ch; }
+  .tagline { max-width: 84ch; }
+  .picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
+  .opt { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 1px solid var(--div); border-radius: 6px; min-height: 44px; }
+  .opt:hover { border-color: var(--ink); }
+  .opt:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .opt[aria-pressed="true"] { border: 2px solid var(--ink); padding: 7px; }
+  .opt .id { font: 800 12px/1.2 var(--font-mono); }
+  .opt .nm { font: 700 12px/1.25 var(--font-sans); }
+  .opt svg { display: block; width: 100%; height: auto; }
+  .opt svg rect { stroke: var(--ink); stroke-width: 4; stroke-linejoin: round; fill: none; }
+  .opt svg .pic { fill: var(--ink); fill-opacity: .5; }
+  .opt svg .ctl { fill: var(--ink); fill-opacity: .12; }
+  .now { border: 1px solid var(--div); border-radius: 6px; padding: 10px 12px; }
+  .now h2 { font-size: 14px; }
+  .now dl { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 2px 8px; margin: 0; }
+  .now dt { font-weight: 700; }
+  .now dd { margin: 0; }
+  .bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px; }
+  .bar .hd-btn { min-height: 28px; }
+  #wrap { position: relative; overflow: hidden; border: 1px solid var(--div); height: 720px; }
+  #frame { display: block; border: 0; width: 980px; height: 720px; transform-origin: 0 0; }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; }
+  th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--div); white-space: nowrap; }
+  th { font-weight: 700; }
+  td.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  tr.on td { font-weight: 700; }
+  #selfcheck { font: 12px/1.5 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .note { color: var(--hint); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="col">
+  <header>
+    <h1>Main: four layouts, M1 ruled</h1>
+    <div class="tagline"><span class="hd-note">Main has only ever been a stopgap: the voice, ENV 1 and a square envelope. These are four ways to make it the performance page, each with the bench's Specimen under an XY, the morphing logo in the header, and ENV 1's picture wide. Ruled: M1, the bench (GUI-2).</span></div>
+  </header>
+  <section aria-label="The options">
+    <h2>Pick a layout. The running shell below changes in place.</h2>
+    <div class="picker" id="picker"></div>
+  </section>
+  <section class="now" id="now" aria-live="polite"></section>
+  <section aria-label="The shell with this layout">
+    <div class="bar">
+      <button class="hd-btn hd-focus" id="btnNotes" type="button" aria-pressed="false">Play notes</button>
+      <button class="hd-btn hd-focus" id="btnMorph" type="button">Morph on or off</button>
+      <span class="note">This is the running shell. Drag the XY's puck and the Specimen follows. Notes and the XY's value are MOCK.</span>
+    </div>
+    <div id="wrap"><iframe id="frame" title="GUI 3 with this Main" src="gui3.html#main,win"></iframe></div>
+  </section>
+  <section aria-label="Measured">
+    <h2>Measured on the shell</h2>
+    <div class="scroll"><table><thead><tr><th>Layout</th><th>XY surface</th><th>Morph pad</th><th>ENV 1 picture</th><th>Pictures' share</th><th>Controls past their cell, morph off</th><th>Morph on</th><th>Lens</th><th>Macros on page</th></tr></thead><tbody id="tbody"></tbody></table></div>
+    <p class="note" style="margin-top:6px">Pictures' share: how much of the page's body the XY, the pad and the envelope take. The master asks for at least half on a page with pictures. Controls past their cell: how far Voice and ENV 1 spill out of the room the layout gives them, which is what a too-small cell does here (the page itself doesn't scroll). Morph on matters because the pad docks in a left column on every other page, unless the layout puts it on Main.</p>
+  </section>
+  <section aria-label="Self-check">
+    <h2>Self-check</h2>
+    <div id="selfcheck">Measuring…</div>
+  </section>
+</div>
+<script src="main-layout-lab-parts.js"></script>
+<script>
+'use strict';
+const STYLE_BASE = `
+  .pv-left { display: contents; }
+  .pv-main { display: grid !important; gap: 6px; align-items: stretch !important; height: 366px; }   /* the 468 px page less its note, the view's head and its padding */
+  .pv-main > * { min-width: 0; min-height: 0; }
+  .vz { grid-area: env; display: flex; flex-direction: column; gap: 2px; width: auto !important; min-height: 0; }
+  .vz .vz-well { flex: 1 1 auto; min-height: 0; position: relative; }
+  .vz .vz-cv { position: absolute; left: 0; top: 0; width: 100%; height: 100% !important; display: block; }
+  .hd-lens { grid-area: lens; width: auto !important; }
+  .pv-views { grid-area: secs; }
+  .lab-xy { grid-area: xy; position: relative; overflow: hidden; border: var(--stroke-ink) solid var(--ink); border-radius: var(--radius); background: var(--scr-ground); touch-action: none; }
+  .lab-xy canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; }
+  .lab-xy canvas.specimen { pointer-events: none; }
+  .lab-xy .lab-tag { position: absolute; left: 6px; bottom: 4px; font: 400 8.5px/1 var(--font-mono); color: var(--hint); pointer-events: none; }
+  .lab-morph { grid-area: morph; min-height: 0; }
+  .lab-morph .hd-xy, .lab-xy .hd-xy { width: 100% !important; height: 100% !important; margin: 0 !important; }
+  .lab-xy .hd-xy { position: absolute; inset: 0; background: transparent; border: 0; }
+  .lab-xy .hd-xy .wash { opacity: .28; }
+  .lab-macros { grid-area: macros; display: flex; justify-content: space-between; gap: 2px; align-items: flex-start; min-width: 0; }
+  .logo canvas.logo { width: 91px; height: 60px; display: block; pointer-events: none; }
+  .mapbar #srcStrip .src-chip { flex: 0 0 auto; }
+`;
+// A layout is its grid and which pieces it builds. `pad`: where the morph pad lives (dock is every other page's rule, ADR-315).
+const OPTIONS = [
+  { id: 'M0', name: 'As built', built: true, pad: 'dock', macros: false, xy: false, css: '',
+    does: 'The shell today: a square ENV 1 picture, the Lens under it, Voice and ENV 1 beside them. The logo is added here too, so you can compare.',
+    costs: 'No XY, no Specimen, and the square envelope you flagged. Here only as the reference.' },
+  { id: 'M1', name: 'The bench', pad: 'page', macros: true, xy: true,
+    css: `.pv-main { grid-template-columns: 272px minmax(0, 1fr) 206px; grid-template-rows: 62px 90px minmax(0, 1fr); grid-template-areas: "morph macros macros" "morph env env" "xy secs lens"; }`,
+    does: 'The Scalpel bench\'s Main, cut to fit: the morph pad over the Specimen XY in a left column, macros and a wide envelope across the top right, Voice and ENV 1 under them. Closest to what you called great.',
+    costs: 'Two small surfaces instead of one big one. The bench\'s cycle view, carpet, voice map, Mix and FX strip don\'t fit, and stay on their own pages.' },
+  { id: 'M2', name: 'Specimen first', pad: 'dock', macros: true, xy: true,
+    css: `.pv-main { grid-template-columns: 400px minmax(0, 1fr) 206px; grid-template-rows: 62px 64px minmax(0, 1fr); grid-template-areas: "xy macros macros" "xy env env" "xy secs lens"; }`,
+    does: 'The Specimen XY is the page\'s big picture, at 400 px wide. The morph pad docks in its left column only while morph is on, as on every other page.',
+    costs: 'Turning morph on takes 214 px of width from this page, so the Specimen shrinks or the controls scroll. Voice and ENV 1 are tight.' },
+  { id: 'M3', name: 'Two surfaces', pad: 'page', macros: false, xy: true,
+    css: `.pv-main { grid-template-columns: 236px 236px minmax(0, 1fr); grid-template-rows: 195px minmax(0, 1fr); grid-template-areas: "morph xy secs" "env lens secs"; }`,
+    does: 'The morph pad and the Specimen XY sit side by side at the same size, with the envelope under them. Macros stay in the bank\'s MAC lane, one click away, so nothing is shown twice.',
+    costs: 'The envelope is short and only half the column wide. There are no macro knobs on Main itself.' },
+  { id: 'M4', name: 'One surface', pad: 'inside', macros: true, xy: true,
+    css: `.pv-main { grid-template-columns: 368px minmax(0, 1fr) 206px; grid-template-rows: 62px 64px minmax(0, 1fr); grid-template-areas: "xy macros macros" "xy env env" "xy secs lens"; }`,
+    does: 'The Specimen sits under the morph pad itself: one big surface, and its puck is the morph. That also answers what the XY holds, since there is no second XY. With morph off it would be just the Specimen: drag orbits it and a click strikes it, as ADR-139 said (not drawn here).',
+    costs: 'A new idea, not in the bench, and you lose a free XY for good. The corner colours wash over the pearl. ' },
+];
+const $ = id => document.getElementById(id), frame = $('frame'), wrap = $('wrap'), Parts = window.MainLabParts;
+let w, d, H, ready = false, active = 'M1', S2 = null, frameNo = 0, playing = false, xyPos = [0.62, 0.42], padCanvas = null;
+const measured = Object.create(null);
+
+// ===== the pieces a layout adds =====
+function drawPad() {   // the bench's paintXY, on the shell's tokens: a veil, quarter lines, two axis names and a puck
+  const c = padCanvas; if (!c || !c.isConnected) return;
+  const V = Math.min(w.devicePixelRatio || 1, 2), W = Math.max(2, Math.round(c.clientWidth * V)), Ht = Math.max(2, Math.round(c.clientHeight * V));
+  if (c.width !== W || c.height !== Ht) { c.width = W; c.height = Ht; }
+  const g = c.getContext('2d'), cs = getComputedStyle(d.documentElement), tok = n => cs.getPropertyValue(n).trim();
+  g.clearRect(0, 0, W, Ht); g.lineJoin = 'round';
+  g.strokeStyle = tok('--scr-grid'); g.globalAlpha = .18; g.lineWidth = V; g.beginPath();
+  for (let q = 1; q < 4; q++) { const x = Math.round(q * W / 4) + .5, y = Math.round(q * Ht / 4) + .5; g.moveTo(x, 0); g.lineTo(x, Ht); g.moveTo(0, y); g.lineTo(W, y); }
+  g.stroke(); g.globalAlpha = 1;
+  const px = xyPos[0] * W, py = xyPos[1] * Ht;
+  g.beginPath(); g.arc(px, py, 6 * V, 0, 6.2832); g.fillStyle = tok('--scr-value'); g.fill(); g.lineWidth = 1.5 * V; g.strokeStyle = tok('--scr-ground'); g.stroke();
+  g.font = (8.5 * V) + 'px ui-monospace,Menlo,monospace'; g.fillStyle = tok('--scr-grid');
+  g.textAlign = 'left'; g.fillText('cut rate ↑', 4 * V, 11 * V); g.textAlign = 'right'; g.fillText('width →', W - 4 * V, Ht - 4 * V);
+}
+function build(o) {
+  const main = d.querySelector('#page-main .pv-main'), pad = d.getElementById('padHost');
+  let st = d.getElementById('labMain'); if (!st) { st = d.createElement('style'); st.id = 'labMain'; d.head.append(st); }
+  st.textContent = o.built ? '.logo canvas.logo { width: 91px; height: 60px; display: block; pointer-events: none; } .mapbar #srcStrip .src-chip { flex: 0 0 auto; }' : STYLE_BASE + o.css + (o.pad === 'dock' ? '' : ' #dock { display: none !important; } .body.with-dock { grid-template-columns: minmax(0, 1fr) !important; } .body.with-dock.with-insp { grid-template-columns: minmax(0, 1fr) 214px !important; }');
+  main.querySelectorAll('.lab-xy, .lab-morph, .lab-macros').forEach(e => { if (e.contains(pad)) d.querySelector('#dock .face').prepend(pad); if (e.contains(Parts.specimenCanvas())) document.createElement('div').append(Parts.specimenCanvas()); e.remove(); });
+  padCanvas = null;
+  if (o.xy) {
+    const xy = d.createElement('div'); xy.className = 'lab-xy'; xy.append(Parts.specimenCanvas());
+    if (o.pad === 'inside') xy.append(pad);
+    else { padCanvas = d.createElement('canvas'); padCanvas.setAttribute('role', 'img'); padCanvas.setAttribute('aria-label', 'XY, MOCK: it moves the Specimen, not a parameter'); xy.append(padCanvas);
+      const tag = d.createElement('span'); tag.className = 'lab-tag'; tag.textContent = 'XY · MOCK'; xy.append(tag);
+      const at = e => { const r = xy.getBoundingClientRect(); xyPos = [Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)), Math.max(0, Math.min(1, (e.clientY - r.top) / r.height))]; };
+      let held = false; xy.addEventListener('pointerdown', e => { held = true; at(e); xy.setPointerCapture && xy.setPointerCapture(e.pointerId); }); xy.addEventListener('pointermove', e => { if (held) at(e); }); xy.addEventListener('pointerup', () => { held = false; }); }
+    main.append(xy);
+  }
+  if (o.pad === 'page') { const m = d.createElement('div'); m.className = 'lab-morph'; m.append(pad); main.append(m); }
+  if (o.macros) {
+    const m = d.createElement('div'); m.className = 'lab-macros'; main.append(m);
+    if (!S2) S2 = new H.Session({ x: .5, y: .5, corners: ['A', 'B', 'C', 'D'] });
+    ['Tone', 'Space', 'Time', 'Motion', 'Macro 5', 'Macro 6', 'Macro 7', 'Macro 8'].forEach((n, i) => { const c = d.createElement('div'); m.append(c); H.Knob(c, { key: 'lab.macro' + i, name: n, path: 'Macro · ' + n, vals: [.35, .35, .35, .35], fmt: x => Math.round(x * 100) + '%', size: 'compact' }, S2); });
+  }
+  if (S2) S2.start && !S2.__on && (S2.start(), S2.__on = true);
+}
+function apply(id) { active = id; build(OPTIONS.find(o => o.id === id)); paintNow(); }
+
+// ===== measuring: read off the running shell =====
+const rectOf = sel => { const e = d.querySelector('#page-main ' + sel); if (!e) return null; const b = e.getBoundingClientRect(); return b.width ? { x: b.left, y: b.top, w: b.width, h: b.height } : null; };
+const AREAS = ['.lab-xy', '.lab-morph', '.vz', '.pv-views', '.hd-lens', '.lab-macros'];
+const overlaps = rs => { const out = []; for (let i = 0; i < rs.length; i++) for (let j = i + 1; j < rs.length; j++) { const a = rs[i], b = rs[j]; if (a && b && a.x + a.w > b.x + 1 && b.x + b.w > a.x + 1 && a.y + a.h > b.y + 1 && b.y + b.h > a.y + 1) out.push(i + '|' + j); } return out; };
+const settle = () => new Promise(r => setTimeout(r, 60));
+// A squeezed section spills out of its grid cell without the page scrolling, so the page's scroll alone would read a broken layout as fitting.
+const spill = () => { const v = d.querySelector('#page-main .pv-views'), b = v.getBoundingClientRect(); let over = 0; v.querySelectorAll('[data-key], .hd-sechead').forEach(e => { if (e.closest('.hd-pt')) return; const r = e.getBoundingClientRect(); if (r.width) over = Math.max(over, r.bottom - b.bottom, r.right - b.right); }); return Math.max(0, Math.round(over)); };
+async function measure(o) {
+  build(o); await settle();
+  const a = d.getElementById('pages'), read = () => a.scrollHeight - a.clientHeight;
+  const body = d.querySelector('#page-main .pv-main').getBoundingClientRect(), m = { id: o.id };
+  m.xy = rectOf('.lab-xy'); m.morph = o.pad === 'inside' ? m.xy : rectOf('.lab-morph'); m.env = rectOf('.vz .vz-cv'); m.lens = !!rectOf('.hd-lens');
+  const share = [o.pad === 'inside' ? null : m.morph, m.xy, m.env].filter(Boolean).reduce((s, r) => s + r.w * r.h, 0);
+  m.share = Math.round(100 * share / (body.width * body.height)); m.scrollOff = read();
+  m.keys = [...d.querySelectorAll('#page-main [data-key]')].filter(e => !e.closest('.hd-pt') && e.getBoundingClientRect().width > 0).length;
+  m.overlap = overlaps(AREAS.map(rectOf));
+  m.saved = { secs: rectOf('.pv-views'), lens: rectOf('.hd-lens'), macros: rectOf('.lab-macros'), env: rectOf('.vz') };
+  m.cutOff = spill();
+  d.getElementById('morphOn').click(); await settle(); m.scrollOn = read(); m.cutOn = spill(); m.secsOn = rectOf('.pv-views'); d.getElementById('morphOn').click(); await settle();
+  measured[o.id] = m; paintRow(o);
+}
+function paintRow(o) {
+  const m = measured[o.id], tr = document.querySelector('#tbody tr[data-id="' + o.id + '"]'), sz = r => r ? Math.round(r.w) + ' × ' + Math.round(r.h) : 'none';
+  const cells = [sz(m.xy), o.pad === 'inside' ? 'in the XY' : o.pad === 'page' ? sz(m.morph) : 'docks when on', sz(m.env), m.share + '%', m.cutOff ? m.cutOff + ' px' : 'fits', m.cutOn ? m.cutOn + ' px' : 'fits', m.lens ? 'yes' : 'no', o.macros ? '8 knobs' : 'bank only'];
+  tr.querySelectorAll('td.num').forEach((td, i) => { td.textContent = cells[i]; });
+  const svg = document.querySelector('.opt[data-id="' + o.id + '"] svg'), B = d.querySelector('#page-main .pv-main').getBoundingClientRect();
+  const rect = (r, c) => r ? '<rect class="' + c + '" x="' + (r.x - B.left).toFixed(0) + '" y="' + (r.y - B.top).toFixed(0) + '" width="' + r.w.toFixed(0) + '" height="' + r.h.toFixed(0) + '" rx="6"/>' : '';
+  svg.setAttribute('viewBox', '0 0 ' + B.width.toFixed(0) + ' ' + B.height.toFixed(0));
+  svg.innerHTML = rect(m.saved.secs, 'ctl') + rect(m.saved.lens, 'ctl') + rect(m.saved.macros, 'ctl') + rect(m.saved.env, 'pic') + rect(m.morph, 'pic') + rect(m.xy, 'pic');
+}
+function paintNow() {
+  const o = OPTIONS.find(x => x.id === active);
+  $('now').innerHTML = '<h2>' + o.id + ': ' + o.name + '</h2><dl><dt>Does</dt><dd>' + o.does + '</dd><dt>Costs</dt><dd>' + o.costs + '</dd></dl>';
+  document.querySelectorAll('.opt').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.id === active)));
+  document.querySelectorAll('#tbody tr').forEach(t => t.classList.toggle('on', t.dataset.id === active));
+}
+OPTIONS.forEach(o => {
+  const b = document.createElement('button'); b.className = 'opt'; b.type = 'button'; b.dataset.id = o.id; b.setAttribute('aria-pressed', 'false');
+  b.innerHTML = '<span class="id">' + o.id + '</span><span class="nm">' + o.name + '</span><svg aria-hidden="true" viewBox="0 0 940 368"></svg>';
+  b.addEventListener('click', () => { if (ready) apply(o.id); }); $('picker').append(b);
+  const tr = document.createElement('tr'); tr.dataset.id = o.id; tr.innerHTML = '<td>' + o.id + ' ' + o.name + '</td>' + '<td class="num">…</td>'.repeat(8); $('tbody').append(tr);
+});
+paintNow();
+function fitFrame() { const s = Math.min(1, wrap.clientWidth / 980); frame.style.transform = 'scale(' + s + ')'; wrap.style.height = Math.ceil(720 * s) + 'px'; }
+addEventListener('resize', fitFrame); fitFrame();
+$('btnNotes').addEventListener('click', () => { playing = !playing; $('btnNotes').setAttribute('aria-pressed', String(playing)); Parts.AUD.on = playing; if (!playing) Parts.AUD.feed = null; });
+$('btnMorph').addEventListener('click', () => { if (d) d.getElementById('morphOn').click(); });
+
+// ===== the one clock: a frame counter =====
+const PATTERN = [45, 52, 57, 60, 64, 57, 52, 48];
+function loop() {
+  requestAnimationFrame(loop);
+  if (!d) return; frameNo++;
+  // the pad and the logo read the shell's morph, off its own switch and puck
+  const on = d.getElementById('morphOn').getAttribute('aria-checked') === 'true', puck = d.querySelector('#padHost .puck');
+  Parts.MORPH.on = on; if (puck) { const cs = getComputedStyle(puck); Parts.MORPH.x = parseFloat(cs.getPropertyValue('--x')) || 0; Parts.MORPH.y = parseFloat(cs.getPropertyValue('--y')) || 0; }
+  if (playing) { const step = 45, at = frameNo % step, env = Math.exp(-at / 30); Parts.AUD.feed = { t: 'vz', peak: .5 * env, act: 1, env, gates: at < 28 ? [PATTERN[Math.floor(frameNo / step) % PATTERN.length]] : [], lst: 2, lenv: env }; }
+  Parts.tick(); drawPad();
+}
+
+// ===== the self-check =====
+const checks = []; const check = (ok, t) => checks.push((ok ? 'PASS ' : 'FAIL ') + t);
+frame.addEventListener('load', async () => {
+  w = frame.contentWindow; d = frame.contentDocument; H = w.Horde; Parts.attach(d, () => xyPos);
+  const lines = [...d.querySelectorAll('#checks p')], bad = lines.filter(p => p.classList.contains('bad')).length;
+  const slot = d.querySelector('.logo'); slot.textContent = ''; slot.removeAttribute('title'); slot.classList.remove('hd-hint'); slot.append(Parts.logoCanvas());
+  await settle(); loop();
+  const homeKeys = [...d.querySelectorAll('#page-main [data-key]')].filter(e => !e.closest('.hd-pt') && e.getBoundingClientRect().width > 0).length, home = JSON.stringify(rectOf('.pv-views'));
+  for (const o of OPTIONS) await measure(o);
+  check(lines.length > 0 && !bad, 'The shell\'s own self-checks in this frame: ' + (lines.length - bad) + ' of ' + lines.length + '.');
+  OPTIONS.forEach(o => { const m = measured[o.id]; check(m.keys === homeKeys && !m.overlap.length, o.id + ': all ' + m.keys + ' of Main\'s controls are showing and no two parts overlap' + (m.overlap.length ? ' (OVERLAP ' + m.overlap.join(', ') + ')' : '') + '.'); });
+  check(measured.M0.xy === null && measured.M0.env.w < 260, 'Control: M0 reads the shell as built, with no XY and a square picture (' + Math.round(measured.M0.env.w) + ' × ' + Math.round(measured.M0.env.h) + ').');
+  check(overlaps([{ x: 0, y: 0, w: 50, h: 50 }, { x: 40, y: 40, w: 50, h: 50 }]).length === 1 && !overlaps([{ x: 0, y: 0, w: 50, h: 50 }, { x: 60, y: 0, w: 50, h: 50 }]).length, 'Control: the overlap test reads a planted overlap, and not two parts side by side.');
+  build(OPTIONS[0]); await settle(); check(JSON.stringify(rectOf('.pv-views')) === home, 'Leaving every layout puts Main\'s controls back where they were.');
+  ready = true; apply('M1'); for (let i = 0; i < 40 && !(Parts.SPECIMEN.draws && Parts.LOGO.paints); i++) await settle();
+  const sp = Parts.SPECIMEN; check(sp.draws > 0 || !!sp.fail, 'The Specimen ' + (sp.fail ? 'names why it cannot draw here: ' + sp.fail : 'drew ' + sp.draws + ' frames with the bench\'s own shader') + '.');
+  check(Parts.LOGO.paints > 0, 'The logo painted ' + Parts.LOGO.paints + ' frames with the bench\'s own warp.');
+  const fails = checks.filter(c => c.startsWith('FAIL')).length;
+  $('selfcheck').textContent = (fails ? fails + ' FAILED' : checks.length + ' of ' + checks.length + ' passed') + '\n' + checks.join('\n');
+});
+</script>
+</body>
+</html>
