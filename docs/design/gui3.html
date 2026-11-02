@@ -50,6 +50,31 @@
   body.scaled .col { max-width: none; align-items: flex-start; }
   body.scaled #win { width: 980px; margin: 0; zoom: var(--win-zoom, 1); }
   #win { width: min(100%, 980px); height: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--space-stack); box-sizing: border-box; overflow: hidden; }
+  /* MAIN (GUI-4): the stage fills the page area, with no page head and no scroll of its own */
+  #page-main { height: 100%; }
+  #page-main > .phead { display: none; }
+  .main-stage { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 236px minmax(0, 1fr); gap: 6px; }
+  .main-stage > * { min-width: 0; min-height: 0; }
+  .main-left, .main-right { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+  .main-pad { flex: 0 0 196px; min-height: 0; }
+  .main-pad #padHost, .main-pad .hd-xy { width: 100% !important; height: 100% !important; margin: 0 !important; }
+  .main-xy { flex: 1 1 0; }
+  .main-p { box-sizing: border-box; padding: 4px 6px; background: var(--panel); border: var(--stroke-ink) solid var(--ink); border-radius: var(--radius); min-width: 0; }
+  .main-macros { flex: 0 0 60px; display: flex; justify-content: space-between; align-items: center; gap: 2px; }
+  .main-env { flex: 0 0 84px; display: flex; gap: 8px; align-items: stretch; }
+  .main-env .vz { flex: 1 1 0; width: auto; min-width: 0; display: flex; }
+  .main-env .vz-well { flex: 1 1 0; position: relative; }
+  .main-env .vz-cv { position: absolute; left: 0; top: 0; width: 100%; height: 100% !important; }
+  .main-env .vz-cap { display: none; }
+  .main-envk { display: flex; gap: 8px; align-items: center; flex: 0 0 auto; }
+  .main-deck { flex: 1 1 0; }
+  .main-face { display: flex; gap: 10px; min-height: 0; height: 100%; }
+  .main-facev { flex: 0 0 176px; min-width: 0; }
+  .main-rows { flex: 1 1 auto; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .main-row { display: flex; flex-wrap: wrap; gap: 2px 12px; align-items: flex-start; }
+  .main-pic { position: relative; flex: 1 1 0; min-width: 160px; min-height: 90px; }
+  .main-pic canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+  .main-note { margin: 2px 0 0; max-width: 46ch; }
   /* GUI-6 and GUI-8 r7: the preset bar in the top row and the colours in the second, both in the room the page tabs leave on every page (the lens lab measured all 14) */
   .chrome { position: relative; }
   #presetHost { position: absolute; left: 508px; top: 3px; width: 322px; z-index: 8; }
@@ -953,6 +978,69 @@ function syncTable(pg, el) {
     }
   });
 }
+/* MAIN (GUI-2, GUI-4): the morph pad over the XY on the left; the macros, ENV 1 and one deck on the right. The page's own Voice and ENV 1 are its real sections, in their tabs; every other tab is
+   second faces on rows other pages own, one model and two views, from layout.json's `deck`. They are built in fillMain, once every page and the bank exist. Main has no Grid | Table: an exception to PV1, read as such in GUI-4's build. */
+let mainDeck = null;
+function mainPage(pg, el) {
+  el.classList.add('main-page');
+  const envK = h('div', { class: 'main-envk', id: 'mainEnvK' }), deckHost = h('div', { class: 'main-deck', id: 'mainDeck' });
+  mainDeck = H.Deck(deckHost, { tabs: pg.deck.tabs.map(t => ({ id: t.id, label: t.label })), keys: () => S.keys });
+  pg.deck.tabs.filter(t => t.group).forEach(t => mainDeck.panel(t.id).append(gridSection(pg, pg.groups.find(g => g.title === t.group))));
+  el.append(h('div', { class: 'main-stage' },
+    h('div', { class: 'main-left' }, h('div', { class: 'main-pad', id: 'mainPad' }), h('div', { class: 'main-xy', id: 'mainXY' })),
+    h('div', { class: 'main-right' }, h('section', { class: 'main-p main-macros', id: 'mainMacros', 'aria-label': 'Macros' }), h('section', { class: 'main-p main-env', 'aria-label': 'ENV 1' }, vizView(pg.viz, 'main', true), envK), deckHost)));
+}
+const mainSecond = (key, src, opts) => {
+  const ctl = PG[src].groups.flatMap(g => g.controls).find(c => c.key === key); if (!ctl) return null;
+  const host = mountControl(ctl, 'main', 'Main · ' + ROW[key].label, opts || (isKnobW(ctl.widget) ? { size: 'compact' } : { tiny: true }));
+  host.dataset.second = '1'; return host;   // a second face, so "what is mounted is what was generated" doesn't count it as Main's own
+};
+function fillMain() {
+  const pg = PG.main; if (!pg.deck) return;
+  pg.deck.head.forEach(k => { const hst = mainSecond(k, 'main', { size: 'utility' }); if (hst) $('mainEnvK').append(hst); });
+  MACROS.filter(m => !m.wheel).forEach(m => { const hst = h('div'), p = S.params['macro.' + m.id]; $('mainMacros').append(hst); if (p) H.SecondKnob(hst, S, p, { size: 'utility' }); });
+  pg.deck.tabs.forEach(t => {
+    const pn = mainDeck.panel(t.id);
+    if (t.mock) { mainMock[t.mock](pn); return; }
+    if (!t.rows) return;
+    const src = t.source, rows = h('div', { class: 'main-rows' }, t.rows.map(r => h('div', { class: 'main-row' }, r.map(k => mainSecond(k, src)).filter(Boolean))));
+    if (t.group) { pn.append(rows); return; }
+    const v = PG[src].viz || (PG[src].groups.find(g => g.viz) || {}).viz;
+    if (v) Object.values(v.keys).forEach(k => { if (!PROPS[k + '@main'] && PROPS[k + '@' + src]) PROPS[k + '@main'] = PROPS[k + '@' + src]; });   // the ring writes through the owner's props
+    pn.append(h('div', { class: 'main-face' }, v ? h('div', { class: 'main-facev' }, vizView(v, 'main', true)) : null, rows));
+  });
+  // the Specimen and the logo: the bench's own (ADR-333), stepped by this file's frame loop. The XY's value is MOCK: how a player assigns its two parameters isn't designed yet (GUI-2 r2).
+  const stage = H.MainStage, xy = H.AssignXY($('mainXY'), S, { x: .62, y: .58, labelX: 'X', labelY: 'Y', tag: 'XY · assignable · MOCK', underlay: stage.specimenCanvas(), keys: () => S.keys });
+  stage.xy(() => { const q = xy.get(); return [q[0], 1 - q[1]]; });
+  const slot = document.querySelector('.logo'); slot.textContent = ''; slot.removeAttribute('title'); slot.classList.remove('hd-hint'); slot.append(stage.logoCanvas());
+  views.push({ page: '*', update() { const mo = dev.morph(); stage.MORPH.on = mo.on; stage.MORPH.x = S.pad.x; stage.MORPH.y = S.pad.y; stage.tick(page === 'main'); } });
+  // GUI-2 r3: on by default, with a switch in Settings. A GUI preference, never saved with the patch (ADR-147). Off means absent: the canvas goes and the surface is plain.
+  const SPEC_KEY = 'horde.gui3.specimen', specBtn = h('button', { class: 'hd-toggle hd-focus', type: 'button', role: 'switch', 'aria-label': 'Specimen under the XY', id: 'specimenOn' });
+  const setSpec = on => { stage.SPECIMEN.on = on; stage.specimenCanvas().style.display = on ? '' : 'none'; specBtn.setAttribute('aria-checked', String(on)); };
+  specBtn.addEventListener('click', () => { const on = specBtn.getAttribute('aria-checked') !== 'true'; setSpec(on); try { localStorage.setItem(SPEC_KEY, on ? '1' : '0'); } catch (_) { /* no storage: this session only */ } });
+  { let saved = null; try { saved = localStorage.getItem(SPEC_KEY); } catch (_) { /* no storage: the default */ } setSpec(saved !== '0'); }
+  pageEls.settings.querySelector('section[aria-label="Interface"] .face').append(h('label', { class: 'hd-row hd-label' }, h('span', { text: 'Specimen under the XY' }), specBtn));
+  placePad();
+}
+/* MOCK tabs: these have no parameter rows yet. Filter: Weir's slot isn't in the stub (ADR-307). Bend: RC-3 defers the pitch system. Scale: the global scale has no rows (B260). They use the bundle's parts and say what they are. */
+const mainKnob = (host, key, name, v, fmt) => { const k = h('div'), p = { key: 'mock.' + key, name, path: name + ' · MOCK', locked: true, g: v, def: v, fmt: fmt || (x => Math.round(x * 100) + '%'), size: 'compact' }; host.append(k); H.LooseKnob(k, S, p); return p; };
+const mainNote = t => h('p', { class: 'hd-hint main-note', text: t });
+const mainMock = {
+  filter(pn) {
+    const st = { type: 0 }, ty = h('div'), ks = h('div', { class: 'main-row' }), cut = mainKnob(ks, 'filter.cut', 'Cutoff', .62, x => Math.round(40 * Math.pow(400, x)) + ' Hz'), res = mainKnob(ks, 'filter.res', 'Resonance', .3), cv = h('canvas', { role: 'img', 'aria-label': 'Filter response (MOCK)' });
+    H.pillGroup(ty, ['LP', 'BP', 'HP'], 0, 'Filter type (MOCK)', i => { st.type = i; }, { keys: () => S.keys });
+    pn.append(h('div', { class: 'main-face' }, h('div', { class: 'main-rows' }, ty, ks, mainNote('MOCK: the filter has no parameter rows yet, because its slot waits on Weir. This curve is a plain two-pole drawing of these controls, nothing of Weir\u2019s.')), h('div', { class: 'main-pic hd-viz' }, cv)));
+    let last = ''; views.push({ page: 'main', update() { if (!cv.clientWidth) return; const s = [st.type, cut.g, res.g, cv.clientWidth, cv.clientHeight].join(); if (s === last) return; last = s; H.Viz.response(cv, { type: st.type, cut: cut.g, res: res.g }); } });
+  },
+  bend(pn) {
+    const G = H.Viz.Glide, st = { law: 4 }, lw = h('div'), ks = h('div', { class: 'main-row' }), fr = mainKnob(ks, 'bend.spring', 'Spring', .18, x => (.5 + x * 19.5).toFixed(1) + ' Hz'), dm = mainKnob(ks, 'bend.damp', 'Damping', .28), cv = h('canvas', { role: 'img', 'aria-label': 'Bend view (MOCK rows)' });
+    H.pillGroup(lw, ['instant', 'time', 'rate', 'lag', 'spring'], 4, 'Bend law (MOCK)', i => { st.law = i; }, { keys: () => S.keys });
+    pn.append(h('div', { class: 'main-face' }, h('div', { class: 'main-rows' }, lw, ks, mainNote('MOCK: the pitch system\u2019s rows wait on RC-3. The picture is the design system\u2019s, showing these controls.')), h('div', { class: 'main-pic hd-viz' }, cv)));
+    let last = ''; views.push({ page: 'main', update() { if (!cv.clientWidth) return; const s = [st.law, fr.g, dm.g, cv.clientWidth, cv.clientHeight].join(); if (s === last) return; last = s; const p = { law: st.law, time: 120, rate: 24, lag: 60, springF: .5 + fr.g * 19.5, damp: dm.g, distOver: 1, retMul: 1, quant: 0, root: 0, mask: G.mask(G.SCALES[1][1]), hyst: 8, qTime: 0 }; H.Viz.bend(cv, G.simulate(p, 60, 67, .9, 'note'), p); } });
+  },
+  scale(pn) { const hst = h('div'); pn.append(hst, mainNote('MOCK: the global scale has no parameter rows yet (B260).')); H.ScalePicker(hst, { visual: 'circles', skin: 'global' }); },
+};
+function placePad() { const slot = page === 'main' ? $('mainPad') : $('dock').querySelector('.face'); if (slot && $('padHost').parentElement !== slot) slot.prepend($('padHost')); }
 function paramPage(pg, el) {
   const secs = h('div', { class: 'pv-secs' }, pg.groups.map(g => gridSection(pg, g)));
   const left = h('div', { class: 'pv-left' }, pg.viz ? vizView(pg.viz, pg.id, true) : null);   // the Lens left this column for the foot row (GUI-8 r1)
@@ -1130,6 +1218,7 @@ DATA.pages.forEach(pg => {
   else if (pg.panel === 'console') consolePage(pg, el);
   else if (pg.panel === 'ledger') ledgerPage(pg, el);
   else if (pg.id === 'mod') modPageForm(pg, el);       // ADR-338 r8 (half A); every other parameter page is a grid (half B)
+  else if (pg.deck) mainPage(pg, el);
   else if (pg.grid) paramPage(pg, el);
   else classicPage(pg, el);
   if (pg.panel === 'morph') el.append(morphPanel());
@@ -1139,7 +1228,7 @@ DATA.pages.forEach(pg => {
 /* A page opens by its id, whatever its group (an old link's #noise still opens the Noise page, under Osc). */
 function selectPage(id) {
   if (!pageEls[id]) return;
-  page = id; closeMenu();
+  page = id; closeMenu(); placePad(); paintDock();
   for (const k in pageEls) pageEls[k].hidden = k !== id;
   const now = nav.get(); if (now.group !== groupOf[id] || now.page !== id) nav.set(groupOf[id], id);
   $('pages').scrollTop = 0; seamRev = -1;
@@ -1149,7 +1238,7 @@ function selectPage(id) {
 H.XYPad($('padHost'), S, { census: true });   // ADR-262 ruling 5: the census ring (the bundle's plain dots; glyph shapes are the master's to add)
 H.CornerChips($('cornersHost'), S);
 function paintDock() {
-  const on = dev.morph().on, show = on && padShown; dockOn = on;
+  const on = dev.morph().on, show = on && padShown && page !== 'main'; dockOn = on;   // GUI-5: every page while morph is on, but Main, whose pad is on the page
   $('morphOn').setAttribute('aria-checked', String(on));
   $('padOn').setAttribute('aria-checked', String(padShown)); $('padOn').disabled = !on;
   $('padOn').title = on ? (padShown ? 'Hide the docked pad (morph stays on)' : 'Show the docked pad') : 'The pad shows only while morph is on';
@@ -1337,6 +1426,7 @@ H.Lens($('lensHost'), S, { scope: () => true, fallback: pageKeysList('main').fin
 H.PresetBar($('presetHost'), S, { value: 'INIT - Init', note: 'MOCK: the factory bank\u2019s names, and nothing loads yet. A preset holds its four corners too (ADR-192).',
   bank: { Init: ['INIT - Init'], Bass: ['BS - Growl Bass', 'BS - Reese', 'BS - Sub Anchor', 'BS - Tight Stack', 'BS - Wobble Frame'], Keys: ['KY - Clav Swarm', 'KY - Hymnal', 'KY - Music Box', 'KY - Paper Rhodes'], Lead: ['LD - Glass Reed', 'LD - Hoover', 'LD - Hyper Lead', 'LD - Knife Fifth', 'LD - Talk Lead'], Morph: ['MO - Blend Drift', 'MO - Quantum Morph', 'MO - Two State'], Pad: ['PD - Breath Field', 'PD - Drift Choir', 'PD - Glacier', 'PD - Slow Consensus', 'PD - Stasis'], Pluck: ['PL - Bell Lattice', 'PL - Koto Swarm', 'PL - Porcelain', 'PL - Spark'] },
   onPick: n => S.say('MOCK: ' + n + ' is picked, and nothing loads yet'), onSave: () => S.say('MOCK: nothing is saved yet') });
+fillMain();
 // MS4 (ADR-340 r8, H.SourceRows' rule): with MAP on, a click on a row's body (anywhere but a button) makes it the source of the next
 // mapping. The name and the Map handle are buttons, so a click on them keeps its own meaning; with MAP off a click does nothing.
 $('bankHost').addEventListener('click', e => {
@@ -1451,7 +1541,7 @@ S.start();
   // The Mod page (ADR-338 r8) builds each modulator's controls once and the page's pane swaps the selected detail in, so the hosts it
   // holds count as the page's mounted controls while a detail is not showing (heldHosts). A grid page's table (.hd-pt) is a second
   // view of the same keys, so its rows are not mounts: the grid's are counted. Every other page is read from the document.
-  DATA.pages.forEach(pg => { const have = new Set([...pageEls[pg.id].querySelectorAll('[data-key]')].filter(e => !e.closest('.hd-pt'))); if (pg.id === 'mod') heldHosts.forEach(x => have.add(x));
+  DATA.pages.forEach(pg => { const have = new Set([...pageEls[pg.id].querySelectorAll('[data-key]')].filter(e => !e.closest('.hd-pt') && !e.dataset.second)); if (pg.id === 'mod') heldHosts.forEach(x => have.add(x));
     const want = pg.groups.flatMap(g => g.controls.map(c => c.key)), got = [...have].map(e => e.dataset.key); n += got.length; if (!same(want, got)) allSame = false; });
   const sub = DATA.pages.find(p => p.id === 'sub'), subWant = sub.groups.flatMap(g => g.controls.map(c => c.key));
   line(allSame && !same(subWant.slice(1), subWant), 'Mounted = generated: ' + n + ' controls on ' + DATA.pages.length + ' pages, each page\u2019s keys exactly; a list one key short reads as different (control).');
@@ -1488,15 +1578,15 @@ S.start();
   line(toggled && padFree && onlyA && kept && bd.some(v => v !== .41) && !dev.morph().on,
     'Morph off: ' + mr.label + ' written with morph off landed on A only (B to D refused), B to D kept their values across off and on, the toggle was one undo step and the pad none; undo walked it back (control: B to D differ from the write).');
   // 4. The dock: no space with morph off, present with morph on, hidden by its toggle.
-  const off = $('dock').hidden && !$('bodyGrid').classList.contains('with-dock');
+  selectPage('sub'); const off = $('dock').hidden && !$('bodyGrid').classList.contains('with-dock');
   setMorphOn(true); const on = !$('dock').hidden && $('bodyGrid').classList.contains('with-dock');
   padShown = false; paintDock(); const hid = $('dock').hidden; padShown = true; setMorphOn(false);
   line(off && on && hid && $('dock').hidden, 'Dock: no space with morph off, docked with morph on, hidden by Pad while morph stays on; it does show when on (control).');
   // 4b. ADR-315 r1, GUI-5: the human, 2026-11-02: "I want to make sure the morph XY on every page when morph is active doesn't get reversed." Every page shows it, Main
-  // included for now. When GUI-4's Main is built its pad is on the page and the dock hides there (GUI-5): that build changes this line to expect exactly that, and nothing else.
-  { const pg0 = page; setMorphOn(true); const missing = DATA.pages.filter(pp => { selectPage(pp.id); return $('dock').hidden || !$('bodyGrid').classList.contains('with-dock') || !$('dock').contains($('padHost')); }).map(pp => pp.id);
+  // but Main, whose pad is on the page (GUI-5 r2), so it's the one page that must read hidden.
+  { const pg0 = page; setMorphOn(true); const missing = DATA.pages.filter(pp => { selectPage(pp.id); const docked = !$('dock').hidden && $('bodyGrid').classList.contains('with-dock') && $('dock').contains($('padHost')); return pp.id === 'main' ? docked || !$('mainPad').contains($('padHost')) : !docked; }).map(pp => pp.id);
     selectPage(pg0); $('dock').hidden = true; const seesHidden = $('dock').hidden; paintDock(); setMorphOn(false); dev.undo(); dev.undo(); dev.clearRedo();
-    line(!missing.length && seesHidden, 'Dock: with morph on, the morph pad docks on all ' + DATA.pages.length + ' pages' + (missing.length ? ' (MISSING on ' + missing.join(', ') + ')' : '') + '; a hidden dock reads as hidden (control).'); }
+    line(!missing.length && seesHidden, 'Dock: with morph on, the morph pad docks on all ' + (DATA.pages.length - 1) + ' other pages and sits on Main\u2019s page' + (missing.length ? ' (MISSING on ' + missing.join(', ') + ')' : '') + '; a hidden dock reads as hidden (control).'); }
   // 4c. GUI-8 r1, r3, r4; GUI-6; GUI-8 r7. Each state is confirmed on, because the foot row's fault only showed with morph or MAP on (the human's pictures, 2026-11-02).
   { const R = e => e.getBoundingClientRect(), pg0 = page, footW = () => R($('footrow')).width, tick = () => { for (const v of views) if (v.page === '*') v.update(); for (const v of S.views) v.render(); }, widthWas = $('win').style.width;
     $('win').style.width = '980px';   // self-checks run before the `win` flag and in whatever the page is wide: the plugin's window is 980 px, and that's what this measures
@@ -1507,6 +1597,15 @@ S.start();
     $('win').style.width = widthWas;
     line(both && $('footrow').parentElement === $('win') && Math.abs(w0 - w1) < 1 && w0 > 900 && row0 && row1 && sumW > 150 && sw1 > 150 && $('lensHost').classList.contains('foot') && !document.querySelector('#pages .hd-lens') && !clash.length && g1 !== g0 && listed0 === 'tube' && /ember/.test(g2) && /EMBER/.test(chipText) && g3 === g0,
       'Foot row and top bar (GUI-6, GUI-8): the row spans the window at ' + Math.round(w0) + ' px with morph and MAP off and on (scope and spectrum ' + Math.round(sumW) + ' px, then ' + Math.round(sw1) + '); one Lens, none on a page; the preset bar and colours clear the tabs, switches and logo on all ' + DATA.pages.length + ' pages' + (clash.length ? ' (HITS ' + clash.slice(0, 4).join(', ') + ')' : '') + '; the top chip and the Settings list change the screen colour and stay in step.'); }
+  // 4d. GUI-2, GUI-4, GUI-5: Main is its stage. Every tab fits, what's in a hidden tab stays mounted, the second faces write the same row, the pad is on the page, and the Specimen's switch works.
+  { const pg0 = page, R = e => e.getBoundingClientRect(), tabs = PG.main.deck.tabs, widthWas = $('win').style.width; $('win').style.width = '980px'; selectPage('main');
+    const areaOver = $('pages').scrollHeight - $('pages').clientHeight, picked = mainDeck.active(), hiddenStill = mainDeck.panel('env1').querySelector('[data-key]') && mainDeck.panel('env1').hidden;
+    const over = []; tabs.forEach(t => { mainDeck.pick(t.id); const pn = mainDeck.panel(t.id), b = R(pn); if (pn.scrollHeight > pn.clientHeight + 1) over.push(t.id + ' +' + (pn.scrollHeight - pn.clientHeight)); pn.querySelectorAll('[data-key], canvas').forEach(e => { const q = R(e); if (q.width && q.right > b.right + 1) over.push(t.id + ' right'); }); }); mainDeck.pick(picked);
+    const sec = pageEls.main.querySelector('[data-second][data-key]'), k = sec.dataset.key, pr = S.params[k], own = PROPS[k + '@main']; dev.begin('self-check'); own.vals[0] = .321; dev.end(); const heard = dev.corner(k, 0) === .321; dev.undo(); dev.clearRedo();   // one step, one undo: an unwrapped write leaves no step, and the undo would reach back and turn morph on
+    const stage = H.MainStage, sw = $('specimenOn'), cv0 = stage.specimenCanvas(), s0 = sw.getAttribute('aria-checked'); sw.click(); const offShown = cv0.style.display; sw.click(); const onAgain = cv0.style.display === '' && sw.getAttribute('aria-checked') === s0;
+    const padHere = $('mainPad').contains($('padHost'));
+    selectPage('sub'); const padBack = $('dock').querySelector('.face').contains($('padHost')); selectPage(pg0); $('win').style.width = widthWas;
+    line(!areaOver && !over.length && hiddenStill && tabs.length === 10 && heard && offShown === 'none' && onAgain && padHere && padBack && !!document.querySelector('.logo canvas.logo') && !!pr, 'Main (GUI-2, GUI-4): the stage fits its area and all ' + tabs.length + ' tabs fit' + (over.length ? ' (OVER: ' + over.join(', ') + ')' : '') + '; a hidden tab stays mounted; a second face on ' + ROW[k].label + ' writes the device; the Specimen\u2019s switch works; the pad is on Main\u2019s page and goes back to the dock on another; the logo is live.'); }
   // 5. The info box shows the hovered control's text, and clears off a control (control).
   const kh = document.querySelector('#page-sub [data-key="' + CSS.escape(kc.key) + '"]');
   kh.dispatchEvent(new MouseEvent('pointerover', { bubbles: true })); const shown = $('infoText').textContent.startsWith(r.spec) && $('infoKey').textContent === r.key;
@@ -2006,7 +2105,7 @@ S.start();
     const r0 = S.reduce; S.reduce = true; hoverOn(longEl); infoBox.step(10); const reduceStill = face.scrollTop === 0; S.reduce = r0; over($('mapbar'));
     line(waits && moves && allIn && stops && metaStill && enterStops && handStops && reduceStill, 'Info auto-scroll (ADR-345 r3): a description past the edge waits 2 s, scrolls until it is all in view and stops; a box whose only overflow is its source line stays still (control); the pointer entering, a hand on the scroll and reduced motion each stop it.');
     // the sidebar: the box takes the rail, the bank the whole foot, and off puts every rectangle back
-    selectPage('main'); showInfo(null);
+    selectPage('sub'); showInfo(null);   // not Main: its pad is on the page, and this checks the pad over the box in the rail
     const rect = e => { const r = e.getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map(v => Math.round(v * 100) / 100).join(','); }, snap = () => ['pagecol', 'pages', 'bank', 'info', 'footrow'].map(i => rect($(i))).join('|');
     const idle = snap(), w0 = $('pages').clientWidth, h0 = $('pages').clientHeight, boxW = $('info').getBoundingClientRect().width, inFoot = $('info').parentElement === $('footrow');
     setSidebar(true); const ib = $('info').getBoundingClientRect(), gr = $('bodyGrid').getBoundingClientRect(), full = Math.abs(ib.height - (gr.height + 126)) < 1 && $('info').parentElement === $('rail') && $('footrow').offsetHeight === 120 && $('pages').clientHeight === h0 && $('pages').clientWidth < w0 && ib.right <= $('pagecol').getBoundingClientRect().left;

@@ -22,7 +22,169 @@
       "id": "main",
       "label": "Main",
       "status": "draft",
-      "note": "Dense (B589): the voice and ENV 1 as sections beside ENV 1's picture (a SAMPLE drawing of the settings, not the engine's output). Main's full design (the performance page with the pad) is B581 step 2.",
+      "note": "GUI-4: the morph pad over the XY with the Specimen, the macros, ENV 1, and one deck with ten tabs. Filter, Bend and Scale are MOCK until their rows land.",
+      "deck": {
+        "head": [
+          "env1.attack",
+          "env1.decay",
+          "env1.sustain",
+          "env1.release"
+        ],
+        "tabs": [
+          {
+            "id": "osc1",
+            "label": "Osc 1",
+            "source": "osc1",
+            "rows": [
+              [
+                "osc1.unison",
+                "osc1.baseWave",
+                "osc1.blade1.on",
+                "osc1.blade1.mode"
+              ],
+              [
+                "osc1.blade1.width",
+                "osc1.blade1.cut",
+                "osc1.blade1.position",
+                "osc1.blade1.depth",
+                "osc1.blade1.edges"
+              ],
+              [
+                "osc1.blade2.on",
+                "osc1.blade2.mode"
+              ],
+              [
+                "osc1.blade2.width",
+                "osc1.blade2.cut",
+                "osc1.blade2.position",
+                "osc1.blade2.depth",
+                "osc1.blade2.edges"
+              ]
+            ]
+          },
+          {
+            "id": "osc2",
+            "label": "Osc 2",
+            "source": "osc2",
+            "rows": [
+              [
+                "osc2.unison",
+                "osc2.baseWave",
+                "osc2.blade1.on",
+                "osc2.blade1.mode"
+              ],
+              [
+                "osc2.blade1.width",
+                "osc2.blade1.cut",
+                "osc2.blade1.position",
+                "osc2.blade1.depth",
+                "osc2.blade1.edges"
+              ],
+              [
+                "osc2.blade2.on",
+                "osc2.blade2.mode"
+              ],
+              [
+                "osc2.blade2.width",
+                "osc2.blade2.cut",
+                "osc2.blade2.position",
+                "osc2.blade2.depth",
+                "osc2.blade2.edges"
+              ]
+            ]
+          },
+          {
+            "id": "sub",
+            "label": "Sub",
+            "source": "sub",
+            "rows": [
+              [
+                "sub.wave",
+                "sub.octave"
+              ],
+              [
+                "sub.tone",
+                "sub.drive",
+                "sub.erode",
+                "sub.crunch",
+                "sub.character",
+                "sub.pan"
+              ]
+            ]
+          },
+          {
+            "id": "noise",
+            "label": "Noise",
+            "source": "noise",
+            "rows": [
+              [
+                "noise.type",
+                "noise.filter"
+              ],
+              [
+                "noise.colour",
+                "noise.density",
+                "noise.cutoff",
+                "noise.resonance",
+                "noise.spread",
+                "noise.pan"
+              ]
+            ]
+          },
+          {
+            "id": "filter",
+            "label": "Filter",
+            "mock": "filter"
+          },
+          {
+            "id": "bend",
+            "label": "Bend",
+            "mock": "bend"
+          },
+          {
+            "id": "scale",
+            "label": "Scale",
+            "mock": "scale"
+          },
+          {
+            "id": "arp",
+            "label": "Arp",
+            "source": "arp",
+            "rows": [
+              [
+                "arp.enabled",
+                "arp.pattern",
+                "arp.rate",
+                "arp.steps",
+                "arp.latch"
+              ],
+              [
+                "arp.gate",
+                "arp.swing"
+              ]
+            ]
+          },
+          {
+            "id": "env1",
+            "label": "ENV 1",
+            "group": "ENV 1"
+          },
+          {
+            "id": "voice",
+            "label": "Voice",
+            "group": "Voice",
+            "source": "mix",
+            "rows": [
+              [
+                "mix.osc1",
+                "mix.osc2",
+                "mix.sub",
+                "mix.noise"
+              ]
+            ]
+          }
+        ]
+      },
       "groups": [
         {
           "title": "Voice",
