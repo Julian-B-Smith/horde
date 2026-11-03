@@ -722,7 +722,8 @@ function suite(W) {
   T.canvases = () => {
     const t = W.__shellText;
     ok(/sizeOf\(main\);\n    if \(sig === last && v\.kind !== 'noise'\)/.test(t), 'the main picture does not redraw when its size changes: it shows stretched pixels');
-    ok((t.match(/\(document\.documentElement\.dataset\.theme \|\| ''\) \+ '\|' \+ sizeOf\(cv\);/g) || []).length === 2, 'a section\u2019s envelope does not redraw when its size changes: it shows stretched pixels');
+    ok((t.match(/colourKey\(\) \+ '\|' \+ sizeOf\(cv\);/g) || []).length === 2, 'a section\u2019s envelope does not redraw when its size changes: it shows stretched pixels');
+    ok(t.includes("+ '/' + ($('win').dataset.scr || '')"), 'a picture that draws only on a change does not count the screen colour: it stays in the old scheme (ADR-121)');
     ok(t.includes('.mapbar #srcStrip .src-chip { flex: 0 0 auto; }'), 'the source strip\u2019s chips can shrink until their names are gone');
     const pts = W.Horde.Viz.envPoints({ a: .002, d: .004, s: .06, r: .9, hold: .302, ac: 0, dc: 0, rc: 0 });
     ok(Math.max(...pts.map(q => q[1])) === 1, 'a short attack and decay never reach the peak in the vendored bundle');
@@ -1075,7 +1076,8 @@ const PLANTS = [
   ['shellparts', 'shell', 'dev.removeModulator(m.id)', 'dev.clearRoutes(m.id)'],
   ['sections', 'logic', "text: 'No section description yet.'", "text: 'Shapes the sound of this part of the instrument.'"],
   ['sections', 'logic', "tag: 'SECTION · DRAFT'", "tag: 'SECTION'"],
-  ['canvases', 'shell', "|| '') + '|' + sizeOf(main);", "|| '');"],
+  ['canvases', 'shell', "colourKey() + '|' + sizeOf(main);", "colourKey();"],
+  ['canvases', 'shell', "+ '/' + ($('win').dataset.scr || '')", ""],
   ['canvases', 'shell', '.mapbar #srcStrip .src-chip { flex: 0 0 auto; }', '.mapbar #srcStrip .src-chip { flex: 0 1 auto; }'],
   ['mainstage', 'shell', 'else if (pg.deck) mainPage(pg, el);', 'else if (pg.deckX) mainPage(pg, el);'],
   ['mainstage', 'shell', 'H.Deck(deckHost,', 'H.DeckX(deckHost,'],

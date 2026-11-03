@@ -9,7 +9,7 @@ The page paradigm of ADR-338 ruling 5: every control of a page in view as tiny k
 
 **Anatomy** (a `panel` card, 1.5 px ink edge, radius 6): the label "Lens"; the full bundle knob (a SHADOW of the page control's props, so it edits the same corner values and `S.params` keeps the page's own object); the name and path; the four corners' values (the editing corner bold, each in its legible `-tx` ink, a weight where the pad sits between corners); every mapping in its source colour with polarity and amount.
 
-**Which control**: the pointer's (`S.hot`, set by every knob), a drag's, else the last clicked (`S.selected`), else `fallback`. The lens never takes the keyboard: its knob is a tab stop only in keyboard mode, like every control.
+**Which control**: the pointer's (`S.hot`, set by every knob), a drag's, else the last clicked (`S.selected`), else `fallback`, else nothing: "Nothing selected". The host decides when a selection ends. In the shell a click off a parameter ends it (GUI-13), and the shell passes no `fallback`. The lens never takes the keyboard: its knob is a tab stop only in keyboard mode, like every control.
 
 **Layout of the page** (the preview): the left column (about 186-206 px) holds the pictures and the lens; the right holds one Cluster per section, each under a 3 px ink identity rule. Pictures take at least half the body (README, Density and hierarchy). The P1 grid replaces P2's fold except where a page still overflows (see Fold).
 
