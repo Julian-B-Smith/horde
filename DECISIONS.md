@@ -11238,6 +11238,26 @@ Three points stayed open, because the shell already marks a knob selected the mo
 - The flat undo stack is gone: an edit after undo now keeps the old branch. Undo, Redo and `dev.history()` read as they did.
 - **FX device (ADR-254):** the same History page. Arp's button isn't there, because it hosts no note processor.
 
+## ADR-358 — RULED by the human: Standard keeps 32 taps and today's floors, with moments realising the soft-edge law; 8 taps is held in reserve (B609, B494, ADR-356; 2026-11-03)
+
+**Context.** ADR-356 ruled 8 taps partly because 2 points would move the floors anyway, and said a moments method that kept more of today's sound at the same cost would come back to the human. It did: the method keeps items 7.7 and 7.8 green at about 2 points' cost. Tested together, 8 taps alone sets the floor, so moments with 8 taps and 2 points with 8 taps both read 24 to 50 dB on Sync.
+
+**Ruling (the human, 2026-11-03): “Go with A, keep 8 taps in reserve”.** A is moments with 32 taps. This replaces ADR-356's “Standard's hard edges go to 8 taps”, and its A1's acceptance has nothing to apply to while the reserve is unused.
+
+| Sync, alias dB on the gate's measure | C2 to C8 |
+|---|---|
+| Today | 96 to 113 |
+| Moments, 32 taps | the same; gates unchanged |
+| 2 points or moments, 8 taps | 24 to 50 |
+
+**Consequences.**
+- **No spec change and no floor moves for edges.** ED-7's law stands, and moments is a realisation under its 0.5 dB rule, at an error budget of −135 dB. So round 54 isn't needed for edges, and the builder's CPU pass can take it now.
+- **The reserve:** 8 taps saves about 6 to 13 % more (scratch). It's a constant plus new floors, ruled by the human if measurements call for it. The tuned table isn't built.
+- **High** stays as it is. Moments could make it cheaper later, and needs 64-tap rows first.
+- **Delivered to the builder only,** as for every CPU figure (ADR-247). No spec changes, so nothing goes to the test author and `engine-structure.json` is untouched.
+- **FX device (ADR-254).** No consequence: the device hosts no engine.
+
+**Rejected.** Staying with 2 points and 8 taps: a real drop in cleanliness for about 6 to 13 %, when the free saving hadn't been taken. Moments with 8 taps: more code, same floors as 2 points.
 ## GUI-11 — RULED by the human: Arp's page starts from the Arp lab (B581; GB2, B553, B558, ADR-291 r4; ADR-351 r6; 2026-11-03)
 
 **Context.** The human, 2026-11-02: "we'll need to work on the GUI for the arp, it isn't where I want". The page was a raw generated grid of all 47 settings under abbreviations. Offered the lab as a start or a description of what was wrong, the human answered: "Start from the Arp lab".

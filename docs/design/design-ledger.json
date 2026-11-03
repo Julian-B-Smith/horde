@@ -6599,6 +6599,10 @@
   {
    "adr": "ADR-357",
    "reason": "A conditional answer to a sibling, and a history rule ADR-319 already holds: no control is added. The blend's face gets its rows if it ships."
+  },
+  {
+   "adr": "ADR-358",
+   "reason": "How the soft-edge law is computed and which table length Standard uses: no control or design element."
   }
  ],
  "audit_notes": [
