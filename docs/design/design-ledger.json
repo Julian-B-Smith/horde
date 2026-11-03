@@ -336,6 +336,10 @@
    "status": "ruled",
    "adr": "GUI-3",
    "note": "Ruled S1, D1, R1, N3, W1 (GUI-3). Not yet harvested: CompactWires in the master is next. Ordinary wires are real device routes here; depth wires are MOCK until B70."
+  },
+  "xy-macro-lab.html": {
+   "status": "exploring",
+   "note": "The XY's picker (GUI-2 r2) and how a macro knob maps (GUI-8 open), tried on the real shell: X1 to X4, K1 to K4. Awaiting the human's poll."
   }
  },
  "not_labs": {
