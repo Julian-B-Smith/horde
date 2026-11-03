@@ -11169,3 +11169,32 @@ Three points stayed open, because the shell already marks a knob selected the mo
 - All figures are scratch timings, never PF-3. They and the listening pages' method are in the ledger.
 
 **Amendment A1 (the human, 2026-11-03, after the combined clip).** “There is a slight difference between today and 8x2 + 2x2 at the very top of the rising runs (more prominent in the one member), but it's probably necessary to just accept that for the sake of bringing down CPU.” The combined clip is heard, and the difference is accepted. **The lead's reading, open to overrule:** 2 points is Standard's soft-edge law unless the moments test keeps more of today's sound at the same cost, in which case it comes back to the human. New floors are still the human's to rule when round 54 brings them. This clip's listen covers 8 taps and 2 samples alike, each with 2 points; 8 taps was ruled before it, and nothing here reopens that.
+
+## GUI-9 — RULED by the human: X and Y work as two extra macro knobs, offsetting from rest; a macro maps by its card and from the control; a mapped macro shows in the mod rows (B581, B89; amends GUI-2 ruling 2; 2026-11-03)
+
+**Context.** GUI-2 left the XY's picker undrawn and GUI-8 left the macro knobs without a Map button. `docs/design/xy-macro-lab.html` drew four options for each on the running shell. The human answered by poll on 2026-11-03, choosing all of "X1 Chips and list", "X2 Touch to learn", "X3 From the control" and "X4 Axes are sources"; "K3 A card" and "K4 From the control"; "Offset from rest"; and "Yes, list it there". The lab recommended X1 and direct writes; the human chose all four and the offset. Then, the same day: "I want to be able to map multiple things to the XY axes; it should function like two extra macro knobs".
+
+**Rulings.**
+1. **X and Y work as two extra macro knobs.** Each axis can move many parameters, each with its own depth, by the same mapping, card and rows as a macro. Rulings 3 to 5 apply to them as to any macro. **Amends GUI-2 ruling 2's "any two parameters".** The rest of that ruling stands: the assignment saves with the patch.
+2. **Beyond MAP, a parameter can be added to an axis from a list, by touch, and from a control's right-click menu:** a searchable list of every continuous parameter, touching a control on any page, and the control's menu. Each adds to what's there.
+3. **The XY offsets from rest.** Dragging it leaves the parameter's own value alone and pushes away from each corner's rest value, as the intent bus has it (`specs/SPEC-INTENT-BUS.md` principle 1, section 5).
+4. **A macro maps by its card:** a click on its name shows what it touches, a depth for each, × to remove and Map to add. **It can also be bound from a control's right-click menu.** The knob gets no handle.
+5. **A mapped macro shows in the mod rows,** beside ENV 1 and the other active modulators. GUI-7 stands and now includes macros.
+
+**Readings taken (the GUI session's, open to the human).**
+- **A click on an axis opens its card,** as a click on a macro's name does. One click can't open a list, arm a touch and start MAP at once, so the card holds the three ways to add. The list and touch are axis-only until the human says a macro should have them too.
+- **The puck stays where it's left,** as a knob does. The spec's Latch is off by default, which returns the puck to rest on release, so this reading departs from the spec's default and is easy to reverse.
+- A new mapping starts at 25 %, as MAP's do.
+- K4's and X3's items share the control's right-click menu.
+
+**Open, to be drawn or asked.**
+- **Where is rest on the pad?** The spec's intents are bipolar, which puts rest at the centre, and the pad has no rest mark yet.
+- **Which corner does a mapping belong to with morph on?** The bus keeps bindings per corner (ADR-192), and the Map Mode spec keeps routes global for 1.0.
+- **Does the mod wheel get the same card?** The bend has its own job in the pitch system.
+- Slots 5 to 8 still have no phrase list (ADR-192).
+
+**Consequences.**
+- These go into the master first (ADR-316): `AssignXY`'s axis chips, one card for an axis and a macro, and the macro's name as its opener. The ledger's `gui2-xy-assignable` row stays in-shell until that hop, which marks it superseded.
+- **Needed from the lead (B89):** the bus needs X and Y as intents, making ten with ADR-192's eight. ADR-192 doesn't name them, though the spec's section 3.1 recommends them. Whether they're host parameters is the lead's and the human's call. Until the bus lands, the shell carries macros and axes on its routes, marked MOCK, as the lab does.
+- The lab's X4 is the nearest to this ruling. Its X1 to X3 set one parameter and write it directly, and nothing in it draws the offset. The build draws rulings 1 and 3.
+- **FX device (ADR-254):** none today. Its pages have neither Main's XY nor these macros, and a hosted module's macros stay ADR-169's.
