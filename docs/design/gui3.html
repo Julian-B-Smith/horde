@@ -61,6 +61,11 @@
   .main-xy { flex: 1 1 0; }
   .main-p { box-sizing: border-box; padding: 4px 6px; background: var(--panel); border: var(--stroke-ink) solid var(--ink); border-radius: var(--radius); min-width: 0; }
   .main-macros { flex: 0 0 60px; display: flex; justify-content: space-between; align-items: center; gap: 2px; }
+  /* name over knob, as in the bank. Side by side, the name's 7ch minimum crushed the knob to 6 px once MAP's inspector or the sidebar narrowed the row (found mapping a macro, 2026-11-02) */
+  .main-macros .hd-mk.sz-utility { flex: 1 1 0; min-width: 0; flex-direction: column; gap: 1px; padding: 0; }
+  .main-macros .hd-mk.sz-utility .mk-head { width: 100%; min-width: 0; }
+  .main-macros .hd-mk.sz-utility .mk-name { text-align: center; }
+  .main-macros .hd-mk.sz-utility .mk-face { flex: 0 0 auto; }
   .main-env { flex: 0 0 84px; display: flex; gap: 8px; align-items: stretch; }
   .main-env .vz { flex: 1 1 0; width: auto; min-width: 0; display: flex; }
   .main-env .vz-well { flex: 1 1 0; position: relative; }
@@ -1603,9 +1608,13 @@ S.start();
     const over = []; tabs.forEach(t => { mainDeck.pick(t.id); const pn = mainDeck.panel(t.id), b = R(pn); if (pn.scrollHeight > pn.clientHeight + 1) over.push(t.id + ' +' + (pn.scrollHeight - pn.clientHeight)); pn.querySelectorAll('[data-key], canvas').forEach(e => { const q = R(e); if (q.width && q.right > b.right + 1) over.push(t.id + ' right'); }); }); mainDeck.pick(picked);
     const sec = pageEls.main.querySelector('[data-second][data-key]'), k = sec.dataset.key, pr = S.params[k], own = PROPS[k + '@main']; dev.begin('self-check'); own.vals[0] = .321; dev.end(); const heard = dev.corner(k, 0) === .321; dev.undo(); dev.clearRedo();   // one step, one undo: an unwrapped write leaves no step, and the undo would reach back and turn morph on
     const stage = H.MainStage, sw = $('specimenOn'), cv0 = stage.specimenCanvas(), s0 = sw.getAttribute('aria-checked'); sw.click(); const offShown = cv0.style.display; sw.click(); const onAgain = cv0.style.display === '' && sw.getAttribute('aria-checked') === s0;
+    // The knob's real size in the states that narrow the row: an overflow check can't see a crushed control, because it fits. Control: 6 px, what the row did, must read as crushed.
+    const faces = () => [...$('mainMacros').querySelectorAll('.mk-face')].map(e => Math.round(R(e).width)), crushed = l => l.length !== 8 || l.some(n => n < 18), facePlain = faces();
+    S.setMap(true); for (const v of S.views) v.render(); paintDock(); for (const v of views) if (v.page === '*') v.update(); const faceMap = faces(), insp = !$('inspDock').hidden; setSidebar(true); const faceBoth = faces(); setSidebar(false); S.setMap(false); for (const v of views) if (v.page === '*') v.update(); dev.clearRedo();
+    const macrosOk = !crushed(facePlain) && !crushed(faceMap) && !crushed(faceBoth) && insp && crushed([6, 6, 6, 6, 6, 6, 6, 6]);
     const padHere = $('mainPad').contains($('padHost'));
     selectPage('sub'); const padBack = $('dock').querySelector('.face').contains($('padHost')); selectPage(pg0); $('win').style.width = widthWas;
-    line(!areaOver && !over.length && hiddenStill && tabs.length === 10 && heard && offShown === 'none' && onAgain && padHere && padBack && !!document.querySelector('.logo canvas.logo') && !!pr, 'Main (GUI-2, GUI-4): the stage fits its area and all ' + tabs.length + ' tabs fit' + (over.length ? ' (OVER: ' + over.join(', ') + ')' : '') + '; a hidden tab stays mounted; a second face on ' + ROW[k].label + ' writes the device; the Specimen\u2019s switch works; the pad is on Main\u2019s page and goes back to the dock on another; the logo is live.'); }
+    line(macrosOk && !areaOver && !over.length && hiddenStill && tabs.length === 10 && heard && offShown === 'none' && onAgain && padHere && padBack && !!document.querySelector('.logo canvas.logo') && !!pr, 'Main (GUI-2, GUI-4): the macro knobs are ' + facePlain[0] + ' px, ' + faceMap[0] + ' with MAP’s inspector open and ' + faceBoth[0] + ' with the sidebar too; the stage fits its area and all ' + tabs.length + ' tabs fit' + (over.length ? ' (OVER: ' + over.join(', ') + ')' : '') + '; a hidden tab stays mounted; a second face on ' + ROW[k].label + ' writes the device; the Specimen\u2019s switch works; the pad is on Main\u2019s page and goes back to the dock on another; the logo is live.'); }
   // 5. The info box shows the hovered control's text, and clears off a control (control).
   const kh = document.querySelector('#page-sub [data-key="' + CSS.escape(kc.key) + '"]');
   kh.dispatchEvent(new MouseEvent('pointerover', { bubbles: true })); const shown = $('infoText').textContent.startsWith(r.spec) && $('infoKey').textContent === r.key;
