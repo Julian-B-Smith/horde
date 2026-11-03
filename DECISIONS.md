@@ -11293,3 +11293,23 @@ Three points stayed open, because the shell already marks a knob selected the mo
 - **Arp's scale** resets all thirteen rows from its root or name. Its circles are toggles.
 
 **Consequences.** Self-check 4h walks every control on every page, with toggles and a stepper's arrow as its controls. The preset seam must give every double-click one place to read home from: knobs, sliders and steppers read their row's default themselves today, and so does this listener. **FX device (ADR-254):** the same, on its pages.
+
+## ADR-359 — RULED by the human: Sluice's budget is 12,288 bytes per corner; RS-6.6 accepts its wait as a narrow exception; a patch's ceiling stays open (B603, B612; 2026-11-03)
+
+**Context.** Sluice answered ADR-351 on 2026-11-02 (seq 75, then 76 and 77): the limit moves to creation, and a patch's largest possible pad must fit 12,288 bytes. All 45 factory pads and 2,000 random pads fit. Its answer also found that its restore order lost values during a crossfade, so it built `loadPad(blob, values)`, one call that stages both. A take can then wait for an earlier switch's crossfade to end, and needs a free retire slot, which needs the main thread to run `collect()`. The lead had wrongly listed Sluice as still owing numbers. The lead recommended; the human: “Yes, file both as recommended”.
+
+**Rulings (the human, 2026-11-03).**
+1. **Sluice's budget is 12,288 bytes per corner.** Refused at creation for what grows the structure; a knob move is never refused.
+2. **The ceiling for a whole patch stays open.** Four different Sluice pads plus Shriek's four corners already reach the 64 KiB cap, and the worst case is roughly 100 KiB with other modules on board. It's ruled when Mangle and Echo have reported, after a worst-case patch is saved in a host, since large state chunks can fail silently there. Identical corners are stored once (ADR-339), so real patches should sit far below it.
+3. **RS-6.6 takes a narrow exception.** While an earlier switch's crossfade runs, a module may take a staged load at the first block boundary after it ends, and for that time the rack may be half-loaded. Every other load lands on one boundary.
+
+**The lead's reading, open to overrule.**
+- The shell runs `collect()` on a main-thread timer, with a planted failure proving it does, and reads the module's latency when it has actually taken the load (B598).
+- A17 and A18 keep their precondition and prepare after every load; `device.os` gets B600's mark and the post look-ahead doesn't.
+- The other modules' figures (Shriek 4,071 B, Bulwark 2,612 B plus labels, Scape 1,100 B, Kiln's, Arp's) aren't ruled by this. They wait for B603 with Mangle and Echo.
+
+**Rejected.** The shell holding the whole rack until Sluice is free: it keeps the rule, but delays every module and adds a call, for a lag during a crossfade that isn't expected to be audible. The lead hasn't heard this case.
+
+**FX device (ADR-254).** All three apply: it hosts the same rack and modules.
+
+**Consequences.** Sluice builds Q-080 on seq 78. B612 carries the shell's part. Bulwark's, Shriek's and Scape's replies on state budgets, and Shriek's on latency at load, are committed with this record.
