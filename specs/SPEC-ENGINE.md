@@ -866,6 +866,7 @@ Each is measured by the invariant suite (10.1) on the bank and on generated patc
 | PF-7 | **Memory.** Everything is allocated at prepare (RT-1). The worst-case memory per instance, at 64 voices of 16 members **and every structural group at four settings and up to eight during SB-8 (RT-1)**, is stated in the manifest and reported. |
 | PF-8 | **Latency.** Zero at both qualities: no stage looks ahead, the decimation at High quality included. |
 | PF-9 | **Many voices, reported.** The heaviest bank patch is also measured at 16 and at 64 sounding voices and reported, so the cost of a full pool is known; neither is a target. |
+| PF-10 | **The ambitious patch, reported** (round 53, ADR-355). What an experimenter's heaviest use costs, and its worst moment, so that they are known. It is not a target and never a gate. Two swarm oscillators and the sub on, as PF-2 sets them, without its per-voice modulation. **Notes:** PF-3's held chord, and a **note stream**: a note-on every 80 ms (about sixteenths at 187 BPM), keys 48 + 3·(i mod 8) for the i-th note, velocity 0.85, each released 60 ms later, running through the untimed span and the timed one, so tails overlap and voices are stolen by the voice law. **Voices:** a limit of 8, and of 16. **Morph:** none, with the heaviest bank patch on both oscillators; and, once the morph is built, Blend at the pad's centre at counts Two and Four (MO-17), with the bank's four heaviest presets by PF-4 as corners, on both oscillators. **Read:** PF-3's protocol and load guard, giving the average as PF-3 does, and beside it the **worst block**: the longest single 128-sample block of the timed span, as a share of that block's duration, taking the smallest of the 5 repeats' values so that one disturbance doesn't count. FX, the modulation system and Arp's own work are outside this reading; each has its own slice. |
 
 ---
 
@@ -1138,10 +1139,9 @@ Ratified by the human before the bank stage began (ADR-284, B522), so the bar is
   - **The batch.** The human hears a capped batch of about 20 pairs: each one a bank preset rendered by the new engine and by the current one, on a phrase of the phrase set (10.3), level-matched, labelled. The pairs are ranked by a differential report of the two engines over the whole bank (B523; reported, never a gate), so the most different come first.
   - **The rule.** Any pair the human marks wrong blocks the cutover until the engine is fixed or the human rules the difference acceptable for that preset, recorded per preset.
   - **The record.** Each verdict, with the pair it was given on, is kept.
-- **4. The CPU.** The heaviest bank patch at 8 voices, measured under the frozen protocol (PF-3) on a quiet machine, against B488's target of about 15 % of an M3 performance core at os 1:
-  - at or under 15 %: **pass**;
-  - over 15 % and at or under 29 % (no worse than the engine it replaces): **accepted for cutover, with a recorded CPU follow-up**;
-  - over 29 %: **fails the cutover**.
+- **4. The CPU.** The heaviest bank patch at 8 voices, measured under the frozen protocol (PF-3) on a quiet machine, against PF-1's target of about 10.7 % of an M3 performance core for its one swarm oscillator (round 52, ADR-354):
+  - at or under 10.7 %: **pass**;
+  - over 10.7 %: **does not pass**. The figure and what would close it go to the human, and the cutover waits on the human's ruling.
 - **5. The size.** Reported at cutover, never a gate. The engine stood at about 10,050 lines (9,056 of code) before the bank stage, against about 14,370 retired from the current engine. The expectation is that it stays under the retired count. BD-6's estimate of 2,100 to 3,000 lines was wrong for this scope and is corrected, not hidden.
 - **6. The ruling.** When 1 to 4 hold, the human rules the cutover. The current engine is retired only on that word.
 
