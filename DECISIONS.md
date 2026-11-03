@@ -11167,3 +11167,5 @@ Three points stayed open, because the shell already marks a knob selected the mo
 **Consequences.**
 - B609 carries the work. No clean-room repository changes until round 54 has its text; the builder's next order waits for it.
 - All figures are scratch timings, never PF-3. They and the listening pages' method are in the ledger.
+
+**Amendment A1 (the human, 2026-11-03, after the combined clip).** “There is a slight difference between today and 8x2 + 2x2 at the very top of the rising runs (more prominent in the one member), but it's probably necessary to just accept that for the sake of bringing down CPU.” The combined clip is heard, and the difference is accepted. **The lead's reading, open to overrule:** 2 points is Standard's soft-edge law unless the moments test keeps more of today's sound at the same cost, in which case it comes back to the human. New floors are still the human's to rule when round 54 brings them. This clip's listen covers 8 taps and 2 samples alike, each with 2 points; 8 taps was ruled before it, and nothing here reopens that.
