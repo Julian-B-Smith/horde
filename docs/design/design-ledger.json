@@ -10,6 +10,10 @@
  },
  "master_versions": [
   {
+   "version": "1793674732-d181",
+   "evidence": "docs/design/gui3.html self-check 30b: the bank's MAC | MODS switch stacked to fit its 44 px column, and its count wraps (the human's picture, 2026-11-02: the switch was 59 px and spilled over the first mod row; '10 macros' was 52 px). No ruling moves."
+  },
+  {
    "version": "1793658873-4f0e",
    "evidence": "docs/design-system/master/VERSION: published 2026-11-02 from the gui-main-build branch before merge. GUI-2, GUI-4: Deck, AssignXY, MainStage (the bench's logo and Specimen, verbatim, ADR-333), Viz.response, SecondKnob and LooseKnob."
   },

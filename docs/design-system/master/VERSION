@@ -4,7 +4,7 @@
 # (python3 tools/design_vendor.py record-master --version <id> --date <d>) and re-vendor.
 # tools/design_chain_check.py holds the tree to these hashes: every file listed, none extra.
 artifact: https://claude.ai/artifact/EGDwetDHwcvxhTbNffCzJc
-version: 1793658873-4f0e
+version: 1793674732-d181
 date: 2026-11-02
 files: 173
 2d1d6729c67df841af80b837e6686abd72a8a5f1e8ff7ae16e34ca5e62699910  README.md
@@ -91,7 +91,7 @@ a666f55d096ce1892e1e71490c166309feeeeec7c192f93b66f3b6bfe8fcc65c  components/Map
 7b29743ecbfe726c5c8af1a0dd468e1fa9498b301e6c01a2d783c55671d403e9  components/Meter/preview.html
 02d49b925006bb52ea807a815ab4d3a6fcfb1c1fffdb7ca799d9965c6be75602  components/MidiTrackers/README.md
 98f721c27ff7811b52c47b58b430a684ccd318074457435cd3fd3701e961b5b0  components/MidiTrackers/preview.html
-edfa96078fb52fb7d4e47ce3a532b228f7da85b47eb7a52f296695b10427b052  components/ModBank/README.md
+db497ce473220bd38f7840750876f4329b5f2bd4369316280146ad2b56ec5c9c  components/ModBank/README.md
 2375bead7407178bc9768ce8e5c1921a0fe5b8340ccefcf44a5a916a4e6f52f8  components/ModBank/preview.html
 95f50602f10a5125e4fcc8ba0e56793812f9208c4f4009d469cd03c53564b797  components/ModCardHeader/README.md
 6eacf212583f5f9e1d2ca68c69a26ce1ca442b2adf106db6a5ccadad7f0b25df  components/ModCardHeader/preview.html
@@ -173,7 +173,7 @@ a18ecfe745ed481016abed2f88491fa90ad8567b0a32d9df1747ad51dd94b65d  components/Tem
 93b6160e48bb65fe3670ff80bd921d16d727ca7086cd813ba413c3f633ce9770  components/Waveform/preview.html
 706ba6c02712c8df590f7282f772c49d01bd0a957e6c25748cb43ab0eaa1e0f7  components/XYPad/README.md
 d701129232df94a3ea81b2499559b1f13bd8cf22f065b70b2c7f0d666e2ce3d8  components/XYPad/preview.html
-96db6992016a6238733ddf2efd9dd52cb54726baa9040b524f4b52b3a6f4dd65  components/bundle.css
+c672aa0c056da73ad54e965be0b7573aad03897965b67b4f107648bdb9f97436  components/bundle.css
 a47f90552e9383507e07a77e396aff1dcd7c33d723bf6f4f471e65001626dc90  components/bundle.js
 9dfe99d150575936e211acdf0c0c9ce058c95265e1672ed8b70d3b121bffd456  components/index.d.ts
 6c3f598e97da2ab5ed7ce3e02d35e32afb208bd1c7ddcb32335f97ee701c2901  contrast-audit.md

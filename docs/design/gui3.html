@@ -1905,6 +1905,16 @@ S.start();
     S.message = ''; macroNote(); const says = /not in the engine yet/.test(S.message);
     bend.set(.5); wheel.set(0); $('bankHost').querySelector('.hd-bseg [data-set="mods"]').click(); tick(); S.message = '';
     line(ruled && away && sprang && held && says, 'MAC (GUI-8 r5): ten controls in the ruled order, eight knobs and two wheels, the bend springing and the mod wheel holding; the bend at 0.9 sprang back to the centre in 8 frames and the mod wheel stayed at 0.9; a macro’s drag says it is not in the engine yet (control: both sat at 0.9 before the frames).'); }
+  // 30b. The bank's side column holds its own (the human's picture, 2026-11-02: MAC | MODS was 59 px in a 44 px column, over the first mod row).
+  // An element wider than its box doesn't clip here, so edges alone read clean: measure each part against the column and the lanes, on both sets.
+  // Control: the switch at its old 59 px must report a spill, or the measure is blind. (Squeezing the column can't: the parts shrink and wrap with it.)
+  { const R = e => e.getBoundingClientRect(), side = $('bankHost').querySelector('.bk-side'), lanes = $('bankHost').querySelector('.bk-lanes'), tick = () => { for (const v of S.views) v.render(); }, widthWas = $('win').style.width;
+    $('win').style.width = '980px';
+    const spills = () => { const c = R(side), l = R(lanes); return [...side.children].filter(e => !e.hidden && R(e).width).filter(e => R(e).right > c.right + .5 || R(e).right > l.left - 1 || R(e).bottom > c.bottom + .5).map(e => e.className.split(' ')[0] + ' ' + e.textContent.slice(0, 9)); };
+    const hit = {}; ['macros', 'mods'].forEach(k => { $('bankHost').querySelector('.hd-bseg [data-set="' + k + '"]').click(); tick(); hit[k] = spills(); });
+    const seg = side.querySelector('.hd-bseg'); seg.style.width = '59px'; const ctl = spills(); seg.style.width = '';
+    $('win').style.width = widthWas; S.message = '';
+    line(!hit.macros.length && !hit.mods.length && ctl.length > 0, 'Bank side column: the switch, the count and + stay in the column and clear of the rows on both sets' + (hit.macros.length || hit.mods.length ? ' (HITS ' + hit.macros.concat(hit.mods).join(', ') + ')' : '') + '; control: the switch at its old 59 px reports ' + ctl.join() + '.'); }
   // 31. The Mod page (ADR-338 r8, ADR-340 r10): list + detail, every source a row and the selected one's full tier beside it (ENV 3’s own
   // rows are in it); the Routes view's three forms (grid, by source, wires) are views of the same device routes, a route made through
   // the device shows in the by-source group, and the wires' depth-route drop is REFUSED (the engine has none, B70) and makes no
