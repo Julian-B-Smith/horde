@@ -8,6 +8,8 @@
 
 **What the lab found.** The meter runs −66 to +6 dBFS, a source's fader −60 to +6 dB and Out's −60 to +26 dB. Side by side that doesn't show. With the fader on the meter it would lie, so M1 to M4 draw each meter on its own fader's scale. The self-check measures the bar's top against the cap on every strip, and today's Out strip, 25.3 px out, is its control.
 
+**What the sizes show.** The merge alone saves no room in a vertical strip: M0 to M3 all measure 574 × 285 px at 104 px a strip and 414 × 285 px at 72, because the name, the peak and lamp, and M and S set a strip's width. M4 is the only form that changes the console's shape, at 505 × 201 px.
+
 **Not checked.** A plugin host, the light scheme, a real signal (the levels are mock), and M4's rotated slider as a design: the master's Slider has a real horizontal form, which a build would use.
 
 **Verify.** See the PR.
