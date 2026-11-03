@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1793728588-6ff9, 2026-11-03; do not edit, re-vendor */
+/* vendored from the horde Design System artifact, version 1793730698-1175, 2026-11-03; do not edit, re-vendor */
 @import url("https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;800&family=Roboto+Mono:wght@400;500;600&display=swap");
 /* horde house components. Every colour is a token (tokens.json); nothing here is a hex.
    Sources: UI Spec §3-4 (values), gui2.html §4 skins, the SCALPEL lab (980×720 chassis),
@@ -1498,3 +1498,15 @@ canvas.hd-ring { outline:none; }
 .hd-mapgrid { display:grid; grid-template-columns:1fr 1fr; gap:3px; } .hd-mapgrid .hd-btn { min-width:0; padding:0 4px; }
 .hd-mclearn [data-key]:hover { outline:2px solid var(--ink); outline-offset:1px; border-radius:4px; }
 .hd-mclearn { cursor:crosshair; }
+/* THE HISTORY RAIL (GUI-10): the row pitch and the graph's share one 26 px, or the dots drift off their rows */
+.hd-hrail { display:grid; grid-template-columns:auto minmax(0, 1fr); column-gap:6px; align-items:start; }
+.hd-hrail .hr-graph { display:block; }
+.hd-hrail .hr-spine { fill:none; stroke:var(--ink); stroke-width:2.2; } .hd-hrail .hr-lane { fill:none; stroke:var(--t2); stroke-width:1.2; }
+.hd-hrail circle { stroke:var(--ink); stroke-width:1.4; } .hd-hrail .hr-cur { fill:var(--value); } .hd-hrail .hr-fork { fill:var(--marker); } .hd-hrail .hr-on { fill:var(--ink); } .hd-hrail .hr-off { fill:var(--panel); }
+.hd-hrail .hr-rows { display:flex; flex-direction:column; min-width:0; }
+.hd-hrail .hr-row { height:26px; display:flex; align-items:center; min-width:0; }
+.hd-hrail .hr-node { display:inline-flex; align-items:center; gap:6px; height:22px; max-width:100%; box-sizing:border-box; padding:0 8px; border:var(--stroke-ink) solid var(--div); border-radius:4px; background:var(--well); color:var(--t2); font:400 10.5px/1 var(--font-sans); white-space:nowrap; cursor:pointer; }
+.hd-hrail .hr-node:hover { border-color:var(--ink); }
+.hd-hrail .hr-node.on { background:var(--ink); border-color:var(--ink); color:var(--bg); font-weight:700; }
+.hd-hrail .hr-node.ahead { background:var(--panel); color:var(--hint); }
+.hd-hrail .hr-l { overflow:hidden; text-overflow:ellipsis; } .hd-hrail .hr-t { flex:none; font:400 9px/1 var(--font-mono); opacity:.7; }

@@ -10,6 +10,10 @@
  },
  "master_versions": [
   {
+   "version": "1793730698-1175",
+   "evidence": "docs/design/gui3.html self-check 4f and gui3_seam_check's historytree: GUI-10. HistoryRail is new."
+  },
+  {
    "version": "1793728588-6ff9",
    "evidence": "docs/design/gui3.html self-check 4e and gui3_seam_check's xyaxes: GUI-9. MacroCard, MacroOpener and ParamPicker are new; AssignXY has axis chips and a rest mark; a source can name its default polarity; ModPage's kinds can drop their +."
   },
@@ -5579,6 +5583,36 @@
    "shell": "docs/design/gui3.html: onOpenCard: (m, row) =>",
    "state": "in-shell",
    "superseded_by": null
+  },
+  {
+   "id": "gui10-arp-button",
+   "adr": "GUI-10",
+   "clause": "ruling 1 (Arp has its own top-level button and leaves Mod)",
+   "port_tab": "arp-page",
+   "note": "Nav in layout.json, drawn by the master's PageNav. Its page is still to be workshopped (GB2).",
+   "component": "PageNav",
+   "bundle": "PageNav",
+   "shell": "docs/design/gui3.html: H.PageNav(",
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "in-shell",
+   "master_version": "1793730698-1175"
+  },
+  {
+   "id": "gui10-history-page",
+   "adr": "GUI-10",
+   "clause": "ruling 2 (the History page is GUI 2's rail: tree, fork, coalesce, restore branches)",
+   "port_tab": "history",
+   "note": "The tree is in device.js, 200 states for the session (ADR-160). The engine's history isn't wired.",
+   "component": "HistoryRail",
+   "bundle": "HistoryRail",
+   "shell": "docs/design/gui3.html: historyRail = H.HistoryRail(host,",
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "in-shell",
+   "master_version": "1793730698-1175"
   }
  ],
  "not_design": [

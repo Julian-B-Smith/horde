@@ -79,6 +79,7 @@
  *   dock         ADR-315 r1, GUI-5, structural: the human, "I want to make sure the morph XY on every page when morph is active doesn't get reversed". The dock is decided by
  *                morph and the Pad switch alone, never by the page, and the shell's browser check that walks every page is still there. GUI-4's Main will hide it on Main, in this one test.
  *   mainstage    GUI-2, GUI-4, structural: Main is the master's Deck, AssignXY and MainStage, and its deck comes from the layout, so the shell names no key.
+ *   historytree  GUI-10, ADR-160: an edit after undo branches, restore is byte-identical and keeps the other branch, redo leads back the way you came, the cap holds and eviction spares the path to where you stand.
  *   xyaxes       GUI-9, structural: the macros and the axes are ten sources, the axes bipolar, and the shell maps them through the master's card, opener and picker.
  *   banklist     GUI-7, structural: the bank's MODS rows are every routed modulator on any page, ENV 1 always, and the pending ones, never filtered by the page.
  *   infolock     ADR-345, structural: the foot row is F1's, the box is the bundle's InfoBox, a press is heard in capture and locks on a control and
@@ -740,6 +741,32 @@ function suite(W) {
     for (const part of ['H.Deck(deckHost,', "H.AssignXY($('mainXY'), S,", 'H.MainStage', 'stage.logoCanvas()']) ok(t.includes(part), 'Main no longer uses the master\u2019s ' + part);
   };
 
+  /* GUI-10, ADR-160: going back and editing branches, and nothing you pass through is lost */
+  T.historytree = () => {
+    const { d } = fresh(), s0 = JSON.stringify(d.patch().shell);
+    d.set(cont.key, .2); const s1 = JSON.stringify(d.patch().shell), a = d.tree().cur; d.set(cont.key, .3); const s2 = JSON.stringify(d.patch().shell), b = d.tree().cur;
+    ok(d.undo() && d.tree().cur === a, 'undo did not go to the parent');
+    d.set(cont.key, .4); const s3 = JSON.stringify(d.patch().shell), c = d.tree().cur, kids = d.tree().nodes.filter(n => n.parent === a).map(n => n.i).sort().join();
+    ok(kids === [b, c].sort().join(), 'an edit after undo did not branch: ' + kids);
+    ok(d.history().future.length === 0, 'a new branch has something to redo');
+    ok(d.restore(b) && JSON.stringify(d.patch().shell) === s2 && d.tree().cur === b, 'restoring the left branch did not bring its state back, byte for byte');
+    ok(d.tree().nodes.some(n => n.i === c), 'restoring lost the other branch');
+    ok(d.restore(a) && d.redo() && d.tree().cur === b, 'redo did not lead back the way you came');
+    ok(d.restore(c) && JSON.stringify(d.patch().shell) === s3, 'restoring the other branch did not bring its state back');
+    ok(d.restore(a) && d.redo() && d.tree().cur === c, 'after going to the other branch, redo did not lead back to it');
+    ok(d.undo() && d.undo() && JSON.stringify(d.patch().shell) === s0 && !d.undo(), 'undo did not end at the start, as it was');
+    ok(d.tree().nodes.length === 4 && s1 !== s0, 'the tree lost a node, or the probe moved nothing');
+    d.restore(a); d.clearRedo(); ok(d.tree().nodes.length === 2 && d.history().future.length === 0, 'clearRedo left a branch behind');
+    // eviction takes the abandoned run first: at the moment the cap is passed the start is still there and the off-path node is gone
+    { const { d: q } = fresh(); q.set(cont.key, .2); const off = q.tree().cur; q.undo(); for (let i = 0; q.tree().nodes.length < q.tree().cap; i++) q.set(cont.key, (i % 97) / 100 + .01);
+      ok(q.tree().nodes.some(n => n.i === off), 'the off-path node went before the cap'); q.set(cont.key, .999);
+      ok(!q.tree().nodes.some(n => n.i === off) && q.tree().nodes.some(n => n.label === 'Start'), 'eviction took the path to where you stand before an abandoned run'); }
+    d.restore(a); for (let i = 0; i < 260; i++) d.set(cont.key, (i % 97) / 100 + .01);
+    const t = d.tree(); ok(t.nodes.length === t.cap, 'the tree is not capped at ' + t.cap + ': ' + t.nodes.length);
+    ok(t.nodes.some(n => n.i === t.cur), 'eviction took the current state');
+    let undos = 0; while (d.undo()) undos++; ok(undos > 150, 'the path to where you stand did not survive eviction: ' + undos);
+  };
+
   /* GUI-9: the human, "it should function like two extra macro knobs" */
   T.xyaxes = () => {
     const t = W.__shellText, D = W.GUI3Device;
@@ -961,7 +988,7 @@ for (const [n, m] of Object.entries(real.failed)) bad.push(`${n}: ${m}`);
 // ---- the plants: each mutates one script and must turn exactly its own test red ----
 const PLANTS = [
   ['observe', 'stub', 'E.observe = function () {', 'E.observe = function () { refused++;'],
-  ['history', 'device', 'apply(e.before); return true;', 'apply(e.after); return true;'],
+  ['history', 'device', 'var b = cur.before; cur = p;', 'var b = cur.after; cur = p;'],
   ['determinism', 'device', "mulberry32(hash32(r.key) ^ (s * 2654435761 >>> 0))", "mulberry32(hash32(r.key) ^ (s * 2654435761 >>> 0) ^ (root.__n = (root.__n | 0) + 1))"],
   // The whole destination test goes: the engine's pv test alone already refuses a stepped engine row, so removing only
   // the step test would leave this plant blind.
@@ -1038,6 +1065,9 @@ const PLANTS = [
   ['banklist', 'shell', "s.id === 'env1' || pend.includes(s.id)", "pend.includes(s.id)"],
   ['xyaxes', 'shell', "onAxis: id => mapCard.open(id, $('mainXY'), $('mainXY'), true)", 'onAxis: () => {}'],
   ['xyaxes', 'shell', "H.ParamPicker(S,", "H.ParamList(S,"],
+  ['historytree', 'device', 'var n = { i: nextNode++, parent: cur.i,', 'var n = { i: nextNode++, parent: -1,'],
+  ['historytree', 'device', 'var gone = nodes.filter(function (q) { return !on[q.i]; })[0] || nodes[0];', 'var gone = nodes[0];'],
+  ['historytree', 'device', 'pathOf(cur).reduce(function (a, b) { if (a) a.last = b.i; return b; }, null);', ''],
   ['banklist', 'shell', 'routes.some(r => r.src === s.id)).map(s => MODS[s.id]);', 'routes.some(r => r.src === s.id && pageKeys(page).has(r.param))).map(s => MODS[s.id]);'],
   ['dock', 'shell', "const on = dev.morph().on, show = on && padShown && page !== 'main';", "const on = dev.morph().on, show = on && padShown && page === 'main';"],
   ['dock', 'shell', "$('dock').hidden = !show;", "$('dock').hidden = true;"],

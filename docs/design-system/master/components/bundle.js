@@ -1,4 +1,4 @@
-/* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"SteppedControl"},{"name":"Stepper"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"},{"name":"Companion"},{"name":"SourceChip"},{"name":"SourceRows"},{"name":"RoutesBySource"},{"name":"Cluster"},{"name":"Lens"},{"name":"Fold"},{"name":"PageView"},{"name":"ModTiers"},{"name":"MacroRow"},{"name":"ModBank"},{"name":"ModPage"},{"name":"UndoLine"},{"name":"MacroFace"},{"name":"PresetBar"},{"name":"Deck"},{"name":"MacroCard"},{"name":"ParamPicker"},{"name":"AssignXY"},{"name":"Specimen"}]} */
+/* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"SteppedControl"},{"name":"Stepper"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"},{"name":"Companion"},{"name":"SourceChip"},{"name":"SourceRows"},{"name":"RoutesBySource"},{"name":"Cluster"},{"name":"Lens"},{"name":"Fold"},{"name":"PageView"},{"name":"ModTiers"},{"name":"MacroRow"},{"name":"ModBank"},{"name":"ModPage"},{"name":"UndoLine"},{"name":"MacroFace"},{"name":"PresetBar"},{"name":"Deck"},{"name":"MacroCard"},{"name":"ParamPicker"},{"name":"HistoryRail"},{"name":"AssignXY"},{"name":"Specimen"}]} */
 /* horde house reference behaviours (vanilla JS, no React, no network).
    The morph knob and slider follow the human's HORDE Morph Knob Spec and HORDE Map Mode Spec
    (2026-10-21, 2026-10-16); colours, type and themes follow ADR-259. Everything a plugin would get
@@ -7175,6 +7175,68 @@
     if (o.anchor) { var a = o.anchor.getBoundingClientRect(), m = root.getBoundingClientRect(); root.style.left = Math.max(8, Math.min(a.left, window.innerWidth - m.width - 8)) + 'px'; root.style.top = Math.max(8, Math.min(a.top, window.innerHeight - m.height - 8)) + 'px'; }
     S.escapeLayers.unshift(layer); document.addEventListener('pointerdown', out, true); q.focus();
     return { el: root, close: close, closed: function () { return gone; } };
+  };
+
+  /* ---------- THE HISTORY RAIL (GUI-10; ADR-160, B119, the human 2026-09-14: "the most clear and easiest to navigate"): one row per state, newest first, with a lane graph on the left the way a commit log draws
+     branches. The path to the current state is lane 0, bold; every other branch takes the next free lane; a fork is marked; rows ahead of where you stand are the redo side, dimmed. A straight run of one label folds into
+     one row with a count, never across the current state, which must stay clickable on its own. Ported from GUI 2's renderHistory. A forest (after eviction) just shows more than one root. Callbacks only. ---------- */
+  H.HistoryRail = function (el, o) {
+    o = o || {};
+    var coalesce = o.coalesce !== false, sig = '', ROW_H = 26, LANE_W = 16, NS = 'http://www.w3.org/2000/svg', rows_ = [];
+    el.classList.add('hd-hrail'); el.innerHTML = '';
+    function paint(force) {
+      var t = o.tree(), nodes = t.nodes.slice().sort(function (a, b) { return a.tick - b.tick; });
+      var s = t.cur + '|' + coalesce + '|' + nodes.map(function (n) { return n.i + ':' + n.parent + ':' + n.tick; }).join();
+      if (!force && s === sig) return; sig = s;
+      var by = {}, kids = {}; nodes.forEach(function (n) { by[n.i] = n; });
+      nodes.forEach(function (n) { var k = n.parent >= 0 && by[n.parent] ? n.parent : -1; (kids[k] = kids[k] || []).push(n); });
+      var onPath = {}; for (var c = by[t.cur], g = 0; c && g < 512; c = by[c.parent], g++) onPath[c.i] = true;
+      var skip = {}, rows = [];
+      nodes.forEach(function (n) {
+        if (skip[n.i]) return;
+        var run = 1, last = n;
+        if (coalesce) for (;;) { var ch = kids[last.i] || []; if (ch.length !== 1 || ch[0].label !== n.label || last.i === t.cur || ch[0].i === t.cur) break; last = ch[0]; run++; skip[last.i] = true; }
+        rows.push({ n: n, run: run, last: last });
+      });
+      rows.sort(function (a, b) { return b.n.tick - a.n.tick; });
+      var rowOf = {}; rows.forEach(function (r, k) { rowOf[r.n.i] = k; });
+      var headOf = function (id) { var n = by[id]; while (n && rowOf[n.i] === undefined) n = by[n.parent]; return n; };
+      // the spine is lane 0; the first off-spine child carries its parent's lane on when the parent is off-spine too; every other branch takes a fresh one
+      var lane = {}, free = 1, laneOf = function (n) {
+        if (lane[n.i] !== undefined) return lane[n.i];
+        var v, p = by[n.parent];
+        if (onPath[n.i]) v = 0;
+        else if (!p) v = free++;
+        else { var pl = laneOf(p), first = (kids[p.i] || []).filter(function (x) { return !onPath[x.i]; })[0]; v = first && first.i === n.i && !onPath[p.i] ? pl : free++; }
+        lane[n.i] = v; return v;
+      };
+      nodes.forEach(laneOf);
+      var svg = document.createElementNS(NS, 'svg'), W = (free + 1) * LANE_W, Ht = Math.max(ROW_H, rows.length * ROW_H), cx = function (n) { return LANE_W / 2 + laneOf(n) * LANE_W; }, cy = function (n) { return rowOf[n.i] * ROW_H + ROW_H / 2; };
+      svg.setAttribute('width', W); svg.setAttribute('height', Ht); svg.setAttribute('class', 'hr-graph'); svg.setAttribute('aria-hidden', 'true');
+      rows.forEach(function (r) {
+        var p = headOf(r.n.parent); if (!p) return;
+        var x1 = cx(r.n), y1 = cy(r.n), x2 = cx(p), y2 = cy(p), e = document.createElementNS(NS, 'path');
+        e.setAttribute('d', x1 === x2 ? 'M' + x1 + ',' + y1 + ' L' + x2 + ',' + y2 : 'M' + x1 + ',' + y1 + ' L' + x1 + ',' + (y2 - ROW_H * .6) + ' Q' + x1 + ',' + y2 + ' ' + (x1 + (x2 > x1 ? 7 : -7)) + ',' + y2 + ' L' + x2 + ',' + y2);
+        e.setAttribute('class', onPath[r.n.i] && onPath[p.i] ? 'hr-spine' : 'hr-lane'); svg.appendChild(e);
+      });
+      rows.forEach(function (r) {
+        var isCur = r.n.i === t.cur || r.last.i === t.cur, forks = (kids[r.last.i] || []).length > 1, d = document.createElementNS(NS, 'circle');
+        d.setAttribute('cx', cx(r.n)); d.setAttribute('cy', cy(r.n)); d.setAttribute('r', isCur ? 5.5 : 3.5);
+        d.setAttribute('class', isCur ? 'hr-cur' : forks ? 'hr-fork' : onPath[r.n.i] ? 'hr-on' : 'hr-off'); svg.appendChild(d);
+      });
+      var list = tag('div', 'hr-rows'), curTick = by[t.cur] ? by[t.cur].tick : -1;
+      rows_ = rows.map(function (r) {
+        var isCur = r.n.i === t.cur || r.last.i === t.cur, ahead = !onPath[r.n.i] && r.n.tick > curTick, b = tag('button', 'hd-focus hr-node' + (isCur ? ' on' : '') + (ahead ? ' ahead' : ''));
+        b.type = 'button'; b.dataset.node = r.run > 1 ? r.last.i : r.n.i; if (isCur) b.setAttribute('aria-current', 'true');
+        b.appendChild(tag('span', 'hr-l', (r.n.label || '(state)') + (r.run > 1 ? ' ×' + r.run : ''))); b.appendChild(tag('span', 'hr-t', '#' + r.n.tick + (r.run > 1 ? '–' + r.last.tick : '')));
+        b.title = isCur ? 'The current state' : ahead ? 'Redo to this state' : 'Restore this state. The next edit branches from it.'; b.tabIndex = keysOn(o) ? 0 : -1;
+        b.addEventListener('click', function () { fire(o.onRestore, r.run > 1 ? r.last.i : r.n.i); });
+        var row = tag('div', 'hr-row'); row.appendChild(b); list.appendChild(row); return b;
+      });
+      el.replaceChildren(svg, list);
+    }
+    paint(true);
+    return { refresh: paint, setCoalesce: function (b) { coalesce = !!b; paint(true); }, coalesce: function () { return coalesce; }, rows: function () { return rows_; } };
   };
 
   /* ---------- THE BANK, M2 (ADR-338 r7) with BT1 (ADR-340 r11): 68 px tall, TWO lanes of 26 px thin rows that scroll sideways, so pages keep

@@ -362,8 +362,8 @@ window.GUI3_DATA = {
     "source": [
      "src/gui/gui2.html"
     ],
-    "status": "not-moved",
-    "why": "The shell keeps a flat undo stack in the adapter; the page bar omits Hist because no page exists."
+    "status": "moved",
+    "why": "In the shell since GUI-10: the master's HistoryRail over a tree in the adapter, with GUI 2's rail, fork, coalescing and restore."
    },
    {
     "area": "Morph",
@@ -432,7 +432,7 @@ window.GUI3_DATA = {
      "docs/design/gui3.html"
     ],
     "status": "partial",
-    "why": "The ruled page set has no Arp page; it sits under Mod as a draft until the human rules."
+    "why": "Arp has its own button since GUI-10. Its page is still the draft: the human wants to work on it (GB2)."
    },
    {
     "area": "Engine",
@@ -535,7 +535,13 @@ window.GUI3_DATA = {
    "id": "mod",
    "label": "Mod",
    "pages": [
-    "mod",
+    "mod"
+   ]
+  },
+  {
+   "id": "arp",
+   "label": "Arp",
+   "pages": [
     "arp"
    ]
   },
@@ -551,6 +557,13 @@ window.GUI3_DATA = {
    "label": "Mix",
    "pages": [
     "mix"
+   ]
+  },
+  {
+   "id": "history",
+   "label": "History",
+   "pages": [
+    "history"
    ]
   },
   {
@@ -13092,6 +13105,20 @@ window.GUI3_DATA = {
    "panel": null,
    "power": null,
    "status": "draft",
+   "viz": null
+  },
+  {
+   "cite": "GUI-10, ADR-160, B119",
+   "deck": null,
+   "dense": false,
+   "grid": false,
+   "groups": [],
+   "id": "history",
+   "label": "History",
+   "note": "Every gesture is one state, and going back to one never loses the others: the next edit branches from it. The path to where you stand is bold and a fork is marked. Rows ahead of you are the redo side, dimmed. Morph pad moves aren't in it, and the last 200 states are kept for this session.",
+   "panel": "history",
+   "power": null,
+   "status": "designed",
    "viz": null
   },
   {
