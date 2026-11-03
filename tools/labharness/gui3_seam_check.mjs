@@ -79,6 +79,7 @@
  *   dock         ADR-315 r1, GUI-5, structural: the human, "I want to make sure the morph XY on every page when morph is active doesn't get reversed". The dock is decided by
  *                morph and the Pad switch alone, never by the page, and the shell's browser check that walks every page is still there. GUI-4's Main will hide it on Main, in this one test.
  *   mainstage    GUI-2, GUI-4, structural: Main is the master's Deck, AssignXY and MainStage, and its deck comes from the layout, so the shell names no key.
+ *   arpface      GUI-11, ADR-291 r4: every order in Arp's manifest has a definition that draws notes, the pattern list and names agree, and the roll follows order, gate and repeats.
  *   historytree  GUI-10, ADR-160: an edit after undo branches, restore is byte-identical and keeps the other branch, redo leads back the way you came, the cap holds and eviction spares the path to where you stand.
  *   xyaxes       GUI-9, structural: the macros and the axes are ten sources, the axes bipolar, and the shell maps them through the master's card, opener and picker.
  *   banklist     GUI-7, structural: the bank's MODS rows are every routed modulator on any page, ENV 1 always, and the pending ones, never filtered by the page.
@@ -741,6 +742,20 @@ function suite(W) {
     for (const part of ['H.Deck(deckHost,', "H.AssignXY($('mainXY'), S,", 'H.MainStage', 'stage.logoCanvas()']) ok(t.includes(part), 'Main no longer uses the master\u2019s ' + part);
   };
 
+  /* GUI-11, ADR-291 r4: Arp's pictures come from Arp's definitions, so a new order in the manifest with no definition must not draw blank */
+  T.arpface = () => {
+    const t = W.__shellText, Z = W.Horde.ArpViz, A = W.GUI3_DATA.arp;
+    ok(t.includes('else if (pg.form) arpPage(pg, el);') && t.includes('H.PicturePicker(host, S,') && t.includes('Z.rollSVG(Z.rollModel(i), i)'), 'Arp\u2019s page no longer uses the master\u2019s picker and roll');
+    for (const id of A.values['arp.order']) { ok(!!Z.ORDERS[id], 'order ' + id + ' has no definition'); ok(/<circle/.test(Z.orderSVG(id, 1)), 'order ' + id + ' draws no notes'); }
+    ok(A.patternIds.length === A.patternNames.length && A.patternIds.includes('user'), 'the pattern list and its names disagree');
+    const i = { order: 'up', steps: Z.stepsOf(A.bank, 'none'), patSize: 0, patUnit: 'semitones', passes: 0, size: 12, unit: 'semitones', repeats: 0, L: .25, W: 8, swing: 500, gate: 80, seed: 1, fixed: null, E: Z.SAMPLE_E, Pp: Z.SAMPLE_PP, bpm: 120 };
+    const m = Z.rollModel(i); ok(m.notes.length === 32, 'sixteenth notes over two bars are not 32 notes: ' + m.notes.length);
+    ok(m.notes.slice(0, 4).map(n => n.pitch).join() === Z.SAMPLE_E.join(), 'Up does not play the sample chord in order');
+    const d = Z.rollModel(Object.assign({}, i, { order: 'down' })); ok(d.notes[0].pitch === 71, 'Down does not start at the top');
+    ok(Z.rollModel(Object.assign({}, i, { gate: 40 })).notes[0].len < m.notes[0].len, 'the gate does not shorten the notes');
+    ok(Z.rollModel(Object.assign({}, i, { repeats: 1 })).stoppedAt !== null, 'repeats do not stop the roll');
+  };
+
   /* GUI-10, ADR-160: going back and editing branches, and nothing you pass through is lost */
   T.historytree = () => {
     const { d } = fresh(), s0 = JSON.stringify(d.patch().shell);
@@ -930,7 +945,9 @@ function suite(W) {
 
   T.abbr = () => {
     const grid = DATA.pages.filter(p => p.grid), shorts = [];
-    ok(grid.length >= 9, 'fewer than nine pages are marked grid (' + grid.map(p => p.id).join(',') + ')');
+    // nine parameter pages: Arp's has a form of its own since GUI-11 (the human: start from the Arp lab), so it counts here and leaves the tiny-tier checks below. A page in neither still fails.
+    const formed = W.GUI3_DATA.pages.filter(p => p.form);
+    ok(grid.length + formed.length >= 9, 'fewer than nine pages are marked grid or carry a form (' + grid.concat(formed).map(p => p.id).join(',') + ')');
     for (const pg of grid) for (const g of pg.groups) {
       const seen = new Set(), ids = g.controls.filter(c => !c.role && !c.follow).map(c => c.key);
       for (const c of g.controls) {
@@ -1065,6 +1082,8 @@ const PLANTS = [
   ['banklist', 'shell', "s.id === 'env1' || pend.includes(s.id)", "pend.includes(s.id)"],
   ['xyaxes', 'shell', "onAxis: id => mapCard.open(id, $('mainXY'), $('mainXY'), true)", 'onAxis: () => {}'],
   ['xyaxes', 'shell', "H.ParamPicker(S,", "H.ParamList(S,"],
+  ['arpface', 'shell', 'H.PicturePicker(host, S,', 'H.PicturePickerX(host, S,'],
+  ['arpface', 'bundle', "down:          { period: c => c.e,                         at: (p, c) => [c.E[c.e - 1 - p]] },", "down:          { period: c => c.e,                         at: (p, c) => [c.E[p]] },"],
   ['historytree', 'device', 'var n = { i: nextNode++, parent: cur.i,', 'var n = { i: nextNode++, parent: -1,'],
   ['historytree', 'device', 'var gone = nodes.filter(function (q) { return !on[q.i]; })[0] || nodes[0];', 'var gone = nodes[0];'],
   ['historytree', 'device', 'pathOf(cur).reduce(function (a, b) { if (a) a.last = b.i; return b; }, null);', ''],
