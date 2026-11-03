@@ -1,0 +1,358 @@
+<!doctype html>
+<!-- compact-mixer-lab: one control that is both the fader and the meter. horde, 2026-11-03. Origin: horde GUI session (ADR-336 charter), GB1, the human: "Could we try a compact mixer? Maybe
+     the slider could go on the level meter itself to save space".
+
+     WHAT IS REAL. The frame is gui3.html itself, fetched and loaded unedited apart from one script, labHook below, placed before its main script. Each fader is the shell's own morph Slider, so
+     its drag, MAP, corner pips, tether, mod lanes, undo and double-click are the shell's. The on, mute and solo keys, the CLIP lamp, the summed views and Gain staging are the shell's and are untouched.
+     WHAT IS MOCK. (1) The levels: the stub's test tone, lowered by a moving curve that counts frames, so the bars move below their caps as a real signal would. No sound. (2) In M1 to M4 the bars
+     are drawn here, because the master's bars are fixed to one scale (see THE SCALE). (3) M4 turns the slider's own drawing on its side and reports its length to the gesture, which a build would not do:
+     the master's Slider has a horizontal form, but ChannelStrip always asks for a vertical one.
+
+     THE SCALE, the trap in the human's idea. Today the fader and the meter have different scales, side by side, and nothing shows it: the meter runs −66 to +6 dBFS, a source's fader −60 to +6 dB and
+     Out's −60 to +26 dB. With one on the other, a cap at 0 dB would have to meet the meter's 0 dB. So M1 to M4 draw the meter on its fader's scale, the over zone included, and the self-check measures
+     the bar's top against the cap on every strip. Its control is today's Out strip, which must read as out of line.
+
+     WHY A LAB. Nothing here edits gui3*, arp-face/ or the master: a ruling goes through the chain (ADR-316).
+
+     THE SELF-CHECK prints in #selfcheck and runs before the shell is handed over, because a lab can pass its checks and still be unusable (the Lens lab, 2026-11-02): its last checks are that the
+     shell is back on Mix, on M1 at the shell's width, with nothing mapped and nothing to undo.
+
+     FX DEVICE (ADR-254): its Mix page takes the same strip if ruled.
+
+     HOUSE RULES. No Math.random. No clock. No wheel listener (B301). -->
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="lab-part" content="Presentation">
+<meta name="lab-review" content="GB1 · 2026-11-03">
+<title>Compact mixer lab — the fader on the level meter (GB1)</title>
+<link rel="stylesheet" href="arp-face/tokens.css">
+<link rel="stylesheet" href="arp-face/bundle.css">
+<style>
+  html, body { background: var(--bg); }
+  body { margin: 0; padding: 20px 16px 60px; color: var(--ink); font: 13px/1.5 var(--font-sans); }
+  .col { max-width: 1012px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+  h1 { font: 800 19px/1.2 var(--font-sans); margin: 0 0 6px; }
+  h2 { font: 800 13px/1.2 var(--font-sans); margin: 0 0 8px; }
+  p { margin: 0 0 6px; max-width: 84ch; }
+  .tagline { font: 400 12px/1.5 var(--font-sans); color: var(--t2, var(--hint)); max-width: 84ch; }
+  .picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
+  .opt { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; gap: 3px; padding: 8px; border: 1px solid var(--div); border-radius: 6px; min-height: 44px; font-size: 12px; line-height: 1.35; }
+  .opt:hover { border-color: var(--ink); }
+  .opt:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .opt[aria-pressed="true"] { border: 2px solid var(--ink); padding: 7px; }
+  .opt[disabled] { opacity: .45; cursor: default; }
+  .opt .id { font: 800 12px/1.2 var(--font-mono); }
+  .opt .nm { font: 700 12px/1.25 var(--font-sans); }
+  .opt .tx { color: var(--t2, var(--hint)); }
+  .opt .sz { font: 400 11px/1.3 var(--font-mono); color: var(--hint); }
+  #wrap { position: relative; overflow: auto hidden; border: 1px solid var(--div); height: 720px; }
+  #frame { display: block; border: 0; width: 980px; height: 720px; }
+  #busy { position: absolute; inset: 0; z-index: 2; display: flex; align-items: center; justify-content: center; background: var(--bg); font: 700 14px/1.4 var(--font-sans); text-align: center; padding: 20px; }
+  #busy[hidden] { display: none; }
+  .try { font: 12px/1.5 var(--font-sans); min-height: 36px; padding: 8px 10px; border-left: 3px solid var(--ink); }
+  .note { color: var(--hint); font-size: 12px; }
+  #selfcheck { font: 12px/1.5 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<div class="col">
+  <header>
+    <h1>The compact mixer: the fader on the level meter</h1>
+    <p class="tagline">One control that is both the fader and the meter, on the real shell's Mix page, beside today's strip.</p>
+    <p>Pick a form and a width, then try it below. Drag a fader, double-click it, press MAP and click one, or turn morph on. The lab starts with all four sources on so every strip moves. The bars are mock and there's no sound, and Gain staging still reads the stub's own test tone, so its Out goes over.</p>
+  </header>
+  <section aria-label="The form"><h2>Which form?</h2><div class="picker" id="pickForm"></div></section>
+  <section aria-label="The width"><h2>How wide is a strip?</h2><div class="picker" id="pickWidth"></div></section>
+  <div class="try" id="tryIt" role="status"></div>
+  <section aria-label="The shell"><div id="wrap"><iframe id="frame" title="GUI 3 on the Mix page with these options"></iframe><div id="busy">Loading the shell and checking every form. This takes a moment.</div></div></section>
+  <section aria-label="Questions">
+    <h2>Three things to decide alongside</h2>
+    <p><strong>The scale.</strong> Today the fader and the meter have different scales, and it doesn't show because they're side by side. Out is the clear case: its 0 dB is at 70% of the fader but 92% of the meter. Put one on the other and that would be a lie, so M1 to M4 draw each meter on its own fader's scale. That means Out's red over zone is its top 30%, because its fader goes up to +26 dB.</p>
+    <p><strong>Your earlier ask.</strong> ADR-333 has you asking for a little more room on the mixer, so W1 keeps the room and only tidies each strip. W2 is the one that actually saves width.</p>
+    <p><strong>What a cap covers.</strong> M1's cap sits on the bars and hides what's under it. M2 and M3 hide nothing, but their handle is smaller to grab.</p>
+  </section>
+  <section aria-label="Self-check"><h2>Self-check</h2><div id="selfcheck"></div></section>
+</div>
+<script>
+/* Runs inside the frame, after the shell's scripts and before its main script. It keeps references and lowers the mock levels: the shell can't otherwise tell. */
+function labHook() {
+  var H = window.Horde, DV = window.GUI3Device, L = window.__lab = { force: {}, lat: {}, frame: 0 };
+  var Sess = H.Session; H.Session = function (o) { var s = new Sess(o); L.S = s; return s; }; H.Session.prototype = Sess.prototype;
+  // the first create is the shell's device; its self-checks make throwaway ones afterwards
+  var cr = DV.create; DV.create = function (a, b, c) { var d = cr(a, b, c); if (!L.dev) L.dev = d; return d; };
+  var CS = H.ChannelStrip;
+  H.ChannelStrip = function (el, S, o) {
+    var rd = o.read, cl = o.clear, at = {}; o.strips.forEach(function (s, i) { at[s.id] = i; });
+    // The lamp follows the lowered level. The stub's own latch can't: four full-scale tones sum over 0 dB at Out, so it would stay lit from the first frame.
+    function seen(id, v) { if (v > 0 && !(L.lat[id] >= v)) L.lat[id] = v; return v; }
+    // 4 to 12 dB under the stub's tone, moving by frames (no clock), and never over its own fader; L.force pins a strip for the self-check
+    o.read = function (id) {
+      if (id in L.force) { seen(id, L.force[id]); return { l: L.force[id], r: L.force[id] }; }
+      var r = rd(id); if (!r) return r;
+      var i = at[id], w = 4 + 8 * (.5 + .5 * Math.sin(L.frame * .017 * (1 + i * .13) + i * 1.7)), top = L.capDb ? Math.min(r.l, L.capDb(id)) : r.l;
+      return { l: seen(id, top - w), r: seen(id, top - w * .85) };
+    };
+    o.latch = function (id) { return id in L.lat ? { on: true, max: L.lat[id] } : { on: false }; };
+    o.clear = function (id) { delete L.lat[id]; cl(id); };
+    var cs = CS(el, S, o), st = cs.step, re = cs.render;
+    cs.step = function (dt) { L.frame++; st(dt); if (L.onStep) L.onStep(dt); };
+    cs.render = function () { re(); if (L.onPaint) L.onPaint(); };
+    L.cs = cs; L.el = el; L.opts = o;
+    return cs;
+  };
+}
+
+const $ = id => document.getElementById(id);
+const FORMS = [
+  { id: 'M0', nm: 'Today', tx: 'The fader, then the meter pair beside it, each on its own scale.', tryit: 'This is the shell as it is, to compare against.' },
+  { id: 'M1', nm: 'Cap over the meter', tx: 'The bars are the track. The cap rides across them.', tryit: 'Drag any cap. The bars stay below it, because a signal is under its fader.' },
+  { id: 'M2', nm: 'Arrow on the edge', tx: 'A small arrow beside the bars, as on Ableton’s mixer. It covers nothing.', tryit: 'Drag anywhere on the bars or the arrow. The arrow points at the level you set.' },
+  { id: 'M3', nm: 'Ghost fill', tx: 'A faint column up to a thin line is the fader, and the bright bars run inside it.', tryit: 'Drag anywhere on the column. The gap between the bars and the line is your headroom.' },
+  { id: 'M4', nm: 'Rows', tx: 'The same control on its side, one row per strip. The console gets much shorter, and Gain staging moves up.', tryit: 'Drag right to raise a level. Gain staging has moved up under the console.' }
+];
+const WIDTHS = [
+  { id: 'W1', nm: 'Keep the room', tx: '104 px a strip, what ADR-333’s “a little more space” gave.' },
+  { id: 'W2', nm: 'Narrow', tx: '72 px a strip, the width the design master was measured at. The summed views get the rest.' }
+];
+const FRAME_CSS = `
+  body.lab .hd-cs { --fader-h: 140px; }
+  body.w2 .console .hd-cs { --size-strip-w: 72px; }
+  body.w2 .console .hd-cs .cs-strip { padding: 0 2px; }
+  body.w2 .console .hd-cs .cs-strip.master { padding-left: 6px; }
+  body.w2 .console .hd-cs .cs-head { padding-left: 0; }
+  .lm { display: none; position: absolute; left: 0; top: 0; z-index: 0; width: calc(var(--fader-h) * .2); height: var(--fader-h); pointer-events: none; }
+  .lb { position: absolute; top: 5%; height: 90%; width: 7px; overflow: hidden; background: var(--well-alt); outline: 1px solid var(--ink); outline-offset: -1px; border-radius: var(--radius-meter); }
+  .lb.l { left: calc(35% - 8px); } .lb.r { left: calc(35% + 1px); }
+  .lb .fi { position: absolute; left: 0; right: 0; bottom: 0; height: 100%; background: var(--celebrate); transform-origin: 50% 100%; transform: scaleY(var(--lv, 0)); }
+  .lb .ov { position: absolute; left: 0; right: 0; top: 0; height: var(--ov, 8%); box-sizing: border-box; background: color-mix(in srgb, var(--alarm) 25%, transparent); border-bottom: 1px solid var(--alarm); }
+  .lb.over .ov { background: var(--alarm); }
+  .lb .ho { position: absolute; left: 0; right: 0; height: 2px; bottom: calc(var(--hp, 0) * 100% - 1px); background: var(--value-ink); }
+  .lm .gh { display: none; position: absolute; left: calc(35% - 8px); width: 16px; bottom: 5%; height: calc(var(--fv, 0) * 90%); background: color-mix(in srgb, var(--ink) 24%, transparent); }
+
+  body.onbar .cs-meter { display: none; }
+  body.onbar .lm { display: block; }
+  body.onbar .cs-body .ms-face svg { position: relative; z-index: 1; overflow: visible; }
+  body.onbar .cs-body .ms-face svg line[stroke-width="4"] { display: none; }
+
+  body.m1 .cs-body .ms-face svg rect[rx="2"] { x: 0; width: 28px; }
+
+  body.m2 .cs-body { padding-left: 8px; }
+  body.m2 .lb.l { left: calc(35% - 16px); } body.m2 .lb.r { left: calc(35% - 7px); }
+  body.m2 .cs-body .ms-face svg rect[rx="2"] { x: 15px; width: 12px; clip-path: polygon(100% 0, 0 50%, 100% 100%); transform-box: fill-box; transform-origin: center; transform: scaleY(1.7); }
+
+  body.m3 .lb { background: transparent; }
+  body.m3 .lm .gh { display: block; }
+  body.m3 .cs-body .ms-face svg rect[rx="2"] { x: 1px; width: 26px; height: 3px; transform: translateY(2.5px); stroke-width: .6; }
+  body.m3 .cs-body .ms-face svg line[stroke-width="1.6"][x1="9"] { display: none; }
+
+  body.m4 .cs-body .ms-face svg rect[rx="2"] { x: 0; width: 28px; }
+  body.m4 .hd-cs { --fader-h: 176px; flex-direction: column; overflow: visible; }
+  body.m4 .console .hd-cs .cs-strip { flex: none; flex-direction: row; align-items: center; gap: 8px; width: auto; min-height: 32px; padding: 0; margin: 0; border-left: 0; }
+  body.m4 .console .hd-cs .cs-strip + .cs-strip { border-top: var(--stroke-sub) solid var(--div); }
+  body.m4 .console .hd-cs .cs-strip.master { border-top: var(--stroke-page) solid var(--ink); margin-top: 4px; }
+  body.m4 .console .hd-cs .cs-head { flex: none; width: 74px; min-height: 28px; padding-left: 0; justify-content: flex-start; }
+  body.m4 .console .hd-cs .cs-pk { flex: none; width: 72px; }
+  body.m4 .console .hd-cs .cs-body { flex: none; align-items: center; }
+  body.m4 .console .hd-cs .cs-body .hd-ms-v { flex-direction: row; gap: 8px; }
+  body.m4 .console .hd-cs .cs-body .ms-face { flex: none; width: 176px; height: 30px; position: relative; cursor: ew-resize !important; }
+  body.m4 .console .hd-cs .cs-body .ms-face svg, body.m4 .console .hd-cs .cs-body .lm { position: absolute; left: 50%; top: 50%; width: 35.2px; height: 176px; transform: translate(-50%, -50%) rotate(90deg); }
+  body.m4 .console .hd-cs .cs-ms { flex: none; width: auto; }
+  body.m4 .console .hd-cs .cs-btn { margin: 0; }
+`;
+let mode = { form: 'M1', width: 'W1' }, w, d, L, S, dev, strips = [], frameErrors = 0;
+const sizes = {};
+
+function picker(host, list, key) {
+  list.forEach(o => {
+    const b = document.createElement('button'); b.className = 'opt'; b.type = 'button'; b.dataset.id = o.id;
+    b.append(...[['id', o.id], ['nm', o.nm], ['tx', o.tx]].map(([c, t]) => { const s = document.createElement('span'); s.className = c; s.textContent = t; return s; }));
+    b.addEventListener('click', () => { mode[key] = o.id; apply(); paint(); });
+    host.append(b);
+  });
+}
+function paint() {
+  [['pickForm', 'form'], ['pickWidth', 'width']].forEach(([id, k]) => $(id).querySelectorAll('.opt').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.id === mode[k]))));
+  // a row has no strip width to choose
+  $('pickWidth').querySelectorAll('.opt').forEach(b => { b.disabled = mode.form === 'M4'; });
+  const f = FORMS.find(o => o.id === mode.form), sz = sizes[mode.form + mode.width], base = sizes.M0W1;
+  $('tryIt').textContent = 'Try ' + f.id + ': ' + f.tryit + (sz && base ? ' This console is ' + sz.w + ' × ' + sz.h + ' px, and today’s is ' + base.w + ' × ' + base.h + ' px.' : '');
+  $('pickForm').querySelectorAll('.opt').forEach(b => { let e = b.querySelector('.sz'); const z = sizes[b.dataset.id + (b.dataset.id === 'M4' ? 'W1' : mode.width)]; if (!z) return; if (!e) { e = document.createElement('span'); e.className = 'sz'; b.append(e); } e.textContent = z.w + ' × ' + z.h + ' px'; });
+}
+function apply() {
+  if (!d) return;
+  const b = d.body, f = mode.form;
+  b.classList.remove('m0', 'm1', 'm2', 'm3', 'm4', 'w2', 'onbar');
+  b.classList.add('lab', f.toLowerCase()); if (f !== 'M0') b.classList.add('onbar');
+  if (mode.width === 'W2' && f !== 'M4') b.classList.add('w2');
+  // a row drags right, and the gesture reads this flag at each move
+  strips.forEach(t => { S.params[t.key].horizontal = f === 'M4'; });
+}
+
+// ===== the bars: Gain staging's ballistics, as the master's strip runs them, on the fader's own scale =====
+const DB_FLOOR = -66;
+function buildMeters() {
+  L.el.querySelectorAll('.cs-strip').forEach(root => {
+    const o = L.opts.strips.find(s => s.id === root.dataset.id), key = o.keys.fader, row = dev.row(key), face = root.querySelector('.cs-body .ms-face'), svg = face.querySelector('svg');
+    const lm = d.createElement('div'); lm.className = 'lm'; lm.style.setProperty('--ov', (row.hi / (row.hi - row.lo) * 100) + '%');
+    const gh = d.createElement('i'); gh.className = 'gh'; lm.append(gh);
+    const bars = ['l', 'r'].map(c => { const b = d.createElement('div'); b.className = 'lb ' + c; b.innerHTML = '<i class="fi"></i><i class="ov"></i><i class="ho"></i>'; lm.append(b); return b; });
+    face.prepend(lm);
+    // turned on its side the slider's box is wide and short, and the gesture's "one length = the full range" reads the height
+    const box = svg.getBoundingClientRect;
+    svg.getBoundingClientRect = function () { const r = box.call(this); return mode.form === 'M4' ? { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.height, height: r.width } : r; };
+    strips.push({ id: o.id, key, row, root, face, svg, lm, gh, bars, bar: [DB_FLOOR, DB_FLOOR], pk: [DB_FLOOR, DB_FLOOR], held: [0, 0] });
+  });
+}
+const dbNow = t => t.row.lo + S.base(S.params[t.key]) * (t.row.hi - t.row.lo);
+const fracOf = (t, db) => Math.max(0, Math.min(1, (db - t.row.lo) / (t.row.hi - t.row.lo)));
+function stepMeters(dt) {
+  const fall = Math.exp(-dt / .11);
+  strips.forEach(t => {
+    const r = L.opts.read(t.id), now = r ? [r.l, r.r] : [DB_FLOOR, DB_FLOOR];
+    for (let c = 0; c < 2; c++) {
+      const x = Math.max(DB_FLOOR, now[c] === undefined || now[c] === null ? DB_FLOOR : now[c]);
+      const a = Math.max(Math.pow(10, x / 20), Math.pow(10, t.bar[c] / 20) * fall); t.bar[c] = Math.max(DB_FLOOR, 20 * Math.log10(Math.max(a, 1e-9)));
+      if (x >= t.pk[c]) { t.pk[c] = x; t.held[c] = 0; } else { t.held[c] += dt; if (t.held[c] > 1.5) t.pk[c] = Math.max(x, t.pk[c] - 20 * dt); }
+    }
+  });
+}
+function paintMeters() {
+  strips.forEach(t => {
+    const on = !!(L.opts.latch(t.id) || {}).on;
+    t.bars.forEach((b, c) => { b.style.setProperty('--lv', fracOf(t, t.bar[c])); b.style.setProperty('--hp', fracOf(t, t.pk[c])); b.classList.toggle('over', on); });
+    t.gh.style.setProperty('--fv', S.base(S.params[t.key]));
+  });
+}
+
+// ===== the self-check =====
+const rect = e => e.getBoundingClientRect();
+function selfCheck() {
+  const out = [], check = (ok, msg) => out.push((ok ? 'ok     · ' : 'FAILED · ') + msg);
+  const tick = () => { for (const v of S.views) v.render(); };
+  const settle = () => { for (let i = 0; i < 90; i++) L.cs.step(1 / 60); L.cs.render(); tick(); };
+  const capOf = t => t.svg.querySelector('rect[rx="2"]');
+  const along = (r, vert) => vert ? (r.top + r.bottom) / 2 : (r.left + r.right) / 2;
+  const pointer = (type, el, x, y) => el.dispatchEvent(new w.PointerEvent(type, { bubbles: true, cancelable: true, composed: true, button: 0, buttons: type === 'pointerup' ? 0 : 1, pointerId: 1, clientX: x, clientY: y }));
+  const setForm = (f, wd) => { mode.form = f; if (wd) mode.width = wd; apply(); tick(); };
+  const keep = () => { const q = rect(d.querySelector('.console')); return { w: Math.round(q.width), h: Math.round(q.height) }; };
+  const hits = el => { const q = rect(el), at = d.elementFromPoint((q.left + q.right) / 2, (q.top + q.bottom) / 2); return !!at && (el === at || el.contains(at)); };
+
+  const tight = [];
+  // Today's scales: the control for the alignment test below. Pin every strip at its own fader's value.
+  setForm('M0', 'W1');
+  strips.forEach(t => { L.force[t.id] = dbNow(t); }); settle();
+  const offToday = strips.map(t => { const fi = t.root.querySelector('.cs-meter .fill'); return { name: t.id, px: Math.abs(rect(fi).top - along(rect(capOf(t)), true)) }; });
+  const todayOut = offToday.find(o => o.name === 'out').px, todaySrc = Math.max(...offToday.filter(o => o.name !== 'out').map(o => o.px));
+  check(todayOut > 15, 'Control: on today’s Out strip the meter’s top sits ' + todayOut.toFixed(1) + ' px from the cap at the same level, so the alignment test can see a bad scale (sources: up to ' + todaySrc.toFixed(1) + ' px).');
+
+  FORMS.forEach(F => {
+    (F.id === 'M4' ? ['W1'] : ['W1', 'W2']).forEach(W => {
+      setForm(F.id, W); sizes[F.id + W] = keep();
+      // the widest peak beside its lamp, and every name, at each width: 72 px is the width the master measured its text at
+      strips.forEach(z => { L.force[z.id] = -45.2; }); settle();
+      strips.forEach(z => { const pk = z.root.querySelector('.cs-pk output'), lp = rect(z.root.querySelector('.hd-lamp')), nm = z.root.querySelector('.cs-name'); if (rect(pk).right > lp.left + .5 || nm.scrollWidth > nm.clientWidth + 1) tight.push(F.id + W + ' ' + z.id); });
+      strips.forEach(z => { delete L.force[z.id]; });
+    });
+    setForm(F.id, 'W1');
+    const onBar = F.id !== 'M0', vert = F.id !== 'M4', bad = [];
+    if (onBar) {
+      strips.forEach(t => {
+        [0, -12].forEach(dB => {
+          dev.set(t.key, (dB - t.row.lo) / (t.row.hi - t.row.lo)); tick(); L.force[t.id] = dB; settle();
+          const f = rect(t.bars[0].querySelector('.fi')), c = rect(capOf(t)), gap = vert ? Math.abs(f.top - along(c, true)) : Math.abs(f.right - along(c, false));
+          if (gap > 1.5) bad.push(t.id + ' at ' + dB + ' dB is off by ' + gap.toFixed(1) + ' px');
+        });
+        dev.set(t.key, t.row.default_v);
+      });
+      check(!bad.length, F.id + ': the bar’s top meets the cap at 0 and −12 dB on all ' + strips.length + ' strips, Out included' + (bad.length ? ' (' + bad.slice(0, 3).join('; ') + ')' : '') + '.');
+    }
+    strips.forEach(t => { delete L.force[t.id]; });
+
+    // A drag moves the value by one length per full range; a double-click returns it; MAP's click makes a route.
+    const t = strips[0], p = S.params[t.key], f = rect(t.face), cx = (f.left + f.right) / 2, cy = (f.top + f.bottom) / 2;
+    dev.set(t.key, .5); tick(); const v0 = S.base(p);
+    pointer('pointerdown', t.face, cx, cy);
+    if (vert) pointer('pointermove', t.face, cx, cy - 40); else pointer('pointermove', t.face, cx + 40, cy);
+    pointer('pointerup', t.face, vert ? cx : cx + 40, vert ? cy - 40 : cy); tick();
+    const moved = S.base(p) - v0, len = rect(t.svg).height * .9, want = 40 / len;   // the box buildMeters reports, which is what the gesture reads
+    const dragged = Math.abs(moved - want) < .02;
+    t.face.dispatchEvent(new w.MouseEvent('dblclick', { bubbles: true, cancelable: true })); tick();
+    const home = Math.abs(S.base(p) - t.row.default_v) < 1e-6;
+    S.setMap(true); pointer('pointerdown', t.face, cx, cy); pointer('pointerup', t.face, cx, cy); tick();
+    const mapped = S.mapsOf(t.key).length === 1;
+    let laneClear = true;
+    if (onBar && mapped) { const dot = rect(t.svg.querySelector('circle')), br = rect(t.bars[1]); laneClear = vert ? dot.left >= br.right - 1 : dot.top >= br.bottom - 1; }
+    S.setMap(false); dev.clearRoutes(); tick();
+    check(dragged && home && mapped && laneClear, F.id + ': a drag moves the fader ' + moved.toFixed(3) + ' (' + want.toFixed(3) + ' wanted), a double-click returns it to home, MAP’s click makes a route, and its lane sits clear of the bars.' + (dragged ? '' : ' DRAG') + (home ? '' : ' HOME') + (mapped ? '' : ' MAP') + (laneClear ? '' : ' LANE'));
+
+    // Nothing the strip must keep is lost or covered (ADR-230, ADR-333).
+    const lost = [];
+    strips.forEach(z => {
+      // the fader's value is a readout under its empty second line, so it is held to showing, not to taking a click
+      const shows = e => !!e && !!e.offsetWidth && e.scrollWidth <= e.clientWidth + 1;
+      ['.hd-lamp', '.cs-pk output', '.cs-name'].forEach(sel => { const e = z.root.querySelector(sel); if (!shows(e) || !hits(e)) lost.push(z.id + ' ' + sel); });
+      if (!shows(z.root.querySelector('.ms-rd .mk-v1'))) lost.push(z.id + ' value');
+      if (!hits(z.face)) lost.push(z.id + ' fader');
+      z.root.querySelectorAll('.cs-btn, .hd-toggle').forEach(e => { if (!hits(e)) lost.push(z.id + ' ' + e.textContent); });
+    });
+    const con = rect(d.querySelector('.console')), sums = d.querySelector('.sums'), sumsOk = sums.querySelectorAll('canvas').length === 2 && [...sums.querySelectorAll('canvas')].every(c => c.offsetWidth > 100), holds = !onBar || strips.every(z => z.bars.every(b => b.querySelector('.ho').offsetHeight === 2));
+    const sc = rect(sums), clear = sc.left >= con.right - 1 || sc.top >= con.bottom - 1;
+    check(!lost.length && sumsOk && holds && clear, F.id + ': every lamp, peak, name, M, S and toggle shows and takes a click, the value shows, the held peak draws, and the summed scope and spectrum stay, clear of the console' + (lost.length ? ' (LOST ' + lost.slice(0, 5).join(', ') + ')' : '') + (sumsOk ? '' : ' SUMS') + (holds ? '' : ' HOLD') + (clear ? '' : ' OVERLAP') + '.');
+  });
+
+  // control: squeezed to 40 px, the same measure must catch something
+  setForm('M1', 'W1'); L.el.style.setProperty('--size-strip-w', '40px'); strips.forEach(z => { L.force[z.id] = -45.2; }); settle();
+  const caught = strips.some(z => { const pk = z.root.querySelector('.cs-pk output'), nm = z.root.querySelector('.cs-name'); return rect(pk).right > rect(z.root.querySelector('.hd-lamp')).left + .5 || nm.scrollWidth > nm.clientWidth + 1; });
+  L.el.style.removeProperty('--size-strip-w'); strips.forEach(z => { delete L.force[z.id]; });
+  check(!tight.length && caught, 'Text fits at both widths in every form: no name clips and no peak runs into its lamp' + (tight.length ? ' (TIGHT ' + tight.slice(0, 6).join(', ') + ')' : '') + '. Control: at 40 px the same measure catches it' + (caught ? '' : ' (IT DIDN’T)') + '.');
+  // The rows really do leave more room; a form must not silently cost room.
+  check(sizes.M4W1.h < sizes.M0W1.h * .8 && sizes.M1W2.w < sizes.M0W1.w * .8, 'Room: today ' + sizes.M0W1.w + ' × ' + sizes.M0W1.h + ' px; M1 at W2 ' + sizes.M1W2.w + ' × ' + sizes.M1W2.h + '; M4 ' + sizes.M4W1.w + ' × ' + sizes.M4W1.h + '.');
+
+  // the clip lamp latches on a fader over 0 dB, in the bars too, and clears
+  setForm('M1', 'W1');
+  const t0 = strips[0], lamp = t0.root.querySelector('.hd-lamp');
+  L.force[t0.id] = 3; L.cs.step(1 / 60); L.cs.render();
+  const lit = lamp.getAttribute('aria-pressed') === 'true' && t0.bars[0].classList.contains('over');
+  delete L.force[t0.id]; lamp.click(); L.cs.render(); const dark = lamp.getAttribute('aria-pressed') === 'false' && !t0.bars[0].classList.contains('over');
+  check(lit && dark, 'CLIP: a level over 0 dB latches the lamp and the over zone together, and a click clears both (control: dark after).');
+
+  // the shell back as the human finds it
+  strips.forEach(z => { dev.set(z.key, z.row.default_v); delete L.force[z.id]; dev.clearClip(z.id); delete L.lat[z.id]; z.pk = [DB_FLOOR, DB_FLOOR]; z.bar = [DB_FLOOR, DB_FLOOR]; });
+  setForm('M1', 'W1'); dev.clearRoutes(); S.setMap(false); S.message = '';
+  // the presses above selected a fader and locked the info box on it: Escape releases the box, as for a player
+  d.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); S.selected = null;
+  // INIT has only Osc 1 on, and three empty strips say nothing about a meter, so the lab starts with all four sources sounding
+  L.opts.strips.forEach(z => { if (z.keys.on) dev.set(z.keys.on, 1); });
+  dev.clearHistory(); settle(); for (let i = 0; i < 300; i++) L.cs.step(1 / 60);   // past the peak hold, so the probes' held peaks don't greet the player
+  L.cs.render();
+  check(!dev.routes().length && !S.map.on && S.selected === null && !d.querySelector('.cs-body .sel') && !!d.querySelector('.console') && d.body.classList.contains('m1') && strips.every(z => Math.abs(S.base(S.params[z.key]) - z.row.default_v) < 1e-6) && dev.undo() === false, 'Left as you find it: on Mix, on M1 at W1, all four sources on, every fader home, nothing selected or mapped and nothing to undo.');
+  check(frameErrors === 0, 'No script error in the frame while all of this ran (' + frameErrors + ').');
+  return out;
+}
+
+// ===== boot =====
+(async function boot() {
+  picker($('pickForm'), FORMS, 'form'); picker($('pickWidth'), WIDTHS, 'width'); paint();
+  const frame = $('frame'), base = new URL('.', location.href).href;
+  let html;
+  try { html = await (await fetch('gui3.html')).text(); } catch (e) { $('busy').textContent = 'This lab fetches the shell, so open it through tools/labs_preview.sh or tools/serve_labs.py (file:// blocks fetch).'; return; }
+  const marker = '<script src="gui3/shell-logic.js"><\/script>';
+  if (!html.includes(marker) || !html.includes('<head>')) { $('selfcheck').textContent = 'FAILED · the shell no longer has the script tag this lab hooks after.'; $('busy').textContent = 'The lab could not hook the shell.'; return; }
+  const hook = '<script>(' + labHook.toString() + ')();<\/script>';
+  html = html.replace('<head>', () => '<head><base href="' + base + '">').replace(marker, () => marker + hook);
+  await new Promise(res => { frame.addEventListener('load', res, { once: true }); frame.srcdoc = html; });
+  w = frame.contentWindow; d = frame.contentDocument; L = w.__lab; S = L.S; dev = L.dev;
+  w.addEventListener('error', () => { frameErrors++; });
+  const css = d.createElement('style'); css.textContent = FRAME_CSS; d.head.append(css);
+  d.body.classList.add('win-only');
+  [...d.querySelectorAll('#pnav button')].find(b => b.textContent.trim() === 'Mix').click();
+  buildMeters(); L.capDb = id => dbNow(strips.find(t => t.id === id)); L.onStep = stepMeters; L.onPaint = paintMeters; apply();
+  let lines; try { lines = selfCheck(); } catch (e) { lines = ['FAILED · the self-check threw: ' + (e && e.stack || e)]; }
+  $('selfcheck').textContent = lines.join('\n'); paint();
+  $('busy').hidden = true;
+})();
+</script>
+</body>
+</html>
