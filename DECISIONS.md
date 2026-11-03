@@ -11169,3 +11169,22 @@ Three points stayed open, because the shell already marks a knob selected the mo
 - All figures are scratch timings, never PF-3. They and the listening pages' method are in the ledger.
 
 **Amendment A1 (the human, 2026-11-03, after the combined clip).** “There is a slight difference between today and 8x2 + 2x2 at the very top of the rising runs (more prominent in the one member), but it's probably necessary to just accept that for the sake of bringing down CPU.” The combined clip is heard, and the difference is accepted. **The lead's reading, open to overrule:** 2 points is Standard's soft-edge law unless the moments test keeps more of today's sound at the same cost, in which case it comes back to the human. New floors are still the human's to rule when round 54 brings them. This clip's listen covers 8 taps and 2 samples alike, each with 2 points; 8 taps was ruled before it, and nothing here reopens that.
+
+## ADR-357 — RULED by the human: Arp's pattern may follow the morph law, with a check before it ships; Arp's related keys flip together; the morph pad stays out of history (B610; 2026-11-03)
+
+**Context.** Arp's brief (seq 15, respond by 2026-11-13), from the human's rulings in Arp's session, asks for its patterns to blend under Blend and Stepped, flip under Quantum, and for any morph position to stay saveable. It sat unanswered and untracked until the human asked. Separately, the human asked to confirm that XY grids add one undo node on release. The lead recommended; the human: “File the Arp answers, and keep the morph pad out of history”.
+
+**Rulings (the human, 2026-11-03).**
+1. **The answers as recommended go to Arp** (`integrations/hypersaw/response-morph-blend.md` in Arp's tree, seq 16). The blend is built behind Arp's switch. It ships in 1.0 only if Arp's measured A/B fits its 2 % slice and horde's CPU pass and the morph are done. Otherwise Arp ships today's one-value behaviour, the blend follows after 1.0, and saved Blend patches get a migration.
+2. **An exception to ADR-324 H6, for Arp only:** the scale, transposition, the chord stage and rate (`rate_mode`, `rate`) each flip together, on one draw. H6's reason was that no existing patch moves, and Arp has none; a half-applied scale is musically wrong. horde's own keys still flip one at a time, and `step_time_us` stays out of the group.
+3. **The morph pad stays out of history.** ADR-319 item 2 stands.
+
+**Confirmed, no new rule.** A drag on any other XY grid is one undo node, added on release (ADR-160 ruling 2, RC-11.3). In the code, the XY lab and GUI 3 hold a drag open from press to release, and a click that moves nothing adds no node. The lead read the code and did not try a live drag.
+
+**The lead's reading, open to overrule.** 4 KiB is Arp's planning figure, not a ruling: ADR-351 re-derives all budgets together, so it's decided in B603. The horde side is about 5 to 6 items, an estimate.
+
+**Rejected.** After 1.0 outright: the resolver isn't built, so its part is cheapest now, and none of it adds to the engine's per-member cost. An unconditional yes: Arp's CPU isn't known to fit, and 1.0 is under pressure.
+
+**FX device (ADR-254).** The device hosts no note processor, so rulings 1 and 2 don't apply to it. Ruling 3 applies to its corners' pad as to the instrument's.
+
+**Consequences.** B610 is answered and stays open for the resolver's spec round and the go or no-go. No clean-room repository changes until that round has its text.
