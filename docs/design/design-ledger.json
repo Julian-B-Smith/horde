@@ -116,6 +116,10 @@
    "status": "retired",
    "note": "Archived in the design index (its lab-archive tag): legacy-era bench; its law is ruled or lives in the composed engine. History, never a source."
   },
+  "corner-mapping-lab.html": {
+   "status": "exploring",
+   "note": "The lead's lab for B396 and B270, the human's request of 2026-11-02: per-corner mappings, with the 1.0 question left open against ADR-261 and ADR-266. Five questions for a poll after listening. Nothing here reaches the master until a ruling does."
+  },
   "detune-lab.html": {
    "status": "retired",
    "note": "Archived in the design index (its lab-archive tag): legacy-era bench; its law is ruled or lives in the composed engine. History, never a source."
