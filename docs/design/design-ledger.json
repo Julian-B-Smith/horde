@@ -342,8 +342,9 @@
    "note": "Ruled S1, D1, R1, N3, W1 (GUI-3). Not yet harvested: CompactWires in the master is next. Ordinary wires are real device routes here; depth wires are MOCK until B70."
   },
   "xy-macro-lab.html": {
-   "status": "exploring",
-   "note": "The XY's picker (GUI-2 r2) and how a macro knob maps (GUI-8 open), tried on the real shell: X1 to X4, K1 to K4. Awaiting the human's poll."
+   "status": "ruled",
+   "adr": "GUI-9",
+   "note": "GUI-9 ruled it on 2026-11-03: X and Y work as two extra macro knobs, K3 and K4, the offset. The lab stays as the record: X4 is nearest, and nothing in it draws the offset."
   }
  },
  "not_labs": {
@@ -5497,6 +5498,81 @@
    "via": null,
    "shell": "docs/design/gui3.html: H.ScreenScheme($('scrTop'), $('win'),",
    "state": "in-shell",
+   "superseded_by": null
+  },
+  {
+   "id": "gui9-axes-sources",
+   "adr": "GUI-9",
+   "clause": "ruling 1 (X and Y work as two extra macro knobs: many parameters, each with its own depth; amends GUI-2 r2)",
+   "port_tab": "main-rest",
+   "note": "The human: \"it should function like two extra macro knobs\". The assignment still saves with the patch.",
+   "lab": "docs/design/xy-macro-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null
+  },
+  {
+   "id": "gui9-axis-ways",
+   "adr": "GUI-9",
+   "clause": "ruling 2 (a parameter can also be added to an axis from a list, by touch and from a control's right-click)",
+   "port_tab": "main-rest",
+   "note": "Reading: a click on the axis opens its card, which holds the three ways to add.",
+   "lab": "docs/design/xy-macro-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null
+  },
+  {
+   "id": "gui9-xy-offsets",
+   "adr": "GUI-9",
+   "clause": "ruling 3 (the XY offsets from rest and doesn't write the parameter)",
+   "port_tab": "macros",
+   "note": "Needs the intent bus (B89). The lab doesn't draw it. Reading: the puck stays where it's left. The pad's rest mark is open.",
+   "lab": "docs/design/xy-macro-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null
+  },
+  {
+   "id": "gui9-macro-card",
+   "adr": "GUI-9",
+   "clause": "ruling 4 (a macro maps by its card, and from a control's right-click; no handle)",
+   "port_tab": "macros",
+   "note": "The card is shared with an axis. Which corner a mapping belongs to is open.",
+   "lab": "docs/design/xy-macro-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null
+  },
+  {
+   "id": "gui9-macro-in-rows",
+   "adr": "GUI-9",
+   "clause": "ruling 5 (a mapped macro shows in the mod rows; GUI-7 stands)",
+   "port_tab": "modulators",
+   "note": "The shell's bankMods filter, when macros are sources.",
+   "lab": "docs/design/xy-macro-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
    "superseded_by": null
   }
  ],
