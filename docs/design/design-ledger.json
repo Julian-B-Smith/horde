@@ -10,7 +10,7 @@
  },
  "master_versions": [
   {
-   "version": "1793728160-9606",
+   "version": "1793728588-6ff9",
    "evidence": "docs/design/gui3.html self-check 4e and gui3_seam_check's xyaxes: GUI-9. MacroCard, MacroOpener and ParamPicker are new; AssignXY has axis chips and a rest mark; a source can name its default polarity; ModPage's kinds can drop their +."
   },
   {
@@ -347,9 +347,9 @@
   },
   "xy-macro-lab.html": {
    "status": "harvested",
-   "master_version": "1793728160-9606",
+   "master_version": "1793728588-6ff9",
    "adr": "GUI-9",
-   "note": "Harvested at 1793728160-9606. It ran on the shell before GUI-9, so on today's shell it adds its sources and chips over the real ones: read it at the commit before this one if you need to see what was compared."
+   "note": "Harvested at 1793728588-6ff9. It ran on the shell before GUI-9, so on today's shell it adds its sources and chips over the real ones: read it at the commit before this one if you need to see what was compared."
   }
  },
  "not_labs": {
@@ -5513,7 +5513,7 @@
    "note": "The human: \"it should function like two extra macro knobs\". Routes carry them, MOCK until the bus. The assignment saves with the patch once the patch seam exists: routes are already in the device's state.",
    "lab": "docs/design/xy-macro-lab.html",
    "component": "AssignXY",
-   "master_version": "1793728160-9606",
+   "master_version": "1793728588-6ff9",
    "bundle": "AssignXY",
    "via": null,
    "shell": "docs/design/gui3.html: xy = mainXYCtl = H.AssignXY($('mainXY'), S,",
@@ -5528,7 +5528,7 @@
    "note": "A click on the axis opens its card, which holds List and Touch beside Map. The right-click menu lists all ten.",
    "lab": "docs/design/xy-macro-lab.html",
    "component": "ParamPicker",
-   "master_version": "1793728160-9606",
+   "master_version": "1793728588-6ff9",
    "bundle": "ParamPicker",
    "via": null,
    "shell": "docs/design/gui3.html: H.ParamPicker(S, { title: 'Add to '",
@@ -5543,7 +5543,7 @@
    "note": "The pad moves its source and writes no parameter: the routes are the offset, bipolar from the centre. Reading: the puck stays where it's left. The real offset per corner needs the bus (B89).",
    "lab": "docs/design/xy-macro-lab.html",
    "component": "AssignXY",
-   "master_version": "1793728160-9606",
+   "master_version": "1793728588-6ff9",
    "bundle": "AssignXY",
    "via": null,
    "shell": "docs/design/gui3.html: { x: .5, y: .5, rest: true,",
@@ -5558,7 +5558,7 @@
    "note": "On Main and in the bank, from the name, with a badge counting what it touches. The same card serves an axis. Which corner a mapping belongs to is open.",
    "lab": "docs/design/xy-macro-lab.html",
    "component": "MacroCard",
-   "master_version": "1793728160-9606",
+   "master_version": "1793728588-6ff9",
    "bundle": "MacroCard",
    "via": null,
    "shell": "docs/design/gui3.html: const mapCard = H.MacroCard(S,",
@@ -5573,7 +5573,7 @@
    "note": "bankMods lists routed sources, and these are sources now. A macro's row opens its card, not the compact one.",
    "lab": "docs/design/xy-macro-lab.html",
    "component": "ModBank",
-   "master_version": "1793728160-9606",
+   "master_version": "1793728588-6ff9",
    "bundle": "ModBank",
    "via": null,
    "shell": "docs/design/gui3.html: onOpenCard: (m, row) =>",

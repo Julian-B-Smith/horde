@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1793728160-9606, 2026-11-03; do not edit, re-vendor */
+/* vendored from the horde Design System artifact, version 1793728588-6ff9, 2026-11-03; do not edit, re-vendor */
 /* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"SteppedControl"},{"name":"Stepper"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"},{"name":"Companion"},{"name":"SourceChip"},{"name":"SourceRows"},{"name":"RoutesBySource"},{"name":"Cluster"},{"name":"Lens"},{"name":"Fold"},{"name":"PageView"},{"name":"ModTiers"},{"name":"MacroRow"},{"name":"ModBank"},{"name":"ModPage"},{"name":"UndoLine"},{"name":"MacroFace"},{"name":"PresetBar"},{"name":"Deck"},{"name":"MacroCard"},{"name":"ParamPicker"},{"name":"AssignXY"},{"name":"Specimen"}]} */
 /* horde house reference behaviours (vanilla JS, no React, no network).
    The morph knob and slider follow the human's HORDE Morph Knob Spec and HORDE Map Mode Spec
@@ -7134,7 +7134,7 @@
     function open(nid, x, y, above) { if (id === nid) { close(); return; } if (!root.isConnected) (o.host || document.body).appendChild(root); id = nid; at = { x: x, y: y, above: !!above }; sig = ''; root.hidden = false; paint(); }
     S.escapeLayers.unshift({ name: 'macro-card', active: function () { return id !== null && !mapping(); }, cancel: close });
     document.addEventListener('pointerdown', function (e) {
-      if (id === null || root.contains(e.target) || mapping() || (o.hold && o.hold()) || (e.target.closest && (e.target.closest('.hd-mopen') || e.target.closest('.axy-chip') || e.target.closest('.hd-trow .tnm')))) return;   // a macro knob keeps it open: you turn one to hear what you've mapped
+      if (id === null || root.contains(e.target) || mapping() || (o.hold && o.hold()) || (e.target.closest && (e.target.closest('.hd-mopen') || e.target.closest('.hd-axy') || e.target.closest('.hd-trow .tnm')))) return;   // a macro knob or the pad keeps it open: you move one to hear what you've mapped
       close();
     }, true);
     S.add({ render: paint });

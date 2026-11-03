@@ -1025,7 +1025,7 @@ function fillMain() {
   // the Specimen and the logo: the bench's own (ADR-333), stepped by this file's frame loop. GUI-9: X and Y are two extra macro knobs on one pad. It writes no parameter; the mappings carry it, MOCK until the bus.
   const stage = H.MainStage, xy = mainXYCtl = H.AssignXY($('mainXY'), S, { x: .5, y: .5, rest: true, tag: 'XY · MOCK', underlay: stage.specimenCanvas(), keys: () => S.keys,
     axes: [['xyy', 'Y', 'tl'], ['xyx', 'X', 'br']].map(([id, label, corner]) => ({ id, label, corner, text: () => { const n = touching(id).length; return n ? 'touches ' + n : 'nothing here'; }, lit: () => touchAxis === id || (S.map.on && S.map.src === id) })),
-    onAxis: (id, chip) => mapCard.open(id, chip) });
+    onAxis: id => mapCard.open(id, $('mainXY'), $('mainXY'), true) });   // above the pad, never on it: you drag the pad to hear what you've mapped
   stage.xy(() => { const q = xy.get(); return [q[0], 1 - q[1]]; });
   const slot = document.querySelector('.logo'); slot.textContent = ''; slot.removeAttribute('title'); slot.classList.remove('hd-hint'); slot.append(stage.logoCanvas());
   views.push({ page: '*', update() { const mo = dev.morph(); stage.MORPH.on = mo.on; stage.MORPH.x = S.pad.x; stage.MORPH.y = S.pad.y; stage.tick(page === 'main'); } });
@@ -1662,7 +1662,7 @@ S.start();
     dev.begin('self-check');
     const mac = dev.sources().filter(s => s.kind === 'macro').map(s => s.id), kinds = mac.length === 10 && S.defPol('xyx') === 'bi' && S.defPol('macro1') === 'uni' && S.defPol('env1') === 'uni';
     const chip = $('mainXY').querySelector('.axy-chip[data-axis="xyx"]'); chip.click(); tick();
-    const card = mapCard.el, empty = !card.hidden && /nothing here/.test(card.textContent);
+    const card = mapCard.el, empty = !card.hidden && /nothing here/.test(card.textContent), clearOfPad = R(card).bottom <= R($('mainXY')).top;
     // List: a pick adds; a second pick adds too, and what it replaced nothing
     [...card.querySelectorAll('.mcc-adds button')].find(b => b.textContent === 'List').click();
     const items = [...document.querySelectorAll('.hd-ppick [data-param]')], routable = items.length > 40 && items.every(b => dev.canRoute(b.dataset.param)), search = document.querySelector('.hd-ppick input'); search.value = ROW[A].label; search.dispatchEvent(new Event('input')); const narrowed = document.querySelectorAll('.hd-ppick [data-param]').length;
@@ -1686,7 +1686,7 @@ S.start();
     $('bankHost').querySelector('.hd-bseg [data-set="macros"]').click(); tick(); press($('bankHost').querySelector('.bk-lanes.macros .mk-name')); const openedBank = mapCard.get() === 'macro1' && R(card).bottom <= R($('bankHost')).top; mapCard.close(); $('bankHost').querySelector('.hd-bseg [data-set="mods"]').click(); tick();
     openAddMenu(); const offered = [...document.querySelectorAll('.menu [role="menuitem"]')].map(b => b.textContent); closeMenu(); const noneOffered = !offered.some(t => mac.some(id => S.src(id).name === t));
     dev.end(); dev.undo(); dev.clearRedo(); mainXYCtl.set(xyWas[0], xyWas[1]); mapCard.close(); S.setSrc(srcWas); selectPage(pg0); $('win').style.width = widthWas; S.message = ''; tick();
-    const parts = { kinds, empty, routable, narrows: narrowed < items.length, pickedOne, cancelled, armedLit, touched, menuOk, bound, offsets, restChip, deep, mapped, staysOpen, removed, inRows, openedMain, clear, counted, openedBank, noneOffered, undone: !touching('xyx').length && S.map.src === srcWas }, bad = Object.keys(parts).filter(k => !parts[k]);
+    const parts = { kinds, empty, clearOfPad, routable, narrows: narrowed < items.length, pickedOne, cancelled, armedLit, touched, menuOk, bound, offsets, restChip, deep, mapped, staysOpen, removed, inRows, openedMain, clear, counted, openedBank, noneOffered, undone: !touching('xyx').length && S.map.src === srcWas }, bad = Object.keys(parts).filter(k => !parts[k]);
     line(!bad.length,
       (bad.length ? '(MISSED ' + bad.join(', ') + ') ' : '') + 'X and Y as macro knobs (GUI-9): ten macro sources, the axes bipolar; a list of ' + items.length + ' routable parameters, narrowed to ' + narrowed + '; a list pick, a touch and a right-click each add, and X touched two; the pad moved its source and wrote no parameter and no history; the card sets a depth, stays open through MAP and removes; names open it on Main and in the bank, clear of the knob; a mapped macro shows in the mod rows and + offers none. Controls: Escape leaves the touch unarmed, and the source really moved.'); }
   // 5. The info box shows the hovered control's text, and clears off a control (control).

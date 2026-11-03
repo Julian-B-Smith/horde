@@ -1469,7 +1469,7 @@ canvas.hd-ring { outline:none; }
 .hd-axy .axy-chip b { font-weight:800; } .hd-axy .axy-chip span { overflow:hidden; text-overflow:ellipsis; }
 .hd-axy .axy-chip[data-corner="tl"] { left:4px; top:4px; } .hd-axy .axy-chip[data-corner="br"] { right:4px; bottom:4px; }
 .hd-axy .axy-chip[aria-pressed="true"] { background:var(--scr-value); color:var(--scr-ground); }
-.hd-mccard { position:fixed; z-index:50; width:240px; box-sizing:border-box; display:flex; flex-direction:column; gap:4px; padding:6px; background:var(--bg); border:var(--stroke-ink) solid var(--ink); border-radius:var(--radius); font:400 11px/1.3 var(--font-sans); color:var(--ink); }
+.hd-mccard { position:fixed; z-index:50; width:240px; box-sizing:border-box; display:flex; flex-direction:column; gap:4px; padding:6px; background:var(--bg); border:var(--stroke-ink) solid var(--ink); border-radius:var(--radius); font:400 11px/1.3 var(--font-sans); color:var(--ink); user-select:none; -webkit-user-select:none; }
 .hd-mccard[hidden] { display:none; }
 .hd-mccard .mcc-head { display:flex; align-items:center; gap:6px; } .hd-mccard .mcc-head b { font-weight:800; }
 .hd-mccard .mcc-n { flex:1 1 auto; text-align:right; color:var(--hint); font:400 9px/1 var(--font-mono); }

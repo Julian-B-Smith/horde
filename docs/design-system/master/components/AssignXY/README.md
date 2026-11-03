@@ -4,7 +4,7 @@ The pad whose two axes work as two extra macro knobs (GUI-9 r1): each moves any 
 
 `Horde.AssignXY(el, S, { x, y, labelX, labelY, tag?, underlay?, rest?, axes?, onAxis?(id, chip), onInput?(x, y), keys? })` returns `{ get(), set(x, y), redraw() }`.
 
-**Axes** `axes`: `[{ id, label, corner: 'tl' | 'br', text(), lit() }]`, a chip per axis in its corner, reading `text()` (what it touches) and pressed while `lit()`. A click calls `onAxis(id, chip)`, and the host opens the axis's `MacroCard`. With chips, leave `labelX` and `labelY` empty and the canvas draws no names. `rest` marks the centre, where the axes offset nothing (GUI-9 r3).
+**Axes** `axes`: `[{ id, label, corner: 'tl' | 'br', text(), lit() }]`, a chip per axis in its corner, reading `text()` (what it touches) and pressed while `lit()`. A click calls `onAxis(id, chip)`, and the host opens the axis's `MacroCard`, off the pad, because you drag the pad to hear what you've mapped. With chips, leave `labelX` and `labelY` empty and the canvas draws no names. `rest` marks the centre, where the axes offset nothing (GUI-9 r3).
 
 **The pad writes no parameter.** It moves two source values, and the host's mappings carry them (GUI-9 r3). A drag makes no undo step, as a macro knob's doesn't.
 

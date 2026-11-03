@@ -746,7 +746,7 @@ function suite(W) {
     const mac = D.SOURCES.filter(s => s.kind === 'macro'), ax = mac.filter(s => s.pol === 'bi').map(s => s.id).sort().join();
     ok(mac.length === 10, 'the macros and the axes are not ten sources (GUI-9 r1): ' + mac.length);
     ok(ax === 'xyx,xyy', 'the axes are not the bipolar macro sources, so they would not rest at the pad\u2019s centre (GUI-9 r3): ' + ax);
-    for (const part of ['H.MacroCard(S,', 'H.MacroOpener(hst, S,', 'H.ParamPicker(S,', 'onAxis: (id, chip) => mapCard.open(id, chip)', "class: 'hd-mapgrid'"]) ok(t.includes(part), 'the shell no longer uses ' + part + ' (GUI-9)');
+    for (const part of ['H.MacroCard(S,', 'H.MacroOpener(hst, S,', 'H.ParamPicker(S,', "onAxis: id => mapCard.open(id, $('mainXY'), $('mainXY'), true)", "class: 'hd-mapgrid'"]) ok(t.includes(part), 'the shell no longer uses ' + part + ' (GUI-9)');
     ok(!/mainXYCtl[\s\S]{0,120}dev\.set\(/.test(t) && !/onInput: *\(x, *y\)[\s\S]{0,120}dev\.set/.test(t), 'the XY writes a parameter directly again (GUI-9 r3: it offsets from rest)');
   };
 
@@ -1036,7 +1036,7 @@ const PLANTS = [
   ['mainstage', 'shell', 'else if (pg.deck) mainPage(pg, el);', 'else if (pg.deckX) mainPage(pg, el);'],
   ['mainstage', 'shell', 'H.Deck(deckHost,', 'H.DeckX(deckHost,'],
   ['banklist', 'shell', "s.id === 'env1' || pend.includes(s.id)", "pend.includes(s.id)"],
-  ['xyaxes', 'shell', 'onAxis: (id, chip) => mapCard.open(id, chip)', 'onAxis: () => {}'],
+  ['xyaxes', 'shell', "onAxis: id => mapCard.open(id, $('mainXY'), $('mainXY'), true)", 'onAxis: () => {}'],
   ['xyaxes', 'shell', "H.ParamPicker(S,", "H.ParamList(S,"],
   ['banklist', 'shell', 'routes.some(r => r.src === s.id)).map(s => MODS[s.id]);', 'routes.some(r => r.src === s.id && pageKeys(page).has(r.param))).map(s => MODS[s.id]);'],
   ['dock', 'shell', "const on = dev.morph().on, show = on && padShown && page !== 'main';", "const on = dev.morph().on, show = on && padShown && page === 'main';"],
