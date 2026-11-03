@@ -11118,3 +11118,23 @@ Three points stayed open, because the shell already marks a knob selected the mo
 - B488's 15 % stays that row's target for the current engine, whose plan it is.
 - The rulings log gains row 87.
 - **FX device (ADR-254):** none directly. It hosts no engine, so this budget is not its own. Its modules' slice is unchanged.
+
+## ADR-355 — RULED by the human: the ambitious patch is measured and reported; spec round 53 (B608; 2026-11-02)
+
+**Context.** ADR-354 set the target at 10.7 % for a static patch. The human asked how far to push for “morphing between heavy patches with arpeggiators running”, so that “sound designers and experimenters (and, theoretically, performers) have as much wiggle room as possible”. The lead's arithmetic there has measured nothing, and PF-3 reads an average over a held chord, while a dropout is one late block.
+
+**Ruling (the human, 2026-11-02): “yes, add the ambitious patch measure”.** PF-10: two heavy oscillators and the sub; a held chord and a fast note stream; voice limits of 8 and 16; no morph, and Blend at the pad's centre at both counts once the morph exists; the worst block beside the average. It is reported, never a gate.
+
+**The lead's choices, within the ruling, open to overrule.**
+- The stream is a note every 80 ms with a 60 ms gate, about sixteenths at 187 BPM.
+- The worst block is the smallest of the 5 repeats' worst blocks, so that one disturbance from the machine doesn't count as the engine's.
+- PF-2's per-voice modulation is left out, because the human's list didn't name it.
+- The corners are the bank's four heaviest presets by PF-4.
+
+**What it does not cover.** FX, the modulation system and Arp's own work. The stream comes from the harness, so an Arp core's cost is its own slice. The morph cells can't run until round 48 is built, after the CPU pass.
+
+**Consequences.**
+- It decides whether to aim below 10.7 %, from evidence. It sets no bar.
+- Round 53 reaches both clean-room repositories the same turn. The test author adds the cells to the CPU tool, outside the suite. The builder runs them when they arrive.
+- The rulings log gains row 88.
+- **FX device (ADR-254):** none. It hosts no engine.

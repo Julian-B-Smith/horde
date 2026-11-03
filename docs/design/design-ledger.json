@@ -6436,6 +6436,10 @@
   {
    "adr": "ADR-354",
    "reason": "The engine's CPU target and the cutover's bar: no control or design element."
+  },
+  {
+   "adr": "ADR-355",
+   "reason": "A reported CPU measure: no control or design element."
   }
  ],
  "audit_notes": [
