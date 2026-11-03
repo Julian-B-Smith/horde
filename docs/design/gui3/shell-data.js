@@ -238,6 +238,7 @@ window.GUI3_DATA = {
     "asked": "Specimen XY from the scalpel lab on main",
     "id": "specimen-xy",
     "item": "The Specimen XY on Main (the XY pad over the Specimen, ADR-139)",
+    "missing": "Audio to strike it, the XY's assignment picker, and its cost measured in the plugin webview.",
     "precise": true,
     "reason": "engine-audio",
     "roadmap": "B74",
@@ -245,23 +246,23 @@ window.GUI3_DATA = {
      "docs/design/scalpel-interface-lab.html",
      "src/gui/gui2.html"
     ],
-    "status": "not-moved",
-    "why": "The Specimen is voice-bound: it draws what the voices render (ADR-262 ruling 1), so it waits on audio; to be copied precisely from the bench (ADR-333)."
+    "status": "partial",
+    "why": "In the shell since GUI-2 and GUI-4, the bench's code verbatim (MainStage, ADR-333), on by default with a switch in Settings. Still voice-bound, so it idles until audio; its cost in the plugin webview is still to be measured (ADR-140), and how a player assigns the XY's two parameters isn't designed yet."
    },
    {
     "area": "Main",
     "asked": "Almost everything else from main",
     "id": "main-rest",
     "item": "Almost everything else from Main (the performance page: the pad, the macros, the Specimen, the voice's performance controls)",
-    "missing": "The pad as Main's centre, the macros, the Specimen, the output section; the voice and ENV 1 are there.",
-    "reason": "unscheduled",
+    "missing": "Rows for Filter, Bend and Scale, the macros in the stub, and the FX line, which is still to be workshopped.",
+    "reason": "spec-table",
     "roadmap": "B581",
     "source": [
      "src/gui/gui2.html",
      "docs/design/scalpel-interface-lab.html"
     ],
     "status": "partial",
-    "why": "Main's design is B581 step 2; the shell's Main has the voice and ENV 1 only."
+    "why": "Main's stage is in the shell (GUI-4): the pad over the XY, the macros, ENV 1 and the ten-tab deck. Filter, Bend and Scale are MOCK until their rows land, and the macros aren't in the stub."
    },
    {
     "area": "Main",
@@ -570,6 +571,168 @@ window.GUI3_DATA = {
  "pages": [
   {
    "cite": null,
+   "deck": {
+    "head": [
+     "env1.attack",
+     "env1.decay",
+     "env1.sustain",
+     "env1.release"
+    ],
+    "tabs": [
+     {
+      "id": "osc1",
+      "label": "Osc 1",
+      "rows": [
+       [
+        "osc1.unison",
+        "osc1.baseWave",
+        "osc1.blade1.on",
+        "osc1.blade1.mode"
+       ],
+       [
+        "osc1.blade1.width",
+        "osc1.blade1.cut",
+        "osc1.blade1.position",
+        "osc1.blade1.depth",
+        "osc1.blade1.edges"
+       ],
+       [
+        "osc1.blade2.on",
+        "osc1.blade2.mode"
+       ],
+       [
+        "osc1.blade2.width",
+        "osc1.blade2.cut",
+        "osc1.blade2.position",
+        "osc1.blade2.depth",
+        "osc1.blade2.edges"
+       ]
+      ],
+      "source": "osc1"
+     },
+     {
+      "id": "osc2",
+      "label": "Osc 2",
+      "rows": [
+       [
+        "osc2.unison",
+        "osc2.baseWave",
+        "osc2.blade1.on",
+        "osc2.blade1.mode"
+       ],
+       [
+        "osc2.blade1.width",
+        "osc2.blade1.cut",
+        "osc2.blade1.position",
+        "osc2.blade1.depth",
+        "osc2.blade1.edges"
+       ],
+       [
+        "osc2.blade2.on",
+        "osc2.blade2.mode"
+       ],
+       [
+        "osc2.blade2.width",
+        "osc2.blade2.cut",
+        "osc2.blade2.position",
+        "osc2.blade2.depth",
+        "osc2.blade2.edges"
+       ]
+      ],
+      "source": "osc2"
+     },
+     {
+      "id": "sub",
+      "label": "Sub",
+      "rows": [
+       [
+        "sub.wave",
+        "sub.octave"
+       ],
+       [
+        "sub.tone",
+        "sub.drive",
+        "sub.erode",
+        "sub.crunch",
+        "sub.character",
+        "sub.pan"
+       ]
+      ],
+      "source": "sub"
+     },
+     {
+      "id": "noise",
+      "label": "Noise",
+      "rows": [
+       [
+        "noise.type",
+        "noise.filter"
+       ],
+       [
+        "noise.colour",
+        "noise.density",
+        "noise.cutoff",
+        "noise.resonance",
+        "noise.spread",
+        "noise.pan"
+       ]
+      ],
+      "source": "noise"
+     },
+     {
+      "id": "filter",
+      "label": "Filter",
+      "mock": "filter"
+     },
+     {
+      "id": "bend",
+      "label": "Bend",
+      "mock": "bend"
+     },
+     {
+      "id": "scale",
+      "label": "Scale",
+      "mock": "scale"
+     },
+     {
+      "id": "arp",
+      "label": "Arp",
+      "rows": [
+       [
+        "arp.enabled",
+        "arp.pattern",
+        "arp.rate",
+        "arp.steps",
+        "arp.latch"
+       ],
+       [
+        "arp.gate",
+        "arp.swing"
+       ]
+      ],
+      "source": "arp"
+     },
+     {
+      "group": "ENV 1",
+      "id": "env1",
+      "label": "ENV 1"
+     },
+     {
+      "group": "Voice",
+      "id": "voice",
+      "label": "Voice",
+      "rows": [
+       [
+        "mix.osc1",
+        "mix.osc2",
+        "mix.sub",
+        "mix.noise"
+       ]
+      ],
+      "source": "mix"
+     }
+    ]
+   },
    "dense": true,
    "grid": true,
    "groups": [
@@ -827,7 +990,7 @@ window.GUI3_DATA = {
    ],
    "id": "main",
    "label": "Main",
-   "note": "Dense (B589): the voice and ENV 1 as sections beside ENV 1's picture (a SAMPLE drawing of the settings, not the engine's output). Main's full design (the performance page with the pad) is B581 step 2.",
+   "note": "GUI-4: the morph pad over the XY with the Specimen, the macros, ENV 1, and one deck with ten tabs. Filter, Bend and Scale are MOCK until their rows land.",
    "panel": null,
    "power": null,
    "status": "draft",
@@ -846,6 +1009,7 @@ window.GUI3_DATA = {
   },
   {
    "cite": "B589 (Page nav's Osc dashboard), ADR-329 item 2",
+   "deck": null,
    "dense": false,
    "grid": false,
    "groups": [
@@ -2181,6 +2345,7 @@ window.GUI3_DATA = {
   },
   {
    "cite": null,
+   "deck": null,
    "dense": true,
    "grid": true,
    "groups": [
@@ -4074,6 +4239,7 @@ window.GUI3_DATA = {
   },
   {
    "cite": null,
+   "deck": null,
    "dense": true,
    "grid": true,
    "groups": [
@@ -5967,6 +6133,7 @@ window.GUI3_DATA = {
   },
   {
    "cite": "SPEC-ENGINE 5.5 and SN-1 to SN-7, SN-14; B514's rulings (ADR-255, ADR-258, ADR-268); PA-8 for live-when",
+   "deck": null,
    "dense": true,
    "grid": true,
    "groups": [
@@ -6993,6 +7160,7 @@ window.GUI3_DATA = {
   },
   {
    "cite": "SPEC-ENGINE 5.6 and SN-4, SN-8 to SN-13; B514's rulings (ADR-255, ADR-258, ADR-268); PA-8 for live-when",
+   "deck": null,
    "dense": true,
    "grid": true,
    "groups": [
@@ -8285,6 +8453,7 @@ window.GUI3_DATA = {
   },
   {
    "cite": null,
+   "deck": null,
    "dense": false,
    "grid": false,
    "groups": [],
@@ -8298,6 +8467,7 @@ window.GUI3_DATA = {
   },
   {
    "cite": null,
+   "deck": null,
    "dense": false,
    "grid": false,
    "groups": [
@@ -8753,6 +8923,7 @@ window.GUI3_DATA = {
   },
   {
    "cite": "SPEC-ENGINE Appendix D (D.2, MO-5 to MO-10, IF-11, IF-12)",
+   "deck": null,
    "dense": false,
    "grid": true,
    "groups": [
@@ -9079,6 +9250,7 @@ window.GUI3_DATA = {
   },
   {
    "cite": "B589 Channel strip; IF-6; ADR-329 item 3",
+   "deck": null,
    "dense": false,
    "grid": false,
    "groups": [
@@ -9399,6 +9571,7 @@ window.GUI3_DATA = {
   },
   {
    "cite": "ADR-330, ADR-235, RC-5, IF-7; rack order: the FX chain lab's (docs/design/fx-chain-morph-lab-r3.html), not a ruling",
+   "deck": null,
    "dense": false,
    "grid": true,
    "groups": [
@@ -12192,6 +12365,7 @@ window.GUI3_DATA = {
   },
   {
    "cite": null,
+   "deck": null,
    "dense": false,
    "grid": true,
    "groups": [
@@ -12252,6 +12426,7 @@ window.GUI3_DATA = {
   },
   {
    "cite": "Arp spec/params.json (arp-params/1), vendored by the Arp face lab (B553)",
+   "deck": null,
    "dense": false,
    "grid": true,
    "groups": [
@@ -12921,6 +13096,7 @@ window.GUI3_DATA = {
   },
   {
    "cite": "ADR-333, B593",
+   "deck": null,
    "dense": false,
    "grid": false,
    "groups": [],

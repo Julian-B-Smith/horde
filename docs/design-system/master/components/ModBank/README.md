@@ -6,7 +6,7 @@ The bank in the foot row (GUI-8 r3, r5, r6; ADR-340 r11): **120 px tall** (`size
 - `mods`: an array or a function returning the modulators to list. The host decides: in the shell, ENV 1 always, every modulator with a route on any page, and the pending ones (GUI-7, amending ADR-323 r4). `macros`: the Macros set's controls (see below).
 - Callbacks only; the bank removes and adds nothing itself.
 
-**The side column** (44 px): the **BT1 segments** MAC | MODS (an ink-edged pair, `aria-checked`, 28 px hit), the count ("6 active", "10 macros"), and + on the Mods set.
+**The side column** (44 px): the **BT1 segments** MAC over MODS (an ink-edged pair stacked to fit the column, `aria-checked`, 28 px hit), the count ("6 active", "10 macros"), and + on the Mods set.
 
 **Mods (R2, GUI-8 r6):** two columns of short rows, 26 px tall, eight in view and the rest scrolling: swatch, name, a 22 px picture, Map. The value and × are on the row's compact card.
 

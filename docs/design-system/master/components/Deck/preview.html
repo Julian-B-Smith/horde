@@ -1,0 +1,14 @@
+<!-- @dsCard group="Layout" height=220 subtitle="GUI-4: one panel with tabs. Every panel stays mounted." -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Deck</title></head>
+<body>
+<div style="padding:14px 16px 10px"><div id="deck" style="height:150px; max-width:560px"></div></div>
+<script>
+(function () {
+  var d = window.Horde.Deck(document.getElementById('deck'), { tabs: [{ id: 'a', label: 'Osc 1' }, { id: 'b', label: 'Filter' }, { id: 'c', label: 'Scale' }] });
+  ['a', 'b', 'c'].forEach(function (id) { var p = document.createElement('p'); p.className = 'hd-hint'; p.textContent = 'A SAMPLE panel: ' + id; d.panel(id).appendChild(p); });
+})();
+</script>
+</body>
+</html>

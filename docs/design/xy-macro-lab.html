@@ -1,0 +1,440 @@
+<!doctype html>
+<!-- xy-macro-lab: how a player picks Main's XY parameters, and how a macro knob maps. horde, 2026-11-02. Origin: horde GUI session (ADR-336 charter), the human: "after the overlap fix,
+     we can do the XY and macro page". GUI-2 left the XY's picker undrawn ("Nothing has been designed yet for choosing the XY's two parameters") and GUI-8 left the knobs without a Map button
+     ("How a macro knob maps. The rows had a Map button and the knobs don't"). B581, B589.
+
+     WHAT IS REAL. The frame is gui3.html itself, fetched and loaded unedited apart from one script, labHook below, placed before its main script. MAP mode, the rings, the depth drag, the
+     right-click menu, the routes in the device, and one undo step per gesture are all the shell's. Dragging the XY writes the two parameters through the device, so their knobs move.
+     WHAT IS MOCK. (1) The macros and the XY's axes are added to the device's source list so the route machinery can carry them. The engine has neither (RC-4, B89). (2) The real macro law is
+     the intent bus: a macro never writes a parameter, and a binding belongs to the parameter, per corner (SPEC-INTENT-BUS principles 1 and 2; ADR-192). So a mapping here stands for a binding.
+     (3) The XY writes its parameters directly. (4) No sound, and the shell's own self-checks in the frame will read the extra sources.
+
+     WHY THE HOOK AND NOT location.hash. srcdoc has no hash, so the lab opens the Main tab with a click and sets the shell's own win-only class.
+
+     WHY A LAB. Nothing here edits gui3*, arp-face/ or the master: a ruling goes through the chain (ADR-316).
+
+     THE SELF-CHECK prints in #selfcheck and runs before the shell is handed over, because a lab can pass its checks and still be unusable (the Lens lab, 2026-11-02): its last checks are that
+     the shell is back on Main, on X1 and K3, with nothing mapped and nothing to undo. Its controls: an unassigned axis moves nothing, Escape leaves an armed axis empty, a step control is
+     refused, a made-up macro id reads as absent, and the overlap measure must catch a planted overlap.
+
+     HOUSE RULES. No Math.random. No clock. No wheel listener (B301). -->
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="lab-part" content="Presentation">
+<title>XY and macro lab — picking the XY's parameters, mapping a macro knob (B581)</title>
+<link rel="stylesheet" href="arp-face/tokens.css">
+<link rel="stylesheet" href="arp-face/bundle.css">
+<style>
+  html, body { background: var(--bg); }
+  body { margin: 0; padding: 20px 16px 60px; color: var(--ink); font: 13px/1.5 var(--font-sans); }
+  .col { max-width: 1012px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+  h1 { font: 800 19px/1.2 var(--font-sans); margin: 0 0 6px; }
+  h2 { font: 800 13px/1.2 var(--font-sans); margin: 0 0 8px; }
+  p { margin: 0 0 6px; max-width: 84ch; }
+  .picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; }
+  .opt { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; gap: 3px; padding: 8px; border: 1px solid var(--div); border-radius: 6px; min-height: 44px; font-size: 12px; line-height: 1.35; }
+  .opt:hover { border-color: var(--ink); }
+  .opt:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .opt[aria-pressed="true"] { border: 2px solid var(--ink); padding: 7px; }
+  .opt .id { font: 800 12px/1.2 var(--font-mono); }
+  .opt .nm { font: 700 12px/1.25 var(--font-sans); }
+  .opt .tx { color: var(--t2, var(--hint)); }
+  #wrap { position: relative; overflow: auto hidden; border: 1px solid var(--div); height: 720px; }
+  #frame { display: block; border: 0; width: 980px; height: 720px; }
+  #busy { position: absolute; inset: 0; z-index: 2; display: flex; align-items: center; justify-content: center; background: var(--bg); font: 700 14px/1.4 var(--font-sans); text-align: center; padding: 20px; }
+  #busy[hidden] { display: none; }
+  .try { font: 12px/1.5 var(--font-sans); min-height: 36px; padding: 8px 10px; border-left: 3px solid var(--ink); }
+  .bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .bar button { all: unset; box-sizing: border-box; cursor: pointer; min-height: 28px; padding: 4px 10px; border: 1px solid var(--div); border-radius: 4px; font: 700 12px/1.4 var(--font-sans); }
+  .bar button:hover { border-color: var(--ink); }
+  .bar button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .note { color: var(--hint); font-size: 12px; }
+  #selfcheck { font: 12px/1.5 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<div class="col">
+  <header>
+    <h1>The XY's two parameters, and how a macro knob maps</h1>
+    <p>This is the real shell on Main. Pick an option in each row and try it there. The two rows are independent, so try any pair.</p>
+    <p class="note">Mock: the engine has no macros yet, and the XY isn't saved with a patch. The macros borrow the shell's mod routes so you can feel the gesture. Their rings move when you turn the knob, and undo is real.</p>
+  </header>
+  <section aria-label="How the XY picks its parameters"><h2>How do you pick the XY's two parameters?</h2><div class="picker" id="pickXY"></div></section>
+  <section aria-label="How a macro knob maps"><h2>How does a macro knob map?</h2><div class="picker" id="pickMac"></div></section>
+  <div class="try" id="tryIt" role="status"></div>
+  <div class="bar"><button type="button" id="clearAll">Clear what I mapped</button><span class="note" id="madeLine"></span></div>
+  <section aria-label="The shell"><div id="wrap"><iframe id="frame" title="GUI 3 with these options"></iframe><div id="busy">Loading the shell and checking every option. This takes a moment.</div></div></section>
+  <section aria-label="Questions">
+    <h2>Two things to decide alongside</h2>
+    <p><strong>What does the XY write?</strong> Your ruling says any two parameters. The intent bus spec has X and Y as intents that offset from each corner's rest value, and it was written so performance controls don't overwrite load-bearing values. X1, X2 and X3 write the parameter directly, so with morph on a drag edits whichever corner owns it. X4 is the bus's model.</p>
+    <p><strong>Does a mapped macro show in the mod rows?</strong> GUI-7 lists every active modulator, so here it does. Under MODS you'll see Tone beside ENV 1 once it maps something.</p>
+  </section>
+  <section aria-label="Self-check"><h2>Self-check</h2><div id="selfcheck"></div></section>
+</div>
+<script>
+/* Runs inside the frame, after the shell's scripts and before its main script. It only adds sources and keeps references: the shell can't tell, apart from the longer source list. */
+function labHook() {
+  var H = window.Horde, DV = window.GUI3Device, L = window.__lab = {};
+  ['Tone', 'Space', 'Time', 'Motion', 'Macro 5', 'Macro 6', 'Macro 7', 'Macro 8'].forEach(function (n, i) { DV.SOURCES.push({ id: 'macro' + (i + 1), name: n, kind: 'macro' }); });
+  DV.SOURCES.push({ id: 'xyx', name: 'XY X', kind: 'macro' }, { id: 'xyy', name: 'XY Y', kind: 'macro' });
+  var Sess = H.Session; H.Session = function (o) { var s = new Sess(o); L.S = s; return s; }; H.Session.prototype = Sess.prototype;
+  // the first create is the shell's device; its self-checks make throwaway ones afterwards
+  var cr = DV.create; DV.create = function (a, b, c) { var d = cr(a, b, c); if (!L.dev) L.dev = d; return d; };
+  var axy = H.AssignXY; H.AssignXY = function (el, S, o) { L.xyOpts = o; o.onInput = function (x, y) { if (L.onXY) L.onXY(x, y); }; var r = axy(el, S, o); L.xy = r; L.xyEl = el; return r; };
+}
+
+const $ = id => document.getElementById(id);
+const XY = [
+  { id: 'X1', nm: 'Chips and a list', tx: 'Click X or Y in the pad’s corner. A list of every continuous parameter, by page, with a search.', tryit: 'Click X in the pad’s bottom right corner and pick a parameter. Then drag the pad.' },
+  { id: 'X2', nm: 'Touch to learn', tx: 'Click X or Y, then touch any control on any page. That control is the axis. Escape cancels.', tryit: 'Click X, then click a knob in the deck, or go to another page first. Then drag the pad.' },
+  { id: 'X3', nm: 'From the control', tx: 'Right-click any control: Put on X, Put on Y. The pad’s chips only show the names and clear them.', tryit: 'Right-click a knob in the deck and choose Put on X. Then drag the pad.' },
+  { id: 'X4', nm: 'Axes are sources', tx: 'X and Y join MAP as sources. Each can move many parameters, each with its own depth. This goes past “any two parameters”, and it’s the intent bus’s model.', tryit: 'Click X to start MAP, click some knobs, and drag a depth. Then leave MAP and drag the pad: the rings move.' }
+];
+const MAC = [
+  { id: 'K1', nm: 'The name starts MAP', tx: 'Click a macro’s name and MAP turns on with that macro as the source. Click controls to map them.', tryit: 'Click “Tone” above the envelope, or in the bank under MAC. Click some knobs, then leave MAP and turn Tone.' },
+  { id: 'K2', nm: 'A handle on the knob', tx: 'Each knob gets a small handle, like the mod rows’ Map. Click it to start MAP, or drag it onto a control.', tryit: 'Drag a knob’s small handle onto a control in the deck, or click it to start MAP.' },
+  { id: 'K3', nm: 'A card', tx: 'Click a macro’s name for a card: what it touches, a depth for each, × to remove, and Map to add. The spec asks for this readout.', tryit: 'Click “Tone”. Press Map on the card and click some knobs. The card fills in as you go, and its sliders set each depth.' },
+  { id: 'K4', nm: 'From the control', tx: 'Right-click any control: Bind to a macro. Nothing on the knob itself. The binding belongs to the parameter, as the spec says.', tryit: 'Right-click a knob in the deck and choose a macro. Then turn that macro.' }
+];
+let mode = { xy: 'X1', mac: 'K3' };
+const axis = { x: null, y: null };
+let armed = null, card = null, w, d, L, S, dev, frameErrors = 0;
+
+function picker(host, list, key) {
+  list.forEach(o => {
+    const b = document.createElement('button'); b.className = 'opt'; b.type = 'button'; b.dataset.id = o.id;
+    b.append(...[['id', o.id], ['nm', o.nm], ['tx', o.tx]].map(([c, t]) => { const s = document.createElement('span'); s.className = c; s.textContent = t; return s; }));
+    b.addEventListener('click', () => setMode(key, o.id));
+    host.append(b);
+  });
+}
+function paintPickers() {
+  [['pickXY', 'xy'], ['pickMac', 'mac']].forEach(([id, k]) => $(id).querySelectorAll('.opt').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.id === mode[k]))));
+  const a = XY.find(o => o.id === mode.xy), b = MAC.find(o => o.id === mode.mac);
+  $('tryIt').textContent = 'Try ' + a.id + ': ' + a.tryit + ' Try ' + b.id + ': ' + b.tryit;
+}
+function setMode(k, v) { mode[k] = v; closeCard(); closeList(); armed = null; if (d) { d.body.classList.remove('lab-learn'); S.setMap(false); paintChips(); paintHandles(); } paintPickers(); }
+
+// ===== the frame's own parts: drawn here, because the master has none of this until a ruling (ADR-316) =====
+const FRAME_CSS = `
+  .lab-chip { position: absolute; z-index: 3; max-width: 62%; box-sizing: border-box; display: inline-flex; align-items: center; gap: 4px; height: 18px; padding: 0 5px; border: 1px solid var(--scr-grid); border-radius: 3px; background: var(--scr-ground); color: var(--scr-value); font: 400 9px/1 var(--font-mono); cursor: pointer; white-space: nowrap; }
+  .lab-chip b { font-weight: 800; } .lab-chip span { overflow: hidden; text-overflow: ellipsis; }
+  .lab-chip[data-axis="y"] { left: 4px; top: 4px; } .lab-chip[data-axis="x"] { right: 4px; bottom: 4px; }
+  .lab-chip[aria-pressed="true"] { background: var(--scr-value); color: var(--scr-ground); }
+  .lab-chip.readonly { cursor: default; } .lab-chip i { font-style: normal; cursor: pointer; padding: 0 1px; }
+  .lab-list { position: fixed; z-index: 40; width: 270px; max-height: 330px; display: flex; flex-direction: column; box-sizing: border-box; background: var(--bg); border: var(--stroke-ink) solid var(--ink); border-radius: var(--radius); padding: 6px; gap: 4px; font: 400 11px/1.3 var(--font-sans); color: var(--ink); }
+  .lab-list input { box-sizing: border-box; width: 100%; height: 24px; border: 1px solid var(--div); border-radius: 12px; background: var(--well); color: var(--ink); padding: 0 8px; font: 400 10px/1 var(--font-mono); }
+  .lab-list .scroll { overflow: hidden auto; min-height: 0; flex: 1 1 auto; display: flex; flex-direction: column; }
+  .lab-list h4 { margin: 5px 0 1px; font: 800 9px/1.2 var(--font-sans); letter-spacing: .04em; text-transform: uppercase; color: var(--t2); }
+  .lab-list button { all: unset; box-sizing: border-box; cursor: pointer; display: flex; justify-content: space-between; gap: 8px; padding: 3px 6px; border-radius: 3px; }
+  .lab-list button:hover, .lab-list button:focus-visible { background: var(--sel-neutral); }
+  .lab-list button small { color: var(--hint); font: 400 9px/1.4 var(--font-mono); }
+  .lab-mh { position: absolute; right: -2px; bottom: 0; z-index: 3; width: 13px; height: 13px; box-sizing: border-box; padding: 0; border: 1px solid var(--ink); border-radius: 50%; background: var(--panel); cursor: grab; touch-action: none; }
+  .lab-mh::after { content: ''; position: absolute; left: 3px; top: 3px; width: 5px; height: 5px; border-radius: 50%; background: var(--src-macro, var(--ink)); }
+  .lab-mh:hover { background: var(--ink); }
+  .lab-n { position: absolute; left: -2px; top: 1px; z-index: 3; min-width: 11px; height: 11px; box-sizing: border-box; padding: 0 2px; border-radius: 6px; background: var(--src-macro, var(--ink)); color: var(--bg); font: 800 8px/11px var(--font-mono); text-align: center; pointer-events: none; }
+  .lab-macrohost { position: relative; }
+  .lab-binds { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; } .lab-binds .hd-btn { min-width: 0; padding: 0 4px; }
+  .lab-name { cursor: pointer; } .lab-name:hover { text-decoration: underline; }
+  .lab-card { position: fixed; z-index: 40; width: 240px; box-sizing: border-box; display: flex; flex-direction: column; gap: 4px; padding: 6px; background: var(--bg); border: var(--stroke-ink) solid var(--ink); border-radius: var(--radius); font: 400 11px/1.3 var(--font-sans); color: var(--ink); }
+  .lab-card header { display: flex; align-items: center; gap: 6px; } .lab-card header b { flex: 1 1 auto; font-weight: 800; }
+  .lab-card header small { color: var(--hint); font: 400 9px/1 var(--font-mono); }
+  .lab-card .bind { display: grid; grid-template-columns: minmax(0, 1fr) 70px 28px 14px; gap: 4px; align-items: center; min-height: 20px; }
+  .lab-card .bind span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lab-card .bind output { font: 400 9px/1 var(--font-mono); text-align: right; }
+  .lab-card .bind input { width: 100%; margin: 0; height: 12px; accent-color: var(--ink); }
+  .lab-card .bind button { all: unset; cursor: pointer; text-align: center; } .lab-card .bind button:hover { font-weight: 800; }
+  .lab-card .empty { color: var(--hint); font: 400 10px/1.35 var(--font-mono); }
+  .lab-card .go { all: unset; box-sizing: border-box; cursor: pointer; align-self: flex-start; height: 20px; padding: 0 8px; border: 1px solid var(--ink); border-radius: 4px; font: 700 10px/18px var(--font-sans); }
+  .lab-card .go[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+  body.lab-learn #win [data-key]:hover { outline: 2px solid var(--scr-value, var(--ink)); outline-offset: 1px; border-radius: 4px; }
+  body.lab-learn #win { cursor: crosshair; }
+  .lab-drag { position: fixed; inset: 0; z-index: 39; pointer-events: none; }
+`;
+const el = (tag, cls, text) => { const e = d.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+const rowOf = k => dev.row(k);
+const isCont = k => { const r = rowOf(k); return !!r && r.law !== 'step' && !r.reserved; };
+const nameOf = k => rowOf(k).label + ' · ' + (rowOf(k).block || '');
+const short = k => rowOf(k).label;
+
+/* Every continuous parameter a page shows, once, grouped by what it belongs to and not by page: a page's name told four identical "Decay" rows apart for nobody (env1 to env4 on the dashboard). */
+function paramList() {
+  const DATA = w.GUI3_DATA, seen = new Set(), groups = new Map();
+  DATA.pages.forEach(p => {
+    (function walk(o) {
+      if (Array.isArray(o)) { o.forEach(walk); return; }
+      if (!o || typeof o !== 'object') return;
+      const k = o.key;
+      if (typeof k === 'string' && !seen.has(k) && isCont(k)) { seen.add(k); const g = rowOf(k).block || 'other'; if (!groups.has(g)) groups.set(g, []); groups.get(g).push(k); }
+      Object.values(o).forEach(walk);
+    })(p.groups || p);
+  });
+  return [...groups].map(([page, keys]) => ({ page, keys }));
+}
+
+// ===== XY =====
+function assign(a, key) { axis[a] = key; paintChips(); followPuck(); S.say((a === 'x' ? 'X' : 'Y') + (key ? ' is ' + short(key) : ' is clear')); madeLine(); }
+function paintChips() {
+  L.xyEl.querySelectorAll('.lab-chip').forEach(c => c.remove());
+  ['y', 'x'].forEach(a => {
+    const c = el('button', 'lab-chip'); c.type = 'button'; c.dataset.axis = a; c.setAttribute('aria-pressed', String(armed === a));
+    const src = a === 'x' ? 'xyx' : 'xyy', tag = a.toUpperCase(), n = dev.routes().filter(r => r.src === src).length;
+    const lit = mode.xy === 'X4' ? S.map.on && S.map.src === src : armed === a;
+    c.setAttribute('aria-pressed', String(lit));
+    const text = mode.xy === 'X4' ? (n ? 'touches ' + n : 'Map') : armed === a ? 'touch a control' : axis[a] ? short(axis[a]) : mode.xy === 'X3' ? 'right-click a control' : 'pick';
+    c.append(el('b', '', tag), el('span', '', text));
+    if (mode.xy === 'X3') { c.classList.add('readonly'); }
+    if (mode.xy !== 'X4' && axis[a]) { const x = el('i', '', '×'); x.title = 'Clear ' + tag; x.addEventListener('click', e => { e.stopPropagation(); assign(a, null); }); c.append(x); }
+    if (mode.xy !== 'X3') c.addEventListener('click', e => { e.stopPropagation(); chipClick(a, c); });
+    L.xyEl.append(c);
+  });
+}
+function chipClick(a, c) {
+  if (mode.xy === 'X1') { openList(a, c); return; }
+  if (mode.xy === 'X2') { armed = armed === a ? null : a; d.body.classList.toggle('lab-learn', !!armed); paintChips(); if (armed) S.say('Touch a control for ' + a.toUpperCase() + ', on any page. Escape cancels.'); return; }
+  const src = a === 'x' ? 'xyx' : 'xyy', on = S.map.on && S.map.src === src;
+  S.setSrc(src); S.setMap(!on); paintChips();
+}
+let list = null;
+function closeList() { if (list) { list.remove(); list = null; } }
+function openList(a, chip) {
+  closeList();
+  list = el('div', 'lab-list'); list.setAttribute('role', 'dialog'); list.setAttribute('aria-label', 'Parameter for ' + a.toUpperCase());
+  const q = el('input'); q.type = 'search'; q.placeholder = 'Search ' + a.toUpperCase() + '…'; q.setAttribute('aria-label', 'Search parameters');
+  const sc = el('div', 'scroll');
+  const draw = () => {
+    sc.textContent = ''; const t = q.value.trim().toLowerCase();
+    if (axis[a] && !t) { const clr = el('button', '', 'Clear ' + a.toUpperCase()); clr.type = 'button'; clr.addEventListener('click', () => { closeList(); assign(a, null); }); sc.append(clr); }
+    paramList().forEach(g => {
+      const hits = g.keys.filter(k => !t || (rowOf(k).label + ' ' + k + ' ' + g.page).toLowerCase().includes(t)); if (!hits.length) return;
+      sc.append(el('h4', '', g.page));
+      hits.forEach(k => { const b = el('button'); b.type = 'button'; b.dataset.param = k; b.append(el('span', '', rowOf(k).label), el('small', '', k)); b.addEventListener('click', () => { closeList(); assign(a, k); }); sc.append(b); });
+    });
+  };
+  q.addEventListener('input', draw); q.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); closeList(); } else e.stopPropagation(); });
+  list.append(q, sc); d.body.append(list); draw();
+  const r = chip.getBoundingClientRect(), m = list.getBoundingClientRect();
+  list.style.left = Math.max(8, Math.min(r.left, w.innerWidth - m.width - 8)) + 'px'; list.style.top = Math.max(8, Math.min(r.top, w.innerHeight - m.height - 8)) + 'px';
+  q.focus();
+}
+let quiet = false, xyHeld = false;
+function followPuck() {
+  if (xyHeld || mode.xy === 'X4') return;
+  const q = L.xy.get(), nx = axis.x ? dev.shown(axis.x) : q[0], ny = axis.y ? dev.shown(axis.y) : q[1];
+  if (Math.abs(nx - q[0]) > 1e-3 || Math.abs(ny - q[1]) > 1e-3) { quiet = true; L.xy.set(nx, ny); quiet = false; }
+}
+function xyInput(x, y) {
+  if (quiet || mode.xy === 'X4') return;
+  if (axis.x) dev.set(axis.x, x, { label: 'XY' }); if (axis.y) dev.set(axis.y, y, { label: 'XY' });
+}
+
+// ===== macros =====
+const macroOf = t => { const h = t.closest && t.closest('.bk-lanes.macros [data-mod], #mainMacros > div'); if (!h) return null; return h.dataset.mod || 'macro' + ([...h.parentElement.children].indexOf(h) + 1); };   // Main's second faces carry no id; they're mounted in the macros' order
+const macroHosts = () => [...d.querySelectorAll('.bk-lanes.macros .hd-mknob[data-mod], #mainMacros > div')];
+const macroName = id => S.src(id).name;
+const touching = id => dev.routes().filter(r => r.src === id);
+function startMap(id) { const on = S.map.on && S.map.src === id; S.setSrc(id); S.setMap(!on); }
+function paintHandles() {
+  macroHosts().forEach(h => {
+    const id = macroOf(h); if (!id) return; h.classList.add('lab-macrohost');
+    h.querySelectorAll('.lab-mh').forEach(x => x.remove());
+    const nm = h.querySelector('.mk-name'); if (nm) nm.classList.toggle('lab-name', mode.mac === 'K1' || mode.mac === 'K3');
+    if (mode.mac !== 'K2') return;
+    const b = el('button', 'lab-mh'); b.type = 'button'; b.title = 'Map ' + macroName(id) + ': click, or drag onto a control'; b.setAttribute('aria-label', 'Map ' + macroName(id));
+    let from = null, moved = false;
+    b.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); from = [e.clientX, e.clientY]; moved = false; b.setPointerCapture(e.pointerId); });
+    b.addEventListener('pointermove', e => { if (from && Math.hypot(e.clientX - from[0], e.clientY - from[1]) > 4) { moved = true; d.body.classList.add('lab-learn'); } });
+    b.addEventListener('pointerup', e => { if (!from) return; from = null; d.body.classList.remove('lab-learn'); if (!moved) { startMap(id); return; } const t = d.elementFromPoint(e.clientX, e.clientY), host = t && t.closest('#pages [data-key]'); dropOn(id, host && host.dataset.key); });
+    h.append(b);
+  });
+  paintCounts();
+}
+function dropOn(id, key) { if (!key || !isCont(key)) { S.say('That isn’t a control a macro can move.'); return false; } const r = dev.drop(id, key); S.say(r.ok ? macroName(id) + ' → ' + short(key) + ' · 25%' : r.why); madeLine(); return r.ok; }
+function paintCounts() {
+  macroHosts().forEach(h => { const id = macroOf(h); if (!id) return; let n = h.querySelector('.lab-n'); const c = touching(id).length; if (!c) { if (n) n.remove(); return; } if (!n) { n = el('span', 'lab-n'); h.append(n); } n.textContent = c; n.title = 'Touches ' + c; });
+}
+function closeCard() { if (card) { card.el.remove(); card = null; } }
+function openCard(id, anchor) {
+  if (card && card.id === id) { closeCard(); return; }
+  closeCard();
+  card = { id, el: el('div', 'lab-card'), anchor }; card.el.setAttribute('role', 'dialog'); card.el.setAttribute('aria-label', macroName(id)); d.body.append(card.el); paintCard();
+}
+function paintCard() {
+  if (!card) return;
+  const { id, el: c, anchor } = card, list = touching(id), on = S.map.on && S.map.src === id; c.textContent = '';
+  const head = el('header'); head.append(el('b', '', macroName(id)), el('small', '', list.length ? 'touches ' + list.length : 'nothing here'));
+  const go = el('button', 'go', on ? 'Done' : 'Map'); go.type = 'button'; go.setAttribute('aria-pressed', String(on)); go.addEventListener('click', () => { startMap(id); paintCard(); }); head.append(go);
+  c.append(head);
+  if (!list.length) c.append(el('div', 'empty', on ? 'Click the controls this macro should move.' : 'Press Map, then click the controls this macro should move.'));
+  list.forEach(r => {
+    const row = el('div', 'bind'), s = el('input'), out = el('output', '', Math.round(r.depth * 100) + '%'), x = el('button', '', '×');
+    s.type = 'range'; s.min = 0; s.max = 1; s.step = .01; s.value = r.depth; s.setAttribute('aria-label', 'Depth of ' + short(r.param));
+    s.addEventListener('pointerdown', () => { dev.begin('Depth ' + short(r.param)); s.dataset.held = '1'; });
+    const end = () => { if (s.dataset.held) { delete s.dataset.held; dev.end(); } };
+    s.addEventListener('pointerup', end); s.addEventListener('pointercancel', end);
+    s.addEventListener('input', () => { dev.syncRoutes(dev.routes().map(q => q.id === r.id ? Object.assign({}, q, { depth: +s.value }) : q)); out.textContent = Math.round(s.value * 100) + '%'; });
+    x.type = 'button'; x.title = 'Remove'; x.setAttribute('aria-label', 'Remove ' + short(r.param)); x.addEventListener('click', () => { dev.removeRoute(r.id); madeLine(); });
+    const nm = el('span', '', short(r.param)); nm.title = r.param; row.append(nm, s, out, x); c.append(row);
+  });
+  // under the whole row on Main, not under the name: it covered the knob it's about, and you turn the knob to hear what you've mapped
+  const inBank = !!anchor.closest('#bankHost'), a = (inBank ? anchor : anchor.closest('#mainMacros')).getBoundingClientRect(), n = anchor.getBoundingClientRect(), m = c.getBoundingClientRect();
+  c.style.left = Math.max(8, Math.min(n.left, w.innerWidth - m.width - 8)) + 'px';
+  c.style.top = (inBank ? Math.max(8, a.top - m.height - 6) : Math.min(w.innerHeight - m.height - 8, a.bottom + 6)) + 'px';
+}
+function madeLine() {
+  const n = dev.routes().filter(r => /^(macro\d|xy[xy])$/.test(r.src)).length, ax = [axis.x && 'X ' + short(axis.x), axis.y && 'Y ' + short(axis.y)].filter(Boolean);
+  $('madeLine').textContent = (ax.length ? ax.join(', ') + '. ' : '') + (n ? n + ' mapped.' : '');
+}
+
+// ===== the gestures, on the frame's document =====
+function wire() {
+  // On pointerdown and in capture, not on click: the knob captures the pointer as it's pressed, so a click lands on the knob and never on its name (a real click found this; a synthetic click on the name passed).
+  d.addEventListener('pointerdown', e => {
+    const nm = e.button === 0 && e.target.closest && e.target.closest('.mk-name'), id = nm && macroOf(nm);
+    if (id && (mode.mac === 'K1' || mode.mac === 'K3')) { e.stopPropagation(); e.preventDefault(); if (mode.mac === 'K1') startMap(id); else openCard(id, nm); return; }
+    if (armed) {
+      const host = e.target.closest && e.target.closest('#pages [data-key]');
+      if (host) { e.stopPropagation(); e.preventDefault(); if (isCont(host.dataset.key)) { const a = armed; armed = null; d.body.classList.remove('lab-learn'); assign(a, host.dataset.key); } else S.say(rowOf(host.dataset.key) ? short(host.dataset.key) + ' has steps, so it can’t be an axis.' : 'That isn’t a parameter.'); }
+    }
+    if (list && !list.contains(e.target)) closeList();
+    if (card && !card.el.contains(e.target) && !(S.map.on && S.map.src === card.id) && !(e.target.closest && e.target.closest('.mk-name'))) closeCard();
+  }, true);
+  d.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if (armed) { armed = null; d.body.classList.remove('lab-learn'); paintChips(); S.say('Cancelled'); e.stopPropagation(); } else if (list) { closeList(); e.stopPropagation(); } else if (card && !S.map.on) { closeCard(); e.stopPropagation(); } }, true);
+  // bubbling, so the shell's menu is already open: the options add to it
+  d.addEventListener('contextmenu', e => {
+    const host = e.target.closest && e.target.closest('#pages [data-key]'); if (!host || !isCont(host.dataset.key)) return;
+    const face = [...d.querySelectorAll('.hd-card.menu .face')].pop(); if (!face) return; const key = host.dataset.key;
+    const item = (t, fn) => { const b = el('button', 'hd-btn hd-focus', t); b.type = 'button'; b.setAttribute('role', 'menuitem'); b.addEventListener('click', () => { face.closest('.menu').remove(); fn(); }); face.append(b); };
+    if (mode.xy === 'X3') { item('Put on X', () => assign('x', key)); item('Put on Y', () => assign('y', key)); }
+    if (mode.mac === 'K4') {
+      face.append(el('span', 'hd-hint', 'Bind to a macro'));
+      const grid = el('div', 'lab-binds'); face.append(grid);
+      for (let i = 1; i <= 8; i++) { item(macroName('macro' + i), () => dropOn('macro' + i, key)); grid.append(face.lastChild); }
+    }
+    // the shell placed its menu for its own height: with these it ran off the window's foot
+    const menu = face.closest('.menu'), m = menu.getBoundingClientRect(); menu.style.top = Math.max(8, Math.min(m.top, w.innerHeight - m.height - 8)) + 'px';
+  });
+  // the add menu lists every source; these are only in the list for the lab's sake
+  d.addEventListener('click', e => { if (!(e.target.closest && e.target.closest('.bk-side .hd-btn'))) return; const m = d.querySelector('.hd-card.menu[aria-label="Activate a modulator"]'); if (m) m.querySelectorAll('[role="menuitem"]').forEach(b => { if (/^(Tone|Space|Time|Motion|Macro \d|XY [XY])$/.test(b.textContent)) b.remove(); }); });
+  // one undo step per drag, as the morph pad has
+  const cv = L.xyEl.querySelector('.axy-cv'); let open = false;
+  cv.addEventListener('pointerdown', e => { if (e.button) return; xyHeld = true; if (mode.xy !== 'X4' && (axis.x || axis.y)) { open = true; dev.begin('XY: ' + [axis.x, axis.y].filter(Boolean).map(short).join(' and ')); } }, true);
+  const up = () => { if (!xyHeld) return; xyHeld = false; if (open) { open = false; dev.end(); } };
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up); cv.addEventListener('lostpointercapture', up);
+  L.onXY = xyInput;
+  let rev = -1, was = '';
+  S.add({ render() {
+    const now = dev.rev() + '|' + S.map.on + '|' + S.map.src;
+    if (now !== was) { was = now; if (rev !== dev.rev()) { rev = dev.rev(); paintCounts(); madeLine(); } if (mode.xy === 'X4') paintChips(); paintCard(); }
+    followPuck();
+    if (d.querySelector('.bk-lanes.macros') && !d.querySelector('.bk-lanes.macros .lab-macrohost')) paintHandles();
+  } });
+  // the bank redraws its lane when the set changes, so the handles come back with it
+  d.querySelector('#bankHost .hd-bseg').addEventListener('click', () => paintHandles());
+}
+
+// ===== the self-check =====
+const rect = e => e.getBoundingClientRect();
+const hit = (a, b) => a.left < b.right - .5 && b.left < a.right - .5 && a.top < b.bottom - .5 && b.top < a.bottom - .5;
+function selfCheck() {
+  const out = [], check = (ok, t) => { out.push((ok ? 'OK · ' : 'FAILED · ') + t); return ok; };
+  const src0 = S.map.src;
+  const tick = () => { for (const v of S.views) v.render(); };
+  const key0 = (() => { const k = [...d.querySelectorAll('#pages [data-key]')].filter(e => e.offsetWidth && e.closest('#pages') && isCont(e.dataset.key)); return k; })();
+  check(!!(L.S && L.dev && L.xy) && d.querySelector('#mainXY') && key0.length > 3, 'The frame is the real shell on Main, with its session and device in reach and ' + key0.length + ' continuous controls in view.');
+  const ids = [1, 2, 3, 4, 5, 6, 7, 8].map(i => 'macro' + i);
+  check(ids.every(i => S.src(i) && S.params['macro.' + i]) && !S.src('macro9'), 'The eight macros are sources with values behind them. Control: a made-up macro9 reads as absent.');
+  const K = key0[0].dataset.key, K2 = key0[1].dataset.key, down = (t, type) => t.dispatchEvent(new w.PointerEvent(type || 'pointerdown', { bubbles: true, cancelable: true, button: 0, pointerId: 9, clientX: rect(t).left + 2, clientY: rect(t).top + 2 }));
+  const ctx = t => t.dispatchEvent(new w.MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 40 }));
+  const chip = a => L.xyEl.querySelector('.lab-chip[data-axis="' + a + '"]');
+
+  // X1
+  setMode('xy', 'X1'); const v0 = dev.shown(K); L.xy.set(.11, .11); const moved0 = Math.abs(dev.shown(K) - v0) > 1e-6;
+  chip('x').click(); const rows = [...d.querySelectorAll('.lab-list [data-param]')], noStep = rows.every(b => isCont(b.dataset.param));
+  const q = d.querySelector('.lab-list input'); q.value = rowOf(K).label; q.dispatchEvent(new w.Event('input')); const narrowed = d.querySelectorAll('.lab-list [data-param]').length;
+  const pick = [...d.querySelectorAll('.lab-list [data-param]')].find(b => b.dataset.param === K); pick.click();
+  dev.begin('XY check'); L.xy.set(.25, .75); dev.end(); const wrote = Math.abs(dev.shown(K) - .25) < .02;
+  dev.undo(); const undone = Math.abs(dev.shown(K) - v0) < 1e-6; assign('x', null);
+  check(!moved0 && rows.length > 40 && noStep && narrowed < rows.length && axis.x === null && wrote && undone, 'X1: the list holds ' + rows.length + ' continuous parameters and no step ones, the search narrows it to ' + narrowed + ', and a drag wrote the parameter in one undo step. Control: with no axis the pad moved nothing.');
+
+  // X2
+  setMode('xy', 'X2'); chip('x').click(); const lit = chip('x').getAttribute('aria-pressed') === 'true';
+  d.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })); const cancelled = armed === null && axis.x === null;
+  chip('y').click(); const vk = dev.shown(K2); down(key0[1]); const learned = axis.y === K2 && armed === null && dev.shown(K2) === vk; down(key0[1], 'pointerup'); assign('y', null);
+  const stepHost = [...d.querySelectorAll('#pages [data-key]')].find(e => rowOf(e.dataset.key) && rowOf(e.dataset.key).law === 'step' && e.offsetWidth); let refused = true;
+  if (stepHost) { chip('x').click(); down(stepHost); refused = axis.x === null && armed === 'x'; down(stepHost, 'pointerup'); armed = null; d.body.classList.remove('lab-learn'); }
+  check(lit && cancelled && learned && refused, 'X2: touching a control takes it without moving it. Controls: Escape leaves the axis empty, and a step control is refused' + (stepHost ? '' : ' (no step control in view to try)') + '.');
+
+  // X3 and K4: both add to the shell's own menu
+  setMode('xy', 'X3'); setMode('mac', 'K4'); ctx(key0[0]);
+  const menuText = [...d.querySelectorAll('.hd-card.menu [role="menuitem"]')].map(b => b.textContent);
+  const put = [...d.querySelectorAll('.hd-card.menu [role="menuitem"]')].find(b => b.textContent === 'Put on X'); put.click();
+  ctx(key0[1]); const menuBox = rect(d.querySelector('.hd-card.menu')), menuFits = menuBox.top >= 0 && menuBox.bottom <= w.innerHeight; [...d.querySelectorAll('.hd-card.menu [role="menuitem"]')].find(b => b.textContent === 'Tone').click(); tick();
+  const bound = touching('macro1').some(r => r.param === K2); assign('x', null); dev.clearRoutes();
+  check(menuText.includes('Reset to default') && menuText.includes('Put on Y') && menuText.includes('Macro 8') && bound && menuFits, 'X3 and K4: the options join the shell’s own right-click menu, Put on X took the control, Tone made the mapping, and the longer menu stays in the window.');
+
+  // X4
+  setMode('xy', 'X4'); chip('x').click(); const x4 = S.map.on && S.map.src === 'xyx'; dev.drop('xyx', K); S.setMap(false); tick();
+  S.src('xyx').f = () => L.xy.get()[0]; quiet = true; L.xy.set(.6, .4); quiet = false; const readsX = Math.abs(S.sourceValue('xyx') - .6) < 1e-6; dev.clearRoutes();
+  check(x4 && readsX, 'X4: the chip starts MAP with X as its source, and the source reads the pad.');
+  setMode('xy', 'X1');
+
+  // K1, K2, K3, on both faces
+  const bankBtn = d.querySelector('#bankHost .hd-bseg [data-set="macros"]'); bankBtn.click(); tick(); paintHandles();
+  const names = [...d.querySelectorAll('#mainMacros .mk-name, #bankHost .bk-lanes.macros .mk-name')];
+  setMode('mac', 'K1'); const k1 = names.length === 16 && names.every(n => { down(n); const ok = S.map.on && S.map.src === macroOf(n); S.setMap(false); return ok; });
+  check(k1, 'K1: all ' + names.length + ' macro names, 8 on Main and 8 in the bank, start MAP with their own macro as the source.');
+
+  setMode('mac', 'K2'); const hs = [...d.querySelectorAll('.lab-mh')]; const shown = hs.filter(h => h.offsetWidth);
+  const clashes = []; shown.forEach((h, i) => shown.forEach((g, j) => { if (j > i && hit(rect(h), rect(g))) clashes.push(i + '/' + j); }));
+  const nmHit = []; shown.forEach(h => { const nm = h.parentElement.querySelector('.mk-name'); if (nm && hit(rect(h), rect(nm))) { const r = d.createRange(); r.selectNodeContents(nm); if (hit(rect(h), r.getBoundingClientRect())) nmHit.push(nm.textContent); } });
+  const planted = shown[0].cloneNode(); shown[0].parentElement.append(planted); const seesPlant = hit(rect(planted), rect(shown[0])); planted.remove();
+  check(hs.length === 16 && !clashes.length && !nmHit.length && seesPlant && dropOn('macro2', K) && touching('macro2').length === 1, 'K2: 16 handles, none over another or over a name' + (nmHit.length ? ' (HITS ' + nmHit.join(', ') + ')' : '') + ', and a drop maps. Control: a planted handle reads as an overlap.');
+  dev.clearRoutes();
+
+  setMode('mac', 'K3'); down(names[0]); const cardEl = d.querySelector('.lab-card'), emptyFirst = /Press Map/.test(cardEl.textContent);
+  cardEl.querySelector('.go').click(); const k3Map = S.map.on && S.map.src === 'macro1'; paintCard(); const clearOfKnob = !hit(rect(cardEl), rect(d.querySelector('#mainMacros .mk-face'))); S.setMap(false);
+  dev.drop('macro1', K); paintCard(); const sl = cardEl.querySelector('input[type=range]'); sl.value = .5; sl.dispatchEvent(new w.Event('input'));
+  const deep = touching('macro1')[0].depth === .5; paintCard(); const inWin = rect(cardEl).left >= 0 && rect(cardEl).right <= w.innerWidth && rect(cardEl).top >= 0 && rect(cardEl).bottom <= w.innerHeight;
+  S.params['macro.macro1'].g = .8; const ringReads = Math.abs(S.sourceValue('macro1') - .8) < 1e-6; S.params['macro.macro1'].g = 0;
+  cardEl.querySelector('.bind button').click(); paintCard(); const gone = !touching('macro1').length && /Press Map/.test(cardEl.textContent); closeCard();
+  check(clearOfKnob && emptyFirst && k3Map && deep && inWin && ringReads && gone, 'K3: the card starts empty, its Map starts MAP, its slider sets the depth, × removes, it stays in the window and clear of the knob, and the macro’s value drives its source, so rings move.');
+
+  // the shell back as the human finds it
+  d.querySelector('#bankHost .hd-bseg [data-set="mods"]').click(); tick();
+  setMode('xy', 'X1'); setMode('mac', 'K3'); quiet = true; L.xy.set(.62, .58); quiet = false; dev.clearRoutes(); dev.clearHistory(); S.setMap(false); S.setSrc(src0); S.message = ''; tick();
+  check(!dev.routes().length && axis.x === null && axis.y === null && !S.map.on && S.map.src === src0 && !card && !list && !!d.querySelector('#pages .main-right') && d.querySelector('#mainXY').offsetWidth > 100, 'Left as you find it: on Main, on X1 and K3, nothing mapped, no axis, MAP off and nothing to undo.');
+  check(frameErrors === 0, 'No script error in the frame while all of this ran (' + frameErrors + ').');
+  return out;
+}
+
+// ===== boot =====
+(async function boot() {
+  picker($('pickXY'), XY, 'xy'); picker($('pickMac'), MAC, 'mac'); paintPickers();
+  const frame = $('frame'), base = new URL('.', location.href).href;
+  let html;
+  try { html = await (await fetch('gui3.html')).text(); } catch (e) { $('busy').textContent = 'This lab fetches the shell, so open it through tools/labs_preview.sh or tools/serve_labs.py (file:// blocks fetch).'; return; }
+  const marker = '<script src="gui3/shell-logic.js"><\/script>';
+  if (!html.includes(marker) || !html.includes('<head>')) { $('selfcheck').textContent = 'FAILED · the shell no longer has the script tag this lab hooks after.'; $('busy').textContent = 'The lab could not hook the shell.'; return; }
+  const hook = '<script>(' + labHook.toString() + ')();<\/script>';
+  html = html.replace('<head>', () => '<head><base href="' + base + '">').replace(marker, () => marker + hook);
+  await new Promise(res => { frame.addEventListener('load', res, { once: true }); frame.srcdoc = html; });
+  w = frame.contentWindow; d = frame.contentDocument; L = w.__lab; S = L.S; dev = L.dev;
+  w.addEventListener('error', () => { frameErrors++; });
+  const css = d.createElement('style'); css.textContent = FRAME_CSS; d.head.append(css);
+  d.body.classList.add('win-only');
+  [...d.querySelectorAll('#pnav button')].find(b => b.textContent.trim() === 'Main').click();
+  L.xyOpts.labelX = ''; L.xyOpts.labelY = ''; L.xyOpts.tag = ''; L.xy.redraw(); const tg = L.xyEl.querySelector('.axy-tag'); if (tg) tg.textContent = 'XY · MOCK';
+  for (let i = 1; i <= 8; i++) S.src('macro' + i).f = () => S.params['macro.macro' + i].g;
+  S.src('xyx').f = () => L.xy.get()[0]; S.src('xyy').f = () => L.xy.get()[1];
+  wire(); paintChips(); paintHandles();
+  let lines; try { lines = selfCheck(); } catch (e) { lines = ['FAILED · the self-check threw: ' + (e && e.stack || e)]; }
+  $('selfcheck').textContent = lines.join('\n'); paintPickers(); madeLine();
+  $('busy').hidden = true;
+  $('clearAll').addEventListener('click', () => { dev.clearRoutes(); assign('x', null); assign('y', null); closeCard(); S.setMap(false); });
+})();
+</script>
+</body>
+</html>

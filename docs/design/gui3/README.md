@@ -572,3 +572,14 @@ Master `1793657919-9064`. `docs/design/bank-lab.html` and `docs/design/lens-pres
 - **The colours** (GUI-8 r7): a theme button and screen chip in the top bar's second row, and the theme button and the full list in Settings' Interface card. They stay in step.
 - **The dock is on every page while morph is on** (GUI-5 r1), held by `gui3_seam_check`'s `dock` test. It hides on Main when GUI-4's Main is built.
 
+## Main (GUI-2, GUI-4, GUI-5, 2026-11-02)
+
+Master `1793658873-4f0e`. `docs/design/main-workshop-lab.html` drew it and is harvested.
+
+- **The stage** fills the page area, with no page head: the morph pad over the Specimen XY on the left; the macros, ENV 1's picture with A, D, S and R, and one deck on the right. `layout.json`'s `deck` says what is in it, and the generator checks every key against its source page.
+- **The ten tabs:** Osc 1, Osc 2, Sub, Noise, Arp are second faces on rows their own pages own, so a change shows in both. ENV 1 and Voice hold Main's own real sections, with the mix levels added as second faces. Filter, Bend and Scale are MOCK, and each says why.
+- **The pad** moves to the page on Main and back to the dock elsewhere. The dock hides on Main (GUI-5 r2).
+- **The Specimen and the logo** are `H.MainStage`, the bench's code verbatim (ADR-333), stepped by this file's frame loop. The Specimen is on by default, with a switch in Settings' Interface card. The logo is live on every page in the locked style.
+- **The XY's value is MOCK:** how a player assigns its two parameters isn't designed yet.
+- **An exception, flagged:** Main has no Grid | Table, against PV1, because the deck holds it and there's no room for the header.
+
