@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1793657919-9064, 2026-11-02; do not edit, re-vendor */
+/* vendored from the horde Design System artifact, version 1793674732-d181, 2026-11-02; do not edit, re-vendor */
 @import url("https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;800&family=Roboto+Mono:wght@400;500;600&display=swap");
 /* horde house components. Every colour is a token (tokens.json); nothing here is a hex.
    Sources: UI Spec §3-4 (values), gui2.html §4 skins, the SCALPEL lab (980×720 chassis),
@@ -1399,12 +1399,14 @@ canvas.hd-ring { outline:none; }
 .hd-bank .bk-side { display:flex; flex-direction:column; gap:3px; align-items:flex-start; width:var(--size-bank-side); flex:0 0 var(--size-bank-side); }
 .hd-bank .hd-btn { position:relative; min-height:16px; padding:0 8px; border-radius:4px; font-size:9.5px; line-height:1; box-shadow:none; }
 .hd-bank .hd-btn::before { content:''; position:absolute; left:-4px; right:-4px; top:50%; height:var(--size-hit); transform:translateY(-50%); }
-.hd-bseg { display:inline-flex; box-sizing:border-box; height:14px; border:var(--stroke-ink) solid var(--ink); border-radius:4px; }
-.hd-bseg button { position:relative; border:0; border-left:1px solid var(--div); background:var(--panel); color:var(--t2); padding:0 2px; font:800 8px/11px var(--font-sans); letter-spacing:.04em; cursor:pointer; }
-.hd-bseg button:first-child { border-left:0; border-radius:2px 0 0 2px; }
-.hd-bseg button:last-child { border-radius:0 2px 2px 0; }
+/* stacked, not side by side: the pair is 59 px across and the side column is 44 (it spilled over the first mod row, the human's picture, 2026-11-02) */
+.hd-bseg { display:flex; flex-direction:column; box-sizing:border-box; width:100%; border:var(--stroke-ink) solid var(--ink); border-radius:4px; }
+.hd-bseg button { position:relative; height:17px; border:0; border-top:1px solid var(--div); background:var(--panel); color:var(--t2); padding:0; font:800 8px/11px var(--font-sans); letter-spacing:.04em; cursor:pointer; }
+.hd-bseg button:first-child { border-top:0; border-radius:2px 2px 0 0; }
+.hd-bseg button:last-child { border-radius:0 0 2px 2px; }
 .hd-bseg button[aria-checked="true"] { background:var(--ink); color:var(--bg); }
 .hd-bseg button::before { content:''; position:absolute; left:-1px; right:-1px; top:50%; height:var(--size-hit); transform:translateY(-50%); }
+.hd-bank .bk-side .cl-lab { height:auto; white-space:normal; line-height:1.15; }   /* "10 macros" takes two lines; it's 52 px on one */
 .hd-bank .bk-lanes { flex:1 1 auto; min-width:0; display:grid; grid-auto-flow:row; grid-template-columns:repeat(2, minmax(0, 1fr)); grid-auto-rows:var(--size-row-thin); gap:1px 3px; align-content:start; overflow:hidden auto; scrollbar-width:thin; }
 /* R2 (GUI-8 r6): two columns of short rows, eight in view; the value and x are on the row's card */
 .hd-bank .hd-trow { width:auto; grid-template-columns:7px minmax(0, 1fr) 22px 18px; gap:2px; padding:0 2px 0 3px; }
@@ -1447,3 +1449,18 @@ canvas.hd-ring { outline:none; }
 .hd-mpage .mp-bar { display:flex; align-items:center; gap:8px; min-height:var(--size-hit); }
 .hd-mpage .mp-pane { box-sizing:border-box; flex:1 1 auto; min-height:0; overflow:auto; overscroll-behavior:contain; border:var(--stroke-ink) solid var(--ink); border-radius:8px; background:var(--panel); padding:6px 8px; }
 .hd-mpage .mp-routes { min-width:0; }
+/* DECK (GUI-4 r1, r3) */
+.hd-deck { box-sizing:border-box; display:flex; flex-direction:column; gap:4px; min-width:0; min-height:0; padding:4px 6px; background:var(--panel); border:var(--stroke-ink) solid var(--ink); border-radius:var(--radius); }
+.hd-deck .dk-tabs { display:flex; gap:2px; flex:0 0 auto; }
+.hd-deck .dk-tab { box-sizing:border-box; padding:1px 7px; border:1px solid var(--div); border-radius:9px; background:none; color:var(--ink); font:700 10px/1.4 var(--font-sans); white-space:nowrap; cursor:pointer; }
+.hd-deck .dk-tab:hover { border-color:var(--ink); }
+.hd-deck .dk-tab[aria-selected="true"] { background:var(--ink); color:var(--bg); border-color:var(--ink); }
+.hd-deck .dk-body { flex:1 1 auto; min-height:0; min-width:0; position:relative; }
+.hd-deck .dk-panel { height:100%; min-width:0; overflow:hidden auto; scrollbar-width:thin; }
+.hd-deck .dk-panel[hidden] { display:none; }
+/* ASSIGN XY (GUI-2 r2) */
+.hd-axy { position:relative; overflow:hidden; box-sizing:border-box; border:var(--stroke-ink) solid var(--ink); border-radius:var(--radius); background:var(--scr-ground); touch-action:none; min-height:0; }
+.hd-axy canvas { position:absolute; left:0; top:0; width:100%; height:100%; display:block; }
+.hd-axy canvas.specimen { pointer-events:none; }
+.hd-axy .axy-tag { position:absolute; left:6px; bottom:4px; font:400 8.5px/1 var(--font-mono); color:var(--scr-grid); pointer-events:none; }
+.logo canvas.logo { width:91px; height:60px; display:block; pointer-events:none; }

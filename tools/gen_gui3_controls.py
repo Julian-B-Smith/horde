@@ -460,6 +460,24 @@ def check_composites(pages, by):
     ids = {p["id"]: p for p in pages}
     for pg in pages:
         check_viz(pg.get("viz"), by, f"page {pg['id']}")
+        # GUI-4: a deck tab's controls are second faces on rows its source page carries (one model, two views), and its group is one of the page's own
+        if pg.get("deck"):
+            own = {c["key"] for g in pg["groups"] for c in g["controls"]}
+            for k in pg["deck"].get("head", []):
+                if k not in own:
+                    raise Red("deck", f"page {pg['id']}: deck head key {k!r} is not on the page")
+            for t in pg["deck"]["tabs"]:
+                if t.get("group") and not any(g["title"] == t["group"] for g in pg["groups"]):
+                    raise Red("deck", f"page {pg['id']}: deck tab {t['id']} names no group of the page")
+                if t.get("rows"):
+                    src = ids.get(t.get("source"))
+                    if not src:
+                        raise Red("deck", f"page {pg['id']}: deck tab {t['id']} names no source page")
+                    have = {c["key"] for g in src["groups"] for c in g["controls"]}
+                    for row in t["rows"]:
+                        for k in row:
+                            if k not in have:
+                                raise Red("deck", f"page {pg['id']}: deck tab {t['id']} key {k!r} is not on page {t['source']}")
         if pg.get("power") and not (pg["power"] in by and is_switch(by[pg["power"]])):
             raise Red("role", f"page {pg['id']}: its power {pg['power']!r} is not an off/on row")
         for g in pg["groups"]:
@@ -742,7 +760,7 @@ def build_pages(rows, layout):
                            "strip": g.get("strip"), "master": bool(g.get("master")), "follow": follow_out, "matrix": matrix, "fold": bool(g.get("fold"))})
         pages.append({"id": pg["id"], "label": pg["label"], "status": pg["status"], "note": pg.get("note", ""),
                       "cite": pg.get("cite"), "panel": pg.get("panel"), "dense": bool(pg.get("dense")), "viz": pg.get("viz"),
-                      "grid": bool(pg.get("grid")), "power": pg.get("power"), "groups": groups})
+                      "grid": bool(pg.get("grid")), "power": pg.get("power"), "deck": pg.get("deck"), "groups": groups})
     check_composites(pages, by)
     unreached = [r["key"] for r in rows if not r["reserved"] and r["key"] not in placed]
     if unreached:
@@ -1260,6 +1278,8 @@ def controls(spec_text, layout, shell_text, scripts, committed, ext):
         plant("a ledger row with no B-number", "ledger", ex=led_mut(lambda r: r.__setitem__("roadmap", ""))),
         plant("a follow row that is not a parameter", "unknown-key",
               lo=lay(lambda lo: page(lo, "sub")["groups"][1]["follow"]["suffixes"].append("notARow"))),
+        plant("a deck tab with a key its source page doesn't carry", "deck",
+              lo=lay(lambda lo: page(lo, "main")["deck"]["tabs"][0]["rows"][0].append("noise.pitch"))),
         plant("a page in no nav group", "nav",
               lo=lay(lambda lo: next(g for g in lo["nav"] if "settings" in g["pages"])["pages"].remove("settings"))),
         plant("a dashboard control whose key is not on its source page", "dashboard",

@@ -10,6 +10,14 @@
  },
  "master_versions": [
   {
+   "version": "1793674732-d181",
+   "evidence": "docs/design/gui3.html self-check 30b: the bank's MAC | MODS switch stacked to fit its 44 px column, and its count wraps (the human's picture, 2026-11-02: the switch was 59 px and spilled over the first mod row; '10 macros' was 52 px). No ruling moves."
+  },
+  {
+   "version": "1793658873-4f0e",
+   "evidence": "docs/design-system/master/VERSION: published 2026-11-02 from the gui-main-build branch before merge. GUI-2, GUI-4: Deck, AssignXY, MainStage (the bench's logo and Specimen, verbatim, ADR-333), Viz.response, SecondKnob and LooseKnob."
+  },
+  {
    "version": "1793657919-9064",
    "evidence": "docs/design-system/master/VERSION: published 2026-11-02 from the gui-foot-build branch before merge. GUI-5 r3 rounded bank corners; GUI-7's count wording; GUI-8: the bank F5, MacroFace, R2 rows, the Lens's foot form; GUI-6: PresetBar. size-bank-h 120 px, size-bank-side 44 px."
   },
@@ -217,14 +225,16 @@
    "note": "B324: the blind calibration pass; 'nobody has listened' (its golden note). Calibration, not design."
   },
   "main-layout-lab.html": {
-   "status": "ruled",
+   "status": "harvested",
+   "master_version": "1793658873-4f0e",
    "adr": "GUI-2",
-   "note": "Ruled M1 (GUI-2). Not yet harvested: the Specimen and the live logo go to the master next. main-layout-lab-parts.js holds the bench's code for this lab only."
+   "note": "Harvested at 1793658873-4f0e, with GUI-2 ruling 1 amended by GUI-4. main-layout-lab-parts.js stays only for this lab's history: the code now lives in the master as MainStage."
   },
   "main-workshop-lab.html": {
-   "status": "ruled",
+   "status": "harvested",
+   "master_version": "1793658873-4f0e",
    "adr": "GUI-4",
-   "note": "Ruled B, One deck, with stacked pads (GUI-4). Not yet harvested: the Lens and preset lab comes first. Filter, bend, scale and macros are MOCK here."
+   "note": "Harvested at 1793658873-4f0e. It built its options on the shell before Main existed; on today's shell it applies them over the real page."
   },
   "maw-horde-lab.html": {
    "status": "ruled",
@@ -4991,14 +5001,14 @@
    "adr": "GUI-2",
    "clause": "ruling 2 (Main's XY is assignable: any two parameters, saved with the patch; closes B299's question 38)",
    "port_tab": "specimen-xy",
-   "note": "How the player picks them is not designed yet: the next batch's first question.",
+   "note": "In the shell with its value MOCK: how a player assigns the two parameters is not designed yet.",
    "lab": "docs/design/main-layout-lab.html",
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "AssignXY",
+   "master_version": "1793658873-4f0e",
+   "bundle": "AssignXY",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: H.AssignXY($('mainXY'), S,",
+   "state": "in-shell",
    "superseded_by": null
   },
   {
@@ -5006,14 +5016,14 @@
    "adr": "GUI-2",
    "clause": "ruling 3 (the Specimen is on by default with a Settings switch; amends ADR-140's default; its cost is measured in the plugin webview before 1.0)",
    "port_tab": "specimen-xy",
-   "note": "The master documents the Specimen, but the bundle has no code for it. To be ported from the bench verbatim (ADR-333). FX device: an audio-driven stand-in (ADR-262 r1).",
+   "note": "On by default with a switch in Settings. Its cost in the plugin webview is still to be measured before 1.0 (ADR-140). FX device: an audio-driven stand-in (ADR-262 r1).",
    "lab": "docs/design/main-layout-lab.html",
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "Specimen",
+   "master_version": "1793658873-4f0e",
+   "bundle": "MainStage",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: stage.specimenCanvas()",
+   "state": "in-shell",
    "superseded_by": null
   },
   {
@@ -5021,14 +5031,14 @@
    "adr": "GUI-2",
    "clause": "ruling 4 (Main shows the eight macros as knobs, as well as the bank's MAC lane)",
    "port_tab": "main-rest",
-   "note": "The same macros, shown twice; needs the intent bus's macros in the stub, as the bank does.",
+   "note": "Second faces on the bank's macro values; the macros aren't in the stub yet.",
    "lab": "docs/design/main-layout-lab.html",
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "Deck",
+   "master_version": "1793658873-4f0e",
+   "bundle": "SecondKnob",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: H.SecondKnob(hst, S, p,",
+   "state": "in-shell",
    "superseded_by": null
   },
   {
@@ -5171,14 +5181,14 @@
    "adr": "GUI-4",
    "clause": "ruling 1 (Main is B, One deck: macros, ENV 1's picture, then a deck, beside the pads; the foot row stays; amends GUI-2 r1)",
    "port_tab": "main-rest",
-   "note": "Waits on the Lens and preset ruling (GUI-4 r7). The master has no deck component yet. FX device: no Main.",
+   "note": "The page head and Grid | Table are gone on Main: an exception to PV1, flagged to the human.",
    "lab": "docs/design/main-workshop-lab.html",
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "Deck",
+   "master_version": "1793658873-4f0e",
+   "bundle": "Deck",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: H.Deck(deckHost,",
+   "state": "in-shell",
    "superseded_by": null
   },
   {
@@ -5188,12 +5198,12 @@
    "port_tab": "main-rest",
    "note": "GUI-2's reading stands.",
    "lab": "docs/design/main-workshop-lab.html",
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "AssignXY",
+   "master_version": "1793658873-4f0e",
+   "bundle": "AssignXY",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: id: 'mainPad'",
+   "state": "in-shell",
    "superseded_by": null
   },
   {
@@ -5201,14 +5211,14 @@
    "adr": "GUI-4",
    "clause": "ruling 3 (the deck's tabs: Osc 1, Osc 2, Sub, Noise, Filter, Bend, Scale, Arp, ENV 1, Voice)",
    "port_tab": "main-rest",
-   "note": "Filter needs Weir's rows, Bend RC-3's, Scale B260's: MOCK until then, and marked.",
+   "note": "From layout.json's deck. Filter, Bend and Scale are MOCK and say so.",
    "lab": "docs/design/main-workshop-lab.html",
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "Deck",
+   "master_version": "1793658873-4f0e",
+   "bundle": "Deck",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: else if (pg.deck) mainPage(pg, el);",
+   "state": "in-shell",
    "superseded_by": null
   },
   {
@@ -5216,14 +5226,14 @@
    "adr": "GUI-4",
    "clause": "ruling 4 (ENV 1's hold, curves and velocity stay on Main, in the ENV 1 tab, all nine rows)",
    "port_tab": "main-rest",
-   "note": "Real rows.",
+   "note": "The page's real ENV 1 section. A, D, S and R are also second faces by the picture.",
    "lab": "docs/design/main-workshop-lab.html",
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "Deck",
+   "master_version": "1793658873-4f0e",
+   "bundle": "Deck",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: pg.deck.tabs.filter(t => t.group)",
+   "state": "in-shell",
    "superseded_by": null
   },
   {
@@ -5231,14 +5241,14 @@
    "adr": "GUI-4",
    "clause": "ruling 5 (Voice and Mix are a deck tab)",
    "port_tab": "main-rest",
-   "note": "Real rows.",
+   "note": "The page's real Voice section, with second faces on the four levels.",
    "lab": "docs/design/main-workshop-lab.html",
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "Deck",
+   "master_version": "1793658873-4f0e",
+   "bundle": "Deck",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: pg.deck.tabs.filter(t => t.group)",
+   "state": "in-shell",
    "superseded_by": null
   },
   {
@@ -5308,12 +5318,12 @@
    "port_tab": "main-rest",
    "note": "Goes in with GUI-4's Main, which changes the self-check's expectation for Main. FX device: no Main.",
    "lab": "docs/design/main-workshop-lab.html",
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "Deck",
+   "master_version": "1793658873-4f0e",
+   "bundle": "Deck",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: show = on && padShown && page !== 'main'",
+   "state": "in-shell",
    "superseded_by": null
   },
   {

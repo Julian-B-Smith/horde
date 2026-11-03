@@ -7,3 +7,5 @@ The locked horde wordmark, DROP + INSET + HUE ↘ (B368, locked B375): a baked "
 - `horde-static-light.png`, `horde-static-dark.png`: the reduced-motion mark (unwarped; the drift's colour at rest). Use it wherever motion is off, and for any still use such as an About box or an installer.
 
 Rules: show the mark at 91 × 60 CSS px (whole-number scale only), in the frame header's top-left slot, never on a well or a screen. Never recolour, redraw, re-set it in Archivo or crop it. In the plugin it is live: the colour follows the morph cursor (or a 50-second hue drift when morph is off), R drives the ripple and detune the wiggle, and it reseeds only per launch. The warp engine is `docs/design/logo/text_distortion.hpp` in the repo.
+
+**In the bundle:** `Horde.MainStage.logoCanvas()`, the bench's warp and paint verbatim (ADR-333), in the locked style. The bench's click-to-cycle and its stored style are not carried over (GUI-2's reading).

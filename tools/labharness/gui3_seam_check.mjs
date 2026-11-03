@@ -78,6 +78,7 @@
  *                don't shrink. The shell's self-check drives both in the browser, each with a control
  *   dock         ADR-315 r1, GUI-5, structural: the human, "I want to make sure the morph XY on every page when morph is active doesn't get reversed". The dock is decided by
  *                morph and the Pad switch alone, never by the page, and the shell's browser check that walks every page is still there. GUI-4's Main will hide it on Main, in this one test.
+ *   mainstage    GUI-2, GUI-4, structural: Main is the master's Deck, AssignXY and MainStage, and its deck comes from the layout, so the shell names no key.
  *   banklist     GUI-7, structural: the bank's MODS rows are every routed modulator on any page, ENV 1 always, and the pending ones, never filtered by the page.
  *   infolock     ADR-345, structural: the foot row is F1's, the box is the bundle's InfoBox, a press is heard in capture and locks on a control and
  *                a section and releases otherwise, a hover can't reach a locked box and stays put on the box, the sidebar is one switch outside
@@ -727,9 +728,15 @@ function suite(W) {
   /* ADR-315 r1, GUI-5: verify runs no browser, so a reversal of the pad on every page would otherwise pass here */
   T.dock = () => {
     const t = W.__shellText;
-    ok(t.includes('const on = dev.morph().on, show = on && padShown;'), 'the dock is not decided by morph and the Pad switch alone, so a page could lose the pad (ADR-315 r1, GUI-5)');
+    ok(t.includes("const on = dev.morph().on, show = on && padShown && page !== 'main';"), 'the dock is not decided by morph, the Pad switch and Main alone, so a page could lose the pad (ADR-315 r1, GUI-5)');
     ok(t.includes("$('dock').hidden = !show;"), 'the dock is not shown from that decision');
-    ok(t.includes("'Dock: with morph on, the morph pad docks on all '"), 'the shell\u2019s browser check that walks every page with morph on is gone');
+    ok(t.includes("'Dock: with morph on, the morph pad docks on all '") && t.includes("const slot = page === 'main' ? $('mainPad')"), 'the shell\u2019s browser check that walks every page with morph on is gone');
+  };
+
+  T.mainstage = () => {
+    const t = W.__shellText;
+    ok(t.includes('else if (pg.deck) mainPage(pg, el);'), 'Main is not built from its deck');
+    for (const part of ['H.Deck(deckHost,', "H.AssignXY($('mainXY'), S,", 'H.MainStage', 'stage.logoCanvas()']) ok(t.includes(part), 'Main no longer uses the master\u2019s ' + part);
   };
 
   /* GUI-7: the human, "some way to map Env 1 ... the mod rows should show all modulators active on any pages" */
@@ -1015,9 +1022,11 @@ const PLANTS = [
   ['sections', 'logic', "tag: 'SECTION · DRAFT'", "tag: 'SECTION'"],
   ['canvases', 'shell', "|| '') + '|' + sizeOf(main);", "|| '');"],
   ['canvases', 'shell', '.mapbar #srcStrip .src-chip { flex: 0 0 auto; }', '.mapbar #srcStrip .src-chip { flex: 0 1 auto; }'],
+  ['mainstage', 'shell', 'else if (pg.deck) mainPage(pg, el);', 'else if (pg.deckX) mainPage(pg, el);'],
+  ['mainstage', 'shell', 'H.Deck(deckHost,', 'H.DeckX(deckHost,'],
   ['banklist', 'shell', "s.id === 'env1' || pend.includes(s.id)", "pend.includes(s.id)"],
   ['banklist', 'shell', 'routes.some(r => r.src === s.id)).map(s => MODS[s.id]);', 'routes.some(r => r.src === s.id && pageKeys(page).has(r.param))).map(s => MODS[s.id]);'],
-  ['dock', 'shell', 'const on = dev.morph().on, show = on && padShown;', "const on = dev.morph().on, show = on && padShown && page === 'main';"],
+  ['dock', 'shell', "const on = dev.morph().on, show = on && padShown && page !== 'main';", "const on = dev.morph().on, show = on && padShown && page === 'main';"],
   ['dock', 'shell', "$('dock').hidden = !show;", "$('dock').hidden = true;"],
   ['dock', 'shell', "'Dock: with morph on, the morph pad docks on all '", "'Dock: with morph on, the pad shows on some '"],
   ['infolock', 'shell', '.footrow { --foot-h: 120px;', '.footrow { --foot-h: 216px;'],
