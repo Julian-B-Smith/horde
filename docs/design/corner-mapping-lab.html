@@ -1,0 +1,1014 @@
+<!doctype html>
+<!-- corner-mapping-lab: how modulation mappings live across morph corners. horde, 2026-11-02. Origin: horde lead session, B396 and B270,
+     the human, 2026-11-02: "spin up a lab to workshop how mod mapping across morph corners will work, taking into consideration the blocking of
+     circular dependencies or mod-depth-modulation reversals", then "yes per-corner lab". B396's own words, 2026-10-01: mappings "jump via quantum
+     morph (bounded by a strict circular-dependency blocker in intermediate states ...)".
+
+     WHAT IS REAL. The pad's weights, the quantum draw and the pick are the spec's (SPEC-ENGINE MO-4, MO-6, MO-7), copied from its text and not yet
+     checked against the test author's harness. A mapping's terms are the Map Mode spec's and ADR-266's (uni, bi, inverse, Control).
+     WHAT IS MOCK. The sound is a test tone, three saws and a filter: not the engine. The modulators are plain. The look is this lab's own, on the
+     master's tokens; none of it is ruled, so nothing here goes to the shell until a ruling does (ADR-316).
+     WHAT IS A PROPOSAL. Every pill under "Your rulings". ADR-261 and ADR-266 say mappings are global for 1.0, and B396, B270 and SPEC-INTENT-BUS
+     say per corner. The human ruled that this lab designs per corner and leaves the 1.0 question open.
+
+     WHY THE LOOP TEST IS THE WHOLE GRAPH. A mapping flips with its destination's key (SPEC-INTENT-BUS section 2). In a simple loop every edge enters
+     a different modulator, so each can be held by its own corner at once: a loop in all four corners combined is reachable, and a state with a loop
+     is a subset of that union. So the union test is exact over seeds and cohesion. The self-check proves this by brute force against every pick
+     assignment. It is deliberately stricter than one seed needs: the pad's red shows where a loop really lands at the current settings.
+
+     HOUSE RULES. No Math.random: all draws are the spec's seeded streams. The clock is a counter of control steps. No wheel listener (B301). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="lab-part" content="Modulation">
+<title>Corner mapping lab (B396)</title>
+<link rel="stylesheet" href="arp-face/tokens.css">
+<link rel="stylesheet" href="arp-face/bundle.css">
+<style>
+  html, body { background: var(--bg); }
+  body { margin: 0; padding: 20px 16px 60px; color: var(--ink); font: 13px/1.5 var(--font-sans); }
+  .col { max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+  h1 { font: 800 19px/1.2 var(--font-sans); margin: 0 0 4px; }
+  h2 { font: 800 13px/1.2 var(--font-sans); margin: 0 0 8px; }
+  p { margin: 0 0 6px; max-width: 84ch; }
+  .hint { color: var(--t2); }
+  .panel { background: var(--panel); border: 1px solid var(--div); border-radius: var(--radius); padding: 12px; box-sizing: border-box; min-width: 0; }
+  .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .bench { display: grid; grid-template-columns: 284px minmax(0, 1fr) 330px; gap: 14px; align-items: start; }
+  @media (max-width: 1120px) { .bench { grid-template-columns: 284px minmax(0, 1fr); } .bench > .live { grid-column: 1 / -1; } }
+  @media (max-width: 760px) { .bench { grid-template-columns: minmax(0, 1fr); } }
+  .story { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: start; }
+  .story b { font-weight: 800; }
+  #say { min-height: 20px; padding: 6px 10px; border-radius: 6px; background: var(--well-alt); font-size: 12px; }
+  #say.bad { background: var(--caution-bg); color: var(--caution-tx); font-weight: 600; }
+  canvas#pad { display: block; width: 100%; aspect-ratio: 1; border: 1.5px solid var(--ink); border-radius: 8px; touch-action: none; cursor: crosshair; background: var(--well); }
+  canvas#pad:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--physics); outline-offset: 2px; }
+  .ctl { display: grid; grid-template-columns: 84px minmax(0, 1fr) 50px; gap: 6px; align-items: center; font-size: 12px; margin-top: 6px; }
+  input[type=range] { width: 100%; min-width: 40px; margin: 0; accent-color: var(--value); height: 20px; }
+  .ow { overflow-x: auto; }
+  .grid { display: grid; grid-template-columns: 66px repeat(9, minmax(44px, 1fr)); gap: 3px; min-width: 500px; }
+  .grid .h { font-size: 10px; line-height: 1.15; color: var(--t2); display: flex; align-items: flex-end; padding-bottom: 3px; }
+  .grid .h.sel { color: var(--ink); font-weight: 800; }
+  .grid .s { font-size: 11px; font-weight: 700; display: flex; align-items: center; gap: 5px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--sc); flex: 0 0 auto; box-shadow: 0 0 0 1px var(--mark-edge); }
+  .cell { position: relative; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 1px; height: 44px; padding: 2px; border: 1px solid var(--div); border-radius: 5px; background: var(--well); cursor: ns-resize; touch-action: none; }
+  .cell.sel { border-color: var(--ink); box-shadow: 0 0 0 1.5px var(--ink); }
+  .cell.global { display: flex; align-items: center; justify-content: center; font-size: 9px; color: var(--hint); }
+  .cell i { display: block; position: relative; border-radius: 2px; background: var(--well-alt); overflow: hidden; }
+  .cell i::before { content: ''; position: absolute; inset: 0; background: var(--sc); opacity: var(--d, 0); }
+  .cell i.edit { box-shadow: inset 0 0 0 1px var(--ink); }
+  .cell i.live::after { content: ''; position: absolute; inset: 0; box-shadow: inset 0 0 0 2px var(--ink); opacity: var(--k, 0); }
+  .cell i.refused::before { background: repeating-linear-gradient(45deg, var(--alarm) 0 2px, transparent 2px 5px); opacity: 1; }
+  .cell.global.on { color: var(--on-src); background: var(--sc); font-weight: 700; }
+  .cell.global.refused { color: var(--alarm); background: repeating-linear-gradient(45deg, var(--caution-bg) 0 4px, transparent 4px 8px); font-weight: 700; }
+  .corner { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; flex: 0 0 auto; border-radius: 4px; font: 800 11px/1 var(--font-sans); color: var(--on-corner); background: var(--cc); border: 1px solid var(--ink); }
+  .insp-row { display: grid; grid-template-columns: 22px auto minmax(70px, 1fr) 40px auto; gap: 6px; align-items: center; margin-top: 6px; font-size: 12px; }
+  .insp-sub { display: grid; grid-template-columns: 22px 66px auto auto minmax(60px, 1fr) 40px; gap: 6px; align-items: center; font-size: 11px; margin-top: 2px; color: var(--t2); }
+  .pol { display: inline-flex; gap: 2px; }
+  .pol button, .mini { height: 22px; min-width: 22px; padding: 0 5px; font: 700 10px/1 var(--font-sans); border: 1px solid var(--ink); border-radius: 4px; background: var(--well); color: var(--ink); cursor: pointer; }
+  .pol button[aria-pressed="true"] { background: var(--ink); color: var(--panel); }
+  select { font: 11px var(--font-sans); height: 22px; border: 1px solid var(--ink); border-radius: 4px; background: var(--well); color: var(--ink); max-width: 100%; }
+  .bases { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; }
+  .bases label { display: grid; grid-template-columns: 22px minmax(0, 1fr) 36px; gap: 6px; align-items: center; font-size: 11px; }
+  .bases.off { opacity: .45; }
+  svg#graph { display: block; width: 100%; height: auto; }
+  svg#graph text { font: 700 11px var(--font-sans); fill: var(--ink); }
+  svg#graph .cl { font: 700 9px var(--font-sans); fill: var(--t2); }
+  .meter { display: grid; grid-template-columns: 76px minmax(0, 1fr) 60px 22px; gap: 6px; align-items: center; font-size: 11px; margin-top: 4px; }
+  .bar { position: relative; height: 10px; border-radius: var(--radius-meter); background: var(--well-alt); overflow: hidden; }
+  .bar b { position: absolute; left: 0; top: 0; bottom: 0; background: var(--value); }
+  .bar u { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--ink); }
+  .rulings { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 10px; }
+  .rulings .panel p { font-size: 12px; color: var(--t2); margin-top: 6px; }
+  .opt-desc { min-height: 3.6em; }
+  #selfcheck { font: 11px/1.5 var(--font-mono); white-space: pre-wrap; margin: 0; overflow-x: auto; }
+</style>
+</head>
+<body>
+<div class="col">
+  <header>
+    <h1>Corner mapping lab</h1>
+    <p>Each corner keeps its own modulation mappings. Pick a situation, drag around the pad and listen, then choose how it should behave under <b>Your rulings</b>.
+    The sound is a plain test tone, not the engine: listen for what the modulation does, not for the timbre.</p>
+  </header>
+
+  <section class="panel">
+    <h2>Situations</h2>
+    <div class="hd-pills" id="scenes" role="radiogroup" aria-label="Situation"></div>
+    <div class="story" style="margin-top:10px">
+      <div id="story"></div>
+      <div class="row" id="storyAct"></div>
+    </div>
+  </section>
+
+  <div id="say" role="status" aria-live="polite"></div>
+
+  <div class="bench">
+    <section class="panel">
+      <h2>The pad</h2>
+      <canvas id="pad" tabindex="0" role="slider" aria-label="Morph position; arrow keys move it"></canvas>
+      <p class="hint" style="font-size:11px;margin:6px 0 0" id="padKey"></p>
+      <div class="row" style="margin-top:8px">
+        <button id="sound" class="hd-pill" aria-pressed="false">Sound on</button>
+        <button id="notes" class="hd-pill" aria-pressed="true">Repeat notes</button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <div class="hd-pills" id="law" role="radiogroup" aria-label="Morph law"></div>
+      </div>
+      <div class="ctl"><span>Cohesion</span><input id="cohesion" type="range" min="0" max="1" step="0.01"><span class="mono" id="cohesionV"></span></div>
+      <div class="ctl"><span>Temperature</span><input id="temp" type="range" min="0.02" max="4" step="0.01"><span class="mono" id="tempV"></span></div>
+      <div class="ctl"><span>Flip glide</span><input id="glide" type="range" min="0" max="0.2" step="0.001"><span class="mono" id="glideV"></span></div>
+      <div class="ctl"><span>Seed</span><input id="seed" type="range" min="1" max="60" step="1"><span class="mono" id="seedV"></span></div>
+      <div class="ctl"><span>Macro 1</span><input id="macro" type="range" min="0" max="1" step="0.01"><span class="mono" id="macroV"></span></div>
+    </section>
+
+    <section class="panel">
+      <h2>Mappings</h2>
+      <p class="hint" style="font-size:12px">Each square is one mapping, split into its four corners, placed as on the pad. <b>Click</b> an empty square to add it to the corner you're editing. <b>Drag up or down</b> to set its depth. A black ring means that corner's version is live now.</p>
+      <div class="row" style="margin-bottom:8px"><span style="font-size:12px;font-weight:700">Editing corner</span><span id="editing" class="row"></span></div>
+      <div class="ow"><div class="grid" id="grid"></div></div>
+      <div id="inspector" style="margin-top:12px;border-top:1px solid var(--hair);padding-top:10px"></div>
+    </section>
+
+    <section class="panel live">
+      <h2>Who drives whom</h2>
+      <svg id="graph" viewBox="0 0 320 210" role="img" aria-label="Modulators and the mappings between them"></svg>
+      <p class="hint" style="font-size:11px;margin:4px 0 10px" id="graphKey"></p>
+      <h2>What each destination is doing</h2>
+      <div id="meters"></div>
+      <p class="hint" style="font-size:11px;margin:8px 0 0">The black tick is the knob's value at this position; the bar is that value after modulation. The letter is the corner that owns it under Quantum.</p>
+    </section>
+  </div>
+
+  <section>
+    <h2>Your rulings</h2>
+    <div class="rulings" id="rulings"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Self-check</h2>
+    <pre id="selfcheck">Running…</pre>
+  </section>
+</div>
+
+<script>
+/* The law. It has no DOM and is written once, because the audio worklet runs this same text: `.toString()` below. */
+function cornerMapLaw() {
+  const SOURCES = [
+    { id: 'lfo1', name: 'LFO 1', tok: '--src-lfo' }, { id: 'lfo2', name: 'LFO 2', tok: '--src-lfo' },
+    { id: 'env2', name: 'ENV 2', tok: '--src-env' }, { id: 'macro1', name: 'Macro 1', tok: '--src-macro' },
+  ];
+  const DESTS = [
+    { id: 'cutoff', name: 'Filter cutoff' }, { id: 'detune', name: 'Detune' }, { id: 'fine', name: 'Fine' }, { id: 'level', name: 'Level' },
+    { id: 'lfo1.rate', name: 'LFO 1 rate', owner: 'lfo1' }, { id: 'lfo2.rate', name: 'LFO 2 rate', owner: 'lfo2' }, { id: 'env2.decay', name: 'ENV 2 decay', owner: 'env2' },
+    { id: 'pad.x', name: 'Pad X', pad: true }, { id: 'pad.y', name: 'Pad Y', pad: true },
+  ];
+  const destOf = {}; for (const d of DESTS) destOf[d.id] = d;
+  const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+  const hz = {
+    cutoff: (v) => 200 * Math.pow(2, v * 6), lfo: (v) => 0.1 * Math.pow(2, v * 8), decay: (v) => 0.02 * Math.pow(2, v * 7),
+    detune: (v) => v * 50, fine: (v) => (v - 0.5) * 200,
+  };
+
+  // MO-6: a purpose's stream, FNV-1a over its UTF-8 bytes and the seed's four bytes, least significant first, then mulberry32.
+  function stream(purpose, seed) {
+    let h = 0x811C9DC5 >>> 0;
+    const eat = (b) => { h = Math.imul(h ^ b, 0x01000193) >>> 0; };
+    for (let i = 0; i < purpose.length; i++) eat(purpose.charCodeAt(i) & 255);   // these purposes are all ASCII
+    for (let i = 0; i < 4; i++) eat((seed >>> (8 * i)) & 255);
+    let a = h;
+    return () => {
+      a = (a + 0x6D2B79F5) >>> 0;
+      let t = Math.imul(a ^ (a >>> 15), a | 1) >>> 0;
+      t = ((t + Math.imul(t ^ (t >>> 7), t | 61)) >>> 0) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function gumbel4(purpose, seed) {
+    const n = stream(purpose, seed), g = [];
+    for (let c = 0; c < 4; c++) { const u = Math.min(1 - 1e-9, Math.max(1e-9, n())); g.push(-Math.log(-Math.log(u))); }
+    return g;
+  }
+  const drawCache = new Map();
+  function draws(seed) {
+    let d = drawCache.get(seed);
+    if (!d) {
+      d = { shared: gumbel4('morph/shared', seed), key: {} };
+      for (const x of DESTS) d.key[x.id] = gumbel4('morph/key/' + x.id, seed);
+      drawCache.set(seed, d);
+    }
+    return d;
+  }
+  const weights = (x, y) => [(1 - x) * (1 - y), x * (1 - y), (1 - x) * y, x * y];   // MO-4
+  // MO-7: a key's pick; the lowest corner on a tie, since only a strictly higher score replaces it.
+  function pick(w, S, key) {
+    const d = draws(S.seed), T = Math.max(0.02, S.temp), h = S.cohesion;
+    let best = 0, top = -Infinity;
+    for (let c = 0; c < 4; c++) {
+      const lam = w[c] > 1e-9 ? Math.log(w[c]) / T : -1e12, s = lam + (1 - h) * d.key[key][c] + h * d.shared[c];
+      if (s > top) { top = s; best = c; }
+    }
+    return best;
+  }
+  function heaviest(w) { let b = 0; for (let c = 1; c < 4; c++) if (w[c] > w[b]) b = c; return b; }
+  // What each corner's mappings on one key weigh at this position, before any glide.
+  function keyTarget(w, S, key) {
+    if (S.law === 'quantum') { const p = pick(w, S, key), o = [0, 0, 0, 0]; o[p] = 1; return o; }
+    if (S.blendRule === 'jump') { const p = heaviest(w), o = [0, 0, 0, 0]; o[p] = 1; return o; }
+    return w;
+  }
+
+  // ---- the graph -----------------------------------------------------------------------------
+  const differs = (a) => a.some((v) => v !== a[0]);
+  // The pad changes a modulator when that modulator's own setting or the mappings into it differ across corners.
+  function padEdges(P, S) {
+    if (!S.padCounts) return [];
+    const out = [];
+    for (const d of DESTS) {
+      if (!d.owner) continue;
+      const into = [0, 1, 2, 3].map((c) => P.maps[c].filter((m) => m.dest === d.id).map((m) => m.src + m.depth + m.pol).sort().join());
+      if (differs(P.base[d.id]) || differs(into)) out.push({ from: 'pad', to: d.owner, corner: -1, ref: 'pad:' + d.id, dest: d.id });
+    }
+    return out;
+  }
+  function allEdges(P) {
+    const out = [];
+    P.global.forEach((g, i) => out.push({ from: g.src, to: 'pad', corner: -1, ref: 'g:' + i, dest: g.dest }));
+    for (let c = 0; c < 4; c++) {
+      P.maps[c].forEach((m, i) => { const o = destOf[m.dest].owner; if (o) out.push({ from: m.src, to: o, corner: c, ref: 'm:' + c + ':' + i, dest: m.dest }); });
+      // A depth wire changes what the mapping it sits on does to its destination, so it reaches that destination's owner. Depth wires are
+      // one level (GUI-3), so they cannot loop among themselves, but this path can loop through a modulator's own setting.
+      P.wires[c].forEach((w, i) => { const o = destOf[w.mdest].owner; if (o) out.push({ from: w.src, to: o, corner: c, ref: 'w:' + c + ':' + i, dest: w.mdest }); });
+    }
+    return out;
+  }
+  // A loop's edges in order, or null. Depth-first, with the path kept so a refusal can name what it refuses.
+  function findLoop(edges) {
+    const adj = new Map();
+    for (const e of edges) { if (!adj.has(e.from)) adj.set(e.from, []); adj.get(e.from).push(e); }
+    const state = new Map(), path = [];
+    const visit = (n) => {
+      state.set(n, 1);
+      for (const e of adj.get(n) || []) {
+        const s = state.get(e.to);
+        if (s === 1) { const at = path.findIndex((p) => p.from === e.to); return (at < 0 ? [] : path.slice(at)).concat([e]); }
+        if (!s) { path.push(e); const r = visit(e.to); if (r) return r; path.pop(); }
+      }
+      state.set(n, 2);
+      return null;
+    };
+    for (const n of adj.keys()) if (!state.get(n)) { const r = visit(n); if (r) return r; }
+    return null;
+  }
+  // Which mappings the policy refuses, in a fixed order, so the same patch always loses the same mapping.
+  function admit(P, S) {
+    const refused = new Set(); let loop = null;
+    const take = (kept, e) => { const l = findLoop(kept.concat([e])); if (l) { refused.add(e.ref); if (!loop) loop = l; return kept; } return kept.concat([e]); };
+    if (S.policy === 'delay') return { refused, loop };
+    const pad = padEdges(P, S), edges = allEdges(P), glob = edges.filter((e) => e.corner < 0);
+    let base = pad.slice();
+    for (const e of glob) base = take(base, e);
+    if (S.policy === 'union') { let kept = base; for (const e of edges) if (e.corner >= 0) kept = take(kept, e); return { refused, loop }; }
+    for (let c = 0; c < 4; c++) { let kept = base; for (const e of edges) if (e.corner === c) kept = take(kept, e); }
+    return { refused, loop };
+  }
+
+  const term = (pol, s, d) => (pol === 'B' ? (2 * s - 1) * d : pol === 'I' ? -s * d : s * d);   // ADR-266; Control is handled apart
+
+  // ---- one running patch ---------------------------------------------------------------------
+  function makeCore(sr) {
+    const interval = Math.max(1, Math.round(sr / 1500));   // PA-3's control rate
+    const dt = interval / sr;
+    const C = {
+      interval, P: null, S: null, pos: { x: 0.5, y: 0.5 }, macro: 0.5, notes: true, ad: { refused: new Set(), loop: null },
+      out: { lfo1: 0.5, lfo2: 0.5, env2: 0, macro1: 0.5 }, phase: { lfo1: 0, lfo2: 0 }, noteAt: 0, step_n: 0,
+      kw: {}, vals: {}, baseNow: {}, muted: new Set(), padNow: { x: 0.5, y: 0.5 }, fresh: true,
+    };
+    for (const d of DESTS) { C.kw[d.id] = [1, 0, 0, 0]; C.vals[d.id] = 0.5; C.baseNow[d.id] = 0.5; }
+    C.set = (P, S) => { C.P = P; C.S = S; C.ad = admit(P, S); };
+    function effDepth(c, m) {
+      let d = m.depth;
+      C.P.wires[c].forEach((w, i) => {
+        if (w.msrc === m.src && w.mdest === m.dest && !C.ad.refused.has('w:' + c + ':' + i) && !C.muted.has('w:' + c + ':' + i)) d += term(w.pol, C.out[w.src], w.depth);
+      });
+      return C.S.pastZero === 'stop' ? clamp01(d) : Math.max(-1, Math.min(1, d));
+    }
+    // Under "only inside one corner", a mixed state can still close a loop: walk the live mappings in a fixed order and mute the one that closes it.
+    function breakLoops() {
+      C.muted = new Set();
+      if (C.S.policy !== 'alone') return;
+      let kept = padEdges(C.P, C.S);
+      for (const e of allEdges(C.P)) {
+        if (C.ad.refused.has(e.ref)) continue;
+        if (e.corner >= 0 && C.kw[e.dest][e.corner] < 1e-3) continue;
+        if (findLoop(kept.concat([e]))) C.muted.add(e.ref); else kept = kept.concat([e]);
+      }
+    }
+    C.step = () => {
+      const { P, S } = C, g = S.glide > 0 ? 1 - Math.exp(-dt / S.glide) : 1;
+      // Morph targets are global-only (ADR-261), so these mappings live outside the corners.
+      const pad = { x: C.pos.x, y: C.pos.y };
+      P.global.forEach((m, i) => {
+        if (C.ad.refused.has('g:' + i)) return;
+        pad[m.dest === 'pad.x' ? 'x' : 'y'] += term(m.pol, C.out[m.src], m.depth);
+      });
+      pad.x = clamp01(pad.x); pad.y = clamp01(pad.y); C.padNow = pad;
+      const w = weights(pad.x, pad.y);
+      C.w = w;
+      for (const d of DESTS) {
+        const t = keyTarget(w, S, d.id), k = C.kw[d.id];
+        for (let c = 0; c < 4; c++) k[c] = C.fresh ? t[c] : k[c] + (t[c] - k[c]) * g;
+      }
+      C.fresh = false;
+      breakLoops();
+      const off = (ref) => C.ad.refused.has(ref) || C.muted.has(ref);
+      for (const d of DESTS) {
+        if (d.pad) continue;
+        const k = C.kw[d.id];
+        let base = 0, add = 0, ctlW = 0, ctlPos = 0;
+        for (let c = 0; c < 4; c++) base += k[c] * P.base[d.id][c];
+        if (S.law === 'blend' && S.blendRule === 'depth') {
+          // Depth blends between corners; polarity is the heaviest holder's, so it jumps while the depth doesn't.
+          const seen = {};
+          for (let c = 0; c < 4; c++) P.maps[c].forEach((m, i) => {
+            if (m.dest !== d.id || off('m:' + c + ':' + i)) return;
+            const e = seen[m.src] || (seen[m.src] = { depth: 0, topW: -1, pol: 'U', lo: 0, hi: 1 });
+            e.depth += k[c] * effDepth(c, m);
+            if (k[c] > e.topW) { e.topW = k[c]; e.pol = m.pol; e.lo = m.lo; e.hi = m.hi; }
+          });
+          for (const src in seen) {
+            const e = seen[src];
+            if (e.pol === 'C') { ctlW += e.topW; ctlPos += e.topW * (e.lo + (e.hi - e.lo) * C.out[src]); }
+            else add += term(e.pol, C.out[src], e.depth);
+          }
+        } else {
+          for (let c = 0; c < 4; c++) {
+            if (k[c] <= 0) continue;
+            P.maps[c].forEach((m, i) => {
+              if (m.dest !== d.id || off('m:' + c + ':' + i)) return;
+              if (m.pol === 'C') { ctlW += k[c]; ctlPos += k[c] * (m.lo + (m.hi - m.lo) * C.out[m.src]); }
+              else add += k[c] * term(m.pol, C.out[m.src], effDepth(c, m));
+            });
+          }
+        }
+        C.baseNow[d.id] = base;
+        C.vals[d.id] = clamp01((1 - Math.min(1, ctlW)) * base + ctlPos + add);   // clamped once, after the sum (ADR-261)
+      }
+      // Every source reads the last step's outputs, so all three loop rules are compared on equal terms: under "refuse", one step (0.67 ms) changes nothing audible.
+      C.phase.lfo1 += hz.lfo(C.vals['lfo1.rate']) * dt; C.phase.lfo1 -= Math.floor(C.phase.lfo1);
+      C.phase.lfo2 += hz.lfo(C.vals['lfo2.rate']) * dt; C.phase.lfo2 -= Math.floor(C.phase.lfo2);
+      C.out.lfo1 = 0.5 + 0.5 * Math.sin(2 * Math.PI * C.phase.lfo1);
+      C.out.lfo2 = 0.5 + 0.5 * Math.sin(2 * Math.PI * C.phase.lfo2);
+      C.out.env2 *= Math.exp(-dt / hz.decay(C.vals['env2.decay']));
+      if (C.notes && C.step_n >= C.noteAt) { C.out.env2 = 1; C.noteAt = C.step_n + Math.round(0.75 / dt); }
+      C.out.macro1 = C.macro;
+      C.step_n++;
+    };
+    C.snapshot = () => ({ w: C.w, kw: C.kw, vals: C.vals, baseNow: C.baseNow, muted: Array.from(C.muted), padNow: C.padNow, out: C.out });
+    return C;
+  }
+
+  // Where a loop lands on the pad at these settings: every mapping, refused ones too, so a refusal can show what it prevented.
+  function scanLoops(P, S, n) {
+    const out = new Uint8Array(n * n), edges = allEdges(P), pad = padEdges(P, S);
+    let hits = 0;
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+      const w = weights(i / (n - 1), j / (n - 1)), live = pad.slice();
+      for (const e of edges) {
+        if (e.corner < 0) { live.push(e); continue; }
+        if (keyTarget(w, S, e.dest)[e.corner] > 1e-3) live.push(e);
+      }
+      if (findLoop(live)) { out[j * n + i] = 1; hits++; }
+    }
+    return { out, share: hits / (n * n) };
+  }
+  return { SOURCES, DESTS, destOf, hz, stream, draws, weights, pick, heaviest, keyTarget, allEdges, padEdges, findLoop, admit, term, makeCore, scanLoops, clamp01 };
+}
+
+/* The worklet: the same law, plus a stand-in tone. */
+function cornerMapWorklet() {
+  const L = cornerMapLaw();
+  const blep = (t, dt) => {
+    if (t < dt) { const x = t / dt; return x + x - x * x - 1; }
+    if (t > 1 - dt) { const x = (t - 1) / dt; return x * x + x + x + 1; }
+    return 0;
+  };
+  class CornerTone extends AudioWorkletProcessor {
+    constructor() {
+      super();
+      this.core = L.makeCore(sampleRate); this.left = 0; this.ph = [0, 0.33, 0.67]; this.y1 = 0; this.y2 = 0; this.ready = false; this.send = 0;
+      this.now = { f: 220, det: 0, fc: 2000, amp: 0 }; this.to = { f: 220, det: 0, fc: 2000, amp: 0 };
+      this.port.onmessage = (e) => {
+        const m = e.data, c = this.core;
+        if (m.P) { c.set(m.P, m.S); this.ready = true; }
+        if (m.pos) c.pos = m.pos;
+        if (m.macro !== undefined) c.macro = m.macro;
+        if (m.notes !== undefined) c.notes = m.notes;
+      };
+    }
+    process(_in, outs) {
+      const o = outs[0], n = o[0].length;
+      if (!this.ready) return true;
+      const c = this.core;
+      for (let i = 0; i < n; i++) {
+        if (this.left <= 0) {
+          c.step(); this.left = c.interval;
+          const v = c.vals;
+          this.to = { f: 220 * Math.pow(2, L.hz.fine(v.fine) / 1200), det: L.hz.detune(v.detune), fc: L.hz.cutoff(v.cutoff), amp: 0.22 * v.level * v.level };
+          this.rate = 1 / c.interval;
+          if (++this.send >= 50) { this.send = 0; this.port.postMessage(c.snapshot()); }   // about 30 a second, for the page's views
+        }
+        this.left--;
+        const a = this.now, b = this.to;
+        a.f += (b.f - a.f) * this.rate; a.det += (b.det - a.det) * this.rate; a.fc += (b.fc - a.fc) * this.rate; a.amp += (b.amp - a.amp) * this.rate;
+        let s = 0;
+        for (let k = 0; k < 3; k++) {
+          const f = a.f * Math.pow(2, (k - 1) * a.det / 1200), dt = f / sampleRate;
+          this.ph[k] += dt; if (this.ph[k] >= 1) this.ph[k] -= 1;
+          s += (2 * this.ph[k] - 1 - blep(this.ph[k], dt)) / 3;
+        }
+        const g = 1 - Math.exp(-2 * Math.PI * Math.min(a.fc, 0.45 * sampleRate) / sampleRate);
+        this.y1 += (s - this.y1) * g; this.y2 += (this.y1 - this.y2) * g;
+        const y = this.y2 * a.amp;
+        o[0][i] = y; if (o[1]) o[1][i] = y;
+      }
+      return true;
+    }
+  }
+  registerProcessor('corner-tone', CornerTone);
+}
+</script>
+
+<script>
+const Law = cornerMapLaw();
+const { SOURCES, DESTS, destOf } = Law;
+const CORNER = ['A', 'B', 'C', 'D'];
+const $ = (id) => document.getElementById(id);
+const cssv = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const clone = (o) => JSON.parse(JSON.stringify(o));
+function el(tag, attrs, kids) {
+  const e = document.createElement(tag);
+  if (attrs) for (const k in attrs) { if (k === 'text') e.textContent = attrs[k]; else if (k.startsWith('on')) e[k] = attrs[k]; else e.setAttribute(k, attrs[k]); }
+  if (kids) for (const x of kids) if (x) e.appendChild(x);
+  return e;
+}
+function cornerChip(c) { const s = el('span', { class: 'corner', text: CORNER[c] }); s.style.setProperty('--cc', 'var(--c' + CORNER[c] + ')'); return s; }
+const nameOfSrc = (id) => id === 'pad' ? 'the pad' : SOURCES.find((s) => s.id === id).name;
+const srcVar = (id) => 'var(' + SOURCES.find((s) => s.id === id).tok + ')';
+
+// ---- patches -----------------------------------------------------------------------------------
+function blank() {
+  const base = {
+    cutoff: [0.55, 0.55, 0.55, 0.55], detune: [0.2, 0.2, 0.2, 0.2], fine: [0.5, 0.5, 0.5, 0.5], level: [0.65, 0.65, 0.65, 0.65],
+    'lfo1.rate': [0.6, 0.6, 0.6, 0.6], 'lfo2.rate': [0.3, 0.3, 0.3, 0.3], 'env2.decay': [0.5, 0.5, 0.5, 0.5],
+  };
+  return { base, maps: [[], [], [], []], wires: [[], [], [], []], global: [] };
+}
+const M = (src, dest, depth, pol, extra) => Object.assign({ src, dest, depth, pol: pol || 'U', lo: 0.15, hi: 0.85 }, extra);
+
+const SCENES = [
+  { id: 'depths', name: 'Same mapping, different depths', law: 'blend', pos: [0.5, 0.5],
+    say: '<b>LFO 1 moves the filter in every corner, by a different amount.</b> Drag from A (barely moving) to D (sweeping hard). Under Blend the depth should glide. Under Quantum it jumps where the filter\'s owner changes.',
+    make() { const P = blank(); [0.05, 0.2, 0.35, 0.55].forEach((d, c) => P.maps[c].push(M('lfo1', 'cutoff', d, 'B'))); P.base['lfo1.rate'] = [0.62, 0.62, 0.62, 0.62]; return P; } },
+  { id: 'one', name: 'Only one corner has it', law: 'blend', pos: [0.5, 0.5],
+    say: '<b>Vibrato exists in corner D only.</b> Drag toward and away from D. Should it fade in with the corner, or snap on at a boundary? This is the question B72 left open. Compare the first ruling\'s options, then Quantum.',
+    make() { const P = blank(); P.maps[3].push(M('lfo1', 'fine', 0.12, 'B')); P.base['lfo1.rate'] = [0.72, 0.72, 0.72, 0.72]; return P; } },
+  { id: 'polarity', name: 'Corners disagree on polarity', law: 'blend', pos: [0.5, 0.5],
+    say: '<b>ENV 2 opens the filter in A and closes it in D.</b> Move along the A to D diagonal. With "fades with the corner" the two cancel in the middle, so the sweep shrinks to nothing and returns upside down. The other options jump instead.',
+    make() { const P = blank(); P.base.cutoff = [0.45, 0.45, 0.45, 0.45]; P.maps[0].push(M('env2', 'cutoff', 0.5, 'U')); P.maps[3].push(M('env2', 'cutoff', 0.5, 'I')); return P; } },
+  { id: 'control', name: 'Control in one corner', law: 'blend', pos: [0.5, 0.2],
+    say: '<b>In corner B, LFO 2 takes over the level with Control</b> (ADR-266: the knob\'s own value is ignored). Drag toward and away from B. Should Control ease in against the knob, or take over at a boundary?',
+    make() { const P = blank(); P.maps[1].push(M('lfo2', 'level', 0, 'C')); P.base['lfo2.rate'] = [0.58, 0.58, 0.58, 0.58]; return P; } },
+  { id: 'reversal', name: 'Depth pushed past zero', law: 'quantum', pos: [0.2, 0.2],
+    say: '<b>LFO 1 moves the filter, and slow LFO 2 moves that mapping\'s depth</b> (a depth wire). When LFO 2 pushes the depth below zero, should the movement stop, or come back upside down? Switch the second ruling and listen over several slow cycles.',
+    make() { const P = blank(); for (let c = 0; c < 4; c++) { P.maps[c].push(M('lfo1', 'cutoff', 0.2, 'B')); P.wires[c].push({ src: 'lfo2', msrc: 'lfo1', mdest: 'cutoff', depth: 0.45, pol: 'B' }); } P.base['lfo2.rate'] = [0.14, 0.14, 0.14, 0.14]; P.base['lfo1.rate'] = [0.62, 0.62, 0.62, 0.62]; return P; } },
+  { id: 'cross', name: 'LFO and envelope cross', law: 'quantum', pos: [0.5, 0.5], seed: 23,
+    say: '<b>Your example from B396.</b> In A, LFO 1 changes ENV 2\'s decay. In D, ENV 2 changes LFO 1\'s rate. Each corner is fine alone, but both can be live at once. Red on the pad shows where, at seed 23. Move the seed: on most seeds the two never meet, which is what the strict rule costs. Raise cohesion to 1 and the red disappears, because all keys then flip together. Switch the third ruling to hear it.',
+    make() { const P = blank(); P.base.cutoff = [0.3, 0.3, 0.3, 0.3]; for (let c = 0; c < 4; c++) { P.maps[c].push(M('env2', 'cutoff', 0.5, 'U')); P.maps[c].push(M('lfo1', 'fine', 0.05, 'B')); } P.maps[0].push(M('lfo1', 'env2.decay', 0.5, 'B')); P.maps[3].push(M('env2', 'lfo1.rate', 0.6, 'U')); return P; } },
+  { id: 'load', name: 'A preset loaded into a corner', law: 'quantum', pos: [0.5, 0.5],
+    say: '<b>Loading isn\'t an edit.</b> Corner A already has LFO 1 changing ENV 2\'s decay. Load a corner preset into D, legal by itself, in which ENV 2 changes LFO 1\'s rate. The fourth ruling decides what happens.',
+    make() { const P = blank(); P.base.cutoff = [0.3, 0.3, 0.3, 0.3]; P.maps[0].push(M('lfo1', 'env2.decay', 0.5, 'B')); for (let c = 0; c < 4; c++) P.maps[c].push(M('env2', 'cutoff', 0.5, 'U')); return P; },
+    act: { label: 'Load the preset into D', run: loadPreset } },
+  { id: 'pad', name: 'An LFO drives the pad', law: 'quantum', pos: [0.5, 0.5],
+    say: '<b>A loop no corner shows.</b> LFO 1 moves the pad, the pad changes which corner owns things, and LFO 1\'s own rate differs between corners, so it changes its own speed. Refusing this would rule out an LFO-driven morph whenever that LFO\'s settings differ between corners. The fifth ruling decides. Turn it to "doesn\'t count" to hear it.',
+    make() { const P = blank(); P.global.push(M('lfo1', 'pad.x', 0.4, 'B')); P.base['lfo1.rate'] = [0.42, 0.72, 0.42, 0.72]; for (let c = 0; c < 4; c++) P.maps[c].push(M('lfo1', 'cutoff', 0.3, 'B')); P.base.detune = [0.1, 0.45, 0.1, 0.45]; return P; } },
+];
+
+const S = { law: 'quantum', temp: 1, cohesion: 0.3, seed: 1024, glide: 0.008, blendRule: 'mix', pastZero: 'stop', policy: 'union', padCounts: true, loadRule: 'refuse' };
+let P = blank(), scene = SCENES[0], editing = 0, sel = { src: 'lfo1', dest: 'cutoff' };
+const pos = { x: 0.5, y: 0.5 }; let macro = 0.5, notes = true, scan = null, ownerMap = null;
+const core = Law.makeCore(44100);   // drives the views while the sound is off
+let snap = null, audio = null;
+
+function say(text, bad) { const s = $('say'); s.textContent = text; s.className = bad ? 'bad' : ''; }
+function describeLoop(l) {
+  return l.map((e) => {
+    const where = e.corner < 0 ? '' : ' in ' + CORNER[e.corner];
+    return e.from === 'pad' ? 'the pad changes ' + destOf[e.dest].name + ' (its corners differ)' : nameOfSrc(e.from) + ' → ' + destOf[e.dest].name + where;
+  }).join(', ');
+}
+function explainPolicy() {
+  const a = Law.admit(P, S);
+  if (a.refused.size && a.loop) say('Refused by the third ruling: ' + describeLoop(a.loop) + '. The hatched mapping has no effect.', true);
+  else if (S.policy === 'delay' && Law.findLoop(Law.padEdges(P, S).concat(Law.allEdges(P)))) say('A loop can run here, one control step late (about 0.67 ms each way round).');
+  else if (S.policy === 'alone' && Law.findLoop(Law.padEdges(P, S).concat(Law.allEdges(P)))) say('Each corner is legal alone. Where a loop would close on the pad, the later mapping mutes, by a fixed order, so the same place always loses the same mapping.');
+  else say('No loop is possible with these mappings.');
+}
+function sync() {
+  core.set(P, S); core.pos = pos; core.macro = macro; core.notes = notes;
+  if (audio) audio.node.port.postMessage({ P, S, pos, macro, notes });
+  scan = Law.scanLoops(P, S, 41);
+  const n = 41; ownerMap = new Uint8Array(n * n);
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) ownerMap[j * n + i] = Law.pick(Law.weights(i / (n - 1), j / (n - 1)), S, destOf[sel.dest].pad ? 'cutoff' : sel.dest);
+  drawGrid(); drawInspector(); drawGraph();
+  $('padKey').textContent = (S.law === 'quantum' ? 'Tint: which corner owns ' + (destOf[sel.dest].pad ? 'Filter cutoff' : destOf[sel.dest].name) + '. ' : '') +
+    (scan.share > 0 ? 'Red: a loop would be live on ' + Math.round(scan.share * 100) + ' % of the pad at these settings.' : 'No loop lands anywhere on the pad at these settings.');
+}
+
+// ---- editing -----------------------------------------------------------------------------------
+function tryAddMapping(c, src, dest) {
+  const dg = destOf[dest];
+  const next = clone(P);
+  if (dg.pad) next.global.push(M(src, dest, 0.25, 'B')); else next.maps[c].push(M(src, dest, 0.25, 'U'));
+  const ref = dg.pad ? 'g:' + (next.global.length - 1) : 'm:' + c + ':' + (next.maps[c].length - 1);
+  const a = Law.admit(next, S);
+  if (a.refused.has(ref)) { say('Refused: ' + describeLoop(a.loop) + '. These could run at once, each changing the other. Nothing changed.', true); return false; }
+  P = next;
+  say('Added ' + nameOfSrc(src) + ' → ' + dg.name + (dg.pad ? ' for every corner: morph targets are global (ADR-261).' : ' in corner ' + CORNER[c] + ' at 25 %.'));
+  return true;
+}
+function drawEditing() {
+  const box = $('editing'); box.textContent = '';
+  CORNER.forEach((n, c) => {
+    const b = el('button', { class: 'hd-pill', 'aria-pressed': String(c === editing), 'aria-checked': String(c === editing), role: 'radio', text: n, onclick() { editing = c; drawEditing(); drawGrid(); drawInspector(); } });
+    b.style.minWidth = '34px'; box.appendChild(b);
+  });
+}
+const cellEls = {};
+function drawGrid() {
+  const g = $('grid'); g.textContent = '';
+  const refused = Law.admit(P, S).refused;
+  g.appendChild(el('div'));
+  for (const d of DESTS) g.appendChild(el('div', { class: 'h' + (sel.dest === d.id ? ' sel' : ''), text: d.name }));
+  for (const s of SOURCES) {
+    const lab = el('div', { class: 's' }, [el('span', { class: 'dot' }), document.createTextNode(s.name)]);
+    lab.style.setProperty('--sc', 'var(' + s.tok + ')');
+    g.appendChild(lab);
+    for (const d of DESTS) {
+      const key = s.id + '|' + d.id, isSel = sel.src === s.id && sel.dest === d.id;
+      const cell = el('button', { class: 'cell' + (d.pad ? ' global' : '') + (isSel ? ' sel' : ''), 'aria-label': s.name + ' to ' + d.name });
+      cell.style.setProperty('--sc', 'var(' + s.tok + ')');
+      if (d.pad) {
+        const i = P.global.findIndex((m) => m.src === s.id && m.dest === d.id);
+        if (i >= 0) { const r = refused.has('g:' + i); cell.classList.add(r ? 'refused' : 'on'); cell.textContent = r ? 'refused' : Math.round(P.global[i].depth * 100) + '%'; }
+        else cell.textContent = 'global';
+      } else {
+        for (let c = 0; c < 4; c++) {
+          const q = el('i');
+          const i = P.maps[c].findIndex((m) => m.src === s.id && m.dest === d.id);
+          if (i >= 0) {
+            q.style.setProperty('--d', String(0.3 + 0.7 * P.maps[c][i].depth));
+            q.classList.add('live');
+            if (refused.has('m:' + c + ':' + i)) q.classList.add('refused');
+          }
+          if (c === editing) q.classList.add('edit');
+          cell.appendChild(q);
+        }
+      }
+      cellEls[key] = cell;
+      wireCell(cell, s.id, d.id);
+      g.appendChild(cell);
+    }
+  }
+}
+function wireCell(cell, src, dest) {
+  let drag = null;
+  cell.onpointerdown = (e) => { drag = { y: e.clientY, moved: false, start: null, made: false }; try { cell.setPointerCapture(e.pointerId); } catch (_) {} e.preventDefault(); };
+  cell.onpointermove = (e) => {
+    if (!drag) return;
+    if (!drag.moved && Math.abs(e.clientY - drag.y) < 4) return;
+    if (!drag.moved) {
+      drag.moved = true; sel = { src, dest };
+      const m = findMap(src, dest);
+      drag.start = m ? m.depth : 0;
+    }
+    let m = findMap(src, dest);
+    if (!m) { if (!tryAddMapping(editing, src, dest)) { drag = null; drawGrid(); return; } m = findMap(src, dest); m.depth = 0; drag.start = 0; }
+    m.depth = Law.clamp01(drag.start + (drag.y - e.clientY) / 120);
+    say(nameOfSrc(src) + ' → ' + destOf[dest].name + (destOf[dest].pad ? '' : ' in ' + CORNER[editing]) + ': depth ' + Math.round(m.depth * 100) + ' %');
+    if (audio) audio.node.port.postMessage({ P, S }); core.set(P, S);
+    const q = cellEls[src + '|' + dest];
+    if (q && !destOf[dest].pad) { q.children[editing].style.setProperty('--d', String(0.3 + 0.7 * m.depth)); q.children[editing].classList.add('live'); }
+  };
+  cell.onpointerup = () => {
+    if (!drag) return;
+    const was = drag; drag = null; sel = { src, dest };
+    // A click on a mapped parameter only selects it (ADR-261 ruling 3); removal is in the inspector.
+    if (!was.moved && !findMap(src, dest)) tryAddMapping(editing, src, dest);
+    sync();
+  };
+  cell.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sel = { src, dest }; if (!findMap(src, dest)) tryAddMapping(editing, src, dest); sync(); } };
+}
+function findMap(src, dest) {
+  if (destOf[dest].pad) return P.global.find((m) => m.src === src && m.dest === dest);
+  return P.maps[editing].find((m) => m.src === src && m.dest === dest);
+}
+function polPills(cur, opts, set) {
+  const box = el('span', { class: 'pol' });
+  for (const [k, label] of opts) box.appendChild(el('button', { 'aria-pressed': String(cur === k), title: label, text: k, onclick() { set(k); } }));
+  return box;
+}
+const POLS = [['U', 'Unipolar'], ['B', 'Bipolar'], ['I', 'Inverse'], ['C', 'Control']];
+function slider(v, on, min, max) {
+  return el('input', { type: 'range', min: String(min === undefined ? 0 : min), max: String(max === undefined ? 1 : max), step: '0.01', value: String(v), oninput(e) { on(+e.target.value); } });
+}
+function applyEdit(text) { if (text) say(text); sync(); }
+function drawInspector() {
+  const box = $('inspector'); box.textContent = '';
+  const { src, dest } = sel, dg = destOf[dest];
+  box.appendChild(el('h2', { text: nameOfSrc(src) + ' → ' + dg.name }));
+  if (dg.pad) {
+    const i = P.global.findIndex((m) => m.src === src && m.dest === dest);
+    if (i < 0) { box.appendChild(el('p', { class: 'hint', text: 'Not mapped. The pad is global, so one mapping serves all four corners (ADR-261).' })); return; }
+    const m = P.global[i], val = el('span', { class: 'mono', text: Math.round(m.depth * 100) + '%' });
+    box.appendChild(el('div', { class: 'insp-row' }, [el('span', { text: 'all' }), polPills(m.pol, POLS.slice(0, 3), (k) => { m.pol = k; applyEdit(); }),
+      slider(m.depth, (v) => { m.depth = v; val.textContent = Math.round(v * 100) + '%'; push(); }), val, el('button', { class: 'mini', text: 'Remove', onclick() { P.global.splice(i, 1); applyEdit('Removed.'); } })]));
+    return;
+  }
+  for (let c = 0; c < 4; c++) {
+    const i = P.maps[c].findIndex((m) => m.src === src && m.dest === dest);
+    if (i < 0) {
+      box.appendChild(el('div', { class: 'insp-row' }, [cornerChip(c), el('button', { class: 'mini', text: 'Add', onclick() { if (tryAddMapping(c, src, dest)) sync(); } }), el('span', { class: 'hint', text: 'not in this corner' })]));
+      continue;
+    }
+    const m = P.maps[c][i], val = el('span', { class: 'mono', text: Math.round(m.depth * 100) + '%' });
+    box.appendChild(el('div', { class: 'insp-row' }, [cornerChip(c),
+      polPills(m.pol, POLS, (k) => {
+        if (k === 'C' && P.maps[c].some((o, j) => j !== i && o.dest === dest && o.pol === 'C')) { say('Refused: a parameter takes one Control mapping per corner (ADR-266).', true); return; }
+        m.pol = k; applyEdit();
+      }),
+      m.pol === 'C' ? slider(m.lo, (v) => { m.lo = v; val.textContent = Math.round(m.lo * 100) + '–' + Math.round(m.hi * 100); push(); }) : slider(m.depth, (v) => { m.depth = v; val.textContent = Math.round(v * 100) + '%'; push(); }),
+      m.pol === 'C' ? slider(m.hi, (v) => { m.hi = v; val.textContent = Math.round(m.lo * 100) + '–' + Math.round(m.hi * 100); push(); }) : val,
+      el('button', { class: 'mini', text: '×', 'aria-label': 'Remove from corner ' + CORNER[c], onclick() { P.maps[c].splice(i, 1); P.wires[c] = P.wires[c].filter((w) => !(w.msrc === src && w.mdest === dest)); applyEdit('Removed from corner ' + CORNER[c] + '.'); } })]));
+    const wi = P.wires[c].findIndex((w) => w.msrc === src && w.mdest === dest);
+    const sourceSel = el('select', { 'aria-label': 'Depth wire source, corner ' + CORNER[c], onchange(e) {
+      const v = e.target.value;
+      if (wi >= 0) P.wires[c].splice(wi, 1);
+      if (v) {
+        const next = clone(P); next.wires[c].push({ src: v, msrc: src, mdest: dest, depth: 0.25, pol: 'B' });
+        const a = Law.admit(next, S);
+        if (a.refused.has('w:' + c + ':' + (next.wires[c].length - 1))) { say('Refused: ' + describeLoop(a.loop) + '. A depth wire reaches the setting it changes.', true); sync(); return; }
+        P = next;
+      }
+      applyEdit();
+    } }, [el('option', { value: '', text: 'none' })].concat(SOURCES.filter((s) => s.id !== src).map((s) => el('option', { value: s.id, text: s.name }))));
+    if (wi >= 0) sourceSel.value = P.wires[c][wi].src;
+    if (wi >= 0) {
+      const w = P.wires[c][wi], wv = el('span', { class: 'mono', text: Math.round(w.depth * 100) + '%' });
+      box.appendChild(el('div', { class: 'insp-sub' }, [el('span'), el('span', { text: 'Depth wire' }), sourceSel, polPills(w.pol, POLS.slice(0, 3), (k) => { w.pol = k; applyEdit(); }), slider(w.depth, (v) => { w.depth = v; wv.textContent = Math.round(v * 100) + '%'; push(); }), wv]));
+    } else {
+      box.appendChild(el('div', { class: 'insp-sub' }, [el('span'), el('span', { text: 'Depth wire' }), sourceSel]));
+    }
+  }
+  box.appendChild(el('h2', { text: dg.name + ': the knob in each corner', style: 'margin-top:12px' }));
+  const bases = el('div', { class: 'bases' });
+  for (let c = 0; c < 4; c++) {
+    const v = el('span', { class: 'mono', text: Math.round(P.base[dest][c] * 100) });
+    bases.appendChild(el('label', null, [cornerChip(c), slider(P.base[dest][c], (x) => { P.base[dest][c] = x; v.textContent = Math.round(x * 100); push(); }), v]));
+  }
+  box.appendChild(bases);
+}
+function push() { core.set(P, S); if (audio) audio.node.port.postMessage({ P, S }); }
+
+function loadPreset() {
+  const next = clone(P);
+  next.maps[3] = [M('env2', 'lfo1.rate', 0.6, 'U'), M('lfo2', 'cutoff', 0.3, 'B'), M('env2', 'cutoff', 0.5, 'U')];
+  next.base['lfo2.rate'][3] = 0.5;
+  const a = Law.admit(next, S), hit = Array.from(a.refused);
+  if (!hit.length) { P = next; say('Loaded into D with nothing refused: ' + (S.policy === 'delay' ? 'the loop is allowed, one step late.' : 'each corner is legal alone.')); sync(); return; }
+  if (S.loadRule === 'refuse') { say('Load refused: ' + describeLoop(a.loop) + '. Corner D stays as it was.', true); return; }
+  for (const ref of hit.reverse()) { const [, c, i] = ref.split(':'); next.maps[+c].splice(+i, 1); }
+  P = next;
+  say('Loaded into D without the mapping that would close the loop: ' + describeLoop(a.loop) + '. The rest of the preset is there.', true);
+  sync();
+}
+
+// ---- the pad -----------------------------------------------------------------------------------
+const pad = $('pad');
+function setPos(e) { const r = pad.getBoundingClientRect(); pos.x = Law.clamp01((e.clientX - r.left) / r.width); pos.y = Law.clamp01((e.clientY - r.top) / r.height); posChanged(); }
+function posChanged() { core.pos = pos; if (audio) audio.node.port.postMessage({ pos }); }
+pad.onpointerdown = (e) => { try { pad.setPointerCapture(e.pointerId); } catch (_) {} pad.dragging = true; setPos(e); };
+pad.onpointermove = (e) => { if (pad.dragging) setPos(e); };
+pad.onpointerup = () => { pad.dragging = false; };
+pad.onkeydown = (e) => {
+  const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+  if (!d) return; e.preventDefault();
+  pos.x = Law.clamp01(pos.x + d[0] * 0.02); pos.y = Law.clamp01(pos.y + d[1] * 0.02); posChanged();
+};
+function drawPad(now) {
+  const ratio = window.devicePixelRatio || 1, W = pad.clientWidth, H = pad.clientHeight;
+  if (!W) return;
+  if (pad.width !== Math.round(W * ratio)) { pad.width = Math.round(W * ratio); pad.height = Math.round(H * ratio); }
+  const g = pad.getContext('2d'); g.setTransform(ratio, 0, 0, ratio, 0, 0); g.clearRect(0, 0, W, H);
+  const n = 41, tints = CORNER.map((c) => cssv('--c' + c + '-tint')), cw = W / (n - 1), ch = H / (n - 1);
+  if (S.law === 'quantum' && ownerMap) for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    g.fillStyle = tints[ownerMap[j * n + i]] || 'transparent'; g.fillRect((i - 0.5) * cw, (j - 0.5) * ch, cw + 0.5, ch + 0.5);
+  }
+  if (scan && scan.share > 0) {
+    g.fillStyle = cssv('--alarm'); g.globalAlpha = 0.55;
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) if (scan.out[j * n + i]) { g.beginPath(); g.arc(i * cw, j * ch, 1.6, 0, 7); g.fill(); }
+    g.globalAlpha = 1;
+  }
+  const inset = 14, spots = [[inset, inset], [W - inset, inset], [inset, H - inset], [W - inset, H - inset]];
+  spots.forEach(([x, y], c) => {
+    g.beginPath(); g.arc(x, y, 10, 0, 7); g.fillStyle = cssv('--c' + CORNER[c]); g.fill(); g.lineWidth = 1; g.strokeStyle = cssv('--ink'); g.stroke();
+    g.fillStyle = cssv('--on-corner'); g.font = '800 11px ' + cssv('--font-sans'); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(CORNER[c], x, y + 0.5);
+  });
+  if (now && (Math.abs(now.padNow.x - pos.x) > 1e-3 || Math.abs(now.padNow.y - pos.y) > 1e-3)) {
+    g.beginPath(); g.arc(now.padNow.x * W, now.padNow.y * H, 6, 0, 7); g.lineWidth = 2; g.strokeStyle = cssv('--physics'); g.stroke();
+  }
+  g.beginPath(); g.arc(pos.x * W, pos.y * H, 8, 0, 7); g.fillStyle = cssv('--value'); g.fill(); g.lineWidth = 1.5; g.strokeStyle = cssv('--ink'); g.stroke();
+}
+
+// ---- the graph ---------------------------------------------------------------------------------
+const NODES = { lfo1: [52, 42], lfo2: [52, 168], env2: [268, 42], macro1: [268, 168], pad: [160, 105] };
+const NS = 'http://www.w3.org/2000/svg';
+let graphEdges = [];
+function svg(tag, attrs, parent) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
+function drawGraph() {
+  const G = $('graph'); G.textContent = '';
+  const defs = svg('defs', {}, G), mark = svg('marker', { id: 'arrow', markerWidth: 7, markerHeight: 7, refX: 6, refY: 3, orient: 'auto' }, defs);
+  svg('path', { d: 'M0,0 L6,3 L0,6 z', fill: cssv('--t2') }, mark);
+  const refused = Law.admit(P, S).refused, groups = new Map();
+  for (const e of Law.padEdges(P, S).concat(Law.allEdges(P))) { const k = e.from + '>' + e.to; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(e); }
+  const loop = Law.findLoop(Law.padEdges(P, S).concat(Law.allEdges(P)));
+  const onLoop = new Set((loop || []).map((e) => e.from + '>' + e.to));
+  graphEdges = [];
+  for (const [k, es] of groups) {
+    const [a, b] = k.split('>'), A = NODES[a], B = NODES[b];
+    const dx = B[0] - A[0], dy = B[1] - A[1], L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L, bend = 18;
+    const x0 = A[0] + dx / L * 25, y0 = A[1] + dy / L * 17, x1 = B[0] - dx / L * 27, y1 = B[1] - dy / L * 19;
+    const mx = (x0 + x1) / 2 + nx * bend, my = (y0 + y1) / 2 + ny * bend;
+    const allRefused = es.every((e) => refused.has(e.ref));
+    const stroke = allRefused || onLoop.has(k) ? cssv('--alarm') : a === 'pad' ? cssv('--physics') : cssv(SOURCES.find((s) => s.id === a).tok);
+    const path = svg('path', { d: 'M' + x0 + ',' + y0 + ' Q' + mx + ',' + my + ' ' + x1 + ',' + y1, fill: 'none', stroke, 'stroke-width': 2, 'stroke-dasharray': allRefused ? '3 4' : '', 'marker-end': 'url(#arrow)' }, G);
+    const letters = es.map((e) => (e.corner < 0 ? (a === 'pad' ? 'pad' : 'all') : CORNER[e.corner])).filter((v, i, o) => o.indexOf(v) === i).join('');
+    const t = svg('text', { x: mx, y: my, 'text-anchor': 'middle', class: 'cl' }, G); t.textContent = letters;
+    graphEdges.push({ path, es });
+  }
+  for (const id in NODES) {
+    const [x, y] = NODES[id], isPad = id === 'pad';
+    svg('rect', { x: x - 26, y: y - 16, width: 52, height: 32, rx: 7, fill: cssv('--well'), stroke: isPad ? cssv('--physics') : cssv(SOURCES.find((s) => s.id === id).tok), 'stroke-width': 2 }, G);
+    const t = svg('text', { x, y: y + 4, 'text-anchor': 'middle' }, G); t.textContent = isPad ? 'Pad' : nameOfSrc(id);
+  }
+  $('graphKey').textContent = groups.size ? 'Letters are the corners holding that mapping. A line is solid while it is live. Red closes a loop; red and dashed is refused.' : 'No mapping here changes a modulator or the pad, so no loop is possible. Sound destinations are not drawn: nothing reads back from them.';
+}
+function liveGraph(now) {
+  const muted = new Set(now.muted), refused = core.ad.refused;
+  for (const g of graphEdges) {
+    let k = 0;
+    for (const e of g.es) {
+      if (refused.has(e.ref) || muted.has(e.ref)) continue;
+      k = Math.max(k, e.corner < 0 ? 1 : now.kw[e.dest][e.corner]);
+    }
+    g.path.setAttribute('opacity', String(0.25 + 0.75 * k));
+    g.path.setAttribute('stroke-width', String(1 + 2.2 * k));
+  }
+}
+
+// ---- meters ------------------------------------------------------------------------------------
+const meterEls = {};
+function buildMeters() {
+  const box = $('meters');
+  for (const d of DESTS) {
+    if (d.pad) continue;
+    const fill = el('b'), tick = el('u'), read = el('span', { class: 'mono' }), own = el('span');
+    box.appendChild(el('div', { class: 'meter' }, [el('span', { text: d.name }), el('div', { class: 'bar' }, [fill, tick]), read, own]));
+    meterEls[d.id] = { fill, tick, read, own, ownC: -2 };
+  }
+}
+function readout(id, v) {
+  if (id === 'cutoff') return Math.round(Law.hz.cutoff(v)) + ' Hz';
+  if (id === 'detune') return Law.hz.detune(v).toFixed(1) + ' c';
+  if (id === 'fine') return Law.hz.fine(v).toFixed(1) + ' c';
+  if (id === 'level') return Math.round(v * 100) + ' %';
+  if (id === 'env2.decay') return Law.hz.decay(v).toFixed(2) + ' s';
+  return Law.hz.lfo(v).toFixed(2) + ' Hz';
+}
+function liveMeters(now) {
+  for (const id in meterEls) {
+    const m = meterEls[id], v = now.vals[id], k = now.kw[id];
+    m.fill.style.width = (v * 100).toFixed(1) + '%';
+    m.tick.style.left = (now.baseNow[id] * 100).toFixed(1) + '%';
+    m.read.textContent = readout(id, v);
+    const top = Law.heaviest(k), c = S.law === 'quantum' || S.blendRule === 'jump' ? top : -1;
+    if (c !== m.ownC) { m.ownC = c; m.own.textContent = ''; if (c >= 0) m.own.appendChild(cornerChip(c)); }
+  }
+}
+function liveCells(now) {
+  for (const key in cellEls) {
+    const [src, dest] = key.split('|');
+    if (destOf[dest].pad) continue;
+    const q = cellEls[key].children;
+    for (let c = 0; c < 4; c++) if (q[c] && q[c].classList.contains('live')) q[c].style.setProperty('--k', String(now.kw[dest][c]));
+  }
+}
+
+// ---- controls ----------------------------------------------------------------------------------
+function pills(box, opts, cur, set, label) {
+  box.textContent = '';
+  for (const [k, text] of opts) {
+    box.appendChild(el('button', { class: 'hd-pill', role: 'radio', 'aria-checked': String(cur() === k), text, onclick() { set(k); pills(box, opts, cur, set, label); } }));
+  }
+}
+const RULINGS = [
+  { title: '1. Under Blend, a mapping some corners lack or disagree on', key: 'blendRule', opts: [
+      ['mix', 'Fades with the corner', 'Each corner\'s mapping counts by that corner\'s weight. Nothing jumps. Opposite polarities cancel in the middle and return upside down.'],
+      ['depth', 'Depth fades, polarity jumps', 'Depth moves smoothly, and polarity and Control follow the heaviest corner holding the mapping, so those jump.'],
+      ['jump', 'All jumps at the heaviest', 'The heaviest corner\'s mappings apply and nothing else: simple, and audible as a step.'],
+    ], note: 'Under Quantum, mappings always flip with their destination (B396), softened by Flip glide.' },
+  { title: '2. Depth wires pushing a depth past zero', key: 'pastZero', opts: [
+      ['stop', 'Stops at zero', 'The movement fades out and waits. It keeps ADR-266\'s rule that depth is a magnitude, and polarity alone carries the sign.'],
+      ['reverse', 'Comes back reversed', 'The movement fades out and returns upside down. It would amend ADR-266 for depth wires.'],
+    ] },
+  { title: '3. Loops between corners', key: 'policy', opts: [
+      ['union', 'Refuse any possible loop', 'A mapping is refused if the four corners together could form a loop. Strict, as in B396, and never needs anything at run time. It also refuses patches that could never hit the loop at one seed.'],
+      ['alone', 'Refuse only inside a corner', 'Corners can cross. Where a loop would close on the pad, the later mapping mutes by a fixed order. More freedom, and mappings can drop out as you move.'],
+      ['delay', 'Allow, one step late', 'Loops are allowed and each read sits one control step behind, so it stays exact and repeatable. Feedback becomes a feature, and it can run wild.'],
+    ] },
+  { title: '4. A preset loaded into a corner that would close a loop', key: 'loadRule', opts: [
+      ['refuse', 'Refuse the load', 'The corner stays as it was and the page says why. No silent changes, though a preset may not load.'],
+      ['drop', 'Load it, minus that mapping', 'Everything else arrives. The page names what was dropped, and the preset no longer sounds as saved.'],
+    ], note: 'This only matters under a refusing rule above. Try it in "A preset loaded into a corner".' },
+  { title: '5. Does the pad count as part of a loop?', key: 'padCounts', opts: [
+      [true, 'It counts', 'An LFO on the pad is refused if that LFO\'s own settings differ between corners. Strict, and it rules out a lot of LFO-driven morphs.'],
+      [false, 'It doesn\'t count', 'The pad is always read a step late, so an LFO can drive it however its corners differ. It may speed up and slow down as it sweeps.'],
+    ] },
+];
+function buildRulings() {
+  const box = $('rulings'); box.textContent = '';
+  for (const r of RULINGS) {
+    const group = el('div', { class: 'hd-pills', role: 'radiogroup', 'aria-label': r.title }), desc = el('p', { class: 'opt-desc' });
+    const paint = () => {
+      group.textContent = '';
+      for (const [k, text, d] of r.opts) {
+        group.appendChild(el('button', { class: 'hd-pill', role: 'radio', 'aria-checked': String(S[r.key] === k), text, onclick() { S[r.key] = k; paint(); sync(); explainPolicy(); } }));
+        if (S[r.key] === k) desc.textContent = d;
+      }
+    };
+    paint(); r.paint = paint;
+    box.appendChild(el('div', { class: 'panel' }, [el('h2', { text: r.title }), group, desc, r.note ? el('p', { text: r.note }) : null]));
+  }
+}
+function setScene(sc) {
+  scene = sc; P = sc.make(); S.law = sc.law; pos.x = sc.pos[0]; pos.y = sc.pos[1]; editing = 0;
+  S.seed = sc.seed || 1024;
+  $('seed').value = String(S.seed === 1024 ? 1 : S.seed); $('seedV').textContent = String(S.seed);
+  const first = P.maps.flat().find((m) => m.dest !== 'cutoff' && destOf[m.dest].owner) || P.global[0] || P.maps.flat()[0] || { src: 'lfo1', dest: 'cutoff' };
+  sel = { src: first.src, dest: first.dest };
+  if (sc.id === 'one') sel = { src: 'lfo1', dest: 'fine' };
+  if (sc.id === 'depths' || sc.id === 'reversal' || sc.id === 'polarity') sel = { src: sc.id === 'polarity' ? 'env2' : 'lfo1', dest: 'cutoff' };
+  if (sc.id === 'control') sel = { src: 'lfo2', dest: 'level' };
+  $('story').innerHTML = sc.say;
+  const act = $('storyAct'); act.textContent = '';
+  if (sc.act) act.appendChild(el('button', { class: 'hd-pill', text: sc.act.label, onclick: sc.act.run }));
+  paintScenes(); paintLaw(); drawEditing(); sync(); explainPolicy(); posChanged();
+}
+function paintScenes() {
+  const box = $('scenes'); box.textContent = '';
+  for (const sc of SCENES) box.appendChild(el('button', { class: 'hd-pill', role: 'radio', 'aria-checked': String(sc === scene), text: sc.name, onclick() { setScene(sc); } }));
+}
+function paintLaw() {
+  pills($('law'), [['blend', 'Blend'], ['quantum', 'Quantum']], () => S.law, (k) => { S.law = k; sync(); });
+}
+function bindSlider(id, get, set, fmt) {
+  const s = $(id), v = $(id + 'V');
+  s.value = String(get()); v.textContent = fmt(get());
+  s.oninput = () => { set(+s.value); v.textContent = fmt(get()); sync(); };
+}
+bindSlider('cohesion', () => S.cohesion, (x) => { S.cohesion = x; }, (x) => x.toFixed(2));
+bindSlider('temp', () => S.temp, (x) => { S.temp = x; }, (x) => x.toFixed(2));
+bindSlider('glide', () => S.glide, (x) => { S.glide = x; }, (x) => Math.round(x * 1000) + ' ms');
+bindSlider('seed', () => (S.seed === 1024 ? 1 : S.seed), (x) => { S.seed = x === 1 ? 1024 : x; }, (x) => (x === 1 ? 1024 : x).toString());
+$('macro').value = '0.5'; $('macroV').textContent = '0.50';
+$('macro').oninput = (e) => { macro = +e.target.value; $('macroV').textContent = macro.toFixed(2); core.macro = macro; if (audio) audio.node.port.postMessage({ macro }); };
+$('notes').onclick = () => { notes = !notes; $('notes').setAttribute('aria-pressed', String(notes)); $('notes').setAttribute('aria-checked', String(notes)); core.notes = notes; if (audio) audio.node.port.postMessage({ notes }); };
+$('notes').setAttribute('aria-checked', 'true');
+
+// ---- sound -------------------------------------------------------------------------------------
+$('sound').onclick = async () => {
+  const b = $('sound');
+  if (audio) { await audio.ctx.close(); audio = null; snap = null; b.textContent = 'Sound on'; b.setAttribute('aria-checked', 'false'); say('Sound off.'); return; }
+  try {
+    const ctx = new AudioContext();
+    const src = cornerMapLaw.toString() + '\n(' + cornerMapWorklet.toString() + ')();';
+    await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+    const node = new AudioWorkletNode(ctx, 'corner-tone', { numberOfInputs: 0, outputChannelCount: [2] });
+    node.connect(ctx.destination);
+    node.port.onmessage = (e) => { snap = e.data; };
+    audio = { ctx, node };
+    node.port.postMessage({ P, S, pos, macro, notes });
+    await ctx.resume();
+    b.textContent = 'Sound off'; b.setAttribute('aria-checked', 'true');
+    say('Sound on. Drag around the pad.');
+  } catch (err) { say('Sound could not start: ' + err.message, true); }
+};
+
+// ---- the frame ---------------------------------------------------------------------------------
+function frame() {
+  // With the sound off, the views run the law themselves: 25 control steps a frame, which is 1,500 a second at 60 frames. The clock is this count.
+  if (!audio) { for (let i = 0; i < 25; i++) core.step(); snap = core.snapshot(); }
+  if (snap) { liveGraph(snap); liveMeters(snap); liveCells(snap); drawPad(snap); }
+  requestAnimationFrame(frame);
+}
+
+// ---- self-check --------------------------------------------------------------------------------
+function selfCheck() {
+  const lines = []; let bad = 0;
+  const check = (ok, text) => { lines.push((ok ? 'ok    ' : 'FAIL  ') + text); if (!ok) bad++; };
+  // 1. The whole-graph test against brute force. The graph here is abstract, five modulators with one setting each, so the test isn't limited by this lab's three.
+  const rng = Law.stream('lab/selfcheck', 7), N = 5;
+  const hasLoop = (edges) => !!Law.findLoop(edges);
+  const brute = (edges) => {
+    for (let code = 0; code < Math.pow(4, N); code++) {
+      const picks = []; let v = code;
+      for (let i = 0; i < N; i++) { picks.push(v & 3); v >>= 2; }
+      if (hasLoop(edges.filter((e) => e.corner === picks[e.to]))) return true;
+    }
+    return false;
+  };
+  let agree = 0, disagree = 0, withLoop = 0, aloneWrong = 0, dropWrong = 0;
+  const trials = 150;
+  for (let t = 0; t < trials; t++) {
+    const edges = [], count = 2 + Math.floor(rng() * 6);
+    for (let i = 0; i < count; i++) {
+      const from = Math.floor(rng() * N); let to = Math.floor(rng() * N); if (to === from) to = (to + 1) % N;
+      edges.push({ from, to, corner: Math.floor(rng() * 4) });
+    }
+    const whole = hasLoop(edges), exact = brute(edges);
+    if (whole === exact) agree++; else disagree++;
+    if (exact) withLoop++;
+    const alone = [0, 1, 2, 3].some((c) => hasLoop(edges.filter((e) => e.corner === c)));
+    if (alone !== exact) aloneWrong++;
+    if (hasLoop(edges.filter((e) => e.corner !== 3)) !== exact) dropWrong++;
+  }
+  check(disagree === 0 && withLoop > 10, 'the whole-graph test equals brute force over every pick assignment: ' + agree + ' of ' + trials + ' random patches, ' + withLoop + ' with a loop');
+  check(aloneWrong > 0, 'control: checking each corner alone must miss some: it was wrong on ' + aloneWrong);
+  check(dropWrong > 0, 'control: a test that forgets corner D must miss some: it was wrong on ' + dropWrong);
+  // 2. The real law.
+  const SS = (o) => Object.assign({}, S, { law: 'quantum', cohesion: 0.3, temp: 1, seed: 1024, glide: 0, blendRule: 'mix', pastZero: 'stop', policy: 'delay', padCounts: true }, o);
+  const run = (P0, S0, x, y, n) => { const c = Law.makeCore(44100); c.set(P0, S0); c.pos = { x, y }; c.notes = true; for (let i = 0; i < n; i++) c.step(); return c; };
+  let worst = 0, Pb = blank(); Pb.base.cutoff = [0.1, 0.4, 0.7, 0.9];
+  for (const [x, y] of [[0, 0], [1, 0], [0.3, 0.8], [0.5, 0.5]]) {
+    const c = run(Pb, SS({ law: 'blend' }), x, y, 50), w = Law.weights(x, y), want = w.reduce((a, v, i) => a + v * Pb.base.cutoff[i], 0);
+    worst = Math.max(worst, Math.abs(c.vals.cutoff - want));
+  }
+  check(worst < 1e-12, 'must read zero: with no mappings, a value is the corners\' blend, error ' + worst.toExponential(1));
+  const P0 = blank(), Pz = blank(); for (let c = 0; c < 4; c++) Pz.maps[c].push(M('lfo1', 'cutoff', 0, 'B'));
+  const a0 = run(P0, SS(), 0.3, 0.6, 500), az = run(Pz, SS(), 0.3, 0.6, 500);
+  check(a0.vals.cutoff === az.vals.cutoff, 'must read zero: a mapping at depth 0 changes nothing');
+  const Pr = SCENES.find((s) => s.id === 'reversal').make();
+  const depthAt = (rule) => { const c = Law.makeCore(44100); c.set(Pr, SS({ pastZero: rule })); c.pos = { x: 0.2, y: 0.2 }; let min = Infinity; for (let i = 0; i < 40000; i++) { c.step(); const w = c.P.wires[0][0]; const d = c.P.maps[0][0].depth + Law.term(w.pol, c.out.lfo2, w.depth); min = Math.min(min, rule === 'stop' ? Law.clamp01(d) : d); } return min; };
+  check(depthAt('stop') >= 0 && depthAt('reverse') < 0, 'stop never goes below zero; control: reverse must, and reaches ' + depthAt('reverse').toFixed(2));
+  // 3. The cross case.
+  const Pc = SCENES.find((s) => s.id === 'cross').make();
+  check(Law.admit(Pc, SS({ policy: 'union' })).refused.size === 1, 'the crossing patch: the whole-graph rule refuses exactly one mapping');
+  check(Law.admit(Pc, SS({ policy: 'alone' })).refused.size === 0 && Law.admit(Pc, SS({ policy: 'delay' })).refused.size === 0, 'control: the other two rules refuse nothing there');
+  const share = (o) => Law.scanLoops(Pc, SS(o), 41).share;
+  const s03 = share({ cohesion: 0.3 }), s1 = share({ cohesion: 1 }), sb = share({ law: 'blend' }), scold = share({ law: 'blend', blendRule: 'jump' });
+  check(s1 === 0, 'at cohesion 1 under Quantum the crossing loop lands nowhere (all keys flip together): ' + (s1 * 100).toFixed(0) + ' %');
+  let seedsWithLoop = 0;
+  for (let seed = 1; seed <= 60; seed++) if (Law.scanLoops(Pc, SS({ cohesion: 0.3, seed }), 21).share > 0) seedsWithLoop++;
+  lines.push('      reported: at seed 1024 the crossing loop is live on ' + (s03 * 100).toFixed(0) + ' % of the pad at cohesion 0.3; across seeds 1 to 60 it lands somewhere on ' + seedsWithLoop + ' of them. Under Blend that fades: ' + (sb * 100).toFixed(0) + ' %. Under Blend that jumps: ' + (scold * 100).toFixed(0) + ' %.');
+  // 4. The pad as part of a loop.
+  const Pp = SCENES.find((s) => s.id === 'pad').make();
+  check(Law.admit(Pp, SS({ policy: 'union', padCounts: true })).refused.has('g:0'), 'an LFO on the pad, its rate differing by corner: refused when the pad counts');
+  check(!Law.admit(Pp, SS({ policy: 'union', padCounts: false })).refused.has('g:0'), 'control: not refused when it doesn\'t');
+  const Pp2 = clone(Pp); Pp2.base['lfo1.rate'] = [0.5, 0.5, 0.5, 0.5];
+  check(!Law.admit(Pp2, SS({ policy: 'union', padCounts: true })).refused.has('g:0'), 'control: not refused when that rate is the same in every corner');
+  // 5. Every scene loads and stays finite; determinism.
+  let finite = true;
+  for (const sc of SCENES) for (const pol of ['union', 'alone', 'delay']) {
+    const c = run(sc.make(), SS({ policy: pol }), 0.5, 0.5, 3000);
+    for (const k in c.vals) if (!Number.isFinite(c.vals[k])) finite = false;
+  }
+  check(finite, 'every situation runs under every loop rule and stays finite');
+  const A = run(Pc, SS(), 0.5, 0.5, 8000), B = run(Pc, SS(), 0.5, 0.5, 8000);
+  check(JSON.stringify(A.vals) === JSON.stringify(B.vals), 'the same patch and seed give identical values');
+  const pickOf = (seed) => { let o = ''; for (let j = 0; j < 9; j++) for (let i = 0; i < 9; i++) o += Law.pick(Law.weights(i / 8, j / 8), SS({ seed }), 'cutoff'); return o; };
+  check(pickOf(1024) !== pickOf(7), 'control: another seed moves the boundaries');
+  lines.push('');
+  lines.push('Not checked here: the sound, which is yours to judge. The draw and the pick are copied from the spec\'s text and not compared with the test author\'s harness.');
+  lines.push(bad ? bad + ' FAILED' : 'All green.');
+  $('selfcheck').textContent = lines.join('\n');
+}
+
+buildMeters(); buildRulings();
+setScene(SCENES[0]);
+requestAnimationFrame(frame);
+setTimeout(selfCheck, 60);   // after the first paint, so the controls work while it runs
+</script>
+</body>
+</html>
