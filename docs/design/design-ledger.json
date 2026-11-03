@@ -6622,6 +6622,10 @@
   {
    "adr": "ADR-358",
    "reason": "How the soft-edge law is computed and which table length Standard uses: no control or design element."
+  },
+  {
+   "adr": "ADR-359",
+   "reason": "A module's state budget and when a load is adopted: no control or design element."
   }
  ],
  "audit_notes": [
