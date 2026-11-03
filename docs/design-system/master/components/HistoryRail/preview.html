@@ -1,0 +1,14 @@
+<!-- @dsCard group="Data" height=220 subtitle="GUI-10: the undo tree as a commit log, with the path to the current state bold and a fork marked." -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>HistoryRail</title></head>
+<body>
+<div style="padding:10px 16px"><div id="h" style="max-width:360px"></div></div>
+<script>
+(function () {
+  var t = { cur: 3, nodes: [{ i: 0, parent: -1, tick: 0, label: 'Start' }, { i: 1, parent: 0, tick: 1, label: 'SAMPLE Width' }, { i: 2, parent: 1, tick: 2, label: 'SAMPLE Decay' }, { i: 3, parent: 1, tick: 3, label: 'SAMPLE Depth' }, { i: 4, parent: 3, tick: 4, label: 'SAMPLE Cut rate' }] };
+  var r = window.Horde.HistoryRail(document.getElementById('h'), { tree: function () { return t; }, onRestore: function (i) { t.cur = i; r.refresh(true); } });
+})();
+</script>
+</body>
+</html>

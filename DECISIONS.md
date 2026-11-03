@@ -11216,3 +11216,24 @@ Three points stayed open, because the shell already marks a knob selected the mo
 **FX device (ADR-254).** The device hosts no note processor, so rulings 1 and 2 don't apply to it. Ruling 3 applies to its corners' pad as to the instrument's.
 
 **Consequences.** B610 is answered and stays open for the resolver's spec round and the go or no-go. No clean-room repository changes until that round has its text.
+
+## GUI-10 — RULED by the human: Arp gets a top-level button; the History page comes over from GUI 2 (B581, B119; GB2, GB3; ADR-160; 2026-11-03)
+
+**Context.** The human, 2026-11-02: "Arp should get a top-level button and not be buried under Mod" and "we haven't added the History page yet. Please look at GUI2 from the legacy plugin to see how it looks." Then, 2026-11-03: "Yes, Arp and History".
+
+**Rulings.**
+1. **Arp has its own button in the top bar** and leaves Mod's second row.
+2. **The History page is GUI 2's:** newest first, one row per gesture, a lane graph like a commit log with the path to the current state bold and forks marked, the redo side dimmed, Undo, Redo and "Coalesce runs". A click on a row restores that state and the next edit branches. This carries ADR-160 and B118's and B119's rail into GUI 3, and asks nothing new.
+
+**Readings taken (the GUI session's, open to the human).**
+- **The bar reads** Main, Osc, FX, Mod, Arp, Morph, Mix, History, Set, Ledger. The label is "History", not GUI 2's "HIST".
+- **The preset bar is 218 px, down from 322** (GUI-6's P1), to make room for the two buttons. Long preset names truncate sooner.
+- **The tree is the shell's** (`docs/design/gui3/device.js`): 200 states, in memory, for the session, as ADR-160 has it. The engine's `engine2/core/api/history.h` isn't wired, and it replaces this at stage 8.
+- The morph pad stays out of history (ADR-357).
+
+**Open.**
+- **Arp's page.** The human: "we'll need to work on the GUI for the arp, it isn't where I want". The human hasn't yet said what isn't. `docs/design/arp-face-lab.html` is the starting point.
+
+**Consequences.**
+- The flat undo stack is gone: an edit after undo now keeps the old branch. Undo, Redo and `dev.history()` read as they did.
+- **FX device (ADR-254):** the same History page. Arp's button isn't there, because it hosts no note processor.

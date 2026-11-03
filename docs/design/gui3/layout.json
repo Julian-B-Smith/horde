@@ -2574,6 +2574,15 @@
       "grid": true
     },
     {
+      "id": "history",
+      "label": "History",
+      "status": "designed",
+      "panel": "history",
+      "note": "Every gesture is one state, and going back to one never loses the others: the next edit branches from it. The path to where you stand is bold and a fork is marked. Rows ahead of you are the redo side, dimmed. Morph pad moves aren't in it, and the last 200 states are kept for this session.",
+      "cite": "GUI-10, ADR-160, B119",
+      "groups": []
+    },
+    {
       "id": "ledger",
       "label": "Ledger",
       "status": "designed",
@@ -2668,7 +2677,13 @@
       "id": "mod",
       "label": "Mod",
       "pages": [
-        "mod",
+        "mod"
+      ]
+    },
+    {
+      "id": "arp",
+      "label": "Arp",
+      "pages": [
         "arp"
       ]
     },
@@ -2684,6 +2699,13 @@
       "label": "Mix",
       "pages": [
         "mix"
+      ]
+    },
+    {
+      "id": "history",
+      "label": "History",
+      "pages": [
+        "history"
       ]
     },
     {

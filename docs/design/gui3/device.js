@@ -75,7 +75,24 @@
     morphing.forEach(function (r) { for (var i = 0; i < 4; i++) st.corners[i][r.key] = r.default_v; });
     rows.forEach(function (r) { if (r.class === 'D') st.dev[r.key] = r.default_v; });
     var pos = { x: 0.5, y: 0.5 }, owners = Object.create(null);
-    var past = [], future = [], tx = null, rev = 0;
+    /* The undo tree (ADR-160, B119; was a flat stack): a node per gesture, holding the state before and after it. Going back and editing branches, so nothing you
+       pass through is lost. Capped at 200, and eviction takes the oldest node OFF the path to where you stand, so a base you keep branching from outlives an abandoned run. */
+    var HIST_CAP = 200, nodes = [], cur = null, nextNode = 0, tx = null, rev = 0;
+    function newRoot() { nodes = [{ i: nextNode++, parent: -1, tick: 0, label: 'Start', before: null, after: null, last: null }]; cur = nodes[0]; }
+    newRoot();
+    function nodeOf(i) { for (var k = 0; k < nodes.length; k++) if (nodes[k].i === i) return nodes[k]; return null; }
+    function childrenOf(n) { return nodes.filter(function (c) { return c.parent === n.i; }); }
+    function pathOf(n) { var out = []; for (var q = n, g = 0; q && g <= HIST_CAP + 1; q = q.parent < 0 ? null : nodeOf(q.parent), g++) out.unshift(q); return out; }
+    /* Redo goes back the way you came, else to the newest branch. */
+    function redoChild(n) { var l = n.last !== null ? nodeOf(n.last) : null, c = childrenOf(n); return l && l.parent === n.i ? l : c.length ? c[c.length - 1] : null; }
+    function evict() {
+      while (nodes.length > HIST_CAP) {
+        var on = {}; pathOf(cur).forEach(function (q) { on[q.i] = true; });
+        var gone = nodes.filter(function (q) { return !on[q.i]; })[0] || nodes[0];
+        nodes.splice(nodes.indexOf(gone), 1);
+        nodes.forEach(function (q) { if (q.parent === gone.i) q.parent = -1; });   // its children become roots of their own
+      }
+    }
     var seq = 0, sentSeq = Object.create(null), sentV = Object.create(null), fromEngine = Object.create(null);
     var lastSnap = null, events = [];
     var pending = [];                                // sources activated with the bank's + and not yet mapped (B556): never saved, never undone
@@ -160,7 +177,10 @@
       if (t.key) transport.send({ type: 'gesture', seq: ++seq, key: t.key, phase: 'end' });
       var after = snapshot();
       if (after === t.before) return false;
-      past.push({ label: t.label, before: t.before, after: after }); future.length = 0; return true;
+      if (cur.after === null) cur.after = t.before;   // the root learns its state from the first edit, so a state prepared before then is the start
+      var n = { i: nextNode++, parent: cur.i, tick: cur.tick + 1, label: t.label, before: t.before === cur.after ? cur.after : t.before, after: after, last: null };   // the same string, not a copy, when nothing moved between gestures
+      nodes.forEach(function (q) { if (q.tick >= n.tick) n.tick = q.tick + 1; });   // ticks only go up, so newest first holds across branches
+      nodes.push(n); cur = n; evict(); return true;
     };
     D.inTx = function () { return !!tx; };
     D.gestureKey = function () { return tx && tx.key; };
@@ -356,11 +376,25 @@
       });
       reown(); send(); changed();
     };
-    D.history = function () { return { past: past.map(function (e) { return e.label; }), future: future.map(function (e) { return e.label; }) }; };
-    D.clearRedo = function () { future.length = 0; };   // the shell's self-checks undo their own probe and leave no redo behind
-    D.clearHistory = function () { past.length = 0; future.length = 0; };   // a review link opens on a prepared state with nothing to undo
-    D.undo = function () { if (tx || !past.length) return false; var e = past.pop(); future.push(e); apply(e.before); return true; };
-    D.redo = function () { if (tx || !future.length) return false; var e = future.pop(); past.push(e); apply(e.after); return true; };
+    /* past: the labels from the start to where you stand. future: the redo chain, the next one last. */
+    D.history = function () {
+      var fut = []; for (var q = redoChild(cur), g = 0; q && g <= HIST_CAP; q = redoChild(q), g++) fut.unshift(q.label);
+      return { past: pathOf(cur).filter(function (q) { return q.before !== null; }).map(function (q) { return q.label; }), future: fut };
+    };
+    D.tree = function () { return { cur: cur.i, cap: HIST_CAP, nodes: nodes.map(function (q) { return { i: q.i, parent: q.parent, tick: q.tick, label: q.label }; }) }; };
+    D.clearRedo = function () {   // the shell's self-checks undo their own probe and leave no redo behind
+      var drop = {}, grow = function (n) { childrenOf(n).forEach(function (c) { drop[c.i] = true; grow(c); }); }; grow(cur);
+      nodes = nodes.filter(function (q) { return !drop[q.i]; }); cur.last = null;
+    };
+    D.clearHistory = function () { newRoot(); };   // a review link opens on a prepared state with nothing to undo
+    D.undo = function () { var p = cur.parent < 0 ? null : nodeOf(cur.parent); if (tx || !p || cur.before === null) return false; p.last = cur.i; var b = cur.before; cur = p; apply(b); return true; };
+    D.redo = function () { var c = redoChild(cur); if (tx || !c) return false; cur = c; apply(c.after); return true; };
+    /* Go to any state in the tree (ADR-160: the next edit branches from it). Redo still leads back along the way you came. */
+    D.restore = function (i) {
+      var n = nodeOf(i); if (tx || !n || n.after === null) return false;
+      pathOf(cur).reduce(function (a, b) { if (a) a.last = b.i; return b; }, null);
+      cur = n; apply(n.after); return true;
+    };
     /* What the engine said last: its state document (IF-4) and its observation view (IF-10), from the latest snapshot. */
     D.patch = function () { return { shell: JSON.parse(snapshot()), morph: D.morph(), engine: lastSnap ? lastSnap.state : null }; };
     D.observe = function () { return { engine: lastSnap ? lastSnap.observe : null, resolver: lastSnap ? lastSnap.resolver : null,

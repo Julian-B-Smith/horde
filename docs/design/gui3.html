@@ -60,6 +60,10 @@
   .main-pad #padHost, .main-pad .hd-xy { width: 100% !important; height: 100% !important; margin: 0 !important; }
   .main-xy { flex: 1 1 0; }
   .main-p { box-sizing: border-box; padding: 4px 6px; background: var(--panel); border: var(--stroke-ink) solid var(--ink); border-radius: var(--radius); min-width: 0; }
+  .hist-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; } .hist-bar .hd-hint { margin-left: auto; }
+  .hist-bar .hd-btn:disabled { opacity: .4; cursor: default; }
+  .hist-card { width: 100%; box-sizing: border-box; padding: 8px; }
+  .hist-bar .hd-row { display: inline-flex; flex-direction: row; align-items: center; gap: 6px; white-space: nowrap; }
   .main-macros { flex: 0 0 60px; display: flex; justify-content: space-between; align-items: center; gap: 2px; }
   /* name over knob, as in the bank. Side by side, the name's 7ch minimum crushed the knob to 6 px once MAP's inspector or the sidebar narrowed the row (found mapping a macro, 2026-11-02) */
   .main-macros .hd-mk.sz-utility { flex: 1 1 0; min-width: 0; flex-direction: column; gap: 1px; padding: 0; }
@@ -82,7 +86,7 @@
   .main-note { margin: 2px 0 0; max-width: 46ch; }
   /* GUI-6 and GUI-8 r7: the preset bar in the top row and the colours in the second, both in the room the page tabs leave on every page (the lens lab measured all 14) */
   .chrome { position: relative; }
-  #presetHost { position: absolute; left: 508px; top: 3px; width: 322px; z-index: 8; }
+  #presetHost { position: absolute; left: 612px; top: 3px; width: 218px; z-index: 8; }   /* it moved over for Arp and History's buttons (GUI-10) */
   #colourHost { position: absolute; left: 678px; top: 32px; width: 152px; height: 22px; display: flex; align-items: center; gap: 4px; z-index: 7; }
   #colourHost .hd-btn { min-height: 20px; padding: 0 6px; font-size: 10px; }
   #colourHost #scrTop { flex: 1 1 auto; min-width: 0; }
@@ -1185,6 +1189,16 @@ function fxRack(pg) {
 
 /* The port ledger (ADR-333, B593): everything not yet moved over, where it lives and why, read from port-tab.json
    through the generated data. Grouped by area, with counts by reason and by status. */
+// GUI-10: GUI 2's History page, in the master's rail. The tree is the device's (ADR-160), and this only draws it.
+let historyRail = null;
+function historyPage(pg, el) {
+  const undo = h('button', { class: 'hd-btn hd-focus', type: 'button', text: 'Undo' }), redo = h('button', { class: 'hd-btn hd-focus', type: 'button', text: 'Redo' }), now = h('span', { class: 'hd-hint', 'aria-live': 'polite' }), host = h('div'), fold = h('button', { class: 'hd-toggle hd-focus', type: 'button', role: 'switch', 'aria-label': 'Coalesce runs', 'aria-checked': 'true', id: 'histCoalesce' });
+  undo.addEventListener('click', () => { if (dev.undo()) S.say('Undone'); }); redo.addEventListener('click', () => { if (dev.redo()) S.say('Redone'); });
+  fold.addEventListener('click', () => { const on = fold.getAttribute('aria-checked') !== 'true'; fold.setAttribute('aria-checked', String(on)); historyRail.setCoalesce(on); });
+  el.append(h('section', { class: 'hd-card hist-card', 'aria-label': 'History' }, h('div', { class: 'hist-bar' }, undo, redo, h('label', { class: 'hd-row hd-label' }, h('span', { text: 'Coalesce runs' }), fold), now), host));
+  historyRail = H.HistoryRail(host, { tree: () => dev.tree(), keys: () => S.keys, onRestore: i => { if (dev.restore(i)) S.say('Restored. The next edit branches from here.'); } });
+  views.push({ page: 'history', update() { historyRail.refresh(); const t = dev.tree(), c = t.nodes.find(n => n.i === t.cur), hs = dev.history(); undo.disabled = !hs.past.length; redo.disabled = !hs.future.length; const txt = t.nodes.length + ' of ' + t.cap + ' states, at ' + (c ? c.label : 'the start'); if (now.textContent !== txt) now.textContent = txt; } });
+}
 function ledgerPage(pg, el) {
   const L = DATA.ledger, rows = L.rows, R = L.reasons;
   const count = (f, v) => rows.filter(r => r[f] === v).length;
@@ -1232,6 +1246,7 @@ DATA.pages.forEach(pg => {
   if (pg.panel === 'dashboard') dashboardPage(pg, el);
   else if (pg.panel === 'console') consolePage(pg, el);
   else if (pg.panel === 'ledger') ledgerPage(pg, el);
+  else if (pg.panel === 'history') historyPage(pg, el);
   else if (pg.id === 'mod') modPageForm(pg, el);       // ADR-338 r8 (half A); every other parameter page is a grid (half B)
   else if (pg.deck) mainPage(pg, el);
   else if (pg.grid) paramPage(pg, el);
@@ -1689,6 +1704,20 @@ S.start();
     const parts = { kinds, empty, clearOfPad, routable, narrows: narrowed < items.length, pickedOne, cancelled, armedLit, touched, menuOk, bound, offsets, restChip, deep, mapped, staysOpen, removed, inRows, openedMain, clear, counted, openedBank, noneOffered, undone: !touching('xyx').length && S.map.src === srcWas }, bad = Object.keys(parts).filter(k => !parts[k]);
     line(!bad.length,
       (bad.length ? '(MISSED ' + bad.join(', ') + ') ' : '') + 'X and Y as macro knobs (GUI-9): ten macro sources, the axes bipolar; a list of ' + items.length + ' routable parameters, narrowed to ' + narrowed + '; a list pick, a touch and a right-click each add, and X touched two; the pad moved its source and wrote no parameter and no history; the card sets a depth, stays open through MAP and removes; names open it on Main and in the bank, clear of the knob; a mapped macro shows in the mod rows and + offers none. Controls: Escape leaves the touch unarmed, and the source really moved.'); }
+  // 4f. GUI-10: Arp has its own button, and the History page draws the device's tree. It runs on real steps and goes back to where it started, branch and all.
+  { const pg0 = page, t0 = dev.tree().cur, tick = () => { for (const v of views) if (v.page === 'history' || v.page === '*') v.update(); }, k = DATA.params.find(r => r.law !== 'step' && !r.reserved && r.class !== 'D' && dev.canRoute(r.key)).key, k2 = DATA.params.filter(r => r.law !== 'step' && !r.reserved && r.class !== 'D' && dev.canRoute(r.key))[1].key, v0 = dev.shown(k);
+    const arpTop = DATA.nav.some(n => n.id === 'arp' && n.pages.length === 1 && n.pages[0] === 'arp') && !DATA.nav.find(n => n.id === 'mod').pages.includes('arp'), inBar = [...document.querySelectorAll('#pnav button')].some(b => b.textContent.trim() === 'Arp') && [...document.querySelectorAll('#pnav button')].some(b => b.textContent.trim() === 'History');
+    selectPage('history'); const n0 = dev.tree().nodes.length;
+    dev.set(k, .21); dev.set(k, .31); const mid = dev.tree().cur; dev.set(k, .41); dev.undo(); dev.set(k2, .51); tick();   // a fork at `mid`: the .41 step and the k2 step
+    const tree = dev.tree(), forked = tree.nodes.filter(n => n.parent === mid).length === 2 && tree.nodes.length === n0 + 4, rail = pageEls.history, dot = !!rail.querySelector('.hr-fork'), curRow = rail.querySelector('.hr-node.on'), rowsN = rail.querySelectorAll('.hr-node').length, bold = !!rail.querySelector('.hr-spine');
+    // a click restores, and the other branch survives. Control: the value really changed first.
+    const moved = Math.abs(dev.shown(k) - v0) > 1e-6, row41 = [...rail.querySelectorAll('.hr-node')].find(b => { const n = tree.nodes.find(x => x.i === +b.dataset.node); return n && n.parent === mid && b.textContent.indexOf(ROW[k2].label) < 0; }); row41.click(); tick();
+    const restored = Math.abs(dev.shown(k) - .41) < .02, kept = dev.tree().nodes.length === tree.nodes.length, aheadRow = !!rail.querySelector('.hr-node.ahead');
+    // coalescing folds a run of one label, and the switch brings it back
+    dev.undo(); dev.undo(); dev.set(k, .6); dev.set(k, .61); dev.set(k, .62); tick(); const foldedN = rail.querySelectorAll('.hr-node').length, shownX = [...rail.querySelectorAll('.hr-node')].some(b => /×\d/.test(b.textContent)); $('histCoalesce').click(); tick(); const openN = rail.querySelectorAll('.hr-node').length; $('histCoalesce').click(); tick();
+    dev.restore(t0); dev.clearRedo(); selectPage(pg0); S.message = ''; tick();
+    const parts = { arpTop, inBar, forked, dot, curRow: !!curRow, rowsN: rowsN >= n0 + 3, bold, moved, restored, kept, aheadRow, folds: shownX && openN > foldedN, back: Math.abs(dev.shown(k) - v0) < 1e-9 && dev.tree().nodes.length === n0 }, bad = Object.keys(parts).filter(q => !parts[q]);
+    line(!bad.length, (bad.length ? '(MISSED ' + bad.join(', ') + ') ' : '') + 'Arp and History (GUI-10): Arp has its own button and left Mod; History draws the tree with a bold spine and a marked fork; a click restored a state and kept the other branch; a run folds and the switch unfolds it, ' + foldedN + ' rows to ' + openN + '. Control: the value had really moved first.'); }
   // 5. The info box shows the hovered control's text, and clears off a control (control).
   const kh = document.querySelector('#page-sub [data-key="' + CSS.escape(kc.key) + '"]');
   kh.dispatchEvent(new MouseEvent('pointerover', { bubbles: true })); const shown = $('infoText').textContent.startsWith(r.spec) && $('infoKey').textContent === r.key;
