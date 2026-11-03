@@ -16,3 +16,9 @@
 # and fail with a bare, unexplained "command not found".
 verify text eol=lf
 *.sh text eol=lf
+
+# Two sessions append to this log at once (ADR-346), and each clash cost a hand
+# rebuild. Union keeps both appends. Its trap is a line two PRs both EDIT: it keeps
+# both versions with no conflict and no warning, so amend one ruling at a time.
+# Never add the design ledger here: union on JSON can leave it invalid (ADR-353).
+DECISIONS.md merge=union
