@@ -6,6 +6,8 @@ What a macro or an XY axis touches (GUI-9 r1, r4): one card at a time, opened fr
 
 **Anatomy** (240 px): the name, "touches n" or "nothing here", and Map (Done while mapping). Then a row per mapping: name, a depth bar in `src-macro`, the percentage, ×. `adds` puts other ways in at the foot, as small buttons: an axis has List and Touch.
 
+A double-click on a depth returns it to 25 %, as a mapping's ◇ does (GUI-12).
+
 **Stays open** while MAP is on for this source, and while `hold()` is true, because mapping is what it's open for. Otherwise a click elsewhere or Escape closes it, through the layered Escape. Callbacks only: it edits nothing itself.
 
 **It repaints only when its rows change,** or a depth drag would lose its row.

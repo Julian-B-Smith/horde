@@ -116,6 +116,7 @@ Rulings 2 and 7 of ADR-338, 8 to 10 of ADR-340 and 3 to 5 of ADR-341 enter the m
 
 ## What changed for Main (GUI-2, GUI-4; B581)
 
+- **`PicturePicker`** and **`ArpViz`,** new: GUI-11, from the Arp lab. **A double-click returns any control but a toggle to home** (GUI-12): the wheels, `AssignXY` and a `MacroCard` depth gain it here, and the shell gives it to its pills and dropdowns.
 - **`HistoryRail`,** new: GUI-10, GUI 2's rail graph in the design system.
 - **`MacroCard` (with `MacroOpener`), `ParamPicker`,** new, and `AssignXY`'s axis chips and rest mark: GUI-9. A source can name its own default polarity (`Session.defPol`). `ModPage`'s kinds can drop their + (`noAdd`).
 - **`Deck`, `AssignXY`,** new. **`Horde.MainStage`,** new: the bench's live logo and Specimen, verbatim (ADR-333). **`Viz.response`,** new: a SAMPLE filter curve.

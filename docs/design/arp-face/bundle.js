@@ -1,5 +1,5 @@
-/* vendored from the horde Design System artifact, version 1793730698-1175, 2026-11-03; do not edit, re-vendor */
-/* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"SteppedControl"},{"name":"Stepper"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"},{"name":"Companion"},{"name":"SourceChip"},{"name":"SourceRows"},{"name":"RoutesBySource"},{"name":"Cluster"},{"name":"Lens"},{"name":"Fold"},{"name":"PageView"},{"name":"ModTiers"},{"name":"MacroRow"},{"name":"ModBank"},{"name":"ModPage"},{"name":"UndoLine"},{"name":"MacroFace"},{"name":"PresetBar"},{"name":"Deck"},{"name":"MacroCard"},{"name":"ParamPicker"},{"name":"HistoryRail"},{"name":"AssignXY"},{"name":"Specimen"}]} */
+/* vendored from the horde Design System artifact, version 1793733325-2f69, 2026-11-03; do not edit, re-vendor */
+/* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"SteppedControl"},{"name":"Stepper"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"},{"name":"Companion"},{"name":"SourceChip"},{"name":"SourceRows"},{"name":"RoutesBySource"},{"name":"Cluster"},{"name":"Lens"},{"name":"Fold"},{"name":"PageView"},{"name":"ModTiers"},{"name":"MacroRow"},{"name":"ModBank"},{"name":"ModPage"},{"name":"UndoLine"},{"name":"MacroFace"},{"name":"PresetBar"},{"name":"Deck"},{"name":"MacroCard"},{"name":"ParamPicker"},{"name":"HistoryRail"},{"name":"PicturePicker"},{"name":"AssignXY"},{"name":"Specimen"}]} */
 /* horde house reference behaviours (vanilla JS, no React, no network).
    The morph knob and slider follow the human's HORDE Morph Knob Spec and HORDE Map Mode Spec
    (2026-10-21, 2026-10-16); colours, type and themes follow ADR-259. Everything a plugin would get
@@ -6902,6 +6902,7 @@
       var up = function (e) { if (!held) return; held = false; S.drag = null; if (e && e.pointerId !== undefined && cv.hasPointerCapture && cv.hasPointerCapture(e.pointerId)) cv.releasePointerCapture(e.pointerId); };
       cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up); cv.addEventListener('lostpointercapture', up);
       cv.addEventListener('pointerenter', function () { S.hot = p.key; }); cv.addEventListener('pointerleave', function () { if (!held && S.hot === p.key) S.hot = null; });
+      cv.addEventListener('dblclick', function () { p.g = p.def; });   // GUI-12: home
       cv.addEventListener('keydown', function (e) { if (!keysOn(o)) return; var d = e.key === 'ArrowUp' ? .02 : e.key === 'ArrowDown' ? -.02 : 0; if (!d) return; e.preventDefault(); e.stopPropagation(); p.g = clamp(p.g + d); });
     }
     var hw = null, lastNow = null, lastV = v0;
@@ -6996,6 +6997,7 @@
     cv.addEventListener('pointerdown', function (e) { if (e.button !== 0) return; held = true; try { cv.setPointerCapture(e.pointerId); } catch (_) { /* keep the drag */ } at(e); });
     cv.addEventListener('pointermove', function (e) { if (held) at(e); });
     var up = function () { held = false; }; cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up); cv.addEventListener('lostpointercapture', up);
+    cv.addEventListener('dblclick', function () { set(o.x === undefined ? .5 : o.x, o.y === undefined ? .5 : o.y); });   // GUI-12: home, where it started
     cv.addEventListener('keydown', function (e) { if (!keysOn(o)) return; var dx = e.key === 'ArrowRight' ? .02 : e.key === 'ArrowLeft' ? -.02 : 0, dy = e.key === 'ArrowUp' ? .02 : e.key === 'ArrowDown' ? -.02 : 0; if (!dx && !dy) return; e.preventDefault(); e.stopPropagation(); set(x + dx, y + dy); });
     S.add({ render: function () { if (el.isConnected) { cv.tabIndex = keysOn(o) ? 0 : -1; draw(); paintChips(); } } });
     paintChips();
@@ -7107,6 +7109,7 @@
       bar.addEventListener('pointerdown', function (e) { if (e.button !== 0) return; e.preventDefault(); held = true; try { bar.setPointerCapture(e.pointerId); } catch (_) { /* keep the drag */ } fire(o.onDepthBegin, r.id); at_(e); });
       bar.addEventListener('pointermove', function (e) { if (held) at_(e); });
       var up = function () { if (!held) return; held = false; fire(o.onDepthEnd, r.id); }; bar.addEventListener('pointerup', up); bar.addEventListener('pointercancel', up); bar.addEventListener('lostpointercapture', up);
+      bar.addEventListener('dblclick', function () { fire(o.onDepthBegin, r.id); fire(o.onDepth, r.id, .25); fire(o.onDepthEnd, r.id); });   // GUI-12: a mapping's home, as a ◇'s double-click has it (GUI-3)
       bar.addEventListener('keydown', function (e) { if (!keysOn(o)) return; var d = e.key === 'ArrowRight' ? .01 : e.key === 'ArrowLeft' ? -.01 : 0, now; if (!d) return; e.preventDefault(); e.stopPropagation(); now = arr(o.routes(id)).filter(function (q) { return q.id === r.id; })[0]; if (now) { fire(o.onDepthBegin, r.id); fire(o.onDepth, r.id, clamp(now.depth + d)); fire(o.onDepthEnd, r.id); } });
       x.addEventListener('click', function () { fire(o.onRemove, r.id); });
       w.appendChild(nm); w.appendChild(bar); w.appendChild(out); w.appendChild(x);
@@ -7176,6 +7179,198 @@
     if (o.anchor) { var a = o.anchor.getBoundingClientRect(), m = root.getBoundingClientRect(); root.style.left = Math.max(8, Math.min(a.left, window.innerWidth - m.width - 8)) + 'px'; root.style.top = Math.max(8, Math.min(a.top, window.innerHeight - m.height - 8)) + 'px'; }
     S.escapeLayers.unshift(layer); document.addEventListener('pointerdown', out, true); q.focus();
     return { el: root, close: close, closed: function () { return gone; } };
+  };
+
+  /* ---------- ARP'S PICTURES (GUI-11, ADR-291 r4, B558): what an Order and a Pattern play, drawn from Arp's own definitions and never by hand. Ported from docs/design/arp-face-lab.html, which took them from Arp's SPEC row by row
+     (4.2 orders, 4.3 and 4.7 and 5.1-5.2 the play rule, 10 the draw), readings marked where the SPEC leaves one open. All of it is MOCK: no engine, no held notes, a sample chord. Pure functions of their inputs. ---------- */
+  H.ArpViz = (function () {
+    const mod = (a, b) => ((a % b) + b) % b, fdiv = (a, b) => Math.floor(a / b), gcd = (a, b) => { while (b) [a, b] = [b, a % b]; return a; };
+    const noteName = k => H.Glide.PC[mod(k, 12)] + (fdiv(k, 12) - 1);   // MIDI 60 = C4
+    // the SAMPLE chord every picture is drawn over: E sorted, Pp the press order, pressed out of pitch order so `played` differs from `up`
+    const SAMPLE_E = [60, 64, 67, 71], SAMPLE_PP = [67, 60, 71, 64];
+    const orderCtx = (E, Pp, seed) => ({ E, Pp, H: E, e: E.length, seed, epoch: 0, shuf: [], m: 0, kAbs: 0 });
+    function draw32(seed, x, lane, epoch) {
+      const s0 = (seed ^ Math.imul(x, 0x9E3779B1) ^ Math.imul(lane, 0x85EBCA77) ^ Math.imul(epoch, 0xC2B2AE3D)) | 0;
+      const s = s0 + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return (t ^ t >>> 14) >>> 0;
+    }
+    // ----- ORDERS: Arp SPEC 4.2, one row per order id. period(c) is the table's Period column, at(p, c) its "Note(s) at position p" column,
+    // p = mod(m, period). H is in pitch order, so with one sample chord H = E. A step returns every key it plays, in ascending order.
+    const convergeAt = (q, c) => q % 2 === 0 ? c.E[q / 2] : c.E[c.e - 1 - (q - 1) / 2];       // 4.2 converge: q even ? E[q/2] : E[e-1-(q-1)/2]
+    // 4.2 shuffle: P_c = Fisher-Yates of E using draw(seed, c*256 + i, 1, epoch) for i = e-1 .. 1, then the no-back-to-back swap. READING: step i swaps
+    // P[i] with P[j], j = draw mod (i+1) (the SPEC names the draw, not the index formula); the boundary rule compares against the FINAL (post-swap) P_{c-1}.
+    function shuffleCycle(cyc, c) {
+      for (let n = c.shuf.length; n <= cyc; n++) {
+        const Pc = c.E.slice();
+        for (let i = c.e - 1; i >= 1; i--) { const j = draw32(c.seed, n * 256 + i, 1, c.epoch) % (i + 1); [Pc[i], Pc[j]] = [Pc[j], Pc[i]]; }
+        if (n > 0 && c.e >= 2 && Pc[0] === c.shuf[n - 1][c.e - 1]) [Pc[0], Pc[1]] = [Pc[1], Pc[0]];
+        c.shuf.push(Pc);
+      }
+      return c.shuf[cyc];
+    }
+    const ORDERS = {
+      up:            { period: c => c.e,                         at: (p, c) => [c.E[p]] },                                       // 4.2 up
+      down:          { period: c => c.e,                         at: (p, c) => [c.E[c.e - 1 - p]] },                             // 4.2 down
+      bounce:        { period: c => c.e === 1 ? 1 : 2 * c.e - 2, at: (p, c) => [p < c.e ? c.E[p] : c.E[2 * c.e - 2 - p]] },     // 4.2 bounce: ends played once
+      bounce2:       { period: c => 2 * c.e,                     at: (p, c) => [p < c.e ? c.E[p] : c.E[2 * c.e - 1 - p]] },     // 4.2 bounce2: ends played twice
+      played:        { period: c => c.Pp.length,                 at: (p, c) => [c.Pp[p]] },                                      // 4.2 played: press order
+      chord:         { period: c => 1,                           at: (p, c) => c.H.slice() },                                    // 4.2 chord: every key at once
+      // 4.2 random has no period ("—"); 4.7 says to use e for the pass index, which is what period() returns here. READING: epoch 0 and kAbs = the step number.
+      random:        { period: c => c.e, draws: true,            at: (p, c) => [c.E[draw32(c.seed, c.kAbs, 0, c.epoch) % c.e]] },
+      shuffle:       { period: c => c.e, draws: true,            at: (p, c) => [shuffleCycle(fdiv(c.m, c.e), c)[p]] },           // 4.2 shuffle, c = fdiv(m, e)
+      converge:      { period: c => c.e,                         at: (p, c) => [convergeAt(p, c)] },                             // 4.2 converge
+      diverge:       { period: c => c.e,                         at: (p, c) => [convergeAt(c.e - 1 - p, c)] },                   // 4.2 diverge: converge read backwards
+      pedal_low:     { period: c => c.e === 1 ? 1 : 2 * (c.e - 1), at: (p, c) => [p % 2 === 0 ? c.E[0] : c.E[1 + (p - 1) / 2]] },          // 4.2 pedal_low
+      pedal_high:    { period: c => c.e === 1 ? 1 : 2 * (c.e - 1), at: (p, c) => [p % 2 === 0 ? c.E[c.e - 1] : c.E[c.e - 2 - (p - 1) / 2]] }, // 4.2 pedal_high
+      chord_walk:    { period: c => c.e + 1,                     at: (p, c) => p === 0 ? c.H.slice() : [c.E[p - 1]] },           // 4.2 chord_walk: the chord, then each key
+      // 4.2 stride: the bass, then the REST of H as a chord; READING for one held key: that key + 12 (the table's own words), unreachable with the 4-key sample.
+      stride:        { period: c => 2,                           at: (p, c) => p === 0 ? [c.H[0]] : (c.e === 1 ? [c.H[0] + 12] : c.H.slice(1)) },
+      chord_between: { period: c => 2 * c.e,                     at: (p, c) => p % 2 === 0 ? c.H.slice() : [c.E[(p - 1) / 2]] },  // 4.2 chord_between
+      pairs:         { period: c => c.e === 1 ? 1 : c.e - 1,     at: (p, c) => c.e === 1 ? [c.E[0]] : [c.E[p], c.E[p + 1]] }      // 4.2 pairs: overlapping dyads
+    };
+    function orderKeysAt(id, m, kAbs, c) { c.m = m; c.kAbs = kAbs; const o = ORDERS[id]; return o.at(mod(m, o.period(c)), c); }
+    // ----- ROLL MODEL: what the selection plays, over a chord, as notes in time (SPEC 4.3 play rule, 4.7 passes, 4.8 repeats, 5.1-5.2 timing, 10 draw) -----
+    // Pure function of its inputs i: { order, steps[], patSize, patUnit, passes, size, unit, repeats, L, W, swing, gate, seed, fixed, E, Pp }.
+    // Times are in BEATS: L is one step's beats, W the window. Deliberately NOT drawn: scale quantize (a degree is a semitone, as with quantize off),
+    // latch and restart, the chord stage, MIDI channels. Probability IS applied, with SPEC 10's draw at the lab's seed, so Sparse chance shows its gaps.
+    function rollModel(i) {
+      const c = orderCtx(i.E, i.Pp, i.seed), ord = ORDERS[i.order], P = ord.period(c), Ls = i.steps.length, e = c.e;
+      const N = Math.min(256, Math.ceil(i.W / i.L - 1e-9));
+      const onT = k => k * i.L + (k % 2 ? i.L * (2 * i.swing - 1000) / 1000 : 0);        // 5.1 swingDelay: odd steps late by L*(2*swing-1000)/1000
+      const plays = i.steps.filter(s => s.on && !s.tie && s.pick === 'order').length;      // 4.8: a static count, prob ignored
+      const C = plays > 0 ? Ls * (P * (i.passes + 1) / gcd(P * (i.passes + 1), plays)) : Ls;
+      const stopAt = i.repeats > 0 ? i.repeats * C : Infinity;                              // 4.8: after repeats*C steps the arp is exhausted
+      const picked = (pick, m, kAbs) => pick === 'order' ? orderKeysAt(i.order, m, kAbs, c) : pick === 'low' ? [c.E[0]] : pick === 'high' ? [c.E[e - 1]]
+        : pick === 'chord' ? c.E.slice() : [c.E[mod(pick - 1, e)]];                         // 4.3 pick: order | 1..8 (cyclic) | low | high | chord
+      const notes = [], trigs = []; let m = 0, stoppedAt = null;
+      for (let k = 0; k < N; k++) {
+        if (k >= stopAt) { stoppedAt = k; break; }
+        const j = k % Ls, s = i.steps[j], fires = draw32(i.seed, k, 2, 0) % 100 < s.prob;   // 4.3 step 1, lane 2
+        if (s.tie) { if (fires && s.trig) trigs.push({ t: onT(k), lane: s.trig }); continue; }   // 4.3 step 2: no note, m unchanged
+        if (!(s.on && fires)) { if (fires && s.trig) trigs.push({ t: onT(k), lane: s.trig }); continue; }   // 4.3 steps 4-5: a rest (a trigger-only step still fires)
+        const keys = picked(s.pick, m, k), t = mod(fdiv(m, P), i.passes + 1);              // 4.7: t = mod(fdiv(m, P), steps + 1), m as it is now
+        const sem = (i.unit === 'semitones' ? t * i.size : 0) + (i.patUnit === 'semitones' ? s.step * i.patSize : 0);
+        const deg = (i.unit === 'degrees' ? t * i.size : 0) + (i.patUnit === 'degrees' ? s.step * i.patSize : 0);   // quantize off: a degree IS a semitone
+        if (s.pick === 'order') m++;                                                        // 4.3: only order picks advance m
+        const vel = clamp(fdiv((i.fixed == null ? 100 : i.fixed) * s.vel + 50, 100), 1, 127);   // 4.4; "as played" assumes 100 (MOCK, no notes)
+        if (s.trig) trigs.push({ t: onT(k), lane: s.trig });
+        const r = Math.max(1, s.ratchet), span = onT(k + 1) - onT(k), g = i.gate / 100 * s.gate / 100;
+        let tn = 0; while (tn < Ls && i.steps[(j + 1 + tn) % Ls].tie) tn++;                // 5.2 look-ahead: the ties that follow, read cyclically, prob ignored
+        for (let q = 0; q < r; q++) {
+          const start = onT(k) + q * span / r;
+          let len = r > 1 ? Math.min(span / r, span / r * g) : span * g;                    // 5.2 base length (ratchet capped at span/r)
+          if (q === r - 1 && tn > 0) {                                                       // 5.2 ties: the last sub-note runs to the last tie step's own off
+            const kk = k + tn, sj = i.steps[(j + tn) % Ls];
+            len = onT(kk) + (onT(kk + 1) - onT(kk)) * i.gate / 100 * sj.gate / 100 - start;
+          }
+          keys.slice().sort((a, b) => a - b).forEach(key => { const pitch = key + sem + deg; if (pitch >= 0 && pitch <= 127) notes.push({ t: start, len: Math.max(len, .001), pitch, vel }); });   // 4.7 stages 1-2, 5
+        }
+      }
+      let pmin = Math.min(...i.E), pmax = Math.max(...i.E);
+      notes.forEach(n => { pmin = Math.min(pmin, n.pitch); pmax = Math.max(pmax, n.pitch); });
+      while (pmax - pmin < 11) { pmax++; if (pmax - pmin < 11) pmin--; }                    // never squash a one-note picture to a line
+      return { notes, trigs, N, stoppedAt, stopBeat: stoppedAt == null ? null : onT(stoppedAt), pmin, pmax, P, C };
+    }
+    // the roll as the card's mini-view: time across (bar and beat lines), pitch up, a bar per note: its length the gate, its shade the velocity
+    function rollSVG(model, i) {
+      const VW = 396, VH = 112, x0 = 26, x1 = 392, y0 = 12, y1 = 94, pw = x1 - x0, ph = y1 - y0, rows = model.pmax - model.pmin + 1, rowH = ph / rows;
+      const X = b => x0 + b / i.W * pw, Y = p => y1 - (p - model.pmin + .5) * rowH, bh = clamp(rowH * .8, 2, 8), css = 'font:600 8.5px var(--font-mono);fill:var(--scr-grid)';
+      let g = '';
+      const bstep = i.W <= 32 ? 1 : 4;
+      for (let b = 0; b <= i.W + 1e-9; b += bstep) g += '<line x1="' + X(b) + '" x2="' + X(b) + '" y1="' + y0 + '" y2="' + y1 + '" style="stroke:var(--scr-grid);opacity:' + (b % 4 === 0 ? .45 : .18) + ';stroke-width:1"/>';
+      let lastY = -99;
+      i.E.forEach(k => { const y = Y(k); g += '<line x1="' + x0 + '" x2="' + x1 + '" y1="' + y + '" y2="' + y + '" style="stroke:var(--scr-grid);opacity:.25;stroke-width:1;stroke-dasharray:2 3"/>';
+        if (Math.abs(y - lastY) >= 9) { g += '<text x="2" y="' + (y + 3) + '" style="' + css + '">' + noteName(k) + '</text>'; lastY = y; } });
+      if (model.stopBeat != null) g += '<rect x="' + X(model.stopBeat) + '" y="' + y0 + '" width="' + Math.max(0, x1 - X(model.stopBeat)) + '" height="' + ph + '" style="fill:var(--scr-grid);opacity:var(--opacity-hatch)"/>' +
+        '<text x="' + (x1 - 2) + '" y="' + (y0 + 10) + '" text-anchor="end" style="' + css + '">REPEATS DONE</text>';
+      model.notes.forEach(n => { const x = X(n.t), w = Math.max(1.2, Math.min(X(n.t + n.len), x1) - x);
+        g += '<rect x="' + x.toFixed(2) + '" y="' + (Y(n.pitch) - bh / 2).toFixed(2) + '" width="' + w.toFixed(2) + '" height="' + bh.toFixed(2) + '" rx="1" style="fill:var(--scr-value);opacity:' + (.22 + .78 * n.vel / 127).toFixed(2) + '"/>'; });
+      model.trigs.forEach(t => { g += '<circle cx="' + X(t.t) + '" cy="6" r="2.2" style="fill:var(--scr-marker)"/>'; });
+      g += '<text x="2" y="108" style="' + css + '">MOCK · SAMPLE CHORD ' + i.E.map(noteName).join(' ') + '</text><text x="' + x1 + '" y="108" text-anchor="end" style="' + css + '">' + (i.W / 4) + ' BAR' + (i.W / 4 === 1 ? '' : 'S') + ' · ' + i.bpm + ' BPM</text>';
+      const label = 'Piano roll, mock: ' + model.notes.length + ' notes over the sample chord ' + i.E.map(noteName).join(' ') + ', ' + (i.W / 4) + ' bars at ' + i.bpm + ' BPM. Time across, pitch up, bar length is gate, shade is velocity.' + (model.stopBeat != null ? ' The arp stops after its repeats.' : '');
+      return '<svg viewBox="0 0 ' + VW + ' ' + VH + '" role="img" aria-label="' + label + '" preserveAspectRatio="xMidYMid meet">' + g +
+        '<rect class="ph" x="' + x0 + '" y="' + y0 + '" width="1.6" height="' + ph + '" style="fill:var(--scr-physics)"/></svg>';
+    }
+    // ----- the pictures in the lists -----
+    // a pattern's own step data as a compact lane picture: bar height velocity, width gate, split bars ratchets, hollow dot a rest, a foot bar a tie,
+    // a dot on top a trigger (its lane beside it when there is room), a small triangle a step offset, dim a probability under 100
+    function patternSVG(steps, o) {
+      o = o || {}; const W = 396, Hh = 64, n = steps.length, cw = W / n; let g = '';
+      for (let j = 0; j <= n; j += 4) g += '<line x1="' + j * cw + '" x2="' + j * cw + '" y1="0" y2="' + Hh + '" style="stroke:var(--scr-grid);opacity:.35;stroke-width:1"/>';
+      steps.forEach((s, j) => {
+        const x = j * cw, cx = x + cw / 2;
+        if (s.tie) g += '<rect x="' + x + '" y="' + (Hh - 8) + '" width="' + cw + '" height="3" style="fill:var(--scr-value);opacity:.55"/>';
+        else if (!s.on) g += '<circle cx="' + cx + '" cy="' + (Hh - 7) + '" r="2.2" style="fill:none;stroke:var(--scr-grid);stroke-width:1.2"/>';
+        else {
+          const bh = 6 + Math.min(s.vel, 200) / 200 * 40, bw = Math.max(2, cw * Math.min(1, s.gate / 100) * .78), r = Math.max(1, s.ratchet), sw = bw / r, op = (.35 + .65 * s.prob / 100).toFixed(2);
+          for (let q = 0; q < r; q++) g += '<rect x="' + (cx - bw / 2 + q * sw) + '" y="' + (Hh - 4 - bh) + '" width="' + Math.max(1, sw - (r > 1 ? 1.2 : 0)) + '" height="' + bh + '" rx="1.5" style="fill:var(--scr-value);opacity:' + op + '"/>';
+        }
+        if (s.step) g += '<path d="' + (s.step > 0 ? 'M' + (cx - 3.5) + ' 21L' + (cx + 3.5) + ' 21L' + cx + ' 14Z' : 'M' + (cx - 3.5) + ' 14L' + (cx + 3.5) + ' 14L' + cx + ' 21Z') + '" style="fill:var(--scr-physics)"/>';
+        if (s.trig) g += '<circle cx="' + cx + '" cy="6" r="2.4" style="fill:var(--scr-marker)"/>' + (cw >= 16 && !o.thumb ? '<text x="' + (cx + 4) + '" y="9" style="font:600 8.5px var(--font-mono);fill:var(--scr-marker)">' + s.trig + '</text>' : '');
+      });
+      return { cw, html: '<svg viewBox="0 0 ' + W + ' ' + Hh + '"' + (o.thumb ? ' width="140" height="' + Math.round(140 * Hh / W) + '" aria-hidden="true"' : ' role="img"') + ' preserveAspectRatio="xMidYMid meet">' + g + '</svg>' };
+    }
+    // an order as the note sequence it makes over the sample chord: 16 steps, a dot per key, a vertical stroke joining a chord, a line through the steps,
+    // dashed rules where one cycle ends. Random and Shuffle are ONE sample draw at the lab's seed.
+    function orderSVG(id, seed) {
+      const o = ORDERS[id]; if (!o) return '';
+      const c = orderCtx(SAMPLE_E, SAMPLE_PP, seed), n = 16, W = 160, Hh = 44, lo = Math.min(...SAMPLE_E), hi = Math.max(...SAMPLE_E);
+      const x = k => 4 + (k + .5) * (W - 8) / n, y = key => Hh - 6 - (key - lo) / (hi - lo) * (Hh - 12), per = o.period(c);
+      const seq = Array.from({ length: n }, (_, m) => orderKeysAt(id, m, m, c).slice().sort((a, b) => a - b));
+      let g = '';
+      for (let b = per; b < n; b += per) g += '<line x1="' + ((x(b - 1) + x(b)) / 2) + '" x2="' + ((x(b - 1) + x(b)) / 2) + '" y1="2" y2="' + (Hh - 2) + '" style="stroke:var(--scr-grid);opacity:.55;stroke-width:1;stroke-dasharray:2 2"/>';
+      g += '<polyline points="' + seq.map((ks, k) => x(k).toFixed(1) + ',' + y(ks.reduce((a, b) => a + b, 0) / ks.length).toFixed(1)).join(' ') + '" style="fill:none;stroke:var(--scr-grid);stroke-width:1"/>';
+      seq.forEach((ks, k) => { if (ks.length > 1) g += '<line x1="' + x(k) + '" x2="' + x(k) + '" y1="' + y(ks[ks.length - 1]) + '" y2="' + y(ks[0]) + '" style="stroke:var(--scr-value);stroke-width:1.3"/>';
+        ks.forEach(key => { g += '<circle cx="' + x(k).toFixed(1) + '" cy="' + y(key).toFixed(1) + '" r="2.1" style="fill:var(--scr-value)"/>'; }); });
+      return '<svg viewBox="0 0 ' + W + ' ' + Hh + '" width="112" height="31" aria-hidden="true">' + g + '</svg>';
+    }
+    /* The steps of a pattern: the bank's step_defaults plus its overrides (Arp SPEC 4.3). `user` is 8 plain steps until there's an editor (SPEC 4.6). */
+    function stepsOf(bank, id) { const b = bank.patterns.filter(p => p.id === id)[0], len = b ? b.length : 8; return Array.from({ length: len }, (_, j) => Object.assign({}, bank.step_defaults, b && b.steps ? b.steps[j] : {})); }
+    return { ORDERS, SAMPLE_E, SAMPLE_PP, noteName, draw32, stepsOf, rollModel, rollSVG, patternSVG, orderSVG, drawsSample: id => !!(ORDERS[id] && ORDERS[id].draws) };
+  })();
+
+  /* ---------- A PICTURE PICKER (GUI-11, ADR-291 r4, B558): a stepper whose value opens a list with a picture per entry. The arrows stay for quick stepping. One component for Order and Pattern. Opening and closing it are no edits; a pick is one, by onSet. ---------- */
+  H.PicturePicker = function (el, S, o) {
+    o = o || {};
+    var opts = o.options, panel = null, act = 0;
+    var CHL = '<svg viewBox="0 0 8 8"><path d="M6 0v8L1 4z"/></svg>', CHR = '<svg viewBox="0 0 8 8"><path d="M2 0v8l5-4z"/></svg>';
+    el.classList.add('hd-picpick');
+    var prev = tag('button', 'hd-chev hd-focus'), box = tag('button', 'pp-v hd-focus'), next = tag('button', 'hd-chev hd-focus'); [prev, box, next].forEach(function (b) { b.type = 'button'; el.appendChild(b); });
+    prev.innerHTML = CHL; next.innerHTML = CHR; prev.setAttribute('aria-label', 'Previous ' + o.name); next.setAttribute('aria-label', 'Next ' + o.name); box.setAttribute('aria-haspopup', 'listbox'); box.setAttribute('aria-expanded', 'false');
+    function step(d) { var i = o.get(), n = clamp(i + d, 0, opts.length - 1); if (n !== i) fire(o.onSet, n); }
+    prev.addEventListener('click', function () { step(-1); }); next.addEventListener('click', function () { step(1); });
+    function close() { if (!panel) return; panel.remove(); panel = null; box.setAttribute('aria-expanded', 'false'); document.removeEventListener('pointerdown', away, true); }
+    function away(e) { if (panel && !panel.contains(e.target) && !box.contains(e.target)) close(); }
+    function open() {
+      if (panel) { close(); return; }
+      panel = tag('div', 'hd-pplist'); panel.setAttribute('role', 'listbox'); panel.setAttribute('aria-label', o.path + ' · choices'); panel.tabIndex = -1;
+      if (o.head) panel.appendChild(tag('div', 'pl-head', o.head()));
+      act = o.get();
+      var rows = opts.map(function (t, i) {
+        var r = tag('div', 'pl-row'), th = tag('span', 'pl-thumb'), l = tag('span'), sub = o.sub ? o.sub(i) : null; l.textContent = t; if (sub) l.appendChild(tag('span', 'hd-hint', ' · ' + sub));
+        r.setAttribute('role', 'option'); r.setAttribute('aria-selected', String(i === act)); r.dataset.i = i; th.innerHTML = o.thumb(i); r.appendChild(l); r.appendChild(th);
+        r.addEventListener('click', function () { if (i !== o.get()) fire(o.onSet, i); close(); }); panel.appendChild(r); return r;
+      });
+      function paint() { rows.forEach(function (r, i) { r.classList.toggle('act', keysOn(o) && i === act); }); var r = rows[act]; if (r.offsetTop < panel.scrollTop) panel.scrollTop = r.offsetTop; else if (r.offsetTop + r.offsetHeight > panel.scrollTop + panel.clientHeight) panel.scrollTop = r.offsetTop + r.offsetHeight - panel.clientHeight; }
+      panel.addEventListener('keydown', function (e) {
+        if (!keysOn(o)) return;
+        var mv = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1, PageDown: 5, PageUp: -5 }[e.key];
+        if (mv) { e.preventDefault(); e.stopPropagation(); act = clamp(act + mv, 0, opts.length - 1); paint(); }
+        else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); if (act !== o.get()) fire(o.onSet, act); close(); box.focus(); }
+      });
+      document.body.appendChild(panel);
+      var a = box.getBoundingClientRect(), w = panel.offsetWidth, h_ = panel.offsetHeight, below = window.innerHeight - a.bottom - 8, above = a.top - 8;
+      panel.style.left = clamp(a.left, 8, Math.max(8, window.innerWidth - w - 8)) + 'px';
+      if (h_ <= below) panel.style.top = (a.bottom + 4) + 'px';
+      else if (h_ <= above) panel.style.top = (a.top - h_ - 4) + 'px';
+      else if (below >= above) { panel.style.top = (a.bottom + 4) + 'px'; panel.style.maxHeight = below + 'px'; }
+      else { panel.style.maxHeight = above + 'px'; panel.style.top = (a.top - above - 4) + 'px'; }
+      box.setAttribute('aria-expanded', 'true'); document.addEventListener('pointerdown', away, true); paint(); if (keysOn(o)) panel.focus({ preventScroll: true });
+    }
+    box.addEventListener('click', open);
+    S.escapeLayers.unshift({ name: 'picture-picker', active: function () { return !!panel; }, cancel: close });
+    var last = -1;
+    S.add({ render: function () { if (!el.isConnected) return; var i = o.get(), on = keysOn(o) ? 0 : -1; prev.tabIndex = next.tabIndex = box.tabIndex = on; if (i === last) return; last = i; box.textContent = opts[i]; box.title = o.path + ': ' + opts[i]; prev.disabled = i === 0; next.disabled = i === opts.length - 1; } });
+    return { close: close, open: open, isOpen: function () { return !!panel; }, panel: function () { return panel; } };
   };
 
   /* ---------- THE HISTORY RAIL (GUI-10; ADR-160, B119, the human 2026-09-14: "the most clear and easiest to navigate"): one row per state, newest first, with a lane graph on the left the way a commit log draws

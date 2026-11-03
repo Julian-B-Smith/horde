@@ -10,6 +10,10 @@
  },
  "master_versions": [
   {
+   "version": "1793733325-2f69",
+   "evidence": "docs/design/gui3.html self-checks 4g and 4h, gui3_seam_check's arpface: GUI-11, GUI-12. PicturePicker and ArpViz are new."
+  },
+  {
    "version": "1793730698-1175",
    "evidence": "docs/design/gui3.html self-check 4f and gui3_seam_check's historytree: GUI-10. HistoryRail is new."
   },
@@ -89,8 +93,10 @@
    "note": "Archived in the design index (its lab-archive tag): legacy-era design bench; superseded by the screens and compact labs. History, never a source."
   },
   "arp-face-lab.html": {
-   "status": "exploring",
-   "note": "Arp's face as a module card; round 2 (B558, pickers with pictures) is open and its review tag stands. ADR-291 bears on it."
+   "status": "harvested",
+   "master_version": "1793733325-2f69",
+   "adr": "GUI-11",
+   "note": "Harvested at 1793733325-2f69: its roll, pictures and picker are in the master, and the shell's Arp page starts from its face. Its step lanes and trigger test stay here as a record."
   },
   "bank-lab.html": {
    "status": "harvested",
@@ -5613,6 +5619,36 @@
    "superseded_by": null,
    "state": "in-shell",
    "master_version": "1793730698-1175"
+  },
+  {
+   "id": "gui11-arp-face",
+   "adr": "GUI-11",
+   "clause": "the ruling (Arp's page takes the lab's face: roll, picture pickers, rate and gate up front)",
+   "port_tab": "arp-page",
+   "note": "The rest is in four tabs. The roll and pictures are MOCK, over a sample chord.",
+   "component": "PicturePicker",
+   "bundle": "PicturePicker",
+   "shell": "docs/design/gui3.html: H.PicturePicker(host, S,",
+   "lab": "docs/design/arp-face-lab.html",
+   "via": null,
+   "superseded_by": null,
+   "state": "in-shell",
+   "master_version": "1793733325-2f69"
+  },
+  {
+   "id": "gui12-double-click",
+   "adr": "GUI-12",
+   "clause": "the ruling (a double-click returns any control but a toggle to home, on every page)",
+   "port_tab": null,
+   "note": "Home is the default until presets load. Whether it becomes the patch's value is the human's to say.",
+   "component": "ModBank",
+   "bundle": "ModBank",
+   "shell": "docs/design/gui3.html: // GUI-12: a double-click returns any control but a toggle to home",
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "in-shell",
+   "master_version": "1793733325-2f69"
   }
  ],
  "not_design": [
