@@ -6520,6 +6520,10 @@
   {
    "adr": "ADR-356",
    "reason": "How clean Standard's edge corrections are: no control or design element."
+  },
+  {
+   "adr": "ADR-357",
+   "reason": "A conditional answer to a sibling, and a history rule ADR-319 already holds: no control is added. The blend's face gets its rows if it ships."
   }
  ],
  "audit_notes": [
