@@ -562,7 +562,8 @@ def selftest(base):
     # 300, not 1: ADR-300 exists and the GUI counter is far from it, so this stays a clean case once real GUI rulings exist (GUI-1 did, and this read as a duplicate)
     clean("a GUI ruling, judged, sharing an ADR's digits", decisions=lambda d: d + "\n## GUI-300 — planted\n",
           led=lambda l: (l["not_design"].append({"adr": "GUI-300", "reason": "planted"}), l)[1], ctx=known("GUI-300"))
-    clean("a GB row sharing a B row's digits", roadmap=lambda r: r + "\n| GB1 | planted |\n")
+    # 300 for the same reason: B300 exists, and GB1 stopped being free when the first real GB row landed
+    clean("a GB row sharing a B row's digits", roadmap=lambda r: r + "\n| GB300 | planted |\n")
     return failures, ran
 
 
