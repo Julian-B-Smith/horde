@@ -11138,3 +11138,32 @@ Three points stayed open, because the shell already marks a knob selected the mo
 - Round 53 reaches both clean-room repositories the same turn. The test author adds the cells to the CPU tool, outside the suite. The builder runs them when they arrive.
 - The rulings log gains row 88.
 - **FX device (ADR-254):** none. It hosts no engine.
+
+## ADR-356 — RULED by the human: Standard's hard edges go to 8 taps, High keeps today's corrections; the spec text waits on what the numbers need (B609, B494, ADR-354; 2026-11-03)
+
+**Context.** The new engine read 217 % of an M3 core on the heaviest patch against a 10.7 % target (ADR-354), and the human can't run it: “anything that eats 100% of a core basically crashes the app”. About two-thirds of the jump from the current engine is the cleanliness standard (ED-1, ED-7, QS-1's floors, ADR-256), and nobody had asked what it sounds like. Listening pages put each saving against a must-hear control with no correction at all.
+- **Soft edges, 2-point integral against 8:** on the harsh clips, “2 points in general is much better (not noticeably different from exact) while no correction in most cases is quite a bit worse”. Glass horde pad barely changed under any choice.
+- **Hard edges, 2 samples against 32 taps:** “all the 2 samples sound the same as the 32 taps ... But the no correction in each case sounds much worse”. Lined up in time the files differ, by −16 dB above 14 kHz and about −26 dB below, on the one-member saw. “Both sound fine” of 8 taps and 2 samples.
+
+**The rulings (the human, 2026-11-03).** “Keep 32 taps on High and build the combined clip”, then “Go with 8 taps and start direct Sync”.
+
+**The lead's reading, open to overrule.**
+- Standard's step table and E go to 8 taps. Sub and noise read the same table, so they follow.
+- High stays exactly as it is today, with 32 taps and the exact soft-edge integral. It's the choice for anyone who wants the cleanliness and will pay for it.
+- 8 taps over 2 samples: it saved 1 to 3 points less, but keeps a brighter top (0.5 to 0.8 dB under today at 10 to 18 kHz, against 1.4 to 2.7), reads 2 to 5 dB cleaner, and needs no look-ahead (ED-2).
+
+**What isn't ruled yet.**
+- **2 points on Standard.** The human heard it as fine, and a moments method that might keep the floors is still under test, so the soft-edge law stays open until that reports.
+- **The new floors.** QS-1's floors, ED-1's wording and items 7.7 and 7.8 can't be met by 8 taps. The rule of ADR-247 stands: a gate moves on engine-free evidence and the human's ruling, so round 54 re-derives the references for the chosen table, and the human rules the numbers it brings.
+- **The 8-tap table's design.** The table heard here is the 32-tap design shrunk and untuned (cutoff 0.47, Kaiser beta 8.3).
+- **The combined clip.** 8 taps with 2 points together is on a local page; the ruling didn't say whether it had been heard.
+
+**Rejected.** 2 samples: the old engine's method, and the cheapest, but duller, with a look-ahead the spec forbids. Moving the floors now, before the numbers exist.
+
+**Also from the human, not decided:** “there's a version of this where we may have to decide to ship with a simpler engine; one that takes the original swarm logic and applies it to a simpler shape generator than the scalpel”. The check of the current engine as that fallback is in `docs/port/engine2-cpu-ledger.md`.
+
+**FX device (ADR-254).** No consequence: the device hosts no engine, and edge corrections are the sources' own.
+
+**Consequences.**
+- B609 carries the work. No clean-room repository changes until round 54 has its text; the builder's next order waits for it.
+- All figures are scratch timings, never PF-3. They and the listening pages' method are in the ledger.

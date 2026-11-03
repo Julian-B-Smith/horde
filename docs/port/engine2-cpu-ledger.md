@@ -100,3 +100,28 @@ The human's request, 2026-11-03. One change at a time, scratch tool, not PF-3, l
 | Held note up 3 octaves | −48 to −57 dB | −23 to −32 dB |
 
 The lower phrases alone would have made “off” look safe. The suite hasn't judged any of these versions, and nobody has heard them yet.
+
+## The per-member round: what's free, what's heard, what's left (2026-11-03)
+
+All scratch, not PF-3: 8 voices, 44.1 kHz, patched copies of `5442272`, with other jobs running. Figures are the percentage of a core. “Untouched” is the scratch reading above, on the unpatched engine; the last three columns come from one interleaved run, and the “Fixes” column from an earlier one.
+
+**Fixes with no change to the sound.** Removing repeated work, a NEON E, skipping quiet samples and prepared rows read no differing samples at float precision on 8 bank patches and the widened list: saw and square bases, mirrors, FM free and pitch, Noise, collision, feedback, rotation, High, a fast attack with scatter and motion. A plant in the rows fired wherever rows run (not on Crush at Edges 0.3, or at High, where they don't). A critic reviewed them: the first figures were inflated by the patch's own overhead, so measure against the untouched binary before quoting a saving. The suite's two reds at these sets match the unpatched run, and are the builder's known 3.b and 9.b1.
+
+| Patch | Untouched | Fixes | + 2-point soft edges | + 8 taps | or 2 samples |
+|---|---|---|---|---|---|
+| Plain saw swarm, 9 members | 13.9 | 12.9 | | 11.0 | 9.8 |
+| One Sync blade, Edges 0 | 51 | 39 | | 35 | 34 |
+| Fold over sync | 52 | 36 | 25 | 23 | 22 |
+| Crushed bells | 104 | 72 | 55 | 48 | 45 |
+| Breathing pad | 148 | 101 | 62 | 56 | 53 |
+| Glass horde pad | 218 | 123 | 95 | 89 | 87 |
+
+**Soft edges: what the gates say.** On items 7.7 and 7.8 (Sync, alias dB): the exact law reads 96 to 113; 2 points 48 to 64 at sharp edges, rising to 100 or more at wide edges on low notes; off 18 to 34. Off is the must-fail control and reads red. 1 point reads about 5 dB better than off and saves 4 more points on Glass, so it was dropped. Every failure of 2 points is under ED-7's 5 dB rule: it's a much lower floor, and the human couldn't hear it on these clips.
+
+**Hard edges: a reading, not QS-1's estimator.** Saw, C2 to C8, a Blackman-Harris window with the note's harmonics masked; no correction reads 28 to 9, QS-1's own control values: 32 taps at least 53 to 89 (this reading stops short of the suite's 115), 8 taps 46 to 31, 2 samples 44 to 26. Today's filter delays the sound about 2.7 samples, so 2 samples comes out about 1.7 samples earlier than today, and 8 taps about 0.8.
+
+**What the listening covers.** Harsh rising runs from C5 to C8, one and nine members, one fast line on Reverse cut, Glass and Breathing at high pitches, one listener on one playback system. The first nine-member clips had K at −1 and 6 members, the lead's mistake with normalised values, which the human heard as hollow; they were replaced. Much of the difference is above 14 kHz, where many ears and speakers fade, so a second listener is worth having.
+
+**Where the rest goes.** Glass stays near 90 % because the cost is the blade machinery on every member and sample. Sync spends about 50 % of its time in `blade_sample` and 9 % in the math library, and FM free about a third in the system `sin`, with a 48-step bisection per reset. The general routine reads D's limits and slopes numerically where Sync's are known in closed form. Direct Sync and a cheaper sine are under test.
+
+**The current engine as a 1.0 fallback.** A read-only check, nothing built or run. Main's plugin builds the legacy `src/hypersaw_clap.cpp`; `h2/engine` plays only in the local preview shell, 720 commits behind, last touched 2026-10-14. All 83 presets use only its keys. Shipped nearly as is (about 8 items) it keeps the swarm, the blades and the bank at 5 to 8 times less CPU, and reverses the roster: one oscillator, 8 voices, no sub, noise, ENV 2 to 4, MPE, per-voice modulation or poly glide, with today's aliasing. Brought up to the roster (about 20 items) it's a core rewrite that likely spends the lead (a hypothesis). Its heaviest patch still misses 10.7 %. Confidence in the sizes is low to moderate. The new engine's remaining work is about 6 items, with the CPU as the one big unknown.

@@ -6440,6 +6440,10 @@
   {
    "adr": "ADR-355",
    "reason": "A reported CPU measure: no control or design element."
+  },
+  {
+   "adr": "ADR-356",
+   "reason": "How clean Standard's edge corrections are: no control or design element."
   }
  ],
  "audit_notes": [
