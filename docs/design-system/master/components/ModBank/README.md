@@ -14,6 +14,8 @@ The bank in the foot row (GUI-8 r3, r5, r6; ADR-340 r11): **120 px tall** (`size
 
 **The expanded state**: a click on a row's name opens its compact card above the bank, aligned to the row; a second click, a click elsewhere, or Escape closes it. Escape goes through the layered cancel (`S.escapeLayers`, ADR-338 ruling 11), which acts in keyboard mode or where the host sets `mapKeysAlways`.
 
+**A macro or axis's row** (GUI-9 r5): `onOpenCard(m, rowEl)` returning true opens the host's `MacroCard` in place of the compact one.
+
 **Returned** `{ set(s), get(), refresh(), close(), macro(id), setHardware(id, v | null) }`. `setHardware('bend', v)` is the hardware wheel's value arriving from the engine.
 
 **Sources** GUI-5 r3, GUI-7, GUI-8 r3 to r6, ADR-338 ruling 7, ADR-340 ruling 11, ADR-341 ruling 7, `docs/design/bank-lab.html` (F5, R2).

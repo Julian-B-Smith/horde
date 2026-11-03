@@ -10,6 +10,10 @@
  },
  "master_versions": [
   {
+   "version": "1793728160-9606",
+   "evidence": "docs/design/gui3.html self-check 4e and gui3_seam_check's xyaxes: GUI-9. MacroCard, MacroOpener and ParamPicker are new; AssignXY has axis chips and a rest mark; a source can name its default polarity; ModPage's kinds can drop their +."
+  },
+  {
    "version": "1793674732-d181",
    "evidence": "docs/design/gui3.html self-check 30b: the bank's MAC | MODS switch stacked to fit its 44 px column, and its count wraps (the human's picture, 2026-11-02: the switch was 59 px and spilled over the first mod row; '10 macros' was 52 px). No ruling moves."
   },
@@ -342,9 +346,10 @@
    "note": "Ruled S1, D1, R1, N3, W1 (GUI-3). Not yet harvested: CompactWires in the master is next. Ordinary wires are real device routes here; depth wires are MOCK until B70."
   },
   "xy-macro-lab.html": {
-   "status": "ruled",
+   "status": "harvested",
+   "master_version": "1793728160-9606",
    "adr": "GUI-9",
-   "note": "GUI-9 ruled it on 2026-11-03: X and Y work as two extra macro knobs, K3 and K4, the offset. The lab stays as the record: X4 is nearest, and nothing in it draws the offset."
+   "note": "Harvested at 1793728160-9606. It ran on the shell before GUI-9, so on today's shell it adds its sources and chips over the real ones: read it at the commit before this one if you need to see what was compared."
   }
  },
  "not_labs": {
@@ -5018,7 +5023,7 @@
    "via": null,
    "shell": "docs/design/gui3.html: H.AssignXY($('mainXY'), S,",
    "state": "in-shell",
-   "superseded_by": null
+   "superseded_by": "GUI-9"
   },
   {
    "id": "gui2-specimen-default",
@@ -5505,14 +5510,14 @@
    "adr": "GUI-9",
    "clause": "ruling 1 (X and Y work as two extra macro knobs: many parameters, each with its own depth; amends GUI-2 r2)",
    "port_tab": "main-rest",
-   "note": "The human: \"it should function like two extra macro knobs\". The assignment still saves with the patch.",
+   "note": "The human: \"it should function like two extra macro knobs\". Routes carry them, MOCK until the bus. The assignment saves with the patch once the patch seam exists: routes are already in the device's state.",
    "lab": "docs/design/xy-macro-lab.html",
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "AssignXY",
+   "master_version": "1793728160-9606",
+   "bundle": "AssignXY",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: xy = mainXYCtl = H.AssignXY($('mainXY'), S,",
+   "state": "in-shell",
    "superseded_by": null
   },
   {
@@ -5520,14 +5525,14 @@
    "adr": "GUI-9",
    "clause": "ruling 2 (a parameter can also be added to an axis from a list, by touch and from a control's right-click)",
    "port_tab": "main-rest",
-   "note": "Reading: a click on the axis opens its card, which holds the three ways to add.",
+   "note": "A click on the axis opens its card, which holds List and Touch beside Map. The right-click menu lists all ten.",
    "lab": "docs/design/xy-macro-lab.html",
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "ParamPicker",
+   "master_version": "1793728160-9606",
+   "bundle": "ParamPicker",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: H.ParamPicker(S, { title: 'Add to '",
+   "state": "in-shell",
    "superseded_by": null
   },
   {
@@ -5535,14 +5540,14 @@
    "adr": "GUI-9",
    "clause": "ruling 3 (the XY offsets from rest and doesn't write the parameter)",
    "port_tab": "macros",
-   "note": "Needs the intent bus (B89). The lab doesn't draw it. Reading: the puck stays where it's left. The pad's rest mark is open.",
+   "note": "The pad moves its source and writes no parameter: the routes are the offset, bipolar from the centre. Reading: the puck stays where it's left. The real offset per corner needs the bus (B89).",
    "lab": "docs/design/xy-macro-lab.html",
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "AssignXY",
+   "master_version": "1793728160-9606",
+   "bundle": "AssignXY",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: { x: .5, y: .5, rest: true,",
+   "state": "in-shell",
    "superseded_by": null
   },
   {
@@ -5550,14 +5555,14 @@
    "adr": "GUI-9",
    "clause": "ruling 4 (a macro maps by its card, and from a control's right-click; no handle)",
    "port_tab": "macros",
-   "note": "The card is shared with an axis. Which corner a mapping belongs to is open.",
+   "note": "On Main and in the bank, from the name, with a badge counting what it touches. The same card serves an axis. Which corner a mapping belongs to is open.",
    "lab": "docs/design/xy-macro-lab.html",
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "MacroCard",
+   "master_version": "1793728160-9606",
+   "bundle": "MacroCard",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: const mapCard = H.MacroCard(S,",
+   "state": "in-shell",
    "superseded_by": null
   },
   {
@@ -5565,14 +5570,14 @@
    "adr": "GUI-9",
    "clause": "ruling 5 (a mapped macro shows in the mod rows; GUI-7 stands)",
    "port_tab": "modulators",
-   "note": "The shell's bankMods filter, when macros are sources.",
+   "note": "bankMods lists routed sources, and these are sources now. A macro's row opens its card, not the compact one.",
    "lab": "docs/design/xy-macro-lab.html",
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "ModBank",
+   "master_version": "1793728160-9606",
+   "bundle": "ModBank",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: onOpenCard: (m, row) =>",
+   "state": "in-shell",
    "superseded_by": null
   }
  ],

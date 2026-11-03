@@ -1,4 +1,4 @@
-/* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"SteppedControl"},{"name":"Stepper"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"},{"name":"Companion"},{"name":"SourceChip"},{"name":"SourceRows"},{"name":"RoutesBySource"},{"name":"Cluster"},{"name":"Lens"},{"name":"Fold"},{"name":"PageView"},{"name":"ModTiers"},{"name":"MacroRow"},{"name":"ModBank"},{"name":"ModPage"},{"name":"UndoLine"},{"name":"MacroFace"},{"name":"PresetBar"},{"name":"Deck"},{"name":"AssignXY"},{"name":"Specimen"}]} */
+/* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"SteppedControl"},{"name":"Stepper"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"},{"name":"Companion"},{"name":"SourceChip"},{"name":"SourceRows"},{"name":"RoutesBySource"},{"name":"Cluster"},{"name":"Lens"},{"name":"Fold"},{"name":"PageView"},{"name":"ModTiers"},{"name":"MacroRow"},{"name":"ModBank"},{"name":"ModPage"},{"name":"UndoLine"},{"name":"MacroFace"},{"name":"PresetBar"},{"name":"Deck"},{"name":"MacroCard"},{"name":"ParamPicker"},{"name":"AssignXY"},{"name":"Specimen"}]} */
 /* horde house reference behaviours (vanilla JS, no React, no network).
    The morph knob and slider follow the human's HORDE Morph Knob Spec and HORDE Map Mode Spec
    (2026-10-21, 2026-10-16); colours, type and themes follow ADR-259. Everything a plugin would get
@@ -129,6 +129,8 @@
   Session.prototype.setPin = function (i) { this.pinned = i; this.say(i === null ? 'Editing corner: Auto (each knob\'s owner)' : 'Editing corner pinned: ' + CORNERS[i].id); };
   Session.prototype.setMap = function (on, momentary) { this.map.on = on; this.map.momentary = !!(on && momentary); this.emit(); };
   Session.prototype.setSrc = function (id) { this.map.src = id; this.emit(); };
+  /* What a new mapping from this source starts as. Unipolar, unless the source says otherwise: the XY's axes rest at the pad's centre, so theirs is bipolar (GUI-9 r3). */
+  Session.prototype.defPol = function (id) { var s = this.src(id); return (s && s.pol) || 'uni'; };
   /* UNI → BI → INV → CTL → UNI (`back`: the other way, MP1's shift-click). CTL is skipped while another mapping already
      controls the parameter (one Control per parameter). Entering CTL the first time, the range starts around the current
      value (PLACEHOLDER: value ± depth, at least ±25%; the Map Mode spec does not say where a new Control's range starts). */
@@ -237,7 +239,7 @@
       else if (S.map.on && !e.altKey) { st.mapClick = true; st.start = p.locked ? p.g : p.vals[ai]; }
       else if (S.map.on) {
         var m = S.mapsOf(p.key).filter(function (q) { return q.src === S.map.src; })[0];
-        if (!m) { m = { param: p.key, src: S.map.src, pol: 'uni', depth: 0 }; S.mappings.push(m); st.isNew = true; S.focus[p.key] = S.mapsOf(p.key).length - 1; }
+        if (!m) { m = { param: p.key, src: S.map.src, pol: S.defPol(S.map.src), depth: 0 }; S.mappings.push(m); st.isNew = true; S.focus[p.key] = S.mapsOf(p.key).length - 1; }
         st.mode = 'depth'; st.target = m; st.start = m.pol === 'ctl' ? m.lo : m.cd && ai !== null ? m.cd[ai] : m.depth; S.lastMap = m;
       } else if (e.altKey) {
         st.mode = 'alt'; st.target = S.focused(p.key);
@@ -276,12 +278,12 @@
       var st = S.drag; if (!st || st.key !== p.key) return; S.drag = null;
       if (!st.moved && st.mapClick) {
         var mm = S.mapsOf(p.key).filter(function (q) { return q.src === S.map.src; })[0];
-        if (!mm) { mm = { param: p.key, src: S.map.src, pol: 'uni', depth: DEF_DEPTH }; S.mappings.push(mm); S.say('Mapped ' + S.src(mm.src).name + ' → ' + p.name + ' · UNI · 25%'); }
+        if (!mm) { mm = { param: p.key, src: S.map.src, pol: S.defPol(S.map.src), depth: DEF_DEPTH }; S.mappings.push(mm); S.say('Mapped ' + S.src(mm.src).name + ' → ' + p.name + ' · ' + mm.pol.toUpperCase() + ' · 25%'); }
         else S.say('Focus: ' + S.src(mm.src).name + ' → ' + p.name);
         S.focus[p.key] = S.mapsOf(p.key).indexOf(mm); S.lastMap = mm;
       } else if (!st.moved) {
         if (st.chord) { if (st.target) { S.cyclePol(st.target); S.lastMap = st.target; } else S.say(p.name + ' has no mapping to change'); }
-        else if (st.mode === 'depth' && st.isNew) { st.target.depth = DEF_DEPTH; S.say('Mapped ' + S.src(st.target.src).name + ' → ' + p.name + ' · UNI · 25%'); }
+        else if (st.mode === 'depth' && st.isNew) { st.target.depth = DEF_DEPTH; S.say('Mapped ' + S.src(st.target.src).name + ' → ' + p.name + ' · ' + st.target.pol.toUpperCase() + ' · 25%'); }
         else if (st.mode === 'alt') { var l = S.mapsOf(p.key); if (l.length) { S.focus[p.key] = ((S.focus[p.key] || 0) + 1) % l.length; S.lastMap = S.focused(p.key); S.say('Focus: ' + S.src(S.lastMap.src).name); } else S.say(p.name + ' has no modulators'); }
       } else if (st.mode === 'depth' && st.isNew && st.target.depth === 0) { S.mappings.splice(S.mappings.indexOf(st.target), 1); S.lastMap = null; S.say('Released at 0: no mapping made'); }
       S.emit();
@@ -1784,7 +1786,7 @@
       drag(c, { axis: 'y',
         start: function () {
           var m = mapOf(x), isNew = false, p = S.params[x.d.key];
-          if (!m) { m = { param: x.d.key, src: x.s.id, pol: 'uni', depth: 0 }; S.mappings.push(m); isNew = true; S.focus[x.d.key] = S.mapsOf(x.d.key).length - 1; }
+          if (!m) { m = { param: x.d.key, src: x.s.id, pol: S.defPol(x.s.id), depth: 0 }; S.mappings.push(m); isNew = true; S.focus[x.d.key] = S.mapsOf(x.d.key).length - 1; }
           var ai = p && m.cd ? S.editing(p) : null;
           S.lastMap = m; S.selected = x.d.key; S.emit();
           return { m: m, isNew: isNew, ai: ai, start: m.pol === 'ctl' ? [m.lo, m.hi] : (m.cd && ai !== null ? m.cd[ai] : m.depth) };
@@ -2278,7 +2280,7 @@
       if (!t) { S.say('Dropped on nothing: no wire made'); return; }
       if (t.kind === 'dst') {
         if (opts.onWire) { opts.onWire(d.src, t.key); return; }
-        var m = { param: t.key, src: d.src, pol: 'uni', depth: DEF_DEPTH }; S.mappings.push(m); S.focus[t.key] = S.mapsOf(t.key).length - 1; S.lastMap = m;
+        var m = { param: t.key, src: d.src, pol: S.defPol(d.src), depth: DEF_DEPTH }; S.mappings.push(m); S.focus[t.key] = S.mapsOf(t.key).length - 1; S.lastMap = m;
         S.say('New wire: ' + s.name + ' → ' + pname(S, t.key) + ' · UNI · 25% (' + S.mapsOf(t.key).length + ' on it now)');
       } else if (t.m.pol === 'ctl') S.say('A Control has a range, not a depth: a depth route needs a UNI, BI or INV wire');
       else if (opts.onDepthRoute) opts.onDepthRoute(d.src, t.m);
@@ -6969,6 +6971,13 @@
     if (o.underlay) el.appendChild(o.underlay);
     var cv = tag('canvas', 'axy-cv hd-focus'); cv.setAttribute('role', 'slider'); cv.setAttribute('aria-label', (o.labelX || 'X') + ' and ' + (o.labelY || 'Y')); el.appendChild(cv);
     if (o.tag) el.appendChild(tag('span', 'axy-tag', o.tag));
+    /* GUI-9: each axis is a macro, so its chip reads what it touches and opens its card. The canvas's own axis names go when chips are there. */
+    var chips = arr(o.axes).map(function (a) {
+      var b = tag('button', 'axy-chip hd-focus'), k = tag('b', '', a.label), t = tag('span'); b.type = 'button'; b.dataset.axis = a.id; b.dataset.corner = a.corner; b.appendChild(k); b.appendChild(t);
+      b.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+      b.addEventListener('click', function () { fire(o.onAxis, a.id, b); }); el.appendChild(b); return { a: a, b: b, t: t };
+    });
+    function paintChips() { chips.forEach(function (c) { var v = c.a.text ? c.a.text() : ''; if (c.t.textContent !== v) c.t.textContent = v; c.b.tabIndex = keysOn(o) ? 0 : -1; c.b.setAttribute('aria-pressed', String(!!(c.a.lit && c.a.lit()))); c.b.setAttribute('aria-label', c.a.label + ' axis: ' + v); }); }
     function draw() {
       var V = Math.min(window.devicePixelRatio || 1, 2), W = Math.round(cv.clientWidth * V), Ht = Math.round(cv.clientHeight * V); if (!W || !Ht) return;
       var key = [x, y, W, Ht, document.documentElement.dataset.theme, (el.closest('[data-scr]') || {}).dataset ? el.closest('[data-scr]').dataset.scr : ''].join('|'); if (key === last) return; last = key;
@@ -6976,6 +6985,7 @@
       var g = cv.getContext('2d'), cs = getComputedStyle(el), tok = function (n) { return cs.getPropertyValue(n).trim(); }, q;
       g.clearRect(0, 0, W, Ht); g.strokeStyle = tok('--scr-grid'); g.globalAlpha = .18; g.lineWidth = V; g.beginPath();
       for (q = 1; q < 4; q++) { var a = Math.round(q * W / 4) + .5, b = Math.round(q * Ht / 4) + .5; g.moveTo(a, 0); g.lineTo(a, Ht); g.moveTo(0, b); g.lineTo(W, b); } g.stroke(); g.globalAlpha = 1;
+      if (o.rest) { var cx = Math.round(W / 2) + .5, cy = Math.round(Ht / 2) + .5, rm = 6 * V; g.strokeStyle = tok('--scr-grid'); g.lineWidth = V; g.beginPath(); g.moveTo(cx - rm, cy); g.lineTo(cx + rm, cy); g.moveTo(cx, cy - rm); g.lineTo(cx, cy + rm); g.stroke(); }   // where the axes offset nothing (GUI-9 r3)
       g.beginPath(); g.arc(x * W, (1 - y) * Ht, 6 * V, 0, 6.2832); g.fillStyle = tok('--scr-value'); g.fill(); g.lineWidth = 1.5 * V; g.strokeStyle = tok('--scr-ground'); g.stroke();
       g.font = (8.5 * V) + 'px ui-monospace,Menlo,monospace'; g.fillStyle = tok('--scr-grid'); g.textAlign = 'left'; if (o.labelY) g.fillText(o.labelY + ' \u2191', 4 * V, 11 * V); g.textAlign = 'right'; if (o.labelX) g.fillText(o.labelX + ' \u2192', W - 4 * V, Ht - 4 * V);
       cv.setAttribute('aria-valuetext', (o.labelX || 'X') + ' ' + Math.round(x * 100) + '%, ' + (o.labelY || 'Y') + ' ' + Math.round(y * 100) + '%');
@@ -6986,7 +6996,8 @@
     cv.addEventListener('pointermove', function (e) { if (held) at(e); });
     var up = function () { held = false; }; cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up); cv.addEventListener('lostpointercapture', up);
     cv.addEventListener('keydown', function (e) { if (!keysOn(o)) return; var dx = e.key === 'ArrowRight' ? .02 : e.key === 'ArrowLeft' ? -.02 : 0, dy = e.key === 'ArrowUp' ? .02 : e.key === 'ArrowDown' ? -.02 : 0; if (!dx && !dy) return; e.preventDefault(); e.stopPropagation(); set(x + dx, y + dy); });
-    S.add({ render: function () { if (el.isConnected) { cv.tabIndex = keysOn(o) ? 0 : -1; draw(); } } });
+    S.add({ render: function () { if (el.isConnected) { cv.tabIndex = keysOn(o) ? 0 : -1; draw(); paintChips(); } } });
+    paintChips();
     return { get: function () { return [x, y]; }, set: set, redraw: function () { last = ''; draw(); } };
   }
   H.AssignXY = AssignXY;
@@ -7074,6 +7085,98 @@
       (m.fixed ? ': off the list; the engine keeps the source, + brings it back.' : ': deleted.') + ' One undo step.';
   } };
 
+  /* ---------- A MACRO'S CARD (GUI-9 r1, r4): what a macro or an XY axis touches, a depth for each, x to remove, Map to add; `adds` for any other way in. One card at a time.
+     It stays open while MAP is on for this source (and whenever o.hold() says so), because mapping is what it's open for, and it repaints only when its rows change, or a depth drag would lose its row. ---------- */
+  function MacroCard(S, o) {
+    o = o || {};
+    var root = tag('div', 'hd-mccard'), id = null, at = null, sig = '', bars = []; root.hidden = true; root.setAttribute('role', 'dialog');
+    function mapping() { return id !== null && S.map.on && S.map.src === id; }
+    function close() { if (id === null) return; id = null; at = null; sig = ''; bars = []; root.hidden = true; root.replaceChildren(); }
+    function place() {
+      if (id === null) return;
+      var x = at.x.getBoundingClientRect(), y = (at.y || at.x).getBoundingClientRect(), m = root.getBoundingClientRect(), H_ = window.innerHeight, W_ = window.innerWidth;
+      root.style.left = Math.max(8, Math.min(x.left, W_ - m.width - 8)) + 'px';
+      root.style.top = (!at.above && y.bottom + 4 + m.height <= H_ - 8 ? y.bottom + 4 : Math.max(8, y.top - m.height - 4)) + 'px';
+    }
+    function row(r) {
+      var w = tag('div', 'mcc-row'), nm = tag('span', 'mcc-nm', o.nameOf(r.param)), bar = tag('div', 'mcc-bar hd-focus'), fill_ = tag('i'), out = tag('span', 'mcc-v'), x = tag('button', 'hd-xb hd-focus', '×');
+      nm.title = o.pathOf ? o.pathOf(r.param) : r.param; bar.appendChild(fill_); x.type = 'button'; x.setAttribute('aria-label', 'Remove ' + o.nameOf(r.param));
+      bar.setAttribute('role', 'slider'); bar.setAttribute('aria-label', 'Depth of ' + o.nameOf(r.param)); bar.setAttribute('aria-valuemin', '0'); bar.setAttribute('aria-valuemax', '1'); bar.tabIndex = keysOn(o) ? 0 : -1;
+      var held = false, at_ = function (e) { var b = bar.getBoundingClientRect(); fire(o.onDepth, r.id, clamp((e.clientX - b.left) / Math.max(1, b.width))); };
+      bar.addEventListener('pointerdown', function (e) { if (e.button !== 0) return; e.preventDefault(); held = true; try { bar.setPointerCapture(e.pointerId); } catch (_) { /* keep the drag */ } fire(o.onDepthBegin, r.id); at_(e); });
+      bar.addEventListener('pointermove', function (e) { if (held) at_(e); });
+      var up = function () { if (!held) return; held = false; fire(o.onDepthEnd, r.id); }; bar.addEventListener('pointerup', up); bar.addEventListener('pointercancel', up); bar.addEventListener('lostpointercapture', up);
+      bar.addEventListener('keydown', function (e) { if (!keysOn(o)) return; var d = e.key === 'ArrowRight' ? .01 : e.key === 'ArrowLeft' ? -.01 : 0, now; if (!d) return; e.preventDefault(); e.stopPropagation(); now = arr(o.routes(id)).filter(function (q) { return q.id === r.id; })[0]; if (now) { fire(o.onDepthBegin, r.id); fire(o.onDepth, r.id, clamp(now.depth + d)); fire(o.onDepthEnd, r.id); } });
+      x.addEventListener('click', function () { fire(o.onRemove, r.id); });
+      w.appendChild(nm); w.appendChild(bar); w.appendChild(out); w.appendChild(x);
+      bars.push({ id: r.id, fill: fill_, out: out, bar: bar });
+      return w;
+    }
+    function paint() {
+      if (id === null) return;
+      var l = arr(o.routes(id)), s = id + '|' + mapping() + '|' + keysOn(o) + '|' + l.map(function (r) { return r.id; }).join();
+      if (s !== sig) {
+        sig = s; bars = []; root.replaceChildren();
+        var src = S.src(id), head = tag('div', 'mcc-head'), go = tag('button', 'hd-btn hd-sm hd-focus', mapping() ? 'Done' : 'Map');
+        head.appendChild(tag('b', '', src ? src.name : id)); head.appendChild(tag('span', 'mcc-n', l.length ? 'touches ' + l.length : 'nothing here'));
+        go.type = 'button'; go.setAttribute('aria-pressed', String(mapping())); go.tabIndex = keysOn(o) ? 0 : -1; go.addEventListener('click', function () { var on = mapping(); S.setSrc(id); S.setMap(!on); }); head.appendChild(go);
+        root.appendChild(head); root.setAttribute('aria-label', src ? src.name : id);
+        if (!l.length) root.appendChild(tag('p', 'hd-hint mcc-empty', mapping() ? 'Click the controls this should move.' : 'Press Map, then click the controls this should move.'));
+        l.forEach(function (r) { root.appendChild(row(r)); });
+        var adds = o.adds ? arr(o.adds(id)) : [];
+        if (adds.length) { var foot = tag('div', 'mcc-adds'); adds.forEach(function (a) { var b = tag('button', 'hd-btn hd-sm hd-focus', a.label); b.type = 'button'; b.tabIndex = keysOn(o) ? 0 : -1; b.addEventListener('click', function (e) { a.on(b, e); }); foot.appendChild(b); }); root.appendChild(foot); }
+        place();
+      }
+      var byId = {}; l.forEach(function (r) { byId[r.id] = r; });
+      bars.forEach(function (b) { var r = byId[b.id]; if (!r) return; b.fill.style.width = (r.depth * 100).toFixed(1) + '%'; b.out.textContent = Math.round(r.depth * 100) + '%'; b.bar.setAttribute('aria-valuenow', r.depth.toFixed(2)); });
+    }
+    function open(nid, x, y, above) { if (id === nid) { close(); return; } if (!root.isConnected) (o.host || document.body).appendChild(root); id = nid; at = { x: x, y: y, above: !!above }; sig = ''; root.hidden = false; paint(); }
+    S.escapeLayers.unshift({ name: 'macro-card', active: function () { return id !== null && !mapping(); }, cancel: close });
+    document.addEventListener('pointerdown', function (e) {
+      if (id === null || root.contains(e.target) || mapping() || (o.hold && o.hold()) || (e.target.closest && (e.target.closest('.hd-mopen') || e.target.closest('.axy-chip') || e.target.closest('.hd-trow .tnm')))) return;   // a macro knob keeps it open: you turn one to hear what you've mapped
+      close();
+    }, true);
+    S.add({ render: paint });
+    return { open: open, close: close, el: root, get: function () { return id; }, refresh: function () { sig = ''; paint(); } };
+  }
+  H.MacroCard = MacroCard;
+
+  /* ---------- A MACRO KNOB'S OPENER (GUI-9 r4): its name opens its card and a badge counts what it touches. On pointerdown and in capture, not on click: the knob captures the pointer as it's pressed, so a click lands on the knob and never reaches the name (the lab found this with a real mouse; a synthetic click passed). ---------- */
+  H.MacroOpener = function (el, S, o) {
+    o = o || {};
+    var nm = el.querySelector('.mk-name'), n = tag('span', 'mo-n'), last = -1; el.classList.add('hd-mopen'); n.hidden = true; el.appendChild(n);
+    if (nm) { nm.setAttribute('role', 'button'); nm.title = 'Open what this macro touches'; }
+    el.addEventListener('pointerdown', function (e) { var t = e.target.closest && e.target.closest('.mk-name'); if (!t || e.button !== 0 || t !== nm) return; e.stopPropagation(); e.preventDefault(); fire(o.onOpen, nm); }, true);
+    if (nm) nm.addEventListener('keydown', function (e) { if (!keysOn(o) || (e.key !== 'Enter' && e.key !== ' ')) return; e.preventDefault(); e.stopPropagation(); fire(o.onOpen, nm); });
+    S.add({ render: function () { if (!el.isConnected) return; var c = o.count ? o.count() : 0; if (nm) nm.tabIndex = keysOn(o) ? 0 : -1; if (c === last) return; last = c; n.hidden = !c; n.textContent = c; n.title = 'Touches ' + c; } });
+    return { el: el };
+  };
+
+  /* ---------- A PARAMETER PICKER (GUI-9 r2): a search over named groups. Takes keys while it's open, the one typed entry here. ---------- */
+  H.ParamPicker = function (S, o) {
+    o = o || {};
+    var root = tag('div', 'hd-ppick'), q = tag('input'), list = tag('div', 'pp-list'), gone = false; root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', o.title || 'Pick a parameter');
+    q.type = 'search'; q.placeholder = o.title || 'Search'; q.setAttribute('aria-label', 'Search parameters');
+    function close() { if (gone) return; gone = true; root.remove(); document.removeEventListener('pointerdown', out, true); var k = S.escapeLayers.indexOf(layer); if (k >= 0) S.escapeLayers.splice(k, 1); }
+    function out(e) { if (!root.contains(e.target)) close(); }
+    var layer = { name: 'param-picker', active: function () { return !gone; }, cancel: close };
+    function draw() {
+      var t = q.value.trim().toLowerCase(); list.replaceChildren();
+      arr(o.groups).forEach(function (g) {
+        var hits = g.items.filter(function (it) { return !t || (it.label + ' ' + it.key + ' ' + g.name).toLowerCase().indexOf(t) >= 0; }); if (!hits.length) return;
+        list.appendChild(tag('h4', '', g.name));
+        hits.forEach(function (it) { var b = tag('button', 'pp-item hd-focus'); b.type = 'button'; b.dataset.param = it.key; b.appendChild(tag('span', '', it.label)); b.appendChild(tag('small', '', it.key)); if (it.taken) b.setAttribute('aria-current', 'true'); b.addEventListener('click', function () { close(); fire(o.onPick, it.key); }); list.appendChild(b); });
+      });
+      if (!list.children.length) list.appendChild(tag('p', 'hd-hint', 'Nothing by that name.'));
+    }
+    q.addEventListener('input', draw);
+    q.addEventListener('keydown', function (e) { e.stopPropagation(); if (e.key === 'Escape') { e.preventDefault(); close(); } });   // it's a text field: the session's keys mustn't see what's typed
+    root.appendChild(q); root.appendChild(list); (o.host || document.body).appendChild(root); draw();
+    if (o.anchor) { var a = o.anchor.getBoundingClientRect(), m = root.getBoundingClientRect(); root.style.left = Math.max(8, Math.min(a.left, window.innerWidth - m.width - 8)) + 'px'; root.style.top = Math.max(8, Math.min(a.top, window.innerHeight - m.height - 8)) + 'px'; }
+    S.escapeLayers.unshift(layer); document.addEventListener('pointerdown', out, true); q.focus();
+    return { el: root, close: close, closed: function () { return gone; } };
+  };
+
   /* ---------- THE BANK, M2 (ADR-338 r7) with BT1 (ADR-340 r11): 68 px tall, TWO lanes of 26 px thin rows that scroll sideways, so pages keep
      468 px in the shell (ADR-345 r1). The side column holds the BT1 segments (MAC | MODS), the count and + (on Mods). Mods lists o.mods (a function or an
      array: the host decides what modulates this page, ADR-323 r4); Macros lists o.macros as MacroRows. A click on a row's name opens its
@@ -7102,6 +7205,7 @@
       return rows[m.id];
     }
     function toggle(m) {
+      if (o.onOpenCard && o.onOpenCard(m, rows[m.id])) { close(); return; }   // a macro or an axis has its own card (GUI-9 r4)
       if (open === m.id) { close(); return; }
       open = m.id;
       if (!cards[m.id]) { var c = tag('div'); compact(c, S, m, mo); cards[m.id] = c; }
@@ -7150,7 +7254,7 @@
       var kids = [];
       kinds(ms).forEach(function (kd) {
         var mine = ms.filter(function (m) { return (m.group || m.kind) === kd.id; }), head = tag('div', 'mp-kh'), add = tag('button', 'hd-btn hd-sm hd-focus', '+');
-        head.appendChild(tag('span', '', kd.label + ' · ' + mine.length)); add.type = 'button'; add.setAttribute('aria-label', 'Add ' + kd.label); add.tabIndex = keysOn(o) ? 0 : -1; add.addEventListener('click', function () { fire(o.onAdd, kd.id); });
+        head.appendChild(tag('span', '', kd.label + ' · ' + mine.length)); add.type = 'button'; add.setAttribute('aria-label', 'Add ' + kd.label); add.tabIndex = keysOn(o) ? 0 : -1; add.hidden = !!kd.noAdd; add.addEventListener('click', function () { fire(o.onAdd, kd.id); });
         head.appendChild(add); kids.push(head);
         mine.forEach(function (m) { if (!rows[m.id]) { var h = tag('div'); thin(h, S, m, ro); rows[m.id] = h; } kids.push(rows[m.id]); });
       });

@@ -1,0 +1,16 @@
+<!-- @dsCard group="Controls" height=200 subtitle="GUI-9: what a macro or an axis touches, a depth for each, × and Map." -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>MacroCard</title></head>
+<body>
+<div style="padding:14px 16px 10px"><div id="a" class="hd-mk sz sz-compact" style="height:20px; width:60px"><div class="mk-name">Tone</div></div></div>
+<script>
+(function () {
+  var H = window.Horde, S = new H.Session({ x: .5, y: .5, corners: ['A', 'B', 'C', 'D'], sources: [{ id: 'macro1', name: 'Tone', kind: 'macro', f: function () { return 0; } }] }), a = document.getElementById('a');
+  var routes = [{ id: 'r1', param: 'sample.width', depth: .25 }, { id: 'r2', param: 'sample.position', depth: .6 }];
+  var c = H.MacroCard(S, { routes: function () { return routes; }, nameOf: function (k) { return k.split('.')[1]; }, onDepth: function (id, v) { routes.forEach(function (r) { if (r.id === id) r.depth = v; }); }, onRemove: function (id) { routes = routes.filter(function (r) { return r.id !== id; }); }, adds: function () { return [{ label: 'List', on: function () {} }, { label: 'Touch', on: function () {} }]; }, hold: function () { return true; } });
+  c.open('macro1', a); S.start();
+})();
+</script>
+</body>
+</html>

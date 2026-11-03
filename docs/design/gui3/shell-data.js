@@ -238,7 +238,7 @@ window.GUI3_DATA = {
     "asked": "Specimen XY from the scalpel lab on main",
     "id": "specimen-xy",
     "item": "The Specimen XY on Main (the XY pad over the Specimen, ADR-139)",
-    "missing": "Audio to strike it, the XY's assignment picker, and its cost measured in the plugin webview.",
+    "missing": "Audio to strike it, the axes on the intent bus (B89), and its cost measured in the plugin webview.",
     "precise": true,
     "reason": "engine-audio",
     "roadmap": "B74",
@@ -247,7 +247,7 @@ window.GUI3_DATA = {
      "src/gui/gui2.html"
     ],
     "status": "partial",
-    "why": "In the shell since GUI-2 and GUI-4, the bench's code verbatim (MainStage, ADR-333), on by default with a switch in Settings. Still voice-bound, so it idles until audio; its cost in the plugin webview is still to be measured (ADR-140), and how a player assigns the XY's two parameters isn't designed yet."
+    "why": "In the shell since GUI-2 and GUI-4, the bench's code verbatim (MainStage, ADR-333), on by default with a switch in Settings. Still voice-bound, so it idles until audio; its cost in the plugin webview is still to be measured (ADR-140). Since GUI-9 the XY's axes are two extra macro knobs on the shell's routes."
    },
    {
     "area": "Main",
@@ -383,7 +383,7 @@ window.GUI3_DATA = {
     "asked": "",
     "id": "macros",
     "item": "Macros and the intent bus (the bank's Macros view)",
-    "missing": "The intent bus and the macros in the stub (the lead's, B89), so the rows can bind; the macro slots' names (ADR-192 leaves the phrases open; slots 5 to 8 read Macro 5 to 8 and truncate in the bank's narrower lane).",
+    "missing": "The intent bus and the macros in the stub (the lead's, B89), so a mapping is a per-corner binding and not a route; the macro slots' names (ADR-192 leaves the phrases open; slots 5 to 8 read Macro 5 to 8 and truncate in the bank's narrower lane).",
     "reason": "spec-table",
     "roadmap": "B89",
     "source": [
@@ -391,7 +391,7 @@ window.GUI3_DATA = {
      "specs/SPEC-MODULE-MACROS.md"
     ],
     "status": "partial",
-    "why": "The macros and the intent bus are deferred from the engine (RC-4) and have no rows. Since the shell hop of 2026-11-01 the bank's MAC lane shows the ten rows (eight macros, the bend, the mod wheel) unbound, the bend springing back; touching one says it is not in the engine yet and sends nothing."
+    "why": "The macros and the intent bus are deferred from the engine (RC-4) and have no rows. Since the shell hop of 2026-11-01 the bank's MAC lane shows the ten rows (eight macros, the bend, the mod wheel) the bend springing back. Since GUI-9 a macro maps from its card or a control's right-click, onto the shell's routes, MOCK: its rings move and it sends nothing to the engine."
    },
    {
     "area": "Chrome",

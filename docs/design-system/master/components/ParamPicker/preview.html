@@ -1,0 +1,14 @@
+<!-- @dsCard group="Controls" height=260 subtitle="GUI-9: a search over groups of parameters. A pick closes it." -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>ParamPicker</title></head>
+<body>
+<div style="padding:14px 16px 10px"><div id="a" style="height:1px; width:1px"></div></div>
+<script>
+(function () {
+  var H = window.Horde, S = new H.Session({ x: .5, y: .5, corners: ['A', 'B', 'C', 'D'] });
+  H.ParamPicker(S, { title: 'Search X…', anchor: document.getElementById('a'), groups: [{ name: 'sample one', items: [{ key: 'sample.width', label: 'Width' }, { key: 'sample.depth', label: 'Depth', taken: true }] }, { name: 'sample two', items: [{ key: 'sample.decay', label: 'Decay' }] }] });
+})();
+</script>
+</body>
+</html>

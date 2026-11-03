@@ -79,6 +79,7 @@
  *   dock         ADR-315 r1, GUI-5, structural: the human, "I want to make sure the morph XY on every page when morph is active doesn't get reversed". The dock is decided by
  *                morph and the Pad switch alone, never by the page, and the shell's browser check that walks every page is still there. GUI-4's Main will hide it on Main, in this one test.
  *   mainstage    GUI-2, GUI-4, structural: Main is the master's Deck, AssignXY and MainStage, and its deck comes from the layout, so the shell names no key.
+ *   xyaxes       GUI-9, structural: the macros and the axes are ten sources, the axes bipolar, and the shell maps them through the master's card, opener and picker.
  *   banklist     GUI-7, structural: the bank's MODS rows are every routed modulator on any page, ENV 1 always, and the pending ones, never filtered by the page.
  *   infolock     ADR-345, structural: the foot row is F1's, the box is the bundle's InfoBox, a press is heard in capture and locks on a control and
  *                a section and releases otherwise, a hover can't reach a locked box and stays put on the box, the sidebar is one switch outside
@@ -739,6 +740,16 @@ function suite(W) {
     for (const part of ['H.Deck(deckHost,', "H.AssignXY($('mainXY'), S,", 'H.MainStage', 'stage.logoCanvas()']) ok(t.includes(part), 'Main no longer uses the master\u2019s ' + part);
   };
 
+  /* GUI-9: the human, "it should function like two extra macro knobs" */
+  T.xyaxes = () => {
+    const t = W.__shellText, D = W.GUI3Device;
+    const mac = D.SOURCES.filter(s => s.kind === 'macro'), ax = mac.filter(s => s.pol === 'bi').map(s => s.id).sort().join();
+    ok(mac.length === 10, 'the macros and the axes are not ten sources (GUI-9 r1): ' + mac.length);
+    ok(ax === 'xyx,xyy', 'the axes are not the bipolar macro sources, so they would not rest at the pad\u2019s centre (GUI-9 r3): ' + ax);
+    for (const part of ['H.MacroCard(S,', 'H.MacroOpener(hst, S,', 'H.ParamPicker(S,', 'onAxis: (id, chip) => mapCard.open(id, chip)', "class: 'hd-mapgrid'"]) ok(t.includes(part), 'the shell no longer uses ' + part + ' (GUI-9)');
+    ok(!/mainXYCtl[\s\S]{0,120}dev\.set\(/.test(t) && !/onInput: *\(x, *y\)[\s\S]{0,120}dev\.set/.test(t), 'the XY writes a parameter directly again (GUI-9 r3: it offsets from rest)');
+  };
+
   /* GUI-7: the human, "some way to map Env 1 ... the mod rows should show all modulators active on any pages" */
   T.banklist = () => {
     const t = W.__shellText, f = /function bankMods\(\) \{([\s\S]*?)\n\}/.exec(t);
@@ -1025,6 +1036,8 @@ const PLANTS = [
   ['mainstage', 'shell', 'else if (pg.deck) mainPage(pg, el);', 'else if (pg.deckX) mainPage(pg, el);'],
   ['mainstage', 'shell', 'H.Deck(deckHost,', 'H.DeckX(deckHost,'],
   ['banklist', 'shell', "s.id === 'env1' || pend.includes(s.id)", "pend.includes(s.id)"],
+  ['xyaxes', 'shell', 'onAxis: (id, chip) => mapCard.open(id, chip)', 'onAxis: () => {}'],
+  ['xyaxes', 'shell', "H.ParamPicker(S,", "H.ParamList(S,"],
   ['banklist', 'shell', 'routes.some(r => r.src === s.id)).map(s => MODS[s.id]);', 'routes.some(r => r.src === s.id && pageKeys(page).has(r.param))).map(s => MODS[s.id]);'],
   ['dock', 'shell', "const on = dev.morph().on, show = on && padShown && page !== 'main';", "const on = dev.morph().on, show = on && padShown && page === 'main';"],
   ['dock', 'shell', "$('dock').hidden = !show;", "$('dock').hidden = true;"],
