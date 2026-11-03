@@ -2513,8 +2513,8 @@
       "id": "arp",
       "label": "Arp",
       "status": "draft",
-      "note": "Draft, and a placement for the human to rule: the ruled page set has no Arp page. Arp is the device's MIDI module (its values go to the device side, never to the engine); its settings are generated from its vendored manifest.",
-      "cite": "Arp spec/params.json (arp-params/1), vendored by the Arp face lab (B553)",
+      "note": "Started from the Arp lab (GUI-11): the piano roll of what the selection would play, Order and Pattern with pictures, Rate and Gate up front, and the rest in tabs. The roll and pictures are MOCK, over a sample chord. Arp is the device's MIDI module: its values go to the device side, never to the engine.",
+      "cite": "GUI-11, ADR-291 r4, B553, B558",
       "groups": [
         {
           "title": "Arp",
@@ -2571,7 +2571,119 @@
           }
         }
       ],
-      "grid": true
+      "form": {
+        "switches": [
+          "arp.enabled",
+          "arp.arp_enabled",
+          "arp.chord_enabled"
+        ],
+        "order": "arp.order",
+        "pattern": "arp.pattern",
+        "rate": {
+          "mode": "arp.rate_mode",
+          "sync": "arp.rate",
+          "time": "arp.step_time_us"
+        },
+        "gate": "arp.gate",
+        "tabs": [
+          {
+            "id": "play",
+            "label": "Play",
+            "rows": [
+              [
+                "arp.latch",
+                "arp.restart"
+              ],
+              [
+                "arp.repeats",
+                "arp.swing"
+              ],
+              [
+                "arp.vel_mode",
+                "arp.vel_fixed"
+              ],
+              [
+                "arp.seed"
+              ]
+            ]
+          },
+          {
+            "id": "transpose",
+            "label": "Transpose",
+            "rows": [
+              [
+                "arp.steps"
+              ],
+              [
+                "arp.step_size"
+              ],
+              [
+                "arp.step_unit"
+              ]
+            ]
+          },
+          {
+            "id": "chord",
+            "label": "Chord",
+            "rows": [
+              [
+                "arp.chord_unit"
+              ],
+              [
+                "arp.chord_on1",
+                "arp.chord_shift1"
+              ],
+              [
+                "arp.chord_on2",
+                "arp.chord_shift2"
+              ],
+              [
+                "arp.chord_on3",
+                "arp.chord_shift3"
+              ],
+              [
+                "arp.chord_on4",
+                "arp.chord_shift4"
+              ],
+              [
+                "arp.chord_on5",
+                "arp.chord_shift5"
+              ],
+              [
+                "arp.chord_on6",
+                "arp.chord_shift6"
+              ]
+            ]
+          },
+          {
+            "id": "scale",
+            "label": "Scale",
+            "rows": [
+              [
+                "arp.quantize",
+                "arp.scale_source"
+              ]
+            ],
+            "scale": {
+              "root": "arp.scale_root",
+              "degs": [
+                "arp.scale_deg0",
+                "arp.scale_deg1",
+                "arp.scale_deg2",
+                "arp.scale_deg3",
+                "arp.scale_deg4",
+                "arp.scale_deg5",
+                "arp.scale_deg6",
+                "arp.scale_deg7",
+                "arp.scale_deg8",
+                "arp.scale_deg9",
+                "arp.scale_deg10",
+                "arp.scale_deg11"
+              ]
+            }
+          }
+        ]
+      }
     },
     {
       "id": "history",

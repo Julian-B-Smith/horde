@@ -10,6 +10,6 @@ The pad whose two axes work as two extra macro knobs (GUI-9 r1): each moves any 
 
 **Anatomy** the screen's ground, a veil of quarter lines at 18% `scr-grid`, a 6 px puck in `scr-value`, and the axis names in the corners. The underlay canvas sits beneath it.
 
-**Gestures** a press lands the puck and a drag follows. Arrow keys move it in keyboard mode only (ADR-259 r6).
+**Gestures** a press lands the puck and a drag follows. A double-click returns it home, where `x` and `y` started (GUI-12). Arrow keys move it in keyboard mode only (ADR-259 r6).
 
 **Sources** GUI-9, `docs/design/xy-macro-lab.html`, GUI-2, the bench's `paintXY`, `docs/design/main-layout-lab.html`.

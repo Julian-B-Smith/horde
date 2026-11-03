@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1793730698-1175, 2026-11-03; do not edit, re-vendor */
+/* vendored from the horde Design System artifact, version 1793733325-2f69, 2026-11-03; do not edit, re-vendor */
 @import url("https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;800&family=Roboto+Mono:wght@400;500;600&display=swap");
 /* horde house components. Every colour is a token (tokens.json); nothing here is a hex.
    Sources: UI Spec §3-4 (values), gui2.html §4 skins, the SCALPEL lab (980×720 chassis),
@@ -1510,3 +1510,18 @@ canvas.hd-ring { outline:none; }
 .hd-hrail .hr-node.on { background:var(--ink); border-color:var(--ink); color:var(--bg); font-weight:700; }
 .hd-hrail .hr-node.ahead { background:var(--panel); color:var(--hint); }
 .hd-hrail .hr-l { overflow:hidden; text-overflow:ellipsis; } .hd-hrail .hr-t { flex:none; font:400 9px/1 var(--font-mono); opacity:.7; }
+/* THE PICTURE PICKER (GUI-11): a stepper whose value opens a list with a picture per entry */
+.hd-picpick { display:flex; align-items:center; gap:2px; min-width:0; box-sizing:border-box; height:28px; padding:0 2px; border:var(--stroke-ink) solid var(--ink); border-radius:14px; background:var(--panel); }
+.hd-picpick .hd-chev { flex:none; width:20px; height:22px; padding:0 5px; border:0; background:none; color:var(--ink); cursor:pointer; } .hd-picpick .hd-chev svg { display:block; width:8px; height:8px; fill:currentColor; } .hd-picpick .hd-chev:disabled { opacity:var(--opacity-disabled); cursor:default; }
+.hd-picpick .pp-v { flex:1 1 auto; min-width:0; height:22px; border:0; border-radius:11px; background:none; color:var(--ink); font:700 10.5px/1 var(--font-sans); cursor:pointer; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.hd-picpick .pp-v:hover { background:var(--sel-neutral); }
+.hd-picpick .pp-v::after { content:''; display:inline-block; margin-left:6px; vertical-align:middle; border:3px solid transparent; border-top:4px solid var(--t2); border-bottom:0; }
+.hd-pplist { position:fixed; z-index:50; box-sizing:border-box; width:340px; max-width:calc(100vw - 16px); max-height:min(60vh, 380px); overflow-y:auto; display:flex; flex-direction:column; gap:2px; padding:4px; background:var(--panel); border:var(--stroke-ink) solid var(--ink); border-radius:var(--radius); }
+.hd-pplist:focus { outline:none; }
+.hd-pplist .pl-head { font:400 9px/1.5 var(--font-mono); color:var(--hint); padding:2px 6px 4px; border-bottom:1px dashed var(--div); }
+.hd-pplist .pl-row { display:grid; grid-template-columns:minmax(0, 1fr) auto; align-items:center; gap:8px; min-height:36px; padding:2px 6px; box-sizing:border-box; border:var(--stroke-ink) solid transparent; border-radius:var(--radius); font:500 10px/1.3 var(--font-sans); color:var(--ink); cursor:pointer; }
+.hd-pplist .pl-row:hover { background:var(--well-alt); }
+.hd-pplist .pl-row[aria-selected="true"] { background:var(--sel-neutral); border-color:var(--sel-neutral-edge); }
+.hd-pplist .pl-row.act { box-shadow:var(--focus-ring); }
+.hd-pplist .pl-thumb { display:block; background:var(--scr-ground); border:var(--stroke-sub) solid var(--ink); border-radius:var(--radius-meter); overflow:hidden; line-height:0; }
+.hd-pplist .pl-thumb svg { display:block; }

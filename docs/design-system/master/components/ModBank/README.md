@@ -16,6 +16,8 @@ The bank in the foot row (GUI-8 r3, r5, r6; ADR-340 r11): **120 px tall** (`size
 
 **A macro or axis's row** (GUI-9 r5): `onOpenCard(m, rowEl)` returning true opens the host's `MacroCard` in place of the compact one.
 
+A double-click on a macro or a wheel returns it home (GUI-12).
+
 **Returned** `{ set(s), get(), refresh(), close(), macro(id), setHardware(id, v | null) }`. `setHardware('bend', v)` is the hardware wheel's value arriving from the engine.
 
 **Sources** GUI-5 r3, GUI-7, GUI-8 r3 to r6, ADR-338 ruling 7, ADR-340 ruling 11, ADR-341 ruling 7, `docs/design/bank-lab.html` (F5, R2).

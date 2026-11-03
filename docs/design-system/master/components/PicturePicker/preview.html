@@ -1,0 +1,15 @@
+<!-- @dsCard group="Controls" height=170 subtitle="GUI-11: a stepper whose value opens a list with a picture per entry. Here, Arp's orders." -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>PicturePicker</title></head>
+<body>
+<div style="padding:14px 16px 10px; max-width:240px"><div id="a"></div></div>
+<script>
+(function () {
+  var H = window.Horde, S = new H.Session({ x: .5, y: .5, corners: ['A', 'B', 'C', 'D'] }), ids = Object.keys(H.ArpViz.ORDERS).slice(0, 6), at = 0;
+  H.PicturePicker(document.getElementById('a'), S, { name: 'Order', path: 'SAMPLE · Order', options: ids, get: function () { return at; }, onSet: function (i) { at = i; }, thumb: function (i) { return H.ArpViz.orderSVG(ids[i], 1); } });
+  S.start();
+})();
+</script>
+</body>
+</html>

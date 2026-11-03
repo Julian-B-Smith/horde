@@ -11258,3 +11258,37 @@ Three points stayed open, because the shell already marks a knob selected the mo
 - **FX device (ADR-254).** No consequence: the device hosts no engine.
 
 **Rejected.** Staying with 2 points and 8 taps: a real drop in cleanliness for about 6 to 13 %, when the free saving hadn't been taken. Moments with 8 taps: more code, same floors as 2 points.
+## GUI-11 — RULED by the human: Arp's page starts from the Arp lab (B581; GB2, B553, B558, ADR-291 r4; ADR-351 r6; 2026-11-03)
+
+**Context.** The human, 2026-11-02: "we'll need to work on the GUI for the arp, it isn't where I want". The page was a raw generated grid of all 47 settings under abbreviations. Offered the lab as a start or a description of what was wrong, the human answered: "Start from the Arp lab".
+
+**Ruling.** Arp's page takes `docs/design/arp-face-lab.html`'s face: a piano roll of what the selection would play, Order and Pattern with their pictures (ADR-291 ruling 4), Rate and Gate up front, and the rest behind them.
+
+**Readings taken (the GUI session's, open to the human).**
+- **The rest goes in four tabs** (Play, Transpose, Chord, Scale) and not in the lab's Advanced panel below the card, because the page has no room below it. The form is in `layout.json`, and the generator holds it to placing every key once.
+- **Left out of the lab:** the step lanes and the trigger test, which were test rigs, and the census strip, since the shell's own morph marks do that job.
+- **Rate shows Sync's division or Time's knob,** whichever the mode needs, as three ordinary controls and not the lab's `RateSync`.
+- **Arp's own scale uses the named-scale control** (ADR-351 ruling 6), which binds thirteen rows.
+- **No Grid | Table on this page,** as on Main.
+
+**Mock.** The roll and pictures draw over a sample chord at a fixed 120 BPM, because no notes reach the shell. Scale quantize, latch, restart and the chord stage aren't drawn in the roll.
+
+**Open.** Whether this is where the human wants it: this is a start, by the human's word. The pattern editor (Arp SPEC 4.6) isn't built.
+
+**Consequences.** `arp-face-lab.html` is harvested. **FX device (ADR-254):** none (it hosts no note processor).
+
+## GUI-12 — RULED by the human: a double-click returns any control but a toggle to home, on every page (B449; 2026-11-03)
+
+**Context.** The human, 2026-11-03: "Important note for every parameter on every page (except toggles, I guess): double clicking should return to home". B449 had this for knobs, sliders and steppers. A walk of every control found the pill groups, dropdowns, picture pickers and Mix faders didn't.
+
+**Ruling.** A double-click returns any control but a toggle to home, on every page.
+
+**Readings taken (the GUI session's, open to the human).**
+- **Home is the parameter's default today,** because the shell has no presets loading yet. Whether home becomes the loaded patch's value is asked, not assumed.
+- **A stepper's arrows don't reset:** two quick clicks there are two steps. The rest of the stepper does.
+- **Not under MAP,** where a click is a mapping.
+- **A double-click on a pill** selects it and then resets, since the first click lands first.
+- **The XY pad returns to its centre, the wheels to their rest, and a mapping's depth to 25 %,** as a ◇ does (GUI-3). The morph pad's puck already returns to the centre.
+- **Arp's scale** resets all thirteen rows from its root or name. Its circles are toggles.
+
+**Consequences.** Self-check 4h walks every control on every page, with toggles and a stepper's arrow as its controls. **FX device (ADR-254):** the same, on its pages.

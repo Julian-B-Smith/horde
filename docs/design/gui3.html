@@ -60,6 +60,17 @@
   .main-pad #padHost, .main-pad .hd-xy { width: 100% !important; height: 100% !important; margin: 0 !important; }
   .main-xy { flex: 1 1 0; }
   .main-p { box-sizing: border-box; padding: 4px 6px; background: var(--panel); border: var(--stroke-ink) solid var(--ink); border-radius: var(--radius); min-width: 0; }
+  .arp-stage { display: flex; gap: 8px; height: 100%; min-height: 0; }
+  .arp-card { flex: 0 0 344px; min-width: 0; display: flex; flex-direction: column; gap: 6px; overflow: hidden; }
+  .arp-sw { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 12px; }
+  .arp-viz { background: var(--scr-ground); border: var(--stroke-sub) solid var(--ink); border-radius: var(--radius-meter); overflow: hidden; line-height: 0; }
+  .arp-viz svg { display: block; width: 100%; height: auto; }
+  .arp-two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2px 8px; }
+  .arp-rate { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 8px; }
+  .arp-deck { flex: 1 1 0; min-width: 0; }
+  .arp-rows { display: flex; flex-direction: column; gap: 8px; padding: 4px 2px; }
+  .arp-row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 16px; }
+  .arp-hint { margin: 0; }
   .hist-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; } .hist-bar .hd-hint { margin-left: auto; }
   .hist-bar .hd-btn:disabled { opacity: .4; cursor: default; }
   .hist-card { width: 100%; box-sizing: border-box; padding: 8px; }
@@ -1199,6 +1210,49 @@ function historyPage(pg, el) {
   historyRail = H.HistoryRail(host, { tree: () => dev.tree(), keys: () => S.keys, onRestore: i => { if (dev.restore(i)) S.say('Restored. The next edit branches from here.'); } });
   views.push({ page: 'history', update() { historyRail.refresh(); const t = dev.tree(), c = t.nodes.find(n => n.i === t.cur), hs = dev.history(); undo.disabled = !hs.past.length; redo.disabled = !hs.future.length; const txt = t.nodes.length + ' of ' + t.cap + ' states, at ' + (c ? c.label : 'the start'); if (now.textContent !== txt) now.textContent = txt; } });
 }
+// GUI-11: Arp's page, from the Arp lab (B553, B558, ADR-291 r4). The form in layout.json places every key once and the generator holds it to that. What the roll and the pictures draw is MOCK: a sample chord at a fixed tempo, because no notes reach the shell.
+const ARP_BPM = 120;
+let arpFace = null;
+const formHosts = new Set();   // keys a form binds through one composite control, so they have no host of their own in the page
+function arpPage(pg, el) {
+  el.classList.add('arp-page');
+  const F = pg.form, A = DATA.arp, Z = H.ArpViz, ctl = k => pg.groups.flatMap(g => g.controls).find(c => c.key === k), path = k => 'Arp · ' + ROW[k].label;
+  const mk = k => mountControl(ctl(k), 'arp', path(k), isKnobW(ctl(k).widget) ? { size: 'compact' } : {});
+  const idx = k => idxOf(ROW[k], dev.shown(k)), raw = k => ROW[k].law === 'step' ? (ROW[k].lo || 0) + idx(k) : ROW[k].lo + dev.shown(k) * (ROW[k].hi - ROW[k].lo), val = k => A.values[k][idx(k)];
+  const seedKey = F.tabs.flatMap(t => t.rows.flat()).find(k => /\.seed$/.test(k)), named = suffix => F.tabs.flatMap(t => t.rows.flat()).find(k => k.endsWith(suffix));
+  const picker = (k, options, spec) => { const host = h('div'), box = h('div', { class: 'ctl', 'data-key': k, 'data-w': 'select' }, h('span', { class: 'hd-label', text: ROW[k].label }), host);
+    const c = H.PicturePicker(host, S, Object.assign({ name: ROW[k].label, path: path(k), options, get: () => idx(k), onSet: i => writeStep(ROW[k], path(k), i), keys: () => S.keys }, spec)); return { box, c }; };
+  const ord = picker(F.order, ROW[F.order].options, { head: () => 'A sample chord, ' + Z.SAMPLE_E.map(Z.noteName).join(' ') + ', pressed ' + Z.SAMPLE_PP.map(Z.noteName).join(' ') + '. 16 steps, dashed where a cycle ends.', thumb: i => Z.orderSVG(A.values[F.order][i], raw(seedKey)), sub: i => Z.drawsSample(A.values[F.order][i]) ? 'one sample draw' : null });
+  const pat = picker(F.pattern, A.patternNames, { head: () => 'The pattern’s own steps: height velocity, width gate, split bars ratchets, a hollow dot a rest, a foot bar a tie, a top dot a trigger, a triangle a step offset, dim a probability.', thumb: i => Z.patternSVG(Z.stepsOf(A.bank, A.patternIds[i]), { thumb: true }).html });
+  const viz = h('div', { class: 'arp-viz' }), syncH = mk(F.rate.sync), timeH = mk(F.rate.time);
+  const hint = h('p', { class: 'hd-hint arp-hint' });
+  const card = h('section', { class: 'main-p arp-card', 'aria-label': 'Arp' }, h('div', { class: 'arp-sw' }, F.switches.map(mk)), viz, h('div', { class: 'arp-two' }, ord.box, pat.box), h('div', { class: 'arp-rate' }, h('div', {}, mk(F.rate.mode), syncH, timeH), mk(F.gate)), hint);
+  const deckBox = h('div', { class: 'arp-deck' }), deck = H.Deck(deckBox, { tabs: F.tabs.map(t => ({ id: t.id, label: t.label })), keys: () => S.keys });
+  let scale = null;
+  F.tabs.forEach(t => { const box = h('div', { class: 'arp-rows' }, t.rows.map(r => h('div', { class: 'arp-row' }, r.map(mk)))); deck.panel(t.id).append(box);
+    if (!t.scale) return;
+    // Arp's own scale uses the one named-scale control (ADR-351 r6). The thirteen rows it binds have no control of their own to mount, so these markers tell "every key has a control" so; self-check 4g proves the binding writes them.
+    t.scale.degs.concat(t.scale.root).forEach(k => formHosts.add(h('div', { 'data-key': k })));
+    const sh = h('div'), state = () => ({ root: idx(t.scale.root), mask: t.scale.degs.map(idx) }), s0 = state();
+    scale = H.ScalePicker(sh, { root: s0.root, mask: s0.mask, visual: 'circles', variants: false, onChange: s => { const was = state(); dev.begin('Arp · own scale'); if (s.root !== was.root) writeStep(ROW[t.scale.root], path(t.scale.root), s.root); t.scale.degs.forEach((k, i) => { if (s.mask[i] !== was.mask[i]) writeStep(ROW[k], path(k), s.mask[i]); }); dev.end(); } });
+    box.append(sh);
+    // GUI-12: the scale's one home. Its circles are toggles; a double-click on its root or name resets all thirteen, as one step.
+    sh.addEventListener('dblclick', e => { if (!e.target.closest('.sc-root, .sc-name')) return; dev.begin('Arp · own scale, home'); t.scale.degs.concat(t.scale.root).forEach(k => dev.set(k, ROW[k].default_v, { label: 'Arp · own scale, home' })); dev.end(); });
+    views.push({ page: 'arp', update() { const w = state(), g = scale.get(); if (g.root !== w.root || g.mask.join() !== w.mask.join()) scale.set(w.root, w.mask); } });
+  });
+  el.append(h('div', { class: 'arp-stage' }, card, deckBox));
+  let sig = '', ph = null, W = 8;
+  views.push({ page: 'arp', update() {
+    const sync = val(F.rate.mode) === 'sync'; syncH.hidden = !sync; timeH.hidden = sync;
+    const patId = A.patternIds[idx(F.pattern)], b = A.bank.patterns.find(p => p.id === patId), ps = Object.assign({}, A.bank.pattern_defaults); if (b) ['step_size', 'step_unit'].forEach(q => { if (b[q] !== undefined) ps[q] = b[q]; });
+    const L = sync ? A.rateBeats[idx(F.rate.sync)] : raw(F.rate.time) / 1e6 * ARP_BPM / 60;
+    const i = { order: val(F.order), steps: Z.stepsOf(A.bank, patId), patSize: ps.step_size, patUnit: ps.step_unit, passes: raw(named('.steps')), size: raw(named('.step_size')), unit: val(named('.step_unit')), repeats: raw(named('.repeats')), L, W: Math.max(8, 8 * L), swing: raw(named('.swing')), gate: raw(F.gate), seed: raw(seedKey), fixed: val(named('.vel_mode')) === 'fixed' ? raw(named('.vel_fixed')) : null, E: Z.SAMPLE_E, Pp: Z.SAMPLE_PP, bpm: ARP_BPM };
+    const s = [patId, i.order, i.passes, i.size, i.unit, i.repeats, L, i.swing, i.gate, i.seed, i.fixed].join();
+    if (s !== sig) { sig = s; W = i.W; viz.innerHTML = Z.rollSVG(Z.rollModel(i), i); ph = viz.querySelector('.ph'); hint.textContent = b ? b.length + (b.length === 1 ? ' step: ' : ' steps: ') + b.purpose : 'Your own pattern. Its editor isn’t built yet.'; }
+    if (ph) { if (S.reduce) ph.style.display = 'none'; else ph.setAttribute('x', 26 + (S.t * ARP_BPM / 60 % W) / W * 366); }   // MOCK: a fixed tempo, on the session's frame clock
+  } });
+  arpFace = { deck, ord: ord.c, pat: pat.c, viz, scale };
+}
 function ledgerPage(pg, el) {
   const L = DATA.ledger, rows = L.rows, R = L.reasons;
   const count = (f, v) => rows.filter(r => r[f] === v).length;
@@ -1249,6 +1303,7 @@ DATA.pages.forEach(pg => {
   else if (pg.panel === 'history') historyPage(pg, el);
   else if (pg.id === 'mod') modPageForm(pg, el);       // ADR-338 r8 (half A); every other parameter page is a grid (half B)
   else if (pg.deck) mainPage(pg, el);
+  else if (pg.form) arpPage(pg, el);
   else if (pg.grid) paramPage(pg, el);
   else classicPage(pg, el);
   if (pg.panel === 'morph') el.append(morphPanel());
@@ -1393,6 +1448,17 @@ function openMenu(key, x, y) {
   const b = menu.getBoundingClientRect();
   menu.style.left = Math.max(8, Math.min(x, innerWidth - b.width - 8)) + 'px'; menu.style.top = Math.max(8, Math.min(y, innerHeight - b.height - 8)) + 'px';
 }
+// GUI-12: a double-click returns any control but a toggle to home, on every page. Knobs, sliders and steppers mostly do it themselves; this catches the rest (pills, dropdowns, the picture pickers, the Mix page's faders). Not on a stepper's arrows, because two quick clicks there are two steps. Not under MAP, where a click is a mapping.
+$('win').addEventListener('dblclick', e => {
+  if (S.map.on || e.altKey || !e.target.closest || e.target.closest('.hd-chev, .sc-b')) return;
+  const t = hostOf(e.target), r = t && ROW[t.dataset.key];
+  if (!r || t.dataset.w === 'toggle') return;
+  if (dev.shown(r.key) === r.default_v) return;
+  if (r.law === 'step') { writeStep(r, r.label + ', home', r.default_index); return; }
+  const m = dev.morph(), ai = r.class === 'D' ? null : (m.on && S.pinned !== null ? S.pinned : dev.owner(r.key));   // a fader that has no double-click of its own (the Mix page's)
+  if (ai === null || !m.on || S.writable({ key: r.key, name: r.label, locked: false }, ai)) dev.set(r.key, r.default_v, { corner: ai, label: r.label + ', home' });
+  if (menu) closeMenu();
+});
 $('win').addEventListener('contextmenu', e => { const t = hostOf(e.target); if (!t) return; e.preventDefault(); openMenu(t.dataset.key, e.clientX, e.clientY); });
 document.addEventListener('pointerdown', e => { if (menu && !menu.contains(e.target)) closeMenu(); }, true);
 
@@ -1601,12 +1667,12 @@ S.start();
   // The Mod page (ADR-338 r8) builds each modulator's controls once and the page's pane swaps the selected detail in, so the hosts it
   // holds count as the page's mounted controls while a detail is not showing (heldHosts). A grid page's table (.hd-pt) is a second
   // view of the same keys, so its rows are not mounts: the grid's are counted. Every other page is read from the document.
-  DATA.pages.forEach(pg => { const have = new Set([...pageEls[pg.id].querySelectorAll('[data-key]')].filter(e => !e.closest('.hd-pt') && !e.dataset.second)); if (pg.id === 'mod') heldHosts.forEach(x => have.add(x));
+  DATA.pages.forEach(pg => { const have = new Set([...pageEls[pg.id].querySelectorAll('[data-key]')].filter(e => !e.closest('.hd-pt') && !e.dataset.second)); if (pg.id === 'mod') heldHosts.forEach(x => have.add(x)); if (pg.form) formHosts.forEach(x => have.add(x));
     const want = pg.groups.flatMap(g => g.controls.map(c => c.key)), got = [...have].map(e => e.dataset.key); n += got.length; if (!same(want, got)) allSame = false; });
   const sub = DATA.pages.find(p => p.id === 'sub'), subWant = sub.groups.flatMap(g => g.controls.map(c => c.key));
   line(allSame && !same(subWant.slice(1), subWant), 'Mounted = generated: ' + n + ' controls on ' + DATA.pages.length + ' pages, each page\u2019s keys exactly; a list one key short reads as different (control).');
   // 2. No control lacks a parameter, and every host parameter is on a page.
-  const mounted = new Set([...document.querySelectorAll('#pages [data-key]'), ...heldHosts].map(e => e.dataset.key));
+  const mounted = new Set([...document.querySelectorAll('#pages [data-key]'), ...heldHosts, ...formHosts].map(e => e.dataset.key));
   const bankKeys = [...document.querySelectorAll('#bank [data-key]')].map(e => e.dataset.key);
   const orphans = [...mounted, ...bankKeys].filter(k => !ROW[k] || ROW[k].reserved), unreached = DATA.params.filter(r => !r.reserved && !mounted.has(r.key));
   line(!orphans.length && !unreached.length && ROW['x'] === undefined, 'No control without a parameter (' + orphans.length + '), no host parameter without a control (' + unreached.length + ' of ' + DATA.counts.host + '); an unknown key is not a row (control).');
@@ -1718,6 +1784,17 @@ S.start();
     dev.restore(t0); dev.clearRedo(); selectPage(pg0); S.message = ''; tick();
     const parts = { arpTop, inBar, forked, dot, curRow: !!curRow, rowsN: rowsN >= n0 + 3, bold, moved, restored, kept, aheadRow, folds: shownX && openN > foldedN, back: Math.abs(dev.shown(k) - v0) < 1e-9 && dev.tree().nodes.length === n0 }, bad = Object.keys(parts).filter(q => !parts[q]);
     line(!bad.length, (bad.length ? '(MISSED ' + bad.join(', ') + ') ' : '') + 'Arp and History (GUI-10): Arp has its own button and left Mod; History draws the tree with a bold spine and a marked fork; a click restored a state and kept the other branch; a run folds and the switch unfolds it, ' + foldedN + ' rows to ' + openN + '. Control: the value had really moved first.'); }
+  // 4g. GUI-11: Arp's page, from the lab. Every tab fits in every state the area narrows; the pictures come from Arp's definitions; a pick is one step; the roll follows the settings; the scale control writes its rows.
+  { const pg0 = page, R = e => e.getBoundingClientRect(), widthWas = $('win').style.width, F = PG.arp.form, tick = () => { for (const v of views) if (v.page === 'arp' || v.page === '*') v.update(); for (const v of S.views) v.render(); }; $('win').style.width = '980px'; selectPage('arp'); tick();
+    const fits = () => { const out = []; F.tabs.forEach(t => { arpFace.deck.pick(t.id); tick(); const p = arpFace.deck.panel(t.id); if (p.scrollHeight > p.clientHeight + 1 || p.scrollWidth > p.clientWidth + 1) out.push(t.id + ' +' + (p.scrollHeight - p.clientHeight) + '/' + (p.scrollWidth - p.clientWidth)); }); const c = document.querySelector('.arp-card'); if (c.scrollHeight > c.clientHeight + 1 || c.scrollWidth > c.clientWidth + 1) out.push('card +' + (c.scrollHeight - c.clientHeight) + '/' + (c.scrollWidth - c.clientWidth)); return out; };
+    const plain = fits(); setMorphOn(true); S.setMap(true); paintDock(); tick(); const narrow = fits(); S.setMap(false); setMorphOn(false); dev.undo(); dev.undo(); dev.clearRedo(); paintDock(); arpFace.deck.pick(F.tabs[0].id); tick();
+    const ordIds = DATA.arp.values[F.order], unknown = ordIds.filter(id => !H.ArpViz.ORDERS[id]), patOk = DATA.arp.patternIds.length === ROW[F.pattern].options.length && DATA.arp.patternNames.length === DATA.arp.patternIds.length, beatsOk = DATA.arp.rateBeats.length === ROW[F.rate.sync].options.length;
+    arpFace.ord.open(); const rows = [...arpFace.ord.panel().querySelectorAll('.pl-row')], pics = rows.length === ordIds.length && rows.every(r => r.querySelector('svg circle')); const pick = rows[2]; const h0 = dev.history().past.length, svg0 = arpFace.viz.innerHTML; pick.click(); tick(); const oneStep = dev.history().past.length === h0 + 1 && !arpFace.ord.isOpen(), rollMoved = arpFace.viz.innerHTML !== svg0 && arpFace.viz.querySelectorAll('rect').length > 3;
+    arpFace.pat.open(); const patRows = arpFace.pat.panel().querySelectorAll('.pl-row').length; S.escape(); const escClosed = !arpFace.pat.isOpen();
+    const sc = F.tabs.find(t => t.scale).scale, deg = sc.degs[1], d0 = dev.shown(deg), m = arpFace.scale.get().mask.slice(); m[1] = m[1] ? 0 : 1; arpFace.scale.set(arpFace.scale.get().root, m); const setQuiet = dev.shown(deg) === d0; dev.begin('self-check'); writeStep(ROW[deg], 'self-check', m[1]); dev.end(); tick(); const pickerFollows = arpFace.scale.get().mask[1] === m[1] && dev.shown(deg) !== d0; dev.undo(); dev.undo(); dev.clearRedo(); tick();
+    selectPage(pg0); $('win').style.width = widthWas; S.message = ''; tick();
+    const parts = { plain: !plain.length, narrow: !narrow.length, unknown: !unknown.length, patOk, beatsOk, pics, oneStep, rollMoved, patRows: patRows === DATA.arp.patternIds.length, escClosed, setQuiet, pickerFollows, undone: dev.shown(deg) === d0 }, bad = Object.keys(parts).filter(q => !parts[q]);
+    line(!bad.length, (bad.length ? '(MISSED ' + bad.join(', ') + (plain.length || narrow.length ? ': ' + plain.concat(narrow).join(', ') : '') + ') ' : '') + 'Arp’s page (GUI-11): the card and ' + F.tabs.length + ' tabs fit, with morph and MAP on too; all ' + ordIds.length + ' orders have a definition and a picture; a pick is one step and the roll follows it; Escape closes the list; the scale control reads and follows its thirteen rows.'); }
   // 5. The info box shows the hovered control's text, and clears off a control (control).
   const kh = document.querySelector('#page-sub [data-key="' + CSS.escape(kc.key) + '"]');
   kh.dispatchEvent(new MouseEvent('pointerover', { bubbles: true })); const shown = $('infoText').textContent.startsWith(r.spec) && $('infoKey').textContent === r.key;
@@ -2236,6 +2313,26 @@ S.start();
     line(full && shared && back, 'Info sidebar (ADR-345 r4): on, the box runs the rail\u2019s full height, left of the pages, and the foot row keeps its 120 px for the Lens and bank (GUI-8); the morph pad sits above the box and the box takes the rest; off puts every rectangle back (control).');
     infoBox.release(); selectPage(pg0); S.selected = sel0; selSeen = sel0; }
   showInfo(null); S.message = '';
+  // 4h. GUI-12: on every page, a double-click returns every control but a toggle to home. It walks them all. Controls: a toggle stays where it is, and a stepper's arrow doesn't reset.
+  { const fp = () => JSON.stringify({ morph: dev.morph().on, map: S.map.on, pin: S.pinned, keys: S.keys, page, win: $('win').className, body: document.body.className, width: $('win').style.width, sub: pageEls.sub.scrollHeight, main: pageEls.main.scrollHeight, shell: JSON.stringify(dev.patch().shell).length, tree: dev.tree().nodes.length }), fp0 = fp();
+    const pg0 = page, tick = () => { for (const v of views) if (v.page === page || v.page === '*') v.update(); for (const v of S.views) v.render(); }, missed = []; let n = 0, tog = 0, togKept = true;
+    const away = r => { const d = r.default_v, a = r.law === 'step' ? vOf(r, r.default_index === 0 ? Math.min(1, r.n - 1) : 0) : (d > .5 ? d - .3 : d + .3); return a; };
+    dev.begin('self-check');
+    DATA.pages.forEach(pg => { selectPage(pg.id); tick();
+      [...pageEls[pg.id].querySelectorAll('[data-key]')].filter(e => !e.closest('.hd-pt') && !e.dataset.second && ROW[e.dataset.key] && e.offsetWidth).forEach(host => { const r = ROW[host.dataset.key];
+        const was = dev.shown(r.key);
+        if (host.dataset.w === 'toggle') { tog++; const onSame = dev.shown(r.key); const inner = host.querySelector('button') || host; inner.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true })); if (dev.shown(r.key) !== onSame) togKept = false; return; }
+        if (dev.set(r.key, away(r), { label: 'self-check' }) === null) return;
+        const inner = host.querySelector('.mk-face, .ms-track, .hd-slider, .pp-v, output, select, .hd-pill, button:not(.hd-chev), .hd-seg') || host;
+        for (const v of S.views) v.render();
+        inner.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true })); for (const v of S.views) v.render(); n++;
+        if (Math.abs(dev.shown(r.key) - r.default_v) > 1e-6) missed.push(r.key + ' (' + host.dataset.w + ')');
+        dev.set(r.key, was, { label: 'self-check' }); }); });
+    const stepK = [...pageEls.osc1.querySelectorAll('[data-w="stepper"]')][0]; let arrowSafe = true;
+    if (stepK) { selectPage('osc1'); tick(); const r = ROW[stepK.dataset.key], ch = stepK.querySelector('.hd-chev'); if (ch) { const v0 = away(r); dev.set(r.key, v0, { label: 'self-check' }); ch.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true })); arrowSafe = dev.shown(r.key) === v0; } }
+    if (dev.end()) dev.undo(); dev.clearRedo(); selectPage(pg0); S.message = ''; tick();   // only if the bracket made a step: every write here is put back, so it may not have, and an undo would reach an earlier step
+    const fp1 = fp(), same = fp0 === fp1;
+    line(same && !missed.length && n > 300 && tog > 10 && togKept && arrowSafe, 'Double-click (GUI-12): ' + n + ' controls on every page returned to home' + (missed.length ? ' (MISSED ' + missed.length + ': ' + missed.slice(0, 8).join(', ') + ')' : '') + '. Controls: ' + tog + ' toggles stayed where they were' + (togKept ? '' : ' (ONE MOVED)') + ', and a stepper’s arrow didn’t reset' + (arrowSafe ? '' : ' (IT DID)') + '.' + (same ? '' : ' It left something behind: ' + fp0 + ' then ' + fp1)); }
   dev.clearHistory();   // the checks' own steps (the probes, the morph toggles) are not the user's history
 })();
 
