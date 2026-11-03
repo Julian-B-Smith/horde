@@ -1,0 +1,20 @@
+<!-- @dsCard group="Controls" height=330 subtitle="GUI-6, P1: the global preset in one line. The host owns loading; the bar names what was picked." -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>PresetBar</title></head>
+<body>
+<div style="padding:14px 16px 10px; min-height:280px">
+  <div id="bar" style="width:322px"></div>
+  <p class="hd-hint" id="said" style="margin:10px 0 0">Open the list, or step through it. SAMPLE names, and nothing loads here.</p>
+</div>
+<script>
+(function () {
+  var H = window.Horde, S = new H.Session({ x: .5, y: .5, corners: ['A', 'B', 'C', 'D'] }), said = document.getElementById('said');
+  H.PresetBar(document.getElementById('bar'), S, { value: 'Sample bass 1', note: 'SAMPLE names: nothing loads in this preview',
+    bank: { Init: ['Sample init'], Bass: ['Sample bass 1', 'Sample bass 2'], Lead: ['Sample lead 1', 'Sample lead 2'], Pad: ['Sample pad'] },
+    onPick: function (n, c) { said.textContent = 'Picked ' + n + ' in ' + c + '.'; }, onSave: function () { said.textContent = 'Save pressed.'; } });
+  S.start();
+})();
+</script>
+</body>
+</html>

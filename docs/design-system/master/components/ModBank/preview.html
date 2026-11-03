@@ -1,16 +1,16 @@
-<!-- @dsCard group="Modulators" height=700 subtitle="M2 + BT1 + BR-b (ADR-338 r7, ADR-340 r11, ADR-341): the 68 px bank, two lanes of 26 px thin rows with MAC | MODS segments; a click on a row expands its compact card; any modulator is removable with an Undo line (M-R2)" -->
+<!-- @dsCard group="Modulators" height=700 subtitle="F5 + R2 (GUI-8, ADR-340 r11): the 120 px bank, two columns of 26 px thin rows with MAC | MODS segments; a click on a row expands its compact card; any modulator is removable with an Undo line (M-R2)" -->
 <!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><title>ModBank</title></head>
 <body>
 <div style="padding:210px 16px 10px">
-  <div style="max-width:958px">
+  <div style="max-width:302px">
     <div id="page" style="background:var(--bg); border:var(--stroke-ink) solid var(--ink); border-bottom:0; padding:6px 8px"></div>
     <div id="bank"></div>
     <div id="undo" style="margin-top:6px"></div>
   </div>
   <p class="hd-msg" id="msg" style="margin:6px 0 0"></p>
-  <p class="hd-hint" style="margin:2px 0 0">The bank lists what modulates this page (Osc 1 sample: eight controls above, so six here, plus a pending one when + is pressed). MODS | MAC switches lanes; scroll a lane sideways for more. Click a row's name: its compact card opens above the bank (Escape or a click elsewhere closes it). Map presses MAP with that source, then click a knob; or drag Map onto a knob. x removes the modulator and every route it has as one undo step; the line below names them and offers Undo. On MAC the ten rows are the macros, the bend and the mod wheel (see Macro row). Values are SAMPLES.</p>
+  <p class="hd-hint" style="margin:2px 0 0">MODS | MAC switches sets. MODS is two columns of short rows, eight in view and the rest scrolling. Click a row's name: its compact card opens above the bank, with the value and x (Escape or a click elsewhere closes it). Map presses MAP with that source, then click a knob; or drag Map onto a knob. x removes the modulator and every route it has as one undo step; the line below names them and offers Undo. MAC is eight knobs beside the bend and mod wheels. In the shell the list is every active modulator (GUI-7); this preview filters to its sample page. Values are SAMPLES.</p>
 </div>
 <script>
 (function () {

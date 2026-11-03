@@ -1394,7 +1394,7 @@ canvas.hd-ring { outline:none; }
 .hd-info .face > :empty { display:none; }
 
 /* the bank (M2, BT1): 68 px, two lanes of 26 px rows; the side column holds the Macros | Mods segments, the count and + */
-.hd-bank { position:relative; box-sizing:border-box; display:flex; gap:6px; height:var(--size-bank-h); padding:4px 6px; background:var(--panel); border:var(--stroke-ink) solid var(--ink); min-width:0; }
+.hd-bank { position:relative; box-sizing:border-box; display:flex; gap:6px; height:var(--size-bank-h); padding:4px 6px; background:var(--panel); border:var(--stroke-ink) solid var(--ink); border-radius:var(--radius); min-width:0; }
 .hd-bank .bk-side { display:flex; flex-direction:column; gap:3px; align-items:flex-start; width:var(--size-bank-side); flex:0 0 var(--size-bank-side); }
 .hd-bank .hd-btn { position:relative; min-height:16px; padding:0 8px; border-radius:4px; font-size:9.5px; line-height:1; box-shadow:none; }
 .hd-bank .hd-btn::before { content:''; position:absolute; left:-4px; right:-4px; top:50%; height:var(--size-hit); transform:translateY(-50%); }
@@ -1404,8 +1404,37 @@ canvas.hd-ring { outline:none; }
 .hd-bseg button:last-child { border-radius:0 2px 2px 0; }
 .hd-bseg button[aria-checked="true"] { background:var(--ink); color:var(--bg); }
 .hd-bseg button::before { content:''; position:absolute; left:-1px; right:-1px; top:50%; height:var(--size-hit); transform:translateY(-50%); }
-.hd-bank .bk-lanes { flex:1 1 auto; min-width:0; display:grid; grid-auto-flow:column; grid-template-rows:var(--size-row-thin) var(--size-row-thin); grid-auto-columns:var(--size-row-thin-w); gap:3px 6px; overflow-x:auto; overflow-y:hidden; overscroll-behavior:contain; scrollbar-width:thin; align-content:start; }
-.hd-bank .bk-lanes.macros { grid-auto-columns:var(--size-row-macro-w); }
+.hd-bank .bk-lanes { flex:1 1 auto; min-width:0; display:grid; grid-auto-flow:row; grid-template-columns:repeat(2, minmax(0, 1fr)); grid-auto-rows:var(--size-row-thin); gap:1px 3px; align-content:start; overflow:hidden auto; scrollbar-width:thin; }
+/* R2 (GUI-8 r6): two columns of short rows, eight in view; the value and x are on the row's card */
+.hd-bank .hd-trow { width:auto; grid-template-columns:7px minmax(0, 1fr) 22px 18px; gap:2px; padding:0 2px 0 3px; }
+.hd-bank .hd-trow .tval, .hd-bank .hd-trow .hd-xb, .hd-bank .hd-trow .tnm small { display:none; }
+.hd-bank .hd-trow .tpic { width:22px; }
+.hd-bank .bk-lanes.macros { grid-template-columns:repeat(4, minmax(0, 1fr)) 20px 20px; grid-template-rows:minmax(0, 1fr) minmax(0, 1fr); grid-auto-rows:auto; gap:0 3px; align-items:start; justify-items:center; align-content:stretch; overflow:hidden; }
+/* GUI-8 r5: the macros as knobs, the wheels as small vertical sliders spanning both rows */
+.hd-mknob { min-width:0; }
+.hd-mwheel { display:flex; flex-direction:column; align-items:center; gap:1px; width:100%; height:100%; min-height:0; }
+.hd-mwheel[data-wheel="bend"] { grid-area:1 / 5 / 3 / 6; }
+.hd-mwheel[data-wheel="mod"] { grid-area:1 / 6 / 3 / 7; }
+.hd-mwheel .mw-lab { font:700 7.5px/1.1 var(--font-sans); color:var(--t2); white-space:nowrap; }
+.hd-mwheel .mw-track { position:relative; width:14px; flex:1 1 auto; min-height:30px; box-sizing:border-box; border:1px solid var(--ink); border-radius:3px; background:var(--well); touch-action:none; cursor:ns-resize; }
+.hd-mwheel .mw-cap { position:absolute; left:1px; right:1px; height:4px; background:var(--ink); border-radius:1px; }
+.hd-mwheel[data-wheel="bend"] .mw-track::after { content:''; position:absolute; left:-2px; right:-2px; top:50%; height:1px; background:var(--hint); }
+/* the Lens in the foot row (GUI-8 r1): the same parts, tighter */
+.hd-lens.foot { height:100%; overflow:hidden; }
+.hd-lens.foot > .cl-lab { display:none; }
+.hd-lens.foot .lz-knob { min-height:0; }
+.hd-lens.foot .lz-corners { display:grid; grid-template-columns:1fr 1fr; gap:0 6px; }
+/* PRESET BAR (GUI-6, P1) */
+.hd-pbar { position:relative; display:flex; align-items:center; gap:3px; min-width:0; font:400 11px/1.2 var(--font-sans); color:var(--ink); }
+.hd-pbar > button { box-sizing:border-box; height:22px; padding:0 6px; border:1px solid var(--div); border-radius:4px; background:var(--panel); color:var(--ink); font:inherit; cursor:pointer; white-space:nowrap; }
+.hd-pbar > button:hover { border-color:var(--ink); }
+.hd-pbar .pb-name { flex:1 1 auto; min-width:0; text-align:left; font-weight:700; overflow:hidden; text-overflow:ellipsis; }
+.hd-pbar .pb-list { position:absolute; left:0; top:calc(100% + 3px); z-index:30; width:max(100%, 420px); max-width:430px; display:grid; grid-template-columns:96px minmax(0, 1fr); gap:2px 8px; padding:6px; box-sizing:border-box; background:var(--bg); border:var(--stroke-ink) solid var(--ink); border-radius:var(--radius); }
+.hd-pbar .pb-note { grid-column:1 / -1; font:400 10px/1.3 var(--font-mono); color:var(--hint); }
+.hd-pbar .pb-cats, .hd-pbar .pb-names { display:flex; flex-direction:column; gap:1px; min-width:0; }
+.hd-pbar .pb-item { border:0; background:none; color:var(--ink); text-align:left; padding:3px 6px; border-radius:3px; font:inherit; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.hd-pbar .pb-item:hover, .hd-pbar .pb-item:focus-visible { background:var(--sel-neutral); }
+.hd-pbar .pb-item[aria-current] { font-weight:800; }
 .hd-bank .bk-pop { position:absolute; bottom:100%; margin-bottom:3px; z-index:20; }
 
 /* M5: the Mod page, a list and a detail */

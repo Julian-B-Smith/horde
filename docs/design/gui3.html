@@ -50,6 +50,12 @@
   body.scaled .col { max-width: none; align-items: flex-start; }
   body.scaled #win { width: 980px; margin: 0; zoom: var(--win-zoom, 1); }
   #win { width: min(100%, 980px); height: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--space-stack); box-sizing: border-box; overflow: hidden; }
+  /* GUI-6 and GUI-8 r7: the preset bar in the top row and the colours in the second, both in the room the page tabs leave on every page (the lens lab measured all 14) */
+  .chrome { position: relative; }
+  #presetHost { position: absolute; left: 508px; top: 3px; width: 322px; z-index: 8; }
+  #colourHost { position: absolute; left: 678px; top: 32px; width: 152px; height: 22px; display: flex; align-items: center; gap: 4px; z-index: 7; }
+  #colourHost .hd-btn { min-height: 20px; padding: 0 6px; font-size: 10px; }
+  #colourHost #scrTop { flex: 1 1 auto; min-width: 0; }
   .chrome { display: flex; align-items: flex-start; gap: var(--space-gap) 14px; flex: 0 0 auto; }
   .logo { box-sizing: border-box; width: 91px; height: 60px; flex: 0 0 auto; display: grid; place-items: center; text-align: center; }
   .tabs { display: grid; grid-template-columns: repeat(6, auto); gap: 4px; justify-content: start; }
@@ -67,8 +73,10 @@
   .body.with-side .rail { display: flex; flex-direction: column; gap: var(--space-stack); min-width: 0; min-height: 0; }
   .rail .dock { flex: 0 0 auto; }
   .rail .info { flex: 1 1 auto; width: auto; height: auto; min-height: 0; }
-  .pagecol.side-on .footrow { --foot-h: 92px; }
-  .pagecol.side-on.bank-off .footrow { display: none; }
+  /* GUI-8 r4 with the sidebar: the rail keeps ADR-345 r4's full height by running past the body's foot, and the foot row sits beside it. Left at the body's height, the box was 93 px with morph on. 126 is the foot row and the stack gap. */
+  .body.with-side .rail { align-self: start; height: calc(100% + 126px); z-index: 1; }
+  .footrow.side-on { margin-left: 234px; }
+  .footrow.side-on.bank-off #lensHost { flex: 1 1 auto; }
   .insp-dock { width: auto; min-height: 0; overflow-y: auto; }
   .insp-dock[hidden] { display: none; }
   .insp-dock .hd-insp { max-width: none; flex: 1 1 auto; }
@@ -149,10 +157,11 @@
   .ledger-row { display: flex; flex-direction: column; gap: 2px; padding: 5px 0; border-top: 1px dashed var(--div); }
   .ledger-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
   .ledger-item { color: var(--ink); font-weight: 600; }
-  /* The bank (ADR-338 r7): the bundle's ModBank, 68 px, at the foot of the column; the removal line (M-R2) sits above it, and the
-     room between them is where a row's compact card opens (it opens ABOVE the bank, over this room and, if it is taller, the page
-     area). The info box (ADR-335 r4) keeps the foot row one fixed height, so the bank does not hand its height back (ADR-345 r1: 120 px). */
-  #bank { width: auto; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; min-width: 0; }
+  /* The bank (GUI-8 r3): the bundle's ModBank at the foot row's full height and 302 px, beside the summed scope over the summed spectrum. The removal line (M-R2) floats
+     above it, over the page's foot, because kept in the row it held 24 px empty above the bank all the time. A row's compact card opens above the bank too. */
+  #bank { position: relative; width: auto; display: flex; flex-direction: row; align-items: stretch; gap: var(--space-stack); min-width: 0; }
+  #bankHost { flex: 0 0 302px; height: 100%; min-width: 0; }
+  #undoLine { position: absolute; left: 0; right: 0; bottom: 100%; margin-bottom: 3px; z-index: 6; }
   #bank[hidden] { display: none; }
   .page { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
   .page[hidden], .dock[hidden] { display: none; }
@@ -165,11 +174,16 @@
   .cards > .hd-card.wide { flex-basis: 100%; }
   .hd-card .face { gap: 4px 6px; align-items: flex-start; justify-content: flex-start; padding: 6px 7px 8px; }
   .ctl { min-width: 0; }
-  /* ADR-335 ruling 4 (B582) with ADR-345 r1 (F1, 300 x 120, so the six fixable pages fit: docs/design/foot-row-lab.html): the
+  /* ADR-335 ruling 4 (B582) with ADR-345 r1 (F1, 120 px high, so the six fixable pages fit: docs/design/foot-row-lab.html) and GUI-8 r2 (240 px wide, to make room for the Lens): the
      foot row is one height on every page, the info box one size in one place, and what it says scrolls inside it, so hovering
      never moves or resizes anything. The bank takes the rest of the row, scrolling inside itself. Hiding the bank leaves the row
      and the box where they are: the page area does not grow back (open question for the human, README). */
-  .footrow { --foot-h: 120px; --info-w: 300px; display: flex; gap: var(--space-stack); flex: 0 0 auto; height: var(--foot-h); min-width: 0; }
+  #lensHost { flex: 0 0 214px; height: 100%; min-width: 0; }
+  #sums { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: var(--space-stack); }
+  .sum { position: relative; flex: 1 1 0; min-height: 0; }
+  .sum canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .sumcap { position: absolute; left: 5px; top: 3px; font: 400 8.5px/1 var(--font-mono); color: var(--scr-grid); white-space: nowrap; pointer-events: none; }
+  .footrow { --foot-h: 120px; --info-w: 240px; display: flex; gap: var(--space-stack); flex: 0 0 auto; height: var(--foot-h); min-width: 0; }
   .info { width: var(--info-w); flex: 0 0 var(--info-w); height: 100%; display: flex; flex-direction: column; }
   .info .head { flex: 0 0 auto; min-width: 0; }
   .info .head .hd-cluster { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -213,6 +227,8 @@
     <div class="chrome">
       <div class="logo hd-hint" title="The locked logo goes here at 91 x 60; the shell does not redraw it">logo<br>91 × 60</div>
       <div id="pnav" class="grow"></div>
+      <div id="presetHost"></div>
+      <div id="colourHost"><button class="hd-btn hd-focus" id="themeTop" type="button"></button><div id="scrTop"></div></div>
       <div class="switches hd-dense">
         <label class="hd-row hd-label">Morph <button class="hd-toggle hd-focus" id="morphOn" type="button" role="switch" aria-checked="false" aria-label="Morph on"></button></label>
         <label class="hd-row hd-label">Pad <button class="hd-toggle hd-focus" id="padOn" type="button" role="switch" aria-checked="true" aria-label="Show the docked morph pad"></button></label>
@@ -235,13 +251,6 @@
       </div>
       <div class="pagecol" id="pagecol">
         <main id="pages"></main>
-        <div class="footrow" id="footrow">
-          <section class="hd-card info" id="info" aria-label="Info box" aria-live="polite"></section>
-          <section id="bank" aria-label="Modulator bank">
-            <div id="undoLine"></div>
-            <div id="bankHost"></div>
-          </section>
-        </div>
       </div>
       <!-- the spec's inspector rail, the mouse route for P (the polarity pill), Backspace (the remove button) and focus (a row);
            it shows while MAP is on and takes no space otherwise -->
@@ -249,6 +258,19 @@
         <div class="head"><span class="hd-cluster">Mappings</span><span class="tag">MAP ON</span></div>
         <div class="face"><div id="insp"></div></div>
       </aside>
+    </div>
+    <!-- GUI-8 r4: the foot row spans the window, so the morph dock and the MAP inspector end above it and never take its width -->
+    <div class="footrow" id="footrow">
+      <section class="hd-card info" id="info" aria-label="Info box" aria-live="polite"></section>
+      <div id="lensHost"></div>
+      <section id="bank" aria-label="Modulator bank">
+        <div id="undoLine"></div>
+        <div id="bankHost"></div>
+        <div id="sums" aria-label="The summed output">
+          <div class="sum hd-viz"><canvas id="sumScope" role="img" aria-label="Summed scope (MOCK)"></canvas><span class="sumcap">Summed scope · MOCK</span></div>
+          <div class="sum hd-viz"><canvas id="sumSpec" role="img" aria-label="Summed spectrum (MOCK)"></canvas><span class="sumcap">Summed spectrum · MOCK</span></div>
+        </div>
+      </section>
     </div>
   </div>
 
@@ -932,12 +954,8 @@ function syncTable(pg, el) {
   });
 }
 function paramPage(pg, el) {
-  const keys = pg.groups.flatMap(g => g.controls.map(c => c.key)), cont = keys.filter(k => ROW[k].law !== 'step');
   const secs = h('div', { class: 'pv-secs' }, pg.groups.map(g => gridSection(pg, g)));
-  const lens = h('div'); if (cont.length) H.Lens(lens, S, { scope: cont, fallback: cont[0], size: 'standard' });
-  const lensView = S.views[S.views.length - 1];       // the lens draws only while its page shows, as every other view of this file
-  if (cont.length) { const r0 = lensView.render; lensView.render = function () { if (page === pg.id) r0.apply(this, arguments); }; }
-  const left = h('div', { class: 'pv-left' }, pg.viz ? vizView(pg.viz, pg.id, true) : null, cont.length ? lens : null);
+  const left = h('div', { class: 'pv-left' }, pg.viz ? vizView(pg.viz, pg.id, true) : null);   // the Lens left this column for the foot row (GUI-8 r1)
   const box = h('div', { class: 'hd-cell hd-dense' }), tbl = tableOf(pg);
   const pv = H.PageView(box, S, { id: pg.id, label: pg.label, left: left.childNodes.length ? left : undefined, grid: secs, table: tbl, keys: () => S.keys, onView: v => { if (v === 'table') syncTable(pg, box); } });
   // Both views are built now, grid first in the document: a control must be mounted whichever view the page remembers (PV1 builds the
@@ -1228,7 +1246,7 @@ const SIDEBAR_KEY = 'hd.info.sidebar';
 const sidebarBtn = h('button', { class: 'hd-toggle hd-focus', id: 'sidebarOn', type: 'button', role: 'switch', 'aria-checked': 'false', 'aria-label': 'Info sidebar' });
 function setSidebar(on) {
   if (on) $('rail').append($('info')); else $('footrow').prepend($('info'));
-  $('bodyGrid').classList.toggle('with-side', on); $('pagecol').classList.toggle('side-on', on); sidebarBtn.setAttribute('aria-checked', String(on));
+  $('bodyGrid').classList.toggle('with-side', on); $('footrow').classList.toggle('side-on', on); sidebarBtn.setAttribute('aria-checked', String(on));
 }
 sidebarBtn.addEventListener('click', () => { const on = sidebarBtn.getAttribute('aria-checked') !== 'true'; setSidebar(on); try { localStorage.setItem(SIDEBAR_KEY, on ? '1' : '0'); } catch (_) { /* not remembered */ } });
 pageEls.settings.append(h('section', { class: 'hd-card', 'aria-label': 'Interface' },
@@ -1258,7 +1276,7 @@ $('win').addEventListener('contextmenu', e => { const t = hostOf(e.target); if (
 document.addEventListener('pointerdown', e => { if (menu && !menu.contains(e.target)) closeMenu(); }, true);
 
 // ===== BLOCK D3: the bottom modulator bank (ADR-322 items 3 and 4, B556; ADR-338 r7 and r9, ADR-340 r8 and r11, ADR-341 r6 and r7) =====
-// The design master's ModBank: 68 px, two lanes of 26 px thin rows, the MAC | MODS segments (BT1), a click on a row's name opens its
+// The design master's ModBank (GUI-8): 120 px, two columns of short rows or the macro knobs and wheels, the MAC | MODS segments (BT1), a click on a row's name opens its
 // compact card above the bank. The MODS lane's rows are READ, never kept: every modulator with a route on any page, ENV 1 always (it has no + and no other way
 // to be mapped from here), and the modulators activated with + and not yet mapped (the adapter's pending state). GUI-7, amending ADR-323 r4's "page controls only". The MAC lane is the
 // intent bus's macros, the pitch bend and the mod wheel (MacroRow, BR-b): the stub has no intent bus, so they show unbound.
@@ -1309,13 +1327,23 @@ const bank = H.ModBank($('bankHost'), S, { mods: bankMods, macros: MACROS, pageK
   onAdd: () => openAddMenu(), onRemove: removeMod,
   onSet: set => S.say(set === 'mods' ? 'The bank shows the modulators on this page' : 'The bank shows the macros, the pitch bend and the mod wheel'),
   onMacro: (id, v, by) => { if (by === 'mouse') macroNote(); } });
+// GUI-8 r1: one Lens, the same place on every page, following whatever is under the pointer.
+H.Lens($('lensHost'), S, { scope: () => true, fallback: pageKeysList('main').find(k => ROW[k].law !== 'step'), size: 'compact', form: 'foot' });
+// GUI-8 r3: the summed output in the foot row, drawn by the bundle's painters from the engine's observation view (IF-10; dev.summed(), MOCK in the stub), as on the Mix page.
+{ const specState = {}; let sumFrame = 0;
+  views.push({ page: '*', update() { if ($('bank').hidden) return; const sm = dev.summed(); if (!sm) return; sumFrame++; H.Viz.scope($('sumScope'), { l: sm.scope, r: sm.scope, R: 0 }); H.Viz.spectrum($('sumSpec'), sm.bands, specState, sumFrame * 1000 / 60); } }); }
+// GUI-6, P1: the global preset. MOCK: the names are the factory bank's (docs/presets/factory, its global presets), and nothing loads, because those files are in the legacy state format and the
+// device has no preset seam yet (B261's file manager).
+H.PresetBar($('presetHost'), S, { value: 'INIT - Init', note: 'MOCK: the factory bank\u2019s names, and nothing loads yet. A preset holds its four corners too (ADR-192).',
+  bank: { Init: ['INIT - Init'], Bass: ['BS - Growl Bass', 'BS - Reese', 'BS - Sub Anchor', 'BS - Tight Stack', 'BS - Wobble Frame'], Keys: ['KY - Clav Swarm', 'KY - Hymnal', 'KY - Music Box', 'KY - Paper Rhodes'], Lead: ['LD - Glass Reed', 'LD - Hoover', 'LD - Hyper Lead', 'LD - Knife Fifth', 'LD - Talk Lead'], Morph: ['MO - Blend Drift', 'MO - Quantum Morph', 'MO - Two State'], Pad: ['PD - Breath Field', 'PD - Drift Choir', 'PD - Glacier', 'PD - Slow Consensus', 'PD - Stasis'], Pluck: ['PL - Bell Lattice', 'PL - Koto Swarm', 'PL - Porcelain', 'PL - Spark'] },
+  onPick: n => S.say('MOCK: ' + n + ' is picked, and nothing loads yet'), onSave: () => S.say('MOCK: nothing is saved yet') });
 // MS4 (ADR-340 r8, H.SourceRows' rule): with MAP on, a click on a row's body (anywhere but a button) makes it the source of the next
 // mapping. The name and the Map handle are buttons, so a click on them keeps its own meaning; with MAP off a click does nothing.
 $('bankHost').addEventListener('click', e => {
   const row = S.map.on && !e.target.closest('button') ? e.target.closest('.hd-trow') : null, s = row && S.src(row.dataset.mod);
   if (s) { S.setSrc(s.id); S.say('Source: ' + s.name + ' (the bank row)'); }
 });
-function setBankShown(on) { bankShown = on; $('bank').hidden = !on; $('pagecol').classList.toggle('bank-off', !on); $('bankOn').setAttribute('aria-checked', String(on)); }
+function setBankShown(on) { bankShown = on; $('bank').hidden = !on; $('footrow').classList.toggle('bank-off', !on); $('bankOn').setAttribute('aria-checked', String(on)); }
 $('bankOn').addEventListener('click', () => { setBankShown(!bankShown); S.say(bankShown ? 'Bank shown' : 'Bank hidden'); });
 // + : activate a modulator that is neither routed nor pending. It shows in the bank as pending until it is mapped.
 function openAddMenu() {
@@ -1376,6 +1404,15 @@ $('sizeMode').querySelectorAll('button').forEach(b => b.addEventListener('click'
 setSize('fixed');
 const dark = () => document.documentElement.dataset.theme ? document.documentElement.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
 $('themeBtn').addEventListener('click', () => { document.documentElement.dataset.theme = dark() ? 'light' : 'dark'; $('themeBtn').setAttribute('aria-pressed', String(dark())); });
+// GUI-8 r7: light or dark and the screen colour, in the top bar and on the Settings page. themeBtn sits outside the plugin's window, so the window gets its own; the two screen controls keep each other in step.
+const paintTheme = () => { $('themeTop').textContent = dark() ? 'Dark' : 'Light'; $('themeTop').setAttribute('aria-label', 'Theme: ' + $('themeTop').textContent + '. Click to change'); themeSet.textContent = $('themeTop').textContent; };
+const themeSet = h('button', { class: 'hd-btn hd-focus', type: 'button', 'aria-label': 'Theme, light or dark' }), scrSet = h('div');
+$('themeBtn').addEventListener('click', paintTheme);
+[$('themeTop'), themeSet].forEach(b => b.addEventListener('click', () => $('themeBtn').click()));
+{ let mirroring = false, a = null, b = null; const mirror = other => id => { if (mirroring || !other()) return; mirroring = true; other().set(id); mirroring = false; };
+  a = H.ScreenScheme($('scrTop'), $('win'), { onchange: mirror(() => b) }); b = H.ScreenScheme(scrSet, $('win'), { list: true, onchange: mirror(() => a) }); }
+pageEls.settings.querySelector('section[aria-label="Interface"] .face').prepend(h('div', { class: 'hd-row hd-label' }, h('span', { text: 'Colours' }), themeSet), scrSet);
+paintTheme();
 // Keyboard mode (ADR-259 ruling 6): off, no control in the window takes focus. The bundle's own controls set their tab stops.
 function sweepTabs() {
   $('win').querySelectorAll('button, select, .hd-stepper').forEach(e => { if (!e.closest('.hd-mk, .hd-ms, .hd-ms-v, .hd-xy, .hd-corners')) e.tabIndex = S.keys ? 0 : -1; });
@@ -1460,6 +1497,16 @@ S.start();
   { const pg0 = page; setMorphOn(true); const missing = DATA.pages.filter(pp => { selectPage(pp.id); return $('dock').hidden || !$('bodyGrid').classList.contains('with-dock') || !$('dock').contains($('padHost')); }).map(pp => pp.id);
     selectPage(pg0); $('dock').hidden = true; const seesHidden = $('dock').hidden; paintDock(); setMorphOn(false); dev.undo(); dev.undo(); dev.clearRedo();
     line(!missing.length && seesHidden, 'Dock: with morph on, the morph pad docks on all ' + DATA.pages.length + ' pages' + (missing.length ? ' (MISSING on ' + missing.join(', ') + ')' : '') + '; a hidden dock reads as hidden (control).'); }
+  // 4c. GUI-8 r1, r3, r4; GUI-6; GUI-8 r7. Each state is confirmed on, because the foot row's fault only showed with morph or MAP on (the human's pictures, 2026-11-02).
+  { const R = e => e.getBoundingClientRect(), pg0 = page, footW = () => R($('footrow')).width, tick = () => { for (const v of views) if (v.page === '*') v.update(); for (const v of S.views) v.render(); }, widthWas = $('win').style.width;
+    $('win').style.width = '980px';   // self-checks run before the `win` flag and in whatever the page is wide: the plugin's window is 980 px, and that's what this measures
+    const inRow = () => { const fr = R($('footrow')); return [$('info'), $('lensHost'), $('bankHost'), $('sums')].every(e => { const q = R(e); return q.left >= fr.left - 1 && q.right <= fr.right + 1 && q.width > 100; }); };
+    const w0 = footW(), row0 = inRow(), sumW = R($('sums')).width; setMorphOn(true); S.setMap(true); paintDock(); tick(); const both = !$('dock').hidden; const w1 = footW(), row1 = inRow(), sw1 = R($('sums')).width; S.setMap(false); setMorphOn(false); dev.undo(); dev.undo(); dev.clearRedo(); paintDock(); tick();
+    const clash = []; DATA.pages.forEach(pp => { selectPage(pp.id); const a = R($('presetHost')), c = R($('colourHost')); [...document.querySelectorAll('#pnav button, .switches, .logo')].forEach(e => { const q = R(e); if (q.width && [a, c].some(r => r.left < q.right - 1 && q.left < r.right - 1 && r.top < q.bottom - 1 && q.top < r.bottom - 1)) clash.push(pp.id + ':' + e.textContent.trim().slice(0, 8)); }); }); selectPage(pg0);
+    const g0 = $('win').style.getPropertyValue('--scr-ground'), chip = $('scrTop').querySelector('.hd-scrchip'), listB = scrSet.querySelector('[data-id="ember"]'); chip.click(); const g1 = $('win').style.getPropertyValue('--scr-ground'), listed0 = [...scrSet.querySelectorAll('button')].find(b => b.getAttribute('aria-checked') === 'true').dataset.id; listB.click(); const g2 = $('win').style.getPropertyValue('--scr-ground'), chipText = chip.textContent; scrSet.querySelector('[data-id=""]').click(); const g3 = $('win').style.getPropertyValue('--scr-ground');
+    $('win').style.width = widthWas;
+    line(both && $('footrow').parentElement === $('win') && Math.abs(w0 - w1) < 1 && w0 > 900 && row0 && row1 && sumW > 150 && sw1 > 150 && $('lensHost').classList.contains('foot') && !document.querySelector('#pages .hd-lens') && !clash.length && g1 !== g0 && listed0 === 'tube' && /ember/.test(g2) && /EMBER/.test(chipText) && g3 === g0,
+      'Foot row and top bar (GUI-6, GUI-8): the row spans the window at ' + Math.round(w0) + ' px with morph and MAP off and on (scope and spectrum ' + Math.round(sumW) + ' px, then ' + Math.round(sw1) + '); one Lens, none on a page; the preset bar and colours clear the tabs, switches and logo on all ' + DATA.pages.length + ' pages' + (clash.length ? ' (HITS ' + clash.slice(0, 4).join(', ') + ')' : '') + '; the top chip and the Settings list change the screen colour and stay in step.'); }
   // 5. The info box shows the hovered control's text, and clears off a control (control).
   const kh = document.querySelector('#page-sub [data-key="' + CSS.escape(kc.key) + '"]');
   kh.dispatchEvent(new MouseEvent('pointerover', { bubbles: true })); const shown = $('infoText').textContent.startsWith(r.spec) && $('infoKey').textContent === r.key;
@@ -1750,15 +1797,15 @@ S.start();
   // runs on the session's frame clock, stepped here one 100 ms frame at a time (no clock). Control: both sat at 0.9 before the frames.
   { const tick = () => { for (const v of S.views) v.render(); };
     $('bankHost').querySelector('.hd-bseg [data-set="macros"]').click(); tick();
-    const names = [...$('bankHost').querySelectorAll('.hd-macrow .tnm')].map(e => e.firstChild.textContent), foots = [...$('bankHost').querySelectorAll('.hd-macrow .tnm small')].map(e => e.textContent);
-    const ruled = names.join() === 'Tone,Space,Time,Motion,Macro 5,Macro 6,Macro 7,Macro 8,Pitch bend,Mod wheel' && foots.slice(0, 8).every(t => t === 'unbound') && foots[8] === 'springs' && foots[9] === 'holds';
+    const names = [...$('bankHost').querySelectorAll('.bk-lanes.macros > [data-mod]')].map(e => { const n = e.querySelector('.mk-name'); return n ? n.textContent : e.getAttribute('aria-label') || e.dataset.mod; }), knobs = $('bankHost').querySelectorAll('.bk-lanes.macros .hd-mknob .mk-face').length, wheels = $('bankHost').querySelectorAll('.bk-lanes.macros .hd-mwheel .mw-track').length;
+    const ruled = names.join() === 'Tone,Space,Time,Motion,Macro 5,Macro 6,Macro 7,Macro 8,Pitch bend,Mod wheel' && knobs === 8 && wheels === 2;
     const bend = bank.macro('bend'), wheel = bank.macro('modwheel'); bend.set(.9); wheel.set(.9);
     const away = bend.get() === .9 && wheel.get() === .9, n0 = S.now; S.now = n0 || 0;
     for (let i = 0; i < 8; i++) { S.now += 100; tick(); }
     const sprang = Math.abs(bend.get() - .5) < 1e-3, held = wheel.get() === .9; S.now = n0;
     S.message = ''; macroNote(); const says = /not in the engine yet/.test(S.message);
     bend.set(.5); wheel.set(0); $('bankHost').querySelector('.hd-bseg [data-set="mods"]').click(); tick(); S.message = '';
-    line(ruled && away && sprang && held && says, 'MAC lane: ten rows in the ruled order, the eight macros unbound, the bend springing and the mod wheel holding; the bend at 0.9 sprang back to the centre in 8 frames and the mod wheel stayed at 0.9; a macro’s drag says it is not in the engine yet (control: both sat at 0.9 before the frames).'); }
+    line(ruled && away && sprang && held && says, 'MAC (GUI-8 r5): ten controls in the ruled order, eight knobs and two wheels, the bend springing and the mod wheel holding; the bend at 0.9 sprang back to the centre in 8 frames and the mod wheel stayed at 0.9; a macro’s drag says it is not in the engine yet (control: both sat at 0.9 before the frames).'); }
   // 31. The Mod page (ADR-338 r8, ADR-340 r10): list + detail, every source a row and the selected one's full tier beside it (ENV 3’s own
   // rows are in it); the Routes view's three forms (grid, by source, wires) are views of the same device routes, a route made through
   // the device shows in the by-source group, and the wires' depth-route drop is REFUSED (the engine has none, B70) and makes no
@@ -1837,7 +1884,7 @@ S.start();
       ptr('pointerdown', 100); ptr('pointermove', 119); ptr('pointerup', 119); tick();
       const v1 = dev.shown(k), face = ctlHost(pageEls.osc1, k).querySelector('.mk-face'); pv.view('grid'); tick();
       ctlHost(pageEls.osc1, k).dispatchEvent(new MouseEvent('pointerenter')); tick();
-      const lensV = pageEls.osc1.querySelector('.hd-lens .mk-v1');
+      const lensV = $('lensHost').querySelector('.mk-v1');
       const grid = Math.abs(+face.getAttribute('aria-valuenow') - v1) < 1e-3, lens = lensV && lensV.textContent === ENG.display(r, v1), moved = v1 > v0 + .1 && dev.history().past.length === h0 + 1;
       dev.undo(); tick();
       line(moved && grid && lens && dev.shown(k) === v0 && !!pageEls.osc1.querySelector('.hd-pv .pv-head .hd-pills'), 'One value, many faces: a drag on ' + r.label + '’s table cell moved it ' + ENG.display(r, v0) + ' → ' + ENG.display(r, v1) + ' as one step; the grid’s knob and the lens read it; undo restored all (control: the value differed before).'); }
@@ -1853,12 +1900,12 @@ S.start();
       line(none && dimmed && shown >= 1 && shown < rows.length && remembered, 'Find: “coupling” dimmed ' + 'the rest of Osc 1’s grid (' + hits + (hits === 1 ? ' match' : ' matches') + ') and filtered its table to ' + shown + ' of ' + rows.length + ' rows; a second view of the page remembers the text, another page does not (control: no text dims nothing).'); }
     // 37. ADR-338 r5: the lens shows the control under the pointer (the full knob, every corner, every mapping), and the last one clicked after the pointer
     // leaves. Control: before any hover it shows the page’s fallback, not this control.
-    { selectPage('osc1'); const lensEl = pageEls.osc1.querySelector('.hd-lens'), who = () => lensEl.querySelector('.lz-name').textContent;
+    { selectPage('osc1'); const lensEl = $('lensHost'), who = () => lensEl.querySelector('.lz-name').textContent;
       tick(); const before = who(), k = PG.osc1.groups[0].controls.find(c => ROW[c.key].law !== 'step' && ROW[c.key].label !== before).key, r = ROW[k];
       ctlHost(pageEls.osc1, k).dispatchEvent(new MouseEvent('pointerenter')); tick(); const hot = who();
       const corners = lensEl.querySelectorAll('.lz-corners .lz-ln').length;
       ctlHost(pageEls.osc1, k).dispatchEvent(new MouseEvent('pointerleave')); tick();
-      line(hot === r.label && before !== r.label && corners === 4 && !!lensEl.querySelector('.mk-face'), 'Lens: hovering ' + r.label + ' put it in Osc 1’s lens (its full knob and four corner values); before the hover the lens showed ' + before + ' (control: not this control).'); }
+      line(hot === r.label && before !== r.label && corners === 4 && !!lensEl.querySelector('.mk-face'), 'Lens: hovering ' + r.label + ' put it in the foot row’s one Lens (its knob and four corner values); before the hover the lens showed ' + before + ' (control: not this control).'); }
     // 38. ADR-338 r5, ADR-345 r1: the dense pages fit the page area the window really gives (the foot row is 120 px), the folds holding the rest.
     // Each fold at +Adv must overflow Osc 1 (the control), so the fold is what holds it.
     { const limit = $('pages').clientHeight, over = [], size = {};
@@ -1962,10 +2009,10 @@ S.start();
     selectPage('main'); showInfo(null);
     const rect = e => { const r = e.getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map(v => Math.round(v * 100) / 100).join(','); }, snap = () => ['pagecol', 'pages', 'bank', 'info', 'footrow'].map(i => rect($(i))).join('|');
     const idle = snap(), w0 = $('pages').clientWidth, h0 = $('pages').clientHeight, boxW = $('info').getBoundingClientRect().width, inFoot = $('info').parentElement === $('footrow');
-    setSidebar(true); const ib = $('info').getBoundingClientRect(), gr = $('bodyGrid').getBoundingClientRect(), full = Math.abs(ib.height - gr.height) < 1 && $('info').parentElement === $('rail') && $('footrow').offsetHeight === 92 && $('pages').clientHeight > h0 && $('pages').clientWidth < w0 && ib.right <= $('pagecol').getBoundingClientRect().left;
-    setMorphOn(true); const db = $('dock').getBoundingClientRect(), ib2 = $('info').getBoundingClientRect(), shared = !$('dock').hidden && db.bottom <= ib2.top && Math.abs(ib2.bottom - gr.bottom) < 1 && ib2.height > 120; setMorphOn(false);
-    setSidebar(false); const back = snap() === idle && inFoot && boxW === 300;
-    line(full && shared && back, 'Info sidebar (ADR-345 r4): on, the box runs the rail\u2019s full height, left of the pages, and the foot row is the bank\u2019s 92 px; the morph pad sits above the box and the box takes the rest; off puts every rectangle back (control).');
+    setSidebar(true); const ib = $('info').getBoundingClientRect(), gr = $('bodyGrid').getBoundingClientRect(), full = Math.abs(ib.height - (gr.height + 126)) < 1 && $('info').parentElement === $('rail') && $('footrow').offsetHeight === 120 && $('pages').clientHeight === h0 && $('pages').clientWidth < w0 && ib.right <= $('pagecol').getBoundingClientRect().left;
+    setMorphOn(true); const db = $('dock').getBoundingClientRect(), ib2 = $('info').getBoundingClientRect(), shared = !$('dock').hidden && db.bottom <= ib2.top && Math.abs(ib2.bottom - (gr.bottom + 126)) < 1 && ib2.height > 180; setMorphOn(false);
+    setSidebar(false); const back = snap() === idle && inFoot && boxW === 240;
+    line(full && shared && back, 'Info sidebar (ADR-345 r4): on, the box runs the rail\u2019s full height, left of the pages, and the foot row keeps its 120 px for the Lens and bank (GUI-8); the morph pad sits above the box and the box takes the rest; off puts every rectangle back (control).');
     infoBox.release(); selectPage(pg0); S.selected = sel0; selSeen = sel0; }
   showInfo(null); S.message = '';
   dev.clearHistory();   // the checks' own steps (the probes, the morph toggles) are not the user's history
