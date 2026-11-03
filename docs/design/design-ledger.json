@@ -6414,6 +6414,10 @@
   {
    "adr": "ADR-353",
    "reason": "How the decision log merges in git: no control or design element."
+  },
+  {
+   "adr": "ADR-354",
+   "reason": "The engine's CPU target and the cutover's bar: no control or design element."
   }
  ],
  "audit_notes": [

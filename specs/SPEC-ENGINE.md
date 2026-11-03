@@ -1138,10 +1138,9 @@ Ratified by the human before the bank stage began (ADR-284, B522), so the bar is
   - **The batch.** The human hears a capped batch of about 20 pairs: each one a bank preset rendered by the new engine and by the current one, on a phrase of the phrase set (10.3), level-matched, labelled. The pairs are ranked by a differential report of the two engines over the whole bank (B523; reported, never a gate), so the most different come first.
   - **The rule.** Any pair the human marks wrong blocks the cutover until the engine is fixed or the human rules the difference acceptable for that preset, recorded per preset.
   - **The record.** Each verdict, with the pair it was given on, is kept.
-- **4. The CPU.** The heaviest bank patch at 8 voices, measured under the frozen protocol (PF-3) on a quiet machine, against B488's target of about 15 % of an M3 performance core at os 1:
-  - at or under 15 %: **pass**;
-  - over 15 % and at or under 29 % (no worse than the engine it replaces): **accepted for cutover, with a recorded CPU follow-up**;
-  - over 29 %: **fails the cutover**.
+- **4. The CPU.** The heaviest bank patch at 8 voices, measured under the frozen protocol (PF-3) on a quiet machine, against PF-1's target of about 10.7 % of an M3 performance core for its one swarm oscillator (round 52, ADR-354):
+  - at or under 10.7 %: **pass**;
+  - over 10.7 %: **does not pass**. The figure and what would close it go to the human, and the cutover waits on the human's ruling.
 - **5. The size.** Reported at cutover, never a gate. The engine stood at about 10,050 lines (9,056 of code) before the bank stage, against about 14,370 retired from the current engine. The expectation is that it stays under the retired count. BD-6's estimate of 2,100 to 3,000 lines was wrong for this scope and is corrected, not hidden.
 - **6. The ruling.** When 1 to 4 hold, the human rules the cutover. The current engine is retired only on that word.
 

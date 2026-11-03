@@ -11089,3 +11089,32 @@ Three points stayed open, because the shell already marks a knob selected the mo
 - **Not tested on GitHub.** The evidence is local git. The first clash after this lands shows whether GitHub's own check honours the attribute; if it does not, the conflict banner stays and the hand rebuild is unchanged.
 
 **Consequences.** The records rebuild still applies to the other files, and to this one if GitHub does not honour the attribute. **FX device (ADR-254):** none; this is how the records merge.
+
+## ADR-354 — RULED by the human: the new engine's CPU target is 10.7 %, and the 15 and 29 % bands go; spec round 52 (B608, B494, B488; 2026-11-02)
+
+**Context.** ADR-284 ruling 2 let a cutover pass at 15 % of an M3 core and accepted up to 29 %, “no worse than the engine it replaces”. That bar doesn't fit the spec's own budget: PF-1 gives one swarm oscillator 10.7 %, and PF-2 gives all sources 22.7 % of an M3 at the assumed ×1.5. Two oscillators at 29 % would be 58 %. The lead offered ADR-284's bands to the human without saying so, which was the lead's miss. The human, 2026-11-02: “Going over that 29% is untenable; that's just one oscillator in a system that will have a second copy of the same oscillator, a sub & a noise osc, a full FX rack, and morph logic in the mix.”
+
+**Ruling (the human, 2026-11-02): “Yes, make 10.7% the target.”** Spec §10.6 item 4 takes PF-1's target, in place of ADR-284 ruling 2's bands.
+
+**The lead's reading, open to overrule.**
+- At or under 10.7 % passes. Over it doesn't pass: the figure and what would close it go to the human, and the cutover waits on the human's ruling, rather than failing outright.
+- ADR-347's stopping rule follows: at 2× or better from the first round, the builder continues until 10.7 % or until gains stop, and stalled above 10.7 % returns to the human.
+
+**Also from the human, not yet a ruling:** “we may even need to push harder as we consider the impact things like morphing between heavy patches with arpeggiators running will have ... I want to make sure sound designers and experimenters (and, theoretically, performers) have as much wiggle room as possible.”
+
+**The lead's arithmetic on that, from the spec, measured by nothing yet** (x is one setting's share of an M3 core; ×1.5 is still assumed; FX, modulation, master and sub are 17 % of a min-spec core):
+- A static patch at 10.7 %: two oscillators are 32 % of a min-spec core, 49 % with the rest. That's the budget.
+- SB-1 renders the kernel once per setting. Blending two settings at 10.7 % is about 81 % of a min-spec core at worst. Blending four is about 145 %, which a min-spec machine can't run. Fitting four into about 80 % needs x of about 5 %. These are upper bounds: settings share one member state, so a kernel-only blend costs less than x each.
+- Quantum, the default law, resolves each key to one value, so it doesn't multiply, apart from PA-5's 5 ms crossfades.
+- The budget is measured at 8 voices and PF-5's default is 16, so an arpeggio with long tails can double any of these.
+- PF-3 reads an average over a held chord. A dropout is one late block, and nothing yet measures the worst block under a note stream.
+
+**Proposed, for the human:** a reported cell, never a gate, for an ambitious patch: two heavy oscillators, Blend at the pad's centre at both counts, a fast note stream, 8 and 16 voices, with its worst block beside its average. It decides whether to aim lower than 10.7 % from evidence. It would be a spec row, so it waits on the human's word (B608).
+
+**Rejected.** Keeping 29 % as an accepted band; keeping 15 % as a pass.
+
+**Consequences.**
+- Spec round 52 reaches both clean-room repositories the same turn, with the builder's stopping rule updated. No test changes: CPU is reported, never a suite gate (PF-3), and the tool already prints PF-1's target.
+- B488's 15 % stays that row's target for the current engine, whose plan it is.
+- The rulings log gains row 87.
+- **FX device (ADR-254):** none directly. It hosts no engine, so this budget is not its own. Its modules' slice is unchanged.
