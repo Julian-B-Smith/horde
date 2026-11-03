@@ -10,6 +10,8 @@
 
 **What the walk found.** The Mix page's five faders, and the pills and dropdowns, had no double-click. The walk's own first version undid a step it hadn't made, because every write it makes is put back and so the bracket can make no step; it reached an earlier check's step and left morph on. It now undoes only if the bracket made a step, and it compares a fingerprint of the shell before and after.
 
-**Not checked.** A plugin host, the light scheme, Arp's page with morph on by hand (self-check 4g measures its fit). `select` double-click was tried in this browser only. Whether home becomes the loaded patch's value is open.
+**Not checked.** A plugin host, the light scheme, Arp's page with morph on by hand (self-check 4g measures its fit). `select` double-click was tried in this browser only. 
+
+**Home, ruled.** The human: "I agree that it should return to a loaded preset", then "*of the value of the loaded preset". Recorded in GUI-12, ledger row `gui12-home-preset` and B261, not built: nothing loads in the shell yet, so home stays the default until the preset seam.
 
 **Verify.** See the PR.

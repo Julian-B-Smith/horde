@@ -11281,14 +11281,15 @@ Three points stayed open, because the shell already marks a knob selected the mo
 
 **Context.** The human, 2026-11-03: "Important note for every parameter on every page (except toggles, I guess): double clicking should return to home". B449 had this for knobs, sliders and steppers. A walk of every control found the pill groups, dropdowns, picture pickers and Mix faders didn't.
 
-**Ruling.** A double-click returns any control but a toggle to home, on every page.
+**Ruling.** A double-click returns any control but a toggle to home, on every page. **Home is the loaded preset's value** (the human, 2026-11-03: "I agree that it should return to a loaded preset", then "*of the value of the loaded preset"). Until the shell can load one (B261's preset seam), home is the parameter's default.
+
+**Open for when presets load.** Whether saving a preset moves home to what was saved, and whether a corner's own saved preset (the Morph page's) is that corner's home.
 
 **Readings taken (the GUI session's, open to the human).**
-- **Home is the parameter's default today,** because the shell has no presets loading yet. Whether home becomes the loaded patch's value is asked, not assumed.
 - **A stepper's arrows don't reset:** two quick clicks there are two steps. The rest of the stepper does.
 - **Not under MAP,** where a click is a mapping.
 - **A double-click on a pill** selects it and then resets, since the first click lands first.
 - **The XY pad returns to its centre, the wheels to their rest, and a mapping's depth to 25 %,** as a ◇ does (GUI-3). The morph pad's puck already returns to the centre.
 - **Arp's scale** resets all thirteen rows from its root or name. Its circles are toggles.
 
-**Consequences.** Self-check 4h walks every control on every page, with toggles and a stepper's arrow as its controls. **FX device (ADR-254):** the same, on its pages.
+**Consequences.** Self-check 4h walks every control on every page, with toggles and a stepper's arrow as its controls. The preset seam must give every double-click one place to read home from: knobs, sliders and steppers read their row's default themselves today, and so does this listener. **FX device (ADR-254):** the same, on its pages.
