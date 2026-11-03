@@ -1,4 +1,4 @@
-<!-- @dsCard group="Controls" height=240 subtitle="GUI-2: the pad whose two axes the player assigns. The picker isn't designed yet." -->
+<!-- @dsCard group="Controls" height=240 subtitle="GUI-9: two extra macro knobs on one pad, with a chip per axis and a mark at rest." -->
 <!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><title>AssignXY</title></head>
@@ -7,7 +7,7 @@
 <script>
 (function () {
   var H = window.Horde, S = new H.Session({ x: .5, y: .5, corners: ['A', 'B', 'C', 'D'] });
-  H.AssignXY(document.getElementById('xy'), S, { x: .62, y: .58, labelX: 'sample X', labelY: 'sample Y', tag: 'SAMPLE' }); S.start();
+  H.AssignXY(document.getElementById('xy'), S, { x: .62, y: .58, tag: 'SAMPLE', rest: true, axes: [{ id: 'y', label: 'Y', corner: 'tl', text: function () { return 'touches 2'; } }, { id: 'x', label: 'X', corner: 'br', text: function () { return 'nothing here'; } }] }); S.start();
 })();
 </script>
 </body>

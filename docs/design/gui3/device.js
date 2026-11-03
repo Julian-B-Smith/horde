@@ -32,7 +32,9 @@
   'use strict';
   var HYST = 0.1, NAME_MAX = 40;
   /* IF-3's published per-voice sources, plus IF-1's velocity, aftertouch and the four MPE expressions.
-     The LFOs and macros are the device's and do not exist yet (RC-4 deferred), so they are not listed. */
+     The LFOs are the device's and do not exist yet (RC-4 deferred), so they are not listed. The macros and the XY's axes
+     aren't in the engine either (B89): they're here, MOCK, so routes can carry them until the intent bus does (GUI-9). The
+     axes are bipolar because they rest at the pad's centre, so a new mapping offsets nothing until the puck moves. */
   var SOURCES = [
     { id: 'env1', name: 'ENV 1', kind: 'env' }, { id: 'env2', name: 'ENV 2', kind: 'env' },
     { id: 'env3', name: 'ENV 3', kind: 'env' }, { id: 'env4', name: 'ENV 4', kind: 'env' },
@@ -41,7 +43,12 @@
     { id: 'osc2R', name: 'Osc 2 R', kind: 'engine' }, { id: 'osc2Psi', name: 'Osc 2 ψ', kind: 'engine' },
     { id: 'onset', name: 'Onset burst', kind: 'engine' }, { id: 'gravity', name: 'Gravity offset', kind: 'engine' },
     { id: 'vibrato', name: 'Vibrato', kind: 'engine' }, { id: 'expression', name: 'Expression', kind: 'engine' },
-    { id: 'brightness', name: 'Brightness', kind: 'engine' }, { id: 'pressure', name: 'Pressure', kind: 'engine' }
+    { id: 'brightness', name: 'Brightness', kind: 'engine' }, { id: 'pressure', name: 'Pressure', kind: 'engine' },
+    { id: 'macro1', name: 'Tone', kind: 'macro' }, { id: 'macro2', name: 'Space', kind: 'macro' },
+    { id: 'macro3', name: 'Time', kind: 'macro' }, { id: 'macro4', name: 'Motion', kind: 'macro' },
+    { id: 'macro5', name: 'Macro 5', kind: 'macro' }, { id: 'macro6', name: 'Macro 6', kind: 'macro' },
+    { id: 'macro7', name: 'Macro 7', kind: 'macro' }, { id: 'macro8', name: 'Macro 8', kind: 'macro' },
+    { id: 'xyx', name: 'XY X', kind: 'macro', pol: 'bi' }, { id: 'xyy', name: 'XY Y', kind: 'macro', pol: 'bi' }
   ];
   var POLS = ['uni', 'bi', 'inv', 'ctl'], CORNER_IDS = ['A', 'B', 'C', 'D'];
 
@@ -313,8 +320,10 @@
     };
     /* A map handle dropped on a parameter: a route through addRoute, which refuses what RC-4 refuses. A refused
        drop leaves a pending source pending; an accepted one maps it. */
+    D.canRoute = function (key) { return !routeFault({ src: SOURCES[0].id, param: key }); };
     D.drop = function (src, key) {
-      var res = D.addRoute({ src: src, param: key, pol: 'uni', depth: 0.25 });
+      var so = SOURCES.filter(function (x) { return x.id === src; })[0];
+      var res = D.addRoute({ src: src, param: key, pol: (so && so.pol) || 'uni', depth: 0.25 });
       if (res.ok) { var k = pending.indexOf(src); if (k >= 0) pending.splice(k, 1); changed(); }
       return res;
     };

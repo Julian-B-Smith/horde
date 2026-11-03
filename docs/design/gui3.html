@@ -373,8 +373,15 @@ transport = ENG.SyncTransport(engine, resolver, deviceSide);
 dev = DEV.create(DATA, transport, { seed: SEED });
 // `mapKeysAlways` is ADR-335 r1's ONE switch (SH.MAP_KEYS_ALWAYS, shell-logic.js), handed over as it stands: the session's own
 // listener then takes the map keys and Escape in every mode, and keeps them out of a field and off a Cmd/Ctrl chord (ADR-338 r11).
+// No voices, so the engine's sources read 0. The macros and the XY's axes read the GUI's own values, MOCK until the intent bus (GUI-9). The axes rest at the pad's centre.
+let mainXYCtl = null, touchAxis = null;
+function liveSource(id) {
+  const p = S.params['macro.' + id]; if (p) return p.g;
+  if (id !== 'xyx' && id !== 'xyy') return 0;
+  return mainXYCtl ? mainXYCtl.get()[id === 'xyx' ? 0 : 1] : .5;
+}
 S = new H.Session({ x: .5, y: .5, corners: [null, null, null, null], mapKeysAlways: SH.MAP_KEYS_ALWAYS,
-  sources: dev.sources().map(s => ({ id: s.id, name: s.name, kind: s.kind, f: () => 0 })),   // no voices, so every source reads 0
+  sources: dev.sources().map(s => ({ id: s.id, name: s.name, kind: s.kind, pol: s.pol, f: () => liveSource(s.id) })),
   mappings: [] });
 // MAP MODE writes DEVICE routes (the Map Mode spec; ADR-261): the session's mappings are a working list that the bridge
 // writes into the device's matrix at each gesture's end (one undo step) and reads back from it, so the ring on a knob, the
@@ -627,7 +634,7 @@ function randomizePlaceholder() {
 }
 
 // ---- the modulators, as the design master's tiers take them. Built before the pages (the Mod page and the bank both read them).
-const BANK = DATA.bank, KIND_LABEL = { env: 'ENV', engine: 'ENGINE' };
+const BANK = DATA.bank, KIND_LABEL = { env: 'ENV', engine: 'ENGINE', macro: 'MACRO' };
 // Each source as the bundle's tiers take it (ModTiers' `m`). `pending` is read live from the adapter, never copied, because a row
 // is built once and kept. The compact card's controls are built the first time its row opens, from the table (GUI3_DATA.bank).
 const bankCtls = Object.create(null);
@@ -639,7 +646,7 @@ dev.sources().forEach(src => {
   MODS[src.id] = { id: src.id, name: src.name, kind: src.kind, kindLabel: KIND_LABEL[src.kind] || src.kind.toUpperCase(), group: src.kind, fixed: true,
     get pending() { return dev.pending().includes(src.id); },
     get ctls() { return bankCtlsOf(src); },
-    note: 'No controls of its own: ' + (src.kind === 'engine' ? 'a value the engine publishes (IF-3), with no rows in SPEC-ENGINE 5.' : 'no rows in SPEC-ENGINE 5.') };
+    note: 'No controls of its own: ' + (src.kind === 'engine' ? 'a value the engine publishes (IF-3), with no rows in SPEC-ENGINE 5.' : src.kind === 'macro' ? 'it maps from its card, and it isn’t in the engine yet (B89).' : 'no rows in SPEC-ENGINE 5.') };
 });
 
 /* THE MOD PAGE (ADR-338 r8, M5: list + detail) and its ROUTE VIEWS (ADR-340 r10: ML4 the grid, ML3 by source, ML1 the wires; the grid
@@ -700,7 +707,7 @@ function modPageForm(pg, el) {
     note: { value: own[sr.id] ? '' : sr.id === 'env1' ? 'ENV 1 is the amplitude envelope: its rows are on the Main page.' : MODS[sr.id].note } }));
   const host = h('div');
   modPageCtl = H.ModPage(host, S, { mods, select: 'env2', keys: () => S.keys,
-    kinds: [{ id: 'env', label: 'ENVELOPES' }, { id: 'engine', label: 'ENGINE SOURCES' }],
+    kinds: [{ id: 'env', label: 'ENVELOPES' }, { id: 'engine', label: 'ENGINE SOURCES' }, { id: 'macro', label: 'MACROS AND XY', noAdd: true }],
     onMap: m => { const on = S.map.on && S.map.src === m.id; S.setSrc(m.id); S.setMap(!on); },
     onDrop: (m, key) => dropMap(m, key), onRemove: removeMod,
     // + per kind: activates the first source of that kind that is neither routed nor pending; it then shows PENDING until it is mapped
@@ -1002,8 +1009,9 @@ const mainSecond = (key, src, opts) => {
 };
 function fillMain() {
   const pg = PG.main; if (!pg.deck) return;
+  MACROS.filter(m => !m.wheel).forEach(m => macroOpener(bank.macro(m.id).host, m.id, $('bankHost'), true));
   pg.deck.head.forEach(k => { const hst = mainSecond(k, 'main', { size: 'utility' }); if (hst) $('mainEnvK').append(hst); });
-  MACROS.filter(m => !m.wheel).forEach(m => { const hst = h('div'), p = S.params['macro.' + m.id]; $('mainMacros').append(hst); if (p) H.SecondKnob(hst, S, p, { size: 'utility' }); });
+  MACROS.filter(m => !m.wheel).forEach(m => { const hst = h('div'), p = S.params['macro.' + m.id]; $('mainMacros').append(hst); if (p) { H.SecondKnob(hst, S, p, { size: 'utility' }); macroOpener(hst, m.id, $('mainMacros')); } });
   pg.deck.tabs.forEach(t => {
     const pn = mainDeck.panel(t.id);
     if (t.mock) { mainMock[t.mock](pn); return; }
@@ -1014,8 +1022,10 @@ function fillMain() {
     if (v) Object.values(v.keys).forEach(k => { if (!PROPS[k + '@main'] && PROPS[k + '@' + src]) PROPS[k + '@main'] = PROPS[k + '@' + src]; });   // the ring writes through the owner's props
     pn.append(h('div', { class: 'main-face' }, v ? h('div', { class: 'main-facev' }, vizView(v, 'main', true)) : null, rows));
   });
-  // the Specimen and the logo: the bench's own (ADR-333), stepped by this file's frame loop. The XY's value is MOCK: how a player assigns its two parameters isn't designed yet (GUI-2 r2).
-  const stage = H.MainStage, xy = H.AssignXY($('mainXY'), S, { x: .62, y: .58, labelX: 'X', labelY: 'Y', tag: 'XY · assignable · MOCK', underlay: stage.specimenCanvas(), keys: () => S.keys });
+  // the Specimen and the logo: the bench's own (ADR-333), stepped by this file's frame loop. GUI-9: X and Y are two extra macro knobs on one pad. It writes no parameter; the mappings carry it, MOCK until the bus.
+  const stage = H.MainStage, xy = mainXYCtl = H.AssignXY($('mainXY'), S, { x: .5, y: .5, rest: true, tag: 'XY · MOCK', underlay: stage.specimenCanvas(), keys: () => S.keys,
+    axes: [['xyy', 'Y', 'tl'], ['xyx', 'X', 'br']].map(([id, label, corner]) => ({ id, label, corner, text: () => { const n = touching(id).length; return n ? 'touches ' + n : 'nothing here'; }, lit: () => touchAxis === id || (S.map.on && S.map.src === id) })),
+    onAxis: id => mapCard.open(id, $('mainXY'), $('mainXY'), true) });   // above the pad, never on it: you drag the pad to hear what you've mapped
   stage.xy(() => { const q = xy.get(); return [q[0], 1 - q[1]]; });
   const slot = document.querySelector('.logo'); slot.textContent = ''; slot.removeAttribute('title'); slot.classList.remove('hd-hint'); slot.append(stage.logoCanvas());
   views.push({ page: '*', update() { const mo = dev.morph(); stage.MORPH.on = mo.on; stage.MORPH.x = S.pad.x; stage.MORPH.y = S.pad.y; stage.tick(page === 'main'); } });
@@ -1361,6 +1371,8 @@ function openMenu(key, x, y) {
         else { const m = dev.morph(), ai = m.on && S.pinned !== null ? S.pinned : dev.owner(r.key); if (!(m.on && S.locks[ai]) && dev.set(r.key, r.default_v, { corner: ai, label: 'Reset ' + r.label }) !== null) S.say('Reset ' + r.label + ' to ' + r.default_text); }
       }),
       item('Open in manual', () => S.say('Open in manual (stub): no page exists yet. B583 needs the manual’s HTML pages (B451); this would open the local manual at #param-' + r.key + '.')),
+      dev.canRoute(key) ? h('span', { class: 'hd-hint', text: 'Map to' }) : null,   // GUI-9 r4: the macros and the axes, which are macros
+      dev.canRoute(key) ? h('div', { class: 'hd-mapgrid' }, dev.sources().filter(s => s.kind === 'macro').map(s => item(s.name, () => addMapping(s.id, key)))) : null,
       ctl && ctl.live ? h('span', { class: 'hd-hint', text: 'Live when ' + says(ctl.live) + ' (PA-8)' }) : null));
   document.body.append(menu);
   const b = menu.getBoundingClientRect();
@@ -1393,7 +1405,34 @@ views.push({ page: '*', update() { if (bankPage !== page) { bankPage = page; ban
 // are named by number, not invented (ADR-192 leaves their phrase list open). No engine side exists (port-tab `macros`, spec-table).
 const MACROS = ['Tone', 'Space', 'Time', 'Motion', 'Macro 5', 'Macro 6', 'Macro 7', 'Macro 8'].map((name, i) => ({ id: 'macro' + (i + 1), name, touches: 0 }))
   .concat([{ id: 'bend', name: 'Pitch bend', wheel: 'bend', touches: 0 }, { id: 'modwheel', name: 'Mod wheel', wheel: 'mod', touches: 0 }]);
-const MACRO_SAYS = 'Macros and the wheels are not in the engine yet (the intent bus is the device’s, RC-4 deferred): a row moves its own value and sends nothing';
+const MACRO_SAYS = 'Macros and the wheels are not in the engine yet (the intent bus is the device’s, RC-4 deferred): a macro moves its rings here and sends nothing';
+// GUI-9: one card for a macro or an axis. Its mappings are device routes, MOCK until the bus. A list pick, a touch and a right-click each add (r2), and an axis also has List and Touch on its card.
+function touching(id) { return dev.routes().filter(r => r.src === id); }   // a declaration: Main's chips read it when the page is built, above here
+const LABEL_USES = {}; DATA.params.forEach(r => { LABEL_USES[r.label] = (LABEL_USES[r.label] || 0) + 1; });
+const mapName = k => (LABEL_USES[ROW[k].label] > 1 && ROW[k].block ? ROW[k].block + ' ' : '') + ROW[k].label;   // four rows read "Decay"
+function addMapping(src, key) {
+  if (touching(src).some(r => r.param === key)) { S.say(S.src(src).name + ' already moves ' + mapName(key)); return true; }
+  const res = dev.drop(src, key); S.say(res.ok ? S.src(src).name + ' → ' + mapName(key) + ' · 25%' : res.why); return res.ok;
+}
+function routableGroups(src) {
+  const groups = new Map(), seen = new Set(), taken = new Set(touching(src).map(r => r.param));
+  const walk = o => { if (Array.isArray(o)) { o.forEach(walk); return; } if (!o || typeof o !== 'object') return; const k = o.key; if (typeof k === 'string' && !seen.has(k) && ROW[k] && dev.canRoute(k)) { seen.add(k); const g = ROW[k].block || 'other'; if (!groups.has(g)) groups.set(g, []); groups.get(g).push({ key: k, label: ROW[k].label, taken: taken.has(k) }); } Object.values(o).forEach(walk); };
+  DATA.pages.forEach(p => walk(p.groups || p));
+  return [...groups].map(([name, items]) => ({ name, items }));
+}
+let paramList = null;
+function setTouch(id) { touchAxis = id; $('win').classList.toggle('hd-mclearn', !!id); if (id) S.say('Touch a control for ' + S.src(id).name + ', on any page. Escape cancels.'); }
+const mapCard = H.MacroCard(S, { keys: () => S.keys, routes: touching, nameOf: mapName, pathOf: k => k,
+  onDepthBegin: () => dev.begin('Mapping depth'), onDepth: (id, v) => dev.syncRoutes(dev.routes().map(r => r.id === id ? Object.assign({}, r, { depth: v }) : r)), onDepthEnd: () => dev.end(),
+  onRemove: id => dev.removeRoute(id),
+  adds: id => id === 'xyx' || id === 'xyy' ? [
+    { label: 'List', on: b => { paramList = H.ParamPicker(S, { title: 'Add to ' + S.src(id).name + '…', anchor: b, groups: routableGroups(id), onPick: k => addMapping(id, k) }); } },
+    { label: 'Touch', on: () => setTouch(id) }] : [],
+  hold: () => !!touchAxis || (paramList && !paramList.closed()) });
+function macroOpener(hst, id, rowEl, above) { H.MacroOpener(hst, S, { keys: () => S.keys, count: () => touching(id).length, onOpen: nm => mapCard.open(id, nm, rowEl, above) }); }   // clear of the knobs: you turn one to hear what you've mapped
+S.escapeLayers.unshift({ name: 'axis-touch', active: () => !!touchAxis, cancel: () => { setTouch(null); S.say('Cancelled'); } });
+// In capture, so the touch never reaches the knob under it: it takes the control and doesn't move it. Tabs and everything else still work, so you can go and find one.
+$('win').addEventListener('pointerdown', e => { if (!touchAxis || e.button) return; const t = hostOf(e.target); if (!t) return; e.stopPropagation(); e.preventDefault(); if (ROW[t.dataset.key] && addMapping(touchAxis, t.dataset.key)) setTouch(null); else if (!ROW[t.dataset.key]) S.say('That isn’t a control an axis can move.'); }, true);
 function macroNote() { if (S.message !== MACRO_SAYS) S.say(MACRO_SAYS); }
 // M-R2 (ADR-338 r9): × removes the modulator and every route it drives as ONE undo step through the adapter; the line names them and
 // offers Undo, the inverse of that one step, so it goes the moment the history moves on (any other step, or the Undo itself).
@@ -1416,6 +1455,7 @@ function removeMod(m, routes) {
 // the adapter's addRoute and so refuses what RC-4 refuses (a stepped or reserved row, a source the engine does not publish). A
 // macro is not a session source (no intent bus), so its handle says so.
 const bank = H.ModBank($('bankHost'), S, { mods: bankMods, macros: MACROS, pageKeys: bankPageKeys, keys: () => S.keys,
+  onOpenCard: (m, row) => { if (m.kind !== 'macro') return false; mapCard.open(m.id, row, $('bankHost'), true); return true; },
   onMap: m => { if (!S.src(m.id)) { macroNote(); return; } const on = S.map.on && S.map.src === m.id; S.setSrc(m.id); S.setMap(!on); },
   onDrop: (m, key) => { if (S.src(m.id)) dropMap(m, key); else macroNote(); },
   onAdd: () => openAddMenu(), onRemove: removeMod,
@@ -1444,7 +1484,7 @@ $('bankOn').addEventListener('click', () => { setBankShown(!bankShown); S.say(ba
 function openAddMenu() {
   closeMenu();
   const routed = new Set(dev.routes().map(r => r.src)), pend = new Set(dev.pending());
-  const free = dev.sources().filter(s => !routed.has(s.id) && !pend.has(s.id));
+  const free = dev.sources().filter(s => s.kind !== 'macro' && !routed.has(s.id) && !pend.has(s.id));   // a macro or axis is always there; it maps from its card
   const b = $('bankHost').querySelector('.bk-side .hd-btn').getBoundingClientRect();
   menu = h('div', { class: 'hd-card menu', role: 'menu', 'aria-label': 'Activate a modulator' },
     h('div', { class: 'head' }, h('span', { class: 'hd-cluster', text: 'Activate' }), h('span', { class: 'hd-hint', text: 'pending until mapped' })),
@@ -1615,6 +1655,40 @@ S.start();
     const padHere = $('mainPad').contains($('padHost'));
     selectPage('sub'); const padBack = $('dock').querySelector('.face').contains($('padHost')); selectPage(pg0); $('win').style.width = widthWas;
     line(macrosOk && !areaOver && !over.length && hiddenStill && tabs.length === 10 && heard && offShown === 'none' && onAgain && padHere && padBack && !!document.querySelector('.logo canvas.logo') && !!pr, 'Main (GUI-2, GUI-4): the macro knobs are ' + facePlain[0] + ' px, ' + faceMap[0] + ' with MAP’s inspector open and ' + faceBoth[0] + ' with the sidebar too; the stage fits its area and all ' + tabs.length + ' tabs fit' + (over.length ? ' (OVER: ' + over.join(', ') + ')' : '') + '; a hidden tab stays mounted; a second face on ' + ROW[k].label + ' writes the device; the Specimen\u2019s switch works; the pad is on Main\u2019s page and goes back to the dock on another; the logo is live.'); }
+  // 4e. GUI-9: X and Y work as two extra macro knobs. All of it runs inside one bracket and is undone at the end, so nothing here reaches the player's undo.
+  { const pg0 = page, R = e => e.getBoundingClientRect(), tick = () => { for (const v of S.views) v.render(); }, widthWas = $('win').style.width, xyWas = mainXYCtl.get(), srcWas = S.map.src; $('win').style.width = '980px'; selectPage('main'); tick();
+    const press = (t, b) => t.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: b || 0, pointerId: 11, clientX: R(t).left + 2, clientY: R(t).top + 2 }));
+    const keys = [...$('page-main').querySelectorAll('[data-key]')].filter(e => e.offsetWidth && ROW[e.dataset.key] && dev.canRoute(e.dataset.key)).map(e => e.dataset.key), A = keys[0], B = keys[1], C = keys[2], hostFor = k => $('page-main').querySelector('[data-key="' + CSS.escape(k) + '"]');
+    dev.begin('self-check');
+    const mac = dev.sources().filter(s => s.kind === 'macro').map(s => s.id), kinds = mac.length === 10 && S.defPol('xyx') === 'bi' && S.defPol('macro1') === 'uni' && S.defPol('env1') === 'uni';
+    const chip = $('mainXY').querySelector('.axy-chip[data-axis="xyx"]'); chip.click(); tick();
+    const card = mapCard.el, empty = !card.hidden && /nothing here/.test(card.textContent), clearOfPad = R(card).bottom <= R($('mainXY')).top;
+    // List: a pick adds; a second pick adds too, and what it replaced nothing
+    [...card.querySelectorAll('.mcc-adds button')].find(b => b.textContent === 'List').click();
+    const items = [...document.querySelectorAll('.hd-ppick [data-param]')], routable = items.length > 40 && items.every(b => dev.canRoute(b.dataset.param)), search = document.querySelector('.hd-ppick input'); search.value = ROW[A].label; search.dispatchEvent(new Event('input')); const narrowed = document.querySelectorAll('.hd-ppick [data-param]').length;
+    [...document.querySelectorAll('.hd-ppick [data-param]')].find(b => b.dataset.param === A).click(); const pickedOne = touching('xyx').length === 1 && !document.querySelector('.hd-ppick');
+    // Touch: takes the control without moving it. Controls: Escape leaves nothing armed, and a non-parameter is refused
+    tick(); [...card.querySelectorAll('.mcc-adds button')].find(b => b.textContent === 'Touch').click(); S.escape(); const cancelled = touchAxis === null && touching('xyx').length === 1;
+    [...card.querySelectorAll('.mcc-adds button')].find(b => b.textContent === 'Touch').click(); const armedLit = chip.closest('.hd-axy') && touchAxis === 'xyx', vB = dev.shown(B); press(hostFor(B)); const touched = touchAxis === null && touching('xyx').length === 2 && dev.shown(B) === vB;
+    // Right-click: the shell's menu lists all ten, and it stays in the window
+    hostFor(C).dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 40 })); const grid = [...document.querySelectorAll('.menu .hd-mapgrid button')], mb = R(document.querySelector('.menu')), menuOk = grid.length === 10 && mb.top >= 0 && mb.bottom <= innerHeight; grid.find(b => b.textContent === 'Tone').click(); const bound = touching('macro1').some(r => r.param === C);
+    // Ruling 3: the pad moves the source and writes no parameter. A drag makes no history. Control: the source really moved.
+    tick(); const vA = dev.shown(A), rev0 = dev.rev(); mainXYCtl.set(.9, .1); const offsets = dev.shown(A) === vA && dev.rev() === rev0 && Math.abs(S.sourceValue('xyx') - .9) < 1e-9 && Math.abs(S.sourceValue('xyy') - .1) < 1e-9;
+    mainXYCtl.set(.5, .5); const restChip = /touches 2/.test(chip.textContent);
+    // The card's parts: depth, remove, and it stays open through its own MAP
+    const bar = card.querySelector('.mcc-bar'), bb = R(bar); [['pointerdown', .5], ['pointerup', .5]].forEach(([t, f]) => bar.dispatchEvent(new PointerEvent(t, { bubbles: true, button: 0, pointerId: 12, clientX: bb.left + f * bb.width, clientY: bb.top + 2 })));
+    const deep = Math.abs(touching('xyx')[0].depth - .5) < .02;
+    [...card.querySelectorAll('.mcc-head .hd-btn')].pop().click(); tick(); const mapped = S.map.on && S.map.src === 'xyx' && !card.hidden; press(document.body); const staysOpen = !card.hidden; S.setMap(false); tick();
+    const n0 = touching('xyx').length; card.querySelector('.hd-xb').click(); tick(); const removed = touching('xyx').length === n0 - 1;
+    // Openers, on Main and in the bank; the badge; a mapped macro in the mod rows (r5); a macro isn't offered by +
+    const inRows = bankMods().some(m => m.id === 'macro1'); mapCard.close(); const name = $('mainMacros').querySelector('.mk-name'); press(name); const openedMain = mapCard.get() === 'macro1', clear = !(R(card).left < R($('mainMacros').querySelector('.mk-face')).right && R($('mainMacros').querySelector('.mk-face')).left < R(card).right && R(card).top < R($('mainMacros').querySelector('.mk-face')).bottom && R($('mainMacros').querySelector('.mk-face')).top < R(card).bottom); mapCard.close(); tick();
+    const badge = $('mainMacros').querySelector('.mo-n'), counted = badge && !badge.hidden && badge.textContent === '1';
+    $('bankHost').querySelector('.hd-bseg [data-set="macros"]').click(); tick(); press($('bankHost').querySelector('.bk-lanes.macros .mk-name')); const openedBank = mapCard.get() === 'macro1' && R(card).bottom <= R($('bankHost')).top; mapCard.close(); $('bankHost').querySelector('.hd-bseg [data-set="mods"]').click(); tick();
+    openAddMenu(); const offered = [...document.querySelectorAll('.menu [role="menuitem"]')].map(b => b.textContent); closeMenu(); const noneOffered = !offered.some(t => mac.some(id => S.src(id).name === t));
+    dev.end(); dev.undo(); dev.clearRedo(); mainXYCtl.set(xyWas[0], xyWas[1]); mapCard.close(); S.setSrc(srcWas); selectPage(pg0); $('win').style.width = widthWas; S.message = ''; tick();
+    const parts = { kinds, empty, clearOfPad, routable, narrows: narrowed < items.length, pickedOne, cancelled, armedLit, touched, menuOk, bound, offsets, restChip, deep, mapped, staysOpen, removed, inRows, openedMain, clear, counted, openedBank, noneOffered, undone: !touching('xyx').length && S.map.src === srcWas }, bad = Object.keys(parts).filter(k => !parts[k]);
+    line(!bad.length,
+      (bad.length ? '(MISSED ' + bad.join(', ') + ') ' : '') + 'X and Y as macro knobs (GUI-9): ten macro sources, the axes bipolar; a list of ' + items.length + ' routable parameters, narrowed to ' + narrowed + '; a list pick, a touch and a right-click each add, and X touched two; the pad moved its source and wrote no parameter and no history; the card sets a depth, stays open through MAP and removes; names open it on Main and in the bank, clear of the knob; a mapped macro shows in the mod rows and + offers none. Controls: Escape leaves the touch unarmed, and the source really moved.'); }
   // 5. The info box shows the hovered control's text, and clears off a control (control).
   const kh = document.querySelector('#page-sub [data-key="' + CSS.escape(kc.key) + '"]');
   kh.dispatchEvent(new MouseEvent('pointerover', { bubbles: true })); const shown = $('infoText').textContent.startsWith(r.spec) && $('infoKey').textContent === r.key;
