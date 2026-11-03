@@ -11042,3 +11042,50 @@ Three points stayed open, because the shell already marks a knob selected the mo
 - These go into the master first (ADR-316), with GUI-5's rounded corners and the bank's count wording from GUI-7, then one publish, then the bundle and shell. The ledger's rows for ADR-338 r7, ADR-341 r6 and ADR-345 r1 stay in-shell until that hop, which marks them superseded.
 - The Lens's single place frees the left column on the 8 pages that had one, and those pages' layouts need a look.
 - **FX device (ADR-254):** rulings 1 to 4 and 7 apply on its pages. It has no macros of this kind, and its modulators take R2. The scope and spectrum read its own output.
+
+## ADR-352 — RULED by the human: the coupling knob's new curve (“curve 3”) and raw `K` in the bank; spec round 51 (B606, B494; 2026-11-02)
+
+**Context.** On the preview the human heard presets that use coupling as narrow and static: X23, the rule translating the bank's K, over-locked them. Raw K was “substantially better”. Asked about the knob itself, the human wanted: “at least a subtly audible difference between .9 and 1”; “I don't want it to feel like there's a hard wall halfway up K, but I do want its effect to be noticeable at every point along the spectrum”; and “-1 to be as close as possible to equidistant splay”, with the harmonic law staying chaotic. The lead rendered a sweep of K over three curves on five patches (the coupling sweep page; a scratch change on the builder's commit, never a build anyone accepted).
+
+**Ruling (the human, 2026-11-02, by ear): “I prefer coupling curve 3 after multiple listens through each sound.”** C.1 becomes:
+1. **The taper:** km = 2·K²·(1 + 7·K⁸) above 0, and km = −4·K²·(1 + 3·K⁸) below 0, so the pull at +1 is four times today's, and splay authority at −1 is four times today's.
+2. **Narrowing:** above 0, `coupling` also draws the members' natural frequencies together, halving the spread at +1.
+3. **The cap** on the applied pull, S ≤ max(300 Hz, 4σ) and P ≤ max(300 Hz, 12σ), on every law but harmonic. Above that strength the pull is unstable at the control interval; the max keeps today's strength wherever today's was stronger.
+4. **X23 is removed.** A preset's K is stored as it is, and `cScale` has no destination.
+
+**The lead's addition, not heard.** The sweep narrowed toward the members' mean. Under root pivot that moves the root off the played pitch (14 cents at K +1 with anchor 1, in the simulation), which breaks SW-6. So under root pivot the spec narrows toward the root member. No bank preset uses root pivot or anchor, so nothing heard changes.
+
+**Engine-free evidence (ADR-247).** C.1's law alone at SW-4's conditions, the lead's simulation, for the test author to reproduce with `harness/c1_sim.h`. Control: on today's law it gives all six of SW-4's stated values (R 0.965, 0.924, 0.23 to 0.80, 0.04 to 0.92; R_N 0.839, 0.44). On the new law: R 1.000 at +1.0, 0.996 at +0.9, 0.990 at +0.85, 0.934 at +0.75, 0.26 to 0.87 at +0.7, 0.14 to 0.75 at +0.6; R_N 0.989 at −1.0, 0.565 at −0.7.
+
+**What it does not do, and costs.**
+- **The wall is eased, not gone.** Lock is a snap in this law at any curve. Beat speed now falls steadily from the bottom of the knob (5.2 Hz at 0.5, against 6.6), and the lock still arrives between about 0.70 and 0.75.
+- **The top is darker,** closer to one clean saw (about 8 dB less above 5 kHz at 0.9 on Locked horde).
+- **0.9 against 1 depends on the patch:** 6.3 dB above 1 kHz on Locked horde, 0.4 on Glass horde pad, 0.00 on Anchored horde. Why Anchored horde does not respond is not known.
+- **Phase lag bends pitch four times as far at K +1,** since S is four times as large: 17.5 Hz at 30° and 220 Hz, against 4.2. The lock holds to at least 60°.
+- **Raw K leaves most of the bank unlocked:** 66 of 83 presets sit from 0 up to below 0.7, and those at 0.7 still swing. That includes Locked horde (0.6) and Anchored horde (0.7), which the factory patch session re-voices.
+- **The cap keeps standard laws locked where a longer top alone broke them,** and leaves splay at wide settings no worse than today.
+
+**The human also confirmed ADR-349 by ear:** “I overall prefer the "matched points" shape morph mode.”
+
+**Rejected.** Today's curve; the longer top without narrowing; the shape table and the output mix for drawn shapes (ADR-349).
+
+**Consequences.**
+- Spec round 51 reaches both clean-room repositories the same turn. The test author changes `harness/c1_sim.h`, `swarm.h`, 10.s1 to 10.s3 and `appendix_b.h`, reproduces the anchors, and reports any other gate this reads red on as a question. The builder changes `coupling.h` and `naturals`.
+- The rulings log gains row 86.
+- **FX device (ADR-254):** none; it hosts no engine.
+
+## ADR-353 — RULED by the human: `DECISIONS.md` merges by union (B607; 2026-11-02)
+
+**Context.** The lead and the GUI session both append to `DECISIONS.md`, so their PRs keep conflicting, and each conflict cost a hand rebuild. ADR-346 stopped number clashes and left this as a separate question. The lead proposed the attribute; the human: “yes to the union merge”.
+
+**Ruling.** `.gitattributes` marks `DECISIONS.md` as `merge=union`, so git keeps both sides' lines rather than reporting a conflict.
+
+**Evidence.** Forty real pairs of neighbouring sections from this file, each appended by two branches at once, in a scratch repository with local git 2.39.5. With union: 40 merged with no conflict and no section split apart. Control, no attribute: 40 of 40 conflicted.
+
+**What it does not do, and costs.**
+- **Two PRs editing one line keep both versions, silently.** Tested: a one-line edit on each side merged clean with both lines kept. Appends are safe; amend one ruling at a time. No gate catches this.
+- **The order is not fixed,** and a heading lost the blank line above it in 38 of the 40 merges. It still renders.
+- **Other files can still conflict.** The design ledger is JSON, so union could leave it invalid, and it stays out. `ROADMAP.md` is not covered. Two PRs adding rulings can still clash in the ledger.
+- **Not tested on GitHub.** The evidence is local git. The first clash after this lands shows whether GitHub's own check honours the attribute; if it does not, the conflict banner stays and the hand rebuild is unchanged.
+
+**Consequences.** The records rebuild still applies to the other files, and to this one if GitHub does not honour the attribute. **FX device (ADR-254):** none; this is how the records merge.
