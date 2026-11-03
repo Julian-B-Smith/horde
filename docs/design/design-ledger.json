@@ -113,6 +113,10 @@
    "status": "exploring",
    "note": "B212 and B227's compact face; no ADR rules its six decisions (ADR-334 cites it). Whether ADR-259's Context, which names its face/Advanced split, settled them is a question for the human."
   },
+  "compact-mixer-lab.html": {
+   "status": "exploring",
+   "note": "GB1: the fader on the level meter. The human asked (2026-11-02) and rules by poll."
+  },
   "composed-engine-check.html": {
    "status": "exploring",
    "note": "Engine bench (B298): the swarm under SCALPEL's blades. No ruling found; not a design question."
