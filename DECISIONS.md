@@ -11473,3 +11473,5 @@ Three points stayed open, because the shell already marks a knob selected the mo
 **Consequences.** Master `1793773329-83d6`: `H.Morph.state(S).history` and `.solo`, and `opts.rev` on `MorphGrid`, which also paints only the rows in view. Self-check 4o holds the page. It's mounted once and painted only on this page.
 
 **FX device (ADR-254).** The same bench with its own rows; `FIELD_SECTIONS` is the instrument's. `BlendMaps` reads parameter values, not notes, so it works as it is on a rack module's continuous row.
+
+**GUI-10 A1 — a correction (the lead and the GUI session, 2026-11-04).** GUI-10's reading said `engine2/core/api/history.h` replaces the shell's tree at stage 8. It doesn't. RC-11 keeps the history in the shell and the GUI, and `history.h` is `take_snapshot` and `restore_snapshot`. So the tree stays, and at stage 8 each state holds an engine snapshot. RC-11.2 leaves corners out of that snapshot, so the tree carries them itself.

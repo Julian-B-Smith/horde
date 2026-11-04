@@ -2,7 +2,9 @@
 
 The GUI session's handoff to the lead (GB8; the human, 2026-11-04: "let's make sure the main horde agent knows about any decisions we've made during the design process that will affect functionality and need to be wired in under the hood as well").
 
-**Last verified 2026-11-04, against GUI-1 to GUI-20, `specs/SPEC-ENGINE.md` and `ROADMAP.md` on main.** The GUI session keeps this current: each new ruling that needs wiring adds its row in the same PR. "Not recorded" means a search of the spec and the roadmap found nothing, so it's the lead's to place. The rows are the lead's to schedule, and nothing here is a ruling on how to build them.
+**Last verified 2026-11-04, against GUI-1 to GUI-20, `specs/SPEC-ENGINE.md` and `ROADMAP.md` on main.** The GUI session keeps this current: each new ruling that needs wiring adds its row in the same PR. "Not recorded" means a search of the spec and the roadmap found nothing, so it's the lead's to place. The rows are the lead's to schedule (B616 cites this file), and nothing here is a ruling on how to build them.
+
+**Timing (the lead, 2026-11-04).** The morph comes straight after the CPU pass, and the spec has no waypoints or region locks. If the design rests on them, they need a spec round before the builder starts the morph, and that round waits on the human's answers to the two questions under "Open for the human".
 
 A line like GUI-14 r3 is a ruling in `DECISIONS.md`. Every row below is MOCK, a stand-in or refused in the shell today, as its third column says.
 
@@ -37,7 +39,7 @@ These are the ones nothing on the engine side knows about yet.
 | The bus carries X and Y as intents, ten in all; the macros are live sources; X and Y offset from each corner's rest and write no parameter; a macro maps many parameters, each with its own depth. | GUI-2 r4, GUI-8 r5, GUI-9 | On the device's routes, mock | B89, B581; RC-4 and IF-3 defer it for the new engine |
 | A rerouted wire keeps its route id, and a second wire for one source and destination is refused. | GUI-3 | The shell does both | B72 proposes the identity; its morph rule isn't written, and ADR-136's SUM law sums duplicates today |
 | Randomize: levels, chaos and amount, locks and exemptions, copying a level between corners, deleting a snapshot, saving all four. | ADR-318, ADR-320, ADR-321, ADR-322, GUI-19 | A placeholder card | B578 |
-| History: 200 states, forks, click to restore, the pad out of history. See the second conflict below. | GUI-10 | The tree lives in `device.js` | RC-11 |
+| History: 200 states, forks, click to restore, the pad out of history. The tree stays in the shell at stage 8, and each state holds an engine snapshot. RC-11.2 leaves corners out of that snapshot, so the tree carries them itself. | GUI-10 A1 | The tree lives in `device.js` | RC-11, `history.h` |
 | A retrigger row per modulator. | ADR-266 r7 | Switch not mounted | B584 only; RC-4 defers LFOs |
 
 ## Recorded; here so the GUI's dependence is visible
@@ -58,14 +60,21 @@ Nothing has been tried in a host. Each of these needs a plugin window.
 - How the wheel behaves in the webview (GUI-15).
 - The hardware bend and mod wheels: nothing feeds them to the shell yet, and which side feeds them from the host isn't written.
 
-## Conflicts for the lead or the human to settle
+## Open for the human
 
-1. **Bypass.** GUI-18 says bypass takes the module's own gains out of the signal. RS-4.8 says "off" routes around the module "with the slot's gain staging kept". That reading of GUI-18 was the GUI session's, and the human can change it.
-2. **History.** GUI-10's reading says `engine2/core/api/history.h` replaces the shell's tree at stage 8. RC-11 says the history lives in the shell and the GUI, and the engine gives snapshot and restore only. The reading looks wrong, and the GUI session will correct it if the lead agrees.
-3. **X and Y as intents.** GUI-9 says ADR-192 doesn't name them. B89's row says ADR-176 ratified ten slots with X and Y.
-4. **Which corner owns a mapping while morph is on.** SPEC-INTENT-BUS binds per corner; the Map Mode spec keeps routes global for 1.0. GUI-9 left it open.
-5. **The kinds of row.** The master's third kind, RAMPS, has no member: SPEC-ENGINE has Morphable and Structural rows only. Whether a numeric stepped row (`arp.seed`, 2^32 values) needs a manifest flag is the same question.
-6. **The root `CLAUDE.md`'s opening** still describes a family of engines with one that came first, against GUI-1's one unified engine. That file is the lead's.
+The lead can't write the morph's spec round until the first two are answered.
+
+1. **What a region lock stores.** The lab's proposal: a row's four offsets, sparse, keyed by the row, or by its unit where rows flip together.
+2. **The waypoint caps.** The lab's proposal: 8 per row and 64 per patch, stored in order, because the order breaks the triangulation's ties and fixes the TPS solve's rounding.
+3. **Bypass.** RS-4.7 gives two cases. A module that declares its gains owns them, and routing round it takes them out either way. Where the slot provides the gains, RS-4.8 keeps them, and GUI-18's reading takes them out, so under RS-4.8 the same button would act differently by module. The lead is raising this with the human and carries any change to RS-4.8. The console stays as it is meanwhile.
+4. **Which corner owns a mapping while morph is on.** SPEC-INTENT-BUS binds per corner, and the Map Mode spec keeps routes global for 1.0. GUI-9 left it open, and it's open on B616.
+5. **The kinds of row.** The master's third kind, RAMPS, has no member, because SPEC-ENGINE has Morphable and Structural rows only. That's the human's call. A manifest flag for a numeric stepped row (`arp.seed`, 2^32 values) would be a spec change, so it goes to the lead if the human wants it.
+
+## Settled
+
+- **History (GUI-10 A1).** The earlier reading was wrong, and the row above is the corrected one.
+- **X and Y as intents.** ADR-176 item 4 ratified ten slots: X, Y and the eight macros. ADR-192 names only the eight, and nothing revokes X and Y. GUI-9's sentence is true but doesn't reopen them.
+- **The root `CLAUDE.md`'s opening.** The lead fixed it on #1370.
 
 ## FX device (ADR-254)
 
