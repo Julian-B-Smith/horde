@@ -6885,6 +6885,92 @@
    "reason": "How the engine reads FM inside a soft edge: no control or design element."
   }
  ],
+ "engine_impact": {
+  "GUI-1": "none: what samples, previews and labs may show. The spec already has one engine, and the check is on our own words.",
+  "GUI-2": [
+   "GN-10",
+   "GN-19",
+   "GN-32"
+  ],
+  "GUI-3": [
+   "GN-20",
+   "GN-30"
+  ],
+  "GUI-4": [
+   "GN-17"
+  ],
+  "GUI-5": "none: where the pad shows and the bank's corners. Both are the shell's layout.",
+  "GUI-6": [
+   "GN-9"
+  ],
+  "GUI-7": "none: a filter the shell runs over the routes it already reads (RC-4). It asks the engine for nothing new.",
+  "GUI-8": [
+   "GN-4",
+   "GN-14",
+   "GN-19"
+  ],
+  "GUI-9": [
+   "GN-10",
+   "GN-11",
+   "GN-19",
+   "GN-27"
+  ],
+  "GUI-10": [
+   "GN-22"
+  ],
+  "GUI-11": [
+   "GN-13"
+  ],
+  "GUI-12": [
+   "GN-9"
+  ],
+  "GUI-13": "none: the selection and the Lens are the shell's own state.",
+  "GUI-14": [
+   "GN-1",
+   "GN-2",
+   "GN-3",
+   "GN-12",
+   "GN-15",
+   "GN-16"
+  ],
+  "GUI-15": "none: how the shell treats a wheel. How the plugin's webview behaves is a host check in ENGINE-NEEDS.md, not an engine need.",
+  "GUI-16": [
+   "GN-1",
+   "GN-2",
+   "GN-3",
+   "GN-15",
+   "GN-16"
+  ],
+  "GUI-17": [
+   "GN-5"
+  ],
+  "GUI-18": [
+   "GN-1",
+   "GN-2",
+   "GN-3",
+   "GN-12",
+   "GN-15",
+   "GN-16"
+  ],
+  "GUI-19": [
+   "GN-8",
+   "GN-21",
+   "GN-29",
+   "GN-31"
+  ],
+  "GUI-20": [
+   "GN-6",
+   "GN-7",
+   "GN-18",
+   "GN-25",
+   "GN-26",
+   "GN-28"
+  ],
+  "GUI-21": [
+   "GN-7",
+   "GN-24"
+  ]
+ },
  "audit_notes": [
   "[A] Counts: 33 design ADRs with 56 rows (ruled 31, of which 6 superseded and 7 legacy-only; wired 9; in-shell 7; vendored 4; in-master 4; unknown 1); 79 not_design. Every primary heading ADR-001..ADR-112 appears exactly once. Headings out of numeric order (ADR-052, ADR-053 before ADR-051; ADR-095, 094, 093, 092; ADR-091 A1-A4 after ADR-112 A3) were all covered. One non-ADR heading sits in range: 'NOTICE · Library standby (plugin-skeleton FOUNDATIONS)', line 661, not design and not listed.",
   "[A] LEGACY-ONLY marker: rows whose note starts with LEGACY-ONLY rule a gui1/gui2 element whose parameter does not exist in SPEC-ENGINE 5 (gui3/params.json): adr016-grid-status (no tempo-grid law), adr028-dynamics-readouts, adr051-balance-gated, adr055-engine-appropriate-adsr, adr094-saw-shape-group, adr101-squareness-in-saw-shape (adr033-retrigger-dims is legacy semantics). They are 'ruled' because no later ADR retires them, but they cannot reach GUI 3 unless the engine gains the parameter. The lead may want a ruling to retire them in bulk (an ADR citing ADR-224/ADR-316) rather than carrying them as 'ruled but not built'.",
