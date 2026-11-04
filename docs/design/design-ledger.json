@@ -350,6 +350,10 @@
    "status": "retired",
    "note": "Archived in the design index (its lab-archive tag): legacy-era bench; its law is ruled or lives in the composed engine. History, never a source."
   },
+  "shriek-gui-lab.html": {
+   "status": "exploring",
+   "note": "GB14. Shriek's whole hosted interface on its 80s workstation screen with the live automaton title, for the human to judge. Controls from the vendored manifest. Open: Shriek's answers on its control surface, through the lead. Corners and modulation are a placeholder page for GB15."
+  },
   "scalpel-interface-lab.html": {
    "status": "harvested",
    "master_version": "1793374583-b6a5",
