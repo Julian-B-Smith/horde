@@ -11327,3 +11327,27 @@ Three points stayed open, because the shell already marks a knob selected the mo
 - **Only the left button.** The control's selected highlight clears with it.
 
 **Consequences.** Self-check 4i, with its controls. **Also in this change, a bug and not a ruling (ADR-121, "every glass, well, the XY pad and the Specimen" follow the scheme; the human, 2026-11-03: "not all screens follow the screen color selection"):** the shell's pictures that draw only on a change counted the theme but not the scheme, the Specimen read its ground from the page root and not from the window that holds the scheme, and the master's `watch` didn't look below the root for `data-scr`. Self-check 4j walks every screen on every page. **FX device (ADR-254):** the same, on its pages.
+
+## GUI-14 — RULED by the human: one console for the whole chain, with the flow's picture in its box, a solo on every stage and a bypass on every FX module (GB1; B225; ADR-230, ADR-333; 2026-11-03)
+
+**Context.** The human, 2026-11-03, asked: "is there really any reason there should be separate mixers for the oscs in and out of the gain staging?" The compact mixer lab's answer was no: the console's four sources and Gain staging's first four stages are one tap and one gain, and only the console's are wired. Having seen C1 and C2: "C1 upright, but maybe we try removing the levels from below the gain staging, put that in the same bounding box as the mixers, and fix the widths so the nodes sync up to the positions of the mixer sliders." Then: "Let's add bypasses to the FX modules, as well as solo to everything (for anything other than the oscillators, it will just play the output directly). And the gain staging topology will need to dynamically reflect the signal flow (oscillators into filters, serial vs parallel, FX routing)." And: "'engine' is a little confusing; maybe it should be labeled a little more clearly (I'm assuming it's the sum of everything coming out of the oscillators and filters)".
+
+**Rulings.**
+1. **One console, upright.** The console and Gain staging's stage view become one console for every stage, in M2's form (the arrow beside the bars), as wide as Gain staging.
+2. **The chain's picture moves into the console's box**, its gain bars removed, each node directly over its strip's bars. The human said "maybe we try", so this stands until the human has seen it.
+3. **Every FX module has a bypass.**
+4. **Every stage has a solo.** A source's works as it does today. Any other stage's plays its output directly.
+5. **The picture follows the signal flow:** the sources into the filters, the filters serial or parallel, and the FX routing, live.
+6. **"Engine" gets a clearer name.** The human's reading is right: the stage is the sum of the voices, sources through filters (OU-1). The lab proposes SUM · VOICES; the word is the human's, and the key stays `out.level`.
+
+**Readings taken in the lab, open to the human.**
+- **One ruler:** every strip and the picture share −66 to +26 dB, because a meter on a ±24 dB fader's own scale could not show a level under −24 dBFS. This narrows the poll's "each meter on its own fader's scale".
+- **Solo:** none on GR or the master's OUT. The sources' stay additive (IF-6). A stage's is one at a time, because two points on one chain would double the signal. A source's and a stage's apply together. The tap still goes through the limiter, so a solo can't bypass the device's protection.
+- **Bypass:** it routes around the module, so the module's own gains stop applying and its strips read the level going past.
+- **Strips stay in slot order** when the routing changes, so a fader never moves under the hand; only the wires move.
+
+**Needed from the lead (noted on GB1).** A bypass key per FX slot; the solo tap at every stage (a new route to the limiter); the filter routing rows (X13, RC-1); the rack's cable state in the view (IF-10); per-stage taps (IF-6, RC-8); and, once the word is ruled, the label of `out.level`.
+
+**FX device (ADR-254).** The console starts at the audio input (`GainStaging.chain('fx')`): no source strips, so no M or on. Solo, bypass and the FX branches are as here.
+
+**Consequences.** Lab only so far: `docs/design/compact-mixer-lab.html` (GB1). When the human has looked, the chain runs master, vendor, shell. All 21 stages need about 906 px, so with a side column open this console scrolls inside its box, which ties it to GB5 (morph and MAP on together).
