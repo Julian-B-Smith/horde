@@ -2,7 +2,7 @@
 
 The GUI session's handoff to the lead (GB8; the human, 2026-11-04: "let's make sure the main horde agent knows about any decisions we've made during the design process that will affect functionality and need to be wired in under the hood as well").
 
-**Last verified 2026-11-04, against GUI-1 to GUI-23, `specs/SPEC-ENGINE.md` and `ROADMAP.md` on main.** The GUI session keeps this current: each new ruling that needs wiring adds its row in the same PR. "Not recorded" means a search of the spec and the roadmap found nothing, so it's the lead's to place. The rows are the lead's to schedule (B616 cites this file), and nothing here is a ruling on how to build them.
+**Last verified 2026-11-04, against GUI-1 to GUI-24, `specs/SPEC-ENGINE.md` and `ROADMAP.md` on main.** The GUI session keeps this current: each new ruling that needs wiring adds its row in the same PR. "Not recorded" means a search of the spec and the roadmap found nothing, so it's the lead's to place. The rows are the lead's to schedule (B616 cites this file), and nothing here is a ruling on how to build them.
 
 **Timing (the lead, 2026-11-04).** The morph comes straight after the CPU pass, and the spec has no waypoints or region locks. If the design rests on them, they need a spec round before the builder starts the morph, and that round waits on the human's answers to the two questions under "Open for the human".
 
@@ -30,6 +30,7 @@ These are the ones nothing on the engine side knows about yet.
 | GN-12 | `out.level`'s label becomes SUM · VOICES; the key stays. | GUI-14 r6, GUI-18 | The shell uses the word |
 | GN-13 | Notes reaching the GUI, for Arp's piano roll and pictures. | GUI-11 | A sample chord at 120 BPM |
 | GN-14 | The hardware bend and mod wheels: which side feeds them from the host. | GUI-8 r5 | The bank's wheels are mock; nothing feeds them |
+| GN-33 | A Shriek patch can keep more than four snapshots: a save adds one and never writes over one. ADR-300's state holds four corner snapshots in `blobs["shriek.pad"]`, and ADR-351 caps at creation with a number B603 hasn't ruled. Which snapshots a state keeps, and the cap. | GUI-24 | Page state in the Shriek lab, with no cap |
 
 ## Partly recorded
 

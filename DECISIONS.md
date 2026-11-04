@@ -11529,3 +11529,23 @@ Three points stayed open, because the shell already marks a knob selected the mo
 **Consequences.** The mark is Sluice's own, so the gap and the S reach its real title by a brief from the lead (Sluice's D-192).
 
 **FX device (ADR-254).** Both modules are hosted there through the same slots, and GB15's answer applies to every screen style there too.
+
+**GUI-23 A1 — the S (the human, 2026-11-04: "Longer tail").** The lower arc of the settled S runs on to −152° from −142°, so its bend reaches the same column as the upper bend at 4 px stems, where it stopped one short. The brief to Sluice is the lead's, and Sluice re-bakes the S's route.
+
+**GUI-23 A2 — the U and the I (the human, 2026-11-04: "Can we make the U a hair wider or narrower instead, so both sides look like this?", then "the I also needs to become symmetrical").** On the pixel grid at 4 px stems: the U's radius goes from .60 to .63, with its right arm held still, so the left arm mirrors the right cell for cell and the letters after it don't move. The I moves right by .04, about a quarter of a cell, keeping its four columns. Measured on the real mark: the U from 5 lopsided cells to 0, the I from 2 to 0. The brief to Sluice is the lead's, and Sluice re-bakes both letters' routes.
+
+## GUI-24 — RULED by the human: a saved snapshot is added, never written over; past four, non-factory ones can be deleted (GB14; 2026-11-04)
+
+**Rulings (the human, 2026-11-04, on the Shriek lab).**
+1. "When you save a snapshot, it should add the current settings as a fresh snapshot on the list and bind that corner to it (currently it replaces it, which is a big no-no)."
+2. "When there are more than four snapshots, the ones that aren't factory should be deletable."
+
+**Readings (the GUI session's, open to the human).**
+- **A corner on a deleted snapshot moves to the first one,** as Shriek's own lab does.
+- **Under four, nothing can be deleted,** factory or not, as the human's words read.
+- **It applies to the Shriek lab for now.** Whether it holds for every module's snapshots is the human's call.
+
+**Consequences.** This goes past what the lab had read from ADR-300 (a Shriek patch's state holds four snapshots) and leaves a cap to ADR-351's rule, that a limit bites at creation. Its number is B603's. GN-33 asks for it.
+
+**FX device (ADR-254).** Shriek is hosted there through the same slot, so the same.
+
