@@ -11366,6 +11366,24 @@ Three points stayed open, because the shell already marks a knob selected the mo
 
 **FX device (ADR-254).** The same shell, so the same wheel.
 
+## ADR-360 — RULED by the human: FM's modulator keeps moving across a soft edge; spec round 54 (B-63, B613; 2026-11-03)
+
+**Context.** ED-7 said the modulator is held at its value at the taper's start. The engine has moved it since round 42, and the builder filed the mismatch with the first CPU batch as B-63. The batch's cuts at modulator jumps, and the click's fix (B613), both rest on the moving modulator.
+
+**Ruling (the human, 2026-11-03): “keep moving”**, on the lead's recommendation.
+
+**What changes.** ED-7's text only: the modulator leaves the held list, FM reset's stands at mEff·eʳ and FM free's advances by mEff per cycle of the blade phase, and D and the 8-point reference break at a modulator's steps and points. The engine's behaviour stays as it is, so no patch changes because of this ruling.
+
+**Evidence, and how far it goes.**
+- The builder's code comment at `free_at` gives the reason as measured in round 42: held, D′ lost the modulator's share of the carrier's slope, and 7.8's FM rows fell 37 to 44 dB the moment Edges left 0. The builder hasn't rerun that, and nobody has listened to the comparison.
+- The test author's model behind R₂ already reads FM free's modulator from the moving phase (`engine2/tests/reports/b51_model.h:77`, cleanroom-tests, read by the lead). So the ruling agrees with the reference, and no gate moves.
+- Moving has one known price, the click, whose fix is the builder's next commit. Freezing was never measured for CPU.
+
+**Consequences.**
+- Round 54 reaches both clean-room repositories the same turn. No builder number goes to the test author.
+- The rulings log gains row 91.
+- No test covers the click yet: B613. The test author is closed, and reopening it is the human's call.
+- **FX device (ADR-254):** none. It hosts no engine.
 ## GUI-16 — RULED by the human: the C1 console and its signal-flow picture stand; Mappings goes in the foot row (GB1, GB5; GUI-14; 2026-11-03)
 
 **Context.** The human, 2026-11-03: "I approve of the C1 console and new signal flow diagram in the gain staging." And: "I also approve of mappings in the foot row", which is option B of `docs/design/morph-map-lab.html`.
