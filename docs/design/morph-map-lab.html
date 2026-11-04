@@ -1,0 +1,313 @@
+<!doctype html>
+<!-- morph-map-lab: morph and MAP on together. horde, 2026-11-03. Origin: horde GUI session (ADR-336 charter), the human, 2026-11-03: "having morph and map active simultaneously
+     currently breaks pretty much every page, and we're going to need to deal with that somehow."
+
+     THE FAULT. The pad's column (204 px) and the Mappings column (214 px) each take the page's width, on every page but Main, whose pad is on the page. Nothing else is wrong.
+
+     WHAT IS REAL. The frame is gui3.html itself, fetched and loaded unedited apart from one script, labHook below, placed before its main script. The pad, the Mappings card, the
+     pages, the mapping gestures and the routes are the shell's own. T is the shell as it is today.
+     WHAT THE LAB ADDS. Only placement: FRAME_CSS and one DOM move of #inspDock. No component is drawn here, and nothing here edits gui3*, arp-face/ or the master: a ruling goes through the
+     chain (ADR-316).
+
+     THE CHECK. Each option runs on every page, with both on, and is measured for three kinds of harm against the same page with nothing on: controls out of sight sideways, text cut off, and
+     the page growing taller. A first version counted only controls past the page's edge and read 3 of 15 pages broken, against the human's "pretty much every page"; the screenshots showed the
+     human was right (cut names on Mod, Mix's Out strip inside its box). T must read a failure, or the measure can't see the fault (the detector-shares-assumption trap).
+
+     WHY MAPPINGS STAYS AT THE RIGHT WITH MORPH OFF, IN A AND C. In the left column it would push the page 214 px on every MAP press, moving the knob you were about to click. So it joins the
+     pad's column only when the pad is there. WHY A FOLDS THE CORNER ROWS. Under a whole pad, with them, Mappings showed one row; the pad keeps its own four corner chips.
+
+     FX DEVICE (ADR-254): it has the same pad and the same MAP, so whichever is ruled applies there too.
+
+     HOUSE RULES. No Math.random. No clock. No wheel listener (B301). -->
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="lab-part" content="Presentation">
+<meta name="lab-review" content="GB5 · 2026-11-03">
+<title>Morph and MAP lab — both on, on every page</title>
+<link rel="stylesheet" href="arp-face/tokens.css">
+<link rel="stylesheet" href="arp-face/bundle.css">
+<style>
+  html, body { background: var(--bg); }
+  body { margin: 0; padding: 20px 16px 60px; color: var(--ink); font: 13px/1.5 var(--font-sans); }
+  .col { max-width: 1012px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+  h1 { font: 800 19px/1.2 var(--font-sans); margin: 0 0 6px; }
+  h2 { font: 800 13px/1.2 var(--font-sans); margin: 0 0 8px; }
+  p { margin: 0 0 6px; max-width: 84ch; }
+  .picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; }
+  .opt { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; gap: 3px; padding: 8px; border: 1px solid var(--div); border-radius: 4px; font: 12px/1.4 var(--font-sans); }
+  .opt:hover { border-color: var(--ink); }
+  .opt:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .opt[aria-pressed="true"] { border: 2px solid var(--ink); padding: 7px; }
+  .opt .id { font: 800 12px/1.2 var(--font-mono); }
+  .opt .nm { font: 700 12px/1.25 var(--font-sans); }
+  .opt .tx { color: var(--hint); }
+  .states { display: flex; flex-wrap: wrap; gap: 8px; }
+  .states button { min-height: 32px; font: 12px var(--font-sans); color: var(--ink); background: var(--panel); border: 1px solid var(--ink); border-radius: 4px; padding: 0 10px; cursor: pointer; }
+  .states button[aria-pressed="true"] { border-width: 2px; font-weight: 700; }
+  #wrap { position: relative; overflow: auto hidden; border: 1px solid var(--div); height: 720px; }
+  #frame { display: block; border: 0; width: 980px; height: 720px; }
+  #busy { position: absolute; inset: 0; z-index: 2; display: flex; align-items: center; justify-content: center; background: var(--bg); font: 700 14px/1.4 var(--font-sans); text-align: center; padding: 20px; }
+  #busy[hidden] { display: none; }
+  .try { font: 12px/1.5 var(--font-sans); min-height: 36px; padding: 8px 10px; border-left: 3px solid var(--ink); }
+  .note { color: var(--hint); font-size: 12px; }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; font: 12px/1.35 var(--font-sans); width: 100%; }
+  th, td { padding: 4px 8px; border-bottom: 1px solid var(--div); text-align: left; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  th { font-weight: 700; }
+  td.bad { font-weight: 800; color: var(--ink); background: color-mix(in srgb, var(--ink) 16%, transparent); }
+  #selfcheck { font: 12px/1.5 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<div class="col">
+  <header>
+    <h1>Morph and MAP on together</h1>
+    <p>With both on, the pad's column and the Mappings column squeeze the page to about half the window, on every page but Main. Three ways out, on the real shell, starting with both on and a control with three mappings on Osc 1.</p>
+    <p>Pick an option, then click around the pages. MAP's own gestures work: pick a source, click a knob to map it, and drag the puck.</p>
+  </header>
+  <section aria-label="The option"><h2>Which layout?</h2><div class="picker" id="pickOpt"></div></section>
+  <section aria-label="What is on"><h2>What's on</h2><div class="states" id="pickState"></div></section>
+  <div class="try" id="tryIt" role="status"></div>
+  <section aria-label="The shell"><div id="wrap"><iframe id="frame" title="GUI 3 with these options"></iframe><div id="busy">Loading the shell and measuring every page. This takes a few seconds.</div></div></section>
+  <section aria-label="The measurements"><h2>Both on, measured on every page</h2>
+    <p class="note">Each cell is the page's width, then what the columns cost against the same page with nothing on: controls hidden sideways, labels cut off, and how much taller the page gets. A marked cell has a cost.</p>
+    <div class="scroll" id="table"></div></section>
+  <section aria-label="What each option costs"><h2>What's in each card</h2><div class="scroll" id="costs"></div></section>
+  <section aria-label="Self-check"><h2>Self-check</h2><div id="selfcheck"></div></section>
+</div>
+<script>
+/* Runs inside the frame, after the shell's scripts and before its main script. It keeps references the shell doesn't expose. */
+function labHook() {
+  var H = window.Horde, DV = window.GUI3Device, L = window.__lab = {};
+  var Sess = H.Session; H.Session = function (o) { var s = new Sess(o); L.S = s; return s; }; H.Session.prototype = Sess.prototype;
+  // the first create is the shell's device; its self-checks make throwaway ones afterwards
+  var cr = DV.create; DV.create = function (a, b, c) { var d = cr(a, b, c); if (!L.dev) L.dev = d; return d; };
+  // onChange is selectPage, which the shell keeps in its own scope
+  var PN = H.PageNav; H.PageNav = function (el, o) { if (el.id === 'pnav') L.go = function (id) { o.onChange(null, id); }; return PN(el, o); };
+}
+
+const $ = id => document.getElementById(id);
+const OPTS = [
+  { id: 'T', nm: 'Today', tx: 'Two columns, one each side. Kept so the fault can be seen and measured.' },
+  { id: 'A', nm: 'Stack them', tx: 'One column at the left: the pad on top, Mappings under it. The four corner rows fold away while MAP is on.' },
+  { id: 'B', nm: 'Mappings in the foot row', tx: "The pad stays. Mappings takes Info and the Lens's place while MAP is on, wide and short." },
+  { id: 'C', nm: 'Swap in one column', tx: "While MAP is on, Mappings takes the pad's place. Morph keeps running, but you can't reach the pad until MAP is off." },
+];
+const STATES = [
+  { id: 'both', nm: 'Morph + MAP', morph: true, map: true },
+  { id: 'morph', nm: 'Morph only', morph: true, map: false },
+  { id: 'map', nm: 'MAP only', morph: false, map: true },
+  { id: 'off', nm: 'Neither', morph: false, map: false },
+];
+const FRAME_CSS = `
+  /* A and C: one column, 214 px with or without MAP, so the page doesn't move when MAP turns on. Mappings' own width: at the pad's 204 px, "Aftertouch" lost its last 30 px. */
+  #bodyGrid.lab-rail.with-dock, #bodyGrid.lab-rail.with-dock.with-insp { grid-template-columns: 214px minmax(0, 1fr); }
+  #bodyGrid.lab-rail.with-side.with-insp { grid-template-columns: 224px minmax(0, 1fr); }
+  #bodyGrid.lab-rail.with-dock.with-insp .rail, #bodyGrid.lab-rail.with-side.with-insp .rail { display: flex; flex-direction: column; gap: var(--space-stack); min-width: 0; min-height: 0; }
+  /* No pad's column to join (morph off, or Main): the rail is display: contents, so Mappings is a grid item, and order puts it back at the right, where it is today. */
+  #bodyGrid.lab-rail:not(.with-dock):not(.with-side) #inspDock { order: 2; }
+  #bodyGrid.lab-A.with-dock.with-insp #cornersHost { display: none; }
+  #bodyGrid.lab-rail #inspDock { flex: 1 1 0; min-height: 0; }
+  #bodyGrid.lab-rail.with-side #inspDock { flex: 1 1 0; }
+  #bodyGrid.lab-rail.with-side.with-insp .rail .info { flex: 0 0 120px; }
+  #bodyGrid.lab-C.with-insp #dock { display: none; }
+  /* B: Mappings goes to the foot row, so the body keeps only the pad's column. */
+  #bodyGrid.lab-B.with-insp { grid-template-columns: minmax(0, 1fr); }
+  #bodyGrid.lab-B.with-dock.with-insp { grid-template-columns: 204px minmax(0, 1fr); }
+  #bodyGrid.lab-B.with-side.with-insp { grid-template-columns: 224px minmax(0, 1fr); }
+  #footrow.lab-B #inspDock:not([hidden]) { flex: 0 0 466px; height: 100%; box-sizing: border-box; }
+  #footrow.lab-B.side-on #inspDock:not([hidden]) { flex-basis: 214px; }
+  /* wide and short: two rows a line, and a tighter card, or it held one row */
+  #footrow.lab-B #inspDock .head { min-height: 0; padding-top: 2px; padding-bottom: 2px; }
+  #footrow.lab-B #inspDock .face { padding: 2px 7px 4px; }
+  #footrow.lab-B:not(.side-on) #insp { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 10px; align-content: start; }
+  #footrow.lab-B:not(.side-on) #insp .insp-name, #footrow.lab-B:not(.side-on) #insp > .hd-hint { grid-column: 1 / -1; }
+  #footrow.lab-B:has(#inspDock:not([hidden])) > #info, #footrow.lab-B:has(#inspDock:not([hidden])) > #lensHost { display: none; }
+`;
+let w, d, L, S, dev, frameErrors = 0, opt = 'A', state = 'both', pageIds = [], demoKey = null;
+const f$ = id => d.getElementById(id);
+
+// ===== placement: everything an option changes =====
+function place(o) {
+  const body = f$('bodyGrid'), foot = f$('footrow'), insp = f$('inspDock'), dock = f$('dock');
+  body.classList.remove('lab-rail', 'lab-A', 'lab-B', 'lab-C'); foot.classList.remove('lab-B');
+  if (o === 'T') body.append(insp);
+  if (o === 'A' || o === 'C') { body.classList.add('lab-rail', 'lab-' + o); dock.after(insp); }
+  if (o === 'B') { body.classList.add('lab-B'); foot.classList.add('lab-B'); foot.prepend(insp); }
+  opt = o;
+}
+function setOn(morph, map) {
+  if (L.dev.morph().on !== morph) f$('morphOn').click();
+  if (S.map.on !== map) S.setMap(map);
+}
+function setState(id) { const s = STATES.find(x => x.id === id); state = id; setOn(s.morph, s.map); }
+function setSide(on) { const b = f$('sidebarOn'); if ((b.getAttribute('aria-checked') === 'true') !== on) b.click(); }
+
+// ===== the measure =====
+const R = e => e.getBoundingClientRect();
+function measure() {
+  const box = f$('pages'), bx = R(box), pg = d.querySelector('#pages > .page:not([hidden])');
+  let hidden = 0, cut = 0;
+  for (const e of pg.querySelectorAll('button, canvas, input, select, [data-key], .cs-strip')) {
+    const q = R(e); if (!q.width || !q.height) continue;
+    // out of sight sideways, whether the page or a box inside it does the scrolling (Mix's Out strip sits inside its console's box)
+    let right = bx.right, left = bx.left;
+    for (let a = e.parentElement; a && a !== box; a = a.parentElement) { if (w.getComputedStyle(a).overflowX !== 'visible') { const r = R(a); right = Math.min(right, r.right); left = Math.max(left, r.left); } }
+    if (q.right > right + 1 || q.left < left - 1) hidden++;
+  }
+  // text cut off: a box that clips its own words. Leaves only, or a wrapper would count its child's overflow twice.
+  for (const e of pg.querySelectorAll('*')) {
+    if (e.scrollWidth <= e.clientWidth + 1 || !e.clientWidth || e.children.length || !e.textContent.trim()) continue;
+    if (w.getComputedStyle(e).overflowX !== 'visible') cut++;
+  }
+  return { width: Math.round(bx.width), hidden, cut, tall: pg.scrollHeight, view: box.clientHeight };
+}
+// Harm is against the same page with nothing on: a page that is simply long or holds a clipped note there isn't hurt by these columns.
+// Growth counts only once the page has to scroll: the Filters page is one note, and a note wrapping to two lines costs nothing.
+const harm = (m, base) => ({ hidden: Math.max(0, m.hidden - base.hidden), cut: Math.max(0, m.cut - base.cut), grow: base.tall && m.tall > m.view + 1 ? m.tall / base.tall : 1 });
+const broken = (m, base) => { const h = harm(m, base); return h.hidden > 0 || h.cut > 0 || h.grow > 1.25; };
+
+// A real knob's left and top, so "does the page move when MAP turns on" reads the thing under the pointer.
+function knobAt(page) {
+  L.go(page); const k = d.querySelector('#pages > .page:not([hidden]) .hd-mk[data-key]'); return k ? R(k) : null;
+}
+function seed() {
+  L.go('osc1');
+  const k = [...d.querySelectorAll('#pages > .page:not([hidden]) .hd-mk[data-key]')].map(e => e.dataset.key).find(x => dev.canRoute(x));
+  // the longest engine source among them, so the name's fit is tested on a hard case
+  const free = dev.sources().filter(s => s.kind !== 'macro').sort((a, b) => b.name.length - a.name.length).slice(0, 3);
+  free.forEach(s => dev.drop(s.id, k));
+  demoKey = k; S.selected = k; S.emit();
+  return k;
+}
+
+// ===== the self-check. It runs before the shell is handed over =====
+const RESULTS = {};
+function selfCheck() {
+  const out = [], line = (ok, t) => out.push((ok ? 'ok     · ' : 'FAILED · ') + t);
+  // every option, every page, both on: the column T must fail, or the measure can't see the fault
+  setSide(false); place('T');
+  setOn(false, false); const BASE = RESULTS.base = {}; for (const p of pageIds) { L.go(p); BASE[p] = measure(); }
+  setOn(true, false); const ALONE = RESULTS.alone = {}; for (const p of pageIds) { L.go(p); ALONE[p] = measure(); }
+  setOn(false, true); const MAPPED = {}; for (const p of pageIds) { L.go(p); MAPPED[p] = measure(); }
+  setOn(true, true);
+  for (const o of OPTS) { place(o.id); RESULTS[o.id] = {}; for (const p of pageIds) { L.go(p); RESULTS[o.id][p] = measure(); } }
+  const bad = o => pageIds.filter(p => broken(RESULTS[o][p], BASE[p]));
+  line(bad('T').length >= 8, 'Control: today hurts ' + bad('T').length + ' of ' + pageIds.length + ' pages with both on (' + bad('T').join(', ') + '). If it read few, the measure would be blind.');
+  // the bar for an option is one side column today, which the human hasn't called broken: A and C against MAP alone (733 px), B against the pad alone (743 px)
+  for (const o of ['A', 'B', 'C']) { const bar = o === 'B' ? ALONE : MAPPED, worse = pageIds.filter(p => p !== 'main' && (RESULTS[o][p].hidden > bar[p].hidden || RESULTS[o][p].cut > bar[p].cut || RESULTS[o][p].tall > bar[p].tall + 1));
+    line(!worse.length, o + ': both on, every page but Main measures the same as with one side column today' + (worse.length ? ' — WORSE ON ' + worse.join(', ') : '') + '. Still hurt at that width: ' + (bad(o).join(', ') || 'none') + '. Osc 1 is ' + RESULTS[o].osc1.width + ' px wide, today ' + RESULTS.T.osc1.width + '.'); }
+
+  // the sidebar is the other thing that takes a column
+  const side = {}; setSide(true);
+  for (const o of OPTS) { place(o.id); side[o.id] = pageIds.filter(p => { L.go(p); return broken(measure(), BASE[p]); }); side[o.id + 'w'] = (L.go('osc1'), measure().width); }
+  setSide(false); RESULTS.side = side;
+  line(side.T.length > side.A.length && side.Aw > side.Tw && side.Bw > side.Tw && side.Cw > side.Tw, 'With the info sidebar on too: today hurts ' + side.T.length + ' pages at ' + side.Tw + ' px; A ' + side.A.length + ' at ' + side.Aw + ', B ' + side.B.length + ' at ' + side.Bw + ', C ' + side.C.length + ' at ' + side.Cw + '.');
+  // MAP alone: B is the one option that leaves the page its whole width
+  const mapOnly = {}; setOn(false, true); for (const o of OPTS) { place(o.id); L.go('osc1'); mapOnly[o.id] = measure().width; } setOn(true, true); RESULTS.mapOnly = mapOnly;
+  line(mapOnly.T === mapOnly.A && mapOnly.T === mapOnly.C && mapOnly.B > mapOnly.T, 'MAP alone: A and C leave the page as it is today (' + mapOnly.A + ' px, Mappings at the right); B gives it ' + mapOnly.B + ' px.');
+
+  // the room left for the pad and the list
+  const k = seed(), room = {};
+  for (const o of ['T', 'A', 'B', 'C']) {
+    place(o); L.go('osc1'); S.selected = k; S.emit();
+    for (const v of S.views) v.render();
+    const insp = f$('inspDock'), rows = [...insp.querySelectorAll('.insp-row')], pad = f$('padHost'), hb = R(insp);
+    const shown = rows.filter(r => { const q = R(r); return q.bottom <= hb.bottom + 1 && q.top >= hb.top - 1; }).length;
+    const last = rows[rows.length - 1]; if (last) last.scrollIntoView({ block: 'nearest' }); const reach = last && R(last).bottom <= R(insp).bottom + 1; insp.scrollTop = 0;
+    room[o] = { h: Math.round(hb.height), w: Math.round(hb.width), rows: rows.length, shown, reach, pad: !!pad.offsetWidth && Math.round(R(pad).height) };
+  }
+  RESULTS.room = room;
+  const fits = {}; for (const o of ['A', 'B', 'C']) { place(o); L.go('osc1'); S.selected = k; S.emit(); for (const v of S.views) v.render(); fits[o] = [...f$('inspDock').querySelectorAll('.insp-pick')].every(e => e.scrollWidth <= e.clientWidth + 1); }
+  line(fits.A && fits.B && fits.C, 'Every source name in the list fits its row (A ' + fits.A + ', B ' + fits.B + ', C ' + fits.C + ').');
+  line(room.A.rows === 3 && room.A.reach && room.B.reach && room.C.reach && room.A.pad === 188 && room.B.pad === 188 && room.C.pad === false, 'The list: three mappings on ' + k + '. Height ' + room.T.h + ' px today, A ' + room.A.h + ' (shows ' + room.A.shown + '), B ' + room.B.h + ' (shows ' + room.B.shown + '), C ' + room.C.h + ' (shows ' + room.C.shown + '); the last row is reachable in all three. The pad is whole in A and B, and gone in C.');
+
+  // the knob under the pointer: turn MAP on with morph already on, and see how far it moves
+  const moved = {};
+  for (const o of OPTS) { place(o.id); setOn(true, false); const a = knobAt('osc1'); setOn(true, true); const b = knobAt('osc1'); moved[o.id] = Math.round(Math.hypot(b.left - a.left, b.top - a.top)); }
+  RESULTS.moved = moved;
+  line(moved.A <= 1 && moved.B <= 1 && moved.C <= 1 && moved.T > 1, 'MAP turned on with morph on: the first knob on Osc 1 moves ' + moved.T + ' px today, A ' + moved.A + ', B ' + moved.B + ', C ' + moved.C + '.');
+  const movedOff = {};
+  for (const o of OPTS) { place(o.id); setOn(false, false); const a = knobAt('osc1'); setOn(false, true); const b = knobAt('osc1'); movedOff[o.id] = Math.round(Math.hypot(b.left - a.left, b.top - a.top)); }
+  RESULTS.movedOff = movedOff;
+  line(movedOff.A <= 1 && movedOff.B <= 1 && movedOff.C <= 1, 'MAP turned on with morph off: it moves ' + movedOff.T + ' px today, A ' + movedOff.A + ', B ' + movedOff.B + ', C ' + movedOff.C + '.');
+
+  // the gestures, through each option: MAP's click, and the pad under A and B
+  const gest = {}; setOn(true, true);
+  for (const o of ['A', 'B', 'C']) {
+    place(o); L.go('osc1'); const n0 = dev.routes().length, src = dev.sources().filter(s => s.kind !== 'macro')[5].id; S.setSrc(src);
+    const face = [...d.querySelectorAll('#pages > .page:not([hidden]) .hd-mk[data-key]')].find(e => e.dataset.key !== k && dev.canRoute(e.dataset.key)); const q = R(face), x = q.left + q.width / 2, y = q.top + q.height / 2;
+    const hit = d.elementFromPoint(x, y), ev = (t) => hit.dispatchEvent(new w.PointerEvent(t, { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0, buttons: t === 'pointerup' ? 0 : 1, pointerId: 1 }));
+    ev('pointerdown'); ev('pointerup'); hit.dispatchEvent(new w.MouseEvent('click', { bubbles: true, clientX: x, clientY: y, button: 0 }));
+    for (const v of S.views) v.render();
+    const added = dev.routes().length - n0, listed = f$('inspDock').querySelectorAll('.insp-row').length;
+    gest[o] = { added, listed, hitOk: !!face.contains(hit) };
+    dev.undo();
+  }
+  line(['A', 'B', 'C'].every(o => gest[o].added === 1 && gest[o].hitOk), 'A real MAP click on a knob adds one route in each option, and nothing covers the knob (A ' + gest.A.added + ', B ' + gest.B.added + ', C ' + gest.C.added + ').');
+
+  // hand-over: a lab with a green check can still be dead (the Lens lab, 2026-11-02)
+  place('A'); setState('both'); L.go('osc1'); S.selected = k; S.emit(); for (const v of S.views) v.render();
+  const hit = d.elementFromPoint(R(f$('padHost')).left + 94, R(f$('padHost')).top + 94);
+  line(!f$('dock').hidden && !f$('inspDock').hidden && !!hit.closest('#padHost') && frameErrors === 0, 'Handed over on A, on Osc 1, with both on: the pad takes the mouse and the frame threw ' + frameErrors + ' errors.');
+  return out;
+}
+
+// ===== the page around the frame =====
+const NAME = id => { const p = w.GUI3_DATA.pages.find(x => x.id === id); return p ? p.label : id; };
+function paintTable() {
+  const rows = pageIds.map(p => '<tr><th scope="row">' + NAME(p) + '</th>' + OPTS.map(o => { const m = RESULTS[o.id][p], b = RESULTS.base[p], h = harm(m, b), said = [];
+    if (h.hidden) said.push(h.hidden + ' hidden'); if (h.cut) said.push(h.cut + ' cut'); if (h.grow > 1.25) said.push(h.grow.toFixed(1) + '× tall');
+    return '<td' + (said.length ? ' class="bad"' : '') + '>' + m.width + ' px · ' + (said.join(', ') || 'fine') + '</td>'; }).join('') + '</tr>');
+  $('table').innerHTML = '<table><thead><tr><th>Page</th>' + OPTS.map(o => '<th>' + o.id + ' · ' + o.nm + '</th>').join('') + '</tr></thead><tbody>' + rows.join('') + '</tbody></table>';
+  const r = RESULTS.room, m = RESULTS.moved, mo = RESULTS.movedOff, side = RESULTS.side;
+  const row = (t, f) => '<tr><th scope="row">' + t + '</th>' + OPTS.map(o => '<td>' + f(o.id) + '</td>').join('') + '</tr>';
+  $('costs').innerHTML = '<table><thead><tr><th></th>' + OPTS.map(o => '<th>' + o.id + ' · ' + o.nm + '</th>').join('') + '</tr></thead><tbody>'
+    + row('Page width, both on', o => RESULTS[o].osc1.width + ' px')
+    + row('Page width, MAP alone', o => RESULTS.mapOnly[o] + ' px')
+    + row('Page width, sidebar on too', o => side[o + 'w'] + ' px')
+    + row('The new console, 906 px wide (#1362), both on', o => RESULTS[o].osc1.width + ' of 906 px, scrolls')
+    + row('Mappings card', o => r[o].w + ' × ' + r[o].h + ' px')
+    + row('Mappings seen without scrolling', o => r[o].shown + ' of ' + r[o].rows)
+    + row('Pad in reach while mapping', o => r[o].pad ? 'yes' : 'no')
+    + row('Info and Lens while mapping', o => o === 'B' ? 'hidden' : 'stay')
+    + row('Knob moves, MAP on, morph on', o => m[o] + ' px')
+    + row('Knob moves, MAP on, morph off', o => mo[o] + ' px')
+    + '</tbody></table>';
+}
+function picker(host, items, cur, on, cls) {
+  host.innerHTML = '';
+  items.forEach(it => { const b = document.createElement('button'); b.type = 'button'; if (cls) { b.className = cls; b.innerHTML = '<span class="id">' + it.id + '</span><span class="nm">' + it.nm + '</span><span class="tx">' + it.tx + '</span>'; } else b.textContent = it.nm; b.setAttribute('aria-pressed', String(it.id === cur())); b.addEventListener('click', () => { on(it.id); paint(); }); host.append(b); });
+}
+function paint() {
+  picker($('pickOpt'), OPTS, () => opt, id => place(id), 'opt');
+  picker($('pickState'), STATES, () => state, id => setState(id));
+  const o = OPTS.find(x => x.id === opt), s = STATES.find(x => x.id === state);
+  $('tryIt').textContent = o.id + ', ' + o.nm + ', with ' + s.nm.toLowerCase() + ' on. Click through Osc, Arp and Mix in the shell, where today breaks worst.';
+}
+
+// ===== boot =====
+(async function boot() {
+  paint();
+  const frame = $('frame'), base = new URL('.', location.href).href;
+  let html;
+  try { html = await (await fetch('gui3.html')).text(); } catch (e) { $('busy').textContent = 'This lab fetches the shell, so open it through tools/labs_preview.sh or tools/serve_labs.py (file:// blocks fetch).'; return; }
+  const marker = '<script src="gui3/shell-logic.js"><\/script>';
+  if (!html.includes(marker) || !html.includes('<head>')) { $('selfcheck').textContent = 'FAILED · the shell no longer has the script tag this lab hooks after.'; $('busy').textContent = 'The lab could not hook the shell.'; return; }
+  const hook = '<script>(' + labHook.toString() + ')();<\/script>';
+  html = html.replace('<head>', () => '<head><base href="' + base + '">').replace(marker, () => marker + hook);
+  await new Promise(res => { frame.addEventListener('load', res, { once: true }); frame.srcdoc = html; });
+  w = frame.contentWindow; d = frame.contentDocument; L = w.__lab; S = L.S; dev = L.dev;
+  w.addEventListener('error', () => { frameErrors++; });
+  const css = d.createElement('style'); css.textContent = FRAME_CSS; d.head.append(css);
+  d.body.classList.add('win-only');
+  pageIds = w.GUI3_DATA.pages.map(p => p.id);
+  let lines; try { lines = selfCheck(); paintTable(); } catch (e) { lines = ['FAILED · the self-check threw: ' + (e && e.stack || e)]; }
+  $('selfcheck').textContent = lines.join('\n'); paint();
+  $('busy').hidden = true;
+})();
+</script>
+</body>
+</html>

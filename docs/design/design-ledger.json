@@ -299,6 +299,10 @@
    "status": "retired",
    "note": "Archived in the design index (its lab-archive tag): legacy-era bench; its law is ruled or lives in the composed engine. History, never a source."
   },
+  "morph-map-lab.html": {
+   "status": "exploring",
+   "note": "Morph and MAP on together: three layouts on the real shell, for the human's choice. The human asked 2026-11-03 and rules by poll."
+  },
   "page-chrome-lab.html": {
    "status": "ruled",
    "adr": "ADR-315",
