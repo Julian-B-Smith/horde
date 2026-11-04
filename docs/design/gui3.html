@@ -108,13 +108,10 @@
   .switches .hd-label { gap: 4px; }
   .body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; flex: 1 1 auto; align-items: stretch; min-height: 0; }
   .body.with-dock { grid-template-columns: 204px minmax(0, 1fr); }
-  .body.with-insp { grid-template-columns: minmax(0, 1fr) 214px; }
-  .body.with-dock.with-insp { grid-template-columns: 204px minmax(0, 1fr) 214px; }
   /* ADR-345 r4, the info sidebar: the box takes the rail, under the pad while the pad shows, and the bank the whole foot. `contents` keeps the
      rail out of the grid until then, so the pad's own column (204 px) is unchanged with the sidebar off. */
   .rail { display: contents; }
   .body.with-side { grid-template-columns: 224px minmax(0, 1fr); }
-  .body.with-side.with-insp { grid-template-columns: 224px minmax(0, 1fr) 214px; }
   .body.with-side .rail { display: flex; flex-direction: column; gap: var(--space-stack); min-width: 0; min-height: 0; }
   .rail .dock { flex: 0 0 auto; }
   .rail .info { flex: 1 1 auto; width: auto; height: auto; min-height: 0; }
@@ -122,8 +119,15 @@
   .body.with-side .rail { align-self: start; height: calc(100% + 126px); z-index: 1; }
   .footrow.side-on { margin-left: 234px; }
   .footrow.side-on.bank-off #lensHost { flex: 1 1 auto; }
-  .insp-dock { width: auto; min-height: 0; overflow-y: auto; }
+  /* GUI-16: Mappings lives in the foot row, in Info and the Lens's place while MAP is on, so MAP never takes the page's width. Two rows a line, or it holds one row in this height. With the sidebar Info is in the rail, so it takes the Lens's place only. */
+  .insp-dock { flex: 0 0 466px; height: 100%; box-sizing: border-box; width: auto; min-height: 0; overflow-y: auto; }
   .insp-dock[hidden] { display: none; }
+  .footrow.side-on .insp-dock { flex-basis: 214px; }
+  .footrow.map-on > #info, .footrow.map-on > #lensHost { display: none; }
+  .insp-dock .head { min-height: 0; padding-top: 2px; padding-bottom: 2px; }
+  .insp-dock .face { padding: 2px 7px 4px; }
+  .footrow:not(.side-on) #insp { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 10px; align-content: start; }
+  .footrow:not(.side-on) #insp .insp-name, .footrow:not(.side-on) #insp > .hd-hint { grid-column: 1 / -1; }
   .insp-dock .hd-insp { max-width: none; flex: 1 1 auto; }
   .insp-dock .face { flex-direction: column; align-items: stretch; }
   /* MAP control row (the Map Mode spec): the control, the MOCK tag, then the live source strip on one scrolling line, so
@@ -302,15 +306,14 @@
       <div class="pagecol" id="pagecol">
         <main id="pages"></main>
       </div>
-      <!-- the spec's inspector rail, the mouse route for P (the polarity pill), Backspace (the remove button) and focus (a row);
-           it shows while MAP is on and takes no space otherwise -->
+    </div>
+    <!-- GUI-8 r4: the foot row spans the window, so the morph dock and the MAP inspector end above it and never take its width -->
+    <div class="footrow" id="footrow">
+      <!-- GUI-16: the spec's inspector, the mouse route for P (the polarity pill), Backspace (the remove button) and focus (a row); it shows while MAP is on -->
       <aside class="hd-card insp-dock" id="inspDock" aria-label="Mappings of the selected control" hidden>
         <div class="head"><span class="hd-cluster">Mappings</span><span class="tag">MAP ON</span></div>
         <div class="face"><div id="insp"></div></div>
       </aside>
-    </div>
-    <!-- GUI-8 r4: the foot row spans the window, so the morph dock and the MAP inspector end above it and never take its width -->
-    <div class="footrow" id="footrow">
       <section class="hd-card info" id="info" aria-label="Info box" aria-live="polite"></section>
       <div id="lensHost"></div>
       <section id="bank" aria-label="Modulator bank">
@@ -1356,7 +1359,7 @@ H.MapControl($('mapHost'), S, { frame: $('win'), strip: $('srcStrip'), chip: tru
 H.ModInspector($('insp'), S);
 function paintInspector() {
   const on = S.map.on;
-  $('inspDock').hidden = !on; $('bodyGrid').classList.toggle('with-insp', on);
+  $('inspDock').hidden = !on; $('footrow').classList.toggle('map-on', on);
 }
 S.on(paintInspector); paintInspector();
 
@@ -1426,7 +1429,7 @@ views.push({ page: '*', update() {
 const SIDEBAR_KEY = 'hd.info.sidebar';
 const sidebarBtn = h('button', { class: 'hd-toggle hd-focus', id: 'sidebarOn', type: 'button', role: 'switch', 'aria-checked': 'false', 'aria-label': 'Info sidebar' });
 function setSidebar(on) {
-  if (on) $('rail').append($('info')); else $('footrow').prepend($('info'));
+  if (on) $('rail').append($('info')); else $('inspDock').after($('info'));   // after Mappings, which stays first in the row
   $('bodyGrid').classList.toggle('with-side', on); $('footrow').classList.toggle('side-on', on); sidebarBtn.setAttribute('aria-checked', String(on));
 }
 sidebarBtn.addEventListener('click', () => { const on = sidebarBtn.getAttribute('aria-checked') !== 'true'; setSidebar(on); try { localStorage.setItem(SIDEBAR_KEY, on ? '1' : '0'); } catch (_) { /* not remembered */ } });
@@ -1730,7 +1733,7 @@ S.start();
   // 4c. GUI-8 r1, r3, r4; GUI-6; GUI-8 r7. Each state is confirmed on, because the foot row's fault only showed with morph or MAP on (the human's pictures, 2026-11-02).
   { const R = e => e.getBoundingClientRect(), pg0 = page, footW = () => R($('footrow')).width, tick = () => { for (const v of views) if (v.page === '*') v.update(); for (const v of S.views) v.render(); }, widthWas = $('win').style.width;
     $('win').style.width = '980px';   // self-checks run before the `win` flag and in whatever the page is wide: the plugin's window is 980 px, and that's what this measures
-    const inRow = () => { const fr = R($('footrow')); return [$('info'), $('lensHost'), $('bankHost'), $('sums')].every(e => { const q = R(e); return q.left >= fr.left - 1 && q.right <= fr.right + 1 && q.width > 100; }); };
+    const inRow = () => { const fr = R($('footrow')); return (S.map.on ? [$('inspDock'), $('bankHost'), $('sums')] : [$('info'), $('lensHost'), $('bankHost'), $('sums')]).every(e => { const q = R(e); return q.left >= fr.left - 1 && q.right <= fr.right + 1 && q.width > 100; }); };
     const w0 = footW(), row0 = inRow(), sumW = R($('sums')).width; setMorphOn(true); S.setMap(true); paintDock(); tick(); const both = !$('dock').hidden; const w1 = footW(), row1 = inRow(), sw1 = R($('sums')).width; S.setMap(false); setMorphOn(false); dev.undo(); dev.undo(); dev.clearRedo(); paintDock(); tick();
     const clash = []; DATA.pages.forEach(pp => { selectPage(pp.id); const a = R($('presetHost')), c = R($('colourHost')); [...document.querySelectorAll('#pnav button, .switches, .logo')].forEach(e => { const q = R(e); if (q.width && [a, c].some(r => r.left < q.right - 1 && q.left < r.right - 1 && r.top < q.bottom - 1 && q.top < r.bottom - 1)) clash.push(pp.id + ':' + e.textContent.trim().slice(0, 8)); }); }); selectPage(pg0);
     const g0 = $('win').style.getPropertyValue('--scr-ground'), chip = $('scrTop').querySelector('.hd-scrchip'), listB = scrSet.querySelector('[data-id="ember"]'); chip.click(); const g1 = $('win').style.getPropertyValue('--scr-ground'), listed0 = [...scrSet.querySelectorAll('button')].find(b => b.getAttribute('aria-checked') === 'true').dataset.id; listB.click(); const g2 = $('win').style.getPropertyValue('--scr-ground'), chipText = chip.textContent; scrSet.querySelector('[data-id=""]').click(); const g3 = $('win').style.getPropertyValue('--scr-ground');
@@ -2382,6 +2385,28 @@ S.start();
     if (dev.end()) dev.undo(); dev.clearRedo(); selectPage(pg0); S.message = ''; tick();   // only if the bracket made a step: every write here is put back, so it may not have, and an undo would reach an earlier step
     const fp1 = fp(), same = fp0 === fp1;
     line(same && !missed.length && n > 300 && tog > 10 && togKept && arrowSafe, 'Double-click (GUI-12): ' + n + ' controls on every page returned to home' + (missed.length ? ' (MISSED ' + missed.length + ': ' + missed.slice(0, 8).join(', ') + ')' : '') + '. Controls: ' + tog + ' toggles stayed where they were' + (togKept ? '' : ' (ONE MOVED)') + ', and a stepper’s arrow didn’t reset' + (arrowSafe ? '' : ' (IT DID)') + '.' + (same ? '' : ' It left something behind: ' + fp0 + ' then ' + fp1)); }
+  // 4l. GUI-16 (GB5): with morph and MAP on, every page measures as it does with the pad alone, because Mappings takes no page width. Control: the old third column is seen.
+  { const pg0 = page, widthWas = $('win').style.width, pg = $('pages'); $('win').style.width = '980px'; S.selected = null;
+    const hurt = () => { const box = R0(pg); let hidden = 0; document.querySelector('#pages > .page:not([hidden])').querySelectorAll('button, canvas, input, select, [data-key], .cs-strip').forEach(e => { const q = R0(e); if (!q.width || !q.height) return; let right = box.right, left = box.left; for (let a = e.parentElement; a && a !== pg; a = a.parentElement) if (getComputedStyle(a).overflowX !== 'visible') { const r = R0(a); right = Math.min(right, r.right); left = Math.max(left, r.left); } if (q.right > right + 1 || q.left < left - 1) hidden++; }); return { w: Math.round(box.width), hidden, tall: document.querySelector('#pages > .page:not([hidden])').scrollHeight }; };
+    const R0 = e => e.getBoundingClientRect(), same = (a, b) => a.w === b.w && a.hidden === b.hidden && Math.abs(a.tall - b.tall) <= 1;
+    setMorphOn(true); const worse = []; DATA.pages.forEach(pp => { selectPage(pp.id); S.setMap(false); paintDock(); const a = hurt(); S.setMap(true); const b = hurt(); if (!same(a, b)) worse.push(pp.id); });
+    selectPage('osc1'); const fr = R0($('footrow')), card = R0($('inspDock')), both = hurt(), hid = getComputedStyle($('info')).display === 'none' && getComputedStyle($('lensHost')).display === 'none', inFoot = $('inspDock').parentElement === $('footrow') && card.left >= fr.left - 1 && card.right <= fr.right + 1 && Math.abs(card.height - fr.height) < 1;
+    $('bodyGrid').style.gridTemplateColumns = '204px minmax(0, 1fr) 214px'; const old = hurt(), seen = !same(old, both); $('bodyGrid').style.gridTemplateColumns = '';
+    S.setMap(false); const back = getComputedStyle($('info')).display !== 'none' && getComputedStyle($('lensHost')).display !== 'none' && $('inspDock').hidden; setMorphOn(false); dev.undo(); dev.undo(); dev.clearRedo(); paintDock(); selectPage(pg0); $('win').style.width = widthWas; S.message = '';
+    line(!worse.length && inFoot && hid && back && seen && both.w >= 700, 'Morph and MAP (GUI-16): on all ' + DATA.pages.length + ' pages MAP changes nothing with the pad on' + (worse.length ? ' — WORSE ON ' + worse.join(', ') : '') + '; Osc 1 keeps ' + both.w + ' px; Mappings is in the foot row in Info and the Lens\'s place (' + inFoot + ', ' + hid + '), and they come back (' + back + '); the old third column would be seen (' + seen + ').'); }
+  // 4m. GUI-17: on a Control, Option+Shift-drag moves the high end, and a plain Option-drag slides the band. Controls: a no-move chord still cycles the polarity, and on a UNI route the chord's drag is still fine, a quarter rate.
+  { const k = pageKeysList('osc1').find(q => ROW[q].law !== 'step' && (ROW[q].pv || ROW[q].target !== 'engine') && !dev.routes().some(r => r.param === q)), f = pageEls.osc1.querySelector('[data-key="' + CSS.escape(k) + '"] .mk-face'), pg0 = page;
+    const h0 = dev.history().past.length, r0 = dev.routes().length; selectPage('osc1'); f.setPointerCapture = () => {}; f.hasPointerCapture = () => false; f.releasePointerCapture = () => {};
+    const ptr = (t, y, o) => f.dispatchEvent(new MouseEvent(t, Object.assign({ bubbles: true, button: 0, clientX: 10, clientY: y }, o))), both = { altKey: true, shiftKey: true }, opt = { altKey: true }, drag = (o, dy) => { ptr('pointerdown', 200, o); ptr('pointermove', 200 - dy, o); ptr('pointerup', 200 - dy, o); };
+    const m = { param: k, src: 'env3', pol: 'ctl', depth: .25, lo: .2, hi: .4 }; S.mappings.push(m); S.emit();
+    const px = 160; drag(both, px * .25); const swept = Math.abs(m.lo - .2) < 1e-9 && Math.abs(m.hi - .65) < .02; drag(opt, px * .1); const slid = Math.abs(m.lo - .3) < .02 && Math.abs(m.hi - m.lo - .45) < .02;
+    drag(both, -px * 2); const floor = m.hi === m.lo; m.lo = .2; m.hi = .4;
+    ptr('pointerdown', 200, opt); ptr('pointermove', 180, opt); ptr('pointermove', 180, both); ptr('pointermove', 164, both); ptr('pointerup', 164, both); const anchored = Math.abs(m.hi - m.lo - .2 - 16 / px) < .02;
+    m.pol = 'uni'; m.depth = .5; const d0 = m.depth; drag(both, px * .25); const fine = Math.abs(m.depth - d0 - .25 * .25) < .02;
+    const pol0 = m.pol; ptr('pointerdown', 200, both); ptr('pointerup', 200, both); const cycled = m.pol !== pol0;
+    // each gesture's end wrote the route into the device, so it comes out by undo, not by editing the session's list
+    while (dev.history().past.length > h0) dev.undo(); mapBridge.pull(); dev.clearRedo(); const clean = dev.routes().length === r0 && !dev.routes().some(r => r.param === k); S.selected = null; S.emit(); selectPage(pg0); S.message = '';
+    line(swept && slid && floor && anchored && fine && cycled && clean, 'CTL (GUI-17): Option+Shift-drag moved its high end and kept its start (' + swept + '); Option-drag slid it, the sweep kept (' + slid + '); the end stops at the start (' + floor + '); Shift mid-drag doesn\'t jump (' + anchored + '); on a UNI route the chord is still a fine drag (' + fine + '); a chord with no drag still cycles the polarity (' + cycled + ').'); }
   // 4i. GUI-15: the wheel. Plain over every control on every page moves nothing and doesn't stop the scroll; no box in a page holds the wheel or eats a notch.
   // Controls: Option over a knob does move it, so the wheel does reach the controls; a planted contain and a planted sliver are both seen.
   { const pg0 = page, widthWas = $('win').style.width; $('win').style.width = '980px';

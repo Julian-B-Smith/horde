@@ -15,6 +15,8 @@ The persistent map-mode switch: a toggle joined to a source selector, with the l
 
 **MAP on** (MD1, ADR-340 r7, amending the Map Mode spec and ADR-261 r3): a plain **drag moves the value**, exactly as with MAP off. A **click** (no movement) on a control with no mapping from the current source maps it at 25%, unipolar; on one already mapped from this source, a click focuses that mapping. **Option-drag sets the current source's depth**: on an unmapped control it creates the mapping at 0 and sets depth by the drag (release at 0 cancels). The spec's earlier rule, a plain drag sets depth under MAP, changed the scale with no modifier and confused the human ("it should still require an option+drag to scale the mod").
 
+**A Control** (GUI-17): Option-drag slides its band, its sweep kept, and **Option+Shift-drag moves its high end**, so its sweep changes and its start stays. On every other polarity the same keys are a fine Option-drag. With no drag they cycle the polarity, as everywhere (MP-c).
+
 **MAP off**: drag sets the value (the editing corner's); Option-drag sets the focused mapping's depth; an unmapped control says it has no modulators.
 
 **Choosing which modulator Option-drag controls** (the focused mapping; two ways, both mouse routes):
