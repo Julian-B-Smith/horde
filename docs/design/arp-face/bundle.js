@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1793745705-bf68, 2026-11-03; do not edit, re-vendor */
+/* vendored from the horde Design System artifact, version 1793764535-dcb5, 2026-11-03; do not edit, re-vendor */
 /* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"SteppedControl"},{"name":"Stepper"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"},{"name":"Companion"},{"name":"SourceChip"},{"name":"SourceRows"},{"name":"RoutesBySource"},{"name":"Cluster"},{"name":"Lens"},{"name":"Fold"},{"name":"PageView"},{"name":"ModTiers"},{"name":"MacroRow"},{"name":"ModBank"},{"name":"ModPage"},{"name":"UndoLine"},{"name":"MacroFace"},{"name":"PresetBar"},{"name":"Deck"},{"name":"MacroCard"},{"name":"ParamPicker"},{"name":"HistoryRail"},{"name":"PicturePicker"},{"name":"AssignXY"},{"name":"Specimen"}]} */
 /* horde house reference behaviours (vanilla JS, no React, no network).
    The morph knob and slider follow the human's HORDE Morph Knob Spec and HORDE Map Mode Spec
@@ -26,7 +26,8 @@
      every keyboard. Command is not in it: Windows keyboards have no Command key, and Ctrl+Alt is AltGr on many European
      layouts. Command and Ctrl must be up (macOS Ctrl-click is the secondary click). With movement the chord is a fine
      Option-drag, as Shift is fine everywhere. Not verified in a host (Live, Bitwig), nor whether Windows' Shift+Alt
-     layout hotkey fires around the click; the chip and the menu stay the routes if either takes it. */
+     layout hotkey fires around the click; the chip and the menu stay the routes if either takes it.
+     GUI-17: on a Control, the chord's drag sets how far it sweeps instead of being fine: a Control's plain Option-drag can only slide its band. */
   function chordHit(e) { return e.altKey && e.shiftKey && !e.metaKey && !e.ctrlKey; }
   function clamp(v, a, b) { a = a === undefined ? 0 : a; b = b === undefined ? 1 : b; return Math.min(b, Math.max(a, v)); }
   function v(name) { return 'var(--' + name + ')'; }
@@ -259,19 +260,22 @@
     });
     target.addEventListener('pointermove', function (e) {
       var st = S.drag; if (!st || st.key !== p.key) return;
-      var d = p.horizontal ? e.clientX - st.x : st.y - e.clientY, k = e.shiftKey ? .25 : 1;
+      var d = p.horizontal ? e.clientX - st.x : st.y - e.clientY, tg = st.mode !== 'value' ? st.target : null, ctl = !!tg && tg.pol === 'ctl', sweep = ctl && e.shiftKey, k = e.shiftKey && !sweep ? .25 : 1;
       if (Math.abs(d) > 3) st.moved = true; if (!st.moved || st.mode === 'refused' || st.noDrag) return;
+      /* GUI-17: Option+Shift on a Control moves its high end, so the sweep changes and its start stays. Pressing or releasing Shift mid-drag re-anchors on the end now being moved. */
+      if (ctl && st.sweep !== sweep) { st.start = sweep ? tg.hi : tg.lo; if (st.sweep !== undefined) { st.x = e.clientX; st.y = e.clientY; d = 0; } st.sweep = sweep; }
       /* RE-ANCHOR (ADR-340 r2): a relative drag that clamps at a stop, or changes its fine/coarse rate, restarts from where
          it is. Without it an overshoot past a stop was a dead range to unwind before the value moved back, and pressing
          Shift mid-drag jumped the value by the rate change. */
       if (st.k !== undefined && st.k !== k) { st.start = st.cur; st.x = e.clientX; st.y = e.clientY; d = 0; }
       st.k = k;
-      var raw = st.start + d / st.px * k, nv = st.signed ? clamp(raw, -1, 1) : clamp(raw);
+      var raw = st.start + d / st.px * k, nv = st.signed ? clamp(raw, -1, 1) : clamp(raw, sweep ? tg.lo : 0);
       if (raw !== nv) { st.start = nv; st.x = e.clientX; st.y = e.clientY; }
       st.cur = nv;
       if (st.mode === 'value') { if (p.locked) p.g = nv; else p.vals[st.ai] = nv; }
       else if (st.signed) { st.target.pol = nv < 0 ? 'inv' : 'uni'; st.target.depth = Math.abs(nv); }
-      else if (st.target && st.target.pol === 'ctl') { var wd = st.target.hi - st.target.lo; st.target.lo = Math.min(nv, 1 - Math.max(0, wd)); st.target.hi = st.target.lo + wd; }   // a Control's depth gesture slides its whole range (PLACEHOLDER)
+      else if (sweep) tg.hi = nv;
+      else if (st.target && st.target.pol === 'ctl') { var wd = st.target.hi - st.target.lo; st.target.lo = Math.min(nv, 1 - Math.max(0, wd)); st.target.hi = st.target.lo + wd; }   // a Control's Option-drag slides its whole range, its sweep kept
       else if (st.target) { if (st.target.cd && st.ai !== null) st.target.cd[st.ai] = nv; else st.target.depth = nv; }
     });
     function end(e) {
@@ -1583,7 +1587,7 @@
   'use strict';
   var POLS = ['uni', 'bi', 'inv', 'ctl'], POLN = { uni: 'UNI', bi: 'BI', inv: 'INV', ctl: 'CTL' };
   var POLHINT = { uni: 'unipolar: adds 0 to +depth', bi: 'bipolar: adds −depth to +depth', inv: 'inverse: adds −depth to 0',
-    ctl: 'Control: sweeps the parameter between its low and high ends; its own value is ignored' };
+    ctl: 'Control: sweeps the parameter between its low and high ends; its own value is ignored. Option-drag a knob to slide the range; Option+Shift-drag to set how far it sweeps' };
   var DRAG = 160, DEF_DEPTH = .25;                    // size-drag; the Map Mode spec's default depth (ADR-261 r3)
   var XSVG = '<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 1 5 4 8 1 9 2 6 5 9 8 8 9 5 6 2 9 1 8 4 5 1 2Z"/></svg>';
   var LOCK = '<svg viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" class="mx-lock"><path d="M3 4.6V3.3a2 2 0 0 1 4 0v1.3" style="fill:none;stroke:currentColor;stroke-width:1.3"/><rect x="1.8" y="4.6" width="6.4" height="4.6" rx="1" style="fill:currentColor"/></svg>';
