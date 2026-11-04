@@ -41,7 +41,9 @@ WHAT --check GATES (each failure carries its tag; the controls below assert the 
                   only for an off/on row, pills for at most 8 options)
   override-reason the widget rule (ADR-319 item 5, default_widget) is the default; an entry that departs
                   from it carries a non-empty `reason`, and an entry with a `reason` departs from it
-  live            a live-when condition names stepped keys and options that exist (or a number for gt)
+  live            a live-when condition names stepped keys and options that exist (or a number for gt or ne),
+                  lives in the layout's one table, and never names its own key: a knob that hid itself under
+                  the pointer couldn't be turned back (GUI-21)
   shell           the shell page mounts parameter controls in one place only, from the generated list,
                   and holds no parameter key of its own (a hand-placed control would be a second source)
   determinism     no gui3 script reads a clock or an unseeded random source
@@ -603,16 +605,62 @@ def check_live(cond, by, where):
     if k not in by:
         raise Red("live", f"{where}: condition on unknown key {k!r}")
     r = by[k]
-    if "gt" in cond:
-        if r["law"] == "step" or not isinstance(cond["gt"], (int, float)):
-            raise Red("live", f"{where}: `gt` needs a continuous key and a number ({k})")
-        return
+    for op in ("gt", "ne"):
+        if op in cond:
+            if r["law"] == "step" or not isinstance(cond[op], (int, float)):
+                raise Red("live", f"{where}: `{op}` needs a continuous key and a number ({k})")
+            return
     opts = cond.get("is", cond.get("not"))
     if r["law"] != "step" or not isinstance(opts, list) or not opts:
         raise Red("live", f"{where}: `is`/`not` needs a stepped key and a list of its options ({k})")
     for o in opts:
         if o not in (r["options"] or []):
             raise Red("live", f"{where}: {k} has no option {o!r} (it has {r['options']})")
+
+
+def live_keys(cond):
+    """Every key a condition reads."""
+    if "all" in cond or "any" in cond:
+        return {k for c in cond.get("all", []) + cond.get("any", []) for k in live_keys(c)}
+    return {cond.get("key")}
+
+
+def live_table(layout, by):
+    """The layout's `live_when` (GUI-21): key -> condition. One condition per parameter, so a key on three pages can't
+    hide on one and show on another. {o} and {b} expand over the oscillators and the blades."""
+    table = layout.get("live_when") or {}
+    def expand(obj):
+        out = []
+        for o in "12":
+            for b in "12":
+                t = json.dumps(obj).replace("{o}", o).replace("{b}", b)
+                if t not in out:
+                    out.append(t)
+        return [json.loads(t) for t in out]
+    rows = {}
+    for src in table.get("rows", []):
+        for r in expand(src):
+            for k in r["keys"]:
+                if k not in by:
+                    raise Red("live", f"live_when: {k!r} is not a parameter")
+                if k in rows:
+                    raise Red("live", f"live_when: {k} has two rows")
+                rows[k] = r["when"]
+    srcs = []
+    for src in table.get("sources", []):
+        srcs += expand(src)
+    out = {}
+    for k in by:
+        conds = [s["when"] for s in srcs if k.startswith(s["prefix"]) and k not in s.get("except", []) and ("only" not in s or k in s["only"])]
+        if k in rows:
+            conds.append(rows[k])
+        if not conds:
+            continue
+        out[k] = conds[0] if len(conds) == 1 else {"all": conds}
+        check_live(out[k], by, f"live_when {k}")
+        if k in live_keys(out[k]):
+            raise Red("live", f"live_when: {k}'s condition reads {k} itself, so the control would hide under the pointer")
+    return out
 
 
 def section_slug(title, num):
@@ -626,6 +674,7 @@ def build_pages(rows, layout):
     by = {r["key"]: r for r in rows}
     if layout.get("format") != "horde.gui3-layout/1":
         raise Red("parse", "layout.json: format is not horde.gui3-layout/1")
+    live_conds = live_table(layout, by)
     pages, placed = [], set()
     for pg in layout["pages"]:
         seen, groups, follow_seen, sec_ids = set(), [], {}, set()
@@ -733,11 +782,13 @@ def build_pages(rows, layout):
                     raise Red("override-reason", f"page {pg['id']}: {k} is a {w!r} where the widget rule gives {rule!r}: an override needs a `reason`")
                 if reason and not override:
                     raise Red("override-reason", f"page {pg['id']}: {k} has a `reason` but no override (the rule already gives {w!r})")
-                live = e.get("live")
-                if live is not None:
-                    check_live(live, by, f"page {pg['id']} {k}")
-                if "live" in g:                           # a group's condition ANDs with the control's own
+                if "live" in e:
+                    raise Red("live", f"page {pg['id']} {k}: a key's condition lives in `live_when`, not on a page")
+                live = live_conds.get(k)
+                if "live" in g and role != "power":       # a group's condition ANDs with the control's own; never its own power switch
                     live = g["live"] if live is None else {"all": [g["live"], live]}
+                if live is not None and k in live_keys(live):
+                    raise Red("live", f"page {pg['id']}: {k}'s condition reads {k} itself, so the control would hide under the pointer")
                 # The abbreviation column (ADR-338 r10): looked up by the full key, then by the key inside the group's
                 # block, then by a followed row's suffix, so one map line serves an envelope's four blocks.
                 blk_name = g.get("block")
