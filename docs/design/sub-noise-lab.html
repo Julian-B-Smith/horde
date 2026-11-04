@@ -1,0 +1,441 @@
+<!doctype html>
+<!-- sub-noise-lab: a picture of its own for the Sub page and the Noise page. horde, 2026-11-04. Origin: the lead session, relaying the human: "I want the sub and noise pages to be
+     much more stylistic and interesting than they currently are. Maybe we can come up with an interesting way to visualize each. Let's throw up a lab". Row GB9.
+
+     WHAT IS REAL. The frame is gui3.html itself, fetched and loaded unedited apart from one script, labHook below. Its knobs, its device and its undo are the shell's own, and every
+     picture reads the device each frame, so a knob on the page moves the picture.
+     WHAT THE LAB ADDS. The pictures, drawn through the master's Viz.kit with the six screen roles, so they follow the screen colours. Nothing here edits gui3*, arp-face/ or the master:
+     a ruling goes through the chain (ADR-316).
+
+     WHAT THE PICTURES ARE. No picture is the engine's output: the stub has no audio. Each is computed here from the settings, by a stand-in of SN-2, SN-4, SN-5 and SN-8 to SN-14 that
+     is close enough to read but isn't the law, and each says so on its glass. "What the engine would have to feed" is in the page's table, and goes on GB9 for the lead.
+
+     THE CHECK. Each thing a picture claims to show is measured on the stand-in's numbers, with a control: an LFSR of 15 steps repeats and Clean doesn't; Erode at 0 changes nothing and
+     above 0 does; drive flattens; spread 0 is mono. Two runs with one seed match. It also times each picture.
+
+     HOUSE RULES. No Math.random (a seeded mulberry32 per stream). No clock in a picture: time is a frame count, 1/60 s a frame. performance.now is used only to report a picture's cost.
+     No wheel listener (B301). -->
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="lab-part" content="Presentation">
+<meta name="lab-review" content="GB9 · 2026-11-04">
+<title>Sub and Noise lab — a picture of its own for each page</title>
+<link rel="stylesheet" href="arp-face/tokens.css">
+<link rel="stylesheet" href="arp-face/bundle.css">
+<style>
+  html, body { background: var(--bg); }
+  body { margin: 0; padding: 20px 16px 60px; color: var(--ink); font: 13px/1.5 var(--font-sans); }
+  .col { max-width: 1012px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+  h1 { font: 800 19px/1.2 var(--font-sans); margin: 0 0 6px; }
+  h2 { font: 800 13px/1.2 var(--font-sans); margin: 0 0 8px; }
+  p { margin: 0 0 6px; max-width: 84ch; }
+  .picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; }
+  .opt { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; gap: 3px; padding: 8px; border: 1px solid var(--div); border-radius: 4px; min-height: 44px; }
+  .opt:hover { border-color: var(--ink); }
+  .opt:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .opt[aria-pressed="true"] { border: 2px solid var(--ink); padding: 7px; }
+  .opt .id { font: 800 12px/1.2 var(--font-mono); }
+  .opt .nm { font: 700 12px/1.25 var(--font-sans); }
+  .opt .tx { color: var(--hint); }
+  .states { display: flex; flex-wrap: wrap; gap: 8px; }
+  .states button { min-height: 32px; font: 12px var(--font-sans); color: var(--ink); background: var(--panel); border: 1px solid var(--ink); border-radius: 4px; padding: 4px 10px; cursor: pointer; }
+  .states button[aria-pressed="true"] { border-width: 2px; font-weight: 700; }
+  #wrap { position: relative; overflow: auto hidden; border: 1px solid var(--div); height: 720px; }
+  #frame { display: block; border: 0; width: 980px; height: 720px; }
+  #busy { position: absolute; inset: 0; z-index: 2; display: flex; align-items: center; justify-content: center; background: var(--bg); font: 700 14px/1.4 var(--font-sans); padding: 16px; text-align: center; }
+  #busy[hidden] { display: none; }
+  .note { color: var(--hint); font-size: 12px; }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; font: 12px/1.35 var(--font-sans); width: 100%; }
+  th, td { padding: 5px 8px; border-bottom: 1px solid var(--div); text-align: left; vertical-align: top; }
+  th { font-weight: 700; white-space: nowrap; }
+  #selfcheck { font: 12px/1.5 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<div class="col">
+  <header>
+    <h1>Sub and Noise: a picture of its own for each page</h1>
+    <p>Today the Sub draws one cycle in a scope, and the Noise draws a tilted spectrum from Colour alone. These are three other ways to see each one, on the real shell. Every knob on the page moves the picture, so turn Drive, Erode or Colour while you watch.</p>
+    <p class="note">Nothing here is the engine's sound. The shell has no audio yet, so each picture is computed from the settings, and says so on its glass.</p>
+  </header>
+  <section aria-label="The Sub's picture"><h2>The Sub</h2><div class="picker" id="pickSub"></div></section>
+  <section aria-label="The Noise's picture"><h2>The Noise</h2><div class="picker" id="pickNoise"></div></section>
+  <section aria-label="Where it goes"><h2>Where it goes</h2><div class="states" id="pickPlace"></div></section>
+  <section aria-label="Try a sound"><h2 id="tryTitle">Try a setting</h2><div class="states" id="pickTry"></div></section>
+  <section aria-label="The shell"><div id="wrap"><iframe id="frame" title="GUI 3 with these pictures"></iframe><div id="busy">Loading the shell and checking the pictures.</div></div></section>
+  <section aria-label="What the engine would have to feed"><h2>What the engine would have to feed</h2><div class="scroll"><table id="feeds"></table></div>
+    <p class="note">Checked against IF-10 and RC-8. A picture with a gap stays labelled as drawn from the settings until that value exists. The new values go on GB9 for the lead.</p></section>
+  <section aria-label="Self-check"><h2>Self-check</h2><div id="selfcheck">Running.</div></section>
+</div>
+<script>
+function labHook() {
+  var H = window.Horde, DV = window.GUI3Device, L = window.__lab = {};
+  var Sess = H.Session; H.Session = function (o) { var s = new Sess(o); L.S = s; return s; }; H.Session.prototype = Sess.prototype;
+  var cr = DV.create; DV.create = function (a, b, c) { var d = cr(a, b, c); if (!L.dev) L.dev = d; return d; };   // the first is the shell's; its self-checks make throwaway ones
+  var PN = H.PageNav; H.PageNav = function (el, o) { if (el.id === 'pnav') L.go = function (id) { o.onChange(null, id); }; return PN(el, o); };
+}
+
+const $ = id => document.getElementById(id), TAU = Math.PI * 2, FH = 44100;
+const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+// ===== THE SUB'S STAND-IN (SN-2, SN-3, SN-5, SN-14: close enough to read, not the law) =====
+function subShape(o, t) {
+  switch (o.wave) {
+    case 'sine': return Math.sin(TAU * t);
+    case 'triangle': return t < .25 ? 4 * t : t < .75 ? 2 - 4 * t : 4 * t - 4;
+    case 'square': return t < .5 ? 1 : -1;
+    case 'saw': return 2 * t - 1;
+    case 'pulse': return t < o.width ? 1 : -1;
+    case 'bump': return Math.sin(TAU * t) + o.ampA * Math.sin(TAU * o.harmA * t + o.phaseA) + o.ampB * Math.sin(TAU * o.harmB * t + o.phaseB);
+    case 'smooth square': { const k = .6 + (1 - o.softness) * 11; return Math.tanh(k * Math.sin(TAU * t)) / Math.tanh(k); }
+    default: return Math.sin(TAU * t);
+  }
+}
+function subDrive(y, d, ch) {
+  if (d <= 0) return y;
+  const g = 1 + d * 7;
+  if (ch === 'Diode') return y >= 0 ? Math.tanh(g * y) : Math.max(-.72, g * y);
+  if (ch === 'Fold-lite') return Math.sin(clamp(g * y, -2.2, 2.2) * Math.PI / 2 / 1.2) / (1 + d * .05);
+  const off = Math.tanh(d * .15); return (Math.tanh(g * y + d * .15) - off) / (1 - off);   // Tube: soft and asymmetric, its top at the ceiling, so full drive reads as flat against it
+}
+// One cycle, N points, as played: shape, then the chain in its order. `erode` reads the shape at a time bent by the noise block n (SN-14, in cycles here, for the eye).
+function subCycle(o, N, n, out) {
+  out = out || new Float32Array(N);
+  let peak = 1;
+  if (o.wave === 'bump') { peak = 0; for (let i = 0; i < 128; i++) peak = Math.max(peak, Math.abs(subShape(o, i / 128))); peak = peak || 1; }
+  const f = 55 * Math.pow(2, o.octave + 1), a = 1 - Math.exp(-TAU * o.tone / (f * N));
+  const dr = (y, i) => { y = subDrive(y, o.drive, o.character); return o.crunch > 0 ? y + o.crunch * .22 * Math.sign(Math.sin(TAU * 9 * i / N)) * Math.abs(y) : y; };
+  let lp = 0;
+  for (let pass = 0; pass < 2; pass++) for (let i = 0; i < N; i++) {   // two passes, so the low-pass has settled round the cycle
+    const tb = o.erode > 0 && n ? o.erode * .05 * n[i % n.length] : 0, t = ((i / N - tb) % 1 + 1) % 1;
+    let y = subShape(o, t) / peak;
+    if (o.order === 'tone, env → drive') { lp += a * (y - lp); y = dr(lp, i); } else { y = dr(y, i); lp += a * (y - lp); y = lp; }
+    out[i] = clamp(y, -1.3, 1.3);
+  }
+  return out;
+}
+
+// ===== THE NOISE'S STAND-IN (SN-4, SN-8 to SN-12; the same order of stages, not the same numbers) =====
+function biquad(type, fc, q) {
+  const w = TAU * clamp(fc, 20, FH * .45) / FH, s = Math.sin(w), c = Math.cos(w), al = s / (2 * q), a0 = 1 + al; let b0, b1, b2;
+  if (type === 'LP') { b1 = (1 - c) / a0; b0 = b2 = b1 / 2; } else if (type === 'HP') { b1 = -(1 + c) / a0; b0 = b2 = -b1 / 2; } else { b0 = al / a0; b1 = 0; b2 = -al / a0; }
+  return { b0, b1, b2, a1: -2 * c / a0, a2: (1 - al) / a0, z1: 0, z2: 0 };
+}
+const bq = (f, x) => { const y = f.b0 * x + f.z1; f.z1 = f.b1 * x - f.a1 * y + f.z2; f.z2 = f.b2 * x - f.a2 * y; return y; };
+const VOWELS = [[800, 1150, 2900], [400, 2100, 2700], [300, 2500, 3200], [450, 800, 2830], [325, 700, 2530]];
+const lfsrBits = L => Math.round(Math.log2(L + 1));
+function NoiseGen(seed) {
+  const r = mulberry32(seed), ru = mulberry32(seed ^ 0x51ed27), wander = mulberry32(seed ^ 0x77aa11);
+  let e = 0, ph = 1, held = 0, lph = 0, reg = 1, pk = [0, 0, 0], br = 0, fbuf = new Float32Array(4096), fw = 0, windPh = wander() * TAU, sig = '', F = null, wf = null, windN = 0;
+  const colour = (x, c) => {
+    pk[0] = .99765 * pk[0] + x * .099046; pk[1] = .963 * pk[1] + x * .2965164; pk[2] = .57 * pk[2] + x * 1.0526913;
+    const pink = (pk[0] + pk[1] + pk[2] + x * .1848) * .25; br = clamp(br * .995 + x * .05, -1.2, 1.2);
+    return c >= 0 ? c * x + (1 - c) * pink : -c * br * 1.8 + (1 + c) * pink;
+  };
+  return { block(o, n, out, f0) {
+    const s2 = [o.filter, o.cutoff, o.resonance, o.vowel, o.whisper].join();
+    if (s2 !== sig) { sig = s2; const v = clamp(o.vowel, 0, 1) * 4, i = Math.min(3, Math.floor(v)), m = v - i, fm = [0, 1, 2].map(k => VOWELS[i][k] * (1 - m) + VOWELS[i + 1][k] * m);
+      F = { flt: o.filter === 'Off' ? null : biquad(o.filter, o.cutoff, .5 + o.resonance * 5), v: fm.map(fc => biquad('BP', fc, 7)) }; }
+    const fb = o.feedback, D = clamp(Math.round(FH / f0), 2, 4095), bits = lfsrBits(o.length), mask = (1 << bits) - 1;
+    const clock = o.length <= 63 ? Math.min(1, f0 * o.length / FH) : Math.min(1, f0 * 16 / FH);
+    for (let i = 0; i < n; i++) {
+      const w = 2 * r() - 1; let x;
+      if (o.type === 'Crackle') { if (ru() < o.density / FH) e = .4 + .6 * ru(); else e *= .985; x = colour(w * e * 2.5, o.colour); }
+      else if (o.type === 'S&H') { const cw = colour(w, o.colour); ph += Math.min(1, o.rate / FH); if (ph >= 1) { ph -= 1; held = cw; } x = held; }
+      else if (o.type === 'LFSR') { lph += clock; if (lph >= 1) { lph -= 1; const bit = ((reg >> 0) ^ (reg >> 1)) & 1; reg = ((reg >> 1) | (bit << (bits - 1))) & mask; if (!reg) reg = 1; } x = colour(reg & 1 ? 1 : -1, o.colour); }
+      else x = colour(w, o.colour);
+      if (o.resonator) { const y = x * (1 - fb) * 2.2 + fb * fbuf[(fw - D + 4096) % 4096]; fbuf[fw] = y; fw = (fw + 1) % 4096; x = y; }
+      if (o.whisper) x = (bq(F.v[0], x) + bq(F.v[1], x) * .7 + bq(F.v[2], x) * .4) * 2.2;
+      if (o.wind) { if (windN-- <= 0) { windN = 96; windPh += .002 + o.gust * .02 * wander(); const fc = 700 * Math.pow(2, Math.sin(windPh) * (.6 + o.gust * 2.4)); wf = wf ? Object.assign(wf, biquad('BP', fc, 3), { z1: wf.z1, z2: wf.z2 }) : biquad('BP', fc, 3); } x = bq(wf, x) * 2.4; }
+      if (F.flt) x = bq(F.flt, x);
+      out[i] = x;
+    }
+    return out;
+  } };
+}
+// Both channels: at spread 0 the two are one signal, sample for sample (SN-12); above it they part.
+function StereoGen(seed) {
+  const a = NoiseGen(seed), b = NoiseGen(seed ^ 0x3c6ef372), t = new Float32Array(8192);
+  return { block(o, n, L, R, f0) { a.block(o, n, L, f0); if (o.spread <= 0) { R.set(L.subarray(0, n)); b.block(o, n, t, f0); return; } b.block(o, n, t, f0); const s = o.spread; for (let i = 0; i < n; i++) R[i] = L[i] * (1 - s) + t[i] * s; } };
+}
+
+// ===== THE PICTURES. Each is { draw(K, o, st) }, K the master's kit, o the settings, st its state. =====
+function glassLabel(K, cw, text) { const g = K.g, V = K.V; g.font = (9 * V) + 'px ' + (getComputedStyle(document.body).getPropertyValue('--font-mono') || 'monospace'); g.textAlign = 'right'; const tw = g.measureText(text).width; g.fillStyle = K.c('ground'); g.fillRect(cw * V - 9 * V - tw, K.H - 15 * V, tw + 6 * V, 13 * V);   /* a chip of the glass ground: no trace under glass text */ g.fillStyle = K.c('grid'); g.fillText(text, cw * V - 6 * V, K.H - 5 * V); g.textAlign = 'left'; }
+const DRAWN = 'DRAWN FROM THE SETTINGS';
+function erodeBlock(st, o, n) { if (!st.gen) { st.gen = StereoGen(9401); st.a = new Float32Array(2048); st.b = new Float32Array(2048); } st.gen.block(o.noise, n, st.a, st.b, 130.81); let m = 0; for (let i = 0; i < n; i++) m = Math.max(m, Math.abs(st.a[i])); if (m > 1) for (let i = 0; i < n; i++) st.a[i] /= m; return st.a; }
+
+const SUB = {
+  // The Dial: one heavy cycle wrapped round a dial, with its ceiling as a ring. Drive flattens it against the ring; Erode frays it.
+  dial(K, o, st) {
+    const g = K.g, V = K.V, W = K.W, H = K.H; K.tube(); K.scan();
+    const N = 256, n = o.erode > 0 ? erodeBlock(st, o, N) : null, y = subCycle(o, N, n), L = st.level, wide = W / V > 300;
+    const cx = (wide ? H * .62 : W * .5), cy = H / 2, R0 = Math.min(H * .29, W * .28), A = R0 * .55, ph = st.t * .33 % 1;
+    g.strokeStyle = K.c('grid', .5); g.lineWidth = V; g.setLineDash([2 * V, 3 * V]); [1, -1].forEach(s => { g.beginPath(); g.arc(cx, cy, R0 + s * A, 0, TAU); g.stroke(); }); g.setLineDash([]);
+    for (let i = 0; i < 24; i++) { const a = i / 24 * TAU, r1 = R0 + A + 3 * V, r2 = r1 + (i % 6 ? 3 : 7) * V; g.strokeStyle = K.c('grid', i % 6 ? .45 : .9); g.beginPath(); g.moveTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1); g.lineTo(cx + Math.cos(a) * r2, cy + Math.sin(a) * r2); g.stroke(); }
+    const pt = (i, yy) => { const a = i / N * TAU - Math.PI / 2 + ph * TAU, r = R0 + A * yy * L; return [cx + Math.cos(a) * r, cy + Math.sin(a) * r]; };
+    g.beginPath(); for (let i = 0; i <= N; i++) { const p = pt(i % N, y[i % N]); i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); } g.closePath(); g.fillStyle = K.c('physics', .16); g.fill();
+    if (n) for (let k = 0; k < 3; k++) { const tr = subCycle(o, N, erodeBlock(st, o, N)); g.strokeStyle = K.c('value', .3); g.lineWidth = V; g.beginPath(); for (let i = 0; i <= N; i++) { const p = pt(i % N, tr[i % N]); i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); } g.closePath(); g.stroke(); }
+    g.strokeStyle = K.c('physics', .24); g.lineWidth = 7 * V; g.beginPath(); for (let i = 0; i <= N; i++) { const p = pt(i % N, y[i % N]); i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); } g.closePath(); g.stroke();
+    g.strokeStyle = K.c('physics'); g.lineWidth = 2.4 * V; g.stroke();
+    g.strokeStyle = K.c('marker'); g.lineWidth = 3 * V; let run = false; g.beginPath(); for (let i = 0; i <= N; i++) { const hot = Math.abs(y[i % N]) > .97 && o.drive > 0; const p = pt(i % N, y[i % N]); if (hot) { run ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); } run = hot; } g.stroke();
+    if (wide) {   // the same cycle unrolled, so the shape reads as a shape too
+      const x0 = cx + R0 + A + 34 * V, x1 = W - 12 * V, mid = H / 2, amp = H * .34, C = 3;
+      g.strokeStyle = K.c('grid', .4); g.lineWidth = V; g.beginPath(); g.moveTo(x0, mid); g.lineTo(x1, mid); g.moveTo(x0, mid - amp); g.lineTo(x1, mid - amp); g.moveTo(x0, mid + amp); g.lineTo(x1, mid + amp); g.stroke();
+      g.beginPath(); for (let x = x0; x <= x1; x += V) { const u = (x - x0) / (x1 - x0) * C, i = Math.floor(((u - ph) % 1 + 1) % 1 * N), v = mid - amp * y[i] * L; x === x0 ? g.moveTo(x, v) : g.lineTo(x, v); }
+      g.lineTo(x1, mid); g.lineTo(x0, mid); g.closePath(); g.fillStyle = K.c('physics', .14); g.fill();
+      g.strokeStyle = K.c('physics'); g.lineWidth = 2 * V; g.beginPath(); for (let x = x0; x <= x1; x += V) { const u = (x - x0) / (x1 - x0) * C, i = Math.floor(((u - ph) % 1 + 1) % 1 * N), v = mid - amp * y[i] * L; x === x0 ? g.moveTo(x, v) : g.lineTo(x, v); } g.stroke();
+    }
+  },
+  // The Cone: a driver from the front. The shape travels out from the dust cap, so a saw and a square move differently. It hits its limit ring under drive; Crunch rattles the ribs; Erode frays the surround.
+  cone(K, o, st) {
+    const g = K.g, V = K.V, W = K.W, H = K.H; K.tube(); K.scan();
+    const N = 256, n = o.erode > 0 ? erodeBlock(st, o, N) : null, y = subCycle(o, N, n), L = st.level, cx = W / 2, cy = H / 2, R = H * .44, ph = st.t * .7 % 1, rings = 13;
+    const at = u => y[Math.floor(((u % 1) + 1) % 1 * N)] * L;
+    for (let s = -1; s <= 1; s += 2) for (let col = 0; col < Math.floor((W / 2 - R - 14 * V) / (12 * V)); col++) for (let row = 0; row < Math.floor(H / (12 * V)); row++) {   // the grille
+      const x = cx + s * (R + 18 * V + col * 12 * V), yy = 6 * V + row * 12 * V, e = Math.abs(at(ph - col * .05)) * Math.exp(-col * .09); g.fillStyle = K.c('physics', .05 + e * .5); g.fillRect(x - 1.5 * V, yy - 1.5 * V, 3 * V, 3 * V);
+    }
+    const lim = Math.abs(at(ph)) > .97 && o.drive > 0;
+    g.strokeStyle = K.c(lim ? 'marker' : 'grid', lim ? 1 : .6); g.lineWidth = (lim ? 3 : 1.2) * V; g.beginPath(); g.arc(cx, cy, R, 0, TAU); g.stroke();
+    // the surround: frayed by Erode, from the noise the sub's time is bent by
+    g.strokeStyle = K.c('value', .75); g.lineWidth = 3 * V; g.beginPath(); for (let i = 0; i <= 96; i++) { const a = i / 96 * TAU, fr = n ? n[(i * 7) % N] * o.erode * 9 * V : 0, r = R * .92 + at(ph) * 3 * V + fr; const px = cx + Math.cos(a) * r, py = cy + Math.sin(a) * r; i ? g.lineTo(px, py) : g.moveTo(px, py); } g.stroke();
+    for (let i = rings; i >= 1; i--) { const u = i / rings, e = at(ph - u * .9), r = R * .88 * u * (1 + e * .05 * (1 - u)); g.strokeStyle = K.c('physics', .18 + Math.abs(e) * .75); g.lineWidth = (1 + Math.abs(e) * 2.2) * V; g.beginPath(); g.ellipse(cx, cy + e * 7 * V * (1 - u), r, r, 0, 0, TAU); g.stroke(); }
+    for (let i = 0; i < 24; i++) { const a = i / 24 * TAU + (o.crunch > 0 ? (at(ph + i * .13) * o.crunch * .05) : 0), r0 = R * .24, r1 = R * .88; g.strokeStyle = K.c('grid', .4); g.lineWidth = V; g.beginPath(); g.moveTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0); g.lineTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1); g.stroke(); }
+    const cap = at(ph); g.fillStyle = K.c('physics', .25 + Math.abs(cap) * .7); g.beginPath(); g.arc(cx, cy + cap * 7 * V, R * .22 * (1 + cap * .1), 0, TAU); g.fill(); g.strokeStyle = K.c('value'); g.lineWidth = 1.5 * V; g.stroke();
+  },
+  // The Stack: cycles piled back in time, each hiding the one behind it. The envelope's history reads as the pile's height; Erode makes no two alike.
+  stack(K, o, st) {
+    const g = K.g, V = K.V, W = K.W, H = K.H; K.tube();
+    const LN = 26, N = 256; st.lines = st.lines || []; st.step = (st.step || 0) + 1;
+    if (st.step % 3 === 1) { st.lines.unshift({ y: subCycle(o, N, o.erode > 0 ? erodeBlock(st, o, N) : null), l: st.level }); if (st.lines.length > LN) st.lines.pop(); }
+    for (let k = st.lines.length - 1; k >= 0; k--) {
+      const ln = st.lines[k], d = k / LN, x0 = W * (.06 + d * .13), x1 = W * (.94 - d * .13), base = H * (.92 - d * .74), amp = H * (.26 - d * .12) * ln.l, C = 3;
+      g.beginPath(); g.moveTo(x0, base); for (let x = x0; x <= x1; x += 2 * V) { const u = (x - x0) / (x1 - x0) * C, i = Math.floor((u % 1) * N); g.lineTo(x, base - amp * ln.y[i]); } g.lineTo(x1, base);
+      g.lineTo(x1, H); g.lineTo(x0, H); g.closePath(); g.fillStyle = K.c('ground'); g.fill();
+      g.strokeStyle = K.c(k < 2 ? 'value' : 'physics', 1 - d * .75); g.lineWidth = (k < 2 ? 2 : 1.2) * V; g.beginPath(); for (let x = x0; x <= x1; x += 2 * V) { const u = (x - x0) / (x1 - x0) * C, i = Math.floor((u % 1) * N), v = base - amp * ln.y[i]; x === x0 ? g.moveTo(x, v) : g.lineTo(x, v); } g.stroke();
+    }
+    K.scan();
+  }
+};
+// The signal's SIGN, not its size: an LFSR is ±1 everywhere, so its size is a solid block and its repeat can't show. The upper half is bright, the lower faint, silence dark.
+const rasterV = (y, lv) => clamp((y > 0 ? y * 215 : -y * 48) * lv, 0, 255);
+function ramp(K) { const G = K.P.ground, P = K.P.physics, A = K.P.value; const t = new Uint8ClampedArray(256 * 3); for (let i = 0; i < 256; i++) { const u = i / 255; for (let c = 0; c < 3; c++) t[i * 3 + c] = u < .62 ? G[c] + (P[c] - G[c]) * u / .62 : P[c] + (A[c] - P[c]) * (u - .62) / .38; } return t; }
+const NOISE = {
+  // The Raster: the signal itself, one scan a line. A row is locked to the note where the sound repeats, so an LFSR's repeat stands as bands. Left half left channel, right half right.
+  raster(K, o, st) {
+    const g = K.g, V = K.V, W = K.W, H = K.H, cols = Math.max(32, Math.round(W / V / 2)) & ~1, rows = Math.max(16, Math.round(H / V / 2));
+    if (!st.gen || st.cols !== cols || st.rows !== rows) { st.gen = StereoGen(7711); st.cols = cols; st.rows = rows; st.buf = new Uint8ClampedArray(cols * rows); st.L = new Float32Array(8192); st.R = new Float32Array(8192); st.img = new ImageData(cols, rows); st.cv = document.createElement('canvas'); st.cv.width = cols; st.cv.height = rows; }
+    const f0 = 130.81 * Math.pow(2, o.pitch / 12), locked = (o.type === 'LFSR' && o.length <= 63) || o.resonator, half = cols / 2, n = locked ? Math.max(half, Math.round(FH / f0 * Math.max(1, Math.round(half / (FH / f0))))) : half;
+    const lines = 2; for (let l = 0; l < lines; l++) {
+      st.gen.block(o, Math.min(n, 8192), st.L, st.R, f0); st.buf.copyWithin(cols, 0, cols * (rows - 1));
+      for (let c = 0; c < half; c++) { const i = Math.floor(c / half * Math.min(n, 8192)); st.buf[c] = rasterV(st.L[i], st.level); st.buf[half + c] = rasterV(st.R[i], st.level); }
+    }
+    const t = st.t2 = st.t2 && st.t2key === K.P.physics.join() ? st.t2 : ramp(K); st.t2key = K.P.physics.join(); const d = st.img.data;
+    for (let i = 0; i < cols * rows; i++) { const v = st.buf[i] * 3; d[i * 4] = t[v]; d[i * 4 + 1] = t[v + 1]; d[i * 4 + 2] = t[v + 2]; d[i * 4 + 3] = 255; }
+    st.cv.getContext('2d').putImageData(st.img, 0, 0); g.imageSmoothingEnabled = false; g.drawImage(st.cv, 0, 0, W, H);
+    g.fillStyle = K.c('ground'); g.fillRect(W / 2 - V, 0, 2 * V, H); K.scan(.6);
+  },
+  // The Weather: the settings as a sky. Colour sets the grain, Wind blows it, Whisper's vowels are three fronts, the filter is a horizon, spread opens the field. Each source falls differently.
+  weather(K, o, st) {
+    const g = K.g, V = K.V, W = K.W, H = K.H;
+    if (!st.p) { const r = mulberry32(3301); st.r = r; st.p = Array.from({ length: 360 }, () => ({ x: r(), y: r(), s: r(), life: r() })); st.flash = []; st.wind = 0; st.wph = 0; }
+    g.fillStyle = K.c('ground', o.resonator ? .1 + (1 - o.feedback) * .4 : .3); g.fillRect(0, 0, W, H);
+    const c = o.colour, grain = (1 - (c + 1) / 2), sz = (1.6 + grain * 5.5) * V, width = .34 + .66 * o.spread, f0 = 130.81 * Math.pow(2, o.pitch / 12), r = st.r;
+    st.wph += .004 + o.gust * .02; st.wind = o.wind ? Math.sin(st.wph) * .004 * (1 + o.gust * 5) + Math.sin(st.wph * 2.7) * .002 : 0;
+    const fall = (.002 + (c + 1) * .004) * (o.type === 'S&H' ? 1.6 : 1);
+    let lo = 0, hi = 1;   // the horizon: where the filter lets the grain through, up the glass by log frequency
+    if (o.filter !== 'Off') { const h = Math.log(o.cutoff / 20) / Math.log(1000); if (o.filter === 'LP') hi = h; else if (o.filter === 'HP') lo = h; else { lo = h - .14; hi = h + .14; } }
+    if (o.filter !== 'Off') { g.strokeStyle = K.c('marker', .8); g.lineWidth = V; g.setLineDash([3 * V, 3 * V]); [lo, hi].forEach(v => { if (v > 0 && v < 1) { const y = H * (1 - v); g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); } }); g.setLineDash([]); }
+    if (o.whisper) { const v = clamp(o.vowel, 0, 1) * 4, i = Math.min(3, Math.floor(v)), m = v - i; [0, 1, 2].forEach(k => { const fm = VOWELS[i][k] * (1 - m) + VOWELS[i + 1][k] * m, y = H * (1 - Math.log(fm / 20) / Math.log(1000)), wv = 16 * V; const gr = g.createLinearGradient(0, y - wv, 0, y + wv); gr.addColorStop(0, K.c('value', 0)); gr.addColorStop(.5, K.c('value', .3 / (k + 1) * st.level)); gr.addColorStop(1, K.c('value', 0)); g.fillStyle = gr; g.fillRect(0, y - wv, W, wv * 2); }); }
+    const gridX = o.type === 'S&H' ? clamp(Math.round(Math.log2(o.rate / 40) * 6), 6, 80) : 0, comb = o.resonator ? Math.round(clamp(FH / f0 / 16, 8, 40)) : 0, lat = o.type === 'LFSR' ? Math.min(o.length, 63) : 0;
+    st.p.forEach((p, idx) => {
+      p.y += fall * (.4 + p.s) * st.level + (o.type === 'LFSR' ? 0 : 0); p.x += st.wind * (.6 + p.s);
+      if (p.y > 1) { p.y -= 1; p.x = r(); } if (p.x > 1) p.x -= 1; if (p.x < 0) p.x += 1;
+      let x = p.x, y = p.y, a = (.4 + p.s * .6) * st.level, s = sz * (.6 + p.s);
+      if (gridX) { x = Math.round(x * gridX) / gridX; y = Math.round(y * gridX * .4) / (gridX * .4); s *= 1.5; }
+      if (comb) x = Math.round(x * comb) / comb;
+      if (lat) { const col = idx % lat, row = Math.floor(st.t * f0 * .004) + Math.floor(idx / lat); x = (col + .5) / lat; y = (Math.floor(p.s * 12) + .5) / 12; a *= (((col * 2654435761 >>> 0) >> ((row % 17) + 3)) & 1) ? 1 : .08; }
+      if (o.type === 'Crackle') a *= .06;
+      const hgt = 1 - y; if (hgt < lo || hgt > hi) a *= .1;
+      const px = (.5 + (x - .5) * width) * W; g.fillStyle = K.c(p.s > .85 ? 'value' : 'physics', a); g.fillRect(px - s / 2, y * H - s / 2, s, s * (o.wind ? 1 : 1.8));
+    });
+    if (o.type === 'Crackle') { const rate = Math.log10(o.density) * 1.2 * st.level; if (r() < rate) st.flash.push({ x: .5 + (r() - .5) * width, y: r(), a: 1 }); st.flash = st.flash.filter(f => f.a > .05); st.flash.forEach(f => { f.a *= .84; g.strokeStyle = K.c('value', f.a); g.lineWidth = 1.4 * V; g.beginPath(); g.arc(f.x * W, f.y * H, (1 - f.a) * 26 * V + V, 0, TAU); g.stroke(); g.fillStyle = K.c('value', f.a); g.fillRect(f.x * W - 1.5 * V, f.y * H - 1.5 * V, 3 * V, 3 * V); }); }
+  },
+  // The Waterfall: the sound's spectrum running sideways in time, on a log scale. The comb's teeth, the vowels, Wind's wander and the filter's slope all show as what they are.
+  waterfall(K, o, st) {
+    const g = K.g, V = K.V, W = K.W, H = K.H, M = 512, B = Math.max(48, Math.round(H / V / 2)), C = Math.max(64, Math.round(W / V / 3));
+    if (!st.gen || st.B !== B || st.C !== C) { st.gen = StereoGen(5521); st.B = B; st.C = C; st.buf = new Uint8ClampedArray(B * C); st.L = new Float32Array(8192); st.R = new Float32Array(8192); st.re = new Float32Array(M); st.im = new Float32Array(M); st.win = Float32Array.from({ length: M }, (_, i) => .5 - .5 * Math.cos(TAU * i / M)); st.img = new ImageData(C, B); st.cv = document.createElement('canvas'); st.cv.width = C; st.cv.height = B; }
+    const f0 = 130.81 * Math.pow(2, o.pitch / 12), re = st.re, im = st.im;
+    for (let col = 0; col < 2; col++) { st.gen.block(o, M, st.L, st.R, f0);   // two columns a frame, so the glass fills in about two and a half seconds
+    for (let i = 0; i < M; i++) { re[i] = st.L[i] * st.win[i]; im[i] = 0; }
+    for (let i = 1, j = 0; i < M; i++) { let b = M >> 1; for (; j & b; b >>= 1) j ^= b; j ^= b; if (i < j) { const t = re[i]; re[i] = re[j]; re[j] = t; } }
+    for (let len = 2; len <= M; len <<= 1) { const a = -TAU / len, wr = Math.cos(a), wi = Math.sin(a); for (let i = 0; i < M; i += len) { let cr = 1, ci = 0; for (let k = 0; k < len / 2; k++) { const p = i + k, q = p + len / 2, tr = re[q] * cr - im[q] * ci, ti = re[q] * ci + im[q] * cr; re[q] = re[p] - tr; im[q] = im[p] - ti; re[p] += tr; im[p] += ti; const n = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = n; } } }
+    for (let r = 0; r < B; r++) st.buf.copyWithin(r * C, r * C + 1, (r + 1) * C);
+    for (let b = 0; b < B; b++) { const hz = 40 * Math.pow(400, 1 - b / (B - 1)), idx = clamp(Math.round(hz / FH * M), 1, M / 2 - 1), idx2 = clamp(Math.round(hz * 1.06 / FH * M), idx, M / 2 - 1); let m = 0; for (let k = idx; k <= idx2; k++) m = Math.max(m, re[k] * re[k] + im[k] * im[k]); const db = 10 * Math.log10(m + 1e-9); st.buf[b * C + C - 1] = clamp((db + 8) / 58 * 255 * st.level, 0, 255); }
+    }
+    const t = st.t2 = st.t2 && st.t2key === K.P.physics.join() ? st.t2 : ramp(K); st.t2key = K.P.physics.join(); const d = st.img.data;
+    for (let i = 0; i < B * C; i++) { const v = st.buf[i] * 3; d[i * 4] = t[v]; d[i * 4 + 1] = t[v + 1]; d[i * 4 + 2] = t[v + 2]; d[i * 4 + 3] = 255; }
+    st.cv.getContext('2d').putImageData(st.img, 0, 0); g.imageSmoothingEnabled = true; g.drawImage(st.cv, 0, 0, W, H); K.scan(.5);
+  }
+};
+
+const SUB_OPTS = [
+  { id: 'T', nm: 'Today', tx: 'One cycle in a scope.' },
+  { id: 'dial', nm: 'The Dial', tx: 'One heavy cycle wrapped round a dial, and unrolled beside it. Drive flattens it against the ceiling; Erode frays it.' },
+  { id: 'cone', nm: 'The Cone', tx: 'A driver from the front, with the shape travelling out from the cap. Drive hits the limit ring; Crunch rattles the ribs.' },
+  { id: 'stack', nm: 'The Stack', tx: 'Cycles piled back in time. Erode makes no two alike, and a released note sinks into the pile.' },
+];
+const NOISE_OPTS = [
+  { id: 'T', nm: 'Today', tx: 'A tilted spectrum from Colour alone.' },
+  { id: 'raster', nm: 'The Raster', tx: 'The signal itself, one scan a line. Each source looks different, and an LFSR shows its repeat as bands. The two channels sit side by side.' },
+  { id: 'weather', nm: 'The Weather', tx: 'A sky: Colour is the grain, Wind blows it, the vowels are fronts, the filter a horizon, spread opens the field.' },
+  { id: 'waterfall', nm: 'The Waterfall', tx: 'The spectrum running sideways in time. Comb teeth, vowels and the filter show as what they are.' },
+];
+const PLACES = [{ id: 'band', nm: 'Across the page, above the controls' }, { id: 'col', nm: 'In the page’s picture column, as today' }];
+const TRY = {
+  sub: [
+    { nm: 'Init', v: {} },
+    { nm: 'Square, driven', v: { 'sub.wave': 'square', 'sub.drive': .7 } },
+    { nm: 'Sine, Tube at full', v: { 'sub.wave': 'sine', 'sub.drive': 1 } },
+    { nm: 'Sine, Diode', v: { 'sub.wave': 'sine', 'sub.drive': .6, 'sub.character': 'Diode' } },
+    { nm: 'Bump', v: { 'sub.wave': 'bump', 'sub.bumpAmount': .5 } },
+    { nm: 'Saw, Crunch', v: { 'sub.wave': 'saw', 'sub.drive': .3, 'sub.crunch': .9 } },
+    { nm: 'Erode', v: { 'sub.wave': 'sine', 'sub.erode': .8 } },
+  ],
+  noise: [
+    { nm: 'Clean', v: {} },
+    { nm: 'Brown', v: { 'noise.colour': -1 } },
+    { nm: 'Crackle', v: { 'noise.type': 'Crackle', 'noise.density': 40 } },
+    { nm: 'S&H', v: { 'noise.type': 'S&H', 'noise.rate': 900 } },
+    { nm: 'LFSR 15', v: { 'noise.type': 'LFSR', 'noise.length': '15' } },
+    { nm: 'LFSR 2047', v: { 'noise.type': 'LFSR', 'noise.length': '2047' } },
+    { nm: 'Resonator', v: { 'noise.resonator': 'on', 'noise.feedback': .95 } },
+    { nm: 'Whisper', v: { 'noise.whisper': 'on', 'noise.vowel': .5 } },
+    { nm: 'Wind', v: { 'noise.wind': 'on', 'noise.gust': .8 } },
+    { nm: 'Low-pass', v: { 'noise.filter': 'LP', 'noise.cutoff': 600 } },
+    { nm: 'Wide', v: { 'noise.spread': 1 } },
+  ],
+};
+const FEEDS = [
+  ['The Dial, the Stack', 'The sub’s phase and its shape y⁰ are in IF-10, but y⁰ is before the tone, the drive and the envelope.', 'The sub’s cycle after its chain: the output y per voice, or for the mono sub.'],
+  ['The Cone', 'The same phase and shape.', 'The same post-chain value. The limit ring also wants a flag or a peak for "at the drive’s ceiling".'],
+  ['The Raster', 'IF-10 has only the noise’s stage gains (SN-9).', 'A block of the noise’s output per voice, after its filter, both channels. This is the biggest ask: audio in the observation view.'],
+  ['The Waterfall', 'The same stage gains.', 'The same block, or a spectrum the engine computes. SN-14’s n̂ is close, but only the left channel, and it isn’t published.'],
+  ['The Weather', 'Stage gains plus the voice’s envelope level, both in IF-10. Everything else is from the settings.', 'Nothing new. It stays a drawing of the settings, moved by the level. It’s the cheapest to run live.'],
+  ['After 1.0: samples (SN-13)', 'The Raster and the Waterfall read a sample’s signal as they read any other. The Weather would need a new way to fall.', ''],
+];
+
+// ===== THE LAB =====
+let w, d, L, S, dev, ENG, H_, frame = 0, level = 1, held = true;
+const pick = { sub: 'dial', noise: 'raster', place: 'band' }, states = { sub: {}, noise: {} }, cvs = { sub: {}, noise: {} };
+const read = key => { const r = dev.row(key); return ENG.lawX(r, dev.shown(key)); };
+const lab = key => { const r = dev.row(key); return r.options ? r.options[Math.round(dev.shown(key) * (r.options.length - 1))] : String(read(key)); };
+function noiseOf() { return { type: lab('noise.type'), density: read('noise.density'), rate: read('noise.rate'), length: +lab('noise.length').replace(/\D/g, ''), colour: read('noise.colour'), resonator: lab('noise.resonator') === 'on', feedback: read('noise.feedback'), whisper: lab('noise.whisper') === 'on', vowel: read('noise.vowel'), wind: lab('noise.wind') === 'on', gust: read('noise.gust'), filter: lab('noise.filter'), cutoff: read('noise.cutoff'), resonance: read('noise.resonance'), pitch: read('noise.pitch'), spread: read('noise.spread') }; }
+function subOf() { return { wave: lab('sub.wave'), width: read('sub.pulseWidth'), softness: read('sub.softness'), harmA: +lab('sub.bumpHarmonic'), ampA: read('sub.bumpAmount'), phaseA: read('sub.bumpPhase'), harmB: +lab('sub.bump2Harmonic'), ampB: read('sub.bump2Amount'), phaseB: read('sub.bump2Phase'), octave: +lab('sub.octave').replace('−', '-'), drive: read('sub.drive'), crunch: read('sub.crunch'), character: lab('sub.character'), tone: read('sub.tone'), order: lab('sub.order'), erode: read('sub.erode'), noise: noiseOf() }; }
+const FRAME_CSS = `.sl-band { height: 176px; margin: 0 0 6px; padding: 0; overflow: hidden; position: relative; } .sl-band canvas, .sl-col canvas { display: block; width: 100%; height: 100%; } .sl-col { height: 206px; padding: 0; overflow: hidden; } body.sl-off .sl-band, body.sl-off .sl-col { display: none; } body:not(.sl-off) .sl-hide { display: none; }`;
+function mount(pid) {
+  const pg = d.getElementById('page-' + pid), mk = cls => { const b = d.createElement('div'); b.className = 'hd-viz ' + cls, b.setAttribute('role', 'img'); const c = d.createElement('canvas'); b.append(c); return { b, c }; };
+  const band = mk('sl-band'), col = mk('sl-col'), head = pg.querySelector('.phead');
+  head.after(band.b);
+  const left = pg.querySelector('.pv-left'); left.prepend(col.b);
+  cvs[pid] = { band, col, today: left.querySelector('.vz') };
+}
+function paintPlaces() {
+  ['sub', 'noise'].forEach(pid => { const c = cvs[pid], off = pick[pid] === 'T'; c.band.b.style.display = !off && pick.place === 'band' ? '' : 'none'; c.col.b.style.display = !off && pick.place === 'col' ? '' : 'none'; c.today.style.display = off ? '' : 'none'; c.today.closest('.pv-left').style.display = !off && pick.place === 'band' ? 'none' : '';   // the band leaves that column empty, so the controls take its width
+    const lb = (pid === 'sub' ? SUB_OPTS : NOISE_OPTS).find(o => o.id === pick[pid]); c.band.b.setAttribute('aria-label', lb.nm + ', drawn from the settings, not the engine’s output'); c.col.b.setAttribute('aria-label', lb.nm + ', drawn from the settings, not the engine’s output'); });
+}
+function drawOne(pid, cv) {
+  const K = H_.Viz.kit(cv), st = states[pid][pick[pid]] || (states[pid][pick[pid]] = {}); st.t = frame / 60; st.level = level;
+  (pid === 'sub' ? SUB : NOISE)[pick[pid]](K, pid === 'sub' ? subOf() : noiseOf(), st);
+  glassLabel(K, cv.clientWidth, DRAWN);
+}
+function tick() {
+  frame++; level += ((held ? 1 : 0) - level) * (held ? .12 : .035);
+  ['sub', 'noise'].forEach(pid => { if (d.getElementById('page-' + pid).hidden || pick[pid] === 'T') return; const c = cvs[pid], cv = pick.place === 'band' ? c.band.c : c.col.c; drawOne(pid, cv); });
+  w.requestAnimationFrame(tick);
+}
+function btn(host, o, on, click) { const b = document.createElement('button'); b.type = 'button'; b.className = 'opt'; b.setAttribute('aria-pressed', String(on)); b.innerHTML = '<span class="nm"></span><span class="tx"></span>'; b.children[0].textContent = o.nm; b.children[1].textContent = o.tx || ''; b.addEventListener('click', click); host.append(b); }
+function chip(host, nm, on, click) { const b = document.createElement('button'); b.type = 'button'; b.textContent = nm; b.setAttribute('aria-pressed', String(on)); b.addEventListener('click', click); host.append(b); }
+function setRow(key, v) { const r = dev.row(key); if (typeof v === 'string') { const i = r.options.indexOf(v); if (i >= 0) dev.set(key, r.options.length === 1 ? 0 : i / (r.options.length - 1)); } else { let lo = 0, hi = 1; for (let k = 0; k < 40; k++) { const m = (lo + hi) / 2; if (ENG.lawX(r, m) < v) lo = m; else hi = m; } dev.set(key, (lo + hi) / 2); } }
+let lastTry = { sub: 'Init', noise: 'Clean' };
+function applyTry(pid, t) {
+  dev.begin('Lab: ' + t.nm);
+  dev.params().filter(r => r.key.startsWith(pid + '.') && r.class !== 'D').forEach(r => { const on = r.key in t.v; if (!on && !/\.(mute|solo|level|env|on)$/.test(r.key)) dev.set(r.key, r.default_v); });
+  Object.entries(t.v).forEach(([k, v]) => setRow(k, v)); dev.end(); lastTry[pid] = t.nm; paint();
+}
+function pageNow() { return d && !d.getElementById('page-noise').hidden ? 'noise' : 'sub'; }
+function paint() {
+  const fill = (id, pid, opts) => { const h = $(id); h.replaceChildren(); opts.forEach(o => btn(h, o, pick[pid] === o.id, () => { pick[pid] = o.id; paint(); if (L) { L.go(pid); paintPlaces(); paint(); } })); };
+  fill('pickSub', 'sub', SUB_OPTS); fill('pickNoise', 'noise', NOISE_OPTS);
+  const pl = $('pickPlace'); pl.replaceChildren(); PLACES.forEach(o => chip(pl, o.nm, pick.place === o.id, () => { pick.place = o.id; paintPlaces(); paint(); }));
+  chip(pl, held ? 'A note is held' : 'No note', held, () => { held = !held; paint(); });
+  const pid = pageNow(), tr = $('pickTry'); $('tryTitle').textContent = 'Try a setting on the ' + (pid === 'sub' ? 'Sub' : 'Noise') + ' page'; tr.replaceChildren();
+  (L ? TRY[pid] : []).forEach(t => chip(tr, t.nm, lastTry[pid] === t.nm, () => applyTry(pid, t)));
+  const f = $('feeds'); f.replaceChildren(); const hd = f.insertRow(); ['Picture', 'What IF-10 and RC-8 have', 'What’s missing'].forEach(x => { const th = document.createElement('th'); th.textContent = x; hd.append(th); });
+  FEEDS.forEach(rw => { const tr2 = f.insertRow(); rw.forEach(x => { tr2.insertCell().textContent = x; }); });
+}
+
+// ===== THE CHECK: each claim measured on the stand-in's numbers, each with a control =====
+function selfCheck() {
+  const out = [], line = (ok, s) => out.push((ok ? 'OK' : 'FAILED') + ' · ' + s);
+  const keys = ['sub.wave', 'sub.drive', 'sub.crunch', 'sub.character', 'sub.tone', 'sub.erode', 'sub.order', 'sub.octave', 'sub.bumpAmount', 'sub.bump2Amount', 'noise.type', 'noise.density', 'noise.rate', 'noise.length', 'noise.colour', 'noise.resonator', 'noise.feedback', 'noise.whisper', 'noise.vowel', 'noise.wind', 'noise.gust', 'noise.filter', 'noise.cutoff', 'noise.pitch', 'noise.spread'];
+  const missing = keys.filter(k => !dev.row(k)); line(!missing.length, 'The pictures read ' + keys.length + ' real rows' + (missing.length ? ' (MISSING ' + missing.join(', ') + ')' : '') + '.');
+  const so = subOf(), no = noiseOf(), N = 512, cyc = o => subCycle(Object.assign({}, so, o), N, new Float32Array(N).map((_, i) => Math.sin(i * 12.9898) * .8)), diff = (a, b) => a.reduce((m, x, i) => Math.max(m, Math.abs(x - b[i])), 0);
+  // Erode: 0 changes nothing even with a noise block offered; above 0 it does. Drive flattens: more of the cycle sits near the top.
+  const c0 = cyc({ wave: 'sine', erode: 0, drive: 0, crunch: 0, tone: 20000 }), cNo = subCycle(Object.assign({}, so, { wave: 'sine', erode: 0, drive: 0, crunch: 0, tone: 20000 }), N, null), cE = cyc({ wave: 'sine', erode: .8, drive: 0, crunch: 0, tone: 20000 });
+  line(diff(c0, cNo) === 0 && diff(c0, cE) > .01, 'Erode: at 0 the cycle is identical with or without noise (control); at 0.8 it moves by ' + diff(c0, cE).toFixed(3) + '.');
+  const nearTop = a => a.filter(x => x > .9).length / a.length, flat0 = nearTop(c0), flat1 = nearTop(cyc({ wave: 'sine', erode: 0, drive: 1, crunch: 0, tone: 20000 }));
+  line(flat1 > flat0 * 1.5, 'Drive: the sine spends ' + (flat0 * 100).toFixed(0) + '% of its cycle near the top clean and ' + (flat1 * 100).toFixed(0) + '% at full drive.');
+  const shapes = ['sine', 'triangle', 'square', 'saw', 'pulse', 'bump', 'smooth square'], cs = shapes.map(s => cyc({ wave: s, width: .25, ampA: .4, harmA: 3, phaseA: 0, ampB: 0, harmB: 5, phaseB: 0, softness: 0, erode: 0, drive: 0, crunch: 0, tone: 20000 }));
+  let same = 0; for (let i = 0; i < 7; i++) for (let j = i + 1; j < 7; j++) if (diff(cs[i], cs[j]) < .02) same++; line(!same, 'All seven shapes draw differently (' + same + ' pairs alike).');
+  // The noise. Correlation of one block with itself one period on.
+  const gen = (o, seed) => { const g = StereoGen(seed || 11), Lb = new Float32Array(8192), Rb = new Float32Array(8192); g.block(Object.assign({}, no, o), 4096, Lb, Rb, 130.81); g.block(Object.assign({}, no, o), 8192, Lb, Rb, 130.81); return { Lb, Rb }; };
+  const corr = (a, lag) => { let xy = 0, xx = 0, yy = 0; for (let i = 0; i + lag < a.length; i++) { xy += a[i] * a[i + lag]; xx += a[i] * a[i]; yy += a[i + lag] * a[i + lag]; } return xy / Math.sqrt(xx * yy + 1e-12); };
+  const base = { colour: 1, resonator: false, whisper: false, wind: false, filter: 'Off', spread: 0 }, per = Math.round(FH / 130.81);
+  const rL = corr(gen(Object.assign({}, base, { type: 'LFSR', length: 15 })).Lb, per), rC = corr(gen(Object.assign({}, base, { type: 'Clean' })).Lb, per);
+  line(rL > .7 && Math.abs(rC) < .2, 'LFSR 15 repeats at the note: correlation ' + rL.toFixed(2) + ' one period on, against ' + rC.toFixed(2) + ' for Clean (control).');
+  // What the Raster draws: LFSR 15's scans, one period apart, must match, or its bands can't show. A plain size-based draw would fail the second half: every sample the same.
+  const lb = gen(Object.assign({}, base, { type: 'LFSR', length: 15 })).Lb, vals = new Set(), rowA = [], rowB = []; for (let i = 0; i < per; i++) { rowA.push(rasterV(lb[i], 1)); rowB.push(rasterV(lb[i + per], 1)); vals.add(Math.round(rasterV(lb[i], 1) / 32)); }
+  const scanMatch = rowA.filter((v, i) => Math.abs(v - rowB[i]) < 40).length / per; line(scanMatch > .85 && vals.size > 1, 'The Raster’s scans of LFSR 15 match one period apart (' + (scanMatch * 100).toFixed(0) + '%) and hold ' + vals.size + ' levels, not one solid block (control).');
+  const zeros = a => a.filter(x => Math.abs(x) < .02).length / a.length, crack = zeros(gen(Object.assign({}, base, { type: 'Crackle', density: 30 })).Lb), clean = zeros(gen(Object.assign({}, base, { type: 'Clean' })).Lb);
+  line(crack > .5 && clean < .1, 'Crackle is sparse: ' + (crack * 100).toFixed(0) + '% near silence, against ' + (clean * 100).toFixed(0) + '% for Clean (control).');
+  const holds = a => { let same2 = 0; for (let i = 1; i < a.length; i++) if (a[i] === a[i - 1]) same2++; return same2 / a.length; }, sh = holds(gen(Object.assign({}, base, { type: 'S&H', rate: 500 })).Lb);
+  line(sh > .9 && holds(gen(Object.assign({}, base, { type: 'Clean' })).Lb) < .01, 'S&H holds: ' + (sh * 100).toFixed(0) + '% of samples equal the one before, and Clean none (control).');
+  const m0 = gen(Object.assign({}, base, { type: 'Clean', spread: 0 })), m1 = gen(Object.assign({}, base, { type: 'Clean', spread: 1 }));
+  line(diff(m0.Lb, m0.Rb) === 0 && diff(m1.Lb, m1.Rb) > .1, 'Spread: 0 is one signal in both channels, and 1 parts them.');
+  const a1 = gen(Object.assign({}, base, { type: 'Clean' }), 42), a2 = gen(Object.assign({}, base, { type: 'Clean' }), 42), a3 = gen(Object.assign({}, base, { type: 'Clean' }), 43);
+  line(diff(a1.Lb, a2.Lb) === 0 && diff(a1.Lb, a3.Lb) > .1, 'One seed gives one result, and another seed another (control).');
+  // Each picture paints something on a real canvas, and its cost. performance.now reports only; no picture reads it.
+  const costs = [], flat = cv => { const dat = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data; let lo = 255, hi = 0; for (let i = 0; i < dat.length; i += 40) { lo = Math.min(lo, dat[i + 1]); hi = Math.max(hi, dat[i + 1]); } return hi - lo < 12; };
+  [['sub', 'dial'], ['sub', 'cone'], ['sub', 'stack'], ['noise', 'raster'], ['noise', 'weather'], ['noise', 'waterfall']].forEach(([pid, id]) => { const keep = pick[pid], page = d.getElementById('page-' + pid); L.go(pid); pick[pid] = id; paintPlaces(); const cv = cvs[pid].band.c, t0 = performance.now(); for (let i = 0; i < 20; i++) { frame++; drawOne(pid, cv); } costs.push({ id, ms: (performance.now() - t0) / 20, flat: flat(cv) }); pick[pid] = keep; });
+  line(costs.every(c => !c.flat), 'Each of the six paints a picture' + (costs.some(c => c.flat) ? ' (FLAT: ' + costs.filter(c => c.flat).map(c => c.id).join(', ') + ')' : '') + '. A frame’s script here, roughly: ' + costs.map(c => c.id + ' ' + c.ms.toFixed(1) + ' ms').join(', ') + '.');
+  // A knob on the page reaches the picture: through the device, undone after.
+  const past = dev.history().past.length, before = subOf().drive; setRow('sub.drive', .6); const seen = subOf().drive; dev.undo(); dev.clearRedo(); line(Math.abs(seen - .6) < .01 && subOf().drive === before && dev.history().past.length === past, 'A write to the device’s Drive reads back at ' + seen.toFixed(2) + ' in the picture’s settings, and undo restores it.');
+  return out;
+}
+
+// ===== boot =====
+(async function boot() {
+  paint();
+  const frameEl = $('frame'), base = new URL('.', location.href).href; let html;
+  try { html = await (await fetch('gui3.html')).text(); } catch (e) { $('busy').textContent = 'This lab fetches the shell, so open it through a local server (file:// blocks fetch).'; return; }
+  const marker = '<script src="gui3/shell-logic.js"><\/script>';
+  if (!html.includes(marker) || !html.includes('<head>')) { $('selfcheck').textContent = 'FAILED · the shell no longer has the script tag this lab hooks after.'; $('busy').textContent = 'The lab couldn’t hook the shell.'; return; }
+  const hook = '<script>(' + labHook.toString() + ')();<\/script>';
+  html = html.replace('<head>', () => '<head><base href="' + base + '">').replace(marker, () => marker + hook);
+  await new Promise(res => { frameEl.addEventListener('load', res, { once: true }); frameEl.srcdoc = html; });
+  w = frameEl.contentWindow; d = frameEl.contentDocument; L = w.__lab; S = L.S; dev = L.dev; H_ = w.Horde; ENG = w.GUI3Engine;
+  const css = d.createElement('style'); css.textContent = FRAME_CSS; d.head.append(css); d.body.classList.add('win-only');
+  mount('sub'); mount('noise'); L.go('sub'); paintPlaces();
+  let lines; try { lines = selfCheck(); } catch (e) { lines = ['FAILED · the self-check threw: ' + (e && e.stack || e)]; }
+  $('selfcheck').textContent = lines.join('\n');
+  L.go('sub'); paintPlaces(); paint(); w.requestAnimationFrame(tick);
+  d.getElementById('pnav') && d.getElementById('pnav').addEventListener('click', () => setTimeout(paint, 0));
+  $('busy').hidden = true;
+})();
+</script>
+</body>
+</html>
