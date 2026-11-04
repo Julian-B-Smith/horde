@@ -365,6 +365,19 @@
    "adr": "ADR-305",
    "note": "Sluice in horde (ADR-305, ADR-306; ADR-236's XY and slot library). Nothing in the master; Sluice has no manifest (port-tab sluice)."
   },
+  "sluice-mark-styles-lab.html": {
+   "status": "exploring",
+   "note": "GB11. The study behind ADR-302 rulings 1 and 2, ADR-305 and GUI-23 (no crossing gap in the pixel marks), copied from its Artifact at version 1793813064-6fca."
+  },
+  "sluice-s-bend-lab.html": {
+   "status": "exploring",
+   "note": "GB11. The human: \"the lower bend on the settled S doesn't come out quite as far as the upper bend\". Measured one column short at 4 px stems; four variants bring them even; waiting on the human's pick."
+  },
+  "shriek-wordmark-styles-lab.html": {
+   "status": "ruled",
+   "adr": "ADR-302",
+   "note": "GB11. The study behind ADR-302 rulings 3 and 4, copied from its Artifact at version 1793204183-5a81. The automaton's code is cleared to be public (the human, 2026-11-04: 'Yes, it can go public')."
+  },
   "spectra-lab.html": {
    "status": "retired",
    "note": "Archived in the design index (its lab-archive tag): retired engine (H2-PLAN Archived engines). History, never a source."
@@ -3575,7 +3588,7 @@
    "id": "adr302-shriek-press-start-word",
    "adr": "ADR-302",
    "clause": "ruling 3 (Shriek's word: Press Start 2P, native 16 px, baked to a bitmap; the automaton takes the screen's paper and ink)",
-   "lab": "docs/design/fx-screens-workshop.html",
+   "lab": "docs/design/shriek-wordmark-styles-lab.html",
    "component": null,
    "master_version": null,
    "bundle": null,
@@ -3590,7 +3603,7 @@
    "id": "adr302-shriek-title-box",
    "adr": "ADR-302",
    "clause": "ruling 4 (Shriek's title box is 104 x 24, an exception to TITLE 96 x 24)",
-   "lab": "docs/design/fx-screens-workshop.html",
+   "lab": "docs/design/shriek-wordmark-styles-lab.html",
    "component": null,
    "master_version": null,
    "bundle": null,
@@ -3605,7 +3618,7 @@
    "id": "adr302-sluice-hue-walk",
    "adr": "ADR-302",
    "clause": "ruling 2 (Sluice's colour: the hue walk, 137.508 degrees of OKLCH hue per slide from amber)",
-   "lab": "docs/design/sluice-horde-lab.html",
+   "lab": "docs/design/sluice-mark-styles-lab.html",
    "component": null,
    "master_version": null,
    "bundle": null,
@@ -3620,7 +3633,7 @@
    "id": "adr302-sluice-title-stems",
    "adr": "ADR-302",
    "clause": "ruling 1 (Sluice's title: 4 px stems by coverage in the 96 x 24 slot)",
-   "lab": "docs/design/sluice-horde-lab.html",
+   "lab": "docs/design/sluice-mark-styles-lab.html",
    "component": null,
    "master_version": null,
    "bundle": null,
@@ -3629,13 +3642,13 @@
    "state": "ruled",
    "superseded_by": null,
    "port_tab": "sluice",
-   "note": "The master ScreenFrame README holds only the generic TITLE slot (96 x 24) and screens.md the GBC lettering rule; neither holds this mark. Sluice has no vendored manifest, so the shell shows nothing for it. The baked assets went to Sluice (seq 63). FX device: same titles."
+   "note": "The master ScreenFrame README holds only the generic TITLE slot (96 x 24) and screens.md the GBC lettering rule; neither holds this mark. Sluice has no vendored manifest, so the shell shows nothing for it. The baked assets went to Sluice (seq 63). FX device: same titles. GUI-23 takes the crossing gap out of the pixel mark."
   },
   {
    "id": "adr305-sluice-no-icon",
    "adr": "ADR-305",
    "clause": "ruling (Sluice has no ICON; the slot beside its title stays empty; an exception to TITLE and ICON per module)",
-   "lab": "docs/design/sluice-horde-lab.html",
+   "lab": "docs/design/sluice-mark-styles-lab.html",
    "component": null,
    "master_version": null,
    "bundle": null,
@@ -7077,6 +7090,6 @@
   "[E] No sign in the tree of B584's slice 7 (ADR-334 and ADR-335's consequences): gui3.html and gui3/README name neither ADR, and gui3/README's 'Last verified' line is slice 6. ADR-336 says slice 7 is in flight, so these rows may move when it lands.",
   "[E] The master's TempoDivisions (22 values, 0.0625 to 8 beats, three fixed columns) predates ADR-326 X37 and ADR-327 X41 (1/32 to 4 bars, triplet and dotted toggles that filter the menu, per control) and RC-7.4: when the master is next revised, this component needs the ruled set.",
   "[E] Judgment calls: ADR-292 ruling 1 gets one row for its presentation clause (the limiter's off switch on the master strip); ADR-318 gets one row (ruling 1, what the Chaos and Amount controls do), with its preset rulings folded in; ADR-319 ruling 4 (one parameter table) is data architecture and has no row of its own; ADR-324, ADR-325, ADR-326 and ADR-327 get rows only for their menu and toggle clauses; ADR-328 and ADR-336 are not design. ADR-336 was named among the GUI 3 ADRs in the dispatch but rules only process.",
-  "[E] Labs referenced but absent from the repo: the FX Module Colours comparison page (fx-module-colours.html, ADR-273) and the ADR-302 study pages; lab is null for those rows."
+  "[E] Labs referenced but absent from the repo: the FX Module Colours comparison page (fx-module-colours.html, ADR-273); lab is null for those rows. The ADR-302 study pages were absent too, and are in the repo since GB11."
  ]
 }
