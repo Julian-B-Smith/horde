@@ -15,9 +15,15 @@
      WHY A LAB. Nothing here edits gui3*, arp-face/ or the master: a ruling goes through the chain (ADR-316).
 
      THE SELF-CHECK prints in #selfcheck and runs before the shell is handed over, because a lab can pass its checks and still be unusable (the Lens lab, 2026-11-02): its last checks are that the
-     shell is back on Mix, on M1 at the shell's width, with nothing mapped and nothing to undo.
+     shell is back on Mix, on C1, with nothing mapped and nothing to undo.
 
-     FX DEVICE (ADR-254): its Mix page takes the same strip if ruled.
+     THE COMBINED FORMS, C1 and C2 (the human, 2026-11-03: "is there really any reason there should be separate mixers for the oscs in and out of the gain staging?"). One console for the whole chain,
+     M2's arrow on the bars, as wide as Gain staging. The five strips with engine rows are the shell's own strips, moved; the other sixteen stages are drawn here from the master's stage list, because
+     their gains are placeholders with no key (B402). WHY ONE RULER: a stage's fader can be as short as ±24 dB, and a meter drawn on that scale could not show a level under −24 dBFS, so "each meter on its
+     own fader's scale" (M1 to M4) can't reach these stages. C1 and C2 put every strip on one ruler, −66 to +26 dB (the meter's floor to out.level's top), and each arrow's rail covers only its own range.
+     MOCK as above: every stage's level is a model here (the sources' stub levels, 24 dB down, through the gains in chain order). Nothing is wired: the chain still has no taps past the sources.
+
+     FX DEVICE (ADR-254): its Mix page takes the same strip if ruled, and C1 or C2 would start at its audio input (GainStaging.chain('fx')): no source strips, so no M, S or on.
 
      HOUSE RULES. No Math.random. No clock. No wheel listener (B301). -->
 <html lang="en" data-theme="dark">
@@ -59,17 +65,25 @@
 <body>
 <div class="col">
   <header>
-    <h1>The compact mixer: the fader on the level meter</h1>
-    <p class="tagline">One control that is both the fader and the meter, on the real shell's Mix page, beside today's strip.</p>
-    <p>Pick a form and a width, then try it below. Drag a fader, double-click it, press MAP and click one, or turn morph on. The lab starts with all four sources on so every strip moves. The bars are mock and there's no sound, and Gain staging still reads the stub's own test tone, so its Out goes over.</p>
+    <h1>The compact mixer: one console for the whole chain</h1>
+    <p class="tagline">One control that is both the fader and the meter, on the real shell's Mix page, beside today's strip. C1 and C2 also fold the console and Gain staging into one.</p>
+    <p>Pick a form, then try it below. Drag a fader, double-click it, press MAP and click one, or turn morph on. The lab starts with all four sources on so every strip moves. The bars are mock and there's no sound. In M0 to M4, Gain staging still reads the stub's own test tone, so its Out goes over.</p>
   </header>
   <section aria-label="The form"><h2>Which form?</h2><div class="picker" id="pickForm"></div></section>
   <section aria-label="The width"><h2>How wide is a strip?</h2><div class="picker" id="pickWidth"></div></section>
   <div class="try" id="tryIt" role="status"></div>
   <section aria-label="The shell"><div id="wrap"><iframe id="frame" title="GUI 3 on the Mix page with these options"></iframe><div id="busy">Loading the shell and checking every form. This takes a moment.</div></div></section>
+  <section aria-label="Why combine">
+    <h2>Is there a reason to keep two mixers?</h2>
+    <p><strong>No signal reason.</strong> The console's OSC 1, OSC 2, SUB and NOISE are Gain staging's first four stages: the same tap and the same gain. Today they're also out of step, because only the console's faders are wired: <span id="splitProof">the self-check measures this below</span>.</p>
+    <p><strong>One real difference, which one console can show.</strong> The five faders with engine rows morph and take modulation. The other sixteen gains are global and never morph (B435), and only the sources have on, mute and solo. So an arrow in a corner colour moves with the corners, and a plain ink arrow doesn't.</p>
+    <p><strong>What it costs.</strong> A source strip goes from 104 px to 66 px, and the other stages to about 33 px, so their readouts lose “dB”. There's no reason to keep them separate unless you want the sources to stay large, or the sixteen other stages out of sight most of the time.</p>
+    <p><strong>A third control is still here.</strong> The chain line above the console has its own gain bars. In C1 and C2 they move the same gains, and the chain line takes <span id="chainTall">a lot of the page</span>, so you can judge whether you still want it.</p>
+  </section>
   <section aria-label="Questions">
-    <h2>Three things to know before you choose</h2>
-    <p><strong>The scale.</strong> Today the fader and the meter have different scales, and it doesn't show because they're side by side. Out is the clear case: its 0 dB is at 70% of the fader but 92% of the meter. Put one on the other and that would be a lie, so M1 to M4 draw each meter on its own fader's scale. That means Out's red over zone is its top 30%, because its fader goes up to +26 dB.</p>
+    <h2>Things to know before you choose</h2>
+    <p><strong>One ruler in C1 and C2.</strong> You chose one scale, with each meter on its own fader's scale. That can't stretch to the whole chain: on a ±24 dB fader, a meter would show nothing under −24 dBFS. So these two forms put every strip on one ruler, −66 to +26 dB. 0 dB is one straight line across the console, and each arrow travels only its own range. The cost is the tall red zone, the top 28%, because <code>out.level</code> reaches +26 dB.</p>
+    <p><strong>The scale.</strong> Today the fader and the meter have different scales, and it doesn't show because they're side by side. Out is the clear case: its 0 dB is at 70% of the fader but 92% of the meter. Put one on the other and that would be a lie, so M1 to M4 draw each meter on its own fader's scale. That means Out's red over zone is its top 30%, because its fader goes up to +26 dB. (That's M1 to M4. C1 and C2 use the one ruler above.)</p>
     <p><strong>Where the room comes from.</strong> In a vertical strip the merge alone saves nothing. M0 to M3 all measure 574 × 285 px at W1 and 414 × 285 px at W2, because a strip’s width is set by its name, its peak and lamp, and M and S, not by the fader. Today’s strip fits W2 too. Only M4 changes the console’s shape. ADR-333 has you asking for a little more room here, so W1 keeps it.</p>
     <p><strong>What a cap covers.</strong> M1's cap sits on the bars and hides what's under it. M2 and M3 hide nothing, but their handle is smaller to grab.</p>
   </section>
@@ -82,6 +96,17 @@ function labHook() {
   var Sess = H.Session; H.Session = function (o) { var s = new Sess(o); L.S = s; return s; }; H.Session.prototype = Sess.prototype;
   // the first create is the shell's device; its self-checks make throwaway ones afterwards
   var cr = DV.create; DV.create = function (a, b, c) { var d = cr(a, b, c); if (!L.dev) L.dev = d; return d; };
+  // C1 and C2 read one model of the chain (L.comb); M0 to M4 leave Gain staging and the chain line as the shell wires them
+  var GS = H.GainStaging; H.GainStaging = function (el, o) { L.gsO = o; L.gsEl = el; L.gs = GS(el, o); return L.gs; }; Object.keys(GS).forEach(function (k) { H.GainStaging[k] = GS[k]; });
+  var CLine = H.ChainLine; H.ChainLine = function (el, o) {
+    var rd = o.read, lt = o.latch, gn = o.gain, og = o.onGain;
+    o.read = function (id) { return L.combOn ? L.comb.read(id) : rd(id); };
+    o.latch = function (id) { return L.combOn ? L.comb.latch(id) : lt(id); };
+    o.gain = function (id) { return L.combOn ? L.comb.gain(id) : gn(id); };
+    o.onGain = function (id, v) { if (L.combOn) L.comb.setGain(id, v); else og(id, v); };
+    L.clO = o; L.cl = CLine(el, o); return L.cl;
+  }; Object.keys(CLine).forEach(function (k) { H.ChainLine[k] = CLine[k]; });
+  var stageOf = function (id) { return id === 'out' ? 'eng' : id; };
   var CS = H.ChannelStrip;
   H.ChannelStrip = function (el, S, o) {
     var rd = o.read, cl = o.clear, at = {}; o.strips.forEach(function (s, i) { at[s.id] = i; });
@@ -89,15 +114,16 @@ function labHook() {
     function seen(id, v) { if (v > 0 && !(L.lat[id] >= v)) L.lat[id] = v; return v; }
     // 4 to 12 dB under the stub's tone, moving by frames (no clock), and never over its own fader; L.force pins a strip for the self-check
     o.read = function (id) {
+      if (L.combOn) return L.comb.read(stageOf(id));
       if (id in L.force) { seen(id, L.force[id]); return { l: L.force[id], r: L.force[id] }; }
       var r = rd(id); if (!r) return r;
       var i = at[id], w = 4 + 8 * (.5 + .5 * Math.sin(L.frame * .017 * (1 + i * .13) + i * 1.7)), top = L.capDb ? Math.min(r.l, L.capDb(id)) : r.l;
       return { l: seen(id, top - w), r: seen(id, top - w * .85) };
     };
-    o.latch = function (id) { return id in L.lat ? { on: true, max: L.lat[id] } : { on: false }; };
-    o.clear = function (id) { delete L.lat[id]; cl(id); };
+    o.latch = function (id) { return L.combOn ? L.comb.latch(stageOf(id)) : id in L.lat ? { on: true, max: L.lat[id] } : { on: false }; };
+    o.clear = function (id) { if (L.combOn) { L.comb.clear(stageOf(id)); return; } delete L.lat[id]; cl(id); };
     var cs = CS(el, S, o), st = cs.step, re = cs.render;
-    cs.step = function (dt) { L.frame++; st(dt); if (L.onStep) L.onStep(dt); };
+    cs.step = function (dt) { L.frame++; if (L.onPre) L.onPre(); st(dt); if (L.onStep) L.onStep(dt); };
     cs.render = function () { re(); if (L.onPaint) L.onPaint(); };
     L.cs = cs; L.el = el; L.opts = o;
     return cs;
@@ -112,10 +138,17 @@ const FORMS = [
   { id: 'M3', nm: 'Ghost fill', tx: 'A faint column up to a thin line is the fader, and the bright bars run inside it.', tryit: 'Drag anywhere on the column. The gap between the bars and the line is your headroom.' },
   { id: 'M4', nm: 'Rows', tx: 'The same control on its side, one row per strip. The console gets much shorter, and Gain staging moves up.', tryit: 'Drag right to raise a level. Gain staging has moved up under the console.' }
 ];
+const COMBINED = [
+  { id: 'C1', nm: 'One console, upright', tx: 'The console and Gain staging as one: all 21 stages side by side on one ruler, as wide as Gain staging, with M2’s arrow.', tryit: 'Drag any arrow, and it stays under the pointer. The chain line’s bars move the same gains. Push RACK IN up to see a clip lamp and the first-over line.' },
+  { id: 'C2', nm: 'One console, rows', tx: 'The same console on its side, in two columns in signal order. Longer faders, and the names sit beside them.', tryit: 'Drag right to raise a level. Read down the left column, then the right, for the signal order. Push RACK IN up to see a clip lamp and the first-over line.' }
+];
+const ALLFORMS = COMBINED.concat(FORMS), isC = f => f === 'C1' || f === 'C2';
 const WIDTHS = [
   { id: 'W1', nm: 'Keep the room', tx: '104 px a strip, what ADR-333’s “a little more space” gave.' },
   { id: 'W2', nm: 'Narrow', tx: '72 px a strip, the width the design master was measured at. The summed views get the rest.' }
 ];
+const RULE_LO = -66, RULE_HI = 26, RULE = RULE_HI - RULE_LO;   // the meter's floor to out.level's top: a ±24 dB fader's own scale could not show a level under −24 dBFS
+const RAIL = { C1: 150, C2: 184 };                              // px of ruler
 const FRAME_CSS = `
   body.lab .hd-cs { --fader-h: 140px; }
   body.w2 .console .hd-cs { --size-strip-w: 72px; }
@@ -160,9 +193,77 @@ const FRAME_CSS = `
   body.m4 .console .hd-cs .cs-body .ms-face svg, body.m4 .console .hd-cs .cs-body .lm { position: absolute; left: 50%; top: 50%; width: 35.2px; height: 176px; transform: translate(-50%, -50%) rotate(90deg); }
   body.m4 .console .hd-cs .cs-ms { flex: none; width: auto; }
   body.m4 .console .hd-cs .cs-btn { margin: 0; }
+
+  /* C1 and C2: one console for the whole chain */
+  body:not(.comb) .am { display: none; }
+  body.comb .console, body.comb .am-gs, body.comb .am-card-hint { display: none; }
+  body.comb .mixrow { display: block; }
+  body.comb .sums { flex-direction: row; flex-wrap: wrap; }
+  body.comb .sums .sum-col { flex: 1 1 260px; }
+  body.comb .sums .hd-note { flex: 1 1 100%; margin: 0; }
+  .hd-cs.am { display: block; position: relative; overflow: visible; padding: 4px 4px 2px; width: 100%; flex: 1 1 100%; max-width: none; }
+  .am-groups { display: flex; align-items: stretch; min-width: 0; }
+  .am-col { display: contents; }
+  .am-g { display: flex; flex-direction: column; min-width: 0; padding: 0 2px; box-sizing: border-box; }
+  .am-g + .am-g, .am-col + .am-col .am-g { border-left: var(--stroke-sub) solid var(--div); }
+  .am-gl { font: 800 8.5px/13px var(--font-sans); letter-spacing: .06em; color: var(--t2); text-align: center; white-space: nowrap; }
+  .am-st { display: flex; flex: 1; min-width: 0; }
+  .am-top { display: flex; align-items: center; gap: 10px; min-height: 28px; }
+  .am-first { font: 400 10px/1.3 var(--font-mono); color: var(--t2); flex: 1 1 auto; min-width: 0; }
+  .am-top .hd-pill { flex: none; white-space: nowrap; }
+  .hd-cs.am .cs-strip, .hd-cs.am .cs-strip + .cs-strip, .hd-cs.am .cs-strip.master { flex: 1 1 33px; min-width: 0; margin: 0; padding: 0; border-left: 0; }
+  .hd-cs.am .cs-head { padding: 0; }
+  .hd-cs.am .cs-strip.loc .cs-head, .hd-cs.am .cs-strip.master .cs-head { justify-content: center; }
+  .hd-cs.am .cs-strip.loc .cs-name { white-space: normal; text-align: center; line-height: 1.05; }
+  .am-g.src { flex: 0 0 auto; } .am-g.src .cs-strip, .hd-cs.am .am-g.src .cs-strip + .cs-strip { flex: 0 0 66px; }
+  .am-g.eng { flex: 0 0 56px; } .am-g.mk { flex: 0 0 50px; }
+  .hd-cs.am .cs-pk { flex-direction: column; justify-content: flex-start; gap: 0; }
+  .hd-cs.am .cs-pk output { min-height: 11px; }
+  .hd-cs.am .cs-pk .hd-lamp { margin: 1px 0 3px; }
+  .am-nolamp { display: block; height: calc(var(--size-face-dense) + 4px); }
+  .hd-cs.am .cs-body { width: 100%; }
+  .hd-cs.am .cs-body .hd-ms-v { width: 100%; min-width: 0; }
+  .hd-cs.am .cs-body .ms-face { position: relative; width: 28px; height: var(--rl); }
+  .am-rot { position: absolute; left: 0; top: 0; width: 28px; height: var(--rl); }
+  .am-rot .lm { display: block; left: 0; top: 0; width: 100%; height: 100%; }
+  .am-rot .lb { top: 0; height: 100%; width: 6px; }
+  .am-rot .lb.l { left: 0; } .am-rot .lb.r { left: 7px; }
+  .am-rot .lb.g { left: 3px; width: 8px; background: var(--well-alt); }
+  .am-rot .lb.g .fi { top: 0; bottom: auto; background: var(--meter); transform-origin: 50% 0; }
+  .am-rail { position: absolute; left: 14px; width: 2px; background: var(--hint); }
+  .am-ar { position: absolute; left: 15px; width: 10px; height: 13px; margin-bottom: -6.5px; background: var(--ink); clip-path: polygon(100% 0, 0 50%, 100% 100%); }
+  .hd-cs.am .ms-face { cursor: ns-resize; }
+  .hd-cs.am .cs-strip .ms-rd { width: 100%; height: 13px; font: 400 9.5px/13px var(--font-mono); text-align: center; white-space: nowrap; overflow: hidden; }
+  .hd-cs.am .cs-strip .ms-rd .mk-v1 { position: absolute; inset: 0; display: block; }
+  body.comb .am .ms-face svg rect[rx="2"] { x: 15px; width: 12px; clip-path: polygon(100% 0, 0 50%, 100% 100%); transform-box: fill-box; transform-origin: center; transform: scaleY(1.7); }
+
+  body.c1 .am-top { position: absolute; left: 276px; right: 6px; bottom: 2px; }
+
+  body.c2 .am-groups { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+  body.c2 .am-col { display: block; min-width: 0; }
+  body.c2 .am-g, body.c2 .am-g.src, body.c2 .am-g.eng, body.c2 .am-g.mk { display: block; padding: 0; border-left: 0; }
+  body.c2 .am-col + .am-col .am-g { border-left: 0; }
+  body.c2 .am-g + .am-g { border-top: var(--stroke-sub) solid var(--div); }
+  body.c2 .am-gl { display: none; }
+  body.c2 .am-st { display: block; }
+  body.c2 .hd-cs.am .cs-strip, body.c2 .hd-cs.am .cs-strip + .cs-strip, body.c2 .hd-cs.am .am-g.src .cs-strip + .cs-strip { display: flex; flex-direction: row; align-items: center; gap: 6px; height: 28px; }
+  body.c2 .hd-cs.am .cs-head, body.c2 .hd-cs.am .cs-strip.loc .cs-head, body.c2 .hd-cs.am .cs-strip.master .cs-head { flex: 0 0 76px; width: 76px; min-height: 0; justify-content: flex-start; }
+  body.c2 .hd-cs.am .cs-strip.loc .cs-name { white-space: nowrap; text-align: left; }
+  body.c2 .hd-cs.am .hd-toggle.hd-sm { margin: 0; }
+  body.c2 .hd-cs.am .cs-pk { flex: 0 0 62px; width: 62px; flex-direction: row; justify-content: space-between; }
+  body.c2 .hd-cs.am .cs-pk .hd-lamp { margin: 0; }
+  body.c2 .am-nolamp { width: 30px; height: 20px; }
+  body.c2 .hd-cs.am .cs-body { flex: 0 0 auto; width: auto; }
+  body.c2 .hd-cs.am .cs-body .hd-ms-v { flex-direction: row; gap: 6px; width: auto; }
+  body.c2 .hd-cs.am .cs-body .ms-face { width: var(--rl); height: 26px; cursor: ew-resize !important; }
+  body.c2 .am-rot { left: 50%; top: 50%; transform: translate(-50%, -50%) rotate(90deg); }
+  body.c2 .hd-cs.am .cs-strip .ms-rd { flex: 0 0 50px; width: 50px; }
+  body.c2 .hd-cs.am .cs-ms { flex: 0 0 58px; width: 58px; }
+  body.c2 .hd-cs.am .cs-btn { margin: 0; }
+  body.c2 .am-top { min-height: 28px; }
 `;
-let mode = { form: 'M1', width: 'W1' }, w, d, L, S, dev, strips = [], frameErrors = 0;
-const sizes = {};
+let mode = { form: 'C1', width: 'W1' }, w, d, L, S, dev, strips = [], frameErrors = 0;
+const sizes = {}, pageH = {};
 
 function picker(host, list, key) {
   list.forEach(o => {
@@ -175,19 +276,21 @@ function picker(host, list, key) {
 function paint() {
   [['pickForm', 'form'], ['pickWidth', 'width']].forEach(([id, k]) => $(id).querySelectorAll('.opt').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.id === mode[k]))));
   // a row has no strip width to choose
-  $('pickWidth').querySelectorAll('.opt').forEach(b => { b.disabled = mode.form === 'M4'; });
-  const f = FORMS.find(o => o.id === mode.form), sz = sizes[mode.form + mode.width], base = sizes.M0W1;
-  $('tryIt').textContent = 'Try ' + f.id + ': ' + f.tryit + (sz && base ? ' This console is ' + sz.w + ' × ' + sz.h + ' px, and today’s is ' + base.w + ' × ' + base.h + ' px.' : '');
-  $('pickForm').querySelectorAll('.opt').forEach(b => { let e = b.querySelector('.sz'); const z = sizes[b.dataset.id + (b.dataset.id === 'M4' ? 'W1' : mode.width)]; if (!z) return; if (!e) { e = document.createElement('span'); e.className = 'sz'; b.append(e); } e.textContent = z.w + ' × ' + z.h + ' px'; });
+  $('pickWidth').querySelectorAll('.opt').forEach(b => { b.disabled = mode.form === 'M4' || isC(mode.form); });
+  const f = ALLFORMS.find(o => o.id === mode.form), wk = isC(mode.form) ? 'W1' : mode.width, sz = sizes[mode.form + wk], base = sizes.M0W1;
+  $('tryIt').textContent = 'Try ' + f.id + ': ' + f.tryit + (isC(mode.form) && sz && pageH.M0 ? ' This console is ' + sz.w + ' × ' + sz.h + ' px. With the chain line and summed views, the page is ' + pageH[mode.form] + ' px tall, and today’s is ' + pageH.M0 + ' px.' : sz && base ? ' This console is ' + sz.w + ' × ' + sz.h + ' px, and today’s is ' + base.w + ' × ' + base.h + ' px.' : '');
+  $('pickForm').querySelectorAll('.opt').forEach(b => { let e = b.querySelector('.sz'); const z = sizes[b.dataset.id + (b.dataset.id === 'M4' || isC(b.dataset.id) ? 'W1' : mode.width)]; if (!z) return; if (!e) { e = document.createElement('span'); e.className = 'sz'; b.append(e); } e.textContent = z.w + ' × ' + z.h + ' px'; });
 }
 function apply() {
   if (!d) return;
   const b = d.body, f = mode.form;
-  b.classList.remove('m0', 'm1', 'm2', 'm3', 'm4', 'w2', 'onbar');
+  b.classList.remove('m0', 'm1', 'm2', 'm3', 'm4', 'c1', 'c2', 'comb', 'w2', 'onbar');
   b.classList.add('lab', f.toLowerCase()); if (f !== 'M0') b.classList.add('onbar');
-  if (mode.width === 'W2' && f !== 'M4') b.classList.add('w2');
+  if (isC(f)) b.classList.add('comb');
+  if (mode.width === 'W2' && f !== 'M4' && !isC(f)) b.classList.add('w2');
   // a row drags right, and the gesture reads this flag at each move
-  strips.forEach(t => { S.params[t.key].horizontal = f === 'M4'; });
+  strips.forEach(t => { S.params[t.key].horizontal = f === 'M4' || f === 'C2'; });
+  combine();
 }
 
 // ===== the bars: Gain staging's ballistics, as the master's strip runs them, on the fader's own scale =====
@@ -201,7 +304,7 @@ function buildMeters() {
     face.prepend(lm);
     // turned on its side the slider's box is wide and short, and the gesture's "one length = the full range" reads the height
     const box = svg.getBoundingClientRect;
-    svg.getBoundingClientRect = function () { const r = box.call(this); return mode.form === 'M4' ? { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.height, height: r.width } : r; };
+    svg.getBoundingClientRect = function () { const r = box.call(this); return mode.form === 'M4' || mode.form === 'C2' ? { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.height, height: r.width } : r; };
     strips.push({ id: o.id, key, row, root, face, svg, lm, gh, bars, bar: [DB_FLOOR, DB_FLOOR], pk: [DB_FLOOR, DB_FLOOR], held: [0, 0] });
   });
 }
@@ -209,8 +312,9 @@ const dbNow = t => t.row.lo + S.base(S.params[t.key]) * (t.row.hi - t.row.lo);
 const fracOf = (t, db) => Math.max(0, Math.min(1, (db - t.row.lo) / (t.row.hi - t.row.lo)));
 function stepMeters(dt) {
   const fall = Math.exp(-dt / .11);
-  strips.forEach(t => {
-    const r = L.opts.read(t.id), now = r ? [r.l, r.r] : [DB_FLOOR, DB_FLOOR];
+  strips.concat(L.combOn ? locals : []).forEach(t => {
+    if (t.gr) return;
+    const r = t.local ? L.comb.read(t.stage.id) : L.opts.read(t.id), now = r ? [r.l, r.r] : [DB_FLOOR, DB_FLOOR];
     for (let c = 0; c < 2; c++) {
       const x = Math.max(DB_FLOOR, now[c] === undefined || now[c] === null ? DB_FLOOR : now[c]);
       const a = Math.max(Math.pow(10, x / 20), Math.pow(10, t.bar[c] / 20) * fall); t.bar[c] = Math.max(DB_FLOOR, 20 * Math.log10(Math.max(a, 1e-9)));
@@ -219,11 +323,163 @@ function stepMeters(dt) {
   });
 }
 function paintMeters() {
+  if (L.combOn) { paintComb(); return; }
   strips.forEach(t => {
     const on = !!(L.opts.latch(t.id) || {}).on;
     t.bars.forEach((b, c) => { b.style.setProperty('--lv', fracOf(t, t.bar[c])); b.style.setProperty('--hp', fracOf(t, t.pk[c])); b.classList.toggle('over', on); });
     t.gh.style.setProperty('--fv', S.base(S.params[t.key]));
   });
+}
+
+// ===== C1 and C2: one console for the whole chain =====
+const REAL = { osc1: 'osc1', osc2: 'osc2', sub: 'sub', noise: 'noise', eng: 'out' };   // the stages whose gain is an engine row: their strips are the shell's own
+const CHAIN_ORDER = ['f1i', 'f1o', 'f2i', 'f2o', 'eng', 'mk', 'x1i', 'x1o', 'x2i', 'x2o', 'x3i', 'x3o', 'x4i', 'x4o', 'lim'];
+const rulerFrac = db => Math.max(0, Math.min(1, (db - RULE_LO) / RULE));
+const dbText = (v, dec) => (v < 0 ? '−' : '+') + Math.abs(v).toFixed(dec);
+let am, firstEl, topEl, leftCol, locals = [], allS = [], LV = {}, cLat = {}, cardEl, cardsEl, mixrowEl, clusterEl;
+const stageStrip = id => allS.find(t => t.stage.id === id);
+const rangeOf = t => t.local ? { lo: t.stage.gain.min, hi: t.stage.gain.max } : { lo: t.row.lo, hi: t.row.hi };
+function setGainOf(t, db) {
+  const g = rangeOf(t), v = Math.max(g.lo, Math.min(g.hi, db));
+  if (t.local) { L.gsO.gains[t.stage.id] = v; L.gs.setGain(t.stage.id, v); } else dev.set(t.key, (v - g.lo) / (g.hi - g.lo));
+}
+function restoreGain(t) { if (t.local) { if (t.stage.gain) setGainOf(t, t.stage.gain.def); } else dev.set(t.key, t.row.default_v); }
+function makeComb() {
+  const gainOf = id => { const t = stageStrip(id); return !t || t.gr ? 0 : t.local ? L.gsO.gains[id] : dbNow(t); };
+  return {
+    gain: gainOf,
+    setGain(id, v) { const t = stageStrip(id); if (t) setGainOf(t, v); },
+    // one model of the chain, once a frame, so the bars, the lamps and the chain line can't disagree: the sources' stub levels 24 dB down, then each gain in chain order
+    tick() {
+      LV = {}; let pw = 0;
+      ['osc1', 'osc2', 'sub', 'noise'].forEach((id, i) => {
+        const m = dev.meters()[id], up = m && m.peak > -Infinity ? m.peak : -Infinity, wob = 4 * (.5 + .5 * Math.sin(L.frame * .017 * (1 + i * .13) + i * 1.7));
+        LV[id] = up - 24 - wob; if (LV[id] > -Infinity) pw += Math.pow(10, LV[id] / 10);
+      });
+      let x = pw > 0 ? 10 * Math.log10(pw) : -Infinity;
+      CHAIN_ORDER.forEach(id => { x += gainOf(id); LV[id] = x; });
+      LV.gr = Math.max(0, x + 1); LV.vol = Math.min(x, -1) + gainOf('vol');
+      Object.keys(L.force).forEach(k => { if (stageStrip(k)) LV[k] = L.force[k]; });
+      LV.gr = Math.max(0, LV.lim + 1);
+      Object.keys(LV).forEach(id => { if (id === 'gr' || !(LV[id] > 0)) return; const q = cLat[id]; if (q) q.max = Math.max(q.max, LV[id]); else cLat[id] = { on: true, at: L.frame * 800, max: LV[id] }; });
+    },
+    read(id) { if (!(id in LV)) return undefined; if (id === 'gr') return { gr: LV.gr }; return { l: LV[id], r: LV[id] - .6 }; },
+    latch(id) { return cLat[id] || { on: false }; },
+    clear(id) { delete cLat[id]; }
+  };
+}
+function localStrip(s) {
+  const t = { local: true, id: s.id, stage: s, gr: s.kind === 'gr', bar: [DB_FLOOR, DB_FLOOR], pk: [DB_FLOOR, DB_FLOOR], held: [0, 0] }, mk = (tag, cls, text) => { const e = d.createElement(tag); if (cls) e.className = cls; if (text) e.textContent = text; return e; };
+  const label = s.group === 'SOURCES' ? s.name : s.group + ' ' + s.name;
+  const root = mk('div', 'cs-strip loc'); root.setAttribute('role', 'group'); root.setAttribute('aria-label', label); root.title = s.title; t.root = root; root.dataset.stage = s.id;
+  const head = mk('div', 'cs-head'); t.nameEl = mk('span', 'cs-name', s.name); head.append(t.nameEl); root.append(head);
+  const pk = mk('div', 'cs-pk'); t.pkEl = mk('output'); pk.append(t.pkEl);
+  if (t.gr) pk.append(mk('span', 'am-nolamp'));
+  else { t.lamp = mk('button', 'hd-lamp hd-sm hd-focus', 'CLIP'); t.lamp.type = 'button'; t.lamp.setAttribute('aria-label', label + ' clip lamp'); t.lamp.addEventListener('click', () => { L.comb.clear(s.id); paintComb(); }); pk.append(t.lamp); }
+  root.append(pk);
+  const body = mk('div', 'cs-body'), wrap = mk('div', 'hd-ms-v sz sz-compact'), face = mk('div', 'ms-face'), rd = mk('div', 'ms-rd'); t.vEl = mk('div', 'mk-v1'); rd.append(t.vEl); t.face = face; t.rd = rd;
+  const rot = mk('div', 'am-rot'), lm = mk('div', 'lm'); t.rotor = rot; t.lm = lm; rot.append(lm); face.append(rot);
+  if (t.gr) { const b = mk('div', 'lb g'); b.innerHTML = '<i class="fi"></i>'; lm.append(b); t.bars = [b]; }
+  else {
+    lm.style.setProperty('--ov', (RULE_HI / RULE * 100) + '%');
+    t.bars = ['l', 'r'].map(c => { const b = mk('div', 'lb ' + c); b.innerHTML = '<i class="fi"></i><i class="ov"></i><i class="ho"></i>'; lm.append(b); return b; });
+    addRail(t, s.gain.min, s.gain.max);
+    t.ar = mk('i', 'am-ar'); rot.append(t.ar);
+    face.setAttribute('role', 'slider'); face.setAttribute('aria-label', label + ' gain'); face.classList.add('hd-focus');
+    // relative, as the master's gain controls are, and 1:1 with the ruler so the arrow stays under the pointer; shift is fine
+    let st = null;
+    face.addEventListener('pointerdown', e => { if (e.button !== 0 || S.map.on) return; st = { x: e.clientX, y: e.clientY, v: L.gsO.gains[s.id] }; try { face.setPointerCapture(e.pointerId); } catch (_) { /* a synthetic pointer */ } e.preventDefault(); });
+    face.addEventListener('pointermove', e => { if (!st) return; const q = rect(t.rotor), len = Math.max(q.width, q.height), px = mode.form === 'C2' ? e.clientX - st.x : st.y - e.clientY; setGainOf(t, st.v + px / len * RULE * (e.shiftKey ? .25 : 1)); });
+    face.addEventListener('pointerup', () => { st = null; });
+    face.addEventListener('dblclick', () => setGainOf(t, s.gain.def));
+  }
+  wrap.append(face, rd); body.append(wrap); root.append(body);
+  return t;
+}
+function addRail(t, lo, hi) {
+  const r = d.createElement('i'); r.className = 'am-rail'; r.style.bottom = (rulerFrac(lo) * 100) + '%'; r.style.height = ((rulerFrac(hi) - rulerFrac(lo)) * 100) + '%'; t.lm.append(r); t.railEl = r;
+}
+function buildCombined() {
+  L.comb = makeComb();
+  const stages = L.gsO.stages;
+  // the chain's own placeholder for the engine's range is narrower than the engine's row (B402); the row wins, so the chain line's bar and the fader agree
+  stages.forEach(s => { const rid = REAL[s.id], t = rid && strips.find(z => z.id === rid); if (t) { s.gain.min = t.row.lo; s.gain.max = t.row.hi; } });
+  am = d.createElement('div'); am.className = 'hd-cs am'; am.setAttribute('role', 'group'); am.setAttribute('aria-label', 'Mixer, the whole chain');
+  const groupsEl = d.createElement('div'); groupsEl.className = 'am-groups'; am.append(groupsEl);
+  leftCol = d.createElement('div'); leftCol.className = 'am-col'; const right = d.createElement('div'); right.className = 'am-col'; groupsEl.append(leftCol, right);
+  const byGroup = new Map(); stages.forEach(s => { if (!byGroup.has(s.group)) byGroup.set(s.group, []); byGroup.get(s.group).push(s); });
+  byGroup.forEach((list, name) => {
+    const g = d.createElement('div'); g.className = 'am-g' + (name === 'SOURCES' ? ' src' : name === 'ENGINE' ? ' eng' : name === 'MAKE-UP' ? ' mk' : '');
+    if (!/^(SOURCES|ENGINE|MAKE-UP)$/.test(name)) g.style.flex = list.length + ' 1 0';
+    const gl = d.createElement('div'); gl.className = 'am-gl'; gl.textContent = name; const st = d.createElement('div'); st.className = 'am-st'; g.append(gl, st);
+    (/^(FX|MASTER)/.test(name) ? right : leftCol).append(g);
+    list.forEach(s => {
+      const rid = REAL[s.id]; let t = rid && strips.find(z => z.id === rid);
+      if (t) { t.stage = s; t.rotor = d.createElement('div'); t.rotor.className = 'am-rot'; t.root.dataset.stage = s.id; t.nameEl = t.root.querySelector('.cs-name'); t.nameHome = t.nameEl.textContent; t.rd = t.root.querySelector('.ms-rd'); addRail(t, t.row.lo, t.row.hi); t.railEl.hidden = true; }
+      else { t = localStrip(s); locals.push(t); st.append(t.root); }
+      t.slot = st; allS.push(t);
+    });
+  });
+  topEl = d.createElement('div'); topEl.className = 'am-top'; firstEl = d.createElement('span'); firstEl.className = 'am-first';
+  const clr = d.createElement('button'); clr.type = 'button'; clr.className = 'hd-pill hd-focus'; clr.textContent = 'Clear all lamps'; clr.addEventListener('click', () => { cLat = {}; paintComb(); });
+  topEl.append(firstEl, clr); am.append(topEl); am.clearBtn = clr;
+  L.gsEl.classList.add('am-gs'); L.gsEl.previousElementSibling.before(am);   // the console first: the chain line under it is the question
+  cardEl = L.gsEl.closest('.hd-card'); cardsEl = L.gsEl.closest('.cards'); mixrowEl = d.querySelector('.mixrow'); clusterEl = cardEl.querySelector('.head .hd-cluster');
+  const hint = cardEl.querySelector('.face > .hd-hint'); if (hint) hint.classList.add('am-card-hint');
+  L.onPre = () => { if (L.combOn) L.comb.tick(); };
+}
+function combine() {
+  if (!am) return;
+  const on = isC(mode.form), was = !!L.combOn;
+  if (on && !was) { cardsEl.after(mixrowEl); clusterEl.dataset.home = clusterEl.textContent; clusterEl.textContent = 'Mixer'; }
+  if (!on && was) { cardsEl.before(mixrowEl); clusterEl.textContent = clusterEl.dataset.home; }
+  L.combOn = on;
+  const realS = allS.filter(t => !t.local);
+  if (on) {
+    const R = RAIL[mode.form];
+    am.style.setProperty('--rl', R + 'px');
+    (mode.form === 'C2' ? leftCol : am).append(topEl);
+    realS.forEach(t => {
+      t.slot.append(t.root);
+      t.rotor.append(t.lm, t.svg); t.face.prepend(t.rotor);
+      // a real fader's box covers only its own range on the ruler, so the gesture's "one length = the full range" is 1:1 with the pointer
+      const span = t.row.hi - t.row.lo, h = R * span / RULE / .9;
+      t.svg.style.cssText = 'position:absolute;height:' + h + 'px;width:' + (h * .2) + 'px;max-width:none;left:' + (14 - 15 * h / 200) + 'px;bottom:' + (rulerFrac(t.row.lo) * R - h * .05) + 'px;';
+      t.lm.style.setProperty('--ov', (RULE_HI / RULE * 100) + '%'); t.railEl.hidden = false;
+    });
+    allS.forEach(t => { if (!t.nameEl) return; const s = t.stage, wrapName = s.group === 'SOURCES' ? (t.local ? s.name : t.nameHome) : s.group === 'MAKE-UP' ? s.name : s.group === 'MASTER' ? (s.name === 'OUT' ? 'MASTER OUT' : s.name) : s.group + ' ' + s.name; t.nameEl.textContent = mode.form === 'C2' ? wrapName : t.local ? s.name : t.nameHome; });
+  } else {
+    realS.forEach(t => {
+      L.el.append(t.root);
+      t.face.prepend(t.svg); t.face.prepend(t.lm); t.rotor.remove();
+      t.svg.style.cssText = ''; t.lm.style.setProperty('--ov', (t.row.hi / (t.row.hi - t.row.lo) * 100) + '%'); t.railEl.hidden = true; t.nameEl.textContent = t.nameHome;
+    });
+  }
+  L.cs.refresh && L.cs.refresh();
+}
+function firstOverId() {
+  let best = null;
+  allS.forEach(t => { const q = cLat[t.stage.id]; if (q && (!best || q.at < cLat[best.stage.id].at)) best = t; });   // allS is in signal order, so a tie goes upstream
+  return best;
+}
+function paintComb() {
+  const f = firstOverId(), lit = Object.keys(cLat).length;
+  allS.forEach(t => {
+    const id = t.stage.id, q = cLat[id], on = !!q;
+    if (t.gr) { const g = (L.comb.read('gr') || { gr: 0 }).gr; t.bars[0].style.setProperty('--lv', Math.min(1, g / 24)); t.pkEl.textContent = g > .05 ? dbText(-g, 1) : '0.0'; return; }
+    t.bars.forEach((b, c) => { b.style.setProperty('--lv', rulerFrac(t.bar[c])); b.style.setProperty('--hp', rulerFrac(t.pk[c])); b.classList.toggle('over', on); });
+    const lamp = t.lamp || t.root.querySelector('.hd-lamp'); lamp.classList.toggle('first', t === f);
+    if (t.local) {
+      const p = Math.max(t.pk[0], t.pk[1]), g = L.gsO.gains[id], s = t.stage.gain;
+      t.pkEl.textContent = p <= DB_FLOOR ? '−∞' : dbText(p, 1);
+      lamp.setAttribute('aria-pressed', String(on));
+      t.ar.style.bottom = (rulerFrac(g) * 100) + '%';
+      t.vEl.textContent = s.floor !== undefined && g <= s.floor ? '−∞' : dbText(g, s.dec || 1);
+      t.root.title = t.stage.title + ' · ' + t.vEl.textContent + ' dB' + (s.x ? ' · ×' + Math.pow(10, g / 20).toFixed(2) : '');
+    }
+  });
+  const nameOf = t => t.stage.group === t.stage.name ? t.stage.name : t.stage.group + ' · ' + t.stage.name;
+  firstEl.textContent = !f ? 'FIRST OVER — none latched' : 'FIRST OVER — ' + nameOf(f) + ' at ' + (cLat[f.stage.id].at / 48000).toFixed(2) + ' s, +' + cLat[f.stage.id].max.toFixed(1) + ' dB' + (lit > 1 ? ' · ' + (lit - 1) + ' more lamp' + (lit > 2 ? 's' : '') + ' lit' : '');
 }
 
 // ===== the self-check =====
@@ -235,8 +491,9 @@ function selfCheck() {
   const capOf = t => t.svg.querySelector('rect[rx="2"]');
   const along = (r, vert) => vert ? (r.top + r.bottom) / 2 : (r.left + r.right) / 2;
   const pointer = (type, el, x, y) => el.dispatchEvent(new w.PointerEvent(type, { bubbles: true, cancelable: true, composed: true, button: 0, buttons: type === 'pointerup' ? 0 : 1, pointerId: 1, clientX: x, clientY: y }));
-  const setForm = (f, wd) => { mode.form = f; if (wd) mode.width = wd; apply(); tick(); };
-  const keep = () => { const q = rect(d.querySelector('.console')); return { w: Math.round(q.width), h: Math.round(q.height) }; };
+  const setForm = (f, wd) => { mode.form = f; if (wd) mode.width = wd; apply(); tick(); if (isC(f)) L.cs.render(); };
+  const keep = () => { const q = rect(isC(mode.form) ? am : d.querySelector('.console')); return { w: Math.round(q.width), h: Math.round(q.height) }; };
+  const pageBox = () => { const a = rect(mixrowEl), b = rect(cardsEl); return Math.round(Math.max(a.bottom, b.bottom) - Math.min(a.top, b.top)); };
   const hits = el => { const q = rect(el), at = d.elementFromPoint((q.left + q.right) / 2, (q.top + q.bottom) / 2); return !!at && (el === at || el.contains(at)); };
 
   const tight = [];
@@ -255,7 +512,7 @@ function selfCheck() {
       strips.forEach(z => { const pk = z.root.querySelector('.cs-pk output'), lp = rect(z.root.querySelector('.hd-lamp')), nm = z.root.querySelector('.cs-name'); if (rect(pk).right > lp.left + .5 || nm.scrollWidth > nm.clientWidth + 1) tight.push(F.id + W + ' ' + z.id); });
       strips.forEach(z => { delete L.force[z.id]; });
     });
-    setForm(F.id, 'W1');
+    setForm(F.id, 'W1'); pageH[F.id] = pageBox();
     const onBar = F.id !== 'M0', vert = F.id !== 'M4', bad = [];
     if (onBar) {
       strips.forEach(t => {
@@ -318,23 +575,108 @@ function selfCheck() {
   delete L.force[t0.id]; lamp.click(); L.cs.render(); const dark = lamp.getAttribute('aria-pressed') === 'false' && !t0.bars[0].classList.contains('over');
   check(lit && dark, 'CLIP: a level over 0 dB latches the lamp and the over zone together, and a click clears both (control: dark after).');
 
+  // The split the human asked about: the console's OSC 1 and Gain staging's OSC 1 are the same stage, and today they don't move together.
+  setForm('M0', 'W1');
+  const gsWide = rect(L.gsEl).width, s0 = strips[0], gain0 = L.gsO.gains[s0.id], key0 = S.base(S.params[s0.key]);
+  dev.set(s0.key, s0.row.default_v - .2); tick(); const consoleMoved = Math.abs(S.base(S.params[s0.key]) - key0) > .1, gsStill = L.gsO.gains[s0.id] === gain0;
+  dev.set(s0.key, s0.row.default_v); tick();
+  L.clO.onGain('osc1', gain0 + 5); const keyStill = Math.abs(S.base(S.params[s0.key]) - key0) < 1e-6; L.clO.onGain('osc1', gain0);
+  check(consoleMoved && gsStill && keyStill, 'Today, split: moving the console’s OSC 1 fader leaves Gain staging’s OSC 1 at ' + gain0 + ' dB, and moving Gain staging’s changes nothing the console reads.');
+  $('splitProof').textContent = consoleMoved && gsStill && keyStill ? 'moving the console’s OSC 1 leaves Gain staging’s OSC 1 where it was, and moving Gain staging’s changes nothing' : 'the self-check could not show this; see below';
+
+  COMBINED.forEach(F => {
+    setForm(F.id); const vert = F.id === 'C1', R = RAIL[F.id];
+    sizes[F.id + 'W1'] = keep(); pageH[F.id] = pageBox();
+    const wantOrder = L.gsO.stages.map(s => s.id), gotOrder = [...am.querySelectorAll('.cs-strip')].map(r => r.dataset.stage);
+    const order = JSON.stringify(gotOrder) === JSON.stringify(wantOrder);
+    const amW = rect(am).width, fitW = Math.abs(gsWide - amW) < 1.5 && am.scrollWidth <= am.clientWidth + 1 && !allS.some(t => rect(t.root).right > rect(am).right + .5 || rect(t.face).right > rect(t.root).right + .5);
+    check(order && fitW, F.id + ': all ' + gotOrder.length + ' stages in signal order, ' + Math.round(amW) + ' px wide against Gain staging’s ' + Math.round(gsWide) + ', nothing running past its strip or the console.');
+
+    // one ruler: at 0 and −12 dB every arrow meets its own bar's top, and 0 dB is one straight line across the console
+    const bad = []; const edges = [];
+    allS.forEach(t => {
+      if (t.gr) return;
+      const arrow = () => t.local ? t.ar : t.svg.querySelector('rect[rx="2"]');
+      [0, -12].forEach(dB => {
+        setGainOf(t, dB); tick(); L.force[t.stage.id] = dB;
+        for (let i = 0; i < 90; i++) L.cs.step(1 / 60); L.cs.render(); tick();
+        const fi = rect(t.bars[0].querySelector('.fi')), a = rect(arrow()), off = vert ? Math.abs(fi.top - (a.top + a.bottom) / 2) : Math.abs(fi.right - (a.left + a.right) / 2);
+        if (off > 1.5) bad.push(t.stage.id + ' at ' + dB + ' dB off by ' + off.toFixed(1) + ' px');
+      });
+      const ov = rect(t.bars[0].querySelector('.ov')); edges.push(vert ? ov.bottom : ov.right);
+      restoreGain(t); delete L.force[t.stage.id];
+    });
+    // in rows the two columns start at different x, so the line is straight per column
+    const cols = vert ? [edges] : [edges.slice(0, 10), edges.slice(10)], spread = Math.max(...cols.map(c => Math.max(...c) - Math.min(...c)));
+    cLat = {};
+    check(!bad.length && spread < 1, F.id + ': one ruler. Every arrow meets its bar’s top at 0 and −12 dB, and 0 dB lines up across the strips to ' + spread.toFixed(2) + ' px' + (vert ? '' : ' in each column') + (bad.length ? ' (' + bad.slice(0, 4).join('; ') + ')' : '') + '.');
+
+    // gestures: a real fader and a stage's gain both track the pointer; a double-click returns each home; MAP takes a real fader and not a global gain
+    const real = strips[0], loc = stageStrip('mk'), arrowOf = t => t.local ? t.ar : t.svg.querySelector('rect[rx="2"]'), posOf = t => { const a = rect(arrowOf(t)); return vert ? (a.top + a.bottom) / 2 : (a.left + a.right) / 2; };
+    const dragBy = (t, px) => { const f = rect(t.face), cx = (f.left + f.right) / 2, cy = (f.top + f.bottom) / 2, to = vert ? [cx, cy - px] : [cx + px, cy]; pointer('pointerdown', t.face, cx, cy); pointer('pointermove', t.face, to[0], to[1]); pointer('pointerup', t.face, to[0], to[1]); tick(); L.cs.render(); };
+    setGainOf(real, -20); tick(); L.cs.render(); const r0 = posOf(real); dragBy(real, 20); const rMoved = Math.abs(posOf(real) - r0);
+    real.face.dispatchEvent(new w.MouseEvent('dblclick', { bubbles: true, cancelable: true })); tick(); const rHome = Math.abs(S.base(S.params[real.key]) - real.row.default_v) < 1e-6;
+    setGainOf(loc, 0); L.cs.render(); const l0 = posOf(loc); dragBy(loc, 20); const lMoved = Math.abs(posOf(loc) - l0);
+    loc.face.dispatchEvent(new w.MouseEvent('dblclick', { bubbles: true, cancelable: true })); L.cs.render(); const lHome = L.gsO.gains.mk === loc.stage.gain.def;
+    const fr = rect(real.face), fl = rect(loc.face);
+    S.setMap(true); pointer('pointerdown', real.face, (fr.left + fr.right) / 2, (fr.top + fr.bottom) / 2); pointer('pointerup', real.face, (fr.left + fr.right) / 2, (fr.top + fr.bottom) / 2); tick();
+    const mappedR = S.mapsOf(real.key).length === 1, before = dev.routes().length, g0 = L.gsO.gains.mk;
+    pointer('pointerdown', loc.face, (fl.left + fl.right) / 2, (fl.top + fl.bottom) / 2); pointer('pointermove', loc.face, (fl.left + fl.right) / 2 + 20, (fl.top + fl.bottom) / 2 - 20); pointer('pointerup', loc.face, (fl.left + fl.right) / 2, (fl.top + fl.bottom) / 2); tick();
+    const mapLocal = dev.routes().length === before && L.gsO.gains.mk === g0; S.setMap(false); dev.clearRoutes(); tick();
+    check(Math.abs(rMoved - 20) < 1.5 && Math.abs(lMoved - 20) < 1.5 && rHome && lHome && mappedR && mapLocal, F.id + ': a 20 px drag moves OSC 1’s arrow ' + rMoved.toFixed(1) + ' px and RACK IN’s ' + lMoved.toFixed(1) + ' px; a double-click returns both home; MAP takes OSC 1, and it leaves the global RACK IN alone.' + (rHome ? '' : ' REAL HOME') + (lHome ? '' : ' LOCAL HOME') + (mappedR ? '' : ' MAP') + (mapLocal ? '' : ' MAP LOCAL'));
+
+    // one model: the arrow and the chain line's bar set the same gain, in both directions
+    L.clO.onGain('osc2', -20); tick(); const s2 = stageStrip('osc2'), toKey = Math.abs(dbNow(s2) + 20) < .01; setGainOf(s2, -30); tick(); const toLine = Math.abs(L.clO.gain('osc2') + 30) < .01; restoreGain(s2); tick();
+    L.clO.onGain('f1i', 3); const toLoc = L.gsO.gains.f1i === 3; L.gsO.gains.f1i = 0; L.gs.setGain('f1i', 0);
+    check(toKey && toLine && toLoc, F.id + ': one model. The chain line’s bar moves OSC 2’s real key, the arrow moves the bar, and a global stage’s bar moves its arrow.');
+
+    // nothing lost: the widest texts, and what each strip must keep (ADR-230, ADR-333)
+    allS.forEach(t => { if (!t.gr) { L.force[t.stage.id] = -45.2; if (t.local && t.id !== 'mk' && t.id !== 'vol') setGainOf(t, -24); } }); for (let i = 0; i < 90; i++) L.cs.step(1 / 60); L.cs.render(); tick();
+    const lost = [], fits = e => !!e && !!e.offsetWidth && e.scrollWidth <= e.clientWidth + 1;
+    allS.forEach(t => {
+      const id = t.stage.id, r = t.root, nm = r.querySelector('.cs-name'), pkE = r.querySelector('.cs-pk output'), lamp = r.querySelector('.hd-lamp');
+      r.scrollIntoView({ block: 'nearest' });
+      if (!fits(nm)) lost.push(id + ' name'); if (rect(pkE).right > rect(r).right + .5 || !pkE.textContent) lost.push(id + ' peak');
+      if (t.gr) { if (lamp) lost.push('gr has a lamp'); return; }
+      if (!lamp || !hits(lamp)) lost.push(id + ' lamp'); if (!hits(t.face)) lost.push(id + ' fader');
+      const v = r.querySelector('.ms-rd .mk-v1'); if (!v || !v.textContent || v.scrollWidth > v.clientWidth + 1) lost.push(id + ' value');
+    });
+    strips.slice(0, 4).forEach(z => z.root.querySelectorAll('.cs-btn, .hd-toggle').forEach(e => { if (!hits(e)) lost.push(z.id + ' ' + e.textContent); }));
+    allS.forEach(t => { if (!t.gr) { delete L.force[t.stage.id]; restoreGain(t); } });
+    const sumsEl = d.querySelector('.sums'), sumsOk = [...sumsEl.querySelectorAll('canvas')].filter(c => c.offsetWidth > 100).length === 2, cq = rect(am), sq = rect(sumsEl), clear = sq.top >= cq.bottom - 1 || sq.bottom <= cq.top + 1;
+    check(!lost.length && sumsOk && clear, F.id + ': every name, peak, value, lamp and fader shows and takes a click at the widest text, and on, M and S on the sources; GR has no lamp; the summed views stay, clear of the console' + (lost.length ? ' (LOST ' + lost.slice(0, 6).join(', ') + ')' : '') + (sumsOk ? '' : ' SUMS') + (clear ? '' : ' OVERLAP') + '.');
+
+    // the lamp, the first over, the reduction bar. Control: none lit before and after.
+    cLat = {}; L.cs.render(); const none0 = /none latched/.test(firstEl.textContent);
+    L.force.mk = 2.3; L.force.x1i = 2.3; L.force.lim = 3; for (let i = 0; i < 3; i++) L.cs.step(1 / 60); L.cs.render();
+    const mkS = stageStrip('mk'), xS = stageStrip('x1i'), said = /MAKE-UP/.test(firstEl.textContent) && /\+2\.3 dB/.test(firstEl.textContent) && /2 more lamps/.test(firstEl.textContent), marked = mkS.lamp.classList.contains('first') && !xS.lamp.classList.contains('first') && mkS.lamp.getAttribute('aria-pressed') === 'true' && mkS.bars[0].classList.contains('over');
+    const grBar = rect(stageStrip('gr').bars[0].querySelector('.fi')), grOk = (vert ? grBar.height : grBar.width) > 1;
+    delete L.force.mk; delete L.force.x1i; delete L.force.lim; mkS.lamp.click(); L.cs.render(); const oneOff = !cLat.mk && !!cLat.x1i; am.clearBtn.click(); const none1 = /none latched/.test(firstEl.textContent) && !Object.keys(cLat).length;
+    check(none0 && said && marked && grOk && oneOff && none1, F.id + ': a level over 0 dB lights its lamp and over zone, the upstream stage wears the first-over mark and the line names it, the limiter’s bar shows reduction, one click clears one lamp, and Clear all clears the rest (control: none lit before and after).' + (said ? '' : ' LINE: ' + firstEl.textContent) + (marked ? '' : ' MARK') + (grOk ? '' : ' GR') + (oneOff ? '' : ' ONE') + (none0 && none1 ? '' : ' NONE'));
+  });
+  const lessTall = pageH.C1 < pageH.M0 && pageH.C2 < pageH.M0;
+  const chainH = Math.round(rect(am.nextElementSibling).height);
+  $('chainTall').textContent = chainH + ' px';
+  check(lessTall && chainH > 100, 'Room: with the chain line and the summed views, the Mix page is ' + pageH.M0 + ' px tall today, ' + pageH.C1 + ' in C1 and ' + pageH.C2 + ' in C2. The chain line is ' + chainH + ' px of that.');
+
   // the shell back as the human finds it
   strips.forEach(z => { dev.set(z.key, z.row.default_v); delete L.force[z.id]; dev.clearClip(z.id); delete L.lat[z.id]; z.pk = [DB_FLOOR, DB_FLOOR]; z.bar = [DB_FLOOR, DB_FLOOR]; });
-  setForm('M1', 'W1'); dev.clearRoutes(); S.setMap(false); S.message = '';
+  setForm('C1'); cLat = {}; dev.clearRoutes(); S.setMap(false); S.message = '';
   // the presses above selected a fader and locked the info box on it: Escape releases the box, as for a player
   d.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); S.selected = null;
   // INIT has only Osc 1 on, and three empty strips say nothing about a meter, so the lab starts with all four sources sounding
   L.opts.strips.forEach(z => { if (z.keys.on) dev.set(z.keys.on, 1); });
   dev.clearHistory(); settle(); for (let i = 0; i < 300; i++) L.cs.step(1 / 60);   // past the peak hold, so the probes' held peaks don't greet the player
+  L.frame = 0; cLat = {};   // the first-over line's time counts from here, not from the probes
   L.cs.render();
-  check(!dev.routes().length && !S.map.on && S.selected === null && !d.querySelector('.cs-body .sel') && !!d.querySelector('.console') && d.body.classList.contains('m1') && strips.every(z => Math.abs(S.base(S.params[z.key]) - z.row.default_v) < 1e-6) && dev.undo() === false, 'Left as you find it: on Mix, on M1 at W1, all four sources on, every fader home, nothing selected or mapped and nothing to undo.');
+  check(!dev.routes().length && !S.map.on && S.selected === null && !d.querySelector('.cs-body .sel') && !!d.querySelector('.console') && d.body.classList.contains('c1') && strips.every(z => Math.abs(S.base(S.params[z.key]) - z.row.default_v) < 1e-6) && dev.undo() === false, 'Left as you find it: on Mix, on C1, all four sources on, every fader home, nothing selected or mapped and nothing to undo.');
   check(frameErrors === 0, 'No script error in the frame while all of this ran (' + frameErrors + ').');
   return out;
 }
 
 // ===== boot =====
 (async function boot() {
-  picker($('pickForm'), FORMS, 'form'); picker($('pickWidth'), WIDTHS, 'width'); paint();
+  picker($('pickForm'), ALLFORMS, 'form'); picker($('pickWidth'), WIDTHS, 'width'); paint();
   const frame = $('frame'), base = new URL('.', location.href).href;
   let html;
   try { html = await (await fetch('gui3.html')).text(); } catch (e) { $('busy').textContent = 'This lab fetches the shell, so open it through tools/labs_preview.sh or tools/serve_labs.py (file:// blocks fetch).'; return; }
@@ -348,7 +690,11 @@ function selfCheck() {
   const css = d.createElement('style'); css.textContent = FRAME_CSS; d.head.append(css);
   d.body.classList.add('win-only');
   [...d.querySelectorAll('#pnav button')].find(b => b.textContent.trim() === 'Mix').click();
-  buildMeters(); L.capDb = id => dbNow(strips.find(t => t.id === id)); L.onStep = stepMeters; L.onPaint = paintMeters; apply();
+  buildMeters(); L.capDb = id => dbNow(strips.find(t => t.id === id)); L.onStep = stepMeters; L.onPaint = paintMeters;
+  // Gain staging and the chain line are built on the Mix page's first frame
+  for (let i = 0; i < 400 && !(L.gs && L.cl); i++) await new Promise(res => setTimeout(res, 25));
+  if (!(L.gs && L.cl)) { $('selfcheck').textContent = 'FAILED · the shell’s Mix page never built Gain staging, so C1 and C2 could not start.'; $('busy').hidden = true; return; }
+  buildCombined(); apply();
   let lines; try { lines = selfCheck(); } catch (e) { lines = ['FAILED · the self-check threw: ' + (e && e.stack || e)]; }
   $('selfcheck').textContent = lines.join('\n'); paint();
   $('busy').hidden = true;
