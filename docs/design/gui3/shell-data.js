@@ -538,7 +538,7 @@ window.GUI3_DATA = {
      "docs/design/morph-blend-demo.html"
     ],
     "status": "partial",
-    "why": "GUI-19, GUI-20: the quantum boundaries and the morph field are on the Morph page. The blend maps and waypoints (B272) are next on GB7, and the architecture-follows-the-morph proposal (B585) isn't ratified."
+    "why": "GUI-19, GUI-20: the quantum boundaries and the morph field are on the Morph page. The blend maps and waypoints (B272) are drawn but not heard, and the architecture-follows-the-morph proposal (B585) isn't ratified."
    },
    {
     "area": "Morph",

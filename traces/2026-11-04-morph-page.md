@@ -4,6 +4,8 @@
 
 **Why.** The human, 2026-11-04: "Morph should have its own larger version though (plus all the proposed morph page functionality)". The master's morph layer has its own stand-ins for undo and ownership, and using them would have let the field and the knobs disagree (ADR-110), so the shell points them at the device. Then the human: "We also need to include the blend map (BlendMaps section of the design doc)".
 
+**The handoff.** The human also asked that the lead knows what the design decisions need under the hood. `docs/design/gui3/ENGINE-NEEDS.md` and GB8: extracted by a read-only agent from GUI-1 to GUI-20, then spot-checked against main's spec and roadmap (stage solo, waypoints, region locks, IF-10's summed output, RS-4.8).
+
 **Evidence consulted.** ADR-266 r9, ADR-262, ADR-319, ADR-321, ADR-322, B269, B272; the master's READMEs; `docs/design/gui3/port-tab.json`.
 
 **Measured.** One frame's script in the browser pane: Morph 12 ms showing where corners differ and 17 ms showing all 544 rows (41 ms before it painted only what's in view); Main 6 ms, with the field mounted. Not a plugin webview, and the pane was throttling, so these are rough.

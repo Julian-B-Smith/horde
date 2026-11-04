@@ -584,6 +584,6 @@ Master `1793658873-4f0e`. `docs/design/main-workshop-lab.html` drew it and is ha
 - **The ten tabs:** Osc 1, Osc 2, Sub, Noise, Arp are second faces on rows their own pages own, so a change shows in both. ENV 1 and Voice hold Main's own real sections, with the mix levels added as second faces. Filter, Bend and Scale are MOCK, and each says why.
 - **The pad** moves to the page on Main and back to the dock elsewhere. The dock hides on Main (GUI-5 r2). Morph has its own 320 px pad, a second `H.XYPad` (GUI-19), and the dock still shows beside it, because the seam check's `dock` gate allows Main alone.
 - **The Specimen and the logo** are `H.MainStage`, the bench's code verbatim (ADR-333), stepped by this file's frame loop. The Specimen is on by default, with a switch in Settings' Interface card. The logo is live on every page in the locked style.
-- **The XY's value is MOCK:** how a player assigns its two parameters isn't designed yet.
+- **The XY's value is MOCK:** X and Y map from their cards (GUI-9), on the device's routes, until the bus carries them. What the shell needs from the engine is in `ENGINE-NEEDS.md`.
 - **An exception, flagged:** Main has no Grid | Table, against PV1, because the deck holds it and there's no room for the header.
 
