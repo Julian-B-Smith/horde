@@ -11351,3 +11351,18 @@ Three points stayed open, because the shell already marks a knob selected the mo
 **FX device (ADR-254).** The console starts at the audio input (`GainStaging.chain('fx')`): no source strips, so no M or on. Solo, bypass and the FX branches are as here.
 
 **Consequences.** Lab only so far: `docs/design/compact-mixer-lab.html` (GB1). When the human has looked, the chain runs master, vendor, shell. All 21 stages need about 906 px, so with a side column open this console scrolls inside its box, which ties it to GB5 (morph and MAP on together).
+
+## GUI-15 — RULED by the human: a plain wheel anywhere in the window scrolls the page, and never moves a parameter (GB6; B301, B374; 2026-11-03)
+
+**Context.** The human, 2026-11-03: "it's hard to scroll on a lot of pages because screens and other features seem to block the scroll. It would be great if everything was more intuitively scrollable (if it helps, I want to explicitly block parameters moving with the scroll wheel)". Measured with a real wheel: no control or screen inside a page stopped it, and a plain wheel already moved no parameter (B374). What stopped it: the top bar, the pad, the Mappings card and the foot row sit outside the page's scroller, 27 to 41 % of the window; and Mod's list and pane, 59 % of that page, held the wheel with nothing of their own to scroll, while 368 px of the page was out of reach below them.
+
+**Ruling.** A plain wheel anywhere in the window scrolls the page. It never moves a parameter.
+
+**Readings taken (the GUI session's, open to the human).**
+- **Option + wheel still sets a value.** The human ruled that on 2026-10-21 ("Keep it for value", B374), and "block parameters moving with the scroll wheel" may or may not reach it. Asked, not assumed.
+- **A box that can still scroll takes the wheel first,** then passes it on at its end: the info box, the bank's rows, the Mappings card.
+- **An open menu keeps the wheel,** so the page doesn't move under it.
+
+**Consequences.** Self-check 4i, with its controls. Inside a page the scroll stays native, because a listener there would make each scroll wait on the main thread. The override of ModPage's `contain` is a proposal for the master (`docs/design/gui3/README.md` 25). The plugin's webview isn't tested.
+
+**FX device (ADR-254).** The same shell, so the same wheel.

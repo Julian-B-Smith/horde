@@ -5732,6 +5732,21 @@
    "shell": null,
    "state": "ruled",
    "superseded_by": null
+  },
+  {
+   "id": "gui15-wheel",
+   "adr": "GUI-15",
+   "clause": "the ruling (a plain wheel anywhere in the window scrolls the page, and never moves a parameter)",
+   "port_tab": null,
+   "note": "Plain wheel on controls was already inert (B374). The shell forwards the wheel from outside #pages and overrides ModPage's contain (README 25, a proposal for the master).",
+   "component": "ModPage",
+   "bundle": "ModPage",
+   "shell": "docs/design/gui3.html: // GUI-15: a plain wheel anywhere in the window scrolls the page",
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "in-shell",
+   "master_version": "1793745705-bf68"
   }
  ],
  "not_design": [
