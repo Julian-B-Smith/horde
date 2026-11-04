@@ -188,19 +188,11 @@
   .pv-secs .hd-clu .cl-grp { flex: 0 0 auto; max-width: 100%; flex-wrap: wrap; }
   .dash { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: var(--space-stack); }
   .dash .vz-cap { display: none; }
-  .mixrow { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--space-stack); }
-  .console { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; flex: 0 1 auto; max-width: 100%; }
-  /* ADR-333: more room per strip. A documented override of the design system's size-strip-w (72) inside the console only;
-     the token itself is a proposal (README 21), not an edit of the vendored bundle. Slice 6 (the human's second pass, "a little
-     extra padding around the elements, and the osc toggles a little more space on the left"): 92 became 104 px, with the
-     console's own padding, each strip's side padding and a gap between its rows, and extra room left of the on toggle, all
-     from the --space-* tokens, so no label clips. */
-  .console .hd-cs { --size-strip-w: 104px; padding: var(--space-gap) var(--space-section); }
-  .console .hd-cs .cs-strip { padding: 0 var(--space-gap); gap: var(--space-dense); }
-  .console .hd-cs .cs-strip.master { padding-left: var(--space-gap); }
-  .console .hd-cs .cs-head { padding-left: var(--space-gap); box-sizing: border-box; }
-  .console .hd-cs .cs-strip.master .cs-head { padding-left: 0; }
-  .sums { display: flex; flex-direction: column; gap: 8px; flex: 1 1 260px; min-width: 0; }
+  /* GUI-14, GUI-16: the console takes the card's whole width, and the summed views run under it */
+  .mixrow { display: block; }
+  .sums { display: flex; flex-direction: row; flex-wrap: wrap; gap: 8px; min-width: 0; }
+  .sums .sum-col { flex: 1 1 260px; }
+  .sums .hd-note { flex: 1 1 100%; margin: 0; }
   .sum-col { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
   .ledger-sum { display: flex; flex-direction: column; gap: 4px; margin-bottom: var(--space-stack); }
   .ledger-sum .hd-krow { gap: 2px 16px; flex-wrap: wrap; }
@@ -326,6 +318,9 @@
       </section>
     </div>
   </div>
+
+  <!-- GUI-14: the engine has no routing rows yet (X13, RC-1) and the stub no cable state (IF-10), so these stand in for the Filter and FX pages' controls, outside the plugin's face -->
+  <div class="hd-row" id="flowBar"><span class="hd-label">Signal flow, MOCK</span><span id="flowCtl" class="hd-row"></span></div>
 
   <div class="two">
     <section class="hd-card" aria-label="The seam">
@@ -1105,7 +1100,7 @@ function dashboardPage(pg, el) {
 }
 /* The Mix page (B589 Channel strip): one strip per source and the master, side by side on one console card. The faders
    are the level keys; on, mute and solo are their keys (engine rows, IF-6), so the strip is generated, not kept. */
-let consoleStrip = null;
+let consoleStrip = null, mixBench = null;
 function consolePage(pg, el) {
   const host = h('div'), roleKey = (g, r) => { const c = g.controls.find(x => x.role === r); return c ? c.key : null; };
   const strips = pg.groups.map(g => {
@@ -1114,13 +1109,42 @@ function consolePage(pg, el) {
       on: on ? isOnKey(on) : undefined, mute: mu ? isOnKey(mu) : undefined, solo: so ? isOnKey(so) : undefined, keys: { fader: f, on, mute: mu, solo: so } };
   });
   const byId = Object.fromEntries(strips.map(s => [s.id, s])), sectionOfStrip = Object.fromEntries(pg.groups.map(g => [g.strip, g.id]));
-  consoleStrip = H.ChannelStrip(host, S, { strips, label: 'Mix', keys: () => S.keys,
-    read: id => { const m = dev.meters()[id]; return m ? { l: m.peak, r: m.peak } : undefined; },
-    latch: id => { const m = dev.meters()[id]; return m ? m.clip : undefined; },
-    clear: id => { dev.clearClip(id); S.say(byId[id].name + ': clip lamp cleared'); },
+  /* GUI-14, GUI-16: one console for the whole chain. MOCK past the strips' own controls, because the engine doesn't have it yet:
+     - The gains of stages with no engine row are the master chain's placeholder ranges, held here (B402, RC-2 "deferred").
+     - The flow, bypass and the solo tap are session state here. The lead owes a bypass key per FX slot, a solo tap at every stage, the filter routing rows (X13, RC-1), the rack's cable state (IF-10) and per-stage taps (IF-6, RC-8), as noted on GB1.
+     - So every level is the master's flow model run over the stub's source meters, 24 dB down so a full-scale test tone doesn't light every lamp. It is a picture of the routing, not a measurement.
+     The lamps latch on that model, in this file, for the same reason. The ballistics and this model step one frame per frame: no clock. */
+  const FL = H.ChainConsole.flow, F = FL.make(), stages = H.GainStaging.chain('instrument'), order = stages.map(st => st.id), G = {}, FADER = { osc1: 'osc1', osc2: 'osc2', sub: 'sub', noise: 'noise', eng: 'out' }, given = {}, lat = {}, srcIds = ['osc1', 'osc2', 'sub', 'noise'];
+  stages.forEach(st => { if (st.gain) G[st.id] = st.gain.def; });
+  Object.keys(FADER).forEach(stId => { const st = byId[FADER[stId]], row = dev.row(st.keys.fader); given[stId] = Object.assign({}, st, { range: { lo: row.lo, hi: row.hi } }); });
+  const dbOf = stId => { const k = byId[FADER[stId]].keys.fader, row = dev.row(k); return row.lo + S.base(S.params[k]) * (row.hi - row.lo); };
+  const gainOf = stId => stId === 'gr' ? 0 : FADER[stId] ? dbOf(stId) : G[stId];
+  let LV = {}, frame = 0;
+  const tickLevels = () => {
+    frame++; const src = {}, m = dev.meters();
+    srcIds.forEach((id, i) => { const up = m[id] && m[id].peak > -Infinity ? m[id].peak : -Infinity; src[id] = up - 24 - 4 * (.5 + .5 * Math.sin(frame * .017 * (1 + i * .13) + i * 1.7)); });
+    LV = FL.levels(F, src, gainOf, order); LV.gr = Math.max(0, LV.lim + 1);
+    Object.keys(LV).forEach(id => { if (id === 'gr' || !(LV[id] > 0)) return; const q = lat[id]; if (q) q.max = Math.max(q.max, LV[id]); else lat[id] = { on: true, at: frame * 800, max: LV[id] }; });
+  };
+  const paintFrame = () => { tickLevels(); consoleStrip.step(1 / 60); consoleStrip.render(); };
+  consoleStrip = H.ChainConsole(host, S, { stages, strips: given, label: 'Mixer, the whole chain', keys: () => S.keys, sr: 48000, mock: 'MOCK', flow: { F },
+    gain: stId => G[stId], onGain: (stId, v) => { G[stId] = v; },
+    read: stId => { if (!(stId in LV)) return undefined; return stId === 'gr' ? { gr: LV.gr } : { l: LV[stId], r: LV[stId] - .6 }; },
+    latch: stId => lat[stId] || { on: false },
+    clear: stId => { delete lat[stId]; },
     onToggle: (id, what, val) => { const k = byId[id].keys[what]; if (k) writeStep(ROW[k], byId[id].path + ' · ' + ROW[k].label, onIdx(ROW[k], val)); } });
+  // settle: ten seconds of ballistics with no paint, so the self-check's held peaks and bars don't greet the first look at the page
+  mixBench = { F, G, FL, lat, stages, paintFrame, gainOf, levels: () => LV, settle() { for (let i = 0; i < 40; i++) { tickLevels(); consoleStrip.step(.25); } Object.keys(lat).forEach(k => delete lat[k]); } };
+  const field = (label, opts, get, set) => {
+    const sel = h('select', { class: 'hd-focus', 'aria-label': label }); opts.forEach(([v, t]) => sel.append(h('option', { value: v, text: t })));
+    sel.value = get(); sel.addEventListener('change', () => { set(sel.value); consoleStrip.render(); });
+    $('flowCtl').append(h('label', { class: 'hd-row hd-label' }, h('span', { text: label }), sel));
+  };
+  field('Filters', [['serial', 'Serial'], ['parallel', 'Parallel']], () => F.filters, v => { F.filters = v; });
+  [['osc1', 'Osc 1'], ['osc2', 'Osc 2'], ['sub', 'Sub'], ['noise', 'Noise']].forEach(([id, nm]) => field(nm + ' to', [['f1', 'Filter 1'], ['f2', 'Filter 2'], ['both', 'Both'], ['none', 'Neither']], () => F.route[id], v => { F.route[id] = v; }));
+  field('FX', [['serial', 'All in series'], ['pairs', 'Two branches: 1→2, 3→4'], ['parallel', 'All in parallel']], () => F.fx, v => { F.fx = v; });
   // tag the strip's own controls with their keys, as every other control (the info box, the menu, the self-checks)
-  host.querySelectorAll('.cs-strip').forEach(root => {
+  host.querySelectorAll('.cs-strip[data-id]').forEach(root => {
     const s = byId[root.dataset.id], K = s.keys;
     root.dataset.section = sectionOfStrip[s.id];     // a strip is a section: hovering its empty space explains it (ADR-335)
     const tg = root.querySelector('.cs-head .hd-toggle'); if (tg && K.on) { tg.dataset.key = K.on; tg.classList.add('ctl'); }
@@ -1136,7 +1160,7 @@ function consolePage(pg, el) {
   const sums = h('div', { class: 'hd-cell hd-dense sums' },
     h('div', { class: 'sum-col' }, h('span', { class: 'hd-sublabel', text: 'Summed scope · MOCK' }), h('div', { class: 'hd-viz vz-well' }, scopeCv)),
     h('div', { class: 'sum-col' }, h('span', { class: 'hd-sublabel', text: 'Summed spectrum · MOCK' }), h('div', { class: 'hd-viz vz-well' }, specCv)),
-    h('p', { class: 'hd-note', text: 'MOCK meters: a full-scale test tone per strip through IF-6’s gate (off, mute, solo). A fader over 0 dB latches CLIP; click the lamp to clear.' }));
+    h('p', { class: 'hd-note', text: 'MOCK levels: a test tone per source through IF-6’s gate (off, mute, solo), run through the flow’s model. A stage over 0 dB latches its CLIP lamp; click it to clear.' }));
   let sumFrame = 0;
   views.push({ page: pg.id, update() {
     const sm = dev.summed(); if (!sm) return;
@@ -1144,45 +1168,17 @@ function consolePage(pg, el) {
     H.Viz.scope(scopeCv, { l: sm.scope, r: sm.scope, R: 0 });
     H.Viz.spectrum(specCv, sm.bands, specSt, sumFrame * 1000 / 60);   // ms, as above
   } });
-  el.append(h('div', { class: 'mixrow' }, h('div', { class: 'hd-cell hd-dense console' }, host), sums));
-  el.append(gainStaging(pg.id));
+  const c = card('Mixer', 'IN SHELL · NOT WIRED', [host,
+    h('span', { class: 'hd-hint', text: 'The strips with a fader are engine rows. Every other gain is the design system’s placeholder range, held here, and the flow, bypass and stage solos are MOCK: the engine has none of them yet.' })]);
+  c.classList.add('wide');
+  el.append(h('div', { class: 'cards' }, c), h('div', { class: 'mixrow' }, sums));
   let last = '';
   views.push({ page: pg.id, update() {
     const k = dev.rev();
     if (k !== last) { last = k; strips.forEach(s => ['on', 'mute', 'solo'].forEach(w => { if (s.keys[w]) consoleStrip.set(s.id, w, isOnKey(s.keys[w])); })); }
-    consoleStrip.step(1 / 60); consoleStrip.render();     // the ballistics advance one frame per frame: no clock (B589)
+    paintFrame();     // the ballistics advance one frame per frame: no clock (B589)
   } });
 }
-/* GAIN STAGING (ADR-230 item 3 and A1, ADR-235 ruling 3, ADR-272 A1): the bundle's chain line over its stage view, one gain
-   model between them (the master's ChainLine preview wiring, verbatim in shape). READINGS come from the device's meters (IF-6)
-   only where the engine publishes a tap: the four sources and the output (the stub's MOCK meters); every other stage has no
-   reading and is drawn hollow, never guessed. GAINS are the master chain's own placeholder ranges (B402, RC-2 "deferred") held
-   here, NOT engine rows: no stage gain or make-up has a SPEC-ENGINE key yet, which is the lead's to add (noted on B584). So
-   the view is in the shell and not wired. The ballistics advance one 1/60 s step per frame: no clock. */
-function gainStaging(pid) {
-  const stages = H.GainStaging.chain('instrument'), G = {}, tap = { vol: 'out' };
-  stages.forEach(st => { if (st.gain) G[st.id] = st.gain.def; });
-  const idOf = id => tap[id] || id;
-  const read = id => { const m = dev.meters()[idOf(id)]; return m && m.peak > -Infinity ? { l: m.peak, r: m.peak } : undefined; };
-  const latch = id => { const m = dev.meters()[idOf(id)]; return m && m.clip && m.clip.on ? { on: true, at: 0, max: m.clip.max } : { on: false }; };
-  const clear = id => { dev.clearClip(idOf(id)); S.say('Gain staging: ' + id + ' clip lamp cleared'); };
-  const lineHost = h('div'), gsHost = h('div');
-  // built on the page's first frame: the chain line paints as it is built and reads its colours from the canvas's computed
-  // style, which a page not yet in the document does not have (it threw on a null colour)
-  let gs = null, cl = null;
-  views.push({ page: pid, update() {
-    if (!gs) {
-      gs = H.GainStaging(gsHost, { stages, sr: 48000, keys: () => S.keys, gains: G, read, latch, clear, onGain: (id, v) => { G[id] = v; } });
-      cl = H.ChainLine(lineHost, { stages, sr: 48000, read, latch, keys: () => S.keys, gain: id => G[id], onGain: (id, v) => { G[id] = v; gs.setGain(id, v); } });
-    }
-    gs.step(1 / 60, true); cl.step(1 / 60, true); gs.render(); cl.render();
-  } });
-  const c = card('Gain staging', 'IN SHELL · NOT WIRED', [lineHost, gsHost,
-    h('span', { class: 'hd-hint', text: 'Readings: the device’s MOCK meters where the engine publishes a tap (the four sources and the output); every other stage is hollow. Gains: the design system’s placeholder ranges, held here: no stage gain or make-up is an engine parameter yet.' })]);
-  c.classList.add('wide');
-  return h('div', { class: 'cards' }, c);
-}
-
 /* THE FX RACK (ADR-259 ruling 5, ADR-273 and A1): the bundle's FxRack, each module a cream card with its own screen inset and
    its cable colour (FxCables). The stub publishes no cable state (IF-10 brings the engine's), so the state drawn is a SERIAL
    STAND-IN: the body lane through every hosted module once, in the FX page's card order (the page's own note: the FX chain
@@ -1872,16 +1868,34 @@ S.start();
   line(both && dBefore !== .37 && dev.shown(dc.key) === dBefore, 'One model, two views: ' + ROW[dc.key].label + ' written on the dashboard is what ' + PG[dsrc].label + '\u2019s page shows and the engine holds; undo restored both (control: the value differed).');
   // 12. The console (B589 Channel strip): one strip per source and the master, their controls carrying the keys; a fader
   // pushed over 0 dB latches its CLIP lamp (MOCK meters, IF-6), a click clears it. Control: the lamp is dark before.
-  const mixPg = DATA.pages.find(p => p.id === 'mix'), strips = [...pageEls.mix.querySelectorAll('.cs-strip')];
-  const g0 = mixPg.groups[0], fk = g0.controls.find(c => c.role === 'fader').key, onk = g0.controls.find(c => c.role === 'on').key;
-  const lamp = () => pageEls.mix.querySelector('.cs-strip[data-id="' + g0.strip + '"] .hd-lamp');
-  dev.clearClip(g0.strip); consoleStrip.render(); const dark0 = lamp().getAttribute('aria-pressed') === 'false';   // earlier checks may have latched it (a scatter): start dark
-  dev.begin('self-check'); dev.set(onk, 1); dev.set(fk, 1); dev.end(); consoleStrip.render();
-  const lit = lamp().getAttribute('aria-pressed') === 'true';
-  lamp().click(); consoleStrip.render(); const unlit = lamp().getAttribute('aria-pressed') === 'false';
-  dev.undo();
-  mixPg.groups.forEach(g => dev.clearClip(g.strip));   // the probe latched the output too: leave every lamp dark
-  line(strips.length === mixPg.groups.length && dark0 && lit && unlit, 'Console: ' + strips.length + ' strips; ' + g0.title + '\u2019s fader at +6 dB latched its CLIP lamp (MOCK meter) and a click cleared it (control: dark before).');
+  const srcFlow = (F, r) => { ['osc1', 'osc2', 'sub', 'noise'].forEach(id => { F.route[id] = r; }); };
+  // 4n. GUI-14, GUI-16: the console. All 21 stages in signal order, the words, each node over its strip's bars, the picture following the flow, bypass, solo, a drawn gain, the lamps.
+  // Controls: the glass 8 px above a node is bare; two frames of one flow differ less than a changed flow; a drawn gain refuses MAP; and a real fader is the house slider.
+  { const pg0 = page, widthWas = $('win').style.width, M = mixBench, F = M.F, cc = consoleStrip, pm = pageEls.mix, R0 = e => e.getBoundingClientRect(); $('win').style.width = '980px'; selectPage('mix');
+    const frame = () => { for (const v of views) if (v.page === 'mix') v.update(); }, strip = id => pm.querySelector('.cs-strip[data-stage="' + id + '"]');
+    for (let i = 0; i < 4; i++) frame();
+    const shown = [...pm.querySelectorAll('.cs-strip[data-stage]')].map(e => e.dataset.stage), inOrder = JSON.stringify(shown) === JSON.stringify(M.stages.map(st => st.id)), real = pm.querySelectorAll('.cs-strip[data-id]').length, keyed = pm.querySelectorAll('.cs-strip[data-id] .cs-body > div[data-key] .ms-face svg').length;
+    const box = pm.querySelector('.hd-cc'), fits = box.scrollWidth <= box.clientWidth + 1 && R0(pm.querySelector('.cc-in')).width >= 906, words = pm.querySelector('.cc-g.eng .cc-gl').textContent.trim() === 'SUM' && strip('eng').querySelector('.cs-name').textContent === 'VOICES';
+    const cv = pm.querySelector('.cc-plot'), ctx = cv.getContext('2d'), sx = cv.width / R0(cv).width, snap = () => ctx.getImageData(0, 0, cv.width, cv.height), at = (im, x, y) => { const i = (Math.round(y * sx) * im.width + Math.round(x * sx)) * 4; return [im.data[i], im.data[i + 1], im.data[i + 2]]; }, far = (a, b) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]) > 40;
+    frame(); const im0 = snap(), N = cc.nodes(), cq = R0(cv); let over = 0, lined = 0, n = 0;
+    M.stages.forEach(st => { if (st.kind === 'gr') return; n++; const t = strip(st.id), b = t.querySelectorAll('.cc-lb'), mid = (R0(b[0]).left + R0(b[1]).right) / 2 - cq.left, q = N[st.id]; if (q && Math.abs(q.x - mid) < 1) lined++; if (q && q.y > 10 && far(at(im0, q.x, q.y), at(im0, q.x, q.y - 8))) over++; });
+    const diff = (a, b, x0, x1) => { let c = 0; for (let y = 0; y < a.height; y++) for (let x = Math.round(x0 * sx); x < Math.round(x1 * sx); x++) { const i = (y * a.width + x) * 4; if (Math.abs(a.data[i] - b.data[i]) + Math.abs(a.data[i + 1] - b.data[i + 1]) + Math.abs(a.data[i + 2] - b.data[i + 2]) > 40) c++; } return c; };
+    frame(); const same = diff(im0, snap(), N.f1i.x, N.eng.x);
+    F.filters = 'parallel'; srcFlow(F, 'both'); frame(); const par = diff(im0, snap(), N.f1i.x, N.eng.x);
+    F.filters = 'serial'; srcFlow(F, 'f1'); F.fx = 'parallel'; frame(); const fxPar = diff(im0, snap(), N.x1i.x, N.lim.x); F.fx = 'serial';
+    const byp = pm.querySelector('.cc-byp[data-slot="3"]'); byp.click(); frame(); const bypOk = F.byp[3] === true && strip('x3i').classList.contains('cc-off') && !M.FL.edges(F).some(e => e.u === 'x3i' || e.v === 'x3i') && M.FL.edges(F).some(e => e.u === 'x2o' && e.v === 'x4i');
+    const tapB = strip('x2o').querySelector('.cs-btn.solo'); tapB.click(); frame(); const top = () => pm.querySelector('.cc-first').textContent, soloOk = F.tap === 'x2o' && /SOLO — hearing FX 2 · OUT/.test(top()) && strip('x4i').classList.contains('cc-dim') && !strip('x2i').classList.contains('cc-dim'); tapB.click(); byp.click();
+    const noSolo = !strip('gr').querySelector('.cs-btn.solo') && !strip('vol').querySelector('.cs-btn.solo') && !!strip('eng').querySelector('.cs-btn.solo');
+    const face = strip('f1i').querySelector('.ms-face'), arrow = strip('f1i').querySelector('.cc-ar'); face.setPointerCapture = () => {}; const ptr = (t, y, o) => face.dispatchEvent(new MouseEvent(t, Object.assign({ bubbles: true, cancelable: true, button: 0, clientX: 5, clientY: y }, o)));
+    const y0 = R0(arrow).top; ptr('pointerdown', 300); ptr('pointermove', 280); ptr('pointerup', 280); frame(); const moved = Math.abs(y0 - R0(arrow).top - 20) < 2, g1 = M.G.f1i;
+    ptr('pointerdown', 300); ptr('pointermove', 280, { shiftKey: true }); ptr('pointerup', 280); const fine = Math.abs(M.G.f1i - g1 - (g1 / 4)) < .5;
+    face.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); const home = M.G.f1i === 0;
+    S.setMap(true); ptr('pointerdown', 300); ptr('pointermove', 280); ptr('pointerup', 280); const mapSafe = M.G.f1i === 0; S.setMap(false);
+    M.G.f1i = 24; M.G.f1o = 24; M.G.f2i = 24; for (let i = 0; i < 6; i++) frame(); const lamps = [...pm.querySelectorAll('.cs-strip .hd-lamp[aria-pressed="true"]')].length, firstId = cc.first(), firstShown = /FIRST OVER — FILTER/.test(top()) && firstId && /^f/.test(firstId);
+    M.G.f1i = M.G.f1o = M.G.f2i = 0; pm.querySelector('.cc-top .hd-pill').click(); Object.keys(M.lat).forEach(k => delete M.lat[k]); frame(); const cleared = !pm.querySelector('.cs-strip .hd-lamp[aria-pressed="true"]') && /none latched/.test(top());
+    M.settle(); const boxW = Math.round(R0(box).width); selectPage(pg0); $('win').style.width = widthWas; S.message = '';
+    line(shown.length === 21 && inOrder && real === 5 && keyed === 5 && fits && words && lined === n && over >= n - 3 && par > same + 20 && fxPar > same + 20 && bypOk && soloOk && noSolo && moved && fine && home && mapSafe && lamps > 0 && firstShown && cleared,
+      'Console (GUI-14, GUI-16): ' + shown.length + ' stages in signal order (' + inOrder + '), ' + real + ' of them house faders (' + keyed + '), filling its ' + boxW + ' px with no sideways scroll (' + fits + '); SUM · VOICES (' + words + '); ' + lined + ' of ' + n + ' nodes over their own bars, located from the bars, and ' + over + ' drawn there on bare glass; the picture moves ' + par + ' px for parallel filters and ' + fxPar + ' for parallel FX, against ' + same + ' for a frame alone; bypass rewires (' + bypOk + '); a stage solo dims what isn\'t heard (' + soloOk + '), with none on GR or OUT (' + noSolo + '); a drawn gain follows 1:1 (' + moved + '), fine with Shift (' + fine + '), homes (' + home + '), refuses MAP (' + mapSafe + '); ' + lamps + ' lamps latched with the first over named (' + firstShown + '), and they clear (' + cleared + ').'); }
   // 14. ADR-333: an oscillator page shows the envelope its env row selects; an edit there is the Mod page's key, and an edit
   // on the Mod page reads back there. Control: the value differed before.
   const oscPg = DATA.pages.find(p => p.id === 'osc1'), fg = oscPg.groups.find(g => g.follow), fsel = ROW[fg.follow.selector];

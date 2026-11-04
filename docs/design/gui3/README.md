@@ -457,7 +457,7 @@ The bundle (version `1793336699-65f2`, B589) lacks these; each goes into the des
 20. **The class `sm`**: **fixed upstream** (`1793336699-65f2`). The revision's per-element dense modifier is now `.hd-sm`, so
     the Random and filter labs, which use a bare `sm` of their own, render as before (`../arp-face/README.md`).
 
-21. **A wider channel strip** (ADR-333: "a little more space on the mixer"): the shell overrides `size-strip-w` to 104 px, with its
+21. *(Gone with the Chain console, GUI-14: Mix no longer mounts the Channel strip, so this override is out of the shell.)* **A wider channel strip** (ADR-333: "a little more space on the mixer"): the shell overrides `size-strip-w` to 104 px, with its
     own padding, inside its console; the token (or a `size-strip-w-roomy` variant) and the strip's padding belong in the design
     system's workshop (B589).
 22. **A change event on the session's mapping list** (Map Mode spec): the bundle's gestures edit `S.mappings` in place and tell no

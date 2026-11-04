@@ -10,6 +10,10 @@
  },
  "master_versions": [
   {
+   "version": "1793767794-9f75",
+   "evidence": "docs/design/gui3.html self-check 4n: GUI-14, GUI-16, GUI-18. ChainConsole is new: the whole chain on one console, with the flow's picture over the strips."
+  },
+  {
    "version": "1793764535-dcb5",
    "evidence": "docs/design/gui3.html self-check 4m: GUI-17. Option+Shift-drag on a Control moves its high end."
   },
@@ -122,8 +126,8 @@
    "note": "B212 and B227's compact face; no ADR rules its six decisions (ADR-334 cites it). Whether ADR-259's Context, which names its face/Advanced split, settled them is a question for the human."
   },
   "compact-mixer-lab.html": {
-   "status": "exploring",
-   "note": "GB1 and GUI-14: C1, one console for the whole chain with the flow picture in its box, approved by the human (GUI-16). Being carried to the master. M0 to M4 stay to compare."
+   "status": "retired",
+   "note": "Archived in the design index (its lab-archive tag): harvested at 1793767794-9f75 as ChainConsole. It hooks the old ChannelStrip and GainStaging on Mix, which the shell no longer mounts. History, never a source."
   },
   "composed-engine-check.html": {
    "status": "exploring",
@@ -1004,9 +1008,9 @@
    "adr": "ADR-107",
    "clause": "oscillator power rows placed in the mix strips",
    "lab": null,
-   "component": "ChannelStrip",
-   "master_version": "1793374583-b6a5",
-   "bundle": "ChannelStrip",
+   "component": "ChainConsole",
+   "master_version": "1793767794-9f75",
+   "bundle": "ChainConsole",
    "via": null,
    "shell": "docs/design/gui3.html: keys: { fader: f, on, mute: mu, solo: so }",
    "state": "wired",
@@ -2475,9 +2479,9 @@
    "adr": "ADR-226",
    "clause": "item 5 (a mute and solo control on each oscillator)",
    "lab": null,
-   "component": "ChannelStrip",
-   "master_version": "1793374583-b6a5",
-   "bundle": "ChannelStrip",
+   "component": "ChainConsole",
+   "master_version": "1793767794-9f75",
+   "bundle": "ChainConsole",
    "via": null,
    "shell": "docs/design/gui3/layout.json: \"key\": \"osc1.mute\"",
    "state": "wired",
@@ -2505,30 +2509,30 @@
    "adr": "ADR-230",
    "clause": "A1 (the make-up gain a user control, default x4; a gain control at every stage)",
    "lab": "docs/design/mixer-lab.html",
-   "component": "GainStaging",
-   "master_version": "1793374583-b6a5",
-   "bundle": "GainStaging",
+   "component": "ChainConsole",
+   "master_version": "1793767794-9f75",
+   "bundle": "ChainConsole",
    "via": null,
-   "shell": "docs/design/gui3.html: H.GainStaging(gsHost,",
+   "shell": "docs/design/gui3.html: H.ChainConsole(host, S",
    "state": "in-shell",
    "superseded_by": null,
    "port_tab": "gain-staging",
-   "note": "GainStaging README: make-up 'shown as both (\"+12.04 dB\", \"x4.00\"); it is a user control (ADR-230 A1)' and gain controls at every stage. Not in the shell: no make-up key in layout.json (the only 'makeup' in shell-data.js is Bulwark's compressor key). B584 batch 1 (2026-10-30): GainStaging on the Mix page. Readings from the device's MOCK meters where a tap is published (sources, output), hollow elsewhere; gains are the master's placeholder ranges held in the shell, since no stage gain or make-up is an engine row (in shell, not wired)."
+   "note": "GainStaging README: make-up 'shown as both (\"+12.04 dB\", \"x4.00\"); it is a user control (ADR-230 A1)' and gain controls at every stage. Not in the shell: no make-up key in layout.json (the only 'makeup' in shell-data.js is Bulwark's compressor key). B584 batch 1 (2026-10-30): GainStaging on the Mix page. Readings from the device's MOCK meters where a tap is published (sources, output), hollow elsewhere; gains are the master's placeholder ranges held in the shell, since no stage gain or make-up is an engine row (in shell, not wired). GUI-14: on Mix this is now the Chain console."
   },
   {
    "id": "adr230-gain-staging-view",
    "adr": "ADR-230",
    "clause": "item 3 (the mixer's gain-staging view: a meter, peak hold and latching clip lamp at every stage)",
    "lab": "docs/design/mixer-lab.html",
-   "component": "GainStaging",
-   "master_version": "1793374583-b6a5",
-   "bundle": "GainStaging",
+   "component": "ChainConsole",
+   "master_version": "1793767794-9f75",
+   "bundle": "ChainConsole",
    "via": null,
-   "shell": "docs/design/gui3.html: H.GainStaging(gsHost,",
+   "shell": "docs/design/gui3.html: H.ChainConsole(host, S",
    "state": "in-shell",
    "superseded_by": null,
    "port_tab": "gain-staging",
-   "note": "Master GainStaging README documents every stage in signal order with peak hold, latching lamp and first-over; bundle exports GainStaging. The shell does not mount H.GainStaging; its Mix page has only H.ChannelStrip with MOCK meters and a latching CLIP lamp per strip. FX device: GainStaging.chain('fx') starts at the audio input (README). B584 batch 1 (2026-10-30): GainStaging on the Mix page. Readings from the device's MOCK meters where a tap is published (sources, output), hollow elsewhere; gains are the master's placeholder ranges held in the shell, since no stage gain or make-up is an engine row (in shell, not wired)."
+   "note": "Master GainStaging README documents every stage in signal order with peak hold, latching lamp and first-over; bundle exports GainStaging. The shell does not mount H.GainStaging; its Mix page has only H.ChannelStrip with MOCK meters and a latching CLIP lamp per strip. FX device: GainStaging.chain('fx') starts at the audio input (README). B584 batch 1 (2026-10-30): GainStaging on the Mix page. Readings from the device's MOCK meters where a tap is published (sources, output), hollow elsewhere; gains are the master's placeholder ranges held in the shell, since no stage gain or make-up is an engine row (in shell, not wired). GUI-14: on Mix this is now the Chain console."
   },
   {
    "id": "adr235-backup-ui",
@@ -2580,15 +2584,15 @@
    "adr": "ADR-235",
    "clause": "ruling 3 (the rack-input clip lamp latches like every other stage)",
    "lab": "docs/design/mixer-lab.html",
-   "component": "GainStaging",
-   "master_version": "1793374583-b6a5",
-   "bundle": "GainStaging",
+   "component": "ChainConsole",
+   "master_version": "1793767794-9f75",
+   "bundle": "ChainConsole",
    "via": null,
-   "shell": "docs/design/gui3.html: H.GainStaging(gsHost,",
+   "shell": "docs/design/gui3.html: H.ChainConsole(host, S",
    "state": "in-shell",
    "superseded_by": null,
    "port_tab": "gain-staging",
-   "note": "GainStaging README: the clip lamp latches on one sample over 0 dBFS at every stage, the make-up stage being the rack's input. Shell has no gain-staging view. B584 batch 1 (2026-10-30): GainStaging on the Mix page. Readings from the device's MOCK meters where a tap is published (sources, output), hollow elsewhere; gains are the master's placeholder ranges held in the shell, since no stage gain or make-up is an engine row (in shell, not wired)."
+   "note": "GainStaging README: the clip lamp latches on one sample over 0 dBFS at every stage, the make-up stage being the rack's input. Shell has no gain-staging view. B584 batch 1 (2026-10-30): GainStaging on the Mix page. Readings from the device's MOCK meters where a tap is published (sources, output), hollow elsewhere; gains are the master's placeholder ranges held in the shell, since no stage gain or make-up is an engine row (in shell, not wired). GUI-14: on Mix this is now the Chain console."
   },
   {
    "id": "adr236-slot-library-browser",
@@ -3316,15 +3320,15 @@
    "adr": "ADR-272",
    "clause": "A1 (each stage's gain is a fixed vertical offset bar in a gain lane under the line; the level dots only measure)",
    "lab": "docs/design/mixer-lab.html",
-   "component": "ChainLine",
-   "master_version": "1793374583-b6a5",
-   "bundle": "ChainLine",
+   "component": "ChainConsole",
+   "master_version": "1793767794-9f75",
+   "bundle": "ChainConsole",
    "via": null,
-   "shell": "docs/design/gui3.html: H.ChainLine(lineHost,",
+   "shell": "docs/design/gui3.html: H.ChainConsole(host, S",
    "state": "in-shell",
    "superseded_by": null,
    "port_tab": "gain-staging",
-   "note": "Master ChainLine README section 'The gain lane (B549)'; docs/design/arp-face/bundle.js ChainLine draws the offset bars (onGain, 'a vertical offset bar in its own dot's column'). The shell mounts no ChainLine or GainStaging (no H.ChainLine in gui3.html). FX device: the master's ChainLine starts at the audio input with GainStaging.chain('fx'). B584 batch 1 (2026-10-30): ChainLine over GainStaging on the Mix page, one gain model between them."
+   "note": "Master ChainLine README section 'The gain lane (B549)'; docs/design/arp-face/bundle.js ChainLine draws the offset bars (onGain, 'a vertical offset bar in its own dot's column'). The shell mounts no ChainLine or GainStaging (no H.ChainLine in gui3.html). FX device: the master's ChainLine starts at the audio input with GainStaging.chain('fx'). B584 batch 1 (2026-10-30): ChainLine over GainStaging on the Mix page, one gain model between them. GUI-14: on Mix this is now the Chain console."
   },
   {
    "id": "adr272-chain-line-drag-dot",
@@ -4156,15 +4160,15 @@
    "adr": "ADR-329",
    "clause": "direction (the mixer as side-by-side channel strips, each fader attached to its toggles, with a live meter and a clip warning beside it)",
    "lab": "docs/design/mixer-lab.html",
-   "component": "ChannelStrip",
-   "master_version": "1793374583-b6a5",
-   "bundle": "ChannelStrip",
+   "component": "ChainConsole",
+   "master_version": "1793767794-9f75",
+   "bundle": "ChainConsole",
    "via": null,
-   "shell": "docs/design/gui3.html: H.ChannelStrip(host, S",
+   "shell": "docs/design/gui3.html: H.ChainConsole(host, S",
    "state": "wired",
    "superseded_by": null,
    "port_tab": "gain-staging",
-   "note": "Wiring: faders, on, mute and solo are engine rows through dev.set; the CLIP lamp's clear is device.js D.clearClip, which sends { type: 'clear' } to the stub (the latch lives on the engine side, IF-6); meters are the stub's MOCK observation view. Gain staging per stage is still port row gain-staging. FX device: the strips serve its rack slots and returns."
+   "note": "Wiring: faders, on, mute and solo are engine rows through dev.set; the CLIP lamp's clear is device.js D.clearClip, which sends { type: 'clear' } to the stub (the latch lives on the engine side, IF-6); meters are the stub's MOCK observation view. Gain staging per stage is still port row gain-staging. FX device: the strips serve its rack slots and returns. GUI-14: on Mix this is now the Chain console."
   },
   {
    "id": "adr329-osc-dashboard",
@@ -4280,11 +4284,11 @@
    "master_version": null,
    "bundle": null,
    "via": null,
-   "shell": "docs/design/gui3.html: --size-strip-w: 104px",
+   "shell": null,
    "state": "ruled",
-   "superseded_by": null,
+   "superseded_by": "GUI-14",
    "port_tab": null,
-   "note": "Done in the shell as a local override of the master's size-strip-w (72) inside the console (gui3/README proposal 21); the master and the bundle still hold 72 px, so the shell overrides a token the master owns."
+   "note": "Done in the shell as a local override of the master's size-strip-w (72) inside the console (gui3/README proposal 21); the master and the bundle still hold 72 px, so the shell overrides a token the master owns. Gone with the Chain console: Mix no longer mounts the Channel strip."
   },
   {
    "id": "adr333-port-ledger-page",
@@ -5701,14 +5705,14 @@
    "adr": "GUI-14",
    "clause": "rulings 1, 2 and 6 (one console, upright; the chain's picture in its box, each node over its strip; a clearer name for Engine)",
    "port_tab": "gain-staging",
-   "note": "Lab C1. Ruling 2 was \"maybe we try\" and the word for Engine is the human's: both wait on the human's look. Master, vendor and shell follow. Approved by the human 2026-11-03 (GUI-16 ruling 1); the master, bundle and shell are next.",
+   "note": "Lab C1. Ruling 2 was \"maybe we try\" and the word for Engine is the human's: both wait on the human's look. Master, vendor and shell follow. Approved by the human 2026-11-03 (GUI-16 ruling 1) and ported on the session's readings (GUI-18). MOCK past the five faders until the lead's rows land (GB1).",
    "lab": "docs/design/compact-mixer-lab.html",
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "ChainConsole",
+   "master_version": "1793767794-9f75",
+   "bundle": "ChainConsole",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: H.ChainConsole(host, S",
+   "state": "in-shell",
    "superseded_by": null
   },
   {
@@ -5716,14 +5720,14 @@
    "adr": "GUI-14",
    "clause": "rulings 3 and 4 (a bypass on every FX module; a solo on every stage)",
    "port_tab": "gain-staging",
-   "note": "Lab C1 draws both on mock state. The engine has neither a slot bypass key nor a solo tap: noted on GB1 for the lead. Approved by the human 2026-11-03 (GUI-16 ruling 1); the master, bundle and shell are next.",
+   "note": "Lab C1 draws both on mock state. The engine has neither a slot bypass key nor a solo tap: noted on GB1 for the lead. Approved by the human 2026-11-03 (GUI-16 ruling 1) and ported on the session's readings (GUI-18). MOCK past the five faders until the lead's rows land (GB1).",
    "lab": "docs/design/compact-mixer-lab.html",
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "ChainConsole",
+   "master_version": "1793767794-9f75",
+   "bundle": "ChainConsole",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: H.ChainConsole(host, S",
+   "state": "in-shell",
    "superseded_by": null
   },
   {
@@ -5731,14 +5735,14 @@
    "adr": "GUI-14",
    "clause": "ruling 5 (the picture follows the signal flow)",
    "port_tab": "gain-staging",
-   "note": "Lab C1 draws it from a mock flow. The real one waits on the filter routing rows (X13, RC-1) and the rack's cable state (IF-10). Approved by the human 2026-11-03 (GUI-16 ruling 1); the master, bundle and shell are next.",
+   "note": "Lab C1 draws it from a mock flow. The real one waits on the filter routing rows (X13, RC-1) and the rack's cable state (IF-10). Approved by the human 2026-11-03 (GUI-16 ruling 1) and ported on the session's readings (GUI-18). MOCK past the five faders until the lead's rows land (GB1).",
    "lab": "docs/design/compact-mixer-lab.html",
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "ChainConsole",
+   "master_version": "1793767794-9f75",
+   "bundle": "ChainConsole",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: H.ChainConsole(host, S",
+   "state": "in-shell",
    "superseded_by": null
   },
   {
@@ -5785,6 +5789,21 @@
    "shell": "docs/design/gui3.html: // 4m. GUI-17",
    "state": "in-shell",
    "master_version": "1793764535-dcb5"
+  },
+  {
+   "port_tab": "gain-staging",
+   "lab": "docs/design/compact-mixer-lab.html",
+   "via": null,
+   "superseded_by": null,
+   "id": "gui18-readings",
+   "adr": "GUI-18",
+   "clause": "the ruling (C1 is ported on the session's readings: the word, one ruler, solo, bypass, slot order)",
+   "note": "Each is in the master's ChainConsole README. They stand until the human changes one.",
+   "component": "ChainConsole",
+   "bundle": "ChainConsole",
+   "shell": "docs/design/gui3.html: H.ChainConsole(host, S",
+   "state": "in-shell",
+   "master_version": "1793767794-9f75"
   }
  ],
  "not_design": [

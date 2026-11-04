@@ -4,10 +4,10 @@
 # (python3 tools/design_vendor.py record-master --version <id> --date <d>) and re-vendor.
 # tools/design_chain_check.py holds the tree to these hashes: every file listed, none extra.
 artifact: https://claude.ai/artifact/EGDwetDHwcvxhTbNffCzJc
-version: 1793764535-dcb5
+version: 1793767794-9f75
 date: 2026-11-03
-files: 181
-74d31a76bb52260a982fc82e53fdc50cc4cd50c7b8ebcb92bb719097f0e64d6f  README.md
+files: 183
+4d104d98d2616358e29c9e5ff97e16691a0580ad57cf4d91586a4370927b1b8c  README.md
 ce354240f6e15082fbd556989b9224c787e4a13b497b6cb5e8ed4341fcef5e11  accessibility.md
 8ba91530997e43caf4da212f4f77dd967aaeec744fc52f7f1e1ac43e01365b0a  assets/Logos/README.md
 947c0e376d63d22b0aed9a38a6034e6347d25709266dc76a0accab40a1b1630e  components/AssignXY/README.md
@@ -20,6 +20,8 @@ ee4c3dde237c80864140366a2fede83f62903c9c095998efc9362e4f64efcb5b  components/Ben
 15973ae62b2b176d5043d1a4d2672af6cf6ca6017c45d950b4aac1ee50cde76c  components/BladeView/preview.html
 bff5fe1d13e564c8da2fe31d7ff31a852e476593b932bcec65dd8c4c0ec728d2  components/BlendMaps/README.md
 f91c7f63d0acac3ed705a6f2d89655007966dc6ecab52849173b3e54cab749a4  components/BlendMaps/preview.html
+659c68554d5975b08880a9b176e9cea0a80354f8feb60213d4e4a44eec2c63eb  components/ChainConsole/README.md
+134b02ff607d9aa205bbeba3a2373f21e47aa36c63aee10930449b6f8ba3c8eb  components/ChainConsole/preview.html
 5e0b06f79968a8daab9c0b512e8676e18f96038bec7c8ec41e0cddae9ebc6e5a  components/ChainLine/README.md
 e52e09f71c5441e93263714a9afb22c73d8148d69f3b03c79b3c43e92d59be00  components/ChainLine/preview.html
 9479e202781f057e62cb5e826dd99144a65c208c207788903b835ea903296261  components/ChannelStrip/README.md
@@ -181,8 +183,8 @@ a18ecfe745ed481016abed2f88491fa90ad8567b0a32d9df1747ad51dd94b65d  components/Tem
 93b6160e48bb65fe3670ff80bd921d16d727ca7086cd813ba413c3f633ce9770  components/Waveform/preview.html
 706ba6c02712c8df590f7282f772c49d01bd0a957e6c25748cb43ab0eaa1e0f7  components/XYPad/README.md
 d701129232df94a3ea81b2499559b1f13bd8cf22f065b70b2c7f0d666e2ce3d8  components/XYPad/preview.html
-10f6e596780c26a539bbc7a6c110206a34edf691dd1ba3d1cdf1276e754c9d11  components/bundle.css
-869ccb4a2bb3a69692dab25fd7de0069968d844901a9ca121f2a6592b8fc8e75  components/bundle.js
+e934d221eff0cebb59f7f9d3788eef6b53cf8cf9fad5526815ec1dcd999564ec  components/bundle.css
+d4eb1a2c739f21b37d5af68216e4031f44360484c76238b23d705215435c6423  components/bundle.js
 c8822b9cf87ccd247712576d73dae097079d29506f3e07a7e365b0b2aaebc7e0  components/index.d.ts
 6c3f598e97da2ab5ed7ce3e02d35e32afb208bd1c7ddcb32335f97ee701c2901  contrast-audit.md
 b22892adec0ac89e9c3eb244e52d609e0e94a11a8a45fe986acd5a1c750ce8d3  design-system.json
