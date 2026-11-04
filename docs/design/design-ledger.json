@@ -384,6 +384,10 @@
    "master_version": "1793728588-6ff9",
    "adr": "GUI-9",
    "note": "Harvested at 1793728588-6ff9. It ran on the shell before GUI-9, so on today's shell it adds its sources and chips over the real ones: read it at the commit before this one if you need to see what was compared."
+  },
+  "sub-noise-lab.html": {
+   "status": "exploring",
+   "note": "GB9. Six pictures for the Sub and Noise pages on the real shell, each computed from the settings; waiting on the human's choice."
   }
  },
  "not_labs": {
