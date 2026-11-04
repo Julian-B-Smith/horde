@@ -468,6 +468,8 @@ The bundle (version `1793336699-65f2`, B589) lacks these; each goes into the des
     parameters; the shell assembles it from `hd-card` and its own CSS.
 24. **A MapControl that does not shrink** (ADR-335 ruling 3): the bundle's `.hd-map` is `overflow: hidden` and so shrinks to nothing in a
     flex row; it should keep its content's width, and reserve the HOLD tag's room so a hold does not move the drop-down.
+25. **Mod's two boxes let the wheel through** (GUI-15): `.hd-mpage .mp-list` and `.mp-pane` set `overscroll-behavior: contain`, which stops the wheel even when
+    they have nothing to scroll. The shell overrides it; the master should drop it.
 
 ## Shell hop A: the bank, the Mod page, source switching and the keys (master batch 2; ADR-338 r7 to r9 and r11, ADR-340 r8 to r11, ADR-341 r5 to r7)
 

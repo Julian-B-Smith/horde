@@ -147,7 +147,12 @@
   /* The window is 980 x 720 (ADR-259 ruling 2): a long page scrolls inside it, so the info box sits in the same place on
      every page (ADR-315) instead of following the page's length. */
   .pagecol { display: flex; flex-direction: column; gap: var(--space-stack); min-width: 0; min-height: 0; }
-  #pages { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+  /* GUI-15: no overscroll-behavior: contain here. In a lab's frame or the review page it held the wheel at the page's end, so the page around it wouldn't scroll. */
+  #pages { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+  /* GUI-15, a proposal for the master (README 25): the bundle's contain on these two stops the wheel even when they have nothing to scroll, and on Mod they fill the page, so it couldn't be scrolled from over them with 368 px below. */
+  .hd-mpage .mp-list, .hd-mpage .mp-pane { overscroll-behavior: auto; }
+  /* The list grows to its content here, since #pages does the scrolling, and it overflowed by 1 px: that sliver of a scroll ate a whole notch of the wheel. */
+  .hd-mpage .mp-list { overflow-y: visible; }
   /* dense pages (B589): the pictures' column at the left (the page view's `.pv-left`, below), the sections' cell at the right; one box level */
   .vz { display: flex; flex-direction: column; gap: 6px; }
   .vz-well { padding: 0; overflow: hidden; }
@@ -233,7 +238,7 @@
   .info .head { flex: 0 0 auto; min-width: 0; }
   .info .head .hd-cluster { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .info .face > .tag { align-self: flex-start; }
-  .info .face { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; overflow-wrap: anywhere; }
+  .info .face { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-wrap: anywhere; }
   .footrow > #bank { flex: 1 1 auto; min-width: 0; height: 100%; }
   .info .face > :empty { display: none; }
   .footrow > #bank[hidden] { display: none; }
@@ -2377,6 +2382,23 @@ S.start();
     if (dev.end()) dev.undo(); dev.clearRedo(); selectPage(pg0); S.message = ''; tick();   // only if the bracket made a step: every write here is put back, so it may not have, and an undo would reach an earlier step
     const fp1 = fp(), same = fp0 === fp1;
     line(same && !missed.length && n > 300 && tog > 10 && togKept && arrowSafe, 'Double-click (GUI-12): ' + n + ' controls on every page returned to home' + (missed.length ? ' (MISSED ' + missed.length + ': ' + missed.slice(0, 8).join(', ') + ')' : '') + '. Controls: ' + tog + ' toggles stayed where they were' + (togKept ? '' : ' (ONE MOVED)') + ', and a stepper’s arrow didn’t reset' + (arrowSafe ? '' : ' (IT DID)') + '.' + (same ? '' : ' It left something behind: ' + fp0 + ' then ' + fp1)); }
+  // 4i. GUI-15: the wheel. Plain over every control on every page moves nothing and doesn't stop the scroll; no box in a page holds the wheel or eats a notch.
+  // Controls: Option over a knob does move it, so the wheel does reach the controls; a planted contain and a planted sliver are both seen.
+  { const pg0 = page, widthWas = $('win').style.width; $('win').style.width = '980px';
+    const spin = (el, o) => { const e = new WheelEvent('wheel', Object.assign({ bubbles: true, cancelable: true, deltaY: 100 }, o)); el.dispatchEvent(e); return e; };
+    const fpWheel = () => JSON.stringify(dev.patch());
+    let n = 0, stopped = 0; const fp0 = fpWheel();
+    DATA.pages.forEach(pp => { pageEls[pp.id].querySelectorAll('[data-key], [data-key] *').forEach(el => { n++; if (spin(el).defaultPrevented) stopped++; }); });
+    const unmoved = fpWheel() === fp0;
+    const holds = pp => [...pageEls[pp.id].querySelectorAll('*')].filter(el => getComputedStyle(el).overscrollBehaviorY === 'contain').length;
+    const held = DATA.pages.filter(pp => holds(pp)).map(pp => pp.id), plant = pageEls.mod.querySelector('.mp-pane'); plant.style.overscrollBehavior = 'contain'; const seen = holds({ id: 'mod' }) > 0; plant.style.overscrollBehavior = '';
+    // a box that can scroll by a sliver eats a whole notch; only the showing page has a layout, so each is opened in turn
+    const slivers = pp => { selectPage(pp.id); return [...pageEls[pp.id].querySelectorAll('*')].filter(el => { const o = el.scrollHeight - el.clientHeight; if (o < 1 || o > 3 || !el.clientHeight) return false; const oy = getComputedStyle(el).overflowY; return oy === 'auto' || oy === 'scroll'; }).length; };
+    const sliverPages = DATA.pages.filter(pp => slivers(pp)).map(pp => pp.id), bait = h('div', { style: 'height:20px;overflow:auto' }, h('div', { style: 'height:21px' })); pageEls.mod.append(bait); const sliverSeen = slivers({ id: 'mod' }) > 0; bait.remove();
+    const knob = pageEls.osc1.querySelector('.hd-mk[data-key] .mk-face'); selectPage('osc1'); dev.begin('self-check'); const optOn = spin(knob, { altKey: true }), optMoved = optOn.defaultPrevented && fpWheel() !== fp0; dev.end(); dev.undo(); dev.clearRedo();
+    selectPage(pg0); $('win').style.width = widthWas;
+    line(n > 300 && !stopped && unmoved && optMoved && !held.length && seen && !sliverPages.length && sliverSeen,
+      'Wheel (GUI-15): over ' + n + ' parts of every control on every page, a plain wheel moved nothing and stopped nothing (' + stopped + '); Option moved a knob (' + optMoved + '); no box in a page holds the wheel' + (held.length ? ' (HELD ON ' + held.join(', ') + ')' : '') + ', and a planted one is seen (' + seen + '); no box eats a notch on a sliver of a scroll' + (sliverPages.length ? ' (ON ' + sliverPages.join(', ') + ')' : '') + ', and a planted one is seen (' + sliverSeen + ').'); }
   dev.clearHistory();   // the checks' own steps (the probes, the morph toggles) are not the user's history
   // and the checks' presses aren't the user's selection: without this every load opened with a parameter selected, its info box locked and the Lens holding it
   S.selected = null; S.hot = null; selSeen = null; lockedKey = null; if (infoBox.locked()) infoBox.release(); S.emit();
