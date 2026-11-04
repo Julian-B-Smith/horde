@@ -58,6 +58,13 @@ RS-5.8 as allowing a stepped key on the row. The rows of the three modules we re
 whether horde draws a stepped entry as a selector rather than a knob, and what a DAW lane does with it (we assume the
 normalised `step` law).
 
+## Ask 3: does Echo's bank file import as it is?
+
+Our bank is `presets/echo-factory.json`: one `module` for the file, and on each preset `slots: []`, with no `macroLaw`. Your
+SPEC-MODULE-MACROS §4 draws `slots` as a map and gives each preset a `module`, and contract §6.2 says horde converts at import.
+Your reader is not in our record, so we cannot tell whether this matters. Does it import as it is, or should it be a map with
+`module` on each preset? We change only if you say so.
+
 ## What we offer
 
 - **Contract tests,** yours to land: a row entry's round trip across a mode flip (A12 as amended); with `keyBy` absent, no
