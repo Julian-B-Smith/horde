@@ -8,8 +8,8 @@
      Sluice bakes its route. This page judges the parked word.
      WHY ITS OWN PAGE. The study already runs 15 WebGL contexts, just under the 16 a browser usually allows, and each variant here needs one. -->
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Sluice S bend lab — does the lower bend reach as far as the upper?</title>
-<meta name="lab-part" content="FX"><meta name="lab-review" content="GB11 · 2026-11-04">
+<title>Sluice letters lab — the S, the U and the I on the pixel grid</title>
+<meta name="lab-part" content="FX">
 <style>
   :root { --win:#0a0c0f; --panel:#15181d; --well:#0d0f13; --line:#2a2f38; --ink:#e7e0ce; --dim:#8f8b7d; --amber:#e8a34c; --warn:#c96a5a; --mono:ui-monospace,'SF Mono',Menlo,monospace; --sans:-apple-system,'Segoe UI',system-ui,sans-serif; color-scheme:dark; }
   html,body { background:var(--win); }
@@ -38,11 +38,17 @@
 <div class="wrap">
   <header>
     <h1>Sluice · the settled S</h1>
-    <div class="tagline">The real mark, parked, at the ruled 4 px stems without the crossing gap. Each close-up is the S alone, with the same two columns marked on every one: where the upper bend's leftmost ink lands and where the lower bend's does. A card outlined in amber has the two even.</div>
+    <div class="tagline">The human chose Longer tail (GUI-23 A1). The real mark, parked, at the ruled 4 px stems without the crossing gap. Each close-up is the S alone, with the same two columns marked on every one: where the upper bend's leftmost ink lands and where the lower bend's does. A card outlined in amber has the two even.</div>
   </header>
   <p id="busy" role="status">Loading the mark.</p>
   <div class="bar"><button id="slide" type="button" aria-pressed="false">Let them slide</button></div>
   <div class="grid" id="grid"></div>
+  <header><h1>Sluice · the U</h1><div class="tagline">The human: “Can we make the U a hair wider or narrower instead, so both sides look like this?”, pointing to its right arm. A card outlined in amber mirrors exactly (GUI-23 A2).</div></header>
+  <div class="grid" id="gridU"></div>
+  <header><h1>Sluice · the I</h1><div class="tagline">The human: “the I also needs to become symmetrical.”</div></header>
+  <div class="grid" id="gridI"></div>
+  <header><h1>Sluice · the title now</h1></header>
+  <div class="grid" id="gridAll"></div>
   <div class="src" id="srcBox" aria-hidden="true"></div>
   <section aria-label="Self-check"><pre id="selfcheck"></pre></section>
 </div>
@@ -55,6 +61,17 @@ const VARIANTS = [
   { id: 'bowl', name: 'Fuller lower bowl', urx: .54, lcx: .56, lrx: .64, end: -142, tx: 'The tail keeps its angle, and the lower bowl grows leftward. Its right side stays where it was.' },
   { id: 'upper', name: 'Tighter upper bowl', urx: .47, lcx: .6, lrx: .6, end: -142, tx: 'The upper bowl comes in to meet the lower one, rather than the lower going out. The S narrows at the top.' },
 ];
+// The U: its geometry is symmetrical, so what can be lopsided is where it lands on the pixel grid. Each card nudges the whole letter sideways by a fraction of a cell (a cell is 0.14 letter units), on the chosen S.
+const CHOSEN_S = { urx: .54, lcx: .6, lrx: .6, end: -152 };
+// The U and the I, scanned on the real mark. The U's radius went from .46 to .74 with its right arm held still: at .63 the left arm mirrors the right, cell for cell, and the right arm is exactly as it was. Its neighbours don't move.
+// The I, nudged from −.10 to +.10: +.03 to +.05 mirror it at four columns (+.04 is the middle of that), and −.03 mirrors it only by going five wide.
+const U_VARIANTS = [
+  { id: 'u0', kind: 'u', run: 2, name: 'Where it is', tx: 'The right arm is the one the human pointed to. The left arm rounds off differently.' },
+  { id: 'u1', kind: 'u', run: 2, ur: .63, udx: -.06, name: 'A hair wider', tx: 'The radius goes from .60 to .63, and the right arm stays exactly where it was. The left arm now mirrors it, cell for cell.' },
+  { id: 'i0', kind: 'i', run: 3, name: 'Where it is', tx: 'Its top and bottom round off on one side only.' },
+  { id: 'i1', kind: 'i', run: 3, idx: .04, name: 'A hair right', tx: 'The letter moves right by .04, about a quarter of a cell. It keeps its four columns and now mirrors, and its gaps stay 3 and 2.' },
+  { id: 'all', kind: 'all', run: 2, ur: .63, udx: -.06, idx: .04, name: 'The title with all three', tx: 'The longer tail, the wider U and the moved I together.' },
+].map(v => Object.assign({}, CHOSEN_S, v));
 const GRID = { P: 14.286, rows: 28, cols: 96, SS: 8, y0: 2, h: 24 };   // the ruled 4 px title: 96 x 24 from a 96 x 28 render, as sluice-mark-styles-lab.html draws it
 const AMBER = [232, 163, 76], GROUND = [24, 8, 49];
 const states = {}, marks = [];
@@ -70,6 +87,11 @@ function measure(cov) {
   const mid = Math.floor((top + bot) / 2), left = (a, b) => { let m = cols; for (let y = a; y <= b; y++) for (let x = x0; x < x1; x++) if (on(x, y)) m = Math.min(m, x); return m; };
   return { x0, x1, top, bot, upper: left(top, mid), lower: left(mid + 1, bot) };
 }
+// The title's letters are runs of inked columns: S, L, U, I, C, E. Lopsided cells are those that differ from the cell mirrored across the letter's own width.
+function runsOf(cov) { const { cols, y0, h } = GRID, on = (x, y) => cov[y * cols + x] >= .5, runs = []; let start = -1; for (let x = 0; x <= cols; x++) { let any = false; if (x < cols) for (let y = y0; y < y0 + h; y++) if (on(x, y)) any = true; if (any && start < 0) start = x; else if (!any && start >= 0) { runs.push([start, x]); start = -1; } } return runs; }
+function lopsided(cov, [x0, x1]) { const { cols, y0, h } = GRID, on = (x, y) => cov[y * cols + x] >= .5; let odd = 0; for (let y = y0; y < y0 + h; y++) for (let x = 0; x < Math.floor((x1 - x0) / 2); x++) if (on(x0 + x, y) !== on(x1 - 1 - x, y)) odd++; return odd; }
+function rightArm(cov, x1) { let r = ''; for (let y = GRID.y0; y < GRID.y0 + GRID.h; y++) for (let k = 1; k <= 7; k++) r += cov[y * GRID.cols + x1 - k] >= .5 ? '#' : '.'; return r; }
+function measureLetter(cov, n) { const runs = runsOf(cov); if (runs.length !== 6) return { runs: runs.length }; const [x0, x1] = runs[n]; return { runs: 6, x0, x1, w: x1 - x0, odd: lopsided(cov, runs[n]), gapL: x0 - runs[n - 1][1], gapR: runs[n + 1][0] - x1, arm: rightArm(cov, x1) }; }
 function paint(g, cov, x0, y0, w, h, marks2, clipX) {
   const img = g.createImageData(w, h);
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const c = cov[(y + y0) * GRID.cols + x + x0] >= .5 && (clipX === undefined || x + x0 < clipX) ? AMBER : GROUND, o = (y * w + x) * 4; img.data[o] = c[0]; img.data[o + 1] = c[1]; img.data[o + 2] = c[2]; img.data[o + 3] = 255; }
@@ -77,13 +99,13 @@ function paint(g, cov, x0, y0, w, h, marks2, clipX) {
   (marks2 || []).forEach(col => { g.fillStyle = 'rgba(255,255,255,.28)'; g.fillRect(col - x0, 0, 1, h); });
 }
 function buildCards() {
-  const grid = document.getElementById('grid');
-  VARIANTS.forEach(v => {
+  VARIANTS.concat(U_VARIANTS).forEach(v => {
+    const grid = document.getElementById(v.kind === 'u' ? 'gridU' : v.kind === 'i' ? 'gridI' : v.kind === 'all' ? 'gridAll' : 'grid');
     const c = document.createElement('article'); c.className = 'card'; c.dataset.id = v.id;
     const h2 = document.createElement('h2'); h2.textContent = v.name;
     const pics = document.createElement('div'); pics.className = 'pics';
     const near = document.createElement('canvas'), word = document.createElement('canvas'); near.width = 18; near.height = 24; word.width = 96; word.height = 24;
-    near.setAttribute('aria-label', 'The S alone, ' + v.name); word.setAttribute('aria-label', 'The whole title, ' + v.name);
+    near.setAttribute('aria-label', 'The letter alone, ' + v.name); word.setAttribute('aria-label', 'The whole title, ' + v.name);
     pics.append(near, word);
     const read = document.createElement('div'); read.className = 'read'; read.textContent = 'measuring';
     const p = document.createElement('p'); p.textContent = v.tx;
@@ -97,9 +119,12 @@ function buildCards() {
       gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, buf); cov.fill(0);
       for (let y = 0; y < H; y++) { const dy = GRID.rows - 1 - ((y / GRID.SS) | 0); for (let x = 0; x < W; x++) if (buf[(y * W + x) * 4] > 127) cov[dy * GRID.cols + ((x / GRID.SS) | 0)] += 1; }
       for (let i = 0; i < cov.length; i++) cov[i] /= n;
+      paint(g2, cov, 0, GRID.y0, 96, GRID.h);
+      if (v.kind) { const u = measureLetter(cov, v.run); if (sliding) return; if (u.runs !== 6) { read.textContent = 'the letters touch here (' + u.runs + ' runs)'; return; }
+        if (v.kind === 'all') { const m = measure(cov), I = measureLetter(cov, 3); states[v.id] = { u, i: I, s: m }; c.classList.toggle('even', !!m && m.upper === m.lower && !u.odd && !I.odd); paint(g1, cov, u.x0 - 1, GRID.y0, 18, GRID.h, [], u.x1); read.innerHTML = 'S bends <b>' + (m && m.upper === m.lower ? 'even' : 'uneven') + '</b> · U lopsided <b>' + u.odd + '</b> · I lopsided <b>' + I.odd + '</b>'; return; }
+        states[v.id] = u; paint(g1, cov, u.x0 - 1, GRID.y0, 18, GRID.h, [], u.x1); c.classList.toggle('even', u.odd === 0); read.innerHTML = 'lopsided cells <b>' + u.odd + '</b> · ' + u.w + ' columns wide · gaps <b>' + u.gapL + '</b> and <b>' + u.gapR + '</b>'; return; }
       const m = measure(cov); if (m && !sliding) states[v.id] = m;
       const s = states[v.id];
-      paint(g2, cov, 0, GRID.y0, 96, GRID.h);
       if (s) { paint(g1, cov, s.x0 - 1, GRID.y0, 18, GRID.h, sliding ? [] : [s.upper, s.lower], sliding ? undefined : s.x1);   // the S alone: its neighbour would read as more S
         const gap = s.lower - s.upper; c.classList.toggle('even', gap === 0);
         read.innerHTML = 'upper bend column <b>' + (s.upper - s.x0) + '</b> · lower bend column <b>' + (s.lower - s.x0) + '</b> · ' + (gap === 0 ? '<b>even</b>' : gap > 0 ? 'lower is <b>' + gap + ' short</b>' : 'lower is <b>' + (-gap) + ' past</b>'); }
@@ -109,9 +134,14 @@ function buildCards() {
 let sliding = false;
 function selfCheck() {
   const out = [], line = (ok, s) => out.push((ok ? 'OK' : 'FAILED') + ' · ' + s), t = states.today, even = VARIANTS.filter(v => states[v.id] && states[v.id].lower === states[v.id].upper);
-  line(VARIANTS.every(v => states[v.id]), 'Every variant parked and measured (' + Object.keys(states).length + ' of ' + VARIANTS.length + ').');
+  line(VARIANTS.every(v => states[v.id]), 'Every S variant parked and measured (' + VARIANTS.filter(v => states[v.id]).length + ' of ' + VARIANTS.length + ').');
   line(!!t && t.lower > t.upper, 'The ruled S shows what the human saw: its lower bend stops ' + (t ? t.lower - t.upper : '?') + ' column short of the upper (the control: a variant that changed nothing would read the same).');
   line(even.length > 0, 'At least one variant brings them even: ' + (even.map(v => v.name).join(', ') || 'NONE') + '.');
+  const u0 = states.u0, u1 = states.u1, i0 = states.i0, i1 = states.i1, al = states.all;
+  line(!!u0 && !!u1 && u0.odd > 0 && u1.odd === 0, 'The U: ' + (u0 && u0.odd) + ' lopsided cells where it is (the control), ' + (u1 && u1.odd) + ' a hair wider.');
+  line(!!u0 && !!u1 && u0.arm === u1.arm && u0.x1 === u1.x1, 'Widening it leaves the right arm exactly as it was, cell for cell, in the same columns.');
+  line(!!i0 && !!i1 && i0.odd > 0 && i1.odd === 0 && i0.w === i1.w, 'The I: ' + (i0 && i0.odd) + ' lopsided cells where it is (the control), ' + (i1 && i1.odd) + ' moved, at the same ' + (i1 && i1.w) + ' columns.');
+  line(!!al && !!al.s && al.s.upper === al.s.lower && !al.u.odd && !al.i.odd, 'All three together: the S’s bends even, and the U and the I mirror.');
   return out;
 }
 (async function boot() {
@@ -122,6 +152,9 @@ function selfCheck() {
   let src = m[0].replace(/^<script>/, '').replace(/<\/script>$/, '');
   // The only changes to the mark, each checked to have landed. A parked word is the letters alone, so the routes only need to meet the new ends.
   const swaps = [
+    ['const dx=offs[i]-width/2;', "const dx=offs[i]-width/2+(r.ch==='U'&&SBV.udx?SBV.udx:0)+(r.ch==='I'&&SBV.idx?SBV.idx:0);"],
+    ['function letterU(){\n  const p=[],r=0.6;', 'function letterU(){\n  const p=[],r=SBV.ur||0.6;'],
+    ['raws.forEach((r,i)=>{if(i)x+=GAP;offs.push(x-r.mn);x+=r.mx-r.mn;});', "raws.forEach((r,i)=>{if(i)x+=GAP;offs.push(x-r.mn);x+=r.ch==='U'?1.2:r.mx-r.mn;});"],
     ['arcSeg(p,cx,0.53,0.54,0.47,38*D2R,270*D2R);', 'const SB=SBV;arcSeg(p,cx,0.53,SB.urx,0.47,38*D2R,270*D2R);'],
     ['arcSeg(p,cx,-0.47,0.6,0.53,90*D2R,-142*D2R);', 'arcSeg(p,SB.lcx,-0.47,SB.lrx,0.53,90*D2R,SB.end*D2R);'],
     ['const b = BAKED.routes[i], fp = filletPoly(b.V,b.r), exc', 'const b = BAKED.routes[i], VV=b.V.map(v=>v.slice()), Q=L.pos, mm=L.m; VV[0]=[Q[mm*3],Q[mm*3+1],Q[mm*3+2]]; VV[VV.length-1]=[Q[0],Q[1],Q[2]]; const fp = filletPoly(VV,b.r), exc'],
@@ -130,7 +163,7 @@ function selfCheck() {
   for (const [a, b] of swaps) { if (!src.includes(a)) { busy.textContent = 'The mark’s script changed, and this lab can’t patch: ' + a; return; } src = src.replace(a, b); }
   makeMark = new Function(src + ';return makeSluiceMark;')();
   buildCards();
-  const t0 = Date.now(); const wait = () => { if (VARIANTS.every(v => states[v.id]) || Date.now() - t0 > 6000) { document.getElementById('selfcheck').textContent = selfCheck().join('\n'); busy.hidden = true; } else setTimeout(wait, 100); }; wait();
+  const t0 = Date.now(); const wait = () => { if (VARIANTS.concat(U_VARIANTS).every(v => states[v.id]) || Date.now() - t0 > 6000) { document.getElementById('selfcheck').textContent = selfCheck().join('\n'); busy.hidden = true; } else setTimeout(wait, 100); }; wait();
   const sl = document.getElementById('slide'); sl.addEventListener('click', () => { sliding = !sliding; sl.setAttribute('aria-pressed', String(sliding)); sl.textContent = sliding ? 'Park them' : 'Let them slide'; marks.forEach(k => { if (sliding) { k.play(); k.slideNow(); } else k.pause(); }); });
 })();
 </script>
