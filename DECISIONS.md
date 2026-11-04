@@ -11475,3 +11475,29 @@ Three points stayed open, because the shell already marks a knob selected the mo
 **FX device (ADR-254).** The same bench with its own rows; `FIELD_SECTIONS` is the instrument's. `BlendMaps` reads parameter values, not notes, so it works as it is on a rack module's continuous row.
 
 **GUI-10 A1 — a correction (the lead and the GUI session, 2026-11-04).** GUI-10's reading said `engine2/core/api/history.h` replaces the shell's tree at stage 8. It doesn't. RC-11 keeps the history in the shell and the GUI, and `history.h` is `take_snapshot` and `restore_snapshot`. So the tree stays, and at stage 8 each state holds an engine snapshot. RC-11.2 leaves corners out of that snapshot, so the tree carries them itself.
+
+## GUI-21 — A control that can't act isn't drawn; the blend map replaces the pad (GB7, GB9, GB10; amends ADR-319 r6; 2026-11-04)
+
+**Context.** The human, 2026-11-04, three notes: "I would like for the blend map option to replace this in the GUI when blend is active and a blendable parameter is selected, instead of being its own thing down below"; "I'm not noticing the density or rate knobs having a visible effect on any of the visualizer modes"; "A general GUI reminder that no parameters should be visible that aren't editable under current settings. As in, if there is a "density" slider or something that only works on a specific mode, it should not be visible unless we're currently on that mode. It just cleans up the whole interface."
+
+**Ruling (the human's).**
+1. No parameter is visible that can't act under the current settings. This replaces the "greys" in ADR-319 r6; its machine-readable table stands.
+2. Under BLEND, with a blendable row selected, the blend map replaces the pad on the Morph page, and it's no longer its own card below.
+
+**Readings (the GUI session's, open to the human).**
+- **"Can act" is SPEC-ENGINE PA-8's live-when,** which already says, row by row, when a parameter can move the output. The shell had conditions on 36 of them and none on the oscillator pages. It now has all of PA-8's that apply to a control on a page, in one table per parameter (`layout.json`'s `live_when`), so a key on three pages can't hide on one and show on another. `gen_gui3_controls` refuses a condition on a page, and one that reads its own key: a knob that hid itself under the pointer couldn't be turned back.
+- **A source that's off shows its header and its switch,** because PA-8 says its rows are inert. A blade that's off does the same. A section where nothing can act, its own switch included, goes altogether (a Resonator while the noise is off).
+- **The envelopes' own rows stay on the Mod page whatever follows them,** though PA-8 calls an unfollowed envelope inert, because a route can read it. On a source's page they go with the source.
+- **The morph field still lists every row.** Its cells are each corner's settings, and a row that's inert at the puck can be live at a corner.
+- **What's shown follows what's heard:** the conditions read the shown value, so under morph a control can appear or go as the puck moves.
+- **Controls reflow.** Nothing reserves a hidden control's space, so the ones after it move. A readout slot keeps its width (ADR-340 A1).
+- **The map keeps the pad's puck and chips.** It goes in under the puck as a layer, so the player still moves where they listen. A click on the glass moves nothing, and a pin under the puck is reached by moving the puck (B269). Its pins, laws, maps and cross-section take the cross-section's card beside the pad, and the row's plain cross-section comes back with the plain pad.
+- **A row's dormant waypoints get one line under the pad** when another law or row is showing, since nothing else says they're there.
+
+**Density and Rate (the lab, GB9).** They had no effect for two reasons, and only one was a fault. On the default source, Clean, the spec makes them inert, so every picture was identical to the pixel; now they aren't drawn there. Under Crackle and S&H the Raster and the Waterfall followed them, but the Weather's flashes saturated at about 8 pops a second and its Rate moved it little. The Weather now draws Density's rate and Rate's block size and hold, and a self-check measures all three pictures, with Clean as its control.
+
+**Not done.** FX's 202 rows and Arp's 47 have no conditions: PA-8 doesn't cover them, and guessing them would be inventing (GB10). The dock still shows on the Morph page, as GUI-20 left it.
+
+**Consequences.** Master `1793813622-b097`: `.idle` is `display: none`, a rule for every screen in its README, and `BlendMaps`' `padHost` and `destroy()`. Self-check "Hidden when inert" and 4o hold it. ENGINE-NEEDS.md has its row. B587's text says "greys", which is the lead's to reword; its table is what this one should become.
+
+**FX device (ADR-254).** The same rule on its pages, its conditions from each module's manifest. The map works as it is on a rack module's continuous row.

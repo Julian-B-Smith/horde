@@ -96,6 +96,10 @@
   {
    "version": "1793773329-83d6",
    "evidence": "docs/design/arp-face/README.md: GUI-19, GUI-20, 2026-11-04"
+  },
+  {
+   "version": "1793813622-b097",
+   "evidence": "docs/design/arp-face/README.md: GUI-21, 2026-11-04"
   }
  ],
  "vendoring": {
@@ -387,7 +391,7 @@
   },
   "sub-noise-lab.html": {
    "status": "exploring",
-   "note": "GB9. Six pictures for the Sub and Noise pages on the real shell, each computed from the settings; waiting on the human's choice."
+   "note": "GB9. Six pictures for the Sub and Noise pages on the real shell, each computed from the settings; waiting on the human's choice. Density and Rate reach all three noise pictures on their own source (GUI-21's batch)."
   }
  },
  "not_labs": {
@@ -3769,9 +3773,9 @@
    "via": "spec",
    "shell": "docs/design/gui3.html: Inert now (PA-8)",
    "state": "in-shell",
-   "superseded_by": null,
+   "superseded_by": "GUI-21",
    "port_tab": null,
-   "note": "The shell sets the bundle's .idle on inert controls, but from layout.json's live-when for the designed pages only; the spec table is B587. The bundle's .idle dashes pills, sliders and steppers only (documented in the master only as LfoShapeEditor's dashed faces), so an inert knob looks live (gui3/README proposal 6). B596 integration: promoted from ruled, the route into the shell named by `via` (ADR-316)."
+   "note": "The shell sets the bundle's .idle on inert controls, but from layout.json's live-when for the designed pages only; the spec table is B587. The bundle's .idle dashes pills, sliders and steppers only (documented in the master only as LfoShapeEditor's dashed faces), so an inert knob looks live (gui3/README proposal 6). B596 integration: promoted from ruled, the route into the shell named by `via` (ADR-316). The table stands; greying doesn't: GUI-21 hides the control instead."
   },
   {
    "id": "adr319-mirror-and-confirm",
@@ -5877,7 +5881,7 @@
    "port_tab": "gain-staging",
    "lab": null,
    "via": null,
-   "superseded_by": null,
+   "superseded_by": "GUI-21",
    "id": "gui20-blend-maps",
    "adr": "GUI-20",
    "clause": "the blend maps on the Morph page, for a continuous row under BLEND",
@@ -5887,6 +5891,36 @@
    "shell": "docs/design/gui3.html: H.BlendMaps(box, {",
    "state": "in-shell",
    "master_version": "1793773329-83d6"
+  },
+  {
+   "port_tab": null,
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "id": "gui21-hide-inert",
+   "adr": "GUI-21",
+   "clause": "a control that can't act under the current settings isn't drawn, on every page; its section goes when nothing in it can act",
+   "note": "PA-8's conditions, in one table per parameter (live_when). FX and Arp have no conditions yet (GB10). FX device: the same rule, its conditions from each module's manifest.",
+   "component": "components/bundle.css",
+   "bundle": "bundle.css: .idle { display:none",
+   "shell": "docs/design/gui3/layout.json: \"live_when\"",
+   "state": "in-shell",
+   "master_version": "1793813622-b097"
+  },
+  {
+   "port_tab": "gain-staging",
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "id": "gui21-blend-in-pad",
+   "adr": "GUI-21",
+   "clause": "under BLEND a continuous row's blend map replaces the pad on the Morph page, with its pins, laws and cross-section beside it",
+   "note": "B235, B272. Waypoints are held and undone by the device, drawn and not heard, until the resolver comes (GB8). FX device: as it is, on a rack module's continuous row.",
+   "component": "BlendMaps",
+   "bundle": "BlendMaps",
+   "shell": "docs/design/gui3.html: padHost: pad",
+   "state": "in-shell",
+   "master_version": "1793813622-b097"
   }
  ],
  "not_design": [

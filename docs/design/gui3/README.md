@@ -423,9 +423,8 @@ The bundle (version `1793336699-65f2`, B589) lacks these; each goes into the des
 3. **A context menu** (ADR-315, B583, B557): the shell assembles one from `hd-card` and `hd-btn`.
 4. **The docked pad** (ADR-291, ADR-315) as a component with its hide toggle, not a lab layout.
 5. **Ownership on a select, a toggle and a stepper**: only pills carry the owner's rule and glyph (`hd-owned`).
-6. **An inert (PA-8) state for the knob, the select and the toggle**: the bundle's `.idle` dashes pills,
-   sliders and steppers only, so an inert knob looks live. The shell sets `.idle` on every inert control,
-   so the style lands everywhere once it exists, and the info box says why a control is inert.
+6. **Inert controls (PA-8):** answered by GUI-21. The bundle's `.idle` hides a control, and the conditions
+   are `layout.json`'s `live_when`, one per parameter.
 7. **A bound stepper** for long integer ranges (an oscillator's seed, 0 to 999 999).
 8. **A disabled toggle and button**: `hd-toggle` and `hd-btn` have no disabled look, so the Pad switch
    (disabled while morph is off) and "Save current sound to snapshot" (disabled until a corner is

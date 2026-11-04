@@ -5597,9 +5597,13 @@
     var pinRow = tag('div', 'hd-row bm-pins'), pinList = tag('span', 'hd-pills bm-pinlist'), pinKey = '', say = tag('div', 'hd-hint bm-say'); say.setAttribute('aria-live', 'polite');
     var addBtn = tag('button', 'hd-pill hd-focus', 'Add pin'), delBtn = tag('button', 'hd-pill hd-focus', 'Delete pin');
     addBtn.type = 'button'; delBtn.type = 'button';
-    padCol.appendChild(tag('div', 'hd-cluster', 'Pad · ' + '')); padCol.firstChild.textContent = 'Pad';
+    /* o.padHost (GUI-21): the map IS the morph pad. Its glass goes into the host as a layer under the host's puck and over its other layers, and the host's own corner chips stand in for the
+       ones drawn here. Only the pad's glass moves: the pins, the laws, the maps and the cross-section stay in el, beside it. A pin under the puck is reached by moving the puck. */
+    var padHost = o.padHost || null;
+    padCol.appendChild(tag('div', 'hd-cluster', padHost ? 'Pins' : 'Pad'));
     pinRow.appendChild(pinList); pinRow.appendChild(addBtn); pinRow.appendChild(delBtn);
-    padCol.appendChild(padViz); padCol.appendChild(pinRow); padCol.appendChild(say);
+    if (padHost) { padViz.classList.add('bm-layer'); padHost.insertBefore(padViz, padHost.querySelector('.puck')); } else padCol.appendChild(padViz);
+    padCol.appendChild(pinRow); padCol.appendChild(say);
 
     var minis = {};
     all.forEach(function (l) {
@@ -5730,7 +5734,7 @@
     function paintPad(P) {
       var K = Viz.kit(padCv), W = K.W, Hh = K.H; K.tube();
       var smp = sample(st.law, 56);
-      field(K, P, W, Hh, smp); triangulation(K, W, Hh, smp.sf); sectionLine(K, W, Hh, true); corners(K, P, W, Hh); pins(K, W, Hh, true);
+      field(K, P, W, Hh, smp); triangulation(K, W, Hh, smp.sf); sectionLine(K, W, Hh, true); if (!padHost) corners(K, P, W, Hh); pins(K, W, Hh, true);
       padCv.setAttribute('aria-label', 'Blend pad for ' + row.name + ' under ' + LAW_NAME[st.law] + (st.clamp ? ' with the clamp' : ', unclamped') + ', ' + row.pins.length + ' pin' + (row.pins.length === 1 ? '' : 's')
         + (row.pins.length ? ': ' + row.pins.map(function (p, j) { return (j + 1) + ' at ' + p[0].toFixed(2) + ', ' + p[1].toFixed(2) + ' = ' + fmt(p[2]); }).join('; ') : '') + '. Select a pin with its button, then the arrow keys move it.');
     }
@@ -5917,6 +5921,8 @@
       law: function () { return st.law; }, setLaw: setLaw, clamp: function () { return st.clamp; }, setClamp: setClamp,
       row: function () { return { name: row.name, min: row.min, max: row.max, corners: row.corners.slice(), pins: row.pins.map(function (p) { return p.slice(); }) }; },
       setRow: function (r) { setRow(r); draw(true); }, render: function () { draw(true); }, line: function (a, b) { st.xs = { auto: false, a: a, b: b }; draw(); },
+      /* takes the map out of a padHost, so the host's own pad shows again */
+      destroy: function () { if (padViz.parentNode) padViz.parentNode.removeChild(padViz); el.innerHTML = ''; el.classList.remove('hd-bm'); },
       /* a law's measurements on a 44 x 44 grid: the share of the pad clipped at the range and outside the set values, and the peak past them (fractions of the pad / of the range) */
       stats: function (l) { var s = sample(l || st.law, 44), M = 44, c1 = 0, c2 = 0, pk = 0, q; for (q = 0; q < M * M; q++) { if (s.clip[q] & 1) c1++; if (s.clip[q] & 2) c2++; if (s.sf && s.sf.n) pk = Math.max(pk, s.sf.lo - s.raw[q], s.raw[q] - s.sf.hi); } return { range: c2 / (M * M), set: c1 / (M * M), peak: pk / span() }; },
       value: function (l, x, y) { return lawAt(l || st.law, x, y); }

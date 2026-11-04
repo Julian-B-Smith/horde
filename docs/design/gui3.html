@@ -223,6 +223,7 @@
   .mw .hd-card { width: auto; min-width: 0; }
   .mw .hd-card > .face > * { flex: 1 1 100%; min-width: 0; }
   .mw-pad.no-row .hm-xs-ov, .mw-pad.no-row .hm-xs-end { display: none; }   /* the cross-section's line has nothing to say until a row is selected */
+  .mw-pad.bm-on .hm-xs-ov, .mw-pad.bm-on .hm-xs-end { display: none; }     /* the blend map draws its own line (GUI-21) */
   .cards { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
   .cards > .hd-card { width: auto; flex: 1 1 260px; min-width: 0; }
   .cards > .hd-card.wide { flex-basis: 100%; }
@@ -482,6 +483,7 @@ function live(c) {
   if (c.any) return c.any.some(live);
   const r = ROW[c.key], v = dev.shown(c.key);
   if (c.gt !== undefined) return ENG.lawX(r, v) > c.gt;
+  if (c.ne !== undefined) return ENG.lawX(r, v) !== c.ne;
   const o = optLabel(r, v);
   return c.is ? c.is.includes(o) : !c.not.includes(o);
 }
@@ -489,7 +491,7 @@ function says(c) {
   if (c.all) return c.all.map(says).join(' and ');
   if (c.any) return '(' + c.any.map(says).join(' or ') + ')';
   const r = ROW[c.key], n = r.label + ' (' + r.key + ')';
-  return c.gt !== undefined ? n + ' is above ' + c.gt : n + (c.is ? ' is ' + c.is.join(' or ') : ' is not ' + c.not.join(' or '));
+  return c.gt !== undefined ? n + ' is above ' + c.gt : c.ne !== undefined ? n + ' is not ' + c.ne : n + (c.is ? ' is ' + c.is.join(' or ') : ' is not ' + c.not.join(' or '));
 }
 
 // ===== BLOCK D: the ONE place a parameter control is built: from a generated entry, bound to its row by key =====
@@ -671,12 +673,12 @@ let mw = null;
 function morphBench() {
   const pad = h('div', { id: 'morphPad', class: 'mw-pad' }), barBanner = h('div'), barScale = h('div'), barLock = h('div'),
     insp = h('div', { id: 'morphInsp' }), cross = h('div'), find = h('div'), grid = h('div', { id: 'morphGrid' }),
-    blendHost = h('div', { id: 'morphBlend' }), blendNote = h('span', { class: 'hd-hint', id: 'morphBlendNote' });
+    blendHost = h('div', { id: 'morphBlend' }), blendNote = h('span', { class: 'hd-hint', id: 'morphBlendNote' }),
+    crossCard = card('Across the pad', 'HEARD', [cross]), blendCard = card('Blend map', 'WAYPOINTS', [blendHost]);
   const root = h('div', { class: 'mw', id: 'morphBench' },
-    h('div', { class: 'mw-top' }, h('div', { class: 'mw-left' }, pad, barBanner, barScale, barLock),
-      h('div', { class: 'mw-right' }, card('Selected row', 'CORNERS', [insp]), card('Across the pad', 'HEARD', [cross]))),
-    h('div', { class: 'mw-field' }, card('Find', 'FIELD', [find]), grid),
-    card('Blend maps', 'WAYPOINTS', [blendNote, blendHost]));
+    h('div', { class: 'mw-top' }, h('div', { class: 'mw-left' }, pad, barBanner, barScale, barLock, blendNote),
+      h('div', { class: 'mw-right' }, card('Selected row', 'CORNERS', [insp]), crossCard, blendCard)),
+    h('div', { class: 'mw-field' }, card('Find', 'FIELD', [find]), grid));
   mw = { root, mounted: false, open: false, mount() {
     if (this.mounted) return; this.mounted = true;
     const M = H.Morph.state(S), E = H.Morph.engine, add0 = S.add;
@@ -705,17 +707,18 @@ function morphBench() {
     } finally { S.add = add0; }
     // One gesture on any of these is one history step, and a boundary drag moves the row's regions, so the knobs' owners follow.
     const close = () => { if (this.open) { this.open = false; dev.end(); dev.reown(); } };
-    /* The blend maps (B235, B272). The master's rule: a row picks pins only where it blends, so structural rows and the other laws show a sentence
-       instead of the component. The waypoints live in the device so undo covers them; the stub's heard value doesn't follow them yet (GB7). */
+    /* The blend map (B235, B272, GUI-21). Under BLEND a continuous row's map IS the pad: its glass goes under the puck, and its pins, laws and cross-section take
+       the cross-section's card beside it. Any other row or law gets the pad's own picture back (the master's rule: not mounted for those rows). The waypoints live
+       in the device so undo covers them; the stub's heard value doesn't follow them yet (GB7). */
     let bm = null, bmSig = '';
     const bmRow = (k, r) => ({ name: r.label, min: 0, max: 1, fmt: v => ENG.display(r, v), corners: [0, 1, 2, 3].map(i => dev.corner(k, i)), pins: dev.pins(k) });
     this.blend = () => {
-      const k = S.selected, r = k && ROW[k], law = LAWS[dev.morphSettings().law], ok = !!r && r.class === 'M' && r.law !== 'step' && law === 'blend';
-      blendNote.textContent = ok ? '' : !r ? 'Select a row to see its value across the pad.' : r.class !== 'M' || r.law === 'step' ? r.label + ' snaps between its corners, so it takes no waypoints.' : 'Waypoints act under BLEND, and this patch is on ' + law.toUpperCase() + '. Any set on ' + r.label + ' stay dormant; switch the law under the pad to see them.';
-      blendNote.hidden = ok; blendHost.hidden = !ok;
-      if (!ok) { if (bm) { bm = null; blendHost.replaceChildren(); } return; }   // the master's rule: not mounted for these rows
+      const k = S.selected, r = k && ROW[k], law = LAWS[dev.morphSettings().law], ok = !!r && r.class === 'M' && r.law !== 'step' && law === 'blend', held = !ok && !!r && dev.pins(k).length;
+      blendNote.textContent = held ? r.label + ' has ' + held + (held === 1 ? ' waypoint' : ' waypoints') + ', dormant until BLEND.' : '';
+      blendNote.hidden = !held; blendCard.style.display = ok ? '' : 'none'; crossCard.style.display = ok ? 'none' : ''; pad.classList.toggle('bm-on', ok);
+      if (!ok) { if (bm) { bm.destroy(); bm = this.bm = null; blendHost.replaceChildren(); } return; }
       const row = bmRow(k, r), sig = k + '|' + row.corners.join() + '|' + JSON.stringify(row.pins), b = dev.blendSettings();
-      if (!bm) { bmSig = sig; const box = h('div'); blendHost.replaceChildren(box); bm = this.bm = H.BlendMaps(box, { row, laws: ['tps', 'tind'], law: b.law, clamp: b.clamp, onChange: e => {
+      if (!bm) { bmSig = sig; const box = h('div'); blendHost.replaceChildren(box); bm = this.bm = H.BlendMaps(box, { padHost: pad, row, laws: ['tps', 'tind'], law: b.law, clamp: b.clamp, onChange: e => {
         const key = S.selected; dev.setBlendSettings(e.law, e.clamp);
         if (e.type !== 'select' && dev.setPins(key, e.pins, 'Waypoints: ' + ROW[key].label)) bmSig = key + '|' + [0, 1, 2, 3].map(i => dev.corner(key, i)).join() + '|' + JSON.stringify(dev.pins(key));
       } }); return; }
@@ -839,6 +842,8 @@ NAV.forEach(g => g.pages.forEach(pid => { groupOf[pid] = g.id; }));
 const PG = Object.create(null); DATA.pages.forEach(pg => { PG[pg.id] = pg; });
 const isOnKey = key => optLabel(ROW[key], dev.shown(key)) === 'on';
 const onIdx = (row, on) => row.options.indexOf(on ? 'on' : 'off');
+// GUI-21: a check of an off source's section finds nothing drawn, so it runs with that source on, in a bracket the undo takes back.
+const withSourceOn = (pgId, fn) => { const r = ROW[PG[pgId].power]; dev.begin('self-check'); dev.set(r.key, onIdx(r, true) / (r.n - 1), { label: 'self-check' }); try { fn(); } finally { if (dev.end()) dev.undo(); dev.clearRedo(); } };
 
 /* The pictures (B589: "visuals take the area"). Each is a SAMPLE drawing of the settings the layout names (`viz.keys`),
    drawn with the bundle's painters, never the engine's output: the swarm's ring from its member count and coupling (a
@@ -940,6 +945,7 @@ function sectionOf(pg, g, opts) {
   opts = opts || {};
   const path = pg.label + ' · ' + g.title + (g.num ? ' ' + g.num : '');
   const sec = h('section', { class: 'hd-sec', 'aria-label': path, 'data-section': g.id }), head = h('div');
+  views.push({ page: pg.id, update() { sec.classList.toggle('idle', !g.controls.some(c => live(c.live))); } });   // GUI-21, as in gridSection
   const power = g.controls.find(c => c.role === 'power'), modes = g.controls.find(c => c.role === 'modes');
   const plain = g.controls.filter(c => !c.role && !c.advanced), adv = g.controls.filter(c => !c.role && c.advanced);
   const body = h('div', { class: 'hd-sgroups' }), size = opts.size || null;
@@ -1000,6 +1006,9 @@ function sectionOf(pg, g, opts) {
 function gridSection(pg, g) {
   const path = pg.label + ' · ' + g.title + (g.num ? ' ' + g.num : '');
   const sec = h('section', { 'aria-label': path, 'data-section': g.id });
+  // GUI-21: a section with nothing it can do is its header and its power switch: no tier pills for rows that aren't there, no readout of settings that don't act.
+  // And one where nothing can act, its own switch included (a Resonator while the noise is off), goes altogether.
+  views.push({ page: pg.id, update() { sec.classList.toggle('hd-sec-off', !g.controls.some(c => c.role !== 'power' && live(c.live))); sec.classList.toggle('idle', !g.controls.some(c => live(c.live))); } });
   const power = g.controls.find(c => c.role === 'power'), modes = g.controls.find(c => c.role === 'modes');
   const plain = g.controls.filter(c => !c.role && !c.advanced), adv = g.controls.filter(c => !c.role && c.advanced);
   const mk = (c, o) => mountControl(c, pg.id, path + ' · ' + ROW[c.key].label, Object.assign({ tiny: true }, o));
@@ -1396,7 +1405,10 @@ DATA.pages.forEach(pg => {
   el.append(h('div', { class: 'phead' + (compact ? ' compact' : '') }, h('span', { class: 'hd-cluster', text: pg.label }), h('span', { class: 'hd-hint', text: STATUS_TAG[pg.status] }),
     h('span', { class: 'hd-note', text: note, title: compact ? note : null })));
   if (pg.panel === 'dashboard') dashboardPage(pg, el);
-  else if (pg.panel === 'console') consolePage(pg, el);
+  else if (pg.panel === 'console') { consolePage(pg, el);
+    // GUI-21: a strip's own controls obey the same table as any other: an off source's strip is its name and its switch. The console mounts them itself, so the shell's control builder never sees them.
+    const conds = Object.fromEntries(pg.groups.flatMap(g => g.controls).map(c => [c.key, c.live]));
+    views.push({ page: pg.id, update() { el.querySelectorAll('[data-key]').forEach(e => { if (e.dataset.key in conds) e.classList.toggle('idle', !live(conds[e.dataset.key])); }); } }); }
   else if (pg.panel === 'ledger') ledgerPage(pg, el);
   else if (pg.panel === 'history') historyPage(pg, el);
   else if (pg.id === 'mod') modPageForm(pg, el);       // ADR-338 r8 (half A); every other parameter page is a grid (half B)
@@ -2013,16 +2025,28 @@ S.start();
     const pS = S.params[keyS], past1 = dev.history().past.length; H.Morph.setLock(S, pS, true); const locked = !!dev.regions()[keyS], lockStep = dev.history().past.length === past1 + 1; dev.undo(); const unlocked = !dev.regions()[keyS]; dev.clearRedo();
     dev.regions()[keyS] = [-.45, .45, -.45, .45]; dev.reown(); const pulled = dev.owner(keyS); delete dev.regions()[keyS]; dev.reown();
     // The blend maps: only a continuous row under BLEND. A pin is the device's, one undo step, and an undo reaches the picture.
-    S.selected = keyS; mw.blend(); const snapNote = $('morphBlend').hidden && /snaps/.test($('morphBlendNote').textContent);
-    S.selected = keyC; mw.blend(); const lawNote = $('morphBlend').hidden && /BLEND/.test($('morphBlendNote').textContent);
-    dev.setMorphLaw(0); M.mode = 'blend'; mw.blend(); const shown = !$('morphBlend').hidden && !!mw.bm;
+    // GUI-21: the map is the pad, for that case alone; any other row or law has the pad's own picture and the cross-section's card.
+    const mapIn = () => !!mw.bm && !!document.querySelector('#morphPad > .bm-layer') && document.querySelector('#morphPad > .bm-layer').nextElementSibling.classList.contains('puck') && !!$('morphBlend').offsetWidth && !$('morphPad').querySelector('.hm-xs-ov:not([style*="none"])')?.offsetWidth;
+    const mapOut = () => !mw.bm && !document.querySelector('#morphPad .bm-layer') && !$('morphBlend').offsetWidth;
+    S.selected = keyS; mw.blend(); const snapNote = mapOut();
+    S.selected = keyC; mw.blend(); const lawNote = mapOut();
+    dev.setMorphLaw(0); M.mode = 'blend'; mw.blend(); const shown = mapIn();
+    S.selected = keyS; mw.blend(); const snapBlend = mapOut(); S.selected = keyC; mw.blend(); const backIn = mapIn();
+    const puckTo = (() => { const pk = document.querySelector('#morphPad .puck'), lay = document.querySelector('#morphPad > .bm-layer'), x1 = S.pad.x, b = pk.getBoundingClientRect(), o = { bubbles: true, clientX: b.left + b.width / 2, clientY: b.top + b.height / 2, pointerId: 9, button: 0 }; lay.querySelector('canvas').dispatchEvent(new PointerEvent('pointerdown', Object.assign({}, o, { clientX: o.clientX + 40 }))); lay.querySelector('canvas').dispatchEvent(new PointerEvent('pointerup', Object.assign({}, o, { clientX: o.clientX + 40 }))); const still = S.pad.x === x1; pk.dispatchEvent(new PointerEvent('pointerdown', o)); pk.dispatchEvent(new PointerEvent('pointermove', Object.assign({}, o, { clientX: o.clientX + 30 }))); pk.dispatchEvent(new PointerEvent('pointerup', Object.assign({}, o, { clientX: o.clientX + 30 }))); const went = S.pad.x !== x1; S.pad.x = x1; return still && went; })();
     const addPin = [...$('morphBlend').querySelectorAll('button')].find(b => /Add pin/.test(b.textContent)), past2 = dev.history().past.length; if (addPin) addPin.click();
     const pinned = dev.pins(keyC).length === 1 && mw.bm.row().pins.length === 1, pinStep = dev.history().past.length === past2 + 1; dev.undo(); mw.blend(); const pinGone = !dev.pins(keyC).length && !mw.bm.row().pins.length; dev.clearRedo();
     // Morph off: the audible corner is what's heard, wherever the puck is, and the frozen corners refuse.
     dev.setMorph({ on: false }); const heardOff = H.Morph.hear(S, S.params[keyC]), offOk = heardOff.owner === dev.morph().audible, refused = !S.writable(S.params[keyC], (dev.morph().audible + 1) % 4); dev.setMorph({ on: true });
     dev.setMorphLaw(law0); M.mode = LAWS[law0]; M.view = view0; S.selected = sel0; grid.build(); mw.blend(); selectPage(pg0); S.pad.x = x0; S.pad.y = y0; dev.setMorph({ x: x0, y: y0 }); setMorphOn(false); while (dev.history().past.length > steps0) dev.undo(); dev.clearRedo(); paintDock(); S.message = '';
-    const miss = Object.entries({ padOk, allRows, labelled, agree: !off0, wrong, cell: !!cell, moved, keptRest, oneStep, undone, locked, lockStep, unlocked, pulled: pulled === 1 || pulled === 3, snapNote, lawNote, shown, addPin: !!addPin, pinned, pinStep, pinGone, offOk, refused }).filter(e => !e[1]).map(e => e[0]);
+    const miss = Object.entries({ padOk, allRows, labelled, agree: !off0, wrong, cell: !!cell, moved, keptRest, oneStep, undone, locked, lockStep, unlocked, pulled: pulled === 1 || pulled === 3, snapNote, lawNote, shown, snapBlend, backIn, puckTo, addPin: !!addPin, pinned, pinStep, pinGone, offOk, refused }).filter(e => !e[1]).map(e => e[0]);
     line(!miss.length, (miss.length ? '(MISSED: ' + miss.join(', ') + ') ' : '') + 'Morph page (GUI-19): its own pad is ' + Math.round(bigW) + ' px; the field has all ' + members.length + ' members, and ' + off0 + ' of them disagree with the device about their owner under Quantum (control: the same row reads another owner elsewhere on the pad); a drag on one corner’s cell wrote that corner alone as one step, and undo took it back; a region lock is one step in the device’s undo, and a pulled lock moves the knobs’ owner; the blend maps show only for a continuous row under Blend, and a pin is one step in the device’s undo; with morph off the audible corner is heard and the others refuse.'); }
+  // GUI-21: a control that can't act isn't drawn, on every page, and it comes back with its setting. Controls: a condition that holds draws it, and one row reads the same on every page that shows it.
+  { const pg0 = page, tick = () => { for (const v of views) if (v.page === page || v.page === '*') v.update(); for (const v of S.views) v.render(); }; let shownInert = [], blanks = [], drawn = 0; const keep = dev.history().past.length;
+    DATA.pages.forEach(pg => { selectPage(pg.id); tick(); (pg.groups || []).forEach(g => (g.controls || []).forEach(c => { if (c.role === 'power' || c.follow) return; const el = pageEls[pg.id].querySelector('[data-key="' + c.key + '"]'); if (!el || !el.offsetWidth) return; drawn++; if (!live(c.live)) shownInert.push(pg.id + ' ' + c.key); })); pageEls[pg.id].querySelectorAll('section[data-section]').forEach(sec => { if (sec.offsetWidth && !sec.querySelector('.ctl') && !sec.querySelector('canvas')) blanks.push(sec.dataset.section); }); });
+    const swaps = [], trial = PG.noise;
+    withSourceOn('noise', () => { selectPage('noise'); tick(); trial.groups.flatMap(g => g.controls).filter(c => c.role === 'modes').forEach(m => { const r = ROW[m.key]; const dep = trial.groups.flatMap(g => g.controls).filter(c => JSON.stringify(c.live || '').includes('"' + m.key + '"')); if (!dep.length) return; r.options.forEach((o, i) => { dev.set(r.key, i / (r.n - 1), { label: 'self-check' }); tick(); swaps.push(o + ':' + dep.filter(c => { const e = pageEls.noise.querySelector('[data-key="' + c.key + '"]'); return e && e.offsetWidth; }).map(c => c.key).join(',')); }); }); });
+    selectPage(pg0); tick(); const differ = new Set(swaps.map(x => x.split(':')[1])).size >= 3;
+    line(!shownInert.length && !blanks.length && differ && drawn > 100 && dev.history().past.length === keep, 'Hidden when inert (GUI-21): ' + drawn + ' controls drawn across the pages, none of them inert' + (shownInert.length ? ' (DRAWN: ' + shownInert.slice(0, 6).join(', ') + ')' : '') + ', and no section left blank' + (blanks.length ? ' (BLANK: ' + blanks.join(', ') + ')' : '') + '. Control: the noise’s source draws a different set of controls for each of its ' + swaps.length + ' settings' + (differ ? '' : ' (IT DIDN’T)') + '.'); }
   // 14. ADR-333: an oscillator page shows the envelope its env row selects; an edit there is the Mod page's key, and an edit
   // on the Mod page reads back there. Control: the value differed before.
   const oscPg = DATA.pages.find(p => p.id === 'osc1'), fg = oscPg.groups.find(g => g.follow), fsel = ROW[fg.follow.selector];
@@ -2374,13 +2398,13 @@ S.start();
       line(!over.length && opened > limit && folds.length === 3, 'Fit: main ' + size.main + ', Osc 1 ' + size.osc1 + ', Osc 2 ' + size.osc2 + ', Sub ' + size.sub + ' and Noise ' + size.noise + ' px fit the page area of ' + limit + ' px (ADR-345 r1)' + (over.length ? ' (OVER: ' + over.join(', ') + ')' : '') + '; Osc 1 with its three folds at +Adv is ' + opened + ' px, so the folds hold the rest (control).'); }
     // 39. ADR-341 r2 (DR-c): the section header’s readout slot is two stacked lines in a fixed box and nothing here resizes it: hovering a tiny knob fills both
     // lines (the editing corner’s own value, then “now”) and the box is the same size at rest and hot. Control: at rest it shows the summary and not the lines.
-    { selectPage('sub'); const sec = pageEls.sub.querySelector('[data-section="sub/colour"]'), slot = sec.querySelector('.hd-rslot'), box = () => { const b = slot.getBoundingClientRect(); return [Math.round(b.width), Math.round(b.height)].join('x'); };
+    withSourceOn('sub', () => { selectPage('sub'); tick(); const sec = pageEls.sub.querySelector('[data-section="sub/colour"]'), slot = sec.querySelector('.hd-rslot'), box = () => { const b = slot.getBoundingClientRect(); return [Math.round(b.width), Math.round(b.height)].join('x'); };
       const kk = PG.sub.groups.find(g => g.id === 'sub/colour').controls.find(c => ROW[c.key].law !== 'step'), rest = box(), l1 = () => getComputedStyle(slot.querySelector('.rs-l1')).display, atRest = !slot.classList.contains('live') && l1() === 'none';
       ctlHost(sec, kk.key).dispatchEvent(new MouseEvent('pointerenter')); tick();
       const hotBox = box(), lines = [...slot.querySelectorAll('.rs-l1, .rs-l2')].filter(e => getComputedStyle(e).display !== 'none').length, t1 = slot.querySelector('.rs-l1').textContent, t2 = slot.querySelector('.rs-l2').textContent;
       ctlHost(sec, kk.key).dispatchEvent(new MouseEvent('pointerleave')); tick();
       line(atRest && lines === 2 && rest === hotBox && /x26$/.test(rest) && t1.includes(ROW[kk.key].label) && /^now /.test(t2) && !/rslot|rs-/.test(document.querySelector('style').textContent),
-        'Readout slot: Sub · Colour’s slot is ' + rest + ' px at rest and hot; hot it shows two lines (“' + t1.slice(0, 28) + '”, “' + t2.slice(0, 22) + '”) and the shell’s style sheet names neither the slot nor its parts (control: at rest the summary shows and neither line does).'); }
+        'Readout slot: Sub · Colour’s slot is ' + rest + ' px at rest and hot; hot it shows two lines (“' + t1.slice(0, 28) + '”, “' + t2.slice(0, 22) + '”) and the shell’s style sheet names neither the slot nor its parts (control: at rest the summary shows and neither line does).'); });
     // 39b. ADR-340 A1: EVERY slot on every page holds one width at rest and hot, at most 250 px and 26 px tall, wherever its header leaves it (39 looks at one
     // slot, and one that had room is how 13 narrow ones went unseen). Control: a slot allowed to follow its text moves, so this can read false.
     { const rect = e => { const b = e.getBoundingClientRect(); return [b.left, b.top, b.width, b.height].map(v => Math.round(v * 100) / 100).join(','); }, moved = [], oversize = [], quiet = [];
@@ -2419,9 +2443,9 @@ S.start();
     const zero = H.Viz.envPoints({ ...e, a: 0 }), pts = H.Viz.envPoints(e), peak = top(pts) === 1 && pts.every((q, i) => !i || q[0] >= pts[i - 1][0]) && zero[0][0] === 0 && zero[0][1] === 0 && zero[1][1] === 1;
     line(peak && top(even) < .5, 'Envelope: with a 0.002 attack and a 0.004 decay the line reaches the peak its node sits on, and a zero attack still rises to it (control: even samples alone peak at ' + top(even).toFixed(2) + ').');
     // a canvas redraws when its size changes with no value changing, which is what left the stripes
-    selectPage('sub'); step(); const cv = pageEls.sub.querySelector('[data-section="sub/envelope"] canvas'), V = Math.min(window.devicePixelRatio || 1, 2), wasW = cv.style.width, back0 = cv.width;
+    withSourceOn('sub', () => { selectPage('sub'); step(); const cv = pageEls.sub.querySelector('[data-section="sub/envelope"] canvas'), V = Math.min(window.devicePixelRatio || 1, 2), wasW = cv.style.width, back0 = cv.width;
     cv.style.width = '40px'; const stale = cv.width !== Math.round(40 * V); step(); const follows = cv.width === Math.round(40 * V); cv.style.width = wasW; step(); const home = cv.width === back0;
-    line(stale && follows && home, 'Envelope picture: resized with no value changing, it redraws at its new size and again on the way back (control: until the view runs, the old pixels are stretched).');
+    line(stale && follows && home, 'Envelope picture: resized with no value changing, it redraws at its new size and again on the way back (control: until the view runs, the old pixels are stretched).'); });
     // the source strip: every chip keeps its name, and the picked one is in view
     const st = $('srcStrip'), chips = [...st.querySelectorAll('.src-chip')], named = chips.length > 0 && chips.every(c => c.querySelector('.nm').clientWidth > 0), overflow = st.scrollWidth > st.clientWidth + 1, sv = st.scrollLeft;
     const last = chips[chips.length - 1], was2 = S.map.src; S.setSrc(last.dataset.src); step(); step(); const b = st.getBoundingClientRect(), r = last.getBoundingClientRect(), inView = r.left >= b.left - 1 && r.right <= b.right + 1; S.setSrc(was2); step(); step();
@@ -2511,6 +2535,8 @@ S.start();
     const pg0 = page, tick = () => { for (const v of views) if (v.page === page || v.page === '*') v.update(); for (const v of S.views) v.render(); }, missed = []; let n = 0, tog = 0, togKept = true;
     const away = r => { const d = r.default_v, a = r.law === 'step' ? vOf(r, r.default_index === 0 ? Math.min(1, r.n - 1) : 0) : (d > .5 ? d - .3 : d + .3); return a; };
     dev.begin('self-check');
+    // GUI-21: a control that can't act isn't drawn, and this walk reaches what's drawn. So every source and blade goes on and the swarms go wide first, inside the bracket the undo takes back.
+    dev.params().filter(r => /\.on$/.test(r.key)).forEach(r => dev.set(r.key, onIdx(r, true) / (r.n - 1), { label: 'self-check' })); dev.params().filter(r => /\.unison$/.test(r.key)).forEach(r => dev.set(r.key, 1, { label: 'self-check' }));
     DATA.pages.forEach(pg => { selectPage(pg.id); tick();
       [...pageEls[pg.id].querySelectorAll('[data-key]')].filter(e => !e.closest('.hd-pt') && !e.closest('#morphBench') && !e.dataset.second && ROW[e.dataset.key] && e.offsetWidth).forEach(host => { const r = ROW[host.dataset.key];   // the morph field's rows are a corner's cells, not this page's controls
         const was = dev.shown(r.key);

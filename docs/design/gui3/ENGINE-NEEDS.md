@@ -2,7 +2,7 @@
 
 The GUI session's handoff to the lead (GB8; the human, 2026-11-04: "let's make sure the main horde agent knows about any decisions we've made during the design process that will affect functionality and need to be wired in under the hood as well").
 
-**Last verified 2026-11-04, against GUI-1 to GUI-20, `specs/SPEC-ENGINE.md` and `ROADMAP.md` on main.** The GUI session keeps this current: each new ruling that needs wiring adds its row in the same PR. "Not recorded" means a search of the spec and the roadmap found nothing, so it's the lead's to place. The rows are the lead's to schedule (B616 cites this file), and nothing here is a ruling on how to build them.
+**Last verified 2026-11-04, against GUI-1 to GUI-21, `specs/SPEC-ENGINE.md` and `ROADMAP.md` on main.** The GUI session keeps this current: each new ruling that needs wiring adds its row in the same PR. "Not recorded" means a search of the spec and the roadmap found nothing, so it's the lead's to place. The rows are the lead's to schedule (B616 cites this file), and nothing here is a ruling on how to build them.
 
 **Timing (the lead, 2026-11-04).** The morph comes straight after the CPU pass, and the spec has no waypoints or region locks. If the design rests on them, they need a spec round before the builder starts the morph, and that round waits on the human's answers to the two questions under "Open for the human".
 
@@ -41,6 +41,7 @@ These are the ones nothing on the engine side knows about yet.
 | Randomize: levels, chaos and amount, locks and exemptions, copying a level between corners, deleting a snapshot, saving all four. | ADR-318, ADR-320, ADR-321, ADR-322, GUI-19 | A placeholder card | B578 |
 | History: 200 states, forks, click to restore, the pad out of history. The tree stays in the shell at stage 8, and each state holds an engine snapshot. RC-11.2 leaves corners out of that snapshot, so the tree carries them itself. | GUI-10 A1 | The tree lives in `device.js` | RC-11, `history.h` |
 | A retrigger row per modulator. | ADR-266 r7 | Switch not mounted | B584 only; RC-4 defers LFOs |
+| PA-8's conditions, machine-readable, because a control whose condition fails is no longer drawn. The shell transcribes them, so a PA-8 change now shows or hides a control. B587 says "greys"; GUI-21 hides, and the table it asks for stands. The FX modules and Arp need theirs from their own manifests (GB10). | GUI-21, ADR-319 r6 | `layout.json`'s `live_when`, reading the shown value | PA-8, B587 |
 
 ## Recorded; here so the GUI's dependence is visible
 
