@@ -363,7 +363,11 @@
   },
   "sluice-mark-styles-lab.html": {
    "status": "exploring",
-   "note": "GB11. The study behind ADR-302 rulings 1 and 2 and ADR-305, copied from its Artifact at version 1793813064-6fca. One question open: its pixel marks drop the crossing gap, against ADR-302 ruling 1, and the human hasn't ruled on that."
+   "note": "GB11. The study behind ADR-302 rulings 1 and 2, ADR-305 and GUI-23 (no crossing gap in the pixel marks), copied from its Artifact at version 1793813064-6fca."
+  },
+  "sluice-s-bend-lab.html": {
+   "status": "exploring",
+   "note": "GB11. The human: \"the lower bend on the settled S doesn't come out quite as far as the upper bend\". Measured one column short at 4 px stems; four variants bring them even; waiting on the human's pick."
   },
   "shriek-wordmark-styles-lab.html": {
    "status": "ruled",
@@ -3630,7 +3634,7 @@
    "state": "ruled",
    "superseded_by": null,
    "port_tab": "sluice",
-   "note": "The master ScreenFrame README holds only the generic TITLE slot (96 x 24) and screens.md the GBC lettering rule; neither holds this mark. Sluice has no vendored manifest, so the shell shows nothing for it. The baked assets went to Sluice (seq 63). FX device: same titles."
+   "note": "The master ScreenFrame README holds only the generic TITLE slot (96 x 24) and screens.md the GBC lettering rule; neither holds this mark. Sluice has no vendored manifest, so the shell shows nothing for it. The baked assets went to Sluice (seq 63). FX device: same titles. GUI-23 takes the crossing gap out of the pixel mark."
   },
   {
    "id": "adr305-sluice-no-icon",

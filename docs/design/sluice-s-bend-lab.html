@@ -1,0 +1,137 @@
+<!doctype html>
+<!-- sluice-s-bend-lab: does the settled S's lower bend reach as far as its upper bend? horde, 2026-11-04, row GB11. Origin: the human: "I don't like how, in the pixelated wordmark, the lower
+     bend on the settled S doesn't come out quite as far as the upper bend. It's really my only typographical issue with the design."
+
+     WHAT IS REAL. The mark's script isn't copied here: boot() fetches it from sluice-mark-styles-lab.html and changes only the two arcs of its letterS, and where the baked routes join the letter.
+     So every other letter, the coverage rule (a cell is ink when half covered) and the 4 px grid are the ruled ones (ADR-302 ruling 1), drawn without the crossing gap (GUI-23).
+     WHAT ISN'T. In a slide, the S's route meets its new ends by a straight re-join rather than a fresh search. The mark is Sluice's own, so a chosen S goes to Sluice by a brief from the lead, and
+     Sluice bakes its route. This page judges the parked word.
+     WHY ITS OWN PAGE. The study already runs 15 WebGL contexts, just under the 16 a browser usually allows, and each variant here needs one. -->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sluice S bend lab — does the lower bend reach as far as the upper?</title>
+<meta name="lab-part" content="FX"><meta name="lab-review" content="GB11 · 2026-11-04">
+<style>
+  :root { --win:#0a0c0f; --panel:#15181d; --well:#0d0f13; --line:#2a2f38; --ink:#e7e0ce; --dim:#8f8b7d; --amber:#e8a34c; --warn:#c96a5a; --mono:ui-monospace,'SF Mono',Menlo,monospace; --sans:-apple-system,'Segoe UI',system-ui,sans-serif; color-scheme:dark; }
+  html,body { background:var(--win); }
+  body { margin:0; color:var(--ink); font-family:var(--sans); padding:20px 16px 48px; -webkit-font-smoothing:antialiased; }
+  .wrap { max-width:1080px; margin:0 auto; display:flex; flex-direction:column; gap:20px; }
+  h1 { font-family:var(--mono); font-weight:500; font-size:13px; letter-spacing:.2em; text-transform:uppercase; margin:0; }
+  .tagline { color:var(--dim); font-size:13px; line-height:1.6; max-width:72ch; margin-top:6px; }
+  .bar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  button { font-family:var(--mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase; background:#1b1f26; color:var(--ink); border:1px solid #3a414d; border-radius:4px; padding:7px 12px; cursor:pointer; }
+  button:focus-visible { outline:2px solid var(--amber); outline-offset:2px; }
+  button[aria-pressed="true"] { border-color:var(--amber); color:var(--amber); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:14px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:8px; min-width:0; }
+  .card.even { border-color:var(--amber); }
+  .card h2 { font-family:var(--mono); font-size:11px; font-weight:500; letter-spacing:.14em; text-transform:uppercase; margin:0; }
+  .card p { margin:0; font-size:12.5px; color:var(--dim); line-height:1.5; }
+  .pics { display:grid; grid-template-columns:minmax(0,5fr) minmax(0,12fr); gap:10px; align-items:center; }
+  .pics canvas { display:block; width:100%; image-rendering:pixelated; image-rendering:crisp-edges; border-radius:4px; }
+  .read { font-family:var(--mono); font-size:11px; color:var(--ink); }
+  .read b { color:var(--amber); font-weight:500; }
+  .src { position:absolute; left:-9999px; top:0; visibility:hidden; }
+  pre { margin:0; font-family:var(--mono); font-size:11px; line-height:1.6; color:var(--dim); white-space:pre-wrap; }
+  #busy { font-family:var(--mono); font-size:12px; color:var(--amber); }
+</style></head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Sluice · the settled S</h1>
+    <div class="tagline">The real mark, parked, at the ruled 4 px stems without the crossing gap. Each close-up is the S alone, with the same two columns marked on every one: where the upper bend's leftmost ink lands and where the lower bend's does. A card outlined in amber has the two even.</div>
+  </header>
+  <p id="busy" role="status">Loading the mark.</p>
+  <div class="bar"><button id="slide" type="button" aria-pressed="false">Let them slide</button></div>
+  <div class="grid" id="grid"></div>
+  <div class="src" id="srcBox" aria-hidden="true"></div>
+  <section aria-label="Self-check"><pre id="selfcheck"></pre></section>
+</div>
+<script>
+// Each variant is the two arcs of letterS: the upper bowl's x radius and the lower bowl's centre, x radius and end angle. The first row of each is the ruled letter's own numbers.
+const VARIANTS = [
+  { id: 'today', name: 'As ruled', urx: .54, lcx: .6, lrx: .6, end: -142, tx: 'The letter as it stands: the lower arc stops at −142°.' },
+  { id: 'tail150', name: 'Longer tail', urx: .54, lcx: .6, lrx: .6, end: -152, tx: 'The lower arc runs on to −152°, so the tail curls further round. Its tip rises a little.' },
+  { id: 'tail158', name: 'Longer tail, more', urx: .54, lcx: .6, lrx: .6, end: -158, tx: 'The arc runs on to −158°. The tail reaches further, and starts to close the S’s lower counter.' },
+  { id: 'bowl', name: 'Fuller lower bowl', urx: .54, lcx: .56, lrx: .64, end: -142, tx: 'The tail keeps its angle, and the lower bowl grows leftward. Its right side stays where it was.' },
+  { id: 'upper', name: 'Tighter upper bowl', urx: .47, lcx: .6, lrx: .6, end: -142, tx: 'The upper bowl comes in to meet the lower one, rather than the lower going out. The S narrows at the top.' },
+];
+const GRID = { P: 14.286, rows: 28, cols: 96, SS: 8, y0: 2, h: 24 };   // the ruled 4 px title: 96 x 24 from a 96 x 28 render, as sluice-mark-styles-lab.html draws it
+const AMBER = [232, 163, 76], GROUND = [24, 8, 49];
+const states = {}, marks = [];
+let makeMark = null;
+
+// The S occupies the columns up to the first empty one after its first ink. Above its waist is the upper bend, below is the lower.
+function measure(cov) {
+  const { cols, rows, y0, h } = GRID, on = (x, y) => cov[y * cols + x] >= .5;
+  let x0 = -1, x1 = -1;
+  for (let x = 0; x < cols; x++) { let any = false; for (let y = y0; y < y0 + h; y++) if (on(x, y)) any = true; if (x0 < 0 && any) x0 = x; else if (x0 >= 0 && !any) { x1 = x; break; } }
+  if (x0 < 0 || x1 < 0) return null;
+  let top = rows, bot = 0; for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x1; x++) if (on(x, y)) { top = Math.min(top, y); bot = Math.max(bot, y); }
+  const mid = Math.floor((top + bot) / 2), left = (a, b) => { let m = cols; for (let y = a; y <= b; y++) for (let x = x0; x < x1; x++) if (on(x, y)) m = Math.min(m, x); return m; };
+  return { x0, x1, top, bot, upper: left(top, mid), lower: left(mid + 1, bot) };
+}
+function paint(g, cov, x0, y0, w, h, marks2, clipX) {
+  const img = g.createImageData(w, h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const c = cov[(y + y0) * GRID.cols + x + x0] >= .5 && (clipX === undefined || x + x0 < clipX) ? AMBER : GROUND, o = (y * w + x) * 4; img.data[o] = c[0]; img.data[o + 1] = c[1]; img.data[o + 2] = c[2]; img.data[o + 3] = 255; }
+  g.putImageData(img, 0, 0);
+  (marks2 || []).forEach(col => { g.fillStyle = 'rgba(255,255,255,.28)'; g.fillRect(col - x0, 0, 1, h); });
+}
+function buildCards() {
+  const grid = document.getElementById('grid');
+  VARIANTS.forEach(v => {
+    const c = document.createElement('article'); c.className = 'card'; c.dataset.id = v.id;
+    const h2 = document.createElement('h2'); h2.textContent = v.name;
+    const pics = document.createElement('div'); pics.className = 'pics';
+    const near = document.createElement('canvas'), word = document.createElement('canvas'); near.width = 18; near.height = 24; word.width = 96; word.height = 24;
+    near.setAttribute('aria-label', 'The S alone, ' + v.name); word.setAttribute('aria-label', 'The whole title, ' + v.name);
+    pics.append(near, word);
+    const read = document.createElement('div'); read.className = 'read'; read.textContent = 'measuring';
+    const p = document.createElement('p'); p.textContent = v.tx;
+    c.append(h2, pics, read, p); grid.append(c);
+    const src = document.createElement('canvas'); src.style.width = (GRID.cols * 2) + 'px'; src.style.height = (GRID.rows * 2) + 'px'; document.getElementById('srcBox').append(src);
+    const W = GRID.cols * GRID.SS, H = GRID.rows * GRID.SS, buf = new Uint8Array(W * H * 4), cov = new Float32Array(GRID.cols * GRID.rows), n = GRID.SS * GRID.SS;
+    const g1 = near.getContext('2d'), g2 = word.getContext('2d');
+    window.__SBEND = v;   // the patched letterS reads this while makeMark builds the word
+    marks.push(makeMark(src, '?still&fit=strip&tube=ffffff&ground=000000&pixel=' + (GRID.P * GRID.SS) + '&ss=' + GRID.SS + '&rows=' + GRID.rows + '&cols=' + GRID.cols, (gl, cv) => {
+      if (cv.width !== W || cv.height !== H) return;
+      gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, buf); cov.fill(0);
+      for (let y = 0; y < H; y++) { const dy = GRID.rows - 1 - ((y / GRID.SS) | 0); for (let x = 0; x < W; x++) if (buf[(y * W + x) * 4] > 127) cov[dy * GRID.cols + ((x / GRID.SS) | 0)] += 1; }
+      for (let i = 0; i < cov.length; i++) cov[i] /= n;
+      const m = measure(cov); if (m && !sliding) states[v.id] = m;
+      const s = states[v.id];
+      paint(g2, cov, 0, GRID.y0, 96, GRID.h);
+      if (s) { paint(g1, cov, s.x0 - 1, GRID.y0, 18, GRID.h, sliding ? [] : [s.upper, s.lower], sliding ? undefined : s.x1);   // the S alone: its neighbour would read as more S
+        const gap = s.lower - s.upper; c.classList.toggle('even', gap === 0);
+        read.innerHTML = 'upper bend column <b>' + (s.upper - s.x0) + '</b> · lower bend column <b>' + (s.lower - s.x0) + '</b> · ' + (gap === 0 ? '<b>even</b>' : gap > 0 ? 'lower is <b>' + gap + ' short</b>' : 'lower is <b>' + (-gap) + ' past</b>'); }
+    }));
+  });
+}
+let sliding = false;
+function selfCheck() {
+  const out = [], line = (ok, s) => out.push((ok ? 'OK' : 'FAILED') + ' · ' + s), t = states.today, even = VARIANTS.filter(v => states[v.id] && states[v.id].lower === states[v.id].upper);
+  line(VARIANTS.every(v => states[v.id]), 'Every variant parked and measured (' + Object.keys(states).length + ' of ' + VARIANTS.length + ').');
+  line(!!t && t.lower > t.upper, 'The ruled S shows what the human saw: its lower bend stops ' + (t ? t.lower - t.upper : '?') + ' column short of the upper (the control: a variant that changed nothing would read the same).');
+  line(even.length > 0, 'At least one variant brings them even: ' + (even.map(v => v.name).join(', ') || 'NONE') + '.');
+  return out;
+}
+(async function boot() {
+  const busy = document.getElementById('busy'); let html;
+  try { html = await (await fetch('sluice-mark-styles-lab.html')).text(); } catch (e) { busy.textContent = 'This lab fetches the mark, so open it through a local server (file:// blocks fetch).'; return; }
+  const m = /<script>\s*\/\* The mark's own script[\s\S]*?<\/script>/.exec(html);
+  if (!m) { busy.textContent = 'The study page no longer has the mark’s script where this lab looks for it.'; return; }
+  let src = m[0].replace(/^<script>/, '').replace(/<\/script>$/, '');
+  // The only changes to the mark, each checked to have landed. A parked word is the letters alone, so the routes only need to meet the new ends.
+  const swaps = [
+    ['arcSeg(p,cx,0.53,0.54,0.47,38*D2R,270*D2R);', 'const SB=SBV;arcSeg(p,cx,0.53,SB.urx,0.47,38*D2R,270*D2R);'],
+    ['arcSeg(p,cx,-0.47,0.6,0.53,90*D2R,-142*D2R);', 'arcSeg(p,SB.lcx,-0.47,SB.lrx,0.53,90*D2R,SB.end*D2R);'],
+    ['const b = BAKED.routes[i], fp = filletPoly(b.V,b.r), exc', 'const b = BAKED.routes[i], VV=b.V.map(v=>v.slice()), Q=L.pos, mm=L.m; VV[0]=[Q[mm*3],Q[mm*3+1],Q[mm*3+2]]; VV[VV.length-1]=[Q[0],Q[1],Q[2]]; const fp = filletPoly(VV,b.r), exc'],
+    ["function makeSluiceMark(CANVAS,QUERY,HOOK){", "function makeSluiceMark(CANVAS,QUERY,HOOK){const SBV=window.__SBEND;"],
+  ];
+  for (const [a, b] of swaps) { if (!src.includes(a)) { busy.textContent = 'The mark’s script changed, and this lab can’t patch: ' + a; return; } src = src.replace(a, b); }
+  makeMark = new Function(src + ';return makeSluiceMark;')();
+  buildCards();
+  const t0 = Date.now(); const wait = () => { if (VARIANTS.every(v => states[v.id]) || Date.now() - t0 > 6000) { document.getElementById('selfcheck').textContent = selfCheck().join('\n'); busy.hidden = true; } else setTimeout(wait, 100); }; wait();
+  const sl = document.getElementById('slide'); sl.addEventListener('click', () => { sliding = !sliding; sl.setAttribute('aria-pressed', String(sliding)); sl.textContent = sliding ? 'Park them' : 'Let them slide'; marks.forEach(k => { if (sliding) { k.play(); k.slideNow(); } else k.pause(); }); });
+})();
+</script>
+</body></html>
