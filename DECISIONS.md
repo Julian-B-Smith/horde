@@ -11596,3 +11596,21 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 
 **FX device (ADR-254).** Shriek is hosted there through the same slot, so the same.
 
+## GUI-25 — RULED by the human: Random gets its own top button; Ledger moves under Set (GB12; amends ADR-322 item 2; 2026-11-04)
+
+**Rulings (the human, 2026-11-04, after trying both on the real shell).**
+1. **Random is a top button.** "Its own top button." **Amends ADR-322 item 2,** which folded Random into the Morph page and removed its tab.
+2. **Ledger moves to a second tab under Set,** the condition of that option in the human's own words: "me might have to move ledger to a second tab within settings, especially since it isn't planned to be a part of the actual GUI at all".
+
+**Readings (the GUI session's, open to the human).**
+- **Only Randomize moves.** The corners and snapshots stay on the Morph page, so ADR-322's "one corner-and-snapshot UI, not two" stands. How the panel shows the corners it copies between is B578's design.
+- **Random sits right after Morph.** The bar reads Main, Osc, FX, Mod, Arp, Morph, Random, Mix, History, Set. This replaces GUI-10's reading of the bar.
+- **The panel is still the placeholder.** This places it, and designs nothing in it.
+- **Set opens on Settings.** The bar reopens a group's last page, and Ledger is only reached from its own tab.
+- **In a window under about 840 px, the preset bar is 8 px narrower.** "Random" is wider than "Ledger", and the bar stops at the tabs (GUI-22).
+
+**Consequences.** ADR-318, ADR-320, ADR-321 and ADR-322 items 1, 3 and 4 apply unchanged, to the panel on its new page. Self-check 18b holds the button, the card's move and Ledger's tab. `random-home-lab.html` is ruled, and keeps the option not taken for the record.
+
+**Engine impact (ADR-361).** None: this is where a panel and a tab sit in the window.
+
+**FX device (ADR-254).** It has one Morph page and no source levels in Randomize, so it gets the same top button and Random page. The Ledger tab isn't part of either real GUI.

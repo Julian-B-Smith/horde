@@ -3,8 +3,11 @@
      within settings, especially since it isn't planned to be a part of the actual GUI at all) or a second tab in the Morph page instead of just something down the page", then "I'd like to try out both
      options for random."
 
-     WHAT IS REAL. The frame is gui3.html itself, fetched and loaded, with one script added, labHook below, which changes only the shell's page list before it builds and hands the Randomize card to the
-     new page. So the top bar, the page tabs and the room on the page are exactly what either choice would give. Nothing here edits gui3*, layout.json or the master: a choice goes through the chain.
+     RULED 2026-11-04 (GUI-25): "Its own top button". The shell has it now, so that option is the shell untouched, which is this lab's control. The other is kept for the record. The third option this
+     lab first had, the card at the Morph page's foot, was the shell before the ruling and can't be rebuilt from the page list, so it's gone.
+
+     WHAT IS REAL. The frame is gui3.html itself, fetched and loaded, with one script added, labHook below, which changes only the shell's page list before it builds. So the top bar, the page tabs and
+     the room on the page are exactly what either choice gives. Nothing here edits gui3*, layout.json or the master.
      WHAT ISN'T. Randomize itself is still the shell's placeholder card, because the panel's design is B578's. This compares where it lives, not what's in it. -->
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Random home lab — its own top button, or a second tab on Morph</title>
@@ -29,7 +32,7 @@
 </style></head>
 <body>
 <div class="wrap">
-  <header><h1>Where Random lives</h1><div class="tagline">The real shell with its page list changed, so try each by using it: open Random, go back to Morph, and see how far it is. Randomize is still the placeholder card, because this compares where it lives and not what's in it.</div></header>
+  <header><h1>Where Random lives</h1><div class="tagline">Ruled: its own top button, and that's what the shell has now. The other option is here for the record, on the real shell with its page list changed. Randomize is still the placeholder card, because this compares where it lives and not what's in it.</div></header>
   <div class="opts" id="opts" role="group" aria-label="Where Random lives"></div>
   <p id="busy" role="status">Loading the shell.</p>
   <div class="scroller"><iframe id="frame" title="GUI 3 with this option's page list"></iframe></div>
@@ -37,23 +40,19 @@
 </div>
 <script>
 const OPTIONS = [
-  { id: 'top', nm: 'Its own top button', tx: 'Random joins the top row beside Morph, one click from anywhere. Ledger moves to a second tab in Set, since it won’t ship in the real GUI. This amends ADR-322 item 2, which folds Random into the Morph page.' },
-  { id: 'tab', nm: 'A second tab on Morph', tx: 'Morph gets a second row with Morph and Random, so the corners you’re randomizing are one tab away. Ledger stays where it is unless you move it separately. This keeps ADR-322 item 2.' },
-  { id: 'today', nm: 'Today, for comparison', tx: 'The Randomize card at the foot of the Morph page, under the bench, the field and the corners.' },
+  { id: 'top', nm: 'Its own top button (ruled)', tx: 'Random is in the top row beside Morph, one click from anywhere. Ledger is a second tab in Set, since it won’t ship in the real GUI. This is the shell as it stands (GUI-25, which amends ADR-322 item 2).' },
+  { id: 'tab', nm: 'A second tab on Morph', tx: 'Not chosen. Morph gets a second row with Morph and Random, so the corners you’re randomizing are one tab away, and Ledger stays in the top row.' },
 ];
 // Runs inside the frame, after the shell's data script and before its main script, so the shell builds the changed page list as if it were its own.
 function labHook(option) {
   var H = window.Horde, L = window.__lab = {}, D = window.GUI3_DATA;
   var PN = H.PageNav; H.PageNav = function (el, o) { if (el.id === 'pnav') L.go = function (id) { o.onChange(null, id); }; return PN(el, o); };
-  if (option === 'today') return;
-  D.pages.push({ id: 'random', label: 'Random', status: 'draft', note: 'Where the Randomize panel would live. The panel is still a placeholder (B578).', groups: [] });
+  if (option === 'top') return;
   var group = function (id) { return D.nav.filter(function (g) { return g.id === id; })[0]; };
-  if (option === 'tab') group('morph').pages.push('random');
-  else {
-    D.nav = D.nav.filter(function (g) { return g.id !== 'ledger'; });
-    group('set').pages.push('ledger');
-    D.nav.splice(D.nav.indexOf(group('morph')) + 1, 0, { id: 'random', label: 'Random', pages: ['random'] });
-  }
+  D.nav = D.nav.filter(function (g) { return g.id !== 'random'; });
+  group('morph').pages.push('random');
+  group('set').pages = ['settings'];
+  D.nav.push({ id: 'ledger', label: 'Ledger', pages: ['ledger'] });
 }
 const frameEl = document.getElementById('frame'), busy = document.getElementById('busy'), cache = { html: null };
 let current = null, token = 0;
@@ -62,10 +61,9 @@ function navOf(d) { const top = [...d.querySelectorAll('#pnav button, #pnav [rol
 function check(option, w, d) {
   const out = [], line = (ok, s) => out.push((ok ? 'OK' : 'FAILED') + ' · ' + s), L = w.__lab, card = d.getElementById('randomize'), onRandom = !!(card && card.closest('#page-random')), onMorph = !!(card && card.closest('#page-morph'));
   const seen = id => { L.go(id); return navOf(d); }, morphTabs = seen('morph'), setTabs = seen('settings');
-  if (option === 'today') { line(onMorph && !d.getElementById('page-random'), 'Today: the Randomize card is on the Morph page, and there’s no Random page. This is the control for the two below.'); L.go('morph'); return out; }
-  line(onRandom && !onMorph, 'The Randomize card has moved to its own page and left the Morph page’s foot.');
-  if (option === 'top') { line(morphTabs.includes('Random') && !morphTabs.includes('Ledger') && setTabs.includes('Ledger'), 'Random is in the top row, and Ledger has left it for a tab under Set (' + setTabs.join(', ') + ').'); L.go('random'); }
-  else { line(morphTabs.filter(t => t === 'Morph').length === 2 && morphTabs.includes('Random') && morphTabs.includes('Ledger') && !setTabs.includes('Random'), 'Morph has a second row with Morph and Random, and Ledger stays in the top row (' + morphTabs.join(', ') + ').'); L.go('morph'); }
+  line(onRandom && !onMorph, 'The Randomize card is on its own page, not at the Morph page’s foot.');
+  if (option === 'top') { line(morphTabs.includes('Random') && !morphTabs.includes('Ledger') && setTabs.includes('Ledger'), 'Random is in the top row, and Ledger is a tab under Set (' + setTabs.join(', ') + ').'); L.go('random'); }
+  else { line(morphTabs.filter(t => t === 'Morph').length === 2 && morphTabs.includes('Random') && morphTabs.includes('Ledger') && !setTabs.includes('Random'), 'Morph has a second row with Morph and Random, and Ledger is back in the top row (' + morphTabs.join(', ') + ').'); L.go('morph'); }
   return out;
 }
 async function show(id) {
@@ -80,7 +78,6 @@ async function show(id) {
   // The shell's self-checks walk every page on load and put back the one they found: wait for them to go quiet, then settle on this option's page.
   let last = -1, same = 0; const quiet = await new Promise(res => { const t0 = Date.now(), iv = setInterval(() => { if (me !== token) { clearInterval(iv); res(false); return; } const c = d.getElementById('checks'), n = c ? c.innerText.length : 0; same = n === last && n > 200 ? same + 1 : 0; last = n; if (same >= 6 || Date.now() - t0 > 30000) { clearInterval(iv); res(true); } }, 400); });
   if (!quiet) return;
-  const card = d.getElementById('randomize'), to = d.getElementById('page-random'); if (card && to) to.append(card);
   let lines; try { lines = check(id, w, d); } catch (e) { lines = ['FAILED · the self-check threw: ' + (e && e.message || e)]; }
   document.getElementById('selfcheck').textContent = lines.join('\n'); busy.hidden = true;
 }

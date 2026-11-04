@@ -4,7 +4,7 @@
      the design doc so there isn't redundancy) which connects all the wires without running the audio engine through it?"
      Ruled by poll: "GUI 3's prototype, starting now" (ADR-316, amending B302's gate).
 
-     WHAT THIS IS. One wired shell: twelve pages (the Random page folded into Morph, ADR-322; a draft Arp page, ADR-330),
+     WHAT THIS IS. One wired shell: sixteen pages (Random on its own page, GUI-25; a draft Arp page, ADR-330),
      every parameter that has a machine-readable manifest (the engine's, the morph's settings, the FX modules', Arp's)
      reachable, no audio, and a bottom modulator bank on every page (B556).
        - Components come from the design system's vendored bundle only (arp-face/, B553). This file's <style> places
@@ -98,7 +98,7 @@
   /* GUI-6 and GUI-8 r7: the preset bar in the top row and the colours in the second, both in the room the page tabs leave on every page (the lens lab measured all 14) */
   .chrome { position: relative; }
   /* GUI-22: both rows hang from the window's right edge, so nothing in them can slide under anything else as the window resizes. */
-  #presetHost { position: absolute; left: max(612px, calc(100% - 218px)); right: 0; top: 3px; z-index: 8; }   /* it stops at the page tabs and narrows, rather than sliding over them */
+  #presetHost { position: absolute; left: max(620px, calc(100% - 218px)); right: 0; top: 3px; z-index: 8; }   /* it stops at the page tabs and narrows, rather than sliding over them */
   #colourHost { position: absolute; left: max(436px, calc(100% - 348px)); right: 196px; top: 32px; height: 22px; display: flex; align-items: center; gap: 4px; z-index: 7; }
   #colourHost .hd-btn { min-height: 20px; padding: 0 6px; font-size: 10px; }
   #colourHost #scrTop { flex: 1 1 auto; min-width: 0; }
@@ -653,8 +653,7 @@ function morphPanel() {
   } });
   return h('div', { class: 'cards' },
     card('Corners', 'SNAPSHOTS', [chips, h('div', { class: 'hd-row' }, snapBtn, snapTo), h('div', { class: 'hd-row' }, presetBs),
-      h('span', { class: 'hd-hint', text: 'Save current sound: what you hear now becomes the selected corner, under a preset name. Save preset to a corner: that corner’s own values become its saved preset (the edited mark and revert compare against it). With morph off only the audible corner (Audible corner, above) sounds and takes edits; the other three are frozen.' })]),
-    randomizePlaceholder());
+      h('span', { class: 'hd-hint', text: 'Save current sound: what you hear now becomes the selected corner, under a preset name. Save preset to a corner: that corner’s own values become its saved preset (the edited mark and revert compare against it). With morph off only the audible corner (Audible corner, above) sounds and takes edits; the other three are frozen.' })]));
 }
 /* GUI-19: the Morph page's bench. Its own larger pad, with the selected row's regions painted on it (QuantumPad), and the morph
    field, all the master's parts. They read the DEVICE: its corners, its owner, its region locks, its undo. The master's morph layer
@@ -741,11 +740,11 @@ function morphBench() {
   } };
   return root;
 }
-// The Randomize panel's place on the one Morph page (ADR-322 item 2): a placeholder until its build. The Random lab
-// stays the research bench (ADR-316), and is linked from here.
+// The Randomize panel, on the Random page (GUI-25): a placeholder until its build. The corners and snapshots stay on the
+// Morph page, so there's still one corner-and-snapshot UI (ADR-322 item 2). The Random lab stays the research bench (ADR-316), and is linked from here.
 function randomizePlaceholder() {
   const el = card('Randomize', 'PLACEHOLDER', [
-    h('span', { class: 'hd-note', text: 'The Random page folds in here (ADR-322 item 2). To come: the levels with their architecture and parameter draws, chaos (the next draw’s bounds) and amount (ADR-318), locks and the default exemptions (scale, root, octave and semitone offsets, master tune; ADR-321), randomization presets as full profiles and rule collections (ADR-318, ADR-320), copying a level between corners, architecture and parameters separately (ADR-322 item 1), a minimal pitch ruleset and arp randomization (ADR-321).' }),
+    h('span', { class: 'hd-note', text: 'To come: the levels with their architecture and parameter draws, chaos (the next draw’s bounds) and amount (ADR-318), locks and the default exemptions (scale, root, octave and semitone offsets, master tune; ADR-321), randomization presets as full profiles and rule collections (ADR-318, ADR-320), copying a level between corners, architecture and parameters separately (ADR-322 item 1), a minimal pitch ruleset and arp randomization (ADR-321).' }),
     h('a', { class: 'hd-btn hd-focus', href: 'random-lab.html', text: 'Open the Random lab (the bench)' })]);
   el.classList.add('wide'); el.id = 'randomize';
   return el;
@@ -1399,7 +1398,7 @@ function classicPage(pg, el) {
   if (pg.groups.length) el.append(cards);
 }
 const nav = H.PageNav($('pnav'), { label: 'Page groups', panel: 'pages', keys: () => S.keys,
-  groups: SH.navGroups(NAV, PG, isOnKey),   // a one-page group names its page, so the Set tab opens Settings (shell-logic.js)
+  groups: SH.navGroups(NAV, PG, isOnKey),   // a one-page group names its page (shell-logic.js)
   onChange: (group, pid) => selectPage(pid) });
 DATA.pages.forEach(pg => {
   const el = h('section', { class: 'page', id: 'page-' + pg.id, role: 'tabpanel', 'aria-label': pg.label, hidden: true });
@@ -1413,6 +1412,7 @@ DATA.pages.forEach(pg => {
     const conds = Object.fromEntries(pg.groups.flatMap(g => g.controls).map(c => [c.key, c.live]));
     views.push({ page: pg.id, update() { el.querySelectorAll('[data-key]').forEach(e => { if (e.dataset.key in conds) e.classList.toggle('idle', !live(conds[e.dataset.key])); }); } }); }
   else if (pg.panel === 'ledger') ledgerPage(pg, el);
+  else if (pg.panel === 'random') el.append(h('div', { class: 'cards' }, randomizePlaceholder()));
   else if (pg.panel === 'history') historyPage(pg, el);
   else if (pg.id === 'mod') modPageForm(pg, el);       // ADR-338 r8 (half A); every other parameter page is a grid (half B)
   else if (pg.deck) mainPage(pg, el);
@@ -2107,9 +2107,17 @@ S.start();
   }
   // 18. The Set tab opens the Settings page: its group is `set` and its page `settings` (slice 5 found the click opened nothing).
   { const pg0 = page, setTab = [...$('pnav').querySelectorAll('.pn-g')].find(b => b.textContent === 'Set');
-    setTab.click(); const opened = page === 'settings' && !pageEls.settings.hidden && pageEls.main.hidden;
+    // The page bar reopens a group's last page, and the walks above left Set's on Ledger (GUI-25), so this says which page the click comes back to.
+    selectPage('settings'); selectPage('main'); setTab.click(); const at = page, opened = at === 'settings' && !pageEls.settings.hidden && pageEls.main.hidden;
     selectPage(pg0);
-    line(opened, 'Set tab: a click on Set opened the Settings page (page ' + (opened ? 'settings' : page) + '); Main is hidden then (control).'); }
+    line(opened, 'Set tab: a click on Set opened the Settings page (page ' + at + '); Main is hidden then (control).'); }
+  // 18b. GUI-25: Random is a top button that opens its own page, and the Randomize card is there and not on Morph; Ledger left the top row for a tab under Set.
+  { const pg0 = page, tabs = () => [...$('pnav').querySelectorAll('.pn-g')].map(b => b.textContent), top = tabs();
+    const randomTab = [...$('pnav').querySelectorAll('.pn-g')].find(b => b.textContent === 'Random'); if (randomTab) randomTab.click();   // missing, this reads as a failed line: the Random home lab rebuilds the bar without it, and a throw here would stop the shell
+    const opened = page === 'random' && !pageEls.random.hidden && pageEls.morph.hidden, card = $('randomize'), inRandom = !!(card && card.closest('#page-random')), inMorph = !!(card && card.closest('#page-morph'));
+    selectPage('ledger'); const underSet = groupOf.ledger === 'set' && !pageEls.ledger.hidden;
+    selectPage(pg0);
+    line(opened && inRandom && !inMorph && top.indexOf('Random') === top.indexOf('Morph') + 1 && !top.includes('Ledger') && underSet, 'Random (GUI-25): the top row reads ' + top.join(', ') + '; a click on Random opened its page with the Randomize card, which has left the Morph page; Ledger opens as a tab under Set.'); }
   // 19. ADR-333: an Envelope section's readout names the envelope its source FOLLOWS: with Osc 1 on ENV 3, ENV 3's attack, and
   // when ENV 3's attack moves the readout moves; ENV 1's attack, the first block's, does not move it.
   { const fg = DATA.pages.find(p => p.id === 'osc1').groups.find(g => g.follow), fsel = ROW[fg.follow.selector], sec = pageEls.osc1.querySelector('section[aria-label^="Osc 1 · Envelope"]');
@@ -2611,7 +2619,9 @@ S.start();
 
 // ===== BLOCK I: go. A link can open a page, and morph on with the corners scattered: gui3.html#noise or #noise,morph =====
 // `,bank` maps ENV 2 to the page's first two continuous controls and leaves ENV 3 pending, so the bank has cards to show.
-{ const [pg, ...flags] = location.hash.slice(1).split(','); selectPage(pageEls[pg] ? pg : 'dashboard');
+// The self-checks walked every page, and the page bar reopens a group's last one: Set opens on Settings, not on the Ledger that came last in the walk (GUI-25).
+{ selectPage('settings');
+  const [pg, ...flags] = location.hash.slice(1).split(','); selectPage(pageEls[pg] ? pg : 'dashboard');
   if (flags.includes('light') || flags.includes('dark')) { document.documentElement.dataset.theme = flags.includes('dark') ? 'dark' : 'light'; $('themeBtn').setAttribute('aria-pressed', String(flags.includes('dark'))); }
   if (flags.includes('win')) document.body.classList.add('win-only');
   { const f = flags.find(x => x.startsWith('scale=')); if (f) { const v = f.slice(6); setSize('scale', v === 'fit' ? 'fit' : +v / 100); } }

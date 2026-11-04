@@ -3215,6 +3215,15 @@
       "grid": true
     },
     {
+      "id": "random",
+      "label": "Random",
+      "status": "draft",
+      "panel": "random",
+      "note": "Randomize, on a page of its own (GUI-25, which amends ADR-322 item 2). The panel is still a placeholder (B578); the corners and snapshots stay on the Morph page.",
+      "cite": "GUI-25, ADR-322, B578",
+      "groups": []
+    },
+    {
       "id": "mix",
       "label": "Mix",
       "status": "designed",
@@ -3893,6 +3902,13 @@
       ]
     },
     {
+      "id": "random",
+      "label": "Random",
+      "pages": [
+        "random"
+      ]
+    },
+    {
       "id": "mix",
       "label": "Mix",
       "pages": [
@@ -3910,13 +3926,7 @@
       "id": "set",
       "label": "Set",
       "pages": [
-        "settings"
-      ]
-    },
-    {
-      "id": "ledger",
-      "label": "Ledger",
-      "pages": [
+        "settings",
         "ledger"
       ]
     }

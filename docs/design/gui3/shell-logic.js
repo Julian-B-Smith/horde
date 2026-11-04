@@ -2,8 +2,8 @@
    check can run them (tools/labharness/gui3_seam_check.mjs loads this beside the design system's bundle, on a fake DOM).
    horde, 2026-10-30 (ROADMAP B584 slices 6 and 7; ADR-261, ADR-333, ADR-335); the keys and Escape moved to the session 2026-11-01 (ADR-338 r11).
      navGroups        the page bar's groups for the bundle's Page nav. A one-page group is given its page explicitly: left
-                      to the bundle, a group whose id differs from its page's (Set, whose page is `settings`) asks the
-                      shell for a page named after the group, which does not exist, and the click opens nothing.
+                      to the bundle, a group whose id differs from its page's (Set, when `settings` was its only page) asks
+                      the shell for a page named after the group, which does not exist, and the click opens nothing.
      followedSummary  the readout a source's Envelope section shows: the attack and decay of the envelope the source
                       FOLLOWS (its `env` row), not of the first block.
      attachMap        MAP MODE (the Map Mode spec). The bundle's session edits a working list of mappings in place; this

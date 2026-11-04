@@ -93,7 +93,7 @@
  *   mappage      a page change keeps MAP and the source: one session, and the page switch never touches it (structural; the
  *                shell's own self-check clicks it); the control is mounted in the top bar, outside the page area
  *   maprefused   a knob no route can reach (a morph setting) makes no route, no ring, and the refusal is said (RC-4)
- *   settab       a click on every page-bar group's tab opens a page that exists (the Set tab's group is `set`, its page `settings`)
+ *   settab       a click on every page-bar group's tab opens a page that exists, and so does a constructed one-page group whose id differs from its page
  *   envsummary   an oscillator section's readout names the envelope its source follows (its own `env` row), not the first block
  *   abbr         ADR-338 ruling 10, the hop's data (half B): every control of a page marked `grid` that is not a header's power or
  *                modes has an abbreviation of 1 to 4 characters, unique in its section (a followed envelope's blocks each on their
@@ -856,7 +856,7 @@ function suite(W) {
     ok(/RC-4/.test(S.message), 'the refusal was not said (' + S.message + ')');
   };
 
-  /* The Set tab: its group is `set` and its page `settings`; a click on any group's tab must open a page that exists. */
+  /* A click on any group's tab must open a page that exists, including a one-page group whose id differs from its page (Set's fault in slice 5). */
   T.settab = () => {
     const PG = Object.fromEntries(DATA.pages.map(p => [p.id, p])), opened = [];
     const host = new El('div'), groups = W.GUI3Shell.navGroups(DATA.nav, PG, () => false);
@@ -868,6 +868,12 @@ function suite(W) {
       tabs.find(t => t.textContent === g.label).fire('click');
       ok(opened.length === 1 && g.pages.includes(opened[0][1]) && PG[opened[0][1]], 'the ' + g.label + ' tab opens ' + JSON.stringify(opened) + ', not one of its pages ' + g.pages.join(', '));
     }
+    // Since GUI-25 Set has two pages, so no real group has one page under a different id. This group is constructed to keep that fault in view:
+    // left to the bundle, its click asks for a page named `set`, which doesn't exist.
+    const lone = new El('div'), got = [];
+    W.Horde.PageNav(lone, { label: 'Page groups', panel: 'pages', keys: () => false, groups: W.GUI3Shell.navGroups([{ id: 'main', label: 'Main', pages: ['main'] }, { id: 'set', label: 'Set', pages: ['settings'] }], PG, () => false), onChange: (g, pid) => got.push(pid) });
+    lone.all(x => x.className.split(' ').includes('pn-g')).find(t => t.textContent === 'Set').fire('click');
+    ok(got.length === 1 && got[0] === 'settings', 'a one-page group whose id differs from its page opens ' + JSON.stringify(got) + ', not settings');
   };
 
   /* An oscillator section's readout names the envelope its source FOLLOWS (RC-6.5): for each source its own `env` row's pick. */
