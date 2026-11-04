@@ -372,7 +372,7 @@
   "shriek-wordmark-styles-lab.html": {
    "status": "ruled",
    "adr": "ADR-302",
-   "note": "GB11. The study behind ADR-302 rulings 3 and 4, copied from its Artifact at version 1793204183-5a81."
+   "note": "GB11. The study behind ADR-302 rulings 3 and 4, copied from its Artifact at version 1793204183-5a81. The automaton's code is cleared to be public (the human, 2026-11-04: 'Yes, it can go public')."
   },
   "spectra-lab.html": {
    "status": "retired",

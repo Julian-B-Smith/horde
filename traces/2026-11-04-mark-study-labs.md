@@ -8,4 +8,6 @@ New `docs/design/sluice-s-bend-lab.html`: the real mark with four variants of th
 
 **Evidence consulted.** ADR-302 and ADR-305 in `DECISIONS.md`. Both pages read in full before they left a private Artifact for a public repo; a scan for machine paths, names, emails and network calls, and the embedded PNGs' chunks (IHDR, IDAT and IEND only, so no metadata). `tools/license_inventory.json`, which already covers lab pages loading fonts at run time.
 
+**Clearance.** Sluice's mark is cleared by Sluice's response (D-192, section 4). Shriek's automaton had no such record, so it was asked: the human, 2026-11-04: "Yes, it can go public".
+
 **Verify.** `./verify fast`, on the commit this trace ships in. Both pages opened in a browser.
