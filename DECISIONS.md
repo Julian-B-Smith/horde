@@ -11566,3 +11566,14 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 **A critic reviewed the law text twice.** Taken from its second review: the "more entries are allowed" sentence is gone, and the same-mean claim is limited to non-noise shapes. Left open: `modX`'s starting value is in no table (VO-6) and IF-10 doesn't expose the estimate. Both predate this round, so they go to the test author as questions under B618.
 
 **FX device (ADR-254):** none. It hosts no engine.
+
+## ADR-363 — RULED by the human: FM free's modulator start and what tests can read; spec round 56; item 7.10 as a guard; a DC-blocker trial for pitch FM (B613, B618, B621; 2026-11-04)
+
+**Context.** Writing round 55's tests, the test author raised three questions from its engine-free model (`QUESTIONS.md`, Q-TA-70, 71, 72). The human ruled all three on the lead's poll, each on the lead's recommendation.
+
+**Rulings.**
+1. **Q-TA-70, "Yes, write them in".** FM free's modulator starts at phase 0 at a voice's fresh start. Before a blade's first entry, θ is where it would have entered: its phase less mEff·e. IF-10 gains C.16's estimate and subtracted value per member, and θ per FM free blade. These are read-only. The lead read a scratch copy of the engine and believes this states what it already does, so no sound should change. The builder's first run checks that.
+2. **Q-TA-72, "Accept as a guard".** Item 7.10 goes in at its 5 dB tolerance. It reads hard steps inside a taper by QS-1's method, so it measures aliasing rather than a click. Raw steps read 8 to 56 dB below the law, but a modulator held across the taper reads only 4.6 to 5.5 dB low on FM reset and no different on FM free. So B613's click stays on the human's listening list.
+3. **Q-TA-71, "Try the DC blocker".** By the law BL-19 can't hold for FM free in pitch FM: each reading starts `acc` at 0 while the sounding one runs free. On one member the test author's model reads 95 of 144 cases over 0.003, up to 0.046; Two FM voices' blade 2 alone reads 0.0045 and Wobble jaw's 0.0009. **Nothing changes yet:** the lead tries C.16's existing 8 Hz blocker on this case in scratch and brings the human the result and clips (B621). BL-19 stands until then.
+
+**FX device (ADR-254):** none. It hosts no engine.

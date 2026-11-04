@@ -6968,6 +6968,10 @@
   {
    "adr": "ADR-362",
    "reason": "How the engine times one DC estimate: no control or design element."
+  },
+  {
+   "adr": "ADR-363",
+   "reason": "The modulator's starting phase, two read-only observation fields and a test: no control or design element."
   }
  ],
  "engine_impact": {
