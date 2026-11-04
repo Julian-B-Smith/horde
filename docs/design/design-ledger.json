@@ -10,6 +10,10 @@
  },
  "master_versions": [
   {
+   "version": "1793745705-bf68",
+   "evidence": "docs/design/gui3.html self-checks 4i and 4j: GUI-13, ADR-121. The Lens's empty state, the Specimen's ground and watch()'s scheme."
+  },
+  {
    "version": "1793733325-2f69",
    "evidence": "docs/design/gui3.html self-checks 4g and 4h, gui3_seam_check's arpface: GUI-11, GUI-12. PicturePicker and ArpViz are new."
   },
@@ -5668,6 +5672,21 @@
    "shell": null,
    "state": "ruled",
    "superseded_by": null
+  },
+  {
+   "id": "gui13-lens-click-off",
+   "adr": "GUI-13",
+   "clause": "the ruling (a click off a parameter takes it out of the Lens)",
+   "port_tab": null,
+   "note": "The shell clears the selection and passes the Lens no fallback. The Lens's empty state is the master's.",
+   "component": "Lens",
+   "bundle": "Lens",
+   "shell": "docs/design/gui3.html: // GUI-13: a press off a parameter clears the selection",
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "in-shell",
+   "master_version": "1793745705-bf68"
   }
  ],
  "not_design": [

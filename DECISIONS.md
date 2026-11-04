@@ -11313,3 +11313,17 @@ Three points stayed open, because the shell already marks a knob selected the mo
 **FX device (ADR-254).** All three apply: it hosts the same rack and modules.
 
 **Consequences.** Sluice builds Q-080 on seq 78. B612 carries the shell's part. Bulwark's, Shriek's and Scape's replies on state budgets, and Shriek's on latency at load, are committed with this record.
+
+## GUI-13 — RULED by the human: a click off a parameter takes it out of the Lens (B589; amends GUI-8 r1's reading; ADR-338 r5; 2026-11-03)
+
+**Context.** The human, 2026-11-03: "I think clicking off of a parameter should remove it from the lens." The Lens kept the last control clicked until another took its place, and with nothing selected it showed a fixed parameter from Main (the shell's `fallback`).
+
+**Ruling.** A click off a parameter clears the selection, so the Lens empties.
+
+**Readings taken (the GUI session's, open to the human).**
+- **The Lens shows "Nothing selected" when empty.** The fixed parameter is gone from the shell too, because showing Detune on the Mix page after you clicked off would not be removing anything. Hovering still shows whatever is under the pointer.
+- **A click inside what reads the selection keeps it:** the Lens, the info box, the inspectors and the Morph page's region panels. Otherwise using them would close them.
+- **Not under MAP,** where the selection is what the map keys act on.
+- **Only the left button.** The control's selected highlight clears with it.
+
+**Consequences.** Self-check 4i, with its controls. **Also in this change, a bug and not a ruling (ADR-121, "every glass, well, the XY pad and the Specimen" follow the scheme; the human, 2026-11-03: "not all screens follow the screen color selection"):** the shell's pictures that draw only on a change counted the theme but not the scheme, the Specimen read its ground from the page root and not from the window that holds the scheme, and the master's `watch` didn't look below the root for `data-scr`. Self-check 4j walks every screen on every page. **FX device (ADR-254):** the same, on its pages.
