@@ -175,3 +175,18 @@ Scratch tree, not PF-3, not the builder's engine, machine load 3 to 6, heights i
 **The evidence.** The predictions were fixed before any run, and the block pattern and point counts matched (Jitter swarm exactly, Crunch horde 2.4 % under). Switching the estimate off, for timing only, takes the three to 0.24 to 0.29 on a chord and held, best repeats. A sine modulator keeps the spike, so noise isn't the cause; FM reset removes it, which points to the 32 starts. Repeat 1 matches repeats 2 and 3, and a warm chord matches the cold one, so lazy statics and first touches aren't the cause. Plants: a 6 ms spin read in CPU and wall at its block only, a 6 ms sleep in wall only, and a planted estimate at its block only. The plain saw read 0 points in every block.
 
 **Limits.** The estimate is about 40 % of these patches' average at the combined set. Larger buffers are inferred from summing blocks, no host was tested: at 256 samples Crunch horde's chord is still about 1.2, and at 512 everything at the combined set is under 1. Nothing was heard, and the candidate fix (spreading the 32 starts over grid steps) hasn't been built.
+
+## The click's fix, official (2026-11-04)
+
+PF-3 on Glass horde pad, 8 voices, builder's `02aa43f`, 293 of 295, figures reported in `cab1c83`, not pushed. The lead's clean-export rerun is still to come.
+
+| Run | 5442272 | Batch `f1ca0ba` | Fix `02aa43f` |
+|---|---|---|---|
+| `pf1 pf9 sanity`, 44.1 / 48 kHz | 218.63 / 213.61 % | 96.29 / 101.77 % | 94.78 / 99.61 % |
+| `pf1` alone, one straight after the other | | 96.29 / 99.61 % | 91.94 / 99.24 % |
+
+PF-9 at 8, 16, 64 voices: batch 96.55, 212.23, 6519.86; fix 93.71, 207.01, 6755.87. The batch alone has read 92.10 to 96.29 %, and one binary moves about 4.5 % between runs for a reason nobody knows, so PF-1 can't read a change that small yet. The fix's run was noisy: calibration 0.103 to 0.178 s, the guard waited 41 times, a busiest other process up to 2.62 cores, part of that probably the lead's browser tests. The guard refused all 16 attempts between 03:45 and 07:04 while `suggestd` held a core; that process calmed by itself.
+
+## FM free's 8-entry estimate, scratch (2026-11-04)
+
+Ruled in ADR-362, which carries the figures. Not PF-3, without the click fix. Glass horde pad has no FM free and isn't touched.

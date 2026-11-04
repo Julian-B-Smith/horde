@@ -11530,6 +11530,53 @@ Three points stayed open, because the shell already marks a knob selected the mo
 
 **FX device (ADR-254).** Both modules are hosted there through the same slots, and GB15's answer applies to every screen style there too.
 
+## ADR-361 — RULED by the human: GUI rulings state their engine impact, and a check holds it (B617; 2026-11-04)
+
+**Context.** The human, 2026-11-04: "I want to make sure that if any changes are made while I'm building the GUI which affect functionality, you have visibility on them and can accommodate those changes without any source of truth collisions." ADR-336 and ADR-346 separate who writes what and stop number clashes, and `gen_gui3_controls` catches a changed parameter table. But the rule that a GUI ruling adds a row to `docs/design/gui3/ENGINE-NEEDS.md` lived only in the GUI session's memory, no check read that file, and its first version found 13 needs the engine side had no record of.
+
+**Ruling (the human: "yes, set it up").**
+1. **One truth for behaviour.** `specs/SPEC-ENGINE.md` alone decides how the engine behaves. A GUI ruling decides how something looks and feels. If it needs new behaviour, it is a request until a spec round adopts it, and the shell shows it as mock until then.
+2. **Numbered needs.** Each row in `ENGINE-NEEDS.md` has a stable ID, `GN-n`. The GUI session is that file's only writer. The lead schedules by citing GN IDs in its own ROADMAP rows.
+3. **Every GUI ruling states its impact.** `design-ledger.json` has `engine_impact`, one entry per `GUI-n`: the GN IDs, or `none: ` with the reason.
+4. **A check.** `tools/engine_needs_check.py`, wired into `./verify fast` under ADR-180 §1, fails on a missing entry, a dangling ID or a disagreement in either direction, and prints how many GN IDs no ROADMAP row cites yet. That count reports and never fails. A GN row may cite an ADR rather than a GUI-n (GN-23 cites only ADR-266 r7).
+5. **Each side tells the other.** The GUI session tells the lead when a row changes what must be scheduled. The lead tells the GUI session when a spec round changes something a need rests on.
+
+**The limit.** A behaviour change made with no ruling isn't caught, and `none:` is a judgement the check can't test. The human knows the first.
+
+**Consequences.** The GUI session's half landed on #1373. The rule's line in `docs/design/CLAUDE.md` waits on the human's word to that session. **FX device (ADR-254):** the same list and check cover what the FX device needs from the rack.
+
+## ADR-362 — RULED by the human: FM free reads 8 entries afresh, one when they barely move; spec round 55; the test author reopens (B614, B618; 2026-11-04)
+
+**Context.** C.16's estimate for FM free read 32 entries of the modulator in one go, for many members in one block, and overruns single blocks (B614). The lead's scratch trial failed on sound as first briefed (an even spread aliased at FM bell's rate 3.5, and sweeps trailed). A ring with a refill then passed the bank, and the human ruled it, with the whole-number saving, by poll: "With refill + whole"; and "Reopen it" for the test author.
+
+**Why that ruling was replaced.** A critic sent the first spec wording back: its limit couldn't be tested and had no instant to be judged at. Rewriting it as an output limit, the lead then tested hard settings no preset uses. Forcing the FM free blade to a phase-FM sine at a large correction (Two FM voices, cut 3, width 0.5, depth 2), the ring's slices lag a slow beat: at rate 3.01 and unison 9 a 10 ms difference from the 32-entry reading of 0.112 against BL-19's bound of 0.00395. The lead's first guess at a fix, spreading the slices, did nothing. Reading 8 entries afresh every estimate, keeping nothing, cost the same walks and read better on most rows; at rates 3.333 and 2.37 its 10 ms figure reads worse than the ring's, while its one-second figure stays under the bound on all of them. The human, on the lead's poll: "Simpler version". **So the ruled law has no ring and no limit, and SW-15 and BL-19 don't change.**
+
+**The human on listening.** "can't say I hear any difference between the three samples on any preset." Those three were today, the even-spread try and the ring, not this version. Nearly all of each difference sits below 20 Hz (the lead's band split), so ears couldn't separate them and this ruling rests on the measurements. Nobody has heard this version's clips.
+
+**What changes.** C.16: 8 entries at j = 13k mod 32, afresh at each estimate; one reading at Δ = 0 for any shape, and at θ + 15.5·d for a non-noise shape with |d| below 1/496; a pair walks once per j, each FM free blade at its own entry. Each reading starts pitch FM's accumulator at 0, and noise keys are the whole parts of the positions: these two state what the engine already does. No gate moves.
+
+**Evidence, scratch, without the click fix, none of it PF-3.** Share of a 128-sample block, cycles at an assumed 4.05 GHz on performance-core blocks, today then this version: Crunch horde chord start 2.0 then 0.8, worst held 1.3 to 1.6 then 0.54; Jitter swarm 1.25 then 0.29, held 1.2 then 0.26; Two FM voices 1.0 to 1.5 then 0.52, held 1.1 to 1.5 then 0.52. Under heavy load from other sessions (load average 12 to 19), so thread CPU is unusable for this pass. Bank of 83: 75 bit-identical to today (FM bell is now one of them), the other 8 at −37.9 to −72.8 dB, the 10 ms difference at most 0.47 of BL-19's bound, at or above 20 Hz −84.7 dBFS at most. Hard rows at rates 3.0 to 4.25 and unison 1 and 9: one-second difference at most 1.4e-3 against the bound of 3.95e-3, and exactly 0 at rates 3.0, 3.125, 3.25, 3.5 and 4.25 with settled values.
+
+The whole suite on this version: 295 items, the same two failing as the unpatched build (3 bank, 9 bank), 4.4 and QS-6 ok.
+
+**What it doesn't fix.** On those hard rows the 10 ms difference still exceeds the bound at non-dyadic rates: up to 2.8e-2 at rate 3.01 and unison 9. That's a slow offset of a kind BL-19 doesn't judge per 10 ms, on settings no preset uses, unheard. Moving values at a note's start (the lead's first pass set them there) read up to 5e-2 for about 50 ms on the ring, and was not rerun on this version. Noise shapes at a rate near a whole number and Glass horde pad aren't touched: Glass has no FM free, so the official 94.78 % doesn't move from this. The whole-number row reads exactly only if a host value lands there, so the near-whole reading is what most knob settings get.
+
+**The suite can't see the risk.** With no correction at all at the note start, item 00, item 04 and item 04 bank pass; with one reading forced at every rate, item 00 and item 04 pass. The bank null and the lead's plants do fire. So the test author is reopened, by the human's word, and its first new work is B618. No builder number goes to it (ADR-247).
+
+**A critic reviewed the law text twice.** Taken from its second review: the "more entries are allowed" sentence is gone, and the same-mean claim is limited to non-noise shapes. Left open: `modX`'s starting value is in no table (VO-6) and IF-10 doesn't expose the estimate. Both predate this round, so they go to the test author as questions under B618.
+
+**FX device (ADR-254):** none. It hosts no engine.
+
+## ADR-363 — RULED by the human: FM free's modulator start and what tests can read; spec round 56; item 7.10 as a guard; a DC-blocker trial for pitch FM (B613, B618, B621; 2026-11-04)
+
+**Context.** Writing round 55's tests, the test author raised three questions from its engine-free model (`QUESTIONS.md`, Q-TA-70, 71, 72). The human ruled all three on the lead's poll, each on the lead's recommendation.
+
+**Rulings.**
+1. **Q-TA-70, "Yes, write them in".** FM free's modulator starts at phase 0 at a voice's fresh start. Before a blade's first entry, θ is where it would have entered: its phase less mEff·e. IF-10 gains C.16's estimate and subtracted value per member, and θ per FM free blade. These are read-only. The lead read a scratch copy of the engine and believes this states what it already does, so no sound should change. The builder's first run checks that.
+2. **Q-TA-72, "Accept as a guard".** Item 7.10 goes in at its 5 dB tolerance. It reads hard steps inside a taper by QS-1's method, so it measures aliasing rather than a click. Raw steps read 8 to 56 dB below the law, but a modulator held across the taper reads only 4.6 to 5.5 dB low on FM reset and no different on FM free. So B613's click stays on the human's listening list.
+3. **Q-TA-71, "Try the DC blocker".** By the law BL-19 can't hold for FM free in pitch FM: each reading starts `acc` at 0 while the sounding one runs free. On one member the test author's model reads 95 of 144 cases over 0.003, up to 0.046; Two FM voices' blade 2 alone reads 0.0045 and Wobble jaw's 0.0009. **Nothing changes yet:** the lead tries C.16's existing 8 Hz blocker on this case in scratch and brings the human the result and clips (B621). BL-19 stands until then.
+
+**FX device (ADR-254):** none. It hosts no engine.
 **GUI-23 A1 — the S (the human, 2026-11-04: "Longer tail").** The lower arc of the settled S runs on to −152° from −142°, so its bend reaches the same column as the upper bend at 4 px stems, where it stopped one short. The brief to Sluice is the lead's, and Sluice re-bakes the S's route.
 
 **GUI-23 A2 — the U and the I (the human, 2026-11-04: "Can we make the U a hair wider or narrower instead, so both sides look like this?", then "the I also needs to become symmetrical").** On the pixel grid at 4 px stems: the U's radius goes from .60 to .63, with its right arm held still, so the left arm mirrors the right cell for cell and the letters after it don't move. The I moves right by .04, about a quarter of a cell, keeping its four columns. Measured on the real mark: the U from 5 lopsided cells to 0, the I from 2 to 0. The brief to Sluice is the lead's, and Sluice re-bakes both letters' routes.
