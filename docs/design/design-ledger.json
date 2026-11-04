@@ -119,7 +119,7 @@
   },
   "compact-mixer-lab.html": {
    "status": "exploring",
-   "note": "GB1: the fader on the level meter. The human asked (2026-11-02) and rules by poll."
+   "note": "GB1 and GUI-14: one console for the whole chain (C1), with the flow picture in its box, a solo on every stage and a bypass on every FX module. M0 to M4 stay to compare."
   },
   "composed-engine-check.html": {
    "status": "exploring",
@@ -5691,6 +5691,51 @@
    "superseded_by": null,
    "state": "in-shell",
    "master_version": "1793745705-bf68"
+  },
+  {
+   "id": "gui14-one-console",
+   "adr": "GUI-14",
+   "clause": "rulings 1, 2 and 6 (one console, upright; the chain's picture in its box, each node over its strip; a clearer name for Engine)",
+   "port_tab": "gain-staging",
+   "note": "Lab C1. Ruling 2 was \"maybe we try\" and the word for Engine is the human's: both wait on the human's look. Master, vendor and shell follow.",
+   "lab": "docs/design/compact-mixer-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null
+  },
+  {
+   "id": "gui14-solo-bypass",
+   "adr": "GUI-14",
+   "clause": "rulings 3 and 4 (a bypass on every FX module; a solo on every stage)",
+   "port_tab": "gain-staging",
+   "note": "Lab C1 draws both on mock state. The engine has neither a slot bypass key nor a solo tap: noted on GB1 for the lead.",
+   "lab": "docs/design/compact-mixer-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null
+  },
+  {
+   "id": "gui14-flow-picture",
+   "adr": "GUI-14",
+   "clause": "ruling 5 (the picture follows the signal flow)",
+   "port_tab": "gain-staging",
+   "note": "Lab C1 draws it from a mock flow. The real one waits on the filter routing rows (X13, RC-1) and the rack's cable state (IF-10).",
+   "lab": "docs/design/compact-mixer-lab.html",
+   "component": null,
+   "master_version": null,
+   "bundle": null,
+   "via": null,
+   "shell": null,
+   "state": "ruled",
+   "superseded_by": null
   }
  ],
  "not_design": [
