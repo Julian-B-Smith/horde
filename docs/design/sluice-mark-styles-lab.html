@@ -1,0 +1,1430 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!-- The Sluice mark study, kept in the repo so it isn't lost (the human, 2026-11-04, through the lead: "we should probably make the sluice and shriek mark styles artifacts into actual labs so they don't get lost"; ADR-336 ruling 2; GB11).
+     Copied from the private Artifact at version 1793813064-6fca. Everything from here on is that page, unedited, apart from these lines, the meta tags and the status note marked STATUS. It runs 15 live WebGL contexts, just under the 16 a browser usually allows. -->
+<meta name="lab-part" content="FX">
+<meta name="lab-review" content="GB11 · 2026-11-04">
+
+<title>Sluice Mark Styles</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800&family=Roboto+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout: amber chosen. First where it will live (the lab's GBC screen, horde's cream and dark chassis),
+     then the pixel study: three densities down, four ways of turning the tube into pixels across.
+     The page is the Sluice plugin's own dark; the horde mocks carry horde's tokens inside them. */
+  :root{
+    --win:#0a0c0f; --panel:#15181d; --panel-2:#1b1f26; --well:#0d0f13; --line:#2a2f38;
+    --ink:#e7e0ce; --ink-dim:#8f8b7d; --amber:#e8a34c; --warn:#c96a5a;
+    --mono:'Roboto Mono',ui-monospace,'SF Mono',Menlo,monospace;
+    --sans:-apple-system,'Segoe UI',system-ui,sans-serif;
+    --h-bg:#f2ede2; --h-panel:#fcfaf4; --h-ink:#191521; --h-t2:#494356; --h-wellalt:#e9e3d4;
+    --hd-bg:#151220; --hd-panel:#1f1b2e; --hd-ink:#efe9fa; --hd-t2:#bdb4d4; --hd-well:#0e0c16;
+    --archivo:Archivo,'Helvetica Neue',Arial,sans-serif;
+    color-scheme:dark;
+  }
+  html,body{background:var(--win)}
+  body{color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;
+    padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+  .wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:34px}
+  .label{font-family:var(--mono);font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--amber)}
+  h1{font-family:var(--mono);font-weight:500;font-size:13px;letter-spacing:.22em;text-transform:uppercase;margin:4px 0 0}
+  h2{font-family:var(--mono);font-weight:500;font-size:11px;letter-spacing:.2em;text-transform:uppercase;margin:0 0 4px;color:var(--ink)}
+  p{margin:0}
+  .lede,.sub{color:var(--ink-dim);font-size:13px;line-height:1.6;max-width:70ch}
+  .sub{font-size:12.5px}
+  code{font-family:var(--mono);font-size:11.5px;color:var(--ink)}
+  .flag{border:1px solid var(--warn);border-radius:6px;padding:10px 12px;font-size:12.5px;line-height:1.55;color:var(--ink);max-width:78ch}
+  .flag b{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--warn);display:block;margin-bottom:3px}
+  button{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;background:var(--panel-2);color:var(--ink);
+    border:1px solid #3a414d;border-radius:4px;padding:7px 12px;cursor:pointer}
+  button:hover{border-color:var(--ink-dim)}
+  button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+  button[aria-pressed="true"]{border-color:var(--amber);color:var(--amber)}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .px{image-rendering:pixelated;image-rendering:crisp-edges;display:block;max-width:100%;height:auto}
+
+  /* contexts */
+  .ctx{display:block}
+  .hpair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:start}
+  .ctx figure{margin:0;display:flex;flex-direction:column;gap:8px;min-width:0}
+  figcaption{font-family:var(--mono);font-size:10.5px;color:var(--ink-dim);letter-spacing:.04em;line-height:1.5}
+  .gbc{background:#2b2f36;border-radius:12px 12px 30px 12px;padding:14px 14px 20px;display:flex;justify-content:center}
+  .gbc canvas{width:480px;max-width:100%;border:3px solid #111}
+  .screens{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+  .screens figure{margin:0;display:flex;flex-direction:column;gap:8px;min-width:0}
+  .screens .gbc canvas{width:100%}
+  .hwin{border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:12px}
+  .hwin.cream{background:var(--h-bg);border:1.5px solid var(--h-ink)}
+  .hwin.dark{background:var(--hd-bg);border:1.5px solid var(--hd-ink)}
+  .hhead{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .glass{width:200px;height:52px;border-radius:10px;overflow:hidden;flex:0 0 auto}
+  .cream .glass{border:1.5px solid var(--h-ink);background:var(--hd-well)}
+  .dark .glass{border:0;background:var(--hd-panel)}
+  .glass canvas{display:block;width:100%;height:100%}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap}
+  .tab{font-family:var(--archivo);font-weight:600;font-size:12px;border-radius:999px;padding:5px 11px;border:1.5px solid}
+  .cream .tab{color:var(--h-t2);border-color:var(--h-ink);background:var(--h-panel)}
+  .cream .tab.on{background:var(--h-ink);color:var(--h-panel)}
+  .dark .tab{color:var(--hd-t2);border-color:var(--hd-ink);background:var(--hd-panel)}
+  .dark .tab.on{background:var(--hd-ink);color:var(--hd-panel)}
+  .hcards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .hcard{border-radius:10px;border:1.5px solid;padding:8px 10px;font-family:var(--archivo);font-weight:800;font-size:10px;letter-spacing:.1em;height:46px}
+  .cream .hcard{background:var(--h-panel);border-color:var(--h-ink);color:var(--h-ink)}
+  .dark .hcard{background:var(--hd-panel);border-color:var(--hd-ink);color:var(--hd-ink)}
+
+  /* study */
+  .dens{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:16px}
+  .dens .row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+  .tile{display:flex;flex-direction:column;gap:6px;min-width:0}
+  .tile .frame{background:var(--well);border:1px solid var(--line);border-radius:4px;padding:8px;display:flex;justify-content:center}
+  .tile .frame canvas{width:100%}
+  .tile b{font-family:var(--mono);font-size:10.5px;font-weight:500;letter-spacing:.14em;text-transform:uppercase}
+  .tile span{font-size:12px;color:var(--ink-dim);line-height:1.45}
+  .src{position:absolute;left:-9999px;top:0;visibility:hidden}
+  .gapcmp{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+  .gapcmp figure{margin:0;display:flex;flex-direction:column;gap:8px;min-width:0}
+  .gapcmp canvas{width:100%;border-radius:8px;border:1px solid var(--line)}
+  @media (max-width:820px){.gapcmp{grid-template-columns:minmax(0,1fr)}}
+  .icons{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:18px;align-items:start}
+  .icons .gbc canvas{width:100%}
+  .icopts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .icopt{display:flex;gap:12px;align-items:center;background:none;border:1px solid var(--line);border-radius:8px;padding:10px;color:inherit;cursor:pointer;text-align:left;font:inherit;text-transform:none;letter-spacing:0}
+  .icopt[aria-pressed="true"]{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber)}
+  .icopt canvas{width:64px;height:64px;flex:0 0 64px;background:#1b0733;border-radius:4px}
+  .icopt b{display:block;font-family:var(--mono);font-size:10.5px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;margin-bottom:4px}
+  .icopt span{font-size:12px;color:var(--ink-dim);line-height:1.45}
+  @media (max-width:820px){.icons{grid-template-columns:minmax(0,1fr)}}
+  .shift{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:16px;align-items:start}
+  .shift figure{margin:0;display:flex;flex-direction:column;gap:8px;min-width:0}
+  .shift .glass2{border-radius:8px;overflow:hidden;border:1px solid var(--line);aspect-ratio:10/3;background:#1b0733}
+  .shift .glass2 canvas{display:block;width:100%;height:100%}
+  .now{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10.5px;color:var(--ink-dim)}
+  .now i{width:14px;height:14px;border-radius:3px;border:1px solid var(--line);display:inline-block}
+  @media (max-width:820px){.shift{grid-template-columns:minmax(0,1fr)}}
+  .swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+  .opt{display:flex;flex-direction:column;gap:6px;min-width:0;background:none;border:0;padding:0;text-align:left;color:inherit;cursor:pointer;font:inherit;text-transform:none;letter-spacing:0}
+  .opt .crop{background:#2b2f36;border-radius:8px;padding:8px;border:1px solid var(--line)}
+  .opt[aria-pressed="true"] .crop{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber)}
+  .opt canvas{width:100%;display:block}
+  .opt b{font-family:var(--mono);font-size:10.5px;font-weight:500;letter-spacing:.14em;text-transform:uppercase}
+  .opt span{font-size:12px;color:var(--ink-dim);line-height:1.45}
+  .deep{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+  .deep figure{margin:0;display:flex;flex-direction:column;gap:8px}
+  .deep .glass2{border-radius:8px;overflow:hidden;border:1px solid var(--line);aspect-ratio:10/3}
+  .deep canvas{display:block;width:100%;height:100%}
+  @media (max-width:820px){.deep{grid-template-columns:minmax(0,1fr)}}
+  @media (max-width:820px){.hpair,.screens{grid-template-columns:minmax(0,1fr)}.dens .row{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+
+<div class="wrap">
+  <!-- STATUS --><div class="flag"><b>Status: one question open</b>Ruled: 4 px stems by coverage in the 96 × 24 slot, and the hue walk (ADR-302 rulings 1 and 2); no icon (ADR-305). <b style="display:inline;margin:0">Not ruled:</b> taking the crossing gap out of the pixel marks. ADR-302 ruling 1 says the file's own knot gap stays, and this page's pixel marks draw without it, so the comparison just below is a proposal. Use "Rest of page: gap" to see the ruled version. Sluice's real title goes by a brief from the lead.</div>
+  <header>
+    <div class="label">Sluice · motion mark</div>
+    <h1>Sluice's title: hue walk, no icon</h1>
+    <p class="lede" style="margin-top:8px">Every mark here runs the mark's own engine from <code>sluice-mark-dark.html</code>, untouched.
+      The pixel versions render the tubes at eight times the grid, read each frame back and decide every pixel from what
+      falls inside it, so all twelve tiles move in step with their density's one render.</p>
+  </header>
+
+  <section aria-labelledby="gap-h" style="display:flex;flex-direction:column;gap:12px">
+    <div class="bar" style="justify-content:space-between">
+      <h2 id="gap-h">Crossing gap in the pixel marks</h2>
+      <div class="bar"><button id="gapSlide" type="button">Slide now</button><button id="gapToggle" type="button" aria-pressed="false">Rest of page: gap off</button></div>
+    </div>
+    <p class="sub">The smooth mark cuts a thin gap where one tube passes over another. On the pixel grid that gap is thinner than a pixel, so it flips pixels on and off as the tubes move. Both versions below draw the same frame of the same route, in the hue walk at 4 px stems. Every other pixel mark on this page now draws without the gap, and the button brings it back for comparison. The smooth marks keep it.</p>
+    <div class="gapcmp">
+      <figure><canvas id="gapOn" class="px" width="96" height="28" aria-label="Sluice title at 4 px stems with the crossing gap"></canvas><figcaption>With the gap, as it was</figcaption></figure>
+      <figure><canvas id="gapOff" class="px" width="96" height="28" aria-label="Sluice title at 4 px stems without the crossing gap"></canvas><figcaption>Without the gap</figcaption></figure>
+    </div>
+  </section>
+
+  <section aria-labelledby="icon-h" style="display:flex;flex-direction:column;gap:12px">
+    <h2 id="icon-h">No icon</h2>
+    <p class="sub">Ruled 2026-10-28 (horde ADR-305): Sluice has no icon. The title is its only mark, and the 16 × 16 slot at the top right of
+      the Play page stays empty. Every screen on this page now shows it that way. The candidates you looked at are kept below for the record;
+      pick one to see it in the slot again.</p>
+    <div class="icons">
+      <div class="gbc"><canvas id="iconScr" class="px" width="160" height="144" aria-label="The GBC Play page with the live hue-walking title and the empty icon slot"></canvas></div>
+      <div class="icopts" id="icopts" role="group" aria-label="Icon"></div>
+    </div>
+  </section>
+
+  <div class="flag"><b>One clash to weigh</b>In horde, amber is already Shriek's colour: its module screen is <code>#f0a830</code> on
+    <code>#1a1208</code> (the 80s workstation glass, ADR-273), while Sluice's screen is Game Boy green (<code>#0f380f</code> on
+    <code>#9bbc0f</code>). An amber Sluice mark in the plugin is fine on its own, but where the two modules sit side by side in
+    horde's rack, amber would point at Shriek.</div>
+
+  <section aria-labelledby="shift-h" style="display:flex;flex-direction:column;gap:12px">
+    <h2 id="shift-h">Shifting colour</h2>
+    <p class="sub">The parked word is always one colour, and each slide carries it to a new one. Every point of a tube turns from the
+      old colour to the new as it runs its route: still on its letter it is the old colour, out on the route an in-between one,
+      back home the new. So mid-slide each tube carries the gradient along its length, and the word parks in one colour again.
+      In-betweens are interpolated in OKLCH, so they pass through the neighbouring hues instead of greying out.</p>
+    <div id="shiftRows" style="display:flex;flex-direction:column;gap:18px"></div>
+  </section>
+
+
+  <section aria-labelledby="ctx-h">
+    <div class="bar" style="justify-content:space-between;margin-bottom:6px">
+      <h2 id="ctx-h">In Sluice in horde's screen view</h2>
+      <div class="bar" role="group" aria-label="Screen options"><button id="schemeBtn" type="button">Scheme: TUBE</button><button id="outlineBtn" type="button" aria-pressed="false">Outline</button></div>
+    </div>
+    <p class="sub" style="margin-bottom:14px">These are real frames of the lab's GBC skin (<code>sluice-horde-lab.html</code>, the Play page, 160 × 144
+      at ×3) captured from a local preview, with the live title painted into them by coverage, in the colour chosen below. The 6 px title is
+      128 px wide; the lab's title slot is 96, so it does not fit the slot as the screen stands.</p>
+    <div class="screens">
+      <figure><div class="gbc"><canvas id="scrA" class="px" width="160" height="144" aria-label="The lab's GBC screen with a 4 px amber title in today's slot"></canvas></div>
+        <figcaption>Today's slot, 96 × 24: the same coverage method at 4 px stems, the largest that fits. The readouts beside it stay.</figcaption></figure>
+      <figure><div class="gbc"><canvas id="scrB" class="px" width="160" height="144" aria-label="The lab's GBC screen with the 6 px amber title across a widened title band"></canvas></div>
+        <figcaption>Your pick, 6 px stems, in a widened 128 × 24 band. It covers the EDIT, LIVE and 2CL readouts, which would need a new home.</figcaption></figure>
+      <figure><div class="gbc"><canvas id="scrC" class="px" width="160" height="144" aria-label="The lab's GBC screen as a boot screen with the 6 px amber title"></canvas></div>
+        <figcaption>6 px stems on a boot or title screen, where the whole 144 × 40 grid fits, slides included.</figcaption></figure>
+    </div>
+    <h2 style="margin:26px 0 6px">Colour options in the slot</h2>
+    <p class="sub" style="margin-bottom:12px">Today's slot, 4 px coverage, cropped from the same real frame. Click one to put it on the three screens above.
+      The two depth options colour each pixel by how near the tube is: the tube is a 3D path seen head-on, so the S twists, the U dips
+      behind its arms and the E coils, and a slide carries each tube out to a far plane and back through a near one. Each pixel takes
+      the mean depth of the tube inside it, in four steps, which stays inside the GBC four-colour rule.</p>
+    <div class="swatches" id="swatches" role="group" aria-label="Title colour"></div>
+    <div class="deep" style="margin-top:18px">
+      <figure><div class="glass2"><canvas id="deepDark" aria-label="Sluice mark, spiral depth colours, smooth"></canvas></div>
+        <figcaption>Spiral depth at full resolution on the TUBE ground: the same mapping, continuous instead of four steps. Slides show it best.</figcaption></figure>
+      <figure><div class="glass2"><canvas id="deepLight" aria-label="Sluice mark, spiral depth colours, smooth, on a pale ground"></canvas></div>
+        <figcaption>The same on ORCHID's pale ground, where the white end runs into the glass.</figcaption></figure>
+    </div>
+    <h2 style="margin:22px 0 10px">And in horde's chassis</h2>
+    <div class="ctx">
+      <div class="hpair">
+        <figure>
+          <div class="hwin cream">
+            <div class="hhead"><div class="glass"><canvas id="hCream" aria-label="Sluice mark on a dark glass in horde's cream chassis"></canvas></div>
+              <div class="tabs"><span class="tab on">Play</span><span class="tab">Patch</span><span class="tab">XY</span><span class="tab">Set</span></div></div>
+            <div class="hcards"><div class="hcard">LOOP</div><div class="hcard">POST</div><div class="hcard">MACROS</div></div>
+          </div>
+          <figcaption>horde's cream chassis. Amber reads about 2:1 on cream, so here the mark sits on its own dark glass, as horde
+            puts a screen inside a card.</figcaption>
+        </figure>
+        <figure>
+          <div class="hwin dark">
+            <div class="hhead"><div class="glass"><canvas id="hDark" aria-label="Sluice mark on horde's dark chassis"></canvas></div>
+              <div class="tabs"><span class="tab on">Play</span><span class="tab">Patch</span><span class="tab">XY</span><span class="tab">Set</span></div></div>
+            <div class="hcards"><div class="hcard">LOOP</div><div class="hcard">POST</div><div class="hcard">MACROS</div></div>
+          </div>
+          <figcaption>horde's dark chassis: the mark straight on the panel colour.</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="study-h" style="display:flex;flex-direction:column;gap:22px">
+    <div class="bar" style="justify-content:space-between">
+      <div><h2 id="study-h">Pixel distribution</h2>
+        <p class="sub">Densities are chosen so the tube's stem is a whole number of pixels: 3, 4 and 6. The exported file
+          samples one point per pixel at 16 rows, which gives 4.48 px stems that alternate between 4 and 5, plus stray
+          pixels on every curve. That's most of the mess in the letterforms.</p></div>
+      <div class="bar"><button id="slideAll" type="button">Slide now</button><button id="holdAll" type="button" aria-pressed="false">Hold</button></div>
+    </div>
+    <div id="study"></div>
+  </section>
+</div>
+<div class="src" id="srcBox" aria-hidden="true"></div>
+
+<script>
+/* The mark's own script, sluice-mark-dark.html (git blob 6e7bd46). The ENGINE section is verbatim. Set-up lines
+   are rebound so several marks share one page (canvas, URL query, returned API) and, for the pixel study, the
+   buffer can be fixed to a display grid (rows x cols, supersampled by ss), and HOOK(gl, canvas) runs after each draw so the page can read the frame back. */
+/* The crossing gap (KNOT_GAP) is about half a pixel wide at 4 px stems, so on the pixel grid it flips cells on and off as tubes move.
+   Pixel marks draw without it unless this is on; smooth marks always keep it. */
+const MARK_OPTS={pixelGap:false};
+function makeSluiceMark(CANVAS,QUERY,HOOK){
+'use strict';
+
+
+/* ================= PRESET (verbatim copy of the locked settings) ================= */
+const PRESET = {
+  "format": "sluice-mark/1",
+  "units": "lengths in letter units, cap height = 2",
+  "route": { "seed": "A23183", "repeat": false },
+  "motion": {
+    "holdSeconds": 2.5,
+    "travelSeconds": 5,
+    "wander": 0.6,
+    "timing": "together",
+    "easing": "smooth",
+    "figures": { "coils": true, "meanders": true, "zigzags": true },
+    "bendRadius": 0.5
+  },
+  "form": {
+    "look": "knot",
+    "tubeColor": "#e100ff",
+    "groundColor": "#0a0c0f",
+    "tubeRadius": 0.28,
+    "depthFade": 0,
+    "bands": false,
+    "showRoutes": false,
+    "grid": false
+  },
+  "view": { "yawDegrees": 0, "pitchDegrees": 0, "frame": "16:9" }
+};
+
+/* Width of the ground-coloured gap where one tube crosses in front of another, in letter
+   units (cap height = 2). Matches the 3.6 px gap of the design study at its ~530 px stage. */
+const KNOT_GAP = 0.062;
+
+/* ================= BAKED ROUTE for seed A23183 =================
+   The polyline (corner vertices + fillet radius per corner, 99 = "largest that fits")
+   that the route search chose for each letter, S L U I C E. Feeding these through
+   filletPoly + resample reproduces the live search's route exactly. */
+const BAKED = {
+  seed: 'A23183',
+  settings: { tubeRadius: 0.28, wander: 0.6, bendRadius: 0.5, frame: '16:9', coils: true, meanders: true, zigzags: true },
+  routes: [
+    {"V":[[-5.5156049728393555,-0.7963005900382996,1.222980050563649e-16],[-5.955871299906194,-0.324610376369372,-0.4636348215795205],[-5.955871299906194,-0.324610376369372,-2.62],[-4.533729530447655,-0.324610376369372,-2.62],[-4.533729530447655,-2.4488439186383038,-2.62],[-4.533729530447655,-2.4488439186383038,1.71],[-5.925871299906194,-2.4488439186383038,1.71],[-5.925871299906194,0.23581776364602824,1.71],[-4.060918845029043,0.23581776364602824,1.71],[-4.060918845029043,0.23581776364602824,0.5793526843844884],[-4.61727237701416,0.8193609118461609,0]],"r":[0,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0]},
+    {"V":[[-3.130760908126831,-0.9994811415672302,-0.5296379327774048],[-3.768162770691218,-0.9902967527025069,-0.5535247293193157],[-3.768162770691218,-0.9902967527025069,-2.62],[-2.615645471150877,-0.9902967527025069,-2.62],[-2.615645471150877,-2.215200163205154,-2.62],[-3.738162770691218,-2.215200163205154,-2.62],[-3.738162770691218,-2.215200163205154,1.71],[-1.9688110878353988,-2.215200163205154,1.71],[-1.9688110878353988,3.06,1.71],[-3.5027987957000732,3.06,1.71],[-3.5027987957000732,1.7870914934871378,1.71],[-3.5027987957000732,1.7870914934871378,-0.5623069203751936],[-3.5027987957000732,1,-0.550000011920929]],"r":[0,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0]},
+    {"V":[[0.001188912196084857,1,0.30000001192092896],[0.001188912196084857,1.6264868623175994,0.3111578053149784],[0.001188912196084857,1.6264868623175994,-2.62],[0.001188912196084857,2.489085103624441,-2.62],[-1.4888110878353986,2.489085103624441,-2.62],[-1.4888110878353986,-2.6906079281726853,-2.62],[-1.4888110878353986,-2.6906079281726853,1.71],[0.20118891216460125,-2.6906079281726853,1.71],[0.20118891216460125,3.06,1.71],[-1.1988110542297363,3.06,1.71],[-1.1988110542297363,1.6264843220275846,1.71],[-1.1988110542297363,1.6264843220275846,0.31115776007216034],[-1.1988110542297363,1,0.30000001192092896]],"r":[0,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0]},
+    {"V":[[0.9411889314651489,1,-0.5],[0.9411889314651489,2.650261182733063,-0.5],[0.9411889314651489,2.650261182733063,-2.62],[1.831188912164602,2.650261182733063,-2.62],[1.831188912164602,-1.850943108079955,-2.62],[1.831188912164602,-1.850943108079955,1.71],[0.9411889314651489,-1.850943108079955,1.71],[0.9411889314651489,2.0920683513836726,1.71],[0.9411889314651489,2.0920683513836726,0.5],[0.9411889314651489,1,0.5]],"r":[0,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0]},
+    {"V":[[3.2788052558898926,-0.5634598135948181,0.9122607111930847],[3.2788052558898926,-0.5634598135948181,2.62],[3.2788052558898926,2.374518997212872,2.62],[3.2788052558898926,2.374518997212872,-1.71],[3.2788052558898926,0.5634598135948181,-1.71],[3.2788052558898926,0.5634598135948181,-0.9122607111930847]],"r":[0,0.5,0.5,0.5,0.5,0]},
+    {"V":[[4.750805377960205,-1,-0.7459999918937683],[4.750805377960205,-1,-2.62],[4.750805377960205,-0.07701916496735062,-2.62],[4.750805377960205,-0.07701916496735062,-1.71],[4.750805377960205,1,-1.71],[4.750805377960205,1,-0.7459999918937683]],"r":[0,0.5,0.5,0.5,0.5,0]}
+  ]
+};
+
+/* ================= ENGINE (verbatim from the design study; see DETERMINISM WARNING) ================= */
+const TAU = Math.PI*2, D2R = Math.PI/180;
+const clamp = (x,a,b)=>Math.min(b,Math.max(a,x));
+const smooth = (e0,e1,x)=>{const t=clamp((x-e0)/(e1-e0),0,1);return t*t*(3-2*t);};
+const dist = (a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1],a[2]-b[2]);
+const lerp3 = (a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
+const norm3 = a=>{const l=Math.hypot(a[0],a[1],a[2])||1;return [a[0]/l,a[1]/l,a[2]/l];};
+const sub3 = (a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
+const vmad = (a,b,s)=>[a[0]+b[0]*s,a[1]+b[1]*s,a[2]+b[2]*s];
+const dot3 = (a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function shuffle(a,rng){for(let i=a.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+const newSeed = ()=>Math.floor(Math.random()*0x1000000);
+const hex = s=>s.toString(16).toUpperCase().padStart(6,'0');
+
+/* ================= path building ================= */
+const STEP = 0.006;     // builder sampling (world units)
+const H = 0.012;        // loop sample spacing
+const RING = 0.03;      // ring spacing along a tube
+const RS = 22;          // radial segments
+const K = 7;            // rings per end cap
+
+function push(out,p){const n=out.length;if(n){const q=out[n-1];if(Math.abs(p[0]-q[0])+Math.abs(p[1]-q[1])+Math.abs(p[2]-q[2])<1e-7)return;}out.push(p);}
+function seg(out,f,n){for(let i=0;i<=n;i++)push(out,f(i/n));}
+function lineSeg(out,a,b){seg(out,t=>lerp3(a,b,t),Math.max(2,Math.ceil(dist(a,b)/STEP)));}
+function arcSeg(out,cx,cy,rx,ry,a0,a1){
+  const n=Math.max(6,Math.ceil(Math.abs(a1-a0)*Math.max(rx,ry)/STEP));
+  seg(out,t=>{const a=a0+(a1-a0)*t;return [cx+rx*Math.cos(a),cy+ry*Math.sin(a),0];},n);
+}
+function cumLen(p){const c=new Float64Array(p.length);for(let i=1;i<p.length;i++)c[i]=c[i-1]+dist(p[i],p[i-1]);return c;}
+function applyZ(p,zf){const c=cumLen(p),L=c[c.length-1];for(let i=0;i<p.length;i++)p[i][2]=zf(c[i]/L);return p;}
+/* Fold the end of a stroke back behind itself: a semicircle in the plane of the end tangent and Z,
+   then a tail that retraces the stroke 2*rho further back. Edge-on, it reads as a plain terminal. */
+function tuckEnd(p,rho,ell){
+  const P=p[p.length-1],Q=p[p.length-3];
+  const T=norm3([P[0]-Q[0],P[1]-Q[1],0]);
+  const out=p.slice();
+  const n=Math.ceil(Math.PI*rho/STEP);
+  for(let i=1;i<=n;i++){const f=Math.PI*i/n,s=Math.sin(f),c=Math.cos(f);push(out,[P[0]+T[0]*rho*s,P[1]+T[1]*rho*s,P[2]-rho+rho*c]);}
+  let acc=0;
+  for(let k=p.length-1;k>0;k--){
+    const a=p[k],b=p[k-1],d=dist(a,b);
+    if(acc+d>=ell){const t=(ell-acc)/d,q=lerp3(a,b,t);push(out,[q[0],q[1],q[2]-2*rho]);break;}
+    acc+=d;push(out,[b[0],b[1],b[2]-2*rho]);
+  }
+  return out;
+}
+function resample(p,h){
+  const c=cumLen(p),L=c[c.length-1],m=Math.max(1,Math.round(L/h)),step=L/m;
+  const out=new Float32Array((m+1)*3);let s=0;
+  for(let k=0;k<=m;k++){
+    const d=k*step;
+    while(s<p.length-2&&c[s+1]<d)s++;
+    const span=(c[s+1]-c[s])||1,t=clamp((d-c[s])/span,0,1),a=p[s],b=p[s+1];
+    out[k*3]=a[0]+(b[0]-a[0])*t;out[k*3+1]=a[1]+(b[1]-a[1])*t;out[k*3+2]=a[2]+(b[2]-a[2])*t;
+  }
+  return {pos:out,count:m+1,length:L,step};
+}
+
+/* ================= letterforms (cap height: y from -1 to 1; clearances scale with tube radius R) ================= */
+function letterS(){
+  const p=[],cx=0.6;
+  arcSeg(p,cx,0.53,0.54,0.47,38*D2R,270*D2R);
+  arcSeg(p,cx,-0.47,0.6,0.53,90*D2R,-142*D2R);
+  return applyZ(p,u=>-0.5*Math.sin(TAU*u));
+}
+function letterL(R){
+  const p=[],rc=Math.max(0.3,1.4*R),rho=Math.max(0.3,1.3*R),fx=Math.max(1.0,rc+0.6);
+  lineSeg(p,[0,1,0],[0,-1+rc,0]);
+  arcSeg(p,rc,-1+rc,rc,rc,Math.PI,1.5*Math.PI);
+  lineSeg(p,[rc,-1,0],[fx,-1,0]);
+  applyZ(p,u=>-0.55+0.75*smooth(0,0.8,u));
+  return tuckEnd(p,rho,fx-rc+0.02);
+}
+function letterU(){
+  const p=[],r=0.6;
+  lineSeg(p,[0,1,0],[0,-1+r,0]);
+  arcSeg(p,r,-1+r,r,r,Math.PI,TAU);
+  lineSeg(p,[2*r,-1+r,0],[2*r,1,0]);
+  return applyZ(p,u=>0.3-1.1*Math.pow(Math.sin(Math.PI*u),2));
+}
+function letterI(){
+  const p=[],rho=0.5;
+  lineSeg(p,[0,1,rho],[0,-1+rho,rho]);
+  return tuckEnd(p,rho,Infinity);
+}
+/* Turn the end of a stroke into the Z axis with a circular bend; seen flat-on it reads as a round terminal. */
+function bendToZ(p,sz,r){
+  const P=p[p.length-1],Q=p[p.length-4],T=norm3(sub3(P,Q)),c=clamp(T[2]*sz,-1,1),th=Math.acos(c);
+  const nn=norm3([-T[0]*c,-T[1]*c,sz-T[2]*c]),O=vmad(P,nn,r),out=p.slice(),n=Math.max(4,Math.ceil(th*r/STEP));
+  for(let k=1;k<=n;k++){const ph=th*k/n,cp=Math.cos(ph)*r,sp=Math.sin(ph)*r;push(out,[O[0]-nn[0]*cp+T[0]*sp,O[1]-nn[1]*cp+T[1]*sp,O[2]-nn[2]*cp+T[2]*sp]);}
+  push(out,vmad(out[out.length-1],[0,0,sz],0.06));
+  return out;
+}
+function letterC(R){
+  const p=[],rz=Math.max(0.3,1.3*R);
+  arcSeg(p,0.74,0,0.74,1.0,50*D2R,310*D2R);
+  applyZ(p,u=>-0.5+1.0*u);
+  return bendToZ(bendToZ(p,1,rz).reverse(),-1,rz).reverse();
+}
+/* The E is a three-level coil. Each level is a racetrack loop (front strand, turnaround, back strand)
+   and the spine is where the coil steps down a level. Both ends of the tube sit on back strands, hidden
+   behind the front strands, and turn straight into depth; the outer corners are single continuous bends. */
+function letterE(R){
+  const p=[],d=Math.max(0.24,1.3*R),rc=Math.max(0.26,1.3*R),rz=Math.max(0.25,1.15*R);
+  const ws=[1.0,0.84,1.0],ys=[1,0,-1],xs=rc+rz+0.6*R;
+  const turn=(w,y,z0)=>seg(p,t=>{const f=Math.PI*t;return [w+d*Math.sin(f),y,z0*Math.cos(f)];},Math.ceil(Math.PI*d/STEP));
+  const descend=(y,yn,z0,z1)=>{
+    const q=[];
+    arcSeg(q,rc,y-rc,rc,rc,0.5*Math.PI,Math.PI);
+    lineSeg(q,[0,y-rc,0],[0,yn+rc,0]);
+    arcSeg(q,rc,yn+rc,rc,rc,Math.PI,1.5*Math.PI);
+    applyZ(q,u=>z0+(z1-z0)*(0.5-0.5*Math.cos(Math.PI*u)));
+    for(const pt of q)push(p,pt);
+  };
+  /* top: out along the back strand, round the turnaround, home along the front strand */
+  lineSeg(p,[xs,ys[0],-d],[ws[0],ys[0],-d]);
+  turn(ws[0],ys[0],-d);
+  lineSeg(p,[ws[0],ys[0],d],[rc,ys[0],d]);
+  descend(ys[0],ys[1],d,d);
+  /* middle and bottom: out along the front strand, home along the back strand.
+     The middle's back strand comes FORWARD as it runs home, hidden behind the front strand the whole
+     way (they share their outline head-on), and reaches the spine at the front strand's depth. It used
+     to step from back to front on the spine itself: that step came out from behind the middle arm's
+     edge, and the knot gap drew it as a notch on the E's spine. A T made of one tube always crosses
+     an outline somewhere; only parts meeting at ONE depth merge without a gap, so they meet here. */
+  lineSeg(p,[rc,ys[1],d],[ws[1],ys[1],d]);
+  turn(ws[1],ys[1],d);
+  const home=[];
+  lineSeg(home,[ws[1],ys[1],-d],[rc,ys[1],-d]);
+  applyZ(home,u=>-d+2*d*smooth(0,1,u));
+  for(const pt of home)push(p,pt);
+  descend(ys[1],ys[2],d,d);
+  lineSeg(p,[rc,ys[2],d],[ws[2],ys[2],d]);
+  turn(ws[2],ys[2],d);
+  lineSeg(p,[ws[2],ys[2],-d],[xs,ys[2],-d]);
+  return bendToZ(bendToZ(p,-1,rz).reverse(),-1,rz).reverse();
+}
+const BUILD=[['S',letterS],['L',letterL],['U',letterU],['I',letterI],['C',letterC],['E',letterE]];
+function buildWord(R){
+  const GAP=2*R+0.38;
+  const raws=BUILD.map(([ch,fn])=>{const pts=fn(R);let mn=Infinity,mx=-Infinity;for(const p of pts){if(p[0]<mn)mn=p[0];if(p[0]>mx)mx=p[0];}return {ch,pts,mn,mx};});
+  let x=0;const offs=[];
+  raws.forEach((r,i)=>{if(i)x+=GAP;offs.push(x-r.mn);x+=r.mx-r.mn;});
+  const width=x;
+  const letters=raws.map((r,i)=>{
+    const dx=offs[i]-width/2;
+    const rs=resample(r.pts.map(p=>[p[0]+dx,p[1],p[2]]),H),P=rs.pos;
+    const bb=[Infinity,Infinity,Infinity,-Infinity,-Infinity,-Infinity];
+    for(let j=0;j<rs.count;j++)for(let c=0;c<3;c++){const v=P[j*3+c];if(v<bb[c])bb[c]=v;if(v>bb[c+3])bb[c+3]=v;}
+    const T0=norm3([P[3]-P[0],P[4]-P[1],P[5]-P[2]]);
+    const ref=Math.abs(T0[2])<0.9?[0,0,1]:[1,0,0];
+    const dp=dot3(ref,T0);
+    const n0=norm3([ref[0]-T0[0]*dp,ref[1]-T0[1]*dp,ref[2]-T0[2]*dp]);
+    return {ch:r.ch,pos:P,count:rs.count,m:rs.count-1,length:rs.length,aabb:bb,
+      Mr:Math.max(8,Math.round(rs.length/RING)),minX:r.mn+dx,maxX:r.mx+dx,n0,loop:null,f:0,dirty:true};
+  });
+  return {letters,width};
+}
+
+/* ================= rational routes =================
+   A route is a 3D polyline of axis-aligned legs and regular figures. Every corner is rounded by a
+   circular fillet: right angles get the bend radius, figure corners get the largest circle that fits,
+   which turns square coils into round coils, meanders into U-bends and zigzags into a smooth wave. */
+const MAXF=99;
+function Poly(){this.V=[];this.r=[];}
+Poly.prototype.put=function(p,r){
+  const V=this.V,n=V.length;
+  if(n&&dist(V[n-1],p)<1e-6)return;
+  if(n>=2){const u=norm3(sub3(V[n-1],V[n-2])),w=norm3(sub3(p,V[n-1]));if(dot3(u,w)>1-1e-9){V.pop();this.r.pop();}}
+  V.push(p);this.r.push(r);
+};
+function filletPoly(V,rad){
+  const n=V.length,out=[],seglen=[],info=new Array(n).fill(null);let minR=Infinity;
+  for(let i=0;i<n-1;i++)seglen.push(dist(V[i],V[i+1]));
+  for(let i=1;i<n-1;i++){
+    const u=norm3(sub3(V[i],V[i-1])),w=norm3(sub3(V[i+1],V[i]));
+    const c=clamp(dot3(u,w),-1,1),th=Math.acos(c);
+    if(th<1e-4)continue;
+    const tt=Math.tan(Math.min(th,3.1)/2);
+    const ap=seglen[i-1]*(i-1===0?1:0.5),an=seglen[i]*(i+1===n-1?1:0.5);
+    const t=Math.min(rad[i]*tt,ap,an),r=t/tt;
+    if(th>0.35)minR=Math.min(minR,r);
+    let nn=[w[0]-u[0]*c,w[1]-u[1]*c,w[2]-u[2]*c];const nl=Math.hypot(nn[0],nn[1],nn[2]);
+    nn=nl<1e-6?(Math.abs(u[2])<0.9?norm3([-u[1],u[0],0]):[1,0,0]):[nn[0]/nl,nn[1]/nl,nn[2]/nl];
+    info[i]={u,t,r,th,nn};
+  }
+  out.push(V[0].slice());
+  const lineTo=p=>{const a=out[out.length-1],d=dist(a,p),m=Math.max(1,Math.ceil(d/STEP));for(let k=1;k<=m;k++)push(out,lerp3(a,p,k/m));};
+  for(let i=1;i<n-1;i++){
+    const f=info[i];
+    if(!f){lineTo(V[i]);continue;}
+    const S=vmad(V[i],f.u,-f.t);lineTo(S);
+    const O=vmad(S,f.nn,f.r),m=Math.max(2,Math.ceil(f.th*f.r/STEP));
+    for(let k=1;k<=m;k++){
+      const ph=f.th*k/m,cp=Math.cos(ph)*f.r,sp=Math.sin(ph)*f.r;
+      push(out,[O[0]-f.nn[0]*cp+f.u[0]*sp,O[1]-f.nn[1]*cp+f.u[1]*sp,O[2]-f.nn[2]*cp+f.u[2]*sp]);
+    }
+  }
+  lineTo(V[n-1]);
+  return {pts:out,minR};
+}
+const otherXY=d=>Math.abs(d[0])>0.5?[0,1,0]:[1,0,0];
+/* Self-avoidance: every leg and figure reserves its bounding box; a new piece may touch only the piece it
+   attaches to. */
+function boxOf(pts){
+  const b=[Infinity,Infinity,Infinity,-Infinity,-Infinity,-Infinity];
+  for(const p of pts)for(let c=0;c<3;c++){if(p[c]<b[c])b[c]=p[c];if(p[c]>b[c+3])b[c+3]=p[c];}
+  return b;
+}
+function boxHit(b,occ,th){
+  if(!occ)return false;
+  for(let i=0;i<occ.length-1;i++){const o=occ[i];
+    if(b[0]-th<o[3]&&b[3]+th>o[0]&&b[1]-th<o[4]&&b[4]+th>o[1]&&b[2]-th<o[5]&&b[5]+th>o[2])return true;}
+  return false;
+}
+function fits(vs,ctx){
+  const m=ctx.R+0.03;
+  for(const p of vs)if(p[0]<ctx.x0+m||p[0]>ctx.x1-m||p[1]<ctx.y0+m||p[1]>ctx.y1-m)return false;
+  if(ctx.cur&&boxHit(boxOf([ctx.cur,...vs]),ctx.occ,ctx.th))return false;
+  return true;
+}
+function spaceAlong(C,dir,ctx){
+  const m=ctx.R+0.06;
+  if(dir[0]>0.5)return ctx.x1-m-C[0];if(dir[0]<-0.5)return C[0]-(ctx.x0+m);
+  if(dir[1]>0.5)return ctx.y1-m-C[1];if(dir[1]<-0.5)return C[1]-(ctx.y0+m);
+  return 9;
+}
+/* A straight leg that turns 90 degrees off the current heading. */
+function featRun(C,d,rng,ctx){
+  let dirs;
+  if(Math.abs(d[2])>0.5)dirs=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0]];
+  else{const o=otherXY(d);dirs=[o,[-o[0],-o[1],0]];}
+  shuffle(dirs,rng);
+  for(const dir of dirs){
+    const sp=spaceAlong(C,dir,ctx);if(sp<ctx.g)continue;
+    for(const len of [Math.min(sp,ctx.g+rng()*1.3),ctx.g]){
+      const q=vmad(C,dir,len);
+      if(!boxHit(boxOf([C,q]),ctx.occ,ctx.th))return {vs:[q],rads:[ctx.rb],d:dir};
+    }
+  }
+  return null;
+}
+/* Regular coil, entered tangentially: the current point is the midpoint of one side of a square helix.
+   Axis either lies in the picture plane (reads as a slinky side-on) or points out of it (reads as rings). */
+function featCoil(C,d,rng,ctx){
+  const rc=ctx.rcMin+rng()*(ctx.rcMax-ctx.rcMin),p=ctx.pitch;
+  const o=otherXY(d),zo=[0,0,ctx.sgn];
+  const opts=shuffle([{ax:o,e:zo},{ax:[-o[0],-o[1],0],e:zo},{ax:zo,e:o},{ax:zo,e:[-o[0],-o[1],0]}],rng);
+  const sq=[[1,0],[1,2],[-1,2],[-1,0]];
+  for(let n=2+Math.floor(rng()*3);n>=2;n--){
+    for(const op of opts){
+      const vs=[];
+      for(let k=1;k<=4*n;k++){
+        const [a,b]=sq[(k-1)%4],adv=p/8+(k-1)*p/4;
+        vs.push([C[0]+d[0]*a*rc+op.e[0]*b*rc+op.ax[0]*adv,C[1]+d[1]*a*rc+op.e[1]*b*rc+op.ax[1]*adv,C[2]+d[2]*a*rc+op.e[2]*b*rc+op.ax[2]*adv]);
+      }
+      vs.push(vmad(C,op.ax,n*p));
+      if(fits(vs,ctx))return {vs,rads:vs.map((_,j)=>j<vs.length-1?MAXF:ctx.rb),d};
+    }
+  }
+  return null;
+}
+/* Meander: parallel runs joined by semicircular U-bends, stepping sideways or out of the picture plane. */
+function featMeander(C,d,rng,ctx){
+  const sp=ctx.sp,o=otherXY(d);
+  const opts=shuffle([o,[-o[0],-o[1],0],[0,0,ctx.sgn]],rng);
+  for(let nL=3+Math.floor(rng()*3);nL>=3;nL--){
+    const w=Math.max(sp*1.25,0.7+rng()*0.7);
+    for(const ta of opts){
+      const vs=[];let q=C;
+      for(let k=0;k<nL;k++){
+        q=vmad(q,d,(k%2?-1:1)*w);vs.push(q);
+        if(k<nL-1){q=vmad(q,ta,sp);vs.push(q);}
+      }
+      if(fits(vs,ctx)){const s=(nL-1)%2?-1:1;return {vs,rads:vs.map((_,j)=>j<vs.length-1?MAXF:ctx.rb),d:[d[0]*s,d[1]*s,d[2]*s]};}
+    }
+  }
+  return null;
+}
+/* Zigzag of 45-degree legs whose tips are rounded into a continuous wave. */
+function featZig(C,d,rng,ctx){
+  const a=Math.max(0.8*ctx.R,0.28)+rng()*0.2,s=2*a,o=otherXY(d);
+  const opts=[o];
+  for(let n=3+Math.floor(rng()*4);n>=3;n--){
+    for(const la of opts){
+      const vs=[];
+      for(let k=1;k<=n;k++){const sg=k%2?1:-1;vs.push([C[0]+d[0]*(k-0.5)*s+la[0]*a*sg,C[1]+d[1]*(k-0.5)*s+la[1]*a*sg,C[2]+d[2]*(k-0.5)*s+la[2]*a*sg]);}
+      vs.push(vmad(C,d,n*s));
+      if(fits(vs,ctx))return {vs,rads:vs.map((_,j)=>j<vs.length-1?MAXF:ctx.rb),d};
+    }
+  }
+  return null;
+}
+function legBadness(C,d,o,ctx,avoid,zp,colTo){
+  let cx=C[0],cy=C[1],px=d[0],py=d[1],bad=0,first=true;
+  const clr=2*ctx.R+0.2;
+  for(const t of o){
+    const lx=t[0]-cx,ly=t[1]-cy,l=Math.hypot(lx,ly);if(l<1e-6)continue;
+    if(l<ctx.g*0.95)bad+=1;
+    const ux=lx/l,uy=ly/l;if(ux*px+uy*py<-0.5)bad+=3;
+    for(const av of avoid){
+      const s=clamp(((av[0]-cx)*ux+(av[1]-cy)*uy),0,l);
+      if(Math.hypot(cx+ux*s-av[0],cy+uy*s-av[1])<clr)bad+=2;
+    }
+    /* the first leg leaves the current piece, so only test it from a bend radius onward */
+    const sx=first?cx+ux*Math.min(l,ctx.rb+ctx.th):cx,sy=first?cy+uy*Math.min(l,ctx.rb+ctx.th):cy;
+    if(boxHit(boxOf([[sx,sy,zp],[t[0],t[1],zp]]),ctx.occ,ctx.th))bad+=2;
+    px=ux;py=uy;cx=t[0];cy=t[1];first=false;
+  }
+  if(colTo!=null&&boxHit(boxOf([[cx,cy,zp],[cx,cy,colTo]]),ctx.occ,ctx.th))bad+=2;
+  return bad;
+}
+/* Orthogonal way home: pick a 2, 3 or 4 leg connector whose legs are all long enough to bend cleanly
+   and that stays clear of the column where the tube first lifted out of the letter. */
+function planReturn(C,d,targets,ctx,rng,avoid,zp,colTo){
+  const R=ctx.R,ys=[ctx.y1-R-0.15,ctx.y0+R+0.15],xs=[ctx.x0+R+0.15,ctx.x1-R-0.15],opts=[];
+  for(const A2 of targets){
+    opts.push([[C[0],A2[1]],[A2[0],A2[1]]],[[A2[0],C[1]],[A2[0],A2[1]]]);
+    for(const Y of ys)opts.push([[C[0],Y],[A2[0],Y],[A2[0],A2[1]]]);
+    for(const X of xs)opts.push([[X,C[1]],[X,A2[1]],[A2[0],A2[1]]]);
+    for(const Y of ys)for(const X of xs){opts.push([[C[0],Y],[X,Y],[X,A2[1]],[A2[0],A2[1]]]);opts.push([[X,C[1]],[X,Y],[A2[0],Y],[A2[0],A2[1]]]);}
+  }
+  const scored=opts.map(o=>({o,bad:legBadness(C,d,o,ctx,avoid,zp,colTo)}));
+  const good=scored.filter(s=>s.bad===0);
+  if(good.length){
+    const minL=Math.min(...good.map(s=>s.o.length)),pool=good.filter(s=>s.o.length<=minL+1);
+    return pool[Math.floor(rng()*pool.length)].o;
+  }
+  scored.sort((a,b)=>a.bad-b.bad);return scored[0].o;
+}
+function routeCtx(L,opts){
+  const R=opts.R,w=opts.wander,m=0.3+0.5*w;
+  let x0=L.minX-m,x1=L.maxX+m;const need=1.9+2*R;
+  if(x1-x0<need){const c=(x0+x1)/2;x0=c-need/2;x1=c+need/2;}
+  x0=Math.max(x0,-opts.halfW+0.25);x1=Math.min(x1,opts.halfW-0.25);
+  const yb=Math.min(opts.halfH-0.25,1+3*R+0.75+1.5*w);
+  const rb=Math.max(opts.bend,1.15*R);
+  /* depth planes: near (zr) and far (zo), on either side of the word */
+  const zr=0.8+2*R+0.35,zo=zr+Math.max(2*R+0.35,1.8*rb);
+  const rcMin=Math.max(1.15*R,0.3),rcMax=Math.max(rcMin,Math.min(0.62,(x1-x0)/2-R-0.08));
+  return {x0,x1,y0:-yb,y1:yb,R,rb,g:1.6*rb,zo,zr,rcMin,rcMax,pitch:2*R+0.16,sp:2*R+0.22,wander:w,figures:opts.figures};
+}
+/* The tube leaves its letter, lifts into the far plane on one side of the word, draws its figures there,
+   and comes home in the near plane on the other side of the word, crossing through the word plane
+   in the band above or below the letters, where nothing else lives. */
+function genRoute(L,base,rng,pref){
+  const R=base.R,rb=base.rb,Q=L.pos,m=L.m;
+  const Pend=[Q[m*3],Q[m*3+1],Q[m*3+2]],Pst=[Q[0],Q[1],Q[2]];
+  const Tend=norm3(sub3(Pend,[Q[(m-3)*3],Q[(m-3)*3+1],Q[(m-3)*3+2]]));
+  const Tst=norm3(sub3([Q[9],Q[10],Q[11]],Pst));
+  const so=Math.abs(Tend[2])>0.7?Math.sign(Tend[2]):pref;
+  const sr=Math.abs(Tst[2])>0.7?-Math.sign(Tst[2]):-so;
+  const cross=so!==sr,Zo=so*base.zo,Zr=sr*base.zr;
+  let leadE=0.3+R+Math.pow(rng(),2)*0.6,leadS=0.3+R+Math.pow(rng(),2)*0.6;
+  if(Math.abs(Tend[2])>0.7)leadE=Math.min(leadE,Math.max(0.12,0.5*Math.abs(Zo-Pend[2])));
+  if(Math.abs(Tst[2])>0.7)leadS=Math.min(leadS,Math.max(0.12,0.5*Math.abs(Zr-Pst[2])));
+  const A=vmad(Pst,Tst,-leadS);
+  let V1=vmad(Pend,Tend,leadE);
+  /* keep the lift-out column and the drop-in column apart (the I and U have both ends side by side) */
+  if(Math.hypot(V1[0]-A[0],V1[1]-A[1])<2*R+0.35){leadE+=2*R+0.45;V1=vmad(Pend,Tend,leadE);}
+  const ctx=Object.assign({},base,{sgn:so,occ:[],th:2*R+0.05,
+    x0:Math.min(base.x0,V1[0]-R-0.12,A[0]-R-0.12),x1:Math.max(base.x1,V1[0]+R+0.12,A[0]+R+0.12),
+    y0:Math.min(base.y0,V1[1]-R-0.12,A[1]-R-0.12),y1:Math.max(base.y1,V1[1]+R+0.12,A[1]+R+0.12)});
+  const P=new Poly();
+  P.cell=ctx;P.head=leadE+Math.abs(Zo-Pend[2])+rb;P.tail=leadS+Math.abs(Zr-Pst[2])+rb;
+  P.put(Pend,0);P.put(V1,rb);
+  let C=[V1[0],V1[1],Zo];P.put(C,rb);
+  let d=[0,0,so];
+  ctx.occ.push(boxOf([Pend,V1,C]));
+  const apply=f=>{ctx.occ.push(boxOf([C,...f.vs]));for(let j=0;j<f.vs.length;j++)P.put(f.vs[j],f.rads[j]);C=f.vs[f.vs.length-1];d=f.d;};
+  /* after a figure that climbed out of the far plane (ring coil, depth meander), step clear of it
+     along the heading (or sideways if the column is too tight) and come back down to the far plane */
+  const settle=()=>{
+    if(Math.abs(C[2]-Zo)<1e-6||Math.abs(d[2])>0.5)return;
+    const need=Math.max(ctx.g,ctx.rcMax+2*R+0.3),o=otherXY(d);
+    let best=d,bs=-1;
+    for(const dir of [d,o,[-o[0],-o[1],0]]){const sp=spaceAlong(C,dir,ctx);if(sp>=need){best=dir;bs=sp;break;}if(sp>bs){bs=sp;best=dir;}}
+    const q=vmad(C,best,Math.max(Math.min(need,bs),0.6*ctx.g)),C2=[q[0],q[1],Zo];
+    ctx.occ.push(boxOf([C,q,C2]));P.put(q,rb);
+    C=C2;P.put(C,rb);d=[0,0,-so];
+  };
+  let f=featRun(C,d,rng,ctx);if(f)apply(f);
+  const types=['coil','meander','zigzag'].filter(t=>ctx.figures[t]);
+  const nF=types.length?1+Math.floor(rng()*(1+2.2*ctx.wander)):Math.floor(rng()*(1+2.5*ctx.wander));
+  for(let k=0;k<nF;k++){
+    if(Math.abs(d[2])>0.5||!types.length||rng()<0.45){const t=featRun(C,d,rng,ctx);if(t)apply(t);}
+    if(Math.abs(d[2])>0.5||!types.length)continue;
+    ctx.cur=C;
+    const type=types[Math.floor(rng()*types.length)];
+    const g=type==='coil'?featCoil(C,d,rng,ctx):type==='meander'?featMeander(C,d,rng,ctx):featZig(C,d,rng,ctx);
+    if(g){apply(g);settle();}
+  }
+  settle();
+  if(cross){
+    const yIn=1+2*R+0.2,yOut=Math.max(yIn,ctx.y1-R-0.15),targets=[];
+    for(const sy of [1,-1]){
+      const Y=sy*(yIn+rng()*(yOut-yIn));
+      for(const X of [C[0],ctx.x0+R+0.15,ctx.x1-R-0.15,(ctx.x0+ctx.x1)/2])targets.push([X,Y]);
+    }
+    const legs=planReturn(C,d,targets,ctx,rng,[V1,A],Zo,Zr);
+    ctx.occ.push(boxOf([C,...legs.map(t=>[t[0],t[1],Zo])]));
+    for(const t of legs){P.put([t[0],t[1],Zo],rb);}
+    const last=legs[legs.length-1];
+    C=[last[0],last[1],Zr];P.put(C,rb);d=[0,0,-so];
+  }else{
+    C=[C[0],C[1],Zr];P.put(C,rb);d=[0,0,-so];
+  }
+  const A2=[A[0],A[1],Zr];
+  ctx.occ.push(boxOf([C,[C[0],C[1],Zo]]));
+  for(const t of planReturn(C,d,[A2],ctx,rng,cross?[]:[V1],Zr,null))P.put([t[0],t[1],Zr],rb);
+  P.put(A2,rb);P.put(A,rb);P.put(Pst,0);
+  return P;
+}
+/* Count bounds violations, close passes to the letter itself or its neighbours, self-crossings and kinks. */
+function scoreRoute(fp,ctx,obst,limit){
+  if(fp.cell)ctx=fp.cell;
+  const R=ctx.R;let hits=fp.minR<1.05*R?40:0;if(hits>=limit)return hits;
+  const ex=resample(fp.pts,0.05),P=ex.pos,n=ex.count,st=ex.step;
+  const th=2*R+0.05,th2=th*th;
+  const ownSkip=Math.ceil((1.8*th+0.1)/st),selfSkip=Math.ceil(1.8*th/st);
+  const bHead=Math.ceil((fp.head||1)/st),bTail=Math.ceil((fp.tail||1)/st);
+  for(let i=0;i<n;i++){
+    const x=P[i*3],y=P[i*3+1],z=P[i*3+2];
+    if(i>bHead&&i<n-1-bTail&&(x<ctx.x0-0.05||x>ctx.x1+0.05||y<ctx.y0-0.05||y>ctx.y1+0.05))hits++;
+    for(const ob of obst){
+      if(ob.own&&(i<ownSkip||i>n-1-ownSkip))continue;
+      const b=ob.L.aabb;
+      if(x<b[0]-th||x>b[3]+th||y<b[1]-th||y>b[4]+th||z<b[2]-th||z>b[5]+th)continue;
+      const Q=ob.L.pos,c=ob.L.count;
+      for(let j=0;j<c;j+=3){const dx=x-Q[j*3],dy=y-Q[j*3+1],dz=z-Q[j*3+2];if(dx*dx+dy*dy+dz*dz<th2){hits++;break;}}
+    }
+    for(let j=i+selfSkip;j<n;j+=2){const dx=x-P[j*3],dy=y-P[j*3+1],dz=z-P[j*3+2];if(dx*dx+dy*dy+dz*dz<th2){hits++;break;}}
+    if(hits>=limit)return hits;
+  }
+  return hits;
+}
+/* Letter samples + route samples form one closed loop. Frames are parallel-transported around it,
+   with the closing twist spread over the route so the parked letter keeps the same frames every run. */
+function makeLoop(L,exc){
+  const m=L.m,k=exc.count-1,n=m+k;
+  const P=new Float32Array(n*3);
+  P.set(L.pos.subarray(0,(m+1)*3));
+  P.set(exc.pos.subarray(3,k*3),(m+1)*3);
+  const T=new Float32Array(n*3),N=new Float32Array(n*3),B=new Float32Array(n*3);
+  for(let i=0;i<n;i++){
+    const a=((i-1+n)%n)*3,b=((i+1)%n)*3;
+    const x=P[b]-P[a],y=P[b+1]-P[a+1],z=P[b+2]-P[a+2],l=Math.hypot(x,y,z)||1;
+    T[i*3]=x/l;T[i*3+1]=y/l;T[i*3+2]=z/l;
+  }
+  let nx=L.n0[0],ny=L.n0[1],nz=L.n0[2];
+  for(let i=0;i<n;i++){
+    const tx=T[i*3],ty=T[i*3+1],tz=T[i*3+2],d=nx*tx+ny*ty+nz*tz;
+    nx-=tx*d;ny-=ty*d;nz-=tz*d;const l=Math.hypot(nx,ny,nz)||1;nx/=l;ny/=l;nz/=l;
+    N[i*3]=nx;N[i*3+1]=ny;N[i*3+2]=nz;
+  }
+  {
+    const tx=T[0],ty=T[1],tz=T[2];
+    let ex=N[(n-1)*3],ey=N[(n-1)*3+1],ez=N[(n-1)*3+2];const d=ex*tx+ey*ty+ez*tz;
+    ex-=tx*d;ey-=ty*d;ez-=tz*d;const l=Math.hypot(ex,ey,ez)||1;ex/=l;ey/=l;ez/=l;
+    const cx=ey*N[2]-ez*N[1],cy=ez*N[0]-ex*N[2],cz=ex*N[1]-ey*N[0];
+    const ang=Math.atan2(cx*tx+cy*ty+cz*tz,ex*N[0]+ey*N[1]+ez*N[2]);
+    for(let i=m+1;i<n;i++){
+      const a=ang*(i-m)/(n-m),c=Math.cos(a),s=Math.sin(a);
+      const kx=T[i*3],ky=T[i*3+1],kz=T[i*3+2],vx=N[i*3],vy=N[i*3+1],vz=N[i*3+2];
+      N[i*3]=vx*c+(ky*vz-kz*vy)*s;N[i*3+1]=vy*c+(kz*vx-kx*vz)*s;N[i*3+2]=vz*c+(kx*vy-ky*vx)*s;
+    }
+  }
+  for(let i=0;i<n;i++){
+    const tx=T[i*3],ty=T[i*3+1],tz=T[i*3+2],vx=N[i*3],vy=N[i*3+1],vz=N[i*3+2];
+    B[i*3]=ty*vz-tz*vy;B[i*3+1]=tz*vx-tx*vz;B[i*3+2]=tx*vy-ty*vx;
+  }
+  return {P,T,N,B,n};
+}
+/* Neighbouring letters prefer opposite sides of the word (in front / behind); each route is also
+   checked against the route already laid for the letter on its left. */
+function makeRun(seed,letters,opts){
+  const rng=mulberry32(seed),s0=rng()<0.5?1:-1;
+  const routes=[];
+  letters.forEach((L,i)=>{
+    const pref=s0*(i%2?-1:1),base=routeCtx(L,opts);
+    const obst=[{L,own:true}];
+    if(i>0){obst.push({L:letters[i-1]});obst.push({L:routes[i-1].obst});}
+    if(i<letters.length-1)obst.push({L:letters[i+1]});
+    let best=null,bestScore=Infinity;
+    for(let a=0;a<40;a++){
+      const P=genRoute(L,base,rng,a<10||a%2?pref:-pref),fp=filletPoly(P.V,P.r);
+      fp.head=P.head;fp.tail=P.tail;fp.cell=P.cell;
+      const sc=scoreRoute(fp,base,obst,bestScore);
+      if(sc<bestScore){bestScore=sc;best=fp.pts;}
+      if(sc===0)break;
+    }
+    /* stragglers: fall back to plain pipework, which almost always finds a clear way */
+    if(bestScore>0){
+      const plain=Object.assign({},base,{figures:{coil:false,meander:false,zigzag:false}});
+      for(let a=0;a<16&&bestScore>0;a++){
+        const P=genRoute(L,plain,rng,a%2?pref:-pref),fp=filletPoly(P.V,P.r);
+        fp.head=P.head;fp.tail=P.tail;fp.cell=P.cell;
+        const sc=scoreRoute(fp,base,obst,bestScore);
+        if(sc<bestScore){bestScore=sc;best=fp.pts;}
+      }
+    }
+    const exc=resample(best,H);
+    const bb=[Infinity,Infinity,Infinity,-Infinity,-Infinity,-Infinity];
+    for(let j=0;j<exc.count;j++)for(let c=0;c<3;c++){const v=exc.pos[j*3+c];if(v<bb[c])bb[c]=v;if(v>bb[c+3])bb[c+3]=v;}
+    routes.push({exc,loop:makeLoop(L,exc),delay:0,dur:1,score:bestScore,obst:{pos:exc.pos,count:exc.count,aabb:bb}});
+  });
+  return {seed,routes};
+}
+/* ================= end of ENGINE ================= */
+
+/* ================= SET-UP ================= */
+const canvas = CANVAS;
+const FRAMES = {'16:9':{ar:16/9,fill:0.72},'1:1':{ar:1,fill:0.84},'4:5':{ar:0.8,fill:0.86}};
+const CAM_D = 20;                       // camera distance; orthographic, so it only sets the depth range
+const R = PRESET.form.tubeRadius;
+const hexRGB = h=>{const n=parseInt(h.slice(1),16);return [(n>>16&255)/255,(n>>8&255)/255,(n&255)/255];};
+/* ?tube=e8a34c&ground=0a0c0f tries other colours without editing the preset (six hex digits, no #) */
+/* VIEW OPTIONS (URL), none of which touch the routes (they are still planned in the 16:9 frame):
+     ?fit=strip  frame the WORD, not the 16:9 frame: the slides run off the canvas edges
+     ?left=34    put the word's left edge 34 CSS px in from the left (default: centred)
+     ?pixel=14   render 14 pixels per cap height, no antialiasing, scaled up with hard edges */
+const urlParam = k=>{try{return new URLSearchParams(QUERY).get(k);}catch(e){return null;}};
+const FIT_STRIP = urlParam('fit')==='strip';
+const LEFT_PX = urlParam('left')!=null&&isFinite(parseFloat(urlParam('left')))?parseFloat(urlParam('left')):null;
+const PIXEL = Math.max(0,Math.min(400,parseFloat(urlParam('pixel'))||0));
+/* study options: ss = supersampling factor, rows x cols = the display grid the buffer is fixed to */
+/* depth colour (study): depth=raw writes depth into red for read-back; depth=ramp colours by the four ramp stops, far to near */
+const DEPTH = urlParam('depth')||'', RAMP = (urlParam('ramp')||'10298c,186bef,39deff,e7ffff').split(',').map(h=>hexRGB('#'+h));
+/* shifting colour (study): shift=walk steps the hue 137.5 degrees in OKLCH at a fixed lightness each slide;
+   shift=palette:hex,hex,... cycles a list. Each tube point turns from the old colour to the new one as it runs
+   its route, so a slide carries the in-between colours along the tube, and a parked word is one colour. */
+const SHIFT = urlParam('shift')||'';
+const OKL=(L,C,h)=>{const a=C*Math.cos(h*D2R),b=C*Math.sin(h*D2R),l=Math.pow(L+0.3963377774*a+0.2158037573*b,3),m=Math.pow(L-0.1055613458*a-0.0638541728*b,3),s=Math.pow(L-0.0894841775*a-1.2914855480*b,3);
+  const f=x=>{x=Math.max(0,Math.min(1,x));return x<=0.0031308?12.92*x:1.055*Math.pow(x,1/2.4)-0.055;};
+  return [f(4.0767416621*l-3.3077115913*m+0.2309699292*s),f(-1.2684380046*l+2.6097574011*m-0.3413193965*s),f(-0.0041960863*l-0.7034186147*m+1.7076147010*s)];};
+const TOOKL=c=>{const g=x=>x<=0.04045?x/12.92:Math.pow((x+0.055)/1.055,2.4),R0=g(c[0]),G0=g(c[1]),B0=g(c[2]);
+  const l=Math.cbrt(0.4122214708*R0+0.5363020686*G0+0.0514459929*B0),m=Math.cbrt(0.2119034982*R0+0.6806995451*G0+0.1073969566*B0),s=Math.cbrt(0.0883024619*R0+0.2817188376*G0+0.6299787005*B0);
+  const L=0.2104542553*l+0.7936177850*m-0.0040720468*s,a=1.9779984951*l-2.4285922050*m+0.4505937099*s,b=0.0259040371*l+0.7827717662*m-0.8086757660*s;
+  return [L,Math.hypot(a,b),(Math.atan2(b,a)/D2R+360)%360];};
+const SHIFT_PAL = SHIFT.startsWith('palette:')?SHIFT.slice(8).split(',').map(h=>TOOKL(hexRGB('#'+h))):null;
+const SH = {i:0, cur:null, next:null};
+SH.cur = SHIFT_PAL?SHIFT_PAL[0]:TOOKL(hexRGB('#e8a34c'));
+function shiftNext(){SH.i++;if(SHIFT_PAL)return SHIFT_PAL[SH.i%SHIFT_PAL.length];return [SH.cur[0],SH.cur[1],(SH.cur[2]+137.508)%360];}
+let SHIFT_TEX=null;
+function shiftUpload(a,b){
+  if(!gl||!SHIFT_TEX)return;
+  const N=64,px=new Uint8Array(N*4);let dh=b[2]-a[2];if(dh>180)dh-=360;if(dh<-180)dh+=360;
+  for(let i=0;i<N;i++){const t=i/(N-1),c=OKL(a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+dh*t);px[i*4]=Math.round(c[0]*255);px[i*4+1]=Math.round(c[1]*255);px[i*4+2]=Math.round(c[2]*255);px[i*4+3]=255;}
+  gl.bindTexture(gl.TEXTURE_2D,SHIFT_TEX);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,N,1,0,gl.RGBA,gl.UNSIGNED_BYTE,px);needsDraw=true;
+}
+function shiftBegin(){SH.next=shiftNext();shiftUpload(SH.cur,SH.next);}
+function shiftEnd(){if(SH.next){SH.cur=SH.next;SH.next=null;}shiftUpload(SH.cur,SH.cur);}
+const SS = Math.max(1,parseInt(urlParam('ss'),10)||1), ROWS = parseInt(urlParam('rows'),10)||0, COLS = parseInt(urlParam('cols'),10)||0;
+const urlColor = k=>{try{const m=new RegExp('[?&]'+k+'=([0-9a-f]{6})\\b','i').exec(QUERY);return m?'#'+m[1]:null;}catch(e){return null;}};
+const TUBE_HEX = urlColor('tube')||PRESET.form.tubeColor, GROUND_HEX = urlColor('ground')||PRESET.form.groundColor;
+const TUBE = hexRGB(TUBE_HEX), GROUND = hexRGB(GROUND_HEX);
+canvas.style.background = GROUND_HEX;
+if(PIXEL)canvas.style.imageRendering='pixelated';
+
+/* The word, and the canonical frame every route is planned in (independent of canvas size). */
+const word = buildWord(R), letters = word.letters, WORD_W = word.width;
+const fr = FRAMES[PRESET.view.frame] || FRAMES['16:9'];
+let halfW=(WORD_W/2+R)/fr.fill,halfH=halfW/fr.ar;
+if(halfH<2.1){halfH=2.1;halfW=halfH*fr.ar;}
+const fig = PRESET.motion.figures;
+const RUN_OPTS = {halfW,halfH,wander:PRESET.motion.wander,R,bend:PRESET.motion.bendRadius,
+  figures:{coil:fig.coils,meander:fig.meanders,zigzag:fig.zigzags}};
+
+const PRESET_SEED = parseInt(PRESET.route.seed,16);
+const bs = BAKED.settings;
+const BAKED_OK = parseInt(BAKED.seed,16)===PRESET_SEED && bs.tubeRadius===R && bs.wander===PRESET.motion.wander &&
+  bs.bendRadius===PRESET.motion.bendRadius && bs.frame===PRESET.view.frame &&
+  bs.coils===fig.coils && bs.meanders===fig.meanders && bs.zigzags===fig.zigzags && BAKED.routes.length===letters.length;
+
+function runFromBaked(){
+  const routes = letters.map((L,i)=>{
+    const b = BAKED.routes[i], fp = filletPoly(b.V,b.r), exc = resample(fp.pts,H);
+    return {exc,loop:makeLoop(L,exc),delay:0,dur:1};
+  });
+  return {seed:PRESET_SEED,routes};
+}
+function buildRun(seed){
+  return seed===PRESET_SEED && BAKED_OK ? runFromBaked() : makeRun(seed,letters,RUN_OPTS);
+}
+
+/* ================= TUBE SWEEP =================
+   Each frame a letter's tube is re-swept along its loop: rounded cap, rings every RING units,
+   rounded cap. Same construction as the design study. */
+const COS=new Float32Array(RS),SIN=new Float32Array(RS);
+for(let s=0;s<RS;s++){COS[s]=Math.cos(s/RS*TAU);SIN[s]=Math.sin(s/RS*TAU);}
+for(const L of letters){
+  const rings=K+L.Mr+1+K;
+  L.nv=rings*RS;
+  L.posA=new Float32Array(L.nv*3);L.norA=new Float32Array(L.nv*3);L.pA=new Float32Array(L.nv);
+  const idx=new (L.nv>65535?Uint32Array:Uint16Array)((rings-1)*RS*6);let q=0;
+  for(let r=0;r<rings-1;r++)for(let s=0;s<RS;s++){
+    const a=r*RS+s,b=r*RS+(s+1)%RS,c=(r+1)*RS+s,d=(r+1)*RS+(s+1)%RS;
+    idx[q++]=a;idx[q++]=b;idx[q++]=c;idx[q++]=b;idx[q++]=d;idx[q++]=c;
+  }
+  L.idxA=idx;L.loop=null;L.f=0;L.dirty=true;L.upload=true;
+}
+const sP=[0,0,0],sT=[0,0,0],sN=[0,0,0],sB=[0,0,0];
+function sampleLoop(lp,idx){
+  const n=lp.n;let x=idx%n;if(x<0)x+=n;
+  let i0=Math.floor(x);const a=x-i0;i0%=n;const i1=(i0+1)%n,o0=i0*3,o1=i1*3,b=1-a;
+  for(let c=0;c<3;c++){
+    sP[c]=lp.P[o0+c]*b+lp.P[o1+c]*a;sT[c]=lp.T[o0+c]*b+lp.T[o1+c]*a;sN[c]=lp.N[o0+c]*b+lp.N[o1+c]*a;
+  }
+  let l=Math.hypot(sT[0],sT[1],sT[2])||1;sT[0]/=l;sT[1]/=l;sT[2]/=l;
+  const d=sN[0]*sT[0]+sN[1]*sT[1]+sN[2]*sT[2];
+  sN[0]-=sT[0]*d;sN[1]-=sT[1]*d;sN[2]-=sT[2]*d;
+  l=Math.hypot(sN[0],sN[1],sN[2])||1;sN[0]/=l;sN[1]/=l;sN[2]/=l;
+  sB[0]=sT[1]*sN[2]-sT[2]*sN[1];sB[1]=sT[2]*sN[0]-sT[0]*sN[2];sB[2]=sT[0]*sN[1]-sT[1]*sN[0];
+}
+function writeTube(L){
+  const lp=L.loop,pos=L.posA,nor=L.norA;
+  let v=0;
+  const ring=(cx,cy,cz,rr,tk,sgn)=>{
+    const cp=Math.sqrt(Math.max(0,1-tk*tk));
+    for(let s=0;s<RS;s++){
+      const dx=sN[0]*COS[s]+sB[0]*SIN[s],dy=sN[1]*COS[s]+sB[1]*SIN[s],dz=sN[2]*COS[s]+sB[2]*SIN[s];
+      pos[v]=cx+dx*rr;pos[v+1]=cy+dy*rr;pos[v+2]=cz+dz*rr;
+      nor[v]=dx*cp+sT[0]*tk*sgn;nor[v+1]=dy*cp+sT[1]*tk*sgn;nor[v+2]=dz*cp+sT[2]*tk*sgn;
+      L.pA[v/3]=curP;v+=3;
+    }
+  };
+  /* route progress of the tube point k samples from the tail: it leaves the letter at index m and is home after one lap */
+  const pAt=k=>Math.min(1,Math.max(0,(L.f-(L.m-k))/Math.max(1,lp.n-L.m)));
+  let curP=pAt(0);
+  sampleLoop(lp,L.f);
+  for(let k=K;k>=1;k--){
+    const ph=k/K*Math.PI/2,sp=Math.sin(ph),cp=Math.cos(ph);
+    ring(sP[0]-sT[0]*R*sp,sP[1]-sT[1]*R*sp,sP[2]-sT[2]*R*sp,R*cp,sp,-1);
+  }
+  const di=L.m/L.Mr;
+  for(let j=0;j<=L.Mr;j++){curP=pAt(j*di);sampleLoop(lp,L.f+j*di);ring(sP[0],sP[1],sP[2],R,0,1);}
+  for(let k=1;k<=K;k++){
+    const ph=k/K*Math.PI/2,sp=Math.sin(ph),cp=Math.cos(ph);
+    ring(sP[0]+sT[0]*R*sp,sP[1]+sT[1]*R*sp,sP[2]+sT[2]*R*sp,R*cp,sp,1);
+  }
+  L.upload=true;
+}
+
+/* ================= RENDERER (WebGL 1, two flat-colour passes) =================
+   Pass 1: each tube's shell, pushed out along its normals by the gap width, back faces only,
+           in the ground colour. Pass 2: the tubes, front faces only, in the tube colour.
+   With the depth test, a shell shows only where its tube is in front of something else,
+   which is what draws the knot-diagram gaps. */
+const VS_TUBE=SHIFT?'attribute vec3 aPos;attribute float aP;uniform mat4 uMVP;varying float vP;void main(){vP=aP;gl_Position=uMVP*vec4(aPos,1.0);}':DEPTH?'attribute vec3 aPos;uniform mat4 uMVP;varying float vZ;void main(){vZ=aPos.z;gl_Position=uMVP*vec4(aPos,1.0);}':'attribute vec3 aPos;uniform mat4 uMVP;void main(){gl_Position=uMVP*vec4(aPos,1.0);}';
+/* z toward the camera is near (yaw 0): the parked letters span about -0.9..0.9, the routes' planes clamp to the ends */
+const FS_SHIFT='precision mediump float;varying float vP;uniform sampler2D uTex;void main(){gl_FragColor=vec4(texture2D(uTex,vec2(clamp(vP,0.0,1.0)*0.984+0.008,0.5)).rgb,1.0);}';
+const FS_DEPTH='precision mediump float;varying float vZ;uniform vec3 uR0,uR1,uR2,uR3;uniform float uRaw;void main(){float t=clamp((vZ+0.9)/1.8,0.0,1.0);if(uRaw>0.5){gl_FragColor=vec4(t,1.0,0.0,1.0);return;}vec3 c=t<1.0/3.0?mix(uR0,uR1,t*3.0):(t<2.0/3.0?mix(uR1,uR2,t*3.0-1.0):mix(uR2,uR3,t*3.0-2.0));gl_FragColor=vec4(c,1.0);}';
+const VS_SHELL='attribute vec3 aPos;attribute vec3 aNor;uniform mat4 uMVP;uniform float uGap;'+
+  'void main(){gl_Position=uMVP*vec4(aPos+aNor*uGap,1.0);}';
+const FS_FLAT='precision mediump float;uniform vec3 uColor;void main(){gl_FragColor=vec4(uColor,1.0);}';
+let gl=null,progTube=null,progShell=null,idxType=0;
+function makeProgram(vs,fs){
+  const p=gl.createProgram();
+  for(const [type,src] of [[gl.VERTEX_SHADER,vs],[gl.FRAGMENT_SHADER,fs]]){
+    const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);
+    if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s));
+    gl.attachShader(p,s);
+  }
+  gl.bindAttribLocation(p,0,'aPos');gl.bindAttribLocation(p,1,'aNor');gl.bindAttribLocation(p,2,'aP');
+  gl.linkProgram(p);
+  if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(p));
+  return {p,uMVP:gl.getUniformLocation(p,'uMVP'),uColor:gl.getUniformLocation(p,'uColor'),uGap:gl.getUniformLocation(p,'uGap')};
+}
+function initGL(){
+  const attrs={antialias:!PIXEL,alpha:false,depth:true,stencil:false,premultipliedAlpha:false,preserveDrawingBuffer:false};
+  gl=canvas.getContext('webgl',attrs)||canvas.getContext('experimental-webgl',attrs);
+  if(!gl){console.warn('Sluice: WebGL is unavailable; showing the ground colour only.');return false;}
+  idxType=gl.UNSIGNED_SHORT;
+  if(letters.some(L=>L.nv>65535)){
+    if(!gl.getExtension('OES_element_index_uint')){console.warn('Sluice: 32-bit indices unsupported.');gl=null;return false;}
+    idxType=gl.UNSIGNED_INT;
+  }
+  progTube=makeProgram(VS_TUBE,SHIFT?FS_SHIFT:DEPTH?FS_DEPTH:FS_FLAT);if(SHIFT){progTube.uTex=gl.getUniformLocation(progTube.p,'uTex');SHIFT_TEX=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,SHIFT_TEX);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);shiftUpload(SH.cur,SH.next||SH.cur);}if(DEPTH){progTube.uR=[0,1,2,3].map(i=>gl.getUniformLocation(progTube.p,'uR'+i));progTube.uRaw=gl.getUniformLocation(progTube.p,'uRaw');}progShell=makeProgram(VS_SHELL,FS_FLAT);
+  for(const L of letters){
+    L.bPos=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,L.bPos);gl.bufferData(gl.ARRAY_BUFFER,L.posA,gl.DYNAMIC_DRAW);
+    L.bNor=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,L.bNor);gl.bufferData(gl.ARRAY_BUFFER,L.norA,gl.DYNAMIC_DRAW);
+    L.bP=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,L.bP);gl.bufferData(gl.ARRAY_BUFFER,L.pA,gl.DYNAMIC_DRAW);
+    L.bIdx=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,L.bIdx);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,L.idxA,gl.STATIC_DRAW);
+    L.upload=false;
+  }
+  gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);
+  gl.enable(gl.CULL_FACE);gl.frontFace(gl.CCW);
+  return true;
+}
+/* Column-major 4x4 helpers: orthographic projection times a look-at view from yaw/pitch. */
+function mul4(a,b){const o=new Float32Array(16);for(let c=0;c<4;c++)for(let r=0;r<4;r++){let s=0;for(let k=0;k<4;k++)s+=a[k*4+r]*b[c*4+k];o[c*4+r]=s;}return o;}
+/* The visible half-extents (vw, vh) and centre x for a canvas of aspect a and CSS width cssW.
+   Frame: the whole 16:9 route frame, extra canvas area becoming ground. Strip: the word with
+   headroom, so anything that leaves the word's band is cropped by the canvas edge. */
+const WORD_EDGE = WORD_W/2+R;
+function view(a,cssW){
+  let vw,vh;
+  if(PIXEL&&ROWS&&COLS){vh=ROWS*SS/PIXEL;vw=vh*COLS/ROWS;}
+  else if(FIT_STRIP){
+    vh=(1+R)*1.45;vw=vh*a;
+    if(vw<WORD_EDGE+0.35){vw=WORD_EDGE+0.35;vh=vw/a;}
+  }else if(a>=halfW/halfH){vh=halfH;vw=halfH*a;}else{vw=halfW;vh=halfW/a;}
+  const cx=LEFT_PX==null||!cssW?0:vw-WORD_EDGE-LEFT_PX*2*vw/cssW;
+  return {vw,vh,cx};
+}
+function viewProj(vw,vh,cx){
+  const y=PRESET.view.yawDegrees*D2R,p=PRESET.view.pitchDegrees*D2R,cp=Math.cos(p);
+  const e=[CAM_D*Math.sin(y)*cp,CAM_D*Math.sin(p),CAM_D*Math.cos(y)*cp];
+  const z=norm3(e),x=norm3([z[2],0,-z[0]]),u=[z[1]*x[2]-z[2]*x[1],z[2]*x[0]-z[0]*x[2],z[0]*x[1]-z[1]*x[0]];
+  const V=new Float32Array([x[0],u[0],z[0],0, x[1],u[1],z[1],0, x[2],u[2],z[2],0, -dot3(x,e),-dot3(u,e),-dot3(z,e),1]);
+  const n=0.1,f=60;
+  const P=new Float32Array([1/vw,0,0,0, 0,1/vh,0,0, 0,0,-2/(f-n),0, -(cx||0)/vw,0,-(f+n)/(f-n),1]);
+  return mul4(P,V);
+}
+function draw(gapOverride){
+  if(!gl||gl.isContextLost())return;
+  const shell=typeof gapOverride==='boolean'?gapOverride:(!PIXEL||MARK_OPTS.pixelGap);
+  for(const L of letters)if(L.upload){
+    gl.bindBuffer(gl.ARRAY_BUFFER,L.bPos);gl.bufferSubData(gl.ARRAY_BUFFER,0,L.posA);
+    gl.bindBuffer(gl.ARRAY_BUFFER,L.bNor);gl.bufferSubData(gl.ARRAY_BUFFER,0,L.norA);
+    gl.bindBuffer(gl.ARRAY_BUFFER,L.bP);gl.bufferSubData(gl.ARRAY_BUFFER,0,L.pA);
+    L.upload=false;
+  }
+  /* show the canonical frame whole; extra canvas area becomes ground */
+  /* aspect from the CSS box: a pixel buffer's rounding must not move the framing */
+  const cw=canvas.clientWidth||canvas.width,ch=canvas.clientHeight||canvas.height;
+  const {vw,vh,cx}=view(cw/ch,cw);
+  const mvp=viewProj(vw,vh,cx),gap=Math.max(KNOT_GAP,2*vh/canvas.height);
+  gl.viewport(0,0,canvas.width,canvas.height);
+  gl.clearColor(GROUND[0],GROUND[1],GROUND[2],1);
+  gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+  gl.enableVertexAttribArray(0);
+  if(shell){
+    gl.useProgram(progShell.p);
+    gl.uniformMatrix4fv(progShell.uMVP,false,mvp);gl.uniform1f(progShell.uGap,gap);gl.uniform3fv(progShell.uColor,GROUND);
+    gl.cullFace(gl.FRONT);
+    gl.enableVertexAttribArray(1);
+    for(const L of letters){
+      gl.bindBuffer(gl.ARRAY_BUFFER,L.bPos);gl.vertexAttribPointer(0,3,gl.FLOAT,false,0,0);
+      gl.bindBuffer(gl.ARRAY_BUFFER,L.bNor);gl.vertexAttribPointer(1,3,gl.FLOAT,false,0,0);
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,L.bIdx);gl.drawElements(gl.TRIANGLES,L.idxA.length,idxType,0);
+    }
+    gl.disableVertexAttribArray(1);
+  }
+  gl.useProgram(progTube.p);
+  gl.uniformMatrix4fv(progTube.uMVP,false,mvp);gl.uniform3fv(progTube.uColor,TUBE);if(DEPTH){RAMP.forEach((c,i)=>gl.uniform3fv(progTube.uR[i],c));gl.uniform1f(progTube.uRaw,DEPTH==='raw'?1:0);}
+  gl.cullFace(gl.BACK);
+  if(SHIFT){gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,SHIFT_TEX);gl.uniform1i(progTube.uTex,0);gl.enableVertexAttribArray(2);}
+  for(const L of letters){
+    gl.bindBuffer(gl.ARRAY_BUFFER,L.bPos);gl.vertexAttribPointer(0,3,gl.FLOAT,false,0,0);
+    if(SHIFT){gl.bindBuffer(gl.ARRAY_BUFFER,L.bP);gl.vertexAttribPointer(2,1,gl.FLOAT,false,0,0);}
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,L.bIdx);gl.drawElements(gl.TRIANGLES,L.idxA.length,idxType,0);
+  }
+  if(SHIFT)gl.disableVertexAttribArray(2);
+}
+let needsDraw=true;
+function resize(){
+  const dpr=Math.min(window.devicePixelRatio||1,2),cw=canvas.clientWidth,ch=canvas.clientHeight;
+  let w=Math.max(1,Math.round(cw*dpr)),h=Math.max(1,Math.round(ch*dpr));
+  /* pixel look: the buffer holds PIXEL rows per cap height (cap = 2 units), whatever the screen */
+  if(PIXEL&&ROWS&&COLS){h=ROWS*SS;w=COLS*SS;}
+  else if(PIXEL&&cw&&ch){h=Math.max(1,Math.round(view(cw/ch,cw).vh*PIXEL));w=Math.max(1,Math.round(h*cw/ch));}
+  if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
+  needsDraw=true;
+}
+if(typeof ResizeObserver!=='undefined')new ResizeObserver(resize).observe(canvas);
+window.addEventListener('resize',resize);
+canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();},false);
+canvas.addEventListener('webglcontextrestored',()=>{if(initGL()){letters.forEach(L=>L.dirty=true);needsDraw=true;}},false);
+
+/* ================= TIMELINE: hold, slide, park, repeat ================= */
+const EASE={
+  smooth:x=>x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2,
+  settle:x=>{const c1=1.15,c2=c1*1.525;return x<0.5?(Math.pow(2*x,2)*((c2+1)*2*x-c2))/2:(Math.pow(2*x-2,2)*((c2+1)*(x*2-2)+c2)+2)/2;},
+  mech:x=>{const a=0.16,v=1/(1-a);if(x<a)return 0.5*v/a*x*x;if(x>1-a){const y=1-x;return 1-0.5*v/a*y*y;}return 0.5*v*a+v*(x-a);}
+};
+const HOLD=PRESET.motion.holdSeconds,TRAVEL=PRESET.motion.travelSeconds,TIMING=PRESET.motion.timing;
+const EASING=EASE[PRESET.motion.easing]||EASE.smooth;
+const S={phase:'hold',clock:0,start:0,paused:false,run:0,current:null,pending:null,lastSeed:null,forced:null};
+/* first slide: the preset seed; afterwards a fresh seed each cycle, or the same one if repeat is on */
+function nextSeed(){
+  if(S.forced!=null){const s=S.forced;S.forced=null;return s;}
+  if(S.lastSeed==null)return PRESET_SEED;
+  return PRESET.route.repeat?S.lastSeed:newSeed();
+}
+function preparePending(){
+  S.pending=buildRun(nextSeed());
+  S.pending.routes.forEach((r,i)=>{letters[i].loop=r.loop;letters[i].f=0;letters[i].dirty=true;});
+}
+function startHold(){S.phase='hold';S.start=S.clock;preparePending();if(SHIFT&&S.run)shiftEnd();}
+function startSlide(){
+  const run=S.pending;if(!run)return;
+  const avg=run.routes.reduce((a,r)=>a+r.loop.n,0)/run.routes.length;
+  run.routes.forEach((r,i)=>{
+    if(TIMING==='cascade'){r.delay=i*TRAVEL*0.085;r.dur=TRAVEL;}
+    else if(TIMING==='speed'){r.delay=0;r.dur=TRAVEL*r.loop.n/avg;}
+    else{r.delay=0;r.dur=TRAVEL;}
+  });
+  S.current=run;S.pending=null;S.lastSeed=run.seed;S.run++;
+  S.phase='slide';S.start=S.clock;
+  if(SHIFT)shiftBegin();
+}
+function stepTimeline(){
+  if(S.phase==='hold'){if(S.clock-S.start>=HOLD)startSlide();return;}
+  const t=S.clock-S.start;let done=true;
+  S.current.routes.forEach((r,i)=>{
+    const u=clamp((t-r.delay)/r.dur,0,1);if(u<1)done=false;
+    const f=EASING(u)*r.loop.n,L=letters[i];
+    if(f!==L.f){L.f=f;L.dirty=true;}
+  });
+  if(done){letters.forEach(L=>{L.f=0;L.dirty=true;});startHold();}
+}
+function render(){
+  for(const L of letters)if(L.dirty&&L.loop){writeTube(L);L.dirty=false;needsDraw=true;}
+  if(needsDraw){draw();needsDraw=false;if(HOOK&&gl)HOOK(gl,canvas,draw);}
+}
+
+/* ================= EMBEDDING API ================= */
+const API=Object.freeze({
+  preset:PRESET,
+  play(){S.paused=false;},
+  pause(){S.paused=true;},
+  slideNow(){if(S.phase==='hold')startSlide();},
+  redraw(){needsDraw=true;},
+  /* route for the next slide (1-6 hex digits); applies immediately while parked */
+  setNextSeed(h){
+    const s=parseInt(String(h),16);
+    if(!/^[0-9a-f]{1,6}$/i.test(String(h)))throw new Error('Sluice: a seed is 1 to 6 hex digits, e.g. "A23183".');
+    S.forced=s;if(S.phase==='hold')preparePending();
+  },
+  get colour(){if(!SHIFT)return null;const c=OKL(...SH.cur);return '#'+c.map(v=>Math.round(v*255).toString(16).padStart(2,'0')).join('');},
+  get seed(){const r=S.phase==='slide'?S.current:S.pending;return r?hex(r.seed):null;},
+  get phase(){return S.paused?'paused-'+S.phase:S.phase;},
+  toPNG(){render();draw();return canvas.toDataURL('image/png');},
+  letterPaths(){return letters.map(L=>({letter:L.ch,points:Array.from({length:L.count},(_,i)=>[L.pos[i*3],L.pos[i*3+1],L.pos[i*3+2]])}));},
+  routePaths(){
+    const run=S.phase==='slide'?S.current:S.pending;if(!run)return [];
+    return run.routes.map((r,i)=>({letter:letters[i].ch,points:Array.from({length:r.exc.count},(_,k)=>[r.exc.pos[k*3],r.exc.pos[k*3+1],r.exc.pos[k*3+2]])}));
+  }
+});
+
+/* ================= BOOT ================= */
+let still=false;
+try{still=/[?&]still\b/.test(QUERY)||window.matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){}
+S.paused=still;
+initGL();
+resize();
+preparePending();
+let last=performance.now();
+function frame(now){
+  const dt=Math.min(0.1,Math.max(0,(now-last)/1000));last=now;
+  if(!S.paused)S.clock+=dt;
+  stepTimeline();
+  render();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+return API;
+}
+
+</script>
+<script>
+(function(){
+  const AMBER='#e8a34c';
+  const q5=v=>{const k=Math.round(v/255*31);return (k<<3)|(k>>2);};
+  const rgb=h=>{const n=parseInt(h.slice(1),16);return [n>>16&255,n>>8&255,n&255];};
+  const q555=c=>c.map(q5);
+  const mix=(a,b,t)=>a.map((v,i)=>Math.round(v*(1-t)+b[i]*t));
+  const BAYER=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
+  const METHODS=[
+    {id:'point',name:'Point',why:'As the file exports: one sample at each pixel centre, no smoothing.'},
+    {id:'cover',name:'Coverage',why:'A pixel is ink when the tube covers half of it. Curves come out symmetric and stems even.'},
+    {id:'two',  name:'Two-tone',why:'Ink above 60 % cover, a mid tone from 25 %. Hand-hinted edges, within the GBC four-colour rule.'},
+    {id:'dith', name:'Dither',  why:'Cover through a 4 × 4 ordered dither: the edge becomes texture, like the workstation glass.'}
+  ];
+  /* rows x cols per density: cap = P rows; the strip leaves the routes' headroom above and below */
+  const DENS=[
+    {P:10.714,rows:20,cols:72, stem:3, k:4},
+    {P:14.286,rows:28,cols:96, stem:4, k:3},
+    {P:21.429,rows:40,cols:144,stem:6, k:2}
+  ];
+  const SS=8;
+  const ground=rgb('#0d0f13'), ink=rgb(AMBER), mid=mix(ink,ground,.5);
+  const study=document.getElementById('study'), srcBox=document.getElementById('srcBox');
+  const marks=[];
+  const STATES=[],DSTATES=[];
+
+  function classify(cov,pt,x,y,m){
+    if(m==='point')return pt?2:0;
+    if(m==='cover')return cov>=.5?2:0;
+    if(m==='two')return cov>=.6?2:cov>=.25?1:0;
+    return cov>(BAYER[(y&3)*4+(x&3)]+.5)/16?2:0;
+  }
+  function paint(ctx,cov,pt,cols,rows,m,pal,ox,oy,y0,yn){
+    const img=ctx.createImageData(cols,yn);
+    for(let y=0;y<yn;y++)for(let x=0;x<cols;x++){
+      const i=(y+y0)*cols+x,c=pal[classify(cov[i],pt[i],x,y+y0,m)],o=(y*cols+x)*4;
+      img.data[o]=c[0];img.data[o+1]=c[1];img.data[o+2]=c[2];img.data[o+3]=255;
+    }
+    ctx.putImageData(img,ox,oy);
+  }
+
+  DENS.forEach((d,di)=>{
+    const sec=document.createElement('div');sec.className='dens';
+    sec.innerHTML='<h2>'+d.P.toFixed(1)+' rows per cap · '+d.stem+' px stems · '+d.cols+' × '+d.rows+' grid</h2><div class="row"></div>';
+    const row=sec.querySelector('.row'),ctxs=[];
+    METHODS.forEach(m=>{
+      const t=document.createElement('div');t.className='tile';
+      t.innerHTML='<div class="frame"><canvas class="px"></canvas></div><b></b><span></span>';
+      const cv=t.querySelector('canvas');cv.width=d.cols;cv.height=d.rows;cv.style.maxWidth=(d.cols*d.k)+'px';
+      cv.setAttribute('aria-label','Sluice mark, '+m.name+', '+d.stem+' px stems');
+      t.querySelector('b').textContent=m.name;t.querySelector('span').textContent=m.why;
+      row.appendChild(t);ctxs.push([cv.getContext('2d'),m.id]);
+    });
+    study.appendChild(sec);
+    /* the hidden source: white tube on black, the buffer fixed to the grid x SS */
+    const src=document.createElement('canvas');src.style.width=(d.cols*2)+'px';src.style.height=(d.rows*2)+'px';srcBox.appendChild(src);
+    const W=d.cols*SS,H=d.rows*SS,buf=new Uint8Array(W*H*4),cov=new Float32Array(d.cols*d.rows),pt=new Uint8Array(d.cols*d.rows);
+    const pal=[ground,mid,ink];
+    const hook=(gl,cv)=>{
+      if(cv.width!==W||cv.height!==H)return;
+      gl.readPixels(0,0,W,H,gl.RGBA,gl.UNSIGNED_BYTE,buf);
+      cov.fill(0);
+      for(let y=0;y<H;y++){const dy=d.rows-1-((y/SS)|0),row=(H-1-y)*W*4;
+        /* readPixels is bottom-up: buffer row y is display row from the top */
+        for(let x=0;x<W;x++){const v=buf[(y*W+x)*4];if(v>127)cov[dy*d.cols+((x/SS)|0)]+=1;}}
+      const n=SS*SS,c=SS>>1;
+      for(let i=0;i<cov.length;i++)cov[i]/=n;
+      for(let yy=0;yy<d.rows;yy++)for(let xx=0;xx<d.cols;xx++){
+        const by=H-1-(yy*SS+c),bx=xx*SS+c;pt[yy*d.cols+xx]=buf[(by*W+bx)*4]>127?1:0;}
+      ctxs.forEach(([ctx,mid_])=>paint(ctx,cov,pt,d.cols,d.rows,mid_,pal,0,0,0,d.rows));
+      STATES[di]={cov,cols:d.cols,rows:d.rows};if(di>0)drawScreens();
+    };
+    marks.push(makeSluiceMark(src,'?fit=strip&tube=ffffff&ground=000000&pixel='+(d.P*SS)+'&ss='+SS+'&rows='+d.rows+'&cols='+d.cols,hook));
+    if(di===0)return;
+    /* a twin render with depth in red: coverage from green, mean depth of the covered sub-pixels from red */
+    const src2=document.createElement('canvas');src2.style.width=(d.cols*2)+'px';src2.style.height=(d.rows*2)+'px';srcBox.appendChild(src2);
+    const buf2=new Uint8Array(W*H*4),cv2=new Float32Array(d.cols*d.rows),dep=new Float32Array(d.cols*d.rows);
+    marks.push(makeSluiceMark(src2,'?fit=strip&ground=000000&depth=raw&pixel='+(d.P*SS)+'&ss='+SS+'&rows='+d.rows+'&cols='+d.cols,(gl,cv)=>{
+      if(cv.width!==W||cv.height!==H)return;
+      gl.readPixels(0,0,W,H,gl.RGBA,gl.UNSIGNED_BYTE,buf2);cv2.fill(0);dep.fill(0);
+      for(let y=0;y<H;y++){const dy=d.rows-1-((y/SS)|0);for(let x=0;x<W;x++){const o=(y*W+x)*4;if(buf2[o+1]>127){const i=dy*d.cols+((x/SS)|0);cv2[i]+=1;dep[i]+=buf2[o]/255;}}}
+      const n=SS*SS;for(let i=0;i<cv2.length;i++){dep[i]=cv2[i]?dep[i]/cv2[i]:0;cv2[i]/=n;}
+      DSTATES[di]={cov:cv2,dep,cols:d.cols,rows:d.rows};drawScreens();drawSwatches();
+    }));
+  });
+
+  /* the real frames, captured from the lab's GBC skin (Play page) in ORCHID and TUBE */
+  const FRAMES={ORCHID:{src:'data:image/png;base64,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',ground:[247,239,255],ink:[107,16,231]},TUBE:{src:'data:image/png;base64,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',ground:[24,8,49],ink:[181,140,255]}};
+  let scheme='TUBE',outline=false;
+  const OPTS=[
+    {name:'Amber',flat:'#e8a34c',why:'Your pick: the panel accent.'},
+    {name:'Spiral depth',ramp:['#10298c','#186bef','#39deff','#e7ffff'],why:"The whirlpool icon's four blues, far to near."},
+    {name:'Amber depth',ramp:['#8a5a14','#c9852e','#e8a34c','#fff1c4'],why:'The same idea in amber: burnt far, pale near.'},
+    {name:'Spiral cyan',flat:'#39deff',why:"One flat colour from the icon, so title and icon match."},
+    {name:'Screen ink',ink:true,why:"The scheme's own ink, so the title reads as part of the screen."},
+    {name:'Magenta',flat:'#e100ff',why:"The study's tube colour."},
+    {name:'Lime',flat:'#bfff00',why:"The study's ground, as the tube."},
+    {name:'Teal',flat:'#7fd1c7',why:"The plugin panel's spec teal."}
+  ];
+  let CUR=0;
+  const OQ=OPTS.map(o=>({flat:o.flat&&q555(rgb(o.flat)),ramp:o.ramp&&o.ramp.map(h=>q555(rgb(h))),ink:o.ink}));
+  function colourAt(st,i,F,o){const q=OQ[o];if(q.ramp)return q.ramp[Math.min(3,Math.floor(st.dep[i]*4))];if(q.ink)return F.ink;return q.flat;}
+  const AMB=q555(ink);
+  Object.values(FRAMES).forEach(F=>{const im=new Image();im.onload=()=>{const c=document.createElement('canvas');c.width=160;c.height=144;const g=c.getContext('2d');g.drawImage(im,0,0);F.orig=g.getImageData(0,0,160,144);
+    /* ADR-305: Sluice has no icon. The captured frames carry B326's whirlpool at (144, 0); clear that 16 x 16 slot to the ground. */
+    g.fillStyle='rgb('+F.ground.join(',')+')';g.fillRect(144,0,16,16);F.data=g.getImageData(0,0,160,144);drawScreens();};im.src=F.src;});
+  const SCR={A:document.getElementById('scrA').getContext('2d'),B:document.getElementById('scrB').getContext('2d'),C:document.getElementById('scrC').getContext('2d')};
+  /* paint a coverage crop: grid (cov, cols) from (sx, sy), w x h, onto the screen at (dx, dy), ground cleared first */
+  function title(ctx,st,sx,sy,w,h,dx,dy,F,opt){
+    const ox=opt==null?CUR:opt,img=ctx.getImageData(dx,dy,w,h),d=img.data,on=(x,y)=>x>=0&&y>=0&&x<w&&y<h&&st.cov[(y+sy)*st.cols+(x+sx)]>=.5;
+    for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+      const c=on(x,y)?colourAt(st,(y+sy)*st.cols+(x+sx),F,ox):(outline&&(on(x-1,y)||on(x+1,y)||on(x,y-1)||on(x,y+1)))?F.ink:F.ground,o=(y*w+x)*4;
+      d[o]=c[0];d[o+1]=c[1];d[o+2]=c[2];d[o+3]=255;
+    }
+    ctx.putImageData(img,dx,dy);
+  }
+  function drawScreens(){
+    const F=FRAMES[scheme];if(!F.data)return;
+    const s4=DSTATES[1],s6=DSTATES[2];
+    SCR.A.putImageData(F.data,0,0);SCR.B.putImageData(F.data,0,0);
+    const C=SCR.C,bg=F.ground;C.fillStyle='rgb('+bg.join(',')+')';C.fillRect(0,0,160,144);
+    if(s4)title(SCR.A,s4,0,2,96,24,8,0,F);
+    if(s6){
+      /* widened band: clear the title row across the readouts (x 4 to 140), the icon slot at 144 stays empty (ADR-305) */
+      SCR.B.fillStyle='rgb('+F.ground.join(',')+')';SCR.B.fillRect(4,0,137,24);
+      title(SCR.B,s6,8,8,128,24,6,0,F);
+      title(C,s6,0,0,144,40,8,52,F);
+    }
+  }
+  const SW=[],swWrap=document.getElementById('swatches');
+  OPTS.forEach((o,i)=>{const b=document.createElement('button');b.type='button';b.className='opt';b.setAttribute('aria-pressed',i===CUR?'true':'false');
+    b.innerHTML='<div class="crop"><canvas class="px" width="120" height="30"></canvas></div><b></b><span></span>';
+    b.querySelector('b').textContent=o.name;b.querySelector('span').textContent=o.why;b.querySelector('canvas').setAttribute('aria-label','Sluice title, '+o.name);
+    b.onclick=()=>{CUR=i;swWrap.querySelectorAll('.opt').forEach((x,j)=>x.setAttribute('aria-pressed',j===i?'true':'false'));drawScreens();};
+    swWrap.appendChild(b);SW.push(b.querySelector('canvas').getContext('2d'));});
+  function drawSwatches(){const F=FRAMES[scheme],st=DSTATES[1];if(!F.data||!st)return;
+    const crop=new ImageData(120,30);for(let y=0;y<30;y++)for(let x=0;x<120;x++){const s=(y*160+x)*4,t=(y*120+x)*4;for(let k=0;k<4;k++)crop.data[t+k]=F.data.data[s+k];}
+    SW.forEach((g,i)=>{g.putImageData(crop,0,0);title(g,st,0,2,96,24,8,0,F,i);});}
+  document.getElementById('schemeBtn').onclick=e=>{scheme=scheme==='TUBE'?'ORCHID':'TUBE';e.target.textContent='Scheme: '+scheme;drawScreens();drawSwatches();};
+  const ob=document.getElementById('outlineBtn');
+  ob.onclick=()=>{outline=!outline;ob.setAttribute('aria-pressed',String(outline));drawScreens();drawSwatches();};
+
+  /* shifting colour: per mode, a smooth glass and the real TUBE screen with the 4 px title read back in colour */
+  const SHIFTS=[
+    {name:'Hue walk',q:'walk',why:'Each new colour is 137.5° round the hue circle from the last, at a fixed lightness, so no two in a row are close and every one reads on the dark glass. It starts from amber.'},
+    {name:'Palette',q:'palette:e8a34c,39deff,e100ff,bfff00,7fd1c7,ff5ecf',why:'Cycles six colours from the options below, in order: amber, spiral cyan, magenta, lime, teal, pink.'}
+  ];
+  const shiftRows=document.getElementById('shiftRows'),SHC=[];
+  SHIFTS.forEach(sm=>{
+    const row=document.createElement('div');
+    row.innerHTML='<h2 style="margin-bottom:4px"></h2><p class="sub" style="margin-bottom:10px"></p><div class="shift"><figure><div class="glass2"><canvas></canvas></div><div class="now"><i></i><span></span></div></figure>'+
+      '<figure><div class="gbc"><canvas class="px" width="160" height="144"></canvas></div><figcaption>The real Play page, TUBE, the title at 4 px stems in its 96 × 24 slot; each pixel takes the mean colour of the tube inside it, on RGB555.</figcaption></figure></div>';
+    row.querySelector('h2').textContent=sm.name;row.querySelector('p').textContent=sm.why;
+    shiftRows.appendChild(row);
+    const [glass,scr]=row.querySelectorAll('canvas');glass.setAttribute('aria-label','Sluice mark, shifting colour, '+sm.name);scr.setAttribute('aria-label','Sluice title on the GBC screen, shifting colour, '+sm.name);
+    const smooth=makeSluiceMark(glass,'?fit=strip&ground=1b0733&shift='+sm.q);marks.push(smooth);
+    const sw=row.querySelector('.now i'),lab=row.querySelector('.now span');
+    setInterval(()=>{const c=smooth.colour;if(c){sw.style.background=c;lab.textContent='parks in '+c;}},400);
+    /* the pixel title: coloured render on black, read back; a cell is ink when half covered, in the mean colour of what covers it */
+    const d=DENS[1],W=d.cols*SS,H=d.rows*SS,buf=new Uint8Array(W*H*4),cov=new Float32Array(d.cols*d.rows),col=new Float32Array(d.cols*d.rows*3);
+    const src=document.createElement('canvas');src.style.width=(d.cols*2)+'px';src.style.height=(d.rows*2)+'px';srcBox.appendChild(src);
+    const g=scr.getContext('2d');
+    marks.push(makeSluiceMark(src,'?fit=strip&ground=000000&shift='+sm.q+'&pixel='+(d.P*SS)+'&ss='+SS+'&rows='+d.rows+'&cols='+d.cols,(gl,cv)=>{
+      if(cv.width!==W||cv.height!==H)return;
+      gl.readPixels(0,0,W,H,gl.RGBA,gl.UNSIGNED_BYTE,buf);cov.fill(0);col.fill(0);
+      for(let y=0;y<H;y++){const dy=d.rows-1-((y/SS)|0);for(let x=0;x<W;x++){const o=(y*W+x)*4;if(Math.max(buf[o],buf[o+1],buf[o+2])>24){const i=dy*d.cols+((x/SS)|0);cov[i]++;col[i*3]+=buf[o];col[i*3+1]+=buf[o+1];col[i*3+2]+=buf[o+2];}}}
+      if(sm.q==='walk'){WALK4={cov:cov.slice(),col:col.slice(),cols:d.cols,rows:d.rows,n:SS*SS};drawIcons();}
+      const F=FRAMES.TUBE;if(!F.data)return;
+      g.putImageData(F.data,0,0);const img=g.getImageData(8,0,96,24);
+      for(let y=0;y<24;y++)for(let x=0;x<96;x++){const i=(y+2)*d.cols+x,o=(y*96+x)*4;
+        const c=cov[i]/(SS*SS)>=.5?q555([col[i*3]/cov[i],col[i*3+1]/cov[i],col[i*3+2]/cov[i]].map(Math.round)):F.ground;
+        img.data[o]=c[0];img.data[o+1]=c[1];img.data[o+2]=c[2];img.data[o+3]=255;}
+      g.putImageData(img,8,0);
+    }));
+  });
+
+  /* ---- the icon study: candidates from the mark, in the real frame's icon slot (144, 0) ---- */
+  let WALK4=null,WALK3=null,SBOX=null,ICON=0;
+  /* the S at 3 px stems (10.7 rows per cap: 13.7 px tall, so it fits 16 x 16), hue-walking like the title */
+  {
+    const d={P:10.714,rows:20,cols:72},W=d.cols*SS,H=d.rows*SS,buf=new Uint8Array(W*H*4),cov=new Float32Array(d.cols*d.rows),col=new Float32Array(d.cols*d.rows*3);
+    const src=document.createElement('canvas');src.style.width=(d.cols*2)+'px';src.style.height=(d.rows*2)+'px';srcBox.appendChild(src);
+    marks.push(makeSluiceMark(src,'?fit=strip&ground=000000&shift=walk&pixel='+(d.P*SS)+'&ss='+SS+'&rows='+d.rows+'&cols='+d.cols,(gl,cv)=>{
+      if(cv.width!==W||cv.height!==H)return;
+      gl.readPixels(0,0,W,H,gl.RGBA,gl.UNSIGNED_BYTE,buf);cov.fill(0);col.fill(0);
+      for(let y=0;y<H;y++){const dy=d.rows-1-((y/SS)|0);for(let x=0;x<W;x++){const o=(y*W+x)*4;if(Math.max(buf[o],buf[o+1],buf[o+2])>24){const i=dy*d.cols+((x/SS)|0);cov[i]++;col[i*3]+=buf[o];col[i*3+1]+=buf[o+1];col[i*3+2]+=buf[o+2];}}}
+      /* the S's box, found once while parked: from the first inked column to the first empty one after it */
+      if(!SBOX){let x0=-1,x1=-1;const inkCol=x=>{for(let y=0;y<d.rows;y++)if(cov[y*d.cols+x]/(SS*SS)>=.5)return true;return false;};
+        for(let x=0;x<d.cols;x++){if(x0<0&&inkCol(x))x0=x;else if(x0>=0&&!inkCol(x)){x1=x;break;}}
+        if(x0>=0&&x1>x0){let y0=d.rows,y1=0;for(let y=0;y<d.rows;y++)for(let x=x0;x<x1;x++)if(cov[y*d.cols+x]/(SS*SS)>=.5){y0=Math.min(y0,y);y1=Math.max(y1,y);}
+          SBOX={x:Math.round((x0+x1)/2)-8,y:Math.round((y0+y1+1)/2)-8,x0,x1};}}
+      WALK3={cov:cov.slice(),col:col.slice(),cols:d.cols,rows:d.rows,n:SS*SS};drawIcons();
+    }));
+  }
+  /* drawn candidates: a 16 x 16 mask from a path at 8 x, a cell on when half covered; the over-strand cuts a one-pixel gap */
+  function iconMask(draw){const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d');g.lineCap='round';g.lineJoin='round';draw(g);
+    const d=g.getImageData(0,0,128,128).data,m=new Int8Array(256);
+    for(let y=0;y<16;y++)for(let x=0;x<16;x++){let ink=0,gap=0;for(let j=0;j<8;j++)for(let i=0;i<8;i++){const o=(((y*8+j)*128)+x*8+i)*4;if(d[o+3]>127){if(d[o]>127)ink++;else gap++;}}m[y*16+x]=ink>=32?1:0;}
+    return m;}
+  const bz=(t,a,b,c,d)=>{const u=1-t;return u*u*u*a+3*u*u*t*b+3*u*t*t*c+t*t*t*d;};
+  /* one loop of a tube (a prolate trochoid), its rising strand crossing over the falling one with the knot gap */
+  const LOOP=iconMask(g=>{const a=1.25,b=5.4,c=8.6,pt=t=>[(8+a*t-b*Math.sin(t))*8,(c-b*Math.cos(t))*8];
+    const seg=(t0,t1,w,col)=>{g.strokeStyle=col;g.lineWidth=w;g.beginPath();for(let k=0;k<=80;k++){const q=pt(t0+(t1-t0)*k/80);k?g.lineTo(q[0],q[1]):g.moveTo(q[0],q[1]);}g.stroke();};
+    seg(-3.75,3.75,17,'#fff');seg(1.9,3.2,17+16,'#000');seg(1.6,3.75,17,'#fff');});
+  const RING=iconMask(g=>{g.strokeStyle='#fff';g.lineWidth=26;g.beginPath();g.arc(64,64,40,0,Math.PI*2);g.stroke();});
+  function titleInk(){if(!WALK4)return AMB;let r=0,gg=0,b=0,n=0;const s=WALK4;for(let i=0;i<s.cov.length;i++)if(s.cov[i]/s.n>=.5){r+=s.col[i*3]/s.cov[i];gg+=s.col[i*3+1]/s.cov[i];b+=s.col[i*3+2]/s.cov[i];n++;}
+    return n?q555([r/n,gg/n,b/n].map(Math.round)):AMB;}
+  const ICONS=[
+    {name:'None (ruled)',why:"ADR-305: the slot stays empty, so the title is Sluice's only mark."},
+    {name:'Spiral (retired)',why:"B326's whirlpool for the old Sluice: four fixed blues, unrelated to the tubes or the walk."},
+    {name:'The S, live (considered)',why:"The title's own S at 3 px stems, hue-walking with the title, so title and icon always agree."},
+    {name:'Loop (considered)',why:"One tube crossing over itself with the mark's knot gap, like a slide's route. In the title's colour."},
+    {name:'Ring (considered)',why:"A tube seen end-on: the pipe in a sluice. The simplest shape that still reads at 16 px. In the title's colour."}
+  ];
+  /* paint one 16 x 16 icon into a context at (dx, dy) on the given ground */
+  function paintIcon(g,k,dx,dy,F){
+    const img=g.getImageData(dx,dy,16,16),d=img.data,ink=titleInk();
+    for(let y=0;y<16;y++)for(let x=0;x<16;x++){const o=(y*16+x)*4;let c=null;
+      if(k===0){}
+      else if(k===1){const s=(y*160+144+x)*4;c=[F.orig.data[s],F.orig.data[s+1],F.orig.data[s+2]];}
+      else if(k===2){if(WALK3&&SBOX){const sx=x+SBOX.x,sy=y+SBOX.y;if(sx>=SBOX.x0&&sx<SBOX.x1&&sy>=0&&sy<WALK3.rows){const i=sy*WALK3.cols+sx;if(WALK3.cov[i]/WALK3.n>=.5)c=q555([WALK3.col[i*3]/WALK3.cov[i],WALK3.col[i*3+1]/WALK3.cov[i],WALK3.col[i*3+2]/WALK3.cov[i]].map(Math.round));}}}
+      else if((k===3?LOOP:RING)[y*16+x])c=ink;
+      c=c||F.ground;d[o]=c[0];d[o+1]=c[1];d[o+2]=c[2];d[o+3]=255;}
+    g.putImageData(img,dx,dy);}
+  const iconScr=document.getElementById('iconScr').getContext('2d'),icWrap=document.getElementById('icopts'),icCtx=[];
+  ICONS.forEach((ic,k)=>{const b=document.createElement('button');b.type='button';b.className='icopt';b.setAttribute('aria-pressed',k===ICON?'true':'false');
+    b.innerHTML='<canvas class="px" width="16" height="16"></canvas><div><b></b><span></span></div>';b.querySelector('b').textContent=ic.name;b.querySelector('span').textContent=ic.why;
+    b.querySelector('canvas').setAttribute('aria-label','Icon, '+ic.name);
+    b.onclick=()=>{ICON=k;icWrap.querySelectorAll('.icopt').forEach((x,j)=>x.setAttribute('aria-pressed',j===k?'true':'false'));drawIcons();};
+    icWrap.appendChild(b);icCtx.push(b.querySelector('canvas').getContext('2d'));});
+  let icPend=false;
+  function drawIcons(){if(icPend)return;icPend=true;requestAnimationFrame(()=>{icPend=false;const F=FRAMES.TUBE;if(!F.data)return;
+    iconScr.putImageData(F.data,0,0);
+    if(WALK4){const img=iconScr.getImageData(8,0,96,24);for(let y=0;y<24;y++)for(let x=0;x<96;x++){const i=(y+2)*WALK4.cols+x,o=(y*96+x)*4;
+      const c=WALK4.cov[i]/WALK4.n>=.5?q555([WALK4.col[i*3]/WALK4.cov[i],WALK4.col[i*3+1]/WALK4.cov[i],WALK4.col[i*3+2]/WALK4.cov[i]].map(Math.round)):F.ground;img.data[o]=c[0];img.data[o+1]=c[1];img.data[o+2]=c[2];img.data[o+3]=255;}
+      iconScr.putImageData(img,8,0);}
+    paintIcon(iconScr,ICON,144,0,F);
+    icCtx.forEach((g,k)=>paintIcon(g,k,0,0,F));});}
+
+  /* horde chassis headers: the smooth mark, word-cropped */
+  marks.push(makeSluiceMark(document.getElementById('deepDark'),'?fit=strip&ground=1b0733&depth=ramp&ramp=10298c,186bef,39deff,e7ffff'));
+  marks.push(makeSluiceMark(document.getElementById('deepLight'),'?fit=strip&ground=f3ebff&depth=ramp&ramp=10298c,186bef,39deff,e7ffff'));
+  marks.push(makeSluiceMark(document.getElementById('hCream'),'?fit=strip&tube=e8a34c&ground=0e0c16'));
+  marks.push(makeSluiceMark(document.getElementById('hDark'),'?fit=strip&tube=e8a34c&ground=1f1b2e'));
+
+  /* the gap comparison: one mark, drawn twice per frame, so both sides are always the same route, colour and moment */
+  {
+    const d=DENS[1],W=d.cols*SS,H=d.rows*SS,buf=new Uint8Array(W*H*4),cov=new Float32Array(d.cols*d.rows),col=new Float32Array(d.cols*d.rows*3);
+    const src=document.createElement('canvas');src.style.width=(d.cols*2)+'px';src.style.height=(d.rows*2)+'px';srcBox.appendChild(src);
+    const on=document.getElementById('gapOn').getContext('2d'),off=document.getElementById('gapOff').getContext('2d');
+    const paintTitle=(gl,g)=>{
+      gl.readPixels(0,0,W,H,gl.RGBA,gl.UNSIGNED_BYTE,buf);cov.fill(0);col.fill(0);
+      for(let y=0;y<H;y++){const dy=d.rows-1-((y/SS)|0);for(let x=0;x<W;x++){const o=(y*W+x)*4;if(Math.max(buf[o],buf[o+1],buf[o+2])>24){const i=dy*d.cols+((x/SS)|0);cov[i]++;col[i*3]+=buf[o];col[i*3+1]+=buf[o+1];col[i*3+2]+=buf[o+2];}}}
+      const img=g.createImageData(d.cols,d.rows);
+      for(let i=0;i<cov.length;i++){const c=cov[i]/(SS*SS)>=.5?q555([col[i*3]/cov[i],col[i*3+1]/cov[i],col[i*3+2]/cov[i]].map(Math.round)):FRAMES.TUBE.ground;img.data[i*4]=c[0];img.data[i*4+1]=c[1];img.data[i*4+2]=c[2];img.data[i*4+3]=255;}
+      g.putImageData(img,0,0);
+    };
+    marks.push(makeSluiceMark(src,'?fit=strip&ground=000000&shift=walk&pixel='+(d.P*SS)+'&ss='+SS+'&rows='+d.rows+'&cols='+d.cols,(gl,cv,drawAgain)=>{
+      if(cv.width!==W||cv.height!==H)return;
+      drawAgain(true);paintTitle(gl,on);
+      drawAgain(false);paintTitle(gl,off);
+    }));
+    document.getElementById('gapSlide').onclick=()=>marks.forEach(m=>m.slideNow());
+    const gt=document.getElementById('gapToggle');
+    gt.onclick=()=>{MARK_OPTS.pixelGap=!MARK_OPTS.pixelGap;gt.setAttribute('aria-pressed',String(MARK_OPTS.pixelGap));gt.textContent='Rest of page: gap '+(MARK_OPTS.pixelGap?'on':'off');marks.forEach(m=>m.redraw());};
+  }
+
+  document.getElementById('slideAll').onclick=()=>marks.forEach(m=>m.slideNow());
+  const hold=document.getElementById('holdAll');
+  hold.onclick=()=>{const on=hold.getAttribute('aria-pressed')!=='true';hold.setAttribute('aria-pressed',String(on));hold.textContent=on?'Play':'Hold';
+    marks.forEach(m=>on?m.pause():m.play());};
+})();
+</script>
+
+</body></html>

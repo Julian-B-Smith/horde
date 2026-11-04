@@ -1,0 +1,495 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!-- The Shriek wordmark study, kept in the repo so it isn't lost (the human, 2026-11-04, through the lead: "we should probably make the sluice and shriek mark styles artifacts into actual labs so they don't get lost"; ADR-336 ruling 2; GB11).
+     Copied from the private Artifact at version 1793204183-5a81. Everything from here on is that page, unedited, apart from these lines, the meta tags and the status note marked STATUS. Its Math.random draws are the automaton's own, in a picture and not in the engine; the study is kept as the human saw it. -->
+<meta name="lab-part" content="FX">
+
+<title>Shriek Wordmark Styles</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@800&family=Press+Start+2P&family=Silkscreen&family=Archivo:wght@600;800&family=Roboto+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout: horde's cream chassis, since Shriek lives in horde's rack. First the title on its own module
+     screen (the 80s workstation glass, ADR-273), then eight colour candidates as specimen plates, each
+     running the automaton with its own phase readout. Single light theme on purpose: the candidates carry
+     their own grounds, and the chassis they are judged against is horde's cream. */
+  :root{
+    --bg:#f2ede2; --panel:#fcfaf4; --ink:#191521; --t2:#494356; --hint:#6e6878; --well-alt:#e9e3d4;
+    --ws-ground:#1a1208; --ws-ink:#f0a830;
+    --archivo:Archivo,'Helvetica Neue',Arial,sans-serif;
+    --mono:'Roboto Mono',ui-monospace,Menlo,monospace;
+    color-scheme:light;
+  }
+  html,body{background:var(--bg)}
+  body{color:var(--ink);font-family:var(--archivo);
+    padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:22px 48px}
+  .wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:32px}
+  .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--t2)}
+  h1{font-weight:800;font-size:15px;letter-spacing:.1em;text-transform:uppercase;margin:4px 0 0}
+  h2{font-weight:800;font-size:12px;letter-spacing:.1em;text-transform:uppercase;margin:0}
+  p{margin:0}
+  .lede{color:var(--t2);font-size:13.5px;line-height:1.6;max-width:72ch;margin-top:8px}
+  code{font-family:var(--mono);font-size:12px}
+  button{font-family:var(--archivo);font-weight:600;font-size:12px;border-radius:999px;padding:6px 13px;border:1.5px solid var(--ink);
+    background:var(--panel);color:var(--ink);cursor:pointer;box-shadow:1.5px 1.5px 0 var(--ink)}
+  button:hover{box-shadow:2.5px 2.5px 0 var(--ink)}
+  button:active{box-shadow:none;transform:translate(1.5px,1.5px)}
+  button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  button[aria-pressed="true"]{background:var(--ink);color:var(--panel)}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .px{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
+  .wsrow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+  .wsrow figure{display:flex;flex-direction:column;gap:6px}
+  .mon{background:#d9d2c0;border:1.5px solid var(--ink);border-radius:12px;padding:14px 14px 22px;display:flex;justify-content:center}
+  .mon canvas{width:640px;max-width:100%;height:auto;border:2px solid #2a2622}
+  .src{position:absolute;left:-9999px;top:0;visibility:hidden}
+  .words{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+  .word{display:flex;flex-direction:column;gap:6px;min-width:0}
+  .word .crop{background:#d9d2c0;border:1.5px solid var(--ink);border-radius:10px;padding:10px;display:flex;justify-content:center}
+  .word canvas{width:480px;max-width:100%;height:auto}
+  .word b{font-weight:800;font-size:11px;letter-spacing:.1em;text-transform:uppercase}
+  .word span{font-size:12.5px;color:var(--t2);line-height:1.5}
+  @media (max-width:760px){.wsrow{grid-template-columns:minmax(0,1fr)}}
+
+  /* the module card in the rack */
+  .rack{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+  .card{background:var(--panel);border:1.5px solid var(--ink);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px;min-width:0}
+  .card.dark{background:#1f1b2e;border-color:#efe9fa;color:#efe9fa}
+  .card .top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .chip{font-weight:800;font-size:10px;letter-spacing:.1em;border:1.5px solid currentColor;border-radius:999px;padding:3px 9px}
+  .glass{background:var(--ws-ground);border-radius:10px;padding:10px;display:flex;justify-content:center}
+  .card:not(.dark) .glass{border:1.5px solid var(--ink)}
+  .glass canvas{width:312px;height:72px;max-width:100%}
+  .knobs{display:flex;gap:10px}
+  .knobs i{width:30px;height:30px;border-radius:50%;border:1.5px solid currentColor;display:block}
+  figcaption{font-family:var(--mono);font-size:10.5px;color:var(--hint);line-height:1.5;margin-top:6px}
+  figure{margin:0;min-width:0}
+
+  /* candidates */
+  .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px}
+  .cand{display:flex;flex-direction:column;gap:8px;min-width:0}
+  .plate{width:100%;aspect-ratio:12/5;border:1.5px solid var(--ink);border-radius:10px;overflow:hidden;max-width:100%}
+  .plate canvas{width:100%;height:100%}
+  .row{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .name{font-weight:800;font-size:12px;letter-spacing:.1em;text-transform:uppercase}
+  .sw{display:flex;gap:4px;align-items:center;font-family:var(--mono);font-size:10px;color:var(--t2)}
+  .sw b{width:12px;height:12px;border-radius:3px;border:1px solid var(--ink);display:inline-block}
+  .why{font-size:12.5px;color:var(--t2);line-height:1.55;max-width:60ch}
+  .phase{font-family:var(--mono);font-size:10px;color:var(--hint);letter-spacing:.06em}
+  @media (max-width:760px){.grid,.rack{grid-template-columns:minmax(0,1fr)}}
+  @media (prefers-reduced-motion:reduce){button:active{transform:none}}
+</style>
+
+<div class="wrap">
+  <!-- STATUS --><p class="lede" style="margin:0;border:1.5px solid var(--ink);border-radius:10px;padding:10px 12px"><b>Status: ruled.</b> Press Start 2P at its native 16 px, baked to 96 × 24, in a 104 × 24 title box, taking the screen's paper and ink (ADR-302 rulings 3 and 4). The other words and the eight colour plates are what was compared. Shriek's real title goes by a brief from the lead.</p>
+  <header>
+    <div class="eyebrow">Shriek · automaton wordmark</div>
+    <h1>Colour candidates</h1>
+    <p class="lede">Every plate runs your <code>Automaton Wordmark.html</code>: the same five phases (emerge, condense, hold,
+      corrupt, flood) and the same rules (B3/S23, then B2/S), with the plate inverting at each flood. Only the colours
+      change. The multi-colour plates shade each live cell by its age (newborn, young, settled), and the held word takes the
+      settled colour. The palettes are horde's own: Shriek's module screen, the lab's screen schemes and the chassis.</p>
+  </header>
+
+  <section aria-labelledby="ws-h" style="display:flex;flex-direction:column;gap:10px">
+    <div class="row"><h2 id="ws-h">On Shriek's own screen</h2>
+      <div class="bar" id="schemePick" role="group" aria-label="Screen scheme"></div></div>
+    <p class="lede" style="margin-top:0">A real frame of the screens workshop's 80s WORKSTATION skin for Shriek (<code>fx-screens-workshop.html</code>,
+      320 × 288, 1-bit), captured from a local preview; the workshop still titles the window MAW. The skin is two colours by rule
+      (paper and ink, greys as ordered dither), so the frame is shown in each scheme exactly. The automaton runs live in a
+      104 × 24 title box at (9, 30), widened from the workshop's 96 × 24 slot so the word clears it by 4 cells each side,
+      one cell per screen pixel; it is 1-bit itself, so it needs no conversion.</p>
+    <div class="wsrow">
+      <figure><div class="mon"><canvas id="wsSlot" class="px" width="320" height="288" aria-label="Shriek's workstation screen with the automaton in its title slot"></canvas></div>
+        <figcaption>The title box, widened to 104 × 24 cells: the 96-cell word with 4 cells clear each side.</figcaption></figure>
+      <figure><div class="mon"><canvas id="wsBoot" class="px" width="320" height="288" aria-label="Shriek's workstation screen as a boot screen with a larger automaton"></canvas></div>
+        <figcaption>A boot or title screen: 256 × 64 cells, where the phases have room to play out.</figcaption></figure>
+    </div>
+    <div class="row" style="margin-top:14px"><h2 id="word-h">The word at 96 × 24</h2>
+      <div class="bar" id="wordPick" role="group" aria-label="Word drawn on the screens above"></div></div>
+    <p class="lede" style="margin-top:0">The word is only the automaton's mask: cells condense onto it, hold it, and decay from it. So the
+      letterforms are decided by how that mask is cut at 96 × 24. Each crop below is the same real frame, live. The buttons
+      above choose which word the two big screens run.</p>
+    <div class="words" id="words"></div>
+  </section>
+
+  <section aria-labelledby="rack-h" style="display:flex;flex-direction:column;gap:12px">
+    <h2 id="rack-h">In horde's rack</h2>
+    <div class="rack">
+      <figure>
+        <div class="card"><div class="top"><span class="chip">SHRIEK</span><span class="eyebrow">FX · slot 1</span></div>
+          <div class="glass"><canvas id="rackCream" class="px" aria-label="Shriek title on its workstation screen, cream chassis"></canvas></div>
+          <div class="knobs"><i></i><i></i><i></i><i></i></div></div>
+        <figcaption>Cream chassis. The title sits in its 104 × 24 box on Shriek's own screen (<code>#f0a830</code> on <code>#1a1208</code>),
+          one cell per screen pixel, shown at ×3.</figcaption>
+      </figure>
+      <figure>
+        <div class="card dark"><div class="top"><span class="chip">SHRIEK</span><span class="eyebrow" style="color:#bdb4d4">FX · slot 1</span></div>
+          <div class="glass"><canvas id="rackDark" class="px" aria-label="Shriek title on its workstation screen, dark chassis"></canvas></div>
+          <div class="knobs"><i></i><i></i><i></i><i></i></div></div>
+        <figcaption>Dark chassis, the same screen.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <div class="src" id="srcBox" aria-hidden="true"><canvas id="aSlot" style="width:104px;height:24px"></canvas><canvas id="aBoot" style="width:256px;height:64px"></canvas></div>
+  <section aria-labelledby="cand-h" style="display:flex;flex-direction:column;gap:14px">
+    <div class="row"><h2 id="cand-h">Eight candidates</h2>
+      <div class="bar"><button id="restart" type="button">Restart all</button><button id="pause" type="button" aria-pressed="false">Pause all</button></div></div>
+    <div class="grid" id="grid"></div>
+  </section>
+</div>
+
+<script>
+/* The automaton from Automaton Wordmark.html, kept rule for rule (phases, fronts, Life, Seeds, accretion,
+   the flood-and-invert). Rebound for several plates on one page: its DOM controls become options (word,
+   cell size, speed, colours), the page no longer recolours itself, and `tones` optionally shades live cells
+   by age. */
+function makeAutomaton(cv, o){
+  const ctx = cv.getContext('2d');
+  const PHASES = [
+    { key: 'life',     name: 'Emerge',    len: 96 },
+    { key: 'condense', name: 'Condense',  len: 58 },
+    { key: 'hold',     name: 'Wordmark',  len: 140 },
+    { key: 'decay',    name: 'Corrupt',   len: 120 },
+    { key: 'flood',    name: 'Flood',     len: 50 },
+  ];
+  let cols = 0, rows = 0, grid, next, mask, wake, birth, age;
+  let phase = 0, step = 0, gen = 0, inverted = false;
+  let running = true, last = 0, acc = 0;
+  const FONT = '"Unbounded","Arial Black","Helvetica Neue",sans-serif';
+  const tones = o.tones || null;
+
+  function buildWake() { wake = front(true, PHASES[3].len * 0.92); }
+  function buildBirth() { birth = front(false, PHASES[0].len * 0.55); }
+  function front(inLetters, L) {
+    const out = new Float32Array(cols * rows);
+    const on = [];
+    if (inLetters) for (let i = 0; i < mask.length; i++) if (mask[i]) on.push(i);
+    const pts = [];
+    const n = 2 + (Math.random() < 0.5 ? 1 : 0);
+    for (let k = 0; k < n; k++) {
+      const i = on.length ? on[(Math.random() * on.length) | 0] : (Math.random() * mask.length) | 0;
+      pts.push([i % cols, (i / cols) | 0, k ? 0.15 + Math.random() * 0.35 : 0]);
+    }
+    const ph = [Math.random() * 6.3, Math.random() * 6.3, Math.random() * 6.3];
+    const s = 1 / Math.max(cols, rows);
+    let max = 0;
+    for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+      let d = Infinity;
+      for (const [px, py, delay] of pts) {
+        const dd = Math.hypot(x - px, (y - py) * 1.15) * s + delay;
+        if (dd < d) d = dd;
+      }
+      const wob = 0.06 * Math.sin(x * s * 19 + ph[0]) + 0.05 * Math.sin(y * s * 23 + ph[1])
+                + 0.04 * Math.sin((x + y) * s * 41 + ph[2]) + Math.random() * 0.012;
+      d = Math.max(0, d + wob);
+      out[y * cols + x] = d;
+      if (d > max) max = d;
+    }
+    for (let i = 0; i < out.length; i++) out[i] = (out[i] / max) * L;
+    return out;
+  }
+  function startCycle() { grid.fill(0); age.fill(0); buildBirth(); }
+  function buildMask() {
+    if (o.mask) { mask = o.mask(cols, rows); return; }
+    const word = (o.word || 'SHRIEK').toUpperCase();
+    const off = document.createElement('canvas');
+    off.width = cols; off.height = rows;
+    const g = off.getContext('2d');
+    let size = rows * 0.62;
+    g.font = `800 ${size}px ${FONT}`;
+    const w = g.measureText(word).width;
+    const maxW = cols * 0.86;
+    if (w > maxW) size *= maxW / w;
+    g.font = `800 ${size}px ${FONT}`;
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = '#000';
+    g.fillText(word, cols / 2, rows / 2 + size * 0.04);
+    const d = g.getImageData(0, 0, cols, rows).data;
+    mask = new Uint8Array(cols * rows);
+    for (let i = 0; i < mask.length; i++) mask[i] = d[i * 4 + 3] > 110 ? 1 : 0;
+  }
+  function resize() {
+    const r = cv.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    const cs = o.cell;
+    const c2 = o.cols || Math.max(40, Math.floor(r.width / cs)), r2 = o.rows || Math.max(20, Math.floor(r.height / cs));
+    if (c2 === cols && r2 === rows && grid) return;
+    cols = c2; rows = r2;
+    cv.width = cols; cv.height = rows;
+    const old = grid;
+    grid = new Uint8Array(cols * rows);
+    next = new Uint8Array(cols * rows);
+    age = new Uint8Array(cols * rows);
+    buildMask(); buildWake(); buildBirth();
+    const k = PHASES[phase].key;
+    if (!old) startCycle();
+    else if (k === 'hold' || k === 'decay' || k === 'flood') grid.set(mask);
+    else seed(0.3);
+    draw();
+  }
+  function seed(p = 0.32) { for (let i = 0; i < grid.length; i++) grid[i] = Math.random() < p ? 1 : 0; }
+  function neighbors(x, y) {
+    let n = 0;
+    for (let dy = -1; dy <= 1; dy++) {
+      const yy = (y + dy + rows) % rows;
+      for (let dx = -1; dx <= 1; dx++) {
+        if (!dx && !dy) continue;
+        n += grid[yy * cols + (x + dx + cols) % cols];
+      }
+    }
+    return n;
+  }
+  function tick() {
+    const P = PHASES[phase];
+    const t = step / P.len;
+    if (P.key === 'hold') {
+      next.set(mask);
+    } else {
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          const i = y * cols + x, n = neighbors(x, y), a = grid[i];
+          let s;
+          if (P.key === 'life' && step < birth[i]) {
+            s = 0;
+          } else if (P.key === 'life' || P.key === 'condense') {
+            s = (a ? (n === 2 || n === 3) : n === 3) ? 1 : 0;
+            if (P.key === 'life' && step - birth[i] < 3 && Math.random() < 0.13) s = 1;
+            if (P.key === 'condense' && Math.random() < Math.pow(t, 2.1)) s = mask[i];
+          } else {
+            const clock = P.key === 'decay' ? step : PHASES[3].len + step;
+            const ag = clock - wake[i];
+            if (ag < 0) s = a;
+            else {
+              s = (!a && n === 2) ? 1 : 0;
+              const accr = Math.pow(Math.min(1, ag / 95), 3) * 0.55
+                         + (P.key === 'flood' ? Math.pow(t, 2.4) : 0);
+              if (Math.random() < accr + (a ? accr * 0.6 : 0)) s = 1;
+              if (P.key === 'flood' && t > 0.93) s = 1;
+            }
+          }
+          next[i] = s;
+        }
+      }
+    }
+    for (let i = 0; i < next.length; i++) age[i] = next[i] ? (grid[i] ? Math.min(255, age[i] + 1) : 1) : 0;
+    [grid, next] = [next, grid];
+    gen++; step++;
+    if (step >= P.len) advance();
+  }
+  function advance() {
+    step = 0;
+    phase = (phase + 1) % PHASES.length;
+    const P = PHASES[phase];
+    if (P.key === 'hold') grid.set(mask);
+    if (P.key === 'decay') { grid.set(mask); buildWake(); }
+    if (P.key === 'life') { inverted = !inverted; gen = 0; startCycle(); }
+    if (o.onPhase) o.onPhase(P.name, inverted);
+  }
+  const hex = c => { const n = parseInt(c.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
+  const INK = hex(o.ink), PAPER = hex(o.paper), T = tones ? tones.map(hex) : null;
+  function draw() {
+    if (!grid) return;
+    const id = ctx.createImageData(cols, rows);
+    const key = PHASES[phase].key;
+    const f = inverted ? PAPER : INK, b = inverted ? INK : PAPER;
+    for (let i = 0; i < grid.length; i++) {
+      let c = b;
+      if (grid[i]) {
+        c = f;
+        /* multi-colour: live cells shaded by age while the automaton runs; the held word and the flood stay in ink */
+        if (T && !inverted && key !== 'hold' && key !== 'flood') c = age[i] < 3 ? T[0] : age[i] < 12 ? T[1] : T[2];
+      }
+      const j = i * 4;
+      id.data[j] = c[0]; id.data[j + 1] = c[1]; id.data[j + 2] = c[2]; id.data[j + 3] = 255;
+    }
+    ctx.putImageData(id, 0, 0);
+    if (o.onDraw) o.onDraw(cv);
+  }
+  function loop(ts) {
+    if (running) {
+      acc += Math.min(200, ts - last);
+      const dt = 1000 / o.speed;
+      while (acc >= dt) { tick(); acc -= dt; }
+      draw();
+    }
+    last = ts;
+    requestAnimationFrame(loop);
+  }
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(resize).observe(cv);
+  resize();
+  /* open on the held word, so the first still frame (and a thumbnail) reads SHRIEK; the cycle runs on from there */
+  if (grid) { phase = 2; step = 0; grid.set(mask); draw(); if (o.onPhase) o.onPhase(PHASES[2].name, false); }
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) running = false;
+  requestAnimationFrame(ts => { last = ts; loop(ts); });
+  return {
+    pause() { running = false; }, play() { running = true; },
+    restart() { phase = 0; step = 0; gen = 0; inverted = false; if (grid) startCycle(); draw(); if (o.onPhase) o.onPhase(PHASES[0].name, false); }
+  };
+}
+
+(function(){
+  const C = [
+    {name:'Specimen', ink:'#1d2fbf', paper:'#e8ebf1', why:"Your file's own pair: blue ink on a cool paper. Calm and print-like; it is the only candidate whose blue appears nowhere in horde."},
+    {name:'Workstation', ink:'#f0a830', paper:'#1a1208', why:"Shriek's module screen in horde (ADR-273): amber on a burnt-black glass. In the rack this is already Shriek's colour, so the mark and the module agree."},
+    {name:'Workstation, aged', ink:'#f0a830', paper:'#1a1208', tones:['#fff1c4','#8a5a14','#f0a830'], why:"The same screen with age shading: newborn cells flash pale, young cells sit in Shriek's mid-tone, and settled cells burn amber."},
+    {name:'Tube', ink:'#ff5ecf', paper:'#1b0733', why:"The lab's dark screen scheme: horde's value pink on the tube violet. The loudest dark option."},
+    {name:'Tube, three signals', ink:'#ff5ecf', paper:'#1b0733', tones:['#b8f227','#b48cff','#ff5ecf'], why:"Tube with horde's signal hues by age: meter lime at birth, physics violet while young, value pink when settled. It reads as the instrument's own colours at work."},
+    {name:'Orchid', ink:'#d6006b', paper:'#f3ebff', why:"The lab's light screen scheme: value ink on orchid. It sits on the cream chassis without needing a glass."},
+    {name:'Chassis ink', ink:'#191521', paper:'#f2ede2', why:"horde's ink on horde's cream: the most restrained. The automaton itself carries the identity."},
+    {name:'Night value', ink:'#ff3dad', paper:'#151220', tones:['#2df2e2','#a07cff','#ff3dad'], why:"horde's dark chassis with its dark signals: meter cyan at birth, physics violet while young, value pink when settled."}
+  ];
+  const grid = document.getElementById('grid'), all = [];
+  C.forEach(c => {
+    const el = document.createElement('article'); el.className = 'cand';
+    el.innerHTML = '<div class="plate"><canvas class="px"></canvas></div><div class="row"><span class="name"></span><span class="sw"></span></div><span class="phase"></span><p class="why"></p>';
+    el.querySelector('.name').textContent = c.name;
+    const sw = el.querySelector('.sw');
+    [c.paper, ...(c.tones || [c.ink])].forEach(h => { const b = document.createElement('b'); b.style.background = h; b.title = h; sw.appendChild(b); });
+    const lab = document.createElement('span'); lab.textContent = c.paper + ' · ' + (c.tones ? c.tones.join(' ') : c.ink); sw.appendChild(lab);
+    el.querySelector('.why').textContent = c.why;
+    const cv = el.querySelector('canvas'); cv.setAttribute('aria-label', 'SHRIEK automaton wordmark, ' + c.name);
+    el.querySelector('.plate').style.background = c.paper;
+    grid.appendChild(el);
+    const ph = el.querySelector('.phase'); ph.textContent = 'Wordmark';
+    c.cv = cv; c.ph = ph;
+  });
+  const rackOpts = { ink:'#f0a830', paper:'#1a1208', cell:3, cols:104, rows:24, speed:18 };
+  const start = () => {
+    C.forEach(c => all.push(makeAutomaton(c.cv, { ink:c.ink, paper:c.paper, tones:c.tones, cell:5, speed:18,
+      onPhase:(n, inv) => { c.ph.textContent = n + (inv ? ' · inverted' : ''); } })));
+    all.push(makeAutomaton(document.getElementById('rackCream'), rackOpts));
+    all.push(makeAutomaton(document.getElementById('rackDark'), rackOpts));
+    startBig();
+    const wrap = document.getElementById('words');
+    WORDS.forEach((w, i) => {
+      const t = document.createElement('div'); t.className = 'word';
+      t.innerHTML = '<div class="crop"><canvas class="px" width="160" height="44"></canvas></div><b></b><span></span>';
+      t.querySelector('b').textContent = w.name; t.querySelector('span').textContent = w.why;
+      const cv = t.querySelector('canvas'); cv.setAttribute('aria-label', 'SHRIEK in the title slot, ' + w.name);
+      wrap.appendChild(t);
+      const src = document.createElement('canvas'); src.style.width = '104px'; src.style.height = '24px'; document.getElementById('srcBox').appendChild(src);
+      const g = cv.getContext('2d');
+      all.push(makeAutomaton(src, { ink:'#000000', paper:'#ffffff', cell:1, cols:96, rows:24, speed:18, cols:104, mask:w.mask, onDraw:c => { TILES[i] = { g, c }; compose(); } }));
+    });
+    const wp = document.getElementById('wordPick');
+    WORDS.forEach((w, i) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = w.name; b.setAttribute('aria-pressed', i === WS.word ? 'true' : 'false');
+      b.onclick = () => { WS.word = i; wp.querySelectorAll('button').forEach((x, j) => x.setAttribute('aria-pressed', j === i ? 'true' : 'false')); startBig(); }; wp.appendChild(b); });
+  };
+  /* ---- masks: five ways to cut SHRIEK into a cell grid ---- */
+  const GLYPHS = {   /* hand-cut for 96 x 24: caps 14 rows, stems 3 px, chamfered corners */
+    S:['.#############','##############','##############','###...........','###...........','.#############','##############','#############.','...........###','...........###','...........###','##############','##############','#############.'],
+    H:['###........###','###........###','###........###','###........###','###........###','##############','##############','##############','###........###','###........###','###........###','###........###','###........###','###........###'],
+    R:['#############.','##############','##############','###........###','###........###','##############','##############','#############.','###.....###...','###......###..','###.......###.','###........###','###........###','###........###'],
+    I:['###','###','###','###','###','###','###','###','###','###','###','###','###','###'],
+    E:['############','############','############','###.........','###.........','##########..','##########..','##########..','###.........','###.........','###.........','############','############','############'],
+    K:['###.......###.','###......###..','###.....###...','###....###....','###...###.....','###..###......','########......','########......','###..###......','###...###.....','###....###....','###.....###...','###......###..','###.......###.']
+  };
+  function maskGlyphs(cols, rows) {
+    const m = new Uint8Array(cols * rows), word = 'SHRIEK', gap = 3;
+    const w = [...word].reduce((a, ch) => a + GLYPHS[ch][0].length, 0) + gap * (word.length - 1);
+    let x0 = Math.floor((cols - w) / 2); const y0 = Math.floor((rows - 14) / 2);
+    for (const ch of word) { const g = GLYPHS[ch];
+      g.forEach((row, y) => { for (let x = 0; x < row.length; x++) if (row[x] === '#') m[(y0 + y) * cols + x0 + x] = 1; });
+      x0 += g[0].length + gap; }
+    return m;
+  }
+  /* type into the grid: drawn at ss x, each cell on when at least half its area is ink */
+  function maskType(font, capRows, ss, cut) {
+    return (cols, rows) => {
+      const c = document.createElement('canvas'); c.width = cols * ss; c.height = rows * ss;
+      const g = c.getContext('2d'); g.fillStyle = '#000';
+      let size = capRows * ss * 1.4; g.font = font(size);
+      const cap = g.measureText('H').actualBoundingBoxAscent || size * .72;
+      size *= capRows * ss / cap; g.font = font(size);
+      const wd = g.measureText('SHRIEK').width; if (wd > cols * ss * .96) { size *= cols * ss * .96 / wd; g.font = font(size); }
+      const w2 = g.measureText('SHRIEK').width, cap2 = g.measureText('H').actualBoundingBoxAscent || size * .72;
+      /* whole cells: the left edge and the baseline land on cell boundaries */
+      const x = Math.round((cols * ss - w2) / 2 / ss) * ss, base = Math.round(((rows * ss + cap2) / 2) / ss) * ss;
+      g.textBaseline = 'alphabetic'; g.fillText('SHRIEK', x, base);
+      const d = g.getImageData(0, 0, c.width, c.height).data, m = new Uint8Array(cols * rows);
+      for (let y = 0; y < rows; y++) for (let x2 = 0; x2 < cols; x2++) { let s = 0;
+        for (let j = 0; j < ss; j++) for (let i = 0; i < ss; i++) s += d[(((y * ss + j) * c.width) + x2 * ss + i) * 4 + 3];
+        m[y * cols + x2] = s / (ss * ss * 255) >= cut ? 1 : 0; }
+      return m;
+    };
+  }
+  /* Press Start 2P at its native 16 px, baked: the chosen mask (2026-10-28) */
+  const PS2P = ["................................................................................................", "................................................................................................", "................................................................................................", "................................................................................................", "................................................................................................", "..##########....####......####..############......############..##############..####......####..", "..##########....####......####..############......############..##############..####......####..", "####......####..####......####..####......####........####......####............####....####....", "####......####..####......####..####......####........####......####............####....####....", "####............####......####..####......####........####......####............####..####......", "####............####......####..####......####........####......####............####..####......", "..##########....##############..####....######........####......############....########........", "..##########....##############..####....######........####......############....########........", "..........####..####......####..##########............####......####............##########......", "..........####..####......####..##########............####......####............##########......", "####......####..####......####..####..######..........####......####............####..######....", "####......####..####......####..####..######..........####......####............####..######....", "..##########....####......####..####....######....############..##############..####....######..", "..##########....####......####..####....######....############..##############..####....######..", "................................................................................................", "................................................................................................", "................................................................................................", "................................................................................................", "................................................................................................"];
+  function maskBitmap(rowsB) { return (cols, rows) => { const m = new Uint8Array(cols * rows), ox = (cols - 96) >> 1, oy = (rows - 24) >> 1;
+    rowsB.forEach((r, y) => { for (let x = 0; x < 96; x++) if (r[x] === '#') m[(y + oy) * cols + x + ox] = 1; }); return m; }; }
+  const WORDS = [
+    { name:'As the file', mask:null, why:"Unbounded 800 at about 15 px, cut at an alpha threshold: every curve and diagonal lands between cells, so the S, R and K break up." },
+    { name:'Unbounded, coverage', mask:maskType(s => '800 ' + s + 'px Unbounded', 14, 8, .5), why:"The same face drawn at 8 x, each cell on when half covered, the cap snapped to 14 cells. Cleaner, but its round counters still alias at this size." },
+    { name:'Hand-cut', mask:maskGlyphs, why:"Drawn for this slot: 14-cell caps, 3-cell stems and bars, chamfered corners. Every stroke the same weight, so the condense and hold read crisply." },
+    { name:'Press Start 2P', mask:maskBitmap(PS2P), why:"Chosen. A pixel face at its native 16 px, baked to a 96 x 24 bitmap: every font pixel exactly 2 x 2 cells, 14-row caps, the full 96 cells wide. No font ships." },
+    { name:'Silkscreen', mask:maskType(s => s + 'px Silkscreen', 15, 1, .5), why:"A pixel face at three cells per unit: 15-cell caps, 3-cell stems. Square and heavy, close to the hand-cut weight." }
+  ];
+  /* Shriek's workstation frame: two colours, so it remaps exactly to any paper/ink pair */
+  const SCHEMES = [
+    { name:'horde rack', paper:'#1a1208', ink:'#f0a830' },
+    { name:'Orchid', paper:'#f3ebff', ink:'#6e14e8' },
+    { name:'Tube', paper:'#1b0733', ink:'#b48cff' },
+    { name:'Specimen', paper:'#e8ebf1', ink:'#1d2fbf' }
+  ];
+  const WS = { scheme:0, base:null, slot:null, boot:null, word:3, big:[] };
+  const TILES = [];
+  /* the two big screens run the chosen word; switching word restarts them on fresh canvases */
+  function startBig() {
+    WS.big.forEach(a => a.pause());
+    const box = document.getElementById('srcBox'), mk = (w, h, key) => { const c = document.createElement('canvas'); c.style.width = w + 'px'; c.style.height = h + 'px'; box.appendChild(c);
+      return makeAutomaton(c, { ink:'#000000', paper:'#ffffff', cell:1, cols:w, rows:h, speed:18, mask: WORDS[WS.word].mask && (key === 'boot' ? scaleMask(WORDS[WS.word].mask) : WORDS[WS.word].mask), onDraw:cc => { WS[key] = cc; compose(); } }); };
+    WS.big = [mk(104, 24, 'slot'), mk(256, 64, 'boot')];
+    WS.big.forEach(a => all.push(a));
+  }
+  /* the boot screen's word: the 96 x 24 mask scaled up by whole cells (x2), centred */
+  function scaleMask(fn) { return (cols, rows) => { const s = fn(96, 24), m = new Uint8Array(cols * rows), k = 2, ox = (cols - 96 * k) >> 1, oy = (rows - 24 * k) >> 1;
+    for (let y = 0; y < 24 * k; y++) for (let x = 0; x < 96 * k; x++) m[(y + oy) * cols + x + ox] = s[((y / k) | 0) * 96 + ((x / k) | 0)]; return m; }; }
+  const rgbH = h => { const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
+  const frame = new Image();
+  frame.onload = () => { const c = document.createElement('canvas'); c.width = 320; c.height = 288; const g = c.getContext('2d'); g.drawImage(frame, 0, 0);
+    const d = g.getImageData(0, 0, 320, 288).data; WS.base = new Uint8Array(320 * 288);
+    for (let i = 0; i < WS.base.length; i++) WS.base[i] = (d[i*4] * .3 + d[i*4+1] * .59 + d[i*4+2] * .11) > 128 ? 1 : 0;  /* 1 = paper */
+    compose(); };
+  frame.src = 'data:image/png;base64,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';
+  const gSlot = document.getElementById('wsSlot').getContext('2d'), gBoot = document.getElementById('wsBoot').getContext('2d');
+  /* one remap for both screens: base paper/ink, then the automaton's cells (white = paper) into its box */
+  function paintScreen(g, withBase, cells, bx, by) {
+    const S = SCHEMES[WS.scheme], P = rgbH(S.paper), I = rgbH(S.ink), img = g.createImageData(320, 288), d = img.data;
+    for (let i = 0; i < 320 * 288; i++) { const c = (!withBase || WS.base[i]) ? P : I; d[i*4] = c[0]; d[i*4+1] = c[1]; d[i*4+2] = c[2]; d[i*4+3] = 255; }
+    if (cells) {
+      const cw = cells.width, ch = cells.height, cd = cells.getContext('2d').getImageData(0, 0, cw, ch).data;
+      for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) { const c = cd[(y*cw+x)*4] > 127 ? P : I, o = ((y+by)*320 + (x+bx)) * 4; d[o] = c[0]; d[o+1] = c[1]; d[o+2] = c[2]; }
+    }
+    g.putImageData(img, 0, 0);
+  }
+  let pend = false;
+  function compose() {
+    if (pend) return; pend = true;
+    requestAnimationFrame(() => { pend = false;
+      if (WS.base) paintScreen(gSlot, true, WS.slot, 9, 30);
+      paintScreen(gBoot, false, WS.boot, 32, 112);
+      if (WS.base) TILES.forEach(T => { if (!T) return; const S = SCHEMES[WS.scheme], P = rgbH(S.paper), I = rgbH(S.ink), img = T.g.createImageData(160, 44), d = img.data;
+        for (let y = 0; y < 44; y++) for (let x = 0; x < 160; x++) { const c = WS.base[(y + 16) * 320 + x + 5] ? P : I, o = (y * 160 + x) * 4; d[o] = c[0]; d[o+1] = c[1]; d[o+2] = c[2]; d[o+3] = 255; }
+        const cd = T.c.getContext('2d').getImageData(0, 0, 104, 24).data;
+        for (let y = 0; y < 24; y++) for (let x = 0; x < 104; x++) { const c = cd[(y * 104 + x) * 4] > 127 ? P : I, o = ((y + 14) * 160 + x + 4) * 4; d[o] = c[0]; d[o+1] = c[1]; d[o+2] = c[2]; }
+        T.g.putImageData(img, 0, 0); });
+      /* the boot screen keeps the desktop's menu bar, the skin's own frame of reference */
+      if (WS.base) { const S = SCHEMES[WS.scheme], img = gBoot.getImageData(0, 0, 320, 12), d = img.data, P = rgbH(S.paper), I = rgbH(S.ink);
+        for (let i = 0; i < 320 * 12; i++) { const c = WS.base[i] ? P : I; d[i*4] = c[0]; d[i*4+1] = c[1]; d[i*4+2] = c[2]; }
+        gBoot.putImageData(img, 0, 0); }
+    });
+  }
+  const sp = document.getElementById('schemePick');
+  SCHEMES.forEach((s, i) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = s.name; b.setAttribute('aria-pressed', i === 0 ? 'true' : 'false');
+    b.onclick = () => { WS.scheme = i; sp.querySelectorAll('button').forEach((x, j) => x.setAttribute('aria-pressed', j === i ? 'true' : 'false')); compose(); }; sp.appendChild(b); });
+  (document.fonts ? Promise.all(['800 40px Unbounded', '16px "Press Start 2P"', '24px Silkscreen'].map(f => document.fonts.load(f).catch(() => {}))) : Promise.resolve()).then(start);
+  document.getElementById('restart').onclick = () => all.forEach(a => a.restart());
+  const pb = document.getElementById('pause');
+  pb.onclick = () => { const on = pb.getAttribute('aria-pressed') !== 'true'; pb.setAttribute('aria-pressed', String(on)); pb.textContent = on ? 'Play all' : 'Pause all';
+    all.forEach(a => on ? a.pause() : a.play()); };
+})();
+</script>
+
+</body></html>
