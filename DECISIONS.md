@@ -11501,3 +11501,17 @@ Three points stayed open, because the shell already marks a knob selected the mo
 **Consequences.** Master `1793813622-b097`: `.idle` is `display: none`, a rule for every screen in its README, and `BlendMaps`' `padHost` and `destroy()`. Self-check "Hidden when inert" and 4o hold it. ENGINE-NEEDS.md has its row. B587's text says "greys", which is the lead's to reword; its table is what this one should become.
 
 **FX device (ADR-254).** The same rule on its pages, its conditions from each module's manifest. The map works as it is on a rack module's continuous row.
+
+## GUI-22 — RULED by the human: Morph, Pad and Bank move to the colours' row; a row stays selected on the Morph page (GB7, GB12; amends GUI-13 on that page; 2026-11-04)
+
+**Rulings (the human, 2026-11-04).**
+1. **The Morph, Pad and Bank switches go on the colours' row** ("down onto the colorway selector row so they don't overlap when I resize the lab").
+2. **The Morph page keeps its selection.** "I can't select a different blend map because it automatically deselects the parameter which hides that UI. There should be a special selection rule on that page so editing can be done without deselection." **Amends GUI-13** on this page only.
+
+**Readings (the GUI session's, open to the human).**
+- **On the Morph page no press clears the selection,** on the page or in the bars around it. A row stays selected until another is picked, and leaving the page brings GUI-13 back.
+- **Both rows hang from the window's right edge.** As the window narrows, the preset bar stops at the page tabs and narrows.
+
+**Consequences.** Self-checks "Top bar" and 4o hold both, each with a control.
+
+**FX device (ADR-254).** It has one Morph page and the same top bar (ADR-322), so the same.

@@ -97,14 +97,15 @@
   .main-note { margin: 2px 0 0; max-width: 46ch; }
   /* GUI-6 and GUI-8 r7: the preset bar in the top row and the colours in the second, both in the room the page tabs leave on every page (the lens lab measured all 14) */
   .chrome { position: relative; }
-  #presetHost { position: absolute; left: 612px; top: 3px; width: 218px; z-index: 8; }   /* it moved over for Arp and History's buttons (GUI-10) */
-  #colourHost { position: absolute; left: 678px; top: 32px; width: 152px; height: 22px; display: flex; align-items: center; gap: 4px; z-index: 7; }
+  /* GUI-22: both rows hang from the window's right edge, so nothing in them can slide under anything else as the window resizes. */
+  #presetHost { position: absolute; left: max(612px, calc(100% - 218px)); right: 0; top: 3px; z-index: 8; }   /* it stops at the page tabs and narrows, rather than sliding over them */
+  #colourHost { position: absolute; left: max(436px, calc(100% - 348px)); right: 196px; top: 32px; height: 22px; display: flex; align-items: center; gap: 4px; z-index: 7; }
   #colourHost .hd-btn { min-height: 20px; padding: 0 6px; font-size: 10px; }
   #colourHost #scrTop { flex: 1 1 auto; min-width: 0; }
   .chrome { display: flex; align-items: flex-start; gap: var(--space-gap) 14px; flex: 0 0 auto; }
   .logo { box-sizing: border-box; width: 91px; height: 60px; flex: 0 0 auto; display: grid; place-items: center; text-align: center; }
   .tabs { display: grid; grid-template-columns: repeat(6, auto); gap: 4px; justify-content: start; }
-  .switches { margin-left: auto; display: grid; grid-template-columns: auto auto; justify-items: end; gap: 0 10px; }
+  .switches { position: absolute; right: 0; top: 32px; height: 22px; display: flex; align-items: center; gap: 10px; z-index: 7; }
   .switches .hd-label { gap: 4px; }
   .body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; flex: 1 1 auto; align-items: stretch; min-height: 0; }
   .body.with-dock { grid-template-columns: 204px minmax(0, 1fr); }
@@ -1659,8 +1660,9 @@ const bank = H.ModBank($('bankHost'), S, { mods: bankMods, macros: MACROS, pageK
 H.Lens($('lensHost'), S, { scope: () => true, size: 'compact', form: 'foot' });
 // GUI-13: a press off a parameter clears the selection, so the Lens lets it go. Capture, so it runs first: a press on a control selects it again in its own handler, and a control that stops the event can't hide it.
 // Not under MAP, where the selection is what the map keys act on. Not inside what reads the selection (the Lens, the info box, the inspectors, the Morph page's region panels), or using them would close them.
+// Not on the Morph page at all (GUI-22): everything there edits the selected row, and the blend map goes when its row does, so a row stays selected until another is picked.
 document.addEventListener('pointerdown', e => {
-  if (e.button !== 0 || S.map.on || !S.selected || !e.target.closest) return;
+  if (e.button !== 0 || S.map.on || !S.selected || page === 'morph' || !e.target.closest) return;
   if (e.target.closest('.hd-lens, #info, .hd-insp, .hd-cinsp, [class*="hm-"]')) return;
   S.selected = null; S.emit();
 }, true);
@@ -2033,13 +2035,21 @@ S.start();
     dev.setMorphLaw(0); M.mode = 'blend'; mw.blend(); const shown = mapIn();
     S.selected = keyS; mw.blend(); const snapBlend = mapOut(); S.selected = keyC; mw.blend(); const backIn = mapIn();
     const puckTo = (() => { const pk = document.querySelector('#morphPad .puck'), lay = document.querySelector('#morphPad > .bm-layer'), x1 = S.pad.x, b = pk.getBoundingClientRect(), o = { bubbles: true, clientX: b.left + b.width / 2, clientY: b.top + b.height / 2, pointerId: 9, button: 0 }; lay.querySelector('canvas').dispatchEvent(new PointerEvent('pointerdown', Object.assign({}, o, { clientX: o.clientX + 40 }))); lay.querySelector('canvas').dispatchEvent(new PointerEvent('pointerup', Object.assign({}, o, { clientX: o.clientX + 40 }))); const still = S.pad.x === x1; pk.dispatchEvent(new PointerEvent('pointerdown', o)); pk.dispatchEvent(new PointerEvent('pointermove', Object.assign({}, o, { clientX: o.clientX + 30 }))); pk.dispatchEvent(new PointerEvent('pointerup', Object.assign({}, o, { clientX: o.clientX + 30 }))); const went = S.pad.x !== x1; S.pad.x = x1; return still && went; })();
+    // GUI-22: a press anywhere on this page keeps the row, so the map stays up to be used. Control: the same press on another page clears it, which is GUI-13's own check.
+    const pressAt = t => { const q = t.getBoundingClientRect(), o = { bubbles: true, cancelable: true, button: 0, pointerId: 21, clientX: q.left + 2, clientY: q.top + 2 }; t.dispatchEvent(new PointerEvent('pointerdown', o)); t.dispatchEvent(new PointerEvent('pointerup', o)); };
+    const lawPill = $('morphBlend').querySelector('.hd-pill'); [lawPill, $('morphBlend'), $('pages')].forEach(pressAt); mw.blend(); const keepsRow = S.selected === keyC && mapIn();
     const addPin = [...$('morphBlend').querySelectorAll('button')].find(b => /Add pin/.test(b.textContent)), past2 = dev.history().past.length; if (addPin) addPin.click();
     const pinned = dev.pins(keyC).length === 1 && mw.bm.row().pins.length === 1, pinStep = dev.history().past.length === past2 + 1; dev.undo(); mw.blend(); const pinGone = !dev.pins(keyC).length && !mw.bm.row().pins.length; dev.clearRedo();
     // Morph off: the audible corner is what's heard, wherever the puck is, and the frozen corners refuse.
     dev.setMorph({ on: false }); const heardOff = H.Morph.hear(S, S.params[keyC]), offOk = heardOff.owner === dev.morph().audible, refused = !S.writable(S.params[keyC], (dev.morph().audible + 1) % 4); dev.setMorph({ on: true });
     dev.setMorphLaw(law0); M.mode = LAWS[law0]; M.view = view0; S.selected = sel0; grid.build(); mw.blend(); selectPage(pg0); S.pad.x = x0; S.pad.y = y0; dev.setMorph({ x: x0, y: y0 }); setMorphOn(false); while (dev.history().past.length > steps0) dev.undo(); dev.clearRedo(); paintDock(); S.message = '';
-    const miss = Object.entries({ padOk, allRows, labelled, agree: !off0, wrong, cell: !!cell, moved, keptRest, oneStep, undone, locked, lockStep, unlocked, pulled: pulled === 1 || pulled === 3, snapNote, lawNote, shown, snapBlend, backIn, puckTo, addPin: !!addPin, pinned, pinStep, pinGone, offOk, refused }).filter(e => !e[1]).map(e => e[0]);
+    const miss = Object.entries({ padOk, allRows, labelled, agree: !off0, wrong, cell: !!cell, moved, keptRest, oneStep, undone, locked, lockStep, unlocked, pulled: pulled === 1 || pulled === 3, snapNote, lawNote, shown, snapBlend, backIn, puckTo, keepsRow, addPin: !!addPin, pinned, pinStep, pinGone, offOk, refused }).filter(e => !e[1]).map(e => e[0]);
     line(!miss.length, (miss.length ? '(MISSED: ' + miss.join(', ') + ') ' : '') + 'Morph page (GUI-19): its own pad is ' + Math.round(bigW) + ' px; the field has all ' + members.length + ' members, and ' + off0 + ' of them disagree with the device about their owner under Quantum (control: the same row reads another owner elsewhere on the pad); a drag on one corner’s cell wrote that corner alone as one step, and undo took it back; a region lock is one step in the device’s undo, and a pulled lock moves the knobs’ owner; the blend maps show only for a continuous row under Blend, and a pin is one step in the device’s undo; with morph off the audible corner is heard and the others refuse.'); }
+  // GUI-22: nothing in the top bar lands on anything else as the window narrows. Control: the same boxes, measured with the switches back on the top row where they were, do collide.
+  { const w0 = $('win').style.width, pg0 = page, hits = [], boxes = () => [...$('pnav').querySelectorAll('button, [role="tab"]')].filter(e => e.offsetWidth).map(e => [e.textContent.trim() || 'tab', e.getBoundingClientRect()]).concat([['preset', $('presetHost').getBoundingClientRect()], ['colours', $('colourHost').getBoundingClientRect()], ['switches', document.querySelector('.switches').getBoundingClientRect()]]), meet = (a, b) => a.left < b.right - .5 && b.left < a.right - .5 && a.top < b.bottom - .5 && b.top < a.bottom - .5, scan = () => { const out = [], B = boxes(), own = new Set(['preset', 'colours', 'switches']); B.forEach((x, i) => B.forEach((y, j) => { if (i < j && (own.has(x[0]) || own.has(y[0])) && meet(x[1], y[1])) out.push(x[0] + ' on ' + y[0]); })); return out; };
+    const widths = [980, 900, 860, 780]; DATA.pages.forEach(pg => { selectPage(pg.id); widths.forEach(w => { $('win').style.width = w + 'px'; scan().forEach(h => hits.push(pg.id + ' at ' + w + ': ' + h)); }); });
+    $('win').style.width = '860px'; const sw = document.querySelector('.switches'), top0 = sw.style.top, right0 = sw.style.right; sw.style.top = '3px'; sw.style.right = '150px'; const control = scan().some(h => /switches/.test(h)); sw.style.top = top0; sw.style.right = right0; $('win').style.width = w0; selectPage(pg0);
+    line(!hits.length && control, 'Top bar (GUI-22): the page tabs, preset bar, colours and the Morph, Pad and Bank switches meet nowhere on ' + DATA.pages.length + ' pages at ' + widths.join(', ') + ' px' + (hits.length ? ' (HIT: ' + hits.slice(0, 5).join('; ') + ')' : '') + '. Control: with the switches back on the top row they collide' + (control ? '' : ' (THEY DIDN’T)') + '.'); }
   // GUI-21: a control that can't act isn't drawn, on every page, and it comes back with its setting. Controls: a condition that holds draws it, and one row reads the same on every page that shows it.
   { const pg0 = page, tick = () => { for (const v of views) if (v.page === page || v.page === '*') v.update(); for (const v of S.views) v.render(); }; let shownInert = [], blanks = [], drawn = 0; const keep = dev.history().past.length;
     DATA.pages.forEach(pg => { selectPage(pg.id); tick(); (pg.groups || []).forEach(g => (g.controls || []).forEach(c => { if (c.role === 'power' || c.follow) return; const el = pageEls[pg.id].querySelector('[data-key="' + c.key + '"]'); if (!el || !el.offsetWidth) return; drawn++; if (!live(c.live)) shownInert.push(pg.id + ' ' + c.key); })); pageEls[pg.id].querySelectorAll('section[data-section]').forEach(sec => { if (sec.offsetWidth && !sec.querySelector('.ctl') && !sec.querySelector('canvas')) blanks.push(sec.dataset.section); }); });
