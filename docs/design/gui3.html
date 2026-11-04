@@ -215,6 +215,14 @@
   .phead.compact { flex-wrap: nowrap; min-width: 0; }
   .phead .hd-cluster { white-space: nowrap; }
   .phead.compact .hd-note { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* GUI-19: the Morph page's bench: its own larger pad and the morph field, all from the master's parts */
+  .mw { display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px; }
+  .mw-top { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 6px; align-items: start; }
+  .mw-left, .mw-right { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .mw-field { display: grid; grid-template-columns: 176px minmax(0, 1fr); gap: 6px; align-items: start; }
+  .mw .hd-card { width: auto; min-width: 0; }
+  .mw .hd-card > .face > * { flex: 1 1 100%; min-width: 0; }
+  .mw-pad.no-row .hm-xs-ov, .mw-pad.no-row .hm-xs-end { display: none; }   /* the cross-section's line has nothing to say until a row is selected */
   .cards { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
   .cards > .hd-card { width: auto; flex: 1 1 260px; min-width: 0; }
   .cards > .hd-card.wide { flex-basis: 100%; }
@@ -419,6 +427,8 @@ const base0 = S.base;
 S.base = function (p) { return ROW[p.key] ? dev.shown(p.key) : base0.call(this, p); };
 // With morph off only the audible corner sounds and takes writes (ADR-319 item 1): a pinned corner selects
 // where a snapshot is saved, it does not redirect an edit into a frozen corner.
+const writable0 = S.writable;
+S.writable = function (p, i) { const m = dev.morph(); if (!m.on && i !== null && i !== undefined && i !== m.audible) { this.say('Corner ' + H.CORNERS[i].id + ' is frozen while morph is off (ADR-319)'); return false; } return writable0.call(this, p, i); };
 const editing0 = S.editing;
 S.editing = function (p) { const m = dev.morph(); return p.locked ? null : m.on ? editing0.call(this, p) : m.audible; };
 // Corner names, the edited mark and revert are the device's (its saved presets), not the bundle's per-knob copy.
@@ -640,6 +650,72 @@ function morphPanel() {
     card('Corners', 'SNAPSHOTS', [chips, h('div', { class: 'hd-row' }, snapBtn, snapTo), h('div', { class: 'hd-row' }, presetBs),
       h('span', { class: 'hd-hint', text: 'Save current sound: what you hear now becomes the selected corner, under a preset name. Save preset to a corner: that corner’s own values become its saved preset (the edited mark and revert compare against it). With morph off only the audible corner (Audible corner, above) sounds and takes edits; the other three are frozen.' })]),
     randomizePlaceholder());
+}
+/* GUI-19: the Morph page's bench. Its own larger pad, with the selected row's regions painted on it (QuantumPad), and the morph
+   field, all the master's parts. They read the DEVICE: its corners, its owner, its region locks, its undo. The master's morph layer
+   has a stand-in for each of these, and using them would let the grid and the knobs disagree (ADR-110). Mounted on the first visit,
+   and it paints only on this page: the field's 558 rows have no business costing every other page a frame. */
+const FIELD_SECTIONS = [[/^voice|^mix|^out/, 'VOICE'], [/^osc1/, 'OSC 1'], [/^osc2/, 'OSC 2'], [/^sub/, 'SUB'], [/^noise/, 'NOISE'], [/^env/, 'ENVELOPES'], [/^fx\./, 'FX'], [/^arp/, 'ARP']];
+function fieldRow(r) {
+  // Only a row with named options is a structural cell. A numeric stepped row (a seed: 2^32 values) reads as a value, and the device snaps it.
+  const stepped = r.law === 'step' && !!r.options, sec = FIELD_SECTIONS.find(s => s[0].test(r.block)), base = {
+    key: r.key, name: r.label, path: r.key, section: sec ? sec[1] : r.block.toUpperCase(), group: r.block, kind: stepped ? 's' : 'c',
+    def: stepped ? idxOf(r, r.default_v) : r.default_v, labels: stepped ? r.options : undefined, fmt: stepped ? undefined : v => ENG.display(r, v) };
+  base.vals = new Proxy([0, 0, 0, 0], {   // the master's rows hold an option's index; the device holds its 0..1 value
+    get(t, k, rc) { if (typeof k === 'string' && /^[0-3]$/.test(k)) { const v = dev.corner(r.key, +k); return stepped ? idxOf(r, v) : v; } return Reflect.get(t, k, rc); },
+    set(t, k, v) { if (typeof k === 'string' && /^[0-3]$/.test(k)) write(r, stepped ? vOf(r, v) : v, +k); return true; } });
+  return base;
+}
+const LAWS = ['blend', 'quantum', 'stepped'];
+let mw = null;
+function morphBench() {
+  const pad = h('div', { id: 'morphPad', class: 'mw-pad' }), barBanner = h('div'), barScale = h('div'), barLock = h('div'),
+    insp = h('div', { id: 'morphInsp' }), cross = h('div'), find = h('div'), grid = h('div', { id: 'morphGrid' });
+  const root = h('div', { class: 'mw', id: 'morphBench' },
+    h('div', { class: 'mw-top' }, h('div', { class: 'mw-left' }, pad, barBanner, barScale, barLock),
+      h('div', { class: 'mw-right' }, card('Selected row', 'CORNERS', [insp]), card('Across the pad', 'HEARD', [cross]))),
+    h('div', { class: 'mw-field' }, card('Find', 'FIELD', [find]), grid));
+  mw = { root, mounted: false, open: false, mount() {
+    if (this.mounted) return; this.mounted = true;
+    const M = H.Morph.state(S), E = H.Morph.engine, add0 = S.add;
+    // A page's own control registered its key first, without the field's section. A continuous one is the same row with the same corners,
+    // so it takes the section and the views share it. A stepped one holds 0..1 where the field's cells hold an option's index, so the field's row replaces it.
+    const rows = dev.params().filter(r => r.class !== 'D').map(fieldRow).map(f => { const o = S.params[f.key]; if (o && f.kind === 'c') { o.section = f.section; o.group = f.group; o.path = o.path || f.path; return o; } if (o) { S.params[f.key] = f; S.saved[f.key] = f.vals.slice(); } return f; });
+    M.solo = () => { const m = dev.morph(); return m.on ? null : m.audible; };
+    M.history = { canUndo: () => dev.history().past.length > 0, canRedo: () => dev.history().future.length > 0,
+      undo() { S.say(dev.undo() ? 'Undone' : 'Nothing to undo'); }, redo() { S.say(dev.redo() ? 'Redone' : 'Nothing to redo'); },
+      // Inside a gesture the writes are already in its step. Outside one (a click on LOCK) the entry replays itself into a step of its own.
+      record(e) { if (dev.inTx()) return; e.undo(); dev.begin(e.label); e.redo(); dev.end(); dev.reown(); } };
+    Object.defineProperty(M, 'locks', { get: () => dev.regions(), configurable: true });
+    const own0 = E.ownerAt.bind(E);
+    E.offsets = (s, p) => dev.offsets(p.key);
+    E.lock = (s, p) => { if (!dev.regions()[p.key]) dev.regions()[p.key] = dev.offsets(p.key).slice(); };
+    E.unlock = (s, p) => { delete dev.regions()[p.key]; };
+    E.ownerAt = (s, p, x, y) => { const m = dev.morph(); return m.on && x === m.x && y === m.y && dev.owner(p.key) !== null ? dev.owner(p.key) : own0(s, p, x, y); };   // at the puck, exactly what the knobs read
+    S.add = function (v) { const r = v.render; if (r) v.render = function () { if (page === 'morph') r.apply(v, arguments); }; return add0.call(S, v); };
+    try {
+      H.XYPad(pad, S, { size: 320, census: true, relative: true });
+      H.QuantumPad(pad, S);
+      H.QuantumBanner(barBanner, S); H.MorphScaleBar(barScale, S); H.LockBar(barLock, S);
+      H.MorphInspector(insp, S); this.cross = H.CrossSection(cross, S, { pad });
+      this.grid = H.MorphGrid(grid, S, { rows, maxHeight: 420, title: 'Morph field', rev: () => dev.rev() });
+      H.FindPane(find, S, this.grid);
+    } finally { S.add = add0; }
+    // One gesture on any of these is one history step, and a boundary drag moves the row's regions, so the knobs' owners follow.
+    const close = () => { if (this.open) { this.open = false; dev.end(); dev.reown(); } };
+    [grid, insp, pad, barLock].forEach(host => host.addEventListener('pointerdown', () => { if (!dev.inTx()) { dev.begin('Morph field'); this.open = true; } }, true));
+    addEventListener('pointerup', close); addEventListener('pointercancel', close);
+    // The law, Cohesion and the seed are D.2's rows, so the master's morph layer follows them, and its one-click switch writes them.
+    let lastLaw = null;
+    views.push({ page: 'morph', update: () => {
+      const ms = dev.morphSettings(), law = LAWS[ms.law];
+      if (law !== lastLaw) { lastLaw = law; if (M.mode !== law) { M.mode = law; M.trace = []; } }
+      else if (M.mode !== law) { lastLaw = M.mode; dev.setMorphLaw(LAWS.indexOf(M.mode), 'Morph law: ' + M.mode); }
+      pad.classList.toggle('no-row', !S.selected || !S.params[S.selected]);
+      M.cohesion = ms.cohesion; M.seed = ms.seed; M.rate = ms.rate; M.glide = ms.glide;
+    } });
+  } };
+  return root;
 }
 // The Randomize panel's place on the one Morph page (ADR-322 item 2): a placeholder until its build. The Random lab
 // stays the research bench (ADR-316), and is linked from here.
@@ -1310,7 +1386,7 @@ DATA.pages.forEach(pg => {
   else if (pg.form) arpPage(pg, el);
   else if (pg.grid) paramPage(pg, el);
   else classicPage(pg, el);
-  if (pg.panel === 'morph') el.append(morphPanel());
+  if (pg.panel === 'morph') { el.insertBefore(morphBench(), el.children[1] || null); el.append(morphPanel()); }
   if (pg.id === 'fx') el.insertBefore(fxRack(pg), el.children[1] || null);
   $('pages').append(el); pageEls[pg.id] = el;
 });
@@ -1318,6 +1394,7 @@ DATA.pages.forEach(pg => {
 function selectPage(id) {
   if (!pageEls[id]) return;
   page = id; closeMenu(); placePad(); paintDock();
+  if (id === 'morph' && mw) mw.mount();
   for (const k in pageEls) pageEls[k].hidden = k !== id;
   const now = nav.get(); if (now.group !== groupOf[id] || now.page !== id) nav.set(groupOf[id], id);
   $('pages').scrollTop = 0; seamRev = -1;
@@ -1871,6 +1948,7 @@ S.start();
   const srcFlow = (F, r) => { ['osc1', 'osc2', 'sub', 'noise'].forEach(id => { F.route[id] = r; }); };
   // 4n. GUI-14, GUI-16: the console. All 21 stages in signal order, the words, each node over its strip's bars, the picture following the flow, bypass, solo, a drawn gain, the lamps.
   // Controls: the glass 8 px above a node is bare; two frames of one flow differ less than a changed flow; a drawn gain refuses MAP; and a real fader is the house slider.
+
   { const pg0 = page, widthWas = $('win').style.width, M = mixBench, F = M.F, cc = consoleStrip, pm = pageEls.mix, R0 = e => e.getBoundingClientRect(); $('win').style.width = '980px'; selectPage('mix');
     const frame = () => { for (const v of views) if (v.page === 'mix') v.update(); }, strip = id => pm.querySelector('.cs-strip[data-stage="' + id + '"]');
     for (let i = 0; i < 4; i++) frame();
@@ -1896,6 +1974,31 @@ S.start();
     M.settle(); const boxW = Math.round(R0(box).width); selectPage(pg0); $('win').style.width = widthWas; S.message = '';
     line(shown.length === 21 && inOrder && real === 5 && keyed === 5 && fits && words && lined === n && over >= n - 3 && par > same + 20 && fxPar > same + 20 && bypOk && soloOk && noSolo && moved && fine && home && mapSafe && lamps > 0 && firstShown && cleared,
       'Console (GUI-14, GUI-16): ' + shown.length + ' stages in signal order (' + inOrder + '), ' + real + ' of them house faders (' + keyed + '), filling its ' + boxW + ' px with no sideways scroll (' + fits + '); SUM · VOICES (' + words + '); ' + lined + ' of ' + n + ' nodes over their own bars, located from the bars, and ' + over + ' drawn there on bare glass; the picture moves ' + par + ' px for parallel filters and ' + fxPar + ' for parallel FX, against ' + same + ' for a frame alone; bypass rewires (' + bypOk + '); a stage solo dims what isn\'t heard (' + soloOk + '), with none on GR or OUT (' + noSolo + '); a drawn gain follows 1:1 (' + moved + '), fine with Shift (' + fine + '), homes (' + home + '), refuses MAP (' + mapSafe + '); ' + lamps + ' lamps latched with the first over named (' + firstShown + '), and they clear (' + cleared + ').'); }
+  // 4o. GUI-19: the Morph page's own larger pad and the field. The field must read the DEVICE: the master's stand-ins would let it disagree with the knobs.
+  { const pg0 = page, M0 = H.Morph.state(S), sel0 = S.selected, view0 = M0.view, steps0 = dev.history().past.length, x0 = S.pad.x, y0 = S.pad.y; setMorphOn(true); dev.scatter(SEED); selectPage('morph'); mw.mount();
+    const R0 = e => e.getBoundingClientRect(), bigW = R0($('morphPad')).width, members = dev.params().filter(r => r.class !== 'D'), M = M0, grid = mw.grid;
+    const padOk = bigW >= 300, keyC = members.find(r => r.law !== 'step' && r.class === 'M').key, keyS = members.find(r => r.law === 'step' && r.options && r.options.length > 2).key;
+    const allRows = grid.rows.length === members.length, labelled = members.every(r => { const p = S.params[r.key]; return p && p.section !== undefined && (r.law !== 'step' || !r.options || (p.kind === 's' && p.labels.length === r.options.length)); });
+    // Quantum: every row's owner and heard value, as the field reads them, against the device's. Control: a wrong owner is seen.
+    const law0 = dev.morphSettings().law; dev.setMorphLaw(1); M.mode = 'quantum'; S.pad.x = .2; S.pad.y = .3; dev.setMorph({ x: .2, y: .3 });
+    const agrees = () => members.filter(r => { const p = S.params[r.key], a = H.Morph.hear(S, p); return a.owner !== dev.owner(r.key); }).length;
+    const off0 = agrees(), own0 = dev.owner(keyC);
+    const wrong = H.Morph.engine.ownerAt(S, S.params[keyC], .9, .9) !== own0;
+    // A drag on one corner's cell: it writes that corner only, and one undo takes it back.
+    grid.jump(grid.rows.find(r => r.key === keyC).section);
+    const cellOf = (k, c) => document.querySelector('#morphGrid .hm-row[data-key="' + k + '"] .hm-cell[data-c="' + c + '"] .hm-cv');
+    const drag = (el, dx) => { const b = R0(el), o = { bubbles: true, clientX: b.left + 5, clientY: b.top + 3, pointerId: 7, button: 0 }; el.dispatchEvent(new PointerEvent('pointerdown', o)); el.dispatchEvent(new PointerEvent('pointermove', Object.assign({}, o, { clientX: o.clientX + dx / 2 }))); el.dispatchEvent(new PointerEvent('pointermove', Object.assign({}, o, { clientX: o.clientX + dx }))); el.dispatchEvent(new PointerEvent('pointerup', Object.assign({}, o, { clientX: o.clientX + dx }))); };
+    const others = i => [0, 1, 2, 3].filter(c => c !== i).map(c => dev.corner(keyC, c)).join();
+    const c2 = dev.corner(keyC, 2), rest = others(2), past0 = dev.history().past.length, cell = cellOf(keyC, 2); if (cell) drag(cell, c2 > .5 ? -40 : 40);
+    const moved = dev.corner(keyC, 2) !== c2, keptRest = others(2) === rest, oneStep = dev.history().past.length === past0 + 1; dev.undo(); const undone = dev.corner(keyC, 2) === c2; dev.clearRedo();
+    // A row's regions: a lock is the device's, so undo restores it and the knobs' owner follows.
+    const pS = S.params[keyS], past1 = dev.history().past.length; H.Morph.setLock(S, pS, true); const locked = !!dev.regions()[keyS], lockStep = dev.history().past.length === past1 + 1; dev.undo(); const unlocked = !dev.regions()[keyS]; dev.clearRedo();
+    dev.regions()[keyS] = [-.45, .45, -.45, .45]; dev.reown(); const pulled = dev.owner(keyS); delete dev.regions()[keyS]; dev.reown();
+    // Morph off: the audible corner is what's heard, wherever the puck is, and the frozen corners refuse.
+    dev.setMorph({ on: false }); const heardOff = H.Morph.hear(S, S.params[keyC]), offOk = heardOff.owner === dev.morph().audible, refused = !S.writable(S.params[keyC], (dev.morph().audible + 1) % 4); dev.setMorph({ on: true });
+    dev.setMorphLaw(law0); M.mode = LAWS[law0]; M.view = view0; S.selected = sel0; grid.build(); selectPage(pg0); S.pad.x = x0; S.pad.y = y0; dev.setMorph({ x: x0, y: y0 }); setMorphOn(false); while (dev.history().past.length > steps0) dev.undo(); dev.clearRedo(); paintDock(); S.message = '';
+    const miss = Object.entries({ padOk, allRows, labelled, agree: !off0, wrong, cell: !!cell, moved, keptRest, oneStep, undone, locked, lockStep, unlocked, pulled: pulled === 1 || pulled === 3, offOk, refused }).filter(e => !e[1]).map(e => e[0]);
+    line(!miss.length, (miss.length ? '(MISSED: ' + miss.join(', ') + ') ' : '') + 'Morph page (GUI-19): its own pad is ' + Math.round(bigW) + ' px; the field has all ' + members.length + ' members, and ' + off0 + ' of them disagree with the device about their owner under Quantum (control: the same row reads another owner elsewhere on the pad); a drag on one corner’s cell wrote that corner alone as one step, and undo took it back; a region lock is one step in the device’s undo, and a pulled lock moves the knobs’ owner; with morph off the audible corner is heard and the others refuse.'); }
   // 14. ADR-333: an oscillator page shows the envelope its env row selects; an edit there is the Mod page's key, and an edit
   // on the Mod page reads back there. Control: the value differed before.
   const oscPg = DATA.pages.find(p => p.id === 'osc1'), fg = oscPg.groups.find(g => g.follow), fsel = ROW[fg.follow.selector];
@@ -2385,7 +2488,7 @@ S.start();
     const away = r => { const d = r.default_v, a = r.law === 'step' ? vOf(r, r.default_index === 0 ? Math.min(1, r.n - 1) : 0) : (d > .5 ? d - .3 : d + .3); return a; };
     dev.begin('self-check');
     DATA.pages.forEach(pg => { selectPage(pg.id); tick();
-      [...pageEls[pg.id].querySelectorAll('[data-key]')].filter(e => !e.closest('.hd-pt') && !e.dataset.second && ROW[e.dataset.key] && e.offsetWidth).forEach(host => { const r = ROW[host.dataset.key];
+      [...pageEls[pg.id].querySelectorAll('[data-key]')].filter(e => !e.closest('.hd-pt') && !e.closest('#morphBench') && !e.dataset.second && ROW[e.dataset.key] && e.offsetWidth).forEach(host => { const r = ROW[host.dataset.key];   // the morph field's rows are a corner's cells, not this page's controls
         const was = dev.shown(r.key);
         if (host.dataset.w === 'toggle') { tog++; const onSame = dev.shown(r.key); const inner = host.querySelector('button') || host; inner.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true })); if (dev.shown(r.key) !== onSame) togKept = false; return; }
         if (dev.set(r.key, away(r), { label: 'self-check' }) === null) return;

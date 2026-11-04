@@ -4,8 +4,8 @@
 # (python3 tools/design_vendor.py record-master --version <id> --date <d>) and re-vendor.
 # tools/design_chain_check.py holds the tree to these hashes: every file listed, none extra.
 artifact: https://claude.ai/artifact/EGDwetDHwcvxhTbNffCzJc
-version: 1793767794-9f75
-date: 2026-11-03
+version: 1793773329-83d6
+date: 2026-11-04
 files: 183
 4d104d98d2616358e29c9e5ff97e16691a0580ad57cf4d91586a4370927b1b8c  README.md
 ce354240f6e15082fbd556989b9224c787e4a13b497b6cb5e8ed4341fcef5e11  accessibility.md
@@ -111,7 +111,7 @@ cae24848d79f1e6850c3297aa5a543be48721d675908ecf01c80fa5cee70afb3  components/Mod
 9875b580be79fa19a691427fc1cd445a1f67064911d1cc56689afce3b6f451ed  components/ModTiers/preview.html
 0fa0ddf51351353e07ffe79f73515eb30dd990b3a03b71c303c5e731a11fbc8c  components/ModuleCard/README.md
 64daff9964b56400e33e0716005fa3ea73b73699613ee0ccb19acb12dd57739b  components/ModuleCard/preview.html
-86951f89dcb0bb7dac3248b4d91b3f4166c178474dccda968e16c2bae7d8ff6f  components/MorphGrid/README.md
+c832ed1ed3b04f8f41dbde45de494ca0199dc01f15c793fee81137bdbd67cb21  components/MorphGrid/README.md
 5f451ff4c4d8885f81fb74d3c92df152092f14aa7d4e3655f6ef5e953bb53e36  components/MorphGrid/preview.html
 8fbb6c2718e033dc48db375bc10e5b0b67e3857b225e843bbfcbecc97435d460  components/MorphInspector/README.md
 3735df41f3db7d634c5019966d493f311423ab916b2ac158a29f6179e3ff95f7  components/MorphInspector/preview.html
@@ -184,7 +184,7 @@ a18ecfe745ed481016abed2f88491fa90ad8567b0a32d9df1747ad51dd94b65d  components/Tem
 706ba6c02712c8df590f7282f772c49d01bd0a957e6c25748cb43ab0eaa1e0f7  components/XYPad/README.md
 d701129232df94a3ea81b2499559b1f13bd8cf22f065b70b2c7f0d666e2ce3d8  components/XYPad/preview.html
 e934d221eff0cebb59f7f9d3788eef6b53cf8cf9fad5526815ec1dcd999564ec  components/bundle.css
-d4eb1a2c739f21b37d5af68216e4031f44360484c76238b23d705215435c6423  components/bundle.js
+ca9f1603b72484700aec0ae3fac5bd7cb5aae579a1b3aeed5f66081ddd68433e  components/bundle.js
 c8822b9cf87ccd247712576d73dae097079d29506f3e07a7e365b0b2aaebc7e0  components/index.d.ts
 6c3f598e97da2ab5ed7ce3e02d35e32afb208bd1c7ddcb32335f97ee701c2901  contrast-audit.md
 b22892adec0ac89e9c3eb244e52d609e0e94a11a8a45fe986acd5a1c750ce8d3  design-system.json

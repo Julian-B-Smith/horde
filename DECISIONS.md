@@ -11434,3 +11434,22 @@ Three points stayed open, because the shell already marks a knob selected the mo
 **Consequences.** Nothing changes on Mix. GB7 opens for the Morph page, with its first batch on its own PR. This is B581's step 3.
 
 **FX device (ADR-254).** It has the same pad and one Morph page (ADR-322), so the same larger pad, with its own rows and no source levels in Randomize.
+
+## GUI-20 — The Morph page's first batch, on the session's readings (GB7; GUI-19; 2026-11-04)
+
+**Context.** GUI-19 ruled a larger pad on the Morph page and all its proposed functionality. This batch is the pad and the parts the master already held. What's left is on GB7.
+
+**What's on the page.** The page's own 320 px pad (the dock's is 187 px) with the selected row's regions painted on it and its boundaries draggable (`QuantumPad`); the mode banner, scale bar and lock bar under it; `MorphInspector`; `CrossSection`; `MorphGrid` with `FindPane`, all 544 members with each corner's value edited live.
+
+**Readings (the GUI session's, open to the human).**
+- **A click on the large pad's empty glass moves nothing;** only a grab on the puck does. That's `QuantumPad`'s rule (B269), so a boundary can be grabbed safely. The dock's and Main's pads still jump to a click.
+- **The cross-section's line shows on the pad only while a row is selected.**
+- **A numeric stepped row** (a seed, for instance) reads as a value, not an option list. `arp.seed` has 2^32 values.
+- **`KindLegend` isn't mounted, and the Find pane's RAMPS pill counts 0.** SPEC-ENGINE has Morphable and Structural rows and no gate, so the master's third kind has no member here. Whether it goes is the human's call.
+- **The device's owner stand-in follows Cohesion, the seed and a row's locked regions,** so the field, the pad and the knobs name one owner. Its blend stays bilinear whatever the law, which the seam check holds. So under Quantum, D.2's default, the field's HEARING reads the owner's value while a knob reads the blend, until the resolver comes (MO-6).
+
+**Not done, and the human's call.** The dock still shows on the Morph page beside the larger pad. GUI-19 ruling 2 takes it off, but the seam check's `dock` gate allows Main alone, and editing a gate is the human's to approve.
+
+**Consequences.** Master `1793773329-83d6`: `H.Morph.state(S).history` and `.solo`, and `opts.rev` on `MorphGrid`, which also paints only the rows in view. Self-check 4o holds the page. It's mounted once and painted only on this page.
+
+**FX device (ADR-254).** The same bench with its own rows; `FIELD_SECTIONS` is the instrument's.

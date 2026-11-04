@@ -538,7 +538,7 @@ window.GUI3_DATA = {
      "docs/design/morph-blend-demo.html"
     ],
     "status": "partial",
-    "why": "The morph editor's rounds (B268, B269) and the architecture-follows-the-morph proposal (B585) are not ratified; the Morph page's design is B581 step 3."
+    "why": "GUI-19, GUI-20: the quantum boundaries and the morph field are on the Morph page. The blend maps and waypoints (B272) are next on GB7, and the architecture-follows-the-morph proposal (B585) isn't ratified."
    },
    {
     "area": "Morph",
@@ -9629,7 +9629,7 @@ window.GUI3_DATA = {
    ],
    "id": "morph",
    "label": "Morph",
-   "note": "The morph's settings (SPEC-ENGINE Appendix D.2), generated from the spec's table: they go to the morph resolver (IF-12), never to the engine; every one is a host parameter except Morph seed and Audible corner, which are page choices (IF-11). Beside them the morph system's own panel: the corners and their snapshots and presets (ADR-319, ADR-321), and the Randomize placeholder (ADR-322). The rest of the page's design is B581 step 3.",
+   "note": "The morph's settings (SPEC-ENGINE Appendix D.2), generated from the spec's table: they go to the morph resolver (IF-12), never to the engine; every one is a host parameter except Morph seed and Audible corner, which are page choices (IF-11). Beside them the morph system's own panel: the corners and their snapshots and presets (ADR-319, ADR-321), and the Randomize placeholder (ADR-322). Above them the page's own larger pad and the morph field, every corner of every row, edited live (GUI-19, ADR-266 r9). The rest of the page is on GB7.",
    "panel": "morph",
    "power": null,
    "status": "draft",

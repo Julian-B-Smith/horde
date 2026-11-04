@@ -92,6 +92,10 @@
   {
    "version": "1793080392-2372",
    "evidence": "docs/design/arp-face/README.md: the first vendored copy, 2026-10-27 (B553)"
+  },
+  {
+   "version": "1793773329-83d6",
+   "evidence": "docs/design/arp-face/README.md: GUI-19, GUI-20, 2026-11-04"
   }
  ],
  "vendoring": {
@@ -3141,11 +3145,11 @@
    "clause": "ruling 9 (morph grid edits are live, latched for the gesture, undo covers mistakes)",
    "lab": "docs/design/morph-editor-lab.html",
    "component": "MorphGrid",
-   "master_version": "1793374583-b6a5",
+   "master_version": "1793773329-83d6",
    "bundle": "MorphGrid",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: H.MorphGrid(grid, S",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "morph-editor",
    "note": "Master MorphGrid README (Gestures, no COMMIT); bundle exports MorphGrid; not in the shell (port-tab morph-editor)."
@@ -5827,13 +5831,43 @@
    "superseded_by": null,
    "id": "gui19-morph-large-pad",
    "adr": "GUI-19",
-   "clause": "rulings 2 and 3 (the Morph page has its own larger pad, and all its proposed functionality)",
-   "note": "Listed on GB7. FX device: the same pad and page, with its own rows.",
+   "clause": "ruling 2 (the Morph page has its own larger pad)",
+   "note": "A second H.XYPad, 320 px, with QuantumPad on it. The dock still shows beside it until the human rules on the seam check's dock gate. FX device: the same pad and page, with its own rows.",
    "component": "XYPad",
    "bundle": "XYPad",
+   "shell": "docs/design/gui3.html: H.XYPad(pad, S, { size: 320",
+   "state": "in-shell",
+   "master_version": "1793773329-83d6"
+  },
+  {
+   "port_tab": "gain-staging",
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "id": "gui19-morph-functionality",
+   "adr": "GUI-19",
+   "clause": "ruling 3 (the Morph page takes all its proposed functionality)",
+   "note": "Listed on GB7. The master-held parts are in (GUI-20); BlendMaps, the mode menu, the Randomize panel, the import list, the rail and distribution are to come.",
+   "component": null,
+   "bundle": null,
    "shell": null,
    "state": "ruled",
    "master_version": null
+  },
+  {
+   "port_tab": "gain-staging",
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "id": "gui20-field-reads-device",
+   "adr": "GUI-20",
+   "clause": "the morph field reads the device: its corners, owner, region locks and undo",
+   "note": "H.Morph.state(S).history and .solo, and MorphGrid opts.rev. Self-check 4o. FX device: the same bench with its own rows.",
+   "component": "MorphGrid",
+   "bundle": "MorphGrid",
+   "shell": "docs/design/gui3.html: H.MorphGrid(grid, S",
+   "state": "in-shell",
+   "master_version": "1793773329-83d6"
   }
  ],
  "not_design": [

@@ -66,12 +66,12 @@
     var rows = data.params.filter(function (r) { return !r.reserved; }), by = Object.create(null);
     rows.forEach(function (r) { by[r.key] = r; });
     var morphing = rows.filter(function (r) { return r.class !== 'D'; });
-    var jit = Object.create(null);                   // the seeded per-key offset of the ownership stand-in
-    morphing.forEach(function (r) { var g = mulberry32(hash32(r.key) ^ seed); jit[r.key] = [0, 1, 2, 3].map(function () { return (g() - 0.5) * 0.32; }); });
+    var jit = Object.create(null), jitSeed = null;   // the seeded per-key offset of the ownership stand-in, redrawn when morph.seed moves
+    function draw(key, s) { var g = mulberry32(hash32(key) ^ s); return [0, 1, 2, 3].map(function () { return (g() - 0.5) * 0.32; }); }
 
     // st is everything undo restores. The morph position (pos) is deliberately outside it (ADR-319 item 2).
     var st = { corners: [{}, {}, {}, {}], dev: {}, routes: [], nextRoute: 1, morphOn: false, audible: 0,
-      names: [null, null, null, null], saved: [null, null, null, null] };
+      names: [null, null, null, null], saved: [null, null, null, null], regions: {} };   // regions: a row's own locked region offsets (B269), so undo restores them
     morphing.forEach(function (r) { for (var i = 0; i < 4; i++) st.corners[i][r.key] = r.default_v; });
     rows.forEach(function (r) { if (r.class === 'D') st.dev[r.key] = r.default_v; });
     var pos = { x: 0.5, y: 0.5 }, owners = Object.create(null);
@@ -103,11 +103,20 @@
       if (!st.morphOn) { var w = [0, 0, 0, 0]; w[st.audible] = 1; return w; }
       var x = pos.x, y = pos.y; return [(1 - x) * (1 - y), x * (1 - y), (1 - x) * y, x * y];
     }
+    /* A row's four region offsets, the same stand-in the pad paints: its own lock, else its seeded draw mixed toward one shared
+       draw by Cohesion. One function, so the pad, the grid and the knobs can't disagree about who owns a row (ADR-110). */
+    function offsets(key) {
+      if (st.regions[key]) return st.regions[key];
+      var sv = 'morph.seed' in st.dev ? st.dev['morph.seed'] : 0, c = 'morph.cohesion' in st.dev ? st.dev['morph.cohesion'] : 0;
+      if (jitSeed !== sv) { jitSeed = sv; jit = Object.create(null); }
+      var o = jit[key] || (jit[key] = draw(key, seed ^ Math.round(sv * 9999))), f = jit['#field'] || (jit['#field'] = draw('#field', seed ^ Math.round(sv * 9999)));
+      return o.map(function (x, i) { return (1 - c) * x + c * f[i]; });
+    }
     function reown() {
       var w = weights();
       morphing.forEach(function (r) {
         if (!st.morphOn) { owners[r.key] = st.audible; return; }
-        var j = jit[r.key], best = 0, bv = -1e9;
+        var j = offsets(r.key), best = 0, bv = -1e9;
         for (var i = 0; i < 4; i++) { var s = w[i] + j[i]; if (s > bv) { bv = s; best = i; } }
         var cur = owners[r.key];
         owners[r.key] = cur === undefined || bv - (w[cur] + j[cur]) > HYST ? best : cur;
@@ -194,6 +203,13 @@
     /* What the display shows: the engine's own change where it made one, else what we hold and sent. */
     D.shown = function (key) { return key in fromEngine ? fromEngine[key] : heard(key); };
     D.fromEngine = function () { return Object.keys(fromEngine); };
+    D.offsets = offsets;
+    /* D.2's settings as the morph layer's views read them, so the shell needs no key of its own (its controls come from shell-data.js). */
+    var lawX = function (k) { return root.GUI3Engine.lawX(by[k], D.shown(k)); };
+    D.morphSettings = function () { return { law: Math.round(D.shown('morph.law') * 2), cohesion: D.shown('morph.cohesion'), seed: D.shown('morph.seed'), rate: lawX('morph.stepRate'), glide: lawX('morph.glide') }; };
+    D.setMorphLaw = function (i, label) { return D.set('morph.law', i / 2, { label: label }); };
+    D.regions = function () { return st.regions; };
+    D.reown = function () { reown(); send(morphing.map(function (r) { return r.key; })); changed(); };
     D.owner = function (key) { var r = by[key]; return !r || r.class === 'D' ? null : owners[key]; };
     D.corner = function (key, i) { var r = by[key]; if (!r) return null; return r.class === 'D' ? st.dev[key] : st.corners[i][key]; };
     /* Write v to one corner: the requested one, else the owner while morph is on; while it is off, only the
@@ -210,6 +226,7 @@
       var cur = i === null ? st.dev[key] : st.corners[i][key];
       if (cur === v) return v;
       step((o && o.label) || r.label, function () { if (i === null) st.dev[key] = v; else st.corners[i][key] = v; });
+      if (key === 'morph.law' || key === 'morph.cohesion' || key === 'morph.seed') { reown(); send(morphing.map(function (x) { return x.key; })); }   // what's heard and who owns it depend on these
       send([key]); changed(); return v;
     };
     D.morph = function () { return { on: st.morphOn, x: pos.x, y: pos.y, audible: st.audible, weights: weights() }; };

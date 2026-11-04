@@ -550,9 +550,10 @@ A section's readout slot is fixed at the width its header leaves, up to 250 px, 
 - **Manual anchors:** "Open in manual" is a stub until B451's pages exist (B583).
 - **Owed by the modules (ADR-330):** Scape's labels and laws; descriptions from every FX module's
   manifest (none gives any); Arp's laws for its four continuous settings. Sluice and Weir have no manifest.
-- **The morph's settings are held, not obeyed:** the resolver stub keeps D.2's values and the position,
-  but the device's blend is still the bilinear stand-in (Blend); Quantum, Stepped, the count, the glide and
-  the seed's draw are the resolver's (MO-6 to MO-10) and come with it.
+- **The morph's settings are partly obeyed (GUI-20):** the resolver stub keeps D.2's values and the position. The
+  device's owner stand-in follows Cohesion, the seed and a row's locked regions, so the Morph page's field, its pad and
+  every knob name one owner. The device's blend is still the bilinear stand-in, whatever the law; Quantum, Stepped, the
+  count, the glide and the real draw are the resolver's (MO-6 to MO-10) and come with it.
 - **The rack order** on the FX page (Echo, Scape, Shriek, Bulwark's compressor, then Bulwark's limiter as
   the master) is the FX chain lab's, not a ruling.
 - **The Randomize panel** on the Morph page is a placeholder that lists its contents to come (ADR-318,
@@ -580,7 +581,7 @@ Master `1793658873-4f0e`. `docs/design/main-workshop-lab.html` drew it and is ha
 
 - **The stage** fills the page area, with no page head: the morph pad over the Specimen XY on the left; the macros, ENV 1's picture with A, D, S and R, and one deck on the right. `layout.json`'s `deck` says what is in it, and the generator checks every key against its source page.
 - **The ten tabs:** Osc 1, Osc 2, Sub, Noise, Arp are second faces on rows their own pages own, so a change shows in both. ENV 1 and Voice hold Main's own real sections, with the mix levels added as second faces. Filter, Bend and Scale are MOCK, and each says why.
-- **The pad** moves to the page on Main and back to the dock elsewhere. The dock hides on Main (GUI-5 r2).
+- **The pad** moves to the page on Main and back to the dock elsewhere. The dock hides on Main (GUI-5 r2). Morph has its own 320 px pad, a second `H.XYPad` (GUI-19), and the dock still shows beside it, because the seam check's `dock` gate allows Main alone.
 - **The Specimen and the logo** are `H.MainStage`, the bench's code verbatim (ADR-333), stepped by this file's frame loop. The Specimen is on by default, with a switch in Settings' Interface card. The logo is live on every page in the locked style.
 - **The XY's value is MOCK:** how a player assigns its two parameters isn't designed yet.
 - **An exception, flagged:** Main has no Grid | Table, against PV1, because the deck holds it and there's no room for the header.
