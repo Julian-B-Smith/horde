@@ -11352,17 +11352,16 @@ Three points stayed open, because the shell already marks a knob selected the mo
 
 **Consequences.** Lab only so far: `docs/design/compact-mixer-lab.html` (GB1). When the human has looked, the chain runs master, vendor, shell. All 21 stages need about 906 px, so with a side column open this console scrolls inside its box, which ties it to GB5 (morph and MAP on together).
 
-## GUI-15 — RULED by the human: a plain wheel anywhere in the window scrolls the page, and never moves a parameter (GB6; B301, B374; 2026-11-03)
+## GUI-15 — RULED by the human: a plain wheel never moves a parameter, and nothing in a page holds it (GB6; B301, B374; 2026-11-03)
 
-**Context.** The human, 2026-11-03: "it's hard to scroll on a lot of pages because screens and other features seem to block the scroll. It would be great if everything was more intuitively scrollable (if it helps, I want to explicitly block parameters moving with the scroll wheel)". Measured with a real wheel: no control or screen inside a page stopped it, and a plain wheel already moved no parameter (B374). What stopped it: the top bar, the pad, the Mappings card and the foot row sit outside the page's scroller, 27 to 41 % of the window; and Mod's list and pane, 59 % of that page, held the wheel with nothing of their own to scroll, while 368 px of the page was out of reach below them.
+**Context.** The human, 2026-11-03: "it's hard to scroll on a lot of pages because screens and other features seem to block the scroll. It would be great if everything was more intuitively scrollable (if it helps, I want to explicitly block parameters moving with the scroll wheel)". Measured with a real wheel: screens and controls inside a page pass it through, and a plain wheel already moved no parameter (B374). Two things stopped it. Mod's list and pane, 59 % of that page, held the wheel with nothing of their own to scroll, with 368 px of the page out of reach below them. And the top bar, the pad, the Mappings card and the foot row sit outside the page's scroller, 27 to 41 % of the window.
 
-**Ruling.** A plain wheel anywhere in the window scrolls the page. It never moves a parameter.
+**Ruling.** A plain wheel never moves a parameter, and no box in a page holds it.
 
-**Readings taken (the GUI session's, open to the human).**
-- **Option + wheel still sets a value.** The human ruled that on 2026-10-21 ("Keep it for value", B374), and "block parameters moving with the scroll wheel" may or may not reach it. Asked, not assumed.
-- **A box that can still scroll takes the wheel first,** then passes it on at its end: the info box, the bank's rows, the Mappings card.
-- **An open menu keeps the wheel,** so the page doesn't move under it.
+**Open, the human's call.** Whether the wheel also scrolls the page from over the top bar, the pad, Mappings and the foot row. A built listener did that and was removed, because `lab_wheel_scroll_check` (B301) allows a wheel listener only inside `onAltWheel`. The other way, with no listener, is one scroller for the whole window, with the bars pinned to its edges.
 
-**Consequences.** Self-check 4i, with its controls. Inside a page the scroll stays native, because a listener there would make each scroll wait on the main thread. The override of ModPage's `contain` is a proposal for the master (`docs/design/gui3/README.md` 25). The plugin's webview isn't tested.
+**Readings taken (the GUI session's, open to the human).** Option + wheel still sets a value. The human ruled that on 2026-10-21 ("Keep it for value", B374), and "block parameters moving with the scroll wheel" may or may not reach it. Asked, not assumed.
+
+**Consequences.** Self-check 4i, with its controls. The override of ModPage's `contain` is a proposal for the master (`docs/design/gui3/README.md` 25). The plugin's webview isn't tested.
 
 **FX device (ADR-254).** The same shell, so the same wheel.

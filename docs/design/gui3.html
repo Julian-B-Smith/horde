@@ -1558,25 +1558,6 @@ document.addEventListener('pointerdown', e => {
   if (e.target.closest('.hd-lens, #info, .hd-insp, .hd-cinsp, [class*="hm-"]')) return;
   S.selected = null; S.emit();
 }, true);
-// GUI-15: a plain wheel anywhere in the window scrolls the page. The top bar, the pad, the Mappings card and the foot row sit outside #pages, so over them it did nothing: 27 to 41 % of the window.
-// Only on those regions, not on #win: a non-passive listener makes the browser wait for this thread before each scroll, and inside #pages the native scroll is already right.
-// Option stays the value wheel (B374) and ctrl or cmd stay the browser's. A sideways scroll stays native, for the source strip.
-function keepsWheel(t, dy) {
-  for (let a = t; a && a !== $('win'); a = a.parentElement) {
-    const cs = getComputedStyle(a);
-    if (cs.position === 'fixed') return true;   // an open menu or card: the page must not move under it
-    // the 2 px: Mod's list overflows by 1 px, and taking the wheel for that would eat a whole notch
-    if ((cs.overflowY === 'auto' || cs.overflowY === 'scroll') && (dy > 0 ? a.scrollTop + a.clientHeight < a.scrollHeight - 2 : a.scrollTop > 0)) return true;
-  }
-  return false;
-}
-function wheelToPage(e) {
-  if (e.altKey || e.ctrlKey || e.metaKey || !e.deltaY || Math.abs(e.deltaX) > Math.abs(e.deltaY) || keepsWheel(e.target, e.deltaY)) return;
-  const pg = $('pages'), was = pg.scrollTop;
-  pg.scrollTop += e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? pg.clientHeight : 1);
-  if (pg.scrollTop !== was) e.preventDefault();   // else the page around the window may take it (a lab, the review page)
-}
-[$('win').querySelector('.chrome'), $('mapbar'), $('dock'), $('inspDock'), $('footrow')].forEach(el => el.addEventListener('wheel', wheelToPage, { passive: false }));
 // GUI-8 r3: the summed output in the foot row, drawn by the bundle's painters from the engine's observation view (IF-10; dev.summed(), MOCK in the stub), as on the Mix page.
 { const specState = {}; let sumFrame = 0;
   views.push({ page: '*', update() { if ($('bank').hidden) return; const sm = dev.summed(); if (!sm) return; sumFrame++; H.Viz.scope($('sumScope'), { l: sm.scope, r: sm.scope, R: 0 }); H.Viz.spectrum($('sumSpec'), sm.bands, specState, sumFrame * 1000 / 60); } }); }
@@ -2401,9 +2382,9 @@ S.start();
     if (dev.end()) dev.undo(); dev.clearRedo(); selectPage(pg0); S.message = ''; tick();   // only if the bracket made a step: every write here is put back, so it may not have, and an undo would reach an earlier step
     const fp1 = fp(), same = fp0 === fp1;
     line(same && !missed.length && n > 300 && tog > 10 && togKept && arrowSafe, 'Double-click (GUI-12): ' + n + ' controls on every page returned to home' + (missed.length ? ' (MISSED ' + missed.length + ': ' + missed.slice(0, 8).join(', ') + ')' : '') + '. Controls: ' + tog + ' toggles stayed where they were' + (togKept ? '' : ' (ONE MOVED)') + ', and a stepper’s arrow didn’t reset' + (arrowSafe ? '' : ' (IT DID)') + '.' + (same ? '' : ' It left something behind: ' + fp0 + ' then ' + fp1)); }
-  // 4i. GUI-15: the wheel. Plain over every control on every page moves nothing and doesn't stop the scroll; plain over what's outside the page scrolls the page; no box in a page holds the wheel.
-  // Controls: Option over a knob does move it, so the wheel does reach the controls; a planted contain is seen; a box with room keeps the wheel; at the page's end nothing is stopped.
-  { const pg0 = page, pg = $('pages'), widthWas = $('win').style.width; $('win').style.width = '980px';
+  // 4i. GUI-15: the wheel. Plain over every control on every page moves nothing and doesn't stop the scroll; no box in a page holds the wheel or eats a notch.
+  // Controls: Option over a knob does move it, so the wheel does reach the controls; a planted contain and a planted sliver are both seen.
+  { const pg0 = page, widthWas = $('win').style.width; $('win').style.width = '980px';
     const spin = (el, o) => { const e = new WheelEvent('wheel', Object.assign({ bubbles: true, cancelable: true, deltaY: 100 }, o)); el.dispatchEvent(e); return e; };
     const fpWheel = () => JSON.stringify(dev.patch());
     let n = 0, stopped = 0; const fp0 = fpWheel();
@@ -2415,16 +2396,9 @@ S.start();
     const slivers = pp => { selectPage(pp.id); return [...pageEls[pp.id].querySelectorAll('*')].filter(el => { const o = el.scrollHeight - el.clientHeight; if (o < 1 || o > 3 || !el.clientHeight) return false; const oy = getComputedStyle(el).overflowY; return oy === 'auto' || oy === 'scroll'; }).length; };
     const sliverPages = DATA.pages.filter(pp => slivers(pp)).map(pp => pp.id), bait = h('div', { style: 'height:20px;overflow:auto' }, h('div', { style: 'height:21px' })); pageEls.mod.append(bait); const sliverSeen = slivers({ id: 'mod' }) > 0; bait.remove();
     const knob = pageEls.osc1.querySelector('.hd-mk[data-key] .mk-face'); selectPage('osc1'); dev.begin('self-check'); const optOn = spin(knob, { altKey: true }), optMoved = optOn.defaultPrevented && fpWheel() !== fp0; dev.end(); dev.undo(); dev.clearRedo();
-    selectPage('fx'); setMorphOn(true); S.setMap(true); paintDock();
-    const spots = { 'top bar': $('win').querySelector('.chrome'), 'source strip': $('srcStrip'), pad: $('padHost'), mappings: $('inspDock'), info: $('info'), lens: $('lensHost'), bank: $('bankHost'), scope: $('sumScope') }, dead = [];
-    for (const k in spots) { pg.scrollTop = 0; const e = spin(spots[k]); if (!(pg.scrollTop === 100 && e.defaultPrevented)) dead.push(k); }
-    pg.scrollTop = 100; const opt = spin($('sumScope'), { altKey: true }), optStays = pg.scrollTop === 100 && !opt.defaultPrevented;
-    const up = spin($('sumScope'), { deltaY: -100 }), upOk = pg.scrollTop === 0 && up.defaultPrevented;
-    const atEnd = spin($('sumScope'), { deltaY: -100 }), endFree = !atEnd.defaultPrevented;
-    const face = $('info').querySelector('.face'), tall = h('div', { style: 'height:900px' }); face.append(tall); pg.scrollTop = 0; const room = spin(face), keeps = pg.scrollTop === 0 && !room.defaultPrevented; face.scrollTop = face.scrollHeight; const rest = spin(face), passes = pg.scrollTop === 100 && rest.defaultPrevented; tall.remove(); pg.scrollTop = 0;
-    S.setMap(false); setMorphOn(false); dev.undo(); dev.undo(); dev.clearRedo(); paintDock(); selectPage(pg0); $('win').style.width = widthWas; S.message = '';
-    line(n > 300 && !stopped && unmoved && optMoved && !held.length && seen && !sliverPages.length && sliverSeen && !dead.length && optStays && upOk && endFree && keeps && passes,
-      'Wheel (GUI-15): over ' + n + ' parts of every control on every page, a plain wheel moved nothing and stopped nothing (' + stopped + '); Option moved a knob (' + optMoved + '); no box in a page holds the wheel' + (held.length ? ' (HELD ON ' + held.join(', ') + ')' : '') + ', and a planted one is seen (' + seen + '); no box eats a notch on a sliver of a scroll' + (sliverPages.length ? ' (ON ' + sliverPages.join(', ') + ')' : '') + ', and a planted one is seen (' + sliverSeen + '); outside the page it scrolls the page from all ' + Object.keys(spots).length + ' spots' + (dead.length ? ' (DEAD ' + dead.join(', ') + ')' : '') + '; Option leaves the page alone (' + optStays + '); up comes back (' + upOk + '); at the top nothing is stopped (' + endFree + '); the info box takes it while it has room (' + keeps + ') and passes it on at its end (' + passes + ').'); }
+    selectPage(pg0); $('win').style.width = widthWas;
+    line(n > 300 && !stopped && unmoved && optMoved && !held.length && seen && !sliverPages.length && sliverSeen,
+      'Wheel (GUI-15): over ' + n + ' parts of every control on every page, a plain wheel moved nothing and stopped nothing (' + stopped + '); Option moved a knob (' + optMoved + '); no box in a page holds the wheel' + (held.length ? ' (HELD ON ' + held.join(', ') + ')' : '') + ', and a planted one is seen (' + seen + '); no box eats a notch on a sliver of a scroll' + (sliverPages.length ? ' (ON ' + sliverPages.join(', ') + ')' : '') + ', and a planted one is seen (' + sliverSeen + ').'); }
   dev.clearHistory();   // the checks' own steps (the probes, the morph toggles) are not the user's history
   // and the checks' presses aren't the user's selection: without this every load opened with a parameter selected, its info box locked and the Lens holding it
   S.selected = null; S.hot = null; selSeen = null; lockedKey = null; if (infoBox.locked()) infoBox.release(); S.emit();
