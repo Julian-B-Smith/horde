@@ -5804,6 +5804,36 @@
    "shell": "docs/design/gui3.html: H.ChainConsole(host, S",
    "state": "in-shell",
    "master_version": "1793767794-9f75"
+  },
+  {
+   "port_tab": "gain-staging",
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "id": "gui19-mix-keeps-pad",
+   "adr": "GUI-19",
+   "clause": "ruling 1 (Mix keeps the docked pad; the console scrolls sideways in its box while morph is on)",
+   "note": "Nothing changes on Mix. The dock check in the shell holds it on every page but Main.",
+   "component": "XYPad",
+   "bundle": "XYPad",
+   "shell": "docs/design/gui3.html: show = on && padShown && page !== 'main'",
+   "state": "in-shell",
+   "master_version": "1793767794-9f75"
+  },
+  {
+   "port_tab": "gain-staging",
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "id": "gui19-morph-large-pad",
+   "adr": "GUI-19",
+   "clause": "rulings 2 and 3 (the Morph page has its own larger pad, and all its proposed functionality)",
+   "note": "Listed on GB7. FX device: the same pad and page, with its own rows.",
+   "component": "XYPad",
+   "bundle": "XYPad",
+   "shell": null,
+   "state": "ruled",
+   "master_version": null
   }
  ],
  "not_design": [

@@ -11421,3 +11421,16 @@ Three points stayed open, because the shell already marks a knob selected the mo
 **Consequences.** Master `1793767794-9f75`, re-vendored. Self-check 4n, with its controls. `compact-mixer-lab.html` is retired, since it hooks a mixer the shell no longer mounts.
 
 **FX device (ADR-254).** `ChainConsole` takes `GainStaging.chain('fx')`'s stages, but its flow helper is the instrument chain's. The FX device's flow isn't built.
+
+## GUI-19 — RULED by the human: Mix keeps the pad; the Morph page gets a larger pad of its own and all its proposed functionality (GB5, GB7; GUI-16, GUI-18, ADR-315, ADR-322; 2026-11-04)
+
+**Context.** GUI-16 and GUI-18 left open whether Mix hides the pad as Main does. The console needs about 906 px; with the pad showing it has 723. Asked, the human, 2026-11-04: "Keep the pad", and then: "Morph should have its own larger version though (plus all the proposed morph page functionality)".
+
+**Rulings.**
+1. **Mix keeps the docked pad.** The console scrolls sideways inside its box while morph is on. This closes the question GUI-16 and GUI-18 left open.
+2. **The Morph page has its own larger pad.** On that page the pad is on the page rather than in the dock, a second exception to ADR-315's dock on every page, after Main (GUI-2).
+3. **The Morph page takes all its proposed functionality.** The session reads that as everything on record for the page, listed on GB7, and the list is open to the human's correction.
+
+**Consequences.** Nothing changes on Mix. GB7 opens for the Morph page, with its first batch on its own PR. This is B581's step 3.
+
+**FX device (ADR-254).** It has the same pad and one Morph page (ADR-322), so the same larger pad, with its own rows and no source levels in Randomize.

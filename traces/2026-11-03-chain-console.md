@@ -9,3 +9,5 @@
 **Not checked.** A plugin host. How it sounds: there's no sound, and every level past the sources is the flow's model, not a measurement.
 
 **Verify.** See the PR body.
+
+**2026-11-04, GUI-19.** The human: "Keep the pad". Mix is unchanged, and measured with morph on: the console has 723 px of the 914 it scrolls, and the dock is 204 px. GUI-19 and GB7 record that and the Morph page's direction.
