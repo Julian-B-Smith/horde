@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1793733325-2f69, 2026-11-03; do not edit, re-vendor */
+/* vendored from the horde Design System artifact, version 1793745705-bf68, 2026-11-03; do not edit, re-vendor */
 /* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"SteppedControl"},{"name":"Stepper"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"},{"name":"Companion"},{"name":"SourceChip"},{"name":"SourceRows"},{"name":"RoutesBySource"},{"name":"Cluster"},{"name":"Lens"},{"name":"Fold"},{"name":"PageView"},{"name":"ModTiers"},{"name":"MacroRow"},{"name":"ModBank"},{"name":"ModPage"},{"name":"UndoLine"},{"name":"MacroFace"},{"name":"PresetBar"},{"name":"Deck"},{"name":"MacroCard"},{"name":"ParamPicker"},{"name":"HistoryRail"},{"name":"PicturePicker"},{"name":"AssignXY"},{"name":"Specimen"}]} */
 /* horde house reference behaviours (vanilla JS, no React, no network).
    The morph knob and slider follow the human's HORDE Morph Knob Spec and HORDE Map Mode Spec
@@ -5104,11 +5104,11 @@
   function themeSig(node) { var t = node.closest('[data-scr]'); return (document.documentElement.getAttribute('data-theme') || '') + '/' + (t ? t.dataset.scr : ''); }
   /* redraw when the box or the theme or the screen scheme changes, not on a clock. A component whose element has left the page (a preview
      rebuilds its host) stops watching: painting a detached canvas has no colours to read. */
-  function watch(node, f) {
+  function watch(node, f) {   // subtree: a host sets data-scr on the container it governs (the plugin window), not on the root
     var ro = null, mo = null;
     function go() { if (!node.isConnected) { if (ro) ro.disconnect(); if (mo) mo.disconnect(); return; } f(); }
     if (typeof ResizeObserver === 'function') { ro = new ResizeObserver(go); ro.observe(node); }
-    if (typeof MutationObserver === 'function') { mo = new MutationObserver(go); mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-scr'] }); }
+    if (typeof MutationObserver === 'function') { mo = new MutationObserver(go); mo.observe(document.documentElement, { attributes: true, subtree: true, attributeFilter: ['data-theme', 'data-scr'] }); }
   }
 
   /* =====================================================================
@@ -6485,7 +6485,7 @@
       if (!el.isConnected) return;
       var k = S.drag ? S.drag.key : S.hot;
       if (!k || !inScope(k) || !S.params[k]) k = S.selected && inScope(S.selected) && S.params[S.selected] ? S.selected : (o.fallback && S.params[o.fallback] ? o.fallback : null);
-      if (!k) { if (cur !== null) { cur = null; nm.textContent = 'Nothing yet'; pth.textContent = 'hover a control'; slot.replaceChildren(); cor.replaceChildren(); maps.replaceChildren(); } return; }
+      if (!k) { if (cur !== null || !nm.textContent) { cur = null; nm.textContent = 'Nothing selected'; pth.textContent = 'hover or click a control'; slot.replaceChildren(); cor.replaceChildren(); maps.replaceChildren(); } return; }
       var p = S.params[k];
       if (k !== cur) {
         cur = k; last = ''; nm.textContent = p.name; pth.textContent = p.path || k;
@@ -8323,7 +8323,7 @@ function specimenFrame(force) {
   const clk = MON.clock, dt = S.clk < 0 ? 0.033 : Math.min(0.05, Math.max(0, clk - S.clk) / SR);
   const scale = Math.min((typeof devicePixelRatio === 'number' && devicePixelRatio) || 1, 2);
   const pw = Math.max(2, Math.round(cv.clientWidth * scale)), ph = Math.max(2, Math.round(cv.clientHeight * scale));
-  const tok = TOK('--scr-tube', '#f2ede2'), resized = pw !== S.w || ph !== S.h, themed = tok !== S.bgTok;
+  const tok = getComputedStyle(cv).getPropertyValue('--scr-ground').trim() || '#f2ede2', resized = pw !== S.w || ph !== S.h, themed = tok !== S.bgTok;
   if (!force && !resized && !themed && dt <= 0) return false;
   /* B365 correction: "at rest, nothing is drawn" no longer holds — the drift and the turntable keep
      moving whether or not a note sounds (the idle motion), so the image never stops changing on its

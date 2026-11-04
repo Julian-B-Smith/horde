@@ -777,7 +777,7 @@ function vizView(v, pid, big) {
   views.push({ page: pid, update() {
     frame++;
     if (ringIO) ringIO.frame();                 // the swarm moves every frame, so the ring is drawn before the change test below
-    const sig = Object.values(K).map(k => dev.shown(k)).join('|') + '|' + (document.documentElement.dataset.theme || '') + '|' + sizeOf(main);
+    const sig = Object.values(K).map(k => dev.shown(k)).join('|') + '|' + colourKey() + '|' + sizeOf(main);
     if (sig === last && v.kind !== 'noise') return; last = sig;
     if (v.kind === 'noise') {
       const c = xOf(K.colour), bands = [];   // +1 white (flat), 0 pink (−3 dB/oct), −1 brown (−6 dB/oct): a tilt, SN-4's words
@@ -856,7 +856,7 @@ function sectionOf(pg, g, opts) {
     let lastE = '';
     views.push({ page: pg.id, update() {
       const fb = dev.followed(g.follow); if (!fb) return;
-      const K = fb.viz, sig = fb.block + '|' + Object.values(K).map(k => dev.shown(k)).join('|') + '|' + (document.documentElement.dataset.theme || '') + '|' + sizeOf(cv);
+      const K = fb.viz, sig = fb.block + '|' + Object.values(K).map(k => dev.shown(k)).join('|') + '|' + colourKey() + '|' + sizeOf(cv);
       followHosts.forEach(x => { const on = g.follow.options[x.opt] === fb; if (x.host.hidden === on) x.host.hidden = !on; });
       if (sig === lastE) return; lastE = sig;
       const a = xOf(K.a), dd = xOf(K.d), r = xOf(K.r);
@@ -915,7 +915,7 @@ function gridSection(pg, g) {
     let lastE = '';
     views.push({ page: pg.id, update() {
       const fb = dev.followed(g.follow); if (!fb) return;
-      const K = fb.viz, sig = fb.block + '|' + Object.values(K).map(k => dev.shown(k)).join('|') + '|' + (document.documentElement.dataset.theme || '') + '|' + sizeOf(cv);
+      const K = fb.viz, sig = fb.block + '|' + Object.values(K).map(k => dev.shown(k)).join('|') + '|' + colourKey() + '|' + sizeOf(cv);
       followHosts.forEach(x => { const on = g.follow.options[x.opt] === fb; if (x.host.hidden === on) x.host.hidden = !on; });
       if (sig === lastE) return; lastE = sig;
       const a = xOf(K.a), dd = xOf(K.d), r = xOf(K.r);
@@ -1060,13 +1060,13 @@ const mainMock = {
     const st = { type: 0 }, ty = h('div'), ks = h('div', { class: 'main-row' }), cut = mainKnob(ks, 'filter.cut', 'Cutoff', .62, x => Math.round(40 * Math.pow(400, x)) + ' Hz'), res = mainKnob(ks, 'filter.res', 'Resonance', .3), cv = h('canvas', { role: 'img', 'aria-label': 'Filter response (MOCK)' });
     H.pillGroup(ty, ['LP', 'BP', 'HP'], 0, 'Filter type (MOCK)', i => { st.type = i; }, { keys: () => S.keys });
     pn.append(h('div', { class: 'main-face' }, h('div', { class: 'main-rows' }, ty, ks, mainNote('MOCK: the filter has no parameter rows yet, because its slot waits on Weir. This curve is a plain two-pole drawing of these controls, nothing of Weir\u2019s.')), h('div', { class: 'main-pic hd-viz' }, cv)));
-    let last = ''; views.push({ page: 'main', update() { if (!cv.clientWidth) return; const s = [st.type, cut.g, res.g, cv.clientWidth, cv.clientHeight].join(); if (s === last) return; last = s; H.Viz.response(cv, { type: st.type, cut: cut.g, res: res.g }); } });
+    let last = ''; views.push({ page: 'main', update() { if (!cv.clientWidth) return; const s = [st.type, cut.g, res.g, cv.clientWidth, cv.clientHeight, colourKey()].join(); if (s === last) return; last = s; H.Viz.response(cv, { type: st.type, cut: cut.g, res: res.g }); } });
   },
   bend(pn) {
     const G = H.Viz.Glide, st = { law: 4 }, lw = h('div'), ks = h('div', { class: 'main-row' }), fr = mainKnob(ks, 'bend.spring', 'Spring', .18, x => (.5 + x * 19.5).toFixed(1) + ' Hz'), dm = mainKnob(ks, 'bend.damp', 'Damping', .28), cv = h('canvas', { role: 'img', 'aria-label': 'Bend view (MOCK rows)' });
     H.pillGroup(lw, ['instant', 'time', 'rate', 'lag', 'spring'], 4, 'Bend law (MOCK)', i => { st.law = i; }, { keys: () => S.keys });
     pn.append(h('div', { class: 'main-face' }, h('div', { class: 'main-rows' }, lw, ks, mainNote('MOCK: the pitch system\u2019s rows wait on RC-3. The picture is the design system\u2019s, showing these controls.')), h('div', { class: 'main-pic hd-viz' }, cv)));
-    let last = ''; views.push({ page: 'main', update() { if (!cv.clientWidth) return; const s = [st.law, fr.g, dm.g, cv.clientWidth, cv.clientHeight].join(); if (s === last) return; last = s; const p = { law: st.law, time: 120, rate: 24, lag: 60, springF: .5 + fr.g * 19.5, damp: dm.g, distOver: 1, retMul: 1, quant: 0, root: 0, mask: G.mask(G.SCALES[1][1]), hyst: 8, qTime: 0 }; H.Viz.bend(cv, G.simulate(p, 60, 67, .9, 'note'), p); } });
+    let last = ''; views.push({ page: 'main', update() { if (!cv.clientWidth) return; const s = [st.law, fr.g, dm.g, cv.clientWidth, cv.clientHeight, colourKey()].join(); if (s === last) return; last = s; const p = { law: st.law, time: 120, rate: 24, lag: 60, springF: .5 + fr.g * 19.5, damp: dm.g, distOver: 1, retMul: 1, quant: 0, root: 0, mask: G.mask(G.SCALES[1][1]), hyst: 8, qTime: 0 }; H.Viz.bend(cv, G.simulate(p, 60, 67, .9, 'note'), p); } });
   },
   scale(pn) { const hst = h('div'); pn.append(hst, mainNote('MOCK: the global scale has no parameter rows yet (B260).')); H.ScalePicker(hst, { visual: 'circles', skin: 'global' }); },
 };
@@ -1355,6 +1355,8 @@ function paintInspector() {
 }
 S.on(paintInspector); paintInspector();
 
+// A picture that only redraws when its values change has to count the colours as a value too: the screen scheme lives on #win, and a theme-only key left these screens in the old scheme.
+function colourKey() { return (document.documentElement.dataset.theme || '') + '/' + ($('win').dataset.scr || ''); }
 function hostOf(t) { return t && t.closest ? t.closest('#pages [data-key], #bank [data-key]') : null; }
 // A section is anything under a [data-section] host that is not itself a control: its header, its labels, its empty space.
 function sectionHostOf(t) { return t && t.closest ? t.closest('#pages [data-section]') : null; }
@@ -1543,7 +1545,14 @@ const bank = H.ModBank($('bankHost'), S, { mods: bankMods, macros: MACROS, pageK
   onSet: set => S.say(set === 'mods' ? 'The bank shows the modulators on this page' : 'The bank shows the macros, the pitch bend and the mod wheel'),
   onMacro: (id, v, by) => { if (by === 'mouse') macroNote(); } });
 // GUI-8 r1: one Lens, the same place on every page, following whatever is under the pointer.
-H.Lens($('lensHost'), S, { scope: () => true, fallback: pageKeysList('main').find(k => ROW[k].law !== 'step'), size: 'compact', form: 'foot' });
+H.Lens($('lensHost'), S, { scope: () => true, size: 'compact', form: 'foot' });
+// GUI-13: a press off a parameter clears the selection, so the Lens lets it go. Capture, so it runs first: a press on a control selects it again in its own handler, and a control that stops the event can't hide it.
+// Not under MAP, where the selection is what the map keys act on. Not inside what reads the selection (the Lens, the info box, the inspectors, the Morph page's region panels), or using them would close them.
+document.addEventListener('pointerdown', e => {
+  if (e.button !== 0 || S.map.on || !S.selected || !e.target.closest) return;
+  if (e.target.closest('.hd-lens, #info, .hd-insp, .hd-cinsp, [class*="hm-"]')) return;
+  S.selected = null; S.emit();
+}, true);
 // GUI-8 r3: the summed output in the foot row, drawn by the bundle's painters from the engine's observation view (IF-10; dev.summed(), MOCK in the stub), as on the Mix page.
 { const specState = {}; let sumFrame = 0;
   views.push({ page: '*', update() { if ($('bank').hidden) return; const sm = dev.summed(); if (!sm) return; sumFrame++; H.Viz.scope($('sumScope'), { l: sm.scope, r: sm.scope, R: 0 }); H.Viz.spectrum($('sumSpec'), sm.bands, specState, sumFrame * 1000 / 60); } }); }
@@ -2313,6 +2322,41 @@ S.start();
     line(full && shared && back, 'Info sidebar (ADR-345 r4): on, the box runs the rail\u2019s full height, left of the pages, and the foot row keeps its 120 px for the Lens and bank (GUI-8); the morph pad sits above the box and the box takes the rest; off puts every rectangle back (control).');
     infoBox.release(); selectPage(pg0); S.selected = sel0; selSeen = sel0; }
   showInfo(null); S.message = '';
+  // 4i. GUI-13: a press off a parameter clears the Lens. Controls: a press on a control keeps it selected, and neither a press inside the Lens, nor one under MAP, nor a right-button press clears it.
+  { const pg0 = page, sel0 = S.selected, hot0 = S.hot, tick = () => { for (const v of S.views) v.render(); };
+    selectPage('osc1'); S.hot = null;
+    const key = pageKeysList('osc1').find(k => ROW[k].law !== 'step' && document.querySelector('#pages [data-key="' + k + '"] [role="slider"]')), host = document.querySelector('#pages [data-key="' + key + '"]'), face = host.querySelector('[role="slider"]');
+    const press = (t, b) => { const q = t.getBoundingClientRect(), o = { bubbles: true, cancelable: true, button: b || 0, pointerId: 19, clientX: q.left + 2, clientY: q.top + 2 }; t.dispatchEvent(new PointerEvent('pointerdown', o)); t.dispatchEvent(new PointerEvent('pointerup', o)); };
+    const shown = () => { tick(); return $('lensHost').querySelector('.lz-name').textContent; };
+    press(face); const onCtl = S.selected === key && shown() === ROW[key].label;
+    press($('lensHost').querySelector('.lz-who')); const inLens = S.selected === key;
+    press($('pages'), 2); const rightKeeps = S.selected === key;
+    S.setMap(true); press($('pages')); const mapKeeps = S.selected === key; S.setMap(false);
+    press(face); const again = S.selected === key;
+    press($('pages')); const cleared = S.selected === null, name = shown(), empty = name === 'Nothing selected' && !$('lensHost').querySelector('.lz-knob').children.length;
+    const reselect = (press(face), S.selected === key);
+    S.selected = sel0; S.hot = hot0; selectPage(pg0); tick();
+    line(onCtl && inLens && rightKeeps && mapKeeps && again && cleared && empty && reselect, 'Lens (GUI-13): a press off a parameter empties it (' + name + '). Controls: it stays through a press on the control, a press inside the Lens, a right-button press and a press under MAP, and a press on a control selects again.' + (onCtl ? '' : ' CTL') + (inLens ? '' : ' INLENS') + (rightKeeps ? '' : ' RIGHT') + (mapKeeps ? '' : ' MAP') + (cleared ? '' : ' CLEAR') + (empty ? '' : ' EMPTY')); }
+  // 4j. ADR-121: every screen on every page follows the screen colour. A picture that only draws on a change must count the scheme as one, and the Specimen must read its ground where the scheme lives. Control: a canvas nothing repaints reads as stuck.
+  { const pg0 = page, scr0 = $('win').dataset.scr || '', tick = () => { for (const v of views) if (v.page === page || v.page === '*') v.update(); for (const v of S.views) v.render(); };
+    const choose = id => scrSet.querySelector('[data-id="' + id + '"]').click();
+    const bits = c => { let x = 0; const u = c.toDataURL(); for (let i = 0; i < u.length; i += 5) x = (x * 31 + u.charCodeAt(i)) | 0; return x; };
+    const screens = () => [...document.querySelectorAll('#win canvas')].filter(c => c.offsetWidth > 10 && c.offsetHeight > 10 && !c.classList.contains('logo'));
+    const stuck = [], seen = {}; let n = 0;
+    DATA.pages.forEach(pp => {
+      selectPage(pp.id); choose('tube'); tick(); tick();
+      const cs = screens(), a = cs.map(bits); choose('ember'); tick(); tick();
+      cs.forEach((c, i) => { n++; if (bits(c) === a[i]) { const nm = c.getAttribute('aria-label') || c.className; if (!seen[nm]) { seen[nm] = 1; stuck.push(pp.id + ': ' + nm); } } });
+    });
+    const plant = document.createElement('canvas'); plant.width = plant.height = 20; plant.getContext('2d').fillRect(0, 0, 9, 9); const p0 = bits(plant); choose('tube'); tick(); const caught = bits(plant) === p0;
+    // the Specimen paints its own ground, so a redraw alone proves nothing: its corner must be the scheme's ground
+    selectPage('main'); choose('ember'); tick(); tick();
+    const spec = [...document.querySelectorAll('#win canvas')].find(c => (c.getAttribute('aria-label') || c.className) === 'specimen' && c.offsetWidth > 10);
+    const hexOf = v => { const m = /^#?([0-9a-f]{6})$/i.exec(String(v).trim()), x = m ? parseInt(m[1], 16) : 0; return [x >> 16 & 255, x >> 8 & 255, x & 255]; };
+    let specOk = false, specSaw = 'no specimen';
+    if (spec) { const t = document.createElement('canvas'); t.width = spec.width; t.height = spec.height; const g = t.getContext('2d'); g.drawImage(spec, 0, 0); const d = g.getImageData(1, 1, 1, 1).data, w = hexOf(getComputedStyle($('win')).getPropertyValue('--scr-ground')); const dist = Math.abs(d[0] - w[0]) + Math.abs(d[1] - w[1]) + Math.abs(d[2] - w[2]); specOk = dist < 60; specSaw = 'corner ' + d[0] + ',' + d[1] + ',' + d[2] + ' against ' + w.join(','); }
+    choose(scr0); selectPage(pg0); tick();
+    line(!stuck.length && caught && n > 20 && specOk, 'Screen colour (ADR-121): ' + n + ' screens on ' + DATA.pages.length + ' pages all redrew on a change of scheme' + (stuck.length ? ' (STUCK ' + stuck.slice(0, 8).join('; ') + ')' : '') + ', and the Specimen painted the scheme’s ground (' + specSaw + '). Control: a canvas nothing repaints reads as stuck' + (caught ? '' : ' (IT DIDN’T)') + '.'); }
   // 4h. GUI-12: on every page, a double-click returns every control but a toggle to home. It walks them all. Controls: a toggle stays where it is, and a stepper's arrow doesn't reset.
   { const fp = () => JSON.stringify({ morph: dev.morph().on, map: S.map.on, pin: S.pinned, keys: S.keys, page, win: $('win').className, body: document.body.className, width: $('win').style.width, sub: pageEls.sub.scrollHeight, main: pageEls.main.scrollHeight, shell: JSON.stringify(dev.patch().shell).length, tree: dev.tree().nodes.length }), fp0 = fp();
     const pg0 = page, tick = () => { for (const v of views) if (v.page === page || v.page === '*') v.update(); for (const v of S.views) v.render(); }, missed = []; let n = 0, tog = 0, togKept = true;
@@ -2334,6 +2378,8 @@ S.start();
     const fp1 = fp(), same = fp0 === fp1;
     line(same && !missed.length && n > 300 && tog > 10 && togKept && arrowSafe, 'Double-click (GUI-12): ' + n + ' controls on every page returned to home' + (missed.length ? ' (MISSED ' + missed.length + ': ' + missed.slice(0, 8).join(', ') + ')' : '') + '. Controls: ' + tog + ' toggles stayed where they were' + (togKept ? '' : ' (ONE MOVED)') + ', and a stepper’s arrow didn’t reset' + (arrowSafe ? '' : ' (IT DID)') + '.' + (same ? '' : ' It left something behind: ' + fp0 + ' then ' + fp1)); }
   dev.clearHistory();   // the checks' own steps (the probes, the morph toggles) are not the user's history
+  // and the checks' presses aren't the user's selection: without this every load opened with a parameter selected, its info box locked and the Lens holding it
+  S.selected = null; S.hot = null; selSeen = null; lockedKey = null; if (infoBox.locked()) infoBox.release(); S.emit();
 })();
 
 // ===== BLOCK I: go. A link can open a page, and morph on with the corners scattered: gui3.html#noise or #noise,morph =====
