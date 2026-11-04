@@ -131,7 +131,7 @@ window.addEventListener('error', function (e) {
         <li><b>Scheme:</b> opens on the rack's amber on near-black (ADR-273), and the seven schemes are selectable, with paper as ground and ink as physics (the skin's rule).</li>
         <li><b>GUI-21 at zero:</b> Tone Pivot, Compressor Low Cut and the loop's rows leave when their amount is exactly 0. A Mix of 0 doesn't blank the screen, and Drive stays on the fixed row with every stage off.</li>
         <li><b>Curve B</b> stays drawn at morph 0, because you set it before morphing to it.</li>
-        <li><b>Snapshots:</b> a patch holds four at most. Shriek's own lab allows more, but horde's corner shape and save budget say four.</li></ul></div>
+        <li><b>Snapshots:</b> a save adds a fresh snapshot and binds that corner to it, and never replaces one. Past four, the ones that aren't factory can be deleted (GUI-24). There's no cap yet: the save budget that sets one isn't ruled (B603), and a patch with more than four is more than horde's corner state holds today (ADR-300).</li></ul></div>
     </div>
   </div>
   <details class="panel" id="twinbox"><summary><b>This page as plain controls</b> (one model, two views: the same writers as the glass)</summary><div class="twin" id="twin"></div></details>
@@ -361,7 +361,7 @@ const live=k=>k===FORCE_LIVE||liveIn(H,S.device.oversample,k);
 let needPaint=true;
 const touch=()=>{resolve();needPaint=true;};
 const say=t=>{S.status=t;needPaint=true;};
-function loadPreset(i){const p=XY_FACTORY.patches[i];S.patch=clone(p);S.preset=i;S.src='factory';S.drafts=[null,null,null,null];S.rolls=[null,null,null,null];S.swept=[];S.dirty=false;S.cur=[...p.xy];S.snapTop=0;
+function loadPreset(i){const p=XY_FACTORY.patches[i];S.patch=clone(p);S.patch.snapshots.forEach(s=>{s.factory=true;});S.preset=i;S.src='factory';S.drafts=[null,null,null,null];S.rolls=[null,null,null,null];S.swept=[];S.dirty=false;S.cur=[...p.xy];S.snapTop=0;
   S.slots=clone(MODULE_PRESETS[i].slots);S.mval={};for(const n in S.slots)S.mval[n]=S.slots[n].home!==undefined?S.slots[n].home:0.5;
   resolve();needPaint=true;say('LOADED '+p.name+' INTO MORPH CORNER '+CORNER_NAME[S.hcorner]);}
 /* The one writer for a key. The class decides where it lands: ADR-300's split. */
@@ -381,16 +381,16 @@ function rollOne(i){const base={...cornerVals(i)},r=rollCorner(rnd,SPLIT.corner)
 function rollSel(){const i=sel(),n=++S.clicks;rollOne(i);S.swept=[i];S.dirty=true;touch();say('CORNER '+CORNER_NAME[i]+' ROLLED FROM ITS OWN SOUND, CLICK '+n);}
 function rollAll(){const n=++S.clicks;for(let i=0;i<4;i++)rollOne(i);S.swept=[0,1,2,3];S.dirty=true;touch();say('ALL FOUR CORNERS ROLLED, CLICK '+n);}
 function setRandomness(v){S.randomness=clamp(v,0,1);for(const i of S.swept)if(S.rolls[i])S.drafts[i]=sideSafe(S.patch.structure,applyRoll(S.rolls[i].base,S.rolls[i].roll,S.randomness));touch();}
-/* A patch at a morph corner holds four snapshots (ADR-300), and an editor must not be able to make a state over budget (ADR-351). So a save past four writes over this corner's own snapshot, when no other corner shares it, and otherwise refuses. Returns the snapshot's name, or null. */
-const MAX_SNAPS=4;
-function keepDraft(p,i,values){const at=p.corners[i],shared=p.corners.filter(c=>c===at).length>1;
-  if(p.snapshots.length<MAX_SNAPS){const name=p.name+' '+(p.next++);p.snapshots.push({name,values});p.corners[i]=p.snapshots.length-1;return name;}
-  if(!shared){p.snapshots[at].values=values;return p.snapshots[at].name;}return null;}
-function saveSnap(){const i=sel();if(!S.drafts[i])return;const name=keepDraft(S.patch,i,S.drafts[i]);if(!name){say('FOUR SNAPSHOTS IS THE BUDGET. DELETE ONE FIRST');return;}S.drafts[i]=null;S.rolls[i]=null;S.swept=S.swept.filter(j=>j!==i);S.dirty=true;touch();say('CORNER '+CORNER_NAME[i]+' SAVED AS '+name);}
+/* GUI-24, the human: a save "should add the current settings as a fresh snapshot on the list and bind that corner to it (currently it replaces it, which is a big no-no)". So nothing here ever writes over a snapshot. There's no cap: ADR-351 puts one at creation, and its number is B603's. Returns the new snapshot's name. */
+const DELETABLE_PAST=4;
+function keepDraft(p,i,values){const name=p.name+' '+(p.next++);p.snapshots.push({name,values});p.corners[i]=p.snapshots.length-1;return name;}
+/* "When there are more than four snapshots, the ones that aren't factory should be deletable." */
+const canDelSnap=(p,k)=>p.snapshots.length>DELETABLE_PAST&&!p.snapshots[k].factory;
+function saveSnap(){const i=sel();if(!S.drafts[i])return;const name=keepDraft(S.patch,i,S.drafts[i]);S.snapTop=Math.max(0,S.patch.snapshots.length-5);S.drafts[i]=null;S.rolls[i]=null;S.swept=S.swept.filter(j=>j!==i);S.dirty=true;touch();say('CORNER '+CORNER_NAME[i]+' SAVED AS '+name);}
 function revertCorner(){const i=sel();if(!S.drafts[i])return;S.drafts[i]=null;S.rolls[i]=null;S.swept=S.swept.filter(j=>j!==i);touch();say('CORNER '+CORNER_NAME[i]+' REVERTED');}
 function bindSnap(i,k){S.patch.corners[i]=k;S.drafts[i]=null;S.rolls[i]=null;S.swept=S.swept.filter(j=>j!==i);S.dirty=true;touch();}
-function delSnap(k){if(S.patch.snapshots.length<2)return;S.patch.snapshots.splice(k,1);S.patch.corners=S.patch.corners.map(c=>c===k?0:c>k?c-1:c);S.dirty=true;touch();}
-function savePatch(){const p=clone(S.patch);for(let i=0;i<4;i++)if(S.drafts[i]&&!keepDraft(p,i,clone(S.drafts[i]))){say('FOUR SNAPSHOTS IS THE BUDGET. DELETE ONE FIRST');return;}
+function delSnap(k){if(!canDelSnap(S.patch,k))return;S.patch.snapshots.splice(k,1);S.patch.corners=S.patch.corners.map(c=>c===k?0:c>k?c-1:c);S.dirty=true;touch();}
+function savePatch(){const p=clone(S.patch);for(let i=0;i<4;i++)if(S.drafts[i])keepDraft(p,i,clone(S.drafts[i]));
   p.xy=[...S.cur];p.slots=clone(S.slots);p.mval=clone(S.mval);S.mine.push(p);if(S.mine.length>3)S.mine.shift();S.dirty=false;needPaint=true;say('KEPT IN THIS PAGE ONLY. NOTHING GOES TO DISK');}
 function loadMine(i){const p=clone(S.mine[i]);S.slots=p.slots||{};S.mval=p.mval||{};S.patch=p;S.src='mine';S.drafts=[null,null,null,null];S.rolls=[null,null,null,null];S.swept=[];S.cur=[...p.xy];S.dirty=false;S.snapTop=0;touch();say('LOADED '+p.name);}
 
@@ -538,11 +538,11 @@ function pgXY(){padDraw(8,Y0,132,132,'pad');
   const x=146;btn('xy.new','NEW PATCH',x,Y0,52,newPatch);btn('xy.roll','ROLL CORNER',x+54,Y0,56,rollSel);btn('xy.all','ROLL ALL',x+112,Y0,50,rollAll);
   const d=!!S.drafts[sel()];if(d){btn('xy.save','SAVE SNAP',x,Y0+11,52,saveSnap);btn('xy.rev','REVERT',x+54,Y0+11,56,revertCorner);}
   btn('xy.dice','DICE...',x+112,Y0+11,50,()=>{S.pop={type:'dice'};needPaint=true;});
-  head('SNAPSHOTS',x,Y0+24,162);const sn2=S.patch.snapshots,top=clamp(S.snapTop,0,Math.max(0,sn2.length-5));
+  head('SNAPSHOTS '+S.patch.snapshots.length,x,Y0+24,162);const sn2=S.patch.snapshots,top=clamp(S.snapTop,0,Math.max(0,sn2.length-5));
   sn2.slice(top,top+5).forEach((s,j)=>{const k=j+top,y=Y0+31+j*10;T(s.name.toUpperCase().slice(0,14),x,y+2);
     for(let c=0;c<4;c++){const on=S.patch.corners[c]===k;btn('snap.'+k+'.'+c,CORNER_NAME[c],x+60+c*14,y,12,()=>bindSnap(c,k),{on,name:'Put '+s.name+' on corner '+CORNER_NAME[c]});}
     btn('snap.all.'+k,'ALL',x+116,y,20,()=>{for(let c=0;c<4;c++)bindSnap(c,k);},{name:'Put '+s.name+' on all four corners'});
-    if(sn2.length>1)btn('snap.del.'+k,'X',x+138,y,12,()=>delSnap(k),{name:'Delete '+s.name});});
+    if(canDelSnap(S.patch,k))btn('snap.del.'+k,'X',x+138,y,12,()=>delSnap(k),{name:'Delete '+s.name});});
   if(sn2.length>5){btn('snap.up','<',x+152,Y0+31,10,()=>{S.snapTop=Math.max(0,top-1);needPaint=true;},{name:'Scroll snapshots up'});btn('snap.dn','>',x+152,Y0+41,10,()=>{S.snapTop=top+1;needPaint=true;},{name:'Scroll snapshots down'});}
   head('EACH STAGE AT THIS POINT',x,Y0+83,162);[1,2,3].forEach((n,j)=>{const bx=x+j*55;if(H['s'+n+'.on']>=0.5)curvePlot(n,bx,Y0+90,52,36);else{box(bx,Y0+90,52,36);T('S'+n+' OFF',bx+10,Y0+105);}});
   T('STEPPED KEYS BELONG TO THE PATCH.',x,Y0+131);T('THE FIXED ROW STAYS OVER THE PAD.',x,Y0+139);T('THESE ARE SHRIEK\'S OWN FOUR CORNERS,',x,Y0+147);T('NOT HORDE\'S MORPH CORNERS.',x,Y0+155);
@@ -812,9 +812,12 @@ function stringsOn(rx,extra){TEXTS=[];const keep=S.page;for(let i=0;i<PAGES.leng
 check('The window and the glass say SHRIEK, never the old name, and nothing offers an engine choice',()=>withState(()=>{const h=stringsOn(/\bMAW\b|ENGINE:|SCALPEL/i);render();return{ok:!h.length,d:h.length?h.slice(0,3).join(', '):'no such string on any page'};}),()=>withState(()=>{const h=stringsOn(/\bMAW\b/i,['MAW - FX-C SATURATOR']);return{ok:!h.length,d:'a planted title is caught'};}));
 function placeholderCount(){PLACEHOLDER_HITS=0;const pages=[];for(let i=0;i<PAGES.length;i++){const was=PLACEHOLDER_HITS;S.page=i;render();if(PLACEHOLDER_HITS>was)pages.push(PAGES[i].name);}return pages;}
 check('Morph corners and modulation are one labelled placeholder, on one page',()=>withState(()=>{const p=placeholderCount();return{ok:p.length===1&&p[0]==='MORPH + MOD',d:'found on: '+p.join(', ')};}),()=>withState(()=>{const keep=PAGES[0].draw;PAGES[0].draw=pgMorphMod;try{const p=placeholderCount();return{ok:p.length===1,d:'planted on a second page: '+p.length};}finally{PAGES[0].draw=keep;}}));
-function snapFacts(p,tries){const q=clone(p);for(let n=0;n<tries;n++){keepDraft(q,n%4,{...q.snapshots[0].values});}return q;}
-check('A patch never holds more than four snapshots, however often you save (ADR-300, ADR-351)',()=>{const a=snapFacts(XY_FACTORY.patches[2],9),b=snapFacts({...XY_FACTORY.patches[2],snapshots:[XY_FACTORY.patches[2].snapshots[0]],corners:[0,0,0,0]},9);return{ok:a.snapshots.length<=MAX_SNAPS&&b.snapshots.length<=MAX_SNAPS,d:'9 saves on a full patch: '+a.snapshots.length+'; on a one-snapshot patch: '+b.snapshots.length};},
-  ()=>{const q=clone(XY_FACTORY.patches[2]);q.snapshots.push(q.snapshots[0]);return{ok:q.snapshots.length<=MAX_SNAPS,d:'a planted fifth is caught'};});
+function snapFacts(p,tries){const q=clone(p);const before=q.snapshots.map(x=>JSON.stringify(x.values)),n0=q.snapshots.length;let bound=true;for(let n=0;n<tries;n++){const i=n%4;keepDraft(q,i,{...q.snapshots[0].values,mark:n});if(q.corners[i]!==q.snapshots.length-1)bound=false;}const kept=before.every((v,k)=>JSON.stringify(q.snapshots[k].values)===v);return{ok:q.snapshots.length===n0+tries&&kept&&bound,d:tries+' saves took the list from '+n0+' to '+q.snapshots.length+'; each bound its corner; '+(kept?'none replaced':'ONE WAS REPLACED')};}
+check('A save adds a fresh snapshot and binds that corner to it, and replaces nothing (GUI-24)',()=>snapFacts(XY_FACTORY.patches[2],9),
+  ()=>{const q=clone(XY_FACTORY.patches[2]);const v=JSON.stringify(q.snapshots[q.corners[0]].values);q.snapshots[q.corners[0]].values={planted:1};return{ok:JSON.stringify(q.snapshots[q.corners[0]].values)===v,d:'a planted overwrite is caught'};});
+function delFacts(fac){const q=clone(XY_FACTORY.patches[2]);if(fac)q.snapshots.forEach(x=>{x.factory=true;});const n=q.snapshots.length,atStart=q.snapshots.map((_,k)=>canDelSnap(q,k)).some(Boolean);while(q.snapshots.length<=DELETABLE_PAST)keepDraft(q,0,{...q.snapshots[0].values});const facs=q.snapshots.map((x,k)=>[x,canDelSnap(q,k)]);return{ok:!(n<=DELETABLE_PAST&&atStart)&&facs.every(([x,c])=>c===!x.factory)&&facs.some(([,c])=>c),d:'at '+q.snapshots.length+' snapshots, '+facs.filter(([,c])=>c).length+' can be deleted, none of them factory; at '+n+', none'};}
+check('Past four, only the snapshots that aren’t factory can be deleted (GUI-24)',()=>delFacts(true),
+  ()=>{const q=clone(XY_FACTORY.patches[2]);q.snapshots.forEach(x=>{x.factory=true;});return{ok:q.snapshots.some((_,k)=>canDelSnap(q,k)),d:'an all-factory patch offers no delete'};});
 function twinFacts(plant){const bad=[];for(let i=0;i<PAGES.length;i++){S.page=i;render();for(const c of twinControls().concat(plant||[]))if(!(c.set||c.press||c.choose||c.setXY))bad.push(c.id);}return{ok:!bad.length,d:bad.length?bad.slice(0,4).join(' '):'every control on every page has a writer the plain view calls'};}
 check('Every control on the glass is also in the plain view (one model, two views)',()=>withState(()=>twinFacts()),()=>withState(()=>twinFacts([{id:'plant',kind:'press'}])));
 }

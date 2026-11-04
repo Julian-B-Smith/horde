@@ -8,6 +8,8 @@
 
 **Rejected.** A DOM-drawn glass: a 1-bit framebuffer holds two colours by construction, and every check can read it without a browser.
 
-**Verify.** `./verify fast`, on the commit this trace ships in. In a real browser: 26 of 26 self-checks and no console errors; a real click on the glass's soft key changed the page. GUI-21's rules were checked by rendering the JS core in 73 states: one known exception, an off stage's Noise curve moves the output when auto-gain is above 0, which is a question for Shriek.
+**Verify.** `./verify fast`, on the commit this trace ships in. In a real browser: 27 of 27 self-checks and no console errors; a real click on the glass's soft key changed the page. GUI-21's rules were checked by rendering the JS core in 73 states: one known exception, an off stage's Noise curve moves the output when auto-gain is above 0, which is a question for Shriek.
+
+**GUI-24.** A save adds a fresh snapshot and binds the corner, and never replaces one; past four, non-factory snapshots can be deleted. In a real browser, a real click saved Growl 5 with the four factory snapshots untouched, and the delete mark appeared on it alone.
 
 **Not checked.** Every page by hand, the x3 scale, and the title's speed on displays other than 60 Hz.
