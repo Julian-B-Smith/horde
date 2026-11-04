@@ -1,10 +1,11 @@
 horde is a responsive, dynamical synthesizer whose centre is its morph logic over the full depth of every parameter. It has one engine: oscillators that are swarms of coupled members cut by blades, a sub and noise. Beside it is a rack of FX modules that each run as their own software on a screen. This is its house design system for GUI 3: cream chassis, flat ink outlines, one job per colour, and screens as a separate axis.
 
-## Three rules for every screen
+## Four rules for every screen
 
 1. **Controls bind to generated manifest keys only** (B308 L2). A control names its key (`env1.attack`, `voice.mode`, `out.level`), and its law, range, default, unit and display name come from the manifest. Never a hand-written id, a position or a display string.
 2. **No screen assumes the oscillator panels exist** (ADR-254). The FX device ships after 1.0 with the same rack, glasses, mod matrix, macros, morph pad, mixer and census and no source blocks. Every card, screen and pad must render alone; note-driven pictures (the Specimen) need an audio-driven stand-in or a still pose.
 3. **Accessibility at Surge XT's level** (B432). Every control is reachable by keyboard (in keyboard mode), named for a screen reader by module path and unit, at least 28 px to hit, and legible at the contrast floors below. See the Accessibility section.
+4. **A control that can't act isn't drawn** (GUI-21, the human, 2026-11-04: "no parameters should be visible that aren't editable under current settings"). A control that depends on a mode or a switch appears with it: `.idle` is `display: none`, and the conditions are SPEC-ENGINE PA-8's. A section left with nothing to show goes too. Never grey a control out, and never reserve its space.
 
 ## Voice and content
 

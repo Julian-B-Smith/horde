@@ -96,6 +96,10 @@
   {
    "version": "1793773329-83d6",
    "evidence": "docs/design/arp-face/README.md: GUI-19, GUI-20, 2026-11-04"
+  },
+  {
+   "version": "1793813622-b097",
+   "evidence": "docs/design/arp-face/README.md: GUI-21, 2026-11-04"
   }
  ],
  "vendoring": {
@@ -361,6 +365,19 @@
    "adr": "ADR-305",
    "note": "Sluice in horde (ADR-305, ADR-306; ADR-236's XY and slot library). Nothing in the master; Sluice has no manifest (port-tab sluice)."
   },
+  "sluice-mark-styles-lab.html": {
+   "status": "exploring",
+   "note": "GB11. The study behind ADR-302 rulings 1 and 2, ADR-305 and GUI-23 (no crossing gap in the pixel marks), copied from its Artifact at version 1793813064-6fca."
+  },
+  "sluice-s-bend-lab.html": {
+   "status": "exploring",
+   "note": "GB11. The human: \"the lower bend on the settled S doesn't come out quite as far as the upper bend\". Measured one column short at 4 px stems; four variants bring them even; waiting on the human's pick."
+  },
+  "shriek-wordmark-styles-lab.html": {
+   "status": "ruled",
+   "adr": "ADR-302",
+   "note": "GB11. The study behind ADR-302 rulings 3 and 4, copied from its Artifact at version 1793204183-5a81. The automaton's code is cleared to be public (the human, 2026-11-04: 'Yes, it can go public')."
+  },
   "spectra-lab.html": {
    "status": "retired",
    "note": "Archived in the design index (its lab-archive tag): retired engine (H2-PLAN Archived engines). History, never a source."
@@ -387,7 +404,11 @@
   },
   "sub-noise-lab.html": {
    "status": "exploring",
-   "note": "GB9. Six pictures for the Sub and Noise pages on the real shell, each computed from the settings; waiting on the human's choice."
+   "note": "GB9. Six pictures for the Sub and Noise pages on the real shell, each computed from the settings; waiting on the human's choice. Density and Rate reach all three noise pictures on their own source (GUI-21's batch)."
+  },
+  "random-home-lab.html": {
+   "status": "exploring",
+   "note": "GB12. Both homes for Random on the real shell; waiting on the human's pick. Either way the Randomize card leaves the Morph page's foot."
   }
  },
  "not_labs": {
@@ -3567,7 +3588,7 @@
    "id": "adr302-shriek-press-start-word",
    "adr": "ADR-302",
    "clause": "ruling 3 (Shriek's word: Press Start 2P, native 16 px, baked to a bitmap; the automaton takes the screen's paper and ink)",
-   "lab": "docs/design/fx-screens-workshop.html",
+   "lab": "docs/design/shriek-wordmark-styles-lab.html",
    "component": null,
    "master_version": null,
    "bundle": null,
@@ -3582,7 +3603,7 @@
    "id": "adr302-shriek-title-box",
    "adr": "ADR-302",
    "clause": "ruling 4 (Shriek's title box is 104 x 24, an exception to TITLE 96 x 24)",
-   "lab": "docs/design/fx-screens-workshop.html",
+   "lab": "docs/design/shriek-wordmark-styles-lab.html",
    "component": null,
    "master_version": null,
    "bundle": null,
@@ -3597,7 +3618,7 @@
    "id": "adr302-sluice-hue-walk",
    "adr": "ADR-302",
    "clause": "ruling 2 (Sluice's colour: the hue walk, 137.508 degrees of OKLCH hue per slide from amber)",
-   "lab": "docs/design/sluice-horde-lab.html",
+   "lab": "docs/design/sluice-mark-styles-lab.html",
    "component": null,
    "master_version": null,
    "bundle": null,
@@ -3612,7 +3633,7 @@
    "id": "adr302-sluice-title-stems",
    "adr": "ADR-302",
    "clause": "ruling 1 (Sluice's title: 4 px stems by coverage in the 96 x 24 slot)",
-   "lab": "docs/design/sluice-horde-lab.html",
+   "lab": "docs/design/sluice-mark-styles-lab.html",
    "component": null,
    "master_version": null,
    "bundle": null,
@@ -3621,13 +3642,13 @@
    "state": "ruled",
    "superseded_by": null,
    "port_tab": "sluice",
-   "note": "The master ScreenFrame README holds only the generic TITLE slot (96 x 24) and screens.md the GBC lettering rule; neither holds this mark. Sluice has no vendored manifest, so the shell shows nothing for it. The baked assets went to Sluice (seq 63). FX device: same titles."
+   "note": "The master ScreenFrame README holds only the generic TITLE slot (96 x 24) and screens.md the GBC lettering rule; neither holds this mark. Sluice has no vendored manifest, so the shell shows nothing for it. The baked assets went to Sluice (seq 63). FX device: same titles. GUI-23 takes the crossing gap out of the pixel mark."
   },
   {
    "id": "adr305-sluice-no-icon",
    "adr": "ADR-305",
    "clause": "ruling (Sluice has no ICON; the slot beside its title stays empty; an exception to TITLE and ICON per module)",
-   "lab": "docs/design/sluice-horde-lab.html",
+   "lab": "docs/design/sluice-mark-styles-lab.html",
    "component": null,
    "master_version": null,
    "bundle": null,
@@ -3769,9 +3790,9 @@
    "via": "spec",
    "shell": "docs/design/gui3.html: Inert now (PA-8)",
    "state": "in-shell",
-   "superseded_by": null,
+   "superseded_by": "GUI-21",
    "port_tab": null,
-   "note": "The shell sets the bundle's .idle on inert controls, but from layout.json's live-when for the designed pages only; the spec table is B587. The bundle's .idle dashes pills, sliders and steppers only (documented in the master only as LfoShapeEditor's dashed faces), so an inert knob looks live (gui3/README proposal 6). B596 integration: promoted from ruled, the route into the shell named by `via` (ADR-316)."
+   "note": "The shell sets the bundle's .idle on inert controls, but from layout.json's live-when for the designed pages only; the spec table is B587. The bundle's .idle dashes pills, sliders and steppers only (documented in the master only as LfoShapeEditor's dashed faces), so an inert knob looks live (gui3/README proposal 6). B596 integration: promoted from ruled, the route into the shell named by `via` (ADR-316). The table stands; greying doesn't: GUI-21 hides the control instead."
   },
   {
    "id": "adr319-mirror-and-confirm",
@@ -5877,7 +5898,7 @@
    "port_tab": "gain-staging",
    "lab": null,
    "via": null,
-   "superseded_by": null,
+   "superseded_by": "GUI-21",
    "id": "gui20-blend-maps",
    "adr": "GUI-20",
    "clause": "the blend maps on the Morph page, for a continuous row under BLEND",
@@ -5887,6 +5908,96 @@
    "shell": "docs/design/gui3.html: H.BlendMaps(box, {",
    "state": "in-shell",
    "master_version": "1793773329-83d6"
+  },
+  {
+   "port_tab": null,
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "id": "gui21-hide-inert",
+   "adr": "GUI-21",
+   "clause": "a control that can't act under the current settings isn't drawn, on every page; its section goes when nothing in it can act",
+   "note": "PA-8's conditions, in one table per parameter (live_when). FX and Arp have no conditions yet (GB10). FX device: the same rule, its conditions from each module's manifest.",
+   "component": "components/bundle.css",
+   "bundle": "bundle.css: .idle { display:none",
+   "shell": "docs/design/gui3/layout.json: \"live_when\"",
+   "state": "in-shell",
+   "master_version": "1793813622-b097"
+  },
+  {
+   "port_tab": "gain-staging",
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "id": "gui21-blend-in-pad",
+   "adr": "GUI-21",
+   "clause": "under BLEND a continuous row's blend map replaces the pad on the Morph page, with its pins, laws and cross-section beside it",
+   "note": "B235, B272. Waypoints are held and undone by the device, drawn and not heard, until the resolver comes (GB8). FX device: as it is, on a rack module's continuous row.",
+   "component": "BlendMaps",
+   "bundle": "BlendMaps",
+   "shell": "docs/design/gui3.html: padHost: pad",
+   "state": "in-shell",
+   "master_version": "1793813622-b097"
+  },
+  {
+   "id": "gui22-switches-row",
+   "adr": "GUI-22",
+   "clause": "ruling 1 (Morph, Pad and Bank go on the colours' row)",
+   "port_tab": "main-rest",
+   "note": "Both rows hang from the window's right edge. Shell layout, on the master's toggles.",
+   "component": "Switch",
+   "bundle": "bundle.css: .hd-toggle",
+   "shell": "docs/design/gui3.html: .switches { position: absolute; right: 0; top: 32px;",
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "in-shell",
+   "master_version": "1793813622-b097"
+  },
+  {
+   "id": "gui22-morph-keeps-selection",
+   "adr": "GUI-22",
+   "clause": "ruling 2 (a row stays selected on the Morph page; amends GUI-13 there)",
+   "port_tab": null,
+   "note": "The shell skips GUI-13's clear on this page.",
+   "component": "Lens",
+   "bundle": "Lens",
+   "shell": "docs/design/gui3.html: page === 'morph' || !e.target.closest",
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "in-shell",
+   "master_version": "1793813622-b097"
+  },
+  {
+   "id": "gui23-sluice-no-gap",
+   "adr": "GUI-23",
+   "clause": "ruling 1 (Sluice's pixel title has no crossing gap; amends ADR-302 r1)",
+   "port_tab": "sluice",
+   "note": "The mark is Sluice's, so this reaches its title by a brief from the lead. FX device: same.",
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null
+  },
+  {
+   "id": "gui23-fx-screen-marks",
+   "adr": "GUI-23",
+   "clause": "ruling 3 (FX screens need their own way to show morph corners and modulation)",
+   "port_tab": "fx-modules",
+   "note": "GB15's lab. Nothing chosen yet. FX device: same.",
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null
   }
  ],
  "not_design": [
@@ -6851,6 +6962,94 @@
    "reason": "How the engine reads FM inside a soft edge: no control or design element."
   }
  ],
+ "engine_impact": {
+  "GUI-1": "none: what samples, previews and labs may show. The spec already has one engine, and the check is on our own words.",
+  "GUI-2": [
+   "GN-10",
+   "GN-19",
+   "GN-32"
+  ],
+  "GUI-3": [
+   "GN-20",
+   "GN-30"
+  ],
+  "GUI-4": [
+   "GN-17"
+  ],
+  "GUI-5": "none: where the pad shows and the bank's corners. Both are the shell's layout.",
+  "GUI-6": [
+   "GN-9"
+  ],
+  "GUI-7": "none: a filter the shell runs over the routes it already reads (RC-4). It asks the engine for nothing new.",
+  "GUI-8": [
+   "GN-4",
+   "GN-14",
+   "GN-19"
+  ],
+  "GUI-9": [
+   "GN-10",
+   "GN-11",
+   "GN-19",
+   "GN-27"
+  ],
+  "GUI-10": [
+   "GN-22"
+  ],
+  "GUI-11": [
+   "GN-13"
+  ],
+  "GUI-12": [
+   "GN-9"
+  ],
+  "GUI-13": "none: the selection and the Lens are the shell's own state.",
+  "GUI-14": [
+   "GN-1",
+   "GN-2",
+   "GN-3",
+   "GN-12",
+   "GN-15",
+   "GN-16"
+  ],
+  "GUI-15": "none: how the shell treats a wheel. How the plugin's webview behaves is a host check in ENGINE-NEEDS.md, not an engine need.",
+  "GUI-16": [
+   "GN-1",
+   "GN-2",
+   "GN-3",
+   "GN-15",
+   "GN-16"
+  ],
+  "GUI-17": [
+   "GN-5"
+  ],
+  "GUI-18": [
+   "GN-1",
+   "GN-2",
+   "GN-3",
+   "GN-12",
+   "GN-15",
+   "GN-16"
+  ],
+  "GUI-19": [
+   "GN-8",
+   "GN-21",
+   "GN-29",
+   "GN-31"
+  ],
+  "GUI-20": [
+   "GN-6",
+   "GN-7",
+   "GN-18",
+   "GN-25",
+   "GN-26",
+   "GN-28"
+  ],
+  "GUI-21": [
+   "GN-7",
+   "GN-24"
+  ],
+  "GUI-22": "none: where the shell's switches sit and when its selection clears. Both are the shell's own.",
+  "GUI-23": "none: a title mark, which is Sluice's own, and labs. The labs draw the modules' existing controls."
+ },
  "audit_notes": [
   "[A] Counts: 33 design ADRs with 56 rows (ruled 31, of which 6 superseded and 7 legacy-only; wired 9; in-shell 7; vendored 4; in-master 4; unknown 1); 79 not_design. Every primary heading ADR-001..ADR-112 appears exactly once. Headings out of numeric order (ADR-052, ADR-053 before ADR-051; ADR-095, 094, 093, 092; ADR-091 A1-A4 after ADR-112 A3) were all covered. One non-ADR heading sits in range: 'NOTICE · Library standby (plugin-skeleton FOUNDATIONS)', line 661, not design and not listed.",
   "[A] LEGACY-ONLY marker: rows whose note starts with LEGACY-ONLY rule a gui1/gui2 element whose parameter does not exist in SPEC-ENGINE 5 (gui3/params.json): adr016-grid-status (no tempo-grid law), adr028-dynamics-readouts, adr051-balance-gated, adr055-engine-appropriate-adsr, adr094-saw-shape-group, adr101-squareness-in-saw-shape (adr033-retrigger-dims is legacy semantics). They are 'ruled' because no later ADR retires them, but they cannot reach GUI 3 unless the engine gains the parameter. The lead may want a ruling to retire them in bulk (an ADR citing ADR-224/ADR-316) rather than carrying them as 'ruled but not built'.",
@@ -6891,6 +7090,6 @@
   "[E] No sign in the tree of B584's slice 7 (ADR-334 and ADR-335's consequences): gui3.html and gui3/README name neither ADR, and gui3/README's 'Last verified' line is slice 6. ADR-336 says slice 7 is in flight, so these rows may move when it lands.",
   "[E] The master's TempoDivisions (22 values, 0.0625 to 8 beats, three fixed columns) predates ADR-326 X37 and ADR-327 X41 (1/32 to 4 bars, triplet and dotted toggles that filter the menu, per control) and RC-7.4: when the master is next revised, this component needs the ruled set.",
   "[E] Judgment calls: ADR-292 ruling 1 gets one row for its presentation clause (the limiter's off switch on the master strip); ADR-318 gets one row (ruling 1, what the Chaos and Amount controls do), with its preset rulings folded in; ADR-319 ruling 4 (one parameter table) is data architecture and has no row of its own; ADR-324, ADR-325, ADR-326 and ADR-327 get rows only for their menu and toggle clauses; ADR-328 and ADR-336 are not design. ADR-336 was named among the GUI 3 ADRs in the dispatch but rules only process.",
-  "[E] Labs referenced but absent from the repo: the FX Module Colours comparison page (fx-module-colours.html, ADR-273) and the ADR-302 study pages; lab is null for those rows."
+  "[E] Labs referenced but absent from the repo: the FX Module Colours comparison page (fx-module-colours.html, ADR-273); lab is null for those rows. The ADR-302 study pages were absent too, and are in the repo since GB11."
  ]
 }

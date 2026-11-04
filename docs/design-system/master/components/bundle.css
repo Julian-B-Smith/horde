@@ -517,8 +517,12 @@ svg { max-width:100%; }
 .hd-mrow > .hd-pills { min-width:0; flex:1 1 200px; }
 .hd-pill[aria-pressed="true"] { background:var(--ink); color:var(--bg); font-weight:600; }
 /* NOT IN FORCE (the lab's ghost, gui2:764) without dimming the text below its contrast floor: the faces go dashed */
-.idle .hd-pill, .idle .hd-slider .track, .idle .hd-stepper, .idle.hd-viz, .idle .hd-viz { border-style:dashed; }
-.idle .hd-slider .fill { opacity:.35; }
+/* GUI-21: a control that can't act under the current settings isn't drawn. It used to dash and fade; the human, 2026-11-04: "no parameters should be visible that aren't editable under current settings". !important because many grids set a control's display. */
+.idle { display:none !important; }
+.hd-sgrp:not(:has(.ctl:not(.idle))) { display:none; }   /* a sub-group left with nothing to show goes with its label */
+/* a section with nothing it can do is its header and its power switch. The slot keeps its width: it never moves its header (ADR-340 A1) */
+.hd-sec-off .fd-head > .hd-pills { display:none; }
+.hd-sec-off .hd-rslot { visibility:hidden; }
 .hd-medit, .hd-cplot, .hd-lanes, .hd-evl, .hd-smooth, .hd-tier, .hd-tdiv, .hd-rs { display:flex; flex-direction:column; gap:4px; min-width:0; max-width:100%; }
 .hd-mscr canvas { touch-action:none; }
 .ms-status { height:13.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -605,6 +609,9 @@ svg { max-width:100%; }
 .hd-xy.hm-qp .census-ring { z-index:2; }
 .hm-qp-layer { position:absolute; inset:0; z-index:1; touch-action:none; }
 .hm-qp-layer canvas { display:block; width:100%; height:100%; border:0; border-radius:0; background:transparent; }
+.hd-viz.bm-layer { position:absolute; inset:0; z-index:1; touch-action:none; aspect-ratio:auto; border:0; border-radius:inherit; overflow:hidden; }
+.hd-viz.bm-layer canvas { display:block; width:100%; height:100%; border:0; border-radius:0; }
+.hd-viz.bm-layer canvas.hd-focus:focus-visible { outline:none; box-shadow:inset 0 0 0 2px var(--ink); }
 .hd-xy.hm-qp.hm-painted .wash { opacity:0; }
 .hd-xy.hm-qp { cursor:default; }
 
