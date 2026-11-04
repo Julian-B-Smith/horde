@@ -11515,3 +11515,17 @@ Three points stayed open, because the shell already marks a knob selected the mo
 **Consequences.** Self-checks "Top bar" and 4o hold both, each with a control.
 
 **FX device (ADR-254).** It has one Morph page and the same top bar (ADR-322), so the same.
+
+## GUI-23 — RULED by the human: Sluice's pixel title has no crossing gap; full Sluice and Shriek GUI labs; a new way to show corners and modulation on FX screens (GB11, GB13, GB14, GB15; amends ADR-302 r1; 2026-11-04)
+
+**Rulings (the human, 2026-11-04).**
+1. **"Sluice logo without the gap is better."** The pixel title draws without the crossing gap. **Amends ADR-302 ruling 1,** whose reading was that the file's own knot gap stays. The smooth mark keeps it.
+2. **"Let's spin up proper full Sluice and Shriek GUI labs that incorporate these dynamic wordmarks and coordinate functionality with the Sluice and Shriek agents."** GB13 and GB14. The coordination goes through the lead's mailboxes. Sluice's hold stands: its lab reads Sluice's data in place and commits none of it.
+3. **"For all FX screen variants, we need to work out a different visual way to display morph corners and modulation. This also deserves a lab."** GB15.
+4. **The S.** "I don't like how, in the pixelated wordmark, the lower bend on the settled S doesn't come out quite as far as the upper bend." Measured at 4 px stems, it stops one column short. `sluice-s-bend-lab.html` shows four ways to bring them even, and which one is the human's pick.
+
+**Also asked.** "I'd like to try out both options for random": `random-home-lab.html` (GB12). The choice is still open.
+
+**Consequences.** The mark is Sluice's own, so the gap and the S reach its real title by a brief from the lead (Sluice's D-192).
+
+**FX device (ADR-254).** Both modules are hosted there through the same slots, and GB15's answer applies to every screen style there too.

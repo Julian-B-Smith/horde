@@ -6,6 +6,8 @@
 
 **Also in this PR, GUI-22:** the top bar's switches on the colours' row, the Morph page keeping its selection, and GB12's plan for Random.
 
+**Also in this PR, GUI-23:** the record of the human's rulings on Sluice's gap, the GUI labs and FX screen marks (those labs have their own PRs), and `random-home-lab.html`, which tries both homes for Random on the real shell.
+
 **Why.** The human's three notes of 2026-11-04, quoted in GUI-21. The brief relays the human's "yes, set it up" on how GUI decisions reach the engine.
 
 **Evidence consulted.** `specs/SPEC-ENGINE.md` PA-8 and SN-8. ADR-319 r6, ADR-110 ("an item that cannot apply here is absent"). `BlendMaps`' README and code. A measurement of each noise picture at low and high Density and Rate.

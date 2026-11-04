@@ -2,7 +2,7 @@
 
 The GUI session's handoff to the lead (GB8; the human, 2026-11-04: "let's make sure the main horde agent knows about any decisions we've made during the design process that will affect functionality and need to be wired in under the hood as well").
 
-**Last verified 2026-11-04, against GUI-1 to GUI-22, `specs/SPEC-ENGINE.md` and `ROADMAP.md` on main.** The GUI session keeps this current: each new ruling that needs wiring adds its row in the same PR. "Not recorded" means a search of the spec and the roadmap found nothing, so it's the lead's to place. The rows are the lead's to schedule (B616 cites this file), and nothing here is a ruling on how to build them.
+**Last verified 2026-11-04, against GUI-1 to GUI-23, `specs/SPEC-ENGINE.md` and `ROADMAP.md` on main.** The GUI session keeps this current: each new ruling that needs wiring adds its row in the same PR. "Not recorded" means a search of the spec and the roadmap found nothing, so it's the lead's to place. The rows are the lead's to schedule (B616 cites this file), and nothing here is a ruling on how to build them.
 
 **Timing (the lead, 2026-11-04).** The morph comes straight after the CPU pass, and the spec has no waypoints or region locks. If the design rests on them, they need a spec round before the builder starts the morph, and that round waits on the human's answers to the two questions under "Open for the human".
 
