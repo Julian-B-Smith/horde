@@ -7001,6 +7001,10 @@
   {
    "adr": "ADR-363",
    "reason": "The modulator's starting phase, two read-only observation fields and a test: no control or design element."
+  },
+  {
+   "adr": "ADR-364",
+   "reason": "Test readings and the slot rule's arithmetic: no control or design element."
   }
  ],
  "engine_impact": {
