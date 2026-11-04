@@ -8,7 +8,7 @@
      sluice-horde-lab.html's check C17, whose approach this reuses. That older lab's manifest gate is stale (B564): this one accepts the current format and any newer one, with a warning.
 
      THE ONE CLEARED EXCEPTION. The title mark may go public (Sluice's response seq 64, section 4). The next script is the mark's, taken from origin/gui-mark-labs,
-     docs/design/sluice-mark-styles-lab.html, first script, with two lines changed, each marked HORDE-LAB-EDIT: its fresh route seeds come from a seeded stream, and its API offers walkRamp.
+     docs/design/sluice-mark-styles-lab.html, first script, with its changes marked HORDE-LAB-EDIT: its fresh route seeds come from a seeded stream, its API offers walkRamp, and the letters take the human's choices (GUI-23 A1 and A2: the S's longer tail, the U a hair wider, the I moved), with the baked routes re-joined to the letters' new ends. Sluice re-bakes those routes in its own tree; this straight re-join is for the lab.
 
      THE TITLE. ADR-302 and ADR-305: 4 px stems by coverage in the 96 x 24 slot at (8, 0), the hue walk, the 16 x 16 icon slot empty. GB13: no crossing gap (MARK_OPTS.pixelGap=false).
      One WebGL context. Sluice's response seq 64 section 2 (the human: "Quantise on GBC"): while a slide runs, a cell takes one of three steps by its progress along the walk, so a tile
@@ -237,7 +237,7 @@ function resample(p,h){
 function letterS(){
   const p=[],cx=0.6;
   arcSeg(p,cx,0.53,0.54,0.47,38*D2R,270*D2R);
-  arcSeg(p,cx,-0.47,0.6,0.53,90*D2R,-142*D2R);
+  arcSeg(p,cx,-0.47,0.6,0.53,90*D2R,-152*D2R);   /* HORDE-LAB-EDIT: GUI-23 A1, the human's longer tail; was -142 */
   return applyZ(p,u=>-0.5*Math.sin(TAU*u));
 }
 function letterL(R){
@@ -249,7 +249,7 @@ function letterL(R){
   return tuckEnd(p,rho,fx-rc+0.02);
 }
 function letterU(){
-  const p=[],r=0.6;
+  const p=[],r=0.63;   /* HORDE-LAB-EDIT: GUI-23 A2, a hair wider so both arms match on the grid; was 0.6 */
   lineSeg(p,[0,1,0],[0,-1+r,0]);
   arcSeg(p,r,-1+r,r,r,Math.PI,TAU);
   lineSeg(p,[2*r,-1+r,0],[2*r,1,0]);
@@ -317,10 +317,10 @@ function buildWord(R){
   const GAP=2*R+0.38;
   const raws=BUILD.map(([ch,fn])=>{const pts=fn(R);let mn=Infinity,mx=-Infinity;for(const p of pts){if(p[0]<mn)mn=p[0];if(p[0]>mx)mx=p[0];}return {ch,pts,mn,mx};});
   let x=0;const offs=[];
-  raws.forEach((r,i)=>{if(i)x+=GAP;offs.push(x-r.mn);x+=r.mx-r.mn;});
+  raws.forEach((r,i)=>{if(i)x+=GAP;offs.push(x-r.mn);x+=r.ch==='U'?1.2:r.mx-r.mn;});   /* HORDE-LAB-EDIT: the U's new width moves no other letter */
   const width=x;
   const letters=raws.map((r,i)=>{
-    const dx=offs[i]-width/2;
+    const dx=offs[i]-width/2+(r.ch==='U'?-0.06:r.ch==='I'?0.04:0);   /* HORDE-LAB-EDIT: GUI-23 A2: the U's right arm stays still, and the I moves right */
     const rs=resample(r.pts.map(p=>[p[0]+dx,p[1],p[2]]),H),P=rs.pos;
     const bb=[Infinity,Infinity,Infinity,-Infinity,-Infinity,-Infinity];
     for(let j=0;j<rs.count;j++)for(let c=0;c<3;c++){const v=P[j*3+c];if(v<bb[c])bb[c]=v;if(v>bb[c+3])bb[c+3]=v;}
@@ -751,7 +751,8 @@ const BAKED_OK = parseInt(BAKED.seed,16)===PRESET_SEED && bs.tubeRadius===R && b
 
 function runFromBaked(){
   const routes = letters.map((L,i)=>{
-    const b = BAKED.routes[i], fp = filletPoly(b.V,b.r), exc = resample(fp.pts,H);
+    /* HORDE-LAB-EDIT: a baked route meets the letter at its old ends, so it re-joins the new ones */
+    const b = BAKED.routes[i], VV = b.V.map(v=>v.slice()), Q = L.pos, mm = L.m; VV[0] = [Q[mm*3],Q[mm*3+1],Q[mm*3+2]]; VV[VV.length-1] = [Q[0],Q[1],Q[2]]; const fp = filletPoly(VV,b.r), exc = resample(fp.pts,H);
     return {exc,loop:makeLoop(L,exc),delay:0,dur:1};
   });
   return {seed:PRESET_SEED,routes};
