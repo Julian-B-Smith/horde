@@ -550,6 +550,7 @@ A section's readout slot is fixed at the width its header leaves, up to 250 px, 
 - **Manual anchors:** "Open in manual" is a stub until B451's pages exist (B583).
 - **Owed by the modules (ADR-330):** Scape's labels and laws; descriptions from every FX module's
   manifest (none gives any); Arp's laws for its four continuous settings. Sluice and Weir have no manifest.
+- **Waypoints are drawn, not heard (GUI-20):** the device holds each row's pins and the patch's waypoint law, with undo, and `BlendMaps` shows them. The stub's blend ignores them until the resolver comes.
 - **The morph's settings are partly obeyed (GUI-20):** the resolver stub keeps D.2's values and the position. The
   device's owner stand-in follows Cohesion, the seed and a row's locked regions, so the Morph page's field, its pad and
   every knob name one owner. The device's blend is still the bilinear stand-in, whatever the law; Quantum, Stepped, the

@@ -1,8 +1,8 @@
 # 2026-11-04 — The Morph page's own larger pad and the morph field (GB7, GUI-19, GUI-20)
 
-**What changed.** `docs/design/gui3.html`: `morphBench`, the page's own 320 px pad with `QuantumPad`, the pad's bars, `MorphInspector`, `CrossSection`, `MorphGrid` and `FindPane`; self-check 4o. `gui3/device.js`: one `offsets` function for the owner stand-in, region locks in the undo state, `morphSettings` and `setMorphLaw`. Master `1793773329-83d6`: `state(S).history`, `.solo`, `MorphGrid` `opts.rev`, and painting only the rows in view. Published and re-vendored. Ledger, port tab, GUI-20, GB7.
+**What changed.** `docs/design/gui3.html`: `morphBench`, the page's own 320 px pad with `QuantumPad`, the pad's bars, `MorphInspector`, `CrossSection`, `MorphGrid` and `FindPane`; self-check 4o. `gui3/device.js`: one `offsets` function for the owner stand-in, region locks in the undo state, `morphSettings` and `setMorphLaw`. Master `1793773329-83d6`: `state(S).history`, `.solo`, `MorphGrid` `opts.rev`, and painting only the rows in view. Published and re-vendored. Ledger, port tab, GUI-20, GB7. `BlendMaps` on the same bench, with `pins` and `blend` in the device's state.
 
-**Why.** The human, 2026-11-04: "Morph should have its own larger version though (plus all the proposed morph page functionality)". The master's morph layer has its own stand-ins for undo and ownership, and using them would have let the field and the knobs disagree (ADR-110), so the shell points them at the device.
+**Why.** The human, 2026-11-04: "Morph should have its own larger version though (plus all the proposed morph page functionality)". The master's morph layer has its own stand-ins for undo and ownership, and using them would have let the field and the knobs disagree (ADR-110), so the shell points them at the device. Then the human: "We also need to include the blend map (BlendMaps section of the design doc)".
 
 **Evidence consulted.** ADR-266 r9, ADR-262, ADR-319, ADR-321, ADR-322, B269, B272; the master's READMEs; `docs/design/gui3/port-tab.json`.
 

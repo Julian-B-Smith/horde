@@ -670,11 +670,13 @@ const LAWS = ['blend', 'quantum', 'stepped'];
 let mw = null;
 function morphBench() {
   const pad = h('div', { id: 'morphPad', class: 'mw-pad' }), barBanner = h('div'), barScale = h('div'), barLock = h('div'),
-    insp = h('div', { id: 'morphInsp' }), cross = h('div'), find = h('div'), grid = h('div', { id: 'morphGrid' });
+    insp = h('div', { id: 'morphInsp' }), cross = h('div'), find = h('div'), grid = h('div', { id: 'morphGrid' }),
+    blendHost = h('div', { id: 'morphBlend' }), blendNote = h('span', { class: 'hd-hint', id: 'morphBlendNote' });
   const root = h('div', { class: 'mw', id: 'morphBench' },
     h('div', { class: 'mw-top' }, h('div', { class: 'mw-left' }, pad, barBanner, barScale, barLock),
       h('div', { class: 'mw-right' }, card('Selected row', 'CORNERS', [insp]), card('Across the pad', 'HEARD', [cross]))),
-    h('div', { class: 'mw-field' }, card('Find', 'FIELD', [find]), grid));
+    h('div', { class: 'mw-field' }, card('Find', 'FIELD', [find]), grid),
+    card('Blend maps', 'WAYPOINTS', [blendNote, blendHost]));
   mw = { root, mounted: false, open: false, mount() {
     if (this.mounted) return; this.mounted = true;
     const M = H.Morph.state(S), E = H.Morph.engine, add0 = S.add;
@@ -703,7 +705,23 @@ function morphBench() {
     } finally { S.add = add0; }
     // One gesture on any of these is one history step, and a boundary drag moves the row's regions, so the knobs' owners follow.
     const close = () => { if (this.open) { this.open = false; dev.end(); dev.reown(); } };
-    [grid, insp, pad, barLock].forEach(host => host.addEventListener('pointerdown', () => { if (!dev.inTx()) { dev.begin('Morph field'); this.open = true; } }, true));
+    /* The blend maps (B235, B272). The master's rule: a row picks pins only where it blends, so structural rows and the other laws show a sentence
+       instead of the component. The waypoints live in the device so undo covers them; the stub's heard value doesn't follow them yet (GB7). */
+    let bm = null, bmSig = '';
+    const bmRow = (k, r) => ({ name: r.label, min: 0, max: 1, fmt: v => ENG.display(r, v), corners: [0, 1, 2, 3].map(i => dev.corner(k, i)), pins: dev.pins(k) });
+    this.blend = () => {
+      const k = S.selected, r = k && ROW[k], law = LAWS[dev.morphSettings().law], ok = !!r && r.class === 'M' && r.law !== 'step' && law === 'blend';
+      blendNote.textContent = ok ? '' : !r ? 'Select a row to see its value across the pad.' : r.class !== 'M' || r.law === 'step' ? r.label + ' snaps between its corners, so it takes no waypoints.' : 'Waypoints act under BLEND, and this patch is on ' + law.toUpperCase() + '. Any set on ' + r.label + ' stay dormant; switch the law under the pad to see them.';
+      blendNote.hidden = ok; blendHost.hidden = !ok;
+      if (!ok) { if (bm) { bm = null; blendHost.replaceChildren(); } return; }   // the master's rule: not mounted for these rows
+      const row = bmRow(k, r), sig = k + '|' + row.corners.join() + '|' + JSON.stringify(row.pins), b = dev.blendSettings();
+      if (!bm) { bmSig = sig; const box = h('div'); blendHost.replaceChildren(box); bm = this.bm = H.BlendMaps(box, { row, laws: ['tps', 'tind'], law: b.law, clamp: b.clamp, onChange: e => {
+        const key = S.selected; dev.setBlendSettings(e.law, e.clamp);
+        if (e.type !== 'select' && dev.setPins(key, e.pins, 'Waypoints: ' + ROW[key].label)) bmSig = key + '|' + [0, 1, 2, 3].map(i => dev.corner(key, i)).join() + '|' + JSON.stringify(dev.pins(key));
+      } }); return; }
+      if (sig !== bmSig) { bmSig = sig; bm.setRow(row); bm.setLaw(b.law); bm.setClamp(b.clamp); bm.render(); }
+    };
+    [grid, insp, pad, barLock, blendHost].forEach(host => host.addEventListener('pointerdown', () => { if (!dev.inTx()) { dev.begin('Morph field'); this.open = true; } }, true));
     addEventListener('pointerup', close); addEventListener('pointercancel', close);
     // The law, Cohesion and the seed are D.2's rows, so the master's morph layer follows them, and its one-click switch writes them.
     let lastLaw = null;
@@ -711,7 +729,7 @@ function morphBench() {
       const ms = dev.morphSettings(), law = LAWS[ms.law];
       if (law !== lastLaw) { lastLaw = law; if (M.mode !== law) { M.mode = law; M.trace = []; } }
       else if (M.mode !== law) { lastLaw = M.mode; dev.setMorphLaw(LAWS.indexOf(M.mode), 'Morph law: ' + M.mode); }
-      pad.classList.toggle('no-row', !S.selected || !S.params[S.selected]);
+      pad.classList.toggle('no-row', !S.selected || !S.params[S.selected]); this.blend();
       M.cohesion = ms.cohesion; M.seed = ms.seed; M.rate = ms.rate; M.glide = ms.glide;
     } });
   } };
@@ -1994,11 +2012,17 @@ S.start();
     // A row's regions: a lock is the device's, so undo restores it and the knobs' owner follows.
     const pS = S.params[keyS], past1 = dev.history().past.length; H.Morph.setLock(S, pS, true); const locked = !!dev.regions()[keyS], lockStep = dev.history().past.length === past1 + 1; dev.undo(); const unlocked = !dev.regions()[keyS]; dev.clearRedo();
     dev.regions()[keyS] = [-.45, .45, -.45, .45]; dev.reown(); const pulled = dev.owner(keyS); delete dev.regions()[keyS]; dev.reown();
+    // The blend maps: only a continuous row under BLEND. A pin is the device's, one undo step, and an undo reaches the picture.
+    S.selected = keyS; mw.blend(); const snapNote = $('morphBlend').hidden && /snaps/.test($('morphBlendNote').textContent);
+    S.selected = keyC; mw.blend(); const lawNote = $('morphBlend').hidden && /BLEND/.test($('morphBlendNote').textContent);
+    dev.setMorphLaw(0); M.mode = 'blend'; mw.blend(); const shown = !$('morphBlend').hidden && !!mw.bm;
+    const addPin = [...$('morphBlend').querySelectorAll('button')].find(b => /Add pin/.test(b.textContent)), past2 = dev.history().past.length; if (addPin) addPin.click();
+    const pinned = dev.pins(keyC).length === 1 && mw.bm.row().pins.length === 1, pinStep = dev.history().past.length === past2 + 1; dev.undo(); mw.blend(); const pinGone = !dev.pins(keyC).length && !mw.bm.row().pins.length; dev.clearRedo();
     // Morph off: the audible corner is what's heard, wherever the puck is, and the frozen corners refuse.
     dev.setMorph({ on: false }); const heardOff = H.Morph.hear(S, S.params[keyC]), offOk = heardOff.owner === dev.morph().audible, refused = !S.writable(S.params[keyC], (dev.morph().audible + 1) % 4); dev.setMorph({ on: true });
-    dev.setMorphLaw(law0); M.mode = LAWS[law0]; M.view = view0; S.selected = sel0; grid.build(); selectPage(pg0); S.pad.x = x0; S.pad.y = y0; dev.setMorph({ x: x0, y: y0 }); setMorphOn(false); while (dev.history().past.length > steps0) dev.undo(); dev.clearRedo(); paintDock(); S.message = '';
-    const miss = Object.entries({ padOk, allRows, labelled, agree: !off0, wrong, cell: !!cell, moved, keptRest, oneStep, undone, locked, lockStep, unlocked, pulled: pulled === 1 || pulled === 3, offOk, refused }).filter(e => !e[1]).map(e => e[0]);
-    line(!miss.length, (miss.length ? '(MISSED: ' + miss.join(', ') + ') ' : '') + 'Morph page (GUI-19): its own pad is ' + Math.round(bigW) + ' px; the field has all ' + members.length + ' members, and ' + off0 + ' of them disagree with the device about their owner under Quantum (control: the same row reads another owner elsewhere on the pad); a drag on one corner’s cell wrote that corner alone as one step, and undo took it back; a region lock is one step in the device’s undo, and a pulled lock moves the knobs’ owner; with morph off the audible corner is heard and the others refuse.'); }
+    dev.setMorphLaw(law0); M.mode = LAWS[law0]; M.view = view0; S.selected = sel0; grid.build(); mw.blend(); selectPage(pg0); S.pad.x = x0; S.pad.y = y0; dev.setMorph({ x: x0, y: y0 }); setMorphOn(false); while (dev.history().past.length > steps0) dev.undo(); dev.clearRedo(); paintDock(); S.message = '';
+    const miss = Object.entries({ padOk, allRows, labelled, agree: !off0, wrong, cell: !!cell, moved, keptRest, oneStep, undone, locked, lockStep, unlocked, pulled: pulled === 1 || pulled === 3, snapNote, lawNote, shown, addPin: !!addPin, pinned, pinStep, pinGone, offOk, refused }).filter(e => !e[1]).map(e => e[0]);
+    line(!miss.length, (miss.length ? '(MISSED: ' + miss.join(', ') + ') ' : '') + 'Morph page (GUI-19): its own pad is ' + Math.round(bigW) + ' px; the field has all ' + members.length + ' members, and ' + off0 + ' of them disagree with the device about their owner under Quantum (control: the same row reads another owner elsewhere on the pad); a drag on one corner’s cell wrote that corner alone as one step, and undo took it back; a region lock is one step in the device’s undo, and a pulled lock moves the knobs’ owner; the blend maps show only for a continuous row under Blend, and a pin is one step in the device’s undo; with morph off the audible corner is heard and the others refuse.'); }
   // 14. ADR-333: an oscillator page shows the envelope its env row selects; an edit there is the Mod page's key, and an edit
   // on the Mod page reads back there. Control: the value differed before.
   const oscPg = DATA.pages.find(p => p.id === 'osc1'), fg = oscPg.groups.find(g => g.follow), fsel = ROW[fg.follow.selector];

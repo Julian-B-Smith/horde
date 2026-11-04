@@ -11439,9 +11439,11 @@ Three points stayed open, because the shell already marks a knob selected the mo
 
 **Context.** GUI-19 ruled a larger pad on the Morph page and all its proposed functionality. This batch is the pad and the parts the master already held. What's left is on GB7.
 
-**What's on the page.** The page's own 320 px pad (the dock's is 187 px) with the selected row's regions painted on it and its boundaries draggable (`QuantumPad`); the mode banner, scale bar and lock bar under it; `MorphInspector`; `CrossSection`; `MorphGrid` with `FindPane`, all 544 members with each corner's value edited live.
+**What's on the page.** The page's own 320 px pad (the dock's is 187 px) with the selected row's regions painted on it and its boundaries draggable (`QuantumPad`); the mode banner, scale bar and lock bar under it; `MorphInspector`; `CrossSection`; `MorphGrid` with `FindPane`, all 544 members with each corner's value edited live. The human, 2026-11-04, asked for the blend maps too ("We also need to include the blend map"), so `BlendMaps` is here: one row's value across the pad under TPS·Δ and TIN·Δ, with its waypoints.
 
 **Readings (the GUI session's, open to the human).**
+- **The blend maps show only for a continuous row under BLEND.** That's the master's rule. Other rows and laws get a sentence saying why, and the law is one click away in the banner. D.2's default law is Quantum, so a fresh patch shows the sentence first.
+- **Waypoints and the waypoint law are held by the device,** per row and per patch (B272), with undo. They're drawn but not heard: the stub's blend doesn't follow them, so the knobs and the field's HEARING ignore them until the resolver comes.
 - **A click on the large pad's empty glass moves nothing;** only a grab on the puck does. That's `QuantumPad`'s rule (B269), so a boundary can be grabbed safely. The dock's and Main's pads still jump to a click.
 - **The cross-section's line shows on the pad only while a row is selected.**
 - **A numeric stepped row** (a seed, for instance) reads as a value, not an option list. `arp.seed` has 2^32 values.
@@ -11452,4 +11454,4 @@ Three points stayed open, because the shell already marks a knob selected the mo
 
 **Consequences.** Master `1793773329-83d6`: `H.Morph.state(S).history` and `.solo`, and `opts.rev` on `MorphGrid`, which also paints only the rows in view. Self-check 4o holds the page. It's mounted once and painted only on this page.
 
-**FX device (ADR-254).** The same bench with its own rows; `FIELD_SECTIONS` is the instrument's.
+**FX device (ADR-254).** The same bench with its own rows; `FIELD_SECTIONS` is the instrument's. `BlendMaps` reads parameter values, not notes, so it works as it is on a rack module's continuous row.

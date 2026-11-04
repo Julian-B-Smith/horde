@@ -5847,7 +5847,7 @@
    "id": "gui19-morph-functionality",
    "adr": "GUI-19",
    "clause": "ruling 3 (the Morph page takes all its proposed functionality)",
-   "note": "Listed on GB7. The master-held parts are in (GUI-20); BlendMaps, the mode menu, the Randomize panel, the import list, the rail and distribution are to come.",
+   "note": "Listed on GB7. The master-held parts are in, BlendMaps among them (GUI-20); the mode menu, the Randomize panel, the import list, the rail and distribution are to come.",
    "component": null,
    "bundle": null,
    "shell": null,
@@ -5866,6 +5866,21 @@
    "component": "MorphGrid",
    "bundle": "MorphGrid",
    "shell": "docs/design/gui3.html: H.MorphGrid(grid, S",
+   "state": "in-shell",
+   "master_version": "1793773329-83d6"
+  },
+  {
+   "port_tab": "gain-staging",
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "id": "gui20-blend-maps",
+   "adr": "GUI-20",
+   "clause": "the blend maps on the Morph page, for a continuous row under BLEND",
+   "note": "B235, B272. Waypoints are held and undone by the device, drawn and not heard, until the resolver comes (GB8). FX device: as it is, on a rack module’s continuous row.",
+   "component": "BlendMaps",
+   "bundle": "BlendMaps",
+   "shell": "docs/design/gui3.html: H.BlendMaps(box, {",
    "state": "in-shell",
    "master_version": "1793773329-83d6"
   }

@@ -71,7 +71,8 @@
 
     // st is everything undo restores. The morph position (pos) is deliberately outside it (ADR-319 item 2).
     var st = { corners: [{}, {}, {}, {}], dev: {}, routes: [], nextRoute: 1, morphOn: false, audible: 0,
-      names: [null, null, null, null], saved: [null, null, null, null], regions: {} };   // regions: a row's own locked region offsets (B269), so undo restores them
+      names: [null, null, null, null], saved: [null, null, null, null], regions: {},   // regions: a row's own locked region offsets (B269), so undo restores them
+      pins: {}, blend: { law: 'tps', clamp: true } };   // a row's waypoints (B235) and the patch's waypoint law (B272). Held, drawn and undone; the stub's blend doesn't hear them
     morphing.forEach(function (r) { for (var i = 0; i < 4; i++) st.corners[i][r.key] = r.default_v; });
     rows.forEach(function (r) { if (r.class === 'D') st.dev[r.key] = r.default_v; });
     var pos = { x: 0.5, y: 0.5 }, owners = Object.create(null);
@@ -207,6 +208,10 @@
     /* D.2's settings as the morph layer's views read them, so the shell needs no key of its own (its controls come from shell-data.js). */
     var lawX = function (k) { return root.GUI3Engine.lawX(by[k], D.shown(k)); };
     D.morphSettings = function () { return { law: Math.round(D.shown('morph.law') * 2), cohesion: D.shown('morph.cohesion'), seed: D.shown('morph.seed'), rate: lawX('morph.stepRate'), glide: lawX('morph.glide') }; };
+    D.pins = function (key) { return (st.pins[key] || []).map(function (p) { return p.slice(); }); };
+    D.setPins = function (key, pins, label) { if (JSON.stringify(st.pins[key] || []) === JSON.stringify(pins)) return false; step(label || 'Waypoints', function () { if (pins.length) st.pins[key] = pins.map(function (p) { return p.slice(); }); else delete st.pins[key]; }); changed(); return true; };
+    D.blendSettings = function () { return { law: st.blend.law, clamp: st.blend.clamp }; };
+    D.setBlendSettings = function (law, clamp) { if (law === st.blend.law && clamp === st.blend.clamp) return false; step('Waypoint law', function () { st.blend = { law: law, clamp: clamp }; }); changed(); return true; };
     D.setMorphLaw = function (i, label) { return D.set('morph.law', i / 2, { label: label }); };
     D.regions = function () { return st.regions; };
     D.reown = function () { reown(); send(morphing.map(function (r) { return r.key; })); changed(); };
