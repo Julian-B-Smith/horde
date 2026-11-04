@@ -1,6 +1,6 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <!-- The Sluice mark study, kept in the repo so it isn't lost (the human, 2026-11-04, through the lead: "we should probably make the sluice and shriek mark styles artifacts into actual labs so they don't get lost"; ADR-336 ruling 2; GB11).
-     Copied from the private Artifact at version 1793813064-6fca. Everything from here on is that page, unedited, apart from these lines, the meta tags and the status note marked STATUS. It runs 15 live WebGL contexts, just under the 16 a browser usually allows. -->
+     Copied from the private Artifact at version 1793813064-6fca. Everything from here on is that page, unedited, apart from these lines, the meta tags, the status note marked STATUS, and one line in the shifting-colour rows that finds its two canvases with querySelector, so the lab load check can run the page. It runs 15 live WebGL contexts, just under the 16 a browser usually allows. -->
 <meta name="lab-part" content="FX">
 <meta name="lab-review" content="GB11 · 2026-11-04">
 
@@ -1307,7 +1307,7 @@ return API;
       '<figure><div class="gbc"><canvas class="px" width="160" height="144"></canvas></div><figcaption>The real Play page, TUBE, the title at 4 px stems in its 96 × 24 slot; each pixel takes the mean colour of the tube inside it, on RGB555.</figcaption></figure></div>';
     row.querySelector('h2').textContent=sm.name;row.querySelector('p').textContent=sm.why;
     shiftRows.appendChild(row);
-    const [glass,scr]=row.querySelectorAll('canvas');glass.setAttribute('aria-label','Sluice mark, shifting colour, '+sm.name);scr.setAttribute('aria-label','Sluice title on the GBC screen, shifting colour, '+sm.name);
+    const glass=row.querySelector('.glass2 canvas'),scr=row.querySelector('.gbc canvas');glass.setAttribute('aria-label','Sluice mark, shifting colour, '+sm.name);scr.setAttribute('aria-label','Sluice title on the GBC screen, shifting colour, '+sm.name);
     const smooth=makeSluiceMark(glass,'?fit=strip&ground=1b0733&shift='+sm.q);marks.push(smooth);
     const sw=row.querySelector('.now i'),lab=row.querySelector('.now span');
     setInterval(()=>{const c=smooth.colour;if(c){sw.style.background=c;lab.textContent='parks in '+c;}},400);
