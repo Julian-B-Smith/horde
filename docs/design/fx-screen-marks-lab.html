@@ -1,0 +1,1403 @@
+<!doctype html>
+<!-- fx-screen-marks-lab: how each FX screen shows a control's morph corners and its modulation. horde GUI session, 2026-11-04. Origin: row GB15, ruling GUI-23,
+     the human: "For all FX screen variants, we need to work out a different visual way to display morph corners and modulation. This also deserves a lab."
+
+     THE QUESTION. The chassis shows both by colour: corner hues and pips, mod rings. Those colours don't exist on a glass (ADR-259 ruling 4: inside a screen a corner is its glyph or A-D, in the
+     skin's own ink), and each skin has rules of its own. So each screen needs its own honest way. This page lays out at least three corner languages and three modulation languages per
+     screen, and ends in a choice per screen. The choice is the human's; nothing here is ruled.
+
+     WHAT IS REAL. Nothing on a glass is. The four rows are sample data, the morph law is a stand-in (bilinear weights, a seeded threshold per row for ownership, which on the real instrument is
+     read from the engine and never computed by the UI, ADR-261), and the modulator is one sine. No module, no audio and no master component runs here. Nothing is saved outside the page.
+
+     WHY EVERYTHING IS DRAWN IN SOFTWARE. Every glass paints into a plain pixel array (a 1-bit buffer, a GBC index-and-attribute buffer, a character page, or an RGBA surface with its own
+     line and disc rasteriser), and canvas only receives the finished pixels. That is load-bearing twice: the self-checks read back exactly what the human sees, so "a 1-bit screen stays 1-bit" is measured
+     on the real output, and they run with no canvas at all. It also means no fonts or blur the medium doesn't have: glow is a wider underlay at about 22 %, the master's rule, never a blur.
+
+     WHAT WAS COPIED AND ADAPTED (a lab may not depend on another lab staying as it is): the 3x5 font, the 5x7 ROM font, the 14-segment font, Bayer table, GBC tile rules, phosphor and neon inks and
+     teletext palette from fx-screens-workshop.html; the seven screen schemes from arp-face/tokens.css, self-checked against the live tokens in a browser.
+
+     WHAT WAS LEFT OUT, ON PURPOSE. GBC slow-pixel ghosting and CRT bloom would add colours or blur a still frame, and a still frame is what's being judged. The ownership-change cue (Morph Knob Spec) isn't drawn:
+     it needs history this lab's pure painters don't keep.
+
+     THE CHECK. Each claim has a must-fail control, and each language's claims (who owns, where each sits, the blend's pull; range, live value, shape) are tested both ways: pixels must change when the
+     claimed thing changes, and must NOT change when an unclaimed thing does, so the sentence on the card can't overstate what the marks do.
+
+     HOUSE RULES. No Math.random (mulberry32). No clock in a painter: animation is a frame count. performance.now only reports paint cost. No wheel listener (B301). GUI-21: a control that can't act
+     isn't drawn, so no greyed-out marks. Marks stay on their own side of the track, as the Map Mode Spec has it for sliders: corners above, modulation below. -->
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="lab-part" content="FX">
+<meta name="lab-review" content="GB15 · 2026-11-04">
+<title>FX screen marks lab — morph corners and modulation on every glass</title>
+<link rel="stylesheet" href="arp-face/tokens.css">
+<style>
+  html, body { background: var(--bg); }
+  body { margin: 0; color: var(--ink); font: 13px/1.5 var(--font-sans); }
+  .col { max-width: 1400px; margin: 0 auto; padding: 0 16px; }
+  h1 { font: 800 20px/1.2 var(--font-sans); margin: 18px 0 4px; }
+  h2 { font: 800 16px/1.2 var(--font-sans); margin: 0; }
+  h3 { font: 800 12px/1.2 var(--font-sans); margin: 0 0 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+  p { margin: 0 0 6px; max-width: 96ch; }
+  .tagline { color: var(--t2); max-width: 110ch; margin-bottom: 8px; }
+  .box { background: var(--panel); border: 1px solid var(--div); border-radius: 6px; padding: 12px; margin: 12px 0; }
+
+  /* the shared bar: it stays in view so the puck is always in reach while the glasses scroll past */
+  .bar { position: sticky; top: 0; z-index: 5; background: var(--panel); border-bottom: 1.5px solid var(--ink); }
+  .bar .in { max-width: 1400px; margin: 0 auto; padding: 8px 16px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+  .pad { width: 88px; height: 88px; touch-action: none; cursor: crosshair; border: 1.5px solid var(--ink); border-radius: 4px; display: block; }
+  .pad:focus-visible, button:focus-visible, select:focus-visible, a:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .ctl { display: flex; flex-direction: column; gap: 4px; }
+  .ctl .rw { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  button.b, select.b { min-height: 28px; min-width: 28px; padding: 0 9px; background: var(--well); color: var(--ink); border: 1px solid var(--ink); border-radius: 4px; font: 600 11px/1 var(--font-sans); cursor: pointer; }
+  button.b[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+  .read { font: 600 11px/1.45 var(--font-mono); white-space: pre; color: var(--t2); }
+  .jump { display: flex; flex-wrap: wrap; gap: 3px 9px; font-size: 11px; max-width: 560px; }
+  .jump a { color: var(--ink); min-height: 18px; }
+  .state { font: 600 11px/1.4 var(--font-mono); }
+  .state.bad, .banner { color: #fff; background: #b3261e; padding: 2px 6px; border-radius: 3px; }
+  .banner { display: none; margin: 10px 0; padding: 8px 10px; font-weight: 700; }
+  .banner.on { display: block; }
+
+  section.scr { border-top: 1.5px solid var(--ink); padding: 16px 0 10px; scroll-margin-top: 118px; }
+  .shead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin-bottom: 4px; }
+  .pill { font: 700 10px/1 var(--font-mono); padding: 3px 5px; border: 1px solid var(--ink); border-radius: 3px; white-space: nowrap; }
+  .pill.ruled { background: var(--ink); color: var(--bg); }
+  .policy { color: var(--t2); max-width: 110ch; }
+  .sbody { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; margin-top: 8px; }
+  .mixcol { flex: 0 0 auto; position: sticky; top: 112px; max-width: 100%; }
+  .cands { flex: 1 1 660px; min-width: 330px; display: flex; flex-direction: column; gap: 12px; }
+  .cgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(326px, 1fr)); gap: 8px; }
+
+  /* the chassis: horde's own card, the only place a corner hue is allowed (ADR-259 ruling 4) */
+  .chassis { background: var(--panel); border: 1.5px solid var(--ink); border-radius: 12px; padding: 8px; display: inline-block; max-width: 100%; box-sizing: border-box; }
+  .chead { display: flex; align-items: center; gap: 5px; margin-bottom: 6px; flex-wrap: wrap; }
+  .ctab { background: var(--ink); color: var(--bg); font: 700 9.5px/1 var(--font-mono); padding: 4px 7px; border-radius: 9px; margin-right: auto; }
+  .chip { display: inline-flex; align-items: center; gap: 3px; height: 18px; padding: 0 5px 0 4px; font: 700 10px/1 var(--font-mono); color: var(--on-corner); border: 1px solid var(--ink); border-radius: 3px; position: relative; overflow: hidden; }
+  .chip i { position: absolute; left: 0; bottom: 0; height: 2px; background: var(--ink); }
+  .bezel { background: var(--well-alt); border: 1px solid var(--ink); border-radius: 4px; padding: 8px; overflow: auto; }
+  canvas.glass { display: block; image-rendering: pixelated; border: 1px solid var(--ink); box-sizing: content-box; }
+  @media (max-width: 1000px) { .bar { position: static; } .mixcol { position: static; } section.scr { scroll-margin-top: 8px; } }
+  .gbcgrid { position: relative; display: inline-block; vertical-align: top; }
+  .gbcgrid::after { content: ""; position: absolute; inset: 1px; pointer-events: none; background: repeating-linear-gradient(0deg, rgba(0,0,0,.11) 0 1px, transparent 1px var(--lp)), repeating-linear-gradient(90deg, rgba(0,0,0,.11) 0 1px, transparent 1px var(--lp)); }
+  .cfoot { font: 600 9.5px/1.3 var(--font-mono); color: var(--t2); margin-top: 5px; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .choice { font-size: 12px; margin-top: 8px; max-width: 640px; }
+  .choice b { font-weight: 800; }
+
+  button.card { all: unset; box-sizing: border-box; display: flex; flex-direction: column; gap: 4px; padding: 7px; background: var(--well); border: 1px solid var(--div); border-radius: 5px; cursor: pointer; min-width: 0; }
+  button.card:hover { border-color: var(--ink); }
+  button.card[aria-pressed="true"] { border: 2px solid var(--ink); padding: 6px; background: var(--well-alt); }
+  button.card:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .cname { font-weight: 800; font-size: 12px; display: flex; flex-wrap: wrap; gap: 3px 6px; align-items: center; }
+  .cost { font-size: 11.5px; line-height: 1.35; color: var(--t2); }
+  .claims { font: 600 10px/1.35 var(--font-mono); color: var(--t2); }
+  .claims b { color: var(--ink); }
+  .err { color: #b3261e; font: 700 11px/1.3 var(--font-mono); }
+
+  table { border-collapse: collapse; font-size: 12px; width: 100%; }
+  th, td { text-align: left; vertical-align: top; padding: 4px 8px 4px 0; border-top: 1px solid var(--div); }
+  .ok { font-weight: 800; }
+  .no { color: #fff; background: #b3261e; font-weight: 800; padding: 0 4px; }
+  ol, ul { margin: 4px 0; padding-left: 20px; max-width: 100ch; }
+  li { margin-bottom: 3px; }
+  pre.sum { font: 12px/1.5 var(--font-mono); margin: 0; white-space: pre-wrap; user-select: all; }
+</style>
+</head>
+<body>
+<div class="bar"><div class="in" id="bar"></div></div>
+<div class="col">
+  <h1>FX screen marks lab</h1>
+  <div class="tagline">For every FX screen: different ways to show a control's morph corners and its modulation without corner colours, each with its cost, and a choice per screen for the human. All of it is sample data.</div>
+  <div class="banner" id="banner" role="alert"></div>
+  <p><b>How to use it.</b> Drag the puck in the bar, or press Walk, and start or stop the modulator: every glass follows. Below each screen, click one corner card and one modulation card; the big glass on the left puts your two together. The last section lists what you chose. Stop the modulator to judge a still frame.</p>
+  <p><b>Everything on a glass is sample data.</b> Four rows: <b>TONE</b> (continuous, four different corner values, a live route from LFO 1), <b>DRIFT</b> (under Quantum, it lands on one owning corner), <b>MODE</b> (stepped) and <b>MIX</b> (no route, the control: any mod mark on it would be a fault). The morph law is a stand-in, and the real owner is read from the engine. Corners go above each track and modulation below, as the Map Mode Spec has it.</p>
+  <div class="box" id="reference"></div>
+  <div id="screens"></div>
+  <div class="box" id="summary"></div>
+  <div class="box" id="notes"></div>
+  <div class="box" id="checks"></div>
+</div>
+<script>
+'use strict';
+/* ======================================================================
+   A. CONSTANTS AND HELPERS: declared before anything that runs at setup (L0026)
+   ====================================================================== */
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const _hx = {};
+const hx = h => _hx[h] || (_hx[h] = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)));
+const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+const e5 = k => (k << 3) | (k >> 2);
+const q555 = c => c.map(v => e5(Math.round(v * 31 / 255)));
+const on555 = v => e5(v >> 3) === v;
+
+/* the seven screen schemes, copied from arp-face/tokens.css (self-check 14 compares them in a browser). DARK: a dark ground. */
+const SCHEMES = {
+  TUBE: { g: '#1b0733', v: '#ff5ecf', m: '#b8f227', p: '#b48cff', k: '#ffb86b', r: '#4fd8be', scan: 0.22 },
+  ORCHID: { g: '#f3ebff', v: '#d6006b', m: '#007a73', p: '#6e14e8', k: '#c43a00', r: '#5a3fa8', scan: 0.05 },
+  FROST: { g: '#e6f8ff', v: '#d6006b', m: '#007a73', p: '#6e14e8', k: '#c43a00', r: '#00618c', scan: 0.05 },
+  EMBER: { g: '#fff0e4', v: '#d6006b', m: '#007a73', p: '#6e14e8', k: '#b03000', r: '#8a5a2e', scan: 0.05 },
+  DUSK: { g: '#2a2140', v: '#ff4fa3', m: '#c8ff3d', p: '#3de8ff', k: '#ffe94a', r: '#8a6fd4', scan: 0.16 },
+  LUMEN: { g: '#fff7a8', v: '#e5007a', m: '#00857f', p: '#7b1fff', k: '#e02b00', r: '#005e8a', scan: 0.05 },
+  PAPER: { g: '#ffffff', v: '#c8127e', m: '#46700a', p: '#5324ce', k: '#96550a', r: '#63636e', scan: 0.05 }
+};
+const DARK = { TUBE: 1, DUSK: 1 };
+const SCHEME_TOKEN = { g: 'ground', v: 'value', m: 'meter', p: 'physics', k: 'marker', r: 'grid' };
+const sch = name => { const s = SCHEMES[name], o = {}; for (const k of 'gvmpkr') o[k] = hx(s[k]); o.dark = !!DARK[name]; o.scan = s.scan; return o; };
+
+const LET = 'ABCD', GLYPH = ['◆', '▲', '●', '■'], HUE = ['#ffd702', '#ff2e88', '#00d5c8', '#a6f219'];   // the hues appear on the chassis only (ADR-259 ruling 4)
+const CHECK_HUES = HUE.map(hx);
+const order = r => [0, 1, 2, 3].filter(j => j !== r.owner).concat(r.owner);   // the owner paints last, so it wins a collision
+const P100 = v => String(Math.round(v * 100)).padStart(2, '0');
+
+/* the corner glyphs as 5x5 sprites for the pixel skins (ADR-261 ruling 1: a corner's mark takes its glyph's shape) */
+const SPR = {
+  solid: [['00100', '01110', '11111', '01110', '00100'], ['00100', '00100', '01110', '01110', '11111'], ['01110', '11111', '11111', '11111', '01110'], ['11111', '11111', '11111', '11111', '11111']],
+  hollow: [['00100', '01010', '10001', '01010', '00100'], ['00100', '01010', '01010', '10001', '11111'], ['01110', '10001', '10001', '10001', '01110'], ['11111', '10001', '10001', '10001', '11111']]
+};
+function sprite(plot, x, y, j, solid) { const s = (solid ? SPR.solid : SPR.hollow)[j]; for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) if (s[r][c] === '1') plot(x + c, y + r); }
+function glyphPts(j, x, y, r) {
+  if (j === 0) return [[x, y - r], [x + r, y], [x, y + r], [x - r, y], [x, y - r]];
+  if (j === 1) return [[x, y - r], [x + r, y + r * 0.8], [x - r, y + r * 0.8], [x, y - r]];
+  if (j === 3) { const q = r * 0.85; return [[x - q, y - q], [x + q, y - q], [x + q, y + q], [x - q, y + q], [x - q, y - q]]; }
+  const p = []; for (let i = 0; i <= 12; i++) p.push([x + r * Math.cos(i / 12 * 2 * Math.PI), y + r * Math.sin(i / 12 * 2 * Math.PI)]); return p;
+}
+
+/* the 3x5 pixel font, copied from the workshop. Five rows per glyph, each a 3-bit digit, MSB left. */
+const F35 = {
+  A: '25755', B: '65656', C: '34443', D: '65556', E: '74647', F: '74644', G: '34553', H: '55755', I: '72227',
+  J: '11152', K: '55655', L: '44447', M: '57755', N: '65555', O: '25552', P: '65644', Q: '25563', R: '65655',
+  S: '34216', T: '72222', U: '55557', V: '55552', W: '55775', X: '55255', Y: '55222', Z: '71247',
+  0: '75557', 1: '26227', 2: '61247', 3: '61216', 4: '55711', 5: '74616', 6: '34652', 7: '71222', 8: '25252',
+  9: '25316', ' ': '00000', '.': '00002', ',': '00024', ':': '02020', '-': '00700', '+': '02720', '/': '11244',
+  '%': '51245', '>': '42124', '<': '12421', '=': '07070', '(': '24442', ')': '21112', '#': '57575', '?': '61202',
+  '!': '22202', '_': '00007', '*': '05250', '|': '22222', '[': '64446', ']': '31113', "'": '22000', '^': '25000', '~': '05200'
+};
+const glyph35 = ch => F35[ch] || F35[String(ch).toUpperCase()] || F35['?'];
+function text35(s, plot) {
+  s = String(s); let x = 0;
+  for (const ch of s) { const g = glyph35(ch); for (let r = 0; r < 5; r++) { const bits = +g[r]; for (let c = 0; c < 3; c++) if ((bits >> (2 - c)) & 1) plot(x + c, r); } x += 4; }
+  return x;
+}
+/* the 5x7 ROM font, copied from the workshop's dot-matrix LCD: one 5-bit row per hex pair, MSB left */
+const F57 = {
+  A: '0E11111F111111', B: '1E11111E11111E', C: '0E11101010110E', D: '1C12111111121C', E: '1F10101E10101F', F: '1F10101E101010',
+  G: '0E11101711110F', H: '1111111F111111', I: '0E04040404040E', J: '0702020202120C', K: '11121418141211', L: '1010101010101F',
+  M: '111B1515111111', N: '11111915131111', O: '0E11111111110E', P: '1E11111E101010', Q: '0E11111115120D', R: '1E11111E141211',
+  S: '0F10100E01011E', T: '1F040404040404', U: '1111111111110E', V: '11111111110A04', W: '1111111515150A', X: '11110A040A1111',
+  Y: '1111110A040404', Z: '1F01020408101F', 0: '0E11131519110E', 1: '040C040404040E', 2: '0E11010204081F', 3: '1F02040201110E',
+  4: '02060A121F0202', 5: '1F101E0101110E', 6: '0608101E11110E', 7: '1F010204080808', 8: '0E11110E11110E', 9: '0E11110F01020C',
+  ' ': '00000000000000', '.': '00000000000C0C', ':': '000C0C000C0C00', '-': '0000001F000000', '+': '0004041F040400', '/': '00010204081000',
+  '%': '18190204081303', '=': '00001F001F0000', '>': '08040201020408', '<': '02040810080402', '[': '0E08080808080E', ']': '0E02020202020E',
+  '(': '02040808080402', ')': '08040202020408', '*': '0004150E150400', "'": '0C040800000000', '!': '04040404000004', '?': '0E110102040004',
+  '_': '0000000000001F', '~': '00000D12000000'
+};
+function rows57(ch) { const h = F57[ch] || F57[String(ch).toUpperCase()] || F57['?'], r = []; for (let i = 0; i < 7; i++) r.push(parseInt(h.slice(i * 2, i * 2 + 2), 16) || 0); return r; }
+/* the 14-segment font, copied from the workshop. T top, UR/LR right, B bottom, LL/UL left, ML/MR the middle halves, VU/VD centre verticals, DUL/DUR/DLL/DLR the diagonals. */
+const SEG_ALL = ['T', 'UR', 'LR', 'B', 'LL', 'UL', 'ML', 'MR', 'DUL', 'VU', 'DUR', 'DLL', 'VD', 'DLR'];
+const SEG_7 = ['T', 'UR', 'LR', 'B', 'LL', 'UL', 'ML', 'MR'];
+const SEG = {
+  A: 'T UR LR UL LL ML MR', B: 'T UR LR B VU VD MR', C: 'T UL LL B', D: 'T UR LR B VU VD', E: 'T UL LL B ML',
+  F: 'T UL LL ML', G: 'T UL LL B LR MR', H: 'UL LL UR LR ML MR', I: 'T B VU VD', J: 'UR LR B LL',
+  K: 'UL LL ML DUR DLR', L: 'UL LL B', M: 'UL LL UR LR DUL DUR', N: 'UL LL UR LR DUL DLR', O: 'T UR LR B LL UL',
+  P: 'T UR UL LL ML MR', Q: 'T UR LR B LL UL DLR', R: 'T UR UL LL ML MR DLR', S: 'T UL ML MR LR B',
+  T: 'T VU VD', U: 'UL LL B LR UR', V: 'UL LL DLL DUR', W: 'UL LL UR LR DLL DLR', X: 'DUL DUR DLL DLR',
+  Y: 'DUL DUR VD', Z: 'T DUR DLL B',
+  0: 'T UR LR B LL UL', 1: 'UR LR', 2: 'T UR ML MR LL B', 3: 'T UR MR LR B', 4: 'UL ML MR UR LR',
+  5: 'T UL ML MR LR B', 6: 'T UL LL B LR ML MR', 7: 'T UR LR', 8: 'T UR LR B LL UL ML MR', 9: 'T UL UR ML MR LR B',
+  b: 'UL LL B LR ML MR', d: 'UR LR B LL ML MR',   // lower case, as real segment displays do: a 14-segment B and D both read as ]
+  '-': 'ML MR', '+': 'ML MR VU VD', '/': 'DUR DLL', '*': 'DUL DUR DLL DLR VU VD', '>': 'DUL DLL', '<': 'DUR DLR', '_': 'B', '=': 'ML MR B', "'": 'VU', ' ': ''
+};
+function segEnds(n, w, h) {
+  const c = [w / 2, h / 2];
+  switch (n) {
+    case 'T': return [[0, 0], [w, 0]]; case 'B': return [[0, h], [w, h]];
+    case 'UR': return [[w, 0], [w, h / 2]]; case 'LR': return [[w, h / 2], [w, h]];
+    case 'UL': return [[0, 0], [0, h / 2]]; case 'LL': return [[0, h / 2], [0, h]];
+    case 'ML': return [[0, h / 2], c]; case 'MR': return [c, [w, h / 2]];
+    case 'VU': return [c, [w / 2, 0]]; case 'VD': return [c, [w / 2, h]];
+    case 'DUL': return [c, [0, 0]]; case 'DUR': return [c, [w, 0]];
+    case 'DLL': return [c, [0, h]]; case 'DLR': return [c, [w, h]];
+  }
+  return [c, c];
+}
+const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+
+/* ======================================================================
+   B. THE SAMPLE MODEL: a pure function of the shared state. Nothing here is the morph law.
+   ====================================================================== */
+const SEED = 0x6B15;
+const RND = mulberry32(SEED);
+const ROWDEF = [
+  { id: 'tone', name: 'TONE', kind: 'cont', vals: [0.18, 0.82, 0.40, 0.64], depth: 0.2 },
+  { id: 'drift', name: 'DRIFT', kind: 'quantum', vals: [0.72, 0.15, 0.55, 0.30] },
+  { id: 'mode', name: 'MODE', kind: 'step', steps: ['LP', 'BP', 'HP', 'NT'], stored: [0, 2, 3, 1] },
+  { id: 'mix', name: 'MIX', kind: 'cont', vals: [0.30, 0.46, 0.76, 0.10] }
+];
+for (const d of ROWDEF) {
+  d.u = RND();                                          // Quantum: where this row reads its weights' running sum
+  d.jit = [0, 1, 2, 3].map(() => 0.75 + 0.5 * RND());   // a threshold of its own per row, so owners flip at different places (Morph Knob Spec)
+  if (d.kind === 'step') d.vals = d.stored.map(s => (s + 0.5) / d.steps.length);
+}
+const MOD_PERIOD = 180;   // frames per LFO cycle
+const lfo = f => Math.sin(2 * Math.PI * f / MOD_PERIOD);
+const weightsAt = (x, y) => [(1 - x) * (1 - y), x * (1 - y), (1 - x) * y, x * y];
+function makeRoute(base, depth, f) {
+  const at = j => clamp(base + depth * lfo(f - j), 0, 1);
+  return { name: 'LFO 1', depth, lo: clamp(base - depth, 0, 1), hi: clamp(base + depth, 0, 1), out: at(0), hist: at, up: at(0) >= at(4) };
+}
+function modelOf(st) {
+  const w = weightsAt(st.px, st.py);
+  const rows = ROWDEF.map((d, i) => {
+    let owner = 0;
+    if (d.kind === 'quantum') { let c = 0; owner = 3; for (let j = 0; j < 4; j++) { c += w[j]; if (d.u < c) { owner = j; break; } } }
+    else { let best = -1; for (let j = 0; j < 4; j++) { const s = w[j] * d.jit[j]; if (s > best) { best = s; owner = j; } } }
+    const base = d.kind === 'cont' ? w.reduce((a, q, j) => a + q * d.vals[j], 0) : d.vals[owner];
+    const text = d.kind === 'step' ? d.steps[d.stored[owner]] : P100(base);
+    const r = { i, name: d.name, kind: d.kind, vals: d.vals.slice(), w: w.slice(), owner, base, text, steps: d.steps || null, route: null };
+    if (d.depth) r.route = makeRoute(base, d.depth, st.f);
+    return r;
+  });
+  return { w, rows, quad: (st.px >= 0.5 ? 1 : 0) + (st.py >= 0.5 ? 2 : 0) };   // x = 0.5 belongs to B/D, y = 0.5 to C/D, Sluice's rule
+}
+
+/* ======================================================================
+   C. SURFACES: where a glass's pixels live. Each keeps the medium's rule by construction.
+   ====================================================================== */
+/* Sf: an RGBA surface in the glass's 160x144 units at k device pixels a unit, with its own antialiased strokes. */
+class Sf {
+  constructor(wu, hu, k) { this.wu = wu; this.hu = hu; this.k = k; this.vs = k; this.W = Math.round(wu * k); this.H = Math.round(hu * k); this.out = new Uint8ClampedArray(this.W * this.H * 4); this.u32 = new Uint32Array(this.out.buffer); }
+  clear(c) { this.u32.fill(((255 << 24) | (c[2] << 16) | (c[1] << 8) | c[0]) >>> 0); }   // RGBA as little-endian words, which is every machine this runs on
+  _p(o, c, a) { const d = this.out; if (a >= 1) { d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; } else { d[o] += (c[0] - d[o]) * a; d[o + 1] += (c[1] - d[o + 1]) * a; d[o + 2] += (c[2] - d[o + 2]) * a; } }
+  rect(x, y, w, h, c, a = 1) {
+    const k = this.k, x0 = Math.max(0, Math.round(x * k)), y0 = Math.max(0, Math.round(y * k));
+    const x1 = Math.min(this.W, Math.max(Math.round(x * k) + 1, Math.round((x + w) * k))), y1 = Math.min(this.H, Math.max(Math.round(y * k) + 1, Math.round((y + h) * k)));
+    if (a >= 1) { const v = ((255 << 24) | (c[2] << 16) | (c[1] << 8) | c[0]) >>> 0, u = this.u32, W = this.W; for (let yy = y0; yy < y1; yy++) u.fill(v, yy * W + x0, yy * W + x1); return; }
+    for (let yy = y0; yy < y1; yy++) for (let xx = x0; xx < x1; xx++) this._p((yy * this.W + xx) * 4, c, a);
+  }
+  line(x0, y0, x1, y1, c, lw = 0.5, a = 1) {
+    const k = this.k, d = this.out, W = this.W, H = this.H, cr = c[0], cg = c[1], cb = c[2]; x0 *= k; y0 *= k; x1 *= k; y1 *= k;
+    const r = lw * k / 2 > 0.5 ? lw * k / 2 : 0.5, R1 = r + 0.5, R0 = r > 0.5 ? r - 0.5 : 0, R12 = R1 * R1, R02 = R0 * R0, m = R1 + 0.5;
+    const xa = Math.max(0, Math.floor(Math.min(x0, x1) - m)), xb = Math.min(W - 1, Math.ceil(Math.max(x0, x1) + m));
+    const ya = Math.max(0, Math.floor(Math.min(y0, y1) - m)), yb = Math.min(H - 1, Math.ceil(Math.max(y0, y1) + m));
+    const dx = x1 - x0, dy = y1 - y0, L = dx * dx + dy * dy, inv = L ? 1 / L : 0, adY = Math.abs(dy);
+    /* only the span of each row the stroke can touch: a long diagonal's bounding box would be most of the glass */
+    const spread = adY > 1e-6 ? m * Math.sqrt(L) / adY + 1 : 0, iy = adY > 1e-6 ? 1 / dy : 0;
+    for (let y = ya; y <= yb; y++) {
+      let sa = xa, sb = xb;
+      if (adY > 1e-6) { let u = (y + 0.5 - y0) * iy; u = u < 0 ? 0 : u > 1 ? 1 : u; const xc = x0 + dx * u, p = Math.floor(xc - spread), q = Math.ceil(xc + spread); if (p > sa) sa = p; if (q < sb) sb = q; }
+      const py = y + 0.5 - y0;
+      for (let x = sa; x <= sb; x++) {
+        const px = x + 0.5 - x0; let t = (px * dx + py * dy) * inv; t = t < 0 ? 0 : t > 1 ? 1 : t;
+        const ex = px - t * dx, ey = py - t * dy, e2 = ex * ex + ey * ey; if (e2 >= R12) continue;
+        const al = (e2 <= R02 ? 1 : R1 - Math.sqrt(e2)) * a, o = (y * W + x) * 4;
+        if (al >= 1) { d[o] = cr; d[o + 1] = cg; d[o + 2] = cb; } else { d[o] += (cr - d[o]) * al; d[o + 1] += (cg - d[o + 1]) * al; d[o + 2] += (cb - d[o + 2]) * al; }
+      }
+    }
+  }
+  /* a glowing stroke: a wider underlay at about 22 %, never a blur (the master's house-screen rule) */
+  gl(x0, y0, x1, y1, c, lw = 0.5, a = 1) { this.line(x0, y0, x1, y1, c, lw * 3.2, a * 0.22); this.line(x0, y0, x1, y1, c, lw, a); }
+  path(pts, c, lw = 0.5, a = 1, dash) { for (let i = 1; i < pts.length; i++) if (!dash || i % 2) this.line(pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1], c, lw, a); }
+  disc(x, y, r, c, a = 1) {
+    const k = this.k, cx = x * k, cy = y * k, R = Math.max(0.6, r * k);
+    for (let yy = Math.max(0, Math.floor(cy - R - 1)); yy <= Math.min(this.H - 1, Math.ceil(cy + R + 1)); yy++) for (let xx = Math.max(0, Math.floor(cx - R - 1)); xx <= Math.min(this.W - 1, Math.ceil(cx + R + 1)); xx++) {
+      const d = Math.hypot(xx + 0.5 - cx, yy + 0.5 - cy), cov = clamp(R + 0.5 - d, 0, 1); if (cov > 0) this._p((yy * this.W + xx) * 4, c, cov * a);
+    }
+  }
+  ring(x, y, r, c, lw = 0.4, a = 1) {
+    const k = this.k, cx = x * k, cy = y * k, R = r * k, hw = Math.max(0.5, lw * k / 2);
+    for (let yy = Math.max(0, Math.floor(cy - R - hw - 1)); yy <= Math.min(this.H - 1, Math.ceil(cy + R + hw + 1)); yy++) for (let xx = Math.max(0, Math.floor(cx - R - hw - 1)); xx <= Math.min(this.W - 1, Math.ceil(cx + R + hw + 1)); xx++) {
+      const d = Math.abs(Math.hypot(xx + 0.5 - cx, yy + 0.5 - cy) - R), cov = clamp(hw + 0.5 - d, 0, 1); if (cov > 0) this._p((yy * this.W + xx) * 4, c, cov * a);
+    }
+  }
+  arc(cx, cy, r, a0, a1, c, lw = 0.4, a = 1) {
+    const n = Math.max(2, Math.ceil(Math.abs(a1 - a0) * r * this.k / 3)); let p = [cx + r * Math.cos(a0), cy + r * Math.sin(a0)];
+    for (let i = 1; i <= n; i++) { const t = a0 + (a1 - a0) * i / n, q = [cx + r * Math.cos(t), cy + r * Math.sin(t)]; this.line(p[0], p[1], q[0], q[1], c, lw, a); p = q; }
+  }
+  poly(pts, c, a = 1) {   // even-odd fill for small glyphs
+    const k = this.k, P = pts.map(p => [p[0] * k, p[1] * k]), xs = P.map(p => p[0]), ys = P.map(p => p[1]);
+    for (let y = Math.max(0, Math.floor(Math.min(...ys))); y <= Math.min(this.H - 1, Math.ceil(Math.max(...ys))); y++) for (let x = Math.max(0, Math.floor(Math.min(...xs))); x <= Math.min(this.W - 1, Math.ceil(Math.max(...xs))); x++) {
+      let inside = false; const px = x + 0.5, py = y + 0.5;
+      for (let i = 0, j = P.length - 1; i < P.length; j = i++) if ((P[i][1] > py) !== (P[j][1] > py) && px < (P[j][0] - P[i][0]) * (py - P[i][1]) / (P[j][1] - P[i][1]) + P[i][0]) inside = !inside;
+      if (inside) this._p((y * this.W + x) * 4, c, a);
+    }
+  }
+  text(s, x, y, c, sc = 1, a = 1) { return text35(s, (dx, dy) => this.rect(x + dx * sc, y + dy * sc, sc, sc, c, a)) * sc; }
+  /* thin 5x7 dots at d device pixels a dot, for CAD's fine lettering */
+  dots(s, x, y, c, d) {
+    let X = Math.round(x * this.k); const Y = Math.round(y * this.k);
+    for (const ch of String(s)) {
+      const R = rows57(ch);
+      for (let r = 0; r < 7; r++) for (let q = 0; q < 5; q++) if ((R[r] >> (4 - q)) & 1) for (let a = 0; a < d; a++) for (let b = 0; b < d; b++) { const xx = X + q * d + b, yy = Y + r * d + a; if (xx >= 0 && xx < this.W && yy >= 0 && yy < this.H) this._p((yy * this.W + xx) * 4, c, 1); }
+      X += 6 * d;
+    }
+    return (X - Math.round(x * this.k)) / this.k;
+  }
+  seg(s, x, y, w, h, c, o = {}) {
+    const set = o.seven ? SEG_7 : SEG_ALL, adv = w * (o.adv || 1.45), ins = o.inset === undefined ? 0.14 : o.inset, lw = o.lw || Math.max(0.35, w * 0.17);
+    let cx = x;
+    for (const c0 of String(s)) {
+      const u = c0.toUpperCase(), ch = u === 'B' ? 'b' : u === 'D' ? 'd' : u;
+      const lit = (SEG[ch] !== undefined ? SEG[ch] : SEG['*']).split(' ').filter(Boolean);
+      for (const nm of set) {
+        const on = lit.includes(nm); if (!on && !o.ghost) continue;
+        const [[x0, y0], [x1, y1]] = segEnds(nm, w, h), dx = x1 - x0, dy = y1 - y0;
+        this.line(cx + x0 + dx * ins, y + y0 + dy * ins, cx + x1 - dx * ins, y + y1 - dy * ins, on ? c : o.ghost, lw, on ? 1 : o.ghostA);
+      }
+      cx += adv;
+    }
+    return cx - x;
+  }
+  scan(a) { if (a <= 0) return; const d = this.out; for (let y = 1; y < this.H; y += 2) for (let x = 0; x < this.W; x++) { const o = (y * this.W + x) * 4; d[o] *= 1 - a; d[o + 1] *= 1 - a; d[o + 2] *= 1 - a; } }
+}
+/* Bit: the workstation. Two values, so 1-bit holds by construction; grey only exists as Bayer dither. */
+class Bit {
+  constructor(w, h) { this.W = w; this.H = h; this.vs = 1; this.b = new Uint8Array(w * h); this.out = new Uint8ClampedArray(w * h * 4); }
+  clear(v) { this.b.fill(v); }
+  px(x, y, v) { x |= 0; y |= 0; if (x >= 0 && x < this.W && y >= 0 && y < this.H) this.b[y * this.W + x] = v; }
+  rect(x, y, w, h, v) { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) this.px(x + i, y + j, v); }
+  box(x, y, w, h, v) { this.rect(x, y, w, 1, v); this.rect(x, y + h - 1, w, 1, v); this.rect(x, y, 1, h, v); this.rect(x + w - 1, y, 1, h, v); }
+  xor(x, y, w, h) { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const X = (x + i) | 0, Y = (y + j) | 0; if (X >= 0 && X < this.W && Y >= 0 && Y < this.H) this.b[Y * this.W + X] ^= 1; } }
+  dither(x, y, w, h, lv) { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const X = (x + i) | 0, Y = (y + j) | 0; if (X >= 0 && X < this.W && Y >= 0 && Y < this.H && BAYER4[(Y & 3) * 4 + (X & 3)] < lv) this.b[Y * this.W + X] = 1; } }
+  text(s, x, y, v = 1) { return text35(s, (dx, dy) => this.px(x + dx, y + dy, v)); }
+  compose(paper, ink) { const d = this.out, b = this.b; for (let i = 0, o = 0; i < b.length; i++, o += 4) { const c = b[i] ? ink : paper; d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 255; } }
+}
+/* Gb: the Game Boy Color. A 2-bit index per pixel, a palette per 8x8 tile: four colours a tile holds by construction. */
+class Gb {
+  constructor(w, h) { this.W = w; this.H = h; this.vs = 1; this.tw = w >> 3; this.th = h >> 3; this.idx = new Uint8Array(w * h); this.attr = new Uint8Array(this.tw * this.th); this.out = new Uint8ClampedArray(w * h * 4); }
+  clear() { this.idx.fill(0); this.attr.fill(0); }
+  px(x, y, c) { x |= 0; y |= 0; if (x >= 0 && x < this.W && y >= 0 && y < this.H) this.idx[y * this.W + x] = c; }
+  rect(x, y, w, h, c) { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) this.px(x + i, y + j, c); }
+  box(x, y, w, h, c) { this.rect(x, y, w, 1, c); this.rect(x, y + h - 1, w, 1, c); this.rect(x, y, 1, h, c); this.rect(x + w - 1, y, 1, h, c); }
+  text(s, x, y, c) { return text35(s, (dx, dy) => this.px(x + dx, y + dy, c)); }
+  pal(tx, ty, tw, th, p) { for (let j = 0; j < th; j++) for (let i = 0; i < tw; i++) if (tx + i >= 0 && tx + i < this.tw && ty + j >= 0 && ty + j < this.th) this.attr[(ty + j) * this.tw + tx + i] = p; }
+  compose(pals) { const d = this.out; for (let y = 0; y < this.H; y++) for (let x = 0; x < this.W; x++) { const c = pals[this.attr[(y >> 3) * this.tw + (x >> 3)]][this.idx[y * this.W + x]], o = (y * this.W + x) * 4; d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 255; } }
+}
+
+/* ======================================================================
+   D. THE SCREENS. Each has make/begin/head/geom/base/foot/end, and its languages:
+   { id, name, cost, shows, rec, today, rr (units kept at the track's right), rl (at its left), paint(T, r, g, st) }.
+   `shows` is a claim the self-check tests both ways: owner pos weight for corners, range live shape for modulation.
+   Corners paint in the lane above the track and modulation below it (Map Mode Spec: never the same side).
+   ====================================================================== */
+const SOFT = ['PAGE', 'ROWS', 'HOLD', 'EXIT'];
+
+/* ---------- Shriek: the 80s workstation. 1-bit, 3x5 font, ordered dither. ---------- */
+const scrWS = {
+  id: 'ws', mod: 'Shriek', medium: '80s workstation', status: 'RULED', cite: 'ADR-259 ruling 5, B373',
+  policy: 'Takes the scheme: paper is its ground, ink is its physics ink, grey is ordered dither. Exactly two colours. Rows here are half a window wide, 160 of the 320 pixels, because the other half is the module\'s own work.',
+  css: { card: 2, mix: 2 },
+  make(mix) { const T = new Bit(mix ? 320 : 160, mix ? 288 : 100); T.ox = mix ? 8 : 0; T.oy = mix ? 28 : 0; return T; },
+  begin(T) { T.clear(0); },
+  head(T) {
+    T.dither(0, 0, 320, 288, 6); T.rect(0, 0, 320, 11, 0); T.rect(0, 11, 320, 1, 1);
+    let x = 6 + T.text('*', 6, 3) + 8; for (const it of ['FILE', 'PAGE', 'INPUT', 'AUDIO', 'VIEW']) x += T.text(it, x, 3) + 8;
+    T.text('MOCK', 298, 3);
+    const win = (wx, wy, w, h, title) => {
+      T.rect(wx + 2, wy + 2, w, h, 1); T.rect(wx, wy, w, h, 0); T.box(wx, wy, w, h, 1);
+      for (let yy = wy + 2; yy < wy + 10; yy += 2) T.rect(wx + 2, yy, w - 4, 1, 1);
+      T.rect(wx, wy + 11, w, 1, 1); const tw = title.length * 4 + 6, tx = Math.round(wx + w / 2 - tw / 2); T.rect(tx, wy + 1, tw, 10, 0); T.text(title, tx + 3, wy + 4);
+    };
+    win(5, 15, 167, 116, 'SHRIEK ROWS');
+    win(178, 15, 136, 116, 'TRANSFER');
+    let py = null; for (let i = 0; i < 120; i++) { const u = i / 119 * 2 - 1, y = Math.round(84 - Math.tanh(u * 2.2) * 34); T.dither(186 + i, Math.min(y, 84), 1, Math.abs(y - 84), 8); if (py !== null) T.rect(186 + i, Math.min(py, y), 1, Math.abs(py - y) + 1, 1); py = y; }
+    T.rect(186, 84, 120, 1, 1); T.rect(246, 36, 1, 90, 1);
+    win(5, 138, 309, 112, 'PAGES'); T.text('THE MODULE\'S OWN WORK LIVES HERE: SAMPLE ONLY', 14, 160);
+  },
+  geom(T, i, res) {
+    const y = T.oy + i * 25, cl = res.cl || 0, tx = T.ox + 3 + cl, tw = 154 - cl - (res.cr || 0) - (res.mr || 0);
+    return { i, y, top: y, bot: y + 25, lx: T.ox + 3, vr: T.ox + 157, lane: y + 7, ty: y + 14, my: y + 20, tx, tw, vx: v => tx + v * tw, cx: tx + tw + 2, mx: tx + tw + 2 + (res.cr || 0) };
+  },
+  base(T, r, g) {
+    T.text(r.name, g.lx, g.y + 1); if (r.kind === 'quantum') { T.rect(g.lx + 24, g.y, 7, 7, 1); T.text('Q', g.lx + 26, g.y + 1, 0); }
+    T.text(r.text, g.vr - r.text.length * 4 + 1, g.y + 1);
+    if (r.kind === 'step') { const n = r.steps.length, cur = Math.floor(r.base * n), cw = g.tw / n; for (let s = 0; s < n; s++) { const x = Math.round(g.tx + s * cw), w = Math.round(cw) - 1; if (s === cur) T.rect(x, g.ty, w, 5, 1); else T.box(x, g.ty, w, 5, 1); } return; }
+    T.box(g.tx, g.ty, g.tw, 5, 1); T.dither(g.tx + 1, g.ty + 1, Math.round((g.tw - 2) * r.base), 3, 8);
+    T.rect(Math.round(g.vx(r.base)) - 1, g.ty - 1, 3, 7, 1);
+  },
+  foot(T) {
+    T.rect(0, 256, 320, 32, 0); T.rect(0, 256, 320, 1, 1);
+    SOFT.forEach((s, j) => { const x = j * 80; if (j) T.dither(x, 258, 1, 28, 8); T.text(String(j + 1), x + 6, 262); T.box(x + 18, 266, 44, 9, 1); T.text(s, x + 40 - s.length * 2, 268); });
+  },
+  end(T, st) { const c = sch(st.scheme); T.compose(c.g, c.p); },
+  corners: [
+    { id: 'today', name: 'One thumb', today: true, shows: '', cost: 'What Shriek draws today: the blend and nothing about the corners. Costs no pixels; it answers none of the three questions.' },
+    { id: 'tabs', name: 'Tab stops', rec: true, shows: 'owner pos', cost: 'A lettered 5x7 flag stands at each corner\'s value; the owner\'s is inverted, like a selected tab on a ruler. 7 pixels of lane a row. Flags closer than 5 pixels overlap, and the owner wins; it can\'t show the weights.',
+      paint(T, r, g) { for (const j of order(r)) { const x = Math.round(g.vx(r.vals[j])); T.rect(x - 2, g.lane, 5, 7, j === r.owner ? 1 : 0); if (j !== r.owner) T.box(x - 2, g.lane, 5, 7, 1); T.text(LET[j], x - 1, g.lane + 1, j === r.owner ? 0 : 1); } } },
+    { id: 'bits', name: 'Bitmap glyphs', shows: 'owner pos', cost: 'The chassis\'s four pip shapes as 5x5 bitmaps, hollow, with the owner solid (ADR-261 ruling 1). 6 pixels of lane. The square and circle blur into each other at a glance, and you must have learnt which glyph is which corner; it can\'t show the weights.',
+      paint(T, r, g) { for (const j of order(r)) { const x = Math.round(g.vx(r.vals[j])); T.rect(x - 3, g.lane + 1, 7, 6, 0); sprite((a, b) => T.px(a, b, 1), x - 2, g.lane + 1, j, j === r.owner); } T.rect(Math.round(g.vx(r.vals[r.owner])), g.lane + 6, 1, 1, 1); } },
+    { id: 'ghost', name: 'Dither ghosts', shows: 'owner pos weight', cost: 'A ghost thumb at each corner\'s value, its dither density following that corner\'s weight, the owner solid. The only one here that shows the blend\'s pull. Ghosts carry no letter, so you see where the corners are but not which is which; a corner near zero weight is barely there.',
+      paint(T, r, g) { for (const j of [0, 1, 2, 3]) { const x = Math.round(g.vx(r.vals[j])); if (j === r.owner) { T.rect(x - 2, g.lane, 5, 7, 1); continue; } T.rect(x - 2, g.lane + 6, 5, 1, 1); T.dither(x - 2, g.lane, 5, 6, Math.max(2, Math.round(r.w[j] * 16))); } } },
+    { id: 'strip', name: 'Data strip', rr: 30, shows: 'owner pos', cost: 'Four labelled gauge cells beside the track, like the workstation\'s data-entry strip; the owner\'s cell is inverted. Each corner gets a clear reading at any spacing, but it takes 30 pixels off the track, loses where a corner sits against the blend, and can\'t show the weights.',
+      paint(T, r, g) { for (let j = 0; j < 4; j++) { const x = g.cx + j * 7; T.text(LET[j], x + 2, g.y + 7); T.box(x, g.y + 13, 6, 12, 1); const h = Math.round(r.vals[j] * 10); T.rect(x + 1, g.y + 24 - h, 4, h, 1); if (j === r.owner) T.xor(x, g.y + 6, 6, 19); } } }
+  ],
+  mods: [
+    { id: 'band', name: 'Dither band', rec: true, shows: 'range live', cost: 'The range is a 50 % dither under the track, closed at both ends, with a full-height XOR tick at the output. 5 pixels a row. Plain in a still frame; only one route fits in the lane, and a range under 4 pixels reads as a tick.',
+      paint(T, r, g) { const R = r.route, a = Math.round(g.vx(R.lo)), b = Math.round(g.vx(R.hi)), x = Math.round(g.vx(R.out)); T.dither(a, g.my, b - a + 1, 4, 8); T.rect(a, g.my, 1, 4, 1); T.rect(b, g.my, 1, 4, 1); T.xor(x, g.ty + 1, 1, g.my + 4 - g.ty - 1); } },
+    { id: 'ants', name: 'Marching ants', shows: 'range live', cost: 'The range is a selection outline whose dashes crawl while the source runs, with a small hollow marker at the output. Borrowed straight from 80s selection tools, so it reads as "this span is live". It flickers at ×1, and a still frame only says "a selection" until you know the idiom.',
+      paint(T, r, g, st) { const R = r.route, a = Math.round(g.vx(R.lo)), b = Math.round(g.vx(R.hi)), ph = (st.f >> 2) & 3; const on = n => ((n + ph) & 3) < 2; for (let x = a; x <= b; x++) { if (on(x - a)) T.px(x, g.my, 1); if (on(b - x)) T.px(x, g.my + 4, 1); } for (let y = 0; y < 5; y++) { if (on(y)) T.px(b, g.my + y, 1); if (on(4 - y)) T.px(a, g.my + y, 1); } const x = Math.round(g.vx(R.out)); T.rect(x - 1, g.my, 3, 5, 1); T.px(x, g.my + 2, 0); } },
+    { id: 'thumb', name: 'Second thumb', shows: 'range live', cost: 'A hollow XOR thumb on the track at the output, with end ticks under the range. It uses almost no new pixels and reads as "a second thumb is moving this". It sits on the track, so close to the base thumb the two merge; only the end ticks say what range it has.',
+      paint(T, r, g) { const R = r.route, x = Math.round(g.vx(R.out)); T.xor(x - 2, g.ty - 1, 5, 1); T.xor(x - 2, g.ty + 5, 5, 1); T.xor(x - 2, g.ty, 1, 5); T.xor(x + 2, g.ty, 1, 5); for (const v of [R.lo, R.hi]) T.rect(Math.round(g.vx(v)), g.my, 1, 4, 1); for (let q = Math.round(g.vx(R.lo)); q <= Math.round(g.vx(R.hi)); q += 2) T.px(q, g.my + 1, 1); } },
+    { id: 'win', name: 'Scope window', rr: 42, shows: 'range live shape', cost: 'A tiny window beside the track draws the source\'s recent trace inside a dithered range band. The only one that shows the modulator\'s shape. It takes 42 pixels off the track, so the output\'s place along the track goes; three windows on a page is clutter.',
+      paint(T, r, g) { const R = r.route, x = g.mx, y = g.y + 7, w = 40, h = 18; T.rect(x, y, w, h, 0); T.box(x, y, w, h, 1); T.rect(x + 1, y + 1, w - 2, 1, 1); T.rect(x + 1, y + 3, w - 2, 1, 1); const Y = v => y + h - 2 - Math.round(v * (h - 7)); const a = Y(R.hi), b = Y(R.lo); T.dither(x + 1, a, w - 2, b - a + 1, 5); let py = null; for (let i = 0; i < w - 2; i++) { const yy = Y(R.hist((w - 3 - i) * 3)); if (py !== null) T.rect(x + 1 + i, Math.min(py, yy), 1, Math.abs(py - yy) + 1, 1); else T.px(x + 1 + i, yy, 1); py = yy; } T.rect(x + w - 3, Y(R.out) - 1, 2, 3, 1); } }
+  ]
+};
+
+/* ---------- Sluice: the Game Boy Color. Four colours a tile, palettes from the scheme's roles, RGB555. ---------- */
+const gbcPals = c => [c.r, c.v, c.m, c.k].map(role => [c.g, mix(c.g, role, 0.38), role, c.p].map(q555));
+const scrGBC = {
+  id: 'gbc', mod: 'Sluice', medium: 'Game Boy Color', status: 'RULED', cite: 'ADR-259 ruling 5, B338, B361',
+  policy: 'Takes the scheme: four tile palettes built from its roles, on the RGB555 grid. At most four colours in each 8x8 tile, at most eight palettes. A mark can\'t bring a colour of its own into a tile; it can only swap the whole tile\'s palette, so a palette swap is itself a language here.',
+  css: { card: 2, mix: 3 },
+  make(mix) { const T = new Gb(160, mix ? 144 : 96); T.oy = mix ? 16 : 0; return T; },
+  begin(T) { T.clear(); },
+  head(T) { T.pal(0, 0, 20, 2, 1); T.text('SLUICE', 4, 4, 3); T.text('MOCK', 138, 4, 2); T.rect(2, 12, 156, 1, 1); },
+  geom(T, i, res) {
+    const y = T.oy + i * 24, cl = res.cl || 0, tx = 2 + cl, tw = 156 - cl - (res.cr || 0) - (res.mr || 0);
+    return { i, y, top: y, bot: y + 24, lx: 2, vr: 158, lane: y + 8, ty: y + 16, my: y + 20, tx, tw, vx: v => tx + v * tw, cx: tx + tw + 2, mx: tx + tw + 2 + (res.cr || 0) };
+  },
+  base(T, r, g) {
+    const t0 = g.y >> 3; T.pal(0, t0, 20, 1, 0); T.pal(0, t0 + 1, 20, 1, 3); T.pal(0, t0 + 2, 20, 1, 1);
+    T.text(r.name, g.lx, g.y + 1, 3); if (r.kind === 'quantum') { T.rect(g.lx + 23, g.y, 7, 7, 2); T.text('Q', g.lx + 25, g.y + 1, 0); }
+    T.text(r.text, g.vr - r.text.length * 4 + 1, g.y + 1, 3);
+    if (r.kind === 'step') { const n = r.steps.length, cur = Math.floor(r.base * n), cw = g.tw / n; for (let s = 0; s < n; s++) T.rect(Math.round(g.tx + s * cw), g.ty, Math.round(cw) - 1, 3, s === cur ? 3 : 1); return; }
+    T.rect(g.tx, g.ty, g.tw, 3, 1); T.rect(g.tx, g.ty, Math.round(g.tw * r.base), 3, 2); T.rect(Math.round(g.vx(r.base)) - 1, g.ty, 3, 3, 3);
+  },
+  foot(T) { SOFT.forEach((s, j) => { const x = j * 40; T.pal(j * 5, 15, 5, 3, 0); T.rect(x + 4, 124, 32, 7, 2); T.text(s, x + 20 - s.length * 2, 125, 0); T.text(String(j + 1), x + 18, 134, 3); }); },
+  end(T, st) { T.compose(gbcPals(sch(st.scheme))); },
+  corners: [
+    { id: 'today', name: 'One thumb', today: true, shows: '', cost: 'What Sluice\'s glass draws today: the blend, and nothing about the corners on the row. Costs no pixels; it answers none of the three questions.' },
+    { id: 'pips', name: 'Sprite pips', rec: true, shows: 'owner pos', cost: 'The four glyphs as 5x5 sprites on one tile row, the owner in solid ink and the others hollow in the marker colour. Pixel-exact, and the closest thing to the chassis. Glyphs closer than 5 pixels overlap, you must have learnt the shapes, and it can\'t show the weights.',
+      paint(T, r, g) { for (const j of order(r)) { const x = Math.round(g.vx(r.vals[j])), o = j === r.owner; T.rect(x - 2, g.lane + 1, 5, 5, 0); sprite((a, b) => T.px(a, b, o ? 3 : 2), x - 2, g.lane + 1, j, o); T.rect(x, g.lane + 6, 1, 2, o ? 3 : 2); } } },
+    { id: 'flags', name: 'Tile flags', shows: 'owner pos', cost: 'Each corner lights the whole 8x8 tile its value lands in, with its letter; the owner\'s is filled. The hardware\'s own grid, so nothing can leave the rule. Position is only as fine as a tile, about 19 places, and two corners in one tile share a flag, with the owner on top.',
+      paint(T, r, g) { for (const j of order(r)) { const tx = Math.floor(g.vx(r.vals[j]) / 8), x = tx * 8, o = j === r.owner; T.rect(x, g.lane, 8, 8, o ? 3 : 0); if (!o) T.box(x, g.lane, 8, 8, 2); T.text(LET[j], x + 2, g.lane + 2, o ? 0 : 3); } } },
+    { id: 'ticks', name: 'Height ticks', rr: 12, shows: 'owner pos', cost: 'A 1-pixel tick per corner, from short A to tall D, and a round chip at the end of the track carries the owner\'s letter. The fewest pixels that still tell all four apart. You must learn the height order, and it can\'t show the weights.',
+      paint(T, r, g) { const H = [2, 3, 5, 7]; for (const j of order(r)) { const x = Math.round(g.vx(r.vals[j])), o = j === r.owner; T.rect(x, g.lane + 7 - H[j], o ? 2 : 1, H[j], o ? 3 : 2); } const x = g.cx + 1; T.rect(x, g.lane, 9, 7, 3); T.px(x, g.lane, 0); T.px(x + 8, g.lane, 0); T.px(x, g.lane + 6, 0); T.px(x + 8, g.lane + 6, 0); T.text(LET[r.owner], x + 3, g.lane + 1, 0); } },
+    { id: 'bal', name: 'Balance meters', rr: 18, shows: 'owner weight', cost: 'Four tiny meters at the end of the row show each corner\'s weight, the owner in ink. It answers how the blend relates to the corners and who owns the row; it can\'t show where any corner sits, so you can\'t see what a corner holds until you go there.',
+      paint(T, r, g) { for (let j = 0; j < 4; j++) { const x = g.cx + j * 4, h = Math.round(r.w[j] * 6); T.rect(x, g.lane + 6, 3, 1, 1); T.rect(x, g.lane + 6 - h, 3, h, j === r.owner ? 3 : 2); } } }
+  ],
+  mods: [
+    { id: 'hatch', name: 'Hatched lane', rec: true, shows: 'range live', cost: 'A checker hatch under the track marks the range, with a 7-pixel ink tick at the output crossing into the track. 4 pixels high in the track\'s own tile row, so it needs no new palette. Fine in a still; a very small depth reads as a tick.',
+      paint(T, r, g) { const R = r.route, a = Math.round(g.vx(R.lo)), b = Math.round(g.vx(R.hi)); for (let x = a; x <= b; x++) for (let y = 0; y < 4; y++) if ((x + y) & 1 || x === a || x === b) T.px(x, g.my + y, 2); T.rect(Math.round(g.vx(R.out)), g.ty, 1, 7, 3); } },
+    { id: 'swap', name: 'Palette band', shows: 'range live', cost: 'Every tile the range touches swaps to the meter palette, so the track itself changes colour across the range; a tick marks the output. It is the most Game Boy of these and needs no lane, but the range is only as fine as an 8-pixel tile, and on a scheme with close roles the swap is faint.',
+      paint(T, r, g) { const R = r.route, t = g.ty >> 3; for (let q = Math.floor(g.vx(R.lo) / 8); q <= Math.floor(g.vx(R.hi) / 8); q++) T.pal(q, t, 1, 1, 2); T.rect(Math.round(g.vx(R.out)), g.ty, 1, 7, 3); } },
+    { id: 'needle', name: 'Sprite needle', shows: 'range live', cost: 'A small pointer sprite rides under the track at the output between two end caps, with no fill. Fewest lit pixels of the set. In a still it can read as a second control, not a range, until you know the caps belong to it.',
+      paint(T, r, g) { const R = r.route, x = Math.round(g.vx(R.out)); T.rect(x - 2, g.my + 1, 5, 1, 3); T.rect(x - 1, g.my, 3, 1, 3); T.px(x, g.my - 1, 3); for (const v of [R.lo, R.hi]) T.rect(Math.round(g.vx(v)), g.my, 1, 4, 2); } },
+    { id: 'wave', name: 'Wave tiles', rr: 26, shows: 'live shape', cost: 'Three tiles beside the track draw the source\'s rolling trace in the meter palette, the newest point in ink. It shows the source\'s shape and says plainly that something is moving this. It can\'t show the range on the track, and takes 26 pixels from it.',
+      paint(T, r, g) { const R = r.route, x = g.mx & ~7, t = g.ty >> 3; T.pal(x >> 3, t, 3, 1, 2); T.rect(x, g.ty, 24, 8, 0); T.box(x, g.ty, 24, 8, 1); let p = null; for (let i = 0; i < 22; i++) { const y = g.ty + 6 - Math.round(clamp((R.hist((21 - i) * 5) - r.base) * 2.2 + 0.5, 0, 1) * 5); if (p !== null) T.rect(x + 1 + i, Math.min(p, y), 1, Math.abs(p - y) + 1, 2); p = y; } T.rect(x + 21, g.ty + 5 - Math.round(clamp((R.out - r.base) * 2.2 + 0.5, 0, 1) * 5), 2, 2, 3); } }
+  ]
+};
+
+/* ---------- The phosphor CRT terminal: 64x36 character cells, one phosphor. Attributes 0 normal, 1 dim, 2 bright, 3 inverse. ---------- */
+const P3 = { ink: hx('#FFB000'), ground: hx('#0B0803') };
+const CRT_SHADES = { '░': 4, '▒': 2, '▓': 1 };
+const CRT_BLOCK = '▁▂▃▄▅▆▇█';
+class Term {
+  constructor(lines, k) { this.c = 64; this.r = lines; this.k = k; this.vs = 4 * k; this.ch = new Array(64 * lines).fill(' '); this.at = new Uint8Array(64 * lines); this.sf = new Sf(160, lines * 4, k); this.W = this.sf.W; this.H = this.sf.H; this.out = this.sf.out; }
+  clear() { this.ch.fill(' '); this.at.fill(0); }
+  put(x, y, s, a = 0) { s = String(s); for (let i = 0; i < s.length; i++) { const xx = x + i; if (xx < 0 || xx >= this.c || y < 0 || y >= this.r) continue; this.ch[y * 64 + xx] = s[i]; this.at[y * 64 + xx] = a; } return x + s.length; }
+  compose() {
+    const S = this.sf, k = this.k, d = S.out, W = S.W; S.clear(P3.ground);
+    const cw = 2.5 * k, ch = 4 * k, dot = k >= 3 ? 2 : 1, gx = k >= 3 ? 1 : 1, gy = k >= 3 ? 1 : 1;
+    const inkAt = [mix(P3.ground, P3.ink, 0.8), mix(P3.ground, P3.ink, 0.42), P3.ink, P3.ground];
+    const fill = (x, y, w, h, c) => { for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) if (xx >= 0 && xx < W && yy >= 0 && yy < S.H) { const o = (yy * W + xx) * 4; d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; } };
+    for (let y = 0; y < this.r; y++) for (let x = 0; x < 64; x++) {
+      const i = y * 64 + x, a = this.at[i], c = this.ch[i], X = Math.floor(x * cw), Y = y * ch, CW = Math.floor((x + 1) * cw) - X;
+      if (a === 3) fill(X, Y, CW, ch, P3.ink);
+      if (c === ' ') continue;
+      const ink = inkAt[a], bl = CRT_BLOCK.indexOf(c);
+      if (bl >= 0) { const h = Math.round((bl + 1) / 8 * ch); fill(X, Y + ch - h, CW, h, ink); continue; }
+      if (CRT_SHADES[c]) { const n = CRT_SHADES[c]; for (let yy = 0; yy < ch; yy++) for (let xx = 0; xx < CW; xx++) if ((xx + X + yy) % n === 0) fill(X + xx, Y + yy, 1, 1, ink); continue; }
+      if (c === '─') { fill(X, Y + (ch >> 1), CW, 1, ink); continue; }
+      if (c === '│') { fill(X + (CW >> 1), Y, 1, ch, ink); continue; }
+      if (c === '·') { fill(X + (CW >> 1), Y + (ch >> 1), Math.max(1, dot), Math.max(1, dot), ink); continue; }
+      if (c === '►' || c === '◄') { const n = ch >> 2; for (let q = 0; q < n; q++) { const xx = c === '►' ? X + q : X + CW - 1 - q; fill(xx, Y + (ch >> 1) - (n - q) + 1, 1, 2 * (n - q) - 1, ink); } continue; }
+      text35(c, (dx, dy) => fill(X + gx + dx * dot, Y + gy + dy * dot, dot, dot, ink));
+    }
+    S.scan(0.12);
+  }
+}
+const scrCRT = {
+  id: 'crt', mod: 'no module', medium: 'Phosphor CRT terminal', status: 'AUDITION', cite: 'screens.md: MAW\'s pairing before Shriek took the workstation',
+  policy: 'Overrides the scheme: a phosphor\'s colour is its chemistry, here P3 amber. 64 by 36 character cells, with normal, dim, bright and inverse video. A mark is a character in a cell, so a position is only as fine as a column. Bloom is left out here.',
+  css: { card: 1, mix: 1 },
+  make(mix) { const T = new Term(mix ? 36 : 26, mix ? 3 : 2); T.top = mix ? 3 : 1; return T; },
+  begin(T) { T.clear(); },
+  head(T) { T.put(0, 0, ' '.repeat(64), 3); T.put(1, 0, 'HORDE FX TERMINAL', 3); T.put(58, 0, 'MOCK', 3); },
+  geom(T, i, res) {
+    const y = T.top + i * 6, cl = res.cl || 0, tx = 2 + cl, tn = 60 - cl - (res.cr || 0) - (res.mr || 0);
+    return { i, top: y, bot: y + 6, y, tx, tn, col: v => tx + Math.round(v * (tn - 1)), cx: tx + tn + 1, mx: tx + tn + 1 + (res.cr || 0) };
+  },
+  base(T, r, g) {
+    T.put(2, g.y, r.name, 0); if (r.kind === 'quantum') T.put(8, g.y, 'Q', 3); T.put(62 - r.text.length, g.y, r.text, 2);
+    const L = g.y + 2;
+    if (r.kind === 'step') { const n = r.steps.length, cur = Math.floor(r.base * n), cw = g.tn / n; r.steps.forEach((s, q) => { const x = g.tx + Math.round(q * cw); T.put(x, L, ' ' + s + ' '.repeat(Math.max(0, Math.round(cw) - 4)) + ' ', q === cur ? 3 : 1); }); return; }
+    const c = g.col(r.base); for (let x = 0; x < g.tn; x++) T.put(g.tx + x, L, g.tx + x <= c ? '█' : '░', g.tx + x <= c ? 0 : 1);
+  },
+  foot(T) { T.put(0, 28, '─'.repeat(64), 1); SOFT.forEach((s, j) => T.put(j * 16 + 3, 32, ' F' + (j + 1) + ' ' + s + ' ', 3)); },
+  end(T) { T.compose(); },
+  corners: [
+    { id: 'today', name: 'Page line', today: true, shows: '', page(T, st, m) { const y = T.top - 1; let x = 2; x = T.put(x, y, 'CORNERS', 1) + 2; for (let j = 0; j < 4; j++) { T.put(x, y, LET[j], 0); T.put(x + 2, y, m.quad === j ? '█' : '░', 0); x += 5; } },
+      cost: 'What the terminal has today: one page line naming the corner of the puck\'s quadrant. One line a page. It says nothing about any row, and a row can be owned by another corner than the line claims.' },
+    { id: 'ruler', name: 'Letter ruler', rec: true, shows: 'owner pos', cost: 'The letters stand on a line above the bar, each at its corner\'s column, the owner in inverse video. One line a row and the plainest read at terminal resolution. Letters closer than a column overwrite each other, and it can\'t show the weights.',
+      paint(T, r, g) { for (const j of order(r)) T.put(g.col(r.vals[j]), g.y + 1, LET[j], j === r.owner ? 3 : 2); } },
+    { id: 'fields', name: 'Data fields', shows: 'owner pos', cost: 'A printed record: A18 B82 C40 D64, owner in inverse. Exact numbers that never collide, and at home on a terminal. You read four numbers instead of seeing a shape, and it can\'t show the weights.',
+      paint(T, r, g) { let x = 12; for (let j = 0; j < 4; j++) { const s = LET[j] + P100(r.vals[j]); T.put(x, g.y + 1, ' ' + s + ' ', j === r.owner ? 3 : 0); x += 6; } } },
+    { id: 'arrow', name: 'Box-drawn arrow', shows: 'owner', cost: 'A box-drawing rule runs from the blend to the owner\'s column and ends in its letter. It shows how far the blend sits from what the owner holds, and little else: the other three corners aren\'t on the row at all.',
+      paint(T, r, g) { const a = g.col(r.base), b = g.col(r.vals[r.owner]), s = b >= a ? 1 : -1; for (let x = a; x !== b; x += s) T.put(x, g.y + 1, '─', 1); T.put(b, g.y + 1, LET[r.owner], 3); if (b !== a) T.put(b - s, g.y + 1, s > 0 ? '►' : '◄', 2); } },
+    { id: 'shade', name: 'Weight shades', shows: 'owner weight', cost: 'Four letters, each followed by a shade block that fills with its weight; the owner in inverse. Answers who owns the row and how the blend is split, in 12 columns. It can\'t show where any corner sits.',
+      paint(T, r, g) { let x = 12; for (let j = 0; j < 4; j++) { const v = r.w[j], s = v > 0.66 ? '█' : v > 0.4 ? '▓' : v > 0.2 ? '▒' : v > 0.05 ? '░' : ' '; T.put(x, g.y + 1, LET[j], j === r.owner ? 3 : 0); T.put(x + 1, g.y + 1, s, 0); x += 3; } } }
+  ],
+  mods: [
+    { id: 'band', name: 'Shade band', rec: true, shows: 'range live', cost: 'The line under the bar shades the range with brackets at its ends, and a solid block at the output. One line a row. It has a column\'s resolution, so slow motion moves in visible steps.',
+      paint(T, r, g) { const R = r.route, a = g.col(R.lo), b = g.col(R.hi), L = g.y + 3; for (let x = a; x <= b; x++) T.put(x, L, '▒', 1); T.put(a, L, '[', 0); T.put(b, L, ']', 0); T.put(g.col(R.out), L, '█', 2); } },
+    { id: 'cursor', name: 'Inverse cursor', shows: 'range live', cost: 'A terminal cursor walks inside the bar itself, between < and > marks under it. No shading at all, so the eye follows one block. In a still, only the marks say it is a route, and over the filled part the cursor has to be a dark hole, not a bright block.',
+      paint(T, r, g) { const R = r.route, L = g.y + 2; T.put(g.col(R.lo), g.y + 3, '<', 2); T.put(g.col(R.hi), g.y + 3, '>', 2); const c = g.col(R.out), over = T.ch[L * 64 + c] === '█'; T.put(c, L, ' ', over ? 0 : 3); } },
+    { id: 'chart', name: 'Strip chart', rr: 18, shows: 'range live shape', cost: 'A 16-column rolling chart in block characters beside the bar, with the depth printed under it. It\'s the most terminal thing here, and shows the source\'s shape, but it takes 18 columns from the bar, and the output\'s place on the track is gone.',
+      paint(T, r, g) { const R = r.route, x = g.mx; for (let i = 0; i < 16; i++) { const v = (R.hist((15 - i) * 6) - r.base) * 2.2 + 0.5; T.put(x + i, g.y + 2, CRT_BLOCK[clamp(Math.round(v * 7), 0, 7)], i === 15 ? 2 : 0); } T.put(x, g.y + 3, R.name.replace(' ', '') + ' +-' + P100(R.depth), 0); } }
+  ]
+};
+
+/* ---------- The teletext page: 40x24 cells, eight colours, one foreground and one background a cell, 2x3 sextants. ---------- */
+const TTXC = { K: hx('#000000'), R: hx('#FF0000'), G: hx('#00FF00'), Y: hx('#FFFF00'), B: hx('#0000FF'), M: hx('#FF00FF'), C: hx('#00FFFF'), W: hx('#FFFFFF') };
+class Page {
+  constructor(lines, k) { this.c = 40; this.r = lines; this.k = k; this.vs = 6 * k; this.cells = []; for (let i = 0; i < 40 * lines; i++) this.cells.push({ ch: ' ', fg: 'W', bg: 'K', mos: -1, dh: 0, sep: 0 }); this.sf = new Sf(160, lines * 6, k); this.W = this.sf.W; this.H = this.sf.H; this.out = this.sf.out; }
+  clear() { for (const c of this.cells) { c.ch = ' '; c.fg = 'W'; c.bg = 'K'; c.mos = -1; c.dh = 0; c.sep = 0; } }
+  at(x, y) { return x >= 0 && x < 40 && y >= 0 && y < this.r ? this.cells[y * 40 + x] : null; }
+  put(x, y, s, fg = 'W', bg, dh) { s = String(s); for (let i = 0; i < s.length; i++) { const c = this.at(x + i, y); if (!c) continue; c.ch = s[i]; c.fg = fg; if (bg) c.bg = bg; c.mos = -1; c.dh = dh || 0; } return x + s.length; }
+  bgfill(x, y, w, bg) { for (let i = 0; i < w; i++) { const c = this.at(x + i, y); if (c) c.bg = bg; } }
+  plot(sx, sy, fg, sep) { const c = this.at(sx >> 1, Math.floor(sy / 3)); if (!c) return; if (c.mos < 0) { c.mos = 0; c.ch = ' '; } c.fg = fg; c.sep = sep ? 1 : 0; c.mos |= 1 << ((sy % 3) * 2 + (sx & 1)); }
+  compose() {
+    const k = this.k, S = this.sf, d = S.out, W = S.W, cw = 4 * k, ch = 6 * k, dot = k >= 3 ? 2 : 1;
+    const fill = (x, y, w, h, c) => { for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) if (xx >= 0 && xx < W && yy >= 0 && yy < S.H) { const o = (yy * W + xx) * 4; d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 255; } };
+    for (let y = 0; y < this.r; y++) for (let x = 0; x < 40; x++) fill(x * cw, y * ch, cw, ch, TTXC[this.cells[y * 40 + x].bg]);
+    for (let y = 0; y < this.r; y++) for (let x = 0; x < 40; x++) {
+      const c = this.cells[y * 40 + x], X = x * cw, Y = y * ch;
+      if (c.mos >= 0) { const sw = cw / 2, sh = ch / 3, g = c.sep ? Math.max(1, k - 1) : 0; for (let b = 0; b < 6; b++) if (c.mos & (1 << b)) fill(X + (b & 1) * sw, Y + (b >> 1) * sh, sw - g, sh - g, TTXC[c.fg]); continue; }
+      if (c.ch === ' ') continue;
+      const R = rows57(c.ch), dy = c.dh ? dot * 2 : dot, oy = c.dh ? 2 * dot : dot + (k >= 3 ? 1 : 1);
+      for (let r = 0; r < 7; r++) for (let q = 0; q < 5; q++) if ((R[r] >> (4 - q)) & 1) fill(X + dot * (k >= 3 ? 0.5 : 1) + q * dot | 0, Y + oy + r * dy, dot, dy, TTXC[c.fg]);
+    }
+  }
+}
+const scrTTX = {
+  id: 'ttx', mod: 'no module', medium: 'Teletext page', status: 'AUDITION', cite: 'screens.md: workshop pairing EQ',
+  policy: 'Overrides the scheme: the eight teletext colours are the idiom. Its colours are not corner hues (ADR-259 ruling 4), so no corner gets a colour of its own, and red, green, yellow and cyan already belong to the four Fastext keys. Marks use letters, background swaps, double height, flash, separated graphics and rolling subpages.',
+  css: { card: 1, mix: 1 },
+  make(mix) { const T = new Page(mix ? 24 : 17, mix ? 3 : 2); T.top = mix ? 3 : 1; return T; },
+  begin(T) { T.clear(); },
+  head(T) { T.put(1, 0, 'P323', 'W'); T.put(7, 0, 'HORDE FX', 'Y'); T.put(34, 0, 'MOCK', 'G'); T.bgfill(0, 1, 40, 'B'); T.put(2, 1, 'SAMPLE ROWS', 'Y', 'B'); },
+  geom(T, i, res) {
+    const y = T.top + i * 4, cl = res.cl || 0, tx = 1 + cl, tn = 38 - cl - (res.cr || 0) - (res.mr || 0);
+    return { i, top: y, bot: y + 4, y, tx, tn, col: v => tx + Math.min(tn - 1, Math.floor(v * tn)), cx: tx + tn + 1, mx: tx + tn + 1 + (res.cr || 0), sx: v => tx * 2 + Math.round(v * (tn * 2 - 1)) };
+  },
+  base(T, r, g) {
+    T.put(1, g.y, r.name, 'W'); if (r.kind === 'quantum') T.put(7, g.y, 'Q', 'K', 'Y'); T.put(39 - r.text.length, g.y, r.text, 'C');
+    const L = g.y + 2;
+    if (r.kind === 'step') { const n = r.steps.length, cur = Math.floor(r.base * n), cw = Math.floor(g.tn / n); r.steps.forEach((s, q) => { const x = g.tx + q * cw; if (q === cur) { T.bgfill(x, L, cw - 1, 'W'); T.put(x + 1, L, s, 'K', 'W'); } else T.put(x + 1, L, s, 'W'); }); return; }
+    const n = Math.round(g.tn * 2 * r.base); for (let i = 0; i < g.tn * 2; i++) { if (i < n) for (let q = 0; q < 3; q++) T.plot(g.tx * 2 + i, L * 3 + q, 'G'); else T.plot(g.tx * 2 + i, L * 3 + 2, 'G'); }
+  },
+  foot(T) { const FAST = ['R', 'G', 'Y', 'C']; SOFT.forEach((s, j) => { T.bgfill(j * 10, 23, 10, FAST[j]); T.put(j * 10 + 3, 23, s, 'K', FAST[j]); }); },
+  end(T) { T.compose(); },
+  corners: [
+    { id: 'today', name: 'Legend line', today: true, shows: '', page(T) { T.put(1, T.top - 1, 'CORNERS A B C D = HORDE MORPH SLOTS', 'G'); }, cost: 'What the page has today: one line naming the slots. It costs one line and answers none of the three questions.' },
+    { id: 'letters', name: 'Letters in cells', rec: true, shows: 'owner pos', cost: 'The letters sit on the line above the bar, each in its corner\'s cell; the owner is black on yellow. One line a row and quick to read. A column\'s resolution, so close corners share a cell, and it can\'t show the weights.',
+      paint(T, r, g) { for (const j of order(r)) { const o = j === r.owner, c = g.col(r.vals[j]); T.put(c, g.y + 1, LET[j], o ? 'K' : 'W', o ? 'Y' : 'K'); } } },
+    { id: 'chart', name: 'Chart columns', rr: 13, shows: 'owner pos', cost: 'Four mosaic columns beside the bar, the way a teletext weather chart draws a bar graph, the owner white and the others cyan. It reads as a shape from across a room. It takes 13 cells off the bar, the columns are 3 sextants to a line, and it can\'t show the weights.',
+      paint(T, r, g) { for (let j = 0; j < 4; j++) { const x = g.cx + j * 3, o = j === r.owner, top = 3 * (g.y + 3) - Math.round(r.vals[j] * 8); for (let sy = top; sy < 3 * (g.y + 3); sy++) { T.plot(x * 2, sy, o ? 'W' : 'C'); T.plot(x * 2 + 1, sy, o ? 'W' : 'C'); } T.put(x, g.y + 3, LET[j], o ? 'W' : 'C'); } } },
+    { id: 'dh', name: 'Double-height owner', rl: 4, shows: 'owner pos', cost: 'The owner\'s letter in teletext\'s double height at the row\'s start, in black on yellow, and bare sextant ticks for all four on the lane. You can read the owner from far away; the ticks say where corners sit but not which is which, and the bar loses 4 cells.',
+      paint(T, r, g) { T.bgfill(1, g.y + 1, 3, 'Y'); T.bgfill(1, g.y + 2, 3, 'Y'); T.put(2, g.y + 1, LET[r.owner], 'K', 'Y', 1); T.at(2, g.y + 2).ch = ' '; T.at(2, g.y + 2).mos = -1; for (let j = 0; j < 4; j++) { const sx = g.sx(r.vals[j]), sy = (g.y + 1) * 3 + 1; T.plot(sx, sy, 'W'); T.plot(sx, sy + 1, 'W'); } } },
+    { id: 'sub', name: 'Rolling subpage', rec: false, shows: 'owner pos', cost: 'Teletext\'s rolling subpages: the line shows one corner at a time, 1/4 A 18, then 2/4 B 82, and so on, with the owner marked. Very true to the medium, and it uses 16 cells. A still frame shows one corner only, you wait up to 4 seconds for the rest, and it can\'t show the weights.',
+      paint(T, r, g, st) { const j = Math.floor((st.f + r.i * 15) / 60) % 4, o = j === r.owner; T.put(g.tx, g.y + 1, (j + 1) + '/4 ' + LET[j] + ' ' + P100(r.vals[j]), o ? 'K' : 'W', o ? 'Y' : 'K'); T.put(g.tx + 10, g.y + 1, 'OWNS ' + LET[r.owner], 'W'); } }
+  ],
+  mods: [
+    { id: 'flash', name: 'Blue band, flash cell', rec: true, shows: 'range live', cost: 'The cells across the range turn blue on the line under the bar, and the output\'s cell is a white block that flashes. Teletext\'s flash attribute, so it\'s unmistakably live, and the blue holds a still frame. A cell\'s resolution, and a page of flashing cells gets tiring.',
+      paint(T, r, g, st) { const R = r.route, L = g.y + 3, a = g.col(R.lo), b = g.col(R.hi); T.bgfill(a, L, b - a + 1, 'B'); const c = T.at(g.col(R.out), L); if (c) { if ((st.f >> 4) & 1) { c.bg = 'W'; } else { c.bg = 'B'; c.ch = '*'; c.fg = 'W'; } } } },
+    { id: 'sep', name: 'Separated graphics', shows: 'range live', cost: 'The range uses teletext\'s separated mosaics, which show holes, under the bar, and a solid block at the output. A real attribute of the medium, and it costs no colour. It\'s only visible at ×2 or more, as separated sextants lose their gaps when small.',
+      paint(T, r, g) { const R = r.route, L = g.y + 3; for (let c = g.col(R.lo); c <= g.col(R.hi); c++) for (let q = 0; q < 2; q++) for (let s = 0; s < 3; s++) T.plot(c * 2 + q, L * 3 + s, 'C', true); const c = g.col(R.out); for (let q = 0; q < 2; q++) for (let s = 0; s < 3; s++) T.plot(c * 2 + q, L * 3 + s, 'W'); } },
+    { id: 'trace', name: 'Mosaic wave', rr: 14, shows: 'range live shape', cost: 'A rolling mosaic trace beside the bar with the source and depth above it. It shows the shape in 3 sextants of height, so it\'s coarse. It takes 14 cells off the bar, and the output\'s place along the bar goes.',
+      paint(T, r, g) { const R = r.route, x = g.mx; T.put(x, g.y + 1, 'LFO1 +-' + P100(R.depth), 'C'); for (let i = 0; i < 24; i++) { const v = (R.hist((23 - i) * 6) - r.base) * 2.2 + 0.5; T.plot(x * 2 + i, (g.y + 2) * 3 + clamp(5 - Math.round(v * 5), 0, 5), i === 23 ? 'W' : 'Y'); } } }
+  ]
+};
+
+/* ---------- The dot-matrix character LCD: 26x16 cells of 5x8 dots, a ROM font and EIGHT custom characters, for the whole screen. ---------- */
+class Lcd {
+  constructor(lines, k) { this.c = 26; this.r = lines; this.k = k; this.vs = 9 * k; this.ch = new Array(26 * lines).fill(' '); this.inv = new Uint8Array(26 * lines); this.sf = new Sf(160, lines * 9, k); this.W = this.sf.W; this.H = this.sf.H; this.out = this.sf.out; this.cg = []; this.keys = {}; this.over = 0; this.gridKey = ''; this.grid = null; this.I = null; }
+  clear() { this.ch.fill(' '); this.inv.fill(0); this.cg = []; this.keys = {}; this.over = 0; }
+  /* claim one of the eight CGRAM characters. A ninth is counted as a fault: self-check 4 holds every corner x modulation pair to it. */
+  def(rows) { const key = rows.join(','); if (this.keys[key] !== undefined) return this.keys[key]; if (this.cg.length >= 8) { this.over++; return '?'; } this.cg.push(rows); return (this.keys[key] = String.fromCharCode(this.cg.length)); }
+  put(x, y, s, inv) { s = String(s); for (let i = 0; i < s.length; i++) { const xx = x + i; if (xx < 0 || xx >= 26 || y < 0 || y >= this.r) continue; this.ch[y * 26 + xx] = s[i]; this.inv[y * 26 + xx] = inv ? 1 : 0; } return x + s.length; }
+  compose(I) {
+    const k = this.k, S = this.sf, d = S.out, W = S.W, dot = Math.max(1, k - 1), px = 6 * k, py = 9 * k, ox = 2 * k, key = I.key;
+    const dotAt = (c, r, x, y, col) => { const X = ox + c * px + x * k, Y = r * py + y * k; for (let yy = Y; yy < Y + dot; yy++) for (let xx = X; xx < X + dot; xx++) if (xx < W && yy < S.H) { const o = (yy * W + xx) * 4; d[o] = col[0]; d[o + 1] = col[1]; d[o + 2] = col[2]; d[o + 3] = 255; } };
+    if (this.gridKey !== key) { S.clear(I.ground); for (let r = 0; r < this.r; r++) for (let c = 0; c < 26; c++) for (let y = 0; y < 8; y++) for (let x = 0; x < 5; x++) dotAt(c, r, x, y, I.off); this.grid = d.slice(); this.gridKey = key; } else d.set(this.grid);
+    for (let r = 0; r < this.r; r++) for (let c = 0; c < 26; c++) {
+      const ch = this.ch[r * 26 + c], inv = this.inv[r * 26 + c]; if (ch === ' ' && !inv) continue;
+      const code = ch.charCodeAt(0); let R;
+      if (code >= 1 && code <= 8) R = this.cg[code - 1]; else if (ch === '█') R = [31, 31, 31, 31, 31, 31, 31, 31]; else { R = rows57(ch).concat(0); }
+      /* an inverted cell fills solid, a dot past the glyph on every side, and cuts the letter out: dot-for-dot inversion left an unreadable mesh, and with no margin a letter's stem fell off the edge */
+      if (inv) { const X = ox + c * px - k, Y = r * py - k, w = 7 * k, h = 9 * k; for (let yy = Math.max(0, Y); yy < Y + h; yy++) for (let xx = Math.max(0, X); xx < X + w; xx++) if (xx < W && yy < S.H) { const o = (yy * W + xx) * 4; d[o] = I.on[0]; d[o + 1] = I.on[1]; d[o + 2] = I.on[2]; } }
+      for (let y = 0; y < 8; y++) for (let x = 0; x < 5; x++) if ((R[y] >> (4 - x)) & 1) { if (!inv) { dotAt(c, r, x, y, I.on); continue; } const X = ox + c * px + x * k, Y = r * py + y * k; for (let yy = Y; yy < Y + k; yy++) for (let xx = X; xx < X + k; xx++) if (xx < W && yy < S.H) { const o = (yy * W + xx) * 4; d[o] = I.ground[0]; d[o + 1] = I.ground[1]; d[o + 2] = I.ground[2]; } }
+    }
+  }
+}
+const lcdInks = st => { const c = sch(st.scheme), pale = !c.dark, ground = pale ? mix(c.g, hx('#B8C98A'), 0.28) : c.g, on = pale ? mix(c.p, [0, 0, 0], 0.4) : c.m; return { key: st.scheme, ground, on, off: mix(ground, on, pale ? 0.07 : 0.09) }; };
+const CG_GLYPH = [0, 1, 2, 3].map(j => SPR.solid[j].map(s => parseInt(s, 2)).concat([0, 0, 0]));
+const CG_PART = [1, 2, 3, 4].map(n => { const v = ((1 << n) - 1) << (5 - n), r = []; for (let y = 0; y < 8; y++) r.push(v); return r; });
+const CG_UP = [4, 14, 31, 4, 4, 4, 0, 0], CG_DN = [4, 4, 4, 31, 14, 4, 0, 0];
+const scrLCD = {
+  id: 'lcd', mod: 'no module', medium: 'Dot-matrix character LCD', status: 'AUDITION', cite: 'screens.md: workshop pairing delay',
+  policy: 'Takes the scheme. 26 by 16 cells from a ROM font, plus eight custom characters for the whole screen. So a mark isn\'t only a drawing, it\'s a budget: a corner language and a modulation language share those eight, and self-check 4 holds every pair to it. Three lines a row, so the two marks must share lines.',
+  css: { card: 1, mix: 1 },
+  make(mix) { const T = new Lcd(mix ? 16 : 12, mix ? 3 : 2); T.top = mix ? 1 : 0; return T; },
+  begin(T) { T.clear(); },
+  head(T) { T.put(0, 0, 'DELAY PANEL'); T.put(22, 0, 'MOCK'); },
+  geom(T, i, res) {
+    const y = T.top + i * 3, cl = res.cl || 0, tn = 26 - cl - (res.cr || 0) - (res.mr || 0);
+    return { i, top: y, bot: y + 3, y, tx: cl, tn, col: v => cl + Math.min(tn - 1, Math.floor(v * tn)), cx: cl + tn, mx: cl + tn + (res.cr || 0) };
+  },
+  base(T, r, g) {
+    T.put(0, g.y, r.name); if (r.kind === 'quantum') T.put(5, g.y, 'Q', true); T.put(6, g.y, ' ' + r.text);
+    const L = g.y + 2;
+    if (r.kind === 'step') { const n = r.steps.length, cur = Math.floor(r.base * n), cw = Math.floor(g.tn / n); r.steps.forEach((s, q) => T.put(g.tx + q * cw + 1, L, ' ' + s + ' ', q === cur)); return; }
+    const c = Math.round(r.base * g.tn); T.put(g.tx, L, '█'.repeat(c)); T.put(g.tx + c, L, '_'.repeat(g.tn - c));
+  },
+  foot(T) { SOFT.forEach((s, j) => { T.put(j * 7, 14, String(j + 1)); T.put(j * 7, 15, s, true); }); },
+  end(T, st) { T.compose(lcdInks(st)); },
+  corners: [
+    { id: 'ruler', name: 'ROM letters', rec: true, shows: 'owner pos', cost: 'Plain ROM letters on a line above the bar, each at its corner\'s column, the owner inverted. No custom characters at all, so the whole budget stays free. One line a row; close corners share a cell, and it can\'t show the weights.',
+      paint(T, r, g) { for (const j of order(r)) T.put(g.col(r.vals[j]), g.y + 1, LET[j], j === r.owner); } },
+    { id: 'pips', name: 'Custom glyphs', shows: 'owner pos', cost: 'The four pip shapes as custom characters, the owner inverted. Closest to the chassis, but it spends four of the eight characters, half the screen\'s budget, on one idea. Glyphs are a cell wide, and it can\'t show the weights.',
+      paint(T, r, g) { for (const j of order(r)) T.put(g.col(r.vals[j]), g.y + 1, T.def(CG_GLYPH[j]), j === r.owner); } },
+    { id: 'nums', name: 'Number line', shows: 'owner pos', cost: 'A18 B82 C40 D64 on one line, the owner inverted. It uses 15 cells of ROM and no custom characters, and the numbers are exact. You read numbers instead of seeing a shape, it fills the line, and it can\'t show the weights.',
+      paint(T, r, g) { for (let j = 0; j < 4; j++) T.put(j * 4, g.y + 1, LET[j] + P100(r.vals[j]), j === r.owner); } }
+  ],
+  mods: [
+    { id: 'tip', name: 'Sub-cell tip', rec: true, shows: 'range live', cost: 'ROM brackets on the bar mark the range, and a custom partial cell moves the output by the dot, five steps to a cell. The smoothest motion this glass can do. It keeps four custom characters loaded, so with Custom glyphs the budget is exactly full, and the brackets replace bar cells.',
+      paint(T, r, g) { const R = r.route, L = g.y + 2, ca = Math.min(g.tx + g.tn - 1, g.col(R.lo)), cb = g.col(R.hi); T.put(ca, L, '['); T.put(cb, L, ']'); const u = R.out * g.tn, c = clamp(Math.floor(u), 0, g.tn - 1), n = Math.floor((u - Math.floor(u)) * 5); T.put(g.tx + c, L, T.def(CG_PART[clamp(n - 1, 0, 3)])); } },
+    { id: 'cursor', name: 'Walking cursor', shows: 'range live', cost: 'An inverted cell walks along the bar between < and > marks. All ROM, so it spends none of the budget. It moves a whole 6 dots a step, so slow modulation looks stepped, and the marks replace bar cells.',
+      paint(T, r, g) { const R = r.route, L = g.y + 2; T.put(g.col(R.lo), L, '<'); T.put(g.col(R.hi), L, '>'); const c = g.col(R.out), old = T.ch[L * 26 + c]; T.put(c, L, old === '█' ? ' ' : old, true); } },
+    { id: 'read', name: 'Arrow readout', shows: 'range live', cost: 'A printed line: LFO1 +-20 and the output with a custom up or down arrow, in the label line\'s free cells. It uses two custom characters and tells you the source by name. There is no picture of the range, only the number, and moving digits are hard to read.',
+      paint(T, r, g) { const R = r.route; T.put(11, g.y, 'LFO1 +-' + P100(R.depth)); T.put(21, g.y, T.def(R.up ? CG_UP : CG_DN)); T.put(23, g.y, P100(R.out)); } }
+  ]
+};
+
+/* ---------- The six stroke screens share one row geometry, in 160x144 units ---------- */
+function sfMake(mix) { const T = new Sf(160, mix ? 144 : 102, mix ? 3 : 2); T.oy = mix ? 15 : 1; return T; }
+function sfGeom(T, i, res) {
+  const y = T.oy + i * 25, cl = res.cl || 0, tx = 4 + cl, tw = 152 - cl - (res.cr || 0) - (res.mr || 0);
+  return { i, y, top: y, bot: y + 25, lx: 4, vr: 156, lane: y + 6, ty: y + 14, my: y + 18, tx, tw, vx: v => tx + v * tw, cx: tx + tw + 2, mx: tx + tw + 2 + (res.cr || 0) };
+}
+const stepCells = (r, g) => { const n = r.steps.length, cw = g.tw / n; return r.steps.map((s, q) => ({ s, x: g.tx + q * cw, w: cw - 1, cur: q === Math.floor(r.base * n) })); };
+const inkRight = (g, s, adv) => g.vr - s.length * adv;
+
+/* ---------- The segment glass: every mark is a segment on a fixed mask, unlit ones faintly visible. ---------- */
+const segInks = st => { const c = sch(st.scheme), pale = !c.dark, on = pale ? mix(c.p, [0, 0, 0], 0.45) : c.m; return { pale, ground: pale ? mix(c.g, hx('#9AA08A'), 0.18) : c.g, on, val: pale ? on : c.v, att: pale ? on : c.k, ghost: on, ga: pale ? 0.07 : 0.1, legend: pale ? on : c.r }; };
+function sBar(T, x, y, w, h, n, I, litFn) { const sw = (w - (n - 1) * 0.6) / n; for (let i = 0; i < n; i++) { const c = litFn(i, n); if (c) T.rect(x + i * (sw + 0.6), y, sw, h, c); else T.rect(x + i * (sw + 0.6), y, sw, h, I.ghost, I.ga); } }
+const segIdx = (v, n) => clamp(Math.round(v * (n - 1)), 0, n - 1);
+const scrSEG = {
+  id: 'seg', mod: 'Scape', medium: 'Segment glass', status: 'AUDITION', cite: 'ADR-259 ruling 5; screens.md: reverb (Scape)',
+  policy: 'Takes the scheme: a reflective LCD on pale schemes, a glowing VFD on dark. Custom glass is a fixed mask: a mark can\'t move, only light up where a segment was fabricated, and the off ones show faintly. On an LCD a segment can\'t be dim either, so blink is the only emphasis it has. B and D take their lower-case forms, as real segment displays do, because the capitals both read as a square bracket.',
+  css: { card: 1, mix: 1 }, make: sfMake, geom: sfGeom,
+  begin(T, st) { T.I = segInks(st); T.clear(T.I.ground); },
+  head(T) { const I = T.I; T.seg('SCAPE', 4, 3, 3.6, 7, I.on, { ghost: I.ghost, ghostA: I.ga, lw: 0.7 }); T.seg('MOCK', 136, 4, 2.2, 4, I.legend, { lw: 0.4 }); T.rect(4, 12, 152, 0.3, I.legend, 0.6); },
+  base(T, r, g) {
+    const I = T.I;
+    T.seg(r.name, g.lx, g.y, 2.4, 4.4, I.on, { ghost: I.ghost, ghostA: I.ga, lw: 0.5 });
+    if (r.kind === 'quantum') T.seg('Q', g.lx + 20, g.y, 2.4, 4.4, I.att, { lw: 0.5 });
+    if (r.kind === 'step') { T.seg(r.text, g.vr - 8, g.y, 2.4, 4.4, I.on, { lw: 0.5, adv: 1.5 }); for (const c of stepCells(r, g)) { if (c.cur) T.rect(c.x, g.ty, c.w, 3, I.val); else { T.rect(c.x, g.ty, c.w, 3, I.ghost, I.ga); } } return; }
+    T.seg(r.text, g.vr - 8, g.y, 2.4, 4.4, I.on, { seven: true, ghost: I.ghost, ghostA: I.ga, lw: 0.55, adv: 1.5 });
+    const v = Math.round(r.base * 40); sBar(T, g.tx, g.ty, g.tw, 3, 40, I, i => (i < v ? I.val : null));
+  },
+  foot(T) { const I = T.I; T.rect(4, 117, 152, 0.3, I.legend, 0.6); SOFT.forEach((s, j) => { const x = j * 38 + 4; T.rect(x, 124, 32, 10, I.on); T.seg(s, x + 5, 127, 2.2, 4, I.ground, { lw: 0.45 }); }); },
+  end() {},
+  corners: [
+    { id: 'lanes', name: 'Four lanes', shows: 'owner pos', cost: 'Four thin segment lanes above the bar, one per corner, A at the top; each lights one segment, three wide for the owner. Identity comes from the lane, so nothing has to move. It takes 160 segments a row, the costliest mask here; there\'s no room to print a letter, so you learn the order; and it can\'t show the weights.',
+      paint(T, r, g) { const I = T.I; for (let j = 0; j < 4; j++) { const y = g.lane + j * 1.75; const on = segIdx(r.vals[j], 40), o = j === r.owner; sBar(T, g.tx, y, g.tw, 1.2, 40, I, i => (i === on || (o && Math.abs(i - on) <= 1) ? I.on : null)); } } },
+    { id: 'ann', name: 'Annunciators', shows: 'owner', cost: 'Four printed icons, A B C D, at the row\'s end; only the owner\'s is lit. The classic instrument answer, and the cheapest mask: 4 segments a row. It answers only who owns the row, not where anything sits.',
+      paint(T, r, g) { const I = T.I; for (let j = 0; j < 4; j++) { const x = g.tx + g.tw - 30 + j * 7.6, o = j === r.owner; T.rect(x, g.lane, 6.4, 6.6, o ? I.on : I.ghost, o ? 1 : I.ga); T.seg(LET[j], x + 1.7, g.lane + 1.1, 2.5, 4.4, o ? I.ground : I.ghost, { lw: 0.5 }); } } },
+    { id: 'digits', name: 'Corner digits', rec: true, shows: 'owner pos', cost: 'Each corner gets a printed letter and two 7-segment digits, the owner\'s box lit. Exact and always legible, and truest to a glass built for numbers. 64 segments a row, it fills the lane, you read a number instead of a place, and it can\'t show the weights.',
+      paint(T, r, g) { const I = T.I; for (let j = 0; j < 4; j++) { const x = g.tx + j * 37, o = j === r.owner; if (o) { T.rect(x - 0.6, g.lane - 0.4, 22, 0.4, I.on); T.rect(x - 0.6, g.lane + 6.6, 22, 0.4, I.on); } T.seg(LET[j], x, g.lane + 0.6, 2.6, 5, I.on, { lw: 0.5 }); T.seg(P100(r.vals[j]), x + 7, g.lane + 0.6, 2.6, 5, I.on, { seven: true, ghost: I.ghost, ghostA: I.ga, lw: 0.6, adv: 1.7 }); } } },
+    { id: 'stacks', name: 'Weight stacks', rr: 22, shows: 'owner weight', cost: 'Four little 6-segment columns at the row\'s end rise with each corner\'s weight, the owner marked by a lit base. It shows how the blend is split, in 24 segments, and takes 22 units off the bar. It can\'t show where any corner sits.',
+      paint(T, r, g) { const I = T.I; for (let j = 0; j < 4; j++) { const x = g.cx + j * 5, n = Math.round(r.w[j] * 6); for (let q = 0; q < 6; q++) { const on = q < n; T.rect(x, g.ty + 2 - q * 2, 4, 1.5, on ? I.on : I.ghost, on ? 1 : I.ga); } if (j === r.owner) T.rect(x, g.ty + 4.4, 4, 1, I.on); } } }
+  ],
+  mods: [
+    { id: 'blink', name: 'Blink band', rec: true, shows: 'range live', cost: 'A second 40-segment lane under the bar: range segments lit, flipped on and off as a slow blink, end caps always lit, and the output steady. Blink is a segment glass\'s only emphasis, so this is its native gesture, and the caps hold a still frame. 40 segments a row, and blink is tiring in numbers.',
+      paint(T, r, g, st) { const I = T.I, n = 40, a = segIdx(r.route.lo, n), b = segIdx(r.route.hi, n), o = segIdx(r.route.out, n), on = (st.f >> 4) & 1; sBar(T, g.tx, g.my, g.tw, 2.4, n, I, i => (i === o || i === a || i === b ? I.on : i > a && i < b && on && i % 2 ? I.on : null)); } },
+    { id: 'hole', name: 'Span with a hole', shows: 'range live', cost: 'The range is a solid run of segments with one dark gap at the output, like a slot moving in a bar. It needs no blink and reads the same in a still. A dark gap is harder to follow than a lit dot, and it vanishes at the range\'s ends.',
+      paint(T, r, g) { const I = T.I, n = 40, a = segIdx(r.route.lo, n), b = segIdx(r.route.hi, n), o = segIdx(r.route.out, n); sBar(T, g.tx, g.my, g.tw, 2.4, n, I, i => (i >= a && i <= b && i !== o ? I.on : null)); } },
+    { id: 'num', name: 'Depth readout', shows: 'range live', cost: 'Printed LFO1, a 7-segment depth and a 3-digit output in the lane. It tells you the source and exact figures, in about 40 segments. There is no picture at all, and a moving 3-digit number at 1/3 Hz is hard to read.',
+      paint(T, r, g) { const I = T.I, R = r.route; T.seg('LFO1', g.tx, g.my, 1.8, 3.4, I.legend, { lw: 0.35 }); T.seg('+-', g.tx + 13, g.my, 1.8, 3.4, I.on, { lw: 0.35 }); T.seg(P100(R.depth), g.tx + 19, g.my, 1.8, 3.4, I.on, { seven: true, ghost: I.ghost, ghostA: I.ga, lw: 0.4, adv: 1.7 }); T.seg(P100(R.out), g.tx + 36, g.my, 1.8, 3.4, I.val, { seven: true, ghost: I.ghost, ghostA: I.ga, lw: 0.4, adv: 1.7 }); } }
+  ]
+};
+
+/* ---------- Nixie tubes and neon bargraphs: one gas colour, glowing cathodes. ---------- */
+const NEON = { ground: hx('#0B0806'), lit: hx('#FF8A2E'), glow: hx('#FF4A00'), cath: hx('#6B5645'), glass: hx('#4B4036'), legend: hx('#DECCB8') };
+function nBar(T, x, y, w, h, a, b) { T.rect(x, y, w, h, NEON.glass, 0.35); if (b <= a) return; T.rect(x + a * w, y - 0.6, (b - a) * w, h + 1.2, NEON.glow, 0.22); T.rect(x + a * w, y, (b - a) * w, h, NEON.lit); }
+const scrNIX = {
+  id: 'nix', mod: 'Bulwark', medium: 'Nixie tubes and neon bargraphs', status: 'AUDITION', cite: 'ADR-259 ruling 5; screens.md: compressor (Bulwark)',
+  policy: 'Overrides the scheme: neon\'s orange is its gas. There is one colour, lit or glowing a little less, so a corner\'s identity must come from the shape of a cathode. A real panel\'s lamps can\'t move; a screen can, and the cards say when they rely on that.',
+  css: { card: 1, mix: 1 }, make: sfMake, geom: sfGeom,
+  begin(T) { T.clear(NEON.ground); },
+  head(T) { T.text('BULWARK', 4, 4, NEON.legend); T.text('MOCK', 140, 4, NEON.legend); T.rect(4, 12, 152, 0.3, NEON.cath); },
+  base(T, r, g) {
+    T.text(r.name, g.lx, g.y, NEON.legend); if (r.kind === 'quantum') T.text('Q', g.lx + 22, g.y, NEON.lit);
+    T.seg(r.text, g.vr - 9, g.y - 0.6, 2.6, 5.4, NEON.lit, { lw: 0.5, inset: 0, adv: 1.5 });
+    if (r.kind === 'step') { for (const c of stepCells(r, g)) { T.rect(c.x, g.ty, c.w, 3, NEON.glass, 0.35); if (c.cur) nBar(T, c.x, g.ty, c.w, 3, 0, 1); } return; }
+    nBar(T, g.tx, g.ty, g.tw, 3, 0, r.base);
+  },
+  foot(T) { T.rect(4, 117, 152, 0.3, NEON.cath); SOFT.forEach((s, j) => { const x = j * 38 + 4; T.disc(x + 3, 128, 1.1, NEON.cath); T.text(s, x + 7, 126, NEON.legend); }); },
+  end() {},
+  corners: [
+    { id: 'stack', name: 'Cathode tube', rl: 15, shows: 'owner', cost: 'A real nixie at the row\'s start with four bent letter cathodes stacked inside, only the owner\'s lit, the rest visible as dark wire. The signature of the medium, and you can read it across a room. 13 by 22 units a row, and it only answers who owns the row.',
+      paint(T, r, g) { const x = g.lx + 0.5, y = g.y + 6.5, w = 11, h = 17; T.line(x, y + h, x, y + 4, NEON.glass, 0.4); T.line(x + w, y + h, x + w, y + 4, NEON.glass, 0.4); T.arc(x + w / 2, y + 4, w / 2, Math.PI, 2 * Math.PI, NEON.glass, 0.4); T.line(x, y + h, x + w, y + h, NEON.glass, 0.4); for (let j = 0; j < 4; j++) if (j !== r.owner) T.seg(LET[j], x + 2.4, y + 3, 6, 11, NEON.cath, { lw: 0.35, inset: 0, round: true }); T.seg(LET[r.owner], x + 2.4, y + 3, 6, 11, NEON.glow, { lw: 1.6, inset: 0 }); T.seg(LET[r.owner], x + 2.4, y + 3, 6, 11, NEON.lit, { lw: 0.6, inset: 0 }); } },
+    { id: 'lamps', name: 'Lamps on a scale', rec: true, shows: 'owner pos weight', cost: 'A neon lamp at each corner\'s value, brighter with weight, with its letter beside it; the owner\'s has a halo. It reads as a real scale and shows all three answers. Two lamps closer than 3 units merge, and a real panel\'s lamps couldn\'t move: this one needs the screen.',
+      paint(T, r, g) { for (const j of order(r)) { const x = g.vx(r.vals[j]), o = j === r.owner, y = g.lane + 5; if (o) T.disc(x, y, 2.4, NEON.glow, 0.28); T.disc(x, y, 1, mix(NEON.cath, NEON.lit, o ? 1 : clamp(0.2 + r.w[j] * 1.4, 0, 1))); T.text(LET[j], x - 1.5, g.lane - 1, o ? NEON.lit : NEON.legend, 0.8); } } },
+    { id: 'sleeves', name: 'Four sleeves', rr: 26, shows: 'owner pos', cost: 'Four short vertical IN-13 sleeves at the row\'s end, one per corner, each at that corner\'s level, the owner brightest. Very much the bargraph\'s own look. It takes 26 units from the track, loses the place along it, and can\'t show the weights.',
+      paint(T, r, g) { for (let j = 0; j < 4; j++) { const x = g.cx + j * 6, h = 12, y = g.y + 7, o = j === r.owner, L = r.vals[j] * h; T.rect(x + 1.2, y, 2.4, h, NEON.glass, 0.4); T.rect(x + 1.2, y + h - L, 2.4, L, mix(NEON.ground, NEON.lit, o ? 1 : 0.42)); if (o) T.rect(x + 0.6, y + h - L, 3.6, L, NEON.glow, 0.22); T.text(LET[j], x + 1.2, y + h + 0.5, o ? NEON.lit : NEON.legend, 0.7); } } }
+  ],
+  mods: [
+    { id: 'col', name: 'Second column', rec: true, shows: 'range live', cost: 'A thin second neon column under the bar: dim glass over the range, glowing from the range\'s low end up to the output, the way two IN-13 bars sit together on a meter. Costs 3 units a row and matches the main bar. Reads as a second measurement until you learn it.',
+      paint(T, r, g) { const R = r.route, a = g.vx(R.lo), b = g.vx(R.hi); T.rect(g.tx, g.my + 0.4, g.tw, 1.8, NEON.glass, 0.3); T.rect(a, g.my, b - a, 2.6, NEON.cath, 0.7); T.rect(a, g.my + 0.4, g.vx(R.out) - a, 1.8, NEON.lit); T.line(a, g.my - 0.6, a, g.my + 3.2, NEON.legend, 0.3); T.line(b, g.my - 0.6, b, g.my + 3.2, NEON.legend, 0.3); } },
+    { id: 'needle', name: 'Panel needle', rr: 30, shows: 'range live', cost: 'A small moving-coil meter at the row\'s end: the range is a thick arc on its scale, and a real needle swings to the output. It is the second needle, and a meter is what a compressor panel would have. It takes 30 units off the track, and four would be a lot of meters.',
+      paint(T, r, g) { const R = r.route, cx = g.mx + 14, cy = g.y + 22, q = 13, A = v => Math.PI * (1.15 + 0.7 * v); T.arc(cx, cy, q, A(0), A(1), NEON.legend, 0.25); T.arc(cx, cy, q, A(R.lo), A(R.hi), NEON.lit, 0.9); const a = A(R.out); T.gl(cx, cy, cx + (q + 1) * Math.cos(a), cy + (q + 1) * Math.sin(a), NEON.legend, 0.4); } },
+    { id: 'bead', name: 'Neon bead', shows: 'range live shape', cost: 'A glowing bead runs along a lane between two lit end lamps and leaves a decaying trail, as a neon stripe does. Very alive in motion, and the trail shows the shape of the last half second. In a still you see a bead and a smear, and the smear shortens at slow rates.',
+      paint(T, r, g) { const R = r.route, y = g.my + 1.4; for (let j = 34; j >= 1; j -= 2) T.disc(g.vx(R.hist(j)), y, 0.7, NEON.lit, 0.45 * (1 - j / 36)); T.disc(g.vx(R.lo), y, 0.7, NEON.legend); T.disc(g.vx(R.hi), y, 0.7, NEON.legend); T.disc(g.vx(R.out), y, 2, NEON.glow, 0.3); T.disc(g.vx(R.out), y, 1.1, NEON.lit); } }
+  ]
+};
+
+/* ---------- The sonar scope: P7 phosphor, a trace with grass, things painted by a sweep. ---------- */
+const P7 = { ground: hx('#020A06'), dim: hx('#1F7A33'), mid: hx('#6CFF4A'), hot: hx('#E8FFF4'), ring: hx('#2E9E40') };
+const GRASS = (() => { const R = mulberry32(SEED ^ 0x5151), a = []; for (let i = 0; i < 400; i++) a.push(R()); return a; })();
+const scrSON = {
+  id: 'son', mod: 'Echo', medium: 'Sonar scope', status: 'AUDITION', cite: 'ADR-259 ruling 5; screens.md: Echo',
+  policy: 'Overrides the scheme: P7 phosphor. A track here is an A-scope: a trace with a grass of noise and deflections on it. Brightness is real and persistence is the medium\'s memory, so history is free to draw. Afterglow is computed from the modulator\'s frame count, so a still frame is exact.',
+  css: { card: 1, mix: 1 }, make: sfMake, geom: sfGeom,
+  begin(T) { T.clear(P7.ground); },
+  head(T) { T.text('ECHO', 4, 4, P7.mid); T.text('MOCK', 140, 4, P7.dim); T.rect(4, 12, 152, 0.3, P7.dim); },
+  base(T, r, g) {
+    T.text(r.name, g.lx, g.y, P7.dim); if (r.kind === 'quantum') T.text('Q', g.lx + 22, g.y, P7.hot);
+    T.text(r.text, g.vr - r.text.length * 4 + 1, g.y, P7.mid);
+    const y = g.ty + 2.4; T.line(g.tx, y, g.tx + g.tw, y, P7.ring, 0.3);
+    for (let i = 0; i < g.tw; i += 2) { const h = GRASS[(i + r.i * 37) % 400] * 0.9; T.line(g.tx + i, y, g.tx + i, y - h, P7.dim, 0.2, 0.7); }
+    if (r.kind === 'step') { for (const c of stepCells(r, g)) { T.rect(c.x, y + 0.6, c.w, 1.2, c.cur ? P7.hot : P7.dim, c.cur ? 1 : 0.5); } return; }
+    const x = g.vx(r.base); T.line(x, y + 1.4, x, y - 2.4, P7.mid, 0.7); T.line(x, y + 1.4, x, y - 2.4, P7.mid, 2, 0.2);
+  },
+  foot(T) { T.rect(4, 117, 152, 0.3, P7.dim); SOFT.forEach((s, j) => { const x = j * 38 + 4; T.ring(x + 2, 128, 1.6, P7.dim, 0.4); T.text(s, x + 6, 126, P7.mid); }); },
+  end() {},
+  corners: [
+    { id: 'pips', name: 'Pips on the trace', rec: true, shows: 'owner pos weight', cost: 'Each corner is a deflection of the trace at its value, as tall as its weight, with a letter on top; the owner\'s is white-hot. It\'s how a scope shows contacts, and answers all three questions in the lane. Letters collide below 4 units, and a low-weight pip sinks towards the grass.',
+      paint(T, r, g) { const y = g.ty + 2.4; for (const j of order(r)) { const x = g.vx(r.vals[j]), o = j === r.owner, h = 1.5 + r.w[j] * 4; T.line(x, y, x, y - h, o ? P7.hot : P7.mid, o ? 0.7 : 0.45); T.text(LET[j], x - 1.4, y - h - 4.6, o ? P7.hot : P7.mid, 0.9); } } },
+    { id: 'dial', name: 'Bearing dial', rl: 22, shows: 'owner pos', cost: 'A small radar dial at the row\'s start: rim ticks at each corner\'s bearing, the owner\'s reaching in to the centre where its letter sits, and an arm at the blend. Nicest in this medium. It takes 22 units a row, and rim ticks at this size carry no letters, so three are nameless; it can\'t show the weights.',
+      paint(T, r, g) { const cx = g.lx + 9, cy = g.y + 15, q = 8.6, A = v => Math.PI * (0.75 + 1.5 * v); T.ring(cx, cy, q, P7.ring, 0.35); const b = A(r.base); T.line(cx, cy, cx + q * Math.cos(b), cy + q * Math.sin(b), P7.mid, 0.55); for (let j = 0; j < 4; j++) { const a = A(r.vals[j]), o = j === r.owner, inner = o ? 3 : q - 2.2; T.line(cx + inner * Math.cos(a), cy + inner * Math.sin(a), cx + (q + 1.2) * Math.cos(a), cy + (q + 1.2) * Math.sin(a), o ? P7.hot : P7.mid, o ? 0.6 : 0.45); } T.text(LET[r.owner], cx - 1.5, cy - 2.5, P7.hot); } },
+    { id: 'table', name: 'Contact table', rr: 36, shows: 'owner pos', cost: 'A small contact list at the row\'s end, A18 B82 / C40 D64, with the owner white-hot, like a sonar\'s track table. Exact and never colliding. It takes 36 units off the trace and loses the picture along it, and it can\'t show the weights.',
+      paint(T, r, g) { for (let j = 0; j < 4; j++) { const x = g.cx + (j % 2) * 18, y = g.y + 7 + (j >> 1) * 7, o = j === r.owner; if (o) T.text('>', x - 3.4, y, P7.hot, 0.8); T.text(LET[j] + P100(r.vals[j]), x, y, o ? P7.hot : P7.dim, 1); } } }
+  ],
+  mods: [
+    { id: 'glow', name: 'Afterglow', rec: true, shows: 'range live shape', cost: 'The output is a dot on a lane under the trace, trailing a phosphor smear, with fixed gate ticks at the range\'s ends. Persistence is this glass\'s real memory, so motion and shape come free. The ticks alone must carry the range when the rate is slow.',
+      paint(T, r, g) { const R = r.route, y = g.my + 1.6; for (let j = 60; j >= 1; j -= 2) T.disc(g.vx(R.hist(j)), y, 0.55, P7.mid, 0.5 * (1 - j / 62)); T.line(g.vx(R.lo), y - 1.6, g.vx(R.lo), y + 1.6, P7.ring, 0.45); T.line(g.vx(R.hi), y - 1.6, g.vx(R.hi), y + 1.6, P7.ring, 0.45); T.disc(g.vx(R.out), y, 0.95, P7.hot); } },
+    { id: 'gate', name: 'Range gate', shows: 'range live', cost: 'A hollow radar gate around the range with strobing corners, and a bright pip at the output. It has the look of a tracking gate and holds a still well. It is hollow, so against the grass a narrow gate is thin; it has no history.',
+      paint(T, r, g, st) { const R = r.route, a = g.vx(R.lo), b = g.vx(R.hi), y0 = g.my, y1 = g.my + 3.4, on = (st.f >> 3) & 1; T.line(a, y0, b, y0, P7.dim, 0.3); T.line(a, y1, b, y1, P7.dim, 0.3); for (const x of [a, b]) T.line(x, y0 - (on ? 0.6 : 0), x, y1 + (on ? 0.6 : 0), P7.mid, 0.45); const x = g.vx(R.out); T.line(x, y0 + 0.2, x, y1 - 0.2, P7.hot, 0.8); } },
+    { id: 'water', name: 'Waterfall', rr: 32, shows: 'live shape', cost: 'A scrolling waterfall beside the trace, one line per moment, value across and time down, as a sonar\'s B-scan does. It shows the source\'s history at a glance. It can\'t show the range, and takes 32 units from the trace.',
+      paint(T, r, g) { const R = r.route, x = g.mx, y = g.y + 7, w = 30, h = 16; T.rect(x, y, w, 0.3, P7.dim); T.rect(x, y + h, w, 0.3, P7.dim); T.rect(x, y, 0.3, h, P7.dim); T.rect(x + w, y, 0.3, h, P7.dim); for (let i = 0; i < 16; i++) { const px = x + R.hist(i * 6) * w; T.rect(px - 0.5, y + i, 1, 1, i ? P7.mid : P7.hot, i ? 0.95 - i * 0.05 : 1); } } }
+  ]
+};
+
+/* ---------- The vector monitor: strokes only, on black, in the scheme's inks. No fills, ever. ---------- */
+const VI = st => { const s = sch(DARK[st.scheme] ? st.scheme : 'TUBE'); return { g: hx('#030205'), v: s.v, m: s.m, p: s.p, k: s.k, r: s.r }; };
+const vtext = (T, s, x, y, h, c) => T.seg(s, x, y, h * 0.55, h, c, { inset: 0.04, lw: Math.max(0.3, h * 0.09), adv: 1.5 });
+const scrVEC = {
+  id: 'vec', mod: 'no module', medium: 'Vector monitor', status: 'AUDITION', cite: 'screens.md: workshop pairing filter',
+  policy: 'Dark schemes only: a vector tube has no lit ground, so on a pale scheme it draws with TUBE\'s inks. Strokes only: no fills, no bitmaps. A corner\'s glyph is a small outline, and a line costs nothing, so it can draw relationships the pixel screens can\'t afford.',
+  css: { card: 1, mix: 1 }, make: sfMake, geom: sfGeom,
+  begin(T, st) { T.I = VI(st); T.clear(T.I.g); },
+  head(T) { const I = T.I; vtext(T, 'FILTER', 4, 3, 6, I.v); vtext(T, 'MOCK', 134, 4, 3.6, I.r); T.gl(4, 12, 156, 12, I.r, 0.2, 0.5); },
+  base(T, r, g) {
+    const I = T.I; vtext(T, r.name, g.lx, g.y, 3.6, I.p); if (r.kind === 'quantum') vtext(T, 'Q', g.lx + 18, g.y, 3.6, I.k);
+    vtext(T, r.text, g.vr - r.text.length * 3.1, g.y, 3.6, I.v);
+    const y = g.ty + 1.5;
+    if (r.kind === 'step') { for (const c of stepCells(r, g)) { T.line(c.x, y - 1.5, c.x + c.w, y - 1.5, I.r, 0.25, 0.7); T.line(c.x, y + 1.5, c.x + c.w, y + 1.5, I.r, 0.25, 0.7); T.line(c.x, y - 1.5, c.x, y + 1.5, I.r, 0.25, 0.7); T.line(c.x + c.w, y - 1.5, c.x + c.w, y + 1.5, I.r, 0.25, 0.7); if (c.cur) { T.gl(c.x, y - 1.5, c.x + c.w, y + 1.5, I.v, 0.4); T.gl(c.x, y + 1.5, c.x + c.w, y - 1.5, I.v, 0.4); } } return; }
+    T.line(g.tx, y, g.tx + g.tw, y, I.r, 0.25, 0.7); T.line(g.tx, y - 1.4, g.tx, y + 1.4, I.r, 0.25, 0.7); T.line(g.tx + g.tw, y - 1.4, g.tx + g.tw, y + 1.4, I.r, 0.25, 0.7);
+    const x = g.vx(r.base); T.gl(g.tx, y, x, y, I.v, 0.5); T.gl(x, y - 2, x, y + 2, I.v, 0.55);
+  },
+  foot(T) { const I = T.I; T.gl(4, 117, 156, 117, I.r, 0.2, 0.5); SOFT.forEach((s, j) => { const x = j * 38 + 6; T.path([[x, 124], [x + 30, 124], [x + 30, 134], [x, 134], [x, 124]], I.m, 0.3); vtext(T, s, x + 5, 127, 3.6, I.m); }); },
+  end() {},
+  corners: [
+    { id: 'outline', name: 'Outline glyphs', shows: 'owner pos', cost: 'Each corner is its glyph as a small outline above the track, and the owner\'s gets a crosshair down to the track, in bright ink. Direct, and the closest to the chassis. Outlines under 2 units tell each other apart poorly, you must have learnt the shapes, and it can\'t show the weights.',
+      paint(T, r, g) { const I = T.I, yl = g.lane + 3; for (const j of order(r)) { const x = g.vx(r.vals[j]), o = j === r.owner, c = o ? I.k : I.p, P = glyphPts(j, x, yl, 2.1); for (let q = 1; q < P.length; q++) T.line(P[q - 1][0], P[q - 1][1], P[q][0], P[q][1], c, o ? 0.5 : 0.32); if (o) { T.gl(x, yl + 2.2, x, g.ty, c, 0.3); T.gl(x - 3.4, yl, x + 3.4, yl, c, 0.25); } } } },
+    { id: 'fan', name: 'Blend fan', rec: true, shows: 'owner pos weight', cost: 'A line runs from the blend on the track out to each corner\'s tick, as bright as that corner\'s weight, the owner brightest, each with its letter. Lines are free on a vector screen, so this shows the blend being pulled four ways. It tangles when corners bunch, and the fan moves a lot.',
+      paint(T, r, g) { const I = T.I, by = g.ty + 1.5, bx = g.vx(r.base), ty = g.lane + 1.2; for (const j of order(r)) { const x = g.vx(r.vals[j]), o = j === r.owner, c = o ? I.k : I.p; T.line(bx, by, x, ty, c, o ? 0.42 : 0.28, clamp(0.25 + r.w[j] * 1.2, 0, 1)); vtext(T, LET[j], x - 1.1, ty - 3.4, 3, c); } } },
+    { id: 'box', name: 'Morph box', rr: 28, shows: 'owner pos weight', cost: 'A little wireframe plate per row: posts at its four corners stand as tall as each corner\'s value, and a beam post at the puck shows the blend. It\'s the whole bilinear idea in one drawing, and it can\'t collide. It takes 28 units a row, and it\'s quite abstract at this size.',
+      paint(T, r, g) { const I = T.I, x0 = g.cx + 5, y0 = g.y + 22, W = 16, H = 7, sk = 5; const pt = (u, v) => [x0 + u * W + (1 - v) * sk, y0 - (1 - v) * H]; const c = [pt(0, 0), pt(1, 0), pt(1, 1), pt(0, 1), pt(0, 0)]; T.path(c, I.r, 0.22, 0.8); const uv = [[0, 0], [1, 0], [0, 1], [1, 1]]; for (let j = 0; j < 4; j++) { const p = pt(uv[j][0], uv[j][1]), h = r.vals[j] * 11, o = j === r.owner; T.line(p[0], p[1], p[0], p[1] - h, o ? I.k : I.p, o ? 0.55 : 0.32); } const u = r.w[1] + r.w[3], v = r.w[2] + r.w[3], b = pt(u, v); T.gl(b[0], b[1], b[0], b[1] - r.base * 11, I.v, 0.4); vtext(T, LET[r.owner], g.cx + 21, g.y + 7, 3, I.k); } }
+  ],
+  mods: [
+    { id: 'beam', name: 'Beam retrace', rec: true, shows: 'range live shape', cost: 'A dashed line under the track marks the range; the beam\'s bright dot runs along it and leaves a fading retrace. It\'s how a vector tube looks anyway, and it costs almost nothing. The trail is short at slow rates, and dashes get fussy under 6 units.',
+      paint(T, r, g) { const I = T.I, R = r.route, y = g.my + 1.4, pts = []; const a = g.vx(R.lo), b = g.vx(R.hi); for (let x = a; x < b; x += 2.4) T.line(x, y, Math.min(b, x + 1.2), y, I.r, 0.25); for (const x of [a, b]) T.line(x, y - 1.4, x, y + 1.4, I.m, 0.35); for (let j = 40; j >= 2; j -= 3) T.line(g.vx(R.hist(j)), y, g.vx(R.hist(j - 3)), y, I.m, 0.5, 0.75 * (1 - j / 42)); const x = g.vx(R.out); T.disc(x, y, 0.9, I.m); T.line(x, y - 1.6, x, y + 1.6, I.m, 0.3); } },
+    { id: 'wedge', name: 'Wedge', shows: 'range live', cost: 'Two lines fall from the base on the track to the range\'s ends below it, a wedge you can read in a still, and a bright bar crosses at the output. A strong shape in 3 strokes, and it says how far the route reaches from the base. A small depth closes to a spike; two routes would cross.',
+      paint(T, r, g) { const I = T.I, R = r.route, bx = g.vx(r.base), ty = g.ty + 3, y = g.my + 3.2; T.line(bx, ty, g.vx(R.lo), y, I.m, 0.3); T.line(bx, ty, g.vx(R.hi), y, I.m, 0.3); T.line(g.vx(R.lo), y, g.vx(R.hi), y, I.m, 0.22, 0.6); const x = g.vx(R.out); T.gl(x, y - 2.8, x, y + 1, I.m, 0.5); } },
+    { id: 'liss', name: 'Lissajous', rr: 20, shows: 'range live shape', cost: 'A little XY figure beside the track, the output against the source, traced by the beam. Very much this tube\'s native picture, and the figure opens and closes with depth. It takes 20 units off the track, and it needs some thought; a figure says "something periodic" more than "by how much".',
+      paint(T, r, g) { const I = T.I, R = r.route, x = g.mx, y = g.y + 7, S = 16; T.path([[x, y], [x + S, y], [x + S, y + S], [x, y + S], [x, y]], I.r, 0.2, 0.5); const P = j => [x + R.hist(j) * S, y + S / 2 - S / 2 * Math.sin(2 * Math.PI * j / 90)]; let p = P(90); for (let j = 88; j >= 0; j -= 2) { const q = P(j); T.line(p[0], p[1], q[0], q[1], I.m, 0.3, 0.3 + 0.7 * (1 - j / 90)); p = q; } T.disc(p[0], p[1], 0.8, I.m); T.line(x + R.lo * S, y + S, x + R.lo * S, y + S + 1.4, I.r, 0.3); T.line(x + R.hi * S, y + S, x + R.hi * S, y + S + 1.4, I.r, 0.3); } }
+  ]
+};
+
+/* ---------- The CAD blueprint: thin lines, dimensions, balloons and phantom lines. Takes the scheme. ---------- */
+const cadInks = st => { const c = sch(st.scheme); return { g: c.g, grid: mix(c.g, c.r, c.dark ? 0.4 : 0.3), line: c.p, dim: c.k, val: c.v, ray: c.m, text: c.dark ? c.r : mix(c.p, [0, 0, 0], 0.25) }; };
+const scrCAD = {
+  id: 'cad', mod: 'no module', medium: 'CAD blueprint', status: 'AUDITION', cite: 'screens.md: workshop pairing room',
+  policy: 'Takes the scheme. Drafting has conventions for exactly these questions: balloons name a part, a schedule tabulates it, a dimension states a distance, a tolerance gives a band, and a phantom line draws an alternate position. So each mark is a drafting convention, not an invention.',
+  css: { card: 1, mix: 1 }, make: sfMake, geom: sfGeom,
+  begin(T, st) { T.I = cadInks(st); if (T.bgKey === st.scheme) { T.out.set(T.bg); return; } T.clear(T.I.g); const k = T.k; for (let y = 2; y < T.hu; y += 4) for (let x = 2; x < T.wu; x += 4) T.rect(x, y, 1 / k, 1 / k, T.I.grid); T.bg = T.out.slice(); T.bgKey = st.scheme; },   // the dot grid is drawn once per scheme: 1,400 rects a frame was most of this glass's cost
+  head(T) { const I = T.I; T.dots('LAYER MARKS', 4, 3, I.text, T.k >= 3 ? 1 : 1); T.dots('MOCK', 138, 3, I.dim, 1); T.line(4, 12, 156, 12, I.grid, 0.3); },
+  base(T, r, g) {
+    const I = T.I; T.dots(r.name, g.lx, g.y, I.text, 1); if (r.kind === 'quantum') T.dots('Q', g.lx + 20, g.y, I.dim, 1);
+    T.dots(r.text, g.vr - r.text.length * (6 / T.k), g.y, I.val, 1);
+    const y = g.ty + 1.5;
+    if (r.kind === 'step') { for (const c of stepCells(r, g)) { T.path([[c.x, y - 1.5], [c.x + c.w, y - 1.5], [c.x + c.w, y + 1.5], [c.x, y + 1.5], [c.x, y - 1.5]], I.line, 0.22); if (c.cur) for (let q = 1; q < 6; q++) { const hx0 = c.x + c.w * q / 6; T.line(hx0, y + 1.5, hx0 + 2.4, y - 1.5, I.val, 0.22); } } return; }
+    T.line(g.tx, y, g.tx + g.tw, y, I.line, 0.25); T.line(g.tx, y - 1.5, g.tx, y + 1.5, I.line, 0.25); T.line(g.tx + g.tw, y - 1.5, g.tx + g.tw, y + 1.5, I.line, 0.25);
+    const x = g.vx(r.base); T.line(g.tx, y, x, y, I.val, 0.45); T.path([[x - 1.2, y - 1.2], [x + 1.2, y - 1.2], [x + 1.2, y + 1.2], [x - 1.2, y + 1.2], [x - 1.2, y - 1.2]], I.val, 0.32);
+  },
+  foot(T) { const I = T.I; T.line(4, 117, 156, 117, I.grid, 0.3); SOFT.forEach((s, j) => { const x = j * 38 + 6; T.path([[x, 124], [x + 30, 124], [x + 30, 134], [x, 134], [x, 124]], I.line, 0.25); T.dots(s, x + 5, 127, I.text, 1); }); },
+  end() {},
+  corners: [
+    { id: 'balloon', name: 'Balloons', rec: true, shows: 'owner pos', cost: 'A drafting balloon, a circled letter on a leader line, at each corner\'s value, staggered in two heights; the owner\'s balloon has a double ring. Every engineer knows it, and the stagger holds off collisions. Balloons take 6 units across, and it can\'t show the weights.',
+      paint(T, r, g) { const I = T.I, y = g.ty; const ordX = [0, 1, 2, 3].sort((a, b) => r.vals[a] - r.vals[b]); ordX.forEach((j, n) => { const x = g.vx(r.vals[j]), o = j === r.owner, cy = g.lane + (n % 2 ? 4.4 : 1.8), c = o ? I.dim : I.line; T.line(x, cy + 2, x, y, c, 0.2); T.ring(x, cy, 2.4, c, 0.25); if (o) T.ring(x, cy, 3.1, c, 0.22); T.dots(LET[j], x - 1.25 * (2 / T.k), cy - 1.75 * (2 / T.k), o ? I.dim : I.text, 1); }); } },
+    { id: 'sched', name: 'Schedule', rr: 44, shows: 'owner pos', cost: 'A ruled schedule beside the track lists A .18, B .82, C .40, D .64, with the owner\'s cell hatched like a selected row. It\'s what a drawing does for data that won\'t fit in place. It takes 44 units, there is no place along the track, and it can\'t show the weights.',
+      paint(T, r, g) { const I = T.I, x = g.cx, y = g.y + 6, w = 21, h = 9; for (let j = 0; j < 4; j++) { const cx = x + (j % 2) * w, cy = y + (j >> 1) * h, o = j === r.owner; T.path([[cx, cy], [cx + w, cy], [cx + w, cy + h], [cx, cy + h], [cx, cy]], o ? I.dim : I.grid, o ? 0.3 : 0.22); if (o) for (let q = 2; q < w; q += 3) T.line(cx + q, cy + h, cx + q + 2, cy + h - 2.4, I.dim, 0.2); T.dots(LET[j] + '.' + P100(r.vals[j]), cx + 1.6, cy + 1.6, o ? I.dim : I.text, 1); } } },
+    { id: 'dim', name: 'Dimension to owner', shows: 'owner pos', cost: 'Witness ticks mark all four corners, and a dimension line runs from the blend to the owner\'s value, with its signed distance, D +.18. It states the one distance you might want to act on. The other three are nameless, it can\'t show the weights, and the line and figure jump on a flip.',
+      paint(T, r, g) { const I = T.I, y = g.lane + 4; for (let j = 0; j < 4; j++) { const x = g.vx(r.vals[j]); T.line(x, g.lane + 2, x, g.ty, j === r.owner ? I.dim : I.line, 0.22); } const a = g.vx(r.base), b = g.vx(r.vals[r.owner]); T.line(a, y, b, y, I.dim, 0.25); for (const x of [a, b]) T.line(x - 0.9, y + 0.9, x + 0.9, y - 0.9, I.dim, 0.35); const d = r.vals[r.owner] - r.base, s = LET[r.owner] + (d >= 0 ? ' +' : ' -') + '.' + P100(Math.abs(d)); T.dots(s, clamp(Math.min(a, b), g.tx, g.tx + g.tw - 24), g.lane - 1.6, I.dim, 1); } }
+  ],
+  mods: [
+    { id: 'phantom', name: 'Phantom limits', rec: true, shows: 'range live', cost: 'Long-dash-short-dash phantom outlines of the thumb at the range\'s ends: drafting\'s own way to draw a part\'s alternate positions. A pickbox tick moves between them. It says exactly what\'s meant to anyone who has seen a drawing, in thin lines. On pale schemes the phantoms are light, and two routes would need a key.',
+      paint(T, r, g) { const I = T.I, R = r.route, y = g.my + 1.6; for (const v of [R.lo, R.hi]) { const x = g.vx(v); for (const [a, b] of [[-2.2, -1.1], [-0.6, -0.2], [0.2, 0.6], [1.1, 2.2]]) { T.line(x - 1.4, y + a, x - 1.4, y + b, I.ray, 0.25); T.line(x + 1.4, y + a, x + 1.4, y + b, I.ray, 0.25); } T.line(x - 1.4, y + 2.2, x - 0.5, y + 2.2, I.ray, 0.25); T.line(x + 0.5, y + 2.2, x + 1.4, y + 2.2, I.ray, 0.25); } const a = g.vx(R.lo), b = g.vx(R.hi); T.line(a, y, b, y, I.ray, 0.18, 0.7); const x = g.vx(R.out); T.line(x, g.ty + 3, x, y + 2, I.val, 0.35); T.path([[x - 0.9, y - 0.9], [x + 0.9, y - 0.9], [x + 0.9, y + 0.9], [x - 0.9, y + 0.9], [x - 0.9, y - 0.9]], I.val, 0.28); } },
+    { id: 'tol', name: 'Tolerance band', shows: 'range live', cost: 'A section-hatched band between the range\'s limits, with a stacked tolerance callout, +.20 -.20, and a line at the output. A drawing\'s way to state an allowed range, with the number. The callout needs 16 units beside the band, and hatching below 4 units is just a smudge.',
+      paint(T, r, g) { const I = T.I, R = r.route, a = g.vx(R.lo), b = g.vx(R.hi), y = g.my; T.line(a, y, b, y, I.ray, 0.2); T.line(a, y + 3.2, b, y + 3.2, I.ray, 0.2); for (let x = a; x < b; x += 1.6) T.line(x, y + 3.2, Math.min(b, x + 1.6), y, I.ray, 0.16, 0.8); T.line(g.vx(R.out), g.ty + 3, g.vx(R.out), y + 3.2, I.val, 0.4); T.dots('+-.' + P100(R.depth), clamp(b + 1.5, g.tx, g.tx + g.tw - 16), y - 0.2, I.dim, 1); } },
+    { id: 'cmd', name: 'Command line', shows: 'range live', cost: 'The row prints its route like a CAD command line: LFO1 D.20 > .64. It\'s fully legible and names the source, in one line of text. It isn\'t a picture of anything, so you learn nothing from a glance, and a moving number can\'t be read in motion.',
+      paint(T, r, g) { const I = T.I, R = r.route; T.dots('LFO1 D.' + P100(R.depth) + ' > .' + P100(R.out), g.tx, g.my, I.text, 1); } }
+  ]
+};
+
+/* ---------- The house screen: the vaporwave phosphor tube, for a plain module. Text in physics or grid; value and meter draw lines and marks only. ---------- */
+const scrHOUSE = {
+  id: 'house', mod: 'Drive', medium: 'The house screen', status: 'RULED', cite: 'ADR-259 ruling 5: a plain Drive',
+  policy: 'Takes the scheme: its six roles and nothing else. The nearest to the chassis, so the translation is the most direct: the same pips and lanes, only with the corner hues taken out, as ADR-259 ruling 4 requires. Text is physics or grid, because value and meter don\'t all reach 4.5:1.',
+  css: { card: 1, mix: 1 }, make: sfMake, geom: sfGeom,
+  begin(T, st) { T.I = sch(st.scheme); T.clear(T.I.g); },
+  head(T) { const I = T.I; T.text('DRIVE', 4, 4, I.p); T.text('MOCK', 140, 4, I.r); T.line(4, 12, 156, 12, I.r, 0.25, 0.5); },
+  base(T, r, g) {
+    const I = T.I; T.text(r.name, g.lx, g.y, I.p); if (r.kind === 'quantum') T.text('Q', g.lx + 22, g.y, I.r); T.text(r.text, g.vr - r.text.length * 4 + 1, g.y, I.p);
+    const y = g.ty + 1.5;
+    if (r.kind === 'step') { for (const c of stepCells(r, g)) { T.line(c.x, y, c.x + c.w, y, c.cur ? I.v : I.r, c.cur ? 1.3 : 0.6, c.cur ? 1 : 0.45); } return; }
+    T.line(g.tx, y, g.tx + g.tw, y, I.r, 0.8, 0.4); const x = g.vx(r.base); T.gl(g.tx, y, x, y, I.v, 1); T.line(x, y - 2.2, x, y + 2.2, I.p, 0.7);
+  },
+  foot(T) { const I = T.I; T.line(4, 117, 156, 117, I.r, 0.25, 0.5); SOFT.forEach((s, j) => { const x = j * 38 + 4; T.text(s, x + 2, 126, I.p); T.line(x + 2, 133, x + 30, 133, I.r, 0.3, 0.7); }); },
+  end(T) { T.scan(T.I.scan); },
+  corners: [
+    { id: 'pips', name: 'Pips in one ink', rec: true, shows: 'owner pos weight', cost: 'The chassis\'s pips exactly, with the hue taken out: glyph shapes sized by weight, the owner larger in the marker ink, a tether to the blend. Anyone who knows the knob already knows it. A low-weight pip is hard to shape-read, and it relies on shape alone for identity.',
+      paint(T, r, g) { const I = T.I, y = g.lane + 3.4; const ow = g.vx(r.vals[r.owner]); T.line(g.vx(r.base), g.ty, ow, y + 1, I.k, 0.35, 0.8); for (const j of order(r)) { const o = j === r.owner, q = o ? 2.5 : 1 + r.w[j] * 1.6; T.poly(glyphPts(j, g.vx(r.vals[j]), y, q), o ? I.k : I.p); } } },
+    { id: 'knob', name: 'Knob on the glass', rl: 24, shows: 'owner pos weight', cost: 'A small knob face at the row\'s start, drawn as the chassis draws one: an arc to the blend, shape pips around the rim, and the owner\'s letter inside. It\'s a real translation of the knob, not of the slider. It takes 24 units a row, doubles up with the four real knobs under the glass, and a pip at this size is barely a shape.',
+      paint(T, r, g) { const I = T.I, cx = g.lx + 10, cy = g.y + 16, q = 7.4, A = v => Math.PI * (0.75 + 1.5 * v); T.arc(cx, cy, q, A(0), A(1), I.r, 0.7, 0.4); T.arc(cx, cy, q, A(0), A(r.base), I.v, 1); for (const j of order(r)) { const a = A(r.vals[j]), o = j === r.owner, p = o ? 1.9 : 0.8 + r.w[j]; T.poly(glyphPts(j, cx + (q + 1.8) * Math.cos(a), cy + (q + 1.8) * Math.sin(a), p), o ? I.k : I.p); } T.text(LET[r.owner], cx - 1.5, cy - 2.5, I.k); } },
+    { id: 'span', name: 'Span and owner', shows: 'owner pos', cost: 'A bar shows the span the corners cover, plain notches mark each, and the owner\'s letter rides its notch. The calmest drawing here, and it says how much this row morphs at all. Three of the notches are nameless, and it can\'t show the weights.',
+      paint(T, r, g) { const I = T.I, y = g.lane + 5.5; const a = Math.min(...r.vals), b = Math.max(...r.vals); T.line(g.vx(a), y, g.vx(b), y, I.r, 0.9, 0.6); for (let j = 0; j < 4; j++) { const x = g.vx(r.vals[j]), o = j === r.owner; T.line(x, y - (o ? 2.2 : 1.3), x, y + 1.3, o ? I.k : I.p, o ? 0.7 : 0.5); } T.text(LET[r.owner], g.vx(r.vals[r.owner]) - 1.5, g.lane - 1.4, I.k); } }
+  ],
+  mods: [
+    { id: 'lane', name: 'The chassis\'s lane', rec: true, shows: 'range live', cost: 'The Map Mode Spec\'s slider lane unchanged: a line across the range in the meter role, an origin dot at the base, and a live tick at the output. The source\'s colour family doesn\'t exist on a glass, so it\'s always the meter role; two routes would be told apart only by order.',
+      paint(T, r, g) { const I = T.I, R = r.route, y = g.my + 1.6; T.gl(g.vx(R.lo), y, g.vx(R.hi), y, I.m, 0.8); T.disc(g.vx(r.base), y, 1, I.m); T.ring(g.vx(r.base), y, 1.2, I.g, 0.3); T.line(g.vx(R.out), y - 2, g.vx(R.out), y + 2, I.p, 0.5); } },
+    { id: 'trace', name: 'Trace behind', shows: 'range live shape', cost: 'A band under the track rolls the source\'s recent trace, from side to side in time, with the range as a tinted box and the newest point in the physics ink. You see shape and depth together. The band\'s X is time and the track\'s X is value, which is a trap: the output isn\'t under the place it acts on.',
+      paint(T, r, g) { const I = T.I, R = r.route, a = g.vx(R.lo), b = g.vx(R.hi), y = g.my, h = 3.8; T.rect(a, y, b - a, h, I.m, 0.14); let p = null; for (let i = 0; i <= 48; i++) { const v = (R.hist((48 - i) * 2) - R.lo) / Math.max(1e-3, R.hi - R.lo), P = [a + (b - a) * i / 48, y + h - v * h]; if (p) T.line(p[0], p[1], P[0], P[1], I.m, 0.5); p = P; } T.disc(b, p[1], 0.8, I.p); T.line(g.vx(R.out), g.ty + 3, g.vx(R.out), y, I.p, 0.3); } },
+    { id: 'dwell', name: 'Dwell histogram', shows: 'range live shape', cost: 'A small histogram of where the output has been over a cycle, across the range: a sine piles up at its two ends. You see the range and how the source behaves in it, even in a still. It reads the past, so it lags a change of depth, and it needs some explanation.',
+      paint(T, r, g) { const I = T.I, R = r.route, a = g.vx(R.lo), b = g.vx(R.hi), n = Math.max(4, Math.round((b - a) / 1.2)), H = new Array(n).fill(0); for (let j = 0; j < 90; j++) { const u = (R.hist(j * 2) - R.lo) / Math.max(1e-3, R.hi - R.lo); H[clamp(Math.floor(u * n), 0, n - 1)]++; } const mx = Math.max(...H); for (let q = 0; q < n; q++) { const h = 0.5 + H[q] / mx * 3.6, x = a + (q + 0.5) * (b - a) / n; T.line(x, g.my + 4.2, x, g.my + 4.2 - h, I.m, 0.7); } T.line(a, g.my + 4.6, b, g.my + 4.6, I.r, 0.25, 0.8); const x = g.vx(R.out); T.line(x, g.my - 0.4, x, g.my + 4.6, I.p, 0.4); } }
+  ]
+};
+
+/* the order the human sees: ruled pairings first, then the auditions (ADR-259 ruling 5) */
+const SCREENS = [scrWS, scrGBC, scrHOUSE, scrSEG, scrNIX, scrSON, scrCRT, scrVEC, scrTTX, scrLCD, scrCAD];
+const SCR = {}; for (const s of SCREENS) SCR[s.id] = s;
+
+/* ======================================================================
+   E. RENDERING: pure. Same state in, same pixels out. Buffers are shared per screen and size, never remembered.
+   ====================================================================== */
+const _T = {};
+function getT(scr, mix) { const key = scr.id + (mix ? ':m' : ':c'); return _T[key] || (_T[key] = scr.make(!!mix)); }
+function render(scr, T, cl, ml, st, m, chrome) {
+  scr.begin(T, st);
+  if (chrome) scr.head(T, st, m);
+  const res = { cr: (cl && cl.rr) || 0, mr: (ml && ml.rr) || 0, cl: (cl && cl.rl) || 0 };
+  if (cl && cl.page) cl.page(T, st, m);
+  m.rows.forEach((r, i) => {
+    const g = scr.geom(T, i, res);
+    scr.base(T, r, g, st);
+    if (cl && cl.paint) cl.paint(T, r, g, st);
+    if (ml && ml.paint && r.route) ml.paint(T, r, g, st);   // GUI-21: a row with no route gets no mod mark, greyed or otherwise
+  });
+  if (chrome) scr.foot(T, st);
+  scr.end(T, st);
+  return T.out;
+}
+/* every pixel array is RGBA, so a mask or a colour count reads the same thing on every skin */
+function copyOf(scr, cl, ml, st, m, chrome) { const T = getT(scr, chrome); return { out: render(scr, T, cl, ml, st, m, chrome).slice(), W: T.W, H: T.H, vs: T.vs, T }; }
+function diffCount(a, b, y0, y1, W) { let n = 0; for (let y = y0; y < y1; y++) for (let x = 0; x < W; x++) { const o = (y * W + x) * 4; if (a[o] !== b[o] || a[o + 1] !== b[o + 1] || a[o + 2] !== b[o + 2]) n++; } return n; }
+/* ink, not any change: a segment glass's unlit ghost is under 60 of 765 here, and counting it made every lane on that glass the same drawing */
+const INK_THR = 60;
+function maskOf(a, b) { const M = new Uint8Array(a.length >> 2); for (let i = 0, o = 0; i < M.length; i++, o += 4) if (Math.abs(a[o] - b[o]) + Math.abs(a[o + 1] - b[o + 1]) + Math.abs(a[o + 2] - b[o + 2]) > INK_THR) M[i] = 1; return M; }
+function hashOf(a) { let h = 2166136261 >>> 0; for (let i = 0; i < a.length; i += 4) { h ^= a[i] | (a[i + 1] << 8) | (a[i + 2] << 16); h = Math.imul(h, 16777619) >>> 0; } return h; }
+function colourCount(a) { const s = new Set(); for (let o = 0; o < a.length; o += 4) s.add((a[o] << 16) | (a[o + 1] << 8) | a[o + 2]); return s.size; }
+/* the marks alone: this language's pixels against the same layout with the marks left out (a reserved margin narrows the track, and that isn't a mark) */
+const layoutOnly = l => (l ? { rr: l.rr, rl: l.rl } : null);
+function marksMask(scr, cl, ml, st, m) { const on = copyOf(scr, cl, ml, st, m, false), off = copyOf(scr, layoutOnly(cl), layoutOnly(ml), st, m, false); return maskOf(on.out, off.out); }
+function overlapOf(scr, cl, ml, st, m) {
+  const off = copyOf(scr, layoutOnly(cl), layoutOnly(ml), st, m, false).out;
+  const A = maskOf(copyOf(scr, cl, layoutOnly(ml), st, m, false).out, off), B = maskOf(copyOf(scr, layoutOnly(cl), ml, st, m, false).out, off);
+  let n = 0; for (let i = 0; i < A.length; i++) if (A[i] && B[i]) n++; return n;
+}
+
+/* the picks: the only state a choice lives in. Nothing is written outside the page. */
+const PICKS = {};
+for (const s of SCREENS) PICKS[s.id] = { c: (s.corners.find(l => l.rec) || s.corners[0]).id, m: (s.mods.find(l => l.rec) || s.mods[0]).id, cOwn: false, mOwn: false };
+const langOf = (s, axis, id) => (axis === 'c' ? s.corners : s.mods).find(l => l.id === id) || null;
+function pick(scrId, axis, id) { const s = SCR[scrId]; if (!s || !langOf(s, axis, id)) return false; const P = PICKS[scrId]; P[axis] = id; P[axis + 'Own'] = true; return true; }
+function choiceLine(s) {
+  const P = PICKS[s.id], c = langOf(s, 'c', P.c), m = langOf(s, 'm', P.m);
+  return s.mod + ' / ' + s.medium + ': corners = ' + c.name + (P.cOwn ? '' : ' (suggested, not chosen)') + '; modulation = ' + m.name + (P.mOwn ? '' : ' (suggested, not chosen)');
+}
+const RECWHY = {
+  ws: 'Tab stops name each corner in the workstation\'s own vocabulary at a size it can spare; the dither band is the one thing 1-bit does that no other glass does.',
+  gbc: 'Sprite pips are the chassis\'s shapes in the tile rule, and the hatched lane stays in the track\'s palette, so neither mark costs a tile swap.',
+  house: 'This is the chassis\'s language with the hue out, so there\'s nothing new to learn.',
+  seg: 'A glass built for numbers should use numbers: corner digits and a blinking band are what a fixed mask does honestly.',
+  nix: 'Lamps answer all three questions in the medium\'s own light, and a second neon column is how meters already stack.',
+  son: 'Pips and afterglow are simply what a scope does; both also show things the others can\'t, the weights and the recent past.',
+  crt: 'Letters in cells and a shade band read at terminal resolution without costing a second line of thought.',
+  vec: 'The fan and the beam spend what a vector tube has for free, lines, on what the pixel skins can\'t afford: the blend\'s pull and the recent path.',
+  ttx: 'Letters in cells stay legible at teletext\'s resolution; blue with a flash is the page\'s own emphasis and holds a still frame.',
+  lcd: 'ROM letters and the sub-cell tip spend four of the eight characters on motion, where dot resolution pays most, and none on naming.',
+  cad: 'Balloons and phantom limits are real drafting conventions for exactly these two questions, so the meaning comes with the idiom.'
+};
+
+/* ======================================================================
+   F. THE SELF-CHECK. Each claim has a must-fail control run through the same judge.
+   Every check reads back the final RGBA, which is what the human sees.
+   ====================================================================== */
+const CK_ST = { px: 0.36, py: 0.28, f: 40, scheme: 'ORCHID' };
+const CK_FRAMES = [0, 17, 33, 45, 60, 90, 121, 135, 150, 171];
+const allLangs = (s, axis) => (axis === 'c' ? s.corners : s.mods);
+const withRow0 = (m, fn) => { const r = Object.assign({}, m.rows[0]); r.vals = r.vals.slice(); r.w = r.w.slice(); if (r.route) r.route = Object.assign({}, r.route); fn(r); const rows = m.rows.slice(); rows[0] = r; return Object.assign({}, m, { rows }); };
+const anyDiff = (scr, cl, ml, st, a, b) => { for (const f of [0, 60, 120, 180]) { const s = Object.assign({}, st, { f }); if (diffCount(copyOf(scr, cl, ml, s, a, false).out, copyOf(scr, cl, ml, s, b, false).out, 0, getT(scr, false).H, getT(scr, false).W) > 0) return true; } return false; };
+
+/* one 1-bit judge, one GBC judge and one teletext judge, each usable on a planted array */
+const judge1bit = a => colourCount(a) === 2;
+function judgeTiles(a, W, H) {
+  const bad = [];
+  for (let ty = 0; ty + 8 <= H; ty += 8) for (let tx = 0; tx + 8 <= W; tx += 8) {
+    const s = new Set(); for (let y = ty; y < ty + 8; y++) for (let x = tx; x < tx + 8; x++) { const o = (y * W + x) * 4; if (!on555(a[o]) || !on555(a[o + 1]) || !on555(a[o + 2])) bad.push('off 555'); s.add((a[o] << 16) | (a[o + 1] << 8) | a[o + 2]); }
+    if (s.size > 4) bad.push('tile ' + tx + ',' + ty + ' has ' + s.size);
+  }
+  return bad.length ? bad[0] : '';
+}
+const TTX_SET = new Set(Object.values(TTXC).map(c => (c[0] << 16) | (c[1] << 8) | c[2]));
+function judgeTtx(a, W, H, cw, ch) {
+  for (let ty = 0; ty + ch <= H; ty += ch) for (let tx = 0; tx + cw <= W; tx += cw) {
+    const s = new Set(); for (let y = ty; y < ty + ch; y++) for (let x = tx; x < tx + cw; x++) { const o = (y * W + x) * 4, c = (a[o] << 16) | (a[o + 1] << 8) | a[o + 2]; if (!TTX_SET.has(c)) return 'a colour outside the eight'; s.add(c); }
+    if (s.size > 2) return 'cell ' + tx + ',' + ty + ' has ' + s.size + ' colours';
+  }
+  return '';
+}
+function judgeHue(a) {
+  for (let o = 0; o < a.length; o += 4) { const R = a[o], G = a[o + 1], B = a[o + 2]; if (R < 240 && G < 200) continue;   /* every hue has red or green up here, which skips most of a glass */
+    for (let i = 0; i < 4; i++) { const h = CHECK_HUES[i]; if (Math.abs(R - h[0]) <= 4 && Math.abs(G - h[1]) <= 4 && Math.abs(B - h[2]) <= 4) return true; } }
+  return false;
+}
+function judgeClaims(scr, L, axis) {
+  const claims = new Set((L.shows || '').split(' ').filter(Boolean)), m = modelOf(CK_ST), out = [];
+  const cl = axis === 'c' ? L : null, ml = axis === 'm' ? L : null;
+  const test = (name, a) => { const changed = anyDiff(scr, cl, ml, CK_ST, m, a); if (changed !== claims.has(name)) out.push(name + (changed ? ' changes pixels but is not claimed' : ' is claimed but changes nothing')); };
+  const r0 = m.rows[0];
+  if (axis === 'c') {
+    test('owner', withRow0(m, r => { r.owner = (r.owner + 2) % 4; }));
+    /* the corners that aren't the owner move; the blend, the owner and the weights stay still */
+    test('pos', withRow0(m, r => { for (let j = 0; j < 4; j++) if (j !== r.owner) r.vals[j] = (r.vals[j] + 0.37) % 0.9 + 0.05; }));
+    test('weight', withRow0(m, r => { r.w = r.owner === 0 ? [0.1, 0.8, 0.05, 0.05] : [0.8, 0.1, 0.05, 0.05]; }));
+  } else {
+    const R = r0.route, nd = 0.36, newOut = R.out < 0.5 ? R.out + 0.16 : R.out - 0.16;
+    test('range', withRow0(m, r => { r.route.depth = nd; r.route.lo = clamp(r.base - nd, 0, 1); r.route.hi = clamp(r.base + nd, 0, 1); }));
+    test('live', withRow0(m, r => { r.route.out = newOut; r.route.hist = j => (j === 0 ? newOut : R.hist(j)); }));
+    test('shape', withRow0(m, r => { r.route.hist = j => (j === 0 ? R.out : R.lo + (R.hi - R.lo) * (((j * 37) % 53) / 52)); }));
+  }
+  return out;
+}
+/* a modulated row must be tellable in ANY still, including a blink's off phase; rows with no route must carry nothing */
+function judgeStill(scr, L) {
+  const T = getT(scr, false), res = { mr: L.rr || 0 }, bad = [];
+  for (const f of CK_FRAMES) {
+    const st = Object.assign({}, CK_ST, { f }), m = modelOf(st), on = copyOf(scr, null, L, st, m, false).out, off = copyOf(scr, null, layoutOnly(L), st, m, false).out;
+    m.rows.forEach((r, i) => { const g = scr.geom(T, i, res), n = diffCount(on, off, Math.round(g.top * T.vs), Math.min(T.H, Math.round(g.bot * T.vs)), T.W); if (r.route ? n < 3 : n > 0) bad.push('frame ' + f + ' row ' + r.name + ': ' + n + ' px'); });
+    if (bad.length) break;
+  }
+  return bad;
+}
+function judgeDistinct(scr, axis, langs, st, m) {
+  const L = langs.filter(l => !l.today).map(l => ({ l, M: axis === 'c' ? marksMask(scr, l, null, st, m) : marksMask(scr, null, l, st, m) })), bad = [];
+  for (let a = 0; a < L.length; a++) for (let b = a + 1; b < L.length; b++) { let x = 0, u = 0; for (let i = 0; i < L[a].M.length; i++) { const p = L[a].M[i], q = L[b].M[i]; if (p || q) u++; if (p !== q) x++; } if (!u || x / u < 0.25) bad.push(L[a].l.name + ' and ' + L[b].l.name + ' share ' + Math.round(100 * (1 - (u ? x / u : 0))) + '% of their ink'); }
+  return bad;
+}
+const judgeStructure = s => { const bad = []; for (const [n, L] of [['corner', s.corners], ['modulation', s.mods]]) { const own = L.filter(l => !l.today); if (own.length < 3) bad.push(s.id + ' has ' + own.length + ' ' + n + ' languages'); for (const l of L) if (!l.cost || l.cost.length < 40) bad.push(s.id + '/' + l.id + ' states no cost'); if (L.filter(l => l.rec).length !== 1) bad.push(s.id + ' ' + n + ' has no single suggestion'); } return bad; };
+const judgeScale = (W, css) => Number.isInteger(css) && Number.isInteger(W * css);
+const IMPURE = /Math\.random|Date\.now|new Date|performance\./;
+const judgePure = fn => !IMPURE.test(String(fn));
+
+const CHECK_LIST = [
+  ['Shriek stays 1-bit: exactly two colours on every corner × modulation pair, both sizes, across frames', () => {
+    const s = scrWS; let bad = 0, n = 0;
+    for (const c of s.corners) for (const m of s.mods) for (const f of [0, 33, 90]) for (const chrome of [false, true]) { const st = Object.assign({}, CK_ST, { f }); const o = copyOf(s, c, m, st, modelOf(st), chrome).out; n++; if (!judge1bit(o)) bad++; }
+    return { ok: !bad, note: n + ' frames, ' + bad + ' off' };
+  }, () => { const o = copyOf(scrWS, null, null, CK_ST, modelOf(CK_ST), false).out; o[40] = 128; o[41] = 128; o[42] = 128; return !judge1bit(o); }, 'one grey pixel planted: 3 colours'],
+  ['Sluice stays in the tile rule: at most four colours in every 8×8 tile, on the RGB555 grid', () => {
+    const s = scrGBC; let bad = '', n = 0;
+    for (const sc of ['ORCHID', 'TUBE']) for (const c of s.corners) for (const m of s.mods) for (const f of [0, 33, 90]) for (const chrome of [false, true]) { const st = Object.assign({}, CK_ST, { f, scheme: sc }); const r = copyOf(s, c, m, st, modelOf(st), chrome); n++; bad = bad || judgeTiles(r.out, r.W, r.H); }
+    return { ok: !bad, note: n + ' frames' + (bad ? ', ' + bad : '') };
+  }, () => { const r = copyOf(scrGBC, null, null, CK_ST, modelOf(CK_ST), false), o = r.out; const pl = [[255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0], [0, 255, 255]]; pl.forEach((c, i) => { const q = (i * r.W) * 4 + 0; o[q] = c[0]; o[q + 1] = c[1]; o[q + 2] = c[2]; }); return !!judgeTiles(o, r.W, r.H); }, 'five colours planted in one tile'],
+  ['The teletext page stays in eight colours, with one foreground and one background a cell', function* () {
+    const s = scrTTX; let bad = '', n = 0;
+    for (const c of s.corners) { for (const m of s.mods) for (const f of [0, 17, 33, 90]) for (const chrome of [false, true]) { const st = Object.assign({}, CK_ST, { f }); const r = copyOf(s, c, m, st, modelOf(st), chrome), T = r.T; n++; bad = bad || judgeTtx(r.out, r.W, r.H, 4 * T.k, 6 * T.k); } yield; }
+    return { ok: !bad, note: n + ' frames' + (bad ? ', ' + bad : '') };
+  }, () => { const r = copyOf(scrTTX, null, null, CK_ST, modelOf(CK_ST), false), o = r.out; o[0] = 128; o[1] = 128; o[2] = 128; return !!judgeTtx(o, r.W, r.H, 4 * r.T.k, 6 * r.T.k); }, 'one grey pixel planted'],
+  ['The character LCD: every corner × modulation pair fits the screen\'s eight custom characters', () => {
+    /* over a whole cycle, not one frame: the characters a pair ever needs have to stay loaded, so the partial cells count together although only one shows at a time */
+    const s = scrLCD; let worst = 0, over = 0;
+    for (const c of s.corners) for (const m of s.mods) { const used = new Set(); for (let f = 0; f < MOD_PERIOD; f += 3) { const st = Object.assign({}, CK_ST, { f }), T = getT(s, false); render(s, T, c, m, st, modelOf(st), false); for (const k of Object.keys(T.keys)) used.add(k); over += T.over; } worst = Math.max(worst, used.size); if (used.size > 8) over++; }
+    return { ok: !over, note: 'most any pair needs over a cycle: ' + worst + ' of 8' };
+  }, () => { const T = getT(scrLCD, false); const hog = { paint(t) { for (let i = 0; i < 9; i++) t.def([i, 0, 0, 0, 0, 0, 0, 0]); } }; render(scrLCD, T, hog, null, CK_ST, modelOf(CK_ST), false); const flagged = T.over > 0; T.clear(); return flagged; }, 'a language asking for nine'],
+  ['No corner hue inside any glass (ADR-259 ruling 4): no pixel within ±4 of A, B, C or D\'s colour, on three schemes', function* () {
+    let hits = [], n = 0;
+    for (const s of SCREENS) { for (const sc of ['TUBE', 'ORCHID', 'DUSK']) { const st = Object.assign({}, CK_ST, { scheme: sc }), m = modelOf(st); for (const c of s.corners) { n++; if (judgeHue(copyOf(s, c, null, st, m, false).out)) hits.push(s.id + '/' + c.id + '/' + sc); } for (const l of s.mods) { n++; if (judgeHue(copyOf(s, null, l, st, m, false).out)) hits.push(s.id + '/' + l.id + '/' + sc); } yield; } }
+    return { ok: !hits.length, note: n + ' frames' + (hits.length ? ': ' + hits.slice(0, 4).join(', ') : '') };
+  }, () => { const o = copyOf(scrHOUSE, null, null, CK_ST, modelOf(CK_ST), false).out; o[0] = CHECK_HUES[1][0]; o[1] = CHECK_HUES[1][1]; o[2] = CHECK_HUES[1][2]; return judgeHue(o); }, 'one pixel of B\'s pink planted'],
+  ['Each corner language shows what its card says, and nothing it doesn\'t claim (owner, position, weight, tested both ways)', function* () {
+    const bad = []; let n = 0; for (const s of SCREENS) for (const c of s.corners) { n++; for (const e of judgeClaims(s, c, 'c')) bad.push(s.id + '/' + c.id + ': ' + e); yield; }
+    return { ok: !bad.length, note: n + ' languages' + (bad.length ? '; ' + bad.slice(0, 5).join('; ') : '') };
+  }, () => {
+    const liar = { shows: 'owner pos', paint(T, r, g) { T.rect(g.tx, g.lane, 4, 4, T.I.p); } }, sneak = { shows: '', paint(T, r, g) { T.rect(g.tx + r.owner * 6, g.lane, 4, 4, T.I.p); } };
+    return judgeClaims(scrHOUSE, liar, 'c').length > 0 && judgeClaims(scrHOUSE, sneak, 'c').length > 0;
+  }, 'one claims but ignores, one draws without claiming'],
+  ['Each modulation language shows what its card says, and nothing it doesn\'t claim (range, live value, shape, tested both ways)', function* () {
+    const bad = []; let n = 0; for (const s of SCREENS) for (const c of s.mods) { n++; for (const e of judgeClaims(s, c, 'm')) bad.push(s.id + '/' + c.id + ': ' + e); yield; }
+    return { ok: !bad.length, note: n + ' languages' + (bad.length ? '; ' + bad.slice(0, 5).join('; ') : '') };
+  }, () => {
+    const liar = { shows: 'range live', paint(T, r, g) { T.rect(g.tx, g.my, 4, 2, T.I.m); } }, sneak = { shows: 'range', paint(T, r, g) { T.rect(g.vx(r.route.out), g.my, 2, 2, T.I.m); T.rect(g.vx(r.route.lo), g.my, 2, 2, T.I.m); } };
+    return judgeClaims(scrHOUSE, liar, 'm').length > 0 && judgeClaims(scrHOUSE, sneak, 'm').length > 0;
+  }, 'one claims but ignores, one draws without claiming'],
+  ['A modulated row can be told from any still frame, blink phases included, and the rows with no route carry no mod mark at all (GUI-21)', function* () {
+    const bad = []; let n = 0; for (const s of SCREENS) for (const l of s.mods) { n++; for (const e of judgeStill(s, l)) bad.push(s.id + '/' + l.id + ' ' + e); yield; }
+    return { ok: !bad.length, note: n + ' languages × ' + CK_FRAMES.length + ' frames' + (bad.length ? '; ' + bad.slice(0, 4).join('; ') : '') };
+  }, () => {
+    const blinker = { paint(T, r, g, st) { if ((st.f >> 4) & 1) T.rect(g.vx(r.route.lo), g.my, g.vx(r.route.hi) - g.vx(r.route.lo), 2, T.I.m); } };
+    const stray = { paint(T, r, g) { T.rect(g.tx, g.lane + 3 * 25, 8, 3, T.I.m); T.rect(g.tx, g.my, 8, 2, T.I.m); } };
+    return judgeStill(scrHOUSE, blinker).length > 0 && judgeStill(scrHOUSE, stray).length > 0;
+  }, 'a blink-only mark, and a mark on the unmodulated row'],
+  ['The languages on a screen are different drawings, not tints: any two differ on at least 25 % of their ink', function* () {
+    const bad = []; let pairs = 0; const st = CK_ST, m = modelOf(st);
+    for (const s of SCREENS) { for (const ax of ['c', 'm']) { const langs = allLangs(s, ax); const k = langs.filter(l => !l.today).length; pairs += k * (k - 1) / 2; for (const e of judgeDistinct(s, ax, langs, st, m)) bad.push(s.id + ': ' + e); yield; } }
+    return { ok: !bad.length, note: pairs + ' pairs' + (bad.length ? '; ' + bad.slice(0, 4).join('; ') : '') };
+  }, () => {
+    const pips = langOf(scrHOUSE, 'c', 'pips'), tint = { paint(T, r, g, st) { const I = T.I; T.I = Object.assign({}, I, { k: I.v, p: I.m }); pips.paint(T, r, g, st); T.I = I; } };
+    return judgeDistinct(scrHOUSE, 'c', [pips, tint], CK_ST, modelOf(CK_ST)).length > 0;
+  }, 'a recolour of Pips in one ink'],
+  ['The same state always gives the same pixels, and no painter reads a clock or Math.random', function* () {
+    let bad = []; const st = CK_ST, m = modelOf(st);
+    for (const s of SCREENS) { for (const ax of ['c', 'm']) for (const l of allLangs(s, ax)) { const c = ax === 'c' ? l : null, q = ax === 'm' ? l : null; if (hashOf(copyOf(s, c, q, st, m, false).out) !== hashOf(copyOf(s, c, q, st, m, false).out)) bad.push(s.id + '/' + l.id); if (l.paint && !judgePure(l.paint)) bad.push(s.id + '/' + l.id + ' source'); yield; } }
+    const a = mulberry32(SEED), b = mulberry32(SEED); for (let i = 0; i < 8; i++) if (a() !== b()) bad.push('mulberry32');
+    return { ok: !bad.length, note: bad.slice(0, 4).join('; ') };
+  }, () => { let tick = 0; const imp = { paint(T, r, g) { T.rect(g.tx + (tick++ % 90), g.lane, 3, 3, T.I.p); } }, st = CK_ST, m = modelOf(st); const a = hashOf(copyOf(scrHOUSE, imp, null, st, m, false).out), b = hashOf(copyOf(scrHOUSE, imp, null, st, m, false).out); return a !== b && !judgePure(function () { return Math.random(); }); }, 'a painter with a hidden counter, and one reading Math.random'],
+  ['The picker: a pick changes the mix and the summary line, and an unknown id is refused', () => {
+    const s = scrGBC, keep = Object.assign({}, PICKS[s.id]), other = s.corners.find(l => l.id !== keep.c), before = choiceLine(s), ok = pick(s.id, 'c', other.id), after = choiceLine(s), m = modelOf(CK_ST);
+    const a = hashOf(copyOf(s, langOf(s, 'c', keep.c), null, CK_ST, m, true).out), b = hashOf(copyOf(s, langOf(s, 'c', PICKS[s.id].c), null, CK_ST, m, true).out);
+    PICKS[s.id] = keep; return { ok: ok && before !== after && a !== b, note: '' };
+  }, () => !pick('gbc', 'c', 'nonesuch') && !pick('nonesuch', 'c', 'pips'), 'an unknown language, an unknown screen'],
+  ['Every screen offers at least three corner and three modulation languages, one suggestion each, and every card states its cost', () => {
+    const bad = []; for (const s of SCREENS) bad.push(...judgeStructure(s)); return { ok: !bad.length, note: SCREENS.length + ' screens' + (bad.length ? '; ' + bad.slice(0, 4).join('; ') : '') };
+  }, () => judgeStructure({ id: 'x', corners: [{ id: 'a', rec: true, cost: 'x'.repeat(50) }, { id: 'b', cost: 'x'.repeat(50) }], mods: [] }).length > 0, 'a screen with two languages'],
+  ['Every glass is shown at a whole-number scale, never resampled', () => {
+    const bad = []; for (const s of SCREENS) for (const mx of [false, true]) if (!judgeScale(getT(s, mx).W, mx ? s.css.mix : s.css.card)) bad.push(s.id); return { ok: !bad.length, note: bad.join(', ') };
+  }, () => !judgeScale(160, 1.5), 'a ×1.5 scale'],
+  ['The scheme table here still matches arp-face/tokens.css', () => {
+    const cs = getComputedStyle(document.documentElement), probe = cs.getPropertyValue('--tube-ground');
+    if (typeof probe !== 'string' || !probe.trim()) return { ok: null, note: 'no live tokens to read here (a browser reads them)' };
+    const bad = []; for (const n in SCHEMES) for (const k in SCHEME_TOKEN) { const v = cs.getPropertyValue('--' + n.toLowerCase() + '-' + SCHEME_TOKEN[k]).trim().toLowerCase(); if (v !== SCHEMES[n][k]) bad.push(n + ' ' + SCHEME_TOKEN[k] + ': ' + v); }
+    return { ok: !bad.length, note: bad.slice(0, 3).join('; ') };
+  }, () => { const cs = getComputedStyle(document.documentElement), v = cs.getPropertyValue('--tube-ground'); if (typeof v !== 'string' || !v.trim()) return null; return v.trim().toLowerCase() !== '#000001'; }, 'a wrong value compared']
+];
+const CHECKS = { done: 0, rows: [], failed: 0, notRun: 0, running: false, ms: 0 };
+/* a long check is a generator that yields between screens, so the page keeps breathing while it runs */
+function finishCheck(i, res) {
+  const [claim, , ctl, ctlName] = CHECK_LIST[i]; let c;
+  try { c = ctl(); } catch (e) { c = false; }
+  const row = { n: i + 1, claim, ok: res.ok, note: res.note || '', ctlOk: c, ctlName };
+  CHECKS.rows.push(row); CHECKS.done++; CHECKS.it = null;
+  if (res.ok === false || c === false) CHECKS.failed++; if (res.ok === null) CHECKS.notRun++;
+  return row;
+}
+function stepCheck() {   // true when one whole check has finished
+  const i = CHECKS.done;
+  try {
+    if (!CHECKS.it) { const r = CHECK_LIST[i][1](); if (!r || typeof r.next !== 'function') { finishCheck(i, r); return true; } CHECKS.it = r; }
+    const s = CHECKS.it.next(); if (!s.done) return false; finishCheck(i, s.value); return true;
+  } catch (e) { finishCheck(i, { ok: false, note: 'threw: ' + e.message }); return true; }
+}
+function runOneCheck() { while (!stepCheck()) { /* drain */ } return CHECKS.rows[CHECKS.rows.length - 1]; }
+
+/* ======================================================================
+   G. THE PAGE. Built with createElement: the load check's stub DOM can't parse innerHTML (see tools/labharness).
+   ====================================================================== */
+const ST = { px: 0.36, py: 0.28, f: 40, scheme: 'ORCHID', running: true, walk: false, wf: 0, ver: 1 };
+const UI = { glasses: [], cards: [], chips: [], rr: 0, raf: 0, errs: 0, costs: 0, costN: 0, lastCost: 0, visible: 0 };
+function el(tag, cls, txt) { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined && txt !== null) e.textContent = txt; return e; }
+const $ = id => document.getElementById(id);
+function add(p, ...k) { for (const c of k) p.appendChild(c); return p; }
+function fault(msg) { UI.errs++; const b = $('banner'); b.classList.add('on'); b.textContent = 'This page has a fault, so what you see may be wrong: ' + msg; }
+window.addEventListener('error', e => fault(String((e && e.message) || e)));
+
+/* one glass on the page. It paints only while in view (IntersectionObserver), and only when the state has moved. */
+function makeGlass(scr, mix, host, langs) {
+  const T = getT(scr, mix), css = mix ? scr.css.mix : scr.css.card, cv = el('canvas', 'glass');
+  cv.width = T.W; cv.height = T.H; cv.style.width = T.W * css + 'px'; cv.style.height = T.H * css + 'px';
+  if (scr.id === 'gbc') { const w = el('div', 'gbcgrid'); w.style.setProperty('--lp', css + 'px'); add(w, cv); add(host, w); } else add(host, cv);
+  const G = { scr, mix, cv, ctx: cv.getContext('2d'), img: null, langs, vis: !UI.io, ver: 0, dead: false };
+  G.img = G.ctx.createImageData(T.W, T.H);
+  if (UI.io) { UI.obs.set(cv, G); UI.io.observe(cv); }
+  UI.glasses.push(G); return G;
+}
+function paintGlass(G, m) {
+  if (G.dead || !G.vis || G.ver === ST.ver) return;
+  const { c, m: q } = G.langs(); G.ver = ST.ver;
+  try { const T = getT(G.scr, G.mix); render(G.scr, T, c, q, ST, m, G.mix); G.img.data.set(T.out); G.ctx.putImageData(G.img, 0, 0); UI.visible++; }
+  catch (e) { G.dead = true; fault(G.scr.id + ': ' + e.message); }
+}
+function buildBar() {
+  const bar = $('bar');
+  const pad = el('canvas', 'pad'); pad.width = 88; pad.height = 88; pad.tabIndex = 0; pad.setAttribute('role', 'application'); pad.setAttribute('aria-label', 'Morph puck: drag, or use the arrow keys'); UI.pad = pad;
+  const set = (x, y) => { ST.px = clamp(x, 0, 1); ST.py = clamp(y, 0, 1); ST.walk = false; syncBar(); ST.ver++; };
+  const at = e => { const r = pad.getBoundingClientRect(); set((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height); };
+  let down = false;
+  pad.addEventListener('pointerdown', e => { down = true; try { pad.setPointerCapture(e.pointerId); } catch (_) { /* not all pointers capture */ } at(e); });
+  pad.addEventListener('pointermove', e => { if (down) at(e); });
+  pad.addEventListener('pointerup', () => { down = false; });
+  pad.addEventListener('pointercancel', () => { down = false; });
+  pad.addEventListener('keydown', e => { const d = e.shiftKey ? 0.01 : 0.05, K = { ArrowLeft: [-d, 0], ArrowRight: [d, 0], ArrowUp: [0, -d], ArrowDown: [0, d] }[e.key]; if (K) { e.preventDefault(); set(ST.px + K[0], ST.py + K[1]); } });
+  add(bar, pad);
+
+  const c1 = el('div', 'ctl'), r1 = el('div', 'rw'), r2 = el('div', 'rw'), r3 = el('div', 'rw');
+  const mod = el('button', 'b'); mod.type = 'button'; mod.addEventListener('click', () => { ST.running = !ST.running; syncBar(); ST.ver++; }); UI.mod = mod;
+  const stp = el('button', 'b', 'Step'); stp.type = 'button'; stp.title = 'Advance the modulator by three frames'; stp.addEventListener('click', () => { ST.running = false; ST.f += 3; syncBar(); ST.ver++; });
+  const walk = el('button', 'b', 'Walk'); walk.type = 'button'; walk.title = 'The puck wanders by itself, so you can watch rows flip'; walk.addEventListener('click', () => { ST.walk = !ST.walk; syncBar(); }); UI.walk = walk;
+  add(r1, mod, stp, walk);
+  [[0, 0, 0], [1, 0, 1], [0, 1, 2], [1, 1, 3]].forEach(([x, y, j]) => { const b = el('button', 'b', GLYPH[j] + ' ' + LET[j]); b.type = 'button'; b.title = 'Puck to corner ' + LET[j]; b.addEventListener('click', () => set(x, y)); add(r2, b); });
+  const ctr = el('button', 'b', 'Centre'); ctr.type = 'button'; ctr.addEventListener('click', () => set(0.5, 0.5)); add(r2, ctr);
+  const sel = el('select', 'b'); sel.setAttribute('aria-label', 'Screen scheme'); for (const n of Object.keys(SCHEMES)) { const o = el('option', null, n); o.value = n; add(sel, o); } sel.value = ST.scheme; sel.addEventListener('change', () => { ST.scheme = sel.value; ST.ver++; }); UI.sel = sel;
+  const th = el('button', 'b', 'Dark chassis'); th.type = 'button'; th.addEventListener('click', () => { const dark = document.documentElement.getAttribute('data-theme') !== 'dark'; document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light'); th.setAttribute('aria-pressed', dark ? 'true' : 'false'); ST.scheme = dark ? 'TUBE' : 'ORCHID'; sel.value = ST.scheme; ST.ver++; }); th.setAttribute('aria-pressed', 'false');
+  add(r3, sel, th);
+  add(c1, r1, r2, r3); add(bar, c1);
+
+  UI.read = el('div', 'read'); add(bar, UI.read);
+  const c2 = el('div', 'ctl'); const jump = el('nav', 'jump');
+  for (const s of SCREENS) { const a = el('a', null, s.mod === 'no module' ? s.medium : s.mod); a.href = '#s-' + s.id; add(jump, a); }
+  const a2 = el('a', null, 'Your choice'); a2.href = '#summary'; add(jump, a2);
+  UI.state = el('div', 'state', 'Starting.');
+  add(c2, jump, UI.state); add(bar, c2);
+}
+function syncBar() {
+  UI.mod.textContent = ST.running ? 'Stop modulator' : 'Start modulator';
+  UI.mod.setAttribute('aria-pressed', ST.running ? 'true' : 'false'); UI.walk.setAttribute('aria-pressed', ST.walk ? 'true' : 'false');
+}
+const padSf = new Sf(88, 88, 1);
+function drawPad() {
+  const S = padSf, bg = hx('#f4efff'), ink = hx('#191521'); S.clear(bg);
+  S.line(44, 0, 44, 88, ink, 0.5, 0.25); S.line(0, 44, 88, 44, ink, 0.5, 0.25);
+  [[8, 8], [80, 8], [8, 80], [80, 80]].forEach((p, j) => { S.poly(glyphPts(j, p[0], p[1], 6), hx(HUE[j])); const P = glyphPts(j, p[0], p[1], 6); for (let q = 1; q < P.length; q++) S.line(P[q - 1][0], P[q - 1][1], P[q][0], P[q][1], ink, 1, 0.9); });
+  const x = ST.px * 88, y = ST.py * 88; S.disc(x, y, 6, ink); S.disc(x, y, 3.5, bg);
+  if (!UI.padCtx) { UI.padCtx = UI.pad.getContext('2d'); UI.padImg = UI.padCtx.createImageData(88, 88); }
+  UI.padImg.data.set(S.out); UI.padCtx.putImageData(UI.padImg, 0, 0);
+}
+function drawReference(m) {
+  const S = UI.refSf; if (!S) return;
+  const paper = hx('#fcfaf4'), ink = hx('#191521'), lfo = hx('#2f63e8'), well = hx('#e9e3d4'); S.clear(paper);
+  const r = m.rows[0], R = r.route, cx = 56, cy = 54, q = 26, A = v => Math.PI * (0.75 + 1.5 * v);
+  S.arc(cx, cy, q, A(0), A(1), well, 5); S.arc(cx, cy, q, A(0), A(r.base), ink, 5);
+  for (const j of order(r)) { const a = A(r.vals[j]), o = j === r.owner, p = o ? 6 : 2.5 + r.w[j] * 5, X = cx + q * Math.cos(a), Y = cy + q * Math.sin(a); S.poly(glyphPts(j, X, Y, p), hx(HUE[j])); const P = glyphPts(j, X, Y, p); for (let n = 1; n < P.length; n++) S.line(P[n - 1][0], P[n - 1][1], P[n][0], P[n][1], ink, 1, 1); }
+  S.arc(cx, cy, q + 9, A(R.lo), A(R.hi), lfo, 2.4); const a = A(R.out); S.line(cx + (q + 6) * Math.cos(a), cy + (q + 6) * Math.sin(a), cx + (q + 12) * Math.cos(a), cy + (q + 12) * Math.sin(a), ink, 1.5); const b = A(r.base); S.disc(cx + (q + 9) * Math.cos(b), cy + (q + 9) * Math.sin(b), 3, lfo); S.line(cx, cy, cx + 15 * Math.cos(a), cy + 15 * Math.sin(a), ink, 2);
+  /* the slider form: lanes below, pips above (HORDE Map Mode Spec, Slider Marks) */
+  const x0 = 130, w = 190, V = v => x0 + v * w, y = 54; S.line(x0, y, x0 + w, y, well, 5); S.line(x0, y, V(r.base), y, ink, 5);
+  for (const j of order(r)) { const o = j === r.owner, p = o ? 6 : 2.5 + r.w[j] * 5, X = V(r.vals[j]), Y = y - 16; S.poly(glyphPts(j, X, Y, p), hx(HUE[j])); const P = glyphPts(j, X, Y, p); for (let n = 1; n < P.length; n++) S.line(P[n - 1][0], P[n - 1][1], P[n][0], P[n][1], ink, 1, 1); }
+  S.line(V(r.base), y - 4, V(r.vals[r.owner]), y - 13, ink, 1, 0.7);
+  S.line(V(R.lo), y + 14, V(R.hi), y + 14, lfo, 2.4); S.disc(V(r.base), y + 14, 3, lfo); S.line(V(R.out), y + 10, V(R.out), y + 18, ink, 1.5);
+  if (!UI.refCtx) { UI.refCtx = UI.refCv.getContext('2d'); UI.refImg = UI.refCtx.createImageData(S.W, S.H); }
+  UI.refImg.data.set(S.out); UI.refCtx.putImageData(UI.refImg, 0, 0);
+}
+function buildReference() {
+  const box = $('reference');
+  add(box, el('h3', null, 'What is being translated: the chassis, today'));
+  UI.refSf = new Sf(340, 104, 1); const cv = el('canvas'); cv.width = 340; cv.height = 104; cv.style.display = 'block'; cv.style.maxWidth = '100%'; UI.refCv = cv;
+  UI.refG = { vis: !UI.io }; if (UI.io) { UI.obs.set(cv, UI.refG); UI.io.observe(cv); }
+  const wrap = el('div'); wrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:14px;align-items:center'; const tx = el('div'); tx.style.flex = '1 1 420px';
+  add(tx, el('p', null, 'A knob and a slider on horde\'s chassis, drawn here for reference, so not the master\'s components. The chassis says "which corner" with hue and shape together (ADR-259 ruling 3, ADR-261 ruling 1): each pip is its corner\'s glyph, sized by weight, and the owner\'s is the big one with a tether to the blend. It says "modulation" with a ring or lane in the source\'s colour: its range, an origin dot at the base, and a live tick at the output.'),
+    el('p', null, 'Inside a glass the hue is gone (ADR-259 ruling 4), the source colour is gone, and each skin has its own rules on what it can draw. The chassis around each glass below still carries the four corner chips in colour. Mappings are global for 1.0 (ADR-266 ruling 4), so a mod mark never needs to say which corner it belongs to.'),
+    el('p', null, 'Nothing below draws a hue inside a glass, and self-check 5 reads the pixels to prove it. Today no glass draws any modulation, so no modulation card is a "Today".'));
+  add(wrap, cv, tx); add(box, wrap);
+}
+function claimsLine(L, axis) {
+  const names = axis === 'c' ? [['owner', 'who owns'], ['pos', 'where each sits'], ['weight', 'the blend\'s pull']] : [['range', 'range'], ['live', 'moving value'], ['shape', 'the source\'s shape']];
+  const has = new Set((L.shows || '').split(' ')), line = el('div', 'claims');
+  const y = names.filter(n => has.has(n[0])).map(n => n[1]), no = names.filter(n => !has.has(n[0])).map(n => n[1]);
+  add(line, el('b', null, 'Shows: ')); line.appendChild(document.createTextNode((y.join(', ') || 'none of these') + '.  ')); if (no.length) { add(line, el('b', null, 'Not: ')); line.appendChild(document.createTextNode(no.join(', ') + '.')); }
+  return line;
+}
+function syncScreen(s) {
+  for (const c of UI.cards) if (c.s === s) c.b.setAttribute('aria-pressed', PICKS[s.id][c.axis] === c.L.id ? 'true' : 'false');
+  const P = PICKS[s.id], ov = overlapOf(s, langOf(s, 'c', P.c), langOf(s, 'm', P.m), ST, modelOf(ST));
+  if (UI.choice[s.id]) UI.choice[s.id].textContent = choiceLine(s) + '. ' + (ov ? 'The two overlap by ' + ov + ' device pixels, measured at the last click.' : 'The two share no pixels, measured at the last click.');
+  syncSummary();
+}
+function buildScreens() {
+  const host = $('screens'); UI.choice = {};
+  for (const s of SCREENS) {
+    const sec = el('section', 'scr'); sec.id = 's-' + s.id;
+    const head = el('div', 'shead'); add(head, el('h2', null, (s.mod === 'no module' ? '' : s.mod + ': ') + s.medium), el('span', 'pill' + (s.status === 'RULED' ? ' ruled' : ''), s.status === 'RULED' ? 'RULED FOR THIS MODULE' : 'AUDITION'), el('span', 'claims', s.cite));
+    add(sec, head, el('div', 'policy', s.policy));
+    const body = el('div', 'sbody'), mx = el('div', 'mixcol'), cands = el('div', 'cands');
+    const ch = el('div', 'chassis'), ch1 = el('div', 'chead'); add(ch1, el('span', 'ctab', 'FX · ' + (s.mod === 'no module' ? s.medium.toUpperCase() : s.mod.toUpperCase())));
+    for (let j = 0; j < 4; j++) { const c = el('span', 'chip', GLYPH[j] + ' ' + LET[j]); c.style.background = HUE[j]; const bar = el('i'); add(c, bar); add(ch1, c); UI.chips.push({ bar, j }); }
+    const bez = el('div', 'bezel'); makeGlass(s, true, bez, () => ({ c: langOf(s, 'c', PICKS[s.id].c), m: langOf(s, 'm', PICKS[s.id].m) }));
+    const foot = el('div', 'cfoot'); add(foot, el('span', null, 'MOCK · sample data'), el('span', null, 'your mix at the glass\'s scale'));
+    add(ch, ch1, bez, foot); add(mx, ch);
+    const chLine = el('div', 'choice'); UI.choice[s.id] = chLine; add(mx, chLine);
+    for (const [axis, title, list] of [['c', 'Corners: pick one', s.corners], ['m', 'Modulation: pick one', s.mods]]) {
+      const w = el('div'); add(w, el('h3', null, title)); const grid = el('div', 'cgrid');
+      for (const L of list) {
+        const b = el('button', 'card'); b.type = 'button';
+        const nm = el('div', 'cname', L.name); if (L.today) add(nm, el('span', 'pill', 'TODAY')); if (L.rec) add(nm, el('span', 'pill', 'SUGGESTED'));
+        add(b, nm); makeGlass(s, false, b, axis === 'c' ? () => ({ c: L, m: null }) : () => ({ c: null, m: L }));
+        add(b, claimsLine(L, axis), el('div', 'cost', L.cost));
+        b.addEventListener('click', () => { pick(s.id, axis, L.id); syncScreen(s); ST.ver++; });
+        UI.cards.push({ s, axis, L, b }); add(grid, b);
+      }
+      add(w, grid); add(cands, w);
+    }
+    add(body, mx, cands); add(sec, body); add(host, sec);
+  }
+}
+function buildSummary() {
+  const box = $('summary');
+  add(box, el('h3', null, 'Your choice'));
+  UI.sumNote = el('p'); UI.sumPre = el('pre', 'sum');
+  add(box, el('p', null, 'This is what you have chosen so far. It stays on this page and is saved nowhere: reloading resets it, so copy the text to keep it.'), UI.sumNote, UI.sumPre);
+  add(box, el('h3', null, 'What the lab suggests, and why')); const ul = el('ul');
+  for (const s of SCREENS) { const li = el('li'); add(li, el('b', null, (s.mod === 'no module' ? s.medium : s.mod) + ': ' + s.corners.find(l => l.rec).name + ' + ' + s.mods.find(l => l.rec).name + '. ')); li.appendChild(document.createTextNode(RECWHY[s.id])); add(ul, li); }
+  add(box, ul);
+}
+function syncSummary() {
+  if (!UI.sumPre) return;
+  let own = 0; for (const s of SCREENS) if (PICKS[s.id].cOwn && PICKS[s.id].mOwn) own++;
+  UI.sumNote.textContent = own + ' of ' + SCREENS.length + ' screens have both choices made. Anything marked "suggested" is the lab\'s, not yours.';
+  UI.sumPre.textContent = SCREENS.map(choiceLine).join('\n');
+}
+function buildNotes() {
+  const box = $('notes'); add(box, el('h3', null, 'What is real, and what the human still has to say'));
+  const ul = el('ul');
+  for (const t of ['Nothing on a glass is real data. The owner is a stand-in here, drawn from a seeded threshold per row; on the instrument it is read from the engine (ADR-261), and the Quantum row\'s law is likewise a stand-in.',
+    'The value on each row\'s label line is always the base, never the moving output, on purpose: otherwise every modulation card would pass the check through a number it didn\'t draw. The Map Mode Spec has mapped knobs read the modulated value, and that is a separate choice when these get built.',
+    'Marks here draw one route per row. The spec allows four and "+n". The cards say where a second route would hurt, and none of it was drawn or checked.',
+    'Flips under Quantum are shown by the marks moving. The Morph Knob Spec\'s ownership-change cue and its freeze-while-hovering idea are not drawn.',
+    'ADR-273 describes Shriek\'s chain tile as amber on near-black and Sluice\'s as four greens, while screens.md has both glasses taking the screen scheme. This page follows screens.md, so both glasses change with the scheme selector.',
+    'A row is a slider, not a knob, because a glass\'s rows are lists; the four real knobs sit under the glass on the chassis, where hue is allowed. The soft-key labels are samples and do nothing here.']) add(ul, el('li', null, t));
+  add(box, ul, el('h3', null, 'Questions for the human'));
+  const ol = el('ol');
+  for (const t of ['For each screen, which corner language and which modulation language?',
+    'Does each glass get its own language, or should one grammar run through them all, say a letter above the track and a band below it, each in its skin\'s own ink? Most of the suggestions already land there; only the vector, sonar and neon glasses gain much by going their own way.',
+    'Should the weights show on a glass at all? Most languages give them up, and the chassis\'s chips under each glass already show the morph position.',
+    'One idea not built: bezel lamps. The chassis could light a hued lamp beside each row, keeping the hue on the chassis as ADR-259 ruling 4 asks. It would need the chassis to know where the glass\'s rows are, which breaks the line between chassis and software. Worth a round?']) add(ol, el('li', null, t));
+  add(box, ol);
+}
+function renderChecks() {
+  const box = $('checks'); box.textContent = '';   // not a removeChild loop: the load check's stub DOM always has a firstChild, and that loop hung it
+  add(box, el('h3', null, 'Self-check'));
+  const t = el('table'), hr = el('tr'); for (const h of ['#', 'Claim', 'Result', 'Must-fail control']) add(hr, el('th', null, h)); add(t, hr);
+  for (const r of CHECKS.rows) {
+    const tr = el('tr'), res = el('td'), ctl = el('td');
+    add(res, el('span', r.ok === false ? 'no' : 'ok', r.ok === null ? 'not run' : r.ok ? 'pass' : 'FAIL')); if (r.note) res.appendChild(document.createTextNode(' ' + r.note));
+    add(ctl, el('span', r.ctlOk === false ? 'no' : 'ok', r.ctlOk === null ? 'not run' : r.ctlOk ? 'flagged' : 'NOT FLAGGED')); ctl.appendChild(document.createTextNode(' ' + r.ctlName));
+    add(tr, el('td', null, String(r.n)), el('td', null, r.claim), res, ctl); add(t, tr);
+  }
+  add(box, t);
+  if (CHECKS.done < CHECK_LIST.length) add(box, el('p', null, 'Checking ' + (CHECKS.done + 1) + ' of ' + CHECK_LIST.length + '. The page stays usable while this runs.'));
+  else add(box, el('p', null, 'Took ' + Math.round(CHECKS.ms) + ' ms. Not measured here: anything about how these read to a person. That is your judgement, not a check.'));
+}
+function syncState() {
+  const busy = CHECKS.done < CHECK_LIST.length, bad = CHECKS.failed > 0;
+  UI.state.className = 'state' + (bad ? ' bad' : '');
+  const chk = busy ? 'Checking ' + (CHECKS.done + 1) + '/' + CHECK_LIST.length : bad ? CHECKS.failed + ' CHECK(S) FAILED, see the end of the page' : 'Self-check: ' + (CHECKS.done - CHECKS.notRun) + ' of ' + CHECK_LIST.length + ' pass' + (CHECKS.notRun ? ', ' + CHECKS.notRun + ' not run' : '');
+  UI.state.textContent = chk + (UI.lastCost ? ' · ' + UI.lastVis + ' glasses in view, ' + UI.lastCost.toFixed(1) + ' ms a paint' : '');
+}
+function stepChecks() {
+  const t0 = performance.now(); const fin = stepCheck(); CHECKS.ms += performance.now() - t0;
+  if (!fin) { setTimeout(stepChecks, 15); return; }
+  renderChecks(); syncState();
+  if (CHECKS.failed) { const b = $('banner'); b.classList.add('on'); b.textContent = CHECKS.failed + ' self-check(s) failed: see the table at the end of the page before trusting what you see.'; }
+  if (CHECKS.done < CHECK_LIST.length) setTimeout(stepChecks, 30);
+}
+
+/* the shared loop. Time here is a frame count; performance.now only reports the paint's cost, it decides nothing. */
+function tickState() {
+  if (ST.running) { ST.f++; ST.ver++; }
+  if (ST.walk) { ST.wf++; ST.px = 0.5 + 0.46 * Math.sin(ST.wf * 0.011); ST.py = 0.5 + 0.46 * Math.sin(ST.wf * 0.0083 + 1); ST.ver++; }
+}
+let _lastVer = -1, _lastPx = -1, _lastPy = -1;
+const PAINT_BUDGET = 6;
+function paintAll() {
+  const m = modelOf(ST), t0 = performance.now(); UI.visible = 0;
+  /* a fixed number of glasses a paint, in turn, so the page's cost is bounded without reading a clock: the mixes always, then the next cards in view */
+  let left = PAINT_BUDGET; const N = UI.glasses.length;
+  for (const G of UI.glasses) if (G.mix) paintGlass(G, m);
+  for (let n = 0; n < N && left > 0; n++) { UI.rr = (UI.rr + 1) % N; const G = UI.glasses[UI.rr]; if (G.mix || !G.vis || G.ver === ST.ver) continue; paintGlass(G, m); left--; }
+  if (ST.ver !== _lastVer) {
+    _lastVer = ST.ver; if (UI.refG.vis) drawReference(m);
+  }
+  if (ST.px !== _lastPx || ST.py !== _lastPy) {   // the puck moved: only then do the pad, the chips and the readout change
+    _lastPx = ST.px; _lastPy = ST.py; drawPad();
+    for (const c of UI.chips) { c.bar.style.width = Math.round(m.w[c.j] * 100) + '%'; }
+    UI.read.textContent = 'A ' + P100(m.w[0]) + '  B ' + P100(m.w[1]) + '\nC ' + P100(m.w[2]) + '  D ' + P100(m.w[3]) + '\n' + m.rows.map(r => r.name[0] + ':' + LET[r.owner]).join(' ');
+  }
+  if (UI.visible) { UI.costs += performance.now() - t0; UI.costN++; if (UI.costN >= 30) { UI.lastCost = UI.costs / UI.costN; UI.lastVis = UI.visible; UI.costs = 0; UI.costN = 0; syncState(); } }
+}
+function loop() { UI.raf++; tickState(); if (UI.raf & 1) paintAll(); requestAnimationFrame(loop); }
+
+function smoke() {   // one frame of everything, at load, so a painter that throws shows up at once (and in lab_load_check)
+  const m = modelOf(ST); let n = 0;
+  for (const s of SCREENS) { render(s, getT(s, true), s.corners[1], s.mods[0], ST, m, true); for (const c of s.corners) { render(s, getT(s, false), c, null, ST, m, false); n++; } for (const q of s.mods) { render(s, getT(s, false), null, q, ST, m, false); n++; } }
+  return n;
+}
+function boot() {
+  if (typeof IntersectionObserver === 'function') {
+    UI.obs = new Map();
+    UI.io = new IntersectionObserver(es => { for (const e of es) { const G = UI.obs.get(e.target); if (G) { G.vis = e.isIntersecting; if (e.isIntersecting) { G.ver = 0; _lastVer = -1; } } } }, { rootMargin: '120px' });
+  }
+  buildBar(); syncBar(); buildReference(); buildScreens(); buildSummary(); buildNotes();
+  for (const s of SCREENS) syncScreen(s);
+  renderChecks();
+  let smokeErr = null;
+  try { smoke(); } catch (e) { smokeErr = e; fault('a painter threw at load: ' + e.message); }
+  syncState(); paintAll();
+  requestAnimationFrame(loop);
+  setTimeout(stepChecks, 60);
+  if (smokeErr) throw smokeErr;   // after the page is up: the banner has said so, and lab_load_check needs to see the throw too
+}
+window.FX_MARKS = { SCREENS, PICKS, CHECKS, CHECK_LIST, UI, render, getT, modelOf, runOneCheck, pick, choiceLine, overlapOf, langOf, ST };   // for a test harness; the page doesn't read it
+boot();
+</script>
+</body>
+</html>

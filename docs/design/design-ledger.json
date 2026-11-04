@@ -235,6 +235,10 @@
    "status": "retired",
    "note": "Superseded by fx-design-lab.html (its lab-superseded-by tag). History, never a source."
   },
+  "fx-screen-marks-lab.html": {
+   "status": "exploring",
+   "note": "GB15. Ways to show morph corners and modulation on every FX screen, with a pick per screen; waiting on the human's choices. Nothing here is in the master."
+  },
   "fx-screens-workshop.html": {
    "status": "harvested",
    "master_version": "1793374583-b6a5",
