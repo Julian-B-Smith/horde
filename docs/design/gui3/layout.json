@@ -2132,7 +2132,7 @@
       "id": "mix",
       "label": "Mix",
       "status": "designed",
-      "note": "A console (B589, ADR-329 item 3) with more room per strip (ADR-333), beside a summed oscilloscope and a summed spectrum: one strip per source and the master, each fader its level key, attached to its own on, mute and solo keys; the meters, the peaks and the summed views are the stub's MOCK observation view (IF-6, IF-10); the CLIP lamp latches and clears on a click.",
+      "note": "One console for the whole chain (GUI-14, GUI-16), with the signal flow's picture over the strips, and a summed oscilloscope and spectrum under it. The sources and the sum are engine rows, attached to their own on, mute and solo keys; every other gain is a placeholder, and the flow, the levels past the sources, bypass and stage solos are MOCK until the engine has them (IF-6, IF-10, X13); a stage over 0 dB latches its CLIP lamp.",
       "groups": [
         {
           "title": "Osc 1",

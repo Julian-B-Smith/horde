@@ -1,0 +1,40 @@
+<!-- @dsCard group="Display" height=560 subtitle="The whole chain on one console: every stage's level and gain on one ruler, a solo on each and a bypass on each FX module, with the signal flow's picture over the strips, each node over its own bars." -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Chain console</title></head>
+<body>
+<div style="padding:14px 16px 4px; min-width:0">
+  <div class="hd-row" style="gap:8px 12px; margin-bottom:10px">
+    <span class="hd-cluster">Mixer</span>
+    <div class="hd-pills" role="radiogroup" aria-label="Filters" id="filters"><button class="hd-pill hd-focus" role="radio" aria-checked="true" data-v="serial">Filters in series</button><button class="hd-pill hd-focus" role="radio" aria-checked="false" data-v="parallel">In parallel</button></div>
+    <div class="hd-pills" role="radiogroup" aria-label="FX" id="fx"><button class="hd-pill hd-focus" role="radio" aria-checked="true" data-v="serial">FX in series</button><button class="hd-pill hd-focus" role="radio" aria-checked="false" data-v="pairs">Two branches</button><button class="hd-pill hd-focus" role="radio" aria-checked="false" data-v="parallel">In parallel</button></div>
+  </div>
+  <div id="cc"></div>
+  <p class="hd-hint" style="margin:8px 0 14px">SAMPLE levels, generated in this preview from a seeded signal and the gains through the flow's model; never the engine. Drag an arrow, press S or BYP, or change the flow above.</p>
+</div>
+<script>
+(function () {
+  var H = window.Horde, FL = H.ChainConsole.flow, stages = H.GainStaging.chain('instrument'), G = {}, lat = {}, LV = {}, n = 0, rnd = H.Synth.rng(2301), jit = [], F = FL.make(), order = stages.map(function (s) { return s.id; });
+  var S = new H.Session({ x: .3, y: .3, corners: ['Glass horde pad', 'Undertone cathedral', 'Smear and strike', 'Crushed bells'], sources: [], mappings: [] });
+  stages.forEach(function (s) { if (s.gain) G[s.id] = s.gain.def; });
+  for (var i = 0; i < 256; i++) jit.push(rnd());                        // seeded: the same frames every load
+  var ids = ['osc1', 'osc2', 'sub', 'noise'];
+  function tick() {
+    n++; var src = {};
+    ids.forEach(function (id, i) { src[id] = G[id] - 12 - 4 * (.5 + .5 * Math.sin(n * .017 * (1 + i * .13) + i * 1.7)) - jit[(n + i * 31) % 256]; });
+    LV = FL.levels(F, src, function (id) { return id === 'gr' ? 0 : G[id]; }, order); LV.gr = Math.max(0, LV.lim + 1);
+    Object.keys(LV).forEach(function (id) { if (id === 'gr' || !(LV[id] > 0)) return; var q = lat[id]; if (q) q.max = Math.max(q.max, LV[id]); else lat[id] = { on: true, at: n * 800, max: LV[id] }; });
+  }
+  var cc = H.ChainConsole(document.getElementById('cc'), S, { stages: stages, keys: function () { return S.keys; }, gain: function (id) { return G[id]; }, onGain: function (id, v) { G[id] = v; },
+    read: function (id) { if (!(id in LV)) return undefined; return id === 'gr' ? { gr: LV.gr } : { l: LV[id], r: LV[id] - .6 }; }, latch: function (id) { return lat[id] || { on: false }; }, clear: function (id) { delete lat[id]; }, flow: { F: F }, mock: 'SAMPLE' });
+  function pills(id, key) { var host = document.getElementById(id); host.addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; F[key] = b.dataset.v; [].forEach.call(host.children, function (x) { x.setAttribute('aria-checked', String(x === b)); }); cc.render(); }); }
+  pills('filters', 'filters'); pills('fx', 'fx');
+  for (var k = 0; k < 150; k++) { tick(); cc.step(1 / 60); }
+  cc.render();
+  S.start();
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  (function loop() { tick(); cc.step(1 / 60); cc.render(); requestAnimationFrame(loop); })();
+})();
+</script>
+</body>
+</html>

@@ -11414,3 +11414,41 @@ Three points stayed open, because the shell already marks a knob selected the mo
 **Not checked.** Real keys: the browser tool can't hold modifiers through a drag, so the check drives the real knob with pointer events that carry them. Whether a host or Windows takes Shift+Alt was already an open question (ADR-341 r4 A1).
 
 **FX device (ADR-254).** The same gesture on the same controls.
+
+## GUI-18 — RULED by the human: C1 is ported on the session's readings (GB1; GUI-14, GUI-16; 2026-11-03)
+
+**Context.** Asked whether to carry C1 to the master and shell on the session's current readings or to rule them first, the human, 2026-11-03: "Yes, port C1".
+
+**Ruling.** C1 is in the master as `ChainConsole` and on the shell's Mix page. These readings are what it was built on, and each stands until the human changes it:
+- **The word** SUM · VOICES for the engine's output stage. The key stays `out.level`.
+- **One ruler,** −66 to +26 dB, on every strip, with each arrow's rail covering only its own range.
+- **Solo:** a source's S is additive; any other stage's S is one at a time and plays that output directly; both can apply together; a tap still goes through the limiter. None on GR or the master's OUT.
+- **Bypass** takes the module's own gains out of the signal too. Bypassing a soloed module ends the solo.
+- **Strips stay in slot order** when the routing changes; only the wires move.
+
+**Readings this port added (the GUI session's, open to the human).**
+- **Mock signal-flow controls sit outside the window,** over the seam, since the engine has no routing rows. They don't save with a patch.
+- **Lamps latch on the model,** in the shell: the stub's full-scale tone would light every one. A source's fader at +6 dB alone no longer lights its lamp, because the model runs 24 dB under the tone.
+- **A drawn gain can't be mapped,** and says so under MAP.
+- **The Channel strip, Gain staging and Chain line stay in the master,** unmounted on Mix. Retiring them is a separate call.
+
+**Still open.** Whether Mix hides the pad as Main does (GUI-16).
+
+**Needed from the lead (noted on GB1).** A bypass key per FX slot; the solo tap at every stage (a new route to the limiter); the filter routing rows (X13, RC-1); the rack's cable state in the view (IF-10); per-stage taps (IF-6, RC-8); and `out.level`'s label as SUM · VOICES.
+
+**Consequences.** Master `1793767794-9f75`, re-vendored. Self-check 4n, with its controls. `compact-mixer-lab.html` is retired, since it hooks a mixer the shell no longer mounts.
+
+**FX device (ADR-254).** `ChainConsole` takes `GainStaging.chain('fx')`'s stages, but its flow helper is the instrument chain's. The FX device's flow isn't built.
+
+## GUI-19 — RULED by the human: Mix keeps the pad; the Morph page gets a larger pad of its own and all its proposed functionality (GB5, GB7; GUI-16, GUI-18, ADR-315, ADR-322; 2026-11-04)
+
+**Context.** GUI-16 and GUI-18 left open whether Mix hides the pad as Main does. The console needs about 906 px; with the pad showing it has 723. Asked, the human, 2026-11-04: "Keep the pad", and then: "Morph should have its own larger version though (plus all the proposed morph page functionality)".
+
+**Rulings.**
+1. **Mix keeps the docked pad.** The console scrolls sideways inside its box while morph is on. This closes the question GUI-16 and GUI-18 left open.
+2. **The Morph page has its own larger pad.** On that page the pad is on the page rather than in the dock, a second exception to ADR-315's dock on every page, after Main (GUI-2).
+3. **The Morph page takes all its proposed functionality.** The session reads that as everything on record for the page, listed on GB7, and the list is open to the human's correction.
+
+**Consequences.** Nothing changes on Mix. GB7 opens for the Morph page, with its first batch on its own PR. This is B581's step 3.
+
+**FX device (ADR-254).** It has the same pad and one Morph page (ADR-322), so the same larger pad, with its own rows and no source levels in Randomize.

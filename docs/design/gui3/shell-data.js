@@ -573,7 +573,7 @@ window.GUI3_DATA = {
     "asked": "Gain staging on the mixer",
     "id": "gain-staging",
     "item": "Gain staging on the mixer (a meter and a clip warning at every stage, the gain bars)",
-    "missing": "B584 batch 1 mounts Gain staging and the chain line on Mix: readings only where the stub publishes a tap (the sources, the output), every other stage hollow, and the gains held in the shell because no stage gain or make-up is an engine row. Missing: the per-stage taps (IF-6, RC-8) and the gain rows (RC-2, B402).",
+    "missing": "GUI-14, GUI-16: the Chain console mounts every stage on Mix with the flow's picture. Its levels past the sources, the stage gains, the flow, bypass and stage solos are MOCK: the engine has no taps, rows or routing for them yet (IF-6, X13, RC-1, RC-8).",
     "reason": "engine-audio",
     "roadmap": "B225",
     "source": [
@@ -9951,7 +9951,7 @@ window.GUI3_DATA = {
    ],
    "id": "mix",
    "label": "Mix",
-   "note": "A console (B589, ADR-329 item 3) with more room per strip (ADR-333), beside a summed oscilloscope and a summed spectrum: one strip per source and the master, each fader its level key, attached to its own on, mute and solo keys; the meters, the peaks and the summed views are the stub's MOCK observation view (IF-6, IF-10); the CLIP lamp latches and clears on a click.",
+   "note": "One console for the whole chain (GUI-14, GUI-16), with the signal flow's picture over the strips, and a summed oscilloscope and spectrum under it. The sources and the sum are engine rows, attached to their own on, mute and solo keys; every other gain is a placeholder, and the flow, the levels past the sources, bypass and stage solos are MOCK until the engine has them (IF-6, IF-10, X13); a stage over 0 dB latches its CLIP lamp.",
    "panel": "console",
    "power": null,
    "status": "designed",

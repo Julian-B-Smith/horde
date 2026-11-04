@@ -6125,6 +6125,256 @@
       state: function () { return strips.map(function (t) { return { id: t.s.id, on: t.on, mute: t.mute, solo: t.solo, peak: Math.max(t.pk[0], t.pk[1]) }; }); } };
   }
 
+  /* ---------- CHAIN CONSOLE (GUI-14, GUI-16): the whole chain on one console, with the flow's picture in its box. One strip per stage of
+     GainStaging.chain, in signal order: the gain as an arrow on the level bars. Every strip sits on ONE ruler, −66 to +26 dB (the meter's floor to
+     out.level's top), and each arrow's rail covers only its own range: a stage's gain is ±24 dB, so "each meter on its own fader's scale" couldn't show
+     a level under −24 dBFS. Over the strips, each node of the picture sits directly over its strip's bars, at its level on that ruler, with the flow's wires.
+     A strip in o.strips is the morph Slider, so its pips, tether, mod lanes, MAP and undo are the house fader's; any other stage's gain has no parameter
+     yet (B402) and is drawn here. It computes no level: read(id) and latch(id) are the audio side's. ---------- */
+  var CC_LO = -66, CC_HI = 26, CC_SPAN = CC_HI - CC_LO, CC_PLOT = 110, CC_PAD = 7;
+  var CC_SOURCES = ['osc1', 'osc2', 'sub', 'noise'], CC_SHAPES = { serial: [[1, 2, 3, 4]], pairs: [[1, 2], [3, 4]], parallel: [[1], [2], [3], [4]] };
+  // the human: "engine" is confusing, and what it is, is the sum of every voice (OU-1). The key stays out.level; only the words change.
+  var CC_WORD = { ENGINE: 'SUM' }, CC_NAME = { eng: 'VOICES' };
+  function ccFrac(db) { return Math.max(0, Math.min(1, (db - CC_LO) / CC_SPAN)); }
+  function ccText(v, dec) { return (v < 0 ? '−' : '+') + Math.abs(v).toFixed(dec); }
+  function ccGroup(st) { return CC_WORD[st.group] || st.group; }
+  function ccName(st) { return CC_NAME[st.id] || st.name; }
+
+  /* The instrument chain's flow, pure, as edges between stages, every one running forward in chain order. X13's filter rule: each source goes to either filter, both or
+     neither, serial or parallel. In series, "both" enters at the first filter and so passes through both, and "Filter 2" enters at the second. A bypassed module
+     isn't an edge at all: the wire runs from whatever came before it to whatever comes after. The FX device's chain (ADR-254) has no flow here yet. */
+  var flow = {
+    make: function () { return { filters: 'serial', route: { osc1: 'f1', osc2: 'f1', sub: 'f1', noise: 'f1' }, fx: 'serial', byp: {}, tap: null }; },
+    edges: function (F) {
+      var E = [], add = function (u, v) { E.push({ u: u, v: v }); };
+      CC_SOURCES.forEach(function (s) {
+        var r = F.route[s];
+        if (r === 'none') add(s, 'eng');
+        else if (F.filters === 'serial') add(s, r === 'f2' ? 'f2i' : 'f1i');
+        else { if (r !== 'f2') add(s, 'f1i'); if (r !== 'f1') add(s, 'f2i'); }
+      });
+      add('f1i', 'f1o'); add('f2i', 'f2o');
+      if (F.filters === 'serial') { add('f1o', 'f2i'); add('f2o', 'eng'); } else { add('f1o', 'eng'); add('f2o', 'eng'); }
+      add('eng', 'mk');
+      CC_SHAPES[F.fx].forEach(function (branch) {
+        var from = 'mk';
+        branch.forEach(function (k) { if (F.byp[k]) return; add(from, 'x' + k + 'i'); add('x' + k + 'i', 'x' + k + 'o'); from = 'x' + k + 'o'; });
+        add(from, 'lim');
+      });
+      add('lim', 'vol');
+      return E;
+    },
+    // what a bypassed module's strips read: the level going past it, from whatever feeds it
+    feeds: function (F) {
+      var out = {};
+      CC_SHAPES[F.fx].forEach(function (branch) { var from = 'mk'; branch.forEach(function (k) { if (F.byp[k]) out[k] = from; else from = 'x' + k + 'o'; }); });
+      return out;
+    },
+    /* A MODEL of the levels through a flow, from the sources' levels and the gains, for a preview or a stub until the engine has a tap at every stage (IF-6, RC-8). Not a measurement.
+       Chain order is a safe evaluation order because every edge runs forward. A bypassed module's own gains are out of the signal. */
+    levels: function (F, src, gainOf, order) {
+      var lv = {}, E = flow.edges(F), past = flow.feeds(F);
+      CC_SOURCES.forEach(function (s) { lv[s] = src[s]; });
+      order.forEach(function (id) {
+        if (CC_SOURCES.indexOf(id) >= 0 || id === 'gr') return;
+        var k = /^x(\d)[io]$/.exec(id); if (k && F.byp[k[1]]) return;
+        var pw = 0; E.forEach(function (e) { if (e.v === id && lv[e.u] > -Infinity) pw += Math.pow(10, lv[e.u] / 10); });
+        if (id === 'vol') { lv.vol = Math.min(lv.lim, -1) + gainOf('vol'); return; }
+        lv[id] = (pw > 0 ? 10 * Math.log10(pw) : -Infinity) + gainOf(id);
+      });
+      Object.keys(past).forEach(function (k) { lv['x' + k + 'i'] = lv['x' + k + 'o'] = lv[past[k]]; });
+      // the solo tap: that stage's output goes straight to the limiter, so a solo is never past the device's protection
+      if (F.tap && F.tap !== 'lim') { lv.lim = lv[F.tap]; lv.vol = Math.min(lv.lim, -1) + gainOf('vol'); }
+      return lv;
+    },
+    // what you hear while a stage is soloed: that stage and whatever feeds it. Everything else dims.
+    heard: function (F) {
+      if (!F.tap) return null;
+      var E = flow.edges(F), seen = {}; seen[F.tap] = 1; seen.lim = seen.vol = seen.gr = 1;
+      (function go(id) { E.forEach(function (e) { if (e.v === id && !seen[e.u]) { seen[e.u] = 1; go(e.u); } }); })(F.tap);
+      return seen;
+    }
+  };
+  /* A wire's bend. With y as the level, two branches at one level would draw on top of each other, so serial and parallel would look alike. So a wire that skips stages arcs clear of the line: a split
+     above, a merge below, wider for a longer skip, which draws a branch as a visible loop. A wire to the next stage runs straight, and so do the sources' fan-in to the first filter. */
+  function ccCurve(e, a, b, order) {
+    var span = order.indexOf(e.v) - order.indexOf(e.u), fanIn = CC_SOURCES.indexOf(e.u) >= 0 && e.v === 'f1i', mx = (a.x + b.x) / 2;
+    if (span <= 1 || fanIn) return { x1: mx, y1: a.y, x2: mx, y2: b.y };
+    var merge = (e.v === 'eng' || e.v === 'lim') && CC_SOURCES.indexOf(e.u) < 0, lift = Math.min(10 + span * 3, 46);
+    var c = Math.max(2, Math.min(CC_PLOT - 2, merge ? Math.max(a.y, b.y) + lift * 4 / 3 : Math.min(a.y, b.y) - lift * 4 / 3));
+    return { x1: a.x + (b.x - a.x) * .25, y1: c, x2: b.x - (b.x - a.x) * .25, y2: c };
+  }
+  /* o: { stages (GainStaging.chain's list), strips? { stageId: { id, name, path, fader, range: { lo, hi }, on?, mute?, solo? } }, gain(id), onGain(id, dB), read(id) -> { l, r } or { gr },
+          latch(id) -> { on, at, max }, clear(id), onToggle?(id, what, val), rail? (px, 150), keys?,
+          flow: { F (a flow.make() object the consumer owns), onChange?() } } */
+  function ChainConsole(el, S, o) {
+    o = o || {}; var stages = o.stages || [], given = o.strips || {}, RL = o.rail || 150, all = [], nodes = {}, flowHost = o.flow || {}, F = flowHost.F || flow.make();
+    el.classList.add('hd-cs', 'hd-cc'); el.innerHTML = ''; el.setAttribute('role', 'group'); el.setAttribute('aria-label', o.label || 'Mixer, the whole chain'); el.style.setProperty('--rl', RL + 'px');
+    function changed() { fire(flowHost.onChange); paint(); }
+    function bars(t) {
+      var lm = tag('div', 'cc-lm'); t.lm = lm;
+      if (t.gr) { var g = tag('div', 'cc-lb g'); g.innerHTML = '<i class="fi"></i>'; lm.appendChild(g); t.bars = [g]; return lm; }
+      lm.style.setProperty('--ov', (CC_HI / CC_SPAN * 100) + '%');
+      t.bars = ['l', 'r'].map(function (c) { var b = tag('div', 'cc-lb ' + c); b.innerHTML = '<i class="fi"></i><i class="ov"></i><i class="ho"></i>'; lm.appendChild(b); return b; });
+      return lm;
+    }
+    function rail(t, lo, hi) { var r = tag('i', 'cc-rail'); r.style.bottom = (ccFrac(lo) * 100) + '%'; r.style.height = ((ccFrac(hi) - ccFrac(lo)) * 100) + '%'; t.lm.appendChild(r); }
+    function soloBtn(t) {
+      var st = t.stage, b = tag('button', 'cs-btn solo hd-focus', 'S'); b.type = 'button'; b.setAttribute('aria-pressed', 'false'); b.setAttribute('aria-label', ccGroup(st) + ' ' + ccName(st) + ' · Solo: play this output directly');
+      b.addEventListener('click', function () { F.tap = F.tap === st.id ? null : st.id; changed(); }); t.tapB = b; return b;
+    }
+    function lampOf(t, label, root, pk) {
+      var l = tag('button', 'hd-lamp hd-sm hd-focus', 'CLIP'); l.type = 'button'; l.setAttribute('aria-label', label + ' clip lamp');
+      l.addEventListener('click', function () { fire(o.clear, t.stage.id); paint(); }); pk.appendChild(l); t.lamp = l;
+    }
+    function fresh(st) { return { stage: st, gr: st.kind === 'gr', bar: [DB_MIN, DB_MIN], pk: [DB_MIN, DB_MIN], held: [0, 0] }; }
+    /* a stage with a parameter: the house fader, its box covering only its own range on the ruler, so the gesture's "one length = the full range" is 1:1 with the pointer */
+    function realStrip(st, s) {
+      var t = fresh(st), path = s.path || s.name; t.s = s; t.on = s.on !== false; t.mute = !!s.mute; t.solo = !!s.solo; t.real = true;
+      var root = tag('div', 'cs-strip'); root.setAttribute('role', 'group'); root.setAttribute('aria-label', path + ' channel'); root.dataset.id = s.id; root.dataset.stage = st.id; t.root = root;
+      var head = tag('div', 'cs-head');
+      if (s.on !== undefined) { t.tg = tag('button', 'hd-toggle hd-sm hd-focus'); t.tg.type = 'button'; t.tg.setAttribute('role', 'switch'); t.tg.setAttribute('aria-label', path + ' · On'); t.tg.addEventListener('click', function () { t.on = !t.on; fire(o.onToggle, s.id, 'on', t.on); sync(); }); head.appendChild(t.tg); }
+      head.appendChild(tag('span', 'cs-name', ccName(st) === st.name ? s.name : ccName(st))); root.appendChild(head);
+      var pk = tag('div', 'cs-pk'); t.pkEl = tag('output'); t.pkEl.setAttribute('aria-hidden', 'true'); pk.appendChild(t.pkEl); lampOf(t, path, root, pk); root.appendChild(pk);
+      var body = tag('div', 'cs-body'), fd = tag('div'); body.appendChild(fd); var fp = {}; for (var k in s.fader) fp[k] = s.fader[k]; fp.vert = true; fp.size = fp.size || 'compact'; fp.path = fp.path || path + ' · Level';
+      H.Slider(fd, fp, S); root.appendChild(body);
+      var face = fd.querySelector('.ms-face'), svg = face.querySelector('svg'), rot = tag('div', 'cc-rot'); rot.appendChild(bars(t)); rot.appendChild(svg); face.insertBefore(rot, face.firstChild); t.rotor = rot; t.face = face;
+      rail(t, s.range.lo, s.range.hi);
+      var h = RL * (s.range.hi - s.range.lo) / CC_SPAN / .9;
+      svg.style.cssText = 'position:absolute;height:' + h + 'px;width:' + (h * .2) + 'px;max-width:none;left:' + (14 - 15 * h / 200) + 'px;bottom:' + (ccFrac(s.range.lo) * RL - h * .05) + 'px;';
+      var ms = tag('div', 'cs-ms');
+      if (s.mute !== undefined) { t.mb = tag('button', 'cs-btn mute hd-focus', 'M'); t.mb.type = 'button'; t.mb.setAttribute('aria-label', path + ' · Mute'); t.mb.addEventListener('click', function () { t.mute = !t.mute; fire(o.onToggle, s.id, 'mute', t.mute); sync(); }); ms.appendChild(t.mb); }
+      if (s.solo !== undefined) { t.sb = tag('button', 'cs-btn solo hd-focus', 'S'); t.sb.type = 'button'; t.sb.setAttribute('aria-label', path + ' · Solo'); t.sb.addEventListener('click', function () { t.solo = !t.solo; fire(o.onToggle, s.id, 'solo', t.solo); sync(); }); ms.appendChild(t.sb); }
+      else ms.appendChild(soloBtn(t));
+      root.appendChild(ms);
+      return t;
+    }
+    /* a stage whose gain has no parameter yet (B402): the arrow is relative, 1:1 with the ruler so it stays under the pointer; shift is fine; a double-click goes home */
+    function drawnStrip(st) {
+      var t = fresh(st), label = ccGroup(st) + ' ' + st.name, root = tag('div', 'cs-strip cc-drawn'); root.setAttribute('role', 'group'); root.setAttribute('aria-label', label); root.title = st.title; root.dataset.stage = st.id; t.root = root;
+      var head = tag('div', 'cs-head'); head.appendChild(tag('span', 'cs-name', st.name)); root.appendChild(head);
+      var pk = tag('div', 'cs-pk'); t.pkEl = tag('output'); pk.appendChild(t.pkEl);
+      if (t.gr) pk.appendChild(tag('span', 'cc-nolamp')); else lampOf(t, label, root, pk);
+      root.appendChild(pk);
+      var body = tag('div', 'cs-body'), wrap = tag('div', 'hd-ms-v sz sz-compact'), face = tag('div', 'ms-face'), rd = tag('div', 'ms-rd'), rot = tag('div', 'cc-rot'); t.vEl = tag('div', 'mk-v1'); rd.appendChild(t.vEl); t.face = face; t.rotor = rot;
+      rot.appendChild(bars(t)); face.appendChild(rot);
+      if (!t.gr) {
+        rail(t, st.gain.min, st.gain.max); t.ar = tag('i', 'cc-ar'); rot.appendChild(t.ar);
+        face.setAttribute('role', 'slider'); face.setAttribute('aria-label', label + ' gain'); face.setAttribute('aria-valuemin', st.gain.min); face.setAttribute('aria-valuemax', st.gain.max); face.classList.add('hd-focus');
+        var set = function (db) { fire(o.onGain, st.id, Math.max(st.gain.min, Math.min(st.gain.max, db))); }, drag = null;
+        face.addEventListener('pointerdown', function (e) { if (e.button !== 0) return; if (S && S.map && S.map.on) { if (S.say) S.say(label + ' has no parameter yet, so it can’t be mapped'); return; } drag = { y: e.clientY, v: o.gain(st.id) }; try { face.setPointerCapture(e.pointerId); } catch (_) { /* keep the gesture */ } e.preventDefault(); });
+        face.addEventListener('pointermove', function (e) { if (drag) set(drag.v + (drag.y - e.clientY) / rot.getBoundingClientRect().height * CC_SPAN * (e.shiftKey ? .25 : 1)); });
+        var up = function () { drag = null; }; face.addEventListener('pointerup', up); face.addEventListener('pointercancel', up);
+        face.addEventListener('dblclick', function () { set(st.gain.def); });
+        face.addEventListener('keydown', function (e) { if (!keysOn(o)) return; var d = e.key === 'ArrowUp' ? 1 : e.key === 'ArrowDown' ? -1 : 0; if (!d) return; e.preventDefault(); set(o.gain(st.id) + d * (e.shiftKey ? .1 : .5)); });
+      }
+      wrap.appendChild(face); wrap.appendChild(rd); body.appendChild(wrap); root.appendChild(body);
+      var ms = tag('div', 'cs-ms'); if (!t.gr && st.id !== 'vol') ms.appendChild(soloBtn(t)); root.appendChild(ms);   // GR is no signal, and the master's OUT is what you already hear
+      return t;
+    }
+    var inner = tag('div', 'cc-in'), top = tag('div', 'cc-top'), firstEl = tag('span', 'cc-first'), clr = tag('button', 'hd-pill hd-focus', 'Clear all lamps'); clr.type = 'button';
+    clr.addEventListener('click', function () { all.forEach(function (t) { if (t.lamp) fire(o.clear, t.stage.id); }); paint(); });
+    top.appendChild(firstEl); top.appendChild(clr);
+    var glass = tag('div', 'hd-viz cc-glass'), plotCv = tag('canvas', 'cc-plot'); plotCv.style.height = CC_PLOT + 'px'; plotCv.setAttribute('role', 'img'); plotCv.setAttribute('aria-label', 'The signal flow, each node over its strip, at its level'); glass.appendChild(plotCv);
+    var groupsEl = tag('div', 'cc-groups'), groups = [], seen = {};
+    inner.appendChild(top); inner.appendChild(glass); inner.appendChild(groupsEl); el.appendChild(inner);
+    stages.forEach(function (st) { if (!seen[st.group]) { seen[st.group] = []; groups.push(st.group); } seen[st.group].push(st); });
+    groups.forEach(function (name) {
+      var list = seen[name], g = tag('div', 'cc-g' + (name === 'SOURCES' ? ' src' : name === 'ENGINE' ? ' eng' : name === 'MAKE-UP' ? ' mk' : ''));
+      if (!/^(SOURCES|ENGINE|MAKE-UP)$/.test(name)) g.style.flex = list.length + ' 1 0';
+      var gl = tag('div', 'cc-gl'); gl.appendChild(tag('span', '', CC_WORD[name] || name)); var row = tag('div', 'cc-st'); g.appendChild(gl); g.appendChild(row);
+      var fx = /^FX (\d)$/.exec(name);
+      if (fx) { var b = tag('button', 'cc-byp hd-focus', 'BYP'); b.type = 'button'; b.dataset.slot = fx[1]; b.setAttribute('aria-pressed', 'false'); b.setAttribute('aria-label', name + ' bypass');
+        b.addEventListener('click', function () { var k = fx[1]; if (F.byp[k]) delete F.byp[k]; else F.byp[k] = true; if (F.tap && /^x/.test(F.tap) && F.tap[1] === k && F.byp[k]) F.tap = null; changed(); }); gl.appendChild(b); }
+      groupsEl.appendChild(g);
+      list.forEach(function (st) { var t = given[st.id] ? realStrip(st, given[st.id]) : drawnStrip(st); row.appendChild(t.root); all.push(t); });
+    });
+    function sync() {
+      var anySolo = all.some(function (t) { return t.real && t.solo; }), ks = keysOn(o);
+      all.forEach(function (t) {
+        if (t.real) { var implicit = anySolo && t.s.solo !== undefined && !t.solo;
+          t.root.classList.toggle('quiet', t.s.on !== undefined && (t.mute || !t.on || implicit)); t.root.classList.toggle('implicit', implicit && !t.mute);
+          if (t.tg) { t.tg.setAttribute('aria-checked', String(t.on)); t.tg.tabIndex = ks ? 0 : -1; }
+          if (t.mb) { t.mb.setAttribute('aria-pressed', String(t.mute)); t.mb.tabIndex = ks ? 0 : -1; t.mb.title = implicit ? 'silenced by solo' : ''; }
+          if (t.sb) { t.sb.setAttribute('aria-pressed', String(t.solo)); t.sb.tabIndex = ks ? 0 : -1; } }
+        else if (!t.gr) t.face.tabIndex = ks ? 0 : -1;
+        if (t.tapB) t.tapB.tabIndex = ks ? 0 : -1; if (t.lamp) t.lamp.tabIndex = ks ? 0 : -1;
+      });
+    }
+    function step(dt) {
+      var fall = Math.exp(-dt / .11);                                        // Gain staging's bar: a 0.11 s fall
+      all.forEach(function (t) {
+        if (t.gr) return;
+        var r = o.read ? o.read(t.stage.id) : null, now = r ? [r.l, r.r === undefined ? r.l : r.r] : [DB_MIN, DB_MIN];
+        for (var c = 0; c < 2; c++) {
+          var x = now[c] === undefined || now[c] === null ? DB_MIN : Math.max(DB_MIN, now[c]);
+          var a = Math.max(Math.pow(10, x / 20), Math.pow(10, t.bar[c] / 20) * fall); t.bar[c] = Math.max(DB_MIN, 20 * Math.log10(Math.max(a, 1e-9)));
+          if (x >= t.pk[c]) { t.pk[c] = x; t.held[c] = 0; } else { t.held[c] += dt; if (t.held[c] > 1.5) t.pk[c] = Math.max(x, t.pk[c] - 20 * dt); }
+        }
+      });
+    }
+    function latchOf(t) { return (o.latch && o.latch(t.stage.id)) || {}; }
+    function first() { var best = null, at = 0; all.forEach(function (t) { if (t.gr) return; var q = latchOf(t); if (q.on && (!best || q.at < at)) { best = t; at = q.at; } }); return best; }   // all is in signal order, so a tie goes upstream
+    /* Each node over its own strip's bars, at its level on the one ruler, with the flow's wires. It follows the Screen scheme through the Viz kit. */
+    function plot(f, heard) {
+      var cq = plotCv.getBoundingClientRect(); if (!cq.width) return;
+      var K = H.Viz.kit(plotCv), g = K.g, V = K.V, yOf = function (db) { return CC_PAD + (1 - ccFrac(db)) * (CC_PLOT - 2 * CC_PAD); }, lvl = {};
+      K.tube(); K.scan();
+      nodes = {};
+      all.forEach(function (t) { if (t.gr) return; var a = t.bars[0].getBoundingClientRect(), b = t.bars[1].getBoundingClientRect(), r = o.read ? o.read(t.stage.id) : null; lvl[t.stage.id] = r && r.l !== undefined ? r.l : -Infinity; nodes[t.stage.id] = { x: (a.left + b.right) / 2 - cq.left, y: yOf(lvl[t.stage.id]) }; });
+      var y0 = yOf(0);
+      g.setLineDash([3 * V, 3 * V]); g.strokeStyle = K.c('alarm', .8); g.lineWidth = V; g.beginPath(); g.moveTo(0, y0 * V); g.lineTo(K.W, y0 * V); g.stroke(); g.setLineDash([]);
+      g.font = (9 * V) + 'px ui-monospace, monospace'; g.textBaseline = 'alphabetic'; g.fillStyle = K.c('grid');
+      g.fillText('0 dB', 3 * V, (y0 - 3) * V); if (o.mock) g.fillText(o.mock, K.W - 28 * V, (CC_PLOT - 3) * V);
+      var order = Object.keys(nodes);
+      flow.edges(F).forEach(function (e) {
+        var a = nodes[e.u], b = nodes[e.v]; if (!a || !b) return;
+        var live = lvl[e.u] > -Infinity, heardIt = !heard || (heard[e.u] && heard[e.v]);
+        g.strokeStyle = K.c('value', !live ? .25 : heardIt ? 1 : .22); g.lineWidth = (e.u === 'lim' ? 2 : 1.6) * V;
+        var q = ccCurve(e, a, b, order);
+        g.beginPath(); g.moveTo(a.x * V, a.y * V); g.bezierCurveTo(q.x1 * V, q.y1 * V, q.x2 * V, q.y2 * V, b.x * V, b.y * V); g.stroke();
+      });
+      order.forEach(function (id) {
+        var n = nodes[id], off = /^x\d[io]$/.test(id) && F.byp[id[1]], silent = !(lvl[id] > -Infinity), dim = heard && !heard[id], over = !!((o.latch && o.latch(id)) || {}).on;
+        g.beginPath(); g.arc(n.x * V, n.y * V, (off ? 2.4 : 3.5) * V, 0, Math.PI * 2);
+        if (off || silent) { g.strokeStyle = K.c('grid', dim ? .4 : 1); g.lineWidth = V; g.stroke(); }
+        else { g.fillStyle = K.c(over ? 'alarm' : 'meter', dim ? .35 : 1); g.fill(); }
+        if (f && f.stage.id === id) { g.beginPath(); g.arc(n.x * V, n.y * V, 6 * V, 0, Math.PI * 2); g.strokeStyle = K.c('marker'); g.lineWidth = 1.5 * V; g.stroke(); }
+        if (id === F.tap) { g.beginPath(); g.arc(n.x * V, n.y * V, 6 * V, 0, Math.PI * 2); g.strokeStyle = K.c('physics'); g.lineWidth = 1.5 * V; g.stroke(); }
+      });
+    }
+    function paint() {
+      var f = first(), lit = 0, heard = flow.heard(F);
+      all.forEach(function (t) {
+        var id = t.stage.id, q = latchOf(t), on = !!q.on, off = /^x\d[io]$/.test(id) && F.byp[id[1]];
+        if (on) lit++;
+        t.root.classList.toggle('cc-off', !!off); t.root.classList.toggle('cc-dim', !!heard && !heard[id]);
+        if (t.tapB) t.tapB.setAttribute('aria-pressed', String(F.tap === id));
+        if (t.gr) { var r = (o.read && o.read('gr')) || { gr: 0 }, g = r.gr || 0; t.bars[0].style.setProperty('--lv', Math.min(1, g / 24)); t.pkEl.textContent = g > .05 ? ccText(-g, 1) : '0.0'; return; }
+        t.bars.forEach(function (b, c) { b.style.setProperty('--lv', ccFrac(t.bar[c])); b.style.setProperty('--hp', ccFrac(t.pk[c])); b.classList.toggle('over', on); });
+        var p = Math.max(t.pk[0], t.pk[1]); t.pkEl.textContent = p <= DB_MIN ? '−∞' : ccText(p, 1);
+        t.lamp.classList.toggle('first', t === f); t.lamp.setAttribute('aria-pressed', String(on));
+        if (!t.real) {
+          var v = o.gain(id), s = t.stage.gain; t.ar.style.bottom = (ccFrac(v) * 100) + '%';
+          t.vEl.textContent = s.floor !== undefined && v <= s.floor ? '−∞' : ccText(v, s.dec || 1);
+          t.face.setAttribute('aria-valuenow', v.toFixed(2)); t.root.title = t.stage.title + ' · ' + t.vEl.textContent + ' dB' + (s.x ? ' · ×' + Math.pow(10, v / 20).toFixed(2) : '');
+        }
+      });
+      [].forEach.call(el.querySelectorAll('.cc-byp'), function (b) { b.setAttribute('aria-pressed', String(!!F.byp[b.dataset.slot])); });
+      var nameOf = function (t) { return ccGroup(t.stage) === ccName(t.stage) ? ccName(t.stage) : ccGroup(t.stage) + ' · ' + ccName(t.stage); };
+      var soloT = F.tap && all.filter(function (t) { return t.stage.id === F.tap; })[0];
+      var fq = f && latchOf(f), say = !f ? 'FIRST OVER — none latched' : 'FIRST OVER — ' + nameOf(f) + (fq.at !== undefined ? ' at ' + (fq.at / (o.sr || 48000)).toFixed(2) + ' s' : '') + (fq.max !== undefined ? ', +' + fq.max.toFixed(1) + ' dB' : '') + (lit > 1 ? ' · ' + (lit - 1) + ' more lamp' + (lit > 2 ? 's' : '') + ' lit' : '');
+      firstEl.textContent = (soloT ? 'SOLO — hearing ' + nameOf(soloT) + ' directly · ' : '') + say;
+      plot(f, heard);
+    }
+    sync();
+    return { step: step, render: paint, refresh: sync, flow: F, nodes: function () { return nodes; }, first: function () { var f = first(); return f ? f.stage.id : null; },
+      set: function (id, what, val) { all.forEach(function (t) { if (t.real && t.s.id === id) t[what] = !!val; }); sync(); },
+      state: function () { return all.map(function (t) { return { id: t.stage.id, real: !!t.real, on: t.on, mute: t.mute, solo: t.solo, peak: Math.max(t.pk[0], t.pk[1]) }; }); } };
+  }
+  ChainConsole.flow = flow;
+  H.ChainConsole = ChainConsole;
+
   H.PageNav = PageNav; H.SectionHeader = SectionHeader; H.ChannelStrip = ChannelStrip; H.pillGroup = pillGroup;
 })(window.Horde);
 
