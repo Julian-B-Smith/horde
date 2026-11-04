@@ -12,7 +12,7 @@
   "rows": [
     {"id": "morph-editor", "area": "Morph", "item": "Deeper morph interface with parameter boundaries (the quantum boundaries, the waypoints, the blend maps)",
      "asked": "Deeper morph interface with parameter boundaries", "source": ["docs/design/morph-editor-lab.html", "docs/design/morph-blend-demo.html"],
-     "reason": "ruling", "why": "The morph editor's rounds (B268, B269) and the architecture-follows-the-morph proposal (B585) are not ratified; the Morph page's design is B581 step 3.",
+     "reason": "ruling", "why": "GUI-19, GUI-20: the quantum boundaries and the morph field are on the Morph page. The blend maps and waypoints (B272) are drawn but not heard, and the architecture-follows-the-morph proposal (B585) isn't ratified.",
      "roadmap": "B269", "status": "partial", "missing": "The shell's Morph page has D.2's settings, the corners and snapshots; the large pad, the quantum boundaries, the cross-section and the blend maps are not there."},
     {"id": "random-page", "area": "Morph", "item": "The Randomize panel (levels, chaos and amount, locks, randomization presets, copying a level between corners)",
      "asked": "Random page interface (whether we fold it into morph or keep it)", "source": ["docs/design/random-lab.html"],

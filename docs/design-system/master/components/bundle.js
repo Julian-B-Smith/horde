@@ -3451,11 +3451,13 @@
       heard: { x: S.pad.x, y: S.pad.y }, held: { x: S.pad.x, y: S.pad.y }, stepN: -1, lastT: null, trace: [],
       hover: null, selCorner: 0,
       hist: [], fut: [],        // undo: one entry per gesture (ADR-266 r9: live edits, undo covers mistakes)
+      history: null,            // the host's undo, when it has one: { record(e), undo(), redo(), canUndo(), canRedo() }. A second stack would undo out of order with it
+      solo: null,               // a function giving the one corner heard whatever the pad says (morph off, ADR-319 item 1), or null: the pad's position then means nothing
       view: 'differ', kinds: { c: true, s: true, g: true }, q: '', collapsed: {}
     };
     S.add({ render: function () { tick(S, M); } });   // added FIRST by whichever morph view is built first, so every view reads this frame's heard position
     addEventListener('keydown', function (e) {        // accelerators, keyboard mode only; the mouse routes are the UNDO and REDO buttons
-      if (!S.keys || !(e.metaKey || e.ctrlKey) || e.code !== 'KeyZ' || (e.target && e.target.tagName === 'INPUT')) return;
+      if (M.history || !S.keys || !(e.metaKey || e.ctrlKey) || e.code !== 'KeyZ' || (e.target && e.target.tagName === 'INPUT')) return;   // a host with its own undo has its own keys
       e.preventDefault(); if (e.shiftKey) redo(S); else undo(S);
     });
     return M;
@@ -3476,6 +3478,8 @@
     while (M.trace.length && M.trace[0].t < S.t - 3.2) M.trace.shift();
   }
   function heardPad(S) { var M = state(S); return M.mode === 'stepped' ? M.heard : S.pad; }
+  function soloCorner(M) { var i = M.solo ? M.solo() : null; return i === undefined ? null : i; }
+  function heardWeights(S) { var M = state(S), i = soloCorner(M), h = heardPad(S), w; if (i === null) return weights(h.x, h.y); w = [0, 0, 0, 0]; w[i] = 1; return w; }
   function setMode(S, mode) { var M = state(S); if (M.mode === mode) return; M.mode = mode; M.trace = []; S.say('Morph mode: ' + mode.toUpperCase()); }
 
   /* =====================================================================
@@ -3531,7 +3535,8 @@
   }
   /* WHAT IS HEARD at the (heard) pad position: a gate's level ramp, a blend, or the owning corner's value */
   function hear(S, p) {
-    var M = state(S), h = heardPad(S), w = weights(h.x, h.y), k = kindOf(p), i, b = 0;
+    var M = state(S), h = heardPad(S), w = heardWeights(S), k = kindOf(p), i, b = 0;
+    if (soloCorner(M) !== null) return { v: p.vals[soloCorner(M)], owner: soloCorner(M), how: k === 's' ? 'snap' : 'flip', w: w };
     if (k === 'g') { for (i = 0; i < 4; i++) b += w[i] * p.vals[i]; b = clamp(b); return { v: b > 1e-3 ? 1 : 0, ramp: b, owner: -1, how: 'ramp', w: w }; }
     if (k === 'c' && M.mode !== 'quantum') { for (i = 0; i < 4; i++) b += w[i] * p.vals[i]; return { v: b, owner: -1, how: 'blend', w: w }; }
     var o = engine.ownerAt(S, p, h.x, h.y);
@@ -3540,9 +3545,9 @@
   function heardText(p, r) { return r.how === 'ramp' ? 'level ' + pct(r.ramp) : fmtOf(p, r.v); }
 
   /* ---------- undo: every gesture is one entry; an undo into a locked corner is refused like any edit ---------- */
-  function record(S, e) { var M = state(S); M.hist.push(e); if (M.hist.length > 200) M.hist.shift(); M.fut.length = 0; S.emit(); }
-  function undo(S) { var M = state(S), e = M.hist[M.hist.length - 1]; if (!e) { S.say('Nothing to undo'); return; } if (e.can && !e.can()) return; M.hist.pop(); e.undo(); M.fut.push(e); S.say('Undid: ' + e.label); }
-  function redo(S) { var M = state(S), e = M.fut[M.fut.length - 1]; if (!e) { S.say('Nothing to redo'); return; } if (e.can && !e.can()) return; M.fut.pop(); e.redo(); M.hist.push(e); S.say('Redid: ' + e.label); }
+  function record(S, e) { var M = state(S); if (M.history) { M.history.record(e); S.emit(); return; } M.hist.push(e); if (M.hist.length > 200) M.hist.shift(); M.fut.length = 0; S.emit(); }
+  function undo(S) { var M = state(S); if (M.history) { M.history.undo(); return; } var e = M.hist[M.hist.length - 1]; if (!e) { S.say('Nothing to undo'); return; } if (e.can && !e.can()) return; M.hist.pop(); e.undo(); M.fut.push(e); S.say('Undid: ' + e.label); }
+  function redo(S) { var M = state(S); if (M.history) { M.history.redo(); return; } var e = M.fut[M.fut.length - 1]; if (!e) { S.say('Nothing to redo'); return; } if (e.can && !e.can()) return; M.fut.pop(); e.redo(); M.hist.push(e); S.say('Redid: ' + e.label); }
   function valEntry(S, p, k, before, after, label) {
     return { label: label || (p.name + ' · corner ' + CORNERS[k].id + ' ' + fmtOf(p, before) + ' → ' + fmtOf(p, after)),
       can: function () { return S.writable(p, k); }, undo: function () { p.vals[k] = before; }, redo: function () { p.vals[k] = after; } };
@@ -3943,6 +3948,8 @@
       CORNERS.map(function (c, i) { return '<div class="hm-gc hm-hd hm-ch" role="columnheader" data-c="' + i + '" style="--cc:var(--c' + c.id + ')"><span class="hd-chip on" aria-hidden="true"><svg viewBox="0 0 10 10"><path d="' + c.glyph + '"/></svg></span><span class="hm-chn"><b>' + c.id + '</b> <span class="hm-chp"></span></span><span class="hm-chw hd-value"></span></div>'; }).join('') +
       '<div class="hm-gh hm-hd" role="columnheader">HEARING</div>';
     var refs = {};
+    /* A field can run to hundreds of rows: only the rows in the body's view are painted each frame (544 of them cost 41 ms a frame). */
+    var io = window.IntersectionObserver ? new IntersectionObserver(function (es) { es.forEach(function (e) { var R = refs[e.target.dataset.key]; if (R) R.vis = e.isIntersecting; }); }, { root: body, rootMargin: '48px' }) : null;
     function visible(p) {
       if (!M.kinds[kindOf(p)]) return false;
       var q = M.q.trim().toLowerCase();
@@ -3974,9 +3981,11 @@
         });
       });
       if (!shown) h = '<div class="hm-empty hd-hint">No row matches. The default view shows only rows whose corners disagree: try ALL.</div>';
+      if (io) io.disconnect();
       body.innerHTML = h; refs = {};
       body.querySelectorAll('.hm-row').forEach(function (r) {
-        var p = S.params[r.dataset.key]; refs[p.key] = { row: r, cells: r.querySelectorAll('.hm-cell'), hear: r.querySelector('.hm-hear'), sig: '' };
+        var p = S.params[r.dataset.key]; refs[p.key] = { row: r, cells: r.querySelectorAll('.hm-cell'), hear: r.querySelector('.hm-hear'), sig: '', vis: !io };
+        if (io) io.observe(r);
         r.querySelector('.hm-pname').addEventListener('click', function () { select(S, p.key); });
         refs[p.key].cells.forEach(function (cell, c) {
           var ctl = cell.querySelector('.hm-cv'), sw = cell.querySelector('.hm-gsw');
@@ -3987,7 +3996,7 @@
       count.textContent = rows.length + ' members · showing ' + shown;
       lastHead = '';
     }
-    var lastHead = '', lastFilter = '', busy = false;
+    var lastHead = '', lastFilter = '', busy = false, lastRev = null, lastDiff = '';
     body.addEventListener('pointerdown', function () { busy = true; }, true);
     addEventListener('pointerup', function () { busy = false; }); addEventListener('pointercancel', function () { busy = false; });
     function paintRow(p, R) {
@@ -4015,17 +4024,19 @@
       hh.setAttribute('aria-label', 'Hearing ' + heardText(p, r) + (r.owner >= 0 ? ', from corner ' + CORNERS[r.owner].id : r.how === 'blend' ? ', a blend' : ''));
     }
     S.add({ render: function () {
-      var fsig = [M.view, M.q, M.kinds.c, M.kinds.s, M.kinds.g, S.selected, rows.map(function (p) { return differs(p) ? 1 : 0; }).join('')].join('|');
+      /* opts.rev, the host's change counter: which rows differ can change only when it does, so a still field doesn't read every corner of every row each frame */
+      var rv = opts.rev ? opts.rev() : null; if (rv === null || rv !== lastRev) { lastRev = rv; lastDiff = rows.map(function (p) { return differs(p) ? 1 : 0; }).join(''); }
+      var fsig = [M.view, M.q, M.kinds.c, M.kinds.s, M.kinds.g, S.selected, lastDiff].join('|');
       if (fsig !== lastFilter && !busy) { lastFilter = fsig; build(); }
-      var w = weights(heardPad(S).x, heardPad(S).y), hs = [w.map(function (x) { return x.toFixed(2); }).join(), S.corners.join(), S.locks.join(), M.mode].join('|');
+      var w = heardWeights(S), hs = [w.map(function (x) { return x.toFixed(2); }).join(), S.corners.join(), S.locks.join(), M.mode].join('|');
       if (hs !== lastHead) { lastHead = hs;
         head.querySelectorAll('.hm-ch').forEach(function (h, c) {
           h.querySelector('.hm-chp').textContent = S.corners[c] || 'Empty'; h.querySelector('.hm-chp').title = S.corners[c] || 'Empty';
           h.querySelector('.hm-chw').innerHTML = (S.locks[c] ? LOCK_SVG : '') + pct(w[c]);
           h.setAttribute('aria-label', 'Corner ' + CORNERS[c].id + ', ' + (S.corners[c] || 'empty') + ', weight ' + pct(w[c]) + (S.locks[c] ? ', locked' : ''));
         }); }
-      for (var key in refs) paintRow(S.params[key], refs[key]);
-      U.disabled = !M.hist.length; R.disabled = !M.fut.length;
+      for (var key in refs) if (refs[key].vis) paintRow(S.params[key], refs[key]);
+      U.disabled = M.history ? !M.history.canUndo() : !M.hist.length; R.disabled = M.history ? !M.history.canRedo() : !M.fut.length;
     } });
     function jump(sec) {
       M.collapsed[sec] = false; if (M.view !== 'all') M.view = 'all'; lastFilter = ''; build();
@@ -4145,7 +4156,7 @@
       else if (r.owner === sc) why = '<b>' + C + '</b> owns this row at the puck: an edit to it is heard at once.';
       else why = '<b>' + CORNERS[r.owner].id + '</b> owns this row here, not ' + C + ': an edit to ' + C + ' is <b>silent until ' + C + ' wins it</b>.';
       el.querySelector('.hm-impact').innerHTML = 'Editing corner <b>' + C + '</b>. ' + why + ' Hearing <span class="hm-hv">' + esc(heardText(p, r)) + '</span>.';
-      el.querySelector('.hm-iundo').disabled = !M.hist.length;
+      el.querySelector('.hm-iundo').disabled = M.history ? !M.history.canUndo() : !M.hist.length;
       var sh = el.querySelector('.hm-shares');
       if (sh) {
         var f = engine.shares(S, p, 24);
