@@ -361,6 +361,15 @@
    "adr": "ADR-305",
    "note": "Sluice in horde (ADR-305, ADR-306; ADR-236's XY and slot library). Nothing in the master; Sluice has no manifest (port-tab sluice)."
   },
+  "sluice-mark-styles-lab.html": {
+   "status": "exploring",
+   "note": "GB11. The study behind ADR-302 rulings 1 and 2 and ADR-305, copied from its Artifact at version 1793813064-6fca. One question open: its pixel marks drop the crossing gap, against ADR-302 ruling 1, and the human hasn't ruled on that."
+  },
+  "shriek-wordmark-styles-lab.html": {
+   "status": "ruled",
+   "adr": "ADR-302",
+   "note": "GB11. The study behind ADR-302 rulings 3 and 4, copied from its Artifact at version 1793204183-5a81."
+  },
   "spectra-lab.html": {
    "status": "retired",
    "note": "Archived in the design index (its lab-archive tag): retired engine (H2-PLAN Archived engines). History, never a source."
@@ -388,15 +397,6 @@
   "sub-noise-lab.html": {
    "status": "exploring",
    "note": "GB9. Six pictures for the Sub and Noise pages on the real shell, each computed from the settings; waiting on the human's choice."
-  },
-  "sluice-mark-styles-lab.html": {
-   "status": "exploring",
-   "note": "GB11. The study behind ADR-302 rulings 1 and 2 and ADR-305, copied from its Artifact at version 1793813064-6fca. One question open: its pixel marks drop the crossing gap, against ADR-302 ruling 1, and the human hasn't ruled on that."
-  },
-  "shriek-wordmark-styles-lab.html": {
-   "status": "ruled",
-   "adr": "ADR-302",
-   "note": "GB11. The study behind ADR-302 rulings 3 and 4, copied from its Artifact at version 1793204183-5a81."
   }
  },
  "not_labs": {
