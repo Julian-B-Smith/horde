@@ -6709,6 +6709,10 @@
   {
    "adr": "ADR-359",
    "reason": "A module's state budget and when a load is adopted: no control or design element."
+  },
+  {
+   "adr": "ADR-360",
+   "reason": "How the engine reads FM inside a soft edge: no control or design element."
   }
  ],
  "audit_notes": [

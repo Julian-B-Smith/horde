@@ -135,3 +135,43 @@ All scratch, not PF-3, on a machine other projects were using. Percent of a core
 **Direct Sync.** One Sync blade from 38 % to 20 %, saw on saw from 39 % to 18 %, two Sync blades from 51 % to 25 %. Worst difference −137 dB in float, one float's rounding; plants fired wherever it ran; 7.7, 7.8 and item 00 are unmoved. Only 18 of 83 bank patches qualify, and the heavy ones are unchanged, since reading the blades per sample is 52 to 60 % of their time and the edge search 5 to 11 %. With Glass's blades off, its settings read 13.6 %, so 10.7 % is out of reach for it by this route; an estimate puts a direct Glass at 55 % plus or minus 10.
 
 **Tables, Crushed bells.** One table per member: held chord 47.6 % to 6.5 %, ready in 70 ms, reads about 2 ns, chord build about 3 to 4 ms. Against exact −64 dB on the chord, −31 to −33 dB at C6 and C7, where Crush and Ring no longer fold. One table per voice drops 4 to 16 kHz by 25 dB. The human heard no loss per member in the three examples, and clearly heard one table per voice. A moving cut returns the voice to full cost, with no spike; keeping tables through a sweep cost up to 33 % and read −6 to −14 dB. So tables don't reduce the worst case. Roughly 17 patches qualify as written, 30 with a better table builder. The suite and real-time checks haven't run; the pool was 12.7 MB, and worst-case memory is an estimate.
+
+## The first batch, official (2026-11-03)
+
+PF-3 on Glass horde pad, 8 voices, from the builder's run, commit `f1ca0ba` in the builder's repository, not pushed. The lead's clean-export rerun is still to come.
+
+| Run | 5442272, 44.1 / 48 kHz | Batch, 44.1 / 48 kHz | Gain at 44.1 kHz |
+|---|---|---|---|
+| `pf1 pf9 sanity` (the figure to carry) | 218.63 / 213.61 % | 96.29 / 101.77 % | 2.27× |
+| `pf1` alone | 221.81 / 216.95 % | 92.88 / 98.37, then 92.10 / 96.85 % | 2.39× to 2.41× |
+
+293 of 295. PF-9 at 8, 16, 64 voices: 96.55, 212.23, 6519.86 %. Why the batch reads about 4 % lower when `pf1` runs alone isn't known, and 5442272 goes the other way. Past ADR-354's 2× line, so the pass continues; still far from 10.7 %, and not safe in Live.
+
+What each part gained, the tool on variant builds, `pf1` alone, the builder's own comparisons: items 1 to 4 with moments off 205.10 % (1.08×); the batch 92.10 % (moments 2.23× on top); the batch with the quiet skip off 90.90 %, so the skip gains nothing on this patch. pf4 was not run, so other patches have no PF-3 figure here.
+
+Worst block, the builder's scratch tool, not PF-3, % of the block, least of 5 runs, 5442272 then batch: Glass horde pad 253.5 then 111.2; Glass notes up 36 423.1 then 154.9; Two FM voices 333.4 then 265.1, with its mean 137.7 then 71.0.
+
+## The combination, scratch (2026-11-03)
+
+The ruled moments and 32 taps, direct Sync, the wide path, closed slope, Carson width and a gate that keeps some FM on the node loop. Not PF-3, load 4 to 5, bank of 83, share of a core, before then combined: at or under 10.7 %, 16 then 20 patches; over 100 %, 5 then 0; median 0.382 then 0.206; total 35.74 then 16.95 cores. Glass horde pad 1.397 then about 0.64 to 0.67. The bank renders within −133.2 dB of today, 1 s per patch, 8 voices. Not yet ruled: the three additions (closed slope, Carson width, the gate). The gate holds the click's first cause exactly as it is today, and the builder's cuts may replace it.
+
+## Why blocks overrun (2026-11-03, B614)
+
+Scratch tree, not PF-3, not the builder's engine, machine load 3 to 6, heights inflated by it; which block and what work are the reliable part. Thread CPU per block, share of 128 samples at 44.1 kHz, the lead's recomputation from the raw traces.
+
+| Patch | Set | Chord-on (block 0) | Worst held, 3 repeats | Median | Blocks over 1 in 2 s |
+|---|---|---|---|---|---|
+| Crunch horde | 149 | 10.45 to 10.53 | 6.88 to 6.96 | 0.32 | 212 |
+| Crunch horde | combined | 2.19 to 2.24 | 1.47 to 1.50 | 0.21 | 28 to 32 |
+| Jitter swarm | 149 | 4.90 to 4.91 | 4.92 to 6.02 | 0.33 | 115 |
+| Jitter swarm | combined | 1.32 to 1.36 | 1.34 to 3.79 | 0.22 | 115 |
+| Two FM voices | 149 | 3.35 to 3.63 | 3.34 to 3.39 | 0.63 | 230 to 232 |
+| Two FM voices | combined | 1.16 to 1.55 | 1.54 to 1.65 | 0.24 | 31 to 46 |
+| Fold over sync (control) | combined | 0.46 | 0.43 to 0.45 | 0.16 | 0 |
+| Plain 9-member saw (control) | combined | 0.17 to 0.18 | 0.14 to 0.18 | 0.13 | 0 |
+
+**The cause.** C.16's mean estimate runs for many members in one block, at the end-of-block tick, and FM free's is 32 walks long. Members of voices started together share a countdown, so they fire together. Estimates land only in odd blocks on the grid, and the chord block runs them all before the first sample (SW-15).
+
+**The evidence.** The predictions were fixed before any run, and the block pattern and point counts matched (Jitter swarm exactly, Crunch horde 2.4 % under). Switching the estimate off, for timing only, takes the three to 0.24 to 0.29 on a chord and held, best repeats. A sine modulator keeps the spike, so noise isn't the cause; FM reset removes it, which points to the 32 starts. Repeat 1 matches repeats 2 and 3, and a warm chord matches the cold one, so lazy statics and first touches aren't the cause. Plants: a 6 ms spin read in CPU and wall at its block only, a 6 ms sleep in wall only, and a planted estimate at its block only. The plain saw read 0 points in every block.
+
+**Limits.** The estimate is about 40 % of these patches' average at the combined set. Larger buffers are inferred from summing blocks, no host was tested: at 256 samples Crunch horde's chord is still about 1.2, and at 512 everything at the combined set is under 1. Nothing was heard, and the candidate fix (spreading the 32 starts over grid steps) hasn't been built.
