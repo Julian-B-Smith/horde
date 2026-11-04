@@ -72,7 +72,9 @@ lists as protected.
 
 ## §Domain — HYPERSAW
 
-**What this is.** A synthesizer built from a family of experimental, responsive
+**What this is.** One unified engine (GUI-1): every oscillator is a swarm cut by blades, and nothing offers
+swarm and SCALPEL as engines to choose between. The family described next is how it got here, and the
+candidates are history unless a row says otherwise. A synthesizer built from a family of experimental, responsive
 engines with dynamical characteristics, whose central innovation is its morph logic
 over the full depth of every parameter (ADR-337, superseding ADR-091's genre orientation). The founding engine — **SWARM SAW** (formerly SAW, then HYPERSAW; ADR-115) — is a
 coupled-oscillator system (Kuramoto swarm over a kernel — "the supersaw taken
