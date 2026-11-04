@@ -10,6 +10,10 @@
  },
  "master_versions": [
   {
+   "version": "1793764535-dcb5",
+   "evidence": "docs/design/gui3.html self-check 4m: GUI-17. Option+Shift-drag on a Control moves its high end."
+  },
+  {
    "version": "1793745705-bf68",
    "evidence": "docs/design/gui3.html self-checks 4i and 4j: GUI-13, ADR-121. The Lens's empty state, the Specimen's ground and watch()'s scheme."
   },
@@ -119,7 +123,7 @@
   },
   "compact-mixer-lab.html": {
    "status": "exploring",
-   "note": "GB1 and GUI-14: one console for the whole chain (C1), with the flow picture in its box, a solo on every stage and a bypass on every FX module. M0 to M4 stay to compare."
+   "note": "GB1 and GUI-14: C1, one console for the whole chain with the flow picture in its box, approved by the human (GUI-16). Being carried to the master. M0 to M4 stay to compare."
   },
   "composed-engine-check.html": {
    "status": "exploring",
@@ -300,8 +304,8 @@
    "note": "Archived in the design index (its lab-archive tag): legacy-era bench; its law is ruled or lives in the composed engine. History, never a source."
   },
   "morph-map-lab.html": {
-   "status": "exploring",
-   "note": "Morph and MAP on together: three layouts on the real shell, for the human's choice. The human asked 2026-11-03 and rules by poll."
+   "status": "retired",
+   "note": "Archived in the design index (its lab-archive tag): ruled as GUI-16, option B, and built into the shell. It compares against the old layout, which is gone. History, never a source."
   },
   "page-chrome-lab.html": {
    "status": "ruled",
@@ -5697,7 +5701,7 @@
    "adr": "GUI-14",
    "clause": "rulings 1, 2 and 6 (one console, upright; the chain's picture in its box, each node over its strip; a clearer name for Engine)",
    "port_tab": "gain-staging",
-   "note": "Lab C1. Ruling 2 was \"maybe we try\" and the word for Engine is the human's: both wait on the human's look. Master, vendor and shell follow.",
+   "note": "Lab C1. Ruling 2 was \"maybe we try\" and the word for Engine is the human's: both wait on the human's look. Master, vendor and shell follow. Approved by the human 2026-11-03 (GUI-16 ruling 1); the master, bundle and shell are next.",
    "lab": "docs/design/compact-mixer-lab.html",
    "component": null,
    "master_version": null,
@@ -5712,7 +5716,7 @@
    "adr": "GUI-14",
    "clause": "rulings 3 and 4 (a bypass on every FX module; a solo on every stage)",
    "port_tab": "gain-staging",
-   "note": "Lab C1 draws both on mock state. The engine has neither a slot bypass key nor a solo tap: noted on GB1 for the lead.",
+   "note": "Lab C1 draws both on mock state. The engine has neither a slot bypass key nor a solo tap: noted on GB1 for the lead. Approved by the human 2026-11-03 (GUI-16 ruling 1); the master, bundle and shell are next.",
    "lab": "docs/design/compact-mixer-lab.html",
    "component": null,
    "master_version": null,
@@ -5727,7 +5731,7 @@
    "adr": "GUI-14",
    "clause": "ruling 5 (the picture follows the signal flow)",
    "port_tab": "gain-staging",
-   "note": "Lab C1 draws it from a mock flow. The real one waits on the filter routing rows (X13, RC-1) and the rack's cable state (IF-10).",
+   "note": "Lab C1 draws it from a mock flow. The real one waits on the filter routing rows (X13, RC-1) and the rack's cable state (IF-10). Approved by the human 2026-11-03 (GUI-16 ruling 1); the master, bundle and shell are next.",
    "lab": "docs/design/compact-mixer-lab.html",
    "component": null,
    "master_version": null,
@@ -5751,6 +5755,36 @@
    "superseded_by": null,
    "state": "in-shell",
    "master_version": "1793745705-bf68"
+  },
+  {
+   "port_tab": null,
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "id": "gui16-mappings-foot-row",
+   "adr": "GUI-16",
+   "clause": "ruling 2 (Mappings sits in the foot row, in Info and the Lens's place, while MAP is on)",
+   "note": "Placement only: the card is the bundle's ModInspector. Option B of docs/design/morph-map-lab.html, which is now retired.",
+   "component": "MapControl",
+   "bundle": "ModInspector",
+   "shell": "docs/design/gui3.html: // 4l. GUI-16",
+   "state": "in-shell",
+   "master_version": "1793764535-dcb5"
+  },
+  {
+   "port_tab": null,
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "id": "gui17-ctl-sweep",
+   "adr": "GUI-17",
+   "clause": "the ruling (Option+Shift-drag sets how far a Control sweeps)",
+   "note": "Knobs and sliders, through the bundle's gesture. The Mod page's lane already has low and high handles; its matrix cell still only slides the band.",
+   "component": "MapControl",
+   "bundle": "MapControl",
+   "shell": "docs/design/gui3.html: // 4m. GUI-17",
+   "state": "in-shell",
+   "master_version": "1793764535-dcb5"
   }
  ],
  "not_design": [

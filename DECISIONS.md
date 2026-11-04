@@ -11384,3 +11384,33 @@ Three points stayed open, because the shell already marks a knob selected the mo
 - The rulings log gains row 91.
 - No test covers the click yet: B613. The test author is closed, and reopening it is the human's call.
 - **FX device (ADR-254):** none. It hosts no engine.
+## GUI-16 — RULED by the human: the C1 console and its signal-flow picture stand; Mappings goes in the foot row (GB1, GB5; GUI-14; 2026-11-03)
+
+**Context.** The human, 2026-11-03: "I approve of the C1 console and new signal flow diagram in the gain staging." And: "I also approve of mappings in the foot row", which is option B of `docs/design/morph-map-lab.html`.
+
+**Ruling.**
+1. **C1 and its flow picture are approved,** as drawn in `docs/design/compact-mixer-lab.html` (GUI-14, whose ruling 2 was "maybe we try"). The chain runs master, vendor, shell next.
+2. **Mappings sits in the foot row while MAP is on,** in Info and the Lens's place. With the sidebar on, Info is in the rail, so it takes the Lens's place only. MAP takes no width from a page.
+
+**Still open, not read into the approval.** GUI-14's readings: the word SUM · VOICES, one ruler, solo's readings, bypass's reading, and strips staying in slot order. And whether Mix hides the pad as Main does: C1 needs about 906 px, so with the pad showing (743 px) it scrolls inside its box, while with morph off it fits, mapping or not.
+
+**Consequences.** Self-check 4l holds every page to its measure with the pad alone, with the old third column as its control, which closes GB5's check. Info and the Lens don't show while mapping. The Map Mode spec's inspector is not edited: it is protected, and its placement line waits for the human's word. `morph-map-lab.html` is retired, because it compares against a layout that is gone.
+
+**FX device (ADR-254).** It has the same pad and the same MAP, so the same foot row. Its console starts at its audio input, as GUI-14 says.
+
+## GUI-17 — RULED by the human: Option+Shift-drag sets how far a Control sweeps (ADR-340 r9, ADR-341 r4 A1; 2026-11-03)
+
+**Context.** The human, 2026-11-03: "when a mapping is set to CTL, there's no intuitive way to control the depth of modulation, only the start position. I think option+shift+drag or something should do it." A Control's Option-drag slid its whole band, a gesture the code itself marked PLACEHOLDER. Only the Mod page's lane could change the band's width.
+
+**Ruling.** On a Control, Option+Shift-drag moves its high end, so its sweep changes and its start stays. Option-drag still slides the band.
+
+**Readings taken (the GUI session's, open to the human).**
+- **"Depth" is the distance between the low and high ends.** The drag moves the high end, stopping at the low end. It doesn't resize around the middle.
+- **Option+Shift stops being a fine drag on a Control only.** Every other polarity keeps it, and with no drag the same keys still cycle the polarity (ADR-341 r4 A1). So a Control has no fine drag.
+- **On knobs and sliders.** The matrix cell on the Mod page still only slides the band; its lane has both handles.
+
+**Consequences.** Master `1793764535-dcb5`, re-vendored. Self-check 4m, with its controls. The Map Mode spec doesn't list CTL at all, and it is protected; a line there waits for the human's word.
+
+**Not checked.** Real keys: the browser tool can't hold modifiers through a drag, so the check drives the real knob with pointer events that carry them. Whether a host or Windows takes Shift+Alt was already an open question (ADR-341 r4 A1).
+
+**FX device (ADR-254).** The same gesture on the same controls.
