@@ -360,6 +360,10 @@
    "status": "retired",
    "note": "Archived in the design index (its lab-archive tag): legacy-era bench; its law is ruled or lives in the composed engine. History, never a source."
   },
+  "sluice-gui-lab.html": {
+   "status": "exploring",
+   "note": "GB13. Sluice's whole hosted interface on its GBC screen with the live title, for the human to judge. It reads Sluice's data through local/sluice and carries none of it (the human's hold). Open: Sluice's answers on its control surface, through the lead. Corners and modulation are a placeholder for GB15."
+  },
   "sluice-horde-lab.html": {
    "status": "ruled",
    "adr": "ADR-305",
