@@ -1,0 +1,2512 @@
+<!doctype html>
+<!-- sluice-gui-lab: Sluice's full interface as horde will host it, on its own FX screen. horde GUI session, 2026-11-04, row GB13 (ruling GUI-23). The human: "Sluice logo without the
+     gap is better. Let's spin up proper full Sluice and Shriek GUI labs that incorporate these dynamic wordmarks and coordinate functionality with the Sluice and Shriek agents."
+
+     THE HOLD. horde is public and Sluice is private. This file holds no Sluice parameter, range, module name, preset, table or spec sentence. Everything of that kind is read when the
+     page loads, in place, through the gitignored link local/sluice (a link to Sluice's docs/horde/). Without the link the page says so and draws nothing of Sluice's. The self-check
+     scans this file as served for the manifest's strings and the spec's text. Schema words (chain, bindings, target) are the file format's field names and are not counted, as in
+     sluice-horde-lab.html's check C17, whose approach this reuses. That older lab's manifest gate is stale (B564): this one accepts the current format and any newer one, with a warning.
+
+     THE ONE CLEARED EXCEPTION. The title mark may go public (Sluice's response seq 64, section 4). The next script is the mark's, taken from origin/gui-mark-labs,
+     docs/design/sluice-mark-styles-lab.html, first script, with two lines changed, each marked HORDE-LAB-EDIT: its fresh route seeds come from a seeded stream, and its API offers walkRamp.
+
+     THE TITLE. ADR-302 and ADR-305: 4 px stems by coverage in the 96 x 24 slot at (8, 0), the hue walk, the 16 x 16 icon slot empty. GB13: no crossing gap (MARK_OPTS.pixelGap=false).
+     One WebGL context. Sluice's response seq 64 section 2 (the human: "Quantise on GBC"): while a slide runs, a cell takes one of three steps by its progress along the walk, so a tile
+     never holds more than the ground and three inks. The S-bend question is open and untouched.
+
+     WHAT IS MOCK. There is no audio and no Sluice engine here. Readouts use a stand-in law with the right ends and centre. The dice are horde's own seeded stand-in. Normalize needs the
+     engine, and the meters aren't drawn. The page says so on the glass and on the chassis. The real thing runs through Sluice's Node (B331).
+
+     RULES BUILT IN. GUI-21: a control that cannot act under the current settings is not drawn, so nothing here is ever greyed out; the check holds it. Morph corners and horde's
+     modulation are about to be redesigned (GB15), so they are one labelled placeholder in one place: hordePlaceholder() below. ADR-236 item 7: Sluice's XY and library are in the slot.
+     ADR-306: randomize all four and revert, where Sluice places them.
+
+     HOUSE RULES. No unseeded draws (mulberry32, state in L.rs). Time on the glass is a frame count. No wheel listener (B301). L0026: consts sit above the code that runs at setup; boot() is
+     the last statement. The GBC drawing helpers are copied from sluice-horde-lab.html's section N (GBuf, the 3 x 5 font, the chip, knob and pad drawing, the hit test and keyboard). -->
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="lab-part" content="FX">
+<meta name="lab-review" content="GB13 · 2026-11-04">
+<title>Sluice GUI lab</title>
+<link rel="stylesheet" href="arp-face/tokens.css">
+<link rel="stylesheet" href="arp-face/bundle.css">
+<style>
+  html, body { background: var(--bg); }
+  body { margin: 0; padding: 20px 16px 60px; color: var(--ink); font: 13px/1.5 var(--font-sans); }
+  .col { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+  h1 { font: 800 19px/1.2 var(--font-sans); margin: 0 0 6px; }
+  h2 { font: 800 13px/1.2 var(--font-sans); margin: 0 0 8px; }
+  p { margin: 0 0 6px; max-width: 84ch; }
+  .tagline { color: var(--t2); max-width: 84ch; }
+  .note { color: var(--t2); font-size: 12px; }
+  #banner { font: 700 12px/1.45 var(--font-mono); padding: 6px 10px; border: 1.5px solid var(--ink); border-radius: 4px; background: var(--panel); white-space: pre-wrap; }
+  #banner.bad { background: var(--alarm, #c2261a); color: #fff; }
+  #stage { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+  #stage[hidden], #noSpec[hidden], #busy[hidden] { display: none; }
+  #glassWrap { position: relative; box-sizing: content-box; overflow: hidden; border: 1.5px solid var(--ink); border-radius: var(--radius); background: #000; }
+  #glass { position: absolute; left: 0; top: 0; display: block; image-rendering: pixelated; cursor: pointer; }
+  #glass:focus { outline: none; }
+  .hd-softkey:disabled { opacity: .35; cursor: default; box-shadow: none; }
+  .hd-bezel:focus-within { box-shadow: var(--focus-ring); }
+  /* the LCD's optics, from fx-screens-workshop.html's .fxo.gbc: a 1 px line per logical pixel at 11% black, and an inset shade */
+  #dots { position: absolute; inset: 0; pointer-events: none;
+    background-image: linear-gradient(to right, rgba(0,0,0,.11) 1px, transparent 1px), linear-gradient(to bottom, rgba(0,0,0,.11) 1px, transparent 1px);
+    box-shadow: inset 0 0 12px rgba(0,0,0,.22); }
+  .ccorner { width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; border: 1.5px solid var(--ink); font: 700 10px/1 var(--font-mono); color: #191521; }
+  .mk { position: relative; width: 44px; height: 44px; border-radius: 50%; border: 1.5px solid var(--ink); cursor: ns-resize; touch-action: none; background: conic-gradient(from 220deg, var(--knobfill, #d6006b) calc(var(--v, 0) * 280deg), var(--well-alt) 0); }
+  .mk::after { content: ""; position: absolute; left: 50%; top: 50%; width: 2px; height: 18px; margin-left: -1px; margin-top: -18px; background: var(--ink); transform-origin: 50% 100%; transform: rotate(calc(-140deg + var(--v, 0) * 280deg)); }
+  .mk.idle { opacity: .35; cursor: default; }
+  .mk:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  #side { flex: 1 1 320px; min-width: 300px; display: flex; flex-direction: column; gap: 12px; font-size: 12px; }
+  #side section { border: 1px solid var(--div); border-radius: 4px; padding: 8px 10px; }
+  .chrome { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .chrome button, .chrome input { min-height: 28px; font: 12px var(--font-sans); color: var(--ink); background: var(--panel); border: 1px solid var(--ink); border-radius: 4px; padding: 0 8px; }
+  .chrome input[type=number] { width: 72px; }
+  .chrome button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .chrome button[aria-pressed="true"] { border-width: 2px; font-weight: 700; }
+  table { border-collapse: collapse; font: 11px/1.35 var(--font-sans); width: 100%; }
+  th, td { padding: 3px 6px; border-bottom: 1px solid var(--div); text-align: left; vertical-align: top; }
+  kbd { font: 10.5px var(--font-mono); border: 1px solid var(--div); border-radius: 3px; padding: 0 3px; }
+  textarea { box-sizing: border-box; width: 100%; height: 72px; font: 11px/1.35 var(--font-mono); background: var(--well); color: var(--ink); border: 1px solid var(--div); border-radius: 4px; }
+  #selfcheck { font: 12px/1.5 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .src { position: absolute; left: -9999px; top: 0; visibility: hidden; }
+</style>
+</head>
+<body>
+<div class="col">
+  <header>
+    <h1>Sluice GUI lab</h1>
+    <div class="tagline">Sluice's whole interface as horde will host it, on its own Game Boy Color screen, with the live hue-walking title. Everything works in page state. There is no audio.</div>
+  </header>
+  <div id="banner" role="status">Reading Sluice from the local link…</div>
+  <section id="noSpec" hidden></section>
+  <main id="stage" hidden>
+    <div class="hd-chassis" id="chassis">
+      <div class="chead"><span class="ctab">SLUICE</span><span class="note">FX screen</span><span class="ccorners" id="ccorners" title="horde's morph corners: a placeholder until GB15"></span></div>
+      <div class="hd-bezel">
+        <div id="glassWrap"><canvas id="glass" width="160" height="144" tabindex="0" aria-label="Sluice's GBC screen. Click, drag, or use Tab, arrows, Enter, Escape and 1 to 4."></canvas><div id="dots"></div></div>
+        <div class="hd-cctl" id="cctl" style="margin-top:6px"></div>
+      </div>
+      <div class="hd-cfoot"><b>MOCK</b> no audio, no Sluice engine · <b>PROVISIONAL</b> layout</div>
+    </div>
+    <div id="side">
+      <section><h2>Use it</h2>
+        <p>Click and drag on the glass. <kbd>Tab</kbd> walks the controls, <kbd>↑</kbd><kbd>↓</kbd> rows, <kbd>←</kbd><kbd>→</kbd> turn or step, <kbd>Enter</kbd> presses (on the XY it grabs, then arrows move it), <kbd>Esc</kbd> goes back, <kbd>1</kbd>–<kbd>4</kbd> are the soft keys. Double-click a knob to centre it. The four knobs under the glass are the patch's four macros.</p>
+        <p class="note">Soft key 1 opens the menu. A control that can't act right now isn't drawn, so things appear and go as you switch modes (GUI-21).</p>
+      </section>
+      <section><h2>Lab chrome (not part of the module)</h2>
+        <div class="chrome" id="chrome"></div>
+      </section>
+      <section><h2>Patch file box</h2>
+        <p class="note">EXPORT on the library page writes here, IMPORT reads here. Page state only: a reload forgets it.</p>
+        <textarea id="jsonBox" spellcheck="false" aria-label="Patch file box"></textarea>
+      </section>
+      <section><h2>Pages and their soft keys</h2><div id="map"></div></section>
+    </div>
+  </main>
+  <section aria-label="What is mock"><h2>What is mock on this page</h2>
+    <p>Nothing here is Sluice's sound or Sluice's engine. <b>Real, read at load:</b> the controls, their ranges and tapers, the macro targets, the divisions, the patches and presets. <b>Stand-ins:</b> the dice (seeded, horde's own, not Sluice's randomiser), the readouts' law between its ends and centre, the scope's traces, and Normalize (it only says it needs the engine). <b>Not drawn:</b> the input and output meters, which need audio.</p>
+  </section>
+  <section aria-label="Self-check"><h2>Self-check</h2><div id="selfcheck">Running.</div></section>
+</div>
+<div class="src" id="srcBox" aria-hidden="true"></div>
+<script>
+/*MARK-BEGIN*/
+/* The mark's own script, sluice-mark-dark.html (git blob 6e7bd46). The ENGINE section is verbatim. Set-up lines
+   are rebound so several marks share one page (canvas, URL query, returned API) and, for the pixel study, the
+   buffer can be fixed to a display grid (rows x cols, supersampled by ss), and HOOK(gl, canvas) runs after each draw so the page can read the frame back. */
+/* The crossing gap (KNOT_GAP) is about half a pixel wide at 4 px stems, so on the pixel grid it flips cells on and off as tubes move.
+   Pixel marks draw without it unless this is on; smooth marks always keep it. */
+const MARK_OPTS={pixelGap:false};
+function makeSluiceMark(CANVAS,QUERY,HOOK){
+'use strict';
+
+
+/* ================= PRESET (verbatim copy of the locked settings) ================= */
+const PRESET = {
+  "format": "sluice-mark/1",
+  "units": "lengths in letter units, cap height = 2",
+  "route": { "seed": "A23183", "repeat": false },
+  "motion": {
+    "holdSeconds": 2.5,
+    "travelSeconds": 5,
+    "wander": 0.6,
+    "timing": "together",
+    "easing": "smooth",
+    "figures": { "coils": true, "meanders": true, "zigzags": true },
+    "bendRadius": 0.5
+  },
+  "form": {
+    "look": "knot",
+    "tubeColor": "#e100ff",
+    "groundColor": "#0a0c0f",
+    "tubeRadius": 0.28,
+    "depthFade": 0,
+    "bands": false,
+    "showRoutes": false,
+    "grid": false
+  },
+  "view": { "yawDegrees": 0, "pitchDegrees": 0, "frame": "16:9" }
+};
+
+/* Width of the ground-coloured gap where one tube crosses in front of another, in letter
+   units (cap height = 2). Matches the 3.6 px gap of the design study at its ~530 px stage. */
+const KNOT_GAP = 0.062;
+
+/* ================= BAKED ROUTE for seed A23183 =================
+   The polyline (corner vertices + fillet radius per corner, 99 = "largest that fits")
+   that the route search chose for each letter, S L U I C E. Feeding these through
+   filletPoly + resample reproduces the live search's route exactly. */
+const BAKED = {
+  seed: 'A23183',
+  settings: { tubeRadius: 0.28, wander: 0.6, bendRadius: 0.5, frame: '16:9', coils: true, meanders: true, zigzags: true },
+  routes: [
+    {"V":[[-5.5156049728393555,-0.7963005900382996,1.222980050563649e-16],[-5.955871299906194,-0.324610376369372,-0.4636348215795205],[-5.955871299906194,-0.324610376369372,-2.62],[-4.533729530447655,-0.324610376369372,-2.62],[-4.533729530447655,-2.4488439186383038,-2.62],[-4.533729530447655,-2.4488439186383038,1.71],[-5.925871299906194,-2.4488439186383038,1.71],[-5.925871299906194,0.23581776364602824,1.71],[-4.060918845029043,0.23581776364602824,1.71],[-4.060918845029043,0.23581776364602824,0.5793526843844884],[-4.61727237701416,0.8193609118461609,0]],"r":[0,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0]},
+    {"V":[[-3.130760908126831,-0.9994811415672302,-0.5296379327774048],[-3.768162770691218,-0.9902967527025069,-0.5535247293193157],[-3.768162770691218,-0.9902967527025069,-2.62],[-2.615645471150877,-0.9902967527025069,-2.62],[-2.615645471150877,-2.215200163205154,-2.62],[-3.738162770691218,-2.215200163205154,-2.62],[-3.738162770691218,-2.215200163205154,1.71],[-1.9688110878353988,-2.215200163205154,1.71],[-1.9688110878353988,3.06,1.71],[-3.5027987957000732,3.06,1.71],[-3.5027987957000732,1.7870914934871378,1.71],[-3.5027987957000732,1.7870914934871378,-0.5623069203751936],[-3.5027987957000732,1,-0.550000011920929]],"r":[0,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0]},
+    {"V":[[0.001188912196084857,1,0.30000001192092896],[0.001188912196084857,1.6264868623175994,0.3111578053149784],[0.001188912196084857,1.6264868623175994,-2.62],[0.001188912196084857,2.489085103624441,-2.62],[-1.4888110878353986,2.489085103624441,-2.62],[-1.4888110878353986,-2.6906079281726853,-2.62],[-1.4888110878353986,-2.6906079281726853,1.71],[0.20118891216460125,-2.6906079281726853,1.71],[0.20118891216460125,3.06,1.71],[-1.1988110542297363,3.06,1.71],[-1.1988110542297363,1.6264843220275846,1.71],[-1.1988110542297363,1.6264843220275846,0.31115776007216034],[-1.1988110542297363,1,0.30000001192092896]],"r":[0,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0]},
+    {"V":[[0.9411889314651489,1,-0.5],[0.9411889314651489,2.650261182733063,-0.5],[0.9411889314651489,2.650261182733063,-2.62],[1.831188912164602,2.650261182733063,-2.62],[1.831188912164602,-1.850943108079955,-2.62],[1.831188912164602,-1.850943108079955,1.71],[0.9411889314651489,-1.850943108079955,1.71],[0.9411889314651489,2.0920683513836726,1.71],[0.9411889314651489,2.0920683513836726,0.5],[0.9411889314651489,1,0.5]],"r":[0,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0]},
+    {"V":[[3.2788052558898926,-0.5634598135948181,0.9122607111930847],[3.2788052558898926,-0.5634598135948181,2.62],[3.2788052558898926,2.374518997212872,2.62],[3.2788052558898926,2.374518997212872,-1.71],[3.2788052558898926,0.5634598135948181,-1.71],[3.2788052558898926,0.5634598135948181,-0.9122607111930847]],"r":[0,0.5,0.5,0.5,0.5,0]},
+    {"V":[[4.750805377960205,-1,-0.7459999918937683],[4.750805377960205,-1,-2.62],[4.750805377960205,-0.07701916496735062,-2.62],[4.750805377960205,-0.07701916496735062,-1.71],[4.750805377960205,1,-1.71],[4.750805377960205,1,-0.7459999918937683]],"r":[0,0.5,0.5,0.5,0.5,0]}
+  ]
+};
+
+/* ================= ENGINE (verbatim from the design study; see DETERMINISM WARNING) ================= */
+const TAU = Math.PI*2, D2R = Math.PI/180;
+const clamp = (x,a,b)=>Math.min(b,Math.max(a,x));
+const smooth = (e0,e1,x)=>{const t=clamp((x-e0)/(e1-e0),0,1);return t*t*(3-2*t);};
+const dist = (a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1],a[2]-b[2]);
+const lerp3 = (a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
+const norm3 = a=>{const l=Math.hypot(a[0],a[1],a[2])||1;return [a[0]/l,a[1]/l,a[2]/l];};
+const sub3 = (a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
+const vmad = (a,b,s)=>[a[0]+b[0]*s,a[1]+b[1]*s,a[2]+b[2]*s];
+const dot3 = (a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function shuffle(a,rng){for(let i=a.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+/* HORDE-LAB-EDIT: fresh routes come from a seeded stream, not an unseeded draw (the lab's house rule) */
+const seedStream = mulberry32(0xA23183), newSeed = ()=>Math.floor(seedStream()*0x1000000);
+const hex = s=>s.toString(16).toUpperCase().padStart(6,'0');
+
+/* ================= path building ================= */
+const STEP = 0.006;     // builder sampling (world units)
+const H = 0.012;        // loop sample spacing
+const RING = 0.03;      // ring spacing along a tube
+const RS = 22;          // radial segments
+const K = 7;            // rings per end cap
+
+function push(out,p){const n=out.length;if(n){const q=out[n-1];if(Math.abs(p[0]-q[0])+Math.abs(p[1]-q[1])+Math.abs(p[2]-q[2])<1e-7)return;}out.push(p);}
+function seg(out,f,n){for(let i=0;i<=n;i++)push(out,f(i/n));}
+function lineSeg(out,a,b){seg(out,t=>lerp3(a,b,t),Math.max(2,Math.ceil(dist(a,b)/STEP)));}
+function arcSeg(out,cx,cy,rx,ry,a0,a1){
+  const n=Math.max(6,Math.ceil(Math.abs(a1-a0)*Math.max(rx,ry)/STEP));
+  seg(out,t=>{const a=a0+(a1-a0)*t;return [cx+rx*Math.cos(a),cy+ry*Math.sin(a),0];},n);
+}
+function cumLen(p){const c=new Float64Array(p.length);for(let i=1;i<p.length;i++)c[i]=c[i-1]+dist(p[i],p[i-1]);return c;}
+function applyZ(p,zf){const c=cumLen(p),L=c[c.length-1];for(let i=0;i<p.length;i++)p[i][2]=zf(c[i]/L);return p;}
+/* Fold the end of a stroke back behind itself: a semicircle in the plane of the end tangent and Z,
+   then a tail that retraces the stroke 2*rho further back. Edge-on, it reads as a plain terminal. */
+function tuckEnd(p,rho,ell){
+  const P=p[p.length-1],Q=p[p.length-3];
+  const T=norm3([P[0]-Q[0],P[1]-Q[1],0]);
+  const out=p.slice();
+  const n=Math.ceil(Math.PI*rho/STEP);
+  for(let i=1;i<=n;i++){const f=Math.PI*i/n,s=Math.sin(f),c=Math.cos(f);push(out,[P[0]+T[0]*rho*s,P[1]+T[1]*rho*s,P[2]-rho+rho*c]);}
+  let acc=0;
+  for(let k=p.length-1;k>0;k--){
+    const a=p[k],b=p[k-1],d=dist(a,b);
+    if(acc+d>=ell){const t=(ell-acc)/d,q=lerp3(a,b,t);push(out,[q[0],q[1],q[2]-2*rho]);break;}
+    acc+=d;push(out,[b[0],b[1],b[2]-2*rho]);
+  }
+  return out;
+}
+function resample(p,h){
+  const c=cumLen(p),L=c[c.length-1],m=Math.max(1,Math.round(L/h)),step=L/m;
+  const out=new Float32Array((m+1)*3);let s=0;
+  for(let k=0;k<=m;k++){
+    const d=k*step;
+    while(s<p.length-2&&c[s+1]<d)s++;
+    const span=(c[s+1]-c[s])||1,t=clamp((d-c[s])/span,0,1),a=p[s],b=p[s+1];
+    out[k*3]=a[0]+(b[0]-a[0])*t;out[k*3+1]=a[1]+(b[1]-a[1])*t;out[k*3+2]=a[2]+(b[2]-a[2])*t;
+  }
+  return {pos:out,count:m+1,length:L,step};
+}
+
+/* ================= letterforms (cap height: y from -1 to 1; clearances scale with tube radius R) ================= */
+function letterS(){
+  const p=[],cx=0.6;
+  arcSeg(p,cx,0.53,0.54,0.47,38*D2R,270*D2R);
+  arcSeg(p,cx,-0.47,0.6,0.53,90*D2R,-142*D2R);
+  return applyZ(p,u=>-0.5*Math.sin(TAU*u));
+}
+function letterL(R){
+  const p=[],rc=Math.max(0.3,1.4*R),rho=Math.max(0.3,1.3*R),fx=Math.max(1.0,rc+0.6);
+  lineSeg(p,[0,1,0],[0,-1+rc,0]);
+  arcSeg(p,rc,-1+rc,rc,rc,Math.PI,1.5*Math.PI);
+  lineSeg(p,[rc,-1,0],[fx,-1,0]);
+  applyZ(p,u=>-0.55+0.75*smooth(0,0.8,u));
+  return tuckEnd(p,rho,fx-rc+0.02);
+}
+function letterU(){
+  const p=[],r=0.6;
+  lineSeg(p,[0,1,0],[0,-1+r,0]);
+  arcSeg(p,r,-1+r,r,r,Math.PI,TAU);
+  lineSeg(p,[2*r,-1+r,0],[2*r,1,0]);
+  return applyZ(p,u=>0.3-1.1*Math.pow(Math.sin(Math.PI*u),2));
+}
+function letterI(){
+  const p=[],rho=0.5;
+  lineSeg(p,[0,1,rho],[0,-1+rho,rho]);
+  return tuckEnd(p,rho,Infinity);
+}
+/* Turn the end of a stroke into the Z axis with a circular bend; seen flat-on it reads as a round terminal. */
+function bendToZ(p,sz,r){
+  const P=p[p.length-1],Q=p[p.length-4],T=norm3(sub3(P,Q)),c=clamp(T[2]*sz,-1,1),th=Math.acos(c);
+  const nn=norm3([-T[0]*c,-T[1]*c,sz-T[2]*c]),O=vmad(P,nn,r),out=p.slice(),n=Math.max(4,Math.ceil(th*r/STEP));
+  for(let k=1;k<=n;k++){const ph=th*k/n,cp=Math.cos(ph)*r,sp=Math.sin(ph)*r;push(out,[O[0]-nn[0]*cp+T[0]*sp,O[1]-nn[1]*cp+T[1]*sp,O[2]-nn[2]*cp+T[2]*sp]);}
+  push(out,vmad(out[out.length-1],[0,0,sz],0.06));
+  return out;
+}
+function letterC(R){
+  const p=[],rz=Math.max(0.3,1.3*R);
+  arcSeg(p,0.74,0,0.74,1.0,50*D2R,310*D2R);
+  applyZ(p,u=>-0.5+1.0*u);
+  return bendToZ(bendToZ(p,1,rz).reverse(),-1,rz).reverse();
+}
+/* The E is a three-level coil. Each level is a racetrack loop (front strand, turnaround, back strand)
+   and the spine is where the coil steps down a level. Both ends of the tube sit on back strands, hidden
+   behind the front strands, and turn straight into depth; the outer corners are single continuous bends. */
+function letterE(R){
+  const p=[],d=Math.max(0.24,1.3*R),rc=Math.max(0.26,1.3*R),rz=Math.max(0.25,1.15*R);
+  const ws=[1.0,0.84,1.0],ys=[1,0,-1],xs=rc+rz+0.6*R;
+  const turn=(w,y,z0)=>seg(p,t=>{const f=Math.PI*t;return [w+d*Math.sin(f),y,z0*Math.cos(f)];},Math.ceil(Math.PI*d/STEP));
+  const descend=(y,yn,z0,z1)=>{
+    const q=[];
+    arcSeg(q,rc,y-rc,rc,rc,0.5*Math.PI,Math.PI);
+    lineSeg(q,[0,y-rc,0],[0,yn+rc,0]);
+    arcSeg(q,rc,yn+rc,rc,rc,Math.PI,1.5*Math.PI);
+    applyZ(q,u=>z0+(z1-z0)*(0.5-0.5*Math.cos(Math.PI*u)));
+    for(const pt of q)push(p,pt);
+  };
+  /* top: out along the back strand, round the turnaround, home along the front strand */
+  lineSeg(p,[xs,ys[0],-d],[ws[0],ys[0],-d]);
+  turn(ws[0],ys[0],-d);
+  lineSeg(p,[ws[0],ys[0],d],[rc,ys[0],d]);
+  descend(ys[0],ys[1],d,d);
+  /* middle and bottom: out along the front strand, home along the back strand.
+     The middle's back strand comes FORWARD as it runs home, hidden behind the front strand the whole
+     way (they share their outline head-on), and reaches the spine at the front strand's depth. It used
+     to step from back to front on the spine itself: that step came out from behind the middle arm's
+     edge, and the knot gap drew it as a notch on the E's spine. A T made of one tube always crosses
+     an outline somewhere; only parts meeting at ONE depth merge without a gap, so they meet here. */
+  lineSeg(p,[rc,ys[1],d],[ws[1],ys[1],d]);
+  turn(ws[1],ys[1],d);
+  const home=[];
+  lineSeg(home,[ws[1],ys[1],-d],[rc,ys[1],-d]);
+  applyZ(home,u=>-d+2*d*smooth(0,1,u));
+  for(const pt of home)push(p,pt);
+  descend(ys[1],ys[2],d,d);
+  lineSeg(p,[rc,ys[2],d],[ws[2],ys[2],d]);
+  turn(ws[2],ys[2],d);
+  lineSeg(p,[ws[2],ys[2],-d],[xs,ys[2],-d]);
+  return bendToZ(bendToZ(p,-1,rz).reverse(),-1,rz).reverse();
+}
+const BUILD=[['S',letterS],['L',letterL],['U',letterU],['I',letterI],['C',letterC],['E',letterE]];
+function buildWord(R){
+  const GAP=2*R+0.38;
+  const raws=BUILD.map(([ch,fn])=>{const pts=fn(R);let mn=Infinity,mx=-Infinity;for(const p of pts){if(p[0]<mn)mn=p[0];if(p[0]>mx)mx=p[0];}return {ch,pts,mn,mx};});
+  let x=0;const offs=[];
+  raws.forEach((r,i)=>{if(i)x+=GAP;offs.push(x-r.mn);x+=r.mx-r.mn;});
+  const width=x;
+  const letters=raws.map((r,i)=>{
+    const dx=offs[i]-width/2;
+    const rs=resample(r.pts.map(p=>[p[0]+dx,p[1],p[2]]),H),P=rs.pos;
+    const bb=[Infinity,Infinity,Infinity,-Infinity,-Infinity,-Infinity];
+    for(let j=0;j<rs.count;j++)for(let c=0;c<3;c++){const v=P[j*3+c];if(v<bb[c])bb[c]=v;if(v>bb[c+3])bb[c+3]=v;}
+    const T0=norm3([P[3]-P[0],P[4]-P[1],P[5]-P[2]]);
+    const ref=Math.abs(T0[2])<0.9?[0,0,1]:[1,0,0];
+    const dp=dot3(ref,T0);
+    const n0=norm3([ref[0]-T0[0]*dp,ref[1]-T0[1]*dp,ref[2]-T0[2]*dp]);
+    return {ch:r.ch,pos:P,count:rs.count,m:rs.count-1,length:rs.length,aabb:bb,
+      Mr:Math.max(8,Math.round(rs.length/RING)),minX:r.mn+dx,maxX:r.mx+dx,n0,loop:null,f:0,dirty:true};
+  });
+  return {letters,width};
+}
+
+/* ================= rational routes =================
+   A route is a 3D polyline of axis-aligned legs and regular figures. Every corner is rounded by a
+   circular fillet: right angles get the bend radius, figure corners get the largest circle that fits,
+   which turns square coils into round coils, meanders into U-bends and zigzags into a smooth wave. */
+const MAXF=99;
+function Poly(){this.V=[];this.r=[];}
+Poly.prototype.put=function(p,r){
+  const V=this.V,n=V.length;
+  if(n&&dist(V[n-1],p)<1e-6)return;
+  if(n>=2){const u=norm3(sub3(V[n-1],V[n-2])),w=norm3(sub3(p,V[n-1]));if(dot3(u,w)>1-1e-9){V.pop();this.r.pop();}}
+  V.push(p);this.r.push(r);
+};
+function filletPoly(V,rad){
+  const n=V.length,out=[],seglen=[],info=new Array(n).fill(null);let minR=Infinity;
+  for(let i=0;i<n-1;i++)seglen.push(dist(V[i],V[i+1]));
+  for(let i=1;i<n-1;i++){
+    const u=norm3(sub3(V[i],V[i-1])),w=norm3(sub3(V[i+1],V[i]));
+    const c=clamp(dot3(u,w),-1,1),th=Math.acos(c);
+    if(th<1e-4)continue;
+    const tt=Math.tan(Math.min(th,3.1)/2);
+    const ap=seglen[i-1]*(i-1===0?1:0.5),an=seglen[i]*(i+1===n-1?1:0.5);
+    const t=Math.min(rad[i]*tt,ap,an),r=t/tt;
+    if(th>0.35)minR=Math.min(minR,r);
+    let nn=[w[0]-u[0]*c,w[1]-u[1]*c,w[2]-u[2]*c];const nl=Math.hypot(nn[0],nn[1],nn[2]);
+    nn=nl<1e-6?(Math.abs(u[2])<0.9?norm3([-u[1],u[0],0]):[1,0,0]):[nn[0]/nl,nn[1]/nl,nn[2]/nl];
+    info[i]={u,t,r,th,nn};
+  }
+  out.push(V[0].slice());
+  const lineTo=p=>{const a=out[out.length-1],d=dist(a,p),m=Math.max(1,Math.ceil(d/STEP));for(let k=1;k<=m;k++)push(out,lerp3(a,p,k/m));};
+  for(let i=1;i<n-1;i++){
+    const f=info[i];
+    if(!f){lineTo(V[i]);continue;}
+    const S=vmad(V[i],f.u,-f.t);lineTo(S);
+    const O=vmad(S,f.nn,f.r),m=Math.max(2,Math.ceil(f.th*f.r/STEP));
+    for(let k=1;k<=m;k++){
+      const ph=f.th*k/m,cp=Math.cos(ph)*f.r,sp=Math.sin(ph)*f.r;
+      push(out,[O[0]-f.nn[0]*cp+f.u[0]*sp,O[1]-f.nn[1]*cp+f.u[1]*sp,O[2]-f.nn[2]*cp+f.u[2]*sp]);
+    }
+  }
+  lineTo(V[n-1]);
+  return {pts:out,minR};
+}
+const otherXY=d=>Math.abs(d[0])>0.5?[0,1,0]:[1,0,0];
+/* Self-avoidance: every leg and figure reserves its bounding box; a new piece may touch only the piece it
+   attaches to. */
+function boxOf(pts){
+  const b=[Infinity,Infinity,Infinity,-Infinity,-Infinity,-Infinity];
+  for(const p of pts)for(let c=0;c<3;c++){if(p[c]<b[c])b[c]=p[c];if(p[c]>b[c+3])b[c+3]=p[c];}
+  return b;
+}
+function boxHit(b,occ,th){
+  if(!occ)return false;
+  for(let i=0;i<occ.length-1;i++){const o=occ[i];
+    if(b[0]-th<o[3]&&b[3]+th>o[0]&&b[1]-th<o[4]&&b[4]+th>o[1]&&b[2]-th<o[5]&&b[5]+th>o[2])return true;}
+  return false;
+}
+function fits(vs,ctx){
+  const m=ctx.R+0.03;
+  for(const p of vs)if(p[0]<ctx.x0+m||p[0]>ctx.x1-m||p[1]<ctx.y0+m||p[1]>ctx.y1-m)return false;
+  if(ctx.cur&&boxHit(boxOf([ctx.cur,...vs]),ctx.occ,ctx.th))return false;
+  return true;
+}
+function spaceAlong(C,dir,ctx){
+  const m=ctx.R+0.06;
+  if(dir[0]>0.5)return ctx.x1-m-C[0];if(dir[0]<-0.5)return C[0]-(ctx.x0+m);
+  if(dir[1]>0.5)return ctx.y1-m-C[1];if(dir[1]<-0.5)return C[1]-(ctx.y0+m);
+  return 9;
+}
+/* A straight leg that turns 90 degrees off the current heading. */
+function featRun(C,d,rng,ctx){
+  let dirs;
+  if(Math.abs(d[2])>0.5)dirs=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0]];
+  else{const o=otherXY(d);dirs=[o,[-o[0],-o[1],0]];}
+  shuffle(dirs,rng);
+  for(const dir of dirs){
+    const sp=spaceAlong(C,dir,ctx);if(sp<ctx.g)continue;
+    for(const len of [Math.min(sp,ctx.g+rng()*1.3),ctx.g]){
+      const q=vmad(C,dir,len);
+      if(!boxHit(boxOf([C,q]),ctx.occ,ctx.th))return {vs:[q],rads:[ctx.rb],d:dir};
+    }
+  }
+  return null;
+}
+/* Regular coil, entered tangentially: the current point is the midpoint of one side of a square helix.
+   Axis either lies in the picture plane (reads as a slinky side-on) or points out of it (reads as rings). */
+function featCoil(C,d,rng,ctx){
+  const rc=ctx.rcMin+rng()*(ctx.rcMax-ctx.rcMin),p=ctx.pitch;
+  const o=otherXY(d),zo=[0,0,ctx.sgn];
+  const opts=shuffle([{ax:o,e:zo},{ax:[-o[0],-o[1],0],e:zo},{ax:zo,e:o},{ax:zo,e:[-o[0],-o[1],0]}],rng);
+  const sq=[[1,0],[1,2],[-1,2],[-1,0]];
+  for(let n=2+Math.floor(rng()*3);n>=2;n--){
+    for(const op of opts){
+      const vs=[];
+      for(let k=1;k<=4*n;k++){
+        const [a,b]=sq[(k-1)%4],adv=p/8+(k-1)*p/4;
+        vs.push([C[0]+d[0]*a*rc+op.e[0]*b*rc+op.ax[0]*adv,C[1]+d[1]*a*rc+op.e[1]*b*rc+op.ax[1]*adv,C[2]+d[2]*a*rc+op.e[2]*b*rc+op.ax[2]*adv]);
+      }
+      vs.push(vmad(C,op.ax,n*p));
+      if(fits(vs,ctx))return {vs,rads:vs.map((_,j)=>j<vs.length-1?MAXF:ctx.rb),d};
+    }
+  }
+  return null;
+}
+/* Meander: parallel runs joined by semicircular U-bends, stepping sideways or out of the picture plane. */
+function featMeander(C,d,rng,ctx){
+  const sp=ctx.sp,o=otherXY(d);
+  const opts=shuffle([o,[-o[0],-o[1],0],[0,0,ctx.sgn]],rng);
+  for(let nL=3+Math.floor(rng()*3);nL>=3;nL--){
+    const w=Math.max(sp*1.25,0.7+rng()*0.7);
+    for(const ta of opts){
+      const vs=[];let q=C;
+      for(let k=0;k<nL;k++){
+        q=vmad(q,d,(k%2?-1:1)*w);vs.push(q);
+        if(k<nL-1){q=vmad(q,ta,sp);vs.push(q);}
+      }
+      if(fits(vs,ctx)){const s=(nL-1)%2?-1:1;return {vs,rads:vs.map((_,j)=>j<vs.length-1?MAXF:ctx.rb),d:[d[0]*s,d[1]*s,d[2]*s]};}
+    }
+  }
+  return null;
+}
+/* Zigzag of 45-degree legs whose tips are rounded into a continuous wave. */
+function featZig(C,d,rng,ctx){
+  const a=Math.max(0.8*ctx.R,0.28)+rng()*0.2,s=2*a,o=otherXY(d);
+  const opts=[o];
+  for(let n=3+Math.floor(rng()*4);n>=3;n--){
+    for(const la of opts){
+      const vs=[];
+      for(let k=1;k<=n;k++){const sg=k%2?1:-1;vs.push([C[0]+d[0]*(k-0.5)*s+la[0]*a*sg,C[1]+d[1]*(k-0.5)*s+la[1]*a*sg,C[2]+d[2]*(k-0.5)*s+la[2]*a*sg]);}
+      vs.push(vmad(C,d,n*s));
+      if(fits(vs,ctx))return {vs,rads:vs.map((_,j)=>j<vs.length-1?MAXF:ctx.rb),d};
+    }
+  }
+  return null;
+}
+function legBadness(C,d,o,ctx,avoid,zp,colTo){
+  let cx=C[0],cy=C[1],px=d[0],py=d[1],bad=0,first=true;
+  const clr=2*ctx.R+0.2;
+  for(const t of o){
+    const lx=t[0]-cx,ly=t[1]-cy,l=Math.hypot(lx,ly);if(l<1e-6)continue;
+    if(l<ctx.g*0.95)bad+=1;
+    const ux=lx/l,uy=ly/l;if(ux*px+uy*py<-0.5)bad+=3;
+    for(const av of avoid){
+      const s=clamp(((av[0]-cx)*ux+(av[1]-cy)*uy),0,l);
+      if(Math.hypot(cx+ux*s-av[0],cy+uy*s-av[1])<clr)bad+=2;
+    }
+    /* the first leg leaves the current piece, so only test it from a bend radius onward */
+    const sx=first?cx+ux*Math.min(l,ctx.rb+ctx.th):cx,sy=first?cy+uy*Math.min(l,ctx.rb+ctx.th):cy;
+    if(boxHit(boxOf([[sx,sy,zp],[t[0],t[1],zp]]),ctx.occ,ctx.th))bad+=2;
+    px=ux;py=uy;cx=t[0];cy=t[1];first=false;
+  }
+  if(colTo!=null&&boxHit(boxOf([[cx,cy,zp],[cx,cy,colTo]]),ctx.occ,ctx.th))bad+=2;
+  return bad;
+}
+/* Orthogonal way home: pick a 2, 3 or 4 leg connector whose legs are all long enough to bend cleanly
+   and that stays clear of the column where the tube first lifted out of the letter. */
+function planReturn(C,d,targets,ctx,rng,avoid,zp,colTo){
+  const R=ctx.R,ys=[ctx.y1-R-0.15,ctx.y0+R+0.15],xs=[ctx.x0+R+0.15,ctx.x1-R-0.15],opts=[];
+  for(const A2 of targets){
+    opts.push([[C[0],A2[1]],[A2[0],A2[1]]],[[A2[0],C[1]],[A2[0],A2[1]]]);
+    for(const Y of ys)opts.push([[C[0],Y],[A2[0],Y],[A2[0],A2[1]]]);
+    for(const X of xs)opts.push([[X,C[1]],[X,A2[1]],[A2[0],A2[1]]]);
+    for(const Y of ys)for(const X of xs){opts.push([[C[0],Y],[X,Y],[X,A2[1]],[A2[0],A2[1]]]);opts.push([[X,C[1]],[X,Y],[A2[0],Y],[A2[0],A2[1]]]);}
+  }
+  const scored=opts.map(o=>({o,bad:legBadness(C,d,o,ctx,avoid,zp,colTo)}));
+  const good=scored.filter(s=>s.bad===0);
+  if(good.length){
+    const minL=Math.min(...good.map(s=>s.o.length)),pool=good.filter(s=>s.o.length<=minL+1);
+    return pool[Math.floor(rng()*pool.length)].o;
+  }
+  scored.sort((a,b)=>a.bad-b.bad);return scored[0].o;
+}
+function routeCtx(L,opts){
+  const R=opts.R,w=opts.wander,m=0.3+0.5*w;
+  let x0=L.minX-m,x1=L.maxX+m;const need=1.9+2*R;
+  if(x1-x0<need){const c=(x0+x1)/2;x0=c-need/2;x1=c+need/2;}
+  x0=Math.max(x0,-opts.halfW+0.25);x1=Math.min(x1,opts.halfW-0.25);
+  const yb=Math.min(opts.halfH-0.25,1+3*R+0.75+1.5*w);
+  const rb=Math.max(opts.bend,1.15*R);
+  /* depth planes: near (zr) and far (zo), on either side of the word */
+  const zr=0.8+2*R+0.35,zo=zr+Math.max(2*R+0.35,1.8*rb);
+  const rcMin=Math.max(1.15*R,0.3),rcMax=Math.max(rcMin,Math.min(0.62,(x1-x0)/2-R-0.08));
+  return {x0,x1,y0:-yb,y1:yb,R,rb,g:1.6*rb,zo,zr,rcMin,rcMax,pitch:2*R+0.16,sp:2*R+0.22,wander:w,figures:opts.figures};
+}
+/* The tube leaves its letter, lifts into the far plane on one side of the word, draws its figures there,
+   and comes home in the near plane on the other side of the word, crossing through the word plane
+   in the band above or below the letters, where nothing else lives. */
+function genRoute(L,base,rng,pref){
+  const R=base.R,rb=base.rb,Q=L.pos,m=L.m;
+  const Pend=[Q[m*3],Q[m*3+1],Q[m*3+2]],Pst=[Q[0],Q[1],Q[2]];
+  const Tend=norm3(sub3(Pend,[Q[(m-3)*3],Q[(m-3)*3+1],Q[(m-3)*3+2]]));
+  const Tst=norm3(sub3([Q[9],Q[10],Q[11]],Pst));
+  const so=Math.abs(Tend[2])>0.7?Math.sign(Tend[2]):pref;
+  const sr=Math.abs(Tst[2])>0.7?-Math.sign(Tst[2]):-so;
+  const cross=so!==sr,Zo=so*base.zo,Zr=sr*base.zr;
+  let leadE=0.3+R+Math.pow(rng(),2)*0.6,leadS=0.3+R+Math.pow(rng(),2)*0.6;
+  if(Math.abs(Tend[2])>0.7)leadE=Math.min(leadE,Math.max(0.12,0.5*Math.abs(Zo-Pend[2])));
+  if(Math.abs(Tst[2])>0.7)leadS=Math.min(leadS,Math.max(0.12,0.5*Math.abs(Zr-Pst[2])));
+  const A=vmad(Pst,Tst,-leadS);
+  let V1=vmad(Pend,Tend,leadE);
+  /* keep the lift-out column and the drop-in column apart (the I and U have both ends side by side) */
+  if(Math.hypot(V1[0]-A[0],V1[1]-A[1])<2*R+0.35){leadE+=2*R+0.45;V1=vmad(Pend,Tend,leadE);}
+  const ctx=Object.assign({},base,{sgn:so,occ:[],th:2*R+0.05,
+    x0:Math.min(base.x0,V1[0]-R-0.12,A[0]-R-0.12),x1:Math.max(base.x1,V1[0]+R+0.12,A[0]+R+0.12),
+    y0:Math.min(base.y0,V1[1]-R-0.12,A[1]-R-0.12),y1:Math.max(base.y1,V1[1]+R+0.12,A[1]+R+0.12)});
+  const P=new Poly();
+  P.cell=ctx;P.head=leadE+Math.abs(Zo-Pend[2])+rb;P.tail=leadS+Math.abs(Zr-Pst[2])+rb;
+  P.put(Pend,0);P.put(V1,rb);
+  let C=[V1[0],V1[1],Zo];P.put(C,rb);
+  let d=[0,0,so];
+  ctx.occ.push(boxOf([Pend,V1,C]));
+  const apply=f=>{ctx.occ.push(boxOf([C,...f.vs]));for(let j=0;j<f.vs.length;j++)P.put(f.vs[j],f.rads[j]);C=f.vs[f.vs.length-1];d=f.d;};
+  /* after a figure that climbed out of the far plane (ring coil, depth meander), step clear of it
+     along the heading (or sideways if the column is too tight) and come back down to the far plane */
+  const settle=()=>{
+    if(Math.abs(C[2]-Zo)<1e-6||Math.abs(d[2])>0.5)return;
+    const need=Math.max(ctx.g,ctx.rcMax+2*R+0.3),o=otherXY(d);
+    let best=d,bs=-1;
+    for(const dir of [d,o,[-o[0],-o[1],0]]){const sp=spaceAlong(C,dir,ctx);if(sp>=need){best=dir;bs=sp;break;}if(sp>bs){bs=sp;best=dir;}}
+    const q=vmad(C,best,Math.max(Math.min(need,bs),0.6*ctx.g)),C2=[q[0],q[1],Zo];
+    ctx.occ.push(boxOf([C,q,C2]));P.put(q,rb);
+    C=C2;P.put(C,rb);d=[0,0,-so];
+  };
+  let f=featRun(C,d,rng,ctx);if(f)apply(f);
+  const types=['coil','meander','zigzag'].filter(t=>ctx.figures[t]);
+  const nF=types.length?1+Math.floor(rng()*(1+2.2*ctx.wander)):Math.floor(rng()*(1+2.5*ctx.wander));
+  for(let k=0;k<nF;k++){
+    if(Math.abs(d[2])>0.5||!types.length||rng()<0.45){const t=featRun(C,d,rng,ctx);if(t)apply(t);}
+    if(Math.abs(d[2])>0.5||!types.length)continue;
+    ctx.cur=C;
+    const type=types[Math.floor(rng()*types.length)];
+    const g=type==='coil'?featCoil(C,d,rng,ctx):type==='meander'?featMeander(C,d,rng,ctx):featZig(C,d,rng,ctx);
+    if(g){apply(g);settle();}
+  }
+  settle();
+  if(cross){
+    const yIn=1+2*R+0.2,yOut=Math.max(yIn,ctx.y1-R-0.15),targets=[];
+    for(const sy of [1,-1]){
+      const Y=sy*(yIn+rng()*(yOut-yIn));
+      for(const X of [C[0],ctx.x0+R+0.15,ctx.x1-R-0.15,(ctx.x0+ctx.x1)/2])targets.push([X,Y]);
+    }
+    const legs=planReturn(C,d,targets,ctx,rng,[V1,A],Zo,Zr);
+    ctx.occ.push(boxOf([C,...legs.map(t=>[t[0],t[1],Zo])]));
+    for(const t of legs){P.put([t[0],t[1],Zo],rb);}
+    const last=legs[legs.length-1];
+    C=[last[0],last[1],Zr];P.put(C,rb);d=[0,0,-so];
+  }else{
+    C=[C[0],C[1],Zr];P.put(C,rb);d=[0,0,-so];
+  }
+  const A2=[A[0],A[1],Zr];
+  ctx.occ.push(boxOf([C,[C[0],C[1],Zo]]));
+  for(const t of planReturn(C,d,[A2],ctx,rng,cross?[]:[V1],Zr,null))P.put([t[0],t[1],Zr],rb);
+  P.put(A2,rb);P.put(A,rb);P.put(Pst,0);
+  return P;
+}
+/* Count bounds violations, close passes to the letter itself or its neighbours, self-crossings and kinks. */
+function scoreRoute(fp,ctx,obst,limit){
+  if(fp.cell)ctx=fp.cell;
+  const R=ctx.R;let hits=fp.minR<1.05*R?40:0;if(hits>=limit)return hits;
+  const ex=resample(fp.pts,0.05),P=ex.pos,n=ex.count,st=ex.step;
+  const th=2*R+0.05,th2=th*th;
+  const ownSkip=Math.ceil((1.8*th+0.1)/st),selfSkip=Math.ceil(1.8*th/st);
+  const bHead=Math.ceil((fp.head||1)/st),bTail=Math.ceil((fp.tail||1)/st);
+  for(let i=0;i<n;i++){
+    const x=P[i*3],y=P[i*3+1],z=P[i*3+2];
+    if(i>bHead&&i<n-1-bTail&&(x<ctx.x0-0.05||x>ctx.x1+0.05||y<ctx.y0-0.05||y>ctx.y1+0.05))hits++;
+    for(const ob of obst){
+      if(ob.own&&(i<ownSkip||i>n-1-ownSkip))continue;
+      const b=ob.L.aabb;
+      if(x<b[0]-th||x>b[3]+th||y<b[1]-th||y>b[4]+th||z<b[2]-th||z>b[5]+th)continue;
+      const Q=ob.L.pos,c=ob.L.count;
+      for(let j=0;j<c;j+=3){const dx=x-Q[j*3],dy=y-Q[j*3+1],dz=z-Q[j*3+2];if(dx*dx+dy*dy+dz*dz<th2){hits++;break;}}
+    }
+    for(let j=i+selfSkip;j<n;j+=2){const dx=x-P[j*3],dy=y-P[j*3+1],dz=z-P[j*3+2];if(dx*dx+dy*dy+dz*dz<th2){hits++;break;}}
+    if(hits>=limit)return hits;
+  }
+  return hits;
+}
+/* Letter samples + route samples form one closed loop. Frames are parallel-transported around it,
+   with the closing twist spread over the route so the parked letter keeps the same frames every run. */
+function makeLoop(L,exc){
+  const m=L.m,k=exc.count-1,n=m+k;
+  const P=new Float32Array(n*3);
+  P.set(L.pos.subarray(0,(m+1)*3));
+  P.set(exc.pos.subarray(3,k*3),(m+1)*3);
+  const T=new Float32Array(n*3),N=new Float32Array(n*3),B=new Float32Array(n*3);
+  for(let i=0;i<n;i++){
+    const a=((i-1+n)%n)*3,b=((i+1)%n)*3;
+    const x=P[b]-P[a],y=P[b+1]-P[a+1],z=P[b+2]-P[a+2],l=Math.hypot(x,y,z)||1;
+    T[i*3]=x/l;T[i*3+1]=y/l;T[i*3+2]=z/l;
+  }
+  let nx=L.n0[0],ny=L.n0[1],nz=L.n0[2];
+  for(let i=0;i<n;i++){
+    const tx=T[i*3],ty=T[i*3+1],tz=T[i*3+2],d=nx*tx+ny*ty+nz*tz;
+    nx-=tx*d;ny-=ty*d;nz-=tz*d;const l=Math.hypot(nx,ny,nz)||1;nx/=l;ny/=l;nz/=l;
+    N[i*3]=nx;N[i*3+1]=ny;N[i*3+2]=nz;
+  }
+  {
+    const tx=T[0],ty=T[1],tz=T[2];
+    let ex=N[(n-1)*3],ey=N[(n-1)*3+1],ez=N[(n-1)*3+2];const d=ex*tx+ey*ty+ez*tz;
+    ex-=tx*d;ey-=ty*d;ez-=tz*d;const l=Math.hypot(ex,ey,ez)||1;ex/=l;ey/=l;ez/=l;
+    const cx=ey*N[2]-ez*N[1],cy=ez*N[0]-ex*N[2],cz=ex*N[1]-ey*N[0];
+    const ang=Math.atan2(cx*tx+cy*ty+cz*tz,ex*N[0]+ey*N[1]+ez*N[2]);
+    for(let i=m+1;i<n;i++){
+      const a=ang*(i-m)/(n-m),c=Math.cos(a),s=Math.sin(a);
+      const kx=T[i*3],ky=T[i*3+1],kz=T[i*3+2],vx=N[i*3],vy=N[i*3+1],vz=N[i*3+2];
+      N[i*3]=vx*c+(ky*vz-kz*vy)*s;N[i*3+1]=vy*c+(kz*vx-kx*vz)*s;N[i*3+2]=vz*c+(kx*vy-ky*vx)*s;
+    }
+  }
+  for(let i=0;i<n;i++){
+    const tx=T[i*3],ty=T[i*3+1],tz=T[i*3+2],vx=N[i*3],vy=N[i*3+1],vz=N[i*3+2];
+    B[i*3]=ty*vz-tz*vy;B[i*3+1]=tz*vx-tx*vz;B[i*3+2]=tx*vy-ty*vx;
+  }
+  return {P,T,N,B,n};
+}
+/* Neighbouring letters prefer opposite sides of the word (in front / behind); each route is also
+   checked against the route already laid for the letter on its left. */
+function makeRun(seed,letters,opts){
+  const rng=mulberry32(seed),s0=rng()<0.5?1:-1;
+  const routes=[];
+  letters.forEach((L,i)=>{
+    const pref=s0*(i%2?-1:1),base=routeCtx(L,opts);
+    const obst=[{L,own:true}];
+    if(i>0){obst.push({L:letters[i-1]});obst.push({L:routes[i-1].obst});}
+    if(i<letters.length-1)obst.push({L:letters[i+1]});
+    let best=null,bestScore=Infinity;
+    for(let a=0;a<40;a++){
+      const P=genRoute(L,base,rng,a<10||a%2?pref:-pref),fp=filletPoly(P.V,P.r);
+      fp.head=P.head;fp.tail=P.tail;fp.cell=P.cell;
+      const sc=scoreRoute(fp,base,obst,bestScore);
+      if(sc<bestScore){bestScore=sc;best=fp.pts;}
+      if(sc===0)break;
+    }
+    /* stragglers: fall back to plain pipework, which almost always finds a clear way */
+    if(bestScore>0){
+      const plain=Object.assign({},base,{figures:{coil:false,meander:false,zigzag:false}});
+      for(let a=0;a<16&&bestScore>0;a++){
+        const P=genRoute(L,plain,rng,a%2?pref:-pref),fp=filletPoly(P.V,P.r);
+        fp.head=P.head;fp.tail=P.tail;fp.cell=P.cell;
+        const sc=scoreRoute(fp,base,obst,bestScore);
+        if(sc<bestScore){bestScore=sc;best=fp.pts;}
+      }
+    }
+    const exc=resample(best,H);
+    const bb=[Infinity,Infinity,Infinity,-Infinity,-Infinity,-Infinity];
+    for(let j=0;j<exc.count;j++)for(let c=0;c<3;c++){const v=exc.pos[j*3+c];if(v<bb[c])bb[c]=v;if(v>bb[c+3])bb[c+3]=v;}
+    routes.push({exc,loop:makeLoop(L,exc),delay:0,dur:1,score:bestScore,obst:{pos:exc.pos,count:exc.count,aabb:bb}});
+  });
+  return {seed,routes};
+}
+/* ================= end of ENGINE ================= */
+
+/* ================= SET-UP ================= */
+const canvas = CANVAS;
+const FRAMES = {'16:9':{ar:16/9,fill:0.72},'1:1':{ar:1,fill:0.84},'4:5':{ar:0.8,fill:0.86}};
+const CAM_D = 20;                       // camera distance; orthographic, so it only sets the depth range
+const R = PRESET.form.tubeRadius;
+const hexRGB = h=>{const n=parseInt(h.slice(1),16);return [(n>>16&255)/255,(n>>8&255)/255,(n&255)/255];};
+/* ?tube=e8a34c&ground=0a0c0f tries other colours without editing the preset (six hex digits, no #) */
+/* VIEW OPTIONS (URL), none of which touch the routes (they are still planned in the 16:9 frame):
+     ?fit=strip  frame the WORD, not the 16:9 frame: the slides run off the canvas edges
+     ?left=34    put the word's left edge 34 CSS px in from the left (default: centred)
+     ?pixel=14   render 14 pixels per cap height, no antialiasing, scaled up with hard edges */
+const urlParam = k=>{try{return new URLSearchParams(QUERY).get(k);}catch(e){return null;}};
+const FIT_STRIP = urlParam('fit')==='strip';
+const LEFT_PX = urlParam('left')!=null&&isFinite(parseFloat(urlParam('left')))?parseFloat(urlParam('left')):null;
+const PIXEL = Math.max(0,Math.min(400,parseFloat(urlParam('pixel'))||0));
+/* study options: ss = supersampling factor, rows x cols = the display grid the buffer is fixed to */
+/* depth colour (study): depth=raw writes depth into red for read-back; depth=ramp colours by the four ramp stops, far to near */
+const DEPTH = urlParam('depth')||'', RAMP = (urlParam('ramp')||'10298c,186bef,39deff,e7ffff').split(',').map(h=>hexRGB('#'+h));
+/* shifting colour (study): shift=walk steps the hue 137.5 degrees in OKLCH at a fixed lightness each slide;
+   shift=palette:hex,hex,... cycles a list. Each tube point turns from the old colour to the new one as it runs
+   its route, so a slide carries the in-between colours along the tube, and a parked word is one colour. */
+const SHIFT = urlParam('shift')||'';
+const OKL=(L,C,h)=>{const a=C*Math.cos(h*D2R),b=C*Math.sin(h*D2R),l=Math.pow(L+0.3963377774*a+0.2158037573*b,3),m=Math.pow(L-0.1055613458*a-0.0638541728*b,3),s=Math.pow(L-0.0894841775*a-1.2914855480*b,3);
+  const f=x=>{x=Math.max(0,Math.min(1,x));return x<=0.0031308?12.92*x:1.055*Math.pow(x,1/2.4)-0.055;};
+  return [f(4.0767416621*l-3.3077115913*m+0.2309699292*s),f(-1.2684380046*l+2.6097574011*m-0.3413193965*s),f(-0.0041960863*l-0.7034186147*m+1.7076147010*s)];};
+const TOOKL=c=>{const g=x=>x<=0.04045?x/12.92:Math.pow((x+0.055)/1.055,2.4),R0=g(c[0]),G0=g(c[1]),B0=g(c[2]);
+  const l=Math.cbrt(0.4122214708*R0+0.5363020686*G0+0.0514459929*B0),m=Math.cbrt(0.2119034982*R0+0.6806995451*G0+0.1073969566*B0),s=Math.cbrt(0.0883024619*R0+0.2817188376*G0+0.6299787005*B0);
+  const L=0.2104542553*l+0.7936177850*m-0.0040720468*s,a=1.9779984951*l-2.4285922050*m+0.4505937099*s,b=0.0259040371*l+0.7827717662*m-0.8086757660*s;
+  return [L,Math.hypot(a,b),(Math.atan2(b,a)/D2R+360)%360];};
+const SHIFT_PAL = SHIFT.startsWith('palette:')?SHIFT.slice(8).split(',').map(h=>TOOKL(hexRGB('#'+h))):null;
+const SH = {i:0, cur:null, next:null};
+SH.cur = SHIFT_PAL?SHIFT_PAL[0]:TOOKL(hexRGB('#e8a34c'));
+function shiftNext(){SH.i++;if(SHIFT_PAL)return SHIFT_PAL[SH.i%SHIFT_PAL.length];return [SH.cur[0],SH.cur[1],(SH.cur[2]+137.508)%360];}
+let SHIFT_TEX=null;
+function shiftUpload(a,b){
+  if(!gl||!SHIFT_TEX)return;
+  const N=64,px=new Uint8Array(N*4);let dh=b[2]-a[2];if(dh>180)dh-=360;if(dh<-180)dh+=360;
+  for(let i=0;i<N;i++){const t=i/(N-1),c=OKL(a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+dh*t);px[i*4]=Math.round(c[0]*255);px[i*4+1]=Math.round(c[1]*255);px[i*4+2]=Math.round(c[2]*255);px[i*4+3]=255;}
+  gl.bindTexture(gl.TEXTURE_2D,SHIFT_TEX);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,N,1,0,gl.RGBA,gl.UNSIGNED_BYTE,px);needsDraw=true;
+}
+function shiftBegin(){SH.next=shiftNext();shiftUpload(SH.cur,SH.next);}
+function shiftEnd(){if(SH.next){SH.cur=SH.next;SH.next=null;}shiftUpload(SH.cur,SH.cur);}
+const SS = Math.max(1,parseInt(urlParam('ss'),10)||1), ROWS = parseInt(urlParam('rows'),10)||0, COLS = parseInt(urlParam('cols'),10)||0;
+const urlColor = k=>{try{const m=new RegExp('[?&]'+k+'=([0-9a-f]{6})\\b','i').exec(QUERY);return m?'#'+m[1]:null;}catch(e){return null;}};
+const TUBE_HEX = urlColor('tube')||PRESET.form.tubeColor, GROUND_HEX = urlColor('ground')||PRESET.form.groundColor;
+const TUBE = hexRGB(TUBE_HEX), GROUND = hexRGB(GROUND_HEX);
+canvas.style.background = GROUND_HEX;
+if(PIXEL)canvas.style.imageRendering='pixelated';
+
+/* The word, and the canonical frame every route is planned in (independent of canvas size). */
+const word = buildWord(R), letters = word.letters, WORD_W = word.width;
+const fr = FRAMES[PRESET.view.frame] || FRAMES['16:9'];
+let halfW=(WORD_W/2+R)/fr.fill,halfH=halfW/fr.ar;
+if(halfH<2.1){halfH=2.1;halfW=halfH*fr.ar;}
+const fig = PRESET.motion.figures;
+const RUN_OPTS = {halfW,halfH,wander:PRESET.motion.wander,R,bend:PRESET.motion.bendRadius,
+  figures:{coil:fig.coils,meander:fig.meanders,zigzag:fig.zigzags}};
+
+const PRESET_SEED = parseInt(PRESET.route.seed,16);
+const bs = BAKED.settings;
+const BAKED_OK = parseInt(BAKED.seed,16)===PRESET_SEED && bs.tubeRadius===R && bs.wander===PRESET.motion.wander &&
+  bs.bendRadius===PRESET.motion.bendRadius && bs.frame===PRESET.view.frame &&
+  bs.coils===fig.coils && bs.meanders===fig.meanders && bs.zigzags===fig.zigzags && BAKED.routes.length===letters.length;
+
+function runFromBaked(){
+  const routes = letters.map((L,i)=>{
+    const b = BAKED.routes[i], fp = filletPoly(b.V,b.r), exc = resample(fp.pts,H);
+    return {exc,loop:makeLoop(L,exc),delay:0,dur:1};
+  });
+  return {seed:PRESET_SEED,routes};
+}
+function buildRun(seed){
+  return seed===PRESET_SEED && BAKED_OK ? runFromBaked() : makeRun(seed,letters,RUN_OPTS);
+}
+
+/* ================= TUBE SWEEP =================
+   Each frame a letter's tube is re-swept along its loop: rounded cap, rings every RING units,
+   rounded cap. Same construction as the design study. */
+const COS=new Float32Array(RS),SIN=new Float32Array(RS);
+for(let s=0;s<RS;s++){COS[s]=Math.cos(s/RS*TAU);SIN[s]=Math.sin(s/RS*TAU);}
+for(const L of letters){
+  const rings=K+L.Mr+1+K;
+  L.nv=rings*RS;
+  L.posA=new Float32Array(L.nv*3);L.norA=new Float32Array(L.nv*3);L.pA=new Float32Array(L.nv);
+  const idx=new (L.nv>65535?Uint32Array:Uint16Array)((rings-1)*RS*6);let q=0;
+  for(let r=0;r<rings-1;r++)for(let s=0;s<RS;s++){
+    const a=r*RS+s,b=r*RS+(s+1)%RS,c=(r+1)*RS+s,d=(r+1)*RS+(s+1)%RS;
+    idx[q++]=a;idx[q++]=b;idx[q++]=c;idx[q++]=b;idx[q++]=d;idx[q++]=c;
+  }
+  L.idxA=idx;L.loop=null;L.f=0;L.dirty=true;L.upload=true;
+}
+const sP=[0,0,0],sT=[0,0,0],sN=[0,0,0],sB=[0,0,0];
+function sampleLoop(lp,idx){
+  const n=lp.n;let x=idx%n;if(x<0)x+=n;
+  let i0=Math.floor(x);const a=x-i0;i0%=n;const i1=(i0+1)%n,o0=i0*3,o1=i1*3,b=1-a;
+  for(let c=0;c<3;c++){
+    sP[c]=lp.P[o0+c]*b+lp.P[o1+c]*a;sT[c]=lp.T[o0+c]*b+lp.T[o1+c]*a;sN[c]=lp.N[o0+c]*b+lp.N[o1+c]*a;
+  }
+  let l=Math.hypot(sT[0],sT[1],sT[2])||1;sT[0]/=l;sT[1]/=l;sT[2]/=l;
+  const d=sN[0]*sT[0]+sN[1]*sT[1]+sN[2]*sT[2];
+  sN[0]-=sT[0]*d;sN[1]-=sT[1]*d;sN[2]-=sT[2]*d;
+  l=Math.hypot(sN[0],sN[1],sN[2])||1;sN[0]/=l;sN[1]/=l;sN[2]/=l;
+  sB[0]=sT[1]*sN[2]-sT[2]*sN[1];sB[1]=sT[2]*sN[0]-sT[0]*sN[2];sB[2]=sT[0]*sN[1]-sT[1]*sN[0];
+}
+function writeTube(L){
+  const lp=L.loop,pos=L.posA,nor=L.norA;
+  let v=0;
+  const ring=(cx,cy,cz,rr,tk,sgn)=>{
+    const cp=Math.sqrt(Math.max(0,1-tk*tk));
+    for(let s=0;s<RS;s++){
+      const dx=sN[0]*COS[s]+sB[0]*SIN[s],dy=sN[1]*COS[s]+sB[1]*SIN[s],dz=sN[2]*COS[s]+sB[2]*SIN[s];
+      pos[v]=cx+dx*rr;pos[v+1]=cy+dy*rr;pos[v+2]=cz+dz*rr;
+      nor[v]=dx*cp+sT[0]*tk*sgn;nor[v+1]=dy*cp+sT[1]*tk*sgn;nor[v+2]=dz*cp+sT[2]*tk*sgn;
+      L.pA[v/3]=curP;v+=3;
+    }
+  };
+  /* route progress of the tube point k samples from the tail: it leaves the letter at index m and is home after one lap */
+  const pAt=k=>Math.min(1,Math.max(0,(L.f-(L.m-k))/Math.max(1,lp.n-L.m)));
+  let curP=pAt(0);
+  sampleLoop(lp,L.f);
+  for(let k=K;k>=1;k--){
+    const ph=k/K*Math.PI/2,sp=Math.sin(ph),cp=Math.cos(ph);
+    ring(sP[0]-sT[0]*R*sp,sP[1]-sT[1]*R*sp,sP[2]-sT[2]*R*sp,R*cp,sp,-1);
+  }
+  const di=L.m/L.Mr;
+  for(let j=0;j<=L.Mr;j++){curP=pAt(j*di);sampleLoop(lp,L.f+j*di);ring(sP[0],sP[1],sP[2],R,0,1);}
+  for(let k=1;k<=K;k++){
+    const ph=k/K*Math.PI/2,sp=Math.sin(ph),cp=Math.cos(ph);
+    ring(sP[0]+sT[0]*R*sp,sP[1]+sT[1]*R*sp,sP[2]+sT[2]*R*sp,R*cp,sp,1);
+  }
+  L.upload=true;
+}
+
+/* ================= RENDERER (WebGL 1, two flat-colour passes) =================
+   Pass 1: each tube's shell, pushed out along its normals by the gap width, back faces only,
+           in the ground colour. Pass 2: the tubes, front faces only, in the tube colour.
+   With the depth test, a shell shows only where its tube is in front of something else,
+   which is what draws the knot-diagram gaps. */
+const VS_TUBE=SHIFT?'attribute vec3 aPos;attribute float aP;uniform mat4 uMVP;varying float vP;void main(){vP=aP;gl_Position=uMVP*vec4(aPos,1.0);}':DEPTH?'attribute vec3 aPos;uniform mat4 uMVP;varying float vZ;void main(){vZ=aPos.z;gl_Position=uMVP*vec4(aPos,1.0);}':'attribute vec3 aPos;uniform mat4 uMVP;void main(){gl_Position=uMVP*vec4(aPos,1.0);}';
+/* z toward the camera is near (yaw 0): the parked letters span about -0.9..0.9, the routes' planes clamp to the ends */
+const FS_SHIFT='precision mediump float;varying float vP;uniform sampler2D uTex;void main(){gl_FragColor=vec4(texture2D(uTex,vec2(clamp(vP,0.0,1.0)*0.984+0.008,0.5)).rgb,1.0);}';
+const FS_DEPTH='precision mediump float;varying float vZ;uniform vec3 uR0,uR1,uR2,uR3;uniform float uRaw;void main(){float t=clamp((vZ+0.9)/1.8,0.0,1.0);if(uRaw>0.5){gl_FragColor=vec4(t,1.0,0.0,1.0);return;}vec3 c=t<1.0/3.0?mix(uR0,uR1,t*3.0):(t<2.0/3.0?mix(uR1,uR2,t*3.0-1.0):mix(uR2,uR3,t*3.0-2.0));gl_FragColor=vec4(c,1.0);}';
+const VS_SHELL='attribute vec3 aPos;attribute vec3 aNor;uniform mat4 uMVP;uniform float uGap;'+
+  'void main(){gl_Position=uMVP*vec4(aPos+aNor*uGap,1.0);}';
+const FS_FLAT='precision mediump float;uniform vec3 uColor;void main(){gl_FragColor=vec4(uColor,1.0);}';
+let gl=null,progTube=null,progShell=null,idxType=0;
+function makeProgram(vs,fs){
+  const p=gl.createProgram();
+  for(const [type,src] of [[gl.VERTEX_SHADER,vs],[gl.FRAGMENT_SHADER,fs]]){
+    const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);
+    if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s));
+    gl.attachShader(p,s);
+  }
+  gl.bindAttribLocation(p,0,'aPos');gl.bindAttribLocation(p,1,'aNor');gl.bindAttribLocation(p,2,'aP');
+  gl.linkProgram(p);
+  if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(p));
+  return {p,uMVP:gl.getUniformLocation(p,'uMVP'),uColor:gl.getUniformLocation(p,'uColor'),uGap:gl.getUniformLocation(p,'uGap')};
+}
+function initGL(){
+  const attrs={antialias:!PIXEL,alpha:false,depth:true,stencil:false,premultipliedAlpha:false,preserveDrawingBuffer:false};
+  gl=canvas.getContext('webgl',attrs)||canvas.getContext('experimental-webgl',attrs);
+  if(!gl){console.warn('Sluice: WebGL is unavailable; showing the ground colour only.');return false;}
+  idxType=gl.UNSIGNED_SHORT;
+  if(letters.some(L=>L.nv>65535)){
+    if(!gl.getExtension('OES_element_index_uint')){console.warn('Sluice: 32-bit indices unsupported.');gl=null;return false;}
+    idxType=gl.UNSIGNED_INT;
+  }
+  progTube=makeProgram(VS_TUBE,SHIFT?FS_SHIFT:DEPTH?FS_DEPTH:FS_FLAT);if(SHIFT){progTube.uTex=gl.getUniformLocation(progTube.p,'uTex');SHIFT_TEX=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,SHIFT_TEX);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);shiftUpload(SH.cur,SH.next||SH.cur);}if(DEPTH){progTube.uR=[0,1,2,3].map(i=>gl.getUniformLocation(progTube.p,'uR'+i));progTube.uRaw=gl.getUniformLocation(progTube.p,'uRaw');}progShell=makeProgram(VS_SHELL,FS_FLAT);
+  for(const L of letters){
+    L.bPos=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,L.bPos);gl.bufferData(gl.ARRAY_BUFFER,L.posA,gl.DYNAMIC_DRAW);
+    L.bNor=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,L.bNor);gl.bufferData(gl.ARRAY_BUFFER,L.norA,gl.DYNAMIC_DRAW);
+    L.bP=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,L.bP);gl.bufferData(gl.ARRAY_BUFFER,L.pA,gl.DYNAMIC_DRAW);
+    L.bIdx=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,L.bIdx);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,L.idxA,gl.STATIC_DRAW);
+    L.upload=false;
+  }
+  gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);
+  gl.enable(gl.CULL_FACE);gl.frontFace(gl.CCW);
+  return true;
+}
+/* Column-major 4x4 helpers: orthographic projection times a look-at view from yaw/pitch. */
+function mul4(a,b){const o=new Float32Array(16);for(let c=0;c<4;c++)for(let r=0;r<4;r++){let s=0;for(let k=0;k<4;k++)s+=a[k*4+r]*b[c*4+k];o[c*4+r]=s;}return o;}
+/* The visible half-extents (vw, vh) and centre x for a canvas of aspect a and CSS width cssW.
+   Frame: the whole 16:9 route frame, extra canvas area becoming ground. Strip: the word with
+   headroom, so anything that leaves the word's band is cropped by the canvas edge. */
+const WORD_EDGE = WORD_W/2+R;
+function view(a,cssW){
+  let vw,vh;
+  if(PIXEL&&ROWS&&COLS){vh=ROWS*SS/PIXEL;vw=vh*COLS/ROWS;}
+  else if(FIT_STRIP){
+    vh=(1+R)*1.45;vw=vh*a;
+    if(vw<WORD_EDGE+0.35){vw=WORD_EDGE+0.35;vh=vw/a;}
+  }else if(a>=halfW/halfH){vh=halfH;vw=halfH*a;}else{vw=halfW;vh=halfW/a;}
+  const cx=LEFT_PX==null||!cssW?0:vw-WORD_EDGE-LEFT_PX*2*vw/cssW;
+  return {vw,vh,cx};
+}
+function viewProj(vw,vh,cx){
+  const y=PRESET.view.yawDegrees*D2R,p=PRESET.view.pitchDegrees*D2R,cp=Math.cos(p);
+  const e=[CAM_D*Math.sin(y)*cp,CAM_D*Math.sin(p),CAM_D*Math.cos(y)*cp];
+  const z=norm3(e),x=norm3([z[2],0,-z[0]]),u=[z[1]*x[2]-z[2]*x[1],z[2]*x[0]-z[0]*x[2],z[0]*x[1]-z[1]*x[0]];
+  const V=new Float32Array([x[0],u[0],z[0],0, x[1],u[1],z[1],0, x[2],u[2],z[2],0, -dot3(x,e),-dot3(u,e),-dot3(z,e),1]);
+  const n=0.1,f=60;
+  const P=new Float32Array([1/vw,0,0,0, 0,1/vh,0,0, 0,0,-2/(f-n),0, -(cx||0)/vw,0,-(f+n)/(f-n),1]);
+  return mul4(P,V);
+}
+function draw(gapOverride){
+  if(!gl||gl.isContextLost())return;
+  const shell=typeof gapOverride==='boolean'?gapOverride:(!PIXEL||MARK_OPTS.pixelGap);
+  for(const L of letters)if(L.upload){
+    gl.bindBuffer(gl.ARRAY_BUFFER,L.bPos);gl.bufferSubData(gl.ARRAY_BUFFER,0,L.posA);
+    gl.bindBuffer(gl.ARRAY_BUFFER,L.bNor);gl.bufferSubData(gl.ARRAY_BUFFER,0,L.norA);
+    gl.bindBuffer(gl.ARRAY_BUFFER,L.bP);gl.bufferSubData(gl.ARRAY_BUFFER,0,L.pA);
+    L.upload=false;
+  }
+  /* show the canonical frame whole; extra canvas area becomes ground */
+  /* aspect from the CSS box: a pixel buffer's rounding must not move the framing */
+  const cw=canvas.clientWidth||canvas.width,ch=canvas.clientHeight||canvas.height;
+  const {vw,vh,cx}=view(cw/ch,cw);
+  const mvp=viewProj(vw,vh,cx),gap=Math.max(KNOT_GAP,2*vh/canvas.height);
+  gl.viewport(0,0,canvas.width,canvas.height);
+  gl.clearColor(GROUND[0],GROUND[1],GROUND[2],1);
+  gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+  gl.enableVertexAttribArray(0);
+  if(shell){
+    gl.useProgram(progShell.p);
+    gl.uniformMatrix4fv(progShell.uMVP,false,mvp);gl.uniform1f(progShell.uGap,gap);gl.uniform3fv(progShell.uColor,GROUND);
+    gl.cullFace(gl.FRONT);
+    gl.enableVertexAttribArray(1);
+    for(const L of letters){
+      gl.bindBuffer(gl.ARRAY_BUFFER,L.bPos);gl.vertexAttribPointer(0,3,gl.FLOAT,false,0,0);
+      gl.bindBuffer(gl.ARRAY_BUFFER,L.bNor);gl.vertexAttribPointer(1,3,gl.FLOAT,false,0,0);
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,L.bIdx);gl.drawElements(gl.TRIANGLES,L.idxA.length,idxType,0);
+    }
+    gl.disableVertexAttribArray(1);
+  }
+  gl.useProgram(progTube.p);
+  gl.uniformMatrix4fv(progTube.uMVP,false,mvp);gl.uniform3fv(progTube.uColor,TUBE);if(DEPTH){RAMP.forEach((c,i)=>gl.uniform3fv(progTube.uR[i],c));gl.uniform1f(progTube.uRaw,DEPTH==='raw'?1:0);}
+  gl.cullFace(gl.BACK);
+  if(SHIFT){gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,SHIFT_TEX);gl.uniform1i(progTube.uTex,0);gl.enableVertexAttribArray(2);}
+  for(const L of letters){
+    gl.bindBuffer(gl.ARRAY_BUFFER,L.bPos);gl.vertexAttribPointer(0,3,gl.FLOAT,false,0,0);
+    if(SHIFT){gl.bindBuffer(gl.ARRAY_BUFFER,L.bP);gl.vertexAttribPointer(2,1,gl.FLOAT,false,0,0);}
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,L.bIdx);gl.drawElements(gl.TRIANGLES,L.idxA.length,idxType,0);
+  }
+  if(SHIFT)gl.disableVertexAttribArray(2);
+}
+let needsDraw=true;
+function resize(){
+  const dpr=Math.min(window.devicePixelRatio||1,2),cw=canvas.clientWidth,ch=canvas.clientHeight;
+  let w=Math.max(1,Math.round(cw*dpr)),h=Math.max(1,Math.round(ch*dpr));
+  /* pixel look: the buffer holds PIXEL rows per cap height (cap = 2 units), whatever the screen */
+  if(PIXEL&&ROWS&&COLS){h=ROWS*SS;w=COLS*SS;}
+  else if(PIXEL&&cw&&ch){h=Math.max(1,Math.round(view(cw/ch,cw).vh*PIXEL));w=Math.max(1,Math.round(h*cw/ch));}
+  if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
+  needsDraw=true;
+}
+if(typeof ResizeObserver!=='undefined')new ResizeObserver(resize).observe(canvas);
+window.addEventListener('resize',resize);
+canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();},false);
+canvas.addEventListener('webglcontextrestored',()=>{if(initGL()){letters.forEach(L=>L.dirty=true);needsDraw=true;}},false);
+
+/* ================= TIMELINE: hold, slide, park, repeat ================= */
+const EASE={
+  smooth:x=>x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2,
+  settle:x=>{const c1=1.15,c2=c1*1.525;return x<0.5?(Math.pow(2*x,2)*((c2+1)*2*x-c2))/2:(Math.pow(2*x-2,2)*((c2+1)*(x*2-2)+c2)+2)/2;},
+  mech:x=>{const a=0.16,v=1/(1-a);if(x<a)return 0.5*v/a*x*x;if(x>1-a){const y=1-x;return 1-0.5*v/a*y*y;}return 0.5*v*a+v*(x-a);}
+};
+const HOLD=PRESET.motion.holdSeconds,TRAVEL=PRESET.motion.travelSeconds,TIMING=PRESET.motion.timing;
+const EASING=EASE[PRESET.motion.easing]||EASE.smooth;
+const S={phase:'hold',clock:0,start:0,paused:false,run:0,current:null,pending:null,lastSeed:null,forced:null};
+/* first slide: the preset seed; afterwards a fresh seed each cycle, or the same one if repeat is on */
+function nextSeed(){
+  if(S.forced!=null){const s=S.forced;S.forced=null;return s;}
+  if(S.lastSeed==null)return PRESET_SEED;
+  return PRESET.route.repeat?S.lastSeed:newSeed();
+}
+function preparePending(){
+  S.pending=buildRun(nextSeed());
+  S.pending.routes.forEach((r,i)=>{letters[i].loop=r.loop;letters[i].f=0;letters[i].dirty=true;});
+}
+function startHold(){S.phase='hold';S.start=S.clock;preparePending();if(SHIFT&&S.run)shiftEnd();}
+function startSlide(){
+  const run=S.pending;if(!run)return;
+  const avg=run.routes.reduce((a,r)=>a+r.loop.n,0)/run.routes.length;
+  run.routes.forEach((r,i)=>{
+    if(TIMING==='cascade'){r.delay=i*TRAVEL*0.085;r.dur=TRAVEL;}
+    else if(TIMING==='speed'){r.delay=0;r.dur=TRAVEL*r.loop.n/avg;}
+    else{r.delay=0;r.dur=TRAVEL;}
+  });
+  S.current=run;S.pending=null;S.lastSeed=run.seed;S.run++;
+  S.phase='slide';S.start=S.clock;
+  if(SHIFT)shiftBegin();
+}
+function stepTimeline(){
+  if(S.phase==='hold'){if(S.clock-S.start>=HOLD)startSlide();return;}
+  const t=S.clock-S.start;let done=true;
+  S.current.routes.forEach((r,i)=>{
+    const u=clamp((t-r.delay)/r.dur,0,1);if(u<1)done=false;
+    const f=EASING(u)*r.loop.n,L=letters[i];
+    if(f!==L.f){L.f=f;L.dirty=true;}
+  });
+  if(done){letters.forEach(L=>{L.f=0;L.dirty=true;});startHold();}
+}
+function render(){
+  for(const L of letters)if(L.dirty&&L.loop){writeTube(L);L.dirty=false;needsDraw=true;}
+  if(needsDraw){draw();needsDraw=false;if(HOOK&&gl)HOOK(gl,canvas,draw);}
+}
+
+/* ================= EMBEDDING API ================= */
+const API=Object.freeze({
+  preset:PRESET,
+  play(){S.paused=false;},
+  pause(){S.paused=true;},
+  slideNow(){if(S.phase==='hold')startSlide();},
+  redraw(){needsDraw=true;},
+  /* route for the next slide (1-6 hex digits); applies immediately while parked */
+  setNextSeed(h){
+    const s=parseInt(String(h),16);
+    if(!/^[0-9a-f]{1,6}$/i.test(String(h)))throw new Error('Sluice: a seed is 1 to 6 hex digits, e.g. "A23183".');
+    S.forced=s;if(S.phase==='hold')preparePending();
+  },
+  get colour(){if(!SHIFT)return null;const c=OKL(...SH.cur);return '#'+c.map(v=>Math.round(v*255).toString(16).padStart(2,'0')).join('');},
+  get seed(){const r=S.phase==='slide'?S.current:S.pending;return r?hex(r.seed):null;},
+  /* HORDE-LAB-EDIT: the walk from the parked colour to the next, n+1 RGB stops, so the page can quantise a cell's progress (Sluice's response seq 64, section 2) */
+  walkRamp(n){const a=SH.cur,b=SH.next||SH.cur;let dh=b[2]-a[2];if(dh>180)dh-=360;if(dh<-180)dh+=360;const out=[];for(let i=0;i<=n;i++){const t=i/n,c=OKL(a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+dh*t);out.push([c[0]*255,c[1]*255,c[2]*255]);}return out;},
+  get phase(){return S.paused?'paused-'+S.phase:S.phase;},
+  toPNG(){render();draw();return canvas.toDataURL('image/png');},
+  letterPaths(){return letters.map(L=>({letter:L.ch,points:Array.from({length:L.count},(_,i)=>[L.pos[i*3],L.pos[i*3+1],L.pos[i*3+2]])}));},
+  routePaths(){
+    const run=S.phase==='slide'?S.current:S.pending;if(!run)return [];
+    return run.routes.map((r,i)=>({letter:letters[i].ch,points:Array.from({length:r.exc.count},(_,k)=>[r.exc.pos[k*3],r.exc.pos[k*3+1],r.exc.pos[k*3+2]])}));
+  }
+});
+
+/* ================= BOOT ================= */
+let still=false;
+try{still=/[?&]still\b/.test(QUERY)||window.matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){}
+S.paused=still;
+initGL();
+resize();
+preparePending();
+let last=performance.now();
+function frame(now){
+  const dt=Math.min(0.1,Math.max(0,(now-last)/1000));last=now;
+  if(!S.paused)S.clock+=dt;
+  stepTimeline();
+  render();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+return API;
+}
+
+/*MARK-END*/
+</script>
+<script>
+/* ================================================================ A. LOADING, AND THE FORMAT GATE */
+const SPEC_DIR = '../../local/sluice/', SPEC_MANIFEST = 'sluice-manifest.json', SPEC_DOC = 'SLUICE-IN-HORDE.md', SPEC_FACTORY = 'factory/';
+/* B564: the older lab accepted exactly one version and went dark when the manifest moved on. Here a
+   version below BUILT_V is refused, BUILT_V is what this page was built against, and a newer one is
+   read with a visible warning: its sections are checked by name, so a real break is refused with
+   the section's name instead of guessed at. */
+const FORMAT_ID = 'sluice.manifest', BUILT_V = 2;
+const NEEDED = ['modules', 'bus', 'perModule', 'modSources', 'patchLevel', 'globalKnobs', 'fixedControls', 'actions', 'divisions', 'macros', 'randomiser', 'limits', 'device'];
+const SPEC = { ok: false, why: '', raw: null, doc: '', newer: false, index: null };
+function formatProblem(raw) {
+  if (!raw || typeof raw !== 'object') return 'the manifest is not a JSON object';
+  if (raw.format !== FORMAT_ID) return 'the manifest says format "' + raw.format + '", and this page reads "' + FORMAT_ID + '"';
+  if (!(raw.v >= BUILT_V)) return 'the manifest is v' + raw.v + ', older than the v' + BUILT_V + ' this page was built for';
+  const gone = NEEDED.filter(k => raw[k] === undefined);
+  if (gone.length) return 'the manifest has no section ' + gone.join(', ');
+  if (!Array.isArray(raw.modules) || !raw.modules.length) return 'the manifest lists no modules';
+  return '';
+}
+async function readText(f) { const r = await fetch(SPEC_DIR + f, { cache: 'no-store' }); if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); }
+async function loadSpec() {
+  if (typeof fetch !== 'function') { SPEC.why = 'this context has no fetch'; return; }
+  let raw;
+  try { raw = JSON.parse(await readText(SPEC_MANIFEST)); SPEC.doc = await readText(SPEC_DOC); }
+  catch (e) { SPEC.why = 'the link local/sluice could not be read (' + String(e && e.message || e) + ')'; return; }
+  const bad = formatProblem(raw);
+  if (bad) { SPEC.why = bad; return; }
+  SPEC.raw = raw; SPEC.newer = raw.v > BUILT_V; SPEC.ok = true;
+}
+/* The patches sit beside the manifest. The manifest doesn't list them; the folder's own index does. */
+async function loadFactory() {
+  const out = { files: [], failed: [], listed: 0 };
+  let idx;
+  try { idx = JSON.parse(await readText(SPEC_FACTORY + 'index.json')); } catch (e) { out.failed.push('index: ' + String(e && e.message || e)); return out; }
+  const list = Array.isArray(idx.files) ? idx.files : [];
+  out.listed = list.length;
+  const docs = await Promise.all(list.map(m => readText(SPEC_FACTORY + m.file).then(t => ({ m, d: JSON.parse(t) })).catch(() => { out.failed.push(m.name); return null; })));
+  out.files = docs.filter(Boolean);
+  return out;
+}
+
+/* ================================================================ B. THE SCHEMA, DERIVED
+   Every list below is walked out of the manifest by its SHAPE (an object with numeric min and max is
+   a control, taper "bool" a switch, an object with `values` a choice), so nothing about what Sluice
+   has is written here. The manifest's own field names are the only literals. */
+const isNum = v => typeof v === 'number' && isFinite(v);
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+const clone = o => JSON.parse(JSON.stringify(o));
+const isEntry = e => !!e && typeof e === 'object' && isNum(e.min) && isNum(e.max);
+const camel = s => String(s).replace(/([a-z])([A-Z])/g, '$1 $2').toUpperCase();
+const UNIT_END = /\b(hz|ms|s|db|st)$/i;
+function entryOf(key, e, fallback) {
+  const bare = String(e.label || fallback || key).replace(/\s*\(.*$/, '').trim(), u = UNIT_END.exec(bare);
+  const def = isNum(e.default) ? e.default : isNum(e.off) ? e.off : (e.default && isNum(e.default.others)) ? e.default.others : isEntry(e) ? e.min : 0;
+  return { key, short: (bare.replace(UNIT_END, '').trim() || key).toUpperCase(), min: e.min, max: e.max, def, taper: e.taper || 'lin', step: e.step, unit: e.unit || (u ? u[1] : ''),
+    sync: e.sync, div: e.shownDividedBy || 1, off: e.off, mod: e.modulation, bool: e.taper === 'bool' };
+}
+function buildSchema(raw, doc) {
+  const S = { types: [], mods: {}, bus: [], inj: null, nums: [], bools: [], arrays: [], gate: null, gateKey: '', tails: [], home: {}, srcs: [], globals: raw.globalKnobs, fixed: [], switches: [], family: [], io: [], actions: [],
+    device: [], divs: raw.divisions, curves: [], offered: [], locked: [], limits: raw.limits, faces: {}, cpu: '' };
+  for (const m of raw.modules) { S.types.push(m.type); S.mods[m.type] = { type: m.type, draws: m.randomDraws || {}, params: m.params.map(p => entryOf(p.key, p)) }; }
+  for (const b of raw.bus) { const [grp, name] = String(b.key).split('.'); const e = entryOf(name, b); e.grp = grp; e.target = grp + ':' + name; S.bus.push(e); }
+  S.inj = raw.perModule.find(isEntry); S.inj = S.inj ? entryOf(S.inj.key, S.inj) : null;
+  for (const [k, v] of Object.entries(raw.patchLevel)) {
+    if (Array.isArray(v)) S.arrays.push({ key: k, items: v.filter(isEntry).map(e => entryOf(e.key, e)) });
+    else if (v.retired) continue;
+    else if (v.keys) for (const [h, r] of Object.entries(v.keys)) S.home[h] = r;
+    else if (isEntry(v)) S.nums.push(entryOf(k, v));
+    else if (v.taper === 'bool') S.bools.push(entryOf(k, v, camel(k)));
+    else if (v.tail) {
+      S.gateKey = k; S.gate = Object.entries(v).filter(([, e]) => isEntry(e)).map(([f, e]) => entryOf(f, e));
+      for (const [t, g] of Object.entries(v.tail)) { if (g && typeof g === 'object') S.tails.push({ name: t, label: t + 'S', gate: g }); else if (t === 'inf') S.tails.push({ name: t, label: 'INF', gate: null }); }
+    }
+  }
+  for (const [k, v] of Object.entries(raw.modSources)) {
+    /* the patch stores these under a shorter name than the manifest's section; the first three letters are what both share */
+    S.srcs.push({ key: k, patchKey: k.slice(0, 3), name: camel(k), fields: Object.entries(v).filter(([, e]) => isEntry(e)).map(([f, e]) => entryOf(f, e, f)), shapes: v.shapes || null, canSync: typeof v.sync === 'string' });
+  }
+  for (const g of raw.globalKnobs) {
+    if (g.values) { const fam = /\bsync\b.*\bsnap/i.test(g.law || '') && g.key !== 'sync'; const o = { key: g.key, label: camel(g.key), short: camel(g.key).slice(0, 3), def: g.default, off: g.values[0], on: g.values[1], law: g.law }; S.switches.push(o); if (fam) S.family.push(o); }
+    if (g.alias) { const m = /dB = (\d+)/.exec(g.law || ''); S.io.push({ key: g.key, label: camel(g.key).split(' ')[0], span: m ? +m[1] : 0, centre: g.centre }); }
+  }
+  S.homeE = Object.entries(S.home).map(([h, r]) => ({ key: h, short: 'HOME ' + camel(h), min: r[0], max: r[1], def: r[0] < 0 ? 0 : 1, taper: r[0] > 0 ? 'log' : 'lin', unit: '' }));
+  S.fixed = raw.fixedControls.row.map(r => { const key = String(r.key).split('.').pop(), g = raw.globalKnobs.find(x => x.key === key) || {}; return { key, label: r.label, centre: isNum(g.centre) ? g.centre : 0.5 }; });
+  S.actions = raw.actions.list || [];
+  for (const [k, d] of Object.entries(raw.device)) S.device.push({ key: k, label: camel(k), values: d.values, labels: d.labels, def: d.default, fixedAt: d.fixedAt, latency: d.latencyOuterSamplesByRate });
+  const cm = /curve ([a-z]+(?: \| [a-z]+)+)/.exec(raw.macros.law || ''); S.curves = cm ? cm[1].split(' | ') : [];
+  const ex = raw.randomiser.exclude || {}; S.offered = ex.offered || []; S.locked = raw.randomiser.defaultsLocked || [];
+  const heads = String(doc).split('\n').map(l => /^###\s+[\d.]+\s+(\S+)\s+face\b/i.exec(l)).filter(Boolean).map(m => m[1].toUpperCase());
+  S.faces = { play: heads[0] || 'PLAY', full: heads[1] || 'FULL' };
+  const sc = String(doc).split('\n').map(l => /^###\s+[\d.]+\s+(Scope)\b/i.exec(l)).find(Boolean); S.faces.scope = sc ? sc[1].toUpperCase() : 'SCOPE';
+  const cpu = /(\d+\s*%)\s+of a core/.exec(String(doc)); S.cpu = cpu ? cpu[1].replace(/\s/g, '') : '';
+  return S;
+}
+/* positions: the slider's 0..1 from the manifest's taper */
+function toPos(e, v) {
+  v = clamp(isNum(v) ? v : e.def, e.min, e.max);
+  if (e.taper === 'log' && e.min > 0) return Math.log(v / e.min) / Math.log(e.max / e.min);
+  const t = (v - e.min) / (e.max - e.min);
+  return e.taper === 'sq' ? Math.sqrt(t) : t;
+}
+function fromPos(e, t) {
+  t = clamp(t, 0, 1); let v;
+  if (e.taper === 'log' && e.min > 0) v = e.min * Math.pow(e.max / e.min, t);
+  else v = e.min + (e.max - e.min) * (e.taper === 'sq' ? t * t : t);
+  if (e.step) v = e.min + Math.round((v - e.min) / e.step) * e.step;
+  return clamp(v, e.min, e.max);
+}
+function fmtNum(v, e) {
+  if (!isNum(v)) return '-';
+  let u = String(e.unit || '').toUpperCase(); v = v / (e.div || 1);
+  const a = Math.abs(v);
+  if (u === 'MS' && a >= 1000) { v /= 1000; u = 'S'; }
+  else if (u === 'HZ' && a >= 1000) { v /= 1000; u = 'K'; }
+  const b = Math.abs(v), s = b >= 100 ? v.toFixed(0) : b >= 10 ? v.toFixed(1) : v.toFixed(2);
+  return s + u;
+}
+
+/* ================================================================ C. THE MODEL (page state only)
+   L is plain data, so a check can snapshot it with JSON and put it back. The pad holds the id of its
+   entry, never the entry, for the same reason.
+   entry  { id, name, tags, factory, count, snaps: [{ sid, name, patch }], presets: [{ pid, name, corners, xy, tail }], open }
+   pad    { eid, corners: [sid x 4], drafts: [patch x 4], from: [sid x 4], base, x, y, mv: [4], tail, preset, thr }
+   `from` and `base` are the fields ADR-306 names draftFrom and pending.base: what revert goes back to.
+   `rev` is this page's own: the snapshot as it would be after any structural edit since, so a revert can
+   never put one corner on another chain (found by the fuzz). */
+const CORNER = ['A', 'B', 'C', 'D'], KNOBS = 4;
+let S = null;
+const L = { lib: [], pad: null, G: {}, dev: {}, randomness: 0.5, excl: [], seed: 0x51C3E, rs: 0x51C3E, nid: 1, tag: '', msg: '', msgUntil: 0, bpm: 120, rate: 48000, clicks: 0 };
+/* mulberry32 with its state in L.rs, so a check can restore the stream with the rest of the page's state */
+function rnd() { let a = L.rs = (L.rs + 0x6D2B79F5) | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }
+const newId = p => p + (L.nid++);
+const entry = id => L.lib.find(e => e.id === id) || null;
+const curE = () => entry(L.pad.eid);
+const snapOf = (e, sid) => e ? e.snaps.find(s => s.sid === sid) || null : null;
+const sel = () => (L.pad.x >= 0.5 ? 1 : 0) + (L.pad.y >= 0.5 ? 2 : 0);
+const weights = () => { const x = L.pad.x, y = L.pad.y; return [(1 - x) * (1 - y), x * (1 - y), (1 - x) * y, x * y]; };
+function patchAt(k) { const P = L.pad; if (P.drafts[k]) return P.drafts[k]; const s = snapOf(curE(), P.corners[k]); return s ? s.patch : P.base; }
+const cur = () => patchAt(sel());
+const isDraft = k => !!L.pad.drafts[k];
+/* what the four corners of one XY have to share */
+const sigOf = p => JSON.stringify([(p.chain || []).map(m => m.type), (p.post || []).map(m => m.type), (p.macros || []).map(M => M.bindings.map(b => b.target))]);
+function say(t) { L.msg = String(t); L.msgUntil = GL.frame + 240; }
+function entryFromFile(d, m) {
+  const snaps = (d.snaps || []).map(s => ({ sid: newId('s'), name: s.name, patch: s.patch }));
+  const sidOf = i => (snaps[i] || snaps[0]).sid, corners = (d.corners || [0, 0, 0, 0]).map(sidOf);
+  const presets = (d.presets && d.presets.length ? d.presets : [{ name: d.name, corners: d.corners || [0, 0, 0, 0], xy: [0, 0] }]).map(p => ({ pid: newId('p'), name: p.name, corners: (p.corners || d.corners || [0, 0, 0, 0]).map(sidOf), xy: p.xy || [0, 0], tail: p.tail || null }));
+  return { id: newId('e'), name: d.name, tags: d.tags || [], factory: !!m, format: d.format, fv: d.v, count: snaps.length, snaps, presets, open: presets[0].pid, corners };
+}
+function openPreset(e, pr) {
+  const p0 = (snapOf(e, pr.corners[0]) || e.snaps[0]).patch, mv = [0, 0, 0, 0];
+  (p0.macros || []).slice(0, KNOBS).forEach((m, i) => { mv[i] = isNum(m.value) ? m.value : 0; });
+  L.pad = { eid: e.id, corners: pr.corners.slice(), drafts: [null, null, null, null], from: [null, null, null, null], rev: [null, null, null, null], base: null, x: pr.xy[0], y: pr.xy[1], mv, tail: pr.tail ? clone(pr.tail) : undefined, thr: {} };
+  e.open = pr.pid;
+}
+function loadEntry(e) { openPreset(e, e.presets.find(p => p.pid === e.open) || e.presets[0]); say('LOADED ' + e.name); }
+/* ---- the number pool: what the dice can touch. A module's lock is its own when set, otherwise the manifest's default for its type ---- */
+const isLocked = m => m.locked === undefined ? S.locked.includes(m.type) : !!m.locked;
+function pool(p) {
+  const out = [];
+  const fromChain = (list, pre) => (list || []).forEach((m, i) => { const T = S.mods[m.type]; if (!T) return; T.params.forEach(e => { if (!e.bool) out.push({ id: pre + i + ':' + e.key, e, obj: m.params, key: e.key, locked: isLocked(m) }); }); });
+  fromChain(p.chain, ''); fromChain(p.post, 'post');
+  S.bus.filter(e => !e.bool).forEach(e => { if (!p[e.grp]) p[e.grp] = {}; out.push({ id: e.target, e, obj: p[e.grp], key: e.key, locked: false }); });
+  S.nums.filter(e => e.mod === 'yes').forEach(e => out.push({ id: e.key, e, obj: p, key: e.key, locked: false }));
+  return out;
+}
+/* ---- drafts: a first edit detaches the corner from its snapshot, and remembers it for revert ---- */
+function draftOf(k) {
+  const P = L.pad;
+  if (!P.drafts[k]) { const s = snapOf(curE(), P.corners[k]); P.drafts[k] = clone(s ? s.patch : P.base); if (s) { if (!P.from[k]) { P.from[k] = P.corners[k]; P.rev[k] = clone(s.patch); } P.corners[k] = null; } }
+  return P.drafts[k];
+}
+const draftSel = () => draftOf(sel());
+function canRevert(k) {
+  const P = L.pad; if (!P.drafts[k]) return false;
+  if (P.base) return JSON.stringify(P.drafts[k]) !== JSON.stringify(P.base);
+  return !!snapOf(curE(), P.from[k]) && !!P.rev[k] && JSON.stringify(P.drafts[k]) !== JSON.stringify(P.rev[k]);
+}
+function revert(k) {
+  const P = L.pad; if (!canRevert(k)) return;
+  const s = snapOf(curE(), P.from[k]);
+  if (P.base) P.drafts[k] = clone(P.base);
+  /* the chain has changed since: the snapshot comes back rebuilt on the new chain, which can only be a draft */
+  else if (sigOf(s.patch) !== sigOf(P.rev[k])) P.drafts[k] = clone(P.rev[k]);
+  else { P.corners[k] = P.from[k]; P.drafts[k] = null; P.from[k] = null; P.rev[k] = null; }
+  say('REVERTED ' + CORNER[k]);
+}
+function bindTo(k, sid) { const P = L.pad; P.corners[k] = sid; P.drafts[k] = null; P.from[k] = null; P.rev[k] = null; say('BOUND ' + CORNER[k]); }
+/* a factory patch's snapshots can't be rewritten: saving makes the player's own copy, and it plays on */
+function ownEntry() {
+  const P = L.pad; let e = curE();
+  if (e && !e.factory) return e;
+  if (!e) { const n = L.lib.filter(x => !x.factory).length + 1, name = uniqueName('PATCH ' + n); e = { id: newId('e'), name, tags: [], factory: false, count: 0, snaps: [], presets: [], open: '', corners: [] }; L.lib.unshift(e); P.eid = e.id; P.base = null; return e; }
+  const c = clone(e); c.id = newId('e'); c.name = uniqueName(e.name + ' COPY'); c.factory = false; L.lib.unshift(c); P.eid = c.id; return c;
+}
+function uniqueName(n) { if (!L.lib.some(e => e.name === n)) return n; let i = 2; while (L.lib.some(e => e.name === n + ' ' + i)) i++; return n + ' ' + i; }
+function addSnap(e, patch) { e.count++; const s = { sid: newId('s'), name: e.name + ' ' + e.count, patch }; e.snaps.push(s); return s; }
+function saveCorner(k) {
+  const P = L.pad, wasPending = !P.eid; if (!P.drafts[k]) return;
+  const e = ownEntry();
+  if (wasPending) {
+    /* first save of a new patch: its different drafts become snapshots, A to D, and the corners point at them */
+    const seen = {}; for (let j = 0; j < 4; j++) { const key = JSON.stringify(P.drafts[j]); if (!seen[key]) seen[key] = addSnap(e, clone(P.drafts[j])).sid; P.corners[j] = seen[key]; P.drafts[j] = null; P.from[j] = null; P.rev[j] = null; }
+    const pr = { pid: newId('p'), name: e.name, corners: P.corners.slice(), xy: [P.x, P.y], tail: P.tail ? clone(P.tail) : null }; e.presets.push(pr); e.open = pr.pid; e.corners = P.corners.slice();
+    say('SAVED ' + e.name);
+  } else { const s = addSnap(e, clone(P.drafts[k])); P.corners[k] = s.sid; P.drafts[k] = null; P.from[k] = null; P.rev[k] = null; say('SAVED ' + s.name); }
+}
+function savePreset(asNew) {
+  const P = L.pad;
+  for (let k = 0; k < 4; k++) if (P.drafts[k]) saveCorner(k);
+  const e = ownEntry(), old = e.presets.find(p => p.pid === e.open), body = { corners: P.corners.slice(), xy: [P.x, P.y], tail: P.tail ? clone(P.tail) : null };
+  if (old && !asNew) { Object.assign(old, body); say('PRESET SAVED'); return; }
+  const pr = Object.assign({ pid: newId('p'), name: e.name + ' P' + (e.presets.length + 1) }, body); e.presets.push(pr); e.open = pr.pid; say('NEW PRESET');
+}
+function deleteSnap(sid) {
+  const e = curE(), P = L.pad; if (!e || e.factory || e.snaps.length < 2) return;
+  e.snaps = e.snaps.filter(s => s.sid !== sid);
+  /* a corner that loses its snapshot takes a spare one, else the list's first, so no corner is ever left empty */
+  P.corners.forEach((c, k) => { if (c === sid) { const free = e.snaps.find(s => !P.corners.includes(s.sid)); P.corners[k] = (free || e.snaps[0]).sid; } });
+  P.from.forEach((c, k) => { if (c === sid) P.from[k] = null; });
+  e.presets.forEach(p => { p.corners = p.corners.map(c => c === sid ? e.snaps[0].sid : c); });
+  say('SNAPSHOT DELETED');
+}
+function deleteEntry(id) { const e = entry(id); if (!e || e.factory) return; L.lib = L.lib.filter(x => x !== e); if (L.pad.eid === id) loadEntry(L.lib[0]); say('PATCH DELETED'); }
+/* ---- the dice: horde's seeded stand-in, not Sluice's randomiser. What it keeps of Sluice's rules: a
+   threshold per number, so turning Randomness up only ever adds; locked types stay; the draw table
+   and caps are the manifest's; a new patch is one draft on all four corners and ends in the type
+   the manifest draws for the post chain and doesn't offer as a choice. ---- */
+function randomizeCorner(k) {
+  const P = L.pad, d = draftOf(k);
+  for (const it of pool(d)) {
+    if (!isNum(P.thr[it.id])) P.thr[it.id] = rnd();
+    if (!it.locked && P.thr[it.id] < L.randomness) it.obj[it.key] = fromPos(it.e, rnd());
+  }
+  say('NEW VALUES ON ' + CORNER[k]);
+}
+function randomizeAll() { for (let k = 0; k < 4; k++) randomizeCorner(k); say('NEW VALUES ON ALL FOUR'); L.clicks++; }
+function drawModule(type) { const params = {}; S.mods[type].params.forEach(e => { params[e.key] = e.bool ? e.def : fromPos(e, rnd()); }); return { type, enabled: true, params }; }
+function randomPatch() {
+  const can = t => !L.excl.includes(t), T = S.types.map(t => S.mods[t]);
+  const loop = T.filter(m => m.draws.loop && can(m.type)), last = T.filter(m => m.draws.loopLast && can(m.type)), safety = T.filter(m => m.draws.post && !S.offered.includes(m.type));
+  const maxDrawn = S.limits.maxLoopModules - 2, n = 2 + Math.floor(rnd() * Math.max(1, maxDrawn - 1)), chain = [];
+  for (let i = 0; i < n && loop.length; i++) chain.push(drawModule(loop[Math.floor(rnd() * loop.length)].type));
+  if (last.length) chain.push(drawModule(last[Math.floor(rnd() * last.length)].type));
+  const p = { chain, post: safety.slice(0, 1).map(m => drawModule(m.type)) };
+  S.bus.forEach(e => { if (!p[e.grp]) p[e.grp] = {}; p[e.grp][e.key] = e.bool ? e.def : fromPos(e, rnd() * 0.8); });
+  S.nums.forEach(e => { p[e.key] = e.def; });
+  S.srcs.forEach(s => { p[s.patchKey] = { target: 'off' }; });
+  const firstTail = S.tails.find(t => t.gate); if (firstTail) p[S.gateKey] = clone(firstTail.gate);
+  p.macros = [];
+  return p;
+}
+function randomizeNewPatch() {
+  const p = randomPatch();
+  L.pad = { eid: null, corners: [null, null, null, null], drafts: [0, 1, 2, 3].map(() => clone(p)), from: [null, null, null, null], rev: [null, null, null, null], base: clone(p), x: 0, y: 0, mv: [0, 0, 0, 0], tail: undefined, thr: {} };
+  L.clicks++; say('NEW PATCH: ONE DRAFT ON A-D');
+}
+const loopTypesOn = () => S.types.filter(t => S.mods[t].draws.loop && !L.excl.includes(t));
+function toggleExcl(t) {
+  if (L.excl.includes(t)) { L.excl = L.excl.filter(x => x !== t); return; }
+  /* the generator has to have something left to draw for the loop */
+  if (S.mods[t].draws.loop && loopTypesOn().length <= 1) { say('ONE LOOP TYPE STAYS ON'); return; }
+  L.excl.push(t);
+}
+/* ---- structure: one patch per XY, so a structural edit goes to all four corners ---- */
+function allCorners(fn) { const P = L.pad; for (let k = 0; k < 4; k++) { fn(draftOf(k)); if (P.rev[k]) fn(P.rev[k]); } if (P.base) fn(P.base); }
+function remapTargets(p, part, map) {
+  const pre = part === 'post' ? 'post' : '';
+  const fix = t => { const m = /^(post)?(\d+):(.+)$/.exec(t || ''); if (!m || (m[1] || '') !== pre) return t; const j = map(+m[2]); return j < 0 ? null : pre + j + ':' + m[3]; };
+  S.srcs.forEach(s => { const o = p[s.patchKey]; if (o && o.target && o.target !== 'off') o.target = fix(o.target) || 'off'; });
+  (p.macros || []).forEach(M => { M.bindings = M.bindings.map(b => Object.assign(b, { target: fix(b.target) })).filter(b => b.target); });
+}
+const capOf = part => part === 'post' ? S.limits.maxPostModules : S.limits.maxLoopModules;
+function moduleAdd(part, type) {
+  if ((cur()[part] || []).length >= capOf(part)) return;
+  allCorners(p => { if (!p[part]) p[part] = []; const params = {}; S.mods[type].params.forEach(e => { params[e.key] = e.def; }); p[part].push({ type, enabled: true, params }); });
+  say('ADDED ' + type);
+}
+function moduleRemove(part, i) {
+  allCorners(p => { p[part].splice(i, 1); remapTargets(p, part, j => j === i ? -1 : j > i ? j - 1 : j); });
+  if (GUI.page === 'module') gbcGo('rack');
+  say('REMOVED');
+}
+function moduleMove(part, i, d) {
+  const j = i + d; allCorners(p => { const a = p[part]; [a[i], a[j]] = [a[j], a[i]]; remapTargets(p, part, q => q === i ? j : q === j ? i : q); });
+}
+function moduleDup(part, i) {
+  if (cur()[part].length >= capOf(part)) return;
+  allCorners(p => {
+    const a = p[part]; a.splice(i + 1, 0, clone(a[i])); remapTargets(p, part, q => q > i ? q + 1 : q);
+    /* a duplicate mirrors its macro bindings */
+    const pre = part === 'post' ? 'post' : '';
+    (p.macros || []).forEach(M => { M.bindings.slice().forEach(b => { const m = /^(post)?(\d+):(.+)$/.exec(b.target || ''); if (m && (m[1] || '') === pre && +m[2] === i) M.bindings.push(Object.assign(clone(b), { target: pre + (i + 1) + ':' + m[3] })); }); });
+  });
+}
+function moduleEnable(part, i, on) { allCorners(p => { p[part][i].enabled = on; }); }
+/* ---- macros: the mapping is the patch's (all four corners), the range is each snapshot's, a move changes no snapshot ---- */
+const macroOf = (p, k) => (p.macros || [])[k] || null;
+function macroTargets(p) {
+  const out = [];
+  (p.chain || []).forEach((m, i) => { const T = S.mods[m.type]; if (T) T.params.forEach(e => { if (e.mod === 'yes' && !e.bool) out.push(i + ':' + e.key); }); });
+  S.bus.forEach(e => { if (e.mod === 'yes' && !e.bool) out.push(e.target); });
+  S.nums.forEach(e => { if (e.mod === 'yes') out.push(e.key); });
+  return out;
+}
+function moduleTargets(p) {
+  const out = [];
+  for (const [part, pre] of [['chain', ''], ['post', 'post']]) (p[part] || []).forEach((m, i) => { const T = S.mods[m.type]; if (T) T.params.forEach(e => { if (e.mod === 'yes' && !e.bool) out.push(pre + i + ':' + e.key); }); });
+  return out;
+}
+function targetEntry(p, t) {
+  const m = /^(post)?(\d+):(.+)$/.exec(t || '');
+  if (m) { const q = (p[m[1] ? 'post' : 'chain'] || [])[+m[2]], T = q && S.mods[q.type]; return T ? T.params.find(e => e.key === m[3]) || null : null; }
+  return S.bus.find(e => e.target === t) || S.nums.find(e => e.key === t) || null;
+}
+function targetLabel(p, t) {
+  if (!t || t === 'off') return 'OFF';
+  const m = /^(post)?(\d+):(.+)$/.exec(t);
+  if (m) { const q = (p[m[1] ? 'post' : 'chain'] || [])[+m[2]], e = targetEntry(p, t); return (m[1] ? 'P' : '') + (+m[2] + 1) + ' ' + (q ? q.type : '?') + ' ' + (e ? e.short : m[3]); }
+  const e = targetEntry(p, t); return e ? e.short : t;
+}
+function macroRangeDefault(p, t) { const e = targetEntry(p, t); if (!e) return 0.5; return (e.taper === 'log') ? 1 : (e.max - e.min) * 0.25; }
+function addMacro() {
+  const t = macroTargets(cur()); if (!t.length || (cur().macros || []).length >= KNOBS) return;
+  const k = (cur().macros || []).length;
+  allCorners(p => { if (!p.macros) p.macros = []; p.macros.push({ label: 'M' + (k + 1), value: 0, bindings: [{ target: t[0], lo: 0, hi: macroRangeDefault(p, t[0]) }] }); });
+  L.pad.mv[k] = 0; say('MACRO ' + (k + 1));
+}
+function removeMacro(k) { allCorners(p => { p.macros.splice(k, 1); }); L.pad.mv.splice(k, 1); L.pad.mv.push(0); }
+function setMacro(k, v) { L.pad.mv[k] = clamp(v, 0, 1); paintDirty(); }
+/* ---- the global controls: horde's stand-in for the readouts. It pins the knob's ends and its centre
+   (the sound's home) and joins them straight, or geometrically where the range is a factor. Sluice's
+   curve between those points is Sluice's; a real readout asks the Node what the knob plays. ---- */
+const swOn = key => { const s = S.switches.find(x => x.key === key); return !!s && L.G[key] === s.on; };
+const syncOn = () => swOn('sync');
+const overrideSw = () => S.switches.find(s => s.key !== 'sync' && !S.family.includes(s)) || null;
+function homeOf(g) {
+  const r = S.home[g.key], w = weights();
+  if (!r) { const mixE = S.nums.find(e => e.mod === 'yes'); return [0, 1, 2, 3].reduce((a, k) => a + w[k] * (isNum(patchAt(k)[mixE.key]) ? patchAt(k)[mixE.key] : mixE.def), 0); }
+  const neutral = r[0] < 0 ? 0 : 1, vals = [0, 1, 2, 3].map(k => { const h = patchAt(k).home; return h && isNum(h[g.key]) ? h[g.key] : neutral; });
+  return r[0] > 0 ? Math.exp(vals.reduce((a, v, k) => a + w[k] * Math.log(v), 0)) : vals.reduce((a, v, k) => a + w[k] * v, 0);
+}
+function heard(g) {
+  const t = L.G[g.key], r = S.home[g.key] || [0, 1], h = homeOf(g);
+  const ov = overrideSw(); if (!S.home[g.key] && ov && L.G[ov.key] === ov.on) return t;
+  const a = t < 0.5 ? r[0] : h, b = t < 0.5 ? h : r[1], u = t < 0.5 ? t * 2 : (t - 0.5) * 2;
+  return r[0] > 0 ? a * Math.pow(b / a, u) : a + (b - a) * u;
+}
+function fixedTxt(g, long) {
+  const v = heard(g), r = S.home[g.key];
+  if (!r) { const pc = Math.round(v * 100) + '%', ov = overrideSw(); return long ? pc + ' WET ' + (ov && L.G[ov.key] === ov.on ? '(OVERRIDE)' : '(HOME ' + Math.round(homeOf(g) * 100) + '%)') : pc; }
+  if (r[0] < 0) return (v >= 0 ? '+' : '') + v.toFixed(1) + (long ? ' ST' : '');
+  if (r[0] > 0) { if (syncOn()) return 'X' + (+Math.pow(2, Math.round(Math.log2(v))).toFixed(2)) + (long ? ' (SYNC)' : ''); return 'X' + (+v.toFixed(2)); }
+  return v < 0.005 ? 'MONO' : 'X' + v.toFixed(1) + (long ? ' SIDE' : '');
+}
+function ioTxt(o) { const d = o.span * (L.G[o.key] - 0.5); return (d >= 0 ? '+' : '') + d.toFixed(1) + 'DB'; }
+/* nearest division by ratio, among the families that are in, inside the number's range at the tempo */
+function familyIn(d) {
+  const lg = Math.log2(d.beats); if (Math.abs(lg - Math.round(lg)) < 1e-9) return true;
+  const fam = S.family.find(s => /dotted/i.test(s.key)), tri = S.family.find(s => /triplet/i.test(s.key));
+  if (d.alias) return !!fam && L.G[fam.key] === fam.on;
+  return !!tri && L.G[tri.key] === tri.on;
+}
+function divValue(d, e) { return /ms/i.test(String(e.sync)) ? d.beats * 60000 / L.bpm : L.bpm / (60 * d.beats); }
+function snapDiv(e, v) {
+  let best = null, bs = Infinity;
+  for (const d of S.divs) { if (!familyIn(d)) continue; const x = divValue(d, e); if (x < e.min || x > e.max) continue; const s = Math.abs(Math.log(x / v)); if (s < bs) { bs = s; best = d; } }
+  return best ? best.name : '';
+}
+/* ---- the tail: it edits the current patch's gate; a gate no button made lights none ---- */
+const gateNow = () => L.pad.tail !== undefined ? L.pad.tail : (cur()[S.gateKey] || null);
+function tailLit(t) { const g = gateNow(); if (!t.gate) return !g; return !!g && Object.keys(t.gate).every(k => g[k] === t.gate[k]); }
+function setTail(t) { L.pad.tail = t.gate ? clone(t.gate) : null; say('TAIL ' + t.label); }
+function gateWrite(key, v) { if (L.pad.tail) L.pad.tail[key] = v; else { const d = draftSel(); if (!d[S.gateKey]) d[S.gateKey] = {}; d[S.gateKey][key] = v; } }
+function initGlobals() {
+  S.fixed.forEach(g => { L.G[g.key] = g.centre; });
+  S.switches.forEach(s => { L.G[s.key] = s.def; });
+  S.io.forEach(o => { L.G[o.key] = isNum(o.centre) ? o.centre : 0.5; });
+  S.device.forEach(d => { L.dev[d.key] = d.def; });
+}
+/* the actions are momentary and change no patch; the page has nothing to flush, and says so */
+function fireAction(a) { say(String(a.label) + ' (MOCK: NO AUDIO HERE)'); }
+/* ================================================================ D. THE GBC BUFFER, copied from sluice-horde-lab.html section N */
+const GBC_W = 160, GBC_H = 144, GBC_K = 3;
+const GBC_SCHEME = {
+  light: { tube: '#F3EBFF', value: '#D6006B', meter: '#007A73', physics: '#6E14E8', marker: '#C43A00', grid: '#5A3FA8', name: 'ORCHID' },
+  dark: { tube: '#1B0733', value: '#FF5ECF', meter: '#B8F227', physics: '#B48CFF', marker: '#FFB86B', grid: '#4FD8BE', name: 'TUBE' },
+};
+const TITLE_SLOT = { x: 8, y: 0, w: 96, h: 24 }, ICON_SLOT = { x: 144, y: 0, w: 16, h: 16 };
+function rgbOf(hex) { const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex).trim()); return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : [136, 136, 136]; }
+const hexOf = c => '#' + c.map(v => (v | 0).toString(16).padStart(2, '0')).join('');
+const mixHex = (a, b, t) => { const A = rgbOf(a), B = rgbOf(b); return hexOf(A.map((v, i) => Math.round(v + (B[i] - v) * t))); };
+const e5 = k => (k << 3) | (k >> 2), q5 = v => e5(Math.round(v * 31 / 255)), on555 = v => e5(v >> 3) === v, q555 = hex => hexOf(rgbOf(hex).map(q5));
+const F35 = {
+  A: '25755', B: '65656', C: '34443', D: '65556', E: '74647', F: '74644', G: '34553', H: '55755', I: '72227',
+  J: '11152', K: '55655', L: '44447', M: '57755', N: '65555', O: '25552', P: '65644', Q: '25563', R: '65655',
+  S: '34216', T: '72222', U: '55557', V: '55552', W: '55775', X: '55255', Y: '55222', Z: '71247',
+  0: '75557', 1: '26227', 2: '61247', 3: '61216', 4: '55711', 5: '74616', 6: '34652', 7: '71222', 8: '25252',
+  9: '25316', ' ': '00000', '.': '00002', ',': '00024', ':': '02020', '-': '00700', '+': '02720', '/': '11244',
+  '%': '51245', '>': '42124', '<': '12421', '=': '07070', '(': '24442', ')': '21112', '#': '57575', '?': '61202',
+  '!': '22202', '_': '00007', '*': '05250', '|': '22222', '[': '64446', ']': '31113', "'": '22000', '^': '25000'
+};
+const glyph35 = ch => F35[ch] || F35[String(ch).toUpperCase()] || F35['?'];
+function text35(s, plot) { let x = 0; for (const ch of String(s)) { const g = glyph35(ch); for (let r = 0; r < 5; r++) { const bits = +g[r]; for (let c = 0; c < 3; c++) if ((bits >> (2 - c)) & 1) plot(x + c, r); } x += 4; } return x; }
+function GBuf() { this.idx = new Uint8Array(GBC_W * GBC_H); this.attr = new Uint8Array(20 * 18); }
+GBuf.prototype.clear = function () { this.idx.fill(0); this.attr.fill(0); };
+GBuf.prototype.px = function (x, y, c) { x |= 0; y |= 0; if (x >= 0 && x < GBC_W && y >= 0 && y < GBC_H) this.idx[y * GBC_W + x] = c; };
+GBuf.prototype.rect = function (x, y, w, h, c) { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) this.px(x + i, y + j, c); };
+GBuf.prototype.box = function (x, y, w, h, c) { this.rect(x, y, w, 1, c); this.rect(x, y + h - 1, w, 1, c); this.rect(x, y, 1, h, c); this.rect(x + w - 1, y, 1, h, c); };
+GBuf.prototype.line = function (x0, y0, x1, y1, c, dash) {
+  x0 = Math.round(x0); y0 = Math.round(y0); x1 = Math.round(x1); y1 = Math.round(y1);
+  const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1; let e = dx + dy, n = 0;
+  for (;;) { if (!dash || (n >> 1) % 2 === 0) this.px(x0, y0, c); n++; if (x0 === x1 && y0 === y1) break; const e2 = 2 * e; if (e2 >= dy) { e += dy; x0 += sx; } if (e2 <= dx) { e += dx; y0 += sy; } }
+};
+GBuf.prototype.text = function (s, x, y, c) { return text35(s, (dx, dy) => this.px(x + dx, y + dy, c)); };
+GBuf.prototype.ctext = function (s, cx, y, c) { return this.text(s, Math.round(cx - (String(s).length * 4 - 1) / 2), y, c); };
+GBuf.prototype.pal = function (tx, ty, tw, th, p) { for (let j = 0; j < th; j++) for (let i = 0; i < tw; i++) if (tx + i < 20 && ty + j < 18) this.attr[(ty + j) * 20 + tx + i] = p; };
+GBuf.prototype.compose = function (data, pals) { for (let y = 0; y < GBC_H; y++) for (let x = 0; x < GBC_W; x++) { const c = pals[this.attr[(y >> 3) * 20 + (x >> 3)]][this.idx[y * GBC_W + x]], o = (y * GBC_W + x) * 4; data[o] = c[0]; data[o + 1] = c[1]; data[o + 2] = c[2]; data[o + 3] = 255; } };
+function gbcPalettes(theme) { const s = GBC_SCHEME[theme] || GBC_SCHEME.dark, tube = s.tube, ink = s.physics; const role = r => [tube, mixHex(tube, r, 0.38), r, ink].map(h => rgbOf(q555(h))); return [role(s.grid), role(s.value), role(s.meter), role(s.marker)]; }
+function tileAudit(data, w, h) {
+  const out = { tiles: 0, maxPer: 0, over: 0, off555: 0 };
+  for (let ty = 0; ty < h; ty += 8) for (let tx = 0; tx < w; tx += 8) {
+    const set = new Set();
+    for (let y = ty; y < Math.min(h, ty + 8); y++) for (let x = tx; x < Math.min(w, tx + 8); x++) { const o = (y * w + x) * 4; set.add(data[o] + ',' + data[o + 1] + ',' + data[o + 2]); if (!on555(data[o]) || !on555(data[o + 1]) || !on555(data[o + 2])) out.off555++; }
+    out.tiles++; out.maxPer = Math.max(out.maxPer, set.size); if (set.size > 4) out.over++;
+  }
+  return out;
+}
+const gbcUp = s => String(s).toUpperCase().replace(/[^A-Z0-9 .,:+%<>=()#?!_*|'^\[\]\/-]/g, ' ');
+const gbcFit = (s, n) => { s = gbcUp(s); return s.length > n ? s.slice(0, Math.max(0, n - 1)) + '.' : s; };
+
+/* ================================================================ E. THE TITLE: one mark, one WebGL context, read back by coverage
+   Cells are read from an 8 x 8 render of the 96 x 28 strip (the routes' headroom) and the slot is its
+   middle 24 rows, as sluice-mark-styles-lab.html's gap comparison paints them. The walk's three steps
+   are Sluice's law (response seq 64 section 2): a cell's progress p along the walk, then
+   min(floor(p x 3), 2) / 2. p is recovered from the cell's mean colour against the walk's own ramp. */
+const TITLE_D = { P: 14.286, rows: 28, cols: 96, ss: 8, top: 2 }, WALK_STEPS = 3;
+const TITLE = { mark: null, px: new Uint8ClampedArray(TITLE_SLOT.w * TITLE_SLOT.h * 4), state: 'off', frames: 0, parked: '', note: '', hold: false, checked: false, cells: 0 };
+const nearestRamp = (ramp, r, g, b) => { let best = 0, bs = Infinity; ramp.forEach((c, i) => { const d = (c[0] - r) ** 2 + (c[1] - g) ** 2 + (c[2] - b) ** 2; if (d < bs) { bs = d; best = i; } }); return best; };
+/* cov: covered samples per cell; col: summed RGB; n: samples per cell. Writes RGBA into out. Pure, so the check can run it on a plant. */
+function titleCells(cov, col, cols, rows, n, top, ramp, steps, out) {
+  const last = ramp.length - 1; let inked = 0;
+  for (let y = 0; y < TITLE_SLOT.h; y++) for (let x = 0; x < TITLE_SLOT.w; x++) {
+    const i = (y + top) * cols + x, o = (y * TITLE_SLOT.w + x) * 4;
+    if (cov[i] / n < 0.5) { out[o + 3] = 0; continue; }
+    let c = [col[i * 3] / cov[i], col[i * 3 + 1] / cov[i], col[i * 3 + 2] / cov[i]];
+    if (steps > 1) { const p = nearestRamp(ramp, c[0], c[1], c[2]) / last, s = Math.min(Math.floor(p * steps), steps - 1) / (steps - 1); c = ramp[Math.round(s * last)]; }
+    out[o] = q5(Math.round(c[0])); out[o + 1] = q5(Math.round(c[1])); out[o + 2] = q5(Math.round(c[2])); out[o + 3] = 255; inked++;
+  }
+  return inked;
+}
+function startTitle() {
+  const srcBox = $('srcBox'), src = document.createElement('canvas');
+  src.style.width = (TITLE_D.cols * 2) + 'px'; src.style.height = (TITLE_D.rows * 2) + 'px'; srcBox.appendChild(src);
+  const W = TITLE_D.cols * TITLE_D.ss, H = TITLE_D.rows * TITLE_D.ss, buf = new Uint8Array(W * H * 4), cov = new Float32Array(TITLE_D.cols * TITLE_D.rows), col = new Float32Array(TITLE_D.cols * TITLE_D.rows * 3);
+  /* the fallback first: if no frame ever comes, the still is in the slot and the page says why */
+  fallbackStill();
+  const q = '?fit=strip&ground=000000&shift=walk&pixel=' + (TITLE_D.P * TITLE_D.ss) + '&ss=' + TITLE_D.ss + '&rows=' + TITLE_D.rows + '&cols=' + TITLE_D.cols;
+  try {
+    TITLE.mark = makeSluiceMark(src, q, (gl, cv) => {
+      if (cv.width !== W || cv.height !== H) return;
+      gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, buf); cov.fill(0); col.fill(0);
+      const ss = TITLE_D.ss, cs = TITLE_D.cols;
+      for (let y = 0; y < H; y++) { const dy = TITLE_D.rows - 1 - ((y / ss) | 0); for (let x = 0; x < W; x++) { const o = (y * W + x) * 4; if (Math.max(buf[o], buf[o + 1], buf[o + 2]) > 24) { const i = dy * cs + ((x / ss) | 0); cov[i]++; col[i * 3] += buf[o]; col[i * 3 + 1] += buf[o + 1]; col[i * 3 + 2] += buf[o + 2]; } } }
+      const ramp = TITLE.mark ? TITLE.mark.walkRamp(64) : [[232, 163, 76]];
+      TITLE.cells = titleCells(cov, col, cs, TITLE_D.rows, ss * ss, TITLE_D.top, ramp, WALK_STEPS, TITLE.px);
+      TITLE.state = 'live'; TITLE.frames++; TITLE.note = '';
+      if (TITLE.mark && TITLE.mark.colour) TITLE.parked = TITLE.mark.colour;
+      paintDirty(); if (!TITLE.checked) { TITLE.checked = true; checkTitleLive(); }
+    });
+  } catch (e) { TITLE.note = 'the mark failed to start: ' + String(e && e.message || e); }
+}
+/* Sluice's §3: the still stays the fallback (no WebGL, or before the first frame). It is the parked word from before GB13's no-gap ruling, so it is stated as a fallback, not the ruling. */
+function fallbackStill() {
+  if (typeof Image !== 'function') return;
+  const img = new Image();
+  img.onload = () => {
+    if (TITLE.state === 'live') return;
+    const c = document.createElement('canvas'); c.width = TITLE_SLOT.w; c.height = TITLE_SLOT.h; const g = c.getContext('2d'); if (!g) return;
+    g.drawImage(img, 0, 0); const d = g.getImageData(0, 0, TITLE_SLOT.w, TITLE_SLOT.h).data, gr = d.slice(0, 3);
+    for (let i = 0; i < TITLE.px.length; i += 4) { const ground = d[i] === gr[0] && d[i + 1] === gr[1] && d[i + 2] === gr[2]; TITLE.px[i] = d[i]; TITLE.px[i + 1] = d[i + 1]; TITLE.px[i + 2] = d[i + 2]; TITLE.px[i + 3] = ground ? 0 : 255; }
+    TITLE.state = 'still'; paintDirty();
+  };
+  img.src = 'assets/fx-logos/sluice.png';
+}
+
+/* ================================================================ F. THE PAGES
+   A control is data for the drawing plus `fn` for its handlers, as in the older lab:
+   { id, kind, tx, ty, tw, th, pal, ..., pid, fn }. `pid` names what it edits, for the coverage check.
+   The glass: rows 0-2 the title and the header, rows 3-15 the body, row 16 the macros over their
+   knobs, row 17 the soft keys over their keys. GUI-21: nothing is ever greyed out. A control that
+   can't act isn't built, so there is no disabled state to draw, and the check looks for one. */
+const GUI = { page: 'home', back: [], fid: '', hover: '', grab: false, scroll: {}, mk: 0, bi: 0, mod: { part: 'chain', i: 0 }, name: null, addT: { chain: 0, post: 0 }, drag: null };
+const GSTEP = 0.02, GSTEP_FINE = 0.005;
+const GNAME_ROWS = ['ABCDEFGHIJKLMNOPQRST', 'UVWXYZ0123456789-+./', "()#!?*'=<>%[]^|,:_"];
+const BODY_Y0 = 3, BODY_ROWS = 13;
+function gP(page, name, list) { return { page, name, list: list !== false, ctrls: [], keys: [] }; }
+function gC(P, o) { const c = Object.assign({ tw: 1, th: 1, pal: 0, abs: !P.list, fn: {} }, o); P.ctrls.push(c); return c; }
+const gT = (P, tx, ty, tw, txt, o) => gC(P, Object.assign({ id: 't' + P.ctrls.length, kind: 'text', nf: true, tx, ty, tw, txt: String(txt) }, o || {}));
+const gH = (P, y, txt) => gT(P, 0, y, 20, txt, { pal: 1, ci: 3, head: true });
+const gBtn = (P, id, tx, ty, tw, lab, press, o) => gC(P, Object.assign({ id, kind: 'btn', tx, ty, tw, lab, fn: { press } }, o || {}));
+const gTog = (P, id, tx, ty, tw, lab, on, set, o) => gC(P, Object.assign({ id, kind: 'toggle', tx, ty, tw, lab, on: !!on, fn: { press: () => set(!on) } }, o || {}));
+function gCyc(P, id, tx, ty, tw, lab, lw, txt, prev, next, o) { return gC(P, Object.assign({ id, kind: 'cycle', tx, ty, tw, lab, lw, txt: String(txt), fn: { prev, next } }, o || {})); }
+function gSld(P, id, tx, ty, tw, lab, lw, v, txt, vw, set, o) {
+  const W = tw * 8, bx0 = lw ? 4 + lw * 4 : 2, bx1 = W - (vw ? vw * 4 + 4 : 2);
+  return gC(P, Object.assign({ id, kind: 'slider', tx, ty, tw, lab, lw, v: clamp(isNum(v) ? v : 0, 0, 1), txt: String(txt), vw, bx0, bx1, fn: { get: () => v, set } }, o || {}));
+}
+const gKnob = (P, id, tx, ty, lab, v, txt, fn, o) => gC(P, Object.assign({ id, kind: 'knob', tx, ty, tw: 5, th: 2, lab, v: clamp(isNum(v) ? v : 0, 0, 1), txt, fn }, o || {}));
+const gChip = (P, id, tx, ty, ch, press, o) => gC(P, Object.assign({ id, kind: 'chip', tx, ty, tw: 1, th: 1, sz: 1, ch, fn: { press } }, o || {}));
+function gKey(P, j, label, fn) { P.keys[j] = { label, fn }; }
+const gMenuKey = P => gKey(P, 0, 'MENU', () => gbcGo('menu'));
+const gBackKey = (P, to) => gKey(P, 3, 'BACK', () => to ? gbcGo(to) : gbcBack());
+function gbcGo(pg, o) { if (pg !== GUI.page) { GUI.back.push(GUI.page); if (GUI.back.length > 16) GUI.back.shift(); } GUI.page = pg; GUI.fid = ''; GUI.grab = false; Object.assign(GUI, o || {}); paintDirty(); }
+function gbcBack() { GUI.page = GUI.back.pop() || 'home'; GUI.fid = ''; GUI.grab = false; paintDirty(); }
+/* the slider row for one manifest number */
+const LBLW = 13;
+function gNum(P, y, e, obj, key, o) {
+  o = o || {};
+  const v = isNum(obj[key]) ? obj[key] : e.def;
+  return gSld(P, o.id, 0, y, 20, e.short, LBLW, toPos(e, v), fmtNum(v, e), 6, t => { (o.write || (x => { obj[key] = x; }))(fromPos(e, t)); }, { pid: o.pid });
+}
+const cycleOf = (vals, cur, step) => vals[(Math.max(0, vals.indexOf(cur)) + step + vals.length) % vals.length];
+/* a number's editable home on the selected corner: reading never drafts; the first write does */
+function corner(fn) { return x => { fn(draftSel(), x); }; }
+const padName = () => { const e = curE(); return e ? e.name : 'UNSAVED PATCH'; };
+const presetName = () => { const e = curE(); if (!e) return ''; const p = e.presets.find(q => q.pid === e.open); return p && p.name !== e.name ? p.name : ''; };
+/* GB15's swap point. horde's morph corners and horde's modulation, as they'll show on this screen, are being redesigned in another lab. Replace this one function and the chips' paint in buildChassis. */
+function hordePlaceholder(P) {
+  gH(P, 0, 'PLACEHOLDER - GB15');
+  gT(P, 0, 1, 20, 'HORDE\'S MORPH CORNERS AND');
+  gT(P, 0, 2, 20, 'MODULATION ON THIS SCREEN:');
+  gT(P, 0, 3, 20, 'BEING REDESIGNED IN ANOTHER');
+  gT(P, 0, 4, 20, 'LAB. NOTHING HERE IS A');
+  gT(P, 0, 5, 20, 'DESIGN. THE XY AND THE');
+  gT(P, 0, 6, 20, 'MODULATION PAGE ARE SLUICE\'S');
+  gT(P, 0, 7, 20, 'OWN AND THEY STAY.');
+}
+const GPAGES = {
+  /* the default face: the XY over its four corners, the fixed four, the tail, sync, clear */
+  home(P) {
+    P.list = false; P.name = 'XY';
+    const E = curE(), K = sel(), w = weights();
+    gC(P, { id: 'hm.patch', kind: 'row', tx: 0, ty: 3, tw: 20, pal: 1, txt: padName() + (presetName() ? ' / ' + presetName() : ''), rt: E && E.factory ? 'F' : !E ? 'NEW' : '', pid: 'nav', fn: { press: () => gbcGo('library') } });
+    gC(P, { id: 'hm.xy', kind: 'pad', tx: 0, ty: 4, tw: 10, th: 8, pal: 2, px0: 4, py0: 4, pw: 71, ph: 55, sel: K, x: L.pad.x, y: L.pad.y, drafts: [0, 1, 2, 3].map(isDraft), pid: 'xy',
+      fn: { getXY: () => [L.pad.x, L.pad.y], setXY: (x, y) => { L.pad.x = clamp(x, 0, 1); L.pad.y = clamp(y, 0, 1); } } });
+    for (let k = 0; k < 4; k++) {
+      const s = snapOf(E, L.pad.corners[k]);
+      gC(P, { id: 'hm.c' + k, kind: 'crow', tx: 10, ty: 4 + 2 * k, tw: 10, th: 2, pal: k === K ? 1 : 0, ch: CORNER[k], on: k === K, txt: isDraft(k) ? 'DRAFT' : s ? s.name : '-', sub: 'W' + Math.round(w[k] * 100) + '%', pid: 'corner',
+        fn: { press: () => { L.pad.x = k & 1 ? 1 : 0; L.pad.y = k & 2 ? 1 : 0; } } });
+    }
+    gT(P, 0, 12, 20, 'CORNER ' + CORNER[K] + (isDraft(K) ? ' - UNSAVED DRAFT' : ' - SNAPSHOT'), { ci: 2 });
+    S.fixed.forEach((g, j) => gKnob(P, 'hm.f' + j, j * 5, 13, g.label.length > 6 ? g.label.replace(/[^A-Za-z0-9]/g, '') : g.label, L.G[g.key], fixedTxt(g),
+      { get: () => L.G[g.key], set: v => { L.G[g.key] = clamp(v, 0, 1); }, reset: () => { L.G[g.key] = g.centre; } }, { pid: 'K/' + g.key }));
+    let x = 0; gT(P, 0, 15, 3, 'TAIL', { ci: 2 }); x = 3;
+    S.tails.forEach(t => { gBtn(P, 'hm.t' + t.name, x, 15, 2, t.label.replace('S', ''), () => setTail(t), { on: tailLit(t), pid: 'T/' + t.name }); x += 2; });
+    gTog2(P, 'hm.sync', x, 15, 3, 'SYNC', syncOn(), v => setSw('sync', v), 'K/sync'); x += 3;
+    if (syncOn()) S.family.forEach(s => { gTog2(P, 'hm.' + s.key, x, 15, 2, s.short, L.G[s.key] === s.on, v => setSw(s.key, v), 'K/' + s.key); x += 2; });
+    const A = S.actions[0];
+    if (A) gBtn(P, 'hm.act', 17, 15, 3, gbcUp(A.label).slice(0, 5), () => fireAction(A), { pid: 'A/' + A.key });
+    gMenuKey(P); gKey(P, 1, 'DICE', () => gbcGo('dice'));
+    if (isDraft(K)) gKey(P, 2, 'SAVE', () => saveCorner(K));
+    if (canRevert(K)) gKey(P, 3, 'REVERT', () => revert(K));
+  },
+  menu(P) {
+    P.name = 'MENU'; P.list = false;
+    const left = [[S.faces.play, null], ['XY', 'home'], ['RANDOMIZE', 'dice'], ['LIBRARY', 'library'], ['PRESETS', 'presets'], ['SNAPSHOTS', 'snaps'], ['GLOBAL', 'global'], ['SETTINGS', 'settings'], [S.faces.scope, 'scope']];
+    const right = [[S.faces.full, null], ['CHAINS', 'rack'], ['BUS', 'bus'], ['MODULATION', 'modsrc'], [camel(S.gateKey), 'gate']].concat(S.arrays.map(a => [camel(a.key), 'arr:' + a.key])).concat([['OUTPUT', 'output'], ['MACROS', 'macros'], ['HORDE (GB15)', 'horde']]);
+    [left, right].forEach((col, c) => col.forEach(([lab, pg], i) => {
+      if (!pg) gT(P, c * 10, 3 + i, 10, lab, { pal: 1, ci: 3, head: true });
+      else gC(P, { id: 'mn.' + pg, kind: 'row', tx: c * 10, ty: 3 + i, tw: 10, txt: lab, pid: 'nav', fn: { press: () => gbcGo(pg) } });
+    }));
+    gKey(P, 0, 'BACK', gbcBack);
+  },
+  dice(P) {
+    P.name = 'RANDOMIZE'; const k = sel(), it = pool(cur()), hot = it.filter(x => !x.locked && L.pad.thr[x.id] < L.randomness).length;
+    let y = 0;
+    gBtn(P, 'dc.new', 0, y, 7, 'NEW PATCH', randomizeNewPatch, { pid: 'dice' });
+    gBtn(P, 'dc.one', 7, y, 7, 'VALUES > ' + CORNER[k], () => { randomizeCorner(k); L.clicks++; }, { pid: 'dice' });
+    gBtn(P, 'dc.all', 14, y, 6, 'ALL FOUR', randomizeAll, { pid: 'dice' }); y++;
+    gSld(P, 'dc.r', 0, y, 20, 'RANDOMNESS', 11, L.randomness, L.randomness.toFixed(2), 5, v => { L.randomness = clamp(v, 0, 1); }, { pid: 'dice' }); y++;
+    gT(P, 0, y++, 20, Object.keys(L.pad.thr).length ? hot + ' OF ' + it.length + ' NUMBERS WOULD MOVE' : it.length + ' NUMBERS IN THE POOL', { ci: 2 });
+    gH(P, y++, 'TYPES THE DICE MAY DRAW');
+    S.offered.forEach((t, i) => gTog(P, 'dc.x' + i, (i % 2) * 10, y + (i >> 1), 10, t, !L.excl.includes(t), () => toggleExcl(t), { pid: 'X/' + t }));
+    y += Math.ceil(S.offered.length / 2);
+    gT(P, 0, y++, 20, 'MOCK: HORDE\'S SEEDED DICE, NOT SLUICE\'S', { ci: 2 });
+    gMenuKey(P); gBackKey(P);
+  },
+  library(P) {
+    P.name = 'LIBRARY';
+    const tags = []; L.lib.forEach(e => (e.tags || []).forEach(t => { if (!tags.includes(t)) tags.push(t); }));
+    const vals = [''].concat(tags), shown = L.lib.filter(e => !L.tag || (e.tags || []).includes(L.tag));
+    let y = 0;
+    gCyc(P, 'lb.tag', 0, y++, 20, 'TAG', 4, (L.tag || 'ALL') + ' ' + shown.length, () => { L.tag = cycleOf(vals, L.tag, -1); }, () => { L.tag = cycleOf(vals, L.tag, 1); }, { pid: 'tags' });
+    const row = e => { const here = L.pad.eid === e.id;
+      gC(P, { id: 'lb.' + e.id, kind: 'row', tx: 0, ty: y, tw: e.factory ? 20 : 17, txt: e.name, rt: e.snaps.length + (e.factory ? ' F' : ''), on: here, pid: 'load', fn: { press: () => loadEntry(e) } });
+      if (!e.factory) gBtn(P, 'lb.x.' + e.id, 17, y, 3, 'X', () => deleteEntry(e.id), { pid: 'lib' });
+      y++; };
+    if (L.lib.some(e => !e.factory)) gBtn(P, 'lb.all', 0, y++, 10, 'EXPORT ALL YOURS', libExportAll, { pid: 'lib' });
+    if (!L.pad.eid) gT(P, 0, y++, 20, 'UNSAVED PATCH - PLAYING', { ci: 2 });
+    shown.filter(e => !e.factory).forEach(row);
+    if (shown.some(e => e.factory)) gH(P, y++, 'FACTORY - READ ONLY');
+    shown.filter(e => e.factory).forEach(row);
+    gMenuKey(P); gKey(P, 1, 'EXPORT', libExport); if ($('jsonBox') && $('jsonBox').value) gKey(P, 2, 'IMPORT', libImport); gBackKey(P);
+  },
+  presets(P) {
+    const E = curE(); P.name = 'PRESETS'; let y = 0;
+    gBtn(P, 'pr.save', 0, y, 10, 'SAVE PRESET', () => savePreset(false), { pid: 'preset' });
+    gBtn(P, 'pr.new', 10, y, 10, 'SAVE AS NEW', () => savePreset(true), { pid: 'preset' }); y++;
+    if (E) {
+      if (!E.factory) gBtn(P, 'pr.pn', 0, y++, 10, 'NAME THE PATCH', () => gbcName('patch'), { pid: 'preset' });
+      if (!E.factory) gCyc(P, 'pr.tags', 0, y++, 20, 'TAGS', 5, (E.tags || []).join(' ') || '-', () => gbcName('tags'), () => gbcName('tags'), { pid: 'tags' });
+      E.presets.forEach(pr => {
+        const own = !E.factory, multi = E.presets.length > 1;
+        gC(P, { id: 'pr.' + pr.pid, kind: 'row', tx: 0, ty: y, tw: own ? (multi ? 14 : 17) : 20, txt: pr.name, on: E.open === pr.pid, pid: 'load', fn: { press: () => { openPreset(E, pr); say('PRESET ' + pr.name); } } });
+        if (own) gBtn(P, 'pr.n.' + pr.pid, multi ? 14 : 17, y, 3, 'NAME', () => gbcName('preset', pr.pid), { pid: 'preset' });
+        if (own && multi) gBtn(P, 'pr.x.' + pr.pid, 17, y, 3, 'X', () => { E.presets = E.presets.filter(q => q !== pr); if (E.open === pr.pid) E.open = E.presets[0].pid; }, { pid: 'preset' });
+        y++;
+      });
+    } else gT(P, 0, y++, 20, 'SAVE THE PATCH TO KEEP PRESETS', { ci: 2 });
+    gMenuKey(P); gBackKey(P);
+  },
+  snaps(P) {
+    const E = curE(), K = sel(); P.name = 'SNAPSHOTS'; let y = 0;
+    for (let k = 0; k < 4; k++) {
+      const s = snapOf(E, L.pad.corners[k]);
+      gChip(P, 'sn.c' + k, 0, y, CORNER[k], () => { L.pad.x = k & 1 ? 1 : 0; L.pad.y = k & 2 ? 1 : 0; }, { on: k === K, bold: true, pid: 'corner' });
+      gT(P, 1, y, 19, CORNER[k] + ' ' + (isDraft(k) ? 'DRAFT' : s ? s.name : '-'), { ci: k === K ? 3 : 2 });
+      y++;
+    }
+    if (E) {
+      gH(P, y, 'NAME'); CORNER.forEach((ch, k) => gT(P, 12 + k, y, 1, ch, { pal: 1, ci: 3 })); y++;
+      E.snaps.forEach(s => {
+        const own = !E.factory;
+        if (own) gBtn(P, 'sn.n.' + s.sid, 0, y, 12, s.name, () => gbcName('snap', s.sid), { pid: 'snap', left: true });
+        else gT(P, 0, y, 12, s.name);
+        /* GUI-21: a snapshot on another chain can't go on this XY, so it has no chips */
+        if (sigOf(s.patch) === sigOf(cur())) for (let k = 0; k < 4; k++) { const bd = L.pad.corners[k] === s.sid; gChip(P, 'sn.t' + k + '.' + s.sid, 12 + k, y, CORNER[k], () => bindTo(k, s.sid), { on: bd && k === K, bold: bd, dash: !bd, pid: 'bind' }); }
+        if (own && E.snaps.length > 1) gBtn(P, 'sn.x.' + s.sid, 17, y, 3, 'X', () => deleteSnap(s.sid), { pid: 'snap' });
+        y++;
+      });
+    } else gT(P, 0, y++, 20, 'NOTHING SAVED YET', { ci: 2 });
+    gMenuKey(P); if (isDraft(K)) gKey(P, 1, 'SAVE', () => saveCorner(K)); if (canRevert(K)) gKey(P, 2, 'REVERT', () => revert(K)); gBackKey(P);
+  },
+  global(P) {
+    P.name = 'GLOBAL'; let y = 0;
+    S.fixed.forEach((g, j) => gSld(P, 'gl.f' + j, 0, y++, 20, g.label, 8, L.G[g.key], fixedTxt(g, true), 18, v => { L.G[g.key] = clamp(v, 0, 1); }, { pid: 'K/' + g.key, reset: () => { L.G[g.key] = g.centre; } }));
+    const ov = overrideSw(); if (ov) gTog2(P, 'gl.ov', 0, y++, 20, ov.label, L.G[ov.key] === ov.on, v => setSw(ov.key, v), 'K/' + ov.key);
+    gTog2(P, 'gl.sync', 0, y++, 20, 'SYNC', syncOn(), v => setSw('sync', v), 'K/sync');
+    if (syncOn()) S.family.forEach(s => gTog2(P, 'gl.' + s.key, 0, y++, 20, s.label, L.G[s.key] === s.on, v => setSw(s.key, v), 'K/' + s.key));
+    S.io.forEach(o => gSld(P, 'gl.' + o.key, 0, y++, 20, o.label, 8, L.G[o.key], ioTxt(o), 8, v => { L.G[o.key] = clamp(v, 0, 1); }, { pid: 'K/' + o.key }));
+    S.actions.forEach(a => gBtn(P, 'gl.a.' + a.key, 0, y++, 6, gbcUp(a.label), () => fireAction(a), { pid: 'A/' + a.key }));
+    gMenuKey(P); gBackKey(P);
+  },
+  settings(P) {
+    P.name = 'SETTINGS'; let y = 0;
+    gT(P, 0, y++, 20, 'THE INSTANCE\'S, NOT THE PATCH\'S', { ci: 2 });
+    S.device.forEach(d => {
+      const txt = v => { const i = d.values.indexOf(v); return String(d.labels ? d.labels[i] : typeof v === 'number' ? 'X' + v : v); };
+      gCyc(P, 'st.' + d.key, 0, y++, 20, d.label, 11, txt(L.dev[d.key]), () => { L.dev[d.key] = cycleOf(d.values, L.dev[d.key], -1); }, () => { L.dev[d.key] = cycleOf(d.values, L.dev[d.key], 1); }, { pid: 'D/' + d.key });
+      if (d.latency) { const r = d.latency[String(L.rate)]; if (r) gT(P, 0, y++, 20, ' LATENCY ' + r[String(L.dev[d.key])] + ' SAMPLES AT ' + (L.rate / 1000) + ' KHZ', { ci: 2 }); }
+      if (d.fixedAt) gT(P, 0, y++, 20, ' PLAYED FROM THE NEXT ACTIVATE', { ci: 2 });
+      if (d.values.indexOf('spill-over') >= 0 && S.cpu) gT(P, 0, y++, 20, ' A RINGING TAIL: UP TO ' + S.cpu + ' OF A CORE', { ci: 2 });
+    });
+    gMenuKey(P); gBackKey(P);
+  },
+  rack(P) {
+    P.name = 'CHAINS'; const p = cur(); let y = 0;
+    for (const [part, head] of [['chain', 'LOOP'], ['post', 'POST']]) {
+      const list = p[part] || [], n = list.length, cap = capOf(part);
+      gH(P, y++, head + ' ' + n + '/' + cap);
+      list.forEach((m, i) => {
+        const on = m.enabled !== false, pre = 'rk.' + part + i;
+        gBtn(P, pre + '.o', 0, y, 9, (i + 1) + ' ' + m.type, () => gbcGo('module', { mod: { part, i } }), { pid: 'nav', left: true });
+        gBtn(P, pre + '.e', 9, y, 3, on ? 'ON' : 'OFF', () => moduleEnable(part, i, !on), { on, pid: 'enabled' });
+        if (i > 0) gBtn(P, pre + '.u', 12, y, 2, '^', () => moduleMove(part, i, -1), { pid: 'move' });
+        if (i < n - 1) gBtn(P, pre + '.d', 14, y, 2, 'V', () => moduleMove(part, i, 1), { pid: 'move' });
+        if (n < cap) gBtn(P, pre + '.p', 16, y, 2, '+', () => moduleDup(part, i), { pid: 'dup' });
+        if (n > 1 || part === 'post') gBtn(P, pre + '.x', 18, y, 2, 'X', () => moduleRemove(part, i), { pid: 'remove' });
+        y++;
+      });
+      if (n < cap) {
+        const T = S.types, ai = GUI.addT[part] % T.length;
+        gCyc(P, 'rk.add.' + part, 0, y++, 20, '+ ADD', 6, T[ai], () => { GUI.addT[part] = (ai - 1 + T.length) % T.length; }, () => { GUI.addT[part] = (ai + 1) % T.length; }, { pid: 'add', fn2: { press: () => moduleAdd(part, T[ai]) } });
+      }
+    }
+    gMenuKey(P); gBackKey(P);
+  },
+  module(P) {
+    const p = cur(), part = GUI.mod.part, list = p[part] || [], i = clamp(GUI.mod.i, 0, Math.max(0, list.length - 1)), m = list[i];
+    if (!m) { gbcBackSoon(); return; }
+    const T = S.mods[m.type], on = m.enabled !== false, pre = 'md.' + part + i;
+    P.name = (part === 'post' ? 'P' : '') + (i + 1) + ' ' + m.type;
+    let y = 0;
+    gTog(P, pre + '.e', 0, y++, 20, 'ENABLED', on, v => moduleEnable(part, i, v), { pid: 'enabled' });
+    gTog(P, pre + '.l', 0, y++, 20, 'LOCKED FROM THE DICE', isLocked(m), v => allCorners(d => { d[part][i].locked = v; }), { pid: 'lock' });
+    /* GUI-21: a module that's off plays nothing, so its numbers can't act and only the switch is drawn */
+    if (on) {
+      if (part === 'chain' && S.inj) gNum(P, y++, S.inj, m, S.inj.key, { id: pre + '.in', pid: 'I/' + S.inj.key, write: x => { draftSel().chain[i][S.inj.key] = x; } });
+      T.params.forEach(e => {
+        const sync = (m.sync || {})[e.key] || '';
+        /* GUI-21: a division replaces the free number, so the free number isn't drawn while it's set */
+        if (!sync) gNum(P, y++, e, m.params, e.key, { id: pre + '.' + e.key, pid: 'M/' + m.type + '/' + e.key, write: x => { draftSel()[part][i].params[e.key] = x; } });
+        if (e.sync) {
+          const vals = [''].concat(S.divs.map(d => d.name));
+          const set = step => { const d = draftSel()[part][i], next = cycleOf(vals, sync, step); if (!d.sync) d.sync = {}; if (next) d.sync[e.key] = next; else delete d.sync[e.key]; };
+          const snap = !sync && syncOn() ? ' > ' + snapDiv(e, isNum(m.params[e.key]) ? m.params[e.key] : e.def) : '';
+          gCyc(P, pre + '.s.' + e.key, 0, y++, 20, ' SYNC', LBLW, (sync || 'FREE') + snap, () => set(-1), () => set(1), { pid: 'MS/' + m.type + '/' + e.key });
+        }
+      });
+    }
+    gMenuKey(P);
+    if (list.length > 1) { gKey(P, 1, 'PREV', () => gbcGo('module', { mod: { part, i: (i - 1 + list.length) % list.length } })); gKey(P, 2, 'NEXT', () => gbcGo('module', { mod: { part, i: (i + 1) % list.length } })); }
+    gBackKey(P, 'rack');
+  },
+  bus(P) {
+    P.name = 'BUS'; const p = cur(); let y = 0;
+    S.bus.forEach(e => {
+      const g = p[e.grp] || {};
+      if (e.bool) gTog(P, 'bs.' + e.key, 0, y++, 20, e.short, isNum(g[e.key]) ? !!g[e.key] : !!e.def, v => allCorners(d => { d[e.grp] = Object.assign(d[e.grp] || {}, { [e.key]: v ? 1 : 0 }); }), { pid: 'B/' + e.key });
+      else gNum(P, y++, e, g, e.key, { id: 'bs.' + e.key, pid: 'B/' + e.key, write: x => { const d = draftSel(); if (!d[e.grp]) d[e.grp] = {}; d[e.grp][e.key] = x; } });
+    });
+    gMenuKey(P); gBackKey(P);
+  },
+  modsrc(P) {
+    P.name = 'MODULATION'; const p = cur(); let y = 0;
+    const targets = ['off'].concat(moduleTargets(p));
+    S.srcs.forEach(s => {
+      const o = p[s.patchKey] || {}, t = o.target && o.target !== 'off' ? o.target : 'off', live = t !== 'off';
+      const wr = fn => { const d = draftSel(); if (!d[s.patchKey]) d[s.patchKey] = { target: 'off' }; fn(d[s.patchKey]); };
+      /* a source's target and shape are structure in the manifest, so they go to all four corners */
+      const wrAll = fn => allCorners(d => { if (!d[s.patchKey]) d[s.patchKey] = { target: 'off' }; fn(d[s.patchKey]); });
+      const aim = st => { const n = cycleOf(targets, t, st); wrAll(q => { q.target = n; s.fields.forEach(e => { if (!isNum(q[e.key])) q[e.key] = e.def; }); }); };
+      gH(P, y++, s.name);
+      gCyc(P, 'ms.' + s.key + '.t', 0, y++, 20, 'TARGET', 7, targetLabel(p, t), () => aim(-1), () => aim(1), { pid: 'S/' + s.key + '/target' });
+      /* GUI-21: with no target the source does nothing, so only the target is drawn */
+      if (!live) return;
+      if (s.shapes) gCyc(P, 'ms.' + s.key + '.sh', 0, y++, 20, 'SHAPE', 7, o.shape || s.shapes[0], () => wrAll(q => { q.shape = cycleOf(s.shapes, o.shape || s.shapes[0], -1); }), () => wrAll(q => { q.shape = cycleOf(s.shapes, o.shape || s.shapes[0], 1); }), { pid: 'S/' + s.key + '/shape' });
+      const synced = s.canSync && !!o.sync;
+      s.fields.forEach(e => {
+        /* GUI-21: a division replaces the free rate */
+        if (synced && e.key === 'rate') return;
+        gNum(P, y++, e, o, e.key, { id: 'ms.' + s.key + '.' + e.key, pid: 'S/' + s.key + '/' + e.key, write: x => wr(q => { q[e.key] = x; }) });
+      });
+      if (s.canSync) { const vals = [''].concat(S.divs.map(d => d.name)); const set = st => wr(q => { const n = cycleOf(vals, o.sync || '', st); if (n) q.sync = n; else delete q.sync; }); gCyc(P, 'ms.' + s.key + '.sy', 0, y++, 20, 'SYNC', 7, o.sync || 'FREE', () => set(-1), () => set(1), { pid: 'S/' + s.key + '/sync' }); }
+    });
+    gMenuKey(P); gBackKey(P);
+  },
+  gate(P) {
+    P.name = camel(S.gateKey); const g = gateNow(); let y = 0;
+    S.tails.forEach((t, i) => gBtn(P, 'gt.t' + t.name, i * 4, y, 4, t.label, () => setTail(t), { on: tailLit(t), pid: 'T/' + t.name })); y++;
+    if (g && !S.tails.some(tailLit)) gT(P, 0, y++, 20, 'A DESIGNED ' + camel(S.gateKey) + ': NO BUTTON LIT', { ci: 2 });
+    /* GUI-21: with no gate these numbers can't act */
+    if (g) S.gate.forEach(e => gNum(P, y++, e, g, e.key, { id: 'gt.' + e.key, pid: 'GT/' + e.key, write: x => gateWrite(e.key, x) }));
+    gMenuKey(P); gBackKey(P);
+  },
+  output(P) {
+    P.name = 'OUTPUT'; const p = cur(); let y = 0;
+    S.nums.forEach(e => gNum(P, y++, e, p, e.key, { id: 'ou.' + e.key, pid: 'P/' + e.key, write: x => { draftSel()[e.key] = x; } }));
+    S.bools.forEach(e => gTog(P, 'ou.' + e.key, 0, y++, 20, e.short, isNum(p[e.key]) ? !!p[e.key] : !!e.def, v => allCorners(d => { d[e.key] = v ? 1 : 0; }), { pid: 'P/' + e.key }));
+    gBtn(P, 'ou.norm', 0, y++, 8, 'NORMALIZE', () => say('NORMALIZE NEEDS THE ENGINE'), { pid: 'normalize' });
+    gT(P, 0, y++, 20, 'MOCK: IT CAN\'T MEASURE WITH NO AUDIO', { ci: 2 });
+    gMenuKey(P); gBackKey(P);
+  },
+  macros(P) {
+    P.name = 'MACROS'; const p = cur(); let y = 0;
+    gT(P, 0, y++, 20, 'A MOVE CHANGES NO SNAPSHOT', { ci: 2 });
+    for (let k = 0; k < KNOBS; k++) {
+      const M = macroOf(p, k);
+      if (M) { gSld(P, 'mc.v' + k, 0, y, 16, M.label, 8, L.pad.mv[k], Math.round(L.pad.mv[k] * 100) + '%', 4, v => setMacro(k, v), { pid: 'macro' }); gBtn(P, 'mc.e' + k, 16, y, 4, 'EDIT', () => gbcGo('medit', { mk: k, bi: 0 }), { pid: 'nav' }); y++; }
+      else if (k === (p.macros || []).length && macroTargets(p).length) { gBtn(P, 'mc.a' + k, 0, y++, 8, '+ MACRO ' + (k + 1), () => { addMacro(); gbcGo('medit', { mk: k, bi: 0 }); }, { pid: 'assign' }); }
+    }
+    /* where the fixed knobs sit when centred, per snapshot; Sluice's own page keeps them with the macros */
+    gH(P, y++, 'THE FIXED KNOBS\' CENTRES');
+    S.homeE.forEach(e => gNum(P, y++, e, p.home || {}, e.key, { id: 'mc.h.' + e.key, pid: 'H/' + e.key, write: x => { const d = draftSel(); if (!d.home) d.home = {}; d.home[e.key] = x; } }));
+    gMenuKey(P); gBackKey(P);
+  },
+  medit(P) {
+    const p = cur(), k = clamp(GUI.mk, 0, KNOBS - 1), M = macroOf(p, k), tg = macroTargets(p); P.name = 'MACRO ' + (k + 1);
+    gMenuKey(P); gBackKey(P, 'macros');
+    if (!M) { gbcBackSoon(); return; }
+    let y = 0;
+    gBtn(P, 'me.nm', 0, y, 14, M.label, () => gbcName('macro', k), { pid: 'label', left: true });
+    gBtn(P, 'me.rm', 14, y, 6, 'REMOVE', () => { removeMacro(k); gbcGo('macros'); }, { pid: 'assign' }); y++;
+    M.bindings.forEach((bd, bi) => {
+      const pick = S.curves.filter(c => c !== 'breakpoints'), cu = typeof bd.curve === 'string' ? bd.curve : bd.curve ? 'breakpoints' : (S.curves[0] || 'lin');
+      const setT = st => { const n = cycleOf(tg, bd.target, st); allCorners(q => { const b = q.macros[k].bindings[bi]; b.target = n; b.lo = 0; b.hi = macroRangeDefault(q, n); }); };
+      gCyc(P, 'me.t' + bi, 0, y, 11, '', 0, targetLabel(p, bd.target), () => setT(-1), () => setT(1), { pid: 'target' });
+      if (cu !== 'breakpoints') { const setC = st => { const n = cycleOf(pick, cu, st); allCorners(q => { q.macros[k].bindings[bi].curve = n; }); }; gCyc(P, 'me.c' + bi, 11, y, 5, '', 0, cu, () => setC(-1), () => setC(1), { pid: 'curve' }); }
+      else gT(P, 11, y, 5, 'BKPTS', { ci: 2 });
+      gBtn(P, 'me.s' + bi, 16, y, 2, 'R', () => { GUI.bi = bi; }, { on: bi === clamp(GUI.bi, 0, M.bindings.length - 1), pid: 'nav' });
+      if (M.bindings.length > 1) gBtn(P, 'me.x' + bi, 18, y, 2, 'X', () => { allCorners(q => { q.macros[k].bindings.splice(bi, 1); }); GUI.bi = 0; }, { pid: 'target' });
+      y++;
+    });
+    if (tg.length) gBtn(P, 'me.ab', 0, y++, 8, '+ BINDING', () => { allCorners(q => { q.macros[k].bindings.push({ target: tg[0], lo: 0, hi: macroRangeDefault(q, tg[0]) }); }); }, { pid: 'target' });
+    const bi0 = clamp(GUI.bi, 0, M.bindings.length - 1), b0 = M.bindings[bi0];
+    if (b0) {
+      gH(P, y++, 'RANGE: ' + targetLabel(p, b0.target));
+      const e = targetEntry(p, b0.target), span = e ? (e.taper === 'log' ? 3 : (e.max - e.min)) : 1, rngE = { min: -span, max: span, def: 0, taper: 'lin', unit: e && e.taper === 'log' ? 'OC' : (e ? e.unit : '') };
+      for (let j = 0; j < 4; j++) {
+        const pj = patchAt(j), q = pj.macros && pj.macros[k] && pj.macros[k].bindings[bi0]; if (!q) continue;
+        for (const [side, x, lab] of [['lo', 0, CORNER[j] + ' MIN'], ['hi', 10, 'MAX']]) {
+          gSld(P, 'me.' + side + j, x, y, 10, lab, lab.length, toPos(rngE, q[side]), fmtNum(q[side], rngE), 5, t => { draftOf(j).macros[k].bindings[bi0][side] = fromPos(rngE, t); }, { pid: 'range', pal: j === sel() ? 1 : 0 });
+        }
+        y++;
+      }
+    }
+  },
+  /* the third face: traces only. All of it is a mock; a frame count drives it. */
+  scope(P) {
+    P.name = S.faces.scope; const f = GL.frame, pts = [], env = [], tr = [];
+    for (let i = 0; i < 152; i++) pts.push(Math.exp(-i / 60) * (0.55 + 0.45 * Math.sin(i * 0.31 + f * 0.05) * Math.sin(i * 0.07)));
+    for (let i = 0; i < 152; i++) env.push(Math.exp(-i / 34));
+    for (let i = 0; i < 152; i++) { const u = (i + f) % 150; tr.push(u < 12 ? u / 12 : Math.exp(-(u - 12) / 30)); }
+    gT(P, 0, 0, 20, 'MOCK TRACES - NOT SLUICE\'S OUTPUT', { ci: 3, pal: 3 });
+    gT(P, 0, 1, 20, 'SPECTRUM', { ci: 2 }); gC(P, { id: 'sc.a', kind: 'scope', nf: true, tx: 0, ty: 2, tw: 20, th: 3, pal: 2, pts });
+    gT(P, 0, 5, 20, 'IMPULSE RESPONSE', { ci: 2 }); gC(P, { id: 'sc.b', kind: 'scope', nf: true, tx: 0, ty: 6, tw: 20, th: 3, pal: 2, env });
+    gT(P, 0, 9, 20, 'FOLLOWER AND GATE, LAST 3 S', { ci: 2 }); gC(P, { id: 'sc.c', kind: 'scope', nf: true, tx: 0, ty: 10, tw: 20, th: 3, pal: 2, env: tr });
+    gMenuKey(P); gBackKey(P);
+  },
+  horde(P) { P.name = 'HORDE'; hordePlaceholder(P); gMenuKey(P); gBackKey(P); },
+  name(P) {
+    const N = GUI.name || { what: 'patch', text: '' }; P.name = 'NAME ' + String(N.what).toUpperCase();
+    gT(P, 0, 0, 20, N.text + '_', { pal: 1 });
+    const put = ch => { if (N.text.length < 24) N.text += ch; };
+    GNAME_ROWS.forEach((row, r) => [...row].forEach((ch, i) => gC(P, { id: 'nm.' + r + '.' + i, kind: 'char', tx: i, ty: 2 + 2 * r, ch, fn: { press: () => put(ch) } })));
+    const del = () => { N.text = N.text.slice(0, -1); }, ok = () => { nameDone(N); gbcBack(); };
+    gKey(P, 0, 'CANCEL', gbcBack); gKey(P, 1, 'DEL', del); gKey(P, 2, 'SPACE', () => put(' ')); gKey(P, 3, 'OK', ok);
+  },
+};
+function gTog2(P, id, tx, ty, tw, lab, on, set, pid) {
+  /* a short switch draws as a button; a whole row as a labelled toggle */
+  if (tw < 10) gBtn(P, id, tx, ty, tw, lab, () => set(!on), { on, pid }); else gTog(P, id, tx, ty, tw, lab, on, set, { pid });
+}
+function setSw(key, on) { const s = S.switches.find(x => x.key === key); if (s) L.G[key] = on ? s.on : s.off; }
+/* the list page for a patch-level array of numbers: registered at load, because its name is the manifest's */
+function arrayPage(a) {
+  GPAGES['arr:' + a.key] = P => {
+    P.name = camel(a.key); const p = cur(), obj = p[a.key] || {}; let y = 0;
+    a.items.forEach(e => gNum(P, y++, e, obj, e.key, { id: 'ar.' + e.key, pid: 'A:' + a.key + '/' + e.key, write: x => { const d = draftSel(); if (!d[a.key]) d[a.key] = {}; d[a.key][e.key] = x; } }));
+    gMenuKey(P); gBackKey(P);
+  };
+}
+let backSoon = false;
+function gbcBackSoon() { backSoon = true; }
+function gbcName(what, id) {
+  const E = curE(); let text = '';
+  if (what === 'tags') text = (E.tags || []).join(' ');
+  else if (what === 'patch') text = E ? E.name : '';
+  else if (what === 'macro') text = (macroOf(cur(), id) || {}).label || '';
+  else if (what === 'preset') text = (E.presets.find(p => p.pid === id) || {}).name || '';
+  else if (what === 'snap') text = (snapOf(E, id) || {}).name || '';
+  GUI.name = { what, id, text }; gbcGo('name');
+}
+function nameDone(N) {
+  const E = curE(), t = N.text.trim(); if (!t && N.what !== 'tags') return;
+  if (N.what !== 'macro' && !E) return;
+  if (N.what === 'patch') { if (t !== E.name) E.name = uniqueName(t); }
+  else if (N.what === 'tags') E.tags = t.toLowerCase().split(/\s+/).filter(Boolean).slice(0, 4);
+  else if (N.what === 'macro') allCorners(q => { q.macros[N.id].label = t; });
+  else if (N.what === 'preset') { const p = E.presets.find(q => q.pid === N.id); if (p) p.name = t; }
+  else if (N.what === 'snap') { if (!E.snaps.some(s => s.name === t && s.sid !== N.id)) { const s = snapOf(E, N.id); if (s) s.name = t; } else say('A SNAPSHOT HAS THAT NAME'); }
+}
+function exportEntry(e) { const idx = sid => Math.max(0, e.snaps.findIndex(s => s.sid === sid)), any = L.lib.find(x => x.format) || {}; return { format: e.format || any.format, v: e.fv || any.fv, name: e.name, tags: e.tags, snaps: e.snaps.map(s => ({ name: s.name, patch: s.patch })), corners: (L.pad.eid === e.id ? L.pad.corners : e.corners).map(idx), presets: e.presets.map(p => ({ name: p.name, corners: p.corners.map(idx), xy: p.xy, tail: p.tail })) }; }
+function libExport() { const e = curE(), b = $('jsonBox'); if (!e) { say('SAVE THE PATCH FIRST'); return; } b.value = JSON.stringify(exportEntry(e)); say('EXPORTED TO THE BOX'); }
+function libExportAll() { $('jsonBox').value = JSON.stringify({ patches: L.lib.filter(e => !e.factory).map(exportEntry) }); say('EXPORTED TO THE BOX'); }
+function libImport() {
+  const b = $('jsonBox'); let d; try { d = JSON.parse(b.value); } catch (e) { say('THE BOX ISN\'T A PATCH FILE'); return; }
+  const list = (d && Array.isArray(d.patches) ? d.patches : [d]).filter(x => x && Array.isArray(x.snaps) && x.snaps.length);
+  if (!list.length) { say('THE BOX ISN\'T A PATCH FILE'); return; }
+  let last = null; list.forEach(x => { const e = entryFromFile(x, null); e.name = uniqueName(x.name || 'IMPORT'); L.lib.unshift(e); last = e; });
+  loadEntry(last); say('IMPORTED ' + list.length);
+}
+/* ---- the view model ---- */
+function gbcVM(o) {
+  o = o || {};
+  const page = o.page || GUI.page, P = gP(page, page, true);
+  backSoon = false;
+  (GPAGES[page] || GPAGES.home)(P);
+  const foot = cur();
+  for (let k = 0; k < KNOBS; k++) {
+    const M = macroOf(foot, k);
+    if (M) gC(P, { id: 'fm' + k, kind: 'macro', tx: k * 5, ty: 16, tw: 5, th: 1, abs: true, lab: M.label, v: L.pad.mv[k], bx0: 2, bx1: 38, pid: 'macro', fn: { get: () => L.pad.mv[k], set: v => setMacro(k, v) } });
+  }
+  P.keys.forEach((K, j) => { if (K && K.fn) gC(P, { id: 'key' + j, kind: 'key', tx: j * 5, ty: 17, tw: 5, th: 1, abs: true, lab: K.label, fn: { press: K.fn } }); });
+  const live = !o.page || o.page === GUI.page, foc = P.ctrls.filter(c => !c.nf);
+  let fid = o.fid !== undefined ? o.fid : live ? GUI.fid : '';
+  const f = foc.find(c => c.id === fid) || foc[0] || null;
+  let scroll = live ? (GUI.scroll[page] || 0) : 0;
+  if (o.scroll !== undefined) scroll = o.scroll;
+  const body = P.ctrls.filter(c => !c.abs), maxY = body.reduce((a, c) => Math.max(a, c.ty + c.th), 0);
+  if (f && !f.abs && o.scroll === undefined) { if (f.ty < scroll) scroll = f.ty; if (f.ty + f.th > scroll + BODY_ROWS) scroll = f.ty + f.th - BODY_ROWS; }
+  scroll = clamp(scroll, 0, Math.max(0, maxY - BODY_ROWS));
+  if (live && o.fid === undefined && o.scroll === undefined) { GUI.scroll[page] = scroll; if (f) GUI.fid = f.id; }
+  /* a mouse needs a way down a long page, and there's no wheel here (B301). Each arrow exists only when it can move; they aren't Tab stops, because focus scrolls by itself. */
+  const pageBy = d => { const ns = clamp(scroll + d * (BODY_ROWS - 1), 0, maxY - BODY_ROWS), t = body.filter(c => !c.nf).find(c => c.ty >= ns); GUI.scroll[page] = ns; GUI.fid = t ? t.id : ''; };
+  if (maxY > BODY_ROWS) {
+    if (scroll > 0) gC(P, { id: 'sc.up', kind: 'arrow', nf: true, abs: true, tx: 18, ty: 2, ch: '^', fn: { press: () => pageBy(-1) } });
+    if (scroll + BODY_ROWS < maxY) gC(P, { id: 'sc.dn', kind: 'arrow', nf: true, abs: true, tx: 19, ty: 2, ch: 'V', fn: { press: () => pageBy(1) } });
+  }
+  for (const c of P.ctrls) { c.sy = c.abs ? c.ty : BODY_Y0 + c.ty - scroll; c.vis = c.abs || (c.sy >= BODY_Y0 && c.sy + c.th <= BODY_Y0 + BODY_ROWS); }
+  const vm = { page, name: P.name, ctrls: P.ctrls, scroll, maxY, focus: f ? f.id : '', hover: o.hover !== undefined ? o.hover : live ? GUI.hover : '', grab: live && GUI.grab && !!f && f.kind === 'pad',
+    more: maxY > BODY_ROWS, msg: L.msg && GL.frame < L.msgUntil ? L.msg : '' };
+  vm.byId = {}; for (const c of P.ctrls) vm.byId[c.id] = c;
+  vm.order = P.ctrls.filter(c => !c.nf);
+  vm.vis = P.ctrls.filter(c => c.vis && (!c.nf || c.kind === 'arrow'));
+  return vm;
+}
+
+/* ================================================================ G. DRAWING (reads the vm, never the state) */
+function gRing(b, cx, cy, r, colour) { let x = r, y = 0, e = 1 - r; while (x >= y) { for (const [dx, dy] of [[x, y], [y, x], [-y, x], [-x, y], [-x, -y], [-y, -x], [y, -x], [x, -y]]) { const c = colour(dx, dy); if (c >= 0) b.px(cx + dx, cy + dy, c); } y++; if (e < 0) e += 2 * y + 1; else { x--; e += 2 * (y - x) + 1; } } }
+function gDisc(b, cx, cy, r, c) { for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (dx * dx + dy * dy <= r * r + r) b.px(cx + dx, cy + dy, c); }
+function gChipDraw(b, X, Y, sz, ch, on, dash, bold) {
+  const r = sz === 2 ? 6 : 3, cx = X + r + (sz === 2 ? 1 : 0), cy = Y + r + (sz === 2 ? 1 : 0);
+  if (on) gDisc(b, cx, cy, r, 2); else gRing(b, cx, cy, r, (dx, dy) => dash && ((dx + dy) & 1) ? -1 : bold ? 3 : 2);
+  if (sz === 2) b.text(ch, cx - 1, cy - 2, on ? 0 : 3);
+}
+function gKnobDraw(b, X, Y, v) {
+  const cx = X + 7, cy = Y + 7, r = 6, a1 = -140 + 280 * clamp(v, 0, 1);
+  gRing(b, cx, cy, r, (dx, dy) => { const a = Math.atan2(dx, -dy) * 180 / Math.PI; return Math.abs(a) > 140 ? 1 : a <= a1 ? 2 : 3; });
+  const t = a1 * Math.PI / 180; for (let s = 0; s <= 4; s++) b.px(Math.round(cx + Math.sin(t) * s), Math.round(cy - Math.cos(t) * s), 3);
+}
+function gPadDraw(b, c, X, Y) {
+  const x0 = X + c.px0, y0 = Y + c.py0, w = c.pw, h = c.ph, PX = v => x0 + Math.round(clamp(v, 0, 1) * w), PY = v => y0 + Math.round(clamp(v, 0, 1) * h);
+  const qx = c.sel & 1 ? 0.5 : 0, qy = c.sel & 2 ? 0.5 : 0;
+  for (let j = PY(qy); j <= PY(qy + 0.5); j++) for (let i = PX(qx); i <= PX(qx + 0.5); i++) if ((i + j) & 1) b.px(i, j, 1);
+  for (let q = 1; q < 4; q++) { b.line(PX(q / 4), PY(0), PX(q / 4), PY(1), 1, true); b.line(PX(0), PY(q / 4), PX(1), PY(q / 4), 1, true); }
+  b.box(x0, y0, w + 1, h + 1, 3);
+  [[0, 0], [1, 0], [0, 1], [1, 1]].forEach(([u, v], k) => {
+    const cx = PX(u) + (u ? -4 : 4), cy = PY(v) + (v ? -4 : 4), on = k === c.sel, dr = c.drafts[k];
+    b.rect(cx - 3, cy - 3, 7, 7, 0);
+    if (on) gDisc(b, cx, cy, 3, 2); else gRing(b, cx, cy, 3, (dx, dy) => dr && ((dx + dy) & 1) ? -1 : 3);
+    b.text(CORNER[k], cx - 1, cy - 2, on ? 0 : 3);
+  });
+  const cx = PX(c.x), cy = PY(c.y);
+  b.rect(cx - 3, cy, 7, 1, 3); b.rect(cx, cy - 3, 1, 7, 3); b.rect(cx - 1, cy - 1, 3, 3, 2); b.px(cx, cy, 3);
+}
+function gCtlDraw(b, c) {
+  const X = c.tx * 8, Y = c.sy * 8, W = c.tw * 8, H = c.th * 8, n = w => Math.max(1, Math.floor(w / 4));
+  const fit = (s, px) => gbcFit(s, n(px));
+  switch (c.kind) {
+    case 'text': if (c.head) b.rect(X, Y, W, H, 1); if (c.txt) b.text(fit(c.txt, W - 2), X + 2, Y + 2, c.ci === undefined ? 3 : c.ci); break;
+    case 'row': { if (c.on) b.rect(X, Y, W, H, 1); const rt = c.rt ? gbcUp(c.rt) : ''; b.text(fit(c.txt, W - 4 - rt.length * 4 - (rt ? 4 : 0)), X + 2, Y + 2, 3); if (rt) b.text(rt, X + W - 1 - rt.length * 4, Y + 2, 2); break; }
+    case 'key': { const lab = fit(c.lab, W - 6); b.rect(X + 4, Y + 1, W - 8, 7, 2); b.ctext(lab, X + W / 2, Y + 2, 0); break; }
+    case 'btn': {
+      const lab = fit(c.lab, W - 4);   // a row of buttons keeps one clear line between them, so a column of them doesn't read as one bar
+      if (c.on) { b.rect(X + 1, Y, W - 2, H - 1, 2); b.ctext(lab, X + W / 2, Y + 1, 0); }
+      else { b.box(X + 1, Y, W - 2, H - 1, 2); if (c.left) b.text(lab, X + 3, Y + 1, 3); else b.ctext(lab, X + W / 2, Y + 1, 3); }
+      break;
+    }
+    case 'toggle': { b.text(fit(c.lab, W - 30), X + 2, Y + 2, 3); if (c.on) { b.rect(X + W - 24, Y, 22, H - 1, 2); b.ctext('ON', X + W - 13, Y + 1, 0); } else { b.box(X + W - 24, Y, 22, H - 1, 1); b.ctext('OFF', X + W - 13, Y + 1, 3); } break; }
+    case 'cycle': { const lx = c.lw ? 4 + c.lw * 4 : 2; if (c.lab) b.text(fit(c.lab, lx - 4), X + 2, Y + 2, 3); b.text('<', X + lx, Y + 2, 2); b.text('>', X + W - 5, Y + 2, 2); b.ctext(fit(c.txt, W - lx - 12), X + (lx + W - 2) / 2, Y + 2, 3); break; }
+    case 'slider': {
+      if (c.lab) b.text(fit(c.lab, c.bx0 - 2), X + 2, Y + 2, 3);
+      const x0 = X + c.bx0, x1 = X + c.bx1; b.box(x0, Y + 2, x1 - x0, 4, 1); b.rect(x0 + 1, Y + 3, Math.round((x1 - x0 - 2) * c.v), 2, 2);
+      b.px(x0 + 1 + Math.round((x1 - x0 - 3) * c.v), Y + 1, 3); b.px(x0 + 1 + Math.round((x1 - x0 - 3) * c.v), Y + 6, 3);
+      if (c.vw) { const t = fit(c.txt, c.vw * 4); b.text(t, X + W - 1 - t.length * 4, Y + 2, 3); }
+      break;
+    }
+    case 'knob': gKnobDraw(b, X, Y, c.v); b.text(gbcUp(c.lab).slice(0, n(W - 16)), X + 16, Y + 2, 3); b.text(fit(c.txt, W - 16), X + 16, Y + 9, 2); break;
+    case 'macro': { b.text(fit(c.lab, W - 3), X + 2, Y, 3); b.rect(X + 2, Y + 6, W - 4, 1, 1); b.rect(X + 2, Y + 6, Math.round((W - 4) * c.v), 1, 2); b.rect(X + 2 + Math.round((W - 5) * c.v), Y + 5, 1, 3, 3); break; }
+    case 'chip': gChipDraw(b, X, Y, c.sz, c.ch, c.on, c.dash, c.bold); break;
+    case 'crow': if (c.on) b.rect(X, Y, W, H, 1); b.rect(X + 1, Y + 1, 14, 14, 0); gChipDraw(b, X + 1, Y + 1, 2, c.ch, c.on, false, true); b.text(fit(c.txt, W - 18), X + 18, Y + 2, 3); b.text(fit(c.sub, W - 18), X + 18, Y + 9, 2); break;
+    case 'char': b.ctext(c.ch, X + 4, Y + 2, 3); break;
+    case 'arrow': b.rect(X + 1, Y + 1, W - 2, H - 2, 1); b.ctext(c.ch, X + 4, Y + 2, 3); break;
+    case 'pad': gPadDraw(b, c, X, Y); break;
+    case 'scope': {
+      b.box(X, Y, W, H, 1); const mid = Y + H / 2;
+      if (c.pts) for (let i = 1; i < c.pts.length; i++) b.line(X + 3 + i - 1, Math.round(mid - c.pts[i - 1] * (H / 2 - 3)), X + 3 + i, Math.round(mid - c.pts[i] * (H / 2 - 3)), 2);
+      if (c.env) for (let i = 1; i < c.env.length; i++) b.line(X + 3 + i - 1, Y + H - 3 - Math.round(c.env[i - 1] * (H - 6)), X + 3 + i, Y + H - 3 - Math.round(c.env[i] * (H - 6)), 2);
+      break;
+    }
+  }
+}
+function gRingRect(b, c, dotted) {
+  const X = c.tx * 8, Y = c.sy * 8, W = c.tw * 8, H = c.th * 8;
+  for (let i = 0; i < W; i++) if (!dotted || !(i & 1)) { b.px(X + i, Y, 2); b.px(X + i, Y + H - 1, 2); }
+  for (let j = 0; j < H; j++) if (!dotted || !(j & 1)) { b.px(X, Y + j, 2); b.px(X + W - 1, Y + j, 2); }
+}
+/* the header's right side: the face and page above, the patch or a message below. Rows 0 and 1 stop at
+   x = 144, because (144, 0) to (159, 15) is the empty icon slot (ADR-305). */
+function gbcDraw(b, vm) {
+  b.clear();
+  b.text(gbcFit(vm.name, 10), 104, 2, 3);   // ten characters end at x = 143
+  const info = vm.msg || (padName() + (L.pad.eid ? '' : '!'));
+  b.text(gbcFit(info, vm.more ? 10 : 14), 104, 17, vm.msg ? 2 : 3);
+  const shown = vm.ctrls.filter(c => c.vis);
+  for (const c of shown) b.pal(c.tx, c.sy, c.tw, c.th, c.pal);
+  for (const c of shown) gCtlDraw(b, c);
+  const f = vm.byId[vm.focus], h = vm.byId[vm.hover];
+  if (h && h.vis && h !== f) gRingRect(b, h, true);
+  if (f && f.vis) { b.pal(f.tx, f.sy, f.tw, f.th, 3); gRingRect(b, f, false); if (vm.grab) { const X = f.tx * 8 + 2, Y = f.sy * 8 + 2; b.box(X, Y, f.tw * 8 - 4, f.th * 8 - 4, 2); } }
+}
+function gbcFrame(vm, theme, titlePx) {
+  const b = GL.buf || (GL.buf = new GBuf()); gbcDraw(b, vm);
+  const data = new Uint8ClampedArray(GBC_W * GBC_H * 4); b.compose(data, gbcPalettes(theme));
+  const px = titlePx || TITLE.px;
+  for (let y = 0; y < TITLE_SLOT.h; y++) for (let x = 0; x < TITLE_SLOT.w; x++) {
+    const i = (y * TITLE_SLOT.w + x) * 4; if (px[i + 3] < 128) continue;
+    const o = ((TITLE_SLOT.y + y) * GBC_W + TITLE_SLOT.x + x) * 4; data[o] = px[i]; data[o + 1] = px[i + 1]; data[o + 2] = px[i + 2];
+  }
+  return data;
+}
+/* ================================================================ H. PAINT AND INPUT */
+const GL = { buf: null, fcv: null, fcg: null, frame: 0, dirty: true, ghost: 0, fresh: true, k: GBC_K, theme: 'dark', vm: null };
+const $ = id => document.getElementById(id);
+function paintDirty() { GL.dirty = true; }
+function paintGlass() {
+  const cv = $('glass'); if (!cv || !cv.getContext) return;
+  const g = cv.getContext('2d'); if (!g || !g.drawImage) return;
+  if (!GL.fcv) { GL.fcv = document.createElement('canvas'); GL.fcv.width = GBC_W; GL.fcv.height = GBC_H; GL.fcg = GL.fcv.getContext('2d'); }
+  const vm = gbcVM(); GL.vm = vm;
+  if (backSoon) { backSoon = false; gbcBack(); return; }
+  const img = GL.fcg.createImageData(GBC_W, GBC_H); img.data.set(gbcFrame(vm, GL.theme)); GL.fcg.putImageData(img, 0, 0);
+  g.imageSmoothingEnabled = false;
+  g.globalAlpha = GL.fresh ? 1 : 0.5;   // the LCD's slow pixels: half of the new frame over the old
+  g.drawImage(GL.fcv, 0, 0); g.globalAlpha = 1; GL.fresh = false;
+  paintChassis(vm);
+}
+function repaintNow() { GL.fresh = true; GL.dirty = true; }
+function tick() {
+  GL.frame++;
+  if (L.msg && GL.frame === L.msgUntil) GL.dirty = true;
+  if (GUI.page === 'scope') GL.dirty = true;
+  if (GL.dirty) { GL.ghost = 6; GL.dirty = false; paintGlass(); }
+  else if (GL.ghost > 0) { GL.ghost--; paintGlass(); }
+  requestAnimationFrame(tick);
+}
+function gbcLocal(rect, clientX, clientY) { const k = Math.max(1, Math.round(rect.width / GBC_W)); return [Math.floor((clientX - rect.left) / k), Math.floor((clientY - rect.top) / k)]; }
+function gbcHit(vm, lx, ly) {
+  if (lx < 0 || ly < 0 || lx >= GBC_W || ly >= GBC_H) return null;
+  const tx = lx >> 3, ty = ly >> 3;
+  for (const c of vm.vis) if (tx >= c.tx && tx < c.tx + c.tw && ty >= c.sy && ty < c.sy + c.th) return c;
+  return null;
+}
+const gAdjustable = c => !!c && (c.kind === 'knob' || c.kind === 'slider' || c.kind === 'cycle' || c.kind === 'macro');
+const gLY = c => c.abs ? (c.ty >= 16 ? 1e4 + c.ty : c.ty) : BODY_Y0 + c.ty;
+function gbcMove(vm, id, dir) {
+  const c = vm.byId[id]; if (!c) return vm.order.length ? vm.order[0].id : '';
+  const cy = gLY(c), cx = c.tx + c.tw / 2; let best = null, bs = Infinity;
+  for (const q of vm.order) {
+    if (q === c) continue;
+    const qy = gLY(q), qx = q.tx + q.tw / 2; let s = Infinity;
+    if (dir === 'down' && qy > cy) s = (qy - cy) * 1000 + Math.abs(qx - cx);
+    else if (dir === 'up' && qy < cy) s = (cy - qy) * 1000 + Math.abs(qx - cx);
+    else if ((dir === 'left' || dir === 'right') && qy < cy + c.th && qy + q.th > cy && (dir === 'right' ? q.tx > c.tx : q.tx < c.tx)) s = Math.abs(q.tx - c.tx);
+    if (s < bs) { bs = s; best = q; }
+  }
+  return best ? best.id : '';
+}
+function gbcTab(vm, id, d) { const i = vm.order.findIndex(c => c.id === id), j = i + d; return j >= 0 && j < vm.order.length ? vm.order[j].id : null; }
+function gbcPress(c) {
+  if (!c) return;
+  if (c.kind === 'pad') { GUI.grab = !GUI.grab; return; }
+  if (c.kind === 'cycle') { if (c.fn2 && c.fn2.press) c.fn2.press(); else c.fn.next(); return; }
+  if (c.fn.press) c.fn.press();
+}
+function gbcAdjust(c, d) {
+  if (c.kind === 'cycle') { (d < 0 ? c.fn.prev : c.fn.next)(); return; }
+  c.fn.set(clamp((c.kind === 'knob' || c.kind === 'macro' ? c.fn.get() : c.v) + d, 0, 1));
+}
+function gbcSoft(j) { const k = gbcVM().byId['key' + j]; if (k && k.fn.press) { k.fn.press(); repaintNow(); } }
+function gbcKey(ev) {
+  const vm = gbcVM(), c = vm.byId[vm.focus], k = ev.key, sh = ev.shiftKey, st = sh ? GSTEP_FINE : GSTEP;
+  let used = true;
+  if (GUI.page === 'name' && GUI.name && k.length === 1 && !ev.ctrlKey && !ev.metaKey && !ev.altKey) { if (GUI.name.text.length < 24) GUI.name.text += k; }
+  else if (GUI.page === 'name' && GUI.name && k === 'Backspace') GUI.name.text = GUI.name.text.slice(0, -1);
+  else if (k === 'Tab') { const n = gbcTab(vm, vm.focus, sh ? -1 : 1); if (n === null) used = false; else GUI.fid = n; }
+  else if (/^Arrow/.test(k)) {
+    const dir = k.slice(5).toLowerCase();
+    if (vm.grab && c && c.kind === 'pad') { const [x, y] = c.fn.getXY(); c.fn.setXY(x + (dir === 'left' ? -st : dir === 'right' ? st : 0), y + (dir === 'up' ? -st : dir === 'down' ? st : 0)); }
+    else if ((dir === 'left' || dir === 'right') && gAdjustable(c)) gbcAdjust(c, dir === 'left' ? -st : st);
+    else { const n = gbcMove(vm, vm.focus, dir); if (n) GUI.fid = n; }
+  }
+  else if (k === 'Enter' || k === ' ') gbcPress(c);
+  else if (k === 'Escape') { if (GUI.grab) GUI.grab = false; else if (GUI.page !== 'home') gbcBack(); }
+  else if (/^[1-4]$/.test(k)) gbcSoft(+k - 1);
+  else used = false;
+  if (used) { ev.preventDefault(); ev.stopPropagation(); repaintNow(); }
+}
+/* press on release over the same control; knobs drag vertically, sliders and the pad take the position;
+   a cycle's left half steps back, its right half on; a cycle that also acts (+ ADD) acts in its middle */
+function driveTo(c, lx, ly, e) {
+  const X = c.tx * 8, Y = c.sy * 8;
+  if (c.kind === 'slider' || c.kind === 'macro') c.fn.set(clamp((lx - X - c.bx0) / Math.max(1, c.bx1 - c.bx0), 0, 1));
+  else if (c.kind === 'pad') c.fn.setXY((lx - X - c.px0) / c.pw, (ly - Y - c.py0) / c.ph);
+  else if (c.kind === 'knob') c.fn.set(clamp(GUI.drag.p0 + (GUI.drag.y0 - e.clientY) / (e.shiftKey ? 600 : 160), 0, 1));
+}
+const gDrags = c => c.kind === 'slider' || c.kind === 'pad' || c.kind === 'knob' || c.kind === 'macro';
+function gbcWire(cv) {
+  const hitAt = e => { const vm = gbcVM(), [lx, ly] = gbcLocal(cv.getBoundingClientRect(), e.clientX, e.clientY); return { vm, lx, ly, c: gbcHit(vm, lx, ly) }; };
+  cv.addEventListener('pointerdown', e => {
+    const { lx, ly, c } = hitAt(e); if (!c) return;
+    if (c.kind !== 'arrow') GUI.fid = c.id; GUI.grab = false; try { cv.focus({ preventScroll: true }); } catch (_) {}
+    GUI.drag = { id: c.id, kind: c.kind, p0: c.kind === 'knob' ? c.fn.get() : 0, y0: e.clientY };
+    if (gDrags(c)) { try { cv.setPointerCapture(e.pointerId); } catch (_) {} driveTo(c, lx, ly, e); }
+    repaintNow();
+  });
+  cv.addEventListener('pointermove', e => {
+    const { vm, lx, ly, c } = hitAt(e);
+    if (GUI.drag && gDrags(GUI.drag)) { const d = vm.byId[GUI.drag.id]; if (d) { driveTo(d, lx, ly, e); repaintNow(); } return; }
+    const h = c ? c.id : ''; if (h !== GUI.hover) { GUI.hover = h; repaintNow(); }
+  });
+  const up = e => {
+    const D = GUI.drag; GUI.drag = null; if (!D) return;
+    const { lx, c } = hitAt(e);
+    if (!gDrags(D) && c && c.id === D.id) {
+      if (c.kind === 'cycle') { const rx = lx - c.tx * 8, W = c.tw * 8; if (c.fn2 && rx > 10 && rx < W - 10) c.fn2.press(); else (rx < W / 2 ? c.fn.prev : c.fn.next)(); }
+      else if (c.kind !== 'pad' && c.fn.press) c.fn.press();
+    }
+    repaintNow();
+  };
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', () => { GUI.drag = null; });
+  cv.addEventListener('pointerleave', () => { if (GUI.hover) { GUI.hover = ''; repaintNow(); } });
+  cv.addEventListener('dblclick', e => { const { c } = hitAt(e); if (c && c.fn.reset) { c.fn.reset(); repaintNow(); } });
+  cv.addEventListener('keydown', gbcKey);
+}
+/* ---- the chassis: numbers only on the keys, the macros on the knobs; the glass labels them ---- */
+const CORNER_TONES = ['#FFD702', '#FF2E88', '#00D5C8', '#A6F219'];   // the chassis carries the corner colours (ADR-259 r4), and they're horde's, GB15's to redo
+function buildChassis() {
+  const cc = $('ccorners'); cc.innerHTML = ''; CORNER.forEach((ch, i) => { const s = document.createElement('span'); s.className = 'ccorner'; s.style.background = CORNER_TONES[i]; s.textContent = ch; cc.appendChild(s); });
+  const ct = $('cctl'); ct.innerHTML = '';
+  for (let j = 0; j < KNOBS; j++) {
+    const col = document.createElement('div'); col.className = 'hd-ccol';
+    const b = document.createElement('button'); b.className = 'hd-softkey'; b.id = 'gkey' + j; b.textContent = String(j + 1); b.addEventListener('click', () => { gbcSoft(j); try { $('glass').focus({ preventScroll: true }); } catch (_) {} }); col.appendChild(b);
+    const k = document.createElement('div'); k.className = 'mk'; k.id = 'gknob' + j; k.tabIndex = 0; k.setAttribute('role', 'slider'); k.setAttribute('aria-valuemin', '0'); k.setAttribute('aria-valuemax', '100'); wireKnob(k, j); col.appendChild(k);
+    ct.appendChild(col);
+  }
+}
+function wireKnob(el, j) {
+  let D = null; const has = () => !!macroOf(cur(), j);
+  el.addEventListener('pointerdown', e => { if (!has()) return; D = { y: e.clientY, v: L.pad.mv[j] }; try { el.setPointerCapture(e.pointerId); } catch (_) {} });
+  el.addEventListener('pointermove', e => { if (!D) return; setMacro(j, D.v + (D.y - e.clientY) / (e.shiftKey ? 600 : 160)); repaintNow(); });
+  const end = () => { D = null; }; el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+  el.addEventListener('keydown', e => { if (!has()) return; const d = e.key === 'ArrowUp' || e.key === 'ArrowRight' ? 1 : e.key === 'ArrowDown' || e.key === 'ArrowLeft' ? -1 : 0; if (!d) return; e.preventDefault(); setMacro(j, L.pad.mv[j] + d * (e.shiftKey ? GSTEP_FINE : GSTEP)); repaintNow(); });
+}
+function paintChassis(vm) {
+  for (let j = 0; j < KNOBS; j++) {
+    const b = $('gkey' + j), k = vm.byId['key' + j], K = $('gknob' + j), M = macroOf(cur(), j);
+    if (b) { b.disabled = !k; b.title = k ? 'soft key ' + (j + 1) + ': ' + k.lab : 'soft key ' + (j + 1) + ': nothing on this page'; }
+    if (K) { K.classList.toggle('idle', !M); K.style.setProperty('--v', String(L.pad.mv[j] || 0)); K.setAttribute('aria-label', 'knob ' + (j + 1) + ': ' + (M ? M.label : 'no macro here')); K.setAttribute('aria-valuenow', String(Math.round((L.pad.mv[j] || 0) * 100))); }
+  }
+}
+function setScale(k) {
+  GL.k = k; const w = GBC_W * k, h = GBC_H * k, wrap = $('glassWrap'), cv = $('glass'), d = $('dots');
+  wrap.style.width = w + 'px'; wrap.style.height = h + 'px'; cv.style.width = w + 'px'; cv.style.height = h + 'px'; d.style.backgroundSize = k + 'px ' + k + 'px';
+  document.querySelectorAll('[data-scale]').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.scale === k)));
+}
+function setTheme(t) { GL.theme = t; document.documentElement.setAttribute('data-theme', t); document.querySelectorAll('[data-theme-b]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.themeB === t))); $('dots').style.opacity = t === 'light' ? '.6' : '1'; repaintNow(); }
+function chromeBtn(host, label, fn, attrs) { const b = document.createElement('button'); b.textContent = label; b.addEventListener('click', fn); for (const k in (attrs || {})) b.setAttribute(k, attrs[k]); host.appendChild(b); return b; }
+function buildChrome() {
+  const c = $('chrome'); c.innerHTML = '';
+  [2, 3, 4].forEach(k => chromeBtn(c, '×' + k, () => setScale(k), { 'data-scale': k, 'aria-pressed': String(k === GBC_K) }));
+  Object.keys(GBC_SCHEME).forEach(t => chromeBtn(c, GBC_SCHEME[t].name, () => setTheme(t), { 'data-theme-b': t, 'aria-pressed': String(t === GL.theme) }));
+  chromeBtn(c, 'Slide the title now', () => { if (TITLE.mark) TITLE.mark.slideNow(); });
+  const hold = chromeBtn(c, 'Hold the title', () => { TITLE.hold = !TITLE.hold; hold.setAttribute('aria-pressed', String(TITLE.hold)); if (TITLE.mark) { if (TITLE.hold) TITLE.mark.pause(); else TITLE.mark.play(); } }, { 'aria-pressed': 'false' });
+  const lb = document.createElement('label'); lb.textContent = 'Host tempo (mock) '; const bpm = document.createElement('input'); bpm.type = 'number'; bpm.min = '20'; bpm.max = '300'; bpm.value = String(L.bpm); bpm.addEventListener('change', () => { L.bpm = clamp(+bpm.value || 120, 20, 300); repaintNow(); }); lb.appendChild(bpm); c.appendChild(lb);
+  $('jsonBox').addEventListener('input', repaintNow);
+  const ls = document.createElement('label'); ls.textContent = 'Dice seed '; const sd = document.createElement('input'); sd.type = 'number'; sd.value = String(L.seed); sd.addEventListener('change', () => { L.seed = (+sd.value | 0); L.rs = L.seed; repaintNow(); }); ls.appendChild(sd); c.appendChild(ls);
+}
+function pageMap() {
+  const pages = ['home', 'menu', 'dice', 'library', 'presets', 'snaps', 'global', 'settings', 'rack', 'module', 'bus', 'modsrc', 'gate'].concat(S.arrays.map(a => 'arr:' + a.key)).concat(['output', 'macros', 'scope', 'horde']);
+  let h = '<table><tr><th>page</th><th>soft keys now</th></tr>';
+  for (const pg of pages) { const vm = gbcVM({ page: pg, fid: '' }); h += '<tr><td>' + esc(vm.name) + '</td><td>' + [0, 1, 2, 3].map(j => vm.byId['key' + j] ? vm.byId['key' + j].lab : '·').join(' · ') + '</td></tr>'; }
+  $('map').innerHTML = h + '</table>';
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+/* ================================================================ I. THE SELF-CHECK. Each claim has a control that must fail. */
+const CHECKS = [];
+function pushCheck(id, claim, ok, control, detail, wait) { const row = CHECKS.find(r => r.id === id), v = { claim, ok, control, detail, wait: !!wait }; if (row) Object.assign(row, v); else CHECKS.push(Object.assign({ id }, v)); showChecks(); }
+function showChecks() {
+  const bad = CHECKS.filter(r => !r.wait && (!r.ok || !r.control));
+  const box = $('selfcheck');
+  if (box) box.textContent = CHECKS.map(r => (r.wait ? 'WAIT' : r.ok ? 'PASS' : 'FAIL') + ' ' + r.id + ' ' + r.claim + (r.control ? '' : '\n     CONTROL NOT CAUGHT') + '\n     ' + r.detail).join('\n');
+  setBanner(bad.length, CHECKS.length);
+}
+function setBanner(bad, n) {
+  const b = $('banner'); if (!b) return;
+  const lines = [];
+  const waiting = CHECKS.filter(r => r.wait).length;
+  lines.push(bad ? 'SELF-CHECK: ' + bad + ' OF ' + n + ' FAILED. See the block below.' : 'Self-check: ' + (n - waiting) + ' of ' + n + ' pass, each with its control' + (waiting ? ', ' + waiting + ' waiting for the first frame of the title' : '') + '. No audio; this is a mock of the interface.');
+  if (SPEC.newer) lines.push('WARNING: the manifest is v' + SPEC.raw.v + ', newer than the v' + BUILT_V + ' this page was built for. Its sections are all there, but read it with care.');
+  if (TITLE.note) lines.push('TITLE: ' + TITLE.note);
+  if (GL.loadNote) lines.push(GL.loadNote);
+  b.textContent = lines.join('\n'); b.classList.toggle('bad', !!bad || !!TITLE.note);
+}
+/* run fn on the page's state, then put every byte of it back */
+function sandboxed(fn) {
+  const saveL = JSON.stringify(L), saveG = JSON.stringify({ page: GUI.page, back: GUI.back, fid: GUI.fid, mk: GUI.mk, bi: GUI.bi, mod: GUI.mod, name: GUI.name, addT: GUI.addT, scroll: GUI.scroll });
+  const box = $('jsonBox'), saveBox = box ? box.value : '';
+  try { return fn(); } finally { if (box) box.value = saveBox; Object.assign(L, JSON.parse(saveL)); Object.assign(GUI, JSON.parse(saveG), { grab: false, hover: '', drag: null }); }
+}
+/* ---- the hold's scan: the manifest's strings and every 28-character run of the spec's prose against this file as served ---- */
+const PROSE_RUN = 28;
+const proseNorm = t => String(t).toLowerCase().replace(/['"`]\s*\+\s*['"`]/g, '').replace(/&[a-z]+;|&#\d+;/g, ' ').replace(/[*_`|#>\/\\]+/g, ' ').replace(/\s+/g, ' ');
+function proseGrams(t) { const s = new Set(); for (let i = 0; i + PROSE_RUN <= t.length; i++) s.add(t.slice(i, i + PROSE_RUN)); return s; }
+function proseScan(own, doc) {
+  const G = proseGrams(proseNorm(own)), n = proseNorm(doc), found = []; let runs = 0;
+  for (let i = 0; i + PROSE_RUN <= n.length; i++) { const w = n.slice(i, i + PROSE_RUN); if ((w.match(/[a-z]/g) || []).length < 20) continue; runs++; if (G.has(w)) found.push(w); }
+  return { runs, hits: found.length, sample: found.slice(0, 3) };
+}
+function scanNeedles(raw, doc, names) {
+  const out = new Set();
+  for (const m of raw.modules) { for (const q of ["'", '"', '`']) out.add(q + m.type + q); for (const p of m.params) for (const sep of [':', '.', '/', ' · ', '·']) out.add(m.type + sep + p.key); }
+  const walk = (o, k) => {
+    if (Array.isArray(o)) { o.forEach(x => walk(x, k)); return; }
+    if (o && typeof o === 'object') { for (const kk of Object.keys(o)) walk(o[kk], kk); return; }
+    if (typeof o !== 'string') return;
+    if ((k === 'key' || k === 'type') && (/\./.test(o) || /[a-z][A-Z]/.test(o))) out.add(o);
+    if (o.length >= 20 || (k === 'label' && o.length >= 7)) out.add(o);
+  };
+  walk(raw, '');
+  for (const l of String(doc || '').split('\n')) { const t = l.trim(); if (t.length >= 40 && !/^\|?[-| :]+$/.test(t)) out.add(t); }
+  (names || []).forEach(n => { if (n.length >= 7) out.add(n); });
+  return [...out];
+}
+/* the roster's words anywhere outside the mark's own script, when they aren't JavaScript's method of the same spelling */
+function rosterScan(own, raw) {
+  const cut = own.replace(/\/\*MARK-BEGIN\*\/[\s\S]*?\/\*MARK-END\*\//, ''), hits = [];
+  for (const m of raw.modules) if (new RegExp('(?<![.\\\\])\\b' + m.type + 's?\\b(?!\\s*\\()', 'i').test(cut)) hits.push(m.type);
+  return hits;
+}
+function prosePlants(doc) {
+  const line = String(doc).split('\n').map(l => l.trim()).find(l => l.length >= 70 && /^[A-Za-z]/.test(l) && !/[|`]/.test(l)) || '';
+  const i0 = Math.floor(line.length / 2) - 22, piece = line.slice(Math.max(0, i0), Math.max(0, i0) + 45), sp = piece.indexOf(' ', 18);
+  if (piece.length < 45 || sp < 0) return null;
+  return { wrapped: '/* ' + piece.slice(0, sp) + '\n     ' + piece.slice(sp + 1) + ' */', split: "x = '" + piece.slice(0, sp + 1) + "' +\n  '" + piece.slice(sp + 1) + "';", bare: piece.slice(3, 3 + PROSE_RUN) };
+}
+function checkHold(own, doc, raw, names) {
+  const needles = scanNeedles(raw, doc, names), hits = needles.filter(n => own.includes(n)), P = proseScan(own, doc), roster = rosterScan(own, raw);
+  const plantA = needles.find(n => n.includes(':')), plantB = needles.find(n => n.length >= 40), planted = own + '\n' + plantA + '\n' + plantB, found = needles.filter(n => planted.includes(n)).length - hits.length;
+  const pl = prosePlants(doc), caught = pl ? ['wrapped', 'split', 'bare'].filter(k => proseScan(own + '\n' + pl[k] + '\n', doc).hits > P.hits) : [];
+  const rosterCaught = rosterScan(own + '\n// ' + raw.modules[0].type + '\n', raw).length > roster.length;
+  pushCheck('HOLD', 'this file as served holds none of the manifest\'s strings, roster names or the spec\'s text', own.length > 1000 && !hits.length && !P.hits && !roster.length, found >= 2 && caught.length === 3 && rosterCaught,
+    needles.length + ' strings: ' + hits.length + ' found' + (hits.length ? ' (' + hits.length + ' hits, first at offset ' + own.indexOf(hits[0]) + ')' : '') + ' · ' + P.runs + ' 28-character runs of the spec: ' + P.hits + ' found · roster words outside the mark: ' + roster.length
+    + ' · controls: planted an id and a spec line, ' + found + ' found; a phrase wrapped, split and bare, ' + caught.length + ' of 3 caught; a roster word, ' + (rosterCaught ? 'caught' : 'NOT caught'));
+}
+/* ---- a state with everything switched on, for the checks ---- */
+/* capped false: one module of every type, over the cap, so REACH sees every number. capped true: under the cap, so the add and duplicate controls exist. */
+function fullState(capped) {
+  const chain = S.types.slice(0, capped ? S.limits.maxLoopModules - 1 : S.types.length).map(t => { const params = {}; S.mods[t].params.forEach(e => { params[e.key] = e.def; }); return { type: t, enabled: true, params }; });
+  const p = { chain: chain.slice(), post: chain.slice(0, S.limits.maxPostModules - 1).map(clone) };
+  S.bus.forEach(e => { if (!p[e.grp]) p[e.grp] = {}; p[e.grp][e.key] = e.def; });
+  S.nums.forEach(e => { p[e.key] = e.def; }); S.bools.forEach(e => { p[e.key] = e.def; });
+  const t = moduleTargets(p)[0];
+  S.srcs.forEach(s => { const o = { target: t }; s.fields.forEach(e => { o[e.key] = e.def; }); if (s.shapes) o.shape = s.shapes[0]; p[s.patchKey] = o; });
+  const fg = S.tails.find(x => x.gate); p[S.gateKey] = clone(fg.gate);
+  p.macros = [{ label: 'M1', value: 0, bindings: [{ target: t, lo: 0, hi: 1 }] }];
+  L.pad = { eid: null, corners: [null, null, null, null], drafts: [0, 1, 2, 3].map(() => clone(p)), from: [null, null, null, null], rev: [null, null, null, null], base: clone(p), x: 0, y: 0, mv: [0, 0, 0, 0], tail: undefined, thr: {} };
+  setSw('sync', true);
+  return p;
+}
+function allPages(p) {
+  const pgs = ['home', 'menu', 'dice', 'library', 'presets', 'snaps', 'global', 'settings', 'rack', 'bus', 'modsrc', 'gate', 'output', 'macros', 'scope', 'horde'].concat(S.arrays.map(a => 'arr:' + a.key));
+  const out = pgs.map(pg => gbcVM({ page: pg, fid: '', scroll: 0 }));
+  const save = GUI.mod;
+  for (const part of ['chain', 'post']) (p[part] || []).forEach((m, i) => { GUI.mod = { part, i }; out.push(gbcVM({ page: 'module', fid: '', scroll: 0 })); });
+  GUI.mod = save;
+  GUI.mk = 0; GUI.bi = 0; if (macroOf(p, 0)) out.push(gbcVM({ page: 'medit', fid: '', scroll: 0 }));
+  GUI.name = { what: 'patch', text: 'A' }; out.push(gbcVM({ page: 'name', fid: '', scroll: 0 }));
+  return out;
+}
+function expectedPids() {
+  const want = [];
+  S.types.forEach(t => S.mods[t].params.forEach(e => want.push('M/' + t + '/' + e.key)));
+  S.bus.forEach(e => want.push('B/' + e.key));
+  S.nums.concat(S.bools).forEach(e => want.push('P/' + e.key));
+  S.arrays.forEach(a => a.items.forEach(e => want.push('A:' + a.key + '/' + e.key)));
+  S.gate.forEach(e => want.push('GT/' + e.key));
+  S.tails.forEach(t => want.push('T/' + t.name));
+  S.srcs.forEach(s => { s.fields.forEach(e => want.push('S/' + s.key + '/' + e.key)); want.push('S/' + s.key + '/target'); if (s.shapes) want.push('S/' + s.key + '/shape'); if (s.canSync) want.push('S/' + s.key + '/sync'); });
+  S.fixed.forEach(g => want.push('K/' + g.key)); S.switches.forEach(s => want.push('K/' + s.key)); S.io.forEach(o => want.push('K/' + o.key));
+  S.device.forEach(d => want.push('D/' + d.key)); S.actions.forEach(a => want.push('A/' + a.key));
+  S.offered.forEach(t => want.push('X/' + t));
+  S.homeE.forEach(e => want.push('H/' + e.key));
+  if (S.inj) want.push('I/' + S.inj.key);
+  ['xy', 'corner', 'dice', 'load', 'preset', 'bind', 'macro', 'target', 'curve', 'range', 'label', 'add', 'move', 'dup', 'remove', 'enabled', 'normalize', 'lock'].forEach(x => want.push(x));
+  return want;
+}
+const missingFrom = (vms, want) => { const have = new Set(); vms.forEach(vm => vm.ctrls.forEach(c => { if (c.pid) have.add(c.pid); })); return want.filter(w => !have.has(w)); };
+/* one patch on the XY: the four corners share structure. Used on every state the fuzz walks. */
+function padProblem() {
+  const a = sigOf(patchAt(0)); for (let k = 1; k < 4; k++) if (sigOf(patchAt(k)) !== a) return 'corner ' + CORNER[k] + ' has another structure';
+  const P = cur(); if ((P.chain || []).length > S.limits.maxLoopModules || (P.post || []).length > S.limits.maxPostModules) return 'over the cap';
+  if (P.chain && !P.chain.length) return 'an empty loop';
+  return '';
+}
+function runChecks(own, names) {
+  /* FORMAT */
+  const okRaw = SPEC.raw, cv1 = formatProblem(Object.assign({}, okRaw, { v: 1 })), cf = formatProblem(Object.assign({}, okRaw, { format: 'x' })), cm = (() => { const r = Object.assign({}, okRaw); delete r.macros; return formatProblem(r); })(), cv9 = formatProblem(Object.assign({}, okRaw, { v: okRaw.v + 1 }));
+  pushCheck('FORMAT', 'the manifest\'s format is read; older, foreign or incomplete ones are refused by name', !formatProblem(okRaw) && !cv9, !!cv1 && !!cf && !!cm,
+    'file says ' + okRaw.format + ' v' + okRaw.v + ', built for v' + BUILT_V + ' · a newer version is read with a warning: ' + (cv9 ? 'refused' : 'read') + ' · controls: v1 refused, a foreign format refused, a missing section refused');
+  /* HOLD */
+  if (own) checkHold(own, SPEC.doc, okRaw, names); else pushCheck('HOLD', 'the hold\'s scan ran', false, true, 'this file could not be read back');
+  /* LOAD */
+  const F = GL.factory, nf = F.files.length;
+  pushCheck('LOAD', 'every patch the link\'s index lists is in the library', nf > 0 && nf === F.listed && !F.failed.length, F.listed + 1 !== nf, nf + ' of ' + F.listed + ' read' + (F.failed.length ? ' · failed: ' + F.failed.length : '') + ' · control: an index with one more file would not match');
+  sandboxed(() => {
+    const p = fullState(), vms = allPages(p);
+    vms.push(...allPages(fullState(true)));
+    loadEntry(L.lib[0]); vms.push(...allPages(cur()));
+    fullState();
+    const want = expectedPids(), miss = missingFrom(vms, want), planted = missingFrom(vms, want.concat(['M/none/none'])), cut = missingFrom(vms.filter(vm => vm.page !== 'bus'), want);
+    pushCheck('REACH', 'every control the manifest declares is on a page', !miss.length, planted.length > miss.length && cut.length > miss.length,
+      want.length + ' expected, ' + miss.length + ' missing' + (miss.length ? ': ' + miss.slice(0, 6).map(m => m.replace(/\/.*$/, '/…')).join(' ') : '') + ' · controls: an id that doesn\'t exist is reported; dropping one page is reported');
+    /* TILES */
+    const audits = (vmList, px) => { let over = 0, off = 0, maxP = 0; vmList.forEach(vm => { for (const theme of ['dark', 'light']) { const A = tileAudit(gbcFrame(vm, theme, px), GBC_W, GBC_H); over += A.over; off += A.off555; maxP = Math.max(maxP, A.maxPer); } }); return { over, off, maxP }; };
+    const focused = []; vms.forEach(vm => { const q = gbcVM({ page: vm.page, fid: (vm.vis[Math.floor(vm.vis.length / 2)] || {}).id || '', scroll: 0 }); focused.push(q); });
+    const A0 = audits(vms.concat(focused));
+    /* a slide with three inks through a title tile keeps the rule; four more, unquantised, must break it */
+    const px3 = new Uint8ClampedArray(TITLE_SLOT.w * TITLE_SLOT.h * 4), inks = [[231, 165, 74], [57, 222, 255], [181, 140, 255]].map(c => c.map(q5));
+    const put = (buf, x, y, c) => { const o = (y * TITLE_SLOT.w + x) * 4; buf[o] = c[0]; buf[o + 1] = c[1]; buf[o + 2] = c[2]; buf[o + 3] = 255; };
+    for (let y = 8; y < 16; y++) for (let x = 8; x < 16; x++) put(px3, x, y, inks[(x + y) % 3]);
+    const px5 = px3.slice(); for (let y = 8; y < 16; y++) for (let x = 8; x < 16; x++) put(px5, x, y, [q5(16 * (x - 8)), q5(16 * (y - 8)), q5(120)]);
+    const A3 = audits([vms[0]], px3), A5 = audits([vms[0]], px5);
+    const offPal = new Uint8ClampedArray(TITLE_SLOT.w * TITLE_SLOT.h * 4); put(offPal, 20, 10, [123, 45, 67]); const A7 = audits([vms[0]], offPal);
+    pushCheck('TILES', 'every page, focused or not, keeps 4 colours per 8 x 8 tile, on RGB555', !A0.over && !A0.off && !A3.over, A5.over > 0 && A7.off > 0,
+      vms.length + ' pages x 2 focus states x 2 schemes: max ' + A0.maxP + ' per tile, ' + A0.over + ' over, ' + A0.off + ' off RGB555 · three title inks in one tile: ' + A3.over + ' over · controls: an unquantised tile, ' + A5.over + ' over; an off-grid colour, ' + A7.off + ' off');
+    /* SLOTS */
+    const iconEmpty = data => { const g = gbcPalettes('dark')[0][0]; for (let y = 0; y < ICON_SLOT.h; y++) for (let x = 0; x < ICON_SLOT.w; x++) { const o = ((ICON_SLOT.y + y) * GBC_W + ICON_SLOT.x + x) * 4; if (data[o] !== g[0] || data[o + 1] !== g[1] || data[o + 2] !== g[2]) return false; } return true; };
+    const slotOk = vms.every(vm => iconEmpty(gbcFrame(vm, 'dark'))), dirt = gbcFrame(vms[0], 'dark'); dirt[((2 * GBC_W) + 150) * 4] = 255; dirt[((2 * GBC_W) + 150) * 4 + 1] = 255;
+    /* the title's slot holds only ground under the mark: nothing else draws in x 8..103, rows 0-23 */
+    const under = vms.every(vm => { const b = new GBuf(); gbcDraw(b, vm); for (let y = 0; y < 24; y++) for (let x = 8; x < 104; x++) if (b.idx[y * GBC_W + x]) return false; return true; });
+    pushCheck('SLOTS', 'the 16 x 16 icon slot is empty and the 96 x 24 title slot holds only the title, on every page', slotOk && under, !iconEmpty(dirt), 'icon slot (' + ICON_SLOT.x + ', ' + ICON_SLOT.y + '): ' + (slotOk ? 'empty' : 'DRAWN ON') + ' · title slot (' + TITLE_SLOT.x + ', ' + TITLE_SLOT.y + ') under the mark: ' + (under ? 'clear' : 'DRAWN ON') + ' · control: a pixel in the icon slot is caught');
+    /* GUI-21 */
+    const greyed = list => list.reduce((a, vm) => a + vm.ctrls.filter(c => c.dis || c.disabled).length, 0);
+    const hasPid = (list, pid) => list.some(vm => vm.ctrls.some(c => c.pid === pid));
+    const fam = S.family[0], src = S.srcs.find(s => s.fields.length), gateF = S.gate[0], modT = S.types[0], modP = S.mods[modT].params[0];
+    const onFam = hasPid(vms, 'K/' + fam.key), onSrc = hasPid(vms, 'S/' + src.key + '/' + src.fields[src.fields.length - 1].key), onGate = hasPid(vms, 'GT/' + gateF.key), onMod = hasPid(vms, 'M/' + modT + '/' + modP.key);
+    setSw('sync', false); const p2 = cur(); p2[src.patchKey].target = 'off'; L.pad.tail = null; p2.chain[0].enabled = false; const vmsOff = allPages(p2);
+    const offFam = hasPid(vmsOff, 'K/' + fam.key), offSrc = hasPid(vmsOff, 'S/' + src.key + '/' + src.fields[src.fields.length - 1].key), offGate = hasPid(vmsOff, 'GT/' + gateF.key);
+    GUI.mod = { part: 'chain', i: 0 }; const offMod = gbcVM({ page: 'module', fid: '', scroll: 0 }).ctrls.some(c => c.pid === 'M/' + modT + '/' + modP.key);
+    /* a division replaces its free number */
+    const syncable = S.types.map(t => S.mods[t]).find(m => m.params.some(e => e.sync)); let divOk = true;
+    if (syncable) { const pi = p2.chain.findIndex(m => m.type === syncable.type), e = syncable.params.find(x => x.sync); p2.chain[pi].enabled = true; p2.chain[pi].sync = { [e.key]: S.divs[0].name }; GUI.mod = { part: 'chain', i: pi }; divOk = !gbcVM({ page: 'module', fid: '', scroll: 0 }).ctrls.some(c => c.pid === 'M/' + syncable.type + '/' + e.key); }
+    const planted21 = allPages(p2).concat([{ ctrls: [{ id: 'x', dis: true }] }]);
+    const moves = onFam && !offFam && onSrc && !offSrc && onGate && !offGate && onMod && !offMod && divOk;
+    pushCheck('GUI-21', 'nothing is greyed out; what a switch makes inert appears only with that switch', !greyed(vms) && !greyed(vmsOff) && moves, greyed(planted21) > 0,
+      'greyed controls: ' + (greyed(vms) + greyed(vmsOff)) + ' · family switches with sync, ' + onFam + ' and without, ' + offFam + ' · source numbers with a target, ' + onSrc + ' and without, ' + offSrc + ' · gate numbers with a gate, ' + onGate + ' and without, ' + offGate + ' · module numbers on, ' + onMod + ' and off, ' + offMod + ' · a division hides its free number: ' + divOk + ' · control: a planted greyed control is counted');
+  });
+  /* HIT: each visible control is what a click on it finds */
+  sandboxed(() => {
+    const p = fullState(true); let bad = 0, n = 0;
+    const hitsOwn = vm => { let b = 0; vm.vis.forEach(c => { n++; const hit = gbcHit(vm, c.tx * 8 + Math.floor(c.tw * 4), c.sy * 8 + Math.floor(c.th * 4)); if (hit !== c) b++; }); return b; };
+    allPages(p).forEach(vm => { bad += hitsOwn(vm); });
+    const vm0 = gbcVM({ page: 'home', fid: '', scroll: 0 }), a = vm0.vis[0], twin = Object.assign({}, vm0.vis[1], { tx: a.tx, sy: a.sy, tw: a.tw, th: a.th }); vm0.vis = [twin].concat(vm0.vis); const ctl = hitsOwn(vm0);
+    const glassW = GBC_W * GL.k, intOk = Number.isInteger(glassW / GBC_W), ctlInt = !Number.isInteger((GBC_W * 2.5 + 1) / GBC_W);
+    pushCheck('HIT', 'a click lands on the control drawn there, at a whole-number scale', !bad && intOk, ctl > 0 && ctlInt, n + ' controls, ' + bad + ' overlapped · scale ×' + GL.k + ' · controls: an overlapping twin is found; a fractional scale is refused');
+  });
+  /* DICE */
+  sandboxed(() => {
+    const run = seed => { L.rs = seed; L.excl = []; L.randomness = 1; randomizeNewPatch(); const a = clone(L.pad.base); randomizeAll(); return JSON.stringify([a, L.pad.drafts]); };
+    const a1 = run(77), a2 = run(77), b1 = run(78);
+    L.rs = 5; L.randomness = 1; randomizeNewPatch(); const p0 = clone(L.pad.base);
+    const drawn = S.types.map(t => S.mods[t]);
+    const ends = p => p.post.length && drawn.find(m => m.type === p.post[p.post.length - 1].type && m.draws.post && !S.offered.includes(m.type));
+    const patchBad = p => { const c = p.chain, lastOnly = c.findIndex(m => S.mods[m.type].draws.loopLast && !S.mods[m.type].draws.loop); return c.length > S.limits.maxLoopModules || !ends(p) || (lastOnly >= 0 && lastOnly !== c.length - 1) || c.some(m => !S.mods[m.type].draws.loop && !S.mods[m.type].draws.loopLast); };
+    let badN = 0; for (let i = 0; i < 40; i++) { randomizeNewPatch(); if (patchBad(L.pad.base)) badN++; }
+    const broken = clone(p0); broken.post = []; const ctlA = patchBad(broken);
+    randomizeNewPatch(); L.randomness = 1; randomizeAll(); const distinct = new Set(L.pad.drafts.map(d => JSON.stringify(d))).size;
+    /* randomness only adds */
+    L.rs = 9; randomizeNewPatch(); L.pad.thr = {}; const count = r => { L.randomness = r; const before = JSON.stringify(cur()); randomizeCorner(sel()); return [before !== JSON.stringify(cur()), pool(cur()).filter(x => !x.locked && L.pad.thr[x.id] < r).length]; };
+    const lo = count(0.2)[1], hi = count(0.8)[1], none = count(0)[1];
+    const excludeAll = S.offered.filter(t => S.mods[t].draws.loop); excludeAll.forEach(toggleExcl); const stays = loopTypesOn().length >= 1; L.excl = [];
+    pushCheck('DICE', 'the mock dice replay from a seed, keep the manifest\'s caps and draw table, and Randomness only adds', a1 === a2 && !badN && distinct === 4 && hi >= lo && none === 0 && stays, a1 !== b1 && ctlA,
+      '40 new patches, ' + badN + ' break the table · all four: ' + distinct + ' distinct · numbers moving at 0, 0.2, 0.8: ' + none + ', ' + lo + ', ' + hi + ' · a loop type stays on: ' + stays + ' · controls: another seed differs; a patch with no safety module is refused');
+  });
+  /* REVERT + SAVE (ADR-306) */
+  sandboxed(() => {
+    const e = L.lib.find(x => x.factory && x.snaps.length > 1) || L.lib[0]; openPreset(e, e.presets[0]);
+    const k = sel(), start = L.pad.corners[k], no = canRevert(k);
+    L.randomness = 1; L.rs = 11; randomizeCorner(k); randomizeCorner(k); const yes = canRevert(k), unlinked = L.pad.corners[k] === null; revert(k); const back = L.pad.corners[k] === start && !isDraft(k) && !canRevert(k);
+    randomizeNewPatch(); const before = clone(L.pad.base); randomizeCorner(0); const pend = canRevert(0); revert(0); const pendBack = JSON.stringify(L.pad.drafts[0]) === JSON.stringify(before);
+    randomizeCorner(0); const n0 = L.lib.length; saveCorner(0); const saved = L.lib.length === n0 + 1 && !!L.pad.eid && !L.pad.drafts.some(Boolean);
+    randomizeCorner(1); const sid0 = L.pad.from[1]; saveCorner(1); const keep = !!snapOf(curE(), sid0);
+    pushCheck('REVERT', 'revert goes back to the snapshot before the first edit, or to the drawn sound; save binds and keeps the old one', yes && unlinked && back && pend && pendBack && saved && keep, !no,
+      'two rolls then revert: ' + (back ? 'back on its snapshot' : 'NOT back') + ' · an unsaved corner: ' + (pendBack ? 'back to the drawn sound' : 'NOT back') + ' · save: ' + (saved ? 'made a patch' : 'NOT') + ', the old snapshot stays: ' + keep + ' · control: nothing to revert offers no revert');
+  });
+  /* FUZZ: press everything on every page, in a seeded order, and the pad stays one valid patch */
+  sandboxed(() => {
+    let presses = 0, threw = '', bad = '';
+    const r = mulberry32(0x13A7);
+    for (let round = 0; round < 3 && !threw && !bad; round++) {
+      if (round === 1) loadEntry(L.lib.find(e => e.snaps[0].patch.macros && e.snaps[0].patch.macros.length) || L.lib[0]);
+      const p = round ? cur() : fullState(true);
+      for (const vm of allPages(p)) {
+        const list = vm.order.slice().sort(() => r() - 0.5).slice(0, 14);
+        for (const c of list) {
+          GUI.page = vm.page;
+          const cur0 = gbcVM({ page: vm.page, fid: c.id, scroll: 0 }).byId[c.id]; if (!cur0) continue;
+          try {
+            if (cur0.kind === 'key' && cur0.lab === 'BACK') continue;
+            if (gAdjustable(cur0)) gbcAdjust(cur0, 0.1); else if (cur0.kind === 'pad') cur0.fn.setXY(r(), r()); else gbcPress(cur0);
+            presses++;
+            gbcVM({ page: GUI.page, fid: '', scroll: 0 });
+          } catch (e) { threw = (vm.page + ' ' + c.id + ': ' + String(e && e.message || e)); break; }
+          const pb = padProblem(); if (pb) { bad = vm.page + ' ' + c.id + ': ' + pb; break; }
+        }
+        if (threw || bad) break;
+      }
+    }
+    const ctlFull = (() => { fullState(true); L.pad.drafts[2].chain.pop(); return padProblem(); })();
+    pushCheck('FUZZ', 'pressing every control on every page throws nothing and leaves one valid patch on the XY', !threw && !bad, !!ctlFull, presses + ' presses' + (threw ? ' · THREW at ' + threw : '') + (bad ? ' · BROKE at ' + bad : '') + ' · control: a corner with a different chain is caught');
+  });
+  /* TITLE, pure half: the step law on a plant */
+  const ramp = []; for (let i = 0; i <= 64; i++) ramp.push([i * 3, 255 - i * 3, 128]);
+  const cov = new Float32Array(96 * 28), col = new Float32Array(96 * 28 * 3); for (let x = 0; x < 96; x++) { const y = 10, i = (y + 2) * 96 + x, c = ramp[Math.round(x / 95 * 64)]; cov[i] = 64; col[i * 3] = c[0] * 64; col[i * 3 + 1] = c[1] * 64; col[i * 3 + 2] = c[2] * 64; }
+  const inks = st => { const o = new Uint8ClampedArray(96 * 24 * 4); titleCells(cov, col, 96, 28, 64, 2, ramp, st, o); const s = new Set(); for (let i = 0; i < o.length; i += 4) if (o[i + 3]) s.add(o[i] + ',' + o[i + 1] + ',' + o[i + 2]); return s.size; };
+  const half = new Float32Array(cov); half.fill(0); half[12 * 96 + 5] = 31; const oh = new Uint8ClampedArray(96 * 24 * 4); const none = titleCells(half, col, 96, 28, 64, 2, ramp, 3, oh); half[12 * 96 + 5] = 32; const one = titleCells(half, col, 96, 28, 64, 2, ramp, 3, oh);
+  pushCheck('TITLE LAW', 'a whole slide reads as three inks, and a cell is ink at half covered', inks(WALK_STEPS) === WALK_STEPS && none === 0 && one === 1, inks(0) > WALK_STEPS, 'a walk across the slot: ' + inks(WALK_STEPS) + ' inks · 31 of 64 samples: ' + none + ' cells; 32 of 64: ' + one + ' · control: unquantised, ' + inks(0) + ' inks');
+  checkTitleLive();
+  /* HOUSE */
+  const countRandom = t => (t.match(/Math\.random\b/g) || []).length;
+  if (own) pushCheck('HOUSE', 'no unseeded random draw and no wheel listener in this file', !countRandom(own) && !/addEventListener\(\s*['"]wheel/.test(own), countRandom(own + 'Math.' + 'random()') === countRandom(own) + 1, 'unseeded draws: ' + countRandom(own) + ' · control: a planted call is counted');
+}
+/* the live title, read when its first frame arrives. No WebGL here means this stays a visible failure, not a silence. */
+function checkTitleLive() {
+  if (TITLE.state !== 'live') { pushCheck('TITLE LIVE', 'the title draws live in its slot', false, true, 'no frame yet from the mark (state: ' + TITLE.state + ')', !TITLE.note); return; }
+  const px = TITLE.px, runs = {}, inks = new Set(); let inked = 0;
+  for (let y = 0; y < TITLE_SLOT.h; y++) { let run = 0; for (let x = 0; x <= TITLE_SLOT.w; x++) { const on = x < TITLE_SLOT.w && px[(y * TITLE_SLOT.w + x) * 4 + 3] > 0; if (on) { run++; inked++; inks.add(px[(y * TITLE_SLOT.w + x) * 4] + ',' + px[(y * TITLE_SLOT.w + x) * 4 + 1] + ',' + px[(y * TITLE_SLOT.w + x) * 4 + 2]); } else if (run) { runs[run] = (runs[run] || 0) + 1; run = 0; } } }
+  const stem = t => { let b = 0, bn = 0; for (const k in t) if (t[k] > bn) { bn = t[k]; b = +k; } return b; };
+  const m = stem(runs), ctl = stem({ 3: 40, 4: 2 }), box = $('srcBox'), contexts = box && box.children ? box.children.length : 0;
+  pushCheck('TITLE LIVE', 'the live title reads 4 px stems in its slot, with no more than three inks, from one WebGL context', m === 4 && inks.size <= WALK_STEPS && inked > 0 && contexts === 1, ctl !== 4,
+    TITLE.frames + ' frames · ' + inked + ' cells inked · the commonest ink run: ' + m + ' px · ' + inks.size + ' ink(s) · ' + contexts + ' WebGL canvas · parked colour from the mark: ' + (TITLE.parked || '?') + ' · control: a 3 px word is refused');
+  showChecks();
+}
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+/* ================================================================ J. THE TWO STATES, AND BOOT */
+function showNoSpec() {
+  const F = $('noSpec'), b = $('banner');
+  F.hidden = false;
+  F.innerHTML = '<h2>Sluice is not available on this machine</h2><p>This page reads Sluice at load through the gitignored link <code>local/sluice</code>. Nothing of Sluice\'s is committed to this public repository (the human\'s hold), so public clones and CI land here, and that\'s correct. Nothing of Sluice\'s is drawn in this state.</p><p><b>Why:</b> <span id="why"></span></p><p>On a machine with both repositories, from horde\'s root: <code>ln -s &lt;your Sluice checkout&gt;/docs/horde local/sluice</code>, then serve with <code>python3 tools/serve_labs.py</code>.</p>';
+  $('why').textContent = SPEC.why || 'not loaded';
+  b.textContent = 'Sluice is not available on this machine.'; $('selfcheck').textContent = 'Not run: there is nothing of Sluice\'s here to check.';
+}
+async function boot() {
+  try {
+    await loadSpec();
+    if (!SPEC.ok) { showNoSpec(); return; }
+    S = buildSchema(SPEC.raw, SPEC.doc);
+    S.arrays.forEach(arrayPage);
+    GL.factory = await loadFactory();
+    if (!GL.factory.files.length) { SPEC.why = 'the link\'s patch folder gave nothing (' + GL.factory.failed.join(', ') + ')'; showNoSpec(); return; }
+    GL.factory.files.forEach(({ m, d }) => L.lib.push(entryFromFile(d, m)));
+    initGlobals();
+    loadEntry(L.lib[0]); L.msg = '';
+    buildChassis(); buildChrome(); setScale(GBC_K); gbcWire($('glass'));
+    $('stage').hidden = false;
+    GL.loadNote = '';
+    repaintNow(); paintGlass(); pageMap();
+    /* read this file back as served, for the hold's scan; run once the page is up, so a failure here can't leave the human without a page */
+    let own = ''; try { own = await fetch(location.pathname, { cache: 'no-store' }).then(r => r.text()); } catch (e) { own = ''; }
+    const names = []; L.lib.forEach(e => { names.push(e.name); e.presets.forEach(p => names.push(p.name)); e.snaps.forEach(s => names.push(s.name)); });
+    runChecks(own, names);
+    repaintNow(); paintGlass(); pageMap();
+    startTitle();
+    requestAnimationFrame(tick);
+    /* no WebGL, or a mark that never drew: say so on the banner rather than leave a still looking live */
+    let waited = 0; const watch = () => { if (TITLE.frames > 0) return; waited++; if (waited < 240) { requestAnimationFrame(watch); return; } TITLE.note = 'the live title never drew (no WebGL here?). The slot holds the parked still, if it loaded.'; checkTitleLive(); };
+    requestAnimationFrame(watch);
+  } catch (e) {
+    const b = $('banner'); b.classList.add('bad'); b.textContent = 'THE PAGE FAILED TO START: ' + String(e && e.stack || e);
+  }
+}
+if (typeof window !== 'undefined' && window.addEventListener) window.addEventListener('error', e => { const b = $('banner'); if (b && b.classList) { b.classList.add('bad'); b.textContent = 'A SCRIPT ERROR: ' + String(e && e.message || e); } });
+boot();
+</script>
+</body>
+</html>
