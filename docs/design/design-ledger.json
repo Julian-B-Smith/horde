@@ -132,6 +132,10 @@
   {
    "version": "1793903649-b8d3",
    "evidence": "docs/design/arp-face/README.md: GUI-39, 2026-11-05"
+  },
+  {
+   "version": "1793906597-7060",
+   "evidence": "docs/design/arp-face/README.md: GUI-40, 2026-11-05"
   }
  ],
  "vendoring": {
@@ -453,8 +457,9 @@
    "note": "Harvested at 1793728588-6ff9. It ran on the shell before GUI-9, so on today's shell it adds its sources and chips over the real ones: read it at the commit before this one if you need to see what was compared."
   },
   "sub-noise-lab.html": {
-   "status": "exploring",
-   "note": "GB9. The Sub's Dial is ruled (GUI-35) and harvested. The Noise picture is still open: the Weather's Whisper and S&H were reworked here, and the human sent it back as needing more work; the Raster is the other candidate. It handles the Sub page's GUI-35 layout since GUI-39, and opens on Noise."
+   "status": "harvested",
+   "note": "GB9: the Dial (GUI-35) and the Weather (GUI-40) are in the master and the shell. The other four pictures stay here for the record.",
+   "master_version": "1793906597-7060"
   },
   "random-home-lab.html": {
    "status": "ruled",
@@ -6342,6 +6347,81 @@
    "superseded_by": null,
    "state": "in-shell",
    "master_version": "1793903649-b8d3"
+  },
+  {
+   "via": null,
+   "superseded_by": null,
+   "state": "in-shell",
+   "master_version": "1793906597-7060",
+   "port_tab": null,
+   "id": "gui40-noise-weather",
+   "adr": "GUI-40",
+   "clause": "the Noise page's picture is the Weather, across the page, with a version on Main's tab and the Dashboard",
+   "note": "A drawing of the settings. FX device: none.",
+   "component": "NoiseWeather",
+   "bundle": "Viz",
+   "shell": "docs/design/gui3.html: H.Viz.noiseWeather(main, o, st)",
+   "lab": "docs/design/sub-noise-lab.html"
+  },
+  {
+   "via": null,
+   "superseded_by": null,
+   "state": "in-shell",
+   "master_version": "1793906597-7060",
+   "port_tab": null,
+   "id": "gui40-square-pads",
+   "adr": "GUI-40",
+   "clause": "square pads: Main's pad and Specimen XY are 228 px squares, and Morph's pad keeps to a sticky square column",
+   "note": "Amends GUI-19's 320 px pad. FX device: its Morph page takes the sticky square pad.",
+   "component": "XYPad",
+   "bundle": "XYPad",
+   "shell": "docs/design/gui3.html: .morph-side",
+   "lab": null
+  },
+  {
+   "via": null,
+   "superseded_by": null,
+   "state": "in-shell",
+   "master_version": "1793906597-7060",
+   "port_tab": null,
+   "id": "gui40-puck-over-corners",
+   "adr": "GUI-40",
+   "clause": "the pad’s puck sits above its corner chips, so it can be grabbed over one",
+   "note": "FX device: same.",
+   "component": "XYPad",
+   "bundle": "XYPad",
+   "shell": "docs/design/gui3.html: H.XYPad(pad, S",
+   "lab": null
+  },
+  {
+   "via": null,
+   "superseded_by": null,
+   "state": "in-shell",
+   "master_version": "1793906597-7060",
+   "port_tab": null,
+   "id": "gui40-envelope-handles",
+   "adr": "GUI-40",
+   "clause": "each envelope stage shows a bend handle, and the drag hits in a scaled window",
+   "note": "FX device: same, on its envelopes.",
+   "component": "Envelope",
+   "bundle": "EnvDrag",
+   "shell": "docs/design/gui3.html: function envDrag(cv, keysOf, pid)",
+   "lab": null
+  },
+  {
+   "via": null,
+   "superseded_by": null,
+   "state": "in-shell",
+   "master_version": "1793906597-7060",
+   "port_tab": null,
+   "id": "gui40-logo-every-page",
+   "adr": "GUI-40",
+   "clause": "the logo is alive on every page",
+   "note": "Amends GUI-33 for the logo. FX device: its header logo, the same.",
+   "component": "Specimen",
+   "bundle": "MainStage",
+   "shell": "docs/design/gui3.html: alive = !S.reduce",
+   "lab": null
   }
  ],
  "not_design": [
@@ -7467,7 +7547,8 @@
   "GUI-38": [
    "GN-21"
   ],
-  "GUI-39": "none: a mouse route to rows the knobs already write"
+  "GUI-39": "none: a mouse route to rows the knobs already write",
+  "GUI-40": "none: drawing and layout, and the Weather reads only settings"
  },
  "audit_notes": [
   "[A] Counts: 33 design ADRs with 56 rows (ruled 31, of which 6 superseded and 7 legacy-only; wired 9; in-shell 7; vendored 4; in-master 4; unknown 1); 79 not_design. Every primary heading ADR-001..ADR-112 appears exactly once. Headings out of numeric order (ADR-052, ADR-053 before ADR-051; ADR-095, 094, 093, 092; ADR-091 A1-A4 after ADR-112 A3) were all covered. One non-ADR heading sits in range: 'NOTICE · Library standby (plugin-skeleton FOUNDATIONS)', line 661, not design and not listed.",

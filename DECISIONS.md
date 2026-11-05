@@ -11907,6 +11907,30 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 **Engine impact.** None: the same rows through the same writes.
 
 **FX device (ADR-254).** It has envelopes among its modulators, so the same drag applies to their pictures.
+
+## GUI-40 — RULED by the human: the Weather on the Noise page; square pads with the Morph pad in a sticky column; the puck over the corners; bend handles; the logo on every page (GB9, GB23; amends GUI-19, GUI-26, GUI-33; 2026-11-05)
+
+**The human, 2026-11-05.**
+- "The weather noise view is actually fine. Let's ship it."
+- "The larger envelopes don't track the mouse to the nodes accurately. Also the envelopes need a curve control."
+- "On the morph page, there's no way to grab the selector when it's behind a corner button. I'm also thinking it might make more sense to keep the morph grid omnipresent in a sidebar like on main so scrolling doesn't make it disappear. I would like for it to be square though (also on main; I think this would turn the specimen square as well)"
+- "Also the logo freezes on every page but main."
+
+**What changes.**
+1. **The Weather is the Noise page's picture,** across the page as the Dial is, with a version on Main's Noise tab and the Dashboard's card (GUI-35's "a version of each"). `Viz.noiseWeather` comes from the lab with its reworked Whisper and S&H. GB9 is done.
+2. **The envelopes:** pointer positions are taken in the canvas's own pixels, so a window shown scaled still hits; a larger picture missed by more. Each stage now shows a bend handle, a ring on the curve at the stage's middle, as `LfoShapeEditor` draws its own; dragging the stage bends it.
+3. **The pad's puck is above its corner chips** on both pads, so a puck over a corner can be grabbed. At one height, the later chips won.
+4. **Square pads.** Main's left column is 228 px, so the pad and the Specimen XY are 228 px squares. **On Morph the pad keeps to a sticky column,** the same square, and the corners, inspector and field scroll beside it. **Amends GUI-19's 320 px pad, and GUI-26's order:** the corners still come first in the page's own column.
+5. **The logo is alive on every page.** GUI-33 rested it off Main with the pictures, which read as frozen. **Amends GUI-33** for the logo; the Specimen still draws on Main only.
+
+**Readings (the GUI session's, open to the human).**
+- **"A curve control"** was read as a visible handle on each stage. The curve knobs GUI-39 added stay.
+- **The Morph pad is 228 px,** Main's size, against GUI-19's 320.
+- **The Weather moves only while awake** (GUI-33), like the other pictures.
+
+**Engine impact.** None: these are drawing and layout, and the Weather needs nothing new (GB9's table).
+
+**FX device (ADR-254).** It has one Morph page, so item 4's sticky square pad applies; the rest concerns pages it doesn't have, apart from item 3.
 ## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
 
 **Context.** FM free in pitch FM runs an accumulator that never restarts, while each of C.16's readings starts it at 0, so the estimate cannot see its mean and BL-19 cannot hold by the law alone (Q-TA-71: engine-free, 95 of its 144 one-member cases over 0.003, up to 0.046). ADR-363 sent this to a scratch trial of C.16's existing blocker, with clips for the human. Separately, item 7.8's reference R2 places FM free's modulator half a cycle from round 56's start, and 7.8 plays before its settings settle (Q-TA-77).

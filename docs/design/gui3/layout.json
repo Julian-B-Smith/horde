@@ -1672,7 +1672,23 @@
           "viz": {
             "kind": "noise",
             "keys": {
-              "colour": "noise.colour"
+              "on": "noise.on",
+              "type": "noise.type",
+              "density": "noise.density",
+              "rate": "noise.rate",
+              "length": "noise.length",
+              "colour": "noise.colour",
+              "resonator": "noise.resonator",
+              "feedback": "noise.feedback",
+              "whisper": "noise.whisper",
+              "vowel": "noise.vowel",
+              "wind": "noise.wind",
+              "gust": "noise.gust",
+              "filter": "noise.filter",
+              "cutoff": "noise.cutoff",
+              "resonance": "noise.resonance",
+              "pitch": "noise.pitch",
+              "spread": "noise.spread"
             }
           },
           "keys": [
@@ -2808,8 +2824,25 @@
       "dense": true,
       "viz": {
         "kind": "noise",
+        "band": true,
         "keys": {
-          "colour": "noise.colour"
+          "on": "noise.on",
+          "type": "noise.type",
+          "density": "noise.density",
+          "rate": "noise.rate",
+          "length": "noise.length",
+          "colour": "noise.colour",
+          "resonator": "noise.resonator",
+          "feedback": "noise.feedback",
+          "whisper": "noise.whisper",
+          "vowel": "noise.vowel",
+          "wind": "noise.wind",
+          "gust": "noise.gust",
+          "filter": "noise.filter",
+          "cutoff": "noise.cutoff",
+          "resonance": "noise.resonance",
+          "pitch": "noise.pitch",
+          "spread": "noise.spread"
         }
       },
       "power": "noise.on",
