@@ -65,6 +65,7 @@
   .morph-side { position: sticky; top: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
   .morph-side #morphPad { width: 228px !important; height: 228px !important; }
   .morph-main { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .morph-main .mw-top { grid-template-columns: minmax(0, 1fr); }   /* its first column held the pad, which now lives in the side column */
   .main-p { box-sizing: border-box; padding: 4px 6px; background: var(--panel); border: var(--stroke-ink) solid var(--ink); border-radius: var(--radius); min-width: 0; }
   .arp-stage { display: flex; gap: 8px; height: 100%; min-height: 0; }
   .arp-card { flex: 0 0 344px; min-width: 0; display: flex; flex-direction: column; gap: 6px; overflow: hidden; }
@@ -969,8 +970,10 @@ const PICTURE_MS = 28, PICTURE_DT = 1 / 30, AWAKE_MS = 2000;   // 28, not 33 (GU
 let handAt = -Infinity;
 // The self-checks draw many times inside one frame and read the result, so while they run the time is theirs: undefined, which is always due, unless a check sets it.
 let stageAtReset = () => {};
-const CLOCK = { checking: false, now: undefined }, picNow = () => CLOCK.checking ? CLOCK.now : S.now;
-const awake = () => !!window.GUI3_AWAKE || dev.sounding() || (picNow() !== undefined && picNow() - handAt < AWAKE_MS);
+const CLOCK = { checking: false, now: undefined, rest: false }, picNow = () => CLOCK.checking ? CLOCK.now : S.now;
+/* GUI-42: a picture on the page you're looking at keeps moving, at the pace's 30 fps (the human: "the osc visualizers are all freezing"). Only reduced motion rests it now, waking for a voice or a hand as
+   GUI-33 did for everything. A hidden page draws nothing either way. The Live readings had room: the page's own work was 3 ms a frame held awake. */
+const awake = () => (!S.reduce && !CLOCK.rest) || !!window.GUI3_AWAKE || dev.sounding() || (picNow() !== undefined && picNow() - handAt < AWAKE_MS);
 const paced = cvs => { const pace = SH.picturePace(PICTURE_MS); let sig = null; return extra => { const s = cvs().map(sizeOf).join() + '|' + colourKey() + '|' + (extra === undefined ? '' : extra), due = pace.due(picNow(), s !== sig, awake()); if (due) sig = s; return due; }; };
 const xOf = key => ENG.lawX(ROW[key], dev.shown(key)), labOf = key => optLabel(ROW[key], dev.shown(key));
 function waveAt(name, t, o) {
@@ -1105,7 +1108,7 @@ function oscPictures(v, pid, full) {
     dev.set(key, val, { corner: ai });
   };
   const pin = h('div', { class: 'bv-pin' });
-  const bv = H.BladeView(pin, { height: full ? 116 : 70, label: PG[src].label + ' waveform', hint: 'SAMPLE', roles: DATA.bladeView, keys: () => S.keys,
+  const bv = H.BladeView(pin, { height: full ? 116 : 70, name: PG[src].label + ' waveform', hint: 'SAMPLE', roles: DATA.bladeView, keys: () => S.keys,
     keyOf: (role, b) => {
       if (!b) { const r = DATA.bladeView.swarm.concat(DATA.bladeView.play).find(x => x[0] === role), k = r && src + '.' + (r[2] || r[0]); return k && ROW[k] ? k : null; }
       const hz = (sel, name) => role === name && ROW[bk(b, sel)] && labOf(bk(b, sel)) === 'Hz';
@@ -1667,7 +1670,12 @@ DATA.pages.forEach(pg => {
   else if (pg.grid) paramPage(pg, el);
   else classicPage(pg, el);
   // GUI-26: the corners first, since most users start there; then the page's own pad and field; then D.2's settings.
-  if (pg.panel === 'morph') { const bench = morphBench(), side = h('div', { class: 'morph-side' }), main = h('div', { class: 'morph-main' }, morphPanel(), bench); side.append(bench.querySelector('.mw-left')); el.insertBefore(h('div', { class: 'morph-wrap' }, side, main), el.children[1] || null); }   // GUI-40: the pad in a sticky column; the corners still first in the page's own column (GUI-26)
+  /* GUI-40, GUI-42: the pad and its law's note keep to a sticky column the page's height, and everything else scrolls beside it: the corners first (GUI-26), the selected row with its scale and lock, the
+     cross-section and blend map, the field, and D.2's settings last. A column taller than the page area hid its own foot, and stopping it above D.2's settings let the pad scroll away there (the human, 2026-11-05). */
+  if (pg.panel === 'morph') { const bench = morphBench(), side = h('div', { class: 'morph-side' }), main = h('div', { class: 'morph-main' }, morphPanel(), bench), wrap = h('div', { class: 'morph-wrap' }, side, main), left = bench.querySelector('.mw-left'), right = bench.querySelector('.mw-right');
+    const [padEl, banner] = [...left.children]; side.append(padEl, banner);   // the pad, then the law's banner
+    right.children[0].after(...left.children); left.remove();   // the scale, the lock and the blend note go with the selected row
+    const after = [...el.children].slice(1); el.insertBefore(wrap, el.children[1] || null); after.forEach(c => main.append(c)); }
   if (pg.id === 'fx') el.insertBefore(fxRack(pg), el.children[1] || null);
   $('pages').append(el); pageEls[pg.id] = el;
 });
@@ -2121,17 +2129,20 @@ CLOCK.checking = true;
     line(!lawKept && sp0 > 1 && differs && countFollow && flips && qMark && noStep && !countQ && refused && one && lockHolds && allMove && back, 'Morph mode (GUI-28): ' + r.label + ' blends under Follow (control), reads its owner under Quantum with a Q mark, and under Exempt holds what was heard in all four corners, as one value, with an EX mark; re-picking makes no step, a locked corner refuses Exempt and its later writes whole, Count is drawn only while the key blends, and undo takes it all back.'); }
   // 4b8. GUI-33: the pictures rest when nothing's happening and draw at most 30 times a second otherwise. Controls: a change draws while idle, and a second frame inside 33 ms doesn't draw.
   { const pg0 = page, tick = () => { for (const v of views) if (v.page === page || v.page === '*') v.update(); }, P = SH.picturePace(33), logic = [P.due(undefined, false, false) === true, P.due(1000, false, false) === false, P.due(1000, true, false) === true, P.due(1016, true, true) === false, P.due(1034, false, true) === true, P.due(1100, false, false) === false].every(Boolean);
-    selectPage('osc1'); const pic = PICS['osc1/osc1'], hand0 = handAt, keepA = window.GUI3_AWAKE; window.GUI3_AWAKE = false; CLOCK.now = 1e7; handAt = -Infinity; tick(); CLOCK.now += 40; tick();
+    selectPage('osc1'); const pic = PICS['osc1/osc1'], hand0 = handAt, keepA = window.GUI3_AWAKE; window.GUI3_AWAKE = false; CLOCK.rest = true;   // GUI-42: only reduced motion rests a picture now, so the rest is tested on the check's own switch
+    CLOCK.now = 1e7; handAt = -Infinity; tick(); CLOCK.now += 40; tick();
     const f0 = pic.frames(); CLOCK.now += 40; tick(); CLOCK.now += 40; tick(); const rests = pic.frames() === f0;
     window.GUI3_AWAKE = true; CLOCK.now += 40; tick(); const wakes = pic.frames() === f0 + 1; CLOCK.now += 10; tick(); const capped = pic.frames() === f0 + 1; window.GUI3_AWAKE = false;
     CLOCK.now += 40; tick(); const f1 = pic.frames(), dk = PG.osc1.viz.keys.detune, dv = dev.shown(dk); dev.begin('self-check'); dev.set(dk, dv > .5 ? dv - .1 : dv + .1, { corner: 0 }); dev.end(); CLOCK.now += 40; tick(); const onChange = pic.frames() === f1 + 1; dev.undo(); dev.clearRedo(); CLOCK.now += 40; tick();
     const f2 = pic.frames(); document.dispatchEvent(new MouseEvent('pointermove', { bubbles: true })); CLOCK.now += 40; tick(); const hand = pic.frames() === f2 + 1; CLOCK.now += AWAKE_MS + 40; tick(); const f3 = pic.frames(); CLOCK.now += 40; tick(); const handEnds = pic.frames() === f3;
+    CLOCK.rest = false; CLOCK.now += 40; tick(); const f4 = pic.frames(); CLOCK.now += 40; tick(); const idleMoves = S.reduce || pic.frames() === f4 + 1;
     CLOCK.now = undefined; handAt = hand0; window.GUI3_AWAKE = keepA;
     tick(); const cv = pic.bv.canvas, sine = x => Math.sin(2 * Math.PI * x), base = x => H.Synth.saw(x + .5), sw16 = H.Synth.ring(7, 16), c16 = H.Synth.cycle({ n: 16, base, blades: [1, 2].map(b => ({ blade: b, mode: 'Sync', width: .2, position: b * .35, cycles: 4, depth: 1, edges: .1, posSpread: .08, cutSpread: 3, wave: sine })) }); c16.atPhase = H.Synth.atPhase(c16, sw16.phase);
     // A count, not a time: this page is clock-free, and a time would flake on a busy machine. Each stripe of each member's hatch was its own stroke, hundreds a frame; now it's the member lines and a few edges.
     const g2 = cv.getContext('2d'), strokes = v => { c16.view = v; let n = 0; const real = g2.stroke; g2.stroke = function () { n++; return real.apply(this, arguments); }; H.Viz.blade(cv, c16); delete g2.stroke; return n; }, phaseN = strokes('phase'), sumN = strokes('sum'), tile = !!cv.__hatch && !!cv.__hatch.pat, cheap = tile && phaseN <= 3 * 16 + 40;
     selectPage(pg0);
-    line(logic && rests && wakes && capped && onChange && hand && handEnds, 'Pictures rest (GUI-33): with nothing changing and nobody here, Osc 1 draws nothing; held awake it draws, but not twice in 33 ms; a setting changing draws while idle; a pointer move wakes it, and 2 s later it rests.');
+    const missP = Object.entries({ logic, rests, wakes, capped, onChange, hand, handEnds, idleMoves }).filter(e => !e[1]).map(e => e[0]);
+    line(!missP.length, (missP.length ? '(MISSED: ' + missP.join(', ') + ') ' : '') + 'Pictures (GUI-33, GUI-42): with nothing playing and nobody here, Osc 1 keeps drawing; under reduced motion it rests (the control), and there it draws when held awake, but not twice inside the pace, for a setting changing, and for a pointer move until 2 s later.');
     line(cheap, 'At phase (GUI-33): 16 members and two blades take ' + phaseN + ' strokes a frame (Sum: ' + sumN + '), and blade 2\u2019s hatch is one tile. Measured by hand on 2026-11-05: 20 ms a frame before, about 1 ms after.'); }
   // 4b7. GUI-30: a blade's switch and mode in its title bar, closed by default; the waveform you drag in three views on Main and the Osc pages; the carpet, voice map and spectrum on the Osc pages.
   // Keys come from the layout. Controls: with no blade on the sum IS the base and a drag writes nothing, a grab with no motion writes nothing, at lock AT PHASE is SUM, and a mode's own rule still hides.
@@ -2235,8 +2246,9 @@ CLOCK.checking = true;
     const clean = hot(base), full = hot(Object.assign({}, base, { drive: 1 })), n = new Float32Array(256).map((_, i) => Math.sin(i * 3.1)), sameCycle = (a, b) => a.every((q, i) => q === b[i]), e0 = sameCycle(Y.subCycle(base, 256), Y.subCycle(base, 256, n)), e8 = !sameCycle(Y.subCycle(base, 256), Y.subCycle(Object.assign({}, base, { erode: .8 }), 256, n));
     const R = e => e.getBoundingClientRect(), tick = () => { for (const v of views) if (v.page === page || v.page === '*') v.update(); }, lbl = 'canvas[aria-label^="The Dial"]';
     selectPage('sub'); tick(); const pageDial = pageEls.sub.querySelector(lbl), noCol = !pageEls.sub.querySelector('.pv-left ' + lbl), across = pageDial && R(pageDial).width > 400;
-    const hand0 = handAt, keepA = window.GUI3_AWAKE; window.GUI3_AWAKE = false; handAt = -Infinity; CLOCK.now = 3e7; const step = () => { CLOCK.now += 40; tick(); };   // its own clock, so the idle gate is what the control tests
-    selectPage('dashboard'); step(); const cardDial = pageEls.dashboard.querySelector(lbl), dk = PG.sub.viz.keys.drive, dv = dev.shown(dk), snap = () => cardDial.toDataURL(); const a0 = snap(); step(); step(); const still = snap() === a0; dev.begin('self-check'); dev.set(dk, dv > .5 ? dv - .4 : dv + .4, { corner: 0 }); dev.end(); step(); const moved = snap() !== a0; dev.undo(); dev.clearRedo(); step(); CLOCK.now = undefined; handAt = hand0; window.GUI3_AWAKE = keepA;
+    const hand0 = handAt, keepA = window.GUI3_AWAKE; window.GUI3_AWAKE = false; CLOCK.rest = true; handAt = -Infinity; CLOCK.now = 3e7;   // the old rest, so the card holds still and the control can hold (GUI-42)
+    const step = () => { CLOCK.now += 40; tick(); };   // its own clock, so the idle gate is what the control tests
+    selectPage('dashboard'); step(); const cardDial = pageEls.dashboard.querySelector(lbl), dk = PG.sub.viz.keys.drive, dv = dev.shown(dk), snap = () => cardDial.toDataURL(); const a0 = snap(); step(); step(); const still = snap() === a0; dev.begin('self-check'); dev.set(dk, dv > .5 ? dv - .4 : dv + .4, { corner: 0 }); dev.end(); step(); const moved = snap() !== a0; dev.undo(); dev.clearRedo(); step(); CLOCK.now = undefined; CLOCK.rest = false; handAt = hand0; window.GUI3_AWAKE = keepA;
     const mainDial = pageEls.main.querySelector(lbl); selectPage(pg0);
     line(clean < full && e0 && e8 && !!pageDial && noCol && across && !!cardDial && still && moved && !!mainDial, 'The Dial (GUI-35): across the Sub page, on Main\u2019s Sub tab and on the Dashboard\u2019s card; a card picture holds with no change (control) and moves with Drive; a sine spends ' + Math.round(clean * 100) + '% of its cycle near the ceiling clean and ' + Math.round(full * 100) + '% driven; Erode at 0 ignores the noise, and at 0.8 reads it.');
   }

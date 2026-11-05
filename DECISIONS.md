@@ -11953,6 +11953,25 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 **Engine impact.** GN-3 (the cable state, now per-corner wire sets) and GN-50, new: each source and each filter slot as its own rack input.
 
 **FX device (ADR-254).** The same patching, with its own inputs in place of the sources.
+
+## GUI-42 — DIRECTED by the human: the Morph page fits beside its pad; pictures keep moving; the waveform's name (amends GUI-40 and GUI-33; 2026-11-05)
+
+**The human, 2026-11-05:** "The morph grid still gets cut off at the bottom of the scroll by the morph box. I feel like we need to reformat a little to fit everything on the page more sensibly." And: "Also the osc visualizers are all freezing".
+
+**What changes.**
+1. **Morph's side column holds only the pad and its law's note,** 325 px against the page area's 462, so it's always whole. The scale, the lock and the blend note moved beside the selected row. **D.2's settings moved into the scrolling column,** so the side column runs the page's full height and the pad stays in view at the bottom of the scroll. Before, the column was taller than the page and stopped above D.2's box. **Amends GUI-40's layout.**
+2. **A picture on the page you're looking at keeps moving** at the pace's 30 fps, with or without notes or a hand. Reduced motion still rests it, waking for a voice or a hand. A hidden page draws nothing. **Amends GUI-33**, after the logo in GUI-40. The test build's Live readings had room: the page's work was 3 ms a frame held awake.
+3. **The waveform's title is `name`.** The shell passed both its title and a function under `label`, and the function won, so the canvas's accessible name was JavaScript source. A bug, found while checking item 2.
+
+**Readings (the GUI session's, open to the human).**
+- **The whole Morph page now scrolls in one column** beside the pad, with the corners still first (GUI-26) and D.2's settings last.
+- **"Freezing" was read as all the pictures,** including the Dial and the Weather.
+
+**State (GUI-27).** None changes.
+
+**Engine impact.** None: drawing and layout.
+
+**FX device (ADR-254).** Its Morph page and pictures take items 1 and 2 the same.
 ## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
 
 **Context.** FM free in pitch FM runs an accumulator that never restarts, while each of C.16's readings starts it at 0, so the estimate cannot see its mean and BL-19 cannot hold by the law alone (Q-TA-71: engine-free, 95 of its 144 one-member cases over 0.003, up to 0.046). ADR-363 sent this to a scratch trial of C.16's existing blocker, with clips for the human. Separately, item 7.8's reference R2 places FM free's modulator half a cycle from round 56's start, and 7.8 plays before its settings settle (Q-TA-77).

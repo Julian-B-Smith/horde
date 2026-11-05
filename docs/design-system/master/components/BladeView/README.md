@@ -34,3 +34,5 @@ One cycle of one voice with the blades that cut it: each window as a band, the b
 **Not copied** the lab's Contributions pill, Cycle Edits grips and the R-hued beam under it.
 
 The preview draws SAMPLE data generated in the preview (seeded, deterministic), never the engine.
+
+**Its title is `name`** (GUI-42): `label` is the function that names a row. A host that passed the title under `label` too lost it to the function, whose source became the canvas's accessible name.
