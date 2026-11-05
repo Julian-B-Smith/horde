@@ -8,4 +8,4 @@
 
 **Two self-check bugs found on the way.** The waveform check read the windows of whatever view was remembered, so it failed once At phase had been left on: it now sets Sum and restores. And the checks draw many times inside one frame, so they run on their own clock, or the pace would starve them.
 
-**Verify.** `./verify fast`, on the commit this trace ships in. 77 self-checks pass in a real browser, including the pace with controls: a change draws while idle, a second frame inside 33 ms doesn't, and a hand's 2 s ends. Not measured: anything inside Ableton.
+**Verify.** `./verify fast`, on the commit this trace ships in. 77 self-checks pass in a real browser, including the pace with controls: a change draws while idle, a second frame inside 33 ms doesn't, and a hand's 2 s ends. At phase's self-check counts strokes rather than time, since the shell is clock-free (the determinism gate caught a `performance.now` here). Not measured: anything inside Ableton.
