@@ -323,6 +323,10 @@
    "master_version": "1793374583-b6a5",
    "note": "BlendMaps, CrossSection, FindPane and Cohesion READMEs cite it (ADR-266 ruling 9); its rounds (B268, B269) are not all ratified (port-tab morph-editor)."
   },
+  "morph-rail-lab.html": {
+   "status": "exploring",
+   "note": "GB17. How a rail is drawn, whether the puck scrubs it, and what per-parameter distribution means now that a row can own its regions (B133, B28, GN-31). Waiting on the human."
+  },
   "morph-law-bench.html": {
    "status": "retired",
    "note": "Archived in the design index (its lab-archive tag): legacy-era bench; its law is ruled or lives in the composed engine. History, never a source."
