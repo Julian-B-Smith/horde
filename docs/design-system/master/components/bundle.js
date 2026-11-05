@@ -1124,7 +1124,8 @@
   /* GUI-35, the Dial (GB9, sub-noise-lab.html): one heavy cycle wrapped round a dial with its ceiling as a ring, and, where there's room, the same cycle unrolled beside it. Drive flattens it against the ring,
      Erode frays it. `st` keeps its turn and its noise: st.t in seconds, st.level 0..1. */
   Viz.subDial = function (cv, o, st) { var K = Viz.kit(cv), g = K.g, V = K.V, W = K.W, Hh = K.H, N = 256, T = 2 * Math.PI, i, k, S = window.Horde.Synth; K.tube(); K.scan();
-    function noise() { if (!st.rng) { st.rng = S.rng(9401); st.n = new Float32Array(N); } for (var j = 0; j < N; j++) st.n[j] = 2 * st.rng() - 1; return st.n; }
+    /* its own names on `st`: the host keeps its frame count there, and a shared `n` turned the buffer into a string the first time Erode was up, which threw and the host stopped drawing (a GUI-35 bug, fixed 2026-11-05) */
+    function noise() { if (!st.dialRng) { st.dialRng = S.rng(9401); st.dialNoise = new Float32Array(N); } for (var j = 0; j < N; j++) st.dialNoise[j] = 2 * st.dialRng() - 1; return st.dialNoise; }
     var y = S.subCycle(o, N, o.erode > 0 ? noise() : null), L = st.level === undefined ? 1 : st.level, wide = W / V > 300, cx = wide ? Hh * .62 : W * .5, cy = Hh / 2, R0 = Math.min(Hh * .29, W * .28), A = R0 * .55, ph = (st.t || 0) * .33 % 1;
     function pt(j, yy) { var a = j / N * T - Math.PI / 2 + ph * T, r = R0 + A * yy * L; return [cx + Math.cos(a) * r, cy + Math.sin(a) * r]; }
     function loop(c) { g.beginPath(); for (var j = 0; j <= N; j++) { var p = pt(j % N, c[j % N]); j ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); } g.closePath(); }

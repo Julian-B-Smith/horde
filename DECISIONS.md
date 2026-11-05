@@ -11836,6 +11836,8 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 
 **FX device (ADR-254).** It hosts no sources, so none of this appears there.
 
+
+**Fixed 2026-11-05: a bug, not a ruling.** The human: "turning up \"erode\" removes the sub osc visualizer". `Viz.subDial` kept its Erode noise under `st.n`, where the shell keeps its frame count. With Erode above 0 the two overwrote each other, the buffer became a string, the draw threw, and the shell stopped that view for good. The painter's state now has names of its own (`dialRng`, `dialNoise`), the shell's count is `st.frames`, and the Dial's self-check turns Erode up and requires that no view fails.
 ## GUI-36 — DIRECTED by the human: FX routing controls on the FX page, as a mock-up: a corner is a chain (GB21; ADR-201; 2026-11-05)
 
 **The human, 2026-11-05:** "I want to land a mock-up of the Random page, editable/morphabe LFOs on the mods page, and FX routing controls on the FX page".
