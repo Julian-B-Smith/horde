@@ -1,11 +1,10 @@
 /*
- * gui3_browser_check (PROTOTYPE) — GUI 3 in a real browser: its self-checks pass, and its pictures still move after them.
- * A proposal, not a gate (docs/design/gui3/browser-gate-proposal.md). It lives here, outside tools/, until the human picks where it runs: an
- * unwired check under tools/ counts as weakening the gate set (weakening_check), which is the human's to approve. On a ruling it moves to
- * tools/labharness/gui3_browser_check.mjs and is wired in the same PR.
+ * gui3_browser_check.mjs — GUI 3 in a real browser: its self-checks pass, and its pictures still move after them (ROADMAP GB24, GUI-44).
+ * WIRED: ./verify fast (beside gui3_seam_check). A missing browser prints a HOLE line there and does not fail verify (GUI-44, the human:
+ * "fast, hole if absent"); a hole is visible on every run, never silent.
  *
- *   node docs/design/gui3/browser-check-prototype.mjs       the check and its control
- *   HORDE_CHROME=/path/to/chrome node ...                  use that browser
+ *   node tools/labharness/gui3_browser_check.mjs        the check and its control
+ *   HORDE_CHROME=/path/to/chrome node ...                use that browser
  *
  * WHY (the human, 2026-11-05: "Everything is still frozen on all the osc views", the third report). GUI 3's ~83 self-checks run only when a page
  * loads in a browser, and no gate loads it in one: `gui3_seam_check` reads its text and runs its pure parts in node, and `lab_load_check`
@@ -33,7 +32,7 @@ import { join, extname, resolve, dirname } from 'node:path';
 import { tmpdir, homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');   // docs/, from docs/design/gui3/
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../docs');   // docs/, from tools/labharness/
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const MOVERS = ['Phase ring', 'Phase carpet', 'Voice map'];
 
