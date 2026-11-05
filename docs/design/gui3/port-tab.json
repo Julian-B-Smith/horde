@@ -50,7 +50,7 @@
     {"id": "fx-modules", "area": "FX", "item": "The FX modules' screens and their morph and modulation states",
      "asked": "FX modules", "source": ["docs/design/fx-chain-morph-lab-r3.html", "docs/design/fx-screens-workshop.html", "docs/design/maw-horde-lab.html", "docs/design/sluice-horde-lab.html"],
      "reason": "ruling", "why": "How morph and modulation show on a module's glass is B591's design; Echo, Scape, Shriek and Bulwark's parameters are in the shell as house-style DOM views since slice 4a.",
-     "roadmap": "B591", "status": "partial", "missing": "Each module's own screen on its parameter card (a labelled placeholder today: ModuleCard has no bundle export), the engine's cable state (GUI-36's corner chains are a mock-up), and Sluice and Weir, which have no manifest."},
+     "roadmap": "B591", "status": "partial", "missing": "Each module's own screen on its parameter card (a labelled placeholder today: ModuleCard has no bundle export), the engine's cable state (GUI-41's patching is a mock-up) and its per-source lanes (GN-50), and Sluice and Weir, which have no manifest."},
     {"id": "sluice", "area": "FX", "item": "Sluice's controls",
      "asked": "FX modules", "source": ["docs/design/sluice-horde-lab.html"],
      "reason": "sibling-manifest", "why": "No machine-readable manifest found in Sluice's tree (2026-10-30), so nothing is generated for it.",

@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1793906597-7060, 2026-11-05; do not edit, re-vendor */
+/* vendored from the horde Design System artifact, version 1793907040-0c9c, 2026-11-05; do not edit, re-vendor */
 /* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"MorphMode"},{"name":"NameField"},{"name":"SteppedControl"},{"name":"Stepper"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"},{"name":"Companion"},{"name":"SourceChip"},{"name":"SourceRows"},{"name":"RoutesBySource"},{"name":"Cluster"},{"name":"Lens"},{"name":"Fold"},{"name":"PageView"},{"name":"ModTiers"},{"name":"MacroRow"},{"name":"ModBank"},{"name":"ModPage"},{"name":"UndoLine"},{"name":"MacroFace"},{"name":"PresetBar"},{"name":"Deck"},{"name":"MacroCard"},{"name":"ParamPicker"},{"name":"HistoryRail"},{"name":"PicturePicker"},{"name":"AssignXY"},{"name":"Specimen"}]} */
 /* horde house reference behaviours (vanilla JS, no React, no network).
    The morph knob and slider follow the human's HORDE Morph Knob Spec and HORDE Map Mode Spec
@@ -9226,4 +9226,91 @@ window.Horde.MainStage = {
     cv.addEventListener('dblclick', function (ev) { var p = at(ev), e = o.env(); if (!e) return; var n = hit(e, geo(cv, e), p[0], p[1]); if (!n) return; o.begin(n.name + ' (reset)'); [n.x, n.y, n.u].forEach(function (r) { if (r) o.reset(r); }); o.end(); });
     return { hit: function (x, y) { var e = o.env(); return e ? hit(e, geo(cv, e), x, y) : null; } }; }
   H.EnvDrag = EnvDrag;
+})();
+
+/* ======== GUI-41: FX patching. The human, 2026-11-05: "I want to be able to drag wires between modules in both directions, with forward on top and backward on the bottom (an algorithm will need to
+   block feedback in 1.0 at all the morph positions except for brief crossfade overlaps ...), and all the oscs and filters need to be individually exposed on the interface because they can each
+   independently feed into modules." Supersedes GUI-36's chains. MOCK: the engine publishes no cable state yet (GN-3) and has no per-source lanes (GN-50). ======== */
+(function () {
+  'use strict';
+  var H = window.Horde, MIN = 0.003, LETTERS = ['A', 'B', 'C', 'D'];
+  /* THE LAW, pure. Each corner is a set of wires `u>v`, and each corner's own set never has a loop (an edit that would close one is refused). The pad blends the corners' wires; then wires are
+     admitted heaviest first, and one that would close a loop with those already admitted is held at zero. So at rest, at any pad position, the heard graph has no loop. While the pad moves, a wire
+     that's leaving glides out over tau as its replacement glides in, so a loop can live for that crossfade only: it's drawn on the backward part (one sample late, the rack's own rule, ADR-201). */
+  function FxGraph(o) {
+    var me = this; me.src = o.sources; me.mods = o.modules; me.out = { id: 'out', name: 'Out', short: 'Out' };
+    me.order = me.src.map(function (s) { return s.id; }).concat(me.mods.map(function (m) { return m.id; }), ['out']);
+    me.rank = {}; me.order.forEach(function (id, i) { me.rank[id] = i; });
+    me.tau = o.tau || .5; me.gamma = o.gamma === undefined ? 2 : o.gamma; me.m1 = {}; me.m2 = {}; me.held = {}; me.tgt = {};
+    me.corners = [0, 1, 2, 3].map(function () { return me.series(); });
+  }
+  FxGraph.prototype.isSource = function (id) { return this.src.some(function (s) { return s.id === id; }); };
+  /* the house default: every source into the first module, the modules in their order, the last to Out */
+  FxGraph.prototype.series = function () { var c = {}, m = this.mods.map(function (x) { return x.id; }); this.src.forEach(function (s) { c[s.id + '>' + (m[0] || 'out')] = 1; }); for (var i = 0; i < m.length; i++) c[m[i] + '>' + (m[i + 1] || 'out')] = 1; return c; };
+  /* is there a path from a to b through these wires? */
+  FxGraph.prototype.reach = function (wires, a, b) { var seen = {}, st = [a]; while (st.length) { var x = st.pop(); if (x === b) return true; if (seen[x]) continue; seen[x] = 1; Object.keys(wires).forEach(function (k) { if (wires[k] > MIN) { var p = k.split('>'); if (p[0] === x) st.push(p[1]); } }); } return false; };
+  FxGraph.prototype.can = function (i, u, v) { if (u === v) return 'a module can’t feed itself'; if (this.isSource(v)) return 'a source takes no input'; if (u === 'out') return 'Out feeds nothing'; if (this.reach(this.corners[i], v, u)) return 'it would close a loop in corner ' + LETTERS[i] + ', and 1.0 allows none'; return ''; };
+  /* add the wire, or take it away if it's there. Returns '' or why it was refused */
+  FxGraph.prototype.toggle = function (i, u, v) { var c = this.corners[i], k = u + '>' + v; if (c[k]) { delete c[k]; return ''; } var why = this.can(i, u, v); if (why) return why; c[k] = 1; return ''; };
+  FxGraph.prototype.blend = function (w4) { var me = this, w = w4.map(function (x) { return Math.pow(Math.max(0, x), me.gamma); }), s = w.reduce(function (a, b) { return a + b; }, 0) || 1, T = {};
+    me.corners.forEach(function (c, i) { Object.keys(c).forEach(function (k) { T[k] = (T[k] || 0) + c[k] * w[i] / s; }); }); return T; };
+  /* the admitted targets at a pad position: heaviest first, a loop-closing wire held at 0 (ties by the rack's order, so it's deterministic) */
+  FxGraph.prototype.target = function (w4) { var me = this, T = me.blend(w4), keys = Object.keys(T).sort(function (a, b) { return T[b] - T[a] || me.cmp(a, b); }), ad = {}, held = {};
+    keys.forEach(function (k) { var p = k.split('>'); if (T[k] <= MIN) return; if (me.reach(ad, p[1], p[0])) held[k] = T[k]; else ad[k] = T[k]; }); return { ad: ad, held: held }; };
+  FxGraph.prototype.cmp = function (a, b) { var p = a.split('>'), q = b.split('>'); return (this.rank[p[0]] - this.rank[q[0]]) || (this.rank[p[1]] - this.rank[q[1]]); };
+  FxGraph.prototype.step = function (w4, dt) { var me = this, t = me.target(w4), a = dt > 0 ? 1 - Math.exp(-dt / (me.tau / 2)) : 1; me.tgt = t.ad; me.held = t.held;
+    var keys = {}; Object.keys(t.ad).concat(Object.keys(me.m1), Object.keys(me.m2)).forEach(function (k) { keys[k] = 1; });
+    Object.keys(keys).forEach(function (k) { var T = t.ad[k] || 0, m1 = me.m1[k] || 0, m2 = me.m2[k] || 0; m1 += (T - m1) * a; m2 += (m1 - m2) * a; if (Math.abs(m1 - T) < 1e-5 && Math.abs(m2 - T) < 1e-5) { m1 = m2 = T; }
+      if (m2 < 1e-6 && T === 0) { delete me.m1[k]; delete me.m2[k]; } else { me.m1[k] = m1; me.m2[k] = m2; } }); };
+  FxGraph.prototype.settle = function (w4) { this.m1 = {}; this.m2 = {}; this.step(w4, 0); };
+  /* what the views draw: a live wire that's leaving and closes a loop with the live ones is on its backward part; a held one waits */
+  FxGraph.prototype.state = function () { var me = this, live = {}, into = {}, cables = [];
+    Object.keys(me.m2).forEach(function (k) { if (me.m2[k] >= MIN) live[k] = me.m2[k]; });
+    Object.keys(live).forEach(function (k) { var p = k.split('>'), w = live[k], others = {}; Object.keys(live).forEach(function (q) { if (q !== k) others[q] = live[q]; });
+      var loop = me.reach(others, p[1], p[0]), back = loop && !me.tgt[k]; into[p[1]] = 1; cables.push({ u: p[0], v: p[1], k: k, wf: back ? 0 : w, wb: back ? w : 0, loop: loop, held: '' }); });
+    Object.keys(me.held).forEach(function (k) { if (live[k]) return; var p = k.split('>'); cables.push({ u: p[0], v: p[1], k: k, wf: 0, wb: 0, loop: false, held: 'loop' }); });
+    return { lanes: me.src, out: me.out, rules: {}, cables: cables, nodes: me.mods.map(function (n) { return Object.assign({}, n, { asleep: !into[n.id] }); }) }; };
+  /* a seeded random patch for one corner, for Randomize's FX routing level: wires only forward in the rack's order, so it can't loop; chaos is how many */
+  FxGraph.prototype.draw = function (i, r, chaos) { var me = this, ids = me.order, c = {}; me.src.forEach(function (s) { var to = ids.filter(function (x) { return !me.isSource(x); }); c[s.id + '>' + to[Math.floor(r() * Math.min(to.length, 1 + chaos * to.length))]] = 1; });
+    me.mods.forEach(function (m) { var later = ids.slice(me.rank[m.id] + 1).filter(function (x) { return !me.isSource(x); }); c[m.id + '>' + later[Math.floor(r() * later.length)]] = 1; if (r() < chaos * .5 && later.length > 1) c[m.id + '>' + later[Math.floor(r() * later.length)]] = 1; }); me.corners[i] = c; };
+
+  /* THE VIEW: the master's Rack, Matrix and Case over one FxGraph. Drag from a box to another box on the Rack to add a wire (left to right goes over the top, right to left under), or to remove it if
+     it's there; click a Matrix cell for the same. Edits go to the corner chosen in "Show"; "Heard" shows what the pad makes of the four and isn't edited. */
+  function FxPatch(el, o) {
+    var g = new FxGraph(o), show = o.start === undefined ? 0 : o.start, view = 0, built = [], drawSel = null;
+    g.settle(o.weights());
+    el.classList.add('hd-fxpatch'); el.innerHTML = '';
+    var head = document.createElement('div'); head.className = 'fp-head'; el.appendChild(head);
+    var mk = function (t, c, x) { var e = document.createElement(t); if (c) e.className = c; if (x !== undefined) e.textContent = x; return e; };
+    head.appendChild(mk('span', 'hd-label', 'View')); var vw = mk('div'); head.appendChild(vw); head.appendChild(mk('span', 'hd-label', 'Show')); var sw = mk('div'); head.appendChild(sw);
+    var acts = mk('div', 'fp-acts'); head.appendChild(acts); var hint = mk('span', 'hd-hint fp-hint'); el.appendChild(hint);
+    var stage = mk('div', 'fp-stage'); el.appendChild(stage);
+    var KINDS = [['Rack', H.FxRack], ['Matrix', H.FxMatrix], ['Case', H.FxPanel]], hosts = KINDS.map(function () { var d = mk('div', 'fc-view'); d.hidden = true; stage.appendChild(d); return d; });
+    function stateNow() { if (show === 4) return g.state(); var w = [0, 0, 0, 0]; w[show] = 1; var h2 = new FxGraph(o); h2.corners = g.corners; h2.settle(w); return h2.state(); }
+    function render() { if (built[view] && built[view].render) built[view].render(true); paintHint(); }
+    function pick(i) { view = i; hosts.forEach(function (d, k) { d.hidden = k !== i; }); if (!built[i]) { var v = KINDS[i][1](hosts[i], stateNow, o.session); var r0 = v && v.render; if (r0) v.render = function () { if (!hosts[i].hidden && hosts[i].isConnected) r0.apply(v, arguments); }; built[i] = v; } render(); }
+    var kO = { keys: o.keys };
+    H.pillGroup(vw, KINDS.map(function (k) { return k[0]; }), 0, 'FX routing view', pick, kO);
+    drawSel = H.pillGroup(sw, LETTERS.concat(['Heard']), show, 'Which corner’s wires to show and edit, or what the pad makes of them', function (i) { show = i; render(); }, kO);
+    var btn = function (t, title, fn) { var b = mk('button', 'hd-btn hd-focus hd-xs', t); b.type = 'button'; b.title = title; b.addEventListener('click', fn); acts.appendChild(b); return b; };
+    btn('Series', 'Reset this corner to the house default', function () { if (show === 4) return; g.corners[show] = g.series(); changed('Corner ' + LETTERS[show] + ' reset to series'); });
+    btn('To all', 'Copy this corner’s wires to the other three', function () { if (show === 4) return; var src = g.corners[show]; g.corners = g.corners.map(function (c, i) { return i === show ? c : Object.assign({}, src); }); changed('Corner ' + LETTERS[show] + ' copied to all'); });
+    function changed(label) { if (o.onChange && label) o.onChange(label); render(); }
+    function paintHint() { var s = stateNow(), live = s.cables.filter(function (c) { return c.wf + c.wb >= MIN; }).length, held = s.cables.filter(function (c) { return c.held; }).length, loops = s.cables.filter(function (c) { return c.loop; }).length;
+      hint.textContent = (show === 4 ? 'Heard at this pad position: ' : 'Corner ' + LETTERS[show] + ': ') + live + ' wires' + (held ? ', ' + held + ' held back to keep the graph loop-free' : '') + (loops ? ', a loop while crossfading' : '') + (show === 4 ? '. Pick a corner to edit.' : '. Drag between boxes on the Rack to add or remove a wire; on the Matrix, click a cell.') + ' MOCK'; }
+    function edit(u, v) { if (show === 4) { if (o.say) o.say('Pick a corner to edit: Heard is what the pad makes of the four'); return; } var why = g.toggle(show, u, v), on = !!g.corners[show][u + '>' + v]; if (why) { if (o.say) o.say('Refused: ' + why); return; } changed('Corner ' + LETTERS[show] + ': ' + u + ' → ' + v + (on ? ' added' : ' removed')); }
+    /* the Rack's drag: its geometry is the view's own (columns of equal width, boxes on the midline), read from the svg so a scaled window still lands */
+    var ghost = null;
+    function colAt(svg, ev) { var r = svg.getBoundingClientRect(), vb = svg.viewBox.baseVal, x = (ev.clientX - r.left) * vb.width / r.width, y = (ev.clientY - r.top) * vb.height / r.height, cols = g.order.length, cw = vb.width / cols, i = Math.floor(x / cw), mid = vb.height / 2;
+      return { i: i, id: g.order[i], x: x, y: y, ok: i >= 0 && i < cols && Math.abs(y - mid) < 30, cx: (i + .5) * cw, mid: mid }; }
+    hosts[0].addEventListener('pointerdown', function (ev) { var svg = hosts[0].querySelector('svg'); if (!svg || show === 4) return; var a = colAt(svg, ev); if (!a.ok || a.id === 'out') return; ev.preventDefault(); hosts[0].setPointerCapture(ev.pointerId);
+      ghost = { from: a, line: document.createElementNS('http://www.w3.org/2000/svg', 'line') }; ghost.line.setAttribute('class', 'fp-ghost'); ghost.line.setAttribute('x1', a.cx); ghost.line.setAttribute('y1', a.mid); ghost.line.setAttribute('x2', a.x); ghost.line.setAttribute('y2', a.y); svg.appendChild(ghost.line); });
+    hosts[0].addEventListener('pointermove', function (ev) { if (!ghost) return; var svg = hosts[0].querySelector('svg'), b = colAt(svg, ev); ghost.line.setAttribute('x2', b.x); ghost.line.setAttribute('y2', b.y); });
+    hosts[0].addEventListener('pointerup', function (ev) { if (!ghost) return; var svg = hosts[0].querySelector('svg'), b = colAt(svg, ev), a = ghost.from; ghost.line.remove(); ghost = null; if (b.ok && b.id !== a.id) edit(a.id, b.id); });
+    hosts[1].addEventListener('click', function (ev) { var c = ev.target.closest && ev.target.closest('.fx-cell'); if (!c) return; var k = c.getAttribute('data-k').split('>'); edit(k[0], k[1]); });
+    pick(0);
+    return { el: el, graph: g, view: pick, show: function (i) { show = i; drawSel.set(i); render(); }, edit: edit, redraw: render,
+      step: function (dt) { var w = o.weights(); if (dt <= 0) g.settle(w); else g.step(w, dt); if (show === 4) render(); } };
+  }
+  H.FxGraph = FxGraph; H.FxPatch = FxPatch;
 })();

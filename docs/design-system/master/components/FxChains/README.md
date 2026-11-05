@@ -1,5 +1,7 @@
 # FX chains
 
+**Superseded by `FxPatch` (GUI-41).** The shell no longer mounts this. It stays in the bundle until the next consolidation, for the record.
+
 Routing on the FX page (GUI-36, a MOCK-UP the human asked to land). ADR-201's static-node rack: modules stay resident, and the morph moves only cable weights. So routing is edited per corner: a corner is a chain of the modules in its order, with where Sub joins (FX sample's model, from `fx-chain-morph-lab-r3.html`).
 
 **Anatomy.** A Rack, Matrix or Case view (`FxRack`, `FxMatrix`, `FxPanel`, unchanged) over four rows, A to D. The row nearest the pad is ringed in `value`. In a row, modules in the chain come first as numbered cream chips in their order, and modules out of it follow dashed. A select says where Sub joins, and "To all" copies the row to the other three.

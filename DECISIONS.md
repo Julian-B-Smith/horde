@@ -11931,6 +11931,28 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 **Engine impact.** None: these are drawing and layout, and the Weather needs nothing new (GB9's table).
 
 **FX device (ADR-254).** It has one Morph page, so item 4's sticky square pad applies; the rest concerns pages it doesn't have, apart from item 3.
+
+## GUI-41 — DIRECTED by the human: FX patching, wires dragged both ways, every source its own input, and no loop at rest (GB21; ADR-201; supersedes GUI-36; 2026-11-05)
+
+**The human, 2026-11-05:** "I would like to make some changes to the mock FX flow. I want to be able to drag wires between modules in both directions, with forward on top and backward on the bottom (an algorithm will need to block feedback in 1.0 at all the morph positions except for brief crossfade overlaps; I believe there is already a lab open that works this out), and all the oscs and filters need to be individually exposed on the interface because they can each independently feed into modules."
+
+**What changes. Supersedes GUI-36's chains,** whose reading that routing has no free patching the human has now overruled.
+- **Each corner is its own patch of wires.** Drag from a box to another on the Rack to add a wire, and drag again to remove it; click a Matrix cell for the same. A left-to-right wire goes over the top and a right-to-left one underneath. "Show" picks which corner is drawn and edited, or "Heard", the morph's blend, which isn't edited.
+- **Six inputs:** Osc 1, Osc 2, Sub, Noise, Filter 1 and Filter 2, each its own lane on the rack.
+- **The loop rule (`FxGraph`).** A corner refuses a wire that would close a loop in its own patch. The pad blends the corners, and wires are admitted heaviest first, so one that would close a loop at the blend is held at zero and drawn waiting. While the pad moves, a leaving wire glides out as its replacement glides in, so a loop lives only for that crossfade, one sample late. **This adapts the FX-chain lab's round 3 (B265)**, whose strategy (b) waits a cycle-closing cable out; that lab is the one the human remembered.
+- **Randomize's FX routing level** draws a loop-free patch for a corner, and Copy copies one.
+
+**Readings (the GUI session's, open to the human).**
+- **Blocking per corner at edit time** is this session's reading of "block feedback in 1.0". The alternative, letting a corner hold a loop and blocking only at the blend, would let a corner be a sound you can never hear.
+- **Ties at the blend go by the rack's order,** so the same pad position always admits the same wires.
+- **A wire has no level of its own** yet: it's 1 in a corner and blends between them.
+- **The filters' lanes are MOCK** (Weir), and Sluice has no manifest yet.
+
+**State (GUI-27).** A patch lives in the view: not in a patch, a snapshot or undo, and gone on reload.
+
+**Engine impact.** GN-3 (the cable state, now per-corner wire sets) and GN-50, new: each source and each filter slot as its own rack input.
+
+**FX device (ADR-254).** The same patching, with its own inputs in place of the sources.
 ## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
 
 **Context.** FM free in pitch FM runs an accumulator that never restarts, while each of C.16's readings starts it at 0, so the estimate cannot see its mean and BL-19 cannot hold by the law alone (Q-TA-71: engine-free, 95 of its 144 one-member cases over 0.003, up to 0.046). ADR-363 sent this to a scratch trial of C.16's existing blocker, with clips for the human. Separately, item 7.8's reference R2 places FM free's modulator half a cycle from round 56's start, and 7.8 plays before its settings settle (Q-TA-77).

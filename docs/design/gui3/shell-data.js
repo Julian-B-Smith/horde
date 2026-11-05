@@ -776,7 +776,7 @@ window.GUI3_DATA = {
     "asked": "FX modules",
     "id": "fx-modules",
     "item": "The FX modules' screens and their morph and modulation states",
-    "missing": "Each module's own screen on its parameter card (a labelled placeholder today: ModuleCard has no bundle export), the engine's cable state (GUI-36's corner chains are a mock-up), and Sluice and Weir, which have no manifest.",
+    "missing": "Each module's own screen on its parameter card (a labelled placeholder today: ModuleCard has no bundle export), the engine's cable state (GUI-41's patching is a mock-up) and its per-source lanes (GN-50), and Sluice and Weir, which have no manifest.",
     "reason": "ruling",
     "roadmap": "B591",
     "source": [
