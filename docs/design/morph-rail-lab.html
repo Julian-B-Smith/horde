@@ -1,0 +1,433 @@
+<!doctype html>
+<!-- morph-rail-lab: the Morph page's last two undesigned parts, the rail and per-parameter distribution. horde, 2026-11-04, row GB17. Origin: the human,
+     "Finish the Morph page", then "Yes, build the lab" (GUI-28 left both with no design ruling; B133, B28).
+
+     WHAT'S ALREADY SETTLED, AND IS BUILT AS SETTLED (B133). Cubic segments; `rail position` 0..1 places the morph by distance along the curve (64 samples a segment), so equal
+     knob motion is equal travel; with the rail on, free XY is read-only; "rail wins" over host automation, with a badge (ADR-137 amendment); a closed rail makes the position a
+     phasor; one gesture is one undo step; the rail is patch state, and the corners stay four.
+
+     WHAT'S OPEN, AND IS WHAT THIS ASKS. How you draw a rail. Whether the puck scrubs along it. What per-parameter distribution means now that a row can own its regions (GN-6).
+
+     WHAT IS REAL. The pad, the puck, the corner chips and the position slider are the master's XYPad and Slider. Row names come from GUI 3's generated rows, not invented ones.
+     WHAT ISN'T. No audio, and nothing here is the engine's. Who owns a row where is a stand-in: the shell's own (the highest of a corner's weight plus its seeded offset), not MO-7's
+     law. The LFO and the host lane are SAMPLES. Nothing here edits gui3*, arp-face/ or the master, and a ruling goes through the chain (ADR-316).
+
+     HOUSE RULES. No Math.random (seeded mulberry32). No clock: time is a frame count, 1/60 s a frame. No wheel listener (B301). -->
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="lab-part" content="Morph and state">
+<meta name="lab-review" content="GB17 · 2026-11-04">
+<title>Morph rail lab — drawing a rail, and per-parameter distribution</title>
+<link rel="stylesheet" href="arp-face/tokens.css">
+<link rel="stylesheet" href="arp-face/bundle.css">
+<style>
+  html, body { background: var(--bg); }
+  body { margin: 0; padding: 20px 16px 60px; color: var(--ink); font: 13px/1.5 var(--font-sans); }
+  .col { max-width: 1012px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+  h1 { font: 800 19px/1.2 var(--font-sans); margin: 0 0 6px; }
+  h2 { font: 800 14px/1.2 var(--font-sans); margin: 0 0 6px; }
+  h3 { font: 700 12px/1.2 var(--font-sans); margin: 0 0 4px; }
+  p { margin: 0 0 6px; max-width: 84ch; }
+  .note { color: var(--hint); font-size: 12px; }
+  .card { border: 1.5px solid var(--ink); border-radius: var(--radius); padding: 12px; background: var(--panel); }
+  .picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; margin-bottom: 12px; }
+  .opt { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; gap: 3px; padding: 8px; border: 1px solid var(--div); border-radius: var(--radius); }
+  .opt:hover { border-color: var(--ink); }
+  .opt:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .opt[aria-pressed="true"] { border: 2px solid var(--ink); padding: 7px; }
+  .opt b { font: 700 12px/1.25 var(--font-sans); }
+  .opt span { color: var(--hint); font-size: 12px; line-height: 1.35; }
+  .bench { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+  .padcol { flex: 0 0 auto; display: flex; flex-direction: column; gap: 8px; width: 360px; max-width: 100%; }
+  .side { flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+  #padHost { position: relative; width: 360px; height: 360px; max-width: 100%; touch-action: none; }
+  #padHost .hd-xy { width: 100%; height: 100%; }
+  #regions, #map { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; opacity: .62; }
+  #rail { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  #badge { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); z-index: 3; padding: 2px 8px; border: 1px solid var(--ink); border-radius: var(--radius-capsule); background: var(--panel); color: var(--ink); font: 700 10px/1.4 var(--font-sans); white-space: nowrap; pointer-events: none; }
+  #badge[hidden] { display: none; }
+  .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .row .grow { flex: 1 1 120px; min-width: 0; }
+  #posHost .mk-v2 { display: none; }   /* the master's readout says LOCKED for a value with no corners, which the rail's position isn't */
+  #say { min-height: 20px; color: var(--ink); font-size: 12px; }
+  #course { display: block; width: 100%; height: 190px; border: 1px solid var(--div); border-radius: var(--radius); background: var(--bg); }
+  #mini { display: block; width: 110px; height: 110px; border: 1px solid var(--ink); border-radius: var(--radius); background: var(--bg); }
+  .dist { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+  .rows { flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .drow { all: unset; box-sizing: border-box; display: grid; grid-template-columns: 96px minmax(0, 1fr) 44px; gap: 8px; align-items: center; padding: 3px 6px; border: 1px solid transparent; border-radius: var(--radius); cursor: pointer; font-size: 12px; }
+  .drow:hover { border-color: var(--div); }
+  .drow[aria-pressed="true"] { border-color: var(--ink); }
+  .drow:focus-visible { outline: 2px solid var(--ink); }
+  .bar { position: relative; display: flex; height: 16px; border: 1px solid var(--ink); border-radius: 3px; overflow: hidden; touch-action: none; }
+  .bar i { display: block; height: 100%; }
+  .div { position: absolute; top: 0; bottom: 0; width: 13px; margin-left: -6px; cursor: ew-resize; }
+  .div::after { content: ''; position: absolute; left: 6px; top: 0; bottom: 0; width: 1px; background: var(--ink); }
+  .drow input[type=range] { width: 44px; accent-color: var(--ink); }
+  .mapcol { flex: 0 0 auto; width: 240px; max-width: 100%; display: flex; flex-direction: column; gap: 6px; }
+  #mapHost { position: relative; width: 240px; height: 240px; max-width: 100%; border: 1.5px solid var(--ink); border-radius: var(--radius); background: var(--bg); touch-action: none; }
+  #mapHost.live { cursor: crosshair; }
+  #map { opacity: 1; }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; }
+  th, td { text-align: left; padding: 4px 8px 4px 0; border-top: 1px solid var(--div); vertical-align: top; }
+  th { font-weight: 700; }
+  ol { margin: 0; padding-left: 20px; }
+  ol li { margin-bottom: 6px; max-width: 84ch; }
+  pre { margin: 0; white-space: pre-wrap; font: 11px/1.55 var(--font-mono); color: var(--hint); }
+  @media (max-width: 420px) { #padHost { width: 100%; height: auto; aspect-ratio: 1; } .padcol { width: 100%; } }
+</style>
+</head>
+<body>
+<div class="col">
+  <header>
+    <h1>Drawing a rail, and per-parameter distribution</h1>
+    <p>The two parts of the Morph page with no design yet. A rail limits the morph to a path you draw, with one control moving along it. Try each way of drawing below. There's no sound: the strip under the pad shows what the path passes through.</p>
+  </header>
+
+  <section class="card" aria-label="The rail">
+    <h2>The rail</h2>
+    <div class="picker" id="railOpts" role="group" aria-label="How you draw a rail"></div>
+    <div class="bench">
+      <div class="padcol">
+        <div id="padHost"><div id="pad"></div><canvas id="regions" width="360" height="360" aria-hidden="true"></canvas><svg id="rail" viewBox="0 0 360 360" aria-label="The rail"></svg><span id="badge" hidden></span></div>
+        <div id="posHost"></div>
+        <p class="note" id="regionsNote"></p>
+        <p id="say" role="status"></p>
+      </div>
+      <div class="side">
+        <div class="row">
+          <label class="row hd-label">Edit path <button class="hd-toggle hd-focus" id="editOn" type="button" role="switch" aria-checked="true" aria-label="Edit the path"></button></label>
+          <label class="row hd-label">Rail on <button class="hd-toggle hd-focus" id="railOn" type="button" role="switch" aria-checked="false" aria-label="Rail on"></button></label>
+          <label class="row hd-label">Closed <button class="hd-toggle hd-focus" id="closed" type="button" role="switch" aria-checked="false" aria-label="Closed rail"></button></label>
+        </div>
+        <div class="row">
+          <label class="row hd-label">Sample LFO on position <button class="hd-toggle hd-focus" id="lfoOn" type="button" role="switch" aria-checked="false" aria-label="Sample LFO on the position"></button></label>
+          <label class="row hd-label">Sample host lane on XY <button class="hd-toggle hd-focus" id="laneOn" type="button" role="switch" aria-checked="false" aria-label="Sample host automation on X and Y"></button></label>
+        </div>
+        <div class="row"><button class="hd-btn hd-focus" id="undo" type="button">Undo</button><button class="hd-btn hd-focus" id="clear" type="button">Start over</button><span class="note" id="nodes"></span></div>
+        <p class="note" id="how"></p>
+        <div class="row" style="align-items:flex-start"><canvas id="mini" width="110" height="110" role="img" aria-label="The rail on another page's small pad, read-only"></canvas><p class="note grow">On another page's small pad the rail and puck are drawn, and it can't be edited there (B133).</p></div>
+      </div>
+    </div>
+    <h3 style="margin-top:12px">What the path passes through</h3>
+    <p class="note">Each line is a real row, unrolled along the rail from its start to its end, in the colour of the corner that owns it there. A stand-in, not MO-7's law.</p>
+    <canvas id="course" width="976" height="190" role="img" aria-label="Each row's owning corner along the rail"></canvas>
+  </section>
+
+  <section class="card" aria-label="Per-parameter distribution">
+    <h2>Per-parameter distribution</h2>
+    <p>B28 asked to edit how much of the pad each corner owns, row by row. It was written before a row could own its regions (GN-6), so these options ask how much of it is left to add. Select a row to see its regions.</p>
+    <div class="picker" id="distOpts" role="group" aria-label="What distribution means"></div>
+    <div class="dist">
+      <div class="rows" id="rows"></div>
+      <div class="mapcol"><div id="mapHost"><canvas id="map" width="240" height="240" role="img" aria-label="The selected row's regions on the pad"></canvas></div><p class="note" id="mapNote"></p><div class="row"><button class="hd-btn hd-focus" id="rowReset" type="button">Follow the seed again</button></div></div>
+    </div>
+    <p class="note" id="distState" style="margin-top:8px"></p>
+  </section>
+
+  <section class="card" aria-label="For you to rule">
+    <h2>For you to rule</h2>
+    <ol>
+      <li><b>How you draw a rail:</b> Bézier handles, points it passes through, or drawn by hand. My pick is points, with hand drawing as a shortcut that gives you points. Handles offer more control than most people will want on a 320 px pad.</li>
+      <li><b>Whether the puck scrubs along the rail</b> while it's on, as it does here. The alternative is that the pad is entirely read-only and only the position control moves it.</li>
+      <li><b>What distribution means:</b> D1 adds nothing, and D2 adds bars that write the same state. D3 adds a number to every row. My pick is D2, because it needs no new engine state beyond GN-6. It also closes B28.</li>
+      <li><b>Is the rail in 1.0?</b> It needs two new host rows, a saved path and a spec round, and B133 says its value is mostly in being driven, so it comes after the modulators. If it's later, the page simply doesn't show it.</li>
+    </ol>
+    <table style="margin-top:10px">
+      <tr><th>The engine side would need</th><th>Where</th></tr>
+      <tr><td>The rail's path in the patch, and `rail on` and `rail position` as rows, with position a modulation destination. X and Y become outputs of the rail while it's on.</td><td>GN-31, a spec round. Nothing in SPEC-ENGINE yet.</td></tr>
+      <tr><td>D1 and D2: nothing beyond a row's own offsets. D3: one more number per row, in the morph system's document.</td><td>GN-6, GN-37</td></tr>
+    </table>
+    <p class="note" style="margin-top:8px"><b>FX device (ADR-254):</b> the same pad and the same answers, with its own rows.</p>
+  </section>
+
+  <section aria-label="Self-check"><h2>Self-check</h2><pre id="selfcheck">Running…</pre></section>
+</div>
+<script src="arp-face/bundle.js"></script>
+<script src="gui3/shell-data.js"></script>
+<script>
+(function () {
+'use strict';
+const H = window.Horde, $ = id => document.getElementById(id), DATA = window.GUI3_DATA;
+if (!H) { $('selfcheck').textContent = 'FAILED · the design bundle did not load'; return; }
+const SEG = 64, PAD = 360, SEED = 1024, COHESION = 0.3, HIT = 14 / PAD, NAME = 40;
+const KEYS = ['voice.gravity', 'env1.attack', 'env1.release', 'mix.osc1', 'mix.sub', 'noise.density', 'osc1.pan', 'osc1.fine', 'sub.pulseWidth', 'voice.mode', 'noise.type'];
+const LABEL = {}; (DATA && DATA.params || []).forEach(r => { LABEL[r.key] = r.label; });
+const blockOf = k => k.split('.')[0].replace(/^./, c => c.toUpperCase());
+const nameOf = k => (LABEL[k] ? blockOf(k) + ' ' + LABEL[k] : k).slice(0, NAME);
+const VAR = n => { try { return getComputedStyle(document.documentElement).getPropertyValue(n).trim() || '#888'; } catch (e) { return '#888'; } };
+const CORNER = ['--cA', '--cB', '--cC', '--cD'].map(VAR), LETTER = ['A', 'B', 'C', 'D'];
+
+/* ===== the stand-in: who owns a row where. The shell's device.js: the highest of a corner's weight plus the row's offset. ===== */
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function hash32(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+const draw = (key, seed) => { const g = mulberry32(hash32(key) ^ seed); return [0, 1, 2, 3].map(() => (g() - .5) * .32); };
+const weights = (x, y) => [(1 - x) * (1 - y), x * (1 - y), (1 - x) * y, x * y];
+function seeded(key, seed) { const o = draw(key, seed), f = draw('#field', seed); return o.map((v, i) => (1 - COHESION) * v + COHESION * f[i]); }
+// A row's state: its own offsets when it has them (GN-6, what a lock stores), and under D3 its own temperature.
+let rowsState = {};
+const offsetsOf = (key, seed) => { const r = rowsState[key]; const o = r && r.offsets ? r.offsets : seeded(key, seed === undefined ? SEED : seed), k = r && r.temp ? r.temp : 1; return o.map(v => v * k); };
+function owner(key, x, y, seed) { const w = weights(x, y), j = offsetsOf(key, seed); let b = 0, v = -1e9; for (let i = 0; i < 4; i++) { const s = w[i] + j[i]; if (s > v) { v = s; b = i; } } return b; }
+function shares(key) { const n = [0, 0, 0, 0], G = 48; for (let a = 0; a < G; a++) for (let b = 0; b < G; b++) n[owner(key, (a + .5) / G, (b + .5) / G)]++; return n.map(c => c / (G * G)); }
+// D2: find the offsets that give these shares. A row's offsets are all it stores, so a bar and a boundary drag can't disagree. Deterministic: a fixed number of fixed steps.
+function solveShares(key, target) {
+  const r = rowsState[key] = rowsState[key] || {}; r.offsets = r.offsets ? r.offsets.slice() : seeded(key, SEED);
+  for (let it = 0; it < 28; it++) { const s = shares(key), lr = .5 * (1 - it / 40); for (let i = 0; i < 4; i++) r.offsets[i] += lr * (target[i] - s[i]); const m = r.offsets.reduce((a, b) => a + b) / 4; r.offsets = r.offsets.map(v => v - m); }
+}
+// D1: a boundary dragged to a point puts the line between its two corners through that point: their scores are equal there.
+function boundaryThrough(key, x, y, a, b) { const r = rowsState[key] = rowsState[key] || {}, k = r.temp || 1, w = weights(x, y); r.offsets = r.offsets ? r.offsets.slice() : seeded(key, SEED); const mid = (w[a] + k * r.offsets[a] + w[b] + k * r.offsets[b]) / 2; r.offsets[a] = (mid - w[a]) / k; r.offsets[b] = (mid - w[b]) / k; }
+function topTwo(key, x, y) { const w = weights(x, y), j = offsetsOf(key), o = [0, 1, 2, 3].sort((p, q) => (w[q] + j[q]) - (w[p] + j[p])); return o.slice(0, 2); }
+
+/* ===== the rail. A cubic through each pair of anchors; anchors hold their handles as offsets. ===== */
+const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
+let R = { on: false, closed: false, anchors: [], next: 1 }, mode = 'through';
+const anchor = (x, y) => ({ id: R.next++, x: clamp01(x), y: clamp01(y), ix: 0, iy: 0, ox: 0, oy: 0 });
+function autoHandles(rail) {   // Catmull-Rom, so a path of points needs no handles
+  const A = rail.anchors, n = A.length;
+  A.forEach((a, i) => { const p = A[rail.closed ? (i - 1 + n) % n : Math.max(0, i - 1)], q = A[rail.closed ? (i + 1) % n : Math.min(n - 1, i + 1)], dx = (q.x - p.x) / 6, dy = (q.y - p.y) / 6; a.ox = dx; a.oy = dy; a.ix = -dx; a.iy = -dy; });
+}
+function segsOf(rail) { const A = rail.anchors, n = A.length, out = []; for (let i = 0; i < (rail.closed ? n : n - 1); i++) { const a = A[i], b = A[(i + 1) % n]; out.push([a.x, a.y, a.x + a.ox, a.y + a.oy, b.x + b.ix, b.y + b.iy, b.x, b.y]); } return out; }
+const bez = (s, t) => { const u = 1 - t, a = u * u * u, b = 3 * u * u * t, c = 3 * u * t * t, d = t * t * t; return { x: clamp01(a * s[0] + b * s[2] + c * s[4] + d * s[6]), y: clamp01(a * s[1] + b * s[3] + c * s[5] + d * s[7]) }; };
+// B133: 64 samples a segment, cumulative. Recomputed when the path changes, never per frame.
+let table = null;
+function buildTable(rail) { const segs = segsOf(rail), pts = [], cum = [0]; if (!segs.length) return { pts: [], cum: [0], len: 0, segs }; segs.forEach((s, i) => { for (let k = i ? 1 : 0; k <= SEG; k++) { const p = bez(s, k / SEG); if (pts.length) { const q = pts[pts.length - 1]; cum.push(cum[cum.length - 1] + Math.hypot(p.x - q.x, p.y - q.y)); } pts.push(p); } }); return { pts, cum, len: cum[cum.length - 1], segs }; }
+function atDistance(T, u) { if (!T.pts.length) return null; const d = clamp01(u) * T.len; let a = 0, b = T.cum.length - 1; while (b - a > 1) { const m = (a + b) >> 1; if (T.cum[m] <= d) a = m; else b = m; } const span = T.cum[b] - T.cum[a] || 1, f = (d - T.cum[a]) / span, p = T.pts[a], q = T.pts[b]; return { x: p.x + (q.x - p.x) * f, y: p.y + (q.y - p.y) * f }; }
+function atNaive(T, u) { const n = T.segs.length; if (!n) return null; const v = clamp01(u) * n, i = Math.min(n - 1, Math.floor(v)); return bez(T.segs[i], v - i); }   // the bunching B133 warns of: the self-check's control
+function nearest(T, x, y) { let bi = -1, bd = 1e9; T.pts.forEach((p, i) => { const d = Math.hypot(p.x - x, p.y - y); if (d < bd) { bd = d; bi = i; } }); return { u: T.len ? T.cum[bi] / T.len : 0, d: bd }; }
+function fitStroke(stroke, tol, cap) {   // Ramer-Douglas-Peucker, tolerance raised until it fits the cap
+  const rdp = (p, e) => { if (p.length < 3) return p; const a = p[0], b = p[p.length - 1], L = Math.hypot(b.x - a.x, b.y - a.y) || 1e-9; let m = 0, di = 0; for (let i = 1; i < p.length - 1; i++) { const d = Math.abs((b.y - a.y) * p[i].x - (b.x - a.x) * p[i].y + b.x * a.y - b.y * a.x) / L; if (d > m) { m = d; di = i; } } return m > e ? rdp(p.slice(0, di + 1), e).slice(0, -1).concat(rdp(p.slice(di), e)) : [a, b]; };
+  let e = tol, out = rdp(stroke, e); while (out.length > cap) { e *= 1.4; out = rdp(stroke, e); } return out;
+}
+
+/* ===== history: one gesture, one step (B133, ADR-160) ===== */
+const snap = () => JSON.stringify({ R, rowsState, mode });
+let stack = [], open = null;
+const begin = () => { if (open === null) open = snap(); };
+const end = () => { if (open === null) return false; const was = open; open = null; if (was === snap()) return false; stack.push(was); paintNodes(); return true; };
+function undo() { if (!stack.length) { say('Nothing to undo'); return; } const s = JSON.parse(stack.pop()); R = s.R; rowsState = s.rowsState; mode = s.mode; pathChanged(); paintOpts(); paintRows(); paintMap(); paintNodes(); say('Undone'); }
+
+/* ===== the page ===== */
+const S = new H.Session({ x: .5, y: .5 });
+const pos = { key: 'rail.position', name: 'Rail position', locked: true, g: 0, def: 0, kind: 'c', vals: [0, 0, 0, 0], fmt: v => Math.round(v * 100) + ' %' };
+let frame = 0, editOn = true, lfoOn = false, laneOn = false, selected = KEYS[0], distMode = 'D2';
+const say = t => { $('say').textContent = t; };
+const pressed = (el, on) => { el.setAttribute('aria-checked', String(on)); };
+const RAIL_OPTS = [
+  ['through', 'Points it passes through', 'Click to add a point, drag one to move it, double-click to remove it. The curve between them is worked out for you.'],
+  ['bezier', 'Bézier handles', 'As Points, with two handles on each point to shape the curve. The most control, and the most to manage.'],
+  ['draw', 'Draw it by hand', 'Drag on the pad, and your stroke becomes up to 12 points. Then edit them as Points.'] ];
+const DIST_OPTS = [
+  ['D1', 'D1: Boundaries only', 'Drag a line on the row’s regions, as the Morph page’s pad already can. No new control. B28 closes.'],
+  ['D2', 'D2: Share bars', 'Drag a divider to give a corner more of the pad. It writes the same offsets a boundary drag does, so no new state.'],
+  ['D3', 'D3: Sharpness per row', 'A slider per row: how strongly its offsets pull against the pad’s position. Morph’s Temperature, per row. One more number per row.'] ];
+function opts(host, list, cur, pick) { host.replaceChildren(); list.forEach(o => { const b = document.createElement('button'); b.type = 'button'; b.className = 'opt'; b.setAttribute('aria-pressed', String(o[0] === cur)); const n = document.createElement('b'), t = document.createElement('span'); n.textContent = o[1]; t.textContent = o[2]; b.append(n, t); b.addEventListener('click', () => pick(o[0])); host.append(b); }); }
+function paintOpts() {
+  opts($('railOpts'), RAIL_OPTS, mode, m => { begin(); mode = m; if (m !== 'bezier') autoHandles(R); end(); pathChanged(); paintOpts(); });
+  opts($('distOpts'), DIST_OPTS, distMode, m => { distMode = m; paintOpts(); paintRows(); paintMap(); });
+  $('how').textContent = !editOn ? 'Editing is off. Turn Rail on and move the position, or drag the puck.' : mode === 'draw' ? 'Drag across the pad to draw. Each stroke replaces the rail, and one stroke is one undo step.' : mode === 'bezier' ? 'Click to add a point, drag a point or a handle, double-click a point to remove it.' : 'Click to add a point, drag a point, double-click a point to remove it.';
+}
+const paintNodes = () => { $('nodes').textContent = stack.length + (stack.length === 1 ? ' undo step' : ' undo steps'); };
+function pathChanged() { if (mode !== 'bezier') autoHandles(R); table = buildTable(R); drawRail(); paintCourse(); paintRegions(); pressed($('closed'), R.closed); pressed($('railOn'), R.on); paintBadge(); }
+function paintBadge() { const b = $('badge'); b.hidden = !R.on; b.textContent = laneOn ? 'RAIL · host X and Y ignored' : 'RAIL'; }
+const SVGNS = 'http://www.w3.org/2000/svg';
+function svg(t, a) { const e = document.createElementNS(SVGNS, t); for (const k in a) e.setAttribute(k, a[k]); return e; }
+function drawRail() {
+  const host = $('rail'); host.replaceChildren(); if (!table) return;
+  const P = v => v * PAD, ink = VAR('--ink'), bg = VAR('--bg');
+  if (table.pts.length) { const d = table.pts.map((p, i) => (i ? 'L' : 'M') + P(p.x).toFixed(1) + ' ' + P(p.y).toFixed(1)).join(' ') + (R.closed ? ' Z' : ''); host.append(svg('path', { d, fill: 'none', stroke: bg, 'stroke-width': 5 })); host.append(svg('path', { d, fill: 'none', stroke: ink, 'stroke-width': 2.5 })); }
+  if (!editOn) return;
+  R.anchors.forEach((a, i) => {
+    if (mode === 'bezier') [['ix', 'iy'], ['ox', 'oy']].forEach(h => { const x = P(a.x + a[h[0]]), y = P(a.y + a[h[1]]); host.append(svg('line', { x1: P(a.x), y1: P(a.y), x2: x, y2: y, stroke: ink, 'stroke-width': 1 })); const c = svg('rect', { x: x - 4, y: y - 4, width: 8, height: 8, fill: bg, stroke: ink, 'stroke-width': 1.5 }); host.append(c); });
+    host.append(svg('circle', { cx: P(a.x), cy: P(a.y), r: i ? 6 : 7.5, fill: i ? ink : bg, stroke: i ? bg : ink, 'stroke-width': 2 }));
+  });
+}
+function paintRegions() { $('regionsNote').textContent = 'The colours are ' + nameOf(selected) + '\u2019s regions. Select another row under Per-parameter distribution.'; const cv = $('regions'), g = cv.getContext && cv.getContext('2d'); if (!g) return; const c = 90, s = PAD / c; for (let a = 0; a < c; a++) for (let b = 0; b < c; b++) { g.fillStyle = CORNER[owner(selected, (a + .5) / c, (b + .5) / c)]; g.fillRect(a * s, b * s, s + .5, s + .5); } }
+function courseOf(key, T, n, seed) { const out = []; for (let i = 0; i < n; i++) { const p = atDistance(T, (i + .5) / n); out.push(p ? owner(key, p.x, p.y, seed) : -1); } return out; }
+function paintCourse() {
+  const cv = $('course'), g = cv.getContext && cv.getContext('2d'); if (!g) return;
+  const W = cv.width, Hh = cv.height, lab = 150, rowH = Hh / KEYS.length, n = W - lab;
+  g.fillStyle = VAR('--bg'); g.fillRect(0, 0, W, Hh); g.font = '11px ' + (VAR('--font-sans') || 'sans-serif'); g.textBaseline = 'middle';
+  KEYS.forEach((k, r) => {
+    g.fillStyle = k === selected ? VAR('--ink') : VAR('--hint'); g.fillText(nameOf(k), 4, r * rowH + rowH / 2);
+    if (!table || !table.pts.length) return;
+    courseOf(k, table, n).forEach((o, i) => { g.fillStyle = CORNER[o]; g.fillRect(lab + i, r * rowH + 1, 1.5, rowH - 2); });
+  });
+  if (!table || !table.pts.length) { g.fillStyle = VAR('--hint'); g.fillText('Draw a rail to see what it passes through.', lab + 8, Hh / 2); }
+  cv._lab = lab;
+}
+let courseBase = null;
+function paintPlayhead() {
+  const cv = $('course'), g = cv.getContext && cv.getContext('2d'); if (!g || !table || !table.pts.length) return;
+  if (courseBase) g.putImageData(courseBase, 0, 0); else { paintCourse(); courseBase = g.getImageData(0, 0, cv.width, cv.height); }
+  const x = cv._lab + pos.g * (cv.width - cv._lab); g.fillStyle = VAR('--ink'); g.fillRect(x - 1, 0, 2, cv.height);
+}
+function paintMini() {
+  const cv = $('mini'), g = cv.getContext && cv.getContext('2d'); if (!g) return; const s = cv.width;
+  g.fillStyle = VAR('--bg'); g.fillRect(0, 0, s, s);
+  if (table && table.pts.length) { g.strokeStyle = VAR('--ink'); g.lineWidth = 1.5; g.beginPath(); table.pts.forEach((p, i) => { if (i) g.lineTo(p.x * s, p.y * s); else g.moveTo(p.x * s, p.y * s); }); if (R.closed) g.closePath(); g.stroke(); }
+  g.fillStyle = VAR('--value') || VAR('--ink'); g.beginPath(); g.arc(S.pad.x * s, S.pad.y * s, 4, 0, 7); g.fill();
+}
+
+/* ===== gestures on the pad ===== */
+const local = e => { const b = $('padHost').getBoundingClientRect(); return { x: clamp01((e.clientX - b.left) / b.width), y: clamp01((e.clientY - b.top) / b.height) }; };
+let grab = null, stroke = null;
+function hitTest(p) {
+  for (let i = 0; i < R.anchors.length; i++) { const a = R.anchors[i]; if (mode === 'bezier') { if (Math.hypot(a.x + a.ox - p.x, a.y + a.oy - p.y) < HIT) return { i, part: 'o' }; if (Math.hypot(a.x + a.ix - p.x, a.y + a.iy - p.y) < HIT) return { i, part: 'i' }; } if (Math.hypot(a.x - p.x, a.y - p.y) < HIT) return { i, part: 'a' }; }
+  return null;
+}
+function addPoint(p) { R.anchors.push(anchor(p.x, p.y)); if (mode === 'bezier') { const n = R.anchors.length; if (n > 1) { const a = R.anchors[n - 2], b = R.anchors[n - 1], dx = (b.x - a.x) / 3, dy = (b.y - a.y) / 3; if (!a.ox && !a.oy) { a.ox = dx; a.oy = dy; a.ix = -dx; a.iy = -dy; } b.ix = -dx; b.iy = -dy; b.ox = dx; b.oy = dy; } } }
+// The rail's one rule for free XY: with it on, the pad doesn't take a position. The puck can only move along the path (open for the human).
+function pressPlay(p) {
+  if (!R.on) return false;
+  const n = nearest(table, p.x, p.y);
+  if (n.d > HIT * 1.6) { say('The rail is on, so the pad doesn’t take a position. Drag along the rail, or move Rail position.'); return true; }
+  pos.g = n.u; return 'scrub';
+}
+$('padHost').addEventListener('pointerdown', e => {
+  if (e.button || (e.target.closest && e.target.closest('.corner'))) return;
+  const p = local(e);
+  if (editOn && !R.on) {
+    e.stopPropagation(); e.preventDefault(); begin();
+    if (mode === 'draw') { stroke = [p]; grab = { draw: true }; }
+    else { const h = hitTest(p); if (h) grab = h; else { addPoint(p); grab = { i: R.anchors.length - 1, part: 'a' }; pathChanged(); } }
+    capture(e); return;
+  }
+  const r = pressPlay(p);
+  if (r) { e.stopPropagation(); e.preventDefault(); if (r === 'scrub') { grab = { scrub: true }; capture(e); } }
+}, true);
+function capture(e) { try { $('padHost').setPointerCapture(e.pointerId); } catch (x) { /* a stub pointer */ } }
+$('padHost').addEventListener('pointermove', e => {
+  if (!grab) return; const p = local(e);
+  if (grab.scrub) { pos.g = nearest(table, p.x, p.y).u; return; }
+  if (grab.draw) { stroke.push(p); const hostS = $('rail'); hostS.replaceChildren(svg('path', { d: stroke.map((q, i) => (i ? 'L' : 'M') + (q.x * PAD).toFixed(1) + ' ' + (q.y * PAD).toFixed(1)).join(' '), fill: 'none', stroke: VAR('--ink'), 'stroke-width': 2 })); return; }
+  const a = R.anchors[grab.i];
+  if (grab.part === 'a') { a.x = p.x; a.y = p.y; } else if (grab.part === 'o') { a.ox = p.x - a.x; a.oy = p.y - a.y; a.ix = -a.ox; a.iy = -a.oy; } else { a.ix = p.x - a.x; a.iy = p.y - a.y; a.ox = -a.ix; a.oy = -a.iy; }
+  pathChanged();
+}, true);
+function release() {
+  if (!grab) return; const g = grab; grab = null;
+  if (g.draw) { if (stroke.length > 2) { const pts = fitStroke(stroke, .012, 12); R.anchors = []; pts.forEach(q => { R.anchors.push(anchor(q.x, q.y)); }); autoHandles(R); say('Your stroke became ' + pts.length + ' points'); } stroke = null; pathChanged(); }
+  if (!g.scrub) { courseBase = null; end(); }
+}
+addEventListener('pointerup', release); addEventListener('pointercancel', release);
+$('padHost').addEventListener('dblclick', e => {
+  if (!editOn || R.on) return; const h = hitTest(local(e)); if (!h || h.part !== 'a') return;
+  if (R.anchors.length <= 2) { say('A rail needs two points. Start over to remove it.'); return; }
+  begin(); R.anchors.splice(h.i, 1); end(); courseBase = null; pathChanged();
+}, true);
+
+/* ===== controls ===== */
+function setRailOn(on) { if (on && R.anchors.length < 2) { say('Draw a rail first: it needs two points.'); return false; } begin(); R.on = on; end(); if (on) { editOn = false; pressed($('editOn'), false); } drawRail(); paintBadge(); pressed($('railOn'), on); paintOpts(); return true; }
+$('railOn').addEventListener('click', () => { setRailOn(!R.on); });
+$('editOn').addEventListener('click', () => { if (R.on && !editOn) { say('Turn the rail off to edit its path.'); return; } editOn = !editOn; pressed($('editOn'), editOn); drawRail(); paintOpts(); });
+$('closed').addEventListener('click', () => { if (R.anchors.length < 3) { say('A closed rail needs three points.'); return; } begin(); R.closed = !R.closed; end(); courseBase = null; pathChanged(); });
+$('lfoOn').addEventListener('click', () => { lfoOn = !lfoOn; pressed($('lfoOn'), lfoOn); });
+$('laneOn').addEventListener('click', () => { laneOn = !laneOn; pressed($('laneOn'), laneOn); paintBadge(); });
+$('undo').addEventListener('click', () => { courseBase = null; undo(); });
+$('clear').addEventListener('click', () => { begin(); R.anchors = []; R.closed = false; R.on = false; end(); editOn = true; pressed($('editOn'), true); courseBase = null; pathChanged(); paintOpts(); say('Started over'); });
+
+/* ===== distribution ===== */
+function paintRows() {
+  const host = $('rows'); host.replaceChildren();
+  KEYS.forEach(k => {
+    const row = document.createElement('div'); row.className = 'drow'; row.setAttribute('role', 'button'); row.tabIndex = 0; row.setAttribute('aria-pressed', String(k === selected)); row.dataset.row = k;
+    const nm = document.createElement('span'); nm.textContent = nameOf(k); nm.style.overflow = 'hidden'; nm.style.textOverflow = 'ellipsis'; nm.style.whiteSpace = 'nowrap';
+    const bar = document.createElement('div'); bar.className = 'bar'; const s = shares(k);
+    s.forEach((v, i) => { const seg = document.createElement('i'); seg.style.width = (v * 100) + '%'; seg.style.background = CORNER[i]; seg.title = LETTER[i] + ' ' + Math.round(v * 100) + ' %'; bar.append(seg); });
+    if (distMode === 'D2') { let at = 0; for (let i = 0; i < 3; i++) { at += s[i]; const d = document.createElement('span'); d.className = 'div'; d.style.left = (at * 100) + '%'; d.addEventListener('pointerdown', e => startDivider(e, k, i, bar)); bar.append(d); } }
+    const extra = document.createElement('span');
+    if (distMode === 'D3') { const r = document.createElement('input'); r.type = 'range'; r.min = '0.1'; r.max = '3'; r.step = '0.05'; r.value = String(rowsState[k] && rowsState[k].temp || 1); r.setAttribute('aria-label', nameOf(k) + ' sharpness'); r.addEventListener('pointerdown', () => begin()); r.addEventListener('input', () => { (rowsState[k] = rowsState[k] || {}).temp = +r.value; selected = k; paintMap(); paintBars(); }); r.addEventListener('change', () => { end(); courseBase = null; paintCourse(); paintRegions(); }); extra.append(r); }
+    row.append(nm, bar, extra);
+    row.addEventListener('click', () => selectRow(k)); row.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectRow(k); } });
+    host.append(row);
+  });
+  paintDistState();
+}
+function paintBars() { document.querySelectorAll('.drow').forEach(r => { const s = shares(r.dataset.row), segs = r.querySelectorAll('.bar i'), ds = r.querySelectorAll('.bar .div'); let at = 0; s.forEach((v, i) => { if (segs[i]) { segs[i].style.width = (v * 100) + '%'; segs[i].title = LETTER[i] + ' ' + Math.round(v * 100) + ' %'; } at += v; if (ds[i]) ds[i].style.left = (at * 100) + '%'; }); }); paintDistState(); }
+function selectRow(k) { selected = k; document.querySelectorAll('.drow').forEach(r => r.setAttribute('aria-pressed', String(r.dataset.row === k))); paintMap(); paintRegions(); courseBase = null; paintCourse(); }
+function startDivider(e, k, i, bar) {
+  e.stopPropagation(); e.preventDefault(); selected = k; begin(); const start = shares(k);
+  const move = ev => { const b = bar.getBoundingClientRect(); let to = clamp01((ev.clientX - b.left) / b.width); const low = start.slice(0, i).reduce((a, c) => a + c, 0), high = low + start[i] + start[i + 1]; to = Math.min(high, Math.max(low, to)); const t = start.slice(); t[i] = to - low; t[i + 1] = high - to; solveShares(k, t); paintBars(); paintMap(); };
+  const up = () => { removeEventListener('pointermove', move); removeEventListener('pointerup', up); end(); courseBase = null; paintCourse(); paintRegions(); };
+  addEventListener('pointermove', move); addEventListener('pointerup', up);
+}
+function paintMap() {
+  const cv = $('map'), g = cv.getContext && cv.getContext('2d'); $('mapHost').classList.toggle('live', distMode === 'D1');
+  $('mapNote').textContent = nameOf(selected) + ': ' + shares(selected).map((v, i) => LETTER[i] + ' ' + Math.round(v * 100) + ' %').join(', ') + (distMode === 'D1' ? '. Drag from a boundary to move it.' : '.');
+  if (!g) return; const c = 60, s = cv.width / c;
+  for (let a = 0; a < c; a++) for (let b = 0; b < c; b++) { g.fillStyle = CORNER[owner(selected, (a + .5) / c, (b + .5) / c)]; g.fillRect(a * s, b * s, s + .5, s + .5); }
+}
+function paintDistState() { const n = Object.keys(rowsState).filter(k => rowsState[k].offsets).length, t = Object.keys(rowsState).filter(k => rowsState[k].temp).length; $('distState').textContent = 'State this has written: ' + n + (n === 1 ? ' row' : ' rows') + ' with offsets of their own (GN-6)' + (t ? ', and ' + t + (t === 1 ? ' row' : ' rows') + ' with a sharpness of their own, which is new state' : '') + '.'; }
+let mapGrab = null;
+$('mapHost').addEventListener('pointerdown', e => { if (distMode !== 'D1' || e.button) return; const b = $('mapHost').getBoundingClientRect(), x = clamp01((e.clientX - b.left) / b.width), y = clamp01((e.clientY - b.top) / b.height); mapGrab = topTwo(selected, x, y); begin(); capture2(e); });
+function capture2(e) { try { $('mapHost').setPointerCapture(e.pointerId); } catch (x) { /* a stub pointer */ } }
+$('mapHost').addEventListener('pointermove', e => { if (!mapGrab) return; const b = $('mapHost').getBoundingClientRect(); boundaryThrough(selected, clamp01((e.clientX - b.left) / b.width), clamp01((e.clientY - b.top) / b.height), mapGrab[0], mapGrab[1]); paintMap(); paintBars(); });
+$('mapHost').addEventListener('pointerup', () => { if (!mapGrab) return; mapGrab = null; end(); courseBase = null; paintCourse(); paintRegions(); });
+$('rowReset').addEventListener('click', () => { if (!rowsState[selected]) return; begin(); delete rowsState[selected]; end(); paintBars(); paintMap(); paintRegions(); courseBase = null; paintCourse(); paintRows(); });
+
+/* ===== each frame: the position drives the puck. Time is a frame count. ===== */
+function tick() {
+  frame++;
+  if (R.on) {
+    if (lfoOn) { const ph = (frame / 60 / 8) % 1; pos.g = R.closed ? ph : 1 - Math.abs(2 * ph - 1); }   // closed, a phasor (B133 e); open, there and back
+    const p = atDistance(table, pos.g); if (p) { S.pad.x = p.x; S.pad.y = p.y; }
+  } else if (laneOn) { S.pad.x = .5 + .4 * Math.sin(frame / 60 * 1.5); S.pad.y = .5 + .4 * Math.sin(frame / 60 * 1.1); }
+  paintPlayhead(); if (frame % 2 === 0) paintMini();
+}
+
+/* ===== build ===== */
+H.XYPad($('pad'), S, { size: PAD });
+H.Slider($('posHost'), pos, S);
+S.add({ render: tick });
+// A sample rail, so the page isn't empty: three real points. The session's frames start after the check, so it reads a still page.
+[[.14, .8], [.42, .28], [.86, .62]].forEach(p => { R.anchors.push(anchor(p[0], p[1])); });
+pathChanged(); paintOpts(); paintRows(); paintMap(); paintNodes(); editOn = true;
+$('pad').querySelector && $('pad').querySelector('.wash') && ($('pad').querySelector('.wash').style.opacity = '0');
+
+/* ===== the self-check: each claim measured, each with a control ===== */
+function check() {
+  const out = [], line = (ok, s) => out.push((ok ? 'OK' : 'FAILED') + ' · ' + s);
+  // Smooth, with its points unevenly spaced: where reading by curve parameter bunches. A straight-line step can't measure travel round a kink, so the test rail has none.
+  const testRail = () => { const r = { closed: false, anchors: [{ x: .1, y: .9 }, { x: .16, y: .78 }, { x: .9, y: .3 }].map(a => ({ ...a, ix: 0, iy: 0, ox: 0, oy: 0 })) }; autoHandles(r); return r; };
+  const r0 = testRail(), T = buildTable(r0), steps = (fn, n) => { const d = []; let q = fn(T, 0); for (let i = 1; i <= n; i++) { const p = fn(T, i / n); d.push(Math.hypot(p.x - q.x, p.y - q.y)); q = p; } return Math.max(...d) / Math.max(1e-9, Math.min(...d)); };
+  const even = steps(atDistance, 40), naive = steps(atNaive, 40);
+  line(even < 1.12 && naive > 2, 'Equal travel (B133): equal position steps move the puck ' + even.toFixed(2) + ' times apart at most; the same rail read by curve parameter, the control, ' + naive.toFixed(1) + ' times.');
+  const rc = testRail(); autoHandles(rc); const open = buildTable(rc); rc.closed = true; autoHandles(rc); const closed = buildTable(rc), o0 = atDistance(open, 0), o1 = atDistance(open, 1), c0 = atDistance(closed, 0), c1 = atDistance(closed, 1);
+  line(Math.hypot(c0.x - c1.x, c0.y - c1.y) < 1e-6 && Math.hypot(o0.x - o1.x, o0.y - o1.y) > .1, 'Closed rail: position 0 and 1 are one point, so it can run as a phasor. On the open rail they aren’t (control).');
+  const keepR = JSON.stringify(R), keepPos = pos.g, keepTable = table, x0 = S.pad.x, y0 = S.pad.y;
+  R.on = true; table = T; const far = pressPlay({ x: .99, y: .01 }) === true, on = pressPlay(atDistance(T, .5)) === 'scrub'; R.on = false; const free = pressPlay({ x: .99, y: .01 }) === false;
+  line(far && on && free, 'Rail on: a press off the path takes no position, and one on the path scrubs it. With the rail off the press falls through to the pad (control).');
+  R.on = true; laneOn = true; pos.g = .25; table = T; const fr0 = frame; tick(); const a = { x: S.pad.x, y: S.pad.y }, want = atDistance(T, .25), wins = Math.hypot(a.x - want.x, a.y - want.y) < 1e-9; paintBadge(); const badge = !$('badge').hidden && /ignored/.test($('badge').textContent);
+  R.on = false; tick(); const lane = Math.hypot(S.pad.x - a.x, S.pad.y - a.y) > 1e-3, noBadge = (paintBadge(), $('badge').hidden); laneOn = false; frame = fr0; paintBadge();
+  line(wins && badge && lane && noBadge, 'Rail wins (ADR-137 amendment): a host lane doesn’t move the puck with the rail on, and the badge says so. With it off the lane moves it, and no badge (control).');
+  R = JSON.parse(keepR); pos.g = keepPos; table = keepTable; S.pad.x = x0; S.pad.y = y0;
+  const n0 = stack.length; begin(); R.anchors[0].x = .3; R.anchors[0].x = .31; R.anchors[0].x = .32; const stepped = end(), n1 = stack.length; begin(); const none = !end(); undo(); const back = JSON.stringify(R) === keepR && stack.length === n0;
+  line(stepped && n1 === n0 + 1 && none && back, 'History: three moves in one gesture are one undo step, a gesture that changes nothing is none, and undo restores the rail.');
+  pathChanged(); say('');
+  const kA = courseOf(KEYS[0], T, 100, 1024).join(), kB = courseOf(KEYS[0], T, 100, 1024).join(), kC = courseOf(KEYS[0], T, 100, 5).join();
+  line(kA === kB && kA !== kC, 'Deterministic: one seed draws one course, twice. Another seed draws another (control).');
+  let agree = true; for (let i = 0; i < 50; i++) { const u = i / 49, p = atDistance(T, u), c = courseOf(KEYS[1], T, 50); if (c[i] !== owner(KEYS[1], atDistance(T, (i + .5) / 50).x, atDistance(T, (i + .5) / 50).y)) agree = false; if (!p) agree = false; }
+  const flips = courseOf(KEYS[1], T, 200).filter((v, i, x) => i && v !== x[i - 1]).length;
+  line(agree && flips > 0, 'The rail passes through the same regions as the pad (B133): the strip’s owner is the pad’s at every point, and ' + nameOf(KEYS[1]) + ' flips ' + flips + ' times along it.');
+  const wig = []; for (let i = 0; i < 200; i++) wig.push({ x: i / 199, y: .5 + .3 * Math.sin(i / 199 * 19) }); const fit = fitStroke(wig, .012, 12);
+  const tooMany = fitStroke(wig, .0001, 500).length;
+  line(fit.length <= 12 && fit.length >= 2 && tooMany > 12, 'Drawing: a wiggly stroke fits in ' + fit.length + ' points, at most 12. Without the cap it would take ' + tooMany + ' (control).');
+  const keepRows = JSON.stringify(rowsState), k = KEYS[2], before = shares(k), target = [.4, .3, .2, .1]; solveShares(k, target); const got = shares(k), err = Math.max(...got.map((v, i) => Math.abs(v - target[i]))), wasFar = Math.max(...before.map((v, i) => Math.abs(v - target[i])));
+  line(err < .05 && wasFar > .05, 'D2: share bars asking for 40, 30, 20, 10 % get ' + got.map(v => Math.round(v * 100)).join(', ') + ' %. The seed’s were ' + before.map(v => Math.round(v * 100)).join(', ') + ' % (control).');
+  const onlyOffsets = Object.keys(rowsState[k]).join() === 'offsets';
+  rowsState = {}; boundaryThrough(k, .4, .6, 0, 3); const w = weights(.4, .6), j = offsetsOf(k), diff = Math.abs((w[0] + j[0]) - (w[3] + j[3])), d1Only = Object.keys(rowsState[k]).join() === 'offsets';
+  rowsState = {}; const pre = shares(k); rowsState[k] = { temp: 3 }; const sharp = shares(k), d3Moves = pre.join() !== sharp.join(), d3Adds = Object.keys(rowsState[k]).join() === 'temp';
+  line(onlyOffsets && d1Only && diff < 1e-9 && d3Moves && d3Adds, 'State: D1 and D2 write only a row’s offsets, and D1’s line goes through the point dragged to. D3 stores something else, its sharpness (control).');
+  rowsState = JSON.parse(keepRows);
+  const real = KEYS.filter(q => LABEL[q]).length;
+  line(!DATA || real === KEYS.length, 'Names: all ' + KEYS.length + ' rows are real rows of GUI 3’s generated data.');
+  $('selfcheck').textContent = out.join('\n'); paintRows(); paintMap(); paintRegions(); courseBase = null; paintCourse();
+}
+try { check(); } catch (e) { $('selfcheck').textContent = 'FAILED · the self-check threw: ' + (e && e.message || e); }
+paintNodes();
+S.start();
+})();
+</script>
+</body>
+</html>
