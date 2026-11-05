@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1793907040-0c9c, 2026-11-05; do not edit, re-vendor */
+/* vendored from the horde Design System artifact, version 1793907947-db92, 2026-11-05; do not edit, re-vendor */
 /* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"MorphMode"},{"name":"NameField"},{"name":"SteppedControl"},{"name":"Stepper"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"},{"name":"Companion"},{"name":"SourceChip"},{"name":"SourceRows"},{"name":"RoutesBySource"},{"name":"Cluster"},{"name":"Lens"},{"name":"Fold"},{"name":"PageView"},{"name":"ModTiers"},{"name":"MacroRow"},{"name":"ModBank"},{"name":"ModPage"},{"name":"UndoLine"},{"name":"MacroFace"},{"name":"PresetBar"},{"name":"Deck"},{"name":"MacroCard"},{"name":"ParamPicker"},{"name":"HistoryRail"},{"name":"PicturePicker"},{"name":"AssignXY"},{"name":"Specimen"}]} */
 /* horde house reference behaviours (vanilla JS, no React, no network).
    The morph knob and slider follow the human's HORDE Morph Knob Spec and HORDE Map Mode Spec
@@ -5206,14 +5206,16 @@
   try { var bvS = JSON.parse(window.localStorage.getItem(BV_KEY)); if (bvS) { if (BV_VIEWS.indexOf(bvS.view) >= 0) BV.view = bvS.view; if (bvS.map && bvS.map.x && bvS.map.y && bvS.map.sx) BV.map = bvS.map; } } catch (_) { /* no storage: the session holds it */ }
   function bvKeep() { try { window.localStorage.setItem(BV_KEY, JSON.stringify(BV)); } catch (_) { /* as above */ } }
   H.BladeView = function (el, o) {
+    /* `name` is the view's title. `label` is the function that names a row (k => its label); a host that passed both under `label` got the function's source as the canvas's accessible name (GUI-42) */
+    var bvTitle = o.name || (typeof o.label === 'string' ? o.label : 'Blade view');
     var cy = null, d = null, hover = null, pt = null;
     el.classList.add('hd-bladeview'); el.innerHTML = '';
     var tools = tag('div', 'bv-tools'), pills = tag('div'), leg = tag('button', 'hd-pill hd-sm hd-focus bv-leg'), hint = tag('span', 'hd-hint bv-hint', o.hint || ''), map = tag('div', 'bv-map'), well = tag('div', 'hd-viz vz-well'), cv = tag('canvas', 'vz-cv');
     leg.type = 'button'; tools.appendChild(pills); tools.appendChild(leg); tools.appendChild(hint);
     cv.style.height = (o.height || 120) + 'px'; cv.style.touchAction = 'none'; cv.style.cursor = 'grab'; cv.setAttribute('role', 'img');
-    cv.setAttribute('aria-label', (o.label || 'Blade view') + ': one cycle with the blade windows. Drag to move the blade under the pointer.');
+    cv.setAttribute('aria-label', bvTitle + ': one cycle with the blade windows. Drag to move the blade under the pointer.');
     well.appendChild(cv); el.appendChild(tools); el.appendChild(map); el.appendChild(well); map.hidden = true;
-    var pg = H.pillGroup(pills, BV_NAMES, BV_VIEWS.indexOf(BV.view), (o.label || 'Blade view') + ' · view', function (i) { BV.view = BV_VIEWS[i]; bvKeep(); sync(); }, o);
+    var pg = H.pillGroup(pills, BV_NAMES, BV_VIEWS.indexOf(BV.view), bvTitle + ' · view', function (i) { BV.view = BV_VIEWS[i]; bvKeep(); sync(); }, o);
     function roleName(id) { var f = null; ['blade', 'swarm', 'play'].forEach(function (g) { (o.roles[g] || []).forEach(function (r) { if (r[0] === id && !f) f = r[1]; }); }); return f || id; }
     function isBlade(id) { return (o.roles.blade || []).some(function (r) { return r[0] === id; }); }
     function legend() { return '\u2194 ' + roleName(BV.map.x[0]) + ' · \u2195 ' + roleName(BV.map.y[0]) + ' · \u21e7\u2194 ' + roleName(BV.map.sx[0]); }

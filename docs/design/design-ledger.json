@@ -140,6 +140,10 @@
   {
    "version": "1793907040-0c9c",
    "evidence": "docs/design/arp-face/README.md: GUI-41, 2026-11-05"
+  },
+  {
+   "version": "1793907947-db92",
+   "evidence": "docs/design/arp-face/README.md: GUI-42, 2026-11-05"
   }
  ],
  "vendoring": {
@@ -6441,6 +6445,36 @@
    "superseded_by": null,
    "state": "in-shell",
    "master_version": "1793907040-0c9c"
+  },
+  {
+   "via": null,
+   "superseded_by": null,
+   "state": "in-shell",
+   "master_version": "1793907947-db92",
+   "port_tab": null,
+   "lab": null,
+   "id": "gui42-morph-fits",
+   "adr": "GUI-42",
+   "clause": "the Morph page's side column holds only the pad and its note; everything else, D.2's settings included, scrolls beside it",
+   "note": "Amends GUI-40. FX device: same.",
+   "component": "XYPad",
+   "bundle": "XYPad",
+   "shell": "docs/design/gui3.html: .morph-side"
+  },
+  {
+   "via": null,
+   "superseded_by": null,
+   "state": "in-shell",
+   "master_version": "1793907947-db92",
+   "port_tab": null,
+   "lab": null,
+   "id": "gui42-pictures-move",
+   "adr": "GUI-42",
+   "clause": "a picture on the visible page keeps moving at 30 fps; only reduced motion rests it",
+   "note": "Amends GUI-33. FX device: same.",
+   "component": "BladeView",
+   "bundle": "BladeView",
+   "shell": "docs/design/gui3.html: const awake = () => (!S.reduce && !CLOCK.rest)"
   }
  ],
  "not_design": [
@@ -7571,7 +7605,8 @@
   "GUI-41": [
    "GN-3",
    "GN-50"
-  ]
+  ],
+  "GUI-42": "none: drawing and layout"
  },
  "audit_notes": [
   "[A] Counts: 33 design ADRs with 56 rows (ruled 31, of which 6 superseded and 7 legacy-only; wired 9; in-shell 7; vendored 4; in-master 4; unknown 1); 79 not_design. Every primary heading ADR-001..ADR-112 appears exactly once. Headings out of numeric order (ADR-052, ADR-053 before ADR-051; ADR-095, 094, 093, 092; ADR-091 A1-A4 after ADR-112 A3) were all covered. One non-ADR heading sits in range: 'NOTICE · Library standby (plugin-skeleton FOUNDATIONS)', line 661, not design and not listed.",
