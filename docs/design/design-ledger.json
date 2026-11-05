@@ -436,6 +436,10 @@
    "status": "ruled",
    "adr": "GUI-25",
    "note": "GB12. Ruled GUI-25: its own top button, which the shell has now. The lab keeps the option not taken, on the real shell, for the record."
+  },
+  "osc-layout-lab.html": {
+   "status": "exploring",
+   "note": "GB19. Three candidates each for an oscillator's mini view on Main, its expanded page, and the Osc dashboard with both filters (MOCK). Waiting on the human."
   }
  },
  "not_labs": {

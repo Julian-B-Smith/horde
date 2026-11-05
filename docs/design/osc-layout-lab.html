@@ -1,0 +1,330 @@
+<!doctype html>
+<!-- osc-layout-lab: where an oscillator's controls live, on its three surfaces. horde, 2026-11-04, row GB19. Origin: the human, "there are a lot more controls than just
+     Detune on the oscillator outside the blade. We should probably do a lab to work out the layout of the mini osc view, expanded osc page and osc dashboard (which needs both
+     filters as well)".
+
+     WHAT'S SETTLED, AND IS BUILT AS SETTLED. GUI-30: a blade's switch and mode in its title bar, closed by default; the waveform with three views on Main and the Osc pages;
+     ring, spectrum, carpet and voice map on the Osc pages. GUI-29: an off source shows its controls. The window is 980 x 720, Main's tab 700 x 267, the page area 957 x 456.
+
+     WHAT'S OPEN, AND IS WHAT THIS ASKS. Which of the 49 rows outside the blades go on each surface, and in what shape. Nothing here hides a row: each candidate says how you reach
+     the rest.
+
+     WHAT IS REAL. Every control and picture is the master's: Knob, Stepper, Fold, Deck, BladeView, Viz.*. Row names, labels, abbreviations and option lists come from GUI 3's
+     generated rows. The group names (Swarm, Coupling, and so on) are this lab's proposal. WHAT ISN'T. No audio; the pictures are SAMPLE drawings of a few local values, and only
+     the waveform's drag and the ring change those. The knobs turn and move nothing else. The two filters are MOCK: Weir has no manifest, so their controls are plain stand-ins with
+     nothing of Weir's in them (GN-16, GN-17). Nothing here edits gui3*, arp-face/ or the master, and a ruling goes through the chain (ADR-316).
+
+     HOUSE RULES. No Math.random (the bundle's seeded rng). No clock: time is a frame count, 1/60 s a frame. No wheel listener (B301). -->
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="lab-part" content="Presentation">
+<meta name="lab-review" content="GB19 · 2026-11-04">
+<title>Osc layout lab — the mini view, the page and the dashboard</title>
+<link rel="stylesheet" href="arp-face/tokens.css">
+<link rel="stylesheet" href="arp-face/bundle.css">
+<style>
+  html, body { background: var(--bg); }
+  body { margin: 0; padding: 20px 16px 60px; color: var(--ink); font: 13px/1.5 var(--font-sans); }
+  .col { max-width: 1012px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+  h1 { font: 800 19px/1.2 var(--font-sans); margin: 0 0 6px; }
+  h2 { font: 800 14px/1.2 var(--font-sans); margin: 0 0 6px; }
+  p { margin: 0 0 6px; max-width: 84ch; }
+  .note { color: var(--hint); font-size: 12px; }
+  .card { border: 1.5px solid var(--ink); border-radius: var(--radius); padding: 12px; background: var(--panel); }
+  .picker { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
+  .opt { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; gap: 3px; padding: 8px; border: 1px solid var(--div); border-radius: var(--radius); }
+  .opt:hover { border-color: var(--ink); }
+  .opt:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .opt[aria-pressed="true"] { border: 2px solid var(--ink); padding: 7px; }
+  .opt b { font: 700 12px/1.25 var(--font-sans); }
+  .opt span { color: var(--hint); font-size: 12px; line-height: 1.35; }
+  .stage { overflow: auto; padding-bottom: 4px; }
+  .frame { box-sizing: border-box; border: 1.5px solid var(--ink); border-radius: var(--radius); background: var(--panel); overflow: hidden auto; padding: 6px; }
+  .frame.mini { width: 712px; height: 279px; }
+  .frame.page { width: 957px; height: 456px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; font-size: 12px; color: var(--hint); }
+  .meta b { color: var(--ink); font-weight: 600; }
+  .row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 2px 8px; min-width: 0; }
+  .row.line { align-items: center; }
+  .stp { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 3px; }
+  .stp select { width: 46px; height: 16px; border: 0; border-bottom: 1px dotted var(--t2); border-radius: 0; background: none; color: var(--ink); font: 600 9px/16px var(--font-mono); padding: 0; cursor: pointer; }
+  .hd-pills.tight { gap: 0; flex-wrap: nowrap; }
+  .hd-pills.tight .hd-pill { padding: 0 4px; min-width: 0; border-radius: 0; margin: 4px 0; border-left-width: 0; font-size: 8.5px; }
+  .hd-pills.tight .hd-pill:first-child { border-left-width: var(--stroke-ink); border-radius: var(--radius-track) 0 0 var(--radius-track); }
+  .hd-pills.tight .hd-pill:last-child { border-radius: 0 var(--radius-track) var(--radius-track) 0; }
+  .sep { align-self: stretch; width: 0; border-left: 1px dashed var(--div); margin: 0 2px; }
+  .vz { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .vz-well { padding: 0; overflow: hidden; }
+  .vz-cv { display: block; width: 100%; }
+  .twin { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .twin > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .split { display: flex; gap: 10px; min-height: 0; }
+  .left { flex: 0 0 250px; width: 250px; min-width: 0; display: flex; flex-direction: column; gap: 6px; position: sticky; top: 0; align-self: flex-start; }
+  .right { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+  .pin { position: sticky; top: 0; z-index: 3; background: var(--panel); padding-bottom: 2px; }
+  .twocol { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; align-items: start; }
+  .threeg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px 10px; align-items: start; }
+  .threeg .hd-rslot { display: none; }
+  .part { display: flex; flex-direction: column; gap: 4px; min-width: 0; border-top: var(--stroke-id) solid var(--ink); padding-top: 2px; }
+  .ptitle { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; min-height: 22px; }
+  .ptitle .hd-cluster { white-space: nowrap; }
+  .bv-tools .hd-pills { flex: none; flex-wrap: nowrap; }
+  .ptitle .hd-toggle { margin: 0; flex: none; }
+  .ptitle .sp { flex: 1 1 auto; }
+  .threecol { display: grid; grid-template-columns: 300px minmax(0, 1fr) minmax(0, 1fr); gap: 10px; align-items: start; }
+  /* the dashboard */
+  .dcards { display: grid; gap: 6px; height: 100%; }
+  .dcards.six { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .dcards.grid { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); }
+  .flow { display: grid; grid-template-columns: minmax(0, 1fr) 54px 268px; height: 100%; position: relative; }
+  .flow .srcs, .flow .flts { display: grid; gap: 6px; min-height: 0; }
+  .flow .srcs { grid-template-rows: repeat(4, minmax(0, 1fr)); }
+  .flow .flts { grid-template-rows: repeat(2, minmax(0, 1fr)); }
+  .flow svg { width: 54px; height: 100%; display: block; }
+  .flow path { fill: none; stroke: var(--ink); stroke-width: 1.5; }
+  .dcard { box-sizing: border-box; border: 1.5px solid var(--ink); border-radius: var(--radius); padding: 4px 6px; display: flex; flex-direction: column; gap: 3px; min-width: 0; min-height: 0; overflow: hidden; }
+  .dcard.mock { border-style: dashed; }
+  .dcard.side { flex-direction: row; flex-wrap: wrap; align-items: flex-start; align-content: flex-start; gap: 3px 8px; }
+  .dcard.side .ptitle { flex: 0 0 100%; }
+  .dcard.side .dp { flex: 0 0 104px; width: 104px; }
+  .dcard.side .dk { flex: 1 1 0; min-width: 0; }
+  .dk { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .tag { font: 700 8px/1.5 var(--font-mono); letter-spacing: .06em; padding: 0 4px; border: 1px dashed var(--div); border-radius: var(--radius-track); color: var(--hint); }
+  .inv { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 8px 16px; }
+  .inv div b { font: 700 12px/1.4 var(--font-sans); display: block; }
+  .inv div { font-size: 12px; color: var(--hint); line-height: 1.4; }
+  #selfcheck { margin: 0; white-space: pre-wrap; font: 11px/1.45 var(--font-mono); color: var(--hint); }
+  ol.q { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; max-width: 84ch; }
+</style>
+</head>
+<body>
+<div class="col">
+  <header>
+    <h1>Where an oscillator’s controls live</h1>
+    <p>An oscillator has 49 rows outside its blades, plus its level on the mixer, and each blade has 30 or more. Each surface below has three candidates at its true size, using the real controls. Try them: the knobs turn, folds fold, tabs switch, and you can drag the waveform and the ring. There’s no sound, and the pictures are SAMPLE drawings. The two filters are MOCK, since Weir has no manifest yet.</p>
+  </header>
+  <section class="card" aria-label="Mini view"><h2>The mini view: an oscillator’s tab on Main (700 × 267)</h2><div class="picker" id="pickM"></div><div class="stage"><div class="frame mini hd-dense" id="stageM"></div></div><div class="meta" id="metaM"></div></section>
+  <section class="card" aria-label="Expanded page"><h2>The expanded page: Osc 1 (957 × 456)</h2><div class="picker" id="pickP"></div><div class="stage"><div class="frame page hd-dense" id="stageP"></div></div><div class="meta" id="metaP"></div></section>
+  <section class="card" aria-label="Dashboard"><h2>The dashboard: four sources and both filters (957 × 456)</h2><div class="picker" id="pickD"></div><div class="stage"><div class="frame page hd-dense" id="stageD"></div></div><div class="meta" id="metaD"></div></section>
+  <section class="card" aria-label="The rows"><h2>The 49 rows, in this lab’s proposed groups</h2><p class="note">The names are a proposal. Each row sits in one group, and the self-check holds that.</p><div class="inv" id="inv"></div></section>
+  <section class="card" aria-label="Questions"><h2>What this asks</h2><ol class="q">
+    <li><b>The mini view.</b> I’d pick M1: everything you reach for is on one screen, at the tiny size, with no clicks.</li>
+    <li><b>The page.</b> I’d pick P2: the rows you now find under “+Adv” get names, so you open Onset or Motion instead of scanning 37 unlabelled cells.</li>
+    <li><b>The dashboard.</b> I’d pick D2: it’s the only one with room for a picture beside the controls on all six. D3 is the most honest about the signal, but its wires need routing rows that don’t exist (GN-16).</li>
+    <li><b>The group names and who’s in them.</b> Change any you like.</li>
+    <li><b>Does a dashboard card carry its envelope?</b> All three do here, as today. Without it, each card gains a row.</li>
+  </ol></section>
+  <section aria-label="Self-check"><h2>Self-check</h2><pre id="selfcheck">Running…</pre></section>
+</div>
+<script src="arp-face/bundle.js"></script>
+<script src="gui3/shell-data.js"></script>
+<script>
+(function () {
+'use strict';
+const H = window.Horde, $ = id => document.getElementById(id), DATA = window.GUI3_DATA;
+if (!H || !DATA) { $('selfcheck').textContent = 'FAILED · the design bundle did not load'; return; }
+const h = (t, a, ...kids) => { const e = document.createElement(t); for (const k in a || {}) { if (k === 'class') e.className = a[k]; else if (k === 'text') e.textContent = a[k]; else e.setAttribute(k, a[k]); } kids.flat().forEach(c => c && e.append(c)); return e; };
+const ROW = {}; DATA.params.forEach(r => { ROW[r.key] = r; });
+/* abbreviations are the layout's, where it gave one */
+const ABBR = {}; DATA.pages.forEach(pg => (pg.groups || []).forEach(g => (g.controls || []).forEach(c => { if (c.abbr && !ABBR[c.key]) ABBR[c.key] = c.abbr; })));
+const abbrOf = k => ABBR[k] || ROW[k].label.replace(/[^A-Za-z0-9]/g, '').slice(0, 4).toUpperCase();
+const S = new H.Session({ x: .5, y: .5, corners: ['A', 'B', 'C', 'D'], sources: [], mappings: [] });
+
+/* ===== the proposed groups: every oscillator row outside the blades, once ===== */
+const GROUPS = [
+  { name: 'Swarm', why: 'how many, and how they spread', keys: ['unison', 'detune', 'detuneLaw', 'detuneRange', 'distribution', 'harmonicReach', 'anchor', 'seed'] },
+  { name: 'Coupling', why: 'how they pull on each other', keys: ['coupling', 'phaseLag', 'pivot', 'crossMod', 'feedback', 'loopDrive'] },
+  { name: 'Pitch', why: 'where it sits', keys: ['octave', 'semitone', 'pitch', 'fine', 'pitchMode', 'stream'] },
+  { name: 'Output', why: 'level and image', keys: ['on', 'pan', 'width', 'panImage', 'panInvert', 'panMotion', 'mute', 'solo', 'env'] },
+  { name: 'Onset', why: 'what a note does at its start', keys: ['phase', 'phaseRandom', 'retrigger', 'onsetLock', 'dissolve', 'onsetScatter', 'timingCorrection'] },
+  { name: 'Motion', why: 'what moves while it holds', keys: ['driftDepth', 'driftRate', 'inertia', 'spreadLaw', 'spreadDrift', 'motionGrain'] },
+  { name: 'Wave', why: 'the base and its edges', keys: ['baseWave', 'bandLimit'] },
+  { name: 'Interplay', why: 'how the two blades meet', keys: ['stacking', 'upperHears', 'collisionPitch', 'collisionBite', 'quantize'] }
+];
+const FACE = ['unison', 'detune', 'coupling', 'baseWave'], PITCH = ['octave', 'semitone', 'fine'], OUT = ['pan', 'width'], BLADE_FACE = ['width', 'cut', 'position', 'depth', 'edges'];
+const osc = (o, s) => 'osc' + o + '.' + s, blade = (o, b, s) => 'osc' + o + '.blade' + b + '.' + s;
+
+/* ===== a control is the master's, from its generated row ===== */
+let mounted = [];
+function selectOf(r) { const se = h('select', { class: 'hd-focus', 'aria-label': r.label }); (r.options || [r.default_text]).forEach((t, i) => { const o = h('option', { text: t }); o.value = String(i); se.append(o); }); se.value = String(r.default_index || 0); return se; }
+function control(key, size) {
+  const r = ROW[key], host = h('div'); mounted.push(key); host.dataset.key = key;
+  if (r.law === 'step') { host.className = 'stp'; host.append(h('span', { class: 'hd-sublabel', text: size === 'compact' ? r.label : abbrOf(key), title: r.label }), selectOf(r)); } else {
+    const v = r.default_v === undefined ? .5 : r.default_v;
+    H.Knob(host, { key, name: r.label, abbr: abbrOf(key), path: 'Osc 1 · ' + r.label, vals: [v, v, v, v], def: v, size: size || 'tiny', bipolar: (r.lo || 0) < 0, fmt: x => r.lo !== undefined ? (r.lo + x * (r.hi - r.lo)).toFixed(2) : Math.round(x * 100) + '%' }, S);
+  }
+  return host;
+}
+const row = (keys, size, cls) => h('div', { class: 'row' + (cls ? ' ' + cls : '') }, keys.map(k => control(k, size)));
+const seps = (groups, size) => { const out = h('div', { class: 'row' }); groups.forEach((g, i) => { if (i) out.append(h('span', { class: 'sep' })); g.forEach(k => out.append(control(k, size))); }); return out; };
+function sw(path, on) { const b = h('button', { class: 'hd-toggle hd-sm hd-focus', type: 'button', role: 'switch', 'aria-label': path + ' · On', 'aria-checked': String(!!on) }); b.addEventListener('click', () => b.setAttribute('aria-checked', String(b.getAttribute('aria-checked') !== 'true'))); return b; }
+function modes(o, b, cur) { mounted.push(blade(o, b, 'mode')); const d = h('div'); H.pillGroup(d, ['Sync', 'FR', 'FF', 'Nois', 'Fold', 'Ring', 'Crus'], cur, 'Blade ' + b + ' · Mode', () => {}, {}); d.classList.add('tight'); return d; }
+function bladeTitle(o, b) { mounted.push(blade(o, b, 'on')); return h('div', { class: 'ptitle' }, sw('Blade ' + b, true), h('span', { class: 'hd-cluster', text: 'Blade ' + b }), modes(o, b, b === 1 ? 0 : 4)); }
+const items = (keys, o) => keys.map(k => { const r = ROW[o ? osc(o, k) : k], key = r.key; mounted.push(key);
+  if (r.law === 'step') { const d = h('div', { class: 'stp', title: r.label }, h('span', { class: 'hd-sublabel', text: abbrOf(key) }), selectOf(r)); d.dataset.key = key; return d; }
+  const v = r.default_v === undefined ? .5 : r.default_v; return { knob: { key, name: r.label, abbr: abbrOf(key), path: r.label, vals: [v, v, v, v], def: v, size: 'tiny', bipolar: (r.lo || 0) < 0, fmt: x => r.lo !== undefined ? (r.lo + x * (r.hi - r.lo)).toFixed(2) : Math.round(x * 100) + '%' } }; });
+
+/* ===== the SAMPLE swarm and blades every picture reads. Local values, seeded, stepped per frame ===== */
+const V = { 'b1.position': .875, 'b1.width': .25, 'b1.cut': .55, 'b2.position': .4, 'b2.width': .16, 'b2.cut': .3 }, RING = { x: .28, y: .62, sx: 0 }, N = 7;
+const swarm = H.Synth.ring(7, N), saw = x => H.Synth.saw(x + .5), sine = x => Math.sin(2 * Math.PI * x);
+let cy = null, frameNo = 0, frames = [], hist = [], bands = null;
+const model = () => { if (!cy) { cy = H.Synth.cycle({ n: N, base: saw, blades: [1, 2].map(b => ({ blade: b, mode: b === 1 ? 'Sync' : 'Fold', width: .02 + V['b' + b + '.width'] * .6, position: V['b' + b + '.position'], cycles: Math.pow(32, V['b' + b + '.cut']), depth: 1, edges: .08, posSpread: .08, cutSpread: 3, wave: sine })) });
+  cy.windows.forEach(wd => wd.members.forEach((m, i) => { const q = swarm.blades[i]; if (wd.blade === 1) { q.st1 = m.st; q.w1 = m.w; } else { q.st2 = m.st; q.w2 = m.w; } })); bands = null; } return cy; };
+const well = (label, hgt, parent) => { const cv = h('canvas', { class: 'vz-cv', style: 'height:' + hgt + 'px', role: 'img', 'aria-label': label + ' (SAMPLE)' }); const w = h('div', { class: 'hd-viz vz-well' }, cv); if (parent) parent.append(w); return { cv, w }; };
+const ROLES = { blade: [['position', 'Position'], ['cut', 'Cut rate'], ['width', 'Width']] };
+function bladeView(height) {
+  const host = h('div', { class: 'pin' });
+  const bv = H.BladeView(host, { height, label: 'Osc 1 waveform', hint: 'SAMPLE', roles: ROLES, keyOf: (r, b) => 'b' + b + '.' + r, read: k => V[k], circ: k => /position/.test(k), label: k => k.split('.')[1], value: k => V[k].toFixed(2), write: u => { for (const k in u) V[k] = u[k]; cy = null; }, begin() {}, end() {} });
+  frames.push(() => { const m = model(); m.atPhase = H.Synth.atPhase(m, swarm.phase); bv.frame(m); });
+  return host;
+}
+function ringPic(height, parent) {
+  const { cv, w } = well('Phase ring', height, parent); let live = { drag: false };
+  H.RingXY(cv, RING, (s, info) => { live = info; });
+  frames.push(() => { if (cv.clientWidth) H.Viz.kuramoto(cv, { phase: swarm.phase, blades: swarm.blades, xy: RING, drag: live.drag }); });
+  return w;
+}
+function spectrumPic(height, parent) { const { cv, w } = well('Spectrum', height, parent), st = {}; frames.push(() => { if (!cv.clientWidth) return; const m = model(); if (!bands || frameNo % 12 === 0) { m.atPhase = m.atPhase || H.Synth.atPhase(m, swarm.phase); bands = H.Synth.cycleBands(m.atPhase.sum, 110); } H.Viz.spectrum(cv, bands, st, frameNo * 1000 / 60); }); return w; }
+function carpetPic(height, parent) { const { cv, w } = well('Phase carpet', height, parent); frames.push(() => { if (cv.clientWidth) H.Viz.carpet(cv, hist, (ph, i) => model().windows.some(wd => { const m = wd.members[i]; return m && ((ph - m.st) % 1 + 1) % 1 < m.w; })); }); return w; }
+function mapPic(height, parent) { const { cv, w } = well('Voice map', height, parent), u = i => i / (N - 1) * 2 - 1; frames.push(() => { if (!cv.clientWidth) return; const off = H.Synth.atPhase(model(), swarm.phase).off; H.Viz.voiceMap(cv, swarm.phase.map((_, i) => ({ tp: u(i) * .8, tc: u(i) * RING.x * 24, p: u(i) * .8 + off[i] * .12, c: u(i) * RING.x * 24 + off[i] * 8, root: i === 3 }))); }); return w; }
+function cyclePic(height, parent, on) { const { cv, w } = well('One cycle', height, parent); frames.push(() => { if (!cv.clientWidth) return; const m = model(); H.Viz.blade(cv, on === false ? { base: m.base, sum: m.base, members: [], windows: [] } : { base: m.base, sum: m.sum, members: m.members, windows: m.windows, view: 'sum' }); }); return w; }
+function wavePic(height, parent, fn) { const { cv, w } = well('One cycle', height, parent); frames.push(() => { if (!cv.clientWidth) return; const l = []; for (let i = 0; i < 128; i++) l.push(fn(i / 127)); H.Viz.scope(cv, { l, r: l, R: 0 }); }); return w; }
+function noisePic(height, parent) { const { cv, w } = well('Noise colour', height, parent), st = {}, b = []; for (let i = 0; i < 24; i++) b.push(Math.max(0, .78 - i * .012)); frames.push(() => { if (cv.clientWidth) H.Viz.spectrum(cv, b, st, frameNo * 1000 / 60); }); return w; }
+function filterPic(height, parent, kind) { const { cv, w } = well('Filter response (MOCK)', height, parent); frames.push(() => { if (!cv.clientWidth) return; const K = H.Viz.kit(cv), g = K.g; K.tube(); K.scan(); const fc = kind === 2 ? .68 : .42; g.strokeStyle = K.c('value'); g.lineWidth = 1.6 * K.V; g.beginPath(); for (let i = 0; i <= 96; i++) { const x = i / 96, r = x / fc, a = kind === 2 ? r * r / Math.hypot(1 - r * r, r / 2.4) : 1 / Math.hypot(1 - r * r, r / 2.4), y = K.H * (.78 - .26 * Math.log2(Math.max(.02, a))); i ? g.lineTo(x * K.W, y) : g.moveTo(0, y); } g.stroke(); }); return w; }
+function fullLeft() { const wrap = h('div', { class: 'left' }); wrap.append(ringPic(150), h('span', { class: 'hd-hint', text: 'Detune · Coupling · Cross-mod · SAMPLE' }), spectrumPic(56)); const c = h('div', {}, h('span', { class: 'hd-sublabel', text: 'Phase carpet' })), m = h('div', {}, h('span', { class: 'hd-sublabel', text: 'Voice map' })); c.append(carpetPic(58)); m.append(mapPic(58)); wrap.append(h('div', { class: 'twin' }, c, m)); return wrap; }
+
+/* ===== the mini view ===== */
+const MINI = {
+  M1: { title: 'M1 · One line per part', blurb: 'The ring beside the waveform and three lines of tiny controls: the oscillator, then each blade. Adds Pitch and Output. No clicks.', build(el) {
+    const rows = h('div', { class: 'right' });
+    rows.append(bladeView(70), seps([FACE.map(k => osc(1, k)), PITCH.map(k => osc(1, k)), ['mix.osc1'].concat(OUT.map(k => osc(1, k)))], 'tiny'));
+    [1, 2].forEach(b => rows.append(h('div', { class: 'row line' }, h('span', { class: 'hd-sublabel', text: 'Blade ' + b }), (mounted.push(blade(1, b, 'on')), sw('Blade ' + b, true)), modes(1, b, b === 1 ? 0 : 4), BLADE_FACE.map(s => control(blade(1, b, s), 'tiny')))));
+    el.append(h('div', { class: 'split' }, h('div', { style: 'flex:0 0 164px;display:flex;flex-direction:column;gap:6px' }, ringPic(140), h('span', { class: 'hd-hint', text: 'The rest: on Osc 1’s page' })), rows)); } },
+  M2: { title: 'M2 · Waveform across the top', blurb: 'The waveform takes the whole width. Under it, three columns with title bars: Osc, Blade 1, Blade 2, so the page’s shape carries over. The ring gets small.', build(el) {
+    el.append(bladeView(70));
+    const oc = h('div', { class: 'part' }, h('div', { class: 'ptitle' }, h('span', { class: 'hd-cluster', text: 'Osc 1' })), h('div', { class: 'split', style: 'gap:6px' }, h('div', { style: 'flex:0 0 84px' }, ringPic(84)), h('div', { style: 'flex:1;min-width:0;display:flex;flex-direction:column;gap:2px' }, row(FACE.slice(0, 3).map(k => osc(1, k)).concat(['mix.osc1', osc(1, 'baseWave')]), 'tiny'), row(PITCH.concat(OUT).map(k => osc(1, k)), 'tiny'))));
+    const col = b => h('div', { class: 'part' }, bladeTitle(1, b), row(BLADE_FACE.map(s => blade(1, b, s)), 'tiny'));
+    el.append(h('div', { class: 'threecol', style: 'margin-top:6px' }, oc, col(1), col(2))); } },
+  M3: { title: 'M3 · One part at a time', blurb: 'Ring and waveform on the left; Osc, Blade 1 or Blade 2 on the right at the larger knob size. Roomy and easy to hit, but a click away from the other parts.', build(el) {
+    const left = h('div', { style: 'flex:0 0 300px;display:flex;flex-direction:column;gap:4px;min-width:0' }, ringPic(86), bladeView(70));
+    const deckHost = h('div', { style: 'flex:1 1 auto;min-width:0' }), deck = H.Deck(deckHost, { tabs: [{ id: 'o', label: 'Osc 1' }, { id: 'b1', label: 'Blade 1' }, { id: 'b2', label: 'Blade 2' }] });
+    deck.panel('o').append(row(['unison', 'detune', 'coupling'].map(k => osc(1, k)).concat(['mix.osc1']), 'compact'), row(['baseWave', 'octave', 'semitone', 'fine', 'pan', 'width'].map(k => osc(1, k)), 'tiny'));
+    [1, 2].forEach(b => deck.panel('b' + b).append(bladeTitle(1, b), row(BLADE_FACE.map(s => blade(1, b, s)), 'compact')));
+    el.append(h('div', { class: 'split' }, left, deckHost)); } }
+};
+
+/* ===== the page ===== */
+const foldOf = (host, id, name, open, tiers, extra) => { const f = h('section'); host.append(f); return H.Fold(f, S, Object.assign({ id: 'osclab.' + id, name, path: 'Osc 1 · ' + name, open, tiers, buildAll: true, summary: extra && extra.summary || '', keys: () => false }, extra || {})); };
+const bladeFold = (host, id, b) => { const head = [modes(1, b, b === 1 ? 0 : 4)]; mounted.push(blade(1, b, 'on')); return foldOf(host, id + 'b' + b, 'Blade ' + b, false, { face: items(BLADE_FACE.map(s => blade(1, b, s))), all: items(['wave', 'mirror', 'fmDepth', 'modRate', 'positionSpread', 'cutSpread'].map(s => blade(1, b, s))), adv: items(['shape', 'cutIn', 'cutHz', 'frame', 'rotate', 'rotation', 'fmType', 'modShape', 'modIn', 'modRateHz', 'cutRule', 'ruleDepth', 'widthSpread', 'depthSpread', 'shapeSpread', 'fmIndexSpread', 'rotateSpread'].map(s => blade(1, b, s))) }, { on: true, onToggle() {}, head, summary: b === 1 ? 'Sync · 0.25 cyc' : 'Fold · 0.20 cyc' }); };
+const PAGE = {
+  P1: { title: 'P1 · Tiers, as built', blurb: 'Face, All and +Adv on one Osc section, beside its Envelope. It’s what GUI-30 ships. +Adv is one long unnamed list of 37 rows.', build(el) {
+    const right = h('div', { class: 'right' }); right.append(bladeView(129));
+    const two = h('div', { class: 'twocol' }), rest = GROUPS.flatMap(g => g.keys).filter(k => !FACE.includes(k) && !PITCH.includes(k) && !OUT.includes(k));
+    foldOf(two, 'p1o', 'Osc 1', true, { face: items(FACE, 1), all: items(PITCH.concat(OUT), 1).concat(items(['mix.osc1'])), adv: items(rest, 1) }, { summary: '7 · 28 %' });
+    two.append(h('div', { class: 'part' }, h('div', { class: 'ptitle' }, h('span', { class: 'hd-cluster', text: 'Envelope' }), h('span', { class: 'hd-hint', text: 'ENV 1' })), row(['env1.attack', 'env1.decay', 'env1.sustain', 'env1.release'], 'tiny')));
+    right.append(two); bladeFold(right, 'p1', 1); bladeFold(right, 'p1', 2);
+    el.append(h('div', { class: 'split' }, fullLeft(), right)); } },
+  P2: { title: 'P2 · Named groups', blurb: 'The blades, then Swarm, Pitch and Output open, with Coupling, Onset, Motion, Wave and Interplay as closed folds you open by name. Every row has a named home.', build(el) {
+    const right = h('div', { class: 'right' }); right.append(bladeView(129)); bladeFold(right, 'p2', 1); bladeFold(right, 'p2', 2);
+    const two = h('div', { class: 'threeg' }); const LEAD = { Swarm: ['unison', 'detune', 'detuneLaw', 'distribution'], Pitch: ['octave', 'semitone', 'pitch', 'fine'], Output: ['pan', 'width', 'mute', 'solo'], Coupling: ['coupling', 'crossMod', 'feedback'], Onset: ['phase', 'phaseRandom', 'retrigger', 'onsetLock'], Motion: ['driftDepth', 'driftRate', 'inertia'], Wave: GROUPS[6].keys, Interplay: ['stacking', 'upperHears', 'collisionPitch', 'collisionBite'] };
+    const OPEN = ['Swarm', 'Pitch', 'Output'];
+    ['Swarm', 'Pitch', 'Output', 'Coupling', 'Onset', 'Motion', 'Wave', 'Interplay'].map(n => GROUPS.find(g => g.name === n)).forEach(g => { const lead = LEAD[g.name] || g.keys, more = g.keys.filter(k => !lead.includes(k)); foldOf(two, 'p2g' + g.name, g.name, OPEN.includes(g.name), Object.assign({ face: items(lead, 1).concat(g.name === 'Output' ? items(['mix.osc1']) : []) }, more.length ? { adv: items(more, 1) } : {}), { summary: g.why }); });
+    right.append(two); el.append(h('div', { class: 'split' }, fullLeft(), right)); } },
+  P3: { title: 'P3 · Tabs under the waveform', blurb: 'Osc, Blades, Motion and Envelope as tabs, with the two blades side by side in one matrix so you can compare them. Nothing scrolls, but only one set shows at a time.', build(el) {
+    const right = h('div', { class: 'right' }); right.append(bladeView(100));
+    const dh = h('div'), deck = H.Deck(dh, { tabs: [{ id: 'o', label: 'Osc' }, { id: 'b', label: 'Blades' }, { id: 'm', label: 'Motion' }, { id: 'e', label: 'Envelope' }] }); right.append(dh);
+    const cluster = (host, g) => { const s = h('section'); host.append(s); H.Cluster(s, S, { name: g.name, path: 'Osc 1 · ' + g.name, summary: g.why, groups: [{ label: g.name, items: items(g.keys, 1) }], keys: () => false }); };
+    const byName = n => GROUPS.find(g => g.name === n);
+    const pair = id => { const t = h('div', { class: 'twocol' }); deck.panel(id).append(t); return t; }, po = pair('o'), pm = pair('m');
+    ['Swarm', 'Pitch', 'Output', 'Wave'].forEach(n => cluster(po, byName(n)));
+    ['Coupling', 'Onset', 'Motion', 'Interplay'].forEach(n => cluster(pm, byName(n)));
+    const mx = h('section'), rowsOf = ['width', 'cut', 'position', 'depth', 'edges', 'mirror', 'fmDepth', 'modRate', 'positionSpread', 'cutSpread'];
+    [1, 2].forEach(b => mounted.push(blade(1, b, 'on')));
+    deck.panel('b').append(mx); H.ClusterMatrix(mx, S, { name: 'Blades', path: 'Osc 1 · Blades', summary: 'Both, side by side', cols: rowsOf.map(s => ({ label: abbrOf(blade(1, 1, s)), title: ROW[blade(1, 1, s)].label })), rows: [1, 2].map(b => ({ label: String(b), cells: items(rowsOf.map(s => blade(1, b, s))) })), keys: () => false });
+    deck.panel('b').append(bladeTitle(1, 1), bladeTitle(1, 2));
+    deck.panel('e').append(row(['env1.attack', 'env1.decay', 'env1.sustain', 'env1.release'], 'compact'));
+    el.append(h('div', { class: 'split' }, fullLeft(), right)); } }
+};
+
+/* ===== the dashboard ===== */
+const SOURCES = [
+  { name: 'Osc 1', on: true, pic: (p, hg) => cyclePic(hg, p), keys: ['mix.osc1', 'osc1.unison', 'osc1.detune', 'osc1.coupling'], env: 'env1' },
+  { name: 'Osc 2', on: false, pic: (p, hg) => cyclePic(hg, p, false), keys: ['mix.osc2', 'osc2.unison', 'osc2.detune', 'osc2.coupling'], env: 'env1' },
+  { name: 'Sub', on: true, pic: (p, hg) => wavePic(hg, p, sine), keys: ['mix.sub', 'sub.octave', 'sub.tone', 'sub.drive'], env: 'env1' },
+  { name: 'Noise', on: false, pic: (p, hg) => noisePic(hg, p), keys: ['mix.noise', 'noise.type', 'noise.colour', 'noise.cutoff'], env: 'env1' }
+];
+const ENVK = e => ['attack', 'decay', 'sustain', 'release'].map(s => e + '.' + s);
+function mockKnob(key, name, abbr, v) { const host = h('div'); H.Knob(host, { key, name, abbr, path: name + ' (MOCK)', vals: [v, v, v, v], def: v, size: 'tiny', fmt: x => Math.round(x * 100) + '%' }, S); return host; }
+function card(src, hg, cls) {
+  const c = h('div', { class: 'dcard' + (cls ? ' ' + cls : '') }), p = h('div', { class: 'dp' }), k = h('div', { class: 'dk' });
+  c.append(h('div', { class: 'ptitle' }, sw(src.name, src.on), h('span', { class: 'hd-cluster', text: src.name }), h('span', { class: 'sp' }), h('button', { class: 'hd-btn hd-focus', type: 'button', text: 'Open', style: 'min-height:18px;padding:0 6px;font-size:9px' })));
+  src.pic(p, hg); k.append(row(src.keys, 'tiny'), row(ENVK(src.env), 'tiny')); c.append(p, k); return c;
+}
+function filterCard(n, hg, cls) {
+  const c = h('div', { class: 'dcard mock' + (cls ? ' ' + cls : '') }), p = h('div', { class: 'dp' }), k = h('div', { class: 'dk' }), ty = h('div');
+  H.pillGroup(ty, ['LP', 'BP', 'HP'], n === 1 ? 0 : 2, 'Filter ' + n + ' type (MOCK)', () => {}, {});
+  c.append(h('div', { class: 'ptitle' }, sw('Filter ' + n, n === 1), h('span', { class: 'hd-cluster', text: 'Filter ' + n }), h('span', { class: 'tag', text: 'MOCK' })));
+  filterPic(hg, p, n); k.append(ty, h('div', { class: 'row' }, mockKnob('mock.f' + n + '.cut', 'Cutoff', 'CUT', n === 1 ? .55 : .7), mockKnob('mock.f' + n + '.res', 'Resonance', 'RES', .3), mockKnob('mock.f' + n + '.drv', 'Drive', 'DRV', .2), mockKnob('mock.f' + n + '.mix', 'Mix', 'MIX', 1))); c.append(p, k); return c;
+}
+const DASH = {
+  D1: { title: 'D1 · Six across', blurb: 'One signal order, left to right, with every card the same. Narrow: about 150 px each, so a picture on top and tiny controls in two rows.', build(el) { const g = h('div', { class: 'dcards six' }); SOURCES.forEach(s => g.append(card(s, 96))); g.append(filterCard(1, 96), filterCard(2, 96)); el.append(g); } },
+  D2: { title: 'D2 · Three by two', blurb: 'Sources over filters, reading across. About 310 px a card, so the picture sits beside the controls, and each card has room for more rows later.', build(el) { const g = h('div', { class: 'dcards grid' }); SOURCES.forEach(s => g.append(card(s, 78, 'side'))); g.append(filterCard(1, 78, 'side'), filterCard(2, 78, 'side')); el.append(g); } },
+  D3: { title: 'D3 · Signal flow', blurb: 'Four sources in a column, wired into the two filters: the page is the signal path. The wires are a drawing until routing has rows (GN-16).', build(el) { const f = h('div', { class: 'flow' }), a = h('div', { class: 'srcs' }), b = h('div', { class: 'flts' }); SOURCES.forEach(s => a.append(card(s, 58, 'side'))); b.append(filterCard(1, 96), filterCard(2, 96));
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('viewBox', '0 0 54 100'); svg.setAttribute('preserveAspectRatio', 'none'); svg.setAttribute('aria-hidden', 'true');
+    [12.5, 37.5, 62.5, 87.5].forEach(y => { const p = document.createElementNS('http://www.w3.org/2000/svg', 'path'); p.setAttribute('d', 'M0 ' + y + ' C27 ' + y + ' 27 25 54 25'); p.setAttribute('vector-effect', 'non-scaling-stroke'); svg.append(p); });
+    const q = document.createElementNS('http://www.w3.org/2000/svg', 'path'); q.setAttribute('d', 'M54 25 C40 40 40 60 54 75'); q.setAttribute('vector-effect', 'non-scaling-stroke'); q.setAttribute('stroke-dasharray', '3 3'); svg.append(q);
+    f.append(a, svg, b); el.append(f); } }
+};
+
+/* ===== the pickers ===== */
+const PICK = { M: 'M1', P: 'P2', D: 'D2' }, SETS = { M: MINI, P: PAGE, D: DASH }, COUNT = { M: [], P: [], D: [] };
+function show(sec, id) {
+  PICK[sec] = id; frames = frames.filter(f => f.sec !== sec);
+  const stage = $('stage' + sec), before = frames.length; stage.innerHTML = ''; mounted = [];
+  SETS[sec][id].build(stage); frames.slice(before).forEach(f => { f.sec = sec; });
+  COUNT[sec] = [...new Set(mounted)];
+  [...$('pick' + sec).children].forEach(b => b.setAttribute('aria-pressed', String(b.dataset.id === id)));
+  paintMeta(sec);
+}
+function outsideBlade(keys) { return keys.filter(k => /^osc1\.|^mix\.osc1$/.test(k) && !/\.blade\d\./.test(k)).length; }
+function paintMeta(sec) {
+  const stage = $('stage' + sec), over = stage.scrollHeight - stage.clientHeight, m = $('meta' + sec), keys = COUNT[sec];
+  m.innerHTML = ''; const add = (t, v) => m.append(h('span', {}, t + ' ', h('b', { text: v })));
+  add('At this size:', over > 1 ? 'scrolls ' + over + ' px' : 'fits');
+  if (sec === 'D') add('Rows drawn:', String(keys.length) + ' real, plus the filters’ MOCK');
+  else { add('Osc rows drawn or a click away:', outsideBlade(keys) + ' of ' + ALLROWS.length); add('Blade rows:', String(keys.filter(k => /\.blade\d\./.test(k)).length)); }
+}
+const ALLROWS = GROUPS.flatMap(g => g.keys.map(k => osc(1, k))).concat(['mix.osc1']);
+Object.keys(SETS).forEach(sec => { const hostP = $('pick' + sec); Object.keys(SETS[sec]).forEach(id => { const b = h('button', { class: 'opt', type: 'button', 'data-id': id, 'aria-pressed': 'false' }, h('b', { text: SETS[sec][id].title }), h('span', { text: SETS[sec][id].blurb })); b.addEventListener('click', () => show(sec, id)); hostP.append(b); }); });
+GROUPS.forEach(g => $('inv').append(h('div', {}, h('b', { text: g.name + ' · ' + g.why }), g.keys.map(k => ROW[osc(1, k)] ? ROW[osc(1, k)].label : k).join(', '))));
+
+/* ===== the self-check: each claim measured, each with a control ===== */
+function check() {
+  const out = [], line = (ok, s) => out.push((ok ? 'OK' : 'FAILED') + ' · ' + s);
+  const real = Object.keys(ROW).filter(k => k.startsWith('osc1.') && !k.includes('.blade')), grouped = GROUPS.flatMap(g => g.keys.map(k => osc(1, k)));
+  const inventory = list => real.every(k => list.filter(x => x === k).length === 1) && list.every(k => real.includes(k));
+  line(inventory(grouped) && !inventory(grouped.slice(1)), 'Rows: all ' + real.length + ' oscillator rows outside the blades are in exactly one group, and dropping one is caught (control).');
+  const known = k => !!ROW[k]; let allReal = true, seen = {};
+  const fit = {};
+  Object.keys(SETS).forEach(sec => Object.keys(SETS[sec]).forEach(id => { show(sec, id); seen[id] = COUNT[sec].length; if (!COUNT[sec].every(known)) allReal = false; const st = $('stage' + sec); fit[id] = st.scrollHeight - st.clientHeight; }));
+  line(allReal && Object.values(seen).every(n => n > 8), 'Controls: every candidate mounts only GUI 3’s generated rows (' + Object.entries(seen).map(([k, v]) => k + ' ' + v).join(', ') + '); the filters’ stand-ins are marked MOCK and aren’t rows.');
+  line(Object.entries(fit).every(([, v]) => v <= 1), 'Fit at the true size, closed folds: ' + Object.entries(fit).map(([k, v]) => k + ' ' + (v > 1 ? '+' + v + ' px' : 'fits')).join(', ') + '.');
+  /* the waveform's drag through its real path: a grab moves nothing, a drag does, and the pictures read the new window */
+  show('M', 'M1'); step(); const cv = $('stageM').querySelector('.hd-bladeview canvas'); cv.setPointerCapture = () => {}; const r = cv.getBoundingClientRect(), wd = model().windows[0], x0 = ((wd.st + wd.w / 2) % 1), at = x => ({ bubbles: true, button: 0, clientX: r.left + x * r.width, clientY: r.top + r.height / 2 }), p0 = V['b1.position'];
+  cv.dispatchEvent(new MouseEvent('pointerdown', at(x0))); cv.dispatchEvent(new MouseEvent('pointerup', at(x0))); const still = V['b1.position'] === p0;
+  cv.dispatchEvent(new MouseEvent('pointerdown', at(x0))); cv.dispatchEvent(new MouseEvent('pointermove', at(x0 + .1))); cv.dispatchEvent(new MouseEvent('pointerup', at(x0 + .1))); const moved = Math.abs(V['b1.position'] - ((p0 + .1) % 1)) < .01; V['b1.position'] = p0; cy = null;
+  line(still && moved, 'Waveform: a grab with no motion moves nothing (control), and a drag of a tenth moves the window a tenth, on the real component.');
+  Object.keys(PICK).forEach(sec => show(sec, sec === 'M' ? 'M1' : sec === 'P' ? 'P2' : 'D2'));
+  $('selfcheck').textContent = out.join('\n');
+}
+function step() { swarm.step(1 / 60, (RING.y - .5) * 8, RING.x * 1.4); frameNo++; hist.push(swarm.phase.slice()); if (hist.length > 16) hist.shift(); frames.slice().forEach(f => f()); }
+try { check(); } catch (e) { $('selfcheck').textContent = 'FAILED · the self-check threw: ' + (e && e.message || e); Object.keys(PICK).forEach(sec => { if (!$('stage' + sec).children.length) show(sec, PICK[sec]); }); }
+Object.keys(PICK).forEach(paintMeta);
+if (S.start) S.start();
+(function loop() { step(); requestAnimationFrame(loop); })();
+})();
+</script>
+</body>
+</html>
