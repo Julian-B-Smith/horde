@@ -8,6 +8,7 @@ One morphing key's two per-patch choices (ADR-291 r3, ADR-324 H1, ADR-325 X30; S
 - **Mode:** Follow (the default), Quantum, Exempt, as pills.
 - **Count:** As the morph (the default), Two, Four, as pills. It's drawn only while it can act: Follow under Blend or Stepped (MO-11, GUI-21).
 - **The mark** (`MorphMode.mark(host, mode)`): a Q with a staircase or an EX with a slashed ring, in the host's corner. Exempt also dashes the host's box. Follow leaves no mark. `MorphMode.tagHTML(mode)` is the same tag inline, for a row's name.
+- **The readout:** an Exempt control's readout says "EXEMPT · held", through the prop `lockWord`, because LOCKED reads as a corner lock (page-chrome lab).
 
 **Never colour alone.** A mark is a glyph and letters. An Exempt key has no corner tint, because it belongs to no corner.
 

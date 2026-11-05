@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1793839663-3038, 2026-11-04; do not edit, re-vendor */
+/* vendored from the horde Design System artifact, version 1793843689-1e6e, 2026-11-04; do not edit, re-vendor */
 /* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"MorphMode"},{"name":"NameField"},{"name":"SteppedControl"},{"name":"Stepper"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"},{"name":"Companion"},{"name":"SourceChip"},{"name":"SourceRows"},{"name":"RoutesBySource"},{"name":"Cluster"},{"name":"Lens"},{"name":"Fold"},{"name":"PageView"},{"name":"ModTiers"},{"name":"MacroRow"},{"name":"ModBank"},{"name":"ModPage"},{"name":"UndoLine"},{"name":"MacroFace"},{"name":"PresetBar"},{"name":"Deck"},{"name":"MacroCard"},{"name":"ParamPicker"},{"name":"HistoryRail"},{"name":"PicturePicker"},{"name":"AssignXY"},{"name":"Specimen"}]} */
 /* horde house reference behaviours (vanilla JS, no React, no network).
    The morph knob and slider follow the human's HORDE Morph Knob Spec and HORDE Map Mode Spec
@@ -323,7 +323,7 @@
     var c = S.ctlOf(p.key);
     if (c) { el2.style.color = srcColor(S.src(c.src)); el2.innerHTML = '<span class="ctl-cap">controlled by ' + S.src(c.src).name + '</span>'; el2.title = 'controlled by ' + S.src(c.src).name; return; }
     el2.title = '';
-    if (p.locked) { el2.style.color = v('hint'); el2.textContent = 'LOCKED'; return; }
+    if (p.locked) { el2.style.color = v('hint'); el2.textContent = p.lockWord || 'LOCKED'; return; }
     var w = S.weights()[ai], rf = S.refused && !S.refused.ctl && S.refused.key === p.key && (S.now || 0) - S.refused.at < 1600;   // a Control refusal is said, not shown as a corner lock
     el2.style.color = lineOf(ai);
     if (rf) { el2.innerHTML = LOCK + '<span>' + CORNERS[ai].id + ' locked</span>'; return; }
@@ -773,7 +773,7 @@
     n.textContent = p.name;
     var setValue = p.locked ? p.g : p.vals[ai];                          // PLACEHOLDER: the editing corner's value, not the blend
     v1.textContent = p.fmt(setValue); set.style.color = ''; set.innerHTML = '';
-    if (p.locked) { set.style.color = v('hint'); set.textContent = 'LOCKED'; }
+    if (p.locked) { set.style.color = v('hint'); set.textContent = p.lockWord || 'LOCKED'; }
     else if (S.refused && !S.refused.ctl && S.refused.key === p.key && (S.now || 0) - S.refused.at < 1600) { set.style.color = lineOf(ai); set.innerHTML = LOCK + '<span>' + CORNERS[ai].id + ' locked</span>'; }
     else { var w = S.weights()[ai]; set.style.color = lineOf(ai); set.innerHTML = glyphSvg(ai, 7, lineOf(ai)) + '<span>' + CORNERS[ai].id + ' set' + (w > .999 ? '' : ' · ' + pct(w)) + '</span>' + (S.locks[ai] ? LOCK : ''); }
     if (c) { l2.style.color = srcColor(S.src(c.src)); t = 'now ' + out + ' · controlled by ' + S.src(c.src).name + ' (' + S.amount(c) + ')'; }

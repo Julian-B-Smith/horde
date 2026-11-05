@@ -4,7 +4,7 @@
 # (python3 tools/design_vendor.py record-master --version <id> --date <d>) and re-vendor.
 # tools/design_chain_check.py holds the tree to these hashes: every file listed, none extra.
 artifact: https://claude.ai/artifact/EGDwetDHwcvxhTbNffCzJc
-version: 1793839663-3038
+version: 1793843689-1e6e
 date: 2026-11-04
 files: 187
 359c4633101c843579877f6d45a384fd5546e8d0d1c2d1d923a0a59e6da63c2c  README.md
@@ -115,7 +115,7 @@ d67d3c952bbc670beccf4eb60523143b17967fe9638d566afbf046e4685e6ff2  components/Mor
 5f451ff4c4d8885f81fb74d3c92df152092f14aa7d4e3655f6ef5e953bb53e36  components/MorphGrid/preview.html
 8fbb6c2718e033dc48db375bc10e5b0b67e3857b225e843bbfcbecc97435d460  components/MorphInspector/README.md
 3735df41f3db7d634c5019966d493f311423ab916b2ac158a29f6179e3ff95f7  components/MorphInspector/preview.html
-4ef880ebc09fa83d69fbd1fe5a5b227d68eb919ef10bb0b01540bd8c7e7dd953  components/MorphMode/README.md
+ebfa325d74c996db87d747dac8461172431d54511bbd901458a00439ea8e5daa  components/MorphMode/README.md
 36c94f84dd0d1d15cd2b59b1f7aeec818e2eb08d4df90ddd6ef8c26a6716b74f  components/MorphMode/preview.html
 69c53c4bf265740f383ecc6f0bf54bbe4553d521830f0b2e07f046dafdc9b37b  components/NameField/README.md
 33aa4d2bd5711a43d780ba3e89b3d74e610d92a797cdbf20421ce027d636c70c  components/NameField/preview.html
@@ -188,7 +188,7 @@ a18ecfe745ed481016abed2f88491fa90ad8567b0a32d9df1747ad51dd94b65d  components/Tem
 706ba6c02712c8df590f7282f772c49d01bd0a957e6c25748cb43ab0eaa1e0f7  components/XYPad/README.md
 d701129232df94a3ea81b2499559b1f13bd8cf22f065b70b2c7f0d666e2ce3d8  components/XYPad/preview.html
 7f8918c75f726d2c57537c6e312a2aedc282456210f2c275c78da618d3734380  components/bundle.css
-0754f730895baa3b85df38345146062d256f48bd7f116e383b4da4985e2eae66  components/bundle.js
+808304a520fa2e1b37bf32a14c962fcd1ef63c8471143488f5762a3fd0bbbbf2  components/bundle.js
 16d1c42ac53e9d76676a5df335aba6fb8f657e3f4f15274a2e508edd7a06b49a  components/index.d.ts
 6c3f598e97da2ab5ed7ce3e02d35e32afb208bd1c7ddcb32335f97ee701c2901  contrast-audit.md
 b22892adec0ac89e9c3eb244e52d609e0e94a11a8a45fe986acd5a1c750ce8d3  design-system.json

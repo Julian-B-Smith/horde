@@ -322,7 +322,7 @@
     var c = S.ctlOf(p.key);
     if (c) { el2.style.color = srcColor(S.src(c.src)); el2.innerHTML = '<span class="ctl-cap">controlled by ' + S.src(c.src).name + '</span>'; el2.title = 'controlled by ' + S.src(c.src).name; return; }
     el2.title = '';
-    if (p.locked) { el2.style.color = v('hint'); el2.textContent = 'LOCKED'; return; }
+    if (p.locked) { el2.style.color = v('hint'); el2.textContent = p.lockWord || 'LOCKED'; return; }
     var w = S.weights()[ai], rf = S.refused && !S.refused.ctl && S.refused.key === p.key && (S.now || 0) - S.refused.at < 1600;   // a Control refusal is said, not shown as a corner lock
     el2.style.color = lineOf(ai);
     if (rf) { el2.innerHTML = LOCK + '<span>' + CORNERS[ai].id + ' locked</span>'; return; }
@@ -772,7 +772,7 @@
     n.textContent = p.name;
     var setValue = p.locked ? p.g : p.vals[ai];                          // PLACEHOLDER: the editing corner's value, not the blend
     v1.textContent = p.fmt(setValue); set.style.color = ''; set.innerHTML = '';
-    if (p.locked) { set.style.color = v('hint'); set.textContent = 'LOCKED'; }
+    if (p.locked) { set.style.color = v('hint'); set.textContent = p.lockWord || 'LOCKED'; }
     else if (S.refused && !S.refused.ctl && S.refused.key === p.key && (S.now || 0) - S.refused.at < 1600) { set.style.color = lineOf(ai); set.innerHTML = LOCK + '<span>' + CORNERS[ai].id + ' locked</span>'; }
     else { var w = S.weights()[ai]; set.style.color = lineOf(ai); set.innerHTML = glyphSvg(ai, 7, lineOf(ai)) + '<span>' + CORNERS[ai].id + ' set' + (w > .999 ? '' : ' · ' + pct(w)) + '</span>' + (S.locks[ai] ? LOCK : ''); }
     if (c) { l2.style.color = srcColor(S.src(c.src)); t = 'now ' + out + ' · controlled by ' + S.src(c.src).name + ' (' + S.amount(c) + ')'; }

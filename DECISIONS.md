@@ -11653,9 +11653,9 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 
 **Context.** The human, 2026-11-04: "Finish the Morph page." B557's open questions are answered by the spec now: MO-12 says what Exempt holds, and MO-13 allows Quantum on a Structural key. So the menu no longer waits on a ruling about its behaviour. Its look is the human's to judge on this batch.
 
-**What's built.** Master `1793839663-3038`.
+**What's built.** Master `1793843689-1e6e`.
 - **`MorphMode`:** Mode (Follow, Quantum, Exempt) and Count (As the morph, Two, Four), in a control's right-click menu and at the top of the Morph page's selected row.
-- **Its marks:** a Q or EX tag on every face of the key and on its row in the field. Exempt also dashes the control's box, and an Exempt row shows no regions or lock.
+- **Its marks:** a Q or EX tag on every face of the key and on its row in the field. Exempt also dashes the control's box, its readout says "EXEMPT · held", and an Exempt row shows no regions or lock.
 - **`NameField`:** a name is asked for in the page. `window.prompt` may not exist in a plugin's webview.
 - **Save all four,** and a delete button beside a saved preset.
 

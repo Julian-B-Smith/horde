@@ -664,11 +664,12 @@ function setKeyMode(key, mode) {
 const keyModeState = key => ({ mode: dev.mode(key), count: dev.count(key), countActs: dev.mode(key) === 'follow' && LAWS[dev.morphSettings().law] !== 'quantum' });   // MO-11: count acts only while the key blends
 // A mode reaches the bundle's props and every face's mark from here, and an undo comes through here too, so a mark can't outlive its mode.
 let modesSeen = {};
+const EXEMPT_WORD = 'EXEMPT · held';   // the readout's word: LOCKED reads as a corner lock
 function syncModes() {
   const now = dev.modes();
   new Set([...Object.keys(modesSeen), ...Object.keys(now)]).forEach(k => {
     if (modesSeen[k] === now[k]) return;
-    const p = S.params[k]; if (p) p.locked = now[k] === 'exempt';
+    const p = S.params[k]; if (p) { p.locked = now[k] === 'exempt'; p.lockWord = now[k] === 'exempt' ? EXEMPT_WORD : undefined; }
     document.querySelectorAll('[data-key="' + k + '"]').forEach(e => H.MorphMode.mark(e, now[k] || 'follow'));
   });
   modesSeen = now;
@@ -1909,7 +1910,7 @@ S.start();
     const sp0 = spread(), blend0 = dev.shown(k), own0 = dev.corner(k, dev.owner(k)), differs = blend0 !== own0, countFollow = keyModeState(k).countActs;
     setKeyMode(k, 'quantum'); const flips = dev.shown(k) === dev.corner(k, dev.owner(k)), qMark = host.dataset.morph === 'quantum' && !!host.querySelector('.hd-mmark'), n1 = dev.history().past.length; setKeyMode(k, 'quantum'); const noStep = dev.history().past.length === n1, countQ = keyModeState(k).countActs;
     setKeyMode(k, 'follow'); const held = dev.shown(k); S.locks[1] = true; const refused = !setKeyMode(k, 'exempt') && dev.mode(k) === 'follow'; S.locks[1] = false;
-    setKeyMode(k, 'exempt'); const one = spread() === 1 && dev.shown(k) === held && S.params[k].locked === true && host.dataset.morph === 'exempt', n2 = dev.history().past.length; S.locks[3] = true; const lockHolds = !S.writable(S.params[k], null); S.locks[3] = false; dev.set(k, .25, { corner: 2 }); const allMove = spread() === 1 && dev.corner(k, 0) === ENG.snap(r, .25);
+    setKeyMode(k, 'exempt'); const one = spread() === 1 && dev.shown(k) === held && S.params[k].locked === true && S.params[k].lockWord === EXEMPT_WORD && host.dataset.morph === 'exempt', n2 = dev.history().past.length; S.locks[3] = true; const lockHolds = !S.writable(S.params[k], null); S.locks[3] = false; dev.set(k, .25, { corner: 2 }); const allMove = spread() === 1 && dev.corner(k, 0) === ENG.snap(r, .25);
     while (dev.history().past.length > n2 - 1) dev.undo(); syncModes(); const back = spread() === sp0 && !host.dataset.morph && !host.querySelector('.hd-mmark') && !S.params[k].locked;
     while (dev.history().past.length > keep) dev.undo(); dev.clearRedo(); setMorphOn(false); while (dev.history().past.length > keep) dev.undo(); dev.clearRedo(); syncModes(); selectPage(pg0);
     line(!lawKept && sp0 > 1 && differs && countFollow && flips && qMark && noStep && !countQ && refused && one && lockHolds && allMove && back, 'Morph mode (GUI-28): ' + r.label + ' blends under Follow (control), reads its owner under Quantum with a Q mark, and under Exempt holds what was heard in all four corners, as one value, with an EX mark; re-picking makes no step, a locked corner refuses Exempt and its later writes whole, Count is drawn only while the key blends, and undo takes it all back.'); }
