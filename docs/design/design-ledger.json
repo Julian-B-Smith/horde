@@ -7488,6 +7488,10 @@
   {
    "adr": "ADR-367",
    "reason": "A test's chaotic list and readings of the oscillator's laws: no design element."
+  },
+  {
+   "adr": "ADR-368",
+   "reason": "A CPU measurement's chord: no design element."
   }
  ],
  "engine_impact": {

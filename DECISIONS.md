@@ -12047,3 +12047,17 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 
 **FX device (ADR-254):** none. These are a test's list and readings of the oscillator's own laws.
 
+## ADR-368 — RULED by the human: PF-3's chord stays in range; spec round 60 (B627)
+
+**Context.** PF-9 at 8, 16 and 64 voices read 61.35, 143.32 and 6306.40 % on 1ad270a: per voice 7.67, 8.96 and 98.54. Batch 2 barely moved the 64-voice cell. The builder profiled it on scratch builds, with no code changed. PF-3's chord puts the k-th note on key 48 + 3k, so its top key is 69 at 8 notes, 141 at 32 and 237 at 64, about 7.2 MHz. The curve breaks between 24 and 32 voices, as the top key passes the band. With the keys wrapped, cost per voice stays between 11 and 13 % to 64 voices, the same functions in the same shares as at 8. At 64 voices with PF-9's keys, `blade_sample`'s own code is 61 %: step 3's search walks every window cycle a member crosses within one sample, for members SW-13 has already silenced. MIDI and CLAP keys stop at 127, so no player could reach this.
+
+**Ruling (the human, 2026-11-05, by poll): "Fix the chord".** PF-3's notes become the k-th note on key 48 + 3·(k mod 8). Above 8 notes the chord repeats, as PF-10's note stream already does.
+
+**Consequences.**
+- **Spec round 60** changes PF-3's one clause and the structure's spec blob. It reaches both clean-room repositories the same turn.
+- **PF-1, at 8 notes, is unchanged by construction.** PF-9's 16- and 64-voice cells become comparable across commits only from round 60 on.
+- **The test author updates `cpu/main.cpp`** and adds a control. No gate moves: CPU is reported, never a suite gate (PF-3).
+- **Out-of-range keys aren't the engine's problem to clamp:** hosts can't send them. The builder's batch 3 still tries to skip the edge search for silent members, but only where that's exact.
+
+**FX device (ADR-254):** none. This is a measurement's chord.
+
