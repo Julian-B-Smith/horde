@@ -18,7 +18,7 @@ These are the ones nothing on the engine side knows about yet.
 |---|---|---|---|
 | GN-1 | A solo tap at every stage: plays that stage's output directly, one at a time, combinable with a source's solo, still through the limiter. A new route to the limiter. Unruled: whether a stage solo saves, undoes or is a host parameter. A source's solo is a saved, undoable Device row, a stage's is unsaved session state today, and the two combine. | GUI-14 r4, GUI-16, GUI-18 | The stage's S has no effect on any audio |
 | GN-2 | A bypass key per FX slot. See Bypass, under Open for the human. Also unruled: whether it saves and undoes, is a host parameter, and is morphable per corner. | GUI-14 r3, GUI-16, GUI-18 | BYP is drawn on the console; mock |
-| GN-3 | The rack's cable state published to the view, for the new rack (only legacy B265 has anything like it). | GUI-14, GUI-16, GUI-18, GUI-36 | A serial stand-in |
+| GN-3 | The rack's cable state published to the view, for the new rack (only legacy B265 has anything like it). | GUI-14, GUI-16, GUI-18, GUI-36, GUI-41 | A serial stand-in |
 | GN-4 | A summed-output signal for the foot row's scope and spectrum. IF-10 is per voice and per oscillator; RC-8 has peaks only. | GUI-8 | `dev.summed()` is mock |
 | GN-5 | A Control route stores a sweep: a low end and a high end. Option+Shift-drag moves the high end. ADR-266 r2's law goes with it: a Control ignores the knob's value, there's one per parameter, other polarities add on top, clamped once, and the knob's value returns when it's removed. The stand-in doesn't enforce one per parameter. | GUI-17 | Held in the shell's mapping band |
 | GN-6 | Row-level region locks in the morph: a lock keeps the row's own four offsets. What a lock stores is open. | GUI-20, B269 | Held in the device stand-in, with undo |
@@ -47,6 +47,7 @@ These are the ones nothing on the engine side knows about yet.
 | GN-47 | Each voice's note and gate in the snapshot, with its envelope's level, for the Specimen to strike: a fresh gate is a strike, the wavelength comes from the note, and the loudest envelope blooms the film. RC-8 has each voice's level and its envelopes' stages, R and the peaks, and no note or gate. | GUI-34, ADR-139 | `dev.feed()` is null in the stub; a test build fills it | RC-8 |
 | GN-48 | The sub's output after its chain, per voice or for the mono sub, with a peak or flag for the drive's ceiling, for the Dial. IF-10's y⁰ is before the tone, the drive and the envelope. | GUI-35, GB9 | `Synth.subCycle`, a SAMPLE from the settings | IF-10, RC-8 |
 | GN-49 | The LFOs: the modulators' spec, how many, and each shape as a shared point list with per-corner time, level and bend, stored as corner state rather than host parameters. | GUI-37, ADR-349 | `ShapeMorph` in the shell, heard by nothing | RC-4, B601 |
+| GN-50 | Each oscillator, the sub, the noise and each filter slot as its own input to the FX rack, so each can feed modules on its own; and each corner's wire set as morph state, with the rule that no admitted graph has a loop at rest. | GUI-41 | `FxGraph` in the shell, heard by nothing | RC-5, ADR-201, B265 |
 
 ## Partly recorded
 

@@ -136,6 +136,10 @@
   {
    "version": "1793906597-7060",
    "evidence": "docs/design/arp-face/README.md: GUI-40, 2026-11-05"
+  },
+  {
+   "version": "1793907040-0c9c",
+   "evidence": "docs/design/arp-face/README.md: GUI-41, 2026-11-05"
   }
  ],
  "vendoring": {
@@ -2906,7 +2910,7 @@
    "master_version": "1793374583-b6a5",
    "bundle": "FxRack",
    "via": null,
-   "shell": "docs/design/gui3.html: H.FxChains(host,",
+   "shell": "docs/design/gui3.html: H.FxPatch(host,",
    "state": "in-shell",
    "superseded_by": null,
    "port_tab": "fx-modules",
@@ -3462,7 +3466,7 @@
    "master_version": "1793374583-b6a5",
    "bundle": "FxCables",
    "via": null,
-   "shell": "docs/design/gui3.html: H.FxChains(host,",
+   "shell": "docs/design/gui3.html: H.FxPatch(host,",
    "state": "in-shell",
    "superseded_by": null,
    "port_tab": "fx-modules",
@@ -3507,7 +3511,7 @@
    "master_version": "1793374583-b6a5",
    "bundle": "FxCables",
    "via": null,
-   "shell": "docs/design/gui3.html: H.FxChains(host,",
+   "shell": "docs/design/gui3.html: H.FxPatch(host,",
    "state": "in-shell",
    "superseded_by": null,
    "port_tab": "fx-modules",
@@ -6291,8 +6295,8 @@
   {
    "lab": null,
    "via": null,
-   "superseded_by": null,
-   "state": "in-shell",
+   "superseded_by": "GUI-41",
+   "state": "ruled",
    "master_version": "1793867065-76de",
    "id": "gui36-fx-routing",
    "adr": "GUI-36",
@@ -6301,7 +6305,7 @@
    "note": "MOCK: its state lives in the view. Replaces the serial stand-in. FX device: same, with its own modules.",
    "component": "FxChains",
    "bundle": "FxChains",
-   "shell": "docs/design/gui3.html: H.FxChains(host,"
+   "shell": "docs/design/gui3.html: H.FxPatch(host,"
   },
   {
    "lab": null,
@@ -6422,6 +6426,21 @@
    "bundle": "MainStage",
    "shell": "docs/design/gui3.html: alive = !S.reduce",
    "lab": null
+  },
+  {
+   "id": "gui41-fx-patching",
+   "adr": "GUI-41",
+   "clause": "FX patching: per-corner wires dragged both ways, every source its own input, no loop at rest",
+   "port_tab": "fx-modules",
+   "note": "MOCK: its state lives in the view. Supersedes GUI-36. FX device: the same with its own inputs.",
+   "component": "FxPatch",
+   "bundle": "FxPatch",
+   "shell": "docs/design/gui3.html: H.FxPatch(host,",
+   "lab": "docs/design/fx-chain-morph-lab-r3.html",
+   "via": null,
+   "superseded_by": null,
+   "state": "in-shell",
+   "master_version": "1793907040-0c9c"
   }
  ],
  "not_design": [
@@ -7548,7 +7567,11 @@
    "GN-21"
   ],
   "GUI-39": "none: a mouse route to rows the knobs already write",
-  "GUI-40": "none: drawing and layout, and the Weather reads only settings"
+  "GUI-40": "none: drawing and layout, and the Weather reads only settings",
+  "GUI-41": [
+   "GN-3",
+   "GN-50"
+  ]
  },
  "audit_notes": [
   "[A] Counts: 33 design ADRs with 56 rows (ruled 31, of which 6 superseded and 7 legacy-only; wired 9; in-shell 7; vendored 4; in-master 4; unknown 1); 79 not_design. Every primary heading ADR-001..ADR-112 appears exactly once. Headings out of numeric order (ADR-052, ADR-053 before ADR-051; ADR-095, 094, 093, 092; ADR-091 A1-A4 after ADR-112 A3) were all covered. One non-ADR heading sits in range: 'NOTICE · Library standby (plugin-skeleton FOUNDATIONS)', line 661, not design and not listed.",

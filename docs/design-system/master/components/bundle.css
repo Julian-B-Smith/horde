@@ -1677,3 +1677,10 @@ canvas.hd-ring { outline:none; }
 .hd-rand .rd-mon { display:flex; gap:3px; }
 .hd-rand .rd-mon button { all:unset; box-sizing:border-box; cursor:pointer; width:18px; text-align:center; font:700 9.5px/16px var(--font-mono); border:1px solid var(--div); border-radius:var(--radius-meter); color:var(--hint); }
 .hd-rand .rd-mon button[aria-pressed=true] { border-color:var(--ink); background:var(--value); color:var(--panel); }
+/* GUI-41: FX patching */
+.hd-fxpatch { display:flex; flex-direction:column; gap:6px; }
+.hd-fxpatch .fp-head { display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; }
+.hd-fxpatch .fp-acts { display:flex; gap:4px; margin-left:auto; }
+.hd-fxpatch .fc-view:first-child svg { cursor:crosshair; touch-action:none; }
+.hd-fxpatch .fx-cell { cursor:pointer; }
+.fp-ghost { stroke:var(--value); stroke-width:2; stroke-dasharray:4 3; pointer-events:none; }
