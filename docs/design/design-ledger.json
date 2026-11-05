@@ -7218,6 +7218,10 @@
   {
    "adr": "ADR-365",
    "reason": "A DC filter's condition and a test's reference table: no control or design element."
+  },
+  {
+   "adr": "ADR-366",
+   "reason": "A throwaway test plug-in with no custom window, plus test and CPU records: no design element."
   }
  ],
  "engine_impact": {
