@@ -2,7 +2,7 @@
 
 The GUI session's handoff to the lead (GB8; the human, 2026-11-04: "let's make sure the main horde agent knows about any decisions we've made during the design process that will affect functionality and need to be wired in under the hood as well").
 
-**Last verified 2026-11-04, against GUI-1 to GUI-32, `specs/SPEC-ENGINE.md` and `ROADMAP.md` on main.** The GUI session keeps this current: each new ruling that needs wiring adds its row in the same PR. "Not recorded" means a search of the spec and the roadmap found nothing, so it's the lead's to place. The rows are the lead's to schedule (B616 cites this file), and nothing here is a ruling on how to build them.
+**Last verified 2026-11-04, against GUI-1 to GUI-33, `specs/SPEC-ENGINE.md` and `ROADMAP.md` on main.** The GUI session keeps this current: each new ruling that needs wiring adds its row in the same PR. "Not recorded" means a search of the spec and the roadmap found nothing, so it's the lead's to place. The rows are the lead's to schedule (B616 cites this file), and nothing here is a ruling on how to build them.
 
 **Timing (the lead, 2026-11-04).** The morph comes straight after the CPU pass, and the spec has no waypoints or region locks. If the design rests on them, they need a spec round before the builder starts the morph, and that round waits on the human's answers to the two questions under "Open for the human".
 
@@ -42,6 +42,8 @@ These are the ones nothing on the engine side knows about yet.
 | GN-42 | Each member's pan and detune, placed and actual, for the voice map. RC-8 has neither; IF-10 has the frequencies and pan gains. | GUI-30, ADR-118 A6 | SAMPLE, placed from Detune and Width |
 | GN-43 | A spectrum feed for an Osc page. GN-4 asks for the summed output; this page reads as one oscillator's, so it needs a tap per oscillator, or a ruling that it shows the output. | GUI-30 | SAMPLE, the bands of the sketched cycle at A2 |
 | GN-44 | Nothing to store for the waveform's view and mapping, as read: they're per machine, in the webview's storage, and a patch doesn't carry them, as with a fold's open state. Say if the mapping should save with a patch or the plugin's state: IF-4 has no member for it. A drag writes parameter rows as one undo step, with no new state. | GUI-30 | Kept in `localStorage` |
+| GN-45 | One answer per snapshot: is any voice sounding? The pictures rest while none is. RC-8's per-voice level can give it, with a threshold someone has to state, and a release tail counts as sounding. | GUI-33 | `dev.sounding()` is always false in the stub |
+| GN-46 | One batched frame across the GUI bridge, at the pictures' 30 fps, in binary where the bridge allows it. GN-41's cycles are about 256 x members x voices of numbers a frame, and B76 already found three binds a frame expensive. Its rate and whether WKWebView's bridge can carry binary are unmeasured. | GUI-33 | No bridge: the stub's in-page | B76, RC-8 |
 
 ## Partly recorded
 

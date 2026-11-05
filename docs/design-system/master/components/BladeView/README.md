@@ -21,6 +21,8 @@ One cycle of one voice with the blades that cut it: each window as a band, the b
 
 **Screens** drawn only with the six screen roles, so it follows the Screen scheme; glow is a wider underlay stroke or disc, never a blur; scanlines at the scheme's strength.
 
+**Cost** blade 2's hatch is one tile made once per ink and pixel ratio, and filled (GUI-33): 16 members in At phase measured about 1 ms a frame, down from 20 ms with a stroke per stripe.
+
 **Reduced motion** one still frame, redrawn only when its data or the scheme changes; no trails.
 
 **Fits** its canvas fills the column's width at a fixed aspect and draws at the display's pixel ratio (capped at 2), so it never runs past its card.

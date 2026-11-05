@@ -907,6 +907,15 @@ const withSourceOn = (pgId, fn) => { const r = ROW[PG[pgId].power]; dev.begin('s
    drawn with the bundle's painters, never the engine's output: the swarm's ring from its member count and coupling (a
    seeded spread, not phases the engine computed), one cycle of the chosen wave, the noise's colour as a tilt, and ENV 1's
    stages with C.12's curves (the bundle's painter; ENV 1's Hold row is not drawn). */
+/* GUI-33, the pictures' pace. They draw when something they show changed, or at most 30 times a second while a voice sounds or a hand was here in the last 2 s; otherwise the last frame
+   stands (ADR-140's idle gate, for all of them). ADR-099 A1 still holds: an oscillator that's merely silent while another plays keeps moving, because this asks about any voice,
+   not this one. `window.GUI3_AWAKE` holds them awake, for measuring the worst case. Knobs and meters aren't pictures and keep the frame rate. */
+const PICTURE_MS = 33, PICTURE_DT = 1 / 30, AWAKE_MS = 2000;
+let handAt = -Infinity;
+// The self-checks draw many times inside one frame and read the result, so while they run the time is theirs: undefined, which is always due, unless a check sets it.
+const CLOCK = { checking: false, now: undefined }, picNow = () => CLOCK.checking ? CLOCK.now : S.now;
+const awake = () => !!window.GUI3_AWAKE || dev.sounding() || (picNow() !== undefined && picNow() - handAt < AWAKE_MS);
+const paced = cvs => { const pace = SH.picturePace(PICTURE_MS); let sig = null; return extra => { const s = cvs().map(sizeOf).join() + '|' + colourKey() + '|' + (extra === undefined ? '' : extra), due = pace.due(picNow(), s !== sig, awake()); if (due) sig = s; return due; }; };
 const xOf = key => ENG.lawX(ROW[key], dev.shown(key)), labOf = key => optLabel(ROW[key], dev.shown(key));
 function waveAt(name, t, o) {
   const s = Math.sin(2 * Math.PI * t);
@@ -933,12 +942,14 @@ function vizView(v, pid, big) {
   const ringIO = ring ? oscRing(ring, K, pid, wrap) : null;
   const main = add(v.kind === 'noise' ? 'Spectrum' : v.kind === 'env' ? 'ENV 1' : 'One cycle', big ? (v.kind === 'osc' ? 40 : 160) : 64);
   wrap.append(h('span', { class: 'hd-hint vz-cap', text: big ? 'SAMPLE, not the engine’s output' : 'SAMPLE: a drawing of the settings, not the engine’s output', title: 'A drawing of the settings the layout names, never the engine’s output' }));
-  let last = null, frame = 0;
+  let last = null, frame = 0; const noiseDue = paced(() => [main]);
   views.push({ page: pid, update() {
     frame++;
     if (ringIO) ringIO.frame();                 // the swarm moves every frame, so the ring is drawn before the change test below
     const sig = Object.values(K).map(k => dev.shown(k)).join('|') + '|' + colourKey() + '|' + sizeOf(main);
-    if (sig === last && v.kind !== 'noise') return; last = sig;
+    if (sig === last && v.kind !== 'noise') return;
+    if (sig === last && !noiseDue()) return;   // GUI-33: noise's picture animates, so an unchanged one still waits for the pace
+    last = sig;
     if (v.kind === 'noise') {
       const c = xOf(K.colour), bands = [];   // +1 white (flat), 0 pink (−3 dB/oct), −1 brown (−6 dB/oct): a tilt, SN-4's words
       for (let b = 0; b < 24; b++) { const oct = b / 3, db = -(1 - c) * 3 * oct; bands.push(Math.max(0, Math.min(1, .82 + db / 36))); }
@@ -987,7 +998,7 @@ function oscRing(cv, K, pid, wrap) {
     if (m !== n || !sw) { n = m; sw = H.Synth.ring(7, n); }
     if (!live.drag) pull();
     const off = !isOnKey(PG[K.unison.split('.')[0]].power);    // ADR-105 A2: an off oscillator's visuals say so and hold still; its controls still work (GUI-29)
-    if (!S.reduce && !off) sw.step(1 / 60, (st.y - .5) * 2 * KMAX, st.x * SPREAD);
+    if (!S.reduce && !off) sw.step(PICTURE_DT, (st.y - .5) * 2 * KMAX, st.x * SPREAD);
     if (!cv.clientWidth) return;
     coh = H.Viz.kuramoto(cv, { phase: sw.phase, blades: sw.blades, cross: st.sx > .005 ? sw.cross(st.sx) : null, xy: st, drag: live.drag });
     H.Viz.off(cv, off);
@@ -1040,6 +1051,7 @@ function oscPictures(v, pid, full) {
   }
   let sig = '', cy = null, n = 0, frame = 0, hist = [], bands = null; const specSt = {};
   const sig0 = () => [K.unison, K.wave].concat(BLADES.flatMap(b => BLADE_S.map(s => bk(b, s)))).map(k => dev.shown(k)).join('|');
+  const due = paced(() => [ring, bv.canvas].concat(full ? [spec, carpet, vmap] : []));
   const rebuild = () => {
     const f0 = SAMPLE_F0, blades = [];
     BLADES.forEach(b => {
@@ -1057,8 +1069,10 @@ function oscPictures(v, pid, full) {
   };
   views.push({ page: pid, update() {
     if (!ring.clientWidth && !bv.canvas.clientWidth) return;
+    const s = sig0();
+    if (!due(s + '|' + [K.detune, K.coupling, K.crossMod, src + '.width', PG[src].power].map(k => dev.shown(k)).join())) return;
     frame++;
-    const s = sig0(); if (s !== sig || !cy) { sig = s; rebuild(); }
+    if (s !== sig || !cy) { sig = s; rebuild(); }
     const sw = io.swarm();
     // the ring's arcs are the settings' windows. A swarm a frame behind a Unison change has a different count until its own frame below; a member with no window is off.
     if (sw) sw.phase.forEach((_, i) => { const b = sw.blades[i], g = bl => { const wd = cy.windows.find(x => x.blade === bl); return wd && wd.members[i]; }, a = g(1), c = g(2);
@@ -1069,8 +1083,8 @@ function oscPictures(v, pid, full) {
     const off = !isOnKey(PG[src].power);
     bv.frame(cy); H.Viz.off(bv.canvas, off);
     if (!full || !spec.clientWidth) return;
-    if (!bands || frame % 12 === 0) bands = H.Synth.cycleBands(cy.atPhase.sum, SAMPLE_F0);
-    H.Viz.spectrum(spec, bands, specSt, frame * 1000 / 60); H.Viz.off(spec, off);
+    if (!bands || frame % 6 === 0) bands = H.Synth.cycleBands(cy.atPhase.sum, SAMPLE_F0);
+    H.Viz.spectrum(spec, bands, specSt, frame * 1000 * PICTURE_DT); H.Viz.off(spec, off);
     hist.push(phase.slice()); if (hist.length > 16) hist.shift();
     const wins = cy.windows;
     H.Viz.carpet(carpet, S.reduce ? hist.slice(-1) : hist, (ph, i) => wins.some(wd => { const m = wd.members[i]; return m && ((ph - m.st) % 1 + 1) % 1 < m.w; })); H.Viz.off(carpet, off);
@@ -1079,7 +1093,7 @@ function oscPictures(v, pid, full) {
     let root = 0, rd = 9; for (let i = 0; i < n; i++) { const q = Math.abs(u(i) * wide); if (q < rd) { rd = q; root = i; } }
     H.Viz.voiceMap(vmap, phase.map((_, i) => ({ tp: u(i) * wide, tc: u(i) * dt * 24, p: u(i) * wide + away[i] * .12, c: u(i) * dt * 24 + away[i] * 8, root: i === root }))); H.Viz.off(vmap, off);
   } });
-  const out = { left: wrap, pin, bv, swarm: io.swarm, model: () => cy }; PICS[pid + '/' + src] = out; return out;
+  const out = { left: wrap, pin, bv, swarm: io.swarm, model: () => cy, frames: () => frame }; PICS[pid + '/' + src] = out; return out;
 }
 
 /* A dense section (B589): a Section header (identity rule, the power toggle, the number, the name, the mode pills, the
@@ -1290,12 +1304,13 @@ function fillMain() {
     pn.append(h('div', { class: 'main-face' }, v ? h('div', { class: 'main-facev' }, pics ? pics.left : vizView(v, 'main', true)) : null, pics ? h('div', { class: 'main-colv' }, pics.pin, rows) : rows));
   });
   // the Specimen and the logo: the bench's own (ADR-333), stepped by this file's frame loop. GUI-9: X and Y are two extra macro knobs on one pad. It writes no parameter; the mappings carry it, MOCK until the bus.
+  const stageDue = paced(() => [H.MainStage.specimenCanvas()]);   // the Specimen is the costliest picture (ADR-140); it rests with the others
   const stage = H.MainStage, xy = mainXYCtl = H.AssignXY($('mainXY'), S, { x: .5, y: .5, rest: true, tag: 'XY · MOCK', underlay: stage.specimenCanvas(), keys: () => S.keys,
     axes: [['xyy', 'Y', 'tl'], ['xyx', 'X', 'br']].map(([id, label, corner]) => ({ id, label, corner, text: () => { const n = touching(id).length; return n ? 'touches ' + n : 'nothing here'; }, lit: () => touchAxis === id || (S.map.on && S.map.src === id) })),
     onAxis: id => mapCard.open(id, $('mainXY'), $('mainXY'), true) });   // above the pad, never on it: you drag the pad to hear what you've mapped
   stage.xy(() => { const q = xy.get(); return [q[0], 1 - q[1]]; });
   const slot = document.querySelector('.logo'); slot.textContent = ''; slot.removeAttribute('title'); slot.classList.remove('hd-hint'); slot.append(stage.logoCanvas());
-  views.push({ page: '*', update() { const mo = dev.morph(); stage.MORPH.on = mo.on; stage.MORPH.x = S.pad.x; stage.MORPH.y = S.pad.y; stage.tick(page === 'main'); } });
+  views.push({ page: '*', update() { const mo = dev.morph(); stage.MORPH.on = mo.on; stage.MORPH.x = S.pad.x; stage.MORPH.y = S.pad.y; if (stageDue(mo.on + '|' + S.pad.x + '|' + S.pad.y + '|' + page)) stage.tick(page === 'main', 2); } });
   // GUI-2 r3: on by default, with a switch in Settings. A GUI preference, never saved with the patch (ADR-147). Off means absent: the canvas goes and the surface is plain.
   const SPEC_KEY = 'horde.gui3.specimen', specBtn = h('button', { class: 'hd-toggle hd-focus', type: 'button', role: 'switch', 'aria-label': 'Specimen under the XY', id: 'specimenOn' });
   const setSpec = on => { stage.SPECIMEN.on = on; stage.specimenCanvas().style.display = on ? '' : 'none'; specBtn.setAttribute('aria-checked', String(on)); };
@@ -1411,8 +1426,9 @@ function consolePage(pg, el) {
     h('div', { class: 'sum-col' }, h('span', { class: 'hd-sublabel', text: 'Summed scope · MOCK' }), h('div', { class: 'hd-viz vz-well' }, scopeCv)),
     h('div', { class: 'sum-col' }, h('span', { class: 'hd-sublabel', text: 'Summed spectrum · MOCK' }), h('div', { class: 'hd-viz vz-well' }, specCv)),
     h('p', { class: 'hd-note', text: 'MOCK levels: a test tone per source through IF-6’s gate (off, mute, solo), run through the flow’s model. A stage over 0 dB latches its CLIP lamp; click it to clear.' }));
-  let sumFrame = 0;
+  let sumFrame = 0; const sumDue = paced(() => [scopeCv, specCv]);
   views.push({ page: pg.id, update() {
+    if (!sumDue()) return;
     const sm = dev.summed(); if (!sm) return;
     sumFrame++;
     H.Viz.scope(scopeCv, { l: sm.scope, r: sm.scope, R: 0 });
@@ -1823,7 +1839,8 @@ document.addEventListener('pointerdown', e => {
 }, true);
 // GUI-8 r3: the summed output in the foot row, drawn by the bundle's painters from the engine's observation view (IF-10; dev.summed(), MOCK in the stub), as on the Mix page.
 { const specState = {}; let sumFrame = 0;
-  views.push({ page: '*', update() { if ($('bank').hidden) return; const sm = dev.summed(); if (!sm) return; sumFrame++; H.Viz.scope($('sumScope'), { l: sm.scope, r: sm.scope, R: 0 }); H.Viz.spectrum($('sumSpec'), sm.bands, specState, sumFrame * 1000 / 60); } }); }
+  const footDue = paced(() => [$('sumScope'), $('sumSpec')]);
+  views.push({ page: '*', update() { if ($('bank').hidden || !footDue()) return; const sm = dev.summed(); if (!sm) return; sumFrame++; H.Viz.scope($('sumScope'), { l: sm.scope, r: sm.scope, R: 0 }); H.Viz.spectrum($('sumSpec'), sm.bands, specState, sumFrame * 1000 / 60); } }); }
 // GUI-6, P1: the global preset. MOCK: the names are the factory bank's (docs/presets/factory, its global presets), and nothing loads, because those files are in the legacy state format and the
 // device has no preset seam yet (B261's file manager).
 H.PresetBar($('presetHost'), S, { value: 'INIT - Init', note: 'MOCK: the factory bank\u2019s names, and nothing loads yet. A preset holds its four corners too (ADR-192).',
@@ -1930,10 +1947,13 @@ views.push({ page: '*', update() {
 
 // The session's listeners (the map keys and the layered Escape, ADR-338 r11) exist once it is started, and the self-checks below press
 // those keys for real, so it starts here; its frames cannot run before this synchronous script ends.
+['pointermove', 'pointerdown', 'keydown'].forEach(t => document.addEventListener(t, () => { const n = picNow(); handAt = n === undefined ? -Infinity : n; }, { capture: true, passive: true }));   // GUI-33: a hand wakes the pictures
 S.start();
 
 // ===== BLOCK H: self-checks. Each has a must-fail control, so a check that never ran cannot pass for one that held =====
+CLOCK.checking = true;
 (function checks() {
+  if (window.GUI3_NOCHECKS) return;   // a load without its self-checks, for timing the shell as a plugin would load it
   const box = $('checks'), line = (ok, t) => box.append(h('p', { class: ok ? 'hd-hint' : 'hd-note bad', text: (ok ? 'OK · ' : 'FAILED · ') + t }));
   // 1. What is mounted is what was generated, page by page; the comparison sees a single missing key (control). The table (half B's PV1)
   // is a second view of the same keys, so its rows are not mounts: the grid's are counted.
@@ -2012,6 +2032,19 @@ S.start();
     while (dev.history().past.length > n2 - 1) dev.undo(); syncModes(); const back = spread() === sp0 && !host.dataset.morph && !host.querySelector('.hd-mmark') && !S.params[k].locked;
     while (dev.history().past.length > keep) dev.undo(); dev.clearRedo(); setMorphOn(false); while (dev.history().past.length > keep) dev.undo(); dev.clearRedo(); syncModes(); selectPage(pg0);
     line(!lawKept && sp0 > 1 && differs && countFollow && flips && qMark && noStep && !countQ && refused && one && lockHolds && allMove && back, 'Morph mode (GUI-28): ' + r.label + ' blends under Follow (control), reads its owner under Quantum with a Q mark, and under Exempt holds what was heard in all four corners, as one value, with an EX mark; re-picking makes no step, a locked corner refuses Exempt and its later writes whole, Count is drawn only while the key blends, and undo takes it all back.'); }
+  // 4b8. GUI-33: the pictures rest when nothing's happening and draw at most 30 times a second otherwise. Controls: a change draws while idle, and a second frame inside 33 ms doesn't draw.
+  { const pg0 = page, tick = () => { for (const v of views) if (v.page === page || v.page === '*') v.update(); }, P = SH.picturePace(33), logic = [P.due(undefined, false, false) === true, P.due(1000, false, false) === false, P.due(1000, true, false) === true, P.due(1016, true, true) === false, P.due(1034, false, true) === true, P.due(1100, false, false) === false].every(Boolean);
+    selectPage('osc1'); const pic = PICS['osc1/osc1'], hand0 = handAt, keepA = window.GUI3_AWAKE; window.GUI3_AWAKE = false; CLOCK.now = 1e7; handAt = -Infinity; tick(); CLOCK.now += 40; tick();
+    const f0 = pic.frames(); CLOCK.now += 40; tick(); CLOCK.now += 40; tick(); const rests = pic.frames() === f0;
+    window.GUI3_AWAKE = true; CLOCK.now += 40; tick(); const wakes = pic.frames() === f0 + 1; CLOCK.now += 10; tick(); const capped = pic.frames() === f0 + 1; window.GUI3_AWAKE = false;
+    CLOCK.now += 40; tick(); const f1 = pic.frames(), dk = PG.osc1.viz.keys.detune, dv = dev.shown(dk); dev.begin('self-check'); dev.set(dk, dv > .5 ? dv - .1 : dv + .1, { corner: 0 }); dev.end(); CLOCK.now += 40; tick(); const onChange = pic.frames() === f1 + 1; dev.undo(); dev.clearRedo(); CLOCK.now += 40; tick();
+    const f2 = pic.frames(); document.dispatchEvent(new MouseEvent('pointermove', { bubbles: true })); CLOCK.now += 40; tick(); const hand = pic.frames() === f2 + 1; CLOCK.now += AWAKE_MS + 40; tick(); const f3 = pic.frames(); CLOCK.now += 40; tick(); const handEnds = pic.frames() === f3;
+    CLOCK.now = undefined; handAt = hand0; window.GUI3_AWAKE = keepA;
+    tick(); const cv = pic.bv.canvas, sine = x => Math.sin(2 * Math.PI * x), base = x => H.Synth.saw(x + .5), sw16 = H.Synth.ring(7, 16), c16 = H.Synth.cycle({ n: 16, base, blades: [1, 2].map(b => ({ blade: b, mode: 'Sync', width: .2, position: b * .35, cycles: 4, depth: 1, edges: .1, posSpread: .08, cutSpread: 3, wave: sine })) }); c16.atPhase = H.Synth.atPhase(c16, sw16.phase);
+    const cost = v => { c16.view = v; const t = performance.now(); for (let i = 0; i < 30; i++) H.Viz.blade(cv, c16); cv.getContext('2d').getImageData(0, 0, 1, 1); return (performance.now() - t) / 30; }, sumMs = cost('sum'), phaseMs = cost('phase'), cheap = phaseMs < 16.7;
+    selectPage(pg0);
+    line(logic && rests && wakes && capped && onChange && hand && handEnds, 'Pictures rest (GUI-33): with nothing changing and nobody here, Osc 1 draws nothing; held awake it draws, but not twice in 33 ms; a setting changing draws while idle; a pointer move wakes it, and 2 s later it rests.');
+    line(cheap, 'At phase (GUI-33): 16 members and two blades take ' + phaseMs.toFixed(1) + ' ms a frame here, under the 16.7 ms budget (Sum: ' + sumMs.toFixed(1) + ' ms). It was 20 ms before the hatch became a tile.'); }
   // 4b7. GUI-30: a blade's switch and mode in its title bar, closed by default; the waveform you drag in three views on Main and the Osc pages; the carpet, voice map and spectrum on the Osc pages.
   // Keys come from the layout. Controls: with no blade on the sum IS the base and a drag writes nothing, a grab with no motion writes nothing, at lock AT PHASE is SUM, and a mode's own rule still hides.
   { const pg0 = page, tick = () => { for (const v of views) if (v.page === page || v.page === '*') v.update(); }; selectPage('osc1'); tick();
@@ -2019,7 +2052,8 @@ S.start();
     const scratch = H.Fold(h('div'), null, { id: 'gui3.selfcheck.closed', name: 'x', open: false, tiers: { face: [] } }), closedDefault = blades.length === 2 && blades.every(g => g.minimized) && scratch.open() === false;
     const inTitle = blades.every(g => { const head = secOf(g).querySelector('.fd-head'), tg = head.querySelector('.hd-toggle'), md = g.controls.find(c => c.role === 'modes'); return tg && tg.dataset.key === pw(g) && head.querySelector('[data-key="' + md.key + '"]'); });
     const offShows = blades.every(g => live(g.controls.find(c => c.key.endsWith('.width')).live)), modeHides = blades.every(g => !live(g.controls.find(c => c.key.endsWith('.fmDepth')).live));
-    const pic = PICS['osc1/osc1'], cv = pic.bv.canvas, keep0 = dev.history().past.length, b1 = blades[0], b2 = blades[1], posK = g => suffix(g, 'position'), widK = g => suffix(g, 'width'), box = () => cv.getBoundingClientRect();
+    const pic = PICS['osc1/osc1'], view0 = pic.bv.view(); pic.bv.view('sum');   // the hit test reads the windows of the view you left it on, and these expect Sum's
+    const cv = pic.bv.canvas, keep0 = dev.history().past.length, b1 = blades[0], b2 = blades[1], posK = g => suffix(g, 'position'), widK = g => suffix(g, 'width'), box = () => cv.getBoundingClientRect();
     cv.setPointerCapture = () => {}; const ptr = (t, x, y, o) => cv.dispatchEvent(new MouseEvent(t, Object.assign({ bubbles: true, button: 0, clientX: box().left + x * box().width, clientY: box().top + y * box().height }, o)));
     const drag = (x0, x1, o) => { ptr('pointerdown', x0, .5, o); ptr('pointermove', x1, .5, o); ptr('pointerup', x1, .5, o); tick(); }, far = (a, b) => Math.abs(((a - b) % 1 + 1.5) % 1 - .5);
     tick(); const m0 = pic.model(), pure = m0.windows.length === 0 && m0.sum.every((v, i) => Math.abs(v - m0.base[i]) < 1e-6), p00 = dev.shown(posK(b1)); drag(.3, .5); const noneOn = far(dev.shown(posK(b1)), p00) === 0 && dev.history().past.length === keep0;
@@ -2035,7 +2069,7 @@ S.start();
     const gaps = pic.model().windows.flatMap(x => x.members), gap = [...Array(100).keys()].map(i => i / 100).find(x => !gaps.some(q => ((x - q.st) % 1 + 1) % 1 < q.w)), pa = dev.shown(posK(b1)), pb = dev.shown(posK(b2));
     drag(gap, gap + .05); const both = far(dev.shown(posK(b1)), pa) > .03 && far(dev.shown(posK(b2)), pb) > .03; dev.undo(); tick();
     const m2 = pic.model(), lock = H.Synth.atPhase(m2, m2.members.map(() => .3)), splay = H.Synth.atPhase(m2, m2.members.map((_, i) => i / m2.members.length)), diff = (a, b) => a.reduce((t, v, i) => Math.max(t, Math.abs(v - b[i])), 0), atLock = diff(lock.sum, m2.sum) < 1e-5, atSplay = diff(splay.sum, m2.sum) > .01;
-    const vw0 = pic.bv.view(), names = [...pic.pin.querySelectorAll('.bv-tools [role=radio]')].map(b => b.textContent); const seen = ['sum', 'members', 'phase'].every(v => { pic.bv.view(v); tick(); return m2.view === v; }); pic.bv.view(vw0);
+    const names = [...pic.pin.querySelectorAll('.bv-tools [role=radio]')].map(b => b.textContent); const seen = ['sum', 'members', 'phase'].every(v => { pic.bv.view(v); tick(); return m2.view === v; }); pic.bv.view(view0);
     secOf(b2).querySelector('.fd-head .hd-toggle').click(); secOf(b1).querySelector('.fd-head .hd-toggle').click(); tick();
     while (dev.history().past.length > keep0) dev.undo(); dev.clearRedo(); tick();
     const others = ['osc1', 'osc2'].every(id => { const el = pageEls[id], ls = [...el.querySelectorAll('.pv-left canvas')].map(c => c.getAttribute('aria-label')); return ['Phase ring', 'Spectrum', 'Phase carpet', 'Voice map'].every(n => ls.some(l => l.startsWith(n))) && el.querySelector('.bv-pin canvas'); });
@@ -2841,6 +2875,7 @@ S.start();
   // and the checks' presses aren't the user's selection: without this every load opened with a parameter selected, its info box locked and the Lens holding it
   S.selected = null; S.hot = null; selSeen = null; lockedKey = null; if (infoBox.locked()) infoBox.release(); S.emit();
 })();
+CLOCK.checking = false;
 
 // ===== BLOCK I: go. A link can open a page, and morph on with the corners scattered: gui3.html#noise or #noise,morph =====
 // `,bank` maps ENV 2 to the page's first two continuous controls and leaves ENV 3 pending, so the bank has cards to show.

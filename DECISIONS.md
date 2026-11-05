@@ -11764,3 +11764,29 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 **What changes.** Inside `MapControl`, the source chip is the capsule's second half, as the plain selector is: no border or radius of its own, one ink divider from the MAP button, and the source's colour as an underline while MAP is on. A chip used alone keeps its border.
 
 **FX device (ADR-254).** The same. **Engine impact.** None.
+
+## GUI-33 — RULED by the human: pictures rest when idle and draw at 30 fps at most; At phase made cheap (GB18; 2026-11-05)
+
+**Context.** Asked how worried to be about the GUI's cost in a webview, the session measured the painters: an Osc page's pictures took about 1.8 ms a frame at 7 members, except At phase, about 9 ms at 7 members and 20 ms at 16, over a 16.7 ms frame. And every picture redrew every frame with nothing sounding.
+
+**Ruling (the human, 2026-11-05).** "Yes, fix them", to fixing At phase and adding idle and frame-rate limits to the pictures.
+
+**What changes.**
+- **At phase:** blade 2's hatch is one tile, made once and filled, instead of a stroke per stripe per member. 16 members now take about 1 ms.
+- **The pace:** a picture draws when something it shows changed, or at most 30 times a second while awake. Awake is a voice sounding, or a pointer move or key in the last 2 s. Otherwise the last frame stands, ADR-140's idle gate for all of them: the ring, waveform, spectrum, carpet, voice map, the foot row's and Mix's summed views, the logo and the Specimen.
+- **Knobs and meters keep the frame rate.** A hand needs them, and they aren't what's expensive.
+
+**ADR-099 A1 still holds:** it asks that a merely silent oscillator's visuals don't freeze while others move. This gate asks about any voice, so a silent oscillator keeps moving while a note plays.
+
+**Readings (the GUI session's, open to the human).**
+- **30 fps and 2 s are this session's numbers,** and they're one constant each.
+- **Host automation of the XY with no note playing doesn't move the Specimen,** since nothing's sounding and no hand is there. A setting the pictures show still redraws them.
+- **The stub plays no notes,** so in the shell the pictures move only for 2 s after a hand. That's what an idle plugin will do.
+
+**Test hooks.** `window.GUI3_AWAKE` holds the pictures awake, for the worst case. `window.GUI3_NOCHECKS` loads without the self-checks, for timing a load.
+
+**Later, if the Ableton test asks for it (the human's list, 2026-11-05).** One batched frame across the bridge, in binary where the bridge allows it: GN-46, with B76. A native or WebGL layer for the busiest pictures: B75's seam. Embedding in the binary is what the plugin already does (`tools/embed_file.py`).
+
+**FX device (ADR-254).** The pace applies to its pictures too, with audio passing in place of a voice sounding.
+
+**Engine impact.** GN-45, GN-46.

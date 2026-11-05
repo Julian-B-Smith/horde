@@ -11,11 +11,24 @@
                       gesture) and reads the device's routes back, so a mapping is never only the session's.
      MAP_KEYS_ALWAYS  whether the map keys and Escape work with keyboard mode off (ADR-335 ruling 1); the page hands it to the
                       session as `mapKeysAlways`. The keys themselves, and the layered Escape, are the session's (ADR-338 ruling 11).
+     picturePace      when a picture draws: on a change, or at most 30 times a second while awake (GUI-33).
      sectionInfo      what the info box shows for a hovered section: its description (a DRAFT, with its source) or, honestly,
                       that it has none yet (ADR-335 ruling 4).
    Deterministic: no clock, no randomness. ES5 style, as device.js. */
 (function (root) {
   'use strict';
+
+  /* GUI-33: when a picture draws. Never while nothing has changed and nothing is awake (a voice sounding, a recent hand), so the last frame stands;
+     and at most once per `ms` otherwise. `now` undefined is before the frame loop's first frame, when a page's first drawing and the self-checks run, so it's always due. */
+  function picturePace(ms) {
+    var last = -Infinity;
+    return { due: function (now, changed, awake) {
+      if (now === undefined) return true;
+      if (!changed && !awake) return false;
+      if (now - last < ms) return false;
+      last = now; return true;
+    } };
+  }
 
   function navGroups(NAV, PG, isOn) {
     return NAV.map(function (g) {
@@ -107,6 +120,6 @@
     return { name: name, tag: 'SECTION · DRAFT', text: d.text, meta: 'Source: ' + src + ' · ' + sections.status, described: true };
   }
 
-  root.GUI3Shell = { navGroups: navGroups, followedSummary: followedSummary, attachMap: attachMap,
+  root.GUI3Shell = { picturePace: picturePace, navGroups: navGroups, followedSummary: followedSummary, attachMap: attachMap,
     sectionInfo: sectionInfo, MAP_KEYS_ALWAYS: MAP_KEYS_ALWAYS };
 })(typeof window !== 'undefined' ? window : globalThis);

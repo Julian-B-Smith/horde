@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1793853894-9c42, 2026-11-04; do not edit, re-vendor */
+/* vendored from the horde Design System artifact, version 1793855414-7128, 2026-11-05; do not edit, re-vendor */
 /* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"MorphMode"},{"name":"NameField"},{"name":"SteppedControl"},{"name":"Stepper"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"},{"name":"Companion"},{"name":"SourceChip"},{"name":"SourceRows"},{"name":"RoutesBySource"},{"name":"Cluster"},{"name":"Lens"},{"name":"Fold"},{"name":"PageView"},{"name":"ModTiers"},{"name":"MacroRow"},{"name":"ModBank"},{"name":"ModPage"},{"name":"UndoLine"},{"name":"MacroFace"},{"name":"PresetBar"},{"name":"Deck"},{"name":"MacroCard"},{"name":"ParamPicker"},{"name":"HistoryRail"},{"name":"PicturePicker"},{"name":"AssignXY"},{"name":"Specimen"}]} */
 /* horde house reference behaviours (vanilla JS, no React, no network).
    The morph knob and slider follow the human's HORDE Morph Knob Spec and HORDE Map Mode Spec
@@ -1130,10 +1130,14 @@
     g.strokeStyle = K.c('grid', .18); g.lineWidth = V; g.beginPath();
     for (q = 1; q < 4; q++) { g.moveTo(Math.round(q * W / 4) + .5, top); g.lineTo(Math.round(q * W / 4) + .5, bot); } g.moveTo(0, H / 2); g.lineTo(W, H / 2); g.stroke();
     var marks = [];
+    /* Blade 2's hatch is one tile, made once per ink and pixel ratio and filled (GUI-33). Stroking each stripe of each member's window took At phase to 20 ms a frame at 16 members. */
+    function hatchTile() { var key = K.c('value') + V, c = cv.__hatch; if (c && c.key === key) return c.pat;
+      var T = Math.max(2, Math.round(5 * V)), tile = document.createElement('canvas'); tile.width = tile.height = T; var q = tile.getContext('2d');
+      q.strokeStyle = K.c('value'); q.lineWidth = V; q.beginPath(); q.moveTo(-T, T); q.lineTo(T, -T); q.moveTo(0, T); q.lineTo(T, 0); q.moveTo(0, 2 * T); q.lineTo(2 * T, 0); q.stroke();
+      var pat = g.createPattern(tile, 'repeat'); cv.__hatch = { key: key, pat: pat }; return pat; }
     function band(st, w, blade, a, edge, dash, y0, y1) { var A = st * W, Z = (st + w) * W, segs = Z <= W ? [[A, Z]] : [[A, W], [0, Z - W]];
       segs.forEach(function (sg) {
-        if (blade === 2) { g.save(); g.beginPath(); g.rect(sg[0], y0, sg[1] - sg[0], y1 - y0); g.clip(); g.strokeStyle = K.c('value', a * 1.6); g.lineWidth = V;
-          for (var x = sg[0] - H; x < sg[1]; x += 5 * V) { g.beginPath(); g.moveTo(x, y1); g.lineTo(x + (y1 - y0), y0); g.stroke(); } g.restore(); }
+        if (blade === 2) { g.save(); g.globalAlpha = Math.min(1, a * 1.6 * K.sc.alpha); g.fillStyle = hatchTile(); g.fillRect(sg[0], y0, sg[1] - sg[0], y1 - y0); g.restore(); }
         else { g.fillStyle = K.c('value', a); g.fillRect(sg[0], y0, sg[1] - sg[0], y1 - y0); }
         if (edge) { g.strokeStyle = K.c('value', edge); g.lineWidth = 1.2 * V; if (dash) g.setLineDash([2 * V, 2 * V]);
           g.beginPath(); g.moveTo(sg[0], y0); g.lineTo(sg[0], y1); g.moveTo(sg[1], y0); g.lineTo(sg[1], y1); g.stroke(); g.setLineDash([]); } });
@@ -8897,6 +8901,6 @@ window.Horde.MainStage = {
   xy(fn) { xyAt = fn; },
   MORPH, MON, AUD, LOGO, SPECIMEN, logoCanvas, logoFrame, specimenCanvas, specimenFrame,
   /* one step, from the host's frame loop: there is no clock of its own */
-  tick(showSpecimen) { MON.clock += SR / 60; logoFrame(); if (showSpecimen) specimenFrame(); }
+  tick(showSpecimen, frames) { MON.clock += (frames || 1) * SR / 60; logoFrame(); if (showSpecimen) specimenFrame(); }
 };
 })();
