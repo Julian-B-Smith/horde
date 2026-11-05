@@ -1,4 +1,4 @@
-// UNWIRED: needs the clean-room engine and a window server, neither of which this repo's CI has (B568). build.sh runs it.
+// Not run by ./verify: it needs the clean-room engine and a window server, neither of which this repo's CI has (B568). build.sh runs it.
 //
 // Opens the built plug-in's real window the way a host does, moves real controls through their own actions, and saves
 // a picture. A plug-in window that fails shows nothing until the human opens it in Live, so this checks it first.

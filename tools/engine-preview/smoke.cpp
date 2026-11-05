@@ -1,4 +1,4 @@
-// UNWIRED: needs the clean-room engine, which isn't in this public repo or in CI yet (B568). build.sh runs it.
+// Not run by ./verify: it needs the clean-room engine, which isn't in this public repo or in CI yet (B568). build.sh runs it.
 //
 // Drives the built CLAP through its own interface, the way a host does, and holds its output against the engine's
 // own offline render (horde_offline_render, written by the builder), bit for bit. The offline render shares none of
