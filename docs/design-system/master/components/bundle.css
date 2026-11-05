@@ -218,6 +218,11 @@ svg { max-width:100%; }
 .hd-map .map-sel { min-height:var(--size-hit); border:0; border-left:var(--stroke-ink) solid var(--ink); padding:0 10px; background:var(--panel); color:var(--ink);
   font:400 10px/1 var(--font-mono); cursor:pointer; border-radius:0; }
 .hd-map.on .map-sel { box-shadow:inset 0 -3px 0 var(--sc); }
+/* the source chip joined to the capsule (GUI-32): it is the capsule's second half, as `map-sel` is, not a box inside a box. No border or radius of its own, so no rounded
+   rectangle sits in the pill and no fill shows at its corners; the capsule clips it, one ink divider joins them, and MAP on underlines it in the source's colour. */
+.hd-map .hd-schip { border:0; border-left:var(--stroke-ink) solid var(--ink); border-radius:0; box-shadow:none; }
+.hd-map.on .hd-schip { box-shadow:inset 0 -3px 0 var(--sc); }
+.hd-map .hd-schip .sc-b, .hd-map .hd-schip .sc-car { border-radius:0; }
 .hd-srcstrip { display:flex; flex-wrap:wrap; gap:6px; }
 .src-chip { display:inline-flex; align-items:center; gap:7px; min-height:var(--size-hit); padding:0 9px 0 7px; border-radius:var(--radius-capsule); cursor:pointer;
   border:1px solid var(--div); background:var(--panel); color:var(--t2); font:400 9.5px/1 var(--font-mono); }
@@ -1315,6 +1320,21 @@ canvas.hd-ring { outline:none; }
 .hd-fold .fd-body { display:flex; flex-direction:column; gap:2px; min-width:0; }
 .hd-fold .fd-tier { display:flex; flex-wrap:wrap; align-items:flex-end; gap:2px 6px; min-width:0; }
 .hd-fold .fd-adv { border-top:1px dashed var(--div); padding-top:2px; }
+.hd-fold .fd-head > .hd-toggle { margin:0; flex:none; }
+.hd-fold .fd-head > .hd-cluster { white-space:nowrap; }
+.hd-fold .fd-head > :not(.fd-sp):not(.hd-rslot) { flex:none; }
+.hd-fold .fd-head .hd-pills { flex-wrap:nowrap; }
+.hd-fold .fd-head .hd-rslot { flex:0 1 250px; }
+/* the blade view (GUI-30): the view pills and the mapping's legend on one line, the mapping row under it when open, the cycle */
+.hd-bladeview { display:flex; flex-direction:column; gap:3px; min-width:0; }
+.hd-bladeview .bv-tools { display:flex; align-items:center; gap:6px; min-width:0; }
+.hd-bladeview .bv-leg { flex:0 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.hd-bladeview .bv-hint { margin-left:auto; flex:none; white-space:nowrap; }
+.hd-bladeview .bv-map { display:flex; flex-wrap:wrap; align-items:center; gap:2px 10px; }
+.hd-bladeview .bv-map[hidden] { display:none; }
+.hd-bladeview .bv-slot { display:inline-flex; align-items:center; gap:3px; }
+.hd-bladeview .bv-map select { max-width:92px; height:16px; border:0; border-bottom:1px dotted var(--t2); border-radius:0; background:none; color:var(--ink); font:600 9px/16px var(--font-mono); padding:0; cursor:pointer; }
+.hd-bladeview .bv-map label { display:inline-flex; align-items:center; gap:2px; cursor:pointer; }
 
 /* PV1: the page's Grid | Table switch, the find box, and the table */
 .hd-pv { display:flex; flex-direction:column; min-width:0; }
@@ -1462,7 +1482,7 @@ canvas.hd-ring { outline:none; }
 .hd-deck .dk-tab:hover { border-color:var(--ink); }
 .hd-deck .dk-tab[aria-selected="true"] { background:var(--ink); color:var(--bg); border-color:var(--ink); }
 .hd-deck .dk-body { flex:1 1 auto; min-height:0; min-width:0; position:relative; }
-.hd-deck .dk-panel { height:100%; min-width:0; overflow:hidden auto; scrollbar-width:thin; }
+.hd-deck .dk-panel { height:100%; min-width:0; overflow:hidden auto; }
 .hd-deck .dk-panel[hidden] { display:none; }
 /* ASSIGN XY (GUI-2 r2) */
 .hd-axy { position:relative; overflow:hidden; box-sizing:border-box; border:var(--stroke-ink) solid var(--ink); border-radius:var(--radius); background:var(--scr-ground); touch-action:none; min-height:0; }
@@ -1494,7 +1514,7 @@ canvas.hd-ring { outline:none; }
 .hd-mopen .mo-n[hidden] { display:none; }
 .hd-ppick { position:fixed; z-index:55; width:270px; max-height:330px; box-sizing:border-box; display:flex; flex-direction:column; gap:4px; padding:6px; background:var(--bg); border:var(--stroke-ink) solid var(--ink); border-radius:var(--radius); font:400 11px/1.3 var(--font-sans); color:var(--ink); }
 .hd-ppick input { box-sizing:border-box; width:100%; height:24px; border:1px solid var(--div); border-radius:12px; background:var(--well); color:var(--ink); padding:0 8px; font:400 10px/1 var(--font-mono); }
-.hd-ppick .pp-list { overflow:hidden auto; min-height:0; flex:1 1 auto; display:flex; flex-direction:column; scrollbar-width:thin; }
+.hd-ppick .pp-list { overflow:hidden auto; min-height:0; flex:1 1 auto; display:flex; flex-direction:column; }
 .hd-ppick h4 { margin:5px 0 1px; font:800 9px/1.2 var(--font-sans); letter-spacing:.04em; text-transform:uppercase; color:var(--t2); }
 .hd-ppick .pp-item { display:flex; justify-content:space-between; gap:8px; border:0; background:none; color:inherit; text-align:left; padding:3px 6px; border-radius:3px; font:inherit; cursor:pointer; }
 .hd-ppick .pp-item:hover, .hd-ppick .pp-item:focus-visible { background:var(--sel-neutral); }
@@ -1596,3 +1616,20 @@ canvas.hd-ring { outline:none; }
 .hd-namefield[hidden] { display:none; }
 .hd-namefield label { display:inline-flex; align-items:center; gap:6px; flex:1 1 240px; min-width:0; }
 .hd-namefield input { flex:1 1 120px; min-width:0; min-height:var(--size-hit); box-sizing:border-box; padding:0 8px; border:var(--stroke-ink) solid var(--ink); border-radius:var(--radius-capsule); background:var(--well); color:var(--ink); font:400 11px var(--font-mono); }
+
+/* SCROLLBARS (GUI-31; the human: "redesign the scroll bars so they fit the aesthetic more"): a capsule thumb in the house ink outline, running on a
+   hairline rail like a fader's, with no filled track and no buttons. The pseudo-elements are what WebKit and Chromium draw, which are the plugin's webviews and
+   the labs' browsers. `scrollbar-width` or `scrollbar-color` on an element switches them off in Chromium, so the standard properties are only for a browser
+   without them, and a scroller that wants a thin bar doesn't set its own. */
+::-webkit-scrollbar { width:var(--size-scrollbar, 9px); height:var(--size-scrollbar, 9px); background:transparent; }
+::-webkit-scrollbar-button { display:none; width:0; height:0; }
+::-webkit-scrollbar-corner { background:transparent; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-track:horizontal { background:linear-gradient(var(--div), var(--div)) center / 100% 1px no-repeat; }
+::-webkit-scrollbar-track:vertical { background:linear-gradient(var(--div), var(--div)) center / 1px 100% no-repeat; }
+::-webkit-scrollbar-thumb { background:var(--panel); border:var(--stroke-ink) solid var(--ink); border-radius:var(--radius-capsule); }
+::-webkit-scrollbar-thumb:horizontal { min-width:28px; }
+::-webkit-scrollbar-thumb:vertical { min-height:28px; }
+::-webkit-scrollbar-thumb:hover { background:var(--ink); }
+::-webkit-scrollbar-thumb:active { background:var(--value); }
+@supports not selector(::-webkit-scrollbar) { * { scrollbar-width:thin; scrollbar-color:var(--ink) transparent; } }

@@ -315,8 +315,8 @@ first GUI-session batch mounts the ones the stub can feed honestly, and fixes th
   (the SCALPEL bench's ring, harvested at B544): the blades' rim arcs, the cross-mod arrows, a click that lands Detune (↔) and Coupling
   (↕), a drag that follows, alt for fine, and **shift for Cross-mod**, the third axis (it holds Detune). Positions are the knobs' own
   travel, written through the device as **one undo step per gesture** (self-check 26). The swarm is the bundle's seeded SAMPLE
-  (`Synth.ring`), stepped by the frame; the engine's phases arrive with IF-10. The bench's waveform XY with its view modes (at phase,
-  members) is not in the bundle: batch 2 harvests it into the master first (the human, 2026-10-30).
+  (`Synth.ring`), stepped by the frame; the engine's phases arrive with IF-10. The bench's waveform XY with its three views is `H.BladeView` since GUI-30,
+  with the carpet, voice map and spectrum on the Osc pages, all SAMPLE drawings of the settings until RC-8 and GN-41 to GN-43.
 - **The Mod page's matrix** (ADR-266, ADR-136): `ModMatrixGrid` and `RouteList` on the session's mappings, which the map bridge keeps
   equal to the device's routes. Columns are the routed parameters plus the selected one (self-check 27). The page's form (M5,
   list + detail, ADR-338 ruling 8) waits on the composition lab's round 2.

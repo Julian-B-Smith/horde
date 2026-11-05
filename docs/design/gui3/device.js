@@ -468,6 +468,8 @@
     D.clearClip = function (id) { transport.send({ type: 'clear', seq: ++seq, id: id }); rev++; };
     /* The summed oscilloscope and spectrum the Mix page draws (ADR-333): read from the engine's observation view
        (IF-10; MOCK in the stub), never computed here. */
+    /* GUI-33: is any voice sounding? The pictures rest while none is. The stub plays no notes; the engine's snapshot answers this (RC-8's per-voice level, GN-45). */
+    D.sounding = function () { return false; };
     D.summed = function () { return lastSnap && lastSnap.observe && lastSnap.observe.sum || null; };
     /* The envelope a source follows (RC-6.5, ADR-333): the generated `follow` names the source's selector row and one
        block per option; the block the selector holds now is the one shown and edited, and its rows are the shared keys

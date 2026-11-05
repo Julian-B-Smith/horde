@@ -44,6 +44,7 @@ Cream (`light`) is the default and the first theme. Dark is ratified after the c
 - Every outline is `stroke-ink` (1.5 px) in `ink`; sub-elements `stroke-sub`; page dividers `stroke-page`.
 - One roundness: `radius` (10) for cards, wells, the bezel and the glass; `radius-window` (12) for the plugin window and a screen's chassis; capsules (`radius-capsule`) for pills, tabs, toggles, fields and chips. Small parts take `radius-meter`, `radius-fader`, `radius-track`.
 - Shadows are hard offsets on interactive elements only: `shadow-rest` 1.5 px, `shadow-hover` 2.5 px, `shadow-pressed` none. Never on wells, cards or text. No blur anywhere, and glow inside a glass is an underlay stroke, never a filter.
+- Scrollbars are a capsule thumb in the ink outline on a hairline rail, 9 px thick, with no filled track or buttons; the thumb fills with `ink` on hover and `value` while dragged (GUI-31). A scroller sets nothing of its own.
 - Tilt (±2–4°) only on decorative stickers, never on controls or readouts.
 
 ## Layout

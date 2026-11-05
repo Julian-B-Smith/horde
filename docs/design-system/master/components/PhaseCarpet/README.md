@@ -5,7 +5,7 @@ Every member's phase over the last moments, one row (or column) per member, so l
 **Looks** two orientations of one carpet, shown together (switchable):
 - **Horizontal** (the SCALPEL lab's port, B295): each row is one voice member; its dot's position along the row is its phase.
 - **Vertical**: the same carpet turned 90°, short and wide (about 3:1, filling the width it is given). Each column is one voice member; its dot's position along the column (0 at the bottom) is its phase.
-Both: a trail of the last 16 frames at 0.75^age (2 px dots, the newest 2.6 px); a member inside a blade window lights in `scr-value`, elsewhere `scr-physics`; guides in `scr-grid` 18%. Locking reads as the dots lining up. OPEN: which orientation GUI 3 uses where (the UI Spec's original stepped-hue carpet is not built).
+Both: a trail of the last 16 frames at 0.75^age (2 px dots, the newest 2.6 px); a member inside a blade window lights in `scr-value`, elsewhere `scr-physics`; guides in `scr-grid` 18%. Locking reads as the dots lining up. GUI 3's Osc pages use the rows, as the lab does (GUI-30). `inBlade(phase, member)` is passed the member, so it lights inside that member's own windows. The UI Spec's original stepped-hue carpet is not built. OFF: `Viz.off` (ADR-105 A2).
 
 **Fed by** RC-8: the members' phases per voice and the blade windows. The trail is counted in snapshot frames, so its length is time-stable.
 

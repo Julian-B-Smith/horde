@@ -493,6 +493,120 @@ window.GUI3_DATA = {
   ],
   "note": "Which modulators the bank lists is never kept here: it is read from the adapter's routes (RC-4) against the current page's keys, plus the modulators activated with + and not yet mapped. Only the choice of each kind's critical controls is design input."
  },
+ "bladeView": {
+  "blade": [
+   [
+    "width",
+    "Width"
+   ],
+   [
+    "cut",
+    "Cut rate"
+   ],
+   [
+    "position",
+    "Position"
+   ],
+   [
+    "depth",
+    "Depth"
+   ],
+   [
+    "edges",
+    "Edges"
+   ],
+   [
+    "fmDepth",
+    "FM depth"
+   ],
+   [
+    "modRate",
+    "Mod rate"
+   ],
+   [
+    "shape",
+    "Shape"
+   ],
+   [
+    "rotate",
+    "Rotate"
+   ],
+   [
+    "positionSpread",
+    "Pos spread"
+   ],
+   [
+    "cutSpread",
+    "Cut spread"
+   ],
+   [
+    "widthSpread",
+    "Width spread"
+   ],
+   [
+    "depthSpread",
+    "Depth spread"
+   ],
+   [
+    "shapeSpread",
+    "Shape spread"
+   ],
+   [
+    "fmIndexSpread",
+    "FM idx spread"
+   ],
+   [
+    "rotateSpread",
+    "Rotate spread"
+   ],
+   [
+    "ruleDepth",
+    "Rule depth"
+   ]
+  ],
+  "note": "What the waveform's drag can drive (GUI-30; SCALPEL lab XY_ROLES, XY_SWARM, XY_PLAY). `blade` rows are per blade, osc{o}.blade{b}.<id>; `swarm` and `play` are per oscillator, osc{o}.<id>, or the row named third where the id alone would collide with a blade's (Stereo is the oscillator's width). The lab's Env rows have no parameter here and are left out.",
+  "play": [
+   [
+    "upperHears",
+    "Upper hears"
+   ],
+   [
+    "collisionPitch",
+    "Collision to pitch"
+   ],
+   [
+    "collisionBite",
+    "Collision to bite"
+   ]
+  ],
+  "swarm": [
+   [
+    "detune",
+    "Detune"
+   ],
+   [
+    "coupling",
+    "Coupling"
+   ],
+   [
+    "stereo",
+    "Stereo",
+    "width"
+   ],
+   [
+    "crossMod",
+    "Cross-mod"
+   ],
+   [
+    "feedback",
+    "Feedback"
+   ],
+   [
+    "spreadDrift",
+    "Spread drift"
+   ]
+  ]
+ },
  "counts": {
   "blade": 30,
   "blade_only2": 2,
@@ -588,7 +702,7 @@ window.GUI3_DATA = {
     "asked": "All osc visualizers (scalpel, phase carpet, etc.) - and the ones recently added didn't port over the full capability of the kuro visualizer from the scalpel lab, with its circular representation of blade, etc.; I really liked the aesthetics and functionality from the scalpel lab and would like to copy it pretty precisely",
     "id": "osc-visualizers",
     "item": "All the oscillator visualizers: the Kuramoto ring with its circular representation of the blades, the phase carpet, the voice map, the members-at-phase view, the R-hued beam",
-    "missing": "B584 batch 1 mounts the bundle's ring (RingXY: blade arcs on the rim, cross-mod arrows, the Coupling x Detune gesture, shift for Cross-mod) on a SAMPLE swarm. Missing: the bench's waveform XY with its view modes (at phase, members) and its shift slot, the phase carpet, the voice map, the R-hued beam, and the engine's own phases (RC-8).",
+    "missing": "B584 batch 1 mounts the bundle's ring (RingXY: blade arcs on the rim, cross-mod arrows, the Coupling x Detune gesture, shift for Cross-mod) on a SAMPLE swarm. GUI-30 mounts the waveform XY with its three views, its shift slot and its mapping, the phase carpet, the voice map and the spectrum, on Main and the Osc pages, all SAMPLE. Missing: the R-hued beam, the Contributions pill, Cycle Edits, and the engine's own phases and cycle (RC-8, GN-41).",
     "precise": true,
     "reason": "engine-audio",
     "roadmap": "B293",
@@ -966,11 +1080,11 @@ window.GUI3_DATA = {
        [
         "osc1.unison",
         "osc1.detune",
-        "osc1.baseWave",
-        "osc1.blade1.on",
-        "osc1.blade1.mode"
+        "osc1.baseWave"
        ],
        [
+        "osc1.blade1.on",
+        "osc1.blade1.mode",
         "osc1.blade1.width",
         "osc1.blade1.cut",
         "osc1.blade1.position",
@@ -979,9 +1093,7 @@ window.GUI3_DATA = {
        ],
        [
         "osc1.blade2.on",
-        "osc1.blade2.mode"
-       ],
-       [
+        "osc1.blade2.mode",
         "osc1.blade2.width",
         "osc1.blade2.cut",
         "osc1.blade2.position",
@@ -998,11 +1110,11 @@ window.GUI3_DATA = {
        [
         "osc2.unison",
         "osc2.detune",
-        "osc2.baseWave",
-        "osc2.blade1.on",
-        "osc2.blade1.mode"
+        "osc2.baseWave"
        ],
        [
+        "osc2.blade1.on",
+        "osc2.blade1.mode",
         "osc2.blade1.width",
         "osc2.blade1.cut",
         "osc2.blade1.position",
@@ -1011,9 +1123,7 @@ window.GUI3_DATA = {
        ],
        [
         "osc2.blade2.on",
-        "osc2.blade2.mode"
-       ],
-       [
+        "osc2.blade2.mode",
         "osc2.blade2.width",
         "osc2.blade2.cut",
         "osc2.blade2.position",
@@ -1170,6 +1280,7 @@ window.GUI3_DATA = {
      "id": "main/voice",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -1177,6 +1288,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": null,
      "title": "Voice",
+     "titlePower": false,
      "viz": null
     },
     {
@@ -1361,6 +1473,7 @@ window.GUI3_DATA = {
        }
       ]
      },
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -1368,12 +1481,13 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": null,
      "title": "ENV 1",
+     "titlePower": false,
      "viz": null
     }
    ],
    "id": "main",
    "label": "Main",
-   "note": "GUI-4: the morph pad over the XY with the Specimen, the macros, ENV 1, and one deck with ten tabs. Filter, Bend and Scale are MOCK until their rows land.",
+   "note": "GUI-4: the morph pad over the XY with the Specimen, the macros, ENV 1, and one deck with ten tabs. Filter, Bend and Scale are MOCK until their rows land. GUI-30: each oscillator's tab carries the waveform you drag, with its three views, over one row per blade.",
    "panel": null,
    "power": null,
    "status": "draft",
@@ -1418,20 +1532,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "mix.osc1",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc1.on"
        },
        "override": null,
        "role": null,
@@ -1446,19 +1550,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.detune",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "key": "osc1.unison",
-          "not": [
-           "1"
-          ]
-         }
+        "key": "osc1.unison",
+        "not": [
+         "1"
         ]
        },
        "override": null,
@@ -1474,19 +1568,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.coupling",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "key": "osc1.unison",
-          "not": [
-           "1"
-          ]
-         }
+        "key": "osc1.unison",
+        "not": [
+         "1"
         ]
        },
        "override": null,
@@ -1501,12 +1585,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 1",
        "key": "env1.attack",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -1519,12 +1598,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 1",
        "key": "env1.decay",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -1537,12 +1611,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 1",
        "key": "env1.sustain",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -1555,12 +1624,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 1",
        "key": "env1.release",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -1573,12 +1637,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 2",
        "key": "env2.attack",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -1591,12 +1650,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 2",
        "key": "env2.decay",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -1609,12 +1663,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 2",
        "key": "env2.sustain",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -1627,12 +1676,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 2",
        "key": "env2.release",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -1645,12 +1689,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 3",
        "key": "env3.attack",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -1663,12 +1702,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 3",
        "key": "env3.decay",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -1681,12 +1715,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 3",
        "key": "env3.sustain",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -1699,12 +1728,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 3",
        "key": "env3.release",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -1717,12 +1741,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 4",
        "key": "env4.attack",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -1735,12 +1754,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 4",
        "key": "env4.decay",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -1753,12 +1767,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 4",
        "key": "env4.sustain",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -1771,12 +1780,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 4",
        "key": "env4.release",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -1842,6 +1846,7 @@ window.GUI3_DATA = {
      "id": "dashboard/osc-1",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -1849,6 +1854,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": null,
      "title": "Osc 1",
+     "titlePower": false,
      "viz": {
       "keys": {
        "coupling": "osc1.coupling",
@@ -1881,20 +1887,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "mix.osc2",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc2.on"
        },
        "override": null,
        "role": null,
@@ -1909,19 +1905,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.detune",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "key": "osc2.unison",
-          "not": [
-           "1"
-          ]
-         }
+        "key": "osc2.unison",
+        "not": [
+         "1"
         ]
        },
        "override": null,
@@ -1937,19 +1923,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.coupling",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "key": "osc2.unison",
-          "not": [
-           "1"
-          ]
-         }
+        "key": "osc2.unison",
+        "not": [
+         "1"
         ]
        },
        "override": null,
@@ -1964,12 +1940,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 1",
        "key": "env1.attack",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -1982,12 +1953,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 1",
        "key": "env1.decay",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2000,12 +1966,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 1",
        "key": "env1.sustain",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2018,12 +1979,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 1",
        "key": "env1.release",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2036,12 +1992,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 2",
        "key": "env2.attack",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2054,12 +2005,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 2",
        "key": "env2.decay",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2072,12 +2018,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 2",
        "key": "env2.sustain",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2090,12 +2031,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 2",
        "key": "env2.release",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2108,12 +2044,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 3",
        "key": "env3.attack",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2126,12 +2057,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 3",
        "key": "env3.decay",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2144,12 +2070,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 3",
        "key": "env3.sustain",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2162,12 +2083,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 3",
        "key": "env3.release",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2180,12 +2096,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 4",
        "key": "env4.attack",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2198,12 +2109,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 4",
        "key": "env4.decay",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2216,12 +2122,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 4",
        "key": "env4.sustain",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2234,12 +2135,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 4",
        "key": "env4.release",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2305,6 +2201,7 @@ window.GUI3_DATA = {
      "id": "dashboard/osc-2",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -2312,6 +2209,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": null,
      "title": "Osc 2",
+     "titlePower": false,
      "viz": {
       "keys": {
        "coupling": "osc2.coupling",
@@ -2344,20 +2242,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "mix.sub",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "sub.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "sub.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "sub.on"
        },
        "override": null,
        "role": null,
@@ -2372,20 +2260,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "sub.pulseWidth",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "sub.on"
-         },
-         {
-          "is": [
-           "pulse"
-          ],
-          "key": "sub.wave"
-         }
-        ]
+        "is": [
+         "pulse"
+        ],
+        "key": "sub.wave"
        },
        "override": null,
        "role": null,
@@ -2399,12 +2277,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 1",
        "key": "env1.attack",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2417,12 +2290,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 1",
        "key": "env1.decay",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2435,12 +2303,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 1",
        "key": "env1.sustain",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2453,12 +2316,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 1",
        "key": "env1.release",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2471,12 +2329,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 2",
        "key": "env2.attack",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2489,12 +2342,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 2",
        "key": "env2.decay",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2507,12 +2355,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 2",
        "key": "env2.sustain",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2525,12 +2368,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 2",
        "key": "env2.release",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2543,12 +2381,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 3",
        "key": "env3.attack",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2561,12 +2394,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 3",
        "key": "env3.decay",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2579,12 +2407,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 3",
        "key": "env3.sustain",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2597,12 +2420,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 3",
        "key": "env3.release",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2615,12 +2433,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 4",
        "key": "env4.attack",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2633,12 +2446,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 4",
        "key": "env4.decay",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2651,12 +2459,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 4",
        "key": "env4.sustain",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2669,12 +2472,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 4",
        "key": "env4.release",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2740,6 +2538,7 @@ window.GUI3_DATA = {
      "id": "dashboard/sub",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -2747,6 +2546,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": null,
      "title": "Sub",
+     "titlePower": false,
      "viz": {
       "keys": {
        "bump": "sub.bumpAmount",
@@ -2778,20 +2578,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "mix.noise",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "noise.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "noise.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "noise.on"
        },
        "override": null,
        "role": null,
@@ -2805,12 +2595,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "noise.colour",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2823,12 +2608,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 1",
        "key": "env1.attack",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2841,12 +2621,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 1",
        "key": "env1.decay",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2859,12 +2634,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 1",
        "key": "env1.sustain",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2877,12 +2647,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 1",
        "key": "env1.release",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2895,12 +2660,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 2",
        "key": "env2.attack",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2913,12 +2673,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 2",
        "key": "env2.decay",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2931,12 +2686,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 2",
        "key": "env2.sustain",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2949,12 +2699,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 2",
        "key": "env2.release",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2967,12 +2712,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 3",
        "key": "env3.attack",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -2985,12 +2725,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 3",
        "key": "env3.decay",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -3003,12 +2738,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 3",
        "key": "env3.sustain",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -3021,12 +2751,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 3",
        "key": "env3.release",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -3039,12 +2764,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 4",
        "key": "env4.attack",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -3057,12 +2777,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 4",
        "key": "env4.decay",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -3075,12 +2790,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 4",
        "key": "env4.sustain",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -3093,12 +2803,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 4",
        "key": "env4.release",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -3164,6 +2869,7 @@ window.GUI3_DATA = {
      "id": "dashboard/noise",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -3171,6 +2877,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": null,
      "title": "Noise",
+     "titlePower": false,
      "viz": {
       "keys": {
        "colour": "noise.colour"
@@ -4114,22 +3821,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc1.stacking",
-       "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade1.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade2.on"
-         }
-        ]
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": [
@@ -4145,22 +3837,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc1.upperHears",
-       "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade1.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade2.on"
-         }
-        ]
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -4173,22 +3850,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc1.collisionPitch",
-       "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade1.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade2.on"
-         }
-        ]
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -4201,22 +3863,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc1.collisionBite",
-       "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade1.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade2.on"
-         }
-        ]
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -4230,6 +3877,7 @@ window.GUI3_DATA = {
      "id": "osc1/osc-1",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -4237,6 +3885,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": null,
      "title": "Osc 1",
+     "titlePower": false,
      "viz": null
     },
     {
@@ -4246,12 +3895,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc1.env",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": "modes",
        "short": [
@@ -4269,12 +3913,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 1",
        "key": "env1.attack",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -4287,12 +3926,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 1",
        "key": "env1.decay",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -4305,12 +3939,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 1",
        "key": "env1.sustain",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -4323,12 +3952,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 1",
        "key": "env1.release",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -4341,12 +3965,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 2",
        "key": "env2.attack",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -4359,12 +3978,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 2",
        "key": "env2.decay",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -4377,12 +3991,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 2",
        "key": "env2.sustain",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -4395,12 +4004,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 2",
        "key": "env2.release",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -4413,12 +4017,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 3",
        "key": "env3.attack",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -4431,12 +4030,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 3",
        "key": "env3.decay",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -4449,12 +4043,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 3",
        "key": "env3.sustain",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -4467,12 +4056,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 3",
        "key": "env3.release",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -4485,12 +4069,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 4",
        "key": "env4.attack",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -4503,12 +4082,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 4",
        "key": "env4.decay",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -4521,12 +4095,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 4",
        "key": "env4.sustain",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -4539,12 +4108,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 4",
        "key": "env4.release",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -4610,6 +4174,7 @@ window.GUI3_DATA = {
      "id": "osc1/envelope",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -4617,6 +4182,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": "RC-6.5",
      "title": "Envelope",
+     "titlePower": false,
      "viz": null
     },
     {
@@ -4639,12 +4205,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc1.blade1.mode",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.blade1.on"
-       },
+       "live": null,
        "override": null,
        "role": "modes",
        "short": [
@@ -4666,23 +4227,13 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade1.wave",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade1.on"
-         },
-         {
-          "is": [
-           "Sync",
-           "FM reset",
-           "FM free",
-           "Ring"
-          ],
-          "key": "osc1.blade1.mode"
-         }
-        ]
+        "is": [
+         "Sync",
+         "FM reset",
+         "FM free",
+         "Ring"
+        ],
+        "key": "osc1.blade1.mode"
        },
        "override": null,
        "role": null,
@@ -4696,12 +4247,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc1.blade1.width",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.blade1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -4715,21 +4261,11 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade1.cut",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade1.on"
-         },
-         {
-          "is": [
-           "× pitch per cycle",
-           "× pitch per blade"
-          ],
-          "key": "osc1.blade1.cutIn"
-         }
-        ]
+        "is": [
+         "× pitch per cycle",
+         "× pitch per blade"
+        ],
+        "key": "osc1.blade1.cutIn"
        },
        "override": null,
        "role": null,
@@ -4743,12 +4279,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc1.blade1.position",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.blade1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -4761,12 +4292,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc1.blade1.depth",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.blade1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -4780,18 +4306,8 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade1.edges",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade1.on"
-         },
-         {
-          "gt": 0.004,
-          "key": "osc1.blade1.width"
-         }
-        ]
+        "gt": 0.004,
+        "key": "osc1.blade1.width"
        },
        "override": null,
        "role": null,
@@ -4805,12 +4321,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc1.blade1.mirror",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.blade1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": [
@@ -4829,21 +4340,11 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade1.fmDepth",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade1.on"
-         },
-         {
-          "is": [
-           "FM reset",
-           "FM free"
-          ],
-          "key": "osc1.blade1.mode"
-         }
-        ]
+        "is": [
+         "FM reset",
+         "FM free"
+        ],
+        "key": "osc1.blade1.mode"
        },
        "override": null,
        "role": null,
@@ -4859,12 +4360,6 @@ window.GUI3_DATA = {
        "key": "osc1.blade1.modRate",
        "live": {
         "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade1.on"
-         },
          {
           "is": [
            "FM reset",
@@ -4893,19 +4388,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade1.positionSpread",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade1.on"
-         },
-         {
-          "key": "osc1.unison",
-          "not": [
-           "1"
-          ]
-         }
+        "key": "osc1.unison",
+        "not": [
+         "1"
         ]
        },
        "override": null,
@@ -4922,12 +4407,6 @@ window.GUI3_DATA = {
        "key": "osc1.blade1.cutSpread",
        "live": {
         "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade1.on"
-         },
          {
           "key": "osc1.unison",
           "not": [
@@ -4958,12 +4437,6 @@ window.GUI3_DATA = {
         "all": [
          {
           "is": [
-           "on"
-          ],
-          "key": "osc1.blade1.on"
-         },
-         {
-          "is": [
            "Sync",
            "FM reset",
            "FM free",
@@ -4991,12 +4464,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc1.blade1.cutIn",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.blade1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": [
@@ -5014,20 +4482,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade1.cutHz",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade1.on"
-         },
-         {
-          "is": [
-           "Hz"
-          ],
-          "key": "osc1.blade1.cutIn"
-         }
-        ]
+        "is": [
+         "Hz"
+        ],
+        "key": "osc1.blade1.cutIn"
        },
        "override": null,
        "role": null,
@@ -5041,12 +4499,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc1.blade1.frame",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.blade1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": [
@@ -5062,12 +4515,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc1.blade1.rotate",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.blade1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -5080,12 +4528,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc1.blade1.rotation",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.blade1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": [
@@ -5102,21 +4545,11 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade1.fmType",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade1.on"
-         },
-         {
-          "is": [
-           "FM reset",
-           "FM free"
-          ],
-          "key": "osc1.blade1.mode"
-         }
-        ]
+        "is": [
+         "FM reset",
+         "FM free"
+        ],
+        "key": "osc1.blade1.mode"
        },
        "override": null,
        "role": null,
@@ -5134,21 +4567,11 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade1.modShape",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade1.on"
-         },
-         {
-          "is": [
-           "FM reset",
-           "FM free"
-          ],
-          "key": "osc1.blade1.mode"
-         }
-        ]
+        "is": [
+         "FM reset",
+         "FM free"
+        ],
+        "key": "osc1.blade1.mode"
        },
        "override": null,
        "role": null,
@@ -5163,21 +4586,11 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade1.modIn",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade1.on"
-         },
-         {
-          "is": [
-           "FM reset",
-           "FM free"
-          ],
-          "key": "osc1.blade1.mode"
-         }
-        ]
+        "is": [
+         "FM reset",
+         "FM free"
+        ],
+        "key": "osc1.blade1.mode"
        },
        "override": null,
        "role": null,
@@ -5196,12 +4609,6 @@ window.GUI3_DATA = {
        "key": "osc1.blade1.modRateHz",
        "live": {
         "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade1.on"
-         },
          {
           "is": [
            "FM reset",
@@ -5229,12 +4636,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc1.blade1.cutRule",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.blade1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -5248,19 +4650,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade1.ruleDepth",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade1.on"
-         },
-         {
-          "key": "osc1.blade1.cutRule",
-          "not": [
-           "even"
-          ]
-         }
+        "key": "osc1.blade1.cutRule",
+        "not": [
+         "even"
         ]
        },
        "override": null,
@@ -5276,19 +4668,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade1.widthSpread",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade1.on"
-         },
-         {
-          "key": "osc1.unison",
-          "not": [
-           "1"
-          ]
-         }
+        "key": "osc1.unison",
+        "not": [
+         "1"
         ]
        },
        "override": null,
@@ -5304,19 +4686,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade1.depthSpread",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade1.on"
-         },
-         {
-          "key": "osc1.unison",
-          "not": [
-           "1"
-          ]
-         }
+        "key": "osc1.unison",
+        "not": [
+         "1"
         ]
        },
        "override": null,
@@ -5333,12 +4705,6 @@ window.GUI3_DATA = {
        "key": "osc1.blade1.shapeSpread",
        "live": {
         "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade1.on"
-         },
          {
           "is": [
            "Sync",
@@ -5378,12 +4744,6 @@ window.GUI3_DATA = {
         "all": [
          {
           "is": [
-           "on"
-          ],
-          "key": "osc1.blade1.on"
-         },
-         {
-          "is": [
            "FM reset",
            "FM free"
           ],
@@ -5410,19 +4770,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade1.rotateSpread",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade1.on"
-         },
-         {
-          "key": "osc1.unison",
-          "not": [
-           "1"
-          ]
-         }
+        "key": "osc1.unison",
+        "not": [
+         "1"
         ]
        },
        "override": null,
@@ -5438,6 +4788,7 @@ window.GUI3_DATA = {
      "id": "osc1/blade-1",
      "master": false,
      "matrix": null,
+     "minimized": true,
      "num": 1,
      "rule": "solid",
      "screen": null,
@@ -5445,6 +4796,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": null,
      "title": "Blade",
+     "titlePower": true,
      "viz": null
     },
     {
@@ -5467,12 +4819,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc1.blade2.mode",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.blade2.on"
-       },
+       "live": null,
        "override": null,
        "role": "modes",
        "short": [
@@ -5494,23 +4841,13 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade2.wave",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade2.on"
-         },
-         {
-          "is": [
-           "Sync",
-           "FM reset",
-           "FM free",
-           "Ring"
-          ],
-          "key": "osc1.blade2.mode"
-         }
-        ]
+        "is": [
+         "Sync",
+         "FM reset",
+         "FM free",
+         "Ring"
+        ],
+        "key": "osc1.blade2.mode"
        },
        "override": null,
        "role": null,
@@ -5524,12 +4861,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc1.blade2.width",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.blade2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -5543,21 +4875,11 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade2.cut",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade2.on"
-         },
-         {
-          "is": [
-           "× pitch per cycle",
-           "× pitch per blade"
-          ],
-          "key": "osc1.blade2.cutIn"
-         }
-        ]
+        "is": [
+         "× pitch per cycle",
+         "× pitch per blade"
+        ],
+        "key": "osc1.blade2.cutIn"
        },
        "override": null,
        "role": null,
@@ -5571,12 +4893,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc1.blade2.position",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.blade2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -5589,12 +4906,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc1.blade2.depth",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.blade2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -5608,18 +4920,8 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade2.edges",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade2.on"
-         },
-         {
-          "gt": 0.004,
-          "key": "osc1.blade2.width"
-         }
-        ]
+        "gt": 0.004,
+        "key": "osc1.blade2.width"
        },
        "override": null,
        "role": null,
@@ -5633,12 +4935,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc1.blade2.mirror",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.blade2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": [
@@ -5659,12 +4956,6 @@ window.GUI3_DATA = {
        "key": "osc1.blade2.fmDepth",
        "live": {
         "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade2.on"
-         },
          {
           "is": [
            "FM reset",
@@ -5694,12 +4985,6 @@ window.GUI3_DATA = {
        "key": "osc1.blade2.modRate",
        "live": {
         "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade2.on"
-         },
          {
           "is": [
            "FM reset",
@@ -5737,12 +5022,6 @@ window.GUI3_DATA = {
         "all": [
          {
           "is": [
-           "on"
-          ],
-          "key": "osc1.blade2.on"
-         },
-         {
-          "is": [
            "Sync",
            "FM reset",
            "FM free",
@@ -5770,12 +5049,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc1.blade2.cutIn",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.blade2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": [
@@ -5794,20 +5068,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade2.cutHz",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade2.on"
-         },
-         {
-          "is": [
-           "Hz"
-          ],
-          "key": "osc1.blade2.cutIn"
-         }
-        ]
+        "is": [
+         "Hz"
+        ],
+        "key": "osc1.blade2.cutIn"
        },
        "override": null,
        "role": null,
@@ -5821,12 +5085,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc1.blade2.frame",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.blade2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": [
@@ -5844,20 +5103,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade2.rotate",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade2.on"
-         },
-         {
-          "is": [
-           "its own"
-          ],
-          "key": "osc1.blade2.rotation"
-         }
-        ]
+        "is": [
+         "its own"
+        ],
+        "key": "osc1.blade2.rotation"
        },
        "override": null,
        "role": null,
@@ -5871,12 +5120,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc1.blade2.rotation",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.blade2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": [
@@ -5894,12 +5138,6 @@ window.GUI3_DATA = {
        "key": "osc1.blade2.fmType",
        "live": {
         "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade2.on"
-         },
          {
           "is": [
            "FM reset",
@@ -5934,12 +5172,6 @@ window.GUI3_DATA = {
         "all": [
          {
           "is": [
-           "on"
-          ],
-          "key": "osc1.blade2.on"
-         },
-         {
-          "is": [
            "FM reset",
            "FM free"
           ],
@@ -5967,12 +5199,6 @@ window.GUI3_DATA = {
        "key": "osc1.blade2.modIn",
        "live": {
         "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade2.on"
-         },
          {
           "is": [
            "FM reset",
@@ -6005,12 +5231,6 @@ window.GUI3_DATA = {
        "key": "osc1.blade2.modRateHz",
        "live": {
         "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade2.on"
-         },
          {
           "is": [
            "FM reset",
@@ -6047,12 +5267,6 @@ window.GUI3_DATA = {
        "live": {
         "all": [
          {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade2.on"
-         },
-         {
           "key": "osc1.unison",
           "not": [
            "1"
@@ -6080,12 +5294,6 @@ window.GUI3_DATA = {
        "key": "osc1.blade2.cutSpread",
        "live": {
         "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade2.on"
-         },
          {
           "key": "osc1.unison",
           "not": [
@@ -6118,12 +5326,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc1.blade2.cutRule",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.blade2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -6137,19 +5340,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade2.ruleDepth",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade2.on"
-         },
-         {
-          "key": "osc1.blade2.cutRule",
-          "not": [
-           "even"
-          ]
-         }
+        "key": "osc1.blade2.cutRule",
+        "not": [
+         "even"
         ]
        },
        "override": null,
@@ -6166,12 +5359,6 @@ window.GUI3_DATA = {
        "key": "osc1.blade2.widthSpread",
        "live": {
         "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade2.on"
-         },
          {
           "key": "osc1.unison",
           "not": [
@@ -6201,12 +5388,6 @@ window.GUI3_DATA = {
        "live": {
         "all": [
          {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade2.on"
-         },
-         {
           "key": "osc1.unison",
           "not": [
            "1"
@@ -6234,12 +5415,6 @@ window.GUI3_DATA = {
        "key": "osc1.blade2.shapeSpread",
        "live": {
         "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade2.on"
-         },
          {
           "is": [
            "Sync",
@@ -6285,12 +5460,6 @@ window.GUI3_DATA = {
         "all": [
          {
           "is": [
-           "on"
-          ],
-          "key": "osc1.blade2.on"
-         },
-         {
-          "is": [
            "FM reset",
            "FM free"
           ],
@@ -6332,12 +5501,6 @@ window.GUI3_DATA = {
         "all": [
          {
           "is": [
-           "on"
-          ],
-          "key": "osc1.blade2.on"
-         },
-         {
-          "is": [
            "its own"
           ],
           "key": "osc1.blade2.rotation"
@@ -6368,12 +5531,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc1.blade2.fmSource",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.blade2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": [
@@ -6389,12 +5547,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc1.blade2.spreadSource",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.blade2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": [
@@ -6411,6 +5564,7 @@ window.GUI3_DATA = {
      "id": "osc1/blade-2",
      "master": false,
      "matrix": null,
+     "minimized": true,
      "num": 2,
      "rule": "dash",
      "screen": null,
@@ -6418,12 +5572,13 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": null,
      "title": "Blade",
+     "titlePower": true,
      "viz": null
     }
    ],
    "id": "osc1",
    "label": "Osc 1",
-   "note": "Dense (B589), after the SCALPEL bench: the pictures on the left (SAMPLE drawings of the settings, never the engine's output), the oscillator and its two blades as sections on the right. Rarely-used rows sit under each section's collapsed Advanced group; every row is still on the page.",
+   "note": "Dense (B589), after the SCALPEL lab (GUI-30): the ring, spectrum, phase carpet and voice map on the left; on the right the waveform you drag, pinned above the oscillator and its two blades. SAMPLE drawings of the settings, never the engine's output. Each blade's switch and mode are in its title bar and the blades start minimized. Rarely-used rows sit under each section's Advanced tier; every row is still on the page.",
    "panel": null,
    "power": "osc1.on",
    "status": "draft",
@@ -7365,22 +6520,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc2.stacking",
-       "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade1.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade2.on"
-         }
-        ]
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": [
@@ -7396,22 +6536,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc2.upperHears",
-       "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade1.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade2.on"
-         }
-        ]
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -7424,22 +6549,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc2.collisionPitch",
-       "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade1.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade2.on"
-         }
-        ]
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -7452,22 +6562,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc2.collisionBite",
-       "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade1.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade2.on"
-         }
-        ]
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -7481,6 +6576,7 @@ window.GUI3_DATA = {
      "id": "osc2/osc-2",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -7488,6 +6584,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": null,
      "title": "Osc 2",
+     "titlePower": false,
      "viz": null
     },
     {
@@ -7497,12 +6594,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc2.env",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": "modes",
        "short": [
@@ -7520,12 +6612,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 1",
        "key": "env1.attack",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -7538,12 +6625,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 1",
        "key": "env1.decay",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -7556,12 +6638,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 1",
        "key": "env1.sustain",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -7574,12 +6651,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 1",
        "key": "env1.release",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -7592,12 +6664,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 2",
        "key": "env2.attack",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -7610,12 +6677,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 2",
        "key": "env2.decay",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -7628,12 +6690,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 2",
        "key": "env2.sustain",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -7646,12 +6703,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 2",
        "key": "env2.release",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -7664,12 +6716,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 3",
        "key": "env3.attack",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -7682,12 +6729,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 3",
        "key": "env3.decay",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -7700,12 +6742,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 3",
        "key": "env3.sustain",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -7718,12 +6755,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 3",
        "key": "env3.release",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -7736,12 +6768,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 4",
        "key": "env4.attack",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -7754,12 +6781,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 4",
        "key": "env4.decay",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -7772,12 +6794,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 4",
        "key": "env4.sustain",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -7790,12 +6807,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 4",
        "key": "env4.release",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -7861,6 +6873,7 @@ window.GUI3_DATA = {
      "id": "osc2/envelope",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -7868,6 +6881,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": "RC-6.5",
      "title": "Envelope",
+     "titlePower": false,
      "viz": null
     },
     {
@@ -7890,12 +6904,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc2.blade1.mode",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.blade1.on"
-       },
+       "live": null,
        "override": null,
        "role": "modes",
        "short": [
@@ -7917,23 +6926,13 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade1.wave",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade1.on"
-         },
-         {
-          "is": [
-           "Sync",
-           "FM reset",
-           "FM free",
-           "Ring"
-          ],
-          "key": "osc2.blade1.mode"
-         }
-        ]
+        "is": [
+         "Sync",
+         "FM reset",
+         "FM free",
+         "Ring"
+        ],
+        "key": "osc2.blade1.mode"
        },
        "override": null,
        "role": null,
@@ -7947,12 +6946,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc2.blade1.width",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.blade1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -7966,21 +6960,11 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade1.cut",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade1.on"
-         },
-         {
-          "is": [
-           "× pitch per cycle",
-           "× pitch per blade"
-          ],
-          "key": "osc2.blade1.cutIn"
-         }
-        ]
+        "is": [
+         "× pitch per cycle",
+         "× pitch per blade"
+        ],
+        "key": "osc2.blade1.cutIn"
        },
        "override": null,
        "role": null,
@@ -7994,12 +6978,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc2.blade1.position",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.blade1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -8012,12 +6991,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc2.blade1.depth",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.blade1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -8031,18 +7005,8 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade1.edges",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade1.on"
-         },
-         {
-          "gt": 0.004,
-          "key": "osc2.blade1.width"
-         }
-        ]
+        "gt": 0.004,
+        "key": "osc2.blade1.width"
        },
        "override": null,
        "role": null,
@@ -8056,12 +7020,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc2.blade1.mirror",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.blade1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": [
@@ -8080,21 +7039,11 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade1.fmDepth",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade1.on"
-         },
-         {
-          "is": [
-           "FM reset",
-           "FM free"
-          ],
-          "key": "osc2.blade1.mode"
-         }
-        ]
+        "is": [
+         "FM reset",
+         "FM free"
+        ],
+        "key": "osc2.blade1.mode"
        },
        "override": null,
        "role": null,
@@ -8110,12 +7059,6 @@ window.GUI3_DATA = {
        "key": "osc2.blade1.modRate",
        "live": {
         "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade1.on"
-         },
          {
           "is": [
            "FM reset",
@@ -8144,19 +7087,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade1.positionSpread",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade1.on"
-         },
-         {
-          "key": "osc2.unison",
-          "not": [
-           "1"
-          ]
-         }
+        "key": "osc2.unison",
+        "not": [
+         "1"
         ]
        },
        "override": null,
@@ -8173,12 +7106,6 @@ window.GUI3_DATA = {
        "key": "osc2.blade1.cutSpread",
        "live": {
         "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade1.on"
-         },
          {
           "key": "osc2.unison",
           "not": [
@@ -8209,12 +7136,6 @@ window.GUI3_DATA = {
         "all": [
          {
           "is": [
-           "on"
-          ],
-          "key": "osc2.blade1.on"
-         },
-         {
-          "is": [
            "Sync",
            "FM reset",
            "FM free",
@@ -8242,12 +7163,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc2.blade1.cutIn",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.blade1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": [
@@ -8265,20 +7181,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade1.cutHz",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade1.on"
-         },
-         {
-          "is": [
-           "Hz"
-          ],
-          "key": "osc2.blade1.cutIn"
-         }
-        ]
+        "is": [
+         "Hz"
+        ],
+        "key": "osc2.blade1.cutIn"
        },
        "override": null,
        "role": null,
@@ -8292,12 +7198,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc2.blade1.frame",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.blade1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": [
@@ -8313,12 +7214,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc2.blade1.rotate",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.blade1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -8331,12 +7227,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc2.blade1.rotation",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.blade1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": [
@@ -8353,21 +7244,11 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade1.fmType",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade1.on"
-         },
-         {
-          "is": [
-           "FM reset",
-           "FM free"
-          ],
-          "key": "osc2.blade1.mode"
-         }
-        ]
+        "is": [
+         "FM reset",
+         "FM free"
+        ],
+        "key": "osc2.blade1.mode"
        },
        "override": null,
        "role": null,
@@ -8385,21 +7266,11 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade1.modShape",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade1.on"
-         },
-         {
-          "is": [
-           "FM reset",
-           "FM free"
-          ],
-          "key": "osc2.blade1.mode"
-         }
-        ]
+        "is": [
+         "FM reset",
+         "FM free"
+        ],
+        "key": "osc2.blade1.mode"
        },
        "override": null,
        "role": null,
@@ -8414,21 +7285,11 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade1.modIn",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade1.on"
-         },
-         {
-          "is": [
-           "FM reset",
-           "FM free"
-          ],
-          "key": "osc2.blade1.mode"
-         }
-        ]
+        "is": [
+         "FM reset",
+         "FM free"
+        ],
+        "key": "osc2.blade1.mode"
        },
        "override": null,
        "role": null,
@@ -8447,12 +7308,6 @@ window.GUI3_DATA = {
        "key": "osc2.blade1.modRateHz",
        "live": {
         "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade1.on"
-         },
          {
           "is": [
            "FM reset",
@@ -8480,12 +7335,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc2.blade1.cutRule",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.blade1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -8499,19 +7349,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade1.ruleDepth",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade1.on"
-         },
-         {
-          "key": "osc2.blade1.cutRule",
-          "not": [
-           "even"
-          ]
-         }
+        "key": "osc2.blade1.cutRule",
+        "not": [
+         "even"
         ]
        },
        "override": null,
@@ -8527,19 +7367,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade1.widthSpread",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade1.on"
-         },
-         {
-          "key": "osc2.unison",
-          "not": [
-           "1"
-          ]
-         }
+        "key": "osc2.unison",
+        "not": [
+         "1"
         ]
        },
        "override": null,
@@ -8555,19 +7385,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade1.depthSpread",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade1.on"
-         },
-         {
-          "key": "osc2.unison",
-          "not": [
-           "1"
-          ]
-         }
+        "key": "osc2.unison",
+        "not": [
+         "1"
         ]
        },
        "override": null,
@@ -8584,12 +7404,6 @@ window.GUI3_DATA = {
        "key": "osc2.blade1.shapeSpread",
        "live": {
         "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade1.on"
-         },
          {
           "is": [
            "Sync",
@@ -8629,12 +7443,6 @@ window.GUI3_DATA = {
         "all": [
          {
           "is": [
-           "on"
-          ],
-          "key": "osc2.blade1.on"
-         },
-         {
-          "is": [
            "FM reset",
            "FM free"
           ],
@@ -8661,19 +7469,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade1.rotateSpread",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade1.on"
-         },
-         {
-          "key": "osc2.unison",
-          "not": [
-           "1"
-          ]
-         }
+        "key": "osc2.unison",
+        "not": [
+         "1"
         ]
        },
        "override": null,
@@ -8689,6 +7487,7 @@ window.GUI3_DATA = {
      "id": "osc2/blade-1",
      "master": false,
      "matrix": null,
+     "minimized": true,
      "num": 1,
      "rule": "solid",
      "screen": null,
@@ -8696,6 +7495,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": null,
      "title": "Blade",
+     "titlePower": true,
      "viz": null
     },
     {
@@ -8718,12 +7518,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc2.blade2.mode",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.blade2.on"
-       },
+       "live": null,
        "override": null,
        "role": "modes",
        "short": [
@@ -8745,23 +7540,13 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade2.wave",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade2.on"
-         },
-         {
-          "is": [
-           "Sync",
-           "FM reset",
-           "FM free",
-           "Ring"
-          ],
-          "key": "osc2.blade2.mode"
-         }
-        ]
+        "is": [
+         "Sync",
+         "FM reset",
+         "FM free",
+         "Ring"
+        ],
+        "key": "osc2.blade2.mode"
        },
        "override": null,
        "role": null,
@@ -8775,12 +7560,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc2.blade2.width",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.blade2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -8794,21 +7574,11 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade2.cut",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade2.on"
-         },
-         {
-          "is": [
-           "× pitch per cycle",
-           "× pitch per blade"
-          ],
-          "key": "osc2.blade2.cutIn"
-         }
-        ]
+        "is": [
+         "× pitch per cycle",
+         "× pitch per blade"
+        ],
+        "key": "osc2.blade2.cutIn"
        },
        "override": null,
        "role": null,
@@ -8822,12 +7592,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc2.blade2.position",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.blade2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -8840,12 +7605,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc2.blade2.depth",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.blade2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -8859,18 +7619,8 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade2.edges",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade2.on"
-         },
-         {
-          "gt": 0.004,
-          "key": "osc2.blade2.width"
-         }
-        ]
+        "gt": 0.004,
+        "key": "osc2.blade2.width"
        },
        "override": null,
        "role": null,
@@ -8884,12 +7634,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc2.blade2.mirror",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.blade2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": [
@@ -8910,12 +7655,6 @@ window.GUI3_DATA = {
        "key": "osc2.blade2.fmDepth",
        "live": {
         "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade2.on"
-         },
          {
           "is": [
            "FM reset",
@@ -8945,12 +7684,6 @@ window.GUI3_DATA = {
        "key": "osc2.blade2.modRate",
        "live": {
         "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade2.on"
-         },
          {
           "is": [
            "FM reset",
@@ -8988,12 +7721,6 @@ window.GUI3_DATA = {
         "all": [
          {
           "is": [
-           "on"
-          ],
-          "key": "osc2.blade2.on"
-         },
-         {
-          "is": [
            "Sync",
            "FM reset",
            "FM free",
@@ -9021,12 +7748,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc2.blade2.cutIn",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.blade2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": [
@@ -9045,20 +7767,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade2.cutHz",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade2.on"
-         },
-         {
-          "is": [
-           "Hz"
-          ],
-          "key": "osc2.blade2.cutIn"
-         }
-        ]
+        "is": [
+         "Hz"
+        ],
+        "key": "osc2.blade2.cutIn"
        },
        "override": null,
        "role": null,
@@ -9072,12 +7784,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc2.blade2.frame",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.blade2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": [
@@ -9095,20 +7802,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade2.rotate",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade2.on"
-         },
-         {
-          "is": [
-           "its own"
-          ],
-          "key": "osc2.blade2.rotation"
-         }
-        ]
+        "is": [
+         "its own"
+        ],
+        "key": "osc2.blade2.rotation"
        },
        "override": null,
        "role": null,
@@ -9122,12 +7819,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc2.blade2.rotation",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.blade2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": [
@@ -9145,12 +7837,6 @@ window.GUI3_DATA = {
        "key": "osc2.blade2.fmType",
        "live": {
         "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade2.on"
-         },
          {
           "is": [
            "FM reset",
@@ -9185,12 +7871,6 @@ window.GUI3_DATA = {
         "all": [
          {
           "is": [
-           "on"
-          ],
-          "key": "osc2.blade2.on"
-         },
-         {
-          "is": [
            "FM reset",
            "FM free"
           ],
@@ -9218,12 +7898,6 @@ window.GUI3_DATA = {
        "key": "osc2.blade2.modIn",
        "live": {
         "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade2.on"
-         },
          {
           "is": [
            "FM reset",
@@ -9256,12 +7930,6 @@ window.GUI3_DATA = {
        "key": "osc2.blade2.modRateHz",
        "live": {
         "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade2.on"
-         },
          {
           "is": [
            "FM reset",
@@ -9298,12 +7966,6 @@ window.GUI3_DATA = {
        "live": {
         "all": [
          {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade2.on"
-         },
-         {
           "key": "osc2.unison",
           "not": [
            "1"
@@ -9331,12 +7993,6 @@ window.GUI3_DATA = {
        "key": "osc2.blade2.cutSpread",
        "live": {
         "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade2.on"
-         },
          {
           "key": "osc2.unison",
           "not": [
@@ -9369,12 +8025,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc2.blade2.cutRule",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.blade2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -9388,19 +8039,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade2.ruleDepth",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade2.on"
-         },
-         {
-          "key": "osc2.blade2.cutRule",
-          "not": [
-           "even"
-          ]
-         }
+        "key": "osc2.blade2.cutRule",
+        "not": [
+         "even"
         ]
        },
        "override": null,
@@ -9417,12 +8058,6 @@ window.GUI3_DATA = {
        "key": "osc2.blade2.widthSpread",
        "live": {
         "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade2.on"
-         },
          {
           "key": "osc2.unison",
           "not": [
@@ -9452,12 +8087,6 @@ window.GUI3_DATA = {
        "live": {
         "all": [
          {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade2.on"
-         },
-         {
           "key": "osc2.unison",
           "not": [
            "1"
@@ -9485,12 +8114,6 @@ window.GUI3_DATA = {
        "key": "osc2.blade2.shapeSpread",
        "live": {
         "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade2.on"
-         },
          {
           "is": [
            "Sync",
@@ -9536,12 +8159,6 @@ window.GUI3_DATA = {
         "all": [
          {
           "is": [
-           "on"
-          ],
-          "key": "osc2.blade2.on"
-         },
-         {
-          "is": [
            "FM reset",
            "FM free"
           ],
@@ -9583,12 +8200,6 @@ window.GUI3_DATA = {
         "all": [
          {
           "is": [
-           "on"
-          ],
-          "key": "osc2.blade2.on"
-         },
-         {
-          "is": [
            "its own"
           ],
           "key": "osc2.blade2.rotation"
@@ -9619,12 +8230,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc2.blade2.fmSource",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.blade2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": [
@@ -9640,12 +8246,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc2.blade2.spreadSource",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.blade2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": [
@@ -9662,6 +8263,7 @@ window.GUI3_DATA = {
      "id": "osc2/blade-2",
      "master": false,
      "matrix": null,
+     "minimized": true,
      "num": 2,
      "rule": "dash",
      "screen": null,
@@ -9669,12 +8271,13 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": null,
      "title": "Blade",
+     "titlePower": true,
      "viz": null
     }
    ],
    "id": "osc2",
    "label": "Osc 2",
-   "note": "Dense (B589), after the SCALPEL bench: the pictures on the left (SAMPLE drawings of the settings, never the engine's output), the oscillator and its two blades as sections on the right. Rarely-used rows sit under each section's collapsed Advanced group; every row is still on the page.",
+   "note": "Dense (B589), after the SCALPEL lab (GUI-30): the ring, spectrum, phase carpet and voice map on the left; on the right the waveform you drag, pinned above the oscillator and its two blades. SAMPLE drawings of the settings, never the engine's output. Each blade's switch and mode are in its title bar and the blades start minimized. Rarely-used rows sit under each section's Advanced tier; every row is still on the page.",
    "panel": null,
    "power": "osc2.on",
    "status": "draft",
@@ -9774,6 +8377,7 @@ window.GUI3_DATA = {
      "id": "sub/sub",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -9781,6 +8385,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": "SOURCE",
      "title": "Sub",
+     "titlePower": false,
      "viz": null
     },
     {
@@ -9790,12 +8395,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "sub.env",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": "modes",
        "short": [
@@ -9813,12 +8413,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 1",
        "key": "env1.attack",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -9831,12 +8426,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 1",
        "key": "env1.decay",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -9849,12 +8439,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 1",
        "key": "env1.sustain",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -9867,12 +8452,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 1",
        "key": "env1.release",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -9885,12 +8465,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 2",
        "key": "env2.attack",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -9903,12 +8478,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 2",
        "key": "env2.decay",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -9921,12 +8491,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 2",
        "key": "env2.sustain",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -9939,12 +8504,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 2",
        "key": "env2.release",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -9957,12 +8517,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 3",
        "key": "env3.attack",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -9975,12 +8530,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 3",
        "key": "env3.decay",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -9993,12 +8543,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 3",
        "key": "env3.sustain",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -10011,12 +8556,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 3",
        "key": "env3.release",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -10029,12 +8569,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 4",
        "key": "env4.attack",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -10047,12 +8582,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 4",
        "key": "env4.decay",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -10065,12 +8595,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 4",
        "key": "env4.sustain",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -10083,12 +8608,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 4",
        "key": "env4.release",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -10154,6 +8674,7 @@ window.GUI3_DATA = {
      "id": "sub/envelope",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -10161,6 +8682,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": "RC-6.5",
      "title": "Envelope",
+     "titlePower": false,
      "viz": null
     },
     {
@@ -10336,6 +8858,7 @@ window.GUI3_DATA = {
      "id": "sub/shape",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -10343,6 +8866,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": "SN-2",
      "title": "Shape",
+     "titlePower": false,
      "viz": null
     },
     {
@@ -10436,6 +8960,7 @@ window.GUI3_DATA = {
      "id": "sub/pitch",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -10443,6 +8968,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": "SN-1",
      "title": "Pitch",
+     "titlePower": false,
      "viz": null
     },
     {
@@ -10491,6 +9017,7 @@ window.GUI3_DATA = {
      "id": "sub/voice",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -10498,6 +9025,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": "SN-7",
      "title": "Voice",
+     "titlePower": false,
      "viz": null
     },
     {
@@ -10596,6 +9124,7 @@ window.GUI3_DATA = {
      "id": "sub/colour",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -10603,6 +9132,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": "SN-3 · SN-5 · SN-14",
      "title": "Colour",
+     "titlePower": false,
      "viz": null
     }
    ],
@@ -10694,6 +9224,7 @@ window.GUI3_DATA = {
      "id": "noise/noise",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -10701,6 +9232,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": "SOURCE",
      "title": "Noise",
+     "titlePower": false,
      "viz": null
     },
     {
@@ -10710,12 +9242,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "noise.env",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": "modes",
        "short": [
@@ -10733,12 +9260,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 1",
        "key": "env1.attack",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -10751,12 +9273,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 1",
        "key": "env1.decay",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -10769,12 +9286,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 1",
        "key": "env1.sustain",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -10787,12 +9299,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 1",
        "key": "env1.release",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -10805,12 +9312,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 2",
        "key": "env2.attack",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -10823,12 +9325,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 2",
        "key": "env2.decay",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -10841,12 +9338,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 2",
        "key": "env2.sustain",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -10859,12 +9351,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 2",
        "key": "env2.release",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -10877,12 +9364,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 3",
        "key": "env3.attack",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -10895,12 +9377,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 3",
        "key": "env3.decay",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -10913,12 +9390,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 3",
        "key": "env3.sustain",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -10931,12 +9403,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 3",
        "key": "env3.release",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -10949,12 +9416,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 4",
        "key": "env4.attack",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -10967,12 +9429,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 4",
        "key": "env4.decay",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -10985,12 +9442,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 4",
        "key": "env4.sustain",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -11003,12 +9455,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": "ENV 4",
        "key": "env4.release",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -11074,6 +9521,7 @@ window.GUI3_DATA = {
      "id": "noise/envelope",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -11081,6 +9529,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": "RC-6.5",
      "title": "Envelope",
+     "titlePower": false,
      "viz": null
     },
     {
@@ -11236,6 +9685,7 @@ window.GUI3_DATA = {
      "id": "noise/source",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -11243,6 +9693,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": "SN-8 · SN-4",
      "title": "Source",
+     "titlePower": false,
      "viz": null
     },
     {
@@ -11284,6 +9735,7 @@ window.GUI3_DATA = {
      "id": "noise/resonator",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -11291,6 +9743,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": "SN-9",
      "title": "Resonator",
+     "titlePower": false,
      "viz": null
     },
     {
@@ -11332,6 +9785,7 @@ window.GUI3_DATA = {
      "id": "noise/whisper",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -11339,6 +9793,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": "SN-9",
      "title": "Whisper",
+     "titlePower": false,
      "viz": null
     },
     {
@@ -11380,6 +9835,7 @@ window.GUI3_DATA = {
      "id": "noise/wind",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -11387,6 +9843,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": "SN-9",
      "title": "Wind",
+     "titlePower": false,
      "viz": null
     },
     {
@@ -11469,6 +9926,7 @@ window.GUI3_DATA = {
      "id": "noise/filter",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -11476,6 +9934,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": "SN-10",
      "title": "Filter",
+     "titlePower": false,
      "viz": null
     },
     {
@@ -11512,6 +9971,7 @@ window.GUI3_DATA = {
      "id": "noise/stereo",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -11519,6 +9979,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": "SN-12",
      "title": "Stereo",
+     "titlePower": false,
      "viz": null
     }
    ],
@@ -11695,6 +10156,7 @@ window.GUI3_DATA = {
      "id": "mod/env-2",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -11702,6 +10164,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": null,
      "title": "ENV 2",
+     "titlePower": false,
      "viz": null
     },
     {
@@ -11842,6 +10305,7 @@ window.GUI3_DATA = {
      "id": "mod/env-3",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -11849,6 +10313,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": null,
      "title": "ENV 3",
+     "titlePower": false,
      "viz": null
     },
     {
@@ -11989,6 +10454,7 @@ window.GUI3_DATA = {
      "id": "mod/env-4",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -11996,6 +10462,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": null,
      "title": "ENV 4",
+     "titlePower": false,
      "viz": null
     }
    ],
@@ -12099,6 +10566,7 @@ window.GUI3_DATA = {
      "id": "morph/morph",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -12106,6 +10574,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": "D.2",
      "title": "Morph",
+     "titlePower": false,
      "viz": null
     },
     {
@@ -12170,6 +10639,7 @@ window.GUI3_DATA = {
      "id": "morph/quantum",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -12177,6 +10647,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": "MO-6 · MO-7",
      "title": "Quantum",
+     "titlePower": false,
      "viz": null
     },
     {
@@ -12317,6 +10788,7 @@ window.GUI3_DATA = {
      "id": "morph/stepped",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -12324,6 +10796,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": "MO-10 · RC-7.4",
      "title": "Stepped",
+     "titlePower": false,
      "viz": null
     }
    ],
@@ -12422,6 +10895,7 @@ window.GUI3_DATA = {
      "id": "mix/osc-1",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -12429,6 +10903,7 @@ window.GUI3_DATA = {
      "strip": "osc1",
      "tag": null,
      "title": "Osc 1",
+     "titlePower": false,
      "viz": null
     },
     {
@@ -12496,6 +10971,7 @@ window.GUI3_DATA = {
      "id": "mix/osc-2",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -12503,6 +10979,7 @@ window.GUI3_DATA = {
      "strip": "osc2",
      "tag": null,
      "title": "Osc 2",
+     "titlePower": false,
      "viz": null
     },
     {
@@ -12570,6 +11047,7 @@ window.GUI3_DATA = {
      "id": "mix/sub",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -12577,6 +11055,7 @@ window.GUI3_DATA = {
      "strip": "sub",
      "tag": null,
      "title": "Sub",
+     "titlePower": false,
      "viz": null
     },
     {
@@ -12644,6 +11123,7 @@ window.GUI3_DATA = {
      "id": "mix/noise",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -12651,6 +11131,7 @@ window.GUI3_DATA = {
      "strip": "noise",
      "tag": null,
      "title": "Noise",
+     "titlePower": false,
      "viz": null
     },
     {
@@ -12674,6 +11155,7 @@ window.GUI3_DATA = {
      "id": "mix/out",
      "master": true,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -12681,6 +11163,7 @@ window.GUI3_DATA = {
      "strip": "out",
      "tag": null,
      "title": "Out",
+     "titlePower": false,
      "viz": null
     }
    ],
@@ -13118,6 +11601,7 @@ window.GUI3_DATA = {
      "id": "fx/echo",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": "Echo",
@@ -13125,6 +11609,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": "SLOT 1",
      "title": "Echo",
+     "titlePower": false,
      "viz": null
     },
     {
@@ -13518,6 +12003,7 @@ window.GUI3_DATA = {
      "id": "fx/scape",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": "Scape",
@@ -13525,6 +12011,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": "SLOT 2",
      "title": "Scape",
+     "titlePower": false,
      "viz": null
     },
     {
@@ -14698,6 +13185,7 @@ window.GUI3_DATA = {
      "id": "fx/shriek",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": "Shriek",
@@ -14705,6 +13193,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": "SLOT 3",
      "title": "Shriek",
+     "titlePower": false,
      "viz": null
     },
     {
@@ -15348,6 +13837,7 @@ window.GUI3_DATA = {
      "id": "fx/bulwark-compressor",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": "Bulwark",
@@ -15355,6 +13845,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": "SLOT 4",
      "title": "Bulwark · compressor",
+     "titlePower": false,
      "viz": null
     },
     {
@@ -15469,6 +13960,7 @@ window.GUI3_DATA = {
      "id": "fx/bulwark-limiter",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": "Bulwark",
@@ -15476,6 +13968,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": "MASTER · B438",
      "title": "Bulwark · limiter",
+     "titlePower": false,
      "viz": null
     }
    ],
@@ -15531,6 +14024,7 @@ window.GUI3_DATA = {
      "id": "settings/engine",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -15538,6 +14032,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": null,
      "title": "Engine",
+     "titlePower": false,
      "viz": null
     }
    ],
@@ -16314,6 +14809,7 @@ window.GUI3_DATA = {
      "id": "arp/arp",
      "master": false,
      "matrix": null,
+     "minimized": false,
      "num": null,
      "rule": null,
      "screen": null,
@@ -16321,6 +14817,7 @@ window.GUI3_DATA = {
      "strip": null,
      "tag": "MIDI MODULE",
      "title": "Arp",
+     "titlePower": false,
      "viz": null
     }
    ],

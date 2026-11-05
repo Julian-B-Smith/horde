@@ -11718,6 +11718,78 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 
 **FX device (ADR-254):** none now; SB-11 governs structural groups in the engine, and `fx/N` sets go to the rack.
 
+## GUI-30 — RULED by the human: blades in their title bars, closed by default; the waveform in three views on Main and the Osc pages; carpet, voice map and spectrum on the Osc pages (GB18; carries out ADR-105 A2; amends a reading of GUI-29; 2026-11-04)
+
+**Context.** GUI-29 asked whether a blade that's off should show its controls. The port ledger's `osc-visualizers` row had the rest waiting: the waveform XY, the carpet and the voice map (B293 to B299, ADR-333: "copy it pretty precisely").
+
+**Ruling (the human, 2026-11-04).** "For the blades, maybe the toggle could be in their title bar instead of their body, and their sections could default to minimized. Please review the layout of the scalpel lab again. I want the interactive scalpel waveform with the three view modes included in this GUI (main oscs and osc pages). I also want the other visualizers on the Osc pages (phase carpet, voice map, spectrum)".
+
+**What changes.**
+- **A blade's switch and mode are in its title bar,** and it starts closed. That needs a new memory key for those folds, because the shell used to write `open` on every load, which would have kept a closed default from ever showing.
+- **The waveform** is `H.BladeView` in the master: Sum, Members and At phase; the lab's relative drag and settable three-slot mapping. On an Osc page it's pinned at the top of the controls at the lab's 129 px, and the blades scroll under it (B309). On a Main Osc tab it's over the rows at 70 px, and each blade's row is the tiny tier under its number so both fit.
+- **An Osc page** follows the lab: ring, spectrum, carpet and voice map on the left, in a 250 px column. Osc's section sits beside its Envelope, so the page still fits with both blades closed.
+- **The ring's arcs are now the settings' windows,** not seeded ones, so the ring and the waveform agree and a drag moves both.
+- **ADR-105 A2 is carried out:** while an oscillator is off, its ring, waveform, spectrum, carpet and voice map say OFF and the swarm holds still. The controls still work, as GUI-29 ruled.
+
+**Readings (the GUI session's, open to the human).**
+- **A blade that's off shows its controls when opened.** Its `on` conditions are gone from `live_when`, since a section opened while its blade is off shouldn't be empty. This answers GUI-29's question by the same argument. A blade's mode still hides what only that mode uses.
+- **An Envelope and a Dashboard card no longer hide while their source is off.** Both had a group-level rule GUI-29 missed, against that ruling.
+- **The mode went in the title bar too,** because the lab has it there.
+- **The pin is at the very top of the controls.** In the lab the oscillator's strip sits above it.
+- **Sum stays the default view.** The lab recommends At phase (its question 31), and that's not ruled.
+- **The carpet uses the rows,** the lab's orientation, so the master's OPEN on orientation closes for GUI 3.
+- **The waveform and mapping choices are one for Main and the Osc pages,** remembered per machine and not saved with a patch.
+- **Left out:** the R-hued beam, the Contributions pill and Cycle Edits, none of them named here.
+
+**SAMPLE.** All of these draw the settings. `Synth.cycle` sketches each mode, near enough to read, and it isn't the sound. RC-8 and GN-41 to GN-43 replace it. A drag writes the real rows, as one undo step, under the same lock rules as the ring.
+
+**FX device (ADR-254).** The title-bar fold is available to a module's sections. The waveform, carpet and voice map are voice-bound and don't exist there. The spectrum is audio-capable, without the formant band.
+
+**Engine impact.** GN-24, GN-41, GN-42, GN-43, GN-44.
+
+## GUI-31 — RULED by the human: scrollbars that fit the aesthetic (GB18; 2026-11-04)
+
+**Ruling (the human, 2026-11-04).** "I want to redesign the scroll bars so they fit the aesthetic more", with a picture of the browser's white track under the source strip.
+
+**What changes.** In the master, for everything: a capsule thumb in the 1.5 px ink outline on a hairline rail, 9 px thick, with no filled track or buttons. The thumb fills with `ink` on hover and `value` while dragged. `scrollbar-width` is gone from the two scrollers that set it, since it switches the pseudo-elements off in Chromium.
+
+**Reading.** One design, built rather than a variant sheet, since it's cheap to change.
+
+**FX device (ADR-254).** The same. **Engine impact.** None.
+
+## GUI-32 — RULED by the human: the MAP capsule has no box inside it (GB18; 2026-11-04)
+
+**Ruling (the human, 2026-11-04).** "This needs to be fixed (the rounded rectangle inside the pill, the tiny exposed edges, etc.)", with a picture of the MAP control's source chip.
+
+**What changes.** Inside `MapControl`, the source chip is the capsule's second half, as the plain selector is: no border or radius of its own, one ink divider from the MAP button, and the source's colour as an underline while MAP is on. A chip used alone keeps its border.
+
+**FX device (ADR-254).** The same. **Engine impact.** None.
+
+## GUI-33 — RULED by the human: pictures rest when idle and draw at 30 fps at most; At phase made cheap (GB18; 2026-11-05)
+
+**Context.** Asked how worried to be about the GUI's cost in a webview, the session measured the painters: an Osc page's pictures took about 1.8 ms a frame at 7 members, except At phase, about 9 ms at 7 members and 20 ms at 16, over a 16.7 ms frame. And every picture redrew every frame with nothing sounding.
+
+**Ruling (the human, 2026-11-05).** "Yes, fix them", to fixing At phase and adding idle and frame-rate limits to the pictures.
+
+**What changes.**
+- **At phase:** blade 2's hatch is one tile, made once and filled, instead of a stroke per stripe per member. 16 members now take about 1 ms.
+- **The pace:** a picture draws when something it shows changed, or at most 30 times a second while awake. Awake is a voice sounding, or a pointer move or key in the last 2 s. Otherwise the last frame stands, ADR-140's idle gate for all of them: the ring, waveform, spectrum, carpet, voice map, the foot row's and Mix's summed views, the logo and the Specimen.
+- **Knobs and meters keep the frame rate.** A hand needs them, and they aren't what's expensive.
+
+**ADR-099 A1 still holds:** it asks that a merely silent oscillator's visuals don't freeze while others move. This gate asks about any voice, so a silent oscillator keeps moving while a note plays.
+
+**Readings (the GUI session's, open to the human).**
+- **30 fps and 2 s are this session's numbers,** and they're one constant each.
+- **Host automation of the XY with no note playing doesn't move the Specimen,** since nothing's sounding and no hand is there. A setting the pictures show still redraws them.
+- **The stub plays no notes,** so in the shell the pictures move only for 2 s after a hand. That's what an idle plugin will do.
+
+**Test hooks.** `window.GUI3_AWAKE` holds the pictures awake, for the worst case. `window.GUI3_NOCHECKS` loads without the self-checks, for timing a load.
+
+**Later, if the Ableton test asks for it (the human's list, 2026-11-05).** One batched frame across the bridge, in binary where the bridge allows it: GN-46, with B76. A native or WebGL layer for the busiest pictures: B75's seam. Embedding in the binary is what the plugin already does (`tools/embed_file.py`).
+
+**FX device (ADR-254).** The pace applies to its pictures too, with audio passing in place of a voice sounding.
+
+**Engine impact.** GN-45, GN-46.
 ## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
 
 **Context.** FM free in pitch FM runs an accumulator that never restarts, while each of C.16's readings starts it at 0, so the estimate cannot see its mean and BL-19 cannot hold by the law alone (Q-TA-71: engine-free, 95 of its 144 one-member cases over 0.003, up to 0.046). ADR-363 sent this to a scratch trial of C.16's existing blocker, with clips for the human. Separately, item 7.8's reference R2 places FM free's modulator half a cycle from round 56's start, and 7.8 plays before its settings settle (Q-TA-77).

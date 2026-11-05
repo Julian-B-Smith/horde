@@ -1048,6 +1048,14 @@
       tube: function (a) { g.fillStyle = this.c('ground', a === undefined ? 1 : a / sc.alpha); g.fillRect(0, 0, w, h); },
       scan: function (k) { g.fillStyle = 'rgba(0,0,0,' + sc.scan * (k || 1) + ')'; for (var y = V; y < h; y += 3 * V) g.fillRect(0, y, w, V); } };
   };
+  /* OFF (ADR-105 A2: a per-swarm visual shows an explicit OFF state and follows the switch): over whatever was just painted, the
+     ground at 60% and the word. Passing `off` false only records the state, so a consumer calls it every frame. */
+  Viz.off = function (cv, off) {
+    cv.__off = !!off; if (!off || !cv.clientWidth) return;
+    var K = Viz.kit(cv), g = K.g, mono = getComputedStyle(cv).getPropertyValue('--font-mono') || 'monospace';
+    g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = K.c('ground', .6 / K.sc.alpha); g.fillRect(0, 0, K.W, K.H);
+    g.font = '600 ' + (10 * K.V) + 'px ' + mono; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = K.c('grid', 1); g.fillText('OFF', K.W / 2, K.H / 2); g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+  };
   /* KURAMOTO RING: drawn by the part at the end of this file (the SCALPEL lab's phase ring, B544); gui2's _drawPhaseOne is retired */
   /* WAVEFORM (gui2 paintScopeInto): one period from the f0 trigger; L is the beam, R a dashed reference */
   Viz.scope = function (cv, s) {
@@ -1066,6 +1074,11 @@
   Viz.spectrum = function (cv, bands, st, now) {
     var K = Viz.kit(cv), g = K.g, W = K.W, H = K.H, V = K.V, nb = bands.length, slot = W / nb, bw = slot * .75, floorY = H - 2 * V, top = H - 6 * V;
     K.tube(); K.scan();
+    /* st.marks (optional): [{ lo, hi (Hz), blade }], each blade's predicted formant band, on the bars' own 30 Hz to 16 kHz axis */
+    (st.marks || []).forEach(function (m) { var X = function (f) { return Math.log(Math.max(30, Math.min(16000, f)) / 30) / Math.log(16000 / 30) * W; }, x0 = X(m.lo), x1 = X(m.hi);
+      g.fillStyle = K.c('value', m.blade === 2 ? .1 : .18); g.fillRect(x0, 0, Math.max(V, x1 - x0), H);
+      g.strokeStyle = K.c('value', .6); g.lineWidth = V; if (m.blade === 2) g.setLineDash([2 * V, 2 * V]);
+      g.beginPath(); g.moveTo(x0, 0); g.lineTo(x0, H); g.moveTo(x1, 0); g.lineTo(x1, H); g.stroke(); g.setLineDash([]); });
     st.pk = st.pk || new Float32Array(nb); st.at = st.at || new Float64Array(nb);
     for (var b = 0; b < nb; b++) {
       var v = Math.max(0, Math.min(1, bands[b])), x = b * slot + (slot - bw) / 2, t = v * 2;
@@ -1086,7 +1099,7 @@
     var n = hist[hist.length - 1].length, rowH = (H - 4 * V) / n;
     for (var r = 0; r < n; r++) { g.strokeStyle = K.c('grid', .18); g.lineWidth = V; g.beginPath(); g.moveTo(4 * V, 2 * V + (r + .5) * rowH); g.lineTo(W - 4 * V, 2 * V + (r + .5) * rowH); g.stroke(); }
     hist.slice(-16).forEach(function (row, f, all) { var age = all.length - 1 - f, a = Math.pow(.75, age);
-      row.forEach(function (ph, i) { var hot = inBlade && inBlade(ph); g.fillStyle = K.c(hot ? 'value' : 'physics', a);
+      row.forEach(function (ph, i) { var hot = inBlade && inBlade(ph, i); g.fillStyle = K.c(hot ? 'value' : 'physics', a);
         g.beginPath(); g.arc(4 * V + ph * (W - 8 * V), 2 * V + (i + .5) * rowH, (age ? 2 : 2.6) * V, 0, 2 * Math.PI); g.fill(); }); });
   };
   /* PHASE CARPET, VERTICAL: the rows carpet turned 90°. Each member is a COLUMN and its phase dot moves up and down
@@ -1097,40 +1110,85 @@
     var n = hist[hist.length - 1].length, colW = (W - 4 * V) / n;
     for (var c = 0; c < n; c++) { g.strokeStyle = K.c('grid', .18); g.lineWidth = V; g.beginPath(); g.moveTo(2 * V + (c + .5) * colW, 4 * V); g.lineTo(2 * V + (c + .5) * colW, H - 4 * V); g.stroke(); }
     hist.slice(-16).forEach(function (row, f, all) { var age = all.length - 1 - f, a = Math.pow(.75, age);
-      row.forEach(function (ph, i) { var hot = inBlade && inBlade(ph); g.fillStyle = K.c(hot ? 'value' : 'physics', a);
+      row.forEach(function (ph, i) { var hot = inBlade && inBlade(ph, i); g.fillStyle = K.c(hot ? 'value' : 'physics', a);
         g.beginPath(); g.arc(2 * V + (i + .5) * colW, H - 4 * V - ph * (H - 8 * V), (age ? 2 : 2.6) * V, 0, 2 * Math.PI); g.fill(); }); });
   };
-  /* BLADE VIEW (SCALPEL lab paintCycle, SUM view): one cycle across the width. Each blade: its NOMINAL window
-     (the voice's own) as the solid band, and the members' full extent (earliest start to latest end, from the
-     SAME member windows the render used) as a lighter band; blade 2 hatched. The base wave dashed; members
-     faint; the heard sum on top. The bands are true to the data: the sum departs from the base only inside them. */
+  /* BLADE VIEW (SCALPEL lab paintCycle): one cycle across the width, in the lab's three views (cy.view).
+     SUM (the default, as before): each blade's NOMINAL window (the voice's own) as the solid band, and the members' full extent
+     (earliest start to latest end, from the SAME member windows the render used) as a lighter band; blade 2 hatched. The base wave
+     dashed; members faint; the heard sum on top. The bands are true to the data: the sum departs from the base only inside them.
+     MEMBERS: one lane per member, over its own phase. AT PHASE (cy.atPhase, Synth.atPhase): each member shifted to where it is against
+     the mean field, so the swarm lines up as it does now; only the lifted member's windows keep their edges, since N members'
+     windows tile the cycle. At lock every offset is 0 and this view draws SUM's picture. cy.lift lifts a member; cy.overlay
+     ({ blades, drag, lines }) outlines what a drag would move, in the attention ink, and carries its readout. */
   Viz.blade = function (cv, cy) {
-    var K = Viz.kit(cv), g = K.g, W = K.W, H = K.H, V = K.V, top = 3 * V, bot = H - 3 * V, mid = H / 2, amp = (bot - top) / 2 / 1.25, q;
+    var K = Viz.kit(cv), g = K.g, W = K.W, H = K.H, V = K.V, top = 3 * V, bot = H - 3 * V, q, view = cy.view || 'sum', pm = view === 'phase' ? cy.atPhase : null,
+      lanes = view === 'members' && cy.members.length > 1, nL = lanes ? cy.members.length : 1, hi = pm && cy.lift >= 0 ? cy.lift : -1,
+      mono = getComputedStyle(cv).getPropertyValue('--font-mono') || 'monospace';
     K.tube(); K.scan();
     g.strokeStyle = K.c('grid', .18); g.lineWidth = V; g.beginPath();
-    for (q = 1; q < 4; q++) { g.moveTo(Math.round(q * W / 4) + .5, top); g.lineTo(Math.round(q * W / 4) + .5, bot); } g.moveTo(0, mid); g.lineTo(W, mid); g.stroke();
+    for (q = 1; q < 4; q++) { g.moveTo(Math.round(q * W / 4) + .5, top); g.lineTo(Math.round(q * W / 4) + .5, bot); } g.moveTo(0, H / 2); g.lineTo(W, H / 2); g.stroke();
     var marks = [];
-    function band(st, w, blade, a, edge, dash) { var A = st * W, Z = (st + w) * W, segs = Z <= W ? [[A, Z]] : [[A, W], [0, Z - W]];
+    /* Blade 2's hatch is one tile, made once per ink and pixel ratio and filled (GUI-33). Stroking each stripe of each member's window took At phase to 20 ms a frame at 16 members. */
+    function hatchTile() { var key = K.c('value') + V, c = cv.__hatch; if (c && c.key === key) return c.pat;
+      var T = Math.max(2, Math.round(5 * V)), tile = document.createElement('canvas'); tile.width = tile.height = T; var q = tile.getContext('2d');
+      q.strokeStyle = K.c('value'); q.lineWidth = V; q.beginPath(); q.moveTo(-T, T); q.lineTo(T, -T); q.moveTo(0, T); q.lineTo(T, 0); q.moveTo(0, 2 * T); q.lineTo(2 * T, 0); q.stroke();
+      var pat = g.createPattern(tile, 'repeat'); cv.__hatch = { key: key, pat: pat }; return pat; }
+    function band(st, w, blade, a, edge, dash, y0, y1) { var A = st * W, Z = (st + w) * W, segs = Z <= W ? [[A, Z]] : [[A, W], [0, Z - W]];
       segs.forEach(function (sg) {
-        if (blade === 2) { g.save(); g.beginPath(); g.rect(sg[0], top, sg[1] - sg[0], bot - top); g.clip(); g.strokeStyle = K.c('value', a * 1.6); g.lineWidth = V;
-          for (var x = sg[0] - H; x < sg[1]; x += 5 * V) { g.beginPath(); g.moveTo(x, bot); g.lineTo(x + (bot - top), top); g.stroke(); } g.restore(); }
-        else { g.fillStyle = K.c('value', a); g.fillRect(sg[0], top, sg[1] - sg[0], bot - top); }
+        if (blade === 2) { g.save(); g.globalAlpha = Math.min(1, a * 1.6 * K.sc.alpha); g.fillStyle = hatchTile(); g.fillRect(sg[0], y0, sg[1] - sg[0], y1 - y0); g.restore(); }
+        else { g.fillStyle = K.c('value', a); g.fillRect(sg[0], y0, sg[1] - sg[0], y1 - y0); }
         if (edge) { g.strokeStyle = K.c('value', edge); g.lineWidth = 1.2 * V; if (dash) g.setLineDash([2 * V, 2 * V]);
-          g.beginPath(); g.moveTo(sg[0], top); g.lineTo(sg[0], bot); g.moveTo(sg[1], top); g.lineTo(sg[1], bot); g.stroke(); g.setLineDash([]); } });
+          g.beginPath(); g.moveTo(sg[0], y0); g.lineTo(sg[0], y1); g.moveTo(sg[1], y0); g.lineTo(sg[1], y1); g.stroke(); g.setLineDash([]); } });
       return [A / V, Z / V]; }
-    cy.windows.forEach(function (wd) {
-      var lo = Infinity, hi = -Infinity; (wd.members || [{ st: wd.st, w: wd.w }]).forEach(function (m) { lo = Math.min(lo, m.st); hi = Math.max(hi, m.st + m.w); });
-      var ext = band(lo, hi - lo, wd.blade, wd.a * .45, .45, true);         // the members' full extent, lighter
-      var nom = band(wd.st, wd.w, wd.blade, wd.a, .75, false);                // the nominal window, solid
-      marks.push({ blade: wd.blade, nominal: nom, extent: ext });
-    });
+    function line(arr, k, a, lw, dash, ym, amp) { g.strokeStyle = K.c(k, a); g.lineWidth = lw * V; if (dash) g.setLineDash(dash.map(function (d) { return d * V; }));
+      g.beginPath(); for (var n2 = 0; n2 <= arr.length; n2++) { var y = ym - arr[n2 % arr.length] * amp, x = n2 / arr.length * W; n2 ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); g.setLineDash([]); }
+    function heard(arr, lw, ym, amp) { if (K.sc.alpha > 1) line(arr, 'ground', .62 / K.sc.alpha, lw + 2, null, ym, amp); line(arr, 'meter', 1, lw, null, ym, amp); }
+    var mid = H / 2, amp = (bot - top) / 2 / 1.25;
+    if (lanes) {
+      for (var L = 0; L < nL; L++) {
+        var y0 = top + (bot - top) * L / nL, y1 = top + (bot - top) * (L + 1) / nL, ym = (y0 + y1) / 2, am = (y1 - y0) / 2 / 1.25;
+        cy.windows.forEach(function (wd) { var m = (wd.members || [])[L]; if (m) band(m.st, m.w, wd.blade, wd.a, .6, false, y0, y1); });
+        line(cy.base, 'grid', .55, 1, [3, 3], ym, am); heard(cy.members[L], 1.4, ym, am);
+      }
+    } else if (pm) {
+      var a0 = Math.max(.07, .22 / Math.sqrt(Math.max(1, pm.members.length)));
+      pm.windows.forEach(function (wd) { wd.members.forEach(function (m, i) { var up = i === hi; band(m.st, m.w, wd.blade, up ? .34 : a0, up ? .75 : hi < 0 ? .22 : 0, false, top, bot); }); });
+      line(cy.base, 'grid', .55, 1, [3, 3], mid, amp);
+      pm.members.forEach(function (m, i) { if (i !== hi) line(m, 'physics', .34, 1, null, mid, amp); });
+      heard(pm.sum, 1.8, mid, amp);
+      if (hi >= 0) line(pm.members[hi], 'physics', 1, 1.8, null, mid, amp);
+    } else {
+      cy.windows.forEach(function (wd) {
+        var lo = Infinity, hiw = -Infinity; (wd.members || [{ st: wd.st, w: wd.w }]).forEach(function (m) { lo = Math.min(lo, m.st); hiw = Math.max(hiw, m.st + m.w); });
+        var ext = band(lo, hiw - lo, wd.blade, wd.a * .45, .45, true, top, bot);   // the members' full extent, lighter
+        var nom = band(wd.st, wd.w, wd.blade, wd.a, .75, false, top, bot);           // the nominal window, solid
+        marks.push({ blade: wd.blade, nominal: nom, extent: ext });
+      });
+      line(cy.base, 'grid', .55, 1, [3, 3], mid, amp);
+      cy.members.forEach(function (m) { line(m, 'physics', .28, 1, null, mid, amp); });
+      heard(cy.sum, 1.8, mid, amp);
+    }
     cv.__marks = marks;                                                      // CSS px, read by the true-to-data check
-    function line(arr, k, a, lw, dash) { g.strokeStyle = K.c(k, a); g.lineWidth = lw * V; if (dash) g.setLineDash(dash.map(function (d) { return d * V; }));
-      g.beginPath(); for (var n2 = 0; n2 <= arr.length; n2++) { var y = mid - arr[n2 % arr.length] * amp, x = n2 / arr.length * W; n2 ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); g.setLineDash([]); }
-    line(cy.base, 'grid', .55, 1, [3, 3]);
-    cy.members.forEach(function (m) { line(m, 'physics', .28, 1); });
-    if (K.sc.alpha > 1) line(cy.sum, 'ground', .62 / K.sc.alpha, 1.8 + 2);
-    line(cy.sum, 'meter', 1, 1.8);
+    g.font = (9 * V) + 'px ' + mono; g.textBaseline = 'top';
+    function box(t, x, y, ink) { var w = g.measureText(t).width; g.fillStyle = K.c('ground', .72); g.fillRect(x - w - 3 * V, y - V, w + 6 * V, 12 * V); g.fillStyle = K.c(ink); g.textAlign = 'right'; g.fillText(t, x, y); g.textAlign = 'left'; }
+    if (!lanes) cy.windows.forEach(function (wd) { g.fillStyle = K.c('value'); g.fillText(wd.blade === 1 ? '①' : '②', ((wd.st + wd.w / 2) % 1) * W - 4 * V, top + 2 * V); });
+    if (pm && pm.members.length > 1) {
+      pm.off.forEach(function (d, i) { var x = Math.round(((-d % 1) + 1) % 1 * W) + .5, up = i === hi; g.strokeStyle = K.c('physics', up ? 1 : .7); g.lineWidth = (up ? 2 : 1.2) * V; g.beginPath(); g.moveTo(x, top); g.lineTo(x, top + (up ? 10 : 5) * V); g.stroke(); });
+      box(hi >= 0 ? 'member ' + (hi + 1) + ' · ' + (pm.off[hi] >= 0 ? '+' : '−') + Math.abs(pm.off[hi]).toFixed(2) + ' cycle from ψ' : 'R ' + pm.R.toFixed(2) + ' · ticks = cycle starts', W - 5 * V, top + 2 * V, 'physics');
+    }
+    var ov = cy.overlay;
+    if (ov) {
+      var src = pm ? pm.windows : cy.windows;
+      g.strokeStyle = K.c('marker', ov.drag ? .9 : .55); g.lineWidth = (ov.drag ? 1.6 : 1.1) * V; if (!ov.drag) g.setLineDash([4 * V, 3 * V]);
+      src.forEach(function (wd) { if (ov.blades.indexOf(wd.blade) < 0) return; (wd.members || [{ st: wd.st, w: wd.w }]).forEach(function (m) { var A = m.st * W, Z = (m.st + m.w) * W;
+        (Z <= W ? [[A, Z]] : [[A, W], [0, Z - W]]).forEach(function (sg) { g.strokeRect(sg[0] + V, top + V, Math.max(2 * V, sg[1] - sg[0] - 2 * V), bot - top - 2 * V); }); }); });
+      g.setLineDash([]);
+      var wm = 0, by = bot - 6 * V - ov.lines.length * 13 * V; ov.lines.forEach(function (l) { wm = Math.max(wm, g.measureText(l).width); });
+      g.fillStyle = K.c('ground', .62); g.fillRect(3 * V, by - 3 * V, wm + 8 * V, ov.lines.length * 13 * V + 4 * V);
+      g.fillStyle = K.c('marker'); ov.lines.forEach(function (l, i) { g.fillText(l, 6 * V, by + i * 13 * V); });
+    }
+    g.textBaseline = 'alphabetic';
   };
   /* ENVELOPE (UI Spec §6; the phosphor horizon floor): the curve in value with an 18% fill, node handles in
      marker / meter / physics / grid, the playhead dot */
@@ -4990,6 +5048,142 @@
       cross: function (xm) { return bl.map(function (b, k) { return xm * str[k] * Math.min(1, (b.w1 + b.w2) * 2.5); }); } };
   };
 
+  /* ---------- SAMPLE CYCLE for the blade view: a drawing of the settings, seeded, never the engine's output ----------
+     cycle(o) builds what Viz.blade draws from the settings: o.n members, o.base(x) the base wave over a cycle, and o.blades
+     [{ blade, mode, width, position (the window's centre), cycles (burst cycles inside the window), depth, edges, posSpread, cutSpread
+     (semitones), wave(x) }] for the blades that are on. Each member's spread is its place across the swarm. The modes are sketches of
+     SPEC-ENGINE's laws, near enough to read; the engine's own cycle replaces this (RC-8 and GN-41). */
+  Synth.cycle = function (o) {
+    var M = o.M || 256, N = Math.max(1, o.n), base = new Float32Array(M), sum = new Float32Array(M), members = [], winds = [], i, j, n;
+    for (n = 0; n < M; n++) base[n] = o.base(n / M);
+    var bl = o.blades.filter(function (b) { return b.width >= .004; });
+    bl.forEach(function (b) { winds.push({ blade: b.blade, st: frac(b.position - b.width / 2), w: b.width, a: .22, members: [] }); });
+    for (i = 0; i < N; i++) {
+      var u = N > 1 ? i / (N - 1) - .5 : 0, y = new Float32Array(M), r = Synth.rng(1009 + i), noise = new Float32Array(M);
+      for (n = 0; n < M; n++) { y[n] = base[n]; noise[n] = 2 * r() - 1; }
+      bl.forEach(function (b, k) {
+        var w = b.width, st = frac(b.position - w / 2 + (b.posSpread || 0) * u), cyc = b.cycles * Math.pow(2, (b.cutSpread || 0) * u / 12), hold = Math.max(1, Math.floor(w * M / Math.max(1, cyc)));
+        winds[k].members.push({ st: st, w: w });
+        for (j = 0; j < M; j++) {
+          var e = frac(j / M - st); if (e >= w) continue; e /= w;
+          var g = b.edges > 0 ? Math.min(1, Math.min(e, 1 - e) / (b.edges * .5)) : 1, v = y[j], out;
+          switch (b.mode) {
+            case 'FM reset': case 'FM free': out = Math.sin(TAU * cyc * e + 2 * Math.sin(TAU * cyc * e * .5)); break;
+            case 'Noise': out = noise[j]; break;
+            case 'Fold': out = Math.sin(Math.PI / 2 * v * (1 + cyc * .5)); break;
+            case 'Ring': out = v * b.wave(frac(cyc * e)); break;
+            case 'Crush': out = y[Math.floor(j / hold) * hold % M]; break;
+            default: out = b.wave(frac(cyc * e));
+          }
+          y[j] = v + (out - v) * g * b.depth;
+        }
+      });
+      members.push(y); for (n = 0; n < M; n++) sum[n] += y[n] / N;
+    }
+    return { M: M, base: base, sum: sum, members: members, windows: winds };
+  };
+  /* AT PHASE (SCALPEL lab phaseModel, B297): each member's cycle shifted by its offset from the mean field, δ = φ − ψ, wrapped to ±½,
+     and its windows with it. The shifted sum is the swarm as it lines up now. At lock every δ is 0. */
+  Synth.atPhase = function (cy, phase) {
+    var N = cy.members.length, M = cy.M, sx = 0, sy = 0, i, n, members = [], sum = new Float32Array(M);
+    for (i = 0; i < N; i++) { sx += Math.cos(TAU * (phase[i] || 0)); sy += Math.sin(TAU * (phase[i] || 0)); }
+    var R = Math.hypot(sx, sy) / Math.max(1, N), psi = frac(Math.atan2(sy, sx) / TAU), off = [];
+    for (i = 0; i < N; i++) { var d = (phase[i] || 0) - psi; off.push(d - Math.floor(d + .5)); }
+    for (i = 0; i < N; i++) { var a = cy.members[i], o = new Float32Array(M), s = off[i] * M;
+      for (n = 0; n < M; n++) { var q = n + s, i0 = Math.floor(q), f = q - i0, y0 = a[((i0 % M) + M) % M], y1 = a[(((i0 + 1) % M) + M) % M]; o[n] = y0 + (y1 - y0) * f; sum[n] += o[n] / N; }
+      members.push(o); }
+    return { R: R, psi: psi, off: off, members: members, sum: sum, windows: cy.windows.map(function (wd) { return { blade: wd.blade, st: wd.st, w: wd.w, members: wd.members.map(function (m, k) { return { st: frac(m.st - off[k]), w: m.w }; }) }; }) };
+  };
+  /* A cycle as Viz.spectrum's bands: the largest harmonic in each third octave from 30 Hz, v = (dB + 80) / 80, at a stated note. */
+  Synth.cycleBands = function (y, f0, nb) {
+    var M = y.length, out = [], b, k, j; nb = nb || 27;
+    for (b = 0; b < nb; b++) out.push(0);
+    for (k = 1; k <= M / 2 && k * f0 < 16000; k++) {
+      var re = 0, im = 0; for (j = 0; j < M; j++) { var a = TAU * k * j / M; re += y[j] * Math.cos(a); im -= y[j] * Math.sin(a); }
+      var v = (20 * Math.log10(Math.max(1e-5, 2 * Math.hypot(re, im) / M)) + 80) / 80; b = Math.floor(Math.log(k * f0 / 30) / Math.log(16000 / 30) * nb);
+      if (b >= 0 && b < nb && v > out[b]) out[b] = v;
+    }
+    return out;
+  };
+
+  /* ---------- BLADE VIEW  H.BladeView: the waveform you drag (SCALPEL lab cycleSurface, xyWire, xyOverlay, xyMapRow; B293, B294, B297, B299) ----------
+     The view pills, the legend pill that opens the mapping row, the cycle canvas. A drag is RELATIVE: a grab moves nothing. It moves the
+     blade whose window is under the pointer, or every blade that is on from empty space. Alt is fine (x 1/4). A circular row crosses
+     its range in one canvas width, so the window follows the hand; any other crosses its range in 420 px, up for more. The view and the
+     mapping are one for every instance (the lab's "one mapping for OSC and MAIN"), remembered per machine, never with a patch.
+     o: { height, label, roles: { blade, swarm, play: [[id, label]] }, keyOf(role, blade) -> key | null, read(key) -> 0..1, circ(key),
+     write({ key: 0..1 }), begin(), end(), label(key), value(key), keys() }. Returned: { frame(cy), view(v?), canvas, drag }. */
+  var BV_DEF = { x: ['position', '', 0], y: ['cut', '', 0], sx: ['width', '', 0] }, BV_KEY = 'hd.bladeview', BV_VIEWS = ['sum', 'members', 'phase'], BV_NAMES = ['Sum', 'Members', 'At phase'], BV_ALL = [];
+  var BV = { view: 'sum', map: JSON.parse(JSON.stringify(BV_DEF)) };
+  try { var bvS = JSON.parse(window.localStorage.getItem(BV_KEY)); if (bvS) { if (BV_VIEWS.indexOf(bvS.view) >= 0) BV.view = bvS.view; if (bvS.map && bvS.map.x && bvS.map.y && bvS.map.sx) BV.map = bvS.map; } } catch (_) { /* no storage: the session holds it */ }
+  function bvKeep() { try { window.localStorage.setItem(BV_KEY, JSON.stringify(BV)); } catch (_) { /* as above */ } }
+  H.BladeView = function (el, o) {
+    var cy = null, d = null, hover = null, pt = null;
+    el.classList.add('hd-bladeview'); el.innerHTML = '';
+    var tools = tag('div', 'bv-tools'), pills = tag('div'), leg = tag('button', 'hd-pill hd-sm hd-focus bv-leg'), hint = tag('span', 'hd-hint bv-hint', o.hint || ''), map = tag('div', 'bv-map'), well = tag('div', 'hd-viz vz-well'), cv = tag('canvas', 'vz-cv');
+    leg.type = 'button'; tools.appendChild(pills); tools.appendChild(leg); tools.appendChild(hint);
+    cv.style.height = (o.height || 120) + 'px'; cv.style.touchAction = 'none'; cv.style.cursor = 'grab'; cv.setAttribute('role', 'img');
+    cv.setAttribute('aria-label', (o.label || 'Blade view') + ': one cycle with the blade windows. Drag to move the blade under the pointer.');
+    well.appendChild(cv); el.appendChild(tools); el.appendChild(map); el.appendChild(well); map.hidden = true;
+    var pg = H.pillGroup(pills, BV_NAMES, BV_VIEWS.indexOf(BV.view), (o.label || 'Blade view') + ' · view', function (i) { BV.view = BV_VIEWS[i]; bvKeep(); sync(); }, o);
+    function roleName(id) { var f = null; ['blade', 'swarm', 'play'].forEach(function (g) { (o.roles[g] || []).forEach(function (r) { if (r[0] === id && !f) f = r[1]; }); }); return f || id; }
+    function isBlade(id) { return (o.roles.blade || []).some(function (r) { return r[0] === id; }); }
+    function legend() { return '\u2194 ' + roleName(BV.map.x[0]) + ' · \u2195 ' + roleName(BV.map.y[0]) + ' · \u21e7\u2194 ' + roleName(BV.map.sx[0]); }
+    function sync() { pg.set(BV_VIEWS.indexOf(BV.view)); leg.textContent = 'XY ' + legend(); leg.setAttribute('aria-pressed', String(!map.hidden)); leg.title = 'Drag the waveform: what each gesture drives. Click to set it. One mapping for Main and the Osc pages.'; }
+    function refresh() { BV_ALL.forEach(function (b) { b.sync(); }); }
+    function buildMap() {
+      map.innerHTML = '';
+      function opts(sel, none) { if (none) { var n0 = tag('option', '', '+ second\u2026'); n0.value = ''; sel.appendChild(n0); }
+        [['blade', 'the grabbed blade'], ['swarm', 'the swarm'], ['play', 'blade interplay (both blades)']].forEach(function (g) { var og = tag('optgroup'); og.label = g[1]; (o.roles[g[0]] || []).forEach(function (r) { var op = tag('option', '', r[1]); op.value = r[0]; og.appendChild(op); }); sel.appendChild(og); }); }
+      [['x', '\u2194', 'horizontal drag'], ['y', '\u2195', 'vertical drag, up for more'], ['sx', '\u21e7\u2194', 'shift and horizontal drag']].forEach(function (sl) {
+        var gp = tag('span', 'bv-slot'), lb = tag('span', 'hd-sublabel', sl[1]), a = tag('select', 'hd-focus'), b = tag('select', 'hd-focus'), iv = tag('label', 'hd-sublabel'), cb = tag('input');
+        lb.title = sl[2]; a.setAttribute('aria-label', sl[2]); b.setAttribute('aria-label', sl[2] + ', a second control'); opts(a, false); opts(b, true); a.value = BV.map[sl[0]][0]; b.value = BV.map[sl[0]][1]; cb.type = 'checkbox'; cb.checked = !!BV.map[sl[0]][2]; cb.disabled = !BV.map[sl[0]][1];
+        iv.appendChild(cb); iv.appendChild(document.createTextNode(' inv')); iv.title = 'the second control runs the opposite way';
+        function put() { BV.map[sl[0]] = [a.value, b.value, b.value && cb.checked ? 1 : 0]; cb.disabled = !b.value; bvKeep(); refresh(); }
+        a.addEventListener('change', put); b.addEventListener('change', put); cb.addEventListener('change', put);
+        gp.appendChild(lb); gp.appendChild(a); gp.appendChild(b); gp.appendChild(iv); map.appendChild(gp); });
+      var rs = tag('button', 'hd-pill hd-sm hd-focus', 'Default'); rs.type = 'button'; rs.title = 'Position, Cut rate, and shift for Width';
+      rs.addEventListener('click', function () { BV.map = JSON.parse(JSON.stringify(BV_DEF)); bvKeep(); buildMap(); refresh(); }); map.appendChild(rs);
+    }
+    leg.addEventListener('click', function () { map.hidden = !map.hidden; if (!map.hidden) buildMap(); sync(); });
+    function winsOf() { var src = BV.view === 'phase' && cy && cy.atPhase ? cy.atPhase.windows : cy ? cy.windows : []; return src; }
+    function target(ph) { var best = 0, bd = 9, wins = winsOf(), on = wins.map(function (w) { return w.blade; });
+      wins.forEach(function (wd) { wd.members.forEach(function (m) { if (frac(ph - m.st) >= m.w) return; var dd = Math.abs(frac(ph - m.st - m.w / 2 + .5) - .5); if (dd < bd) { bd = dd; best = wd.blade; } }); });
+      return best ? { blades: [best], why: 'under the pointer' } : { blades: on, why: on.length ? 'empty space, every blade' : 'no blade is on' }; }
+    function slotKeys(slot, blades) { var m = BV.map[slot], out = [];
+      function add(id, sg) { if (!id) return; if (!isBlade(id)) { var k0 = o.keyOf(id, 0); if (k0) out.push([k0, sg, 0]); return; } blades.forEach(function (b) { var k = o.keyOf(id, b); if (k) out.push([k, sg, b]); }); }
+      add(m[0], 1); add(m[1], m[2] ? -1 : 1); return out; }
+    function box() { var r = cv.getBoundingClientRect(); return { l: r.left, t: r.top, w: Math.max(1, r.width), h: Math.max(1, r.height) }; }
+    function liftAt(x, y, b) { var pm = cy && cy.atPhase; if (BV.view !== 'phase' || !pm || pm.members.length < 2) return -1;
+      var n = Math.round(clamp(x / b.w) * cy.M) % cy.M, am = (b.h - 6) / 2 / 1.25, best = -1, bd = 14; pm.members.forEach(function (m, i) { var dd = Math.abs(b.h / 2 - m[n] * am - y); if (dd < bd) { bd = dd; best = i; } }); return best; }
+    cv.addEventListener('pointerdown', function (e) { if (e.button !== 0 || !cy) return;
+      var b = box(), t = target(frac((e.clientX - b.l) / b.w));
+      d = { blades: t.blades, why: t.why, x: e.clientX, y: e.clientY, W: b.w, H: b.h, acc: {}, shift: e.shiftKey, lift: liftAt(e.clientX - b.l, e.clientY - b.t, b), began: false };
+      cv.style.cursor = 'grabbing'; try { cv.setPointerCapture(e.pointerId); } catch (_) { /* keep the drag */ } });
+    cv.addEventListener('pointermove', function (e) { var b = box();
+      if (!d) { var ph = frac((e.clientX - b.l) / b.w); pt = { x: e.clientX - b.l, y: e.clientY - b.t }; hover = cy ? target(ph) : null; return; }
+      var dx = e.clientX - d.x, dy = e.clientY - d.y; d.x = e.clientX; d.y = e.clientY; d.shift = e.shiftKey;
+      if (!dx && !dy) return;                                  // no motion, no write: nothing jumps
+      var g = e.altKey ? .25 : 1, step = {};
+      function push(slot, px) { if (!px) return; slotKeys(slot, d.blades).forEach(function (q) { step[q[0]] = (step[q[0]] || 0) + q[1] * (px / (o.circ(q[0]) ? d.W : 420)) * g; }); }
+      push(e.shiftKey ? 'sx' : 'x', dx); push('y', -dy);
+      var upd = {}, any = false; Object.keys(step).forEach(function (k) { if (!(k in d.acc)) d.acc[k] = o.read(k); d.acc[k] += step[k]; d.acc[k] = o.circ(k) ? frac(d.acc[k]) : clamp(d.acc[k]); upd[k] = d.acc[k]; any = true; });
+      if (any) { if (!d.began) { d.began = true; o.begin(); } o.write(upd); } });
+    function end() { if (!d) return; if (d.began) o.end(); d = null; cv.style.cursor = 'grab'; }
+    cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end); cv.addEventListener('lostpointercapture', end);
+    cv.addEventListener('pointerleave', function () { if (!d) { hover = null; pt = null; } });
+    function overlay() { var t = d || hover; if (!t) return null;
+      var name = t.blades.length === 2 ? 'BOTH BLADES' : t.blades.length ? 'BLADE ' + t.blades[0] : 'NO BLADE', lines = [];
+      if (d) { lines.push(name + ' · ' + d.why);
+        [[d.shift ? 'sx' : 'x', d.shift ? '\u21e7\u2194' : '\u2194'], ['y', '\u2195']].forEach(function (r) { var ks = slotKeys(r[0], d.blades); if (ks.length) lines.push(r[1] + ' ' + ks.map(function (q) { return o.label(q[0]) + (q[2] === 2 ? ' \u2461' : q[2] === 1 && d.blades.length > 1 ? ' \u2460' : '') + ' ' + o.value(q[0]); }).join(' · ')); });
+      } else lines.push('drag: ' + name + ' (' + t.why + ') · ' + legend());
+      return { blades: t.blades, drag: !!d, lines: lines }; }
+    sync();
+    var me = { sync: sync, canvas: cv, frame: function (c) { cy = c; if (!cv.clientWidth) return; c.view = BV.view; c.overlay = overlay(); c.lift = d ? d.lift : pt ? liftAt(pt.x, pt.y, box()) : -1; Viz.blade(cv, c); },
+      view: function (v) { if (v === undefined) return BV.view; if (BV_VIEWS.indexOf(v) >= 0) { BV.view = v; bvKeep(); refresh(); } }, get drag() { return d; } };
+    BV_ALL.push(me); return me;
+  };
+
   /* ---------- GAIN STAGING ---------- */
   var DB_MIN = -66, DB_MAX = 6, HOLD_S = 1.5, FALL = 20, REL_TAU = .11, DRAG = 160, GR_FULL = 24;
   var dbFrac = function (db) { return clamp((db - DB_MIN) / (DB_MAX - DB_MIN)); };
@@ -6848,9 +7042,15 @@
     if (T.all) { names.push('All'); idx.push(1); } if (T.adv) { names.push('+Adv'); idx.push(2); }
     var tier = mem.tier !== undefined && idx.indexOf(mem.tier) >= 0 ? mem.tier : (idx.indexOf(o.tier) >= 0 ? o.tier : 0), open = mem.open !== undefined ? !!mem.open : o.open !== false;
     el.classList.add('hd-fold'); el.innerHTML = '';
-    var head = tag('div', 'fd-head'), chev = tag('button', 'fd-chev hd-focus'), nm = tag('span', 'hd-cluster', o.name), seg = tag('div'), sp = tag('span', 'fd-sp'), slot = tag('div');
+    var head = tag('div', 'fd-head'), chev = tag('button', 'fd-chev hd-focus'), nm = tag('span', 'hd-cluster', o.name), seg = tag('div'), sp = tag('span', 'fd-sp'), slot = tag('div'), tg = null, on = o.on;
     chev.type = 'button'; chev.setAttribute('aria-label', 'Fold ' + (o.path || o.name));
-    head.appendChild(chev); head.appendChild(nm); head.appendChild(seg); head.appendChild(sp); head.appendChild(slot);
+    head.appendChild(chev);
+    /* GUI-30: `on` puts the section's switch in the title bar, so it works while the fold is closed; `head` is the items after the name (its mode) */
+    function setOn(b) { on = !!b; if (tg) { tg.setAttribute('aria-checked', String(on)); tg.tabIndex = keysOn(o) ? 0 : -1; } el.classList.toggle('off', !on); }
+    if (on !== undefined) { tg = tag('button', 'hd-toggle hd-sm hd-focus'); tg.type = 'button'; tg.setAttribute('role', 'switch'); tg.setAttribute('aria-label', (o.path || o.name) + ' · On');
+      tg.addEventListener('click', function () { setOn(!on); fire(o.onToggle, on); }); head.appendChild(tg); }
+    head.appendChild(nm); arr(o.head).forEach(function (x) { head.appendChild(x); }); head.appendChild(seg); head.appendChild(sp); head.appendChild(slot);
+    if (on !== undefined) setOn(on);
     var body = tag('div', 'fd-body'), blocks = { 0: tag('div', 'fd-tier'), 1: tag('div', 'fd-tier'), 2: tag('div', 'fd-tier') }, built = {};
     body.appendChild(blocks[0]); body.appendChild(blocks[1]); body.appendChild(blocks[2]);
     blocks[2].classList.add('fd-adv');
@@ -6869,8 +7069,10 @@
     }
     function set(t) { tier = t; keep(id, { open: open, tier: tier }); paint(); }
     chev.addEventListener('click', function () { open = !open; keep(id, { open: open, tier: tier }); paint(); });
+    /* buildAll: mount every tier now and remember nothing, for a consumer whose controls must exist whatever is shown */
+    if (o.buildAll) [0, 1, 2].forEach(function (t) { var src = T[['face', 'all', 'adv'][t]]; if (src && !built[t]) { built[t] = true; if (typeof src === 'function') src(blocks[t], S); else fill(blocks[t], S, src, o); } });
     paint();
-    return { tier: function (t) { if (t === undefined) return tier; if (idx.indexOf(t) >= 0) set(t); }, open: function (b) { if (b === undefined) return open; open = !!b; keep(id, { open: open, tier: tier }); paint(); }, el: el };
+    return { tier: function (t) { if (t === undefined) return tier; if (idx.indexOf(t) >= 0) set(t); }, open: function (b) { if (b === undefined) return open; open = !!b; keep(id, { open: open, tier: tier }); paint(); }, on: function (b) { if (b === undefined) return on; setOn(b); }, el: el, head: head };
   }
 
   /* ---------- PARAM TABLE (the table form of PV1, P3 of the composition lab): every control of a page a 17 px row, in columns,
@@ -8698,6 +8900,6 @@ window.Horde.MainStage = {
   xy(fn) { xyAt = fn; },
   MORPH, MON, AUD, LOGO, SPECIMEN, logoCanvas, logoFrame, specimenCanvas, specimenFrame,
   /* one step, from the host's frame loop: there is no clock of its own */
-  tick(showSpecimen) { MON.clock += SR / 60; logoFrame(); if (showSpecimen) specimenFrame(); }
+  tick(showSpecimen, frames) { MON.clock += (frames || 1) * SR / 60; logoFrame(); if (showSpecimen) specimenFrame(); }
 };
 })();
