@@ -1,0 +1,19 @@
+<!-- @dsCard group="Visualizers" height=220 subtitle="The Sub's picture: one heavy cycle wrapped round a dial with its ceiling as a ring, and unrolled beside it. Drive flattens it; Erode frays it." -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Sub dial</title></head>
+<body>
+<div class="hd-fit hd-dense" style="padding:14px 16px 4px; gap:8px" id="host">
+  <div class="hd-viz" style="padding:0; overflow:hidden; width:100%; max-width:640px"><canvas id="dial" style="display:block; width:100%; height:130px" role="img" aria-label="Sub dial, SAMPLE"></canvas></div>
+  <span class="hd-hint">SAMPLE data, generated in this preview; never the engine.</span>
+</div>
+<script>
+(function () {
+  var cv = document.getElementById('dial'), st = {}, n = 0, reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var o = { wave: 'sine', width: .5, softness: 0, harmA: 2, ampA: 0, phaseA: 0, harmB: 3, ampB: 0, phaseB: 0, octave: -1, drive: .35, crunch: 0, character: 'Tube', tone: 18000, order: 'tone, env → drive', erode: .25 };
+  function frame() { st.t = reduce ? 0 : ++n / 60; window.Horde.Viz.subDial(cv, o, st); if (!reduce) requestAnimationFrame(frame); }
+  frame();
+})();
+</script>
+</body>
+</html>

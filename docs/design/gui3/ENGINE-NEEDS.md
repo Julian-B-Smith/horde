@@ -45,6 +45,7 @@ These are the ones nothing on the engine side knows about yet.
 | GN-45 | One answer per snapshot: is any voice sounding? The pictures rest while none is. RC-8's per-voice level can give it, with B365's -90 dBFS as the threshold (GUI-34), and a release tail counts as sounding. | GUI-33, GUI-34 | `dev.sounding()` reads `dev.feed()`, which is null in the stub |
 | GN-46 | One batched frame across the GUI bridge, at the pictures' 30 fps, in binary where the bridge allows it. GN-41's cycles are about 256 x members x voices of numbers a frame, and B76 already found three binds a frame expensive. Its rate and whether WKWebView's bridge can carry binary are unmeasured. | GUI-33 | No bridge: the stub's in-page | B76, RC-8 |
 | GN-47 | Each voice's note and gate in the snapshot, with its envelope's level, for the Specimen to strike: a fresh gate is a strike, the wavelength comes from the note, and the loudest envelope blooms the film. RC-8 has each voice's level and its envelopes' stages, R and the peaks, and no note or gate. | GUI-34, ADR-139 | `dev.feed()` is null in the stub; a test build fills it | RC-8 |
+| GN-48 | The sub's output after its chain, per voice or for the mono sub, with a peak or flag for the drive's ceiling, for the Dial. IF-10's y⁰ is before the tone, the drive and the envelope. | GUI-35, GB9 | `Synth.subCycle`, a SAMPLE from the settings | IF-10, RC-8 |
 
 ## Partly recorded
 

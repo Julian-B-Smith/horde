@@ -1598,10 +1598,23 @@
           "viz": {
             "kind": "sub",
             "keys": {
+              "on": "sub.on",
               "wave": "sub.wave",
               "width": "sub.pulseWidth",
               "softness": "sub.softness",
-              "bump": "sub.bumpAmount"
+              "harmA": "sub.bumpHarmonic",
+              "ampA": "sub.bumpAmount",
+              "phaseA": "sub.bumpPhase",
+              "harmB": "sub.bump2Harmonic",
+              "ampB": "sub.bump2Amount",
+              "phaseB": "sub.bump2Phase",
+              "octave": "sub.octave",
+              "drive": "sub.drive",
+              "crunch": "sub.crunch",
+              "character": "sub.character",
+              "tone": "sub.tone",
+              "order": "sub.order",
+              "erode": "sub.erode"
             }
           },
           "keys": [
@@ -2535,11 +2548,25 @@
       "dense": true,
       "viz": {
         "kind": "sub",
+        "band": true,
         "keys": {
+          "on": "sub.on",
           "wave": "sub.wave",
           "width": "sub.pulseWidth",
           "softness": "sub.softness",
-          "bump": "sub.bumpAmount"
+          "harmA": "sub.bumpHarmonic",
+          "ampA": "sub.bumpAmount",
+          "phaseA": "sub.bumpPhase",
+          "harmB": "sub.bump2Harmonic",
+          "ampB": "sub.bump2Amount",
+          "phaseB": "sub.bump2Phase",
+          "octave": "sub.octave",
+          "drive": "sub.drive",
+          "crunch": "sub.crunch",
+          "character": "sub.character",
+          "tone": "sub.tone",
+          "order": "sub.order",
+          "erode": "sub.erode"
         }
       },
       "power": "sub.on",

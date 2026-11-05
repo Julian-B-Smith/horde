@@ -1121,6 +1121,25 @@
      the mean field, so the swarm lines up as it does now; only the lifted member's windows keep their edges, since N members'
      windows tile the cycle. At lock every offset is 0 and this view draws SUM's picture. cy.lift lifts a member; cy.overlay
      ({ blades, drag, lines }) outlines what a drag would move, in the attention ink, and carries its readout. */
+  /* GUI-35, the Dial (GB9, sub-noise-lab.html): one heavy cycle wrapped round a dial with its ceiling as a ring, and, where there's room, the same cycle unrolled beside it. Drive flattens it against the ring,
+     Erode frays it. `st` keeps its turn and its noise: st.t in seconds, st.level 0..1. */
+  Viz.subDial = function (cv, o, st) { var K = Viz.kit(cv), g = K.g, V = K.V, W = K.W, Hh = K.H, N = 256, T = 2 * Math.PI, i, k, S = window.Horde.Synth; K.tube(); K.scan();
+    function noise() { if (!st.rng) { st.rng = S.rng(9401); st.n = new Float32Array(N); } for (var j = 0; j < N; j++) st.n[j] = 2 * st.rng() - 1; return st.n; }
+    var y = S.subCycle(o, N, o.erode > 0 ? noise() : null), L = st.level === undefined ? 1 : st.level, wide = W / V > 300, cx = wide ? Hh * .62 : W * .5, cy = Hh / 2, R0 = Math.min(Hh * .29, W * .28), A = R0 * .55, ph = (st.t || 0) * .33 % 1;
+    function pt(j, yy) { var a = j / N * T - Math.PI / 2 + ph * T, r = R0 + A * yy * L; return [cx + Math.cos(a) * r, cy + Math.sin(a) * r]; }
+    function loop(c) { g.beginPath(); for (var j = 0; j <= N; j++) { var p = pt(j % N, c[j % N]); j ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); } g.closePath(); }
+    g.strokeStyle = K.c('grid', .5); g.lineWidth = V; g.setLineDash([2 * V, 3 * V]); [1, -1].forEach(function (s) { g.beginPath(); g.arc(cx, cy, R0 + s * A, 0, T); g.stroke(); }); g.setLineDash([]);
+    for (i = 0; i < 24; i++) { var a = i / 24 * T, r1 = R0 + A + 3 * V, r2 = r1 + (i % 6 ? 3 : 7) * V; g.strokeStyle = K.c('grid', i % 6 ? .45 : .9); g.beginPath(); g.moveTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1); g.lineTo(cx + Math.cos(a) * r2, cy + Math.sin(a) * r2); g.stroke(); }
+    loop(y); g.fillStyle = K.c('physics', .16); g.fill();
+    if (o.erode > 0) for (k = 0; k < 3; k++) { var tr = S.subCycle(o, N, noise()); g.strokeStyle = K.c('value', .3); g.lineWidth = V; loop(tr); g.stroke(); }
+    loop(y); g.strokeStyle = K.c('physics', .24); g.lineWidth = 7 * V; g.stroke(); g.strokeStyle = K.c('physics'); g.lineWidth = 2.4 * V; g.stroke();
+    g.strokeStyle = K.c('marker'); g.lineWidth = 3 * V; var run = false; g.beginPath(); for (i = 0; i <= N; i++) { var hot = Math.abs(y[i % N]) > .97 && o.drive > 0, p = pt(i % N, y[i % N]); if (hot) { if (run) g.lineTo(p[0], p[1]); else g.moveTo(p[0], p[1]); } run = hot; } g.stroke();
+    if (wide) { var x0 = cx + R0 + A + 34 * V, x1 = W - 12 * V, mid = Hh / 2, amp = Hh * .34, C = 3, x;   // the same cycle unrolled, so the shape reads as a shape too
+      function at(xx) { return mid - amp * y[Math.floor((((xx - x0) / (x1 - x0) * C - ph) % 1 + 1) % 1 * N)] * L; }
+      g.strokeStyle = K.c('grid', .4); g.lineWidth = V; g.beginPath(); g.moveTo(x0, mid); g.lineTo(x1, mid); g.moveTo(x0, mid - amp); g.lineTo(x1, mid - amp); g.moveTo(x0, mid + amp); g.lineTo(x1, mid + amp); g.stroke();
+      g.beginPath(); for (x = x0; x <= x1; x += V) { if (x === x0) g.moveTo(x, at(x)); else g.lineTo(x, at(x)); } g.lineTo(x1, mid); g.lineTo(x0, mid); g.closePath(); g.fillStyle = K.c('physics', .14); g.fill();
+      g.strokeStyle = K.c('physics'); g.lineWidth = 2 * V; g.beginPath(); for (x = x0; x <= x1; x += V) { if (x === x0) g.moveTo(x, at(x)); else g.lineTo(x, at(x)); } g.stroke(); }
+  };
   Viz.blade = function (cv, cy) {
     var K = Viz.kit(cv), g = K.g, W = K.W, H = K.H, V = K.V, top = 3 * V, bot = H - 3 * V, q, view = cy.view || 'sum', pm = view === 'phase' ? cy.atPhase : null,
       lanes = view === 'members' && cy.members.length > 1, nL = lanes ? cy.members.length : 1, hi = pm && cy.lift >= 0 ? cy.lift : -1,
@@ -1292,6 +1311,32 @@
   /* SYNTHETIC DATA for the previews: seeded and deterministic, generated in the preview, never the engine */
   function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
   var Synth = { rng: mulberry };
+  /* GUI-35: one cycle of the sub, N points, as played: its shape, then its chain in its order. A SAMPLE stand-in of SN-2, SN-3, SN-5 and SN-14, close enough to read and not the law, from sub-noise-lab.html.
+     `o`: wave, width, softness, harmA, ampA, phaseA, harmB, ampB, phaseB, octave, drive, crunch, character, tone, order, erode. `n`, optional, bends the read time for Erode. */
+  Synth.subShape = function (o, t) { var T = 2 * Math.PI;
+    switch (o.wave) {
+      case 'triangle': return t < .25 ? 4 * t : t < .75 ? 2 - 4 * t : 4 * t - 4;
+      case 'square': return t < .5 ? 1 : -1;
+      case 'saw': return 2 * t - 1;
+      case 'pulse': return t < o.width ? 1 : -1;
+      case 'bump': return Math.sin(T * t) + o.ampA * Math.sin(T * o.harmA * t + o.phaseA) + o.ampB * Math.sin(T * o.harmB * t + o.phaseB);
+      case 'smooth square': var k = .6 + (1 - o.softness) * 11; return Math.tanh(k * Math.sin(T * t)) / Math.tanh(k);
+      default: return Math.sin(T * t);
+    } };
+  Synth.subCycle = function (o, N, n, out) { out = out || new Float32Array(N); var T = 2 * Math.PI, peak = 1, i, pass, lp = 0;
+    if (o.wave === 'bump') { peak = 0; for (i = 0; i < 128; i++) peak = Math.max(peak, Math.abs(Synth.subShape(o, i / 128))); peak = peak || 1; }
+    var a = 1 - Math.exp(-T * o.tone / (55 * Math.pow(2, o.octave + 1) * N));
+    function drive(y) { var d = o.drive; if (d <= 0) return y; var g = 1 + d * 7;
+      if (o.character === 'Diode') return y >= 0 ? Math.tanh(g * y) : Math.max(-.72, g * y);
+      if (o.character === 'Fold-lite') return Math.sin(Math.max(-2.2, Math.min(2.2, g * y)) * Math.PI / 2 / 1.2) / (1 + d * .05);
+      var off = Math.tanh(d * .15); return (Math.tanh(g * y + d * .15) - off) / (1 - off); }   // Tube: soft and asymmetric, its top at the ceiling
+    function chain(y, j) { y = drive(y); return o.crunch > 0 ? y + o.crunch * .22 * Math.sign(Math.sin(T * 9 * j / N)) * Math.abs(y) : y; }
+    for (pass = 0; pass < 2; pass++) for (i = 0; i < N; i++) {   // two passes, so the low-pass has settled round the cycle
+      var tb = o.erode > 0 && n ? o.erode * .05 * n[i % n.length] : 0, t = ((i / N - tb) % 1 + 1) % 1, y = Synth.subShape(o, t) / peak;
+      if (o.order === 'tone, env → drive') { lp += a * (y - lp); y = chain(lp, i); } else { y = chain(y, i); lp += a * (y - lp); y = lp; }
+      out[i] = Math.max(-1.3, Math.min(1.3, y));
+    }
+    return out; };
   /* a Kuramoto swarm: N members, natural spread, coupling K; phases in cycles */
   Synth.swarm = function (seed, n) {
     var r = mulberry(seed), ph = [], w = [], i;

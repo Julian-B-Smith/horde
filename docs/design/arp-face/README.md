@@ -6,7 +6,7 @@ Everything here is a copy. Nothing is hand-edited; re-vendor instead.
 |---|---|---|
 | `params.snapshot.json` | Arp's `spec/params.json`, copied verbatim (47 settings, `arp-params/1`; key, label, kind, type, range, default, `display`, `value_labels`; D-035) | Arp commit `de4e2af`, 2026-10-27. JSON cannot carry a comment, so the provenance lives here. |
 | `bank.snapshot.json` | Arp's `spec/bank/starter.json`, copied verbatim (`arp-bank/1`). The `pattern` setting's values are "the bank's pattern ids plus `user`" (its `values_from`), so the lab needs the bank to list them. | Arp commit `de4e2af`, 2026-10-27 |
-| `bundle.css`, `bundle.js` | The `hd-...` classes and `window.Horde` | horde Design System artifact, version `1793863122-e50c` (GUI-34: the Specimen's rate, adaptive scale and frames-counted dividers). One header comment line added; the rest is verbatim. |
+| `bundle.css`, `bundle.js` | The `hd-...` classes and `window.Horde` | horde Design System artifact, version `1793865465-57d0` (GUI-35: Viz.subDial and Synth.subCycle). One header comment line added; the rest is verbatim. |
 | `tokens.css` | The CSS custom properties, generated from the artifact's `tokens.json` (the artifact generates its own `tokens.css`, which was not saved) | Same artifact and version. Rules below. |
 
 ## How `tokens.css` was generated (to reproduce on re-vendor)

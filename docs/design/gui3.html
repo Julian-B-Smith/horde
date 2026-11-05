@@ -178,7 +178,9 @@
      cell. Its left column holds the pictures and the lens (P1) and stays put in both views; the right holds one cluster per section.
      Placement only: the clusters, the lens, the table and the faces are the bundle's. */
   .pv-left { flex: 0 0 206px; width: 206px; min-width: 0; display: flex; flex-direction: column; gap: 6px; position: sticky; top: 0; }
-  .pv-left .vz-well { padding: 0; overflow: hidden; }
+  .pv-left .vz-well, .pv-band .vz-well { padding: 0; overflow: hidden; }
+  .pv-band .vz { display: flex; flex-direction: column; position: relative; margin-bottom: 6px; }
+  .pv-band .vz-cap { position: absolute; right: 6px; bottom: 3px; pointer-events: none; }
   /* GUI-30, the SCALPEL lab's Osc page: the left column takes the swarm's pictures, and the waveform is pinned at the top of the
      controls, so the blades scroll under it and a change is always in view (B309) */
   .pv-left.osc { flex-basis: 250px; width: 250px; }
@@ -936,16 +938,22 @@ function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let 
 // A canvas keeps the pixels it was last drawn at, stretched to whatever its box becomes. So its size is part of what makes a drawing stale: an envelope drawn
 // while MAP and morph squeezed it to no width, then widened with no value changing, showed its 2 pixels as stripes (the human's report, 2026-11-01).
 const sizeOf = cv => cv.clientWidth + 'x' + cv.clientHeight;
+const SUB_BAND = 82;   // GUI-35: the Dial's band across the Sub page, all the page has to spare under ADR-345's fit. The lab's was 176, which scrolled
 function vizView(v, pid, big) {
   const wrap = h('div', { class: 'vz' }), cvs = [], K = v.keys, st = {};
   const add = (label, hgt) => { const cv = h('canvas', { class: 'vz-cv', style: 'height:' + hgt + 'px', 'aria-label': label + ' (SAMPLE)', role: 'img' }); wrap.append(h('div', { class: 'hd-viz vz-well' }, cv)); cvs.push(cv); return cv; };
   const ring = v.kind === 'osc' && big ? add('Phase ring: Coupling × Detune, shift for Cross-mod', 112) : null;
   const ringIO = ring ? oscRing(ring, K, pid, wrap) : null;
-  const main = add(v.kind === 'noise' ? 'Spectrum' : v.kind === 'env' ? 'ENV 1' : 'One cycle', big ? (v.kind === 'osc' ? 40 : 160) : 64);
+  const main = add(v.kind === 'noise' ? 'Spectrum' : v.kind === 'env' ? 'ENV 1' : v.kind === 'sub' ? 'The Dial: one cycle of the sub, wrapped round its ceiling' : 'One cycle', big ? (v.kind === 'osc' ? 40 : v.band ? SUB_BAND : 160) : 64);
   wrap.append(h('span', { class: 'hd-hint vz-cap', text: big ? 'SAMPLE, not the engine’s output' : 'SAMPLE: a drawing of the settings, not the engine’s output', title: 'A drawing of the settings the layout names, never the engine’s output' }));
   let last = null, frame = 0; const noiseDue = paced(() => [main]);
   views.push({ page: pid, update() {
     frame++;
+    if (v.kind === 'sub') {   // GUI-35: the Dial, on the Sub page, Main's Sub tab and the Dashboard's card alike. It turns while awake and rests with the other pictures (GUI-33)
+      if (!main.clientWidth || !noiseDue(Object.values(K).map(k => dev.shown(k)).join('|'))) return;
+      const num = k => +labOf(k).replace('\u2212', '-'), o = { wave: labOf(K.wave), width: xOf(K.width), softness: xOf(K.softness), harmA: num(K.harmA), ampA: xOf(K.ampA), phaseA: xOf(K.phaseA), harmB: num(K.harmB), ampB: xOf(K.ampB), phaseB: xOf(K.phaseB), octave: num(K.octave), drive: xOf(K.drive), crunch: xOf(K.crunch), character: labOf(K.character), tone: xOf(K.tone), order: labOf(K.order), erode: xOf(K.erode) };
+      st.t = S.reduce ? 0 : (st.n = (st.n || 0) + 1) * PICTURE_DT; H.Viz.subDial(main, o, st); H.Viz.off(main, !isOnKey(K.on)); return;
+    }
     if (ringIO) ringIO.frame();                 // the swarm moves every frame, so the ring is drawn before the change test below
     const sig = Object.values(K).map(k => dev.shown(k)).join('|') + '|' + colourKey() + '|' + sizeOf(main);
     if (sig === last && v.kind !== 'noise') return;
@@ -1352,9 +1360,10 @@ function placePad() { const slot = page === 'main' ? $('mainPad') : $('dock').qu
 function paramPage(pg, el) {
   const secs = h('div', { class: 'pv-secs' }, pg.groups.map(g => gridSection(pg, g)));
   const pics = pg.viz && pg.viz.kind === 'osc' && pg.viz.keys.unison ? oscPictures(pg.viz, pg.id, true) : null;   // GUI-30: the SCALPEL lab's Osc page
-  const left = h('div', { class: 'pv-left' + (pics ? ' osc' : '') }, pics ? pics.left : pg.viz ? vizView(pg.viz, pg.id, true) : null);   // the Lens left this column for the foot row (GUI-8 r1)
+  const band = pg.viz && pg.viz.band ? vizView(pg.viz, pg.id, true) : null;   // GUI-35: across the page, above the controls, which take the column's width
+  const left = h('div', { class: 'pv-left' + (pics ? ' osc' : '') }, pics ? pics.left : pg.viz && !band ? vizView(pg.viz, pg.id, true) : null);   // the Lens left this column for the foot row (GUI-8 r1)
   const box = h('div', { class: 'hd-cell hd-dense' }), tbl = tableOf(pg);
-  const pv = H.PageView(box, S, { id: pg.id, label: pg.label, left: left.childNodes.length ? left : undefined, grid: pics ? h('div', { class: 'pv-gridw' }, pics.pin, secs) : secs, table: tbl, keys: () => S.keys, onView: v => { if (v === 'table') syncTable(pg, box); } });
+  const pv = H.PageView(box, S, { id: pg.id, label: pg.label, left: left.childNodes.length ? left : undefined, grid: pics ? h('div', { class: 'pv-gridw' }, pics.pin, secs) : band ? h('div', { class: 'pv-gridw pv-band' }, band, secs) : secs, table: tbl, keys: () => S.keys, onView: v => { if (v === 'table') syncTable(pg, box); } });
   // Both views are built now, grid first in the document: a control must be mounted whichever view the page remembers (PV1 builds the
   // other lazily), and the page keeps the view the user left it in.
   const remembered = pv.view(); pv.view('table'); pv.view('grid');
@@ -2118,6 +2127,16 @@ CLOCK.checking = true;
     $('win').style.width = widthWas;
     line(both && $('footrow').parentElement === $('win') && Math.abs(w0 - w1) < 1 && w0 > 900 && row0 && row1 && sumW > 150 && sw1 > 150 && $('lensHost').classList.contains('foot') && !document.querySelector('#pages .hd-lens') && !clash.length && g1 !== g0 && listed0 === 'tube' && /ember/.test(g2) && /EMBER/.test(chipText) && g3 === g0,
       'Foot row and top bar (GUI-6, GUI-8): the row spans the window at ' + Math.round(w0) + ' px with morph and MAP off and on (scope and spectrum ' + Math.round(sumW) + ' px, then ' + Math.round(sw1) + '); one Lens, none on a page; the preset bar and colours clear the tabs, switches and logo on all ' + DATA.pages.length + ' pages' + (clash.length ? ' (HITS ' + clash.slice(0, 4).join(', ') + ')' : '') + '; the top chip and the Settings list change the screen colour and stay in step.'); }
+  // 4c9. GUI-35: the Dial is across the Sub page and on Main's Sub tab and the Dashboard's card. Drive and Erode show on it, and the card's own picture follows a setting.
+  { const pg0 = page, Y = H.Synth, base = { wave: 'sine', width: .5, softness: 0, harmA: 2, ampA: 0, phaseA: 0, harmB: 3, ampB: 0, phaseB: 0, octave: -1, drive: 0, crunch: 0, character: 'Tube', tone: 18000, order: 'tone, env → drive', erode: 0 }, hot = o => { const y = Y.subCycle(o, 256); let n = 0; y.forEach(q => { if (Math.abs(q) > .9) n++; }); return n / 256; };
+    const clean = hot(base), full = hot(Object.assign({}, base, { drive: 1 })), n = new Float32Array(256).map((_, i) => Math.sin(i * 3.1)), sameCycle = (a, b) => a.every((q, i) => q === b[i]), e0 = sameCycle(Y.subCycle(base, 256), Y.subCycle(base, 256, n)), e8 = !sameCycle(Y.subCycle(base, 256), Y.subCycle(Object.assign({}, base, { erode: .8 }), 256, n));
+    const R = e => e.getBoundingClientRect(), tick = () => { for (const v of views) if (v.page === page || v.page === '*') v.update(); }, lbl = 'canvas[aria-label^="The Dial"]';
+    selectPage('sub'); tick(); const pageDial = pageEls.sub.querySelector(lbl), noCol = !pageEls.sub.querySelector('.pv-left ' + lbl), across = pageDial && R(pageDial).width > 400;
+    const hand0 = handAt, keepA = window.GUI3_AWAKE; window.GUI3_AWAKE = false; handAt = -Infinity; CLOCK.now = 3e7; const step = () => { CLOCK.now += 40; tick(); };   // its own clock, so the idle gate is what the control tests
+    selectPage('dashboard'); step(); const cardDial = pageEls.dashboard.querySelector(lbl), dk = PG.sub.viz.keys.drive, dv = dev.shown(dk), snap = () => cardDial.toDataURL(); const a0 = snap(); step(); step(); const still = snap() === a0; dev.begin('self-check'); dev.set(dk, dv > .5 ? dv - .4 : dv + .4, { corner: 0 }); dev.end(); step(); const moved = snap() !== a0; dev.undo(); dev.clearRedo(); step(); CLOCK.now = undefined; handAt = hand0; window.GUI3_AWAKE = keepA;
+    const mainDial = pageEls.main.querySelector(lbl); selectPage(pg0);
+    line(clean < full && e0 && e8 && !!pageDial && noCol && across && !!cardDial && still && moved && !!mainDial, 'The Dial (GUI-35): across the Sub page, on Main\u2019s Sub tab and on the Dashboard\u2019s card; a card picture holds with no change (control) and moves with Drive; a sine spends ' + Math.round(clean * 100) + '% of its cycle near the ceiling clean and ' + Math.round(full * 100) + '% driven; Erode at 0 ignores the noise, and at 0.8 reads it.');
+  }
   // 4d0. GUI-34: the pearl's rate, speed, resolution, idle drift and strikes. Each law has its must-fail control beside it.
   { const pg0 = page, stage = H.MainStage, P = stage.SPECIMEN, tick = () => { for (const v of views) if (v.page === page || v.page === '*') v.update(); }, keepA = window.GUI3_AWAKE, hand0 = handAt, feed0 = window.GUI3_FEED, every0 = P.every, r0 = stage.MON.rSm;
     const run = (frames, dtMs) => { const d0 = P.draws, t0 = P.time; for (let i = 0; i < frames; i++) { CLOCK.now += dtMs; tick(); } return { draws: P.draws - d0, time: P.time - t0 }; };
