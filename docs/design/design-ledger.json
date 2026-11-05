@@ -7221,7 +7221,7 @@
   },
   {
    "adr": "ADR-366",
-   "reason": "A throwaway test plug-in with no custom window, plus test and CPU records: no design element."
+   "reason": "A throwaway test plug-in with a plain native test window, plus test and CPU records: no design element of the instrument."
   }
  ],
  "engine_impact": {

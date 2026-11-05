@@ -1,6 +1,7 @@
 // horde ENGINE PREVIEW (B624): a thin CLAP around the clean-room engine, so the human can play it in Live and we
 // can see what it costs there. Throwaway on purpose: it isn't the B398 shell and owes none of ADR-186 §5's rules.
-// No GUI, no filters, effects, modulation matrix, glide or pitch bend: the engine has none of them yet.
+// A small AppKit window (preview_gui.mm), and no filters, effects, modulation matrix, glide or pitch bend: the engine
+// has none of them yet.
 //
 // Three choices worth keeping in mind before changing this file:
 // - At most 64 host parameters. Live gives a plug-in with up to 64 a panel of sliders automatically; above that the
@@ -29,11 +30,14 @@
 #include "bank.h"
 #include "flush_to_zero.h"
 #include "horde_engine.h"
+#include "preview_gui.h"
 
 namespace {
 
-// Above the engine's id range (IF-11 keeps its ids below 0xB00000), so these two can never name an engine row.
-constexpr clap_id kPresetId = 0xB00001, kVoicesId = 0xB00002;
+// kPresetId and kVoicesId (preview_gui.h) sit above the engine's id range: IF-11 keeps its ids below 0xB00000.
+using preview::kMaxVoicesParam;
+using preview::kPresetId;
+using preview::kVoicesId;
 constexpr int kMaxRows = 62;   // + Preset and Voices = Live's 64
 constexpr int kMaxVoices = 64;
 constexpr int kMaxRouteKeys = 8;
@@ -41,7 +45,7 @@ constexpr int kMaxTargets = 16;
 constexpr int kMaxEvents = 4096;
 constexpr int kEngineMaxBlock = 4096;   // the most prepare accepts (DT-2)
 constexpr int kDefaultVoices = 4;       // starts light: 8 voices of a heavy patch can overrun every block
-constexpr int kMaxVoicesParam = 16;
+constexpr std::uint32_t kEditQueue = 1024;   // a power of two: the window's edits waiting for the audio thread
 constexpr const char* kDefaultPreset = "Trance jitter";   // one of the lighter patches in the 2026-11-05 worst-block run
 constexpr const char* kStateMagic = "horde-engine-preview 1";
 
@@ -135,6 +139,12 @@ struct Plugin {
   std::atomic<Slot*> incoming{nullptr};   // main to audio
   std::atomic<Slot*> retired{nullptr};    // audio to main, deleted there
   std::atomic<bool> rescan_pending{false};
+
+  // One writer (the main thread) and one reader (whichever thread processes or flushes), so no lock on the audio path.
+  struct Edit { clap_id id; double value; };
+  Edit edits[kEditQueue] = {};
+  std::atomic<std::uint32_t> edit_head{0}, edit_tail{0};
+  void* gui = nullptr;
 
   std::vector<horde::Event> events;
   std::int32_t next_note_id = 1 << 24;   // above any id a host's own counter reaches in a session
@@ -282,6 +292,33 @@ void set_param(Plugin& s, clap_id id, double value) {
   if (s.events.size() < kMaxEvents) s.events.push_back(e);
 }
 
+// The window's edits become parameter changes here, and the host hears of them, so its automation and panel keep up.
+void drain_edits(Plugin& s, const clap_output_events_t* out) {
+  std::uint32_t tail = s.edit_tail.load(std::memory_order_relaxed);
+  const std::uint32_t head = s.edit_head.load(std::memory_order_acquire);
+  for (; tail != head; ++tail) {
+    const Plugin::Edit& edit = s.edits[tail % kEditQueue];
+    set_param(s, edit.id, edit.value);
+    if (!out) continue;
+    clap_event_param_gesture_t gesture{};
+    gesture.header = {sizeof gesture, 0, CLAP_CORE_EVENT_SPACE_ID, CLAP_EVENT_PARAM_GESTURE_BEGIN, 0};
+    gesture.param_id = edit.id;
+    out->try_push(out, &gesture.header);
+    clap_event_param_value_t value{};
+    value.header = {sizeof value, 0, CLAP_CORE_EVENT_SPACE_ID, CLAP_EVENT_PARAM_VALUE, 0};
+    value.param_id = edit.id;
+    value.note_id = -1;
+    value.port_index = -1;
+    value.channel = -1;
+    value.key = -1;
+    value.value = edit.value;
+    out->try_push(out, &value.header);
+    gesture.header.type = CLAP_EVENT_PARAM_GESTURE_END;
+    out->try_push(out, &gesture.header);
+  }
+  s.edit_tail.store(tail, std::memory_order_release);
+}
+
 // One CLAP event to engine events, at `sample` in the span being built.
 void translate(Plugin& s, const clap_event_header_t* h, std::uint32_t sample) {
   const std::size_t before = s.events.size();
@@ -383,6 +420,7 @@ void render(Plugin& s, const clap_process_t* proc, float* left, float* right, st
       e.transport.looping = (t.flags & CLAP_TRANSPORT_IS_LOOP_ACTIVE) != 0;
       s.events.push_back(e);
     }
+    if (pos == 0) drain_edits(s, proc->out_events);
     // The span's first sample: its events, then the routes (PA-3's order, as the render harness plays them).
     while (next < n_in) {
       const clap_event_header_t* h = in->get(in, next);
@@ -586,7 +624,10 @@ bool params_value_to_text(const clap_plugin_t*, clap_id id, double value, char* 
     if (t.row[i]->id != id) continue;
     const horde::ParamInfo& row = *t.row[i];
     if (stepped(row)) std::snprintf(out, size, "%d", int(std::lround(value)));
-    else std::snprintf(out, size, "%.3g", horde::value_of(row, value));
+    else {
+      const double x = horde::value_of(row, value);
+      std::snprintf(out, size, "%.3g", std::fabs(x) < 1e-9 ? 0.0 : x);   // a law's rounding shouldn't read as -2e-15
+    }
     return true;
   }
   return false;
@@ -603,13 +644,15 @@ bool params_text_to_value(const clap_plugin_t*, clap_id id, const char* text, do
   return false;   // a continuous row's text is in its units, and no inverse law is exposed; the slider still works
 }
 
-void params_flush(const clap_plugin_t* p, const clap_input_events_t* in, const clap_output_events_t*) {
+void params_flush(const clap_plugin_t* p, const clap_input_events_t* in, const clap_output_events_t* out) {
   Plugin& s = *self(p);
   s.events.clear();
+  const bool edits_waiting = s.edit_tail.load(std::memory_order_relaxed) != s.edit_head.load(std::memory_order_acquire);
+  drain_edits(s, out);
   const std::uint32_t n = in ? in->size(in) : 0;
   for (std::uint32_t i = 0; i < n; ++i) translate(s, in->get(in, i), 0);
   if (s.live) s.live->engine->flush(s.events.data(), s.events.size());
-  else s.apply_shadow = n > 0 || s.apply_shadow;   // inactive: the next build must keep these values
+  else s.apply_shadow = n > 0 || edits_waiting || s.apply_shadow;   // inactive: the next build must keep these values
   if (s.wanted_preset.load(std::memory_order_relaxed) != s.built_preset) s.host->request_callback(s.host);
 }
 
@@ -703,6 +746,7 @@ const void* plugin_get_extension(const clap_plugin_t*, const char* id) {
   if (!std::strcmp(id, CLAP_EXT_AUDIO_PORTS)) return &kAudioPorts;
   if (!std::strcmp(id, CLAP_EXT_NOTE_PORTS)) return &kNotePorts;
   if (!std::strcmp(id, CLAP_EXT_STATE)) return &kState;
+  if (!std::strcmp(id, CLAP_EXT_GUI)) return preview::gui_extension();
   return nullptr;
 }
 
@@ -735,6 +779,40 @@ const clap_plugin_t* factory_create(const clap_plugin_factory_t*, const clap_hos
 const clap_plugin_factory_t kFactory = {factory_count, factory_descriptor, factory_create};
 
 }  // namespace
+
+namespace preview {
+int bank_size() { return kBankSize; }
+const char* preset_name(int index) { return kBank[index].name; }
+int row_count() { return rows().count; }
+clap_id row_id(int row) { return rows().row[row]->id; }
+const char* row_key(int row) { return rows().row[row]->key; }
+int row_steps(int row) { return stepped(*rows().row[row]) ? int(rows().row[row]->steps) : 0; }
+int preset(void* plugin) { return static_cast<Plugin*>(plugin)->wanted_preset.load(std::memory_order_relaxed); }
+int voices(void* plugin) { return static_cast<Plugin*>(plugin)->voices.load(std::memory_order_relaxed); }
+double row_host_value(void* plugin, int row) {
+  return v_to_host(*rows().row[row], static_cast<Plugin*>(plugin)->shadow[row].load(std::memory_order_relaxed));
+}
+void row_text(int row, double host_value, char* out, std::size_t size) {
+  params_value_to_text(nullptr, rows().row[row]->id, host_value, out, std::uint32_t(size));
+}
+void stats(void* plugin, int preset_index, double* mean_pct, double* worst_pct, unsigned long long* overruns) {
+  const Stats& st = static_cast<Plugin*>(plugin)->stats[preset_index];
+  const double audio = st.audio_seconds.load(std::memory_order_relaxed);
+  *mean_pct = audio > 0 ? 100 * st.seconds.load(std::memory_order_relaxed) / audio : 0;
+  *worst_pct = 100 * st.worst.load(std::memory_order_relaxed);
+  *overruns = st.overruns.load(std::memory_order_relaxed);
+}
+void edit(void* plugin, clap_id id, double host_value) {
+  Plugin& s = *static_cast<Plugin*>(plugin);
+  const std::uint32_t head = s.edit_head.load(std::memory_order_relaxed);
+  if (head - s.edit_tail.load(std::memory_order_acquire) >= kEditQueue) return;   // full: a slider's next move will do
+  s.edits[head % kEditQueue] = {id, host_value};
+  s.edit_head.store(head + 1, std::memory_order_release);
+  // Live stops calling process on a silent track in some setups, and a flush still delivers the edit.
+  if (s.host_params && s.host_params->request_flush) s.host_params->request_flush(s.host);
+}
+void*& gui_slot(void* plugin) { return static_cast<Plugin*>(plugin)->gui; }
+}  // namespace preview
 
 extern "C" {
 bool preview_entry_init(const char*) { return true; }

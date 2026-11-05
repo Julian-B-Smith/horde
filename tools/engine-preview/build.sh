@@ -29,7 +29,7 @@ if [ -n "${HORDE_SDK_CACHE:-}" ]; then
 fi
 cmake "${args[@]}"
 # At most 4 threads, niced: the clean-room sessions share this machine (see the CPU throttle rule).
-nice -n 10 cmake --build "$build_dir" -j4 --target horde-engine-preview_all preview-plant preview-smoke
+nice -n 10 cmake --build "$build_dir" -j4 --target horde-engine-preview_all preview-plant preview-smoke preview-gui-shot
 
 # Every configure rewrites the AU bundle's Info.plist from CMake's template, and only a relink copies the wrapper's real
 # one back. So a second run with nothing to relink leaves an AU with no identity, and auval "didn't find the component".
@@ -42,6 +42,7 @@ clap="$(find "$build_dir" -name 'horde-engine-preview.clap' -maxdepth 3 | head -
 plant="$(find "$build_dir" -name 'preview-plant.clap' -maxdepth 3 | head -1)"
 smoke="$(find "$build_dir" -name 'preview-smoke' -type f -maxdepth 3 | head -1)"
 "$smoke" "$clap" "$plant"
+"$(dirname "$smoke")/preview-gui-shot" "$clap" "$out/window.png"
 
 if [ "$install" = "--install" ]; then
   vst3="$(find "$build_dir" -name 'horde-engine-preview.vst3' -maxdepth 3 | head -1)"

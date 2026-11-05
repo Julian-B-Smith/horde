@@ -53,10 +53,10 @@ add_custom_command(OUTPUT ${BANK_INC}
   COMMENT "Levelling the bank")
 add_custom_target(bank_embedded DEPENDS ${BANK_INC})
 
-add_library(preview-impl STATIC preview_plugin.cpp)
+add_library(preview-impl STATIC preview_plugin.cpp preview_gui.mm)
 add_dependencies(preview-impl bank_embedded)
 target_include_directories(preview-impl PUBLIC ${CMAKE_BINARY_DIR}/generated ${CMAKE_CURRENT_SOURCE_DIR} ${HORDE_REPO_ROOT}/h2)
-target_link_libraries(preview-impl PUBLIC clap clap-wrapper-extensions horde_engine2)
+target_link_libraries(preview-impl PUBLIC clap clap-wrapper-extensions horde_engine2 "-framework AppKit")
 
 make_clapfirst_plugins(
   TARGET_NAME horde-engine-preview
@@ -80,14 +80,18 @@ foreach(fmt clap vst3 auv2)
 endforeach()
 
 # The smoke test's must-fail build: the same shell with its routes removed. A bare CLAP, never installed.
-add_library(preview-plant MODULE preview_plugin.cpp preview_entry.cpp)
+add_library(preview-plant MODULE preview_plugin.cpp preview_gui.mm preview_entry.cpp)
 add_dependencies(preview-plant bank_embedded)
 target_compile_definitions(preview-plant PRIVATE HORDE_PREVIEW_PLANT_NO_ROUTES)
 target_include_directories(preview-plant PRIVATE ${CMAKE_BINARY_DIR}/generated ${CMAKE_CURRENT_SOURCE_DIR} ${HORDE_REPO_ROOT}/h2)
-target_link_libraries(preview-plant PRIVATE clap horde_engine2)
+target_link_libraries(preview-plant PRIVATE clap horde_engine2 "-framework AppKit")
 set_target_properties(preview-plant PROPERTIES PREFIX "" SUFFIX ".clap")
 
 add_executable(preview-smoke smoke.cpp)
 add_dependencies(preview-smoke bank_embedded)
 target_include_directories(preview-smoke PRIVATE ${CMAKE_BINARY_DIR}/generated ${CMAKE_CURRENT_SOURCE_DIR} ${HORDE_REPO_ROOT}/h2)
 target_link_libraries(preview-smoke PRIVATE clap horde_engine2_bank)
+
+# Opens the real window and moves its real controls: nothing else can read a window before the human opens it.
+add_executable(preview-gui-shot gui_shot.mm)
+target_link_libraries(preview-gui-shot PRIVATE clap "-framework AppKit")
