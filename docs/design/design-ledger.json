@@ -7469,6 +7469,10 @@
   {
    "adr": "ADR-366",
    "reason": "A throwaway test plug-in with a plain native test window, plus test and CPU records: no design element of the instrument."
+  },
+  {
+   "adr": "ADR-367",
+   "reason": "A test's chaotic list and readings of the oscillator's laws: no design element."
   }
  ],
  "engine_impact": {

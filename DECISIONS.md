@@ -12017,3 +12017,19 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 **Q-TA-78, the lead's reading on 2026-11-05, no spec change.** C.16 allows both forms of the blocker's filter: running from the fresh start, or idle at state 0 with input history 0 until it engages. This reading happens to favour the form the builder already has, so the lead checked it engine-free before giving it. The test author's own claim that the idle form dips was wrong, and it corrected that. Item 4.8 now judges the release fully and, at engage, only what holds in both forms. **Its stated blind spot:** a running filter's crossfade up to 45 ms long or 6 ms late, an idle filter's up to 10 ms long or 5 ms late, or an idle filter switched hard, all read clean if the release is right. An oracle item pins this.
 
 **FX device (ADR-254):** none. The plug-in is throwaway, under its own identity, and it changes no rack, source, preset id or screen.
+
+## ADR-367 — RULED by the human: state 09 goes back on item 15a's chaotic list (amends ADR-364); two readings of C.14 and C.16
+
+**Context.** ADR-364 took state 09 off 15a's chaotic list on the test author's figure that it departed at most −178 dB. The builder found that 15a's classifier simulates JP-8000 placement while B.1 gives state 09 even placement. The lead checked both facts in the test's own files, without engine figures, and asked the test author to re-derive the list engine-free (Q-TA-79). At even placement state 09 is chaotic: −1.6 dB and −0.6 dB at the two rates, −4.7 and −5.2 dB with its blade at High. The other 12 version-0 states read −200 dB or lower. So ADR-364 ruled on a figure read at the wrong placement, and the test author says so itself.
+
+**Ruling (the human, 2026-11-05, by poll): "Put it back".** State 09 is on 15a's list again, reported and not judged, for ADR-281's reason: no correct pair of builds can match on it. The cost: this one state no longer guards the browser build against a real fault, and the other test states still do. Carried out in the test author's 1bb23ed. The classifier now renders each entry at its own placement, with the ulp past C.1's narrowing, and a new check holds every unlisted state the render covers to reading stable. Delivered to the builder in d556679, where 15a passes.
+
+**The lead's readings, no spec change, open to overrule.**
+- **C.16 with blade 2 on blade 1's FM settings.** "In pitch FM" reads the settings a blade actually uses. A blade 2 whose `fmSource` is blade 1's follows blade 1's `fmType` (BL-9), and its own `fmType` row is inert meanwhile (PA-8). Recorded in both clean-room repos; item 4.9 now judges it.
+- **C.14's tap under SW-13's fade.** "Put back" means what was actually subtracted, so the tap is d·(y⁰ + l·e), and a member faded to silent feeds nothing into the loop. This matches what the builder had built (B-68), which is the comfortable answer, so the lead checked it against SW-13's text first. Item 10.b13 judges it. The next spec round aligns C.14's printed formula, and says that y⁰ carries l.
+- **C.7's onset fade stays as written.** C.7 puts that fade on the voice's envelope, so a member fading in still feeds the loop. No rule was added. **The lead has not yet checked** whether a member still waiting, which the builder's report says taps 0, matches that reading; that check is still owed.
+
+**Also recorded.** Item 10.b13's first copy never turned its blades on, because of a key-name slip in the test. The builder caught it, and the test author fixed it in b8bfe05. Its harness now turns an item red when it asks for a key the manifest doesn't hold. The lead's first delivery of that harness carried two lines of the morph's API and broke the suite's build, so 4223c2c delivered it without them.
+
+**FX device (ADR-254):** none. These are a test's list and readings of the oscillator's own laws.
+
