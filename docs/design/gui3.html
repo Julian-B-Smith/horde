@@ -891,7 +891,7 @@ NAV.forEach(g => g.pages.forEach(pid => { groupOf[pid] = g.id; }));
 const PG = Object.create(null); DATA.pages.forEach(pg => { PG[pg.id] = pg; });
 const isOnKey = key => optLabel(ROW[key], dev.shown(key)) === 'on';
 const onIdx = (row, on) => row.options.indexOf(on ? 'on' : 'off');
-// GUI-21: a check of an off source's section finds nothing drawn, so it runs with that source on, in a bracket the undo takes back.
+// The checks that use this measure a sounding source, so they turn it on, in a bracket the undo takes back.
 const withSourceOn = (pgId, fn) => { const r = ROW[PG[pgId].power]; dev.begin('self-check'); dev.set(r.key, onIdx(r, true) / (r.n - 1), { label: 'self-check' }); try { fn(); } finally { if (dev.end()) dev.undo(); dev.clearRedo(); } };
 
 /* The pictures (B589: "visuals take the area"). Each is a SAMPLE drawing of the settings the layout names (`viz.keys`),
@@ -1455,7 +1455,7 @@ DATA.pages.forEach(pg => {
     h('span', { class: 'hd-note', text: note, title: compact ? note : null })));
   if (pg.panel === 'dashboard') dashboardPage(pg, el);
   else if (pg.panel === 'console') { consolePage(pg, el);
-    // GUI-21: a strip's own controls obey the same table as any other: an off source's strip is its name and its switch. The console mounts them itself, so the shell's control builder never sees them.
+    // GUI-21: a strip's own controls obey the same table as any other. The console mounts them itself, so the shell's control builder never sees them.
     const conds = Object.fromEntries(pg.groups.flatMap(g => g.controls).map(c => [c.key, c.live]));
     views.push({ page: pg.id, update() { el.querySelectorAll('[data-key]').forEach(e => { if (e.dataset.key in conds) e.classList.toggle('idle', !live(conds[e.dataset.key])); }); } }); }
   else if (pg.panel === 'ledger') ledgerPage(pg, el);
@@ -1914,6 +1914,12 @@ S.start();
     while (dev.history().past.length > n2 - 1) dev.undo(); syncModes(); const back = spread() === sp0 && !host.dataset.morph && !host.querySelector('.hd-mmark') && !S.params[k].locked;
     while (dev.history().past.length > keep) dev.undo(); dev.clearRedo(); setMorphOn(false); while (dev.history().past.length > keep) dev.undo(); dev.clearRedo(); syncModes(); selectPage(pg0);
     line(!lawKept && sp0 > 1 && differs && countFollow && flips && qMark && noStep && !countQ && refused && one && lockHolds && allMove && back, 'Morph mode (GUI-28): ' + r.label + ' blends under Follow (control), reads its owner under Quantum with a Q mark, and under Exempt holds what was heard in all four corners, as one value, with an EX mark; re-picking makes no step, a locked corner refuses Exempt and its later writes whole, Count is drawn only while the key blends, and undo takes it all back.'); }
+  // 4b6. GUI-29: a source that's off still draws its controls, on its own page. Control: a mode's own rule still hides, so a page has idle controls too.
+  { const pg0 = page, tick = () => { for (const v of views) if (v.page === page || v.page === '*') v.update(); }, ids = ['osc2', 'sub', 'noise'], allOff = ids.every(id => !isOnKey(PG[id].power));
+    const faces = id => [...pageEls[id].querySelectorAll('[data-key]')], drawn = ids.map(id => { selectPage(id); tick(); return faces(id).filter(e => e.offsetWidth).length; }), hides = (selectPage('osc2'), tick(), faces('osc2').some(e => e.classList.contains('idle')));
+    const inDeck = ['osc1', 'osc2'].every(o => PG.main.deck.tabs.find(t => t.id === o).rows[0].some(k => ROW[k].label === 'Detune'));
+    selectPage(pg0);
+    line(allOff && drawn.every(n => n > 3) && hides && inDeck, 'Off sources (GUI-29): with Osc 2, Sub and Noise off, they draw ' + drawn.join(', ') + ' controls, and Main\u2019s Osc tabs list Detune. A control that only works under another setting still hides (control).'); }
   // 4b5. GUI-28, ADR-319, ADR-320 r4: names asked for in the page, all four saved together, and a saved preset deleted. Controls: a blank name saves nothing, and a locked corner refuses all four.
   { const pg0 = page, keep = dev.history().past.length; selectPage('morph'); const inp = $('morphName').querySelector('input'), keyOn = key => inp.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true })), type = v => { inp.value = v; inp.dispatchEvent(new Event('input', { bubbles: true })); };
     saveTo(0, 'preset'); const shown = !$('morphName').hidden; type('   '); keyOn('Enter'); const blank = dev.names()[0] === null && nameField.isOpen(); keyOn('Escape'); const esc = !nameField.isOpen() && dev.names()[0] === null;

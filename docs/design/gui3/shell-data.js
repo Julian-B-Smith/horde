@@ -965,6 +965,7 @@ window.GUI3_DATA = {
       "rows": [
        [
         "osc1.unison",
+        "osc1.detune",
         "osc1.baseWave",
         "osc1.blade1.on",
         "osc1.blade1.mode"
@@ -996,6 +997,7 @@ window.GUI3_DATA = {
       "rows": [
        [
         "osc2.unison",
+        "osc2.detune",
         "osc2.baseWave",
         "osc2.blade1.on",
         "osc2.blade1.mode"
@@ -1452,19 +1454,9 @@ window.GUI3_DATA = {
           "key": "osc1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.on"
-           },
-           {
-            "key": "osc1.unison",
-            "not": [
-             "1"
-            ]
-           }
+          "key": "osc1.unison",
+          "not": [
+           "1"
           ]
          }
         ]
@@ -1490,19 +1482,9 @@ window.GUI3_DATA = {
           "key": "osc1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.on"
-           },
-           {
-            "key": "osc1.unison",
-            "not": [
-             "1"
-            ]
-           }
+          "key": "osc1.unison",
+          "not": [
+           "1"
           ]
          }
         ]
@@ -1935,19 +1917,9 @@ window.GUI3_DATA = {
           "key": "osc2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.on"
-           },
-           {
-            "key": "osc2.unison",
-            "not": [
-             "1"
-            ]
-           }
+          "key": "osc2.unison",
+          "not": [
+           "1"
           ]
          }
         ]
@@ -1973,19 +1945,9 @@ window.GUI3_DATA = {
           "key": "osc2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.on"
-           },
-           {
-            "key": "osc2.unison",
-            "not": [
-             "1"
-            ]
-           }
+          "key": "osc2.unison",
+          "not": [
+           "1"
           ]
          }
         ]
@@ -2418,20 +2380,10 @@ window.GUI3_DATA = {
           "key": "sub.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "sub.on"
-           },
-           {
-            "is": [
-             "pulse"
-            ],
-            "key": "sub.wave"
-           }
-          ]
+          "is": [
+           "pulse"
+          ],
+          "key": "sub.wave"
          }
         ]
        },
@@ -2854,38 +2806,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "noise.colour",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "noise.on"
-         },
-         {
-          "any": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "noise.on"
-           },
-           {
-            "all": [
-             {
-              "is": [
-               "on"
-              ],
-              "key": "sub.on"
-             },
-             {
-              "gt": 0,
-              "key": "sub.erode"
-             }
-            ]
-           }
-          ]
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "noise.on"
        },
        "override": null,
        "role": null,
@@ -3290,12 +3214,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc1.unison",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -3309,19 +3228,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.detune",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "key": "osc1.unison",
-          "not": [
-           "1"
-          ]
-         }
+        "key": "osc1.unison",
+        "not": [
+         "1"
         ]
        },
        "override": null,
@@ -3337,19 +3246,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.coupling",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "key": "osc1.unison",
-          "not": [
-           "1"
-          ]
-         }
+        "key": "osc1.unison",
+        "not": [
+         "1"
         ]
        },
        "override": null,
@@ -3364,12 +3263,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc1.baseWave",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": [
@@ -3388,12 +3282,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc1.octave",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -3406,12 +3295,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc1.semitone",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -3424,12 +3308,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc1.pitch",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -3442,12 +3321,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc1.fine",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -3460,12 +3334,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc1.pan",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -3479,26 +3348,16 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.width",
        "live": {
-        "all": [
+        "any": [
          {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
+          "key": "osc1.unison",
+          "not": [
+           "1"
+          ]
          },
          {
-          "any": [
-           {
-            "key": "osc1.unison",
-            "not": [
-             "1"
-            ]
-           },
-           {
-            "gt": 0,
-            "key": "osc1.panMotion"
-           }
-          ]
+          "gt": 0,
+          "key": "osc1.panMotion"
          }
         ]
        },
@@ -3532,12 +3391,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc1.mute",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -3550,12 +3404,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc1.solo",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -3571,25 +3420,15 @@ window.GUI3_DATA = {
        "live": {
         "all": [
          {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
+          "key": "osc1.unison",
+          "not": [
+           "1"
+          ]
          },
          {
-          "all": [
-           {
-            "key": "osc1.unison",
-            "not": [
-             "1"
-            ]
-           },
-           {
-            "key": "osc1.detuneLaw",
-            "not": [
-             "harmonic"
-            ]
-           }
+          "key": "osc1.detuneLaw",
+          "not": [
+           "harmonic"
           ]
          }
         ]
@@ -3612,12 +3451,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc1.seed",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -3630,12 +3464,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc1.detuneLaw",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": [
@@ -3654,19 +3483,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.detuneRange",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "key": "osc1.unison",
-          "not": [
-           "1"
-          ]
-         }
+        "key": "osc1.unison",
+        "not": [
+         "1"
         ]
        },
        "override": null,
@@ -3688,26 +3507,16 @@ window.GUI3_DATA = {
        "live": {
         "all": [
          {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
+          "key": "osc1.unison",
+          "not": [
+           "1"
+          ]
          },
          {
-          "all": [
-           {
-            "key": "osc1.unison",
-            "not": [
-             "1"
-            ]
-           },
-           {
-            "is": [
-             "harmonic"
-            ],
-            "key": "osc1.detuneLaw"
-           }
-          ]
+          "is": [
+           "harmonic"
+          ],
+          "key": "osc1.detuneLaw"
          }
         ]
        },
@@ -3726,25 +3535,15 @@ window.GUI3_DATA = {
        "live": {
         "all": [
          {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
+          "key": "osc1.unison",
+          "not": [
+           "1"
+          ]
          },
          {
-          "all": [
-           {
-            "key": "osc1.unison",
-            "not": [
-             "1"
-            ]
-           },
-           {
-            "key": "osc1.detuneLaw",
-            "not": [
-             "harmonic"
-            ]
-           }
+          "key": "osc1.detuneLaw",
+          "not": [
+           "harmonic"
           ]
          }
         ]
@@ -3764,30 +3563,20 @@ window.GUI3_DATA = {
        "live": {
         "all": [
          {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
+          "key": "osc1.unison",
+          "not": [
+           "1"
+          ]
          },
          {
-          "all": [
+          "any": [
            {
-            "key": "osc1.unison",
-            "not": [
-             "1"
-            ]
+            "gt": 0,
+            "key": "osc1.coupling"
            },
            {
-            "any": [
-             {
-              "gt": 0,
-              "key": "osc1.coupling"
-             },
-             {
-              "gt": 0,
-              "key": "osc1.onsetLock"
-             }
-            ]
+            "gt": 0,
+            "key": "osc1.onsetLock"
            }
           ]
          }
@@ -3806,19 +3595,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.pivot",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "key": "osc1.unison",
-          "not": [
-           "1"
-          ]
-         }
+        "key": "osc1.unison",
+        "not": [
+         "1"
         ]
        },
        "override": null,
@@ -3837,19 +3616,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.onsetLock",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "key": "osc1.unison",
-          "not": [
-           "1"
-          ]
-         }
+        "key": "osc1.unison",
+        "not": [
+         "1"
         ]
        },
        "override": null,
@@ -3867,24 +3636,14 @@ window.GUI3_DATA = {
        "live": {
         "all": [
          {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
+          "key": "osc1.unison",
+          "not": [
+           "1"
+          ]
          },
          {
-          "all": [
-           {
-            "key": "osc1.unison",
-            "not": [
-             "1"
-            ]
-           },
-           {
-            "key": "osc1.onsetLock",
-            "ne": 0
-           }
-          ]
+          "key": "osc1.onsetLock",
+          "ne": 0
          }
         ]
        },
@@ -3900,12 +3659,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc1.driftDepth",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -3919,12 +3673,28 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.driftRate",
        "live": {
-        "all": [
+        "gt": 0,
+        "key": "osc1.driftDepth"
+       },
+       "override": null,
+       "role": null,
+       "short": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "abbr": "INR",
+       "advanced": true,
+       "follow": null,
+       "key": "osc1.inertia",
+       "live": {
+        "any": [
          {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
+          "key": "osc1.unison",
+          "not": [
+           "1"
+          ]
          },
          {
           "gt": 0,
@@ -3940,52 +3710,11 @@ window.GUI3_DATA = {
        "widget": "knob"
       },
       {
-       "abbr": "INR",
-       "advanced": true,
-       "follow": null,
-       "key": "osc1.inertia",
-       "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "any": [
-           {
-            "key": "osc1.unison",
-            "not": [
-             "1"
-            ]
-           },
-           {
-            "gt": 0,
-            "key": "osc1.driftDepth"
-           }
-          ]
-         }
-        ]
-       },
-       "override": null,
-       "role": null,
-       "short": null,
-       "size": null,
-       "sub": null,
-       "widget": "knob"
-      },
-      {
        "abbr": "PHS",
        "advanced": true,
        "follow": null,
        "key": "osc1.phase",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -3998,12 +3727,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc1.phaseRandom",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -4016,12 +3740,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc1.retrigger",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -4034,12 +3753,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc1.onsetScatter",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -4055,24 +3769,14 @@ window.GUI3_DATA = {
        "live": {
         "all": [
          {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
+          "key": "osc1.unison",
+          "not": [
+           "1"
+          ]
          },
          {
-          "all": [
-           {
-            "key": "osc1.unison",
-            "not": [
-             "1"
-            ]
-           },
-           {
-            "gt": 0,
-            "key": "osc1.onsetScatter"
-           }
-          ]
+          "gt": 0,
+          "key": "osc1.onsetScatter"
          }
         ]
        },
@@ -4089,19 +3793,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.panImage",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "key": "osc1.unison",
-          "not": [
-           "1"
-          ]
-         }
+        "key": "osc1.unison",
+        "not": [
+         "1"
         ]
        },
        "override": null,
@@ -4121,19 +3815,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.panInvert",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "key": "osc1.unison",
-          "not": [
-           "1"
-          ]
-         }
+        "key": "osc1.unison",
+        "not": [
+         "1"
         ]
        },
        "override": null,
@@ -4149,18 +3833,8 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.panMotion",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "gt": 0,
-          "key": "osc1.width"
-         }
-        ]
+        "gt": 0,
+        "key": "osc1.width"
        },
        "override": null,
        "role": null,
@@ -4174,12 +3848,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc1.bandLimit",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -4193,19 +3862,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.motionGrain",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "key": "osc1.unison",
-          "not": [
-           "1"
-          ]
-         }
+        "key": "osc1.unison",
+        "not": [
+         "1"
         ]
        },
        "override": null,
@@ -4221,52 +3880,42 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.crossMod",
        "live": {
-        "all": [
+        "any": [
          {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "any": [
+          "all": [
            {
-            "all": [
-             {
-              "is": [
-               "on"
-              ],
-              "key": "osc1.blade1.on"
-             },
-             {
-              "is": [
-               "Sync",
-               "FM reset",
-               "FM free",
-               "Ring"
-              ],
-              "key": "osc1.blade1.mode"
-             }
-            ]
+            "is": [
+             "on"
+            ],
+            "key": "osc1.blade1.on"
            },
            {
-            "all": [
-             {
-              "is": [
-               "on"
-              ],
-              "key": "osc1.blade2.on"
-             },
-             {
-              "is": [
-               "Sync",
-               "FM reset",
-               "FM free",
-               "Ring"
-              ],
-              "key": "osc1.blade2.mode"
-             }
-            ]
+            "is": [
+             "Sync",
+             "FM reset",
+             "FM free",
+             "Ring"
+            ],
+            "key": "osc1.blade1.mode"
+           }
+          ]
+         },
+         {
+          "all": [
+           {
+            "is": [
+             "on"
+            ],
+            "key": "osc1.blade2.on"
+           },
+           {
+            "is": [
+             "Sync",
+             "FM reset",
+             "FM free",
+             "Ring"
+            ],
+            "key": "osc1.blade2.mode"
            }
           ]
          }
@@ -4285,52 +3934,42 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.feedback",
        "live": {
-        "all": [
+        "any": [
          {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "any": [
+          "all": [
            {
-            "all": [
-             {
-              "is": [
-               "on"
-              ],
-              "key": "osc1.blade1.on"
-             },
-             {
-              "is": [
-               "Sync",
-               "FM reset",
-               "FM free",
-               "Ring"
-              ],
-              "key": "osc1.blade1.mode"
-             }
-            ]
+            "is": [
+             "on"
+            ],
+            "key": "osc1.blade1.on"
            },
            {
-            "all": [
-             {
-              "is": [
-               "on"
-              ],
-              "key": "osc1.blade2.on"
-             },
-             {
-              "is": [
-               "Sync",
-               "FM reset",
-               "FM free",
-               "Ring"
-              ],
-              "key": "osc1.blade2.mode"
-             }
-            ]
+            "is": [
+             "Sync",
+             "FM reset",
+             "FM free",
+             "Ring"
+            ],
+            "key": "osc1.blade1.mode"
+           }
+          ]
+         },
+         {
+          "all": [
+           {
+            "is": [
+             "on"
+            ],
+            "key": "osc1.blade2.on"
+           },
+           {
+            "is": [
+             "Sync",
+             "FM reset",
+             "FM free",
+             "Ring"
+            ],
+            "key": "osc1.blade2.mode"
            }
           ]
          }
@@ -4349,52 +3988,42 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.loopDrive",
        "live": {
-        "all": [
+        "any": [
          {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "any": [
+          "all": [
            {
-            "all": [
-             {
-              "is": [
-               "on"
-              ],
-              "key": "osc1.blade1.on"
-             },
-             {
-              "is": [
-               "Sync",
-               "FM reset",
-               "FM free",
-               "Ring"
-              ],
-              "key": "osc1.blade1.mode"
-             }
-            ]
+            "is": [
+             "on"
+            ],
+            "key": "osc1.blade1.on"
            },
            {
-            "all": [
-             {
-              "is": [
-               "on"
-              ],
-              "key": "osc1.blade2.on"
-             },
-             {
-              "is": [
-               "Sync",
-               "FM reset",
-               "FM free",
-               "Ring"
-              ],
-              "key": "osc1.blade2.mode"
-             }
-            ]
+            "is": [
+             "Sync",
+             "FM reset",
+             "FM free",
+             "Ring"
+            ],
+            "key": "osc1.blade1.mode"
+           }
+          ]
+         },
+         {
+          "all": [
+           {
+            "is": [
+             "on"
+            ],
+            "key": "osc1.blade2.on"
+           },
+           {
+            "is": [
+             "Sync",
+             "FM reset",
+             "FM free",
+             "Ring"
+            ],
+            "key": "osc1.blade2.mode"
            }
           ]
          }
@@ -4413,19 +4042,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.spreadLaw",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "key": "osc1.unison",
-          "not": [
-           "1"
-          ]
-         }
+        "key": "osc1.unison",
+        "not": [
+         "1"
         ]
        },
        "override": null,
@@ -4449,26 +4068,16 @@ window.GUI3_DATA = {
        "live": {
         "all": [
          {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
+          "key": "osc1.unison",
+          "not": [
+           "1"
+          ]
          },
          {
-          "all": [
-           {
-            "key": "osc1.unison",
-            "not": [
-             "1"
-            ]
-           },
-           {
-            "is": [
-             "drift"
-            ],
-            "key": "osc1.spreadLaw"
-           }
-          ]
+          "is": [
+           "drift"
+          ],
+          "key": "osc1.spreadLaw"
          }
         ]
        },
@@ -4485,19 +4094,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.quantize",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "key": "osc1.unison",
-          "not": [
-           "1"
-          ]
-         }
+        "key": "osc1.unison",
+        "not": [
+         "1"
         ]
        },
        "override": null,
@@ -4521,23 +4120,13 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade1.on"
-           },
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade2.on"
-           }
-          ]
+          "is": [
+           "on"
+          ],
+          "key": "osc1.blade2.on"
          }
         ]
        },
@@ -4562,23 +4151,13 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade1.on"
-           },
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade2.on"
-           }
-          ]
+          "is": [
+           "on"
+          ],
+          "key": "osc1.blade2.on"
          }
         ]
        },
@@ -4600,23 +4179,13 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade1.on"
-           },
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade2.on"
-           }
-          ]
+          "is": [
+           "on"
+          ],
+          "key": "osc1.blade2.on"
          }
         ]
        },
@@ -4638,23 +4207,13 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade1.on"
-           },
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade2.on"
-           }
-          ]
+          "is": [
+           "on"
+          ],
+          "key": "osc1.blade2.on"
          }
         ]
        },
@@ -4688,20 +4247,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.env",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc1.on"
        },
        "override": null,
        "role": "modes",
@@ -5077,12 +4626,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc1.blade1.on",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": "power",
        "short": null,
@@ -5096,20 +4640,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade1.mode",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade1.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc1.blade1.on"
        },
        "override": null,
        "role": "modes",
@@ -5137,26 +4671,16 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade1.on"
-           },
-           {
-            "is": [
-             "Sync",
-             "FM reset",
-             "FM free",
-             "Ring"
-            ],
-            "key": "osc1.blade1.mode"
-           }
-          ]
+          "is": [
+           "Sync",
+           "FM reset",
+           "FM free",
+           "Ring"
+          ],
+          "key": "osc1.blade1.mode"
          }
         ]
        },
@@ -5173,20 +4697,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade1.width",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade1.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc1.blade1.on"
        },
        "override": null,
        "role": null,
@@ -5206,24 +4720,14 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade1.on"
-           },
-           {
-            "is": [
-             "× pitch per cycle",
-             "× pitch per blade"
-            ],
-            "key": "osc1.blade1.cutIn"
-           }
-          ]
+          "is": [
+           "× pitch per cycle",
+           "× pitch per blade"
+          ],
+          "key": "osc1.blade1.cutIn"
          }
         ]
        },
@@ -5240,20 +4744,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade1.position",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade1.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc1.blade1.on"
        },
        "override": null,
        "role": null,
@@ -5268,20 +4762,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade1.depth",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade1.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc1.blade1.on"
        },
        "override": null,
        "role": null,
@@ -5301,21 +4785,11 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade1.on"
-           },
-           {
-            "gt": 0.004,
-            "key": "osc1.blade1.width"
-           }
-          ]
+          "gt": 0.004,
+          "key": "osc1.blade1.width"
          }
         ]
        },
@@ -5332,20 +4806,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade1.mirror",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade1.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc1.blade1.on"
        },
        "override": null,
        "role": null,
@@ -5370,24 +4834,14 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade1.on"
-           },
-           {
-            "is": [
-             "FM reset",
-             "FM free"
-            ],
-            "key": "osc1.blade1.mode"
-           }
-          ]
+          "is": [
+           "FM reset",
+           "FM free"
+          ],
+          "key": "osc1.blade1.mode"
          }
         ]
        },
@@ -5409,30 +4863,20 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade1.on"
-           },
-           {
-            "is": [
-             "FM reset",
-             "FM free"
-            ],
-            "key": "osc1.blade1.mode"
-           },
-           {
-            "is": [
-             "× pitch"
-            ],
-            "key": "osc1.blade1.modIn"
-           }
-          ]
+          "is": [
+           "FM reset",
+           "FM free"
+          ],
+          "key": "osc1.blade1.mode"
+         },
+         {
+          "is": [
+           "× pitch"
+          ],
+          "key": "osc1.blade1.modIn"
          }
         ]
        },
@@ -5454,22 +4898,12 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade1.on"
-           },
-           {
-            "key": "osc1.unison",
-            "not": [
-             "1"
-            ]
-           }
+          "key": "osc1.unison",
+          "not": [
+           "1"
           ]
          }
         ]
@@ -5492,29 +4926,19 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade1.on"
-           },
-           {
-            "key": "osc1.unison",
-            "not": [
-             "1"
-            ]
-           },
-           {
-            "is": [
-             "even"
-            ],
-            "key": "osc1.blade1.cutRule"
-           }
+          "key": "osc1.unison",
+          "not": [
+           "1"
           ]
+         },
+         {
+          "is": [
+           "even"
+          ],
+          "key": "osc1.blade1.cutRule"
          }
         ]
        },
@@ -5536,32 +4960,22 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade1.on"
-           },
-           {
-            "is": [
-             "Sync",
-             "FM reset",
-             "FM free",
-             "Ring"
-            ],
-            "key": "osc1.blade1.mode"
-           },
-           {
-            "is": [
-             "sine→saw"
-            ],
-            "key": "osc1.blade1.wave"
-           }
-          ]
+          "is": [
+           "Sync",
+           "FM reset",
+           "FM free",
+           "Ring"
+          ],
+          "key": "osc1.blade1.mode"
+         },
+         {
+          "is": [
+           "sine→saw"
+          ],
+          "key": "osc1.blade1.wave"
          }
         ]
        },
@@ -5578,20 +4992,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade1.cutIn",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade1.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc1.blade1.on"
        },
        "override": null,
        "role": null,
@@ -5615,23 +5019,13 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade1.on"
-           },
-           {
-            "is": [
-             "Hz"
-            ],
-            "key": "osc1.blade1.cutIn"
-           }
-          ]
+          "is": [
+           "Hz"
+          ],
+          "key": "osc1.blade1.cutIn"
          }
         ]
        },
@@ -5648,20 +5042,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade1.frame",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade1.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc1.blade1.on"
        },
        "override": null,
        "role": null,
@@ -5679,20 +5063,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade1.rotate",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade1.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc1.blade1.on"
        },
        "override": null,
        "role": null,
@@ -5707,20 +5081,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade1.rotation",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade1.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc1.blade1.on"
        },
        "override": null,
        "role": null,
@@ -5743,24 +5107,14 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade1.on"
-           },
-           {
-            "is": [
-             "FM reset",
-             "FM free"
-            ],
-            "key": "osc1.blade1.mode"
-           }
-          ]
+          "is": [
+           "FM reset",
+           "FM free"
+          ],
+          "key": "osc1.blade1.mode"
          }
         ]
        },
@@ -5785,24 +5139,14 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade1.on"
-           },
-           {
-            "is": [
-             "FM reset",
-             "FM free"
-            ],
-            "key": "osc1.blade1.mode"
-           }
-          ]
+          "is": [
+           "FM reset",
+           "FM free"
+          ],
+          "key": "osc1.blade1.mode"
          }
         ]
        },
@@ -5824,24 +5168,14 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade1.on"
-           },
-           {
-            "is": [
-             "FM reset",
-             "FM free"
-            ],
-            "key": "osc1.blade1.mode"
-           }
-          ]
+          "is": [
+           "FM reset",
+           "FM free"
+          ],
+          "key": "osc1.blade1.mode"
          }
         ]
        },
@@ -5866,30 +5200,20 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade1.on"
-           },
-           {
-            "is": [
-             "FM reset",
-             "FM free"
-            ],
-            "key": "osc1.blade1.mode"
-           },
-           {
-            "is": [
-             "Hz"
-            ],
-            "key": "osc1.blade1.modIn"
-           }
-          ]
+          "is": [
+           "FM reset",
+           "FM free"
+          ],
+          "key": "osc1.blade1.mode"
+         },
+         {
+          "is": [
+           "Hz"
+          ],
+          "key": "osc1.blade1.modIn"
          }
         ]
        },
@@ -5906,20 +5230,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade1.cutRule",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade1.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc1.blade1.on"
        },
        "override": null,
        "role": null,
@@ -5939,22 +5253,12 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade1.on"
-           },
-           {
-            "key": "osc1.blade1.cutRule",
-            "not": [
-             "even"
-            ]
-           }
+          "key": "osc1.blade1.cutRule",
+          "not": [
+           "even"
           ]
          }
         ]
@@ -5977,22 +5281,12 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade1.on"
-           },
-           {
-            "key": "osc1.unison",
-            "not": [
-             "1"
-            ]
-           }
+          "key": "osc1.unison",
+          "not": [
+           "1"
           ]
          }
         ]
@@ -6015,22 +5309,12 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade1.on"
-           },
-           {
-            "key": "osc1.unison",
-            "not": [
-             "1"
-            ]
-           }
+          "key": "osc1.unison",
+          "not": [
+           "1"
           ]
          }
         ]
@@ -6053,37 +5337,27 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade1.on"
-           },
-           {
-            "is": [
-             "Sync",
-             "FM reset",
-             "FM free",
-             "Ring"
-            ],
-            "key": "osc1.blade1.mode"
-           },
-           {
-            "is": [
-             "sine→saw"
-            ],
-            "key": "osc1.blade1.wave"
-           },
-           {
-            "key": "osc1.unison",
-            "not": [
-             "1"
-            ]
-           }
+          "is": [
+           "Sync",
+           "FM reset",
+           "FM free",
+           "Ring"
+          ],
+          "key": "osc1.blade1.mode"
+         },
+         {
+          "is": [
+           "sine→saw"
+          ],
+          "key": "osc1.blade1.wave"
+         },
+         {
+          "key": "osc1.unison",
+          "not": [
+           "1"
           ]
          }
         ]
@@ -6106,29 +5380,19 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade1.on"
-           },
-           {
-            "is": [
-             "FM reset",
-             "FM free"
-            ],
-            "key": "osc1.blade1.mode"
-           },
-           {
-            "key": "osc1.unison",
-            "not": [
-             "1"
-            ]
-           }
+          "is": [
+           "FM reset",
+           "FM free"
+          ],
+          "key": "osc1.blade1.mode"
+         },
+         {
+          "key": "osc1.unison",
+          "not": [
+           "1"
           ]
          }
         ]
@@ -6151,22 +5415,12 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade1.on"
-           },
-           {
-            "key": "osc1.unison",
-            "not": [
-             "1"
-            ]
-           }
+          "key": "osc1.unison",
+          "not": [
+           "1"
           ]
          }
         ]
@@ -6200,12 +5454,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc1.blade2.on",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": "power",
        "short": null,
@@ -6219,20 +5468,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade2.mode",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade2.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc1.blade2.on"
        },
        "override": null,
        "role": "modes",
@@ -6260,26 +5499,16 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade2.on"
-           },
-           {
-            "is": [
-             "Sync",
-             "FM reset",
-             "FM free",
-             "Ring"
-            ],
-            "key": "osc1.blade2.mode"
-           }
-          ]
+          "is": [
+           "Sync",
+           "FM reset",
+           "FM free",
+           "Ring"
+          ],
+          "key": "osc1.blade2.mode"
          }
         ]
        },
@@ -6296,20 +5525,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade2.width",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade2.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc1.blade2.on"
        },
        "override": null,
        "role": null,
@@ -6329,24 +5548,14 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade2.on"
-           },
-           {
-            "is": [
-             "× pitch per cycle",
-             "× pitch per blade"
-            ],
-            "key": "osc1.blade2.cutIn"
-           }
-          ]
+          "is": [
+           "× pitch per cycle",
+           "× pitch per blade"
+          ],
+          "key": "osc1.blade2.cutIn"
          }
         ]
        },
@@ -6363,20 +5572,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade2.position",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade2.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc1.blade2.on"
        },
        "override": null,
        "role": null,
@@ -6391,20 +5590,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade2.depth",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade2.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc1.blade2.on"
        },
        "override": null,
        "role": null,
@@ -6424,21 +5613,11 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade2.on"
-           },
-           {
-            "gt": 0.004,
-            "key": "osc1.blade2.width"
-           }
-          ]
+          "gt": 0.004,
+          "key": "osc1.blade2.width"
          }
         ]
        },
@@ -6455,20 +5634,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade2.mirror",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade2.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc1.blade2.on"
        },
        "override": null,
        "role": null,
@@ -6494,30 +5663,20 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade2.on"
-           },
-           {
-            "is": [
-             "FM reset",
-             "FM free"
-            ],
-            "key": "osc1.blade2.mode"
-           },
-           {
-            "is": [
-             "its own"
-            ],
-            "key": "osc1.blade2.fmSource"
-           }
-          ]
+          "is": [
+           "FM reset",
+           "FM free"
+          ],
+          "key": "osc1.blade2.mode"
+         },
+         {
+          "is": [
+           "its own"
+          ],
+          "key": "osc1.blade2.fmSource"
          }
         ]
        },
@@ -6539,36 +5698,26 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade2.on"
-           },
-           {
-            "is": [
-             "FM reset",
-             "FM free"
-            ],
-            "key": "osc1.blade2.mode"
-           },
-           {
-            "is": [
-             "its own"
-            ],
-            "key": "osc1.blade2.fmSource"
-           },
-           {
-            "is": [
-             "× pitch"
-            ],
-            "key": "osc1.blade2.modIn"
-           }
-          ]
+          "is": [
+           "FM reset",
+           "FM free"
+          ],
+          "key": "osc1.blade2.mode"
+         },
+         {
+          "is": [
+           "its own"
+          ],
+          "key": "osc1.blade2.fmSource"
+         },
+         {
+          "is": [
+           "× pitch"
+          ],
+          "key": "osc1.blade2.modIn"
          }
         ]
        },
@@ -6590,32 +5739,22 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade2.on"
-           },
-           {
-            "is": [
-             "Sync",
-             "FM reset",
-             "FM free",
-             "Ring"
-            ],
-            "key": "osc1.blade2.mode"
-           },
-           {
-            "is": [
-             "sine→saw"
-            ],
-            "key": "osc1.blade2.wave"
-           }
-          ]
+          "is": [
+           "Sync",
+           "FM reset",
+           "FM free",
+           "Ring"
+          ],
+          "key": "osc1.blade2.mode"
+         },
+         {
+          "is": [
+           "sine→saw"
+          ],
+          "key": "osc1.blade2.wave"
          }
         ]
        },
@@ -6632,20 +5771,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade2.cutIn",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade2.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc1.blade2.on"
        },
        "override": null,
        "role": null,
@@ -6670,23 +5799,13 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade2.on"
-           },
-           {
-            "is": [
-             "Hz"
-            ],
-            "key": "osc1.blade2.cutIn"
-           }
-          ]
+          "is": [
+           "Hz"
+          ],
+          "key": "osc1.blade2.cutIn"
          }
         ]
        },
@@ -6703,20 +5822,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade2.frame",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade2.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc1.blade2.on"
        },
        "override": null,
        "role": null,
@@ -6740,23 +5849,13 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade2.on"
-           },
-           {
-            "is": [
-             "its own"
-            ],
-            "key": "osc1.blade2.rotation"
-           }
-          ]
+          "is": [
+           "its own"
+          ],
+          "key": "osc1.blade2.rotation"
          }
         ]
        },
@@ -6773,20 +5872,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade2.rotation",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade2.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc1.blade2.on"
        },
        "override": null,
        "role": null,
@@ -6809,30 +5898,20 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade2.on"
-           },
-           {
-            "is": [
-             "FM reset",
-             "FM free"
-            ],
-            "key": "osc1.blade2.mode"
-           },
-           {
-            "is": [
-             "its own"
-            ],
-            "key": "osc1.blade2.fmSource"
-           }
-          ]
+          "is": [
+           "FM reset",
+           "FM free"
+          ],
+          "key": "osc1.blade2.mode"
+         },
+         {
+          "is": [
+           "its own"
+          ],
+          "key": "osc1.blade2.fmSource"
          }
         ]
        },
@@ -6857,30 +5936,20 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade2.on"
-           },
-           {
-            "is": [
-             "FM reset",
-             "FM free"
-            ],
-            "key": "osc1.blade2.mode"
-           },
-           {
-            "is": [
-             "its own"
-            ],
-            "key": "osc1.blade2.fmSource"
-           }
-          ]
+          "is": [
+           "FM reset",
+           "FM free"
+          ],
+          "key": "osc1.blade2.mode"
+         },
+         {
+          "is": [
+           "its own"
+          ],
+          "key": "osc1.blade2.fmSource"
          }
         ]
        },
@@ -6902,30 +5971,20 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade2.on"
-           },
-           {
-            "is": [
-             "FM reset",
-             "FM free"
-            ],
-            "key": "osc1.blade2.mode"
-           },
-           {
-            "is": [
-             "its own"
-            ],
-            "key": "osc1.blade2.fmSource"
-           }
-          ]
+          "is": [
+           "FM reset",
+           "FM free"
+          ],
+          "key": "osc1.blade2.mode"
+         },
+         {
+          "is": [
+           "its own"
+          ],
+          "key": "osc1.blade2.fmSource"
          }
         ]
        },
@@ -6950,36 +6009,26 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade2.on"
-           },
-           {
-            "is": [
-             "FM reset",
-             "FM free"
-            ],
-            "key": "osc1.blade2.mode"
-           },
-           {
-            "is": [
-             "its own"
-            ],
-            "key": "osc1.blade2.fmSource"
-           },
-           {
-            "is": [
-             "Hz"
-            ],
-            "key": "osc1.blade2.modIn"
-           }
-          ]
+          "is": [
+           "FM reset",
+           "FM free"
+          ],
+          "key": "osc1.blade2.mode"
+         },
+         {
+          "is": [
+           "its own"
+          ],
+          "key": "osc1.blade2.fmSource"
+         },
+         {
+          "is": [
+           "Hz"
+          ],
+          "key": "osc1.blade2.modIn"
          }
         ]
        },
@@ -7001,29 +6050,19 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade2.on"
-           },
-           {
-            "key": "osc1.unison",
-            "not": [
-             "1"
-            ]
-           },
-           {
-            "is": [
-             "its own"
-            ],
-            "key": "osc1.blade2.spreadSource"
-           }
+          "key": "osc1.unison",
+          "not": [
+           "1"
           ]
+         },
+         {
+          "is": [
+           "its own"
+          ],
+          "key": "osc1.blade2.spreadSource"
          }
         ]
        },
@@ -7045,35 +6084,25 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade2.on"
-           },
-           {
-            "key": "osc1.unison",
-            "not": [
-             "1"
-            ]
-           },
-           {
-            "is": [
-             "its own"
-            ],
-            "key": "osc1.blade2.spreadSource"
-           },
-           {
-            "is": [
-             "even"
-            ],
-            "key": "osc1.blade2.cutRule"
-           }
+          "key": "osc1.unison",
+          "not": [
+           "1"
           ]
+         },
+         {
+          "is": [
+           "its own"
+          ],
+          "key": "osc1.blade2.spreadSource"
+         },
+         {
+          "is": [
+           "even"
+          ],
+          "key": "osc1.blade2.cutRule"
          }
         ]
        },
@@ -7090,20 +6119,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade2.cutRule",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade2.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc1.blade2.on"
        },
        "override": null,
        "role": null,
@@ -7123,22 +6142,12 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade2.on"
-           },
-           {
-            "key": "osc1.blade2.cutRule",
-            "not": [
-             "even"
-            ]
-           }
+          "key": "osc1.blade2.cutRule",
+          "not": [
+           "even"
           ]
          }
         ]
@@ -7161,29 +6170,19 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade2.on"
-           },
-           {
-            "key": "osc1.unison",
-            "not": [
-             "1"
-            ]
-           },
-           {
-            "is": [
-             "its own"
-            ],
-            "key": "osc1.blade2.spreadSource"
-           }
+          "key": "osc1.unison",
+          "not": [
+           "1"
           ]
+         },
+         {
+          "is": [
+           "its own"
+          ],
+          "key": "osc1.blade2.spreadSource"
          }
         ]
        },
@@ -7205,29 +6204,19 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade2.on"
-           },
-           {
-            "key": "osc1.unison",
-            "not": [
-             "1"
-            ]
-           },
-           {
-            "is": [
-             "its own"
-            ],
-            "key": "osc1.blade2.spreadSource"
-           }
+          "key": "osc1.unison",
+          "not": [
+           "1"
           ]
+         },
+         {
+          "is": [
+           "its own"
+          ],
+          "key": "osc1.blade2.spreadSource"
          }
         ]
        },
@@ -7249,44 +6238,34 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade2.on"
-           },
-           {
-            "is": [
-             "Sync",
-             "FM reset",
-             "FM free",
-             "Ring"
-            ],
-            "key": "osc1.blade2.mode"
-           },
-           {
-            "is": [
-             "sine→saw"
-            ],
-            "key": "osc1.blade2.wave"
-           },
-           {
-            "key": "osc1.unison",
-            "not": [
-             "1"
-            ]
-           },
-           {
-            "is": [
-             "its own"
-            ],
-            "key": "osc1.blade2.spreadSource"
-           }
+          "is": [
+           "Sync",
+           "FM reset",
+           "FM free",
+           "Ring"
+          ],
+          "key": "osc1.blade2.mode"
+         },
+         {
+          "is": [
+           "sine→saw"
+          ],
+          "key": "osc1.blade2.wave"
+         },
+         {
+          "key": "osc1.unison",
+          "not": [
+           "1"
           ]
+         },
+         {
+          "is": [
+           "its own"
+          ],
+          "key": "osc1.blade2.spreadSource"
          }
         ]
        },
@@ -7308,42 +6287,32 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade2.on"
-           },
-           {
-            "is": [
-             "FM reset",
-             "FM free"
-            ],
-            "key": "osc1.blade2.mode"
-           },
-           {
-            "is": [
-             "its own"
-            ],
-            "key": "osc1.blade2.fmSource"
-           },
-           {
-            "key": "osc1.unison",
-            "not": [
-             "1"
-            ]
-           },
-           {
-            "is": [
-             "its own"
-            ],
-            "key": "osc1.blade2.spreadSource"
-           }
+          "is": [
+           "FM reset",
+           "FM free"
+          ],
+          "key": "osc1.blade2.mode"
+         },
+         {
+          "is": [
+           "its own"
+          ],
+          "key": "osc1.blade2.fmSource"
+         },
+         {
+          "key": "osc1.unison",
+          "not": [
+           "1"
           ]
+         },
+         {
+          "is": [
+           "its own"
+          ],
+          "key": "osc1.blade2.spreadSource"
          }
         ]
        },
@@ -7365,35 +6334,25 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc1.on"
+          "key": "osc1.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc1.blade2.on"
-           },
-           {
-            "is": [
-             "its own"
-            ],
-            "key": "osc1.blade2.rotation"
-           },
-           {
-            "key": "osc1.unison",
-            "not": [
-             "1"
-            ]
-           },
-           {
-            "is": [
-             "its own"
-            ],
-            "key": "osc1.blade2.spreadSource"
-           }
+          "is": [
+           "its own"
+          ],
+          "key": "osc1.blade2.rotation"
+         },
+         {
+          "key": "osc1.unison",
+          "not": [
+           "1"
           ]
+         },
+         {
+          "is": [
+           "its own"
+          ],
+          "key": "osc1.blade2.spreadSource"
          }
         ]
        },
@@ -7410,20 +6369,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade2.fmSource",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade2.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc1.blade2.on"
        },
        "override": null,
        "role": null,
@@ -7441,20 +6390,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc1.blade2.spreadSource",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc1.blade2.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc1.blade2.on"
        },
        "override": null,
        "role": null,
@@ -7526,12 +6465,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc2.unison",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -7545,19 +6479,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.detune",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "key": "osc2.unison",
-          "not": [
-           "1"
-          ]
-         }
+        "key": "osc2.unison",
+        "not": [
+         "1"
         ]
        },
        "override": null,
@@ -7573,19 +6497,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.coupling",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "key": "osc2.unison",
-          "not": [
-           "1"
-          ]
-         }
+        "key": "osc2.unison",
+        "not": [
+         "1"
         ]
        },
        "override": null,
@@ -7600,12 +6514,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc2.baseWave",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": [
@@ -7624,12 +6533,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc2.octave",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -7642,12 +6546,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc2.semitone",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -7660,12 +6559,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc2.pitch",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -7678,12 +6572,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc2.fine",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -7696,12 +6585,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc2.pan",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -7715,26 +6599,16 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.width",
        "live": {
-        "all": [
+        "any": [
          {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
+          "key": "osc2.unison",
+          "not": [
+           "1"
+          ]
          },
          {
-          "any": [
-           {
-            "key": "osc2.unison",
-            "not": [
-             "1"
-            ]
-           },
-           {
-            "gt": 0,
-            "key": "osc2.panMotion"
-           }
-          ]
+          "gt": 0,
+          "key": "osc2.panMotion"
          }
         ]
        },
@@ -7768,12 +6642,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc2.mute",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -7786,12 +6655,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc2.solo",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -7807,25 +6671,15 @@ window.GUI3_DATA = {
        "live": {
         "all": [
          {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
+          "key": "osc2.unison",
+          "not": [
+           "1"
+          ]
          },
          {
-          "all": [
-           {
-            "key": "osc2.unison",
-            "not": [
-             "1"
-            ]
-           },
-           {
-            "key": "osc2.detuneLaw",
-            "not": [
-             "harmonic"
-            ]
-           }
+          "key": "osc2.detuneLaw",
+          "not": [
+           "harmonic"
           ]
          }
         ]
@@ -7848,12 +6702,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc2.seed",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -7866,12 +6715,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc2.detuneLaw",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": [
@@ -7890,19 +6734,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.detuneRange",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "key": "osc2.unison",
-          "not": [
-           "1"
-          ]
-         }
+        "key": "osc2.unison",
+        "not": [
+         "1"
         ]
        },
        "override": null,
@@ -7924,26 +6758,16 @@ window.GUI3_DATA = {
        "live": {
         "all": [
          {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
+          "key": "osc2.unison",
+          "not": [
+           "1"
+          ]
          },
          {
-          "all": [
-           {
-            "key": "osc2.unison",
-            "not": [
-             "1"
-            ]
-           },
-           {
-            "is": [
-             "harmonic"
-            ],
-            "key": "osc2.detuneLaw"
-           }
-          ]
+          "is": [
+           "harmonic"
+          ],
+          "key": "osc2.detuneLaw"
          }
         ]
        },
@@ -7962,25 +6786,15 @@ window.GUI3_DATA = {
        "live": {
         "all": [
          {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
+          "key": "osc2.unison",
+          "not": [
+           "1"
+          ]
          },
          {
-          "all": [
-           {
-            "key": "osc2.unison",
-            "not": [
-             "1"
-            ]
-           },
-           {
-            "key": "osc2.detuneLaw",
-            "not": [
-             "harmonic"
-            ]
-           }
+          "key": "osc2.detuneLaw",
+          "not": [
+           "harmonic"
           ]
          }
         ]
@@ -8000,30 +6814,20 @@ window.GUI3_DATA = {
        "live": {
         "all": [
          {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
+          "key": "osc2.unison",
+          "not": [
+           "1"
+          ]
          },
          {
-          "all": [
+          "any": [
            {
-            "key": "osc2.unison",
-            "not": [
-             "1"
-            ]
+            "gt": 0,
+            "key": "osc2.coupling"
            },
            {
-            "any": [
-             {
-              "gt": 0,
-              "key": "osc2.coupling"
-             },
-             {
-              "gt": 0,
-              "key": "osc2.onsetLock"
-             }
-            ]
+            "gt": 0,
+            "key": "osc2.onsetLock"
            }
           ]
          }
@@ -8042,19 +6846,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.pivot",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "key": "osc2.unison",
-          "not": [
-           "1"
-          ]
-         }
+        "key": "osc2.unison",
+        "not": [
+         "1"
         ]
        },
        "override": null,
@@ -8073,19 +6867,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.onsetLock",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "key": "osc2.unison",
-          "not": [
-           "1"
-          ]
-         }
+        "key": "osc2.unison",
+        "not": [
+         "1"
         ]
        },
        "override": null,
@@ -8103,24 +6887,14 @@ window.GUI3_DATA = {
        "live": {
         "all": [
          {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
+          "key": "osc2.unison",
+          "not": [
+           "1"
+          ]
          },
          {
-          "all": [
-           {
-            "key": "osc2.unison",
-            "not": [
-             "1"
-            ]
-           },
-           {
-            "key": "osc2.onsetLock",
-            "ne": 0
-           }
-          ]
+          "key": "osc2.onsetLock",
+          "ne": 0
          }
         ]
        },
@@ -8136,12 +6910,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc2.driftDepth",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -8155,12 +6924,28 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.driftRate",
        "live": {
-        "all": [
+        "gt": 0,
+        "key": "osc2.driftDepth"
+       },
+       "override": null,
+       "role": null,
+       "short": null,
+       "size": null,
+       "sub": null,
+       "widget": "knob"
+      },
+      {
+       "abbr": "INR",
+       "advanced": true,
+       "follow": null,
+       "key": "osc2.inertia",
+       "live": {
+        "any": [
          {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
+          "key": "osc2.unison",
+          "not": [
+           "1"
+          ]
          },
          {
           "gt": 0,
@@ -8176,52 +6961,11 @@ window.GUI3_DATA = {
        "widget": "knob"
       },
       {
-       "abbr": "INR",
-       "advanced": true,
-       "follow": null,
-       "key": "osc2.inertia",
-       "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "any": [
-           {
-            "key": "osc2.unison",
-            "not": [
-             "1"
-            ]
-           },
-           {
-            "gt": 0,
-            "key": "osc2.driftDepth"
-           }
-          ]
-         }
-        ]
-       },
-       "override": null,
-       "role": null,
-       "short": null,
-       "size": null,
-       "sub": null,
-       "widget": "knob"
-      },
-      {
        "abbr": "PHS",
        "advanced": true,
        "follow": null,
        "key": "osc2.phase",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -8234,12 +6978,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc2.phaseRandom",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -8252,12 +6991,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc2.retrigger",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -8270,12 +7004,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc2.onsetScatter",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -8291,24 +7020,14 @@ window.GUI3_DATA = {
        "live": {
         "all": [
          {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
+          "key": "osc2.unison",
+          "not": [
+           "1"
+          ]
          },
          {
-          "all": [
-           {
-            "key": "osc2.unison",
-            "not": [
-             "1"
-            ]
-           },
-           {
-            "gt": 0,
-            "key": "osc2.onsetScatter"
-           }
-          ]
+          "gt": 0,
+          "key": "osc2.onsetScatter"
          }
         ]
        },
@@ -8325,19 +7044,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.panImage",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "key": "osc2.unison",
-          "not": [
-           "1"
-          ]
-         }
+        "key": "osc2.unison",
+        "not": [
+         "1"
         ]
        },
        "override": null,
@@ -8357,19 +7066,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.panInvert",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "key": "osc2.unison",
-          "not": [
-           "1"
-          ]
-         }
+        "key": "osc2.unison",
+        "not": [
+         "1"
         ]
        },
        "override": null,
@@ -8385,18 +7084,8 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.panMotion",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "gt": 0,
-          "key": "osc2.width"
-         }
-        ]
+        "gt": 0,
+        "key": "osc2.width"
        },
        "override": null,
        "role": null,
@@ -8410,12 +7099,7 @@ window.GUI3_DATA = {
        "advanced": true,
        "follow": null,
        "key": "osc2.bandLimit",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -8429,19 +7113,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.motionGrain",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "key": "osc2.unison",
-          "not": [
-           "1"
-          ]
-         }
+        "key": "osc2.unison",
+        "not": [
+         "1"
         ]
        },
        "override": null,
@@ -8457,52 +7131,42 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.crossMod",
        "live": {
-        "all": [
+        "any": [
          {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "any": [
+          "all": [
            {
-            "all": [
-             {
-              "is": [
-               "on"
-              ],
-              "key": "osc2.blade1.on"
-             },
-             {
-              "is": [
-               "Sync",
-               "FM reset",
-               "FM free",
-               "Ring"
-              ],
-              "key": "osc2.blade1.mode"
-             }
-            ]
+            "is": [
+             "on"
+            ],
+            "key": "osc2.blade1.on"
            },
            {
-            "all": [
-             {
-              "is": [
-               "on"
-              ],
-              "key": "osc2.blade2.on"
-             },
-             {
-              "is": [
-               "Sync",
-               "FM reset",
-               "FM free",
-               "Ring"
-              ],
-              "key": "osc2.blade2.mode"
-             }
-            ]
+            "is": [
+             "Sync",
+             "FM reset",
+             "FM free",
+             "Ring"
+            ],
+            "key": "osc2.blade1.mode"
+           }
+          ]
+         },
+         {
+          "all": [
+           {
+            "is": [
+             "on"
+            ],
+            "key": "osc2.blade2.on"
+           },
+           {
+            "is": [
+             "Sync",
+             "FM reset",
+             "FM free",
+             "Ring"
+            ],
+            "key": "osc2.blade2.mode"
            }
           ]
          }
@@ -8521,52 +7185,42 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.feedback",
        "live": {
-        "all": [
+        "any": [
          {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "any": [
+          "all": [
            {
-            "all": [
-             {
-              "is": [
-               "on"
-              ],
-              "key": "osc2.blade1.on"
-             },
-             {
-              "is": [
-               "Sync",
-               "FM reset",
-               "FM free",
-               "Ring"
-              ],
-              "key": "osc2.blade1.mode"
-             }
-            ]
+            "is": [
+             "on"
+            ],
+            "key": "osc2.blade1.on"
            },
            {
-            "all": [
-             {
-              "is": [
-               "on"
-              ],
-              "key": "osc2.blade2.on"
-             },
-             {
-              "is": [
-               "Sync",
-               "FM reset",
-               "FM free",
-               "Ring"
-              ],
-              "key": "osc2.blade2.mode"
-             }
-            ]
+            "is": [
+             "Sync",
+             "FM reset",
+             "FM free",
+             "Ring"
+            ],
+            "key": "osc2.blade1.mode"
+           }
+          ]
+         },
+         {
+          "all": [
+           {
+            "is": [
+             "on"
+            ],
+            "key": "osc2.blade2.on"
+           },
+           {
+            "is": [
+             "Sync",
+             "FM reset",
+             "FM free",
+             "Ring"
+            ],
+            "key": "osc2.blade2.mode"
            }
           ]
          }
@@ -8585,52 +7239,42 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.loopDrive",
        "live": {
-        "all": [
+        "any": [
          {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "any": [
+          "all": [
            {
-            "all": [
-             {
-              "is": [
-               "on"
-              ],
-              "key": "osc2.blade1.on"
-             },
-             {
-              "is": [
-               "Sync",
-               "FM reset",
-               "FM free",
-               "Ring"
-              ],
-              "key": "osc2.blade1.mode"
-             }
-            ]
+            "is": [
+             "on"
+            ],
+            "key": "osc2.blade1.on"
            },
            {
-            "all": [
-             {
-              "is": [
-               "on"
-              ],
-              "key": "osc2.blade2.on"
-             },
-             {
-              "is": [
-               "Sync",
-               "FM reset",
-               "FM free",
-               "Ring"
-              ],
-              "key": "osc2.blade2.mode"
-             }
-            ]
+            "is": [
+             "Sync",
+             "FM reset",
+             "FM free",
+             "Ring"
+            ],
+            "key": "osc2.blade1.mode"
+           }
+          ]
+         },
+         {
+          "all": [
+           {
+            "is": [
+             "on"
+            ],
+            "key": "osc2.blade2.on"
+           },
+           {
+            "is": [
+             "Sync",
+             "FM reset",
+             "FM free",
+             "Ring"
+            ],
+            "key": "osc2.blade2.mode"
            }
           ]
          }
@@ -8649,19 +7293,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.spreadLaw",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "key": "osc2.unison",
-          "not": [
-           "1"
-          ]
-         }
+        "key": "osc2.unison",
+        "not": [
+         "1"
         ]
        },
        "override": null,
@@ -8685,26 +7319,16 @@ window.GUI3_DATA = {
        "live": {
         "all": [
          {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
+          "key": "osc2.unison",
+          "not": [
+           "1"
+          ]
          },
          {
-          "all": [
-           {
-            "key": "osc2.unison",
-            "not": [
-             "1"
-            ]
-           },
-           {
-            "is": [
-             "drift"
-            ],
-            "key": "osc2.spreadLaw"
-           }
-          ]
+          "is": [
+           "drift"
+          ],
+          "key": "osc2.spreadLaw"
          }
         ]
        },
@@ -8721,19 +7345,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.quantize",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "key": "osc2.unison",
-          "not": [
-           "1"
-          ]
-         }
+        "key": "osc2.unison",
+        "not": [
+         "1"
         ]
        },
        "override": null,
@@ -8757,23 +7371,13 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade1.on"
-           },
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade2.on"
-           }
-          ]
+          "is": [
+           "on"
+          ],
+          "key": "osc2.blade2.on"
          }
         ]
        },
@@ -8798,23 +7402,13 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade1.on"
-           },
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade2.on"
-           }
-          ]
+          "is": [
+           "on"
+          ],
+          "key": "osc2.blade2.on"
          }
         ]
        },
@@ -8836,23 +7430,13 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade1.on"
-           },
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade2.on"
-           }
-          ]
+          "is": [
+           "on"
+          ],
+          "key": "osc2.blade2.on"
          }
         ]
        },
@@ -8874,23 +7458,13 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade1.on"
-           },
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade2.on"
-           }
-          ]
+          "is": [
+           "on"
+          ],
+          "key": "osc2.blade2.on"
          }
         ]
        },
@@ -8924,20 +7498,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.env",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc2.on"
        },
        "override": null,
        "role": "modes",
@@ -9313,12 +7877,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc2.blade1.on",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": "power",
        "short": null,
@@ -9332,20 +7891,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade1.mode",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade1.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc2.blade1.on"
        },
        "override": null,
        "role": "modes",
@@ -9373,26 +7922,16 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade1.on"
-           },
-           {
-            "is": [
-             "Sync",
-             "FM reset",
-             "FM free",
-             "Ring"
-            ],
-            "key": "osc2.blade1.mode"
-           }
-          ]
+          "is": [
+           "Sync",
+           "FM reset",
+           "FM free",
+           "Ring"
+          ],
+          "key": "osc2.blade1.mode"
          }
         ]
        },
@@ -9409,20 +7948,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade1.width",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade1.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc2.blade1.on"
        },
        "override": null,
        "role": null,
@@ -9442,24 +7971,14 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade1.on"
-           },
-           {
-            "is": [
-             "× pitch per cycle",
-             "× pitch per blade"
-            ],
-            "key": "osc2.blade1.cutIn"
-           }
-          ]
+          "is": [
+           "× pitch per cycle",
+           "× pitch per blade"
+          ],
+          "key": "osc2.blade1.cutIn"
          }
         ]
        },
@@ -9476,20 +7995,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade1.position",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade1.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc2.blade1.on"
        },
        "override": null,
        "role": null,
@@ -9504,20 +8013,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade1.depth",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade1.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc2.blade1.on"
        },
        "override": null,
        "role": null,
@@ -9537,21 +8036,11 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade1.on"
-           },
-           {
-            "gt": 0.004,
-            "key": "osc2.blade1.width"
-           }
-          ]
+          "gt": 0.004,
+          "key": "osc2.blade1.width"
          }
         ]
        },
@@ -9568,20 +8057,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade1.mirror",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade1.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc2.blade1.on"
        },
        "override": null,
        "role": null,
@@ -9606,24 +8085,14 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade1.on"
-           },
-           {
-            "is": [
-             "FM reset",
-             "FM free"
-            ],
-            "key": "osc2.blade1.mode"
-           }
-          ]
+          "is": [
+           "FM reset",
+           "FM free"
+          ],
+          "key": "osc2.blade1.mode"
          }
         ]
        },
@@ -9645,30 +8114,20 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade1.on"
-           },
-           {
-            "is": [
-             "FM reset",
-             "FM free"
-            ],
-            "key": "osc2.blade1.mode"
-           },
-           {
-            "is": [
-             "× pitch"
-            ],
-            "key": "osc2.blade1.modIn"
-           }
-          ]
+          "is": [
+           "FM reset",
+           "FM free"
+          ],
+          "key": "osc2.blade1.mode"
+         },
+         {
+          "is": [
+           "× pitch"
+          ],
+          "key": "osc2.blade1.modIn"
          }
         ]
        },
@@ -9690,22 +8149,12 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade1.on"
-           },
-           {
-            "key": "osc2.unison",
-            "not": [
-             "1"
-            ]
-           }
+          "key": "osc2.unison",
+          "not": [
+           "1"
           ]
          }
         ]
@@ -9728,29 +8177,19 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade1.on"
-           },
-           {
-            "key": "osc2.unison",
-            "not": [
-             "1"
-            ]
-           },
-           {
-            "is": [
-             "even"
-            ],
-            "key": "osc2.blade1.cutRule"
-           }
+          "key": "osc2.unison",
+          "not": [
+           "1"
           ]
+         },
+         {
+          "is": [
+           "even"
+          ],
+          "key": "osc2.blade1.cutRule"
          }
         ]
        },
@@ -9772,32 +8211,22 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade1.on"
-           },
-           {
-            "is": [
-             "Sync",
-             "FM reset",
-             "FM free",
-             "Ring"
-            ],
-            "key": "osc2.blade1.mode"
-           },
-           {
-            "is": [
-             "sine→saw"
-            ],
-            "key": "osc2.blade1.wave"
-           }
-          ]
+          "is": [
+           "Sync",
+           "FM reset",
+           "FM free",
+           "Ring"
+          ],
+          "key": "osc2.blade1.mode"
+         },
+         {
+          "is": [
+           "sine→saw"
+          ],
+          "key": "osc2.blade1.wave"
          }
         ]
        },
@@ -9814,20 +8243,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade1.cutIn",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade1.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc2.blade1.on"
        },
        "override": null,
        "role": null,
@@ -9851,23 +8270,13 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade1.on"
-           },
-           {
-            "is": [
-             "Hz"
-            ],
-            "key": "osc2.blade1.cutIn"
-           }
-          ]
+          "is": [
+           "Hz"
+          ],
+          "key": "osc2.blade1.cutIn"
          }
         ]
        },
@@ -9884,20 +8293,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade1.frame",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade1.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc2.blade1.on"
        },
        "override": null,
        "role": null,
@@ -9915,20 +8314,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade1.rotate",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade1.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc2.blade1.on"
        },
        "override": null,
        "role": null,
@@ -9943,20 +8332,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade1.rotation",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade1.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc2.blade1.on"
        },
        "override": null,
        "role": null,
@@ -9979,24 +8358,14 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade1.on"
-           },
-           {
-            "is": [
-             "FM reset",
-             "FM free"
-            ],
-            "key": "osc2.blade1.mode"
-           }
-          ]
+          "is": [
+           "FM reset",
+           "FM free"
+          ],
+          "key": "osc2.blade1.mode"
          }
         ]
        },
@@ -10021,24 +8390,14 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade1.on"
-           },
-           {
-            "is": [
-             "FM reset",
-             "FM free"
-            ],
-            "key": "osc2.blade1.mode"
-           }
-          ]
+          "is": [
+           "FM reset",
+           "FM free"
+          ],
+          "key": "osc2.blade1.mode"
          }
         ]
        },
@@ -10060,24 +8419,14 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade1.on"
-           },
-           {
-            "is": [
-             "FM reset",
-             "FM free"
-            ],
-            "key": "osc2.blade1.mode"
-           }
-          ]
+          "is": [
+           "FM reset",
+           "FM free"
+          ],
+          "key": "osc2.blade1.mode"
          }
         ]
        },
@@ -10102,30 +8451,20 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade1.on"
-           },
-           {
-            "is": [
-             "FM reset",
-             "FM free"
-            ],
-            "key": "osc2.blade1.mode"
-           },
-           {
-            "is": [
-             "Hz"
-            ],
-            "key": "osc2.blade1.modIn"
-           }
-          ]
+          "is": [
+           "FM reset",
+           "FM free"
+          ],
+          "key": "osc2.blade1.mode"
+         },
+         {
+          "is": [
+           "Hz"
+          ],
+          "key": "osc2.blade1.modIn"
          }
         ]
        },
@@ -10142,20 +8481,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade1.cutRule",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade1.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc2.blade1.on"
        },
        "override": null,
        "role": null,
@@ -10175,22 +8504,12 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade1.on"
-           },
-           {
-            "key": "osc2.blade1.cutRule",
-            "not": [
-             "even"
-            ]
-           }
+          "key": "osc2.blade1.cutRule",
+          "not": [
+           "even"
           ]
          }
         ]
@@ -10213,22 +8532,12 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade1.on"
-           },
-           {
-            "key": "osc2.unison",
-            "not": [
-             "1"
-            ]
-           }
+          "key": "osc2.unison",
+          "not": [
+           "1"
           ]
          }
         ]
@@ -10251,22 +8560,12 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade1.on"
-           },
-           {
-            "key": "osc2.unison",
-            "not": [
-             "1"
-            ]
-           }
+          "key": "osc2.unison",
+          "not": [
+           "1"
           ]
          }
         ]
@@ -10289,37 +8588,27 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade1.on"
-           },
-           {
-            "is": [
-             "Sync",
-             "FM reset",
-             "FM free",
-             "Ring"
-            ],
-            "key": "osc2.blade1.mode"
-           },
-           {
-            "is": [
-             "sine→saw"
-            ],
-            "key": "osc2.blade1.wave"
-           },
-           {
-            "key": "osc2.unison",
-            "not": [
-             "1"
-            ]
-           }
+          "is": [
+           "Sync",
+           "FM reset",
+           "FM free",
+           "Ring"
+          ],
+          "key": "osc2.blade1.mode"
+         },
+         {
+          "is": [
+           "sine→saw"
+          ],
+          "key": "osc2.blade1.wave"
+         },
+         {
+          "key": "osc2.unison",
+          "not": [
+           "1"
           ]
          }
         ]
@@ -10342,29 +8631,19 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade1.on"
-           },
-           {
-            "is": [
-             "FM reset",
-             "FM free"
-            ],
-            "key": "osc2.blade1.mode"
-           },
-           {
-            "key": "osc2.unison",
-            "not": [
-             "1"
-            ]
-           }
+          "is": [
+           "FM reset",
+           "FM free"
+          ],
+          "key": "osc2.blade1.mode"
+         },
+         {
+          "key": "osc2.unison",
+          "not": [
+           "1"
           ]
          }
         ]
@@ -10387,22 +8666,12 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade1.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade1.on"
-           },
-           {
-            "key": "osc2.unison",
-            "not": [
-             "1"
-            ]
-           }
+          "key": "osc2.unison",
+          "not": [
+           "1"
           ]
          }
         ]
@@ -10436,12 +8705,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc2.blade2.on",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": "power",
        "short": null,
@@ -10455,20 +8719,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade2.mode",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade2.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc2.blade2.on"
        },
        "override": null,
        "role": "modes",
@@ -10496,26 +8750,16 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade2.on"
-           },
-           {
-            "is": [
-             "Sync",
-             "FM reset",
-             "FM free",
-             "Ring"
-            ],
-            "key": "osc2.blade2.mode"
-           }
-          ]
+          "is": [
+           "Sync",
+           "FM reset",
+           "FM free",
+           "Ring"
+          ],
+          "key": "osc2.blade2.mode"
          }
         ]
        },
@@ -10532,20 +8776,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade2.width",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade2.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc2.blade2.on"
        },
        "override": null,
        "role": null,
@@ -10565,24 +8799,14 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade2.on"
-           },
-           {
-            "is": [
-             "× pitch per cycle",
-             "× pitch per blade"
-            ],
-            "key": "osc2.blade2.cutIn"
-           }
-          ]
+          "is": [
+           "× pitch per cycle",
+           "× pitch per blade"
+          ],
+          "key": "osc2.blade2.cutIn"
          }
         ]
        },
@@ -10599,20 +8823,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade2.position",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade2.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc2.blade2.on"
        },
        "override": null,
        "role": null,
@@ -10627,20 +8841,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade2.depth",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade2.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc2.blade2.on"
        },
        "override": null,
        "role": null,
@@ -10660,21 +8864,11 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade2.on"
-           },
-           {
-            "gt": 0.004,
-            "key": "osc2.blade2.width"
-           }
-          ]
+          "gt": 0.004,
+          "key": "osc2.blade2.width"
          }
         ]
        },
@@ -10691,20 +8885,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade2.mirror",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade2.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc2.blade2.on"
        },
        "override": null,
        "role": null,
@@ -10730,30 +8914,20 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade2.on"
-           },
-           {
-            "is": [
-             "FM reset",
-             "FM free"
-            ],
-            "key": "osc2.blade2.mode"
-           },
-           {
-            "is": [
-             "its own"
-            ],
-            "key": "osc2.blade2.fmSource"
-           }
-          ]
+          "is": [
+           "FM reset",
+           "FM free"
+          ],
+          "key": "osc2.blade2.mode"
+         },
+         {
+          "is": [
+           "its own"
+          ],
+          "key": "osc2.blade2.fmSource"
          }
         ]
        },
@@ -10775,36 +8949,26 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade2.on"
-           },
-           {
-            "is": [
-             "FM reset",
-             "FM free"
-            ],
-            "key": "osc2.blade2.mode"
-           },
-           {
-            "is": [
-             "its own"
-            ],
-            "key": "osc2.blade2.fmSource"
-           },
-           {
-            "is": [
-             "× pitch"
-            ],
-            "key": "osc2.blade2.modIn"
-           }
-          ]
+          "is": [
+           "FM reset",
+           "FM free"
+          ],
+          "key": "osc2.blade2.mode"
+         },
+         {
+          "is": [
+           "its own"
+          ],
+          "key": "osc2.blade2.fmSource"
+         },
+         {
+          "is": [
+           "× pitch"
+          ],
+          "key": "osc2.blade2.modIn"
          }
         ]
        },
@@ -10826,32 +8990,22 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade2.on"
-           },
-           {
-            "is": [
-             "Sync",
-             "FM reset",
-             "FM free",
-             "Ring"
-            ],
-            "key": "osc2.blade2.mode"
-           },
-           {
-            "is": [
-             "sine→saw"
-            ],
-            "key": "osc2.blade2.wave"
-           }
-          ]
+          "is": [
+           "Sync",
+           "FM reset",
+           "FM free",
+           "Ring"
+          ],
+          "key": "osc2.blade2.mode"
+         },
+         {
+          "is": [
+           "sine→saw"
+          ],
+          "key": "osc2.blade2.wave"
          }
         ]
        },
@@ -10868,20 +9022,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade2.cutIn",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade2.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc2.blade2.on"
        },
        "override": null,
        "role": null,
@@ -10906,23 +9050,13 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade2.on"
-           },
-           {
-            "is": [
-             "Hz"
-            ],
-            "key": "osc2.blade2.cutIn"
-           }
-          ]
+          "is": [
+           "Hz"
+          ],
+          "key": "osc2.blade2.cutIn"
          }
         ]
        },
@@ -10939,20 +9073,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade2.frame",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade2.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc2.blade2.on"
        },
        "override": null,
        "role": null,
@@ -10976,23 +9100,13 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade2.on"
-           },
-           {
-            "is": [
-             "its own"
-            ],
-            "key": "osc2.blade2.rotation"
-           }
-          ]
+          "is": [
+           "its own"
+          ],
+          "key": "osc2.blade2.rotation"
          }
         ]
        },
@@ -11009,20 +9123,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade2.rotation",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade2.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc2.blade2.on"
        },
        "override": null,
        "role": null,
@@ -11045,30 +9149,20 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade2.on"
-           },
-           {
-            "is": [
-             "FM reset",
-             "FM free"
-            ],
-            "key": "osc2.blade2.mode"
-           },
-           {
-            "is": [
-             "its own"
-            ],
-            "key": "osc2.blade2.fmSource"
-           }
-          ]
+          "is": [
+           "FM reset",
+           "FM free"
+          ],
+          "key": "osc2.blade2.mode"
+         },
+         {
+          "is": [
+           "its own"
+          ],
+          "key": "osc2.blade2.fmSource"
          }
         ]
        },
@@ -11093,30 +9187,20 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade2.on"
-           },
-           {
-            "is": [
-             "FM reset",
-             "FM free"
-            ],
-            "key": "osc2.blade2.mode"
-           },
-           {
-            "is": [
-             "its own"
-            ],
-            "key": "osc2.blade2.fmSource"
-           }
-          ]
+          "is": [
+           "FM reset",
+           "FM free"
+          ],
+          "key": "osc2.blade2.mode"
+         },
+         {
+          "is": [
+           "its own"
+          ],
+          "key": "osc2.blade2.fmSource"
          }
         ]
        },
@@ -11138,30 +9222,20 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade2.on"
-           },
-           {
-            "is": [
-             "FM reset",
-             "FM free"
-            ],
-            "key": "osc2.blade2.mode"
-           },
-           {
-            "is": [
-             "its own"
-            ],
-            "key": "osc2.blade2.fmSource"
-           }
-          ]
+          "is": [
+           "FM reset",
+           "FM free"
+          ],
+          "key": "osc2.blade2.mode"
+         },
+         {
+          "is": [
+           "its own"
+          ],
+          "key": "osc2.blade2.fmSource"
          }
         ]
        },
@@ -11186,36 +9260,26 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade2.on"
-           },
-           {
-            "is": [
-             "FM reset",
-             "FM free"
-            ],
-            "key": "osc2.blade2.mode"
-           },
-           {
-            "is": [
-             "its own"
-            ],
-            "key": "osc2.blade2.fmSource"
-           },
-           {
-            "is": [
-             "Hz"
-            ],
-            "key": "osc2.blade2.modIn"
-           }
-          ]
+          "is": [
+           "FM reset",
+           "FM free"
+          ],
+          "key": "osc2.blade2.mode"
+         },
+         {
+          "is": [
+           "its own"
+          ],
+          "key": "osc2.blade2.fmSource"
+         },
+         {
+          "is": [
+           "Hz"
+          ],
+          "key": "osc2.blade2.modIn"
          }
         ]
        },
@@ -11237,29 +9301,19 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade2.on"
-           },
-           {
-            "key": "osc2.unison",
-            "not": [
-             "1"
-            ]
-           },
-           {
-            "is": [
-             "its own"
-            ],
-            "key": "osc2.blade2.spreadSource"
-           }
+          "key": "osc2.unison",
+          "not": [
+           "1"
           ]
+         },
+         {
+          "is": [
+           "its own"
+          ],
+          "key": "osc2.blade2.spreadSource"
          }
         ]
        },
@@ -11281,35 +9335,25 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade2.on"
-           },
-           {
-            "key": "osc2.unison",
-            "not": [
-             "1"
-            ]
-           },
-           {
-            "is": [
-             "its own"
-            ],
-            "key": "osc2.blade2.spreadSource"
-           },
-           {
-            "is": [
-             "even"
-            ],
-            "key": "osc2.blade2.cutRule"
-           }
+          "key": "osc2.unison",
+          "not": [
+           "1"
           ]
+         },
+         {
+          "is": [
+           "its own"
+          ],
+          "key": "osc2.blade2.spreadSource"
+         },
+         {
+          "is": [
+           "even"
+          ],
+          "key": "osc2.blade2.cutRule"
          }
         ]
        },
@@ -11326,20 +9370,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade2.cutRule",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade2.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc2.blade2.on"
        },
        "override": null,
        "role": null,
@@ -11359,22 +9393,12 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade2.on"
-           },
-           {
-            "key": "osc2.blade2.cutRule",
-            "not": [
-             "even"
-            ]
-           }
+          "key": "osc2.blade2.cutRule",
+          "not": [
+           "even"
           ]
          }
         ]
@@ -11397,29 +9421,19 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade2.on"
-           },
-           {
-            "key": "osc2.unison",
-            "not": [
-             "1"
-            ]
-           },
-           {
-            "is": [
-             "its own"
-            ],
-            "key": "osc2.blade2.spreadSource"
-           }
+          "key": "osc2.unison",
+          "not": [
+           "1"
           ]
+         },
+         {
+          "is": [
+           "its own"
+          ],
+          "key": "osc2.blade2.spreadSource"
          }
         ]
        },
@@ -11441,29 +9455,19 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade2.on"
-           },
-           {
-            "key": "osc2.unison",
-            "not": [
-             "1"
-            ]
-           },
-           {
-            "is": [
-             "its own"
-            ],
-            "key": "osc2.blade2.spreadSource"
-           }
+          "key": "osc2.unison",
+          "not": [
+           "1"
           ]
+         },
+         {
+          "is": [
+           "its own"
+          ],
+          "key": "osc2.blade2.spreadSource"
          }
         ]
        },
@@ -11485,44 +9489,34 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade2.on"
-           },
-           {
-            "is": [
-             "Sync",
-             "FM reset",
-             "FM free",
-             "Ring"
-            ],
-            "key": "osc2.blade2.mode"
-           },
-           {
-            "is": [
-             "sine→saw"
-            ],
-            "key": "osc2.blade2.wave"
-           },
-           {
-            "key": "osc2.unison",
-            "not": [
-             "1"
-            ]
-           },
-           {
-            "is": [
-             "its own"
-            ],
-            "key": "osc2.blade2.spreadSource"
-           }
+          "is": [
+           "Sync",
+           "FM reset",
+           "FM free",
+           "Ring"
+          ],
+          "key": "osc2.blade2.mode"
+         },
+         {
+          "is": [
+           "sine→saw"
+          ],
+          "key": "osc2.blade2.wave"
+         },
+         {
+          "key": "osc2.unison",
+          "not": [
+           "1"
           ]
+         },
+         {
+          "is": [
+           "its own"
+          ],
+          "key": "osc2.blade2.spreadSource"
          }
         ]
        },
@@ -11544,42 +9538,32 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade2.on"
-           },
-           {
-            "is": [
-             "FM reset",
-             "FM free"
-            ],
-            "key": "osc2.blade2.mode"
-           },
-           {
-            "is": [
-             "its own"
-            ],
-            "key": "osc2.blade2.fmSource"
-           },
-           {
-            "key": "osc2.unison",
-            "not": [
-             "1"
-            ]
-           },
-           {
-            "is": [
-             "its own"
-            ],
-            "key": "osc2.blade2.spreadSource"
-           }
+          "is": [
+           "FM reset",
+           "FM free"
+          ],
+          "key": "osc2.blade2.mode"
+         },
+         {
+          "is": [
+           "its own"
+          ],
+          "key": "osc2.blade2.fmSource"
+         },
+         {
+          "key": "osc2.unison",
+          "not": [
+           "1"
           ]
+         },
+         {
+          "is": [
+           "its own"
+          ],
+          "key": "osc2.blade2.spreadSource"
          }
         ]
        },
@@ -11601,35 +9585,25 @@ window.GUI3_DATA = {
           "is": [
            "on"
           ],
-          "key": "osc2.on"
+          "key": "osc2.blade2.on"
          },
          {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "osc2.blade2.on"
-           },
-           {
-            "is": [
-             "its own"
-            ],
-            "key": "osc2.blade2.rotation"
-           },
-           {
-            "key": "osc2.unison",
-            "not": [
-             "1"
-            ]
-           },
-           {
-            "is": [
-             "its own"
-            ],
-            "key": "osc2.blade2.spreadSource"
-           }
+          "is": [
+           "its own"
+          ],
+          "key": "osc2.blade2.rotation"
+         },
+         {
+          "key": "osc2.unison",
+          "not": [
+           "1"
           ]
+         },
+         {
+          "is": [
+           "its own"
+          ],
+          "key": "osc2.blade2.spreadSource"
          }
         ]
        },
@@ -11646,20 +9620,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade2.fmSource",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade2.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc2.blade2.on"
        },
        "override": null,
        "role": null,
@@ -11677,20 +9641,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "osc2.blade2.spreadSource",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "osc2.blade2.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "osc2.blade2.on"
        },
        "override": null,
        "role": null,
@@ -11780,12 +9734,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "sub.pan",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -11798,12 +9747,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "sub.mute",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -11816,12 +9760,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "sub.solo",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -11852,20 +9791,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "sub.env",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "sub.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "sub.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "sub.on"
        },
        "override": null,
        "role": "modes",
@@ -12241,12 +10170,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "sub.wave",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": "modes",
        "short": [
@@ -12268,20 +10192,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "sub.pulseWidth",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "sub.on"
-         },
-         {
-          "is": [
-           "pulse"
-          ],
-          "key": "sub.wave"
-         }
-        ]
+        "is": [
+         "pulse"
+        ],
+        "key": "sub.wave"
        },
        "override": null,
        "role": null,
@@ -12296,20 +10210,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "sub.softness",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "sub.on"
-         },
-         {
-          "is": [
-           "smooth square"
-          ],
-          "key": "sub.wave"
-         }
-        ]
+        "is": [
+         "smooth square"
+        ],
+        "key": "sub.wave"
        },
        "override": null,
        "role": null,
@@ -12324,20 +10228,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "sub.bumpHarmonic",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "sub.on"
-         },
-         {
-          "is": [
-           "bump"
-          ],
-          "key": "sub.wave"
-         }
-        ]
+        "is": [
+         "bump"
+        ],
+        "key": "sub.wave"
        },
        "override": null,
        "role": null,
@@ -12352,20 +10246,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "sub.bumpAmount",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "sub.on"
-         },
-         {
-          "is": [
-           "bump"
-          ],
-          "key": "sub.wave"
-         }
-        ]
+        "is": [
+         "bump"
+        ],
+        "key": "sub.wave"
        },
        "override": null,
        "role": null,
@@ -12380,20 +10264,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "sub.bumpPhase",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "sub.on"
-         },
-         {
-          "is": [
-           "bump"
-          ],
-          "key": "sub.wave"
-         }
-        ]
+        "is": [
+         "bump"
+        ],
+        "key": "sub.wave"
        },
        "override": null,
        "role": null,
@@ -12408,20 +10282,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "sub.bump2Harmonic",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "sub.on"
-         },
-         {
-          "is": [
-           "bump"
-          ],
-          "key": "sub.wave"
-         }
-        ]
+        "is": [
+         "bump"
+        ],
+        "key": "sub.wave"
        },
        "override": null,
        "role": null,
@@ -12436,20 +10300,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "sub.bump2Amount",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "sub.on"
-         },
-         {
-          "is": [
-           "bump"
-          ],
-          "key": "sub.wave"
-         }
-        ]
+        "is": [
+         "bump"
+        ],
+        "key": "sub.wave"
        },
        "override": null,
        "role": null,
@@ -12464,20 +10318,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "sub.bump2Phase",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "sub.on"
-         },
-         {
-          "is": [
-           "bump"
-          ],
-          "key": "sub.wave"
-         }
-        ]
+        "is": [
+         "bump"
+        ],
+        "key": "sub.wave"
        },
        "override": null,
        "role": null,
@@ -12508,12 +10352,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "sub.octave",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": [
@@ -12531,12 +10370,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "sub.semitones",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -12549,12 +10383,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "sub.pitch",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -12567,12 +10396,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "sub.fine",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -12585,12 +10409,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "sub.keytrack",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -12603,12 +10422,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "sub.startPhase",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -12638,12 +10452,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "sub.voiceMode",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": [
@@ -12660,20 +10469,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "sub.priority",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "sub.on"
-         },
-         {
-          "is": [
-           "mono"
-          ],
-          "key": "sub.voiceMode"
-         }
-        ]
+        "is": [
+         "mono"
+        ],
+        "key": "sub.voiceMode"
        },
        "override": null,
        "role": null,
@@ -12708,12 +10507,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "sub.order",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": [
@@ -12729,12 +10523,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "sub.erode",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -12747,12 +10536,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "sub.drive",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -12765,12 +10549,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "sub.crunch",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -12784,18 +10563,8 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "sub.character",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "sub.on"
-         },
-         {
-          "gt": 0,
-          "key": "sub.drive"
-         }
-        ]
+        "gt": 0,
+        "key": "sub.drive"
        },
        "override": null,
        "role": null,
@@ -12813,12 +10582,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "sub.tone",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -12903,12 +10667,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "noise.mute",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -12921,12 +10680,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "noise.solo",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -12957,20 +10711,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "noise.env",
        "live": {
-        "all": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "noise.on"
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "noise.on"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "noise.on"
        },
        "override": null,
        "role": "modes",
@@ -13346,30 +11090,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "noise.type",
-       "live": {
-        "any": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "noise.on"
-         },
-         {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "sub.on"
-           },
-           {
-            "gt": 0,
-            "key": "sub.erode"
-           }
-          ]
-         }
-        ]
-       },
+       "live": null,
        "override": null,
        "role": "modes",
        "short": [
@@ -13388,38 +11109,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "noise.density",
        "live": {
-        "all": [
-         {
-          "any": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "noise.on"
-           },
-           {
-            "all": [
-             {
-              "is": [
-               "on"
-              ],
-              "key": "sub.on"
-             },
-             {
-              "gt": 0,
-              "key": "sub.erode"
-             }
-            ]
-           }
-          ]
-         },
-         {
-          "is": [
-           "Crackle"
-          ],
-          "key": "noise.type"
-         }
-        ]
+        "is": [
+         "Crackle"
+        ],
+        "key": "noise.type"
        },
        "override": null,
        "role": null,
@@ -13434,38 +11127,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "noise.rate",
        "live": {
-        "all": [
-         {
-          "any": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "noise.on"
-           },
-           {
-            "all": [
-             {
-              "is": [
-               "on"
-              ],
-              "key": "sub.on"
-             },
-             {
-              "gt": 0,
-              "key": "sub.erode"
-             }
-            ]
-           }
-          ]
-         },
-         {
-          "is": [
-           "S&H"
-          ],
-          "key": "noise.type"
-         }
-        ]
+        "is": [
+         "S&H"
+        ],
+        "key": "noise.type"
        },
        "override": null,
        "role": null,
@@ -13480,38 +11145,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "noise.length",
        "live": {
-        "all": [
-         {
-          "any": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "noise.on"
-           },
-           {
-            "all": [
-             {
-              "is": [
-               "on"
-              ],
-              "key": "sub.on"
-             },
-             {
-              "gt": 0,
-              "key": "sub.erode"
-             }
-            ]
-           }
-          ]
-         },
-         {
-          "is": [
-           "LFSR"
-          ],
-          "key": "noise.type"
-         }
-        ]
+        "is": [
+         "LFSR"
+        ],
+        "key": "noise.type"
        },
        "override": null,
        "role": null,
@@ -13526,38 +11163,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "noise.lfsrKeytrack",
        "live": {
-        "all": [
-         {
-          "any": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "noise.on"
-           },
-           {
-            "all": [
-             {
-              "is": [
-               "on"
-              ],
-              "key": "sub.on"
-             },
-             {
-              "gt": 0,
-              "key": "sub.erode"
-             }
-            ]
-           }
-          ]
-         },
-         {
-          "is": [
-           "LFSR"
-          ],
-          "key": "noise.type"
-         }
-        ]
+        "is": [
+         "LFSR"
+        ],
+        "key": "noise.type"
        },
        "override": null,
        "role": null,
@@ -13571,30 +11180,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "noise.colour",
-       "live": {
-        "any": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "noise.on"
-         },
-         {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "sub.on"
-           },
-           {
-            "gt": 0,
-            "key": "sub.erode"
-           }
-          ]
-         }
-        ]
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -13608,58 +11194,30 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "noise.pitch",
        "live": {
-        "all": [
+        "any": [
          {
-          "any": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "noise.on"
-           },
-           {
-            "all": [
-             {
-              "is": [
-               "on"
-              ],
-              "key": "sub.on"
-             },
-             {
-              "gt": 0,
-              "key": "sub.erode"
-             }
-            ]
-           }
-          ]
+          "is": [
+           "LFSR"
+          ],
+          "key": "noise.type"
          },
          {
-          "any": [
+          "is": [
+           "on"
+          ],
+          "key": "noise.resonator"
+         },
+         {
+          "all": [
            {
-            "is": [
-             "LFSR"
-            ],
-            "key": "noise.type"
-           },
-           {
-            "is": [
-             "on"
-            ],
-            "key": "noise.resonator"
-           },
-           {
-            "all": [
-             {
-              "key": "noise.filter",
-              "not": [
-               "Off"
-              ]
-             },
-             {
-              "gt": 0,
-              "key": "noise.keytrack"
-             }
+            "key": "noise.filter",
+            "not": [
+             "Off"
             ]
+           },
+           {
+            "gt": 0,
+            "key": "noise.keytrack"
            }
           ]
          }
@@ -13694,30 +11252,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "noise.resonator",
-       "live": {
-        "any": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "noise.on"
-         },
-         {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "sub.on"
-           },
-           {
-            "gt": 0,
-            "key": "sub.erode"
-           }
-          ]
-         }
-        ]
-       },
+       "live": null,
        "override": null,
        "role": "power",
        "short": null,
@@ -13731,38 +11266,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "noise.feedback",
        "live": {
-        "all": [
-         {
-          "any": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "noise.on"
-           },
-           {
-            "all": [
-             {
-              "is": [
-               "on"
-              ],
-              "key": "sub.on"
-             },
-             {
-              "gt": 0,
-              "key": "sub.erode"
-             }
-            ]
-           }
-          ]
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "noise.resonator"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "noise.resonator"
        },
        "override": null,
        "role": null,
@@ -13793,30 +11300,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "noise.whisper",
-       "live": {
-        "any": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "noise.on"
-         },
-         {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "sub.on"
-           },
-           {
-            "gt": 0,
-            "key": "sub.erode"
-           }
-          ]
-         }
-        ]
-       },
+       "live": null,
        "override": null,
        "role": "power",
        "short": null,
@@ -13830,38 +11314,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "noise.vowel",
        "live": {
-        "all": [
-         {
-          "any": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "noise.on"
-           },
-           {
-            "all": [
-             {
-              "is": [
-               "on"
-              ],
-              "key": "sub.on"
-             },
-             {
-              "gt": 0,
-              "key": "sub.erode"
-             }
-            ]
-           }
-          ]
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "noise.whisper"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "noise.whisper"
        },
        "override": null,
        "role": null,
@@ -13892,30 +11348,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "noise.wind",
-       "live": {
-        "any": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "noise.on"
-         },
-         {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "sub.on"
-           },
-           {
-            "gt": 0,
-            "key": "sub.erode"
-           }
-          ]
-         }
-        ]
-       },
+       "live": null,
        "override": null,
        "role": "power",
        "short": null,
@@ -13929,38 +11362,10 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "noise.gust",
        "live": {
-        "all": [
-         {
-          "any": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "noise.on"
-           },
-           {
-            "all": [
-             {
-              "is": [
-               "on"
-              ],
-              "key": "sub.on"
-             },
-             {
-              "gt": 0,
-              "key": "sub.erode"
-             }
-            ]
-           }
-          ]
-         },
-         {
-          "is": [
-           "on"
-          ],
-          "key": "noise.wind"
-         }
-        ]
+        "is": [
+         "on"
+        ],
+        "key": "noise.wind"
        },
        "override": null,
        "role": null,
@@ -13991,30 +11396,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "noise.filter",
-       "live": {
-        "any": [
-         {
-          "is": [
-           "on"
-          ],
-          "key": "noise.on"
-         },
-         {
-          "all": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "sub.on"
-           },
-           {
-            "gt": 0,
-            "key": "sub.erode"
-           }
-          ]
-         }
-        ]
-       },
+       "live": null,
        "override": null,
        "role": "modes",
        "short": [
@@ -14033,37 +11415,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "noise.cutoff",
        "live": {
-        "all": [
-         {
-          "any": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "noise.on"
-           },
-           {
-            "all": [
-             {
-              "is": [
-               "on"
-              ],
-              "key": "sub.on"
-             },
-             {
-              "gt": 0,
-              "key": "sub.erode"
-             }
-            ]
-           }
-          ]
-         },
-         {
-          "key": "noise.filter",
-          "not": [
-           "Off"
-          ]
-         }
+        "key": "noise.filter",
+        "not": [
+         "Off"
         ]
        },
        "override": null,
@@ -14079,37 +11433,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "noise.resonance",
        "live": {
-        "all": [
-         {
-          "any": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "noise.on"
-           },
-           {
-            "all": [
-             {
-              "is": [
-               "on"
-              ],
-              "key": "sub.on"
-             },
-             {
-              "gt": 0,
-              "key": "sub.erode"
-             }
-            ]
-           }
-          ]
-         },
-         {
-          "key": "noise.filter",
-          "not": [
-           "Off"
-          ]
-         }
+        "key": "noise.filter",
+        "not": [
+         "Off"
         ]
        },
        "override": null,
@@ -14125,37 +11451,9 @@ window.GUI3_DATA = {
        "follow": null,
        "key": "noise.keytrack",
        "live": {
-        "all": [
-         {
-          "any": [
-           {
-            "is": [
-             "on"
-            ],
-            "key": "noise.on"
-           },
-           {
-            "all": [
-             {
-              "is": [
-               "on"
-              ],
-              "key": "sub.on"
-             },
-             {
-              "gt": 0,
-              "key": "sub.erode"
-             }
-            ]
-           }
-          ]
-         },
-         {
-          "key": "noise.filter",
-          "not": [
-           "Off"
-          ]
-         }
+        "key": "noise.filter",
+        "not": [
+         "Off"
         ]
        },
        "override": null,
@@ -14187,12 +11485,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "noise.spread",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -14205,12 +11498,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "noise.pan",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": null,
        "short": null,
@@ -15107,12 +12395,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc1.mute",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": "mute",
        "short": null,
@@ -15125,12 +12408,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc1.solo",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc1.on"
-       },
+       "live": null,
        "override": null,
        "role": "solo",
        "short": null,
@@ -15191,12 +12469,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc2.mute",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": "mute",
        "short": null,
@@ -15209,12 +12482,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "osc2.solo",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "osc2.on"
-       },
+       "live": null,
        "override": null,
        "role": "solo",
        "short": null,
@@ -15275,12 +12543,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "sub.mute",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": "mute",
        "short": null,
@@ -15293,12 +12556,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "sub.solo",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "sub.on"
-       },
+       "live": null,
        "override": null,
        "role": "solo",
        "short": null,
@@ -15359,12 +12617,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "noise.mute",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": "mute",
        "short": null,
@@ -15377,12 +12630,7 @@ window.GUI3_DATA = {
        "advanced": false,
        "follow": null,
        "key": "noise.solo",
-       "live": {
-        "is": [
-         "on"
-        ],
-        "key": "noise.on"
-       },
+       "live": null,
        "override": null,
        "role": "solo",
        "short": null,

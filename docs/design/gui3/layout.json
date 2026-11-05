@@ -18,7 +18,7 @@
     ]
   },
   "live_when": {
-    "note": "Which setting lets a control act (SPEC-ENGINE PA-8, GUI-21). Written per parameter, not per page: every page that shows a key obeys the same condition, and a control whose condition fails isn't drawn. `sources` holds for every key under its prefix, ANDed with any row of `rows`. {o} is each oscillator, {b} each blade. B587 replaces this with a table in the spec itself.",
+    "note": "Which setting lets a control act (SPEC-ENGINE PA-8, GUI-21). Written per parameter, not per page: every page that shows a key obeys the same condition, and a control whose condition fails isn't drawn. A source's own switch hides nothing (GUI-29): you can set a source up before switching it on, so `sources`, which holds for every key under a prefix, is empty. {o} is each oscillator, {b} each blade. B587 replaces this with a table in the spec itself.",
     "rows": [
       {
         "keys": [
@@ -1405,83 +1405,7 @@
         }
       }
     ],
-    "sources": [
-      {
-        "prefix": "osc{o}.",
-        "except": [
-          "osc{o}.on"
-        ],
-        "when": {
-          "key": "osc{o}.on",
-          "is": [
-            "on"
-          ]
-        }
-      },
-      {
-        "prefix": "sub.",
-        "except": [
-          "sub.on"
-        ],
-        "when": {
-          "key": "sub.on",
-          "is": [
-            "on"
-          ]
-        }
-      },
-      {
-        "prefix": "noise.",
-        "except": [
-          "noise.on",
-          "noise.spread",
-          "noise.pan",
-          "noise.mute",
-          "noise.solo",
-          "noise.env"
-        ],
-        "when": {
-          "any": [
-            {
-              "key": "noise.on",
-              "is": [
-                "on"
-              ]
-            },
-            {
-              "all": [
-                {
-                  "key": "sub.on",
-                  "is": [
-                    "on"
-                  ]
-                },
-                {
-                  "key": "sub.erode",
-                  "gt": 0
-                }
-              ]
-            }
-          ]
-        }
-      },
-      {
-        "prefix": "noise.",
-        "only": [
-          "noise.spread",
-          "noise.pan",
-          "noise.mute",
-          "noise.solo",
-          "noise.env"
-        ],
-        "when": {
-          "key": "noise.on",
-          "is": [
-            "on"
-          ]
-        }
-      }
-    ]
+    "sources": []
   },
   "pages": [
     {
@@ -1504,6 +1428,7 @@
             "rows": [
               [
                 "osc1.unison",
+                "osc1.detune",
                 "osc1.baseWave",
                 "osc1.blade1.on",
                 "osc1.blade1.mode"
@@ -1535,6 +1460,7 @@
             "rows": [
               [
                 "osc2.unison",
+                "osc2.detune",
                 "osc2.baseWave",
                 "osc2.blade1.on",
                 "osc2.blade1.mode"

@@ -6111,6 +6111,21 @@
    "superseded_by": null,
    "state": "in-shell",
    "master_version": "1793839663-3038"
+  },
+  {
+   "id": "gui29-off-sources-show",
+   "adr": "GUI-29",
+   "clause": "a source that's off still shows its controls; Detune on Main's Osc tabs",
+   "port_tab": null,
+   "note": "Reverses a reading of GUI-21. Layout only: `live_when`'s source rules are gone, and the deck's rows gain Detune. FX device: same, when modules have conditions.",
+   "component": "components/bundle.css",
+   "bundle": "bundle.css: .idle { display:none",
+   "shell": "docs/design/gui3/layout.json: \"live_when\"",
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "in-shell",
+   "master_version": "1793843689-1e6e"
   }
  ],
  "not_design": [
@@ -7195,6 +7210,9 @@
    "GN-21",
    "GN-29",
    "GN-40"
+  ],
+  "GUI-29": [
+   "GN-24"
   ]
  },
  "audit_notes": [
