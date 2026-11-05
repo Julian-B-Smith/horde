@@ -11886,6 +11886,27 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 **Engine impact.** GN-21, as listed there.
 
 **FX device (ADR-254).** The same panel with FX roles and no sources' rows. ADR-321's three additions don't apply there.
+
+## GUI-39 — DIRECTED by the human: envelope pictures you drag; curve controls on every section (GB23; UI Spec section 6, B377; 2026-11-05)
+
+**The human, 2026-11-05:** "Let's make envelope visualizers interactive. They also need curve controls on each of the sections, as per the design doc."
+
+**What's built.**
+- **Every envelope picture can be dragged:** Main's ENV 1, each source's Envelope section, the Dashboard's cards, and the Mod page's ENV 1 to 4, where it replaces the flat live trace. A node's drag writes its time, and Decay's also writes Sustain. A vertical drag on a stage bends it. Shift is fine, double-click resets, and each gesture is one undo step. It's the hierarchy lab's section 0, "one model, two views", on the rows the knobs write.
+- **Attack, Decay and Release curve controls** are on every source's Envelope section and Dashboard card.
+- **Osc and Noise pages:** the picture takes its own row over the seven knobs, since at 26 px it couldn't be dragged. The Sub page has the width to keep them side by side.
+- **The Osc waveform is 116 px, not 129,** to pay for that under ADR-345's fit.
+
+**Readings (the GUI session's, open to the human).**
+- **Hold can't be dragged.** The picture's plateau is a drawing, and Hold is 0 by default, so its node moves only Sustain. Hold stays a knob, on Main's ENV 1 tab and the Mod page.
+- **Up raises a stage's middle whichever way it runs,** so on a falling stage up is a smaller bend. This is `LfoShapeEditor`'s rule.
+- **The mouse route has no keyboard twin on the picture.** The knobs are that route.
+
+**Also in this change, two repairs.** GUI-35 took the Sub page's picture column away, which left `sub-noise-lab.html` stuck on its busy line with no error: the lab now handles that layout and says so on the page if it can't place its pictures, and opens on Noise with the Weather. And GUI 3 shows a loading note while its self-checks hold the page, with `?fast` to skip them.
+
+**Engine impact.** None: the same rows through the same writes.
+
+**FX device (ADR-254).** It has envelopes among its modulators, so the same drag applies to their pictures.
 ## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
 
 **Context.** FM free in pitch FM runs an accumulator that never restarts, while each of C.16's readings starts it at 0, so the estimate cannot see its mean and BL-19 cannot hold by the law alone (Q-TA-71: engine-free, 95 of its 144 one-member cases over 0.003, up to 0.046). ADR-363 sent this to a scratch trial of C.16's existing blocker, with clips for the human. Separately, item 7.8's reference R2 places FM free's modulator half a cycle from round 56's start, and 7.8 plays before its settings settle (Q-TA-77).

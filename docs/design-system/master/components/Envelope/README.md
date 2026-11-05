@@ -6,6 +6,8 @@ An envelope's shape, every stage bent by its own curve, on the phosphor floor, w
 
 **Fed by** The envelope's parameters (manifest keys `env1.attack`…`env1.releaseCurve`); the playhead from RC-8 (per voice, its envelopes' stages).
 
+**You can drag it (GUI-39, `Horde.EnvDrag(canvas, o)`).** A node's drag writes its time, and Decay's also writes Sustain. A vertical drag on a stage bends that stage, and up raises the stage's middle whichever way it runs (160 px is the whole range). Shift is ×0.25, double-click resets, and each gesture is one undo step. It's the mouse route to rows the knobs also reach, so a keyboard user has the knobs. The picture's Hold plateau is a drawing, so its node moves only Sustain. The host gives `env()`, `read(role)`, `write(role, v)` in the row's 0..1 travel, `reset(role)`, `begin(label)` and `end()`.
+
 **Voice-bound or audio-capable** The shape draws without notes; the playhead is voice-bound.
 
 **Screens** drawn only with the six screen roles, so it follows the Screen scheme; glow is a wider underlay stroke or disc, never a blur; scanlines at the scheme's strength.
