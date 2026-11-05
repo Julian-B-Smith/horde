@@ -11682,3 +11682,19 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 **Engine impact (ADR-361, GUI-27).** GN-21, GN-29 and a new GN-40 for the Exempt readings above.
 
 **FX device (ADR-254).** The same menu on FX-module parameters (ADR-291), and the same naming and saving.
+## ADR-364 — RULED by the human: what rounds 50 and 51 do to older gates; SB-11's stages; the morph items' readings; spec round 57 (B622; 2026-11-04)
+
+**Context.** Finishing its queue, the test author raised gates that assumed the old loop and the old K (`QUESTIONS.md`, Q-TA-73), a slip in SB-11 (Q-TA-76), and the names and readings its morph items apply (Q-TA-74, Q-TA-76). All of it is engine-free. The lead put five items to the human in one poll, with plain summaries rather than every clause: "Yes, as recommended".
+
+**Rulings.**
+1. **9.b1's key-off windows stay as reports.** The law no longer occupies either window. They and the frozen no-click set are re-derived after the human's factory patch session (B622), which re-voices these presets anyway. No model for it now.
+2. **State 09 comes off 15a's chaotic list.** On the new C.1 at K 0.6 it departs at most −178 dB. The test author may now deliver `wasm15_chaos.h`.
+3. **Item 13's oracle checks that K is stored as written,** over the same four presets. Round 51 removed the rescale and its figures.
+4. **SB-11(b), round 57.** Each of PA-1's two stages of the receiving setting takes the freed setting's value at that stage. Followed literally, the old text missed SB-2's 1e-5 by up to 6.4e-5 on the test author's model. Its figures for this reading: the sum holds to rounding (the worst sequence 3e-6, from PA-1's snap), and entries come no later. The model is weights only, and has no engine or sound behind it. SB-2's bound stands.
+5. **The morph items' names and readings are confirmed** (Q-TA-74, Q-TA-76 parts 2 and 3). 35.16 finds `morph.on` by key, and otherwise reports it has no id to send, until the morph's manifest (IF-11) exists. The lead's reading of these is unverified until a real morph runs.
+
+**The lead's clarification, not a ruling (Q-TA-75).** Round 55's "whole parts" of a noise modulator's positions is corrected to "floors", matching C.9 item 5's per-integer cells.
+
+**Delivery.** Rounds 50, 51 and 53's tests go to the builder after its commit for rounds 55 and 56. Items 34 and 35 wait until the builder starts the morph: they need five new functions to link, and nothing about them helps the CPU pass.
+
+**FX device (ADR-254):** none now; SB-11 governs structural groups in the engine, and `fx/N` sets go to the rack.
