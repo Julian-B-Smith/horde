@@ -6479,6 +6479,21 @@
    "component": "BladeView",
    "bundle": "BladeView",
    "shell": "docs/design/gui3.html: const awake = () => (!S.reduce && !CLOCK.rest)"
+  },
+  {
+   "id": "gui43-main-source-power",
+   "adr": "GUI-43",
+   "clause": "each source's on switch on Main's tab for it",
+   "port_tab": null,
+   "note": "FX device: none.",
+   "component": "Deck",
+   "bundle": "Deck",
+   "shell": "docs/design/gui3/layout.json: \"osc1.on\"",
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "in-shell",
+   "master_version": "1793909482-958b"
   }
  ],
  "not_design": [
@@ -7610,7 +7625,8 @@
    "GN-3",
    "GN-50"
   ],
-  "GUI-42": "none: drawing and layout"
+  "GUI-42": "none: drawing and layout",
+  "GUI-43": "none: an existing row in another place"
  },
  "audit_notes": [
   "[A] Counts: 33 design ADRs with 56 rows (ruled 31, of which 6 superseded and 7 legacy-only; wired 9; in-shell 7; vendored 4; in-master 4; unknown 1); 79 not_design. Every primary heading ADR-001..ADR-112 appears exactly once. Headings out of numeric order (ADR-052, ADR-053 before ADR-051; ADR-095, 094, 093, 092; ADR-091 A1-A4 after ADR-112 A3) were all covered. One non-ADR heading sits in range: 'NOTICE · Library standby (plugin-skeleton FOUNDATIONS)', line 661, not design and not listed.",

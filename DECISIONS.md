@@ -11974,6 +11974,18 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 **Engine impact.** None: drawing and layout.
 
 **FX device (ADR-254).** Its Morph page and pictures take items 1 and 2 the same.
+
+## GUI-43 — DIRECTED by the human: each source's on switch on Main (GUI-4; 2026-11-05)
+
+**The human, 2026-11-05:** "There's currently no way to turn oscillators on and off from main."
+
+**What changes.** Main's Osc 1, Osc 2, Sub and Noise tabs each start their first row with that source's on switch, the same row its own page carries. Turning it off from Main is the same edit, with the same undo step, as on the source's page.
+
+**Reading (the GUI session's, open to the human).** The switch sits in the tab's first row. It isn't on the tab's label, where it would also show whether a source is on without opening its tab. That would be the deck's own change in the master.
+
+**Engine impact.** None: an existing row in another place.
+
+**FX device (ADR-254).** It has no Main or sources.
 ## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
 
 **Context.** FM free in pitch FM runs an accumulator that never restarts, while each of C.16's readings starts it at 0, so the estimate cannot see its mean and BL-19 cannot hold by the law alone (Q-TA-71: engine-free, 95 of its 144 one-member cases over 0.003, up to 0.046). ADR-363 sent this to a scratch trial of C.16's existing blocker, with clips for the human. Separately, item 7.8's reference R2 places FM free's modulator half a cycle from round 56's start, and 7.8 plays before its settings settle (Q-TA-77).
