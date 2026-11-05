@@ -1015,7 +1015,7 @@ function vizView(v, pid, big) {
     if (v.kind === 'sub') {   // GUI-35: the Dial, on the Sub page, Main's Sub tab and the Dashboard's card alike. It turns while awake and rests with the other pictures (GUI-33)
       if (!main.clientWidth || !noiseDue(Object.values(K).map(k => dev.shown(k)).join('|'))) return;
       const num = k => +labOf(k).replace('\u2212', '-'), o = { wave: labOf(K.wave), width: xOf(K.width), softness: xOf(K.softness), harmA: num(K.harmA), ampA: xOf(K.ampA), phaseA: xOf(K.phaseA), harmB: num(K.harmB), ampB: xOf(K.ampB), phaseB: xOf(K.phaseB), octave: num(K.octave), drive: xOf(K.drive), crunch: xOf(K.crunch), character: labOf(K.character), tone: xOf(K.tone), order: labOf(K.order), erode: xOf(K.erode) };
-      st.t = S.reduce ? 0 : (st.n = (st.n || 0) + 1) * PICTURE_DT; H.Viz.subDial(main, o, st); H.Viz.off(main, !isOnKey(K.on)); return;
+      st.t = S.reduce ? 0 : (st.frames = (st.frames || 0) + 1) * PICTURE_DT; H.Viz.subDial(main, o, st); H.Viz.off(main, !isOnKey(K.on)); return;
     }
     if (ringIO) ringIO.frame();                 // the swarm moves every frame, so the ring is drawn before the change test below
     const sig = Object.values(K).map(k => dev.shown(k)).join('|') + '|' + colourKey() + '|' + sizeOf(main);
@@ -1030,7 +1030,7 @@ function vizView(v, pid, big) {
       // GUI-40, the Weather, which moves on its own and rests with the pictures (GUI-33): drawn from the noise's settings, never its signal
       if (!main.clientWidth) return;   // the pace was asked above, once
       const num = k => +labOf(k).replace(/\D/g, ''), o = { type: labOf(K.type), density: xOf(K.density), rate: xOf(K.rate), length: num(K.length), colour: xOf(K.colour), resonator: isOnKey(K.resonator), feedback: xOf(K.feedback), whisper: isOnKey(K.whisper), vowel: xOf(K.vowel), wind: isOnKey(K.wind), gust: xOf(K.gust), filter: labOf(K.filter), cutoff: xOf(K.cutoff), resonance: xOf(K.resonance), pitch: xOf(K.pitch), spread: xOf(K.spread) };
-      st.t = S.reduce ? 0 : (st.n = (st.n || 0) + 1) * PICTURE_DT; H.Viz.noiseWeather(main, o, st); H.Viz.off(main, !isOnKey(K.on));
+      st.t = S.reduce ? 0 : (st.frames = (st.frames || 0) + 1) * PICTURE_DT; H.Viz.noiseWeather(main, o, st); H.Viz.off(main, !isOnKey(K.on));
     } else if (v.kind === 'env') {
       // The painter's `hold` is a sustain plateau for the drawing (a third of the other stages, SAMPLE), not ENV 1's Hold
       // row, which it does not draw; the curves are C.12's, drawn by the bundle's own law (Viz.envAt).
@@ -2248,9 +2248,11 @@ CLOCK.checking = true;
     selectPage('sub'); tick(); const pageDial = pageEls.sub.querySelector(lbl), noCol = !pageEls.sub.querySelector('.pv-left ' + lbl), across = pageDial && R(pageDial).width > 400;
     const hand0 = handAt, keepA = window.GUI3_AWAKE; window.GUI3_AWAKE = false; CLOCK.rest = true; handAt = -Infinity; CLOCK.now = 3e7;   // the old rest, so the card holds still and the control can hold (GUI-42)
     const step = () => { CLOCK.now += 40; tick(); };   // its own clock, so the idle gate is what the control tests
-    selectPage('dashboard'); step(); const cardDial = pageEls.dashboard.querySelector(lbl), dk = PG.sub.viz.keys.drive, dv = dev.shown(dk), snap = () => cardDial.toDataURL(); const a0 = snap(); step(); step(); const still = snap() === a0; dev.begin('self-check'); dev.set(dk, dv > .5 ? dv - .4 : dv + .4, { corner: 0 }); dev.end(); step(); const moved = snap() !== a0; dev.undo(); dev.clearRedo(); step(); CLOCK.now = undefined; CLOCK.rest = false; handAt = hand0; window.GUI3_AWAKE = keepA;
+    selectPage('dashboard'); step(); const cardDial = pageEls.dashboard.querySelector(lbl), dk = PG.sub.viz.keys.drive, dv = dev.shown(dk), snap = () => cardDial.toDataURL(); const a0 = snap(); step(); step(); const still = snap() === a0; dev.begin('self-check'); dev.set(dk, dv > .5 ? dv - .4 : dv + .4, { corner: 0 }); dev.end(); step(); const moved = snap() !== a0; dev.undo(); dev.clearRedo(); step();
+    const ek = PG.sub.viz.keys.erode, failed0 = views.filter(v => v.failed).length; dev.begin('self-check'); dev.set(ek, .6, { corner: 0 }); dev.end(); CLOCK.rest = false; step(); step(); const erodeDraws = views.filter(v => v.failed).length === failed0 && snap() !== a0; dev.undo(); dev.clearRedo(); step();   // GUI-35's bug: Erode up once took the picture down for good
+    CLOCK.now = undefined; CLOCK.rest = false; handAt = hand0; window.GUI3_AWAKE = keepA;
     const mainDial = pageEls.main.querySelector(lbl); selectPage(pg0);
-    line(clean < full && e0 && e8 && !!pageDial && noCol && across && !!cardDial && still && moved && !!mainDial, 'The Dial (GUI-35): across the Sub page, on Main\u2019s Sub tab and on the Dashboard\u2019s card; a card picture holds with no change (control) and moves with Drive; a sine spends ' + Math.round(clean * 100) + '% of its cycle near the ceiling clean and ' + Math.round(full * 100) + '% driven; Erode at 0 ignores the noise, and at 0.8 reads it.');
+    line(clean < full && e0 && e8 && !!pageDial && noCol && across && !!cardDial && still && moved && erodeDraws && !!mainDial, 'The Dial (GUI-35): across the Sub page, on Main\u2019s Sub tab and on the Dashboard\u2019s card; a card picture holds with no change (control) and moves with Drive; a sine spends ' + Math.round(clean * 100) + '% of its cycle near the ceiling clean and ' + Math.round(full * 100) + '% driven; Erode at 0 ignores the noise, and at 0.8 reads it; Erode up on the card still draws, with no view failing (a bug fixed 2026-11-05).');
   }
   // 4d0. GUI-34: the pearl's rate, speed, resolution, idle drift and strikes. Each law has its must-fail control beside it.
   { const pg0 = page, stage = H.MainStage, P = stage.SPECIMEN, tick = () => { for (const v of views) if (v.page === page || v.page === '*') v.update(); }, keepA = window.GUI3_AWAKE, hand0 = handAt, feed0 = window.GUI3_FEED, every0 = P.every, r0 = stage.MON.rSm;

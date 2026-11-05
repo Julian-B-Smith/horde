@@ -144,6 +144,10 @@
   {
    "version": "1793907947-db92",
    "evidence": "docs/design/arp-face/README.md: GUI-42, 2026-11-05"
+  },
+  {
+   "version": "1793909482-958b",
+   "evidence": "docs/design/arp-face/README.md: the Dial with Erode up, 2026-11-05"
   }
  ],
  "vendoring": {
@@ -6286,7 +6290,7 @@
    "adr": "GUI-35",
    "clause": "the Sub's picture is the Dial, across the page, with a version on Main's Sub tab and the Dashboard's card",
    "port_tab": "osc-visualizers",
-   "note": "A SAMPLE from the settings until GN-48. The band is 82 px under ADR-345's fit. FX device: none, it hosts no sources.",
+   "note": "A SAMPLE from the settings until GN-48. The band is 82 px under ADR-345's fit. FX device: none, it hosts no sources. Erode above 0 once stopped it drawing; fixed 2026-11-05.",
    "component": "SubDial",
    "bundle": "Viz",
    "shell": "docs/design/gui3.html: const SUB_BAND",
@@ -6294,7 +6298,7 @@
    "via": null,
    "superseded_by": null,
    "state": "in-shell",
-   "master_version": "1793865465-57d0"
+   "master_version": "1793909482-958b"
   },
   {
    "lab": null,
