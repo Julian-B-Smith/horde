@@ -11764,3 +11764,48 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 **What changes.** Inside `MapControl`, the source chip is the capsule's second half, as the plain selector is: no border or radius of its own, one ink divider from the MAP button, and the source's colour as an underline while MAP is on. A chip used alone keeps its border.
 
 **FX device (ADR-254).** The same. **Engine impact.** None.
+
+## GUI-33 — RULED by the human: pictures rest when idle and draw at 30 fps at most; At phase made cheap (GB18; 2026-11-05)
+
+**Context.** Asked how worried to be about the GUI's cost in a webview, the session measured the painters: an Osc page's pictures took about 1.8 ms a frame at 7 members, except At phase, about 9 ms at 7 members and 20 ms at 16, over a 16.7 ms frame. And every picture redrew every frame with nothing sounding.
+
+**Ruling (the human, 2026-11-05).** "Yes, fix them", to fixing At phase and adding idle and frame-rate limits to the pictures.
+
+**What changes.**
+- **At phase:** blade 2's hatch is one tile, made once and filled, instead of a stroke per stripe per member. 16 members now take about 1 ms.
+- **The pace:** a picture draws when something it shows changed, or at most 30 times a second while awake. Awake is a voice sounding, or a pointer move or key in the last 2 s. Otherwise the last frame stands, ADR-140's idle gate for all of them: the ring, waveform, spectrum, carpet, voice map, the foot row's and Mix's summed views, the logo and the Specimen.
+- **Knobs and meters keep the frame rate.** A hand needs them, and they aren't what's expensive.
+
+**ADR-099 A1 still holds:** it asks that a merely silent oscillator's visuals don't freeze while others move. This gate asks about any voice, so a silent oscillator keeps moving while a note plays.
+
+**Readings (the GUI session's, open to the human).**
+- **30 fps and 2 s are this session's numbers,** and they're one constant each.
+- **Host automation of the XY with no note playing doesn't move the Specimen,** since nothing's sounding and no hand is there. A setting the pictures show still redraws them.
+- **The stub plays no notes,** so in the shell the pictures move only for 2 s after a hand. That's what an idle plugin will do.
+
+**Test hooks.** `window.GUI3_AWAKE` holds the pictures awake, for the worst case. `window.GUI3_NOCHECKS` loads without the self-checks, for timing a load.
+
+**Later, if the Ableton test asks for it (the human's list, 2026-11-05).** One batched frame across the bridge, in binary where the bridge allows it: GN-46, with B76. A native or WebGL layer for the busiest pictures: B75's seam. Embedding in the binary is what the plugin already does (`tools/embed_file.py`).
+
+**FX device (ADR-254).** The pace applies to its pictures too, with audio passing in place of a voice sounding.
+
+**Engine impact.** GN-45, GN-46.
+## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
+
+**Context.** FM free in pitch FM runs an accumulator that never restarts, while each of C.16's readings starts it at 0, so the estimate cannot see its mean and BL-19 cannot hold by the law alone (Q-TA-71: engine-free, 95 of its 144 one-member cases over 0.003, up to 0.046). ADR-363 sent this to a scratch trial of C.16's existing blocker, with clips for the human. Separately, item 7.8's reference R2 places FM free's modulator half a cycle from round 56's start, and 7.8 plays before its settings settle (Q-TA-77).
+
+**The trial (the lead's scratch on the builder's code, not official).** One-member rows over BL-19's bound went from 19 of 54 to 0 of 54, worst 5.15e-2 to 8.7e-4. Two FM voices' chord, mean over 1 s, 1.21e-2 to 3.03e-4. The cost: all 8 pitch-FM FM free patches and Wobble jaw change (null −17.7 to −35.5 dB, mostly phase), the first 100 ms differs by about −31 dBFS on Crunch horde, and Crunch horde and Jitter swarm's 1 s mean rises about tenfold, to 1.6e-3, under the bound. Peaks rise 0.2 dB. Glass horde pad has no FM free and doesn't change.
+
+**Rulings.**
+1. **The blocker goes in (round 58).** C.16's blocker also runs while a blade is on in FM free with pitch FM. The human listened to the seven patches on the page and said: "I can't hear any changes". The lead had recommended adopting it if there was no audible cost, and reads that as the answer. BL-19 is unchanged, so no gate moved. The condition is the one trialled: it doesn't look at the index.
+2. **7.8 settles and R2's FM free rows are remade** from round 56's start, the human's answer "Remake it". The rule, the 5 dB margin and the three controls stay. The new body hash goes into item 7.8 as round 59 (B623). If any point falls past the margin, it comes back to the human.
+
+**The lead's readings, no spec change (2026-11-04).** C.16's midpoint rule reads every part of the integrand at the midpoint, pitch FM's accumulator and collision's included (the builder's B-64). In the serial pair: each accumulator starts at 0 at its own blade's entry; the grid's place on the cycle is free; a blade whose walk would allow one reading still stands at its own theta + j Delta when the other's needs all eight; a blade's noise values don't change when the other blade is on or off. Whether a member's two blades read the same noise values is not ruled.
+
+**Limits.** The trial's figures are from the lead's scratch, and the test author has not yet re-read its cases with the blocker. The human's hearing nothing on seven patches is what was asked, not proof for every patch. The engine builds round 58 after its PF-3, so that figure stays the engine of rounds 55 and 56.
+
+**Round 59, the same day.** The test author remade R2's 418 FM free rows; the other rows are byte for byte, and the 2,090-row table has a new pinned hash in item 7.8. Across all 19 pitches and 22 Edges values, engine-free, the largest fall below `min(own Edges 0, R2)` is 1.173 dB against the 5 dB margin (design 0.473 / 8, key 36, Edges 1), so no point came back to the human. No engine has been read against the new rows. R2's FM free rows are in phase FM, so round 58's blocker doesn't enter them.
+
+**The test author's re-read of Q-TA-71 with the blocker.** Engine-free, on its 144 single-blade cases: 0 over the bound (largest 0.001448), against 95 over without it (largest 0.04625). Its model runs the blocker from the first sample with state 0 and no 5 ms crossfade, and no case is below 32.7 Hz. Nothing in the suite judged BL-19 on this mode, so it adds item 4.4 cases with a must-fire control.
+
+**FX device (ADR-254):** none. No rack, source, preset id or screen changes; this is the engine's own DC filter and a test's table.

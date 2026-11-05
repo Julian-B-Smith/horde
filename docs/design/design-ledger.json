@@ -112,6 +112,10 @@
   {
    "version": "1793853894-9c42",
    "evidence": "docs/design/arp-face/README.md: GUI-30 to GUI-32, 2026-11-04"
+  },
+  {
+   "version": "1793855414-7128",
+   "evidence": "docs/design/arp-face/README.md: GUI-33, 2026-11-05"
   }
  ],
  "vendoring": {
@@ -326,6 +330,10 @@
    "status": "harvested",
    "master_version": "1793374583-b6a5",
    "note": "BlendMaps, CrossSection, FindPane and Cohesion READMEs cite it (ADR-266 ruling 9); its rounds (B268, B269) are not all ratified (port-tab morph-editor)."
+  },
+  "morph-rail-lab.html": {
+   "status": "exploring",
+   "note": "GB17. How a rail is drawn, whether the puck scrubs it, and what per-parameter distribution means now that a row can own its regions (B133, B28, GN-31). Waiting on the human."
   },
   "morph-law-bench.html": {
    "status": "retired",
@@ -6209,6 +6217,21 @@
    "superseded_by": null,
    "state": "in-shell",
    "master_version": "1793853894-9c42"
+  },
+  {
+   "id": "gui33-picture-pace",
+   "adr": "GUI-33",
+   "clause": "pictures rest when idle and draw at 30 fps at most; blade 2's hatch is one tile",
+   "port_tab": null,
+   "note": "The pace is GUI3Shell.picturePace, in shell-logic.js. FX device: the same, with audio passing in place of a voice sounding.",
+   "component": "BladeView",
+   "bundle": "Viz.blade",
+   "shell": "docs/design/gui3.html: const PICTURE_MS = 33",
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "in-shell",
+   "master_version": "1793855414-7128"
   }
  ],
  "not_design": [
@@ -7191,6 +7214,10 @@
   {
    "adr": "ADR-364",
    "reason": "Test readings and the slot rule's arithmetic: no control or design element."
+  },
+  {
+   "adr": "ADR-365",
+   "reason": "A DC filter's condition and a test's reference table: no control or design element."
   }
  ],
  "engine_impact": {
@@ -7305,7 +7332,11 @@
    "GN-44"
   ],
   "GUI-31": "none: how a scrollbar is drawn",
-  "GUI-32": "none: how the MAP control is drawn"
+  "GUI-32": "none: how the MAP control is drawn",
+  "GUI-33": [
+   "GN-45",
+   "GN-46"
+  ]
  },
  "audit_notes": [
   "[A] Counts: 33 design ADRs with 56 rows (ruled 31, of which 6 superseded and 7 legacy-only; wired 9; in-shell 7; vendored 4; in-master 4; unknown 1); 79 not_design. Every primary heading ADR-001..ADR-112 appears exactly once. Headings out of numeric order (ADR-052, ADR-053 before ADR-051; ADR-095, 094, 093, 092; ADR-091 A1-A4 after ADR-112 A3) were all covered. One non-ADR heading sits in range: 'NOTICE · Library standby (plugin-skeleton FOUNDATIONS)', line 661, not design and not listed.",
