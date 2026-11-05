@@ -293,7 +293,7 @@ const NOISE = {
 };
 
 const SUB_OPTS = [
-  { id: 'T', nm: 'Today', tx: 'One cycle in a scope.' },
+  { id: 'T', nm: 'In the shell', tx: 'The Dial as it landed (GUI-35), in its 82 px band.' },
   { id: 'dial', nm: 'The Dial', tx: 'One heavy cycle wrapped round a dial, and unrolled beside it. Drive flattens it against the ceiling; Erode frays it.' },
   { id: 'cone', nm: 'The Cone', tx: 'A driver from the front, with the shape travelling out from the cap. Drive hits the limit ring; Crunch rattles the ribs.' },
   { id: 'stack', nm: 'The Stack', tx: 'Cycles piled back in time. Erode makes no two alike, and a released note sinks into the pile.' },
@@ -340,7 +340,7 @@ const FEEDS = [
 
 // ===== THE LAB =====
 let w, d, L, S, dev, ENG, H_, frame = 0, level = 1, held = true;
-const pick = { sub: 'dial', noise: 'raster', place: 'band' }, states = { sub: {}, noise: {} }, cvs = { sub: {}, noise: {} };
+const pick = { sub: 'T', noise: 'weather', place: 'band' }, states = { sub: {}, noise: {} }, cvs = { sub: {}, noise: {} };
 const read = key => { const r = dev.row(key); return ENG.lawX(r, dev.shown(key)); };
 const lab = key => { const r = dev.row(key); return r.options ? r.options[Math.round(dev.shown(key) * (r.options.length - 1))] : String(read(key)); };
 function noiseOf() { return { type: lab('noise.type'), density: read('noise.density'), rate: read('noise.rate'), length: +lab('noise.length').replace(/\D/g, ''), colour: read('noise.colour'), resonator: lab('noise.resonator') === 'on', feedback: read('noise.feedback'), whisper: lab('noise.whisper') === 'on', vowel: read('noise.vowel'), wind: lab('noise.wind') === 'on', gust: read('noise.gust'), filter: lab('noise.filter'), cutoff: read('noise.cutoff'), resonance: read('noise.resonance'), pitch: read('noise.pitch'), spread: read('noise.spread') }; }
@@ -350,11 +350,12 @@ function mount(pid) {
   const pg = d.getElementById('page-' + pid), mk = cls => { const b = d.createElement('div'); b.className = 'hd-viz ' + cls, b.setAttribute('role', 'img'); const c = d.createElement('canvas'); b.append(c); return { b, c }; };
   const band = mk('sl-band'), col = mk('sl-col'), head = pg.querySelector('.phead');
   head.after(band.b);
-  const left = pg.querySelector('.pv-left'); left.prepend(col.b);
-  cvs[pid] = { band, col, today: left.querySelector('.vz') };
+  // Sub has no picture column since GUI-35: the Dial is the page's own band, so "Today" there is the Dial, and this lab's column picture sits in that band's place.
+  const left = pg.querySelector('.pv-left'), own = pg.querySelector('.pv-band'); (left || own).prepend(col.b);
+  cvs[pid] = { band, col, left, today: own ? own.querySelector('.vz') : left.querySelector('.vz') };
 }
 function paintPlaces() {
-  ['sub', 'noise'].forEach(pid => { const c = cvs[pid], off = pick[pid] === 'T'; c.band.b.style.display = !off && pick.place === 'band' ? '' : 'none'; c.col.b.style.display = !off && pick.place === 'col' ? '' : 'none'; c.today.style.display = off ? '' : 'none'; c.today.closest('.pv-left').style.display = !off && pick.place === 'band' ? 'none' : '';   // the band leaves that column empty, so the controls take its width
+  ['sub', 'noise'].forEach(pid => { const c = cvs[pid], off = pick[pid] === 'T'; c.band.b.style.display = !off && pick.place === 'band' ? '' : 'none'; c.col.b.style.display = !off && pick.place === 'col' ? '' : 'none'; c.today.style.display = off ? '' : 'none'; if (c.left) c.left.style.display = !off && pick.place === 'band' ? 'none' : '';   // the band leaves that column empty, so the controls take its width
     const lb = (pid === 'sub' ? SUB_OPTS : NOISE_OPTS).find(o => o.id === pick[pid]); c.band.b.setAttribute('aria-label', lb.nm + ', drawn from the settings, not the engine’s output'); c.col.b.setAttribute('aria-label', lb.nm + ', drawn from the settings, not the engine’s output'); });
 }
 function drawOne(pid, cv) {
@@ -443,12 +444,12 @@ function selfCheck() {
   await new Promise(res => { frameEl.addEventListener('load', res, { once: true }); frameEl.srcdoc = html; });
   w = frameEl.contentWindow; d = frameEl.contentDocument; L = w.__lab; S = L.S; dev = L.dev; H_ = w.Horde; ENG = w.GUI3Engine;
   const css = d.createElement('style'); css.textContent = FRAME_CSS; d.head.append(css); d.body.classList.add('win-only');
-  mount('sub'); mount('noise'); L.go('sub'); paintPlaces();
+  try { mount('sub'); mount('noise'); L.go('sub'); paintPlaces(); } catch (e) { $('busy').textContent = 'The lab couldn\u2019t place its pictures on the shell: ' + e.message; throw e; }   // say so on the page: a change to the shell's layout left this lab silently stuck once (GUI-35)
   // Both sources on: an off source's page holds only its switch (GUI-21), and this lab is for its pictures. No step in the shell's undo.
   dev.begin('Lab: sources on'); setRow('sub.on', 'on'); setRow('noise.on', 'on'); dev.end(); dev.clearHistory ? dev.clearHistory() : null;
   let lines; try { lines = selfCheck(); } catch (e) { lines = ['FAILED · the self-check threw: ' + (e && e.stack || e)]; }
   $('selfcheck').textContent = lines.join('\n');
-  L.go('sub'); paintPlaces(); paint(); w.requestAnimationFrame(tick);
+  L.go('noise'); paintPlaces(); paint(); w.requestAnimationFrame(tick);   // the Noise picture is the open question
   d.getElementById('pnav') && d.getElementById('pnav').addEventListener('click', () => setTimeout(paint, 0));
   $('busy').hidden = true;
 })();

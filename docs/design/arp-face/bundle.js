@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1793867065-76de, 2026-11-05; do not edit, re-vendor */
+/* vendored from the horde Design System artifact, version 1793903649-b8d3, 2026-11-05; do not edit, re-vendor */
 /* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"MorphMode"},{"name":"NameField"},{"name":"SteppedControl"},{"name":"Stepper"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"},{"name":"Companion"},{"name":"SourceChip"},{"name":"SourceRows"},{"name":"RoutesBySource"},{"name":"Cluster"},{"name":"Lens"},{"name":"Fold"},{"name":"PageView"},{"name":"ModTiers"},{"name":"MacroRow"},{"name":"ModBank"},{"name":"ModPage"},{"name":"UndoLine"},{"name":"MacroFace"},{"name":"PresetBar"},{"name":"Deck"},{"name":"MacroCard"},{"name":"ParamPicker"},{"name":"HistoryRail"},{"name":"PicturePicker"},{"name":"AssignXY"},{"name":"Specimen"}]} */
 /* horde house reference behaviours (vanilla JS, no React, no network).
    The morph knob and slider follow the human's HORDE Morph Knob Spec and HORDE Map Mode Spec
@@ -9150,4 +9150,38 @@ window.Horde.MainStage = {
     return { el: el, state: st, repaint: paint, press: draw, lock: function (id, on) { st.locks[id] = on; paintLocks(); }, chaos: ch, amount: am };
   }
   H.FxChains = FxChains; H.ShapeMorph = ShapeMorph; H.LfoMorph = LfoMorph; H.RandomPanel = RandomPanel; H.RandomPanel.draw = drawRows; H.RandomPanel.sigma = sigma;
+})();
+
+/* ======== GUI-39: the envelope picture you drag (UI Spec section 6, the hierarchy lab's section 0: one model, two views). ======== */
+(function () {
+  'use strict';
+  var H = window.Horde, HIT = 14, TRAVEL = 240, CURVE_DRAG = 160;
+  /* where the painter puts things, in CSS px: Viz.envelope's own margins and scale */
+  function geo(cv, e) { var W = cv.clientWidth, Hh = cv.clientHeight, x0 = 8, x1 = W - 8, y0 = 8, y1 = Hh - 8, T = (e.a + e.d + e.hold + e.r) || 1; return { X: function (t) { return x0 + (x1 - x0) * t / T; }, Y: function (v) { return y1 - (y1 - y0) * v; }, h: y1 - y0 }; }
+  /* what's under (x, y): a node, then a stage's curve. A node's roles are what its drag writes: x a time, y the sustain level. On a stage, a vertical drag bends it, and up raises the middle of the stage whatever its direction. */
+  function hit(e, g, x, y) { var T = e.a + e.d + e.hold + e.r, nodes = [{ t: e.a, v: 1, x: 'a', name: 'Attack' }, { t: e.a + e.d, v: e.s, x: 'd', y: 's', name: 'Decay and Sustain' }, { t: e.a + e.d + e.hold, v: e.s, y: 's', name: 'Sustain' }, { t: T, v: 0, x: 'r', name: 'Release' }], best = null, bd = HIT;
+    nodes.forEach(function (n) { var d = Math.hypot(g.X(n.t) - x, g.Y(n.v) - y); if (d < bd) { bd = d; best = n; } });
+    if (best) return best;
+    var stages = [{ from: 0, to: e.a, u: 'ac', sign: 1, name: 'Attack curve' }, { from: e.a, to: e.a + e.d, u: 'dc', sign: -1, name: 'Decay curve' }, { from: e.a + e.d + e.hold, to: T, u: 'rc', sign: -1, name: 'Release curve' }], cur = null;
+    stages.forEach(function (st) { if (g.X(st.from) <= x && x <= g.X(st.to)) cur = st; });
+    if (!cur) return null;
+    var t = (x - g.X(0)) / (g.X(T) - g.X(0)) * T;
+    return Math.abs(g.Y(H.Viz.envAt(e, t)) - y) < HIT ? cur : null; }
+  /* o: env() the shape the painter draws, read(role) and write(role, value) in the row's 0..1 travel, reset(role), begin(label), end(). Each gesture is one undo step in the host. */
+  function EnvDrag(cv, o) { var drag = null;
+    cv.style.touchAction = 'none';
+    function at(ev) { var b = cv.getBoundingClientRect(); return [ev.clientX - b.left, ev.clientY - b.top]; }
+    function clamp(v) { return Math.max(0, Math.min(1, v)); }
+    cv.addEventListener('pointermove', function (ev) { var p = at(ev), e = o.env(); if (!e) return;
+      if (!drag) { var h0 = hit(e, geo(cv, e), p[0], p[1]); cv.style.cursor = !h0 ? '' : h0.u ? 'ns-resize' : h0.x && h0.y ? 'move' : h0.x ? 'ew-resize' : 'ns-resize'; cv.title = h0 ? h0.name + (h0.u ? ': drag up or down. Double-click resets it.' : ': drag. Double-click resets it.') : ''; return; }
+      var f = ev.shiftKey ? .25 : 1, dx = (p[0] - drag.x) * f, dy = (p[1] - drag.y) * f, n = drag.n;
+      if (n.u) o.write(n.u, clamp(drag.v[n.u] + (-dy / CURVE_DRAG) * n.sign));
+      else { if (n.x) o.write(n.x, clamp(drag.v[n.x] + dx / TRAVEL)); if (n.y) o.write(n.y, clamp(drag.v[n.y] - dy / drag.h)); } });
+    cv.addEventListener('pointerdown', function (ev) { var p = at(ev), e = o.env(); if (!e) return; var g = geo(cv, e), n = hit(e, g, p[0], p[1]); if (!n) return; ev.preventDefault(); cv.setPointerCapture(ev.pointerId);
+      var v = {}; [n.x, n.y, n.u].forEach(function (r) { if (r) v[r] = o.read(r); }); drag = { n: n, x: p[0], y: p[1], v: v, h: g.h || 1 }; o.begin(n.name + ' (drag)'); });
+    function up() { if (drag) { drag = null; o.end(); } }
+    cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+    cv.addEventListener('dblclick', function (ev) { var p = at(ev), e = o.env(); if (!e) return; var n = hit(e, geo(cv, e), p[0], p[1]); if (!n) return; o.begin(n.name + ' (reset)'); [n.x, n.y, n.u].forEach(function (r) { if (r) o.reset(r); }); o.end(); });
+    return { hit: function (x, y) { var e = o.env(); return e ? hit(e, geo(cv, e), x, y) : null; } }; }
+  H.EnvDrag = EnvDrag;
 })();

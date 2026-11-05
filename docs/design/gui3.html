@@ -170,6 +170,7 @@
   .vz { display: flex; flex-direction: column; gap: 6px; }
   .vz-well { padding: 0; overflow: hidden; }
   .hd-sgroups > .vz { flex: 1 1 100%; }
+  /* GUI-39: an envelope you drag needs the section's width, so its picture takes a row of its own, over the seven knobs */
   .vz-cv { display: block; width: 100%; }
   .vz-cap { line-height: 13px; }
   .vz-cap2 { height: 26px; overflow: hidden; }   /* two lines whatever it says, so the lens below never moves (H1) */
@@ -202,6 +203,8 @@
   .pv-secs > .hd-clu.pic > .hd-sechead { grid-column: 1 / -1; }
   .pv-secs > .hd-clu.pic > .vz { grid-row: 2; grid-column: 1; min-width: 0; }
   .pv-secs > .hd-clu.pic > .cl-cols { grid-row: 2; grid-column: 2; }
+  .pv-secs > .hd-clu.pic.env-sec { grid-template-columns: minmax(0, 1fr); row-gap: 4px; }
+  .pv-secs > .hd-clu.pic.env-sec > .cl-cols { grid-row: 3; grid-column: 1; min-width: 0; }
   .pv-secs .viz { min-height: 0; }
   /* a group stays whole while the row has room (it does not shrink) and wraps inside itself only when it is wider than the row: a
      module's 30 to 87 controls are one block with no sub-groups of their own, or a few long ones */
@@ -278,6 +281,7 @@
   .two > .hd-card { width: auto; }
   .two pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow: auto; }
 </style></head><body>
+<div id="bootNote" style="position:fixed;left:16px;top:16px;z-index:99;font:600 13px/1.5 ui-monospace,Menlo,monospace;color:#fff;background:#111;padding:8px 12px;border-radius:6px">Loading GUI 3. Its self-checks hold the page for about 15 s. Add ?fast to the address to skip them.</div>
 <div class="col">
   <header class="hd-row" id="bar">
     <span class="hd-cluster">horde · GUI 3 shell</span><span class="tag hd-hint">NO AUDIO · B584</span>
@@ -903,6 +907,12 @@ function lfoModel(id) {
 }
 let lfoView = null;
 function lfoEditor(m, host) {
+  if (m.kind === 'env') {   // GUI-39: the envelope's own shape, dragged, in place of the page's flat trace. Same rows as its knobs below
+    const b = m.id, K = { a: b + '.attack', d: b + '.decay', s: b + '.sustain', r: b + '.release', ac: b + '.attackCurve', dc: b + '.decayCurve', rc: b + '.releaseCurve' }, cv = h('canvas', { class: 'vz-cv', style: 'height:128px', role: 'img', 'aria-label': m.name + ' envelope' });
+    host.append(h('div', { class: 'hd-viz vz-well' }, cv)); const pic = host.parentElement && host.parentElement.querySelector('.mf-pic'); if (pic) pic.hidden = true;
+    envDrag(cv, () => K, 'mod'); let last = '';
+    views.push({ page: 'mod', update() { if (!cv.isConnected || !cv.clientWidth) return; const sig = sizeOf(cv) + '|' + colourKey() + '|' + Object.values(K).map(k => dev.shown(k)).join('|'); if (sig === last) return; last = sig; H.Viz.envelope(cv, envOfKeys(K), null); } });
+  }
   lfoView = m.kind === 'lfo' ? H.LfoMorph(host, { model: lfoModel(m.id), name: m.name, keys: () => S.keys, weights: () => dev.morph().weights, mode: () => LAW_NAMES[dev.morphSettings().law], seed: 1, onCommit: l => S.say(l + ' edited') }) : null;
 }
 function modPageForm(pg, el) {
@@ -975,6 +985,12 @@ function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let 
 // A canvas keeps the pixels it was last drawn at, stretched to whatever its box becomes. So its size is part of what makes a drawing stale: an envelope drawn
 // while MAP and morph squeezed it to no width, then widened with no value changing, showed its 2 pixels as stripes (the human's report, 2026-11-01).
 const sizeOf = cv => cv.clientWidth + 'x' + cv.clientHeight;
+/* GUI-39: an envelope picture you drag. `keysOf` gives the block's keys now, since a section's block follows its env row. It writes through a control's own corner, as the knob does. */
+function envOfKeys(K) { const a = xOf(K.a), d = xOf(K.d), r = xOf(K.r); return { a, d, s: xOf(K.s), r, hold: (a + d + r) / 3, ac: xOf(K.ac), dc: xOf(K.dc), rc: xOf(K.rc) }; }
+function envDrag(cv, keysOf, pid) {
+  const put = (key, val) => { const p = PROPS[key + '@' + pid], ai = p ? S.editing(p) : dev.morph().audible; if (p && p.locked) { p.g = val; return; } if (ai === null || ai === undefined) return; dev.set(key, val, { corner: ai }); };
+  return H.EnvDrag(cv, { env: () => { const K = keysOf(); return K && envOfKeys(K); }, read: role => dev.shown(keysOf()[role]), write: (role, v) => put(keysOf()[role], v), reset: role => put(keysOf()[role], ROW[keysOf()[role]].default_v), begin: l => dev.begin(l), end: () => dev.end() });
+}
 const SUB_BAND = 82;   // GUI-35: the Dial's band across the Sub page, all the page has to spare under ADR-345's fit. The lab's was 176, which scrolled
 function vizView(v, pid, big) {
   const wrap = h('div', { class: 'vz' }), cvs = [], K = v.keys, st = {};
@@ -982,6 +998,7 @@ function vizView(v, pid, big) {
   const ring = v.kind === 'osc' && big ? add('Phase ring: Coupling × Detune, shift for Cross-mod', 112) : null;
   const ringIO = ring ? oscRing(ring, K, pid, wrap) : null;
   const main = add(v.kind === 'noise' ? 'Spectrum' : v.kind === 'env' ? 'ENV 1' : v.kind === 'sub' ? 'The Dial: one cycle of the sub, wrapped round its ceiling' : 'One cycle', big ? (v.kind === 'osc' ? 40 : v.band ? SUB_BAND : 160) : 64);
+  if (v.kind === 'env') envDrag(main, () => K, pid);
   wrap.append(h('span', { class: 'hd-hint vz-cap', text: big ? 'SAMPLE, not the engine’s output' : 'SAMPLE: a drawing of the settings, not the engine’s output', title: 'A drawing of the settings the layout names, never the engine’s output' }));
   let last = null, frame = 0; const noiseDue = paced(() => [main]);
   views.push({ page: pid, update() {
@@ -1077,7 +1094,7 @@ function oscPictures(v, pid, full) {
     dev.set(key, val, { corner: ai });
   };
   const pin = h('div', { class: 'bv-pin' });
-  const bv = H.BladeView(pin, { height: full ? 129 : 70, label: PG[src].label + ' waveform', hint: 'SAMPLE', roles: DATA.bladeView, keys: () => S.keys,
+  const bv = H.BladeView(pin, { height: full ? 116 : 70, label: PG[src].label + ' waveform', hint: 'SAMPLE', roles: DATA.bladeView, keys: () => S.keys,
     keyOf: (role, b) => {
       if (!b) { const r = DATA.bladeView.swarm.concat(DATA.bladeView.play).find(x => x[0] === role), k = r && src + '.' + (r[2] || r[0]); return k && ROW[k] ? k : null; }
       const hz = (sel, name) => role === name && ROW[bk(b, sel)] && labOf(bk(b, sel)) === 'Hz';
@@ -1158,7 +1175,8 @@ function sectionOf(pg, g, opts) {
   const followHosts = [];
   if (g.follow) {
     const cv = h('canvas', { class: 'vz-cv', style: 'height:' + (size === 'utility' ? 44 : 64) + 'px', role: 'img', 'aria-label': g.title + ' envelope' });
-    body.append(h('div', { class: 'vz' }, h('div', { class: 'hd-viz vz-well' }, cv)));
+    body.append(h('div', { class: 'vz', style: 'flex: 1 1 100%; width: 100%' }, h('div', { class: 'hd-viz vz-well' }, cv)));   // its own row: a picture you drag needs the section's width, with the seven knobs under it
+    envDrag(cv, () => { const fb = dev.followed(g.follow); return fb && fb.viz; }, pg.id);
     let lastE = '';
     views.push({ page: pg.id, update() {
       const fb = dev.followed(g.follow); if (!fb) return;
@@ -1221,6 +1239,7 @@ function gridSection(pg, g) {
   if (g.follow) {
     const cv = h('canvas', { class: 'vz-cv', style: 'height:44px', role: 'img', 'aria-label': g.title + ' envelope' });
     picture = h('div', { class: 'vz' }, h('div', { class: 'hd-viz vz-well' }, cv));
+    envDrag(cv, () => { const fb = dev.followed(g.follow); return fb && fb.viz; }, pg.id);
     let lastE = '';
     views.push({ page: pg.id, update() {
       const fb = dev.followed(g.follow); if (!fb) return;
@@ -1281,7 +1300,8 @@ function gridSection(pg, g) {
   // the price of two sections to a row. A blade's fold (its mode and tiers in the header), a main enum of more than four segments, or many
   // cells takes the whole row. Since the waveform took the top of the column (GUI-30), Osc 1's fold sits beside its Envelope so the page still fits.
   if (g.follow) sec.classList.add('pic');
-  if ((fold && g.titlePower) || (modes && !fold && ROW[modes.key].n > 4) || (!fold && !g.matrix && plain.length + adv.length > 20)) sec.classList.add('wide');
+  if (g.follow && !(pg.viz && pg.viz.band)) sec.classList.add('env-sec');   // a band page has the width to keep its picture beside its knobs
+  if ((fold && g.titlePower) || (modes && !fold && ROW[modes.key].n > 4) || (!fold && !g.matrix && plain.filter(c => !c.follow || c.follow === plain.find(q => q.follow).follow).length + adv.length > 20)) sec.classList.add('wide');   // a followed block's rows count once: only one block shows
   return sec;
 }
 /* The page's table (PV1, ParamTable): one 17 px row per control, the FULL name, the control as the table's own face (TS2a for a knob, a
@@ -2006,7 +2026,8 @@ S.start();
 // ===== BLOCK H: self-checks. Each has a must-fail control, so a check that never ran cannot pass for one that held =====
 CLOCK.checking = true;
 (function checks() {
-  if (window.GUI3_NOCHECKS) return;   // a load without its self-checks, for timing the shell as a plugin would load it
+  $('bootNote').remove();
+  if (window.GUI3_NOCHECKS || /[?&]fast\b/.test(location.search)) return;   // a load without its self-checks, for timing the shell as a plugin would load it. `?fast` is for a person who only wants to look
   const box = $('checks'), line = (ok, t) => box.append(h('p', { class: ok ? 'hd-hint' : 'hd-note bad', text: (ok ? 'OK · ' : 'FAILED · ') + t }));
   // 1. What is mounted is what was generated, page by page; the comparison sees a single missing key (control). The table (half B's PV1)
   // is a second view of the same keys, so its rows are not mounts: the grid's are counted.
@@ -2180,6 +2201,14 @@ CLOCK.checking = true;
     R.press([osc], 'both'); const moved = hear() !== h0, oneStep = dev.history().past.length === hist + 1, exHeld = ex.every((k, i) => dev.shown(k) === exB[i]); dev.undo(); dev.clearRedo(); const undone = hear() === h0;
     R.lock(osc.id, true); R.press([osc], 'both'); const lockHeld = hear() === h0; R.lock(osc.id, false); selectPage(pg0);
     line(rep && other && noneAt0 && wide && mustMove && bound && noneD && moved && oneStep && exHeld && undone && lockHeld, 'Randomize (GUI-38, ADR-318, ADR-321): moving Chaos and Amount changes no sound; a draw repeats from its seed and click, moves more at high Chaos and nothing at Amount 0; pressing ' + osc.name + ' moves its values in one undo step, exempt, Device and monitoring rows untouched, and a lock holds.'); }
+  // 4c5. GUI-39: dragging the envelope. A node writes its row, a stage writes its curve, each is one undo step, and every section carries its curves. Control: empty glass hits nothing.
+  { const pg0 = page, tick = () => { for (const v of views) if (v.page === page || v.page === '*') v.update(); }; selectPage('osc1'); tick(); const sec = pageEls.osc1.querySelector('canvas[aria-label="Envelope envelope"]') , K = dev.followed(PG.osc1.groups.find(g => g.follow).follow).viz, a0 = dev.shown(K.a), ac0 = dev.shown(K.ac), s0 = dev.shown(K.s), hist = dev.history().past.length, b = sec.getBoundingClientRect(), E = envOfKeys(K), T = E.a + E.d + E.hold + E.r, X = t => 8 + (b.width - 16) * t / T, Y = v => b.height - 8 - (b.height - 16) * v;
+    const fire = (type, x, y) => sec.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId: 1, clientX: b.left + x, clientY: b.top + y })); const cap = sec.setPointerCapture; sec.setPointerCapture = () => {}; const gesture = (x, y, dx, dy) => { fire('pointerdown', x, y); fire('pointermove', x + dx, y + dy); fire('pointerup', x + dx, y + dy); };
+    const tMid = E.a + E.d * .5; gesture(X(E.a + E.d), Y(E.s), 0, 6); const sMoved = dev.shown(K.s) !== s0, oneStep = dev.history().past.length === hist + 1; dev.undo(); dev.clearRedo(); const undone = dev.shown(K.s) === s0;
+    gesture(X(tMid), Y(H.Viz.envAt(E, tMid)), 0, -10); const curveMoved = dev.shown(K.dc) !== E.dcV; const dcNow = dev.shown(K.dc); dev.undo(); dev.clearRedo(); const curveBack = dev.shown(K.dc); const curveWrote = dcNow < curveBack;   // up raises the middle of a falling stage, which is a smaller bend
+    const h0 = dev.history().past.length; gesture(X(T * .5), 2, 40, 0); const nothing = dev.history().past.length === h0 && dev.shown(K.a) === a0 && dev.shown(K.ac) === ac0; sec.setPointerCapture = cap;
+    const curvesOn = ['osc1', 'osc2', 'sub', 'noise', 'dashboard'].every(id => DATA.pages.find(p => p.id === id).groups.filter(g => g.follow).every(g => g.controls.some(c => /attackCurve$/.test(c.key)) && g.controls.some(c => /decayCurve$/.test(c.key)) && g.controls.some(c => /releaseCurve$/.test(c.key)))); selectPage(pg0);
+    line(sMoved && oneStep && undone && curveWrote && nothing && curvesOn, 'Envelope drag (GUI-39): a node moves its row in one undo step, a stage writes its curve, empty glass does nothing (control), and every section and card carries the three curves.'); }
   // 4c9. GUI-35: the Dial is across the Sub page and on Main's Sub tab and the Dashboard's card. Drive and Erode show on it, and the card's own picture follows a setting.
   { const pg0 = page, Y = H.Synth, base = { wave: 'sine', width: .5, softness: 0, harmA: 2, ampA: 0, phaseA: 0, harmB: 3, ampB: 0, phaseB: 0, octave: -1, drive: 0, crunch: 0, character: 'Tube', tone: 18000, order: 'tone, env → drive', erode: 0 }, hot = o => { const y = Y.subCycle(o, 256); let n = 0; y.forEach(q => { if (Math.abs(q) > .9) n++; }); return n / 256; };
     const clean = hot(base), full = hot(Object.assign({}, base, { drive: 1 })), n = new Float32Array(256).map((_, i) => Math.sin(i * 3.1)), sameCycle = (a, b) => a.every((q, i) => q === b[i]), e0 = sameCycle(Y.subCycle(base, 256), Y.subCycle(base, 256, n)), e8 = !sameCycle(Y.subCycle(base, 256), Y.subCycle(Object.assign({}, base, { erode: .8 }), 256, n));

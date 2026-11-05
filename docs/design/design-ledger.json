@@ -128,6 +128,10 @@
   {
    "version": "1793867065-76de",
    "evidence": "docs/design/arp-face/README.md: GUI-36 to GUI-38, 2026-11-05"
+  },
+  {
+   "version": "1793903649-b8d3",
+   "evidence": "docs/design/arp-face/README.md: GUI-39, 2026-11-05"
   }
  ],
  "vendoring": {
@@ -450,7 +454,7 @@
   },
   "sub-noise-lab.html": {
    "status": "exploring",
-   "note": "GB9. The Sub's Dial is ruled (GUI-35) and harvested. The Noise picture is still open: the Weather's Whisper and S&H were reworked here, and the human sent it back as needing more work; the Raster is the other candidate."
+   "note": "GB9. The Sub's Dial is ruled (GUI-35) and harvested. The Noise picture is still open: the Weather's Whisper and S&H were reworked here, and the human sent it back as needing more work; the Raster is the other candidate. It handles the Sub page's GUI-35 layout since GUI-39, and opens on Noise."
   },
   "random-home-lab.html": {
    "status": "ruled",
@@ -6319,6 +6323,21 @@
    "component": "RandomPanel",
    "bundle": "RandomPanel",
    "shell": "docs/design/gui3.html: H.RandomPanel(host,"
+  },
+  {
+   "id": "gui39-envelope-drag",
+   "adr": "GUI-39",
+   "clause": "envelope pictures you drag; attack, decay and release curves on every section",
+   "port_tab": null,
+   "note": "On Main, each source's section, the Dashboard's cards and the Mod page. FX device: the same drag on its envelopes' pictures.",
+   "component": "Envelope",
+   "bundle": "EnvDrag",
+   "shell": "docs/design/gui3.html: function envDrag(cv, keysOf, pid)",
+   "lab": "docs/design/envelope-hierarchy-lab.html",
+   "via": null,
+   "superseded_by": null,
+   "state": "in-shell",
+   "master_version": "1793903649-b8d3"
   }
  ],
  "not_design": [
@@ -7443,7 +7462,8 @@
   ],
   "GUI-38": [
    "GN-21"
-  ]
+  ],
+  "GUI-39": "none: a mouse route to rows the knobs already write"
  },
  "audit_notes": [
   "[A] Counts: 33 design ADRs with 56 rows (ruled 31, of which 6 superseded and 7 legacy-only; wired 9; in-shell 7; vendored 4; in-master 4; unknown 1); 79 not_design. Every primary heading ADR-001..ADR-112 appears exactly once. Headings out of numeric order (ADR-052, ADR-053 before ADR-051; ADR-095, 094, 093, 092; ADR-091 A1-A4 after ADR-112 A3) were all covered. One non-ADR heading sits in range: 'NOTICE · Library standby (plugin-skeleton FOUNDATIONS)', line 661, not design and not listed.",

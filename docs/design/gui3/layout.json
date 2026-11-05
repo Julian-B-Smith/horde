@@ -1521,7 +1521,10 @@
               "attack",
               "decay",
               "sustain",
-              "release"
+              "release",
+              "attackCurve",
+              "decayCurve",
+              "releaseCurve"
             ],
             "viz": {
               "a": "attack",
@@ -1578,7 +1581,10 @@
               "attack",
               "decay",
               "sustain",
-              "release"
+              "release",
+              "attackCurve",
+              "decayCurve",
+              "releaseCurve"
             ],
             "viz": {
               "a": "attack",
@@ -1643,7 +1649,10 @@
               "attack",
               "decay",
               "sustain",
-              "release"
+              "release",
+              "attackCurve",
+              "decayCurve",
+              "releaseCurve"
             ],
             "viz": {
               "a": "attack",
@@ -1692,7 +1701,10 @@
               "attack",
               "decay",
               "sustain",
-              "release"
+              "release",
+              "attackCurve",
+              "decayCurve",
+              "releaseCurve"
             ],
             "viz": {
               "a": "attack",
@@ -1828,7 +1840,10 @@
               "attack",
               "decay",
               "sustain",
-              "release"
+              "release",
+              "attackCurve",
+              "decayCurve",
+              "releaseCurve"
             ],
             "viz": {
               "a": "attack",
@@ -1850,7 +1865,10 @@
             "attack": "ATK",
             "decay": "DEC",
             "sustain": "SUS",
-            "release": "REL"
+            "release": "REL",
+            "attackCurve": "ACRV",
+            "decayCurve": "DCRV",
+            "releaseCurve": "RCRV"
           }
         },
         {
@@ -2146,7 +2164,10 @@
               "attack",
               "decay",
               "sustain",
-              "release"
+              "release",
+              "attackCurve",
+              "decayCurve",
+              "releaseCurve"
             ],
             "viz": {
               "a": "attack",
@@ -2168,7 +2189,10 @@
             "attack": "ATK",
             "decay": "DEC",
             "sustain": "SUS",
-            "release": "REL"
+            "release": "REL",
+            "attackCurve": "ACRV",
+            "decayCurve": "DCRV",
+            "releaseCurve": "RCRV"
           }
         },
         {
@@ -2395,7 +2419,10 @@
               "attack",
               "decay",
               "sustain",
-              "release"
+              "release",
+              "attackCurve",
+              "decayCurve",
+              "releaseCurve"
             ],
             "viz": {
               "a": "attack",
@@ -2417,7 +2444,10 @@
             "attack": "ATK",
             "decay": "DEC",
             "sustain": "SUS",
-            "release": "REL"
+            "release": "REL",
+            "attackCurve": "ACRV",
+            "decayCurve": "DCRV",
+            "releaseCurve": "RCRV"
           }
         },
         {
@@ -2619,7 +2649,10 @@
               "attack",
               "decay",
               "sustain",
-              "release"
+              "release",
+              "attackCurve",
+              "decayCurve",
+              "releaseCurve"
             ],
             "viz": {
               "a": "attack",
@@ -2641,7 +2674,10 @@
             "attack": "ATK",
             "decay": "DEC",
             "sustain": "SUS",
-            "release": "REL"
+            "release": "REL",
+            "attackCurve": "ACRV",
+            "decayCurve": "DCRV",
+            "releaseCurve": "RCRV"
           }
         },
         {
