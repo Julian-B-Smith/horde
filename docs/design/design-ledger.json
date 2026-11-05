@@ -7051,6 +7051,10 @@
   {
    "adr": "GUI-27",
    "reason": "A rule about what the GUI session records, with no design element. The needs it found are ENGINE-NEEDS.md rows."
+  },
+  {
+   "adr": "ADR-364",
+   "reason": "Test readings and the slot rule's arithmetic: no control or design element."
   }
  ],
  "engine_impact": {
