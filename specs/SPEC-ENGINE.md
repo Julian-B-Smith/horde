@@ -1546,7 +1546,7 @@ Consequences: at λ = 1 a generator mode on top (sync, FM, noise) *occludes* the
 | rotation homing | 0.030 s |
 | DC estimate refresh; its smoothing | every 256/44100 s × max(1, ⌈J/64⌉); one-pole, 0.00756 s (C.16) |
 | steal fade; cull fade; stepped-key crossfade; mute and solo; mono velocity | 0.005 s linear; 0.008 s linear; 0.005 s equal-gain; 0.005 s; 0.005 s |
-| DC blocker (with cross-mod, feedback or collision) | first order, 8 Hz (C.16) |
+| DC blocker (with cross-mod, feedback, collision or FM free in pitch FM) | first order, 8 Hz (C.16) |
 | High quality's decimation | low-pass at 0.45 × the host rate, at least as steep as a 4th-order Butterworth (two biquads, Q 0.5412 and 1.3066), no look-ahead |
 
 ### C.16 DC removal
@@ -1559,7 +1559,7 @@ Each member subtracts from its output the cycle mean of its blades' contribution
   - **Serial interplay** (`upperHears` > 0): the pair together, the mean of (out − base) over one cycle by the midpoint rule with J = clamp(⌈32·(G₁ + G₂ + 4)⌉, 64, 2048) points, G = kk + I·mEff + mEff for an FM blade, else kk. With an FM free blade in the pair, the walk runs once for each j, every FM free blade standing at its own θ + j·Δ, and one reading is enough only when each FM free blade in the pair allows it.
   - **Every J is a minimum:** more points, or exact integration, are allowed.
 - **When.** At a voice's fresh start, before its first sample (SW-15), the estimate is computed and applied at once; thereafter it is recomputed every 256/44100 s × max(1, ⌈J/64⌉), J the points that estimate used (for FM free, one modulator start's), and the subtracted value follows each new estimate through a one-pole of time constant 0.00756 s, so it never steps.
-- **The blocker.** While `crossMod` or `feedback` is above 0 and live on an oscillator (PA-8: a blade is on in Sync, FM or Ring mode), or a collision amount is above 0 and live (both blades on), so that a parameter PA-8 makes inert never changes the sound, the blocker engaging or releasing by a 5 ms crossfade (round 19, ADR-243), that oscillator's summed output per voice also passes a first-order DC blocker at 8 Hz (its state 0 at the voice's fresh start), because those depend on past samples the estimate cannot see.
+- **The blocker.** While `crossMod` or `feedback` is above 0 and live on an oscillator (PA-8: a blade is on in Sync, FM or Ring mode), or a collision amount is above 0 and live (both blades on), or a blade is on in FM free with pitch FM (the human, round 58, ADR-365: its accumulator runs free, where each of the estimate's readings starts it at 0), so that a parameter PA-8 makes inert never changes the sound, the blocker engaging or releasing by a 5 ms crossfade (round 19, ADR-243), that oscillator's summed output per voice also passes a first-order DC blocker at 8 Hz (its state 0 at the voice's fresh start), because those depend on past samples the estimate cannot see.
 - The edge corrections add no offset of their own (ED-3, round 42).
 
 ## Appendix D. The morph (normative)

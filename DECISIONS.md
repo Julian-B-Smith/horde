@@ -11612,3 +11612,19 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 **Delivery.** Rounds 50, 51 and 53's tests go to the builder after its commit for rounds 55 and 56. Items 34 and 35 wait until the builder starts the morph: they need five new functions to link, and nothing about them helps the CPU pass.
 
 **FX device (ADR-254):** none now; SB-11 governs structural groups in the engine, and `fx/N` sets go to the rack.
+
+## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
+
+**Context.** FM free in pitch FM runs an accumulator that never restarts, while each of C.16's readings starts it at 0, so the estimate cannot see its mean and BL-19 cannot hold by the law alone (Q-TA-71: engine-free, 95 of its 144 one-member cases over 0.003, up to 0.046). ADR-363 sent this to a scratch trial of C.16's existing blocker, with clips for the human. Separately, item 7.8's reference R2 places FM free's modulator half a cycle from round 56's start, and 7.8 plays before its settings settle (Q-TA-77).
+
+**The trial (the lead's scratch on the builder's code, not official).** One-member rows over BL-19's bound went from 19 of 54 to 0 of 54, worst 5.15e-2 to 8.7e-4. Two FM voices' chord, mean over 1 s, 1.21e-2 to 3.03e-4. The cost: all 8 pitch-FM FM free patches and Wobble jaw change (null −17.7 to −35.5 dB, mostly phase), the first 100 ms differs by about −31 dBFS on Crunch horde, and Crunch horde and Jitter swarm's 1 s mean rises about tenfold, to 1.6e-3, under the bound. Peaks rise 0.2 dB. Glass horde pad has no FM free and doesn't change.
+
+**Rulings.**
+1. **The blocker goes in (round 58).** C.16's blocker also runs while a blade is on in FM free with pitch FM. The human listened to the seven patches on the page and said: "I can't hear any changes". The lead had recommended adopting it if there was no audible cost, and reads that as the answer. BL-19 is unchanged, so no gate moved. The condition is the one trialled: it doesn't look at the index.
+2. **7.8 settles and R2's FM free rows are remade** from round 56's start, the human's answer "Remake it". The rule, the 5 dB margin and the three controls stay. The new body hash goes into item 7.8 as round 59 (B623). If any point falls past the margin, it comes back to the human.
+
+**The lead's readings, no spec change (2026-11-04).** C.16's midpoint rule reads every part of the integrand at the midpoint, pitch FM's accumulator and collision's included (the builder's B-64). In the serial pair: each accumulator starts at 0 at its own blade's entry; the grid's place on the cycle is free; a blade whose walk would allow one reading still stands at its own theta + j Delta when the other's needs all eight; a blade's noise values don't change when the other blade is on or off. Whether a member's two blades read the same noise values is not ruled.
+
+**Limits.** The trial's figures are from the lead's scratch, and the test author has not yet re-read its cases with the blocker. The human's hearing nothing on seven patches is what was asked, not proof for every patch. The engine builds round 58 after its PF-3, so that figure stays the engine of rounds 55 and 56.
+
+**FX device (ADR-254):** none. No rack, source, preset id or screen changes; this is the engine's own DC filter and a test's table.
