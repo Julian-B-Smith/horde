@@ -11627,4 +11627,8 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 
 **Limits.** The trial's figures are from the lead's scratch, and the test author has not yet re-read its cases with the blocker. The human's hearing nothing on seven patches is what was asked, not proof for every patch. The engine builds round 58 after its PF-3, so that figure stays the engine of rounds 55 and 56.
 
+**Round 59, the same day.** The test author remade R2's 418 FM free rows; the other rows are byte for byte, and the 2,090-row table has a new pinned hash in item 7.8. Across all 19 pitches and 22 Edges values, engine-free, the largest fall below `min(own Edges 0, R2)` is 1.173 dB against the 5 dB margin (design 0.473 / 8, key 36, Edges 1), so no point came back to the human. No engine has been read against the new rows. R2's FM free rows are in phase FM, so round 58's blocker doesn't enter them.
+
+**The test author's re-read of Q-TA-71 with the blocker.** Engine-free, on its 144 single-blade cases: 0 over the bound (largest 0.001448), against 95 over without it (largest 0.04625). Its model runs the blocker from the first sample with state 0 and no 5 ms crossfade, and no case is below 32.7 Hz. Nothing in the suite judged BL-19 on this mode, so it adds item 4.4 cases with a must-fire control.
+
 **FX device (ADR-254):** none. No rack, source, preset id or screen changes; this is the engine's own DC filter and a test's table.

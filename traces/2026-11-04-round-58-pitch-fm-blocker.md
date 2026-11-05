@@ -6,4 +6,6 @@
 
 **Evidence consulted.** The test author's `QUESTIONS.md` (Q-TA-71, Q-TA-77), engine-free. The lead's scratch trial on the builder's code, whose figures did not go to the test author.
 
+**Round 59.** Item 7.8's clause and pinned hash in SPEC-ENGINE, and the structure's spec blob; the table itself lives in the test author's repo. Evidence: the test author's commits c5c40e6 and f774adf, engine-free.
+
 **Verify.** `./verify fast` on this tree; see the PR.
