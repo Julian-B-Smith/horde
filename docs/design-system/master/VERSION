@@ -4,9 +4,9 @@
 # (python3 tools/design_vendor.py record-master --version <id> --date <d>) and re-vendor.
 # tools/design_chain_check.py holds the tree to these hashes: every file listed, none extra.
 artifact: https://claude.ai/artifact/EGDwetDHwcvxhTbNffCzJc
-version: 1793863122-e50c
+version: 1793865465-57d0
 date: 2026-11-05
-files: 187
+files: 189
 3295c4838005a6b54b4d7f95e31e3bd6c27c62f92a99a8b6b0eb899b10b2314e  README.md
 ce354240f6e15082fbd556989b9224c787e4a13b497b6cb5e8ed4341fcef5e11  accessibility.md
 8ba91530997e43caf4da212f4f77dd967aaeec744fc52f7f1e1ac43e01365b0a  assets/Logos/README.md
@@ -171,6 +171,8 @@ c934ccbc9a29ac075bb5a13da134cf9c2076a315bc1449afbe32656729ffbcab  components/Spe
 fe0ec7e63f48a5df533672a91d65f0bd57857ab1cf7981475dfb6a5b1bbf2f55  components/SteppedControl/preview.html
 86b98e6c33d1f759d2d4dcf1ad75782faff520f37b8a4a79d66fe0dcba2b4f6a  components/Stepper/README.md
 98e9b2711c5985511518990e5c8c344aacf0112cf7fa28d1098ac1c6ce609287  components/Stepper/preview.html
+d1c7e1835c9c658a753d3252b5b306308c683ec6e350f1d06f45cdfcd72546bd  components/SubDial/README.md
+20fa923353ba61af93279d4dcb02ca0f22e7af9e8064b813baab80c5317bf301  components/SubDial/preview.html
 c373ad2ed0675475d964f41cbff6d52fa7e2a0511509227117c7407adce5eecf  components/Switch/README.md
 2225ebccd05b5837ab35207ac89bd1417b33cdacb17225f0402cc9bd29001919  components/Switch/preview.html
 ccc831de73c3ca481d4c387f1711a93bccbfe1beac46ed02f72fdc12e644f56d  components/TempoDivisions/README.md
@@ -188,8 +190,8 @@ a18ecfe745ed481016abed2f88491fa90ad8567b0a32d9df1747ad51dd94b65d  components/Tem
 706ba6c02712c8df590f7282f772c49d01bd0a957e6c25748cb43ab0eaa1e0f7  components/XYPad/README.md
 d701129232df94a3ea81b2499559b1f13bd8cf22f065b70b2c7f0d666e2ce3d8  components/XYPad/preview.html
 0995d1fff8ee8a0609304d83923cdb860ec72b1494091167ff4b8427920cd315  components/bundle.css
-30eba8c26aa566b7d2d8721c66367afc2098e3bc55b51286e151be29a0dba19c  components/bundle.js
-0a32df0d0ffa183003e52fb8ea26bc6c57bf767abde98aca0751ec7270a482ac  components/index.d.ts
+787c2f7b9e99fdd70cf0193ed746cf3c68f69cc0fac2d9cf9d25b2bdf2d2339a  components/bundle.js
+51e667c8fca609ee958824e4bbe202c605f828732894016724371d61659a4646  components/index.d.ts
 6c3f598e97da2ab5ed7ce3e02d35e32afb208bd1c7ddcb32335f97ee701c2901  contrast-audit.md
 b22892adec0ac89e9c3eb244e52d609e0e94a11a8a45fe986acd5a1c750ce8d3  design-system.json
 8d63158848e0838c4a1d439be6aff6e7c0c94312b52ae71359186a4154a72245  screens.md

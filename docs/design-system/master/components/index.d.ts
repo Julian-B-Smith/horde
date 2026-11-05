@@ -132,7 +132,7 @@ export interface StepperProps { name?: string; path?: string; /** named options 
 export declare function Stepper(el: HTMLElement, props: StepperProps): { get(): number; set(v: number): void; open(): void; paint(): void };
 export declare function PlainSlider(el: HTMLElement, props: { name: string; path?: string; min: number; max: number; value: number; def?: number; log?: boolean; fmt(v: number): string; onInput?(v: number): void }): { get(): number };
 /** the visualizer painters: each draws one frame into a canvas with the screen roles only */
-export declare const Viz: { kuramoto: KuramotoRingPainter; off: (canvas: HTMLCanvasElement, off: boolean) => void; scope: Function; spectrum: Function; carpet: Function; carpetV: Function; blade: Function; envelope: Function; rotor: Function; voiceMap: Function; gonio: Function; bend: Function };
+export declare const Viz: { kuramoto: KuramotoRingPainter; off: (canvas: HTMLCanvasElement, off: boolean) => void; subDial: (canvas: HTMLCanvasElement, sub: Record<string, any>, state: { t?: number; level?: number }) => void; scope: Function; spectrum: Function; carpet: Function; carpetV: Function; blade: Function; envelope: Function; rotor: Function; voiceMap: Function; gonio: Function; bend: Function };
 /** largest-remainder apportionment: integer counts summing exactly to n */
 export declare function apportion(share: number[], n: number): number[];
 

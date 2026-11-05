@@ -120,6 +120,10 @@
   {
    "version": "1793863122-e50c",
    "evidence": "docs/design/arp-face/README.md: GUI-34, 2026-11-05"
+  },
+  {
+   "version": "1793865465-57d0",
+   "evidence": "docs/design/arp-face/README.md: GUI-35, 2026-11-05"
   }
  ],
  "vendoring": {
@@ -442,7 +446,7 @@
   },
   "sub-noise-lab.html": {
    "status": "exploring",
-   "note": "GB9. Six pictures for the Sub and Noise pages on the real shell, each computed from the settings; waiting on the human's choice. Density and Rate reach all three noise pictures on their own source (GUI-21's batch)."
+   "note": "GB9. The Sub's Dial is ruled (GUI-35) and harvested. The Noise picture is still open: the Weather's Whisper and S&H were reworked here, and the human sent it back as needing more work; the Raster is the other candidate."
   },
   "random-home-lab.html": {
    "status": "ruled",
@@ -6251,6 +6255,21 @@
    "superseded_by": null,
    "state": "in-shell",
    "master_version": "1793863122-e50c"
+  },
+  {
+   "id": "gui35-sub-dial",
+   "adr": "GUI-35",
+   "clause": "the Sub's picture is the Dial, across the page, with a version on Main's Sub tab and the Dashboard's card",
+   "port_tab": "osc-visualizers",
+   "note": "A SAMPLE from the settings until GN-48. The band is 82 px under ADR-345's fit. FX device: none, it hosts no sources.",
+   "component": "SubDial",
+   "bundle": "Viz",
+   "shell": "docs/design/gui3.html: const SUB_BAND",
+   "lab": "docs/design/sub-noise-lab.html",
+   "via": null,
+   "superseded_by": null,
+   "state": "in-shell",
+   "master_version": "1793865465-57d0"
   }
  ],
  "not_design": [
@@ -7359,6 +7378,9 @@
   "GUI-34": [
    "GN-45",
    "GN-47"
+  ],
+  "GUI-35": [
+   "GN-48"
   ]
  },
  "audit_notes": [

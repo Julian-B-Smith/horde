@@ -11818,6 +11818,23 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 **Test hooks.** `window.GUI3_FEED`, the same kind as `GUI3_AWAKE`. The test build's page reshapes the legacy engine's `hzFrame` snapshot into it, so real notes in Ableton strike the pearl and the bridge's round trip is measured.
 
 **FX device (ADR-254).** It has no Main and no notes, so the feed there is ADR-262 r1's audio-driven stand-in: an onset follower fills `gates`, and level fills `peak` and `env`. The pace and scale apply unchanged.
+
+## GUI-35 — RULED by the human: the Dial on the Sub page, across the page; a version on Main's Sub tab and the Dashboard; the Weather sent back (GB9; 2026-11-05)
+
+**Rulings (the human, 2026-11-05, by poll in `sub-noise-lab.html`).**
+1. **The Sub's picture is the Dial,** against the Cone, the Stack and today's scope.
+2. **It goes across the page,** above the controls.
+3. **"Also make sure a version of each makes it onto the main osc views and dashboard."** So the Dial is on Main's Sub tab and the Dashboard's Sub card, and the Noise picture follows the same path once it's chosen.
+4. **The Noise picture isn't chosen.** On the Weather: "I like the weather but it needs some improvement; particularly, the vocal filter doesn't look good at all, and S&H is a little too blocky. Raster might overall be a more informative mode as-is." The lab's Weather was reworked (Whisper's stripes became three fronts that light the grain near them; S&H's squares became held ledges) and shown again, and the human's answer was "Weather needs more work". What's still off is theirs to say. The Noise page stays as it was.
+
+**Readings (the GUI session's, open to the human).**
+- **The band is 82 px, not the lab's 176.** ADR-345 r1's self-check holds the page to its 462 px, and the lab's band scrolled. A taller Dial needs a fold on the page or a ruling that this page may scroll.
+- **Under the band the ring is about 48 px across, and the unrolled cycle carries the shape.** The ring is larger on Main's tab and about the same on the Dashboard's card.
+- **It turns while awake and rests with the other pictures** (GUI-33). When the sub is off it shows ADR-105 A2's OFF.
+
+**Engine impact.** GN-48: the sub's output after its chain, per voice or for the mono sub, and a peak or flag for the drive's ceiling. Until then it's a SAMPLE from the settings, labelled so on the glass.
+
+**FX device (ADR-254).** It hosts no sources, so none of this appears there.
 ## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
 
 **Context.** FM free in pitch FM runs an accumulator that never restarts, while each of C.16's readings starts it at 0, so the estimate cannot see its mean and BL-19 cannot hold by the law alone (Q-TA-71: engine-free, 95 of its 144 one-member cases over 0.003, up to 0.046). ADR-363 sent this to a scratch trial of C.16's existing blocker, with clips for the human. Separately, item 7.8's reference R2 places FM free's modulator half a cycle from round 56's start, and 7.8 plays before its settings settle (Q-TA-77).
