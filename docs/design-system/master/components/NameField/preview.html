@@ -1,0 +1,18 @@
+<!-- @dsCard group="Morph" height=120 subtitle="A name asked for in the page: Enter saves, Escape cancels, and it can't be empty" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Name field</title></head>
+<body>
+<div class="hd-col" style="padding:14px 16px 4px; gap:8px">
+  <div id="f"></div>
+  <p class="hd-msg" id="msg"></p>
+</div>
+<script>
+(function () {
+  var H = window.Horde, msg = document.getElementById('msg'), f = H.NameField(document.getElementById('f'), { max: 40 });
+  function ask() { f.open({ label: 'Save corner A as', value: 'Glass horde pad', save: 'Save preset', onSave: function (n) { msg.textContent = 'Saved as ' + n; ask(); }, onCancel: function () { msg.textContent = 'Not saved'; ask(); } }); }
+  ask();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+<!-- @dsCard group="Morph" height=210 subtitle="A key's mode and count; the Count row is drawn only while it can act; the marks an override leaves on a control" -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Morph mode</title></head>
+<body>
+<div class="hd-fit" style="padding:14px 16px 4px; gap:12px 28px">
+  <div class="hd-col" style="gap:6px; flex:1 1 300px">
+    <span class="hd-cluster">Selected row (SAMPLE)</span>
+    <div id="picker"></div>
+  </div>
+  <div class="hd-col" style="gap:10px; flex:0 1 200px">
+    <span class="hd-cluster">Marks</span>
+    <div id="markQ" class="hd-cell" style="width:120px; height:36px">Quantum</div>
+    <div id="markE" class="hd-cell" style="width:120px; height:36px">Exempt</div>
+  </div>
+</div>
+<script>
+(function () {
+  var H = window.Horde, st = { mode: 'follow', count: 0 };
+  var p = H.MorphMode(document.getElementById('picker'), {
+    read: function () { return { mode: st.mode, count: st.count, countActs: st.mode === 'follow' }; },
+    onMode: function (m) { st.mode = m; p.render(); }, onCount: function (c) { st.count = c; p.render(); } });
+  H.MorphMode.mark(document.getElementById('markQ'), 'quantum');
+  H.MorphMode.mark(document.getElementById('markE'), 'exempt');
+})();
+</script>
+</body>
+</html>

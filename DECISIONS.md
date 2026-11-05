@@ -11648,6 +11648,40 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 **A correction.** GUI-23's "none" was too quick: GB15's module screens may need the rack to publish modulated values. Its entry now says so, and the ruling on GB15 gets its own entry.
 
 **FX device (ADR-254).** The same rule, and the rows apply to it wherever it has the same state.
+
+## GUI-28 — The Morph page's per-key mode, in-page naming, saving all four, deleting a saved preset (GB7, B557; carries out ADR-291 r3, ADR-320 r4, ADR-324 H1, ADR-325 X30; 2026-11-04)
+
+**Context.** The human, 2026-11-04: "Finish the Morph page." B557's open questions are answered by the spec now: MO-12 says what Exempt holds, and MO-13 allows Quantum on a Structural key. So the menu no longer waits on a ruling about its behaviour. Its look is the human's to judge on this batch.
+
+**What's built.** Master `1793843689-1e6e`.
+- **`MorphMode`:** Mode (Follow, Quantum, Exempt) and Count (As the morph, Two, Four), in a control's right-click menu and at the top of the Morph page's selected row.
+- **Its marks:** a Q or EX tag on every face of the key and on its row in the field. Exempt also dashes the control's box, its readout says "EXEMPT · held", and an Exempt row shows no regions or lock.
+- **`NameField`:** a name is asked for in the page. `window.prompt` may not exist in a plugin's webview.
+- **Save all four,** and a delete button beside a saved preset.
+
+**Readings (the GUI session's, open to the human).**
+- **Exempt holds what's heard at the moment of the pick,** written into all four corners, so nothing jumps. Going back to Follow leaves them equal, so nothing jumps then either.
+- **An Exempt key still takes modulation.** Exempt is about the morph, not the modulators, as the page-chrome lab read it. The spec doesn't say (GN-40).
+- **An edit to an Exempt key moves all four corners,** even with morph off, because it has one value. Any locked corner refuses that edit whole, and the pick too, if it would change that corner.
+- **Revert leaves an Exempt key alone,** and it doesn't count as an edit to a corner.
+- **Quantum on a Structural key is allowed** (MO-13). This replaces the lab's disabled item.
+- **Count isn't drawn while it can't act:** under Quantum or Exempt, or with the morph's law on Quantum (MO-11, GUI-21). The default law is Quantum, so a new patch shows Mode alone.
+- **The lab's arrow on every label isn't taken,** nor its exempt band in the field. The menu and the selected row are enough to start.
+- **Save all four asks for one name,** giving "Set · A" to "Set · D", as the Random lab does. A locked corner refuses it whole.
+- **Deleting leaves the corner's values,** and it reads Empty with nothing to revert to.
+
+**The stand-in.** Exempt and Quantum play on the device's stand-in. The count is held and sent to the resolver (IF-12), and nothing plays it, so it can't be heard until the real resolver comes (GN-29).
+
+**The Morph page isn't finished.** What's left can't be built without something else:
+- **The corner import list (ADR-192 item 4):** it lists what an import from another preset would change, so it needs presets that load (GN-8, GN-9).
+- **FX chain fine-tuning (ADR-193 D4):** those controls belong to per-corner FX chains, and the new rack is still a serial stand-in (GN-3). The spec has none of them.
+- **The rail and per-parameter distribution (B133, B28):** proposed, with no design ruling. These need a lab and the human.
+- **`KindLegend`:** it explains RAMPS, which the engine doesn't have. That's question 5 on `ENGINE-NEEDS.md`.
+- **Randomize (B578):** it has its own page now (GUI-25).
+
+**Engine impact (ADR-361, GUI-27).** GN-21, GN-29 and a new GN-40 for the Exempt readings above.
+
+**FX device (ADR-254).** The same menu on FX-module parameters (ADR-291), and the same naming and saving.
 ## ADR-364 — RULED by the human: what rounds 50 and 51 do to older gates; SB-11's stages; the morph items' readings; spec round 57 (B622; 2026-11-04)
 
 **Context.** Finishing its queue, the test author raised gates that assumed the old loop and the old K (`QUESTIONS.md`, Q-TA-73), a slip in SB-11 (Q-TA-76), and the names and readings its morph items apply (Q-TA-74, Q-TA-76). All of it is engine-free. The lead put five items to the human in one poll, with plain summaries rather than every clause: "Yes, as recommended".

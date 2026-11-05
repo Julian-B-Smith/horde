@@ -1,4 +1,4 @@
-/* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"SteppedControl"},{"name":"Stepper"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"},{"name":"Companion"},{"name":"SourceChip"},{"name":"SourceRows"},{"name":"RoutesBySource"},{"name":"Cluster"},{"name":"Lens"},{"name":"Fold"},{"name":"PageView"},{"name":"ModTiers"},{"name":"MacroRow"},{"name":"ModBank"},{"name":"ModPage"},{"name":"UndoLine"},{"name":"MacroFace"},{"name":"PresetBar"},{"name":"Deck"},{"name":"MacroCard"},{"name":"ParamPicker"},{"name":"HistoryRail"},{"name":"PicturePicker"},{"name":"AssignXY"},{"name":"Specimen"}]} */
+/* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"MorphMode"},{"name":"NameField"},{"name":"SteppedControl"},{"name":"Stepper"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"},{"name":"Companion"},{"name":"SourceChip"},{"name":"SourceRows"},{"name":"RoutesBySource"},{"name":"Cluster"},{"name":"Lens"},{"name":"Fold"},{"name":"PageView"},{"name":"ModTiers"},{"name":"MacroRow"},{"name":"ModBank"},{"name":"ModPage"},{"name":"UndoLine"},{"name":"MacroFace"},{"name":"PresetBar"},{"name":"Deck"},{"name":"MacroCard"},{"name":"ParamPicker"},{"name":"HistoryRail"},{"name":"PicturePicker"},{"name":"AssignXY"},{"name":"Specimen"}]} */
 /* horde house reference behaviours (vanilla JS, no React, no network).
    The morph knob and slider follow the human's HORDE Morph Knob Spec and HORDE Map Mode Spec
    (2026-10-21, 2026-10-16); colours, type and themes follow ADR-259. Everything a plugin would get
@@ -322,7 +322,7 @@
     var c = S.ctlOf(p.key);
     if (c) { el2.style.color = srcColor(S.src(c.src)); el2.innerHTML = '<span class="ctl-cap">controlled by ' + S.src(c.src).name + '</span>'; el2.title = 'controlled by ' + S.src(c.src).name; return; }
     el2.title = '';
-    if (p.locked) { el2.style.color = v('hint'); el2.textContent = 'LOCKED'; return; }
+    if (p.locked) { el2.style.color = v('hint'); el2.textContent = p.lockWord || 'LOCKED'; return; }
     var w = S.weights()[ai], rf = S.refused && !S.refused.ctl && S.refused.key === p.key && (S.now || 0) - S.refused.at < 1600;   // a Control refusal is said, not shown as a corner lock
     el2.style.color = lineOf(ai);
     if (rf) { el2.innerHTML = LOCK + '<span>' + CORNERS[ai].id + ' locked</span>'; return; }
@@ -772,7 +772,7 @@
     n.textContent = p.name;
     var setValue = p.locked ? p.g : p.vals[ai];                          // PLACEHOLDER: the editing corner's value, not the blend
     v1.textContent = p.fmt(setValue); set.style.color = ''; set.innerHTML = '';
-    if (p.locked) { set.style.color = v('hint'); set.textContent = 'LOCKED'; }
+    if (p.locked) { set.style.color = v('hint'); set.textContent = p.lockWord || 'LOCKED'; }
     else if (S.refused && !S.refused.ctl && S.refused.key === p.key && (S.now || 0) - S.refused.at < 1600) { set.style.color = lineOf(ai); set.innerHTML = LOCK + '<span>' + CORNERS[ai].id + ' locked</span>'; }
     else { var w = S.weights()[ai]; set.style.color = lineOf(ai); set.innerHTML = glyphSvg(ai, 7, lineOf(ai)) + '<span>' + CORNERS[ai].id + ' set' + (w > .999 ? '' : ' · ' + pct(w)) + '</span>' + (S.locks[ai] ? LOCK : ''); }
     if (c) { l2.style.color = srcColor(S.src(c.src)); t = 'now ' + out + ' · controlled by ' + S.src(c.src).name + ' (' + S.amount(c) + ')'; }
@@ -3969,7 +3969,7 @@
           if (p.group && p.group !== lastG) { h += '<div class="hm-gcap" role="row"><span role="rowheader">' + esc(p.group) + '</span></div>'; lastG = p.group; }
           var k = kindOf(p);
           h += '<div class="hm-gr hm-row" role="row" data-key="' + esc(p.key) + '"><div class="hm-gk" title="' + esc(KIND_TITLE[k]) + '">' + GLYPH[k] + '<span class="hd-sr">' + KIND_WORD[k] + '</span></div>' +
-            '<div class="hm-gn" role="rowheader"><button type="button" class="hm-pname">' + esc(p.name) + (p.unit ? '<span class="hm-unit">UNIT·' + esc(p.unit) + '</span>' : '') + '</button><span class="hm-ppath">' + esc(p.path || (p.section + (p.group ? ' · ' + p.group : ''))) + '</span></div>';
+            '<div class="hm-gn" role="rowheader"><button type="button" class="hm-pname">' + esc(p.name) + (opts.modeOf ? MorphMode.tagHTML(opts.modeOf(p.key)) : '') + (p.unit ? '<span class="hm-unit">UNIT·' + esc(p.unit) + '</span>' : '') + '</button><span class="hm-ppath">' + esc(p.path || (p.section + (p.group ? ' · ' + p.group : ''))) + '</span></div>';
           for (var c = 0; c < 4; c++) {
             h += '<div class="hm-gc hm-cell" role="gridcell" data-c="' + c + '" style="--oc:var(--c' + CORNERS[c].id + '-tx)">' +
               (k === 'g' ? '<button type="button" class="hm-gsw hd-focus" role="switch"></button>'
@@ -4296,6 +4296,63 @@
   }
 
   H.Morph = { state: state, engine: engine, hear: hear, hearAt: hearAt, picks: picks, undo: undo, redo: redo, setMode: setMode, setLock: setLock, stepsPerSecond: stepsPerSecond, register: register, fmt: fmtOf, kindChip: kindChip, FieldSlider: FieldSlider };
+  /* MorphMode (ADR-291 r3, ADR-324 H1, ADR-325 X30; SPEC-ENGINE MO-11 to MO-13): one key's two per-patch choices, its mode and its count.
+     The consumer owns the state and says when the count can act, so this never computes the law. The Count row isn't drawn when it can't act (GUI-21).
+     An override is never colour alone (the page-chrome lab, B557): MorphMode.mark puts a Q or EX tag on a control, and Exempt also dashes its box. */
+  var MM_GLYPH = {
+    quantum: '<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 9H4V6H7V2H9.5" style="fill:none;stroke:currentColor;stroke-width:1.6;stroke-linejoin:round"/></svg>',
+    exempt: '<svg viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="3.6" style="fill:none;stroke:currentColor;stroke-width:1.4"/><path d="M2.4 7.6 7.6 2.4" style="fill:none;stroke:currentColor;stroke-width:1.4"/></svg>' };
+  var MM_MODES = [['follow', 'Follow', 'Obeys the morph’s law'], ['quantum', 'Quantum', 'Flips at its boundaries, whatever the morph’s law is'], ['exempt', 'Exempt', 'Out of the morph: one held value at every position']];
+  var MM_COUNTS = [[0, 'As the morph', 'Uses the morph’s count'], [2, 'Two', 'At most two corners sound at once'], [4, 'Four', 'Up to four corners sound at once']];
+  function MorphMode(el, o) {
+    el.classList.add('hd-mm');
+    var sig = null;
+    function row(label, items, cur, pick) {
+      var r = document.createElement('div'); r.className = 'hd-mm-row';
+      var t = document.createElement('span'); t.className = 'hd-label'; t.textContent = label; r.appendChild(t);
+      var g = document.createElement('div'); g.className = 'hd-pills'; g.setAttribute('role', 'radiogroup'); g.setAttribute('aria-label', label);
+      items.forEach(function (it) {
+        var b = document.createElement('button'); b.type = 'button'; b.className = 'hd-pill hd-focus'; b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(it[0] === cur)); b.textContent = it[1]; b.title = it[2];
+        b.addEventListener('click', function () { if (it[0] !== cur) pick(it[0]); }); g.appendChild(b);
+      });
+      r.appendChild(g); el.appendChild(r);
+    }
+    function render() {
+      var st = o.read(), k = JSON.stringify(st);
+      if (k === sig) return; sig = k; el.innerHTML = ''; el.hidden = !st;
+      if (!st) return;
+      row('Mode', MM_MODES, st.mode, o.onMode);
+      if (st.countActs) row('Count', MM_COUNTS, st.count, o.onCount);
+    }
+    render();
+    return { render: render };
+  }
+  MorphMode.MODES = MM_MODES; MorphMode.COUNTS = MM_COUNTS;
+  MorphMode.tag = function (mode) { return mode === 'quantum' ? 'Q' : mode === 'exempt' ? 'EX' : ''; };
+  MorphMode.tagHTML = function (mode) { var t = MorphMode.tag(mode); return t ? '<span class="hd-mmark-in" title="' + (mode === 'quantum' ? 'Quantum' : 'Exempt') + '">' + MM_GLYPH[mode] + t + '</span>' : ''; };
+  MorphMode.mark = function (host, mode) {
+    var m = null; for (var c = host.firstElementChild; c; c = c.nextElementSibling) if (c.classList.contains('hd-mmark')) m = c;
+    if (!MorphMode.tag(mode)) { if (m) m.remove(); host.removeAttribute('data-morph'); return; }
+    if (!m) { m = document.createElement('span'); m.className = 'hd-mmark'; host.appendChild(m); }
+    if (host.getAttribute('data-morph') !== mode) { host.setAttribute('data-morph', mode); m.innerHTML = MM_GLYPH[mode] + MorphMode.tag(mode); m.title = mode === 'quantum' ? 'Quantum: flips at its boundaries' : 'Exempt: one held value'; }
+  };
+  /* NameField (ADR-319 r1): asks for a name in the page. A plugin's webview may have no window.prompt, and a browser dialog stops everything else. */
+  function NameField(el, o) {
+    o = o || {}; el.classList.add('hd-namefield'); el.hidden = true;
+    var label = document.createElement('label'), cap = document.createElement('span'), inp = document.createElement('input'), ok = document.createElement('button'), no = document.createElement('button'), cur = null;
+    label.className = 'hd-label'; inp.type = 'text'; inp.className = 'hd-focus'; inp.spellcheck = false; if (o.max) inp.maxLength = o.max;
+    ok.type = no.type = 'button'; ok.className = no.className = 'hd-btn hd-focus'; no.textContent = 'Cancel';
+    label.appendChild(cap); label.appendChild(inp); el.appendChild(label); el.appendChild(ok); el.appendChild(no);
+    function valid() { ok.disabled = !inp.value.trim(); }
+    function close() { cur = null; el.hidden = true; }
+    function save() { if (!cur || !inp.value.trim()) return; var fn = cur.onSave, v = inp.value.trim(); close(); fn(v); }
+    function cancel() { if (!cur) return; var fn = cur.onCancel; close(); if (fn) fn(); }
+    inp.addEventListener('input', valid); ok.addEventListener('click', save); no.addEventListener('click', cancel);
+    /* the page's keyboard mode mustn't take a letter typed into a name */
+    el.addEventListener('keydown', function (e) { e.stopPropagation(); if (e.key === 'Enter' && e.target === inp) { e.preventDefault(); save(); } else if (e.key === 'Escape') { e.preventDefault(); cancel(); } });
+    return { open: function (a) { cur = a; cap.textContent = a.label; ok.textContent = a.save || 'Save'; inp.value = a.value || ''; el.hidden = false; valid(); inp.focus(); inp.select(); }, close: close, isOpen: function () { return !!cur; } };
+  }
+  H.MorphMode = MorphMode; H.NameField = NameField;
   H.QuantumPad = QuantumPad; H.MorphScaleBar = MorphScaleBar; H.QuantumBanner = QuantumBanner; H.LockBar = LockBar;
   H.CrossSection = CrossSection; H.MorphGrid = MorphGrid; H.FindPane = FindPane; H.MorphInspector = MorphInspector;
   H.KindLegend = KindLegend; H.SteppedControl = SteppedControl; H.MorphMode = MorphMode; H.Cohesion = Cohesion;

@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1793813622-b097, 2026-11-04; do not edit, re-vendor */
+/* vendored from the horde Design System artifact, version 1793843689-1e6e, 2026-11-04; do not edit, re-vendor */
 @import url("https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;800&family=Roboto+Mono:wght@400;500;600&display=swap");
 /* horde house components. Every colour is a token (tokens.json); nothing here is a hex.
    Sources: UI Spec §3-4 (values), gui2.html §4 skins, the SCALPEL lab (980×720 chassis),
@@ -1581,3 +1581,19 @@ canvas.hd-ring { outline:none; }
 .hd-cc .cs-strip .ms-rd .mk-v1 { position:absolute; inset:0; display:block; }
 .hd-cc .cs-ms { min-height:28px; }
 .hd-cc .cc-off .cs-body, .hd-cc .cc-off .cs-pk, .hd-cc .cc-dim .cs-body, .hd-cc .cc-dim .cs-pk { opacity:var(--opacity-muted); }
+/* MorphMode: a key's mode and count, and the mark an override leaves on its control (B557). Never colour alone. */
+.hd-mm { display:flex; flex-direction:column; gap:4px; margin-bottom:6px; }
+.hd-mm[hidden] { display:none; }
+.hd-mm-row { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.hd-mm-row > .hd-label { flex:0 0 40px; }
+[data-morph] { position:relative; }
+[data-morph="exempt"] { outline:1px dashed var(--ink); outline-offset:1px; }
+.hd-mmark, .hd-mmark-in { display:inline-flex; align-items:center; gap:2px; height:14px; padding:0 3px; box-sizing:border-box; border:1px solid var(--ink); border-radius:var(--radius-capsule); background:var(--panel); color:var(--ink); font:700 8px/1 var(--font-sans); letter-spacing:.06em; }
+.hd-mmark { position:absolute; top:0; right:0; z-index:1; pointer-events:none; }
+.hd-mmark-in { margin-left:4px; vertical-align:middle; }
+.hd-mmark svg, .hd-mmark-in svg { width:9px; height:9px; flex:0 0 auto; }
+/* NameField: asks for a name in the page */
+.hd-namefield { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.hd-namefield[hidden] { display:none; }
+.hd-namefield label { display:inline-flex; align-items:center; gap:6px; flex:1 1 240px; min-width:0; }
+.hd-namefield input { flex:1 1 120px; min-width:0; min-height:var(--size-hit); box-sizing:border-box; padding:0 8px; border:var(--stroke-ink) solid var(--ink); border-radius:var(--radius-capsule); background:var(--well); color:var(--ink); font:400 11px var(--font-mono); }

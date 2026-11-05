@@ -204,12 +204,13 @@
        engine), and Arp's are the device's MIDI module's.
      Each stub holds what it is sent, refuses (and counts) a key it does not own, and answers a read-only view. */
   function ResolverStub(rows) {
-    var R = this, own = Object.create(null), settings = Object.create(null), pos = { x: 0.5, y: 0.5 }, refused = 0;
+    var R = this, own = Object.create(null), settings = Object.create(null), pos = { x: 0.5, y: 0.5 }, refused = 0, keyModes = {}, keyCounts = {};
     rows.forEach(function (r) { own[r.key] = r; settings[r.key] = r.default_v; });
     R.settings = function (vals) { for (var k in vals) { if (own[k] && typeof vals[k] === 'number' && vals[k] === vals[k]) settings[k] = snap(own[k], vals[k]); else refused++; } };
     R.position = function (x, y) { pos = { x: x, y: y }; };
+    R.modes = function (m, c) { keyModes = m; keyCounts = c; };   // MO-11: held for the real resolver; this stub flips nothing itself, and the device's stand-in plays them
     R.get = function (key) { return own[key] ? settings[key] : null; };
-    R.observe = function () { var s = {}; for (var k in settings) s[k] = settings[k]; return { settings: s, position: { x: pos.x, y: pos.y }, refused: refused }; };
+    R.observe = function () { var s = {}; for (var k in settings) s[k] = settings[k]; return { settings: s, position: { x: pos.x, y: pos.y }, modes: keyModes, counts: keyCounts, refused: refused }; };
   }
   function DeviceSideStub(rows) {
     var X = this, own = Object.create(null), vals = Object.create(null), refused = 0;
@@ -227,6 +228,7 @@
        { type: 'gesture', seq, key, phase }              RC-11.3's begin and end
        { type: 'morph', seq, settings: { key: v } }      the morph's settings, to the resolver (IF-12)
        { type: 'position', seq, x, y }                   the morph position, to the resolver (IF-12)
+       { type: 'modes', seq, modes, counts }             each key's mode and count (MO-11), to the resolver (IF-12)
        { type: 'rack', seq, values }                     a hosted module's values, to the rack (RC-5, IF-7)
        { type: 'midi', seq, values }                     Arp's values, to the device's MIDI module
        { type: 'clear', seq, id }                        clear a meter's clip latch (IF-6)
@@ -259,6 +261,7 @@
         else if (m.type === 'gesture') engine.gesture(m.key, m.phase);
         else if (m.type === 'morph' && resolver) resolver.settings(m.settings);
         else if (m.type === 'position' && resolver) resolver.position(m.x, m.y);
+        else if (m.type === 'modes' && resolver) resolver.modes(m.modes, m.counts);
         else if ((m.type === 'rack' || m.type === 'midi') && device) device.set(m.type, m.values);
         else if (m.type === 'clear') engine.clearClip(m.id);
         else throw new Error('unknown message ' + m.type + (m.type === 'morph' || m.type === 'position' ? ' (no resolver behind this transport)' : m.type === 'rack' || m.type === 'midi' ? ' (no device side behind this transport)' : ''));

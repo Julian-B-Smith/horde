@@ -227,6 +227,8 @@ export declare function OwnershipTier(el: HTMLElement, props: OwnershipTierProps
 export declare function QuantumPad(padEl: HTMLElement, session: Session, props?: { key?: ManifestKey }): void;
 export declare function QuantumBanner(el: HTMLElement, session: Session): void;
 export declare function LockBar(el: HTMLElement, session: Session, props?: object): void;
+export declare function MorphMode(el: HTMLElement, props: object): { render(): void };
+export declare function NameField(el: HTMLElement, props?: object): { open(request: object): void; close(): void; isOpen(): boolean };
 export declare function MorphScaleBar(el: HTMLElement, session: Session, props?: object): void;
 /** The heard value along a chord across the pad (two 28 px handles on the pad aim it). */
 export declare function CrossSection(el: HTMLElement, session: Session, props?: { pad?: HTMLElement }): void;
@@ -309,7 +311,7 @@ export declare namespace BlendMaps { /** the pure law functions the pictures run
   const math: { surface(c: number[], pins: number[][], law: BlendLaw): { base(x: number, y: number): number; raw(x: number, y: number): number; tri: number[][] | null; P: number[][]; lo: number; hi: number; n: number; law: BlendLaw; terms: number };
     at(s: unknown, x: number, y: number, min: number, max: number, clamp: boolean): { v: number; raw: number; clip: number }; triangulate(P: number[][]): number[][]; weights(x: number, y: number): number[]; laws: BlendLaw[]; name: Record<BlendLaw, string> } }
 
-declare global { interface Window { Horde: { Session: typeof Session; Knob: typeof Knob; Slider: typeof Slider; MapControl: typeof MapControl; ModInspector: typeof ModInspector; XYPad: typeof XYPad; CornerPin: typeof CornerPin; CornerChips: typeof CornerChips; CornerInspector: typeof CornerInspector; ScreenScheme: typeof ScreenScheme; [component: string]: unknown } } }
+declare global { interface Window { Horde: { Session: typeof Session; MorphMode: typeof MorphMode; NameField: typeof NameField; Knob: typeof Knob; Slider: typeof Slider; MapControl: typeof MapControl; ModInspector: typeof ModInspector; XYPad: typeof XYPad; CornerPin: typeof CornerPin; CornerChips: typeof CornerChips; CornerInspector: typeof CornerInspector; ScreenScheme: typeof ScreenScheme; [component: string]: unknown } } }
 
 // ===== Density and hierarchy (B589: the human's notes on the GUI 3 shell, 2026-10-30) =====
 export interface PageRef { id: string; label: string; /** an oscillator page's power, read from the manifest: draws the tab's dot */ on?: boolean }
