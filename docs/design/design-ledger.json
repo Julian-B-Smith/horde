@@ -464,6 +464,10 @@
   "osc-layout-lab.html": {
    "status": "exploring",
    "note": "GB19. Three candidates each for an oscillator's mini view on Main, its expanded page, and the Osc dashboard with both filters (MOCK). Waiting on the human."
+  },
+  "envelope-workshop-lab.html": {
+   "status": "exploring",
+   "note": "GB23. How a source gets a different envelope (Override, one grid, Serum's Env button) and how envelopes show on Main and an Osc page, each with this session's pick; waiting on the human's answers."
   }
  },
  "not_labs": {

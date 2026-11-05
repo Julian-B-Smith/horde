@@ -1,0 +1,179 @@
+<!doctype html>
+<!-- envelope-workshop-lab: how a source gets a different envelope, and how envelopes show on Main and the Osc pages. horde, 2026-11-05, row GB23. Origin: the human, "we still need to figure out an
+     elegant way to add secondary envelopes or overrides, maybe looking at how Serum 2 does it. And we should also workshop how the envelopes show up on the main and osc pages - this will require
+     an elegant solution."
+
+     WHAT'S SETTLED. ENV 1 shapes every source by default (ADR-255 r5, RC-6.5), and each source's `env` row can pick any of ENV 2 to 4. There are four envelopes, and ENV 1 to 4 are SPEC-ENGINE's.
+     GUI-39's drag and curves stand. WHAT'S OPEN, AND IS WHAT THIS ASKS. How that choice looks, and where envelopes sit. So every candidate but one needs nothing new from the engine, and the one that
+     does says so.
+
+     WHAT IS REAL. Viz.envelope, the C.12 law and EnvDrag are the master's. WHAT ISN'T. The state is local and SAMPLE, the waveform is a sketch, and nothing here is heard. Knob glyphs stand in for the
+     page's knobs. Nothing here edits gui3*, arp-face/ or the master, and a ruling goes through the chain (ADR-316).
+
+     HOUSE RULES. No Math.random and no clock. No wheel listener (B301). -->
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="lab-part" content="Presentation">
+<meta name="lab-review" content="GB23 · 2026-11-05">
+<title>Envelope workshop lab — overrides, and where envelopes show</title>
+<link rel="stylesheet" href="arp-face/tokens.css">
+<link rel="stylesheet" href="arp-face/bundle.css">
+<style>
+  html, body { background: var(--bg); }
+  body { margin: 0; padding: 20px 16px 60px; color: var(--ink); font: 13px/1.5 var(--font-sans); }
+  .col { max-width: 1012px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+  h1 { font: 800 19px/1.2 var(--font-sans); margin: 0 0 6px; }
+  h2 { font: 800 14px/1.2 var(--font-sans); margin: 0 0 6px; }
+  p { margin: 0 0 6px; max-width: 84ch; }
+  .note { color: var(--hint); font-size: 12px; }
+  .card { border: 1.5px solid var(--ink); border-radius: var(--radius); padding: 12px; background: var(--panel); }
+  .picker { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
+  .opt { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; gap: 3px; padding: 8px; border: 1px solid var(--div); border-radius: 4px; }
+  .opt:hover { border-color: var(--ink); }
+  .opt:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .opt[aria-pressed="true"] { border: 2px solid var(--ink); padding: 7px; }
+  .opt b { font: 700 12px/1.25 var(--font-sans); }
+  .opt span { color: var(--hint); font-size: 12px; line-height: 1.35; }
+  .stage { box-sizing: border-box; border: 1.5px solid var(--ink); border-radius: var(--radius); background: var(--panel); padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+  .meta { font-size: 12px; color: var(--hint); margin-top: 6px; }
+  .meta b { color: var(--ink); font-weight: 600; }
+  .glass { padding: 0; overflow: hidden; position: relative; }
+  .glass canvas { display: block; width: 100%; }
+  .glass .cap { position: absolute; left: 6px; top: 3px; font: 700 9px/1 var(--font-mono); color: var(--scr-grid); pointer-events: none; }
+  .srow { display: grid; grid-template-columns: 62px 1fr; gap: 8px; align-items: center; min-height: 26px; }
+  .srow > b { font: 700 11px/1 var(--font-mono); }
+  .line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
+  .chip { padding: 1px 6px; font: 400 10px/15px var(--font-mono); border: 1px solid var(--div); border-radius: var(--radius-meter); color: var(--t2); }
+  .warn { font: 400 11px/1.4 var(--font-sans); color: var(--t2); }
+  .warn b { color: var(--ink); }
+  .mx { display: grid; grid-template-columns: 62px repeat(4, minmax(0, 1fr)); gap: 3px; align-items: center; }
+  .mx button { all: unset; box-sizing: border-box; cursor: pointer; height: 22px; border: 1px solid var(--div); border-radius: var(--radius-meter); text-align: center; font: 700 10px/20px var(--font-mono); color: var(--hint); }
+  .mx button[aria-checked="true"] { background: var(--value); border-color: var(--ink); color: var(--panel); }
+  .mx button:focus-visible { outline: 2px solid var(--ink); }
+  .mx .hd { font: 700 10px/1 var(--font-mono); text-align: center; color: var(--t2); }
+  .four { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+  .four > button { all: unset; display: block; cursor: pointer; border-radius: var(--radius-meter); }
+  .four > button[aria-pressed="true"] { box-shadow: 0 0 0 1.5px var(--value); }
+  .four > button:focus-visible { outline: 2px solid var(--ink); }
+  .kn { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; font: 700 8.5px/1 var(--font-mono); color: var(--t2); }
+  .kn i { display: block; width: 18px; height: 18px; border: 1.5px solid var(--ink); border-radius: 50%; }
+  .vals { display: flex; flex-wrap: wrap; gap: 2px 10px; font: 400 10.5px/1.5 var(--font-mono); color: var(--t2); }
+  .vals b { color: var(--ink); font-weight: 600; }
+  .foldh { display: flex; align-items: center; gap: 8px; padding: 2px 0; border-top: 2px solid var(--ink); }
+  .foldh .nm { font: 800 12px/1 var(--font-sans); letter-spacing: .04em; }
+  .thumb { width: 90px; flex: none; }
+  .thumb canvas { height: 22px; }
+  #selfcheck { white-space: pre-wrap; font: 400 11px/1.6 var(--font-mono); color: var(--t2); }
+</style>
+</head>
+<body>
+<div class="col">
+  <section>
+    <h1>Envelope workshop</h1>
+    <p>Two questions: how a source gets a different envelope, and where envelopes sit on Main and the Osc pages. Every picture can be dragged, and the sources and envelopes are the same four and four across this page, so a choice made in one section shows in the others.</p>
+    <p class="note">SAMPLE: nothing here is heard, and the state is local to this page. It resets on reload.</p>
+  </section>
+  <section class="card">
+    <h2>What the two synths do today</h2>
+    <p><b>horde's engine.</b> Every source follows ENV 1 unless its Envelope row picks ENV 2, 3 or 4 (RC-6.5). There's no option for a source to follow nothing.</p>
+    <p><b>Serum 2.</b> It has four envelopes, Env 1 always sets the output level, and a source or filter routed to the main output can skip Env 1 with an Env button on the MIX page. Anything else about an envelope is a modulation route. So horde can already do what Serum 2's button is for, and more, with no route to make. What's left is making that choice easy to see.</p>
+  </section>
+  <section class="card">
+    <h2>1. How a source gets a different envelope</h2>
+    <div class="picker" id="pickA"></div><div class="stage" id="stageA"></div><div class="meta" id="metaA"></div>
+  </section>
+  <section class="card">
+    <h2>2. Main: where the envelopes sit</h2>
+    <div class="picker" id="pickB"></div><div class="stage" id="stageB"></div><div class="meta" id="metaB"></div>
+  </section>
+  <section class="card">
+    <h2>3. An Osc page: where its envelope sits</h2>
+    <div class="picker" id="pickC"></div><div class="stage" id="stageC"></div><div class="meta" id="metaC"></div>
+  </section>
+  <section><h2>Self-check</h2><div id="selfcheck">Running.</div></section>
+</div>
+<script src="arp-face/bundle.js"></script>
+<script>
+(function () {
+  var H = window.Horde, $ = function (id) { return document.getElementById(id); };
+  if (!H || !H.EnvDrag) { $('selfcheck').textContent = 'FAILED · the master has no EnvDrag.'; return; }
+  var KO = { keys: function () { return false; } }, SRC = [['osc1', 'Osc 1'], ['osc2', 'Osc 2'], ['sub', 'Sub'], ['noise', 'Noise']], NAMES = ['ENV 1', 'ENV 2', 'ENV 3', 'ENV 4'];
+  /* travels 0..1, as the rows hold them, read through the rows' laws (log for times, -2.5..2.5 for curves) */
+  function fresh() { return { a: .25, d: .55, s: .85, r: .5, ac: .5, dc: .7, rc: .7 }; }
+  var E = [fresh(), { a: .1, d: .4, s: .2, r: .35, ac: .5, dc: .8, rc: .7 }, { a: .05, d: .5, s: 0, r: .3, ac: .5, dc: .85, rc: .7 }, { a: .6, d: .5, s: 1, r: .7, ac: .4, dc: .5, rc: .6 }];
+  var follow = { osc1: 0, osc2: 0, sub: 0, noise: 0 }, skip = {}, pick = { A: 'over', B: 'tabs', C: 'read' }, front = 0, focus = 'osc1', paints = [];
+  var shape = function (x) { var t = function (v, lo, hi) { return lo * Math.pow(hi / lo, v); }, a = t(x.a, .0005, 10), d = t(x.d, .005, 30), r = t(x.r, .005, 30); return { a: a, d: d, s: x.s, r: r, hold: (a + d + r) / 3, ac: x.ac * 5 - 2.5, dc: x.dc * 5 - 2.5, rc: x.rc * 5 - 2.5 }; };
+  var followers = function (i) { return SRC.filter(function (s) { return !skip[s[0]] && follow[s[0]] === i; }).map(function (s) { return s[1]; }); };
+  var inUse = function () { return NAMES.map(function (_, i) { return i; }).filter(function (i) { return i === 0 || followers(i).length; }); };
+  function freeEnv() { for (var i = 1; i < 4; i++) if (!followers(i).length) return i; return -1; }
+  function override(id) { var i = freeEnv(); if (i < 0) return false; E[i] = Object.assign({}, E[follow[id]]); follow[id] = i; skip[id] = false; return true; }
+  function el(t, cls, txt) { var e = document.createElement(t); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; }
+  function btn(txt, title, fn) { var b = el('button', 'hd-btn hd-focus hd-xs', txt); b.type = 'button'; if (title) b.title = title; b.addEventListener('click', fn); return b; }
+  /* one envelope's picture: drag edits E[which()], and every picture on the page repaints, since an envelope's edit is shared */
+  function pic(host, h, which, cap, draggable) { var w = el('div', 'hd-viz glass'), cv = el('canvas'); cv.style.height = h + 'px'; cv.setAttribute('role', 'img'); w.appendChild(cv); if (cap) w.appendChild(el('span', 'cap', cap)); host.appendChild(w);
+    if (draggable !== false) H.EnvDrag(cv, { env: function () { return shape(E[which()]); }, read: function (r) { return E[which()][r]; }, write: function (r, v) { E[which()][r] = v; repaint(); }, reset: function (r) { E[which()][r] = fresh()[r]; repaint(); }, begin: function () {}, end: function () {} });
+    var draw = function () { if (!cv.isConnected) return; cv.setAttribute('aria-label', NAMES[which()] + ' envelope, SAMPLE'); H.Viz.envelope(cv, shape(E[which()]), null); }; paints.push(draw); return { cv: cv, draw: draw }; }
+  function repaint() { paints.forEach(function (d) { d(); }); }
+  function sharedLine(host, i) { var f = followers(i), w = el('div', 'warn'); if (f.length > 1) { w.append('Editing ', el('b', '', NAMES[i]), ' also changes ' + f.join(', ') + '.'); } else if (f.length === 1) w.append(el('b', '', NAMES[i]), ' shapes only ' + f[0] + '.'); else w.append(el('b', '', NAMES[i]), ' shapes no source.'); host.appendChild(w); }
+  function knobs(host) { var r = el('div', 'line'); ['ATK', 'DEC', 'SUS', 'REL', 'ACRV', 'DCRV', 'RCRV'].forEach(function (t) { var k = el('span', 'kn'); k.append(el('i'), t); r.appendChild(k); }); host.appendChild(r); return r; }
+  function fmtT(s) { return s < 1 ? Math.round(s * 1000) + ' ms' : s.toFixed(2) + ' s'; }
+
+  var A = [
+    { id: 'pills', nm: 'Pills (as built)', tx: 'ENV 1 to 4 on each source, always showing.', meta: 'Engine: ready (RC-6.5). Plain, but numbers ask you to know the bank, and it doesn’t say who else you’ll change.',
+      draw: function (s) { SRC.forEach(function (x) { var r = el('div', 'srow'), g = el('div'); r.append(el('b', '', x[1]), g); H.pillGroup(g, NAMES, follow[x[0]], x[1] + ' follows', function (i) { follow[x[0]] = i; focus = x[0]; paint(); }, KO); s.appendChild(r); }); pic(s, 96, function () { return follow[focus]; }, NAMES[follow[focus]] + ' · ' + SRC.find(function (x) { return x[0] === focus; })[1]); sharedLine(s, follow[focus]); } },
+    { id: 'over', nm: 'Override', tx: 'Everything is shared until you ask. One button gives a source its own, a copy of what it was following.', meta: 'Engine: ready, since it writes the same Envelope row and copies rows into a free envelope. It hides the bank until it matters, and it stops at three overrides. <b>This session’s pick for a source’s page.</b>',
+      draw: function (s) { SRC.forEach(function (x) { var r = el('div', 'srow'), g = el('div', 'line'), i = follow[x[0]]; r.append(el('b', '', x[1]), g); g.append(el('span', 'chip', i === 0 ? 'ENV 1 · shared' : NAMES[i] + ' · its own'));
+          if (i === 0) g.appendChild(btn('Override', 'Give ' + x[1] + ' its own envelope, starting as a copy of ENV 1', function () { if (!override(x[0])) { $('metaA').textContent = 'All three other envelopes are in use, so share one of them or free one first.'; return; } focus = x[0]; paint(); }));
+          else g.appendChild(btn('Back to ENV 1', 'Follow ENV 1 again. Its own envelope is kept for the next override', function () { follow[x[0]] = 0; focus = x[0]; paint(); }));
+          g.appendChild(btn('Edit', 'Show this source’s envelope below', function () { focus = x[0]; paint(); })); s.appendChild(r); }); pic(s, 96, function () { return follow[focus]; }, NAMES[follow[focus]] + ' · ' + SRC.find(function (x) { return x[0] === focus; })[1]); sharedLine(s, follow[focus]); } },
+    { id: 'matrix', nm: 'One grid', tx: 'Sources against envelopes, in one small grid, with the four pictures over it. You see the whole hierarchy at a glance.', meta: 'Engine: ready. Best as an overview: it’s too large for a source’s own page. <b>This session’s pick for the Mod page or the Dashboard, alongside Override.</b>',
+      draw: function (s) { var ps = el('div', 'four'); NAMES.forEach(function (n, i) { pic(ps, 60, function () { return i; }, n); }); var m = el('div', 'mx'); m.appendChild(el('span')); NAMES.forEach(function (n) { m.appendChild(el('span', 'hd', n)); }); SRC.forEach(function (x) { m.appendChild(el('b', '', x[1])); NAMES.forEach(function (n, i) { var b = el('button', '', follow[x[0]] === i ? '●' : ''); b.type = 'button'; b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(follow[x[0]] === i)); b.setAttribute('aria-label', x[1] + ' follows ' + n); b.addEventListener('click', function () { follow[x[0]] = i; paint(); }); m.appendChild(b); }); }); s.append(ps, m); } },
+    { id: 'skip', nm: 'Serum’s Env button', tx: 'A button per source: on follows ENV 1, off skips it. Its own shape then comes from a modulation route.', meta: '<b>Engine: needs a new option.</b> RC-6.5 has no “follows nothing”, and the voice’s lifetime and steal rules would change (the conflicts file, decision 15). It also does less than the Envelope row already does.',
+      draw: function (s) { SRC.forEach(function (x) { var r = el('div', 'srow'), g = el('div', 'line'), b = btn(skip[x[0]] ? 'Env off' : 'Env on', 'On follows ENV 1. Off: not shaped by ENV 1', function () { skip[x[0]] = !skip[x[0]]; paint(); }); b.setAttribute('aria-pressed', String(!skip[x[0]])); r.append(el('b', '', x[1]), g); g.appendChild(b); g.appendChild(el('span', 'chip', skip[x[0]] ? 'Full level until the voice ends' : 'ENV 1')); s.appendChild(r); }); pic(s, 96, function () { return 0; }, 'ENV 1'); sharedLine(s, 0); } },
+  ];
+  var B = [
+    { id: 'one', nm: 'ENV 1 only (as built)', tx: 'A wide ENV 1 and its four knobs. The others wait on the Mod page.', meta: 'Calm, but a source that follows ENV 3 is invisible here.',
+      draw: function (s) { var r = el('div', 'line'); var w = el('div'); w.style.flex = '1 1 300px'; pic(w, 72, function () { return 0; }, 'ENV 1'); r.appendChild(w); ['ATK', 'DEC', 'SUS', 'REL'].forEach(function (t) { var k = el('span', 'kn'); k.append(el('i'), t); r.appendChild(k); }); s.appendChild(r); } },
+    { id: 'tabs', nm: 'Tabs on the picture', tx: 'The same space, with ENV 1 to 4 as tabs and who follows each named beside it. Only tabs in use are lit.', meta: 'No taller than today. It answers “what shapes what” on the page you play from. <b>This session’s pick.</b>',
+      draw: function (s) { var bar = el('div', 'line'), g = el('div'); bar.appendChild(g); H.pillGroup(g, NAMES, front, 'The envelope shown', function (i) { front = i; paint(); }, KO); var f = followers(front); bar.appendChild(el('span', 'chip', f.length ? f.join(', ') : 'shapes no source')); s.appendChild(bar); var r = el('div', 'line'), w = el('div'); w.style.flex = '1 1 300px'; pic(w, 72, function () { return front; }); r.appendChild(w); ['ATK', 'DEC', 'SUS', 'REL'].forEach(function (t) { var k = el('span', 'kn'); k.append(el('i'), t); r.appendChild(k); }); s.appendChild(r); } },
+    { id: 'overlay', nm: 'One glass, overlaid', tx: 'Every envelope in use in one picture, the chosen one solid and the rest as ghosts. Pills pick which you drag.', meta: 'Shows how they relate in time, and it’s the most striking. Ghosts crowd once three are in use, and each is scaled to its own length, so comparing times can mislead.',
+      draw: function (s) { var g = el('div'); H.pillGroup(g, NAMES, front, 'The envelope you drag', function (i) { front = i; paint(); }, KO); s.appendChild(g); var p = pic(s, 104, function () { return front; }), d0 = p.draw; var ghost = function () { d0(); var cv = p.cv; if (!cv.isConnected) return; var c = cv.getContext('2d'), V = cv.width / (cv.clientWidth || 1), W = cv.width, Hh = cv.height; c.setLineDash([3 * V, 3 * V]); inUse().filter(function (i) { return i !== front; }).forEach(function (i) { var e = shape(E[i]), T = e.a + e.d + e.hold + e.r, pts = H.Viz.envPoints(e); c.strokeStyle = getComputedStyle(cv).getPropertyValue('--scr-grid') || '#888'; c.lineWidth = 1.2 * V; c.beginPath(); pts.forEach(function (q, j) { var x = 8 * V + (W - 16 * V) * q[0] / T, y = Hh - 8 * V - (Hh - 16 * V) * q[1]; if (j) c.lineTo(x, y); else c.moveTo(x, y); }); c.stroke(); }); c.setLineDash([]); }; paints[paints.length - 1] = ghost; } },
+    { id: 'minis', nm: 'Four small, one large', tx: 'All four as a strip of small pictures, and the one you click large under it.', meta: 'Everything at once, and it costs 40 px Main doesn’t have without shrinking the deck.',
+      draw: function (s) { var ps = el('div', 'four'); NAMES.forEach(function (n, i) { var b = el('button'); b.type = 'button'; b.setAttribute('aria-pressed', String(front === i)); b.setAttribute('aria-label', 'Show ' + n); b.addEventListener('click', function () { front = i; paint(); }); pic(b, 36, function () { return i; }, n, false); ps.appendChild(b); }); s.appendChild(ps); pic(s, 72, function () { return front; }, NAMES[front]); } },
+  ];
+  function sketch(host, h) { var w = el('div', 'hd-viz glass'), cv = el('canvas'); cv.style.height = h + 'px'; cv.setAttribute('role', 'img'); cv.setAttribute('aria-label', 'A sketch of the waveform'); w.appendChild(cv); host.appendChild(w); paints.push(function () { if (!cv.isConnected) return; var l = []; for (var i = 0; i < 128; i++) l.push(2 * ((i / 40) % 1) - 1); H.Viz.scope(cv, { l: l, r: l, R: 0 }); }); }
+  var valLine = function (host, i) { var e = shape(E[i]), v = el('div', 'vals'); [['A', fmtT(e.a)], ['D', fmtT(e.d)], ['S', Math.round(e.s * 100) + ' %'], ['R', fmtT(e.r)], ['A⌒', e.ac.toFixed(1)], ['D⌒', e.dc.toFixed(1)], ['R⌒', e.rc.toFixed(1)]].forEach(function (q) { var sp = el('span'); sp.append(q[0] + ' ', el('b', '', q[1])); v.appendChild(sp); }); host.appendChild(v); };
+  var C = [
+    { id: 'sec', nm: 'Picture over knobs (as built)', tx: 'GUI-39: a section with the picture on its own row and seven knobs under it.', meta: 'Every control in view, at about 110 px high. The Osc page pays for it with a shorter waveform.',
+      draw: function (s) { sketch(s, 70); var i = follow.osc1; s.appendChild(el('span', 'hd-label', 'ENVELOPE · ' + NAMES[i])); pic(s, 44, function () { return follow.osc1; }); knobs(s); } },
+    { id: 'read', nm: 'Picture and readout', tx: 'Drag the picture for everything; the values read out under it as numbers, and knobs live behind +Adv.', meta: 'About 70 px high, so the waveform gets its height back. The drag becomes the main control, and each number still needs a keyboard route. <b>This session’s pick.</b>',
+      draw: function (s) { sketch(s, 90); var i = follow.osc1, h = el('div', 'line'); h.appendChild(el('span', 'hd-label', 'ENVELOPE')); h.appendChild(el('span', 'chip', NAMES[i] + (i ? ' · its own' : ' · shared'))); h.appendChild(btn('+Adv', 'The seven knobs', function () {})); s.appendChild(h); pic(s, 44, function () { return follow.osc1; }); valLine(s, i); } },
+    { id: 'fold', nm: 'A fold, like the blades', tx: 'Closed, a title bar with a small live thumbnail and who it follows. Opened, the picture and knobs.', meta: 'The most compact, at 26 px closed, and it matches the blades. But an envelope is what you reach for most, and it takes a click to reach.',
+      draw: function (s) { sketch(s, 110); var i = follow.osc1, open = !!pick.foldOpen, h = el('div', 'foldh'); h.appendChild(btn(open ? '▾' : '▸', open ? 'Close' : 'Open', function () { pick.foldOpen = !open; paint(); })); h.appendChild(el('span', 'nm', 'ENVELOPE')); h.appendChild(el('span', 'chip', NAMES[i])); var t = el('div', 'thumb'); pic(t, 22, function () { return follow.osc1; }, null, false); h.appendChild(t); s.appendChild(h); if (open) { pic(s, 44, function () { return follow.osc1; }); knobs(s); } } },
+    { id: 'strip', nm: 'A strip under the waveform', tx: 'The envelope as a thin strip on the same glass edge as the waveform, so a note reads top to bottom.', meta: 'Elegant, and it ties shape to level. But the strip shares no time axis with the waveform (one cycle against a whole note), so the alignment would be a false promise.',
+      draw: function (s) { sketch(s, 96); pic(s, 30, function () { return follow.osc1; }); valLine(s, follow.osc1); } },
+  ];
+  var SECS = { A: A, B: B, C: C };
+  function paint() { paints = []; Object.keys(SECS).forEach(function (sec) { var host = $('pick' + sec); host.innerHTML = ''; SECS[sec].forEach(function (o) { var b = el('button', 'opt'); b.type = 'button'; b.setAttribute('aria-pressed', String(pick[sec] === o.id)); b.append(el('b', '', o.nm), el('span', '', o.tx)); b.addEventListener('click', function () { pick[sec] = o.id; paint(); }); host.appendChild(b); }); var s = $('stage' + sec); s.innerHTML = ''; var cur = SECS[sec].find(function (o) { return o.id === pick[sec]; }); cur.draw(s); $('meta' + sec).innerHTML = cur.meta; }); repaint(); }
+  paint();
+
+  /* The self-check. Each law has a control beside it. It restores what it touches, and ends on the page's own picks. */
+  (function () { var out = [], line = function (ok, t) { out.push((ok ? 'OK · ' : 'FAILED · ') + t); };
+    try {
+      var keep = JSON.stringify({ E: E, follow: follow, skip: skip, pick: pick, front: front, focus: focus });
+      follow = { osc1: 0, osc2: 0, sub: 0, noise: 0 }; var n0 = followers(0).length; var ok1 = override('osc2') && follow.osc2 === 1 && JSON.stringify(E[1]) === JSON.stringify(E[0]), ok2 = override('sub') && follow.sub === 2, ok3 = override('noise') && follow.noise === 3, full = override('osc1') === false && follow.osc1 === 0;
+      line(n0 === 4 && ok1 && ok2 && ok3 && full, 'Override: a source takes the next free envelope as an exact copy, and with all three taken it’s refused and nothing moves (control).');
+      follow = { osc1: 0, osc2: 0, sub: 2, noise: 0 }; var f0 = followers(0).join(), use = inUse().join(); line(f0 === 'Osc 1,Osc 2,Noise' && use === '0,2' && followers(1).length === 0, 'Followers: ENV 1 shapes ' + f0 + ', and the envelopes in use are ' + use + '; an unused one reads as empty (control).');
+      var drawn = {}; ['A', 'B', 'C'].forEach(function (sec) { SECS[sec].forEach(function (o) { pick[sec] = o.id; paint(); drawn[sec + '/' + o.id] = $('stage' + sec).querySelectorAll('canvas').length; }); }); line(Object.keys(drawn).every(function (k) { return drawn[k] > 0; }), 'Candidates: all ' + Object.keys(drawn).length + ' draw a picture.');
+      var back = JSON.parse(keep); E = back.E; follow = back.follow; skip = back.skip; pick = back.pick; front = back.front; focus = back.focus; paint();
+      var cv = $('stageA').querySelector('canvas'), s0 = E[follow[focus]].s, r = cv.getBoundingClientRect(), e = shape(E[follow[focus]]), T = e.a + e.d + e.hold + e.r, x = 8 + (r.width - 16) * (e.a + e.d) / T, y = r.height - 8 - (r.height - 16) * e.s, cap = cv.setPointerCapture; cv.setPointerCapture = function () {};
+      var fire = function (ty, xx, yy) { cv.dispatchEvent(new PointerEvent(ty, { bubbles: true, pointerId: 1, clientX: r.left + xx, clientY: r.top + yy })); }; fire('pointerdown', x, y); fire('pointermove', x, y + 8); fire('pointerup', x, y + 8); var moved = E[follow[focus]].s !== s0; E[follow[focus]].s = s0; fire('pointerdown', r.width / 2, 1); fire('pointermove', r.width / 2 + 30, 1); fire('pointerup', r.width / 2 + 30, 1); var still = E[follow[focus]].s === s0; cv.setPointerCapture = cap; repaint();
+      line(moved && still, 'Drag: the real EnvDrag moves the shared envelope from a node, and empty glass moves nothing (control).');
+    } catch (err) { line(false, 'the self-check threw: ' + (err && err.message || err)); }
+    $('selfcheck').textContent = out.join('\n'); })();
+})();
+</script>
+</body>
+</html>
