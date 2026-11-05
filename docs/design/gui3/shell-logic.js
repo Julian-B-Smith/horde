@@ -24,6 +24,7 @@
     var last = -Infinity;
     return { due: function (now, changed, awake) {
       if (now === undefined) return true;
+      if (now < last) last = -Infinity;   // a clock that went backward is a new clock: the self-checks draw on a clock millions of ms ahead, and holding that `last` froze every picture after them
       if (!changed && !awake) return false;
       if (now - last < ms) return false;
       last = now; return true;
