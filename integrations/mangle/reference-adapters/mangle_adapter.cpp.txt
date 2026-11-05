@@ -1,0 +1,86 @@
+// Mangle's reference adapter, a critic's throwaway (Mangle Q-005 review, 2026-11-03): mangle::MangleModule behind horde's admission::Module.
+// It ran every module-only row with horde's harness at 5a119cb and Mangle at c888e46. Use it as reference, not as code to land unread.
+// It defines scapeModule() because tools/admission/harness.cpp calls that name today; rename it with your MODULES dispatch.
+#include "module.h"
+#include <algorithm>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include "mangle/mangle_module.h"
+#include "mangle/patch.h"
+namespace admission {
+namespace {
+struct Mang final : Module {
+  mangle::MangleModule m;
+  std::vector<ParamSpec> manifest() const override {
+    std::vector<ParamSpec> o;
+    for (auto& s : m.manifest()) {
+      ParamSpec p; p.address = std::string(s.key); p.unit = std::string(s.unit.value_or("")); p.unitDeclared = s.unit.has_value();
+      p.cls = s.cls == mangle::ParamClass::Morph ? Cls::Morph : s.cls == mangle::ParamClass::Flip ? Cls::Flip : s.cls == mangle::ParamClass::Device ? Cls::Device : Cls::None;
+      p.rateDeclared = s.rate != mangle::RateClass::Undeclared; p.min = s.min; p.max = s.max; p.def = s.def; p.steps = s.steps;
+      p.transitionS = s.transition_s;                     // deliberately NOT from sw: the module's own transition_s, as the draft claims
+      if (s.cls == mangle::ParamClass::Flip) {
+        p.switchSource = "manifest switch";
+        p.sw = s.sw.method == mangle::SwitchMethod::Crossfade && s.sw.law == "equal-gain" ? Switch::EqualGainCrossfade
+             : s.sw.method == mangle::SwitchMethod::Gate ? Switch::Gate : s.sw.method == mangle::SwitchMethod::SeededJump ? Switch::SeededJump
+             : s.sw.method == mangle::SwitchMethod::Silent ? Switch::Silent : Switch::Undeclared;
+      }
+      o.push_back(p);
+    }
+    return o;
+  }
+  std::string manifestJson() const override { return mangle::moduleManifestJson(); }  // the shell's text plus memory_bytes, as `--manifest-json` would print
+  Declared declared() const override { auto d = m.declared(); return {d.changes_image, d.changes_level, false}; }
+  bool prepare(double sr, std::uint32_t mb) override { return m.prepare(sr, mb); }
+  void reset() override { m.reset(); }
+  foundations::OperatorProperties properties() const override {
+    auto p = m.properties(); foundations::OperatorProperties o;
+    if (p.latency) { o.latency = foundations::LatencyDecl{}; o.latency->samples = p.latency->samples; }
+    if (p.tail) o.tail = foundations::TailDecl{p.tail->samples, p.tail->may_change};
+    o.min_block = p.min_block;
+    if (p.load) o.load = foundations::LoadDecl{p.load->transition_samples};
+    return o;
+  }
+  int resolve(std::string_view a) const override { auto h = m.resolve(a); return h ? h->row : -1; }
+  bool setParam(int h, double v) override { return m.setParam(mangle::ParamHandle{h}, v); }
+  double getParam(int h) const override { return m.getParam(mangle::ParamHandle{h}); }
+  void process(const Sample* a, const Sample* b, Sample* c, Sample* d, std::uint32_t n) override { m.process(a, b, c, d, n); }
+  std::size_t stateBudget() const override { return m.stateBudget(); }
+  std::size_t saveState(char* o, std::size_t c) const override { return m.saveState(o, c); }
+  bool stageState(std::string_view t) override { return m.stageState(t); }
+  bool adoptStaged() override { return m.adoptStaged(); }
+  static mangle::Curve cv(const std::string& s) { return s == "exp" ? mangle::Curve::Exp : s == "log" ? mangle::Curve::Log : mangle::Curve::Lin; }
+  static std::string cs(mangle::Curve c) { return c == mangle::Curve::Exp ? "exp" : c == mangle::Curve::Log ? "log" : "lin"; }
+  bool parsePatch(std::string_view t, Patch& o, std::string* e) const override {
+    mangle::Patch p; if (!m.parsePatch(t, p, e)) return false;
+    o.name = p.name; o.values = p.values; o.macros.clear();
+    for (auto& q : p.macros) { Macro k; k.label = q.label; k.home = q.home; for (auto& b : q.bind) k.bind.push_back({b.address, b.lo, b.hi, cs(b.curve)}); o.macros.push_back(k); }
+    return true;
+  }
+  static mangle::Patch toM(const Patch& p) {
+    mangle::Patch q; q.name = p.name; q.values = p.values;
+    for (auto& k : p.macros) { mangle::Macro z; z.label = k.label; z.home = k.home; for (auto& b : k.bind) z.bind.push_back({b.address, b.lo, b.hi, cv(b.curve)}); q.macros.push_back(z); }
+    return q;
+  }
+  std::string writePatch(const Patch& p) const override { return m.writePatch(toM(p)); }
+  bool stagePatch(const Patch& p) override { return m.stagePatch(toM(p)); }
+  double macroValue(const Bind& b, double v) const override { return mangle::macroValue(mangle::Bind{b.address, b.lo, b.hi, cv(b.curve)}, v); }
+  Meters meters() const override { auto x = m.meters(); return {x.inPeak, x.outPeak, x.inClip, x.outClip}; }
+  void clearMeters() override { m.clearMeters(); }
+  std::uint64_t nonFiniteCount() const override { return m.nonFiniteCount(); }
+  bool nonFiniteLatched() const override { return m.nonFiniteLatched(); }
+  void clearNonFiniteLatch() override { m.clearNonFiniteLatch(); }
+  bool plantNonFiniteState() override { return mangle::plantNonFiniteState(m); }
+  Settings dryProbe() const override { Settings s; for (auto& p : mangle::kDryProbe) s.emplace_back(std::string(p.key), p.value); return s; }
+  Settings stressProbe() const override { Settings s; for (auto& p : mangle::kStressProbe) s.emplace_back(std::string(p.key), p.value); return s; }
+};
+}  // namespace
+ModuleInfo scapeModule(const std::string& tree) {
+  ModuleInfo i; i.name = "Mangle"; i.make = [] { return std::make_unique<Mang>(); };
+  std::vector<std::filesystem::path> fs;
+  if (!tree.empty()) for (auto& e : std::filesystem::directory_iterator(tree + "/presets/factory")) fs.push_back(e.path());
+  std::sort(fs.begin(), fs.end());
+  for (auto& f : fs) { std::ifstream in(f); std::stringstream b; b << in.rdbuf(); i.presets.emplace_back(f.filename().string(), b.str()); }
+  return i;
+}
+}  // namespace admission

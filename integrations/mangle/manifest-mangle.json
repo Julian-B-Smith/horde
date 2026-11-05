@@ -1,0 +1,9 @@
+{"module": "mangle", "manifest": 1, "params": [
+  {"address": "io.inGain", "class": "device", "rate": "continuous", "min": -24, "max": 24, "default": 0, "unit": "dB", "steps": 0, "transition_s": 0.02},
+  {"address": "io.outGain", "class": "device", "rate": "continuous", "min": -24, "max": 24, "default": 0, "unit": "dB", "steps": 0, "transition_s": 0.02},
+  {"address": "mangle.mode", "class": "flip", "rate": "latched", "min": 0, "max": 4, "default": 0, "unit": "", "steps": 5, "transition_s": 0.01, "switch": {"method": "crossfade", "length_s": 0.01, "law": "equal-gain"}, "values": ["period lock", "delta mod", "fixed-point", "LPC", "classic crush"]},
+  {"address": "mangle.poverty", "class": "morph", "rate": "continuous", "min": 0, "max": 1, "default": 0.5, "unit": "", "steps": 0, "transition_s": 0.003},
+  {"address": "mangle.character", "class": "morph", "rate": "continuous", "min": 0, "max": 1, "default": 0.3, "unit": "", "steps": 0, "transition_s": 0.003},
+  {"address": "mangle.residue", "class": "morph", "rate": "continuous", "min": 0, "max": 1, "default": 0, "unit": "", "steps": 0, "transition_s": 0.003},
+  {"address": "mangle.mix", "class": "morph", "rate": "continuous", "min": 0, "max": 1, "default": 1, "unit": "", "steps": 0, "transition_s": 0.003}
+], "changes_image": true, "changes_level": true, "memory_bytes": {"44100": 2176, "48000": 2176, "88200": 2176, "96000": 2176, "176400": 2176, "192000": 2176}}
