@@ -1,4 +1,4 @@
-/* vendored from the horde Design System artifact, version 1793855414-7128, 2026-11-05; do not edit, re-vendor */
+/* vendored from the horde Design System artifact, version 1793863122-e50c, 2026-11-05; do not edit, re-vendor */
 /* @ds-bundle: {"format":4,"namespace":"Horde","components":[{"name":"Knob"},{"name":"Slider"},{"name":"MapControl"},{"name":"XYPad"},{"name":"CornerChip"},{"name":"ScreenScheme"},{"name":"SourceStrip"},{"name":"ModMatrixGrid"},{"name":"RouteRow"},{"name":"ModLedger"},{"name":"TraceLanes"},{"name":"CompactWires"},{"name":"HostedMacroRows"},{"name":"ModCardHeader"},{"name":"LfoShapeEditor"},{"name":"EnvelopeEditor"},{"name":"TempoDivisions"},{"name":"CurvePlot"},{"name":"OrbitalCard"},{"name":"MidiTrackers"},{"name":"GateLanes"},{"name":"EventLanes"},{"name":"SmoothingLanes"},{"name":"ShClockCard"},{"name":"OwnershipTier"},{"name":"QuantumPad"},{"name":"PadBars"},{"name":"CrossSection"},{"name":"MorphGrid"},{"name":"FindPane"},{"name":"MorphInspector"},{"name":"KindLegend"},{"name":"MorphMode"},{"name":"NameField"},{"name":"SteppedControl"},{"name":"Stepper"},{"name":"Cohesion"},{"name":"FxRack"},{"name":"FxMatrix"},{"name":"FxPanel"},{"name":"FxCables"},{"name":"GainStaging"},{"name":"ChainLine"},{"name":"BlendMaps"},{"name":"PageNav"},{"name":"SectionHeader"},{"name":"ChannelStrip"},{"name":"Companion"},{"name":"SourceChip"},{"name":"SourceRows"},{"name":"RoutesBySource"},{"name":"Cluster"},{"name":"Lens"},{"name":"Fold"},{"name":"PageView"},{"name":"ModTiers"},{"name":"MacroRow"},{"name":"ModBank"},{"name":"ModPage"},{"name":"UndoLine"},{"name":"MacroFace"},{"name":"PresetBar"},{"name":"Deck"},{"name":"MacroCard"},{"name":"ParamPicker"},{"name":"HistoryRail"},{"name":"PicturePicker"},{"name":"AssignXY"},{"name":"Specimen"}]} */
 /* horde house reference behaviours (vanilla JS, no React, no network).
    The morph knob and slider follow the human's HORDE Morph Knob Spec and HORDE Map Mode Spec
@@ -8478,13 +8478,15 @@ function logoOutline() {
 }
 /* one paint's worth: advance on the ENGINE clock, at most every other frame (gui2's 30 fps cap on
    a 60 Hz display), and nothing at all while the clock stands (a frozen still keeps its mark) */
-function logoFrame(force) {
+function logoFrame(force, frames) {
   if (!LOGO.ctx || !LOGO.SRC || !LOGO.cv.isConnected) return;
   if (TOK('--text', '#191521') !== LOGO.ink) { logoBake(); force = true; }
   if (LOGO.reduce) return;
   if (LOGO.clk < 0 || LOGO.clk > MON.clock) LOGO.clk = MON.clock;   // the first paint, or a reset clock (B323, the freeze: E3)
   const clk = MON.clock, dt = Math.min(0.25, Math.max(0, clk - LOGO.clk) / SR);
-  if (!force && (dt <= 0 || (++LOGO.n % (LOAD.shed ? SHED_LOGO : 2)))) return;
+  LOGO.n += frames || 1;   // GUI-34: frames, not calls, so a host stepping it two frames at a time doesn't halve its rate
+  if (!force && (dt <= 0 || LOGO.n < (LOAD.shed ? SHED_LOGO : 2))) return;
+  LOGO.n = 0;
   LOGO.clk = clk;
   const t0 = typeof performance === 'object' ? performance.now() : 0;
   LOGO.smD += (clamp((EFF.detune || 0) / 100, 0, 1) - LOGO.smD) * 0.06;
@@ -8512,7 +8514,7 @@ function specimenState() {
     fronts: [0, 1, 2, 3].map(() => ({ age: 100, az: 0, el: 0, wave: 9, hold: -1, heldAmt: 0 })) };
 }
 const SPECIMEN = Object.assign({ on: qp('specimen', '1') !== '0', cv: null, gl: null, u: {}, fail: '', ms: 0, draws: 0,
-  xyLast: null, xyYaw: 0, xyPit: 0, center: true, mask: 0, fit: null, clk: -1, n: 0,
+  xyLast: null, xyYaw: 0, xyPit: 0, center: true, mask: 0, fit: null, clk: -1, n: 1, every: 2, scale: 0, ema: 2000 / 60, up: 0, lastAt: undefined,
   bgTok: '', bg: [0.95, 0.93, 0.89], w: 0, h: 0, U: null }, specimenState());
 function specimenCanvas() {
   if (!SPECIMEN.cv) SPECIMEN.cv = el('canvas', 'specimen');
@@ -8836,7 +8838,21 @@ function specimenEnergy(U) {
   }
   return e;
 }
-function specimenFrame(force) {
+/* ADR-144's adaptive resolution, which the bench's port had lost: the affordable resolution is a property of the machine, so the scale moves between a floor and the
+   display's own pixel grid (2× at most), and the rate never moves. A band, not a threshold, since one trip point makes it oscillate; down at once, because a stalling
+   interface must recover now; up after 40 comfortable draws, so a brief calm can't buy a resolution the machine won't keep. A gap over 250 ms is a hidden page, not a slow
+   render, and is left out (ADR-140's measured trap). gui2's 75 and 58 ms were for a 50 ms cadence; here they're the same ratios of whatever the cadence is (GUI-34). Takes
+   the time since the last draw, from the host's frame time; pure on `S`. */
+const SPEC_SCALE_MIN = 0.5, SPEC_SCALE_MAX = 2;
+function specimenScale(S, gap, ceiling) {
+  const nominal = S.every * 1000 / 60;
+  if (gap < 250) S.ema = S.ema * 0.95 + gap * 0.05;
+  if (S.ema > nominal * 1.5 && S.scale > SPEC_SCALE_MIN) { S.scale = Math.max(SPEC_SCALE_MIN, S.scale * 0.7); S.ema = nominal * 1.1; S.up = 0; }
+  else if (S.ema < nominal * 1.16 && S.scale < ceiling && ++S.up > 40) { S.scale = Math.min(ceiling, S.scale * 1.25); S.ema = nominal; S.up = 0; }
+}
+/* `frames` is how many display frames this call stands for, and `now` the host's frame time, undefined in a check: GUI-34. The draw rate is counted in frames, not calls,
+   so a host that steps it less often can't divide it twice: that took the pearl to 10 Hz at half speed in the plugin (GUI-33's cap over this divider). */
+function specimenFrame(force, frames, now) {
   const S = SPECIMEN;
   if (!S.on || S.fail || LAB.page !== 'main') { S.xyLast = null; return false; }
   const cv = specimenCanvas();
@@ -8851,7 +8867,9 @@ function specimenFrame(force) {
      clock: re-anchor to it, so the next frame's dt is a real one. */
   if (S.clk > MON.clock) S.clk = MON.clock;
   const clk = MON.clock, dt = S.clk < 0 ? 0.033 : Math.min(0.05, Math.max(0, clk - S.clk) / SR);
-  const scale = Math.min((typeof devicePixelRatio === 'number' && devicePixelRatio) || 1, 2);
+  const ceiling = Math.min((typeof devicePixelRatio === 'number' && devicePixelRatio) || 1, SPEC_SCALE_MAX);
+  S.scale = S.scale ? Math.min(S.scale, ceiling) : ceiling;           // starts at the top: what's on the plate when you first look; a slow machine steps down within a second
+  const scale = S.scale;
   const pw = Math.max(2, Math.round(cv.clientWidth * scale)), ph = Math.max(2, Math.round(cv.clientHeight * scale));
   const tok = getComputedStyle(cv).getPropertyValue('--scr-ground').trim() || '#f2ede2', resized = pw !== S.w || ph !== S.h, themed = tok !== S.bgTok;
   if (!force && !resized && !themed && dt <= 0) return false;
@@ -8861,7 +8879,10 @@ function specimenFrame(force) {
      idle law now needs to draw. gui2's own throttle (the shed below) is what bounds the idle cost, same
      as it always did pre-B365. */
   const src = specimenSource();
-  if (!force && !resized && !themed && (++S.n % (LOAD.shed ? SHED_SPECIMEN : 3))) return false;   // gui2's ~20 Hz; ~5 Hz shedding (J2)
+  S.n += frames || 1;
+  if (!force && !resized && !themed && S.n < (LOAD.shed ? SHED_SPECIMEN : S.every)) return false;   // `every` 2 is 30 Hz at 60 fps (gui2's was 20; GUI-34); ~5 Hz shedding (J2)
+  S.n = 0;
+  if (now !== undefined) { if (S.lastAt !== undefined) specimenScale(S, now - S.lastAt, ceiling); S.lastAt = now; }
   const t0 = typeof performance === 'object' ? performance.now() : 0;
   S.clk = clk;
   const gl = S.gl;
@@ -8899,8 +8920,8 @@ function specimenFrame(force) {
 /* ======== the handle ======== */
 window.Horde.MainStage = {
   xy(fn) { xyAt = fn; },
-  MORPH, MON, AUD, LOGO, SPECIMEN, logoCanvas, logoFrame, specimenCanvas, specimenFrame,
-  /* one step, from the host's frame loop: there is no clock of its own */
-  tick(showSpecimen, frames) { MON.clock += (frames || 1) * SR / 60; logoFrame(); if (showSpecimen) specimenFrame(); }
+  MORPH, MON, AUD, EFF, LOGO, SPECIMEN, logoCanvas, logoFrame, specimenCanvas, specimenFrame, specimenState, specimenStep, specimenScale,
+  /* one step, from the host's frame loop: there is no clock of its own. `frames` is how many display frames it stands for; `now` the host's frame time, for the adaptive scale */
+  tick(showSpecimen, frames, now) { MON.clock += (frames || 1) * SR / 60; logoFrame(false, frames); if (showSpecimen) specimenFrame(false, frames, now); }
 };
 })();

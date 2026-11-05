@@ -717,7 +717,7 @@ window.GUI3_DATA = {
     "asked": "Specimen XY from the scalpel lab on main",
     "id": "specimen-xy",
     "item": "The Specimen XY on Main (the XY pad over the Specimen, ADR-139)",
-    "missing": "Audio to strike it, the axes on the intent bus (B89), and its cost measured in the plugin webview.",
+    "missing": "The engine's notes in the feed (GN-47), the axes on the intent bus (B89), and its cost in Live's CPU meter (GUI-34 has the first readings).",
     "precise": true,
     "reason": "engine-audio",
     "roadmap": "B74",
@@ -726,7 +726,7 @@ window.GUI3_DATA = {
      "src/gui/gui2.html"
     ],
     "status": "partial",
-    "why": "In the shell since GUI-2 and GUI-4, the bench's code verbatim (MainStage, ADR-333), on by default with a switch in Settings. Still voice-bound, so it idles until audio; its cost in the plugin webview is still to be measured (ADR-140). Since GUI-9 the XY's axes are two extra macro knobs on the shell's routes."
+    "why": "In the shell since GUI-2 and GUI-4, the bench's code verbatim (MainStage, ADR-333), on by default with a switch in Settings. Voice-bound: notes reach it through dev.feed(), null in the stub, so here it only drifts (GUI-34). Since GUI-9 the XY's axes are two extra macro knobs on the shell's routes."
    },
    {
     "area": "Main",

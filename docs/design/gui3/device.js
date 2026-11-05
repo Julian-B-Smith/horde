@@ -468,8 +468,11 @@
     D.clearClip = function (id) { transport.send({ type: 'clear', seq: ++seq, id: id }); rev++; };
     /* The summed oscilloscope and spectrum the Mix page draws (ADR-333): read from the engine's observation view
        (IF-10; MOCK in the stub), never computed here. */
-    /* GUI-33: is any voice sounding? The pictures rest while none is. The stub plays no notes; the engine's snapshot answers this (RC-8's per-voice level, GN-45). */
-    D.sounding = function () { return false; };
+    /* GUI-34: what the voices are doing, once per frame: { t: 'vz', peak, act, env, gates, r }, or null with no voices to read. The Specimen strikes from it (AUD.feed).
+       The stub plays no notes, so it's null unless a test build hands one in. The engine's snapshot answers this at stage 8 (RC-8, GN-47). */
+    D.feed = function () { return window.GUI3_FEED || null; };
+    /* GUI-33: is any voice sounding? The pictures rest while none is. A voice alive, or a peak at or over B365's -90 dBFS, so a release tail counts (GN-45). */
+    D.sounding = function () { var f = D.feed(); return !!f && (f.act > 0 || f.peak >= 3.2e-5); };
     D.summed = function () { return lastSnap && lastSnap.observe && lastSnap.observe.sum || null; };
     /* The envelope a source follows (RC-6.5, ADR-333): the generated `follow` names the source's selector row and one
        block per option; the block the selector holds now is the one shown and edited, and its rows are the shared keys

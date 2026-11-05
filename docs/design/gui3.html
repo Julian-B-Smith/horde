@@ -910,9 +910,10 @@ const withSourceOn = (pgId, fn) => { const r = ROW[PG[pgId].power]; dev.begin('s
 /* GUI-33, the pictures' pace. They draw when something they show changed, or at most 30 times a second while a voice sounds or a hand was here in the last 2 s; otherwise the last frame
    stands (ADR-140's idle gate, for all of them). ADR-099 A1 still holds: an oscillator that's merely silent while another plays keeps moving, because this asks about any voice,
    not this one. `window.GUI3_AWAKE` holds them awake, for measuring the worst case. Knobs and meters aren't pictures and keep the frame rate. */
-const PICTURE_MS = 33, PICTURE_DT = 1 / 30, AWAKE_MS = 2000;
+const PICTURE_MS = 28, PICTURE_DT = 1 / 30, AWAKE_MS = 2000;   // 28, not 33 (GUI-34): two frames at 60 Hz are 33.3 ms give or take, so a gate at 33 sometimes waits a third frame, a visible hitch
 let handAt = -Infinity;
 // The self-checks draw many times inside one frame and read the result, so while they run the time is theirs: undefined, which is always due, unless a check sets it.
+let stageAtReset = () => {};
 const CLOCK = { checking: false, now: undefined }, picNow = () => CLOCK.checking ? CLOCK.now : S.now;
 const awake = () => !!window.GUI3_AWAKE || dev.sounding() || (picNow() !== undefined && picNow() - handAt < AWAKE_MS);
 const paced = cvs => { const pace = SH.picturePace(PICTURE_MS); let sig = null; return extra => { const s = cvs().map(sizeOf).join() + '|' + colourKey() + '|' + (extra === undefined ? '' : extra), due = pace.due(picNow(), s !== sig, awake()); if (due) sig = s; return due; }; };
@@ -1304,13 +1305,23 @@ function fillMain() {
     pn.append(h('div', { class: 'main-face' }, v ? h('div', { class: 'main-facev' }, pics ? pics.left : vizView(v, 'main', true)) : null, pics ? h('div', { class: 'main-colv' }, pics.pin, rows) : rows));
   });
   // the Specimen and the logo: the bench's own (ADR-333), stepped by this file's frame loop. GUI-9: X and Y are two extra macro knobs on one pad. It writes no parameter; the mappings carry it, MOCK until the bus.
-  const stageDue = paced(() => [H.MainStage.specimenCanvas()]);   // the Specimen is the costliest picture (ADR-140); it rests with the others
+  const stageDue = paced(() => [H.MainStage.specimenCanvas()]);   // off Main, the logo rests with the other pictures
+  let stageAt; stageAtReset = () => { stageAt = undefined; };
   const stage = H.MainStage, xy = mainXYCtl = H.AssignXY($('mainXY'), S, { x: .5, y: .5, rest: true, tag: 'XY · MOCK', underlay: stage.specimenCanvas(), keys: () => S.keys,
     axes: [['xyy', 'Y', 'tl'], ['xyx', 'X', 'br']].map(([id, label, corner]) => ({ id, label, corner, text: () => { const n = touching(id).length; return n ? 'touches ' + n : 'nothing here'; }, lit: () => touchAxis === id || (S.map.on && S.map.src === id) })),
     onAxis: id => mapCard.open(id, $('mainXY'), $('mainXY'), true) });   // above the pad, never on it: you drag the pad to hear what you've mapped
   stage.xy(() => { const q = xy.get(); return [q[0], 1 - q[1]]; });
   const slot = document.querySelector('.logo'); slot.textContent = ''; slot.removeAttribute('title'); slot.classList.remove('hd-hint'); slot.append(stage.logoCanvas());
-  views.push({ page: '*', update() { const mo = dev.morph(); stage.MORPH.on = mo.on; stage.MORPH.x = S.pad.x; stage.MORPH.y = S.pad.y; if (stageDue(mo.on + '|' + S.pad.x + '|' + S.pad.y + '|' + page)) stage.tick(page === 'main', 2); } });
+  views.push({ page: '*', update() { const mo = dev.morph(); stage.MORPH.on = mo.on; stage.MORPH.x = S.pad.x; stage.MORPH.y = S.pad.y;
+    /* GUI-34. The notes strike the pearl (AUD.feed), R pulls it taut and Detune sets how hard they land, as in gui2 (ADR-139, ADR-144).
+       While it shows it never rests, because the human ruled that it keeps shifting with no note playing (B365's correction), so it steps every frame and paces itself; its own divider
+       is counted in frames, so the shell's pace can't divide it a second time. */
+    const fd = dev.feed(), n = picNow(), alive = page === 'main' && stage.SPECIMEN.on && !S.reduce;
+    stage.AUD.on = !!fd; stage.AUD.feed = fd; if (fd && Number.isFinite(fd.r)) stage.MON.rSm = fd.r;   // a snapshot with no R must not reach the tension: NaN there sticks, and the pearl vanishes
+    stage.EFF.detune = xOf(PG.osc1.viz.keys.detune) * 100;
+    if (!alive && !stageDue(mo.on + '|' + S.pad.x + '|' + S.pad.y + '|' + page)) return;
+    const frames = n === undefined || stageAt === undefined ? 1 : Math.min(6, Math.max(1, Math.round((n - stageAt) * .06))); stageAt = n;
+    stage.tick(page === 'main', frames, n); } });
   // GUI-2 r3: on by default, with a switch in Settings. A GUI preference, never saved with the patch (ADR-147). Off means absent: the canvas goes and the surface is plain.
   const SPEC_KEY = 'horde.gui3.specimen', specBtn = h('button', { class: 'hd-toggle hd-focus', type: 'button', role: 'switch', 'aria-label': 'Specimen under the XY', id: 'specimenOn' });
   const setSpec = on => { stage.SPECIMEN.on = on; stage.specimenCanvas().style.display = on ? '' : 'none'; specBtn.setAttribute('aria-checked', String(on)); };
@@ -2107,6 +2118,28 @@ CLOCK.checking = true;
     $('win').style.width = widthWas;
     line(both && $('footrow').parentElement === $('win') && Math.abs(w0 - w1) < 1 && w0 > 900 && row0 && row1 && sumW > 150 && sw1 > 150 && $('lensHost').classList.contains('foot') && !document.querySelector('#pages .hd-lens') && !clash.length && g1 !== g0 && listed0 === 'tube' && /ember/.test(g2) && /EMBER/.test(chipText) && g3 === g0,
       'Foot row and top bar (GUI-6, GUI-8): the row spans the window at ' + Math.round(w0) + ' px with morph and MAP off and on (scope and spectrum ' + Math.round(sumW) + ' px, then ' + Math.round(sw1) + '); one Lens, none on a page; the preset bar and colours clear the tabs, switches and logo on all ' + DATA.pages.length + ' pages' + (clash.length ? ' (HITS ' + clash.slice(0, 4).join(', ') + ')' : '') + '; the top chip and the Settings list change the screen colour and stay in step.'); }
+  // 4d0. GUI-34: the pearl's rate, speed, resolution, idle drift and strikes. Each law has its must-fail control beside it.
+  { const pg0 = page, stage = H.MainStage, P = stage.SPECIMEN, tick = () => { for (const v of views) if (v.page === page || v.page === '*') v.update(); }, keepA = window.GUI3_AWAKE, hand0 = handAt, feed0 = window.GUI3_FEED, every0 = P.every, r0 = stage.MON.rSm;
+    const run = (frames, dtMs) => { const d0 = P.draws, t0 = P.time; for (let i = 0; i < frames; i++) { CLOCK.now += dtMs; tick(); } return { draws: P.draws - d0, time: P.time - t0 }; };
+    selectPage('main'); window.GUI3_AWAKE = false; handAt = -Infinity; delete window.GUI3_FEED; CLOCK.now = 2e7; tick();
+    const hasGL = !!P.gl, rest = run(60, 1000 / 60);   // a second with no hand and no note: it keeps drifting, at full speed
+    P.every = 6; const slowCtl = run(60, 1000 / 60); P.every = every0;   // the control: what GUI-33's double divider did
+    const rate = !hasGL || (rest.draws >= 29 && rest.draws <= 31 && Math.abs(rest.time - 1) < .1), rateCtl = !hasGL || slowCtl.draws <= 11;
+    selectPage('osc1'); const away = run(30, 1000 / 60), awayRests = away.draws === 0; selectPage('main');
+    // The scale: a pure law, on a scratch state, so it needs no GL. Slow gaps reach the floor and stop there, comfortable ones reach the ceiling and stop there, a long gap isn't a slow render, and the band holds its place.
+    const sc = () => ({ every: 2, scale: 2, ema: 100 / 3, up: 0 }), gaps = (s, g, k) => { for (let i = 0; i < k; i++) stage.specimenScale(s, g, 2); return s; };
+    const floor = gaps(sc(), 100, 200).scale === .5, climbs = gaps(gaps(sc(), 100, 200), 33, 400).scale === 2, longGap = gaps(sc(), 400, 200).scale === 2, band = (() => { const s = sc(); s.scale = 1; s.ema = 45; gaps(s, 45, 200); return s.scale === 1; })(), bandCtl = gaps(sc(), 60, 200).scale < 2;
+    // The notes: a fresh gate strikes and a held one doesn't strike twice; silence settles the ripple but never the drift (B365 and its correction); a silent feed never strikes.
+    const NOTE = { t: 'vz', peak: .5, act: 1, env: .8, gates: [60], r: .7 }, SIL = { t: 'vz', peak: 0, act: 0, env: 0, gates: [] }, s0 = stage.specimenState();
+    const U1 = stage.specimenStep(s0, .033, NOTE, .5), struck = s0.fronts.filter(f => f.hold === 60).length === 1 && U1.rAmp > 0, age1 = s0.fronts.find(f => f.hold === 60).age; stage.specimenStep(s0, .033, NOTE, .5); const heldOnce = s0.fronts.find(f => f.hold === 60).age > age1;
+    let U2, time0 = s0.time; for (let i = 0; i < 60; i++) U2 = stage.specimenStep(s0, .033, SIL, .5); const settles = U2.rAmp === 0 && U2.shy === 0 && s0.time > time0 + 1.9;
+    const s1 = stage.specimenState(); stage.specimenStep(s1, .033, SIL, .5); const silentCtl = s1.fronts.every(f => f.hold === -1 && f.age === 10);   // a new front is parked at an age the step caps at 10
+    // The seam: a feed reaches the pearl and wakes the pictures, and no feed leaves both as they were.
+    const quiet0 = dev.sounding() === false; window.GUI3_FEED = NOTE; tick(); const fed = stage.AUD.on === true && stage.AUD.feed === NOTE && dev.sounding() === true && stage.MON.rSm === .7; window.GUI3_FEED = SIL; const tail = dev.sounding() === false; stage.MON.rSm = r0; tick(); const noR = stage.MON.rSm === r0; run(4, 1000 / 60); const finite = !hasGL || Number.isFinite(P.kSm); delete window.GUI3_FEED; tick(); const unfed = stage.AUD.on === false && stage.AUD.feed === null;
+    if (feed0) window.GUI3_FEED = feed0; stage.MON.rSm = r0; CLOCK.now = undefined; handAt = hand0; window.GUI3_AWAKE = keepA; stage.SPECIMEN.lastAt = undefined; stageAtReset(); selectPage(pg0);
+    const bad = []; if (!rate) bad.push('rest ' + rest.draws + ' draws, ' + rest.time.toFixed(2) + ' s in a second, must be 30 and 1'); if (!rateCtl) bad.push('control ' + slowCtl.draws); if (!awayRests) bad.push('off Main ' + away.draws + ' draws'); [['floor', floor], ['climbs', climbs], ['longGap', longGap], ['band', band], ['bandCtl', bandCtl], ['struck', struck], ['heldOnce', heldOnce], ['settles', settles], ['silentCtl', silentCtl], ['quiet0', quiet0], ['fed', fed], ['tail', tail], ['noR', noR], ['finite', finite], ['unfed', unfed]].forEach(p => { if (!p[1]) bad.push(p[0]); });
+    line(!bad.length, 'The pearl (GUI-34): ' + (hasGL ? rest.draws + ' draws and ' + rest.time.toFixed(2) + ' s of motion in a second with no note and no hand (the control, every 6: ' + slowCtl.draws + ')' : 'no GL here, the rate wasn\u2019t measured') + '; none off Main; its scale runs between 0.5 and the display\u2019s pixels; a note strikes through the feed and silence settles the ripple, never the drift.' + (bad.length ? ' FAILED: ' + bad.join('; ') : ''));
+  }
   // 4d. GUI-2, GUI-4, GUI-5: Main is its stage. Every tab fits, what's in a hidden tab stays mounted, the second faces write the same row, the pad is on the page, and the Specimen's switch works.
   { const pg0 = page, R = e => e.getBoundingClientRect(), tabs = PG.main.deck.tabs, widthWas = $('win').style.width; $('win').style.width = '980px'; selectPage('main');
     const areaOver = $('pages').scrollHeight - $('pages').clientHeight, picked = mainDeck.active(), hiddenStill = mainDeck.panel('env1').querySelector('[data-key]') && mainDeck.panel('env1').hidden;
