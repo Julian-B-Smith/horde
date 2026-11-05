@@ -1187,6 +1187,7 @@
             "source": "osc1",
             "rows": [
               [
+                "osc1.on",
                 "osc1.unison",
                 "osc1.detune",
                 "osc1.baseWave"
@@ -1217,6 +1218,7 @@
             "source": "osc2",
             "rows": [
               [
+                "osc2.on",
                 "osc2.unison",
                 "osc2.detune",
                 "osc2.baseWave"
@@ -1247,6 +1249,7 @@
             "source": "sub",
             "rows": [
               [
+                "sub.on",
                 "sub.wave",
                 "sub.octave"
               ],
@@ -1266,6 +1269,7 @@
             "source": "noise",
             "rows": [
               [
+                "noise.on",
                 "noise.type",
                 "noise.filter"
               ],

@@ -1079,6 +1079,7 @@ window.GUI3_DATA = {
       "label": "Osc 1",
       "rows": [
        [
+        "osc1.on",
         "osc1.unison",
         "osc1.detune",
         "osc1.baseWave"
@@ -1109,6 +1110,7 @@ window.GUI3_DATA = {
       "label": "Osc 2",
       "rows": [
        [
+        "osc2.on",
         "osc2.unison",
         "osc2.detune",
         "osc2.baseWave"
@@ -1139,6 +1141,7 @@ window.GUI3_DATA = {
       "label": "Sub",
       "rows": [
        [
+        "sub.on",
         "sub.wave",
         "sub.octave"
        ],
@@ -1158,6 +1161,7 @@ window.GUI3_DATA = {
       "label": "Noise",
       "rows": [
        [
+        "noise.on",
         "noise.type",
         "noise.filter"
        ],
