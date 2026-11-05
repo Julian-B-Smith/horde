@@ -53,12 +53,18 @@
   /* MAIN (GUI-4): the stage fills the page area, with no page head and no scroll of its own */
   #page-main { height: 100%; }
   #page-main > .phead { display: none; }
-  .main-stage { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 236px minmax(0, 1fr); gap: 6px; }
+  /* GUI-40: the pad and the Specimen XY are squares (the human: "I would like for it to be square though (also on main; I think this would turn the specimen square as well)"): two of 228 px and the gap make the stage's 462 */
+  .main-stage { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 228px minmax(0, 1fr); gap: 6px; }
   .main-stage > * { min-width: 0; min-height: 0; }
   .main-left, .main-right { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
-  .main-pad { flex: 0 0 196px; min-height: 0; }
+  .main-pad { flex: 0 0 228px; min-height: 0; }
   .main-pad #padHost, .main-pad .hd-xy { width: 100% !important; height: 100% !important; margin: 0 !important; }
-  .main-xy { flex: 1 1 0; }
+  .main-xy { flex: 0 0 228px; }
+  /* GUI-40: on Morph the pad keeps to a sticky column, square, as on Main, so scrolling the field never takes it away */
+  .morph-wrap { display: grid; grid-template-columns: 228px minmax(0, 1fr); gap: 8px; align-items: start; }
+  .morph-side { position: sticky; top: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .morph-side #morphPad { width: 228px !important; height: 228px !important; }
+  .morph-main { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
   .main-p { box-sizing: border-box; padding: 4px 6px; background: var(--panel); border: var(--stroke-ink) solid var(--ink); border-radius: var(--radius); min-width: 0; }
   .arp-stage { display: flex; gap: 8px; height: 100%; min-height: 0; }
   .arp-card { flex: 0 0 344px; min-width: 0; display: flex; flex-direction: column; gap: 6px; overflow: hidden; }
@@ -997,7 +1003,7 @@ function vizView(v, pid, big) {
   const add = (label, hgt) => { const cv = h('canvas', { class: 'vz-cv', style: 'height:' + hgt + 'px', 'aria-label': label + ' (SAMPLE)', role: 'img' }); wrap.append(h('div', { class: 'hd-viz vz-well' }, cv)); cvs.push(cv); return cv; };
   const ring = v.kind === 'osc' && big ? add('Phase ring: Coupling × Detune, shift for Cross-mod', 112) : null;
   const ringIO = ring ? oscRing(ring, K, pid, wrap) : null;
-  const main = add(v.kind === 'noise' ? 'Spectrum' : v.kind === 'env' ? 'ENV 1' : v.kind === 'sub' ? 'The Dial: one cycle of the sub, wrapped round its ceiling' : 'One cycle', big ? (v.kind === 'osc' ? 40 : v.band ? SUB_BAND : 160) : 64);
+  const main = add(v.kind === 'noise' ? (K.type ? 'The Weather: the noise\u2019s settings as a sky' : 'Spectrum') : v.kind === 'env' ? 'ENV 1' : v.kind === 'sub' ? 'The Dial: one cycle of the sub, wrapped round its ceiling' : 'One cycle', big ? (v.kind === 'osc' ? 40 : v.band ? SUB_BAND : 160) : 64);
   if (v.kind === 'env') envDrag(main, () => K, pid);
   wrap.append(h('span', { class: 'hd-hint vz-cap', text: big ? 'SAMPLE, not the engine’s output' : 'SAMPLE: a drawing of the settings, not the engine’s output', title: 'A drawing of the settings the layout names, never the engine’s output' }));
   let last = null, frame = 0; const noiseDue = paced(() => [main]);
@@ -1013,10 +1019,15 @@ function vizView(v, pid, big) {
     if (sig === last && v.kind !== 'noise') return;
     if (sig === last && !noiseDue()) return;   // GUI-33: noise's picture animates, so an unchanged one still waits for the pace
     last = sig;
-    if (v.kind === 'noise') {
+    if (v.kind === 'noise' && !K.type) {
       const c = xOf(K.colour), bands = [];   // +1 white (flat), 0 pink (−3 dB/oct), −1 brown (−6 dB/oct): a tilt, SN-4's words
       for (let b = 0; b < 24; b++) { const oct = b / 3, db = -(1 - c) * 3 * oct; bands.push(Math.max(0, Math.min(1, .82 + db / 36))); }
       H.Viz.spectrum(main, bands, st, frame * 1000 / 60);   // `now` in ms: the painter holds a cap 1500 ms (B596 found seconds here, a 25-minute hold)
+    } else if (v.kind === 'noise' && K.type) {
+      // GUI-40, the Weather, which moves on its own and rests with the pictures (GUI-33): drawn from the noise's settings, never its signal
+      if (!main.clientWidth) return;   // the pace was asked above, once
+      const num = k => +labOf(k).replace(/\D/g, ''), o = { type: labOf(K.type), density: xOf(K.density), rate: xOf(K.rate), length: num(K.length), colour: xOf(K.colour), resonator: isOnKey(K.resonator), feedback: xOf(K.feedback), whisper: isOnKey(K.whisper), vowel: xOf(K.vowel), wind: isOnKey(K.wind), gust: xOf(K.gust), filter: labOf(K.filter), cutoff: xOf(K.cutoff), resonance: xOf(K.resonance), pitch: xOf(K.pitch), spread: xOf(K.spread) };
+      st.t = S.reduce ? 0 : (st.n = (st.n || 0) + 1) * PICTURE_DT; H.Viz.noiseWeather(main, o, st); H.Viz.off(main, !isOnKey(K.on));
     } else if (v.kind === 'env') {
       // The painter's `hold` is a sustain plateau for the drawing (a third of the other stages, SAMPLE), not ENV 1's Hold
       // row, which it does not draw; the curves are C.12's, drawn by the bundle's own law (Viz.envAt).
@@ -1381,7 +1392,8 @@ function fillMain() {
     /* GUI-34. The notes strike the pearl (AUD.feed), R pulls it taut and Detune sets how hard they land, as in gui2 (ADR-139, ADR-144).
        While it shows it never rests, because the human ruled that it keeps shifting with no note playing (B365's correction), so it steps every frame and paces itself; its own divider
        is counted in frames, so the shell's pace can't divide it a second time. */
-    const fd = dev.feed(), n = picNow(), alive = page === 'main' && stage.SPECIMEN.on && !S.reduce;
+    // GUI-40: the logo is alive on every page (the human: "the logo freezes on every page but main"), and GUI-33's rest no longer holds it; the Specimen is drawn on Main only, by tick's first argument.
+    const fd = dev.feed(), n = picNow(), alive = !S.reduce;
     stage.AUD.on = !!fd; stage.AUD.feed = fd; if (fd && Number.isFinite(fd.r)) stage.MON.rSm = fd.r;   // a snapshot with no R must not reach the tension: NaN there sticks, and the pearl vanishes
     stage.EFF.detune = xOf(PG.osc1.viz.keys.detune) * 100;
     if (!alive && !stageDue(mo.on + '|' + S.pad.x + '|' + S.pad.y + '|' + page)) return;
@@ -1654,7 +1666,7 @@ DATA.pages.forEach(pg => {
   else if (pg.grid) paramPage(pg, el);
   else classicPage(pg, el);
   // GUI-26: the corners first, since most users start there; then the page's own pad and field; then D.2's settings.
-  if (pg.panel === 'morph') { const bench = morphBench(); el.insertBefore(bench, el.children[1] || null); el.insertBefore(morphPanel(), bench); }
+  if (pg.panel === 'morph') { const bench = morphBench(), side = h('div', { class: 'morph-side' }), main = h('div', { class: 'morph-main' }, morphPanel(), bench); side.append(bench.querySelector('.mw-left')); el.insertBefore(h('div', { class: 'morph-wrap' }, side, main), el.children[1] || null); }   // GUI-40: the pad in a sticky column; the corners still first in the page's own column (GUI-26)
   if (pg.id === 'fx') el.insertBefore(fxRack(pg), el.children[1] || null);
   $('pages').append(el); pageEls[pg.id] = el;
 });
@@ -2087,9 +2099,9 @@ CLOCK.checking = true;
   // 4b2. GUI-26: one pad on the Morph page, not two, and the corners come first. Control: another page, where the dock is the one pad, so a count of 1 is a reading and not an empty selector.
   { const pg0 = page, pads = () => [...document.querySelectorAll('.hd-xy')].filter(e => e.offsetWidth).length; setMorphOn(true);
     selectPage('filters'); const onFilters = pads();
-    selectPage('morph'); const onMorph = pads(), kids = [...pageEls.morph.children], first = kids[1] && kids[1].id, second = kids[2] && kids[2].id, noDock = $('dock').hidden && !$('bodyGrid').classList.contains('with-dock'), padSwitch = $('padOn').disabled;
+    selectPage('morph'); const onMorph = pads(), wrap = pageEls.morph.querySelector('.morph-wrap'), kids = wrap ? [...wrap.querySelector('.morph-main').children] : [], first = kids[0] && kids[0].id, second = kids[1] && kids[1].id, side = !!(wrap && wrap.querySelector('.morph-side #morphPad')), noDock = $('dock').hidden && !$('bodyGrid').classList.contains('with-dock'), padSwitch = $('padOn').disabled;
     selectPage(pg0); setMorphOn(false); dev.undo(); dev.undo(); dev.clearRedo();
-    line(onMorph === 1 && onFilters === 1 && noDock && padSwitch && first === 'morphCorners' && second === 'morphBench', 'Morph page (GUI-26): ' + onMorph + ' pad showing with morph on (control: ' + onFilters + ' on Filters, the dock), no dock, the Pad switch off here, and the page runs ' + first + ', then ' + second + '.'); }
+    line(onMorph === 1 && onFilters === 1 && noDock && padSwitch && side && first === 'morphCorners' && second === 'morphBench', 'Morph page (GUI-26, GUI-40): ' + onMorph + ' pad showing with morph on (control: ' + onFilters + ' on Filters, the dock), no dock, the Pad switch off here, the pad in its sticky column, and the page\u2019s own column runs ' + first + ', then ' + second + '.'); }
   // 4b3. GN-20: a second drag of one source onto one destination adds no wire, by either path. Control: the first drag adds one.
   { const k = Object.keys(ROW).find(x => dev.canRoute(x)), e2 = { id: 'env2', name: 'ENV 2' }, n0 = dev.routes().length, first = dropMap(e2, k), n1 = dev.routes().length, again = dropMap(e2, k), n2 = dev.routes().length;
     if (first.ok) dev.undo(); dev.clearRedo();
@@ -2405,7 +2417,8 @@ CLOCK.checking = true;
   // 4o. GUI-19: the Morph page's own larger pad and the field. The field must read the DEVICE: the master's stand-ins would let it disagree with the knobs.
   { const pg0 = page, M0 = H.Morph.state(S), sel0 = S.selected, view0 = M0.view, steps0 = dev.history().past.length, x0 = S.pad.x, y0 = S.pad.y; setMorphOn(true); dev.scatter(SEED); selectPage('morph'); mw.mount();
     const R0 = e => e.getBoundingClientRect(), bigW = R0($('morphPad')).width, members = dev.params().filter(r => r.class !== 'D'), M = M0, grid = mw.grid;
-    const padOk = bigW >= 300, keyC = members.find(r => r.law !== 'step' && r.class === 'M').key, keyS = members.find(r => r.law === 'step' && r.options && r.options.length > 2).key;
+    const padOk = bigW >= 220,   // GUI-40: the square sidebar pad, 228 px (it was 320 under GUI-19)
+      keyC = members.find(r => r.law !== 'step' && r.class === 'M').key, keyS = members.find(r => r.law === 'step' && r.options && r.options.length > 2).key;
     const allRows = grid.rows.length === members.length, labelled = members.every(r => { const p = S.params[r.key]; return p && p.section !== undefined && (r.law !== 'step' || !r.options || (p.kind === 's' && p.labels.length === r.options.length)); });
     // Quantum: every row's owner and heard value, as the field reads them, against the device's. Control: a wrong owner is seen.
     const law0 = dev.morphSettings().law; dev.setMorphLaw(1); M.mode = 'quantum'; S.pad.x = .2; S.pad.y = .3; dev.setMorph({ x: .2, y: .3 });

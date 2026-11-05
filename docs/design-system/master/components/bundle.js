@@ -1140,6 +1140,45 @@
       g.beginPath(); for (x = x0; x <= x1; x += V) { if (x === x0) g.moveTo(x, at(x)); else g.lineTo(x, at(x)); } g.lineTo(x1, mid); g.lineTo(x0, mid); g.closePath(); g.fillStyle = K.c('physics', .14); g.fill();
       g.strokeStyle = K.c('physics'); g.lineWidth = 2 * V; g.beginPath(); for (x = x0; x <= x1; x += V) { if (x === x0) g.moveTo(x, at(x)); else g.lineTo(x, at(x)); } g.stroke(); }
   };
+  /* GUI-40, the Weather (GB9, sub-noise-lab.html, the human: "The weather noise view is actually fine. Let's ship it"): the noise's settings as a sky. Colour is the grain, Wind blows it, Whisper's
+     vowels are three fronts that light the grain near them, the filter is a horizon, spread opens the field, and each source falls in its own way. `o`: type, density, rate, length, colour, resonator,
+     feedback, whisper, vowel, wind, gust, filter, cutoff, resonance, pitch, spread. `st` keeps its grain: st.t seconds, st.level 0..1. A drawing of the settings, never the noise's signal. */
+  var WEATHER_VOWELS = [[800, 1150, 2900], [400, 2100, 2700], [300, 2500, 3200], [450, 800, 2830], [325, 700, 2530]], WEATHER_FH = 44100;
+  Viz.noiseWeather = function (cv, o, st) { var K = Viz.kit(cv), TAU = 2 * Math.PI, VOWELS = WEATHER_VOWELS, FH = WEATHER_FH, clamp = function (x, a, b) { return x < a ? a : x > b ? b : x; }; if (st.level === undefined) st.level = 1; if (st.t === undefined) st.t = 0;
+    const g = K.g, V = K.V, W = K.W, H = K.H;
+    if (!st.p) { const r = window.Horde.Synth.rng(3301); st.r = r; st.p = Array.from({ length: 360 }, () => ({ x: r(), y: r(), s: r(), life: r() })); st.flash = []; st.wind = 0; st.wph = 0; }
+    g.fillStyle = K.c('ground', o.resonator ? .1 + (1 - o.feedback) * .4 : .3); g.fillRect(0, 0, W, H);
+    const c = o.colour, grain = (1 - (c + 1) / 2), sz = (1.6 + grain * 5.5) * V, width = .34 + .66 * o.spread, f0 = 130.81 * Math.pow(2, o.pitch / 12), r = st.r;
+    st.wph += .004 + o.gust * .02; st.wind = o.wind ? Math.sin(st.wph) * .004 * (1 + o.gust * 5) + Math.sin(st.wph * 2.7) * .002 : 0;
+    const fall = (.002 + (c + 1) * .004) * (o.type === 'S&H' ? 1.6 : 1);
+    let lo = 0, hi = 1;   // the horizon: where the filter lets the grain through, up the glass by log frequency
+    if (o.filter !== 'Off') { const h = Math.log(o.cutoff / 20) / Math.log(1000); if (o.filter === 'LP') hi = h; else if (o.filter === 'HP') lo = h; else { lo = h - .14; hi = h + .14; } }
+    if (o.filter !== 'Off') { g.strokeStyle = K.c('marker', .8); g.lineWidth = V; g.setLineDash([3 * V, 3 * V]); [lo, hi].forEach(v => { if (v > 0 && v < 1) { const y = H * (1 - v); g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); } }); g.setLineDash([]); }
+    /* Whisper: the human, 2026-11-05: "the vocal filter doesn't look good at all". It was three flat stripes laid over the sky, which is how an overlay reads and not how a filter does. Whisper IS a filter, so now it acts on the grain:
+       three slow fronts, each a wandering line, and only the grain near a front stays lit (`veil`, below). The vowel moves the fronts; the first is the strongest, as a voice's is. */
+    let fronts = null;
+    if (o.whisper) { const v = clamp(o.vowel, 0, 1) * 4, i = Math.min(3, Math.floor(v)), m = v - i; fronts = [0, 1, 2].map(k => 1 - Math.log((VOWELS[i][k] * (1 - m) + VOWELS[i + 1][k] * m) / 20) / Math.log(1000)); }
+    const frontY = (k, u) => fronts[k] + .02 * Math.sin(u * TAU * 1.3 + st.t * .55 + k * 2.1) + .009 * Math.sin(u * TAU * 3.4 - st.t * .8 + k);
+    const veil = (u, y) => { let b = .18; for (let k = 0; k < 3; k++) { const q = (y - frontY(k, u)) / .06; b += (1 - k * .2) * Math.exp(-q * q); } return Math.min(1, b); };
+    if (fronts) fronts.forEach((_, k) => { [[7, .1], [1.4, .55]].forEach(([lw, al]) => { g.strokeStyle = K.c('value', al * (1 - k * .2) * st.level); g.lineWidth = lw * V; g.lineCap = 'round'; g.beginPath(); for (let x = 0; x <= W + 6 * V; x += 6 * V) { const yy = H * frontY(k, x / W); x ? g.lineTo(x, yy) : g.moveTo(x, yy); } g.stroke(); }); g.lineCap = 'butt'; });
+    /* S&H: Rate sets how long a value holds. The human, 2026-11-05: "S&H is a little too blocky". It was squares on a grid. Now each grain holds its place and draws as a level ledge, the shape of a held sample, long at a low rate and down to a fleck at a high one, with no grid. */
+    const shT = o.type === 'S&H' ? clamp(Math.log(o.rate / 50) / Math.log(400), 0, 1) : -1, ledge = shT >= 0 ? W * .1 * Math.pow(1 - shT, 1.6) + 2 * V : 0, holdF = o.type === 'S&H' ? Math.max(1, Math.round(14 - 13 * Math.log(o.rate / 50) / Math.log(400))) : 1, moving = st.step2 = ((st.step2 || 0) + 1) % holdF, comb = o.resonator ? Math.round(clamp(FH / f0 / 16, 8, 40)) : 0, lat = o.type === 'LFSR' ? Math.min(o.length, 63) : 0;
+    st.p.forEach((p, idx) => {
+      if (!moving) { p.y += fall * holdF * (.4 + p.s) * st.level; p.x += st.wind * holdF * (.6 + p.s); }
+      if (p.y > 1) { p.y -= 1; p.x = r(); } if (p.x > 1) p.x -= 1; if (p.x < 0) p.x += 1;
+      let x = p.x, y = p.y, a = (.4 + p.s * .6) * st.level, s = sz * (.6 + p.s);
+      if (comb) x = Math.round(x * comb) / comb;
+      if (lat) { const col = idx % lat, row = Math.floor(st.t * f0 * .004) + Math.floor(idx / lat); x = (col + .5) / lat; y = (Math.floor(p.s * 12) + .5) / 12; a *= (((col * 2654435761 >>> 0) >> ((row % 17) + 3)) & 1) ? 1 : .08; }
+      if (o.type === 'Crackle') a *= .06;
+      const hgt = 1 - y; if (hgt < lo || hgt > hi) a *= .1;
+      if (fronts) a *= veil(x, y);
+      const px = (.5 + (x - .5) * width) * W; g.fillStyle = K.c(p.s > .85 ? 'value' : 'physics', a);
+      if (ledge) { const lw = ledge * (.5 + p.s), lh = Math.max(1.2 * V, s * .32); g.fillRect(px - lw / 2, y * H - lh / 2, lw, lh); }
+      else g.fillRect(px - s / 2, y * H - s / 2, s, s * (o.wind ? 1 : 1.8));
+    });
+    // Crackle: a flash for each pop, at Density's own rate per second of a 60 Hz frame. It saturated at a flash a frame before (about 8 /s), so most of the knob's travel showed nothing.
+    if (o.type === 'Crackle') { const want = o.density / 60 * st.level; let n = Math.floor(want); if (r() < want - n) n++; for (let i = 0; i < Math.min(n, 48); i++) st.flash.push({ x: .5 + (r() - .5) * width, y: r(), a: 1 }); st.flash = st.flash.filter(f => f.a > .05).slice(-300); st.flash.forEach(f => { f.a *= .84; g.strokeStyle = K.c('value', f.a); g.lineWidth = 1.4 * V; g.beginPath(); g.arc(f.x * W, f.y * H, (1 - f.a) * 26 * V + V, 0, TAU); g.stroke(); g.fillStyle = K.c('value', f.a); g.fillRect(f.x * W - 1.5 * V, f.y * H - 1.5 * V, 3 * V, 3 * V); }); }
+  };
   Viz.blade = function (cv, cy) {
     var K = Viz.kit(cv), g = K.g, W = K.W, H = K.H, V = K.V, top = 3 * V, bot = H - 3 * V, q, view = cy.view || 'sum', pm = view === 'phase' ? cy.atPhase : null,
       lanes = view === 'members' && cy.members.length > 1, nL = lanes ? cy.members.length : 1, hi = pm && cy.lift >= 0 ? cy.lift : -1,
@@ -1221,6 +1260,8 @@
     var pts = Viz.envPoints(e);
     g.beginPath(); pts.forEach(function (p, j) { j ? g.lineTo(X(p[0]), Y(p[1])) : g.moveTo(X(p[0]), Y(p[1])); }); g.lineTo(X(T), Y(0)); g.lineTo(X(0), Y(0)); g.closePath(); g.fillStyle = K.c('value', .18); g.fill();
     g.beginPath(); pts.forEach(function (p, j) { j ? g.lineTo(X(p[0]), Y(p[1])) : g.moveTo(X(p[0]), Y(p[1])); }); g.strokeStyle = K.c('value', .22); g.lineWidth = 8 * V; g.stroke(); g.strokeStyle = K.c('value'); g.lineWidth = 2.5 * V; g.stroke();
+    /* GUI-40: each stage's bend handle, a ring on the curve at the stage's middle, as LfoShapeEditor draws its own. Dragging the stage up or down bends it (EnvDrag). */
+    [[0, e.a], [e.a, e.a + e.d], [e.a + e.d + e.hold, T]].forEach(function (sg) { if (sg[1] - sg[0] <= 0) return; var tm = (sg[0] + sg[1]) / 2; g.strokeStyle = K.c('value'); g.lineWidth = 1.3 * V; g.fillStyle = K.c('ground'); g.beginPath(); g.arc(X(tm), Y(Viz.envAt(e, tm)), 3.6 * V, 0, 2 * Math.PI); g.fill(); g.stroke(); });
     var nodes = [[e.a, 1, 'marker'], [e.a + e.d, e.s, 'meter'], [e.a + e.d + e.hold, e.s, 'physics'], [T, 0, 'grid']];
     nodes.forEach(function (nd) { g.fillStyle = K.c(nd[2], .3); g.beginPath(); g.arc(X(nd[0]), Y(nd[1]), 8 * V, 0, 2 * Math.PI); g.fill();
       g.fillStyle = K.c(nd[2]); g.beginPath(); g.arc(X(nd[0]), Y(nd[1]), 5 * V, 0, 2 * Math.PI); g.fill(); });
@@ -9169,7 +9210,8 @@ window.Horde.MainStage = {
   /* o: env() the shape the painter draws, read(role) and write(role, value) in the row's 0..1 travel, reset(role), begin(label), end(). Each gesture is one undo step in the host. */
   function EnvDrag(cv, o) { var drag = null;
     cv.style.touchAction = 'none';
-    function at(ev) { var b = cv.getBoundingClientRect(); return [ev.clientX - b.left, ev.clientY - b.top]; }
+    /* in the canvas's own CSS px: a scaled window (GUI 3's Scale button) shows it at another size than its layout, and the pointer arrives in screen px. Not dividing that out missed by more on a larger picture (GUI-40) */
+    function at(ev) { var b = cv.getBoundingClientRect(), sx = b.width / (cv.clientWidth || b.width || 1), sy = b.height / (cv.clientHeight || b.height || 1); return [(ev.clientX - b.left) / sx, (ev.clientY - b.top) / sy]; }
     function clamp(v) { return Math.max(0, Math.min(1, v)); }
     cv.addEventListener('pointermove', function (ev) { var p = at(ev), e = o.env(); if (!e) return;
       if (!drag) { var h0 = hit(e, geo(cv, e), p[0], p[1]); cv.style.cursor = !h0 ? '' : h0.u ? 'ns-resize' : h0.x && h0.y ? 'move' : h0.x ? 'ew-resize' : 'ns-resize'; cv.title = h0 ? h0.name + (h0.u ? ': drag up or down. Double-click resets it.' : ': drag. Double-click resets it.') : ''; return; }

@@ -174,7 +174,8 @@ svg { max-width:100%; }
   left:calc(var(--x,.5) * 100%); top:calc((1 - var(--y,.5)) * 100%); }
 .hd-xy .puck::before { content:''; position:absolute; left:50%; top:50%; width:28px; height:28px; transform:translate(-50%,-50%); }
 .hd-xy.drag .puck { box-shadow:none; cursor:grabbing; }
-.hd-xy .corner { position:absolute; }
+.hd-xy .corner { position:absolute; z-index:2; }
+.hd-xy .puck { z-index:6; }   /* GUI-40: the puck above the corner chips, so it can be grabbed where it sits over one (the human: "there's no way to grab the selector when it's behind a corner button") */
 
 /* ---------- MORPH KNOB and SLIDER (morph knob spec, map mode spec; drawn by bundle.js) ---------- */
 .hd-mk { display:flex; flex-direction:column; align-items:center; gap:1px; width:96px; padding:4px 2px 6px; border-radius:var(--radius);
@@ -610,7 +611,8 @@ svg { max-width:100%; }
 .hm-lk-sw.o { border-top:1.5px dotted var(--scr-grid); } .hm-lk-sw.d { border-top:1.5px dashed var(--scr-grid); } .hm-lk-sw.m { border-top:1.5px dashed var(--scr-marker); }
 
 /* ---------- QUANTUM PAD: a layer on the core XY pad; the puck and the corner chips stay on top ---------- */
-.hd-xy.hm-qp .puck, .hd-xy.hm-qp .corner { z-index:3; }
+.hd-xy.hm-qp .corner { z-index:3; }
+.hd-xy.hm-qp .puck { z-index:4; }   /* GUI-40: above the corners: at one height the later corner chips won the overlap, so a puck on a corner couldn't be grabbed */
 .hd-xy.hm-qp .census-ring { z-index:2; }
 .hm-qp-layer { position:absolute; inset:0; z-index:1; touch-action:none; }
 .hm-qp-layer canvas { display:block; width:100%; height:100%; border:0; border-radius:0; background:transparent; }
