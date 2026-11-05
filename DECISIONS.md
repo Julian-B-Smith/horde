@@ -11835,6 +11835,57 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 **Engine impact.** GN-48: the sub's output after its chain, per voice or for the mono sub, and a peak or flag for the drive's ceiling. Until then it's a SAMPLE from the settings, labelled so on the glass.
 
 **FX device (ADR-254).** It hosts no sources, so none of this appears there.
+
+## GUI-36 — DIRECTED by the human: FX routing controls on the FX page, as a mock-up: a corner is a chain (GB21; ADR-201; 2026-11-05)
+
+**The human, 2026-11-05:** "I want to land a mock-up of the Random page, editable/morphabe LFOs on the mods page, and FX routing controls on the FX page".
+
+**What's built.** ADR-201's static-node rack decides the shape of this: modules stay resident and the morph moves only cable weights. So routing is edited per corner. Each of four rows is a chain of the hosted modules in its order: click to add or remove, drag to reorder, pick where Sub joins, "To all" to copy. The Rack, Matrix and Case views, all from the master, draw what the pad makes of the four through `FxSample`, the lab's law. **Replaces the serial stand-in** on the page.
+
+**Readings (the GUI session's, open to the human).**
+- **No free patching.** A cell in the matrix can't be clicked to make a cable, because a corner's cables come from its chain. A hand-patched cable is a different model from ADR-201's.
+- **A reorder alone doesn't crossfade.** Between two corners with the same modules in different orders, the target flips and the cables glide at `tau`; between a corner with a module and one without, its cables part. That's the lab's law as it stands.
+- **No rule is enforced.** The lab's banned pairs name modules not in the shell's set, so `rules` is empty for now.
+- **Sluice and Weir aren't listed,** having no manifest.
+
+**State (GUI-27).** A chain lives in the view: not in a patch, a snapshot or undo, and gone on reload. "To all" and every edit say so only by being MOCK.
+
+**Engine impact.** GN-3: its cable state, published, with per-corner chains as what the morph stores.
+
+**FX device (ADR-254).** The same component with its own modules, and no Sub lane unless a sidechain is ruled.
+
+## GUI-37 — DIRECTED by the human: LFOs on the Mod page, editable per corner and morphing, as a mock-up (GB21; ADR-349, B396, B601; 2026-11-05)
+
+**What's built.** Four LFOs are listed MOCK on the Mod page and in the bank. Selecting one gives corner pills, a small well per corner, one for what's heard, and the master's `LfoShapeEditor` on the selected corner. `ShapeMorph` is ADR-349's law as a pure model: one shared list of up to 32 points, each corner with its own time, level and bend; a point added in one corner parks in the others by C.12's exact split; a point parked in all four leaves the list; Blend and Stepped travel, and Quantum picks per point. Rate is per corner and blends on a log taper (B396). LFO 1 starts with four different corners as a sample, so the pad moves something straight away.
+
+**Readings (the GUI session's, open to the human).**
+- **Deleting a point in one corner parks it there** instead of removing it everywhere, the only reading consistent with "a point parked in all four leaves the list".
+- **A Draw preset with a different point count** parks what it doesn't match, so the list can grow fast: LFO 1's sample reaches 16 of 32 points. Point pairing is ADR-349's later, one-time edit action, and it isn't built.
+- **S&H and RANDOM shapes aren't per-corner yet.** ADR-349 mixes those by output, and nothing here plays output, so the editor's kind applies only while editing.
+- **Rate is free-running only** here, with no tempo sync.
+- **Four LFOs** is this session's number, since the engine's count is unruled. They take bank key positions before the engine sources.
+
+**State (GUI-27).** A model lives in the shell: not in a patch, a snapshot or undo, and gone on reload. A route from an LFO can be made and is heard by nothing.
+
+**Engine impact.** GN-49, new: the modulators' spec (RC-4), with points as corner state. GN-39 still stands.
+
+**FX device (ADR-254).** It has modulators and corners, so the same editor applies.
+
+## GUI-38 — DIRECTED by the human: the Randomize panel on the Random page, as a mock-up of the ruled 1.0 set (GB21; ADR-318, ADR-320, ADR-321, ADR-322 r1, ADR-327, B578; 2026-11-05)
+
+**What's built.** The placeholder goes. On the left: a profile, Chaos and Amount, which corners a draw writes, Randomize patch and parameters, Undo the draw, the seed and draw count, the default exemptions, and Copy between corners. On the right: a row per level (Osc 1, Osc 2, Sub, Noise, Voice, Envelopes, Arp, FX routing and each FX module), each with ARCH, PARAMS and a lock, and the four sources with their own solo and mute. Filters and LFOs show what they wait on.
+
+**The draw (a real write to the stub, not only a picture).** Structural rows go to ARCH and Morphable rows to PARAMS, and Device rows are never drawn. A press is seeded, repeatable and one undo step. **Not drawn: the exempt rows' octave, semitone, coarse and fine, and mute, solo, level, pan and seed,** a reading for the last three that the human can overrule.
+
+**Readings (the GUI session's, open to the human).**
+- **With morph off, a draw writes only the corner you hear,** even on "All four", because the stub refuses edits to a frozen corner. ADR-321 lets an explicit save write a frozen corner, and whether a draw may is GN-21's open question.
+- **Page layout:** this is the report's list, in one panel, for the human to react to. The lab's pad isn't repeated: the dock's pad is on the page, so the morph's law is heard there.
+- **A profile only sets Chaos, Amount and locks,** with numbers this session picked. ADR-318's profiles hold far more, and the role set is the human's to author and audition.
+- **Not built:** mod rules, level matching, the dependency tree, the pitch ruleset, and the pass-through to a module's own randomize. The FX routing level's chains stay outside undo with FxChains.
+
+**Engine impact.** GN-21, as listed there.
+
+**FX device (ADR-254).** The same panel with FX roles and no sources' rows. ADR-321's three additions don't apply there.
 ## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
 
 **Context.** FM free in pitch FM runs an accumulator that never restarts, while each of C.16's readings starts it at 0, so the estimate cannot see its mean and BL-19 cannot hold by the law alone (Q-TA-71: engine-free, 95 of its 144 one-member cases over 0.003, up to 0.046). ADR-363 sent this to a scratch trial of C.16's existing blocker, with clips for the human. Separately, item 7.8's reference R2 places FM free's modulator half a cycle from round 56's start, and 7.8 plays before its settings settle (Q-TA-77).

@@ -124,6 +124,10 @@
   {
    "version": "1793865465-57d0",
    "evidence": "docs/design/arp-face/README.md: GUI-35, 2026-11-05"
+  },
+  {
+   "version": "1793867065-76de",
+   "evidence": "docs/design/arp-face/README.md: GUI-36 to GUI-38, 2026-11-05"
   }
  ],
  "vendoring": {
@@ -2330,15 +2334,15 @@
    "adr": "ADR-181",
    "clause": "§2 (LFOs on the mod page, tempo sync)",
    "lab": null,
-   "component": "LfoShapeEditor",
-   "master_version": "1793374583-b6a5",
-   "bundle": "LfoShapeEditor",
+   "component": "LfoMorph",
+   "master_version": "1793867065-76de",
+   "bundle": "LfoMorph",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: H.LfoMorph(host,",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "modulators",
-   "note": "bundle.js defines LfoShapeEditor (with RateSync for rate plus sync); the shell mounts neither: the Mod page note says the LFOs are the device's and deferred (RC-4)."
+   "note": "The Mod page mounts LfoShapeEditor through LfoMorph (GUI-37), MOCK, with a free rate; RateSync isn't mounted yet, and RC-4 still defers the LFOs."
   },
   {
    "id": "adr188-module-xy",
@@ -2889,7 +2893,7 @@
    "master_version": "1793374583-b6a5",
    "bundle": "FxRack",
    "via": null,
-   "shell": "docs/design/gui3.html: H.FxRack(host, () => state, S)",
+   "shell": "docs/design/gui3.html: H.FxChains(host,",
    "state": "in-shell",
    "superseded_by": null,
    "port_tab": "fx-modules",
@@ -3445,7 +3449,7 @@
    "master_version": "1793374583-b6a5",
    "bundle": "FxCables",
    "via": null,
-   "shell": "docs/design/gui3.html: H.FxRack(host, () => state, S)",
+   "shell": "docs/design/gui3.html: H.FxChains(host,",
    "state": "in-shell",
    "superseded_by": null,
    "port_tab": "fx-modules",
@@ -3490,7 +3494,7 @@
    "master_version": "1793374583-b6a5",
    "bundle": "FxCables",
    "via": null,
-   "shell": "docs/design/gui3.html: H.FxRack(host, () => state, S)",
+   "shell": "docs/design/gui3.html: H.FxChains(host,",
    "state": "in-shell",
    "superseded_by": null,
    "port_tab": "fx-modules",
@@ -3816,15 +3820,15 @@
    "adr": "ADR-318",
    "clause": "ruling 1 (CHAOS, AMOUNT, group scales and key bounds shape the next draw only; moving them never changes the current sound)",
    "lab": "docs/design/random-lab.html",
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "RandomPanel",
+   "master_version": "1793867065-76de",
+   "bundle": "RandomPanel",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: H.RandomPanel(host,",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "random-page",
-   "note": "No master component holds the Randomize panel or its chaos control (grep 'chaos' in master: none); the shell's Morph page has a Randomize placeholder card only. The lab's correction was not audited here. Rulings 2 and 3 (profile presets, the 1.0 role set) are preset content, folded into this row's port item. FX device: FX roles in place of voice roles."
+   "note": "In the mock-up panel (GUI-38), with a self-check that moving Chaos and Amount changes no sound."
   },
   {
    "id": "adr319-live-when-greying",
@@ -3936,15 +3940,15 @@
    "adr": "ADR-320",
    "clause": "ruling 1 ('arch writes' defaults to the selected corner)",
    "lab": "docs/design/random-lab.html",
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "RandomPanel",
+   "master_version": "1793867065-76de",
+   "bundle": "RandomPanel",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: H.RandomPanel(host,",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "random-page",
-   "note": "A Randomize panel control default; no master component holds the panel, and the shell's panel is a placeholder (gui3.html card 'Randomize', 'PLACEHOLDER'). FX device: applies to its Random panel."
+   "note": "In the mock-up panel (GUI-38): Selected corner is the default, All four the option. FX device: applies."
   },
   {
    "id": "adr320-rule-collections",
@@ -3996,15 +4000,15 @@
    "adr": "ADR-321",
    "clause": "ruling 3 (the Randomize panel's 1.0 gains exemption locks on by default, a minimal pitch ruleset and an ARP level)",
    "lab": "docs/design/random-lab.html",
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "RandomPanel",
+   "master_version": "1793867065-76de",
+   "bundle": "RandomPanel",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: H.RandomPanel(host,",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "random-page",
-   "note": "Panel contents not in the master or the shell (the Randomize card lists them to come). The ARP level needs Arp's rows in the one table (B586). FX device: none."
+   "note": "In the mock-up panel (GUI-38): exemptions and the Arp level are there; the minimal pitch ruleset isn't. The Arp level draws the shell's Arp rows. FX device: none."
   },
   {
    "id": "adr321-save-preset-meaning",
@@ -4056,15 +4060,15 @@
    "adr": "ADR-322",
    "clause": "ruling 1 (each Random level's settings copy from one corner to another; architecture and parameters separately)",
    "lab": "docs/design/random-lab.html",
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "RandomPanel",
+   "master_version": "1793867065-76de",
+   "bundle": "RandomPanel",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: H.RandomPanel(host,",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "random-page",
-   "note": "Built in the Random lab's next round; not in the master or the shell. FX device: same."
+   "note": "In the mock-up panel (GUI-38): Copy, by level and by architecture or parameters. FX device: same."
   },
   {
    "id": "adr322-one-morph-page",
@@ -4075,7 +4079,7 @@
    "master_version": null,
    "bundle": null,
    "via": null,
-   "shell": "docs/design/gui3.html: card('Randomize', 'PLACEHOLDER'",
+   "shell": "docs/design/gui3.html: card('Randomize', 'MOCK'",
    "state": "ruled",
    "superseded_by": null,
    "port_tab": "random-page",
@@ -5286,15 +5290,15 @@
    "adr": "ADR-349",
    "clause": "rulings 1 and 4 (one point list across the corners, up to 32 points; a point added in one corner parks in the others; points travel under the pad)",
    "lab": null,
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "LfoMorph",
+   "master_version": "1793867065-76de",
+   "bundle": "LfoMorph",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: H.LfoMorph(host,",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "modulators",
-   "note": "The lab is the private page the ADR cites, not a repo lab. LfoShapeEditor and EnvelopeEditor draw any number of points in one corner; showing parked points and editing per corner are not in the master yet. RC-4 still defers the LFOs."
+   "note": "On the Mod page as a mock-up (GUI-37), with parked points as hollow rings; per-point Quantum plays on the picture only. Heard by nothing until RC-4."
   },
   {
    "id": "gui4-main-one-deck",
@@ -6066,7 +6070,7 @@
    "adr": "GUI-25",
    "clause": "Random is a top button with a page of its own; Ledger is a tab under Set",
    "port_tab": "random-page",
-   "note": "The page list is layout.json's; the panel on the page is still the placeholder (B578). FX device: same.",
+   "note": "The page list is layout.json's; the panel on the page is a mock-up since GUI-38. FX device: same.",
    "component": "PageNav",
    "bundle": "PageNav",
    "shell": "docs/design/gui3.html: pg.panel === 'random'",
@@ -6270,6 +6274,51 @@
    "superseded_by": null,
    "state": "in-shell",
    "master_version": "1793865465-57d0"
+  },
+  {
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "in-shell",
+   "master_version": "1793867065-76de",
+   "id": "gui36-fx-routing",
+   "adr": "GUI-36",
+   "clause": "routing on the FX page: a corner is a chain of the modules in its order, with where Sub joins",
+   "port_tab": "fx-modules",
+   "note": "MOCK: its state lives in the view. Replaces the serial stand-in. FX device: same, with its own modules.",
+   "component": "FxChains",
+   "bundle": "FxChains",
+   "shell": "docs/design/gui3.html: H.FxChains(host,"
+  },
+  {
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "in-shell",
+   "master_version": "1793867065-76de",
+   "id": "gui37-lfo-morph",
+   "adr": "GUI-37",
+   "clause": "LFOs on the Mod page, editable per corner and morphing with the pad",
+   "port_tab": "modulators",
+   "note": "MOCK: heard by nothing (RC-4). FX device: same.",
+   "component": "LfoMorph",
+   "bundle": "LfoMorph",
+   "shell": "docs/design/gui3.html: H.LfoMorph(host,"
+  },
+  {
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "in-shell",
+   "master_version": "1793867065-76de",
+   "id": "gui38-randomize-panel",
+   "adr": "GUI-38",
+   "clause": "the Randomize panel on the Random page, a mock-up of the ruled 1.0 set",
+   "port_tab": "random-page",
+   "note": "MOCK: draws write the stub's corners; profiles are stand-ins. FX device: same panel, FX roles.",
+   "component": "RandomPanel",
+   "bundle": "RandomPanel",
+   "shell": "docs/design/gui3.html: H.RandomPanel(host,"
   }
  ],
  "not_design": [
@@ -7385,6 +7434,15 @@
   ],
   "GUI-35": [
    "GN-48"
+  ],
+  "GUI-36": [
+   "GN-3"
+  ],
+  "GUI-37": [
+   "GN-49"
+  ],
+  "GUI-38": [
+   "GN-21"
   ]
  },
  "audit_notes": [
