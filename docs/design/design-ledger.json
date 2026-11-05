@@ -108,6 +108,10 @@
   {
    "version": "1793843689-1e6e",
    "evidence": "docs/design/arp-face/README.md: GUI-28, 2026-11-04"
+  },
+  {
+   "version": "1793853894-9c42",
+   "evidence": "docs/design/arp-face/README.md: GUI-30 to GUI-32, 2026-11-04"
   }
  ],
  "vendoring": {
@@ -476,14 +480,14 @@
    "clause": "Phase 5 full face: the phase carpet",
    "lab": "reference/swarmsaw.html",
    "component": "PhaseCarpet",
-   "master_version": "1793374583-b6a5",
+   "master_version": "1793853894-9c42",
    "bundle": "Viz.carpet",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: H.Viz.carpet(carpet",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "osc-visualizers",
-   "note": "bundle.js defines Viz.carpet (line 792); gui3.html never calls it (no 'carpet' anywhere in the shell). The master leaves its orientation OPEN."
+   "note": "GUI-30 mounts it on the Osc pages in the lab's rows, SAMPLE."
   },
   {
    "id": "adr013-phase-ring",
@@ -1030,15 +1034,15 @@
    "adr": "ADR-105",
    "clause": "A2: every per-swarm visual (phase circle, carpet, voice map) shows an explicit OFF state when its oscillator is off; the visual follows the switch",
    "lab": null,
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "BladeView",
+   "master_version": "1793853894-9c42",
+   "bundle": "Viz.off",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: H.Viz.off(cv, off)",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "osc-visualizers",
-   "note": "The shell's SAMPLE ring and cycle keep drawing whatever the on switch says (vizView's signature reads the layout's viz keys, not oscN.on); no master README names an OFF state for Kuramoto, Phase carpet or Voice map."
+   "note": "GUI-30 carries it out: `Viz.off` over the ring, waveform, spectrum, carpet and voice map while the oscillator is off, and the swarm holds still."
   },
   {
    "id": "adr106-gravity-readout-gui2",
@@ -1512,14 +1516,14 @@
    "clause": "A6 voice map: target an ink ring, actual a value dot, the gap is drift + glide + pull, root a marker star",
    "lab": "docs/design-system/HORDE-UI-Spec.dc.html",
    "component": "VoiceMap",
-   "master_version": "1793374583-b6a5",
+   "master_version": "1793853894-9c42",
    "bundle": "Viz.voiceMap",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: H.Viz.voiceMap(vmap",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "osc-visualizers",
-   "note": "VoiceMap README: hollow ring (now scr-physics) where placed, filled scr-value dot where it is, root scr-marker star; bundle.js Viz.voiceMap implements it. The shell never calls H.Viz.voiceMap. Voice-bound: the FX device omits it."
+   "note": "GUI-30 mounts it on the Osc pages, SAMPLE until GN-42. Voice-bound: the FX device omits it."
   },
   {
    "id": "adr118-a7-spectrum",
@@ -6126,6 +6130,81 @@
    "superseded_by": null,
    "state": "in-shell",
    "master_version": "1793843689-1e6e"
+  },
+  {
+   "id": "gui30-blade-title-bar",
+   "adr": "GUI-30",
+   "clause": "a blade's switch and mode in its title bar, closed by default; a blade that's off shows its rows when opened",
+   "port_tab": null,
+   "note": "Fold gains on, onToggle, head and buildAll. `layout.json`'s blade groups carry title_power and minimized. FX device: a module's sections can use it.",
+   "component": "Fold",
+   "bundle": "Fold",
+   "shell": "docs/design/gui3.html: buildAll: true",
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "in-shell",
+   "master_version": "1793853894-9c42"
+  },
+  {
+   "id": "gui30-waveform",
+   "adr": "GUI-30",
+   "clause": "the interactive waveform with Sum, Members and At phase on Main and the Osc pages",
+   "port_tab": "osc-visualizers",
+   "note": "The lab's relative drag and settable mapping. SAMPLE until GN-41. Voice-bound: the FX device omits it.",
+   "component": "BladeView",
+   "bundle": "BladeView",
+   "shell": "docs/design/gui3.html: H.BladeView(pin",
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "in-shell",
+   "master_version": "1793853894-9c42"
+  },
+  {
+   "id": "gui30-osc-spectrum",
+   "adr": "GUI-30",
+   "clause": "a spectrum with the predicted formant band on the Osc pages",
+   "port_tab": "osc-visualizers",
+   "note": "SAMPLE until GN-43. Audio-capable: the FX device can have the bars, with no formant band.",
+   "component": "Spectrum",
+   "bundle": "Viz.spectrum",
+   "shell": "docs/design/gui3.html: H.Viz.spectrum(spec, bands, specSt",
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "in-shell",
+   "master_version": "1793853894-9c42"
+  },
+  {
+   "id": "gui31-scrollbars",
+   "adr": "GUI-31",
+   "clause": "scrollbars: a capsule thumb in the ink outline on a hairline rail",
+   "port_tab": null,
+   "note": "Global in the master. FX device: the same.",
+   "component": "components/bundle.css",
+   "bundle": "bundle.css: ::-webkit-scrollbar-thumb",
+   "shell": "docs/design/gui3.html: arp-face/bundle.css",
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "in-shell",
+   "master_version": "1793853894-9c42"
+  },
+  {
+   "id": "gui32-map-capsule",
+   "adr": "GUI-32",
+   "clause": "the source chip is the MAP capsule's second half, with no box inside the pill",
+   "port_tab": null,
+   "note": "A chip used alone keeps its border. FX device: the same.",
+   "component": "SourceChip",
+   "bundle": "bundle.css: .hd-map .hd-schip",
+   "shell": "docs/design/gui3.html: chip: true",
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "in-shell",
+   "master_version": "1793853894-9c42"
   }
  ],
  "not_design": [
@@ -7213,7 +7292,16 @@
   ],
   "GUI-29": [
    "GN-24"
-  ]
+  ],
+  "GUI-30": [
+   "GN-24",
+   "GN-41",
+   "GN-42",
+   "GN-43",
+   "GN-44"
+  ],
+  "GUI-31": "none: how a scrollbar is drawn",
+  "GUI-32": "none: how the MAP control is drawn"
  },
  "audit_notes": [
   "[A] Counts: 33 design ADRs with 56 rows (ruled 31, of which 6 superseded and 7 legacy-only; wired 9; in-shell 7; vendored 4; in-master 4; unknown 1); 79 not_design. Every primary heading ADR-001..ADR-112 appears exactly once. Headings out of numeric order (ADR-052, ADR-053 before ADR-051; ADR-095, 094, 093, 092; ADR-091 A1-A4 after ADR-112 A3) were all covered. One non-ADR heading sits in range: 'NOTICE · Library standby (plugin-skeleton FOUNDATIONS)', line 661, not design and not listed.",

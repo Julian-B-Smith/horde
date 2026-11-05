@@ -18,60 +18,19 @@
     ]
   },
   "live_when": {
-    "note": "Which setting lets a control act (SPEC-ENGINE PA-8, GUI-21). Written per parameter, not per page: every page that shows a key obeys the same condition, and a control whose condition fails isn't drawn. A source's own switch hides nothing (GUI-29): you can set a source up before switching it on, so `sources`, which holds for every key under a prefix, is empty. {o} is each oscillator, {b} each blade. B587 replaces this with a table in the spec itself.",
+    "note": "Which setting lets a control act (SPEC-ENGINE PA-8, GUI-21). Written per parameter, not per page: every page that shows a key obeys the same condition, and a control whose condition fails isn't drawn. A source's own switch hides nothing (GUI-29): you can set a source up before switching it on, so `sources`, which holds for every key under a prefix, is empty. A blade's switch hides nothing either (GUI-30), since a section opened while its blade is off must not be empty. {o} is each oscillator, {b} each blade. B587 replaces this with a table in the spec itself.",
     "rows": [
-      {
-        "keys": [
-          "osc{o}.blade{b}.position",
-          "osc{o}.blade{b}.width",
-          "osc{o}.blade{b}.depth",
-          "osc{o}.blade{b}.mirror",
-          "osc{o}.blade{b}.frame",
-          "osc{o}.blade{b}.rotation",
-          "osc{o}.blade{b}.cutIn",
-          "osc{o}.blade{b}.cutRule",
-          "osc{o}.blade{b}.mode"
-        ],
-        "when": {
-          "key": "osc{o}.blade{b}.on",
-          "is": [
-            "on"
-          ]
-        }
-      },
-      {
-        "keys": [
-          "osc{o}.blade2.fmSource",
-          "osc{o}.blade2.spreadSource"
-        ],
-        "when": {
-          "key": "osc{o}.blade2.on",
-          "is": [
-            "on"
-          ]
-        }
-      },
       {
         "keys": [
           "osc{o}.blade{b}.wave"
         ],
         "when": {
-          "all": [
-            {
-              "key": "osc{o}.blade{b}.on",
-              "is": [
-                "on"
-              ]
-            },
-            {
-              "key": "osc{o}.blade{b}.mode",
-              "is": [
-                "Sync",
-                "FM reset",
-                "FM free",
-                "Ring"
-              ]
-            }
+          "key": "osc{o}.blade{b}.mode",
+          "is": [
+            "Sync",
+            "FM reset",
+            "FM free",
+            "Ring"
           ]
         }
       },
@@ -81,12 +40,6 @@
         ],
         "when": {
           "all": [
-            {
-              "key": "osc{o}.blade{b}.on",
-              "is": [
-                "on"
-              ]
-            },
             {
               "key": "osc{o}.blade{b}.mode",
               "is": [
@@ -110,20 +63,10 @@
           "osc{o}.blade{b}.cut"
         ],
         "when": {
-          "all": [
-            {
-              "key": "osc{o}.blade{b}.on",
-              "is": [
-                "on"
-              ]
-            },
-            {
-              "key": "osc{o}.blade{b}.cutIn",
-              "is": [
-                "× pitch per cycle",
-                "× pitch per blade"
-              ]
-            }
+          "key": "osc{o}.blade{b}.cutIn",
+          "is": [
+            "× pitch per cycle",
+            "× pitch per blade"
           ]
         }
       },
@@ -132,19 +75,9 @@
           "osc{o}.blade{b}.cutHz"
         ],
         "when": {
-          "all": [
-            {
-              "key": "osc{o}.blade{b}.on",
-              "is": [
-                "on"
-              ]
-            },
-            {
-              "key": "osc{o}.blade{b}.cutIn",
-              "is": [
-                "Hz"
-              ]
-            }
+          "key": "osc{o}.blade{b}.cutIn",
+          "is": [
+            "Hz"
           ]
         }
       },
@@ -153,18 +86,8 @@
           "osc{o}.blade{b}.edges"
         ],
         "when": {
-          "all": [
-            {
-              "key": "osc{o}.blade{b}.on",
-              "is": [
-                "on"
-              ]
-            },
-            {
-              "key": "osc{o}.blade{b}.width",
-              "gt": 0.004
-            }
-          ]
+          "key": "osc{o}.blade{b}.width",
+          "gt": 0.004
         }
       },
       {
@@ -172,19 +95,9 @@
           "osc{o}.blade{b}.ruleDepth"
         ],
         "when": {
-          "all": [
-            {
-              "key": "osc{o}.blade{b}.on",
-              "is": [
-                "on"
-              ]
-            },
-            {
-              "key": "osc{o}.blade{b}.cutRule",
-              "not": [
-                "even"
-              ]
-            }
+          "key": "osc{o}.blade{b}.cutRule",
+          "not": [
+            "even"
           ]
         }
       },
@@ -196,20 +109,10 @@
           "osc{o}.blade1.modIn"
         ],
         "when": {
-          "all": [
-            {
-              "key": "osc{o}.blade1.on",
-              "is": [
-                "on"
-              ]
-            },
-            {
-              "key": "osc{o}.blade1.mode",
-              "is": [
-                "FM reset",
-                "FM free"
-              ]
-            }
+          "key": "osc{o}.blade1.mode",
+          "is": [
+            "FM reset",
+            "FM free"
           ]
         }
       },
@@ -219,12 +122,6 @@
         ],
         "when": {
           "all": [
-            {
-              "key": "osc{o}.blade1.on",
-              "is": [
-                "on"
-              ]
-            },
             {
               "key": "osc{o}.blade1.mode",
               "is": [
@@ -248,12 +145,6 @@
         "when": {
           "all": [
             {
-              "key": "osc{o}.blade1.on",
-              "is": [
-                "on"
-              ]
-            },
-            {
               "key": "osc{o}.blade1.mode",
               "is": [
                 "FM reset",
@@ -275,12 +166,6 @@
         ],
         "when": {
           "all": [
-            {
-              "key": "osc{o}.blade1.on",
-              "is": [
-                "on"
-              ]
-            },
             {
               "key": "osc{o}.blade1.mode",
               "is": [
@@ -304,19 +189,9 @@
           "osc{o}.blade1.depthSpread"
         ],
         "when": {
-          "all": [
-            {
-              "key": "osc{o}.blade1.on",
-              "is": [
-                "on"
-              ]
-            },
-            {
-              "key": "osc{o}.unison",
-              "not": [
-                "1"
-              ]
-            }
+          "key": "osc{o}.unison",
+          "not": [
+            "1"
           ]
         }
       },
@@ -326,12 +201,6 @@
         ],
         "when": {
           "all": [
-            {
-              "key": "osc{o}.blade1.on",
-              "is": [
-                "on"
-              ]
-            },
             {
               "key": "osc{o}.unison",
               "not": [
@@ -353,12 +222,6 @@
         ],
         "when": {
           "all": [
-            {
-              "key": "osc{o}.blade1.on",
-              "is": [
-                "on"
-              ]
-            },
             {
               "key": "osc{o}.blade1.mode",
               "is": [
@@ -393,12 +256,6 @@
         "when": {
           "all": [
             {
-              "key": "osc{o}.blade2.on",
-              "is": [
-                "on"
-              ]
-            },
-            {
               "key": "osc{o}.blade2.mode",
               "is": [
                 "FM reset",
@@ -420,12 +277,6 @@
         ],
         "when": {
           "all": [
-            {
-              "key": "osc{o}.blade2.on",
-              "is": [
-                "on"
-              ]
-            },
             {
               "key": "osc{o}.blade2.mode",
               "is": [
@@ -455,12 +306,6 @@
         "when": {
           "all": [
             {
-              "key": "osc{o}.blade2.on",
-              "is": [
-                "on"
-              ]
-            },
-            {
               "key": "osc{o}.blade2.mode",
               "is": [
                 "FM reset",
@@ -488,12 +333,6 @@
         ],
         "when": {
           "all": [
-            {
-              "key": "osc{o}.blade2.on",
-              "is": [
-                "on"
-              ]
-            },
             {
               "key": "osc{o}.blade2.mode",
               "is": [
@@ -531,12 +370,6 @@
         "when": {
           "all": [
             {
-              "key": "osc{o}.blade2.on",
-              "is": [
-                "on"
-              ]
-            },
-            {
               "key": "osc{o}.unison",
               "not": [
                 "1"
@@ -557,12 +390,6 @@
         ],
         "when": {
           "all": [
-            {
-              "key": "osc{o}.blade2.on",
-              "is": [
-                "on"
-              ]
-            },
             {
               "key": "osc{o}.unison",
               "not": [
@@ -590,12 +417,6 @@
         ],
         "when": {
           "all": [
-            {
-              "key": "osc{o}.blade2.on",
-              "is": [
-                "on"
-              ]
-            },
             {
               "key": "osc{o}.blade2.mode",
               "is": [
@@ -628,33 +449,12 @@
       },
       {
         "keys": [
-          "osc{o}.blade1.rotate"
-        ],
-        "when": {
-          "key": "osc{o}.blade1.on",
-          "is": [
-            "on"
-          ]
-        }
-      },
-      {
-        "keys": [
           "osc{o}.blade1.rotateSpread"
         ],
         "when": {
-          "all": [
-            {
-              "key": "osc{o}.blade1.on",
-              "is": [
-                "on"
-              ]
-            },
-            {
-              "key": "osc{o}.unison",
-              "not": [
-                "1"
-              ]
-            }
+          "key": "osc{o}.unison",
+          "not": [
+            "1"
           ]
         }
       },
@@ -663,19 +463,9 @@
           "osc{o}.blade2.rotate"
         ],
         "when": {
-          "all": [
-            {
-              "key": "osc{o}.blade2.on",
-              "is": [
-                "on"
-              ]
-            },
-            {
-              "key": "osc{o}.blade2.rotation",
-              "is": [
-                "its own"
-              ]
-            }
+          "key": "osc{o}.blade2.rotation",
+          "is": [
+            "its own"
           ]
         }
       },
@@ -685,12 +475,6 @@
         ],
         "when": {
           "all": [
-            {
-              "key": "osc{o}.blade2.on",
-              "is": [
-                "on"
-              ]
-            },
             {
               "key": "osc{o}.blade2.rotation",
               "is": [
@@ -707,30 +491,6 @@
               "key": "osc{o}.blade2.spreadSource",
               "is": [
                 "its own"
-              ]
-            }
-          ]
-        }
-      },
-      {
-        "keys": [
-          "osc{o}.upperHears",
-          "osc{o}.stacking",
-          "osc{o}.collisionPitch",
-          "osc{o}.collisionBite"
-        ],
-        "when": {
-          "all": [
-            {
-              "key": "osc{o}.blade1.on",
-              "is": [
-                "on"
-              ]
-            },
-            {
-              "key": "osc{o}.blade2.on",
-              "is": [
-                "on"
               ]
             }
           ]
@@ -1412,7 +1172,7 @@
       "id": "main",
       "label": "Main",
       "status": "draft",
-      "note": "GUI-4: the morph pad over the XY with the Specimen, the macros, ENV 1, and one deck with ten tabs. Filter, Bend and Scale are MOCK until their rows land.",
+      "note": "GUI-4: the morph pad over the XY with the Specimen, the macros, ENV 1, and one deck with ten tabs. Filter, Bend and Scale are MOCK until their rows land. GUI-30: each oscillator's tab carries the waveform you drag, with its three views, over one row per blade.",
       "deck": {
         "head": [
           "env1.attack",
@@ -1429,11 +1189,11 @@
               [
                 "osc1.unison",
                 "osc1.detune",
-                "osc1.baseWave",
-                "osc1.blade1.on",
-                "osc1.blade1.mode"
+                "osc1.baseWave"
               ],
               [
+                "osc1.blade1.on",
+                "osc1.blade1.mode",
                 "osc1.blade1.width",
                 "osc1.blade1.cut",
                 "osc1.blade1.position",
@@ -1442,9 +1202,7 @@
               ],
               [
                 "osc1.blade2.on",
-                "osc1.blade2.mode"
-              ],
-              [
+                "osc1.blade2.mode",
                 "osc1.blade2.width",
                 "osc1.blade2.cut",
                 "osc1.blade2.position",
@@ -1461,11 +1219,11 @@
               [
                 "osc2.unison",
                 "osc2.detune",
-                "osc2.baseWave",
-                "osc2.blade1.on",
-                "osc2.blade1.mode"
+                "osc2.baseWave"
               ],
               [
+                "osc2.blade1.on",
+                "osc2.blade1.mode",
                 "osc2.blade1.width",
                 "osc2.blade1.cut",
                 "osc2.blade1.position",
@@ -1474,9 +1232,7 @@
               ],
               [
                 "osc2.blade2.on",
-                "osc2.blade2.mode"
-              ],
-              [
+                "osc2.blade2.mode",
                 "osc2.blade2.width",
                 "osc2.blade2.cut",
                 "osc2.blade2.position",
@@ -1777,12 +1533,6 @@
               "rc": "releaseCurve"
             },
             "size": "utility"
-          },
-          "live": {
-            "key": "osc1.on",
-            "is": [
-              "on"
-            ]
           }
         },
         {
@@ -1840,12 +1590,6 @@
               "rc": "releaseCurve"
             },
             "size": "utility"
-          },
-          "live": {
-            "key": "osc2.on",
-            "is": [
-              "on"
-            ]
           }
         },
         {
@@ -1898,12 +1642,6 @@
               "rc": "releaseCurve"
             },
             "size": "utility"
-          },
-          "live": {
-            "key": "sub.on",
-            "is": [
-              "on"
-            ]
           }
         },
         {
@@ -1953,12 +1691,6 @@
               "rc": "releaseCurve"
             },
             "size": "utility"
-          },
-          "live": {
-            "key": "noise.on",
-            "is": [
-              "on"
-            ]
           }
         }
       ]
@@ -1967,7 +1699,7 @@
       "id": "osc1",
       "label": "Osc 1",
       "status": "draft",
-      "note": "Dense (B589), after the SCALPEL bench: the pictures on the left (SAMPLE drawings of the settings, never the engine's output), the oscillator and its two blades as sections on the right. Rarely-used rows sit under each section's collapsed Advanced group; every row is still on the page.",
+      "note": "Dense (B589), after the SCALPEL lab (GUI-30): the ring, spectrum, phase carpet and voice map on the left; on the right the waveform you drag, pinned above the oscillator and its two blades. SAMPLE drawings of the settings, never the engine's output. Each blade's switch and mode are in its title bar and the blades start minimized. Rarely-used rows sit under each section's Advanced tier; every row is still on the page.",
       "groups": [
         {
           "title": "Osc 1",
@@ -2106,12 +1838,6 @@
             "decay": "DEC",
             "sustain": "SUS",
             "release": "REL"
-          },
-          "live": {
-            "key": "osc1.on",
-            "is": [
-              "on"
-            ]
           }
         },
         {
@@ -2191,7 +1917,9 @@
             "fmIndexSpread": "FISP",
             "rotateSpread": "RSPR"
           },
-          "fold": true
+          "fold": true,
+          "title_power": true,
+          "minimized": true
         },
         {
           "title": "Blade",
@@ -2266,7 +1994,9 @@
             "fmSource": "FM",
             "spreadSource": "SPR"
           },
-          "fold": true
+          "fold": true,
+          "title_power": true,
+          "minimized": true
         }
       ],
       "dense": true,
@@ -2287,7 +2017,7 @@
       "id": "osc2",
       "label": "Osc 2",
       "status": "draft",
-      "note": "Dense (B589), after the SCALPEL bench: the pictures on the left (SAMPLE drawings of the settings, never the engine's output), the oscillator and its two blades as sections on the right. Rarely-used rows sit under each section's collapsed Advanced group; every row is still on the page.",
+      "note": "Dense (B589), after the SCALPEL lab (GUI-30): the ring, spectrum, phase carpet and voice map on the left; on the right the waveform you drag, pinned above the oscillator and its two blades. SAMPLE drawings of the settings, never the engine's output. Each blade's switch and mode are in its title bar and the blades start minimized. Rarely-used rows sit under each section's Advanced tier; every row is still on the page.",
       "groups": [
         {
           "title": "Osc 2",
@@ -2426,12 +2156,6 @@
             "decay": "DEC",
             "sustain": "SUS",
             "release": "REL"
-          },
-          "live": {
-            "key": "osc2.on",
-            "is": [
-              "on"
-            ]
           }
         },
         {
@@ -2511,7 +2235,9 @@
             "fmIndexSpread": "FISP",
             "rotateSpread": "RSPR"
           },
-          "fold": true
+          "fold": true,
+          "title_power": true,
+          "minimized": true
         },
         {
           "title": "Blade",
@@ -2586,7 +2312,9 @@
             "fmSource": "FM",
             "spreadSource": "SPR"
           },
-          "fold": true
+          "fold": true,
+          "title_power": true,
+          "minimized": true
         }
       ],
       "dense": true,
@@ -2677,12 +2405,6 @@
             "decay": "DEC",
             "sustain": "SUS",
             "release": "REL"
-          },
-          "live": {
-            "key": "sub.on",
-            "is": [
-              "on"
-            ]
           }
         },
         {
@@ -2893,12 +2615,6 @@
             "decay": "DEC",
             "sustain": "SUS",
             "release": "REL"
-          },
-          "live": {
-            "key": "noise.on",
-            "is": [
-              "on"
-            ]
           }
         },
         {
@@ -3856,5 +3572,119 @@
         "ledger"
       ]
     }
-  ]
+  ],
+  "blade_view": {
+    "note": "What the waveform's drag can drive (GUI-30; SCALPEL lab XY_ROLES, XY_SWARM, XY_PLAY). `blade` rows are per blade, osc{o}.blade{b}.<id>; `swarm` and `play` are per oscillator, osc{o}.<id>, or the row named third where the id alone would collide with a blade's (Stereo is the oscillator's width). The lab's Env rows have no parameter here and are left out.",
+    "blade": [
+      [
+        "width",
+        "Width"
+      ],
+      [
+        "cut",
+        "Cut rate"
+      ],
+      [
+        "position",
+        "Position"
+      ],
+      [
+        "depth",
+        "Depth"
+      ],
+      [
+        "edges",
+        "Edges"
+      ],
+      [
+        "fmDepth",
+        "FM depth"
+      ],
+      [
+        "modRate",
+        "Mod rate"
+      ],
+      [
+        "shape",
+        "Shape"
+      ],
+      [
+        "rotate",
+        "Rotate"
+      ],
+      [
+        "positionSpread",
+        "Pos spread"
+      ],
+      [
+        "cutSpread",
+        "Cut spread"
+      ],
+      [
+        "widthSpread",
+        "Width spread"
+      ],
+      [
+        "depthSpread",
+        "Depth spread"
+      ],
+      [
+        "shapeSpread",
+        "Shape spread"
+      ],
+      [
+        "fmIndexSpread",
+        "FM idx spread"
+      ],
+      [
+        "rotateSpread",
+        "Rotate spread"
+      ],
+      [
+        "ruleDepth",
+        "Rule depth"
+      ]
+    ],
+    "swarm": [
+      [
+        "detune",
+        "Detune"
+      ],
+      [
+        "coupling",
+        "Coupling"
+      ],
+      [
+        "stereo",
+        "Stereo",
+        "width"
+      ],
+      [
+        "crossMod",
+        "Cross-mod"
+      ],
+      [
+        "feedback",
+        "Feedback"
+      ],
+      [
+        "spreadDrift",
+        "Spread drift"
+      ]
+    ],
+    "play": [
+      [
+        "upperHears",
+        "Upper hears"
+      ],
+      [
+        "collisionPitch",
+        "Collision to pitch"
+      ],
+      [
+        "collisionBite",
+        "Collision to bite"
+      ]
+    ]
+  }
 }

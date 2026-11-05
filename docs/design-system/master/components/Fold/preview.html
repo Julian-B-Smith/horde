@@ -5,7 +5,7 @@
 <body>
 <div style="padding:14px 16px 10px">
   <div class="hd-cell hd-dense" style="max-width:640px">
-    <div id="f1"></div><div id="f2"></div><div id="f3"></div>
+    <div id="f1"></div><div id="f2"></div><div id="f3"></div><div id="f4"></div>
   </div>
   <p class="hd-msg" id="msg" style="margin:8px 0 0"></p>
   <p class="hd-hint" style="margin:2px 0 0">Each section starts at the tier you last left it on (kept in this browser, and it works without storage). Face: the headline controls at the compact rung; All adds the rest at the utility rung; +Adv adds the advanced rows as a tiny grid. The chevron folds the section away. Only a page that still overflows needs this; P1 is the default. Values are SAMPLES.</p>
@@ -67,6 +67,9 @@
   H.Fold(document.getElementById('f2'), S, { id: 'preview.blade1', name: 'Blade 1', path: 'Osc 1 · Blade 1', summary: 'Sync · Saw · 25% @ 315°', tiers: {
     face: [c('b1.width', 'Width', 'WID', [.25, .35, .2, .5], 'compact'), c('b1.depth', 'Depth', 'DPTH', [.7, .9, .5, .8], 'compact'), c('b1.position', 'Position', 'POS', [.87, .8, .9, .6], 'compact')],
     all: [c('b1.cut', 'Cut rate', 'CUT', [.5, .62, .4, .55], 'utility'), c('b1.edges', 'Edges', 'EDGE', [.2, .3, .1, .4], 'utility')] } });
+  /* GUI-30: the switch and the mode in the title bar, closed by default */
+  var md = document.createElement('div'); H.pillGroup(md, ['Sync', 'FM', 'Fold', 'Ring'], 0, 'Blade 2 · Mode', function () {}, {});
+  H.Fold(document.getElementById('f4'), S, { id: 'preview.blade2', name: 'Blade 2', path: 'Osc 1 · Blade 2', summary: 'closed by default', open: false, on: false, onToggle: function () {}, head: [md], tiers: { face: [c('b2.width', 'Width', 'WID', [.2, .3, .15, .4], 'compact'), c('b2.depth', 'Depth', 'DPTH', [.6, .8, .5, .7], 'compact')] } });
   H.Fold(document.getElementById('f3'), S, { id: 'preview.mix', name: 'Mix', path: 'Mix', summary: 'one tier only: no segment', open: false, tiers: { face: [c('mix.level', 'Level', 'LVL', [.7, .66, .8, .55], 'compact')] } });
   var msg = document.getElementById('msg'); S.on(function () { msg.textContent = S.message; });
   S.start();

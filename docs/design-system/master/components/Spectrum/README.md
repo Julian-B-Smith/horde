@@ -6,6 +6,8 @@ The output's spectrum in third-octave bars from 30 Hz to 16 kHz, with held peaks
 
 **Fed by** An output analysis tap (256 log bins 30 Hz–16 kHz, v = (dB + 80) / 80). NOT in RC-8; the shell's tap feeds it. About 30 Hz.
 
+**Formant band** `st.marks`, `[{ lo, hi, blade }]` in Hz: each blade's predicted formant band behind the bars, a `scr-value` fill with two edges, dashed for blade 2 (the SCALPEL lab's `formant`: centre the cut rate as a frequency, half-width f0 / width x (1 + edges)). An Osc page's spectrum carries it (GUI-30), and which signal feeds that one is a request (GN-43).
+
 **Voice-bound or audio-capable** Audio-capable: the FX device can use it as it is.
 
 **Screens** drawn only with the six screen roles, so it follows the Screen scheme; glow is a wider underlay stroke or disc, never a blur; scanlines at the scheme's strength.

@@ -11717,3 +11717,50 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 **Delivery.** Rounds 50, 51 and 53's tests go to the builder after its commit for rounds 55 and 56. Items 34 and 35 wait until the builder starts the morph: they need five new functions to link, and nothing about them helps the CPU pass.
 
 **FX device (ADR-254):** none now; SB-11 governs structural groups in the engine, and `fx/N` sets go to the rack.
+
+## GUI-30 — RULED by the human: blades in their title bars, closed by default; the waveform in three views on Main and the Osc pages; carpet, voice map and spectrum on the Osc pages (GB18; carries out ADR-105 A2; amends a reading of GUI-29; 2026-11-04)
+
+**Context.** GUI-29 asked whether a blade that's off should show its controls. The port ledger's `osc-visualizers` row had the rest waiting: the waveform XY, the carpet and the voice map (B293 to B299, ADR-333: "copy it pretty precisely").
+
+**Ruling (the human, 2026-11-04).** "For the blades, maybe the toggle could be in their title bar instead of their body, and their sections could default to minimized. Please review the layout of the scalpel lab again. I want the interactive scalpel waveform with the three view modes included in this GUI (main oscs and osc pages). I also want the other visualizers on the Osc pages (phase carpet, voice map, spectrum)".
+
+**What changes.**
+- **A blade's switch and mode are in its title bar,** and it starts closed. That needs a new memory key for those folds, because the shell used to write `open` on every load, which would have kept a closed default from ever showing.
+- **The waveform** is `H.BladeView` in the master: Sum, Members and At phase; the lab's relative drag and settable three-slot mapping. On an Osc page it's pinned at the top of the controls at the lab's 129 px, and the blades scroll under it (B309). On a Main Osc tab it's over the rows at 70 px, and each blade's row is the tiny tier under its number so both fit.
+- **An Osc page** follows the lab: ring, spectrum, carpet and voice map on the left, in a 250 px column. Osc's section sits beside its Envelope, so the page still fits with both blades closed.
+- **The ring's arcs are now the settings' windows,** not seeded ones, so the ring and the waveform agree and a drag moves both.
+- **ADR-105 A2 is carried out:** while an oscillator is off, its ring, waveform, spectrum, carpet and voice map say OFF and the swarm holds still. The controls still work, as GUI-29 ruled.
+
+**Readings (the GUI session's, open to the human).**
+- **A blade that's off shows its controls when opened.** Its `on` conditions are gone from `live_when`, since a section opened while its blade is off shouldn't be empty. This answers GUI-29's question by the same argument. A blade's mode still hides what only that mode uses.
+- **An Envelope and a Dashboard card no longer hide while their source is off.** Both had a group-level rule GUI-29 missed, against that ruling.
+- **The mode went in the title bar too,** because the lab has it there.
+- **The pin is at the very top of the controls.** In the lab the oscillator's strip sits above it.
+- **Sum stays the default view.** The lab recommends At phase (its question 31), and that's not ruled.
+- **The carpet uses the rows,** the lab's orientation, so the master's OPEN on orientation closes for GUI 3.
+- **The waveform and mapping choices are one for Main and the Osc pages,** remembered per machine and not saved with a patch.
+- **Left out:** the R-hued beam, the Contributions pill and Cycle Edits, none of them named here.
+
+**SAMPLE.** All of these draw the settings. `Synth.cycle` sketches each mode, near enough to read, and it isn't the sound. RC-8 and GN-41 to GN-43 replace it. A drag writes the real rows, as one undo step, under the same lock rules as the ring.
+
+**FX device (ADR-254).** The title-bar fold is available to a module's sections. The waveform, carpet and voice map are voice-bound and don't exist there. The spectrum is audio-capable, without the formant band.
+
+**Engine impact.** GN-24, GN-41, GN-42, GN-43, GN-44.
+
+## GUI-31 — RULED by the human: scrollbars that fit the aesthetic (GB18; 2026-11-04)
+
+**Ruling (the human, 2026-11-04).** "I want to redesign the scroll bars so they fit the aesthetic more", with a picture of the browser's white track under the source strip.
+
+**What changes.** In the master, for everything: a capsule thumb in the 1.5 px ink outline on a hairline rail, 9 px thick, with no filled track or buttons. The thumb fills with `ink` on hover and `value` while dragged. `scrollbar-width` is gone from the two scrollers that set it, since it switches the pseudo-elements off in Chromium.
+
+**Reading.** One design, built rather than a variant sheet, since it's cheap to change.
+
+**FX device (ADR-254).** The same. **Engine impact.** None.
+
+## GUI-32 — RULED by the human: the MAP capsule has no box inside it (GB18; 2026-11-04)
+
+**Ruling (the human, 2026-11-04).** "This needs to be fixed (the rounded rectangle inside the pill, the tiny exposed edges, etc.)", with a picture of the MAP control's source chip.
+
+**What changes.** Inside `MapControl`, the source chip is the capsule's second half, as the plain selector is: no border or radius of its own, one ink divider from the MAP button, and the source's colour as an underline while MAP is on. A chip used alone keeps its border.
+
+**FX device (ADR-254).** The same. **Engine impact.** None.
