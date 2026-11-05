@@ -7112,6 +7112,10 @@
   {
    "adr": "ADR-364",
    "reason": "Test readings and the slot rule's arithmetic: no control or design element."
+  },
+  {
+   "adr": "ADR-365",
+   "reason": "A DC filter's condition and a test's reference table: no control or design element."
   }
  ],
  "engine_impact": {
