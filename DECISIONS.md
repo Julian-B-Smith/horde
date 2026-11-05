@@ -11975,6 +11975,8 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 
 **FX device (ADR-254).** Its Morph page and pictures take items 1 and 2 the same.
 
+
+**Fixed 2026-11-05: why the pictures still froze, a bug, not a ruling.** The human, after GUI-42 merged: "Everything is still frozen on all the osc views". The self-checks drive the pictures on a clock millions of ms ahead (`CLOCK.now = 1e7`), and each picture's pace kept that as its last draw. Once the checks ended, the real clock read as earlier than the last draw, so no picture was ever due again. Loading with `?fast` skipped the checks, which is why some tests saw motion. `picturePace` now treats a clock that goes backward as a new clock. Measured in headless Chrome after a full self-check run: the ring, spectrum, carpet and voice map move with the fix, and none of them move on main without it (the control).
 ## GUI-43 — DIRECTED by the human: each source's on switch on Main (GUI-4; 2026-11-05)
 
 **The human, 2026-11-05:** "There's currently no way to turn oscillators on and off from main."
