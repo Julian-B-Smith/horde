@@ -11486,7 +11486,7 @@ Three points stayed open, because the shell already marks a knob selected the mo
 
 **Readings (the GUI session's, open to the human).**
 - **"Can act" is SPEC-ENGINE PA-8's live-when,** which already says, row by row, when a parameter can move the output. The shell had conditions on 36 of them and none on the oscillator pages. It now has all of PA-8's that apply to a control on a page, in one table per parameter (`layout.json`'s `live_when`), so a key on three pages can't hide on one and show on another. `gen_gui3_controls` refuses a condition on a page, and one that reads its own key: a knob that hid itself under the pointer couldn't be turned back.
-- **A source that's off shows its header and its switch,** because PA-8 says its rows are inert. A blade that's off does the same. A section where nothing can act, its own switch included, goes altogether (a Resonator while the noise is off).
+- **A source that's off shows its header and its switch,** because PA-8 says its rows are inert. **Reversed by GUI-29.** A blade that's off does the same, which stands for now. A section where nothing can act, its own switch included, goes altogether (a Resonator while the noise is off).
 - **The envelopes' own rows stay on the Mod page whatever follows them,** though PA-8 calls an unfollowed envelope inert, because a route can read it. On a source's page they go with the source.
 - **The morph field still lists every row.** Its cells are each corner's settings, and a row that's inert at the puck can be live at a corner.
 - **What's shown follows what's heard:** the conditions read the shown value, so under morph a control can appear or go as the puck moves.
@@ -11682,6 +11682,25 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 **Engine impact (ADR-361, GUI-27).** GN-21, GN-29 and a new GN-40 for the Exempt readings above.
 
 **FX device (ADR-254).** The same menu on FX-module parameters (ADR-291), and the same naming and saving.
+## GUI-29 — RULED by the human: a source that's off still shows its controls; Detune on Main's Osc tabs (GB10; amends a reading of GUI-21; 2026-11-04)
+
+**Context.** The human, on GUI 3: "Suddenly all the parameters disappeared from the oscillators", then "why is detune invisible on the oscs in main?" The first was GUI-21's reading, which stretched "no parameters should be visible that aren't editable" from a control that only works in one mode to a whole source. In the init patch only Osc 1 is on, so Osc 2, Sub and Noise showed only their switches.
+
+**Ruling (the human, 2026-11-04).** "Off sources should show their controls."
+
+**What changes.** `live_when`'s source rules are gone, so a source's on switch hides nothing, on its page, the Dashboard, the console or Main. That takes Noise's rule with it, which also read Sub's Erode. GUI-21's ruling stands: a control that only works under another setting still isn't drawn.
+
+**Detune.** No rule hid it. Main's Osc tabs (GUI-4) never listed it, and no ruling left it out, so it was an omission in the deck's layout. It's now on both, beside Unison.
+
+**Readings (the GUI session's, open to the human).**
+- **A blade that's off still hides its rows.** The human's words are about sources, and a blade is a part of one. The same argument could apply, so it's a question.
+- **An off source's envelope rows come back with it,** since they went with the source.
+- **Coupling isn't on Main's Osc tabs either.** It's on the Dashboard with Detune, and it wasn't asked for, so it stays off until the human says.
+
+**Engine impact (ADR-361, GUI-27).** GN-24: the table of conditions no longer holds source rules, though PA-8 still calls those rows inert. Nothing changes in what they do while off.
+
+**FX device (ADR-254).** It has no oscillator sources, and a hosted module's on switch is the same case: its controls stay drawn, when GB10 gives modules their conditions.
+
 ## ADR-364 — RULED by the human: what rounds 50 and 51 do to older gates; SB-11's stages; the morph items' readings; spec round 57 (B622; 2026-11-04)
 
 **Context.** Finishing its queue, the test author raised gates that assumed the old loop and the old K (`QUESTIONS.md`, Q-TA-73), a slip in SB-11 (Q-TA-76), and the names and readings its morph items apply (Q-TA-74, Q-TA-76). All of it is engine-free. The lead put five items to the human in one poll, with plain summaries rather than every clause: "Yes, as recommended".
