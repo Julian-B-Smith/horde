@@ -77,7 +77,8 @@
  *   canvases     the human's bugs of 2026-11-01, structural: an envelope picture's change test includes its size, and the source strip's chips
  *                don't shrink. The shell's self-check drives both in the browser, each with a control
  *   dock         ADR-315 r1, GUI-5, structural: the human, "I want to make sure the morph XY on every page when morph is active doesn't get reversed". The dock is decided by
- *                morph and the Pad switch alone, never by the page, and the shell's browser check that walks every page is still there. GUI-4's Main will hide it on Main, in this one test.
+ *                morph, the Pad switch and two named pages, and the shell's browser check that walks every page is still there. Main (GUI-4) and Morph (GUI-19 r2, GUI-26, the human: "not doubling
+ *                the morph grids in the morph page") have their pads on the page. No other page may lose it.
  *   mainstage    GUI-2, GUI-4, structural: Main is the master's Deck, AssignXY and MainStage, and its deck comes from the layout, so the shell names no key.
  *   arpface      GUI-11, ADR-291 r4: every order in Arp's manifest has a definition that draws notes, the pattern list and names agree, and the roll follows order, gate and repeats.
  *   historytree  GUI-10, ADR-160: an edit after undo branches, restore is byte-identical and keeps the other branch, redo leads back the way you came, the cap holds and eviction spares the path to where you stand.
@@ -732,7 +733,7 @@ function suite(W) {
   /* ADR-315 r1, GUI-5: verify runs no browser, so a reversal of the pad on every page would otherwise pass here */
   T.dock = () => {
     const t = W.__shellText;
-    ok(t.includes("const on = dev.morph().on, show = on && padShown && page !== 'main';"), 'the dock is not decided by morph, the Pad switch and Main alone, so a page could lose the pad (ADR-315 r1, GUI-5)');
+    ok(t.includes("const on = dev.morph().on, show = on && padShown && page !== 'main' && page !== 'morph';"), 'the dock is not decided by morph, the Pad switch, Main and Morph alone, so a page could lose the pad, or Morph could show two (ADR-315 r1, GUI-5, GUI-26)');
     ok(t.includes("$('dock').hidden = !show;"), 'the dock is not shown from that decision');
     ok(t.includes("'Dock: with morph on, the morph pad docks on all '") && t.includes("const slot = page === 'main' ? $('mainPad')"), 'the shell\u2019s browser check that walks every page with morph on is gone');
   };
@@ -1096,7 +1097,8 @@ const PLANTS = [
   ['historytree', 'device', 'var gone = nodes.filter(function (q) { return !on[q.i]; })[0] || nodes[0];', 'var gone = nodes[0];'],
   ['historytree', 'device', 'pathOf(cur).reduce(function (a, b) { if (a) a.last = b.i; return b; }, null);', ''],
   ['banklist', 'shell', 'routes.some(r => r.src === s.id)).map(s => MODS[s.id]);', 'routes.some(r => r.src === s.id && pageKeys(page).has(r.param))).map(s => MODS[s.id]);'],
-  ['dock', 'shell', "const on = dev.morph().on, show = on && padShown && page !== 'main';", "const on = dev.morph().on, show = on && padShown && page === 'main';"],
+  ['dock', 'shell', "const on = dev.morph().on, show = on && padShown && page !== 'main' && page !== 'morph';", "const on = dev.morph().on, show = on && padShown && page === 'main';"],
+  ['dock', 'shell', "show = on && padShown && page !== 'main' && page !== 'morph';", "show = on && padShown && page !== 'main';"],
   ['dock', 'shell', "$('dock').hidden = !show;", "$('dock').hidden = true;"],
   ['dock', 'shell', "'Dock: with morph on, the morph pad docks on all '", "'Dock: with morph on, the pad shows on some '"],
   ['infolock', 'shell', '.footrow { --foot-h: 120px;', '.footrow { --foot-h: 216px;'],

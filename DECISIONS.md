@@ -11614,3 +11614,37 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 **Engine impact (ADR-361).** None: this is where a panel and a tab sit in the window.
 
 **FX device (ADR-254).** It has one Morph page and no source levels in Randomize, so it gets the same top button and Random page. The Ledger tab isn't part of either real GUI.
+
+## GUI-26 — RULED by the human: one pad on the Morph page; the corners come first (GB7; carries out GUI-19 ruling 2; amends GUI-5; 2026-11-04)
+
+**Rulings (the human, 2026-11-04).**
+1. **The Morph page shows one pad.** "Let's make sure to sync the existing design choices with the gui3 lab (not doubling the morph grids in the morph page)." GUI-19 ruling 2 had already taken the dock off this page. GUI-20 left it on because the seam check's `dock` gate allowed Main alone, and the human's words decide that. **The gate now names Main and Morph, and every other page must still dock.**
+2. **The corners come first.** "On the morph page, the corner snapshots/presets section needs to be up near the top since most users will start there."
+
+**Readings (the GUI session's, open to the human).**
+- **The page runs corners, then the pad and field, then D.2's settings.** The corners are directly under the page's heading.
+- **The corners card is laid out wide,** the chips beside the save buttons, so the pad starts in view.
+- **The Pad switch isn't drawn where it can't act,** on Main, on Morph, and while morph is off (GUI-21). It keeps its room, so Morph and Bank don't move between pages.
+
+**Consequences.** The dock's own corner chips go with it on this page, and the card's chips replace them. Self-check 4b2 holds one pad and the order, with Filters as its control, and the seam check's plants now also catch a dock that returns to Morph.
+
+**Not decided here.** The shell's "Save current sound" and "Save preset" still write into a corner's one snapshot, as ADR-319 and ADR-321 ruled. GUI-24 covers the Shriek lab, and whether it holds for horde's own corners is the human's call (`ENGINE-NEEDS.md`, Open for the human).
+
+**FX device (ADR-254).** It has one Morph page and no Main, so the same: one pad there, with the corners first.
+
+## GUI-27 — RULED by the human: err on the side of recording what reaches the engine (ADR-361; 2026-11-04)
+
+**Ruling (the human, 2026-11-04).** "It occurs to me that some of our quality of life or behavior edits in this may impact the underlying engine. Please err on the side of recording everything that qualifies as an architectural decision."
+
+**What this means for the GUI session.**
+- A GUI change that fixes anything about state is recorded, whether or not it came from a ruling and however small it looks: what persists, what undo covers, what a hidden control keeps, what a snapshot stores, what a load resets, what a draw may touch, what survives closing the window.
+- It gets a line in its ruling and a `GN-n` row. When unsure, it's recorded. `specs/SPEC-ENGINE.md` still decides how the engine behaves (ADR-361): a row is a request until a spec round adopts it.
+- `tools/engine_needs_check.py` can't catch a behaviour change with no ruling, as its header says, so this is the session's duty and goes in `docs/design/CLAUDE.md`.
+
+**The audit it prompted (a read-only pass, 2026-11-04).** Six new rows, GN-34 to GN-39: who holds the device layer with the window closed, what Save current sound stores, a host edit with morph off, the morph system's document as one list, ADR-277's second saved tier, and an unrouted modulator's settings. Eleven rows corrected: GN-1, GN-2, GN-5, GN-7, GN-9, GN-10, GN-14, GN-21, GN-22, GN-24, GN-33. Five new questions for the human, on `ENGINE-NEEDS.md`. The audit's numbers and anything marked a hypothesis are estimates, not measurements. Nothing in the engine or the spec changes here.
+
+**A bug it found.** The bank's drag could add a second wire for one source and destination, against GN-20. `dropMap` now refuses it, and self-check 4b3 holds it with a control.
+
+**A correction.** GUI-23's "none" was too quick: GB15's module screens may need the rack to publish modulated values. Its entry now says so, and the ruling on GB15 gets its own entry.
+
+**FX device (ADR-254).** The same rule, and the rows apply to it wherever it has the same state.

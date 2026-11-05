@@ -31,3 +31,11 @@ Everything in the root charter, plus:
 - **Present each batch visually**: screenshots or the labs preview, before code.
 - **Rulings are the human's.** Variant sheets end in a poll, and the answer becomes an ADR.
 - **Models are pinned on every agent**: Opus for judgment (design, critique), Sonnet for scoped building.
+
+## What reaches the engine
+
+`specs/SPEC-ENGINE.md` alone decides how the engine behaves, and a GUI ruling decides how something looks and feels. Needed behaviour is a request until a spec round adopts it (ADR-361).
+
+- **Each new `## GUI-n` states its engine impact in the same PR:** an `engine_impact` entry in the ledger, a list of `GN-n` ids or a string starting `none: `, and any new row in `docs/design/gui3/ENGINE-NEEDS.md`. IDs are never reused. `tools/engine_needs_check.py` holds the records together.
+- **Err on the side of recording (GUI-27, the human).** That check can't see a behaviour change with no ruling, so this is the session's duty. A change that fixes anything about state gets a line and a row, however small it looks: what persists, what undo covers, what a hidden control keeps, what a snapshot stores, what a load resets, what a draw may touch, what survives closing the window. When unsure, record it.
+- **Tell the lead directly** when a row changes scheduling.

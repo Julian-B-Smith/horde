@@ -1594,14 +1594,14 @@
    "clause": "A2: a light screen audition and the SCR chip that flips screen schemes live (session-only)",
    "lab": null,
    "component": "ScreenScheme",
-   "master_version": "1793374583-b6a5",
+   "master_version": "1793813622-b097",
    "bundle": "ScreenScheme",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: a = H.ScreenScheme($('scrTop')",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "settings",
-   "note": "Became the seven-scheme selector (ADR-262 r2 re-ruled it: 'Screen schemes return, as in gui2's SCR chip'); ScreenScheme README says persistence is 'a GUI preference, not patch state', which revises 'session-only'. bundle.js function ScreenScheme exists; the shell's only 'scheme' hit is prefers-color-scheme."
+   "note": "The SCR chip and the Set page's list, mounted on the window. The ledger row was out of date (GUI-27's sync pass)."
   },
   {
    "id": "adr119-glow-underlay",
@@ -1908,15 +1908,15 @@
    "adr": "ADR-150",
    "clause": "decision 1: MAIN's XY pad is its own instrument with assignable X and Y, never re-aimed by the edit oscillator",
    "lab": null,
-   "component": "XYPad",
-   "master_version": "1793374583-b6a5",
-   "bundle": null,
+   "component": "AssignXY",
+   "master_version": "1793813622-b097",
+   "bundle": "AssignXY",
    "via": null,
-   "shell": null,
-   "state": "in-master",
+   "shell": "docs/design/gui3.html: H.AssignXY($('mainXY'), S,",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "main-rest",
-   "note": "XYPad README: 'two manifest keys (X and Y; MAIN's pad is free to reassign)'. bundle.js XYPad is the morph pad only (aria-label 'Morph pad', no key options), and the shell's H.XYPad is the docked morph pad (ADR-315)."
+   "note": "Main's XY has assignable X and Y (GUI-2). The ledger row was out of date (GUI-27's sync pass)."
   },
   {
    "id": "adr150-morph-mini",
@@ -2208,15 +2208,15 @@
    "adr": "ADR-176",
    "clause": "Decision 5 (the MAIN XY is the performance pad; the morph pad never is)",
    "lab": "reference/intent-bus.html",
-   "component": "XYPad",
-   "master_version": "1793374583-b6a5",
-   "bundle": "XYPad",
+   "component": "AssignXY",
+   "master_version": "1793813622-b097",
+   "bundle": "AssignXY",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: H.AssignXY($('mainXY'), S,",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "main-rest",
-   "note": "XYPad README: two parameters on one surface, 'MAIN's pad is free to reassign', the morph pad being the same component with the corner wash; bundle.js exports XYPad. The shell mounts H.XYPad only as the morph pad (gui3.html: H.XYPad($('padHost'), S)); Main's pad is missing (port row main-rest)."
+   "note": "Main's XY is the performance pad, and the morph pad sits beside it (GUI-2). The ledger row was out of date (GUI-27's sync pass)."
   },
   {
    "id": "adr177-reverb-panel-all-controls",
@@ -3049,14 +3049,14 @@
    "clause": "ruling 2 (screen schemes return, user-selectable, as gui2's SCR chip)",
    "lab": null,
    "component": "ScreenScheme",
-   "master_version": "1793374583-b6a5",
+   "master_version": "1793813622-b097",
    "bundle": "ScreenScheme",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: a = H.ScreenScheme($('scrTop')",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "settings",
-   "note": "Master ScreenScheme README (seven schemes); bundle exports ScreenScheme and SCHEMES. The shell never mounts it (grep ScreenScheme in shell files: 0)."
+   "note": "Seven schemes, on the top bar and in Set. The ledger row was out of date (GUI-27's sync pass)."
   },
   {
    "id": "adr262-specimen",
@@ -3109,14 +3109,14 @@
    "clause": "ruling 1 (wires in a compact form)",
    "lab": "docs/design/mod-matrix-lab.html",
    "component": "CompactWires",
-   "master_version": "1793374583-b6a5",
+   "master_version": "1793813622-b097",
    "bundle": "CompactWires",
    "via": null,
-   "shell": null,
-   "state": "vendored",
+   "shell": "docs/design/gui3.html: H.CompactWires(wiresHost, S,",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "modulators",
-   "note": "Master CompactWires README; bundle exports CompactWires; not in the shell."
+   "note": "On the Mod page. The ledger row was out of date (GUI-27's sync pass)."
   },
   {
    "id": "adr266-control-polarity",
@@ -5389,7 +5389,7 @@
    "adr": "GUI-5",
    "clause": "ruling 1 (the morph pad docks on every page while morph is on; ADR-315 r1 stands, now with a self-check)",
    "port_tab": "main-rest",
-   "note": "The shell already does this, and gui3.html's self-check now walks every page with a control. The Main labs' dock-hiding was the labs' fault.",
+   "note": "The shell already does this, and gui3.html's self-check walks every page with a control. Main (GUI-2, GUI-5) and Morph (GUI-19, GUI-26) have their pads on the page. The Main labs' dock-hiding was the labs' fault.",
    "lab": "docs/design/main-workshop-lab.html",
    "component": null,
    "master_version": null,
@@ -5857,7 +5857,7 @@
    "id": "gui19-mix-keeps-pad",
    "adr": "GUI-19",
    "clause": "ruling 1 (Mix keeps the docked pad; the console scrolls sideways in its box while morph is on)",
-   "note": "Nothing changes on Mix. The dock check in the shell holds it on every page but Main.",
+   "note": "Nothing changes on Mix. The dock check in the shell holds it on every page but Main and Morph.",
    "component": "XYPad",
    "bundle": "XYPad",
    "shell": "docs/design/gui3.html: show = on && padShown && page !== 'main'",
@@ -5872,7 +5872,7 @@
    "id": "gui19-morph-large-pad",
    "adr": "GUI-19",
    "clause": "ruling 2 (the Morph page has its own larger pad)",
-   "note": "A second H.XYPad, 320 px, with QuantumPad on it. The dock still shows beside it until the human rules on the seam check's dock gate. FX device: the same pad and page, with its own rows.",
+   "note": "A second H.XYPad, 320 px, with QuantumPad on it. The dock came off this page with GUI-26. FX device: the same pad and page, with its own rows.",
    "component": "XYPad",
    "bundle": "XYPad",
    "shell": "docs/design/gui3.html: H.XYPad(pad, S, { size: 320",
@@ -6039,6 +6039,36 @@
    "bundle": "PageNav",
    "shell": "docs/design/gui3.html: pg.panel === 'random'",
    "lab": "docs/design/random-home-lab.html",
+   "via": null,
+   "superseded_by": null,
+   "state": "in-shell",
+   "master_version": "1793813622-b097"
+  },
+  {
+   "id": "gui26-one-pad",
+   "adr": "GUI-26",
+   "clause": "ruling 1 (the Morph page shows one pad; the gate names Main and Morph)",
+   "note": "Carries out GUI-19 ruling 2. FX device: same.",
+   "shell": "docs/design/gui3.html: page !== 'main' && page !== 'morph'",
+   "port_tab": "morph-editor",
+   "component": "XYPad",
+   "bundle": "XYPad",
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "in-shell",
+   "master_version": "1793813622-b097"
+  },
+  {
+   "id": "gui26-corners-first",
+   "adr": "GUI-26",
+   "clause": "ruling 2 (the corners section comes first on the Morph page)",
+   "note": "The master's chips, the shell's order. FX device: same.",
+   "shell": "docs/design/gui3.html: id: 'morphCorners'",
+   "port_tab": "morph-editor",
+   "component": "CornerChip",
+   "bundle": "CornerChips",
+   "lab": null,
    "via": null,
    "superseded_by": null,
    "state": "in-shell",
@@ -7017,6 +7047,10 @@
   {
    "adr": "ADR-363",
    "reason": "The modulator's starting phase, two read-only observation fields and a test: no control or design element."
+  },
+  {
+   "adr": "GUI-27",
+   "reason": "A rule about what the GUI session records, with no design element. The needs it found are ENGINE-NEEDS.md rows."
   }
  ],
  "engine_impact": {
@@ -7050,7 +7084,8 @@
    "GN-27"
   ],
   "GUI-10": [
-   "GN-22"
+   "GN-22",
+   "GN-34"
   ],
   "GUI-11": [
    "GN-13"
@@ -7098,18 +7133,22 @@
    "GN-18",
    "GN-25",
    "GN-26",
-   "GN-28"
+   "GN-28",
+   "GN-35",
+   "GN-37"
   ],
   "GUI-21": [
    "GN-7",
    "GN-24"
   ],
   "GUI-22": "none: where the shell's switches sit and when its selection clears. Both are the shell's own.",
-  "GUI-23": "none: a title mark, which is Sluice's own, and labs. The labs draw the modules' existing controls.",
+  "GUI-23": "none: a title mark and labs, so far. GB15's ruling on module screens may need the rack to publish modulated values, and gets its own entry then.",
   "GUI-24": [
    "GN-33"
   ],
-  "GUI-25": "none: where a panel and a tab sit in the window. The page list is the shell's own."
+  "GUI-25": "none: where a panel and a tab sit in the window. The page list is the shell's own.",
+  "GUI-26": "none: which pad shows on a page and the order of a page's cards. Corners, snapshots and the pad behave as before.",
+  "GUI-27": "none: a rule about what gets recorded. The needs its audit found hang from their own rulings."
  },
  "audit_notes": [
   "[A] Counts: 33 design ADRs with 56 rows (ruled 31, of which 6 superseded and 7 legacy-only; wired 9; in-shell 7; vendored 4; in-master 4; unknown 1); 79 not_design. Every primary heading ADR-001..ADR-112 appears exactly once. Headings out of numeric order (ADR-052, ADR-053 before ADR-051; ADR-095, 094, 093, 092; ADR-091 A1-A4 after ADR-112 A3) were all covered. One non-ADR heading sits in range: 'NOTICE · Library standby (plugin-skeleton FOUNDATIONS)', line 661, not design and not listed.",
