@@ -77,7 +77,8 @@
  *   canvases     the human's bugs of 2026-11-01, structural: an envelope picture's change test includes its size, and the source strip's chips
  *                don't shrink. The shell's self-check drives both in the browser, each with a control
  *   dock         ADR-315 r1, GUI-5, structural: the human, "I want to make sure the morph XY on every page when morph is active doesn't get reversed". The dock is decided by
- *                morph and the Pad switch alone, never by the page, and the shell's browser check that walks every page is still there. GUI-4's Main will hide it on Main, in this one test.
+ *                morph, the Pad switch and two named pages, and the shell's browser check that walks every page is still there. Main (GUI-4) and Morph (GUI-19 r2, GUI-26, the human: "not doubling
+ *                the morph grids in the morph page") have their pads on the page. No other page may lose it.
  *   mainstage    GUI-2, GUI-4, structural: Main is the master's Deck, AssignXY and MainStage, and its deck comes from the layout, so the shell names no key.
  *   arpface      GUI-11, ADR-291 r4: every order in Arp's manifest has a definition that draws notes, the pattern list and names agree, and the roll follows order, gate and repeats.
  *   historytree  GUI-10, ADR-160: an edit after undo branches, restore is byte-identical and keeps the other branch, redo leads back the way you came, the cap holds and eviction spares the path to where you stand.
@@ -93,7 +94,7 @@
  *   mappage      a page change keeps MAP and the source: one session, and the page switch never touches it (structural; the
  *                shell's own self-check clicks it); the control is mounted in the top bar, outside the page area
  *   maprefused   a knob no route can reach (a morph setting) makes no route, no ring, and the refusal is said (RC-4)
- *   settab       a click on every page-bar group's tab opens a page that exists (the Set tab's group is `set`, its page `settings`)
+ *   settab       a click on every page-bar group's tab opens a page that exists, and so does a constructed one-page group whose id differs from its page
  *   envsummary   an oscillator section's readout names the envelope its source follows (its own `env` row), not the first block
  *   abbr         ADR-338 ruling 10, the hop's data (half B): every control of a page marked `grid` that is not a header's power or
  *                modes has an abbreviation of 1 to 4 characters, unique in its section (a followed envelope's blocks each on their
@@ -732,7 +733,7 @@ function suite(W) {
   /* ADR-315 r1, GUI-5: verify runs no browser, so a reversal of the pad on every page would otherwise pass here */
   T.dock = () => {
     const t = W.__shellText;
-    ok(t.includes("const on = dev.morph().on, show = on && padShown && page !== 'main';"), 'the dock is not decided by morph, the Pad switch and Main alone, so a page could lose the pad (ADR-315 r1, GUI-5)');
+    ok(t.includes("const on = dev.morph().on, show = on && padShown && page !== 'main' && page !== 'morph';"), 'the dock is not decided by morph, the Pad switch, Main and Morph alone, so a page could lose the pad, or Morph could show two (ADR-315 r1, GUI-5, GUI-26)');
     ok(t.includes("$('dock').hidden = !show;"), 'the dock is not shown from that decision');
     ok(t.includes("'Dock: with morph on, the morph pad docks on all '") && t.includes("const slot = page === 'main' ? $('mainPad')"), 'the shell\u2019s browser check that walks every page with morph on is gone');
   };
@@ -856,7 +857,7 @@ function suite(W) {
     ok(/RC-4/.test(S.message), 'the refusal was not said (' + S.message + ')');
   };
 
-  /* The Set tab: its group is `set` and its page `settings`; a click on any group's tab must open a page that exists. */
+  /* A click on any group's tab must open a page that exists, including a one-page group whose id differs from its page (Set's fault in slice 5). */
   T.settab = () => {
     const PG = Object.fromEntries(DATA.pages.map(p => [p.id, p])), opened = [];
     const host = new El('div'), groups = W.GUI3Shell.navGroups(DATA.nav, PG, () => false);
@@ -868,6 +869,12 @@ function suite(W) {
       tabs.find(t => t.textContent === g.label).fire('click');
       ok(opened.length === 1 && g.pages.includes(opened[0][1]) && PG[opened[0][1]], 'the ' + g.label + ' tab opens ' + JSON.stringify(opened) + ', not one of its pages ' + g.pages.join(', '));
     }
+    // Since GUI-25 Set has two pages, so no real group has one page under a different id. This group is constructed to keep that fault in view:
+    // left to the bundle, its click asks for a page named `set`, which doesn't exist.
+    const lone = new El('div'), got = [];
+    W.Horde.PageNav(lone, { label: 'Page groups', panel: 'pages', keys: () => false, groups: W.GUI3Shell.navGroups([{ id: 'main', label: 'Main', pages: ['main'] }, { id: 'set', label: 'Set', pages: ['settings'] }], PG, () => false), onChange: (g, pid) => got.push(pid) });
+    lone.all(x => x.className.split(' ').includes('pn-g')).find(t => t.textContent === 'Set').fire('click');
+    ok(got.length === 1 && got[0] === 'settings', 'a one-page group whose id differs from its page opens ' + JSON.stringify(got) + ', not settings');
   };
 
   /* An oscillator section's readout names the envelope its source FOLLOWS (RC-6.5): for each source its own `env` row's pick. */
@@ -1090,7 +1097,8 @@ const PLANTS = [
   ['historytree', 'device', 'var gone = nodes.filter(function (q) { return !on[q.i]; })[0] || nodes[0];', 'var gone = nodes[0];'],
   ['historytree', 'device', 'pathOf(cur).reduce(function (a, b) { if (a) a.last = b.i; return b; }, null);', ''],
   ['banklist', 'shell', 'routes.some(r => r.src === s.id)).map(s => MODS[s.id]);', 'routes.some(r => r.src === s.id && pageKeys(page).has(r.param))).map(s => MODS[s.id]);'],
-  ['dock', 'shell', "const on = dev.morph().on, show = on && padShown && page !== 'main';", "const on = dev.morph().on, show = on && padShown && page === 'main';"],
+  ['dock', 'shell', "const on = dev.morph().on, show = on && padShown && page !== 'main' && page !== 'morph';", "const on = dev.morph().on, show = on && padShown && page === 'main';"],
+  ['dock', 'shell', "show = on && padShown && page !== 'main' && page !== 'morph';", "show = on && padShown && page !== 'main';"],
   ['dock', 'shell', "$('dock').hidden = !show;", "$('dock').hidden = true;"],
   ['dock', 'shell', "'Dock: with morph on, the morph pad docks on all '", "'Dock: with morph on, the pad shows on some '"],
   ['infolock', 'shell', '.footrow { --foot-h: 120px;', '.footrow { --foot-h: 216px;'],

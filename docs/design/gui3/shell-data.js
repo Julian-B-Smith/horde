@@ -541,7 +541,7 @@ window.GUI3_DATA = {
     "why": "GUI-19, GUI-20: the quantum boundaries and the morph field are on the Morph page. The blend maps and waypoints (B272) are drawn but not heard, and the architecture-follows-the-morph proposal (B585) isn't ratified."
    },
    {
-    "area": "Morph",
+    "area": "Random",
     "asked": "Random page interface (whether we fold it into morph or keep it)",
     "id": "random-page",
     "item": "The Randomize panel (levels, chaos and amount, locks, randomization presets, copying a level between corners)",
@@ -551,7 +551,7 @@ window.GUI3_DATA = {
      "docs/design/random-lab.html"
     ],
     "status": "not-moved",
-    "why": "ADR-322 folds it into the Morph page; the Random lab's next round (ADR-320, ADR-321, ADR-322 item 1) is still being ruled, so the shell shows a placeholder card."
+    "why": "GUI-25 gives it a page of its own under a top button; the Random lab's next round (ADR-320, ADR-321, ADR-322 item 1) is still being ruled, so the shell shows a placeholder card."
    },
    {
     "area": "Set",
@@ -918,6 +918,13 @@ window.GUI3_DATA = {
    ]
   },
   {
+   "id": "random",
+   "label": "Random",
+   "pages": [
+    "random"
+   ]
+  },
+  {
    "id": "mix",
    "label": "Mix",
    "pages": [
@@ -935,13 +942,7 @@ window.GUI3_DATA = {
    "id": "set",
    "label": "Set",
    "pages": [
-    "settings"
-   ]
-  },
-  {
-   "id": "ledger",
-   "label": "Ledger",
-   "pages": [
+    "settings",
     "ledger"
    ]
   }
@@ -15039,8 +15040,23 @@ window.GUI3_DATA = {
    ],
    "id": "morph",
    "label": "Morph",
-   "note": "The morph's settings (SPEC-ENGINE Appendix D.2), generated from the spec's table: they go to the morph resolver (IF-12), never to the engine; every one is a host parameter except Morph seed and Audible corner, which are page choices (IF-11). Beside them the morph system's own panel: the corners and their snapshots and presets (ADR-319, ADR-321), and the Randomize placeholder (ADR-322). Above them the page's own larger pad and the morph field, every corner of every row, edited live (GUI-19, ADR-266 r9). The rest of the page is on GB7.",
+   "note": "The corners come first, with their snapshots and presets (GUI-26, ADR-319, ADR-321), since most users start there. Then the page's own larger pad and the morph field, every corner of every row, edited live (GUI-19, ADR-266 r9). Then the morph's settings (SPEC-ENGINE Appendix D.2), generated from the spec's table: they go to the morph resolver (IF-12), never to the engine; every one is a host parameter except Morph seed and Audible corner, which are page choices (IF-11). Randomize has its own page (GUI-25), and the rest of this page is on GB7.",
    "panel": "morph",
+   "power": null,
+   "status": "draft",
+   "viz": null
+  },
+  {
+   "cite": "GUI-25, ADR-322, B578",
+   "deck": null,
+   "dense": false,
+   "form": null,
+   "grid": false,
+   "groups": [],
+   "id": "random",
+   "label": "Random",
+   "note": "Randomize, on a page of its own (GUI-25, which amends ADR-322 item 2). The panel is still a placeholder (B578); the corners and snapshots stay on the Morph page.",
+   "panel": "random",
    "power": null,
    "status": "draft",
    "viz": null

@@ -2,8 +2,8 @@
 
 *Last verified 2026-11-01, branch `gui-shell-r1b` (the GUI session's shell hop, half B: batch 2 of the master, ADR-338, ADR-340, ADR-341; B584, B589, B593), on slice 7 plus batch 1 and the hop; the page structure below the "density revision" heading is superseded by the hop's section.*
 
-`docs/design/gui3.html` is GUI 3's prototype: one window with twelve pages (the Random page folded into the
-Morph page, ADR-322 item 2; a draft Arp page, ADR-330), every parameter that has a machine-readable
+`docs/design/gui3.html` is GUI 3's prototype: one window with sixteen pages (Random on a page of its own,
+GUI-25; a draft Arp page, ADR-330), every parameter that has a machine-readable
 manifest reachable, a bottom modulator bank on every page, and no audio. It is built from the design
 system's vendored bundle (`../arp-face/`). Its controls are generated from SPEC-ENGINE section 5, the
 morph's settings (Appendix D.2), the hosted FX modules' manifests and Arp's (ADR-330). It talks to a stub
@@ -222,8 +222,8 @@ own section. Every parameter page except Mod (half A's) is a **page view** of th
 
 ## The port ledger, the mixer's room and summed views, envelopes on the oscillator views (ADR-333, B593)
 
-- **The port ledger** (`port-tab.json`, the shell's **Ledger** page; a top-level group of its own, flagged: under Set
-  is the alternative). One row per item not yet moved over: the item, where it lives today by repo path, why it has not
+- **The port ledger** (`port-tab.json`, the shell's **Ledger** page; a tab under Set since GUI-25, because it isn't
+  planned for the real GUI). One row per item not yet moved over: the item, where it lives today by repo path, why it has not
   moved (one of six reasons: a ruling, a design-system component, a spec table, a sibling's manifest, the engine or
   audio, not yet scheduled) with a sentence, its ROADMAP row, and a status (`partial` says what is missing; `precise`
   marks what the human asked to be copied precisely: the Scalpel bench's Kuramoto ring with its blades, and the
@@ -556,7 +556,7 @@ A section's readout slot is fixed at the width its header leaves, up to 250 px, 
   count, the glide and the real draw are the resolver's (MO-6 to MO-10) and come with it.
 - **The rack order** on the FX page (Echo, Scape, Shriek, Bulwark's compressor, then Bulwark's limiter as
   the master) is the FX chain lab's, not a ruling.
-- **The Randomize panel** on the Morph page is a placeholder that lists its contents to come (ADR-318,
+- **The Randomize panel** on the Random page (GUI-25) is a placeholder that lists its contents to come (ADR-318,
   ADR-320, ADR-321, ADR-322 item 1) and links to the Random lab, which stays the bench.
 - **Not in this slice:** the other pages' designs (B581's order), the rest of the Morph page (B581 step
   3) and the Randomize panel's build, moving the parameter table beside `engine2/structure` (B586), PA-8

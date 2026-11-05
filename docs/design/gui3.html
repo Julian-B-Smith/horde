@@ -4,7 +4,7 @@
      the design doc so there isn't redundancy) which connects all the wires without running the audio engine through it?"
      Ruled by poll: "GUI 3's prototype, starting now" (ADR-316, amending B302's gate).
 
-     WHAT THIS IS. One wired shell: twelve pages (the Random page folded into Morph, ADR-322; a draft Arp page, ADR-330),
+     WHAT THIS IS. One wired shell: sixteen pages (Random on its own page, GUI-25; a draft Arp page, ADR-330),
      every parameter that has a machine-readable manifest (the engine's, the morph's settings, the FX modules', Arp's)
      reachable, no audio, and a bottom modulator bank on every page (B556).
        - Components come from the design system's vendored bundle only (arp-face/, B553). This file's <style> places
@@ -98,7 +98,7 @@
   /* GUI-6 and GUI-8 r7: the preset bar in the top row and the colours in the second, both in the room the page tabs leave on every page (the lens lab measured all 14) */
   .chrome { position: relative; }
   /* GUI-22: both rows hang from the window's right edge, so nothing in them can slide under anything else as the window resizes. */
-  #presetHost { position: absolute; left: max(612px, calc(100% - 218px)); right: 0; top: 3px; z-index: 8; }   /* it stops at the page tabs and narrows, rather than sliding over them */
+  #presetHost { position: absolute; left: max(620px, calc(100% - 218px)); right: 0; top: 3px; z-index: 8; }   /* it stops at the page tabs and narrows, rather than sliding over them */
   #colourHost { position: absolute; left: max(436px, calc(100% - 348px)); right: 196px; top: 32px; height: 22px; display: flex; align-items: center; gap: 4px; z-index: 7; }
   #colourHost .hd-btn { min-height: 20px; padding: 0 6px; font-size: 10px; }
   #colourHost #scrTop { flex: 1 1 auto; min-width: 0; }
@@ -149,6 +149,9 @@
   .mapbar .hd-map.momentary .hold { visibility: visible; }
   .mapbar .hd-schip { flex: 0 0 auto; }   /* the chip's 206 px is the master's (1793558157-f6a9); here it only refuses to shrink */
   .dock { width: auto; }
+  /* GUI-26: the corners are the Morph page's first card, so they keep it short enough to leave the pad in view */
+  .cnr-row { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: flex-start; }
+  .cnr-acts { flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
   .dock .face { flex-direction: column; align-items: stretch; gap: 6px; padding: 6px 7px 8px; }
   .dock .hd-xy { width: 188px; height: 188px; margin: 0 auto; }
   /* The window is 980 x 720 (ADR-259 ruling 2): a long page scrolls inside it, so the info box sits in the same place on
@@ -277,7 +280,7 @@
     <span class="hd-hint" id="sizeRead"></span></div>
   <div class="tagline"><span class="hd-note">GUI 3 (B584, eight slices so far): <b>one wired shell</b> under a two-level page bar (B589) and the <b>MAP control</b> with its live source strip (the Map Mode spec with MD1, ADR-340 r7: turn MAP on, pick a source, click a knob to map it at 25 %, ⌥-drag to set the depth; a plain drag still moves the value), a port ledger of what has not moved over (B593), dense oscillator pages after the SCALPEL bench, an Osc dashboard and a mixing console, every parameter that has a machine-readable manifest (SPEC-ENGINE section 5, the morph's settings, the hosted FX modules', Arp's)
     reachable on a page, and <b>no audio</b>: a stub engine keeps the values behind the engine's interface. The <b>Sub</b> and <b>Noise</b> pages are
-    designed; the others are drafts or hold no engine parameters, and say why. Try: turn <b>Morph</b> on (the pad docks on every page; <b>Pad</b>
+    designed; the others are drafts or hold no engine parameters, and say why. Try: turn <b>Morph</b> on (the pad shows on every page; <b>Pad</b>
     hides it), press <b>Scatter corners</b> below and drag the puck, hover any control, or a section's header, to read it in the fixed info box left of the bank (a section's text is a draft); press one to lock the box and scroll it (Escape or a press elsewhere releases), right-click one for the manual. The <b>bank</b> at the foot of every page lists the modulators routed to it: press + to activate one and drag its Map handle onto a control. The <b>Morph</b> page chooses the corner you hear with morph off and saves snapshots and presets to corners (ADR-319).</span></div>
   <p class="hd-msg" id="status" role="status">Loading the shell.</p>
 
@@ -651,10 +654,9 @@ function morphPanel() {
     snapBtn.disabled = sel === null;
     snapTo.textContent = sel === null ? 'Select a corner (its chip) to save into.' : 'Saves to corner ' + CID(sel) + (S.pinned === null ? ' (the audible corner; select another with its chip)' : '') + '.';
   } });
-  return h('div', { class: 'cards' },
-    card('Corners', 'SNAPSHOTS', [chips, h('div', { class: 'hd-row' }, snapBtn, snapTo), h('div', { class: 'hd-row' }, presetBs),
-      h('span', { class: 'hd-hint', text: 'Save current sound: what you hear now becomes the selected corner, under a preset name. Save preset to a corner: that corner’s own values become its saved preset (the edited mark and revert compare against it). With morph off only the audible corner (Audible corner, above) sounds and takes edits; the other three are frozen.' })]),
-    randomizePlaceholder());
+  return h('div', { class: 'cards', id: 'morphCorners' },
+    card('Corners', 'SNAPSHOTS', [h('div', { class: 'cnr-row' }, chips, h('div', { class: 'cnr-acts' }, h('div', { class: 'hd-row' }, snapBtn, snapTo), h('div', { class: 'hd-row' }, presetBs),
+      h('span', { class: 'hd-hint', text: 'Save current sound: what you hear now becomes the selected corner, under a preset name. Save preset to a corner: that corner’s own values become its saved preset (the edited mark and revert compare against it). With morph off only the audible corner (Audible corner, below) sounds and takes edits; the other three are frozen.' })))]));
 }
 /* GUI-19: the Morph page's bench. Its own larger pad, with the selected row's regions painted on it (QuantumPad), and the morph
    field, all the master's parts. They read the DEVICE: its corners, its owner, its region locks, its undo. The master's morph layer
@@ -741,11 +743,11 @@ function morphBench() {
   } };
   return root;
 }
-// The Randomize panel's place on the one Morph page (ADR-322 item 2): a placeholder until its build. The Random lab
-// stays the research bench (ADR-316), and is linked from here.
+// The Randomize panel, on the Random page (GUI-25): a placeholder until its build. The corners and snapshots stay on the
+// Morph page, so there's still one corner-and-snapshot UI (ADR-322 item 2). The Random lab stays the research bench (ADR-316), and is linked from here.
 function randomizePlaceholder() {
   const el = card('Randomize', 'PLACEHOLDER', [
-    h('span', { class: 'hd-note', text: 'The Random page folds in here (ADR-322 item 2). To come: the levels with their architecture and parameter draws, chaos (the next draw’s bounds) and amount (ADR-318), locks and the default exemptions (scale, root, octave and semitone offsets, master tune; ADR-321), randomization presets as full profiles and rule collections (ADR-318, ADR-320), copying a level between corners, architecture and parameters separately (ADR-322 item 1), a minimal pitch ruleset and arp randomization (ADR-321).' }),
+    h('span', { class: 'hd-note', text: 'To come: the levels with their architecture and parameter draws, chaos (the next draw’s bounds) and amount (ADR-318), locks and the default exemptions (scale, root, octave and semitone offsets, master tune; ADR-321), randomization presets as full profiles and rule collections (ADR-318, ADR-320), copying a level between corners, architecture and parameters separately (ADR-322 item 1), a minimal pitch ruleset and arp randomization (ADR-321).' }),
     h('a', { class: 'hd-btn hd-focus', href: 'random-lab.html', text: 'Open the Random lab (the bench)' })]);
   el.classList.add('wide'); el.id = 'randomize';
   return el;
@@ -1399,7 +1401,7 @@ function classicPage(pg, el) {
   if (pg.groups.length) el.append(cards);
 }
 const nav = H.PageNav($('pnav'), { label: 'Page groups', panel: 'pages', keys: () => S.keys,
-  groups: SH.navGroups(NAV, PG, isOnKey),   // a one-page group names its page, so the Set tab opens Settings (shell-logic.js)
+  groups: SH.navGroups(NAV, PG, isOnKey),   // a one-page group names its page (shell-logic.js)
   onChange: (group, pid) => selectPage(pid) });
 DATA.pages.forEach(pg => {
   const el = h('section', { class: 'page', id: 'page-' + pg.id, role: 'tabpanel', 'aria-label': pg.label, hidden: true });
@@ -1413,13 +1415,15 @@ DATA.pages.forEach(pg => {
     const conds = Object.fromEntries(pg.groups.flatMap(g => g.controls).map(c => [c.key, c.live]));
     views.push({ page: pg.id, update() { el.querySelectorAll('[data-key]').forEach(e => { if (e.dataset.key in conds) e.classList.toggle('idle', !live(conds[e.dataset.key])); }); } }); }
   else if (pg.panel === 'ledger') ledgerPage(pg, el);
+  else if (pg.panel === 'random') el.append(h('div', { class: 'cards' }, randomizePlaceholder()));
   else if (pg.panel === 'history') historyPage(pg, el);
   else if (pg.id === 'mod') modPageForm(pg, el);       // ADR-338 r8 (half A); every other parameter page is a grid (half B)
   else if (pg.deck) mainPage(pg, el);
   else if (pg.form) arpPage(pg, el);
   else if (pg.grid) paramPage(pg, el);
   else classicPage(pg, el);
-  if (pg.panel === 'morph') { el.insertBefore(morphBench(), el.children[1] || null); el.append(morphPanel()); }
+  // GUI-26: the corners first, since most users start there; then the page's own pad and field; then D.2's settings.
+  if (pg.panel === 'morph') { const bench = morphBench(); el.insertBefore(bench, el.children[1] || null); el.insertBefore(morphPanel(), bench); }
   if (pg.id === 'fx') el.insertBefore(fxRack(pg), el.children[1] || null);
   $('pages').append(el); pageEls[pg.id] = el;
 });
@@ -1437,15 +1441,16 @@ function selectPage(id) {
 H.XYPad($('padHost'), S, { census: true });   // ADR-262 ruling 5: the census ring (the bundle's plain dots; glyph shapes are the master's to add)
 H.CornerChips($('cornersHost'), S);
 function paintDock() {
-  const on = dev.morph().on, show = on && padShown && page !== 'main'; dockOn = on;   // GUI-5: every page while morph is on, but Main, whose pad is on the page
+  const on = dev.morph().on, show = on && padShown && page !== 'main' && page !== 'morph'; dockOn = on;   // GUI-5, GUI-26: every page while morph is on, but Main and Morph, which have their pads on the page
   $('morphOn').setAttribute('aria-checked', String(on));
-  $('padOn').setAttribute('aria-checked', String(padShown)); $('padOn').disabled = !on;
-  $('padOn').title = on ? (padShown ? 'Hide the docked pad (morph stays on)' : 'Show the docked pad') : 'The pad shows only while morph is on';
+  $('padOn').setAttribute('aria-checked', String(padShown)); $('padOn').disabled = !on || page === 'main' || page === 'morph';
+  $('padOn').closest('label').style.visibility = !on || page === 'main' || page === 'morph' ? 'hidden' : '';   // GUI-21: a switch that can't act isn't drawn; it keeps its room, so Morph and Bank don't jump
+  $('padOn').title = page === 'main' || page === 'morph' ? 'This page has its own pad, so nothing docks here' : on ? (padShown ? 'Hide the docked pad (morph stays on)' : 'Show the docked pad') : 'The pad shows only while morph is on';
   $('dock').hidden = !show; $('bodyGrid').classList.toggle('with-dock', show);
 }
 function setMorphOn(on) {
   if (on) dev.setMorph({ on: true, x: S.pad.x, y: S.pad.y }); else { dev.setMorph({ on: false }); S.setPin(null); }
-  paintDock(); S.say(on ? 'Morph on: the pad docks on every page' : 'Morph off: the audible corner is the patch, and the pad takes no space');
+  paintDock(); S.say(on ? 'Morph on: the pad shows on every page' : 'Morph off: the audible corner is the patch, and the pad takes no space');
 }
 $('morphOn').addEventListener('click', () => setMorphOn(!dev.morph().on));
 $('padOn').addEventListener('click', () => { padShown = !padShown; paintDock(); S.say(padShown ? 'Pad shown' : 'Pad hidden: morph stays on'); });
@@ -1587,6 +1592,8 @@ let bankShown = true;
 const pageKeysList = pid => { const pg = DATA.pages.find(p => p.id === pid); return pg ? pg.groups.flatMap(g => g.controls.map(c => c.key)) : []; };
 const keysMemo = Object.create(null), pageKeys = pid => keysMemo[pid] || (keysMemo[pid] = new Set(pageKeysList(pid)));
 function dropMap(src, key) {
+  // GN-20: one wire per source and destination. addMapping refused a second one, and the bank's drag came here without that check.
+  if (touching(src.id).some(r => r.param === key)) { S.say(src.name + ' already moves ' + mapName(key)); return { ok: false, why: src.name + ' already moves ' + mapName(key) }; }
   const res = dev.drop(src.id, key);
   S.say(res.ok ? 'Mapped ' + src.name + ' → ' + ROW[key].label + ' at 25 % (its ring shows on the control; sources read 0 with no audio)' : 'Refused: ' + res.why);
   return res;
@@ -1834,9 +1841,19 @@ S.start();
   line(off && on && hid && $('dock').hidden, 'Dock: no space with morph off, docked with morph on, hidden by Pad while morph stays on; it does show when on (control).');
   // 4b. ADR-315 r1, GUI-5: the human, 2026-11-02: "I want to make sure the morph XY on every page when morph is active doesn't get reversed." Every page shows it, Main
   // but Main, whose pad is on the page (GUI-5 r2), so it's the one page that must read hidden.
-  { const pg0 = page; setMorphOn(true); const missing = DATA.pages.filter(pp => { selectPage(pp.id); const docked = !$('dock').hidden && $('bodyGrid').classList.contains('with-dock') && $('dock').contains($('padHost')); return pp.id === 'main' ? docked || !$('mainPad').contains($('padHost')) : !docked; }).map(pp => pp.id);
+  { const pg0 = page; setMorphOn(true); const missing = DATA.pages.filter(pp => { selectPage(pp.id); const docked = !$('dock').hidden && $('bodyGrid').classList.contains('with-dock') && $('dock').contains($('padHost')); return pp.id === 'main' ? docked || !$('mainPad').contains($('padHost')) : pp.id === 'morph' ? docked || !pageEls.morph.querySelector('#morphBench') : !docked; }).map(pp => pp.id);
     selectPage(pg0); $('dock').hidden = true; const seesHidden = $('dock').hidden; paintDock(); setMorphOn(false); dev.undo(); dev.undo(); dev.clearRedo();
-    line(!missing.length && seesHidden, 'Dock: with morph on, the morph pad docks on all ' + (DATA.pages.length - 1) + ' other pages and sits on Main\u2019s page' + (missing.length ? ' (MISSING on ' + missing.join(', ') + ')' : '') + '; a hidden dock reads as hidden (control).'); }
+    line(!missing.length && seesHidden, 'Dock: with morph on, the morph pad docks on all ' + (DATA.pages.length - 2) + ' other pages, sits on Main\u2019s page, and leaves Morph to its own larger pad' + (missing.length ? ' (MISSING on ' + missing.join(', ') + ')' : '') + '; a hidden dock reads as hidden (control).'); }
+  // 4b2. GUI-26: one pad on the Morph page, not two, and the corners come first. Control: another page, where the dock is the one pad, so a count of 1 is a reading and not an empty selector.
+  { const pg0 = page, pads = () => [...document.querySelectorAll('.hd-xy')].filter(e => e.offsetWidth).length; setMorphOn(true);
+    selectPage('filters'); const onFilters = pads();
+    selectPage('morph'); const onMorph = pads(), kids = [...pageEls.morph.children], first = kids[1] && kids[1].id, second = kids[2] && kids[2].id, noDock = $('dock').hidden && !$('bodyGrid').classList.contains('with-dock'), padSwitch = $('padOn').disabled;
+    selectPage(pg0); setMorphOn(false); dev.undo(); dev.undo(); dev.clearRedo();
+    line(onMorph === 1 && onFilters === 1 && noDock && padSwitch && first === 'morphCorners' && second === 'morphBench', 'Morph page (GUI-26): ' + onMorph + ' pad showing with morph on (control: ' + onFilters + ' on Filters, the dock), no dock, the Pad switch off here, and the page runs ' + first + ', then ' + second + '.'); }
+  // 4b3. GN-20: a second drag of one source onto one destination adds no wire, by either path. Control: the first drag adds one.
+  { const k = Object.keys(ROW).find(x => dev.canRoute(x)), e2 = { id: 'env2', name: 'ENV 2' }, n0 = dev.routes().length, first = dropMap(e2, k), n1 = dev.routes().length, again = dropMap(e2, k), n2 = dev.routes().length;
+    if (first.ok) dev.undo(); dev.clearRedo();
+    line(first.ok && !again.ok && n1 === n0 + 1 && n2 === n1 && dev.routes().length === n0, 'One wire (GN-20): a drag of ENV 2 onto ' + ROW[k].label + ' made ' + (n1 - n0) + ' route, and a second drag made ' + (n2 - n1) + '.'); }
   // 4c. GUI-8 r1, r3, r4; GUI-6; GUI-8 r7. Each state is confirmed on, because the foot row's fault only showed with morph or MAP on (the human's pictures, 2026-11-02).
   { const R = e => e.getBoundingClientRect(), pg0 = page, footW = () => R($('footrow')).width, tick = () => { for (const v of views) if (v.page === '*') v.update(); for (const v of S.views) v.render(); }, widthWas = $('win').style.width;
     $('win').style.width = '980px';   // self-checks run before the `win` flag and in whatever the page is wide: the plugin's window is 980 px, and that's what this measures
@@ -2107,9 +2124,17 @@ S.start();
   }
   // 18. The Set tab opens the Settings page: its group is `set` and its page `settings` (slice 5 found the click opened nothing).
   { const pg0 = page, setTab = [...$('pnav').querySelectorAll('.pn-g')].find(b => b.textContent === 'Set');
-    setTab.click(); const opened = page === 'settings' && !pageEls.settings.hidden && pageEls.main.hidden;
+    // The page bar reopens a group's last page, and the walks above left Set's on Ledger (GUI-25), so this says which page the click comes back to.
+    selectPage('settings'); selectPage('main'); setTab.click(); const at = page, opened = at === 'settings' && !pageEls.settings.hidden && pageEls.main.hidden;
     selectPage(pg0);
-    line(opened, 'Set tab: a click on Set opened the Settings page (page ' + (opened ? 'settings' : page) + '); Main is hidden then (control).'); }
+    line(opened, 'Set tab: a click on Set opened the Settings page (page ' + at + '); Main is hidden then (control).'); }
+  // 18b. GUI-25: Random is a top button that opens its own page, and the Randomize card is there and not on Morph; Ledger left the top row for a tab under Set.
+  { const pg0 = page, tabs = () => [...$('pnav').querySelectorAll('.pn-g')].map(b => b.textContent), top = tabs();
+    const randomTab = [...$('pnav').querySelectorAll('.pn-g')].find(b => b.textContent === 'Random'); if (randomTab) randomTab.click();   // missing, this reads as a failed line: the Random home lab rebuilds the bar without it, and a throw here would stop the shell
+    const opened = page === 'random' && !pageEls.random.hidden && pageEls.morph.hidden, card = $('randomize'), inRandom = !!(card && card.closest('#page-random')), inMorph = !!(card && card.closest('#page-morph'));
+    selectPage('ledger'); const underSet = groupOf.ledger === 'set' && !pageEls.ledger.hidden;
+    selectPage(pg0);
+    line(opened && inRandom && !inMorph && top.indexOf('Random') === top.indexOf('Morph') + 1 && !top.includes('Ledger') && underSet, 'Random (GUI-25): the top row reads ' + top.join(', ') + '; a click on Random opened its page with the Randomize card, which has left the Morph page; Ledger opens as a tab under Set.'); }
   // 19. ADR-333: an Envelope section's readout names the envelope its source FOLLOWS: with Osc 1 on ENV 3, ENV 3's attack, and
   // when ENV 3's attack moves the readout moves; ENV 1's attack, the first block's, does not move it.
   { const fg = DATA.pages.find(p => p.id === 'osc1').groups.find(g => g.follow), fsel = ROW[fg.follow.selector], sec = pageEls.osc1.querySelector('section[aria-label^="Osc 1 · Envelope"]');
@@ -2611,7 +2636,9 @@ S.start();
 
 // ===== BLOCK I: go. A link can open a page, and morph on with the corners scattered: gui3.html#noise or #noise,morph =====
 // `,bank` maps ENV 2 to the page's first two continuous controls and leaves ENV 3 pending, so the bank has cards to show.
-{ const [pg, ...flags] = location.hash.slice(1).split(','); selectPage(pageEls[pg] ? pg : 'dashboard');
+// The self-checks walked every page, and the page bar reopens a group's last one: Set opens on Settings, not on the Ledger that came last in the walk (GUI-25).
+{ selectPage('settings');
+  const [pg, ...flags] = location.hash.slice(1).split(','); selectPage(pageEls[pg] ? pg : 'dashboard');
   if (flags.includes('light') || flags.includes('dark')) { document.documentElement.dataset.theme = flags.includes('dark') ? 'dark' : 'light'; $('themeBtn').setAttribute('aria-pressed', String(flags.includes('dark'))); }
   if (flags.includes('win')) document.body.classList.add('win-only');
   { const f = flags.find(x => x.startsWith('scale=')); if (f) { const v = f.slice(6); setSize('scale', v === 'fit' ? 'fit' : +v / 100); } }
