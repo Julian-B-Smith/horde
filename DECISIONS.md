@@ -11988,6 +11988,21 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 **Engine impact.** None: an existing row in another place.
 
 **FX device (ADR-254).** It has no Main or sources.
+
+## GUI-45 — DIRECTED by the human: a MORPH tab in the bank on every page, flipped to from Main; the pad's X and Y as knobs under the Morph pad (GB25; amends GUI-8 and GUI-40; 2026-11-05)
+
+**The human, 2026-11-05:** "What if we add a third tab here for "morph" here (pictured) which shows the morph corner presets, and when morph is activated on Main it automatically flips over (I don't love that Main is the only page that doesn't show the morph corner presets interface anywhere). And it occurs to me that the XY coordinates for Morph should be parameters visible below the grid on the Morph page." The picture was the bank's MAC | MODS segments. By poll: the tab on **every page**, its lane "Let's workshop it in a lab", and X and Y as **two knobs**.
+
+**Rulings.**
+1. **The bank's segments read MAC | MODS | MORPH on every page.** Turning morph on from Main flips the bank to MORPH. From any other page it doesn't, since the docked pad shows the corners there.
+2. **What the lane holds is open,** with how the tab behaves while morph is off and where the bank goes when morph turns off: `docs/design/bank-morph-lane-lab.html` (GB25) asks all three. The master's ModBank gets the third segment once the lane is ruled, and the shell follows (ADR-316).
+3. **X and Y are two knobs under the Morph page's pad.** They are the pad: a turn moves the puck, and like a drag of the pad it is no undo step (the poll's option said one step per turn; the shell's rule that moving the pad isn't a step stands, and this corrects the option).
+
+**Not drawn yet: X and Y wait on the spec.** SPEC-ENGINE IF-11 makes the position's x and y two host parameters, but Appendix D.2 gives them no keys or rows, and the shell draws a parameter knob only from a row, through one call (`gen_gui3_controls`'s shell check). Drawing them outside that path would dodge the gate, so they wait for D.2's rows (GN-51), and appear then with no shell change beyond the layout.
+
+**Engine impact.** GN-51 (rows for the position). Rulings 1 and 2 need none: the corners, their names, the pin and the lock are state the shell already has (GN-34 and GN-37 ask who keeps it).
+
+**FX device (ADR-254).** It has a morph and a bank, so the same tab and the same knobs apply there.
 ## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
 
 **Context.** FM free in pitch FM runs an accumulator that never restarts, while each of C.16's readings starts it at 0, so the estimate cannot see its mean and BL-19 cannot hold by the law alone (Q-TA-71: engine-free, 95 of its 144 one-member cases over 0.003, up to 0.046). ADR-363 sent this to a scratch trial of C.16's existing blocker, with clips for the human. Separately, item 7.8's reference R2 places FM free's modulator half a cycle from round 56's start, and 7.8 plays before its settings settle (Q-TA-77).

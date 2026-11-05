@@ -66,6 +66,7 @@ These are the ones nothing on the engine side knows about yet.
 | GN-25 | The master's third kind of row, RAMPS, has no member, because SPEC-ENGINE has Morphable and Structural rows only. It's open for the human, below. | GUI-20 | The Find pane's pill counts 0, and `KindLegend` isn't mounted | B616, open |
 | GN-26 | A manifest flag for a numeric stepped row (`arp.seed`, 2^32 values), if the human wants one. | GUI-20 | The shell treats a stepped row without named options as a value | B616, open |
 | GN-27 | Which corner owns a mapping while morph is on: SPEC-INTENT-BUS binds per corner, and the Map Mode spec keeps routes global for 1.0. | GUI-9 | One global set of routes | B616, open |
+| GN-51 | Keys and rows for the pad position's x and y in Appendix D.2's manifest (range 0 to 1, linear, continuous), so the Morph page can draw them as knobs and a host can automate them. | GUI-45 r3 | Not drawn: the shell's gate draws parameter knobs only from rows | IF-11 names them host parameters; D.2 has no rows |
 
 ## Recorded; here so the GUI's dependence is visible
 

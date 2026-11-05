@@ -485,6 +485,10 @@
   "envelope-workshop-lab.html": {
    "status": "exploring",
    "note": "GB23. How a source gets a different envelope (Override, one grid, Serum's Env button) and how envelopes show on Main and an Osc page, each with this session's pick; waiting on the human's answers."
+  },
+  "bank-morph-lane-lab.html": {
+   "status": "exploring",
+   "note": "GB25. What the bank's MORPH tab holds (four lanes), the tab with morph off, and where the bank goes when morph turns off; waiting on the human."
   }
  },
  "not_labs": {
@@ -6494,6 +6498,36 @@
    "superseded_by": null,
    "state": "in-shell",
    "master_version": "1793909482-958b"
+  },
+  {
+   "port_tab": null,
+   "component": "ModBank",
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "id": "gui45-bank-morph-tab",
+   "adr": "GUI-45",
+   "clause": "the bank reads MAC | MODS | MORPH on every page; turning morph on from Main flips it to MORPH",
+   "note": "The lane is open in the lab (GB25); ModBank gets the segment once it is ruled. FX device: same.",
+   "lab": "docs/design/bank-morph-lane-lab.html"
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "id": "gui45-pad-xy-knobs",
+   "adr": "GUI-45",
+   "clause": "the pad's X and Y as two knobs under the Morph page's pad, no undo step, as a drag",
+   "note": "Waits on D.2 rows for the position (GN-51); the shell draws parameter knobs only from rows. FX device: same.",
+   "lab": null
   }
  ],
  "not_design": [
@@ -7630,7 +7664,10 @@
    "GN-50"
   ],
   "GUI-42": "none: drawing and layout",
-  "GUI-43": "none: an existing row in another place"
+  "GUI-43": "none: an existing row in another place",
+  "GUI-45": [
+   "GN-51"
+  ]
  },
  "audit_notes": [
   "[A] Counts: 33 design ADRs with 56 rows (ruled 31, of which 6 superseded and 7 legacy-only; wired 9; in-shell 7; vendored 4; in-master 4; unknown 1); 79 not_design. Every primary heading ADR-001..ADR-112 appears exactly once. Headings out of numeric order (ADR-052, ADR-053 before ADR-051; ADR-095, 094, 093, 092; ADR-091 A1-A4 after ADR-112 A3) were all covered. One non-ADR heading sits in range: 'NOTICE · Library standby (plugin-skeleton FOUNDATIONS)', line 661, not design and not listed.",
