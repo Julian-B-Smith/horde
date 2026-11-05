@@ -70,7 +70,7 @@ make_clapfirst_plugins(
   ASSET_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/assets
   AUV2_MANUFACTURER_NAME "Mindlathe"
   AUV2_MANUFACTURER_CODE "LfTk"
-  AUV2_SUBTYPE_CODE "HsEp"   # its own, so Live can't confuse it with horde (Hsaw) or horde-test (HsTs)
+  AUV2_SUBTYPE_CODE "HsEp"   # its own, so Live can't confuse it with any other horde AU
   AUV2_INSTRUMENT_TYPE "aumu")
 
 # macOS: the wrapper leaves a signature that doesn't verify, and Live's scanner skips such a bundle without a log line.

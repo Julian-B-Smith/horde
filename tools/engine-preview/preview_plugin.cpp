@@ -625,8 +625,8 @@ bool params_value_to_text(const clap_plugin_t*, clap_id id, double value, char* 
     const horde::ParamInfo& row = *t.row[i];
     if (stepped(row)) std::snprintf(out, size, "%d", int(std::lround(value)));
     else {
-      const double x = horde::value_of(row, value);
-      std::snprintf(out, size, "%.3g", std::fabs(x) < 1e-9 ? 0.0 : x);   // a law's rounding shouldn't read as -2e-15
+      // Rounded to nine places first: a law's arithmetic shouldn't read as -2e-15 on the panel.
+      std::snprintf(out, size, "%.3g", std::round(horde::value_of(row, value) * 1e9) / 1e9 + 0.0);
     }
     return true;
   }

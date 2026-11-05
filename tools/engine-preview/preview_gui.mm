@@ -19,7 +19,7 @@
 
 namespace {
 
-constexpr int kWidth = 620, kHeight = 660, kHeaderHeight = 132, kRowHeight = 26, kMargin = 16;
+constexpr int kWidth = 620, kHeight = 660, kHeaderHeight = 132, kRowHeight = 26, kGutter = 16;
 constexpr NSInteger kPrevTag = 1, kNextTag = 2, kPresetTag = 3, kVoicesTag = 4, kRowTagBase = 1000;
 constexpr double kTouchHoldSeconds = 0.4;   // how long a moved control ignores the readback, so it can't jump under the hand
 
@@ -178,17 +178,17 @@ void build(GuiState& g) {
   g.root.layer.backgroundColor = [NSColor colorWithSRGBRed:0.13 green:0.13 blue:0.15 alpha:1].CGColor;
 
   CGFloat y = kHeight - 34;
-  [g.root addSubview:make_label("horde ENGINE PREVIEW", NSMakeRect(kMargin, y, 300, 22), 15, NSColor.labelColor)];
+  [g.root addSubview:make_label("horde ENGINE PREVIEW", NSMakeRect(kGutter, y, 300, 22), 15, NSColor.labelColor)];
   [g.root addSubview:make_label("Test build: oscillators only", NSMakeRect(kWidth - 216, y + 2, 200, 16), 11, NSColor.tertiaryLabelColor)];
   ((NSTextField*)g.root.subviews.lastObject).alignment = NSTextAlignmentRight;
 
   y -= 36;
-  [g.root addSubview:make_label("Preset", NSMakeRect(kMargin, y + 4, 50, 18), 12, NSColor.secondaryLabelColor)];
+  [g.root addSubview:make_label("Preset", NSMakeRect(kGutter, y + 4, 50, 18), 12, NSColor.secondaryLabelColor)];
   NSButton* prev = [NSButton buttonWithTitle:@"<" target:g.target action:@selector(act:)];
   prev.tag = kPrevTag;
-  prev.frame = NSMakeRect(kMargin + 54, y, 36, 26);
+  prev.frame = NSMakeRect(kGutter + 54, y, 36, 26);
   [g.root addSubview:prev];
-  g.preset = [[[NSPopUpButton alloc] initWithFrame:NSMakeRect(kMargin + 94, y, 300, 26) pullsDown:NO] autorelease];
+  g.preset = [[[NSPopUpButton alloc] initWithFrame:NSMakeRect(kGutter + 94, y, 300, 26) pullsDown:NO] autorelease];
   for (int i = 0; i < preview::bank_size(); ++i) {
     // addItemWithTitle would merge duplicates and treat some titles specially; a menu item keeps the bank's order.
     NSMenuItem* item = [[[NSMenuItem alloc] initWithTitle:[NSString stringWithUTF8String:preview::preset_name(i)] action:nil keyEquivalent:@""] autorelease];
@@ -200,11 +200,11 @@ void build(GuiState& g) {
   [g.root addSubview:g.preset];
   NSButton* next = [NSButton buttonWithTitle:@">" target:g.target action:@selector(act:)];
   next.tag = kNextTag;
-  next.frame = NSMakeRect(kMargin + 398, y, 36, 26);
+  next.frame = NSMakeRect(kGutter + 398, y, 36, 26);
   [g.root addSubview:next];
 
-  [g.root addSubview:make_label("Voices", NSMakeRect(kWidth - kMargin - 112, y + 4, 44, 18), 12, NSColor.secondaryLabelColor)];
-  g.voices = [[[NSPopUpButton alloc] initWithFrame:NSMakeRect(kWidth - kMargin - 64, y, 64, 26) pullsDown:NO] autorelease];
+  [g.root addSubview:make_label("Voices", NSMakeRect(kWidth - kGutter - 112, y + 4, 44, 18), 12, NSColor.secondaryLabelColor)];
+  g.voices = [[[NSPopUpButton alloc] initWithFrame:NSMakeRect(kWidth - kGutter - 64, y, 64, 26) pullsDown:NO] autorelease];
   for (int i = 1; i <= preview::kMaxVoicesParam; ++i) [g.voices addItemWithTitle:[NSString stringWithFormat:@"%d", i]];
   g.voices.tag = kVoicesTag;
   g.voices.target = g.target;
@@ -212,7 +212,7 @@ void build(GuiState& g) {
   [g.root addSubview:g.voices];
 
   y -= 30;
-  g.readout = make_label("Play a note to see what this preset costs.", NSMakeRect(kMargin, y, kWidth - 2 * kMargin, 18), 12, NSColor.secondaryLabelColor);
+  g.readout = make_label("Play a note to see what this preset costs.", NSMakeRect(kGutter, y, kWidth - 2 * kGutter, 18), 12, NSColor.secondaryLabelColor);
   [g.root addSubview:g.readout];
 
   const int n = preview::row_count();
@@ -227,10 +227,10 @@ void build(GuiState& g) {
   for (int row = 0; row < n; ++row) {
     const CGFloat ry = doc_height - (row + 1) * kRowHeight;
     RowControls& c = g.rows[std::size_t(row)];
-    [doc addSubview:make_label(label_for(preview::row_key(row)), NSMakeRect(kMargin, ry + 4, 216, 18), 12, NSColor.labelColor)];
+    [doc addSubview:make_label(label_for(preview::row_key(row)), NSMakeRect(kGutter, ry + 4, 216, 18), 12, NSColor.labelColor)];
     const int steps = preview::row_steps(row);
     if (steps > 0) {
-      c.popup = [[[NSPopUpButton alloc] initWithFrame:NSMakeRect(kMargin + 222, ry, 96, 24) pullsDown:NO] autorelease];
+      c.popup = [[[NSPopUpButton alloc] initWithFrame:NSMakeRect(kGutter + 222, ry, 96, 24) pullsDown:NO] autorelease];
       for (int k = 0; k < steps; ++k) [c.popup addItemWithTitle:[NSString stringWithFormat:@"%d", k]];
       c.popup.tag = kRowTagBase + row;
       c.popup.target = g.target;
@@ -239,12 +239,12 @@ void build(GuiState& g) {
       [doc addSubview:c.popup];
     } else {
       c.slider = [NSSlider sliderWithValue:0 minValue:0 maxValue:1 target:g.target action:@selector(act:)];
-      c.slider.frame = NSMakeRect(kMargin + 222, ry + 2, 250, 20);
+      c.slider.frame = NSMakeRect(kGutter + 222, ry + 2, 250, 20);
       c.slider.tag = kRowTagBase + row;
       c.slider.continuous = YES;
       [doc addSubview:c.slider];
     }
-    c.value = make_label("", NSMakeRect(kWidth - 16 - kMargin - 70, ry + 4, 70, 18), 11, NSColor.secondaryLabelColor);
+    c.value = make_label("", NSMakeRect(kWidth - 16 - kGutter - 70, ry + 4, 70, 18), 11, NSColor.secondaryLabelColor);
     c.value.alignment = NSTextAlignmentRight;
     c.value.font = [NSFont monospacedDigitSystemFontOfSize:11 weight:NSFontWeightRegular];
     [doc addSubview:c.value];

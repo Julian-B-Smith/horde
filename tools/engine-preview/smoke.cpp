@@ -239,7 +239,7 @@ int main(int argc, char** argv) {
     const auto heard = play(p, preset, {128});
     const std::size_t at = first_difference(heard, reference);
     check(at == heard.size(), std::string(kBank[preset].name) + ": bit-identical to the engine's offline render, blocks of 128" + (at == heard.size() ? "" : " (first difference at value " + std::to_string(at) + ")"));
-    check(peak(heard) > 1e-3, std::string(kBank[preset].name) + ": it makes sound");
+    check(peak(heard) > 0, std::string(kBank[preset].name) + ": it makes sound (silence is exact zero, OU-4)");
     const auto uneven = play(p, preset, {64, 97, 1, 256, 33});
     check(first_difference(uneven, reference) == uneven.size(), std::string(kBank[preset].name) + ": the same under uneven blocks (DT-2)");
   }
