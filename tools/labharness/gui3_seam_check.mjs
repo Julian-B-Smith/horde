@@ -34,6 +34,8 @@
  *   morphoff     ADR-319 item 1: with morph off a write lands on the audible corner only, a write to a frozen
  *                corner is refused, the audible corner is what the engine hears, and B to D come back unchanged
  *   morphhistory ADR-319 item 2: turning morph on is one history node and undo/redo toggle it; moving the pad is none
+ *   morphmodes   GUI-28, MO-11 to MO-13, ADR-320 r4: Follow blends, Quantum reads its owner, Exempt holds what was heard in all four corners as one value at every position, and the count
+ *                takes its three choices; each is one undo step; all four save as one set, and a saved preset can be deleted.
  *   snapshots    ADR-319 item 1: "save current sound" makes the heard values a named, saved corner; "save preset"
  *                keeps a corner's own values as its preset; revert returns to it; a blank name is refused
  *   sync         ADR-319 item 3, mirror and confirm: an echo is not an engine change; the engine's own change is
@@ -391,6 +393,29 @@ function suite(W) {
     ok(d.savePreset(2, 'Under') .ok && !d.edited(2) && d.names()[2] === 'Under' && d.corner(cont.key, 2) === .6, 'save preset to C did not keep C\u2019s own values as its preset');
     const n = d.history().past.length; d.undo();
     ok(d.names()[2] === null && d.history().past.length === n - 1, 'saving a preset is not one undo step');
+  };
+  /* GUI-28, MO-11 to MO-13, ADR-320 r4: a key's mode and count, and saving all four. What the real resolver and state will have to reproduce. */
+  T.morphmodes = () => {
+    const { d } = fresh();
+    d.setMorph({ on: true, x: .3, y: .3 }); d.set(cont.key, .2, { corner: 0 }); d.set(cont.key, .9, { corner: 1 }); d.set(cont.key, .5, { corner: 2 }); d.set(cont.key, .7, { corner: 3 });
+    const blended = d.heard(cont.key), owner = d.corner(cont.key, d.owner(cont.key)), start = d.history().past.length;
+    ok(blended !== owner, 'the test row does not blend under Follow, so it proves nothing');
+    ok(d.mode(cont.key) === 'follow' && d.count(cont.key) === 0, 'a key does not start at Follow, as the morph');
+    ok(d.setMode(cont.key, 'quantum') && d.heard(cont.key) === owner, 'a Quantum key does not read its owner, whatever the law is (MO-11)');
+    ok(!d.setMode(cont.key, 'quantum') && !d.setMode(cont.key, 'nonsense'), 'a re-pick or an unknown mode was taken');
+    ok(d.setMode(cont.key, 'follow') && d.heard(cont.key) === blended, 'going back to Follow does not blend again');
+    ok(d.setMode(cont.key, 'exempt') && [0, 1, 2, 3].every(i => d.corner(cont.key, i) === blended) && d.heard(cont.key) === blended, 'Exempt does not hold what was heard in all four corners (MO-12)');
+    ok(d.observe().resolver.modes[cont.key] === 'exempt', 'the mode did not reach the resolver (IF-12)');
+    d.setMorph({ x: .9, y: .9 }); ok(d.heard(cont.key) === blended, 'an Exempt key moved with the pad (MO-12)');
+    d.set(cont.key, .4, { corner: 2 }); ok([0, 1, 2, 3].every(i => d.corner(cont.key, i) === d.corner(cont.key, 0)) && d.corner(cont.key, 0) !== blended, 'a write to one corner of an Exempt key parted the four');
+    d.setMorph({ on: false }); d.set(cont.key, .6, { corner: 3 }); ok(d.heard(cont.key) === d.corner(cont.key, 0) && d.corner(cont.key, 3) === d.corner(cont.key, 0), 'morph off parted an Exempt key');
+    d.setMorph({ on: true }); ok(d.setCount(cont.key, 2) && d.count(cont.key) === 2 && !d.setCount(cont.key, 2) && !d.setCount(cont.key, 3), 'the count takes anything but as the morph, Two or Four, once');
+    while (d.history().past.length > start) d.undo();
+    ok(d.mode(cont.key) === 'follow' && d.count(cont.key) === 0 && d.corner(cont.key, 1) === .9, 'undo does not restore the mode, the count and the corners');
+    ok(!d.saveAll('  ').ok && !d.saveAll('x'.repeat(37)).ok, 'a blank or overlong set name was taken');
+    const n = d.history().past.length; ok(d.saveAll('Set').ok && d.names()[3] === 'Set · D' && d.history().past.length === n + 1, 'all four did not save as one set, in one undo step');
+    ok(d.forget(2) && d.names()[2] === null && !d.edited(2) && d.corner(cont.key, 2) === .5 && !d.forget(2), 'deleting a saved preset did not leave the corner its values, and Empty');
+    d.setMode(cont.key, 'exempt'); d.reset(); ok(d.mode(cont.key) === 'follow', 'loading the init patch kept a key\u2019s mode');
   };
   /* ADR-319 item 3: mirror and confirm. Echoes change nothing; the engine's own change is shown; a stale
      snapshot (older than the latest send) and a snapshot under a drag never overwrite the user's value. */
@@ -1028,6 +1053,14 @@ const PLANTS = [
   ['morphoff', 'device', 'if (want !== null && want !== st.audible) return null; i = st.audible;', 'i = want !== null ? want : st.audible;'],
   ['morphhistory', 'device', "if (on !== st.morphOn) step(on ? 'Morph on' : 'Morph off', function () { st.morphOn = on; });", 'if (on !== st.morphOn) st.morphOn = on;'],
   ['snapshots', 'device', 'st.names[i] = name.trim(); st.saved[i] = copy(st.corners[i]);\n', 'st.names[i] = name.trim();\n'],
+  ['morphmodes', 'device', "if (mode === 'exempt') { var held = heard(key); for (var c = 0; c < 4; c++) st.corners[c][key] = held; }", ''],
+  ['morphmodes', 'device', "if (st.modes[key] === 'exempt') return st.corners[0][key];", ''],
+  ['morphmodes', 'device', "if (r.class === 'S' || st.modes[key] === 'quantum') return", "if (r.class === 'S') return"],
+  ['morphmodes', 'device', "for (var c = 0; c < 4; c++) st.corners[c][key] = v; });", "st.corners[0][key] = v; });"],
+  ['morphmodes', 'device', "if (n) st.counts[key] = n; else delete st.counts[key];", ''],
+  ['morphmodes', 'device', "reown(); send([key]); sendModes(); changed(); return true;", "reown(); send([key]); changed(); return true;"],
+  ['morphmodes', 'device', "st.saved = [null, null, null, null]; st.modes = {}; st.counts = {};", "st.saved = [null, null, null, null];"],
+  ['morphmodes', 'device', "st.names[i] = null; st.saved[i] = null;", "st.saved[i] = null;"],
   ['sync', 'device', 'if (k === g) continue;', ''],
   ['meters', 'stub', "var silent = !isOn(s + '.on') || isOn(s + '.mute') || (anySolo && !isOn(s + '.solo'));", "var silent = !isOn(s + '.on') || isOn(s + '.mute');"],
   ['meters', 'stub', "latch[id] = { on: false, max: -Infinity }; return was;", 'return was;'],

@@ -152,6 +152,9 @@
   /* GUI-26: the corners are the Morph page's first card, so they keep it short enough to leave the pad in view */
   .cnr-row { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: flex-start; }
   .cnr-acts { flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+  .cnr-save { display: inline-flex; gap: 2px; }
+  .exempt-row .hm-qp-layer, .exempt-row .hm-lockbar, .exempt-row .hm-iq { display: none; }
+  .cnr-save .hd-btn[hidden] { display: none; }
   .dock .face { flex-direction: column; align-items: stretch; gap: 6px; padding: 6px 7px 8px; }
   .dock .hd-xy { width: 188px; height: 188px; margin: 0 auto; }
   /* The window is 980 x 720 (ADR-259 ruling 2): a long page scrolls inside it, so the info box sits in the same place on
@@ -435,7 +438,10 @@ S.base = function (p) { return ROW[p.key] ? dev.shown(p.key) : base0.call(this, 
 // With morph off only the audible corner sounds and takes writes (ADR-319 item 1): a pinned corner selects
 // where a snapshot is saved, it does not redirect an edit into a frozen corner.
 const writable0 = S.writable;
-S.writable = function (p, i) { const m = dev.morph(); if (!m.on && i !== null && i !== undefined && i !== m.audible) { this.say('Corner ' + H.CORNERS[i].id + ' is frozen while morph is off (ADR-319)'); return false; } return writable0.call(this, p, i); };
+S.writable = function (p, i) { const m = dev.morph();
+  // An Exempt key's write lands on all four corners, so any locked corner refuses it whole (MO-12, CornerChip's lock).
+  if (ROW[p.key] && ROW[p.key].class !== 'D' && dev.mode(p.key) === 'exempt') { const l = [0, 1, 2, 3].find(c => this.locks[c]); if (l !== undefined) { this.say('Corner ' + H.CORNERS[l].id + ' is locked, and ' + p.name + ' is Exempt, so a write would change it'); return false; } return true; }
+  if (!m.on && i !== null && i !== undefined && i !== m.audible) { this.say('Corner ' + H.CORNERS[i].id + ' is frozen while morph is off (ADR-319)'); return false; } return writable0.call(this, p, i); };
 const editing0 = S.editing;
 S.editing = function (p) { const m = dev.morph(); return p.locked ? null : m.on ? editing0.call(this, p) : m.audible; };
 // Corner names, the edited mark and revert are the device's (its saved presets), not the bundle's per-knob copy.
@@ -461,6 +467,7 @@ S.add({ render() {
     const nm = dev.names(); if (nm.join('\u0000') !== S.corners.join('\u0000')) { S.corners = nm; S.emit(); }
   }
   if (dev.morph().on !== dockOn) paintDock();          // an undo or redo of the morph toggle moves the dock too
+  syncModes();                                         // and of a key's mode moves its marks
   for (const v of views) if (v.page === page || v.page === '*') { try { v.update(); } catch (e) { if (!v.failed) { v.failed = true; console.error('gui3 view failed', e); } } }
 } });
 
@@ -512,10 +519,9 @@ function propsFor(row, ctl, path, size) {
   if (size) p.size = size;   // B589: a sized control (label above, value on hover, the section's slot reads it)
   // A Device-class value (the morph's settings, a module's device rows) is outside the morph: one value, no corners.
   // The bundle's knob draws that as `locked` with its value in `g`, read from and written through the device.
-  if (row.class === 'D') {
-    p.locked = true;
-    Object.defineProperty(p, 'g', { get: () => dev.shown(row.key), set: v => { write(row, v, null); }, enumerable: true });
-  }
+  // An Exempt key is the same to the bundle (MO-12): one value and no corners, so the mode only flips `locked` (syncModes).
+  p.locked = row.class === 'D' || dev.mode(row.key) === 'exempt';
+  Object.defineProperty(p, 'g', { get: () => dev.shown(row.key), set: v => { write(row, v, null); }, enumerable: true });
   return p;
 }
 const isKnobW = w => w === 'knob' || w === 'hslider' || w === 'vslider';
@@ -630,32 +636,65 @@ function card(title, tag, kids) {
 }
 // Where "Save current sound to snapshot" saves: the selected (pinned) corner; with morph off and none pinned, the audible one.
 function selectedCorner() { const m = dev.morph(); return S.pinned !== null ? S.pinned : m.on ? null : m.audible; }
-function askName(question, def) { const n = window.prompt(question, def || ''); return n === null ? null : n; }
 function saveTo(i, kind) {
   if (i === null) { S.say('Select a corner first: press its chip'); return; }
   if (S.locks[i]) { S.say('Corner ' + CID(i) + ' is locked: unlock it to save into it'); return; }
-  const cur = dev.names()[i];
-  const name = askName(kind === 'sound' ? 'Save the current sound to corner ' + CID(i) + ' as (a preset name):' : 'Save corner ' + CID(i) + '’s preset as:', cur);
-  if (name === null) { S.say('Not saved'); return; }
-  const res = kind === 'sound' ? dev.saveSoundTo(i, name) : dev.savePreset(i, name);
-  S.say(res.ok ? (kind === 'sound' ? 'The current sound is now corner ' + CID(i) + ', saved as ' + name.trim() : 'Corner ' + CID(i) + ' saved as ' + name.trim()) : 'Not saved: ' + res.why);
+  nameField.open({ label: kind === 'sound' ? 'Save the current sound to corner ' + CID(i) + ' as' : 'Save corner ' + CID(i) + '’s preset as', value: dev.names()[i], onCancel: () => S.say('Not saved'), onSave: name => {
+    const res = kind === 'sound' ? dev.saveSoundTo(i, name) : dev.savePreset(i, name);
+    S.say(res.ok ? (kind === 'sound' ? 'The current sound is now corner ' + CID(i) + ', saved as ' + name : 'Corner ' + CID(i) + ' saved as ' + name) : 'Not saved: ' + res.why);
+  } });
+}
+// ADR-320 r4: all four together, as one named set. Refused whole if a corner is locked, as SET ALL FOUR is.
+function saveAllFour() {
+  const held = [0, 1, 2, 3].filter(i => S.locks[i]);
+  if (held.length) { S.say('Corner ' + held.map(CID).join(', ') + ' is locked: unlock it to save all four'); return; }
+  nameField.open({ label: 'Save all four corners as a set named', save: 'Save all four', onCancel: () => S.say('Not saved'), onSave: name => {
+    const res = dev.saveAll(name);
+    S.say(res.ok ? 'All four corners saved as the set ' + name : 'Not saved: ' + res.why);
+  } });
+}
+// MO-11 to MO-13. Exempt writes what's heard now into all four corners, so it's refused whole if a locked corner would change.
+function setKeyMode(key, mode) {
+  const r = ROW[key], held = dev.shown(key), blocked = mode === 'exempt' ? [0, 1, 2, 3].filter(i => S.locks[i] && dev.corner(key, i) !== held) : [];
+  if (blocked.length) { S.say('Corner ' + blocked.map(CID).join(', ') + ' is locked: Exempt would change it, so ' + r.label + ' stays as it is'); return false; }
+  if (!dev.setMode(key, mode)) return false;
+  S.say(r.label + ': ' + (mode === 'exempt' ? 'Exempt, holding ' + ENG.display(r, held) + ' at every position' : mode === 'quantum' ? 'Quantum, flips at its boundaries whatever the morph’s law is' : 'Follow, obeys the morph’s law'));
+  syncModes(); return true;
+}
+const keyModeState = key => ({ mode: dev.mode(key), count: dev.count(key), countActs: dev.mode(key) === 'follow' && LAWS[dev.morphSettings().law] !== 'quantum' });   // MO-11: count acts only while the key blends
+// A mode reaches the bundle's props and every face's mark from here, and an undo comes through here too, so a mark can't outlive its mode.
+let modesSeen = {};
+function syncModes() {
+  const now = dev.modes();
+  new Set([...Object.keys(modesSeen), ...Object.keys(now)]).forEach(k => {
+    if (modesSeen[k] === now[k]) return;
+    const p = S.params[k]; if (p) p.locked = now[k] === 'exempt';
+    document.querySelectorAll('[data-key="' + k + '"]').forEach(e => H.MorphMode.mark(e, now[k] || 'follow'));
+  });
+  modesSeen = now;
 }
 // The audible corner while morph is off is D.2's `morph.audible` now, a generated control on this page (ADR-330), so
 // the hand-built picker of slice 2 is gone; the corners, snapshots and presets stay here.
+let nameField = null;
 function morphPanel() {
   const chips = h('div'); H.CornerChips(chips, S);
+  const nameHost = h('div', { id: 'morphName' }); nameField = H.NameField(nameHost, { max: 40 });
+  const allBtn = h('button', { class: 'hd-btn hd-focus', id: 'saveAll', type: 'button', text: 'Save all four' }); allBtn.addEventListener('click', saveAllFour);
+  // A delete button is drawn only for a corner with a saved preset (GUI-21). ADR-320 r4.
+  const forgetBs = H.CORNERS.map((c, i) => { const b = h('button', { class: 'hd-btn hd-focus', type: 'button', text: '✕', title: 'Delete corner ' + c.id + '’s saved preset', 'aria-label': 'Delete corner ' + c.id + '’s saved preset' }); b.addEventListener('click', () => { const n = dev.names()[i]; if (dev.forget(i)) S.say('Deleted ' + n + ' from corner ' + c.id + '. The corner keeps its values'); }); return b; });
   const snapBtn = h('button', { class: 'hd-btn hd-focus', type: 'button', text: 'Save current sound to snapshot' }), snapTo = h('span', { class: 'hd-hint' });
   snapBtn.addEventListener('click', () => saveTo(selectedCorner(), 'sound'));
-  const presetBs = H.CORNERS.map((c, i) => { const b = h('button', { class: 'hd-btn hd-focus', type: 'button', text: 'Save preset to ' + c.id }); b.addEventListener('click', () => saveTo(i, 'preset')); return b; });
+  const presetBs = H.CORNERS.map((c, i) => { const b = h('button', { class: 'hd-btn hd-focus', type: 'button', text: 'Save preset to ' + c.id }); b.addEventListener('click', () => saveTo(i, 'preset')); return h('span', { class: 'cnr-save' }, b, forgetBs[i]); });
   let last = '';
   views.push({ page: 'morph', update() {
-    const m = dev.morph(), sel = selectedCorner(), k = m.audible + '|' + sel + '|' + m.on;
+    const m = dev.morph(), sel = selectedCorner(), names = dev.names(), k = m.audible + '|' + sel + '|' + m.on + '|' + names.join();
     if (k === last) return; last = k;
+    forgetBs.forEach((b, i) => { b.hidden = names[i] === null; });
     snapBtn.disabled = sel === null;
     snapTo.textContent = sel === null ? 'Select a corner (its chip) to save into.' : 'Saves to corner ' + CID(sel) + (S.pinned === null ? ' (the audible corner; select another with its chip)' : '') + '.';
   } });
   return h('div', { class: 'cards', id: 'morphCorners' },
-    card('Corners', 'SNAPSHOTS', [h('div', { class: 'cnr-row' }, chips, h('div', { class: 'cnr-acts' }, h('div', { class: 'hd-row' }, snapBtn, snapTo), h('div', { class: 'hd-row' }, presetBs),
+    card('Corners', 'SNAPSHOTS', [h('div', { class: 'cnr-row' }, chips, h('div', { class: 'cnr-acts' }, h('div', { class: 'hd-row' }, snapBtn, snapTo), h('div', { class: 'hd-row' }, presetBs, allBtn), nameHost,
       h('span', { class: 'hd-hint', text: 'Save current sound: what you hear now becomes the selected corner, under a preset name. Save preset to a corner: that corner’s own values become its saved preset (the edited mark and revert compare against it). With morph off only the audible corner (Audible corner, below) sounds and takes edits; the other three are frozen.' })))]));
 }
 /* GUI-19: the Morph page's bench. Its own larger pad, with the selected row's regions painted on it (QuantumPad), and the morph
@@ -667,7 +706,8 @@ function fieldRow(r) {
   // Only a row with named options is a structural cell. A numeric stepped row (a seed: 2^32 values) reads as a value, and the device snaps it.
   const stepped = r.law === 'step' && !!r.options, sec = FIELD_SECTIONS.find(s => s[0].test(r.block)), base = {
     key: r.key, name: r.label, path: r.key, section: sec ? sec[1] : r.block.toUpperCase(), group: r.block, kind: stepped ? 's' : 'c',
-    def: stepped ? idxOf(r, r.default_v) : r.default_v, labels: stepped ? r.options : undefined, fmt: stepped ? undefined : v => ENG.display(r, v) };
+    def: stepped ? idxOf(r, r.default_v) : r.default_v, labels: stepped ? r.options : undefined, fmt: stepped ? undefined : v => ENG.display(r, v), locked: dev.mode(r.key) === 'exempt' };
+  Object.defineProperty(base, 'g', { get: () => { const v = dev.shown(r.key); return stepped ? idxOf(r, v) : v; }, set: v => { write(r, stepped ? vOf(r, v) : v, null); }, enumerable: true });
   base.vals = new Proxy([0, 0, 0, 0], {   // the master's rows hold an option's index; the device holds its 0..1 value
     get(t, k, rc) { if (typeof k === 'string' && /^[0-3]$/.test(k)) { const v = dev.corner(r.key, +k); return stepped ? idxOf(r, v) : v; } return Reflect.get(t, k, rc); },
     set(t, k, v) { if (typeof k === 'string' && /^[0-3]$/.test(k)) write(r, stepped ? vOf(r, v) : v, +k); return true; } });
@@ -677,12 +717,12 @@ const LAWS = ['blend', 'quantum', 'stepped'];
 let mw = null;
 function morphBench() {
   const pad = h('div', { id: 'morphPad', class: 'mw-pad' }), barBanner = h('div'), barScale = h('div'), barLock = h('div'),
-    insp = h('div', { id: 'morphInsp' }), cross = h('div'), find = h('div'), grid = h('div', { id: 'morphGrid' }),
+    insp = h('div', { id: 'morphInsp' }), modeHost = h('div', { id: 'morphMode' }), cross = h('div'), find = h('div'), grid = h('div', { id: 'morphGrid' }),
     blendHost = h('div', { id: 'morphBlend' }), blendNote = h('span', { class: 'hd-hint', id: 'morphBlendNote' }),
     crossCard = card('Across the pad', 'HEARD', [cross]), blendCard = card('Blend map', 'WAYPOINTS', [blendHost]);
   const root = h('div', { class: 'mw', id: 'morphBench' },
     h('div', { class: 'mw-top' }, h('div', { class: 'mw-left' }, pad, barBanner, barScale, barLock, blendNote),
-      h('div', { class: 'mw-right' }, card('Selected row', 'CORNERS', [insp]), crossCard, blendCard)),
+      h('div', { class: 'mw-right' }, card('Selected row', 'CORNERS', [modeHost, insp]), crossCard, blendCard)),
     h('div', { class: 'mw-field' }, card('Find', 'FIELD', [find]), grid));
   mw = { root, mounted: false, open: false, mount() {
     if (this.mounted) return; this.mounted = true;
@@ -706,8 +746,10 @@ function morphBench() {
       H.XYPad(pad, S, { size: 320, census: true, relative: true });
       H.QuantumPad(pad, S);
       H.QuantumBanner(barBanner, S); H.MorphScaleBar(barScale, S); H.LockBar(barLock, S);
-      H.MorphInspector(insp, S); this.cross = H.CrossSection(cross, S, { pad });
-      this.grid = H.MorphGrid(grid, S, { rows, maxHeight: 420, title: 'Morph field', rev: () => dev.rev() });
+      H.MorphInspector(insp, S);
+      this.mode = H.MorphMode(modeHost, { read: () => { const k = S.selected, r = k && ROW[k]; return r && r.class !== 'D' ? keyModeState(k) : null; }, onMode: m => { setKeyMode(S.selected, m); this.mode.render(); }, onCount: n => { dev.setCount(S.selected, n); S.say(ROW[S.selected].label + ': count ' + (n || 'as the morph')); this.mode.render(); } });
+      this.cross = H.CrossSection(cross, S, { pad });
+      this.grid = H.MorphGrid(grid, S, { rows, maxHeight: 420, title: 'Morph field', rev: () => dev.rev(), modeOf: k => dev.mode(k) });
       H.FindPane(find, S, this.grid);
     } finally { S.add = add0; }
     // One gesture on any of these is one history step, and a boundary drag moves the row's regions, so the knobs' owners follow.
@@ -718,7 +760,7 @@ function morphBench() {
     let bm = null, bmSig = '';
     const bmRow = (k, r) => ({ name: r.label, min: 0, max: 1, fmt: v => ENG.display(r, v), corners: [0, 1, 2, 3].map(i => dev.corner(k, i)), pins: dev.pins(k) });
     this.blend = () => {
-      const k = S.selected, r = k && ROW[k], law = LAWS[dev.morphSettings().law], ok = !!r && r.class === 'M' && r.law !== 'step' && law === 'blend', held = !ok && !!r && dev.pins(k).length;
+      const k = S.selected, r = k && ROW[k], law = LAWS[dev.morphSettings().law], ok = !!r && r.class === 'M' && r.law !== 'step' && law === 'blend' && dev.mode(k) === 'follow', held = !ok && !!r && dev.pins(k).length;
       blendNote.textContent = held ? r.label + ' has ' + held + (held === 1 ? ' waypoint' : ' waypoints') + ', dormant until BLEND.' : '';
       blendNote.hidden = !held; blendCard.style.display = ok ? '' : 'none'; crossCard.style.display = ok ? 'none' : ''; pad.classList.toggle('bm-on', ok);
       if (!ok) { if (bm) { bm.destroy(); bm = this.bm = null; blendHost.replaceChildren(); } return; }
@@ -737,7 +779,8 @@ function morphBench() {
       const ms = dev.morphSettings(), law = LAWS[ms.law];
       if (law !== lastLaw) { lastLaw = law; if (M.mode !== law) { M.mode = law; M.trace = []; } }
       else if (M.mode !== law) { lastLaw = M.mode; dev.setMorphLaw(LAWS.indexOf(M.mode), 'Morph law: ' + M.mode); }
-      pad.classList.toggle('no-row', !S.selected || !S.params[S.selected]); this.blend();
+      pad.classList.toggle('no-row', !S.selected || !S.params[S.selected]); this.mode.render(); this.blend();
+      root.classList.toggle('exempt-row', !!S.selected && dev.mode(S.selected) === 'exempt');   // GUI-21, MO-12: an Exempt row has no regions to see, drag or lock
       M.cohesion = ms.cohesion; M.seed = ms.seed; M.rate = ms.rate; M.glide = ms.glide;
     } });
   } };
@@ -1554,6 +1597,9 @@ function openMenu(key, x, y) {
   closeMenu();
   const r = ROW[key], ctl = ctlOf(page, key);
   const item = (title, fn) => { const b = h('button', { class: 'hd-btn hd-focus', type: 'button', role: 'menuitem', text: title }); b.addEventListener('click', () => { closeMenu(); fn(); }); return b; };
+  // ADR-291 r3: the mode menu. Absent where it can't apply (ADR-110): a Device row isn't in the morph.
+  const modeHost = r.class !== 'D' ? h('div') : null;
+  if (modeHost) H.MorphMode(modeHost, { read: () => keyModeState(key), onMode: m => { closeMenu(); setKeyMode(key, m); }, onCount: n => { closeMenu(); dev.setCount(key, n); S.say(r.label + ': count ' + (n || 'as the morph')); } });
   menu = h('div', { class: 'hd-card menu', role: 'menu', 'aria-label': r.label + ' menu' },
     h('div', { class: 'head' }, h('span', { class: 'hd-cluster', text: r.label }), h('span', { class: 'hd-hint', text: r.key })),
     h('div', { class: 'face' },
@@ -1564,6 +1610,7 @@ function openMenu(key, x, y) {
       item('Open in manual', () => S.say('Open in manual (stub): no page exists yet. B583 needs the manual’s HTML pages (B451); this would open the local manual at #param-' + r.key + '.')),
       dev.canRoute(key) ? h('span', { class: 'hd-hint', text: 'Map to' }) : null,   // GUI-9 r4: the macros and the axes, which are macros
       dev.canRoute(key) ? h('div', { class: 'hd-mapgrid' }, dev.sources().filter(s => s.kind === 'macro').map(s => item(s.name, () => addMapping(s.id, key)))) : null,
+      modeHost,
       ctl && ctl.live ? h('span', { class: 'hd-hint', text: 'Live when ' + says(ctl.live) + ' (PA-8)' }) : null));
   document.body.append(menu);
   const b = menu.getBoundingClientRect();
@@ -1854,6 +1901,27 @@ S.start();
   { const k = Object.keys(ROW).find(x => dev.canRoute(x)), e2 = { id: 'env2', name: 'ENV 2' }, n0 = dev.routes().length, first = dropMap(e2, k), n1 = dev.routes().length, again = dropMap(e2, k), n2 = dev.routes().length;
     if (first.ok) dev.undo(); dev.clearRedo();
     line(first.ok && !again.ok && n1 === n0 + 1 && n2 === n1 && dev.routes().length === n0, 'One wire (GN-20): a drag of ENV 2 onto ' + ROW[k].label + ' made ' + (n1 - n0) + ' route, and a second drag made ' + (n2 - n1) + '.'); }
+  // 4b4. GUI-28, MO-11 to MO-13: a key's mode. Controls: Follow still blends, re-picking makes no step, a locked corner refuses Exempt whole, and undo takes the mark off.
+  { const pg0 = page, keep = dev.history().past.length; setMorphOn(true); dev.setMorph({ x: .3, y: .3 }); dev.scatter(SEED); selectPage('morph'); mw.mount();
+    const lawKept = keyModeState(dev.params().find(x => x.class === 'M').key).countActs;   // D.2 defaults to Quantum, where a key's count can't act
+    dev.setMorphLaw(0, 'self-check');
+    const r = dev.params().find(x => x.class === 'M' && x.law !== 'step' && document.querySelector('[data-key="' + x.key + '"]')), k = r.key, host = document.querySelector('[data-key="' + k + '"]'), spread = () => new Set([0, 1, 2, 3].map(i => dev.corner(k, i))).size;
+    const sp0 = spread(), blend0 = dev.shown(k), own0 = dev.corner(k, dev.owner(k)), differs = blend0 !== own0, countFollow = keyModeState(k).countActs;
+    setKeyMode(k, 'quantum'); const flips = dev.shown(k) === dev.corner(k, dev.owner(k)), qMark = host.dataset.morph === 'quantum' && !!host.querySelector('.hd-mmark'), n1 = dev.history().past.length; setKeyMode(k, 'quantum'); const noStep = dev.history().past.length === n1, countQ = keyModeState(k).countActs;
+    setKeyMode(k, 'follow'); const held = dev.shown(k); S.locks[1] = true; const refused = !setKeyMode(k, 'exempt') && dev.mode(k) === 'follow'; S.locks[1] = false;
+    setKeyMode(k, 'exempt'); const one = spread() === 1 && dev.shown(k) === held && S.params[k].locked === true && host.dataset.morph === 'exempt', n2 = dev.history().past.length; S.locks[3] = true; const lockHolds = !S.writable(S.params[k], null); S.locks[3] = false; dev.set(k, .25, { corner: 2 }); const allMove = spread() === 1 && dev.corner(k, 0) === ENG.snap(r, .25);
+    while (dev.history().past.length > n2 - 1) dev.undo(); syncModes(); const back = spread() === sp0 && !host.dataset.morph && !host.querySelector('.hd-mmark') && !S.params[k].locked;
+    while (dev.history().past.length > keep) dev.undo(); dev.clearRedo(); setMorphOn(false); while (dev.history().past.length > keep) dev.undo(); dev.clearRedo(); syncModes(); selectPage(pg0);
+    line(!lawKept && sp0 > 1 && differs && countFollow && flips && qMark && noStep && !countQ && refused && one && lockHolds && allMove && back, 'Morph mode (GUI-28): ' + r.label + ' blends under Follow (control), reads its owner under Quantum with a Q mark, and under Exempt holds what was heard in all four corners, as one value, with an EX mark; re-picking makes no step, a locked corner refuses Exempt and its later writes whole, Count is drawn only while the key blends, and undo takes it all back.'); }
+  // 4b5. GUI-28, ADR-319, ADR-320 r4: names asked for in the page, all four saved together, and a saved preset deleted. Controls: a blank name saves nothing, and a locked corner refuses all four.
+  { const pg0 = page, keep = dev.history().past.length; selectPage('morph'); const inp = $('morphName').querySelector('input'), keyOn = key => inp.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true })), type = v => { inp.value = v; inp.dispatchEvent(new Event('input', { bubbles: true })); };
+    saveTo(0, 'preset'); const shown = !$('morphName').hidden; type('   '); keyOn('Enter'); const blank = dev.names()[0] === null && nameField.isOpen(); keyOn('Escape'); const esc = !nameField.isOpen() && dev.names()[0] === null;
+    saveTo(0, 'preset'); type('Glass'); keyOn('Enter'); const one = dev.names()[0] === 'Glass';
+    S.locks[2] = true; saveAllFour(); const lockRefused = !nameField.isOpen(); S.locks[2] = false;
+    const n3 = dev.history().past.length; saveAllFour(); type('Set'); keyOn('Enter'); const all = dev.names().join() === ['A', 'B', 'C', 'D'].map(c => 'Set · ' + c).join() && dev.history().past.length === n3 + 1;
+    const gone = dev.forget(1) && dev.names()[1] === null && !dev.forget(1);
+    while (dev.history().past.length > keep) dev.undo(); dev.clearRedo(); selectPage(pg0);
+    line(shown && blank && esc && one && lockRefused && all && gone && dev.names().every(n => n === null), 'Saving (GUI-28): a name is asked for in the page, where a blank saves nothing and Escape cancels; all four save as one set in one undo step, unless a corner is locked; and deleting a saved preset leaves the corner Empty.'); }
   // 4c. GUI-8 r1, r3, r4; GUI-6; GUI-8 r7. Each state is confirmed on, because the foot row's fault only showed with morph or MAP on (the human's pictures, 2026-11-02).
   { const R = e => e.getBoundingClientRect(), pg0 = page, footW = () => R($('footrow')).width, tick = () => { for (const v of views) if (v.page === '*') v.update(); for (const v of S.views) v.render(); }, widthWas = $('win').style.width;
     $('win').style.width = '980px';   // self-checks run before the `win` flag and in whatever the page is wide: the plugin's window is 980 px, and that's what this measures

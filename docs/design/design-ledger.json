@@ -100,6 +100,10 @@
   {
    "version": "1793813622-b097",
    "evidence": "docs/design/arp-face/README.md: GUI-21, 2026-11-04"
+  },
+  {
+   "version": "1793839663-3038",
+   "evidence": "docs/design/arp-face/README.md: GUI-28, 2026-11-04"
   }
  ],
  "vendoring": {
@@ -326,7 +330,7 @@
   "page-chrome-lab.html": {
    "status": "ruled",
    "adr": "ADR-315",
-   "note": "The docked morph pad and the info box (ADR-315); B556 and B557 (the morph mode menu, ADR-291 item 3) are still open."
+   "note": "The docked morph pad and the info box (ADR-315); B557's menu and marks reached the master as MorphMode (GUI-28). B556 was built in the shell."
   },
   "patch-model-lab.html": {
    "status": "exploring",
@@ -3544,15 +3548,15 @@
    "adr": "ADR-291",
    "clause": "ruling 3 (a per-parameter morph mode menu: Follow, Quantum, Exempt; patch state)",
    "lab": "docs/design/page-chrome-lab.html",
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "MorphMode",
+   "master_version": "1793839663-3038",
+   "bundle": "MorphMode",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: H.MorphMode(modeHost,",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "morph-mode",
-   "note": "No master README or component holds a mode menu (the master only says exempt parameters show no tint; MorphGrid and MorphInspector leave EXEMPT out); gui3/README lists 'the per-parameter morph mode (B557)' as not in this slice. ADR-324 H1 and ADR-325 X30 add Two/Four to the same menu. FX device: applies to FX-module parameters."
+   "note": "In the control's menu and the Morph page's selected row, with its marks (GUI-28). The stand-in plays Exempt and Quantum. FX device: applies to FX-module parameters."
   },
   {
    "id": "adr291-pad-every-page",
@@ -3859,30 +3863,30 @@
    "adr": "ADR-319",
    "clause": "ruling 1 (a 'save preset to [corner]' control on each corner)",
    "lab": null,
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "NameField",
+   "master_version": "1793839663-3038",
+   "bundle": "NameField",
    "via": null,
-   "shell": "docs/design/gui3.html: 'Save preset to ' + c.id",
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: label: kind === 'sound'",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "morph-editor",
-   "note": "Shell has a row of hd-btns under CornerChips, wired to device.js D.savePreset; the master CornerChip README has lock and revert on the chip but no save action (proposal 10: it belongs on the chip row). ADR-321 ruling 1 fixes its meaning."
+   "note": "Wired to device.js D.savePreset; named by the master's NameField (GUI-28). ADR-321 ruling 1 fixes its meaning. On the chip row is still proposal 10."
   },
   {
    "id": "adr319-save-sound-to-snapshot",
    "adr": "ADR-319",
    "clause": "ruling 1 (a 'save current sound to snapshot' button that prompts for a preset name)",
    "lab": null,
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "NameField",
+   "master_version": "1793839663-3038",
+   "bundle": "NameField",
    "via": null,
-   "shell": "docs/design/gui3.html: Save current sound to snapshot",
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: label: kind === 'sound'",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "morph-editor",
-   "note": "Shell has it, wired to device.js D.saveSoundTo (one undo step); the button is an hd-btn and the name comes from the browser's prompt, because the master has no naming dialog or disabled button (proposals 8, 9)."
+   "note": "Wired to device.js D.saveSoundTo (one undo step); the name comes from the master's NameField now, not the browser's prompt (GUI-28). What it stores is GN-35."
   },
   {
    "id": "adr319-widget-rule",
@@ -3934,15 +3938,15 @@
    "adr": "ADR-320",
    "clause": "ruling 4 (the x beside a saved snapshot deletes it; a button saves all four snapshots together)",
    "lab": "docs/design/random-lab.html",
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "NameField",
+   "master_version": "1793839663-3038",
+   "bundle": "NameField",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: function saveAllFour()",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "random-page",
-   "note": "Lab fixes for the Random panel's snapshots; the shell's Morph page has per-corner save buttons but no save-all-four button (gui3.html: only 'Save current sound to snapshot' and 'Save preset to' per corner). Ruling 3 (the morph laws on the lab's pad) is audio behaviour, not design. FX device: applies."
+   "note": "On the Morph page's corners (GUI-28): Save all four, and a delete button beside a saved preset. FX device: same."
   },
   {
    "id": "adr321-explicit-save-frozen-corner",
@@ -4114,30 +4118,30 @@
    "adr": "ADR-324",
    "clause": "H1 (at most two / up to four is a global morph setting and also an option on each parameter's morph mode menu, layered with Blend, Quantum and stepped)",
    "lab": "docs/design/morph-blend-demo.html",
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "MorphMode",
+   "master_version": "1793839663-3038",
+   "bundle": "MorphMode",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: H.MorphMode(modeHost,",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "morph-mode",
-   "note": "The global setting is D.2's morph.count, a generated control in the shell (shell-data.js), held by the resolver stub but not obeyed (gui3/README: the count is the resolver's, MO-6 to MO-10); the per-parameter menu does not exist in the master or the shell (see adr291-morph-mode-menu). H2 to H12 are engine law, not design. FX device: same menus."
+   "note": "On the menu with the mode (GUI-28), drawn only while it can act. Held and sent to the resolver, not heard until the real resolver (GN-29)."
   },
   {
    "id": "adr325-count-every-param-menu",
    "adr": "ADR-325",
    "clause": "X30 (the Two/Four choice is on every parameter's morph mode menu; a structural group takes the smallest count among its blending keys)",
    "lab": null,
-   "component": null,
-   "master_version": null,
-   "bundle": null,
+   "component": "MorphMode",
+   "master_version": "1793839663-3038",
+   "bundle": "MorphMode",
    "via": null,
-   "shell": null,
-   "state": "ruled",
+   "shell": "docs/design/gui3.html: H.MorphMode(modeHost,",
+   "state": "in-shell",
    "superseded_by": null,
    "port_tab": "morph-mode",
-   "note": "Widens ADR-324 H1 from structural keys to every parameter; the menu is not in the master or the shell. X28, X29 and X31 to X35 are engine and resolver law. FX device: same."
+   "note": "On every morphing key's menu (GUI-28). The smallest-wins rule for a structural group is the resolver's (MO-17). FX device: same."
   },
   {
    "id": "adr326-sync-division-toggles",
@@ -6073,6 +6077,36 @@
    "superseded_by": null,
    "state": "in-shell",
    "master_version": "1793813622-b097"
+  },
+  {
+   "id": "gui28-mode-marks",
+   "adr": "GUI-28",
+   "clause": "a Q or EX mark on every face and field row; Exempt dashes the box and shows no regions",
+   "port_tab": "morph-mode",
+   "note": "The lab's marks, through the master. The exempt band in the field is not taken. FX device: same.",
+   "component": "MorphMode",
+   "bundle": "MorphMode",
+   "shell": "docs/design/gui3.html: H.MorphMode.mark(e,",
+   "lab": "docs/design/page-chrome-lab.html",
+   "via": null,
+   "superseded_by": null,
+   "state": "in-shell",
+   "master_version": "1793839663-3038"
+  },
+  {
+   "id": "gui28-name-field",
+   "adr": "GUI-28",
+   "clause": "a name is asked for in the page",
+   "port_tab": "morph-editor",
+   "note": "Replaces window.prompt, which a plugin webview may not have. FX device: same.",
+   "component": "NameField",
+   "bundle": "NameField",
+   "shell": "docs/design/gui3.html: H.NameField(nameHost,",
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "in-shell",
+   "master_version": "1793839663-3038"
   }
  ],
  "not_design": [
@@ -7148,7 +7182,12 @@
   ],
   "GUI-25": "none: where a panel and a tab sit in the window. The page list is the shell's own.",
   "GUI-26": "none: which pad shows on a page and the order of a page's cards. Corners, snapshots and the pad behave as before.",
-  "GUI-27": "none: a rule about what gets recorded. The needs its audit found hang from their own rulings."
+  "GUI-27": "none: a rule about what gets recorded. The needs its audit found hang from their own rulings.",
+  "GUI-28": [
+   "GN-21",
+   "GN-29",
+   "GN-40"
+  ]
  },
  "audit_notes": [
   "[A] Counts: 33 design ADRs with 56 rows (ruled 31, of which 6 superseded and 7 legacy-only; wired 9; in-shell 7; vendored 4; in-master 4; unknown 1); 79 not_design. Every primary heading ADR-001..ADR-112 appears exactly once. Headings out of numeric order (ADR-052, ADR-053 before ADR-051; ADR-095, 094, 093, 092; ADR-091 A1-A4 after ADR-112 A3) were all covered. One non-ADR heading sits in range: 'NOTICE · Library standby (plugin-skeleton FOUNDATIONS)', line 661, not design and not listed.",

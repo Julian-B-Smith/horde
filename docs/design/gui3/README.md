@@ -556,6 +556,7 @@ A section's readout slot is fixed at the width its header leaves, up to 250 px, 
   count, the glide and the real draw are the resolver's (MO-6 to MO-10) and come with it.
 - **The rack order** on the FX page (Echo, Scape, Shriek, Bulwark's compressor, then Bulwark's limiter as
   the master) is the FX chain lab's, not a ruling.
+- **The per-key mode (GUI-28):** Follow, Quantum or Exempt and Two or Four, in a control's menu and the Morph page's selected row. The device's stand-in plays the mode, and nothing plays the count yet.
 - **The Randomize panel** on the Random page (GUI-25) is a placeholder that lists its contents to come (ADR-318,
   ADR-320, ADR-321, ADR-322 item 1) and links to the Random lab, which stays the bench.
 - **Not in this slice:** the other pages' designs (B581's order), the rest of the Morph page (B581 step

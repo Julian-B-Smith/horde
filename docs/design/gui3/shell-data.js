@@ -735,13 +735,14 @@ window.GUI3_DATA = {
     "asked": "",
     "id": "morph-mode",
     "item": "The per-parameter morph mode (Follow, Quantum, Exempt) on every morphing control",
+    "missing": "The field's exempt band, and the real resolver: the stand-in plays the mode, and nothing plays the count.",
     "reason": "ruling",
     "roadmap": "B557",
     "source": [
      "docs/design/page-chrome-lab.html"
     ],
-    "status": "not-moved",
-    "why": "B557's open questions (what Exempt holds, Quantum on a structural row) are not ruled; D.4 (MO-11) states each key's mode in the spec."
+    "status": "partial",
+    "why": "GUI-28: the menu and its marks are in the shell, on the stand-in, and D.4 (MO-11 to MO-13) answers B557's questions. The human hasn't looked at it yet."
    },
    {
     "area": "Mod",

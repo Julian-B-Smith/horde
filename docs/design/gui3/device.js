@@ -72,7 +72,9 @@
     // st is everything undo restores. The morph position (pos) is deliberately outside it (ADR-319 item 2).
     var st = { corners: [{}, {}, {}, {}], dev: {}, routes: [], nextRoute: 1, morphOn: false, audible: 0,
       names: [null, null, null, null], saved: [null, null, null, null], regions: {},   // regions: a row's own locked region offsets (B269), so undo restores them
-      pins: {}, blend: { law: 'tps', clamp: true } };   // a row's waypoints (B235) and the patch's waypoint law (B272). Held, drawn and undone; the stub's blend doesn't hear them
+      pins: {}, blend: { law: 'tps', clamp: true },
+      modes: {}, counts: {} };   // MO-11: a key's mode and count, where they differ from the defaults. Per patch, never morphed
+      // a row's waypoints (B235) and the patch's waypoint law (B272). Held, drawn and undone; the stub's blend doesn't hear them
     morphing.forEach(function (r) { for (var i = 0; i < 4; i++) st.corners[i][r.key] = r.default_v; });
     rows.forEach(function (r) { if (r.class === 'D') st.dev[r.key] = r.default_v; });
     var pos = { x: 0.5, y: 0.5 }, owners = Object.create(null);
@@ -130,7 +132,8 @@
       if (key === 'morph.on') return st.morphOn ? 1 : 0;
       if (key === 'morph.audible') return st.audible / 3;
       if (r.class === 'D') return st.dev[key];
-      if (r.class === 'S') return st.corners[owners[key]][key];
+      if (st.modes[key] === 'exempt') return st.corners[0][key];   // MO-12: corner A's value, at every position
+      if (r.class === 'S' || st.modes[key] === 'quantum') return st.corners[owners[key]][key];   // MO-11: flips at its boundaries, whatever the law is
       var w = weights(), b = 0; for (var i = 0; i < 4; i++) b += w[i] * st.corners[i][key]; return b;
     }
     /* Send the heard values of `keys` (all by default) as one message. A value the adapter sends replaces an
@@ -171,7 +174,8 @@
       if (moved) rev++;
     }
     function snapshot() { return JSON.stringify(st); }
-    function apply(s) { st = JSON.parse(s); reown(); send(); rev++; }
+    function sendModes() { transport.send({ type: 'modes', seq: ++seq, modes: st.modes, counts: st.counts }); }   // IF-12: to the resolver, never the engine
+    function apply(s) { st = JSON.parse(s); reown(); send(); sendModes(); rev++; }
     function changed() { rev++; }
 
     /* A transaction: begin/end bracket one undo step. Nested begins join the outer one. */
@@ -224,6 +228,12 @@
       v = snap(r, v);
       if (key === 'morph.on') { D.setMorph({ on: v >= 0.5 }); return v; }
       if (key === 'morph.audible') { D.setAudible(Math.round(v * 3)); return v; }
+      // An Exempt key has one value, whichever corner a face addresses, so the four never part (MO-12). Morph off's freeze has no corner to protect here.
+      if (st.modes[key] === 'exempt') {
+        if (st.corners[0][key] === v) return v;
+        step((o && o.label) || r.label, function () { for (var c = 0; c < 4; c++) st.corners[c][key] = v; });
+        send([key]); changed(); return v;
+      }
       var want = o && o.corner !== undefined && o.corner !== null ? o.corner : null, i;
       if (r.class === 'D') i = null;
       else if (!st.morphOn) { if (want !== null && want !== st.audible) return null; i = st.audible; }
@@ -254,6 +264,24 @@
     /* Corners: names (a preset's name, never product copy; null reads "Empty"), saved presets, revert. */
     function okName(n) { return typeof n === 'string' && n.trim().length > 0 && n.trim().length <= NAME_MAX; }
     D.names = function () { return st.names.slice(); };
+    /* MO-11 to MO-13: a key's mode and count. One pick is one undo step, and re-picking makes none. Making a key Exempt writes what's heard now into all four
+       corners, so nothing jumps; going back leaves them equal, so nothing jumps then either. Only the mode changes what the stub plays: the count is held and sent. */
+    D.mode = function (key) { return st.modes[key] || 'follow'; };
+    D.count = function (key) { return st.counts[key] || 0; };
+    D.modes = function () { return copy(st.modes); };
+    D.setMode = function (key, mode) {
+      var r = by[key]; if (!r || r.class === 'D' || ['follow', 'quantum', 'exempt'].indexOf(mode) < 0 || D.mode(key) === mode) return false;
+      step('Morph mode: ' + r.label + ', ' + mode, function () {
+        if (mode === 'exempt') { var held = heard(key); for (var c = 0; c < 4; c++) st.corners[c][key] = held; }
+        if (mode === 'follow') delete st.modes[key]; else st.modes[key] = mode;
+      });
+      reown(); send([key]); sendModes(); changed(); return true;
+    };
+    D.setCount = function (key, n) {
+      var r = by[key]; if (!r || r.class === 'D' || [0, 2, 4].indexOf(n) < 0 || D.count(key) === n) return false;
+      step('Morph count: ' + r.label + ', ' + (n || 'as the morph'), function () { if (n) st.counts[key] = n; else delete st.counts[key]; });
+      sendModes(); changed(); return true;
+    };
     /* "Save current sound to snapshot" (ADR-319 item 1): what is heard now becomes corner i, named, and saved. */
     D.saveSoundTo = function (i, name) {
       if (!(i >= 0 && i < 4) || !okName(name)) return { ok: false, why: 'a corner A to D and a name of 1 to ' + NAME_MAX + ' characters' };
@@ -263,6 +291,18 @@
       });
       reown(); send(morphing.map(function (r) { return r.key; })); changed(); return { ok: true };
     };
+    /* ADR-320 r4: all four as one set, named together. Each corner's own values, like Save preset. */
+    D.saveAll = function (name) {
+      if (!okName(name) || name.trim().length > NAME_MAX - 4) return { ok: false, why: 'a name of 1 to ' + (NAME_MAX - 4) + ' characters' };
+      step('Save all four corners as ' + name.trim(), function () { for (var i = 0; i < 4; i++) { st.names[i] = name.trim() + ' · ' + CORNER_IDS[i]; st.saved[i] = copy(st.corners[i]); } });
+      changed(); return { ok: true };
+    };
+    /* ADR-320 r4: delete a saved snapshot. The corner keeps its values and goes back to Empty, with nothing to revert to. */
+    D.forget = function (i) {
+      if (!(i >= 0 && i < 4) || !st.saved[i]) return false;
+      step('Delete ' + st.names[i] + ' from corner ' + CORNER_IDS[i], function () { st.names[i] = null; st.saved[i] = null; });
+      changed(); return true;
+    };
     /* "Save preset to [corner]": corner i's own values become its saved preset, under a name. */
     D.savePreset = function (i, name) {
       if (!(i >= 0 && i < 4) || !okName(name)) return { ok: false, why: 'a corner A to D and a name of 1 to ' + NAME_MAX + ' characters' };
@@ -271,11 +311,11 @@
     };
     D.edited = function (i) {
       var s = st.saved[i]; if (!s) return false;
-      return morphing.some(function (r) { return st.corners[i][r.key] !== s[r.key]; });
+      return morphing.some(function (r) { return st.modes[r.key] !== 'exempt' && st.corners[i][r.key] !== s[r.key]; });
     };
     D.revert = function (i) {
       if (!st.saved[i] || !D.edited(i)) return false;
-      step('Revert corner ' + CORNER_IDS[i] + ' to ' + st.names[i], function () { st.corners[i] = copy(st.saved[i]); });
+      step('Revert corner ' + CORNER_IDS[i] + ' to ' + st.names[i], function () { var was = st.corners[i]; st.corners[i] = copy(st.saved[i]); for (var k in st.modes) if (st.modes[k] === 'exempt') st.corners[i][k] = was[k]; });   // an Exempt key keeps its one value
       send(morphing.map(function (r) { return r.key; })); changed(); return true;
     };
     D.sources = function () { return SOURCES; };
@@ -383,7 +423,7 @@
       s = s >>> 0;
       step('Scatter corners (seed ' + s + ')', function () {
         morphing.forEach(function (r) {
-          if (r.class !== 'M') return;
+          if (r.class !== 'M' || st.modes[r.key] === 'exempt') return;
           var g = mulberry32(hash32(r.key) ^ (s * 2654435761 >>> 0));
           for (var i = 1; i < 4; i++) st.corners[i][r.key] = clamp01(st.corners[0][r.key] + (g() - 0.5) * 0.6);
         });
@@ -394,9 +434,9 @@
       step('Reset to the init patch', function () {
         morphing.forEach(function (r) { for (var i = 0; i < 4; i++) st.corners[i][r.key] = r.default_v; });
         rows.forEach(function (r) { if (r.class === 'D') st.dev[r.key] = r.default_v; });
-        st.routes = []; st.names = [null, null, null, null]; st.saved = [null, null, null, null];
+        st.routes = []; st.names = [null, null, null, null]; st.saved = [null, null, null, null]; st.modes = {}; st.counts = {};
       });
-      reown(); send(); changed();
+      reown(); send(); sendModes(); changed();
     };
     /* past: the labels from the start to where you stand. future: the redo chain, the next one last. */
     D.history = function () {

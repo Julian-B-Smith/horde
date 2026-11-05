@@ -28,7 +28,7 @@ Four corners by every member of the morph field: what each corner holds, row by 
 **Placeholders**
 - Undo. A local history on the session stands in for a host that has none. A host with its own undo sets `H.Morph.state(S).history = { record(e), undo(), redo(), canUndo(), canRedo() }`, and the grid and the inspector then use only that, so there's one stack (B84: one node per gesture).
 - Morph off. `H.Morph.state(S).solo`, a function giving the one corner heard, makes HEARING, the weights and the owner read that corner, whatever the pad says (ADR-319 item 1). Null or absent: the pad decides.
-- EXEMPT (ADR-109) and NOT IN THE FIELD rows. The lab draws both; they are not in this brief, so the grid has no exempt band or absent rows yet.
+- NOT IN THE FIELD rows and an exempt band. The lab draws both, and the grid has neither yet. With `opts.modeOf(key)`, a row's name carries its override's tag (MorphMode).
 
 **Sources** `docs/design/morph-editor-lab.html`: grid CSS :278-386; kinds :1945-1958; the grid :1960-2097; the staged edit it replaces :3598-3815 (ADR-266 r9 wins: live, no COMMIT). ADR-262 r3-r4.
 
