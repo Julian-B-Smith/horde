@@ -767,6 +767,9 @@ function suite(W) {
     const t = W.__shellText;
     ok(t.includes('else if (pg.deck) mainPage(pg, el);'), 'Main is not built from its deck');
     for (const part of ['H.Deck(deckHost,', "H.AssignXY($('mainXY'), S,", 'H.MainStage', 'stage.logoCanvas()']) ok(t.includes(part), 'Main no longer uses the master\u2019s ' + part);
+    // GUI-34: while it shows, the pearl isn't under the pictures' idle gate (B365's correction, the human's), and notes reach it.
+    ok(t.includes('if (!alive && !stageDue('), 'the Specimen is back under the idle gate: it stops drifting with no note playing');
+    ok(t.includes('stage.AUD.feed = fd;'), 'the notes no longer reach the Specimen');
   };
 
   /* GUI-11, ADR-291 r4: Arp's pictures come from Arp's definitions, so a new order in the manifest with no definition must not draw blank */
@@ -1120,6 +1123,8 @@ const PLANTS = [
   ['canvases', 'shell', "+ '/' + ($('win').dataset.scr || '')", ""],
   ['canvases', 'shell', '.mapbar #srcStrip .src-chip { flex: 0 0 auto; }', '.mapbar #srcStrip .src-chip { flex: 0 1 auto; }'],
   ['mainstage', 'shell', 'else if (pg.deck) mainPage(pg, el);', 'else if (pg.deckX) mainPage(pg, el);'],
+  ['mainstage', 'shell', 'if (!alive && !stageDue(', 'if (!stageDue('],
+  ['mainstage', 'shell', 'stage.AUD.feed = fd;', 'stage.AUD.feed = null;'],
   ['mainstage', 'shell', 'H.Deck(deckHost,', 'H.DeckX(deckHost,'],
   ['banklist', 'shell', "s.id === 'env1' || pend.includes(s.id)", "pend.includes(s.id)"],
   ['xyaxes', 'shell', "onAxis: id => mapCard.open(id, $('mainXY'), $('mainXY'), true)", 'onAxis: () => {}'],

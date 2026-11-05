@@ -116,6 +116,10 @@
   {
    "version": "1793855414-7128",
    "evidence": "docs/design/arp-face/README.md: GUI-33, 2026-11-05"
+  },
+  {
+   "version": "1793863122-e50c",
+   "evidence": "docs/design/arp-face/README.md: GUI-34, 2026-11-05"
   }
  ],
  "vendoring": {
@@ -1858,14 +1862,14 @@
    "clause": "adaptive render scale (floor 0.5, ceiling the display's pixels, a hysteresis band) and one full-resolution plate at rest",
    "lab": null,
    "component": "Specimen",
-   "master_version": "1793374583-b6a5",
-   "bundle": null,
+   "master_version": "1793863122-e50c",
+   "bundle": "MainStage",
    "via": null,
    "shell": null,
    "state": "in-master",
    "superseded_by": null,
    "port_tab": "specimen-xy",
-   "note": "Specimen README: 'it draws one full-resolution frame and stops (the \"plate\"). Its render scale adapts to the machine, never its frame rate.' No bundle export."
+   "note": "The adaptive scale is back (GUI-34, MainStage.specimenScale), and the bundle has held the Specimen since GUI-2. The still plate doesn't return: B365's correction keeps the pearl drifting, so there's no stillness to photograph."
   },
   {
    "id": "adr144-specimen-placement",
@@ -6223,15 +6227,30 @@
    "adr": "GUI-33",
    "clause": "pictures rest when idle and draw at 30 fps at most; blade 2's hatch is one tile",
    "port_tab": null,
-   "note": "The pace is GUI3Shell.picturePace, in shell-logic.js. FX device: the same, with audio passing in place of a voice sounding.",
+   "note": "The pace is GUI3Shell.picturePace, in shell-logic.js. FX device: the same, with audio passing in place of a voice sounding. GUI-34 amends it: the Specimen doesn't rest, and the pace is 28 ms.",
    "component": "BladeView",
    "bundle": "Viz.blade",
-   "shell": "docs/design/gui3.html: const PICTURE_MS = 33",
+   "shell": "docs/design/gui3.html: const PICTURE_MS = 28",
    "lab": null,
    "via": null,
    "superseded_by": null,
    "state": "in-shell",
    "master_version": "1793855414-7128"
+  },
+  {
+   "id": "gui34-specimen-pace",
+   "adr": "GUI-34",
+   "clause": "the Specimen draws at 30 Hz, adapts its scale (ADR-144), keeps drifting with no note (B365's correction), and notes strike it through dev.feed()",
+   "port_tab": "specimen-xy",
+   "note": "Repairs GUI-33's double divider and idle rest, and restores ADR-144's scale, which the bench's port had lost. FX device: its feed is ADR-262 r1's audio-driven stand-in.",
+   "component": "Specimen",
+   "bundle": "MainStage",
+   "shell": "docs/design/gui3.html: stage.AUD.feed = fd",
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "in-shell",
+   "master_version": "1793863122-e50c"
   }
  ],
  "not_design": [
@@ -7336,6 +7355,10 @@
   "GUI-33": [
    "GN-45",
    "GN-46"
+  ],
+  "GUI-34": [
+   "GN-45",
+   "GN-47"
   ]
  },
  "audit_notes": [

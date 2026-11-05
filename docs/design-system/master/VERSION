@@ -4,7 +4,7 @@
 # (python3 tools/design_vendor.py record-master --version <id> --date <d>) and re-vendor.
 # tools/design_chain_check.py holds the tree to these hashes: every file listed, none extra.
 artifact: https://claude.ai/artifact/EGDwetDHwcvxhTbNffCzJc
-version: 1793855414-7128
+version: 1793863122-e50c
 date: 2026-11-05
 files: 187
 3295c4838005a6b54b4d7f95e31e3bd6c27c62f92a99a8b6b0eb899b10b2314e  README.md
@@ -163,7 +163,7 @@ d82de59c588af2261e3aaee6c15f86833ae544f15d78245ed569d0a0d9921c1c  components/Sou
 6627dd2c907a7d365c57f5207406f02eb44644a1dd4c65c1e72dff9ba085eebb  components/SourceRows/preview.html
 9ca82fac46c271a7ee260d998215fad2b994b8022d7cd57e133b26e0f2afcf24  components/SourceStrip/README.md
 531aeccedbba4abf688a2ebb0256504094d60fb5f26ed56a67cd863a5ea9354c  components/SourceStrip/preview.html
-bd0863c95edc6c1db782b86038d2a1727186ec7a706e72be4149989255525e6b  components/Specimen/README.md
+c084ba6f0dfcd2dd237be77c4fe80e5f98b7c33b4714d4f842c57034d0287aa2  components/Specimen/README.md
 9450ea55c06746b7e38816487991600c41e4a1389ff1fedf5e0f6de9ef84a68e  components/Specimen/preview.html
 c934ccbc9a29ac075bb5a13da134cf9c2076a315bc1449afbe32656729ffbcab  components/Spectrum/README.md
 6b381eb32f3466aa8eac8ee8959631a7640fe681dca7ceeadc6d55934136e92b  components/Spectrum/preview.html
@@ -188,7 +188,7 @@ a18ecfe745ed481016abed2f88491fa90ad8567b0a32d9df1747ad51dd94b65d  components/Tem
 706ba6c02712c8df590f7282f772c49d01bd0a957e6c25748cb43ab0eaa1e0f7  components/XYPad/README.md
 d701129232df94a3ea81b2499559b1f13bd8cf22f065b70b2c7f0d666e2ce3d8  components/XYPad/preview.html
 0995d1fff8ee8a0609304d83923cdb860ec72b1494091167ff4b8427920cd315  components/bundle.css
-ca13f40af844ea1f18f43e7a6d826341fd200c8969384fb544b748be8f895be0  components/bundle.js
+30eba8c26aa566b7d2d8721c66367afc2098e3bc55b51286e151be29a0dba19c  components/bundle.js
 0a32df0d0ffa183003e52fb8ea26bc6c57bf767abde98aca0751ec7270a482ac  components/index.d.ts
 6c3f598e97da2ab5ed7ce3e02d35e32afb208bd1c7ddcb32335f97ee701c2901  contrast-audit.md
 b22892adec0ac89e9c3eb244e52d609e0e94a11a8a45fe986acd5a1c750ce8d3  design-system.json

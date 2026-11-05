@@ -11778,6 +11778,8 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 
 **ADR-099 A1 still holds:** it asks that a merely silent oscillator's visuals don't freeze while others move. This gate asks about any voice, so a silent oscillator keeps moving while a note plays.
 
+**Amended by GUI-34:** the Specimen doesn't rest, and the pace is 28 ms.
+
 **Readings (the GUI session's, open to the human).**
 - **30 fps and 2 s are this session's numbers,** and they're one constant each.
 - **Host automation of the XY with no note playing doesn't move the Specimen,** since nothing's sounding and no hand is there. A setting the pictures show still redraws them.
@@ -11790,6 +11792,32 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 **FX device (ADR-254).** The pace applies to its pictures too, with audio passing in place of a voice sounding.
 
 **Engine impact.** GN-45, GN-46.
+
+## GUI-34 — The Specimen: 30 Hz, its adaptive resolution back, it keeps drifting, and notes strike it through a feed (GB20; ADR-139, ADR-140, ADR-144, B365; 2026-11-05)
+
+**Context.** The human's first readings in Ableton, 2026-11-05: 59 fps, frame 17 / p95 17 to 18 ms, js 2 to 3 / p95 3 to 6 ms and 0 % over budget, on Main and on Osc 1, resting, moving and held awake. And: "The specimen is particularly choppy; maybe we could see it with the performance-responsive ripples from the legacy plugin and scalpel lab. Note: we came up with some kind of performance fix for it in the legacy device, but I forget exactly what".
+
+**Measured first.** The same page with the pearl's own rate added to the readout, held awake: 60 fps, **pearl 10 Hz, 0.50 s of motion per second**, one draw 1.7 ms of GPU at 466 x 514. So the frame loop was never the fault, and the cause was this session's:
+- **GUI-33 divided it twice.** Its 30 fps pace sat on the Specimen's own every-third-call divider, so 60 fps became 10 Hz, and each 100 ms draw was capped at 50 ms of motion, so the pearl ran at half speed. The logo's divider halved it to 15 Hz the same way.
+- **GUI-33 also stretched a ruling.** It rested the Specimen when idle. The human ruled the opposite on B365, 2026-09-29: "I still want the specimen to shift around when notes aren't playing, I just don't want the note-dependent ripples to trigger unless there's a note pressed." "Yes, fix them" didn't overturn that, and it wasn't asked.
+- **The legacy fix was ADR-144's adaptive resolution,** and the bench's port had lost it: the master's scale was fixed at the display's pixels, while its README still said the scale adapts.
+- **No notes reached it.** The shell had no seam for them, so nothing could strike it.
+
+**What changes (a repair, and the human's standing rulings put back; the readings below are this session's).**
+- **Rate:** 30 Hz at 60 fps. The divider counts display frames, not calls, so a host can't divide it twice, and the logo's does too. `SPECIMEN.every` holds it.
+- **Idle:** while it shows, it never rests; B365's law stands, so with no note the ripple and quiver settle to exactly 0 and the drift goes on. Off Main the logo still rests, and under reduced motion so does the pearl. **Amends GUI-33** for the Specimen, and ADR-144's still "plate" doesn't return, because B365 removed the stillness it photographed.
+- **Resolution:** ADR-144's law, back: between 0.5x and the display's pixels (2x at most), down at once, up after 40 comfortable draws, gaps over 250 ms left out. gui2's 75 and 58 ms were for a 50 ms cadence, so they're now the same ratios of the cadence. It starts at the top instead of gui2's 1.0, and a slow machine steps down within about a second.
+- **The feed:** `dev.feed()` is the shell's seam: `{ t, peak, act, env, gates, r }` or null. The stub returns null, or `window.GUI3_FEED` for a test build. A fresh gate strikes, R pulls it taut and Osc 1's Detune sets how hard the notes land, all gui2's mappings (ADR-139, ADR-144). `dev.sounding()` now answers from it, at B365's -90 dBFS.
+- **The pictures' pace:** 28 ms, not 33. Two frames at 60 Hz are 33.3 ms give or take, so a gate at 33 sometimes waited for a third, a visible hitch. It's still 30 fps at 60 Hz.
+
+**Readings (the GUI session's, open to the human).**
+- **30 Hz is this session's number:** gui2's was 20, and 60 would cost twice the GPU. The test build has a button to compare 30, 60 and 20 by eye.
+- **The pearl costs GPU at rest,** about 1.7 ms x 30 a second here, the price of B365's drift. Nothing has measured that in Live's CPU meter yet.
+- **Which oscillator's Detune sets the strike:** Osc 1. gui2's was the active oscillator, and Main has none.
+
+**Test hooks.** `window.GUI3_FEED`, the same kind as `GUI3_AWAKE`. The test build's page reshapes the legacy engine's `hzFrame` snapshot into it, so real notes in Ableton strike the pearl and the bridge's round trip is measured.
+
+**FX device (ADR-254).** It has no Main and no notes, so the feed there is ADR-262 r1's audio-driven stand-in: an onset follower fills `gates`, and level fills `peak` and `env`. The pace and scale apply unchanged.
 ## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
 
 **Context.** FM free in pitch FM runs an accumulator that never restarts, while each of C.16's readings starts it at 0, so the estimate cannot see its mean and BL-19 cannot hold by the law alone (Q-TA-71: engine-free, 95 of its 144 one-member cases over 0.003, up to 0.046). ADR-363 sent this to a scratch trial of C.16's existing blocker, with clips for the human. Separately, item 7.8's reference R2 places FM free's modulator half a cycle from round 56's start, and 7.8 plays before its settings settle (Q-TA-77).
