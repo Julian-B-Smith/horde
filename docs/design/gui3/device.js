@@ -32,12 +32,14 @@
   'use strict';
   var HYST = 0.1, NAME_MAX = 40;
   /* IF-3's published per-voice sources, plus IF-1's velocity, aftertouch and the four MPE expressions.
-     The LFOs are the device's and do not exist yet (RC-4 deferred), so they are not listed. The macros and the XY's axes
+     The LFOs are the device's and aren't in the engine yet (RC-4 deferred): they're listed MOCK, so the Mod page's editor has something to edit (GUI-37). The macros and the XY's axes
      aren't in the engine either (B89): they're here, MOCK, so routes can carry them until the intent bus does (GUI-9). The
      axes are bipolar because they rest at the pad's centre, so a new mapping offsets nothing until the puck moves. */
   var SOURCES = [
     { id: 'env1', name: 'ENV 1', kind: 'env' }, { id: 'env2', name: 'ENV 2', kind: 'env' },
     { id: 'env3', name: 'ENV 3', kind: 'env' }, { id: 'env4', name: 'ENV 4', kind: 'env' },
+    { id: 'lfo1', name: 'LFO 1', kind: 'lfo', pol: 'bi' }, { id: 'lfo2', name: 'LFO 2', kind: 'lfo', pol: 'bi' },
+    { id: 'lfo3', name: 'LFO 3', kind: 'lfo', pol: 'bi' }, { id: 'lfo4', name: 'LFO 4', kind: 'lfo', pol: 'bi' },
     { id: 'velocity', name: 'Velocity', kind: 'engine' }, { id: 'aftertouch', name: 'Aftertouch', kind: 'engine' },
     { id: 'osc1R', name: 'Osc 1 R', kind: 'engine' }, { id: 'osc1Psi', name: 'Osc 1 ψ', kind: 'engine' },
     { id: 'osc2R', name: 'Osc 2 R', kind: 'engine' }, { id: 'osc2Psi', name: 'Osc 2 ψ', kind: 'engine' },

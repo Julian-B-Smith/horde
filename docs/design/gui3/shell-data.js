@@ -659,13 +659,14 @@ window.GUI3_DATA = {
     "asked": "Random page interface (whether we fold it into morph or keep it)",
     "id": "random-page",
     "item": "The Randomize panel (levels, chaos and amount, locks, randomization presets, copying a level between corners)",
+    "missing": "Authored profiles, mod rules, level matching, the dependency tree and the pitch ruleset.",
     "reason": "ruling",
     "roadmap": "B578",
     "source": [
      "docs/design/random-lab.html"
     ],
-    "status": "not-moved",
-    "why": "GUI-25 gives it a page of its own under a top button; the Random lab's next round (ADR-320, ADR-321, ADR-322 item 1) is still being ruled, so the shell shows a placeholder card."
+    "status": "partial",
+    "why": "GUI-25 gives it a page of its own under a top button; the Random lab's next round (ADR-320, ADR-321, ADR-322 item 1) is still being ruled. The shell has a mock-up of the 1.0 set (GUI-38)."
    },
    {
     "area": "Set",
@@ -775,7 +776,7 @@ window.GUI3_DATA = {
     "asked": "FX modules",
     "id": "fx-modules",
     "item": "The FX modules' screens and their morph and modulation states",
-    "missing": "Each module's own screen on its parameter card (a labelled placeholder today: ModuleCard has no bundle export), the engine's cable state (B584 batch 1's FX rack is a serial stand-in), and Sluice and Weir, which have no manifest.",
+    "missing": "Each module's own screen on its parameter card (a labelled placeholder today: ModuleCard has no bundle export), the engine's cable state (GUI-36's corner chains are a mock-up), and Sluice and Weir, which have no manifest.",
     "reason": "ruling",
     "roadmap": "B591",
     "source": [
@@ -813,7 +814,7 @@ window.GUI3_DATA = {
      "docs/design/mod-matrix-lab.html"
     ],
     "status": "partial",
-    "why": "The LFOs, the matrix and every route are deferred from the engine (RC-4) and have no rows in a table (B586 drafts one); the shell has ENV 2 to ENV 4, the bank and its map handle."
+    "why": "The LFOs, the matrix and every route are deferred from the engine (RC-4) and have no rows in a table (B586 drafts one); the shell has ENV 2 to ENV 4, the bank, its map handle, and four MOCK LFOs that morph per corner (GUI-37)."
    },
    {
     "area": "Chrome",
@@ -10844,7 +10845,7 @@ window.GUI3_DATA = {
    "groups": [],
    "id": "random",
    "label": "Random",
-   "note": "Randomize, on a page of its own (GUI-25, which amends ADR-322 item 2). The panel is still a placeholder (B578); the corners and snapshots stay on the Morph page.",
+   "note": "Randomize, on a page of its own (GUI-25, which amends ADR-322 item 2). The panel is a mock-up of the ruled 1.0 set (GUI-38, B578); the corners and snapshots stay on the Morph page.",
    "panel": "random",
    "power": null,
    "status": "draft",

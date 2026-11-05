@@ -2888,7 +2888,7 @@
       "label": "Random",
       "status": "draft",
       "panel": "random",
-      "note": "Randomize, on a page of its own (GUI-25, which amends ADR-322 item 2). The panel is still a placeholder (B578); the corners and snapshots stay on the Morph page.",
+      "note": "Randomize, on a page of its own (GUI-25, which amends ADR-322 item 2). The panel is a mock-up of the ruled 1.0 set (GUI-38, B578); the corners and snapshots stay on the Morph page.",
       "cite": "GUI-25, ADR-322, B578",
       "groups": []
     },

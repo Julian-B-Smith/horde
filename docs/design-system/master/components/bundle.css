@@ -1633,3 +1633,45 @@ canvas.hd-ring { outline:none; }
 ::-webkit-scrollbar-thumb:hover { background:var(--ink); }
 ::-webkit-scrollbar-thumb:active { background:var(--value); }
 @supports not selector(::-webkit-scrollbar) { * { scrollbar-width:thin; scrollbar-color:var(--ink) transparent; } }
+
+/* GUI-36: the FX page's corner chains */
+.hd-fxchains { display:flex; flex-direction:column; gap:6px; }
+.hd-fxchains .fc-head { display:flex; align-items:center; gap:8px; }
+.hd-fxchains .fc-hint { margin-left:auto; }
+.hd-fxchains .fc-rows { display:flex; flex-direction:column; gap:3px; }
+.hd-fxchains .fc-row { display:flex; align-items:center; gap:6px; padding:2px 4px; border-radius:var(--radius); }
+.hd-fxchains .fc-row.near { box-shadow:inset 0 0 0 1px var(--value); }
+.hd-fxchains .fc-letter { width:14px; font:700 11px/1 var(--font-mono); color:var(--value); }
+.hd-fxchains .fc-strip { display:flex; flex:1 1 auto; flex-wrap:wrap; gap:3px; min-width:0; }
+.fc-chip { all:unset; box-sizing:border-box; cursor:pointer; touch-action:none; padding:2px 7px; font:600 10px/14px var(--font-mono); border:1px dashed var(--div); border-radius:var(--radius-meter); color:var(--hint); }
+.fc-chip.on { border:1px solid var(--ink); background:var(--panel); color:var(--ink); }
+.fc-chip.drag { box-shadow:var(--shadow-hover); }
+.fc-sub { font:400 10px/14px var(--font-mono); color:var(--text); background:var(--well); border:1px solid var(--div); border-radius:var(--radius-meter); padding:1px 2px; max-width:150px; }
+.hd-btn.hd-xs { min-height:20px; padding:0 8px; font-size:9.5px; border-radius:var(--radius-meter); }
+/* GUI-37: an LFO's four corners and what's heard */
+.hd-lfomorph { display:flex; flex-direction:column; gap:6px; }
+.hd-lfomorph .lm-bar { display:flex; align-items:center; gap:8px; }
+.hd-lfomorph .lm-read { margin-left:auto; white-space:nowrap; }
+.hd-lfomorph .lm-bar .hd-label { white-space:nowrap; }
+.hd-lfomorph .lm-bar > div { flex:none; }
+.hd-lfomorph .lm-strip { display:grid; grid-template-columns:repeat(5, 1fr); gap:4px; }
+.hd-lfomorph .lm-mini { position:relative; height:44px; padding:0; overflow:hidden; }
+.hd-lfomorph .lm-mini.sel { box-shadow:0 0 0 1.5px var(--value); }
+.hd-lfomorph .lm-mini canvas { display:block; width:100%; height:100%; }
+.hd-lfomorph .lm-cap { position:absolute; left:4px; top:2px; font:700 8.5px/1 var(--font-mono); color:var(--scr-grid); pointer-events:none; }
+/* GUI-38: the Randomize panel */
+.hd-rand { display:grid; grid-template-columns:minmax(250px, 300px) 1fr; gap:14px; }
+.hd-rand .rd-left { display:flex; flex-direction:column; gap:7px; min-width:0; }
+.hd-rand .rd-row { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+.hd-rand .rd-ex { display:flex; flex-wrap:wrap; align-items:center; gap:3px; }
+.hd-rand .rd-ex .hd-hint { flex-basis:100%; }
+.hd-rand .rd-chip { padding:1px 5px; font:400 9.5px/13px var(--font-mono); border:1px solid var(--div); border-radius:var(--radius-meter); color:var(--t2); }
+.hd-rand .rd-table { display:flex; flex-direction:column; gap:2px; min-width:0; }
+.hd-rand .rd-lv { display:grid; grid-template-columns:92px 54px 62px 46px 1fr; align-items:center; gap:6px; min-height:21px; }
+.hd-rand .rd-nt { grid-column:2 / -1; }
+.hd-rand .rd-name { font:600 10.5px/1.1 var(--font-mono); color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.hd-rand .rd-lock { all:unset; box-sizing:border-box; cursor:pointer; text-align:center; font:400 9.5px/16px var(--font-mono); border:1px solid var(--div); border-radius:var(--radius-meter); color:var(--hint); }
+.hd-rand .rd-lock[aria-pressed=true] { border-color:var(--ink); background:var(--panel); color:var(--ink); }
+.hd-rand .rd-mon { display:flex; gap:3px; }
+.hd-rand .rd-mon button { all:unset; box-sizing:border-box; cursor:pointer; width:18px; text-align:center; font:700 9.5px/16px var(--font-mono); border:1px solid var(--div); border-radius:var(--radius-meter); color:var(--hint); }
+.hd-rand .rd-mon button[aria-pressed=true] { border-color:var(--ink); background:var(--value); color:var(--panel); }

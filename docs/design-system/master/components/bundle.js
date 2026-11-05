@@ -2897,6 +2897,7 @@
         var tm = (a.t + b.t) / 2, hv = hover && hover.part === 'crv' && hover.i === i;
         K.ring(m.X(tm), m.Y(shapeAt(pts, tm)), 3.6, 'value', hv ? 2 : 1.3, hv ? 1 : .8); }
       for (i = 0; i < pts.length; i++) { var x = m.X(pts[i].t), y = m.Y(pts[i].v), r = 4, gg = K.g, VV = K.V;
+        if (cfg.parked && cfg.parked(i)) { K.ring(x, y, r - .5, 'grid', 1.3, 1); continue; }   // ADR-349: parked here, on this corner's curve; it becomes a real point when dragged
         gg.fillStyle = K.c('value'); gg.fillRect((x - r) * VV, (y - r) * VV, 2 * r * VV, 2 * r * VV);
         gg.strokeStyle = K.mix('ground', 'ground', 0, 1); gg.lineWidth = VV; gg.strokeRect((x - r) * VV, (y - r) * VV, 2 * r * VV, 2 * r * VV);
         if (i === sel || (drag && drag.part === 'pt' && drag.i === i)) { gg.strokeStyle = K.c('marker'); gg.lineWidth = 1.5 * VV; gg.strokeRect((x - r - 2.5) * VV, (y - r - 2.5) * VV, (2 * r + 5) * VV, (2 * r + 5) * VV); } }
@@ -2926,7 +2927,7 @@
     var dirty = true, hint = '';
     function cycSec() { return typeof o.cycleSec === 'function' ? o.cycleSec() : 1; }
     function seed() { return lfoSeedOf(st.seed); }
-    var E = bpEditor({ cv: cv, lfo: true, name: name, pts: function () { return st.pts; }, tMax: function () { return 1; },
+    var E = bpEditor({ cv: cv, lfo: true, name: name, parked: o.parked, pts: function () { return st.pts; }, tMax: function () { return 1; },
       enabled: function () { return st.kind === 0; }, keys: function () { return keysOn(o); },
       curve: function (t) { return shapeAt(st.pts, t); },
       onEdit: function (k) { dirty = true; hint = ''; if (k !== 'select' && k !== 'end') fire(o.onChange, get()); },
@@ -8968,4 +8969,184 @@ window.Horde.MainStage = {
   /* one step, from the host's frame loop: there is no clock of its own. `frames` is how many display frames it stands for; `now` the host's frame time, for the adaptive scale */
   tick(showSpecimen, frames, now) { MON.clock += (frames || 1) * SR / 60; logoFrame(false, frames); if (showSpecimen) specimenFrame(false, frames, now); }
 };
+})();
+
+/* ======== GUI-36, GUI-37, GUI-38: the FX page's routing, morphable LFO shapes and the Randomize panel. MOCK-UPS the human asked to land (2026-11-05). Each draws its own
+   stand-in state, says so, and leaves the engine's seam named in its README. ======== */
+(function () {
+  'use strict';
+  var H = window.Horde;
+  function tag(t, cls, txt) { var e = document.createElement(t); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; }
+  function btn(txt, title, fn) { var b = tag('button', 'hd-btn hd-focus hd-xs', txt); b.type = 'button'; if (title) b.title = title; b.addEventListener('click', fn); return b; }
+  function keysOn(o) { return !!(o && o.keys && o.keys()); }
+  var LETTERS = ['A', 'B', 'C', 'D'];
+  /* a 0..1 slider with the house's markup and keyboard rule (keyboard mode only, FXS-1's "each has a mouse route") */
+  function srow(host, o) { var r = tag('div', 'hd-srow'), l = tag('label', 'hd-label', o.name), sl = tag('div', 'hd-slider hd-focus'), out = tag('output', 'hd-value'), val = o.value;
+    sl.setAttribute('role', 'slider'); sl.setAttribute('aria-label', o.path || o.name); sl.setAttribute('aria-valuemin', '0'); sl.setAttribute('aria-valuemax', '100'); sl.innerHTML = '<div class="track"><i class="fill"></i></div><i class="handle"></i>';
+    function paint() { var p = val * 100; sl.querySelector('.fill').style.width = p + '%'; sl.querySelector('.handle').style.left = p + '%'; sl.setAttribute('aria-valuenow', Math.round(p)); out.textContent = o.fmt ? o.fmt(val) : Math.round(p) + ' %'; }
+    function at(e) { var b = sl.getBoundingClientRect(); val = Math.max(0, Math.min(1, (e.clientX - b.left) / (b.width || 1))); paint(); if (o.onInput) o.onInput(val); }
+    sl.addEventListener('pointerdown', function (e) { sl.setPointerCapture(e.pointerId); at(e); sl.onpointermove = at; });
+    sl.addEventListener('pointerup', function () { sl.onpointermove = null; });
+    sl.addEventListener('keydown', function (e) { if (!keysOn(o)) return; var d = e.key === 'ArrowRight' || e.key === 'ArrowUp' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowDown' ? -1 : 0; if (!d) return; e.preventDefault(); val = Math.max(0, Math.min(1, val + d * (e.shiftKey ? .01 : .05))); paint(); if (o.onInput) o.onInput(val); });
+    if (keysOn(o)) sl.tabIndex = 0;
+    r.append(l, sl, out); host.appendChild(r); paint();
+    return { get: function () { return val; }, set: function (v) { val = v; paint(); } }; }
+
+  /* ---------- GUI-36: FX CHAINS. ADR-201's rack: modules stay resident and the morph moves only cable weights. A corner is a chain, the modules in its order, with where Sub joins
+     (the lab's model, FxSample). So routing is edited per corner, and the rack, matrix and case draw what the pad makes of the four. ---------- */
+  function FxChains(el, o) {
+    var mods = o.modules, ids = mods.map(function (m) { return m.id; }), house = ids.slice(), corners = o.corners || [0, 1, 2, 3].map(function () { return { chain: ids.slice(), sub: 'OUT' }; });
+    var sample = new H.FxSample({ nodes: mods, corners: corners, rules: o.rules || {} }), w0 = o.weights();
+    sample.settle(w0);
+    el.classList.add('hd-fxchains'); el.innerHTML = '';
+    var head = tag('div', 'fc-head'), views = tag('div', 'fc-views'), rows = tag('div', 'fc-rows'), hint = tag('span', 'hd-hint fc-hint');
+    head.appendChild(tag('span', 'hd-label', 'View')); var sw = tag('div'); head.appendChild(sw); head.appendChild(hint);
+    el.append(head, views, rows);
+    var KINDS = [['Rack', H.FxRack], ['Matrix', H.FxMatrix], ['Case', H.FxPanel]], built = [], cur = 0;
+    var hosts = KINDS.map(function (k) { var d = tag('div', 'fc-view'); d.hidden = true; views.appendChild(d); return d; });
+    function show(i) { cur = i; hosts.forEach(function (d, k) { d.hidden = k !== i; }); if (!built[i]) { var v = KINDS[i][1](hosts[i], function () { return sample.state(); }, o.session); var r0 = v && v.render; if (r0) v.render = function () { if (!hosts[i].hidden && hosts[i].isConnected) r0.apply(v, arguments); }; built[i] = v; } if (built[i] && built[i].render) built[i].render(true); }
+    H.pillGroup(sw, KINDS.map(function (k) { return k[0]; }), 0, 'FX routing view', show, { keys: o.keys });
+    var rowEls = corners.map(function (c, i) { var r = tag('div', 'fc-row'); r.dataset.corner = LETTERS[i]; rows.appendChild(r); return r; });
+    function changed(label) { if (o.onChange) o.onChange(label); paintRow(); }
+    function move(i, m, to) { var ch = corners[i].chain, at = ch.indexOf(m); if (at < 0 || to === at) return; ch.splice(at, 1); ch.splice(to, 0, m); }
+    function toggle(i, m) { var c = corners[i], at = c.chain.indexOf(m); if (at >= 0) { c.chain.splice(at, 1); if (c.sub === m) c.sub = 'OUT'; } else { var k = c.chain.findIndex(function (u) { return house.indexOf(u) > house.indexOf(m); }); c.chain.splice(k < 0 ? c.chain.length : k, 0, m); } }
+    function chipOf(i, m, on, pos) { var d = mods[ids.indexOf(m)], b = tag('button', 'fc-chip hd-focus' + (on ? ' on' : ''), (on ? (pos + 1) + ' ' : '') + d.name); b.type = 'button'; b.dataset.m = m; b.setAttribute('aria-pressed', String(on));
+      b.setAttribute('aria-label', 'Corner ' + LETTERS[i] + ', ' + d.name + (on ? ', place ' + (pos + 1) + ' in the chain. Click to take it out, drag to move it' : ', not in the chain. Click to add it'));
+      var down = null, moved = false;
+      b.addEventListener('pointerdown', function (e) { if (!on) return; down = e.clientX; moved = false; b.setPointerCapture(e.pointerId); });
+      b.addEventListener('pointermove', function (e) { if (down === null || Math.abs(e.clientX - down) < 5) return; moved = true; b.classList.add('drag'); var sib = [].slice.call(rowEls[i].querySelectorAll('.fc-chip.on')), to = sib.findIndex(function (s) { var q = s.getBoundingClientRect(); return e.clientX < q.left + q.width / 2; }); b.dataset.to = to < 0 ? sib.length - 1 : to; });
+      b.addEventListener('pointerup', function () { var was = down; down = null; b.classList.remove('drag'); if (was === null) return; if (moved) { move(i, m, +b.dataset.to); changed('Corner ' + LETTERS[i] + ': ' + d.name + ' moved'); } });
+      b.addEventListener('click', function () { if (moved) { moved = false; return; } toggle(i, m); changed('Corner ' + LETTERS[i] + ': ' + d.name + (corners[i].chain.indexOf(m) >= 0 ? ' in' : ' out')); });
+      b.addEventListener('keydown', function (e) { if (!keysOn(o) || !on) return; var dd = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0; if (!dd) return; e.preventDefault(); var ch = corners[i].chain, to = Math.max(0, Math.min(ch.length - 1, ch.indexOf(m) + dd)); move(i, m, to); changed('Corner ' + LETTERS[i] + ': ' + d.name + ' moved'); var nb = rowEls[i].querySelector('[data-m="' + m + '"]'); if (nb) nb.focus(); });
+      return b; }
+    function paintRow() { var dom = dominant(); corners.forEach(function (c, i) { var r = rowEls[i]; r.innerHTML = ''; r.classList.toggle('near', i === dom);
+        r.appendChild(tag('span', 'fc-letter', LETTERS[i]));
+        var strip = tag('div', 'fc-strip'); strip.setAttribute('role', 'group'); strip.setAttribute('aria-label', 'Corner ' + LETTERS[i] + ' chain'); r.appendChild(strip);
+        c.chain.forEach(function (m, p) { strip.appendChild(chipOf(i, m, true, p)); }); ids.filter(function (m) { return c.chain.indexOf(m) < 0; }).forEach(function (m) { strip.appendChild(chipOf(i, m, false, 0)); });
+        var sl = tag('select', 'fc-sub hd-focus'); sl.setAttribute('aria-label', 'Corner ' + LETTERS[i] + ': where Sub joins'); [['OUT', 'Sub: to Out']].concat(c.chain.map(function (m) { return [m, 'Sub: at ' + mods[ids.indexOf(m)].name]; })).forEach(function (q) { var op = tag('option', '', q[1]); op.value = q[0]; sl.appendChild(op); }); sl.value = c.sub; sl.addEventListener('change', function () { c.sub = sl.value; changed('Corner ' + LETTERS[i] + ': Sub joins'); }); r.appendChild(sl);
+        r.appendChild(btn('To all', 'Copy corner ' + LETTERS[i] + '’s chain to the other three', function () { corners.forEach(function (q, k) { if (k !== i) { q.chain = c.chain.slice(); q.sub = c.sub; } }); changed('Corner ' + LETTERS[i] + ' copied to all'); })); });
+      var s = sample.state(), live = s.cables.filter(function (q) { return q.wf + q.wb >= H.FxCables.MIN; }).length, loops = s.cables.filter(function (q) { return q.loop; }).length;
+      hint.textContent = live + ' cables' + (loops ? ', ' + loops + ' in a live loop' : '') + ' at this pad position · MOCK: the stub has no cable state'; }
+    function dominant() { var w = o.weights(), b = 0; w.forEach(function (x, i) { if (x > w[b]) b = i; }); return b; }
+    var lastDom = -1;
+    show(0); paintRow();
+    return { el: el, corners: corners, sample: sample, view: show, redraw: paintRow,
+      step: function (dt) { var w = o.weights(); if (dt <= 0) sample.land(w); else sample.step(w, dt); var d = dominant(); if (d !== lastDom) { lastDom = d; paintRow(); } },
+      /* draws a corner's chain for the Randomize panel: a seeded shuffle within the house rules, each module in with probability 1 - chaos/2 */
+      draw: function (i, r, chaos) { var c = corners[i], m = ids.filter(function () { return r() > chaos * .5; }); if (!m.length) m = [ids[0]]; for (var a = m.length - 1; a > 0; a--) { if (r() < chaos) { var b = Math.floor(r() * (a + 1)), t = m[a]; m[a] = m[b]; m[b] = t; } } c.chain = m; c.sub = r() < .5 ? 'OUT' : m[Math.floor(r() * m.length)]; paintRow(); } };
+  }
+
+  /* ---------- GUI-37: SHAPE MORPH, ADR-349's law. All four corners share one point list and each holds its own time, level and bend for every point. A point added in one corner parks in
+     the others on their own curves, by C.12's exact split (a segment of bend u split at f is two of u*f and u*(1-f)), so no corner changes. Pure: no DOM, no clock. ---------- */
+  var MAXPTS = 32;
+  function law() { return H.ModLaw; }
+  var ShapeMorph = {
+    MAXPTS: MAXPTS,
+    make: function (pts) { return { pts: pts.map(function (p) { return { c: [0, 1, 2, 3].map(function () { return { t: p.t, v: p.v, u: p.u, parked: false }; }) }; }) }; },
+    corner: function (m, i) { return m.pts.map(function (p) { var q = p.c[i]; return { t: q.t, v: q.v, u: q.u }; }); },
+    parked: function (m, i) { return m.pts.map(function (p) { return p.c[i].parked; }); },
+    /* add a point after index k with the fraction f along that segment in every corner; corner i takes (t, v) and the others park */
+    add: function (m, i, k, f, t, v) { if (m.pts.length >= MAXPTS) return false;
+      var cs = [0, 1, 2, 3].map(function (c) { var a = m.pts[k].c[c], b = m.pts[k + 1].c[c], at = a.t + (b.t - a.t) * f, cur = ShapeMorph.corner(m, c), val = law().shapeAt(cur, at), u = a.u; a.u = u * f; return { t: c === i ? t : at, v: c === i ? v : val, u: u * (1 - f), parked: c !== i }; });
+      m.pts.splice(k + 1, 0, { c: cs }); return true; },
+    /* a point deleted in one corner parks there; parked in all four, it leaves the list */
+    park: function (m, i, j) { var p = m.pts[j]; if (!p || j === 0 || j === m.pts.length - 1) return; var a = m.pts[j - 1].c[i], q = p.c[i], b = m.pts[j + 1].c[i], u = a.u + q.u, f = (q.t - a.t) / ((b.t - a.t) || 1), probe = [{ t: 0, v: a.v, u: u }, { t: 1, v: b.v, u: 0 }]; a.u = u * f; q.u = u * (1 - f); q.v = law().shapeAt(probe, f); q.parked = true;
+      if (p.c.every(function (c) { return c.parked; })) { for (var c = 0; c < 4; c++) m.pts[j - 1].c[c].u += p.c[c].u; m.pts.splice(j, 1); } },
+    /* the editor hands back a corner's whole list: the same count is a move or a bend, a different count is points added or deleted, matched by time */
+    setCorner: function (m, i, pts) { var cur = ShapeMorph.corner(m, i);
+      if (pts.length === cur.length) { pts.forEach(function (n, j) { var q = m.pts[j].c[i]; if (Math.abs(n.t - q.t) > 1e-9 || Math.abs(n.v - q.v) > 1e-9) q.parked = false; q.t = n.t; q.v = n.v; q.u = n.u; }); return true; }
+      /* A different count: points that match the new list by time stay real, the rest park, and the new ones go in, parked in the other corners. Then EVERY point in this corner is set from the new list's own curve, by the
+         exact split: a target segment of bend u holding points at fractions f0 < f1 gets u*(f1 - f0) between them. Parking one by one instead left the old points on the old curve, so the corner never became the new shape. */
+      var T = pts, E = m.pts, map = E.map(function () { return -1; }), ok = true, y, k; map[0] = 0; map[E.length - 1] = T.length - 1;
+      /* pair in order, not by time alone: a step shape has two points at one time, and each must keep its own level */
+      for (k = 1, y = 1; k < E.length - 1; k++) { var tk = E[k].c[i].t; for (var z = y; z < T.length - 1 && T[z].t <= tk + 1e-6; z++) if (Math.abs(T[z].t - tk) < 1e-6) { map[k] = z; y = z + 1; break; } }
+      for (y = 1; y < T.length - 1; y++) { if (map.indexOf(y) >= 0) continue; k = 1; while (k < E.length - 1 && (map[k] >= 0 ? map[k] < y : E[k].c[i].t <= T[y].t)) k++;
+        var a0 = E[k - 1].c[i], b0 = E[k].c[i]; if (ShapeMorph.add(m, i, k - 1, b0.t > a0.t ? Math.max(0, Math.min(1, (T[y].t - a0.t) / (b0.t - a0.t))) : .5, T[y].t, T[y].v)) map.splice(k, 0, y); else ok = false; }
+      var seg = 0;
+      E.forEach(function (p, j) { var q = p.c[i]; if (map[j] >= 0) { seg = map[j]; q.t = T[seg].t; q.v = T[seg].v; q.parked = false; }
+        else { var a = T[seg], b = T[seg + 1], sp = b.t - a.t, f = sp > 0 ? (q.t - a.t) / sp : 0; q.v = law().shapeAt([{ t: 0, v: a.v, u: a.u }, { t: 1, v: b.v, u: 0 }], f); q.parked = true; } });
+      seg = 0;
+      E.forEach(function (p, j) { var q = p.c[i]; if (map[j] >= 0) seg = map[j]; if (j === E.length - 1) { q.u = T[seg].u; return; } var a = T[seg], b = T[seg + 1], sp = b.t - a.t, nt = E[j + 1].c[i].t; q.u = sp > 0 ? a.u * Math.max(0, nt - q.t) / sp : a.u; });
+      for (var d = m.pts.length - 2; d > 0; d--) if (m.pts[d].c.every(function (c) { return c.parked; })) { for (var c = 0; c < 4; c++) m.pts[d - 1].c[c].u += m.pts[d].c[c].u; m.pts.splice(d, 1); }
+      return ok; },
+    /* what a pad position sounds. Blend and Stepped: the points travel. Quantum (on trial, ADR-349 r2): each point picks its corner on its own, seeded by its place in the list. A list never runs backward. */
+    at: function (m, w, mode, seed) { var dom = 0, out; w.forEach(function (x, i) { if (x > w[dom]) dom = i; });
+      out = m.pts.map(function (p, j) { var i, q, t = 0, v = 0, u = 0;
+        if (mode === 'Stepped') { q = p.c[dom]; return { t: q.t, v: q.v, u: q.u }; }
+        if (mode === 'Quantum') { var r = H.Synth.rng((seed || 1) * 31 + j * 2654435761)(), acc = 0; for (i = 0; i < 4; i++) { acc += w[i]; if (r <= acc || i === 3) { q = p.c[i]; return { t: q.t, v: q.v, u: q.u }; } } }
+        for (i = 0; i < 4; i++) { q = p.c[i]; t += w[i] * q.t; v += w[i] * q.v; u += w[i] * q.u; }
+        return { t: t, v: v, u: u }; });
+      out.sort(function (a, b) { return a.t - b.t; }); out[0].t = 0; out[out.length - 1].t = 1; return out; }
+  };
+
+  /* the LFO's Mod-page detail: pick a corner and edit its shape in the bundle's own LfoShapeEditor, with all four and what's heard beside it, moving as the pad moves */
+  function LfoMorph(el, o) {
+    var m = o.model, sel = o.corner || 0, name = o.name || 'LFO', ph = 0;
+    el.classList.add('hd-lfomorph'); el.innerHTML = '';
+    var bar = tag('div', 'lm-bar'), sw = tag('div'), read = tag('span', 'hd-hint lm-read'), edH = tag('div', 'lm-edit'), strip = tag('div', 'lm-strip'), rateH = tag('div', 'lm-rate');
+    bar.appendChild(tag('span', 'hd-label', 'Editing corner')); bar.appendChild(sw); bar.appendChild(read);
+    el.append(bar, strip, edH, rateH);
+    var ed = H.LfoShapeEditor(edH, { name: name, pts: ShapeMorph.corner(m, sel), keys: o.keys, aspect: o.aspect || '3.4 / 1', parked: function (j) { return ShapeMorph.parked(m, sel)[j]; }, position: function () { return ph; }, cycleSec: function () { return 1 / rate(); }, rateLabel: function () { return rate().toFixed(2) + ' Hz'; },
+      onChange: function (g) { if (g.kind === 0) ShapeMorph.setCorner(m, sel, g.pts); paint(); }, onCommit: function () { if (o.onCommit) o.onCommit(name + ': corner ' + LETTERS[sel]); ed.set({ pts: ShapeMorph.corner(m, sel) }); } });
+    function rate() { var w = o.weights(), r = 0; for (var i = 0; i < 4; i++) r += w[i] * Math.log(m.rate[i]); return Math.exp(r); }   // continuous in Hz, on a log taper as the time rows blend (B396, ADR-349)
+    var rs = srow(rateH, { name: 'Rate', path: name + ' · rate at corner ' + LETTERS[sel], keys: o.keys, value: Math.log(m.rate[sel] / .05) / Math.log(400), fmt: function (v) { return (.05 * Math.pow(400, v)).toFixed(2) + ' Hz'; }, onInput: function (v) { m.rate[sel] = .05 * Math.pow(400, v); paint(); } });
+    H.pillGroup(sw, LETTERS, sel, name + ' · corner being edited', function (i) { sel = i; ed.set({ pts: ShapeMorph.corner(m, sel) }); rs.set(Math.log(m.rate[sel] / .05) / Math.log(400)); paint(); }, { keys: o.keys });
+    var mini = [0, 1, 2, 3, 4].map(function (i) { var b = tag('div', 'hd-viz lm-mini'), cv = tag('canvas'); cv.setAttribute('role', 'img'); cv.setAttribute('aria-label', i < 4 ? 'Corner ' + LETTERS[i] + '’s shape' : 'The shape heard at the pad’s position'); b.appendChild(cv); b.appendChild(tag('span', 'lm-cap', i < 4 ? LETTERS[i] : 'HEARD')); strip.appendChild(b); return { b: b, cv: cv }; });
+    function curve(K, pts, ink) { var g = K.g, W = K.W, Hh = K.H, a = law(), i; g.strokeStyle = K.c(ink); g.lineWidth = 1.6 * K.V; g.beginPath(); for (i = 0; i <= 96; i++) { var x = i / 96 * W, y = Hh / 2 - a.shapeAt(pts, i / 96) * Hh * .4; i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); }
+    function paint() { if (!el.isConnected) return;   // the Mod page mounts the detail before attaching it, and a detached canvas has no colours to read
+      var w = o.weights(), mode = o.mode ? o.mode() : 'Blend', here = ShapeMorph.at(m, w, mode, o.seed);
+      mini.forEach(function (q, i) { var K = H.Viz.kit(q.cv), g = K.g; K.tube(); g.strokeStyle = K.c('grid', .4); g.lineWidth = K.V; g.beginPath(); g.moveTo(0, K.H / 2); g.lineTo(K.W, K.H / 2); g.stroke();
+        if (i < 4) { var pts = ShapeMorph.corner(m, i), pk = ShapeMorph.parked(m, i); curve(K, pts, i === sel ? 'value' : 'physics'); pts.forEach(function (p, j) { var x = p.t * K.W, y = K.H / 2 - p.v * K.H * .4, r = 2.2 * K.V; if (pk[j]) { g.strokeStyle = K.c('grid'); g.lineWidth = K.V; g.beginPath(); g.arc(x, y, r, 0, 6.2832); g.stroke(); } else { g.fillStyle = K.c(i === sel ? 'value' : 'physics'); g.fillRect(x - r * .7, y - r * .7, r * 1.4, r * 1.4); } }); q.b.classList.toggle('sel', i === sel); q.b.style.opacity = .55 + .45 * Math.min(1, w[i] * 2); }
+        else { curve(K, here, 'marker'); var x = (ph % 1) * K.W, y = K.H / 2 - law().shapeAt(here, ph % 1) * K.H * .4; g.fillStyle = K.c('meter'); g.beginPath(); g.arc(x, y, 2.6 * K.V, 0, 6.2832); g.fill(); } });
+      read.textContent = m.pts.length + ' of ' + MAXPTS + ' points · ' + ShapeMorph.parked(m, sel).filter(Boolean).length + ' parked here · ' + mode + ' · heard ' + rate().toFixed(2) + ' Hz'; }
+    paint();
+    return { el: el, editor: ed, frame: function (dt) { ph = (ph + dt * rate()) % 1; ed.draw(); paint(); }, repaint: paint, selected: function () { return sel; } };
+  }
+
+  /* ---------- GUI-38: RANDOMIZE (B578; ADR-318, ADR-320, ADR-321, ADR-322 r1, ADR-327). Chaos and Amount bound the NEXT draw and nothing else. A draw is seeded and visible, writes the selected
+     corner unless "All four" is on, keeps a level's locks and the exemptions, and is one undo step in the host. `draw` is pure. ---------- */
+  function hash(s) { var h = 2166136261; for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+  var sigma = function (c) { return Math.min(1.2, .6 * c * Math.pow(12, c - 1)); };   // the lab's curve (report Q9, tuned by ear later), in travel
+  /* rows: [{key, n (steps, 0 = continuous), home 0..1}]. Returns {key: value} for the rows drawn */
+  function drawRows(rows, kind, chaos, amount, seed, click, level) { var r = H.Synth.rng((seed ^ hash(level + '/' + kind) ^ Math.imul(click, 2654435761)) | 0), out = {}, s = sigma(chaos);
+    function gauss() { var u = 0; for (var i = 0; i < 6; i++) u += r(); return (u - 3) / .707; }
+    rows.forEach(function (q) { var a = r(), g = gauss(), pick = r(); if (a > amount) return;
+      if (q.n > 1) { var st = q.n - 1, cur = Math.round(q.home * st), nx = Math.floor(pick * st); if (nx >= cur) nx++; if (chaos > 0) out[q.key] = nx / st; }
+      else out[q.key] = Math.max(0, Math.min(1, q.home + g * s)); });
+    return out; }
+  function RandomPanel(el, o) {
+    var st = { chaos: .35, amount: 1, seed: 1, click: 0, all: false, locks: {} }, levels = o.levels;
+    el.classList.add('hd-rand'); el.innerHTML = '';
+    var left = tag('div', 'rd-left'), right = tag('div', 'rd-right'); el.append(left, right);
+    var sc = tag('div', 'rd-row'); left.appendChild(sc); sc.appendChild(tag('span', 'hd-label', 'Profile')); var prof = tag('select', 'fc-sub hd-focus'); prof.setAttribute('aria-label', 'Randomization profile'); (o.profiles || []).forEach(function (p, i) { var q = tag('option', '', p.name); q.value = i; prof.appendChild(q); }); sc.appendChild(prof);
+    var ch = srow(left, { name: 'Chaos', path: 'Randomize · chaos: how far the next draw may go', keys: o.keys, value: st.chaos, onInput: function (v) { st.chaos = v; } }), am = srow(left, { name: 'Amount', path: 'Randomize · amount: how many controls the next draw moves', keys: o.keys, value: st.amount, onInput: function (v) { st.amount = v; } });
+    left.appendChild(tag('span', 'hd-hint', 'Chaos and Amount bound the next draw. Moving them never changes the sound.'));
+    var tg = tag('div', 'rd-row'); left.appendChild(tg); tg.appendChild(tag('span', 'hd-label', 'Writes')); var tgS = tag('div'); tg.appendChild(tgS); var who = tag('span', 'hd-hint'); tg.appendChild(who);
+    H.pillGroup(tgS, ['Selected corner', 'All four'], 0, 'Which corners a draw writes', function (i) { st.all = i === 1; paint(); }, { keys: o.keys });
+    prof.addEventListener('change', function () { var p = o.profiles[+prof.value]; st.chaos = p.chaos; st.amount = p.amount; ch.set(p.chaos); am.set(p.amount); st.locks = {}; (p.locks || []).forEach(function (id) { st.locks[id] = true; }); paintLocks(); if (o.say) o.say('Profile: ' + p.name); });
+    var go = tag('div', 'rd-row rd-go'); left.appendChild(go);
+    var out = tag('output', 'hd-value rd-seed');
+    go.appendChild(btn('Randomize patch', 'Architecture and parameters at every unlocked level', function () { draw(levels.filter(function (l) { return !l.mock; }), 'both'); }));
+    go.appendChild(btn('Randomize parameters', 'Numbers only: every unlocked level’s parameters', function () { draw(levels.filter(function (l) { return !l.mock; }), 'params'); }));
+    go.appendChild(btn('Undo the draw', 'One step back: a draw is one undo step', function () { if (o.undo) o.undo(); }));
+    left.appendChild(out);
+    var ex = tag('div', 'rd-ex'); left.appendChild(ex); ex.appendChild(tag('span', 'hd-label', 'Exempt by default')); (o.exemptNames || []).forEach(function (n) { ex.appendChild(tag('span', 'rd-chip', n)); });
+    ex.appendChild(tag('span', 'hd-hint', 'So a random patch stays in the song’s key (ADR-321).'));
+    var cp = tag('div', 'rd-row rd-copy'); left.appendChild(cp); cp.appendChild(tag('span', 'hd-label', 'Copy'));
+    function sel(items, label) { var s = tag('select', 'fc-sub hd-focus'); s.setAttribute('aria-label', label); items.forEach(function (it) { var q = tag('option', '', it[1]); q.value = it[0]; s.appendChild(q); }); cp.appendChild(s); return s; }
+    var cL = sel(levels.filter(function (l) { return !l.mock; }).map(function (l) { return [l.id, l.name]; }), 'Level to copy'), cK = sel([['both', 'Both'], ['arch', 'Architecture'], ['params', 'Parameters']], 'What to copy'), cF = sel(LETTERS.map(function (c, i) { return [i, 'from ' + c]; }), 'Copy from corner'), cT = sel(LETTERS.map(function (c, i) { return [i, 'to ' + c]; }), 'Copy to corner'); cT.value = 1;
+    cp.appendChild(btn('Copy', 'Copies this level’s settings between two corners (ADR-322 r1)', function () { var l = levels.find(function (x) { return x.id === cL.value; }); if (o.copy) o.copy(l, cK.value, +cF.value, +cT.value); }));
+    var tb = tag('div', 'rd-table'); right.appendChild(tb); var head = tag('div', 'rd-lv rd-hd'); ['Level', 'Architecture', 'Parameters', 'Lock', 'Monitor'].forEach(function (t) { head.appendChild(tag('span', 'hd-label', t)); }); tb.appendChild(head);
+    var lockBtns = {};
+    levels.forEach(function (l) { var r = tag('div', 'rd-lv'); r.dataset.level = l.id; r.appendChild(tag('span', 'rd-name', l.name)); if (l.mock) { var nt = tag('span', 'hd-hint rd-nt', l.mock); r.appendChild(nt); tb.appendChild(r); return; }
+      var A = btn('ARCH', l.arch ? l.arch + ' structural rows' : 'Nothing structural here', function () { draw([l], 'arch'); }), P = btn('PARAMS', l.params ? l.params + ' continuous rows' : 'No continuous rows here', function () { draw([l], 'params'); }); A.disabled = !l.arch && !l.custom; P.disabled = !l.params; r.append(A, P);
+      var K = tag('button', 'rd-lock hd-focus', 'Lock'); K.type = 'button'; K.setAttribute('aria-pressed', 'false'); K.addEventListener('click', function () { st.locks[l.id] = !st.locks[l.id]; paintLocks(); }); lockBtns[l.id] = K; r.appendChild(K);
+      var mon = tag('span', 'rd-mon'); if (l.monitor) l.monitor(mon); r.appendChild(mon); tb.appendChild(r); });
+    function paintLocks() { Object.keys(lockBtns).forEach(function (id) { lockBtns[id].setAttribute('aria-pressed', String(!!st.locks[id])); }); }
+    function paint() { var c = o.selected ? o.selected() : 0; who.textContent = st.all ? 'A to D' : c === null ? 'pick a corner on the pad' : 'Corner ' + LETTERS[c]; out.textContent = 'Seed ' + st.seed + ' · draw ' + st.click; }
+    function draw(ls, kind) { var live = ls.filter(function (l) { return !st.locks[l.id]; }); if (!live.length) { if (o.say) o.say('Those levels are locked'); return; } st.click++; if (o.draw) o.draw(live, kind, { chaos: st.chaos, amount: st.amount, seed: st.seed, click: st.click, all: st.all }); paint(); }
+    paint();
+    return { el: el, state: st, repaint: paint, press: draw, lock: function (id, on) { st.locks[id] = on; paintLocks(); }, chaos: ch, amount: am };
+  }
+  H.FxChains = FxChains; H.ShapeMorph = ShapeMorph; H.LfoMorph = LfoMorph; H.RandomPanel = RandomPanel; H.RandomPanel.draw = drawRows; H.RandomPanel.sigma = sigma;
 })();
