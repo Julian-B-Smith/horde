@@ -12355,3 +12355,22 @@ Two readings, the lead's, open to overrule:
 3. **Source count:** "Bodies 1 to 4". That is 4 bodies × 5 observables, plus the two field-wide sources (energy, spread). Bodies 5 to 8 still move and act on the others, but they aren't routable.
 
 With these, B633's item (2) is closed. The lab's fine questions carry the lead's proposed defaults until a spec round adopts them.
+
+**ADR-377 A1 (the human, 2026-11-06, by poll): how a source's on/off fades, after a critic's review of round 61.**
+1. **Floor:** a source fading by weight switches fully off below a summed on-weight of 10⁻³ (−60 dB), as legacy did, so inaudible tails cost nothing.
+2. **Picks while fading:** its Structural keys pick only among the corners where it is on.
+3. **Save during a fade bakes the level** into the corner's level key, so the corner sounds as the position did.
+4. **Waypoints** on a source's key, where it is off in some corners, bend the on corners' blend.
+5. **The sub and the noise follow the same rule** ("Sub and noise too"), as the human asked of the sub in B203 and B232.
+6. **Under Quantum a source switches** ("Switch under Quantum"): its on/off flips at its quantum boundary by PA-5's brief crossfade, and the fade by weight applies under Blend and Stepped only. When it flips back on, its keys land on the picked on-corner's values outright, so no off corner's values glide in (legacy B250's defect).
+
+The lead's mechanism: the level glides by PA-1 only, as legacy's gain smoother did, never by the morph glide. That way the fade-out is never cut short by the switch.
+
+The critic's review also asked for these drafting choices to be recorded. They are the lead's, open to overrule:
+- a 0.04 minimum spacing between waypoints, with a list that breaks a limit refused whole;
+- a region lock per key;
+- a lock's latch margin not divided by the temperature;
+- waypoints holding absolute values;
+- Clamp on by default;
+- the source's level reading the stepped position under Stepped;
+- the oscillator's volume key counted among its keys.
