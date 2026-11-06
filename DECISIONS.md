@@ -11979,6 +11979,44 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 
 
 **Fixed 2026-11-05: why the pictures still froze, a bug, not a ruling.** The human, after GUI-42 merged: "Everything is still frozen on all the osc views". The self-checks drive the pictures on a clock millions of ms ahead (`CLOCK.now = 1e7`), and each picture's pace kept that as its last draw. Once the checks ended, the real clock read as earlier than the last draw, so no picture was ever due again. Loading with `?fast` skipped the checks, which is why some tests saw motion. `picturePace` now treats a clock that goes backward as a new clock. Measured in headless Chrome after a full self-check run: the ring, spectrum, carpet and voice map move with the fix, and none of them move on main without it (the control).
+
+## GUI-51 — RULED by the human: the morph's eight open questions (GB29; ADR-370, B631; 2026-11-06)
+
+**The human, 2026-11-06,** by poll on `docs/design/morph-questions-lab.html`, each question shown on the pad:
+1. **Waypoint limits (GN-7): 8 per setting, 64 per patch,** stored in order.
+2. **Pins across a mode change (GN-7, GN-29): they stay dormant,** kept and unused under Quantum or Stepped, and working again back in Blend (as the shell does).
+3. **A region lock keeps only the region shape (GN-6).** Corner edits still change the locked setting's values inside its regions.
+4. **X and Y are host parameters (GN-51),** automatable in Live; the knobs under the Morph pad (GUI-45 r3) draw from their rows once D.2 has them.
+5. **Mappings are per corner (GN-27).** Each corner keeps its own depth per route, and the puck blends between them. It was not the recommended option. ADR-371 rules the same for 1.0, reversing ADR-261 r3 and ADR-266 r4. The Map Mode spec's "global for 1.0" (`docs/design-system/HORDE-Map-Mode-Spec.md`, a protected path) needs the human's edit.
+6. **RAMPS is dropped (GN-25):** two kinds, Morphable and Structural, as the spec has. The design master drops the third pill.
+7. **Corner presets live in both places (GN-52, which lands with GUI-50):** the patch's own corners first, then a user library shared by every patch; saving asks which.
+8. **Save current sound stores what you hear (GN-35):** every setting, blended at the puck, offsets baked.
+
+**Also ruled the same day, through the Labs facilitator:**
+- **GUI-47's open fit, option (c):** "Strip replaces ENV 1 knobs". On Main the four envelope thumbnails take the place of ENV 1's four knobs, values read under the large picture, the knobs go behind +Adv, and nothing shrinks.
+- **page-chrome-lab closed** ("Close it"). GUI-28's readings are kept as built: the Q and EX tags, Exempt's dashed outline, the menu on right-click and at the top of the selected row ("Keep it as built"). Exempt holds what's heard at the pick, written into all four corners, and an edit then moves all four ("Yes, as built"). An Exempt control still takes modulation ("Yes, still modulated"), which stays open for the morph round as part of GN-40 (ADR-371).
+
+**Engine impact.** GN-6, GN-7, GN-25, GN-27, GN-35, GN-51, and the preset seam and saved document (GN-9, GN-37). The lead writes them into the morph's spec round.
+
+**FX device (ADR-254).** It has a morph, so all eight apply.
+
+## GUI-52 — RULED by the human through ADR-371: what the modulation spec changes on the Mod page (B633; amends GUI-37 and GUI-9; 2026-11-06)
+
+**ADR-371** (the lead's record of the human's eighteen answers on the modulation spec) changes what the Mod page draws:
+1. **Four LFOs,** each with a shared or per-note switch, a rate from 0.02 to 40 Hz, and smoothed random as a kind. A synced LFO locks to song position.
+2. **An LFO can switch to envelope mode:** one cycle, then it stops ("as in Serum 2"). There are no envelopes beyond ENV 1 to 4.
+3. **Each route has its own curve** (lin, exp, log). A new mapping takes its source's natural polarity: LFOs and XY bipolar; envelopes, velocity and macros unipolar. 64 routes at most. A knob's end is a wall.
+4. **Targets beyond the engine's knobs:** FX module knobs, a modulator's own settings, and the morph position. Only a global LFO may target the morph position.
+5. **Sources add** the mod wheel, pitch bend, keytrack and MPE (pressure, slide, per-note bend, lift).
+6. **An LFO's rate, sync, division and retrigger are host parameters** and morph like knobs. A modulator with no mappings keeps its settings until removed.
+7. **Mappings are per corner** (GUI-51 r5). A silent corner's mappings stay visible, greyed (B392).
+8. **ORBITAL, the Kuramoto LFO and the 2-D random** join 1.0, each after its own lab ruling.
+
+**What this session does next.** The Mod page's LFO cards gain the shared/per-note switch, envelope mode and the route curve. Each route row shows its corner depths, the silent corners greyed. The source list grows. The master carries each piece before the shell (ADR-316).
+
+**Engine impact.** GN-23 (a retrigger row per modulator, now ruled), GN-27, GN-39 (an unrouted modulator keeps its settings) and GN-49 (the LFOs): ADR-371 rules them, and the lead's spec round writes them.
+
+**FX device (ADR-254).** It has modulators but no notes, so per-note LFOs, keytrack and MPE don't apply; the rest does.
 ## GUI-43 — DIRECTED by the human: each source's on switch on Main (GUI-4; 2026-11-05)
 
 **The human, 2026-11-05:** "There's currently no way to turn oscillators on and off from main."
