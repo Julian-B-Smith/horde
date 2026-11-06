@@ -44,6 +44,10 @@ The page's existing transport (`docs/design/gui3/engine-stub.js`, `GUI3Engine.TR
 - GN-47's feed is derived from this on the page side (`device.js`).
 - `phases` and `levels` ride only when `want.members` is set, and member cycles only when `want.cycles` is (GN-41, not in the first slice).
 - The GUI session estimates about 2.5 KB a frame with members, about 75 KB/s at 30 fps for 4 voices, 2 oscillators and 32 members.
+- `meters` carry `peak` as linear amplitude since the previous frame, and `clip` as a boolean. The page converts both in one place.
+- The on-change part also carries `plugin: {voices}`, with the first frame and whenever it changes, so the page's Voices control reads the plug-in's value.
+- Frames are sent as JSON, with typed arrays as plain number arrays, because the web view's evaluate call can't carry binary. GN-46's binary path can come later behind the same two names: the page calls `hordeNativeSend(json)`, and the bridge calls `hordeNativeSnapshot(obj)`. The bridge binds before it loads the page.
+- The recorded frames for `ReplayTransport` live at `tools/labharness/fixtures/gui3-replay.json`: an array of the objects passed to `hordeNativeSnapshot`, in order.
 
 **The manifest hash.** The page and the bridge each compute `manifest_hash`, and they hash the same thing:
 - **Which rows:** every row whose target is the engine and that isn't reserved.
@@ -52,6 +56,7 @@ The page's existing transport (`docs/design/gui3/engine-stub.js`, `GUI3Engine.TR
   - `law` is `lin`, `log`, `pow`, `linwraps`, `logoffzone`, `db` or `step`.
   - `steps` is the option count, or 0.
   - `default` is in the row's unit, and a step row's default is its option index.
+  - A row with named options (115 of the 117 stepped rows) has no range of its own, so `lo` is 0 and `hi` is steps − 1, the unit its default already uses. The seed rows keep their own 0 to 999999. For example: `voice.mode	structural	step	0	2	3	0`, `osc1.seed	structural	step	0	999999	1000000	1234`, `mix.sub	morphable	db	-60	6	0	-2`. `python3 tools/gen_gui3_controls.py --manifest-lines` prints all 317 lines; the hash on 2026-11-05 was `cf4afbc8ff9a5390dc460067b2b3b5f52c2675716d4b6fd9091b97b564f24e05`.
   - Numbers are written as C's `%.17g` does.
 - **The hash:** lines sorted by key, bytewise; the hash is SHA-256 over the UTF-8 text.
 
