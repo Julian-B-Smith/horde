@@ -7974,6 +7974,10 @@
    "reason": "The morph's law for structure, as behaviour; the Morph page shows the same pad, and no screen changes."
   },
   {
+   "adr": "ADR-378",
+   "reason": "Random LFOs' behaviour, ruled from the modulator lab; the LFO card's design is the GUI session's."
+  },
+  {
    "adr": "GUI-44",
    "reason": "A gate: GUI 3's browser check wired into ./verify fast, a hole where there's no browser. No design element."
   }

@@ -12445,3 +12445,21 @@ The critic's review also asked for these drafting choices to be recorded. They a
 - Clamp on by default;
 - the source's level reading the stepped position under Stepped;
 - the oscillator's volume key counted among its keys.
+
+## ADR-378 — RULED by the human: random LFOs' travel stage, strikes and shapes (B237; B633)
+
+**Context.** MQ4 (ADR-371) put smoothed random in 1.0 as an LFO kind, so round 3 of the modulator lab (B237, S&H and smoothed random) gates 1.0. The labs facilitator put its sound calls to the human, 2026-11-06, along with the lead's proposal for SLEW.
+
+**Rulings.**
+1. **What a strike does to a random stream is a choice per LFO.** All three are offered: the next unused draw (a new step each note), keep the held value (as shipped), or rewind to draw 0 (a repeatable random riff).
+2. **The look-ahead stays on the beat** (as built). LINEAR, COSINE and CUBIC keep their knots on cycle starts.
+3. **CUBIC clips its peaks** (as built): Catmull-Rom clamped to ±1.
+4. **One travel stage follows every random shape** ("Yes, every shape"). The choices are None, Time, Rate and Spring, the same family as the 2-D random and the pitch glide. It defaults to None on LINEAR, COSINE and CUBIC, and S&H keeps its shipped SLEW law as its default. The human's earlier "Maybe it gets all the glide options (including spring)" is now a firm yes in this form.
+
+The lead's proposals for the round's fine questions stand as proposals for the spec round:
+- one S&H shape, clocked by its own cycle in 1.0;
+- a draw at every cycle start, the first included;
+- STEPS and S&H both stay;
+- a check for each modulator when it is ported.
+
+**FX device (ADR-254).** The same modulators run in the FX device, with no change.
