@@ -4,7 +4,7 @@
 # (python3 tools/design_vendor.py record-master --version <id> --date <d>) and re-vendor.
 # tools/design_chain_check.py holds the tree to these hashes: every file listed, none extra.
 artifact: https://claude.ai/artifact/EGDwetDHwcvxhTbNffCzJc
-version: 1793909482-958b
+version: 1793941176-071d
 date: 2026-11-05
 files: 194
 3295c4838005a6b54b4d7f95e31e3bd6c27c62f92a99a8b6b0eb899b10b2314e  README.md
@@ -16,7 +16,7 @@ f0ecfe9e81c5aa42bbab2375defa937a0783a8dc23740c9d36b0ae14c8bc1ac5  components/Ben
 db4a484f86dc642574a22c6043567bc4dd77441eb9e82522f72ec1cd993b60c5  components/BendLaw/preview.html
 45a4e046ece94fc5b92dac90a7f758e6b6a6dc1b9bf71aa004b5f6ad132570f8  components/BendView/README.md
 ee4c3dde237c80864140366a2fede83f62903c9c095998efc9362e4f64efcb5b  components/BendView/preview.html
-ddf2a2bd6350eee689cd29030abe93b64f45e1aa5117c62473575c3cf0241127  components/BladeView/README.md
+095bad6f2b871801ccb98fa86d691708fbd6acd7f967313ec5ced1706f5f248b  components/BladeView/README.md
 bbd06b1e5ac5610cf203a0370ac23be224954de8672bd7e268c74edaa0c4eff9  components/BladeView/preview.html
 9cd30bfff48a45fa12af48dd53bd171a80d271fd01d893de9395ef9119133cda  components/BlendMaps/README.md
 f91c7f63d0acac3ed705a6f2d89655007966dc6ecab52849173b3e54cab749a4  components/BlendMaps/preview.html
@@ -194,8 +194,8 @@ a18ecfe745ed481016abed2f88491fa90ad8567b0a32d9df1747ad51dd94b65d  components/Tem
 93b6160e48bb65fe3670ff80bd921d16d727ca7086cd813ba413c3f633ce9770  components/Waveform/preview.html
 706ba6c02712c8df590f7282f772c49d01bd0a957e6c25748cb43ab0eaa1e0f7  components/XYPad/README.md
 d701129232df94a3ea81b2499559b1f13bd8cf22f065b70b2c7f0d666e2ce3d8  components/XYPad/preview.html
-2021daa503e83831bbb4b8c745342f763a57177692e2bf778c43e55b7538771b  components/bundle.css
-df09329054c4848cad6623572fe95d0b8c127b8e30758bdfb0f796378e2dbead  components/bundle.js
+425b16c2298abc3e32c1c83bb4ae4e47a694c8d89cb2f5e49bceabfb7ee3b7e1  components/bundle.css
+8745647b19f6c409a9fb15d7e79809b7c8b244dce8cffba3fee3c90b0fe2bfdc  components/bundle.js
 51e667c8fca609ee958824e4bbe202c605f828732894016724371d61659a4646  components/index.d.ts
 6c3f598e97da2ab5ed7ce3e02d35e32afb208bd1c7ddcb32335f97ee701c2901  contrast-audit.md
 b22892adec0ac89e9c3eb244e52d609e0e94a11a8a45fe986acd5a1c750ce8d3  design-system.json
