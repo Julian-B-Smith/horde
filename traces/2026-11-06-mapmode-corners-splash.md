@@ -14,4 +14,6 @@
 - The splash's component and shell: the logo was sent as an image in chat, but no file reached the repo, and an overlay needs it with a transparent background.
 - The per-corner route rows and the loop control (GB31).
 
+**A second commit.** `fx-screen-marks-lab.html`: one sentence still said mappings are global for 1.0. It now says they are per corner since GUI-53, and that a mark draws the depth heard at the puck's blend. No option or self-check changed.
+
 **Verify.** `./verify fast` on the commit this trace ships in.
