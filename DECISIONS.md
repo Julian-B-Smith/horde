@@ -12489,3 +12489,28 @@ The critic's review also asked for these drafting choices to be recorded. They a
 - Clamp on by default;
 - the source's level reading the stepped position under Stepped;
 - the oscillator's volume key counted among its keys.
+
+## ADR-378 — RULED by the human: random LFOs' travel stage, strikes and shapes (B237; B633)
+
+**Context.** MQ4 (ADR-371) put smoothed random in 1.0 as an LFO kind, so round 3 of the modulator lab (B237, S&H and smoothed random) gates 1.0. The labs facilitator put its sound calls to the human, 2026-11-06, along with the lead's proposal for SLEW.
+
+**Rulings.**
+1. **What a strike does to a random stream is a choice per LFO.** All three are offered: the next unused draw (a new step each note), keep the held value (as shipped), or rewind to draw 0 (a repeatable random riff).
+2. **The look-ahead stays on the beat** (as built). LINEAR, COSINE and CUBIC keep their knots on cycle starts.
+3. **CUBIC clips its peaks** (as built): Catmull-Rom clamped to ±1.
+4. **One travel stage follows every random shape** ("Yes, every shape"). The choices are None, Time, Rate and Spring, the same family as the 2-D random and the pitch glide. It defaults to None on LINEAR, COSINE and CUBIC, and S&H keeps its shipped SLEW law as its default. The human's earlier "Maybe it gets all the glide options (including spring)" is now a firm yes in this form.
+
+The lead's proposals for the round's fine questions stand as proposals for the spec round:
+- one S&H shape, clocked by its own cycle in 1.0;
+- a draw at every cycle start, the first included;
+- STEPS and S&H both stay;
+- a check for each modulator when it is ported.
+
+**FX device (ADR-254).** The same modulators run in the FX device, with no change.
+
+**ADR-377 A2 (the human, 2026-11-06, by poll, after a second critic pass on round 61): landing, Save below the floor, and the noise's erosion exception.**
+1. **A landing skips the engine's smoothing** ("Skip it"). When a source comes back on, under any law, its keys jump to the on-corner's values with neither the morph glide nor PA-1's. The source was silent, so the jump is inaudible.
+2. **Save below the floor stores the source off** ("The source off"), matching what is heard.
+3. **The noise is the one exception to the off-source rule.** The human: "noise settings influence erosion even if the noise osc is off; I say erosion is colored by any corner where noise is influencing the erosion of its respective sub, or if the erosion control is connected to a modulator, regardless of whether that noise osc is active. That said, this means any active noise oscs will have to blend the sound of those as well, and the audible noise will need to influence the erosion (each patch only has one noise osc as a source for either the erosion or the audible noise). This is the exception to the off-oscillator blend rule." The lead's restatement, confirmed by poll ("Yes, that's it"): the noise's one set of settings blends over the corners where the noise is on **or** erosion is active (the sub's erode above 0, or erode modulated). Corners with neither are ignored. The noise's volume still fades only by the corners where it is on.
+
+The lead's mechanism, from the critic's review: the resolver holds the switch-off until a mirror of PA-1's heard level reaches the floor, and holds the source's values meanwhile. So no off corner's values sound while it fades out, and the engine keeps PA-5's "at once".
