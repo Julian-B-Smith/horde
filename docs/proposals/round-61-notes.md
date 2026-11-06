@@ -4,15 +4,16 @@
 > lab (PR #1423), relayed by the GUI session the same day. A draft for the lead's review. Nothing here has reached the
 > clean room. The human answered the draft's eight open questions and the puck's default by poll the same day
 > (ADR-373, on #1422), and the lead ruled the two interface readings. Every answer is now in the spec text. A further
-> poll (ADR-376) ruled how an oscillator's on switch morphs, that a preset saves the puck, and where a chain blend mixes.
-> MO-26 has four `[OPEN: …]` markers, listed under ADR-376 below.
+> poll (ADR-376) ruled how an oscillator's on switch morphs and that a preset saves the puck. **ADR-377 then reshaped
+> the round:** for 1.0 every Structural key follows its quantum boundaries, and setting sets are after 1.0. ADR-376's
+> third ruling (where a chain blend mixes) is void. Five `[OPEN: …]` markers remain, listed under ADR-377 below.
 
 ## What changed in `specs/SPEC-ENGINE.md`
 
 | row | change | ruling |
 |---|---|---|
 | §3 table, §3 tree | The resolver is MO-1 to MO-26 and takes waypoints and region locks. | rulings 1 to 3; ADR-376 |
-| IF-10 | The heard setting set names each setting's `started_at`, the sample at which it entered its slot, counted on the engine's clock from reset (PA-3), as a voice's start sample is. That's the lead's reading, for the test author to confirm. | B631 (the lead) |
+| IF-10 | The heard setting set names each setting's `started_at` (the engine's clock from reset, PA-3: the lead's reading, for the test author to confirm). Since ADR-377 the whole heard-set clause is after 1.0; 1.0 reports each oscillator's heard morph level instead. | B631 (the lead); ADR-377 |
 | IF-12 | New resolver inputs: each Morphable key's waypoints in stored order, the waypoint law and clamp, each key's region lock. A new read that changes nothing: each key's resolved value, and a key's region shape as a lock would take it. | rulings 1 to 3, 8 |
 | RC-11.1 | The morph system's own state now lists waypoints, the waypoint law and clamp, region locks, and the patch's own corner presets. The user's corner-preset library is shared by every patch and isn't in any patch's state. | rulings 1 to 3, 7 |
 | D.2, IF-11 | The pad's `morph.x` and `morph.y`: two D.2 rows (0 to 1, lin, default 0, the legacy ids 152 and 153), named in D.2's host sentence and in IF-11's list. | ruling 4 (GN-51); ADR-373 item 9 |
@@ -27,11 +28,10 @@
 | **MO-23** (new) | When waypoints act: morph on, law Blend, key mode Follow, count Four. Dormant under Quantum or Stepped, under a key's own Quantum, under Exempt and at count Two, and active again when the key blends all four corners under Blend. A corner edit keeps every waypoint's position and value. | ruling 2; ADR-373 items 1, 3 |
 | **MO-24** (new) | The region lock: three offsets, the score ln w + δ, which temperature, cohesion, the seed and the draws don't reach; the latch; locking as is, computed by the resolver; a corner edit changes no lock and its new value plays in its region; Exempt keeps the lock dormant. | ruling 3; B269; ADR-373 item 3 |
 | D.2 opening line, RC-11.1 | A preset saves the pad's position, `morph.x` and `morph.y`, which stay host parameters. | ADR-376 (GN-10) |
-| MO-14, MO-16, MO-20, IF-12, SB-1 (1) | `oscN.on` joins the by-gain groups as `oscN/on`, first in an oscillator's set order, and its on setting renders the oscillator. | ADR-376 |
-| MO-9, MO-17 (by MO-16) | An oscillator's keys blend only over the corners where it is on (MO-26). | ADR-376 |
-| SB-1 (4), (5) | `sub/chain` and `noise/chain`: each setting renders the whole chain, mixed Σ w·y at the chain's output (the sub's before its gate and level, the noise's at its output), so each corner sounds exactly as itself. PA-5's points are where a one-value flip crossfades, not where a blend mixes. | ADR-376 ("After the drive") |
-| **MO-26** (new, D.8) | An oscillator's on switch: the level follows the on-weight; its other keys blend only over its on corners, renormalised; plain blend where it's on in no weighted corner; values land unglided when it comes back on; Stepped, Quantum and per-key modes. | ADR-376; legacy ADR-123, B48, B65, ADR-183, B232 |
-| **MO-25** (new) | Save current sound: the glided value heard now; only the macro and X/Y offsets baked, no route modulation; a blending group stores its heavier setting (lower id on a tie), and the morph system reports which groups it couldn't keep as a mix; an Exempt key's pushed value goes into all four corners. | ruling 8; ADR-373 items 5 to 8 |
+| MO-9 | An oscillator's keys blend only over the corners where it is on (MO-26). Count Two's two-value law is now stated in MO-9 itself, since MO-17 is after 1.0. | ADR-376; ADR-377 |
+| **MO-26** (new, D.8) | An oscillator's on switch: a morph level g = W_on that the resolver computes and sends; its Morphable keys blend only over its on corners, renormalised; the plain blend where it's on in no weighted corner; values land unglided when it comes back on; Stepped, Quantum and per-key modes. | ADR-376, ADR-377; legacy ADR-123, B48, B65, ADR-183, B232 |
+| ADR-377's rows | See the ADR-377 section below for the full list. | ADR-377 |
+| **MO-25** (new) | Save current sound: the glided value heard now; only the macro and X/Y offsets baked, no route modulation; a blending group stores its heavier setting (lower id on a tie), and the morph system reports which groups it couldn't keep as a mix; an Exempt key's pushed value goes into all four corners. In 1.0 every Structural key has one value, so item 7 (a blending group) waits for setting sets; a fading oscillator's level is `[OPEN]`. | ruling 8; ADR-373 items 5 to 8; ADR-377 |
 
 `engine2/structure/engine-structure.json`: `spec.blob` moved to the new spec's blob. The structure check reads green
 with no other change. Round 61 adds no block or edge the file declares: the resolver's inputs aren't drawn there.
@@ -77,48 +77,118 @@ groups nor MO-15's list. Q-TA-74 had read them as flip-only.
   untouched, and B250, the Quantum version of the same problem, was never ruled. `src/hypersaw_clap.cpp`:
   `sourceGateOf`, `morphLiveWeights`, `morphBlendTarget`, and the landing in `morphStep`.
 
-**How MO-26 states it.** `oscN.on` is a by-gain group, `oscN/on`. Its on and off settings at pooled weights W_on and
-1 − W_on give the level ramp through the existing set machinery (MO-17, SB-1, SB-2, PA-1), so no new engine input is
-needed. The oscillator's other keys, Morphable and Structural, take their weights or candidates only from on corners,
-renormalised. That covers MO-17's two-setting law too, which renormalisation doesn't change. Where W_on is 0, or no
-corner holds the oscillator on, the plain blend applies, which keeps corners exact.
-
-**Where the record left a choice, marked `[OPEN: …]` in MO-26 (not picked):**
-1. **A floor.** The legacy shell switched the oscillator off below W_on = 10⁻³ and read its keys' plain blend there.
-   MO-26's set lets it sound at any W_on above 0.
-   - *Keep the floor:* the oscillator cuts out below −60 dB.
-   - *No floor:* the oscillator fades all the way to silence, on its on corners' values throughout.
-2. **The engine's PA-1 glide on landing.** The legacy shell committed the values outright. MO-26 skips MO-5 (b)'s
-   glide, but PA-1 still glides every `Param` for about 13 ms. During that time the fade-in, at its quietest, carries
-   part of the off corner's values. The options are a no-glide path for these `Param`s, or accepting it.
-3. **Quantum.** The legacy shell ramped the level under every law and left the other keys' picks alone (B250's open
-   problem).
-   - *Keep that:* an off corner's values can sound while the oscillator fades.
-   - *Ramp the level, and pick only among on corners:* the oscillator fades in already wearing an on corner's values.
-   - *Let `oscN.on` pick like any Structural key:* the oscillator snaps on and off at its boundary, with a 5 ms fade.
-4. **Waypoints on an oscillator key** whose oscillator is off in some corner. The pins can bend against the plain
-   base, against the on corners' base, or go dormant there.
+**How MO-26 states it, after ADR-377.** The first draft carried the level as a by-gain group, `oscN/on`, through the
+set machinery. ADR-377 puts sets after 1.0, so MO-26 now has the resolver compute **a morph level g = W_on** per
+oscillator and send it as an engine input (IF-12), not a manifest row.
+- **Why an input, not a row.** ADR-123 rejected writing the ramp into the oscillator's volume: it would fight the
+  volume's own morph target. A new manifest row would be a host parameter and saved state, and a morph output is
+  neither (IF-4).
+- **How the engine uses it.** g is one more factor on the `mix.oscN` gain, glided by MO-5 (b) on the resolver and by
+  PA-1 in the engine. Morph off pins it to 1 (ADR-123).
+- **The oscillator's other keys.** Its Morphable keys blend only over its on corners, renormalised. Where W_on is 0 the
+  plain blend applies, which keeps corners exact.
 
 **Drafting choices, from the spec rather than from legacy, for the lead to check:**
-- **Under Stepped,** W_on reads the stepped position (MO-10's "every key"). The legacy shell had no Stepped law.
+- **Under Stepped,** W_on reads the stepped position (MO-10's "every key"), so the level moves in steps. The legacy
+  shell had no Stepped law.
 - **`mix.oscN` counts as one of the oscillator's keys,** because the legacy rule covered the oscillator's own volume
   (id 17/1017).
-- **A Quantum-mode `oscN.on` flips by its pick** (MO-13), and the rule still restricts its other keys to on corners.
-- **`oscN/on` comes first** in MO-20's per-oscillator set order.
-
-**Not touched, but in the same record:** B203 and B232 put the sub's on switch under the same law ("this is also how the
-Sub should work when blend is on"). In the spec today, `sub.on` and `noise.on` sit inside their chains' settings. An
-off setting renders nothing, so their structural values from off corners already never sound. Their Morphable keys
-(level, tone and the like) still blend over all four corners. Whether MO-26 extends to the sub and the noise is the
-lead's to raise.
+- **A Quantum-mode `oscN.on` flips by its pick** (MO-13) with g = 1, and the rule still restricts its Morphable keys'
+  blends to on corners.
+- **The engine reports each oscillator's heard morph level** (IF-4, IF-10), so the GUI and the tests can read it.
 
 **2. A preset saves the puck's position** (GN-10): "Yes, saved with it". `morph.x` and `morph.y` are morph-system state
 saved with the patch (D.2's opening line, RC-11.1), and they stay host parameters.
 
-**3. "After the drive": a chain blend mixes at the chain's output.** SB-1 items (4) and (5) now say it. In `sub/chain`
-and `noise/chain`, each setting renders the whole chain, and the renders mix as Σ w·y at the chain's output: for the
-sub, before its gate and level; for the noise, at its output. Each corner therefore sounds exactly as itself. PA-5's
-points are where a one-value flip crossfades, not where a blend mixes.
+**3. "After the drive": void.** The lead's poll on where a chain blend mixes presumed render mixing, which ADR-377
+rules out for 1.0. SB-1 (4) and (5) are back to their earlier text, inside the after-1.0 block. The question returns
+with setting sets.
+
+## ADR-377 (the human, 2026-11-06): structure follows its quantum boundaries in 1.0
+
+The human: "I don't want any sounds to crossfade except as brief transitions, temporally-bound. The whole concept is
+parametric morph that allows every point to become its own corner preset." And by poll: "For 1.0, anything that can't
+blend naturally follows its quantum boundaries. We can work on the waveform morphing after 1.0 and when we start adding
+new sound engines, etc." For 1.0 this reverses ADR-317's Blend half.
+
+**How the spec says it.**
+- **MO-13, rewritten.** Every Structural key resolves to one value under every law and every mode but Exempt: its pick
+  and latch, at the stepped position under Stepped. It changes by PA-5's brief timed crossfade, by PA-6 for `unison`
+  and by VO-14 for `voice.mode`. Blend and Stepped blend Morphable keys only. The envelope selectors, the pan pair,
+  every chain's keys and the on switches of the blades, the sub and the noise are named, and so is `oscN.ratios`, whose
+  parsing and 256-byte rule move here from MO-14. A reserved row is never emitted (Q-TA-74's reading, ADR-364).
+- **The one exception** is `oscN.on`, which fades as MO-26's level.
+- **MO-20, moved and restated.** It now lives in D.4, after MO-13. The 1.0 resolver emits `Param` events and morph
+  levels only, and morph off sends corner `morph.audible`'s values with a level of 1. The old set-ordering text is kept
+  word for word as "MO-20's set half, after 1.0" inside D.5.
+- **MO-15 and the merge rule** have no 1.0 meaning of their own. Every Structural key now flips, so "flip-only" marks
+  nothing apart, and merging only decides which settings render together. Both stay in the after-1.0 block.
+
+**Kept as a marked block, not removed.** D.5 (MO-14 to MO-19) and D.6 (SB-1 to SB-13) stay in place, retitled "after 1.0
+(ADR-377)" under a banner that quotes the human and says nothing in them is built or judged for 1.0. Three reasons:
+- **The structure check stays green.** `engine2/structure/engine-structure.json` cites MO-14 to MO-20 and SB-2 to
+  SB-13, and its gate fails on a cite that doesn't exist.
+- **The design keeps its record.** It is the design ADR-317 and ADR-325 ruled, which the human said returns after 1.0.
+- **Section numbers don't move.**
+
+The scattered mentions elsewhere were restated or removed instead, so the 1.0 text never leans on the block.
+
+**Rows restated for 1.0:**
+- **Early sections.** §1 scope, the glossary's class row (with structural group and setting set marked after 1.0), the
+  §3 table and tree, §4's note under the diagram, and 5.1's Class line.
+- **Voice and parameter rows.** SW-1, VO-6's table (the structural-settings row removed), PA-1 (the morph level glides),
+  PA-5, PA-7 (the level's check; set refusals and counters after 1.0) and RT-1 (no per-setting instances).
+- **Interfaces.** IF-3, IF-4 (the level is an input, never state), IF-9 (setting-samples after 1.0), IF-10 (the heard
+  set after 1.0; the heard morph level added) and IF-12 (the level input added; the `SettingSet` event after 1.0).
+- **Reserved contracts and history.** RC-1's filter, RC-5's FX slot, 7.2's hand-over, RC-10, and RC-11.1, 11.2 and 11.4.
+- **Standards and staging.** QS-4 (the set-sweep case removed), PF-4, PF-7, PF-10 (its Blend cells after 1.0) and
+  BD-8's stage 7 amendment, which no longer reopens a stage.
+- **Acceptance.** Items 34.7, 34.8, 34.9 and 34.15 restated; 34.10, 34.11 and 35 marked after 1.0.
+- **Appendices C and D.** C's fade list and its loop-tap note. In D: the intro, MO-1, MO-5, MO-9 (the two-value law
+  now inline), MO-10, MO-11 (a Structural key's Count acts on nothing in 1.0), MO-13, MO-20, MO-21, MO-22, MO-24, MO-25
+  and MO-26, plus D.2's `morph.count` text.
+
+**Memory (D.6, SB-9).** 1.0 needs no per-setting instances, so SB-9's sizing (four instances per group plus SB-8's
+crossfade copies, and up to eight swarm instances per oscillator per voice) no longer applies, and RT-1 and PF-7 drop
+it. PA-5's crossfade copies stay: one second setting per oscillator, and a crossfade copy of the sub's and the noise's
+chains.
+
+**Not covered: the structure file's declaration.** `engine2/structure/engine-structure.json` still declares
+`voice.structure_slots` (citing SB-2 to SB-13), an edge `morph_resolver->voice.structure_slots` for `SettingSet`
+events, and labels the resolver "…setting sets". Those describe after-1.0 structure. Only `spec.blob` moved, as asked.
+Whether to drop or mark them is the lead's call: dropping changes the counts and loupe's drawing.
+
+**Generated file:** `morph.count`'s "what it does" text changed, so `docs/design/gui3/shell-data.js` was regenerated.
+That's a one-line diff.
+
+**For the GUI session:** a Structural key's Count now acts on nothing in 1.0, so the menu might not offer it there, by
+GUI-21's rule. In 1.0 ADR-373 item 7 (Save during a structural blend) can't occur.
+
+**MO-26's open items, re-asked under ADR-377:**
+1. **A floor (still open).** The legacy shell switched the oscillator off below W_on = 10⁻³. With no floor it sounds,
+   and costs CPU, at any W_on above 0.
+   - *Keep the floor:* the oscillator cuts out below −60 dB.
+   - *No floor:* it fades all the way to silence.
+2. **PA-1 on landing (still open).** MO-26 skips MO-5 (b)'s glide, but the engine's PA-1 still glides each `Param` for
+   about 13 ms, so the fade-in's quietest moment carries part of the off corner's values. The options are a no-glide
+   path for these `Param`s, or accepting it.
+3. **Quantum (answered by the lead's reading).** `oscN.on` flips by its pick like any Structural key, with g = 1.
+4. **The oscillator's picks (new, replacing the Structural half of old (2)).** Its Structural keys now pick under every
+   law, and its Morphable keys pick under Quantum.
+   - *Among all four corners,* as the legacy shell's picks did: while it fades in under Blend, an off corner's
+     structure (say, its base wave) can be the one you hear.
+   - *Only among on corners:* it fades in wearing an on corner's structure.
+5. **Waypoints on an oscillator key that is off in some corner (still open).** The pins can bend against the plain
+   base, against the on corners' base, or go dormant there.
+
+**New, in MO-25:**
+6. **Save current sound while an oscillator fades.** It is heard at level g, which no key holds.
+   - *Bake g into the corner's `mix.oscN`:* the corner sounds as the position did.
+   - *Store the switch alone:* the oscillator comes back at full level in that corner.
+
+**After 1.0, from the legacy record:** B203 and B232 put the sub's on switch under the same fade law ("this is also how
+the Sub should work when blend is on"). In 1.0, `sub.on` and `noise.on` follow their quantum boundaries like their
+chains (MO-13). Whether the sub and the noise fade as MO-26 does is a question for after 1.0, not now.
 
 ## Rulings with no spec rows
 
@@ -147,7 +217,8 @@ The draft's eight open questions, as answered by poll, and where each now stands
 5. **Save during a morph glide stores the glided value heard now** (MO-25).
 6. **Save bakes only the macro and X/Y offsets.** LFO and envelope modulation isn't frozen into the corner (MO-25).
 7. **Save during a structural blend stores the heavier setting** (the lower id on a tie), and the morph system reports
-   which groups it couldn't keep as a mix. A corner never holds a mix, and IF-4 is unchanged (MO-25).
+   which groups it couldn't keep as a mix. A corner never holds a mix, and IF-4 is unchanged (MO-25). Since ADR-377 this
+   applies only after 1.0, when setting sets return: in 1.0 no structural setting blends.
 8. **Save on an Exempt key with a macro offset writes the pushed value into all four corners** (MO-25).
 
 Also answered: **the puck's default is corner A, (0, 0)** (item 9), now in D.2's X and Y rows.
@@ -202,10 +273,12 @@ restarted nothing. The header came to the lead under Q-TA-74 ("`observe_setting_
 lists more additions but not this field). Round 57's answers (ADR-364) say "the names and readings stand as you wrote
 them". IF-10 never named it. The builder's tree (`cleanroom-engine`) doesn't have it yet. The header comment says "the
 voice's sample", and the test compares it with score times, which count on the engine's clock. The lead's reading
-settles the clock on PA-3's count, for the test author to confirm.
+settles the clock on PA-3's count, for the test author to confirm. Since ADR-377 the heard set, `started_at` included,
+is after 1.0, so 1.0's tests don't read it.
 
 ## FX device (ADR-254)
 
 The FX device has the same morph and pad (ADR-322), so waypoints, locks and Save current sound apply to a hosted
-module's continuous rows as written. The 64-per-patch cap counts the FX device's own keys, and an FX slot's structure
-(`fx/N`) blends at count 2 (MO-19), so Save's heavier-setting rule (ADR-373 item 7) applies there too.
+module's continuous rows as written. The 64-per-patch cap counts the FX device's own keys. In 1.0 an FX slot's structure
+follows its quantum boundaries like any Structural key (MO-13, RC-5). After 1.0 an `fx/N` blend at count 2 (MO-19)
+brings back Save's heavier-setting rule (ADR-373 item 7).

@@ -26548,7 +26548,7 @@ window.GUI3_DATA = {
    "section": "D.2",
    "see": null,
    "source": "SPEC-ENGINE Appendix D.2",
-   "spec": "How many corner settings may sound, or blend, at once under Blend and Stepped (MO-9, MO-17).",
+   "spec": "How many corner values a Morphable key blends at once under Blend and Stepped (MO-9).",
    "target": "resolver",
    "unit": ""
   },
