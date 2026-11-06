@@ -15,6 +15,8 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace {
 int failures = 0;
@@ -30,8 +32,12 @@ const clap_host_t kHost = {CLAP_VERSION, nullptr, "gui_shot", "", "", "1", host_
 std::uint32_t none_size(const clap_input_events_t*) { return 0; }
 const clap_event_header_t* none_get(const clap_input_events_t*, std::uint32_t) { return nullptr; }
 int pushed_values = 0;
+std::vector<std::pair<std::uint16_t, clap_id>> host_heard;   // what the host heard, in order: event type and parameter
 bool out_push(const clap_output_events_t*, const clap_event_header_t* h) {
   if (h->type == CLAP_EVENT_PARAM_VALUE) ++pushed_values;
+  if (h->type == CLAP_EVENT_PARAM_VALUE) host_heard.push_back({h->type, reinterpret_cast<const clap_event_param_value_t*>(h)->param_id});
+  if (h->type == CLAP_EVENT_PARAM_GESTURE_BEGIN || h->type == CLAP_EVENT_PARAM_GESTURE_END)
+    host_heard.push_back({h->type, reinterpret_cast<const clap_event_param_gesture_t*>(h)->param_id});
   return true;
 }
 
@@ -110,6 +116,7 @@ void web_window(const clap_plugin_t* plugin, const clap_plugin_params_t* params,
   // Every snapshot the page receives is counted on its way in; the page's own handler still gets it.
   run(wk, "var f = window.hordeNativeSnapshot; window.__shot = {frames: 0, withParams: 0, last: null, presets: null, hello: null};"
           "window.hordeNativeSnapshot = function (s) { __shot.frames++; __shot.last = s; if (s.params) __shot.withParams++;"
+          " if (s.params && Object.keys(s.params).length > 300) __shot.fullAck = s.ack;"
           " if (s.presets) __shot.presets = s.presets; if (s.hello) __shot.hello = s.hello; return f(s); }; return 'ok';");
   // GUI 3 sends no hello, so the window resends everything until a frame lands, then only changes. If the landing were
   // never noticed, every frame would carry every row.
@@ -138,9 +145,9 @@ void web_window(const clap_plugin_t* plugin, const clap_plugin_params_t* params,
   params->get_value(plugin, 0xB00001, &after);
   check(int(after) == 5, "a preset message from inside the page moves the Preset parameter");
   check(pushed_values > told, "and the host is told");
-  check(wait_for(wk, "__shot.last.ack >= 9003", 3), "and the page hears its seq acknowledged");
   if (callback_requested) { callback_requested = false; plugin->on_main_thread(plugin); }
   block(plugin, false);   // takes the new engine
+  check(wait_for(wk, "__shot.fullAck >= 9003", 3), "and the page hears the load acknowledged, in a frame carrying every row");
 
   const clap_id level = param_by_name(plugin, params, "out.level");
   page_send(wk, "{type: 'set', seq: 9004, values: {'out.level': 0.37}}");
@@ -148,6 +155,23 @@ void web_window(const clap_plugin_t* plugin, const clap_plugin_params_t* params,
   double moved = -1;
   params->get_value(plugin, level, &moved);
   check(level != CLAP_INVALID_ID && moved == 0.37, "a set from inside the page reaches the plug-in at the page's v");
+
+  // A touch on a control, as the page sends it: Live fills its panel from these once a plug-in has more than 64.
+  const clap_id touched = param_by_name(plugin, params, "osc2.detune");
+  host_heard.clear();
+  page_send(wk, "{type: 'gesture', seq: 9005, key: 'osc2.detune', phase: 'begin'}");
+  page_send(wk, "{type: 'set', seq: 9006, values: {'osc2.detune': 0.41}}");
+  page_send(wk, "{type: 'gesture', seq: 9007, key: 'osc2.detune', phase: 'end'}");
+  std::vector<std::uint16_t> heard;
+  for (const auto& [type, id] : host_heard)
+    if (id == touched) heard.push_back(type);
+  check(heard.empty(), "control: before a block runs, the host has heard nothing of the touch");
+  block(plugin, false);
+  heard.clear();
+  for (const auto& [type, id] : host_heard)
+    if (id == touched) heard.push_back(type);
+  check(touched != CLAP_INVALID_ID && heard == std::vector<std::uint16_t>{CLAP_EVENT_PARAM_GESTURE_BEGIN, CLAP_EVENT_PARAM_VALUE, CLAP_EVENT_PARAM_GESTURE_END},
+        "a touch from the page reaches the host as one gesture: begin, value, end, on a row Live's panel holds only once touched");
 
   for (int i = 0; i < 40; ++i) block(plugin, i == 0);
   check(wait_for(wk, "__shot.last.observe.sounding && Array.isArray(__shot.last.observe.voices[0].osc[0].phases)", 3),
@@ -217,7 +241,7 @@ int main(int argc, char** argv) {
       collect<NSSlider>(window.contentView, sliders);
       std::printf("     %lu menus, %lu sliders\n", (unsigned long)popups.count, (unsigned long)sliders.count);
       NSPopUpButton* preset = nil;
-      for (NSPopUpButton* b in popups) if (b.numberOfItems > 40 && !preset) preset = b;
+      for (NSPopUpButton* b in popups) if (b.numberOfItems == 83 && !preset) preset = b;   // Polyphony's menu has 64
       check(preset != nil && preset.numberOfItems == 83, "the preset menu lists all 83");
 
       // Must-fail by construction: the value starts elsewhere, so only the window's action can make this read 5.

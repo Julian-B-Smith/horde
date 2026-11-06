@@ -22,7 +22,6 @@
 
 #include <choc/gui/choc_WebView.h>
 
-#include <algorithm>
 #include <atomic>
 #include <cstring>
 #include <memory>
@@ -33,9 +32,9 @@
 
 namespace {
 
-// GUI 3 is laid out for a 980 px window (docs/design/gui3/README.md); taller than ADR-259's 720 with its bank shown.
-// The host may resize it: the page's own layout decides what fits.
-constexpr std::uint32_t kWidth = 980, kHeight = 860, kMinWidth = 640, kMinHeight = 480, kMaxSide = 4096;
+// ADR-259's window: in plug-in mode GUI 3's page puts the device at the view's top-left at exactly this size (the GUI
+// session, B628), so the window is fixed to it.
+constexpr std::uint32_t kWidth = 980, kHeight = 720;
 constexpr double kFrameSeconds = 1.0 / 30;   // section 3: a frame every 1/30 s
 
 char kInnerHandlerKey;   // associated-object keys: only the address matters (non-const, so they can't be folded)
@@ -105,7 +104,6 @@ struct GuiState {
   // GUI 3 sends no hello. Shared, as the completion that sets it can outlive the window.
   std::shared_ptr<std::atomic<bool>> delivered = std::make_shared<std::atomic<bool>>(false);
   NSTimer* timer = nil;
-  std::uint32_t width = kWidth, height = kHeight;
 };
 
 std::string message_text(const choc::value::ValueView& args) {
@@ -160,6 +158,7 @@ bool gui_create(const clap_plugin_t* p, const char* api, bool is_floating) {
   if (!gui_is_api_supported(p, api, is_floating)) return false;
   void*& slot = preview::gui_slot(p->plugin_data);
   if (slot) return false;
+  preview::bridge_open(p->plugin_data);   // a new page knows nothing; it starts with hello
   slot = make(p->plugin_data);
   return true;
 }
@@ -173,41 +172,25 @@ void gui_destroy(const clap_plugin_t* p) {
   slot = nullptr;
 }
 bool gui_set_scale(const clap_plugin_t*, double) { return false; }   // AppKit scales by itself
-bool gui_get_size(const clap_plugin_t* p, std::uint32_t* w, std::uint32_t* h) {
-  const GuiState* g = state(p);
-  *w = g ? g->width : kWidth;
-  *h = g ? g->height : kHeight;
+bool gui_get_size(const clap_plugin_t*, std::uint32_t* w, std::uint32_t* h) {
+  *w = kWidth;
+  *h = kHeight;
   return true;
 }
-bool gui_can_resize(const clap_plugin_t*) { return true; }
-bool gui_get_resize_hints(const clap_plugin_t*, clap_gui_resize_hints_t* hints) {
-  hints->can_resize_horizontally = true;
-  hints->can_resize_vertically = true;
-  hints->preserve_aspect_ratio = false;
-  hints->aspect_ratio_width = hints->aspect_ratio_height = 0;
-  return true;
-}
+bool gui_can_resize(const clap_plugin_t*) { return false; }
+bool gui_get_resize_hints(const clap_plugin_t*, clap_gui_resize_hints_t*) { return false; }
 bool gui_adjust_size(const clap_plugin_t*, std::uint32_t* w, std::uint32_t* h) {
-  *w = std::clamp(*w, kMinWidth, kMaxSide);
-  *h = std::clamp(*h, kMinHeight, kMaxSide);
+  *w = kWidth;
+  *h = kHeight;
   return true;
 }
-bool gui_set_size(const clap_plugin_t* p, std::uint32_t w, std::uint32_t h) {
-  GuiState* g = state(p);
-  if (!g || w < kMinWidth || h < kMinHeight || w > kMaxSide || h > kMaxSide) return false;
-  g->width = w;
-  g->height = h;
-  NSView* view = (__bridge NSView*)g->web->getViewHandle();
-  [view setFrameSize:NSMakeSize(w, h)];
-  return true;
-}
+bool gui_set_size(const clap_plugin_t*, std::uint32_t w, std::uint32_t h) { return w == kWidth && h == kHeight; }
 bool gui_set_parent(const clap_plugin_t* p, const clap_window_t* window) {
   GuiState* g = state(p);
   if (!g || !window->cocoa) return false;
   NSView* parent = static_cast<NSView*>(window->cocoa);
   NSView* view = (__bridge NSView*)g->web->getViewHandle();
-  [view setFrame:NSMakeRect(0, 0, g->width, g->height)];
-  [view setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+  [view setFrame:NSMakeRect(0, 0, kWidth, kHeight)];
   [parent addSubview:view];
   configure_surface(view);   // now the window's scale is real
   return true;

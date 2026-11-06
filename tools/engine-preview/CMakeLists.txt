@@ -122,14 +122,22 @@ foreach(fmt clap vst3 auv2)
     COMMAND codesign --force -s - "$<TARGET_BUNDLE_DIR:horde-engine-preview_${fmt}>" VERBATIM)
 endforeach()
 
-# The smoke test's must-fail build: the same shell with its routes removed. A bare CLAP, never installed. It keeps the
-# AppKit window whatever HORDE_PREVIEW_WEBVIEW says, so every build compiles the fallback and it can't rot unseen.
-add_library(preview-plant MODULE preview_plugin.cpp bridge_core.cpp preview_gui.mm preview_entry.cpp)
-add_dependencies(preview-plant bank_embedded)
-target_compile_definitions(preview-plant PRIVATE HORDE_PREVIEW_PLANT_NO_ROUTES "HORDE_PREVIEW_BUILD_LABEL=\"${HORDE_PREVIEW_BUILD_LABEL}\"")
-target_include_directories(preview-plant PRIVATE ${CMAKE_BINARY_DIR}/generated ${CMAKE_CURRENT_SOURCE_DIR} ${HORDE_REPO_ROOT}/h2 ${PREVIEW_CHOC_DIR})
-target_link_libraries(preview-plant PRIVATE clap horde_engine2 "-framework AppKit")
-set_target_properties(preview-plant PROPERTIES PREFIX "" SUFFIX ".clap")
+# The smoke test's must-fail builds, bare CLAPs never installed. They keep the AppKit window whatever
+# HORDE_PREVIEW_WEBVIEW says, so every build compiles the fallback and it can't rot unseen.
+#   preview-plant      the routes removed, the retired Voices limit of 4 put back, pitch bends dropped, and the
+#                      output tap frozen after its first block
+#   preview-plant-map  the bridge's key map shifted one row, and the output tap hearing silence
+foreach(plant preview-plant preview-plant-map)
+  add_library(${plant} MODULE preview_plugin.cpp bridge_core.cpp preview_gui.mm preview_entry.cpp)
+  add_dependencies(${plant} bank_embedded)
+  target_compile_definitions(${plant} PRIVATE "HORDE_PREVIEW_BUILD_LABEL=\"${HORDE_PREVIEW_BUILD_LABEL}\"")
+  target_include_directories(${plant} PRIVATE ${CMAKE_BINARY_DIR}/generated ${CMAKE_CURRENT_SOURCE_DIR} ${HORDE_REPO_ROOT}/h2 ${PREVIEW_CHOC_DIR})
+  target_link_libraries(${plant} PRIVATE clap horde_engine2 "-framework AppKit")
+  set_target_properties(${plant} PROPERTIES PREFIX "" SUFFIX ".clap")
+endforeach()
+target_compile_definitions(preview-plant PRIVATE HORDE_PREVIEW_PLANT_NO_ROUTES HORDE_PREVIEW_PLANT_VOICE_CAP
+                           HORDE_PREVIEW_PLANT_DROP_BEND HORDE_PREVIEW_PLANT_FROZEN_TAP)
+target_compile_definitions(preview-plant-map PRIVATE HORDE_PREVIEW_PLANT_KEYMAP_SHIFT HORDE_PREVIEW_PLANT_SILENT_TAP)
 
 add_executable(preview-smoke smoke.cpp)
 add_dependencies(preview-smoke bank_embedded)
