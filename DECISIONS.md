@@ -12038,6 +12038,30 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 **Engine impact.** GN-51 (rows for the position). Rulings 1 and 2 need none: the corners, their names, the pin and the lock are state the shell already has (GN-34 and GN-37 ask who keeps it).
 
 **FX device (ADR-254).** It has a morph and a bank, so the same tab and the same knobs apply there.
+
+## GUI-47 — RULED by the human: an envelope of a source's own by Override, the grid as the overview; four envelopes on Main with a map button each; picture and readout on an Osc page (GB23; amends GUI-39; 2026-11-05)
+
+**The human, 2026-11-05,** reviewing `docs/design/envelope-workshop-lab.html` live with the Labs facilitator:
+- Q1, how a source gets a different envelope: "Override + grid".
+- Q2, Main: "I actually like the idea of four small, one large, and adding the map button to each of the small envelopes".
+- Q3, an Osc page: "Picture and readout".
+
+**Rulings.**
+1. **Override.** Everything follows ENV 1 until you ask. One button on a source's page gives that source its own envelope, a copy of what it was following, in a free envelope (ENV 2 to 4), so there are at most three overrides. "Back to ENV 1" returns it, and the copy is kept for the next override.
+2. **The grid** (sources against envelopes, with the four pictures over it) is the overview, on the Mod page or the Dashboard.
+3. **Main shows all four envelopes:** a strip of small pictures with the clicked one large under it. Each small one carries a **map button**, read as the same map handle the bank's modulator rows carry (ADR-322), so it routes that envelope to any parameter. That reading is the GUI session's, and is open to the human.
+4. **An Osc page** shows the envelope as a picture, about 70 px, that you drag for everything. Its values read out under it as numbers, and the seven knobs live behind +Adv. Each number still needs a keyboard route.
+
+**Not settled: where ruling 3 fits.** Main's stage fills its page area exactly (463 px of 463, measured in the shell), and ENV 1 sits directly above the deck. The lab says the strip costs about 40 px. Three ways, for the human:
+- (a) the deck gives up 40 px (its phase ring 140 → 100 px);
+- (b) smaller pictures: 24 px thumbnails and a 56 px large one, costing the deck about 12 px;
+- (c) the four thumbnails replace ENV 1's knob row, which is about the same height: values read under the picture and the knobs go behind +Adv, as ruling 4 does on the Osc pages, and nothing shrinks.
+
+The GUI session recommends (c). Nothing is built until the human picks.
+
+**Engine impact.** None: Override and the grid write the existing Envelope row (RC-6.5) and copy rows into a free envelope's existing rows, and a map button makes an ordinary modulation route (RC-4's, already requested).
+
+**FX device (ADR-254).** It has no voices and no envelopes of its own, so none of this applies there.
 ## GUI-44 — RULED by the human: GUI 3's browser check runs in `./verify fast`, a hole where there's no browser (GB24; 2026-11-05)
 
 **The human, 2026-11-05:** "A: fast, hole if absent", choosing among the three options in `docs/design/gui3/browser-gate-proposal.md`.
@@ -12082,6 +12106,8 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 4. **The manifest hash, the lead's ruling:** a stepped row whose options are consecutive integers (octave, semitone, unison, the bump harmonics, the sub's octave and semitones, polyphony) hashes its own first and last numbers. Named options keep 0 and n − 1, and every default is the option index. The page's hash is now the engine's, `ca64bf73…`.
 5. **The preset bar** reads `presets.index`, and it, Voices, the build label and the mismatch banner paint on every snapshot as well as every frame. The lead's window test drew no animation frames (its knobs and pictures were empty too), so a per-frame painter left the mock "INIT - Init" showing.
 6. **Captions:** under the carpet and voice map, the bridge says which is the engine's.
+
+**A2 (the human, 2026-11-05, through the lead's poll; B628): "One control: Polyphony".** The human heard 4 voices while the page showed Polyphony 16: the test plug-in's own Voices limit was capping them unseen. So Polyphony (`voice.polyphony`, a row on the Set page) is the one voice control. The page's Voices stepper and the `plugin {voices}` message are gone, and the schema refuses it. `plugin {build}` stays for the build label. In Live the bridge caps a loaded preset's Polyphony at 8, and the page shows the real number through the load's rows. Engine impact: none.
 ## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
 
 **Context.** FM free in pitch FM runs an accumulator that never restarts, while each of C.16's readings starts it at 0, so the estimate cannot see its mean and BL-19 cannot hold by the law alone (Q-TA-71: engine-free, 95 of its 144 one-member cases over 0.003, up to 0.046). ADR-363 sent this to a scratch trial of C.16's existing blocker, with clips for the human. Separately, item 7.8's reference R2 places FM free's modulator half a cycle from round 56's start, and 7.8 plays before its settings settle (Q-TA-77).
@@ -12185,3 +12211,141 @@ Harvested and kept as a source: scalpel-interface-lab (B271, B293 to B375; ADR-3
 
 **FX device (ADR-254):** none. The cable views' animation applies to the FX page's views wherever they're hosted.
 
+## ADR-370 — RULED by the human: the morph next, the modulation spec drafted, and the test plug-in widened (B630, B631, B632)
+
+**Context.** With GUI 3 running on the engine in the test plug-in, the human asked what else could be wired. The lead answered:
+- **Possible now:** pitch bend and glide, every setting automatable, a real output scope, engine-backed pictures, and member pan through a spec round.
+- **Not possible yet:** morph and modulation. Morph's spec is ratified (round 48) but unbuilt, because ADR-354 put the CPU pass first; it also has gaps the GUI already draws (B616). Modulation has no spec, only ADR-330's drafted rows.
+
+The lead proposed: a lab for the morph's open questions; the morph built before the remaining CPU work; the modulation spec drafted now; and pitch bend, glide, automation and an output tap in the test plug-in.
+
+**Ruling (the human, 2026-11-06): "yes to all, build the morph lab and start everything".**
+
+**What follows.**
+- **B631:** the GUI session builds the morph-questions lab, and the human answers by poll. The lead writes a spec round on top of Appendix D. The builder takes the morph right after batch 3's PF-3, and the remaining CPU work (the per-member tables, Crunch horde's held refresh, the stagger awaiting the human's ear) follows it. This reverses ADR-354's order for what remains of the CPU pass; the 10.7 % target stands.
+- **CPU is fixed as the human finds it while playing** (the human, the same day: "it makes more sense to fix the CPU issues as we go. I can better debug and point out engine issues if I'm actually playing with the synth"). The CPU pass no longer runs as one block ahead of features. Each problem the human hears in the test plug-in, together with its session log, becomes a builder item between feature work. The plug-in's log and PF-3 beside each commit keep the cost visible (memory: measure the budget every stage).
+- **B630:** an agent drafts the modulation spec as a proposal, every clause cited and every choice a question. Nothing reaches the clean room until the human rules it.
+- **B632:** the test plug-in gains pitch bend and the bank's glide, as SPEC-ENGINE 10.3 already states them for the phrases, a stand-in until B504's pitch spec. It also makes every engine row a host parameter and taps the summed output for the scope.
+
+**The lead's reading, open to overrule.** B632's glide takes 10.3's law exactly and adds no travel law, quantizer or setting. Those are B504's, by spec and lab: inventing them in a test plug-in would pre-empt the human's rulings there.
+
+**FX device (ADR-254):** the modulation spec must state its consequence for the FX device, which hosts the same matrix over audio input (B528). The morph's carries over as B616 says.
+
+
+## ADR-371 — RULED by the human: the modulation system's eighteen questions (B630, B633)
+
+**Context.** B630's draft (`docs/proposals/modulation-spec-draft.md`, PR #1424) cites every clause and leaves each open choice as a question, MQ1 to MQ18. The lead put them to the human by poll in five batches, 2026-11-06. Each answer below is the human's, with the poll's own words where the human added any.
+
+**Rulings.**
+- **MQ1, how many LFOs:** 4.
+- **MQ2, one wave per note or shared:** a switch per LFO, shared (global) or per note.
+- **MQ3, a free LFO's range:** 0.02 to 40 Hz.
+- **MQ4, LFO kinds beyond drawn shapes and sample and hold:** smoothed random.
+- **MQ5, what smooths a Quantum point's jump:** the morph's own glide.
+- **MQ6, where a synced LFO's wave starts:** locked to song position.
+- **MQ7, a depth wire:** it adds to the route's depth and stops at zero.
+- **MQ8, targets beyond the engine's knobs:** FX module knobs, a modulator's own settings, and the morph position, with the human's limit: "Only an LFO set to global can move the morph position." A per-note LFO, an envelope or any other per-note source can't reach it.
+- **MQ9, curves:** yes, each route has its own curve (linear, exponential, logarithmic), as macros do.
+- **MQ10, a macro at a knob's end:** the end is a wall. No headroom is stored.
+- **MQ11, keyboard sources:** the mod wheel, pitch bend and keytrack, **and MPE**, which the human added. Asked which MPE dimensions, the human chose all four: pressure, slide (CC 74), per-note bend and lift (release velocity). Release velocity itself was not chosen as a non-MPE source.
+- **MQ12, new modulators in 1.0:** ORBITAL, the Kuramoto LFO and the 2-D random source for the XY pads. Each still needs its own lab ruling first. Note-on randoms, the trigger timer and impulses, the silent spring, and the MIDI gate and trigger wait until after 1.0.
+- **MQ13, a new mapping's polarity:** the source's natural shape. LFOs and the XY axes start bipolar; envelopes, velocity and macros start unipolar.
+- **MQ14, the route cap:** 64.
+- **MQ15, LFO settings for the host:** yes. Rate, sync, division and retrigger are host parameters in a block of their own, append-only (MD-55), and they morph like any knob. The drawn points stay patch state (ADR-349).
+- **MQ16, envelopes beyond ENV 1 to 4:** no new envelopes. Instead, **an LFO can switch to envelope mode**: it plays its shape once and stops, "as in Serum 2" (the human's words). That is a new clause: the draft didn't have it.
+- **MQ17, mappings while morph is on:** **per corner in 1.0.** This reverses the "global for 1.0" in ADR-261 r3 and ADR-266 r4, and makes B396's five corner-mapping questions part of 1.0: blending a mapping only some corners have, depth past zero, loops between corners, a preset that would close a loop, and the pad in loops. Their lab is up (`docs/design/corner-mapping-lab.html`). B392's input from 2026-10-19 now applies in 1.0: mappings from silent corners stay visible, greyed out.
+- **MQ18, a modulator with no mappings:** it keeps its settings until it is removed.
+
+**Not ruled here.** GN-40's readings, including MD-59 ("a key set to Exempt still takes modulation"), wait for the morph spec round (B631). ADR-370 cited "ADR-330's drafted rows"; they don't exist on main, as #1424 discloses.
+
+**What follows (B633).** The modulation spec reaches the clean room only when three things are settled: B396's five questions, the three new modulators' labs, and the MPE channels' bend range, which is B504's per-patch setting. Meanwhile the lead folds these rulings into the draft on #1424.
+
+**FX device (ADR-254).** The FX device hosts the same matrix over audio input (B528). It has notes only when MIDI is routed to it, so per-note LFOs, keytrack and MPE have nothing to follow without MIDI, and global LFOs are its default. Per-corner mappings carry over as the morph does (B616). The modulators' host-id block is append-only, so a second shell exposes it unchanged.
+
+**ADR-371 A1 (the human, 2026-11-06, by poll): the draft's remaining gaps, and two approvals.** When the rulings were folded into the draft (#1424), it found gaps that ADR-371 left open (its T11). The human answered:
+- **A synced LFO has a start-phase knob,** 0 to 360 degrees, which offsets its wave against the song's grid.
+- **Envelope mode's end:** the LFO holds its last point. At note-off that held value falls to zero along Osc 1's envelope release. The human's words: "Holds its last point and then follows the release of Osc 1." The lead's reading, confirmed by poll: "at note-off, the held value falls to zero along Osc 1's envelope release."
+- **A global LFO may use envelope mode.** Any new note restarts it.
+- **A new route starts linear.**
+- **GN-40's modulation question is answered** (the labs facilitator's poll, relayed): an Exempt control still takes modulation ("Yes, still modulated"). MD-59 stands as ruled. GN-40's other three readings wait for the morph round.
+- **The Map Mode spec may say per corner.** The human, asked whether the protected `docs/design-system/HORDE-Map-Mode-Spec.md` may change its "routes global for 1.0" to per corner, answered "Yes, edit it". The GUI session made that one edit (GUI-51, its own PR).
+
+Two readings, the lead's, open to overrule:
+- **Pitch bend and MPE per-note bend start bipolar,** as their natural shape (MQ13's principle). Every other keyboard source starts unipolar.
+- **IF-3 must publish per-note bend and lift,** since they are sources (MQ11).
+
+## ADR-372 — RULED by the human: the corner-mapping lab's five questions; loop strictness is a per-patch setting (B396 closed, B633)
+
+**Context.** MQ17 (ADR-371) made per-corner mappings part of 1.0. The labs facilitator put the corner-mapping lab (`docs/design/corner-mapping-lab.html`, B396) to the human live, 2026-11-06.
+
+**Rulings.**
+1. **A mapping that only some corners have, or on which corners disagree, fades with the corner** under Blend (the lab's "mix"). Each corner's mapping counts by its weight, so opposite polarities cancel in the middle and the mapping comes back inverted past it.
+2. **A depth wire stops at zero** (as MQ7 ruled). ADR-266 is kept: depth is a magnitude, and the polarity carries the sign.
+3. **Loops between corners are a setting.** The human: "Let's make this a setting." It has three modes: "Refuse any possible loop", "Refuse only inside a corner" and "Allow, one step late". It is **saved per patch**, so a preset carries its own mode. **A new patch defaults to "Allow, one step late".**
+4. **A preset loaded into a corner that would close a loop** (only under the two refusing modes): the human said "Load it minus the mapping but with a warning". The load goes through without that mapping, and the page names what it dropped.
+5. **The pad follows the loop setting.** Under the two refusing modes it counts as part of a loop. Under Allow it is read one step late. This option was the facilitator's, not the lab's; the human chose it.
+
+**The lab is closed** (the human, by poll: "Close it"). Its design consequences are the GUI session's GUI-53: GN-53 covers the setting and the load warning.
+
+**Armor note (the lead's, for B633).** The default, Allow, is the mode the lab says "can run wild". Its loops are bounded by construction: every target clamps to its own range, and a loop is read one control step late, so it cannot run away within a step. It can still oscillate at the control rate. The modulation spec round must state that bound and give it an oracle: a Layer-0 check that a worst-case allowed loop keeps every target in range, with a must-fail control. Under Blind-Spot Armor it is a named gate, not prose.
+
+**FX device (ADR-254).** The FX device carries the same setting with the same default, because its matrix is horde's.
+
+## ADR-373 — RULED by the human: the morph's ruled gaps and round 61's questions (B631)
+
+**Context.** The morph questions lab (GB29, #1423) put eight questions to the human, relayed by the GUI session (GUI-51): waypoint limits, pins across a mode change, region locks, X and Y as host parameters, mappings per corner, RAMPS, corner presets and Save current sound. Drafting round 61 from them left nine more questions, which the lead put to the human by poll, 2026-11-06.
+
+**The lab's rulings** (GUI-51; the round's text states them):
+- **Waypoints:** at most 8 per setting and 64 per patch, stored in order. Pins stay dormant under Quantum or Stepped and act again in Blend.
+- **A region lock keeps only the region's shape.** A corner edit still changes the locked setting's values inside its regions.
+- **X and Y are host parameters.**
+- **Mappings are per corner** (ADR-371 MQ17).
+- **RAMPS is dropped.** There are two kinds, Morphable and Structural.
+- **Corner presets come from both places:** the patch's own corners first, then a user library shared by every patch.
+- **Save current sound stores what you hear,** every setting, with the offsets baked.
+
+**The round's questions, answered by poll.**
+1. **Waypoints at Count Two are dormant.** The plain two-value blend plays.
+2. **A circular key takes no waypoints.**
+3. **Making a key Exempt keeps its pins and lock dormant,** so they return with Follow.
+4. **The waypoint law and Clamp are page choices,** saved per patch and never automated.
+5. **Save during a glide stores the glided value you hear now.**
+6. **Save bakes only the macro and X/Y offsets.** LFO and envelope modulation keeps moving around the saved value.
+7. **Save during a structural blend stores the heavier setting,** and the page notes what it couldn't keep as a mix. A corner never holds a mix (IF-4 unchanged).
+8. **Save on an Exempt key with a macro offset writes the pushed value into all four corners.**
+9. **The puck starts at corner A,** (0, 0), the legacy default.
+
+**What follows.** Round 61 (branch `b631-round-61`) takes these answers. The X and Y rows land together with the GUI session's layout placement of the two knobs, because the controls gate reads red on a host parameter with no page. `started_at` in IF-10 counts on the engine's sample clock from reset, as `VoiceView::start_sample` does (the lead's reading, for the test author to confirm).
+
+**FX device (ADR-254).** The morph carries over as B616 says, with the same state members.
+
+## ADR-374 — RULED by the human: Random's low end, the oscillators and a pitch envelope by convention (B578)
+
+**Context.** Playing the test plug-in, the human, 2026-11-06: "randomizing almost always makes a limp noisy twang at low volume. I think we'll need to be methodical about the chaos curve and what kinds of patches get generated at the low end of it."
+
+**Rulings.**
+1. **Randomizing one oscillator never changes its on/off switch.**
+2. **In a random patch, osc 1 is always on, except that sometimes only the sub is on. Osc 2 is never the only source.** The human: "osc 1 should always be on for random patches, or at least osc 2 should never be alone - maybe sometimes just the sub osc can be on."
+3. **Random leaves alone the settings of an oscillator the draw leaves off.** They make no sound.
+4. **At low chaos, blades are rare, and when they appear they lean toward low values and simple features.**
+5. **ENV 4 is the pitch envelope by convention, not exclusively** (chosen by poll). Random gives it a tight decay and often maps it to pitch.
+6. **The chaos curve's low end is worked out methodically.** This is ADR-342's open simplicity-prior tuning, now extended to the oscillators.
+
+**Consequences.** The GUI session builds 1 to 5 in the Random page and records them as GUI-n. Rule 6 is a tuning session with listening batches (Blind-Spot Armor: a capped batch, not interruptions). Nothing reaches the engine. If the factory bank's convention for ENV 4 needs an engine default, it is an ENGINE-NEEDS row.
+
+**FX device (ADR-254).** None: the FX device has no oscillators. ADR-342's FX-side rules stand.
+
+**ADR-374 A1 (the human, 2026-11-06, by poll): the envelope selector under Random.** The GUI session found a likely cause of the twang. Random may move a source's `env` selector to any other envelope, now including the tight ENV 4, so the note goes short. The human, verbatim: "How about at low to moderate chaos, the envelope assignment doesn't change, but it becomes more possible (maybe still bounded) at the upper end." At low and moderate chaos a source's `env` selector never changes. Toward the top of the range the chance of a change rises, possibly capped. The threshold and any cap are named stand-ins for the chaos-curve tuning (B634 item 6). The GUI session's other finding is that every on/off switch flipped at Amount 1, whatever the chaos; rules 1 and 2 cover that.
+
+## ADR-375 — RULED by the human: the three new modulators' big calls (B540, B126, B226; B633)
+
+**Context.** ADR-371's MQ12 admitted ORBITAL, the Kuramoto LFO and the 2-D random source to 1.0, each after its lab ruling. The labs facilitator put the modulator lab (`docs/design/shape-lab-mod.html`) to the human, 2026-11-06, after checking that it loads and plays. The human chose to rule the calls that change the sound and leave the fine details (units, ranges, trigger semantics) to the lead to propose as defaults.
+
+**Rulings.**
+- **The 2-D random (B540):** all three modes ship in 1.0: Walk, Jump and Scatter. The human, verbatim: "There also needs to be a way to turn glide all the way off so it just jumps between points, while I like the glide options as well." So the travel setting gets a zero that steps straight to the new point, beside the glide and spring laws. **In tempo it locks to the bar**, timed from the transport's bar 1, not from its own replay start.
+- **ORBITAL (B126):** **each preset's speed and energy outputs are scaled to a fixed full range** ("Yes, per preset"), as was ruled for acceleration, so they are audible without extra gain. This changes SPEC-ORBITAL §4's reading. Still to be put to the human: the speed thermostat and the edge cushion (B126's open items), and how the source count (8 bodies × 5 observables) meets the matrix's slots.
+- **The Kuramoto LFO (B226):** in 1.0 as it is ("Yes, as is").
+
+**What follows.** The lead proposes defaults for the lab's fine questions, and the facilitator puts any the human wants to hear to them. B633's item (2) closes when ORBITAL's open items are ruled.
+
+**FX device (ADR-254).** The FX device hosts the same modulators. The 2-D random's bar lock and ORBITAL's scaling carry over unchanged.

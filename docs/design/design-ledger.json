@@ -392,7 +392,7 @@
   "random-lab.html": {
    "status": "ruled",
    "adr": "ADR-322",
-   "note": "Folded into the Morph page (ADR-322; with ADR-318, ADR-320, ADR-321, ADR-327); its next round is still being ruled and nothing is in the master (port-tab random-page)."
+   "note": "Folded into the Morph page (ADR-322; with ADR-318, ADR-320, ADR-321, ADR-327); its next round is still being ruled and nothing is in the master (port-tab random-page). DEFERRED by the human, 2026-11-05, through the Labs facilitator until its next round is ready; pin off."
   },
   "reverb-lab.html": {
    "status": "ruled",
@@ -409,7 +409,7 @@
   },
   "shriek-gui-lab.html": {
    "status": "exploring",
-   "note": "GB14. Shriek's whole hosted interface on its 80s workstation screen with the live automaton title, for the human to judge. Controls from the vendored manifest. Open: Shriek's answers on its control surface, through the lead. Corners and modulation are a placeholder page for GB15."
+   "note": "GB14. Shriek's whole hosted interface on its 80s workstation screen with the live automaton title, for the human to judge. Controls from the vendored manifest. Open: Shriek's answers on its control surface, through the lead. Corners and modulation are a placeholder page for GB15. DEFERRED by the human, 2026-11-05, through the Labs facilitator (\"Defer both\") until Shriek answers seq 41 and 43; pin off."
   },
   "scalpel-interface-lab.html": {
    "status": "harvested",
@@ -427,7 +427,7 @@
   },
   "sluice-gui-lab.html": {
    "status": "exploring",
-   "note": "GB13. Sluice's whole hosted interface on its GBC screen with the live title, for the human to judge. It reads Sluice's data through local/sluice and carries none of it (the human's hold). Open: Sluice's answers on its control surface, through the lead. Corners and modulation are a placeholder for GB15."
+   "note": "GB13. Sluice's whole hosted interface on its GBC screen with the live title, for the human to judge. It reads Sluice's data through local/sluice and carries none of it (the human's hold). Open: Sluice's answers on its control surface, through the lead. Corners and modulation are a placeholder for GB15. Sluice answered (its seq 85, 2026-11-04), so the human’s deferral ends; pin off until the lab carries the answer."
   },
   "sluice-horde-lab.html": {
    "status": "retired",
@@ -485,8 +485,9 @@
    "note": "GB19. Three candidates each for an oscillator's mini view on Main, its expanded page, and the Osc dashboard with both filters (MOCK). Waiting on the human."
   },
   "envelope-workshop-lab.html": {
-   "status": "exploring",
-   "note": "GB23. How a source gets a different envelope (Override, one grid, Serum's Env button) and how envelopes show on Main and an Osc page, each with this session's pick; waiting on the human's answers."
+   "status": "ruled",
+   "adr": "GUI-47",
+   "note": "GB23, ruled GUI-47 (the human, 2026-11-05, through the Labs facilitator): Override + grid, four envelopes on Main with a map button each, picture and readout on an Osc page. Where Main’s strip fits is back with the human."
   },
   "bank-morph-lane-lab.html": {
    "status": "ruled",
@@ -6529,7 +6530,7 @@
    "id": "gui45-pad-xy-knobs",
    "adr": "GUI-45",
    "clause": "the pad's X and Y as two knobs under the Morph page's pad, no undo step, as a drag",
-   "note": "Waits on D.2 rows for the position (GN-51); the shell draws parameter knobs only from rows. FX device: same.",
+   "note": "Waits on D.2 rows for the position (GN-51); the shell draws parameter knobs only from rows. The place is ready: a layout group marked `side` sits under the pad (gen_gui3_controls’ `side` gate, self-check 4b2e), and the Position group lands with the rows in one change (the lead’s round 61). FX device: same.",
    "lab": null
   },
   {
@@ -6681,6 +6682,66 @@
    "shell": null,
    "state": "ruled",
    "master_version": null
+  },
+  {
+   "port_tab": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": "docs/design/envelope-workshop-lab.html",
+   "id": "gui47-override",
+   "adr": "GUI-47",
+   "clause": "Override: a source gets its own envelope, a copy, in a free ENV 2 to 4 (three at most)",
+   "note": "Writes the Envelope row (RC-6.5). FX device: none.",
+   "component": null
+  },
+  {
+   "port_tab": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": "docs/design/envelope-workshop-lab.html",
+   "id": "gui47-grid",
+   "adr": "GUI-47",
+   "clause": "the grid of sources against envelopes as the overview, on the Mod page or the Dashboard",
+   "note": "FX device: none.",
+   "component": null
+  },
+  {
+   "port_tab": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": "docs/design/envelope-workshop-lab.html",
+   "id": "gui47-main-four",
+   "adr": "GUI-47",
+   "clause": "Main shows all four envelopes, small, with the clicked one large, each small one with a map button",
+   "note": "Its fit on Main is open (GUI-47: a, b or c). FX device: none.",
+   "component": "Envelope"
+  },
+  {
+   "port_tab": null,
+   "bundle": null,
+   "shell": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": "docs/design/envelope-workshop-lab.html",
+   "id": "gui47-osc-readout",
+   "adr": "GUI-47",
+   "clause": "an Osc page: the envelope picture to drag, values read out under it, knobs behind +Adv",
+   "note": "FX device: none.",
+   "component": "Envelope"
   }
  ],
  "not_design": [
@@ -7685,6 +7746,30 @@
    "reason": "Records the human's lab verdicts; each lab's own ledger entry is the GUI session's to change, citing this ADR."
   },
   {
+   "adr": "ADR-370",
+   "reason": "Scheduling and scope: the morph lab and its design rulings are the GUI session's, recorded as GUI-n with their own ledger rows."
+  },
+  {
+   "adr": "ADR-371",
+   "reason": "The modulation system's behaviour, ruled by poll. Its consequences for the Mod page are the GUI session's to record as GUI-n with their own ledger rows."
+  },
+  {
+   "adr": "ADR-372",
+   "reason": "The corner-mapping lab's answers as behaviour; their screens (the loop setting, the load warning) are the GUI session's GUI-53 with its own ledger rows."
+  },
+  {
+   "adr": "ADR-373",
+   "reason": "The morph's behaviour for spec round 61; the Morph page's design consequences are the GUI session's GUI-51."
+  },
+  {
+   "adr": "ADR-374",
+   "reason": "Random's draw rules; the Random page's design is unchanged, and the GUI session records the build as GUI-n."
+  },
+  {
+   "adr": "ADR-375",
+   "reason": "The modulators' behaviour, ruled from the modulator lab; their cards' design is the GUI session's."
+  },
+  {
    "adr": "GUI-44",
    "reason": "A gate: GUI 3's browser check wired into ./verify fast, a hole where there's no browser. No design element."
   }
@@ -7835,6 +7920,7 @@
   "GUI-43": "none: an existing row in another place",
   "GUI-44": "none: a gate on the GUI shell",
   "GUI-46": "none: the bridge is B628’s, and its engine additions are GN-41, 42, 43 and 48",
+  "GUI-47": "none: Override and the grid write the existing Envelope row (RC-6.5); a map button makes an ordinary modulation route (RC-4)",
   "GUI-49": "none: drawings of the settings; GN-4 already asks for the output tap",
   "GUI-50": [
    "GN-9",

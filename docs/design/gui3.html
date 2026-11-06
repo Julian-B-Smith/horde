@@ -33,7 +33,6 @@
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="lab-part" content="Presentation">
-<meta name="lab-review" content="B584 · 2026-10-29">
 <title>GUI 3 — the wired shell, first slice (Sub and Noise pages; no audio engine)</title>
 <link rel="stylesheet" href="arp-face/tokens.css">
 <link rel="stylesheet" href="arp-face/bundle.css">
@@ -1477,7 +1476,7 @@ const mainMock = {
 };
 function placePad() { const slot = page === 'main' ? $('mainPad') : $('dock').querySelector('.face'); if (slot && $('padHost').parentElement !== slot) slot.prepend($('padHost')); }
 function paramPage(pg, el) {
-  const secs = h('div', { class: 'pv-secs' }, pg.groups.map(g => gridSection(pg, g)));
+  const secs = h('div', { class: 'pv-secs' }, pg.groups.filter(g => !g.side).map(g => gridSection(pg, g)));   // a `side` group goes under the Morph page's pad instead (GUI-45 r3)
   const pics = pg.viz && pg.viz.kind === 'osc' && pg.viz.keys.unison ? oscPictures(pg.viz, pg.id, true) : null;   // GUI-30: the SCALPEL lab's Osc page
   const band = pg.viz && pg.viz.band ? vizView(pg.viz, pg.id, true) : null;   // GUI-35: across the page, above the controls, which take the column's width
   const left = h('div', { class: 'pv-left' + (pics ? ' osc' : '') }, pics ? pics.left : pg.viz && !band ? vizView(pg.viz, pg.id, true) : null);   // the Lens left this column for the foot row (GUI-8 r1)
@@ -1721,6 +1720,7 @@ DATA.pages.forEach(pg => {
      cross-section and blend map, the field, and D.2's settings last. A column taller than the page area hid its own foot, and stopping it above D.2's settings let the pad scroll away there (the human, 2026-11-05). */
   if (pg.panel === 'morph') { const bench = morphBench(), side = h('div', { class: 'morph-side' }), main = h('div', { class: 'morph-main' }, morphPanel(), bench), wrap = h('div', { class: 'morph-wrap' }, side, main), left = bench.querySelector('.mw-left'), right = bench.querySelector('.mw-right');
     const [padEl, banner] = [...left.children]; side.append(padEl, banner);   // the pad, then the law's banner
+    pg.groups.filter(g => g.side).forEach(g => side.append(gridSection(pg, g)));   // GUI-45 r3: the pad's X and Y under it, mounted here and nowhere else (layout.json's `side`)
     right.children[0].after(...left.children); left.remove();   // the scale, the lock and the blend note go with the selected row
     const after = [...el.children].slice(1); el.insertBefore(wrap, el.children[1] || null); after.forEach(c => main.append(c)); }
   if (pg.id === 'fx') el.insertBefore(fxRack(pg), el.children[1] || null);
@@ -2032,13 +2032,13 @@ if (BRIDGE) {
       bank: { Bank: p.names }, onPick: n => { const i = p.names.indexOf(n); if (i >= 0) { dev.loadPreset(i); S.say('Loading ' + n); } }, onSave: () => S.say('Saving is the plug-in’s host’s job here') }); }
     else if (bar && bar.get() !== p.names[p.index]) bar.set(p.names[p.index]);
   };
-  // Voices: the test plug-in's own setting (kVoicesId), outside SPEC-ENGINE 5, so it's the one control here that isn't a row. It sits
-  // first on the Set page, with the device's other settings: in the top bar it pushed the switches over the theme control.
-  const vsHost = h('div'), vh = h('div', { id: 'voicesHost', class: 'hd-row hd-label' }, 'Voices (the test plug-in\u2019s)', vsHost, h('span', { class: 'hd-hint', id: 'buildLabel' }));
+  // The test plug-in's build, first on the Set page. One voice control only, Polyphony (voice.polyphony, a row on this page): the
+  // human, 2026-11-05, "One control: Polyphony", after hearing 4 voices while the page showed 16 (GUI-46 A2). The plug-in's own
+  // Voices limit and its `plugin {voices}` message are gone; `plugin` now carries only the build.
+  const vh = h('div', { id: 'buildHost', class: 'hd-row hd-label' }, 'The test plug-in', h('span', { class: 'hd-hint', id: 'buildLabel' }));
   pageEls.settings.insertBefore(vh, pageEls.settings.children[1] || null);
-  const vs = H.Stepper(vsHost, { name: 'Voices', min: 1, max: 16, value: 4, def: 4, sm: true, keys: () => S.keys, onInput: n => dev.setVoices(n) });
   const paintPlugin = () => {
-    const pl = dev.plugin(); if (pl && pl.voices !== undefined && pl.voices !== vs.get()) vs.set(pl.voices);
+    const pl = dev.plugin();
     const b = (pl && pl.build) || (dev.bridge().hello || {}).build || '', t = b ? 'Build ' + b : '';
     if ($('buildLabel').textContent !== t) $('buildLabel').textContent = t;
   };
@@ -2225,6 +2225,12 @@ CLOCK.checking = true;
     const bm = pic && pic.beam(), blank = bm ? (() => { const c = document.createElement('canvas'); c.width = bm.width; c.height = bm.height; return c.toDataURL(); })() : '', beamDraws = !!bm && bm.toDataURL() !== blank;
     S.reduce = reduce0; if (pic) pic.bv.view(v0); selectPage(pg0);
     line(!!pic && distinct && same && beamDraws, 'Waveform views (GUI-49): Sum, Members, At phase and Members at phase draw ' + new Set(imgs).size + ' different pictures; Members at phase twice is the same image (control: ' + same + '); the summed beam draws (' + beamDraws + ').'); }
+  // 4b2e. GUI-45 r3: a group marked `side` sits in the pad's column, after the pad and its law's banner, and not in the page's grid. Every placed control
+  // must still be mounted exactly once, which the stale/shell gates hold. Until D.2's rows for X and Y land, no group is marked, and the line says so.
+  { const sides = PG.morph.groups.filter(g => g.side), col = pageEls.morph.querySelector('.morph-side'), kids = col ? [...col.children] : [], pad = kids.findIndex(e => e.id === 'morphPad' || e.querySelector && e.querySelector('#morphPad'));
+    const placed = sides.map(g => ({ g, inSide: kids.findIndex(e => e.dataset && e.dataset.section === g.id), all: pageEls.morph.querySelectorAll('[data-section="' + g.id + '"]').length }));
+    const ok = pad >= 0 && placed.every(q => q.inSide > pad + 1 && q.all === 1);
+    line(ok, 'Under the Morph pad (GUI-45 r3): ' + (sides.length ? placed.map(q => q.g.title + (q.inSide > pad + 1 ? ' below the pad and its banner' : ' MISSING from the pad\u2019s column') + (q.all === 1 ? '' : ', drawn ' + q.all + ' times')).join('; ') : 'no group is marked `side` yet; X and Y wait on D.2\u2019s rows (GN-51)') + '.'); }
   // 4b3. GN-20: a second drag of one source onto one destination adds no wire, by either path. Control: the first drag adds one.
   { const k = Object.keys(ROW).find(x => dev.canRoute(x)), e2 = { id: 'env2', name: 'ENV 2' }, n0 = dev.routes().length, first = dropMap(e2, k), n1 = dev.routes().length, again = dropMap(e2, k), n2 = dev.routes().length;
     if (first.ok) dev.undo(); dev.clearRedo();
