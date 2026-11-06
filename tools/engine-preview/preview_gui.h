@@ -29,5 +29,6 @@ void stats(void* plugin, int preset_index, double* mean_pct, double* worst_pct, 
 void edit(void* plugin, clap_id id, double host_value);
 
 void*& gui_slot(void* plugin);
+const char* build_label();   // "engine <commit>, build <n>"
 
 }  // namespace preview
