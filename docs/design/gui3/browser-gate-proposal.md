@@ -1,5 +1,7 @@
 # A browser gate for GUI 3 (proposal, GB24)
 
+**Ruled 2026-11-05 (GUI-44):** option A, "fast, hole if absent". The check is now `tools/labharness/gui3_browser_check.mjs`, wired into `./verify fast`. The text below is the proposal as the human read it.
+
 The human asked for this on 2026-11-05 ("Yes, propose it"), after the third report that GUI 3's pictures froze.
 
 ## The gap

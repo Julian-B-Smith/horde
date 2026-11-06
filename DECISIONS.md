@@ -12003,6 +12003,20 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 **Engine impact.** GN-51 (rows for the position). Rulings 1 and 2 need none: the corners, their names, the pin and the lock are state the shell already has (GN-34 and GN-37 ask who keeps it).
 
 **FX device (ADR-254).** It has a morph and a bank, so the same tab and the same knobs apply there.
+## GUI-44 — RULED by the human: GUI 3's browser check runs in `./verify fast`, a hole where there's no browser (GB24; 2026-11-05)
+
+**The human, 2026-11-05:** "A: fast, hole if absent", choosing among the three options in `docs/design/gui3/browser-gate-proposal.md`.
+
+**What changes.** `tools/labharness/gui3_browser_check.mjs` (the prototype, moved from `docs/design/gui3/`) runs in `./verify fast`, beside `gui3_seam_check`. It loads `docs/design/gui3.html` in headless Chrome without `?fast`, fails on any self-check that fails or any uncaught exception, and fails unless the Phase ring, Phase carpet and Voice map still move after the self-checks. A planted freeze must read frozen every run, as its control. Where no headless Chrome is found (CI's ubuntu runner, a Mac without Playwright's browser), it exits 3 and `./verify` prints a `HOLE` line without failing: visible on every run, never a silent pass.
+
+**Readings (the GUI session's, open to the human).**
+1. **The dependency.** The check adds nothing to the repo: no npm module, no lock file. It uses a headless Chrome already on the machine (Playwright's cache, or `HORDE_CHROME`), over the DevTools protocol with Node's own WebSocket. "Hole if absent" is read as the answer to the proposal's dependency question too: a machine without it shows the hole rather than installing anything.
+2. **The cost.** About 25 s added to every `./verify fast` on this Mac (two page loads, with the self-checks, plus the control), run by the Stop hook too. CI's fast job pays nothing, since it holds the hole.
+3. **No armor-catalogue row.** The catalogue's rows are the risk register's, and this check closes no register row, so the hole is printed by `./verify` rather than listed on the dashboard. If the human wants it on the dashboard, that is a catalogue row for the lead.
+
+**Engine impact.** None: a gate on the GUI shell.
+
+**FX device (ADR-254).** Its pages can use the same harness when they exist.
 ## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
 
 **Context.** FM free in pitch FM runs an accumulator that never restarts, while each of C.16's readings starts it at 0, so the estimate cannot see its mean and BL-19 cannot hold by the law alone (Q-TA-71: engine-free, 95 of its 144 one-member cases over 0.003, up to 0.046). ADR-363 sent this to a scratch trial of C.16's existing blocker, with clips for the human. Separately, item 7.8's reference R2 places FM free's modulator half a cycle from round 56's start, and 7.8 plays before its settings settle (Q-TA-77).
