@@ -194,6 +194,14 @@ fast() {
   # drift silently, and no audio oracle sees it. Self-calibrating (seven planted
   # faults must read red, the untouched copy green). ~0.1 s. Added under ADR-180 §1.
   python3 tools/manual_scaffold_check.py || ok=1
+  # THE AGENTS' OPERATING REFERENCE AGREES WITH THE ENGINE'S TABLE (B629). docs/manual/agent/ is
+  # what an agent reads to dictate a patch: its parameters.md is generated from params.json and
+  # PA-8 and must be current, every recipe's patch must validate with no inert row and every line
+  # about it must match it, every key the pages name and every spec row they cite must exist. The
+  # patch tool's selftest pins its readings of PA-8 and Appendix B.1 to the spec's text and runs its
+  # refusals. Both self-calibrating (planted faults must read red). ~2 s. Added under ADR-180 §1.
+  python3 tools/agent_manual_check.py || ok=1
+  python3 tools/patch_check.py --selftest || ok=1
   # EVERY COMPARISON TOLERANCE IS PINNED (B448 A3, ADR-197 armor edit G, "tolerance
   # creep"). Tolerances widen a little per PR until the test means nothing, and the
   # widened test still passes, so no oracle sees it. docs/armor/tolerances.json pins
