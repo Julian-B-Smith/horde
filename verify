@@ -571,6 +571,20 @@ PY
       echo "verify: GUI 3 seam check FAILED" >&2; cat /tmp/gui3seam.$$ >&2; ok=1; }
     tail -1 /tmp/gui3seam.$$   # the harness prints its own name; do not prefix it twice
     rm -f /tmp/gui3seam.$$
+    # GUI 3 in a real browser (GB24, GUI-44): the page loads WITHOUT ?fast, every self-check passes, and the pictures still move
+    # after them, with a planted freeze that must read frozen as its control. The seam check above runs the shell's pure parts in
+    # node and cannot see either (a freeze the self-checks caused shipped twice, 2026-11-05). Headless Chrome, ~25 s. No browser
+    # (CI's ubuntu runner, a fresh Mac) is exit 3: a HOLE line on every run, never a failure and never a silent pass (the human,
+    # GUI-44: "fast, hole if absent").
+    node tools/labharness/gui3_browser_check.mjs > /tmp/gui3browser.$$ 2>&1; gb_rc=$?
+    if [ $gb_rc -eq 3 ]; then
+      echo "verify: $(tail -1 /tmp/gui3browser.$$)" >&2   # the check names itself and says HOLE
+    elif [ $gb_rc -ne 0 ]; then
+      echo "verify: GUI 3 browser check FAILED" >&2; cat /tmp/gui3browser.$$ >&2; ok=1
+    else
+      tail -1 /tmp/gui3browser.$$
+    fi
+    rm -f /tmp/gui3browser.$$
   else
     echo "verify: node missing — lab load check SKIPPED" >&2
   fi
