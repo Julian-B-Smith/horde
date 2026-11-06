@@ -1031,9 +1031,10 @@ function suite(W) {
     // a workout through the adapter on a replay: every send passes the guard, or the transport throws here
     const t = ENG.ReplayTransport([], { rows }), d = DEV.create(DATA, t, { seed: 3 });
     d.begin('drag', cont.key); d.set(cont.key, .37, { corner: null }); d.end(); d.set(rack.key, .61, { corner: null });
-    d.setMorph({ on: true, x: .2, y: .8 }); d.setMorph({ on: false }); d.want({ osc: [1], members: true }); d.loadPreset(2); d.setVoices(5); d.clearClip('out');
+    d.setMorph({ on: true, x: .2, y: .8 }); d.setMorph({ on: false }); d.want({ osc: [1], members: true }); d.loadPreset(2); d.clearClip('out');
     const sent = t.sent, types = new Set(sent.map(m => m.type));
-    for (const ty of ['set', 'gesture', 'rack', 'want', 'preset', 'plugin', 'clear']) ok(types.has(ty), 'the workout sent no ' + ty + ' message');
+    ok(C({ type: 'plugin', seq: 1, voices: 4 }, rows) !== null, 'the schema still admits plugin {voices}: Polyphony is the one voice control (GUI-46 A2)');
+    for (const ty of ['set', 'gesture', 'rack', 'want', 'preset', 'clear']) ok(types.has(ty), 'the workout sent no ' + ty + ' message');
     ok(sent.every(m => C(m, rows) === null), 'a message the adapter sent fails the schema');
     ok(sent.filter(m => m.type === 'set').every(m => Object.keys(m.values).every(k => by[k].target === 'engine')), 'a set carried a row that isn’t the engine’s');
     let last = null; t.onSnapshot(s => { last = s; });
