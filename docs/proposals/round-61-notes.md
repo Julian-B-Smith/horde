@@ -7,7 +7,8 @@
 > poll (ADR-376) ruled how an oscillator's on switch morphs and that a preset saves the puck. **ADR-377 then reshaped
 > the round:** for 1.0 every Structural key follows its quantum boundaries, and setting sets are after 1.0. ADR-376's
 > third ruling (where a chain blend mixes) is void. **ADR-377 A1** then answered the open items and took the critic's
-> fixes: no `[OPEN]` marker remains, and one item is tagged X46 in §11.
+> fixes; **ADR-377 A2** closed X46 and took the second critic pass. No `[OPEN]` marker and no X tag of this round
+> remains.
 
 ## What changed in `specs/SPEC-ENGINE.md`
 
@@ -166,7 +167,7 @@ That's a one-line diff.
 **For the GUI session:** a Structural key's Count now acts on nothing in 1.0, so the menu might not offer it there, by
 GUI-21's rule. In 1.0 ADR-373 item 7 (Save during a structural blend) can't occur.
 
-**MO-26's open items, re-asked under ADR-377 (all answered by A1 below, except X46):**
+**MO-26's open items, re-asked under ADR-377 (all answered by A1 and A2 below):**
 1. **A floor (still open).** The legacy shell switched the oscillator off below W_on = 10⁻³. With no floor it sounds,
    and costs CPU, at any W_on above 0.
    - *Keep the floor:* the oscillator cuts out below −60 dB.
@@ -263,10 +264,10 @@ follow-up commit):
    per-oscillator volume (ids 17/1017).
 4. **Under Quantum, while a source is on and some weighted corner has it off, all its keys pick only among its on
    corners** (MO-26 (3)). The lead's "arrive at the picked on-corner's values" was read this way.
-5. **Save's baking below −60 dB** (MO-25): where g times the heard gain falls below the dB law's −60 dB, the key stores
-   the nearest value the law holds (−60 dB), not −∞.
-6. **The waypoint clamp's hull** (MO-22 (6)) stays over all four corners' values and the pins, as the editor lab's
-   block W computes it, even when the base is the on corners' blend.
+5. **Save below the floor** (MO-25) is now ruled (A2: "The source off"). The choice that remains: the corner's level
+   key then takes the heard gain without g.
+6. **The waypoint clamp's hull** (MO-22 (6)) now follows the corner set its base ranges over (the critic's item 6). It
+   is no longer a choice.
 7. **Under Stepped,** W_on reads the stepped position, so the level moves in steps.
 8. **A Quantum-mode switch under Blend or Stepped** still restricts its source's Morphable keys to its on corners while
    it is on.
@@ -274,10 +275,54 @@ follow-up commit):
 10. **MO-27's number and place:** a new row at the end of D.1, since SB-10 is after 1.0.
 11. **The structure file:** the after-1.0 slot item was dropped rather than marked, because the format has no marker
     for it.
-12. **The X46 wording,** and what is built until it is ruled.
+12. **X46** is closed by A2 ("Skip it") and removed from §11.1.
 13. **A reserved row is never emitted** (MO-13). This is Q-TA-74's reading, ruled by ADR-364, placed here.
 14. **N4's two choices** (MO-21): a non-finite entry refuses the whole list, as every other fault does, and the clamp to
     [0, 1] comes before the spacing check, as the editor lab orders them.
+15. **The resolver's mirror of PA-1** (MO-26 (1), critic NB1): it has two stages with both set to 1 by prepare and
+    reset, and each sent g takes effect in the mirror at its event's sample. While W_on is at or below the floor, the
+    resolver keeps sending g = W_on.
+16. **A landing's order** (MO-20, PA-5): a source's landing `Param` events come before its switch's on `Param` at the
+    boundary, and `unison` lands without PA-6's fades.
+17. **An erosion corner's route test** (MO-26 (7)) reads a route per corner, following ruling 5 of this round
+    (mappings are per corner). It reads false until the modulation system exists (B637).
+18. **The noise's landing** needs no rule of its own. While erosion corners carry weight, its keys already follow
+    them, so a landing changes nothing there.
+19. **Items 34.19 and 34.20:** their fixtures and must-fail controls are the drafter's.
+
+## ADR-377 A2 (the human, by poll, and the second critic pass; 2026-11-06)
+
+**The human's rulings.**
+1. **X46 is closed: "Skip it".** A landing source's keys skip PA-1's glide as well as MO-5 (b)'s. The resolver marks
+   those `Param` events as landing (IF-12), and PA-1 and PA-5 each carry the exception. X46 is gone from §11.1, which
+   now holds 24 items.
+2. **Save below the floor stores the source off** (MO-25).
+3. **The noise is the one exception to the off-source rule** (MO-26 (7)). Its keys' blend, picks, waypoint base and
+   hull range over the corners where the noise is on or erosion is active. A corner is an erosion corner where its
+   `sub.erode` is above 0, or where `sub.erode` has a modulation route there; the route test reads false until routes
+   exist (B637, round 62). The noise's level still follows W_on.
+4. **Save bakes the g last sent** (MO-25).
+
+**The critic's blocking findings.**
+- **NB1:** the wait is the resolver's. It mirrors PA-1's closed form per sample on its own clock (τ = 6 ms, h =
+  1/(f_host·τ), p = e^(−h), the two error recurrences, the 10⁻⁶ snap). It sends the switch's off `Param` only at the
+  first boundary at which the mirror ĝ is at or below the floor, and the engine keeps PA-5's "at once". The engine-side
+  wait is gone from MO-26 (1).
+- **NB2:** while the resolver waits, the source's keys hold their last values under (2). The fallback to the plain
+  blend starts only once the switch is off, and MO-27 holds once all has settled.
+- **NB3:** a landing covers every key of the source, Structural ones (the sub's `order` included) with no crossfade,
+  ahead of the switch's crossfade in. PA-5 has the matching exception, and states that RT-1's sizing still holds,
+  because a landing makes no crossfade of its own.
+
+**Should-fix and nits.**
+- **S1:** item 34.18 compares a source's level only where its switch is on there, and the switch where it is off.
+- **S3:** MO-5 (a)'s and 34.12's moves now cite "round 61, the lead (critic S5)", and MO-27 cites "the lead (critic
+  B3)".
+- **N1:** a lock's offsets are bounded, |δ| ≤ 10⁶. A larger or non-finite offset is refused whole (MO-24).
+- **N2:** with the morph off, an Exempt key sends corner `morph.audible`'s stored value (MO-12).
+- **Item 6:** the clamp's hull follows the same corner set as the blend it clamps (MO-22 (6)).
+- **New items:** 34.19 (MO-26: the fade, the floor, the wait and its mirror, the restriction, landing, Quantum, the
+  noise) and 34.20 (MO-21 to MO-25), each with its must-fail controls.
 
 ## Rulings with no spec rows
 
