@@ -534,10 +534,15 @@ function writeStep(row, path, idx) {
 }
 
 // ===== BLOCK C: live-when (PA-8, from the layout) =====
+// PA-8: "blade 2's 'as blade 1' options read blade 1's value". A condition on a blade 2 row that follows blade 1 is judged on blade 1's row;
+// without this, blade 2's cut rate (cutIn "as blade 1", its default) matched neither unit and was never shown (the human, 2026-11-05).
+const FOLLOWS_BLADE1 = ['as blade 1', 'blade 1\u2019s', "blade 1's", 'with blade 1'];
 function live(c) {
   if (!c) return true;
   if (c.all) return c.all.every(live);
   if (c.any) return c.any.some(live);
+  if (/\.blade2\./.test(c.key) && ROW[c.key].options && FOLLOWS_BLADE1.includes(optLabel(ROW[c.key], dev.shown(c.key))) && ROW[c.key.replace('.blade2.', '.blade1.')])
+    return live(Object.assign({}, c, { key: c.key.replace('.blade2.', '.blade1.') }));
   const r = ROW[c.key], v = dev.shown(c.key);
   if (c.gt !== undefined) return ENG.lawX(r, v) > c.gt;
   if (c.ne !== undefined) return ENG.lawX(r, v) !== c.ne;
@@ -1040,7 +1045,7 @@ function vizView(v, pid, big) {
       st.t = S.reduce ? 0 : (st.frames = (st.frames || 0) + 1) * PICTURE_DT; H.Viz.subDial(main, o, st); H.Viz.off(main, !isOnKey(K.on)); return;
     }
     if (ringIO) ringIO.frame();                 // the swarm moves every frame, so the ring is drawn before the change test below
-    const sig = Object.values(K).map(k => dev.shown(k)).join('|') + '|' + colourKey() + '|' + sizeOf(main);
+    const sig = Object.values(K).concat(v.kind === 'osc' ? bladeKeys(K.unison.split('.')[0]).concat(K.unison.split('.')[0] + '.on') : []).map(k => dev.shown(k)).join('|') + '|' + colourKey() + '|' + sizeOf(main);
     if (sig === last && v.kind !== 'noise') return;
     if (sig === last && !noiseDue()) return;   // GUI-33: noise's picture animates, so an unchanged one still waits for the pace
     last = sig;
@@ -1058,6 +1063,10 @@ function vizView(v, pid, big) {
       // row, which it does not draw; the curves are C.12's, drawn by the bundle's own law (Viz.envAt).
       const a = xOf(K.a), dd = xOf(K.d), r = xOf(K.r);
       H.Viz.envelope(main, { a, d: dd, s: xOf(K.s), r, hold: (a + dd + r) / 3, ac: xOf(K.ac), dc: xOf(K.dc), rc: xOf(K.rc) }, null);
+    } else if (v.kind === 'osc') {
+      // GB27: the oscillator's SCALPEL cycle (its base wave cut by its blades, summed over its members at rest), as the Osc page's waveform draws it
+      const src = K.unison.split('.')[0], { cy } = bladeCycle(src, Math.max(1, Math.round(xOf(K.unison)))), l = Array.from(cy.sum);
+      H.Viz.scope(main, { l, r: l, R: 0 }); H.Viz.off(main, !isOnKey(src + '.on'));
     } else {
       const name = labOf(K.wave), o = { width: K.width && xOf(K.width), softness: K.softness && xOf(K.softness), bump: K.bump && xOf(K.bump) }, l = [];
       for (let i = 0; i < 128; i++) l.push(waveAt(name, i / 127, o));
@@ -1131,8 +1140,24 @@ function oscRing(cv, K, pid, wrap) {
    step. `full` is an Osc page (carpet, voice map, spectrum beside the waveform); Main's tab has the ring and the waveform. */
 const PICS = {};   // what oscPictures mounted, by page and oscillator, for the self-checks
 const SAMPLE_F0 = 110;   // the note the formant band and the bars are worked out at (A2): SAMPLE, no key is held
+/* One SCALPEL cycle from an oscillator's settings: its base wave cut by each blade that is on (H.Synth.cycle, the bench's sketch of
+   SPEC-ENGINE's laws). Shared by the Osc page's waveform and the dashboard's card (the human, 2026-11-05: "show the accurate scalpel
+   instead of the placeholder saw"). A blade 2 option that follows blade 1 reads blade 1's (PA-8, as live() does). SAMPLE. */
+const BLADE_S = ['on', 'mode', 'wave', 'cutIn', 'cut', 'cutHz', 'position', 'width', 'edges', 'depth', 'positionSpread', 'cutSpread'];
+function bladeKeys(src) { return [1, 2].flatMap(b => BLADE_S.map(s => src + '.blade' + b + '.' + s)); }
+function bladeCycle(src, n) {
+  const bk = (b, s) => src + '.blade' + b + '.' + s, lab = (b, s) => { const l = labOf(bk(b, s)); return b === 2 && FOLLOWS_BLADE1.includes(l) ? labOf(bk(1, s)) : l; };
+  const f0 = SAMPLE_F0, blades = [];
+  [1, 2].forEach(b => {
+    if (!isOnKey(bk(b, 'on'))) return;
+    const w = xOf(bk(b, 'width')), cutIn = lab(b, 'cutIn'), rate = cutIn === 'Hz' ? xOf(bk(b, 'cutHz')) / f0 * w : /blade/.test(cutIn) ? xOf(bk(b, 'cut')) : xOf(bk(b, 'cut')) * w, waveName = lab(b, 'wave');
+    blades.push({ blade: b, mode: lab(b, 'mode'), width: w, position: xOf(bk(b, 'position')), cycles: rate, depth: xOf(bk(b, 'depth')), edges: xOf(bk(b, 'edges')), posSpread: xOf(bk(b, 'positionSpread')), cutSpread: xOf(bk(b, 'cutSpread')), wave: x => waveAt(waveName, x, {}) });
+  });
+  const base = labOf(src + '.baseWave');
+  return { blades, cy: H.Synth.cycle({ n, blades, base: x => waveAt(base, x, {}) }) };
+}
 function oscPictures(v, pid, full) {
-  const K = v.keys, src = K.unison.split('.')[0], BLADE_S = ['on', 'mode', 'wave', 'cutIn', 'cut', 'cutHz', 'position', 'width', 'edges', 'depth', 'positionSpread', 'cutSpread'];
+  const K = v.keys, src = K.unison.split('.')[0];
   const bk = (b, s) => src + '.blade' + b + '.' + s, BLADES = [1, 2];
   const wrap = h('div', { class: 'vz' });
   const well = (label, hgt, parent) => { const cv = h('canvas', { class: 'vz-cv', style: 'height:' + hgt + 'px', 'aria-label': label + ' (SAMPLE)', role: 'img' }); (parent || wrap).append(h('div', { class: 'hd-viz vz-well' }, cv)); return cv; };
@@ -1167,15 +1192,9 @@ function oscPictures(v, pid, full) {
   const sig0 = () => [K.unison, K.wave].concat(BLADES.flatMap(b => BLADE_S.map(s => bk(b, s)))).map(k => dev.shown(k)).join('|');
   const due = paced(() => [ring, bv.canvas].concat(full ? [spec, carpet, vmap] : []));
   const rebuild = () => {
-    const f0 = SAMPLE_F0, blades = [];
-    BLADES.forEach(b => {
-      if (!isOnKey(bk(b, 'on'))) return;
-      const w = xOf(bk(b, 'width')), cutIn = labOf(bk(b, 'cutIn')), rate = cutIn === 'Hz' ? xOf(bk(b, 'cutHz')) / f0 * w : /blade/.test(cutIn) ? xOf(bk(b, 'cut')) : xOf(bk(b, 'cut')) * w, waveName = labOf(bk(b, 'wave'));
-      blades.push({ blade: b, mode: labOf(bk(b, 'mode')), width: w, position: xOf(bk(b, 'position')), cycles: rate, depth: xOf(bk(b, 'depth')), edges: xOf(bk(b, 'edges')), posSpread: xOf(bk(b, 'positionSpread')), cutSpread: xOf(bk(b, 'cutSpread')), wave: x => waveAt(waveName, x, {}) });
-    });
+    const f0 = SAMPLE_F0;
     n = Math.max(1, Math.round(xOf(K.unison)));
-    const base = labOf(K.wave);
-    cy = H.Synth.cycle({ n, blades, base: x => waveAt(base, x, {}) });
+    const built = bladeCycle(src, n), blades = built.blades; cy = built.cy;
     // the bench's display rule: centre the cut rate as a frequency, main lobe f0/width x (1 + edges). Fold, Noise and Crush have no such band.
     specSt.marks = blades.filter(b => !['Noise', 'Fold', 'Crush'].includes(b.mode) && b.width >= .004).map(b => { const fc = b.cycles / b.width * f0, hw = f0 / b.width * (1 + b.edges); return { blade: b.blade, lo: fc - hw, hi: fc + hw, fc, hw }; });
     if (note) note.textContent = specSt.marks.length ? specSt.marks.map(m => (m.blade === 1 ? '①' : '②') + ' formant ' + Math.round(m.fc) + ' Hz ± ' + Math.round(m.hw) + ' Hz').join(' · ') : 'No formant band: no cutting blade is on';
@@ -2209,6 +2228,27 @@ CLOCK.checking = true;
     selectPage('morph'); const onMorph = pads(), wrap = pageEls.morph.querySelector('.morph-wrap'), kids = wrap ? [...wrap.querySelector('.morph-main').children] : [], first = kids[0] && kids[0].id, second = kids[1] && kids[1].id, side = !!(wrap && wrap.querySelector('.morph-side #morphPad')), noDock = $('dock').hidden && !$('bodyGrid').classList.contains('with-dock'), padSwitch = $('padOn').disabled;
     selectPage(pg0); setMorphOn(false); dev.undo(); dev.undo(); dev.clearRedo();
     line(onMorph === 1 && onFilters === 1 && noDock && padSwitch && side && first === 'morphCorners' && second === 'morphBench', 'Morph page (GUI-26, GUI-40): ' + onMorph + ' pad showing with morph on (control: ' + onFilters + ' on Filters, the dock), no dock, the Pad switch off here, the pad in its sticky column, and the page\u2019s own column runs ' + first + ', then ' + second + '.'); }
+  // 4b2b. GB27, PA-8: a cut rate is always on a blade's face. Blade 2 follows blade 1's unit while its cutIn is "as blade 1" (its default):
+  // blade 1 per cycle shows both blades' CUT, blade 1 in Hz shows both blades' CHZ. Control: blade 2 set to its own Hz shows CHZ whatever blade 1 says.
+  { const bk = (b, s) => ['osc1', 'blade' + b, s].join('.');   // built, never written out: the shell names no parameter key (gen_gui3_controls)
+    const pg0 = page, tick = () => { for (const v of S.views) v.render(); for (const v of views) if (v.page === page || v.page === '*') v.update(); }, el = k => pageEls.osc1.querySelector('.ctl[data-key="' + k + '"]');
+    const shown = k => { const e = el(k); return !!e && !e.classList.contains('idle'); }, opt = (k, label) => { const r = ROW[k]; dev.set(k, vOf(r, r.options.indexOf(label)), { corner: dev.morph().audible }); };
+    selectPage('osc1'); dev.begin('self-check'); opt(bk(1, 'cutIn'), '× pitch per cycle'); opt(bk(2, 'cutIn'), 'as blade 1'); dev.end(); tick();
+    const perCycle = shown(bk(1, 'cut')) && shown(bk(2, 'cut')) && !shown(bk(1, 'cutHz')) && !shown(bk(2, 'cutHz'));
+    dev.begin('self-check'); opt(bk(1, 'cutIn'), 'Hz'); dev.end(); tick();
+    const hz = shown(bk(1, 'cutHz')) && shown(bk(2, 'cutHz')) && !shown(bk(2, 'cut'));
+    dev.begin('self-check'); opt(bk(1, 'cutIn'), '× pitch per cycle'); opt(bk(2, 'cutIn'), 'Hz'); dev.end(); tick();
+    const own = shown(bk(2, 'cutHz')) && !shown(bk(2, 'cut'));
+    dev.undo(); dev.undo(); dev.undo(); dev.clearRedo(); selectPage(pg0); tick();
+    line(perCycle && hz && own, 'Cut rate on the blade face (GB27, PA-8): per cycle, both blades show CUT (' + perCycle + '); blade 1 in Hz, blade 2 following shows CHZ (' + hz + '); blade 2 in its own Hz shows CHZ (control: ' + own + ').'); }
+  // 4b2c. GB27: the dashboard's Osc 1 card draws the SCALPEL cycle. Turning blade 1 on changes it; a setting the card doesn't draw (Coupling) leaves it (control).
+  { const pg0 = page, tick = () => { for (const v of views) if (v.page === page || v.page === '*') v.update(); };
+    selectPage('dashboard'); tick(); const cv = pageEls.dashboard.querySelector('canvas[aria-label^="One cycle"]'), img = () => cv ? cv.toDataURL() : '';
+    const k1 = ['osc1', 'blade1', 'on'].join('.'), cpl = ['osc1', 'coupling'].join('.'), on0 = isOnKey(k1); /* keys built, never written out (gen_gui3_controls) */ dev.begin('self-check'); dev.set(k1, 0, { corner: dev.morph().audible }); dev.end(); tick(); const a = img();
+    dev.begin('self-check'); dev.set(cpl, dev.shown(cpl) > .5 ? .2 : .8, { corner: dev.morph().audible }); dev.end(); tick(); const same = img() === a;
+    dev.begin('self-check'); dev.set(k1, 1, { corner: dev.morph().audible }); dev.end(); tick(); const cut = img() !== a;
+    dev.undo(); dev.undo(); dev.undo(); dev.clearRedo(); selectPage(pg0); tick();
+    line(!!cv && cut && same && isOnKey(k1) === on0, 'The dashboard’s Osc 1 card (GB27): blade 1 on changes its cycle (' + cut + '); Coupling, which it doesn’t draw, leaves it (control: ' + same + ').'); }
   // 4b3. GN-20: a second drag of one source onto one destination adds no wire, by either path. Control: the first drag adds one.
   { const k = Object.keys(ROW).find(x => dev.canRoute(x)), e2 = { id: 'env2', name: 'ENV 2' }, n0 = dev.routes().length, first = dropMap(e2, k), n1 = dev.routes().length, again = dropMap(e2, k), n2 = dev.routes().length;
     if (first.ok) dev.undo(); dev.clearRedo();
