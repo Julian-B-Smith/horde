@@ -238,6 +238,23 @@ chains (MO-13). Whether the sub and the noise fade as MO-26 does is a question f
 - **N1 to N8: not addressed.** The critic's report never reached this session; only N9 was named in the brief. Please
   send N1 to N8 and they'll be fixed in a follow-up commit.
 
+**The critic's nits N1 to N8** (the lead relayed them after 91f66c3b; none was already fixed there, so all are in the
+follow-up commit):
+- **N1.** MO-10 no longer cites D.5.
+- **N2.** §3's table names the 1.0 rows, MO-1 to MO-13 and MO-20 to MO-27, and what is after 1.0.
+- **N3.** One fence. The after-1.0 halves of MO-5 (the weights' glide (a), the structure note and the set weights),
+  MO-11 (a Structural key's Count) and MO-25 (Save during a structural blend) now sit as paragraphs in D.5. Those of
+  IF-12 (the `SettingSet` event), PA-7 (its refusals, restored word for word from before ADR-377), IF-9 (setting-samples)
+  and IF-10 (the heard setting sets) now sit in D.6. Each 1.0 row keeps a one-line pointer. RC-1's and RC-5's
+  after-1.0 clauses stay where they are: they are the modules' contracts, not the engine's set rows.
+- **N4.** MO-21: one non-finite position or value refuses the whole list. Positions and values are clamped to [0, 1]
+  first, and the spacing is checked on the clamped positions.
+- **N5.** MO-26 (2) at count Two: each pooled weight is divided by W_on before MO-9's two-value law.
+- **N6.** MO-26 (5): an Exempt switch's on-weight reads corner A's switch for every corner, whatever the others store.
+- **N7.** MO-5 (b)'s equivalence sentence excepts a blend that MO-26 (2) restricts.
+- **N8.** MO-26 (1) and IF-12 now call the level a parameter the resolver computes, taken by the engine as an input,
+  not a manifest row, matching ADR-377's wording.
+
 **For the lead to record (S7): the drafter's unruled choices, plainly.**
 1. **A morph level is an engine input, not a manifest row** (IF-12, MO-26 (1)). It is a factor on the level key's
    gain and is never state.
@@ -259,6 +276,8 @@ chains (MO-13). Whether the sub and the noise fade as MO-26 does is a question f
     for it.
 12. **The X46 wording,** and what is built until it is ruled.
 13. **A reserved row is never emitted** (MO-13). This is Q-TA-74's reading, ruled by ADR-364, placed here.
+14. **N4's two choices** (MO-21): a non-finite entry refuses the whole list, as every other fault does, and the clamp to
+    [0, 1] comes before the spacing check, as the editor lab orders them.
 
 ## Rulings with no spec rows
 
