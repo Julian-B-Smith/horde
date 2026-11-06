@@ -7545,6 +7545,10 @@
    "reason": "Scheduling and scope: the morph lab and its design rulings are the GUI session's, recorded as GUI-n with their own ledger rows."
   },
   {
+   "adr": "ADR-371",
+   "reason": "The modulation system's behaviour, ruled by poll. Its consequences for the Mod page are the GUI session's to record as GUI-n with their own ledger rows."
+  },
+  {
    "adr": "GUI-44",
    "reason": "A gate: GUI 3's browser check wired into ./verify fast, a hole where there's no browser. No design element."
   }

@@ -12174,3 +12174,33 @@ The lead proposed: a lab for the morph's open questions; the morph built before 
 
 **FX device (ADR-254):** the modulation spec must state its consequence for the FX device, which hosts the same matrix over audio input (B528). The morph's carries over as B616 says.
 
+
+## ADR-371 — RULED by the human: the modulation system's eighteen questions (B630, B633)
+
+**Context.** B630's draft (`docs/proposals/modulation-spec-draft.md`, PR #1424) cites every clause and leaves each open choice as a question, MQ1 to MQ18. The lead put them to the human by poll in five batches, 2026-11-06. Each answer below is the human's, with the poll's own words where the human added any.
+
+**Rulings.**
+- **MQ1, how many LFOs:** 4.
+- **MQ2, one wave per note or shared:** a switch per LFO, shared (global) or per note.
+- **MQ3, a free LFO's range:** 0.02 to 40 Hz.
+- **MQ4, LFO kinds beyond drawn shapes and sample and hold:** smoothed random.
+- **MQ5, what smooths a Quantum point's jump:** the morph's own glide.
+- **MQ6, where a synced LFO's wave starts:** locked to song position.
+- **MQ7, a depth wire:** it adds to the route's depth and stops at zero.
+- **MQ8, targets beyond the engine's knobs:** FX module knobs, a modulator's own settings, and the morph position, with the human's limit: "Only an LFO set to global can move the morph position." A per-note LFO, an envelope or any other per-note source can't reach it.
+- **MQ9, curves:** yes, each route has its own curve (linear, exponential, logarithmic), as macros do.
+- **MQ10, a macro at a knob's end:** the end is a wall. No headroom is stored.
+- **MQ11, keyboard sources:** the mod wheel, pitch bend and keytrack, **and MPE**, which the human added. Asked which MPE dimensions, the human chose all four: pressure, slide (CC 74), per-note bend and lift (release velocity). Release velocity itself was not chosen as a non-MPE source.
+- **MQ12, new modulators in 1.0:** ORBITAL, the Kuramoto LFO and the 2-D random source for the XY pads. Each still needs its own lab ruling first. Note-on randoms, the trigger timer and impulses, the silent spring, and the MIDI gate and trigger wait until after 1.0.
+- **MQ13, a new mapping's polarity:** the source's natural shape. LFOs and the XY axes start bipolar; envelopes, velocity and macros start unipolar.
+- **MQ14, the route cap:** 64.
+- **MQ15, LFO settings for the host:** yes. Rate, sync, division and retrigger are host parameters in a block of their own, append-only (MD-55), and they morph like any knob. The drawn points stay patch state (ADR-349).
+- **MQ16, envelopes beyond ENV 1 to 4:** no new envelopes. Instead, **an LFO can switch to envelope mode**: it plays its shape once and stops, "as in Serum 2" (the human's words). That is a new clause: the draft didn't have it.
+- **MQ17, mappings while morph is on:** **per corner in 1.0.** This reverses the "global for 1.0" in ADR-261 r3 and ADR-266 r4, and makes B396's five corner-mapping questions part of 1.0: blending a mapping only some corners have, depth past zero, loops between corners, a preset that would close a loop, and the pad in loops. Their lab is up (`docs/design/corner-mapping-lab.html`). B392's input from 2026-10-19 now applies in 1.0: mappings from silent corners stay visible, greyed out.
+- **MQ18, a modulator with no mappings:** it keeps its settings until it is removed.
+
+**Not ruled here.** GN-40's readings, including MD-59 ("a key set to Exempt still takes modulation"), wait for the morph spec round (B631). ADR-370 cited "ADR-330's drafted rows"; they don't exist on main, as #1424 discloses.
+
+**What follows (B633).** The modulation spec reaches the clean room only when three things are settled: B396's five questions, the three new modulators' labs, and the MPE channels' bend range, which is B504's per-patch setting. Meanwhile the lead folds these rulings into the draft on #1424.
+
+**FX device (ADR-254).** The FX device hosts the same matrix over audio input (B528). It has notes only when MIDI is routed to it, so per-note LFOs, keytrack and MPE have nothing to follow without MIDI, and global LFOs are its default. Per-corner mappings carry over as the morph does (B616). The modulators' host-id block is append-only, so a second shell exposes it unchanged.
