@@ -264,14 +264,103 @@
         else if (m.type === 'modes' && resolver) resolver.modes(m.modes, m.counts);
         else if ((m.type === 'rack' || m.type === 'midi') && device) device.set(m.type, m.values);
         else if (m.type === 'clear') engine.clearClip(m.id);
+        else if (m.type === 'want' || m.type === 'preset' || m.type === 'plugin') { /* the plug-in's (B628): the stub has no pictures to send, no bank and no Voices, so it acknowledges them and does nothing */ }
         else throw new Error('unknown message ' + m.type + (m.type === 'morph' || m.type === 'position' ? ' (no resolver behind this transport)' : m.type === 'rack' || m.type === 'midi' ? ' (no device side behind this transport)' : ''));
         ack = m.seq; publish();
       },
       onSnapshot: function (fn) { subs.push(fn); fn(snapshot()); },
-      publish: publish
+      publish: publish,
+      sides: { engine: true, resolver: !!resolver, device: !!device }
+    };
+  }
+
+  /* THE PLUG-IN'S BRIDGE (docs/proposals/gui-on-engine.md section 3, B628). The page talks to the clean-room engine inside the
+     test plug-in through the same two methods. What crosses is pinned there; what follows is the page's side of it.
+       out: window.hordeNativeSend(JSON text) for every message, the stub's eight plus `want`, `preset` and `plugin`.
+       in:  window.hordeNativeSnapshot(obj), called by the bridge. Every frame (1/30 s) carries `ack` and `observe`; `params`,
+            `events`, `presets` and `plugin` ride only when they changed, and `state` only after a load or a save. A frame
+            leaves out what didn't change, so the transport keeps the last of each and hands the adapter whole snapshots.
+     The engine's side has no morph resolver and no device side (rack, MIDI module): `sides` says so, and the page draws
+     the controls those sides would serve as not in this engine yet. The bridge acknowledges every seq, applied or held.
+     `decode` is the one place the wire's shape becomes the page's, so the replay below runs exactly the plug-in's path. */
+  var NO_SIDES = { engine: true, resolver: false, device: false };
+  /* The schema both sides signed (section 3): each message type and the fields it carries. checkMessage answers null for a
+     well-formed message, or why not. A `set` names engine rows only (rule 2: the page sends the others as their own types),
+     and with `rows` given, only keys among them that aren't reserved (rule 1's "never sent blind", on the page's side too). */
+  var MESSAGES = { set: ['values'], gesture: ['key', 'phase'], morph: ['settings'], position: ['x', 'y'], modes: ['modes', 'counts'],
+    rack: ['values'], midi: ['values'], clear: ['id'], want: ['osc', 'members', 'cycles'], preset: ['index'], plugin: ['voices'] };
+  function checkMessage(m, rows) {
+    if (!m || typeof m !== 'object') return 'not a message';
+    if (typeof m.seq !== 'number') return (m.type || 'a message') + ' without a seq';
+    var need = MESSAGES[m.type]; if (!need) return 'an unknown message type: ' + m.type;
+    for (var i = 0; i < need.length; i++) if (!(need[i] in m)) return m.type + ' without ' + need[i];
+    if (m.type === 'gesture' && m.phase !== 'begin' && m.phase !== 'end') return 'a gesture phase ' + m.phase;
+    if (m.type === 'set') {
+      var ok = rows ? rows.reduce(function (o, r) { if (!r.reserved) o[r.key] = 1; return o; }, {}) : null;
+      for (var k in m.values) {
+        if (ok && !ok[k]) return 'a set naming ' + k + ', not one of the engine\u2019s rows';
+        if (typeof m.values[k] !== 'number' || m.values[k] !== m.values[k]) return 'a set with a value for ' + k + ' that isn\u2019t a number';
+      }
+    }
+    return null;
+  }
+  function guard(m, rows) { var why = checkMessage(m, rows); if (why) throw new Error('the bridge refuses ' + why); }
+  function dB(p) { return p > 0 ? 20 * Math.log10(p) : -Infinity; }
+  function floats(a) { return a ? Float32Array.from(a) : null; }
+  /* RC-8's frame as the page reads it. Meter peaks cross as linear amplitude and the clip latch as a boolean; the page's
+     meters read dBFS and { on, max } (the stub's shape), so they're converted here and nowhere else. */
+  function decode(o) {
+    if (!o) return null;
+    var mt = {}, m = o.meters || {};
+    for (var id in m) mt[id] = { peak: dB(+m[id].peak || 0), clip: { on: !!m[id].clip, max: null } };
+    return { source: 'engine', audio: true, sounding: !!o.sounding, heard: o.heard || {}, refused: 0, meters: mt, sum: null,
+      latches: o.latches || { clip: false, nonFinite: false }, counters: o.counters || {},
+      voices: (o.voices || []).map(function (v) {
+        return { level: +v.level || 0, env: v.env || [], notes: v.notes || null,
+          osc: (v.osc || []).map(function (c) { return { R: +c.R || 0, psi: +c.psi || 0, frame: +c.frame || 0, phases: floats(c.phases), levels: floats(c.levels), blades: c.blades || [] }; }) };
+      }) };
+  }
+  /* Keeps the last of each part a frame may leave out. */
+  function Merger() {
+    var last = { ack: 0, params: {}, events: [], observe: null, state: null, presets: null, plugin: null, resolver: null, device: null };
+    return function (f) {
+      last = { ack: f.ack === undefined ? last.ack : f.ack, params: f.params || {}, events: f.events || [], observe: f.observe ? decode(f.observe) : last.observe,
+        state: f.state === undefined ? last.state : f.state, presets: f.presets || last.presets, plugin: f.plugin || last.plugin, resolver: null, device: null };
+      return last;
+    };
+  }
+  function NativeTransport(w, rows) {
+    w = w || root;
+    var subs = [], merge = Merger(), cur = merge({});
+    w.hordeNativeSnapshot = function (f) { cur = merge(f || {}); subs.forEach(function (fn) { fn(cur); }); };
+    return {
+      sides: NO_SIDES, native: true,
+      send: function (m) { guard(m, rows); w.hordeNativeSend(JSON.stringify(m)); },
+      onSnapshot: function (fn) { subs.push(fn); fn(cur); }
+    };
+  }
+  /* RECORDED FRAMES, for testing the page with no plug-in (section 7). `frames` are what the bridge handed
+     hordeNativeSnapshot, in order. Every send is acknowledged at once, as the bridge does, and never refused; `sent` keeps
+     them for a test to read. `tick(now)` plays one frame per 1/30 s of the page's own clock and loops; `frozen` holds the
+     first frame, the must-fail control for "the pictures move". No clock of its own: the page's frame time drives it. */
+  function ReplayTransport(frames, opts) {
+    opts = opts || {};
+    var subs = [], merge = Merger(), i = 0, at = null, ack = 0, sent = [], cur = merge(frames[0] || {});
+    function publish(f) { var g = {}; for (var k in f) g[k] = f[k]; g.ack = ack; cur = merge(g); subs.forEach(function (fn) { fn(cur); }); }
+    return {
+      sides: NO_SIDES, replay: true, sent: sent,
+      send: function (m) { guard(m, opts.rows); sent.push(m); if (!opts.noAck) ack = m.seq; publish({}); },   // noAck: the seam check's plant
+      onSnapshot: function (fn) { subs.push(fn); fn(cur); },
+      tick: function (now) {
+        if (opts.frozen || !frames.length || now === undefined) return;
+        if (at === null) at = now;
+        var n = Math.floor((now - at) / (1000 / 30));
+        if (n === i) return; i = n; publish(frames[i % frames.length]);
+      }
     };
   }
 
   root.GUI3Engine = { METHODS: METHODS, TRANSPORT: TRANSPORT, Stub: Stub, ResolverStub: ResolverStub, DeviceSideStub: DeviceSideStub,
-    SyncTransport: SyncTransport, lawX: lawX, snap: snap, display: display };
+    SyncTransport: SyncTransport, NativeTransport: NativeTransport, ReplayTransport: ReplayTransport, decode: decode, checkMessage: checkMessage, MESSAGES: MESSAGES,
+    lawX: lawX, snap: snap, display: display };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -985,6 +985,7 @@ window.GUI3_DATA = {
    }
   ]
  },
+ "manifest_hash": "cf4afbc8ff9a5390dc460067b2b3b5f52c2675716d4b6fd9091b97b564f24e05",
  "nav": [
   {
    "id": "main",

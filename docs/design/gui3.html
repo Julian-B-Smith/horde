@@ -228,6 +228,9 @@
   .ledger-sum .hd-krow { gap: 2px 16px; flex-wrap: wrap; }
   /* a followed envelope block that is not the selected one stays mounted but hidden (the bundle sets display on .hd-mk) */
   .ctl[hidden] { display: none !important; }
+  /* GUI-46: on the plug-in's bridge, a control this engine can't act on yet: dimmed with the master's disabled opacity, still there (the master's .idle hides) */
+  .inert { opacity: var(--opacity-disabled); }
+  .inert-note { margin: 0 0 6px; }
   .ledger { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--space-stack); align-items: start; }
   .ledger-area { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
   .ledger-row { display: flex; flex-direction: column; gap: 2px; padding: 5px 0; border-top: 1px dashed var(--div); }
@@ -427,7 +430,14 @@ const optLabel = (row, v) => row.options ? row.options[idxOf(row, v)] : String(r
 const rowsOf = (...ts) => DATA.params.filter(r => ts.includes(r.target));
 engine = new ENG.Stub(rowsOf('engine'));
 const resolver = new ENG.ResolverStub(rowsOf('resolver')), deviceSide = new ENG.DeviceSideStub(rowsOf('rack', 'midi'));
-transport = ENG.SyncTransport(engine, resolver, deviceSide);
+/* B628: inside the test plug-in the bridge binds `hordeNativeSend` before the page loads, and the page talks to the clean-room
+   engine through it; `GUI3_REPLAY` (recorded frames) plays the same path with no plug-in, for the browser check. Either way
+   there's no resolver or device side behind it, so those controls are drawn as not in this engine yet (GUI-46), and the
+   self-checks, which probe the stub, don't run. */
+const BRIDGE = window.hordeNativeSend ? 'native' : Array.isArray(window.GUI3_REPLAY) ? 'replay' : null;
+transport = BRIDGE === 'native' ? ENG.NativeTransport(window, rowsOf('engine'))
+  : BRIDGE === 'replay' ? ENG.ReplayTransport(window.GUI3_REPLAY, { frozen: !!window.GUI3_REPLAY_FROZEN, rows: rowsOf('engine') })
+  : ENG.SyncTransport(engine, resolver, deviceSide);
 dev = DEV.create(DATA, transport, { seed: SEED });
 // `mapKeysAlways` is ADR-335 r1's ONE switch (SH.MAP_KEYS_ALWAYS, shell-logic.js), handed over as it stands: the session's own
 // listener then takes the map keys and Escape in every mode, and keeps them out of a field and off a Cmd/Ctrl chord (ADR-338 r11).
@@ -1682,7 +1692,7 @@ DATA.pages.forEach(pg => {
 /* A page opens by its id, whatever its group (an old link's #noise still opens the Noise page, under Osc). */
 function selectPage(id) {
   if (!pageEls[id]) return;
-  page = id; closeMenu(); placePad(); paintDock();
+  page = id; closeMenu(); placePad(); paintDock(); wantFor(id);
   if (id === 'morph' && mw) mw.mount();
   for (const k in pageEls) pageEls[k].hidden = k !== id;
   const now = nav.get(); if (now.group !== groupOf[id] || now.page !== id) nav.set(groupOf[id], id);
@@ -1941,6 +1951,46 @@ H.PresetBar($('presetHost'), S, { value: 'INIT - Init', note: 'MOCK: the factory
   bank: { Init: ['INIT - Init'], Bass: ['BS - Growl Bass', 'BS - Reese', 'BS - Sub Anchor', 'BS - Tight Stack', 'BS - Wobble Frame'], Keys: ['KY - Clav Swarm', 'KY - Hymnal', 'KY - Music Box', 'KY - Paper Rhodes'], Lead: ['LD - Glass Reed', 'LD - Hoover', 'LD - Hyper Lead', 'LD - Knife Fifth', 'LD - Talk Lead'], Morph: ['MO - Blend Drift', 'MO - Quantum Morph', 'MO - Two State'], Pad: ['PD - Breath Field', 'PD - Drift Choir', 'PD - Glacier', 'PD - Slow Consensus', 'PD - Stasis'], Pluck: ['PL - Bell Lattice', 'PL - Koto Swarm', 'PL - Porcelain', 'PL - Spark'] },
   onPick: n => S.say('MOCK: ' + n + ' is picked, and nothing loads yet'), onSave: () => S.say('MOCK: nothing is saved yet') });
 fillMain();
+
+// ===== BLOCK E2: the plug-in's bridge (B628, docs/proposals/gui-on-engine.md; GUI-46) =====
+/* Only on a bridge (BRIDGE, BLOCK B). The clean-room engine has no morph, no modulation and no FX rack or Arp yet, so the controls
+   those would serve stay on the page, dimmed with the master's disabled opacity, saying so (the human: "Dimmed, still visible").
+   GUI-21's idle still HIDES a control whose condition fails; this is a different thing: the control works, its engine doesn't
+   exist yet. A row's side comes from its target (engine, resolver, rack, midi) and what stands behind the transport. */
+function inertRow(r) { const sd = dev.sides(); return r.target === 'resolver' ? !sd.resolver : r.target === 'rack' || r.target === 'midi' ? !sd.device : false; }
+const INERT_SAYS = 'Not in this engine yet';
+/* `want` (section 3): the parts of RC-8 this page draws. Main and the dashboard draw both oscillators, an Osc page its own;
+   members' phases and levels feed the ring, carpet and voice map. Cycles (GN-41) aren't in this engine. */
+let wanted = '';
+function wantFor(id) {
+  if (!BRIDGE) return;
+  const osc = id === 'main' || id === 'dashboard' ? [1, 2] : id === 'osc1' ? [1] : id === 'osc2' ? [2] : [], w = { osc, members: osc.length > 0, cycles: false }, k = JSON.stringify(w);
+  if (k !== wanted) { wanted = k; dev.want(w); }
+}
+if (BRIDGE) {
+  if (transport.tick) views.push({ page: '*', update() { transport.tick(S.now); } });   // a replay plays on the page's own frame time
+  if (BRIDGE === 'replay') window.GUI3_BRIDGE = { transport, dev, selectPage };   // the browser check's hook, as GUI3_FEED is (GUI-34); never set inside the plug-in
+  document.querySelectorAll('#pages [data-key]').forEach(e => { const r = ROW[e.dataset.key]; if (r && inertRow(r)) { e.classList.add('inert'); e.title = INERT_SAYS; } });
+  Object.values(pageEls).forEach(el => { if (el.querySelector('.inert')) el.insertBefore(h('p', { class: 'hd-hint inert-note', text: 'Dimmed controls aren’t in this engine yet: the morph, modulation, the FX rack and Arp come later.' }), el.children[1] || null); });
+  // The morph and MAP make no sound here: the morph has no resolver behind the bridge, and routes reach no engine (RC-4).
+  $('morphOn').disabled = true; $('morphOn').closest('label').classList.add('inert'); $('morphOn').closest('label').title = INERT_SAYS + ': the morph';
+  $('mapHost').classList.add('inert'); $('mapHost').title = INERT_SAYS + ': modulation';
+  // The test plug-in's bank: its names arrive with the first frame that carries them, and a pick loads one by index.
+  let bankKey = '', bar = null;
+  views.push({ page: '*', update() {
+    const p = dev.presets(); if (!p || !p.names || !p.names.length) return;
+    const k = p.names.join('\n');
+    if (k !== bankKey) { bankKey = k; bar = H.PresetBar($('presetHost'), S, { value: p.names[p.index] || p.names[0], note: 'The test plug-in’s bank. A load replaces the engine, so a sounding note stops.',
+      bank: { Bank: p.names }, onPick: n => { const i = p.names.indexOf(n); if (i >= 0) { dev.loadPreset(i); S.say('Loading ' + n); } }, onSave: () => S.say('Saving is the plug-in’s host’s job here') }); }
+    else if (bar && bar.get() !== p.names[p.index]) bar.set(p.names[p.index]);
+  } });
+  // Voices: the test plug-in's own setting (kVoicesId), outside SPEC-ENGINE 5, so it's the one control here that isn't a row.
+  const vh = h('div', { id: 'voicesHost', class: 'hd-row hd-label' }, 'Voices', h('div'));
+  $('morphOn').closest('.switches').prepend(vh);
+  const vs = H.Stepper(vh.lastChild, { name: 'Voices', min: 1, max: 16, value: 4, def: 4, sm: true, keys: () => S.keys, onInput: n => dev.setVoices(n) });
+  views.push({ page: '*', update() { const pl = dev.plugin(); if (pl && pl.voices !== undefined && pl.voices !== vs.get()) vs.set(pl.voices); } });
+  wantFor(page);
+}
 // MS4 (ADR-340 r8, H.SourceRows' rule): with MAP on, a click on a row's body (anywhere but a button) makes it the source of the next
 // mapping. The name and the Map handle are buttons, so a click on them keeps its own meaning; with MAP off a click does nothing.
 $('bankHost').addEventListener('click', e => {
@@ -2048,7 +2098,7 @@ S.start();
 CLOCK.checking = true;
 (function checks() {
   $('bootNote').remove();
-  if (window.GUI3_NOCHECKS || /[?&]fast\b/.test(location.search)) return;   // a load without its self-checks, for timing the shell as a plugin would load it. `?fast` is for a person who only wants to look
+  if (window.GUI3_NOCHECKS || BRIDGE || /[?&]fast\b/.test(location.search)) return;   // a load without its self-checks, for timing the shell as a plugin would load it. `?fast` is for a person who only wants to look
   const box = $('checks'), line = (ok, t) => box.append(h('p', { class: ok ? 'hd-hint' : 'hd-note bad', text: (ok ? 'OK · ' : 'FAILED · ') + t }));
   // 1. What is mounted is what was generated, page by page; the comparison sees a single missing key (control). The table (half B's PV1)
   // is a second view of the same keys, so its rows are not mounts: the grid's are counted.

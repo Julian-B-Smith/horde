@@ -24,7 +24,7 @@
  *      frozen, or the detector can't tell motion from stillness and the check says so instead of passing.
  * A missing browser is a visible HOLE (exit 3), never a pass.
  */
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { createServer } from 'node:http';
 import { readFile, mkdtemp, rm } from 'node:fs/promises';
 import { existsSync, readdirSync } from 'node:fs';
@@ -45,8 +45,11 @@ function findChrome() {
   return null;
 }
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2' };
+const EMBEDDED = '/__embedded.html';   // the plug-in's page: tools/gui3_inline.py's output under embed_file's policy, held in memory
+let embedded = null;
 function serve() {
   const srv = createServer(async (req, res) => {
+    if (new URL(req.url, 'http://x').pathname === EMBEDDED && embedded) { res.writeHead(200, { 'content-type': 'text/html' }); res.end(embedded); return; }
     const p = join(ROOT, decodeURIComponent(new URL(req.url, 'http://x').pathname));
     if (!p.startsWith(ROOT)) { res.writeHead(403); res.end(); return; }   // read-only, and never outside docs/
     try { const b = await readFile(p); res.writeHead(200, { 'content-type': TYPES[extname(p)] || 'application/octet-stream' }); res.end(b); } catch { res.writeHead(404); res.end(); }
@@ -92,6 +95,71 @@ async function run(chrome, url, plant) {
   } finally { b.ws.close(); b.proc.kill(); await sleep(200); await rm(dir, { recursive: true, force: true }); }
 }
 
+/* THE BRIDGE'S PAGE SIDE (B628, docs/proposals/gui-on-engine.md section 7). The page loads on GUI3_REPLAY, the frames the plug-in's
+   bridge would hand it, through ReplayTransport, which runs the same decode as the plug-in's NativeTransport. Until the lead's
+   recorded fixture exists (tools/labharness/fixtures/gui3-replay.json, used when present), the frames are SYNTHETIC, written here:
+   three notes taking turns, a preset bank and Voices 6. Asserted: every message carries a seq; the first `want` asks Main's two
+   oscillators with members and Osc 1's asks [1]; the morph switch and a rack row are dimmed and an engine row isn't; the bank's
+   names reach the preset bar and its next button sends `preset`; Voices reads the frame's 6; and the feed's gates change as frames
+   play. The control: the same load with the replay frozen must show ONE set of gates, or the detector can't see frames advance. */
+/* The plug-in build's two steps (B628): gui3_inline.py, then embed_file.py's policy. Python, as the build is; a failure is red. */
+function embedPage() {
+  const tools = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+  const r = spawnSync('python3', ['-c', 'import sys; sys.path.insert(0, sys.argv[1]); import gui3_inline, embed_file; sys.stdout.write(embed_file.with_csp(gui3_inline.inline()))', tools], { encoding: 'utf8', maxBuffer: 1 << 26 });
+  if (r.status !== 0) throw new Error('building the embedded page failed: ' + (r.stderr || '').trim().split('\n').slice(-1)[0]);
+  return r.stdout;
+}
+const FIXTURE = join(dirname(fileURLToPath(import.meta.url)), 'fixtures/gui3-replay.json');
+function syntheticFrames() {
+  const keys = [60, 64, 67], fr = [];
+  for (let i = 0; i < 30; i++) {
+    const k = keys[Math.floor(i / 10)], ph = Array.from({ length: 8 }, (_, m) => ((i * 0.05 + m / 8) % 1) * 2 * Math.PI);
+    fr.push({ observe: { sounding: true, meters: { osc1: { peak: 0.2, clip: false }, out: { peak: 0.25, clip: false } },
+      voices: [{ level: 0.5, env: [1, 0, 0, 0], notes: { key: k, vel: 0.8, gate: true }, osc: [{ R: 0.6, psi: i * 0.1, frame: 0, phases: ph, levels: ph.map(() => 1), blades: [] }] }] } });
+  }
+  Object.assign(fr[0], { params: { 'voice.mode': 0 }, presets: { names: ['Glass horde pad', 'Crushed bells', 'Undertone cathedral'], index: 0 }, plugin: { voices: 6 } });
+  return fr;
+}
+const PROBE = `(async () => {
+  const B = window.GUI3_BRIDGE, wait = ms => new Promise(r => setTimeout(r, ms)), sent = () => B.transport.sent, wants = () => sent().filter(m => m.type === 'want');
+  const want0 = wants().slice(-1)[0] || null;
+  const rack = window.GUI3_DATA.params.find(r => r.target === 'rack' && document.querySelector('[data-key="' + r.key + '"]'));
+  const rackEl = rack && document.querySelector('[data-key="' + rack.key + '"]'), engEl = document.querySelector('[data-key="osc1.detune"]');
+  const gates = new Set(); for (let i = 0; i < 14; i++) { const f = B.dev.feed(); if (f) gates.add(f.gates.join()); await wait(100); }
+  const bar = document.querySelector('#presetHost .pb-name'), barName = bar ? bar.textContent : '';
+  document.querySelectorAll('#presetHost .pb-step')[1]?.click(); await wait(50);
+  const pre = sent().filter(m => m.type === 'preset').slice(-1)[0] || null;
+  B.selectPage('osc1'); await wait(50); const want1 = wants().slice(-1)[0] || null;
+  return { seqs: sent().every(m => typeof m.seq === 'number'), want0, want1, gates: [...gates], barName, pre,
+    morphOff: document.getElementById('morphOn').disabled, rackInert: !!rackEl && rackEl.classList.contains('inert') && +getComputedStyle(rackEl).opacity < 1,
+    engLive: !!engEl && !engEl.classList.contains('inert'), voices: (document.querySelector('#voicesHost output') || {}).textContent, notes: document.querySelectorAll('.inert-note').length };
+})()`;
+async function runReplay(chrome, url, frames, frozen) {
+  const dir = await mkdtemp(join(tmpdir(), 'gui3-replay-')), b = await cdp(chrome, dir);
+  try {
+    await b.call('Page.addScriptToEvaluateOnNewDocument', { source: 'window.GUI3_REPLAY = ' + JSON.stringify(frames) + ';' + (frozen ? 'window.GUI3_REPLAY_FROZEN = true;' : '') +
+      'window.__csp = []; document.addEventListener("securitypolicyviolation", e => window.__csp.push(e.violatedDirective + " " + (e.blockedURI || "inline")));' });
+    await b.call('Page.navigate', { url });
+    let ready = false; for (let i = 0; i < 60 && !ready; i++) { await sleep(500); try { ready = await b.evalIn(`/Ready/.test((document.getElementById('status') || {}).textContent || '') && !!window.GUI3_BRIDGE`); } catch {} }
+    const thrown = b.events.filter(e => e.method === 'Runtime.exceptionThrown').map(e => (e.params.exceptionDetails.exception || {}).description || e.params.exceptionDetails.text);
+    return { ready, thrown, p: ready ? await b.evalIn(PROBE) : null, csp: await b.evalIn('window.__csp || []').catch(() => ['unreadable']) };
+  } finally { b.ws.close(); b.proc.kill(); await sleep(200); await rm(dir, { recursive: true, force: true }); }
+}
+function replayVerdict(r, rc, frames, red) {
+  if (!r.ready) { red.push('replay: the page never said Ready on GUI3_REPLAY'); return; }
+  r.thrown.forEach(t => red.push('replay, uncaught: ' + String(t).split('\n')[0]));
+  r.csp.forEach(v => red.push('replay, blocked by the page policy: ' + v));
+  const p = r.p, names = (frames[0].presets || {}).names || [];
+  if (!p.seqs) red.push('replay: a message went out without a seq');
+  if (!p.want0 || JSON.stringify(p.want0.osc) !== '[1,2]' || !p.want0.members || p.want0.cycles) red.push('replay: Main’s want is ' + JSON.stringify(p.want0) + ', not osc [1,2] with members and no cycles');
+  if (!p.want1 || JSON.stringify(p.want1.osc) !== '[1]') red.push('replay: Osc 1’s want is ' + JSON.stringify(p.want1));
+  if (!p.morphOff || !p.rackInert || !p.engLive || !p.notes) red.push(`replay: inert state wrong (morph switch disabled ${p.morphOff}, a rack row dimmed ${p.rackInert}, osc1.detune live ${p.engLive}, notes ${p.notes})`);
+  if (names.length && (!p.barName.startsWith(names[0]) || !p.pre || p.pre.index !== 1)) red.push(`replay: the bank didn't reach the preset bar ("${p.barName}"), or next sent ${JSON.stringify(p.pre)}`);
+  if (frames[0].plugin && p.voices !== String(frames[0].plugin.voices)) red.push('replay: Voices reads ' + p.voices + ', not ' + frames[0].plugin.voices);
+  if (p.gates.length < 2) red.push('replay: the feed’s gates never changed as frames played (' + p.gates.join(' | ') + ')');
+  if (!rc.ready || !rc.p || rc.p.gates.length !== 1) red.push('CONTROL: with the replay frozen the feed showed ' + (rc.p ? rc.p.gates.length : 'no') + ' sets of gates, not one, so a moving feed proves nothing');
+}
+
 const chrome = findChrome();
 if (!chrome) { console.log('gui3_browser_check: HOLE -- no headless Chrome found (set HORDE_CHROME); nothing was checked'); process.exit(3); }
 const srv = await serve(), base = `http://127.0.0.1:${srv.address().port}/design/gui3.html`;
@@ -106,7 +174,12 @@ try {
   if (still.length) red.push('frozen after the self-checks: ' + still.join(', '));
   const c = await run(chrome, base + '#osc1', FREEZE), seen = MOVERS.filter(n => c.pics.some(p => p.name.startsWith(n) && p.moved));
   if (seen.length) red.push('CONTROL: with frames stopped the detector still read motion in ' + seen.join(', ') + ', so it can’t tell stillness');
+  const recorded = existsSync(FIXTURE), frames = recorded ? JSON.parse(await readFile(FIXTURE, 'utf8')) : syntheticFrames();
+  embedded = embedPage();
+  const eb = base.replace('/design/gui3.html', EMBEDDED);
+  replayVerdict(await runReplay(chrome, eb, frames, false), await runReplay(chrome, eb, frames, true), frames, red);
   console.log(red.length ? 'gui3_browser_check: RED\n  ' + red.join('\n  ')
-    : `gui3_browser_check: GREEN -- ${r.st.ok} self-checks pass in a real browser, ${MOVERS.join(', ')} move after them, and with frames stopped they read frozen (control)`);
+    : `gui3_browser_check: GREEN -- ${r.st.ok} self-checks pass in a real browser, ${MOVERS.join(', ')} move after them, and with frames stopped they read frozen (control); ` +
+      `the plug-in's one-file page runs under its policy with no violation, its bridge side holds on ${recorded ? 'the recorded' : 'SYNTHETIC'} frames, and a frozen replay reads frozen (control)`);
 } finally { srv.close(); }
 process.exit(red.length ? 1 : 0);

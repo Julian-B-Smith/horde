@@ -106,6 +106,13 @@
  *                ClusterMatrix, Fold, Lens, PageView, Companion, Stepper `tc`) and every face of a parameter through ctlFace; the
  *                browser's self-checks measure what they draw
  *   determinism  the same seed and calls give byte-identical device and engine state; another seed differs
+ *   bridge       B628's seam (docs/proposals/gui-on-engine.md section 3), on ReplayTransport, which shares the plug-in's decode:
+ *                every message a workout sends is well-formed by the signed schema, and a `set` names engine rows only; an
+ *                unknown type and a `set` naming a rack row are refused (the schema's own must-fails); every seq is
+ *                acknowledged, a held `rack` one included; a frame's linear peak reads as dBFS and its clip as { on }, and a
+ *                frame without presets keeps the last; the feed comes from an engine frame and never from the stub's MOCK
+ *                meters; and shell-data's manifest_hash equals one recomputed here, in JS with C's %.17g, from the rows
+ *                (the generator writes it in Python: two oracles, and the bridge's C++ is the third)
  *
  * MUST-FAIL CONTROLS (plants), every run, on in-memory copies of the two scripts: an observe() that
  * counts, an undo that applies the wrong side, a scatter that draws from a counter, a route check
@@ -132,6 +139,7 @@
 // B446 W3b: this file evaluates lab scripts, so it runs under Node's permission model (see sandbox_guard.mjs).
 import './sandbox_guard.mjs';
 import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -1015,6 +1023,47 @@ function suite(W) {
     ok(!/\.hd-rslot|\.rs-l1|\.rs-l2|--size-rslot/.test(src.slice(src.indexOf('<style>'), src.indexOf('</style>'))), 'the shell restyles the readout slot (DR-c: nothing in the shell overrides its size)');
   };
 
+  T.bridge = () => {
+    const C = ENG.checkMessage, rack = all.find(r => r.target === 'rack' && r.law !== 'step');
+    ok(C({ type: 'nope', seq: 1 }, rows) !== null, 'the schema accepted an unknown message type');
+    ok(C({ type: 'set', seq: 1, values: { [rack.key]: .5 } }, rows) !== null, 'the schema let a set name a rack row (' + rack.key + ')');
+    ok(C({ type: 'preset', index: 1 }, rows) !== null, 'the schema accepted a message without a seq');
+    // a workout through the adapter on a replay: every send passes the guard, or the transport throws here
+    const t = ENG.ReplayTransport([], { rows }), d = DEV.create(DATA, t, { seed: 3 });
+    d.begin('drag', cont.key); d.set(cont.key, .37, { corner: null }); d.end(); d.set(rack.key, .61, { corner: null });
+    d.setMorph({ on: true, x: .2, y: .8 }); d.setMorph({ on: false }); d.want({ osc: [1], members: true }); d.loadPreset(2); d.setVoices(5); d.clearClip('out');
+    const sent = t.sent, types = new Set(sent.map(m => m.type));
+    for (const ty of ['set', 'gesture', 'rack', 'want', 'preset', 'plugin', 'clear']) ok(types.has(ty), 'the workout sent no ' + ty + ' message');
+    ok(sent.every(m => C(m, rows) === null), 'a message the adapter sent fails the schema');
+    ok(sent.filter(m => m.type === 'set').every(m => Object.keys(m.values).every(k => by[k].target === 'engine')), 'a set carried a row that isn’t the engine’s');
+    let last = null; t.onSnapshot(s => { last = s; });
+    ok(last.ack === sent[sent.length - 1].seq, 'the last seq sent (' + sent[sent.length - 1].seq + ') is not acknowledged (ack ' + last.ack + ')');
+    const r0 = sent.length; d.set(rack.key, .25, { corner: null }); const held = sent.slice(r0).find(m => m.type === 'rack');
+    ok(held && last.ack === held.seq, 'a held rack message was not acknowledged');
+    // decode and merge, the plug-in's path
+    const rp = ENG.ReplayTransport([{ observe: { meters: { out: { peak: .5, clip: true } }, voices: [{ level: .4, notes: { key: 62, vel: 1, gate: true }, osc: [{ R: .9, phases: [0, 1] }] }] }, presets: { names: ['a', 'b'], index: 1 } },
+      { observe: { meters: { out: { peak: 0, clip: false } }, voices: [] } }], { rows }), d2 = DEV.create(DATA, rp, { seed: 1 });
+    let snap = null; rp.onSnapshot(s => { snap = s; });
+    const m0 = snap.observe.meters.out;
+    ok(Math.abs(m0.peak - 20 * Math.log10(.5)) < 1e-9 && m0.clip.on === true, 'a frame’s linear peak .5 and clip read ' + JSON.stringify(m0));
+    ok(snap.observe.voices[0].osc[0].phases instanceof Float32Array, 'members’ phases did not decode to a Float32Array');
+    const f = d2.feed(); ok(f && f.gates.join() === '62' && f.r === .9, 'the feed from an engine frame reads ' + JSON.stringify(f));
+    rp.tick(0); rp.tick(40);
+    ok(snap.observe.meters.out.peak === -Infinity && snap.presets && snap.presets.index === 1, 'a frame without presets lost them, or the next frame never played');
+    ok(fresh(1).d.feed() === null, 'the stub’s MOCK meters made a feed: every picture would wake with nothing playing');
+    // the manifest hash, recomputed: lines of key, class, law, lo, hi, steps, default; sorted bytewise; SHA-256
+    const G = x => { x = +x; if (x === 0) return '0'; const e = Math.floor(Math.log10(Math.abs(x))), ex = +x.toExponential(16).split('e')[1];
+      if (ex < -4 || ex >= 17) { let [mm, ee] = x.toExponential(16).split('e'); mm = mm.includes('.') ? mm.replace(/0+$/, '').replace(/\.$/, '') : mm; const n = +ee; return mm + 'e' + (n < 0 ? '-' : '+') + String(Math.abs(n)).padStart(2, '0'); }
+      let t2 = x.toFixed(Math.max(0, 16 - ex)); if (t2.includes('.')) t2 = t2.replace(/0+$/, '').replace(/\.$/, ''); return t2; };
+    const CL = { M: 'morphable', S: 'structural', D: 'device' }, LW = { lin: 'lin', log: 'log', pow: 'pow', 'lin, wraps': 'linwraps', 'log, off zone': 'logoffzone', dB: 'db', step: 'step' };
+    const lines = host.map(r => { const st = r.law === 'step', lo = r.lo != null ? r.lo : 0, hi = r.lo != null ? r.hi : r.n - 1;
+      return [r.key, CL[r.class], LW[r.law], G(lo), G(hi), String(st ? r.n : 0), G(st ? r.default_index : r.default_x)].join('\t') + '\n'; })
+      .sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b)));
+    const hx = createHash('sha256').update(lines.join(''), 'utf8').digest('hex');
+    ok(G(1e-5) === '1.0000000000000001e-05' && G(0.28000000000000003) === '0.28000000000000003' && G(-60) === '-60', 'this file’s %.17g is not C’s');
+    ok(DATA.manifest_hash === hx, 'shell-data’s manifest_hash ' + DATA.manifest_hash + ' is not the rows’ ' + hx);
+  };
+
   T.determinism = () => {
     const run = seed => {
       const { e, d } = fresh(seed);
@@ -1040,6 +1089,11 @@ for (const [n, m] of Object.entries(real.failed)) bad.push(`${n}: ${m}`);
 
 // ---- the plants: each mutates one script and must turn exactly its own test red ----
 const PLANTS = [
+  // B628's bridge: the schema admits any type; a held message goes unacknowledged; the decode passes a linear peak as dB; the feed reads the stub's meters
+  ['bridge', 'stub', "var need = MESSAGES[m.type]; if (!need) return 'an unknown message type: ' + m.type;", 'var need = MESSAGES[m.type] || [];'],
+  ['bridge', 'stub', 'if (!opts.noAck) ack = m.seq;', ''],
+  ['bridge', 'stub', 'peak: dB(+m[id].peak || 0)', 'peak: +m[id].peak || 0'],
+  ['bridge', 'device', "if (!o || o.source !== 'engine') return null;", 'if (!o) return null;'],
   ['observe', 'stub', 'E.observe = function () {', 'E.observe = function () { refused++;'],
   ['history', 'device', 'var b = cur.before; cur = p;', 'var b = cur.after; cur = p;'],
   ['determinism', 'device', "mulberry32(hash32(r.key) ^ (s * 2654435761 >>> 0))", "mulberry32(hash32(r.key) ^ (s * 2654435761 >>> 0) ^ (root.__n = (root.__n | 0) + 1))"],

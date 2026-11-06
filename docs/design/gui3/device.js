@@ -472,7 +472,28 @@
        (IF-10; MOCK in the stub), never computed here. */
     /* GUI-34: what the voices are doing, once per frame: { t: 'vz', peak, act, env, gates, r }, or null with no voices to read. The Specimen strikes from it (AUD.feed).
        The stub plays no notes, so it's null unless a test build hands one in. The engine's snapshot answers this at stage 8 (RC-8, GN-47). */
-    D.feed = function () { return window.GUI3_FEED || null; };
+    D.feed = function () { return window.GUI3_FEED || feedOf(lastSnap && lastSnap.observe); };
+    /* B628: the engine's frame (RC-8, as the transport decodes it) as the Specimen's feed. A gated note is a gate, the loudest
+       voice's level is the envelope, and R is the first oscillator's of the loudest voice. Null from the stub, and where nothing is reported. */
+    function feedOf(o) {
+      if (!o || o.source !== 'engine') return null;   // the stub's meters are MOCK: a feed from them would wake every picture with nothing playing
+      var gates = [], env = 0, act = 0, r = 0;
+      o.voices.forEach(function (v) {
+        if (v.notes && v.notes.gate) gates.push(v.notes.key);
+        if (v.level > 0 || (v.notes && v.notes.gate)) act++;
+        if (v.level > env) { env = v.level; r = v.osc && v.osc[0] ? v.osc[0].R : r; }
+      });
+      var out = o.meters && o.meters.out, peak = out && out.peak > -Infinity ? Math.pow(10, out.peak / 20) : 0;
+      return { t: 'vz', peak: peak, act: act, env: env, gates: gates, r: r };
+    }
+    /* B628, the plug-in's own messages: which parts of RC-8 to send (`want`), its preset bank (`preset`) and its Voices
+       (`plugin`). None is a step in the history: a preset load replaces the engine, and the bridge's state answers for it. */
+    D.sides = function () { return transport.sides || { engine: true, resolver: true, device: true }; };
+    D.want = function (w) { transport.send({ type: 'want', seq: ++seq, osc: w.osc || [], members: !!w.members, cycles: !!w.cycles }); };
+    D.presets = function () { return lastSnap && lastSnap.presets || null; };
+    D.loadPreset = function (i) { transport.send({ type: 'preset', seq: ++seq, index: i }); rev++; };
+    D.plugin = function () { return lastSnap && lastSnap.plugin || null; };
+    D.setVoices = function (n) { transport.send({ type: 'plugin', seq: ++seq, voices: n }); rev++; };
     /* GUI-33: is any voice sounding? The pictures rest while none is. A voice alive, or a peak at or over B365's -90 dBFS, so a release tail counts (GN-45). */
     D.sounding = function () { var f = D.feed(); return !!f && (f.act > 0 || f.peak >= 3.2e-5); };
     D.summed = function () { return lastSnap && lastSnap.observe && lastSnap.observe.sum || null; };
