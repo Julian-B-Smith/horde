@@ -6,7 +6,8 @@
 > (ADR-373, on #1422), and the lead ruled the two interface readings. Every answer is now in the spec text. A further
 > poll (ADR-376) ruled how an oscillator's on switch morphs and that a preset saves the puck. **ADR-377 then reshaped
 > the round:** for 1.0 every Structural key follows its quantum boundaries, and setting sets are after 1.0. ADR-376's
-> third ruling (where a chain blend mixes) is void. Five `[OPEN: …]` markers remain, listed under ADR-377 below.
+> third ruling (where a chain blend mixes) is void. **ADR-377 A1** then answered the open items and took the critic's
+> fixes: no `[OPEN]` marker remains, and one item is tagged X46 in §11.
 
 ## What changed in `specs/SPEC-ENGINE.md`
 
@@ -29,7 +30,8 @@
 | **MO-24** (new) | The region lock: three offsets, the score ln w + δ, which temperature, cohesion, the seed and the draws don't reach; the latch; locking as is, computed by the resolver; a corner edit changes no lock and its new value plays in its region; Exempt keeps the lock dormant. | ruling 3; B269; ADR-373 item 3 |
 | D.2 opening line, RC-11.1 | A preset saves the pad's position, `morph.x` and `morph.y`, which stay host parameters. | ADR-376 (GN-10) |
 | MO-9 | An oscillator's keys blend only over the corners where it is on (MO-26). Count Two's two-value law is now stated in MO-9 itself, since MO-17 is after 1.0. | ADR-376; ADR-377 |
-| **MO-26** (new, D.8) | An oscillator's on switch: a morph level g = W_on that the resolver computes and sends; its Morphable keys blend only over its on corners, renormalised; the plain blend where it's on in no weighted corner; values land unglided when it comes back on; Stepped, Quantum and per-key modes. | ADR-376, ADR-377; legacy ADR-123, B48, B65, ADR-183, B232 |
+| **MO-26** (new, D.8) | A source's on switch (osc 1, osc 2, the sub, the noise): under Blend and Stepped a morph level g = W_on, glided by PA-1, switching off at the 10⁻³ floor once the heard level reaches it; its keys blend, pick and bend waypoints over its on corners only; under Quantum the switch flips with g = 1; landing without MO-5 (b)'s glide under any law. | ADR-376, ADR-377, ADR-377 A1; legacy ADR-123, B48, B65, ADR-183, B232 |
+| **MO-27** (new, D.1) | Corner exactness in 1.0: every key at a corner sends that corner's stored value, levels 1, so the corner equals morph off there. | ADR-377 A1 (critic B3) |
 | ADR-377's rows | See the ADR-377 section below for the full list. | ADR-377 |
 | **MO-25** (new) | Save current sound: the glided value heard now; only the macro and X/Y offsets baked, no route modulation; a blending group stores its heavier setting (lower id on a tie), and the morph system reports which groups it couldn't keep as a mix; an Exempt key's pushed value goes into all four corners. In 1.0 every Structural key has one value, so item 7 (a blending group) waits for setting sets; a fading oscillator's level is `[OPEN]`. | ruling 8; ADR-373 items 5 to 8; ADR-377 |
 
@@ -153,7 +155,7 @@ crossfade copies, and up to eight swarm instances per oscillator per voice) no l
 it. PA-5's crossfade copies stay: one second setting per oscillator, and a crossfade copy of the sub's and the noise's
 chains.
 
-**Not covered: the structure file's declaration.** `engine2/structure/engine-structure.json` still declares
+**The structure file's declaration (resolved by A1, S6 below).** `engine2/structure/engine-structure.json` still declares
 `voice.structure_slots` (citing SB-2 to SB-13), an edge `morph_resolver->voice.structure_slots` for `SettingSet`
 events, and labels the resolver "…setting sets". Those describe after-1.0 structure. Only `spec.blob` moved, as asked.
 Whether to drop or mark them is the lead's call: dropping changes the counts and loupe's drawing.
@@ -164,7 +166,7 @@ That's a one-line diff.
 **For the GUI session:** a Structural key's Count now acts on nothing in 1.0, so the menu might not offer it there, by
 GUI-21's rule. In 1.0 ADR-373 item 7 (Save during a structural blend) can't occur.
 
-**MO-26's open items, re-asked under ADR-377:**
+**MO-26's open items, re-asked under ADR-377 (all answered by A1 below, except X46):**
 1. **A floor (still open).** The legacy shell switched the oscillator off below W_on = 10⁻³. With no floor it sounds,
    and costs CPU, at any W_on above 0.
    - *Keep the floor:* the oscillator cuts out below −60 dB.
@@ -186,9 +188,77 @@ GUI-21's rule. In 1.0 ADR-373 item 7 (Save during a structural blend) can't occu
    - *Bake g into the corner's `mix.oscN`:* the corner sounds as the position did.
    - *Store the switch alone:* the oscillator comes back at full level in that corner.
 
-**After 1.0, from the legacy record:** B203 and B232 put the sub's on switch under the same fade law ("this is also how
+**Superseded by A1 ruling 5 ("Sub and noise too"):** B203 and B232 put the sub's on switch under the same fade law ("this is also how
 the Sub should work when blend is on"). In 1.0, `sub.on` and `noise.on` follow their quantum boundaries like their
 chains (MO-13). Whether the sub and the noise fade as MO-26 does is a question for after 1.0, not now.
+
+## ADR-377 A1 (the human, by poll, and the critic's review at 94b8d793; 2026-11-06)
+
+**The human's rulings.**
+1. **The floor.** A source fading by weight switches fully off below W_on = 10⁻³ (−60 dB), as legacy, with ADR-183's
+   plain-blend fallback at the floor (MO-26 (1), (2)).
+2. **Picks while fading.** Its Structural keys pick only among the corners where it is on (MO-26 (2); MO-7, MO-24).
+3. **Save during a fade.** g is baked into the corner's level key, so the corner sounds as the position did (MO-25).
+4. **Waypoints.** Where the source is off in some corners, the pins bend the on corners' blend (MO-22 (1)).
+5. **"Sub and noise too."** MO-26 now covers `sub.on` and `noise.on`, each with its own level and its own on-corner
+   restriction. The level keys are the manifest's gain rows, `mix.osc1`, `mix.osc2`, `mix.sub` and `mix.noise` (5.2).
+   The sub has no `sub.level` row; its gain row is `mix.sub`.
+6. **Under Quantum the sources switch.** Under Quantum, and under a switch's own Quantum mode, each switch flips at its
+   quantum boundary by PA-5 with g = 1 (MO-26 (3)). The landing applies to a Quantum flip back on, too (MO-26 (4)),
+   which fixes legacy B250's defect.
+
+**The critic's blocking findings.**
+- **B1.** g is out of MO-5 (b): it glides by PA-1 only (IF-12, MO-26 (1)). The switch's on/off is read from the same
+  unglided W_on as g's target, and the engine turns it off only once PA-1's heard g has fallen to the floor.
+- **B2.** A load or restore leaves each level unchanged, like the transport. IF-4's and RC-11.4's resend sentences are
+  gone. IF-12: prepare and `reset()` set g to 1. MO-3 and MO-20: the first resolution after a resolver reset sends
+  every level.
+- **B3.** MO-27 (D.1), corner exactness for 1.0. At an exact corner every key sends that corner's stored v (a circular
+  key with no atan2 round trip; MO-9 says so too), every level is 1 or the switch is off, and the output is
+  bit-identical to morph off with `morph.audible` there. Item 34.18 judges it.
+- **B4.** "Except the on switches (MO-26)" is added to 34.9, MO-24 and MO-7's last sentence.
+
+**Should-fix.**
+- **S3, S4.** Rulings 1 to 4 close four of the five markers. The fifth, whether the engine's PA-1 also skips a landing
+  source's glide, wasn't ruled, so it is **X46** (§11.1, now 25 items). Until it is ruled, PA-1 glides them as any
+  `Param`, and the resolver skips MO-5 (b). No `[OPEN]` marker remains.
+- **S5.** MO-5 (a) is after 1.0: no 1.0 row reads the glided weights (MO-7, MO-9, MO-22 and MO-26 read the unglided
+  ones). Item 34.12's weight clauses are struck.
+- **S6.** `engine2/structure/engine-structure.json`:
+  - dropped `voice.structure_slots` and its three edges (the `SettingSet` edge, setting-samples to the counters, heard
+    sets to the observation view);
+  - cleared the "× up to four … settings" multiplicities on `member.base_wave`, `member.blade1`, `member.blade2`,
+    `sub` and `noise`, and trimmed `osc`'s to "2: osc 1 and osc 2";
+  - relabelled the resolver and cited it to MO-1 to MO-13 and MO-20 to MO-27;
+  - added three control edges, `morph_resolver->voice.osc_level`, `->voice.sub_level` and `->voice.noise_level`.
+
+  **Counts:** blocks 67 → 66; edges 117 → 117 (control 47 → 49, observation 11 → 9). The structure check is green.
+- **N9.** MO-22 (4) now states the triangulation's tests: counter-clockwise storage by orient, the in-circle
+  determinant with its 10⁻¹³ threshold, and the 10⁻¹⁴ edge test, in double precision as the editor lab computes them.
+- **N1 to N8: not addressed.** The critic's report never reached this session; only N9 was named in the brief. Please
+  send N1 to N8 and they'll be fixed in a follow-up commit.
+
+**For the lead to record (S7): the drafter's unruled choices, plainly.**
+1. **A morph level is an engine input, not a manifest row** (IF-12, MO-26 (1)). It is a factor on the level key's
+   gain and is never state.
+2. **For the noise, g applies after Erode's tap** (SN-14), so the sub's Erode never hears it.
+3. **A source's keys** are its prefix's keys plus its level key. `mix.oscN` is in, because legacy's rule covered the
+   per-oscillator volume (ids 17/1017).
+4. **Under Quantum, while a source is on and some weighted corner has it off, all its keys pick only among its on
+   corners** (MO-26 (3)). The lead's "arrive at the picked on-corner's values" was read this way.
+5. **Save's baking below −60 dB** (MO-25): where g times the heard gain falls below the dB law's −60 dB, the key stores
+   the nearest value the law holds (−60 dB), not −∞.
+6. **The waypoint clamp's hull** (MO-22 (6)) stays over all four corners' values and the pins, as the editor lab's
+   block W computes it, even when the base is the on corners' blend.
+7. **Under Stepped,** W_on reads the stepped position, so the level moves in steps.
+8. **A Quantum-mode switch under Blend or Stepped** still restricts its source's Morphable keys to its on corners while
+   it is on.
+9. **Each source reports its heard morph level** (IF-4, IF-10).
+10. **MO-27's number and place:** a new row at the end of D.1, since SB-10 is after 1.0.
+11. **The structure file:** the after-1.0 slot item was dropped rather than marked, because the format has no marker
+    for it.
+12. **The X46 wording,** and what is built until it is ruled.
+13. **A reserved row is never emitted** (MO-13). This is Q-TA-74's reading, ruled by ADR-364, placed here.
 
 ## Rulings with no spec rows
 
