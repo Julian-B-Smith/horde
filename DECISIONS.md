@@ -12316,3 +12316,35 @@ Two readings, the lead's, open to overrule:
 **What follows.** The lead proposes defaults for the lab's fine questions, and the facilitator puts any the human wants to hear to them. B633's item (2) closes when ORBITAL's open items are ruled.
 
 **FX device (ADR-254).** The FX device hosts the same modulators. The 2-D random's bar lock and ORBITAL's scaling carry over unchanged.
+
+## ADR-376 — RULED by the human: an oscillator fades in with the corner it heads to; a preset saves the puck (B631)
+
+**Context.** Round 61 found that `osc1.on` and `osc2.on` sit in neither MO-14's groups nor MO-15's list (the builder's finding), and GN-10 left open whether a preset carries the puck. The lead asked both by poll, 2026-11-06.
+
+**Rulings.**
+1. **An oscillator's on/off fades in, carrying the values of the corner it heads toward.** The human: "We came up with a special rule for this in legacy: it fades in, but with the values of the corner it's headed to instead of the arbitrary values of the off-oscillator in the corner it's coming from." The legacy rule is ADR-123/B48, B65 and ADR-183/B232. The level follows the summed weight of the corners where the oscillator is on. Its other keys blend only over those corners, renormalised, so an off corner's stored values never sound. Round 61 writes it as MO-26.
+2. **A preset saves the puck's position** ("Yes, saved with it"). `morph.x` and `morph.y` save with the patch and stay host parameters (GN-10).
+3. **Void the same day.** The lead asked where sub and noise settings blend, before or after the drive. The human answered "After the drive", but both options presumed mixing renders, which ADR-377 then ruled out. Nothing rests on this answer.
+
+**FX device (ADR-254).** None: the FX device has no oscillators, and its morph position saves the same way.
+
+## ADR-377 — RULED by the human: no sound crossfades except brief timed transitions; in 1.0 structure follows its quantum boundaries; reverses ADR-317's Blend half (B631)
+
+**Context.** ADR-317 (2026-10-29) ruled that under Blend a structural difference between corners crossfades, with both architectures running. Round 48 specified that as setting sets (Appendix D, D.5 and D.6), and the builder had built most of it on 2026-11-06. The human, the same day: "I don't want any sounds to crossfade except as brief transitions, temporally-bound. The whole concept is parametric morph that allows every point to become its own corner preset."
+
+**Ruling (the human, by poll, 2026-11-06):** "For 1.0, anything that can't blend naturally follows its quantum boundaries. We can work on the waveform morphing after 1.0 and when we start adding new sound engines, etc."
+- **Under every law, every Structural key resolves to one value:** its quantum pick and latch (MO-7, MO-8), read at the stepped position under Stepped, and changing on sounding voices by PA-5's brief crossfade. Exempt still holds corner A.
+- **Morphable keys blend as before** (MO-9, Count Two or Four, waypoints).
+- **No two settings of one group sound at once in 1.0,** except during PA-5's timed flip. Setting sets, the slot rule and per-setting instances (D.5 and D.6's rendering) go after 1.0.
+- **The exception: an oscillator's on/off** fades in by its level (ADR-376), which is a parameter, not a mix of renders.
+- **Parametric morphing of structure** (wave shapes interpolating, and the like) is after 1.0, alongside new sound engines.
+
+**Supporting evidence, engine-free (the test author's B-74 study).** A PA-1 jump of the blend weights between two blade tones fires the ratified click detector. That is the sound QS-4 warns about, so the reversal also removes a class of clicks the blend could not avoid.
+
+**What follows.**
+- Round 61 is redrafted: every Structural key follows its quantum boundaries, the set rows are marked after 1.0, and MO-26 is restated as a level. A critic reviews the round before the human.
+- The builder holds D.6 and removes exactly what the round marks after 1.0. That also removes SB-9's instance memory: about 46 MB at 64 voices, plus the noise's 60 MB on PF-7's stated figure.
+- The test author holds item 35 and PF-10's Blend cells until the round arrives.
+- ADR-317's Quantum and Stepped halves stand.
+
+**FX device (ADR-254).** The same rule applies to FX-module structure that differs between corners: it follows the quantum boundaries. `fx/N` sets (MO-19) go after 1.0 with the rest.

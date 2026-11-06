@@ -7626,6 +7626,14 @@
    "reason": "The modulators' behaviour, ruled from the modulator lab; their cards' design is the GUI session's."
   },
   {
+   "adr": "ADR-376",
+   "reason": "The morph's oscillator on/off rule and the puck's saving, as behaviour; the Morph page is unchanged."
+  },
+  {
+   "adr": "ADR-377",
+   "reason": "The morph's law for structure, as behaviour; the Morph page shows the same pad, and no screen changes."
+  },
+  {
    "adr": "GUI-44",
    "reason": "A gate: GUI 3's browser check wired into ./verify fast, a hole where there's no browser. No design element."
   }
