@@ -6524,21 +6524,6 @@
    "lab": null
   },
   {
-   "id": "gui46-inert-on-bridge",
-   "adr": "GUI-46",
-   "clause": "on the plug-in's bridge, a control this engine can't act on is dimmed with the master's disabled opacity and stays visible",
-   "port_tab": null,
-   "note": "In the shell with the master's token; the master's control state is the next hop. FX device: same, rack-only.",
-   "component": null,
-   "bundle": null,
-   "shell": "docs/design/gui3.html: e.classList.add('inert')",
-   "lab": null,
-   "via": null,
-   "superseded_by": null,
-   "state": "ruled",
-   "master_version": null
-  },
-  {
    "port_tab": null,
    "component": null,
    "bundle": null,
@@ -6567,6 +6552,21 @@
    "clause": "the dashboard's oscillator cards draw the SCALPEL cycle from the blades' settings, not the bare base wave",
    "note": "SAMPLE until GN-41. FX device: none.",
    "shell": "docs/design/gui3.html: function bladeCycle("
+  },
+  {
+   "id": "gui46-inert-on-bridge",
+   "adr": "GUI-46",
+   "clause": "on the plug-in's bridge, a control this engine can't act on is dimmed with the master's disabled opacity and stays visible",
+   "port_tab": null,
+   "note": "In the shell with the master's token; the master's control state is the next hop. FX device: same, rack-only.",
+   "component": null,
+   "bundle": null,
+   "shell": "docs/design/gui3.html: e.classList.add('inert')",
+   "lab": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null
   }
  ],
  "not_design": [
