@@ -6536,6 +6536,36 @@
    "lab": null
   },
   {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui48-cut-on-face",
+   "adr": "GUI-48",
+   "clause": "a blade's cut rate is always on its face: cutHz beside cut, and blade 2's 'as blade 1' read through blade 1 (PA-8)",
+   "note": "A fix against PA-8. FX device: none.",
+   "shell": "docs/design/gui3.html: const FOLLOWS_BLADE1"
+  },
+  {
+   "port_tab": null,
+   "component": null,
+   "bundle": null,
+   "via": null,
+   "superseded_by": null,
+   "state": "ruled",
+   "master_version": null,
+   "lab": null,
+   "id": "gui48-dashboard-cycle",
+   "adr": "GUI-48",
+   "clause": "the dashboard's oscillator cards draw the SCALPEL cycle from the blades' settings, not the bare base wave",
+   "note": "SAMPLE until GN-41. FX device: none.",
+   "shell": "docs/design/gui3.html: function bladeCycle("
+  },
+  {
    "id": "gui46-inert-on-bridge",
    "adr": "GUI-46",
    "clause": "on the plug-in's bridge, a control this engine can't act on is dimmed with the master's disabled opacity and stays visible",
@@ -8208,6 +8238,7 @@
    "GN-39",
    "GN-49"
   ],
+  "GUI-48": "none: the drawing and the conditions are the shell’s",
   "GUI-53": [
    "GN-27",
    "GN-53"

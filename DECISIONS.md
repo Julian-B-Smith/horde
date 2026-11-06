@@ -12143,6 +12143,21 @@ The GUI session recommends (c). Nothing is built until the human picks.
 **Engine impact.** None: a gate on the GUI shell.
 
 **FX device (ADR-254).** Its pages can use the same harness when they exist.
+
+## GUI-48 — DIRECTED by the human: a cut rate always on a blade's face; the dashboard's oscillator cards draw the SCALPEL cycle (GB27; 2026-11-05)
+
+**The human, 2026-11-05:** "For some reason, cut rate isn't visible in the osc sections on the test plugin. Also, can we update the waveform visuals in the osc dashboard so they show the accurate scalpel instead of the placeholder saw?"
+
+**What was wrong (the shell's, against the spec).** A blade's cut rate is two rows, chosen by `cutIn`: `cut` (× pitch) on the face, and `cutHz` behind +Adv. So a preset in Hz showed no cut rate on the face. Blade 2's `cutIn` defaults to "as blade 1", which neither condition listed, so blade 2's cut rate was never shown: the shell's conditions didn't apply PA-8's "blade 2's 'as blade 1' options read blade 1's value".
+
+**What changes.**
+1. **PA-8's rule is applied in the shell's conditions.** A blade 2 row that follows blade 1 is judged on blade 1's.
+2. **`cutHz` sits on the face beside `cut`,** in the Cut group. Exactly one of the two is live, so a cut rate is always in view.
+3. **The dashboard's Osc 1 and Osc 2 cards** draw the oscillator's SCALPEL cycle: its base wave cut by each blade that is on, from the same builder as the Osc page's waveform (`bladeCycle`), never the bare base wave. It is still a SAMPLE drawing of the settings, not the engine's output (GN-41).
+
+**Engine impact.** None: the drawing and the conditions are the shell's.
+
+**FX device (ADR-254).** It has no oscillators.
 ## GUI-46 — RULED by the human: on the plug-in's bridge, a control this engine can't act on is dimmed and still visible (B628, GB26; 2026-11-05)
 
 **The human, 2026-11-05,** through the lead's poll on `docs/proposals/gui-on-engine.md`: "Dimmed, still visible", and "build it now, I want it for sound testing". The lead's choice where the plan left it open: dimmed with the idle styling, plus a small "not in this engine yet" note.
