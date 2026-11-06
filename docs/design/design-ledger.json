@@ -164,7 +164,7 @@
    "status": "harvested",
    "master_version": "1793733325-2f69",
    "adr": "GUI-11",
-   "note": "Harvested at 1793733325-2f69: its roll, pictures and picker are in the master, and the shell's Arp page starts from its face. Its step lanes and trigger test stay here as a record."
+   "note": "Harvested at 1793733325-2f69: its roll, pictures and picker are in the master, and the shell's Arp page starts from its face. Its step lanes and trigger test stay here as a record. Confirmed harvested by the human, 2026-11-05, through the Labs facilitator (ADR-369)."
   },
   "bank-lab.html": {
    "status": "harvested",
@@ -190,20 +190,21 @@
    "note": "Engine bench (B298): the swarm under SCALPEL's blades. No ruling found; not a design question."
   },
   "composition-lab-r2.html": {
-   "status": "ruled",
+   "status": "harvested",
    "adr": "ADR-340",
-   "note": "Round 2 (ADR-340): in the master at 1793517046-cbf4 except the polarity entry in a right-click menu (no control context menu yet), so the lab stays ruled."
+   "note": "Round 2 (ADR-340): in the master at 1793517046-cbf4. Closed by the human, 2026-11-05, through the Labs facilitator (ADR-369): \"Close, menu work carries it\". Its one unharvested item, flipping polarity from a right-click menu, is now an item on the context-menu work (B583).",
+   "master_version": "1793517046-cbf4"
   },
   "composition-lab-r3.html": {
    "status": "harvested",
    "adr": "ADR-341",
-   "note": "Round 3 (ADR-341): rulings 1 to 7 are in the master at 1793517046-cbf4. DR-c line 1 is a placeholder (ADR-341 Open).",
+   "note": "Round 3 (ADR-341): rulings 1 to 7 are in the master at 1793517046-cbf4. DR-c line 1 is a placeholder (ADR-341 Open). Confirmed harvested by the human, 2026-11-05, through the Labs facilitator (ADR-369); DR-c line 1 stays an open placeholder under ADR-341, not this lab.",
    "master_version": "1793517046-cbf4"
   },
   "composition-lab.html": {
    "status": "harvested",
    "adr": "ADR-338",
-   "note": "Round 1 (ADR-338): every master-bound ruling is in the master at 1793517046-cbf4 (the tiny tier at 1793502898-ea3e; companions, clusters, P1/P2, the four tiers, M2, M5, M-R2 in batch 2). Ruling 10 (abbreviations) is shell data and ruling 12 a shell trial.",
+   "note": "Round 1 (ADR-338): every master-bound ruling is in the master at 1793517046-cbf4 (the tiny tier at 1793502898-ea3e; companions, clusters, P1/P2, the four tiers, M2, M5, M-R2 in batch 2). Ruling 10 (abbreviations) is shell data and ruling 12 a shell trial. Confirmed harvested by the human, 2026-11-05, through the Labs facilitator (ADR-369).",
    "master_version": "1793517046-cbf4"
   },
   "cooperator-lab.html": {
@@ -219,22 +220,20 @@
    "note": "Archived in the design index (its lab-archive tag): legacy-era bench; its law is ruled or lives in the composed engine. History, never a source."
   },
   "edge-correction-lab.html": {
-   "status": "ruled",
-   "adr": "ADR-222",
-   "note": "Engine bench: edge correction by a minimum-phase table. Not a design question; listed because the index lists it."
+   "status": "retired",
+   "note": "Retired by the human, 2026-11-05, through the Labs facilitator (ADR-369): its question is settled; history, never a source."
   },
   "engine-audit.html": {
-   "status": "ruled",
-   "adr": "ADR-224",
-   "note": "The new engine's structural rulings (keep, lock, cull, merge). Not a design question."
+   "status": "retired",
+   "note": "Retired by the human, 2026-11-05, through the Labs facilitator (ADR-369): its keep, lock, cull and merge calls are ruled (ADR-224); history, never a source."
   },
   "ensemble-lab.html": {
    "status": "retired",
    "note": "Archived in the design index (its lab-archive tag): legacy-era bench; its law is ruled or lives in the composed engine. History, never a source."
   },
   "envelope-hierarchy-lab.html": {
-   "status": "exploring",
-   "note": "B377: built (PR #874), its review tag stands; no ADR found."
+   "status": "retired",
+   "note": "Retired by the human, 2026-11-05, through the Labs facilitator (ADR-369): the envelope workshop lab (GB23) carries the question now; history, never a source."
   },
   "feedback-lab.html": {
    "status": "retired",
@@ -256,24 +255,23 @@
    "note": "Archived in the design index (its lab-archive tag): retired engine (H2-PLAN Archived engines). History, never a source."
   },
   "freeze-proposal.html": {
-   "status": "ruled",
-   "adr": "ADR-190",
-   "note": "The 1.0 roster, frozen 2026-10-07. A plan page, not a design bench."
+   "status": "retired",
+   "note": "Retired by the human, 2026-11-05, through the Labs facilitator (ADR-369): ruled (ADR-190); history, never a source."
   },
   "fx-chain-morph-lab-r2.html": {
    "status": "ruled",
    "adr": "ADR-193",
-   "note": "Round 2's rulings D1 to D8; D4 superseded by ADR-201 (the static-node rack of round 3)."
+   "note": "Round 2's rulings D1 to D8; D4 superseded by ADR-201 (the static-node rack of round 3). Closed by the human, 2026-11-05, through the Labs facilitator (ADR-369): \"Close all three rounds\". The per-corner shuffle stays open research on B265, and new lab work starts fresh."
   },
   "fx-chain-morph-lab-r3.html": {
    "status": "harvested",
    "master_version": "1793374583-b6a5",
-   "note": "The static-node rack: FxRack, FxMatrix, FxPanel and FxCables READMEs cite it (ADR-201's rack). Its B265 review tag is still open."
+   "note": "The static-node rack: FxRack, FxMatrix, FxPanel and FxCables READMEs cite it (ADR-201's rack). Its B265 review tag is still open. Closed by the human, 2026-11-05, through the Labs facilitator (ADR-369): \"Close all three rounds\". The per-corner shuffle stays open research on B265, and new lab work starts fresh."
   },
   "fx-chain-morph-lab.html": {
    "status": "ruled",
    "adr": "ADR-193",
-   "note": "Round 1 of B265; round 2's rulings are ADR-193 and round 3's static-node rack (ADR-201) is in the master through fx-chain-morph-lab-r3.html. Whether round 1 is now retired is the human's call."
+   "note": "Round 1 of B265; round 2's rulings are ADR-193 and round 3's static-node rack (ADR-201) is in the master through fx-chain-morph-lab-r3.html. Whether round 1 is now retired is the human's call. Closed by the human, 2026-11-05, through the Labs facilitator (ADR-369): \"Close all three rounds\". The per-corner shuffle stays open research on B265, and new lab work starts fresh."
   },
   "fx-design-lab.html": {
    "status": "exploring",
@@ -354,9 +352,8 @@
    "note": "Superseded by shape-lab-mod.html (its lab-superseded-by tag). History, never a source."
   },
   "morph-blend-demo.html": {
-   "status": "ruled",
-   "adr": "ADR-324",
-   "note": "Architecture follows the morph law (ADR-317, B585); ruled ADR-324. Its review tag is open; no master component."
+   "status": "retired",
+   "note": "Retired by the human, 2026-11-05, through the Labs facilitator (ADR-369): ruled (ADR-324: the human answered H1 to H12); B585’s spec work goes on in its own row."
   },
   "morph-editor-lab.html": {
    "status": "harvested",
@@ -409,7 +406,7 @@
   "scalpel-interface-lab.html": {
    "status": "harvested",
    "master_version": "1793374583-b6a5",
-   "note": "The master's look (ADR-329), its Kuramoto ring and tokens cite it. Still the precise source for the ring and the Specimen XY the human asked to be copied (ADR-333; port-tab osc-visualizers, specimen-xy). Its review tag is open."
+   "note": "The master's look (ADR-329), its Kuramoto ring and tokens cite it. Still the precise source for the ring and the Specimen XY the human asked to be copied (ADR-333; port-tab osc-visualizers, specimen-xy). Its review tag is open. Harvested and KEPT as a source, not archived (the human, 2026-11-05, through the Labs facilitator (ADR-369)): it stays the precise source for the ring and the Specimen XY (ADR-333)."
   },
   "shape-lab-mod.html": {
    "status": "harvested",
@@ -425,14 +422,12 @@
    "note": "GB13. Sluice's whole hosted interface on its GBC screen with the live title, for the human to judge. It reads Sluice's data through local/sluice and carries none of it (the human's hold). Open: Sluice's answers on its control surface, through the lead. Corners and modulation are a placeholder for GB15."
   },
   "sluice-horde-lab.html": {
-   "status": "ruled",
-   "adr": "ADR-305",
-   "note": "Sluice in horde (ADR-305, ADR-306; ADR-236's XY and slot library). Nothing in the master; Sluice has no manifest (port-tab sluice)."
+   "status": "retired",
+   "note": "Retired by the human, 2026-11-05, through the Labs facilitator (ADR-369): superseded by Sluice’s full GUI lab (GB13)."
   },
   "sluice-mark-styles-lab.html": {
-   "status": "ruled",
-   "adr": "GUI-23",
-   "note": "GB11. The study behind ADR-302 rulings 1 and 2, ADR-305 and GUI-23 (no crossing gap in the pixel marks), copied from its Artifact at version 1793813064-6fca."
+   "status": "retired",
+   "note": "Retired by the human, 2026-11-05, through the Labs facilitator (ADR-369): the mark is settled (GUI-23, A1, A2)."
   },
   "sluice-s-bend-lab.html": {
    "status": "ruled",
@@ -470,13 +465,12 @@
   },
   "sub-noise-lab.html": {
    "status": "harvested",
-   "note": "GB9: the Dial (GUI-35) and the Weather (GUI-40) are in the master and the shell. The other four pictures stay here for the record.",
+   "note": "GB9, fully harvested: the Dial (GUI-35) and the Weather (GUI-40) are in the master and the shell. The human, 2026-11-05, through the Labs facilitator (ADR-369): \"Weather is settled\"; the Raster and the other pictures here are not candidates.",
    "master_version": "1793906597-7060"
   },
   "random-home-lab.html": {
-   "status": "ruled",
-   "adr": "GUI-25",
-   "note": "GB12. Ruled GUI-25: its own top button, which the shell has now. The lab keeps the option not taken, on the real shell, for the record."
+   "status": "retired",
+   "note": "Retired by the human, 2026-11-05, through the Labs facilitator (ADR-369): done: Randomize has its own top button (GUI-25), in the shell."
   },
   "osc-layout-lab.html": {
    "status": "exploring",

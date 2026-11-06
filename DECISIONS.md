@@ -11856,6 +11856,8 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 
 **FX device (ADR-254).** The same component with its own modules, and no Sub lane unless a sidechain is ruled.
 
+
+**A1 (the human, 2026-11-05, through the Labs facilitator; ADR-369): "Yes, always animate".** The FX page's cable views animate as the morph moves, whether or not sound is playing. GUI-41's patch view, which replaced this ruling's views, already does: it steps every frame from the morph's weights, with no sound gate, and holds still only under reduced motion. The FX device (ADR-254) follows the same rule. Engine impact: none.
 ## GUI-37 — DIRECTED by the human: LFOs on the Mod page, editable per corner and morphing, as a mock-up (GB21; ADR-349, B396, B601; 2026-11-05)
 
 **What's built.** Four LFOs are listed MOCK on the Mod page and in the bank. Selecting one gives corner pills, a small well per corner, one for what's heard, and the master's `LfoShapeEditor` on the selected corner. `ShapeMorph` is ADR-349's law as a pure model: one shared list of up to 32 points, each corner with its own time, level and bend; a point added in one corner parks in the others by C.12's exact split; a point parked in all four leaves the list; Blend and Stepped travel, and Quantum picks per point. Rate is per corner and blends on a log taper (B396). LFO 1 starts with four different corners as a sample, so the pad moves something straight away.
