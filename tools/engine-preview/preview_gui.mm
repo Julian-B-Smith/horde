@@ -1,5 +1,5 @@
 // The preview's fallback window (B624), built with HORDE_PREVIEW_WEBVIEW=OFF: the human couldn't reach Live's generic
-// panel, so Preset, Voices and the rows get plain AppKit controls, plus a readout of what the preset costs. Not GUI 3:
+// panel, so Preset, Polyphony and the rows get plain AppKit controls, plus a readout of what the preset costs. Not GUI 3:
 // no web view, so it adds next to nothing to the CPU this plug-in measures. The default window is GUI 3's page
 // (preview_webview.mm, B628); this one stays until that page has been tried in Live.
 //
@@ -21,7 +21,7 @@
 namespace {
 
 constexpr int kWidth = 620, kHeight = 660, kHeaderHeight = 132, kRowHeight = 26, kGutter = 16;
-constexpr NSInteger kPrevTag = 1, kNextTag = 2, kPresetTag = 3, kVoicesTag = 4, kRowTagBase = 1000;
+constexpr NSInteger kPrevTag = 1, kNextTag = 2, kPresetTag = 3, kPolyphonyTag = 4, kRowTagBase = 1000;
 constexpr double kTouchHoldSeconds = 0.4;   // how long a moved control ignores the readback, so it can't jump under the hand
 
 struct RowControls {
@@ -37,10 +37,10 @@ struct GuiState {
   id target = nil;
   NSTimer* timer = nil;
   NSPopUpButton* preset = nil;
-  NSPopUpButton* voices = nil;
+  NSPopUpButton* polyphony = nil;
   NSTextField* readout = nil;
   std::vector<RowControls> rows;
-  double preset_touched_at = 0, voices_touched_at = 0;
+  double preset_touched_at = 0, polyphony_touched_at = 0;
 };
 
 // "osc1.blade2.fmDepth" to "Osc 1  Blade 2  FM depth": the keys are stable addresses, not names to read.
@@ -103,9 +103,9 @@ void act_imp(id self, SEL, id sender) {
   if (tag == kPrevTag) { choose_preset(g, int(g.preset.indexOfSelectedItem) - 1); return; }
   if (tag == kNextTag) { choose_preset(g, int(g.preset.indexOfSelectedItem) + 1); return; }
   if (tag == kPresetTag) { choose_preset(g, int(g.preset.indexOfSelectedItem)); return; }
-  if (tag == kVoicesTag) {
-    g.voices_touched_at = now();
-    preview::edit(g.plugin, preview::kVoicesId, double(g.voices.indexOfSelectedItem + 1));
+  if (tag == kPolyphonyTag) {
+    g.polyphony_touched_at = now();
+    preview::set_polyphony(g.plugin, int(g.polyphony.indexOfSelectedItem) + preview::polyphony_lo());
     return;
   }
   const int row = int(tag - kRowTagBase);
@@ -125,8 +125,8 @@ void tick_imp(id self, SEL, id) {
   const double t = now();
   const int preset = preview::preset(g.plugin);
   if (t - g.preset_touched_at > kTouchHoldSeconds && g.preset.indexOfSelectedItem != preset) [g.preset selectItemAtIndex:preset];
-  const int voices = preview::voices(g.plugin);
-  if (t - g.voices_touched_at > kTouchHoldSeconds && g.voices.indexOfSelectedItem != voices - 1) [g.voices selectItemAtIndex:voices - 1];
+  const NSInteger voices = preview::polyphony(g.plugin) - preview::polyphony_lo();
+  if (t - g.polyphony_touched_at > kTouchHoldSeconds && g.polyphony.indexOfSelectedItem != voices) [g.polyphony selectItemAtIndex:voices];
 
   for (int row = 0; row < int(g.rows.size()); ++row) {
     RowControls& c = g.rows[std::size_t(row)];
@@ -204,13 +204,13 @@ void build(GuiState& g) {
   next.frame = NSMakeRect(kGutter + 398, y, 36, 26);
   [g.root addSubview:next];
 
-  [g.root addSubview:make_label("Voices", NSMakeRect(kWidth - kGutter - 112, y + 4, 44, 18), 12, NSColor.secondaryLabelColor)];
-  g.voices = [[[NSPopUpButton alloc] initWithFrame:NSMakeRect(kWidth - kGutter - 64, y, 64, 26) pullsDown:NO] autorelease];
-  for (int i = 1; i <= preview::kMaxVoicesParam; ++i) [g.voices addItemWithTitle:[NSString stringWithFormat:@"%d", i]];
-  g.voices.tag = kVoicesTag;
-  g.voices.target = g.target;
-  g.voices.action = @selector(act:);
-  [g.root addSubview:g.voices];
+  [g.root addSubview:make_label("Polyphony", NSMakeRect(kWidth - kGutter - 132, y + 4, 64, 18), 12, NSColor.secondaryLabelColor)];
+  g.polyphony = [[[NSPopUpButton alloc] initWithFrame:NSMakeRect(kWidth - kGutter - 64, y, 64, 26) pullsDown:NO] autorelease];
+  for (int i = preview::polyphony_lo(); i <= preview::polyphony_hi(); ++i) [g.polyphony addItemWithTitle:[NSString stringWithFormat:@"%d", i]];
+  g.polyphony.tag = kPolyphonyTag;
+  g.polyphony.target = g.target;
+  g.polyphony.action = @selector(act:);
+  [g.root addSubview:g.polyphony];
 
   y -= 30;
   g.readout = make_label("Play a note to see what this preset costs.", NSMakeRect(kGutter, y, kWidth - 2 * kGutter, 18), 12, NSColor.secondaryLabelColor);

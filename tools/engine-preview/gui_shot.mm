@@ -110,6 +110,7 @@ void web_window(const clap_plugin_t* plugin, const clap_plugin_params_t* params,
   // Every snapshot the page receives is counted on its way in; the page's own handler still gets it.
   run(wk, "var f = window.hordeNativeSnapshot; window.__shot = {frames: 0, withParams: 0, last: null, presets: null, hello: null};"
           "window.hordeNativeSnapshot = function (s) { __shot.frames++; __shot.last = s; if (s.params) __shot.withParams++;"
+          " if (s.params && Object.keys(s.params).length > 300) __shot.fullAck = s.ack;"
           " if (s.presets) __shot.presets = s.presets; if (s.hello) __shot.hello = s.hello; return f(s); }; return 'ok';");
   // GUI 3 sends no hello, so the window resends everything until a frame lands, then only changes. If the landing were
   // never noticed, every frame would carry every row.
@@ -138,9 +139,9 @@ void web_window(const clap_plugin_t* plugin, const clap_plugin_params_t* params,
   params->get_value(plugin, 0xB00001, &after);
   check(int(after) == 5, "a preset message from inside the page moves the Preset parameter");
   check(pushed_values > told, "and the host is told");
-  check(wait_for(wk, "__shot.last.ack >= 9003", 3), "and the page hears its seq acknowledged");
   if (callback_requested) { callback_requested = false; plugin->on_main_thread(plugin); }
   block(plugin, false);   // takes the new engine
+  check(wait_for(wk, "__shot.fullAck >= 9003", 3), "and the page hears the load acknowledged, in a frame carrying every row");
 
   const clap_id level = param_by_name(plugin, params, "out.level");
   page_send(wk, "{type: 'set', seq: 9004, values: {'out.level': 0.37}}");
@@ -217,7 +218,7 @@ int main(int argc, char** argv) {
       collect<NSSlider>(window.contentView, sliders);
       std::printf("     %lu menus, %lu sliders\n", (unsigned long)popups.count, (unsigned long)sliders.count);
       NSPopUpButton* preset = nil;
-      for (NSPopUpButton* b in popups) if (b.numberOfItems > 40 && !preset) preset = b;
+      for (NSPopUpButton* b in popups) if (b.numberOfItems == 83 && !preset) preset = b;   // Polyphony's menu has 64
       check(preset != nil && preset.numberOfItems == 83, "the preset menu lists all 83");
 
       // Must-fail by construction: the value starts elsewhere, so only the window's action can make this read 5.
