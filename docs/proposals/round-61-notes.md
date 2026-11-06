@@ -289,6 +289,12 @@ follow-up commit):
 18. **The noise's landing** needs no rule of its own. While erosion corners carry weight, its keys already follow
     them, so a landing changes nothing there.
 19. **Items 34.19 and 34.20:** their fixtures and must-fail controls are the drafter's.
+20. **MO-25's "the heard gain without g"** for a source Save stores off (critic N3): the level key keeps the heard gain,
+    with its offsets baked but not g.
+21. **"The g last sent" is round 61's choice,** cited to the lead (critic S5), not to A2 (critic N3).
+22. **The lead's choice (critic N2):** when the noise is off in every corner and sounds only through Erode, its keys hold
+    until the resolved `sub.erode` has settled (MO-5 (b)'s snap), and only then fall back (MO-26 (7)).
+23. **Item 34.21's fixture and must-fail control** are the drafter's.
 
 ## ADR-377 A2 (the human, by poll, and the second critic pass; 2026-11-06)
 
@@ -323,6 +329,21 @@ follow-up commit):
 - **Item 6:** the clamp's hull follows the same corner set as the blend it clamps (MO-22 (6)).
 - **New items:** 34.19 (MO-26: the fade, the floor, the wait and its mirror, the restriction, landing, Quantum, the
   noise) and 34.20 (MO-21 to MO-25), each with its must-fail controls.
+
+## The third critic pass (2026-11-06): ready, with notes
+
+- **S1.** An erosion corner also needs the sub on there. MO-26 (7) now reads "where `sub.on` is on and `sub.erode` is
+  above 0 or has a route", citing ADR-377 A2 and the human's words, "any corner where noise is influencing the
+  erosion of its respective sub". The lead's earlier restatement had dropped the condition.
+- **N1.** g's PA-1 glide and the resolver's mirror both step at the host rate f_host, even under High quality's 2×
+  engine rate (PA-1, MO-26 (1)).
+- **N2.** When the noise is off everywhere and sounds only through Erode, its keys hold until the resolved `sub.erode`
+  settles before falling back (MO-26 (7)). This is the lead's choice, item 22 below.
+- **N3.** MO-25's "the heard gain without g" and the citation of "the g last sent" are on the list below, items 20 and
+  21. MO-25 now cites the latter to round 61.
+- **N4.** IF-12's landing sentence names PA-6's fades too.
+- **N5.** New item 34.21 checks a landing in the engine (no PA-1 glide, no PA-5 crossfade, no PA-6 fade), with the same
+  events unmarked as its must-fail control.
 
 ## Rulings with no spec rows
 
