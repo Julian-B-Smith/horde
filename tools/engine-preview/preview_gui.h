@@ -1,6 +1,7 @@
 #pragma once
-// What the preview's window (preview_gui.mm) needs from the plug-in, and nothing more. All of it runs on the main
-// thread. A `plugin` here is clap_plugin_t::plugin_data.
+// What the preview's windows need from the plug-in, and nothing more: the web view hosting GUI 3's page
+// (preview_webview.mm, the default) or the AppKit fallback (preview_gui.mm, HORDE_PREVIEW_WEBVIEW=OFF). Whichever is
+// built defines gui_extension(). All of it runs on the main thread. A `plugin` here is clap_plugin_t::plugin_data.
 #include <clap/clap.h>
 
 #include <cstddef>
@@ -30,5 +31,10 @@ void edit(void* plugin, clap_id id, double host_value);
 
 void*& gui_slot(void* plugin);
 const char* build_label();   // "engine <commit>, build <n>"
+
+// GUI 3's bridge (B628, bridge_core.h): a page message in, and the next snapshot out, valid until the next call.
+void bridge_receive(void* plugin, const char* json);
+const char* bridge_frame(void* plugin);
+void bridge_resend(void* plugin);   // the page knows nothing yet: the next frame carries everything again
 
 }  // namespace preview

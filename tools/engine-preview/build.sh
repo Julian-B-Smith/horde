@@ -7,6 +7,9 @@
 #   HORDE_PREVIEW_OUT    where to build          (default: $TMPDIR/horde-engine-preview)
 #   HORDE_LIBS_DIR       libs/ with clap and clap-wrapper (worktrees have none: point this at a full checkout's libs/)
 #   HORDE_SDK_CACHE      an earlier build's _deps/, to reuse the pinned SDKs instead of fetching them
+#   HORDE_PREVIEW_PAGE   the page the window shows (default: the stand-in, standin_page.html); GUI 3's comes from
+#                        tools/gui3_inline.py, one self-contained file
+#   HORDE_PREVIEW_WEBVIEW=OFF   the AppKit window instead of the page
 set -euo pipefail
 commit="${1:?usage: build.sh <engine commit> [--install]}"
 install="${2:-}"
@@ -29,12 +32,14 @@ echo "$build_no" > "$count_file"
 label="engine $full, build $build_no"
 args=(-S "$here" -B "$build_dir" -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release "-DHORDE_ENGINE2_DIR=$export_dir/engine2" "-DHORDE_PREVIEW_BUILD_LABEL=$label")
 [ -n "${HORDE_LIBS_DIR:-}" ] && args+=("-DHORDE_LIBS_DIR=$HORDE_LIBS_DIR")
+[ -n "${HORDE_PREVIEW_PAGE:-}" ] && args+=("-DHORDE_PREVIEW_PAGE=$HORDE_PREVIEW_PAGE")
+[ -n "${HORDE_PREVIEW_WEBVIEW:-}" ] && args+=("-DHORDE_PREVIEW_WEBVIEW=$HORDE_PREVIEW_WEBVIEW")
 if [ -n "${HORDE_SDK_CACHE:-}" ]; then
   args+=("-DFETCHCONTENT_SOURCE_DIR_HORDE_VST3SDK=$HORDE_SDK_CACHE/horde_vst3sdk-src" "-DFETCHCONTENT_SOURCE_DIR_HORDE_AUDIOUNITSDK=$HORDE_SDK_CACHE/horde_audiounitsdk-src")
 fi
 cmake "${args[@]}"
 # At most 4 threads, niced: the clean-room sessions share this machine (see the CPU throttle rule).
-nice -n 10 cmake --build "$build_dir" -j4 --target horde-engine-preview_all preview-plant preview-smoke preview-gui-shot
+nice -n 10 cmake --build "$build_dir" -j4 --target horde-engine-preview_all preview-plant preview-smoke preview-gui-shot preview-bridge-test preview-frames-dump
 
 # Every configure rewrites the AU bundle's Info.plist from CMake's template, and only a relink copies the wrapper's real
 # one back. So a second run with nothing to relink leaves an AU with no identity, and auval "didn't find the component".
@@ -46,8 +51,26 @@ codesign --force -s - "$au_built"
 clap="$(find "$build_dir" -name 'horde-engine-preview.clap' -maxdepth 3 | head -1)"
 plant="$(find "$build_dir" -name 'preview-plant.clap' -maxdepth 3 | head -1)"
 smoke="$(find "$build_dir" -name 'preview-smoke' -type f -maxdepth 3 | head -1)"
+"$(dirname "$smoke")/preview-bridge-test"
 "$smoke" "$clap" "$plant"
 "$(dirname "$smoke")/preview-gui-shot" "$clap" "$out/window.png"
+
+# The recorded frames GUI 3's ReplayTransport plays (B628), where gui3_browser_check reads them. A fresh dump is held
+# against the committed pair when they were recorded on this engine commit, byte for byte: a difference means the
+# engine, the bridge or the dumper changed what the page would see, and re-recording is a human gate. On another
+# commit it only writes the fresh pair.
+fixtures="$here/../labharness/fixtures"
+"$(dirname "$smoke")/preview-frames-dump" "$clap" "$full" "$out/gui3-replay.json" "$out/gui3-display.json"
+if grep -q "\"engine\": \"$full\"" "$fixtures/gui3-display.json" 2>/dev/null; then
+  if cmp -s "$fixtures/gui3-replay.json" "$out/gui3-replay.json" && cmp -s "$fixtures/gui3-display.json" "$out/gui3-display.json"; then
+    echo "frames: the committed fixtures reproduce"
+  else
+    echo "frames: RED, a fresh dump differs from tools/labharness/fixtures/gui3-replay.json or gui3-display.json"
+    exit 1
+  fi
+else
+  echo "frames: the committed fixtures aren't from $full; fresh ones are at $out/gui3-replay.json and gui3-display.json"
+fi
 
 if [ "$install" = "--install" ]; then
   vst3="$(find "$build_dir" -name 'horde-engine-preview.vst3' -maxdepth 3 | head -1)"

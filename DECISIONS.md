@@ -11856,6 +11856,8 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 
 **FX device (ADR-254).** The same component with its own modules, and no Sub lane unless a sidechain is ruled.
 
+
+**A1 (the human, 2026-11-05, through the Labs facilitator; ADR-369): "Yes, always animate".** The FX page's cable views animate as the morph moves, whether or not sound is playing. GUI-41's patch view, which replaced this ruling's views, already does: it steps every frame from the morph's weights, with no sound gate, and holds still only under reduced motion. The FX device (ADR-254) follows the same rule. Engine impact: none.
 ## GUI-37 — DIRECTED by the human: LFOs on the Mod page, editable per corner and morphing, as a mock-up (GB21; ADR-349, B396, B601; 2026-11-05)
 
 **What's built.** Four LFOs are listed MOCK on the Mod page and in the bank. Selecting one gives corner pills, a small well per corner, one for what's heard, and the master's `LfoShapeEditor` on the selected corner. `ShapeMorph` is ADR-349's law as a pure model: one shared list of up to 32 points, each corner with its own time, level and bend; a point added in one corner parks in the others by C.12's exact split; a point parked in all four leaves the list; Blend and Stepped travel, and Quantum picks per point. Rate is per corner and blends on a log taper (B396). LFO 1 starts with four different corners as a sample, so the pad moves something straight away.
@@ -12119,4 +12121,34 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 - **Out-of-range keys aren't the engine's problem to clamp:** hosts can't send them. The builder's batch 3 still tries to skip the edge search for silent members, but only where that's exact.
 
 **FX device (ADR-254):** none. This is a measurement's chord.
+
+## ADR-369 — RULED by the human: thirteen labs closed in a review session (2026-11-05)
+
+**Context.** The human asked for help working through the labs awaiting review with another agent. The lead wrote that session's brief (gitignored, `local/briefs/`). A facilitator session runs the review: it carries the human's verdicts to the lead and the GUI session, and writes no records itself.
+
+**Rulings (the human, by poll: "Yes, close all", "Retire it", "Close all three rounds", "Close, menu work carries it").**
+
+Retired as settled or superseded:
+- edge-correction-lab (B383; ADR-222). B466's table findings F3, F5 and F7 stay with the lead.
+- engine-audit (B376), superseded by ADR-224.
+- envelope-hierarchy-lab (B377), superseded: its curve law is in the engine, and the hierarchy question lives in envelope-workshop-lab (GB23, GUI-39).
+- freeze-proposal (B440; ADR-190), done.
+- legacy-roundup (B386), done.
+- morph-blend-demo (B585; ADR-324).
+- sluice-horde-lab (B319; ADR-305), superseded by Sluice's full GUI lab (GB13).
+- sluice-mark-styles-lab (GB11; GUI-23), the GUI session's.
+
+Closed:
+- composition-lab-r2 (ADR-340), the GUI session's. Flipping polarity from a right-click menu moves to B583 and B589.
+- fx-chain-morph-lab rounds 1 to 3 (B265; ADR-193, ADR-201). B265 stays open as research on the per-corner shuffle.
+
+Harvested and kept as a source: scalpel-interface-lab (B271, B293 to B375; ADR-329, ADR-333). It isn't archived.
+
+**A new design verdict:** the FX page's cable views always animate as the morph moves, whether or not sound is playing. The GUI session records it under GUI-36.
+
+**Who records what.** The ROADMAP notes are here. The labs' entries in `docs/design/design-ledger.json`, which drive the index's "awaiting review" tags, are the GUI session's, citing this ADR.
+
+**Queued, not closed:** page-chrome-lab (B555 to B557) and random-lab (B578), for a real review.
+
+**FX device (ADR-254):** none. The cable views' animation applies to the FX page's views wherever they're hosted.
 
