@@ -124,8 +124,9 @@ endforeach()
 
 # The smoke test's must-fail builds, bare CLAPs never installed. They keep the AppKit window whatever
 # HORDE_PREVIEW_WEBVIEW says, so every build compiles the fallback and it can't rot unseen.
-#   preview-plant      the routes removed, and the retired Voices limit of 4 put back
-#   preview-plant-map  the bridge's key map shifted one row, for the mapping audit
+#   preview-plant      the routes removed, the retired Voices limit of 4 put back, pitch bends dropped, and the
+#                      output tap frozen after its first block
+#   preview-plant-map  the bridge's key map shifted one row, and the output tap hearing silence
 foreach(plant preview-plant preview-plant-map)
   add_library(${plant} MODULE preview_plugin.cpp bridge_core.cpp preview_gui.mm preview_entry.cpp)
   add_dependencies(${plant} bank_embedded)
@@ -134,8 +135,9 @@ foreach(plant preview-plant preview-plant-map)
   target_link_libraries(${plant} PRIVATE clap horde_engine2 "-framework AppKit")
   set_target_properties(${plant} PROPERTIES PREFIX "" SUFFIX ".clap")
 endforeach()
-target_compile_definitions(preview-plant PRIVATE HORDE_PREVIEW_PLANT_NO_ROUTES HORDE_PREVIEW_PLANT_VOICE_CAP)
-target_compile_definitions(preview-plant-map PRIVATE HORDE_PREVIEW_PLANT_KEYMAP_SHIFT)
+target_compile_definitions(preview-plant PRIVATE HORDE_PREVIEW_PLANT_NO_ROUTES HORDE_PREVIEW_PLANT_VOICE_CAP
+                           HORDE_PREVIEW_PLANT_DROP_BEND HORDE_PREVIEW_PLANT_FROZEN_TAP)
+target_compile_definitions(preview-plant-map PRIVATE HORDE_PREVIEW_PLANT_KEYMAP_SHIFT HORDE_PREVIEW_PLANT_SILENT_TAP)
 
 add_executable(preview-smoke smoke.cpp)
 add_dependencies(preview-smoke bank_embedded)

@@ -49,6 +49,7 @@ struct Want {
   bool osc[2] = {true, true};   // which oscillators' parts the page draws (want.osc names them 1 and 2)
   bool members = false;         // members' phases and levels
   bool cycles = false;          // GN-41's member cycles: the engine has none yet, so this slice never sends them
+  bool summed = false;          // GN-4's summed output, the plug-in's own tap (B632): observe.summed
 };
 
 enum class Kind {
@@ -127,6 +128,8 @@ struct NoteSlot {
 //   {sounding, voices: [{level, env: [4 stages], notes: {key, vel, gate}, osc: [{R, psi, frame, phases, levels,
 //    blades: [{pos, width}]}]}], meters: {osc1, osc2, sub, noise, out: {peak, clip}}, latches: {clip, nonFinite},
 //    counters: {IF-9's}}
+// plus, only when want.summed asks (B632; section 3 has no shape for it, so this is the simplest): summed: {rate,
+// samples: [..]}, the plug-in's own output, mono ((L + R) / 2), the newest window, every 16th sample.
 struct FrameInputs {
   const horde::GuiFrame* frame = nullptr;   // the engine's latest RC-8 frame, or null before its first
   bool engine_silent = true;                // OU-4, as the audio thread last saw it
@@ -134,6 +137,9 @@ struct FrameInputs {
   int unison[2] = {horde::kMaxMembers, horde::kMaxMembers};   // members to send per oscillator
   bool out_tapped = false;                  // the plug-in's own output peak since the last frame, when it has one
   float out_peak = 0;
+  const float* scope = nullptr;             // GN-4: the summed output's window, when `want.summed` asked and there is one
+  int scope_n = 0;
+  double scope_rate = 0;                    // samples per second of that window
 };
 std::string observe_json(const FrameInputs& in, const Want& want);
 

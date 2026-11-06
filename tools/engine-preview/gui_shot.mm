@@ -15,6 +15,8 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace {
 int failures = 0;
@@ -30,8 +32,12 @@ const clap_host_t kHost = {CLAP_VERSION, nullptr, "gui_shot", "", "", "1", host_
 std::uint32_t none_size(const clap_input_events_t*) { return 0; }
 const clap_event_header_t* none_get(const clap_input_events_t*, std::uint32_t) { return nullptr; }
 int pushed_values = 0;
+std::vector<std::pair<std::uint16_t, clap_id>> host_heard;   // what the host heard, in order: event type and parameter
 bool out_push(const clap_output_events_t*, const clap_event_header_t* h) {
   if (h->type == CLAP_EVENT_PARAM_VALUE) ++pushed_values;
+  if (h->type == CLAP_EVENT_PARAM_VALUE) host_heard.push_back({h->type, reinterpret_cast<const clap_event_param_value_t*>(h)->param_id});
+  if (h->type == CLAP_EVENT_PARAM_GESTURE_BEGIN || h->type == CLAP_EVENT_PARAM_GESTURE_END)
+    host_heard.push_back({h->type, reinterpret_cast<const clap_event_param_gesture_t*>(h)->param_id});
   return true;
 }
 
@@ -149,6 +155,23 @@ void web_window(const clap_plugin_t* plugin, const clap_plugin_params_t* params,
   double moved = -1;
   params->get_value(plugin, level, &moved);
   check(level != CLAP_INVALID_ID && moved == 0.37, "a set from inside the page reaches the plug-in at the page's v");
+
+  // A touch on a control, as the page sends it: Live fills its panel from these once a plug-in has more than 64.
+  const clap_id touched = param_by_name(plugin, params, "osc2.detune");
+  host_heard.clear();
+  page_send(wk, "{type: 'gesture', seq: 9005, key: 'osc2.detune', phase: 'begin'}");
+  page_send(wk, "{type: 'set', seq: 9006, values: {'osc2.detune': 0.41}}");
+  page_send(wk, "{type: 'gesture', seq: 9007, key: 'osc2.detune', phase: 'end'}");
+  std::vector<std::uint16_t> heard;
+  for (const auto& [type, id] : host_heard)
+    if (id == touched) heard.push_back(type);
+  check(heard.empty(), "control: before a block runs, the host has heard nothing of the touch");
+  block(plugin, false);
+  heard.clear();
+  for (const auto& [type, id] : host_heard)
+    if (id == touched) heard.push_back(type);
+  check(touched != CLAP_INVALID_ID && heard == std::vector<std::uint16_t>{CLAP_EVENT_PARAM_GESTURE_BEGIN, CLAP_EVENT_PARAM_VALUE, CLAP_EVENT_PARAM_GESTURE_END},
+        "a touch from the page reaches the host as one gesture: begin, value, end, on a row Live's panel holds only once touched");
 
   for (int i = 0; i < 40; ++i) block(plugin, i == 0);
   check(wait_for(wk, "__shot.last.observe.sounding && Array.isArray(__shot.last.observe.voices[0].osc[0].phases)", 3),
