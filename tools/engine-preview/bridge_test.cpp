@@ -197,10 +197,11 @@ int main() {
     check(every, "every engine row's key maps to its own id");
     const std::string ours = manifest_hash(all);
     std::printf("     engine manifest: %zu rows, %d reserved, hash %s\n", all.size(), reserved, ours.c_str());
-    // Reported, not gated: the two sides' rule for a stepped row of consecutive integers (octave, unison, ...) is an
-    // open question for the lead (B628). The engine gives its first and last numbers (horde_engine.h, ParamInfo::lo);
-    // GUI 3's generator writes 0 and n - 1. A failing check here would stop every build on a question, not a defect.
-    constexpr const char* kPageHash = "cf4afbc8ff9a5390dc460067b2b3b5f52c2675716d4b6fd9091b97b564f24e05";   // gen_gui3_controls.py --manifest-lines, 2026-11-05
+    // Reported, not gated: the page's own hash, from its shell-data.js, as last read. A stepped row of consecutive
+    // integers (octave, unison, ...) gives its first and last numbers (horde_engine.h, ParamInfo::lo), which GUI 3's
+    // generator follows since 2026-11-05. The page checks its hash against the hello reply at run time; this line
+    // only shows whether the copy here has gone stale.
+    constexpr const char* kPageHash = "ca64bf73f67efe067c87cfd739a2d4d007bfa9cd72c29d314913b5879f38fd29";   // shell-data.js, gui-plugin-mode, 2026-11-05
     std::printf("     GUI 3's page hash %s: %s\n", kPageHash, ours == kPageHash ? "the same" : "DIFFERENT from the engine's (reported, not gated)");
   }
 
