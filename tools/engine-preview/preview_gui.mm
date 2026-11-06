@@ -1,6 +1,7 @@
-// The preview's window (B624): the human couldn't reach Live's generic panel, so Preset, Voices and the rows get plain
-// AppKit controls, plus a readout of what the preset costs. Not GUI 3, and it owes GUI 3 nothing: no web view, because
-// that would add its own CPU to the very thing this plug-in measures.
+// The preview's fallback window (B624), built with HORDE_PREVIEW_WEBVIEW=OFF: the human couldn't reach Live's generic
+// panel, so Preset, Voices and the rows get plain AppKit controls, plus a readout of what the preset costs. Not GUI 3:
+// no web view, so it adds next to nothing to the CPU this plug-in measures. The default window is GUI 3's page
+// (preview_webview.mm, B628); this one stays until that page has been tried in Live.
 //
 // The target class is built at runtime under a name holding this image's address. Objective-C classes share one global
 // namespace per process, and the VST3 and AU copies of this code can both be loaded: with one fixed name, one copy's

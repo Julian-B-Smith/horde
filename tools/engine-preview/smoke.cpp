@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "bank.h"
+#include "bridge_ext.h"
 #include "flush_to_zero.h"
 #include "horde_engine.h"
 
@@ -187,6 +188,19 @@ double peak(const std::vector<float>& a) {
   return m;
 }
 
+// The `ack` a snapshot carries: section 3's first member, so it is always where the bridge writes it.
+long long ack_of(const std::string& frame) {
+  const std::string tag = "{\"ack\":";
+  return frame.rfind(tag, 0) == 0 ? std::atoll(frame.c_str() + tag.size()) : -1;
+}
+bool has(const std::string& text, const std::string& part) { return text.find(part) != std::string::npos; }
+
+void one_block(const clap_plugin_t* plugin) {
+  float l[256], r[256];
+  Events none;
+  process(plugin, none, l, r, 256);
+}
+
 int find_preset(const char* name) {
   for (int i = 0; i < kBankSize; ++i)
     if (!std::strcmp(kBank[i].name, name)) return i;
@@ -213,6 +227,82 @@ int main(int argc, char** argv) {
   check(n_params <= 64, "at most 64 host parameters, so Live shows the panel without the plug-in's window");
   clap_param_info_t info;
   check(p.params->get_info(p.plugin, 0, &info) && !std::strcmp(info.name, "Preset"), "the first parameter is Preset");
+
+  // ---- GUI 3's bridge (B628), driven through the plug-in's own extension, the path the window takes ----
+  const auto* bridge = static_cast<const preview_bridge_ext*>(p.plugin->get_extension(p.plugin, kPreviewBridgeExt));
+  check(bridge != nullptr, "the plug-in offers the bridge extension");
+  if (!bridge) return 1;
+  // A row the host never sees: the bridge must carry it to the engine on its own. The first continuous one outside
+  // the host parameters.
+  const horde::ParamInfo* page_row = nullptr;
+  for (std::size_t i = 0; i < horde::manifest_size() && !page_row; ++i) {
+    const horde::ParamInfo& row = horde::manifest_param(i);
+    if (row.reserved || row.law != horde::Law::Lin) continue;
+    bool host = false;
+    for (std::uint32_t k = 0; k < n_params && !host; ++k) host = p.params->get_info(p.plugin, k, &info) && info.id == row.id;
+    if (!host) page_row = &row;
+  }
+  check(page_row != nullptr, "the engine has a continuous row that isn't a host parameter");
+  {
+    bridge->receive(p.plugin, "{\"type\":\"hello\",\"seq\":1}");
+    one_block(p.plugin);
+    std::string frame = bridge->frame(p.plugin);
+    check(has(frame, "\"hello\":{\"build\":\"engine ") && has(frame, "\"presets\":{\"names\":[") && has(frame, "\"params\":{") &&
+              has(frame, "\"plugin\":{\"voices\":4,\"build\":\"engine "),
+          "after hello the snapshot carries the build label, the presets, Voices and every engine row");
+    const std::size_t at = frame.find("\"manifest_hash\":\"");
+    const std::string engine_hash = at == std::string::npos ? "" : frame.substr(at + 17, 64);
+    std::printf("     engine manifest hash %s\n", engine_hash.c_str());
+    bridge->receive(p.plugin, ("{\"type\":\"hello\",\"seq\":2,\"manifest_hash\":\"" + engine_hash + "\"}").c_str());
+    one_block(p.plugin);
+    check(has(bridge->frame(p.plugin), "\"mismatch\":null"), "a page with the engine's manifest hash gets no banner");
+    bridge->receive(p.plugin, "{\"type\":\"hello\",\"seq\":3,\"manifest_hash\":\"0000\"}");
+    one_block(p.plugin);
+    check(has(bridge->frame(p.plugin), "\"mismatch\":{\"expected\":\"" + engine_hash + "\",\"got\":\"0000\""),
+          "control: a page with another hash gets the mismatch, and the plug-in keeps playing");
+    frame = bridge->frame(p.plugin);
+    check(!has(frame, "\"params\"") && !has(frame, "\"presets\""), "params and presets ride only when something changed");
+  }
+  if (page_row) {
+    const double before = bridge->engine_v(p.plugin, page_row->id);
+    const double wanted = before == 0.25 ? 0.75 : 0.25;
+    char message[160];
+    std::snprintf(message, sizeof message, "{\"type\":\"set\",\"seq\":501,\"values\":{\"%s\":%.17g}}", page_row->key, wanted);
+    bridge->receive(p.plugin, message);
+    // Must-fail by construction: until a block runs, the audio path hasn't applied it, and both checks read otherwise.
+    check(bridge->engine_v(p.plugin, page_row->id) == before && ack_of(bridge->frame(p.plugin)) < 501,
+          "control: before a block runs, the set has neither reached the engine nor been acknowledged");
+    one_block(p.plugin);
+    check(bridge->engine_v(p.plugin, page_row->id) == wanted, std::string("a set through the bridge reaches the engine: ") + page_row->key + " reads back its v");
+    const std::string frame = bridge->frame(p.plugin);
+    check(ack_of(frame) == 501, "and its seq comes back as ack");
+    std::snprintf(message, sizeof message, "\"%s\":%.17g", page_row->key, wanted);
+    check(has(frame, message), "and the snapshot's params carry the row the page set");
+  }
+  {
+    // Every type the seam names is acknowledged, each in its turn: held ones included, never an error.
+    const char* const kTypes[] = {"set", "gesture", "morph", "position", "modes", "rack", "midi", "clear", "want", "preset", "plugin", "hello"};
+    long long seq = 600;
+    bool all = true;
+    std::string missed;
+    for (const char* type : kTypes) {
+      std::string message = "{\"type\":\"" + std::string(type) + "\",\"seq\":" + std::to_string(++seq);
+      if (!std::strcmp(type, "preset")) message += ",\"index\":" + std::to_string(find_preset("Trance jitter"));
+      if (!std::strcmp(type, "plugin")) message += ",\"voices\":4";
+      if (!std::strcmp(type, "want")) message += ",\"osc\":[1,2],\"members\":false";
+      bridge->receive(p.plugin, (message + "}").c_str());
+      one_block(p.plugin);
+      if (ack_of(bridge->frame(p.plugin)) != seq) { all = false; missed += std::string(" ") + type; }
+    }
+    check(all, "every message type is acknowledged with its own seq" + (missed.empty() ? "" : " (missed:" + missed + ")"));
+    bridge->receive(p.plugin, "{\"type\":\"set\",\"values\":{}}");
+    one_block(p.plugin);
+    check(ack_of(bridge->frame(p.plugin)) == seq, "control: a message with no seq moves no ack");
+    bridge->receive(p.plugin, "{\"type\":\"set\",\"seq\":700,\"values\":{\"no.such.key\":0.5}}");
+    one_block(p.plugin);
+    const std::string frame = bridge->frame(p.plugin);
+    check(ack_of(frame) == 700 && has(frame, "\"refused\":{\"unknown\":[\"no.such.key\"]"), "a key the manifest lacks is acknowledged and reported back");
+  }
 
   {
     float l[128], r[128];
@@ -260,6 +350,14 @@ int main(int argc, char** argv) {
     float l[64], r[64];
     process(p.plugin, set, l, r, 64);
     (void)play(p, presets[1], {128});
+    // A row only the page can set rides in the saved state too ("current settings only", every engine row).
+    const double page_value = 0.375;
+    if (page_row) {
+      char message[160];
+      std::snprintf(message, sizeof message, "{\"type\":\"set\",\"seq\":800,\"values\":{\"%s\":%.17g}}", page_row->key, page_value);
+      bridge->receive(p.plugin, message);
+      process(p.plugin, set, l, r, 64);
+    }
     struct Buffer { std::string text; std::size_t read = 0; } buffer;
     clap_ostream_t os{&buffer, [](const clap_ostream_t* s, const void* data, std::uint64_t size) -> std::int64_t {
       static_cast<Buffer*>(s->ctx)->text.append(static_cast<const char*>(data), size);
@@ -281,6 +379,15 @@ int main(int argc, char** argv) {
     p.params->get_value(p.plugin, 0xB00001, &preset);
     p.params->get_value(p.plugin, voices_id, &voices);
     check(int(preset) == presets[1] && int(voices) == 3, "the preset and Voices come back");
+    if (page_row) {
+      Events none;
+      process(p.plugin, none, l, r, 64);   // asks for the main thread, which builds the loaded state's engine
+      if (callback_requested) { callback_requested = false; p.plugin->on_main_thread(p.plugin); }
+      process(p.plugin, none, l, r, 64);   // takes it
+      check(bridge->engine_v(p.plugin, page_row->id) == page_value, "a row set only from the page comes back from the saved state");
+    }
+    check(has(bridge->frame(p.plugin), "\"state\":\"horde-engine-preview 2"), "the page hears of a load once, with the state");
+    check(!has(bridge->frame(p.plugin), "\"state\""), "and not in the next frame");
     Events restore;
     restore.param(voices_id, 4);
     process(p.plugin, restore, l, r, 64);
@@ -297,6 +404,33 @@ int main(int argc, char** argv) {
       for (int i = 0; i < 512 && b > 1900; ++i) zero = zero && l[i] == 0 && r[i] == 0;
     }
     check(zero, "after the tail, the output is exact zero");
+    check(has(bridge->frame(p.plugin), "\"observe\":{\"sounding\":false,\"voices\":[]"), "a frame during silence claims no sound");
+  }
+  // Control: the same frame reads sound while a chord plays, or the check above couldn't fail.
+  {
+    float l[512], r[512];
+    Events chord;
+    for (int k = 0; k < 4; ++k) chord.note(true, 0, 900 + k, kChord[k], kVelocity);
+    process(p.plugin, chord, l, r, 512);
+    for (int b = 0; b < 8; ++b) {
+      Events none;
+      process(p.plugin, none, l, r, 512);
+    }
+    bridge->receive(p.plugin, "{\"type\":\"want\",\"seq\":900,\"osc\":[1],\"members\":true}");
+    Events none;
+    process(p.plugin, none, l, r, 512);
+    const std::string frame = bridge->frame(p.plugin);
+    check(has(frame, "\"observe\":{\"sounding\":true,\"voices\":[{"), "control: a frame while a chord plays claims sound");
+    check(has(frame, "\"notes\":{\"key\":60,\"vel\":0.85") && has(frame, "\"gate\":true"), "its voices carry their notes from the plug-in's own events");
+    check(has(frame, "\"phases\":[") && has(frame, "null]}"), "members ride when `want` asks, and an oscillator it didn't name is null");
+    Events off;
+    for (int k = 0; k < 4; ++k) off.note(false, 0, 900 + k, kChord[k], 0);
+    process(p.plugin, off, l, r, 512);
+    for (int b = 0; b < 2000; ++b) {
+      Events quiet;
+      process(p.plugin, quiet, l, r, 512);
+    }
+    check(has(bridge->frame(p.plugin), "\"sounding\":false"), "and once its tail has ended, no sound again");
   }
   // The log the human's Live sessions leave for the lead.
   p.plugin->on_main_thread(p.plugin);

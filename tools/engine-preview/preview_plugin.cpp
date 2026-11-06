@@ -1,15 +1,22 @@
 // horde ENGINE PREVIEW (B624): a thin CLAP around the clean-room engine, so the human can play it in Live and we
 // can see what it costs there. Throwaway on purpose: it isn't the B398 shell and owes none of ADR-186 §5's rules.
-// A small AppKit window (preview_gui.mm), and no filters, effects, modulation matrix, glide or pitch bend: the engine
-// has none of them yet.
+// Its window is GUI 3's page in a web view (preview_webview.mm, B628), or the small AppKit one (preview_gui.mm) when
+// built with HORDE_PREVIEW_WEBVIEW=OFF. No filters, effects, modulation matrix, glide or pitch bend: the engine has
+// none of them yet.
 //
-// Three choices worth keeping in mind before changing this file:
+// Four choices worth keeping in mind before changing this file:
 // - At most 64 host parameters. Live gives a plug-in with up to 64 a panel of sliders automatically; above that the
-//   panel opens empty and is filled by touching controls in the plug-in's window, which this plug-in doesn't have.
+//   panel opens empty and is filled by touching controls in the plug-in's window. So 47 rows plus Preset and Voices
+//   are host parameters, and every engine row has a shadow v besides (the page and the saved state read it); a row
+//   outside the 47 can be set from the page but isn't host-automatable.
 // - A preset change builds a whole new engine on the main thread and hands it to the audio thread. load_state and
 //   prepare aren't real-time (RT-1), and the swap keeps the audio thread free of them. Sounding notes stop at the swap.
-// - The saved chunk is the preset's index and the exposed values, not the engine's state text. It stays small (large
-//   chunks make hosts drop state silently), and it never reads the engine from the main thread while audio runs.
+// - The saved chunk is the preset's index, Voices and the rows that differ from what the preset loads, not the
+//   engine's state text. It stays small (large chunks make hosts drop state silently), and it never reads the engine
+//   from the main thread while audio runs.
+// - GUI 3's bridge (bridge_core.h, B628) runs on the main thread. Page messages reach audio through the same lock-free
+//   edit queue as the window's edits, each message closed by an acknowledgement entry, so the audio thread publishes
+//   the last applied seq in order. Frames read the engine's RC-8 snapshot, which any thread may read.
 #include <clap/clap.h>
 
 #include <sys/stat.h>
@@ -23,11 +30,14 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <deque>
 #include <memory>
 #include <string>
 #include <vector>
 
 #include "bank.h"
+#include "bridge_core.h"
+#include "bridge_ext.h"
 #include "flush_to_zero.h"
 #include "horde_engine.h"
 #include "preview_gui.h"
@@ -45,9 +55,11 @@ constexpr int kMaxTargets = 16;
 constexpr int kMaxEvents = 4096;
 constexpr int kEngineMaxBlock = 4096;   // the most prepare accepts (DT-2)
 constexpr int kDefaultVoices = 4;       // starts light: 8 voices of a heavy patch can overrun every block
-constexpr std::uint32_t kEditQueue = 1024;   // a power of two: the window's edits waiting for the audio thread
+// A power of two: edits waiting for the audio thread. A page `set` can carry every engine row at once (a preset morph,
+// a load), about 330 entries, and a message goes in whole or waits, so this holds a dozen of those.
+constexpr std::uint32_t kEditQueue = 4096;
+constexpr int kNoteRing = 128;          // recent note-ons, by note id, for the page's notes (a power of two)
 constexpr const char* kDefaultPreset = "Trance jitter";   // one of the lighter patches in the 2026-11-05 worst-block run
-constexpr const char* kStateMagic = "horde-engine-preview 1";
 #ifndef HORDE_PREVIEW_BUILD_LABEL
 #define HORDE_PREVIEW_BUILD_LABEL "engine unknown, build 0"
 #endif
@@ -66,24 +78,46 @@ const char* const kExposedKeys[] = {
     "osc2.on", "osc2.unison", "osc2.detune", "osc2.coupling", "sub.on", "sub.drive", "noise.on",
 };
 
+// Every manifest row (the shadow, the page and the saved state), and the host rows among them. Built once on the main
+// thread at init, read-only after, so the audio thread reads it freely.
 struct Rows {
-  const horde::ParamInfo* row[kMaxRows] = {};
-  double default_v[kMaxRows] = {};
+  std::vector<const horde::ParamInfo*> all;   // the manifest, in its ascending id order
+  std::vector<double> default_v;              // per manifest row: the manifest's defaults as v
+  std::vector<int> host_of;                   // per manifest row: its host row, or -1
+  const horde::ParamInfo* row[kMaxRows] = {};   // the host rows
+  int at[kMaxRows] = {};                        // a host row's manifest index
   int count = 0;
+  std::string hash, text;                     // the manifest hash (section 3) and the text it hashes
 };
 
 const Rows& rows() {
   static const Rows table = [] {
     Rows t;
+    for (std::size_t i = 0; i < horde::manifest_size(); ++i) t.all.push_back(&horde::manifest_param(i));
+    t.host_of.assign(t.all.size(), -1);
     for (const char* key : kExposedKeys) {
       const horde::ParamInfo* p = horde::find_param(key);
-      if (p && !p->reserved && t.count < kMaxRows) t.row[t.count++] = p;
+      if (!p || p->reserved || t.count >= kMaxRows) continue;
+      const int m = int(std::find(t.all.begin(), t.all.end(), p) - t.all.begin());
+      t.at[t.count] = m;
+      t.host_of[std::size_t(m)] = t.count;
+      t.row[t.count++] = p;
     }
     auto probe = horde::make_engine();   // the manifest's defaults as v, which ParamInfo gives only in units
-    for (int i = 0; i < t.count; ++i) t.default_v[i] = probe->param_v(t.row[i]->id);
+    for (const auto* p : t.all) t.default_v.push_back(probe->param_v(p->id));
+    t.text = preview::bridge::manifest_text(t.all);
+    t.hash = preview::bridge::sha256_hex(t.text);
     return t;
   }();
   return table;
+}
+
+// A row's manifest index by id, or -1: a binary search, as the manifest is in ascending id order (IF-11). Called on
+// the audio thread, so no allocation.
+int manifest_index(clap_id id) {
+  const auto& all = rows().all;
+  auto it = std::lower_bound(all.begin(), all.end(), id, [](const horde::ParamInfo* p, clap_id i) { return p->id < i; });
+  return it != all.end() && (*it)->id == id ? int(it - all.begin()) : -1;
 }
 
 int default_preset() {
@@ -124,6 +158,39 @@ struct Stats {
   std::atomic<double> seconds{0}, audio_seconds{0}, worst{0};
 };
 
+// One entry of the edit queue. Value: a parameter change, in the host's form for a host parameter (a stepped row's
+// option index) and in v for any other engine row; the host hears of it only when it is a host parameter, inside its
+// own gesture when `bracket` is set (a window edit, or a page set with no page gesture open). Begin and End: a page
+// gesture on a host row. Ack: every page message ends with one, so the seq it carries is published only after all
+// that message's entries are applied.
+struct Edit {
+  enum Kind : std::uint8_t { Value, Begin, End, Ack };
+  Kind kind = Value;
+  bool bracket = true;
+  clap_id id = 0;
+  double value = 0;
+  std::int64_t seq = 0;
+};
+
+// What the page's session needs between frames. Main thread only.
+struct Session {
+  preview::bridge::Want want;
+  std::vector<double> sent;      // per manifest row, the v last sent in `params` (NaN: never)
+  int sent_preset = -1;
+  int sent_voices = -1;
+  bool hello_due = false;
+  preview::bridge::Mismatch mismatch;
+  std::string events;            // gesture echoes waiting for the next frame, JSON objects joined by commas
+  std::string state;
+  bool state_due = false;
+  std::vector<std::string> unknown, reserved, types;
+  bool refused_due = false;
+  std::vector<bool> gesture_open;   // per manifest row
+  std::deque<std::vector<Edit>> waiting;   // whole messages the queue had no room for yet, in order
+  std::unique_ptr<horde::GuiFrame> frame = std::make_unique<horde::GuiFrame>();   // 64 voices of members: tens of KB, never on the stack
+  std::string out;               // the last frame's text, alive until the next
+};
+
 struct Plugin {
   clap_plugin_t plugin{};
   const clap_host_t* host = nullptr;
@@ -135,10 +202,13 @@ struct Plugin {
   int built_preset = -1;    // main thread
   bool apply_shadow = false;   // main thread: the next build keeps the shadow's values (a loaded state)
   bool force_build = false;    // main thread
+  Slot* newest = nullptr;      // main thread: the slot built last, live or on its way; the frames read its engine
+  std::vector<std::vector<double>> preset_v;   // main thread: per preset, every row's v as it loads (empty: not read yet)
 
   std::atomic<int> wanted_preset{0};
   std::atomic<int> voices{kDefaultVoices};
-  std::atomic<double> shadow[kMaxRows];   // what the host reads: v per exposed row
+  // v per manifest row: what the host, the page and the saved state read. Sized once at init.
+  std::unique_ptr<std::atomic<double>[]> shadow;
 
   Slot* live = nullptr;                   // audio thread while active
   std::atomic<Slot*> incoming{nullptr};   // main to audio
@@ -146,10 +216,24 @@ struct Plugin {
   std::atomic<bool> rescan_pending{false};
 
   // One writer (the main thread) and one reader (whichever thread processes or flushes), so no lock on the audio path.
-  struct Edit { clap_id id; double value; };
   Edit edits[kEditQueue] = {};
   std::atomic<std::uint32_t> edit_head{0}, edit_tail{0};
+  std::atomic<std::int64_t> acked{0};     // the last page seq applied, audio to main (ADR-319's confirm)
   void* gui = nullptr;
+  Session session;
+
+  // The page's notes. The engine's GUI frame has no note or gate, so the audio thread keeps them from its own note-ons
+  // and the engine's voice events (VO-10), one packed word per engine voice so the main thread can't read one torn.
+  struct RecentNote { std::int32_t id = -1; std::int16_t key = -1; double velocity = 0; };
+  RecentNote recent[kNoteRing];           // audio thread
+  std::uint32_t recent_next = 0;          // audio thread
+  std::atomic<std::uint64_t> voice_note[kMaxVoices] = {};
+  std::atomic<bool> engine_silent{true};  // OU-4 as the audio thread last saw it
+  // The output's peak since the last frame, tapped here: the engine's frame holds only its last processing call's
+  // peaks, and with routes a call is one control interval long. The reader asks for a reset; the audio thread does it.
+  float out_peak_accum = 0;               // audio thread
+  std::atomic<float> out_peak{0};
+  std::atomic<bool> out_peak_reset{false};
 
   std::vector<horde::Event> events;
   std::int32_t next_note_id = 1 << 24;   // above any id a host's own counter reaches in a session
@@ -222,18 +306,25 @@ Slot* build_slot(Plugin& s, int preset, bool keep_shadow) {
     if (p) slot->env_velocity[k] = horde::value_of(*p, slot->engine->param_v(p->id));
   }
 
-  std::vector<horde::Event> setup;
+  // What this preset loads, before any value of ours: the saved state keeps only the rows that differ from it.
   const Rows& t = rows();
-  for (int i = 0; i < t.count; ++i) {
-    if (keep_shadow) {
-      horde::Event e;
-      e.type = horde::EventType::Param;
-      e.param_id = t.row[i]->id;
-      e.value = s.shadow[i].load(std::memory_order_relaxed);
-      setup.push_back(e);
-    } else {
-      s.shadow[i].store(slot->engine->param_v(t.row[i]->id), std::memory_order_relaxed);
+  std::vector<double>& loaded = s.preset_v[std::size_t(preset)];
+  loaded.resize(t.all.size());
+  for (std::size_t m = 0; m < t.all.size(); ++m) loaded[m] = slot->engine->param_v(t.all[m]->id);
+
+  std::vector<horde::Event> setup;
+  setup.reserve(t.all.size() + 1);
+  for (std::size_t m = 0; m < t.all.size(); ++m) {
+    if (!keep_shadow) {
+      s.shadow[m].store(loaded[m], std::memory_order_relaxed);
+      continue;
     }
+    if (t.all[m]->reserved) continue;   // not a host parameter: the engine refuses a Param to it (5.1, PA-7)
+    horde::Event e;
+    e.type = horde::EventType::Param;
+    e.param_id = t.all[m]->id;
+    e.value = s.shadow[m].load(std::memory_order_relaxed);
+    if (e.value != loaded[m]) setup.push_back(e);
   }
   horde::Event cap;
   cap.type = horde::EventType::VoiceCap;
@@ -286,12 +377,12 @@ void set_param(Plugin& s, clap_id id, double value) {
     e.integer = count;
     e.flag = true;
   } else {
-    const Rows& t = rows();
-    int i = 0;
-    while (i < t.count && t.row[i]->id != id) ++i;
-    if (i == t.count) return;
-    const double v = std::clamp(host_to_v(*t.row[i], value), 0.0, 1.0);
-    s.shadow[i].store(v, std::memory_order_relaxed);
+    const int m = manifest_index(id);
+    if (m < 0 || rows().all[std::size_t(m)]->reserved) return;
+    const int host = rows().host_of[std::size_t(m)];
+    // A host parameter's value is in the host's form; any other engine row can only come from the page, in v.
+    const double v = std::clamp(host >= 0 ? host_to_v(*rows().row[host], value) : value, 0.0, 1.0);
+    s.shadow[m].store(v, std::memory_order_relaxed);
     e.type = horde::EventType::Param;
     e.param_id = id;
     e.value = v;
@@ -299,18 +390,38 @@ void set_param(Plugin& s, clap_id id, double value) {
   if (s.events.size() < kMaxEvents) s.events.push_back(e);
 }
 
-// The window's edits become parameter changes here, and the host hears of them, so its automation and panel keep up.
+bool host_parameter(clap_id id) {
+  if (id == kPresetId || id == kVoicesId) return true;
+  const int m = manifest_index(id);
+  return m >= 0 && rows().host_of[std::size_t(m)] >= 0;
+}
+
+void push_gesture(const clap_output_events_t* out, clap_id id, bool begin) {
+  clap_event_param_gesture_t gesture{};
+  gesture.header = {sizeof gesture, 0, CLAP_CORE_EVENT_SPACE_ID, std::uint16_t(begin ? CLAP_EVENT_PARAM_GESTURE_BEGIN : CLAP_EVENT_PARAM_GESTURE_END), 0};
+  gesture.param_id = id;
+  out->try_push(out, &gesture.header);
+}
+
+// The window's and the page's edits become parameter changes here, and the host hears of those that are its
+// parameters, so its automation and panel keep up.
 void drain_edits(Plugin& s, const clap_output_events_t* out) {
   std::uint32_t tail = s.edit_tail.load(std::memory_order_relaxed);
   const std::uint32_t head = s.edit_head.load(std::memory_order_acquire);
   for (; tail != head; ++tail) {
-    const Plugin::Edit& edit = s.edits[tail % kEditQueue];
+    const Edit& edit = s.edits[tail % kEditQueue];
+    if (edit.kind == Edit::Ack) {
+      // Release: the main thread that reads this seq then reads every shadow value written before it.
+      s.acked.store(edit.seq, std::memory_order_release);
+      continue;
+    }
+    if (edit.kind == Edit::Begin || edit.kind == Edit::End) {
+      if (out) push_gesture(out, edit.id, edit.kind == Edit::Begin);
+      continue;
+    }
     set_param(s, edit.id, edit.value);
-    if (!out) continue;
-    clap_event_param_gesture_t gesture{};
-    gesture.header = {sizeof gesture, 0, CLAP_CORE_EVENT_SPACE_ID, CLAP_EVENT_PARAM_GESTURE_BEGIN, 0};
-    gesture.param_id = edit.id;
-    out->try_push(out, &gesture.header);
+    if (!out || !host_parameter(edit.id)) continue;
+    if (edit.bracket) push_gesture(out, edit.id, true);
     clap_event_param_value_t value{};
     value.header = {sizeof value, 0, CLAP_CORE_EVENT_SPACE_ID, CLAP_EVENT_PARAM_VALUE, 0};
     value.param_id = edit.id;
@@ -320,10 +431,49 @@ void drain_edits(Plugin& s, const clap_output_events_t* out) {
     value.key = -1;
     value.value = edit.value;
     out->try_push(out, &value.header);
-    gesture.header.type = CLAP_EVENT_PARAM_GESTURE_END;
-    out->try_push(out, &gesture.header);
+    if (edit.bracket) push_gesture(out, edit.id, false);
   }
   s.edit_tail.store(tail, std::memory_order_release);
+}
+
+// The engine's voice events (VO-10) give each voice its note; the note's key and velocity come from our own note-ons.
+// Packed into one word per voice: bit 0 a note, bit 1 its gate, bits 8-15 the key, bits 16-31 the velocity x 65535.
+std::uint64_t pack_note(const Plugin& s, std::int32_t note_id, bool gate) {
+  for (const auto& r : s.recent) {
+    if (r.id != note_id || note_id < 0) continue;
+    const std::uint64_t vel = std::uint64_t(std::lround(std::clamp(r.velocity, 0.0, 1.0) * 65535));
+    return 1u | (gate ? 2u : 0u) | (std::uint64_t(std::uint8_t(r.key)) << 8) | (vel << 16);
+  }
+  return 0;   // a note we never saw start: no key to show
+}
+
+void follow_voices(Plugin& s, horde::Engine& engine) {
+  horde::OutEvent buffer[64];
+  for (;;) {
+    const std::size_t n = engine.drain_output_events(buffer, 64);
+    for (std::size_t k = 0; k < n; ++k) {
+      const horde::OutEvent& e = buffer[k];
+      if (e.voice < 0 || e.voice >= kMaxVoices) continue;
+      std::atomic<std::uint64_t>& slot = s.voice_note[e.voice];
+      switch (e.type) {
+        case horde::OutType::VoiceStarted: slot.store(pack_note(s, e.note_id, true), std::memory_order_relaxed); break;
+        case horde::OutType::VoiceTaken:
+        case horde::OutType::NoteChanged: slot.store(pack_note(s, e.new_note_id, true), std::memory_order_relaxed); break;
+        case horde::OutType::VoiceReleased: slot.store(slot.load(std::memory_order_relaxed) & ~std::uint64_t(2), std::memory_order_relaxed); break;
+        case horde::OutType::VoiceFreed: slot.store(0, std::memory_order_relaxed); break;
+        default: break;
+      }
+    }
+    if (n < 64) break;   // bounded: the engine's own queue is finite, and each pass empties up to 64 of it
+  }
+}
+
+void forget_voices(Plugin& s) {
+  for (auto& v : s.voice_note) v.store(0, std::memory_order_relaxed);
+}
+
+void remember_note(Plugin& s, const horde::Event& on) {
+  s.recent[s.recent_next++ % kNoteRing] = {on.note_id, on.key, on.value};
 }
 
 // One CLAP event to engine events, at `sample` in the span being built.
@@ -341,6 +491,7 @@ void translate(Plugin& s, const clap_event_header_t* h, std::uint32_t sample) {
       e.channel = n->channel;
       e.key = n->key;
       e.value = h->type == CLAP_EVENT_NOTE_CHOKE ? 0 : n->velocity;
+      if (h->type == CLAP_EVENT_NOTE_ON) remember_note(s, e);
       if (s.events.size() < kMaxEvents) s.events.push_back(e);
     } else if (h->type == CLAP_EVENT_NOTE_EXPRESSION) {
       const auto* x = reinterpret_cast<const clap_event_note_expression_t*>(h);
@@ -373,6 +524,7 @@ void translate(Plugin& s, const clap_event_header_t* h, std::uint32_t sample) {
         e.note_id = s.next_note_id++;
         e.key = std::int16_t(d1);
         e.value = d2 / 127.0;
+        remember_note(s, e);
       } else if (status == 0x80 || status == 0x90) {
         e.type = horde::EventType::NoteOff;
         e.key = std::int16_t(d1);
@@ -454,6 +606,7 @@ clap_process_status plugin_process(const clap_plugin_t* p, const clap_process_t*
     Slot* fresh = s.incoming.exchange(nullptr, std::memory_order_acq_rel);
     if (s.live) s.retired.store(s.live, std::memory_order_release);
     s.live = fresh;
+    forget_voices(s);   // a new engine starts with no voices; the old one's notes stop at the swap
     want_callback = true;
   }
   if (proc->audio_outputs_count == 0 || proc->frames_count == 0) return CLAP_PROCESS_CONTINUE;
@@ -475,6 +628,11 @@ clap_process_status plugin_process(const clap_plugin_t* p, const clap_process_t*
     std::fill_n(left, frames, 0.0f);
     std::fill_n(right, frames, 0.0f);
     s.live->engine->skip(frames);
+    s.engine_silent.store(true, std::memory_order_relaxed);
+    if (s.out_peak_reset.exchange(false, std::memory_order_relaxed)) {   // silence reads as silence, not the last loud frame
+      s.out_peak_accum = 0;
+      s.out_peak.store(0, std::memory_order_relaxed);
+    }
     s.idle_blocks.fetch_add(1, std::memory_order_relaxed);
     s.frames_since_callback += frames;
     if (want_callback || s.frames_since_callback >= std::uint64_t(2 * s.sample_rate)) {
@@ -492,11 +650,19 @@ clap_process_status plugin_process(const clap_plugin_t* p, const clap_process_t*
   // Output guard (Blind-Spot Armor: latch and report, never clamp silently): a bad sample must not reach the host,
   // and the session log shows the count.
   std::uint64_t bad = 0;
+  if (s.out_peak_reset.exchange(false, std::memory_order_relaxed)) s.out_peak_accum = 0;
+  float peak = s.out_peak_accum;
   for (std::uint32_t i = 0; i < frames; ++i) {
     if (!std::isfinite(left[i])) { left[i] = 0; ++bad; }
     if (!std::isfinite(right[i])) { right[i] = 0; ++bad; }
+    peak = std::max({peak, std::fabs(left[i]), std::fabs(right[i])});
   }
   if (bad) s.nonfinite.fetch_add(bad, std::memory_order_relaxed);
+  s.out_peak_accum = peak;
+  s.out_peak.store(peak, std::memory_order_relaxed);
+  // After the timed span: the page's notes and its silence flag cost a few loads, and aren't the engine's cost.
+  follow_voices(s, *s.live->engine);
+  s.engine_silent.store(s.live->engine->silent(), std::memory_order_relaxed);
 
   // Only blocks with sound count: an idle device's near-zero blocks would hide what a note costs.
   if (!was_silent || !s.live->engine->silent()) {
@@ -528,6 +694,7 @@ void plugin_on_main_thread(const clap_plugin_t* p) {
   if (s.active && (s.force_build || wanted != s.built_preset) && !s.incoming.load(std::memory_order_acquire)) {
     if (Slot* fresh = build_slot(s, wanted, s.apply_shadow)) {
       s.incoming.store(fresh, std::memory_order_release);
+      s.newest = fresh;
       s.built_preset = wanted;
       s.apply_shadow = false;
       s.force_build = false;
@@ -546,6 +713,7 @@ bool plugin_activate(const clap_plugin_t* p, double sample_rate, std::uint32_t, 
   const int wanted = s.wanted_preset.load(std::memory_order_relaxed);
   s.live = build_slot(s, wanted, s.apply_shadow);
   if (!s.live) return false;
+  s.newest = s.live;
   s.built_preset = wanted;
   s.apply_shadow = false;
   s.force_build = false;
@@ -559,6 +727,7 @@ void plugin_deactivate(const clap_plugin_t* p) {
   Plugin& s = *self(p);
   s.active = false;
   write_stats(s);
+  s.newest = nullptr;
   delete s.live;
   s.live = nullptr;
   delete s.incoming.exchange(nullptr);
@@ -569,7 +738,11 @@ bool plugin_init(const clap_plugin_t* p) {
   Plugin& s = *self(p);
   s.host_params = static_cast<const clap_host_params_t*>(s.host->get_extension(s.host, CLAP_EXT_PARAMS));
   const Rows& t = rows();
-  for (int i = 0; i < t.count; ++i) s.shadow[i].store(t.default_v[i], std::memory_order_relaxed);
+  s.shadow = std::make_unique<std::atomic<double>[]>(t.all.size());
+  for (std::size_t m = 0; m < t.all.size(); ++m) s.shadow[m].store(t.default_v[m], std::memory_order_relaxed);
+  s.preset_v.resize(std::size_t(kBankSize));
+  s.session.sent.assign(t.all.size(), NAN);
+  s.session.gesture_open.assign(t.all.size(), false);
   s.wanted_preset.store(default_preset(), std::memory_order_relaxed);
   return true;
 }
@@ -585,6 +758,7 @@ void plugin_reset(const clap_plugin_t* p) {
   Plugin& s = *self(p);
   if (!s.live) return;
   s.live->engine->reset();
+  forget_voices(s);
   std::fill_n(s.live->counter, kMaxVoices, std::uint64_t(0));
   for (auto& voice : s.live->last) std::fill_n(voice, kMaxRouteKeys, 0.0);
 }
@@ -622,7 +796,7 @@ bool params_get_info(const clap_plugin_t*, std::uint32_t index, clap_param_info_
   std::snprintf(info->name, sizeof info->name, "%s", row.key);
   info->min_value = 0;
   info->max_value = stepped(row) ? double(row.steps - 1) : 1.0;
-  info->default_value = v_to_host(row, t.default_v[i]);
+  info->default_value = v_to_host(row, t.default_v[std::size_t(t.at[i])]);
   return true;
 }
 
@@ -632,7 +806,7 @@ bool params_get_value(const clap_plugin_t* p, clap_id id, double* out) {
   if (id == kVoicesId) { *out = s.voices.load(std::memory_order_relaxed); return true; }
   const Rows& t = rows();
   for (int i = 0; i < t.count; ++i) {
-    if (t.row[i]->id == id) { *out = v_to_host(*t.row[i], s.shadow[i].load(std::memory_order_relaxed)); return true; }
+    if (t.row[i]->id == id) { *out = v_to_host(*t.row[i], s.shadow[t.at[i]].load(std::memory_order_relaxed)); return true; }
   }
   return false;
 }
@@ -710,22 +884,47 @@ bool note_get(const clap_plugin_t*, std::uint32_t index, bool is_input, clap_not
 const clap_plugin_note_ports_t kNotePorts = {note_count, note_get};
 
 // ---- state -----------------------------------------------------------------------------------------------------
+// Every row's v as `preset` loads, which the saved state is written against. Read when a build loads the preset; a
+// save before any build loads it here, off the audio thread (load_state isn't real-time, RT-1).
+const std::vector<double>& preset_values(Plugin& s, int preset) {
+  std::vector<double>& loaded = s.preset_v[std::size_t(preset)];
+  if (!loaded.empty()) return loaded;
+  const Rows& t = rows();
+  auto engine = horde::make_engine();
+  if (engine && engine->prepare(44100, 64) && engine->load_state(kBank[preset].state).ok) {
+    for (const auto* row : t.all) loaded.push_back(engine->param_v(row->id));
+  } else {
+    loaded = t.default_v;   // a preset that won't load is never built either; its defaults stand in
+  }
+  return loaded;
+}
+
 bool state_save(const clap_plugin_t* p, const clap_ostream_t* stream) {
   Plugin& s = *self(p);
-  std::string text = std::string(kStateMagic) + "\n";
-  text += "preset " + std::to_string(s.wanted_preset.load(std::memory_order_relaxed)) + "\n";
-  text += "voices " + std::to_string(s.voices.load(std::memory_order_relaxed)) + "\n";
   const Rows& t = rows();
-  char line[64];
-  for (int i = 0; i < t.count; ++i) {
-    std::snprintf(line, sizeof line, "%u %.17g\n", t.row[i]->id, s.shadow[i].load(std::memory_order_relaxed));
-    text += line;
+  preview::bridge::SavedState saved;
+  saved.preset = s.wanted_preset.load(std::memory_order_relaxed);
+  saved.voices = s.voices.load(std::memory_order_relaxed);
+  std::vector<std::uint32_t> ids;
+  std::vector<double> current;
+  for (std::size_t m = 0; m < t.all.size(); ++m) {
+    if (t.all[m]->reserved) continue;
+    ids.push_back(t.all[m]->id);
+    current.push_back(s.shadow[m].load(std::memory_order_relaxed));
   }
+  const std::vector<double>& all_loaded = preset_values(s, saved.preset);
+  std::vector<double> loaded;
+  for (std::size_t m = 0; m < t.all.size(); ++m)
+    if (!t.all[m]->reserved) loaded.push_back(all_loaded[m]);
+  saved.values = preview::bridge::differences(ids, current, loaded);
+  const std::string text = preview::bridge::write_state(saved);
   for (std::size_t done = 0; done < text.size();) {
     const std::int64_t wrote = stream->write(stream, text.data() + done, text.size() - done);
     if (wrote <= 0) return false;
     done += std::size_t(wrote);
   }
+  s.session.state = text;   // the page hears of a save once, never per frame (section 3)
+  s.session.state_due = true;
   return true;
 }
 
@@ -740,30 +939,230 @@ bool state_load(const clap_plugin_t* p, const clap_istream_t* stream) {
     text.append(buffer, std::size_t(got));
     if (text.size() > 1 << 20) return false;
   }
-  if (text.rfind(kStateMagic, 0) != 0) return false;   // no promise across builds: an unknown chunk leaves the default
+  preview::bridge::SavedState saved;
+  if (!preview::bridge::read_state(text, saved)) return false;
+  const int preset = std::clamp(saved.preset, 0, kBankSize - 1);
+  s.wanted_preset.store(preset, std::memory_order_relaxed);
+  if (saved.voices > 0) s.voices.store(std::clamp(saved.voices, 1, kMaxVoicesParam), std::memory_order_relaxed);
+  // The preset's own values first, then the rows the state says differ: a row it doesn't name is the preset's.
   const Rows& t = rows();
-  std::size_t at = text.find('\n');
-  while (at != std::string::npos && at + 1 < text.size()) {
-    const std::size_t end = text.find('\n', at + 1);
-    const std::string line = text.substr(at + 1, end == std::string::npos ? std::string::npos : end - at - 1);
-    int preset = 0, count = 0;
-    unsigned id = 0;
-    double v = 0;
-    if (std::sscanf(line.c_str(), "preset %d", &preset) == 1) s.wanted_preset.store(std::clamp(preset, 0, kBankSize - 1), std::memory_order_relaxed);
-    else if (std::sscanf(line.c_str(), "voices %d", &count) == 1) s.voices.store(std::clamp(count, 1, kMaxVoicesParam), std::memory_order_relaxed);
-    else if (std::sscanf(line.c_str(), "%u %lf", &id, &v) == 2) {
-      for (int i = 0; i < t.count; ++i) {
-        if (t.row[i]->id == id) s.shadow[i].store(std::clamp(v, 0.0, 1.0), std::memory_order_relaxed);
-      }
-    }
-    at = end;
+  const std::vector<double>& loaded = preset_values(s, preset);
+  for (std::size_t m = 0; m < t.all.size(); ++m) s.shadow[m].store(loaded[m], std::memory_order_relaxed);
+  for (const auto& [id, v] : saved.values) {
+    const int m = manifest_index(id);
+    if (m >= 0 && !t.all[std::size_t(m)]->reserved) s.shadow[m].store(std::clamp(v, 0.0, 1.0), std::memory_order_relaxed);
   }
   s.apply_shadow = true;
   s.force_build = true;
+  s.session.state = text;
+  s.session.state_due = true;
   if (s.active) s.host->request_callback(s.host);
   return true;
 }
 const clap_plugin_state_t kState = {state_save, state_load};
+
+// ---- GUI 3's bridge (B628) -------------------------------------------------------------------------------------
+const preview::bridge::KeyMap& keymap() {
+  static const preview::bridge::KeyMap map(rows().all);
+  return map;
+}
+
+const std::vector<std::string>& preset_names() {
+  static const std::vector<std::string> names = [] {
+    std::vector<std::string> out;
+    for (int i = 0; i < kBankSize; ++i) out.emplace_back(kBank[i].name);
+    return out;
+  }();
+  return names;
+}
+
+// Moves waiting messages into the edit queue, whole and in order: a message split across two blocks could be heard
+// half-applied, and its ack would no longer mean "all of it".
+void pump(Plugin& s) {
+  Session& ss = s.session;
+  bool moved = false;
+  while (!ss.waiting.empty()) {
+    const std::vector<Edit>& batch = ss.waiting.front();
+    const std::uint32_t head = s.edit_head.load(std::memory_order_relaxed);
+    if (kEditQueue - (head - s.edit_tail.load(std::memory_order_acquire)) < batch.size()) break;
+    for (std::size_t k = 0; k < batch.size(); ++k) s.edits[(head + std::uint32_t(k)) % kEditQueue] = batch[k];
+    s.edit_head.store(head + std::uint32_t(batch.size()), std::memory_order_release);
+    ss.waiting.pop_front();
+    moved = true;
+  }
+  // Live stops calling process on a silent track in some setups, and a flush still delivers the edits.
+  if (moved && s.host_params && s.host_params->request_flush) s.host_params->request_flush(s.host);
+}
+
+void note_refused(std::vector<std::string>& list, const std::string& what, bool& due) {
+  if (list.size() >= 64 || std::find(list.begin(), list.end(), what) != list.end()) return;   // a report, not a log
+  list.push_back(what);
+  due = true;
+}
+
+// A page that has (re)loaded, or a frame the page never received, leaves it knowing nothing: everything it reads only
+// on change goes again in the next frame. GUI 3's page sends no hello, so the window calls this until a frame lands.
+void resend_all(Plugin& s) {
+  Session& ss = s.session;
+  std::fill(ss.sent.begin(), ss.sent.end(), NAN);
+  ss.sent_preset = ss.sent_voices = -1;
+}
+
+void bridge_receive(Plugin& s, std::string_view json) {
+  using namespace preview::bridge;
+  Session& ss = s.session;
+  const Message m = parse_message(json, keymap());
+  if (m.kind == Kind::Invalid) {
+    note_refused(ss.types, "(unreadable: " + m.error + ")", ss.refused_due);
+    return;   // no seq to acknowledge
+  }
+  for (const auto& key : m.unknown) note_refused(ss.unknown, key, ss.refused_due);
+  for (const auto& key : m.reserved) note_refused(ss.reserved, key, ss.refused_due);
+  const Rows& t = rows();
+  std::vector<Edit> batch;
+  switch (m.kind) {
+    case Kind::Set:
+      for (const auto& value : m.values) {
+        const horde::ParamInfo& row = keymap().row(value.row);
+        const int at = manifest_index(row.id);
+        const int host = t.host_of[std::size_t(at)];
+        Edit e;
+        e.id = row.id;
+        e.value = host >= 0 ? v_to_host(row, std::clamp(value.v, 0.0, 1.0)) : value.v;
+        // Inside a page gesture the host already has its begin; outside one, each change is its own.
+        e.bracket = !ss.gesture_open[std::size_t(at)];
+        batch.push_back(e);
+      }
+      break;
+    case Kind::Gesture:
+      if (m.gesture_row >= 0) {
+        const horde::ParamInfo& row = keymap().row(m.gesture_row);
+        const int at = manifest_index(row.id);
+        ss.gesture_open[std::size_t(at)] = m.gesture_begin;
+        if (t.host_of[std::size_t(at)] >= 0) {
+          Edit e;
+          e.kind = m.gesture_begin ? Edit::Begin : Edit::End;
+          e.id = row.id;
+          batch.push_back(e);
+        }
+        if (!ss.events.empty()) ss.events += ',';
+        ss.events += "{\"type\":\"gesture\",\"key\":" + quoted(m.gesture_key) + ",\"phase\":\"" + (m.gesture_begin ? "begin" : "end") + "\"}";
+      }
+      break;
+    case Kind::Want: ss.want = m.want; break;
+    case Kind::Preset:
+      if (m.index >= 0) {
+        Edit e;
+        e.id = kPresetId;
+        e.value = std::clamp(m.index, 0, kBankSize - 1);
+        batch.push_back(e);
+      }
+      break;
+    case Kind::Plugin:
+      if (m.voices > 0) {
+        Edit e;
+        e.id = kVoicesId;
+        e.value = std::clamp(m.voices, 1, kMaxVoicesParam);
+        batch.push_back(e);
+      }
+      break;
+    case Kind::Hello:
+      resend_all(s);
+      ss.hello_due = true;
+      ss.mismatch = check_hello(m, t.hash, t.text);
+      break;
+    case Kind::Held:
+      if (m.unknown_type) note_refused(ss.types, m.type, ss.refused_due);
+      break;
+    case Kind::Invalid: break;
+  }
+  Edit ack;
+  ack.kind = Edit::Ack;
+  ack.seq = m.seq;
+  batch.push_back(ack);
+  ss.waiting.push_back(std::move(batch));
+  pump(s);
+}
+
+const std::string& bridge_frame(Plugin& s) {
+  using namespace preview::bridge;
+  pump(s);
+  Session& ss = s.session;
+  const Rows& t = rows();
+  Pieces p;
+  // The ack first, with acquire: every shadow value read below is then at least as new as the seq it confirms, so the
+  // page never reads an older value under a newer ack and takes it for the engine's own change (device.js, stale).
+  p.ack = s.acked.load(std::memory_order_acquire);
+
+  FrameInputs in;
+  if (s.newest && s.newest->engine->read_gui_snapshot(*ss.frame)) in.frame = ss.frame.get();
+  in.engine_silent = s.engine_silent.load(std::memory_order_relaxed);
+  NoteSlot notes[kMaxVoices];
+  for (int i = 0; i < kMaxVoices; ++i) {
+    const std::uint64_t w = s.voice_note[i].load(std::memory_order_relaxed);
+    // Four places undo the 16-bit packing: a note-on of 0.85 reads back 0.85, not 0.8500038.
+    const double velocity = std::round(double((w >> 16) & 0xFFFF) / 65535.0 * 1e4) / 1e4;
+    notes[i] = {(w & 1) != 0, int((w >> 8) & 0xFF), velocity, (w & 2) != 0};
+  }
+  in.notes = notes;
+  for (int o = 0; o < 2; ++o) {
+    const int m = keymap().find(o == 0 ? "osc1.unison" : "osc2.unison");
+    if (m < 0) continue;
+    const horde::ParamInfo& row = keymap().row(m);
+    const double v = s.shadow[manifest_index(row.id)].load(std::memory_order_relaxed);
+    in.unison[o] = int(std::lround(row.lo + std::round(v * double(row.steps > 1 ? row.steps - 1 : 0))));
+  }
+  in.out_tapped = true;
+  in.out_peak = s.out_peak.load(std::memory_order_relaxed);
+  s.out_peak_reset.store(true, std::memory_order_relaxed);
+  p.observe = observe_json(in, ss.want);
+
+  std::vector<std::pair<std::string, double>> changed;
+  for (std::size_t m = 0; m < t.all.size(); ++m) {
+    if (t.all[m]->reserved) continue;
+    const double v = s.shadow[m].load(std::memory_order_relaxed);
+    if (v == ss.sent[m]) continue;   // NaN never equals: a row never sent is sent
+    ss.sent[m] = v;
+    changed.emplace_back(t.all[m]->key, v);
+  }
+  if (!changed.empty()) p.params = &changed;
+  const int preset = s.wanted_preset.load(std::memory_order_relaxed);
+  if (preset != ss.sent_preset) {
+    p.preset_names = &preset_names();
+    p.preset_index = preset;
+    ss.sent_preset = preset;
+  }
+  static const std::string build = kBuildLabel;
+  const int voices = s.voices.load(std::memory_order_relaxed);
+  if (voices != ss.sent_voices) {
+    p.voices = ss.sent_voices = voices;
+    p.plugin_build = &build;   // the label rides with Voices: GUI 3's page keeps `plugin`, and sends no hello
+  }
+  if (ss.state_due) p.state = &ss.state;
+  if (ss.hello_due) {
+    p.build = &build;
+    p.engine_hash = &t.hash;
+    p.mismatch = &ss.mismatch;
+  }
+  if (ss.refused_due) {
+    p.refused_unknown = &ss.unknown;
+    p.refused_reserved = &ss.reserved;
+    p.refused_types = &ss.types;
+  }
+  if (!ss.events.empty()) p.events = "[" + ss.events + "]";
+  ss.out = snapshot_json(p);
+  ss.events.clear();
+  ss.hello_due = ss.refused_due = ss.state_due = false;
+  return ss.out;
+}
+
+void ext_receive(const clap_plugin_t* p, const char* json) { bridge_receive(*self(p), json ? json : ""); }
+const char* ext_frame(const clap_plugin_t* p) { return bridge_frame(*self(p)).c_str(); }
+double ext_engine_v(const clap_plugin_t* p, std::uint32_t id) {
+  Plugin& s = *self(p);
+  return s.live ? s.live->engine->param_v(id) : NAN;
+}
+const preview_bridge_ext kBridgeExt = {ext_receive, ext_frame, ext_engine_v};
 
 const void* plugin_get_extension(const clap_plugin_t*, const char* id) {
   if (!std::strcmp(id, CLAP_EXT_PARAMS)) return &kParams;
@@ -771,6 +1170,7 @@ const void* plugin_get_extension(const clap_plugin_t*, const char* id) {
   if (!std::strcmp(id, CLAP_EXT_NOTE_PORTS)) return &kNotePorts;
   if (!std::strcmp(id, CLAP_EXT_STATE)) return &kState;
   if (!std::strcmp(id, CLAP_EXT_GUI)) return preview::gui_extension();
+  if (!std::strcmp(id, kPreviewBridgeExt)) return &kBridgeExt;
   return nullptr;
 }
 
@@ -815,7 +1215,7 @@ int row_steps(int row) { return stepped(*rows().row[row]) ? int(rows().row[row]-
 int preset(void* plugin) { return static_cast<Plugin*>(plugin)->wanted_preset.load(std::memory_order_relaxed); }
 int voices(void* plugin) { return static_cast<Plugin*>(plugin)->voices.load(std::memory_order_relaxed); }
 double row_host_value(void* plugin, int row) {
-  return v_to_host(*rows().row[row], static_cast<Plugin*>(plugin)->shadow[row].load(std::memory_order_relaxed));
+  return v_to_host(*rows().row[row], static_cast<Plugin*>(plugin)->shadow[rows().at[row]].load(std::memory_order_relaxed));
 }
 void row_text(int row, double host_value, char* out, std::size_t size) {
   params_value_to_text(nullptr, rows().row[row]->id, host_value, out, std::uint32_t(size));
@@ -831,12 +1231,18 @@ void edit(void* plugin, clap_id id, double host_value) {
   Plugin& s = *static_cast<Plugin*>(plugin);
   const std::uint32_t head = s.edit_head.load(std::memory_order_relaxed);
   if (head - s.edit_tail.load(std::memory_order_acquire) >= kEditQueue) return;   // full: a slider's next move will do
-  s.edits[head % kEditQueue] = {id, host_value};
+  Edit e;
+  e.id = id;
+  e.value = host_value;
+  s.edits[head % kEditQueue] = e;
   s.edit_head.store(head + 1, std::memory_order_release);
   // Live stops calling process on a silent track in some setups, and a flush still delivers the edit.
   if (s.host_params && s.host_params->request_flush) s.host_params->request_flush(s.host);
 }
 void*& gui_slot(void* plugin) { return static_cast<Plugin*>(plugin)->gui; }
+void bridge_receive(void* plugin, const char* json) { ::bridge_receive(*static_cast<Plugin*>(plugin), json ? json : ""); }
+const char* bridge_frame(void* plugin) { return ::bridge_frame(*static_cast<Plugin*>(plugin)).c_str(); }
+void bridge_resend(void* plugin) { resend_all(*static_cast<Plugin*>(plugin)); }
 const char* build_label() { return kBuildLabel; }
 }  // namespace preview
 

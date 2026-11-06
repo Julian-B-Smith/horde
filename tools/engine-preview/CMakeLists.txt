@@ -2,7 +2,8 @@
 # its own on purpose: the main build, its gates and its plug-in identity don't change, and it configures only where the
 # engine's export exists. Use build.sh, which exports the engine from a named commit, never the builder's working tree.
 #   HORDE_ENGINE2_DIR   the exported engine2/ directory (required)
-#   HORDE_LIBS_DIR      libs/ with clap and clap-wrapper (default: this repo's)
+#   HORDE_LIBS_DIR      libs/ with clap, clap-wrapper and choc (default: this repo's)
+#   HORDE_PREVIEW_WEBVIEW, HORDE_PREVIEW_PAGE   the window (below)
 cmake_minimum_required(VERSION 3.20)
 set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "")
 project(horde_engine_preview VERSION 0.0.1 LANGUAGES C CXX OBJC OBJCXX)
@@ -39,6 +40,38 @@ set(CLAP_WRAPPER_DOWNLOAD_DEPENDENCIES OFF CACHE BOOL "" FORCE)
 add_subdirectory(${HORDE_LIBS_DIR}/clap ${CMAKE_BINARY_DIR}/libs/clap EXCLUDE_FROM_ALL)
 add_subdirectory(${HORDE_LIBS_DIR}/clap-wrapper ${CMAKE_BINARY_DIR}/libs/clap-wrapper EXCLUDE_FROM_ALL)
 
+# GUI 3's page in a web view (B628) is the window; OFF builds the plain AppKit one instead, the fallback until the page
+# has been tried in Live. HORDE_PREVIEW_PAGE names the one self-contained HTML file to embed: the stand-in by default,
+# or what tools/gui3_inline.py writes from docs/design/gui3.
+option(HORDE_PREVIEW_WEBVIEW "host GUI 3's page in a web view (OFF: the AppKit window)" ON)
+set(HORDE_PREVIEW_PAGE ${CMAKE_CURRENT_SOURCE_DIR}/standin_page.html CACHE FILEPATH "the page the web view shows")
+
+# choc as the main build compiles it: the vendored copy with libs/patches applied, never the bare submodule (the root
+# CMakeLists.txt's HS_CHOC_PATCHES, in the same order; tools/choc_patch_check.py guards that list). The patches touch
+# only the Windows backend, so on macOS they change nothing; using the same copy keeps one choc in the repo.
+set(PREVIEW_CHOC_DIR ${CMAKE_BINARY_DIR}/choc-patched)
+set(PREVIEW_CHOC_PATCHES
+    ${HORDE_REPO_ROOT}/libs/patches/choc-webview2-navigation.patch
+    ${HORDE_REPO_ROOT}/libs/patches/choc-webview2-permissions.patch
+    ${HORDE_REPO_ROOT}/libs/patches/choc-webview2-external-drop.patch)
+execute_process(COMMAND ${CMAKE_COMMAND} -DSRC=${HORDE_LIBS_DIR}/choc/choc -DOUT=${PREVIEW_CHOC_DIR} "-DPATCH=${PREVIEW_CHOC_PATCHES}"
+                        -P ${HORDE_REPO_ROOT}/libs/patches/apply_patch.cmake
+                RESULT_VARIABLE PREVIEW_CHOC_RC)
+if(NOT PREVIEW_CHOC_RC EQUAL 0)
+  message(FATAL_ERROR "choc patch not applied (see the error above)")
+endif()
+
+# The page as a byte array, through the same tool the main build embeds its GUI with: it also gives the page a policy
+# that runs only the page's own inline scripts and loads nothing from anywhere, and refuses a page that would break it.
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+set(PAGE_H ${CMAKE_BINARY_DIR}/generated/preview_page.h)
+add_custom_command(OUTPUT ${PAGE_H}
+  COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/generated
+  COMMAND ${Python3_EXECUTABLE} ${HORDE_REPO_ROOT}/tools/embed_file.py ${HORDE_PREVIEW_PAGE} ${PAGE_H} kPreviewPage
+  DEPENDS ${HORDE_PREVIEW_PAGE} ${HORDE_REPO_ROOT}/tools/embed_file.py
+  COMMENT "Embedding the page")
+add_custom_target(preview_page DEPENDS ${PAGE_H})
+
 # EXCLUDE_FROM_ALL: the engine's suite and test builds stay unbuilt; only the two libraries below link here.
 add_subdirectory(${HORDE_ENGINE2_DIR} ${CMAKE_BINARY_DIR}/engine2 EXCLUDE_FROM_ALL)
 
@@ -53,13 +86,20 @@ add_custom_command(OUTPUT ${BANK_INC}
   COMMENT "Levelling the bank")
 add_custom_target(bank_embedded DEPENDS ${BANK_INC})
 
-add_library(preview-impl STATIC preview_plugin.cpp preview_gui.mm)
+if(HORDE_PREVIEW_WEBVIEW)
+  set(PREVIEW_WINDOW preview_webview.mm)
+  set(PREVIEW_WINDOW_LIBS "-framework AppKit" "-framework WebKit")
+else()
+  set(PREVIEW_WINDOW preview_gui.mm)
+  set(PREVIEW_WINDOW_LIBS "-framework AppKit")
+endif()
+add_library(preview-impl STATIC preview_plugin.cpp bridge_core.cpp ${PREVIEW_WINDOW})
 # build.sh passes which engine commit and which build this is; the window, the log and the description show it.
 set(HORDE_PREVIEW_BUILD_LABEL "engine unknown, build 0" CACHE STRING "")
 target_compile_definitions(preview-impl PUBLIC "HORDE_PREVIEW_BUILD_LABEL=\"${HORDE_PREVIEW_BUILD_LABEL}\"")
-add_dependencies(preview-impl bank_embedded)
-target_include_directories(preview-impl PUBLIC ${CMAKE_BINARY_DIR}/generated ${CMAKE_CURRENT_SOURCE_DIR} ${HORDE_REPO_ROOT}/h2)
-target_link_libraries(preview-impl PUBLIC clap clap-wrapper-extensions horde_engine2 "-framework AppKit")
+add_dependencies(preview-impl bank_embedded preview_page)
+target_include_directories(preview-impl PUBLIC ${CMAKE_BINARY_DIR}/generated ${CMAKE_CURRENT_SOURCE_DIR} ${HORDE_REPO_ROOT}/h2 ${PREVIEW_CHOC_DIR})
+target_link_libraries(preview-impl PUBLIC clap clap-wrapper-extensions horde_engine2 ${PREVIEW_WINDOW_LIBS})
 
 make_clapfirst_plugins(
   TARGET_NAME horde-engine-preview
@@ -82,11 +122,12 @@ foreach(fmt clap vst3 auv2)
     COMMAND codesign --force -s - "$<TARGET_BUNDLE_DIR:horde-engine-preview_${fmt}>" VERBATIM)
 endforeach()
 
-# The smoke test's must-fail build: the same shell with its routes removed. A bare CLAP, never installed.
-add_library(preview-plant MODULE preview_plugin.cpp preview_gui.mm preview_entry.cpp)
+# The smoke test's must-fail build: the same shell with its routes removed. A bare CLAP, never installed. It keeps the
+# AppKit window whatever HORDE_PREVIEW_WEBVIEW says, so every build compiles the fallback and it can't rot unseen.
+add_library(preview-plant MODULE preview_plugin.cpp bridge_core.cpp preview_gui.mm preview_entry.cpp)
 add_dependencies(preview-plant bank_embedded)
 target_compile_definitions(preview-plant PRIVATE HORDE_PREVIEW_PLANT_NO_ROUTES "HORDE_PREVIEW_BUILD_LABEL=\"${HORDE_PREVIEW_BUILD_LABEL}\"")
-target_include_directories(preview-plant PRIVATE ${CMAKE_BINARY_DIR}/generated ${CMAKE_CURRENT_SOURCE_DIR} ${HORDE_REPO_ROOT}/h2)
+target_include_directories(preview-plant PRIVATE ${CMAKE_BINARY_DIR}/generated ${CMAKE_CURRENT_SOURCE_DIR} ${HORDE_REPO_ROOT}/h2 ${PREVIEW_CHOC_DIR})
 target_link_libraries(preview-plant PRIVATE clap horde_engine2 "-framework AppKit")
 set_target_properties(preview-plant PROPERTIES PREFIX "" SUFFIX ".clap")
 
@@ -97,4 +138,16 @@ target_link_libraries(preview-smoke PRIVATE clap horde_engine2_bank)
 
 # Opens the real window and moves its real controls: nothing else can read a window before the human opens it.
 add_executable(preview-gui-shot gui_shot.mm)
-target_link_libraries(preview-gui-shot PRIVATE clap "-framework AppKit")
+target_include_directories(preview-gui-shot PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(preview-gui-shot PRIVATE clap "-framework AppKit" "-framework WebKit")
+
+# The bridge's pure half, headless (section 7's rows). It links the engine only for its manifest.
+add_executable(preview-bridge-test bridge_test.cpp bridge_core.cpp)
+target_include_directories(preview-bridge-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${PREVIEW_CHOC_DIR})
+target_link_libraries(preview-bridge-test PRIVATE horde_engine2)
+
+# The recorded frames GUI 3's ReplayTransport plays (section 7): a fixed chord through the built plug-in's bridge.
+add_executable(preview-frames-dump frames_dump.cpp)
+add_dependencies(preview-frames-dump bank_embedded)
+target_include_directories(preview-frames-dump PRIVATE ${CMAKE_BINARY_DIR}/generated ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(preview-frames-dump PRIVATE clap horde_engine2_bank)
