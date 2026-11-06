@@ -6520,7 +6520,7 @@
    "id": "gui45-pad-xy-knobs",
    "adr": "GUI-45",
    "clause": "the pad's X and Y as two knobs under the Morph page's pad, no undo step, as a drag",
-   "note": "Waits on D.2 rows for the position (GN-51); the shell draws parameter knobs only from rows. FX device: same.",
+   "note": "Waits on D.2 rows for the position (GN-51); the shell draws parameter knobs only from rows. The place is ready: a layout group marked `side` sits under the pad (gen_gui3_controls’ `side` gate, self-check 4b2e), and the Position group lands with the rows in one change (the lead’s round 61). FX device: same.",
    "lab": null
   },
   {

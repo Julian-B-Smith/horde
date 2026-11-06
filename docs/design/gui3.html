@@ -1469,7 +1469,7 @@ const mainMock = {
 };
 function placePad() { const slot = page === 'main' ? $('mainPad') : $('dock').querySelector('.face'); if (slot && $('padHost').parentElement !== slot) slot.prepend($('padHost')); }
 function paramPage(pg, el) {
-  const secs = h('div', { class: 'pv-secs' }, pg.groups.map(g => gridSection(pg, g)));
+  const secs = h('div', { class: 'pv-secs' }, pg.groups.filter(g => !g.side).map(g => gridSection(pg, g)));   // a `side` group goes under the Morph page's pad instead (GUI-45 r3)
   const pics = pg.viz && pg.viz.kind === 'osc' && pg.viz.keys.unison ? oscPictures(pg.viz, pg.id, true) : null;   // GUI-30: the SCALPEL lab's Osc page
   const band = pg.viz && pg.viz.band ? vizView(pg.viz, pg.id, true) : null;   // GUI-35: across the page, above the controls, which take the column's width
   const left = h('div', { class: 'pv-left' + (pics ? ' osc' : '') }, pics ? pics.left : pg.viz && !band ? vizView(pg.viz, pg.id, true) : null);   // the Lens left this column for the foot row (GUI-8 r1)
@@ -1713,6 +1713,7 @@ DATA.pages.forEach(pg => {
      cross-section and blend map, the field, and D.2's settings last. A column taller than the page area hid its own foot, and stopping it above D.2's settings let the pad scroll away there (the human, 2026-11-05). */
   if (pg.panel === 'morph') { const bench = morphBench(), side = h('div', { class: 'morph-side' }), main = h('div', { class: 'morph-main' }, morphPanel(), bench), wrap = h('div', { class: 'morph-wrap' }, side, main), left = bench.querySelector('.mw-left'), right = bench.querySelector('.mw-right');
     const [padEl, banner] = [...left.children]; side.append(padEl, banner);   // the pad, then the law's banner
+    pg.groups.filter(g => g.side).forEach(g => side.append(gridSection(pg, g)));   // GUI-45 r3: the pad's X and Y under it, mounted here and nowhere else (layout.json's `side`)
     right.children[0].after(...left.children); left.remove();   // the scale, the lock and the blend note go with the selected row
     const after = [...el.children].slice(1); el.insertBefore(wrap, el.children[1] || null); after.forEach(c => main.append(c)); }
   if (pg.id === 'fx') el.insertBefore(fxRack(pg), el.children[1] || null);
@@ -2209,6 +2210,12 @@ CLOCK.checking = true;
     selectPage('morph'); const onMorph = pads(), wrap = pageEls.morph.querySelector('.morph-wrap'), kids = wrap ? [...wrap.querySelector('.morph-main').children] : [], first = kids[0] && kids[0].id, second = kids[1] && kids[1].id, side = !!(wrap && wrap.querySelector('.morph-side #morphPad')), noDock = $('dock').hidden && !$('bodyGrid').classList.contains('with-dock'), padSwitch = $('padOn').disabled;
     selectPage(pg0); setMorphOn(false); dev.undo(); dev.undo(); dev.clearRedo();
     line(onMorph === 1 && onFilters === 1 && noDock && padSwitch && side && first === 'morphCorners' && second === 'morphBench', 'Morph page (GUI-26, GUI-40): ' + onMorph + ' pad showing with morph on (control: ' + onFilters + ' on Filters, the dock), no dock, the Pad switch off here, the pad in its sticky column, and the page\u2019s own column runs ' + first + ', then ' + second + '.'); }
+  // 4b2e. GUI-45 r3: a group marked `side` sits in the pad's column, after the pad and its law's banner, and not in the page's grid. Every placed control
+  // must still be mounted exactly once, which the stale/shell gates hold. Until D.2's rows for X and Y land, no group is marked, and the line says so.
+  { const sides = PG.morph.groups.filter(g => g.side), col = pageEls.morph.querySelector('.morph-side'), kids = col ? [...col.children] : [], pad = kids.findIndex(e => e.id === 'morphPad' || e.querySelector && e.querySelector('#morphPad'));
+    const placed = sides.map(g => ({ g, inSide: kids.findIndex(e => e.dataset && e.dataset.section === g.id), all: pageEls.morph.querySelectorAll('[data-section="' + g.id + '"]').length }));
+    const ok = pad >= 0 && placed.every(q => q.inSide > pad + 1 && q.all === 1);
+    line(ok, 'Under the Morph pad (GUI-45 r3): ' + (sides.length ? placed.map(q => q.g.title + (q.inSide > pad + 1 ? ' below the pad and its banner' : ' MISSING from the pad\u2019s column') + (q.all === 1 ? '' : ', drawn ' + q.all + ' times')).join('; ') : 'no group is marked `side` yet; X and Y wait on D.2\u2019s rows (GN-51)') + '.'); }
   // 4b3. GN-20: a second drag of one source onto one destination adds no wire, by either path. Control: the first drag adds one.
   { const k = Object.keys(ROW).find(x => dev.canRoute(x)), e2 = { id: 'env2', name: 'ENV 2' }, n0 = dev.routes().length, first = dropMap(e2, k), n1 = dev.routes().length, again = dropMap(e2, k), n2 = dev.routes().length;
     if (first.ok) dev.undo(); dev.clearRedo();
