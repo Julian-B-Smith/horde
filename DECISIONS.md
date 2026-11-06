@@ -11958,6 +11958,35 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 
 **FX device (ADR-254).** The same patching, with its own inputs in place of the sources.
 
+
+## GUI-53 — RULED by the human: per-corner mappings' five questions; a per-patch loop setting and a warning when a load drops a mapping (B396; ADR-371; 2026-11-06)
+
+**The human, 2026-11-06,** on the lead's `docs/design/corner-mapping-lab.html`, through the Labs facilitator:
+1. A mapping's blend "Fades with the corner".
+2. Past zero it "Stops at zero".
+3. Loops between corners: "Let's make this a setting". The setting offers three modes: refuse any possible loop, refuse only inside a corner, or allow, one step late. It defaults to "Allow, one step late" and is saved per patch. Where its control lives is not ruled.
+4. A corner preset load that would close a loop under a refusing mode: "Load it minus the mapping but with a warning". The page names what was dropped.
+5. The pad in loops "Follows the loop setting": it counts under the refusing modes, and is read a step late under Allow.
+
+**What this session draws.** The loop setting as a three-way control. Its place is the human's to rule; the GUI session will propose one. The warning is a line in the window naming each dropped mapping (source → target and the corner) when a load drops any.
+
+**The Map Mode spec now reads per corner.** `docs/design-system/HORDE-Map-Mode-Spec.md`'s scope rule and its decisions-table row said "global for 1.0". The human approved the edit in this session ("Yes, edit that rule"), carrying ADR-371 MQ17 and GUI-51 r5. Only that rule changed; morph and intent targets stay forced global.
+
+**Engine impact.** GN-27 (mappings per corner) and GN-53 (the loop mode as a per-patch setting, and a load's report of what it dropped). The lead records the engine side.
+
+**FX device (ADR-254).** It has a morph and mappings, so all five apply.
+
+## GUI-54 — DIRECTED by the human: the Mindlathe logo over the window when it first opens, fading on the first click or after 2.5 s (2026-11-06)
+
+**The human, 2026-11-06:** "I want my Mindlathe logo to overlay the gui when you first open it and fade on first click or after a few seconds". By poll: once per Live session, and 2.5 seconds.
+
+**What changes.** The first time the window opens after the plug-in loads, the Mindlathe logo covers the window. It fades out on the first click (the click does nothing else) or after 2.5 s, whichever comes first, and later openings go straight to the GUI. Under reduced motion it goes without a fade. It goes into the design master first, as a component with the artwork as an asset (ADR-316).
+
+**Waiting on the artwork.** The human showed the logo, a cyan-to-magenta wordmark, but no file reached the repo, and an overlay needs it with a transparent background (PNG or SVG). The master component is built once the file arrives.
+
+**Engine impact.** GN-54: "once per Live session" outlives the page, which dies with the window, so the plug-in tells the page at `hello` whether this is the first opening since it loaded.
+
+**FX device (ADR-254).** The same, as a Mindlathe plug-in.
 ## GUI-42 — DIRECTED by the human: the Morph page fits beside its pad; pictures keep moving; the waveform's name (amends GUI-40 and GUI-33; 2026-11-05)
 
 **The human, 2026-11-05:** "The morph grid still gets cut off at the bottom of the scroll by the morph box. I feel like we need to reformat a little to fit everything on the page more sensibly." And: "Also the osc visualizers are all freezing".
