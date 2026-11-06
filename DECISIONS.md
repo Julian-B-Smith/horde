@@ -12154,3 +12154,22 @@ Harvested and kept as a source: scalpel-interface-lab (B271, B293 to B375; ADR-3
 
 **FX device (ADR-254):** none. The cable views' animation applies to the FX page's views wherever they're hosted.
 
+## ADR-370 — RULED by the human: the morph next, the modulation spec drafted, and the test plug-in widened (B630, B631, B632)
+
+**Context.** With GUI 3 running on the engine in the test plug-in, the human asked what else could be wired. The lead answered:
+- **Possible now:** pitch bend and glide, every setting automatable, a real output scope, engine-backed pictures, and member pan through a spec round.
+- **Not possible yet:** morph and modulation. Morph's spec is ratified (round 48) but unbuilt, because ADR-354 put the CPU pass first; it also has gaps the GUI already draws (B616). Modulation has no spec, only ADR-330's drafted rows.
+
+The lead proposed: a lab for the morph's open questions; the morph built before the remaining CPU work; the modulation spec drafted now; and pitch bend, glide, automation and an output tap in the test plug-in.
+
+**Ruling (the human, 2026-11-06): "yes to all, build the morph lab and start everything".**
+
+**What follows.**
+- **B631:** the GUI session builds the morph-questions lab, and the human answers by poll. The lead writes a spec round on top of Appendix D. The builder takes the morph right after batch 3's PF-3, and the remaining CPU work (the per-member tables, Crunch horde's held refresh, the stagger awaiting the human's ear) follows it. This reverses ADR-354's order for what remains of the CPU pass; the 10.7 % target stands.
+- **B630:** an agent drafts the modulation spec as a proposal, every clause cited and every choice a question. Nothing reaches the clean room until the human rules it.
+- **B632:** the test plug-in gains pitch bend and the bank's glide, as SPEC-ENGINE 10.3 already states them for the phrases, a stand-in until B504's pitch spec. It also makes every engine row a host parameter and taps the summed output for the scope.
+
+**The lead's reading, open to overrule.** B632's glide takes 10.3's law exactly and adds no travel law, quantizer or setting. Those are B504's, by spec and lab: inventing them in a test plug-in would pre-empt the human's rulings there.
+
+**FX device (ADR-254):** the modulation spec must state its consequence for the FX device, which hosts the same matrix over audio input (B528). The morph's carries over as B616 says.
+
