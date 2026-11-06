@@ -2007,31 +2007,36 @@ if (BRIDGE) {
   // A mismatch the bridge reports for hello's hash is a banner in the window, never a silent play: the keys that differ are named.
   const banner = h('p', { class: 'hd-note bad bridge-banner', role: 'alert', hidden: true });
   $('win').prepend(banner);
+  /* These three paint on every snapshot as well as every frame: a window that isn't drawing frames yet (offscreen, or not yet
+     attached) still gets its bank, Voices, build and mismatch, which the lead's first window test showed it didn't (B628). */
   let mmKey = '';
-  views.push({ page: '*', update() {
+  const paintMismatch = () => {
     const mm = dev.bridge().mismatch, k = JSON.stringify(mm);
     if (k === mmKey) return; mmKey = k; banner.hidden = !mm;
     if (mm) banner.textContent = 'This page doesn\u2019t match the engine (its manifest hash ' + String(mm.got).slice(0, 12) + '\u2026, the page\u2019s ' + String(mm.expected).slice(0, 12) + '\u2026). Rows that differ: ' + ((mm.keys || []).slice(0, 8).join(', ') || 'not listed') + ((mm.keys || []).length > 8 ? ' and ' + (mm.keys.length - 8) + ' more' : '') + '. Values may land on the wrong rows: rebuild the page from the engine\u2019s spec.';
-  } });
+  };
   // The test plug-in's bank: its names arrive with the first frame that carries them, and a pick loads one by index.
   let bankKey = '', bar = null;
-  views.push({ page: '*', update() {
+  const paintBank = () => {
     const p = dev.presets(); if (!p || !p.names || !p.names.length) return;
     const k = p.names.join('\n');
     if (k !== bankKey) { bankKey = k; bar = H.PresetBar($('presetHost'), S, { value: p.names[p.index] || p.names[0], note: 'The test plug-in’s bank. A load replaces the engine, so a sounding note stops.',
       bank: { Bank: p.names }, onPick: n => { const i = p.names.indexOf(n); if (i >= 0) { dev.loadPreset(i); S.say('Loading ' + n); } }, onSave: () => S.say('Saving is the plug-in’s host’s job here') }); }
     else if (bar && bar.get() !== p.names[p.index]) bar.set(p.names[p.index]);
-  } });
+  };
   // Voices: the test plug-in's own setting (kVoicesId), outside SPEC-ENGINE 5, so it's the one control here that isn't a row. It sits
   // first on the Set page, with the device's other settings: in the top bar it pushed the switches over the theme control.
   const vsHost = h('div'), vh = h('div', { id: 'voicesHost', class: 'hd-row hd-label' }, 'Voices (the test plug-in\u2019s)', vsHost, h('span', { class: 'hd-hint', id: 'buildLabel' }));
   pageEls.settings.insertBefore(vh, pageEls.settings.children[1] || null);
   const vs = H.Stepper(vsHost, { name: 'Voices', min: 1, max: 16, value: 4, def: 4, sm: true, keys: () => S.keys, onInput: n => dev.setVoices(n) });
-  views.push({ page: '*', update() {
+  const paintPlugin = () => {
     const pl = dev.plugin(); if (pl && pl.voices !== undefined && pl.voices !== vs.get()) vs.set(pl.voices);
     const b = (pl && pl.build) || (dev.bridge().hello || {}).build || '', t = b ? 'Build ' + b : '';
     if ($('buildLabel').textContent !== t) $('buildLabel').textContent = t;
-  } });
+  };
+  const paintBridge = () => { paintMismatch(); paintBank(); paintPlugin(); };
+  views.push({ page: '*', update: paintBridge });
+  transport.onSnapshot(paintBridge);   // after the adapter's own subscriber, so dev.presets() and the rest already read this snapshot
   wantFor(page);
 }
 // MS4 (ADR-340 r8, H.SourceRows' rule): with MAP on, a click on a row's body (anywhere but a button) makes it the source of the next

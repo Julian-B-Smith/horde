@@ -157,24 +157,33 @@ const NPROBE = `(async () => {
   const wait = ms => new Promise(r => setTimeout(r, ms)), R = e => e ? e.getBoundingClientRect() : null, vis = e => !!e && getComputedStyle(e).display !== 'none' && e.getClientRects().length > 0;
   const win = R(document.getElementById('win')), first = window.__sent[0] || null;
   const plugin = document.documentElement.classList.contains('plugin'), chrome = ['bar', 'sizeBar', 'status'].filter(id => vis(document.getElementById(id)));
-  const build = (document.getElementById('buildLabel') || {}).textContent || '';
+  const build = (document.getElementById('buildLabel') || {}).textContent || '', bar = (document.querySelector('#presetHost .pb-name') || {}).textContent || '';
   window.hordeNativeSnapshot({ mismatch: { expected: window.GUI3_DATA.manifest_hash, got: 'ffff', keys: ['osc1.octave'] } }); await wait(150);
   const b = document.querySelector('.bridge-banner'), shown = vis(b) && /osc1\\.octave/.test(b.textContent);
   window.hordeNativeSnapshot({ mismatch: null }); await wait(150);
   return { plugin, chrome, top: win && Math.round(win.top), left: win && Math.round(win.left), w: win && Math.round(win.width), h: win && Math.round(win.height),
-    first, hash: window.GUI3_DATA.manifest_hash, build, shown, gone: !vis(b) };
+    first, hash: window.GUI3_DATA.manifest_hash, build, bar, shown, gone: !vis(b) };
 })()`;
-async function runNative(chrome, url, frames) {
+async function runNative(chrome, url, frames, noFrames) {
   const dir = await mkdtemp(join(tmpdir(), 'gui3-native-')), b = await cdp(chrome, dir);
   try {
-    await b.call('Page.addScriptToEvaluateOnNewDocument', { source: NATIVE(frames) + 'window.__csp = []; document.addEventListener("securitypolicyviolation", e => window.__csp.push(e.violatedDirective + " " + (e.blockedURI || "inline")));' });
+    // noFrames: a window that draws no frames (offscreen, or not yet attached: the lead's first window test). requestAnimationFrame never calls back.
+    await b.call('Page.addScriptToEvaluateOnNewDocument', { source: (noFrames ? 'window.requestAnimationFrame = () => 0;' : '') + NATIVE(frames) + 'window.__csp = []; document.addEventListener("securitypolicyviolation", e => window.__csp.push(e.violatedDirective + " " + (e.blockedURI || "inline")));' });
     await b.call('Page.navigate', { url });
-    let ready = false; for (let i = 0; i < 60 && !ready; i++) { await sleep(500); try { ready = await b.evalIn(`/Ready/.test((document.getElementById('status') || {}).textContent || '') && !!(window.__sent || []).length`); } catch {} }
+    let ready = false; for (let i = 0; i < 60 && !ready; i++) { await sleep(500); try { ready = await b.evalIn(noFrames ? `!!(window.__sent || []).length && !!document.querySelector('#presetHost .pb-name')` : `/Ready/.test((document.getElementById('status') || {}).textContent || '') && !!(window.__sent || []).length`); } catch {} }
     const thrown = b.events.filter(e => e.method === 'Runtime.exceptionThrown').map(e => (e.params.exceptionDetails.exception || {}).description || e.params.exceptionDetails.text);
     return { ready, thrown, n: ready ? await b.evalIn(NPROBE) : null, csp: await b.evalIn('window.__csp || []').catch(() => ['unreadable']) };
   } finally { b.ws.close(); b.proc.kill(); await sleep(200); await rm(dir, { recursive: true, force: true }); }
 }
-function nativeVerdict(r, red) {
+function nativeVerdict(r, red, frames, noFrames) {
+  const first = frames.find(f => f.presets) || {}, names = (first.presets || {}).names || [], at = (first.presets || {}).index || 0;
+  if (noFrames) {
+    if (!r.ready) { red.push('plug-in mode with no frames: the page never sent hello'); return; }
+    if (names.length && !r.n.bar.startsWith(names[at])) red.push(`plug-in mode with no frames: the preset bar reads "${r.n.bar}", not "${names[at]}" (the bank paints only on a frame)`);
+    if (r.n.build !== 'Build stand-in') red.push('plug-in mode with no frames: the build label reads "' + r.n.build + '"');
+    return;
+  }
+  if (names.length && r.ready && !r.n.bar.startsWith(names[at])) red.push(`plug-in mode: the preset bar reads "${r.n.bar}", not "${names[at]}"`);
   if (!r.ready) { red.push('plug-in mode: the page never said Ready with hordeNativeSend bound'); return; }
   r.thrown.forEach(t => red.push('plug-in mode, uncaught: ' + String(t).split('\\n')[0]));
   r.csp.forEach(v => red.push('plug-in mode, blocked by the page policy: ' + v));
@@ -227,10 +236,11 @@ try {
   embedded = embedPage();
   const eb = base.replace('/design/gui3.html', EMBEDDED);
   replayVerdict(await runReplay(chrome, eb, frames, false), await runReplay(chrome, eb, frames, true), frames, red);
-  const nat = await runNative(chrome, eb, frames); nativeVerdict(nat, red);
+  const nat = await runNative(chrome, eb, frames); nativeVerdict(nat, red, frames);
+  nativeVerdict(await runNative(chrome, eb, frames, true), red, frames, true);
   console.log(red.length ? 'gui3_browser_check: RED\n  ' + red.join('\n  ')
     : `gui3_browser_check: GREEN -- ${r.st.ok} self-checks pass in a real browser, ${MOVERS.join(', ')} move after them, and with frames stopped they read frozen (control); ` +
       `the plug-in's one-file page runs under its policy with no violation, its bridge side holds on ${recorded ? 'the recorded' : 'SYNTHETIC'} frames, and a frozen replay reads frozen (control); ` +
-      `in plug-in mode the ${nat.n.w} x ${nat.n.h} device fills the view's top-left with no lab chrome, says hello with its hash, and shows and clears a mismatch`);
+      `in plug-in mode the ${nat.n.w} x ${nat.n.h} device fills the view's top-left with no lab chrome, says hello with its hash, shows and clears a mismatch, and paints its bank and build with no frames drawn`);
 } finally { srv.close(); }
 process.exit(red.length ? 1 : 0);

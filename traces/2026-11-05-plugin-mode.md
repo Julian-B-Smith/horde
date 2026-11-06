@@ -15,4 +15,6 @@
 - `gui3_browser_check` GREEN, including "in plug-in mode the 980 x 720 device fills the view's top-left with no lab chrome, says hello with its hash, and shows and clears a mismatch". Plant: no plugin class read RED ("the lab chrome still shows", "the device starts at 146, 349").
 - The hash: `--manifest-lines | shasum -a 256` = `ca64bf73f67efe067c87cfd739a2d4d007bfa9cd72c29d314913b5879f38fd29`, the engine's. With the default as a value instead it would be `0add9b8e…`, so the index reading is the one that matches.
 
+**A second commit, the lead's window test (2026-11-05).** Its screenshot showed "INIT - Init", no knob faces and blank pictures: the window drew no animation frames, and the bank was painted per frame. The bank, Voices, build and mismatch now also paint on each snapshot. The browser check gained a plug-in run where `requestAnimationFrame` never fires, which must still show the bank's preset and the build. Plant: without the snapshot subscription it read RED, "the preset bar reads "INIT - Init ▾", not "Glass horde pad"", which is the lead's screenshot.
+
 **Verify.** `./verify fast` on the commit this trace ships in.
