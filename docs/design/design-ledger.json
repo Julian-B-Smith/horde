@@ -7539,6 +7539,10 @@
    "reason": "A test's chaotic list and readings of the oscillator's laws: no design element."
   },
   {
+   "adr": "ADR-368",
+   "reason": "A CPU measurement's chord: no design element."
+  },
+  {
    "adr": "GUI-44",
    "reason": "A gate: GUI 3's browser check wired into ./verify fast, a hole where there's no browser. No design element."
   }

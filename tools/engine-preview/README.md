@@ -6,6 +6,10 @@ A throwaway plug-in that lets the human play the clean-room engine in Live (B624
 
 **What it lacks, because the engine lacks it:** filters, effects, the modulation matrix, glide, pitch bend and the morph. Changing preset builds a new engine, which cuts off anything sounding.
 
+**Every build is labelled** with the engine commit and a build number that only counts up. The label shows in the window's top right, in the plug-in's description and in the log's first line, so a test build in Live is never a guess.
+
+**Silence costs next to nothing.** While the engine reports itself silent (OU-4) and no event or edit arrives, the shell skips it. On 1ad270a a silent `process()` cost 7 to 13 % of a core per instance; `skip()` costs about 0.1 to 0.4 %.
+
 **Its session log.** Each instance writes `~/Library/Logs/horde-engine-preview/session-*.tsv`: for every preset played, the blocks that had sound, their mean and worst share of the block's time, and how many overran. Idle blocks don't count, so the figures say what a note costs. These figures are from a real session, not PF-3, and they don't replace it.
 
 ## Build
