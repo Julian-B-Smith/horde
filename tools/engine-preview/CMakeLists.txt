@@ -54,6 +54,9 @@ add_custom_command(OUTPUT ${BANK_INC}
 add_custom_target(bank_embedded DEPENDS ${BANK_INC})
 
 add_library(preview-impl STATIC preview_plugin.cpp preview_gui.mm)
+# build.sh passes which engine commit and which build this is; the window, the log and the description show it.
+set(HORDE_PREVIEW_BUILD_LABEL "engine unknown, build 0" CACHE STRING "")
+target_compile_definitions(preview-impl PUBLIC "HORDE_PREVIEW_BUILD_LABEL=\"${HORDE_PREVIEW_BUILD_LABEL}\"")
 add_dependencies(preview-impl bank_embedded)
 target_include_directories(preview-impl PUBLIC ${CMAKE_BINARY_DIR}/generated ${CMAKE_CURRENT_SOURCE_DIR} ${HORDE_REPO_ROOT}/h2)
 target_link_libraries(preview-impl PUBLIC clap clap-wrapper-extensions horde_engine2 "-framework AppKit")
@@ -63,7 +66,7 @@ make_clapfirst_plugins(
   IMPL_TARGET preview-impl
   OUTPUT_NAME "horde-engine-preview"
   ENTRY_SOURCE "preview_entry.cpp"
-  BUNDLE_IDENTIFIER "com.mind-lathe.horde.engine-preview"
+  BUNDLE_IDENTIFIER "com.mindlathe.horde-engine-preview"
   BUNDLE_VERSION ${PROJECT_VERSION}
   COPY_AFTER_BUILD FALSE
   PLUGIN_FORMATS CLAP VST3 AUV2
@@ -82,7 +85,7 @@ endforeach()
 # The smoke test's must-fail build: the same shell with its routes removed. A bare CLAP, never installed.
 add_library(preview-plant MODULE preview_plugin.cpp preview_gui.mm preview_entry.cpp)
 add_dependencies(preview-plant bank_embedded)
-target_compile_definitions(preview-plant PRIVATE HORDE_PREVIEW_PLANT_NO_ROUTES)
+target_compile_definitions(preview-plant PRIVATE HORDE_PREVIEW_PLANT_NO_ROUTES "HORDE_PREVIEW_BUILD_LABEL=\"${HORDE_PREVIEW_BUILD_LABEL}\"")
 target_include_directories(preview-plant PRIVATE ${CMAKE_BINARY_DIR}/generated ${CMAKE_CURRENT_SOURCE_DIR} ${HORDE_REPO_ROOT}/h2)
 target_link_libraries(preview-plant PRIVATE clap horde_engine2 "-framework AppKit")
 set_target_properties(preview-plant PROPERTIES PREFIX "" SUFFIX ".clap")
