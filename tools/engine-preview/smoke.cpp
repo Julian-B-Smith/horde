@@ -286,6 +286,18 @@ int main(int argc, char** argv) {
     process(p.plugin, restore, l, r, 64);
   }
 
+  // Silence is skipped (OU-4): a released chord's tail ends, and the blocks after it must be counted as skipped.
+  {
+    (void)play(p, presets[0], {512});
+    float l[512], r[512];
+    bool zero = true;
+    for (int b = 0; b < 2000; ++b) {
+      Events none;
+      process(p.plugin, none, l, r, 512);
+      for (int i = 0; i < 512 && b > 1900; ++i) zero = zero && l[i] == 0 && r[i] == 0;
+    }
+    check(zero, "after the tail, the output is exact zero");
+  }
   // The log the human's Live sessions leave for the lead.
   p.plugin->on_main_thread(p.plugin);
   p.plugin->stop_processing(p.plugin);
@@ -293,6 +305,10 @@ int main(int argc, char** argv) {
   const std::string log_dir = std::string(home) + "/Library/Logs/horde-engine-preview";
   const std::string list = "ls " + log_dir + "/session-*.tsv > /dev/null 2>&1";
   check(std::system(list.c_str()) == 0, "the session log is written");
+  // Must read above zero: the silent blocks above were skipped. The control is the plant, which never goes silent
+  // in this test because it is only played, then destroyed.
+  const std::string idle = "grep -q -E 'idle blocks skipped [1-9]' " + log_dir + "/session-*.tsv";
+  check(std::system(idle.c_str()) == 0, "silent blocks are skipped, not rendered (OU-4), and the log counts them");
   const std::string show = "cat " + log_dir + "/session-*.tsv | head -8";
   std::fflush(stdout);
   (void)std::system(show.c_str());

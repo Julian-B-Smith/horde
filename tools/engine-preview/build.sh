@@ -22,7 +22,12 @@ if [ ! -d "$export_dir/engine2" ]; then
   git -C "$repo" archive "$full" engine2 | tar -x -C "$export_dir"
 fi
 
-args=(-S "$here" -B "$build_dir" -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release "-DHORDE_ENGINE2_DIR=$export_dir/engine2")
+# A build number that only counts up, kept beside the builds, so every test build the human loads is told apart.
+count_file="$out/build-count"
+build_no=$(( $(cat "$count_file" 2>/dev/null || echo 0) + 1 ))
+echo "$build_no" > "$count_file"
+label="engine $full, build $build_no"
+args=(-S "$here" -B "$build_dir" -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release "-DHORDE_ENGINE2_DIR=$export_dir/engine2" "-DHORDE_PREVIEW_BUILD_LABEL=$label")
 [ -n "${HORDE_LIBS_DIR:-}" ] && args+=("-DHORDE_LIBS_DIR=$HORDE_LIBS_DIR")
 if [ -n "${HORDE_SDK_CACHE:-}" ]; then
   args+=("-DFETCHCONTENT_SOURCE_DIR_HORDE_VST3SDK=$HORDE_SDK_CACHE/horde_vst3sdk-src" "-DFETCHCONTENT_SOURCE_DIR_HORDE_AUDIOUNITSDK=$HORDE_SDK_CACHE/horde_audiounitsdk-src")
@@ -60,4 +65,4 @@ if [ "$install" = "--install" ]; then
   killall -9 AudioComponentRegistrar 2>/dev/null || true
   auval -v aumu HsEp LfTk | tail -3
 fi
-echo "built against engine $full"
+echo "built: $label"
