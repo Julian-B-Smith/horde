@@ -12098,16 +12098,18 @@ The GUI session recommends (c). Nothing is built until the human picks.
 **Costs the choices carry (the lab's own, restated).**
 - **The three glyph marks** show who owns the row and where each corner sits, but not the weights, and they need the four glyphs to have been learnt. On the workstation the square and circle blur at a glance; on the vector tube, outlines under 2 units are hard to tell apart.
 - **The character LCD's budget is full.** Custom glyphs take four of the eight custom characters, and Sub-cell tip keeps four loaded, so nothing else on that glass can use a custom character.
-- **Weights show on three screens:** Drive's pips, Bulwark's lamps and Echo's pips. Question 3 below asks whether they should.
+- **Weights show on three screens:** Drive's pips, Bulwark's lamps and Echo's pips.
 
-**Open, asked through the Labs facilitator.** The human answered the lab's first question only.
-1. **One grammar, or one per glass?** The picks differ per glass, but the question wasn't put as such. The facilitator noticed that all three changes moved to the chassis's glyphs, so the human may want glyphs wherever a glass can draw them. That's the facilitator's reading, not a ruling, and it's asked rather than applied.
-2. **Should weights show on a glass at all?**
-3. **Bezel lamps,** the unbuilt idea: is it worth a round?
+**GUI-58 A1: the lab's other three questions (the human, 2026-11-06, through the Labs facilitator).**
+1. **"Each screen its own."** Each glass keeps its own grammar. The three glyph picks stand, and no other screen's corner mark changes. The facilitator's "glyphs everywhere" reading is withdrawn.
+2. **"Show weight where it fits."** That is, as Drive's, Bulwark's and Echo's picks already do. A glass whose mark has no room for weight doesn't gain one.
+3. **Bezel lamps: "Yes, try a round."** GB33 builds them as candidates. The chassis would light a hued lamp beside each of the glass's rows, so the chassis has to know where those rows are. That line between the chassis and the module's software is for the round to draw, not this ruling.
 
-**The lab.** It is ruled (GUI-58) and stays pinned for review while the three questions are open. Its marks are sample data and the owner is a stand-in.
+The LCD's full custom-character budget wasn't raised with the human. If another mark on that glass ever needs a custom character, the question goes back to them then.
 
-**What happens next.** Each mark goes into the master as a component, then into the bundle and the screens, after the open questions are answered, since question 1 could change the three glyph screens or others. Shriek's and Sluice's glasses are drawn in their own repos. The lead carries these choices to them in its briefs, and this session files nothing.
+**The lab.** It is ruled (GUI-58), with nothing open, and its review pin is off. Its marks are sample data, and the owner is a stand-in.
+
+**What happens next.** Each mark goes into the master as a component, then into the bundle, then onto the screens. Shriek's and Sluice's glasses are drawn in their own repos. The lead carries these choices to them in its briefs, and this session files nothing.
 
 **Engine impact.** GN-18. Every corner mark names the owner, and the engine publishes that. The modulation marks draw the range and output the shell already draws in the Map Mode lane, so they need nothing new.
 

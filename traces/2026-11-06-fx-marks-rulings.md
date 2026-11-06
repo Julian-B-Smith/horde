@@ -25,4 +25,10 @@
 - Nothing goes into the master yet.
 - Briefs to Shriek and Sluice are the lead's.
 
+**A second commit: GUI-58 A1.** The human answered the three open questions, through the Labs facilitator.
+- The answers: "Each screen its own", "Show weight where it fits", and "Yes, try a round" for bezel lamps.
+- GB33 is opened for the bezel-lamp round.
+- The lab's review pin is off, and the index is regenerated.
+- GB15 and the ledger now point to the master as the next step.
+
 **Verify.** `./verify fast` on the commit this trace ships in.

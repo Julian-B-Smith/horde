@@ -288,7 +288,7 @@
   "fx-screen-marks-lab.html": {
    "status": "ruled",
    "adr": "GUI-58",
-   "note": "GB15, ruled GUI-58 (the human, 2026-11-06, through the Labs facilitator): a corner and a modulation mark per screen, glyphs on the workstation, vector and LCD. Still pinned: one grammar or one per glass, weights on a glass, bezel lamps. Nothing here is in the master yet."
+   "note": "GB15, ruled GUI-58 and its A1 (the human, 2026-11-06, through the Labs facilitator): a corner and a modulation mark per screen, glyphs on the workstation, vector and LCD; each screen its own grammar; weight where it fits; bezel lamps get a round (GB33). Its review pin is off. Nothing here is in the master yet."
   },
   "fx-screens-workshop.html": {
    "status": "harvested",
@@ -6613,7 +6613,7 @@
    "id": "gui58-marks-ws",
    "adr": "GUI-58",
    "clause": "Shriek, 80s workstation: corners drawn as Bitmap glyphs, modulation as Dither band",
-   "note": "Waits on GUI-58’s open questions before the master. FX device: the same."
+   "note": "Next: the master. FX device: the same."
   },
   {
    "port_tab": null,
@@ -6628,7 +6628,7 @@
    "id": "gui58-marks-gbc",
    "adr": "GUI-58",
    "clause": "Sluice, Game Boy Color: corners drawn as Sprite pips, modulation as Hatched lane",
-   "note": "Waits on GUI-58’s open questions before the master. FX device: the same."
+   "note": "Next: the master. FX device: the same."
   },
   {
    "port_tab": null,
@@ -6643,7 +6643,7 @@
    "id": "gui58-marks-house",
    "adr": "GUI-58",
    "clause": "Drive, the house screen: corners drawn as Pips in one ink, modulation as the chassis’s lane",
-   "note": "Waits on GUI-58’s open questions before the master. FX device: the same."
+   "note": "Next: the master. FX device: the same."
   },
   {
    "port_tab": null,
@@ -6658,7 +6658,7 @@
    "id": "gui58-marks-seg",
    "adr": "GUI-58",
    "clause": "Scape, segment glass: corners drawn as Corner digits, modulation as Blink band",
-   "note": "Waits on GUI-58’s open questions before the master. FX device: the same."
+   "note": "Next: the master. FX device: the same."
   },
   {
    "port_tab": null,
@@ -6673,7 +6673,7 @@
    "id": "gui58-marks-nix",
    "adr": "GUI-58",
    "clause": "Bulwark, Nixie tubes and neon bargraphs: corners drawn as Lamps on a scale, modulation as Second column",
-   "note": "Waits on GUI-58’s open questions before the master. FX device: the same."
+   "note": "Next: the master. FX device: the same."
   },
   {
    "port_tab": null,
@@ -6688,7 +6688,7 @@
    "id": "gui58-marks-son",
    "adr": "GUI-58",
    "clause": "Echo, sonar scope: corners drawn as Pips on the trace, modulation as Afterglow",
-   "note": "Waits on GUI-58’s open questions before the master. FX device: the same."
+   "note": "Next: the master. FX device: the same."
   },
   {
    "port_tab": null,
@@ -6703,7 +6703,7 @@
    "id": "gui58-marks-crt",
    "adr": "GUI-58",
    "clause": "Phosphor CRT terminal: corners drawn as Letter ruler, modulation as Shade band",
-   "note": "Waits on GUI-58’s open questions before the master. FX device: the same."
+   "note": "Next: the master. FX device: the same."
   },
   {
    "port_tab": null,
@@ -6718,7 +6718,7 @@
    "id": "gui58-marks-ttx",
    "adr": "GUI-58",
    "clause": "Teletext page: corners drawn as Letters in cells, modulation as Blue band, flash cell",
-   "note": "Waits on GUI-58’s open questions before the master. FX device: the same."
+   "note": "Next: the master. FX device: the same."
   },
   {
    "port_tab": null,
@@ -6733,7 +6733,7 @@
    "id": "gui58-marks-vec",
    "adr": "GUI-58",
    "clause": "Vector monitor: corners drawn as Outline glyphs, modulation as Beam retrace",
-   "note": "Waits on GUI-58’s open questions before the master. FX device: the same."
+   "note": "Next: the master. FX device: the same."
   },
   {
    "port_tab": null,
@@ -6748,7 +6748,7 @@
    "id": "gui58-marks-lcd",
    "adr": "GUI-58",
    "clause": "Dot-matrix character LCD: corners drawn as Custom glyphs, modulation as Sub-cell tip",
-   "note": "Waits on GUI-58’s open questions before the master. FX device: the same."
+   "note": "Next: the master. FX device: the same."
   },
   {
    "port_tab": null,
@@ -6763,7 +6763,7 @@
    "id": "gui58-marks-cad",
    "adr": "GUI-58",
    "clause": "CAD blueprint: corners drawn as Balloons, modulation as Phantom limits",
-   "note": "Waits on GUI-58’s open questions before the master. FX device: the same."
+   "note": "Next: the master. FX device: the same."
   }
  ],
  "not_design": [
