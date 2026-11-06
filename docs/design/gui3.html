@@ -2024,13 +2024,13 @@ if (BRIDGE) {
       bank: { Bank: p.names }, onPick: n => { const i = p.names.indexOf(n); if (i >= 0) { dev.loadPreset(i); S.say('Loading ' + n); } }, onSave: () => S.say('Saving is the plug-in’s host’s job here') }); }
     else if (bar && bar.get() !== p.names[p.index]) bar.set(p.names[p.index]);
   };
-  // Voices: the test plug-in's own setting (kVoicesId), outside SPEC-ENGINE 5, so it's the one control here that isn't a row. It sits
-  // first on the Set page, with the device's other settings: in the top bar it pushed the switches over the theme control.
-  const vsHost = h('div'), vh = h('div', { id: 'voicesHost', class: 'hd-row hd-label' }, 'Voices (the test plug-in\u2019s)', vsHost, h('span', { class: 'hd-hint', id: 'buildLabel' }));
+  // The test plug-in's build, first on the Set page. One voice control only, Polyphony (voice.polyphony, a row on this page): the
+  // human, 2026-11-05, "One control: Polyphony", after hearing 4 voices while the page showed 16 (GUI-46 A2). The plug-in's own
+  // Voices limit and its `plugin {voices}` message are gone; `plugin` now carries only the build.
+  const vh = h('div', { id: 'buildHost', class: 'hd-row hd-label' }, 'The test plug-in', h('span', { class: 'hd-hint', id: 'buildLabel' }));
   pageEls.settings.insertBefore(vh, pageEls.settings.children[1] || null);
-  const vs = H.Stepper(vsHost, { name: 'Voices', min: 1, max: 16, value: 4, def: 4, sm: true, keys: () => S.keys, onInput: n => dev.setVoices(n) });
   const paintPlugin = () => {
-    const pl = dev.plugin(); if (pl && pl.voices !== undefined && pl.voices !== vs.get()) vs.set(pl.voices);
+    const pl = dev.plugin();
     const b = (pl && pl.build) || (dev.bridge().hello || {}).build || '', t = b ? 'Build ' + b : '';
     if ($('buildLabel').textContent !== t) $('buildLabel').textContent = t;
   };
