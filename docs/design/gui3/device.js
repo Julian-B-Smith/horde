@@ -502,14 +502,13 @@
       var out = o.meters && o.meters.out, peak = out && out.peak > -Infinity ? Math.pow(10, out.peak / 20) : 0;
       return { t: 'vz', peak: peak, act: act, env: env, gates: gates, r: r };
     }
-    /* B628, the plug-in's own messages: which parts of RC-8 to send (`want`), its preset bank (`preset`) and its Voices
-       (`plugin`). None is a step in the history: a preset load replaces the engine, and the bridge's state answers for it. */
+    /* B628, the plug-in's own messages: which parts of RC-8 to send (`want`) and its preset bank (`preset`). (Its Voices, the
+       `plugin` message, is gone: Polyphony is the one voice control, GUI-46 A2; `plugin {build}` still arrives in snapshots.) None is a step in the history: a preset load replaces the engine, and the bridge's state answers for it. */
     D.sides = function () { return transport.sides || { engine: true, resolver: true, device: true }; };
     D.want = function (w) { transport.send({ type: 'want', seq: ++seq, osc: w.osc || [], members: !!w.members, cycles: !!w.cycles }); };
     D.presets = function () { return lastSnap && lastSnap.presets || null; };
     D.loadPreset = function (i) { loadAt = ++seq; transport.send({ type: 'preset', seq: seq, index: i }); rev++; };
     D.plugin = function () { return lastSnap && lastSnap.plugin || null; };
-    D.setVoices = function (n) { transport.send({ type: 'plugin', seq: ++seq, voices: n }); rev++; };
     D.hello = function (hash) { loadAt = ++seq; transport.send({ type: 'hello', seq: seq, manifest_hash: hash }); };
     D.bridge = function () { return lastSnap ? { hello: lastSnap.hello || null, mismatch: lastSnap.mismatch || null, refused: lastSnap.refused || null } : { hello: null, mismatch: null, refused: null }; };
     /* GUI-33: is any voice sounding? The pictures rest while none is. A voice alive, or a peak at or over B365's -90 dBFS, so a release tail counts (GN-45). */

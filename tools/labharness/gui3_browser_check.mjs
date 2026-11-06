@@ -98,9 +98,9 @@ async function run(chrome, url, plant) {
 /* THE BRIDGE'S PAGE SIDE (B628, docs/proposals/gui-on-engine.md section 7). The page loads on GUI3_REPLAY, the frames the plug-in's
    bridge would hand it, through ReplayTransport, which runs the same decode as the plug-in's NativeTransport. Until the lead's
    recorded fixture exists (tools/labharness/fixtures/gui3-replay.json, used when present), the frames are SYNTHETIC, written here:
-   three notes taking turns, a preset bank and Voices 6. Asserted: every message carries a seq; the first `want` asks Main's two
+   three notes taking turns and a preset bank. Asserted: every message carries a seq; the first `want` asks Main's two
    oscillators with members and Osc 1's asks [1]; the morph switch and a rack row are dimmed and an engine row isn't; the bank's
-   names reach the preset bar and its next button sends `preset`; Voices reads the frame's 6; and the feed's gates change as frames
+   names reach the preset bar and its next button sends `preset`; and the feed's gates change as frames
    play. The control: the same load with the replay frozen must show ONE set of gates, or the detector can't see frames advance. */
 /* The plug-in build's two steps (B628): gui3_inline.py, then embed_file.py's policy. Python, as the build is; a failure is red. */
 function embedPage() {
@@ -117,7 +117,7 @@ function syntheticFrames() {
     fr.push({ observe: { sounding: true, meters: { osc1: { peak: 0.2, clip: false }, out: { peak: 0.25, clip: false } },
       voices: [{ level: 0.5, env: [1, 0, 0, 0], notes: { key: k, vel: 0.8, gate: true }, osc: [{ R: 0.6, psi: i * 0.1, frame: 0, phases: ph, levels: ph.map(() => 1), blades: [{ pos: 0.3, width: 0.1 }, null] }, null] }] } });
   }
-  Object.assign(fr[0], { params: { 'voice.mode': 0 }, presets: { names: ['Glass horde pad', 'Crushed bells', 'Undertone cathedral'], index: 0 }, plugin: { voices: 6 } });
+  Object.assign(fr[0], { params: { 'voice.mode': 0 }, presets: { names: ['Glass horde pad', 'Crushed bells', 'Undertone cathedral'], index: 0 }, plugin: { build: 'synthetic' } });
   return fr;
 }
 const PROBE = `(async () => {
@@ -134,7 +134,7 @@ const PROBE = `(async () => {
   const ringA = ring(); await wait(450); const ringB = ring();
   return { seqs: sent().every(m => typeof m.seq === 'number'), want0, want1, gates: [...gates], barName, pre,
     morphOff: document.getElementById('morphOn').disabled, rackInert: !!rackEl && rackEl.classList.contains('inert') && +getComputedStyle(rackEl).opacity < 1,
-    engLive: !!engEl && !engEl.classList.contains('inert'), ringA, ringB, voices: (document.querySelector('#voicesHost output') || {}).textContent, notes: document.querySelectorAll('.inert-note').length };
+    engLive: !!engEl && !engEl.classList.contains('inert'), ringA, ringB, notes: document.querySelectorAll('.inert-note').length };
 })()`;
 async function runReplay(chrome, url, frames, frozen) {
   const dir = await mkdtemp(join(tmpdir(), 'gui3-replay-')), b = await cdp(chrome, dir);
@@ -152,7 +152,7 @@ async function runReplay(chrome, url, frames, frozen) {
    description and status are gone and the device sits at the view's top-left); hello went out first with shell-data's hash;
    the build label reads the bridge's build; a mismatch the bridge reports shows as a banner naming a row, and goes when cleared. */
 const NATIVE = frames => `window.__sent = []; window.hordeNativeSend = t => { const m = JSON.parse(t); window.__sent.push(m);
-  if (m.type === 'hello') setTimeout(() => window.hordeNativeSnapshot(Object.assign({}, ${JSON.stringify(frames[0])}, { ack: m.seq, hello: { build: 'stand-in', manifest_hash: m.manifest_hash }, mismatch: null, plugin: Object.assign({ voices: 4 }, (${JSON.stringify(frames[0])}).plugin, { build: 'stand-in' }) })), 0); };`;
+  if (m.type === 'hello') setTimeout(() => window.hordeNativeSnapshot(Object.assign({}, ${JSON.stringify(frames[0])}, { ack: m.seq, hello: { build: 'stand-in', manifest_hash: m.manifest_hash }, mismatch: null, plugin: { build: 'stand-in' } })), 0); };`;
 const NPROBE = `(async () => {
   const wait = ms => new Promise(r => setTimeout(r, ms)), R = e => e ? e.getBoundingClientRect() : null, vis = e => !!e && getComputedStyle(e).display !== 'none' && e.getClientRects().length > 0;
   const win = R(document.getElementById('win')), first = window.__sent[0] || null;
@@ -208,8 +208,6 @@ function replayVerdict(r, rc, frames, red) {
   if (!p.want1 || JSON.stringify(p.want1.osc) !== '[1]') red.push('replay: Osc 1’s want is ' + JSON.stringify(p.want1));
   if (!p.morphOff || !p.rackInert || !p.engLive || !p.notes) red.push(`replay: inert state wrong (morph switch disabled ${p.morphOff}, a rack row dimmed ${p.rackInert}, osc1.detune live ${p.engLive}, notes ${p.notes})`);
   if (names.length && (!p.barName.startsWith(names[at]) || !p.pre || p.pre.index !== (at + 1) % names.length)) red.push(`replay: the preset bar reads "${p.barName}", not "${names[at]}" (index ${at}), or next sent ${JSON.stringify(p.pre)}`);
-  const pl = (frames.find(f => f.plugin) || {}).plugin;
-  if (pl && p.voices !== String(pl.voices)) red.push('replay: Voices reads ' + p.voices + ', not ' + pl.voices);
   const recordedPhases = new Set(frames.flatMap(f => (((f.observe || {}).voices || [])[0] || { osc: [] }).osc.filter(Boolean).map(c => (c.phases || []).map(x => +(+x).toFixed(5)).join())));
   if (oscFrames.length && (!p.ringA || !p.ringA.engine || !recordedPhases.has(p.ringA.phase.join()))) red.push('replay: Osc 1\u2019s ring isn\u2019t drawing a recorded frame\u2019s members: ' + JSON.stringify(p.ringA));
   if (new Set(oscFrames.map(c => c.phases.join())).size > 1 && p.ringA && p.ringB && p.ringA.phase.join() === p.ringB.phase.join()) red.push('replay: Osc 1\u2019s ring held still while frames played');

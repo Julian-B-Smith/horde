@@ -264,7 +264,7 @@
         else if (m.type === 'modes' && resolver) resolver.modes(m.modes, m.counts);
         else if ((m.type === 'rack' || m.type === 'midi') && device) device.set(m.type, m.values);
         else if (m.type === 'clear') engine.clearClip(m.id);
-        else if (m.type === 'want' || m.type === 'preset' || m.type === 'plugin') { /* the plug-in's (B628): the stub has no pictures to send, no bank and no Voices, so it acknowledges them and does nothing */ }
+        else if (m.type === 'want' || m.type === 'preset') { /* the plug-in's (B628): the stub has no pictures to send, no bank and no Voices, so it acknowledges them and does nothing */ }
         else throw new Error('unknown message ' + m.type + (m.type === 'morph' || m.type === 'position' ? ' (no resolver behind this transport)' : m.type === 'rack' || m.type === 'midi' ? ' (no device side behind this transport)' : ''));
         ack = m.seq; publish();
       },
@@ -288,7 +288,7 @@
      well-formed message, or why not. A `set` names engine rows only (rule 2: the page sends the others as their own types),
      and with `rows` given, only keys among them that aren't reserved (rule 1's "never sent blind", on the page's side too). */
   var MESSAGES = { set: ['values'], gesture: ['key', 'phase'], morph: ['settings'], position: ['x', 'y'], modes: ['modes', 'counts'],
-    rack: ['values'], midi: ['values'], clear: ['id'], want: ['osc', 'members', 'cycles'], preset: ['index'], plugin: ['voices'],
+    rack: ['values'], midi: ['values'], clear: ['id'], want: ['osc', 'members', 'cycles'], preset: ['index'],
     hello: ['manifest_hash'] };   // hello: once at load, so the bridge answers with everything (presets, plugin, params) and compares the hash
   function checkMessage(m, rows) {
     if (!m || typeof m !== 'object') return 'not a message';

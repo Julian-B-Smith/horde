@@ -12005,6 +12005,30 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 **Engine impact.** GN-51 (rows for the position). Rulings 1 and 2 need none: the corners, their names, the pin and the lock are state the shell already has (GN-34 and GN-37 ask who keeps it).
 
 **FX device (ADR-254).** It has a morph and a bank, so the same tab and the same knobs apply there.
+
+## GUI-47 — RULED by the human: an envelope of a source's own by Override, the grid as the overview; four envelopes on Main with a map button each; picture and readout on an Osc page (GB23; amends GUI-39; 2026-11-05)
+
+**The human, 2026-11-05,** reviewing `docs/design/envelope-workshop-lab.html` live with the Labs facilitator:
+- Q1, how a source gets a different envelope: "Override + grid".
+- Q2, Main: "I actually like the idea of four small, one large, and adding the map button to each of the small envelopes".
+- Q3, an Osc page: "Picture and readout".
+
+**Rulings.**
+1. **Override.** Everything follows ENV 1 until you ask. One button on a source's page gives that source its own envelope, a copy of what it was following, in a free envelope (ENV 2 to 4), so there are at most three overrides. "Back to ENV 1" returns it, and the copy is kept for the next override.
+2. **The grid** (sources against envelopes, with the four pictures over it) is the overview, on the Mod page or the Dashboard.
+3. **Main shows all four envelopes:** a strip of small pictures with the clicked one large under it. Each small one carries a **map button**, read as the same map handle the bank's modulator rows carry (ADR-322), so it routes that envelope to any parameter. That reading is the GUI session's, and is open to the human.
+4. **An Osc page** shows the envelope as a picture, about 70 px, that you drag for everything. Its values read out under it as numbers, and the seven knobs live behind +Adv. Each number still needs a keyboard route.
+
+**Not settled: where ruling 3 fits.** Main's stage fills its page area exactly (463 px of 463, measured in the shell), and ENV 1 sits directly above the deck. The lab says the strip costs about 40 px. Three ways, for the human:
+- (a) the deck gives up 40 px (its phase ring 140 → 100 px);
+- (b) smaller pictures: 24 px thumbnails and a 56 px large one, costing the deck about 12 px;
+- (c) the four thumbnails replace ENV 1's knob row, which is about the same height: values read under the picture and the knobs go behind +Adv, as ruling 4 does on the Osc pages, and nothing shrinks.
+
+The GUI session recommends (c). Nothing is built until the human picks.
+
+**Engine impact.** None: Override and the grid write the existing Envelope row (RC-6.5) and copy rows into a free envelope's existing rows, and a map button makes an ordinary modulation route (RC-4's, already requested).
+
+**FX device (ADR-254).** It has no voices and no envelopes of its own, so none of this applies there.
 ## GUI-44 — RULED by the human: GUI 3's browser check runs in `./verify fast`, a hole where there's no browser (GB24; 2026-11-05)
 
 **The human, 2026-11-05:** "A: fast, hole if absent", choosing among the three options in `docs/design/gui3/browser-gate-proposal.md`.
@@ -12064,6 +12088,8 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 4. **The manifest hash, the lead's ruling:** a stepped row whose options are consecutive integers (octave, semitone, unison, the bump harmonics, the sub's octave and semitones, polyphony) hashes its own first and last numbers. Named options keep 0 and n − 1, and every default is the option index. The page's hash is now the engine's, `ca64bf73…`.
 5. **The preset bar** reads `presets.index`, and it, Voices, the build label and the mismatch banner paint on every snapshot as well as every frame. The lead's window test drew no animation frames (its knobs and pictures were empty too), so a per-frame painter left the mock "INIT - Init" showing.
 6. **Captions:** under the carpet and voice map, the bridge says which is the engine's.
+
+**A2 (the human, 2026-11-05, through the lead's poll; B628): "One control: Polyphony".** The human heard 4 voices while the page showed Polyphony 16: the test plug-in's own Voices limit was capping them unseen. So Polyphony (`voice.polyphony`, a row on the Set page) is the one voice control. The page's Voices stepper and the `plugin {voices}` message are gone, and the schema refuses it. `plugin {build}` stays for the build label. In Live the bridge caps a loaded preset's Polyphony at 8, and the page shows the real number through the load's rows. Engine impact: none.
 ## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
 
 **Context.** FM free in pitch FM runs an accumulator that never restarts, while each of C.16's readings starts it at 0, so the estimate cannot see its mean and BL-19 cannot hold by the law alone (Q-TA-71: engine-free, 95 of its 144 one-member cases over 0.003, up to 0.046). ADR-363 sent this to a scratch trial of C.16's existing blocker, with clips for the human. Separately, item 7.8's reference R2 places FM free's modulator half a cycle from round 56's start, and 7.8 plays before its settings settle (Q-TA-77).
