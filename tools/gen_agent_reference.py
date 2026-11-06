@@ -110,6 +110,8 @@ def live_phrase(entries, key, conds):
     """PA-8's own condition text for the rows that name this key (blanket rows are stated per section)."""
     # A cell that pairs parameters with conditions by position ("`density` / `rate` / `length`") is kept,
     # so the pairing stays readable on each row.
+    if any(c == "every reserved row (5.1)" for c, *_ in pc.matching(entries, key)):
+        return conds["every reserved row (5.1)"]
     out = [(f"{c}: " if " / " in c else "") + conds[c]
            for c, _, scope, _, _ in pc.matching(entries, key) if scope == "row"]
     return "; and ".join(out) if out else "—"

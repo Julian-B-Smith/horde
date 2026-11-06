@@ -118,8 +118,8 @@ PA-8's preamble, verbatim: a parameter not listed is live whenever its source is
 | `oscN.collisionPitch` | % | −1..1 | lin | 0 | Where the blades overlap, the upper carrier's pitch bends up or down, up to ±2 octaves at full overlap. | both blades are on | built |
 | `oscN.collisionBite` | % | 0..1 | lin | 0 | Where the blades overlap, the upper blade's FM depth rises up to ×5 and its fold drive up to ×3 (C.11). | both blades are on | built |
 | `oscN.env` | — | `ENV 1`, `ENV 2`, `ENV 3`, `ENV 4` | step | ENV 1 | The envelope this oscillator's level follows (RC-6.5). | that source is on | built |
-| `oscN.pitchMode` | — | `normal` | step | normal | How Octave, Semitone, Coarse and Fine read; reserved for the 'harmonics' and 'ratio' modes after 1.0. | — | reserved |
-| `oscN.stream` | — | `All` | step | All | Which notes this oscillator plays (RC-6.7): All, every note. Reserved until Arp's core lands, which appends the six other combinations of the Direct, Chord and Arp toggles after All, so v = 0 keeps its meaning (rounds 30, 31). | — | reserved |
+| `oscN.pitchMode` | — | `normal` | step | normal | How Octave, Semitone, Coarse and Fine read; reserved for the 'harmonics' and 'ratio' modes after 1.0. | never in 1.0 | reserved |
+| `oscN.stream` | — | `All` | step | All | Which notes this oscillator plays (RC-6.7): All, every note. Reserved until Arp's core lands, which appends the six other combinations of the Direct, Chord and Arp toggles after All, so v = 0 keeps its meaning (rounds 30, 31). | never in 1.0 | reserved |
 
 ## Each blade (5.4)
 
@@ -194,8 +194,8 @@ PA-8's preamble, verbatim: a parameter not listed is live whenever its source is
 | `sub.mute` | — | `off`, `on` | step | off | As the oscillators' (IF-6). | — | built |
 | `sub.solo` | — | `off`, `on` | step | off | As the oscillators' (IF-6). | — | built |
 | `sub.env` | — | `ENV 1`, `ENV 2`, `ENV 3`, `ENV 4` | step | ENV 1 | The envelope the sub's level follows (RC-6.5; in mono, SN-7). | that source is on | built |
-| `sub.pitchMode` | — | `normal` | step | normal | Reserved for the 'harmonics' and 'ratio' modes after 1.0. | — | reserved |
-| `sub.stream` | — | `All` | step | All | Which notes the sub plays (RC-6.7): All, every note. Reserved until Arp's core lands, which appends the six other combinations of the Direct, Chord and Arp toggles after All, so v = 0 keeps its meaning (rounds 30, 31). | — | reserved |
+| `sub.pitchMode` | — | `normal` | step | normal | Reserved for the 'harmonics' and 'ratio' modes after 1.0. | never in 1.0 | reserved |
+| `sub.stream` | — | `All` | step | All | Which notes the sub plays (RC-6.7): All, every note. Reserved until Arp's core lands, which appends the six other combinations of the Direct, Chord and Arp toggles after All, so v = 0 keeps its meaning (rounds 30, 31). | never in 1.0 | reserved |
 
 ## The noise oscillator (5.6)
 
@@ -226,12 +226,12 @@ PA-8's preamble, verbatim: a parameter not listed is live whenever its source is
 | `noise.mute` | — | `off`, `on` | step | off | As the oscillators' (IF-6). | — | built |
 | `noise.solo` | — | `off`, `on` | step | off | As the oscillators' (IF-6). | — | built |
 | `noise.env` | — | `ENV 1`, `ENV 2`, `ENV 3`, `ENV 4` | step | ENV 1 | The envelope the noise's level follows (RC-6.5). | that source is on | built |
-| `noise.pitchMode` | — | `normal` | step | normal | Reserved for the 'harmonics' and 'ratio' modes after 1.0. | — | reserved |
-| `noise.stream` | — | `All` | step | All | Which notes the noise plays (RC-6.7): All, every note. Reserved until Arp's core lands, which appends the six other combinations of the Direct, Chord and Arp toggles after All, so v = 0 keeps its meaning (rounds 30, 31). | — | reserved |
-| `noise.mode` | — | `noise` | step | noise | Reserved for the sampler after 1.0, which appends `sample` (SN-13). | — | reserved |
-| `noise.sampleLoop` | — | `one-shot` | step | one-shot | Sampler: one-shot, or looping once it ships (SN-13). | — | reserved |
-| `noise.sampleKeytrack` | — | `on` | step | on | Sampler: pitched, or a fixed rate once it ships (SN-13). | — | reserved |
-| `noise.sampleStart` | % | 0 | lin | 0 | Sampler: the start position (SN-13). | — | reserved |
-| `noise.sampleRandom` | % | 0 | lin | 0 | Sampler: how far the start is randomised (SN-13). | — | reserved |
+| `noise.pitchMode` | — | `normal` | step | normal | Reserved for the 'harmonics' and 'ratio' modes after 1.0. | never in 1.0 | reserved |
+| `noise.stream` | — | `All` | step | All | Which notes the noise plays (RC-6.7): All, every note. Reserved until Arp's core lands, which appends the six other combinations of the Direct, Chord and Arp toggles after All, so v = 0 keeps its meaning (rounds 30, 31). | never in 1.0 | reserved |
+| `noise.mode` | — | `noise` | step | noise | Reserved for the sampler after 1.0, which appends `sample` (SN-13). | never in 1.0 | reserved |
+| `noise.sampleLoop` | — | `one-shot` | step | one-shot | Sampler: one-shot, or looping once it ships (SN-13). | never in 1.0 | reserved |
+| `noise.sampleKeytrack` | — | `on` | step | on | Sampler: pitched, or a fixed rate once it ships (SN-13). | never in 1.0 | reserved |
+| `noise.sampleStart` | % | 0 | lin | 0 | Sampler: the start position (SN-13). | never in 1.0 | reserved |
+| `noise.sampleRandom` | % | 0 | lin | 0 | Sampler: how far the start is randomised (SN-13). | never in 1.0 | reserved |
 
 Not a parameter, so not settable in a patch: `oscN.ratios`, the custom cut-rule list (5.3; PA-8: live when `cutRule` is custom).
