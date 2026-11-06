@@ -12017,6 +12017,28 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 **Engine impact.** None: a gate on the GUI shell.
 
 **FX device (ADR-254).** Its pages can use the same harness when they exist.
+## GUI-46 — RULED by the human: on the plug-in's bridge, a control this engine can't act on is dimmed and still visible (B628, GB26; 2026-11-05)
+
+**The human, 2026-11-05,** through the lead's poll on `docs/proposals/gui-on-engine.md`: "Dimmed, still visible", and "build it now, I want it for sound testing". The lead's choice where the plan left it open: dimmed with the idle styling, plus a small "not in this engine yet" note.
+
+**What changes (the page's side of B628).**
+1. **The page talks to the clean-room engine** when the plug-in binds `window.hordeNativeSend` before it loads (`NativeTransport`), and to recorded frames when `window.GUI3_REPLAY` is set (`ReplayTransport`, for the browser check). Both run one decode of RC-8's frame, and both refuse a message the signed schema doesn't admit (`GUI3Engine.checkMessage`). The self-checks probe the stub, so they don't run on a bridge.
+2. **Inert, not hidden.** A row whose side isn't behind the transport (the resolver's, the rack's, Arp's) gets `.inert`: the master's `--opacity-disabled`, still there and still editable, titled "Not in this engine yet", and each page holding one says so in a line at its top. The morph switch is disabled and MAP is dimmed the same way. GUI-21's idle still hides a control whose condition fails; that is a different case.
+3. **The new messages:** `want` per page (Main and the dashboard ask for both oscillators with members, an Osc page its own), `preset` from the top bar's PresetBar fed by the bank's names, and `plugin` from a Voices stepper (1 to 16), first on the Set page, the one control that isn't a row. (In the top bar it pushed the switches over the theme control.)
+4. **The pictures read the engine.** The Specimen's feed comes from the engine's frame (notes, levels, R, the output's peak), never from the stub's MOCK meters. The ring draws the loudest voice's members (θ in cycles) and its blades' windows from RC-8, and the phase carpet and blade view follow it, since they read the ring's phases; its caption says "engine, voice n", or "(held)" when nothing sounds, and "SAMPLE swarm" before the first engine frame. The human asked for this: "Yes, wire them".
+5. **`manifest_hash`** in `shell-data.js`, by section 3's tuple; `tools/gen_gui3_controls.py --manifest-lines` prints its input for diffing against the bridge's.
+6. **`tools/gui3_inline.py <out.html>`** writes the page as one file for the plug-in's build, which adds `embed_file.py`'s policy.
+
+**Readings (the GUI session's, open to the human).**
+- **The look uses the master's disabled opacity in the shell,** not a new master state yet. The ruling says it becomes a control state in the master; that hop is next, and nothing is drawn that the master lacks.
+- **An option row's range in the hash:** section 3 names `lo` and `hi`, and a row with named options has none, so its index range is used, 0 to steps − 1, the same unit its default is in. The lead is asked to write that into section 3.
+- **Fonts:** under the plug-in's policy no font loads, so the page uses the system's, as the legacy GUI does.
+- **The voice map** still places members from the settings: RC-8 has no member pan or detune (GN-42). Its dots' distance from the mean field is the engine's.
+- **The test plug-in's Voices beside the engine's POLY row:** two caps on one page. Voices is the plug-in's, POLY the engine's (5.2); the lead may want one to follow the other.
+
+**Engine impact.** None: the bridge is B628's, and its engine additions are GN-41, 42, 43 and 48, already listed.
+
+**FX device (ADR-254).** It would host the same page with a rack-only side set, and the same inert rule applies.
 ## ADR-365 — RULED by the human: the 8 Hz blocker for FM free in pitch FM; item 7.8's table remade; spec round 58 (B621, B623; 2026-11-04)
 
 **Context.** FM free in pitch FM runs an accumulator that never restarts, while each of C.16's readings starts it at 0, so the estimate cannot see its mean and BL-19 cannot hold by the law alone (Q-TA-71: engine-free, 95 of its 144 one-member cases over 0.003, up to 0.046). ADR-363 sent this to a scratch trial of C.16's existing blocker, with clips for the human. Separately, item 7.8's reference R2 places FM free's modulator half a cycle from round 56's start, and 7.8 plays before its settings settle (Q-TA-77).
