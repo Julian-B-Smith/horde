@@ -1,7 +1,8 @@
 # 2026-11-06 — horde 2's modulation spec, drafted for the human's ruling (B630, ADR-370)
 
 **What changed.**
-- **`docs/proposals/modulation-spec-draft.md`**, new: the modulation system as a proposal in SPEC-ENGINE's style. 58 proposed clauses (MD-1 to MD-58) over scope, sources, the matrix, the LFOs, state and the morph, CPU and the FX device; 18 questions for the human, each with its options and, where the record gives evidence, a recommendation; 10 technical gaps for the lead; 7 places where the record contradicts itself.
+- **`docs/proposals/modulation-spec-draft.md`**, new: the modulation system as a proposal in SPEC-ENGINE's style. 59 proposed clauses (MD-1 to MD-59) over scope, sources, the matrix, the LFOs, state and the morph, CPU and the FX device; 18 questions for the human, each with its options and, where the record gives evidence, a recommendation; 10 technical gaps for the lead; 7 places where the record contradicts itself.
+- **MD-59** states the human's ruling relayed by the lead the same day (the lab review, GN-40, to be recorded as ADR-371): a key set to Exempt still takes modulation; Exempt holds the value heard at the pick in all four corners, and an edit moves all four.
 - Nothing else. SPEC-ENGINE, the protected specs and the clean room are untouched (ADR-370: nothing reaches the clean room until the human rules).
 
 **Why.** ADR-370 (the human, 2026-11-06: "yes to all, build the morph lab and start everything"): horde 2's engine accepts per-voice offsets and publishes sources, and nothing specifies the LFOs, the matrix or the routes. B630's acceptance asks for every clause cited, every open choice a question, and no clause without a ruling.

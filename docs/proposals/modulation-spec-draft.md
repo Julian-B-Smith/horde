@@ -143,6 +143,7 @@ s is a source's raw value, in [0, 1], before a route's polarity (Map Mode spec, 
 | MD-51 | A route's identity, if the morph ever keys routes per corner, is (source, destination). **Proposal, not ruled.** | B72 (the lead's proposal); GN-20 |
 | MD-52 | An LFO's phase and random stream are performance state: never saved, reset at a load. **Reading**, by analogy to IF-4; see T6. | IF-4 (live state never saved); RC-11.1; B198 |
 | MD-53 | Firing a trigger makes no history (MD-15); editing a modulator or a route is an edit, one undo step per gesture. | ADR-267 A1; Map Mode spec, Host constraints |
+| MD-59 | **A key set to Exempt in the morph still takes modulation.** Exempt takes the key out of the morph: it holds the value heard at the moment of the pick, written into all four corners, and an edit then moves all four. Routes on it act as on any key (MD-26). (Numbered last: ids here are append-only.) | the human, 2026-11-06, in the lab review, GN-40, to be recorded as ADR-371 ("Yes, still modulated"; "Yes, as built"); ADR-291 r3 (the Exempt mode) |
 
 ---
 
@@ -312,10 +313,10 @@ Each has a recommendation only where the record gives evidence. "You'd hear" say
 
 | kind | count | clauses |
 |---|---|---|
-| cited to a ruling or the spec | 36 | the rest |
+| cited to a ruling or the spec | 37 | the rest (MD-59 included) |
 | cited to a reading or proposal, open to overrule | 3 | MD-25, MD-51, MD-52 |
 | a ruled part plus an open QUESTION | 11 | MD-23, MD-26, MD-28, MD-35, MD-39, MD-41, MD-42, MD-43, MD-45, MD-48, MD-50 |
 | a QUESTION only | 8 | MD-13, MD-14, MD-19, MD-29, MD-31, MD-34, MD-44, MD-46 |
-| **total** | **58** | MD-1 to MD-58 |
+| **total** | **59** | MD-1 to MD-59 |
 
 Section 9 puts **18 questions** to the human; section 8 lists **10 technical gaps** for the lead.
