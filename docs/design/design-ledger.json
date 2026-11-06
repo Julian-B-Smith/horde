@@ -7602,6 +7602,30 @@
    "reason": "Records the human's lab verdicts; each lab's own ledger entry is the GUI session's to change, citing this ADR."
   },
   {
+   "adr": "ADR-370",
+   "reason": "Scheduling and scope: the morph lab and its design rulings are the GUI session's, recorded as GUI-n with their own ledger rows."
+  },
+  {
+   "adr": "ADR-371",
+   "reason": "The modulation system's behaviour, ruled by poll. Its consequences for the Mod page are the GUI session's to record as GUI-n with their own ledger rows."
+  },
+  {
+   "adr": "ADR-372",
+   "reason": "The corner-mapping lab's answers as behaviour; their screens (the loop setting, the load warning) are the GUI session's GUI-53 with its own ledger rows."
+  },
+  {
+   "adr": "ADR-373",
+   "reason": "The morph's behaviour for spec round 61; the Morph page's design consequences are the GUI session's GUI-51."
+  },
+  {
+   "adr": "ADR-374",
+   "reason": "Random's draw rules; the Random page's design is unchanged, and the GUI session records the build as GUI-n."
+  },
+  {
+   "adr": "ADR-375",
+   "reason": "The modulators' behaviour, ruled from the modulator lab; their cards' design is the GUI session's."
+  },
+  {
    "adr": "GUI-44",
    "reason": "A gate: GUI 3's browser check wired into ./verify fast, a hole where there's no browser. No design element."
   }
