@@ -288,7 +288,8 @@
      well-formed message, or why not. A `set` names engine rows only (rule 2: the page sends the others as their own types),
      and with `rows` given, only keys among them that aren't reserved (rule 1's "never sent blind", on the page's side too). */
   var MESSAGES = { set: ['values'], gesture: ['key', 'phase'], morph: ['settings'], position: ['x', 'y'], modes: ['modes', 'counts'],
-    rack: ['values'], midi: ['values'], clear: ['id'], want: ['osc', 'members', 'cycles'], preset: ['index'], plugin: ['voices'] };
+    rack: ['values'], midi: ['values'], clear: ['id'], want: ['osc', 'members', 'cycles'], preset: ['index'], plugin: ['voices'],
+    hello: ['manifest_hash'] };   // hello: once at load, so the bridge answers with everything (presets, plugin, params) and compares the hash
   function checkMessage(m, rows) {
     if (!m || typeof m !== 'object') return 'not a message';
     if (typeof m.seq !== 'number') return (m.type || 'a message') + ' without a seq';
@@ -323,10 +324,12 @@
   }
   /* Keeps the last of each part a frame may leave out. */
   function Merger() {
-    var last = { ack: 0, params: {}, events: [], observe: null, state: null, presets: null, plugin: null, resolver: null, device: null };
+    var last = { ack: 0, params: {}, events: [], observe: null, state: null, presets: null, plugin: null, hello: null, mismatch: null, refused: null, resolver: null, device: null };
     return function (f) {
+      // hello: the bridge's answer to ours, { build, manifest_hash }; mismatch: { expected, got, keys } or null, so null is kept as said
       last = { ack: f.ack === undefined ? last.ack : f.ack, params: f.params || {}, events: f.events || [], observe: f.observe ? decode(f.observe) : last.observe,
-        state: f.state === undefined ? last.state : f.state, presets: f.presets || last.presets, plugin: f.plugin || last.plugin, resolver: null, device: null };
+        state: f.state === undefined ? last.state : f.state, presets: f.presets || last.presets, plugin: f.plugin || last.plugin,
+        hello: f.hello || last.hello, mismatch: 'mismatch' in f ? f.mismatch : last.mismatch, refused: f.refused || last.refused, resolver: null, device: null };
       return last;
     };
   }

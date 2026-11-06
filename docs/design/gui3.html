@@ -290,7 +290,16 @@
   .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--space-column); align-items: start; }
   .two > .hd-card { width: auto; }
   .two pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow: auto; }
-</style></head><body>
+  /* B628, plug-in mode: inside the test plug-in the window IS the device. The lab's header, window-size bar, description, status
+     line and the checks below are the browser's, so they go, and the device sits at the view's top-left. */
+  html.plugin body { margin: 0; padding: 0; overflow: hidden; }
+  html.plugin #bootNote, html.plugin .col > :not(#win) { display: none !important; }
+  html.plugin .col { padding: 0; margin: 0; max-width: none; gap: 0; }
+  html.plugin #win { margin: 0; }
+  .bridge-banner { margin: 0 0 6px; }
+</style>
+<script>if (window.hordeNativeSend) document.documentElement.classList.add('plugin');   // set before the body draws, so the lab chrome never flashes</script>
+</head><body>
 <div id="bootNote" style="position:fixed;left:16px;top:16px;z-index:99;font:600 13px/1.5 ui-monospace,Menlo,monospace;color:#fff;background:#111;padding:8px 12px;border-radius:6px">Loading GUI 3. Its self-checks hold the page for about 15 s. Add ?fast to the address to skip them.</div>
 <div class="col">
   <header class="hd-row" id="bar">
@@ -438,7 +447,10 @@ const BRIDGE = window.hordeNativeSend ? 'native' : Array.isArray(window.GUI3_REP
 transport = BRIDGE === 'native' ? ENG.NativeTransport(window, rowsOf('engine'))
   : BRIDGE === 'replay' ? ENG.ReplayTransport(window.GUI3_REPLAY, { frozen: !!window.GUI3_REPLAY_FROZEN, rows: rowsOf('engine') })
   : ENG.SyncTransport(engine, resolver, deviceSide);
-dev = DEV.create(DATA, transport, { seed: SEED });
+dev = DEV.create(DATA, transport, { seed: SEED, adopt: !!BRIDGE });
+// hello (section 3) is the bridge's first message: the bridge answers with its build, the bank, Voices and every engine row, which
+// the adapter adopts as the sound (it sent nothing before). A later message would reach an engine the page hasn't heard from yet.
+if (BRIDGE) dev.hello(DATA.manifest_hash);
 // `mapKeysAlways` is ADR-335 r1's ONE switch (SH.MAP_KEYS_ALWAYS, shell-logic.js), handed over as it stands: the session's own
 // listener then takes the map keys and Escape in every mode, and keeps them out of a field and off a Cmd/Ctrl chord (ADR-338 r11).
 // No voices, so the engine's sources read 0. The macros and the XY's axes read the GUI's own values, MOCK until the intent bus (GUI-9). The axes rest at the pad's centre.
@@ -1141,14 +1153,15 @@ function oscPictures(v, pid, full) {
     },
     read: k => dev.shown(k), circ: k => /wraps/.test(ROW[k].law), label: k => ROW[k].label, value: k => ENG.display(ROW[k], dev.shown(k)),
     write: upd => Object.keys(upd).forEach(k => put(k, upd[k])), begin: () => dev.begin(PG[pid].label + ' · waveform (drag)'), end: () => dev.end() });
-  let spec = null, carpet = null, vmap = null, note = null;
+  let spec = null, carpet = null, vmap = null, note = null, twinCap = null;
   if (full) {
     spec = well('Spectrum, with each blade’s predicted formant band', 56);
     note = h('span', { class: 'hd-hint vz-cap' }); wrap.append(note);
     const col = (label, title) => { const c = h('div', { title }, h('span', { class: 'hd-sublabel', text: label })); return c; };
     const cc = col('Phase carpet', 'One row per member, phase across; a member inside one of its blade windows lights'), mc = col('Voice map', 'Ring where a member is placed, dot where it is now; across is pan, up and down is detune');
     carpet = well('Phase carpet', 58, cc); vmap = well('Voice map', 58, mc);
-    wrap.append(h('div', { class: 'vz-twin' }, cc, mc), h('span', { class: 'hd-hint vz-cap', text: 'SAMPLE, not the engine’s output' }));
+    twinCap = h('span', { class: 'hd-hint vz-cap', text: 'SAMPLE, not the engine’s output' });
+    wrap.append(h('div', { class: 'vz-twin' }, cc, mc), twinCap);
   }
   let sig = '', cy = null, n = 0, frame = 0, hist = [], bands = null; const specSt = {};
   const sig0 = () => [K.unison, K.wave].concat(BLADES.flatMap(b => BLADE_S.map(s => bk(b, s)))).map(k => dev.shown(k)).join('|');
@@ -1175,6 +1188,8 @@ function oscPictures(v, pid, full) {
     frame++;
     if (s !== sig || !cy) { sig = s; rebuild(); }
     const sw = io.swarm();
+    // GB26: on the bridge the carpet's phases are the engine's; the voice map still places its members from the settings (GN-42)
+    if (twinCap) { const t = sw && sw.engine ? 'Carpet: the engine’s phases · voice map: placed from the settings (SAMPLE)' : 'SAMPLE, not the engine’s output'; if (twinCap.textContent !== t) twinCap.textContent = t; }
     // the ring's arcs are the settings' windows. A swarm a frame behind a Unison change has a different count until its own frame below; a member with no window is off.
     if (sw && !sw.engine) sw.phase.forEach((_, i) => { const b = sw.blades[i], g = bl => { const wd = cy.windows.find(x => x.blade === bl); return wd && wd.members[i]; }, a = g(1), c = g(2);
       b.st1 = a ? a.st : 0; b.w1 = a ? a.w : 0; b.st2 = c ? c.st : 0; b.w2 = c ? c.w : 0; });
@@ -1989,21 +2004,39 @@ if (BRIDGE) {
   // The morph and MAP make no sound here: the morph has no resolver behind the bridge, and routes reach no engine (RC-4).
   $('morphOn').disabled = true; $('morphOn').closest('label').classList.add('inert'); $('morphOn').closest('label').title = INERT_SAYS + ': the morph';
   $('mapHost').classList.add('inert'); $('mapHost').title = INERT_SAYS + ': modulation';
+  // A mismatch the bridge reports for hello's hash is a banner in the window, never a silent play: the keys that differ are named.
+  const banner = h('p', { class: 'hd-note bad bridge-banner', role: 'alert', hidden: true });
+  $('win').prepend(banner);
+  /* These three paint on every snapshot as well as every frame: a window that isn't drawing frames yet (offscreen, or not yet
+     attached) still gets its bank, Voices, build and mismatch, which the lead's first window test showed it didn't (B628). */
+  let mmKey = '';
+  const paintMismatch = () => {
+    const mm = dev.bridge().mismatch, k = JSON.stringify(mm);
+    if (k === mmKey) return; mmKey = k; banner.hidden = !mm;
+    if (mm) banner.textContent = 'This page doesn\u2019t match the engine (its manifest hash ' + String(mm.got).slice(0, 12) + '\u2026, the page\u2019s ' + String(mm.expected).slice(0, 12) + '\u2026). Rows that differ: ' + ((mm.keys || []).slice(0, 8).join(', ') || 'not listed') + ((mm.keys || []).length > 8 ? ' and ' + (mm.keys.length - 8) + ' more' : '') + '. Values may land on the wrong rows: rebuild the page from the engine\u2019s spec.';
+  };
   // The test plug-in's bank: its names arrive with the first frame that carries them, and a pick loads one by index.
   let bankKey = '', bar = null;
-  views.push({ page: '*', update() {
+  const paintBank = () => {
     const p = dev.presets(); if (!p || !p.names || !p.names.length) return;
     const k = p.names.join('\n');
     if (k !== bankKey) { bankKey = k; bar = H.PresetBar($('presetHost'), S, { value: p.names[p.index] || p.names[0], note: 'The test plug-in’s bank. A load replaces the engine, so a sounding note stops.',
       bank: { Bank: p.names }, onPick: n => { const i = p.names.indexOf(n); if (i >= 0) { dev.loadPreset(i); S.say('Loading ' + n); } }, onSave: () => S.say('Saving is the plug-in’s host’s job here') }); }
     else if (bar && bar.get() !== p.names[p.index]) bar.set(p.names[p.index]);
-  } });
+  };
   // Voices: the test plug-in's own setting (kVoicesId), outside SPEC-ENGINE 5, so it's the one control here that isn't a row. It sits
   // first on the Set page, with the device's other settings: in the top bar it pushed the switches over the theme control.
-  const vh = h('div', { id: 'voicesHost', class: 'hd-row hd-label' }, 'Voices (the test plug-in\u2019s)', h('div'));
+  const vsHost = h('div'), vh = h('div', { id: 'voicesHost', class: 'hd-row hd-label' }, 'Voices (the test plug-in\u2019s)', vsHost, h('span', { class: 'hd-hint', id: 'buildLabel' }));
   pageEls.settings.insertBefore(vh, pageEls.settings.children[1] || null);
-  const vs = H.Stepper(vh.lastChild, { name: 'Voices', min: 1, max: 16, value: 4, def: 4, sm: true, keys: () => S.keys, onInput: n => dev.setVoices(n) });
-  views.push({ page: '*', update() { const pl = dev.plugin(); if (pl && pl.voices !== undefined && pl.voices !== vs.get()) vs.set(pl.voices); } });
+  const vs = H.Stepper(vsHost, { name: 'Voices', min: 1, max: 16, value: 4, def: 4, sm: true, keys: () => S.keys, onInput: n => dev.setVoices(n) });
+  const paintPlugin = () => {
+    const pl = dev.plugin(); if (pl && pl.voices !== undefined && pl.voices !== vs.get()) vs.set(pl.voices);
+    const b = (pl && pl.build) || (dev.bridge().hello || {}).build || '', t = b ? 'Build ' + b : '';
+    if ($('buildLabel').textContent !== t) $('buildLabel').textContent = t;
+  };
+  const paintBridge = () => { paintMismatch(); paintBank(); paintPlugin(); };
+  views.push({ page: '*', update: paintBridge });
+  transport.onSnapshot(paintBridge);   // after the adapter's own subscriber, so dev.presets() and the rest already read this snapshot
   wantFor(page);
 }
 // MS4 (ADR-340 r8, H.SourceRows' rule): with MAP on, a click on a row's body (anywhere but a button) makes it the source of the next

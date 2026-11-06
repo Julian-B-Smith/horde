@@ -161,8 +161,24 @@
         transport.send(t === 'morph' ? { type: t, seq: s, settings: vals } : { type: t, seq: s, values: vals });
       });
     }
+    /* B628: on the plug-in's bridge the engine already holds a sound (the preset the plug-in loaded), so the adapter takes the
+       engine's values instead of pushing its own. The bridge answers `hello` and a `preset` load with every engine row in the frame
+       that acknowledges it, and that frame is a LOAD: the values become every corner's (and a Device row's), the history starts
+       fresh, and nothing is sent back. Host automation still arrives as ordinary engine-originated values (mirror and confirm). */
+    var loadAt = null;   // the seq of a hello or preset whose answer is still to come
+    function adopt(params, ack) {
+      for (var k in params) {
+        var r = by[k]; if (!r || (r.target || 'engine') !== 'engine' || r.reserved) continue;
+        var v = params[k];
+        if (r.class === 'D') st.dev[k] = v; else for (var c = 0; c < 4; c++) st.corners[c][k] = v;
+        sentV[k] = v; sentSeq[k] = ack; delete fromEngine[k];
+      }
+      newRoot(); reown(); rev++;
+    }
+    function everyRow(params) { return rows.every(function (r) { return (r.target || 'engine') !== 'engine' || r.reserved || r.key in params; }); }
     function onSnapshot(s) {
       lastSnap = s;
+      if (loadAt !== null && s.ack >= loadAt && s.params && everyRow(s.params)) { loadAt = null; adopt(s.params, s.ack); return; }
       if (s.events && s.events.length) events = events.concat(s.events);
       var g = tx && tx.key, moved = false;
       for (var k in s.params) {
@@ -491,9 +507,11 @@
     D.sides = function () { return transport.sides || { engine: true, resolver: true, device: true }; };
     D.want = function (w) { transport.send({ type: 'want', seq: ++seq, osc: w.osc || [], members: !!w.members, cycles: !!w.cycles }); };
     D.presets = function () { return lastSnap && lastSnap.presets || null; };
-    D.loadPreset = function (i) { transport.send({ type: 'preset', seq: ++seq, index: i }); rev++; };
+    D.loadPreset = function (i) { loadAt = ++seq; transport.send({ type: 'preset', seq: seq, index: i }); rev++; };
     D.plugin = function () { return lastSnap && lastSnap.plugin || null; };
     D.setVoices = function (n) { transport.send({ type: 'plugin', seq: ++seq, voices: n }); rev++; };
+    D.hello = function (hash) { loadAt = ++seq; transport.send({ type: 'hello', seq: seq, manifest_hash: hash }); };
+    D.bridge = function () { return lastSnap ? { hello: lastSnap.hello || null, mismatch: lastSnap.mismatch || null, refused: lastSnap.refused || null } : { hello: null, mismatch: null, refused: null }; };
     /* GUI-33: is any voice sounding? The pictures rest while none is. A voice alive, or a peak at or over B365's -90 dBFS, so a release tail counts (GN-45). */
     D.sounding = function () { var f = D.feed(); return !!f && (f.act > 0 || f.peak >= 3.2e-5); };
     D.summed = function () { return lastSnap && lastSnap.observe && lastSnap.observe.sum || null; };
@@ -507,7 +525,7 @@
 
     reown();
     transport.onSnapshot(onSnapshot);
-    send();
+    if (!opts.adopt) send();   // on a bridge the engine's values come first (adopt, above): pushing the defaults would overwrite its preset
     return D;
   }
 
