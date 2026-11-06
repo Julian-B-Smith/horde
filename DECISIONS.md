@@ -12166,6 +12166,7 @@ The lead proposed: a lab for the morph's open questions; the morph built before 
 
 **What follows.**
 - **B631:** the GUI session builds the morph-questions lab, and the human answers by poll. The lead writes a spec round on top of Appendix D. The builder takes the morph right after batch 3's PF-3, and the remaining CPU work (the per-member tables, Crunch horde's held refresh, the stagger awaiting the human's ear) follows it. This reverses ADR-354's order for what remains of the CPU pass; the 10.7 % target stands.
+- **CPU is fixed as the human finds it while playing** (the human, the same day: "it makes more sense to fix the CPU issues as we go. I can better debug and point out engine issues if I'm actually playing with the synth"). The CPU pass no longer runs as one block ahead of features. Each problem the human hears in the test plug-in, together with its session log, becomes a builder item between feature work. The plug-in's log and PF-3 beside each commit keep the cost visible (memory: measure the budget every stage).
 - **B630:** an agent drafts the modulation spec as a proposal, every clause cited and every choice a question. Nothing reaches the clean room until the human rules it.
 - **B632:** the test plug-in gains pitch bend and the bank's glide, as SPEC-ENGINE 10.3 already states them for the phrases, a stand-in until B504's pitch spec. It also makes every engine row a host parameter and taps the summed output for the scope.
 
