@@ -148,6 +148,14 @@
   {
    "version": "1793909482-958b",
    "evidence": "docs/design/arp-face/README.md: the Dial with Erode up, 2026-11-05"
+  },
+  {
+   "version": "1793939881-6f91",
+   "evidence": "docs/design/arp-face/README.md: Members at phase, GUI-49, 2026-11-05"
+  },
+  {
+   "version": "1793941176-071d",
+   "evidence": "docs/design/arp-face/README.md: Members at phase, its pills on one row, GUI-49, 2026-11-05"
   }
  ],
  "vendoring": {
@@ -483,8 +491,9 @@
    "note": "GB23, ruled GUI-47 (the human, 2026-11-05, through the Labs facilitator): Override + grid, four envelopes on Main with a map button each, picture and readout on an Osc page. Where Main’s strip fits is back with the human."
   },
   "bank-morph-lane-lab.html": {
-   "status": "exploring",
-   "note": "GB25. What the bank's MORPH tab holds (four lanes), the tab with morph off, and where the bank goes when morph turns off; waiting on the human."
+   "status": "ruled",
+   "adr": "GUI-50",
+   "note": "GB25, ruled GUI-50 (the human, 2026-11-05): lane B with preset menus, saving on the Morph page, asterisks on edited presets, dimmed with a switch, back to the previous tab."
   }
  },
  "not_labs": {
@@ -6542,6 +6551,141 @@
   },
   {
    "port_tab": null,
+   "via": null,
+   "superseded_by": null,
+   "lab": null,
+   "id": "gui49-members-at-phase",
+   "adr": "GUI-49",
+   "clause": "a fourth waveform view, Members at phase: lanes, each member shifted to the mean field",
+   "note": "FX device: none.",
+   "component": "BladeView",
+   "bundle": "BladeView",
+   "shell": "docs/design/gui3.html: H.BladeView(pin",
+   "state": "in-shell",
+   "master_version": "1793941176-071d"
+  },
+  {
+   "port_tab": null,
+   "via": null,
+   "superseded_by": null,
+   "lab": null,
+   "id": "gui49-beam",
+   "adr": "GUI-49",
+   "clause": "the summed beam under the waveform on the Osc pages, one cycle on its x axis, hue riding R",
+   "note": "SAMPLE until GN-4. FX device: the painter is audio-capable.",
+   "component": "Waveform",
+   "bundle": "Viz",
+   "shell": "docs/design/gui3.html: H.Viz.scope(beam",
+   "state": "in-shell",
+   "master_version": "1793941176-071d"
+  },
+  {
+   "port_tab": null,
+   "via": null,
+   "superseded_by": null,
+   "lab": null,
+   "id": "gui49-osc-scroll",
+   "adr": "GUI-49",
+   "clause": "the Osc pages scroll; Main, Sub and Noise still fit the page area (amends ADR-345 r1)",
+   "note": "FX device: none.",
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "state": "ruled",
+   "master_version": null
+  },
+  {
+   "port_tab": null,
+   "via": null,
+   "superseded_by": null,
+   "lab": "docs/design/bank-morph-lane-lab.html",
+   "id": "gui50-lane-b",
+   "adr": "GUI-50",
+   "clause": "the MORPH lane is the corner rows with their weights (lane B)",
+   "note": "Not in the master yet. FX device: same.",
+   "component": "ModBank",
+   "bundle": null,
+   "shell": null,
+   "state": "ruled",
+   "master_version": null
+  },
+  {
+   "port_tab": null,
+   "via": null,
+   "superseded_by": null,
+   "lab": "docs/design/bank-morph-lane-lab.html",
+   "id": "gui50-name-menus",
+   "adr": "GUI-50",
+   "clause": "each corner name in the lane is a menu of existing corner presets",
+   "note": "Not in the master yet. FX device: same.",
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "state": "ruled",
+   "master_version": null
+  },
+  {
+   "port_tab": null,
+   "via": null,
+   "superseded_by": null,
+   "lab": "docs/design/bank-morph-lane-lab.html",
+   "id": "gui50-save-on-morph",
+   "adr": "GUI-50",
+   "clause": "saving the current sound to a preset or a corner lives on the Morph page",
+   "note": "Not in the master yet. FX device: same.",
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "state": "ruled",
+   "master_version": null
+  },
+  {
+   "port_tab": null,
+   "via": null,
+   "superseded_by": null,
+   "lab": "docs/design/bank-morph-lane-lab.html",
+   "id": "gui50-asterisk",
+   "adr": "GUI-50",
+   "clause": "an asterisk on every name whose values differ from its preset, every kind of preset",
+   "note": "Not in the master yet. FX device: same.",
+   "component": null,
+   "bundle": null,
+   "shell": null,
+   "state": "ruled",
+   "master_version": null
+  },
+  {
+   "port_tab": null,
+   "via": null,
+   "superseded_by": null,
+   "lab": "docs/design/bank-morph-lane-lab.html",
+   "id": "gui50-off-dimmed",
+   "adr": "GUI-50",
+   "clause": "while morph is off the MORPH tab is dimmed with a Turn morph on switch",
+   "note": "Not in the master yet. FX device: same.",
+   "component": "ModBank",
+   "bundle": null,
+   "shell": null,
+   "state": "ruled",
+   "master_version": null
+  },
+  {
+   "port_tab": null,
+   "via": null,
+   "superseded_by": null,
+   "lab": "docs/design/bank-morph-lane-lab.html",
+   "id": "gui50-back",
+   "adr": "GUI-50",
+   "clause": "when morph turns off the bank goes back to the tab it had",
+   "note": "Not in the master yet. FX device: same.",
+   "component": "ModBank",
+   "bundle": null,
+   "shell": null,
+   "state": "ruled",
+   "master_version": null
+  },
+  {
+   "port_tab": null,
    "bundle": null,
    "shell": null,
    "via": null,
@@ -7838,6 +7982,12 @@
   "GUI-44": "none: a gate on the GUI shell",
   "GUI-46": "none: the bridge is B628’s, and its engine additions are GN-41, 42, 43 and 48",
   "GUI-47": "none: Override and the grid write the existing Envelope row (RC-6.5); a map button makes an ordinary modulation route (RC-4)",
+  "GUI-49": "none: drawings of the settings; GN-4 already asks for the output tap",
+  "GUI-50": [
+   "GN-9",
+   "GN-37",
+   "GN-52"
+  ],
   "GUI-53": [
    "GN-27",
    "GN-53"
