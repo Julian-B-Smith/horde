@@ -11936,6 +11936,50 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 
 **FX device (ADR-254).** It has one Morph page, so item 4's sticky square pad applies; the rest concerns pages it doesn't have, apart from item 3.
 
+## GUI-55 — RULED by the human: what a random patch may be at low chaos: sources, blades and ENV 4 (B578, GB32; ADR-342 r1; 2026-11-06)
+
+**The human, 2026-11-06, relayed by the lead:** "randomizing almost always makes a limp noisy twang at low volume. I think we'll need to be methodical about the chaos curve and what kinds of patches get generated at the low end of it." And: "osc 1 should always be on for random patches, or at least osc 2 should never be alone - maybe sometimes just the sub osc can be on." ENV 4 was chosen by poll.
+
+**The rules.**
+1. Randomizing a single oscillator never changes its own on/off switch.
+2. In a randomized patch, osc 1 is always on, except in the occasional patch where the sub is the only source. Osc 2 is never the only source.
+3. Random leaves alone the settings of an oscillator the draw leaves off, because they make no sound.
+4. At low chaos, blades are rare. When one appears, its values lean low and its features simple.
+5. **ENV 4 is the pitch envelope by convention, not exclusively.** Random gives it a tight decay and often maps it to pitch.
+6. The low end of the chaos curve is to be worked out methodically. This is ADR-342's open simplicity-prior item, which belongs to the tuning session. ADR-342 r1's rule that the whole patch follows chaos (low chaos, simpler patch) covers the oscillators as well.
+
+**Readings (the GUI session's, open to the human).**
+- **Rule 3's reason covers more than oscillators.** "They make no sound" is just as true of the noise source and of a blade left off, so the draw leaves their settings alone too.
+- **Noise is never alone either.** Rule 2 keeps osc 1 on except when the sub plays alone, so the noise can't be the only source.
+- **Off means untouched.** A level press on a source that's off draws nothing, since rule 1 keeps the switch where it is. The panel says why.
+- **"Sometimes" is a stand-in.** The sub-only chance and the curves behind rules 4 and 5 are stand-ins, named in one place in the master. Their shapes belong to rule 6's tuning.
+
+**Not built yet.** "Often maps it to pitch" waits on route draws: the Randomize panel doesn't draw mod routes yet (GUI-38's card says so).
+
+**Open for the human.** Does a tight decay mean zero sustain? The rule names only the decay.
+
+**Engine impact.** GN-21, the Randomize row; rule 5's convention changes nothing in the engine. A route from ENV 4 to pitch in the bank's default patch would be a factory-patch ruling and a new row, and nobody has made it.
+
+**FX device (ADR-254).** None: these rules are about the instrument's sources and envelopes. The FX side's lean is ADR-342's.
+
+### GUI-55 A1 — RULED by the human: a source's envelope selector moves only at high chaos (2026-11-06; the lead's ADR-374 A1)
+
+**The human, relayed by the lead:** "How about at low to moderate chaos, the envelope assignment doesn't change, but it becomes more possible (maybe still bounded) at the upper end." It answers the GUI session's finding: a source's `env` selector (ENV 1 to 4) was drawn like any stepped row, so a random patch could hand a source to ENV 4, which rule 5 makes tight.
+
+**What changes.**
+- **Low and moderate chaos.** A source's envelope selector never changes.
+- **Toward the top of the range.** The selector may change, and the chance rises with chaos.
+- **Two stand-ins, set by the tuning session.** Both live in the master's prior, beside the other curves:
+  - where "moderate" ends;
+  - the bound on the chance. "Maybe still bounded" is read as a cap on the chance, not on how many sources move in a draw.
+
+**The lead also confirmed:**
+- the three readings above;
+- that "often maps it to pitch" waits on route draws;
+- that rule 5 needs no engine row.
+
+**Engine impact.** GN-21, as above. **FX device (ADR-254).** None.
+
 ## GUI-41 — DIRECTED by the human: FX patching, wires dragged both ways, every source its own input, and no loop at rest (GB21; ADR-201; supersedes GUI-36; 2026-11-05)
 
 **The human, 2026-11-05:** "I would like to make some changes to the mock FX flow. I want to be able to drag wires between modules in both directions, with forward on top and backward on the bottom (an algorithm will need to block feedback in 1.0 at all the morph positions except for brief crossfade overlaps; I believe there is already a lab open that works this out), and all the oscs and filters need to be individually exposed on the interface because they can each independently feed into modules."
