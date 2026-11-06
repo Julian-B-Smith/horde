@@ -11989,6 +11989,20 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 
 **FX device (ADR-254).** It has no Main or sources.
 
+## GUI-45 — DIRECTED by the human: a MORPH tab in the bank on every page, flipped to from Main; the pad's X and Y as knobs under the Morph pad (GB25; amends GUI-8 and GUI-40; 2026-11-05)
+
+**The human, 2026-11-05:** "What if we add a third tab here for "morph" here (pictured) which shows the morph corner presets, and when morph is activated on Main it automatically flips over (I don't love that Main is the only page that doesn't show the morph corner presets interface anywhere). And it occurs to me that the XY coordinates for Morph should be parameters visible below the grid on the Morph page." The picture was the bank's MAC | MODS segments. By poll: the tab on **every page**, its lane "Let's workshop it in a lab", and X and Y as **two knobs**.
+
+**Rulings.**
+1. **The bank's segments read MAC | MODS | MORPH on every page.** Turning morph on from Main flips the bank to MORPH. From any other page it doesn't, since the docked pad shows the corners there.
+2. **What the lane holds is open,** with how the tab behaves while morph is off and where the bank goes when morph turns off: `docs/design/bank-morph-lane-lab.html` (GB25) asks all three. The master's ModBank gets the third segment once the lane is ruled, and the shell follows (ADR-316).
+3. **X and Y are two knobs under the Morph page's pad.** They are the pad: a turn moves the puck, and like a drag of the pad it is no undo step (the poll's option said one step per turn; the shell's rule that moving the pad isn't a step stands, and this corrects the option).
+
+**Not drawn yet: X and Y wait on the spec.** SPEC-ENGINE IF-11 makes the position's x and y two host parameters, but Appendix D.2 gives them no keys or rows, and the shell draws a parameter knob only from a row, through one call (`gen_gui3_controls`'s shell check). Drawing them outside that path would dodge the gate, so they wait for D.2's rows (GN-51), and appear then with no shell change beyond the layout.
+
+**Engine impact.** GN-51 (rows for the position). Rulings 1 and 2 need none: the corners, their names, the pin and the lock are state the shell already has (GN-34 and GN-37 ask who keeps it).
+
+**FX device (ADR-254).** It has a morph and a bank, so the same tab and the same knobs apply there.
 ## GUI-44 — RULED by the human: GUI 3's browser check runs in `./verify fast`, a hole where there's no browser (GB24; 2026-11-05)
 
 **The human, 2026-11-05:** "A: fast, hole if absent", choosing among the three options in `docs/design/gui3/browser-gate-proposal.md`.
