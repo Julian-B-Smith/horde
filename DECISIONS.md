@@ -11891,6 +11891,31 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 
 **FX device (ADR-254).** The same panel with FX roles and no sources' rows. ADR-321's three additions don't apply there.
 
+## GUI-57 — RULED by the human: the oscillator's three layouts: M3 with the summed waveform on Main, tiers as built, the signal-flow dashboard, a card's envelope as a small control (GB19; 2026-11-06)
+
+**The human, 2026-11-06,** reviewing `docs/design/osc-layout-lab.html` live with the Labs facilitator session, answered all four questions. Three answers differ from the GUI session's picks, and two add something new.
+
+**Rulings.**
+1. **Main's tab is M3, plus the summed waveform.** "M3, but let's also add the output waveform from the scalpel lab beneath the interactive scalpel viewer."
+   - The ring and the waveform go on the left, with the Osc, Blade 1 or Blade 2 part on the right at the larger knob size, one part at a time.
+   - The summed output waveform goes under the interactive blade view. It is the picture GUI-49 puts under the blade view on the Osc page: the SCALPEL lab's output trace, a cycle summed from the settings (`bladeCycle`) until GN-4 brings the engine's own output.
+   - The GUI session picked M1.
+2. **The Osc page stays P1, tiers as built.** "P1: Tiers, as built". Face, All and +Adv stay as GUI-30 ships them, and named groups are declined for now. The GUI session picked P2.
+3. **The Osc dashboard is D3, signal flow.** "D3: Signal flow". The four sources go in a column, wired into the two filters, so the page is the signal path. The wires are only a drawing until routing has rows (GN-16), and the filters' controls wait on Weir's manifest. The GUI session picked D2.
+4. **A dashboard card loses its envelope.** "Gain a control row, and replace the envelope control with a smaller envelope selector or override control." The full envelope leaves the card, the card gains a row of controls, and a small control takes the envelope's place.
+
+**Readings (the GUI session's, open to the human).**
+- **Ruling 4's "selector or override" is one compact control.** It names the envelope the source follows, a pill reading "ENV 1", for example. It opens GUI-47's Override: give this source its own envelope, or go back to ENV 1. Either way it writes the source's existing Envelope row, as GUI-47 does. A plain ENV 1 to 4 selector would bypass GUI-47's rule that a source follows ENV 1 until you ask, so it isn't drawn.
+- **Height.** Ruling 1's waveform costs height on Main's 267 px tab. The fit is measured when it's built, and if it doesn't fit, the question goes back to the human before anything else is shrunk.
+
+**The lab.** It is ruled (GUI-57), with nothing open.
+
+**Engine impact.**
+- Ruling 3 relies on GN-16: the flow's wires follow the signal only once filter routing has rows.
+- The others need nothing. Ruling 1's waveform is drawn from the settings, like GUI-49's, and switches to GN-4's summed output with it. Ruling 4 writes the existing Envelope row.
+
+**FX device (ADR-254).** None: it has no oscillators and no Osc dashboard.
+
 ## GUI-39 — DIRECTED by the human: envelope pictures you drag; curve controls on every section (GB23; UI Spec section 6, B377; 2026-11-05)
 
 **The human, 2026-11-05:** "Let's make envelope visualizers interactive. They also need curve controls on each of the sections, as per the design doc."
