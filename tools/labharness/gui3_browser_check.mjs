@@ -113,9 +113,9 @@ const FIXTURE = join(dirname(fileURLToPath(import.meta.url)), 'fixtures/gui3-rep
 function syntheticFrames() {
   const keys = [60, 64, 67], fr = [];
   for (let i = 0; i < 30; i++) {
-    const k = keys[Math.floor(i / 10)], ph = Array.from({ length: 8 }, (_, m) => ((i * 0.05 + m / 8) % 1) * 2 * Math.PI);
+    const k = keys[Math.floor(i / 10)], ph = Array.from({ length: 8 }, (_, m) => (i * 0.05 + m / 8) % 1);   // θ in cycles
     fr.push({ observe: { sounding: true, meters: { osc1: { peak: 0.2, clip: false }, out: { peak: 0.25, clip: false } },
-      voices: [{ level: 0.5, env: [1, 0, 0, 0], notes: { key: k, vel: 0.8, gate: true }, osc: [{ R: 0.6, psi: i * 0.1, frame: 0, phases: ph, levels: ph.map(() => 1), blades: [] }] }] } });
+      voices: [{ level: 0.5, env: [1, 0, 0, 0], notes: { key: k, vel: 0.8, gate: true }, osc: [{ R: 0.6, psi: i * 0.1, frame: 0, phases: ph, levels: ph.map(() => 1), blades: [{ pos: 0.3, width: 0.1 }, null] }, null] }] } });
   }
   Object.assign(fr[0], { params: { 'voice.mode': 0 }, presets: { names: ['Glass horde pad', 'Crushed bells', 'Undertone cathedral'], index: 0 }, plugin: { voices: 6 } });
   return fr;
@@ -129,10 +129,12 @@ const PROBE = `(async () => {
   const bar = document.querySelector('#presetHost .pb-name'), barName = bar ? bar.textContent : '';
   document.querySelectorAll('#presetHost .pb-step')[1]?.click(); await wait(50);
   const pre = sent().filter(m => m.type === 'preset').slice(-1)[0] || null;
-  B.selectPage('osc1'); await wait(50); const want1 = wants().slice(-1)[0] || null;
+  B.selectPage('osc1'); await wait(400); const want1 = wants().slice(-1)[0] || null;
+  const ring = () => { const w = B.pics['osc1/osc1'] && B.pics['osc1/osc1'].swarm(); return w ? { engine: !!w.engine, phase: w.phase.map(x => +x.toFixed(5)), w1: w.blades[0] && +w.blades[0].w1.toFixed(5) } : null; };
+  const ringA = ring(); await wait(450); const ringB = ring();
   return { seqs: sent().every(m => typeof m.seq === 'number'), want0, want1, gates: [...gates], barName, pre,
     morphOff: document.getElementById('morphOn').disabled, rackInert: !!rackEl && rackEl.classList.contains('inert') && +getComputedStyle(rackEl).opacity < 1,
-    engLive: !!engEl && !engEl.classList.contains('inert'), voices: (document.querySelector('#voicesHost output') || {}).textContent, notes: document.querySelectorAll('.inert-note').length };
+    engLive: !!engEl && !engEl.classList.contains('inert'), ringA, ringB, voices: (document.querySelector('#voicesHost output') || {}).textContent, notes: document.querySelectorAll('.inert-note').length };
 })()`;
 async function runReplay(chrome, url, frames, frozen) {
   const dir = await mkdtemp(join(tmpdir(), 'gui3-replay-')), b = await cdp(chrome, dir);
@@ -156,6 +158,10 @@ function replayVerdict(r, rc, frames, red) {
   if (!p.morphOff || !p.rackInert || !p.engLive || !p.notes) red.push(`replay: inert state wrong (morph switch disabled ${p.morphOff}, a rack row dimmed ${p.rackInert}, osc1.detune live ${p.engLive}, notes ${p.notes})`);
   if (names.length && (!p.barName.startsWith(names[0]) || !p.pre || p.pre.index !== 1)) red.push(`replay: the bank didn't reach the preset bar ("${p.barName}"), or next sent ${JSON.stringify(p.pre)}`);
   if (frames[0].plugin && p.voices !== String(frames[0].plugin.voices)) red.push('replay: Voices reads ' + p.voices + ', not ' + frames[0].plugin.voices);
+  const recordedPhases = new Set(frames.flatMap(f => (((f.observe || {}).voices || [])[0] || { osc: [] }).osc.filter(Boolean).map(c => (c.phases || []).map(x => +(+x).toFixed(5)).join())));
+  if (!p.ringA || !p.ringA.engine || !recordedPhases.has(p.ringA.phase.join())) red.push('replay: Osc 1\u2019s ring isn\u2019t drawing a recorded frame\u2019s members: ' + JSON.stringify(p.ringA));
+  if (p.ringA && p.ringB && p.ringA.phase.join() === p.ringB.phase.join()) red.push('replay: Osc 1\u2019s ring held still while frames played');
+  if (rc.p && (!rc.p.ringA || !rc.p.ringB || rc.p.ringA.phase.join() !== rc.p.ringB.phase.join())) red.push('CONTROL: with the replay frozen, Osc 1\u2019s ring still changed, so a moving ring proves nothing');
   if (p.gates.length < 2) red.push('replay: the feed’s gates never changed as frames played (' + p.gates.join(' | ') + ')');
   if (!rc.ready || !rc.p || rc.p.gates.length !== 1) red.push('CONTROL: with the replay frozen the feed showed ' + (rc.p ? rc.p.gates.length : 'no') + ' sets of gates, not one, so a moving feed proves nothing');
 }

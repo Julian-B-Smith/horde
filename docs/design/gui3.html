@@ -1060,7 +1060,20 @@ function vizView(v, pid, big) {
    a drag follows, alt is fine, shift hands the horizontal to Cross-mod (the third axis) and holds Detune. Positions are the
    knobs' own travel (0..1), so the ring and the knobs are one model. A gesture is ONE undo step: begun on the press, ended on
    the release, never one step per pointer move. The swarm drawn is the bundle's seeded SAMPLE (Synth.ring), stepped by the
-   frame (1/60 s, no clock), never the engine's phases (IF-10 at stage 8 brings those). */
+   frame (1/60 s, no clock); on the plug-in's bridge it is the engine's (GB26, below). */
+/* GB26: on the bridge, the ring, and the carpet and blade view that read its phases, draw the engine's members from RC-8's frame:
+   the loudest voice that reports this oscillator, its members' θ and its blades' windows, in the sample swarm's own shape, so
+   the pictures don't change. With no voice sounding, the last engine swarm holds still; before any, the sample swarm runs and
+   says SAMPLE. Members' pan and detune aren't in RC-8 (GN-42), so the voice map still places them from the settings. */
+function engineSwarm(k) {
+  const o = BRIDGE && dev.observe().engine; if (!o || o.source !== 'engine') return null;
+  let best = null, vi = -1;
+  o.voices.forEach((v, i) => { const c = v.osc[k - 1]; if (c && c.phases && c.phases.length && (!best || v.level > best.v.level)) { best = { v, c }; vi = i; } });
+  if (!best) return null;
+  const c = best.c, win = b => b ? { st: ((b.pos - b.width / 2) % 1 + 1) % 1, w: b.width } : { st: 0, w: 0 }, b1 = win(c.blades[0]), b2 = win(c.blades[1]);
+  return { engine: true, voice: vi, phase: Array.from(c.phases), blades: Array.from(c.phases, () => ({ st1: b1.st, w1: b1.w, st2: b2.st, w2: b2.w })),
+    R: c.R, psi: c.psi, step() { return this; }, cross: () => null };
+}
 function oscRing(cv, K, pid, wrap) {
   const KMAX = 4, SPREAD = 1.4, rows = { x: ROW[K.detune], y: ROW[K.coupling], sx: ROW[K.crossMod] };
   const st = { x: 0, y: 0, sx: 0 }, cap = h('span', { class: 'hd-hint vz-cap vz-cap2' });
@@ -1082,17 +1095,18 @@ function oscRing(cv, K, pid, wrap) {
   wrap.append(cap);
   return { frame() {
     const m = Math.max(1, Math.round(xOf(K.unison)));
-    if (m !== n || !sw) { n = m; sw = H.Synth.ring(7, n); }
+    const eng = engineSwarm(+K.unison.split('.')[0].slice(3));
+    if (eng) { sw = eng; n = eng.phase.length; } else if (!(sw && sw.engine) && (m !== n || !sw)) { n = m; sw = H.Synth.ring(7, n); }   // an engine swarm, once seen, holds
     if (!live.drag) pull();
     const off = !isOnKey(PG[K.unison.split('.')[0]].power);    // ADR-105 A2: an off oscillator's visuals say so and hold still; its controls still work (GUI-29)
-    if (!S.reduce && !off) sw.step(PICTURE_DT, (st.y - .5) * 2 * KMAX, st.x * SPREAD);
+    if (!S.reduce && !off && !sw.engine) sw.step(PICTURE_DT, (st.y - .5) * 2 * KMAX, st.x * SPREAD);
     if (!cv.clientWidth) return;
     coh = H.Viz.kuramoto(cv, { phase: sw.phase, blades: sw.blades, cross: st.sx > .005 ? sw.cross(st.sx) : null, xy: st, drag: live.drag });
     H.Viz.off(cv, off);
     const d = r => ENG.display(r, dev.shown(r.key));
     const t = live.drag ? 'DRAG · ' + (live.shift ? '⇧↔ Cross-mod ' + d(rows.sx) : '↔ Detune ' + d(rows.x)) + ' · ↕ Coupling ' + d(rows.y)
       : live.hover ? 'Click lands ↔ Detune ↕ Coupling · alt fine · ⇧↔ Cross-mod (relative)'
-      : 'Detune ' + d(rows.x) + ' · Coupling ' + d(rows.y) + ' · Cross-mod ' + d(rows.sx) + ' · SAMPLE swarm';
+      : 'Detune ' + d(rows.x) + ' · Coupling ' + d(rows.y) + ' · Cross-mod ' + d(rows.sx) + (sw.engine ? ' · engine, voice ' + (sw.voice + 1) + (eng ? '' : ' (held)') : ' · SAMPLE swarm');
     if (cap.textContent !== t) { cap.textContent = t; cap.title = t; }
     cv.setAttribute('aria-valuetext', 'Detune ' + d(rows.x) + ', Coupling ' + d(rows.y) + ', Cross-mod ' + d(rows.sx) + ', Coherence ' + (+coh || 0).toFixed(2));
   }, st, swarm: () => sw };
@@ -1162,7 +1176,7 @@ function oscPictures(v, pid, full) {
     if (s !== sig || !cy) { sig = s; rebuild(); }
     const sw = io.swarm();
     // the ring's arcs are the settings' windows. A swarm a frame behind a Unison change has a different count until its own frame below; a member with no window is off.
-    if (sw) sw.phase.forEach((_, i) => { const b = sw.blades[i], g = bl => { const wd = cy.windows.find(x => x.blade === bl); return wd && wd.members[i]; }, a = g(1), c = g(2);
+    if (sw && !sw.engine) sw.phase.forEach((_, i) => { const b = sw.blades[i], g = bl => { const wd = cy.windows.find(x => x.blade === bl); return wd && wd.members[i]; }, a = g(1), c = g(2);
       b.st1 = a ? a.st : 0; b.w1 = a ? a.w : 0; b.st2 = c ? c.st : 0; b.w2 = c ? c.w : 0; });
     io.frame();
     const phase = io.swarm().phase;
@@ -1969,7 +1983,7 @@ function wantFor(id) {
 }
 if (BRIDGE) {
   if (transport.tick) views.push({ page: '*', update() { transport.tick(S.now); } });   // a replay plays on the page's own frame time
-  if (BRIDGE === 'replay') window.GUI3_BRIDGE = { transport, dev, selectPage };   // the browser check's hook, as GUI3_FEED is (GUI-34); never set inside the plug-in
+  if (BRIDGE === 'replay') window.GUI3_BRIDGE = { transport, dev, selectPage, pics: PICS };   // the browser check's hook, as GUI3_FEED is (GUI-34); never set inside the plug-in
   document.querySelectorAll('#pages [data-key]').forEach(e => { const r = ROW[e.dataset.key]; if (r && inertRow(r)) { e.classList.add('inert'); e.title = INERT_SAYS; } });
   Object.values(pageEls).forEach(el => { if (el.querySelector('.inert')) el.insertBefore(h('p', { class: 'hd-hint inert-note', text: 'Dimmed controls aren’t in this engine yet: the morph, modulation, the FX rack and Arp come later.' }), el.children[1] || null); });
   // The morph and MAP make no sound here: the morph has no resolver behind the bridge, and routes reach no engine (RC-4).
@@ -1984,9 +1998,10 @@ if (BRIDGE) {
       bank: { Bank: p.names }, onPick: n => { const i = p.names.indexOf(n); if (i >= 0) { dev.loadPreset(i); S.say('Loading ' + n); } }, onSave: () => S.say('Saving is the plug-in’s host’s job here') }); }
     else if (bar && bar.get() !== p.names[p.index]) bar.set(p.names[p.index]);
   } });
-  // Voices: the test plug-in's own setting (kVoicesId), outside SPEC-ENGINE 5, so it's the one control here that isn't a row.
-  const vh = h('div', { id: 'voicesHost', class: 'hd-row hd-label' }, 'Voices', h('div'));
-  $('morphOn').closest('.switches').prepend(vh);
+  // Voices: the test plug-in's own setting (kVoicesId), outside SPEC-ENGINE 5, so it's the one control here that isn't a row. It sits
+  // first on the Set page, with the device's other settings: in the top bar it pushed the switches over the theme control.
+  const vh = h('div', { id: 'voicesHost', class: 'hd-row hd-label' }, 'Voices (the test plug-in\u2019s)', h('div'));
+  pageEls.settings.insertBefore(vh, pageEls.settings.children[1] || null);
   const vs = H.Stepper(vh.lastChild, { name: 'Voices', min: 1, max: 16, value: 4, def: 4, sm: true, keys: () => S.keys, onInput: n => dev.setVoices(n) });
   views.push({ page: '*', update() { const pl = dev.plugin(); if (pl && pl.voices !== undefined && pl.voices !== vs.get()) vs.set(pl.voices); } });
   wantFor(page);

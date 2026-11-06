@@ -16,6 +16,8 @@
 - `gui3_seam_check` GREEN with the `bridge` test; its four plants (any type admitted, a held message unacknowledged, a linear peak passed as dB, the feed read from the stub) are in its plant list.
 - The hash: `shell-data.js`'s `manifest_hash` equals `--manifest-lines | shasum -a 256` and the JS recomputation.
 
-**Not done.** The oscillator pictures still draw the page's sample swarm, not RC-8's members. The frames are synthetic until the lead's recorded fixture lands at `tools/labharness/fixtures/gui3-replay.json`, which the browser check uses when present. The inert look is in the shell with the master's token; the master's control state is next.
+**The pictures, a second commit (the human: "Yes, wire them").** On a bridge the ring draws the loudest voice's members and blade windows from RC-8, and the carpet and blade view follow it. The browser check's replay asserts Osc 1's ring shows a recorded frame's members and moves while frames play; the frozen replay must hold it still. Plant: an `engineSwarm` that never answers turned it RED ("isn't drawing a recorded frame's members", and the control). Voices moved to the Set page after a screenshot showed it over the theme control.
+
+**Not done.** The voice map still places members from the settings (GN-42). The frames are synthetic until the lead's recorded fixture lands at `tools/labharness/fixtures/gui3-replay.json`, which the browser check uses when present. The inert look is in the shell with the master's token; the master's control state is next.
 
 **Verify.** `./verify fast` on the commit this trace ships in.

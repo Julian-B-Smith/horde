@@ -317,7 +317,8 @@
       latches: o.latches || { clip: false, nonFinite: false }, counters: o.counters || {},
       voices: (o.voices || []).map(function (v) {
         return { level: +v.level || 0, env: v.env || [], notes: v.notes || null,
-          osc: (v.osc || []).map(function (c) { return { R: +c.R || 0, psi: +c.psi || 0, frame: +c.frame || 0, phases: floats(c.phases), levels: floats(c.levels), blades: c.blades || [] }; }) };
+          // `osc` is always [Osc 1, Osc 2], null where `want` didn't ask; phases are θ in cycles (SPEC-ENGINE's table), a blade's pos and width too
+          osc: [0, 1].map(function (k) { var c = (v.osc || [])[k]; return c ? { R: +c.R || 0, psi: +c.psi || 0, frame: +c.frame || 0, phases: floats(c.phases), levels: floats(c.levels), blades: c.blades || [] } : null; }) };
       }) };
   }
   /* Keeps the last of each part a frame may leave out. */
