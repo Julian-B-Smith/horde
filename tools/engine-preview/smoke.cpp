@@ -194,6 +194,22 @@ long long ack_of(const std::string& frame) {
   return frame.rfind(tag, 0) == 0 ? std::atoll(frame.c_str() + tag.size()) : -1;
 }
 bool has(const std::string& text, const std::string& part) { return text.find(part) != std::string::npos; }
+// How many rows a snapshot's `params` carries (0 when it has none): keys are quoted and values are numbers.
+int params_rows(const std::string& frame) {
+  const std::size_t at = frame.find("\"params\":{");
+  if (at == std::string::npos) return 0;
+  const std::size_t end = frame.find('}', at);
+  int n = 0;
+  for (std::size_t i = frame.find("\":", at + 10); i < end; i = frame.find("\":", i + 2)) ++n;
+  return n;
+}
+// A row's v in a snapshot's `params`, or NaN.
+double param_in(const std::string& frame, const char* key) {
+  const std::size_t at = frame.find("\"params\":{");
+  if (at == std::string::npos) return NAN;
+  const std::size_t k = frame.find(std::string("\"") + key + "\":", at);
+  return k == std::string::npos ? NAN : std::strtod(frame.c_str() + k + std::strlen(key) + 3, nullptr);
+}
 
 void one_block(const clap_plugin_t* plugin) {
   float l[256], r[256];
@@ -243,10 +259,17 @@ int main(int argc, char** argv) {
     if (!host) page_row = &row;
   }
   check(page_row != nullptr, "the engine has a continuous row that isn't a host parameter");
+  int engine_rows = 0;
+  for (std::size_t i = 0; i < horde::manifest_size(); ++i) engine_rows += horde::manifest_param(i).reserved ? 0 : 1;
   {
+    // GUI 3's page adopts the frame that acknowledges its hello and carries every engine row: a LOAD. Until the audio
+    // path has applied the hello, no frame may claim it, or carry the full set the page would take for the answer.
     bridge->receive(p.plugin, "{\"type\":\"hello\",\"seq\":1}");
+    const std::string early = bridge->frame(p.plugin);
+    check(ack_of(early) < 1 && params_rows(early) == 0 && !has(early, "\"hello\""), "control: before the hello is applied, no frame answers it");
     one_block(p.plugin);
     std::string frame = bridge->frame(p.plugin);
+    check(ack_of(frame) == 1 && params_rows(frame) == engine_rows, "the frame that acknowledges hello carries every engine row (" + std::to_string(engine_rows) + ")");
     check(has(frame, "\"hello\":{\"build\":\"engine ") && has(frame, "\"presets\":{\"names\":[") && has(frame, "\"params\":{") &&
               has(frame, "\"plugin\":{\"voices\":4,\"build\":\"engine "),
           "after hello the snapshot carries the build label, the presets, Voices and every engine row");
@@ -291,8 +314,13 @@ int main(int argc, char** argv) {
       if (!std::strcmp(type, "plugin")) message += ",\"voices\":4";
       if (!std::strcmp(type, "want")) message += ",\"osc\":[1,2],\"members\":false";
       bridge->receive(p.plugin, (message + "}").c_str());
-      one_block(p.plugin);
-      if (ack_of(bridge->frame(p.plugin)) != seq) { all = false; missed += std::string(" ") + type; }
+      // A preset is a load: its ack waits for the new engine, which a frame builds and the next block takes.
+      bool acked = false;
+      for (int round = 0; round < 4 && !acked; ++round) {
+        one_block(p.plugin);
+        acked = ack_of(bridge->frame(p.plugin)) == seq;
+      }
+      if (!acked) { all = false; missed += std::string(" ") + type; }
     }
     check(all, "every message type is acknowledged with its own seq" + (missed.empty() ? "" : " (missed:" + missed + ")"));
     bridge->receive(p.plugin, "{\"type\":\"set\",\"values\":{}}");
@@ -302,6 +330,43 @@ int main(int argc, char** argv) {
     one_block(p.plugin);
     const std::string frame = bridge->frame(p.plugin);
     check(ack_of(frame) == 700 && has(frame, "\"refused\":{\"unknown\":[\"no.such.key\"]"), "a key the manifest lacks is acknowledged and reported back");
+  }
+  if (page_row) {
+    // A preset LOAD: acknowledged only once its engine plays, in a frame carrying every row of that engine.
+    double was = -1;
+    p.params->get_value(p.plugin, 0xB00001, &was);
+    const int other = (int(was) + 7) % kBankSize;
+    bridge->receive(p.plugin, ("{\"type\":\"preset\",\"seq\":1000,\"index\":" + std::to_string(other) + "}").c_str());
+    one_block(p.plugin);   // the audio thread applies the message: Preset moves, and the old path would ack here
+    double now = -1;
+    p.params->get_value(p.plugin, 0xB00001, &now);
+    const std::string applied = bridge->frame(p.plugin);   // builds the new engine; the audio thread hasn't taken it yet
+    check(int(now) == other && ack_of(applied) < 1000 && params_rows(applied) == 0,
+          "control: the message applied but its engine not yet live, no frame acknowledges the load or carries rows");
+    one_block(p.plugin);   // the swap
+    const std::string loaded = bridge->frame(p.plugin);
+    check(ack_of(loaded) == 1000 && params_rows(loaded) == engine_rows && has(loaded, "\"index\":" + std::to_string(other) + "}"),
+          "once the new engine plays, one frame acknowledges the preset with every row and its index");
+    check(param_in(loaded, page_row->key) == bridge->engine_v(p.plugin, page_row->id), "and its rows are the new engine's own values");
+    check(params_rows(bridge->frame(p.plugin)) == 0, "the next frame carries no rows: nothing changed");
+
+    // Loading the preset that is already playing still loads it: an edit is replaced by the preset's own value.
+    const double preset_v = bridge->engine_v(p.plugin, page_row->id);
+    const double edited = preset_v == 0.125 ? 0.625 : 0.125;
+    char message[160];
+    std::snprintf(message, sizeof message, "{\"type\":\"set\",\"seq\":1001,\"values\":{\"%s\":%.17g}}", page_row->key, edited);
+    bridge->receive(p.plugin, message);
+    one_block(p.plugin);
+    check(bridge->engine_v(p.plugin, page_row->id) == edited, "control: the edit is in the engine before the reload");
+    bridge->receive(p.plugin, ("{\"type\":\"preset\",\"seq\":1002,\"index\":" + std::to_string(other) + "}").c_str());
+    std::string reload;
+    for (int round = 0; round < 4 && ack_of(reload) != 1002; ++round) {
+      one_block(p.plugin);
+      reload = bridge->frame(p.plugin);
+    }
+    check(ack_of(reload) == 1002 && params_rows(reload) == engine_rows && param_in(reload, page_row->key) == preset_v &&
+              bridge->engine_v(p.plugin, page_row->id) == preset_v,
+          "reloading the playing preset brings back its own values, in the engine and in the frame");
   }
 
   {

@@ -141,6 +141,7 @@ double octave_in_v(const horde::ParamInfo& p) {
 struct Slot {
   std::unique_ptr<horde::Engine> engine;
   int preset = 0;
+  std::uint64_t generation = 0;   // counts builds, so the main thread can tell a slot built after a load was asked for
   Target targets[kMaxTargets];
   int n_targets = 0;
   std::uint32_t key_id[kMaxRouteKeys] = {};
@@ -173,12 +174,27 @@ struct Edit {
 };
 
 // What the page's session needs between frames. Main thread only.
+// A LOAD the page is waiting for (GUI 3's device.js, B628): a `hello`, or a `preset`. The page adopts the first frame
+// whose ack reaches the load's seq and that carries every engine row: those values become its state and its undo
+// starts fresh. So while a load is pending, frames hold `ack` below its seq and carry no `params` or `presets`; the
+// frame that completes it carries them all. A preset load completes only once the audio thread runs an engine built
+// for that preset after the message came, so the page never adopts the old preset's values.
+struct Load {
+  bool pending = false;
+  bool preset = false;         // wait for the engine swap, not only the ack
+  std::int64_t seq = 0;        // the load's seq, the latest if two overlapped
+  int index = -1;              // preset: the bank index asked for
+  std::uint64_t after = 0;     // preset: slots built up to this generation are too early
+};
+
 struct Session {
   preview::bridge::Want want;
   std::vector<double> sent;      // per manifest row, the v last sent in `params` (NaN: never)
   int sent_preset = -1;
   int sent_voices = -1;
-  bool hello_due = false;
+  Load load;
+  bool saw_hello = false;        // this page loads on hello: no resending until a frame lands (bridge_resend)
+  bool hello_due = false;        // the hello reply rides with the next completed load
   preview::bridge::Mismatch mismatch;
   std::string events;            // gesture echoes waiting for the next frame, JSON objects joined by commas
   std::string state;
@@ -203,6 +219,9 @@ struct Plugin {
   bool apply_shadow = false;   // main thread: the next build keeps the shadow's values (a loaded state)
   bool force_build = false;    // main thread
   Slot* newest = nullptr;      // main thread: the slot built last, live or on its way; the frames read its engine
+  std::uint64_t generations = 0;   // main thread: slots built so far
+  // The live slot's generation << 8 | its preset, published by the audio thread at the swap (one word, never torn).
+  std::atomic<std::uint64_t> live_tag{0};
   std::vector<std::vector<double>> preset_v;   // main thread: per preset, every row's v as it loads (empty: not read yet)
 
   std::atomic<int> wanted_preset{0};
@@ -282,6 +301,7 @@ void write_stats(Plugin& s) {
 Slot* build_slot(Plugin& s, int preset, bool keep_shadow) {
   auto slot = std::make_unique<Slot>();
   slot->preset = preset;
+  slot->generation = ++s.generations;
   slot->engine = horde::make_engine();
   if (!slot->engine || !slot->engine->prepare(s.sample_rate, s.max_block)) return nullptr;
   if (!slot->engine->load_state(kBank[preset].state).ok) return nullptr;
@@ -606,6 +626,7 @@ clap_process_status plugin_process(const clap_plugin_t* p, const clap_process_t*
     Slot* fresh = s.incoming.exchange(nullptr, std::memory_order_acq_rel);
     if (s.live) s.retired.store(s.live, std::memory_order_release);
     s.live = fresh;
+    s.live_tag.store(fresh->generation << 8 | std::uint64_t(fresh->preset), std::memory_order_release);
     forget_voices(s);   // a new engine starts with no voices; the old one's notes stop at the swap
     want_callback = true;
   }
@@ -686,21 +707,26 @@ clap_process_status plugin_process(const clap_plugin_t* p, const clap_process_t*
   return CLAP_PROCESS_CONTINUE;
 }
 
-void plugin_on_main_thread(const clap_plugin_t* p) {
-  Plugin& s = *self(p);
+// Builds the wanted preset's engine and hands it to the audio thread, if one is due and none is waiting. Main thread:
+// on_main_thread, and a frame that is waiting on a preset load.
+bool build_wanted(Plugin& s) {
   delete s.retired.exchange(nullptr, std::memory_order_acq_rel);
   const int wanted = s.wanted_preset.load(std::memory_order_relaxed);
+  if (!s.active || !(s.force_build || wanted != s.built_preset) || s.incoming.load(std::memory_order_acquire)) return false;
+  Slot* fresh = build_slot(s, wanted, s.apply_shadow);
+  if (!fresh) return false;
+  s.incoming.store(fresh, std::memory_order_release);
+  s.newest = fresh;
+  s.built_preset = wanted;
+  s.apply_shadow = false;
+  s.force_build = false;
+  return true;
+}
+
+void plugin_on_main_thread(const clap_plugin_t* p) {
+  Plugin& s = *self(p);
   bool rescan = s.rescan_pending.exchange(false);
-  if (s.active && (s.force_build || wanted != s.built_preset) && !s.incoming.load(std::memory_order_acquire)) {
-    if (Slot* fresh = build_slot(s, wanted, s.apply_shadow)) {
-      s.incoming.store(fresh, std::memory_order_release);
-      s.newest = fresh;
-      s.built_preset = wanted;
-      s.apply_shadow = false;
-      s.force_build = false;
-      rescan = true;
-    }
-  }
+  if (build_wanted(s)) rescan = true;
   if (rescan && s.host_params && s.host_params->rescan) s.host_params->rescan(s.host, CLAP_PARAM_RESCAN_VALUES);
   write_stats(s);
 }
@@ -714,6 +740,7 @@ bool plugin_activate(const clap_plugin_t* p, double sample_rate, std::uint32_t, 
   s.live = build_slot(s, wanted, s.apply_shadow);
   if (!s.live) return false;
   s.newest = s.live;
+  s.live_tag.store(s.live->generation << 8 | std::uint64_t(s.live->preset), std::memory_order_release);
   s.built_preset = wanted;
   s.apply_shadow = false;
   s.force_build = false;
@@ -728,6 +755,7 @@ void plugin_deactivate(const clap_plugin_t* p) {
   s.active = false;
   write_stats(s);
   s.newest = nullptr;
+  s.live_tag.store(0, std::memory_order_release);
   delete s.live;
   s.live = nullptr;
   delete s.incoming.exchange(nullptr);
@@ -1000,12 +1028,38 @@ void note_refused(std::vector<std::string>& list, const std::string& what, bool&
   due = true;
 }
 
-// A page that has (re)loaded, or a frame the page never received, leaves it knowing nothing: everything it reads only
-// on change goes again in the next frame. GUI 3's page sends no hello, so the window calls this until a frame lands.
+// Everything the page reads only on change goes again in the next frame that may carry it.
 void resend_all(Plugin& s) {
   Session& ss = s.session;
   std::fill(ss.sent.begin(), ss.sent.end(), NAN);
   ss.sent_preset = ss.sent_voices = -1;
+}
+
+// A new page in a new window: it knows nothing, and hasn't said hello.
+void open_session(Plugin& s) {
+  Session& ss = s.session;
+  ss.want = preview::bridge::Want{};
+  ss.load = Load{};
+  ss.saw_hello = ss.hello_due = false;
+  std::fill(ss.gesture_open.begin(), ss.gesture_open.end(), false);
+  resend_all(s);
+}
+
+// Whether the pending load completes in this frame, `acked` read with acquire. A preset load may build its engine here.
+bool load_completes(Plugin& s, std::int64_t acked) {
+  Load& load = s.session.load;
+  if (!load.pending || acked < load.seq) return false;
+  if (!load.preset) return true;
+  if (!s.active) {
+    // No engine to wait for: the shadow takes the preset's own values, which the next activation builds from.
+    const std::vector<double>& loaded = preset_values(s, load.index);
+    for (std::size_t m = 0; m < loaded.size(); ++m) s.shadow[m].store(loaded[m], std::memory_order_relaxed);
+    s.apply_shadow = true;
+    return true;
+  }
+  build_wanted(s);   // the audio thread takes it at its next block
+  const std::uint64_t tag = s.live_tag.load(std::memory_order_acquire);
+  return (tag >> 8) > load.after && int(tag & 0xFF) == load.index;
 }
 
 void bridge_receive(Plugin& s, std::string_view json) {
@@ -1052,9 +1106,13 @@ void bridge_receive(Plugin& s, std::string_view json) {
     case Kind::Want: ss.want = m.want; break;
     case Kind::Preset:
       if (m.index >= 0) {
+        const int index = std::clamp(m.index, 0, kBankSize - 1);
+        // Loading the preset already playing still loads it: its own values replace any edits.
+        if (index == s.wanted_preset.load(std::memory_order_relaxed)) s.force_build = true;
+        ss.load = Load{true, true, m.seq, index, s.generations};
         Edit e;
         e.id = kPresetId;
-        e.value = std::clamp(m.index, 0, kBankSize - 1);
+        e.value = index;
         batch.push_back(e);
       }
       break;
@@ -1067,9 +1125,12 @@ void bridge_receive(Plugin& s, std::string_view json) {
       }
       break;
     case Kind::Hello:
-      resend_all(s);
+      ss.saw_hello = true;
       ss.hello_due = true;
       ss.mismatch = check_hello(m, t.hash, t.text);
+      // A hello during a preset load still waits for that preset's engine; it only moves the seq to answer.
+      if (ss.load.pending && ss.load.preset) ss.load.seq = m.seq;
+      else ss.load = Load{true, false, m.seq, -1, 0};
       break;
     case Kind::Held:
       if (m.unknown_type) note_refused(ss.types, m.type, ss.refused_due);
@@ -1092,7 +1153,14 @@ const std::string& bridge_frame(Plugin& s) {
   Pieces p;
   // The ack first, with acquire: every shadow value read below is then at least as new as the seq it confirms, so the
   // page never reads an older value under a newer ack and takes it for the engine's own change (device.js, stale).
-  p.ack = s.acked.load(std::memory_order_acquire);
+  const std::int64_t acked = s.acked.load(std::memory_order_acquire);
+  const bool completes = load_completes(s, acked);
+  const bool holding = ss.load.pending && !completes;
+  p.ack = holding ? std::min(acked, ss.load.seq - 1) : acked;
+  if (completes) {
+    resend_all(s);   // every row, the presets and Voices, in this one frame
+    ss.load.pending = false;
+  }
 
   FrameInputs in;
   if (s.newest && s.newest->engine->read_gui_snapshot(*ss.frame)) in.frame = ss.frame.get();
@@ -1118,7 +1186,7 @@ const std::string& bridge_frame(Plugin& s) {
   p.observe = observe_json(in, ss.want);
 
   std::vector<std::pair<std::string, double>> changed;
-  for (std::size_t m = 0; m < t.all.size(); ++m) {
+  for (std::size_t m = 0; m < t.all.size() && !holding; ++m) {
     if (t.all[m]->reserved) continue;
     const double v = s.shadow[m].load(std::memory_order_relaxed);
     if (v == ss.sent[m]) continue;   // NaN never equals: a row never sent is sent
@@ -1127,7 +1195,7 @@ const std::string& bridge_frame(Plugin& s) {
   }
   if (!changed.empty()) p.params = &changed;
   const int preset = s.wanted_preset.load(std::memory_order_relaxed);
-  if (preset != ss.sent_preset) {
+  if (preset != ss.sent_preset && !holding) {
     p.preset_names = &preset_names();
     p.preset_index = preset;
     ss.sent_preset = preset;
@@ -1139,7 +1207,7 @@ const std::string& bridge_frame(Plugin& s) {
     p.plugin_build = &build;   // the label rides with Voices: GUI 3's page keeps `plugin`, and sends no hello
   }
   if (ss.state_due) p.state = &ss.state;
-  if (ss.hello_due) {
+  if (ss.hello_due && completes) {
     p.build = &build;
     p.engine_hash = &t.hash;
     p.mismatch = &ss.mismatch;
@@ -1152,7 +1220,8 @@ const std::string& bridge_frame(Plugin& s) {
   if (!ss.events.empty()) p.events = "[" + ss.events + "]";
   ss.out = snapshot_json(p);
   ss.events.clear();
-  ss.hello_due = ss.refused_due = ss.state_due = false;
+  if (completes) ss.hello_due = false;
+  ss.refused_due = ss.state_due = false;
   return ss.out;
 }
 
@@ -1242,7 +1311,13 @@ void edit(void* plugin, clap_id id, double host_value) {
 void*& gui_slot(void* plugin) { return static_cast<Plugin*>(plugin)->gui; }
 void bridge_receive(void* plugin, const char* json) { ::bridge_receive(*static_cast<Plugin*>(plugin), json ? json : ""); }
 const char* bridge_frame(void* plugin) { return ::bridge_frame(*static_cast<Plugin*>(plugin)).c_str(); }
-void bridge_resend(void* plugin) { resend_all(*static_cast<Plugin*>(plugin)); }
+// Only for a page that never says hello: one that does gets the full set only when it asks, in the frame that answers
+// its load, so nothing here can make it adopt values it didn't ask for.
+void bridge_resend(void* plugin) {
+  Plugin& s = *static_cast<Plugin*>(plugin);
+  if (!s.session.saw_hello) resend_all(s);
+}
+void bridge_open(void* plugin) { open_session(*static_cast<Plugin*>(plugin)); }
 const char* build_label() { return kBuildLabel; }
 }  // namespace preview
 

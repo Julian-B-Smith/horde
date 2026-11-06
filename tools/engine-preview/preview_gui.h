@@ -35,6 +35,7 @@ const char* build_label();   // "engine <commit>, build <n>"
 // GUI 3's bridge (B628, bridge_core.h): a page message in, and the next snapshot out, valid until the next call.
 void bridge_receive(void* plugin, const char* json);
 const char* bridge_frame(void* plugin);
-void bridge_resend(void* plugin);   // the page knows nothing yet: the next frame carries everything again
+void bridge_resend(void* plugin);   // the page knows nothing yet: the next frame carries everything again (no-op after a hello)
+void bridge_open(void* plugin);     // a new window, a new page: the session starts over
 
 }  // namespace preview
