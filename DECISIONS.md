@@ -12463,3 +12463,10 @@ The lead's proposals for the round's fine questions stand as proposals for the s
 - a check for each modulator when it is ported.
 
 **FX device (ADR-254).** The same modulators run in the FX device, with no change.
+
+**ADR-377 A2 (the human, 2026-11-06, by poll, after a second critic pass on round 61): landing, Save below the floor, and the noise's erosion exception.**
+1. **A landing skips the engine's smoothing** ("Skip it"). When a source comes back on, under any law, its keys jump to the on-corner's values with neither the morph glide nor PA-1's. The source was silent, so the jump is inaudible.
+2. **Save below the floor stores the source off** ("The source off"), matching what is heard.
+3. **The noise is the one exception to the off-source rule.** The human: "noise settings influence erosion even if the noise osc is off; I say erosion is colored by any corner where noise is influencing the erosion of its respective sub, or if the erosion control is connected to a modulator, regardless of whether that noise osc is active. That said, this means any active noise oscs will have to blend the sound of those as well, and the audible noise will need to influence the erosion (each patch only has one noise osc as a source for either the erosion or the audible noise). This is the exception to the off-oscillator blend rule." The lead's restatement, confirmed by poll ("Yes, that's it"): the noise's one set of settings blends over the corners where the noise is on **or** erosion is active (the sub's erode above 0, or erode modulated). Corners with neither are ignored. The noise's volume still fades only by the corners where it is on.
+
+The lead's mechanism, from the critic's review: the resolver holds the switch-off until a mirror of PA-1's heard level reaches the floor, and holds the source's values meanwhile. So no off corner's values sound while it fades out, and the engine keeps PA-5's "at once".
