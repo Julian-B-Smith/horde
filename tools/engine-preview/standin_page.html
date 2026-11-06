@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>horde ENGINE PREVIEW: stand-in page</title>
+<!--
+  The stand-in for GUI 3's page (B628), until tools/gui3_inline.py writes the real one. It speaks the seam's two names
+  exactly as the page will (docs/proposals/gui-on-engine.md section 3): it sends with hordeNativeSend(JSON text) and
+  hears snapshots on window.hordeNativeSnapshot. It lists the presets, sets a few rows by key, and draws one phase
+  picture from `observe`. Not a design: the GUI session owns the page.
+  tools/embed_file.py embeds it with a policy that runs only its inline script, so every handler is bound in script.
+-->
+<style>
+  body { margin: 0; background: #1e1f24; color: #d8d8dc; font: 12px -apple-system, system-ui, sans-serif; }
+  header { display: flex; justify-content: space-between; align-items: baseline; padding: 12px 16px 4px; }
+  h1 { font-size: 15px; font-weight: 600; margin: 0; }
+  #build { color: #888; font-size: 11px; }
+  #banner { display: none; margin: 6px 16px; padding: 8px 10px; background: #5a1e1e; color: #ffd6d6; border-radius: 4px; }
+  .bar { display: flex; gap: 8px; align-items: center; padding: 6px 16px; }
+  select, button { font: inherit; }
+  #preset { width: 300px; }
+  main { display: flex; gap: 16px; padding: 6px 16px; }
+  #rows { width: 430px; }
+  .row { display: grid; grid-template-columns: 170px 1fr 64px; gap: 8px; align-items: center; height: 26px; }
+  .row .v { text-align: right; font-variant-numeric: tabular-nums; color: #aaa; }
+  .row.page .k { color: #8fb5ff; }
+  canvas { background: #15161a; border-radius: 4px; }
+  #status { padding: 4px 16px; color: #888; font-variant-numeric: tabular-nums; }
+  #refused { padding: 0 16px; color: #d9a35b; }
+</style>
+</head>
+<body>
+<header><h1>horde ENGINE PREVIEW <span style="color:#888;font-weight:400">· stand-in page</span></h1><span id="build">waiting for the plug-in</span></header>
+<div id="banner"></div>
+<div class="bar">
+  <span>Preset</span><button id="prev">&lt;</button><select id="preset"></select><button id="next">&gt;</button>
+  <span style="margin-left:auto">Voices</span><select id="voices"></select>
+</div>
+<main>
+  <div id="rows"></div>
+  <div><canvas id="phase" width="440" height="440"></canvas><div id="meters"></div></div>
+</main>
+<div id="status">no frame yet</div>
+<div id="refused"></div>
+<script>
+(function () {
+  'use strict';
+  // Rows by key. The first is a host parameter; osc1.phaseLag isn't (only the page can set it); fx1.mix is a rack key
+  // the engine lacks, so it goes out as `rack` and is held, never reaching the engine.
+  var ROWS = [
+    { key: 'out.level' }, { key: 'mix.osc1' }, { key: 'osc1.detune' }, { key: 'osc1.coupling' }, { key: 'osc1.width' },
+    { key: 'osc1.blade1.cut' }, { key: 'env1.attack' }, { key: 'env1.release' },
+    { key: 'osc1.phaseLag', note: 'page only' }, { key: 'fx1.mix', target: 'rack' }
+  ];
+  var seq = 0, sentSeq = {}, dragging = null, frames = 0, last = null;
+  var $ = function (id) { return document.getElementById(id); };
+
+  function send(msg) {
+    msg.seq = ++seq;
+    if (typeof window.hordeNativeSend === 'function') window.hordeNativeSend(JSON.stringify(msg));
+    return msg.seq;
+  }
+
+  var sliders = {};
+  ROWS.forEach(function (r) {
+    var row = document.createElement('div');
+    row.className = 'row' + (r.note ? ' page' : '');
+    var k = document.createElement('span'); k.className = 'k'; k.textContent = r.key + (r.note ? ' (' + r.note + ')' : r.target ? ' (' + r.target + ')' : '');
+    var s = document.createElement('input'); s.type = 'range'; s.min = 0; s.max = 1; s.step = 0.001; s.value = 0;
+    var v = document.createElement('span'); v.className = 'v'; v.textContent = '';
+    s.addEventListener('pointerdown', function () { dragging = r.key; send({ type: 'gesture', key: r.key, phase: 'begin' }); });
+    s.addEventListener('pointerup', function () { dragging = null; send({ type: 'gesture', key: r.key, phase: 'end' }); });
+    s.addEventListener('input', function () {
+      var values = {}; values[r.key] = Number(s.value);
+      var n = send({ type: r.target || 'set', values: values });
+      sentSeq[r.key] = n;
+      v.textContent = Number(s.value).toFixed(3);
+    });
+    row.appendChild(k); row.appendChild(s); row.appendChild(v);
+    $('rows').appendChild(row);
+    sliders[r.key] = { input: s, text: v };
+  });
+
+  for (var i = 1; i <= 16; i++) { var o = document.createElement('option'); o.value = i; o.textContent = i; $('voices').appendChild(o); }
+  $('voices').addEventListener('change', function () { send({ type: 'plugin', voices: Number($('voices').value) }); });
+  $('preset').addEventListener('change', function () { send({ type: 'preset', index: Number($('preset').value) }); });
+  $('prev').addEventListener('click', function () { send({ type: 'preset', index: Math.max(0, Number($('preset').value) - 1) }); });
+  $('next').addEventListener('click', function () { send({ type: 'preset', index: Math.min($('preset').options.length - 1, Number($('preset').value) + 1) }); });
+
+  function apply(s) {
+    frames++; last = s;
+    if (s.hello) $('build').textContent = s.hello.build + ' · manifest ' + s.hello.manifest_hash.slice(0, 12);
+    if ('mismatch' in s) {
+      var b = $('banner');
+      if (s.mismatch) { b.style.display = 'block'; b.textContent = 'This page and the engine disagree on the manifest (' + s.mismatch.keys.length + ' rows): ' + s.mismatch.keys.slice(0, 12).join(', '); }
+      else b.style.display = 'none';
+    }
+    if (s.presets) {
+      var sel = $('preset');
+      if (sel.options.length !== s.presets.names.length) {
+        sel.textContent = '';
+        s.presets.names.forEach(function (n, i) { var o = document.createElement('option'); o.value = i; o.textContent = n; sel.appendChild(o); });
+      }
+      sel.value = s.presets.index;
+    }
+    if (s.plugin) { $('voices').value = s.plugin.voices; $('build').textContent = s.plugin.build; }
+    if (s.params) {
+      for (var k in s.params) {
+        var sl = sliders[k]; if (!sl || k === dragging) continue;
+        if (sentSeq[k] !== undefined && s.ack < sentSeq[k]) continue;   // stale: hasn't seen our latest send
+        sl.input.value = s.params[k]; sl.text.textContent = Number(s.params[k]).toFixed(3);
+      }
+    }
+    if (s.refused) $('refused').textContent = 'Not sent to the engine: ' + s.refused.unknown.concat(s.refused.reserved).join(', ') + (s.refused.types.length ? ' · types ' + s.refused.types.join(', ') : '');
+    draw(s.observe);
+    $('status').textContent = 'frame ' + frames + ' · ack ' + s.ack + ' · ' + (s.observe && s.observe.sounding ? s.observe.voices.length + ' voices sounding' : 'nothing sounding');
+  }
+
+  // One phase picture: each sounding voice a ring, osc 1's members as dots at their phases, and the order parameter
+  // R at angle psi as a line from the centre.
+  function draw(o) {
+    var c = $('phase'), g = c.getContext('2d'), w = c.width, h = c.height;
+    g.clearRect(0, 0, w, h);
+    g.strokeStyle = '#333'; g.beginPath(); g.arc(w / 2, h / 2, w / 2 - 12, 0, 2 * Math.PI); g.stroke();
+    if (!o || !o.sounding) { g.fillStyle = '#666'; g.fillText('nothing sounding', w / 2 - 40, h / 2); return; }
+    o.voices.forEach(function (v, n) {
+      var osc = v.osc[0]; if (!osc) return;
+      var r = (w / 2 - 20) * (1 - n * 0.12);
+      g.fillStyle = 'hsl(' + (200 + n * 40) + ',70%,' + (40 + 30 * Math.min(1, v.level)) + '%)';
+      (osc.phases || []).forEach(function (p, k) {
+        var a = 2 * Math.PI * p, lv = osc.levels ? osc.levels[k] : 1;
+        g.beginPath(); g.arc(w / 2 + r * Math.cos(a), h / 2 + r * Math.sin(a), 2 + 3 * lv, 0, 2 * Math.PI); g.fill();
+      });
+      g.strokeStyle = g.fillStyle; g.beginPath(); g.moveTo(w / 2, h / 2);
+      g.lineTo(w / 2 + r * osc.R * Math.cos(2 * Math.PI * osc.psi), h / 2 + r * osc.R * Math.sin(2 * Math.PI * osc.psi)); g.stroke();
+    });
+    var m = o.meters;
+    $('meters').textContent = 'out ' + m.out.peak.toFixed(3) + (o.latches.clip ? ' CLIP' : '') + ' · osc1 ' + m.osc1.peak.toFixed(3) + ' · osc2 ' + m.osc2.peak.toFixed(3);
+  }
+
+  window.hordeNativeSnapshot = apply;
+  // No manifest hash: the stand-in has no manifest, so the bridge doesn't check it. GUI 3's page sends its own.
+  send({ type: 'hello' });
+  send({ type: 'want', osc: [1, 2], members: true, cycles: false });
+})();
+</script>
+</body>
+</html>
