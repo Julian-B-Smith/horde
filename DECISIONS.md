@@ -11991,6 +11991,39 @@ The whole suite on this version: 295 items, the same two failing as the unpatche
 
 **FX device (ADR-254).** It has no Main or sources.
 
+
+## GUI-49 — DIRECTED by the human: a waveform view of Members at phase; the summed beam under it; the Osc pages scroll (GB28; amends ADR-345 r1 for the Osc pages; 2026-11-05)
+
+**The human, 2026-11-05:** "I would like a scalpel view option that has members at phase", and "add the summed waveform below the scalpel on the osc page, like in the scalpel lab". Asked where the beam's 78 px should come from: "Let the osc page scroll: we still need to add the advanced option sections below anyway".
+
+**What changes.**
+1. **A fourth waveform view, Members at phase** (the master's BladeView and `Viz.blade`, version `1793941176-071d`). It draws Members' lanes, each member shifted as At phase shifts it, with its windows, and a tick in its lane where its cycle starts. The four pills keep one row, and the XY legend gives up its width instead. It is one choice for every instance, remembered per machine, as the other three are.
+2. **The beam under the waveform on the Osc pages:** the master's Waveform painter (`Viz.scope`, gui2's scope), one cycle across on the waveform's x axis, its hue riding R. It draws the members as they line up now, summed: a SAMPLE until the plug-in taps its output (GN-4), and it says so.
+3. **The Osc pages scroll** (amends ADR-345 r1, which held every dense page to the page area). The fit self-check still measures Osc 1 and 2 and names their heights. Main, Sub and Noise must still fit.
+
+**Reading (the GUI session's, open to the human).** "Members at phase" is read as Members' lanes with At phase's shift. Main's Osc tabs carry the same four pills, and nothing else of the beam.
+
+**Engine impact.** None: drawings of the settings, and GN-4's output tap is already requested.
+
+**FX device (ADR-254).** It has no oscillators; the Waveform painter is audio-capable and is its to use.
+
+## GUI-50 — RULED by the human: the bank's MORPH lane, rows and weights with preset menus; saving on the Morph page; an asterisk on every edited preset (GB25; completes GUI-45; 2026-11-05)
+
+**The human, 2026-11-05,** on `docs/design/bank-morph-lane-lab.html`: "Let's do rows and weights but also make the names menus where users can select existing corner presets. The save menu can exist on the morph page (there needs to be a way to save the current sound to a preset or to a corner, and whenever parameters have been altered from the corner or global preset (or any other kind of preset), there needs to be an asterisk next to each relevant name)". By poll: the tab "Dimmed, with a switch" while morph is off, and the bank "Goes back to the tab you had" when it turns off.
+
+**Rulings.**
+1. **The lane is B:** the four corner rows, each with its weight at the puck as a bar and a percent.
+2. **Each row's name is a menu** of the existing corner presets. Picking one loads it into that corner.
+3. **Saving lives on the Morph page.** Save the current sound to a preset (the global one) or to a corner. The lane has no save.
+4. **An asterisk next to every name whose values differ from the preset it came from:** a corner's, the global preset's in the top bar, and any other kind of preset (a hosted module's, Arp's pattern). It replaces the master's edited dot.
+5. **While morph is off,** the MORPH tab stays, its rows dimmed, with a "Turn morph on" button over them.
+6. **When morph turns off,** the bank goes back to the tab it was on before the flip.
+
+**Next.** The master: ModBank's third segment and lane, the name menu, the asterisk across CornerChip, PresetBar and the module cards. Then re-vendor and the shell.
+
+**Engine impact.** GN-9 (the global preset seam: list, load, save), GN-37 (the morph system's saved document) and GN-52 (a corner preset library, and every preset kind's "edited since loaded" baseline).
+
+**FX device (ADR-254).** It has a morph, a bank and module presets, so all six apply.
 ## GUI-45 — DIRECTED by the human: a MORPH tab in the bank on every page, flipped to from Main; the pad's X and Y as knobs under the Morph pad (GB25; amends GUI-8 and GUI-40; 2026-11-05)
 
 **The human, 2026-11-05:** "What if we add a third tab here for "morph" here (pictured) which shows the morph corner presets, and when morph is activated on Main it automatically flips over (I don't love that Main is the only page that doesn't show the morph corner presets interface anywhere). And it occurs to me that the XY coordinates for Morph should be parameters visible below the grid on the Morph page." The picture was the bank's MAC | MODS segments. By poll: the tab on **every page**, its lane "Let's workshop it in a lab", and X and Y as **two knobs**.
