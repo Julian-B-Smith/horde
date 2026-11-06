@@ -1274,11 +1274,23 @@ def arp_face():
 # The manifest hash (docs/proposals/gui-on-engine.md section 3, B628): the page and the plug-in's bridge each hash the
 # engine's rows the same way, so a page generated from one spec revision never plays silently against another engine.
 # One line per engine-target, non-reserved row: key, class, law, lo, hi, steps, default, tab-separated, sorted bytewise.
-# A row with named options has no range of its own, so its lo and hi are its index range, 0 and steps - 1, which is
-# also what its default (an option index) is measured in; the seeds' numeric range is their own. '.17g' is C's %.17g
-# (both drop trailing zeros), so the C++ side can write the same text with snprintf.
+# A stepped row's lo and hi: its own range where it has one (the seeds); where its options are consecutive integers
+# (octave, semitone, unison, the bump harmonics, the sub's octave and semitones, polyphony), their first and last
+# numbers, as the engine's ParamInfo states them (the lead's ruling, 2026-11-05); else, for named options, the index
+# range 0 and steps - 1. Its default is always the option index. With this rule the page's lines hash to the engine's
+# own (ca64bf73..., checked by the lead's implementer). '.17g' is C's %.17g (both drop trailing zeros), so the C++
+# side can write the same text with snprintf.
 HASH_CLASS = {"M": "morphable", "S": "structural", "D": "device"}
 HASH_LAW = {"lin": "lin", "log": "log", "pow": "pow", "lin, wraps": "linwraps", "log, off zone": "logoffzone", "dB": "db", "step": "step"}
+
+
+def integer_options(r):
+    # options like "−4" .. "+4" (a typographic minus, a plus sign) that are consecutive integers, or None
+    try:
+        v = [int(o.replace("\u2212", "-").replace("+", "")) for o in r.get("options") or []]
+    except ValueError:
+        return None
+    return v if v and all(b - a == 1 for a, b in zip(v, v[1:])) else None
 
 
 def manifest_lines(rows):
@@ -1288,7 +1300,8 @@ def manifest_lines(rows):
         if r.get("target", "engine") != "engine" or r["reserved"]:
             continue
         step = r["law"] == "step"
-        lo, hi = (r.get("lo"), r.get("hi")) if r.get("lo") is not None else (0, r["n"] - 1)
+        iv = integer_options(r) if step else None
+        lo, hi = (r.get("lo"), r.get("hi")) if r.get("lo") is not None else (iv[0], iv[-1]) if iv else (0, r["n"] - 1)
         out.append("\t".join([r["key"], HASH_CLASS[r["class"]], HASH_LAW[r["law"]], g(lo), g(hi),
                               str(r["n"] if step else 0), g(r["default_index"] if step else r["default_x"])]) + "\n")
     return sorted(out, key=lambda s: s.encode("utf-8"))

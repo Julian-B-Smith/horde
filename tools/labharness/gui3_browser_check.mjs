@@ -147,23 +147,66 @@ async function runReplay(chrome, url, frames, frozen) {
     return { ready, thrown, p: ready ? await b.evalIn(PROBE) : null, csp: await b.evalIn('window.__csp || []').catch(() => ['unreadable']) };
   } finally { b.ws.close(); b.proc.kill(); await sleep(200); await rm(dir, { recursive: true, force: true }); }
 }
+/* THE PLUG-IN'S MODE (B628): the page loaded as the bridge loads it, with `hordeNativeSend` bound before it, and a stand-in bridge
+   that answers `hello` with the first frame, its build and no mismatch. Asserted: the page is in plug-in mode (the lab's header,
+   description and status are gone and the device sits at the view's top-left); hello went out first with shell-data's hash;
+   the build label reads the bridge's build; a mismatch the bridge reports shows as a banner naming a row, and goes when cleared. */
+const NATIVE = frames => `window.__sent = []; window.hordeNativeSend = t => { const m = JSON.parse(t); window.__sent.push(m);
+  if (m.type === 'hello') setTimeout(() => window.hordeNativeSnapshot(Object.assign({}, ${JSON.stringify(frames[0])}, { ack: m.seq, hello: { build: 'stand-in', manifest_hash: m.manifest_hash }, mismatch: null, plugin: Object.assign({ voices: 4 }, (${JSON.stringify(frames[0])}).plugin, { build: 'stand-in' }) })), 0); };`;
+const NPROBE = `(async () => {
+  const wait = ms => new Promise(r => setTimeout(r, ms)), R = e => e ? e.getBoundingClientRect() : null, vis = e => !!e && getComputedStyle(e).display !== 'none' && e.getClientRects().length > 0;
+  const win = R(document.getElementById('win')), first = window.__sent[0] || null;
+  const plugin = document.documentElement.classList.contains('plugin'), chrome = ['bar', 'sizeBar', 'status'].filter(id => vis(document.getElementById(id)));
+  const build = (document.getElementById('buildLabel') || {}).textContent || '';
+  window.hordeNativeSnapshot({ mismatch: { expected: window.GUI3_DATA.manifest_hash, got: 'ffff', keys: ['osc1.octave'] } }); await wait(150);
+  const b = document.querySelector('.bridge-banner'), shown = vis(b) && /osc1\\.octave/.test(b.textContent);
+  window.hordeNativeSnapshot({ mismatch: null }); await wait(150);
+  return { plugin, chrome, top: win && Math.round(win.top), left: win && Math.round(win.left), w: win && Math.round(win.width), h: win && Math.round(win.height),
+    first, hash: window.GUI3_DATA.manifest_hash, build, shown, gone: !vis(b) };
+})()`;
+async function runNative(chrome, url, frames) {
+  const dir = await mkdtemp(join(tmpdir(), 'gui3-native-')), b = await cdp(chrome, dir);
+  try {
+    await b.call('Page.addScriptToEvaluateOnNewDocument', { source: NATIVE(frames) + 'window.__csp = []; document.addEventListener("securitypolicyviolation", e => window.__csp.push(e.violatedDirective + " " + (e.blockedURI || "inline")));' });
+    await b.call('Page.navigate', { url });
+    let ready = false; for (let i = 0; i < 60 && !ready; i++) { await sleep(500); try { ready = await b.evalIn(`/Ready/.test((document.getElementById('status') || {}).textContent || '') && !!(window.__sent || []).length`); } catch {} }
+    const thrown = b.events.filter(e => e.method === 'Runtime.exceptionThrown').map(e => (e.params.exceptionDetails.exception || {}).description || e.params.exceptionDetails.text);
+    return { ready, thrown, n: ready ? await b.evalIn(NPROBE) : null, csp: await b.evalIn('window.__csp || []').catch(() => ['unreadable']) };
+  } finally { b.ws.close(); b.proc.kill(); await sleep(200); await rm(dir, { recursive: true, force: true }); }
+}
+function nativeVerdict(r, red) {
+  if (!r.ready) { red.push('plug-in mode: the page never said Ready with hordeNativeSend bound'); return; }
+  r.thrown.forEach(t => red.push('plug-in mode, uncaught: ' + String(t).split('\\n')[0]));
+  r.csp.forEach(v => red.push('plug-in mode, blocked by the page policy: ' + v));
+  const n = r.n;
+  if (!n.plugin || n.chrome.length) red.push('plug-in mode: the lab chrome still shows (' + (n.plugin ? n.chrome.join(', ') : 'no plugin class') + ')');
+  if (n.top > 1 || n.left > 1) red.push(`plug-in mode: the device starts at ${n.left}, ${n.top}, not the view's top-left`);
+  if (!n.first || n.first.type !== 'hello' || n.first.manifest_hash !== n.hash) red.push('plug-in mode: the first message was ' + JSON.stringify(n.first) + ', not hello with shell-data\\u2019s hash');
+  if (n.build !== 'Build stand-in') red.push('plug-in mode: the build label reads "' + n.build + '"');
+  if (!n.shown || !n.gone) red.push(`plug-in mode: a reported mismatch ${n.shown ? '' : 'never showed a banner naming its row'}${!n.shown || n.gone ? '' : ' stayed after it was cleared'}`);
+}
 function replayVerdict(r, rc, frames, red) {
   if (!r.ready) { red.push('replay: the page never said Ready on GUI3_REPLAY'); return; }
   r.thrown.forEach(t => red.push('replay, uncaught: ' + String(t).split('\n')[0]));
   r.csp.forEach(v => red.push('replay, blocked by the page policy: ' + v));
-  const p = r.p, names = (frames[0].presets || {}).names || [];
+  // What the recording holds decides what is asserted: the lead's frames carry the engine as it is (preset 1, sparse source meters,
+  // only sounding voices), the synthetic ones carry everything. Nothing is asserted that the frames can't show.
+  const p = r.p, first = frames.find(f => f.presets) || {}, names = (first.presets || {}).names || [], at = (first.presets || {}).index || 0;
+  const oscFrames = frames.map(f => ((((f.observe || {}).voices || [])[0] || {}).osc || [])[0]).filter(c => c && c.phases && c.phases.length);
+  const noteKeys = new Set(frames.map(f => (((f.observe || {}).voices || []).map(v => v.notes && v.notes.gate ? v.notes.key : '').join())));
   if (!p.seqs) red.push('replay: a message went out without a seq');
   if (!p.want0 || JSON.stringify(p.want0.osc) !== '[1,2]' || !p.want0.members || p.want0.cycles) red.push('replay: Main’s want is ' + JSON.stringify(p.want0) + ', not osc [1,2] with members and no cycles');
   if (!p.want1 || JSON.stringify(p.want1.osc) !== '[1]') red.push('replay: Osc 1’s want is ' + JSON.stringify(p.want1));
   if (!p.morphOff || !p.rackInert || !p.engLive || !p.notes) red.push(`replay: inert state wrong (morph switch disabled ${p.morphOff}, a rack row dimmed ${p.rackInert}, osc1.detune live ${p.engLive}, notes ${p.notes})`);
-  if (names.length && (!p.barName.startsWith(names[0]) || !p.pre || p.pre.index !== 1)) red.push(`replay: the bank didn't reach the preset bar ("${p.barName}"), or next sent ${JSON.stringify(p.pre)}`);
-  if (frames[0].plugin && p.voices !== String(frames[0].plugin.voices)) red.push('replay: Voices reads ' + p.voices + ', not ' + frames[0].plugin.voices);
+  if (names.length && (!p.barName.startsWith(names[at]) || !p.pre || p.pre.index !== (at + 1) % names.length)) red.push(`replay: the preset bar reads "${p.barName}", not "${names[at]}" (index ${at}), or next sent ${JSON.stringify(p.pre)}`);
+  const pl = (frames.find(f => f.plugin) || {}).plugin;
+  if (pl && p.voices !== String(pl.voices)) red.push('replay: Voices reads ' + p.voices + ', not ' + pl.voices);
   const recordedPhases = new Set(frames.flatMap(f => (((f.observe || {}).voices || [])[0] || { osc: [] }).osc.filter(Boolean).map(c => (c.phases || []).map(x => +(+x).toFixed(5)).join())));
-  if (!p.ringA || !p.ringA.engine || !recordedPhases.has(p.ringA.phase.join())) red.push('replay: Osc 1\u2019s ring isn\u2019t drawing a recorded frame\u2019s members: ' + JSON.stringify(p.ringA));
-  if (p.ringA && p.ringB && p.ringA.phase.join() === p.ringB.phase.join()) red.push('replay: Osc 1\u2019s ring held still while frames played');
-  if (rc.p && (!rc.p.ringA || !rc.p.ringB || rc.p.ringA.phase.join() !== rc.p.ringB.phase.join())) red.push('CONTROL: with the replay frozen, Osc 1\u2019s ring still changed, so a moving ring proves nothing');
-  if (p.gates.length < 2) red.push('replay: the feed’s gates never changed as frames played (' + p.gates.join(' | ') + ')');
-  if (!rc.ready || !rc.p || rc.p.gates.length !== 1) red.push('CONTROL: with the replay frozen the feed showed ' + (rc.p ? rc.p.gates.length : 'no') + ' sets of gates, not one, so a moving feed proves nothing');
+  if (oscFrames.length && (!p.ringA || !p.ringA.engine || !recordedPhases.has(p.ringA.phase.join()))) red.push('replay: Osc 1\u2019s ring isn\u2019t drawing a recorded frame\u2019s members: ' + JSON.stringify(p.ringA));
+  if (new Set(oscFrames.map(c => c.phases.join())).size > 1 && p.ringA && p.ringB && p.ringA.phase.join() === p.ringB.phase.join()) red.push('replay: Osc 1\u2019s ring held still while frames played');
+  if (oscFrames.length && rc.p && (!rc.p.ringA || !rc.p.ringB || rc.p.ringA.phase.join() !== rc.p.ringB.phase.join())) red.push('CONTROL: with the replay frozen, Osc 1\u2019s ring still changed, so a moving ring proves nothing');
+  if (noteKeys.size > 1 && p.gates.length < 2) red.push('replay: the feed’s gates never changed as frames played (' + p.gates.join(' | ') + ')');
+  if (!rc.ready || !rc.p || (noteKeys.size > 1 && rc.p.gates.length > 1)) red.push('CONTROL: with the replay frozen the feed showed ' + (rc.p ? rc.p.gates.length : 'no') + ' sets of gates, not one, so a moving feed proves nothing');
 }
 
 const chrome = findChrome();
@@ -184,8 +227,10 @@ try {
   embedded = embedPage();
   const eb = base.replace('/design/gui3.html', EMBEDDED);
   replayVerdict(await runReplay(chrome, eb, frames, false), await runReplay(chrome, eb, frames, true), frames, red);
+  const nat = await runNative(chrome, eb, frames); nativeVerdict(nat, red);
   console.log(red.length ? 'gui3_browser_check: RED\n  ' + red.join('\n  ')
     : `gui3_browser_check: GREEN -- ${r.st.ok} self-checks pass in a real browser, ${MOVERS.join(', ')} move after them, and with frames stopped they read frozen (control); ` +
-      `the plug-in's one-file page runs under its policy with no violation, its bridge side holds on ${recorded ? 'the recorded' : 'SYNTHETIC'} frames, and a frozen replay reads frozen (control)`);
+      `the plug-in's one-file page runs under its policy with no violation, its bridge side holds on ${recorded ? 'the recorded' : 'SYNTHETIC'} frames, and a frozen replay reads frozen (control); ` +
+      `in plug-in mode the ${nat.n.w} x ${nat.n.h} device fills the view's top-left with no lab chrome, says hello with its hash, and shows and clears a mismatch`);
 } finally { srv.close(); }
 process.exit(red.length ? 1 : 0);

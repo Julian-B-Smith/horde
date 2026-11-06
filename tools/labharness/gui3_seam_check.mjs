@@ -1051,12 +1051,21 @@ function suite(W) {
     rp.tick(0); rp.tick(40);
     ok(snap.observe.meters.out.peak === -Infinity && snap.presets && snap.presets.index === 1, 'a frame without presets lost them, or the next frame never played');
     ok(fresh(1).d.feed() === null, 'the stub’s MOCK meters made a feed: every picture would wake with nothing playing');
+    // adoption: on a bridge the adapter sends nothing before hello, and the frame answering hello with every engine row is a load
+    const loaded = Object.fromEntries(host.map(r => [r.key, r.law === 'step' ? (r.n > 1 ? 1 / (r.n - 1) : 0) : .123])), F = { params: loaded };
+    const ta = ENG.ReplayTransport([F, F], { rows }), da = DEV.create(DATA, ta, { seed: 1, adopt: true });
+    ok(ta.sent.length === 0, 'a bridge adapter sent ' + (ta.sent[0] && ta.sent[0].type) + ' before hello: it would overwrite the engine’s preset with the page’s defaults');
+    da.hello(DATA.manifest_hash); ta.tick(0); ta.tick(40);
+    ok(da.shown(cont.key) === .123 && da.corner(cont.key, 2) === .123 && da.fromEngine().length === 0 && da.history().past.length === 0, 'the answer to hello was not adopted as a load (' + cont.key + ' reads ' + da.shown(cont.key) + ', ' + da.history().past.length + ' undo steps)');
+    ok(ta.sent.length === 1 && ta.sent[0].type === 'hello', 'adopting sent ' + (ta.sent.length - 1) + ' message(s) back');
+    const tn = ENG.ReplayTransport([], { rows }); DEV.create(DATA, tn, { seed: 1 }); ok(tn.sent.length > 0, 'without adopt the adapter no longer pushes its values (the stub’s path; control)');
     // the manifest hash, recomputed: lines of key, class, law, lo, hi, steps, default; sorted bytewise; SHA-256
     const G = x => { x = +x; if (x === 0) return '0'; const e = Math.floor(Math.log10(Math.abs(x))), ex = +x.toExponential(16).split('e')[1];
       if (ex < -4 || ex >= 17) { let [mm, ee] = x.toExponential(16).split('e'); mm = mm.includes('.') ? mm.replace(/0+$/, '').replace(/\.$/, '') : mm; const n = +ee; return mm + 'e' + (n < 0 ? '-' : '+') + String(Math.abs(n)).padStart(2, '0'); }
       let t2 = x.toFixed(Math.max(0, 16 - ex)); if (t2.includes('.')) t2 = t2.replace(/0+$/, '').replace(/\.$/, ''); return t2; };
     const CL = { M: 'morphable', S: 'structural', D: 'device' }, LW = { lin: 'lin', log: 'log', pow: 'pow', 'lin, wraps': 'linwraps', 'log, off zone': 'logoffzone', dB: 'db', step: 'step' };
-    const lines = host.map(r => { const st = r.law === 'step', lo = r.lo != null ? r.lo : 0, hi = r.lo != null ? r.hi : r.n - 1;
+    const ints = r => { const v = (r.options || []).map(o => Number(String(o).replace('\u2212', '-').replace('+', ''))); return v.length && v.every((x, i) => Number.isInteger(x) && (i === 0 || x - v[i - 1] === 1)) ? v : null; };
+    const lines = host.map(r => { const st = r.law === 'step', iv = st && r.lo == null ? ints(r) : null, lo = r.lo != null ? r.lo : iv ? iv[0] : 0, hi = r.lo != null ? r.hi : iv ? iv[iv.length - 1] : r.n - 1;
       return [r.key, CL[r.class], LW[r.law], G(lo), G(hi), String(st ? r.n : 0), G(st ? r.default_index : r.default_x)].join('\t') + '\n'; })
       .sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b)));
     const hx = createHash('sha256').update(lines.join(''), 'utf8').digest('hex');
@@ -1094,6 +1103,8 @@ const PLANTS = [
   ['bridge', 'stub', 'if (!opts.noAck) ack = m.seq;', ''],
   ['bridge', 'stub', 'peak: dB(+m[id].peak || 0)', 'peak: +m[id].peak || 0'],
   ['bridge', 'device', "if (!o || o.source !== 'engine') return null;", 'if (!o) return null;'],
+  ['bridge', 'device', 'if (!opts.adopt) send();', 'send();'],
+  ['bridge', 'device', 'if (loadAt !== null && s.ack >= loadAt && s.params && everyRow(s.params)) { loadAt = null; adopt(s.params, s.ack); return; }', ''],
   ['observe', 'stub', 'E.observe = function () {', 'E.observe = function () { refused++;'],
   ['history', 'device', 'var b = cur.before; cur = p;', 'var b = cur.after; cur = p;'],
   ['determinism', 'device', "mulberry32(hash32(r.key) ^ (s * 2654435761 >>> 0))", "mulberry32(hash32(r.key) ^ (s * 2654435761 >>> 0) ^ (root.__n = (root.__n | 0) + 1))"],
