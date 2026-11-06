@@ -12348,3 +12348,10 @@ Two readings, the lead's, open to overrule:
 - ADR-317's Quantum and Stepped halves stand.
 
 **FX device (ADR-254).** The same rule applies to FX-module structure that differs between corners: it follows the quantum boundaries. `fx/N` sets (MO-19) go after 1.0 with the rest.
+
+**ADR-375 A1 (the human, 2026-11-06, by poll through the labs facilitator): ORBITAL's open items.**
+1. **Thermostat:** "Yes, as a switchable option". A target mean speed and a time constant, plus an off position for fully free motion. It is the Berendsen form, which keeps orbit shapes and regulates only the pace.
+2. **Edge cushion:** "Not in 1.0". The walls stay as they are. It moves after 1.0 and is not dropped (the human asked for it on 2026-09-15).
+3. **Source count:** "Bodies 1 to 4". That is 4 bodies × 5 observables, plus the two field-wide sources (energy, spread). Bodies 5 to 8 still move and act on the others, but they aren't routable.
+
+With these, B633's item (2) is closed. The lab's fine questions carry the lead's proposed defaults until a spec round adopts them.
